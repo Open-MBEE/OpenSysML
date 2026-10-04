@@ -17,6 +17,10 @@ import {
   movedWaypoint,
   nodeUnder,
   overridesOf,
+  portBox,
+  portCenter,
+  portFace,
+  PORT_SIZE,
   removedWaypoint,
   shapeOf,
   steerable,
@@ -474,6 +478,7 @@ test("layoutCanvas takes an auto layout's geometry for nodes the model does not 
       ["c", { x: 500, y: 50, width: 140, height: 60 }],
     ]),
     routes: new Map([[0, [{ x: 240, y: 80 }, { x: 300, y: 80 }, { x: 300, y: 200 }, { x: 300, y: 230 }]]]),
+    ports: new Map(),
   };
   const result = rendering(
     [node("a", "a"), node("b", "b"), node("c", "c", { x: 50, y: 400, width: 90, height: 50 })],
@@ -831,4 +836,104 @@ test("layoutCanvas keeps a child partly protruding from its sized container an o
     assert.ok(!crossesInterior(edge.points[i - 1], edge.points[i], k), `segment crosses k: ${JSON.stringify([edge.points[i - 1], edge.points[i]])}`);
     assert.ok(!crossesInterior(edge.points[i - 1], edge.points[i], c), `segment crosses c: ${JSON.stringify([edge.points[i - 1], edge.points[i]])}`);
   }
+});
+
+test("layoutCanvas places edge ports on the sides facing the opposite endpoint", () => {
+  const layout = layoutCanvas(rendering(
+    [
+      node("a", "a", { x: 0, y: 0, width: 100, height: 60, ports: [{ id: "a.api", name: "api" }] }),
+      node("b", "b", { x: 300, y: 0, width: 100, height: 60, ports: [{ id: "b.api", name: "api" }] }),
+    ],
+    [{ from: "a", to: "b", fromPort: "a.api", toPort: "b.api", label: "", kind: "connection", fqn: "M::ab" }],
+  ));
+  const a = layout.nodes.get("a")!;
+  const b = layout.nodes.get("b")!;
+  assert.deepEqual([a.ports[0].side, a.ports[0].offset], ["east", 0.5]);
+  assert.deepEqual([b.ports[0].side, b.ports[0].offset], ["west", 0.5]);
+  assert.deepEqual([layout.edges[0].points[0], layout.edges[0].points.at(-1)], [
+    portFace(a.box, a.ports[0]),
+    portFace(b.box, b.ports[0]),
+  ]);
+  assert.deepEqual(portCenter(a.box, a.ports[0]), { x: a.box.x + a.box.width, y: a.box.y + a.box.height / 2 });
+  const square = portBox(a.box, a.ports[0]);
+  assert.equal(square.width, PORT_SIZE);
+  assert.equal(square.height, PORT_SIZE);
+});
+
+test("layoutCanvas spreads defaulted ports on a side in their source order", () => {
+  const ports = ["first", "second", "third"].map((id) => ({ id, name: id }));
+  const layout = layoutCanvas(rendering(
+    [
+      node("a", "a", { x: 0, y: 0, width: 100, height: 100, ports }),
+      node("b", "b", { x: 300, y: 0, width: 80, height: 40 }),
+      node("c", "c", { x: 300, y: 100, width: 80, height: 40 }),
+      node("d", "d", { x: 300, y: 200, width: 80, height: 40 }),
+    ],
+    [
+      { from: "a", to: "b", fromPort: "first", label: "", kind: "connection", fqn: "M::ab" },
+      { from: "a", to: "c", fromPort: "second", label: "", kind: "connection", fqn: "M::ac" },
+      { from: "a", to: "d", fromPort: "third", label: "", kind: "connection", fqn: "M::ad" },
+    ],
+  ));
+  assert.deepEqual(layout.nodes.get("a")!.ports.map(({ side, offset }) => [side, offset]), [
+    ["east", 0.25],
+    ["east", 0.5],
+    ["east", 0.75],
+  ]);
+});
+
+test("layoutCanvas falls back to the node anchor for a missing endpoint port", () => {
+  const layout = layoutCanvas(rendering(
+    [
+      node("a", "a", { x: 0, y: 0, width: 100, height: 60, ports: [{ id: "a.api", name: "api" }] }),
+      node("b", "b", { x: 300, y: 0, width: 100, height: 60 }),
+    ],
+    [{
+      from: "a",
+      to: "b",
+      fromPort: "missing",
+      label: "",
+      kind: "connection",
+      fqn: "M::ab",
+      route: [{ x: 150, y: 30 }],
+    }],
+  ));
+  const source = layout.nodes.get("a")!.box;
+  const target = layout.nodes.get("b")!.box;
+  assert.deepEqual(layout.edges[0].points[0], anchor(source, { x: 150, y: 30 }));
+  assert.deepEqual(layout.edges[0].points.at(-1), anchor(target, { x: 150, y: 30 }));
+});
+
+test("layoutCanvas preserves an automatic port placement when its node moves", () => {
+  const result = rendering(
+    [
+      node("a", "a", { x: 0, y: 0, width: 100, height: 60, ports: [{ id: "a.api", name: "api" }] }),
+      node("b", "b", { x: 300, y: 0, width: 100, height: 60 }),
+    ],
+    [{ from: "a", to: "b", fromPort: "a.api", label: "", kind: "connection", fqn: "M::ab" }],
+  );
+  const auto: AutoLayout = {
+    nodes: new Map(),
+    routes: new Map(),
+    ports: new Map([["a.api", { side: "north", offset: 0.2 }]]),
+  };
+  const layout = layoutCanvas(result, { nodes: new Map([["a", { x: 400, y: 250 }]]) }, auto);
+  const source = layout.nodes.get("a")!;
+  assert.deepEqual([source.ports[0].side, source.ports[0].offset], ["north", 0.2]);
+  assert.deepEqual(layout.edges[0].points[0], portFace(source.box, source.ports[0]));
+});
+
+test("liftedEdges recalculates a port anchor from the shifted node box", () => {
+  const result = rendering(
+    [
+      node("a", "a", { x: 0, y: 0, width: 100, height: 60, ports: [{ id: "a.api", name: "api" }] }),
+      node("b", "b", { x: 300, y: 0, width: 100, height: 60, ports: [{ id: "b.api", name: "api" }] }),
+    ],
+    [{ from: "a", to: "b", fromPort: "a.api", toPort: "b.api", label: "", kind: "connection", fqn: "M::ab" }],
+  );
+  const layout = layoutCanvas(result);
+  const source = layout.nodes.get("a")!;
+  const lifted = liftedEdges(layout, "a", 40, 25)[0];
+  const shiftedBox = { ...source.box, x: source.box.x + 40, y: source.box.y + 25 };
+  assert.deepEqual(lifted.points[0], portFace(shiftedBox, source.ports[0]));
 });

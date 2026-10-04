@@ -2,8 +2,9 @@
 // route it finds is the panel's own, never written to the model by drawing it.
 import { AvoidLib } from "libavoid-js";
 
-import { GAP, snap, type Box } from "./geometry";
+import { GAP, PORT_SIZE, snap, type Box } from "./geometry";
 import type { RenderPoint } from "../protocol";
+import type { Side } from "./layout";
 
 export const CLEARANCE = GAP / 2;
 export const EXCLUSIVE_PIN_LIMIT = 12;
@@ -39,10 +40,28 @@ export interface AvoidEdge {
   index: number;
   from: string;
   to: string;
+  fromPort?: string;
+  toPort?: string;
+}
+
+export interface AvoidPort {
+  id: string;
+  side: Side;
+  offset: number;
+}
+
+export interface AvoidShape {
+  box: Box;
+  ports?: AvoidPort[];
+}
+
+interface ShapePins {
+  shape: ShapeRef;
+  ports: Map<string, number>;
 }
 
 /** The route libavoid finds for each edge, by edge index; undefined when the router is not loaded or the pass fails. */
-export function avoidRoutes(shapes: Map<string, Box>, edges: AvoidEdge[]): Map<number, RenderPoint[]> | undefined {
+export function avoidRoutes(shapes: Map<string, AvoidShape>, edges: AvoidEdge[]): Map<number, RenderPoint[]> | undefined {
   if (!avoid) {
     return undefined;
   }
@@ -62,15 +81,21 @@ export function avoidRoutes(shapes: Map<string, Box>, edges: AvoidEdge[]): Map<n
       counts.set(edge.from, counts.get(edge.from)! + 1);
       counts.set(edge.to, counts.get(edge.to)! + 1);
     }
-    const refs = new Map<string, ShapeRef>();
-    for (const [id, box] of shapes) {
-      refs.set(id, addShape(api, router, box, (counts.get(id) ?? 0) <= EXCLUSIVE_PIN_LIMIT));
+    const refs = new Map<string, ShapePins>();
+    let nextPortClass = PIN_CLASS + 1;
+    for (const [id, shape] of shapes) {
+      refs.set(
+        id,
+        addShape(api, router, shape, (counts.get(id) ?? 0) <= EXCLUSIVE_PIN_LIMIT, () => nextPortClass++),
+      );
     }
 
-    const connectors: Array<{ index: number; connector: ConnRef }> = [];
+    const connectors: Array<{ index: number; connector: ConnRef; edge: AvoidEdge }> = [];
     for (const edge of usable) {
-      const sourceEnd = new api.ConnEnd(refs.get(edge.from)!, PIN_CLASS);
-      const targetEnd = new api.ConnEnd(refs.get(edge.to)!, PIN_CLASS);
+      const source = refs.get(edge.from)!;
+      const target = refs.get(edge.to)!;
+      const sourceEnd = new api.ConnEnd(source.shape, source.ports.get(edge.fromPort ?? "") ?? PIN_CLASS);
+      const targetEnd = new api.ConnEnd(target.shape, target.ports.get(edge.toPort ?? "") ?? PIN_CLASS);
       let connector: ConnRef;
       try {
         connector = new api.ConnRef(router, sourceEnd, targetEnd);
@@ -79,13 +104,13 @@ export function avoidRoutes(shapes: Map<string, Box>, edges: AvoidEdge[]): Map<n
         api.destroy(targetEnd);
       }
       connector.setRoutingType(api.ConnType_Orthogonal);
-      connectors.push({ index: edge.index, connector });
+      connectors.push({ index: edge.index, connector, edge });
     }
 
     router.processTransaction();
 
     const routes = new Map<number, RenderPoint[]>();
-    for (const { index, connector } of connectors) {
+    for (const { index, connector, edge } of connectors) {
       // The display route's points are borrowed from the WASM heap, never destroyed.
       const displayRoute = connector.displayRoute();
       const points: RenderPoint[] = [];
@@ -95,7 +120,10 @@ export function avoidRoutes(shapes: Map<string, Box>, edges: AvoidEdge[]): Map<n
       }
       const route = cleanRoute(points);
       if (route) {
-        routes.set(index, route);
+        routes.set(
+          index,
+          routeWithPortFaces(route, shapes.get(edge.from), edge.fromPort, shapes.get(edge.to), edge.toPort),
+        );
       }
     }
     return routes;
@@ -112,9 +140,11 @@ export function avoidRoutes(shapes: Map<string, Box>, edges: AvoidEdge[]): Map<n
 function addShape(
   api: Avoid,
   router: InstanceType<Avoid["Router"]>,
-  box: Box,
+  shapeData: AvoidShape,
   exclusive: boolean,
-): ShapeRef {
+  allocatePortClass: () => number,
+): ShapePins {
+  const box = shapeData.box;
   const center = new api.Point(box.x + box.width / 2, box.y + box.height / 2);
   const rectangle = new api.Rectangle(center, box.width, box.height);
   let shape: ShapeRef;
@@ -136,7 +166,107 @@ function addShape(
     const pin = new api.ShapeConnectionPin(shape, PIN_CLASS, x, y, true, 0, direction);
     pin.setExclusive(exclusive);
   }
-  return shape;
+  const ports = new Map<string, number>();
+  const directions = api.ConnDirUp | api.ConnDirDown | api.ConnDirLeft | api.ConnDirRight;
+  (shapeData.ports ?? []).forEach((port) => {
+    const classId = allocatePortClass();
+    let x: number;
+    let y: number;
+    switch (port.side) {
+      case "north":
+        x = port.offset;
+        y = 0;
+        break;
+      case "east":
+        x = 1;
+        y = port.offset;
+        break;
+      case "south":
+        x = port.offset;
+        y = 1;
+        break;
+      case "west":
+        x = 0;
+        y = port.offset;
+        break;
+    }
+    const pin = new api.ShapeConnectionPin(shape, classId, x, y, true, 0, directions);
+    pin.setExclusive(false);
+    ports.set(port.id, classId);
+  });
+  return { shape, ports };
+}
+
+function routeWithPortFaces(
+  route: RenderPoint[],
+  sourceShape: AvoidShape | undefined,
+  sourcePortId: string | undefined,
+  targetShape: AvoidShape | undefined,
+  targetPortId: string | undefined,
+): RenderPoint[] {
+  if (route.length < 2) {
+    return route;
+  }
+  let routed = route;
+  const sourcePort = sourceShape?.ports?.find((port) => port.id === sourcePortId);
+  if (sourceShape && sourcePort) {
+    const face = portFacePoint(sourceShape.box, sourcePort);
+    const reference = routed[1];
+    const lead = portLead(face, sourcePort.side, reference);
+    routed = [face, lead, ...bridgeFromPort(lead, reference, sourcePort.side), ...routed.slice(1)];
+  }
+  const targetPort = targetShape?.ports?.find((port) => port.id === targetPortId);
+  if (targetShape && targetPort) {
+    const face = portFacePoint(targetShape.box, targetPort);
+    const reference = routed.at(-2)!;
+    const lead = portLead(face, targetPort.side, reference);
+    routed = [...routed.slice(0, -1), ...bridgeToPort(reference, lead, targetPort.side), lead, face];
+  }
+  return routed;
+}
+
+function portFacePoint(box: Box, port: AvoidPort): RenderPoint {
+  switch (port.side) {
+    case "north":
+      return { x: box.x + box.width * port.offset, y: box.y - PORT_SIZE / 2 };
+    case "east":
+      return { x: box.x + box.width + PORT_SIZE / 2, y: box.y + box.height * port.offset };
+    case "south":
+      return { x: box.x + box.width * port.offset, y: box.y + box.height + PORT_SIZE / 2 };
+    case "west":
+      return { x: box.x - PORT_SIZE / 2, y: box.y + box.height * port.offset };
+  }
+}
+
+function portLead(face: RenderPoint, side: Side, reference: RenderPoint): RenderPoint {
+  switch (side) {
+    case "north":
+      return { x: face.x, y: Math.min(reference.y, face.y - 1) };
+    case "east":
+      return { x: Math.max(reference.x, face.x + 1), y: face.y };
+    case "south":
+      return { x: face.x, y: Math.max(reference.y, face.y + 1) };
+    case "west":
+      return { x: Math.min(reference.x, face.x - 1), y: face.y };
+  }
+}
+
+function bridgeFromPort(lead: RenderPoint, reference: RenderPoint, side: Side): RenderPoint[] {
+  const bend = side === "north" || side === "south"
+    ? { x: reference.x, y: lead.y }
+    : { x: lead.x, y: reference.y };
+  return samePoint(bend, lead) || samePoint(bend, reference) ? [] : [bend];
+}
+
+function bridgeToPort(reference: RenderPoint, lead: RenderPoint, side: Side): RenderPoint[] {
+  const bend = side === "north" || side === "south"
+    ? { x: lead.x, y: reference.y }
+    : { x: reference.x, y: lead.y };
+  return samePoint(bend, reference) || samePoint(bend, lead) ? [] : [bend];
+}
+
+function samePoint(left: RenderPoint, right: RenderPoint): boolean {
+  return left.x === right.x && left.y === right.y;
 }
 
 // cleanRoute snaps to whole pixels, then drops doubled points and mid-segment bends.

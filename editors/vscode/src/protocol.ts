@@ -105,6 +105,14 @@ export interface RenderNode {
   border?: string;
   /** The node's own Style annotation, which wins over the palette and the drawing style; `fill` and `border` already carry its colours. */
   style?: RenderStyle;
+  ports?: RenderPort[];
+}
+
+export interface RenderPort {
+  id: string;
+  name: string;
+  type?: string;
+  direction?: string;
 }
 
 /** How a Style annotation draws a node or edge: `#RRGGBB` colours and the face, size in points and weight of its text, each absent when unstated. */
@@ -142,6 +150,8 @@ export interface RenderEdge {
   to: string;
   label: string;
   kind: string;
+  fromPort?: string;
+  toPort?: string;
   /** The edge's own Style annotation. */
   style?: RenderStyle;
   /** The qualified name a model edit targets the declaring connection by, in whichever workspace document declares it; absent for one with none. */

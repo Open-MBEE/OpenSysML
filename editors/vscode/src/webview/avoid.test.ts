@@ -2,9 +2,10 @@ import assert from "node:assert/strict";
 import path from "node:path";
 import { test } from "node:test";
 
-import { avoidRoutes, CLEARANCE, loadAvoid } from "./avoid";
+import { avoidRoutes, CLEARANCE, loadAvoid, type AvoidPort, type AvoidShape } from "./avoid";
 import type { Box } from "./geometry";
 import type { RenderPoint } from "../protocol";
+import { portFace, type Side } from "./layout";
 
 const WASM = path.resolve("node_modules/libavoid-js/dist/libavoid.wasm");
 const SCENE_SEED = 0x6d2b79f5;
@@ -129,7 +130,7 @@ function overlapLength(a0: RenderPoint, a1: RenderPoint, b0: RenderPoint, b1: Re
 }
 
 function routeScene(boxes: Box[], pairs: Pair[]): Array<RenderPoint[] | undefined> {
-  const shapes = new Map<string, Box>(boxes.map((box, index) => [`node-${index}`, box]));
+  const shapes = new Map<string, AvoidShape>(boxes.map((box, index) => [`node-${index}`, { box }]));
   const routes = avoidRoutes(
     shapes,
     pairs.map(({ source, target }, index) => ({ index, from: `node-${source}`, to: `node-${target}` })),
@@ -220,4 +221,99 @@ test("avoidRoutes routes all thirteen connectors at one shape past the exclusive
   boxes.push({ x: 560, y: 280, width: 80, height: 40 });
   const pairs = Array.from({ length: 13 }, (_, source) => ({ source, target: 13 }));
   assertRoutes(boxes, pairs, routeScene(boxes, pairs));
+});
+
+test("avoidRoutes sends same-side edges to their distinct port faces", async () => {
+  await loadAvoid(WASM);
+  const boxes: Box[] = [
+    { x: 0, y: 30, width: 80, height: 40 },
+    { x: 320, y: 0, width: 120, height: 120 },
+  ];
+  const ports: AvoidPort[] = [
+    { id: "in-low", side: "west", offset: 0.25 },
+    { id: "in-high", side: "west", offset: 0.75 },
+  ];
+  const shapes = new Map<string, AvoidShape>([
+    ["source", { box: boxes[0] }],
+    ["target", { box: boxes[1], ports }],
+  ]);
+  const routes = avoidRoutes(shapes, [
+    { index: 0, from: "source", to: "target", toPort: ports[0].id },
+    { index: 1, from: "source", to: "target", toPort: ports[1].id },
+  ]);
+  assert.ok(routes);
+  const faces = ports.map((port) => portFace(boxes[1], port));
+  const first = routes.get(0)!;
+  const second = routes.get(1)!;
+  assert.deepEqual(first.at(-1), faces[0]);
+  assert.deepEqual(second.at(-1), faces[1]);
+  assert.notDeepEqual(faces[0], faces[1]);
+  for (const route of [first, second]) {
+    const before = route.at(-2)!;
+    const face = route.at(-1)!;
+    assert.equal(before.y, face.y);
+    assert.notEqual(before.x, face.x);
+  }
+});
+
+test("avoidRoutes keeps randomized port endpoints on their faces with perpendicular final segments", async () => {
+  await loadAvoid(WASM);
+  const sides: Side[] = ["north", "east", "south", "west"];
+  let sample = 0;
+  for (const { boxes, pair } of randomScenes(samples)) {
+    const pairs = [pair, ...randomPairs(boxes.length, 2, extraPairSeed(sample))];
+    const random = seededRandom(sharedBoxSeed(sample));
+    const portsByNode = boxes.map(() => [] as AvoidPort[]);
+    const portPairs = pairs.map(({ source, target }, index) => {
+      const sourcePort: AvoidPort = {
+        id: `edge-${index}-source`,
+        side: sides[Math.floor(random() * sides.length)],
+        offset: 0.1 + random() * 0.8,
+      };
+      const targetPort: AvoidPort = {
+        id: `edge-${index}-target`,
+        side: sides[Math.floor(random() * sides.length)],
+        offset: 0.1 + random() * 0.8,
+      };
+      portsByNode[source].push(sourcePort);
+      portsByNode[target].push(targetPort);
+      return { source, target, sourcePort, targetPort };
+    });
+    const shapes = new Map<string, AvoidShape>(
+      boxes.map((box, index) => [`node-${index}`, { box, ports: portsByNode[index] }]),
+    );
+    const routes = avoidRoutes(
+      shapes,
+      portPairs.map(({ source, target, sourcePort, targetPort }, index) => ({
+        index,
+        from: `node-${source}`,
+        to: `node-${target}`,
+        fromPort: sourcePort.id,
+        toPort: targetPort.id,
+      })),
+    );
+    assert.ok(routes, `no route map in scene ${sample}`);
+    for (let index = 0; index < portPairs.length; index++) {
+      const { source, target, sourcePort, targetPort } = portPairs[index];
+      const route: RenderPoint[] | undefined = routes.get(index);
+      assert.ok(route && route.length >= 2, `edge ${index} was not routed in scene ${sample}`);
+      const startFace = portFace(boxes[source], sourcePort);
+      const endFace = portFace(boxes[target], targetPort);
+      const context: string = JSON.stringify({ sample, index, source, target, sourcePort, targetPort, sourceBox: boxes[source], targetBox: boxes[target], route });
+      assert.deepEqual(route[0], startFace, `wrong source face: ${context}`);
+      assert.deepEqual(route.at(-1), endFace, `wrong target face: ${context}`);
+      const first: RenderPoint = route[1];
+      const last: RenderPoint = route.at(-2)!;
+      assert.equal(sourcePort.side === "north" || sourcePort.side === "south" ? first.x : first.y,
+        sourcePort.side === "north" || sourcePort.side === "south" ? startFace.x : startFace.y);
+      assert.equal(targetPort.side === "north" || targetPort.side === "south" ? last.x : last.y,
+        targetPort.side === "north" || targetPort.side === "south" ? endFace.x : endFace.y);
+      for (let point = 1; point < route.length; point++) {
+        const before = route[point - 1];
+        const after = route[point];
+        assert.ok(before.x === after.x || before.y === after.y, `diagonal segment in scene ${sample}`);
+      }
+    }
+    sample++;
+  }
 });

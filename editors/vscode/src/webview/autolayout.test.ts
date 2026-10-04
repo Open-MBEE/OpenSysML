@@ -3,7 +3,7 @@ import { test } from "node:test";
 
 import type { RenderEdge, RenderNode, RenderPoint, RenderResult } from "../protocol";
 import { AUTO_LAYOUT_LIMIT, autoLayout, type AutoLayout } from "./autolayout";
-import { GAP, type Box } from "./layout";
+import { GAP, layoutCanvas, portFace, PORT_SIZE, type Box } from "./layout";
 
 const origin = { uri: "file:///m.sysml", range: { start: { line: 0, character: 0 }, end: { line: 0, character: 4 } }, digest: "d0" };
 
@@ -169,4 +169,35 @@ test("autoLayout drops the route of an edge crossing a placed container's border
   const laid = await autoLayout(result);
   assert.ok(laid);
   assert.equal(laid.routes.has(0), false);
+});
+
+test("autoLayout places edge ports on opposite sides and routes to their faces", async () => {
+  const result = rendering(
+    [
+      node("a", "a", { ports: [{ id: "a.api", name: "api" }] }),
+      node("b", "b", { ports: [{ id: "b.api", name: "api" }] }),
+    ],
+    [edge("a", "b", { fromPort: "a.api", toPort: "b.api" })],
+    { kind: "interconnection" },
+  );
+  const laid = await autoLayout(result);
+  assert.ok(laid);
+  const aPlacement = laid.ports.get("a.api");
+  const bPlacement = laid.ports.get("b.api");
+  assert.ok(aPlacement);
+  assert.ok(bPlacement);
+  assert.notEqual(aPlacement.side, bPlacement.side);
+
+  const canvas = layoutCanvas(result, {}, laid);
+  const a = canvas.nodes.get("a")!;
+  const b = canvas.nodes.get("b")!;
+  const aPort = a.ports.find(({ port }) => port.id === "a.api")!;
+  const bPort = b.ports.find(({ port }) => port.id === "b.api")!;
+  assert.deepEqual([aPort.side, aPort.offset], [aPlacement.side, aPlacement.offset]);
+  assert.deepEqual([bPort.side, bPort.offset], [bPlacement.side, bPlacement.offset]);
+  const [start, end] = [canvas.edges[0].points[0], canvas.edges[0].points.at(-1)!];
+  const startFace = portFace(a.box, aPort);
+  const endFace = portFace(b.box, bPort);
+  assert.ok(Math.hypot(start.x - startFace.x, start.y - startFace.y) <= PORT_SIZE);
+  assert.ok(Math.hypot(end.x - endFace.x, end.y - endFace.y) <= PORT_SIZE);
 });

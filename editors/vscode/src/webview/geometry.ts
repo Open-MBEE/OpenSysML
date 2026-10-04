@@ -9,6 +9,7 @@ export interface Box {
 
 /** Between slots of one grid, and between a container's border and its slots. */
 export const GAP = 32;
+export const PORT_SIZE = 10;
 
 /** How a gesture's positions are written, so the model reads back in whole pixels. */
 export function snap(value: number): number {
