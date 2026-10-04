@@ -358,20 +358,20 @@ func newProperty(defining string, f eFeature, kinds map[string]string, features 
 	return p, nil
 }
 
-// featureRefs turns "#//Class/feature ..." references into "Class::feature" names, each a declared feature.
-// isMany reports whether an ecore upperBound admits more than one value: any bound
-// above 1, or -1 (unbounded). An absent upperBound is ecore's default, 1.
+// isMany is EMF's ETypedElement.isMany: a bound above 1, or -1 (unbounded). An absent
+// bound is ecore's default 1; -2 (unspecified) is single-valued, and EcoreValidator rejects the rest.
 func isMany(upperBound string) (bool, error) {
 	if upperBound == "" {
 		return false, nil
 	}
 	n, err := strconv.Atoi(upperBound)
-	if err != nil || n == 0 || n < -1 {
-		return false, fmt.Errorf("upperBound %q is neither a positive integer nor -1 (unbounded)", upperBound)
+	if err != nil || n == 0 || n < -2 {
+		return false, fmt.Errorf("upperBound %q is not -2, -1 or a positive integer, as ecore requires", upperBound)
 	}
-	return n != 1, nil
+	return n > 1 || n == -1, nil
 }
 
+// featureRefs turns "#//Class/feature ..." references into "Class::feature" names, each a declared feature.
 func featureRefs(refs string, features map[string]bool) ([]string, error) {
 	var out []string
 	for _, ref := range strings.Fields(refs) {
