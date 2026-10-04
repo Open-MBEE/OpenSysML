@@ -296,7 +296,7 @@ func pinLandingFixture(t *testing.T, hash string, render, instantiate []byte) {
 	if err := json.Unmarshal(want.Instances, &wantInstances); err != nil {
 		t.Fatalf("decoding fixture Instantiate instances: %v", err)
 	}
-	if !reflect.DeepEqual(gotRender, wantRender) || !reflect.DeepEqual(gotInstances, wantInstances) {
+	if fixture.Hash != want.Hash || !reflect.DeepEqual(gotRender, wantRender) || !reflect.DeepEqual(gotInstances, wantInstances) {
 		t.Fatalf("%s is stale; run go test -count=1 ./tests/wasm -run '^TestLandingStackModel$' -update-landing", path)
 	}
 }

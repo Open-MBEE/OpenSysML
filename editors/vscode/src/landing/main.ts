@@ -335,7 +335,7 @@ function mount(root: HTMLElement): Mounted {
   }
 
   function currentSource(): Promise<string> {
-    return !editor.hidden && !srcEl.readOnly && srcEl.value ? Promise.resolve(srcEl.value) : publishedSource();
+    return !srcEl.readOnly && srcEl.value ? Promise.resolve(srcEl.value) : publishedSource();
   }
 
   function adopt(next: LandingModel, source: string): void {
@@ -842,6 +842,7 @@ function mount(root: HTMLElement): Mounted {
         srcEl.value = text;
         srcEl.removeAttribute("aria-invalid");
         placed.clear();
+        settle();
         scheduleEdit();
       },
       (error: unknown) => status(`Could not load the model: ${message(error)}.`, true),
