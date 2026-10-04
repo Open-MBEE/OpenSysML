@@ -98,8 +98,9 @@ as `Couldn't resolve reference to Element 'RandomFunctions::uniform'` plus `Must
 behavior or a behavioral feature`. Both bridges take `--extension-library DIR` (repeatable),
 which loads a directory's `.kerml` and `.sysml` files the way `sysml.library` is loaded —
 resolved against, never validated — and the harness hands the OpenSysML libraries over that
-way on every batch (`-libraries`, default `internal/workspace/libs/stdlib/OpenSysML Libraries`,
-the copy this implementation compiles against; see the
+way on every batch (`internal/workspace/libs/stdlib/OpenSysML Libraries`, the copy this
+implementation compiles against — or the same directory under `OPENSYSML_LIBRARY_PATH` when that
+names another library root, so an override moves both sides of the comparison together; see the
 [supplied-libraries round](#supplied-libraries-round)). To ask the reference the same question
 by hand:
 
@@ -342,8 +343,10 @@ The reference validators are now handed the OpenSysML libraries beside the stand
 every batch: both bridges take `--extension-library DIR`, which loads a directory the way
 `sysml.library` is loaded — resolved against, never validated — and the harness passes
 `internal/workspace/libs/stdlib/OpenSysML Libraries` (14 files, the copy this implementation
-compiles against) through it; `-libraries` names another directory, and the provenance records
-the one used as the `opensysml-libraries` input. Until now a model that imported
+compiles against) through it. The directory is not an option of the harness: it is the
+`OpenSysML Libraries` directory of the standard-library root this implementation itself loads
+(the bundled tree, or `OPENSYSML_LIBRARY_PATH` when set), so both validators always resolve the
+same library text, and the provenance records the one used as the `opensysml-libraries` input. Until now a model that imported
 `DocumentQueries`, `OOSEM`, `MOSA`, `AnalysisRecords`, `StateMachines` or
 `OpenSysMLMathFunctions` was compared against the reference's cascade from a namespace it could
 not resolve — the rounds below record 347 such rows on `self-model/document.sysml`, 294 on
@@ -2956,10 +2959,12 @@ moved count is a claim about one of the two implementations, and it needs a reas
 
 `-update` records a run as the committed baseline; `-check` re-runs the comparison and fails
 unless the fresh report reproduces it, printing the differing fields. Both flags exist on all
-three oracles, and `-check` is what a reader should run before quoting a figure. `-libraries DIR`
-names the library directory the reference is handed beside the standard one (default
-`internal/workspace/libs/stdlib/OpenSysML Libraries`); it must lie inside the repository, since
-the baseline records it.
+three oracles, and `-check` is what a reader should run before quoting a figure. The library
+directory the reference is handed beside the standard one is not a flag: it is
+`OpenSysML Libraries` under the standard-library root OpenSysML loads
+(`internal/workspace/libs/stdlib`, or `OPENSYSML_LIBRARY_PATH` when set), so the two sides
+cannot be given different libraries; it must lie inside the repository, since the baseline
+records it.
 
 ### How this record is kept true
 
