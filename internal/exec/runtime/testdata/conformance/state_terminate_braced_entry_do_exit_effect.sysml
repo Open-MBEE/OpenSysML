@@ -16,14 +16,14 @@ package test {
 		entry; then s;
 
 		state s {
-			entry { assign e := 1; terminate; assign e := 9; }
-			do    { assign d := 1; terminate; assign d := 9; }
-			exit  { assign x := 1; terminate; assign x := 9; }
+			entry { assign e := 1; then terminate; then assign e := 9; }
+			do    { assign d := 1; then terminate; then assign d := 9; }
+			exit  { assign x := 1; then terminate; then assign x := 9; }
 		}
 		state t;
 
 		transition first s accept after 1 [SI::s]
-			do { assign n := 1; terminate; assign n := 9; }
+			do { assign n := 1; then terminate; then assign n := 9; }
 			then t;
 	}
 }

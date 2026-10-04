@@ -1,0 +1,24 @@
+{
+	"libraries": true,
+	"trace": true,
+	"type": "instance",
+	"instantiate": "test::Vehicle",
+	"slots": {"z": {"type": "Real", "value": 1}},
+	"constraints": {
+		"assigned": true,
+		"branched": true,
+		"summed": true,
+		"shadowed": true,
+		"ordered": true,
+		"deep": true,
+		"outerRead": true,
+		"outerLeaf": true
+	},
+	"validation": {
+		"verdicts": [
+			{"kind": "constraint", "assertion": "assert not constraint", "status": "holds"},
+			{"kind": "requirement", "assertion": "requirement safing", "status": "holds"},
+			{"kind": "requirement", "assertion": "requirement fitted", "status": "holds"}
+		]
+	}
+}

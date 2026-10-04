@@ -1,0 +1,5 @@
+{
+	"verdict": "divergent",
+	"divergent": {"log": ["\"12b\"", "\"1b2\"", "\"b12\""]},
+	"agreed": {}
+}

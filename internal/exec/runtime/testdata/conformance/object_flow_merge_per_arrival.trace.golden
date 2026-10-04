@@ -6,45 +6,57 @@ step 2: token 1@again
   eval feature inputObject2 -> ()
 eval sequence of 2 -> (0)
 step 3: token 1@inc
+enter action node: inc
+step 4: token 1@assign y
 stmt assign y
     eval feature x -> 0
     eval literal 1 -> 1
   eval operator + -> 1
+step 5: token 1@assign n
 stmt assign n
   eval feature y -> 1
-step 4: token 1@check
+leave action node: inc
+step 6: token 1@check
   eval feature n -> 1
   eval literal 3 -> 3
 eval operator < -> true
-step 5: token 1@again
+step 7: token 1@again
   eval feature inputObject1 -> ()
   eval feature inputObject2 -> 1
 eval sequence of 2 -> (1)
-step 6: token 1@inc
+step 8: token 1@inc
+enter action node: inc
+step 9: token 1@assign y
 stmt assign y
     eval feature x -> 1
     eval literal 1 -> 1
   eval operator + -> 2
+step 10: token 1@assign n
 stmt assign n
   eval feature y -> 2
-step 7: token 1@check
+leave action node: inc
+step 11: token 1@check
   eval feature n -> 2
   eval literal 3 -> 3
 eval operator < -> true
-step 8: token 1@again
+step 12: token 1@again
   eval feature inputObject1 -> ()
   eval feature inputObject2 -> 2
 eval sequence of 2 -> (2)
-step 9: token 1@inc
+step 13: token 1@inc
+enter action node: inc
+step 14: token 1@assign y
 stmt assign y
     eval feature x -> 2
     eval literal 1 -> 1
   eval operator + -> 3
+step 15: token 1@assign n
 stmt assign n
   eval feature y -> 3
-step 10: token 1@check
+leave action node: inc
+step 16: token 1@check
   eval feature n -> 3
   eval literal 3 -> 3
 eval operator < -> false
-step 11: token 1@done
-step 12: no active tokens
+step 17: token 1@done
+step 18: no active tokens

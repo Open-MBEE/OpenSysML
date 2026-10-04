@@ -408,3 +408,71 @@ func TestRenderDocumentPDFFlagConflicts(t *testing.T) {
 	wantReport(t, check(t, binary, documentModel, "-render-document", "Reports::MassReport", "-doc-form", "pdf", "-o", "x.pdf", "-html-css", filepath.Join(t.TempDir(), "absent.css")),
 		2, "read stylesheet")
 }
+
+// TestRenderDocumentPDFDiagramFormD2 checks a PDF run under -diagram-form d2
+// never runs mmdc: without d2 every diagram is kept as D2 source behind a
+// notice naming OPENSYSML_D2, and with it every diagram is drawn by d2 from a
+// .d2 file beside the SVG.
+func TestRenderDocumentPDFDiagramFormD2(t *testing.T) {
+	binary := buildCLI(t)
+	dir := t.TempDir()
+	seen := filepath.Join(dir, "input-seen.html")
+	weasyprint := fakePDFTool(t, dir, "weasyprint", `cp "$1" `+seen+`
+printf '%%PDF-1.7 fake' > "$2"
+`)
+	mmdc := fakePDFTool(t, dir, "mmdc", `echo "mmdc must not run" >&2; exit 1
+`)
+	fixture := filepath.Join("..", "..", "internal", "doc", "docrender", "testdata", "telescope_report.sysml")
+	out := filepath.Join(dir, "report.pdf")
+	render := func(d2 string) string {
+		t.Helper()
+		cmd := exec.Command(binary, fixture, "-render-document", "Observatory::MassReport",
+			"-doc-form", "pdf", "-diagram-form", "d2", "-o", out)
+		cmd.Env = append(os.Environ(), docpdf.WeasyPrintEnv+"="+weasyprint, docpdf.MermaidEnv+"="+mmdc, docpdf.D2Env+"="+d2)
+		if output, err := cmd.CombinedOutput(); err != nil {
+			t.Fatalf("render: %v\n%s", err, output)
+		}
+		page, err := os.ReadFile(seen)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return string(page)
+	}
+
+	page := render(filepath.Join(dir, "absent", "d2"))
+	if got := strings.Count(page, `<pre class="d2">`); got != 2 {
+		t.Errorf("converter input carries %d D2 figures, want 2:\n%s", got, page)
+	}
+	for _, want := range []string{
+		"D2, which the PDF backend did not draw",
+		"point " + docpdf.D2Env + " at its executable",
+		"# Observatory::interconnectView — interconnection rendering",
+		"n0.n1.&#34;n1.0&#34; -- n0.n2.&#34;n2.0&#34;: &#34;link&#34; { class: connection }",
+		`<table class="sysml-table"`,
+	} {
+		if !strings.Contains(page, want) {
+			t.Errorf("converter input misses %q:\n%s", want, page)
+		}
+	}
+	if strings.Contains(page, "diagram-1.svg") {
+		t.Errorf("a diagram was drawn without d2:\n%s", page)
+	}
+
+	log := filepath.Join(dir, "d2.log")
+	d2 := fakePDFTool(t, dir, "d2", `printf 'args:%s\n' "$*" >> `+log+`
+in=""; out=""; for arg; do in="$out"; out="$arg"; done
+[ -f "$in" ] || { echo "no source at $in" >&2; exit 1; }
+printf '<svg xmlns="http://www.w3.org/2000/svg"><text>drawn by d2</text></svg>' > "$out"
+`)
+	page = render(d2)
+	if strings.Contains(page, `<pre class="d2">`) || !strings.Contains(page, `/diagram-1.svg" alt=`) || !strings.Contains(page, `/diagram-2.svg" alt=`) {
+		t.Errorf("converter input does not reference both drawn diagrams:\n%s", page)
+	}
+	args, err := os.ReadFile(log)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(args), "--layout=dagre --pad=16 diagram-1.d2 diagram-1.svg") || !strings.Contains(string(args), "--layout=dagre --pad=16 diagram-2.d2 diagram-2.svg") {
+		t.Errorf("d2 invocations:\n%s", args)
+	}
+}

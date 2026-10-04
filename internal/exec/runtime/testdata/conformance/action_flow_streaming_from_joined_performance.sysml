@@ -8,7 +8,7 @@ package test {
 		out value : Integer;
 		attribute i : Integer = 0;
 
-		action emit { assign i := i + 1; assign value := i; }
+		action emit assign i := i + 1; then assign value := i;
 		decide again;
 
 		succession first start then emit;

@@ -27,10 +27,8 @@ package test {
 
 		perform action build {
 			first start;
-			then action make {
-				assign cars := addNew(cars, new Car(1));
-				assign cars := addNew(cars, new Car(2));
-			}
+			then action make assign cars := addNew(cars, new Car(1));
+			then assign cars := addNew(cars, new Car(2));
 			then action measure {
 				assign count := size(cars);
 				assign extent := size(all Car);

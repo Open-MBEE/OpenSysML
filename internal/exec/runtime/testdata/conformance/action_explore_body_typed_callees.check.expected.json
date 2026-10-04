@@ -1,0 +1,5 @@
+{
+	"verdict": "divergent",
+	"divergent": {"seen": ["1", "2"]},
+	"agreed": {}
+}

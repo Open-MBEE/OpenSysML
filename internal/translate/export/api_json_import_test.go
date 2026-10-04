@@ -6,7 +6,9 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"reflect"
 	"regexp"
+	"slices"
 	"strings"
 	"testing"
 
@@ -75,6 +77,25 @@ func TestToolkitAPIJSONDecodes(t *testing.T) {
 	}
 }
 
+func TestToSysMLDoesNotMutateTurtleGraph(t *testing.T) {
+	graph, err := ReadAPIJSON(interchangeFixture(t, "flow_ends.toolkit.full.json"))
+	if err != nil {
+		t.Fatalf("ReadAPIJSON: %v", err)
+	}
+	turtle := rdf.WriteTurtle(graph)
+	graph, err = rdf.ParseTurtle(turtle)
+	if err != nil {
+		t.Fatalf("ParseTurtle: %v", err)
+	}
+	before := slices.Clone(graph.Triples())
+	if _, err := ToSysML(graph); err != nil {
+		t.Fatalf("ToSysML: %v", err)
+	}
+	if after := graph.Triples(); !slices.Equal(after, before) {
+		t.Fatalf("ToSysML changed the Turtle graph triples: before %d, after %d", len(before), len(after))
+	}
+}
+
 // TestToolkitAPIGoldenNotation pins the notation the toolkit's interchange
 // decodes to.
 func TestToolkitAPIGoldenNotation(t *testing.T) {
@@ -83,6 +104,255 @@ func TestToolkitAPIGoldenNotation(t *testing.T) {
 	if !bytes.Equal(got, want) {
 		t.Fatalf("the decoded notation changed:\n--- want ---\n%s\n--- got ---\n%s", want, got)
 	}
+}
+
+func TestToolkitSatisfyByKeepsFeatureReferenceExpression(t *testing.T) {
+	input := interchangeFixture(t, "satisfy_by.toolkit.full.json")
+	notation := decodeAPIJSON(t, input)
+	if !bytes.Contains(notation, []byte("satisfy mission by vehicle.engine;")) {
+		t.Fatalf("the satisfy subject was not written as a `by` reference:\n%s", notation)
+	}
+	file := source.New("satisfy_by.sysml", notation)
+	p := parser.New(file)
+	root := p.ParseFile()
+	if len(p.Diagnostics) != 0 {
+		t.Fatalf("the decoded notation does not parse: %v", p.Diagnostics)
+	}
+	graph, err := ToRDF(file, root)
+	if err != nil {
+		t.Fatalf("ToRDF: %v", err)
+	}
+	reexported, err := WriteAPIJSON(graph)
+	if err != nil {
+		t.Fatalf("WriteAPIJSON: %v", err)
+	}
+	before, after := countTable(t, input), countTable(t, reexported)
+	for _, metaclass := range []string{"FeatureChainExpression", "FeatureChaining", "FeatureReferenceExpression"} {
+		if before[metaclass] != after[metaclass] {
+			t.Errorf("%s count changed: before %d, after %d", metaclass, before[metaclass], after[metaclass])
+		}
+	}
+}
+
+func TestReturnUsageKeepsItsMetaclass(t *testing.T) {
+	for _, tc := range []struct {
+		name             string
+		src              string
+		toolkit          bool
+		wantReference    bool
+		byteIdentical    bool
+		expectedNotation string
+	}{
+		{
+			name:             "default usage",
+			src:              "package R {\n  calc def F {\n    return x : Real;\n  }\n}\n",
+			byteIdentical:    true,
+			expectedNotation: "return x : Real",
+		},
+		{
+			name:             "reference usage",
+			src:              "package R { calc def F { return ref result : Real; } }",
+			toolkit:          true,
+			wantReference:    true,
+			expectedNotation: "return ref result : Real",
+		},
+		{
+			name:             "anonymous reference usage",
+			src:              "package R { calc def F { in value : Real; return :> value = value; } }",
+			toolkit:          true,
+			wantReference:    true,
+			expectedNotation: "return :> value = value",
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			file := source.New("return.sysml", []byte(tc.src))
+			p := parser.New(file)
+			root := p.ParseFile()
+			if len(p.Diagnostics) > 0 {
+				t.Fatalf("the fixture does not parse: %v", p.Diagnostics)
+			}
+			graph, err := ToRDF(file, root)
+			if err != nil {
+				t.Fatalf("ToRDF: %v", err)
+			}
+			ownText, err := ToSysML(graph)
+			if err != nil {
+				t.Fatalf("ToSysML native graph: %v", err)
+			}
+			if tc.byteIdentical && !bytes.Equal(ownText, []byte(tc.src)) {
+				t.Fatalf("native notation is not byte-identical:\n--- want ---\n%s\n--- got ---\n%s", tc.src, ownText)
+			}
+			ownFile := source.New("return.sysml", ownText)
+			ownParser := parser.New(ownFile)
+			ownRoot := ownParser.ParseFile()
+			if len(ownParser.Diagnostics) > 0 {
+				t.Fatalf("the native round-trip notation does not parse: %v\n%s", ownParser.Diagnostics, ownText)
+			}
+			ownGraph, err := ToRDF(ownFile, ownRoot)
+			if err != nil {
+				t.Fatalf("ToRDF native round trip: %v", err)
+			}
+			if !reflect.DeepEqual(graphWithoutSourceText(graph), graphWithoutSourceText(ownGraph)) {
+				t.Fatalf("native return graph changed:\n%s", string(ownText))
+			}
+			before := resultUsageTypes(t, graph)
+			graphToDecode := graph
+			if tc.toolkit {
+				var triples []rdf.Triple
+				for _, triple := range graph.Triples() {
+					switch triple.Predicate.Value {
+					case rdf.OpenSysML + xDeclaredKeyword,
+						rdf.OpenSysML + xSourceText,
+						rdf.OpenSysML + xSourceTail,
+						rdf.OpenSysML + xSourceLanguage:
+						continue
+					}
+					triples = append(triples, triple)
+				}
+				graphToDecode = rdf.NewGraphOf(triples, graph.Prefixes)
+			}
+			out, err := ToSysML(graphToDecode)
+			if err != nil {
+				t.Fatalf("ToSysML: %v", err)
+			}
+			roundTrip := source.New("return.sysml", out)
+			roundParser := parser.New(roundTrip)
+			roundRoot := roundParser.ParseFile()
+			if len(roundParser.Diagnostics) > 0 {
+				t.Fatalf("the round-trip notation does not parse: %v\n%s", roundParser.Diagnostics, out)
+			}
+			reparsed, err := ToRDF(roundTrip, roundRoot)
+			if err != nil {
+				t.Fatalf("round-trip ToRDF: %v", err)
+			}
+			after := resultUsageTypes(t, reparsed)
+			if !reflect.DeepEqual(before, after) {
+				t.Fatalf("result metaclasses changed: before %v, after %v\n%s", before, after, out)
+			}
+			if len(before) != 1 {
+				t.Fatalf("result metaclasses = %v, want one metaclass", before)
+			}
+			if tc.wantReference && before["ReferenceUsage"] != 1 {
+				t.Fatalf("result metaclasses = %v, want ReferenceUsage", before)
+			}
+			if tc.expectedNotation != "" && !bytes.Contains(out, []byte(tc.expectedNotation)) {
+				t.Fatalf("the return form is missing %q:\n%s", tc.expectedNotation, out)
+			}
+			if tc.toolkit {
+				toolkitNotation := out
+				if !bytes.Contains(toolkitNotation, []byte(tc.expectedNotation)) {
+					t.Fatalf("the toolkit ReferenceUsage return was not written with its reference semantics:\n%s", toolkitNotation)
+				}
+				toolkitFile := source.New("return.sysml", toolkitNotation)
+				toolkitParser := parser.New(toolkitFile)
+				toolkitRoot := toolkitParser.ParseFile()
+				if len(toolkitParser.Diagnostics) > 0 {
+					t.Fatalf("the toolkit return notation does not parse: %v\n%s", toolkitParser.Diagnostics, toolkitNotation)
+				}
+				toolkitGraph, err := ToRDF(toolkitFile, toolkitRoot)
+				if err != nil {
+					t.Fatalf("toolkit return ToRDF: %v", err)
+				}
+				if got := resultUsageTypes(t, toolkitGraph); !reflect.DeepEqual(got, map[string]int{"ReferenceUsage": 1}) {
+					t.Fatalf("toolkit return metaclasses = %v, want ReferenceUsage", got)
+				}
+			}
+		})
+	}
+}
+
+func TestAPIJSONReferenceResultOmitsKindKeyword(t *testing.T) {
+	file := source.New("return.sysml", []byte("package R { calc def F { return result : Real; } }"))
+	p := parser.New(file)
+	root := p.ParseFile()
+	if len(p.Diagnostics) != 0 {
+		t.Fatalf("the fixture does not parse: %v", p.Diagnostics)
+	}
+	graph, err := ToRDF(file, root)
+	if err != nil {
+		t.Fatalf("ToRDF: %v", err)
+	}
+	data, err := WriteAPIJSON(graph)
+	if err != nil {
+		t.Fatalf("WriteAPIJSON: %v", err)
+	}
+	var elements []map[string]any
+	if err := json.Unmarshal(data, &elements); err != nil {
+		t.Fatalf("decode API JSON: %v", err)
+	}
+	found := false
+	foundReturnMembership := false
+	for _, element := range elements {
+		if element["@type"] == "ReferenceUsage" && element["declaredName"] == "result" {
+			found = true
+			if _, ok := element["declaredKeyword"]; ok {
+				t.Fatal("API JSON unexpectedly retains the declared kind keyword")
+			}
+		}
+		if element["@type"] == mReturnParameterMembership {
+			foundReturnMembership = true
+		}
+	}
+	if !found {
+		t.Fatal("API JSON has no ReferenceUsage result")
+	}
+	if !foundReturnMembership {
+		t.Fatal("API JSON has no ReturnParameterMembership")
+	}
+	out, err := APIJSONToSysML(data, nil)
+	if err != nil {
+		t.Fatalf("APIJSONToSysML: %v", err)
+	}
+	if !bytes.Contains(out, []byte("return result : Real")) ||
+		bytes.Contains(out, []byte("return attribute")) {
+		t.Fatalf("API JSON ReferenceUsage result was written with a kind keyword:\n%s", out)
+	}
+	roundTrip := source.New("return.sysml", out)
+	roundParser := parser.New(roundTrip)
+	roundRoot := roundParser.ParseFile()
+	if len(roundParser.Diagnostics) != 0 {
+		t.Fatalf("the decoded notation does not parse: %v\n%s", roundParser.Diagnostics, out)
+	}
+	reparsed, err := ToRDF(roundTrip, roundRoot)
+	if err != nil {
+		t.Fatalf("round-trip ToRDF: %v", err)
+	}
+	if got := resultUsageTypes(t, reparsed); !reflect.DeepEqual(got, map[string]int{"ReferenceUsage": 1}) {
+		t.Fatalf("API JSON return metaclasses = %v, want ReferenceUsage", got)
+	}
+}
+
+func graphWithoutSourceText(graph *rdf.Graph) map[rdf.Triple]bool {
+	out := make(map[rdf.Triple]bool, graph.Len())
+	for _, triple := range graph.Triples() {
+		switch triple.Predicate.Value {
+		case rdf.OpenSysML + xSourceText, rdf.OpenSysML + xSourceTail, rdf.OpenSysML + xSourceLanguage:
+			continue
+		}
+		out[triple] = true
+	}
+	return out
+}
+
+func resultUsageTypes(t *testing.T, graph *rdf.Graph) map[string]int {
+	t.Helper()
+	data, err := WriteAPIJSON(graph)
+	if err != nil {
+		t.Fatalf("WriteAPIJSON: %v", err)
+	}
+	var objects []map[string]any
+	if err := json.Unmarshal(data, &objects); err != nil {
+		t.Fatalf("decode API JSON: %v", err)
+	}
+	types := map[string]int{}
+	for _, object := range objects {
+		if object["isResult"] == true {
+			if kind, ok := object["@type"].(string); ok {
+				types[kind]++
+			}
+		}
+	}
+	return types
 }
 
 // TestToolkitRootTransparent checks the toolkit's root Namespace wrapper does

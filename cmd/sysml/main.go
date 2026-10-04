@@ -382,7 +382,7 @@ func runCLI() int {
 		return 2
 	}
 	if renderPalette != "" && renderView == "" && renderAllDir == "" {
-		fmt.Fprintln(os.Stderr, "sysml: -render-palette is the palette -render or -render-all fills DOT, Mermaid or PlantUML with; name the view to render with -render or a directory with -render-all")
+		fmt.Fprintln(os.Stderr, "sysml: -render-palette is the palette -render or -render-all fills DOT, Mermaid, PlantUML or D2 with; name the view to render with -render or a directory with -render-all")
 		return 2
 	}
 	if renderLink != "" && renderView == "" && renderAllDir == "" && renderDoc == "" && renderDocsDir == "" {
@@ -763,7 +763,7 @@ func resolveRunBounds() int {
 // newSession returns a session in the output modes the flags asked for, under
 // the run bounds resolved at startup.
 func newSession() *repl.Session {
-	sess := repl.NewSession()
+	sess := repl.NewSessionWithSourceConverter(convert.ModelSource)
 	sess.SetToolVersion("sysml " + Version)
 	if err := sess.SetBudgets(budgets); err != nil {
 		// Unreachable: budgets are validated in main before any session exists.
