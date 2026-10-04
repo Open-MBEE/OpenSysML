@@ -21,7 +21,8 @@ func (r *Rendering) Text() string { return r.TextWidth(WidthUnbounded) }
 func (r *Rendering) TextWidth(width int) string { return r.textWith(Options{Width: width}) }
 
 // textWith is the text form written to options' width, listing under each part
-// of an interconnection the ports options' Ports display draws.
+// of an interconnection or mixed rendering the ports options' Ports display
+// draws.
 func (r *Rendering) textWith(options Options) string {
 	width := options.Width
 	var b strings.Builder
@@ -154,7 +155,8 @@ func endLabel(labels map[string]string, node, port string) string {
 
 // writeNodeText writes one node and its children, and records the label an edge
 // names the node by. A body's start is named by the body it starts. In an
-// interconnection, the node's ports the display draws are written under it,
+// interconnection or mixed view, the node's ports the display draws are written
+// under it,
 // each a line of its own, and recorded as `node.port`; elsewhere they are left
 // to the edges' labels, which an action's flows name their pins in.
 func writeNodeText(b *strings.Builder, node *Node, depth int, labels map[string]string, ports portView) {
@@ -193,7 +195,7 @@ func writeNodeText(b *strings.Builder, node *Node, depth int, labels map[string]
 	}
 }
 
-// pinLine is a port's line under its node: `port <label>` in an interconnection,
+// pinLine is a port's line under its node: `port <label>` in an interconnection or mixed view,
 // the pin's direction and name in an action (`in bread`), as declared.
 func pinLine(port Port, ports portView) string {
 	if ports.interconnection {
