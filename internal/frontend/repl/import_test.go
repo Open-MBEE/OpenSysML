@@ -103,3 +103,70 @@ func TestImportDryRunAndJSON(t *testing.T) {
 	wants(t, run(t, s, "%import "+lines), "✓ imported 3 values into 2 elements", `supplier = "Volt"`)
 	wants(t, s.text(), "attribute rated : Boolean = false;", "attribute :>> mass = 181.5 [kg];")
 }
+
+func TestImportReachesInheritedFeatures(t *testing.T) {
+	s := NewSession()
+	if errs := errorDiagnostics(s.Submit(`package 'Fleet A' {
+	private import ScalarValues::*;
+	private import ISQ::*;
+	private import SI::*;
+	part def Engine { attribute mass : MassValue default = 175 [kg]; }
+	part def 'Fuel Tank' { attribute 'fill level' : Real; }
+	part def Car { part engine : Engine; part tank : 'Fuel Tank'; }
+	part car1 : Car;
+	part car2 : Car;
+	alias c2 for car2;
+}`).Diagnostics); len(errs) > 0 {
+		t.Fatalf("model has errors: %v", errs)
+	}
+	path := writeData(t, "cars.csv", "element,mass [kg],fill level\n"+
+		"'Fleet A'::car1::engine,180,\n"+
+		"'Fleet A'::car1::tank,,0.5\n"+
+		"'Fleet A'::c2::engine,190,\n")
+	wants(t, run(t, s, "%import "+path),
+		"✓ imported 3 values into 3 elements",
+		"Fleet A::car1::engine (redefines Fleet A::Car::engine)",
+		"Fleet A::car2::engine::mass = 190 [kg] (redefines Fleet A::Engine::mass)")
+	wants(t, s.text(), "part :>> engine {", "attribute :>> mass = 180 [kg];", "attribute :>> 'fill level' = 0.5;")
+	wants(t, run(t, s, "%eval 'Fleet A'::car1::engine::mass"), "180")
+	wants(t, run(t, s, "%eval 'Fleet A'::car2::engine::mass"), "190")
+	before := s.text()
+	path = writeData(t, "twice.csv", "element,mass [kg]\n'Fleet A'::car1::engine,181\n'Fleet A'::car1::engine,182\n")
+	wants(t, run(t, s, "%import "+path), "line 3, column mass [kg]", "already set")
+	path = writeData(t, "none.csv", "element,mass [kg]\n'Fleet A'::car1::wheel,4\n")
+	wants(t, run(t, s, "%import "+path), "Fleet A::car1 has no member named wheel")
+	if s.text() != before {
+		t.Errorf("a refused import changed the model:\n%s", s.text())
+	}
+}
+
+func TestImportReachesInheritedAliasesAndQuotedNames(t *testing.T) {
+	s := NewSession()
+	if errs := errorDiagnostics(s.Submit(`package 'Fleet A' {
+	private import ScalarValues::*;
+	enum def Health { enum healthy; enum degraded; }
+	part def Motor { attribute power : Real; attribute health : Health; }
+	part def Car {
+		part engine : Motor;
+		part 'drive::motor' : Motor;
+		alias motor for engine;
+	}
+	part car : Car;
+}`).Diagnostics); len(errs) > 0 {
+		t.Fatalf("model has errors: %v", errs)
+	}
+	path := writeData(t, "cars.csv", "element,power,health\n"+
+		"'Fleet A'::car::motor,90,healthy\n"+
+		"'Fleet A'::car::'drive::motor',45,degraded\n")
+	wants(t, run(t, s, "%import "+path), "✓ imported 4 values into 2 elements")
+	wants(t, s.text(), "part :>> engine {", "attribute :>> power = 90;",
+		"part :>> 'drive::motor' {", "attribute :>> health = 'Fleet A'::Health::degraded;")
+	wants(t, run(t, s, "%eval 'Fleet A'::car::engine::power"), "90")
+	wants(t, run(t, s, "%eval 'Fleet A'::car::'drive::motor'::power"), "45")
+	before := s.text()
+	path = writeData(t, "bad.csv", "element,health\n'Fleet A'::car::motor,broken\n")
+	wants(t, run(t, s, "%import "+path), "broken is not a value of Fleet A::Health")
+	if s.text() != before {
+		t.Errorf("a refused import changed the model:\n%s", s.text())
+	}
+}

@@ -385,9 +385,12 @@ triples come); a set of classes with no such member is refused, naming the subje
   an element a relationship owns, whose owner is no namespace), kept alongside
   `sysml:owner` as the compact spelling earlier releases wrote
 - `sysml:visibility`, `sysml:direction`
+- `sysml:isUnique` `false` for `nonunique` (`Feature::isUnique`, true when
+  absent), the one flag written false. The `sysml:isNonunique` earlier releases
+  wrote, which the 20250201 metamodel no longer declares, still reads.
 - Feature flags, written only when true, so an absent flag reads as false:
   `isAbstract`, `isVariation`, `isVariant`, `isReference`, `isComposite`, `isDerived`,
-  `isOrdered`, `isNonunique`, `isEnd`, `isConstant`, `isIndividual`, `isPortion`,
+  `isOrdered`, `isEnd`, `isConstant`, `isIndividual`, `isPortion`,
   `isConjugated`, `isAll`, `isAccept`, `isResult`, and `isEvent` for an `event`
   modifier on a usage whose metaclass is not itself `sysml:EventOccurrenceUsage`.
   `sysml:EnumerationDefinition` has no `abstract` or `variation` prefix, so
@@ -577,7 +580,7 @@ for a toolkit `ReferenceUsage` result with no `sysx:declaredKeyword`, so it also
 writes the return without a kind keyword.
 
 For expressions and end-binding heads, the encoder still emits these `sysx:`
-terms. They carry notation or ordering facts for which the 202407 metamodel has
+terms. They carry notation or ordering facts for which the metamodel has
 no property; they are annotations, not replacements for the standard shape:
 
 | Terms | Why the annotation remains |
@@ -640,6 +643,14 @@ from:
   deferred-signal encoding to model it with, rather than read with the member dropped.
 - `sysx:ActionExecutionNode` — `action a { x + 1 }`, an action node
   performing an inline expression, which no SysML v2 production spells.
+
+A type owns a `FlowUsage`, `SuccessionFlowUsage`, `FlowEnd`, `PayloadFeature`,
+`TerminateActionUsage` or `ConstructorExpression`, `IndexExpression` or
+`InstantiationExpression` through a `sysml:FeatureMembership`, listed in its
+`sysml:ownedFeature`, as it owns any feature. Releases whose metamodel table
+predated these metaclasses (version 202407) owned them through a plain
+`sysml:OwningMembership`; in a SysML graph, which has no `member` keyword, that
+shape still reads back as the same feature.
 
 Reading, the metaclasses earlier releases wrote for the standard constructs
 above — `sysx:Alias`, `sysx:FilterMember`, `sysx:MultiplicityDeclaration`,
@@ -1527,8 +1538,8 @@ A flow's `of` clause is a `sysml:PayloadFeature` the flow owns through a
 is that feature, named `p`, so `m.p` reaches it; `of T` and `of T[1]` state
 only its `FeatureTyping` and multiplicity, and the feature takes the flow's next
 position as its name (`…::@0` in a flow with no body members). Read back, the
-feature is written after `of`, not in the flow's body. 202407 names the
-metaclass `ItemFeature`. A graph written before this states the payload as the
+feature is written after `of`, not in the flow's body. The 202407 metamodel
+named the metaclass `ItemFeature`. A graph written before this states the payload as the
 expression `sysx:payload` and still reads back with it; a flow stating both, or
 a `PayloadFeature` owned by anything but a flow, is refused.
 

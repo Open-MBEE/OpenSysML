@@ -420,7 +420,10 @@ export class DiagramPanels implements vscode.Disposable {
     };
     const drawing = drawingStyleOf(diagramStyle(resolved.uri));
     const style = drawing !== undefined && supportsStyle(client, drawing) ? drawing : undefined;
-    const outcome = await exportRendering(host, { uri, documentName, view, forms: serverForms(experimental(client)), style });
+    const outcome = await exportRendering(host, {
+      uri, documentName, view, forms: serverForms(experimental(client)), style,
+      linkTemplate: `${vscode.env.uriScheme}://file/{file}:{line}:{col}`,
+    });
     switch (outcome.kind) {
       case "saved":
         this.output.appendLine(`Exported ${outcome.form} of ${documentName} to ${vscode.Uri.parse(outcome.location).fsPath}`);
@@ -1389,8 +1392,8 @@ function webviewOptions(extensionUri: vscode.Uri): vscode.WebviewOptions {
 
 /**
  * html is the panel's document. Scripts are the bundled webview script alone,
- * allowed by nonce, and nothing is loaded from the network: the diagram is drawn
- * as SVG by that script.
+ * allowed by nonce, and its WASM router is fetched from this installation's
+ * bundle; nothing is loaded from the network: the diagram is drawn as SVG.
  */
 function html(
   webview: vscode.Webview,
@@ -1405,9 +1408,11 @@ function html(
     `img-src ${webview.cspSource} data:`,
     `style-src ${webview.cspSource} 'unsafe-inline'`,
     `font-src ${webview.cspSource} data:`,
-    `script-src 'nonce-${nonce}'`,
+    `script-src 'nonce-${nonce}' 'wasm-unsafe-eval'`,
+    `connect-src ${webview.cspSource}`,
   ].join("; ");
-  const state = attribute(JSON.stringify({ uri: docURI.toString(), view: selected }));
+  const avoid = webview.asWebviewUri(vscode.Uri.joinPath(extensionUri, "dist", "libavoid.wasm")).toString();
+  const state = attribute(JSON.stringify({ uri: docURI.toString(), view: selected, avoid }));
   return `<!DOCTYPE html>
 <html lang="en">
   <head>

@@ -53,6 +53,10 @@ the record cache and writing none; default off, or OPENSYSML_RECORD_CACHE=0
 .BR \-constraint " \fIname\fP"
 Evaluate this constraint and exit (repeatable)
 .TP
+.B \-self\-check
+Apply the SysMLValidation constraints to every reflectively classified model
+element and exit
+.TP
 .BR \-requirement " \fIname\fP"
 Evaluate this requirement, and every verification case verifying it, and exit
 (repeatable)
@@ -232,12 +236,12 @@ What \-import makes of each row: values, which sets the features of the
 element the row names. The default is values.
 .TP
 .BR \-import\-map " \fIfile\fP"
-Read \-import's columns and fields onto elements and features as this JSON
-mapping file says
+Read the \-import before it onto elements and features as this JSON mapping
+file says
 .TP
 .BR \-import\-format " \fIformat\fP"
-Read \-import files as csv, tsv, json or jsonl rather than as their extension
-says
+Read the \-import before it as csv, tsv, json or jsonl rather than as its
+extension says
 .TP
 .B \-import\-dry\-run
 Report the values \-import would set, changing and writing nothing
@@ -305,6 +309,11 @@ csv or tsv (csv and tsv for a table); default from the destination for
 Palette the dot, mermaid or plantuml form fills nodes from, by keyword family:
 okabe\-ito, tol\-bright, tol\-muted, tol\-light, brewer\-set2, brewer\-dark2,
 viridis or cividis; default black and white
+.TP
+.BR \-render\-link " \fItemplate\fP"
+Link template for rendered elements: {file} is the path as loaded; use
+absolute paths for vscode:// or file:// links. Placeholders: {file}, {line},
+{col}, {qname}, {id}
 .TP
 .BR \-render\-unplaced " \fIplacement\fP"
 Where a graph form of a view some Layout positions puts the nodes none does:
@@ -477,6 +486,8 @@ sysml \-instantiate p \-constraint C model.sysml
 sysml \-validate model.sysml
 # \&...asking whether it is conforming SysML v2
 sysml \-validate \-strict model.sysml
+# Apply the 13 SysML validation constraints
+sysml \-self\-check model.sysml
 # Check every assertion about an object
 sysml \-instantiate car \-validate=car m.sysml
 # Invoke a calculation
@@ -502,13 +513,15 @@ sysml \-satisfy \-json model.sysml
 .fi
 .RE
 .PP
-Each check flag may be repeated. \-validate=<object> checks every assertion
-about an object \-instantiate created and the objects it holds: an object
-named, #<id>, or a path such as car.engine. \-requirement and \-satisfy report
-beside each verdict the verdict of every verification case verifying the
-requirement. \-analysis takes arguments for the case's inputs and an object as
-its subject, as \-analysis "Pkg::Case(3.0) Pkg::part"; a verification case
-also reports the verdict its body produced.
+Check flags may be combined. \-validate=<object> checks every assertion about
+an object \-instantiate created and the objects it holds: an object named,
+#<id>, or a path such as car.engine. \-self\-check applies the OpenSysML
+SysMLValidation constraints to each reflectively classified element; underived
+reflective features are reported as unevaluated, not as violations.
+\-requirement and \-satisfy report beside each verdict the verdict of every
+verification case verifying the requirement. \-analysis takes arguments for
+the case's inputs and an object as its subject, as \-analysis "Pkg::Case(3.0)
+Pkg::part"; a verification case also reports the verdict its body produced.
 .SH RUNNING ACTIONS AND STATE MACHINES
 \-action runs an action to completion and \-state a state machine, both on one
 shared clock that \-advance runs for the given simulated time units; without

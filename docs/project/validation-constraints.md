@@ -10,6 +10,32 @@
 identifiers, prefixes included (`w8c_`, `W10B…`); they name nothing outside the source tree, and a
 reader who only wants the verdicts can ignore them.
 
+## OpenSysML self-model validation
+
+The `SysMLValidation` standard-library package states 13 validation constraints as SysML
+constraint definitions over reflective KerML and SysML metaclasses. `sysml -self-check`
+applies each constraint to every reflectively classified element in the non-library workspace.
+The library currently states:
+
+- `validateFeaturePortionNotVariable`
+- `validateFeatureConstantIsVariable`
+- `validateFeatureEndNotDerivedAbstractCompositeOrPortion`
+- `validateFeatureEndIsConstant`
+- `validateAttributeUsageIsReference`
+- `validateAttributeUsageFeatures`
+- `validateAttributeDefinitionFeatures`
+- `validateEnumerationDefinitionIsVariation`
+- `validateReferenceUsageIsReference`
+- `validateEventOccurrenceUsageIsReference`
+- `validateControlNodeIsComposite`
+- `validatePortDefinitionOwnedUsagesNotComposite`
+- `validatePortUsageNestedUsagesNotComposite`
+
+Constraints whose OCL reads reflective features the current model does not derive are omitted
+from the library. If an included constraint cannot be evaluated because a reflective feature is
+unsupported or a metaclass is unavailable, the self-check reports that application as
+unevaluated rather than as a violation.
+
 The pilot validators name every constraint they check (`validateNamespaceDistinguishability`,
 `validateUsageType`, …), OpenSysML does not: its diagnostics are worded for the reader and its
 checks are grouped by pass, so before this census 157 of the pilot's names occurred nowhere in this repository. This
@@ -129,7 +155,7 @@ parser/resolver location. *Our message* is given only where OpenSysML's wording 
 | `validateFeatureCrossFeatureSpecialization` | KerML | A cross feature specializes the cross features of the ends it redefines, explicitly or through the implicit `redefines` of an end in an association that specializes another | internal/check/passes/w10b_cross_features.go:checkW10BCrossFeatures | — | `semantic/k19-cross-feature-not-specializing.kerml` | ✅ faithful |
 | `validateFeatureCrossFeatureType` | KerML | A cross feature has the same types as its feature (KerML `Feature::type`: declared, subsetted, redefined and referenced features' types, the most specific kept), an untyped feature being typed by `Anything` and an owned cross feature by its end | internal/check/passes/w10b_cross_features.go:checkW10BCrossFeatures | — | `semantic/k18-cross-feature-type-differs.kerml`, `semantic/k54-cross-feature-typed-narrower-than-end.kerml`, `semantic/s88-cross-feature-typed-narrower-than-end.sysml` | ✅ faithful |
 | `validateFeatureEndFeatureMultiplicity` | KerML | An end feature has multiplicity 1 (warning `End feature must have multiplicity 1`): none of the end's multiplicities — its own, or one inherited through subsetting, redefinition, typing, a reference or an implicit end — is exactly `1..1`; an unevaluable bound counts as omitted (`[n..1]` is silent). In SysML an end usage defaults to `1..1`, so only a declared own non-`1..1` multiplicity warns; the `[m]` of `end [m] item x : A` is the cross feature's and is silent | internal/check/passes/end_multiplicity.go:constraintChecker.checkFeatureEndFeatureMultiplicity | same wording, followed by the fix: write `[1]` or take it from a feature the end subsets or redefines | none | ✅ faithful |
-| `validateFeatureEndIsConstant` | KerML | A variable end feature is constant (`End feature must be constant`); declared but a no-op — `KerMLValidator` defines the constant and message but no `@Check` references them, and neither grammar admits `var` on an end feature. Shapes tried: `end constant a` and `end a` in SysML connection and part definitions, `const end feature` and `end feature` in KerML associations, an end redefinition | — | — | none | ❔ unknown — no case and no identifiable pass yet |
+| `validateFeatureEndIsConstant` | KerML | A variable end feature is constant (`End feature must be constant`, `isEnd and isVariable implies isConstant`); the pilot declares the constant and message but no `@Check` references them, and neither grammar admits `var` on an end feature — there the rule is a no-op. Here it holds by derivation instead of by a check: `FeatureIsConstant` answers an end that may vary in time as constant, which the read-only and reflective surfaces share, so every violation is a write refused rather than a diagnostic. Shapes tried on the pilot: `end constant a` and `end a` in SysML connection and part definitions, `const end feature` and `end feature` in KerML associations, an end redefinition | internal/semantic/semantics/read_only.go:Model.FeatureIsConstant, Model.implicitlyConstantEnd | — | none | ❔ unknown — no case and no identifiable pass yet |
 | `validateFeatureEndNoDirection` | KerML | An end feature has no direction (`End feature cannot have direction`): SysML `end in a`, `end out a`, `end inout a` in a connection or part definition, or redefining an end; KerML's `EndFeaturePrefix` admits no direction, so the KerML spelling is grammar-unconstructable and the probe is SysML | internal/check/passes/end_feature.go:EndFeaturePass.Run | — | `semantic/s86-end-with-direction.sysml` | ✅ faithful |
 | `validateFeatureEndNotDerivedAbstractCompositeOrPortion` | KerML | An end feature is not derived, abstract, composite or portion (`End feature cannot be derived, abstract, composite or portion`): SysML `end derived a`, `end abstract a`, `end variation a` (a variation is abstract); KerML's `EndFeaturePrefix` admits none of the four, and a SysML `end part a` is not composite in either tool, so the probe is SysML and the composite and portion halves are grammar-unconstructable | internal/check/passes/end_feature.go:EndFeaturePass.Run | — | `semantic/s87-end-derived-or-abstract.sysml` | ✅ faithful |
 | `validateFeatureHasType` | KerML | A feature has at least one type (`Features must have at least one type`); observable only through conjugation, which stops the pilot adding the implicit `Base::things` subsetting that types every plain `feature f;`: `feature f ~ D` with `class D`, nested `class C { feature g ~ D; }`, a `step` or `expr` conjugating a class; `feature f2 ~ f1` of a typed `f1` is fine | internal/check/passes/w11e_implicit_base.go:implicitBaseChecker.checkFeatureHasType | — | `semantic/k45-conjugated-feature-without-type.kerml` | ✅ faithful |

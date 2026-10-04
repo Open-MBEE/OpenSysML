@@ -22,7 +22,7 @@
       },
       {
         "name": "fixtures",
-        "files": 92
+        "files": 93
       }
     ],
     "counts": {
@@ -116,7 +116,7 @@
       },
       "uml:CallBehaviorAction": {
         "pssm": 1170,
-        "fixtures": 239
+        "fixtures": 240
       },
       "uml:CallEvent": {
         "pssm": 8,
@@ -136,7 +136,7 @@
       },
       "uml:Class": {
         "pssm": 311,
-        "fixtures": 468
+        "fixtures": 469
       },
       "uml:ClearAssociationAction": {
         "pssm": 0,
@@ -212,7 +212,7 @@
       },
       "uml:ObjectFlow": {
         "pssm": 11312,
-        "fixtures": 58
+        "fixtures": 77
       },
       "uml:ObjectFlow[weight]": {
         "pssm": 2065,
@@ -220,7 +220,7 @@
       },
       "uml:OpaqueAction": {
         "pssm": 0,
-        "fixtures": 109
+        "fixtures": 131
       },
       "uml:OpaqueBehavior": {
         "pssm": 0,
@@ -240,7 +240,7 @@
       },
       "uml:Property": {
         "pssm": 25,
-        "fixtures": 455
+        "fixtures": 459
       },
       "uml:Property[qualifier]": {
         "pssm": 0,
@@ -653,15 +653,15 @@
         "ownedMemberParameter"
       ],
       "ocl": "sha256:d3c23c0a9962875100836923962361f3b5941deb72e53380530a7ce9d8264e9e",
-      "status": "approximate",
+      "status": "deliberate",
       "implementation": [
         "internal/translate/migrate/behavior.go:parameter"
       ],
       "tests": [
-        "tests/migrate/parameter_shapes_test.go:TestContextBodiesKeepTheCalleesParameterMultiplicity",
+        "tests/migrate/behavior_test.go:TestActivityWithSendAcceptAndOperationCalls",
         "tests/corpus/pssm_migration_test.go:TestPSSMSuiteMigration"
       ],
-      "reason": "a return parameter is written as an `out` parameter, not a return parameter membership (PSSM: 842 of 1488 parameters noted so)",
+      "reason": "a return parameter is written as an `out` parameter: OMG puts its ReturnParameterMembership in the action def an Activity or Operation becomes, where KerML's validateReturnParameterMembershipOwningType refuses it (only a function or expression owns a result), so the faithful form fails validation (PSSM: 858 of 1383 return parameters written as `out`; the other 525 are methods' parameters, written once as their operation's, or unreferenced); candidate erratum: the mapping creates a ReturnParameterMembership whose owner is an ActionDefinition, which validateReturnParameterMembershipOwningType rejects; an `out` ParameterMembership is the valid form for an action def's result",
       "scope": [
         "uml:Parameter[direction=return]"
       ]
@@ -681,15 +681,15 @@
         "type"
       ],
       "ocl": "sha256:43a60f7b4611ab3ffb5f83846c17557353dbeb83cd088b020906c1674e85cfb3",
-      "status": "approximate",
+      "status": "deliberate",
       "implementation": [
         "internal/translate/migrate/behavior.go:parameter"
       ],
       "tests": [
-        "tests/migrate/parameter_shapes_test.go:TestContextBodiesKeepTheCalleesParameterMultiplicity",
+        "tests/migrate/behavior_test.go:TestActivityWithSendAcceptAndOperationCalls",
         "tests/corpus/pssm_migration_test.go:TestPSSMSuiteMigration"
       ],
-      "reason": "a return parameter is written as an `out` parameter, not a return parameter membership (PSSM: 842 of 1488 parameters noted so)",
+      "reason": "a return parameter is written as an `out` parameter: OMG puts its ReturnParameterMembership in the action def an Activity or Operation becomes, where KerML's validateReturnParameterMembershipOwningType refuses it (only a function or expression owns a result), so the faithful form fails validation (see candidate errata) (PSSM: 858 of 1383 return parameters written as `out`; the other 525 are methods' parameters, written once as their operation's, or unreferenced)",
       "scope": [
         "uml:Parameter[direction=return]"
       ]
@@ -709,15 +709,15 @@
         "direction"
       ],
       "ocl": "sha256:5fffed7c1a7497a40c4a426d15855b961fb30ed60601f01f05f85e95503d5b7e",
-      "status": "approximate",
+      "status": "deliberate",
       "implementation": [
         "internal/translate/migrate/behavior.go:parameter"
       ],
       "tests": [
-        "tests/migrate/parameter_shapes_test.go:TestContextBodiesKeepTheCalleesParameterMultiplicity",
+        "tests/migrate/behavior_test.go:TestActivityWithSendAcceptAndOperationCalls",
         "tests/corpus/pssm_migration_test.go:TestPSSMSuiteMigration"
       ],
-      "reason": "a return parameter is written as an `out` parameter, not a return parameter membership (PSSM: 842 of 1488 parameters noted so)",
+      "reason": "a return parameter is written as an `out` parameter: OMG puts its ReturnParameterMembership in the action def an Activity or Operation becomes, where KerML's validateReturnParameterMembershipOwningType refuses it (only a function or expression owns a result), so the faithful form fails validation (see candidate errata) (PSSM: 858 of 1383 return parameters written as `out`; the other 525 are methods' parameters, written once as their operation's, or unreferenced)",
       "scope": [
         "uml:Parameter[direction=return]"
       ]
@@ -737,15 +737,15 @@
         "ownedRelationship"
       ],
       "ocl": "sha256:4531890002603f03eecf16e927f6867d15a96699dc0f30e7b9dd6328d80a1256",
-      "status": "approximate",
+      "status": "deliberate",
       "implementation": [
         "internal/translate/migrate/behavior.go:parameter"
       ],
       "tests": [
-        "tests/migrate/parameter_shapes_test.go:TestContextBodiesKeepTheCalleesParameterMultiplicity",
+        "tests/migrate/behavior_test.go:TestActivityWithSendAcceptAndOperationCalls",
         "tests/corpus/pssm_migration_test.go:TestPSSMSuiteMigration"
       ],
-      "reason": "a return parameter is written as an `out` parameter, not a return parameter membership (PSSM: 842 of 1488 parameters noted so)",
+      "reason": "a return parameter is written as an `out` parameter: OMG puts its ReturnParameterMembership in the action def an Activity or Operation becomes, where KerML's validateReturnParameterMembershipOwningType refuses it (only a function or expression owns a result), so the faithful form fails validation (see candidate errata) (PSSM: 858 of 1383 return parameters written as `out`; the other 525 are methods' parameters, written once as their operation's, or unreferenced)",
       "scope": [
         "uml:Parameter[direction=return]"
       ]
@@ -765,15 +765,15 @@
         "type"
       ],
       "ocl": "sha256:7ef7df4028e2a72eb03abc1ceaaa640805546e7530ae9a3366fd911430ffc845",
-      "status": "approximate",
+      "status": "deliberate",
       "implementation": [
         "internal/translate/migrate/behavior.go:parameter"
       ],
       "tests": [
-        "tests/migrate/parameter_shapes_test.go:TestContextBodiesKeepTheCalleesParameterMultiplicity",
+        "tests/migrate/behavior_test.go:TestActivityWithSendAcceptAndOperationCalls",
         "tests/corpus/pssm_migration_test.go:TestPSSMSuiteMigration"
       ],
-      "reason": "a return parameter is written as an `out` parameter, not a return parameter membership (PSSM: 842 of 1488 parameters noted so)",
+      "reason": "a return parameter is written as an `out` parameter: OMG puts its ReturnParameterMembership in the action def an Activity or Operation becomes, where KerML's validateReturnParameterMembershipOwningType refuses it (only a function or expression owns a result), so the faithful form fails validation (see candidate errata) (PSSM: 858 of 1383 return parameters written as `out`; the other 525 are methods' parameters, written once as their operation's, or unreferenced)",
       "scope": [
         "uml:Parameter[direction=return]"
       ]
@@ -793,15 +793,15 @@
         "ownedMemberParameter"
       ],
       "ocl": "sha256:bcb170495746f321564425a298fe9f04d1affa6a0615109d2ee4470f2849747a",
-      "status": "approximate",
+      "status": "deliberate",
       "implementation": [
         "internal/translate/migrate/behavior.go:parameter"
       ],
       "tests": [
-        "tests/migrate/parameter_shapes_test.go:TestContextBodiesKeepTheCalleesParameterMultiplicity",
+        "tests/migrate/behavior_test.go:TestActivityWithSendAcceptAndOperationCalls",
         "tests/corpus/pssm_migration_test.go:TestPSSMSuiteMigration"
       ],
-      "reason": "a return parameter is written as an `out` parameter, not a return parameter membership (PSSM: 842 of 1488 parameters noted so)",
+      "reason": "a return parameter is written as an `out` parameter: OMG puts its ReturnParameterMembership in the action def an Activity or Operation becomes, where KerML's validateReturnParameterMembershipOwningType refuses it (only a function or expression owns a result), so the faithful form fails validation (PSSM: 858 of 1383 return parameters written as `out`; the other 525 are methods' parameters, written once as their operation's, or unreferenced); candidate erratum: the mapping creates a ReturnParameterMembership whose owner is an ActionDefinition, which validateReturnParameterMembershipOwningType rejects; an `out` ParameterMembership is the valid form for an action def's result",
       "scope": [
         "uml:Parameter[direction=return]"
       ]
@@ -821,15 +821,15 @@
         "direction"
       ],
       "ocl": "sha256:5fffed7c1a7497a40c4a426d15855b961fb30ed60601f01f05f85e95503d5b7e",
-      "status": "approximate",
+      "status": "deliberate",
       "implementation": [
         "internal/translate/migrate/behavior.go:parameter"
       ],
       "tests": [
-        "tests/migrate/parameter_shapes_test.go:TestContextBodiesKeepTheCalleesParameterMultiplicity",
+        "tests/migrate/behavior_test.go:TestActivityWithSendAcceptAndOperationCalls",
         "tests/corpus/pssm_migration_test.go:TestPSSMSuiteMigration"
       ],
-      "reason": "a return parameter is written as an `out` parameter, not a return parameter membership (PSSM: 842 of 1488 parameters noted so)",
+      "reason": "a return parameter is written as an `out` parameter: OMG puts its ReturnParameterMembership in the action def an Activity or Operation becomes, where KerML's validateReturnParameterMembershipOwningType refuses it (only a function or expression owns a result), so the faithful form fails validation (see candidate errata) (PSSM: 858 of 1383 return parameters written as `out`; the other 525 are methods' parameters, written once as their operation's, or unreferenced)",
       "scope": [
         "uml:Parameter[direction=return]"
       ]
@@ -849,15 +849,15 @@
         "ownedRelationship"
       ],
       "ocl": "sha256:06d67011ce78b2ff76810552273665447d3387de835243f148f504552e38422d",
-      "status": "approximate",
+      "status": "deliberate",
       "implementation": [
         "internal/translate/migrate/behavior.go:parameter"
       ],
       "tests": [
-        "tests/migrate/parameter_shapes_test.go:TestContextBodiesKeepTheCalleesParameterMultiplicity",
+        "tests/migrate/behavior_test.go:TestActivityWithSendAcceptAndOperationCalls",
         "tests/corpus/pssm_migration_test.go:TestPSSMSuiteMigration"
       ],
-      "reason": "a return parameter is written as an `out` parameter, not a return parameter membership (PSSM: 842 of 1488 parameters noted so)",
+      "reason": "a return parameter is written as an `out` parameter: OMG puts its ReturnParameterMembership in the action def an Activity or Operation becomes, where KerML's validateReturnParameterMembershipOwningType refuses it (only a function or expression owns a result), so the faithful form fails validation (see candidate errata) (PSSM: 858 of 1383 return parameters written as `out`; the other 525 are methods' parameters, written once as their operation's, or unreferenced)",
       "scope": [
         "uml:Parameter[direction=return]"
       ]
@@ -6791,15 +6791,26 @@
         "type"
       ],
       "ocl": "sha256:b095346cfa3bbb32c47b77ed489c11b40ef3342c98c7e8ab0a794c8e87989b61",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
-        "internal/translate/migrate/activity.go:callBehavior"
+        "internal/translate/migrate/activity.go:callBehavior",
+        "internal/translate/migrate/activity.go:callTyped",
+        "internal/translate/migrate/activity.go:callPrimitive",
+        "internal/translate/migrate/context.go:performUsage",
+        "internal/translate/migrate/context.go:contextBinding"
       ],
       "tests": [
         "tests/migrate/behavior_more_test.go:TestActivityParametersFlowThroughNestedCalls",
+        "tests/migrate/library_test.go:TestLibraryCallsComputeThroughTheV2Library",
+        "tests/migrate/owner_reads_test.go:TestBehaviorReadingItsOwnerOnlyInGuardsOrThroughSwimlanesIsItsUsage",
+        "tests/migrate/states_test.go:TestSwimlaneCallsRunOnTheirRepresentedObjects",
+        "tests/migrate/context_test.go:TestCalleeContextBindsTheCallersOnePartOfItsType",
+        "tests/migrate/context_test.go:TestUnownedActivityAcceptsViaThePortsOfTheBlocksRunningIt",
+        "tests/migrate/owner_reads_test.go:TestCalleeContextIsTheSameWhicheverBlockIsReachedFirst",
+        "tests/migrate/context_test.go:TestCallsFromObjectsLackingTheCalleesContextAreNotPerformed",
         "tests/migrate/arguments_test.go:TestCallsWithoutRequiredArgumentsAdmitNone"
       ],
-      "reason": "an action typed by the called behavior; calls whose context or arguments cannot be bound are approximated or unmapped (PSSM: 1108 approximated, 6 unmapped of 1159)",
+            "reason": "the typed form `action n : B;` is written wherever v2 can type the call, its pins the parameters it redefines (`action n : B { in x = …; }`); a fUML or Alf library behavior, which v2 has no type for, computes through the v2 library instead (see the behaviours with no OMG mapping); a block-owned behavior that reads its block is written `perform action n ::> obj.usage;`, since a def nested in a part def reaches none of the block's features; a callee owned by another block gets a bound `context` parameter, bound to the caller's object or to the caller's one part of that block (`bind n.context = …;` or `action n : B { in ref :>> context = …; }`); each per-call loss stays in the ledger under its own row or reason: edge notes such as no edge leading to the node, a context left unbound where the caller holds no object of the callee's block (performed as an empty step), and arguments missing or empty in the v1 model (PSSM: 95 mapped, 1058 approximated, 6 unmapped of 1159; of the approximated, 1040 carry edge notes and 218 only those; 580 library calls, 199 usage performances, 110 contexts bound to a part, 206 empty steps, 170 calls missing arguments)",
       "scope": [
         "uml:CallBehaviorAction"
       ]
@@ -7322,15 +7333,26 @@
         "ownedRelationship"
       ],
       "ocl": "sha256:e2c441b499925dc184297802680a30a8e0bdb8eaea6bb156a61e008ed9ef9289",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
-        "internal/translate/migrate/activity.go:callBehavior"
+        "internal/translate/migrate/activity.go:callBehavior",
+        "internal/translate/migrate/activity.go:callTyped",
+        "internal/translate/migrate/activity.go:callPrimitive",
+        "internal/translate/migrate/context.go:performUsage",
+        "internal/translate/migrate/context.go:contextBinding"
       ],
       "tests": [
         "tests/migrate/behavior_more_test.go:TestActivityParametersFlowThroughNestedCalls",
+        "tests/migrate/library_test.go:TestLibraryCallsComputeThroughTheV2Library",
+        "tests/migrate/owner_reads_test.go:TestBehaviorReadingItsOwnerOnlyInGuardsOrThroughSwimlanesIsItsUsage",
+        "tests/migrate/states_test.go:TestSwimlaneCallsRunOnTheirRepresentedObjects",
+        "tests/migrate/context_test.go:TestCalleeContextBindsTheCallersOnePartOfItsType",
+        "tests/migrate/context_test.go:TestUnownedActivityAcceptsViaThePortsOfTheBlocksRunningIt",
+        "tests/migrate/owner_reads_test.go:TestCalleeContextIsTheSameWhicheverBlockIsReachedFirst",
+        "tests/migrate/context_test.go:TestCallsFromObjectsLackingTheCalleesContextAreNotPerformed",
         "tests/migrate/arguments_test.go:TestCallsWithoutRequiredArgumentsAdmitNone"
       ],
-      "reason": "an action typed by the called behavior; calls whose context or arguments cannot be bound are approximated or unmapped (PSSM: 1108 approximated, 6 unmapped of 1159)",
+            "reason": "the typed form `action n : B;` is written wherever v2 can type the call, its pins the parameters it redefines (`action n : B { in x = …; }`); a fUML or Alf library behavior, which v2 has no type for, computes through the v2 library instead (see the behaviours with no OMG mapping); a block-owned behavior that reads its block is written `perform action n ::> obj.usage;`, since a def nested in a part def reaches none of the block's features; a callee owned by another block gets a bound `context` parameter, bound to the caller's object or to the caller's one part of that block (`bind n.context = …;` or `action n : B { in ref :>> context = …; }`); each per-call loss stays in the ledger under its own row or reason: edge notes such as no edge leading to the node, a context left unbound where the caller holds no object of the callee's block (performed as an empty step), and arguments missing or empty in the v1 model (PSSM: 95 mapped, 1058 approximated, 6 unmapped of 1159; of the approximated, 1040 carry edge notes and 218 only those; 580 library calls, 199 usage performances, 110 contexts bound to a part, 206 empty steps, 170 calls missing arguments)",
       "scope": [
         "uml:CallBehaviorAction"
       ]
@@ -10784,10 +10806,14 @@
         "ownedMemberFeature"
       ],
       "ocl": "sha256:99dcfc1b5cbdaac66d3dd2caa4da690589c446fdde58fc41274829a938d066fb",
-      "status": "not-implemented",
-      "implementation": [],
-      "tests": [],
-      "reason": "activity-edge metadata («Rate», «Probability» on non-decision edges, weights) is not written as a metadata usage on the succession; the scope counts every edge, of which only those with a non-default weight carry it",
+      "status": "deliberate",
+      "implementation": [
+        "internal/translate/migrate/activity.go:objectFlow"
+      ],
+      "tests": [
+        "tests/migrate/object_flows_test.go:TestObjectFlowsAreSuccessionFlowsThroughControlNodeObjects"
+      ],
+      "reason": "the edge weight is not written as `@SysMLv1Library::ActivityEdgeData { weight = … }`: every measured weight is UML's default 1 (PSSM: 2065 of 2065 object-flow weights; TMT: 4247 of 4247 edge weights), which a succession already means, so the metadata adds no information, and the SysMLv1Library package it names is neither published with the transformation model nor bundled",
       "scope": [
         "uml:ControlFlow[weight]",
         "uml:ObjectFlow[weight]"
@@ -10808,10 +10834,14 @@
         "type"
       ],
       "ocl": "sha256:8daf74248d9f6d1411fa0d1ab45792fa829411e6c432c121f5890a566524d009",
-      "status": "not-implemented",
-      "implementation": [],
-      "tests": [],
-      "reason": "activity-edge metadata («Rate», «Probability» on non-decision edges, weights) is not written as a metadata usage on the succession; the scope counts every edge, of which only those with a non-default weight carry it",
+      "status": "deliberate",
+      "implementation": [
+        "internal/translate/migrate/activity.go:objectFlow"
+      ],
+      "tests": [
+        "tests/migrate/object_flows_test.go:TestObjectFlowsAreSuccessionFlowsThroughControlNodeObjects"
+      ],
+      "reason": "the edge weight is not written as `@SysMLv1Library::ActivityEdgeData { weight = … }`: every measured weight is UML's default 1 (PSSM: 2065 of 2065 object-flow weights; TMT: 4247 of 4247 edge weights), which a succession already means, so the metadata adds no information, and the SysMLv1Library package it names is neither published with the transformation model nor bundled",
       "scope": [
         "uml:ControlFlow[weight]",
         "uml:ObjectFlow[weight]"
@@ -10832,10 +10862,14 @@
         "value"
       ],
       "ocl": "sha256:4e963cc08b7306161edbe3257d7256b78872383796842c99b6b5a1741127b34a",
-      "status": "not-implemented",
-      "implementation": [],
-      "tests": [],
-      "reason": "activity-edge metadata («Rate», «Probability» on non-decision edges, weights) is not written as a metadata usage on the succession; the scope counts every edge, of which only those with a non-default weight carry it",
+      "status": "deliberate",
+      "implementation": [
+        "internal/translate/migrate/activity.go:objectFlow"
+      ],
+      "tests": [
+        "tests/migrate/object_flows_test.go:TestObjectFlowsAreSuccessionFlowsThroughControlNodeObjects"
+      ],
+      "reason": "the edge weight is not written as `@SysMLv1Library::ActivityEdgeData { weight = … }`: every measured weight is UML's default 1 (PSSM: 2065 of 2065 object-flow weights; TMT: 4247 of 4247 edge weights), which a succession already means, so the metadata adds no information, and the SysMLv1Library package it names is neither published with the transformation model nor bundled",
       "scope": [
         "uml:ControlFlow[weight]",
         "uml:ObjectFlow[weight]"
@@ -10856,10 +10890,14 @@
         "ownedMemberElement"
       ],
       "ocl": "sha256:9b8f7db86812c926ea0fadf0b47f59c057047dddbe68285dadbade3f57b842d9",
-      "status": "not-implemented",
-      "implementation": [],
-      "tests": [],
-      "reason": "activity-edge metadata («Rate», «Probability» on non-decision edges, weights) is not written as a metadata usage on the succession; the scope counts every edge, of which only those with a non-default weight carry it",
+      "status": "deliberate",
+      "implementation": [
+        "internal/translate/migrate/activity.go:objectFlow"
+      ],
+      "tests": [
+        "tests/migrate/object_flows_test.go:TestObjectFlowsAreSuccessionFlowsThroughControlNodeObjects"
+      ],
+      "reason": "the edge weight is not written as `@SysMLv1Library::ActivityEdgeData { weight = … }`: every measured weight is UML's default 1 (PSSM: 2065 of 2065 object-flow weights; TMT: 4247 of 4247 edge weights), which a succession already means, so the metadata adds no information, and the SysMLv1Library package it names is neither published with the transformation model nor bundled",
       "scope": [
         "uml:ControlFlow[weight]",
         "uml:ObjectFlow[weight]"
@@ -10880,10 +10918,14 @@
         "redefinedFeature"
       ],
       "ocl": "sha256:6624c6bbd1a5fae14098b7641b39496351399cafa1b10ec0bb0e7ae0f1b356f6",
-      "status": "not-implemented",
-      "implementation": [],
-      "tests": [],
-      "reason": "activity-edge metadata («Rate», «Probability» on non-decision edges, weights) is not written as a metadata usage on the succession; the scope counts every edge, of which only those with a non-default weight carry it",
+      "status": "deliberate",
+      "implementation": [
+        "internal/translate/migrate/activity.go:objectFlow"
+      ],
+      "tests": [
+        "tests/migrate/object_flows_test.go:TestObjectFlowsAreSuccessionFlowsThroughControlNodeObjects"
+      ],
+      "reason": "the edge weight is not written as `@SysMLv1Library::ActivityEdgeData { weight = … }`: every measured weight is UML's default 1 (PSSM: 2065 of 2065 object-flow weights; TMT: 4247 of 4247 edge weights), which a succession already means, so the metadata adds no information, and the SysMLv1Library package it names is neither published with the transformation model nor bundled",
       "scope": [
         "uml:ControlFlow[weight]",
         "uml:ObjectFlow[weight]"
@@ -10904,10 +10946,14 @@
         "ownedRelationship"
       ],
       "ocl": "sha256:e2da14d3c314e0d10c32900a2f9179fe6c626afcb2dc067004a48b4c329483c7",
-      "status": "not-implemented",
-      "implementation": [],
-      "tests": [],
-      "reason": "activity-edge metadata («Rate», «Probability» on non-decision edges, weights) is not written as a metadata usage on the succession; the scope counts every edge, of which only those with a non-default weight carry it",
+      "status": "deliberate",
+      "implementation": [
+        "internal/translate/migrate/activity.go:objectFlow"
+      ],
+      "tests": [
+        "tests/migrate/object_flows_test.go:TestObjectFlowsAreSuccessionFlowsThroughControlNodeObjects"
+      ],
+      "reason": "the edge weight is not written as `@SysMLv1Library::ActivityEdgeData { weight = … }`: every measured weight is UML's default 1 (PSSM: 2065 of 2065 object-flow weights; TMT: 4247 of 4247 edge weights), which a succession already means, so the metadata adds no information, and the SysMLv1Library package it names is neither published with the transformation model nor bundled",
       "scope": [
         "uml:ControlFlow[weight]",
         "uml:ObjectFlow[weight]"
@@ -10929,10 +10975,14 @@
         "declaredName"
       ],
       "ocl": "sha256:844a37c88ec6b2e4158fc4506582cfa7b9aa22d0d674e3900a34c354199bdd32",
-      "status": "not-implemented",
-      "implementation": [],
-      "tests": [],
-      "reason": "activity-edge metadata («Rate», «Probability» on non-decision edges, weights) is not written as a metadata usage on the succession; the scope counts every edge, of which only those with a non-default weight carry it",
+      "status": "deliberate",
+      "implementation": [
+        "internal/translate/migrate/activity.go:objectFlow"
+      ],
+      "tests": [
+        "tests/migrate/object_flows_test.go:TestObjectFlowsAreSuccessionFlowsThroughControlNodeObjects"
+      ],
+      "reason": "the edge weight is not written as `@SysMLv1Library::ActivityEdgeData { weight = … }`: every measured weight is UML's default 1 (PSSM: 2065 of 2065 object-flow weights; TMT: 4247 of 4247 edge weights), which a succession already means, so the metadata adds no information, and the SysMLv1Library package it names is neither published with the transformation model nor bundled",
       "scope": [
         "uml:ControlFlow[weight]",
         "uml:ObjectFlow[weight]"
@@ -11451,15 +11501,19 @@
         "ownedMemberFeature"
       ],
       "ocl": "sha256:1084f0c8e4715eab14ed42cd938105b0896b3b042da379f82767e3e76d6b94fd",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
-        "internal/translate/migrate/activity.go:objectFlow"
+        "internal/translate/migrate/controlobjects.go:settleThrough",
+        "internal/translate/migrate/controlobjects.go:objectFeatures",
+        "internal/translate/migrate/controlobjects.go:objectFeature",
+        "internal/translate/migrate/controlobjects.go:throughFlow",
+        "internal/exec/runtime/action_control_objects.go:carryObjects"
       ],
       "tests": [
-        "tests/migrate/datawait_test.go:TestActionsWaitForTheValuesFlowingIntoThem",
-        "tests/migrate/behavior_more_test.go:TestActivityParametersFlowThroughNestedCalls"
+        "tests/migrate/object_flows_test.go:TestObjectFlowsAreSuccessionFlowsThroughControlNodeObjects",
+        "internal/exec/runtime/robustness_object_flow_test.go:TestRuntimeRobustnessObjectFlow"
       ],
-      "reason": "written `flow a.out to b.in` between the pins; a flow ending at an unmigrated action or a buffer is rerouted or unmapped (PSSM: 3849 approximated, 6414 unmapped of 11265)",
+      "reason": "a fork, join or merge an object flow passes declares `in ref inputObjectN` for the Nth flow into it and `out ref outputObjectN` for the Nth out of it, valued by its input at a fork and by the sequence `(inputObject1, inputObject2, …)` at a join or merge; the runtime holds the values arriving at a node and passes them on: a fork copies its input to every output, a join gathers one value of each input, and a merge passes on the one value that arrived with each token; a flow whose end is an unmigrated action, the object `this`, or a node inside a structured activity node it enters from outside is still rerouted or unmapped under that node's mapping (PSSM: 1695 mapped, 3156 approximated, 6414 unmapped of 11265)",
       "scope": [
         "uml:ObjectFlow"
       ]
@@ -11479,15 +11533,19 @@
         "value"
       ],
       "ocl": "sha256:84413e96353fb6db6d52be26258f03480f2269a924bf56437296a8f419719e85",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
-        "internal/translate/migrate/activity.go:objectFlow"
+        "internal/translate/migrate/controlobjects.go:settleThrough",
+        "internal/translate/migrate/controlobjects.go:objectFeatures",
+        "internal/translate/migrate/controlobjects.go:objectFeature",
+        "internal/translate/migrate/controlobjects.go:throughFlow",
+        "internal/exec/runtime/action_control_objects.go:carryObjects"
       ],
       "tests": [
-        "tests/migrate/datawait_test.go:TestActionsWaitForTheValuesFlowingIntoThem",
-        "tests/migrate/behavior_more_test.go:TestActivityParametersFlowThroughNestedCalls"
+        "tests/migrate/object_flows_test.go:TestObjectFlowsAreSuccessionFlowsThroughControlNodeObjects",
+        "internal/exec/runtime/robustness_object_flow_test.go:TestRuntimeRobustnessObjectFlow"
       ],
-      "reason": "written `flow a.out to b.in` between the pins; a flow ending at an unmigrated action or a buffer is rerouted or unmapped (PSSM: 3849 approximated, 6414 unmapped of 11265)",
+      "reason": "a fork, join or merge an object flow passes declares `in ref inputObjectN` for the Nth flow into it and `out ref outputObjectN` for the Nth out of it, valued by its input at a fork and by the sequence `(inputObject1, inputObject2, …)` at a join or merge; the runtime holds the values arriving at a node and passes them on: a fork copies its input to every output, a join gathers one value of each input, and a merge passes on the one value that arrived with each token; a flow whose end is an unmigrated action, the object `this`, or a node inside a structured activity node it enters from outside is still rerouted or unmapped under that node's mapping (PSSM: 1695 mapped, 3156 approximated, 6414 unmapped of 11265)",
       "scope": [
         "uml:ObjectFlow"
       ]
@@ -11510,15 +11568,19 @@
         "isUnique"
       ],
       "ocl": "sha256:d13f545ccefdc5fe7a1bfbe14622cf6ec32aac2ad9827d8c490c8df359c86e85",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
-        "internal/translate/migrate/activity.go:objectFlow"
+        "internal/translate/migrate/controlobjects.go:settleThrough",
+        "internal/translate/migrate/controlobjects.go:objectFeatures",
+        "internal/translate/migrate/controlobjects.go:objectFeature",
+        "internal/translate/migrate/controlobjects.go:throughFlow",
+        "internal/exec/runtime/action_control_objects.go:carryObjects"
       ],
       "tests": [
-        "tests/migrate/datawait_test.go:TestActionsWaitForTheValuesFlowingIntoThem",
-        "tests/migrate/behavior_more_test.go:TestActivityParametersFlowThroughNestedCalls"
+        "tests/migrate/object_flows_test.go:TestObjectFlowsAreSuccessionFlowsThroughControlNodeObjects",
+        "internal/exec/runtime/robustness_object_flow_test.go:TestRuntimeRobustnessObjectFlow"
       ],
-      "reason": "written `flow a.out to b.in` between the pins; a flow ending at an unmigrated action or a buffer is rerouted or unmapped (PSSM: 3849 approximated, 6414 unmapped of 11265)",
+      "reason": "a fork, join or merge an object flow passes declares `in ref inputObjectN` for the Nth flow into it and `out ref outputObjectN` for the Nth out of it, valued by its input at a fork and by the sequence `(inputObject1, inputObject2, …)` at a join or merge; the runtime holds the values arriving at a node and passes them on: a fork copies its input to every output, a join gathers one value of each input, and a merge passes on the one value that arrived with each token; a flow whose end is an unmigrated action, the object `this`, or a node inside a structured activity node it enters from outside is still rerouted or unmapped under that node's mapping (PSSM: 1695 mapped, 3156 approximated, 6414 unmapped of 11265); candidate erratum: the `outputObject` branch of the OCL tests `from.target.oclIsTypeOf(UML::MergeNode)` where it means `from.source`, which is written",
       "scope": [
         "uml:ObjectFlow"
       ]
@@ -11616,15 +11678,19 @@
         "ownedRelationship"
       ],
       "ocl": "sha256:f805a5afd262ac43dd2ed2740762978000c5714f1265f9efe2ffa06d72ead721",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
-        "internal/translate/migrate/activity.go:objectFlow"
+        "internal/translate/migrate/controlobjects.go:settleThrough",
+        "internal/translate/migrate/controlobjects.go:objectFeatures",
+        "internal/translate/migrate/controlobjects.go:objectFeature",
+        "internal/translate/migrate/controlobjects.go:throughFlow",
+        "internal/exec/runtime/action_control_objects.go:carryObjects"
       ],
       "tests": [
-        "tests/migrate/datawait_test.go:TestActionsWaitForTheValuesFlowingIntoThem",
-        "tests/migrate/behavior_more_test.go:TestActivityParametersFlowThroughNestedCalls"
+        "tests/migrate/object_flows_test.go:TestObjectFlowsAreSuccessionFlowsThroughControlNodeObjects",
+        "internal/exec/runtime/robustness_object_flow_test.go:TestRuntimeRobustnessObjectFlow"
       ],
-      "reason": "written `flow a.out to b.in` between the pins; a flow ending at an unmigrated action or a buffer is rerouted or unmapped (PSSM: 3849 approximated, 6414 unmapped of 11265)",
+      "reason": "a fork, join or merge an object flow passes declares `in ref inputObjectN` for the Nth flow into it and `out ref outputObjectN` for the Nth out of it, valued by its input at a fork and by the sequence `(inputObject1, inputObject2, …)` at a join or merge; the runtime holds the values arriving at a node and passes them on: a fork copies its input to every output, a join gathers one value of each input, and a merge passes on the one value that arrived with each token; a flow whose end is an unmigrated action, the object `this`, or a node inside a structured activity node it enters from outside is still rerouted or unmapped under that node's mapping (PSSM: 1695 mapped, 3156 approximated, 6414 unmapped of 11265)",
       "scope": [
         "uml:ObjectFlow"
       ]
@@ -11644,15 +11710,19 @@
         "memberElement"
       ],
       "ocl": "sha256:ba6dd7a69b03a6a0ad529e70f4217dc6bf5cbc8285a401c663c6b634024d7269",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
-        "internal/translate/migrate/activity.go:objectFlow"
+        "internal/translate/migrate/controlobjects.go:settleThrough",
+        "internal/translate/migrate/controlobjects.go:objectFeatures",
+        "internal/translate/migrate/controlobjects.go:objectFeature",
+        "internal/translate/migrate/controlobjects.go:throughFlow",
+        "internal/exec/runtime/action_control_objects.go:carryObjects"
       ],
       "tests": [
-        "tests/migrate/datawait_test.go:TestActionsWaitForTheValuesFlowingIntoThem",
-        "tests/migrate/behavior_more_test.go:TestActivityParametersFlowThroughNestedCalls"
+        "tests/migrate/object_flows_test.go:TestObjectFlowsAreSuccessionFlowsThroughControlNodeObjects",
+        "internal/exec/runtime/robustness_object_flow_test.go:TestRuntimeRobustnessObjectFlow"
       ],
-      "reason": "written `flow a.out to b.in` between the pins; a flow ending at an unmigrated action or a buffer is rerouted or unmapped (PSSM: 3849 approximated, 6414 unmapped of 11265)",
+      "reason": "a fork, join or merge an object flow passes declares `in ref inputObjectN` for the Nth flow into it and `out ref outputObjectN` for the Nth out of it, valued by its input at a fork and by the sequence `(inputObject1, inputObject2, …)` at a join or merge; the runtime holds the values arriving at a node and passes them on: a fork copies its input to every output, a join gathers one value of each input, and a merge passes on the one value that arrived with each token; a flow whose end is an unmigrated action, the object `this`, or a node inside a structured activity node it enters from outside is still rerouted or unmapped under that node's mapping (PSSM: 1695 mapped, 3156 approximated, 6414 unmapped of 11265)",
       "scope": [
         "uml:ObjectFlow"
       ]
@@ -11724,15 +11794,19 @@
         "ownedRelationship"
       ],
       "ocl": "sha256:967996067ce9e340949d31d53693caf650a39b3d483dd21fb5d7477096781405",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
-        "internal/translate/migrate/activity.go:objectFlow"
+        "internal/translate/migrate/controlobjects.go:settleThrough",
+        "internal/translate/migrate/controlobjects.go:objectFeatures",
+        "internal/translate/migrate/controlobjects.go:objectFeature",
+        "internal/translate/migrate/controlobjects.go:throughFlow",
+        "internal/exec/runtime/action_control_objects.go:carryObjects"
       ],
       "tests": [
-        "tests/migrate/datawait_test.go:TestActionsWaitForTheValuesFlowingIntoThem",
-        "tests/migrate/behavior_more_test.go:TestActivityParametersFlowThroughNestedCalls"
+        "tests/migrate/object_flows_test.go:TestObjectFlowsAreSuccessionFlowsThroughControlNodeObjects",
+        "internal/exec/runtime/robustness_object_flow_test.go:TestRuntimeRobustnessObjectFlow"
       ],
-      "reason": "written `flow a.out to b.in` between the pins; a flow ending at an unmigrated action or a buffer is rerouted or unmapped (PSSM: 3849 approximated, 6414 unmapped of 11265)",
+      "reason": "a fork, join or merge an object flow passes declares `in ref inputObjectN` for the Nth flow into it and `out ref outputObjectN` for the Nth out of it, valued by its input at a fork and by the sequence `(inputObject1, inputObject2, …)` at a join or merge; the runtime holds the values arriving at a node and passes them on: a fork copies its input to every output, a join gathers one value of each input, and a merge passes on the one value that arrived with each token; a flow whose end is an unmigrated action, the object `this`, or a node inside a structured activity node it enters from outside is still rerouted or unmapped under that node's mapping (PSSM: 1695 mapped, 3156 approximated, 6414 unmapped of 11265)",
       "scope": [
         "uml:ObjectFlow"
       ]
@@ -11752,15 +11826,19 @@
         "value"
       ],
       "ocl": "sha256:b11fc998894747244b4b828b44e3a06b8706ad482ced365a10a2591f0d6ab7f3",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
-        "internal/translate/migrate/activity.go:objectFlow"
+        "internal/translate/migrate/controlobjects.go:settleThrough",
+        "internal/translate/migrate/controlobjects.go:objectFeatures",
+        "internal/translate/migrate/controlobjects.go:objectFeature",
+        "internal/translate/migrate/controlobjects.go:throughFlow",
+        "internal/exec/runtime/action_control_objects.go:carryObjects"
       ],
       "tests": [
-        "tests/migrate/datawait_test.go:TestActionsWaitForTheValuesFlowingIntoThem",
-        "tests/migrate/behavior_more_test.go:TestActivityParametersFlowThroughNestedCalls"
+        "tests/migrate/object_flows_test.go:TestObjectFlowsAreSuccessionFlowsThroughControlNodeObjects",
+        "internal/exec/runtime/robustness_object_flow_test.go:TestRuntimeRobustnessObjectFlow"
       ],
-      "reason": "written `flow a.out to b.in` between the pins; a flow ending at an unmigrated action or a buffer is rerouted or unmapped (PSSM: 3849 approximated, 6414 unmapped of 11265)",
+      "reason": "a fork, join or merge an object flow passes declares `in ref inputObjectN` for the Nth flow into it and `out ref outputObjectN` for the Nth out of it, valued by its input at a fork and by the sequence `(inputObject1, inputObject2, …)` at a join or merge; the runtime holds the values arriving at a node and passes them on: a fork copies its input to every output, a join gathers one value of each input, and a merge passes on the one value that arrived with each token; a flow whose end is an unmigrated action, the object `this`, or a node inside a structured activity node it enters from outside is still rerouted or unmapped under that node's mapping (PSSM: 1695 mapped, 3156 approximated, 6414 unmapped of 11265)",
       "scope": [
         "uml:ObjectFlow"
       ]
@@ -11780,15 +11858,19 @@
         "ownedRelationship"
       ],
       "ocl": "sha256:6721a54b35190e89560926447913dd517b96a459397736a5ce0d979f5b207b93",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
-        "internal/translate/migrate/activity.go:objectFlow"
+        "internal/translate/migrate/controlobjects.go:settleThrough",
+        "internal/translate/migrate/controlobjects.go:objectFeatures",
+        "internal/translate/migrate/controlobjects.go:objectFeature",
+        "internal/translate/migrate/controlobjects.go:throughFlow",
+        "internal/exec/runtime/action_control_objects.go:carryObjects"
       ],
       "tests": [
-        "tests/migrate/datawait_test.go:TestActionsWaitForTheValuesFlowingIntoThem",
-        "tests/migrate/behavior_more_test.go:TestActivityParametersFlowThroughNestedCalls"
+        "tests/migrate/object_flows_test.go:TestObjectFlowsAreSuccessionFlowsThroughControlNodeObjects",
+        "internal/exec/runtime/robustness_object_flow_test.go:TestRuntimeRobustnessObjectFlow"
       ],
-      "reason": "written `flow a.out to b.in` between the pins; a flow ending at an unmigrated action or a buffer is rerouted or unmapped (PSSM: 3849 approximated, 6414 unmapped of 11265)",
+      "reason": "a fork, join or merge an object flow passes declares `in ref inputObjectN` for the Nth flow into it and `out ref outputObjectN` for the Nth out of it, valued by its input at a fork and by the sequence `(inputObject1, inputObject2, …)` at a join or merge; the runtime holds the values arriving at a node and passes them on: a fork copies its input to every output, a join gathers one value of each input, and a merge passes on the one value that arrived with each token; a flow whose end is an unmigrated action, the object `this`, or a node inside a structured activity node it enters from outside is still rerouted or unmapped under that node's mapping (PSSM: 1695 mapped, 3156 approximated, 6414 unmapped of 11265)",
       "scope": [
         "uml:ObjectFlow"
       ]
@@ -11808,15 +11890,19 @@
         "memberElement"
       ],
       "ocl": "sha256:b3ad2461f72aa609e946e81136eafaea7f6665522b15f1303f7b26c0d0f2c121",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
-        "internal/translate/migrate/activity.go:objectFlow"
+        "internal/translate/migrate/controlobjects.go:settleThrough",
+        "internal/translate/migrate/controlobjects.go:objectFeatures",
+        "internal/translate/migrate/controlobjects.go:objectFeature",
+        "internal/translate/migrate/controlobjects.go:throughFlow",
+        "internal/exec/runtime/action_control_objects.go:carryObjects"
       ],
       "tests": [
-        "tests/migrate/datawait_test.go:TestActionsWaitForTheValuesFlowingIntoThem",
-        "tests/migrate/behavior_more_test.go:TestActivityParametersFlowThroughNestedCalls"
+        "tests/migrate/object_flows_test.go:TestObjectFlowsAreSuccessionFlowsThroughControlNodeObjects",
+        "internal/exec/runtime/robustness_object_flow_test.go:TestRuntimeRobustnessObjectFlow"
       ],
-      "reason": "written `flow a.out to b.in` between the pins; a flow ending at an unmigrated action or a buffer is rerouted or unmapped (PSSM: 3849 approximated, 6414 unmapped of 11265)",
+      "reason": "a fork, join or merge an object flow passes declares `in ref inputObjectN` for the Nth flow into it and `out ref outputObjectN` for the Nth out of it, valued by its input at a fork and by the sequence `(inputObject1, inputObject2, …)` at a join or merge; the runtime holds the values arriving at a node and passes them on: a fork copies its input to every output, a join gathers one value of each input, and a merge passes on the one value that arrived with each token; a flow whose end is an unmigrated action, the object `this`, or a node inside a structured activity node it enters from outside is still rerouted or unmapped under that node's mapping (PSSM: 1695 mapped, 3156 approximated, 6414 unmapped of 11265)",
       "scope": [
         "uml:ObjectFlow"
       ]
@@ -11837,15 +11923,19 @@
         "operator"
       ],
       "ocl": "sha256:0105b249d91d3dd7bbf52576f35bd92e219a9b1cc8dbb6102e2005b9f4c3e4df",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
-        "internal/translate/migrate/activity.go:objectFlow"
+        "internal/translate/migrate/controlobjects.go:settleThrough",
+        "internal/translate/migrate/controlobjects.go:objectFeatures",
+        "internal/translate/migrate/controlobjects.go:objectFeature",
+        "internal/translate/migrate/controlobjects.go:throughFlow",
+        "internal/exec/runtime/action_control_objects.go:carryObjects"
       ],
       "tests": [
-        "tests/migrate/datawait_test.go:TestActionsWaitForTheValuesFlowingIntoThem",
-        "tests/migrate/behavior_more_test.go:TestActivityParametersFlowThroughNestedCalls"
+        "tests/migrate/object_flows_test.go:TestObjectFlowsAreSuccessionFlowsThroughControlNodeObjects",
+        "internal/exec/runtime/robustness_object_flow_test.go:TestRuntimeRobustnessObjectFlow"
       ],
-      "reason": "written `flow a.out to b.in` between the pins; a flow ending at an unmigrated action or a buffer is rerouted or unmapped (PSSM: 3849 approximated, 6414 unmapped of 11265)",
+      "reason": "a fork, join or merge an object flow passes declares `in ref inputObjectN` for the Nth flow into it and `out ref outputObjectN` for the Nth out of it, valued by its input at a fork and by the sequence `(inputObject1, inputObject2, …)` at a join or merge; the runtime holds the values arriving at a node and passes them on: a fork copies its input to every output, a join gathers one value of each input, and a merge passes on the one value that arrived with each token; a flow whose end is an unmigrated action, the object `this`, or a node inside a structured activity node it enters from outside is still rerouted or unmapped under that node's mapping (PSSM: 1695 mapped, 3156 approximated, 6414 unmapped of 11265); candidate erratum: a merge forwards each arriving value on its own rather than the sequence of every input, which is written",
       "scope": [
         "uml:ObjectFlow"
       ]
@@ -11865,15 +11955,19 @@
         "ownedMemberParameter"
       ],
       "ocl": "sha256:7789c3ee30eb43da1494289921af9b5a3253de02019e73eb8ab243eb14ca9e5d",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
-        "internal/translate/migrate/activity.go:objectFlow"
+        "internal/translate/migrate/controlobjects.go:settleThrough",
+        "internal/translate/migrate/controlobjects.go:objectFeatures",
+        "internal/translate/migrate/controlobjects.go:objectFeature",
+        "internal/translate/migrate/controlobjects.go:throughFlow",
+        "internal/exec/runtime/action_control_objects.go:carryObjects"
       ],
       "tests": [
-        "tests/migrate/datawait_test.go:TestActionsWaitForTheValuesFlowingIntoThem",
-        "tests/migrate/behavior_more_test.go:TestActivityParametersFlowThroughNestedCalls"
+        "tests/migrate/object_flows_test.go:TestObjectFlowsAreSuccessionFlowsThroughControlNodeObjects",
+        "internal/exec/runtime/robustness_object_flow_test.go:TestRuntimeRobustnessObjectFlow"
       ],
-      "reason": "written `flow a.out to b.in` between the pins; a flow ending at an unmigrated action or a buffer is rerouted or unmapped (PSSM: 3849 approximated, 6414 unmapped of 11265)",
+      "reason": "a fork, join or merge an object flow passes declares `in ref inputObjectN` for the Nth flow into it and `out ref outputObjectN` for the Nth out of it, valued by its input at a fork and by the sequence `(inputObject1, inputObject2, …)` at a join or merge; the runtime holds the values arriving at a node and passes them on: a fork copies its input to every output, a join gathers one value of each input, and a merge passes on the one value that arrived with each token; a flow whose end is an unmigrated action, the object `this`, or a node inside a structured activity node it enters from outside is still rerouted or unmapped under that node's mapping (PSSM: 1695 mapped, 3156 approximated, 6414 unmapped of 11265)",
       "scope": [
         "uml:ObjectFlow"
       ]
@@ -11945,15 +12039,17 @@
         "ownedMemberFeature"
       ],
       "ocl": "sha256:80c48cb8f5ee5ae9caf8467bebf2b71a7e4128d79b2e659b10bdc99446410407",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
-        "internal/translate/migrate/activity.go:objectFlow"
+        "internal/translate/migrate/activity.go:objectFlow",
+        "internal/translate/migrate/objectflows.go:successionFlow",
+        "internal/translate/migrate/activity.go:flowHead"
       ],
       "tests": [
-        "tests/migrate/datawait_test.go:TestActionsWaitForTheValuesFlowingIntoThem",
-        "tests/migrate/behavior_more_test.go:TestActivityParametersFlowThroughNestedCalls"
+        "tests/migrate/object_flows_test.go:TestObjectFlowsAreSuccessionFlowsThroughControlNodeObjects",
+        "tests/migrate/datawait_test.go:TestActionsWaitForTheValuesFlowingIntoThem"
       ],
-      "reason": "written `flow a.out to b.in` between the pins; a flow ending at an unmigrated action or a buffer is rerouted or unmapped (PSSM: 3849 approximated, 6414 unmapped of 11265)",
+      "reason": "the flow's payload is written as `of T`, T the type of its source pin, and nothing when the pin is untyped; each end names the pin it connects (`a.out`, `b.in`); a flow whose end is an unmigrated action, the object `this`, or a node inside a structured activity node it enters from outside is still rerouted or unmapped under that node's mapping (PSSM: 1695 mapped, 3156 approximated, 6414 unmapped of 11265)",
       "scope": [
         "uml:ObjectFlow"
       ]
@@ -11973,15 +12069,17 @@
         "ownedMemberFeature"
       ],
       "ocl": "sha256:38af85b141c3e3665a580669408aa9ead6abc96d94ca846bcda0e7d552dc6d27",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
-        "internal/translate/migrate/activity.go:objectFlow"
+        "internal/translate/migrate/activity.go:objectFlow",
+        "internal/translate/migrate/objectflows.go:successionFlow",
+        "internal/translate/migrate/activity.go:flowHead"
       ],
       "tests": [
-        "tests/migrate/datawait_test.go:TestActionsWaitForTheValuesFlowingIntoThem",
-        "tests/migrate/behavior_more_test.go:TestActivityParametersFlowThroughNestedCalls"
+        "tests/migrate/object_flows_test.go:TestObjectFlowsAreSuccessionFlowsThroughControlNodeObjects",
+        "tests/migrate/datawait_test.go:TestActionsWaitForTheValuesFlowingIntoThem"
       ],
-      "reason": "written `flow a.out to b.in` between the pins; a flow ending at an unmigrated action or a buffer is rerouted or unmapped (PSSM: 3849 approximated, 6414 unmapped of 11265)",
+      "reason": "an unguarded object flow is written as `succession flow of T from a.out to b.in`, which orders its ends and delivers the value when its source completes; a target several succession flows enter waits for all of them, and a source several leave is followed by each; a flow into a «stream» parameter stays a `flow`, as UML streams it; a flow whose end is an unmigrated action, the object `this`, or a node inside a structured activity node it enters from outside is still rerouted or unmapped under that node's mapping (PSSM: 1695 mapped, 3156 approximated, 6414 unmapped of 11265)",
       "scope": [
         "uml:ObjectFlow"
       ]
@@ -12001,15 +12099,19 @@
         "ownedMemberFeature"
       ],
       "ocl": "sha256:b33b405c20068433089ba2f99b4d033943a6b6b98bbc6337e7808f8f97240f62",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
+        "internal/translate/migrate/objectflows.go:realGuard",
+        "internal/translate/migrate/objectflows.go:guardedFlow",
+        "internal/translate/migrate/objectflows.go:gatedFlow",
         "internal/translate/migrate/activity.go:objectFlow"
       ],
       "tests": [
-        "tests/migrate/datawait_test.go:TestActionsWaitForTheValuesFlowingIntoThem",
-        "tests/migrate/behavior_more_test.go:TestActivityParametersFlowThroughNestedCalls"
+        "tests/migrate/object_flows_test.go:TestObjectFlowsAreSuccessionFlowsThroughControlNodeObjects",
+        "tests/migrate/object_flows_test.go:TestGuardedObjectFlowMovesNoValueWhenItsGuardIsFalse",
+        "tests/migrate/datawait_test.go:TestActionsWaitForTheValuesFlowingIntoThem"
       ],
-      "reason": "written `flow a.out to b.in` between the pins; a flow ending at an unmigrated action or a buffer is rerouted or unmapped (PSSM: 3849 approximated, 6414 unmapped of 11265)",
+      "reason": "a guarded object flow is written as OMG's guarded succession to the flow itself, `first a if g then f; succession flow f of T from a.y to b.v;` (a TransitionUsage whose target is the SuccessionFlowUsage), so the value moves and `b` is ordered only when `g` holds, and a false guard leaves `b` waiting for its pin as in UML; one into an action entered through a timing stamp or a structured node keeps the guarded succession to that entry beside a `flow`; a guard of literal true is no guard, so that flow is an unguarded `succession flow`; a flow whose end is an unmigrated action, the object `this`, or a node inside a structured activity node it enters from outside is still rerouted or unmapped under that node's mapping (PSSM: 1695 mapped, 3156 approximated, 6414 unmapped of 11265)",
       "scope": [
         "uml:ObjectFlow"
       ]
@@ -12029,15 +12131,19 @@
         "ownedMemberFeature"
       ],
       "ocl": "sha256:12fcd7d99677b46809709a94e4fe8476982e2fb324a6fd6ff068a20a462dd46b",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
+        "internal/translate/migrate/objectflows.go:realGuard",
+        "internal/translate/migrate/objectflows.go:guardedFlow",
+        "internal/translate/migrate/objectflows.go:gatedFlow",
         "internal/translate/migrate/activity.go:objectFlow"
       ],
       "tests": [
-        "tests/migrate/datawait_test.go:TestActionsWaitForTheValuesFlowingIntoThem",
-        "tests/migrate/behavior_more_test.go:TestActivityParametersFlowThroughNestedCalls"
+        "tests/migrate/object_flows_test.go:TestObjectFlowsAreSuccessionFlowsThroughControlNodeObjects",
+        "tests/migrate/object_flows_test.go:TestGuardedObjectFlowMovesNoValueWhenItsGuardIsFalse",
+        "tests/migrate/datawait_test.go:TestActionsWaitForTheValuesFlowingIntoThem"
       ],
-      "reason": "written `flow a.out to b.in` between the pins; a flow ending at an unmigrated action or a buffer is rerouted or unmapped (PSSM: 3849 approximated, 6414 unmapped of 11265)",
+      "reason": "a guarded object flow is written as OMG's guarded succession to the flow itself, `first a if g then f; succession flow f of T from a.y to b.v;` (a TransitionUsage whose target is the SuccessionFlowUsage), so the value moves and `b` is ordered only when `g` holds, and a false guard leaves `b` waiting for its pin as in UML; one into an action entered through a timing stamp or a structured node keeps the guarded succession to that entry beside a `flow`; a guard of literal true is no guard, so that flow is an unguarded `succession flow`; a flow whose end is an unmigrated action, the object `this`, or a node inside a structured activity node it enters from outside is still rerouted or unmapped under that node's mapping (PSSM: 1695 mapped, 3156 approximated, 6414 unmapped of 11265)",
       "scope": [
         "uml:ObjectFlow"
       ]
@@ -12058,15 +12164,19 @@
         "isEnd"
       ],
       "ocl": "sha256:cd41cac2f829a4d86762ae0af126eb966bfa2dca71398b01d821578b292e1e93",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
+        "internal/translate/migrate/objectflows.go:realGuard",
+        "internal/translate/migrate/objectflows.go:guardedFlow",
+        "internal/translate/migrate/objectflows.go:gatedFlow",
         "internal/translate/migrate/activity.go:objectFlow"
       ],
       "tests": [
-        "tests/migrate/datawait_test.go:TestActionsWaitForTheValuesFlowingIntoThem",
-        "tests/migrate/behavior_more_test.go:TestActivityParametersFlowThroughNestedCalls"
+        "tests/migrate/object_flows_test.go:TestObjectFlowsAreSuccessionFlowsThroughControlNodeObjects",
+        "tests/migrate/object_flows_test.go:TestGuardedObjectFlowMovesNoValueWhenItsGuardIsFalse",
+        "tests/migrate/datawait_test.go:TestActionsWaitForTheValuesFlowingIntoThem"
       ],
-      "reason": "written `flow a.out to b.in` between the pins; a flow ending at an unmigrated action or a buffer is rerouted or unmapped (PSSM: 3849 approximated, 6414 unmapped of 11265)",
+      "reason": "a guarded object flow is written as OMG's guarded succession to the flow itself, `first a if g then f; succession flow f of T from a.y to b.v;` (a TransitionUsage whose target is the SuccessionFlowUsage), so the value moves and `b` is ordered only when `g` holds, and a false guard leaves `b` waiting for its pin as in UML; one into an action entered through a timing stamp or a structured node keeps the guarded succession to that entry beside a `flow`; a guard of literal true is no guard, so that flow is an unguarded `succession flow`; a flow whose end is an unmigrated action, the object `this`, or a node inside a structured activity node it enters from outside is still rerouted or unmapped under that node's mapping (PSSM: 1695 mapped, 3156 approximated, 6414 unmapped of 11265)",
       "scope": [
         "uml:ObjectFlow"
       ]
@@ -12087,15 +12197,19 @@
         "subsettingFeature"
       ],
       "ocl": "sha256:24a06d76ce3e7e00ab45ab3dba1147759cf842a01a51521aeeb016f26a3492af",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
+        "internal/translate/migrate/objectflows.go:realGuard",
+        "internal/translate/migrate/objectflows.go:guardedFlow",
+        "internal/translate/migrate/objectflows.go:gatedFlow",
         "internal/translate/migrate/activity.go:objectFlow"
       ],
       "tests": [
-        "tests/migrate/datawait_test.go:TestActionsWaitForTheValuesFlowingIntoThem",
-        "tests/migrate/behavior_more_test.go:TestActivityParametersFlowThroughNestedCalls"
+        "tests/migrate/object_flows_test.go:TestObjectFlowsAreSuccessionFlowsThroughControlNodeObjects",
+        "tests/migrate/object_flows_test.go:TestGuardedObjectFlowMovesNoValueWhenItsGuardIsFalse",
+        "tests/migrate/datawait_test.go:TestActionsWaitForTheValuesFlowingIntoThem"
       ],
-      "reason": "written `flow a.out to b.in` between the pins; a flow ending at an unmigrated action or a buffer is rerouted or unmapped (PSSM: 3849 approximated, 6414 unmapped of 11265)",
+      "reason": "a guarded object flow is written as OMG's guarded succession to the flow itself, `first a if g then f; succession flow f of T from a.y to b.v;` (a TransitionUsage whose target is the SuccessionFlowUsage), so the value moves and `b` is ordered only when `g` holds, and a false guard leaves `b` waiting for its pin as in UML; one into an action entered through a timing stamp or a structured node keeps the guarded succession to that entry beside a `flow`; a guard of literal true is no guard, so that flow is an unguarded `succession flow`; a flow whose end is an unmigrated action, the object `this`, or a node inside a structured activity node it enters from outside is still rerouted or unmapped under that node's mapping (PSSM: 1695 mapped, 3156 approximated, 6414 unmapped of 11265)",
       "scope": [
         "uml:ObjectFlow"
       ]
@@ -12116,15 +12230,19 @@
         "ownedRelationship"
       ],
       "ocl": "sha256:55b02befa99616f4e6e27210ddfcbd0875061482924e6f4baae52682e0f0bd3b",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
+        "internal/translate/migrate/objectflows.go:realGuard",
+        "internal/translate/migrate/objectflows.go:guardedFlow",
+        "internal/translate/migrate/objectflows.go:gatedFlow",
         "internal/translate/migrate/activity.go:objectFlow"
       ],
       "tests": [
-        "tests/migrate/datawait_test.go:TestActionsWaitForTheValuesFlowingIntoThem",
-        "tests/migrate/behavior_more_test.go:TestActivityParametersFlowThroughNestedCalls"
+        "tests/migrate/object_flows_test.go:TestObjectFlowsAreSuccessionFlowsThroughControlNodeObjects",
+        "tests/migrate/object_flows_test.go:TestGuardedObjectFlowMovesNoValueWhenItsGuardIsFalse",
+        "tests/migrate/datawait_test.go:TestActionsWaitForTheValuesFlowingIntoThem"
       ],
-      "reason": "written `flow a.out to b.in` between the pins; a flow ending at an unmigrated action or a buffer is rerouted or unmapped (PSSM: 3849 approximated, 6414 unmapped of 11265)",
+      "reason": "a guarded object flow is written as OMG's guarded succession to the flow itself, `first a if g then f; succession flow f of T from a.y to b.v;` (a TransitionUsage whose target is the SuccessionFlowUsage), so the value moves and `b` is ordered only when `g` holds, and a false guard leaves `b` waiting for its pin as in UML; one into an action entered through a timing stamp or a structured node keeps the guarded succession to that entry beside a `flow`; a guard of literal true is no guard, so that flow is an unguarded `succession flow`; a flow whose end is an unmigrated action, the object `this`, or a node inside a structured activity node it enters from outside is still rerouted or unmapped under that node's mapping (PSSM: 1695 mapped, 3156 approximated, 6414 unmapped of 11265)",
       "scope": [
         "uml:ObjectFlow"
       ]
@@ -12144,15 +12262,17 @@
         "ownedMemberFeature"
       ],
       "ocl": "sha256:ff00c59c63755e5a3ed2a5bacbf7781400dbe719ba7c02e22b938cd9e6e3d637",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
-        "internal/translate/migrate/activity.go:objectFlow"
+        "internal/translate/migrate/activity.go:objectFlow",
+        "internal/translate/migrate/objectflows.go:successionFlow",
+        "internal/translate/migrate/activity.go:flowHead"
       ],
       "tests": [
-        "tests/migrate/datawait_test.go:TestActionsWaitForTheValuesFlowingIntoThem",
-        "tests/migrate/behavior_more_test.go:TestActivityParametersFlowThroughNestedCalls"
+        "tests/migrate/object_flows_test.go:TestObjectFlowsAreSuccessionFlowsThroughControlNodeObjects",
+        "tests/migrate/datawait_test.go:TestActionsWaitForTheValuesFlowingIntoThem"
       ],
-      "reason": "written `flow a.out to b.in` between the pins; a flow ending at an unmigrated action or a buffer is rerouted or unmapped (PSSM: 3849 approximated, 6414 unmapped of 11265)",
+      "reason": "the flow's payload is written as `of T`, T the type of its source pin, and nothing when the pin is untyped; each end names the pin it connects (`a.out`, `b.in`); a flow whose end is an unmigrated action, the object `this`, or a node inside a structured activity node it enters from outside is still rerouted or unmapped under that node's mapping (PSSM: 1695 mapped, 3156 approximated, 6414 unmapped of 11265)",
       "scope": [
         "uml:ObjectFlow"
       ]
@@ -12169,15 +12289,17 @@
       ],
       "operations": [],
       "ocl": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
-        "internal/translate/migrate/activity.go:objectFlow"
+        "internal/translate/migrate/activity.go:objectFlow",
+        "internal/translate/migrate/objectflows.go:successionFlow",
+        "internal/translate/migrate/activity.go:flowHead"
       ],
       "tests": [
-        "tests/migrate/datawait_test.go:TestActionsWaitForTheValuesFlowingIntoThem",
-        "tests/migrate/behavior_more_test.go:TestActivityParametersFlowThroughNestedCalls"
+        "tests/migrate/object_flows_test.go:TestObjectFlowsAreSuccessionFlowsThroughControlNodeObjects",
+        "tests/migrate/datawait_test.go:TestActionsWaitForTheValuesFlowingIntoThem"
       ],
-      "reason": "written `flow a.out to b.in` between the pins; a flow ending at an unmigrated action or a buffer is rerouted or unmapped (PSSM: 3849 approximated, 6414 unmapped of 11265)",
+      "reason": "the flow's payload is written as `of T`, T the type of its source pin, and nothing when the pin is untyped; each end names the pin it connects (`a.out`, `b.in`); a flow whose end is an unmigrated action, the object `this`, or a node inside a structured activity node it enters from outside is still rerouted or unmapped under that node's mapping (PSSM: 1695 mapped, 3156 approximated, 6414 unmapped of 11265)",
       "scope": [
         "uml:ObjectFlow"
       ]
@@ -12194,15 +12316,17 @@
       ],
       "operations": [],
       "ocl": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
-        "internal/translate/migrate/activity.go:objectFlow"
+        "internal/translate/migrate/activity.go:objectFlow",
+        "internal/translate/migrate/objectflows.go:successionFlow",
+        "internal/translate/migrate/activity.go:flowHead"
       ],
       "tests": [
-        "tests/migrate/datawait_test.go:TestActionsWaitForTheValuesFlowingIntoThem",
-        "tests/migrate/behavior_more_test.go:TestActivityParametersFlowThroughNestedCalls"
+        "tests/migrate/object_flows_test.go:TestObjectFlowsAreSuccessionFlowsThroughControlNodeObjects",
+        "tests/migrate/datawait_test.go:TestActionsWaitForTheValuesFlowingIntoThem"
       ],
-      "reason": "written `flow a.out to b.in` between the pins; a flow ending at an unmigrated action or a buffer is rerouted or unmapped (PSSM: 3849 approximated, 6414 unmapped of 11265)",
+      "reason": "the flow's payload is written as `of T`, T the type of its source pin, and nothing when the pin is untyped; each end names the pin it connects (`a.out`, `b.in`); a flow whose end is an unmigrated action, the object `this`, or a node inside a structured activity node it enters from outside is still rerouted or unmapped under that node's mapping (PSSM: 1695 mapped, 3156 approximated, 6414 unmapped of 11265)",
       "scope": [
         "uml:ObjectFlow"
       ]
@@ -12221,15 +12345,17 @@
         "ownedRelationship"
       ],
       "ocl": "sha256:26646c53660769313ec7f712faf3353f37ff240b7b433fd64cc8e20f7390f55d",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
-        "internal/translate/migrate/activity.go:objectFlow"
+        "internal/translate/migrate/activity.go:objectFlow",
+        "internal/translate/migrate/objectflows.go:successionFlow",
+        "internal/translate/migrate/activity.go:flowHead"
       ],
       "tests": [
-        "tests/migrate/datawait_test.go:TestActionsWaitForTheValuesFlowingIntoThem",
-        "tests/migrate/behavior_more_test.go:TestActivityParametersFlowThroughNestedCalls"
+        "tests/migrate/object_flows_test.go:TestObjectFlowsAreSuccessionFlowsThroughControlNodeObjects",
+        "tests/migrate/datawait_test.go:TestActionsWaitForTheValuesFlowingIntoThem"
       ],
-      "reason": "written `flow a.out to b.in` between the pins; a flow ending at an unmigrated action or a buffer is rerouted or unmapped (PSSM: 3849 approximated, 6414 unmapped of 11265)",
+      "reason": "the flow's payload is written as `of T`, T the type of its source pin, and nothing when the pin is untyped; each end names the pin it connects (`a.out`, `b.in`); a flow whose end is an unmigrated action, the object `this`, or a node inside a structured activity node it enters from outside is still rerouted or unmapped under that node's mapping (PSSM: 1695 mapped, 3156 approximated, 6414 unmapped of 11265)",
       "scope": [
         "uml:ObjectFlow"
       ]
@@ -12249,15 +12375,17 @@
         "ownedMemberFeature"
       ],
       "ocl": "sha256:c7e4d1f7ecc4e4db0647018b96a4fa4bb08d7321216e4fd60c709a6126b93f46",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
-        "internal/translate/migrate/activity.go:objectFlow"
+        "internal/translate/migrate/activity.go:objectFlow",
+        "internal/translate/migrate/objectflows.go:successionFlow",
+        "internal/translate/migrate/activity.go:flowHead"
       ],
       "tests": [
-        "tests/migrate/datawait_test.go:TestActionsWaitForTheValuesFlowingIntoThem",
-        "tests/migrate/behavior_more_test.go:TestActivityParametersFlowThroughNestedCalls"
+        "tests/migrate/object_flows_test.go:TestObjectFlowsAreSuccessionFlowsThroughControlNodeObjects",
+        "tests/migrate/datawait_test.go:TestActionsWaitForTheValuesFlowingIntoThem"
       ],
-      "reason": "written `flow a.out to b.in` between the pins; a flow ending at an unmigrated action or a buffer is rerouted or unmapped (PSSM: 3849 approximated, 6414 unmapped of 11265)",
+      "reason": "the flow's payload is written as `of T`, T the type of its source pin, and nothing when the pin is untyped; each end names the pin it connects (`a.out`, `b.in`); a flow whose end is an unmigrated action, the object `this`, or a node inside a structured activity node it enters from outside is still rerouted or unmapped under that node's mapping (PSSM: 1695 mapped, 3156 approximated, 6414 unmapped of 11265)",
       "scope": [
         "uml:ObjectFlow"
       ]
@@ -12275,15 +12403,17 @@
       ],
       "operations": [],
       "ocl": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
-        "internal/translate/migrate/activity.go:objectFlow"
+        "internal/translate/migrate/activity.go:objectFlow",
+        "internal/translate/migrate/objectflows.go:successionFlow",
+        "internal/translate/migrate/activity.go:flowHead"
       ],
       "tests": [
-        "tests/migrate/datawait_test.go:TestActionsWaitForTheValuesFlowingIntoThem",
-        "tests/migrate/behavior_more_test.go:TestActivityParametersFlowThroughNestedCalls"
+        "tests/migrate/object_flows_test.go:TestObjectFlowsAreSuccessionFlowsThroughControlNodeObjects",
+        "tests/migrate/datawait_test.go:TestActionsWaitForTheValuesFlowingIntoThem"
       ],
-      "reason": "written `flow a.out to b.in` between the pins; a flow ending at an unmigrated action or a buffer is rerouted or unmapped (PSSM: 3849 approximated, 6414 unmapped of 11265)",
+      "reason": "the flow's payload is written as `of T`, T the type of its source pin, and nothing when the pin is untyped; each end names the pin it connects (`a.out`, `b.in`); a flow whose end is an unmigrated action, the object `this`, or a node inside a structured activity node it enters from outside is still rerouted or unmapped under that node's mapping (PSSM: 1695 mapped, 3156 approximated, 6414 unmapped of 11265)",
       "scope": [
         "uml:ObjectFlow"
       ]
@@ -12303,15 +12433,17 @@
         "ownedRelationship"
       ],
       "ocl": "sha256:5adffc8542126a6dc1b9c3fcefbdac368711db6f8399729552ffbe261d78575a",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
-        "internal/translate/migrate/activity.go:objectFlow"
+        "internal/translate/migrate/activity.go:objectFlow",
+        "internal/translate/migrate/objectflows.go:successionFlow",
+        "internal/translate/migrate/activity.go:flowHead"
       ],
       "tests": [
-        "tests/migrate/datawait_test.go:TestActionsWaitForTheValuesFlowingIntoThem",
-        "tests/migrate/behavior_more_test.go:TestActivityParametersFlowThroughNestedCalls"
+        "tests/migrate/object_flows_test.go:TestObjectFlowsAreSuccessionFlowsThroughControlNodeObjects",
+        "tests/migrate/datawait_test.go:TestActionsWaitForTheValuesFlowingIntoThem"
       ],
-      "reason": "written `flow a.out to b.in` between the pins; a flow ending at an unmigrated action or a buffer is rerouted or unmapped (PSSM: 3849 approximated, 6414 unmapped of 11265)",
+      "reason": "the flow's payload is written as `of T`, T the type of its source pin, and nothing when the pin is untyped; each end names the pin it connects (`a.out`, `b.in`); a flow whose end is an unmigrated action, the object `this`, or a node inside a structured activity node it enters from outside is still rerouted or unmapped under that node's mapping (PSSM: 1695 mapped, 3156 approximated, 6414 unmapped of 11265)",
       "scope": [
         "uml:ObjectFlow"
       ]
@@ -12331,15 +12463,17 @@
         "referencedFeature"
       ],
       "ocl": "sha256:b41684934b28ebea6b8f7444833b7848a5d0c96c8f27d71bd884559d01f529fc",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
-        "internal/translate/migrate/activity.go:objectFlow"
+        "internal/translate/migrate/activity.go:objectFlow",
+        "internal/translate/migrate/objectflows.go:successionFlow",
+        "internal/translate/migrate/activity.go:flowHead"
       ],
       "tests": [
-        "tests/migrate/datawait_test.go:TestActionsWaitForTheValuesFlowingIntoThem",
-        "tests/migrate/behavior_more_test.go:TestActivityParametersFlowThroughNestedCalls"
+        "tests/migrate/object_flows_test.go:TestObjectFlowsAreSuccessionFlowsThroughControlNodeObjects",
+        "tests/migrate/datawait_test.go:TestActionsWaitForTheValuesFlowingIntoThem"
       ],
-      "reason": "written `flow a.out to b.in` between the pins; a flow ending at an unmigrated action or a buffer is rerouted or unmapped (PSSM: 3849 approximated, 6414 unmapped of 11265)",
+      "reason": "the flow's payload is written as `of T`, T the type of its source pin, and nothing when the pin is untyped; each end names the pin it connects (`a.out`, `b.in`); a flow whose end is an unmigrated action, the object `this`, or a node inside a structured activity node it enters from outside is still rerouted or unmapped under that node's mapping (PSSM: 1695 mapped, 3156 approximated, 6414 unmapped of 11265)",
       "scope": [
         "uml:ObjectFlow"
       ]
@@ -12360,15 +12494,17 @@
         "isEnd"
       ],
       "ocl": "sha256:1633dcc72a63d610d595f86c77df45cc8410383d8ad06ffb02ea8da73a1d4bd6",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
-        "internal/translate/migrate/activity.go:objectFlow"
+        "internal/translate/migrate/activity.go:objectFlow",
+        "internal/translate/migrate/objectflows.go:successionFlow",
+        "internal/translate/migrate/activity.go:flowHead"
       ],
       "tests": [
-        "tests/migrate/datawait_test.go:TestActionsWaitForTheValuesFlowingIntoThem",
-        "tests/migrate/behavior_more_test.go:TestActivityParametersFlowThroughNestedCalls"
+        "tests/migrate/object_flows_test.go:TestObjectFlowsAreSuccessionFlowsThroughControlNodeObjects",
+        "tests/migrate/datawait_test.go:TestActionsWaitForTheValuesFlowingIntoThem"
       ],
-      "reason": "written `flow a.out to b.in` between the pins; a flow ending at an unmigrated action or a buffer is rerouted or unmapped (PSSM: 3849 approximated, 6414 unmapped of 11265)",
+      "reason": "the flow's payload is written as `of T`, T the type of its source pin, and nothing when the pin is untyped; each end names the pin it connects (`a.out`, `b.in`); a flow whose end is an unmigrated action, the object `this`, or a node inside a structured activity node it enters from outside is still rerouted or unmapped under that node's mapping (PSSM: 1695 mapped, 3156 approximated, 6414 unmapped of 11265)",
       "scope": [
         "uml:ObjectFlow"
       ]
@@ -12389,15 +12525,17 @@
         "ownedMemberFeature"
       ],
       "ocl": "sha256:3f79c36e8172641a76ca7b3b2db59374808eab085739a0e35499d9598b852ddf",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
+        "internal/translate/migrate/objectflows.go:realGuard",
+        "internal/translate/migrate/objectflows.go:guardedFlow",
         "internal/translate/migrate/activity.go:objectFlow"
       ],
       "tests": [
-        "tests/migrate/datawait_test.go:TestActionsWaitForTheValuesFlowingIntoThem",
-        "tests/migrate/behavior_more_test.go:TestActivityParametersFlowThroughNestedCalls"
+        "tests/migrate/object_flows_test.go:TestObjectFlowsAreSuccessionFlowsThroughControlNodeObjects",
+        "tests/migrate/datawait_test.go:TestActionsWaitForTheValuesFlowingIntoThem"
       ],
-      "reason": "written `flow a.out to b.in` between the pins; a flow ending at an unmigrated action or a buffer is rerouted or unmapped (PSSM: 3849 approximated, 6414 unmapped of 11265)",
+      "reason": "a guarded object flow is written as OMG's guarded succession to the flow itself, `first a if g then f; succession flow f of T from a.y to b.v;` (a TransitionUsage whose target is the SuccessionFlowUsage), so the value moves and `b` is ordered only when `g` holds, and a false guard leaves `b` waiting for its pin as in UML; one into an action entered through a timing stamp or a structured node keeps the guarded succession to that entry beside a `flow`; a guard of literal true is no guard, so that flow is an unguarded `succession flow`; a flow whose end is an unmigrated action, the object `this`, or a node inside a structured activity node it enters from outside is still rerouted or unmapped under that node's mapping (PSSM: 1695 mapped, 3156 approximated, 6414 unmapped of 11265)",
       "scope": [
         "uml:ObjectFlow"
       ]
@@ -12419,15 +12557,17 @@
         "ownedRelationship"
       ],
       "ocl": "sha256:ee92eb917bb98c63b772d036625bc4d7dc63418ff833a39f82ca83a413627962",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
-        "internal/translate/migrate/activity.go:objectFlow"
+        "internal/translate/migrate/activity.go:objectFlow",
+        "internal/translate/migrate/objectflows.go:successionFlow",
+        "internal/translate/migrate/activity.go:flowHead"
       ],
       "tests": [
-        "tests/migrate/datawait_test.go:TestActionsWaitForTheValuesFlowingIntoThem",
-        "tests/migrate/behavior_more_test.go:TestActivityParametersFlowThroughNestedCalls"
+        "tests/migrate/object_flows_test.go:TestObjectFlowsAreSuccessionFlowsThroughControlNodeObjects",
+        "tests/migrate/datawait_test.go:TestActionsWaitForTheValuesFlowingIntoThem"
       ],
-      "reason": "written `flow a.out to b.in` between the pins; a flow ending at an unmigrated action or a buffer is rerouted or unmapped (PSSM: 3849 approximated, 6414 unmapped of 11265)",
+      "reason": "an unguarded object flow is written as `succession flow of T from a.out to b.in`, which orders its ends and delivers the value when its source completes; a target several succession flows enter waits for all of them, and a source several leave is followed by each; a flow into a «stream» parameter stays a `flow`, as UML streams it; a flow whose end is an unmigrated action, the object `this`, or a node inside a structured activity node it enters from outside is still rerouted or unmapped under that node's mapping (PSSM: 1695 mapped, 3156 approximated, 6414 unmapped of 11265)",
       "scope": [
         "uml:ObjectFlow"
       ]

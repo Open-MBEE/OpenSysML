@@ -27,6 +27,9 @@ const (
 type ReadOnly struct {
 	Kind     ReadOnlyKind
 	Declared *symbols.Symbol
+	// ImpliedByEnd marks Declared as constant as an end that may vary in time,
+	// not by `constant` (SysML 2.0 §8.4.2.2).
+	ImpliedByEnd bool
 }
 
 // String names the restriction as its keyword.
@@ -58,6 +61,9 @@ func (m *Model) FeatureReadOnly(sym *symbols.Symbol) ReadOnly {
 		ro = ReadOnly{Kind: ReadOnlyDerived, Declared: declared}
 	} else if declared := m.constantDeclaration(sym, map[*symbols.Symbol]bool{}); declared != nil {
 		ro = ReadOnly{Kind: ReadOnlyConstant, Declared: declared}
+		if mods, ok := featureModifiers(declared); ok {
+			ro.ImpliedByEnd = !mods.Has(symbols.ModConstant)
+		}
 	}
 	if m.computingRedefinedFeatures == 0 {
 		journal(m, m.readOnly, sym, sym.Decl)
@@ -125,7 +131,7 @@ func (m *Model) constantDeclaration(sym *symbols.Symbol, seen map[*symbols.Symbo
 	if !ok {
 		return nil
 	}
-	if mods.Has(symbols.ModConstant) {
+	if mods.Has(symbols.ModConstant) || m.implicitlyConstantEnd(sym) {
 		return sym
 	}
 	if mods.Has(symbols.ModVariable) || seen[sym] {
@@ -168,11 +174,39 @@ func ReadOnlyViolation(text string, sym *symbols.Symbol, ro ReadOnly) string {
 	}
 	switch ro.Kind {
 	case ReadOnlyConstant:
+		if ro.ImpliedByEnd {
+			if ro.Declared == nil || ro.Declared == sym {
+				return fmt.Sprintf("%s is constant as an end feature: its value does not change over the lifetime of its featuring occurrence", text)
+			}
+			return fmt.Sprintf("%s is constant by end feature %s, which it redefines or subsets: its value does not change over the lifetime of its featuring occurrence", text, ownedFeatureText(ro.Declared))
+		}
 		return fmt.Sprintf("%s is constant%s: its value does not change over the lifetime of its featuring occurrence", text, by)
 	case ReadOnlyDerived:
 		return fmt.Sprintf("%s is derived%s: its values are determined by the model, not written", text, by)
 	}
 	return ""
+}
+
+// FeatureIsConstant derives Feature::isConstant: declared `constant`, or implied for an end that may vary in time.
+func (m *Model) FeatureIsConstant(sym *symbols.Symbol) bool {
+	if sym == nil {
+		return false
+	}
+	if mods, ok := featureModifiers(sym); ok && mods.Has(symbols.ModConstant) {
+		return true
+	}
+	return m.implicitlyConstantEnd(sym)
+}
+
+// implicitlyConstantEnd reports a SysML end usage that may vary in time, which is constant though `constant` is not notated (KerML 1.0 §8.3.3.3.4; SysML 2.0 §8.4.2.2).
+func (m *Model) implicitlyConstantEnd(sym *symbols.Symbol) bool {
+	if sym == nil || m.isKerMLDoc(sym) {
+		return false
+	}
+	if d, ok := sym.Decl.(*ast.Usage); ok {
+		return d.IsEnd && m.UsageMayTimeVary(sym)
+	}
+	return sym.Recorded() && sym.Facts.Modifiers.Has(symbols.ModEnd) && m.UsageMayTimeVary(sym)
 }
 
 // ownedFeatureText names a feature by its owner and its own name (`Base::x`).

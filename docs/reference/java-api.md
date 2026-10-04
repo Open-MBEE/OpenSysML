@@ -3,7 +3,7 @@
 This page covers what `org.openmbee:opensysml` exposes, what it deliberately keeps
 out of its public surface, and where it stops. To choose between the clients, see
 [client libraries](clients.md); for a task-oriented walkthrough, see
-[guide chapter 9](../guide/09-clients.md#from-java). The client's own notes on its
+the [Java client guide](../clients/java.md). The client's own notes on its
 dependency footprint, service ownership and release verification are in
 [client/java/README.md](../../client/java/README.md).
 

@@ -506,6 +506,29 @@ jobs:
       - install-solvers
       - download-corpora
 
+      # The metamodel table is generated from the pilot's SysML.ecore at the pin;
+      # a pin bump without regenerating it fails here.
+      - restore_cache:
+          keys:
+            - pilot-metamodel-v1-{{ checksum "scripts/download-pilot-metamodel.sh" }}-{{ checksum "scripts/pilot-pin.sh" }}
+
+      - run:
+          name: Download the pilot metamodel
+          command: ./scripts/download-pilot-metamodel.sh
+
+      - save_cache:
+          key: pilot-metamodel-v1-{{ checksum "scripts/download-pilot-metamodel.sh" }}-{{ checksum "scripts/pilot-pin.sh" }}
+          paths:
+            - build/pilot-metamodel
+
+      - run:
+          name: Check the metamodel table matches the pinned SysML.ecore
+          command: make ontology-table-check
+
+      - run:
+          name: Check generated Python metaclasses are current
+          command: make python-metamodel-check
+
       # The corpora gate alone, so its per-root verdict lines are legible in the
       # log and a skip cannot hide behind a green suite.
       - run:
@@ -993,7 +1016,7 @@ jobs:
           command: |
             make python-install
             # Pinned and wheel-only, as in .github/workflows/pr.yml.
-            pip install --only-binary :all: pytest==9.0.3 pytest-mock==3.15.1 psutil==7.2.2 pytest-cov==7.0.0 fmpy==0.3.32
+            pip install --only-binary :all: pytest==9.0.3 pytest-mock==3.15.1 psutil==7.2.2 pytest-cov==7.0.0 fmpy==0.3.32 mypy==2.4.0 types-protobuf==7.35.1.20260906 'pyright[nodejs]==1.1.414'
       
       # The integration tests connect to a service on the standard port with
       # auto_start=False, which is the explicit opt-in to one the client does not
@@ -1027,7 +1050,7 @@ jobs:
       # service is provided here, so its absence is the bug, not a pass.
       - run:
           name: Run Python client tests
-          command: OPENSYSML_REQUIRE_SERVICE=1 OPENSYSML_REQUIRE_REFERENCE_FMUS=1 make python-coverage
+          command: OPENSYSML_REQUIRE_SERVICE=1 OPENSYSML_REQUIRE_REFERENCE_FMUS=1 OPENSYSML_REQUIRE_TYPECHECKERS=1 make python-coverage
 
       # The repository scripts the Go static checks run are Python too; running
       # them and their tests under coverage here credits what those checks execute.
@@ -1430,6 +1453,10 @@ jobs:
     steps:
       - checkout
       - rehearsal-tag
+      # dist/grpc from build-release-binaries: the service binaries whose
+      # digests the distribution ships.
+      - attach_workspace:
+          at: .
 
       - run:
           name: Install build tooling
@@ -1457,6 +1484,22 @@ jobs:
             echo "export JAVA_VERSION=${JAVA_VERSION}" >> "$BASH_ENV"
             echo "export RUST_VERSION=${RUST_VERSION}" >> "$BASH_ENV"
             echo "Building opensysml ${VERSION} (pre-release: ${PRE_RELEASE}, npm ${NPM_VERSION}, maven ${JAVA_VERSION}, crates ${RUST_VERSION})"
+
+      # The committed table pins the releases that existed when it was last
+      # back-filled, never the one being cut, so the wheel would otherwise rely
+      # on the signed manifest (and the sigstore package at runtime) to install
+      # its own release. Hashing the binaries build-release-binaries produced
+      # pins this release in the table the distribution ships; the checkout's
+      # copy is left for the release's commit to back-fill, as it is today.
+      - run:
+          name: Stamp this release's service digests into the distribution
+          command: |
+            ls -l dist/grpc
+            python client/python/scripts/pin_release_checksums.py \
+              --version "${CIRCLE_TAG}" \
+              --from-binaries dist/grpc \
+              --table client/python/opensysml/release-digests.json
+            git diff --stat -- client/python/opensysml/release-digests.json
 
       - run:
           name: Build the wheel and the sdist
@@ -1490,6 +1533,72 @@ jobs:
                 f"installed wheel reports {opensysml.__version__}, expected {expected}"
             )
             print(f"opensysml {opensysml.__version__} imported from the built wheel")
+            EOF
+
+      # The crate job's assertion, for the wheel and the sdist: a distribution
+      # whose table lacks any of the five service assets for the tag, or pins a
+      # digest other than the one its binary hashes to, fails the job here. The
+      # installed wheel is asked too, through the lookup connect() makes.
+      - run:
+          name: Verify the distribution embeds this release's service digests
+          command: |
+            /tmp/verify-wheel/bin/python - "${CIRCLE_TAG}" client/python/dist/opensysml-*-py3-none-any.whl client/python/dist/opensysml-[0-9]*.tar.gz \<<'EOF'
+            import hashlib
+            import json
+            import os
+            import sys
+            import tarfile
+            import zipfile
+
+            from opensysml.binary import pinned_digest
+
+            tag, wheel_path, sdist_path = sys.argv[1:]
+            required = {
+                "sysml-grpc-darwin-amd64",
+                "sysml-grpc-darwin-arm64",
+                "sysml-grpc-linux-amd64",
+                "sysml-grpc-linux-arm64",
+                "sysml-grpc-windows-amd64.exe",
+            }
+            built = {}
+            for asset in sorted(required):
+                with open(os.path.join("dist", "grpc", asset), "rb") as f:
+                    built[asset] = hashlib.sha256(f.read()).hexdigest()
+
+            def check(what, table):
+                digests = table.get("Open-MBEE/OpenSysML", {}).get(tag, {})
+                missing = sorted(required - digests.keys())
+                if missing:
+                    raise SystemExit(
+                        f"Error: {what} has no complete digest pin for {tag}: "
+                        f"{', '.join(missing)}"
+                    )
+                wrong = sorted(a for a in required if digests[a] != built[a])
+                if wrong:
+                    raise SystemExit(
+                        f"Error: {what} pins a digest for {tag} other than the one "
+                        f"its binary hashes to: {', '.join(wrong)}"
+                    )
+                print(f"Verified {what} embeds all five service digests for {tag}.")
+
+            with zipfile.ZipFile(wheel_path) as wheel:
+                with wheel.open("opensysml/release-digests.json") as member:
+                    check("the wheel", json.load(member))
+            with tarfile.open(sdist_path, "r:gz") as sdist:
+                name = next(
+                    (n for n in sdist.getnames() if n.endswith("/opensysml/release-digests.json")),
+                    None,
+                )
+                if name is None:
+                    raise SystemExit("Error: the sdist has no opensysml/release-digests.json.")
+                with sdist.extractfile(name) as member:
+                    check("the sdist", json.load(member))
+            unpinned = sorted(a for a in required if pinned_digest(tag, a) != built[a])
+            if unpinned:
+                raise SystemExit(
+                    f"Error: the installed wheel does not pin {tag} for: {', '.join(unpinned)}"
+                )
+            print(f"Verified the installed wheel pins {tag} for every service asset.")
             EOF
 
       - store_artifacts:
@@ -1753,15 +1862,14 @@ jobs:
           path: packaging/pypi-pysysml/dist
           destination: pysysml-placeholder-dist
 
-  # Builds every binary the release ships, plus the Python distribution from
-  # build-python-package, so one signed manifest covers all of them.
-  build-release:
+  # Builds every binary a release publishes, so build-python-package can stamp
+  # the service digests into the distribution before build-release writes and
+  # signs the manifest that lists both.
+  build-release-binaries:
     executor: go-executor
     steps:
       - checkout
       - rehearsal-tag
-      - attach_workspace:
-          at: .
       - go/load-cache
       - go/mod-download
       - go/save-cache
@@ -1827,6 +1935,11 @@ jobs:
             
             GOOS=windows GOARCH=amd64 make build-grpc VERSION="$VERSION" COMMIT="$COMMIT" BUILD_TIME="$BUILD_TIME" GO_VERSION="$GO_VERSION"
             mv bin/sysml-grpc dist/grpc/sysml-grpc-windows-amd64.exe
+
+            # The Node client ships this combined WebAssembly module and matching Go runtime.
+            mkdir -p dist/wasm
+            make build-release-wasm VERSION="$VERSION" COMMIT="$COMMIT" BUILD_TIME="$BUILD_TIME" GO_VERSION="$GO_VERSION"
+            mv bin/wasm/release/sysml-wasm.wasm bin/wasm/release/wasm_exec.js dist/wasm/
             
             # Create tarballs
             cd dist
@@ -1859,6 +1972,85 @@ jobs:
             (cd stage/windows-amd64 && zip -q ../../opensysml-windows-amd64.zip sysml.exe sysml-lsp.exe)
             rm -rf stage
             
+            # The checksum manifest and the per-file sidecars are
+            # build-release's, once the Python distribution exists to list.
+            ls -l . grpc
+
+      # A Linux binary linked against this executor's glibc would not start on
+      # older distributions; the Makefile builds without cgo, and this proves it.
+      - run:
+          name: Verify the Linux binaries are statically linked
+          command: |
+            scripts/check-static-binaries.sh \
+              dist/sysml-linux-amd64 dist/sysml-linux-arm64 \
+              dist/sysml-lsp-linux-amd64 dist/sysml-lsp-linux-arm64 \
+              dist/grpc/sysml-grpc-linux-amd64 dist/grpc/sysml-grpc-linux-arm64
+
+      # A binary whose version disagrees with its tag looks identical on the
+      # release page. The host-platform builds are asked what they report; the
+      # cross-compiled ones cannot run here, so they are checked for the version
+      # string the ldflags should have written into them.
+      - run:
+          name: Verify the built binaries report the tag
+          command: |
+            if [ -z "${CIRCLE_TAG}" ]; then
+              echo "Error: CIRCLE_TAG is empty; this job only runs on a tag"
+              exit 1
+            fi
+            status=0
+            fail() {
+              echo "Error: $1 does not carry the tag ${CIRCLE_TAG} it is being"
+              echo "released as: $2. The version ldflags (see the Makefile's"
+              echo "LDFLAGS) did not reach this build; nothing was published."
+              status=1
+            }
+            for binary in dist/sysml-linux-amd64 dist/sysml-lsp-linux-amd64 \
+                          dist/grpc/sysml-grpc-linux-amd64; do
+              reported="$("$binary" --version 2>&1 | head -n 1)"
+              case " $reported " in
+                *" ${CIRCLE_TAG} "*) echo "ok: $binary reports ${CIRCLE_TAG}" ;;
+                *) fail "$binary" "it reports '${reported}'" ;;
+              esac
+            done
+            for binary in dist/sysml-* dist/grpc/sysml-grpc-* dist/wasm/sysml-wasm.wasm; do
+              case "$binary" in
+                *.tar.gz|*.zip|*.sha256) continue ;;
+                dist/sysml-linux-amd64|dist/sysml-lsp-linux-amd64) continue ;;
+                dist/grpc/sysml-grpc-linux-amd64) continue ;;
+              esac
+              if grep -qa -- "${CIRCLE_TAG}" "$binary"; then
+                echo "ok: $binary carries ${CIRCLE_TAG}"
+              else
+                fail "$binary" "the version string is absent from the binary"
+              fi
+            done
+            exit $status
+
+      - persist_to_workspace:
+          root: .
+          paths:
+            - dist
+
+  # Assembles the release from the binaries and the Python distribution the
+  # upstream jobs built, writes the one checksum manifest covering both, and
+  # signs it. Nothing is rebuilt here: the bytes hashed, signed and published
+  # are the bytes those jobs verified.
+  build-release:
+    executor: go-executor
+    steps:
+      - checkout
+      - rehearsal-tag
+      - attach_workspace:
+          at: .
+      - go/load-cache
+      - go/mod-download
+      - go/save-cache
+
+      - run:
+          name: Assemble the release and write its checksum manifest
+          command: |
+            cd dist
+            
             # The opensysml wheel and sdist, released with the binaries they drive.
             cp ../client/python/dist/opensysml-*.whl ../client/python/dist/opensysml-*.tar.gz .
             
@@ -1870,17 +2062,41 @@ jobs:
             # the only checksum opensysml reads.
             (cd grpc && sha256sum sysml-grpc-* >> ../SHA256SUMS.txt)
             (cd grpc && for f in sysml-grpc-*; do sha256sum "$f" > "$f.sha256"; done)
+            (cd wasm && sha256sum sysml-wasm.wasm wasm_exec.js >> ../SHA256SUMS.txt)
+            (cd wasm && for f in sysml-wasm.wasm wasm_exec.js; do sha256sum "$f" > "$f.sha256"; done)
             cat SHA256SUMS.txt
 
-      # A Linux binary linked against this executor's glibc would not start on
-      # older distributions; the Makefile builds without cgo, and this proves it.
+      # The distribution was stamped from the binaries before the manifest
+      # existed; this proves the manifest about to be signed lists the digests
+      # it pins, so the wheel vouches for exactly the binaries released with it.
       - run:
-          name: Verify the Linux binaries are statically linked
+          name: Verify the Python distribution pins the service digests the manifest lists
           command: |
-            scripts/check-static-binaries.sh \
-              dist/sysml-linux-amd64 dist/sysml-linux-arm64 \
-              dist/sysml-lsp-linux-amd64 dist/sysml-lsp-linux-arm64 \
-              dist/grpc/sysml-grpc-linux-amd64 dist/grpc/sysml-grpc-linux-arm64
+            python3 - "${CIRCLE_TAG}" dist/SHA256SUMS.txt dist/opensysml-*-py3-none-any.whl \<<'EOF'
+            import json
+            import sys
+            import zipfile
+
+            tag, manifest_path, wheel_path = sys.argv[1:]
+            listed = {}
+            with open(manifest_path, encoding="utf-8") as manifest:
+                for line in manifest:
+                    fields = line.split()
+                    if len(fields) != 2 or not fields[1].startswith("sysml-grpc-"):
+                        continue
+                    if not fields[1].endswith(".sha256"):
+                        listed[fields[1]] = fields[0]
+            with zipfile.ZipFile(wheel_path) as wheel:
+                with wheel.open("opensysml/release-digests.json") as member:
+                    pinned = json.load(member).get("Open-MBEE/OpenSysML", {}).get(tag, {})
+            if len(listed) != 5 or pinned != listed:
+                raise SystemExit(
+                    f"Error: the wheel pins {json.dumps(pinned, indent=2, sort_keys=True)} "
+                    f"for {tag}, but the manifest lists "
+                    f"{json.dumps(listed, indent=2, sort_keys=True)}; nothing was signed."
+                )
+            print(f"Verified the wheel pins the five service digests the manifest lists for {tag}.")
+            EOF
 
       - unless:
           condition: << pipeline.parameters.release_rehearsal >>
@@ -1948,7 +2164,7 @@ jobs:
                 command: |
                   export PATH="$(go env GOPATH)/bin:$PATH"
                   cd dist
-                  for artifact in opensysml-linux-amd64.tar.gz grpc/sysml-grpc-linux-amd64 opensysml-*-py3-none-any.whl; do
+                  for artifact in opensysml-linux-amd64.tar.gz grpc/sysml-grpc-linux-amd64 wasm/sysml-wasm.wasm opensysml-*-py3-none-any.whl; do
                     cosign verify-blob-attestation "$artifact" \
                       --bundle provenance.intoto.json.bundle \
                       --type slsaprovenance1 \
@@ -1964,12 +2180,8 @@ jobs:
       
       - rehearsal-skip:
           what: "cosign keyless signing and attestation (they write to the public Rekor log)"
-      # An artifact whose version disagrees with its tag looks identical on the
-      # release page. The host-platform builds are asked what they report; the
-      # cross-compiled ones cannot run here, so they are checked for the version
-      # string the ldflags should have written into them.
       - run:
-          name: Verify the built artifacts report the tag
+          name: Verify the release carries the tag's Python distribution
           command: |
             if [ -z "${CIRCLE_TAG}" ]; then
               echo "Error: CIRCLE_TAG is empty; this job only runs on a tag"
@@ -1977,31 +2189,10 @@ jobs:
             fi
             status=0
             fail() {
-              echo "Error: $1 does not carry the tag ${CIRCLE_TAG} it is being"
-              echo "released as: $2. The version ldflags (see the Makefile's"
-              echo "LDFLAGS) did not reach this build; nothing was published."
+              echo "Error: $1 is not the distribution for the tag ${CIRCLE_TAG} it is"
+              echo "being released as: $2. Nothing was published."
               status=1
             }
-            for binary in dist/sysml-linux-amd64 dist/sysml-lsp-linux-amd64 \
-                          dist/grpc/sysml-grpc-linux-amd64; do
-              reported="$("$binary" --version 2>&1 | head -n 1)"
-              case " $reported " in
-                *" ${CIRCLE_TAG} "*) echo "ok: $binary reports ${CIRCLE_TAG}" ;;
-                *) fail "$binary" "it reports '${reported}'" ;;
-              esac
-            done
-            for binary in dist/sysml-* dist/grpc/sysml-grpc-*; do
-              case "$binary" in
-                *.tar.gz|*.zip|*.sha256) continue ;;
-                dist/sysml-linux-amd64|dist/sysml-lsp-linux-amd64) continue ;;
-                dist/grpc/sysml-grpc-linux-amd64) continue ;;
-              esac
-              if grep -qa -- "${CIRCLE_TAG}" "$binary"; then
-                echo "ok: $binary carries ${CIRCLE_TAG}"
-              else
-                fail "$binary" "the version string is absent from the binary"
-              fi
-            done
             # build-python-package named the Python distribution after the tag's
             # version (SemVer 'v0.9.0-rc1' is PEP 440 '0.9.0rc1'); one of each is due.
             # The sdist is the one opensysml-*.tar.gz whose name continues with a digit;
@@ -2021,11 +2212,27 @@ jobs:
       - store_artifacts:
           path: dist/
           destination: release-binaries
-      
+
+      # Workspace layers are additive and a path persisted by two upstream jobs
+      # fails the downstream attach, so only what this job wrote is persisted:
+      # the binaries and archives stay in build-release-binaries' layer.
       - persist_to_workspace:
           root: .
           paths:
-            - dist
+            - dist/SHA256SUMS.txt
+            - dist/grpc/*.sha256
+            - dist/wasm/*.sha256
+            - dist/opensysml-*-py3-none-any.whl
+            - dist/opensysml-[0-9]*.tar.gz
+      - unless:
+          condition: << pipeline.parameters.release_rehearsal >>
+          steps:
+            - persist_to_workspace:
+                root: .
+                paths:
+                  - dist/SHA256SUMS.txt.bundle
+                  - dist/provenance.intoto.json
+                  - dist/provenance.intoto.json.bundle
 
   # Publishes @openmbee/opensysml and its five per-platform packages from the
   # core `v<version>` tag, carrying the sysml-grpc binaries build-release
@@ -2074,6 +2281,8 @@ jobs:
             echo "Publishing ${version} to the '${dist_tag}' dist-tag"
             # Proves the workspace carries the release binaries and sidecars.
             ls -l dist/grpc/sysml-grpc-*
+            ls -l dist/wasm/sysml-wasm.wasm dist/wasm/wasm_exec.js \
+              dist/wasm/sysml-wasm.wasm.sha256 dist/wasm/wasm_exec.js.sha256
 
       - run:
           name: Require the publishing token
@@ -2091,17 +2300,19 @@ jobs:
           name: Refuse a version already on the registry
           command: |
             # The package names come from package.json, not a literal list:
-            # the client itself plus the optionalDependencies that carry the
-            # platform binaries. Anything but six means the manifest drifted.
+            # the client, platform binaries and optional WASM peer. Anything
+            # but seven means the manifest drifted.
             names=$(node -e "
               const pkg = require('./client/node/package.json');
               const platforms = Object.keys(pkg.optionalDependencies || {})
                 .filter(n => n.startsWith(pkg.name + '-sysml-grpc-'));
-              console.log([pkg.name, ...platforms].join('\n'));
+              const wasm = Object.keys(pkg.peerDependencies || {})
+                .filter(n => n.startsWith(pkg.name + '-wasm'));
+              console.log([pkg.name, ...platforms, ...wasm].join('\n'));
             ")
             count=$(echo "$names" | wc -l)
-            if [ "$count" -ne 6 ]; then
-              echo "Error: expected 6 packages to publish (client + 5 platform),"
+            if [ "$count" -ne 7 ]; then
+              echo "Error: expected 7 packages to publish (client + 5 platform + WASM),"
               echo "package.json yields $count:"
               echo "$names"
               exit 1
@@ -2127,12 +2338,12 @@ jobs:
             npm test
 
       - run:
-          name: Build the per-platform packages
+          name: Build the platform and WASM packages
           command: |
             # These are build-release's bytes; the generator checks each one
             # against its .sha256 sidecar before packaging it.
             cd client/node
-            npm run platform-packages -- --binaries ../../dist/grpc
+            npm run platform-packages -- --binaries ../../dist/grpc --wasm ../../dist/wasm
 
       - run:
           name: Authenticate to npm
@@ -2147,8 +2358,9 @@ jobs:
             # No --provenance: the npm CLI only mints attestations on GitHub Actions and
             # GitLab CI/CD, and it fails rather than publish unattested when asked here.
             - run:
-                name: Publish the per-platform packages
+                name: Publish the WASM and per-platform packages
                 command: |
+                  npm publish client/node/packages/sysml-wasm --access public --tag "$NPM_DIST_TAG"
                   for directory in client/node/packages/sysml-grpc-*; do
                     npm publish "$directory" --access public --tag "$NPM_DIST_TAG"
                   done
@@ -2164,6 +2376,7 @@ jobs:
             - run:
                 name: "REHEARSAL: pack every package"
                 command: |
+                  npm pack client/node/packages/sysml-wasm --dry-run
                   for directory in client/node/packages/sysml-grpc-*; do
                     npm pack "$directory" --dry-run
                   done
@@ -2497,6 +2710,7 @@ jobs:
                   # The opensysml wheel, the same bytes publish-pypi uploads.
                   mv dist/*.whl dist/release/
                   mv dist/grpc/* dist/release/
+                  mv dist/wasm/* dist/release/
                   mv dist/SHA256SUMS.txt dist/release/
                   # The signature over that manifest, which the Python client verifies
                   # before it trusts a digest from it.
@@ -2532,6 +2746,7 @@ jobs:
                 name: "REHEARSAL: check the release assets and the GitHub token"
                 command: |
                   ls dist/SHA256SUMS.txt > /dev/null
+                  ls dist/wasm/sysml-wasm.wasm dist/wasm/wasm_exec.js > /dev/null
                   set -- dist/opensysml-*-py3-none-any.whl
                   if [ ! -f "$1" ] || [ $# -ne 1 ]; then
                     echo "Error: expected exactly one dist/opensysml-*-py3-none-any.whl"
@@ -2674,20 +2889,25 @@ workflows:
           requires: *go-suite
           filters: *release-tags
 
-      # Fails the release before anything is built when the tag does not name
-      # the version client/python/opensysml/_version.py declares.
-      - build-python-package:
-          name: Build Python distribution
+      - build-release-binaries:
+          name: Build release binaries
           requires: *go-suite
           filters: *release-tags
 
+      # Fails the release when the tag does not name the version
+      # client/python/opensysml/_version.py declares. Runs after the binaries
+      # so their digests can be stamped into the distribution it builds.
+      - build-python-package:
+          name: Build Python distribution
+          requires:
+            - Build release binaries
+          filters: *release-tags
+
+      # Writes and signs the one manifest over the binaries and the distribution.
       - build-release:
           name: Build release artifacts
           requires:
-            - Go static checks
-            - Go race tests
-            - Go coverage profile
-            - Go gates and binaries
+            - Build release binaries
             - Build Python distribution
           filters: *release-tags
 

@@ -1,5 +1,11 @@
-# 9. From your own program — moved
+# Python client — moved
 
-This chapter covers all five clients, so it is now
-[09-clients.md](09-clients.md). The Python client's own section is
-[From Python](09-clients.md#from-python).
+The Python client guide now lives at
+[The Python client](../clients/python/index.md), with task pages for
+[models and symbols](../clients/python/models.md),
+[instances and values](../clients/python/instances.md),
+[verification and analysis](../clients/python/verification.md),
+[editing and saving](../clients/python/editing-and-saving.md),
+[queries and documents](../clients/python/queries.md),
+[errors](../clients/python/errors.md), and
+[the service](../clients/python/service.md).

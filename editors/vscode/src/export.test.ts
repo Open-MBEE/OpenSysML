@@ -71,13 +71,18 @@ test("serverStyles takes the drawing styles the server advertises, none from a s
   assert.deepEqual(serverStyles({ [RENDER_STYLES_CAPABILITY]: ["cameo", 3] }), []);
 });
 
-test("an export asks the server for the drawing style the panel draws in, and for none under the other looks", async () => {
+test("an export asks the server for the drawing style and source links, and omits an absent style", async () => {
   const styled = new FakeHost("dot", echoForm);
-  await exportRendering(styled, { uri: "file:///ws/kit.sysml", documentName: "kit.sysml", view: "", forms: ["dot"], style: "cameo" });
+  await exportRendering(styled, {
+    uri: "file:///ws/kit.sysml", documentName: "kit.sysml", view: "", forms: ["dot"], style: "cameo",
+    linkTemplate: "vscode://file/{file}:{line}:{col}",
+  });
   assert.equal(styled.requests[0].style, "cameo");
+  assert.equal(styled.requests[0].linkTemplate, "vscode://file/{file}:{line}:{col}");
   const plain = new FakeHost("dot", echoForm);
   await exportRendering(plain, { uri: "file:///ws/kit.sysml", documentName: "kit.sysml", view: "", forms: ["dot"] });
   assert.equal(plain.requests[0].style, undefined);
+  assert.equal(plain.requests[0].linkTemplate, undefined);
 });
 
 test("serverForms takes the forms the server advertises, else the documented five", () => {

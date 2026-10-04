@@ -56,7 +56,7 @@ func Literal(c Cell, class Class, enum string) (string, error) {
 	case ClassString:
 		text = source.StringText(raw)
 	case ClassBoolean:
-		if c.Kind != KindText && c.Kind != KindBoolean {
+		if c.Kind == KindNumber {
 			return "", fmt.Errorf("%s is not a boolean", c.Text)
 		}
 		switch strings.ToLower(c.Text) {
@@ -68,7 +68,7 @@ func Literal(c Cell, class Class, enum string) (string, error) {
 			return "", fmt.Errorf("%s is not a boolean", c.Text)
 		}
 	case ClassInteger:
-		if (c.Kind != KindText && c.Kind != KindNumber) || !integerText.MatchString(c.Text) {
+		if c.Kind == KindBoolean || !integerText.MatchString(c.Text) {
 			return "", fmt.Errorf("%s is not an integer", c.Text)
 		}
 		text = strings.TrimPrefix(c.Text, "+")
@@ -119,7 +119,7 @@ func inferred(c Cell) Class {
 }
 
 func realLiteral(c Cell) (string, error) {
-	if c.Kind != KindText && c.Kind != KindNumber {
+	if c.Kind == KindBoolean {
 		return "", fmt.Errorf("%s is not a number", c.Text)
 	}
 	f, err := strconv.ParseFloat(c.Text, 64)

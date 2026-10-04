@@ -63,10 +63,11 @@ from opensysml.errors import (
     ReferencedElsewhereError, Referrer,
     InstanceTypeError, InvalidRequestError, ManifestSignatureError, ModelError,
     ModelFileNotFoundError, ModelNotFoundError, ServiceError,
-    ServiceTimeoutError, StaleServiceError, SymbolNotFoundError,
+    ServiceTimeoutError, SigstoreUnavailableError, StaleServiceError, SymbolNotFoundError,
     TypeMismatchError, UnpinnedReleaseError, UnsignedReleaseError,
     UnsupportedOperationError, UnsupportedValueError, WrongKindError,
 )
+from opensysml.metamodel import read_json
 
 __all__ = [
     "Connection", "Model", "Symbol", "Diagnostic", "EnumLiteral", "Instance",
@@ -101,12 +102,12 @@ __all__ = [
     "CAPABILITY_CONSTRAINT_BODY_AUTHORING", "CAPABILITY_STATE_ACTION_AUTHORING",
     "CAPABILITY_BIG_INT_VALUES",
     "ModelError", "ModelFileNotFoundError", "ModelNotFoundError",
-    "ServiceError", "ServiceTimeoutError", "StaleServiceError",
+    "ServiceError", "ServiceTimeoutError", "SigstoreUnavailableError", "StaleServiceError",
     "SymbolNotFoundError",
     "TypeMismatchError", "UnpinnedReleaseError", "UnsignedReleaseError",
     "UnsupportedOperationError", "UnsupportedValueError",
     "WrongKindError",
-    "load", "loads", "parse_sources", "connect", "convert", "migrate",
+    "load", "loads", "parse_sources", "connect", "convert", "migrate", "read_json",
     # "eval" is deprecated in favour of "evaluate", so it is not exported.
     "evaluate", "instantiate",
     "DEFAULT_PORT", "split_target",

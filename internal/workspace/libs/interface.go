@@ -202,6 +202,9 @@ func (w *interfaceWriter) facts(sym *symbols.Symbol) symbols.LibraryFacts {
 	}
 	facts.Direction, facts.Modifiers = declaredTraits(sym.Decl)
 	facts.Modifiers |= w.r.DeclarationTraits(sym)
+	if m.UsageMayTimeVary(sym) {
+		facts.Modifiers |= symbols.ModMayTimeVary
+	}
 	facts.Node = symbols.NodeKindOf(sym.Decl)
 	facts.Keyword = sym.Keyword()
 	facts.Notation = sym.Notation()
@@ -283,8 +286,16 @@ func declaredTraits(decl ast.Node) (ast.FeatureDirection, symbols.Modifiers) {
 		set(d.IsEvent, symbols.ModEvent)
 		return d.Direction, mods
 	case *ast.CrossFeatureMember:
+		set(d.IsDerived, symbols.ModDerived)
 		set(true, symbols.ModEnd)
-		return ast.DirNone, mods
+		set(d.IsReference, symbols.ModReference)
+		set(d.IsComposite, symbols.ModComposite)
+		set(d.IsPortion, symbols.ModPortion)
+		set(d.IsConstant, symbols.ModConstant)
+		set(d.IsVariable, symbols.ModVariable)
+		set(d.IsOrdered, symbols.ModOrdered)
+		set(d.IsNonunique, symbols.ModNonunique)
+		return d.Direction, mods
 	case *ast.ConnectorEnd:
 		set(true, symbols.ModEnd)
 		return ast.DirNone, mods

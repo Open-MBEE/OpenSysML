@@ -22,6 +22,8 @@ theme:
   # shipped partial minus tab-mode hiding of inactive top-level items); every
   # documentation page is otherwise the theme as shipped.
   custom_dir: overrides
+  logo: assets/opensysml-mark-white.png
+  favicon: assets/favicon.png
   features:
     - navigation.instant
     - navigation.tracking
@@ -52,6 +54,7 @@ theme:
 
 extra_css:
   - stylesheets/footer.css
+  - stylesheets/header.css
   - stylesheets/ecosystem.css
 
 extra:
@@ -69,8 +72,23 @@ plugins:
   # URL, and the pointer file left at the old path answers the links GitHub serves.
   - redirects:
       redirect_maps:
-        guide/09-python.md: guide/09-clients.md
+        guide/09-python.md: clients/python/index.md
         ecosystem.md: README.md
+  - mkdocstrings:
+      handlers:
+        python:
+          paths: [client/python]
+          options:
+            docstring_style: google
+            docstring_options:
+              warn_missing_types: false
+            extensions: [scripts/griffe_sphinx_roles.py]
+            show_source: false
+            members_order: source
+            filters: ["!^_"]
+            show_root_heading: true
+            show_signature_annotations: true
+            separate_signature: true
 
 not_in_nav: |
   guide/09-python.md
@@ -191,7 +209,24 @@ nav:
   - Home: README.md
   - CLI: cli.md
   - Documentation: documentation.md
-  - Clients: clients.md
+  - Clients:
+      - clients.md
+      - Python:
+          - clients/python/index.md
+          - Models and symbols: clients/python/models.md
+          - Instances and values: clients/python/instances.md
+          - Verification and analysis: clients/python/verification.md
+          - Editing and saving: clients/python/editing-and-saving.md
+          - Queries and documents: clients/python/queries.md
+          - Errors: clients/python/errors.md
+          - The service: clients/python/service.md
+          - Typed classes: clients/python/typed-classes.md
+          - Metamodel classes and JSON: clients/python/metamodel.md
+      - Node: clients/node.md
+      - Java: clients/java.md
+      - Rust: clients/rust.md
+      - Julia: clients/julia.md
+      - MATLAB: clients/matlab.md
   - Community: community.md
   - Downloads: downloads.md
   - Guide:

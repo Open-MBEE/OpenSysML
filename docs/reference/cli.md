@@ -245,6 +245,7 @@ the same member-path parser as `Project` and `OrderBy`.
 | `--render-all <dir>` | | Render every declared view into the directory, one artifact per view |
 | `--render-form <form>` | | Form `--render` or `--render-all` writes: `text`, `mermaid`, `markdown`, `dot`, `plantuml`, `csv` or `tsv` (default: destination-dependent for `--render`, each kind's machine-readable form for `--render-all`) |
 | `--render-palette <name>` | | Palette the `dot`, `mermaid` or `plantuml` form of `--render` or `--render-all` fills nodes with, by keyword family: `okabe-ito`, `tol-bright`, `tol-muted`, `tol-light`, `brewer-set2`, `brewer-dark2`, `viridis` or `cividis`; black and white when absent. Mermaid sequence diagrams cannot fill individual participants; text and Markdown ignore palettes. An unknown name is refused with the names there are (see [Rendering a view](#rendering-a-view)) |
+| `--render-link <template>` | | Link nodes and edges back to their source in rendered diagrams. Templates accept `{file}`, `{line}`, `{col}`, `{qname}` and `{id}`; `{file}` is the path as loaded, so pass absolute paths for `vscode://` or `file://` links. Applies to `--render`, `--render-all` and document diagrams; without one of those render targets it is refused |
 | `--render-style <style>` | | Drawing style the `dot` or `mermaid` form of `--render`, `--render-all`, `--render-document` and `--render-documents` draws in: `pilot` (the default), the Pilot visualizer's Standard B&W, or `cameo`, the look of Cameo Systems Modeler — a diagram frame with a header tab, 11 pt Arial, gradient fills in Cameo's colours, a state's `do / Activity` compartment and the UML pseudo-state symbols. Mermaid draws supported Cameo details but flattens gradients and omits the frame and header tab; unsupported details are noted. PlantUML notes the style as not represented; text and Markdown ignore it. An unknown name is refused with the two there are; without something to render it is refused likewise (see [Rendering a view](#rendering-a-view)) |
 | `--render-ports <display>` | | How much of a part's ports the interconnection of `--render` or `--render-all` draws: `minimal` (the default), the ports its connectors end at, each a small square on the part's border named beside it, or `full`, every port a part has, labelled `name : Type`. An unknown name is refused with the two there are |
 | `--render-unplaced <placement>` | | Where a graph form of a view some `DiagramLayout::Layout` positions puts the nodes none does: `omit` (the default) leaves them, and the edges at them, undrawn in every form, so the `mermaid`, `dot` and `plantuml` forms draw one node set; `strip` draws them too, in rows below the `dot` drawing, clear of the canvas and every positioned box, and among the placed nodes in the forms that lay nodes out themselves. Applies to `--render`, `--render-all` and the diagrams of `--render-document` and `--render-documents`; a view with no positioned node is laid out as before whichever is named. An unknown placement is refused with the placements there are (see [Rendering a view](#rendering-a-view)) |
@@ -272,7 +273,7 @@ the same member-path parser as `Project` and `OrderBy`.
 | `--help` | `-h` | Show usage information |
 | `--man` | | Write this command's manual page, in roff, to stdout (see [Installing](../guide/01-install.md)) |
 
-Check flags, each repeatable. `-instantiate` runs first whatever order the flags are
+Check flags may be combined. `-instantiate` runs first whatever order the flags are
 written in, so the verdicts are about that object:
 
 | Flag | Checks |
@@ -280,6 +281,7 @@ written in, so the verdicts are about that object:
 | `-validate` | Only that the model analyses cleanly and that the objects `-instantiate` asked for could be built; it says nothing about the model's constraints |
 | `-validate=<object>` | Every assertion about an object `-instantiate` created and the objects it holds, as `%validate` does: each `assert constraint` the carrier's type declares or inherits, each requirement usage it carries and each `satisfy` assertion whose subject is in the tree, one verdict per assertion per object, root first and then each held object as the walk reaches it (`Fleet::car.wheels[2]`), then one verdict about the object as a whole — valid only when every assertion holds and every held object was reached, so an assertion that could not be evaluated or a walk cut short by an object graph without end leaves it undecided rather than valid, as does an object no assertion is about (`states no assertion to validate`, exit status 2). The object is named as `%validate` names it: the usage's name, a feature path to a part it holds (`Fleet::car.engine`), or the id the report prints (`#2`). A constraint declared without `assert` is not swept; name it with `-constraint`. Repeatable; `-validate=false` asks for nothing and withdraws a bare `-validate` written before it, as `-satisfy=false` does |
 | `-constraint <name>` | One constraint, as `%constraint` does |
+| `-self-check` | Applies the 13 constraints in the OpenSysML `SysMLValidation` library to each reflectively classified element in the workspace. A false result or evaluation error fails; a reflective feature not derived is counted as unevaluated, not as a failure. Runs only after the model analyses cleanly |
 | `-requirement <name>` | One requirement, as `%requirement` does, with [the verdict of every verification case](#verification-case-verdicts) verifying it beside its own |
 | `-satisfy` | Every satisfaction assertion the model states, with [the verdict of every verification case](#verification-case-verdicts) verifying the requirement beside each |
 | `-satisfy=<name>` | Only the assertions the named element states (`-satisfy=false` asks for none) |
@@ -291,8 +293,8 @@ written in, so the verdicts are about that object:
 | `-record-into <package>` | Records the `-record-run` runs into the package named instead of a `Records` package beside the case's; refused without `-record-run` |
 | `-import <file>` | Sets the feature values a CSV, TSV, JSON or JSON Lines file assigns: an `element` column names each element and every other column one of its features, with a unit as `mass [kg]`. Composes with `-convert sysml -o`, which writes the imported model; the source file is not changed. An empty cell leaves a value as it was; a row, value or unit the model refuses imports nothing. Repeatable. See [Importing data](#importing-data) |
 | `-import-as values` | What `-import` makes of each row; `values`, the default, is the only shape so far |
-| `-import-map <file>` | A JSON mapping file naming the column or JSON Pointer path each element and feature comes from, with units and value types |
-| `-import-format <format>` | Reads the `-import` files as `csv`, `tsv`, `json` or `jsonl` rather than as their extension says |
+| `-import-map <file>` | A JSON mapping file naming the column or JSON Pointer path each element and feature comes from, with units and value types; it applies to the `-import` before it |
+| `-import-format <format>` | Reads the `-import` before it as `csv`, `tsv`, `json` or `jsonl` rather than as its extension says |
 | `-import-dry-run` | Reports the values `-import` would set and changes and writes nothing |
 | `-run-query "<name> [<p>=<expr>...]"` | Executes a document query and reports its rows, as `%run-query` does — including any computed `Column` using `expression`, `cell`, or `path` and relationship-derived `RelatedColumn(...)` projections evaluated per row — a `Column` expression may be a feature chain (`stat.runs`, `'Monte Carlo'.runs`) reading a feature of a member nested in the row element, as may a `properties`/`property` string. Each binding is written as `<parameter>=<expression>`; a name binds the object `-instantiate` created under it while the run holds one (`#2` and `car.wheels[2]` bind an object by id and by path), and the element otherwise. A query over `Verdicts` reports each row as `<assertion> on <path>: <verdict>` ([Which constraints and requirements hold](../manual/query-cookbook.md#which-constraints-and-requirements-hold)). The queries run after `-state`, `-action` and `-advance` have run, so `States`, `InState` and `Events` read where the run left the objects and, with `-trace`, what it recorded — a state row as `<object>.<machine> in <statePath>`, an event row as `t=<instant> <object>.<machine>: <text>` ([Where the objects stand and what they did](../manual/query-cookbook.md#where-the-objects-stand-and-what-they-did)) |
 | `-action "<name> [object]"` | Runs an action to completion and reports its outputs, on the object named as `-state` names its performer when one is; under `-schedule explore` each run performs it on an object of its own ([Objects an exploration runs on](#objects-an-exploration-runs-on)) |
@@ -506,6 +508,10 @@ sysml model.sysml -render Views::vehicleView -render-form dot -render-unplaced s
 sysml model.sysml -render Views::vehicleView -render-form plantuml -o view.puml
 sysml model.sysml -render Views::handshake -render-form plantuml -render-palette tol-bright -o handshake.puml
 
+# Link diagram elements to the declarations' source locations
+sysml /absolute/path/model.sysml -render Views::vehicleView -render-form dot \
+  -render-link 'vscode://file/{file}:{line}:{col}' -o view.dot
+
 # A table as comma- or tab-separated values, for a spreadsheet or a script
 sysml model.sysml -render Views::partsTable -render-form csv -o parts.csv
 sysml model.sysml -render Views::partsTable -render-form tsv | cut -f1,3
@@ -702,6 +708,24 @@ sequence participants take their family fill; Mermaid accepts a sequence palette
 cannot fill individual participants. Text and Markdown ignore palettes. A name that is no palette is refused with
 status 2 and the names there are; `-render-palette` without `-render` or `-render-all` is refused
 likewise.
+
+`-render-link <template>` gives linkable diagram nodes and edges URLs to their source. A template
+may contain `{file}`, `{line}`, `{col}`, `{qname}` and `{id}`. Substituted values are UTF-8
+percent-encoded; URL delimiters written literally in the template remain literal. `{file}` is the
+path as loaded, not a path resolved against the rendering's output directory: use absolute input
+paths when a link must work outside the process's working directory. Synthetic origins, missed
+source locations and bundled library declarations are left unlinked. DOT writes `URL` and
+`tooltip` attributes; PlantUML writes `[[url]]` on nodes and edges (not ports or initial
+pseudostate arrows); Mermaid writes `click` statements for non-composite flowchart and simple state
+nodes and `link` statements for sequence participants, but not edges, subgraphs or composite
+states. The pinned Mermaid CLI 11.16.0 defaults to `securityLevel: strict`, which strips links
+with non-HTTP(S) schemes, including `vscode://` and `file:///`. It rewrites sequence hrefs under
+both `strict` and `loose`: `https://example.com/c%5D%22%23#L3` becomes
+`https://example.com/c]%22#`, losing its fragment. `{"securityLevel":"loose"}` preserves those
+schemes, but not the URL rewriting or fragment loss. In document
+output, source links are supported for diagram elements; HTML does not create element-anchored
+sections. The option requires `-render`, `-render-all`,
+`-render-document` or `-render-documents`.
 
 `-render-style <style>` names the look the DOT and Mermaid forms draw in. `pilot`, the default, is the Pilot
 visualizer's Standard B&W above; `cameo` is the look of Cameo Systems Modeler, for a diagram

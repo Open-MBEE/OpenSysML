@@ -1,8 +1,8 @@
-// Builds the per-platform npm packages that carry the sysml-grpc binary, from
-// the release binaries the CI release job produces. Publishes nothing.
+// Builds the per-platform sysml-grpc packages and optional WASM asset package
+// from the release binaries the CI release job produces. Publishes nothing.
 //
-// Usage: node scripts/build-platform-packages.mjs --binaries <dir> [--version X.Y.Z] [--out <dir>]
-// <dir> holds the release assets: sysml-grpc-<goos>-<goarch>[.exe] with .sha256 sidecars.
+// Usage: node scripts/build-platform-packages.mjs --binaries <dir> [--wasm <dir>] [--version X.Y.Z] [--out <dir>]
+// The directories hold release assets with .sha256 sidecars.
 
 import { createHash } from "node:crypto";
 import {
@@ -30,7 +30,12 @@ const PLATFORMS = [
 ];
 
 function parseArgs(argv) {
-  const args = { binaries: undefined, out: join(clientRoot, "packages"), version: undefined };
+  const args = {
+    binaries: undefined,
+    wasm: undefined,
+    out: join(clientRoot, "packages"),
+    version: undefined,
+  };
   for (let index = 0; index < argv.length; index += 2) {
     const flag = argv[index];
     const value = argv[index + 1];
@@ -38,6 +43,7 @@ function parseArgs(argv) {
       fail(`${flag} needs a value`);
     }
     if (flag === "--binaries") args.binaries = resolve(value);
+    else if (flag === "--wasm") args.wasm = resolve(value);
     else if (flag === "--out") args.out = resolve(value);
     else if (flag === "--version") args.version = value;
     else fail(`unknown flag ${flag}`);
@@ -117,6 +123,64 @@ function main() {
         `SHA-256 of \`bin/${platform.binary}\`: \`${digest}\`\n`,
     );
     built.push({ name, directory, digest });
+  }
+
+  if (args.wasm !== undefined) {
+    const assets = ["sysml-wasm.wasm", "wasm_exec.js"];
+    const digests = Object.fromEntries(
+      assets.map((asset) => {
+        const source = join(args.wasm, asset);
+        if (!existsSync(source)) {
+          fail(`${source} is missing; run the release build first`);
+        }
+        return [asset, verify(source)];
+      }),
+    );
+    const name = `${args.pkg.name}-wasm`;
+    const directory = join(args.out, "sysml-wasm");
+    mkdirSync(directory, { recursive: true });
+    for (const asset of assets) {
+      copyFileSync(join(args.wasm, asset), join(directory, asset));
+    }
+    writeFileSync(
+      join(directory, "package.json"),
+      `${JSON.stringify(
+        {
+          name,
+          version: args.version,
+          description: "Combined sysml-wasm WebAssembly module and matching Go runtime",
+          license: "Apache-2.0",
+          repository: {
+            type: "git",
+            url: "git+https://github.com/Open-MBEE/OpenSysML.git",
+            directory: "client/node",
+          },
+          files: ["sysml-wasm.wasm", "wasm_exec.js", "README.md"],
+          exports: {
+            "./sysml-wasm.wasm": "./sysml-wasm.wasm",
+            "./wasm_exec.js": "./wasm_exec.js",
+            "./package.json": "./package.json",
+          },
+        },
+        null,
+        2,
+      )}\n`,
+    );
+    writeFileSync(
+      join(directory, "README.md"),
+      `# ${name}\n\n` +
+        "The combined `sysml-wasm` WebAssembly module and its matching Go runtime. " +
+        `Install this package alongside [\`${args.pkg.name}\`](https://www.npmjs.com/package/${args.pkg.name}); ` +
+        "Node's `connectWasm()` discovers it automatically when no module is supplied.\n\n" +
+        `SHA-256 of \`sysml-wasm.wasm\`: \`${digests["sysml-wasm.wasm"]}\`\n\n` +
+        `SHA-256 of \`wasm_exec.js\`: \`${digests["wasm_exec.js"]}\`\n`,
+    );
+    built.push({
+      name,
+      directory,
+      digest: digests["sysml-wasm.wasm"],
+      digests,
+    });
   }
 
   writeFileSync(
