@@ -10,7 +10,8 @@ import (
 func (r *Renderer) renderMixed(view *symbols.Symbol, exposed []*symbols.Symbol, out *Rendering) {
 	w := &mixedWalk{r: r, view: view, ids: &nodeIDs{}, out: out,
 		nodes: map[*symbols.Symbol]*Node{}, seen: map[*symbols.Symbol]bool{},
-		cases:           &caseWalk{r: r, view: view, ids: nil, drawn: map[*symbols.Symbol]*Node{}, out: out, deferIncludes: true},
+		extraSources:    map[*symbols.Symbol][]*Node{},
+		cases:           &caseWalk{r: r, view: view, ids: nil, drawn: map[*symbols.Symbol]*Node{}, occurrences: map[*symbols.Symbol][]*Node{}, out: out, deferIncludes: true},
 		structureOwners: map[*symbols.Symbol]bool{}, deferredMembers: map[*symbols.Symbol][]*symbols.Symbol{}}
 	w.cases.ids = w.ids
 	for _, elem := range exposed {
@@ -29,6 +30,7 @@ type mixedWalk struct {
 	ids             *nodeIDs
 	out             *Rendering
 	nodes           map[*symbols.Symbol]*Node
+	extraSources    map[*symbols.Symbol][]*Node
 	order           []*symbols.Symbol
 	seen            map[*symbols.Symbol]bool
 	cases           *caseWalk
@@ -393,6 +395,9 @@ func (w *mixedWalk) rememberCaseNodes() {
 		if node == nil {
 			continue
 		}
+		if occurrences := w.cases.occurrences[sym]; len(occurrences) > 0 {
+			w.extraSources[sym] = occurrences
+		}
 		if w.nodes[sym] == nil {
 			w.remember(sym, node)
 		} else {
@@ -409,16 +414,38 @@ func (w *mixedWalk) referenceEdges() {
 		if fromNode == nil || toNode == nil {
 			return
 		}
-		key := fromNode.ID + "\x00" + toNode.ID + "\x00" + kind.String() + "\x00" + label
-		if seen[key] {
-			return
+		sources := append([]*Node(nil), w.extraSources[from]...)
+		if len(sources) == 0 {
+			sources = append(sources, fromNode)
+		} else {
+			found := false
+			for _, source := range sources {
+				if source != nil && source.ID == fromNode.ID {
+					found = true
+					break
+				}
+			}
+			if !found {
+				sources = append(sources, fromNode)
+			}
 		}
-		seen[key] = true
-		w.out.Edges = append(w.out.Edges, Edge{From: fromNode.ID, To: toNode.ID, Kind: kind,
-			Label: label, Origin: symbolOrigin(decl), Route: w.r.routeOf(w.view, decl, w.out),
-			Style: w.r.edgeDress(w.view, decl, fromNode.ID, toNode.ID, w.out)})
-		if w.out.drawn != nil {
-			w.out.drawn.note(decl, true)
+		drawn := map[string]bool{}
+		for _, source := range sources {
+			if source == nil || drawn[source.ID] {
+				continue
+			}
+			drawn[source.ID] = true
+			key := source.ID + "\x00" + toNode.ID + "\x00" + kind.String() + "\x00" + label
+			if seen[key] {
+				continue
+			}
+			seen[key] = true
+			w.out.Edges = append(w.out.Edges, Edge{From: source.ID, To: toNode.ID, Kind: kind,
+				Label: label, Origin: symbolOrigin(decl), Route: w.r.routeOf(w.view, decl, w.out),
+				Style: w.r.edgeDress(w.view, decl, source.ID, toNode.ID, w.out)})
+			if w.out.drawn != nil {
+				w.out.drawn.note(decl, true)
+			}
 		}
 	}
 
