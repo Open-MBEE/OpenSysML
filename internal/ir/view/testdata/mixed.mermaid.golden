@@ -51,10 +51,18 @@ flowchart TD
 **Plant**`"]
       direction TD
       n25_anchor[" "]
-      n26("`*«part»*
-**pump : Pump**`")
-      n27("`*«part»*
-**tank : Tank**`")
+      subgraph n26 ["`*«part»*
+**pump : Pump**`"]
+        direction TD
+        n26_anchor[" "]
+        n26.0["outlet"]
+      end
+      subgraph n27 ["`*«part»*
+**tank : Tank**`"]
+        direction TD
+        n27_anchor[" "]
+        n27.0["inlet"]
+      end
     end
     subgraph n28 ["`*«connection def»*
 **Connection**`"]
@@ -118,7 +126,7 @@ initial`")
   n9 ---|"«subject»"| n11
   n9 -.- n12
   n16 --> n15
-  n26 ===|"supply"| n27
+  n26.0 ===|"supply"| n27.0
   n3 -.-> n1
   n10 -.-> n31
   n11 -.-> n25_anchor
@@ -129,8 +137,8 @@ initial`")
   n23_anchor -->|"«specializes»"| n20
   n24 -.-> n19
   n25_anchor -->|"«specializes»"| n20
-  n26 -.-> n21_anchor
-  n27 -.-> n23_anchor
+  n26_anchor -.-> n21_anchor
+  n27_anchor -.-> n23_anchor
   classDef anchor fill:none,stroke:none
-  class n14_anchor,n21_anchor,n23_anchor,n25_anchor,n2_anchor,n5_anchor anchor
+  class n14_anchor,n21_anchor,n23_anchor,n25_anchor,n26_anchor,n27_anchor,n2_anchor,n5_anchor anchor
   linkStyle 7 stroke-width:3px

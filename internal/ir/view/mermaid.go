@@ -35,9 +35,9 @@ func (r *Rendering) Mermaid() string {
 // as a `direction` statement. The empty direction keeps each kind's default,
 // and a kind no direction applies to ignores it. A palette fills nodes by
 // keyword family, and a Cameo style draws its representable colours. An
-// interconnection draws the ports its selected display returns. A rendering
-// some Layout positions draws the nodes the DOT form draws: the placed ones,
-// and the unplaced ones too under UnplacedStrip.
+// interconnection or mixed rendering draws the ports its selected display
+// returns. A rendering positioned by Layout draws the nodes the DOT form draws:
+// the placed ones, and the unplaced ones too under UnplacedStrip.
 func (r *Rendering) MermaidWith(options Options) string {
 	r = r.settleUnplaced(options.Unplaced, FormMermaid)
 	direction := options.Direction
@@ -569,15 +569,16 @@ func clusterTitleExtraLines(node *Node, ports portView, labels labeller) int {
 }
 
 // flowchartCluster reports whether a node holds flowchart nodes, or is an
-// interconnection part with displayed ports.
+// interconnection or mixed part with displayed ports.
 func flowchartCluster(node *Node, ports portView) bool {
 	return len(node.Children) > 0 || (ports.interconnection && len(ports.of(node)) > 0)
 }
 
-// writeFlowchart writes the tree, interconnection and action renderings as a
-// Mermaid flowchart: a node with children is a subgraph, containment in a tree
-// is an edge, and every other edge is the one the rendering holds. An
-// interconnection draws its selected ports as nodes inside their parts.
+// writeFlowchart writes the tree, interconnection, action and mixed renderings
+// as a Mermaid flowchart: a node with children is a subgraph, containment in a
+// tree is an edge, and every other edge is the one the rendering holds. An
+// interconnection or mixed rendering draws its selected ports as nodes inside
+// their parts.
 type mermaidFlowWriter struct {
 	b              *strings.Builder
 	links          int
@@ -1127,7 +1128,7 @@ func (r *Rendering) writeFlowchartNode(w *mermaidFlowWriter, node *Node, depth i
 }
 
 // flowchartPinID is the node a port is drawn as: the port itself on an
-// interconnection view, else a pin numbered by its position on the node.
+// interconnection or mixed view, else a pin numbered by its position on the node.
 func flowchartPinID(node *Node, port Port, ports portView) string {
 	if !ports.interconnection {
 		for j, candidate := range node.Ports {
@@ -1264,7 +1265,7 @@ func runeAt(text string, index, direction int) rune {
 
 func (r *Rendering) usedPorts(ports portView) map[string]map[string]bool {
 	used := map[string]map[string]bool{}
-	if r.Kind != KindAction && r.Kind != KindInterconnection {
+	if r.Kind != KindAction && r.Kind != KindInterconnection && r.Kind != KindMixed {
 		return used
 	}
 	mark := func(owner, port string) {
@@ -1273,7 +1274,7 @@ func (r *Rendering) usedPorts(ports portView) map[string]map[string]bool {
 		}
 		used[owner][port] = true
 	}
-	if r.Kind == KindInterconnection {
+	if r.Kind == KindInterconnection || r.Kind == KindMixed {
 		var walk func(*Node)
 		walk = func(node *Node) {
 			for _, port := range ports.of(node) {

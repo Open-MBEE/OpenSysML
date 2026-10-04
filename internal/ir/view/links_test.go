@@ -325,7 +325,7 @@ func TestLinkedDiagramGoldens(t *testing.T) {
 				} else if tc.name == "mixed" {
 					assertLinkedDiagramNode(t, rendering, got, form, options.Links, func(node *Node) bool {
 						return node.Kind == "part"
-					}, "pump")
+					}, "b")
 					if form == FormPlantUML {
 						assertLinkedDiagramNode(t, rendering, got, form, options.Links, func(node *Node) bool {
 							return node.Kind == "initial"

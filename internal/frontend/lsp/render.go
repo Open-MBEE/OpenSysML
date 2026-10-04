@@ -48,8 +48,9 @@ const RenderFormsCapability = "openSysmlRenderForms"
 const RenderStylesCapability = "openSysmlRenderStyles"
 
 // RenderPortsCapability is the experimental capability whose value lists the
-// port displays a render request's `ports` draws an interconnection's parts
-// with, the first the default; a server without it draws every port.
+// port displays a render request's `ports` draws an interconnection or mixed
+// rendering's parts with, the first the default; a server without it draws
+// every port.
 const RenderPortsCapability = "openSysmlRenderPorts"
 
 // renderPortsNames lists the port displays in the order the writer defines them.
@@ -85,8 +86,8 @@ func renderFormNames() []string {
 // form of the rendering's kind. Palette names the palette that fills the nodes by
 // keyword family, in the artifact and as each node's Fill and Border; empty is black and white.
 // Style names the drawing style the DOT and Mermaid forms draw in; empty is the default, pilot.
-// Ports names how much of a part's ports an interconnection draws; empty is the
-// default, minimal.
+// Ports names how much of a part's ports an interconnection or mixed rendering
+// draws; empty is the default, minimal.
 type renderParams struct {
 	TextDocument protocol.TextDocumentIdentifier `json:"textDocument"`
 	View         string                          `json:"view,omitempty"`

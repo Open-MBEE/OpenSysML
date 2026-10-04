@@ -51,10 +51,10 @@ package "<size:10>//«package»//</size>\n**MixedExamples**" as n0 <<package>> [
   }
   rectangle "<size:10>//«part def»//</size>\n**Plant**" as n25 <<part def>> [[https://example.test/src/mixed.sysml#L16]] {
     rectangle "<size:10>//«part»//</size>\n**pump : Pump**" as n26 <<part>> <<usage>> [[https://example.test/src/mixed.sysml#L17]] {
-      port "outlet : FluidPort" as n26.0
+      port "outlet" as n26.0
     }
     rectangle "<size:10>//«part»//</size>\n**tank : Tank**" as n27 <<part>> <<usage>> [[https://example.test/src/mixed.sysml#L18]] {
-      port "inlet : FluidPort" as n27.0
+      port "inlet" as n27.0
     }
   }
   rectangle "<size:10>//«connection def»//</size>\n**Connection**" as n28 <<connection def>> [[https://example.test/src/mixed.sysml#L22]] {

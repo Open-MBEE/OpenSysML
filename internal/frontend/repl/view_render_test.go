@@ -635,9 +635,9 @@ func TestRenderDotTakesAStyle(t *testing.T) {
 	}
 }
 
-// A word after the form names the port display an interconnection's parts are
-// drawn with — minimal, the default, or full — one of them at most; it
-// completes beside the palettes and styles, and a name none has is refused
+// A word after the form names the port display an interconnection or mixed
+// view's parts are drawn with — minimal, the default, or full — one of them at
+// most; it completes beside the palettes and styles, and a name none has is refused
 // with the two there are.
 func TestRenderDotTakesAPortDisplay(t *testing.T) {
 	s := viewSession(t)

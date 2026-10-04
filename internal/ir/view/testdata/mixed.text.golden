@@ -9,7 +9,9 @@ package MixedExamples
     port inlet : FluidPort
   part def MixedExamples::Plant
     part pump : Pump
+      port outlet
     part tank : Tank
+      port inlet
   connection def MixedExamples::Connection
     part a
     part b
@@ -41,7 +43,7 @@ relationships:
   Inspection -- plant: «subject»
   Inspection .. objective n12
   start of MixedExamples::Inspection::mode -> ready
-  pump -- tank: supply
+  pump.outlet -- tank.inlet: supply
   ready ..> MixedExamples::Ready
   operator ..> MixedExamples::Person
   plant ..> MixedExamples::Plant

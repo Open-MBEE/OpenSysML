@@ -364,7 +364,7 @@ digraph "VehicleViews::vehicleView" {
   ends at the pin (`Edge.FromPort`/`Edge.ToPort`; `featureWalk.endNode`, `memberEnd`), and one
   naming the part, or a feature of it that is no port, at the node. How many of the pins are
   drawn, and how they are named, is the `Options.Ports` display (`ports.go`: `PortsMinimal`,
-  `PortsFull`, `portView`), the interconnection's alone (`Kind.SupportsPorts`); the node keeps
+  `PortsFull`, `portView`), the interconnection and mixed renderings (`Kind.SupportsPorts`); the node keeps
   every port, the form filtering what it draws. Under `minimal`, the default, a part draws the
   pins an edge of the rendering ends at (`Edge.FromPort`/`Edge.ToPort`) and no other, each named
   alone: in DOT a plain node becomes a `shape=plain` HTML table whose body cell is the part's

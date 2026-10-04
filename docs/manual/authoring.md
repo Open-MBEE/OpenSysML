@@ -527,9 +527,9 @@ part structure : Diagram {
   sequence diagrams note that individual participants cannot be filled; HTML
   figures carry the palette as `data-palette`. Any other name, or a palette on
   a table diagram, is a typed error.
-  `ports` — `"minimal"` or `"full"` — is accepted by an interconnection
-  diagram alone. `"minimal"`, the default, draws on each part the ports a
-  connector of the view ends at and no other, each a small square on the
+  `ports` — `"minimal"` or `"full"` — is accepted by an interconnection or
+  mixed diagram. `"minimal"`, the default, draws on each part the ports an
+  interconnection edge ends at and no other, each a small square on the
   part's border named beside it; `"full"` draws every port a part has,
   labelled `name : Type`. Any other name, or `ports` on another kind, is a
   typed error.

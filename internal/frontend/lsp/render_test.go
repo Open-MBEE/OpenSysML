@@ -1244,10 +1244,10 @@ package StyledViews {
 	}
 }
 
-// A request's `ports` chooses how much of a part's ports an interconnection
-// draws — minimal, the default, the ports a connector ends at, named alone, or
-// full, every port typed — the displays listed under the capability; a name
-// that is neither is refused with the two there are.
+// A request's `ports` chooses how much of a part's ports an interconnection or
+// mixed view draws — minimal, the default, the ports a connector ends at, named
+// alone, or full, every port typed — the displays listed under the capability;
+// a name that is neither is refused with the two there are.
 func TestRenderTakesAPortDisplay(t *testing.T) {
 	const ported = `package Demo {
     port def Signal;
@@ -1341,6 +1341,100 @@ func TestRenderTakesAPortDisplay(t *testing.T) {
 	want := `unknown port display "all"; the displays are minimal, full`
 	if err == nil || !strings.Contains(err.Error(), want) {
 		t.Errorf("err = %v, want it to refuse the port display by name", err)
+	}
+}
+
+func TestRenderMixedCarriesConnectorPortData(t *testing.T) {
+	const mixed = `package Demo {
+    private import OpenSysMLRenderings::*;
+    port def Signal;
+    part def Sender { port out1 : Signal; }
+    part def Receiver { port in1 : Signal; port spare : Signal; }
+    part def Plant {
+        part sender : Sender;
+        part receiver : Receiver;
+        connection wire : Connection connect sender.out1 to receiver.in1;
+    }
+    connection def Connection {
+        end part a;
+        end part b;
+    }
+    part def Person;
+    use case def Review {
+        actor reviewer : Person;
+        objective { doc /* Review the plant. */ }
+    }
+    view link { expose Demo::Plant; render asMixedDiagram; }
+    view caseView { expose Demo::Review; render asCaseDiagram; }
+}
+`
+	s, docURI := renderServer(t, "mixed-ports.sysml", mixed)
+	renderWithPorts := func(t *testing.T, ports string) *renderResult {
+		t.Helper()
+		raw, err := call(t, s, MethodRender, &renderParams{
+			TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
+			View:         "Demo::link", Ports: ports,
+		})
+		if err != nil {
+			t.Fatalf("render mixed view with ports=%q: %v", ports, err)
+		}
+		var out renderResult
+		if err := json.Unmarshal(raw, &out); err != nil {
+			t.Fatalf("decode mixed render result: %v", err)
+		}
+		return &out
+	}
+	for _, display := range []struct {
+		name string
+		want int
+	}{
+		{name: "", want: 2},
+		{name: "full", want: 3},
+	} {
+		t.Run(map[string]string{"": "minimal", "full": "full"}[display.name], func(t *testing.T) {
+			out := renderWithPorts(t, display.name)
+			portsByNode := map[string]map[string]string{}
+			portNames := map[string]string{}
+			for _, node := range out.Nodes {
+				for _, port := range node.Ports {
+					if portsByNode[node.ID] == nil {
+						portsByNode[node.ID] = map[string]string{}
+					}
+					portsByNode[node.ID][port.ID] = port.Name
+					portNames[port.Name] = port.ID
+				}
+			}
+			if len(portNames) != display.want {
+				t.Fatalf("mixed node ports = %v, want %d pins", portNames, display.want)
+			}
+			if display.name == "" && portNames["spare"] != "" {
+				t.Errorf("minimal mixed ports include unconnected spare pin: %v", portNames)
+			}
+			if len(out.Edges) != 1 {
+				t.Fatalf("mixed edges = %+v, want one connector", out.Edges)
+			}
+			edge := out.Edges[0]
+			if edge.FromPort == "" || portsByNode[edge.From][edge.FromPort] != "out1" ||
+				edge.ToPort == "" || portsByNode[edge.To][edge.ToPort] != "in1" {
+				t.Errorf("mixed edge ports do not resolve in endpoint node arrays: edge=%+v ports=%v", edge, portsByNode)
+			}
+			if !strings.Contains(out.Artifact, edge.FromPort) || !strings.Contains(out.Artifact, edge.ToPort) {
+				t.Errorf("mixed artifact does not draw connector pins %s and %s:\n%s", edge.FromPort, edge.ToPort, out.Artifact)
+			}
+			assertEngineRenderMatchesLSP(t, mixed, out, display.name)
+		})
+	}
+
+	caseView := render(t, s, docURI, "Demo::caseView")
+	for _, node := range caseView.Nodes {
+		if len(node.Ports) != 0 {
+			t.Errorf("case node %s unexpectedly has ports: %+v", node.ID, node.Ports)
+		}
+	}
+	for _, edge := range caseView.Edges {
+		if edge.FromPort != "" || edge.ToPort != "" {
+			t.Errorf("case edge unexpectedly refers to ports: %+v", edge)
+		}
 	}
 }
 

@@ -509,8 +509,8 @@ The palettes are `okabe-ito`, `tol-bright`, `tol-muted`, `tol-light`, `brewer-se
 any other name is refused with that list. DOT, Mermaid and PlantUML accept palettes;
 Mermaid sequence diagrams report that they cannot fill individual participants. A `Diagram` block
 of a document states its own ([`palette`](../manual/authoring.md#diagrams)).
-A word `minimal` or `full` after the form names how much of a part's ports an interconnection
-draws: `minimal`, the default, the ports a connector of the view ends at, each a small square on
+A word `minimal` or `full` after the form names how much of a part's ports an interconnection or
+mixed rendering draws: `minimal`, the default, the ports an interconnection edge ends at, each a small square on
 the part's border named beside it; `full`, every port a part has, labelled `name : Type`
 (`%render Plant::loopView dot full`). It is accepted in any order with the palette and the
 style, once, and completes beside them.

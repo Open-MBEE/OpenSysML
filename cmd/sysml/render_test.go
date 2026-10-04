@@ -1020,7 +1020,7 @@ const portedModel = `package Demo {
 }
 `
 
-// -render-ports chooses how much of a part's ports an interconnection draws:
+// -render-ports chooses how much of a part's ports an interconnection or mixed rendering draws:
 // minimal, the default, the ports a connector ends at, named alone; full, every
 // port, typed. A name that is neither is refused with the two there are, and
 // the flag without something to render likewise.
