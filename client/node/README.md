@@ -181,11 +181,25 @@ other capability-gated operations fail with `MissingCapabilityError`, and a
 direct unsupported RPC fails with `UNIMPLEMENTED`.
 The adapter uses JSON encoding; requesting protobuf encoding is refused.
 
-In Node, `connectWasm()` runs a worker thread by default:
+In Node, install the optional `@openmbee/opensysml-wasm` package at the same
+version as this client. `connectWasm()` resolves its module and matching Go
+runtime automatically and runs a worker thread by default:
+
+```bash
+npm install @openmbee/opensysml@<version> @openmbee/opensysml-wasm@<version>
+```
 
 ```ts
 import { connectWasm } from "@openmbee/opensysml";
 
+await using connection = await connectWasm();
+const model = await connection.loads("package Demo { part def Car; }");
+```
+
+To use a module from another source, pass both the module and its matching Go
+runtime:
+
+```ts
 await using connection = await connectWasm({
   wasm: "./sysml-wasm.wasm",
   wasmExec: "/path/to/the/matching/wasm_exec.js",
@@ -222,9 +236,25 @@ If the page loads `wasm_exec.js` itself, omit `wasmExec` to use the installed Go
 constructor.
 
 The browser worker module can be bundled from
-`@openmbee/opensysml/browser/wasm-worker`. The combined module measures about
-7.8 MB gzipped and 5.5 MB with Brotli. A package containing the matching WASM
-and Go runtime artifacts will be published separately in a future release.
+`@openmbee/opensysml/browser/wasm-worker`. Bundle the module and runtime from
+the npm package with:
+
+```ts
+const wasm = new URL("@openmbee/opensysml-wasm/sysml-wasm.wasm", import.meta.url);
+const wasmExec = new URL("@openmbee/opensysml-wasm/wasm_exec.js", import.meta.url);
+```
+
+Or fetch both from jsDelivr, replacing `<version>` with the matching package
+version:
+
+```text
+https://cdn.jsdelivr.net/npm/@openmbee/opensysml-wasm@<version>/sysml-wasm.wasm
+https://cdn.jsdelivr.net/npm/@openmbee/opensysml-wasm@<version>/wasm_exec.js
+```
+
+Browser callers pass those URLs as `wasm` and `wasmExec`; browser package
+resolution is not automatic. The combined module measures about 7.8 MB gzipped
+and 5.5 MB with Brotli.
 
 ## Protobuf, not JSON
 
