@@ -2,12 +2,49 @@ import assert from "node:assert/strict";
 import path from "node:path";
 import { test } from "node:test";
 
-import { avoidRoutes, CLEARANCE, loadAvoid, type AvoidPort, type AvoidShape } from "./avoid";
+import type { RenderEdge, RenderNode, RenderPoint, RenderResult } from "../protocol";
+import { avoidRoutes, CLEARANCE, loadAvoid, NUDGING, portExitReach, type AvoidPort, type AvoidShape } from "./avoid";
 import { portFace, PORT_SIZE, type Box, type Side } from "./geometry";
-import type { RenderPoint } from "../protocol";
+import { clampNodeToBounds, layoutCanvas } from "./layout";
 
 const WASM = path.resolve("node_modules/libavoid-js/dist/libavoid.wasm");
 const SCENE_SEED = 0x6d2b79f5;
+const origin = {
+  uri: "file:///m.sysml",
+  range: { start: { line: 0, character: 0 }, end: { line: 0, character: 4 } },
+  digest: "d0",
+};
+
+function node(id: string, x: number, y: number, ports: RenderNode["ports"] = []): RenderNode {
+  return {
+    id,
+    kind: "part",
+    name: id,
+    type: "",
+    detail: "",
+    fqn: `M::${id}`,
+    origin,
+    x,
+    y,
+    width: 80,
+    height: 40,
+    ports,
+  };
+}
+
+function rendering(nodes: RenderNode[], edges: RenderEdge[]): RenderResult {
+  return {
+    view: "M::V",
+    kind: "interconnection",
+    stated: "",
+    form: "mermaid",
+    artifact: "",
+    nodes,
+    edges,
+    notices: [],
+    version: 7,
+  };
+}
 
 interface Pair {
   source: number;
@@ -95,6 +132,16 @@ function randomSharedTargetPairs(boxCount: number, seed: number): Pair[] {
   const target = indices[0];
   return indices.slice(1, 4).map((source) => ({ source, target }));
 }
+
+test("portExitReach reserves the lane reach for each shared connection", () => {
+  assert.equal(NUDGING, 8);
+  assert.deepEqual([0, 1, 2, 3].map(portExitReach), [
+    CLEARANCE,
+    CLEARANCE,
+    CLEARANCE + NUDGING,
+    CLEARANCE + 2 * NUDGING,
+  ]);
+});
 
 function onBorder(point: RenderPoint, box: Box): boolean {
   return (
@@ -282,6 +329,57 @@ test("avoidRoutes sends same-side edges to their distinct port faces", async () 
     const face = route.at(-1)!;
     assert.equal(before.y, face.y);
     assert.ok(before.x < face.x);
+  }
+});
+
+test("avoidRoutes keeps three shared-port lanes inside the bounds after clamping", async () => {
+  await loadAvoid(WASM);
+  const edges: RenderEdge[] = Array.from({ length: 3 }, (_, index) => ({
+    from: `source-${index}`,
+    to: "target",
+    toPort: "target.in",
+    label: "",
+    kind: "connection",
+    fqn: `M::edge${index}`,
+  }));
+  const layout = layoutCanvas(rendering([
+    node("source-0", 300, 20),
+    node("source-1", 300, 140),
+    node("source-2", 300, 260),
+    node("target", 600, 140, [{ id: "target.in", name: "in" }]),
+  ], edges));
+  const target = layout.nodes.get("target")!;
+  const port = target.ports[0];
+  assert.equal(port.side, "west");
+  const bounds: Box = { x: 0, y: 0, width: 700, height: 400 };
+  const at = clampNodeToBounds(target, { ...target.box, x: -1000 }, bounds, portExitReach(3));
+  const targetBox = { ...target.box, ...at };
+  assert.equal(portFace(targetBox, port).x - portExitReach(3), bounds.x);
+  const shapes = new Map<string, AvoidShape>(
+    [...layout.nodes].map(([id, entry]) => [
+      id,
+      {
+        box: id === "target" ? targetBox : entry.box,
+        ...(id === "target"
+          ? { ports: target.ports.map(({ port: placed, side, offset }) => ({ id: placed.id, side, offset })) }
+          : {}),
+      },
+    ]),
+  );
+  const routes = avoidRoutes(
+    shapes,
+    edges.map((edge, index) => ({
+      index,
+      from: edge.from,
+      to: edge.to,
+      toPort: edge.toPort,
+    })),
+  );
+  assert.ok(routes);
+  for (const index of edges.keys()) {
+    const route = routes.get(index);
+    assert.ok(route && route.length >= 2);
+    assert.ok(route.every(({ x }) => x >= bounds.x), `route is clipped by the hero edge: ${JSON.stringify(route)}`);
   }
 });
 

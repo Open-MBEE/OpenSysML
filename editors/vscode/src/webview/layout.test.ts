@@ -899,6 +899,47 @@ test("clampNodeToBounds keeps port squares, labels, and pin exit legs inside its
   assert.ok(movedExtent.y + movedExtent.height <= bounds.y + bounds.height);
 });
 
+test("clampNodeToBounds reserves a different exit reach for each port", () => {
+  const layout = layoutCanvas(rendering(
+    [
+      node("west", "west", { x: 0, y: 60, width: 80, height: 40 }),
+      node("target", "target", {
+        x: 300,
+        y: 60,
+        width: 100,
+        height: 60,
+        ports: [
+          { id: "target.in", name: "in" },
+          { id: "target.out", name: "out" },
+        ],
+      }),
+      node("east", "east", { x: 700, y: 60, width: 80, height: 40 }),
+    ],
+    [
+      { from: "west", to: "target", toPort: "target.in", label: "", kind: "connection", fqn: "M::westTarget" },
+      { from: "target", to: "east", fromPort: "target.out", label: "", kind: "connection", fqn: "M::targetEast" },
+    ],
+  ));
+  const entry = layout.nodes.get("target")!;
+  const west = entry.ports.find((port) => port.port.id === "target.in")!;
+  const east = entry.ports.find((port) => port.port.id === "target.out")!;
+  assert.equal(west.side, "west");
+  assert.equal(east.side, "east");
+  const exitLeg = (port: (typeof entry.ports)[number]) => (port === west ? 40 : 60);
+  const extent = nodeExtent(entry, exitLeg);
+  assert.equal(extent.x, portFace(entry.box, west).x - 40);
+  assert.equal(extent.x + extent.width, portFace(entry.box, east).x + 60);
+
+  const bounds = { x: 10, y: 0, width: 600, height: 300 };
+  const at = clampNodeToBounds(entry, { x: -1000, y: entry.box.y }, bounds, exitLeg);
+  const moved = { ...entry, box: { ...entry.box, ...at } };
+  const movedExtent = nodeExtent(moved, exitLeg);
+  assert.equal(movedExtent.x, bounds.x);
+  assert.ok(movedExtent.x + movedExtent.width <= bounds.x + bounds.width);
+  assert.equal(portFace(moved.box, west).x - 40, bounds.x);
+  assert.ok(portFace(moved.box, east).x + 60 <= bounds.x + bounds.width);
+});
+
 test("layoutCanvas routes a lower-left sender into a west port from outside its face", async () => {
   await loadAvoid(WASM);
   const layout = layoutCanvas(rendering(

@@ -6,7 +6,12 @@ import { GAP, portFace, PORT_SIZE, snap, type Box, type PortPosition } from "./g
 import type { RenderPoint } from "../protocol";
 
 export const CLEARANCE = GAP / 2;
+export const NUDGING = 8;
 export const EXCLUSIVE_PIN_LIMIT = 12;
+
+export function portExitReach(sharing: number): number {
+  return CLEARANCE + NUDGING * Math.max(0, sharing - 1);
+}
 
 type Avoid = ReturnType<typeof AvoidLib.getInstance>;
 type ShapeRef = InstanceType<Avoid["ShapeRef"]>;
@@ -65,7 +70,7 @@ export function avoidRoutes(shapes: Map<string, AvoidShape>, edges: AvoidEdge[])
   const api = avoid;
   const router = new api.Router(api.OrthogonalRouting);
   try {
-    router.setRoutingParameter(api.idealNudgingDistance, 8);
+    router.setRoutingParameter(api.idealNudgingDistance, NUDGING);
     router.setRoutingParameter(api.segmentPenalty, 50);
     router.setRoutingOption(api.nudgeSharedPathsWithCommonEndPoint, true);
     router.setRoutingOption(api.performUnifyingNudgingPreprocessingStep, true);

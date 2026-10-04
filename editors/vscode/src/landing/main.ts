@@ -3,7 +3,7 @@
 // the same canvas code as the VS Code diagram panel.
 import type { LayoutGeometry, RenderPoint, RenderResult } from "../protocol";
 import { autoLayout, type AutoLayout } from "../webview/autolayout";
-import { CLEARANCE, loadAvoid } from "../webview/avoid";
+import { loadAvoid, portExitReach } from "../webview/avoid";
 import { cssEscape, drawCanvas } from "../webview/canvas";
 import {
   clampNodeToBounds,
@@ -197,7 +197,15 @@ function mount(root: HTMLElement): Mounted {
   }
 
   function clamped(node: PlacedNode, at: RenderPoint): RenderPoint {
-    return clampNodeToBounds(node, at, bounds(), CLEARANCE);
+    return clampNodeToBounds(node, at, bounds(), (port) => {
+      const sharing = layout.edges.filter(
+        ({ edge, hidden }) =>
+          !hidden &&
+          ((edge.from === node.node.id && edge.fromPort === port.port.id) ||
+            (edge.to === node.node.id && edge.toPort === port.port.id)),
+      ).length;
+      return portExitReach(sharing);
+    });
   }
 
   // keepInHero moves any box the hero no longer holds back inside it.

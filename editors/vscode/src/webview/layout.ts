@@ -428,7 +428,10 @@ export function portLabelPlacement(box: Box, port: PlacedPort): PortLabelPlaceme
 }
 
 /** nodeExtent covers a node, its ports and labels, plus any outward port-pin leg requested. */
-export function nodeExtent(node: PlacedNode, portExitLeg = 0): Box {
+export function nodeExtent(
+  node: PlacedNode,
+  portExitLeg: number | ((port: PlacedPort) => number) = 0,
+): Box {
   let left = node.box.x;
   let top = node.box.y;
   let right = node.box.x + node.box.width;
@@ -446,20 +449,21 @@ export function nodeExtent(node: PlacedNode, portExitLeg = 0): Box {
     reach(square.x + square.width, square.y + square.height);
     reach(label.x, label.y);
     reach(label.x + label.width, label.y + label.height);
-    if (portExitLeg > 0) {
+    const exitLeg = typeof portExitLeg === "function" ? portExitLeg(port) : portExitLeg;
+    if (exitLeg > 0) {
       const face = portFace(node.box, port);
       switch (port.side) {
         case "north":
-          reach(face.x, face.y - portExitLeg);
+          reach(face.x, face.y - exitLeg);
           break;
         case "east":
-          reach(face.x + portExitLeg, face.y);
+          reach(face.x + exitLeg, face.y);
           break;
         case "south":
-          reach(face.x, face.y + portExitLeg);
+          reach(face.x, face.y + exitLeg);
           break;
         case "west":
-          reach(face.x - portExitLeg, face.y);
+          reach(face.x - exitLeg, face.y);
           break;
       }
     }
@@ -472,7 +476,7 @@ export function clampNodeToBounds(
   node: PlacedNode,
   at: RenderPoint,
   bounds: Box,
-  portExitLeg = 0,
+  portExitLeg: number | ((port: PlacedPort) => number) = 0,
 ): RenderPoint {
   const extent = nodeExtent(node, portExitLeg);
   const left = extent.x - node.box.x;
