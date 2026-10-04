@@ -91,13 +91,8 @@ func (r *Rendering) runTimelineMermaid(options Options) string {
 				continue
 			}
 			label := timelineStateLabel(span)
-			if span.Open {
-				fmt.Fprintf(&b, "        %s :active, %ss%d, %d, %d\n",
-					ganttText(label), lane.ID, i, runMilliseconds(span.From), runMilliseconds(span.To))
-			} else {
-				fmt.Fprintf(&b, "        %s :%ss%d, %d, %d\n",
-					ganttText(label), lane.ID, i, runMilliseconds(span.From), runMilliseconds(span.To))
-			}
+			fmt.Fprintf(&b, "        %s :%ss%d, %d, %d\n",
+				ganttText(label), lane.ID, i, runMilliseconds(span.From), runMilliseconds(span.To))
 		}
 	}
 	return b.String()
@@ -105,13 +100,9 @@ func (r *Rendering) runTimelineMermaid(options Options) string {
 
 func (r *Rendering) mermaidTimelineNotices() []string {
 	var notices []string
-	zero := 0
 	fractional := !wholeMillisecond(r.RunUntil)
 	for _, lane := range r.Lanes {
 		for _, span := range lane.Spans {
-			if span.To <= span.From {
-				zero++
-			}
 			fractional = fractional || !wholeMillisecond(span.From) || !wholeMillisecond(span.To)
 		}
 		for _, transition := range lane.Transitions {
@@ -121,13 +112,8 @@ func (r *Rendering) mermaidTimelineNotices() []string {
 			fractional = fractional || !wholeMillisecond(mark.At)
 		}
 	}
-	if zero > 0 {
-		verb := "are"
-		if zero == 1 {
-			verb = "is"
-		}
-		notices = append(notices, fmt.Sprintf("%d %s held for no time %s listed in the text form",
-			zero, plural(zero, "state", "states"), verb))
+	if notice := timelineZeroSpanNotice(r.Lanes); notice != "" {
+		notices = append(notices, notice)
 	}
 	if fractional {
 		notices = append(notices, "instants are rounded to the nearest millisecond")
@@ -152,7 +138,11 @@ func (r *Rendering) runTimelinePlantUML() string {
 		fmt.Fprintf(&b, " (%s)", r.Stated)
 	}
 	b.WriteString("\n")
-	for _, notice := range r.Notices {
+	notices := append([]string(nil), r.Notices...)
+	if notice := timelineZeroSpanNotice(r.Lanes); notice != "" {
+		notices = append(notices, notice)
+	}
+	for _, notice := range notices {
 		fmt.Fprintf(&b, "' not represented: %s\n", strings.ReplaceAll(notice, "\n", " "))
 	}
 	if len(r.Lanes) == 0 {
@@ -166,10 +156,19 @@ func (r *Rendering) runTimelinePlantUML() string {
 	var changes []timelineChange
 	until := r.RunUntil
 	for _, lane := range r.Lanes {
+		lastDrawn := -1
 		for i, span := range lane.Spans {
+			if span.To > span.From {
+				lastDrawn = i
+			}
+		}
+		for i, span := range lane.Spans {
+			if span.To <= span.From {
+				continue
+			}
 			changes = append(changes, timelineChange{span.From, fmt.Sprintf("%s is %s", lane.ID,
 				plantumlQuote(plantumlText(timelineStateLabel(span))))})
-			if !span.Open && i == len(lane.Spans)-1 && span.To < until {
+			if !span.Open && i == lastDrawn && span.To < until {
 				changes = append(changes, timelineChange{span.To, lane.ID + " is {hidden}"})
 			}
 		}
@@ -194,6 +193,26 @@ func (r *Rendering) runTimelinePlantUML() string {
 	}
 	b.WriteString("@enduml\n")
 	return b.String()
+}
+
+func timelineZeroSpanNotice(lanes []Lane) string {
+	zero := 0
+	for _, lane := range lanes {
+		for _, span := range lane.Spans {
+			if span.To <= span.From {
+				zero++
+			}
+		}
+	}
+	if zero == 0 {
+		return ""
+	}
+	verb := "are"
+	if zero == 1 {
+		verb = "is"
+	}
+	return fmt.Sprintf("%d %s held for no time %s listed in the text form",
+		zero, plural(zero, "state", "states"), verb)
 }
 
 type timelineChange struct {

@@ -1,6 +1,8 @@
 package repl
 
 import (
+	"fmt"
+	"path/filepath"
 	"slices"
 	"strings"
 	"testing"
@@ -45,6 +47,25 @@ func TestRenderRunReportsMissingTraceAndRefusesDot(t *testing.T) {
 	run(t, s, "%state bulb")
 	run(t, s, "%advance 1")
 	wants(t, run(t, s, "%render-run timeline dot"), "error:", "not written as dot")
+}
+
+func TestRenderRunWithoutRuntimeContext(t *testing.T) {
+	examplePath, err := filepath.Abs(filepath.Join("..", "..", "..", "examples", "run-timeline", "run-timeline.sysml"))
+	if err != nil {
+		t.Fatalf("resolve example path: %v", err)
+	}
+	s := NewSession()
+	run(t, s, fmt.Sprintf("%%load %q", examplePath))
+	run(t, s, "%trace on")
+	if s.rtCtx != nil {
+		t.Fatal("loading a model and enabling trace created a runtime context")
+	}
+
+	wants(t, run(t, s, "%render-run timeline"), "the run recorded no state; the rendering is empty")
+	wants(t, run(t, s, "%render-run sequence"), "the run recorded no message; the rendering is empty")
+
+	run(t, s, "%trace off")
+	wants(t, run(t, s, "%render-run timeline"), "error: the session records no trace; %trace on before the run")
 }
 
 func TestRenderRunCompletesKindAndForm(t *testing.T) {

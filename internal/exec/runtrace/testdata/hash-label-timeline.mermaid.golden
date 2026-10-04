@@ -30,4 +30,4 @@ gantt
     axisFormat %M:%S.%L
     todayMarker off
     section #35;7.modes
-        ready :active, l0s0, 0, 1000
+        ready :l0s0, 0, 1000

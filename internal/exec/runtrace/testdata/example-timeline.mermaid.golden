@@ -45,4 +45,4 @@ gantt
         waiting (time) :l1s2, 2500, 3000
         acknowledged (accept Ping) :l1s3, 3000, 4500
         waiting (time) :l1s4, 4500, 5000
-        acknowledged (accept Ping) :active, l1s5, 5000, 6000
+        acknowledged (accept Ping) :l1s5, 5000, 6000

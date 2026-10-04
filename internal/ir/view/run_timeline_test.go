@@ -97,7 +97,7 @@ func TestRunTimelineMermaidWritesCompactGantt(t *testing.T) {
 		"todayMarker off",
 		"section lane#58; #35; #59;",
 		"idle#58; #35;#59;",
-		":active, l0s1, 251, 3600500",
+		"ready (accept Go) :l0s1, 251, 3600500",
 		"1 state held for no time is listed in the text form",
 		"instants are rounded to the nearest millisecond",
 		"the axis reads minutes and seconds; it wraps past an hour",
@@ -109,6 +109,9 @@ func TestRunTimelineMermaidWritesCompactGantt(t *testing.T) {
 	}
 	if !strings.Contains(mermaid, "%% t=0.125 guard: x not evaluated\ngantt") {
 		t.Errorf("multiline mark escaped the Mermaid comment:\n%s", mermaid)
+	}
+	if strings.Contains(mermaid, ":active") {
+		t.Errorf("open timeline span uses the unstyled active tag:\n%s", mermaid)
 	}
 }
 
@@ -169,6 +172,57 @@ func TestRunTimelinePlantUMLUsesRunUntilField(t *testing.T) {
 	}
 	if !strings.Contains(puml, "@7\nl0 is {hidden}\n@enduml") {
 		t.Errorf("PlantUML ignored RunUntil:\n%s", puml)
+	}
+}
+
+func TestRunTimelinePlantUMLOmitsZeroDurationSpans(t *testing.T) {
+	rendering := &Rendering{
+		Kind: KindTimeline, Run: true, RunUntil: 2,
+		Lanes: []Lane{{ID: "l0", Name: "Rover", Spans: []Span{
+			{State: "first", From: 0, To: 1},
+			{State: "middle instant", From: 1, To: 1},
+			{State: "following", From: 1, To: 2, Open: true},
+			{State: "ending instant", From: 2, To: 2},
+		}}},
+	}
+	puml, err := rendering.PlantUML()
+	if err != nil {
+		t.Fatalf("PlantUML: %v", err)
+	}
+	for _, want := range []string{
+		"' not represented: 2 states held for no time are listed in the text form",
+		"@0\nl0 is \"first\"\n",
+		"@1\nl0 is \"following\"\n",
+		"@2\nl0 is {hidden}\n",
+	} {
+		if !strings.Contains(puml, want) {
+			t.Errorf("timeline PlantUML is missing %q:\n%s", want, puml)
+		}
+	}
+	if strings.Contains(puml, "middle instant") || strings.Contains(puml, "ending instant") {
+		t.Errorf("timeline PlantUML rendered zero-duration state labels:\n%s", puml)
+	}
+}
+
+func TestRunTimelinePlantUMLClosesBeforeTrailingZeroDurationSpan(t *testing.T) {
+	rendering := &Rendering{
+		Kind: KindTimeline, Run: true, RunUntil: 3,
+		Lanes: []Lane{{ID: "l0", Name: "Rover", Spans: []Span{
+			{State: "stopped", From: 0, To: 1},
+			{State: "instant", From: 1, To: 1},
+		}}},
+	}
+	puml, err := rendering.PlantUML()
+	if err != nil {
+		t.Fatalf("PlantUML: %v", err)
+	}
+	for _, want := range []string{
+		"@1\nl0 is {hidden}\n",
+		"@3\nl0 is {hidden}\n",
+	} {
+		if !strings.Contains(puml, want) {
+			t.Errorf("timeline PlantUML is missing %q:\n%s", want, puml)
+		}
 	}
 }
 

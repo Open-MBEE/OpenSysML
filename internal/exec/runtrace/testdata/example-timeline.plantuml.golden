@@ -1,5 +1,6 @@
 @startuml
 ' run — timeline rendering (the trace of a run to t = 6)
+' not represented: 1 state held for no time is listed in the text form
 scale 1 as 311 pixels
 concise "RunTimeline::mission.controller.modes" as l0
 concise "RunTimeline::mission.instrument.modes" as l1
@@ -25,7 +26,6 @@ l1 is "waiting (time)"
 l0 is "acknowledged | charged (time, accept Ack)"
 l1 is "acknowledged (accept Ping)"
 @6
-l0 is "waiting | charged (time)"
 l0 is {hidden}
 l1 is {hidden}
 @enduml

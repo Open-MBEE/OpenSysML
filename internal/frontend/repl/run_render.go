@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"slices"
 
-	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/exec/runtrace"
 	"github.com/Open-MBEE/OpenSysML/internal/ir/view"
 )
@@ -56,10 +55,12 @@ func (s *Session) RunTraceRendering(kind runtrace.Kind) (*view.Rendering, error)
 }
 
 func (s *Session) runTraceRendering(kind runtrace.Kind) (*view.Rendering, error) {
-	var trace *runtime.TraceRecorder
+	trace := s.trace
 	var until float64
 	if s.rtCtx != nil {
-		trace = s.rtCtx.Trace()
+		if trace == nil {
+			trace = s.rtCtx.Trace()
+		}
 		until = s.rtCtx.Clock().Now()
 	}
 	return runtrace.Render(kind, trace, runtrace.Options{Label: s.runTraceLabel, Until: until})
