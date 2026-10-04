@@ -464,7 +464,10 @@ fn an_action_runs_explores_and_a_state_machine_steps() {
             },
         )
         .unwrap();
-    assert_eq!(traced.trace.first().map(|event| event.kind.as_str()), Some("entry"));
+    assert_eq!(
+        traced.trace.first().map(|event| event.kind.as_str()),
+        Some("entry")
+    );
     assert_eq!(traced.trace_dropped, 0);
 }
 
