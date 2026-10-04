@@ -10,26 +10,34 @@ import (
 func (r *Renderer) renderMixed(view *symbols.Symbol, exposed []*symbols.Symbol, out *Rendering) {
 	w := &mixedWalk{r: r, view: view, ids: &nodeIDs{}, out: out,
 		nodes: map[*symbols.Symbol]*Node{}, seen: map[*symbols.Symbol]bool{},
-		cases: &caseWalk{r: r, view: view, ids: nil, drawn: map[*symbols.Symbol]*Node{}, out: out}}
+		cases:           &caseWalk{r: r, view: view, ids: nil, drawn: map[*symbols.Symbol]*Node{}, out: out, deferIncludes: true},
+		structureOwners: map[*symbols.Symbol]bool{}, deferredMembers: map[*symbols.Symbol][]*symbols.Symbol{}}
 	w.cases.ids = w.ids
 	for _, elem := range exposed {
 		w.render(elem, true, nil)
 	}
 	w.renderStructures()
+	w.cases.resolveIncludedCases()
+	for _, caseSym := range w.cases.order {
+		w.remember(caseSym, w.cases.drawn[caseSym])
+	}
 	w.referenceEdges()
 }
 
 // mixedWalk tracks the nodes and deferred structural work of one mixed rendering.
 type mixedWalk struct {
-	r          *Renderer
-	view       *symbols.Symbol
-	ids        *nodeIDs
-	out        *Rendering
-	nodes      map[*symbols.Symbol]*Node
-	order      []*symbols.Symbol
-	seen       map[*symbols.Symbol]bool
-	cases      *caseWalk
-	structures []*mixedStructure
+	r               *Renderer
+	view            *symbols.Symbol
+	ids             *nodeIDs
+	out             *Rendering
+	nodes           map[*symbols.Symbol]*Node
+	order           []*symbols.Symbol
+	seen            map[*symbols.Symbol]bool
+	cases           *caseWalk
+	structures      []*mixedStructure
+	structureOwners map[*symbols.Symbol]bool
+	structureOrder  []*symbols.Symbol
+	deferredMembers map[*symbols.Symbol][]*symbols.Symbol
 }
 
 // mixedStructure records a structure queued for the interconnection builder.
@@ -69,6 +77,10 @@ func (w *mixedWalk) render(sym *symbols.Symbol, exposed bool, parent *Node) {
 				w.seen[member] = true
 				continue
 			}
+			if isReferencedIncludedCase(member) {
+				w.seen[member] = true
+				continue
+			}
 			w.render(member, false, parent)
 		}
 		return
@@ -93,9 +105,12 @@ func (w *mixedWalk) render(sym *symbols.Symbol, exposed bool, parent *Node) {
 		return
 	}
 
-	node := w.r.treeNode(w.view, sym, w.ids, map[*symbols.Symbol]bool{}, 0, exposed, w.out)
-	w.indexTree(sym, node)
+	node := w.r.treeNodeShallow(w.view, sym, w.ids, map[*symbols.Symbol]bool{}, 0, exposed, w.out)
+	w.remember(sym, node)
 	w.append(node, parent)
+	for _, member := range w.r.containedMembers(sym) {
+		w.render(member, false, node)
+	}
 }
 
 // packageNode creates the shared package cluster for a mixed view.
@@ -131,6 +146,10 @@ func (w *mixedWalk) queueStructure(sym *symbols.Symbol, parent *Node) {
 
 // walkStructureMembers collects structural descendants into the shared node map.
 func (w *mixedWalk) walkStructureMembers(sym *symbols.Symbol, parent *Node) {
+	if !w.structureOwners[sym] {
+		w.structureOwners[sym] = true
+		w.structureOrder = append(w.structureOrder, sym)
+	}
 	for _, member := range w.r.containedMembers(sym) {
 		if w.seen[member] {
 			continue
@@ -142,7 +161,7 @@ func (w *mixedWalk) walkStructureMembers(sym *symbols.Symbol, parent *Node) {
 			w.seen[member] = true
 			w.walkStructureMembers(member, parent)
 		default:
-			w.render(member, false, parent)
+			w.deferredMembers[sym] = append(w.deferredMembers[sym], member)
 		}
 	}
 }
@@ -173,6 +192,7 @@ func (w *mixedWalk) renderStructures() {
 	for _, entry := range w.structures {
 		index(entry.sym)
 	}
+	w.renderDeferredStructureMembers(members)
 	roots := map[*Node]bool{}
 	for _, root := range temp.Roots {
 		roots[root] = true
@@ -192,6 +212,33 @@ func (w *mixedWalk) renderStructures() {
 	w.out.Edges = append(w.out.Edges, temp.Edges...)
 	w.out.Notes = append(w.out.Notes, temp.Notes...)
 	w.out.Notices = append(w.out.Notices, temp.Notices...)
+}
+
+// renderDeferredStructureMembers attaches members after their structural owners are indexed.
+func (w *mixedWalk) renderDeferredStructureMembers(members map[*symbols.Symbol]*Node) {
+	for _, sym := range w.structureOrder {
+		owner := members[sym]
+		if owner == nil {
+			continue
+		}
+		for _, member := range w.deferredMembers[sym] {
+			w.render(member, false, owner)
+		}
+		var children []*Node
+		for _, member := range w.r.containedMembers(sym) {
+			if w.r.drawsConnector(member) {
+				continue
+			}
+			node := members[member]
+			if node == nil {
+				node = w.nodes[member]
+			}
+			if node != nil {
+				children = append(children, node)
+			}
+		}
+		owner.Children = children
+	}
 }
 
 // removeStructuralSlots replaces temporary structural placeholders with built nodes.
@@ -236,17 +283,6 @@ func (w *mixedWalk) append(node, parent *Node) {
 		return
 	}
 	parent.Children = append(parent.Children, node)
-}
-
-// indexTree records symbols represented by a rendered containment subtree.
-func (w *mixedWalk) indexTree(sym *symbols.Symbol, node *Node) {
-	w.remember(sym, node)
-	members := w.r.containedMembers(sym)
-	for i, member := range members {
-		if i < len(node.Children) {
-			w.indexTree(member, node.Children[i])
-		}
-	}
 }
 
 // remember indexes one semantic symbol and its shared node.

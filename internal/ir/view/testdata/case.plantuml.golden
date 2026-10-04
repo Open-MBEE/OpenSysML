@@ -49,32 +49,38 @@ note "**objective**\nTransport the vehicle and its passengers safely." as n3
 usecase "<size:10>//«use case def»//</size>\n**CaseExamples::'Add Fuel'**" as n4 <<use case def>>
 rectangle "<size:10>//«subject»//</size>\n**vehicle : Vehicle**" as n5 <<subject>> <<usage>>
 actor "<size:10>//«actor»//</size>\n**fueler : Person**" as n6 <<actor>> <<usage>>
-usecase "<size:10>//«include use case»//</size>\n**'enter vehicle' : 'Enter Vehicle'**" as n7 <<include use case>> <<usage>>
-rectangle "<size:10>//«subject»//</size>\n**vehicle**" as n8 <<subject>> <<usage>>
-actor "<size:10>//«actor»//</size>\n**driver**" as n9 <<actor>> <<usage>>
-usecase "<size:10>//«use case»//</size>\n**'Drive Vehicle'**" as n10 <<use case>> <<usage>>
-rectangle "<size:10>//«subject»//</size>\n**vehicle**" as n11 <<subject>> <<usage>>
-actor "<size:10>//«actor»//</size>\n**driver**" as n12 <<actor>> <<usage>>
-usecase "<size:10>//«analysis def»//</size>\n**CaseExamples::FuelAnalysis**" as n13 <<analysis def>>
-rectangle "<size:10>//«subject»//</size>\n**vehicle : Vehicle**" as n14 <<subject>> <<usage>>
-note "**objective**\nEstimate the fuel remaining after a journey." as n15
-usecase "<size:10>//«verification def»//</size>\n**CaseExamples::FuelVerification**" as n16 <<verification def>>
+note "<size:10>//«objective»//</size>\n**obj**" as n7
+usecase "<size:10>//«include use case»//</size>\n**'enter vehicle' : 'Enter Vehicle'**" as n8 <<include use case>> <<usage>>
+rectangle "<size:10>//«subject»//</size>\n**vehicle**" as n9 <<subject>> <<usage>>
+actor "<size:10>//«actor»//</size>\n**driver**" as n10 <<actor>> <<usage>>
+note "<size:10>//«objective»//</size>\n**obj**" as n11
+usecase "<size:10>//«use case»//</size>\n**'Drive Vehicle'**" as n12 <<use case>> <<usage>>
+rectangle "<size:10>//«subject»//</size>\n**vehicle**" as n13 <<subject>> <<usage>>
+actor "<size:10>//«actor»//</size>\n**driver**" as n14 <<actor>> <<usage>>
+note "<size:10>//«objective»//</size>\n**obj**" as n15
+usecase "<size:10>//«analysis def»//</size>\n**CaseExamples::FuelAnalysis**" as n16 <<analysis def>>
 rectangle "<size:10>//«subject»//</size>\n**vehicle : Vehicle**" as n17 <<subject>> <<usage>>
-note "**objective**" as n18
+note "**objective**\nEstimate the fuel remaining after a journey." as n18
+usecase "<size:10>//«verification def»//</size>\n**CaseExamples::FuelVerification**" as n19 <<verification def>>
+rectangle "<size:10>//«subject»//</size>\n**vehicle : Vehicle**" as n20 <<subject>> <<usage>>
+note "**objective**" as n21
 n0 -- n1 : <U+00AB>subject<U+00BB>
 n2 -- n0
 n0 .. n3
 n4 -- n5 : <U+00AB>subject<U+00BB>
 n6 -- n4
+n4 .. n7
 n0 ..> n4 : <U+00AB>include<U+00BB>
-n0 ..> n7 : <U+00AB>include<U+00BB>
-n7 -- n8 : <U+00AB>subject<U+00BB>
-n9 -- n7
-n0 *-- n10
-n10 -- n11 : <U+00AB>subject<U+00BB>
-n12 -- n10
-n13 -- n14 : <U+00AB>subject<U+00BB>
-n13 .. n15
+n0 ..> n8 : <U+00AB>include<U+00BB>
+n8 -- n9 : <U+00AB>subject<U+00BB>
+n10 -- n8
+n8 .. n11
+n0 *-- n12
+n12 -- n13 : <U+00AB>subject<U+00BB>
+n14 -- n12
+n12 .. n15
 n16 -- n17 : <U+00AB>subject<U+00BB>
 n16 .. n18
+n19 -- n20 : <U+00AB>subject<U+00BB>
+n19 .. n21
 @enduml

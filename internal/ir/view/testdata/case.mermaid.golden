@@ -37,41 +37,47 @@ flowchart LR
 **vehicle : Vehicle**`"]
   n6["`*«actor»*
 **fueler : Person**`"]
-  n7(["`*«include use case»*
+  n7@{ shape: notch-rect, label: "«objective»<br>obj" }
+  n8(["`*«include use case»*
 **'enter vehicle' : 'Enter Vehicle'**`"])
-  n8["`*«subject»*
+  n9["`*«subject»*
 **vehicle**`"]
-  n9["`*«actor»*
+  n10["`*«actor»*
 **driver**`"]
-  n10(["`*«use case»*
+  n11@{ shape: notch-rect, label: "«objective»<br>obj" }
+  n12(["`*«use case»*
 **'Drive Vehicle'**`"])
-  n11["`*«subject»*
+  n13["`*«subject»*
 **vehicle**`"]
-  n12["`*«actor»*
+  n14["`*«actor»*
 **driver**`"]
-  n13(["`*«analysis def»*
+  n15@{ shape: notch-rect, label: "«objective»<br>obj" }
+  n16(["`*«analysis def»*
 **CaseExamples::FuelAnalysis**`"])
-  n14["`*«subject»*
-**vehicle : Vehicle**`"]
-  n15@{ shape: notch-rect, label: "objective<br>Estimate the fuel remaining after a journey." }
-  n16(["`*«verification def»*
-**CaseExamples::FuelVerification**`"])
   n17["`*«subject»*
 **vehicle : Vehicle**`"]
-  n18@{ shape: notch-rect, label: "objective" }
+  n18@{ shape: notch-rect, label: "objective<br>Estimate the fuel remaining after a journey." }
+  n19(["`*«verification def»*
+**CaseExamples::FuelVerification**`"])
+  n20["`*«subject»*
+**vehicle : Vehicle**`"]
+  n21@{ shape: notch-rect, label: "objective" }
   n0 ---|"«subject»"| n1
   n2 --- n0
   n0 -.- n3
   n4 ---|"«subject»"| n5
   n6 --- n4
+  n4 -.- n7
   n0 -.->|"«include»"| n4
-  n0 -.->|"«include»"| n7
-  n7 ---|"«subject»"| n8
-  n9 --- n7
-  n0 ---|"«composition»"| n10
-  n10 ---|"«subject»"| n11
-  n12 --- n10
-  n13 ---|"«subject»"| n14
-  n13 -.- n15
+  n0 -.->|"«include»"| n8
+  n8 ---|"«subject»"| n9
+  n10 --- n8
+  n8 -.- n11
+  n0 ---|"«composition»"| n12
+  n12 ---|"«subject»"| n13
+  n14 --- n12
+  n12 -.- n15
   n16 ---|"«subject»"| n17
   n16 -.- n18
+  n19 ---|"«subject»"| n20
+  n19 -.- n21

@@ -23,13 +23,22 @@ func (r *Renderer) renderCase(view *symbols.Symbol, exposed []*symbols.Symbol, o
 
 // caseWalk tracks case nodes and their relationships during one rendering.
 type caseWalk struct {
-	r         *Renderer
-	view      *symbols.Symbol
-	ids       *nodeIDs
-	drawn     map[*symbols.Symbol]*Node
-	order     []*symbols.Symbol
-	out       *Rendering
-	container *Node
+	r             *Renderer
+	view          *symbols.Symbol
+	ids           *nodeIDs
+	drawn         map[*symbols.Symbol]*Node
+	order         []*symbols.Symbol
+	out           *Rendering
+	container     *Node
+	deferIncludes bool
+	includes      []pendingCaseInclude
+}
+
+// pendingCaseInclude records a target and edge for resolution after traversal.
+type pendingCaseInclude struct {
+	from    *Node
+	target  *symbols.Symbol
+	include *symbols.Symbol
 }
 
 // collect descends transparent containers and renders case-family members.
@@ -63,6 +72,10 @@ func (w *caseWalk) render(sym *symbols.Symbol, exposed bool, owner *Node) *Node 
 	}
 	if isReferencedIncludedCase(sym) {
 		if target := w.includedCaseTarget(sym); target != nil {
+			if w.deferIncludes {
+				w.includes = append(w.includes, pendingCaseInclude{from: owner, target: target, include: sym})
+				return nil
+			}
 			node := w.render(target, true, nil)
 			if owner != nil && node != nil {
 				w.edge(owner, node, EdgeInclude, "«include»", sym)
@@ -94,21 +107,71 @@ func (w *caseWalk) render(sym *symbols.Symbol, exposed bool, owner *Node) *Node 
 		w.edge(owner, node, kind, label, sym)
 	}
 
+	type rolePresentation struct {
+		kind     string
+		edgeKind EdgeKind
+		label    string
+	}
+	ownedRoles := map[*symbols.Symbol]rolePresentation{}
+	actorsOwned, actorsInherited := w.r.model.ActorsOf(sym)
+	subjectsOwned, subjectsInherited := w.r.model.SubjectsOf(sym)
+	objectivesOwned, objectivesInherited := w.r.model.ObjectivesOf(sym)
+	for _, role := range actorsOwned {
+		ownedRoles[role] = rolePresentation{kind: "actor", edgeKind: EdgeAssociation}
+	}
+	for _, role := range subjectsOwned {
+		ownedRoles[role] = rolePresentation{kind: "subject", edgeKind: EdgeAssociation, label: "«subject»"}
+	}
+	for _, role := range objectivesOwned {
+		ownedRoles[role] = rolePresentation{kind: "objective", edgeKind: EdgeAnchor}
+	}
+	drawRole := func(role *symbols.Symbol, presentation rolePresentation) {
+		if presentation.kind == "objective" {
+			w.objectiveNode(sym, node, role)
+		} else {
+			w.roleNode(sym, node, role, presentation.kind, presentation.edgeKind, presentation.label)
+		}
+	}
+
 	for _, member := range w.r.containedMembers(sym) {
+		if presentation, ok := ownedRoles[member]; ok {
+			drawRole(member, presentation)
+			continue
+		}
 		switch {
-		case semantics.IsActorUsage(member):
-			w.roleNode(sym, node, member, "actor", EdgeAssociation, "")
-		case semantics.IsSubjectUsage(member):
-			w.roleNode(sym, node, member, "subject", EdgeAssociation, "«subject»")
-		case semantics.IsObjectiveUsage(member):
-			w.objectiveNode(sym, node, member)
+		case semantics.IsActorUsage(member) || semantics.IsSubjectUsage(member) || semantics.IsObjectiveUsage(member):
+			continue
 		case caseFamily(member):
 			w.render(member, false, node)
 		default:
 			w.collect(member, false, node, map[*symbols.Symbol]bool{sym: true})
 		}
 	}
+	for _, role := range actorsInherited {
+		drawRole(role, rolePresentation{kind: "actor", edgeKind: EdgeAssociation})
+	}
+	for _, role := range subjectsInherited {
+		drawRole(role, rolePresentation{kind: "subject", edgeKind: EdgeAssociation, label: "«subject»"})
+	}
+	for _, role := range objectivesInherited {
+		drawRole(role, rolePresentation{kind: "objective", edgeKind: EdgeAnchor})
+	}
 	return node
+}
+
+// resolveIncludedCases adds include edges after their targets have been placed.
+func (w *caseWalk) resolveIncludedCases() {
+	for _, include := range w.includes {
+		target := w.drawn[include.target]
+		if target == nil {
+			w.render(include.target, true, nil)
+			target = w.drawn[include.target]
+		}
+		if include.from != nil && target != nil {
+			w.edge(include.from, target, EdgeInclude, "«include»", include.include)
+		}
+	}
+	w.includes = nil
 }
 
 // roleNode adds an actor or subject node and its association.

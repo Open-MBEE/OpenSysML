@@ -478,6 +478,149 @@ func TestCaseShapesAndEdgeLabelsAreKindScoped(t *testing.T) {
 	}
 }
 
+func TestCaseRenderingIncludesInheritedVisibleRoles(t *testing.T) {
+	renderer, index := loadFixture(t, "view-role-inheritance.sysml")
+	base := lookup(t, index, "RoleInheritance::Base")
+	driver := lookup(t, index, "RoleInheritance::Base::driver")
+	subject := lookup(t, index, "RoleInheritance::Base::s")
+	ownedObjectives, inheritedObjectives := renderer.model.ObjectivesOf(base)
+	if len(inheritedObjectives) != 0 || len(ownedObjectives) != 1 {
+		t.Fatalf("Base objectives = %v, %v; want one owned objective", ownedObjectives, inheritedObjectives)
+	}
+	objective := ownedObjectives[0]
+
+	rendering, err := renderer.Render(lookup(t, index, "RoleInheritance::trip"))
+	if err != nil {
+		t.Fatalf("Render(trip): %v", err)
+	}
+	tripNode := findNode(t, rendering.Roots, "RoleInheritance::Trip")
+	driverNode := findNodeByOrigin(t, rendering.Roots, driver.Origin())
+	subjectNode := findNodeByOrigin(t, rendering.Roots, subject.Origin())
+	objectiveNode := findNodeByOrigin(t, rendering.Roots, objective.Origin())
+	if driverNode.Kind != "actor" || subjectNode.Kind != "subject" || objectiveNode.Kind != "objective" {
+		t.Fatalf("inherited role nodes = %q, %q, %q; want actor, subject, objective",
+			driverNode.Kind, subjectNode.Kind, objectiveNode.Kind)
+	}
+	if !strings.Contains(objectiveNode.Detail, "Arrive safely.") {
+		t.Errorf("inherited objective detail = %q, want its documentation", objectiveNode.Detail)
+	}
+	for _, want := range []struct {
+		from, to string
+		kind     EdgeKind
+	}{
+		{driverNode.ID, tripNode.ID, EdgeAssociation},
+		{tripNode.ID, subjectNode.ID, EdgeAssociation},
+		{tripNode.ID, objectiveNode.ID, EdgeAnchor},
+	} {
+		if !hasRenderingEdge(rendering, want.kind, want.from, want.to) {
+			t.Errorf("rendering has no %s edge from %s to %s", want.kind, want.from, want.to)
+		}
+	}
+
+	redefined, err := renderer.Render(lookup(t, index, "RoleInheritance::trip2"))
+	if err != nil {
+		t.Fatalf("Render(trip2): %v", err)
+	}
+	var drivers []*Node
+	var visit func([]*Node)
+	visit = func(nodes []*Node) {
+		for _, node := range nodes {
+			if node.Kind == "actor" && node.Name == "driver" {
+				drivers = append(drivers, node)
+			}
+			visit(node.Children)
+		}
+	}
+	visit(redefined.Roots)
+	if len(drivers) != 1 {
+		t.Errorf("Trip2 has %d driver nodes, want one: %+v", len(drivers), drivers)
+	}
+}
+
+func TestMixedKeepsDeferredMembersUnderStructuralOwnerInSourceOrder(t *testing.T) {
+	renderer, index := loadFixture(t, "mixed-review.sysml")
+	rendering, err := renderer.Render(lookup(t, index, "MixedReview::mixed"))
+	if err != nil {
+		t.Fatalf("Render(mixed): %v", err)
+	}
+	vehicle := findNode(t, rendering.Roots, "MixedReview::P::Vehicle")
+	var childNames []string
+	for _, child := range vehicle.Children {
+		childNames = append(childNames, child.Name)
+	}
+	if want := []string{"MixedReview::P::Vehicle::Drive", "Wheel", "MixedReview::P::Vehicle::Brake"}; !reflect.DeepEqual(childNames, want) {
+		t.Errorf("Vehicle children = %v, want source order %v", childNames, want)
+	}
+}
+
+func TestMixedKeepsIncludedTargetInItsPackage(t *testing.T) {
+	renderer, index := loadFixture(t, "mixed-review.sysml")
+	rendering, err := renderer.Render(lookup(t, index, "MixedReview::mixed"))
+	if err != nil {
+		t.Fatalf("Render(mixed): %v", err)
+	}
+	packageNode := findNode(t, rendering.Roots, "MixedReview::P")
+	from := findNode(t, rendering.Roots, "A")
+	to := findNode(t, rendering.Roots, "B")
+	var targetIsChild bool
+	for _, child := range packageNode.Children {
+		targetIsChild = targetIsChild || child == to
+	}
+	if !targetIsChild {
+		t.Error("included case B is not a child of its package P node")
+	}
+	if !hasRenderingEdge(rendering, EdgeInclude, from.ID, to.ID) {
+		t.Errorf("rendering has no include edge from A to B: %+v", rendering.Edges)
+	}
+}
+
+func TestMixedDispatchesFallbackMembersToTheirBuilders(t *testing.T) {
+	renderer, index := loadFixture(t, "mixed-review.sysml")
+	rendering, err := renderer.Render(lookup(t, index, "MixedReview::behaviorView"))
+	if err != nil {
+		t.Fatalf("Render(behaviorView): %v", err)
+	}
+	requirement := findNode(t, rendering.Roots, "MixedReview::Requirement")
+	action := findNode(t, requirement.Children, "MixedReview::Requirement::a")
+	start := findNode(t, action.Children, "start")
+	step := findNode(t, action.Children, "'step'")
+	if !hasRenderingEdge(rendering, EdgeSuccession, start.ID, step.ID) {
+		t.Errorf("rendering has no start-to-step succession edge: %+v", rendering.Edges)
+	}
+}
+
+func findNodeByOrigin(t *testing.T, roots []*Node, origin symbols.Origin) *Node {
+	t.Helper()
+	var found *Node
+	var visit func([]*Node)
+	visit = func(nodes []*Node) {
+		for _, node := range nodes {
+			if node.Origin == origin {
+				found = node
+				return
+			}
+			visit(node.Children)
+			if found != nil {
+				return
+			}
+		}
+	}
+	visit(roots)
+	if found == nil {
+		t.Fatalf("no node with source origin %+v", origin)
+	}
+	return found
+}
+
+func hasRenderingEdge(rendering *Rendering, kind EdgeKind, from, to string) bool {
+	for _, edge := range rendering.Edges {
+		if edge.Kind == kind && edge.From == from && edge.To == to {
+			return true
+		}
+	}
+	return false
+}
+
 func TestPlantUMLRelationshipGuillemetsAreEscaped(t *testing.T) {
 	for _, test := range []struct {
 		file string
