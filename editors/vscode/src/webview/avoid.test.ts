@@ -10,9 +10,11 @@ import {
   MIN_JOG,
   NUDGING,
   portExitReach,
+  routingObstacle,
   straightenJogs,
   type AvoidPort,
   type AvoidShape,
+  type RoutingObstacle,
 } from "./avoid";
 import { portFace, PORT_SIZE, type Box, type Side } from "./geometry";
 import { clampNodeToBounds, layoutCanvas } from "./layout";
@@ -221,7 +223,8 @@ test("straightenJogs tries the other shift when the shorter one crosses an obsta
     { x: 8, y: 80 },
     { x: 40, y: 80 },
   ];
-  const obstacles = new Map([["obstacle", { x: 7, y: 10, width: 2, height: 20 }]]);
+  const box = { x: 7, y: 10, width: 2, height: 20 };
+  const obstacles = new Map([["obstacle", { routing: box, raw: box }]]);
   const result = straightenJogs(new Map([[0, route]]), obstacles, new Map()).get(0)!;
 
   assert.ok(result.length < route.length);
@@ -239,9 +242,11 @@ test("straightenJogs keeps a jog when both shifts cross obstacles", () => {
     { x: 8, y: 80 },
     { x: 40, y: 80 },
   ];
+  const first = { x: 7, y: 10, width: 2, height: 20 };
+  const second = { x: -1, y: 50, width: 2, height: 20 };
   const obstacles = new Map([
-    ["first", { x: 7, y: 10, width: 2, height: 20 }],
-    ["second", { x: -1, y: 50, width: 2, height: 20 }],
+    ["first", { routing: first, raw: first }],
+    ["second", { routing: second, raw: second }],
   ]);
   assert.deepEqual(straightenJogs(new Map([[0, route]]), obstacles, new Map()).get(0), route);
 });
@@ -256,17 +261,11 @@ test("straightenJogs preserves the routing clearance from shape buffers", () => 
     { x: 45, y: 100 },
   ];
   const raw = { x: 16, y: -100, width: 40, height: 100 };
-  const obstacle = {
-    x: raw.x - CLEARANCE,
-    y: raw.y - CLEARANCE,
-    width: raw.width + 2 * CLEARANCE,
-    height: raw.height + 2 * CLEARANCE,
-    raw,
-  };
+  const obstacle = routingObstacle({ box: raw });
   const routes = new Map([[0, route]]);
   const result = straightenJogs(
     routes,
-    new Map<string, Box>([["obstacle", obstacle]]),
+    new Map<string, RoutingObstacle>([["obstacle", obstacle]]),
     new Map<number, [string, string]>([[0, ["source", "target"]]]),
   ).get(0)!;
 
@@ -483,15 +482,9 @@ function assertStraighteningIdempotent(
       current.set(index, route);
     }
   });
-  const obstacles = new Map<string, Box>();
+  const obstacles = new Map<string, RoutingObstacle>();
   boxes.forEach((box, index) => {
-    obstacles.set(`node-${index}`, {
-      x: box.x - CLEARANCE,
-      y: box.y - CLEARANCE,
-      width: box.width + 2 * CLEARANCE,
-      height: box.height + 2 * CLEARANCE,
-      raw: box,
-    } as Box);
+    obstacles.set(`node-${index}`, routingObstacle({ box }));
   });
   const ends = new Map<number, [string, string]>();
   pairs.forEach(({ source, target }, index) => {

@@ -63,7 +63,9 @@ interface ShapePins {
   ports: Map<string, number>;
 }
 
-interface RoutingObstacle extends Box {
+/** Holds a shape's routing-clearance bounds and its raw interior. */
+export interface RoutingObstacle {
+  routing: Box;
   raw: Box;
 }
 
@@ -159,9 +161,9 @@ export function avoidRoutes(
         routes.set(index, route);
       }
     }
-    const obstacles = new Map<string, Box>();
+    const obstacles = new Map<string, RoutingObstacle>();
     for (const [id, shape] of shapes) {
-      obstacles.set(id, grownRoutingObstacle(shape));
+      obstacles.set(id, routingObstacle(shape));
     }
     const ends = new Map<number, [string, string]>();
     for (const edge of usable) {
@@ -193,7 +195,7 @@ interface JogShift {
 /** Straightens short Z-jogs without losing clearance or adding wire crossings. */
 export function straightenJogs(
   routes: Map<number, RenderPoint[]>,
-  obstacles: Map<string, Box>,
+  obstacles: Map<string, RoutingObstacle>,
   ends: Map<number, [string, string]>,
   bounds?: Box,
 ): Map<number, RenderPoint[]> {
@@ -288,7 +290,7 @@ function legalShift(
   candidate: RenderPoint[],
   shift: JogShift,
   routes: Map<number, RenderPoint[]>,
-  obstacles: Map<string, Box>,
+  obstacles: Map<string, RoutingObstacle>,
   ends: Map<number, [string, string]>,
   bounds?: Box,
 ): boolean {
@@ -370,13 +372,13 @@ function crossesObstacle(
   route: number,
   a: RenderPoint,
   b: RenderPoint,
-  obstacles: Map<string, Box>,
+  obstacles: Map<string, RoutingObstacle>,
   ends: Map<number, [string, string]>,
 ): boolean {
   const routeEnds: string[] = ends.get(route) ?? [];
   for (const [id, obstacle] of obstacles) {
-    const ownBox = routeEnds.includes(id) ? (obstacle as RoutingObstacle).raw ?? obstacle : obstacle;
-    if (crossesInterior(a, b, ownBox)) {
+    const box = routeEnds.includes(id) ? obstacle.raw : obstacle.routing;
+    if (crossesInterior(a, b, box)) {
       return true;
     }
   }
@@ -567,13 +569,16 @@ function shapeRoutingBox(shapeData: AvoidShape): Box {
   };
 }
 
-function grownRoutingObstacle(shapeData: AvoidShape): RoutingObstacle {
+/** Builds the routing geometry shared by libavoid and route simplification. */
+export function routingObstacle(shapeData: AvoidShape): RoutingObstacle {
   const box = shapeRoutingBox(shapeData);
   return {
-    x: box.x - CLEARANCE,
-    y: box.y - CLEARANCE,
-    width: box.width + 2 * CLEARANCE,
-    height: box.height + 2 * CLEARANCE,
+    routing: {
+      x: box.x - CLEARANCE,
+      y: box.y - CLEARANCE,
+      width: box.width + 2 * CLEARANCE,
+      height: box.height + 2 * CLEARANCE,
+    },
     raw: shapeData.box,
   };
 }
