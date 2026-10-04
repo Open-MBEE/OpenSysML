@@ -2,6 +2,7 @@ package wasm
 
 import (
 	"encoding/json"
+	"flag"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -10,6 +11,8 @@ import (
 
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/engine"
 )
+
+var updateLanding = flag.Bool("update-landing", false, "rewrite editors/vscode/src/landing/stack.json")
 
 // TestLandingStackModel pins what the landing page reads from
 // docs/assets/opensysml-stack.sysml through sysml-engine: a clean parse, the
@@ -24,7 +27,7 @@ func TestLandingStackModel(t *testing.T) {
 	if err != nil {
 		t.Fatalf("engine.New: %v", err)
 	}
-	call := func(method string, params any, into any) {
+	call := func(method string, params any, into any) []byte {
 		t.Helper()
 		raw, err := json.Marshal(params)
 		if err != nil {
@@ -34,6 +37,7 @@ func TestLandingStackModel(t *testing.T) {
 		if err := json.Unmarshal(body, into); err != nil {
 			t.Fatalf("decoding %s: %v\n%s", method, err, body)
 		}
+		return body
 	}
 
 	var parsed struct {
@@ -62,7 +66,7 @@ func TestLandingStackModel(t *testing.T) {
 		Error     string     `json:"error"`
 		Instances []instance `json:"instances"`
 	}
-	call("Instantiate", map[string]string{"modelHash": parsed.ModelHash, "symbolId": "OpenSysMLStack::stack"}, &built)
+	instantiateBody := call("Instantiate", map[string]string{"modelHash": parsed.ModelHash, "symbolId": "OpenSysMLStack::stack"}, &built)
 	if built.Error != "" {
 		t.Fatalf("Instantiate: %s", built.Error)
 	}
@@ -130,10 +134,12 @@ func TestLandingStackModel(t *testing.T) {
 	}
 
 	var diagram engine.JRenderViewResponse
-	call("RenderView", map[string]string{
+	renderBody := call("RenderView", map[string]string{
 		"modelHash": parsed.ModelHash,
 		"view":      "#interconnection:OpenSysMLStack::stack",
+		"ports":     "minimal",
 	}, &diagram)
+	pinLandingFixture(t, parsed.ModelHash, renderBody, instantiateBody)
 	if diagram.Kind != "interconnection" {
 		t.Fatalf("landing diagram kind = %q, want interconnection", diagram.Kind)
 	}
@@ -225,12 +231,72 @@ func TestLandingStackModel(t *testing.T) {
 	call("ExecuteState", map[string]any{
 		"modelHash":            parsed.ModelHash,
 		"stateMachineSymbolId": "OpenSysMLStack::ModelJourney",
-		"events":               []string{"commit", "pull", "push", "check"},
+		"events":               []string{"Commit", "Pull", "Push", "Check"},
 	}, &journey)
 	if journey.Error != "" {
 		t.Fatalf("ExecuteState: %s", journey.Error)
 	}
 	if want := []string{"opensysml", "flexo", "toolkit", "flexo", "pilot"}; !reflect.DeepEqual(journey.StatesVisited, want) {
 		t.Errorf("journey: got %v, want %v", journey.StatesVisited, want)
+	}
+}
+
+type landingFixture struct {
+	Hash      string          `json:"hash"`
+	Render    json.RawMessage `json:"render"`
+	Instances json.RawMessage `json:"instances"`
+}
+
+func pinLandingFixture(t *testing.T, hash string, render, instantiate []byte) {
+	t.Helper()
+	var response struct {
+		Instances json.RawMessage `json:"instances"`
+	}
+	if err := json.Unmarshal(instantiate, &response); err != nil {
+		t.Fatalf("decoding Instantiate fixture data: %v\n%s", err, instantiate)
+	}
+	fixture := landingFixture{
+		Hash:      hash,
+		Render:    json.RawMessage(render),
+		Instances: response.Instances,
+	}
+	path := filepath.Join("..", "..", "editors", "vscode", "src", "landing", "stack.json")
+	if *updateLanding {
+		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+			t.Fatalf("creating landing fixture directory: %v", err)
+		}
+		data, err := json.MarshalIndent(fixture, "", "  ")
+		if err != nil {
+			t.Fatalf("encoding landing fixture: %v", err)
+		}
+		if err := os.WriteFile(path, append(data, '\n'), 0o644); err != nil {
+			t.Fatalf("writing landing fixture: %v", err)
+		}
+		t.Logf("updated %s", path)
+		return
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("reading %s: %v; run go test -count=1 ./tests/wasm -run '^TestLandingStackModel$' -update-landing", path, err)
+	}
+	var want landingFixture
+	if err := json.Unmarshal(data, &want); err != nil {
+		t.Fatalf("decoding %s: %v", path, err)
+	}
+	var gotRender, wantRender, gotInstances, wantInstances any
+	if err := json.Unmarshal(fixture.Render, &gotRender); err != nil {
+		t.Fatalf("decoding current RenderView result: %v", err)
+	}
+	if err := json.Unmarshal(want.Render, &wantRender); err != nil {
+		t.Fatalf("decoding fixture RenderView result: %v", err)
+	}
+	if err := json.Unmarshal(fixture.Instances, &gotInstances); err != nil {
+		t.Fatalf("decoding current Instantiate instances: %v", err)
+	}
+	if err := json.Unmarshal(want.Instances, &wantInstances); err != nil {
+		t.Fatalf("decoding fixture Instantiate instances: %v", err)
+	}
+	if fixture.Hash != want.Hash || !reflect.DeepEqual(gotRender, wantRender) || !reflect.DeepEqual(gotInstances, wantInstances) {
+		t.Fatalf("%s is stale; run go test -count=1 ./tests/wasm -run '^TestLandingStackModel$' -update-landing", path)
 	}
 }
