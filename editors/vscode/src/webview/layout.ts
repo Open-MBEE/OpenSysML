@@ -452,14 +452,13 @@ export function symbolSize(shape: Shape): { width: number; height: number } | un
 // route's waypoints, to the border of its target; a self-loop swings out to the right.
 // The auto layout's route applies only where neither end is placed, since an end
 // the model or a gesture moved is where the route was computed around it.
-// `around` routes the drawn-straight edges it applies to orthogonally around the
-// other boxes at layout time; the route is the panel's, never the model's.
 function routeEdge(
   edge: RenderEdge,
   index: number,
   placed: Map<string, PlacedNode>,
   routes: Map<number, RenderPoint[] | undefined> | undefined,
   auto?: AutoLayout,
+  // Routes an edge otherwise drawn straight around the other boxes; the route is the panel's, never the model's.
   around?: (source: PlacedNode, target: PlacedNode, index: number) => RenderPoint[] | undefined,
 ): PlacedEdge {
   const stated = routes?.has(index) ? routes.get(index) : edge.route;

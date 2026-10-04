@@ -7,7 +7,7 @@ export const CLEARANCE = GAP / 2;
 export const BEND_COST = 4 * GAP;
 export const GRID_BUDGET = 40_000;
 
-/** An axis-aligned polyline from a point on `source`'s border to a point on `target`'s border that keeps CLEARANCE off every obstacle, or undefined when none exists. */
+/** An axis-aligned polyline from a point on `source`'s border to a point on `target`'s border that keeps `clearance` off every obstacle, or undefined when none exists. */
 export function orthogonalRoute(
   source: Box,
   target: Box,
