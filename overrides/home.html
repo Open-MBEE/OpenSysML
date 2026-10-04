@@ -38,7 +38,13 @@
     }
 
     .osml-hero {
-      background: linear-gradient(120deg, var(--osml-hero-from), var(--osml-hero-to));
+      /* Graph paper: a faint 20px grid with a stronger line every fifth square. */
+      background:
+        linear-gradient(rgba(255, 255, 255, .09) 1px, transparent 1px) 0 0 / 100px 100px,
+        linear-gradient(90deg, rgba(255, 255, 255, .09) 1px, transparent 1px) 0 0 / 100px 100px,
+        linear-gradient(rgba(255, 255, 255, .04) 1px, transparent 1px) 0 0 / 20px 20px,
+        linear-gradient(90deg, rgba(255, 255, 255, .04) 1px, transparent 1px) 0 0 / 20px 20px,
+        linear-gradient(120deg, var(--osml-hero-from), var(--osml-hero-to));
       color: #fff;
       padding: 2rem 0 4rem;
     }
