@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"maps"
+	"math"
 	"math/big"
 	"slices"
 
@@ -347,7 +348,7 @@ func (c *pkgClient) executeState(ctx context.Context, request protoreflect.Messa
 		StatesVisited: run.Visited,
 		FinalContext:  valuesToProto(run.Context),
 		Diagnostics:   diagnosticsToProto(run.Diagnostics),
-		TraceDropped:  int32(run.TraceDropped),
+		TraceDropped:  traceDroppedCountToInt32(run.TraceDropped),
 	}
 	for _, event := range run.Trace {
 		record, err := documentEventToProto(event)
@@ -357,6 +358,16 @@ func (c *pkgClient) executeState(ctx context.Context, request protoreflect.Messa
 		response.Trace = append(response.Trace, record)
 	}
 	return response, nil
+}
+
+func traceDroppedCountToInt32(dropped int) int32 {
+	if dropped < 0 {
+		return 0
+	}
+	if dropped > math.MaxInt32 {
+		return math.MaxInt32
+	}
+	return int32(dropped)
 }
 
 func documentEventToProto(event opensysml.DocumentEvent) (*pb.DocumentEvent, error) {
