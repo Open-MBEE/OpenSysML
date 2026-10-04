@@ -51,6 +51,12 @@ func (a *activity) valueActionRefusal(n *sysmlv1.Element) (why string, v Verdict
 	if !ok {
 		return "the value " + describeValue(val) + " is not written: " + note, Approximated, true
 	}
+	if results := n.Owned("result"); len(results) > 0 {
+		if lower, upper, ok := bounds(results[0]); ok && (lower > 1 || upper == 0) {
+			return "the value " + describeValue(val) + " is not written: the result holds " +
+				boundsText(lower, upper) + " values and the action gives one", Approximated, true
+		}
+	}
 	return "", Mapped, false
 }
 

@@ -1,6 +1,5 @@
 // Each prefix alternative alone (SysML.xtext BasicDefinitionPrefix, RefPrefix,
-// FeatureDirection) and a feature or arithmetic multiplicity bound, an extension of
-// KerML.xtext MultiplicityExpressionMember that reads a leading '-' as a syntax error.
+// FeatureDirection), plus feature-reference multiplicity bounds.
 package PrefixAlternatives {
 	abstract part def A;
 	variation part def V { variant part a : A; }
@@ -9,5 +8,5 @@ package PrefixAlternatives {
 	port def Q { in item i; out item o; inout item io; }
 	attribute n : ScalarValues::Integer;
 	part few [n] : A;
-	part more [0..n+1] : A;
+	part more [0..n] : A;
 }

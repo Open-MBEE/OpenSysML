@@ -13,6 +13,7 @@ import {
 import { cameoLook, type DiagramStyle, pilotLook, STYLE_LABELS, STYLES, styleOf } from "../style";
 import { MenuCommand, MenuItem, nodeMenu, paletteItems } from "./actions";
 import { autoLayout, type AutoLayout } from "./autolayout";
+import { loadAvoid, reportAvoidFailure } from "./avoid";
 import { cssEscape, drawCanvas, liftNode } from "./canvas";
 import { dragHint, Drop, dropOn } from "./drop";
 import { tableOf } from "./table";
@@ -51,7 +52,8 @@ const undrawableList = document.getElementById("undrawable-list") as HTMLElement
 const adder = document.getElementById("add") as HTMLSelectElement;
 const menu = document.getElementById("menu") as HTMLUListElement;
 
-const documentURI = (JSON.parse(body.dataset.state ?? "{}") as { uri?: string }).uri ?? "";
+const state = JSON.parse(body.dataset.state ?? "{}") as { uri?: string; avoid?: string };
+const documentURI = state.uri ?? "";
 const saved = (vscode.getState() ?? {}) as { view?: string; last?: RenderResult; style?: string };
 let selected = saved.view ?? "";
 // A rendering saved by an older extension is normalized like a fresh one, and
@@ -64,6 +66,8 @@ let layout: CanvasLayout | undefined;
 /** What ELK placed for the rendering on screen; undefined until it answers, and for kinds it does not lay out. */
 let auto: AutoLayout | undefined;
 let gesture: Gesture | undefined;
+// The router loaded mid-gesture, so the layout on screen predates it.
+let unrouted = false;
 /** How far the pointer moves before a press becomes a drag rather than a click. */
 const DRAG_THRESHOLD = 3;
 /** How soon a second click on a waypoint must follow the first to remove it. */
@@ -84,6 +88,22 @@ if (last) {
   draw(last);
   diagram.classList.add("stale");
 }
+
+// The WASM router loads after the first draw, so edges it would route stay
+// straight until it answers; a drawn mermaid rendering is laid out again then.
+loadAvoid(state.avoid ?? "").then(
+  () => {
+    if (gesture) {
+      unrouted = true;
+      return;
+    }
+    if (last && layout) {
+      layout = layoutCanvas(last, {}, auto);
+      show(layout);
+    }
+  },
+  (error: unknown) => reportAvoidFailure("failed to load", error),
+);
 
 // The look changes at once; the extension keeps the choice and renders for its palette.
 styler.addEventListener("change", () => {
@@ -239,6 +259,7 @@ function showUndrawable(views: PickerEntry[]): void {
 // to draw leaves the last diagram up, dimmed, so a mid-keystroke parse error does not
 // blank the panel.
 function draw(result: RenderResult): boolean {
+  unrouted = false;
   cancelGesture();
   try {
     if (result.form === "mermaid") {
@@ -388,7 +409,7 @@ function moveGesture(event: PointerEvent): void {
     drawDrag(event.shiftKey);
     return;
   }
-  showDragged(layoutCanvas(result, overridesOf(gesture.placements), auto));
+  showDragged(layoutCanvas(result, { ...overridesOf(gesture.placements), held: layout }, auto));
 }
 
 // showDragged puts the canvas a gesture has changed on screen. The pointer is captured by the
@@ -412,7 +433,7 @@ function drawDrag(shift: boolean): void {
     const svg = showDragged(layout);
     liftNode(svg, layout, gesture.id, gesture.at.x - gesture.start.x, gesture.at.y - gesture.start.y);
   } else {
-    showDragged(layoutCanvas(last, overridesOf(gesture.placements), auto));
+    showDragged(layoutCanvas(last, { ...overridesOf(gesture.placements), held: layout }, auto));
   }
   previewDrop(shift);
 }
@@ -465,6 +486,9 @@ function endGesture(event: PointerEvent): void {
     place(done.placements);
     return;
   }
+  if (unrouted) {
+    settle();
+  }
   if (done.kind === "node") {
     clickedWaypoint = undefined;
     vscode.postMessage({ type: "reveal", id: done.id, drawn });
@@ -490,9 +514,22 @@ function cancelGesture(): void {
   const moved = gesture.placements !== undefined;
   gesture = undefined;
   diagram.classList.remove("dragging", "refused");
-  if (moved && layout) {
-    show(layout);
+  if (moved || unrouted) {
+    settle();
+  }
+  if (moved) {
     showStatus("");
+  }
+}
+
+// settle shows the model's layout after a gesture that made no edit, laid out again if the router loaded meanwhile.
+function settle(): void {
+  if (unrouted && last && layout) {
+    layout = layoutCanvas(last, {}, auto);
+  }
+  unrouted = false;
+  if (layout) {
+    show(layout);
   }
 }
 
@@ -509,9 +546,7 @@ function dropNode(id: string, drop: Drop, placements: Placements): void {
 // revert puts the model's layout back after a drop the model did not take, and says why when told.
 function revert(message: string | undefined): void {
   cancelGesture();
-  if (layout) {
-    show(layout);
-  }
+  settle();
   if (message !== undefined) {
     showStatus(message);
   }
@@ -521,9 +556,7 @@ function revert(message: string | undefined): void {
 // was made on; the panel redraws once the document has changed.
 function place(placements: Placements | undefined): void {
   if (!placements || (placements.nodes.length === 0 && placements.edges.length === 0)) {
-    if (layout) {
-      show(layout);
-    }
+    settle();
     return;
   }
   vscode.postMessage({ type: "place", nodes: placements.nodes, edges: placements.edges, drawn });
