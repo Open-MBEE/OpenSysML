@@ -66,6 +66,8 @@ let layout: CanvasLayout | undefined;
 /** What ELK placed for the rendering on screen; undefined until it answers, and for kinds it does not lay out. */
 let auto: AutoLayout | undefined;
 let gesture: Gesture | undefined;
+// The router loaded mid-gesture, so the layout on screen predates it.
+let unrouted = false;
 /** How far the pointer moves before a press becomes a drag rather than a click. */
 const DRAG_THRESHOLD = 3;
 /** How soon a second click on a waypoint must follow the first to remove it. */
@@ -91,7 +93,11 @@ if (last) {
 // straight until it answers; a drawn mermaid rendering is laid out again then.
 loadAvoid(state.avoid ?? "").then(
   () => {
-    if (last && layout && !gesture) {
+    if (gesture) {
+      unrouted = true;
+      return;
+    }
+    if (last && layout) {
       layout = layoutCanvas(last, {}, auto);
       show(layout);
     }
@@ -253,6 +259,7 @@ function showUndrawable(views: PickerEntry[]): void {
 // to draw leaves the last diagram up, dimmed, so a mid-keystroke parse error does not
 // blank the panel.
 function draw(result: RenderResult): boolean {
+  unrouted = false;
   cancelGesture();
   try {
     if (result.form === "mermaid") {
@@ -479,6 +486,9 @@ function endGesture(event: PointerEvent): void {
     place(done.placements);
     return;
   }
+  if (unrouted) {
+    settle();
+  }
   if (done.kind === "node") {
     clickedWaypoint = undefined;
     vscode.postMessage({ type: "reveal", id: done.id, drawn });
@@ -504,9 +514,22 @@ function cancelGesture(): void {
   const moved = gesture.placements !== undefined;
   gesture = undefined;
   diagram.classList.remove("dragging", "refused");
-  if (moved && layout) {
-    show(layout);
+  if (moved || unrouted) {
+    settle();
+  }
+  if (moved) {
     showStatus("");
+  }
+}
+
+// settle shows the model's layout after a gesture that made no edit, laid out again if the router loaded meanwhile.
+function settle(): void {
+  if (unrouted && last && layout) {
+    layout = layoutCanvas(last, {}, auto);
+  }
+  unrouted = false;
+  if (layout) {
+    show(layout);
   }
 }
 
@@ -523,9 +546,7 @@ function dropNode(id: string, drop: Drop, placements: Placements): void {
 // revert puts the model's layout back after a drop the model did not take, and says why when told.
 function revert(message: string | undefined): void {
   cancelGesture();
-  if (layout) {
-    show(layout);
-  }
+  settle();
   if (message !== undefined) {
     showStatus(message);
   }
@@ -535,9 +556,7 @@ function revert(message: string | undefined): void {
 // was made on; the panel redraws once the document has changed.
 function place(placements: Placements | undefined): void {
   if (!placements || (placements.nodes.length === 0 && placements.edges.length === 0)) {
-    if (layout) {
-      show(layout);
-    }
+    settle();
     return;
   }
   vscode.postMessage({ type: "place", nodes: placements.nodes, edges: placements.edges, drawn });
