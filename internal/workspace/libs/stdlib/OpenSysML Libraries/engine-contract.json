@@ -920,14 +920,7 @@
     },
     {
       "name": "Simulation::MonteCarlo",
-      "kind": "metadata",
-      "attributes": [
-        "observed",
-        "runs",
-        "mean",
-        "deviation",
-        "outOfSpec"
-      ],
+      "kind": "element",
       "migratorEmitted": true,
       "consumers": [
         "internal/exec/runtime/montecarlo_case.go",

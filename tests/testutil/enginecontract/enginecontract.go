@@ -84,8 +84,10 @@ func Load(src Source) (Manifest, error) {
 			return m, fmt.Errorf("%s: unknown kind %q", e.Name, e.Kind)
 		}
 	}
-	if !sort.StringsAreSorted(names) || len(names) != len(m.Entries) {
-		return m, fmt.Errorf("%s: entries are not sorted or contain duplicates", File)
+	for i, name := range names {
+		if i > 0 && name <= names[i-1] {
+			return m, fmt.Errorf("%s: entry %q is out of order or duplicated", File, name)
+		}
 	}
 	return m, nil
 }
