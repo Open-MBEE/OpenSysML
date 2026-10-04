@@ -38,7 +38,10 @@ wrote imported.sysml (sysml, 376 bytes)
 ```
 
 - The `element` column names the element by qualified name; every other
-  column names one of its features.
+  column names one of its features. The name may go through an alias, and
+  through features the element inherits: `Vehicle::car1::engine` reaches the
+  `engine` that `car1` gets from its definition `Car`, and an import there
+  redefines `engine` in `car1` and sets the value inside it.
 - A unit follows the column name in brackets, `mass [kg]`, and must measure
   what the feature does: `mass [m]` is refused.
 - A feature the element declares gets its value replaced. A feature it
@@ -49,13 +52,16 @@ wrote imported.sysml (sysml, 376 bytes)
   `Integer` must be a whole number, a `Boolean` is `true` or `false`, and an
   enumeration value is named by its bare name (`high` for `Grade::high`).
 
+A tab-separated file reads quotes as text: `5" bore` is the string `5" bore`.
+
 A long table, one value per row, works too: columns `element`, `feature`,
 `value` and optionally `unit`.
 
 ## JSON and JSON Lines
 
 A JSON file is an array of objects, one per element; a JSON Lines file is one
-object per line. Top-level fields name features, as columns do:
+object per line. Top-level fields name features, as columns do. A number or
+Boolean may also come as a string (`"180"`), as scripts often write them:
 
 ```json
 [{"element": "Vehicle::car", "count": 4, "supplier": "Acme, Inc."},
@@ -91,6 +97,21 @@ prompt) says which column or JSON Pointer path is which:
 
 Columns and fields the mapping does not name still map to features of the
 same name. A misspelled key in the mapping file is an error.
+
+`-import` repeats, and the files import in order. An `-import-map` or
+`-import-format` belongs to the `-import` before it, so files of different
+shapes go in one run:
+
+```bash
+sysml rover.sysml \
+  -import mass-properties.csv \
+  -import battery-test.json -import-map battery-map.json \
+  -import motor-telemetry.jsonl \
+  -convert sysml -o rover-imported.sysml
+```
+
+[`examples/data-import-demo`](../../examples/data-import-demo/README.md) walks
+through that run, with the script that writes the files.
 
 ## What an import refuses
 

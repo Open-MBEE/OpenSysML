@@ -2,8 +2,9 @@
 
 A release is cut by pushing a `v*` tag. Everything after that is CircleCI: the
 `release` workflow runs the test suite, cross-compiles `sysml`, `sysml-lsp` and
-`sysml-grpc` for five platforms, builds the Python client's wheel and sdist, and
-publishes all of them to a GitHub release and the package to PyPI. Nothing is
+`sysml-grpc` for five platforms, builds the combined `sysml-wasm` module and the
+Python client's wheel and sdist; release assets go to GitHub and the Python
+package to PyPI. Nothing is
 published from a laptop.
 
 The Python client is released in lockstep with the core: the same `v<version>` tag
@@ -126,7 +127,8 @@ artifacts; nothing reaches a registry or a GitHub release.
 A green rehearsal proves the tag will not fail on builds, tests, version
 lockstep, registry availability, credential presence, npm/Central/GitHub
 token auth, the GPG key and passphrase with real Maven signing, npm packing,
-or `cargo package`. It cannot prove the PyPI and crates.io token validity (no
+`cargo package`, or the release-digest stamps and the assertions that the
+wheel, sdist and crate pin the rehearsed tag's binaries. It cannot prove the PyPI and crates.io token validity (no
 read-only check exists for either), cosign keyless signing (skipped because it
 writes to Rekor), the uploads themselves, Central publish permission beyond
 token auth, or a version someone publishes between the rehearsal and the tag.
@@ -150,8 +152,9 @@ branch that moves the integration state onto `main`:
    well: the tag publishes `opensysml` at the core version, and the release workflow fails
    before building anything when the two disagree (see
    [Releasing opensysml to PyPI](#releasing-opensysml-to-pypi)). Also set `"version"` in
-   `client/node/package.json` — and the five platform packages in
-   `optionalDependencies` — to the SemVer spelling of the same version (`0.9.1`;
+   `client/node/package.json` — the five platform packages in
+   `optionalDependencies` and `@openmbee/opensysml-wasm` in `peerDependencies` —
+   to the SemVer spelling of the same version (`0.9.1`;
    `0.9.0-rc.1` for `0.9.0rc1`), and run `npm install --package-lock-only` in
    `client/node` so the lockfile agrees; the release workflow fails before
    building anything when package.json disagrees. `client/java/pom.xml` follows
@@ -222,7 +225,9 @@ does a tag whose version `client/python/opensysml/_version.py`,
 
 ## What CircleCI publishes
 
-`build-release` produces, in `dist/`:
+`build-release-binaries` builds the Go binaries for every platform into `dist/`,
+and `build-release` assembles the release from them and the Python distribution,
+so that `dist/` holds:
 
 - per-binary archives — `sysml-<os>-<arch>.tar.gz`,
   `sysml-lsp-<os>-<arch>.tar.gz` (`.zip` on Windows);
@@ -234,10 +239,14 @@ does a tag whose version `client/python/opensysml/_version.py`,
 - `sysml-grpc-<os>-<arch>`, published raw with a `.sha256` sidecar rather than
   archived, because that is what `opensysml` downloads and verifies
   (`client/python/opensysml/binary.py`) when it starts the service for a Python caller;
+- `wasm/sysml-wasm.wasm` and `wasm/wasm_exec.js`, the combined WebAssembly
+  module and matching Go runtime, each with a `.sha256` sidecar;
 - the Python client's distribution, `opensysml-<x.y.z>-py3-none-any.whl` and
-  `opensysml-<x.y.z>.tar.gz`, built by `build-python-package` and the same files
-  `publish-pypi` uploads (see [Releasing opensysml to PyPI](#releasing-opensysml-to-pypi));
-- `SHA256SUMS.txt` over every archive, the wheel and every `sysml-grpc` binary,
+  `opensysml-<x.y.z>.tar.gz`, built by `build-python-package` from those
+  `sysml-grpc` binaries' digests and the same files `publish-pypi` uploads (see
+  [Releasing opensysml to PyPI](#releasing-opensysml-to-pypi));
+- `SHA256SUMS.txt` over every archive, the wheel, every `sysml-grpc` binary and
+  both WebAssembly assets,
   with its cosign signature `SHA256SUMS.txt.bundle` (see
   [The signed checksum manifest](#the-signed-checksum-manifest));
 - `provenance.intoto.json`, the SLSA provenance statement naming every artifact
@@ -247,7 +256,14 @@ does a tag whose version `client/python/opensysml/_version.py`,
 Platforms: linux/amd64, linux/arm64, darwin/amd64, darwin/arm64,
 windows/amd64.
 
-Before any of it is stored or published, `build-release` runs each host-platform
+The two jobs share one workspace: `build-release-binaries` persists the whole
+`dist/` tree, and `build-release` persists only what it added to it — the
+manifest, its signature and provenance bundles, the `.sha256` sidecars and the
+Python distribution. Workspace layers are additive, and a path persisted by two
+upstream jobs fails the attach in every job downstream of both, which is every
+publish job.
+
+Before any of it is stored or published, `build-release-binaries` runs each host-platform
 binary and fails the release unless `--version` reports `CIRCLE_TAG`. The ldflags
 are the only thing stamping the tag into a binary, and a binary reporting `dev`
 or a stale tag looks the same on the release page as a correct one — that is how
@@ -273,10 +289,10 @@ the GitHub release means the package version never exists without the release
 it names; if the GitHub upload fails, nothing irreversible has happened yet.
 
 `publish-npm` runs beside it, also after the GitHub release and also not
-repeatable: npm never accepts a version twice. It publishes the five
+repeatable: npm never accepts a version twice. It publishes
+`@openmbee/opensysml-wasm` from `dist/wasm` and the five
 `@openmbee/opensysml-sysml-grpc-<os>-<cpu>` platform packages built from
-`build-release`'s `dist/grpc` binaries — the same bytes the release ships — and
-then the `@openmbee/opensysml` client (see
+`build-release`'s release assets, then the `@openmbee/opensysml` client (see
 [Releasing @openmbee/opensysml to npm](#releasing-openmbeeopensysml-to-npm)).
 
 `publish-maven` runs beside them, in the same position and with the same
@@ -357,11 +373,12 @@ one alongside it).
      "import opensysml; print(opensysml.__version__, opensysml.load('examples/state-machine-demo.sysml').diagnostics)"
    ```
 
-2. **Verify the npm upload.** Check the registry sees all six packages at the
+2. **Verify the npm upload.** Check the registry sees all seven packages at the
    version and the right dist-tag:
 
    ```bash
    npm view @openmbee/opensysml@0.0.5 version dist-tags
+   npm view @openmbee/opensysml-wasm@0.0.5 version
    ```
 
    Then install it in a temp dir and load a model with `OPENSYSML_BINARY` unset,
@@ -749,9 +766,21 @@ token, `Contents: read` for a fine-grained one; nothing is written through the
 API. Without either variable the script fails immediately with
 `MissingTokenError` naming the variable, rather than at the first request.
 
-The Rust client does not verify signed manifests itself. `publish-crates`
-stamps the crate's own release tag from `dist/SHA256SUMS.txt` before packaging;
-that package-time addition is not committed to the synced client tables.
+Each client's package ships the pins of its own release, stamped at release
+time by `client/python/scripts/pin_release_checksums.py` and never committed to
+the synced client tables. `build-python-package` runs it with
+`--from-binaries dist/grpc` — hashing the `sysml-grpc` binaries
+`build-release-binaries` built, before `SHA256SUMS.txt` exists — against the
+copy of the table the wheel and sdist package, so `pip install opensysml==X.Y.Z`
+verifies the service it downloads against a digest inside the wheel, with no
+environment variable and no `sigstore` at run time. `publish-crates` stamps the
+crate the same way with `--from-manifest dist/SHA256SUMS.txt`, once the signed
+manifest exists. Both jobs then fail unless the packaged table pins all five
+`sysml-grpc-*` assets for the tag, and `build-release` fails before signing
+unless the wheel's pins are the digests the manifest lists. The signed manifest
+is therefore what an `opensysml` reaches for only for another release, or when it
+is older than the release it is asked for; `--write` back-fills the committed
+tables after a release as before, for those clients.
 
 ## The SonarCloud scan
 
@@ -1016,16 +1045,27 @@ An API token is the authentication CircleCI has.
 Two jobs of the `release` workflow, so the distribution is built once and the same
 bytes go to the GitHub release and to PyPI.
 
-`build-python-package`, which runs beside the Go suite and gates `build-release`:
+`build-python-package`, which runs after `build-release-binaries` (whose `dist/grpc`
+it attaches) and gates `build-release`:
 
 1. `check_version.py` — the tag must name the declared version.
-2. `python -m build` — wheel *and* sdist, into `client/python/dist/`.
-3. `twine check --strict` — the metadata a broken listing comes from.
-4. Installs the built wheel into a clean virtualenv, imports it, and checks
+2. `pin_release_checksums.py --version "$CIRCLE_TAG" --from-binaries dist/grpc
+   --table client/python/opensysml/release-digests.json` — hashes the five
+   `sysml-grpc-*` binaries the release ships and stamps them, under the tag,
+   into the copy of the table the distribution packages (see [Pinned release
+   digests](#pinned-release-digests)). The committed tables are untouched.
+3. `python -m build` — wheel *and* sdist, into `client/python/dist/`.
+4. `twine check --strict` — the metadata a broken listing comes from.
+5. Installs the built wheel into a clean virtualenv, imports it, and checks
    `opensysml.__version__` is the version being published.
-5. Persists `client/python/dist/` to the workspace. `build-release` copies both
-   files into `dist/`, lists them in `SHA256SUMS.txt` before signing it, and checks
-   their names carry the tag's version.
+6. Opens the wheel and the sdist and fails unless each packages a
+   `release-digests.json` pinning all five assets for the tag to the digests of
+   the binaries in `dist/grpc`, and the installed wheel's `pinned_digest()`
+   returns them.
+7. Persists `client/python/dist/` to the workspace. `build-release` copies both
+   files into `dist/`, lists them in `SHA256SUMS.txt`, fails unless the wheel's
+   pins are the manifest's `sysml-grpc-*` lines, signs the manifest, and checks
+   the distribution's names carry the tag's version.
 
 `publish-pypi`, which runs last, after the Go suite, the Python client tests,
 `build-release` and `publish-github-release` have all passed on the tagged revision:
@@ -1111,11 +1151,12 @@ The npm packages are published with core releases at the client's version, and
 the `npm` context they need is already in place (see
 [What the job needs](#what-the-job-needs-1)).
 
-### Six packages, one tag
+### Seven packages, one tag
 
 `@openmbee/opensysml` carries no binary. The service binary comes from one of five
 per-platform packages it names in `optionalDependencies`, which npm installs by
-matching their `os`/`cpu` metadata:
+matching their `os`/`cpu` metadata. The optional `@openmbee/opensysml-wasm` peer
+package carries the combined WebAssembly module and its matching Go runtime:
 
 | package | os | cpu |
 | --- | --- | --- |
@@ -1124,11 +1165,12 @@ matching their `os`/`cpu` metadata:
 | `@openmbee/opensysml-sysml-grpc-darwin-x64` | darwin | x64 |
 | `@openmbee/opensysml-sysml-grpc-darwin-arm64` | darwin | arm64 |
 | `@openmbee/opensysml-sysml-grpc-win32-x64` | win32 | x64 |
+| `@openmbee/opensysml-wasm` | — | — |
 
-All six share the version in `client/node/package.json`, because the
-`optionalDependencies` name that exact version. The platform packages are
-published first, so `@openmbee/opensysml` is never on the registry naming a
-version of them that is not. Where no package matches — a platform with no
+All seven share the version in `client/node/package.json`. The platform
+packages and WASM package are published first, so `@openmbee/opensysml` is
+never on the registry naming a version of a package that is not. Where no
+platform package matches — a platform with no
 release build — the client falls back to `$OPENSYSML_BINARY`, a binary in
 `~/.opensysml/bin/`, a release download into that cache, `sysml-grpc` on
 `$PATH`, or an explicit external service. That download is the Python client's:
@@ -1138,12 +1180,15 @@ See `client/node/README.md`.
 
 ### Where the binaries come from
 
-The five binaries are `build-release`'s `dist/grpc` output — the same bytes as
-the GitHub release and the signed `SHA256SUMS.txt`, persisted to the workspace
-the npm job attaches. `npm run platform-packages` refuses to package a binary
+The five binaries are `build-release-binaries`' `dist/grpc` output, with the
+`.sha256` sidecars `build-release` writes beside them — the same bytes as the
+GitHub release and the signed `SHA256SUMS.txt`, persisted to the workspace the
+npm job attaches. `npm run platform-packages` refuses to package a binary
 whose bytes disagree with its `.sha256` sidecar, or that has none, so the
-packages can only carry what the release built. npm's `--provenance` is not
-used: the CLI mints attestations only on GitHub Actions and GitLab CI/CD.
+packages can only carry what the release built. The WASM package is built from
+`dist/wasm` in the same workspace with both assets checked against their
+sidecars. npm's `--provenance` is not used: the CLI mints attestations only on
+GitHub Actions and GitLab CI/CD.
 
 ### Why the core's tag
 
@@ -1151,8 +1196,10 @@ The client follows the Python client's choice (see
 [Why the same tag](#why-the-same-tag)): every npm version then has a core
 release of the same version tested with it in the same pipeline, and a caller
 pins one number — `npm install @openmbee/opensysml@0.9.1` gets the release's own
-binary via the platform package. The cost: a client-only fix is a core patch
-release. And since an npm publish is irreversible, the job runs last and refuses
+binary via the platform package; install `@openmbee/opensysml-wasm` at the same
+version for Node's automatic `connectWasm()` package resolution. The cost: a
+client-only fix is a core patch release. And since an npm publish is
+irreversible, the job runs last and refuses
 a version already on the registry, just like `publish-pypi`.
 
 ### The version
@@ -1161,13 +1208,14 @@ a version already on the registry, just like `publish-pypi`.
 same version, spelled the SemVer way (`0.9.0-rc.1` for `0.9.0rc1`).
 `check_version.py --node` in `build-python-package` fails the release before
 anything is built when they disagree, and the pytest gate in
-`test_check_version.py` runs on every PR that touches either file. The tag must
+`test_check_version.py` runs on every PR that touches either file. The Node
+package tests also ensure the optional WASM peer follows the client version. The tag must
 spell the SemVer version exactly, `v` aside.
 
 ### Pre-releases
 
 A pre-release tag — the same one that sends `opensysml` to TestPyPI — publishes
-all six packages to the `next` dist-tag; `latest` is untouched. Install a
+all seven packages to the `next` dist-tag; `latest` is untouched. Install a
 pre-release with `@next` or the exact version.
 
 ### What the job needs
@@ -1198,16 +1246,16 @@ Everything below is already in place; it is recorded so it can be re-created.
    `client/node/package.json`, picks the `latest`/`next` dist-tag from the
    version, and lists the workspace binaries it will package.
 2. Requires `NPM_TOKEN` from the `npm` context.
-3. Refuses to run if any of the six packages is already on the registry at this
+3. Refuses to run if any of the seven packages is already on the registry at this
    version (a publish cannot be repeated).
 4. Builds and tests the client against the release's linux binary (`npm ci`,
    build, typecheck, lint, tests).
-5. Builds the five platform packages from `dist/grpc`, checking each binary
-   against its `.sha256` sidecar.
+5. Builds the five platform packages from `dist/grpc` and the WASM package
+   from `dist/wasm`, checking every asset against its `.sha256` sidecar.
 6. Authenticates to npm and runs `npm whoami`, so an expired token fails before
    the first publish.
-7. Publishes the five platform packages, then the client, on the resolved
-   dist-tag.
+7. Publishes the WASM and five platform packages, then the client, on the
+   resolved dist-tag.
 
 ### If a publish goes wrong
 

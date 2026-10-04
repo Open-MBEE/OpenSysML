@@ -234,8 +234,8 @@ def node_version(declared=None, node=None, tag=None):
         node,
         declared,
         tag,
-        'set "version" and every platform package in optionalDependencies to the '
-        "SemVer spelling of that version.",
+        'set "version", every platform package in optionalDependencies and '
+        "@openmbee/opensysml-wasm in peerDependencies to the SemVer spelling of that version.",
     )
 
 

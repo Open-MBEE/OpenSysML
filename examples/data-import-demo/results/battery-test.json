@@ -1,0 +1,23 @@
+{
+  "tool": "cellsim 2.1",
+  "results": [
+    {
+      "unit": "scout::battery",
+      "cells": 12,
+      "energy": {
+        "value": 4104000,
+        "unit": "J"
+      },
+      "note": "25 C, C/5"
+    },
+    {
+      "unit": "hauler::battery",
+      "cells": 20,
+      "energy": {
+        "value": 6660000,
+        "unit": "J"
+      },
+      "note": "25 C, C/5"
+    }
+  ]
+}
