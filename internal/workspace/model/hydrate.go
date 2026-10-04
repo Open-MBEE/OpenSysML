@@ -160,7 +160,11 @@ func (w *Workspace) demoteLocked(name string, doc *Document) bool {
 // record's reads are answered by its own document too), else parsed. Caller
 // holds the write lock.
 func (w *Workspace) holdOnDiskLocked(name string, content []byte) {
-	if rec := w.acceptedRecordLocked(name, content, source.KindUnknown); rec != nil {
+	kind := source.KindUnknown
+	if held := w.docs[name]; held != nil {
+		kind = held.Kind()
+	}
+	if rec := w.acceptedRecordLocked(name, content, kind); rec != nil {
 		if scope, err := symbols.BuildRecorded(rec.Scope, rec.Name); err == nil {
 			w.installRecordedLocked(rec, scope, content, 0)
 			w.index.ExpandWildcardImports()

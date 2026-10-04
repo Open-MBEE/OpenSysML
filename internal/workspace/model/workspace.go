@@ -416,7 +416,11 @@ func (w *Workspace) Remove(name string) {
 // reindexLocked reparses name and incrementally updates the global index.
 // Caller must hold the write lock.
 func (w *Workspace) reindexLocked(name string, content []byte, version int) {
-	doc := newDocument(name, content, version, source.KindUnknown)
+	kind := source.KindUnknown
+	if held := w.docs[name]; held != nil {
+		kind = held.Kind()
+	}
+	doc := newDocument(name, content, version, kind)
 	w.docs[name] = doc
 	w.changes[name]++
 	w.installLocked(doc)

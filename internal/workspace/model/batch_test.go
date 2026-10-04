@@ -339,6 +339,64 @@ func TestOpenAllUsesExplicitSourceKind(t *testing.T) {
 	}
 }
 
+func TestOpenAllPreservesExplicitSourceKindAcrossUpdate(t *testing.T) {
+	text := []byte("package P { part all; }")
+	ws := NewWorkspace()
+	ws.OpenAll([]Input{{Name: "m.json", Content: text, Kind: source.KindSysML}})
+
+	ws.Update("m.json", text, 2)
+
+	doc := ws.Document("m.json")
+	if doc == nil {
+		t.Fatal("m.json was not opened")
+	}
+	if doc.Kind() != source.KindSysML {
+		t.Fatalf("document kind = %v, want SysML", doc.Kind())
+	}
+	if doc.Version != 2 {
+		t.Fatalf("document version = %d, want 2", doc.Version)
+	}
+	if syms := ws.LookupQualified("P::all"); len(syms) != 1 {
+		t.Fatalf("P::all = %d symbols after update, want 1", len(syms))
+	}
+}
+
+func TestSetOnDiskPreservesHeldExplicitSourceKind(t *testing.T) {
+	initial := []byte("package P { part all; }")
+	updated := []byte("package P { part all; part def B; }")
+	ws := NewWorkspace()
+	ws.OpenAll([]Input{{Name: "m.json", Content: initial, Kind: source.KindSysML}})
+	ws.SetOnDisk("m.json", initial)
+	ws.Close("m.json")
+
+	doc := ws.Document("m.json")
+	if doc == nil || doc.Kind() != source.KindSysML {
+		if doc == nil {
+			t.Fatal("m.json was not held after closing")
+		}
+		t.Fatalf("document kind after close = %v, want SysML", doc.Kind())
+	}
+	if syms := ws.LookupQualified("P::all"); len(syms) != 1 {
+		t.Fatalf("P::all = %d symbols after close, want 1", len(syms))
+	}
+
+	ws.SetOnDisk("m.json", updated)
+
+	doc = ws.Document("m.json")
+	if doc == nil || doc.Kind() != source.KindSysML {
+		if doc == nil {
+			t.Fatal("m.json was not held after disk update")
+		}
+		t.Fatalf("document kind after disk update = %v, want SysML", doc.Kind())
+	}
+	if syms := ws.LookupQualified("P::all"); len(syms) != 1 {
+		t.Fatalf("P::all = %d symbols after disk update, want 1", len(syms))
+	}
+	if syms := ws.LookupQualified("P::B"); len(syms) != 1 {
+		t.Fatalf("P::B = %d symbols after disk update, want 1", len(syms))
+	}
+}
+
 // A document another caller changes while a batch parses keeps that change: the
 // batch installs only over what it reserved, so an edit, a buffer opened, a
 // removal and an open-then-remove made meanwhile all stand, and only the
