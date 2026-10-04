@@ -215,6 +215,7 @@ else
 	echo "$d2_sha256  $tarball" | sha256sum -c -
 	rm -rf "$dest/d2/d2-v$D2_VERSION"
 	tar -xzf "$tarball" -C "$dest/d2" "d2-v$D2_VERSION/bin/d2"
+	rm -f "$tarball"
 	if ! "$d2" --version 2>&1 | grep -q "^v$D2_VERSION$"; then
 		echo "the unpacked D2 does not run: $("$d2" --version 2>&1)" >&2
 		exit 1
