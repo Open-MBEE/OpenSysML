@@ -1,0 +1,64 @@
+---
+config:
+  fontFamily: "Helvetica, Arial, sans-serif"
+  theme: base
+  themeCSS: ".edgeLabel rect { opacity: 1 !important; } .cluster-label .nodeLabel { text-align: center; }"
+  themeVariables:
+    fontFamily: "Helvetica, Arial, sans-serif"
+    fontSize: "14px"
+    primaryColor: "#FFFFFF"
+    secondaryColor: "#FFFFFF"
+    tertiaryColor: "#FFFFFF"
+    background: "#FFFFFF"
+    primaryBorderColor: "#181818"
+    primaryTextColor: "#000000"
+    lineColor: "#181818"
+    textColor: "#000000"
+    noteBkgColor: "#FEFFDD"
+    noteBorderColor: "#181818"
+    noteTextColor: "#000000"
+    clusterBkg: "#FFFFFF"
+    clusterBorder: "#181818"
+    edgeLabelBackground: "#FFFFFF"
+---
+%% GeneralViews::requirementView — requirement rendering (view def GeneralView, filter @RequirementDefinition or @RequirementUsage)
+%% not represented: 4 exposed standard library element(s) not drawn; a requirement rendering draws the model's own elements
+flowchart TD
+  n0["«requirement def»<br>VehicleRequirements::MassRequirement<br>id R1, #quot;The total mass of the vehicle shall not exceed the stated...#quot;"]
+  n1["«requirement def»<br>VehicleRequirements::StoppingRequirement<br>id R2, #quot;The vehicle shall stop within the stated distance.#quot;"]
+  n2["`*«requirement def»*
+**VehicleRequirements::EmergencyStopRequirement**
+id R3`"]
+  n3("`*«requirement»*
+**VehicleRequirements::vehicleMass : MassRequirement**
+id R1.1`")
+  n4("`*«requirement»*
+**VehicleRequirements::chassisMass : MassRequirement**
+id R1.2`")
+  n5("`*«requirement»*
+**VehicleRequirements::emergencyStop : EmergencyStopRequirement**
+id R3.1`")
+  n6["`*«part def»*
+**VehicleStructure::LightChassis**`"]
+  n7("`*«part»*
+**VehicleStructure::vehicle : Vehicle**`")
+  n8("`*«part»*
+**VehicleStructure::heavyVehicle : Vehicle**`")
+  n9("`*«action»*
+**VehicleStructure::brake : Brake**`")
+  n10["`*«verification def»*
+**VehicleVerification::MassTest**`"]
+  n11["`*«verification def»*
+**VehicleVerification::StopTest**`"]
+  n2 -->|"specialization"| n1
+  n3 -.->|"typing"| n0
+  n4 -.->|"typing"| n0
+  n5 -.->|"typing"| n2
+  n4 -.->|"derive"| n3
+  n6 -.->|"refine"| n4
+  n7 -.->|"satisfy"| n3
+  n8 -.->|"satisfy"| n3
+  n7 -.->|"satisfy"| n5
+  n5 -.->|"allocate"| n9
+  n10 -.->|"verify"| n3
+  n11 -.->|"verify"| n5

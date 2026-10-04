@@ -25,7 +25,8 @@ behavior and report where it stands, and `openSysmlRenderPalette` that a
 the forms `opensysml/render` writes and `openSysmlRenderStyles` the drawing styles its `style`
 draws the DOT form in, the first the default (`openSysmlRenderPorts` lists likewise the port
 displays its `ports` draws an interconnection's parts with, a server without it drawing every
-port); a server without the former draws the Pilot look
+port; `openSysmlRenderOverlays` lists the overlays its `overlay` draws, a server without it
+drawing none); a server without the former draws the Pilot look
 alone.
 
 A client that does not see that capability must not send these methods. That is
@@ -127,6 +128,7 @@ Renders one view of a document.
 | `palette` | Optional. A palette the `dot`, `mermaid` and `plantuml` forms fill nodes with by keyword family: `okabe-ito`, `tol-bright`, `tol-muted`, `tol-light`, `brewer-set2`, `brewer-dark2`, `viridis` or `cividis` ([the palettes](../project/view-rendering-forms.md#palettes)). Omitted or empty draws black and white. Mermaid sequence diagrams note that they cannot fill individual participants; `text` and `markdown` ignore palettes. A server advertising `openSysmlRenderPalette` gives each node the palette colours as `fill` and `border`, so a client drawing the nodes itself can use the same colours. |
 | `style` | Optional. The drawing style the `dot` or `mermaid` form draws in: `pilot` (the default, the Pilot visualizer's B&W) or `cameo`, the look of Cameo Systems Modeler — 11 pt Arial, gradient fills in Cameo's colours, compartments and UML pseudo-state symbols ([the measurements](../project/view-rendering-forms.md#the-cameo-style)). Mermaid draws supported Cameo details but flattens gradients and omits the frame and header tab; unsupported details are noted. PlantUML notes a style other than `pilot` as not represented; `text` and `markdown` ignore it. The result's `style` names the style drawn, the default when omitted. |
 | `ports` | Optional. How much of a part's ports an interconnection draws: `minimal` (the default), the ports a connector of the view ends at, each a small square on the part's border named beside it, or `full`, every port a part has, labelled `name : Type`. Other kinds ignore it. |
+| `overlay` | Optional. `verdicts` runs the verification cases verifying each requirement of a `requirement` rendering and labels and colours the requirement by their verdicts, each node carrying the worst as `verdict` (`pass`, `inconclusive`, `fail`, `error`). Omitted, nothing runs. Refused on another kind, and when unknown. |
 
 Omitting `view` renders the view the document declares. If the document declares
 several, the request is ambiguous and fails, naming them
@@ -140,7 +142,7 @@ all five. A
 `palette` that names none of the eight is refused, and the reply names them
 (`unknown palette "rainbow"; the palettes are okabe-ito, …, cividis`). A `style` that is neither is refused likewise
 (`unknown drawing style "sketch"; the styles are pilot, cameo`), and a `ports` that is neither
-display (`unknown port display "all"; the displays are minimal, full`).
+display (`unknown port display "all"; the displays are minimal, full`); an `overlay` that is unknown names the overlays there are (`unknown overlay "colours"; the overlays are verdicts`).
 
 **Pseudo-views.** A document that is still being written usually declares no `view`,
 so a rendering can be requested as if one had been declared:

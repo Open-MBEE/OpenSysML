@@ -104,11 +104,11 @@ func (s *Snapshot) Document(name string) *Document {
 func (w *Workspace) RenderView(doc, fqn string) (*view.Rendering, *Snapshot, error) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
-	return w.renderViewLocked(doc, fqn)
+	return w.renderViewLocked(doc, fqn, "", nil)
 }
 
-// renderViewLocked is RenderView under the lock.
-func (w *Workspace) renderViewLocked(doc, fqn string) (*view.Rendering, *Snapshot, error) {
+// renderViewLocked is Reading.RenderOverlaidView under the lock.
+func (w *Workspace) renderViewLocked(doc, fqn string, overlay view.Overlay, verdicts view.Verdicts) (*view.Rendering, *Snapshot, error) {
 	d := w.docs[doc]
 	if d == nil {
 		return nil, nil, fmt.Errorf("%s: no such document", doc)
@@ -116,18 +116,24 @@ func (w *Workspace) renderViewLocked(doc, fqn string) (*view.Rendering, *Snapsho
 	var rendering *view.Rendering
 	var err error
 	w.queryLocked(doc, func(*resolve.Resolver, *semantics.Model) {
-		rendering, err = w.renderDocumentViewLocked(d, fqn)
+		rendering, err = w.renderDocumentViewLocked(d, fqn, overlay, verdicts)
 	})
 	if err != nil {
 		return nil, nil, err
+	}
+	if !rendering.Kind.SupportsOverlay(overlay) {
+		return nil, nil, fmt.Errorf("%s: a %s rendering draws no %s overlay; it is drawn on a requirement rendering", rendering.View, rendering.Kind, overlay)
 	}
 	return rendering, &Snapshot{Rendered: d, docs: maps.Clone(w.docs)}, nil
 }
 
 // renderDocumentViewLocked renders fqn of the held document d, as a query owned by d.
-func (w *Workspace) renderDocumentViewLocked(d *Document, fqn string) (*view.Rendering, error) {
+func (w *Workspace) renderDocumentViewLocked(d *Document, fqn string, overlay view.Overlay, verdicts view.Verdicts) (*view.Rendering, error) {
 	doc := d.Name
 	renderer := w.rendererLocked(doc)
+	if overlay == view.OverlayVerdicts {
+		renderer.SetVerdicts(verdicts)
+	}
 	if strings.HasPrefix(fqn, view.PseudoViewPrefix) {
 		return w.renderPseudoLocked(doc, fqn, renderer)
 	}

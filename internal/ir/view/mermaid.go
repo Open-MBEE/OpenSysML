@@ -668,7 +668,7 @@ func (r *Rendering) writeFlowchart(b *strings.Builder, direction Direction, labe
 		from, to := r.edgeEnds(edge, portEnds)
 		from = flowchartEndpoint(from, w.clusterAnchors)
 		to = flowchartEndpoint(to, w.clusterAnchors)
-		w.edge(from, mermaidArrow(edge.Kind), edge.Label, to, edge.Style, edge.Kind)
+		w.edge(from, mermaidArrow(edge.Kind), mermaidEdgeLabel(edge), to, edge.Style, edge.Kind)
 	}
 	flowchart.writeFlowchartNoteEdges(w, noteOwners, used)
 	r.writeMermaidStyles(b, fills, options, false)
@@ -1792,10 +1792,21 @@ func mermaidArrow(kind EdgeKind) string {
 	switch kind {
 	case EdgeConnection, EdgeBinding:
 		return "==="
-	case EdgeFlow:
+	case EdgeFlow, EdgeTyping, EdgeImport, EdgeSatisfy, EdgeVerify, EdgeDerive, EdgeRefine, EdgeAllocate:
 		return "-.->"
+	case EdgeComposition, EdgeReference, EdgeContainment:
+		return "---"
 	}
 	return "-->"
+}
+
+// mermaidEdgeLabel is an edge's flowchart label: its own, or for an edge whose
+// arrow a flowchart draws like another kind's, its kind.
+func mermaidEdgeLabel(edge Edge) string {
+	if edge.Label == "" && (edge.Kind == EdgeSpecialization || edge.Kind == EdgeTyping || edge.Kind == EdgeReference) {
+		return edge.Kind.String()
+	}
+	return edge.Label
 }
 
 // mermaidText escapes what a Mermaid label may not carry literally. A semicolon

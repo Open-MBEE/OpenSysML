@@ -4,6 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
+	"path/filepath"
+	"reflect"
 	"regexp"
 	"slices"
 	"strings"
@@ -1204,6 +1207,9 @@ func TestRenderTakesAPortDisplay(t *testing.T) {
 	if advertised, _ := experimental[RenderPortsCapability].([]string); !slices.Equal(advertised, []string{"minimal", "full"}) {
 		t.Fatalf("%s = %#v, want minimal then full", RenderPortsCapability, experimental[RenderPortsCapability])
 	}
+	if advertised, _ := experimental[RenderOverlaysCapability].([]string); !slices.Equal(advertised, []string{"verdicts"}) {
+		t.Fatalf("%s = %#v, want verdicts", RenderOverlaysCapability, experimental[RenderOverlaysCapability])
+	}
 	render := func(t *testing.T, ports string) string {
 		t.Helper()
 		raw, err := call(t, s, MethodRender, &renderParams{
@@ -1244,5 +1250,48 @@ func TestRenderTakesAPortDisplay(t *testing.T) {
 	want := `unknown port display "all"; the displays are minimal, full`
 	if err == nil || !strings.Contains(err.Error(), want) {
 		t.Errorf("err = %v, want it to refuse the port display by name", err)
+	}
+}
+
+// A render request's `overlay` draws a requirement rendering's verdicts, each
+// node carrying its worst; it is refused when unknown or on another kind.
+func TestRenderDrawsVerdictsWhenAsked(t *testing.T) {
+	src, err := os.ReadFile(filepath.Join("..", "..", "..", "examples", "general-views-demo", "vehicle.sysml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	s, docURI := renderServer(t, "vehicle.sysml", string(src))
+	if plain := render(t, s, docURI, "GeneralViews::requirementView"); plain.Kind != string(view.KindRequirement) {
+		t.Fatalf("kind = %q, want %q", plain.Kind, view.KindRequirement)
+	} else {
+		for _, node := range plain.Nodes {
+			if node.Verdict != "" {
+				t.Errorf("%s has verdict %q with no overlay asked for", node.Name, node.Verdict)
+			}
+		}
+	}
+	raw, err := call(t, s, MethodRender, &renderParams{TextDocument: protocol.TextDocumentIdentifier{URI: docURI}, View: "GeneralViews::requirementView", Overlay: "verdicts"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var out renderResult
+	if err := json.Unmarshal(raw, &out); err != nil {
+		t.Fatal(err)
+	}
+	verdicts := map[string]string{}
+	for _, node := range out.Nodes {
+		if node.Verdict != "" {
+			verdicts[node.Name] = node.Verdict
+		}
+	}
+	want := map[string]string{"VehicleRequirements::vehicleMass": "fail", "VehicleRequirements::emergencyStop": "inconclusive"}
+	if !reflect.DeepEqual(verdicts, want) {
+		t.Errorf("verdicts = %v, want %v", verdicts, want)
+	}
+	if _, err := call(t, s, MethodRender, &renderParams{TextDocument: protocol.TextDocumentIdentifier{URI: docURI}, View: "GeneralViews::definitionView", Overlay: "verdicts"}); err == nil || !strings.Contains(err.Error(), "draws no verdicts overlay") {
+		t.Errorf("verdicts over a definition rendering = %v", err)
+	}
+	if _, err := call(t, s, MethodRender, &renderParams{TextDocument: protocol.TextDocumentIdentifier{URI: docURI}, View: "GeneralViews::requirementView", Overlay: "colours"}); err == nil || !strings.Contains(err.Error(), `unknown overlay "colours"`) {
+		t.Errorf("an unknown overlay = %v", err)
 	}
 }

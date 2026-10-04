@@ -531,6 +531,10 @@ part structure : Diagram {
   part's border named beside it; `"full"` draws every port a part has,
   labelled `name : Type`. Any other name, or `ports` on another kind, is a
   typed error.
+  `overlay` — `"verdicts"` — is accepted by a requirement diagram alone: it
+  runs the verification cases verifying each requirement drawn and labels
+  and colours the requirement by their verdicts. Any other name, or
+  `overlay` on another kind, is a typed error.
 
 A diagram block states *what* is drawn, not the notation it is written in:
 that is a choice made when the document is rendered. By default most kinds

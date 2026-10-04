@@ -4,6 +4,8 @@ package modelrt
 
 import (
 	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
+	"github.com/Open-MBEE/OpenSysML/internal/ir/view"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/parser"
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/model"
 )
@@ -37,3 +39,22 @@ func New(origin Detacher) (*Runtime, error) {
 
 // Model is the runtime model executions are built over with runtime.NewContext.
 func (r *Runtime) Model() *runtime.Model { return r.model }
+
+// RequirementVerdicts is the verdict overlay of the workspace r was built from:
+// a requirement, named by its qualified name, answers the verdicts of the cases
+// r's documents declare verifying it, run in one context over r.
+func (r *Runtime) RequirementVerdicts() view.Verdicts {
+	var scopes []*symbols.Scope
+	for _, name := range r.Documents() {
+		if root := r.Index().DocumentRoot(name); root != nil {
+			scopes = append(scopes, root)
+		}
+	}
+	verdicts := runtime.RequirementVerdicts(runtime.NewContext(r.model, runtime.DefaultBudgets().MaxSteps), scopes)
+	return func(req *symbols.Symbol) []view.Verdict {
+		for _, sym := range r.Index().LookupQualified(symbols.FQNOf(req)) {
+			return verdicts(sym)
+		}
+		return nil
+	}
+}

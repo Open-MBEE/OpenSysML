@@ -92,6 +92,10 @@ func (r *Renderer) draws(kind Kind, sym *symbols.Symbol) (node, edge bool) {
 		return stateLike(sym), isTransition(sym) || sym.Kind == symbols.SymbolSuccessionUsage
 	case KindAction:
 		return actionLike(sym), sym.Kind == symbols.SymbolSuccessionUsage || isFlowUsage(sym)
+	case KindRequirement, KindDefinition:
+		return generalNodeKind(r, sym), false
+	case KindPackage:
+		return sym.Kind == symbols.SymbolPackage, false
 	}
 	return false, false
 }

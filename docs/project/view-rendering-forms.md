@@ -13,10 +13,11 @@ PlantUML compare, and what the writers emit — the
 ## The rendering and its forms
 
 A view renders into a `view.Rendering` (`internal/ir/view/view.go`): the kind (`tree`,
-`interconnection`, `state`, `action`, `sequence`, `table`), typed nodes with an identifier, a
+`interconnection`, `state`, `action`, `sequence`, `table`, and the [GeneralView graphs](#generalview-graphs)
+`requirement`, `definition` and `package`), typed nodes with an identifier, a
 kind, a name, the declared type of a typed usage, an optional detail holding the notes (`initial`,
 `already shown`, `own flow`) and their children, edges with a label and an `EdgeKind`
-(connection, binding, transition, succession, flow), a table's columns and rows, the origin of every node
+(connection, binding, transition, succession, flow, and the GeneralView graphs' specialization, typing, composition, reference, containment, import, satisfy, verify, derive, refine and allocate), a table's columns and rows, the origin of every node
 and row, and notices for what the kind could not represent. The tree, interconnection, state and
 action kinds are produced from the model — the last two from the lowered `StateGraph` and
 `ActionGraph` the runtime executes — and nothing in the rendering is text of any diagram
@@ -43,9 +44,9 @@ A **form** is a writer over that tree (`internal/ir/view/form.go`):
 | `text` | `text.go` | every kind | What a person reads at a terminal |
 | `markdown` | `markdown.go` | `table` | The machine-readable form of a table |
 | `csv`, `tsv` | `delimited.go` | `table` | A table as comma- or tab-separated values, for spreadsheets and scripts |
-| `mermaid` | `mermaid.go` | `tree`, `interconnection`, `state`, `action`, `sequence` | The default machine-readable form of the graph-shaped kinds |
-| `dot` | `dot.go` | `tree`, `interconnection`, `state`, `action` | Graphviz DOT, the alternative to Mermaid |
-| `plantuml` | `plantuml.go` | `tree`, `interconnection`, `state`, `action`, `sequence` | PlantUML in the Pilot visualizer's B&W style, for PlantUML toolchains |
+| `mermaid` | `mermaid.go` | `tree`, `interconnection`, `state`, `action`, `sequence`, `requirement`, `definition`, `package` | The default machine-readable form of the graph-shaped kinds |
+| `dot` | `dot.go` | `tree`, `interconnection`, `state`, `action`, `requirement`, `definition`, `package` | Graphviz DOT, the alternative to Mermaid |
+| `plantuml` | `plantuml.go` | `tree`, `interconnection`, `state`, `action`, `sequence`, `requirement`, `definition`, `package` | PlantUML in the Pilot visualizer's B&W style, for PlantUML toolchains |
 
 `Kind.MachineForm` chooses the form a tool gets when none is asked for — `markdown` for a table,
 `mermaid` for everything else — and `Kind.SupportsForm` decides whether a kind can be written in
@@ -53,6 +54,64 @@ a form at all. Asking for a form the kind is not written in is one typed `WrongF
 the kind, the form asked and the form the kind uses, on every surface: the CLI stops with status 2
 (`-render-all` skips the view and says so), the REPL prints the usage, the LSP refuses the request,
 and a document's `Diagram` block is refused at planning time.
+
+## GeneralView graphs
+
+The OMG library documents `GeneralView`'s typical rendering as "a graph of nodes and edges" and
+lists, per specialization, the elements its filters keep. A view whose nearest standard view
+definition is `GeneralView` (`gv`) itself, and whose filters select one of those
+specializations, is drawn as that graph instead of a containment tree
+(`internal/ir/view/general.go`, `Renderer.generalSpecialization`). The filters read are the
+view's own `filter` members, those of the view definitions it specializes, and the conditions of
+its filtered `expose`s (`expose X::**[@SysML::Package];`). Each is compiled by the semantic filter
+evaluator, not matched as text, and selects a specialization only in one shape: a metaclass
+classification `@T` or `@@T`, or an `or` of them, where `T` resolves to a `SysML` or `KerML`
+library metaclass and is matched through the metaclasses it specializes:
+
+| The metaclass is or specializes | Selects | Kind |
+| --- | --- | --- |
+| `RequirementDefinition`, `RequirementUsage` (so `SatisfyRequirementUsage`, `ConcernUsage` too) | the requirement view | `requirement` |
+| `Package` (so `LibraryPackage`) | the package view | `package` |
+| `Relationship` (`Specialization`, `FeatureTyping`, `Import`, `AllocationUsage`, …) | nothing of its own; it may stand beside one that selects | — |
+| `Definition`, `Usage` | the definition and usage view | `definition` |
+
+The rows are tried in that order for each metaclass, and when the view's filters select more than
+one kind, `requirement` is drawn before `package` and `package` before `definition`, so the
+library's requirement-view filter list (`RequirementUsage or Specialization or AllocationUsage …`)
+draws a requirement graph. Anything else keeps the view a tree, byte for byte as before: no
+filter, a filter naming only relationships, a conjunction, a negation, a user metadata
+condition (`@Safety`), a feature test (`@Safety::isMandatory`), or any of them mixed into an `or`
+with a recognized condition. A recognized filter admitting nothing is an empty graph of its kind,
+which says so.
+
+What each graph draws, as nodes from the exposed set and edges between drawn nodes:
+
+| Kind | Nodes | Edges (`EdgeKind`) |
+| --- | --- | --- |
+| `requirement` | requirement and concern definitions and usages, labelled with their short name as `id` and the first line of their documentation or text, and the drawn ends of the relationships below | `satisfy` (from the satisfying feature), `verify` (from the verification case whose objective verifies it), `derive` (a `#derivation` connection's `derivedRequirement` from its `originalRequirement`), `refine` (a `#refinement` dependency), `allocate`, `specialization`, `typing` |
+| `definition` | definitions and usages | `specialization` (subclassification, subsetting, redefinition), `typing`, `composition` (a part, item or other composite feature to the drawn definitions typing it, named by the feature) and `reference` (a `ref` feature likewise) |
+| `package` | packages | `containment` (an owned package) and `import` (a membership or namespace import, recursive or not, to the package it names) |
+
+A relationship end that does not resolve draws no edge and is listed as a notice, and a cycle (mutually recursive part
+definitions, requirements deriving each other, packages importing each other) is drawn once per
+edge: the graph is built from symbols, never by following edges. Node and edge order is the model's
+declaration order, so a rendering is deterministic. The writers draw `specialization` as UML's
+hollow triangle, `typing` dashed, `composition` with a filled diamond and `reference` with a hollow one, each
+requirement relationship dashed and named by its keyword (`«satisfy»`, `«verify»`), as the
+interconnection already does for its requirement and allocation edges. The Cameo style frames
+the three kinds `req`, `bdd` and `pkg`.
+
+### The verdicts overlay
+
+A requirement graph takes an opt-in overlay, `verdicts`: each requirement drawn is labelled with
+the verdict of every verification case verifying it (`verdict pass by Cases::light, fail by
+Cases::heavy`) and filled by the worst of them — `error` over `fail` over `inconclusive` over
+`pass` — in the Okabe-Ito colours `#009E73`, `#F0E442`, `#D55E00` and `#CC79A7`, in every form
+and style. The cases run through `runtime.RequirementVerdicts`, the REPL's and a document's over the
+runtime context the model is executed by and a workspace's over a declared reader, the
+subcases a case performs left to their case. Without the overlay nothing runs and the rendering
+is the structural one; asking for it on another kind is refused (`a definition rendering draws no
+verdicts overlay`), and an unknown overlay is refused with the overlays there are.
 
 ## Node labels
 
@@ -857,6 +916,7 @@ every palette, and text stays black.
 | VS Code | The diagram panel's **Style** list and `opensysml.diagram.style`: `pilot` draws the panel's SVG under this section's B&W rules, `cameo` asks the server for the [Cameo look](#the-cameo-style), a palette name fills its nodes from the `fill` and `border` the server returns | [`editors/vscode/README.md`](../../editors/vscode/README.md#the-diagram-panel) |
 | CLI, REPL, LSP, VS Code | A table view takes `csv` or `tsv` as well: `-render <view> -render-form csv\|tsv` (`-render-all` writes `.csv` or `.tsv` for each table and skips every other view), `%render <view> csv\|tsv`, `"form": "csv"` or `"tsv"` on `opensysml/render`. Either is a header record of the columns, then a record per row, fields quoted as RFC 4180 quotes them; a notice is never inside the records: the CLI writes it to standard error, LSP returns it in the response, and `%render` lists it after a blank line | [`docs/reference/cli.md`](../reference/cli.md#rendering-a-view), [`docs/reference/repl-commands.md`](../reference/repl-commands.md#rendering-a-view), [`docs/reference/lsp.md`](../reference/lsp.md) |
 | Documents | `-render-document`/`-render-documents … -diagram-form mermaid\|dot\|plantuml`, `%render-document <name> mermaid\|dot\|plantuml`, `"diagramForm"` on `opensysml/renderDocument`: graph-shaped blocks use Mermaid, DOT or PlantUML source; HTML carries `data-palette` and `data-style`, and local Mermaid pictures are inlined before source is collected. PDF draws with the selected tool; absent optional DOT/PlantUML tools leave readable source under a notice, while a missing Mermaid CLI is an error. A `Diagram` block states what is drawn, not the notation; its palette and style apply where the selected form supports them | [`docs/manual/authoring.md`](../manual/authoring.md#diagrams), [`docs/manual/outputs.md`](../manual/outputs.md), [`docs/reference/environment.md`](../reference/environment.md) |
+| CLI, REPL, LSP, documents | `-render-overlay verdicts` on `-render` and `-render-all`; `%render <view> <form> [...] verdicts`; `"overlay": "verdicts"` on `opensysml/render`, the overlays listed by the `openSysmlRenderOverlays` capability and each node's `verdict` in the reply; `Diagram::overlay` in a document (`invalid-overlay`, `unsupported-overlay` errors) | [`docs/reference/cli.md`](../reference/cli.md#rendering-a-view), [`docs/reference/repl-commands.md`](../reference/repl-commands.md#rendering-a-view), [`docs/reference/lsp.md`](../reference/lsp.md), [`docs/manual/authoring.md`](../manual/authoring.md#diagrams) |
 
 The gRPC service (`api/proto/sysml.proto`, `internal/frontend/grpc`) has no view-render RPC and no
 render-form field — `RenderDocument` alone, to Markdown — so the wire contract carries no form
@@ -865,6 +925,16 @@ and did not change. A view-render RPC added later would take the form as a strin
 
 ## Test contract
 
+- `internal/ir/view/general_test.go`: which filter shapes select which graph and which keep the
+  tree (`@`/`@@`, `or`, the library's own lists, precedence, inherited filters, a filtered
+  `expose`, relationships alone, `and`, `not`, user metadata, a mixture); an unresolved
+  relationship end; the verdicts overlay from fixed verdicts in every form and both styles
+  (`general-verdicts.text.golden`, `general-verdicts-pilot.*.golden`, `general-verdicts-cameo.*.golden`) and its absence without one. The
+  `general-requirement`, `general-definition` and `general-package` goldens, in `text`, `mermaid`,
+  `dot` and `plantuml`, are drawn from `testdata/general.sysml`; `general-plain` and
+  `general-unrecognized` are GeneralViews that stay trees, identical to the tree before this
+  change; `testdata/general-robust.sysml` draws the cycles and the empty filter result.
+  REPL, CLI and LSP tests run the verdicts of `examples/general-views-demo` end to end.
 - `internal/ir/view/dot_test.go`: a `*.dot.golden` beside every Mermaid golden for the tree,
   interconnection, state, state-entry, action and filtered fixtures, each walked by an in-test
   DOT syntax check — balanced braces, every edge endpoint declared as a node or a cluster,
@@ -1010,3 +1080,9 @@ and did not change. A view-render RPC added later would take the form as a strin
   not built.
 - Producing DOT still runs no Graphviz binary. The goldens are checked by the in-test syntax
   walk; a Graphviz installation is used only by hand to look at them.
+- A GeneralView graph is selected only by the filter shapes [its section](#generalview-graphs)
+  lists; a conjunction or a user metadata filter keeps the tree even where it would admit only
+  requirements. No requirements table is drawn: a `GridView` is the table.
+- The verdicts overlay runs every verification case verifying a drawn requirement each time it is
+  drawn; a workspace (the LSP) runs them over the declared model, without the runtime a REPL
+  session or document keeps.

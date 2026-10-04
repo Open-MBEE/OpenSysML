@@ -25,7 +25,7 @@ func ParseDirection(name string) (Direction, bool) {
 // table has no direction, and a sequence diagram always reads top-down.
 func (k Kind) SupportsDirection() bool {
 	switch k {
-	case KindTree, KindInterconnection, KindState, KindAction:
+	case KindTree, KindInterconnection, KindState, KindAction, KindRequirement, KindDefinition, KindPackage:
 		return true
 	}
 	return false

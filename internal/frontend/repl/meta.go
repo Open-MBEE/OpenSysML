@@ -29,7 +29,7 @@ import (
 
 // renderUsage is how %render is written: a view, the form to write it in, text
 // when none is named, then a palette, style and port display the form draws.
-const renderUsage = "usage: %render <name> [text|mermaid|markdown|dot|plantuml|csv|tsv [palette] [pilot|cameo] [minimal|full]]"
+const renderUsage = "usage: %render <name> [text|mermaid|markdown|dot|plantuml|csv|tsv [palette] [pilot|cameo] [minimal|full] [verdicts]]"
 
 // isMeta reports whether a trimmed input line is a meta command.
 func isMeta(line string) bool {
@@ -491,7 +491,7 @@ func (s *Session) doTrace(args []string) []string {
 // optional port display and, for a form that fills nodes, an optional palette
 // and drawing style — and renders the view they name.
 func (s *Session) metaRender(args []string) ([]string, bool, error) {
-	if len(args) < 1 || len(args) > 5 {
+	if len(args) < 1 || len(args) > 6 {
 		return []string{renderUsage}, false, nil
 	}
 	form := view.FormText
@@ -502,7 +502,15 @@ func (s *Session) metaRender(args []string) ([]string, bool, error) {
 		}
 	}
 	var opts view.Options
+	var overlay view.Overlay
 	for _, word := range args[min(2, len(args)):] {
+		if o, ok := view.ParseOverlay(word); ok && o != "" {
+			if overlay != "" {
+				return []string{renderUsage}, false, nil
+			}
+			overlay = o
+			continue
+		}
 		if style, ok := view.ParseDrawingStyle(word); ok {
 			if opts.Style != "" {
 				return []string{renderUsage}, false, nil
@@ -529,7 +537,7 @@ func (s *Session) metaRender(args []string) ([]string, bool, error) {
 		}
 		opts.Palette = palette
 	}
-	return s.doRender(args[0], form, opts)
+	return s.doRender(args[0], form, opts, overlay)
 }
 
 // metaModelCommand runs a model-level command, reporting whether the line

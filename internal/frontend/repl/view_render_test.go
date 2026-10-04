@@ -2,6 +2,8 @@ package repl
 
 import (
 	"errors"
+	"os"
+	"path/filepath"
 	"slices"
 	"strings"
 	"testing"
@@ -69,8 +71,8 @@ func TestRenderWritesDotWhenAskedFor(t *testing.T) {
 	if strings.Contains(text, "flowchart") || strings.Contains(text, `fillcolor="#`) {
 		t.Errorf("%%render dot wrote Mermaid or a palette:\n%s", text)
 	}
-	wants(t, run(t, s, "%render"), "usage: %render <name> [text|mermaid|markdown|dot|plantuml|csv|tsv [palette] [pilot|cameo] [minimal|full]]")
-	wants(t, run(t, s, "%render Demo::summary svg"), `unknown form "svg"`, "[text|mermaid|markdown|dot|plantuml|csv|tsv [palette] [pilot|cameo] [minimal|full]]")
+	wants(t, run(t, s, "%render"), "usage: %render <name> [text|mermaid|markdown|dot|plantuml|csv|tsv [palette] [pilot|cameo] [minimal|full] [verdicts]]")
+	wants(t, run(t, s, "%render Demo::summary svg"), `unknown form "svg"`, "[text|mermaid|markdown|dot|plantuml|csv|tsv [palette] [pilot|cameo] [minimal|full] [verdicts]]")
 	wants(t, run(t, s, "%help"), "%render <name> [form [palette] [style] [ports]]", "Graphviz DOT", "PlantUML")
 }
 
@@ -133,10 +135,10 @@ func TestRenderDotTakesAPalette(t *testing.T) {
 	}
 	wants(t, run(t, s, "%render Demo::summary dot rainbow"),
 		`unknown palette "rainbow"; the palettes are okabe-ito, tol-bright, tol-muted, tol-light, brewer-set2, brewer-dark2, viridis, cividis`,
-		"usage: %render <name> [text|mermaid|markdown|dot|plantuml|csv|tsv [palette] [pilot|cameo] [minimal|full]]")
+		"usage: %render <name> [text|mermaid|markdown|dot|plantuml|csv|tsv [palette] [pilot|cameo] [minimal|full] [verdicts]]")
 	wants(t, run(t, s, "%render Demo::summary mermaid okabe-ito"), "classDef palette0 fill:#")
 	wants(t, run(t, s, "%render Demo::summary text okabe-ito"), "a palette fills the mermaid, dot and plantuml forms only, not text")
-	wants(t, run(t, s, "%render Demo::summary dot okabe-ito cameo extra"), "usage: %render <name> [text|mermaid|markdown|dot|plantuml|csv|tsv [palette] [pilot|cameo] [minimal|full]]")
+	wants(t, run(t, s, "%render Demo::summary dot okabe-ito cameo extra"), "usage: %render <name> [text|mermaid|markdown|dot|plantuml|csv|tsv [palette] [pilot|cameo] [minimal|full] [verdicts]]")
 	if got := s.Complete("%render Demo::summary dot ", len("%render Demo::summary dot ")); !slices.Contains(got.Candidates, "okabe-ito") || !slices.Contains(got.Candidates, "viridis") {
 		t.Errorf("completing the palette offered %v", got.Candidates)
 	}
@@ -610,5 +612,45 @@ func TestRenderDotTakesAPortDisplay(t *testing.T) {
 	}
 	if got := s.Complete("%render Demo::summary dot ", len("%render Demo::summary dot ")); !slices.Contains(got.Candidates, "minimal") || !slices.Contains(got.Candidates, "full") {
 		t.Errorf("completing after dot offered %v, want the port displays among them", got.Candidates)
+	}
+}
+
+// generalViewsSession loads the GeneralView example, whose requirement view the
+// verification cases decide one way each.
+func generalViewsSession(t *testing.T) *Session {
+	t.Helper()
+	src, err := os.ReadFile(filepath.Join("..", "..", "..", "examples", "general-views-demo", "vehicle.sysml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := NewSession()
+	for _, d := range s.Submit(string(src)).Diagnostics {
+		if d.Severity == diag.SeverityError {
+			t.Fatalf("model did not load: %v", d)
+		}
+	}
+	return s
+}
+
+// %render draws a requirement rendering's verdicts only when asked, by running
+// the verification cases, and refuses them on a rendering of another kind.
+func TestRenderDrawsVerdictsWhenAskedFor(t *testing.T) {
+	s := generalViewsSession(t)
+	plain := run(t, s, "%render GeneralViews::requirementView text")
+	if !strings.Contains(plain, "requirement rendering") || strings.Contains(plain, "verdict") {
+		t.Errorf("the structural rendering is not purely structural:\n%s", plain)
+	}
+	overlaid := run(t, s, "%render GeneralViews::requirementView text verdicts")
+	wants(t, overlaid,
+		"vehicleMass : MassRequirement (id R1.1, verdict pass by VehicleVerification::lightMassTest, fail by VehicleVerification::heavyMassTest)",
+		"emergencyStop : EmergencyStopRequirement (id R3.1, verdict inconclusive by VehicleVerification::stopTest")
+	dot := run(t, s, "%render GeneralViews::requirementView dot okabe-ito cameo verdicts")
+	if !strings.Contains(dot, `color="#D55E00"`) {
+		t.Errorf("the failed requirement is not drawn in the fail colour:\n%s", dot)
+	}
+	wants(t, run(t, s, "%render GeneralViews::definitionView text verdicts"), "a definition rendering draws no verdicts overlay")
+	wants(t, run(t, s, "%render GeneralViews::requirementView text verdicts verdicts"), renderUsage)
+	if got := s.Complete("%render GeneralViews::requirementView dot verd", len("%render GeneralViews::requirementView dot verd")); !slices.Equal(got.Candidates, []string{"verdicts"}) {
+		t.Errorf("completing the overlay offered %v", got.Candidates)
 	}
 }

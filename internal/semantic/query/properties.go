@@ -151,29 +151,55 @@ func (r *PropertyReader) multiplicityValues(sym *symbols.Symbol, property string
 }
 
 func (r *PropertyReader) satisfyEnd(sym *symbols.Symbol, property string) ([]string, bool) {
-	if sym.Kind != symbols.SymbolSatisfyRequirementUsage {
-		return nil, false
-	}
-	decl, ok := sym.Decl.(*ast.Usage)
-	if !ok || decl.Kind != ast.UsageSatisfy || decl.IsVerifiedRequirement() {
+	ends, ok := SatisfyEndsOf(sym)
+	if !ok {
 		return nil, false
 	}
 	if property == PropertySatisfiedRequirement {
-		if decl.DeclaresRequirement {
+		if ends.DeclaresRequirement {
 			return presentValues(r.elementIdentity(sym))
 		}
-		rel := decl.ReferenceSubsetting()
-		if rel == nil {
+		if ends.Requirement == nil {
 			return nil, false
 		}
-		return r.resolveTargetIdentity(sym, rel.Target)
+		return r.resolveTargetIdentity(sym, ends.Requirement)
+	}
+	if ends.Satisfier == nil {
+		return nil, false
+	}
+	return r.resolveTargetIdentity(sym, ends.Satisfier)
+}
+
+// SatisfyEnds is what a satisfy usage relates, as written: the requirement it
+// reference-subsets, or the one it declares itself, and its `by` subject.
+type SatisfyEnds struct {
+	Requirement         ast.Node
+	DeclaresRequirement bool
+	Satisfier           ast.Node
+}
+
+// SatisfyEndsOf reads the ends of a `satisfy` usage — satisfiedRequirement and
+// satisfyingFeature — and reports false for any other element, a `verify`
+// included. An end left unwritten is nil.
+func SatisfyEndsOf(sym *symbols.Symbol) (SatisfyEnds, bool) {
+	if sym == nil || sym.Kind != symbols.SymbolSatisfyRequirementUsage {
+		return SatisfyEnds{}, false
+	}
+	decl, ok := sym.Decl.(*ast.Usage)
+	if !ok || decl.Kind != ast.UsageSatisfy || decl.IsVerifiedRequirement() {
+		return SatisfyEnds{}, false
+	}
+	ends := SatisfyEnds{DeclaresRequirement: decl.DeclaresRequirement}
+	if rel := decl.ReferenceSubsetting(); rel != nil && !decl.DeclaresRequirement {
+		ends.Requirement = rel.Target
 	}
 	for _, rel := range decl.Relationships {
 		if rel != nil && rel.Kind == ast.RelSubject {
-			return r.resolveTargetIdentity(sym, rel.Target)
+			ends.Satisfier = rel.Target
+			break
 		}
 	}
-	return nil, false
+	return ends, true
 }
 
 func (r *PropertyReader) resolveTargetIdentity(sym *symbols.Symbol, target ast.Node) ([]string, bool) {

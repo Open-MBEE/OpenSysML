@@ -991,3 +991,42 @@ func TestRenderPorts(t *testing.T) {
 		t.Errorf("-render-ports alone = %d\n%s", alone.status, alone.output())
 	}
 }
+
+// -render-overlay verdicts runs the verification cases verifying each drawn
+// requirement and labels it by their verdicts; it is refused on a rendering of
+// another kind, by name when unknown, and without something to render.
+func TestRenderOverlay(t *testing.T) {
+	binary := buildCLI(t)
+	src, err := os.ReadFile(filepath.Join("..", "..", "examples", "general-views-demo", "vehicle.sysml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	model := string(src)
+
+	plain := runStreams(t, binary, model, "-render", "GeneralViews::requirementView", "-render-form", "text")
+	if plain.status != exitHolds || strings.Contains(plain.stdout, "verdict") {
+		t.Errorf("the structural rendering = %d\n%s", plain.status, plain.output())
+	}
+	overlaid := runStreams(t, binary, model, "-render", "GeneralViews::requirementView", "-render-form", "mermaid", "-render-overlay", "verdicts")
+	if overlaid.status != exitHolds {
+		t.Fatalf("exit status = %d, want %d\n%s", overlaid.status, exitHolds, overlaid.output())
+	}
+	for _, want := range []string{"verdict pass by VehicleVerification::lightMassTest, fail by VehicleVerification::heavyMassTest", "verdict inconclusive by VehicleVerification::stopTest", "stroke:#D55E00", "stroke:#F0E442"} {
+		if !strings.Contains(overlaid.stdout, want) {
+			t.Errorf("stdout is missing %q:\n%s", want, overlaid.stdout)
+		}
+	}
+
+	other := runStreams(t, binary, model, "-render", "GeneralViews::definitionView", "-render-overlay", "verdicts")
+	if other.status == exitHolds || !strings.Contains(other.stderr, "a definition rendering draws no verdicts overlay") || other.stdout != "" {
+		t.Errorf("verdicts over a definition rendering = %d\n%s", other.status, other.output())
+	}
+	unknown := runStreams(t, binary, model, "-render", "GeneralViews::requirementView", "-render-overlay", "colours")
+	if unknown.status != exitUnevaluable || !strings.Contains(unknown.stderr, `-render-overlay: unknown overlay "colours"; -render-overlay takes verdicts`) {
+		t.Errorf("an unknown overlay = %d\n%s", unknown.status, unknown.output())
+	}
+	alone := runStreams(t, binary, model, "-render-overlay", "verdicts")
+	if alone.status != 2 || !strings.Contains(alone.stderr, "-render-overlay is what -render or -render-all draws") {
+		t.Errorf("-render-overlay alone = %d\n%s", alone.status, alone.output())
+	}
+}

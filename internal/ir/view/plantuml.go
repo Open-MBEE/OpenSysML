@@ -83,7 +83,7 @@ func (r *Rendering) PlantUMLWith(options Options) (string, error) {
 	}
 	r.writeGeometryComments(b, "'")
 	switch r.Kind {
-	case KindTree:
+	case KindTree, KindRequirement, KindDefinition, KindPackage:
 		w.writeClassDiagram(r)
 	case KindInterconnection:
 		w.writeRectangleDiagram(r)
@@ -370,7 +370,8 @@ func plantumlStyleColor(style *Style) string {
 
 // plantumlArrow is how an edge of each kind is drawn: a connection as the
 // Pilot's heavy undirected connector, a binding a plain undirected line, a flow
-// dashed, every other edge a plain arrow.
+// dashed, a general graph's relationships in the class-diagram notation, every
+// other edge a plain arrow.
 func plantumlArrow(kind EdgeKind) string {
 	switch kind {
 	case EdgeConnection:
@@ -379,6 +380,18 @@ func plantumlArrow(kind EdgeKind) string {
 		return "--"
 	case EdgeFlow:
 		return "-[dashed]->"
+	case EdgeSpecialization:
+		return "--|>"
+	case EdgeTyping:
+		return "..|>"
+	case EdgeComposition:
+		return "*--"
+	case EdgeReference:
+		return "o--"
+	case EdgeContainment:
+		return "+--"
+	case EdgeImport, EdgeSatisfy, EdgeVerify, EdgeDerive, EdgeRefine, EdgeAllocate:
+		return "..>"
 	}
 	return "-->"
 }

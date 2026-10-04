@@ -35,6 +35,9 @@ var plantumlGoldenCases = []struct {
 	{"sequence-order", "sequence-order.sysml", "OrderingViews::relayView", KindSequence},
 	{"sequence-cycle", "sequence-order.sysml", "OrderingViews::deadlockView", KindSequence},
 	{"sequence-empty", "errors.sysml", "ErrorViews::emptySequenceView", KindSequence},
+	{"general-requirement", "general.sysml", "GeneralViews::requirementView", KindRequirement},
+	{"general-definition", "general.sysml", "GeneralViews::definitionView", KindDefinition},
+	{"general-package", "general.sysml", "GeneralViews::packageView", KindPackage},
 }
 
 // TestGoldenPlantUML locks the PlantUML of every kind that has one, from the
@@ -255,7 +258,8 @@ func TestPlantUMLSequenceDiagram(t *testing.T) {
 // a textual and a geometry rendering have none, and asking is a typed error.
 func TestPlantUMLFormSupport(t *testing.T) {
 	for _, kind := range Kinds() {
-		want := kind == KindTree || kind == KindInterconnection || kind == KindState || kind == KindAction || kind == KindSequence
+		want := kind == KindTree || kind == KindInterconnection || kind == KindState || kind == KindAction || kind == KindSequence ||
+			kind == KindRequirement || kind == KindDefinition || kind == KindPackage
 		if got := kind.SupportsForm(FormPlantUML); got != want {
 			t.Errorf("%s.SupportsForm(plantuml) = %v, want %v", kind, got, want)
 		}
@@ -559,7 +563,7 @@ func TestPlantUMLHeaderAndGeometryComments(t *testing.T) {
 var (
 	// plantumlArrowLine matches an arrow statement between two aliases, a
 	// port's being its node's dotted with its index.
-	plantumlArrowLine = regexp.MustCompile(`^\s*(\[\*\]|[\w.]+) (-\[[a-z=0-9]+\]->?|-->|->|--) ([\w.]+)( : .*)?$`)
+	plantumlArrowLine = regexp.MustCompile(`^\s*(\[\*\]|[\w.]+) (-\[[a-z=0-9]+\]->?|-->|->|--|--\|>|\.\.\|>|\.\.>|\*--|o--|\+--) ([\w.]+)( : .*)?$`)
 	// plantumlDeclarationLine matches an element declaration with its alias.
 	plantumlDeclarationLine = regexp.MustCompile(`^\s*(class|rectangle|state|participant|port) ".*" as ([\w.]+)( <<[^>]+>>)*( #[0-9A-F]{6}(;line:[0-9A-F]{6})?)?( \{)?$`)
 	// dotFillLine and plantumlFillLine pick the fill a node is given in each form.

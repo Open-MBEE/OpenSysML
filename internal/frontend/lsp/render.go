@@ -15,6 +15,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/ir/view"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/model"
+	"github.com/Open-MBEE/OpenSysML/internal/workspace/modelrt"
 )
 
 // The custom methods a diagram client speaks. They are not in the protocol, so
@@ -51,6 +52,19 @@ const RenderStylesCapability = "openSysmlRenderStyles"
 // port displays a render request's `ports` draws an interconnection's parts
 // with, the first the default; a server without it draws every port.
 const RenderPortsCapability = "openSysmlRenderPorts"
+
+// RenderOverlaysCapability is the experimental capability whose value lists the
+// overlays a render request's `overlay` draws over a requirement rendering.
+const RenderOverlaysCapability = "openSysmlRenderOverlays"
+
+// renderOverlayNames lists the overlays in the order the writer defines them.
+func renderOverlayNames() []string {
+	names := make([]string, 0, len(view.Overlays()))
+	for _, overlay := range view.Overlays() {
+		names = append(names, string(overlay))
+	}
+	return names
+}
 
 // renderPortsNames lists the port displays in the order the writer defines them.
 func renderPortsNames() []string {
@@ -94,6 +108,7 @@ type renderParams struct {
 	Palette      string                          `json:"palette,omitempty"`
 	Style        string                          `json:"style,omitempty"`
 	Ports        string                          `json:"ports,omitempty"`
+	Overlay      string                          `json:"overlay,omitempty"`
 }
 
 // renderResult is one rendering: the artifact a client draws, plus the nodes and
@@ -150,6 +165,7 @@ type renderNode struct {
 	Width           *float64        `json:"width,omitempty"`
 	Height          *float64        `json:"height,omitempty"`
 	Collapsed       bool            `json:"collapsed,omitempty"`
+	Verdict         string          `json:"verdict,omitempty"`
 }
 
 // renderOwner is a namespace declaring a node: its qualified name, and whether
@@ -315,8 +331,26 @@ func (s *Server) Views(params *viewsParams) *viewsResult {
 // workspace the rendering was made under.
 func (s *Server) Render(params *renderParams) (*renderResult, error) {
 	name := uriToName(params.TextDocument.URI)
-	rendering, snapshot, err := s.ws.RenderView(name, params.View)
-	if err != nil {
+	overlay, ok := view.ParseOverlay(params.Overlay)
+	if !ok {
+		return nil, fmt.Errorf("unknown overlay %q; overlay takes %s", params.Overlay, view.OverlayNames())
+	}
+	var (
+		rendering *view.Rendering
+		snapshot  *model.Snapshot
+	)
+	if err := s.ws.Read(func(r *model.Reading) (err error) {
+		var verdicts view.Verdicts
+		if overlay == view.OverlayVerdicts {
+			rt, err := modelrt.New(r)
+			if err != nil {
+				return err
+			}
+			verdicts = rt.RequirementVerdicts()
+		}
+		rendering, snapshot, err = r.RenderOverlaidView(name, params.View, overlay, verdicts)
+		return err
+	}); err != nil {
 		return nil, err
 	}
 	doc := snapshot.Rendered
@@ -396,6 +430,7 @@ func (s *Server) renderNodes(out *renderResult, snapshot *model.Snapshot, nodes 
 			Fill:            fills[node.ID].Fill,
 			Border:          fills[node.ID].Border,
 			Style:           wireStyle(node.Style),
+			Verdict:         node.Verdict,
 		}
 		if node.Style != nil {
 			if node.Style.Fill != "" {

@@ -1,0 +1,28 @@
+GeneralViews::plainView - tree rendering (view def GeneralView)
+
+part def VehicleStructure::Vehicle
+  attribute mass : Real
+  part chassis : Chassis
+  part driver : Driver
+part def VehicleStructure::Chassis
+part def VehicleStructure::LightChassis
+part def VehicleStructure::Driver
+action def VehicleStructure::Brake
+part VehicleStructure::vehicle : Vehicle
+  attribute mass
+part VehicleStructure::heavyVehicle : Vehicle
+  attribute mass
+action VehicleStructure::brake : Brake
+package VehicleStructure::Powertrain
+  part def Engine
+datatype ScalarValues::Boolean
+datatype ScalarValues::Complex
+datatype ScalarValues::Integer
+datatype ScalarValues::Natural
+datatype ScalarValues::Number
+datatype ScalarValues::NumericalValue
+datatype ScalarValues::Positive
+datatype ScalarValues::Rational
+datatype ScalarValues::Real
+datatype ScalarValues::ScalarValue
+datatype ScalarValues::String

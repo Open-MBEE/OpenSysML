@@ -1801,6 +1801,18 @@ func (w *dotWriter) dotEdgeAttributes(edge Edge) []string {
 		attrs = append(attrs, dotStyleDashed)
 	case EdgeBinding:
 		attrs = append(attrs, dotArrowheadNone)
+	case EdgeSpecialization:
+		attrs = append(attrs, "arrowhead=empty")
+	case EdgeTyping:
+		attrs = append(attrs, "arrowhead=empty", dotStyleDashed)
+	case EdgeComposition:
+		attrs = append(attrs, dotDirBack, "arrowtail=diamond")
+	case EdgeReference:
+		attrs = append(attrs, dotDirBack, "arrowtail=odiamond")
+	case EdgeContainment:
+		attrs = append(attrs, dotDirBack, "arrowtail=odot")
+	case EdgeImport, EdgeSatisfy, EdgeVerify, EdgeDerive, EdgeRefine, EdgeAllocate:
+		attrs = append(attrs, "arrowhead=vee", dotStyleDashed)
 	}
 	attrs = append(attrs, dotStyleAttributes(edge.Style, false)...)
 	if len(edge.Route) > 1 {
