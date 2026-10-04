@@ -979,7 +979,6 @@
       cx: parseFloat(r.getAttribute("x")) + w / 2,
       cy: parseFloat(r.getAttribute("y")) + h / 2,
       dx: 0, dy: 0,
-      phase: Math.random() * Math.PI * 2,
       model: null
     };
   }
@@ -993,14 +992,12 @@
     return { x: cx + dx * t, y: cy + dy * t };
   }
 
-  function layout(t) {
+  function layout() {
     var pos = {};
     Object.keys(nodes).forEach(function (k) {
       var n = nodes[k];
-      var ox = (n === dragging || reduceMotion.matches) ? 0 : Math.sin(t * 0.7 + n.phase) * 4;
-      var oy = (n === dragging || reduceMotion.matches) ? 0 : Math.cos(t * 0.9 + n.phase * 1.7) * 3;
-      pos[k] = { x: n.cx + n.dx + ox, y: n.cy + n.dy + oy };
-      n.g.setAttribute("transform", "translate(" + (n.dx + ox) + "," + (n.dy + oy) + ")");
+      pos[k] = { x: n.cx + n.dx, y: n.cy + n.dy };
+      n.g.setAttribute("transform", "translate(" + n.dx + "," + n.dy + ")");
     });
     wires.forEach(function (p) {
       var ends = p.dataset.osmlWire.split(",");
@@ -1019,9 +1016,6 @@
     if (posEl && activeNode && pos[activeNode]) {
       posEl.textContent = Math.round(pos[activeNode].x) + " · " + Math.round(pos[activeNode].y);
     }
-  }
-  function relayout() {
-    layout(reduceMotion.matches ? 0 : performance.now() / 1000);
   }
 
   var dragging = null, dragFrom = null, pressFrom = null, moved = false, pressTimer = null, longPressed = false;
@@ -1109,7 +1103,20 @@
     card.hidden = false;
     card.querySelector(".osml-nodecard__close").addEventListener("click", closeCard);
     posEl = card.querySelector("[data-osml-pos]");
-    // Beside the box rather than over it, so its wires stay in view, and within the hero.
+    placeCard(g);
+    if (activeNode && activeNode !== k) {
+      var prev = activeNode;
+      activeNode = null;
+      cool(prev);
+    }
+    activeNode = k;
+    hot(k, true);
+    setFocus();
+    layout();
+  }
+
+  // Beside the box rather than over it, so its wires stay in view, and within the hero.
+  function placeCard(g) {
     var rr = root.getBoundingClientRect(), br = g.getBoundingClientRect();
     var hr = hero.getBoundingClientRect();
     var cw = card.offsetWidth, ch = card.offsetHeight;
@@ -1121,15 +1128,6 @@
     var y = Math.min(Math.max(br.top - rr.top, minY), maxY);
     card.style.left = x + "px";
     card.style.top = y + "px";
-    if (activeNode && activeNode !== k) {
-      var prev = activeNode;
-      activeNode = null;
-      cool(prev);
-    }
-    activeNode = k;
-    hot(k, true);
-    setFocus();
-    relayout();
   }
 
   function closeCard() {
@@ -1170,7 +1168,7 @@
       n.g.style.opacity = "1";
     });
   }
-  layout(0);
+  layout();
   // Once drawn in, hand opacity back to the stylesheet so focus dimming applies.
   setTimeout(function () {
     wires.forEach(function (p) { p.style.strokeDasharray = ""; p.style.transition = ""; });
@@ -1180,22 +1178,13 @@
     });
   }, 1700);
 
-  if (!reduceMotion.matches) {
-    (function tick(now) {
-      // Instant navigation swaps the page out without unloading it.
-      if (!root.isConnected) { ac.abort(); return; }
-      layout(now / 1000);
-      requestAnimationFrame(tick);
-    })(performance.now());
-  }
-
   function svgPoint(evt) {
     var pt = svg.createSVGPoint();
     pt.x = evt.clientX; pt.y = evt.clientY;
     return pt.matrixTransform(svg.getScreenCTM().inverse());
   }
 
-  // A box stays within the hero band, clear of its edges by more than the float.
+  // A box stays within the hero band, clear of its edges.
   var hero = root.closest(".osml-hero") || root;
   function heroBounds() {
     var r = hero.getBoundingClientRect();
@@ -1207,12 +1196,16 @@
     n.dx = Math.min(Math.max(n.dx, b.x0 + n.w / 2 - n.cx), b.x1 - n.w / 2 - n.cx);
     n.dy = Math.min(Math.max(n.dy, b.y0 + n.h / 2 - n.cy), b.y1 - n.h / 2 - n.cy);
   }
-  window.addEventListener("resize", function () {
+  // The band changes size with the window and when the model editor opens or closes.
+  var heroResize = new ResizeObserver(function () {
     if (!root.isConnected) { ac.abort(); return; }
     var b = heroBounds();
     Object.keys(nodes).forEach(function (k) { keepInHero(nodes[k], b); });
-    relayout();
-  }, { signal: ac.signal });
+    layout();
+    if (activeNode) placeCard(nodes[activeNode].g);
+  });
+  heroResize.observe(hero);
+  ac.signal.addEventListener("abort", function () { heroResize.disconnect(); });
 
   function bindNode(k) {
     var n = nodes[k];
@@ -1247,7 +1240,7 @@
       }
       n.dx = nx; n.dy = ny;
       keepInHero(n, heroBounds());
-      if (reduceMotion.matches) layout(0);
+      layout();
     });
     function endDrag() {
       if (dragging !== n) return false;
@@ -1464,7 +1457,7 @@
     });
     syncWires();
     setFocus();
-    relayout();
+    layout();
     if (activeNode) openCard(activeNode);
   }
 
