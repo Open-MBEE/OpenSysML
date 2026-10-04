@@ -431,6 +431,232 @@ func TestMixedInheritedRoleOccurrencesKeepTypingEdges(t *testing.T) {
 	}
 }
 
+func TestMixedInheritedReferencesFollowQualifiedCases(t *testing.T) {
+	renderer, index := loadFixture(t, "mixed-inherited-reference.sysml")
+	rendering, err := renderer.Render(lookup(t, index, "MixedInheritedReference::mixedView"))
+	if err != nil {
+		t.Fatalf("Render(mixedView): %v", err)
+	}
+
+	localName := func(name string) string {
+		if index := strings.LastIndex(name, "::"); index >= 0 {
+			return name[index+2:]
+		}
+		return name
+	}
+	checkEdges := func(nodes []NodeData, edges []Edge) {
+		nodesByID := make(map[string]NodeData, len(nodes))
+		caseNames := map[string]string{}
+		typeIDs := map[string]string{}
+		for _, node := range nodes {
+			nodesByID[node.ID] = node
+			switch node.Kind {
+			case "use case def":
+				caseNames[node.ID] = localName(node.Name)
+			case "action def", "part def", "state def":
+				typeIDs[localName(node.Name)] = node.ID
+			}
+		}
+		roleCases := map[string]string{}
+		for _, edge := range edges {
+			if edge.Kind != EdgeAssociation {
+				continue
+			}
+			if caseName := caseNames[edge.From]; caseName != "" {
+				roleCases[edge.To] = caseName
+			}
+			if caseName := caseNames[edge.To]; caseName != "" {
+				roleCases[edge.From] = caseName
+			}
+		}
+
+		wantRoleTypes := map[string]string{
+			"actor\x00driver": "Person",
+			"subject\x00task": "Drive",
+			"subject\x00mode": "Mode",
+		}
+		roleCounts := map[string]int{}
+		for _, node := range nodes {
+			typeName := wantRoleTypes[node.Kind+"\x00"+node.Name]
+			if typeName == "" {
+				continue
+			}
+			roleCounts[node.Kind+"\x00"+node.Name]++
+			if roleCases[node.ID] == "" {
+				t.Errorf("%s node %s has no case association", node.Name, node.ID)
+			}
+			count := 0
+			for _, edge := range edges {
+				if edge.Kind == EdgeTyping && edge.From == node.ID && edge.To == typeIDs[typeName] {
+					count++
+				}
+			}
+			if count != 1 {
+				t.Errorf("%s node %s has %d typing edges to %s, want one", node.Name, node.ID, count, typeName)
+			}
+		}
+		for role, want := range map[string]int{
+			"actor\x00driver": 2,
+			"subject\x00task": 2,
+			"subject\x00mode": 2,
+		} {
+			if roleCounts[role] != want {
+				t.Errorf("drawn %s occurrences = %d, want %d", strings.ReplaceAll(role, "\x00", " "), roleCounts[role], want)
+			}
+		}
+
+		wantReferences := map[string]map[string]int{
+			"sysA":   {"A": 1},
+			"sysB":   {"B": 1},
+			"sysAll": {"A": 1, "B": 1},
+			"sysC":   {"C": 1},
+		}
+		wantLabels := map[string]string{
+			"sysA": "«perform»", "sysB": "«perform»", "sysAll": "«perform»", "sysC": "«exhibit»",
+		}
+		gotReferences := map[string]map[string]int{}
+		for _, edge := range edges {
+			if edge.Kind != EdgeReference {
+				continue
+			}
+			sourcePart := ""
+			for node, ok := nodesByID[edge.From]; ok; node, ok = nodesByID[node.Parent] {
+				if node.Kind != "part" {
+					continue
+				}
+				name := localName(node.Name)
+				if _, expected := wantReferences[name]; expected {
+					sourcePart = name
+					break
+				}
+			}
+			if sourcePart == "" {
+				t.Errorf("reference edge %s -> %s has no expected system-part source", edge.From, edge.To)
+				continue
+			}
+			if edge.Label != wantLabels[sourcePart] {
+				t.Errorf("%s reference label = %q, want %q", sourcePart, edge.Label, wantLabels[sourcePart])
+			}
+			targetCase := roleCases[edge.To]
+			if targetCase == "" {
+				t.Errorf("%s reference target %s has no case association", sourcePart, edge.To)
+				continue
+			}
+			targetName := localName(nodesByID[edge.To].Name)
+			wantTargetName := "task"
+			if sourcePart == "sysC" {
+				wantTargetName = "mode"
+			}
+			if targetName != wantTargetName {
+				t.Errorf("%s reference targets %s, want %s", sourcePart, targetName, wantTargetName)
+			}
+			if gotReferences[sourcePart] == nil {
+				gotReferences[sourcePart] = map[string]int{}
+			}
+			gotReferences[sourcePart][targetCase]++
+		}
+		for source, targets := range wantReferences {
+			for target, count := range targets {
+				if gotReferences[source][target] != count {
+					t.Errorf("%s has %d reference edges to case %s, want %d", source, gotReferences[source][target], target, count)
+				}
+			}
+			for target, count := range gotReferences[source] {
+				if targets[target] != count {
+					t.Errorf("%s has unexpected reference edges to case %s: %d", source, target, count)
+				}
+			}
+		}
+	}
+
+	data := rendering.Data()
+	checkEdges(data.Nodes, rendering.Edges)
+	dataEdges := make([]Edge, 0, len(data.Edges))
+	for _, edge := range data.Edges {
+		dataEdges = append(dataEdges, Edge{From: edge.From, To: edge.To, Kind: edge.Kind, Label: edge.Label})
+	}
+	checkEdges(data.Nodes, dataEdges)
+
+	text := rendering.Text()
+	wantTextEdges := map[string]int{}
+	for _, edge := range rendering.Edges {
+		if edge.Kind != EdgeReference {
+			continue
+		}
+		source, target := "", ""
+		for _, node := range data.Nodes {
+			switch node.ID {
+			case edge.From:
+				source = node.Name
+				if source == "" {
+					source = node.Kind + " " + node.ID
+				}
+			case edge.To:
+				target = node.Name
+				if target == "" {
+					target = node.Kind + " " + node.ID
+				}
+			}
+		}
+		wantTextEdges["  "+source+" ..> "+target+": "+edge.Label]++
+	}
+	gotTextEdges := map[string]int{}
+	for _, line := range strings.Split(text, "\n") {
+		if _, expected := wantTextEdges[line]; expected {
+			gotTextEdges[line]++
+		}
+	}
+	for line, count := range wantTextEdges {
+		if gotTextEdges[line] != count {
+			t.Errorf("text renders reference line %q %d times, want %d:\n%s", line, gotTextEdges[line], count, text)
+		}
+	}
+
+	mermaid := rendering.Mermaid()
+	if got := mermaidEdges(mermaid); got != len(rendering.Edges) {
+		t.Errorf("Mermaid declares %d edges, want %d:\n%s", got, len(rendering.Edges), mermaid)
+	}
+	for _, edge := range rendering.Edges {
+		if edge.Kind == EdgeReference && !strings.Contains(mermaid, edge.From+" -.->|\""+mermaidText(edge.Label)+"\"| "+edge.To) {
+			t.Errorf("Mermaid omits reference edge %s -> %s:\n%s", edge.From, edge.To, mermaid)
+		}
+	}
+
+	dot, err := rendering.DOT()
+	if err != nil {
+		t.Fatalf("DOT: %v", err)
+	}
+	checkDOTSyntax(t, dot)
+	for _, edge := range rendering.Edges {
+		if edge.Kind != EdgeReference {
+			continue
+		}
+		found := false
+		for _, line := range strings.Split(dot, "\n") {
+			if strings.HasPrefix(strings.TrimSpace(line), dotQuote(edge.From)+" -> "+dotQuote(edge.To)+" [") &&
+				strings.Contains(line, "style=dashed") && strings.Contains(line, "arrowhead=open") {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Errorf("DOT omits reference edge %s -> %s:\n%s", edge.From, edge.To, dot)
+		}
+	}
+
+	plantuml, err := rendering.PlantUML()
+	if err != nil {
+		t.Fatalf("PlantUML: %v", err)
+	}
+	checkPlantUMLSyntax(t, plantuml)
+	checkPlantUMLRenders(t, plantuml)
+	for _, edge := range rendering.Edges {
+		if edge.Kind == EdgeReference && !strings.Contains(plantuml, edge.From+" ..> "+edge.To) {
+			t.Errorf("PlantUML omits reference edge %s -> %s:\n%s", edge.From, edge.To, plantuml)
+		}
+	}
+}
+
 func TestCaseAndMixedLayoutRoutesReachDrawnElements(t *testing.T) {
 	caseRenderer, caseIndex := loadFixture(t, "case.sysml")
 	caseView := lookup(t, caseIndex, "CaseExamples::caseLayout")
