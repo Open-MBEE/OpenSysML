@@ -601,6 +601,8 @@ func vertexBase(v *sysmlv1.Element) string {
 			return k
 		case "shallowHistory", "deepHistory":
 			return "history"
+		case "terminate":
+			return "terminated"
 		}
 	}
 	return ""
@@ -1141,7 +1143,10 @@ func (s *stateRegion) vertex(v *sysmlv1.Element) {
 			s.m.madeUp(v, name)
 			s.m.add(v, Mapped, name, "written as a `#StateMachines::deepHistory state` deep history, which re-enters the innermost states active when its state was last left")
 		case "terminate":
-			s.m.add(v, Approximated, "done", "a terminate pseudostate ends the machine; a transition to it is written to done, which ends its region")
+			name := writeName(s.name(v))
+			s.m.w.line(actionKw + name + " terminate;")
+			s.m.madeUp(v, name)
+			s.m.add(v, Mapped, name, "written as a terminate action, which ends the state machine's performance in every region")
 		case "entryPoint", "exitPoint":
 			if pointOwner(v).Type == "State" {
 				// Written in the body of the state it belongs to.
@@ -1837,10 +1842,9 @@ func (s *stateRegion) acceptsSignal(t, sig *sysmlv1.Element) bool {
 
 // transitionWritten reports whether transition t is one the output writes, so
 // it accepts its trigger or completes its source: its ends resolve as
-// transitionEnds requires, and its target is one target names — a state of the
-// machine, a final or terminate state of the transition's own region, a
-// pseudostate with a v2 form, or a connection point reference into a
-// submachine state. It decides as target does, noting nothing.
+// transitionEnds requires, and its target is one target names — a state, final
+// or terminate action, pseudostate with a v2 form, or connection point reference
+// into a submachine state. It decides as target does.
 func (s *stateRegion) transitionWritten(t *sysmlv1.Element) bool {
 	src, tgt := s.m.model.Ref(t, "source"), s.m.model.Ref(t, "target")
 	internal := t.Attrs["kind"] == "internal"
@@ -1865,7 +1869,7 @@ func (s *stateRegion) transitionWritten(t *sysmlv1.Element) bool {
 	case "Pseudostate":
 		switch pseudoKind(tgt) {
 		case "terminate":
-			return true
+			return named(tgt)
 		case "exitPoint":
 			return s.m.points[tgt].why == "" && (named(tgt) || pointOwner(tgt).Type != "State")
 		case "entryPoint":
@@ -2355,8 +2359,8 @@ func (s *stateRegion) endpoint(t, v *sysmlv1.Element, role string) (string, bool
 }
 
 // target names what a transition leads to: a state or pseudostate of the machine
-// by its path, done for a final or terminate state of the region, or the entry
-// state of a submachine state a connection point reference enters.
+// by its path, done for a final state of the region, or the entry state of a
+// submachine state a connection point reference enters.
 func (s *stateRegion) target(t, v *sysmlv1.Element) (string, bool) {
 	if v == nil {
 		return "", false
@@ -2373,7 +2377,7 @@ func (s *stateRegion) target(t, v *sysmlv1.Element) (string, bool) {
 	case "Pseudostate":
 		switch pseudoKind(v) {
 		case "terminate":
-			return "done", true
+			return s.endpoint(t, v, "target")
 		case "exitPoint":
 			if s.m.points[v].why != "" {
 				return "", false

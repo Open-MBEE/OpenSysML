@@ -390,6 +390,7 @@ var constructFixtures = []string{
 	"decision_else",
 	"calc_context",
 	"interaction_context",
+	"terminate_orthogonal",
 }
 
 // migrateFixtureFile migrates testdata/xmi/<name>.xmi.

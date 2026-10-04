@@ -2378,12 +2378,10 @@ func TestDeferralNotesTransitionsItCannotOutrank(t *testing.T) {
 	}
 }
 
-// A transition the writer names by a route other than a vertex's own name —
-// into a terminate pseudostate, written to done, or into a submachine state
-// through a connection point reference, written to the entry point's state —
-// counts as written for the deferral analysis as any other: an unguarded
-// completion transition of either kind drops the deferral, since the accept
-// loop would never let it fire, and a triggered one takes the signal.
+// A transition to a terminate pseudostate, written as a terminate action, or
+// through a submachine state by a connection point reference counts as written
+// for deferral analysis: an unguarded completion transition drops the deferral,
+// since its accept loop would never let it fire, and a triggered one takes it.
 func TestDeferralCountsTransitionsToUnnamedTargets(t *testing.T) {
 	const terminating = `
     <packagedElement xmi:type="uml:Signal" xmi:id="_door" name="Door"/>
@@ -2402,7 +2400,8 @@ func TestDeferralCountsTransitionsToUnnamedTargets(t *testing.T) {
       </ownedBehavior>
     </packagedElement>`
 	r := migrateDocumentOptions(t, terminating, `<sysml:Block xmi:id="_b1" base_Class="_oven"/>`, migrate.Options{})
-	wantLine(t, r.Notation, "transition first Off then done;")
+	wantLine(t, r.Notation, "action terminated terminate;")
+	wantLine(t, r.Notation, "transition first Off then terminated;")
 	wantNoLine(t, r.Notation, "item deferred : Door[*] ordered;")
 	wantNote(t, r, "_dDoor", migrate.Unmapped, "the completion transition (_tEnd) leaves the state once its do action ends, which the accept loop that would keep Door never lets it, so the deferral is dropped")
 
