@@ -8760,13 +8760,15 @@
       "status": "faithful",
       "implementation": [
         "internal/translate/migrate/activity.go:readSelf",
-        "internal/translate/migrate/context.go:self"
+        "internal/translate/migrate/context.go:self",
+        "internal/translate/migrate/activity.go:selfFlows"
       ],
       "tests": [
         "tests/migrate/object_reads_test.go:TestReadSelfActionResultIsThis",
+        "tests/migrate/object_reads_test.go:TestReadSelfResultFlowsToTheActionsItFeeds",
         "tests/corpus/pssm_migration_test.go:TestPSSMSuiteMigration"
       ],
-      "reason": "written as `action n { out result : T[1] = this; }`, an ActionUsage whose result pin is an `out` feature typed and bounded as the pin declares and bound to `this` (spelled `context` in a def whose body is written there), the Occurrence::this the mapping's FeatureReferenceExpression names; a node no edge leads to is started by the activity (`first start then n;`) (PSSM: 1038 mapped, 7 approximated of 1045, the 7 for a sibling's name); candidate erratum: the mapping marks the result pin abstract (isAbstract = true) while binding it to `this` with a FeatureValue, but an abstract feature's values are those of the features specializing it and the pin has none, so the binding contradicts it; the pin is written as a concrete `out` feature",
+      "reason": "written as `action n { out result : T[1] = this; }`, an ActionUsage whose result pin is an `out` feature typed and bounded as the pin declares and bound to `this` (spelled `context` in a def whose body is written there), the Occurrence::this the mapping's FeatureReferenceExpression names; a node no edge leads to is started by the activity (`first start then n;`) (PSSM: 1038 mapped, 7 approximated of 1045, the 7 for a sibling's name); the result flows to each pin it feeds that the receiving action declares (`flow n.result to a.p;`, PSSM: 315 flows), while an object pin folded into the action that receives it names `this` itself; a node named `this` is renamed, since every action inherits Occurrence::this; candidate erratum: the mapping marks the result pin abstract (isAbstract = true) while binding it to `this` with a FeatureValue, but an abstract feature's values are those of the features specializing it and the pin has none, so the binding contradicts it; the pin is written as a concrete `out` feature",
       "scope": [
         "uml:ReadSelfAction"
       ]
@@ -8828,13 +8830,15 @@
       "status": "faithful",
       "implementation": [
         "internal/translate/migrate/activity.go:readSelf",
-        "internal/translate/migrate/context.go:self"
+        "internal/translate/migrate/context.go:self",
+        "internal/translate/migrate/activity.go:selfFlows"
       ],
       "tests": [
         "tests/migrate/object_reads_test.go:TestReadSelfActionResultIsThis",
+        "tests/migrate/object_reads_test.go:TestReadSelfResultFlowsToTheActionsItFeeds",
         "tests/corpus/pssm_migration_test.go:TestPSSMSuiteMigration"
       ],
-      "reason": "written as `action n { out result : T[1] = this; }`, an ActionUsage whose result pin is an `out` feature typed and bounded as the pin declares and bound to `this` (spelled `context` in a def whose body is written there), the Occurrence::this the mapping's FeatureReferenceExpression names; a node no edge leads to is started by the activity (`first start then n;`) (PSSM: 1038 mapped, 7 approximated of 1045, the 7 for a sibling's name)",
+      "reason": "written as `action n { out result : T[1] = this; }`, an ActionUsage whose result pin is an `out` feature typed and bounded as the pin declares and bound to `this` (spelled `context` in a def whose body is written there), the Occurrence::this the mapping's FeatureReferenceExpression names; a node no edge leads to is started by the activity (`first start then n;`) (PSSM: 1038 mapped, 7 approximated of 1045, the 7 for a sibling's name); the result flows to each pin it feeds that the receiving action declares (`flow n.result to a.p;`, PSSM: 315 flows), while an object pin folded into the action that receives it names `this` itself; a node named `this` is renamed, since every action inherits Occurrence::this",
       "scope": [
         "uml:ReadSelfAction"
       ]

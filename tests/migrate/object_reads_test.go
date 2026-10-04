@@ -91,3 +91,42 @@ func TestReadOfAnAssociationOwnedEndIsRefused(t *testing.T) {
 	wantNote(t, r, "_readHeld", migrate.Unmapped, "the object read, this, is a Account, which has no feature held")
 	wantNoLine(t, r.Notation, "out result : Item[1] = held;")
 }
+
+// selfFlows is a behavior whose read self action, named this, feeds an opaque
+// action's input and a call's argument.
+const selfFlows = `
+    <packagedElement xmi:type="uml:Class" xmi:id="_acct" name="Acct" classifierBehavior="_run">
+      <ownedBehavior xmi:type="uml:Activity" xmi:id="_notify" name="Notify">
+        <ownedParameter xmi:type="uml:Parameter" xmi:id="_who" name="who" direction="in" type="_acct"/>
+      </ownedBehavior>
+      <ownedBehavior xmi:type="uml:Activity" xmi:id="_run" name="Run">
+        <node xmi:type="uml:ReadSelfAction" xmi:id="_rs" name="this">
+          <result xmi:type="uml:OutputPin" xmi:id="_rsOut" name="result" type="_acct"/>
+        </node>
+        <node xmi:type="uml:OpaqueAction" xmi:id="_op" name="use">
+          <inputValue xmi:type="uml:InputPin" xmi:id="_opIn" name="argument" type="_acct"/>
+        </node>
+        <node xmi:type="uml:CallBehaviorAction" xmi:id="_cb" name="call" behavior="_notify">
+          <argument xmi:type="uml:InputPin" xmi:id="_cbIn" name="who" type="_acct"/>
+        </node>
+        <edge xmi:type="uml:ObjectFlow" xmi:id="_g1" source="_rsOut" target="_opIn"/>
+        <edge xmi:type="uml:ObjectFlow" xmi:id="_g2" source="_rsOut" target="_cbIn"/>
+      </ownedBehavior>
+    </packagedElement>`
+
+// A read self action's result flows to the pins it feeds that are written, and
+// a node named this is renamed, since every action has a this of its own.
+func TestReadSelfResultFlowsToTheActionsItFeeds(t *testing.T) {
+	r := migrateDocument(t, selfFlows, `<sysml:Block xmi:id="_s9" base_Class="_acct"/>`)
+	for _, line := range []string{
+		"action this2 {",
+		"out result : Acct[1] = this;",
+		"flow this2.result to 'use'.argument;",
+		"flow this2.result to call.who;",
+	} {
+		wantLine(t, r.Notation, line)
+	}
+	wantNote(t, r, "_g1", migrate.Mapped, "")
+	wantNote(t, r, "_g2", migrate.Mapped, "")
+	wantClean(t, "self_flows.sysml", r)
+}

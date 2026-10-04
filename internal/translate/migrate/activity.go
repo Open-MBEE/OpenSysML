@@ -97,9 +97,11 @@ type activity struct {
 	// and buffer nodes to the pins and parameter nodes that produce it, once each.
 	sources map[*sysmlv1.Element][]*sysmlv1.Element
 	// edgeSources and edgeSelf record the same per object flow: the producers
-	// its own source leads back to, and whether one is a ReadSelfAction.
+	// its own source leads back to, and whether one is a ReadSelfAction, whose
+	// result pins selfSources holds.
 	edgeSources map[*sysmlv1.Element][]*sysmlv1.Element
 	edgeSelf    map[*sysmlv1.Element]bool
+	selfSources map[*sysmlv1.Element][]*sysmlv1.Element
 	// inert marks the nodes written as placeholders, whose output pins no value reaches.
 	inert map[*sysmlv1.Element]bool
 	// computed is the v2 expression an output pin is declared with, when a library primitive gives its value.
@@ -175,6 +177,7 @@ func (m *migration) newActivity(act, def *sysmlv1.Element) *activity {
 		sink:        map[*sysmlv1.Element]bool{},
 		edgeSources: map[*sysmlv1.Element][]*sysmlv1.Element{},
 		edgeSelf:    map[*sysmlv1.Element]bool{},
+		selfSources: map[*sysmlv1.Element][]*sysmlv1.Element{},
 		written:     map[[2]*sysmlv1.Element]*sysmlv1.Element{},
 		carriers:    map[[2]*sysmlv1.Element][]*sysmlv1.Element{},
 		inert:       map[*sysmlv1.Element]bool{},
@@ -202,9 +205,9 @@ func (m *migration) newActivity(act, def *sysmlv1.Element) *activity {
 }
 
 // inheritedActionNames are the members every action usage inherits, which a
-// synthesized member must not be called.
+// synthesized member must not be called; a node of one of these names is renamed.
 func inheritedActionNames() map[string]bool {
-	return map[string]bool{"start": true, "done": true, "self": true}
+	return map[string]bool{"start": true, "done": true, "self": true, "this": true}
 }
 
 // waitNode is the wait written before a node a duration constrains.
@@ -584,6 +587,7 @@ func (a *activity) resolveData() {
 			if s.Parent != nil && s.Parent.Type == "ReadSelfAction" {
 				a.selfFed[tgt] = true
 				a.edgeSelf[e] = true
+				a.selfSources[e] = append(a.selfSources[e], s)
 				continue
 			}
 			a.edgeSources[e] = append(a.edgeSources[e], s)
@@ -1811,7 +1815,8 @@ func (a *activity) objectFlow(e *sysmlv1.Element) {
 		a.m.add(e, Unmapped, "", "nothing the flow carries comes from a pin or parameter")
 		return
 	}
-	if a.edgeSelf[e] {
+	selfFlows := a.selfFlows(e, tgt)
+	if a.edgeSelf[e] && !selfFlows {
 		a.m.add(e, Approximated, "", "the flow carries this, which the action names directly")
 	}
 	if a.dataOnly[e] && !a.dryFlow(e) {
@@ -1834,9 +1839,28 @@ func (a *activity) objectFlow(e *sysmlv1.Element) {
 	for _, s := range a.edgeSources[e] {
 		a.objectFlowSource(e, s, tgt, to)
 	}
+	if selfFlows {
+		for _, s := range a.selfSources[e] {
+			a.objectFlowSource(e, s, tgt, to)
+		}
+	}
 	if g := firstOwned(e, "guard"); g != nil && realGuard(e) && !a.guardedFlow(e) {
 		a.m.add(e, Approximated, "", "the guard ["+describeValue(g)+"] on an object flow is not written")
 	}
+}
+
+// selfFlows reports whether the object flow e is written from the read self
+// results it carries: they and its target have v2 names; else the target names this.
+func (a *activity) selfFlows(e, tgt *sysmlv1.Element) bool {
+	if _, ok := a.pinRef(tgt); !ok || len(a.selfSources[e]) == 0 {
+		return false
+	}
+	for _, s := range a.selfSources[e] {
+		if _, ok := a.pinRef(s); !ok {
+			return false
+		}
+	}
+	return true
 }
 
 // objectFlowTarget records the object flow e whose target is no pin or
@@ -2432,7 +2456,7 @@ func (a *activity) featureOn(objPin, f *sysmlv1.Element) (string, string) {
 }
 
 // readSelf writes a read self action as an action whose result is the object
-// the activity acts on; the actions the result flows into name it directly.
+// the activity acts on, which flows to the pins that have a v2 name.
 func (a *activity) readSelf(n *sysmlv1.Element, name string) {
 	results := n.Owned("result")
 	if len(results) == 0 {
@@ -2454,6 +2478,7 @@ func (a *activity) readSelf(n *sysmlv1.Element, name string) {
 		mult, mnote := a.m.multiplicity(r)
 		note = joinNotes(note, mnote)
 		a.markSelf()
+		a.names[r] = pname
 		a.m.w.line(decl + shaped(mult, r, true, false) + " = " + a.m.respellThis(a.self(), a.act) + ";")
 		a.m.add(r, verdictFor(note), a.m.v2Name(n)+"."+pname, note)
 	})
