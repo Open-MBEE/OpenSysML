@@ -38,9 +38,15 @@
     }
 
     .osml-hero {
-      background: linear-gradient(120deg, var(--osml-hero-from), var(--osml-hero-to));
+      /* Graph paper: a faint 20px grid with a stronger line every fifth square. */
+      background:
+        linear-gradient(rgba(255, 255, 255, .09) 1px, transparent 1px) 0 0 / 100px 100px,
+        linear-gradient(90deg, rgba(255, 255, 255, .09) 1px, transparent 1px) 0 0 / 100px 100px,
+        linear-gradient(rgba(255, 255, 255, .04) 1px, transparent 1px) 0 0 / 20px 20px,
+        linear-gradient(90deg, rgba(255, 255, 255, .04) 1px, transparent 1px) 0 0 / 20px 20px,
+        linear-gradient(120deg, var(--osml-hero-from), var(--osml-hero-to));
       color: #fff;
-      padding: 4.4rem 0 4rem;
+      padding: 2rem 0 4rem;
     }
     /* 61rem is Material's own .md-grid width, so every band lines up with the
        documentation below. Widths are definite so long code lines scroll their own
@@ -69,6 +75,12 @@
     .osml-hero__inner > *,
     .osml-pane {
       min-width: 0;
+    }
+    .osml-hero__logo {
+      display: block;
+      width: 7rem;
+      height: 7rem;
+      margin: 0 auto 1.2rem;
     }
     .osml-hero__eyebrow {
       font-size: .68rem;
@@ -560,6 +572,8 @@
       width: 100%;
       height: auto;
       position: relative;
+      /* Boxes can be dragged anywhere in the hero, beyond the figure's own box. */
+      overflow: visible;
       font-family: Helvetica, Arial, sans-serif;
     }
     .osml-wire {
@@ -731,19 +745,54 @@
       color: #ffcdd2;
       opacity: 1;
     }
+    .osml-schematic__edit { margin: .7rem 0 0; }
+    .osml-schematic__edit[hidden] { display: none; }
     .osml-schematic__src {
-      max-height: 22rem;
+      display: block;
+      box-sizing: border-box;
+      width: 100%;
+      height: 22rem;
+      resize: vertical;
       overflow: auto;
-      margin: .7rem 0 0;
+      margin: 0;
       padding: .7rem .9rem;
+      border: 1px solid rgba(255, 255, 255, .25);
       border-radius: .3rem;
       background: rgba(0, 0, 0, .35);
       color: #e8eaf6;
+      font-family: var(--md-code-font-family, monospace);
       font-size: .58rem;
       line-height: 1.5;
       text-align: left;
+      tab-size: 4;
+      white-space: pre;
     }
-    .osml-schematic__src[hidden] { display: none; }
+    .osml-schematic__src:focus { outline: 2px solid var(--md-accent-fg-color); outline-offset: 1px; }
+    .osml-schematic__src[aria-invalid="true"] { border-color: #ef9a9a; }
+    .osml-schematic__hint {
+      margin: .4rem 0 0;
+      font-size: .6rem;
+      opacity: .85;
+      text-align: left;
+    }
+    .osml-schematic__hint code {
+      padding: 0 .2em;
+      background: rgba(0, 0, 0, .3);
+      color: inherit;
+      font-size: .95em;
+    }
+    .osml-schematic__hint button {
+      margin-left: .3rem;
+      padding: .1rem .5rem;
+      border: 1px solid rgba(255, 255, 255, .5);
+      border-radius: .2rem;
+      background: transparent;
+      color: inherit;
+      font: inherit;
+      cursor: pointer;
+    }
+    .osml-schematic__hint button:hover,
+    .osml-schematic__hint button:focus { background-color: var(--md-accent-fg-color); }
     .osml-nodecard__note {
       margin-top: .45rem;
       font-size: .56rem;
@@ -824,6 +873,7 @@
     }
     @media screen and (max-width: 59.9375em) {
       .osml-hero h1 { font-size: 1.8rem; }
+      .osml-hero__logo { width: 5rem; height: 5rem; }
     }
     @media screen and (max-width: 29.9375em) {
       .osml-referee__grid { grid-template-columns: 1fr; }
@@ -845,6 +895,7 @@
 <section class="osml-hero">
   <div class="osml-hero__inner">
     <div class="osml-hero__copy">
+      <img class="osml-hero__logo" src="{{ 'assets/opensysml-logo-white.png' | url }}" alt="OpenSysML" width="112" height="112">
       <p class="osml-hero__eyebrow">Open source &middot; SysML v2 &middot; KerML</p>
       <h1>SysML v2 you can actually run.</h1>
       <p class="osml-hero__lede">
@@ -897,13 +948,16 @@
           <text class="osml-node-sub" x="450" y="442" text-anchor="middle" font-size="10">Java &middot; OMG reference</text>
         </g>
       </svg>
-      <p class="osml-schematic__caption">One open interchange, three implementations, a version-controlled store. Drag the boxes around — click opens the project, right-click shows its attributes.</p>
+      <p class="osml-schematic__caption">One open interchange, three implementations, a version-controlled store. Drag the boxes around — click opens the project, right-click shows its attributes. Edit the model and the engine redraws the diagram as you type.</p>
       <div class="osml-schematic__run">
         <button type="button" class="osml-btn osml-btn--primary" data-osml-run>&#9654; Run the model</button>
-        <button type="button" class="osml-btn" data-osml-source aria-expanded="false">View the model</button>
-        <p class="osml-schematic__status" data-osml-status aria-live="polite">This diagram is a SysML model. Run it in your browser on the OpenSysML engine (about 7 MB, downloaded once).</p>
+        <button type="button" class="osml-btn" data-osml-source aria-expanded="false" aria-controls="osml-schematic-edit">Edit the model</button>
+        <p class="osml-schematic__status" data-osml-status aria-live="polite">This diagram is a SysML model. Run it or edit it in your browser on the OpenSysML engine (about 7 MB, downloaded once).</p>
       </div>
-      <pre class="osml-schematic__src" data-osml-src hidden><code></code></pre>
+      <div class="osml-schematic__edit" id="osml-schematic-edit" data-osml-editor hidden>
+        <textarea class="osml-schematic__src" data-osml-src spellcheck="false" autocomplete="off" autocapitalize="off" aria-label="The diagram's SysML model" aria-describedby="osml-schematic-hint"></textarea>
+        <p class="osml-schematic__hint" id="osml-schematic-hint">The engine re-reads the model as you type. Try changing a <code>label</code> or <code>lang</code>, adding a <code>part</code> of type <code>Project</code>, connecting it with another <code>interface</code>, or deleting a <code>;</code> to see a diagnostic. <button type="button" data-osml-reset>Reset</button></p>
+      </div>
     </div>
 <script>
 (function () {
@@ -925,7 +979,6 @@
       cx: parseFloat(r.getAttribute("x")) + w / 2,
       cy: parseFloat(r.getAttribute("y")) + h / 2,
       dx: 0, dy: 0,
-      phase: Math.random() * Math.PI * 2,
       model: null
     };
   }
@@ -939,14 +992,12 @@
     return { x: cx + dx * t, y: cy + dy * t };
   }
 
-  function layout(t) {
+  function layout() {
     var pos = {};
     Object.keys(nodes).forEach(function (k) {
       var n = nodes[k];
-      var ox = (n === dragging || reduceMotion.matches) ? 0 : Math.sin(t * 0.7 + n.phase) * 4;
-      var oy = (n === dragging || reduceMotion.matches) ? 0 : Math.cos(t * 0.9 + n.phase * 1.7) * 3;
-      pos[k] = { x: n.cx + n.dx + ox, y: n.cy + n.dy + oy };
-      n.g.setAttribute("transform", "translate(" + (n.dx + ox) + "," + (n.dy + oy) + ")");
+      pos[k] = { x: n.cx + n.dx, y: n.cy + n.dy };
+      n.g.setAttribute("transform", "translate(" + n.dx + "," + n.dy + ")");
     });
     wires.forEach(function (p) {
       var ends = p.dataset.osmlWire.split(",");
@@ -965,9 +1016,6 @@
     if (posEl && activeNode && pos[activeNode]) {
       posEl.textContent = Math.round(pos[activeNode].x) + " · " + Math.round(pos[activeNode].y);
     }
-  }
-  function relayout() {
-    layout(reduceMotion.matches ? 0 : performance.now() / 1000);
   }
 
   var dragging = null, dragFrom = null, pressFrom = null, moved = false, pressTimer = null, longPressed = false;
@@ -1051,19 +1099,11 @@
       '<div class="osml-nodecard__note">' + (n.model
         ? "Read by the engine from model " + escAttr(modelHash.slice(0, 12))
         : "Run the model to read these from the engine") + '</div>' +
-      '<a class="osml-nodecard__link" href="' + escAttr(href) + '" target="_blank" rel="noopener">Open project \u2197</a>';
+      (href ? '<a class="osml-nodecard__link" href="' + escAttr(href) + '" target="_blank" rel="noopener">Open project \u2197</a>' : "");
     card.hidden = false;
     card.querySelector(".osml-nodecard__close").addEventListener("click", closeCard);
     posEl = card.querySelector("[data-osml-pos]");
-    // Beside the box rather than over it, so its wires stay in view.
-    var rr = root.getBoundingClientRect(), br = g.getBoundingClientRect();
-    var cw = card.offsetWidth, ch = card.offsetHeight;
-    var x = br.right - rr.left + 12;
-    if (x + cw > root.clientWidth - 4) x = br.left - rr.left - cw - 12;
-    x = Math.min(Math.max(x, 4), Math.max(4, root.clientWidth - cw - 4));
-    var y = Math.min(Math.max(br.top - rr.top, 4), Math.max(4, root.clientHeight - ch - 4));
-    card.style.left = x + "px";
-    card.style.top = y + "px";
+    placeCard(g);
     if (activeNode && activeNode !== k) {
       var prev = activeNode;
       activeNode = null;
@@ -1072,7 +1112,22 @@
     activeNode = k;
     hot(k, true);
     setFocus();
-    relayout();
+    layout();
+  }
+
+  // Beside the box rather than over it, so its wires stay in view, and within the hero.
+  function placeCard(g) {
+    var rr = root.getBoundingClientRect(), br = g.getBoundingClientRect();
+    var hr = hero.getBoundingClientRect();
+    var cw = card.offsetWidth, ch = card.offsetHeight;
+    var minX = hr.left - rr.left + 4, maxX = Math.max(minX, hr.right - rr.left - cw - 4);
+    var minY = hr.top - rr.top + 4, maxY = Math.max(minY, hr.bottom - rr.top - ch - 4);
+    var x = br.right - rr.left + 12;
+    if (x > maxX) x = br.left - rr.left - cw - 12;
+    x = Math.min(Math.max(x, minX), maxX);
+    var y = Math.min(Math.max(br.top - rr.top, minY), maxY);
+    card.style.left = x + "px";
+    card.style.top = y + "px";
   }
 
   function closeCard() {
@@ -1113,7 +1168,7 @@
       n.g.style.opacity = "1";
     });
   }
-  layout(0);
+  layout();
   // Once drawn in, hand opacity back to the stylesheet so focus dimming applies.
   setTimeout(function () {
     wires.forEach(function (p) { p.style.strokeDasharray = ""; p.style.transition = ""; });
@@ -1123,20 +1178,45 @@
     });
   }, 1700);
 
-  if (!reduceMotion.matches) {
-    (function tick(now) {
-      // Instant navigation swaps the page out without unloading it.
-      if (!root.isConnected) { ac.abort(); return; }
-      layout(now / 1000);
-      requestAnimationFrame(tick);
-    })(performance.now());
-  }
-
   function svgPoint(evt) {
     var pt = svg.createSVGPoint();
     pt.x = evt.clientX; pt.y = evt.clientY;
     return pt.matrixTransform(svg.getScreenCTM().inverse());
   }
+
+  // A box stays within the hero band, clear of its edges.
+  var hero = root.closest(".osml-hero") || root;
+  function heroBounds() {
+    var r = hero.getBoundingClientRect();
+    var a = svgPoint({ clientX: r.left, clientY: r.top });
+    var b = svgPoint({ clientX: r.right, clientY: r.bottom });
+    return { x0: a.x + 6, y0: a.y + 6, x1: b.x - 6, y1: b.y - 6 };
+  }
+  function keepInHero(n, b) {
+    n.dx = Math.min(Math.max(n.dx, b.x0 + n.w / 2 - n.cx), b.x1 - n.w / 2 - n.cx);
+    n.dy = Math.min(Math.max(n.dy, b.y0 + n.h / 2 - n.cy), b.y1 - n.h / 2 - n.cy);
+  }
+  // The band changes size with the window and when the model editor opens or closes.
+  var heroResize = new ResizeObserver(function () {
+    if (!root.isConnected) { ac.abort(); return; }
+    var b = heroBounds();
+    Object.keys(nodes).forEach(function (k) { keepInHero(nodes[k], b); });
+    layout();
+    if (activeNode) placeCard(nodes[activeNode].g);
+  });
+  heroResize.observe(hero);
+  ac.signal.addEventListener("abort", function () { heroResize.disconnect(); });
+
+  // Instant navigation swaps the page out without unloading it; Material's document$ marks each swap.
+  function watchNavigation() {
+    if (!window.document$ || ac.signal.aborted) return;
+    var sub = window.document$.subscribe(function () {
+      if (!root.isConnected) ac.abort();
+    });
+    ac.signal.addEventListener("abort", function () { sub.unsubscribe(); });
+  }
+  if (window.document$) watchNavigation();
+  else document.addEventListener("DOMContentLoaded", watchNavigation, { once: true, signal: ac.signal });
 
   function bindNode(k) {
     var n = nodes[k];
@@ -1170,7 +1250,8 @@
         clearTimeout(pressTimer);
       }
       n.dx = nx; n.dy = ny;
-      if (reduceMotion.matches) layout(0);
+      keepInHero(n, heroBounds());
+      layout();
     });
     function endDrag() {
       if (dragging !== n) return false;
@@ -1224,7 +1305,9 @@
   var runBtn = root.querySelector("[data-osml-run]");
   var srcBtn = root.querySelector("[data-osml-source]");
   var srcEl = root.querySelector("[data-osml-src]");
-  var sourceText = null, model = null, running = false;
+  var editorEl = root.querySelector("[data-osml-editor]");
+  var resetBtn = root.querySelector("[data-osml-reset]");
+  var sourceText = null, model = null, modelText = null, edited = null, running = false;
 
   function status(text, isError) {
     statusEl.textContent = text;
@@ -1257,17 +1340,28 @@
     return res;
   }
 
-  function readModel() {
-    if (!model) {
-      model = Promise.all([loadEngine(), fetchSource()]).then(function (got) {
-        var parsed = rpc("ParseSources", { documents: [{ name: "opensysml-stack.sysml", content: got[1] }] });
+  // The text the diagram is drawn from: the visitor's edit, else the shipped file.
+  function currentSource() {
+    return edited === null ? fetchSource() : Promise.resolve(edited);
+  }
+
+  function describeDiagnostic(d) {
+    var at = d.span && d.span.startLine ? "line " + d.span.startLine + ":" + d.span.startCol + ": " : "";
+    return at + (d.message || "error");
+  }
+
+  function readModel(text) {
+    if (!model || modelText !== text) {
+      modelText = text;
+      model = loadEngine().then(function () {
+        var parsed = rpc("ParseSources", { documents: [{ name: "opensysml-stack.sysml", content: text }] });
         var diags = parsed.diagnostics || [];
-        if (diags.length) throw new Error("the model has " + diags.length + " diagnostic(s): " + (diags[0].message || ""));
+        if (diags.length) throw new Error(diags.length + " diagnostic" + (diags.length > 1 ? "s" : "") + ", " + describeDiagnostic(diags[0]));
         var built = rpc("Instantiate", { modelHash: parsed.modelHash, symbolId: STACK });
         var byId = {};
         (built.instances || []).forEach(function (i) { byId[i.id] = i; });
         var stack = (built.instances || []).filter(function (i) { return i.typeSymbolId === STACK; })[0];
-        if (!stack) throw new Error("Instantiate returned no " + STACK);
+        if (!stack) throw new Error("the model has no " + STACK + " to draw");
         var value = function (inst, f) {
           var fv = inst.featureValues && inst.featureValues[f];
           return fv && fv.value;
@@ -1276,12 +1370,13 @@
         Object.keys(stack.featureValues || {}).forEach(function (f) {
           var ref = value(stack, f), inst = ref && byId[ref.instanceId];
           if (!inst) return;
-          if (value(inst, "label")) {
+          if (value(inst, "label") || value(inst, "api")) {
             var attrs = {};
             Object.keys(inst.featureValues).sort().forEach(function (a) {
               var v = value(inst, a);
               if (v && "stringValue" in v) attrs[a] = v.stringValue;
             });
+            if (!attrs.label) attrs.label = f;
             parts[f] = { symbol: inst.typeSymbolId, attrs: attrs };
             var api = value(inst, "api");
             if (api) portOwner[api.instanceId] = f;
@@ -1299,7 +1394,8 @@
         }).filter(function (e) { return e.from && e.to; });
         return { hash: parsed.modelHash, parts: parts, edges: edges };
       });
-      model.catch(function () { model = null; });
+      var mine = model;
+      mine.catch(function () { if (model === mine) model = null; });
     }
     return model;
   }
@@ -1321,20 +1417,31 @@
     });
     svg.appendChild(g);
     addNode(g);
+    nodes[k].dynamic = true;
     bindNode(k);
   }
 
+  // Only a web link opens from a card: an edited repo cannot run script.
+  function webHref(u) { return /^https?:\/\//i.test(u || "") ? u : ""; }
+
+  // Hand-drawn parts an edit removes keep their place for when they return.
+  var shelved = {};
   function applyModel(m) {
     modelHash = m.hash;
     var slot = 0;
     Object.keys(m.parts).forEach(function (k) {
       var a = m.parts[k].attrs;
+      if (!nodes[k] && shelved[k]) {
+        svg.appendChild(shelved[k].g);
+        nodes[k] = shelved[k];
+        delete shelved[k];
+      }
       if (!nodes[k]) newNode(k, a.label, slot++);
       var g = nodes[k].g;
       nodes[k].model = m.parts[k];
       g.dataset.osmlKind = a.kind || "";
-      g.dataset.osmlHref = a.repo || "";
-      g.setAttribute("aria-label", a.label + " on GitHub");
+      g.dataset.osmlHref = webHref(a.repo);
+      g.setAttribute("aria-label", g.dataset.osmlHref ? a.label + " on GitHub" : a.label);
       g.querySelector(".osml-node-stereo").textContent = "\u00ab" + (a.kind || "part") + "\u00bb";
       g.querySelector(".osml-node-label").textContent = a.label;
       g.querySelector(".osml-node-sub").textContent = [a.lang, a.role].filter(Boolean).join(" \u00b7 ");
@@ -1343,6 +1450,7 @@
       if (m.parts[k]) return;
       if (activeNode === k) closeCard();
       nodes[k].g.remove();
+      if (!nodes[k].dynamic) shelved[k] = nodes[k];
       delete nodes[k];
     });
     // The wires are the model's interfaces, client end to store end.
@@ -1360,13 +1468,13 @@
     });
     syncWires();
     setFocus();
-    relayout();
+    layout();
     if (activeNode) openCard(activeNode);
   }
 
   function engineRead() {
     status(globalThis.sysmlEngine ? "Reading the model\u2026" : "Loading the engine (about 7 MB, once)\u2026");
-    return readModel().then(function (m) {
+    return currentSource().then(readModel).then(function (m) {
       if (modelHash !== m.hash) applyModel(m);
       return m;
     });
@@ -1455,15 +1563,57 @@
   });
 
   srcBtn.addEventListener("click", function () {
-    var open = srcEl.hidden;
-    srcEl.hidden = !open;
+    var open = editorEl.hidden;
+    editorEl.hidden = !open;
     srcBtn.setAttribute("aria-expanded", String(open));
-    srcBtn.textContent = open ? "Hide the model" : "View the model";
-    if (!open || srcEl.textContent) return;
+    srcBtn.textContent = open ? "Hide the model" : "Edit the model";
+    if (!open) return;
+    if (srcEl.value) { srcEl.focus(); return; }
+    srcEl.value = "Loading the model\u2026";
+    srcEl.readOnly = true;
     fetchSource().then(function (text) {
-      srcEl.firstChild.textContent = text;
+      srcEl.value = edited === null ? text : edited;
+      srcEl.readOnly = false;
+      srcEl.focus();
+      srcEl.setSelectionRange(0, 0);
+      srcEl.scrollTop = 0;
     }, function (e) {
-      srcEl.firstChild.textContent = "Could not load the model: " + e.message;
+      srcEl.value = "";
+      status("Could not load the model: " + e.message + ". Hide and reopen the editor to try again.", true);
+    });
+  });
+
+  // Every edit is re-read by the engine and redrawn; a model that does not read
+  // cleanly leaves the last good diagram up and says why.
+  var editTimer = null, editSeq = 0;
+  function redraw() {
+    var seq = ++editSeq;
+    if (running) { editTimer = setTimeout(redraw, 300); return; }
+    var t0 = performance.now();
+    engineRead().then(function (m) {
+      if (seq !== editSeq) return;
+      srcEl.removeAttribute("aria-invalid");
+      var ms = Math.max(1, Math.round(performance.now() - t0));
+      status("The engine re-read your model in " + ms + " ms: " + Object.keys(m.parts).length + " parts, " +
+        m.edges.length + " interfaces. Run it to send a change along them.");
+    }, function (e) {
+      if (seq !== editSeq) return;
+      srcEl.setAttribute("aria-invalid", "true");
+      status("Not redrawn \u2014 " + e.message + ". The diagram shows the last model that read cleanly.", true);
+    });
+  }
+  srcEl.addEventListener("input", function () {
+    if (srcEl.readOnly) return;
+    edited = srcEl.value;
+    clearTimeout(editTimer);
+    editTimer = setTimeout(redraw, 250);
+  });
+  resetBtn.addEventListener("click", function () {
+    fetchSource().then(function (text) {
+      edited = null;
+      srcEl.value = text;
+      clearTimeout(editTimer);
+      redraw();
     });
   });
 })();
@@ -1595,7 +1745,7 @@
       are all welcome.</p>
       <p class="osml-card__links">
         <a href="https://github.com/Open-MBEE/open-mbee.github.io/wiki/Participate-in-OpenMBEE-and-OpenSysML">Participate</a>
-        &middot; <a href="https://numfocus.org/donate-to-openmbee">Sponsor</a>
+        &middot; <a href="https://opencollective.com/openmbee/contribute">Sponsor</a>
       </p>
     </div>
   </div>
@@ -1613,8 +1763,8 @@
 </section>
 
 <div class="osml-sponsor-dock">
-  <a class="osml-sponsor" href="https://numfocus.org/donate-to-openmbee" target="_blank" rel="noopener"
-     title="Sponsor OpenMBEE through NumFOCUS">
+  <a class="osml-sponsor" href="https://opencollective.com/openmbee/contribute" target="_blank" rel="noopener"
+     title="Sponsor OpenMBEE through NumFOCUS on Open Collective">
     <span class="osml-sponsor__icon" aria-hidden="true">{% include ".icons/octicons/heart-fill-24.svg" %}</span>
     <span class="osml-sponsor__label">Sponsor</span>
   </a>

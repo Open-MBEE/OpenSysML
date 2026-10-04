@@ -420,7 +420,10 @@ export class DiagramPanels implements vscode.Disposable {
     };
     const drawing = drawingStyleOf(diagramStyle(resolved.uri));
     const style = drawing !== undefined && supportsStyle(client, drawing) ? drawing : undefined;
-    const outcome = await exportRendering(host, { uri, documentName, view, forms: serverForms(experimental(client)), style });
+    const outcome = await exportRendering(host, {
+      uri, documentName, view, forms: serverForms(experimental(client)), style,
+      linkTemplate: `${vscode.env.uriScheme}://file/{file}:{line}:{col}`,
+    });
     switch (outcome.kind) {
       case "saved":
         this.output.appendLine(`Exported ${outcome.form} of ${documentName} to ${vscode.Uri.parse(outcome.location).fsPath}`);

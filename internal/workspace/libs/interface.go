@@ -213,6 +213,9 @@ func (w *interfaceWriter) facts(sym *symbols.Symbol) symbols.LibraryFacts {
 		facts.Portion = usage.Portion
 	}
 	facts.Modifiers |= w.r.DeclarationTraits(sym)
+	if m.UsageMayTimeVary(sym) {
+		facts.Modifiers |= symbols.ModMayTimeVary
+	}
 	facts.Node = symbols.NodeKindOf(sym.Decl)
 	facts.Keyword = sym.Keyword()
 	facts.Notation = sym.Notation()
