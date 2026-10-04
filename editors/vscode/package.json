@@ -219,6 +219,7 @@
   },
   "dependencies": {
     "elkjs": "0.12.0",
+    "libavoid-js": "0.4.5",
     "vscode-languageclient": "9.0.1"
   },
   "devDependencies": {

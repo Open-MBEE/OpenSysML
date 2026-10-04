@@ -222,6 +222,7 @@ nav:
           - Errors: clients/python/errors.md
           - The service: clients/python/service.md
           - Typed classes: clients/python/typed-classes.md
+          - Metamodel classes and JSON: clients/python/metamodel.md
       - Node: clients/node.md
       - Java: clients/java.md
       - Rust: clients/rust.md

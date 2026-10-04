@@ -60,8 +60,8 @@
         "name": "examples",
         "dir": "examples",
         "origin": "ours",
-        "files": 45,
-        "digest": "sha256:8b0d334dcd91c03c9e2b12bc9be59204e0ec714520deaab52d81e3454c2c4744"
+        "files": 46,
+        "digest": "sha256:03e591d198672257e12e4744891297f08486b511a4e01e8d0921ee83d2bcff80"
       },
       {
         "name": "probes",
@@ -74,8 +74,8 @@
     "recorded": "2026-10-03"
   },
   "totals": {
-    "files": 381,
-    "filesFullyAgreeing": 343,
+    "files": 382,
+    "filesFullyAgreeing": 344,
     "agreement": 38,
     "severityMismatch": 2,
     "openSysMLOnly": 43,
@@ -860,8 +860,8 @@
       "name": "examples",
       "dir": "examples",
       "totals": {
-        "files": 45,
-        "filesFullyAgreeing": 30,
+        "files": 46,
+        "filesFullyAgreeing": 31,
         "agreement": 4,
         "severityMismatch": 1,
         "openSysMLOnly": 6,
@@ -8445,8 +8445,8 @@
       }
     ],
     "totals": {
-      "files": 381,
-      "filesFullyAgreeing": 344,
+      "files": 382,
+      "filesFullyAgreeing": 345,
       "agreement": 38,
       "severityMismatch": 2,
       "openSysMLOnly": 42,
