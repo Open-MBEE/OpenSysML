@@ -117,6 +117,7 @@ hooks:
   - scripts/mkdocs_landing.py
   - scripts/mkdocs_census.py
   - scripts/mkdocs_suite_figures.py
+  - scripts/mkdocs_install_scripts.py
 
 markdown_extensions:
   - admonition
