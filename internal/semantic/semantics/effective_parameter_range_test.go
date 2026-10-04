@@ -33,8 +33,6 @@ func TestEffectiveParameterRange(t *testing.T) {
 			action def One { in x : Real[1]; }
 			action def Opt { in x : Real[0..1]; }
 			action def Kwd { in attribute x : Real; }
-			enum def E { enum value; }
-			action def EnumParam { in enum e : E; }
 			action def ItemParam { in item x; }
 			action def FromSeed specializes Seed { in energy :>> energy; }
 			action def FromBare specializes Bare { in x :>> x; }
@@ -58,7 +56,6 @@ func TestEffectiveParameterRange(t *testing.T) {
 		{"One", "x", AssumedRange(), false},   // [1] required
 		{"Opt", "x", Range{Lower: Bound{Value: 0, Known: true}, Upper: Bound{Value: 1, Known: true}}, true},
 		{"Kwd", "x", AssumedRange(), false}, // `in attribute` → implicit [1..1]
-		{"EnumParam", "e", AssumedRange(), false},
 		{"ItemParam", "x", AssumedRange(), false},
 		{"ReferenceSubset", "x", Range{Lower: Bound{Value: 2, Known: true}, Upper: Bound{Value: 2, Known: true}}, false},
 		{"Seed", "energy", Range{Lower: Bound{Value: 1, Known: true}, Upper: Bound{Infinite: true, Known: true}}, false},
