@@ -70,6 +70,12 @@
     .osml-pane {
       min-width: 0;
     }
+    .osml-hero__logo {
+      display: block;
+      width: 7rem;
+      height: 7rem;
+      margin: 0 auto 1.2rem;
+    }
     .osml-hero__eyebrow {
       font-size: .68rem;
       letter-spacing: .12em;
@@ -859,6 +865,7 @@
     }
     @media screen and (max-width: 59.9375em) {
       .osml-hero h1 { font-size: 1.8rem; }
+      .osml-hero__logo { width: 5rem; height: 5rem; }
     }
     @media screen and (max-width: 29.9375em) {
       .osml-referee__grid { grid-template-columns: 1fr; }
@@ -880,6 +887,7 @@
 <section class="osml-hero">
   <div class="osml-hero__inner">
     <div class="osml-hero__copy">
+      <img class="osml-hero__logo" src="{{ 'assets/opensysml-logo-white.png' | url }}" alt="OpenSysML" width="112" height="112">
       <p class="osml-hero__eyebrow">Open source &middot; SysML v2 &middot; KerML</p>
       <h1>SysML v2 you can actually run.</h1>
       <p class="osml-hero__lede">

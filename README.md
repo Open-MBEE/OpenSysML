@@ -1,3 +1,10 @@
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/opensysml-logo-white.png">
+    <img src="docs/assets/opensysml-logo.png" alt="OpenSysML" width="160">
+  </picture>
+</p>
+
 # Open Source SysML v2 Implementation
 
 [![CircleCI](https://dl.circleci.com/status-badge/img/gh/Open-MBEE/OpenSysML/tree/main.svg?style=shield)](https://dl.circleci.com/status-badge/redirect/gh/Open-MBEE/OpenSysML/tree/main)
