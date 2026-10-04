@@ -50,8 +50,8 @@ func writeSubject(b *strings.Builder, g *Graph, subject Term) {
 	})
 	for i, predicate := range predicates {
 		objects := make([]string, 0, len(byPredicate[predicate]))
-		for _, object := range byPredicate[predicate] {
-			objects = append(objects, g.term(object))
+		for _, index := range byPredicate[predicate] {
+			objects = append(objects, g.term(g.triples[index].Object))
 		}
 		name := g.term(IRI(predicate))
 		if predicate == RDFType {
