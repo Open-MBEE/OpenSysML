@@ -70,7 +70,7 @@ turned out to rest on a clause after all — retained so it is not re-audited).
 | 21 | Spurious error | A succession whose ends are qualified names (`first r::move then r::grip;` at package level) | `Must be an accessible feature (use dot notation for nesting)` at each end; the same ends on a `connect` are accepted | accepted, featured by the ends' innermost common featuring type, and executed | spec clear (KerML §8.3.4.5.3); pilot short |
 | 22 | Spurious error | A KerML metaclass as the type of a SysML metadata usage (`metadata m : KerML::Classifier;`), the case KERML-90 was resolved to admit | three errors | one error | spec ambiguous: the text both tools follow does not achieve the KERML-90 resolution |
 | 23 | Cosmetic | The implied subsetting of `outgoingHBLink` by a decision node's outgoing successions and of `incomingHBLink` by a merge node's incoming ones (SYSML21-306) | adds both, from `DecisionPerformance` where the OCL names `MergePerformance` | adds neither; its checks and execution do not consult them | spec defect (OCL, filed); ours short |
-| 24 | Missed diagnostic | The default `[1..1]` of a usage (SysML §7.6.3, non-normative: SYSML21-185) | by metaclass, so enumeration, view, rendering, actor and stakeholder usages take it; a reference subsetting of a type-owned feature withholds it | by keyword, so those five kinds take none; a reference subsetting does not withhold it | spec ambiguous (prose only); ours short of the prose and the pilot |
+| 24 | Spurious error | The default `[1..1]` of a usage (SysML §7.6.3, non-normative: SYSML21-185) | by metaclass; any owned subsetting of a type-owned feature withholds it, but a subsetting of a package-owned feature does not | the same | spec ambiguous (prose only); both follow the pilot's rule for a package-owned target |
 | 25 | Cosmetic | The declaration production of a case usage (SYSML2-783) | `ActionUsageDeclaration` | the same syntax | no observable difference |
 | 26 | — | Five validation constraints the pilot source marks `TODO` | implemented under the `TODO` | implemented | no difference; the `TODO`s are stale |
 | 27 | Spurious error | An explicitly declared subject or return parameter of a variation usage | accepted: every `ParameterMembership` is exempt | rejected: only objectives are exempt | spec clear (`validateUsageVariationOwnedFeatureMembership`), both short for objectives; pilot short for parameters |
@@ -903,8 +903,11 @@ is the last chaining feature of a feature chain and the feature itself otherwise
 
 **OpenSysML:** `semantics.ImplicitMultiplicityApplies` (`internal/semantic/semantics/multiplicity.go`)
 requires a usage owned by a type (`featureOwnedByType`: not owned by a package or namespace),
-written with the keyword `attribute`, `item`, `part` or `port`, and with no `RelSubsets` or
-`RelRedefines` relationship whose target is owned by a type. An end feature takes `[1..1]`
+whose metaclass is an attribute usage (including an enumeration usage), an item usage (including
+part, view, rendering, actor and stakeholder usages) or a port usage, and with no `RelSubsets`,
+`RelRedefines`, `RelReferences` or `RelCrosses` relationship whose target, read to the last
+feature of a chain, is owned by a type. Connection usages and their subclasses, metadata usages,
+subjects and objectives take no default. An end feature takes `[1..1]`
 separately (`internal/check/passes/multiplicity_conformance.go`, `conformanceMultiplicity`,
 `declaresEndFeature`).
 
@@ -914,13 +917,13 @@ Observations, `2026-08` and this tree, each model in a file of its own (`D`, `E`
 |---|---|---|---|
 | attribute, part, port, `ref part`, in a part or attribute definition | `part def D { part x; } part def E :> D { part :>> x [0..*]; }` (and the other keywords) | both warnings | both warnings |
 | occurrence | `part def D { occurrence x; } part def E :> D { occurrence :>> x [0..*]; }` | none | none |
-| enumeration usage | `enum def E { enum a; enum b; } part def D { enum e : E; } part def F :> D { enum :>> e [0..*]; }` | both warnings at `1:98` | **none** |
-| view usage | `view def V; part def D { view v : V; } part def F :> D { view :>> v [0..*]; }` | both warnings at `1:79` | **none** |
-| rendering usage | `rendering def R; part def D { rendering r : R; } part def F :> D { rendering :>> r [0..*]; }` | both warnings at `1:94` | **none** |
-| actor, stakeholder | `part def U; requirement def R { subject s : U; actor a : U; stakeholder k : U; } requirement def R2 :> R { subject :>> s; actor :>> a [0..*]; stakeholder :>> k [0..*]; }` | both warnings at `1:145` and `1:171` | **none** |
+| enumeration usage | `enum def E { enum a; enum b; } part def D { enum e : E; } part def F :> D { enum :>> e [0..*]; }` | both warnings at `1:98` | both warnings at `1:98` |
+| view usage | `view def V; part def D { view v : V; } part def F :> D { view :>> v [0..*]; }` | both warnings at `1:79` | both warnings at `1:79` |
+| rendering usage | `rendering def R; part def D { rendering r : R; } part def F :> D { rendering :>> r [0..*]; }` | both warnings at `1:94` | both warnings at `1:94` |
+| actor, stakeholder | `part def U; requirement def R { subject s : U; actor a : U; stakeholder k : U; } requirement def R2 :> R { subject :>> s; actor :>> a [0..*]; stakeholder :>> k [0..*]; }` | both warnings at `1:145` and `1:171` | both warnings at `1:145` and `1:171` |
 | subsetting a type-owned feature | `part def D { part a [0..*]; part b :> a; } part def E :> D { part :>> b [0..*]; }` | none | none |
 | redefining a type-owned feature | `part def D { part a; } part def E :> D { part :>> a; } part def F :> E { part :>> a [0..*]; }` | none | none |
-| reference-subsetting a type-owned feature | `part def D { part a [0..*]; part b ::> a; } part def E :> D { part :>> b [0..*]; }` | none | **both warnings at `1:84`** |
+| reference-subsetting a type-owned feature | `part def D { part a [0..*]; part b ::> a; } part def E :> D { part :>> b [0..*]; }` | none | none |
 | subsetting a chain ending in a type-owned feature | `part p { part a [0..*]; } part def D { part b :> p.a; } part def E :> D { part :>> b [0..*]; }` | none | none |
 | subsetting a package-owned feature | `part q [0..*]; part def D { part b :> q; } part def E :> D { part :>> b [0..*]; }` | both warnings at `1:83` | both warnings at `1:83` |
 | end feature | `connection def C { end part a; end part b; } connection def C2 :> C { end part :>> a [0..*]; end part :>> b; }` | `End feature must have multiplicity 1` at `1:83`; the upper-bound warning at `1:96` | the same two, the first with OpenSysML's explanation appended |
@@ -942,21 +945,12 @@ default multiplicity given in 7.6.3)". SYSML21-185
 (<https://issues.omg.org/issues/SYSML21-185>, open) records that Clause 8 states none of this
 normatively.
 
-**Assessment:** three differences.
-1. **Kind by keyword.** OpenSysML selects by the four keywords, so enumeration, view, rendering,
-   actor and stakeholder usages take no default, against condition 1 and the pilot. A redefinition
-   that widens one of them goes unreported (missed diagnostic).
-2. **Reference subsetting.** OpenSysML looks only at `RelSubsets` and `RelRedefines`, so `::>` to a
-   type-owned feature does not withhold the default; the pilot counts it, since a
-   `ReferenceSubsetting` is an owned subsetting, and so does condition 3. OpenSysML reports two
-   warnings the pilot does not (spurious diagnostic).
-3. **Subsetting a package-owned feature.** Both tools keep the default when every subsetted
-   feature is owned by no type; condition 3 withholds it for any explicit owned subsetting. Both
-   follow the pilot's rule rather than the prose.
-
-Redefinitions count in both: a `Redefinition` is an owned subsetting in the pilot, and OpenSysML
-names `RelRedefines`. Differences 1 and 2 are OpenSysML gaps against both the prose and the pilot;
-difference 3 is a question of which rule is intended.
+**Assessment:** the two tools agree on every case above. Both select the default by usage
+metaclass, as condition 1 does, and both count every owned subsetting (`:>`, `:>>`, `::>` and
+cross subsetting) as condition 3 does, with one exception: both keep the default when every
+subsetted feature is owned by no type, where condition 3 withholds it for any explicit owned
+subsetting. Both follow the pilot's rule rather than the prose there, a question of which rule
+is intended.
 
 **Question for the authors:** when SYSML21-185 formalizes the default, is condition 3 meant
 literally (any owned subsetting or redefinition withholds it), or only a subsetting of a feature
