@@ -440,6 +440,17 @@ var properties = []Property{
 	{Name: "whileArgument", DefiningClass: "WhileLoopActionUsage", IRI: "https://www.omg.org/spec/SysML#WhileLoopActionUsage_whileArgument", Kind: ObjectProperty, Range: "https://www.omg.org/spec/SysML#Expression", Derived: true},
 }
 
+// enumerations holds every EEnum and its literals in declaration order, ordered by name.
+var enumerations = []Enumeration{
+	{Name: "FeatureDirectionKind", Literals: []string{"in", "inout", "out"}},
+	{Name: "PortionKind", Literals: []string{"timeslice", "snapshot"}},
+	{Name: "RequirementConstraintKind", Literals: []string{"assumption", "requirement"}},
+	{Name: "StateSubactionKind", Literals: []string{"entry", "do", "exit"}},
+	{Name: "TransitionFeatureKind", Literals: []string{"trigger", "guard", "effect"}},
+	{Name: "TriggerKind", Literals: []string{"when", "at", "after"}},
+	{Name: "VisibilityKind", Literals: []string{"private", "protected", "public"}},
+}
+
 // classes holds every EClass the metamodel declares with its eSuperTypes, ordered by name.
 var classes = []Class{
 	{Name: "AcceptActionUsage", Parents: []string{"ActionUsage"}},

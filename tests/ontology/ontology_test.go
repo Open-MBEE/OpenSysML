@@ -17,6 +17,7 @@ import (
 func TestTableShape(t *testing.T) {
 	properties := ontology.Properties()
 	classes := ontology.Classes()
+	enumerations := ontology.Enumerations()
 	// The counts SysML.ecore 20250201 (pilot 2026-08) declares; a metamodel bump is expected to move them.
 	object, datatype := 0, 0
 	for _, p := range properties {
@@ -29,6 +30,9 @@ func TestTableShape(t *testing.T) {
 	if len(classes) != 175 || object != 351 || datatype != 64 {
 		t.Errorf("table holds %d classes, %d object and %d datatype properties; want 175, 351, 64",
 			len(classes), object, datatype)
+	}
+	if len(enumerations) != 7 {
+		t.Errorf("table holds %d enumerations; want 7", len(enumerations))
 	}
 	if got := len(ontology.AmbiguousNames()); got != 58 {
 		t.Errorf("got %d unqualified names declared by more than one metaclass, want 58", got)
@@ -65,6 +69,11 @@ func TestTableShape(t *testing.T) {
 			t.Errorf("%s: %s ranges over %s, which is%s a declared metaclass",
 				p.IRI, p.Kind, p.Range, map[bool]string{true: "", false: " not"}[rangeIsClass])
 		}
+		if p.Kind == ontology.DatatypeProperty && strings.HasPrefix(p.Range, rdf.SysML) {
+			if _, ok := ontology.LookupEnumeration(rangeName); !ok {
+				t.Errorf("%s: datatype range %s is not a declared enumeration", p.IRI, rangeName)
+			}
+		}
 	}
 	for _, c := range classes {
 		for _, parent := range c.Parents {
@@ -75,6 +84,30 @@ func TestTableShape(t *testing.T) {
 		if c.Name != "Element" && !ontology.IsAncestorOrSelf(c.Name, "Element") {
 			t.Errorf("%s does not specialize Element", c.Name)
 		}
+	}
+}
+
+func TestEnumerationLookups(t *testing.T) {
+	enumeration, ok := ontology.LookupEnumeration("FeatureDirectionKind")
+	if !ok {
+		t.Fatal("FeatureDirectionKind is not declared")
+	}
+	want := []string{"in", "inout", "out"}
+	if !reflect.DeepEqual(enumeration.Literals, want) {
+		t.Errorf("FeatureDirectionKind literals: got %v, want %v", enumeration.Literals, want)
+	}
+	enumeration.Literals[0] = "changed"
+	fresh, ok := ontology.LookupEnumeration("FeatureDirectionKind")
+	if !ok || !reflect.DeepEqual(fresh.Literals, want) {
+		t.Errorf("LookupEnumeration returned shared literals: got %v", fresh.Literals)
+	}
+	all := ontology.Enumerations()
+	all[0].Literals[0] = "changed"
+	if again := ontology.Enumerations(); reflect.DeepEqual(all[0].Literals, again[0].Literals) {
+		t.Error("Enumerations returned shared literals")
+	}
+	if _, ok := ontology.LookupEnumeration("NotAnEnumeration"); ok {
+		t.Error("NotAnEnumeration should not be declared")
 	}
 }
 

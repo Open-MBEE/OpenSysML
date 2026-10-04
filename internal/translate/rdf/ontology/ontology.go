@@ -76,17 +76,34 @@ type Class struct {
 	Parents []string
 }
 
+// Enumeration is one metamodel enumeration, an ecore EEnum, with its literals in declaration order.
+type Enumeration struct {
+	Name     string
+	Literals []string
+}
+
 // Properties returns every declared property, ordered by IRI.
 func Properties() []Property { return properties }
 
 // Classes returns every declared metaclass, ordered by name.
 func Classes() []Class { return classes }
 
+// Enumerations returns every declared enumeration, ordered by name.
+func Enumerations() []Enumeration {
+	out := make([]Enumeration, len(enumerations))
+	for i, enumeration := range enumerations {
+		out[i] = enumeration
+		out[i].Literals = append([]string(nil), enumeration.Literals...)
+	}
+	return out
+}
+
 // Indexes over the immutable generated table, built once on first lookup.
 var (
-	indexOnce        sync.Once
-	propertiesByName map[string][]Property
-	classesByName    map[string]Class
+	indexOnce          sync.Once
+	propertiesByName   map[string][]Property
+	classesByName      map[string]Class
+	enumerationsByName map[string]Enumeration
 )
 
 func index() {
@@ -98,6 +115,10 @@ func index() {
 		classesByName = make(map[string]Class, len(classes))
 		for _, c := range classes {
 			classesByName[c.Name] = c
+		}
+		enumerationsByName = make(map[string]Enumeration, len(enumerations))
+		for _, enumeration := range enumerations {
+			enumerationsByName[enumeration.Name] = enumeration
 		}
 	})
 }
@@ -114,6 +135,16 @@ func LookupClass(name string) (Class, bool) {
 	index()
 	c, ok := classesByName[name]
 	return c, ok
+}
+
+// LookupEnumeration returns the enumeration of a name and whether it is declared.
+func LookupEnumeration(name string) (Enumeration, bool) {
+	index()
+	enumeration, ok := enumerationsByName[name]
+	if ok {
+		enumeration.Literals = append([]string(nil), enumeration.Literals...)
+	}
+	return enumeration, ok
 }
 
 // PropertyOf returns the declaration of an unqualified property name whose

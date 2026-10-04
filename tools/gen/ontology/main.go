@@ -64,6 +64,10 @@ const SourceCommit = %q
 var properties = []Property{
 %s}
 
+// enumerations holds every EEnum and its literals in declaration order, ordered by name.
+var enumerations = []Enumeration{
+%s}
+
 // classes holds every EClass the metamodel declares with its eSuperTypes, ordered by name.
 var classes = []Class{
 %s}
@@ -133,8 +137,12 @@ func run(dir, out string, check bool, pin baseline.Pin) error {
 	if err != nil {
 		return fmt.Errorf("%s: %w", ecorePath, err)
 	}
+	enums, err := enumerationTables(pkg)
+	if err != nil {
+		return fmt.Errorf("%s: %w", ecorePath, err)
+	}
 	source := fmt.Sprintf(template, src.repo, src.tag, src.commit, pkg.NsURI, version, src.tag, src.commit,
-		propertyLiterals(properties), classLiterals(classes))
+		propertyLiterals(properties), enumerationLiterals(enums), classLiterals(classes))
 	formatted, err := format.Source([]byte(source))
 	if err != nil {
 		return fmt.Errorf("format generated source: %w", err)
@@ -200,6 +208,11 @@ type eClassifier struct {
 	Abstract   bool       `xml:"abstract,attr"`
 	SuperTypes string     `xml:"eSuperTypes,attr"`
 	Features   []eFeature `xml:"eStructuralFeatures"`
+	Literals   []eLiteral `xml:"eLiterals"`
+}
+
+type eLiteral struct {
+	Name string `xml:"name,attr"`
 }
 
 type eFeature struct {
@@ -249,6 +262,33 @@ type class struct {
 	name     string
 	abstract bool
 	parents  []string
+}
+
+type enumeration struct {
+	name     string
+	literals []string
+}
+
+func enumerationTables(pkg ePackage) ([]enumeration, error) {
+	var enums []enumeration
+	for _, classifier := range pkg.Classifiers {
+		if classifier.Type != "ecore:EEnum" {
+			continue
+		}
+		if len(classifier.Literals) == 0 {
+			return nil, fmt.Errorf("EEnum %s has no literals", classifier.Name)
+		}
+		enum := enumeration{name: classifier.Name, literals: make([]string, 0, len(classifier.Literals))}
+		for _, literal := range classifier.Literals {
+			if literal.Name == "" {
+				return nil, fmt.Errorf("EEnum %s has a literal without a name", classifier.Name)
+			}
+			enum.literals = append(enum.literals, literal.Name)
+		}
+		enums = append(enums, enum)
+	}
+	sort.Slice(enums, func(i, j int) bool { return enums[i].name < enums[j].name })
+	return enums, nil
 }
 
 // tables reads the classes and properties out of the package, checking every
@@ -406,6 +446,14 @@ func classLiterals(classes []class) string {
 			fmt.Fprintf(&b, ", Parents: %s", stringSlice(c.parents))
 		}
 		b.WriteString("},\n")
+	}
+	return b.String()
+}
+
+func enumerationLiterals(enums []enumeration) string {
+	var b strings.Builder
+	for _, enum := range enums {
+		fmt.Fprintf(&b, "\t{Name: %q, Literals: %s},\n", enum.name, stringSlice(enum.literals))
 	}
 	return b.String()
 }

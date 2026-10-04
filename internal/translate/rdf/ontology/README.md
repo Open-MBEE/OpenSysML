@@ -23,6 +23,10 @@ metamodel names it â€” `https://www.omg.org/spec/SysML#<DefiningClass>_<name>` â
 | `Redefines`, `Subsets` | the `redefines` / `subsets` annotations' references, as `Class::feature` |
 | `Opposite` | `eOpposite`, as `Class::feature` |
 
+Each ecore `EEnum` becomes an `Enumeration`. Its literals keep their declaration order;
+enumerations are ordered by name in the generated table. Datatype properties whose range is
+in the SysML namespace refer to one of these declarations.
+
 `Property.QualifiedName` gives the same `Class::feature` spelling, so the three reference fields
 can be looked up with `PropertyOf`. Every `EClass` becomes a `Class` with its `eSuperTypes`, which
 `IsAncestorOrSelf` walks for the domain check in `validate.go` and `PropertyOf` uses to pick the

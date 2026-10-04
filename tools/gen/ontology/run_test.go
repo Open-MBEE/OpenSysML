@@ -91,6 +91,11 @@ var properties = []Property{
 	{Name: "weight", DefiningClass: "Usage", IRI: "https://www.omg.org/spec/SysML#Usage_weight", Kind: DatatypeProperty, Range: "http://www.w3.org/2002/07/owl#real"},
 }
 
+// enumerations holds every EEnum and its literals in declaration order, ordered by name.
+var enumerations = []Enumeration{
+	{Name: "VisibilityKind", Literals: []string{"public"}},
+}
+
 // classes holds every EClass the metamodel declares with its eSuperTypes, ordered by name.
 var classes = []Class{
 	{Name: "Element", Abstract: true},
@@ -194,6 +199,10 @@ func TestRunRejectsAMetamodelTheTableCannotHold(t *testing.T) {
 			"cannot form a <Metaclass>_<name> IRI"},
 		{"unknown primitive", wrap(element(feature("EAttribute", "n", `eType="types.ecore#//Char"`, ""))),
 			"no primitive the table maps"},
+		{"unknown enum range", wrap(element(feature("EAttribute", "n", `eType="#//Missing"`, ""))),
+			"which the table cannot range over"},
+		{"empty enumeration", wrap(`<eClassifiers xsi:type="ecore:EEnum" name="VisibilityKind"/>`),
+			"EEnum VisibilityKind has no literals"},
 		{"reference to a primitive", wrap(element(feature("EReference", "n", `eType="types.ecore#//String"`, ""))),
 			"which the table cannot range over"},
 		{"dangling opposite", wrap(element(feature("EReference", "n", `eType="#//Element" eOpposite="#//Element/m"`, ""))),
