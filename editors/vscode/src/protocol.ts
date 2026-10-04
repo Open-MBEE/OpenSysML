@@ -167,6 +167,8 @@ export interface RenderParams {
   palette?: string;
   /** The drawing style the DOT form is drawn in, one the server lists under `openSysmlRenderStyles`; absent is its default, `pilot`. */
   style?: string;
+  /** The link template each diagram element is written with. */
+  linkTemplate?: string;
 }
 
 export interface RenderResult {

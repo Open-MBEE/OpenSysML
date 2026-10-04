@@ -425,7 +425,7 @@ func (d *decoder) payloadText(el *element) (string, error) {
 	if d.boolOf(payload, rdf.SysML+"isOrdered") {
 		flags += " ordered"
 	}
-	if d.boolOf(payload, rdf.SysML+"isNonunique") {
+	if d.nonunique(payload) {
 		flags += " nonunique"
 	}
 	words := d.identWords(payload)

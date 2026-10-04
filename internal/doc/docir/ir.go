@@ -170,6 +170,7 @@ type Content struct {
 	items       []ListItem
 	definitions []Definition
 	rendering   *view.Rendering
+	sites       view.Sites
 	direction   view.Direction
 	palette     view.Palette
 	ports       view.Ports
@@ -257,6 +258,9 @@ func (c Content) Definitions() []Definition {
 // for every other kind.
 func (c Content) Rendering() *view.Rendering { return c.rendering.Clone() }
 
+// Sites returns the source locations diagrams in this content link to.
+func (c Content) Sites() view.Sites { return c.sites }
+
 // Direction returns the stated flow direction of a diagram, empty for the
 // kind's default.
 func (c Content) Direction() view.Direction { return c.direction }
@@ -308,6 +312,7 @@ func cloneContent(content []Content) []Content {
 			items:       child.Items(),
 			definitions: child.Definitions(),
 			rendering:   child.rendering.Clone(),
+			sites:       child.sites,
 			direction:   child.direction,
 			palette:     child.palette,
 			ports:       child.ports,
