@@ -13,13 +13,11 @@ import {
   type RenderResult,
 } from "../protocol";
 import type { AutoLayout } from "./autolayout";
+import { GAP, snap, type Box } from "./geometry";
+import { orthogonalRoute } from "./reroute";
 
-export interface Box {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-}
+export { GAP, snap } from "./geometry";
+export type { Box } from "./geometry";
 
 /** How a node is drawn: the label box of an element, or the symbol of a control node. */
 export type Shape = "box" | "point" | "circle" | "ring" | "diamond" | "bar" | "history";
@@ -54,6 +52,8 @@ export interface PlacedEdge {
   label: RenderPoint;
   /** An end is under a collapsed owner, so the edge is not drawn. */
   hidden: boolean;
+  /** The route was found around the other boxes at layout time; the model states none, so a move does not write it. */
+  rerouted: boolean;
 }
 
 export interface CanvasLayout {
@@ -77,6 +77,8 @@ export interface Overrides {
   nodes?: Map<string, LayoutGeometry>;
   /** By edge index; an entry of no points shows the edge straight. */
   routes?: Map<number, RenderPoint[] | undefined>;
+  /** The layout a gesture started from: its rerouted edges whose ends have not moved are kept, the rest drawn straight, so a drag does not re-route. */
+  held?: CanvasLayout;
 }
 
 /** What one completed gesture puts in the model. */
@@ -94,8 +96,6 @@ const LABEL_PAD_X = 12;
 const LABEL_PAD_Y = 8;
 const MIN_WIDTH = 96;
 const MIN_HEIGHT = 40;
-/** Between slots of one grid, and between a container's border and its slots. */
-export const GAP = 32;
 export const CONTAINER_PAD = 16;
 /** The canvas's margin around the outermost boxes. */
 export const MARGIN = 24;
@@ -109,11 +109,6 @@ const LOOP_REACH = 36;
 const MESSAGE_GAP = 40;
 /** How far a message to its own lifeline reaches out. */
 const SELF_MESSAGE_REACH = 28;
-
-/** How a gesture's positions are written, so the model reads back in whole pixels. */
-export function snap(value: number): number {
-  return Math.round(value);
-}
 
 /**
  * layoutCanvas places every node and routes every edge of the rendering. `auto`
@@ -180,7 +175,34 @@ export function layoutCanvas(result: RenderResult, overrides: Overrides = {}, au
     reach(entry.box.x, entry.box.y);
     reach(entry.box.x + entry.box.width, entry.box.y + entry.box.height);
   }
-  const edges = (result.edges ?? []).map((edge, index) => routeEdge(edge, index, placed, overrides.routes, auto));
+  const shown = [...placed.values()].filter((entry) => !entry.hidden);
+  const held = overrides.held;
+  const around = held
+    ? // A held layout's rerouted edge keeps its route while its ends have not moved.
+      (source: PlacedNode, target: PlacedNode, index: number): RenderPoint[] | undefined => {
+        const edge = held.edges[index];
+        return edge?.rerouted === true &&
+          sameBox(held.nodes.get(edge.edge.from)?.box, source.box) &&
+          sameBox(held.nodes.get(edge.edge.to)?.box, target.box)
+          ? edge.points
+          : undefined;
+      }
+    : // Every drawn box is an obstacle but the edge's own ends and their ancestors.
+      (source: PlacedNode, target: PlacedNode): RenderPoint[] | undefined => {
+        const excluded = new Set<PlacedNode>();
+        for (let entry: PlacedNode | undefined = source; entry; entry = entry.parent) {
+          excluded.add(entry);
+        }
+        for (let entry: PlacedNode | undefined = target; entry; entry = entry.parent) {
+          excluded.add(entry);
+        }
+        return orthogonalRoute(
+          source.box,
+          target.box,
+          shown.filter((entry) => !excluded.has(entry)).map((entry) => entry.box),
+        );
+      };
+  const edges = (result.edges ?? []).map((edge, index) => routeEdge(edge, index, placed, overrides.routes, auto, around));
   for (const edge of edges) {
     if (edge.hidden) {
       continue;
@@ -226,7 +248,7 @@ function layoutSequence(result: RenderResult, roots: PlacedNode[], placed: Map<s
     const points = edge.from === edge.to
       ? [{ x: fromX, y }, { x: fromX + SELF_MESSAGE_REACH, y }, { x: fromX + SELF_MESSAGE_REACH, y: y + MESSAGE_GAP / 2 }, { x: fromX, y: y + MESSAGE_GAP / 2 }]
       : [{ x: fromX, y }, { x: toX, y }];
-    return { edge, index, points, route: [], label: midpoint(points), hidden: false };
+    return { edge, index, points, route: [], label: midpoint(points), hidden: false, rerouted: false };
   });
   return {
     roots,
@@ -430,12 +452,15 @@ export function symbolSize(shape: Shape): { width: number; height: number } | un
 // route's waypoints, to the border of its target; a self-loop swings out to the right.
 // The auto layout's route applies only where neither end is placed, since an end
 // the model or a gesture moved is where the route was computed around it.
+// `around` routes the drawn-straight edges it applies to orthogonally around the
+// other boxes at layout time; the route is the panel's, never the model's.
 function routeEdge(
   edge: RenderEdge,
   index: number,
   placed: Map<string, PlacedNode>,
   routes: Map<number, RenderPoint[] | undefined> | undefined,
   auto?: AutoLayout,
+  around?: (source: PlacedNode, target: PlacedNode, index: number) => RenderPoint[] | undefined,
 ): PlacedEdge {
   const stated = routes?.has(index) ? routes.get(index) : edge.route;
   const source = placed.get(edge.from);
@@ -452,7 +477,23 @@ function routeEdge(
       route: routed.slice(1, -1),
       label: midpoint(routed),
       hidden: source?.hidden === true || target?.hidden === true,
+      rerouted: false,
     };
+  }
+  if (
+    around !== undefined &&
+    !routes?.has(index) &&
+    (edge.route?.length ?? 0) === 0 &&
+    edge.from !== edge.to &&
+    source !== undefined &&
+    target !== undefined &&
+    !source.hidden &&
+    !target.hidden
+  ) {
+    const points = around(source, target, index);
+    if (points !== undefined) {
+      return { edge, index, points, route: points.slice(1, -1), label: midpoint(points), hidden: false, rerouted: true };
+    }
   }
   const route = stated ?? [];
   const from = source?.box ?? { x: 0, y: 0, width: 0, height: 0 };
@@ -467,7 +508,11 @@ function routeEdge(
   const start = anchor(from, inner[0] ?? center(to));
   const end = anchor(to, inner.at(-1) ?? center(from));
   const points = [start, ...inner, end];
-  return { edge, index, points, route, label: midpoint(points), hidden: source?.hidden === true || target?.hidden === true };
+  return { edge, index, points, route, label: midpoint(points), hidden: source?.hidden === true || target?.hidden === true, rerouted: false };
+}
+
+function sameBox(a: Box | undefined, b: Box): boolean {
+  return a !== undefined && a.x === b.x && a.y === b.y && a.width === b.width && a.height === b.height;
 }
 
 function center(box: Box): RenderPoint {
@@ -566,7 +611,7 @@ export function movedNode(layout: CanvasLayout, id: string, dx: number, dy: numb
   visit(entry, true);
   const edges: EdgePlacement[] = [];
   for (const edge of layout.edges) {
-    if (edge.route.length > 0 && steerable(layout, edge) && subtree.has(edge.edge.from) && subtree.has(edge.edge.to)) {
+    if (edge.route.length > 0 && !edge.rerouted && steerable(layout, edge) && subtree.has(edge.edge.from) && subtree.has(edge.edge.to)) {
       edges.push({ index: edge.index, route: edge.route.map((p) => ({ x: snap(p.x + dx), y: snap(p.y + dy) })) });
     }
   }
@@ -597,7 +642,7 @@ export function liftedEdges(layout: CanvasLayout, id: string, dx: number, dy: nu
     if (edge.hidden || (!from && !to)) {
       continue;
     }
-    const route = from && to ? edge.route.map((p) => ({ x: p.x + dx, y: p.y + dy })) : edge.route;
+    const route = from && to ? edge.route.map((p) => ({ x: p.x + dx, y: p.y + dy })) : edge.rerouted ? [] : edge.route;
     out.push(routeEdge(edge.edge, edge.index, placed, new Map([[edge.index, route]])));
   }
   return out;

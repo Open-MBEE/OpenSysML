@@ -20,6 +20,7 @@ import {
   shapeOf,
   steerable,
 } from "./layout";
+import { CLEARANCE } from "./reroute";
 
 const origin = { uri: "file:///m.sysml", range: { start: { line: 0, character: 0 }, end: { line: 0, character: 4 } }, digest: "d0" };
 
@@ -477,12 +478,188 @@ test("layoutCanvas takes an auto layout's geometry for nodes the model does not 
   // anchors first and last, its inner points the edge's route.
   assert.deepEqual(layout.edges[0].points, auto.routes.get(0));
   assert.deepEqual(layout.edges[0].route, auto.routes.get(0)!.slice(1, -1));
-  // An edge at a node the model places is straight, the auto route void at it.
-  assert.equal(layout.edges[1].points.length, 2);
-  assert.deepEqual(layout.edges[1].route, []);
-  // A gesture wins over both, and the pinned end straightens the edge to it.
-  const preview = layoutCanvas(result, overridesOf({ nodes: [{ id: "a", layout: { x: 10, y: 10 } }], edges: [] }), auto);
+  assert.equal(layout.edges[0].rerouted, false);
+  // An edge at a node the model places is routed orthogonally around the other
+  // boxes, the auto route void at it; its waypoints are the panel's, not the model's.
+  assert.equal(layout.edges[1].rerouted, true);
+  assert.deepEqual(layout.edges[1].route, layout.edges[1].points.slice(1, -1));
+  for (let i = 1; i < layout.edges[1].points.length; i++) {
+    const [from, to] = [layout.edges[1].points[i - 1], layout.edges[1].points[i]];
+    assert.ok(from.x === to.x || from.y === to.y);
+  }
+  // A gesture wins over both; held by the layout it started from, the pinned
+  // end's edge stays straight for the drag and is routed again on the drop.
+  const overrides = { ...overridesOf({ nodes: [{ id: "a", layout: { x: 10, y: 10 } }], edges: [] }), held: layout };
+  const preview = layoutCanvas(result, overrides, auto);
   assert.deepEqual([preview.nodes.get("a")!.box.x, preview.nodes.get("a")!.box.y], [10, 10]);
   assert.equal(preview.nodes.get("a")!.pinned, true);
   assert.equal(preview.edges[0].points.length, 2);
+  assert.equal(preview.edges[0].rerouted, false);
+});
+
+function onBorder(point: { x: number; y: number }, box: { x: number; y: number; width: number; height: number }): boolean {
+  const epsilon = 1e-7;
+  const onVertical =
+    (Math.abs(point.x - box.x) < epsilon || Math.abs(point.x - (box.x + box.width)) < epsilon) &&
+    point.y >= box.y - epsilon &&
+    point.y <= box.y + box.height + epsilon;
+  const onHorizontal =
+    (Math.abs(point.y - box.y) < epsilon || Math.abs(point.y - (box.y + box.height)) < epsilon) &&
+    point.x >= box.x - epsilon &&
+    point.x <= box.x + box.width + epsilon;
+  return onVertical || onHorizontal;
+}
+
+function crossesInterior(
+  a: { x: number; y: number },
+  b: { x: number; y: number },
+  box: { x: number; y: number; width: number; height: number },
+): boolean {
+  if (a.y === b.y) {
+    return (
+      a.y > box.y &&
+      a.y < box.y + box.height &&
+      Math.max(Math.min(a.x, b.x), box.x) < Math.min(Math.max(a.x, b.x), box.x + box.width)
+    );
+  }
+  return (
+    a.x > box.x &&
+    a.x < box.x + box.width &&
+    Math.max(Math.min(a.y, b.y), box.y) < Math.min(Math.max(a.y, b.y), box.y + box.height)
+  );
+}
+
+// lengthMidpoint is the point halfway along a polyline's length.
+function lengthMidpoint(points: { x: number; y: number }[]): { x: number; y: number } {
+  let total = 0;
+  for (let i = 1; i < points.length; i++) {
+    total += Math.hypot(points[i].x - points[i - 1].x, points[i].y - points[i - 1].y);
+  }
+  let remaining = total / 2;
+  for (let i = 1; i < points.length; i++) {
+    const length = Math.hypot(points[i].x - points[i - 1].x, points[i].y - points[i - 1].y);
+    if (remaining <= length || i === points.length - 1) {
+      const t = length === 0 ? 0 : remaining / length;
+      return { x: points[i - 1].x + (points[i].x - points[i - 1].x) * t, y: points[i - 1].y + (points[i].y - points[i - 1].y) * t };
+    }
+    remaining -= length;
+  }
+  return points[0] ?? { x: 0, y: 0 };
+}
+
+test("layoutCanvas routes a pinned node's edge orthogonally around the box between its ends", () => {
+  const layout = layoutCanvas(rendering(
+    [
+      node("a", "a", { x: 0, y: 0, width: 100, height: 40 }),
+      node("b", "b", { x: 400, y: 200, width: 100, height: 40 }),
+      node("c", "c", { x: 180, y: -20, width: 60, height: 80 }),
+    ],
+    [{ from: "a", to: "b", label: "", kind: "connection", fqn: "M::ab" }],
+  ));
+  const [edge] = layout.edges;
+  assert.equal(edge.rerouted, true);
+  assert.ok(edge.points.length > 2);
+  assert.deepEqual(edge.route, edge.points.slice(1, -1));
+  assert.ok(onBorder(edge.points[0], layout.nodes.get("a")!.box));
+  assert.ok(onBorder(edge.points.at(-1)!, layout.nodes.get("b")!.box));
+  const c = layout.nodes.get("c")!.box;
+  const inflated = { x: c.x - CLEARANCE, y: c.y - CLEARANCE, width: c.width + 2 * CLEARANCE, height: c.height + 2 * CLEARANCE };
+  for (let i = 1; i < edge.points.length; i++) {
+    const [from, to] = [edge.points[i - 1], edge.points[i]];
+    assert.ok(from.x === to.x || from.y === to.y, `non-orthogonal segment: ${JSON.stringify([from, to])}`);
+    assert.ok(!crossesInterior(from, to, inflated), `segment crosses c: ${JSON.stringify([from, to])}`);
+  }
+  assert.deepEqual(edge.label, lengthMidpoint(edge.points));
+});
+
+test("layoutCanvas leaves a stated route and an overridden straight edge alone", () => {
+  const edge: RenderEdge = { from: "a", to: "b", label: "", kind: "connection", fqn: "M::ab", route: [{ x: 200, y: 200 }] };
+  const result = rendering(
+    [
+      node("a", "a", { x: 0, y: 0, width: 100, height: 40 }),
+      node("b", "b", { x: 400, y: 0, width: 100, height: 40 }),
+      node("c", "c", { x: 200, y: -20, width: 60, height: 80 }),
+    ],
+    [edge],
+  );
+  const [placed] = layoutCanvas(result).edges;
+  assert.equal(placed.rerouted, false);
+  assert.deepEqual(placed.route, [{ x: 200, y: 200 }]);
+  assert.equal(placed.points.length, 3);
+  assert.deepEqual(placed.points[1], { x: 200, y: 200 });
+  // An overrides entry of undefined draws the edge straight rather than re-routing it.
+  const straight = layoutCanvas(result, { routes: new Map([[0, undefined]]) }).edges[0];
+  assert.equal(straight.rerouted, false);
+  assert.equal(straight.points.length, 2);
+  assert.deepEqual(straight.route, []);
+});
+
+test("liftedEdges draws a crossing rerouted edge straight and shifts an inner one whole", () => {
+  const layout = layoutCanvas(rendering(
+    [
+      node("a", "a", { x: 0, y: 0 }),
+      node("b", "b", { parent: "a", x: 20, y: 60, width: 100, height: 40 }),
+      node("c", "c", { parent: "a", x: 200, y: 200, width: 100, height: 40 }),
+      node("d", "d", { x: 700, y: 0, width: 100, height: 40 }),
+    ],
+    [
+      { from: "b", to: "c", label: "", kind: "connection", fqn: "M::bc" },
+      { from: "b", to: "d", label: "", kind: "connection", fqn: "M::bd" },
+    ],
+  ));
+  assert.ok(layout.edges.every((edge) => edge.rerouted));
+  const lifted = liftedEdges(layout, "a", 50, 0);
+  assert.deepEqual(lifted.map((edge) => edge.index), [0, 1]);
+  const [inner, crossing] = lifted;
+  // The inner edge keeps its rerouted waypoints, shifted with the subtree.
+  assert.deepEqual(inner.route, layout.edges[0].route.map((p) => ({ x: p.x + 50, y: p.y })));
+  // The crossing edge is drawn straight across the lifted border.
+  assert.equal(crossing.points.length, 2);
+  assert.deepEqual(crossing.route, []);
+});
+
+test("held keeps an unmoved rerouted edge's route and draws a moved end's straight", () => {
+  const result = rendering(
+    [
+      node("a", "a", { x: 0, y: 0, width: 100, height: 40 }),
+      node("b", "b", { x: 400, y: 200, width: 100, height: 40 }),
+      node("c", "c", { x: 0, y: 400, width: 100, height: 40 }),
+      node("d", "d", { x: 400, y: 400, width: 100, height: 40 }),
+    ],
+    [
+      { from: "a", to: "b", label: "", kind: "connection", fqn: "M::ab" },
+      { from: "c", to: "d", label: "", kind: "connection", fqn: "M::cd" },
+    ],
+  );
+  const layout = layoutCanvas(result);
+  assert.ok(layout.edges.every((edge) => edge.rerouted));
+  const moved = movedNode(layout, "a", 50, 0)!;
+  const preview = layoutCanvas(result, { ...overridesOf(moved), held: layout });
+  // The edge at the moved node is drawn straight for the drag.
+  assert.equal(preview.edges[0].points.length, 2);
+  assert.deepEqual(preview.edges[0].route, []);
+  // The edge between two unmoved nodes keeps the held layout's route exactly.
+  assert.deepEqual(preview.edges[1].points, layout.edges[1].points);
+  assert.equal(preview.edges[1].rerouted, true);
+});
+
+test("movedNode writes no route for a rerouted edge, and movedWaypoint writes one", () => {
+  const layout = layoutCanvas(rendering(
+    [
+      node("a", "a", { x: 0, y: 0 }),
+      node("b", "b", { parent: "a", x: 20, y: 60, width: 100, height: 40 }),
+      node("c", "c", { parent: "a", x: 200, y: 200, width: 100, height: 40 }),
+    ],
+    [{ from: "b", to: "c", label: "", kind: "connection", fqn: "M::bc" }],
+  ));
+  const [edge] = layout.edges;
+  assert.equal(edge.rerouted, true);
+  assert.ok(edge.route.length > 0);
+  // The panel's route is not the model's: a move does not write it.
+  assert.deepEqual(movedNode(layout, "a", 30, 10)!.edges, []);
+  // Dragging one of its waypoints states it: the route is written with the point replaced.
+  const placements = movedWaypoint(layout, 0, 0, { x: 33.4, y: 44.6 })!;
+  assert.deepEqual(placements.edges, [
+    { index: 0, route: [{ x: 33, y: 45 }, ...edge.route.slice(1)] },
+  ]);
 });

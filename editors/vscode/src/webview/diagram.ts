@@ -388,7 +388,7 @@ function moveGesture(event: PointerEvent): void {
     drawDrag(event.shiftKey);
     return;
   }
-  showDragged(layoutCanvas(result, overridesOf(gesture.placements), auto));
+  showDragged(layoutCanvas(result, { ...overridesOf(gesture.placements), held: layout }, auto));
 }
 
 // showDragged puts the canvas a gesture has changed on screen. The pointer is captured by the
@@ -412,7 +412,7 @@ function drawDrag(shift: boolean): void {
     const svg = showDragged(layout);
     liftNode(svg, layout, gesture.id, gesture.at.x - gesture.start.x, gesture.at.y - gesture.start.y);
   } else {
-    showDragged(layoutCanvas(last, overridesOf(gesture.placements), auto));
+    showDragged(layoutCanvas(last, { ...overridesOf(gesture.placements), held: layout }, auto));
   }
   previewDrop(shift);
 }
