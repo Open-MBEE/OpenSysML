@@ -1,0 +1,470 @@
+{
+ "tours": [
+  {
+   "id": "basics",
+   "title": "First steps",
+   "steps": [
+    {
+     "title": "An expression is a command",
+     "text": "Type any SysML expression at the prompt and the REPL evaluates it. There is nothing to set up first.",
+     "input": [
+      "2 + 3 * 4"
+     ],
+     "expect": [
+      "= 14"
+     ]
+    },
+    {
+     "title": "Quantities carry their units",
+     "text": "Write a unit in brackets after a number. The REPL takes the units from the standard <code>SI</code> library and converts the result to SI.",
+     "input": [
+      "100 [SI::km] / 2 [SI::h]"
+     ],
+     "expect": [
+      "= 13.88888888888889 [SI::'m/s']"
+     ]
+    },
+    {
+     "title": "and the units are checked",
+     "text": "You cannot add a mass to a length. The REPL refuses the sum and names both units.",
+     "input": [
+      "1 [SI::kg] + 1 [SI::m]"
+     ],
+     "expect": [
+      "incommensurable units"
+     ]
+    },
+    {
+     "title": "Declare a model at the prompt",
+     "text": "A declaration typed at the prompt joins the session model. A block that is still open shows the <code>...&gt;</code> continuation prompt. The warning is real: the library's <code>sum</code> is declared over <code>Real</code>, and this model gives it masses.",
+     "input": [
+      "package Garage {",
+      "    private import SI::*;",
+      "    private import RealFunctions::sum;",
+      "    part def Wheel { attribute mass :> ISQ::mass = 25 [kg]; }",
+      "    part car {",
+      "        part wheels : Wheel[4];",
+      "        attribute bodyMass :> ISQ::mass = 1200 [kg];",
+      "        attribute mass :> ISQ::mass = bodyMass + sum(wheels.mass);",
+      "    }",
+      "}"
+     ],
+     "expect": [
+      "✓ package Garage"
+     ]
+    },
+    {
+     "title": "Derived values are evaluated on an instance",
+     "text": "<code>car.mass</code> is never written down anywhere. To evaluate it, the runtime makes an instance of <code>car</code> with four wheels and sums their masses into the body's.",
+     "input": [
+      "%eval Garage::car.mass"
+     ],
+     "expect": [
+      "= 1300 [kg]"
+     ]
+    },
+    {
+     "title": "Hold an object and query it",
+     "text": "<code>%instantiate</code> keeps the object in the session. <code>%eval in</code> evaluates an expression with that object as its context.",
+     "input": [
+      "%instantiate Garage::car",
+      "%eval in Garage::car : mass / 4"
+     ],
+     "expect": [
+      "Created instance of Garage::car",
+      "= 325.0 [kg]"
+     ]
+    },
+    {
+     "title": "Calculations with typed parameters",
+     "text": "A <code>calc def</code> is a function whose parameters are typed. <code>%calc</code> calls it with quantities, and the result comes back in SI.",
+     "input": [
+      "calc def Speed { in d : ISQ::LengthValue; in t : ISQ::TimeValue; return : ISQ::SpeedValue = d / t; }",
+      "%calc Speed 42.195 [SI::km] 2 [SI::h]"
+     ],
+     "expect": [
+      "= 5.860416666666667 [SI::'m/s']"
+     ]
+    },
+    {
+     "title": "Look around",
+     "text": "<code>%list</code> prints what the session has declared. <code>%search</code> looks up names in the session and the standard library. Press Tab at the prompt to complete commands and names, and ↑ to bring back earlier lines.",
+     "input": [
+      "%list",
+      "%search Wheel"
+     ],
+     "expect": [
+      "Garage::Wheel  part def"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "mass",
+   "title": "Saturn V mass rollup",
+   "steps": [
+    {
+     "title": "Load a model from the examples",
+     "text": "The page carries the <a href=\"https://github.com/Open-MBEE/OpenSysML/tree/develop/examples/runtime-showcase\">runtime showcase</a> models in an in-memory filesystem, so <code>%load</code> works the way it does on a disk. <code>MassRollup</code> defines <code>totalMass</code> recursively: a component's own mass plus the <code>totalMass</code> of each of its subcomponents.",
+     "input": [
+      "%load examples/runtime-showcase/mass-rollup.sysml"
+     ],
+     "expect": [
+      "✓ package MassRollup"
+     ]
+    },
+    {
+     "title": "Roll up three stages and eleven engines",
+     "text": "No <code>totalMass</code> value appears anywhere in the file. Evaluating it builds the whole vehicle and computes the value at every level.",
+     "input": [
+      "%eval MassRollup::saturnV.totalMass",
+      "%eval MassRollup::saturnV.stage1.totalMass"
+     ],
+     "expect": [
+      "= 2941728.0 [kg]",
+      "= 2332000.0 [kg]"
+     ]
+    },
+    {
+     "title": "A gap that only the runtime finds",
+     "text": "<code>saturnVWithIU</code> adds an instrument unit that declares a <code>mass</code> but never gives it a value. That is legal SysML, so validation finds nothing wrong. The rollup is where the missing value shows up.",
+     "input": [
+      "%eval MassRollup::saturnVWithIU.totalMass"
+     ],
+     "expect": [
+      "no value for feature mass"
+     ]
+    },
+    {
+     "title": "Print the element at fault",
+     "text": "<code>%print</code> prints any element as SysML notation, comments included.",
+     "input": [
+      "%print MassRollup::InstrumentUnit"
+     ],
+     "expect": [
+      "part def InstrumentUnit"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "orbit",
+   "title": "Will it reach orbit?",
+   "steps": [
+    {
+     "title": "A delta-v budget",
+     "text": "<code>DeltaVBudget</code> applies the rocket equation to each stage of a Saturn IB and checks the total against an orbit requirement. The warning on load is genuine: the model calls the rocket equation in a way that leaves one parameter unbound.",
+     "input": [
+      "%load examples/runtime-showcase/delta-v-budget.sysml"
+     ],
+     "expect": [
+      "✓ package DeltaVBudget"
+     ]
+    },
+    {
+     "title": "Call the rocket equation",
+     "text": "Specific impulse, standard gravity, wet mass and dry mass go in. Metres per second come out, because the units are carried through every step.",
+     "input": [
+      "%calc DeltaVBudget::RocketEquation 421 [SI::s] 9.80665 [SI::'m/s²'] 133000 [SI::kg] 28000 [SI::kg]"
+     ],
+     "expect": [
+      "= 6432.955324716369 [SI::'m/s']"
+     ]
+    },
+    {
+     "title": "Run the analysis case",
+     "text": "The analysis computes each stage's delta-v and the margin over the required speed, then decides its objective: the <code>OrbitWithMargin</code> requirement.",
+     "input": [
+      "%analysis DeltaVBudget::saturnIBAscent"
+     ],
+     "expect": [
+      "objective reachesOrbit: satisfied"
+     ]
+    },
+    {
+     "title": "Ask for more",
+     "text": "Arguments rebind the case's inputs. Require 400 m/s more and the verdict flips. The REPL prints the condition that failed.",
+     "input": [
+      "%analysis DeltaVBudget::saturnIBAscent(required = 9800 ['m/s'])"
+     ],
+     "expect": [
+      "objective reachesOrbit: not satisfied: margin > 0 ['m/s']"
+     ]
+    },
+    {
+     "title": "Sweep the requirement",
+     "text": "<code>%sweep</code> runs the case once for each value in a range and prints one row per run. The verdict changes between 9 250 and 9 500 m/s.",
+     "input": [
+      "%sweep DeltaVBudget::saturnIBAscent required=9000.0 ['m/s']..10000.0 ['m/s']:250.0 ['m/s']"
+     ],
+     "expect": [
+      "5 run(s)",
+      "9500.0 ['m/s']"
+     ]
+    },
+    {
+     "title": "Check every satisfy claim",
+     "text": "<code>%satisfy</code> evaluates each <code>assert satisfy</code> in the model against an instance of its subject.",
+     "input": [
+      "%satisfy"
+     ],
+     "expect": [
+      "satisfy saturnIBOrbit by saturnIB holds"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "reliability",
+   "title": "Requirements that fail",
+   "steps": [
+    {
+     "title": "A crew-safety requirement",
+     "text": "<code>Reliability</code> multiplies <code>e^(-λt)</code> over the craft's components and requires the product to be at least 0.99. <code>apollo</code> flies for 195 hours. <code>longStay</code> flies the same hardware for 84 days.",
+     "input": [
+      "%load examples/runtime-showcase/reliability.sysml",
+      "%eval Reliability::apollo.reliability",
+      "%eval Reliability::longStay.reliability"
+     ],
+     "expect": [
+      "= 0.9902201369662298",
+      "= 0.9033850540586944"
+     ]
+    },
+    {
+     "title": "Decide the requirement",
+     "text": "One mission meets the requirement and the other does not. The REPL reports the condition that was violated and the instance it was decided on.",
+     "input": [
+      "%satisfy"
+     ],
+     "expect": [
+      "satisfy crewSafety by apollo holds",
+      "satisfy crewSafety by longStay fails",
+      "Required condition evaluated to false: craft.reliability >= threshold"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "mission",
+   "title": "Step through Apollo 11",
+   "steps": [
+    {
+     "title": "An action flow with a decision",
+     "text": "<code>LunarMission</code> is a sequence of burns that spends a delta-v budget, with a <code>decide</code> node that skips the landing if too little is left after lunar orbit insertion.",
+     "input": [
+      "%load examples/runtime-showcase/mission-sequence.sysml"
+     ],
+     "expect": [
+      "✓ package MissionSequence"
+     ]
+    },
+    {
+     "title": "Start the action on an object",
+     "text": "Apollo 11 performs the mission. <code>%action</code> starts a debugger on the action, which waits with one token at the start.",
+     "input": [
+      "%instantiate MissionSequence::apollo11",
+      "%action MissionSequence::Flight::mission MissionSequence::apollo11"
+     ],
+     "expect": [
+      "Started action executor"
+     ]
+    },
+    {
+     "title": "Step it and look at the token",
+     "text": "Each <code>%step</code> moves the token one node. <code>%tokens</code> shows where the token is and the value of <code>remaining</code> so far.",
+     "input": [
+      "%step",
+      "%step",
+      "%tokens"
+     ],
+     "expect": [
+      "Token 1 @ lunarOrbitInsertion",
+      "remaining = 6350 ['m/s']"
+     ]
+    },
+    {
+     "title": "Run it to the end",
+     "text": "Enough delta-v is left, so the decision takes the landing branch.",
+     "input": [
+      "%continue"
+     ],
+     "expect": [
+      "landed = true",
+      "remaining = 480 ['m/s']"
+     ]
+    },
+    {
+     "title": "Apollo 8 takes the other branch",
+     "text": "Apollo 8 carries 4 000 m/s less. The same flow run on that object skips the landing.",
+     "input": [
+      "%instantiate MissionSequence::apollo8",
+      "%action MissionSequence::Flight::mission MissionSequence::apollo8",
+      "%continue"
+     ],
+     "expect": [
+      "landed = false",
+      "remaining = 450 ['m/s']"
+     ]
+    },
+    {
+     "title": "The mission as a state machine on a clock",
+     "text": "<code>MissionPhases</code> moves through its phases with timed transitions, measured in seconds. <code>%advance</code> runs the simulation clock forward and reports where the machine is.",
+     "input": [
+      "%instantiate MissionSequence::mission",
+      "%state MissionSequence::mission",
+      "%advance 400000",
+      "%advance 400000"
+     ],
+     "expect": [
+      "Current state: onSurface",
+      "State machine completed"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "comms",
+   "title": "A spacecraft on a clock",
+   "steps": [
+    {
+     "title": "Signals, parallel regions and a battery",
+     "text": "A ground station pings a spacecraft 30 s into the mission. The spacecraft answers with one 1 024-byte frame a second, and a parallel region drains its battery 2 % per frame. Below 80 % the battery recharges, and below 40 % transmission is interrupted.",
+     "input": [
+      "%load examples/runtime-showcase/spacecraft-comms.sysml",
+      "%instantiate SpacecraftComms::mission",
+      "%state SpacecraftComms::mission.spacecraftVehicle"
+     ],
+     "expect": [
+      "Current state: waitingGSPing | notRecharging"
+     ]
+    },
+    {
+     "title": "Advance 40 seconds",
+     "text": "The ping has arrived and the spacecraft is transmitting. Read the battery level off the running object.",
+     "input": [
+      "%advance 40",
+      "%eval in SpacecraftComms::mission.spacecraftVehicle : battery"
+     ],
+     "expect": [
+      "Current state: transmitting | notRecharging",
+      "= 80"
+     ]
+    },
+    {
+     "title": "Advance another 40",
+     "text": "The battery has fallen below 40 %, so transmission is interrupted and the spacecraft goes into low power to recharge. The ground station has counted the frames that arrived.",
+     "input": [
+      "%advance 40",
+      "%eval in SpacecraftComms::mission.spacecraftVehicle : data",
+      "%eval in SpacecraftComms::mission.groundStation : framesReceived"
+     ],
+     "expect": [
+      "Current state: lowPower | recharging",
+      "= 51200",
+      "= 50"
+     ]
+    },
+    {
+     "title": "Run to the end of the transfer",
+     "text": "All 100 kB arrive by t = 241 s. <code>%current</code> also reports what the machine is still waiting for.",
+     "input": [
+      "%advance 220",
+      "%current"
+     ],
+     "expect": [
+      "Current state: transmitted | notRecharging",
+      "Cannot progress"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "own",
+   "title": "Your own state machine",
+   "steps": [
+    {
+     "title": "Write a state machine",
+     "text": "A lamp that a <code>Toggle</code> signal switches on and off, and that switches itself off after 5 seconds.",
+     "input": [
+      "package Lamp {",
+      "    item def Toggle;",
+      "    state def Switch {",
+      "        entry; then off;",
+      "        state off;",
+      "        transition first off accept Toggle then on;",
+      "        state on;",
+      "        transition first on accept Toggle then off;",
+      "        transition first on accept after 5 [SI::s] then off;",
+      "    }",
+      "    part lamp { exhibit state s : Switch; }",
+      "}"
+     ],
+     "expect": [
+      "✓ package Lamp"
+     ]
+    },
+    {
+     "title": "Start it",
+     "text": "<code>%state</code> attaches a debugger to the machine the object exhibits.",
+     "input": [
+      "%instantiate Lamp::lamp",
+      "%state Lamp::lamp"
+     ],
+     "expect": [
+      "Current state: off"
+     ]
+    },
+    {
+     "title": "Send it a signal",
+     "text": "<code>%send</code> posts the signal on the runtime's message bus, and advancing the clock dispatches it. The report shows the 5-second timer that is now pending.",
+     "input": [
+      "%send Toggle to Lamp::lamp",
+      "%advance 1"
+     ],
+     "expect": [
+      "Current state: on",
+      "t=5.0"
+     ]
+    },
+    {
+     "title": "Let the timer fire",
+     "text": "Nothing is sent this time. The timer started on entering <code>on</code> fires at t = 5 s and switches the lamp off.",
+     "input": [
+      "%advance 5"
+     ],
+     "expect": [
+      "Current state: off"
+     ]
+    },
+    {
+     "title": "Trace what the runtime does",
+     "text": "<code>%trace on</code> prints each exit, entry, evaluation and transition as it happens.",
+     "input": [
+      "%trace on",
+      "%send Toggle to Lamp::lamp",
+      "%advance 1",
+      "%trace off"
+     ],
+     "expect": [
+      "[trace] transition: off -> on"
+     ]
+    },
+    {
+     "title": "Save, clear and load again",
+     "text": "<code>%save</code> writes the session model as SysML notation to this page's in-memory disk. <code>%clear</code> empties the session, and <code>%load</code> reads the file back in.",
+     "input": [
+      "%save lamp.sysml",
+      "%clear",
+      "%load lamp.sysml",
+      "%list"
+     ],
+     "expect": [
+      "saved",
+      "✓ package Lamp"
+     ]
+    }
+   ]
+  }
+ ]
+}

@@ -3,7 +3,7 @@
 OpenSysML can be reached from a program in seven ways: the Go API, which runs in the calling
 process, and six clients of the `sysml-grpc` service. This page describes how to choose between
 them, what each covers and what each intentionally leaves out. Each client has an API reference of
-its own, and [guide chapter 9](../guide/09-clients.md) walks through a task with each one.
+its own, and the [client guides](../clients.md) walk through a task with each one.
 
 | Surface | Reaches the engine by | Published | Full reference |
 |---|---|---|---|
@@ -130,16 +130,18 @@ be one runs the conformance scenarios below through its own API.
 
 ## Providing the service binary
 
-Python, Node, and Julia download binaries pinned by per-release-asset SHA-256 digests; Python and Node
-verify the release's sigstore-signed manifest, but Julia does not. The others look for one that is
-already installed, and the lookup order is the same everywhere:
+Python, Node, Java and Julia download binaries pinned by per-release-asset SHA-256 digests; Python,
+Node and Java verify the release's Sigstore-signed manifest, but Julia does not. A crate published from a Rust
+release tag embeds that release's service digests and downloads its built-against release by default;
+Rust does not verify the manifest's Sigstore signature itself. Clients also look for explicitly
+supplied or already-installed binaries, using the same lookup order:
 `$OPENSYSML_GRPC_BINARY` (`$OPENSYSML_BINARY` in the Node and Python clients) first, then
 `~/.opensysml/bin/sysml-grpc` (where a verified download puts it), then `PATH`. The Node client
 also checks its per-platform npm package, whose tarball npm verifies, with no postinstall script;
 that package is preferred over a download, which happens only when no package matches the platform.
 The Java client additionally verifies a digest the caller pins with `expectedBinarySha256`.
 
-If no binary can be found, the result is an error naming every way to supply one, not a download.
+If no binary can be found or downloaded, the result is an error naming every way to supply one.
 
 ## Every client runs the same conformance suite
 

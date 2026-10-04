@@ -5,6 +5,9 @@ models over the `sysml-grpc` service, using the [Connect
 protocol](https://connectrpc.com/docs/protocol) with protobuf bodies. No native
 addon, so an install is a plain registry fetch.
 
+For a task-oriented walkthrough, see the
+[Node client guide](https://opensysml.org/clients/node/).
+
 ```bash
 npm install @openmbee/opensysml
 ```

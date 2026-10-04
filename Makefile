@@ -497,6 +497,7 @@ docs-check: ## Verify documentation links, internal-label hygiene, quoted oracle
 	$(PYTHON) scripts/changelog.py check
 	$(PYTHON) scripts/mkdocs_census-test.py
 	$(PYTHON) scripts/mkdocs_suite_figures-test.py
+	$(PYTHON) scripts/griffe_sphinx_roles-test.py
 
 changelog-check: ## Verify every changelog fragment under changes/unreleased/ and the folding script
 	$(PYTHON) scripts/changelog-test.py
@@ -520,10 +521,14 @@ docs-engine-assets: ## Build the in-browser engine assets into docs/assets
 	@mkdir -p docs/assets
 	GOOS=js GOARCH=wasm $(GO_BUILD) -o docs/assets/sysml-engine.wasm ./cmd/sysml-engine
 	gzip -9f docs/assets/sysml-engine.wasm
+	GOOS=js GOARCH=wasm $(GO_BUILD) -tags sysml_prod -o docs/assets/sysml-repl.wasm ./cmd/sysml
+	gzip -9f docs/assets/sysml-repl.wasm
+	@mkdir -p docs/assets/repl-examples
+	@cp examples/runtime-showcase/*.sysml docs/assets/repl-examples/
 	@cp "$$(go env GOROOT)/lib/wasm/wasm_exec.js" docs/assets/
-	@echo "✓ Built docs/assets/sysml-engine.wasm.gz + wasm_exec.js"
+	@echo "✓ Built docs/assets/sysml-engine.wasm.gz, sysml-repl.wasm.gz, repl-examples/ + wasm_exec.js"
 
-docs-serve: ## Serve the documentation site with live reload
+docs-serve: docs-install ## Serve the documentation site with live reload
 	$(PYTHON) -m mkdocs serve --strict
 
 help: ## Show this help message
