@@ -2,6 +2,7 @@ package grpc
 
 import (
 	"context"
+	"math"
 	"strings"
 	"testing"
 
@@ -20,6 +21,25 @@ package Trace {
   }
 }
 `
+
+func TestTraceDroppedCountToInt32(t *testing.T) {
+	tests := []struct {
+		name    string
+		dropped int64
+		want    int32
+	}{
+		{name: "within range", dropped: 42, want: 42},
+		{name: "negative", dropped: -1, want: 0},
+		{name: "overflow", dropped: int64(math.MaxInt32) + 1, want: math.MaxInt32},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if got := traceDroppedCountToInt32(test.dropped); got != test.want {
+				t.Fatalf("traceDroppedCountToInt32(%d) = %d, want %d", test.dropped, got, test.want)
+			}
+		})
+	}
+}
 
 func parseStateTraceModel(t *testing.T, service *Service, content string) string {
 	t.Helper()

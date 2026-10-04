@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"errors"
 	"fmt"
+	"math"
 	"os"
 	"strings"
 
@@ -1286,7 +1287,17 @@ func stateTraceToProto(rt *runtime.Context, idx *symbols.Index, recorder *runtim
 		trace[i] = documentEvent(idx, event)
 	}
 	dropped, _ := recorder.Dropped()
-	return trace, int32(dropped)
+	return trace, traceDroppedCountToInt32(int64(dropped))
+}
+
+func traceDroppedCountToInt32(dropped int64) int32 {
+	if dropped < 0 {
+		return 0
+	}
+	if dropped > math.MaxInt32 {
+		return math.MaxInt32
+	}
+	return int32(dropped)
 }
 
 // buildParseResponse constructs ParseFileResponse from cached model
