@@ -132,6 +132,10 @@ type Structure interface {
 	Attribute(el Element, property string) (Value, bool)
 }
 
+type elementIdentityStructure interface {
+	ElementIdentity(Element) (string, bool)
+}
+
 // Options supplies graph-stated structure used by the evaluator.
 type Options struct {
 	Structure Structure

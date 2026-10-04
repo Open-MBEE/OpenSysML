@@ -39,12 +39,12 @@ func TestImplicitBaseResolvesThroughIndex(t *testing.T) {
 }
 
 // TestUsageKindsWithoutImplicitBase pins the kinds deliberately left out of the
-// mapping: connector, succession, flow, binding, satisfy, subject and objective
-// take their type from the element they relate to, and the KerML structural
-// kinds are definitions in usage position.
+// mapping: connector, flow, binding, satisfy, subject and objective take their
+// type from the element they relate to, and the KerML structural kinds are
+// definitions in usage position.
 func TestUsageKindsWithoutImplicitBase(t *testing.T) {
 	for _, k := range []ast.UsageKind{
-		ast.UsageConnector, ast.UsageSuccession, ast.UsageFlow, ast.UsageBinding,
+		ast.UsageConnector, ast.UsageFlow, ast.UsageBinding,
 		ast.UsageSatisfy, ast.UsageSubject, ast.UsageObjective, ast.UsageInteraction,
 		ast.UsageBehavior, ast.UsageAssoc, ast.UsageStruct, ast.UsageClass,
 		ast.UsagePredicate, ast.UsageBool,
@@ -89,6 +89,7 @@ func TestBaseFeatureTypesForUsageBases(t *testing.T) {
 		"Base::dataValues":                     {"Base::DataValue"},
 		"Items::items":                         {"Items::Item"},
 		"Occurrences::occurrences":             {"Occurrences::Occurrence"},
+		"Occurrences::happensBeforeLinks":      {"Occurrences::HappensBefore"},
 		"Occurrences::Life":                    {"Occurrences::Life"},
 		"Metadata::metadataItems":              {"Metadata::MetadataItem"},
 		"Views::views":                         {"Views::View"},

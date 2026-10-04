@@ -20,12 +20,15 @@ var testMetaclassParents = map[string]string{
 	"Namespace":                       "Element",
 	"Definition":                      "Classifier",
 	"Classifier":                      "Type",
+	"Behavior":                        "Type",
 	"Type":                            "Namespace",
 	"Feature":                         "Type",
 	"PayloadFeature":                  "Feature",
 	"FlowEnd":                         "Feature",
 	"Usage":                           "Feature",
 	"PartDefinition":                  "Definition",
+	"PortDefinition":                  "OccurrenceDefinition",
+	"IndividualDefinition":            "OccurrenceDefinition",
 	"AttributeDefinition":             "Definition",
 	"ItemDefinition":                  "Definition",
 	"OccurrenceDefinition":            "Definition",
@@ -735,13 +738,7 @@ func TestVariableFlagsUseSemanticDerivations(t *testing.T) {
 	}`)
 	owner := testSymbol(t, testSymbol(t, sysmlRoot, "P").Scope, "Owner")
 	member := testSymbol(t, owner.Scope, "member")
-	sysmlEvaluator.options.Structure = testStructure{
-		metaclass:   testMetaclass,
-		specializes: testSpecializes,
-		attributes: map[testRelatedKey]Value{
-			{element: ElementOf(member).Key(), property: "isVariable"}: booleanValue(true),
-		},
-	}
+	sysmlEvaluator.options.Structure = testNamespaceStructure(sysmlEvaluator, owner)
 	for _, property := range []struct {
 		class string
 		name  string
@@ -1325,6 +1322,52 @@ func TestStructureQualifiedNameIsNullThroughUnnamedAncestor(t *testing.T) {
 	}
 }
 
+func TestStructureOwnerRequiresOwningRelationship(t *testing.T) {
+	evaluator, _ := newTestEvaluator(t, "owner-relationship.sysml", "package P {}")
+	namespace := Element{Aspect: "namespace"}
+	relationship := Element{Aspect: "relationship"}
+	structure := testStructure{
+		metaclasses:           map[ElementKey]string{relationship.Key(): "Membership"},
+		ownedRelationships:    make(map[ElementKey][]Element),
+		owningRelationships:   make(map[ElementKey]testOptionalElement),
+		ownedRelatedElements:  make(map[ElementKey][]Element),
+		owningRelatedElements: map[ElementKey]testOptionalElement{relationship.Key(): {element: namespace, present: true}},
+		relatedElements:       make(map[testRelatedKey][]Element),
+		attributes:            make(map[testRelatedKey]Value),
+	}
+	evaluator.options.Structure = structure
+
+	owner := testProperty(t, evaluator, relationship, "Element", "owner")
+	if owner.Kind != NullValue {
+		t.Fatalf("Element::owner = %#v, want null without owningRelationship", owner)
+	}
+}
+
+func TestStructureOwningNamespaceRequiresOwningMembership(t *testing.T) {
+	evaluator, _ := newTestEvaluator(t, "owning-namespace-membership.sysml", "package P {}")
+	namespace := Element{Aspect: "namespace"}
+	element := Element{Aspect: "element"}
+	structure := testStructure{
+		metaclasses:           map[ElementKey]string{element.Key(): "PartUsage", namespace.Key(): "Namespace"},
+		ownedRelationships:    make(map[ElementKey][]Element),
+		owningRelationships:   make(map[ElementKey]testOptionalElement),
+		ownedRelatedElements:  make(map[ElementKey][]Element),
+		owningRelatedElements: map[ElementKey]testOptionalElement{element.Key(): {element: namespace, present: true}},
+		relatedElements:       make(map[testRelatedKey][]Element),
+		attributes:            map[testRelatedKey]Value{{element: element.Key(), property: "declaredName"}: stringValue("orphan")},
+	}
+	evaluator.options.Structure = structure
+
+	owningNamespace := testProperty(t, evaluator, element, "Element", "owningNamespace")
+	if owningNamespace.Kind != NullValue {
+		t.Fatalf("Element::owningNamespace = %#v, want null without owningMembership", owningNamespace)
+	}
+	qualifiedName := testProperty(t, evaluator, element, "Element", "qualifiedName")
+	if qualifiedName.Kind != NullValue {
+		t.Fatalf("Element::qualifiedName = %#v, want null without owningNamespace", qualifiedName)
+	}
+}
+
 func TestStructureQualifiedNameUsesRedefinedFeaturesEffectiveName(t *testing.T) {
 	evaluator, root := newTestEvaluator(t, "redefined-qualified-name.sysml", `part def A {
 		part <p1> original;
@@ -1346,6 +1389,28 @@ func TestStructureQualifiedNameUsesRedefinedFeaturesEffectiveName(t *testing.T) 
 	got := testProperty(t, evaluator, ElementOf(redefined), "Element", "qualifiedName")
 	if got.Kind != StringValue || got.String != "B::original" {
 		t.Fatalf("Element::qualifiedName = %#v; want %q", got, "B::original")
+	}
+}
+
+func TestStructureNameOmitsUnresolvedImpliedRedefinition(t *testing.T) {
+	evaluator, root := newTestEvaluator(t, "unresolved-implied-name.sysml", `part def A {
+		part member;
+	}`)
+	owner := testSymbol(t, root, "A")
+	member := testSymbol(t, owner.Scope, "member")
+	member.Naming = symbols.NamedByRedefinition
+	element := ElementOf(member)
+	for _, property := range []struct {
+		class string
+		name  string
+	}{
+		{class: "Element", name: "name"},
+		{class: "Element", name: "shortName"},
+		{class: "Element", name: "qualifiedName"},
+	} {
+		if _, ok := evaluator.Property(element, property.class, property.name); ok {
+			t.Errorf("%s::%s was computed without the required redefinition", property.class, property.name)
+		}
 	}
 }
 
@@ -1709,39 +1774,74 @@ private feature chainedValue chains source.target;
 	}
 }
 
-func TestStructureFeaturingTypesOnlyImplyFeatureMembershipOwner(t *testing.T) {
-	evaluator, _ := newTestEvaluator(t, "featuring-type-ownership.sysml", "package P {}")
-	owner := Element{Aspect: "feature-owner"}
-	feature := Element{Aspect: "feature"}
-	membership := MembershipElement(Membership{Aspect: "feature-membership", kind: "FeatureMembership"})
-	structure := testStructure{
+func TestStructureFeatureTargetUsesLastChainingFeature(t *testing.T) {
+	evaluator, _ := newTestEvaluator(t, "feature-target.sysml", "package P {}")
+	plain := Element{Aspect: "plain-feature"}
+	chained := Element{Aspect: "chained-feature"}
+	first := Element{Aspect: "first-chaining-feature"}
+	last := Element{Aspect: "last-chaining-feature"}
+	firstRelationship := Element{Aspect: "first-feature-chaining"}
+	lastRelationship := Element{Aspect: "last-feature-chaining"}
+	evaluator.options.Structure = testStructure{
 		metaclasses: map[ElementKey]string{
-			owner.Key():      "PartDefinition",
-			feature.Key():    "PartUsage",
-			membership.Key(): "FeatureMembership",
+			plain.Key():             "Feature",
+			chained.Key():           "Feature",
+			first.Key():             "Feature",
+			last.Key():              "Feature",
+			firstRelationship.Key(): "FeatureChaining",
+			lastRelationship.Key():  "FeatureChaining",
 		},
 		ownedRelationships: map[ElementKey][]Element{
-			owner.Key():   {membership},
-			feature.Key(): {},
+			plain.Key():   {},
+			chained.Key(): {firstRelationship, lastRelationship},
 		},
-		owningRelationships: map[ElementKey]testOptionalElement{
-			feature.Key(): {element: membership, present: true},
-		},
-		owningRelatedElements: map[ElementKey]testOptionalElement{
-			membership.Key(): {element: owner, present: true},
-		},
-		attributes: map[testRelatedKey]Value{
-			{element: feature.Key(), property: "isVariable"}: booleanValue(false),
+		relatedElements: map[testRelatedKey][]Element{
+			{element: firstRelationship.Key(), property: "featureChained"}:  {chained},
+			{element: firstRelationship.Key(), property: "chainingFeature"}: {first},
+			{element: lastRelationship.Key(), property: "featureChained"}:   {chained},
+			{element: lastRelationship.Key(), property: "chainingFeature"}:  {last},
 		},
 	}
+	for element, want := range map[Element]Element{
+		plain:   plain,
+		chained: last,
+	} {
+		got := testProperty(t, evaluator, element, "Feature", "featureTarget")
+		if got.Kind != ElementValue || got.Element.Key() != want.Key() {
+			t.Errorf("%v.featureTarget = %v, want %v", element.Key(), got, want.Key())
+		}
+	}
+}
+
+func TestStructureFeaturingTypesOnlyImplyFeatureMembershipOwner(t *testing.T) {
+	evaluator, root := newTestEvaluator(t, "featuring-type-ownership.sysml", `package P {
+		part def Owner { part member; }
+		part def PlainOwner { part plainMember; }
+	}`)
+	pkg := testSymbol(t, root, "P")
+	ownerSymbol := testSymbol(t, pkg.Scope, "Owner")
+	featureSymbol := testSymbol(t, ownerSymbol.Scope, "member")
+	plainOwnerSymbol := testSymbol(t, pkg.Scope, "PlainOwner")
+	plainFeatureSymbol := testSymbol(t, plainOwnerSymbol.Scope, "plainMember")
+	owner := ElementOf(ownerSymbol)
+	feature := ElementOf(featureSymbol)
+	membership := MembershipElement(Membership{Aspect: "feature-membership", kind: "FeatureMembership"})
+	structure := evaluator.options.Structure.(testStructure)
+	structure.metaclasses[owner.Key()] = "PartDefinition"
+	structure.metaclasses[feature.Key()] = "PartUsage"
+	structure.metaclasses[membership.Key()] = "FeatureMembership"
+	structure.ownedRelationships[owner.Key()] = []Element{membership}
+	structure.ownedRelationships[feature.Key()] = []Element{}
+	structure.owningRelationships[feature.Key()] = testOptionalElement{element: membership, present: true}
+	structure.owningRelatedElements[membership.Key()] = testOptionalElement{element: owner, present: true}
 	evaluator.options.Structure = structure
 	got := valueElements(t, testProperty(t, evaluator, feature, "Feature", "featuringType"))
 	if len(got) != 1 || got[0].Key() != owner.Key() {
 		t.Fatalf("FeatureMembership-owned featuringType = %v; want owner %v", got, owner)
 	}
 
-	plainOwner := Element{Aspect: "plain-owner"}
-	plainFeature := Element{Aspect: "plain-owned-feature"}
+	plainOwner := ElementOf(plainOwnerSymbol)
+	plainFeature := ElementOf(plainFeatureSymbol)
 	plainMembership := MembershipElement(Membership{Aspect: "plain-membership", kind: "OwningMembership"})
 	structure.metaclasses[plainOwner.Key()] = "PartDefinition"
 	structure.metaclasses[plainFeature.Key()] = "PartUsage"
@@ -1750,7 +1850,6 @@ func TestStructureFeaturingTypesOnlyImplyFeatureMembershipOwner(t *testing.T) {
 	structure.ownedRelationships[plainFeature.Key()] = []Element{}
 	structure.owningRelationships[plainFeature.Key()] = testOptionalElement{element: plainMembership, present: true}
 	structure.owningRelatedElements[plainMembership.Key()] = testOptionalElement{element: plainOwner, present: true}
-	structure.attributes[testRelatedKey{element: plainFeature.Key(), property: "isVariable"}] = booleanValue(false)
 	evaluator.options.Structure = structure
 	got = valueElements(t, testProperty(t, evaluator, plainFeature, "Feature", "featuringType"))
 	if len(got) != 0 {
@@ -1758,53 +1857,354 @@ func TestStructureFeaturingTypesOnlyImplyFeatureMembershipOwner(t *testing.T) {
 	}
 }
 
-func TestStructureFeaturingTypesUsesExplicitTypeFeaturingAndRejectsVariableImpliedType(t *testing.T) {
-	evaluator, _ := newTestEvaluator(t, "explicit-featuring-type.sysml", "package P {}")
-	feature := Element{Aspect: "explicitly-featured"}
-	explicitType := Element{Aspect: "explicit-featuring-type"}
-	typeFeaturing := Element{Aspect: "type-featuring"}
-	structure := testStructure{
-		metaclasses: map[ElementKey]string{
-			feature.Key():       "PartUsage",
-			explicitType.Key():  "PartDefinition",
-			typeFeaturing.Key(): "TypeFeaturing",
+func TestStructureFeaturingTypesUsesDefaultVariabilityForASTOnlyFeature(t *testing.T) {
+	evaluator, _ := newTestEvaluator(t, "ast-only-featuring-type.sysml", "package P;")
+	feature := Element{Node: &ast.LiteralInteger{}}
+	evaluator.options.Structure = testStructure{
+		specializes: func(sub, super string) bool {
+			return sub == "LiteralInteger" && super == "Feature"
 		},
-		ownedRelationships: map[ElementKey][]Element{
-			feature.Key(): {typeFeaturing},
-		},
-		owningRelationships: map[ElementKey]testOptionalElement{
-			feature.Key(): {present: false},
-		},
-		relatedElements: map[testRelatedKey][]Element{
-			{element: typeFeaturing.Key(), property: "featuringType"}: {explicitType},
-		},
+		metaclasses: map[ElementKey]string{feature.Key(): "LiteralInteger"},
 	}
+
+	if got := testProperty(t, evaluator, feature, "Feature", "isVariable"); got.Kind != BooleanValue || got.Boolean {
+		t.Fatalf("Feature::isVariable = %v, want default false", got)
+	}
+	if got := testProperty(t, evaluator, feature, "Feature", "featuringType"); got.Kind != SequenceValue || len(got.Values) != 0 {
+		t.Fatalf("Feature::featuringType = %v, want empty", got)
+	}
+}
+
+func TestStructureFeaturingTypesUsesExplicitTypeFeaturing(t *testing.T) {
+	evaluator, root := newTestEvaluator(t, "explicit-featuring-type.sysml", `package P {
+		part def ExplicitType;
+		part def Owner { part feature; }
+	}`)
+	pkg := testSymbol(t, root, "P")
+	feature := ElementOf(testSymbol(t, testSymbol(t, pkg.Scope, "Owner").Scope, "feature"))
+	explicitType := ElementOf(testSymbol(t, pkg.Scope, "ExplicitType"))
+	typeFeaturing := Element{Aspect: "type-featuring"}
+	structure := evaluator.options.Structure.(testStructure)
+	structure.metaclasses[feature.Key()] = "PartUsage"
+	structure.metaclasses[explicitType.Key()] = "PartDefinition"
+	structure.metaclasses[typeFeaturing.Key()] = "TypeFeaturing"
+	structure.ownedRelationships[feature.Key()] = []Element{typeFeaturing}
+	structure.owningRelationships[feature.Key()] = testOptionalElement{present: false}
+	structure.relatedElements[testRelatedKey{element: typeFeaturing.Key(), property: "featuringType"}] = []Element{explicitType}
 	evaluator.options.Structure = structure
 	got := valueElements(t, testProperty(t, evaluator, feature, "Feature", "featuringType"))
 	if len(got) != 1 || got[0].Key() != explicitType.Key() {
 		t.Fatalf("explicit featuringType = %v; want %v", got, explicitType)
 	}
 
-	owner := Element{Aspect: "variable-feature-owner"}
-	variable := Element{Aspect: "variable-feature"}
-	membership := MembershipElement(Membership{Aspect: "variable-feature-membership", kind: "FeatureMembership"})
-	structure.metaclasses[owner.Key()] = "PartDefinition"
-	structure.metaclasses[variable.Key()] = "PartUsage"
-	structure.metaclasses[membership.Key()] = "FeatureMembership"
-	structure.ownedRelationships[owner.Key()] = []Element{membership}
-	structure.ownedRelationships[variable.Key()] = []Element{}
-	structure.owningRelationships = map[ElementKey]testOptionalElement{
-		variable.Key(): {element: membership, present: true},
+}
+
+func TestStructureFeaturingTypesRejectsEffectiveVariableUsage(t *testing.T) {
+	evaluator, root := newTestEvaluator(t, "variable-featuring-type.sysml", `package Occurrences {
+		occurrence def Occurrence;
 	}
-	structure.owningRelatedElements = map[ElementKey]testOptionalElement{
-		membership.Key(): {element: owner, present: true},
+	package P {
+		occurrence def Vehicle :> Occurrences::Occurrence {
+			part mass;
+		}
+	}`)
+	vehicle := testSymbol(t, testSymbol(t, root, "P").Scope, "Vehicle")
+	mass := testSymbol(t, vehicle.Scope, "mass")
+	element := ElementOf(mass)
+	if got := testProperty(t, evaluator, element, "Usage", "mayTimeVary"); got.Kind != BooleanValue || !got.Boolean {
+		t.Fatalf("Usage::mayTimeVary = %v, want true", got)
 	}
-	structure.attributes = map[testRelatedKey]Value{
-		{element: variable.Key(), property: "isVariable"}: booleanValue(true),
+	if got := testProperty(t, evaluator, element, "Feature", "isVariable"); got.Kind != BooleanValue || !got.Boolean {
+		t.Fatalf("Feature::isVariable = %v, want the effective mayTimeVary value true", got)
+	}
+	if _, ok := evaluator.Property(element, "Feature", "featuringType"); ok {
+		t.Fatal("a Usage whose effective mayTimeVary is true must not derive featuringType")
+	}
+	definition, ok := ontology.PropertyOf("Usage", "mayTimeVary")
+	redefinesVariable := false
+	for _, property := range definition.Redefines {
+		redefinesVariable = redefinesVariable || property == "Feature::isVariable"
+	}
+	if !ok || !redefinesVariable {
+		t.Fatal("Usage::mayTimeVary must redefine Feature::isVariable in the ontology")
+	}
+}
+
+func TestStructureIndividualDefinitionSelectsOnlyIndividuals(t *testing.T) {
+	evaluator, _ := newTestEvaluator(t, "individual-definition.sysml", "package P {}")
+	structure := evaluator.options.Structure.(testStructure)
+	for _, test := range []struct {
+		name         string
+		isIndividual bool
+	}{
+		{name: "ordinary"},
+		{name: "individual", isIndividual: true},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			usage := Element{Aspect: test.name + "-usage"}
+			typing := Element{Aspect: test.name + "-typing"}
+			definition := Element{Aspect: test.name + "-definition"}
+			structure.metaclasses[usage.Key()] = "OccurrenceUsage"
+			structure.metaclasses[typing.Key()] = "FeatureTyping"
+			structure.metaclasses[definition.Key()] = "OccurrenceDefinition"
+			structure.ownedRelationships[usage.Key()] = []Element{typing}
+			structure.relatedElements[testRelatedKey{element: typing.Key(), property: "type"}] = []Element{definition}
+			structure.attributes[testRelatedKey{element: definition.Key(), property: "isIndividual"}] =
+				booleanValue(test.isIndividual)
+			evaluator.options.Structure = structure
+
+			got := testProperty(t, evaluator, usage, "OccurrenceUsage", "individualDefinition")
+			if test.isIndividual {
+				if got.Kind != ElementValue || got.Element.Key() != definition.Key() {
+					t.Fatalf("OccurrenceUsage::individualDefinition = %v, want %v", got, definition.Key())
+				}
+			} else if got.Kind != NullValue {
+				t.Fatalf("OccurrenceUsage::individualDefinition = %v, want null", got)
+			}
+		})
+	}
+}
+
+func TestStructureFeatureTypesIncludeSubsettingAndLastChainingFeature(t *testing.T) {
+	evaluator, root := newTestEvaluator(t, "feature-types.sysml", `package P {
+		part def A;
+		part def B;
+		part def Holder {
+			part source : A;
+			part last : B;
+			part subset;
+			part chained;
+		}
+	}`)
+	pkg := testSymbol(t, root, "P")
+	holder := testSymbol(t, pkg.Scope, "Holder")
+	source := ElementOf(testSymbol(t, holder.Scope, "source"))
+	last := ElementOf(testSymbol(t, holder.Scope, "last"))
+	subset := ElementOf(testSymbol(t, holder.Scope, "subset"))
+	chained := ElementOf(testSymbol(t, holder.Scope, "chained"))
+	typeA := ElementOf(testSymbol(t, pkg.Scope, "A"))
+	typeB := ElementOf(testSymbol(t, pkg.Scope, "B"))
+	subsetting := Element{Aspect: "feature-type-subsetting"}
+	chaining := Element{Aspect: "feature-type-chaining"}
+	structure := evaluator.options.Structure.(testStructure)
+	structure.metaclasses[subsetting.Key()] = "Subsetting"
+	structure.metaclasses[chaining.Key()] = "FeatureChaining"
+	structure.metaclasses[source.Key()] = "PartUsage"
+	structure.metaclasses[last.Key()] = "PartUsage"
+	structure.metaclasses[subset.Key()] = "PartUsage"
+	structure.metaclasses[chained.Key()] = "PartUsage"
+	structure.metaclasses[typeA.Key()] = "PartDefinition"
+	structure.metaclasses[typeB.Key()] = "PartDefinition"
+	structure.ownedRelationships[subset.Key()] = []Element{subsetting}
+	structure.ownedRelationships[chained.Key()] = []Element{chaining}
+	structure.ownedRelationships[source.Key()] = []Element{}
+	structure.ownedRelationships[last.Key()] = []Element{}
+	structure.relatedElements[testRelatedKey{element: subsetting.Key(), property: "subsettedFeature"}] =
+		[]Element{source}
+	structure.relatedElements[testRelatedKey{element: chaining.Key(), property: "chainingFeature"}] =
+		[]Element{source, last}
+	evaluator.options.Structure = structure
+
+	for _, test := range []struct {
+		feature Element
+		want    Element
+	}{
+		{feature: subset, want: typeA},
+		{feature: chained, want: typeB},
+	} {
+		_, handled, ok := evaluator.structureFeatureTypes(test.feature)
+		if !handled || !ok {
+			t.Fatalf("Feature::type for %v is not computable", test.feature.Key())
+		}
+		types := valueElements(t, testProperty(t, evaluator, test.feature, "Feature", "type"))
+		found := false
+		for _, got := range types {
+			if got.Key() == test.want.Key() {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Errorf("Feature::type for %v = %v, want %v", test.feature.Key(), types, test.want.Key())
+		}
+	}
+}
+
+func TestStructureFeatureTypeIsUnsupportedWhenSubsettingInputHasNoType(t *testing.T) {
+	evaluator, _ := newTestEvaluator(t, "feature-type-untyped-subset.sysml", "package P {}")
+	feature := Element{Aspect: "feature-type-untyped-subset"}
+	target := Element{Aspect: "feature-type-untyped-target"}
+	subsetting := Element{Aspect: "feature-type-untyped-relationship"}
+	structure := evaluator.options.Structure.(testStructure)
+	structure.metaclasses[feature.Key()] = "PartUsage"
+	structure.metaclasses[target.Key()] = "PartUsage"
+	structure.metaclasses[subsetting.Key()] = "Subsetting"
+	structure.ownedRelationships[feature.Key()] = []Element{subsetting}
+	structure.ownedRelationships[target.Key()] = []Element{}
+	structure.relatedElements[testRelatedKey{element: subsetting.Key(), property: "subsettedFeature"}] = []Element{target}
+	evaluator.options.Structure = structure
+
+	if _, ok := evaluator.Property(feature, "Feature", "type"); ok {
+		t.Fatal("Feature::type is supported despite an untyped subsetting input")
+	}
+}
+
+func TestStructureFeatureTypeIsUnsupportedWhenTypeRedundancyIsUnknown(t *testing.T) {
+	evaluator, _ := newTestEvaluator(t, "feature-type-unknown-redundancy.sysml", "package P {}")
+	feature := Element{Aspect: "feature-type-unknown-redundancy"}
+	firstType := Element{Aspect: "feature-type-first"}
+	secondType := Element{Aspect: "feature-type-second"}
+	firstTyping := Element{Aspect: "feature-type-first-typing"}
+	secondTyping := Element{Aspect: "feature-type-second-typing"}
+	structure := evaluator.options.Structure.(testStructure)
+	structure.metaclasses[feature.Key()] = "PartUsage"
+	structure.metaclasses[firstType.Key()] = "PartDefinition"
+	structure.metaclasses[secondType.Key()] = "PartDefinition"
+	structure.metaclasses[firstTyping.Key()] = "FeatureTyping"
+	structure.metaclasses[secondTyping.Key()] = "FeatureTyping"
+	structure.ownedRelationships[feature.Key()] = []Element{firstTyping, secondTyping}
+	structure.relatedElements[testRelatedKey{element: firstTyping.Key(), property: "type"}] = []Element{firstType}
+	structure.relatedElements[testRelatedKey{element: secondTyping.Key(), property: "type"}] = []Element{secondType}
+	evaluator.options.Structure = structure
+
+	if _, ok := evaluator.Property(feature, "Feature", "type"); ok {
+		t.Fatal("Feature::type is supported despite unknown type redundancy")
+	}
+}
+
+func TestKerMLTypeUsageMetaclassesAreTypes(t *testing.T) {
+	evaluator, _ := newTestEvaluator(t, "kerml-type-usage.sysml", `package P {}`)
+	element := Element{Aspect: "kerml-type-usage"}
+	structure := testStructure{metaclasses: map[ElementKey]string{
+		element.Key(): "ClassUsage",
+	}}
+	evaluator.options.Structure = structure
+	for _, metaclass := range []string{
+		"AssociationUsage", "BehaviorUsage", "ClassUsage",
+		"InteractionUsage", "PredicateUsage", "StructureUsage",
+	} {
+		structure.metaclasses[element.Key()] = metaclass
+		evaluator.options.Structure = structure
+		got, known := evaluator.isMetaclass(element, "Type")
+		if !known || !got {
+			t.Errorf("%s is a Type = %t, known = %t; want true, true", metaclass, got, known)
+		}
+	}
+}
+
+func TestUsageReferenceAndCompositeConstraints(t *testing.T) {
+	evaluator, root := newTestEvaluator(t, "usage-composition.sysml", `package P {
+		part def Vehicle {
+			port ignitionCmdPort;
+			attribute mass;
+			part child;
+			ref part spare;
+			event occurrence arrived;
+			port outer {
+				port inner;
+			}
+			state machine {
+				state operatingStates {
+					state off;
+				}
+			}
+		}
+		port def PortShape {
+			port nested;
+		}
+		action def Flow {
+			fork f;
+		}
+	}`)
+	vehicle := testSymbol(t, testSymbol(t, root, "P").Scope, "Vehicle")
+	portShape := testSymbol(t, testSymbol(t, root, "P").Scope, "PortShape")
+	flow := testSymbol(t, testSymbol(t, root, "P").Scope, "Flow")
+	machine := testSymbol(t, vehicle.Scope, "machine")
+	states := testSymbol(t, machine.Scope, "operatingStates")
+	cases := []struct {
+		symbol      *symbols.Symbol
+		composite   bool
+		referential bool
+	}{
+		{testSymbol(t, vehicle.Scope, "ignitionCmdPort"), false, true},
+		{testSymbol(t, vehicle.Scope, "mass"), false, true},
+		{testSymbol(t, vehicle.Scope, "child"), true, false},
+		{testSymbol(t, vehicle.Scope, "spare"), false, true},
+		{testSymbol(t, vehicle.Scope, "arrived"), false, true},
+		{testSymbol(t, vehicle.Scope, "outer"), false, true},
+		{testSymbol(t, testSymbol(t, vehicle.Scope, "outer").Scope, "inner"), true, false},
+		{testSymbol(t, portShape.Scope, "nested"), true, false},
+		{testSymbol(t, flow.Scope, "f"), true, false},
+		{testSymbol(t, states.Scope, "off"), true, false},
+	}
+	evaluator.options.Structure = nil
+	for _, tc := range cases {
+		element := ElementOf(tc.symbol)
+		composite := testProperty(t, evaluator, element, "Feature", "isComposite")
+		if composite.Kind != BooleanValue || composite.Boolean != tc.composite {
+			t.Errorf("%s.isComposite = %v, want %t", symbols.FQNOf(tc.symbol), composite, tc.composite)
+		}
+		reference := testProperty(t, evaluator, element, "Usage", "isReference")
+		if reference.Kind != BooleanValue || reference.Boolean != tc.referential {
+			t.Errorf("%s.isReference = %v, want %t", symbols.FQNOf(tc.symbol), reference, tc.referential)
+		}
+	}
+}
+
+func TestStructurePortUsageCompositionUsesOwningType(t *testing.T) {
+	evaluator, root := newTestEvaluator(t, "port-usage-composition.sysml", `package P {
+		part def Vehicle { port command; }
+		port def PortShape { port nested; }
+		port external;
+	}`)
+	pkg := testSymbol(t, root, "P")
+	vehicle := ElementOf(testSymbol(t, pkg.Scope, "Vehicle"))
+	command := ElementOf(testSymbol(t, testSymbol(t, pkg.Scope, "Vehicle").Scope, "command"))
+	portShapeSymbol := testSymbol(t, pkg.Scope, "PortShape")
+	portShape := ElementOf(portShapeSymbol)
+	nested := ElementOf(testSymbol(t, portShapeSymbol.Scope, "nested"))
+	external := ElementOf(testSymbol(t, pkg.Scope, "external"))
+	commandMembership := MembershipElement(Membership{Aspect: "command-membership", kind: "FeatureMembership"})
+	nestedMembership := MembershipElement(Membership{Aspect: "nested-membership", kind: "FeatureMembership"})
+	externalMembership := MembershipElement(Membership{Aspect: "external-membership", kind: "OwningMembership"})
+	structure := testStructure{
+		metaclasses: map[ElementKey]string{
+			vehicle.Key():            "PartDefinition",
+			command.Key():            "PortUsage",
+			commandMembership.Key():  "FeatureMembership",
+			portShape.Key():          "PortDefinition",
+			nested.Key():             "PortUsage",
+			nestedMembership.Key():   "FeatureMembership",
+			external.Key():           "PortUsage",
+			externalMembership.Key(): "OwningMembership",
+		},
+		owningRelationships: map[ElementKey]testOptionalElement{
+			command.Key():  {element: commandMembership, present: true},
+			nested.Key():   {element: nestedMembership, present: true},
+			external.Key(): {element: externalMembership, present: true},
+		},
+		owningRelatedElements: map[ElementKey]testOptionalElement{
+			commandMembership.Key():  {element: vehicle, present: true},
+			nestedMembership.Key():   {element: portShape, present: true},
+			externalMembership.Key(): {element: ElementOf(testSymbol(t, pkg.Scope, "external").Owner()), present: true},
+		},
 	}
 	evaluator.options.Structure = structure
-	if _, ok := evaluator.Property(variable, "Feature", "featuringType"); ok {
-		t.Fatal("variable FeatureMembership feature should have unsupported implied featuringType")
+	for _, tc := range []struct {
+		element   Element
+		composite bool
+		reference bool
+	}{
+		{element: command, composite: false, reference: true},
+		{element: nested, composite: true, reference: false},
+		{element: external, composite: false, reference: true},
+	} {
+		if got := testProperty(t, evaluator, tc.element, "Feature", "isComposite"); got.Kind != BooleanValue || got.Boolean != tc.composite {
+			t.Errorf("%v.isComposite = %v, want %t", tc.element.Key(), got, tc.composite)
+		}
+		if got := testProperty(t, evaluator, tc.element, "Usage", "isReference"); got.Kind != BooleanValue || got.Boolean != tc.reference {
+			t.Errorf("%v.isReference = %v, want %t", tc.element.Key(), got, tc.reference)
+		}
 	}
 }
 
@@ -2119,8 +2519,8 @@ func TestStructureMembershipNamesUseDeclaredAttributes(t *testing.T) {
 		}
 	}
 	qualifiedName := testProperty(t, evaluator, named, "Element", "qualifiedName")
-	if qualifiedName.Kind != StringValue || qualifiedName.String != "membershipName" {
-		t.Fatalf("Membership::qualifiedName = %#v; want membershipName", qualifiedName)
+	if qualifiedName.Kind != NullValue {
+		t.Fatalf("Membership::qualifiedName = %#v; want null without owningNamespace", qualifiedName)
 	}
 	for _, property := range []string{"name", "shortName"} {
 		got := testProperty(t, evaluator, unnamed, "Element", property)
@@ -2144,6 +2544,40 @@ func TestOwnedAnnotationSelectsAnnotationRelationships(t *testing.T) {
 	got := valueElements(t, testProperty(t, evaluator, ElementOf(annotated), "Element", "ownedAnnotation"))
 	if len(got) != 0 {
 		t.Fatalf("Element::ownedAnnotation = %v, want no Annotation relationship for a metadata usage", got)
+	}
+}
+
+func TestStructureAnnotatingElementFallsBackToOwningNamespace(t *testing.T) {
+	evaluator, _ := newTestEvaluator(t, "annotation-fallback.sysml", "package P {}")
+	element := Element{Aspect: "test-annotating-element"}
+	namespace := Element{Aspect: "test-namespace"}
+	membership := MembershipElement(Membership{Aspect: "test-membership", kind: "OwningMembership"})
+	evaluator.options.Structure = testStructure{
+		metaclasses: map[ElementKey]string{
+			element.Key():    "Comment",
+			namespace.Key():  "Package",
+			membership.Key(): "OwningMembership",
+		},
+		ownedRelationships: map[ElementKey][]Element{
+			element.Key():    {},
+			namespace.Key():  {},
+			membership.Key(): {},
+		},
+		owningRelationships: map[ElementKey]testOptionalElement{
+			element.Key(): {element: membership, present: true},
+		},
+		owningRelatedElements: map[ElementKey]testOptionalElement{
+			membership.Key(): {element: namespace, present: true},
+		},
+		specializes: func(sub, super string) bool {
+			return sub == "Package" && super == "Namespace" || testSpecializes(sub, super)
+		},
+	}
+
+	value, ok := evaluator.Property(element, "AnnotatingElement", "annotatedElement")
+	if !ok || value.Kind != SequenceValue || len(value.Values) != 1 ||
+		value.Values[0].Kind != ElementValue || value.Values[0].Element.Key() != namespace.Key() {
+		t.Fatalf("AnnotatingElement::annotatedElement = %#v, %t; want owning namespace %v", value, ok, namespace)
 	}
 }
 
@@ -2492,6 +2926,7 @@ func TestStructureBackedAnnotationEndpointsUseTheirRedefinitions(t *testing.T) {
 			annotatingElement.Key(): {annotation},
 			annotatedElement.Key():  {},
 		},
+		owningRelationships: map[ElementKey]testOptionalElement{},
 		specializes: func(sub, super string) bool {
 			if sub == "MetadataUsage" && super == "AnnotatingElement" {
 				return true
@@ -2500,6 +2935,9 @@ func TestStructureBackedAnnotationEndpointsUseTheirRedefinitions(t *testing.T) {
 		},
 		owningRelatedElements: map[ElementKey]testOptionalElement{
 			annotation.Key(): {element: annotatingElement, present: true},
+		},
+		ownedRelatedElements: map[ElementKey][]Element{
+			annotation.Key(): {annotatingElement},
 		},
 		relatedElements: map[testRelatedKey][]Element{
 			{element: annotation.Key(), property: "annotatingElement"}: {annotatingElement},
@@ -2518,8 +2956,11 @@ func TestStructureBackedAnnotationEndpointsUseTheirRedefinitions(t *testing.T) {
 		{element: annotation, class: "Annotation", name: "annotatingElement", want: annotatingElement},
 		{element: annotation, class: "Relationship", name: "target", want: annotatedElement},
 		{element: annotation, class: "Annotation", name: "annotatedElement", want: annotatedElement},
+		{element: annotation, class: "Annotation", name: "ownedAnnotatingElement", want: annotatingElement},
+		{element: annotation, class: "Annotation", name: "owningAnnotatingElement", want: annotatingElement},
 		{element: annotation, class: "Annotation", name: "owningAnnotatedElement", want: annotatedElement},
 		{element: annotatingElement, class: "AnnotatingElement", name: "annotation", want: annotation},
+		{element: annotatingElement, class: "AnnotatingElement", name: "ownedAnnotatingRelationship", want: annotation},
 		{element: annotatingElement, class: "AnnotatingElement", name: "annotatedElement", want: annotatedElement},
 	} {
 		got, ok := evaluator.Property(property.element, property.class, property.name)
@@ -2532,6 +2973,21 @@ func TestStructureBackedAnnotationEndpointsUseTheirRedefinitions(t *testing.T) {
 		if !ok || !matches {
 			t.Errorf("%s::%s = %#v, %t; want %v", property.class, property.name, got, ok, property.want)
 		}
+	}
+
+	owningAnnotation := Element{Aspect: "test-owning-annotation"}
+	structure.metaclasses[owningAnnotation.Key()] = "Annotation"
+	structure.ownedRelationships[owningAnnotation.Key()] = []Element{}
+	structure.owningRelationships[annotatingElement.Key()] =
+		testOptionalElement{element: owningAnnotation, present: true}
+	structure.relatedElements[testRelatedKey{element: owningAnnotation.Key(), property: "annotatedElement"}] =
+		[]Element{annotatedElement}
+	evaluator = New(evaluator.resolver, evaluator.model, Options{Structure: structure})
+	annotations, ok := evaluator.Property(annotatingElement, "AnnotatingElement", "annotation")
+	if !ok || annotations.Kind != SequenceValue || len(annotations.Values) != 2 ||
+		annotations.Values[0].Element.Key() != owningAnnotation.Key() ||
+		annotations.Values[1].Element.Key() != annotation.Key() {
+		t.Fatalf("AnnotatingElement::annotation = %#v, %t; want owning Annotation prepended to owned Annotation", annotations, ok)
 	}
 }
 

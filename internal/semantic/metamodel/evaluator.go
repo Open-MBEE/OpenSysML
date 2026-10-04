@@ -90,7 +90,11 @@ func (e *Evaluator) derive(el Element, class, name string) (Value, bool) {
 			return e.libraryElementProperty(el)
 		}
 	case "Feature":
-		if name == "direction" && sym != nil {
+		switch name {
+		case "direction":
+			if sym == nil {
+				return Value{}, false
+			}
 			direction, ok := e.featureDirectionOf(el)
 			if !ok {
 				return Value{}, false
@@ -99,6 +103,26 @@ func (e *Evaluator) derive(el Element, class, name string) (Value, bool) {
 				return nullValue(), true
 			}
 			return enumValue(direction.String()), true
+		case "isComposite":
+			if sym == nil || e.model == nil {
+				return Value{}, false
+			}
+			return booleanValue(e.model.UsageIsComposite(sym)), true
+		case "isVariable":
+			if sym == nil || e.model == nil {
+				return Value{}, false
+			}
+			return booleanValue(e.model.FeatureIsVariable(sym)), true
+		}
+	case "Usage":
+		if sym == nil || e.model == nil {
+			return Value{}, false
+		}
+		switch name {
+		case "isReference":
+			return booleanValue(e.model.UsageIsReferential(sym)), true
+		case "mayTimeVary":
+			return booleanValue(e.model.UsageMayTimeVary(sym)), true
 		}
 	case "InstantiationExpression":
 		if name == "instantiatedType" {
@@ -155,14 +179,14 @@ func structurePropertyRequired(class, name string) bool {
 		"input", "output", "directedFeature", "endFeature", "multiplicity",
 		"type", "definition", "behavior", "association", "interaction", "result",
 		"function",
-		"isConjugated", "isVariable", "isComposite", "isReference",
+		"isConjugated",
 		"mayTimeVary", "memberElement", "memberName", "memberShortName",
 		"membershipOwningNamespace", "source", "target", "relatedElement",
 		"ownedRelatedElement", "owningRelatedElement", "action", "ownedConstraint",
 		"chainingFeature", "featureTarget", "featuringType", "crossFeature", "annotation",
 		"annotatedElement", "annotatingElement", "documentedElement", "expression",
 		"parameter", "step", "connectorEnd", "relatedFeature", "sourceFeature",
-		"targetFeature", "isModelLevelEvaluable",
+		"targetFeature", "isModelLevelEvaluable", "isVariable",
 		"lowerBound", "upperBound", "bound", "triggerAction", "guardExpression",
 		"effectAction", "actorParameter", "subjectParameter", "objectiveRequirement",
 		"stakeholderParameter", "framedConcern", "assumedConstraint", "requiredConstraint",
@@ -217,13 +241,30 @@ func (e *Evaluator) isMetaclass(element Element, expected string) (bool, bool) {
 		return false, false
 	}
 	actual, ok := e.options.Structure.Metaclass(element)
+	if !ok && element.Symbol != nil {
+		if metaclass := e.model.MetaclassOf(element.Symbol); metaclass != nil {
+			actual, ok = metaclass.Name, true
+		}
+	}
 	if !ok || actual == "" {
 		return false, false
 	}
 	if actual == expected {
 		return true, true
 	}
+	if expected == "Type" && isKerMLTypeUsageMetaclass(actual) {
+		return true, true
+	}
 	return e.options.Structure.Specializes(actual, expected), true
+}
+
+func isKerMLTypeUsageMetaclass(metaclass string) bool {
+	switch metaclass {
+	case "AssociationUsage", "BehaviorUsage", "ClassUsage", "InteractionUsage", "PredicateUsage", "StructureUsage":
+		return true
+	default:
+		return false
+	}
 }
 
 func (e *Evaluator) ownedUsageMetaclass(property string) (string, bool) {
@@ -302,7 +343,7 @@ func (e *Evaluator) completeMembers(sym *symbols.Symbol) bool {
 }
 
 func (e *Evaluator) featureTypes(sym *symbols.Symbol) ([]*symbols.Symbol, bool) {
-	if !e.completeSupertypes(sym) {
+	if !e.completeFeatureTypeInputs(sym) {
 		return nil, false
 	}
 	types := e.model.FeatureTypeSet(sym)
@@ -312,6 +353,41 @@ func (e *Evaluator) featureTypes(sym *symbols.Symbol) ([]*symbols.Symbol, bool) 
 		}
 	}
 	return types, true
+}
+
+func (e *Evaluator) completeFeatureTypeInputs(sym *symbols.Symbol) bool {
+	if sym == nil {
+		return false
+	}
+	seen := make(map[*symbols.Symbol]bool)
+	queue := []*symbols.Symbol{sym}
+	for len(queue) > 0 {
+		candidate := queue[0]
+		queue = queue[1:]
+		if candidate == nil || seen[candidate] {
+			continue
+		}
+		seen[candidate] = true
+		if e.model.SupertypesProvisional(candidate) ||
+			e.model.HasSpecializationCycle(candidate) ||
+			!e.completeRelationships(candidate) {
+			return false
+		}
+		for _, relationship := range semantics.RelationshipsOf(candidate) {
+			if relationship == nil || relationship.Kind == ast.RelTyping ||
+				!semantics.GeneralizationKind(relationship.Kind) {
+				continue
+			}
+			target := e.model.RelationshipTarget(candidate, relationship)
+			if target == nil {
+				return false
+			}
+			if target.IsFeature() {
+				queue = append(queue, target)
+			}
+		}
+	}
+	return true
 }
 
 func (e *Evaluator) completeRelationships(sym *symbols.Symbol) bool {
@@ -477,13 +553,27 @@ func (e *Evaluator) typedDefinitionProperty(sym *symbols.Symbol, expected string
 }
 
 func (e *Evaluator) instantiationExpressionProperty(element Element, name string) (Value, bool) {
-	constructor, ok := element.Node.(*ast.ConstructorExpr)
-	if !ok || name != "instantiatedType" || constructor.Type == nil ||
-		element.Container == nil || element.Container.Scope == nil || e.resolver == nil {
+	if name != "instantiatedType" || element.Container == nil ||
+		element.Container.Scope == nil || e.resolver == nil {
 		return Value{}, false
 	}
-	target, ok := e.resolver.ResolveTarget(element.Container.Scope, constructor.Type)
+	var callee *ast.QualifiedName
+	switch expression := element.Node.(type) {
+	case *ast.ConstructorExpr:
+		callee = expression.Type
+	case *ast.InvocationExpr:
+		callee = expression.Type
+	default:
+		return Value{}, false
+	}
+	if callee == nil {
+		return Value{}, false
+	}
+	target, ok := e.resolver.ResolveTarget(element.Container.Scope, callee)
 	if !ok || target == nil {
+		return Value{}, false
+	}
+	if _, constructor := element.Node.(*ast.ConstructorExpr); !constructor && !target.IsFeature() {
 		return Value{}, false
 	}
 	return elementValue(ElementOf(target)), true

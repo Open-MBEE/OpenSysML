@@ -1,13 +1,17 @@
 package metamodel
 
 import (
+	"strconv"
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/identity"
-	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
+
+type owningAnnotatingRelationshipStructure interface {
+	OwningAnnotatingRelationship(Element) (Element, bool, bool)
+}
 
 func (e *Evaluator) structureProperty(element Element, class, name string) (Value, bool, bool) {
 	structure := e.options.Structure
@@ -23,6 +27,9 @@ func (e *Evaluator) structureProperty(element Element, class, name string) (Valu
 			return Value{}, true, false
 		}
 		return Value{}, false, false
+	}
+	if name == "individualDefinition" {
+		return e.structureIndividualDefinition(element)
 	}
 	if expected, ok := typedDefinitionMetaclasses[name]; ok {
 		return e.structureTypedDefinition(element, expected, typedDefinitionMany[name])
@@ -162,8 +169,49 @@ func (e *Evaluator) structureProperty(element Element, class, name string) (Valu
 				return nullValue(), true, true
 			}
 			return enumValue(direction.String()), true, true
-		case "isComposite", "isVariable":
+		case "isComposite":
+			if controlNode, known := e.isMetaclass(element, "ControlNode"); known && controlNode {
+				return booleanValue(true), true, true
+			}
+			isUsage, known := e.isMetaclass(element, "Usage")
+			if !known {
+				return Value{}, true, false
+			}
+			if isUsage {
+				return e.semanticBooleanAttribute(element, name)
+			}
 			return e.structureAttribute(element, name)
+		case "isVariable":
+			if element.Symbol != nil && e.model != nil && e.model.IsKerMLFeature(element.Symbol) {
+				return booleanValue(e.model.FeatureIsVariable(element.Symbol)), true, true
+			}
+			isUsage, known := e.isMetaclass(element, "Usage")
+			if !known {
+				if element.Symbol == nil || e.model == nil {
+					return Value{}, true, false
+				}
+				return booleanValue(e.model.FeatureIsVariable(element.Symbol)), true, true
+			}
+			if isUsage {
+				if element.Symbol == nil {
+					return Value{}, true, false
+				}
+				value, ok := e.Property(element, "Usage", "mayTimeVary")
+				return value, true, ok
+			}
+			if value, ok := structure.Attribute(element, name); ok {
+				if value.Kind == BooleanValue {
+					return value, true, true
+				}
+				return Value{}, true, false
+			}
+			if element.Symbol == nil {
+				return booleanValue(false), true, true
+			}
+			if e.model == nil {
+				return Value{}, true, false
+			}
+			return booleanValue(e.model.FeatureIsVariable(element.Symbol)), true, true
 		}
 		if strings.HasPrefix(name, "owned") {
 			if rangeClass, ok := structureRange(class, name); ok {
@@ -173,14 +221,27 @@ func (e *Evaluator) structureProperty(element Element, class, name string) (Valu
 	case "AnnotatingElement":
 		switch name {
 		case "annotation":
-			return e.structureOwnedFilter(element, "Annotation", false)
+			return e.structureAnnotation(element)
 		case "annotatedElement":
 			return e.structureAnnotatedElements(element)
+		case "ownedAnnotatingRelationship":
+			return e.structureOwnedAnnotatingRelationships(element)
+		case "owningAnnotatingRelationship":
+			return e.structureOwningAnnotatingRelationship(element)
 		}
 		if strings.HasPrefix(name, "owned") {
 			if rangeClass, ok := structureRange(class, name); ok && rangeClass != "Feature" {
 				return e.structureOwnedFilter(element, rangeClass, false)
 			}
+		}
+	case "Annotation":
+		switch name {
+		case "annotatingElement":
+			return e.structureAnnotationAnnotatingElement(element)
+		case "ownedAnnotatingElement":
+			return e.structureAnnotationOwnedAnnotatingElement(element)
+		case "owningAnnotatingElement":
+			return e.structureAnnotationOwningAnnotatingElement(element)
 		}
 	case "Usage":
 		switch name {
@@ -195,9 +256,6 @@ func (e *Evaluator) structureProperty(element Element, class, name string) (Valu
 		case "variant", "variantMembership":
 			return e.structureVariantProperty(element, name)
 		case "isReference", "mayTimeVary":
-			if value, ok := structure.Attribute(element, name); ok {
-				return value, true, true
-			}
 			return e.semanticBooleanAttribute(element, name)
 		}
 		if strings.HasPrefix(name, "nested") {
@@ -250,9 +308,9 @@ func (e *Evaluator) structureProperty(element Element, class, name string) (Valu
 	case "Expression":
 		switch name {
 		case "function":
-			if instantiation, known := e.isMetaclass(element, "InstantiationExpression"); !known {
+			if constructor, known := e.isMetaclass(element, "ConstructorExpression"); !known {
 				return Value{}, true, false
-			} else if instantiation {
+			} else if constructor {
 				return Value{}, true, false
 			}
 			return e.structureTypedFeatureTypes(element, "Function", true)
@@ -313,6 +371,10 @@ func (e *Evaluator) structureProperty(element Element, class, name string) (Valu
 
 func (e *Evaluator) structureMembershipProperty(element Element, class, name string) (Value, bool, bool) {
 	switch name {
+	case "name":
+		return e.structureName(element, "name")
+	case "shortName":
+		return e.structureName(element, "shortName")
 	case "memberName":
 		return e.structureMemberName(element, "memberName", "declaredName")
 	case "memberShortName":
@@ -785,12 +847,41 @@ func (e *Evaluator) semanticBooleanAttribute(element Element, property string) (
 	}
 	var value bool
 	switch property {
+	case "isComposite":
+		composite, handled, ok := e.structureUsageComposite(element)
+		if handled {
+			if !ok {
+				return Value{}, true, false
+			}
+			value = composite
+		} else {
+			value = e.model.UsageIsComposite(element.Symbol)
+		}
 	case "isVariable":
+		if element.Symbol == nil {
+			return Value{}, true, false
+		}
 		value = e.model.FeatureIsVariable(element.Symbol)
 	case "isReference":
-		value = semantics.UsageIsReferential(element.Symbol)
+		composite, handled, ok := e.structureUsageComposite(element)
+		if handled {
+			if !ok {
+				return Value{}, true, false
+			}
+			value = !composite
+		} else {
+			value = e.model.UsageIsReferential(element.Symbol)
+		}
 	case "mayTimeVary":
-		value = e.model.UsageMayTimeVary(element.Symbol)
+		owningType, handled, ok := e.structureOwningType(element)
+		if !handled || !ok {
+			return Value{}, true, false
+		}
+		var owner *symbols.Symbol
+		if owningType.Kind == ElementValue {
+			owner = owningType.Element.Symbol
+		}
+		value = e.model.UsageMayTimeVaryForOwningType(element.Symbol, owner)
 	default:
 		reflective, ok := e.model.ReflectiveFeatureValue(element.Symbol, property)
 		if !ok || reflective.Kind != symbols.FilterValueBool {
@@ -801,7 +892,52 @@ func (e *Evaluator) semanticBooleanAttribute(element Element, property string) (
 	return booleanValue(value), true, true
 }
 
+func (e *Evaluator) structureUsageComposite(element Element) (bool, bool, bool) {
+	controlNode, known := e.isMetaclass(element, "ControlNode")
+	if !known {
+		return false, true, false
+	}
+	if controlNode {
+		return true, true, true
+	}
+	for _, class := range []string{"AttributeUsage", "ReferenceUsage", "EventOccurrenceUsage"} {
+		matches, known := e.isMetaclass(element, class)
+		if !known {
+			return false, true, false
+		}
+		if matches {
+			return false, true, true
+		}
+	}
+	portUsage, known := e.isMetaclass(element, "PortUsage")
+	if !known {
+		return false, true, false
+	}
+	if portUsage {
+		owningType, handled, ok := e.structureOwningType(element)
+		if !handled || !ok {
+			return false, true, false
+		}
+		if owningType.Kind != ElementValue {
+			return false, true, true
+		}
+		portDefinition, known := e.isMetaclass(owningType.Element, "PortDefinition")
+		if !known {
+			return false, true, false
+		}
+		portTypeUsage, known := e.isMetaclass(owningType.Element, "PortUsage")
+		if !known {
+			return false, true, false
+		}
+		if !portDefinition && !portTypeUsage {
+			return false, true, true
+		}
+	}
+	return e.model.UsageIsComposite(element.Symbol), true, true
+}
+
 func (e *Evaluator) structureName(element Element, property string) (Value, bool, bool) {
+	effectiveProperty := property
 	if element.Symbol != nil && !element.IsMembership {
 		switch property {
 		case "name":
@@ -812,6 +948,12 @@ func (e *Evaluator) structureName(element Element, property string) (Value, bool
 			if name := e.model.EffectiveShortNameOf(element.Symbol); name != "" {
 				return stringValue(name), true, true
 			}
+		}
+		if value, ok := e.structureImplicitEndName(element, effectiveProperty); ok {
+			return value, true, true
+		}
+		if !e.hasEffectiveNameSource(element.Symbol) {
+			return Value{}, true, false
 		}
 		return nullValue(), true, true
 	}
@@ -828,11 +970,126 @@ func (e *Evaluator) structureName(element Element, property string) (Value, bool
 	if value.Kind == StringValue && value.String != "" {
 		return value, true, true
 	}
+	if !element.IsMembership {
+		isFeature, known := e.isMetaclass(element, "Feature")
+		if !known {
+			return Value{}, true, false
+		}
+		if isFeature {
+			value, ok := e.structureImplicitEndName(element, effectiveProperty)
+			if ok {
+				return value, true, true
+			}
+			return Value{}, true, false
+		}
+	}
 	return nullValue(), true, true
 }
 
+func (e *Evaluator) structureImplicitEndName(element Element, property string) (Value, bool) {
+	if e.model == nil {
+		return Value{}, false
+	}
+	container := element.Container
+	if container == nil && element.Symbol != nil && element.Symbol.OwnerScope != nil {
+		container = element.Symbol.OwnerScope.Owner()
+	}
+	end := strings.LastIndex(element.Aspect, "end")
+	if end < 0 {
+		return Value{}, false
+	}
+	suffix := element.Aspect[end+len("end"):]
+	digits := strings.IndexFunc(suffix, func(r rune) bool { return r < '0' || r > '9' })
+	if digits < 0 {
+		digits = len(suffix)
+	}
+	if digits == 0 {
+		return Value{}, false
+	}
+	index, err := strconv.Atoi(suffix[:digits])
+	if err != nil || index < 0 {
+		return Value{}, false
+	}
+	if container != nil {
+		if value, ok := e.structureImplicitEndNameFromTypes(e.model.FeatureTypes(container), index, property); ok {
+			return value, true
+		}
+	}
+	if !e.structureIsSuccessionEnd(element) || e.resolver == nil || e.resolver.Index() == nil {
+		return Value{}, false
+	}
+	for _, base := range e.resolver.Index().LookupQualified("Occurrences::happensBeforeLinks") {
+		if value, ok := e.structureImplicitEndNameFromTypes(e.model.FeatureTypes(base), index, property); ok {
+			return value, true
+		}
+	}
+	return Value{}, false
+}
+
+func (e *Evaluator) structureImplicitEndNameFromTypes(types []*symbols.Symbol, index int, property string) (Value, bool) {
+	for _, typ := range types {
+		ends := e.model.EndFeatures(typ)
+		if index >= len(ends) || ends[index] == nil {
+			continue
+		}
+		var name string
+		switch property {
+		case "name":
+			name = e.model.EffectiveNameOf(ends[index])
+		case "shortName":
+			name = e.model.EffectiveShortNameOf(ends[index])
+		}
+		if name != "" {
+			return stringValue(name), true
+		}
+	}
+	return Value{}, false
+}
+
+func (e *Evaluator) structureIsSuccessionEnd(element Element) bool {
+	if e.options.Structure == nil {
+		return false
+	}
+	membership, known, present := e.options.Structure.OwningRelationship(element)
+	if !known || !present {
+		return false
+	}
+	connector, known, present := e.options.Structure.OwningRelatedElement(membership)
+	if !known || !present {
+		return false
+	}
+	class, known := e.options.Structure.Metaclass(connector)
+	return known && (class == "SuccessionAsUsage" ||
+		e.options.Structure.Specializes(class, "SuccessionAsUsage"))
+}
+
+func (e *Evaluator) hasEffectiveNameSource(symbol *symbols.Symbol) bool {
+	switch symbol.Naming {
+	case symbols.NamedByRedefinition:
+		return len(e.model.AllRedefinedFeatures(symbol)) > 0
+	case symbols.NamedByReference:
+		return e.model.ReferencedFeature(symbol) != nil
+	default:
+		return true
+	}
+}
+
 func (e *Evaluator) structureAnnotatedElements(element Element) (Value, bool, bool) {
-	annotations, handled, ok := e.structureOwnedFilter(element, "Annotation", false)
+	if comment, ok := element.Node.(*ast.Comment); ok && len(comment.About) > 0 {
+		if element.Symbol == nil || element.Symbol.OwnerScope == nil || e.resolver == nil {
+			return Value{}, true, false
+		}
+		values := make([]Value, 0, len(comment.About))
+		for _, about := range comment.About {
+			target, ok := e.resolver.ResolveQualified(element.Symbol.OwnerScope, about)
+			if !ok || target == nil {
+				return Value{}, true, false
+			}
+			values = append(values, elementValue(ElementOf(target)))
+		}
+		return sequence(values...), true, true
+	}
+	annotations, handled, ok := e.structureAnnotation(element)
 	if !handled || !ok {
 		return Value{}, true, false
 	}
@@ -847,10 +1104,152 @@ func (e *Evaluator) structureAnnotatedElements(element Element) (Value, bool, bo
 		}
 		values = append(values, targets...)
 	}
-	return uniqueValueSequence(values), true, true
+	if len(annotations.Values) > 0 {
+		return uniqueStructureValueSequence(values, e.options.Structure), true, true
+	}
+	namespace, handled, ok := e.structureOwningNamespace(element)
+	if !handled || !ok {
+		return Value{}, true, false
+	}
+	return sequence(namespace), true, true
+}
+
+func (e *Evaluator) structureAnnotation(element Element) (Value, bool, bool) {
+	if comment, ok := element.Node.(*ast.Comment); ok && len(comment.About) > 0 {
+		return Value{}, true, false
+	}
+	owned, handled, ok := e.structureOwnedAnnotatingRelationships(element)
+	if !handled || !ok {
+		return Value{}, true, false
+	}
+	owning, handled, ok := e.structureOwningAnnotatingRelationship(element)
+	if !handled || !ok {
+		return Value{}, true, false
+	}
+	if owning.Kind != ElementValue {
+		return owned, true, true
+	}
+	values := make([]Value, 0, len(owned.Values)+1)
+	values = append(values, owning)
+	values = append(values, owned.Values...)
+	return uniqueStructureValueSequence(values, e.options.Structure), true, true
+}
+
+func (e *Evaluator) structureOwnedAnnotatingRelationships(element Element) (Value, bool, bool) {
+	if comment, ok := element.Node.(*ast.Comment); ok && len(comment.About) > 0 {
+		return Value{}, true, false
+	}
+	owned, handled, ok := e.structureOwnedFilter(element, "Annotation", false)
+	if !handled || !ok {
+		return Value{}, true, false
+	}
+	values := make([]Value, 0, len(owned.Values))
+	for _, annotation := range owned.Values {
+		if annotation.Kind != ElementValue {
+			return Value{}, true, false
+		}
+		targets, ok := e.relationshipEndpoints(annotation.Element, "annotatedElement")
+		if !ok || len(targets) == 0 {
+			return Value{}, true, false
+		}
+		annotatesSelf := false
+		for _, target := range targets {
+			if target.Kind != ElementValue {
+				return Value{}, true, false
+			}
+			if sameStructureElement(target.Element, element, e.options.Structure) {
+				annotatesSelf = true
+				break
+			}
+		}
+		if !annotatesSelf {
+			values = append(values, annotation)
+		}
+	}
+	return sequence(values...), true, true
+}
+
+func (e *Evaluator) structureOwningAnnotatingRelationship(element Element) (Value, bool, bool) {
+	var relationship Element
+	var present, known bool
+	if structure, ok := e.options.Structure.(owningAnnotatingRelationshipStructure); ok {
+		relationship, present, known = structure.OwningAnnotatingRelationship(element)
+	} else {
+		relationship, present, known = e.options.Structure.OwningRelationship(element)
+	}
+	if !known {
+		return Value{}, true, false
+	}
+	if !present {
+		return nullValue(), true, true
+	}
+	matches, known := e.isMetaclass(relationship, "Annotation")
+	if !known {
+		return Value{}, true, false
+	}
+	if !matches {
+		return nullValue(), true, true
+	}
+	return elementValue(relationship), true, true
+}
+
+func (e *Evaluator) structureAnnotationOwnedAnnotatingElement(annotation Element) (Value, bool, bool) {
+	related, ok := e.options.Structure.OwnedRelatedElements(annotation)
+	if !ok {
+		return Value{}, true, false
+	}
+	filtered, ok := e.structureFilterValues(structureSequence(related).Values, "AnnotatingElement")
+	if !ok {
+		return Value{}, true, false
+	}
+	if len(filtered) == 0 {
+		return nullValue(), true, true
+	}
+	return filtered[0], true, true
+}
+
+func (e *Evaluator) structureAnnotationOwningAnnotatingElement(annotation Element) (Value, bool, bool) {
+	related, present, ok := e.options.Structure.OwningRelatedElement(annotation)
+	if !ok {
+		return Value{}, true, false
+	}
+	if !present {
+		return nullValue(), true, true
+	}
+	filtered, ok := e.structureFilterValues([]Value{elementValue(related)}, "AnnotatingElement")
+	if !ok {
+		return Value{}, true, false
+	}
+	if len(filtered) == 0 {
+		return nullValue(), true, true
+	}
+	if len(filtered) > 1 {
+		return Value{}, true, false
+	}
+	return filtered[0], true, true
+}
+
+func (e *Evaluator) structureAnnotationAnnotatingElement(annotation Element) (Value, bool, bool) {
+	owned, handled, ok := e.structureAnnotationOwnedAnnotatingElement(annotation)
+	if !handled || !ok {
+		return Value{}, true, false
+	}
+	if owned.Kind == ElementValue {
+		return owned, true, true
+	}
+	return e.structureAnnotationOwningAnnotatingElement(annotation)
 }
 
 func (e *Evaluator) structureQualifiedName(element Element, seen map[ElementKey]bool) (Value, bool, bool) {
+	if element.Symbol != nil && e.resolver != nil && e.resolver.Index() != nil {
+		if library, ok := identity.LibraryCatalog(e.resolver.Index()).ElementForSymbol(element.Symbol); ok {
+			parts := strings.Split(library.FQN, "::")
+			for i := range parts {
+				parts[i] = identity.EscapeName(parts[i])
+			}
+			return stringValue(strings.Join(parts, "::")), true, true
+		}
+	}
 	key := element.Key()
 	if seen[key] {
 		return Value{}, true, false
@@ -946,7 +1345,14 @@ func (e *Evaluator) structureOwnerElement(element Element) (Element, bool, bool)
 }
 
 func (e *Evaluator) structureOwner(element Element) (Value, bool, bool) {
-	owner, present, known := e.structureOwnerElement(element)
+	relationship, present, known := e.options.Structure.OwningRelationship(element)
+	if !known {
+		return Value{}, true, false
+	}
+	if !present {
+		return nullValue(), true, true
+	}
+	owner, present, known := e.options.Structure.OwningRelatedElement(relationship)
 	if !known {
 		return Value{}, true, false
 	}
@@ -996,21 +1402,29 @@ func (e *Evaluator) structureOwningMembership(element Element) (Value, bool, boo
 }
 
 func (e *Evaluator) structureOwningNamespace(element Element) (Value, bool, bool) {
-	owner, present, known := e.structureOwnerElement(element)
+	membership, handled, ok := e.structureOwningMembership(element)
+	if !handled || !ok {
+		return Value{}, true, false
+	}
+	if membership.Kind != MembershipValue {
+		return nullValue(), true, true
+	}
+	membershipElement := MembershipElement(membership.Membership)
+	namespace, present, known := e.options.Structure.OwningRelatedElement(membershipElement)
 	if !known {
 		return Value{}, true, false
 	}
 	if !present {
 		return nullValue(), true, true
 	}
-	isNamespace, known := e.isMetaclass(owner, "Namespace")
+	isNamespace, known := e.isMetaclass(namespace, "Namespace")
 	if !known {
 		return Value{}, true, false
 	}
 	if !isNamespace {
 		return nullValue(), true, true
 	}
-	return elementValue(owner), true, true
+	return elementValue(namespace), true, true
 }
 
 func (e *Evaluator) structureOptional(element Element) (Value, bool, bool) {
@@ -1019,24 +1433,6 @@ func (e *Evaluator) structureOptional(element Element) (Value, bool, bool) {
 		return Value{}, true, false
 	}
 	if !present {
-		return nullValue(), true, true
-	}
-	return elementValue(value), true, true
-}
-
-func (e *Evaluator) structureOwningAnnotatingRelationship(element Element) (Value, bool, bool) {
-	value, present, known := e.options.Structure.OwningRelationship(element)
-	if !known {
-		return Value{}, true, false
-	}
-	if !present {
-		return nullValue(), true, true
-	}
-	matches, known := e.isMetaclass(value, "Annotation")
-	if !known {
-		return Value{}, true, false
-	}
-	if !matches {
 		return nullValue(), true, true
 	}
 	return elementValue(value), true, true
@@ -1051,7 +1447,7 @@ func (e *Evaluator) structureOwnedRelationshipValues(element Element) (Value, bo
 	for _, relationship := range relationships {
 		values = append(values, elementValue(relationship))
 	}
-	return sequence(values...), true, true
+	return uniqueStructureValueSequence(values, e.options.Structure), true, true
 }
 
 func (e *Evaluator) structureOwnedElements(element Element) (Value, bool, bool) {
@@ -1067,7 +1463,7 @@ func (e *Evaluator) structureOwnedElements(element Element) (Value, bool, bool) 
 		}
 		values = append(values, related...)
 	}
-	return structureSequence(values), true, true
+	return uniqueStructureValueSequence(structureSequence(values).Values, e.options.Structure), true, true
 }
 
 func (e *Evaluator) structureOwnedFilter(element Element, expected string, memberships bool) (Value, bool, bool) {
@@ -1087,9 +1483,12 @@ func (e *Evaluator) structureOwnedFilter(element Element, expected string, membe
 	}
 	if memberships {
 		sequence, ok := structureMembershipSequence(values)
-		return sequence, true, ok
+		if !ok {
+			return Value{}, true, false
+		}
+		return uniqueStructureValueSequence(sequence.Values, e.options.Structure), true, true
 	}
-	return structureSequence(values), true, true
+	return uniqueStructureValueSequence(structureSequence(values).Values, e.options.Structure), true, true
 }
 
 func (e *Evaluator) structureOwnedFeatures(element Element) (Value, bool, bool) {
@@ -1117,7 +1516,7 @@ func (e *Evaluator) structureOwnedFeatures(element Element) (Value, bool, bool) 
 			}
 		}
 	}
-	return sequence(features...), true, true
+	return uniqueStructureValueSequence(features, e.options.Structure), true, true
 }
 
 func (e *Evaluator) structureOwnedMembers(element Element) (Value, bool, bool) {
@@ -1134,7 +1533,7 @@ func (e *Evaluator) structureOwnedMembers(element Element) (Value, bool, bool) {
 		}
 		members = append(members, values...)
 	}
-	return structureSequence(members), true, true
+	return uniqueStructureValueSequence(structureSequence(members).Values, e.options.Structure), true, true
 }
 
 func (e *Evaluator) structureEffectiveFeatures(element Element) (Value, bool, bool) {
@@ -1148,7 +1547,7 @@ func (e *Evaluator) structureEffectiveFeatures(element Element) (Value, bool, bo
 	}
 	inherited := e.inheritedSymbols(element.Symbol, all)
 	values := append(slicesClone(owned.Values), symbolSequence(inherited).Values...)
-	return sequence(values...), true, true
+	return uniqueStructureValueSequence(values, e.options.Structure), true, true
 }
 
 func (e *Evaluator) structureDirectedFeatures(element Element, property string) (Value, bool, bool) {
@@ -1262,7 +1661,8 @@ func (e *Evaluator) structureEffectiveFeatureMemberships(element Element) (Value
 	if !ok {
 		return Value{}, true, false
 	}
-	return sequence(append(slicesClone(owned.Values), membershipSequence(inherited).Values...)...), true, true
+	values := append(slicesClone(owned.Values), membershipSequence(inherited).Values...)
+	return uniqueStructureValueSequence(values, e.options.Structure), true, true
 }
 
 func (e *Evaluator) structureFeatureMemberships(members []*symbols.Symbol) ([]Membership, bool) {
@@ -1379,8 +1779,51 @@ func (e *Evaluator) structureEffectiveEndFeatures(element Element) (Value, bool,
 }
 
 func (e *Evaluator) structureFeatureTypes(element Element) (Value, bool, bool) {
+	value, handled, ok := e.structureFeatureTypesFrom(element, make(map[ElementKey]bool))
+	if !handled || !ok || len(value.Values) != 0 {
+		return value, handled, ok
+	}
+	relationships, known := e.options.Structure.OwnedRelationships(element)
+	if !known {
+		return Value{}, true, false
+	}
+	for _, relationship := range relationships {
+		for _, metaclass := range []string{"FeatureTyping", "Subsetting"} {
+			matches, known := e.isMetaclass(relationship, metaclass)
+			if !known {
+				return Value{}, true, false
+			}
+			if matches {
+				return Value{}, true, false
+			}
+		}
+	}
+	chaining, handled, ok := e.structureFeatureChaining(element)
+	if !handled || !ok {
+		return Value{}, true, false
+	}
+	if len(chaining.Values) != 0 {
+		return Value{}, true, false
+	}
+	return value, true, true
+}
+
+func (e *Evaluator) structureFeatureTypesFrom(element Element, visiting map[ElementKey]bool) (Value, bool, bool) {
+	key := structureElementKey(element, e.options.Structure)
+	if visiting[key] {
+		return sequence(), true, true
+	}
+	visiting[key] = true
+	defer delete(visiting, key)
+
 	relationships, ok := e.options.Structure.OwnedRelationships(element)
 	if !ok {
+		if element.Symbol != nil {
+			types, supported := e.featureTypes(element.Symbol)
+			if supported {
+				return symbolSequence(types), true, true
+			}
+		}
 		return Value{}, true, false
 	}
 	values := make([]Value, 0)
@@ -1397,35 +1840,158 @@ func (e *Evaluator) structureFeatureTypes(element Element) (Value, bool, bool) {
 			return Value{}, true, false
 		}
 		targets, ok = e.structureFilterValues(targets, "Type")
-		if !ok {
+		if !ok || len(targets) == 0 {
 			return Value{}, true, false
 		}
 		values = append(values, targets...)
 	}
-	if element.Symbol == nil || !e.completeSupertypes(element.Symbol) {
-		return Value{}, true, false
-	}
-	inherited, ok := e.featureTypes(element.Symbol)
-	if !ok {
-		return Value{}, true, false
-	}
-	for _, target := range inherited {
-		if target == nil {
+
+	for _, relationship := range relationships {
+		subsetting, known := e.isMetaclass(relationship, "Subsetting")
+		if !known {
 			return Value{}, true, false
 		}
-		value := elementValue(ElementOf(target))
-		alreadyOwned := false
-		for _, owned := range values {
-			if owned.Kind == ElementValue && owned.Element.Key() == value.Element.Key() {
-				alreadyOwned = true
+		if !subsetting {
+			continue
+		}
+		metaclass, known := e.options.Structure.Metaclass(relationship)
+		if !known {
+			return Value{}, true, false
+		}
+		targetProperty := "subsettedFeature"
+		switch {
+		case e.options.Structure.Specializes(metaclass, "Redefinition"):
+			targetProperty = "redefinedFeature"
+		case e.options.Structure.Specializes(metaclass, "ReferenceSubsetting"):
+			targetProperty = "referencedFeature"
+		}
+		targets, ok := e.relationshipEndpoints(relationship, targetProperty)
+		if !ok {
+			return Value{}, true, false
+		}
+		targets, ok = e.structureFilterValues(targets, "Feature")
+		if !ok || len(targets) == 0 {
+			return Value{}, true, false
+		}
+		for _, target := range targets {
+			if target.Kind != ElementValue {
+				return Value{}, true, false
+			}
+			types, handled, ok := e.structureFeatureTypesFrom(target.Element, visiting)
+			if !handled || !ok {
+				return Value{}, true, false
+			}
+			values = append(values, types.Values...)
+		}
+	}
+
+	chaining, handled, ok := e.structureFeatureChaining(element)
+	if !handled || !ok {
+		return Value{}, true, false
+	}
+
+	typeSources := make([]*symbols.Symbol, 0, 2)
+	if element.Symbol != nil && element.Symbol.IsFeature() {
+		typeSources = append(typeSources, element.Symbol)
+	}
+	if instantiated, ok := e.instantiationExpressionProperty(element, "instantiatedType"); ok &&
+		instantiated.Kind == ElementValue && instantiated.Element.Symbol != nil &&
+		instantiated.Element.Symbol.IsFeature() {
+		typeSource := instantiated.Element.Symbol
+		if len(typeSources) == 0 || typeSources[0] != typeSource {
+			typeSources = append(typeSources, typeSource)
+		}
+	}
+	if len(typeSources) > 0 {
+		for _, typeSource := range typeSources {
+			if !e.completeFeatureTypeInputs(typeSource) {
+				return Value{}, true, false
+			}
+			inherited := e.model.FeatureTypeSet(typeSource)
+			if len(inherited) == 0 {
+				if _, hasBase := e.model.FeatureBaseFQN(typeSource); hasBase &&
+					len(values) == 0 && len(chaining.Values) == 0 {
+					return Value{}, true, false
+				}
+				continue
+			}
+			for _, target := range inherited {
+				if target == nil {
+					return Value{}, true, false
+				}
+				value := elementValue(ElementOf(target))
+				alreadyOwned := false
+				for _, owned := range values {
+					if owned.Kind == ElementValue &&
+						sameStructureElement(owned.Element, value.Element, e.options.Structure) {
+						alreadyOwned = true
+						break
+					}
+				}
+				if !alreadyOwned {
+					values = append(values, value)
+				}
+			}
+		}
+	}
+
+	if len(chaining.Values) > 0 {
+		last := chaining.Values[len(chaining.Values)-1]
+		if last.Kind != ElementValue {
+			return Value{}, true, false
+		}
+		types, handled, ok := e.structureFeatureTypesFrom(last.Element, visiting)
+		if !handled || !ok {
+			return Value{}, true, false
+		}
+		values = append(values, types.Values...)
+	}
+	return e.mostSpecificFeatureTypes(values)
+}
+
+func (e *Evaluator) mostSpecificFeatureTypes(values []Value) (Value, bool, bool) {
+	values = uniqueStructureValueSequence(values, e.options.Structure).Values
+	if len(values) < 2 {
+		return sequence(values...), true, true
+	}
+	types := make([]Value, 0, len(values))
+	for i, candidate := range values {
+		if candidate.Kind != ElementValue {
+			return Value{}, true, false
+		}
+		redundant := false
+		for j, other := range values {
+			if i == j {
+				continue
+			}
+			if other.Kind != ElementValue {
+				return Value{}, true, false
+			}
+			specializes, known := e.featureTypeConforms(other.Element, candidate.Element)
+			if !known {
+				return Value{}, true, false
+			}
+			if specializes {
+				redundant = true
 				break
 			}
 		}
-		if !alreadyOwned {
-			values = append(values, value)
+		if !redundant {
+			types = append(types, candidate)
 		}
 	}
-	return uniqueValueSequence(values), true, true
+	return sequence(types...), true, true
+}
+
+func (e *Evaluator) featureTypeConforms(specific, general Element) (bool, bool) {
+	if sameStructureElement(specific, general, e.options.Structure) {
+		return true, true
+	}
+	if specific.Symbol == nil || general.Symbol == nil || e.model == nil ||
+		!e.completeSupertypes(specific.Symbol) || !e.completeSupertypes(general.Symbol) {
+		return false, false
+	}
+	return e.model.Conforms(specific.Symbol, general.Symbol), true
 }
 
 func (e *Evaluator) structureTypedDefinition(element Element, expected string, many bool) (Value, bool, bool) {
@@ -1453,6 +2019,30 @@ func (e *Evaluator) structureTypedDefinition(element Element, expected string, m
 		return nullValue(), true, true
 	}
 	return definitions[0], true, true
+}
+
+func (e *Evaluator) structureIndividualDefinition(element Element) (Value, bool, bool) {
+	definitions, handled, ok := e.structureTypedDefinition(element, "OccurrenceDefinition", true)
+	if !handled || !ok {
+		return Value{}, true, false
+	}
+	var individuals []Value
+	for _, definition := range definitions.Values {
+		if definition.Kind != ElementValue {
+			return Value{}, true, false
+		}
+		isIndividual, known := e.options.Structure.Attribute(definition.Element, "isIndividual")
+		if !known || isIndividual.Kind != BooleanValue {
+			return Value{}, true, false
+		}
+		if isIndividual.Boolean {
+			individuals = append(individuals, definition)
+		}
+	}
+	if len(individuals) == 0 {
+		return nullValue(), true, true
+	}
+	return individuals[0], true, true
 }
 
 func (e *Evaluator) structureTypeOperands(element Element, property string) (Value, bool, bool) {
@@ -1541,23 +2131,18 @@ func (e *Evaluator) structureEndOwningType(element Element) (Value, bool, bool) 
 }
 
 func (e *Evaluator) structureFeatureTarget(element Element) (Value, bool, bool) {
-	relationships, handled, ok := e.structureOwnedFilter(element, "ReferenceSubsetting", false)
+	chains, handled, ok := e.structureFeatureChaining(element)
 	if !handled || !ok {
 		return Value{}, true, false
 	}
-	var targets []Value
-	for _, relationship := range relationships.Values {
-		endpoints, ok := e.relationshipEndpoints(relationship.Element, "referencedFeature")
-		if !ok {
-			return Value{}, true, false
-		}
-		filtered, ok := e.structureFilterValues(endpoints, "Feature")
-		if !ok {
-			return Value{}, true, false
-		}
-		targets = append(targets, filtered...)
+	if len(chains.Values) == 0 {
+		return elementValue(element), true, true
 	}
-	return structurePropertyCardinality(targets, true)
+	last := chains.Values[len(chains.Values)-1]
+	if last.Kind != ElementValue {
+		return Value{}, true, false
+	}
+	return last, true, true
 }
 
 func (e *Evaluator) structureFeaturingTypes(element Element, seen map[ElementKey]bool) (Value, bool, bool) {
@@ -1566,6 +2151,13 @@ func (e *Evaluator) structureFeaturingTypes(element Element, seen map[ElementKey
 		return Value{}, true, false
 	}
 	seen[key] = true
+	variable, handled, ok := e.structureEffectiveFeatureVariable(element)
+	if !handled || !ok || variable.Kind != BooleanValue {
+		return Value{}, true, false
+	}
+	if variable.Boolean {
+		return Value{}, true, false
+	}
 	relations, handled, ok := e.structureOwnedFilter(element, "TypeFeaturing", false)
 	if !handled || !ok {
 		return Value{}, true, false
@@ -1587,13 +2179,6 @@ func (e *Evaluator) structureFeaturingTypes(element Element, seen map[ElementKey
 		return Value{}, true, false
 	}
 	if owningMembership.Kind == MembershipValue {
-		variable, known := e.options.Structure.Attribute(element, "isVariable")
-		if !known || variable.Kind != BooleanValue {
-			return Value{}, true, false
-		}
-		if variable.Boolean {
-			return Value{}, true, false
-		}
 		owningType, handled, ok := e.structureOwningType(element)
 		if !handled || !ok {
 			return Value{}, true, false
@@ -1602,22 +2187,34 @@ func (e *Evaluator) structureFeaturingTypes(element Element, seen map[ElementKey
 			values = append(values, owningType)
 		}
 	}
-	chains, handled, ok := e.structureOwnedFilter(element, "FeatureChaining", false)
+	chains, handled, ok := e.structureFeatureChaining(element)
 	if !handled || !ok {
 		return Value{}, true, false
 	}
 	if len(chains.Values) > 0 {
-		endpoints, ok := e.relationshipEndpoints(chains.Values[0].Element, "chainingFeature")
-		if !ok || len(endpoints) != 1 || endpoints[0].Kind != ElementValue {
+		if chains.Values[0].Kind != ElementValue {
 			return Value{}, true, false
 		}
-		features, handled, ok := e.structureFeaturingTypes(endpoints[0].Element, seen)
+		features, handled, ok := e.structureFeaturingTypes(chains.Values[0].Element, seen)
 		if !handled || !ok {
 			return Value{}, true, false
 		}
 		values = append(values, features.Values...)
 	}
-	return uniqueValueSequence(values), true, true
+	return uniqueStructureValueSequence(values, e.options.Structure), true, true
+}
+
+func (e *Evaluator) structureEffectiveFeatureVariable(element Element) (Value, bool, bool) {
+	isUsage, known := e.isMetaclass(element, "Usage")
+	if !known {
+		return Value{}, true, false
+	}
+	if isUsage {
+		value, ok := e.Property(element, "Usage", "mayTimeVary")
+		return value, true, ok
+	}
+	value, ok := e.Property(element, "Feature", "isVariable")
+	return value, true, ok
 }
 
 func (e *Evaluator) structureMemberName(element Element, memberProperty, nameProperty string) (Value, bool, bool) {
@@ -1664,7 +2261,8 @@ func (e *Evaluator) structureNamespaceMemberships(element Element) (Value, bool,
 	if !handled || !ok {
 		return Value{}, true, false
 	}
-	return sequence(append(append(slicesClone(owned.Values), membershipSequence(inherited).Values...), imported.Values...)...), true, true
+	values := append(append(slicesClone(owned.Values), membershipSequence(inherited).Values...), imported.Values...)
+	return uniqueStructureValueSequence(values, e.options.Structure), true, true
 }
 
 func (e *Evaluator) structureImportedMemberships(element Element) (Value, bool, bool) {
@@ -1727,7 +2325,7 @@ func (e *Evaluator) structureNamespaceMembers(element Element) (Value, bool, boo
 			values = append(values, elementValue(member))
 		}
 	}
-	return uniqueValueSequence(values), true, true
+	return uniqueStructureValueSequence(values, e.options.Structure), true, true
 }
 
 func (e *Evaluator) structureFilteredOwnedFeatures(element Element, property, _ string) (Value, bool, bool) {
@@ -2497,11 +3095,80 @@ func structureRelationshipValues(elements []Value, class, property string) Value
 }
 
 func uniqueValueSequence(values []Value) Value {
-	seen := make(map[ElementKey]bool)
+	seenElements := make(map[ElementKey]bool)
+	seenSymbols := make(map[symbols.ElementKey]bool)
+	seenMemberships := make(map[MembershipKey]bool)
+	seenMembershipSymbols := make(map[symbols.ElementKey]bool)
 	unique := make([]Value, 0, len(values))
 	for _, value := range values {
-		if value.Kind == ElementValue {
+		switch value.Kind {
+		case ElementValue:
 			key := value.Element.Key()
+			symbolKey := symbols.KeyOf(value.Element.Symbol)
+			if key != (ElementKey{}) && seenElements[key] ||
+				symbolKey != (symbols.ElementKey{}) && seenSymbols[symbolKey] {
+				continue
+			}
+			if key != (ElementKey{}) {
+				seenElements[key] = true
+			}
+			if symbolKey != (symbols.ElementKey{}) {
+				seenSymbols[symbolKey] = true
+			}
+		case MembershipValue:
+			membership := value.Membership
+			key := membership.Key()
+			symbol := membership.Symbol
+			if membership.Symbol != nil {
+				if membership.Symbol.Decl != nil {
+					key = MembershipKey{node: membership.Symbol.Decl, aspect: membership.Aspect}
+				} else {
+					key = MembershipKey{symbol: membership.Symbol, aspect: membership.Aspect}
+				}
+			} else {
+				symbol = membership.Member
+			}
+			symbolKey := symbols.KeyOf(symbol)
+			if key != (MembershipKey{}) && seenMemberships[key] ||
+				symbolKey != (symbols.ElementKey{}) && seenMembershipSymbols[symbolKey] {
+				continue
+			}
+			if key != (MembershipKey{}) {
+				seenMemberships[key] = true
+			}
+			if symbolKey != (symbols.ElementKey{}) {
+				seenMembershipSymbols[symbolKey] = true
+			}
+		default:
+			unique = append(unique, value)
+			continue
+		}
+		unique = append(unique, value)
+	}
+	return sequence(unique...)
+}
+
+func uniqueStructureValueSequence(values []Value, structure Structure) Value {
+	values = uniqueValueSequence(values).Values
+	identity, ok := structure.(elementIdentityStructure)
+	if !ok {
+		return sequence(values...)
+	}
+	seen := make(map[string]bool)
+	unique := make([]Value, 0, len(values))
+	for _, value := range values {
+		var element Element
+		switch value.Kind {
+		case ElementValue:
+			element = value.Element
+		case MembershipValue:
+			element = MembershipElement(value.Membership)
+		default:
+			unique = append(unique, value)
+			continue
+		}
+		key, known := identity.ElementIdentity(element)
+		if known && key != "" {
 			if seen[key] {
 				continue
 			}
@@ -2510,6 +3177,26 @@ func uniqueValueSequence(values []Value) Value {
 		unique = append(unique, value)
 	}
 	return sequence(unique...)
+}
+
+func structureElementKey(element Element, structure Structure) ElementKey {
+	if identity, ok := structure.(elementIdentityStructure); ok {
+		if value, known := identity.ElementIdentity(element); known {
+			return ElementKey{aspect: "identity:" + value, isMembership: element.IsMembership}
+		}
+	}
+	return element.Key()
+}
+
+func sameStructureElement(left, right Element, structure Structure) bool {
+	if identity, ok := structure.(elementIdentityStructure); ok {
+		leftID, leftOK := identity.ElementIdentity(left)
+		rightID, rightOK := identity.ElementIdentity(right)
+		if leftOK && rightOK {
+			return leftID == rightID
+		}
+	}
+	return left.Key() == right.Key()
 }
 
 func slicesClone(values []Value) []Value {

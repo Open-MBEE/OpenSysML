@@ -24,6 +24,7 @@ var servedRules = []Rule{
 	{DefiningClass: "Annotation", Property: "owningAnnotatedElement", Basis: "opposite of Element::ownedAnnotation"},
 	{DefiningClass: "Annotation", Property: "annotatingElement", Constraint: "deriveAnnotationAnnotatingElement"},
 	{DefiningClass: "Annotation", Property: "ownedAnnotatingElement", Constraint: "deriveAnnotationOwnedAnnotatingElement"},
+	{DefiningClass: "Annotation", Property: "owningAnnotatingElement", Basis: "subset of Annotation::owningRelatedElement"},
 	{DefiningClass: "AnnotatingElement", Property: "annotatedElement", Constraint: "deriveAnnotatingElementAnnotatedElement"},
 	{DefiningClass: "AnnotatingElement", Property: "annotation", Constraint: "deriveAnnotatingElementAnnotation"},
 	{DefiningClass: "AnnotatingElement", Property: "ownedAnnotatingRelationship", Constraint: "deriveAnnotatingElementOwnedAnnotatingRelationship"},
