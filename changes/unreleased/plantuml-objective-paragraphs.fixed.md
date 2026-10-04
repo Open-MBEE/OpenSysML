@@ -1,1 +1,0 @@
-- **Preserve paragraph breaks in linked PlantUML objective notes.** Blank lines in objective documentation remain visible between individually linked note lines.

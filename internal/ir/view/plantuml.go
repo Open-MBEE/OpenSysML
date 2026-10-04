@@ -370,7 +370,12 @@ func (w *plantumlWriter) writeCaseMixedNode(node *Node, depth int, mixed bool) {
 					fmt.Fprintf(&w.b, "%s  \n", indent)
 					continue
 				}
-				fmt.Fprintf(&w.b, "%s  [[%s %s]]\n", indent, url, plantumlNoteLinkText(line))
+				if strings.HasPrefix(line, "**") && strings.HasSuffix(line, "**") && len(line) > 4 {
+					line = "**[[" + url + " " + plantumlNoteLinkText(line[2:len(line)-2]) + "]]**"
+				} else {
+					line = "[[" + url + " " + plantumlNoteLinkText(line) + "]]"
+				}
+				fmt.Fprintf(&w.b, "%s  %s\n", indent, line)
 			}
 			fmt.Fprintf(&w.b, "%send note\n", indent)
 			return

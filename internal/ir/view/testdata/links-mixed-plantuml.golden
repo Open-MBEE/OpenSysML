@@ -75,7 +75,7 @@ package "<size:10>//«package»//</size>\n**MixedExamples**" as n0 <<package>> [
   actor "<size:10>//«actor»//</size>\n**operator : Person**" as n10 <<actor>> <<usage>> [[https://example.test/src/mixed.sysml#L43]]
   rectangle "<size:10>//«subject»//</size>\n**plant : Plant**" as n11 <<subject>> <<usage>> [[https://example.test/src/mixed.sysml#L44]]
   note as n12
-    [[https://example.test/src/mixed.sysml#L45 **objective**]]
+    **[[https://example.test/src/mixed.sysml#L45 objective]]**
     [[https://example.test/src/mixed.sysml#L45 Inspect the plant and report its operating state.]]
   end note
   rectangle "<size:10>//«perform action»//</size>\n**run : Operate**\ndeclares no nodes" as n13 <<perform action>> <<usage>> [[https://example.test/src/mixed.sysml#L48]]

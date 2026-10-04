@@ -480,8 +480,17 @@ func TestPlantUMLCaseObjectiveNoteLinkRendersAsSVG(t *testing.T) {
 	if !svgAnchorContainsText(svg, url, "Transport") {
 		t.Errorf("PlantUML SVG has no objective-text anchor for %q:\n%s", url, svg)
 	}
+	if !svgAnchorContainsText(svg, url, "objective") {
+		t.Errorf("PlantUML SVG has no objective-title anchor for %q:\n%s", url, svg)
+	}
+	if !svgAnchorContainsBoldText(svg, url, "objective") {
+		t.Errorf("PlantUML SVG does not render the objective title in bold inside %q:\n%s", url, svg)
+	}
 	if bytes.Contains(svg, []byte("[[")) {
 		t.Errorf("PlantUML SVG contains literal Creole link syntax:\n%s", svg)
+	}
+	if bytes.Contains(svg, []byte("**")) {
+		t.Errorf("PlantUML SVG contains literal bold syntax:\n%s", svg)
 	}
 }
 
@@ -1112,6 +1121,58 @@ func svgAnchorContainsText(svg []byte, href, text string) bool {
 					inTargetAnchor = false
 					content.Reset()
 				}
+			}
+		}
+	}
+}
+
+func svgAnchorContainsBoldText(svg []byte, href, text string) bool {
+	decoder := xml.NewDecoder(bytes.NewReader(svg))
+	inTargetAnchor := false
+	inText := false
+	bold := false
+	var content strings.Builder
+	for {
+		token, err := decoder.Token()
+		if err != nil {
+			return false
+		}
+		switch element := token.(type) {
+		case xml.StartElement:
+			if !inTargetAnchor && element.Name.Local == "a" {
+				for _, attr := range element.Attr {
+					if attr.Name.Local == "href" && attr.Value == href {
+						inTargetAnchor = true
+						break
+					}
+				}
+			} else if inTargetAnchor && element.Name.Local == "text" {
+				inText = true
+				bold = false
+				content.Reset()
+				for _, attr := range element.Attr {
+					switch attr.Name.Local {
+					case "font-weight":
+						bold = attr.Value == "700" || attr.Value == "bold"
+					case "style":
+						style := strings.ToLower(attr.Value)
+						bold = bold || strings.Contains(style, "font-weight:700") || strings.Contains(style, "font-weight:bold")
+					}
+				}
+			}
+		case xml.CharData:
+			if inText {
+				content.Write([]byte(element))
+			}
+		case xml.EndElement:
+			if inTargetAnchor && inText && element.Name.Local == "text" {
+				if bold && strings.Contains(content.String(), text) {
+					return true
+				}
+				inText = false
+			}
+			if inTargetAnchor && element.Name.Local == "a" {
+				inTargetAnchor = false
 			}
 		}
 	}
