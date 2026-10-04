@@ -443,17 +443,41 @@ loaded the guard is accepted (observation, pilot `2026-07`,
 part def A; part def A;
 action def B { action a; perform a; perform a; }
 ```
+```sysml
+part def A; attribute def A;
+```
 
 **Pilot:** `Duplicate of other owned member name` as a **warning**; for `perform a; perform a;`
 it warns only when the repeats have bodies (observation, pilot `2026-07`,
-[adjudications.md](adjudications.md)).
+[adjudications.md](adjudications.md)). On `part def A; attribute def A;`, and on the KerML
+`class A; datatype A;`, it also warns `Duplicate of other owned member name`, twice: its
+`Membership_isDistinguishableFrom_InvocationDelegate.java` compares the names only and carries
+`// TODO: Add member element metaclass check` (pilot `2026-08`). The same omission accounts for
+55 of the 76 `Duplicate of inherited member name` warnings its Xpect suite declares beside a
+typing error — for example `'self' from Action, Part` at `ActionUsage_invalid.sysml.xt:40`,
+where `Actions::Action::self` is an `ActionUsage` and `Parts::Part::self` a `ReferenceUsage` —
+and for the `'p' from A2` warning of `RedefinitionDiamond_Invalid.sysml.xt` and
+`RedefinitionDiamond1_invalid.sysml.xt`, where `part p` (a `PartUsage`) meets the inherited
+`p :>> p` (a `ReferenceUsage`).
 
 **OpenSysML:** a warning for every repeat, bodies or not; `part def A; part def A;` is likewise
-a warning.
+a warning. `part def A; attribute def A;` and `class A; datatype A;` are clean, as are the 55
+diamonds and the two `RedefinitionDiamond` members above: two memberships whose member elements'
+metaclasses conform in neither direction are distinguishable whatever their names
+(`resolve.Resolver.DistinguishableByMetaclass`). Same or specializing metaclasses
+(`part def A; item def A;`, `class A; class A;`, the Part/Port and DataValue/Occurrence `self`
+diamonds) still warn, and so does a pair where either metaclass is unknown or an alias target
+does not resolve. The Xpect harness builds each fixture from the library files its `XPECT_SETUP`
+names, which never include `SysML.sysml` or `KerML.kerml`, so no metaclass is known there and
+those rows still agree in [pilot-xpect.md](pilot-xpect.md).
 
 **Specification:** KerML §8.3.2.4.5 `Namespace`, `validateNamespaceDistinguishibility` (so spelt in the PDF): "All
 memberships of a Namespace must be distinguishable from each other." §8.3.2.4.3
-`Membership::isDistinguishableFrom` compares `memberShortName`/`memberName`. §8.3.3.3.4
+`Membership::isDistinguishableFrom` compares `memberShortName`/`memberName` only where the
+member elements' metaclasses are related: its first disjunct,
+`not (memberElement.oclKindOf(other.memberElement.oclType()) or other.memberElement.oclKindOf(memberElement.oclType()))`,
+makes two memberships distinguishable whatever their names when neither member element's
+metaclass is the other's or a specialization of it. §8.3.3.3.4
 `Feature::effectiveName`: a feature with no declared name takes the effective name of its
 `namingFeature()`; SysML §8.3.17.14 `PerformActionUsage::namingFeature` "is its performedAction".
 Two `perform a;` therefore both have `memberName` `a`, whatever their bodies.
@@ -461,7 +485,8 @@ Two `perform a;` therefore both have `memberName` `a`, whatever their bodies.
 **Assessment:** spec clear on both counts. The rule is a `validate…` constraint — a violating model
 is not well-formed — so a warning under-reports it; both tools do so (a warning was chosen so that
 duplicated names in the training corpus do not fail its clean gate). The body-sensitivity is the
-pilot's alone; ours follows the specification.
+pilot's alone; ours follows the specification. On the metaclass clause the specification is
+clear and the pilot is short: it does not implement the clause, and ours does.
 
 **Question for the authors:** is a namespace with indistinguishable memberships intended to be
 rejected (an error) or is a tool free to report it as a warning and keep resolving? And for

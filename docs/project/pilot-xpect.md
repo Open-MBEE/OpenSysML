@@ -527,9 +527,13 @@ member name` `warnings` rows in 12 files (`ActionUsage_invalid`, `OccurrenceUsag
 `CaseUsage_Invalid`, `CalculationUsage_Invalid1`, `ConstraintUsage_Invalid`,
 `RequirementUsage_Invalid`, `FlowConnectionUsage_Invalid`, `AttributeUsage_invalid`) are anchored
 at, or inside, the anchor of a declared `… must be typed by …` error in the same file. Suppressing
-the warning per element would turn those rows silent. The rule is therefore kept as it is, and
-`TestW9CActionPartDiamondWarns`, `TestW11ASpecializationCycleKeepsImplicitBase` and
-`TestW10BReferenceSubsettingContributesABase` continue to assert the warning next to the error.
+the warning per element would turn those rows silent. Per-element suppression was therefore declined. The Action/Part form of the diamond has since
+been silenced on other grounds — its two members' metaclasses conform in neither direction,
+which KerML §8.3.2.4.3 makes distinguishable (see
+[gap register #13](spec-pilot-gap-register.md#13-indistinguishable-memberships-severity-and-anonymous-performed-actions))
+— and this harness cannot see that, since these fixtures load no metaclasses;
+`TestConformingLibraryDiamondStillWarns` asserts that a conforming diamond still warns beside
+the typing error.
 What the probe did surface is a placement and wording divergence of ours on `timeslice`/`snapshot`
 alone: we report `timeslice usage cannot be typed by attributeDef (…)` at the type reference where
 the pilot reports the occurrence-typing rule at the usage, and `part`/`item` already match.
