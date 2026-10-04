@@ -426,8 +426,17 @@ type parsed struct {
 // preparse parses src as the submission from origin, and probes whether it
 // closes its own text.
 func preparse(origin, src string) parsed {
+	return preparseWithKind(origin, src, source.KindUnknown)
+}
+
+func preparseWithKind(origin, src string, kind source.Kind) parsed {
 	doc := parseDocName(origin)
-	p := parser.New(source.New(doc, []byte(src)))
+	data := []byte(src)
+	sourceFile := source.New(doc, data)
+	if kind != source.KindUnknown {
+		sourceFile = source.NewWithKind(doc, data, kind)
+	}
+	p := parser.New(sourceFile)
 	return parsed{p: p, root: p.ParseFile(), closes: closesItsOwnText(doc, src)}
 }
 
@@ -837,6 +846,7 @@ func (s *Session) Submit(src string) Result {
 type SourceFile struct {
 	Name     string
 	Text     string
+	Kind     source.Kind
 	Warnings []string
 }
 
@@ -903,7 +913,7 @@ func (s *Session) submitEach(files []SourceFile) (res Result, byFile [][]string,
 	byFile = make([][]string, len(files))
 	parses := make([]parsed, len(files))
 	model.ParallelFor(s.jobs, len(files), func(i int) {
-		parses[i] = preparse(files[i].Name, files[i].Text)
+		parses[i] = preparseWithKind(files[i].Name, files[i].Text, files[i].Kind)
 	})
 	for i, f := range files {
 		names, dropped := s.acceptParsed(f.Name, f.Text, parses[i])

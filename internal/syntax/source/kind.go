@@ -2,7 +2,6 @@ package source
 
 import (
 	"path/filepath"
-	"strings"
 )
 
 // Kind is the language a source is parsed as. The two languages share a lexer
@@ -30,11 +29,10 @@ func (k Kind) String() string {
 	}
 }
 
-// KindOf reports the language of a file name by its extension. API JSON files
-// are converted to SysML notation before they are parsed.
+// KindOf reports the language of a file name by its extension.
 func KindOf(name string) Kind {
-	switch strings.ToLower(filepath.Ext(name)) {
-	case ".sysml", ".json":
+	switch filepath.Ext(name) {
+	case ".sysml":
 		return KindSysML
 	case ".kerml":
 		return KindKerML
