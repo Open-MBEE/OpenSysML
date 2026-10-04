@@ -154,26 +154,28 @@ if (-not $HostIsWindows) {
     if (Test-Ok 'dry run of the signed release, from a non-Windows host' -Version $Signed -Os windows -DryRun) {
         Assert-Said 'the signed Windows build is not chosen from'
         Assert-Said "download/$Signed/opensysml-windows-amd64.zip"
-        Assert-Said 'Dry run: nothing downloaded or installed.'
+        Assert-Said 'Dry run: nothing installed.'
         if (Test-Path -LiteralPath $script:dir) { Write-Failure "dry run created $script:dir" }
     }
 } else {
     if (Test-Failure 'staged for windows, signed release, unsigned bytes' 'the Authenticode signature of sysml.exe is' -Version $Signed -Os windows) {
-        Assert-Said 'the release carries the signed Windows build; installing opensysml-windows-amd64-signed.zip'
+        Assert-Said 'the release carries the signed Windows build'
+        Assert-Said 'installing opensysml-windows-amd64-signed.zip'
         Assert-Said 'opensysml-windows-amd64-signed.zip verified'
         Assert-Absent sysml.exe, sysml-lsp.exe
     }
 
     if (Test-Ok 'dry run of the signed release' -Version $Signed -Os windows -DryRun) {
-        Assert-Said 'the release carries the signed Windows build; installing opensysml-windows-amd64-signed.zip'
+        Assert-Said 'the release carries the signed Windows build'
+        Assert-Said 'installing opensysml-windows-amd64-signed.zip'
         Assert-Said "download/$Signed/opensysml-windows-amd64-signed.zip"
-        Assert-Said 'Dry run: nothing downloaded or installed.'
+        Assert-Said 'Dry run: nothing installed.'
         if (Test-Path -LiteralPath $script:dir) { Write-Failure "dry run created $script:dir" }
     }
 }
 
 if (Test-Ok 'dry run' -Version $Good -Tools all -DryRun) {
-    Assert-Said 'Dry run: nothing downloaded or installed.'
+    Assert-Said 'Dry run: nothing installed.'
     Assert-Said "download/$Good/sysml-grpc-$HostPlatform"
     if (Test-Path -LiteralPath $script:dir) { Write-Failure "dry run created $script:dir" }
 }
