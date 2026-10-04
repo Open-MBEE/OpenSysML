@@ -430,7 +430,7 @@ func (m *migration) contextIns(c *behaviorContext, scope *sysmlv1.Element) (ins,
 	if dc != nil {
 		self, selfType = m.contextName(dc, scope), dc.objectType()
 	}
-	expr, cnote := m.contextBinding(c, selfType, self)
+	expr, cnote := m.contextBinding(c, selfType, self, scope)
 	if expr == "" {
 		return "", cnote
 	}
@@ -669,7 +669,7 @@ func ownerNames(owners []*sysmlv1.Element) []string {
 // one of the classifiers cs: then a behavior it owns acts on it.
 func (m *migration) providesAny(owner *sysmlv1.Element, cs []*sysmlv1.Element) bool {
 	for _, c := range cs {
-		if expr, _ := m.contextBinding(&behaviorContext{classifier: c}, owner, "this"); expr != "" {
+		if expr, _ := m.contextBinding(&behaviorContext{classifier: c}, owner, "this", nil); expr != "" {
 			return true
 		}
 	}
@@ -1221,7 +1221,7 @@ func (a *activity) contextArgument(c *behaviorContext) (expr, note string) {
 		self = a.m.contextName(a.ctx, a.def)
 		selfType = a.ctx.objectType()
 	}
-	expr, note = a.m.contextBinding(c, selfType, self)
+	expr, note = a.m.contextBinding(c, selfType, self, a.def)
 	if expr != "" && a.ctx != nil {
 		a.m.markUsed(&a.ctx.used)
 	}
@@ -1232,19 +1232,22 @@ func (a *activity) contextArgument(c *behaviorContext) (expr, note string) {
 // swimlane names as the performer when there is one, else the caller's.
 func (a *activity) callContext(n *sysmlv1.Element, c *behaviorContext) (expr, note string) {
 	if l, _, _ := a.m.lanePerformer(n); l != nil {
-		return a.m.contextBinding(c, l.typ, a.m.callBodyExpr(a.m.respellThis(l.expr, a.def), a.def))
+		return a.m.contextBinding(c, l.typ, a.m.callBodyExpr(a.m.respellThis(l.expr, a.def), a.def), a.def)
 	}
 	return a.contextArgument(c)
 }
 
 // contextBinding writes the object bound to a run behavior's context parameter,
 // where the runner's object is a self of type selfType: that object when it is
-// one, else its one part that is.
-func (m *migration) contextBinding(c *behaviorContext, selfType *sysmlv1.Element, self string) (expr, note string) {
+// one, else its one part that is, spelled for the body of scope when there is one.
+func (m *migration) contextBinding(c *behaviorContext, selfType *sysmlv1.Element, self string, scope *sysmlv1.Element) (expr, note string) {
 	kind := qualifiedName(c.classifier)
 	expr, _, why := m.objectOf(c.objectType(), selfType, self)
 	if expr == "" {
 		return "", actsOn + kind + throughParam + c.name + ", which is left unbound: " + why
+	}
+	if scope != nil && strings.HasPrefix(expr, "this.") {
+		expr = m.callBodyExpr(m.respellThis(expr, scope), scope)
 	}
 	return expr, actsOn + kind + throughParam + c.name + ", which is bound to " + expr + why
 }
