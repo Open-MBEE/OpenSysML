@@ -1419,8 +1419,7 @@ func TestRenderKeepsActionPinsForEveryPortDisplay(t *testing.T) {
 	if !reflect.DeepEqual(directions, map[string]string{"bread": "in", "toast": "out"}) {
 		t.Errorf("action frame ports = %+v, want input and output pins", minimalRoot.Ports)
 	}
-	var countPorts func([]renderNode) int
-	countPorts = func(nodes []renderNode) (count int) {
+	countPorts := func(nodes []renderNode) (count int) {
 		for _, node := range nodes {
 			count += len(node.Ports)
 		}
