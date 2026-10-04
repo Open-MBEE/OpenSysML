@@ -10,8 +10,7 @@ import (
 func (r *Renderer) renderMixed(view *symbols.Symbol, exposed []*symbols.Symbol, out *Rendering) {
 	w := &mixedWalk{r: r, view: view, ids: &nodeIDs{}, out: out,
 		nodes: map[*symbols.Symbol]*Node{}, seen: map[*symbols.Symbol]bool{},
-		extraSources:    map[*symbols.Symbol][]*Node{},
-		cases:           &caseWalk{r: r, view: view, ids: nil, drawn: map[*symbols.Symbol]*Node{}, occurrences: map[*symbols.Symbol][]*Node{}, out: out, deferIncludes: true},
+		cases:           &caseWalk{r: r, view: view, ids: nil, drawn: map[*symbols.Symbol]*Node{}, occurrences: map[*symbols.Symbol][]*Node{}, roleCase: map[*Node]*Node{}, out: out, deferIncludes: true},
 		structureOwners: map[*symbols.Symbol]bool{}, deferredMembers: map[*symbols.Symbol][]*symbols.Symbol{}}
 	w.cases.ids = w.ids
 	for _, elem := range exposed {
@@ -30,7 +29,6 @@ type mixedWalk struct {
 	ids             *nodeIDs
 	out             *Rendering
 	nodes           map[*symbols.Symbol]*Node
-	extraSources    map[*symbols.Symbol][]*Node
 	order           []*symbols.Symbol
 	seen            map[*symbols.Symbol]bool
 	cases           *caseWalk
@@ -395,9 +393,6 @@ func (w *mixedWalk) rememberCaseNodes() {
 		if node == nil {
 			continue
 		}
-		if occurrences := w.cases.occurrences[sym]; len(occurrences) > 0 {
-			w.extraSources[sym] = occurrences
-		}
 		if w.nodes[sym] == nil {
 			w.remember(sym, node)
 		} else {
@@ -406,46 +401,119 @@ func (w *mixedWalk) rememberCaseNodes() {
 	}
 }
 
+func (w *mixedWalk) nodesFor(sym *symbols.Symbol) []*Node {
+	if sym == nil {
+		return nil
+	}
+	if occurrences := w.cases.occurrences[sym]; len(occurrences) > 0 {
+		return occurrences
+	}
+	if node := w.nodes[sym]; node != nil {
+		return []*Node{node}
+	}
+	return nil
+}
+
+func referenceTargetNode(sym *symbols.Symbol) ast.Node {
+	if usage := caseUsage(sym); usage != nil {
+		if reference := usage.ReferenceSubsetting(); reference != nil {
+			return reference.Target
+		}
+	}
+	return nil
+}
+
+func referenceQualifiedName(target ast.Node) *ast.QualifiedName {
+	switch target := target.(type) {
+	case *ast.QualifiedName:
+		return target
+	case *ast.FeatureReference:
+		return target.Name
+	}
+	return nil
+}
+
+func (w *mixedWalk) qualifyingReferenceCase(from, to *symbols.Symbol, reference ast.Node) *Node {
+	qn := referenceQualifiedName(reference)
+	if from == nil || qn == nil || len(qn.Parts) < 2 || w.r.resolver == nil {
+		return nil
+	}
+	prefix := &ast.QualifiedName{Global: qn.Global, Parts: qn.Parts[:len(qn.Parts)-1]}
+	sym, ok := w.r.resolver.ResolveQualified(from.OwnerScope, prefix)
+	if !ok || !caseFamily(sym) {
+		return nil
+	}
+	caseNode := w.cases.drawn[sym]
+	if caseNode == nil {
+		return nil
+	}
+	for _, occurrence := range w.cases.occurrences[to] {
+		if w.cases.roleCase[occurrence] == caseNode {
+			return caseNode
+		}
+	}
+	return nil
+}
+
 // referenceEdges adds typing, specialization, perform and exhibit links between drawn nodes.
 func (w *mixedWalk) referenceEdges() {
 	seen := map[string]bool{}
-	add := func(from, to *symbols.Symbol, kind EdgeKind, label string, decl *symbols.Symbol) {
-		fromNode, toNode := w.nodes[from], w.nodes[to]
-		if fromNode == nil || toNode == nil {
+	add := func(from, to *symbols.Symbol, kind EdgeKind, label string, decl *symbols.Symbol, reference ast.Node) {
+		sources, targets := w.nodesFor(from), w.nodesFor(to)
+		if len(sources) == 0 || len(targets) == 0 {
 			return
 		}
-		sources := append([]*Node(nil), w.extraSources[from]...)
-		if len(sources) == 0 {
-			sources = append(sources, fromNode)
-		} else {
-			found := false
-			for _, source := range sources {
-				if source != nil && source.ID == fromNode.ID {
-					found = true
-					break
-				}
-			}
-			if !found {
-				sources = append(sources, fromNode)
+		perCaseTargets := 0
+		for _, target := range targets {
+			if w.cases.roleCase[target] != nil {
+				perCaseTargets++
 			}
 		}
-		drawn := map[string]bool{}
+		var qualifier *Node
+		if perCaseTargets > 1 {
+			qualifier = w.qualifyingReferenceCase(from, to, reference)
+		}
+		drawnSources := map[string]bool{}
+		emitted := false
 		for _, source := range sources {
-			if source == nil || drawn[source.ID] {
+			if source == nil || drawnSources[source.ID] {
 				continue
 			}
-			drawn[source.ID] = true
-			key := source.ID + "\x00" + toNode.ID + "\x00" + kind.String() + "\x00" + label
-			if seen[key] {
-				continue
+			drawnSources[source.ID] = true
+			targetsForSource := targets
+			if perCaseTargets <= 1 {
+				targetsForSource = []*Node{w.nodes[to]}
+			} else {
+				owner := w.cases.roleCase[source]
+				if owner == nil {
+					owner = qualifier
+				}
+				if owner != nil {
+					targetsForSource = nil
+					for _, target := range targets {
+						if w.cases.roleCase[target] == owner {
+							targetsForSource = append(targetsForSource, target)
+						}
+					}
+				}
 			}
-			seen[key] = true
-			w.out.Edges = append(w.out.Edges, Edge{From: source.ID, To: toNode.ID, Kind: kind,
-				Label: label, Origin: symbolOrigin(decl), Route: w.r.routeOf(w.view, decl, w.out),
-				Style: w.r.edgeDress(w.view, decl, source.ID, toNode.ID, w.out)})
-			if w.out.drawn != nil {
-				w.out.drawn.note(decl, true)
+			for _, target := range targetsForSource {
+				if target == nil {
+					continue
+				}
+				key := source.ID + "\x00" + target.ID + "\x00" + kind.String() + "\x00" + label
+				if seen[key] {
+					continue
+				}
+				seen[key] = true
+				w.out.Edges = append(w.out.Edges, Edge{From: source.ID, To: target.ID, Kind: kind,
+					Label: label, Origin: symbolOrigin(decl), Route: w.r.routeOf(w.view, decl, w.out),
+					Style: w.r.edgeDress(w.view, decl, source.ID, target.ID, w.out)})
+				emitted = true
 			}
+		}
+		if emitted && w.out.drawn != nil {
+			w.out.drawn.note(decl, true)
 		}
 	}
 
@@ -462,7 +530,7 @@ func (w *mixedWalk) referenceEdges() {
 		if sym.Kind.IsFeature() && specialLabel == "" {
 			for _, target := range w.r.model.DeclaredTypes(sym) {
 				if target.Kind.IsDefinition() {
-					add(sym, target, EdgeTyping, "", sym)
+					add(sym, target, EdgeTyping, "", sym, nil)
 				}
 			}
 		}
@@ -471,13 +539,13 @@ func (w *mixedWalk) referenceEdges() {
 				continue
 			}
 			if target := w.r.model.RelationshipTarget(sym, rel); target != nil {
-				add(sym, target, EdgeSpecialization, "«specializes»", sym)
+				add(sym, target, EdgeSpecialization, "«specializes»", sym, nil)
 			}
 		}
 		if specialLabel != "" {
 			target := w.r.model.ReferencedFeature(sym)
 			if target != nil {
-				add(sym, target, EdgeReference, specialLabel, sym)
+				add(sym, target, EdgeReference, specialLabel, sym, referenceTargetNode(sym))
 				continue
 			}
 			for _, rel := range viewRelationshipsOf(sym) {
@@ -485,7 +553,7 @@ func (w *mixedWalk) referenceEdges() {
 					continue
 				}
 				if target := w.r.model.RelationshipTarget(sym, rel); target != nil {
-					add(sym, target, EdgeReference, specialLabel, sym)
+					add(sym, target, EdgeReference, specialLabel, sym, rel.Target)
 					break
 				}
 			}
