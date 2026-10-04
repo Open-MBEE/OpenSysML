@@ -178,3 +178,49 @@ func TestModelOfSeveralDocumentsQualifiesIdsAcrossScopes(t *testing.T) {
 		t.Errorf("P::A is %q and Q::B is %q, want two subjects", a, b)
 	}
 }
+
+// Each document of a model is a RootNamespace of its own (KerML textual BNF,
+// RootNamespace): in the API element form its roots are owned by an unnamed
+// Namespace per document, which reading the form back drops again.
+func TestModelOfSeveralDocumentsHasARootNamespacePerDocument(t *testing.T) {
+	graph, err := export.ModelToRDFWith(modelDocuments(t,
+		"lib.sysml", "package Lib { part def Engine; }\npackage Spares;\n",
+		"app.sysml", "package App { private import Lib::*; part e : Engine; }\n",
+	), export.IDQualifiedName)
+	if err != nil {
+		t.Fatal(err)
+	}
+	out, err := export.WriteAPIJSON(graph)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var elements []map[string]any
+	if err := json.Unmarshal(out, &elements); err != nil {
+		t.Fatal(err)
+	}
+	owners := map[string]string{}
+	namespaces := 0
+	for _, e := range elements {
+		if e["@type"] == "Namespace" {
+			namespaces++
+		}
+		if owner, ok := e["owner"].(map[string]any); ok && e["@type"] == "Package" {
+			owners[e["@id"].(string)], _ = owner["@id"].(string)
+		}
+	}
+	if namespaces != 2 {
+		t.Errorf("%d root Namespaces, want one per document", namespaces)
+	}
+	if owners["Lib"] == "" || owners["Lib"] != owners["Spares"] || owners["App"] == "" || owners["App"] == owners["Lib"] {
+		t.Errorf("packages are owned by %v, want Lib and Spares by one namespace and App by another", owners)
+	}
+	back, err := export.ReadAPIJSON(out)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, subject := range back.Subjects() {
+		if back.Type(subject) == "https://www.omg.org/spec/SysML#Namespace" {
+			t.Errorf("reading the form back keeps the root namespace %s", subject.Value)
+		}
+	}
+}
