@@ -7,6 +7,7 @@ import type { RenderPoint } from "../protocol";
 
 export const CLEARANCE = GAP / 2;
 export const NUDGING = 8;
+export const MIN_JOG = 16;
 export const EXCLUSIVE_PIN_LIMIT = 12;
 
 export function portExitReach(sharing: number): number {
@@ -154,13 +155,278 @@ export function avoidRoutes(
         routes.set(index, route);
       }
     }
-    return routes;
+    return straightenJogs(routes, [...shapes.values()].map(({ box }) => box), bounds);
   } catch (error) {
     reportAvoidFailure("routing failed", error);
     return undefined;
   } finally {
     api.destroy(router);
   }
+}
+
+interface OrthogonalSegment {
+  axis: "horizontal" | "vertical";
+  direction: -1 | 1;
+  length: number;
+}
+
+interface JogShift {
+  points: [number, number];
+  movedSegment: number;
+  changedSegment: number;
+  mergedSegment: [number, number];
+  delta: RenderPoint;
+}
+
+/** Straightens short Z-jogs when the replacement route remains clear. */
+export function straightenJogs(
+  routes: Map<number, RenderPoint[]>,
+  obstacles: Box[],
+  bounds?: Box,
+): Map<number, RenderPoint[]> {
+  const straightened = new Map<number, RenderPoint[]>();
+  for (const [index, route] of routes) {
+    straightened.set(index, route.map(({ x, y }) => ({ x, y })));
+  }
+
+  while (true) {
+    let changed = false;
+    for (const [index, route] of straightened) {
+      for (let jog = 1; jog + 2 < route.length; jog++) {
+        const shifts = jogShifts(route, jog);
+        const ordered = shifts.sort(
+          (first, second) =>
+            segmentLength(route[first.movedSegment], route[first.movedSegment + 1]) -
+            segmentLength(route[second.movedSegment], route[second.movedSegment + 1]),
+        );
+        for (const shift of ordered) {
+          const candidate = shiftedRoute(route, shift);
+          if (!candidate || !legalShift(index, route, candidate, shift, straightened, obstacles, bounds)) {
+            continue;
+          }
+          straightened.set(index, compactRoute(candidate));
+          changed = true;
+          break;
+        }
+        if (changed) {
+          break;
+        }
+      }
+      if (changed) {
+        break;
+      }
+    }
+    if (!changed) {
+      return straightened;
+    }
+  }
+}
+
+function jogShifts(route: RenderPoint[], jog: number): JogShift[] {
+  const previous = orthogonalSegment(route[jog - 1], route[jog]);
+  const short = orthogonalSegment(route[jog], route[jog + 1]);
+  const next = orthogonalSegment(route[jog + 1], route[jog + 2]);
+  if (
+    !previous ||
+    !short ||
+    !next ||
+    short.length >= MIN_JOG ||
+    previous.axis !== next.axis ||
+    previous.axis === short.axis ||
+    previous.direction !== next.direction
+  ) {
+    return [];
+  }
+
+  const delta = { x: route[jog + 1].x - route[jog].x, y: route[jog + 1].y - route[jog].y };
+  const shifts: JogShift[] = [];
+  if (jog > 1) {
+    shifts.push({
+      points: [jog - 1, jog],
+      movedSegment: jog - 1,
+      changedSegment: jog - 2,
+      mergedSegment: [jog - 1, jog + 2],
+      delta,
+    });
+  }
+  if (jog + 2 < route.length - 1) {
+    shifts.push({
+      points: [jog + 1, jog + 2],
+      movedSegment: jog + 1,
+      changedSegment: jog + 2,
+      mergedSegment: [jog - 1, jog + 2],
+      delta: { x: -delta.x, y: -delta.y },
+    });
+  }
+  return shifts;
+}
+
+function shiftedRoute(route: RenderPoint[], shift: JogShift): RenderPoint[] {
+  return route.map((point, index) =>
+    shift.points.includes(index)
+      ? { x: point.x + shift.delta.x, y: point.y + shift.delta.y }
+      : { x: point.x, y: point.y },
+  );
+}
+
+function legalShift(
+  index: number,
+  route: RenderPoint[],
+  candidate: RenderPoint[],
+  shift: JogShift,
+  routes: Map<number, RenderPoint[]>,
+  obstacles: Box[],
+  bounds?: Box,
+): boolean {
+  if (bounds && shift.points.some((point) => !inside(candidate[point], bounds))) {
+    return false;
+  }
+  for (const segmentIndex of [shift.movedSegment, shift.changedSegment]) {
+    const before = orthogonalSegment(route[segmentIndex], route[segmentIndex + 1]);
+    const after = orthogonalSegment(candidate[segmentIndex], candidate[segmentIndex + 1]);
+    if (!before || !after || before.axis !== after.axis || before.direction !== after.direction) {
+      return false;
+    }
+    if (
+      (segmentIndex === 0 || segmentIndex === route.length - 2) &&
+      after.length < Math.min(before.length, CLEARANCE)
+    ) {
+      return false;
+    }
+    if (obstacles.some((box) => crossesInterior(candidate[segmentIndex], candidate[segmentIndex + 1], box))) {
+      return false;
+    }
+    for (const [otherIndex, other] of routes) {
+      if (
+        otherIndex !== index &&
+        other.slice(1).some((point, otherSegment) =>
+          lanesTooClose(
+            candidate[segmentIndex],
+            candidate[segmentIndex + 1],
+            other[otherSegment],
+            point,
+          ),
+        )
+      ) {
+        return false;
+      }
+    }
+  }
+  const [mergeStart, mergeEnd] = shift.mergedSegment;
+  const merged = orthogonalSegment(candidate[mergeStart], candidate[mergeEnd]);
+  if (!merged) {
+    return false;
+  }
+  if (
+    bounds &&
+    (!inside(candidate[mergeStart], bounds) || !inside(candidate[mergeEnd], bounds))
+  ) {
+    return false;
+  }
+  if (obstacles.some((box) => crossesInterior(candidate[mergeStart], candidate[mergeEnd], box))) {
+    return false;
+  }
+  if (
+    (mergeStart === 0 &&
+      merged.length < Math.min(segmentLength(route[0], route[1]), CLEARANCE)) ||
+    (mergeEnd === route.length - 1 &&
+      merged.length < Math.min(segmentLength(route.at(-2)!, route.at(-1)!), CLEARANCE))
+  ) {
+    return false;
+  }
+  for (const [otherIndex, other] of routes) {
+    if (
+      otherIndex !== index &&
+      other.slice(1).some((point, otherSegment) =>
+        lanesTooClose(
+          candidate[mergeStart],
+          candidate[mergeEnd],
+          other[otherSegment],
+          point,
+        ),
+      )
+    ) {
+      return false;
+    }
+  }
+  return true;
+}
+
+function orthogonalSegment(a: RenderPoint, b: RenderPoint): OrthogonalSegment | undefined {
+  if (a.x === b.x && a.y !== b.y) {
+    return { axis: "vertical", direction: Math.sign(b.y - a.y) as -1 | 1, length: Math.abs(b.y - a.y) };
+  }
+  if (a.y === b.y && a.x !== b.x) {
+    return { axis: "horizontal", direction: Math.sign(b.x - a.x) as -1 | 1, length: Math.abs(b.x - a.x) };
+  }
+  return undefined;
+}
+
+function segmentLength(a: RenderPoint, b: RenderPoint): number {
+  return Math.abs(b.x - a.x) + Math.abs(b.y - a.y);
+}
+
+function inside(point: RenderPoint, bounds: Box): boolean {
+  return (
+    point.x >= bounds.x &&
+    point.y >= bounds.y &&
+    point.x <= bounds.x + bounds.width &&
+    point.y <= bounds.y + bounds.height
+  );
+}
+
+function crossesInterior(a: RenderPoint, b: RenderPoint, box: Box): boolean {
+  if (a.y === b.y) {
+    return (
+      a.y > box.y &&
+      a.y < box.y + box.height &&
+      Math.max(Math.min(a.x, b.x), box.x) < Math.min(Math.max(a.x, b.x), box.x + box.width)
+    );
+  }
+  return (
+    a.x > box.x &&
+    a.x < box.x + box.width &&
+    Math.max(Math.min(a.y, b.y), box.y) < Math.min(Math.max(a.y, b.y), box.y + box.height)
+  );
+}
+
+function lanesTooClose(a: RenderPoint, b: RenderPoint, c: RenderPoint, d: RenderPoint): boolean {
+  const first = orthogonalSegment(a, b);
+  const second = orthogonalSegment(c, d);
+  if (!first || !second || first.axis !== second.axis) {
+    return false;
+  }
+  if (first.axis === "horizontal") {
+    return (
+      Math.abs(a.y - c.y) < NUDGING &&
+      Math.min(Math.max(a.x, b.x), Math.max(c.x, d.x)) >
+        Math.max(Math.min(a.x, b.x), Math.min(c.x, d.x))
+    );
+  }
+  return (
+    Math.abs(a.x - c.x) < NUDGING &&
+    Math.min(Math.max(a.y, b.y), Math.max(c.y, d.y)) >
+      Math.max(Math.min(a.y, b.y), Math.min(c.y, d.y))
+  );
+}
+
+function compactRoute(route: RenderPoint[]): RenderPoint[] {
+  const compacted: RenderPoint[] = [];
+  for (const point of route) {
+    if (compacted.at(-1)?.x === point.x && compacted.at(-1)?.y === point.y) {
+      continue;
+    }
+    while (compacted.length >= 2) {
+      const previous = orthogonalSegment(compacted.at(-2)!, compacted.at(-1)!);
+      const next = orthogonalSegment(compacted.at(-1)!, point);
+      if (!previous || !next || previous.axis !== next.axis || previous.direction !== next.direction) {
+        break;
+      }
+      compacted.pop();
+    }
+    compacted.push(point);
+  }
+  return compacted;
 }
 
 function addBoundsFrames(

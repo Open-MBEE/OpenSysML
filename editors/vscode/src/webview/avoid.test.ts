@@ -3,7 +3,17 @@ import path from "node:path";
 import { test } from "node:test";
 
 import type { RenderEdge, RenderNode, RenderPoint, RenderResult } from "../protocol";
-import { avoidRoutes, CLEARANCE, loadAvoid, NUDGING, portExitReach, type AvoidPort, type AvoidShape } from "./avoid";
+import {
+  avoidRoutes,
+  CLEARANCE,
+  loadAvoid,
+  MIN_JOG,
+  NUDGING,
+  portExitReach,
+  straightenJogs,
+  type AvoidPort,
+  type AvoidShape,
+} from "./avoid";
 import { portFace, PORT_SIZE, type Box, type Side } from "./geometry";
 import { clampNodeToBounds, layoutCanvas } from "./layout";
 
@@ -143,6 +153,145 @@ test("portExitReach reserves the lane reach for each shared connection", () => {
   ]);
 });
 
+test("straightenJogs removes a short Z jog without moving its endpoints", () => {
+  const route = [
+    { x: -40, y: 0 },
+    { x: 0, y: 0 },
+    { x: 0, y: 24 },
+    { x: 8, y: 24 },
+    { x: 8, y: 64 },
+    { x: 40, y: 64 },
+  ];
+  const routes = new Map([[0, route]]);
+  const straightened = straightenJogs(routes, []);
+  const result = straightened.get(0)!;
+
+  assert.equal(MIN_JOG, 16);
+  assert.notEqual(straightened, routes);
+  assert.notEqual(result, route);
+  assert.equal(result.length, 4);
+  assert.deepEqual(result[0], route[0]);
+  assert.deepEqual(result.at(-1), route.at(-1));
+  assert.deepEqual(result[1], { x: 8, y: 0 });
+  assert.deepEqual(route[2], { x: 0, y: 24 });
+  for (let index = 1; index < result.length; index++) {
+    assert.ok(result[index - 1].x === result[index].x || result[index - 1].y === result[index].y);
+  }
+});
+
+test("straightenJogs keeps a jog of exactly one grid square", () => {
+  const route = [
+    { x: -40, y: 0 },
+    { x: 0, y: 0 },
+    { x: 0, y: 40 },
+    { x: 16, y: 40 },
+    { x: 16, y: 80 },
+    { x: 40, y: 80 },
+  ];
+  assert.deepEqual(straightenJogs(new Map([[0, route]]), []).get(0), route);
+});
+
+test("straightenJogs keeps a short jog forced by facing endpoints", () => {
+  const route = [
+    { x: 0, y: 0 },
+    { x: 16, y: 0 },
+    { x: 16, y: 6 },
+    { x: 100, y: 6 },
+  ];
+  assert.deepEqual(straightenJogs(new Map([[0, route]]), []).get(0), route);
+});
+
+test("straightenJogs leaves a U-turn unchanged", () => {
+  const route = [
+    { x: 0, y: 0 },
+    { x: 0, y: 40 },
+    { x: 8, y: 40 },
+    { x: 8, y: 0 },
+    { x: 40, y: 0 },
+  ];
+  assert.deepEqual(straightenJogs(new Map([[0, route]]), []).get(0), route);
+});
+
+test("straightenJogs tries the other shift when the shorter one crosses an obstacle", () => {
+  const route = [
+    { x: -40, y: 0 },
+    { x: 0, y: 0 },
+    { x: 0, y: 40 },
+    { x: 8, y: 40 },
+    { x: 8, y: 80 },
+    { x: 40, y: 80 },
+  ];
+  const obstacles = [{ x: 7, y: 10, width: 2, height: 20 }];
+  const result = straightenJogs(new Map([[0, route]]), obstacles).get(0)!;
+
+  assert.ok(result.length < route.length);
+  assert.deepEqual(result[0], route[0]);
+  assert.deepEqual(result.at(-1), route.at(-1));
+  assert.equal(result[1].x, 0);
+});
+
+test("straightenJogs keeps a jog when both shifts cross obstacles", () => {
+  const route = [
+    { x: -40, y: 0 },
+    { x: 0, y: 0 },
+    { x: 0, y: 40 },
+    { x: 8, y: 40 },
+    { x: 8, y: 80 },
+    { x: 40, y: 80 },
+  ];
+  const obstacles = [
+    { x: 7, y: 10, width: 2, height: 20 },
+    { x: -1, y: 50, width: 2, height: 20 },
+  ];
+  assert.deepEqual(straightenJogs(new Map([[0, route]]), obstacles).get(0), route);
+});
+
+test("straightenJogs keeps the port exit leg at least its clearance", () => {
+  const route = [
+    { x: 0, y: 0 },
+    { x: 16, y: 0 },
+    { x: 16, y: 40 },
+    { x: 8, y: 40 },
+    { x: 8, y: 80 },
+    { x: 40, y: 80 },
+  ];
+  const result = straightenJogs(new Map([[0, route]]), []).get(0)!;
+
+  assert.deepEqual(result[0], route[0]);
+  assert.deepEqual(result.at(-1), route.at(-1));
+  assert.ok(Math.abs(result[1].x - result[0].x) + Math.abs(result[1].y - result[0].y) >= CLEARANCE);
+  assert.ok(result.length < route.length);
+});
+
+test("straightenJogs keeps a lane away from a nearby parallel route", () => {
+  const route = [
+    { x: -40, y: 0 },
+    { x: 0, y: 0 },
+    { x: 0, y: 40 },
+    { x: 8, y: 40 },
+    { x: 8, y: 80 },
+    { x: 40, y: 80 },
+  ];
+  const nearby = [{ x: 4, y: -20 }, { x: 4, y: 100 }];
+  const routes = new Map([
+    [0, route],
+    [1, nearby],
+  ]);
+  assert.deepEqual(straightenJogs(routes, []).get(0), route);
+});
+
+test("straightenJogs rejects a shift that leaves the routing bounds", () => {
+  const route = [
+    { x: 8, y: 0 },
+    { x: 8, y: 20 },
+    { x: 0, y: 20 },
+    { x: 0, y: 60 },
+    { x: 40, y: 60 },
+  ];
+  const bounds: Box = { x: 0, y: 0, width: 4, height: 80 };
+  assert.deepEqual(straightenJogs(new Map([[0, route]]), [], bounds).get(0), route);
+});
+
 function onBorder(point: RenderPoint, box: Box): boolean {
   return (
     ((point.x === box.x || point.x === box.x + box.width) && point.y >= box.y && point.y <= box.y + box.height) ||
@@ -254,6 +403,28 @@ function assertRoutes(boxes: Box[], pairs: Pair[], routes: Array<RenderPoint[] |
   return routed;
 }
 
+function assertStraighteningIdempotent(boxes: Box[], routes: Array<RenderPoint[] | undefined>): void {
+  const current = new Map<number, RenderPoint[]>();
+  routes.forEach((route, index) => {
+    if (route) {
+      current.set(index, route);
+    }
+  });
+  const straightened = straightenJogs(current, boxes);
+  for (const [index, route] of current) {
+    const result = straightened.get(index)!;
+    assert.deepEqual(result, route, `straightening changed seeded route ${index} a second time`);
+    assert.deepEqual(result[0], route[0], `straightening moved route ${index}'s first endpoint`);
+    assert.deepEqual(result.at(-1), route.at(-1), `straightening moved route ${index}'s last endpoint`);
+    for (let segment = 1; segment < result.length; segment++) {
+      assert.ok(
+        result[segment - 1].x === result[segment].x || result[segment - 1].y === result[segment].y,
+        `straightening made seeded route ${index} non-orthogonal`,
+      );
+    }
+  }
+}
+
 const samples = 500;
 const extraPairSeed = (sample: number): number => (0x9e3779b9 ^ Math.imul(sample + 1, 0x85ebca6b)) >>> 0;
 const sharedBoxSeed = (sample: number): number => (0x243f6a88 ^ Math.imul(sample + 1, 0x9e3779b1)) >>> 0;
@@ -264,7 +435,9 @@ test("avoidRoutes routes every edge orthogonally over 500 seeded scenes", async 
   let sample = 0;
   for (const { boxes, pair } of randomScenes(samples)) {
     const pairs = [pair, ...randomPairs(boxes.length, 2, extraPairSeed(sample))];
-    routed += assertRoutes(boxes, pairs, routeScene(boxes, pairs));
+    const routes = routeScene(boxes, pairs);
+    routed += assertRoutes(boxes, pairs, routes);
+    assertStraighteningIdempotent(boxes, routes);
     sample++;
   }
   assert.equal(routed, samples * 3);
@@ -277,7 +450,9 @@ test("avoidRoutes separates three sources sharing one target over 500 seeded sce
   for (const { boxes } of randomScenes(samples)) {
     const grown = completeScene(boxes, 4, sharedBoxSeed(sample));
     const pairs = randomSharedTargetPairs(grown.length, extraPairSeed(sample));
-    routed += assertRoutes(grown, pairs, routeScene(grown, pairs));
+    const routes = routeScene(grown, pairs);
+    routed += assertRoutes(grown, pairs, routes);
+    assertStraighteningIdempotent(grown, routes);
     sample++;
   }
   assert.equal(routed, samples * 3);
