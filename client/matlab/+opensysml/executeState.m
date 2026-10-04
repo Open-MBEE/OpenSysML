@@ -13,10 +13,7 @@ function answer = executeState(model, stateId, varargin)
     if ~isempty(schedule), request.schedule = schedule; end
     if ~isempty(options.performer), request.performerSymbolId = char(options.performer); end
     if options.trace, request.trace = true; end
-    raw = opensysml.internal.checkError(opensysml.call(model.connection, ...
-        'ExecuteState', request, capabilities), 'ExecuteState');
-    statesVisited = toTextCells(fieldOr(raw, 'statesVisited', {}));
-    statesVisited = statesVisited(:);
+    raw = opensysml.call(model.connection, 'ExecuteState', request, capabilities);
     traceRaw = fieldOr(raw, 'trace', {});
     if iscell(traceRaw)
         trace = cellfun(@decodeTraceEvent, traceRaw(:), 'UniformOutput', false);
@@ -25,6 +22,10 @@ function answer = executeState(model, stateId, varargin)
     else
         trace = {};
     end
+    details = struct('trace', {trace}, 'traceDropped', fieldOr(raw, 'traceDropped', 0));
+    raw = opensysml.internal.checkError(raw, 'ExecuteState', details);
+    statesVisited = toTextCells(fieldOr(raw, 'statesVisited', {}));
+    statesVisited = statesVisited(:);
     answer = struct('statesVisited', {statesVisited}, ...
         'finalContext', struct(), 'finalTime', fieldOr(raw, 'finalTime', 0), ...
         'trace', {trace}, 'traceDropped', fieldOr(raw, 'traceDropped', 0));

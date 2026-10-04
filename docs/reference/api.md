@@ -50,6 +50,8 @@ capability alongside `schedule`.
 `WithTrace()` makes `ExecuteState` return typed `DocumentEvent` records and the number of
 discarded older records in `StateRun.Trace` and `StateRun.TraceDropped`. It requires the
 `state_trace` capability and cannot be combined with an explore schedule.
+When a traced run fails, the existing `FailureError` carries its partial records in `Trace`
+and the discarded count in `TraceDropped`.
 
 A `Session` (`opensysml.OpenSession(client, model)`) is the interactive counterpart of those
 one-run calls: it keeps its clock, its schedule (`SetSchedule`) and the objects it instantiated

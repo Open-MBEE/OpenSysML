@@ -53,6 +53,7 @@ export Connection, Model, Diagnostic, Instance, InstanceRef, Quantity,
        as_str, as_quantity, as_enum_literal, as_object, as_typed, feature_value,
        optional_feature_value, list_feature_value, generate_source, generate_main
 
+include("document_types.jl")
 include("errors.jl")
 include("binary.jl")
 include("values.jl")

@@ -292,6 +292,19 @@ end
         @test traced.trace_dropped == 2
         @test occursin("\"trace\":true", requested[])
 
+        canned[] = """{"error":"state machine failed","trace":[{"kind":"entry","time":{"realValue":1.5},"state":"active","text":"enter: active"}],"traceDropped":2}"""
+        failure = try
+            execute_state(model, "S"; trace=true)
+            nothing
+        catch err
+            err
+        end
+        @test failure isa ExecutionFailure
+        @test length(failure.trace) == 1
+        @test failure.trace[1].kind == "entry"
+        @test failure.trace[1].state == "active"
+        @test failure.trace_dropped == 2
+
         conn.info = ServerInfo("", String[], true, conn.origin)
         @test_throws MissingCapabilityError execute_state(model, "S"; trace=true)
     finally

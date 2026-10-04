@@ -13,6 +13,7 @@ import (
 
 	"github.com/Open-MBEE/OpenSysML/api/proto/protoconnect"
 	"github.com/Open-MBEE/OpenSysML/client/opensysml"
+	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
 	sysmlgrpc "github.com/Open-MBEE/OpenSysML/internal/frontend/grpc"
 )
 
@@ -37,6 +38,21 @@ const behaviorSource = `package Test {
 		succession first Running then done;
 	}
 }`
+
+const stateTraceFailureSource = `
+package Trace {
+  item def Go;
+  item def Again;
+  state Machine {
+    entry; then idle;
+    state idle;
+    state middle;
+    state done;
+    transition first idle accept Go then middle;
+    transition first middle accept Again then done;
+  }
+}
+`
 
 const verificationSource = `package Demo {
 	part def Vehicle {
@@ -259,6 +275,36 @@ func TestExecuteStateTracesTheStatesVisited(t *testing.T) {
 	if len(traced.Trace) == 0 || traced.TraceDropped != 0 || traced.Trace[0].Kind != "entry" {
 		t.Errorf("trace = %v dropped %d, want entry records and no drops", traced.Trace, traced.TraceDropped)
 	}
+}
+
+func TestExecuteStateFailureKeepsItsPartialTrace(t *testing.T) {
+	t.Setenv(runtime.MaxStateEventsEnvVar, "1")
+	client := newClient(t)
+	model := parse(t, client, stateTraceFailureSource)
+
+	_, err := client.ExecuteState(
+		context.Background(),
+		model,
+		"Trace::Machine",
+		[]string{"Go", "Again"},
+		opensysml.WithTrace(),
+	)
+	var failure *opensysml.FailureError
+	if !errors.As(err, &failure) {
+		t.Fatalf("ExecuteState error = %v, want FailureError", err)
+	}
+	if failure.Op != "ExecuteState" || failure.Message == "" {
+		t.Fatalf("failure = %+v, want an ExecuteState failure", failure)
+	}
+	if failure.TraceDropped != 0 {
+		t.Errorf("trace dropped %d records, want none", failure.TraceDropped)
+	}
+	for _, event := range failure.Trace {
+		if event.Kind == "transition" && event.From == "idle" && event.To == "middle" {
+			return
+		}
+	}
+	t.Fatalf("partial trace has no idle-to-middle transition: %v", failure.Trace)
 }
 
 func TestVerifyConstraintAnswersAVerdictAboutTheSubject(t *testing.T) {

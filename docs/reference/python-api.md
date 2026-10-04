@@ -162,6 +162,8 @@ the result's `trace` list and the discarded-record count in `trace_dropped`.
 The option is capability-gated by `state_trace` and cannot be combined with an
 explore schedule; the same option and result fields are available on
 `Connection.execute_state`.
+A failed traced run raises the existing `ExecutionError`, with its partial
+records on `trace` and discarded count on `trace_dropped`.
 
 ## opensysml.symbol
 

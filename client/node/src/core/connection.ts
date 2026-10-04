@@ -738,7 +738,7 @@ export class Connection {
     return response;
   }
 
-  /** Executes a state machine. */
+  /** Executes a state machine; a failed traced run carries its partial trace on ExecutionError. */
   async executeState(
     modelHash: string,
     stateMachineSymbolId: string,
@@ -766,6 +766,8 @@ export class Connection {
         response.error,
         "unspecified",
         response.diagnostics.map(decodeDiagnostic),
+        response.trace.map(documentEventOf),
+        response.traceDropped,
       );
     }
     return {

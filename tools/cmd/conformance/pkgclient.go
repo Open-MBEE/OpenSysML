@@ -336,10 +336,19 @@ func (c *pkgClient) executeState(ctx context.Context, request protoreflect.Messa
 	run, err := c.api.ExecuteState(ctx, c.model(req.ModelHash), req.StateMachineSymbolId, req.Events, options...)
 	var failure *opensysml.FailureError
 	if errors.As(err, &failure) {
-		return &pb.ExecuteStateResponse{
-			Error:       failure.Message,
-			Diagnostics: diagnosticsToProto(failure.Diagnostics),
-		}, nil
+		response := &pb.ExecuteStateResponse{
+			Error:        failure.Message,
+			Diagnostics:  diagnosticsToProto(failure.Diagnostics),
+			TraceDropped: traceDroppedCountToInt32(failure.TraceDropped),
+		}
+		for _, event := range failure.Trace {
+			record, err := documentEventToProto(event)
+			if err != nil {
+				return nil, err
+			}
+			response.Trace = append(response.Trace, record)
+		}
+		return response, nil
 	}
 	if err != nil {
 		return nil, apiError(err)

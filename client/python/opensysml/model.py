@@ -668,7 +668,9 @@ class Model:
 
         Raises:
             ValueError: If the schedule explores
-            ExecutionError: If the state machine could not be executed
+            ExecutionError: If the state machine could not be executed; a
+                traced failure carries its partial ``trace`` and
+                ``trace_dropped``
             ModelNotFoundError: If the service no longer holds this model
             MissingCapabilityError: If a schedule is given and the service
                 predates ``schedule``, a performer and it predates ``performer``,

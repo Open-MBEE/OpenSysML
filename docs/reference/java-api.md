@@ -131,6 +131,8 @@ capabilities (`schedule`, `performer`, `state_trace`) before the call; an unknow
 schedule or trace with exploration is refused as `INVALID_ARGUMENT`. A requested
 trace is returned as typed `DocumentEvent` values in `StateRun.trace()` with
 `traceDropped()` reporting records discarded by the service's bound.
+A failed traced run remains a `ModelException`; its `trace()` and
+`traceDropped()` carry the records made before failure and the discarded count.
 `exploreAction`/`exploreState` take an exploration schedule (`explore`,
 `explore:runs=N,depth=M`; a non-exploring schedule is an `IllegalArgumentException`)
 and answer an `Exploration` of `Outcome`s, each a distinct end state with the

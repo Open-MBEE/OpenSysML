@@ -210,7 +210,7 @@ model failure.
 | `Conversion { message, diagnostics }` | the service could not write the model in that format |
 | `Migration { message }` | the service could not read the SysML v1 model it was asked to migrate |
 | `Unwritable(String)` | `Migration::write` refused its destination: it names the v1 model, or an image would land outside the model's directory |
-| `Execution { message, reason, diagnostics }` | a run, verification, calculation or analysis could not be answered; `reason` is the `FailureReason` |
+| `Execution { message, reason, diagnostics, trace, trace_dropped }` | a run, verification, calculation or analysis could not be answered; a failed traced state run keeps its partial trace and discarded count |
 | `WrongKind { message, diagnostics }` | the call named an element of another kind |
 | `AnalysisRun { message, result }` | an analysis failed, keeping what it established |
 | `Edit(Box<EditError>)` | the service refused an edit; nothing was written |

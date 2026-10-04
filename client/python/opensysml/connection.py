@@ -2092,7 +2092,12 @@ class Connection:
         response = self._execute_state(state_machine_symbol_id, model_hash, events, schedule, performer, trace)
         if response.error:
             wrapped_diags = [Diagnostic(d) for d in response.diagnostics]
-            raise ExecutionError(response.error, diagnostics=wrapped_diags)
+            raise ExecutionError(
+                response.error,
+                diagnostics=wrapped_diags,
+                trace=tuple(document_event_of(event) for event in response.trace),
+                trace_dropped=response.trace_dropped,
+            )
         
         return {
             'states_visited': list(response.states_visited),

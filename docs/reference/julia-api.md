@@ -97,6 +97,9 @@ performer attributes are available separately as `performer`. `execute_state`
 returns a `StateRun` with `states_visited`, `final_context`, `final_time`,
 `trace::Vector{DocumentEvent}`, and `trace_dropped`. Requesting a trace checks
 the `state_trace` capability locally and cannot be combined with exploration.
+A failed traced run keeps its existing `ExecutionFailure` or `WrongKindError`
+classification, with partial records on `trace` and the discarded count on
+`trace_dropped`.
 `Instance`, `InstanceRef`, `TypeFacts`, `SymbolFacts`, `SymbolInfo`,
 `Multiplicity`, and `Diagnostic` carry decoded model and service results.
 

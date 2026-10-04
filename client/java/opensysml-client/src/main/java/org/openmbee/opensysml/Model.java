@@ -681,7 +681,8 @@ public final class Model {
    * @param stateMachineSymbolId qualified name of the state definition or usage
    * @param events the events to send it, in order
    * @return the states it visited and its final context
-   * @throws ModelException if the machine could not be executed
+   * @throws ModelException if the machine could not be executed; a traced failure carries its
+   *     partial trace and dropped-record count
    * @throws ServiceException if the service does not hold this model
    */
   public StateRun executeState(String stateMachineSymbolId, List<String> events) {
@@ -766,7 +767,14 @@ public final class Model {
     request.setTrace(options.trace());
     ExecuteStateResponse response =
         connection.call("ExecuteState", request.build(), ExecuteStateResponse.getDefaultInstance());
-    failed(response.getError(), FailureReason.UNSPECIFIED, response.getDiagnosticsList());
+    if (!response.getError().isEmpty()) {
+      throw new ModelException(
+          response.getError(),
+          FailureReason.UNSPECIFIED,
+          Protos.diagnostics(response.getDiagnosticsList()),
+          Protos.documentEvents(response.getTraceList()),
+          response.getTraceDropped());
+    }
     return response;
   }
 

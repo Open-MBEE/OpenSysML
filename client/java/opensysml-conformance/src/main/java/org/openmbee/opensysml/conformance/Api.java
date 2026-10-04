@@ -450,6 +450,8 @@ final class Api {
       return ExecuteStateResponse.newBuilder()
           .setError(e.getMessage())
           .addAllDiagnostics(Rendering.diagnostics(e.diagnostics()))
+          .addAllTrace(e.trace().stream().map(event -> Protos.proto(event).getEvent()).toList())
+          .setTraceDropped(e.traceDropped())
           .build();
     }
   }

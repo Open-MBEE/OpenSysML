@@ -227,7 +227,13 @@ func (c *client) ExecuteState(
 	}
 	diagnostics := diagnosticsFromProto(resp.Diagnostics)
 	if resp.Error != "" {
-		return nil, &FailureError{Op: "ExecuteState", Message: resp.Error, Diagnostics: diagnostics}
+		return nil, &FailureError{
+			Op:           "ExecuteState",
+			Message:      resp.Error,
+			Diagnostics:  diagnostics,
+			Trace:        documentEventsFromProto(resp.Trace),
+			TraceDropped: int(resp.TraceDropped),
+		}
 	}
 	return &StateRun{
 		Visited:      append([]string(nil), resp.StatesVisited...),

@@ -150,7 +150,7 @@ knowing its members.
 | `ClosedConnectionError` | the connection was closed and cannot be used again |
 | `ParseError` | a file could not be read, or its content did not parse; carries `diagnostics` |
 | `EvaluationError` | the call succeeded and the answer reports a model failure |
-| `ExecutionError` | an execution the service ran failed; carries `diagnostics` |
+| `ExecutionError` | an execution the service ran failed; carries `diagnostics`; a failed traced `executeState` also carries its partial `trace` and `traceDropped` |
 | `WrongKindError` | a verification or analysis named a symbol of another kind |
 | `AnalysisRunError` | an analysis run failed before it could report |
 | `ConversionError` | the service could not write the notation asked for |

@@ -507,6 +507,8 @@ impl Connection {
                 message: response.error,
                 reason: FailureReason::Unspecified,
                 diagnostics,
+                trace: Vec::new(),
+                trace_dropped: 0,
             });
         }
         Ok(ActionRun {
@@ -569,11 +571,7 @@ impl Connection {
         let wire = response.clone();
         let diagnostics = diagnostics_of(&response.diagnostics);
         if !response.error.is_empty() {
-            return Err(Error::Execution {
-                message: response.error,
-                reason: FailureReason::Unspecified,
-                diagnostics,
-            });
+            return Err(state_failure(response, diagnostics)?);
         }
         Ok(StateRun {
             states_visited: response.states_visited,
@@ -881,6 +879,24 @@ fn with_values(mut capabilities: Vec<&'static str>) -> Vec<&'static str> {
     capabilities
 }
 
+fn state_failure(
+    response: wire::ExecuteStateResponse,
+    diagnostics: Vec<crate::domain::Diagnostic>,
+) -> Result<Error, Error> {
+    let trace = response
+        .trace
+        .into_iter()
+        .map(document_event_from_wire)
+        .collect::<Result<_, _>>()?;
+    Ok(Error::Execution {
+        message: response.error,
+        reason: FailureReason::Unspecified,
+        diagnostics,
+        trace,
+        trace_dropped: response.trace_dropped,
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -910,5 +926,39 @@ mod tests {
             schedule_capabilities(Some("explore")),
             [CAPABILITY_SCHEDULE, CAPABILITY_SCHEDULE_EXPLORE]
         );
+    }
+
+    #[test]
+    fn failed_state_run_keeps_its_partial_trace() {
+        let response = wire::ExecuteStateResponse {
+            error: "state machine failed".to_owned(),
+            trace: vec![wire::DocumentEvent {
+                kind: "entry".to_owned(),
+                time: Some(Box::new(wire::DocumentValue {
+                    element_type: String::new(),
+                    kind: Some(wire::document_value::Kind::RealValue(1.5)),
+                })),
+                state: "active".to_owned(),
+                text: "enter: active".to_owned(),
+                ..Default::default()
+            }],
+            trace_dropped: 2,
+            ..Default::default()
+        };
+
+        let Error::Execution {
+            message,
+            trace,
+            trace_dropped,
+            ..
+        } = state_failure(response, Vec::new()).unwrap()
+        else {
+            panic!("failed state run did not retain its execution error");
+        };
+        assert_eq!(message, "state machine failed");
+        assert_eq!(trace.len(), 1);
+        assert_eq!(trace[0].kind, "entry");
+        assert_eq!(trace[0].state, "active");
+        assert_eq!(trace_dropped, 2);
     }
 }

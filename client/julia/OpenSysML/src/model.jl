@@ -138,14 +138,14 @@ function features(inst::Instance)
         for (name, value) in getfield(inst, :feature_values))
 end
 
-function _check_error(answer, method)
+function _check_error(answer, method; trace=DocumentEvent[], trace_dropped=0)
     msg = String(get(answer, "error", ""))
     isempty(msg) && return answer
     diags = Diagnostic[Diagnostic(d) for d in get(answer, "diagnostics", Any[])]
     if method in ("ParseFile", "ParseSources")
         throw(ModelError(msg, diags))
     end
-    return _raise_answer_error(answer; diagnostics=diags)
+    return _raise_answer_error(answer; diagnostics=diags, trace, trace_dropped)
 end
 
 function _model_from_answer(conn, answer; documents=String[], source_path=nothing, strict=false)
@@ -416,12 +416,13 @@ function execute_state(model::Model, state_id::AbstractString; events=Any[],
     answer = _translate(; capabilities=Tuple(unique(needed)), connection=model.connection) do
         call(model.connection, "ExecuteState", request)
     end
-    _check_error(answer, "ExecuteState")
-    decoded = decode_values(answer)
     trace_events = DocumentEvent[
         _document_value(Dict{String,Any}("event" => event))
         for event in get(answer, "trace", Any[])
     ]
+    _check_error(answer, "ExecuteState"; trace=trace_events,
+                 trace_dropped=Int(get(answer, "traceDropped", 0)))
+    decoded = decode_values(answer)
     return StateRun(String[String(state) for state in get(decoded, "statesVisited", Any[])],
                     Dict{String,Any}(get(decoded, "finalContext", Dict{String,Any}())),
                     Float64(get(decoded, "finalTime", 0.0)), trace_events,

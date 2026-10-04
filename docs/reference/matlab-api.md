@@ -126,6 +126,8 @@ points are `opensysml.exploreAction`, `opensysml.exploreState`, and
 `executeState(..., 'trace', true)` returns typed `DocumentEvent` entries in
 `trace` and the discarded-record count in `traceDropped`; it checks the
 `state_trace` capability before sending the request.
+A failed traced run keeps its existing error identifier; `lastError().details`
+includes its partial `trace` and `traceDropped`.
 
 `opensysml.listEngines(conn)` returns `EngineInfo` records. Engine selection is available with
 the `engine` option on supported calculation, verification, analysis, and sweep methods; a named

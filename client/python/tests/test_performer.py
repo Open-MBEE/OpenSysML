@@ -113,6 +113,30 @@ def test_state_trace_is_requested_and_decoded():
     assert result["trace_dropped"] == 3
 
 
+def test_failed_state_trace_is_attached_to_execution_error():
+    stub = Mock()
+    event = sysml_pb2.DocumentEvent(
+        kind="entry",
+        time=sysml_pb2.DocumentValue(real_value=1.5),
+        state="active",
+        text="enter: active",
+    )
+    stub.ExecuteState.return_value = sysml_pb2.ExecuteStateResponse(
+        error="state machine failed",
+        trace=[event],
+        trace_dropped=2,
+    )
+    conn = make_connection(stub, CURRENT_TRACE)
+
+    with pytest.raises(ExecutionError, match="state machine failed") as excinfo:
+        conn.execute_state("Wire::Craft::modes", "hash", trace=True)
+
+    assert isinstance(excinfo.value.trace, tuple)
+    assert [record.kind for record in excinfo.value.trace] == ["entry"]
+    assert excinfo.value.trace[0].state == "active"
+    assert excinfo.value.trace_dropped == 2
+
+
 def test_state_trace_is_not_sent_without_its_capability():
     stub = Mock()
     conn = make_connection(stub, CURRENT)
