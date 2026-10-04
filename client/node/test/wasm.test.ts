@@ -213,6 +213,61 @@ test("Go constructors are cached per runtime script and restore the previous glo
   }
 });
 
+test("preloaded Go runtime scripts are captured from the global", async () => {
+  const directory = mkdtempSync(join(tmpdir(), "opensysml-wasm-exec-"));
+  const runtime = globalThis as typeof globalThis & { Go?: GoConstructor };
+  const initial = runtime.Go;
+  const path = join(directory, "go-preloaded.mjs");
+  const specifier = `${pathToFileURL(path).href}?preloaded`;
+  writeFileSync(path, "globalThis.Go = class GoPreloaded {};\n");
+
+  try {
+    await import(specifier);
+    const preloaded = runtime.Go;
+    assert.ok(preloaded);
+    assert.equal(preloaded.name, "GoPreloaded");
+    assert.strictEqual(await loadGoConstructor(specifier), preloaded);
+  } finally {
+    if (initial === undefined) {
+      delete runtime.Go;
+    } else {
+      runtime.Go = initial;
+    }
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test("Go constructor lookups without a runtime wait for explicit loads", async () => {
+  const directory = mkdtempSync(join(tmpdir(), "opensysml-wasm-exec-"));
+  const runtime = globalThis as typeof globalThis & { Go?: GoConstructor };
+  const initial = runtime.Go;
+  const path = join(directory, "go-slow.mjs");
+  const specifier = pathToFileURL(path).href;
+  const preloaded = class PreloadedGo extends FakeGo {};
+  runtime.Go = preloaded;
+  writeFileSync(
+    path,
+    "await new Promise((resolve) => setTimeout(resolve, 50));\n" +
+      "globalThis.Go = class GoSlow {};\n",
+  );
+  const slowLoad = loadGoConstructor(specifier);
+  const queuedLookup = loadGoConstructor();
+
+  try {
+    assert.strictEqual(await queuedLookup, preloaded);
+    assert.equal((await slowLoad).name, "GoSlow");
+    assert.strictEqual(runtime.Go, preloaded);
+  } finally {
+    await Promise.allSettled([slowLoad, queuedLookup]);
+    if (initial === undefined) {
+      delete runtime.Go;
+    } else {
+      runtime.Go = initial;
+    }
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
 test("Go constructor load failures are not cached", async () => {
   const directory = mkdtempSync(join(tmpdir(), "opensysml-wasm-exec-"));
   const runtime = globalThis as typeof globalThis & { Go?: GoConstructor };
