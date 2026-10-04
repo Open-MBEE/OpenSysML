@@ -560,7 +560,7 @@ func TestWorkspaceLibraryVersionEditIndexFollowsRoots(t *testing.T) {
 		if tc.text == src {
 			t.Fatalf("%s: the text is not declared where expected", tc.name)
 		}
-		edited := newDocument("copy.kerml", []byte(tc.text), 2)
+		edited := newDocument("copy.kerml", []byte(tc.text), 2, source.KindUnknown)
 		ws.mu.Lock()
 		ei := ws.editIndexLocked("copy.kerml")
 		idx := ei.build()
@@ -599,7 +599,7 @@ func TestWorkspaceLibraryVersionEditIndexFollowsSequence(t *testing.T) {
 		if text == src && name != "ScalarValues" {
 			t.Fatalf("the root is not declared where expected")
 		}
-		return newDocument("copy.kerml", []byte(text), 2)
+		return newDocument("copy.kerml", []byte(text), 2, source.KindUnknown)
 	}
 	ws.Open("copy.kerml", rooted("Mine").Content, 1)
 	if got := ws.StandsInFor("copy.kerml"); got != "" {

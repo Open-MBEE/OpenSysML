@@ -47,6 +47,7 @@ func parseDocName(origin string) string {
 type snippet struct {
 	src   string
 	names []string
+	kind  source.Kind
 	// origin is the file this snippet was read from, empty for a submission
 	// typed at the prompt, and key identifies that file across the ways its path
 	// can be written.
@@ -69,6 +70,9 @@ type snippet struct {
 	diags []diag.Diagnostic
 }
 
+// SourceConverter transforms a named source file before the REPL parses it.
+type SourceConverter func(name string, data []byte, warn func(string)) (text []byte, converted bool, err error)
+
 // Session accumulates submissions: what is typed into the transcript document,
 // and each loaded file into a document of its own.
 type Session struct {
@@ -79,9 +83,10 @@ type Session struct {
 	mu    sync.Mutex
 	state sync.Mutex
 
-	ws       *model.Workspace
-	snippets []snippet
-	version  int
+	ws              *model.Workspace
+	sourceConverter SourceConverter
+	snippets        []snippet
+	version         int
 
 	// Runtime execution context
 	rtCtx *runtime.Context
@@ -291,14 +296,25 @@ func (s *stateSession) selfOf() string {
 
 // NewSession returns a session over a fresh workspace.
 func NewSession() *Session {
+	return newSession(nil)
+}
+
+// NewSessionWithSourceConverter returns a fresh session that converts named
+// source files before parsing them.
+func NewSessionWithSourceConverter(converter SourceConverter) *Session {
+	return newSession(converter)
+}
+
+func newSession(converter SourceConverter) *Session {
 	s := &Session{
-		ws:          model.NewWorkspace(),
-		instances:   make(map[string]*runtime.Instance),
-		budgets:     runtime.DefaultBudgets(),
-		engines:     engines.Default(),
-		verbosity:   VerbosityNormal,
-		toolVersion: "sysml dev",
-		now:         time.Now,
+		ws:              model.NewWorkspace(),
+		sourceConverter: converter,
+		instances:       make(map[string]*runtime.Instance),
+		budgets:         runtime.DefaultBudgets(),
+		engines:         engines.Default(),
+		verbosity:       VerbosityNormal,
+		toolVersion:     "sysml dev",
+		now:             time.Now,
 	}
 	s.setJobs(analysis.DefaultJobs())
 	return s
@@ -413,7 +429,7 @@ func (s *Session) accept(origin, src string) {
 // A loaded file supersedes only itself and what the prompt said about the same
 // names, since several files of one model commonly open the same package.
 func (s *Session) acceptFrom(origin, src string) (declared []string, drops []dropReport) {
-	return s.acceptParsed(origin, src, preparse(origin, src))
+	return s.acceptParsed(origin, src, preparse(origin, src), source.KindUnknown)
 }
 
 // parsed is what a submission's text parses to, taken before it is accepted so
@@ -427,13 +443,25 @@ type parsed struct {
 // preparse parses src as the submission from origin, and probes whether it
 // closes its own text.
 func preparse(origin, src string) parsed {
+	return preparseWithKind(origin, src, source.KindUnknown)
+}
+
+func preparseWithKind(origin, src string, kind source.Kind) parsed {
 	doc := parseDocName(origin)
-	p := parser.New(source.New(doc, []byte(src)))
+	data := []byte(src)
+	p := parser.New(sourceForKind(doc, data, kind))
 	return parsed{p: p, root: p.ParseFile(), closes: closesItsOwnText(doc, src)}
 }
 
+func sourceForKind(name string, data []byte, kind source.Kind) *source.SourceFile {
+	if kind == source.KindUnknown {
+		return source.New(name, data)
+	}
+	return source.NewWithKind(name, data, kind)
+}
+
 // acceptParsed is acceptFrom over a parse already taken.
-func (s *Session) acceptParsed(origin, src string, pre parsed) (declared []string, drops []dropReport) {
+func (s *Session) acceptParsed(origin, src string, pre parsed, kind source.Kind) (declared []string, drops []dropReport) {
 	p, root := pre.p, pre.root
 	names := declaredNames(root)
 	declared = names
@@ -460,6 +488,7 @@ func (s *Session) acceptParsed(origin, src string, pre parsed) (declared []strin
 			src:    src,
 			origin: origin,
 			key:    key,
+			kind:   kind,
 			gen:    s.version,
 			open:   true,
 			diags:  parser.AsDiagnostics(p.Diagnostics, p.Warnings),
@@ -489,7 +518,7 @@ func (s *Session) acceptParsed(origin, src string, pre parsed) (declared []strin
 				kept = append(kept, sn)
 			}
 		}
-		s.snippets = append(kept, snippet{src: src, names: names, origin: origin, key: key, gen: s.version})
+		s.snippets = append(kept, snippet{src: src, names: names, origin: origin, key: key, kind: kind, gen: s.version})
 		return declared, append(drops, s.reopenedNamespaces(key, root)...)
 	}
 	if len(names) > 0 {
@@ -526,6 +555,7 @@ func (s *Session) acceptParsed(origin, src string, pre parsed) (declared []strin
 		src:    comments + text,
 		names:  names,
 		origin: origin,
+		kind:   kind,
 		gen:    s.version,
 		prefix: len(comments),
 		own:    mergedOwn,
@@ -701,7 +731,7 @@ func (s *Session) openDocuments() {
 		}
 		live[sn.origin] = true
 		if doc := s.ws.Document(sn.origin); doc == nil || doc.Version != sn.gen {
-			inputs = append(inputs, model.Input{Name: sn.origin, Content: []byte(sn.src), Version: sn.gen})
+			inputs = append(inputs, model.Input{Name: sn.origin, Content: []byte(sn.src), Version: sn.gen, Kind: sn.kind})
 		}
 	}
 	for _, name := range s.ws.DocumentNames() {
@@ -836,8 +866,10 @@ func (s *Session) Submit(src string) Result {
 // SourceFile is one source of a submission together with the file it was read
 // from, which is what diagnostics over a multi-file load are reported against.
 type SourceFile struct {
-	Name string
-	Text string
+	Name     string
+	Text     string
+	Kind     source.Kind
+	Warnings []string
 }
 
 // SubmitAll accumulates every src as one submission, from no file in particular.
@@ -903,10 +935,10 @@ func (s *Session) submitEach(files []SourceFile) (res Result, byFile [][]string,
 	byFile = make([][]string, len(files))
 	parses := make([]parsed, len(files))
 	model.ParallelFor(s.jobs, len(files), func(i int) {
-		parses[i] = preparse(files[i].Name, files[i].Text)
+		parses[i] = preparseWithKind(files[i].Name, files[i].Text, files[i].Kind)
 	})
 	for i, f := range files {
-		names, dropped := s.acceptParsed(f.Name, f.Text, parses[i])
+		names, dropped := s.acceptParsed(f.Name, f.Text, parses[i], f.Kind)
 		for _, name := range names {
 			if !seen[name] {
 				seen[name] = true
@@ -1284,7 +1316,7 @@ func (s *Session) runtimeModel() (*runtime.Model, error) {
 	// the line it was submitted on rather than a byte offset, and the buffer's
 	// scope tree, so a carried object is rebound to the symbols the prompt reaches.
 	for _, doc := range s.sessionDocs() {
-		model.RegisterSource(source.New(doc.Name, doc.Content))
+		model.RegisterSource(sourceForKind(doc.Name, doc.Content, doc.Kind()))
 		model.RegisterScope(doc.Scope)
 	}
 	return model, nil

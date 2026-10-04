@@ -25,6 +25,10 @@ const (
 	mSubsetting                        = "Subsetting"
 	mSpecialization                    = "Specialization"
 	mRedefinition                      = "Redefinition"
+	mFlow                              = "Flow"
+	mFlowUsage                         = "FlowUsage"
+	mSuccessionFlow                    = "SuccessionFlow"
+	mSuccessionFlowUsage               = "SuccessionFlowUsage"
 	mFlowEnd                           = "FlowEnd"
 	mPayloadFeature                    = "PayloadFeature"
 	mMultiplicityRange                 = "MultiplicityRange"
@@ -417,7 +421,38 @@ func (e *encoder) subjectParameter(subject rdf.Term, owner string, target ast.No
 	e.graph.Add(subject, e.sysml(pOwnedRelationship), membership)
 	e.graph.Add(subject, e.sysml(pOwnedMember), usage)
 	e.graph.Add(subject, e.sysml(pOwnedMembership), membership)
+	if chain, ok := target.(*ast.FeatureChainExpr); ok {
+		return e.subjectFeatureChainValue(usage, target, chain)
+	}
 	return e.featureValue(usage, owner, target, false, false)
+}
+
+func (e *encoder) subjectFeatureChainValue(usage rdf.Term, target ast.Node, chainExpr *ast.FeatureChainExpr) error {
+	expression := e.ids.mintedNode(rdf.ExpressionIRI(usage, "value"), usage, "value")
+	e.graph.Add(usage, e.sysml(pValue), expression)
+	e.graph.Add(expression, e.sysx(xSourceText), rdf.String(e.text(target)))
+	e.graph.Add(expression, e.sysml(pElementID), rdf.String(rdf.LocalName(expression.Value)))
+	e.typed(expression, mFeatureReference)
+
+	chain := e.ids.mintedNode(rdf.ExpressionIRI(expression, "referent"), expression, "referent")
+	e.typed(chain, mFeature)
+	e.graph.Add(chain, e.sysml(pElementID), rdf.String(rdf.LocalName(chain.Value)))
+	var links []rdf.Term
+	for _, segment := range featureChainSegments(chainExpr) {
+		if qualifiedNameHasChain(segment) {
+			links = append(links, e.qualifiedChainReferences(segment)...)
+		} else {
+			links = append(links, e.reference(segment))
+		}
+	}
+	e.featureChainings(chain, links)
+	membership := e.ids.minted(rdf.OwningMembershipIRIOf(chain), chain, rdf.OwningMembershipSuffix)
+	e.emitMembershipCore(membership, chain, expression, mOwningMembership, true)
+	e.graph.Add(expression, e.sysml(pOwnedRelationship), membership)
+	e.graph.Add(expression, e.sysml(pOwnedMembership), membership)
+	e.graph.Add(expression, e.sysml(pReferent), chain)
+	e.resultParameter(expression)
+	return e.expressionOwnership(expression, usage, mFeatureValue)
 }
 
 // subjectParameters emits a subject parameter per `by` target the head states

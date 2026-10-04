@@ -1,0 +1,6 @@
+# The succession orders a1 before a2; the fork precedes both branches.
+f < a
+f < b
+a1 < a2
+a < j
+b < j

@@ -61,7 +61,23 @@ certification is claimed.
 
 ### Install
 
-**Download pre-built binaries:**
+**Install script** — picks the release build for this machine, verifies it against the
+release's `SHA256SUMS.txt`, and installs `sysml` and `sysml-lsp`:
+```bash
+# Linux and macOS: /usr/local/bin when writable, otherwise ~/.local/bin
+curl -fsSL https://opensysml.org/install.sh | sh
+```
+```powershell
+# Windows: %LOCALAPPDATA%\Programs\OpenSysML, added to the user PATH
+irm https://opensysml.org/install.ps1 | iex
+```
+Both scripts take a release (`--version v0.9.1`, `nightly`), a tool list (`--tools sysml`,
+`sysml-lsp`, `sysml-grpc`, `all`) and a destination (`--prefix`, or `-InstallDir` on Windows),
+and `--dry-run` shows the choice without installing; `sh -s -- --help` lists the rest. The
+scripts are [`install.sh`](install.sh) and [`install.ps1`](install.ps1) in this repository,
+so a checkout runs them as `./install.sh`.
+
+**Download pre-built binaries by hand:**
 ```bash
 # Linux x64 (use opensysml-linux-arm64.tar.gz on arm64)
 wget https://github.com/Open-MBEE/OpenSysML/releases/latest/download/opensysml-linux-amd64.tar.gz
@@ -83,10 +99,11 @@ make build
 ./bin/sysml
 ```
 
-> **macOS — use Homebrew.** The released binaries are not Developer ID signed or notarized,
-> so a tarball downloaded *in a browser* carries `com.apple.quarantine` and Gatekeeper shows
-> "cannot be opened because the developer cannot be verified". Homebrew downloads with
-> `curl`, which never sets that attribute, so `brew install` avoids the prompt entirely.
+> **macOS — use the install script or Homebrew.** The released binaries are not Developer ID
+> signed or notarized, so a tarball downloaded *in a browser* carries `com.apple.quarantine`
+> and Gatekeeper shows "cannot be opened because the developer cannot be verified". The
+> install script and Homebrew both download with `curl`, which never sets that attribute, so
+> neither meets the prompt.
 > When the tarball is downloaded directly (`curl -fL ... opensysml-darwin-arm64.tar.gz`, followed
 > by `xattr -d com.apple.quarantine`), see
 > [the guide](docs/guide/01-install.md#macos-gatekeeper). Signing and notarization are the

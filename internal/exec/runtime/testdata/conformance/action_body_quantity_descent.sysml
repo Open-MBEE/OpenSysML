@@ -20,8 +20,8 @@ package test {
 		action integrate {
 			while h > 0.0 [m] {
 				assign v := v - g * dt;
-				assign h := h + v * dt;
-				assign t := t + dt;
+				then assign h := h + v * dt;
+				then assign t := t + dt;
 			}
 		}
 

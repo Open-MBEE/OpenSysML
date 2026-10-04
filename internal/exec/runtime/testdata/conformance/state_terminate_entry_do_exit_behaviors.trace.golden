@@ -1,17 +1,21 @@
 do: idle
 stmt action body
+enter action node: state behavior tick
   stmt assign later
     eval literal 5 -> 5
 do: idle
   stmt terminate
-terminate state behavior tick: no token dropped
+terminate state behavior tick: dropped token 1@terminate
+leave action node: state behavior tick
 exit: idle (exit action)
 stmt action body
+enter action node: state behavior leave
   stmt assign count
       eval feature count -> 1
       eval literal 10 -> 10
     eval operator + -> 11
   stmt terminate
-terminate state behavior leave: no token dropped
+terminate state behavior leave: dropped token 1@terminate
+leave action node: state behavior leave
 enter: next
 transition: idle -> next (event: time)

@@ -599,15 +599,17 @@ func (e *ActionExecutor) crossingTerminal(crossing lower.ZeroCrossing) (bool, er
 	if crossing.Terminal == nil {
 		return false, nil
 	}
-	val, err := e.evalCrossingExpr(crossing.Terminal, crossing.TerminalScope)
-	if err != nil {
-		return false, fmt.Errorf("terminal of zero crossing %s of action %s: %w", crossing.Name, symbolText(e.action), err)
-	}
-	if val.Kind != ValConst || val.Const.Kind != semantics.ValBool {
-		return false, fmt.Errorf("%w: terminal of zero crossing %s of action %s is %s, not a Boolean",
-			ErrStateSpaceValue, crossing.Name, symbolText(e.action), describeValue(val))
-	}
-	return val.Const.Bool, nil
+	return e.ctx.guardUnderStatementOrders(crossing.Terminal, e.stepCount+1, crossing.TerminalScope, func() (bool, error) {
+		val, err := e.evalCrossingExpr(crossing.Terminal, crossing.TerminalScope)
+		if err != nil {
+			return false, fmt.Errorf("terminal of zero crossing %s of action %s: %w", crossing.Name, symbolText(e.action), err)
+		}
+		if val.Kind != ValConst || val.Const.Kind != semantics.ValBool {
+			return false, fmt.Errorf("%w: terminal of zero crossing %s of action %s is %s, not a Boolean",
+				ErrStateSpaceValue, crossing.Name, symbolText(e.action), describeValue(val))
+		}
+		return val.Const.Bool, nil
+	})
 }
 
 // evalCrossingExpr evaluates an expression of a crossing in the scope it was

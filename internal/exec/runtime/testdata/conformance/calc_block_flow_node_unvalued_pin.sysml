@@ -13,8 +13,8 @@ package test {
 				out v : Integer;
 				out w : Integer;
 				assign v := i * 10;
-				assign w := v + 1;
-				assign total := total + w;
+				then assign w := v + 1;
+				then assign total := total + w;
 			}
 		}
 		return : Integer = v + total;
