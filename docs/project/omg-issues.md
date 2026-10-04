@@ -2092,7 +2092,7 @@ form, implementable today because user-defined metadata is already conforming
 notation:
 
 ```sysml
-standard library package IdentityMetadata {
+library package IdentityMetadata {
     metadata def ElementId {
         attribute id : ScalarValues::String;
     }
@@ -2154,7 +2154,7 @@ notation — or as dedicated surface syntax if the taskforce prefers. A minimal
 library form:
 
 ```sysml
-standard library package DiagramLayout {
+library package DiagramLayout {
     metadata def Layout {
         attribute x : ScalarValues::Real;
         attribute y : ScalarValues::Real;
