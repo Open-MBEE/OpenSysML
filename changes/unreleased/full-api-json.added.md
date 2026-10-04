@@ -1,0 +1,1 @@
+- Added a model-aware full API JSON form that includes ontology properties and faithfully derived values; compact API JSON remains the default.

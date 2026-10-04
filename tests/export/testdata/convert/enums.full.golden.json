@@ -1,0 +1,1075 @@
+[
+  {
+    "@type": "Namespace",
+    "@id": "Colors_ns",
+    "elementId": "Colors_ns",
+    "ownedRelationship": [
+      {
+        "@id": "Colors_om"
+      }
+    ],
+    "ownedMembership": [
+      {
+        "@id": "Colors_om"
+      }
+    ],
+    "ownedMember": [
+      {
+        "@id": "Colors"
+      }
+    ],
+    "aliasIds": [],
+    "declaredName": null,
+    "declaredShortName": null,
+    "isImpliedIncluded": false,
+    "ownedElement": [],
+    "owner": null,
+    "owningMembership": null,
+    "owningNamespace": null,
+    "owningRelationship": null,
+    "textualRepresentation": []
+  },
+  {
+    "@type": "OwningMembership",
+    "@id": "Colors_om",
+    "elementId": "Colors_om",
+    "owner": {
+      "@id": "Colors_ns"
+    },
+    "memberElement": {
+      "@id": "Colors"
+    },
+    "ownedMemberElement": {
+      "@id": "Colors"
+    },
+    "ownedRelatedElement": [
+      {
+        "@id": "Colors"
+      }
+    ],
+    "owningRelatedElement": {
+      "@id": "Colors_ns"
+    },
+    "membershipOwningNamespace": {
+      "@id": "Colors_ns"
+    },
+    "visibility": "public",
+    "isImplied": false,
+    "aliasIds": [],
+    "declaredName": null,
+    "declaredShortName": null,
+    "isImpliedIncluded": false,
+    "ownedElement": [],
+    "ownedRelationship": [],
+    "owningMembership": null,
+    "owningNamespace": null,
+    "owningRelationship": null,
+    "textualRepresentation": []
+  },
+  {
+    "@type": "Package",
+    "@id": "Colors",
+    "owner": {
+      "@id": "Colors_ns"
+    },
+    "owningNamespace": {
+      "@id": "Colors_ns"
+    },
+    "owningRelationship": {
+      "@id": "Colors_om"
+    },
+    "owningMembership": {
+      "@id": "Colors_om"
+    },
+    "qualifiedName": "Colors",
+    "sysx:sourceLine": 1,
+    "sysx:sourceColumn": 1,
+    "sysx:sourceEndLine": 7,
+    "sysx:sourceEndColumn": 2,
+    "elementId": "Colors",
+    "sysx:memberIndex": 0,
+    "sysx:sourceLanguage": "sysml",
+    "sysx:sourceDocument": "testdata/convert/enums.sysml",
+    "declaredName": "Colors",
+    "sysx:hasBody": true,
+    "ownedMember": [
+      {
+        "@id": "Colors__Color"
+      }
+    ],
+    "ownedMembership": [
+      {
+        "@id": "Colors__Color_om"
+      }
+    ],
+    "ownedRelationship": [
+      {
+        "@id": "Colors__Color_om"
+      }
+    ],
+    "sysx:sourceText": "package Colors {\n",
+    "sysx:sourceTail": "}\n",
+    "importedMembership": [],
+    "member": [
+      {
+        "@id": "Colors__Color"
+      }
+    ],
+    "membership": [
+      {
+        "@id": "Colors__Color_om"
+      }
+    ],
+    "ownedImport": [],
+    "aliasIds": [],
+    "declaredShortName": null,
+    "documentation": [],
+    "isImpliedIncluded": false,
+    "isLibraryElement": false,
+    "name": "Colors",
+    "ownedAnnotation": [],
+    "ownedElement": [
+      {
+        "@id": "Colors__Color"
+      }
+    ],
+    "shortName": null,
+    "textualRepresentation": []
+  },
+  {
+    "@type": "EnumerationDefinition",
+    "@id": "Colors__Color",
+    "qualifiedName": "Colors::Color",
+    "sysx:sourceLine": 2,
+    "sysx:sourceColumn": 5,
+    "sysx:sourceEndLine": 6,
+    "sysx:sourceEndColumn": 6,
+    "elementId": "Colors__Color",
+    "sysx:memberIndex": 0,
+    "owningNamespace": {
+      "@id": "Colors"
+    },
+    "owner": {
+      "@id": "Colors"
+    },
+    "owningRelationship": {
+      "@id": "Colors__Color_om"
+    },
+    "owningMembership": {
+      "@id": "Colors__Color_om"
+    },
+    "declaredName": "Color",
+    "isVariation": true,
+    "sysx:hasBody": true,
+    "ownedMember": [
+      {
+        "@id": "Colors__Color__red"
+      },
+      {
+        "@id": "Colors__Color__green"
+      },
+      {
+        "@id": "Colors__Color__blue"
+      }
+    ],
+    "ownedMembership": [
+      {
+        "@id": "Colors__Color__red_om"
+      },
+      {
+        "@id": "Colors__Color__green_om"
+      },
+      {
+        "@id": "Colors__Color__blue_om"
+      }
+    ],
+    "ownedRelationship": [
+      {
+        "@id": "Colors__Color__red_om"
+      },
+      {
+        "@id": "Colors__Color__green_om"
+      },
+      {
+        "@id": "Colors__Color__blue_om"
+      }
+    ],
+    "variant": [
+      {
+        "@id": "Colors__Color__red"
+      },
+      {
+        "@id": "Colors__Color__green"
+      },
+      {
+        "@id": "Colors__Color__blue"
+      }
+    ],
+    "variantMembership": [
+      {
+        "@id": "Colors__Color__red_om"
+      },
+      {
+        "@id": "Colors__Color__green_om"
+      },
+      {
+        "@id": "Colors__Color__blue_om"
+      }
+    ],
+    "sysx:sourceText": "    enum def Color {\n",
+    "sysx:sourceTail": "    }\n",
+    "differencingType": [],
+    "directedFeature": [],
+    "endFeature": [],
+    "feature": [
+      {
+        "@id": "Colors__Color__red"
+      },
+      {
+        "@id": "Colors__Color__green"
+      },
+      {
+        "@id": "Colors__Color__blue"
+      },
+      {
+        "@id": "eece6ace-38b0-57dd-9eea-8add3ed6c003"
+      },
+      {
+        "@id": "dbd75b49-0e57-5cf9-ba35-9f8843b1e657"
+      }
+    ],
+    "featureMembership": [
+      {
+        "@id": "Colors__Color__red_om"
+      },
+      {
+        "@id": "Colors__Color__green_om"
+      },
+      {
+        "@id": "Colors__Color__blue_om"
+      },
+      {
+        "@id": "b0f5e041-28a8-54d7-8b10-f98b41e2dda0"
+      },
+      {
+        "@id": "eb64dd16-9465-56e7-8a36-8987c6e36bf5"
+      }
+    ],
+    "inheritedFeature": [
+      {
+        "@id": "eece6ace-38b0-57dd-9eea-8add3ed6c003"
+      },
+      {
+        "@id": "dbd75b49-0e57-5cf9-ba35-9f8843b1e657"
+      }
+    ],
+    "input": [],
+    "intersectingType": [],
+    "isAbstract": false,
+    "isConjugated": false,
+    "isSufficient": false,
+    "multiplicity": null,
+    "output": [],
+    "ownedEndFeature": [],
+    "ownedFeature": [
+      {
+        "@id": "Colors__Color__red"
+      },
+      {
+        "@id": "Colors__Color__green"
+      },
+      {
+        "@id": "Colors__Color__blue"
+      }
+    ],
+    "ownedFeatureMembership": [
+      {
+        "@id": "Colors__Color__red_om"
+      },
+      {
+        "@id": "Colors__Color__green_om"
+      },
+      {
+        "@id": "Colors__Color__blue_om"
+      }
+    ],
+    "ownedSpecialization": [],
+    "unioningType": [],
+    "importedMembership": [],
+    "ownedImport": [],
+    "aliasIds": [],
+    "declaredShortName": null,
+    "documentation": [],
+    "isImpliedIncluded": false,
+    "isLibraryElement": false,
+    "name": "Color",
+    "ownedAnnotation": [],
+    "ownedElement": [
+      {
+        "@id": "Colors__Color__red"
+      },
+      {
+        "@id": "Colors__Color__green"
+      },
+      {
+        "@id": "Colors__Color__blue"
+      }
+    ],
+    "shortName": null,
+    "textualRepresentation": [],
+    "directedUsage": [],
+    "ownedAction": [],
+    "ownedAllocation": [],
+    "ownedAnalysisCase": [],
+    "ownedAttribute": [],
+    "ownedCalculation": [],
+    "ownedCase": [],
+    "ownedConcern": [],
+    "ownedConnection": [],
+    "ownedConstraint": [],
+    "ownedEnumeration": [],
+    "ownedFlow": [],
+    "ownedInterface": [],
+    "ownedItem": [],
+    "ownedMetadata": [],
+    "ownedOccurrence": [],
+    "ownedPart": [],
+    "ownedPort": [],
+    "ownedReference": [],
+    "ownedRendering": [],
+    "ownedRequirement": [],
+    "ownedState": [],
+    "ownedTransition": [],
+    "ownedUsage": [],
+    "ownedUseCase": [],
+    "ownedVerificationCase": [],
+    "ownedView": [],
+    "ownedViewpoint": [],
+    "usage": [
+      {
+        "@id": "Colors__Color__red"
+      },
+      {
+        "@id": "Colors__Color__green"
+      },
+      {
+        "@id": "Colors__Color__blue"
+      },
+      {
+        "@id": "eece6ace-38b0-57dd-9eea-8add3ed6c003"
+      },
+      {
+        "@id": "dbd75b49-0e57-5cf9-ba35-9f8843b1e657"
+      }
+    ]
+  },
+  {
+    "@type": "OwningMembership",
+    "@id": "Colors__Color_om",
+    "elementId": "Colors__Color_om",
+    "owner": {
+      "@id": "Colors"
+    },
+    "memberElement": {
+      "@id": "Colors__Color"
+    },
+    "ownedMemberElement": {
+      "@id": "Colors__Color"
+    },
+    "ownedRelatedElement": [
+      {
+        "@id": "Colors__Color"
+      }
+    ],
+    "owningRelatedElement": {
+      "@id": "Colors"
+    },
+    "membershipOwningNamespace": {
+      "@id": "Colors"
+    },
+    "visibility": "public",
+    "isImplied": false,
+    "aliasIds": [],
+    "declaredName": null,
+    "declaredShortName": null,
+    "isImpliedIncluded": false,
+    "ownedElement": [],
+    "ownedRelationship": [],
+    "owningMembership": null,
+    "owningNamespace": null,
+    "owningRelationship": null,
+    "textualRepresentation": []
+  },
+  {
+    "@type": "EnumerationUsage",
+    "@id": "Colors__Color__red",
+    "qualifiedName": "Colors::Color::red",
+    "sysx:sourceLine": 3,
+    "sysx:sourceColumn": 9,
+    "sysx:sourceEndLine": 3,
+    "sysx:sourceEndColumn": 18,
+    "elementId": "Colors__Color__red",
+    "sysx:memberIndex": 0,
+    "owningNamespace": {
+      "@id": "Colors__Color"
+    },
+    "owner": {
+      "@id": "Colors__Color"
+    },
+    "owningRelationship": {
+      "@id": "Colors__Color__red_om"
+    },
+    "owningMembership": {
+      "@id": "Colors__Color__red_om"
+    },
+    "declaredName": "red",
+    "isVariant": true,
+    "sysx:hasBody": false,
+    "sysx:sourceText": "        enum red;\n",
+    "directedUsage": [],
+    "isReference": true,
+    "isVariation": false,
+    "nestedAction": [],
+    "nestedAllocation": [],
+    "nestedAnalysisCase": [],
+    "nestedAttribute": [],
+    "nestedCalculation": [],
+    "nestedCase": [],
+    "nestedConcern": [],
+    "nestedConnection": [],
+    "nestedConstraint": [],
+    "nestedEnumeration": [],
+    "nestedFlow": [],
+    "nestedInterface": [],
+    "nestedItem": [],
+    "nestedMetadata": [],
+    "nestedOccurrence": [],
+    "nestedPart": [],
+    "nestedPort": [],
+    "nestedReference": [],
+    "nestedRendering": [],
+    "nestedRequirement": [],
+    "nestedState": [],
+    "nestedTransition": [],
+    "nestedUsage": [],
+    "nestedUseCase": [],
+    "nestedVerificationCase": [],
+    "nestedView": [],
+    "nestedViewpoint": [],
+    "owningDefinition": {
+      "@id": "Colors__Color"
+    },
+    "owningUsage": null,
+    "usage": [
+      {
+        "@id": "Colors__Color__red"
+      },
+      {
+        "@id": "Colors__Color__green"
+      },
+      {
+        "@id": "Colors__Color__blue"
+      },
+      {
+        "@id": "eece6ace-38b0-57dd-9eea-8add3ed6c003"
+      },
+      {
+        "@id": "dbd75b49-0e57-5cf9-ba35-9f8843b1e657"
+      }
+    ],
+    "variant": [],
+    "variantMembership": [],
+    "chainingFeature": [],
+    "crossFeature": null,
+    "direction": null,
+    "featureTarget": null,
+    "featuringType": [
+      {
+        "@id": "Colors__Color"
+      }
+    ],
+    "isComposite": false,
+    "isConstant": false,
+    "isDerived": false,
+    "isEnd": false,
+    "isOrdered": false,
+    "isPortion": false,
+    "isUnique": true,
+    "ownedRedefinition": [],
+    "ownedReferenceSubsetting": null,
+    "ownedSubsetting": [],
+    "ownedTyping": [],
+    "owningType": {
+      "@id": "Colors__Color"
+    },
+    "differencingType": [],
+    "directedFeature": [],
+    "endFeature": [],
+    "feature": [
+      {
+        "@id": "Colors__Color__red"
+      },
+      {
+        "@id": "Colors__Color__green"
+      },
+      {
+        "@id": "Colors__Color__blue"
+      },
+      {
+        "@id": "eece6ace-38b0-57dd-9eea-8add3ed6c003"
+      },
+      {
+        "@id": "dbd75b49-0e57-5cf9-ba35-9f8843b1e657"
+      }
+    ],
+    "featureMembership": [
+      {
+        "@id": "Colors__Color__red_om"
+      },
+      {
+        "@id": "Colors__Color__green_om"
+      },
+      {
+        "@id": "Colors__Color__blue_om"
+      },
+      {
+        "@id": "b0f5e041-28a8-54d7-8b10-f98b41e2dda0"
+      },
+      {
+        "@id": "eb64dd16-9465-56e7-8a36-8987c6e36bf5"
+      }
+    ],
+    "inheritedFeature": [
+      {
+        "@id": "Colors__Color__red"
+      },
+      {
+        "@id": "Colors__Color__green"
+      },
+      {
+        "@id": "Colors__Color__blue"
+      },
+      {
+        "@id": "eece6ace-38b0-57dd-9eea-8add3ed6c003"
+      },
+      {
+        "@id": "dbd75b49-0e57-5cf9-ba35-9f8843b1e657"
+      }
+    ],
+    "input": [],
+    "intersectingType": [],
+    "isAbstract": false,
+    "isConjugated": false,
+    "isSufficient": false,
+    "multiplicity": null,
+    "output": [],
+    "ownedEndFeature": [],
+    "ownedFeature": [],
+    "ownedFeatureMembership": [],
+    "ownedSpecialization": [],
+    "unioningType": [],
+    "importedMembership": [],
+    "ownedImport": [],
+    "ownedMember": [],
+    "ownedMembership": [],
+    "aliasIds": [],
+    "declaredShortName": null,
+    "documentation": [],
+    "isImpliedIncluded": false,
+    "isLibraryElement": false,
+    "name": "red",
+    "ownedAnnotation": [],
+    "ownedElement": [],
+    "ownedRelationship": [],
+    "shortName": null,
+    "textualRepresentation": []
+  },
+  {
+    "@type": "VariantMembership",
+    "@id": "Colors__Color__red_om",
+    "elementId": "Colors__Color__red_om",
+    "owner": {
+      "@id": "Colors__Color"
+    },
+    "memberElement": {
+      "@id": "Colors__Color__red"
+    },
+    "ownedMemberElement": {
+      "@id": "Colors__Color__red"
+    },
+    "ownedRelatedElement": [
+      {
+        "@id": "Colors__Color__red"
+      }
+    ],
+    "owningRelatedElement": {
+      "@id": "Colors__Color"
+    },
+    "membershipOwningNamespace": {
+      "@id": "Colors__Color"
+    },
+    "ownedVariantUsage": {
+      "@id": "Colors__Color__red"
+    },
+    "visibility": "public",
+    "isImplied": false,
+    "aliasIds": [],
+    "declaredName": null,
+    "declaredShortName": null,
+    "isImpliedIncluded": false,
+    "ownedElement": [],
+    "ownedRelationship": [],
+    "owningMembership": null,
+    "owningNamespace": null,
+    "owningRelationship": null,
+    "textualRepresentation": []
+  },
+  {
+    "@type": "EnumerationUsage",
+    "@id": "Colors__Color__green",
+    "qualifiedName": "Colors::Color::green",
+    "sysx:sourceLine": 4,
+    "sysx:sourceColumn": 9,
+    "sysx:sourceEndLine": 4,
+    "sysx:sourceEndColumn": 20,
+    "elementId": "Colors__Color__green",
+    "sysx:memberIndex": 1,
+    "owningNamespace": {
+      "@id": "Colors__Color"
+    },
+    "owner": {
+      "@id": "Colors__Color"
+    },
+    "owningRelationship": {
+      "@id": "Colors__Color__green_om"
+    },
+    "owningMembership": {
+      "@id": "Colors__Color__green_om"
+    },
+    "declaredName": "green",
+    "isVariant": true,
+    "sysx:hasBody": false,
+    "sysx:sourceText": "        enum green;\n",
+    "directedUsage": [],
+    "isReference": true,
+    "isVariation": false,
+    "nestedAction": [],
+    "nestedAllocation": [],
+    "nestedAnalysisCase": [],
+    "nestedAttribute": [],
+    "nestedCalculation": [],
+    "nestedCase": [],
+    "nestedConcern": [],
+    "nestedConnection": [],
+    "nestedConstraint": [],
+    "nestedEnumeration": [],
+    "nestedFlow": [],
+    "nestedInterface": [],
+    "nestedItem": [],
+    "nestedMetadata": [],
+    "nestedOccurrence": [],
+    "nestedPart": [],
+    "nestedPort": [],
+    "nestedReference": [],
+    "nestedRendering": [],
+    "nestedRequirement": [],
+    "nestedState": [],
+    "nestedTransition": [],
+    "nestedUsage": [],
+    "nestedUseCase": [],
+    "nestedVerificationCase": [],
+    "nestedView": [],
+    "nestedViewpoint": [],
+    "owningDefinition": {
+      "@id": "Colors__Color"
+    },
+    "owningUsage": null,
+    "usage": [
+      {
+        "@id": "Colors__Color__red"
+      },
+      {
+        "@id": "Colors__Color__green"
+      },
+      {
+        "@id": "Colors__Color__blue"
+      },
+      {
+        "@id": "eece6ace-38b0-57dd-9eea-8add3ed6c003"
+      },
+      {
+        "@id": "dbd75b49-0e57-5cf9-ba35-9f8843b1e657"
+      }
+    ],
+    "variant": [],
+    "variantMembership": [],
+    "chainingFeature": [],
+    "crossFeature": null,
+    "direction": null,
+    "featureTarget": null,
+    "featuringType": [
+      {
+        "@id": "Colors__Color"
+      }
+    ],
+    "isComposite": false,
+    "isConstant": false,
+    "isDerived": false,
+    "isEnd": false,
+    "isOrdered": false,
+    "isPortion": false,
+    "isUnique": true,
+    "ownedRedefinition": [],
+    "ownedReferenceSubsetting": null,
+    "ownedSubsetting": [],
+    "ownedTyping": [],
+    "owningType": {
+      "@id": "Colors__Color"
+    },
+    "differencingType": [],
+    "directedFeature": [],
+    "endFeature": [],
+    "feature": [
+      {
+        "@id": "Colors__Color__red"
+      },
+      {
+        "@id": "Colors__Color__green"
+      },
+      {
+        "@id": "Colors__Color__blue"
+      },
+      {
+        "@id": "eece6ace-38b0-57dd-9eea-8add3ed6c003"
+      },
+      {
+        "@id": "dbd75b49-0e57-5cf9-ba35-9f8843b1e657"
+      }
+    ],
+    "featureMembership": [
+      {
+        "@id": "Colors__Color__red_om"
+      },
+      {
+        "@id": "Colors__Color__green_om"
+      },
+      {
+        "@id": "Colors__Color__blue_om"
+      },
+      {
+        "@id": "b0f5e041-28a8-54d7-8b10-f98b41e2dda0"
+      },
+      {
+        "@id": "eb64dd16-9465-56e7-8a36-8987c6e36bf5"
+      }
+    ],
+    "inheritedFeature": [
+      {
+        "@id": "Colors__Color__red"
+      },
+      {
+        "@id": "Colors__Color__green"
+      },
+      {
+        "@id": "Colors__Color__blue"
+      },
+      {
+        "@id": "eece6ace-38b0-57dd-9eea-8add3ed6c003"
+      },
+      {
+        "@id": "dbd75b49-0e57-5cf9-ba35-9f8843b1e657"
+      }
+    ],
+    "input": [],
+    "intersectingType": [],
+    "isAbstract": false,
+    "isConjugated": false,
+    "isSufficient": false,
+    "multiplicity": null,
+    "output": [],
+    "ownedEndFeature": [],
+    "ownedFeature": [],
+    "ownedFeatureMembership": [],
+    "ownedSpecialization": [],
+    "unioningType": [],
+    "importedMembership": [],
+    "ownedImport": [],
+    "ownedMember": [],
+    "ownedMembership": [],
+    "aliasIds": [],
+    "declaredShortName": null,
+    "documentation": [],
+    "isImpliedIncluded": false,
+    "isLibraryElement": false,
+    "name": "green",
+    "ownedAnnotation": [],
+    "ownedElement": [],
+    "ownedRelationship": [],
+    "shortName": null,
+    "textualRepresentation": []
+  },
+  {
+    "@type": "VariantMembership",
+    "@id": "Colors__Color__green_om",
+    "elementId": "Colors__Color__green_om",
+    "owner": {
+      "@id": "Colors__Color"
+    },
+    "memberElement": {
+      "@id": "Colors__Color__green"
+    },
+    "ownedMemberElement": {
+      "@id": "Colors__Color__green"
+    },
+    "ownedRelatedElement": [
+      {
+        "@id": "Colors__Color__green"
+      }
+    ],
+    "owningRelatedElement": {
+      "@id": "Colors__Color"
+    },
+    "membershipOwningNamespace": {
+      "@id": "Colors__Color"
+    },
+    "ownedVariantUsage": {
+      "@id": "Colors__Color__green"
+    },
+    "visibility": "public",
+    "isImplied": false,
+    "aliasIds": [],
+    "declaredName": null,
+    "declaredShortName": null,
+    "isImpliedIncluded": false,
+    "ownedElement": [],
+    "ownedRelationship": [],
+    "owningMembership": null,
+    "owningNamespace": null,
+    "owningRelationship": null,
+    "textualRepresentation": []
+  },
+  {
+    "@type": "EnumerationUsage",
+    "@id": "Colors__Color__blue",
+    "qualifiedName": "Colors::Color::blue",
+    "sysx:sourceLine": 5,
+    "sysx:sourceColumn": 9,
+    "sysx:sourceEndLine": 5,
+    "sysx:sourceEndColumn": 19,
+    "elementId": "Colors__Color__blue",
+    "sysx:memberIndex": 2,
+    "owningNamespace": {
+      "@id": "Colors__Color"
+    },
+    "owner": {
+      "@id": "Colors__Color"
+    },
+    "owningRelationship": {
+      "@id": "Colors__Color__blue_om"
+    },
+    "owningMembership": {
+      "@id": "Colors__Color__blue_om"
+    },
+    "declaredName": "blue",
+    "isVariant": true,
+    "sysx:hasBody": false,
+    "sysx:sourceText": "        enum blue;\n",
+    "directedUsage": [],
+    "isReference": true,
+    "isVariation": false,
+    "nestedAction": [],
+    "nestedAllocation": [],
+    "nestedAnalysisCase": [],
+    "nestedAttribute": [],
+    "nestedCalculation": [],
+    "nestedCase": [],
+    "nestedConcern": [],
+    "nestedConnection": [],
+    "nestedConstraint": [],
+    "nestedEnumeration": [],
+    "nestedFlow": [],
+    "nestedInterface": [],
+    "nestedItem": [],
+    "nestedMetadata": [],
+    "nestedOccurrence": [],
+    "nestedPart": [],
+    "nestedPort": [],
+    "nestedReference": [],
+    "nestedRendering": [],
+    "nestedRequirement": [],
+    "nestedState": [],
+    "nestedTransition": [],
+    "nestedUsage": [],
+    "nestedUseCase": [],
+    "nestedVerificationCase": [],
+    "nestedView": [],
+    "nestedViewpoint": [],
+    "owningDefinition": {
+      "@id": "Colors__Color"
+    },
+    "owningUsage": null,
+    "usage": [
+      {
+        "@id": "Colors__Color__red"
+      },
+      {
+        "@id": "Colors__Color__green"
+      },
+      {
+        "@id": "Colors__Color__blue"
+      },
+      {
+        "@id": "eece6ace-38b0-57dd-9eea-8add3ed6c003"
+      },
+      {
+        "@id": "dbd75b49-0e57-5cf9-ba35-9f8843b1e657"
+      }
+    ],
+    "variant": [],
+    "variantMembership": [],
+    "chainingFeature": [],
+    "crossFeature": null,
+    "direction": null,
+    "featureTarget": null,
+    "featuringType": [
+      {
+        "@id": "Colors__Color"
+      }
+    ],
+    "isComposite": false,
+    "isConstant": false,
+    "isDerived": false,
+    "isEnd": false,
+    "isOrdered": false,
+    "isPortion": false,
+    "isUnique": true,
+    "ownedRedefinition": [],
+    "ownedReferenceSubsetting": null,
+    "ownedSubsetting": [],
+    "ownedTyping": [],
+    "owningType": {
+      "@id": "Colors__Color"
+    },
+    "differencingType": [],
+    "directedFeature": [],
+    "endFeature": [],
+    "feature": [
+      {
+        "@id": "Colors__Color__red"
+      },
+      {
+        "@id": "Colors__Color__green"
+      },
+      {
+        "@id": "Colors__Color__blue"
+      },
+      {
+        "@id": "eece6ace-38b0-57dd-9eea-8add3ed6c003"
+      },
+      {
+        "@id": "dbd75b49-0e57-5cf9-ba35-9f8843b1e657"
+      }
+    ],
+    "featureMembership": [
+      {
+        "@id": "Colors__Color__red_om"
+      },
+      {
+        "@id": "Colors__Color__green_om"
+      },
+      {
+        "@id": "Colors__Color__blue_om"
+      },
+      {
+        "@id": "b0f5e041-28a8-54d7-8b10-f98b41e2dda0"
+      },
+      {
+        "@id": "eb64dd16-9465-56e7-8a36-8987c6e36bf5"
+      }
+    ],
+    "inheritedFeature": [
+      {
+        "@id": "Colors__Color__red"
+      },
+      {
+        "@id": "Colors__Color__green"
+      },
+      {
+        "@id": "Colors__Color__blue"
+      },
+      {
+        "@id": "eece6ace-38b0-57dd-9eea-8add3ed6c003"
+      },
+      {
+        "@id": "dbd75b49-0e57-5cf9-ba35-9f8843b1e657"
+      }
+    ],
+    "input": [],
+    "intersectingType": [],
+    "isAbstract": false,
+    "isConjugated": false,
+    "isSufficient": false,
+    "multiplicity": null,
+    "output": [],
+    "ownedEndFeature": [],
+    "ownedFeature": [],
+    "ownedFeatureMembership": [],
+    "ownedSpecialization": [],
+    "unioningType": [],
+    "importedMembership": [],
+    "ownedImport": [],
+    "ownedMember": [],
+    "ownedMembership": [],
+    "aliasIds": [],
+    "declaredShortName": null,
+    "documentation": [],
+    "isImpliedIncluded": false,
+    "isLibraryElement": false,
+    "name": "blue",
+    "ownedAnnotation": [],
+    "ownedElement": [],
+    "ownedRelationship": [],
+    "shortName": null,
+    "textualRepresentation": []
+  },
+  {
+    "@type": "VariantMembership",
+    "@id": "Colors__Color__blue_om",
+    "elementId": "Colors__Color__blue_om",
+    "owner": {
+      "@id": "Colors__Color"
+    },
+    "memberElement": {
+      "@id": "Colors__Color__blue"
+    },
+    "ownedMemberElement": {
+      "@id": "Colors__Color__blue"
+    },
+    "ownedRelatedElement": [
+      {
+        "@id": "Colors__Color__blue"
+      }
+    ],
+    "owningRelatedElement": {
+      "@id": "Colors__Color"
+    },
+    "membershipOwningNamespace": {
+      "@id": "Colors__Color"
+    },
+    "ownedVariantUsage": {
+      "@id": "Colors__Color__blue"
+    },
+    "visibility": "public",
+    "isImplied": false,
+    "aliasIds": [],
+    "declaredName": null,
+    "declaredShortName": null,
+    "isImpliedIncluded": false,
+    "ownedElement": [],
+    "ownedRelationship": [],
+    "owningMembership": null,
+    "owningNamespace": null,
+    "owningRelationship": null,
+    "textualRepresentation": []
+  }
+]

@@ -381,21 +381,33 @@ func convertRecorded(input string, to convert.Format) (int, error) {
 	return exitHolds, err
 }
 
-// convertOptions are the conversion settings -id asks for, refusing it for a
-// direction it does not apply to.
+// convertOptions are the conversion settings flags ask for, refusing them for
+// directions they do not apply to.
 func convertOptions(from, to convert.Format) (convert.Options, error) {
 	opts := convert.Options{}
-	if idForm == "" {
-		return opts, nil
+	if idForm != "" {
+		if from != convert.FormatSysML || (to != convert.FormatTurtle && to != convert.FormatAPIJSON) {
+			return opts, fmt.Errorf("-id applies to -convert ttl or api-json from SysML notation")
+		}
+		form, ok := export.ParseIDForm(idForm)
+		if !ok {
+			return opts, fmt.Errorf("-id wants qualified or uuid, not %q", idForm)
+		}
+		opts.ID = form
 	}
-	if from != convert.FormatSysML || (to != convert.FormatTurtle && to != convert.FormatAPIJSON) {
-		return opts, fmt.Errorf("-id applies to -convert ttl or api-json from SysML notation")
+	if apiJSONForm != "" {
+		form, ok := export.ParseAPIJSONForm(apiJSONForm)
+		if !ok {
+			return opts, fmt.Errorf("-api-json-form wants compact or full, not %q", apiJSONForm)
+		}
+		if to != convert.FormatAPIJSON {
+			return opts, fmt.Errorf("-api-json-form applies only to -convert api-json")
+		}
+		if form == export.APIJSONFull && from != convert.FormatSysML {
+			return opts, fmt.Errorf("-api-json-form full requires SysML or KerML input; graph inputs are not supported")
+		}
+		opts.APIJSON = form
 	}
-	form, ok := export.ParseIDForm(idForm)
-	if !ok {
-		return opts, fmt.Errorf("-id wants qualified or uuid, not %q", idForm)
-	}
-	opts.ID = form
 	return opts, nil
 }
 

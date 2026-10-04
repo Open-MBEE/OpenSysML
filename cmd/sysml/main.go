@@ -110,6 +110,7 @@ var (
 	outputPath       string
 	fromFormat       string
 	idForm           string
+	apiJSONForm      string
 	migrationReport  string
 	migrationResults string
 	layoutPath       string
@@ -468,6 +469,10 @@ func runCLI() int {
 	}
 	if idForm != "" && convertFormat == "" {
 		fmt.Fprintln(os.Stderr, "sysml: -id accompanies -convert to an RDF form; write `sysml model.sysml -convert api-json -id uuid`")
+		return 2
+	}
+	if apiJSONForm != "" && convertFormat == "" {
+		fmt.Fprintln(os.Stderr, "sysml: -api-json-form accompanies -convert api-json")
 		return 2
 	}
 	if layoutPath != "" && migrateFormat == "" {

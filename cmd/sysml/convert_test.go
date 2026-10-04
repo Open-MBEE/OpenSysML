@@ -120,6 +120,35 @@ func TestConvertToStdout(t *testing.T) {
 	}
 }
 
+func TestConvertAPIJSONFullFlag(t *testing.T) {
+	binary := buildCLI(t)
+	dir := t.TempDir()
+	model := filepath.Join(dir, "model.sysml")
+	if err := os.WriteFile(model, []byte(sampleModel), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	compactResult := runCommand(t, exec.Command(binary, model, "-convert", "api-json"))
+	fullResult := runCommand(t, exec.Command(binary, model, "-convert", "api-json", "-api-json-form", "full"))
+	if compactResult.status != 0 || fullResult.status != 0 {
+		t.Fatalf("conversion failed:\ncompact: %s\nfull: %s", compactResult.output(), fullResult.output())
+	}
+	if len(fullResult.stdout) <= len(compactResult.stdout) {
+		t.Errorf("full API JSON is %d bytes, compact is %d; want full form to include more properties", len(fullResult.stdout), len(compactResult.stdout))
+	}
+	var elements []map[string]json.RawMessage
+	if err := json.Unmarshal([]byte(fullResult.stdout), &elements); err != nil {
+		t.Fatalf("full API JSON is invalid: %v", err)
+	}
+	graphPath := filepath.Join(dir, "graph.json")
+	if err := os.WriteFile(graphPath, []byte(compactResult.stdout), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	graphResult := runCommand(t, exec.Command(binary, graphPath, "-convert", "api-json", "-api-json-form", "full"))
+	if graphResult.status == 0 || !strings.Contains(graphResult.output(), "-api-json-form full requires SysML or KerML input; graph inputs are not supported") {
+		t.Errorf("full form on graph input: status %d, output %s", graphResult.status, graphResult.output())
+	}
+}
+
 // TestConvertFlagOrder checks that the model may be named before or after the
 // flags that apply to it, since Go's flag package stops at the first file name
 // unless the arguments are reordered.

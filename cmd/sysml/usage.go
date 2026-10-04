@@ -286,6 +286,7 @@ func doc() usage.Doc {
 			Title: "Conversion",
 			Examples: []usage.Example{
 				usage.Ex("sysml model.sysml -convert ttl", "SysML notation to RDF Turtle, on stdout"),
+				usage.Ex("sysml m.sysml -convert api-json -api-json-form full", "Include full properties"),
 				usage.Ex("sysml model.ttl -convert sysml", "RDF Turtle to SysML notation"),
 				usage.Ex("sysml model.sysml -convert ttl -o m.ttl", "Write the conversion to a file"),
 				usage.Ex("sysml in.txt -convert ttl -from sysml", "Name the input format explicitly"),
@@ -298,7 +299,8 @@ func doc() usage.Doc {
 					"rdf, api-json, or fmu for a Functional Mock-up Unit to import. " +
 					"Converting to the format it is " +
 					"already in rewrites the input: notation is reformatted, Turtle " +
-					"is normalized.",
+					"is normalized. API JSON is compact by default; full form is available " +
+					"for SysML and KerML inputs.",
 				"A SysML v1 model (.xmi, .uml, .mdzip) is refused: it is migrated, " +
 					"not converted; see Migration.",
 				"Either side may name a Flexo MMS project branch instead of a file: " +
@@ -657,6 +659,7 @@ func registerFlags(fs *flag.FlagSet) {
 	fs.Var(&importFormat, "import-format", "Read the -import before it as csv, tsv, json or jsonl rather than as its extension says")
 	fs.BoolVar(&importDryRun, "import-dry-run", false, "Report the values -import would set, changing and writing nothing")
 	fs.StringVar(&idForm, "id", "", "With -convert ttl or api-json, how derived element ids are spelled: qualified (default) derives each from its qualified name; uuid mints name-based uuids under each root package, as the library convention does")
+	fs.StringVar(&apiJSONForm, "api-json-form", "", "With -convert api-json, write compact graph-stated properties (default) or full ontology properties and faithful derived values")
 	fs.StringVar(&outputPath, "output", "", outputUsage())
 	fs.StringVar(&outputPath, "o", "", outputUsage())
 	fs.StringVar(&modelChecks.compare, "compare-results", "", "Run every configuration this -migration-results file indexes — or those -action names — with its recorded runs and duration mode, or the -runs and -draws given, seeded from -seed, and table the tool's and OpenSysML's min, mean, p50, p90 and max of each observable with their relative difference")
@@ -770,6 +773,7 @@ func optionGroups() []usage.OptionGroup {
 			usage.Opt("import-format", formatArg),
 			usage.Opt("import-dry-run", ""),
 			usage.Opt("id", nameArg),
+			usage.Opt("api-json-form", "compact|full"),
 			usage.Opt("output", fileArg, "o"),
 			usage.Opt("migration-report", fileArg),
 			usage.Opt("migration-results", fileArg),

@@ -185,6 +185,8 @@ type Options struct {
 	// ID is the form derived element ids are written in; the zero value is
 	// qualified-name-derived ids.
 	ID export.IDForm
+	// APIJSON is the API element form; the zero value writes compact form.
+	APIJSON export.APIJSONForm
 }
 
 // Convert reads data in the from format and writes it in the to format. name is
@@ -212,6 +214,12 @@ func ConvertModel(inputs []Input, to Format, opts Options) ([]byte, error) {
 	if to != FormatTurtle && to != FormatAPIJSON {
 		return nil, fmt.Errorf("a model of several documents converts to %s or %s, not %s", FormatTurtle, FormatAPIJSON, to)
 	}
+	if opts.APIJSON != export.APIJSONCompact && opts.APIJSON != export.APIJSONFull {
+		return nil, fmt.Errorf("unknown API JSON form %d", opts.APIJSON)
+	}
+	if opts.APIJSON == export.APIJSONFull && to != FormatAPIJSON {
+		return nil, fmt.Errorf("full API JSON form requires -convert api-json")
+	}
 	documents := make([]export.ModelDocument, 0, len(inputs))
 	for _, input := range inputs {
 		file := source.New(input.Name, input.Data)
@@ -221,6 +229,9 @@ func ConvertModel(inputs []Input, to Format, opts Options) ([]byte, error) {
 			return nil, err
 		}
 		documents = append(documents, export.ModelDocument{File: file, Root: root})
+	}
+	if to == FormatAPIJSON && opts.APIJSON == export.APIJSONFull {
+		return export.ModelToAPIJSON(documents, opts.ID, opts.APIJSON)
 	}
 	graph, err := export.ModelToRDFWith(documents, opts.ID)
 	if err != nil {
@@ -291,6 +302,17 @@ func trimTrailingTrivia(text string) string {
 }
 
 func convert(name string, data []byte, from, to Format, tolerateSyntaxErrors bool, opts Options) ([]byte, *SyntaxError, error) {
+	if opts.APIJSON != export.APIJSONCompact && opts.APIJSON != export.APIJSONFull {
+		return nil, nil, fmt.Errorf("unknown API JSON form %d", opts.APIJSON)
+	}
+	if opts.APIJSON == export.APIJSONFull {
+		if to != FormatAPIJSON {
+			return nil, nil, fmt.Errorf("full API JSON form requires -convert api-json")
+		}
+		if from != FormatSysML {
+			return nil, nil, fmt.Errorf("full API JSON form requires SysML or KerML input; graph inputs are not supported")
+		}
+	}
 	switch {
 	case !to.Writable():
 		return nil, nil, &NotWritableError{Format: to}
@@ -319,6 +341,16 @@ func convert(name string, data []byte, from, to Format, tolerateSyntaxErrors boo
 		return rdf.WriteTurtle(graph), nil, nil
 
 	case from == FormatSysML && to == FormatAPIJSON:
+		if opts.APIJSON == export.APIJSONFull {
+			file := source.New(name, data)
+			p := parser.New(file)
+			root := p.ParseFile()
+			if err := syntaxError(name, file, p); err != nil {
+				return nil, nil, err
+			}
+			out, err := export.ModelToAPIJSON([]export.ModelDocument{{File: file, Root: root}}, opts.ID, opts.APIJSON)
+			return out, nil, err
+		}
 		graph, err := sysmlToRDFWith(name, data, opts.ID)
 		if err != nil {
 			return nil, nil, err
