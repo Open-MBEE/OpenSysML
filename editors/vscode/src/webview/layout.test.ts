@@ -792,3 +792,43 @@ test("layoutCanvas routes an edge out of its container and around another popula
     assert.ok(!crossesInterior(edge.points[i - 1], edge.points[i], d), `segment crosses d: ${JSON.stringify([edge.points[i - 1], edge.points[i]])}`);
   }
 });
+
+test("layoutCanvas keeps a child sticking out of its sized container an obstacle", async () => {
+  await loadAvoid(WASM);
+  const layout = layoutCanvas(rendering(
+    [
+      node("a", "a", { x: 0, y: 0, width: 100, height: 40 }),
+      node("b", "b", { x: 600, y: 0, width: 100, height: 40 }),
+      node("c", "c", { x: 200, y: 300, width: 100, height: 100 }),
+      node("k", "k", { parent: "c", x: 300, y: 0, width: 100, height: 100 }),
+    ],
+    [{ from: "a", to: "b", label: "", kind: "connection", fqn: "M::ab" }],
+  ));
+  const [edge] = layout.edges;
+  assert.equal(edge.rerouted, true);
+  const k = layout.nodes.get("k")!.box;
+  for (let i = 1; i < edge.points.length; i++) {
+    assert.ok(!crossesInterior(edge.points[i - 1], edge.points[i], k), `segment crosses k: ${JSON.stringify([edge.points[i - 1], edge.points[i]])}`);
+  }
+});
+
+test("layoutCanvas keeps a child partly protruding from its sized container an obstacle", async () => {
+  await loadAvoid(WASM);
+  const layout = layoutCanvas(rendering(
+    [
+      node("a", "a", { x: 0, y: 0, width: 100, height: 40 }),
+      node("b", "b", { x: 600, y: 0, width: 100, height: 40 }),
+      node("c", "c", { x: 200, y: 300, width: 200, height: 200 }),
+      node("k", "k", { parent: "c", x: 300, y: 0, width: 100, height: 100 }),
+    ],
+    [{ from: "a", to: "b", label: "", kind: "connection", fqn: "M::ab" }],
+  ));
+  const [edge] = layout.edges;
+  assert.equal(edge.rerouted, true);
+  const k = layout.nodes.get("k")!.box;
+  const c = layout.nodes.get("c")!.box;
+  for (let i = 1; i < edge.points.length; i++) {
+    assert.ok(!crossesInterior(edge.points[i - 1], edge.points[i], k), `segment crosses k: ${JSON.stringify([edge.points[i - 1], edge.points[i]])}`);
+    assert.ok(!crossesInterior(edge.points[i - 1], edge.points[i], c), `segment crosses c: ${JSON.stringify([edge.points[i - 1], edge.points[i]])}`);
+  }
+});

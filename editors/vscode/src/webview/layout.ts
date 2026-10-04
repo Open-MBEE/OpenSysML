@@ -580,11 +580,20 @@ function rerouteAroundBoxes(
   }
   for (const [key, group] of groups) {
     const exempt = new Set(key === "" ? [] : key.split(" "));
-    // A node inside a blocked container needs no shape of its own — the container
-    // covers it — and a shape inside another shape is no obstacle to libavoid at all.
+    // A node a blocked container fully contains needs no shape of its own — the
+    // container covers it, and a shape inside another is no obstacle at all; one
+    // sticking out of its container keeps its shape, since the container does not.
     const covered = (entry: PlacedNode): boolean => {
       for (let parent = entry.parent; parent; parent = parent.parent) {
-        if (containers.has(parent.node.id) && !exempt.has(parent.node.id)) {
+        const box = parent.box;
+        if (
+          containers.has(parent.node.id) &&
+          !exempt.has(parent.node.id) &&
+          entry.box.x >= box.x &&
+          entry.box.y >= box.y &&
+          entry.box.x + entry.box.width <= box.x + box.width &&
+          entry.box.y + entry.box.height <= box.y + box.height
+        ) {
           return true;
         }
       }
