@@ -201,3 +201,34 @@ test("autoLayout places edge ports on opposite sides and routes to their faces",
   assert.ok(Math.hypot(start.x - startFace.x, start.y - startFace.y) <= PORT_SIZE);
   assert.ok(Math.hypot(end.x - endFace.x, end.y - endFace.y) <= PORT_SIZE);
 });
+
+test("autoLayout keeps an unconnected port on the south after laying out connected ports", async () => {
+  const result = rendering(
+    [
+      node("sender", "sender", {
+        ports: [
+          { id: "out1", name: "out1" },
+          { id: "spare", name: "spare" },
+        ],
+      }),
+      node("receiver", "receiver", { ports: [{ id: "in1", name: "in1" }] }),
+    ],
+    [edge("sender", "receiver", { fromPort: "out1", toPort: "in1" })],
+    { kind: "interconnection" },
+  );
+  const laid = await autoLayout(result);
+  assert.ok(laid);
+  assert.ok(laid.ports.has("out1"));
+  assert.ok(laid.ports.has("in1"));
+  assert.equal(laid.ports.has("spare"), false);
+
+  const canvas = layoutCanvas(result, {}, laid);
+  const senderPorts = canvas.nodes.get("sender")!.ports;
+  const receiverPorts = canvas.nodes.get("receiver")!.ports;
+  const out1 = senderPorts.find(({ port }) => port.id === "out1")!;
+  const spare = senderPorts.find(({ port }) => port.id === "spare")!;
+  const in1 = receiverPorts.find(({ port }) => port.id === "in1")!;
+  assert.equal(spare.side, "south");
+  assert.equal(out1.side, laid.ports.get("out1")!.side);
+  assert.equal(in1.side, laid.ports.get("in1")!.side);
+});

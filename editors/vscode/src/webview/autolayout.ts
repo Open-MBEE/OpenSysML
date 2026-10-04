@@ -79,12 +79,41 @@ async function layOut(result: RenderResult): Promise<AutoLayout> {
     return false;
   };
   const options = spacingOptions(result.kind);
+  const edges: ElkExtendedEdge[] = [];
+  const portEndpoints: Array<{ nodeId: string; portId: string }> = [];
+  (result.edges ?? []).forEach((edge, index) => {
+    if (edge.from === edge.to || !inGraph(edge.from) || !inGraph(edge.to)) {
+      return;
+    }
+    const from = byId.get(edge.from)!;
+    const to = byId.get(edge.to)!;
+    const fromPort = from.ports?.some((port) => port.id === edge.fromPort) ? edge.fromPort : undefined;
+    const toPort = to.ports?.some((port) => port.id === edge.toPort) ? edge.toPort : undefined;
+    edges.push({
+      id: `e${index}`,
+      sources: [fromPort ?? edge.from],
+      targets: [toPort ?? edge.to],
+    });
+    if (fromPort !== undefined) {
+      portEndpoints.push({ nodeId: from.id, portId: fromPort });
+    }
+    if (toPort !== undefined) {
+      portEndpoints.push({ nodeId: to.id, portId: toPort });
+    }
+  });
+  const connectedPorts = new Map<string, Set<string>>();
+  for (const { nodeId, portId } of portEndpoints) {
+    const ports = connectedPorts.get(nodeId) ?? new Set<string>();
+    ports.add(portId);
+    connectedPorts.set(nodeId, ports);
+  }
   const elkNode = (node: RenderNode): ElkNode => {
     const size = symbolSize(shapeOf(node.kind)) ?? labelSize(labelLines(node));
     const kids = node.collapsed ? [] : (children.get(node.id) ?? []);
     const out: ElkNode = { id: node.id, width: size.width, height: size.height };
-    if ((node.ports?.length ?? 0) > 0) {
-      out.ports = node.ports!.map((port) => {
+    const ports = (node.ports ?? []).filter((port) => connectedPorts.get(node.id)?.has(port.id));
+    if (ports.length > 0) {
+      out.ports = ports.map((port) => {
         const label = glyphSize(port.name);
         return {
           id: port.id,
@@ -104,7 +133,7 @@ async function layOut(result: RenderResult): Promise<AutoLayout> {
         "elk.nodeSize.minimum": `(${size.width},${size.height})`,
       };
     }
-    if ((node.ports?.length ?? 0) > 0) {
+    if (ports.length > 0) {
       out.layoutOptions = {
         ...out.layoutOptions,
         "elk.portConstraints": "FREE",
@@ -113,19 +142,6 @@ async function layOut(result: RenderResult): Promise<AutoLayout> {
     }
     return out;
   };
-  const edges: ElkExtendedEdge[] = [];
-  (result.edges ?? []).forEach((edge, index) => {
-    if (edge.from === edge.to || !inGraph(edge.from) || !inGraph(edge.to)) {
-      return;
-    }
-    const from = byId.get(edge.from)!;
-    const to = byId.get(edge.to)!;
-    edges.push({
-      id: `e${index}`,
-      sources: [from.ports?.some((port) => port.id === edge.fromPort) ? edge.fromPort! : edge.from],
-      targets: [to.ports?.some((port) => port.id === edge.toPort) ? edge.toPort! : edge.to],
-    });
-  });
   const laid = await elk.layout({
     id: "__root__",
     layoutOptions: {
