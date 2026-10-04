@@ -4,10 +4,83 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
+
+func TestRecordedSubjectDoesNotTakeDefaultMultiplicity(t *testing.T) {
+	const src = `package P {
+		part def T;
+		requirement def R {
+			subject s : T;
+			actor a : T;
+			stakeholder k : T;
+		}
+		use case def C { subject s : T; }
+	}`
+	parsedModel, parsedRoot := buildModel(t, src)
+	record, err := symbols.RecordScope(parsedRoot, func(*symbols.Symbol) bool { return true }, func(sym *symbols.Symbol) symbols.LibraryFacts {
+		facts := symbols.LibraryFacts{
+			Node:         symbols.NodeKindOf(sym.Decl),
+			Keyword:      sym.Keyword(),
+			Multiplicity: parsedModel.MultiplicityFactsOf(sym),
+		}
+		facts.UsageKind, _ = sym.UsageKind()
+		return facts
+	})
+	if err != nil {
+		t.Fatalf("RecordScope: %v", err)
+	}
+	recordedScope, err := symbols.BuildRecorded(record, "recorded.sysml")
+	if err != nil {
+		t.Fatalf("BuildRecorded: %v", err)
+	}
+	idx := symbols.NewIndex()
+	idx.AddRecordedDocument("recorded.sysml", source.KindSysML, recordedScope, nil)
+	resolver := resolve.New(idx)
+	recordedModel := NewModel(resolver)
+	resolver.SetModel(recordedModel)
+
+	recordedRoot := idx.DocumentRoot("recorded.sysml")
+	for _, path := range []string{"P::R::s", "P::C::s"} {
+		t.Run(path, func(t *testing.T) {
+			parsed := nestedSym(t, parsedRoot, path)
+			recorded := nestedSym(t, recordedRoot, path)
+			if !recorded.Recorded() || recorded.Decl != nil {
+				t.Fatalf("recorded subject has Recorded()=%v, Decl=%T", recorded.Recorded(), recorded.Decl)
+			}
+			if path == "P::R::s" && (recorded.Facts.Node != symbols.NodeSubject || recorded.Facts.Keyword != "") {
+				t.Fatalf("recorded requirement subject facts = %+v, want NodeSubject with no keyword", recorded.Facts)
+			}
+			if path == "P::C::s" && (recorded.Facts.Node != symbols.NodeUsage || recorded.Facts.UsageKind != ast.UsageSubject) {
+				t.Fatalf("recorded case subject facts = %+v, want a subject Usage", recorded.Facts)
+			}
+			if parsedModel.ImplicitMultiplicityApplies(parsed) {
+				t.Error("parsed subject takes the default multiplicity")
+			}
+			if recordedModel.ImplicitMultiplicityApplies(recorded) {
+				t.Error("recorded subject takes the default multiplicity")
+			}
+			parsedRange := parsedModel.EffectiveParameterRange(parsed)
+			recordedRange := recordedModel.EffectiveParameterRange(recorded)
+			if recordedRange != parsedRange {
+				t.Errorf("recorded subject range = %+v, parsed range = %+v", recordedRange, parsedRange)
+			}
+		})
+	}
+
+	for _, path := range []string{"P::R::a", "P::R::k"} {
+		recorded := nestedSym(t, recordedRoot, path)
+		if !recorded.Recorded() {
+			t.Errorf("%s is not recorded", path)
+		}
+		if !recordedModel.ImplicitMultiplicityApplies(recorded) {
+			t.Errorf("recorded usage %s does not take the default multiplicity", path)
+		}
+	}
+}
 
 func TestImplicitMultiplicityAppliesByUsageMetaclass(t *testing.T) {
 	const src = `package P {

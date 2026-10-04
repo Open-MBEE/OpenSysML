@@ -258,6 +258,14 @@ func (m *Model) ImplicitMultiplicityApplies(sym *symbols.Symbol) bool {
 	if !featureOwnedByType(sym) || sym.Keyword() == "feature" {
 		return false
 	}
+	if sym.Recorded() {
+		if sym.Facts.Node == symbols.NodeSubject {
+			return false
+		}
+		if kind, ok := sym.UsageKind(); ok && (kind == ast.UsageSubject || kind == ast.UsageObjective) {
+			return false
+		}
+	}
 	if IsSubjectUsage(sym) || sym.Keyword() == "subject" || sym.Keyword() == "objective" {
 		return false
 	}
