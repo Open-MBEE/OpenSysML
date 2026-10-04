@@ -8942,11 +8942,12 @@
       "tests": [
         "tests/migrate/value_action_test.go:TestValueActionResultKeepsThePinsMultiplicity",
         "tests/migrate/value_action_test.go:TestValueActionLiteralTakesTheResultsScalarType",
+        "tests/migrate/value_action_test.go:TestValueActionResultCountingOtherThanOneIsNotBound",
         "tests/migrate/arguments_test.go:TestUnwrittenValuesAreNotPassedToCalls",
         "tests/migrate/migrate_test.go:TestGoldenNotation",
         "tests/corpus/pssm_migration_test.go:TestPSSMSuiteMigration"
       ],
-      "reason": "written as `action n { out result : T[m] = v; }`, an ActionUsage whose result pin is an `out` feature typed and bounded as the pin declares (its multiplicity and ordering kept) and bound to the translated value, as the mapping writes it; a node no edge leads to is started by the activity (`first start then n;`), v1's rule for a node with no incoming edge; a value whose translation does not conform to the pin's type (a literal of a value type with no scalar base, an instance of another type, a string that spells no value of the pin's scalar) is deliberately left unbound, its action kept as a commented placeholder, since binding it fails validation (`cannot bind Natural value to a feature typed by Coords`) (PSSM: 1035 mapped, 10 approximated of 1045, the 10 for a sibling's name; none refused); candidate erratum: the mapping binds the value as v1 stores it, so a typed-in string on a scalar pin (a LiteralString \"2\" on an Integer result) becomes a String FeatureValue of an Integer feature, which v2 typing rejects (`cannot bind String value to a feature typed by Integer`); the literal is written as the scalar the pin holds (`out result : Integer[1] = 2;`)",
+      "reason": "written as `action n { out result : T[m] = v; }`, an ActionUsage whose result pin is an `out` feature typed and bounded as the pin declares (its multiplicity and ordering kept) and bound to the translated value, as the mapping writes it; a node no edge leads to is started by the activity (`first start then n;`), v1's rule for a node with no incoming edge; a value whose translation does not conform to the pin's type (a literal of a value type with no scalar base, an instance of another type, a string that spells no value of the pin's scalar), or a result pin that cannot hold the action's one value (lower bound above one, upper bound zero), is deliberately left unbound, its action kept as a commented placeholder, since binding it fails validation (`cannot bind Natural value to a feature typed by Coords`) (PSSM: 1035 mapped, 10 approximated of 1045, the 10 for a sibling's name; none refused); candidate erratum: the mapping binds the value as v1 stores it, so a typed-in string on a scalar pin (a LiteralString \"2\" on an Integer result) becomes a String FeatureValue of an Integer feature, which v2 typing rejects (`cannot bind String value to a feature typed by Integer`); the literal is written as the scalar the pin holds (`out result : Integer[1] = 2;`)",
       "scope": [
         "uml:ValueSpecificationAction"
       ]
@@ -8975,11 +8976,12 @@
       "tests": [
         "tests/migrate/value_action_test.go:TestValueActionResultKeepsThePinsMultiplicity",
         "tests/migrate/value_action_test.go:TestValueActionLiteralTakesTheResultsScalarType",
+        "tests/migrate/value_action_test.go:TestValueActionResultCountingOtherThanOneIsNotBound",
         "tests/migrate/arguments_test.go:TestUnwrittenValuesAreNotPassedToCalls",
         "tests/migrate/migrate_test.go:TestGoldenNotation",
         "tests/corpus/pssm_migration_test.go:TestPSSMSuiteMigration"
       ],
-      "reason": "written as `action n { out result : T[m] = v; }`, an ActionUsage whose result pin is an `out` feature typed and bounded as the pin declares (its multiplicity and ordering kept) and bound to the translated value, as the mapping writes it; a node no edge leads to is started by the activity (`first start then n;`), v1's rule for a node with no incoming edge; a value whose translation does not conform to the pin's type (a literal of a value type with no scalar base, an instance of another type, a string that spells no value of the pin's scalar) is deliberately left unbound, its action kept as a commented placeholder, since binding it fails validation (`cannot bind Natural value to a feature typed by Coords`) (PSSM: 1035 mapped, 10 approximated of 1045, the 10 for a sibling's name; none refused) (see candidate errata for a typed-in string)",
+      "reason": "written as `action n { out result : T[m] = v; }`, an ActionUsage whose result pin is an `out` feature typed and bounded as the pin declares (its multiplicity and ordering kept) and bound to the translated value, as the mapping writes it; a node no edge leads to is started by the activity (`first start then n;`), v1's rule for a node with no incoming edge; a value whose translation does not conform to the pin's type (a literal of a value type with no scalar base, an instance of another type, a string that spells no value of the pin's scalar), or a result pin that cannot hold the action's one value (lower bound above one, upper bound zero), is deliberately left unbound, its action kept as a commented placeholder, since binding it fails validation (`cannot bind Natural value to a feature typed by Coords`) (PSSM: 1035 mapped, 10 approximated of 1045, the 10 for a sibling's name; none refused) (see candidate errata for a typed-in string)",
       "scope": [
         "uml:ValueSpecificationAction"
       ]
@@ -9007,11 +9009,12 @@
       "tests": [
         "tests/migrate/value_action_test.go:TestValueActionResultKeepsThePinsMultiplicity",
         "tests/migrate/value_action_test.go:TestValueActionLiteralTakesTheResultsScalarType",
+        "tests/migrate/value_action_test.go:TestValueActionResultCountingOtherThanOneIsNotBound",
         "tests/migrate/arguments_test.go:TestUnwrittenValuesAreNotPassedToCalls",
         "tests/migrate/migrate_test.go:TestGoldenNotation",
         "tests/corpus/pssm_migration_test.go:TestPSSMSuiteMigration"
       ],
-      "reason": "written as `action n { out result : T[m] = v; }`, an ActionUsage whose result pin is an `out` feature typed and bounded as the pin declares (its multiplicity and ordering kept) and bound to the translated value, as the mapping writes it; a node no edge leads to is started by the activity (`first start then n;`), v1's rule for a node with no incoming edge; a value whose translation does not conform to the pin's type (a literal of a value type with no scalar base, an instance of another type, a string that spells no value of the pin's scalar) is deliberately left unbound, its action kept as a commented placeholder, since binding it fails validation (`cannot bind Natural value to a feature typed by Coords`) (PSSM: 1035 mapped, 10 approximated of 1045, the 10 for a sibling's name; none refused) (see candidate errata for a typed-in string)",
+      "reason": "written as `action n { out result : T[m] = v; }`, an ActionUsage whose result pin is an `out` feature typed and bounded as the pin declares (its multiplicity and ordering kept) and bound to the translated value, as the mapping writes it; a node no edge leads to is started by the activity (`first start then n;`), v1's rule for a node with no incoming edge; a value whose translation does not conform to the pin's type (a literal of a value type with no scalar base, an instance of another type, a string that spells no value of the pin's scalar), or a result pin that cannot hold the action's one value (lower bound above one, upper bound zero), is deliberately left unbound, its action kept as a commented placeholder, since binding it fails validation (`cannot bind Natural value to a feature typed by Coords`) (PSSM: 1035 mapped, 10 approximated of 1045, the 10 for a sibling's name; none refused) (see candidate errata for a typed-in string)",
       "scope": [
         "uml:ValueSpecificationAction"
       ]

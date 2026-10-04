@@ -68,3 +68,41 @@ func TestValueActionLiteralTakesTheResultsScalarType(t *testing.T) {
 	wantNote(t, r, "_typed", migrate.Approximated, `the string "2" is written as the Integer the feature holds`)
 	wantClean(t, "value_actions.sysml", r)
 }
+
+// countedValueActions declares result pins that cannot hold the one value the
+// action gives: one needs two values, the other admits none.
+const countedValueActions = `
+    <packagedElement xmi:type="uml:Activity" xmi:id="_run" name="Run">
+      <node xmi:type="uml:InitialNode" xmi:id="_init"/>
+      <node xmi:type="uml:ValueSpecificationAction" xmi:id="_pair" name="pair">
+        <value xmi:type="uml:LiteralInteger" xmi:id="_pairV" value="5"/>
+        <result xmi:type="uml:OutputPin" xmi:id="_pairOut" name="result">` + integerHref + `
+          <lowerValue xmi:type="uml:LiteralInteger" xmi:id="_pairLo" value="2"/>
+          <upperValue xmi:type="uml:LiteralUnlimitedNatural" xmi:id="_pairUp" value="2"/>
+        </result>
+      </node>
+      <node xmi:type="uml:ValueSpecificationAction" xmi:id="_none" name="none">
+        <value xmi:type="uml:LiteralInteger" xmi:id="_noneV" value="6"/>
+        <result xmi:type="uml:OutputPin" xmi:id="_noneOut" name="result">` + integerHref + `
+          <lowerValue xmi:type="uml:LiteralInteger" xmi:id="_noneLo"/>
+          <upperValue xmi:type="uml:LiteralUnlimitedNatural" xmi:id="_noneUp" value="0"/>
+        </result>
+      </node>
+      <node xmi:type="uml:ActivityFinalNode" xmi:id="_final"/>
+      <edge xmi:type="uml:ControlFlow" xmi:id="_e1" source="_init" target="_pair"/>
+      <edge xmi:type="uml:ControlFlow" xmi:id="_e2" source="_pair" target="_none"/>
+      <edge xmi:type="uml:ControlFlow" xmi:id="_e3" source="_none" target="_final"/>
+    </packagedElement>`
+
+// A result pin that cannot hold the action's one value leaves it unbound, since
+// binding one value to it would fail validation.
+func TestValueActionResultCountingOtherThanOneIsNotBound(t *testing.T) {
+	r := migrateDocument(t, countedValueActions, "")
+	wantNoStatement(t, r.Notation, "out result : ScalarValues::Integer[2] = 5;")
+	wantNoStatement(t, r.Notation, "out result : ScalarValues::Integer[0] = 6;")
+	wantNote(t, r, "_pair", migrate.Approximated,
+		"the value 5 is not written: the result holds 2 values and the action gives one")
+	wantNote(t, r, "_none", migrate.Approximated,
+		"the value 6 is not written: the result holds 0 values and the action gives one")
+	wantClean(t, "counted_value_actions.sysml", r)
+}
