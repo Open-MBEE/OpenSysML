@@ -217,27 +217,37 @@ function mount(root: HTMLElement): Mounted {
     return [...layout.nodes.values()].filter((entry) => entry.node.id !== id && !entry.hidden);
   }
 
-  // keepInHero clamps boxes in model order and frees each from earlier boxes.
+  // keepInHero keeps moved boxes clear while re-clamping in model order.
   function keepInHero(): void {
     let changed = false;
-    const settled: PlacedNode[] = [];
+    const settled = new Map<string, PlacedNode>();
+    for (const entry of layout.nodes.values()) {
+      if (!entry.hidden) {
+        settled.set(entry.node.id, entry);
+      }
+    }
     for (const part of model.parts.values()) {
       const entry = layout.nodes.get(part.id);
       if (!entry || entry.hidden) {
         continue;
       }
-      const requested = placed.get(part.feature) ?? entry.box;
-      const bounded = clamped(entry, requested);
-      const at = freePlacement(entry, bounded, settled, bounds(), exitReach);
-      if (!at) {
-        settled.push(entry);
-        continue;
-      }
+      const moved = placed.has(part.feature);
+      const bounded = clamped(entry, placed.get(part.feature) ?? entry.box);
+      const at =
+        (moved &&
+          freePlacement(
+            entry,
+            bounded,
+            [...settled.values()].filter((other) => other.node.id !== entry.node.id),
+            bounds(),
+            exitReach,
+          )) ||
+        bounded;
       if (at.x !== entry.box.x || at.y !== entry.box.y) {
         placed.set(part.feature, at);
         changed = true;
       }
-      settled.push({ ...entry, box: { ...entry.box, ...at } });
+      settled.set(entry.node.id, { ...entry, box: { ...entry.box, ...at } });
     }
     if (changed) {
       layout = layoutCanvas(result, overrides(), auto);
