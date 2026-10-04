@@ -597,8 +597,8 @@ func TestRenderHonorsTheFormAsked(t *testing.T) {
 		TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
 		View:         "KitViews::widgetTree",
 		Form:         "png",
-	}); err == nil || !strings.Contains(err.Error(), "no rendering form") || !strings.Contains(err.Error(), `"dot"`) || !strings.Contains(err.Error(), `"plantuml"`) {
-		t.Errorf("err = %v, want it to refuse the form and offer dot and plantuml", err)
+	}); err == nil || !strings.Contains(err.Error(), "no rendering form") || !strings.Contains(err.Error(), `"dot"`) || !strings.Contains(err.Error(), `"plantuml"`) || !strings.Contains(err.Error(), `"d2"`) {
+		t.Errorf("err = %v, want it to refuse the form and offer dot, plantuml and d2", err)
 	}
 }
 
@@ -618,7 +618,7 @@ func TestRenderAnswersEveryAdvertisedForm(t *testing.T) {
 	if !ok {
 		t.Fatalf("%s = %#v, want a list of forms", RenderFormsCapability, experimental[RenderFormsCapability])
 	}
-	if want := []string{"text", "mermaid", "markdown", "dot", "plantuml", "csv", "tsv"}; !slices.Equal(advertised, want) {
+	if want := []string{"text", "mermaid", "markdown", "dot", "plantuml", "d2", "csv", "tsv"}; !slices.Equal(advertised, want) {
 		t.Fatalf("%s = %v, want %v", RenderFormsCapability, advertised, want)
 	}
 	// A table is the one kind written in Markdown, CSV and TSV; the tree view has every other form.
@@ -646,6 +646,25 @@ func TestRenderAnswersEveryAdvertisedForm(t *testing.T) {
 		}
 		if out.Artifact == "" {
 			t.Errorf("%s as %s: empty artifact", name, form)
+		}
+	}
+}
+
+func TestRenderRefusesD2ForCaseAndMixed(t *testing.T) {
+	s, docURI := renderServer(t, "kit.sysml", renderModel)
+	for _, tc := range []struct {
+		name, kind string
+	}{
+		{"KitViews::widgetCases", "case"},
+		{"KitViews::widgetMixed", "mixed"},
+	} {
+		_, err := call(t, s, MethodRender, &renderParams{
+			TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
+			View:         tc.name,
+			Form:         string(view.FormD2),
+		})
+		if err == nil || !strings.Contains(err.Error(), tc.kind+" rendering is not written as d2; ask for text, mermaid, dot or plantuml") {
+			t.Errorf("%s as d2: err = %v, want the form refused", tc.name, err)
 		}
 	}
 }

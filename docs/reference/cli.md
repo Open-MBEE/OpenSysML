@@ -243,15 +243,15 @@ the same member-path parser as `Project` and `OrderBy`.
 | `--image-base-url <url>` | | With `--migrate`: the absolute http(s) URL a comment's relative `<img src>` — a path the View Editor serves, such as `/projects/.../png` — is resolved against, so the migrated document's `Image` block points at the server instead of losing the image (see [SysML v1 migration](sysml-v1-migration.md)) |
 | `--render <view>` | | Render this view of the model (every file named, loaded as one) instead of running it, in the form its `render` member states (see [Rendering a view](#rendering-a-view)) |
 | `--render-all <dir>` | | Render every declared view into the directory, one artifact per view |
-| `--render-form <form>` | | Form `--render` or `--render-all` writes: `text`, `mermaid`, `markdown`, `dot`, `plantuml`, `csv` or `tsv` (default: destination-dependent for `--render`, each kind's machine-readable form for `--render-all`) |
-| `--render-palette <name>` | | Palette the `dot`, `mermaid` or `plantuml` form of `--render` or `--render-all` fills nodes with, by keyword family: `okabe-ito`, `tol-bright`, `tol-muted`, `tol-light`, `brewer-set2`, `brewer-dark2`, `viridis` or `cividis`; black and white when absent. Mermaid sequence diagrams cannot fill individual participants; text and Markdown ignore palettes. An unknown name is refused with the names there are (see [Rendering a view](#rendering-a-view)) |
+| `--render-form <form>` | | Form `--render` or `--render-all` writes: `text`, `mermaid`, `markdown`, `dot`, `plantuml`, `d2`, `csv` or `tsv` (default: destination-dependent for `--render`, each kind's machine-readable form for `--render-all`). D2 writes `tree`, `interconnection`, `state`, `action` and `sequence` renderings; case and mixed views refuse it with a typed error |
+| `--render-palette <name>` | | Palette the `dot`, `mermaid`, `plantuml` or `d2` form of `--render` or `--render-all` fills nodes with, by keyword family: `okabe-ito`, `tol-bright`, `tol-muted`, `tol-light`, `brewer-set2`, `brewer-dark2`, `viridis` or `cividis`; black and white when absent. Mermaid sequence diagrams cannot fill individual participants; text and Markdown ignore palettes. An unknown name is refused with the names there are (see [Rendering a view](#rendering-a-view)) |
 | `--render-link <template>` | | Link nodes and edges back to their source in rendered diagrams. Templates accept `{file}`, `{line}`, `{col}`, `{qname}` and `{id}`; `{file}` is the path as loaded, so pass absolute paths for `vscode://` or `file://` links. Applies to `--render`, `--render-all` and document diagrams; without one of those render targets it is refused |
-| `--render-style <style>` | | Drawing style the `dot` or `mermaid` form of `--render`, `--render-all`, `--render-document` and `--render-documents` draws in: `pilot` (the default), the Pilot visualizer's Standard B&W, or `cameo`, the look of Cameo Systems Modeler — a diagram frame with a header tab, 11 pt Arial, gradient fills in Cameo's colours, a state's `do / Activity` compartment and the UML pseudo-state symbols. Mermaid draws supported Cameo details but flattens gradients and omits the frame and header tab; unsupported details are noted. PlantUML notes the style as not represented; text and Markdown ignore it. An unknown name is refused with the two there are; without something to render it is refused likewise (see [Rendering a view](#rendering-a-view)) |
-| `--render-ports <display>` | | How much of a part's ports an interconnection or mixed rendering of `--render` or `--render-all` draws: `minimal` (the default), the ports its interconnection edges end at, each a small square on the part's border named beside it, or `full`, every port a part has, labelled `name : Type`. An unknown name is refused with the two there are |
-| `--render-unplaced <placement>` | | Where a graph form of a view some `DiagramLayout::Layout` positions puts the nodes none does: `omit` (the default) leaves them, and the edges at them, undrawn in every form, so the `mermaid`, `dot` and `plantuml` forms draw one node set; `strip` draws them too, in rows below the `dot` drawing, clear of the canvas and every positioned box, and among the placed nodes in the forms that lay nodes out themselves. Applies to `--render`, `--render-all` and the diagrams of `--render-document` and `--render-documents`; a view with no positioned node is laid out as before whichever is named. An unknown placement is refused with the placements there are (see [Rendering a view](#rendering-a-view)) |
+| `--render-style <style>` | | Drawing style the `dot` or `mermaid` form of `--render`, `--render-all`, `--render-document` and `--render-documents` draws in: `pilot` (the default), the Pilot visualizer's Standard B&W, or `cameo`, the look of Cameo Systems Modeler — a diagram frame with a header tab, 11 pt Arial, gradient fills in Cameo's colours, a state's `do / Activity` compartment and the UML pseudo-state symbols. Mermaid draws supported Cameo details but flattens gradients and omits the frame and header tab; unsupported details are noted. PlantUML and D2 note the style as not represented; text and Markdown ignore it. An unknown name is refused with the two there are; without something to render it is refused likewise (see [Rendering a view](#rendering-a-view)) |
+| `--render-ports <display>` | | How much of a part's ports an interconnection or mixed rendering of `--render` or `--render-all` draws: `minimal` (the default), the ports its interconnection edges or mixed connectors end at, each a small square on the part's border named beside it, or `full`, every port a part has, labelled `name : Type`. An unknown name is refused with the two there are |
+| `--render-unplaced <placement>` | | Where a graph form of a view some `DiagramLayout::Layout` positions puts the nodes none does: `omit` (the default) leaves them, and the edges at them, undrawn in every form, so the `mermaid`, `dot`, `plantuml` and `d2` forms draw one node set; `strip` draws them too, in rows below the `dot` drawing, clear of the canvas and every positioned box, and among the placed nodes in the forms that lay nodes out themselves. Applies to `--render`, `--render-all` and the diagrams of `--render-document` and `--render-documents`; a view with no positioned node is laid out as before whichever is named. An unknown placement is refused with the placements there are (see [Rendering a view](#rendering-a-view)) |
 | `--render-document <name>` | | Compile a document definition (a `part def` specializing `DocumentQueries::Document`), run its queries against the model, render its diagram blocks through the view engine and write the result as CommonMark Markdown, as `%render-document` does. Paragraphs may hold inline runs (`Span` with a `plain`/`emphasis`/`strong`/`code` style, `Link` to a URL, `Ref` linking to another content block's anchor); a query-backed paragraph or list styles its projected values through nested `SpanColumn`/`LinkColumn` column runs; a table with a `groupBy` column writes one subtable per group value, with the query's projected properties and computed `Column` names as its columns. A `Diagram` block embeds a declared view, or an element with a stated rendering kind, in a form chosen per diagram: a view some `DiagramLayout::Layout` or `Route` positions is drawn by Graphviz where it states — inline SVG when `dot` is installed, a fenced ` ```dot ` block otherwise — and every other graph-shaped view is a fenced ` ```mermaid ` block; when Graphviz is absent a positioned view is written as Mermaid under a visible notice saying so (`-diagram-form mermaid|dot|plantuml` writes every graph-shaped block in that one form; a table-kind view is a pipe table whichever form), with an optional caption and `TB`/`LR`/`RL`/`BT` flow direction. An `Image` block (`location` a path relative to the document's file or an http(s)/file URL, optional `caption` and `alt`) renders as a CommonMark image under its caption, a relative `location` resolved beside the document's source file and written relative to the `-o` output's directory; `-doc-form pdf` draws the file — a missing local `location` is a `missing-image` error — and an `http(s)` location is fetched by the engine. Markdown is the default form; `-doc-form html` renders the same document tree as semantic HTML (see [Rendering a document as HTML](#rendering-a-document-as-html)) and `-doc-form pdf` converts the Markdown (see [Rendering a document as PDF](#rendering-a-document-as-pdf)). Combined with `--instantiate`, the document's queries run over the objects created (see [Rendering a document over objects](#rendering-a-document-over-objects)). `-json` does not apply. See the [document generation manual](../manual/README.md) |
 | `--doc-form <form>` | | Form `--render-document` writes: `markdown` (default), `html`, rendered from the document tree itself (see [Rendering a document as HTML](#rendering-a-document-as-html)), or `pdf`, which drives an external converter |
-| `--diagram-form <form>` | | Form the graph-shaped diagram blocks of `--render-document` and `--render-documents` are written in: `mermaid`, `dot`, Graphviz DOT for a toolchain that lays diagrams out with Graphviz, produced without Graphviz installed, or `plantuml`, PlantUML in the Pilot visualizer's B&W style, produced without a PlantUML jar. Unset, the form is chosen per diagram: `dot` for a view some `DiagramLayout::Layout` or `Route` positions, drawn by Graphviz where it states (inline SVG in Markdown and HTML when `dot`, or `OPENSYSML_DOT`, is installed; Mermaid under a visible notice naming the missing tool when it is not), `mermaid` for every other graph-shaped view. Stated, it applies to every diagram of the document in every `--doc-form`; a table-kind view is a table whichever form, and a `sequence` diagram, which has no DOT form, is refused under `dot` |
+| `--diagram-form <form>` | | Form the graph-shaped diagram blocks of `--render-document` and `--render-documents` are written in: `mermaid`, `dot`, Graphviz DOT for a toolchain that lays diagrams out with Graphviz, produced without Graphviz installed, `plantuml`, PlantUML in the Pilot visualizer's B&W style, produced without a PlantUML jar, or `d2`, a [D2](https://d2lang.com) diagram in the same look, produced without `d2`. D2 writes only `tree`, `interconnection`, `state`, `action` and `sequence` renderings; case and mixed views are refused with a typed error. Unset, the form is chosen per diagram: `dot` for a view some `DiagramLayout::Layout` or `Route` positions, drawn by Graphviz where it states (inline SVG in Markdown and HTML when `dot`, or `OPENSYSML_DOT`, is installed; Mermaid under a visible notice naming the missing tool when it is not), `mermaid` for every other graph-shaped view. Stated, it applies to every diagram of the document in every `--doc-form`; a table-kind view is a table whichever form, and a `sequence` diagram, which has no DOT form, is refused under `dot` |
 | `--render-documents <dir>` | | Render every document definition the model declares as a linked set into the directory, one file per document, so cross-document references resolve on disk; a document that cannot be rendered gets a page stating why and the run exits 3. `--doc-form html` writes the set as HTML pages linking shared stylesheet files written beside them |
 | `--doc-title-page` | | Put the document title on a page of its own (`--doc-form html` or `pdf`) |
 | `--doc-toc` | | Write a table of contents ahead of the content (`--doc-form html` or `pdf`) |
@@ -514,6 +514,10 @@ sysml model.sysml -render Views::vehicleView -render-form dot -render-unplaced s
 sysml model.sysml -render Views::vehicleView -render-form plantuml -o view.puml
 sysml model.sysml -render Views::handshake -render-form plantuml -render-palette tol-bright -o handshake.puml
 
+# D2 in the same look, for a D2 toolchain; no d2 is run
+sysml model.sysml -render Views::vehicleView -render-form d2 -o view.d2
+sysml model.sysml -render Views::handshake -render-form d2 -render-palette tol-bright -o handshake.d2
+
 # Link diagram elements to the declarations' source locations
 sysml /absolute/path/model.sysml -render Views::vehicleView -render-form dot \
   -render-link 'vscode://file/{file}:{line}:{col}' -o view.dot
@@ -564,7 +568,7 @@ plain name. Only views written in the requested form take part, and a plain name
 tagged one is tagged in turn, so no two files written in one run meet. With no
 `-render-form`, graph-shaped kinds use Mermaid (`.mmd`) and tables use Markdown (`.md`); a forced text form uses
 `.txt` and unbounded width, a forced `dot` form uses `.dot`, and a forced `plantuml` form uses
-`.puml`, PlantUML's conventional extension, and a forced `csv` or `tsv` form writes the tables as
+`.puml`, PlantUML's conventional extension, a forced `d2` form uses `.d2`, and a forced `csv` or `tsv` form writes the tables as
 `.csv` or `.tsv` and skips every other view.
 
 ```bash
@@ -594,8 +598,9 @@ The forms a kind can be written in:
 | `markdown` | `table` | A pipe table, the machine-readable form of a table |
 | `csv` | `table` | Comma-separated values: a header record of the columns, then one record per row, each field quoted as RFC 4180 quotes it; for a spreadsheet or a CSV reader |
 | `tsv` | `table` | The same records with a tab between fields; a field holding a tab, a quote or a line break is quoted as CSV quotes it, so a CSV reader set to a tab delimiter reads every one back |
-| `dot` | `tree`, `interconnection`, `state`, `action`, `case`, `mixed` | Graphviz DOT, an alternative to Mermaid for Graphviz toolchains and layouts of large graphs |
-| `plantuml` | `tree`, `interconnection`, `state`, `action`, `case`, `mixed`, `sequence` | PlantUML in the Pilot visualizer's B&W style, for PlantUML toolchains; the one alternative form with a sequence grammar |
+| `dot` | `tree`, `interconnection`, `state`, `action` | Graphviz DOT, an alternative to Mermaid for Graphviz toolchains and layouts of large graphs |
+| `plantuml` | `tree`, `interconnection`, `state`, `action`, `sequence` | PlantUML in the Pilot visualizer's B&W style, for PlantUML toolchains; an alternative form with a sequence grammar |
+| `d2` | `tree`, `interconnection`, `state`, `action`, `sequence` | [D2](https://d2lang.com) in the same look, for D2 toolchains; nested containers, pseudostate glyphs and D2's sequence diagram |
 
 A node's label follows the graphical notation's header: the kind leads on its own line in
 guillemets, the element's name follows, with ` : Type` after it for a typed usage, and any note
@@ -609,6 +614,7 @@ in each form:
 | `mermaid` | Flowchart labels use Markdown when every line is safe: an italic keyword line, then bold head lines and plain details separated by real newlines; unsafe labels fall back to an escaped `<br>` label. State and sequence labels use `<br>` with the same keyword-first order |
 | `dot` | `"n1" [label=<<font point-size="10">«part»</font><br/><b>pump : Pump</b>>];` — an HTML-like label, the keyword line at 10pt over the name in bold |
 | `plantuml` | `rectangle "<size:10>//«part»//</size>\n**pump : Pump**" as n1 <<part>> <<usage>>` — a creole label, the keyword line italic at 10pt over the name in bold; the stereotypes drive the style and are hidden |
+| `d2` | `n1: "«part»\npump : Pump" { class: usage }` — a quoted label with the keyword line over the name, the class the B&W rule the node takes |
 
 An action rendering draws the action's own directed parameters as pins on its frame — `in` and
 `inout` on the frame's input side, `out` and `return` on the output side; a usage's are the ones its
@@ -624,7 +630,9 @@ sets the frame's pins on the cluster's border as squares, the way it sets a node
 each pin under its node (`in bread`) and names the pins an edge joins (`heat.t => pack.t`,
 `ToastBread.bread == heat.b`); `mermaid`'s flowchart draws the pins an edge ends at, and names the
 rest in a `%% not represented:` notice; `plantuml`'s state grammar has no pin, so it names the edge's
-pins in the edge's label (`n0 -- n1 : bread = b`) and the pins in a `' not represented:` notice.
+pins in the edge's label (`n0 -- n1 : bread = b`) and the pins in a `' not represented:` notice; `d2`
+draws the pins an edge ends at as nodes nested in their owner, and names the rest in a
+`# not represented:` notice.
 
 Every `subgraph` of a Mermaid flowchart opens on a `direction` statement restating the
 flowchart's, because Mermaid lays out a subgraph that states none without regard to the
@@ -697,7 +705,24 @@ edges between them, with the unplaced accounted for in a `' not represented:` no
 node under `-render-unplaced strip`. Producing PlantUML
 needs no Java and no PlantUML jar; drawing the file does (`java -jar plantuml.jar -tsvg view.puml`).
 
-`-render-palette <name>` fills the Mermaid, DOT and PlantUML nodes with a colourblind-safe palette by
+`d2` writes a [D2](https://d2lang.com) file for a D2 toolchain, with the same header as `#`
+comments (`# <view> — <kind> rendering`, one `# not represented:` line per notice), the Pilot's
+B&W look as a `classes` block every node and edge names (`definition` square, `usage` rounded,
+`package` and `region` containers, `connection` heavy, `flow` dashed), and one shape per kind: a
+tree is flat nodes joined by `--` containment lines as the other forms draw it, an
+interconnection nested containers with a drawn port a small node inside the part that owns it and
+connectors between the ports they name (`n0.n1."n1.0" -- n0.n2."n2.0"`), a state or action
+rendering nested containers with its control nodes as pseudostate glyphs (a filled dot for a start
+or junction, a double-bordered dot for a final, a bar for a fork or join, a diamond for a decision,
+choice or merge, an `H` circle for history), and a sequence D2's `shape: sequence_diagram` with
+its lifelines and `->` messages one for one with the Mermaid form. `TB`/`LR`/`BT`/`RL` become
+`direction: down`/`right`/`up`/`left`. D2 lays the diagram out itself, so DiagramLayout geometry is
+kept as `# canvas:`, `# layout:` and `# route:` comments and noticed — `-render-form dot` honours
+it ([the D2 section](../project/view-rendering-forms.md#d2)) — and the diagram draws the nodes the
+DOT form draws under `-render-unplaced`. Producing D2 runs no `d2`; drawing the file does
+(`d2 view.d2 view.svg`).
+
+`-render-palette <name>` fills the Mermaid, DOT, PlantUML and D2 nodes with a colourblind-safe palette by
 **keyword family** — a `part def` and a `part` share a hue, a `port` takes the next, and so on through
 item, port, attribute, action, state, requirement, constraint, connection, interface, use case,
 case, allocation, analysis, verification, enum, occurrence and flow. A definition is filled with
@@ -708,8 +733,8 @@ nodes and cluster borders stay black and white. The palettes are `okabe-ito` (Ok
 (ColorBrewer), and the sequential `viridis` and `cividis` (matplotlib), which are sampled evenly
 across the families the view draws, darkest first
 ([the palettes and their sources](../project/view-rendering-forms.md#palettes)). The palette
-applies to the `dot`, `mermaid` and `plantuml` forms: DOT and Mermaid draw the same fill and border
-hex per graph node, while PlantUML draws the same fill (`#hex;line:hex` on an element). PlantUML
+applies to the `dot`, `mermaid`, `plantuml` and `d2` forms: DOT, Mermaid and D2 draw the same fill and border
+hex per graph node (D2 as `style: { fill; stroke }` on the node), while PlantUML draws the same fill (`#hex;line:hex` on an element). PlantUML
 sequence participants take their family fill; Mermaid accepts a sequence palette but notes that it
 cannot fill individual participants. Text and Markdown ignore palettes. A name that is no palette is refused with
 status 2 and the names there are; `-render-palette` without `-render` or `-render-all` is refused
@@ -722,7 +747,7 @@ path as loaded, not a path resolved against the rendering's output directory: us
 paths when a link must work outside the process's working directory. Synthetic origins, missed
 source locations and bundled library declarations are left unlinked. DOT writes `URL` and
 `tooltip` attributes; PlantUML writes `[[url]]` on nodes and edges (not ports or initial
-pseudostate arrows); Mermaid writes `click` statements for non-composite flowchart and simple state
+pseudostate arrows); D2 writes `link:` on nodes, containers and edges (not pins); Mermaid writes `click` statements for non-composite flowchart and simple state
 nodes and `link` statements for sequence participants, but not edges, subgraphs or composite
 states. The pinned Mermaid CLI 11.16.0 defaults to `securityLevel: strict`, which strips links
 with non-HTTP(S) schemes, including `vscode://` and `file:///`. It rewrites sequence hrefs under
@@ -1040,8 +1065,11 @@ without Mermaid diagrams needs no diagram tool. Under `-diagram-form dot` the di
 by Graphviz (`dot`; override with `OPENSYSML_DOT`), as SVG under the layout engine each block's
 `// layout:` header names, so a positioned view is drawn where the model put it; under
 `-diagram-form plantuml` by the PlantUML jar `OPENSYSML_PLANTUML_JAR` names, run by `java`
-(override with `OPENSYSML_JAVA`) as `java -jar <jar> -tsvg -pipe`. Both are optional where
-`mmdc` is required: a missing Graphviz, jar or Java keeps each diagram's source in the PDF under
+(override with `OPENSYSML_JAVA`) as `java -jar <jar> -tsvg -pipe`; under `-diagram-form d2` by
+the `d2` executable (override with `OPENSYSML_D2`) as `d2 --layout=dagre --pad=16 <block>.d2
+<block>.svg`, its connection-label masks moved under `<defs>` so WeasyPrint applies rather than
+draws them. All three are optional where
+`mmdc` is required: a missing Graphviz, jar, Java or `d2` keeps each diagram's source in the PDF under
 a notice naming the variable to set, and the render succeeds; a tool that is present and fails
 is a typed `tool-failed` error carrying its output.
 
