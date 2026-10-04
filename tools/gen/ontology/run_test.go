@@ -168,6 +168,7 @@ func TestRunWritesABoundedManyProperty(t *testing.T) {
 		t.Fatalf("upperBound 2 was not generated as Many:\n%s", generated)
 	}
 }
+
 func TestCheckFailsOnlyOnDrift(t *testing.T) {
 	dir := newMetamodel(t, sampleEcore)
 	out := filepath.Join(t.TempDir(), "table.go")
