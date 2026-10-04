@@ -261,6 +261,67 @@ func TestReturnUsageKeepsItsMetaclass(t *testing.T) {
 	}
 }
 
+func TestAPIJSONReferenceResultOmitsKindKeyword(t *testing.T) {
+	file := source.New("return.sysml", []byte("package R { calc def F { return result : Real; } }"))
+	p := parser.New(file)
+	root := p.ParseFile()
+	if len(p.Diagnostics) != 0 {
+		t.Fatalf("the fixture does not parse: %v", p.Diagnostics)
+	}
+	graph, err := ToRDF(file, root)
+	if err != nil {
+		t.Fatalf("ToRDF: %v", err)
+	}
+	data, err := WriteAPIJSON(graph)
+	if err != nil {
+		t.Fatalf("WriteAPIJSON: %v", err)
+	}
+	var elements []map[string]any
+	if err := json.Unmarshal(data, &elements); err != nil {
+		t.Fatalf("decode API JSON: %v", err)
+	}
+	found := false
+	foundReturnMembership := false
+	for _, element := range elements {
+		if element["@type"] == "ReferenceUsage" && element["declaredName"] == "result" {
+			found = true
+			if _, ok := element["declaredKeyword"]; ok {
+				t.Fatal("API JSON unexpectedly retains the declared kind keyword")
+			}
+		}
+		if element["@type"] == mReturnParameterMembership {
+			foundReturnMembership = true
+		}
+	}
+	if !found {
+		t.Fatal("API JSON has no ReferenceUsage result")
+	}
+	if !foundReturnMembership {
+		t.Fatal("API JSON has no ReturnParameterMembership")
+	}
+	out, err := APIJSONToSysML(data, nil)
+	if err != nil {
+		t.Fatalf("APIJSONToSysML: %v", err)
+	}
+	if !bytes.Contains(out, []byte("return result : Real")) ||
+		bytes.Contains(out, []byte("return attribute")) {
+		t.Fatalf("API JSON ReferenceUsage result was written with a kind keyword:\n%s", out)
+	}
+	roundTrip := source.New("return.sysml", out)
+	roundParser := parser.New(roundTrip)
+	roundRoot := roundParser.ParseFile()
+	if len(roundParser.Diagnostics) != 0 {
+		t.Fatalf("the decoded notation does not parse: %v\n%s", roundParser.Diagnostics, out)
+	}
+	reparsed, err := ToRDF(roundTrip, roundRoot)
+	if err != nil {
+		t.Fatalf("round-trip ToRDF: %v", err)
+	}
+	if got := resultUsageTypes(t, reparsed); !reflect.DeepEqual(got, map[string]int{"ReferenceUsage": 1}) {
+		t.Fatalf("API JSON return metaclasses = %v, want ReferenceUsage", got)
+	}
+}
+
 func graphWithoutSourceText(graph *rdf.Graph) map[rdf.Triple]bool {
 	out := make(map[rdf.Triple]bool, graph.Len())
 	for _, triple := range graph.Triples() {

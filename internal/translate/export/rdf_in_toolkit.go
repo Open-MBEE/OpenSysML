@@ -1171,7 +1171,7 @@ func (n *normalizer) statePerformedKeyword(subject, ms rdf.Term, m string) {
 // markImplicitKinds flags the toolkit ReferenceUsages that print no keyword:
 // ReferenceUsage is the kindless member metaclass — `ref` states the kind when
 // the keyword is written, and the compact form records no keyword for it. A
-// parameter whose membership spells its keyword — a satisfy's `subject` — keeps it.
+// return membership states `return`, not a usage kind.
 func (n *normalizer) markImplicitKinds() {
 	graph, meta := n.graph, n.meta
 	for _, subject := range graph.Subjects() {
@@ -1179,7 +1179,8 @@ func (n *normalizer) markImplicitKinds() {
 			continue
 		}
 		membership := firstIRI(graph, subject, pOwningMembership, pOwningRelationship)
-		if mm := meta(membership); mm != "" && mm != "FeatureMembership" && mm != "OwningMembership" {
+		if mm := meta(membership); mm != "" && mm != "FeatureMembership" &&
+			mm != "OwningMembership" && mm != mReturnParameterMembership {
 			continue
 		}
 		if !graph.HasProperty(subject, rdf.OpenSysML+xDeclaredKeyword) {
