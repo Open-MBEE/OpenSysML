@@ -1,12 +1,21 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import path from "node:path";
 import { test } from "node:test";
 
-import type { RenderEdge, RenderNode, RenderResult } from "../protocol";
-import type { AutoLayout } from "./autolayout";
+import type { LayoutGeometry, RenderEdge, RenderNode, RenderPoint, RenderResult } from "../protocol";
+import type { EngineInstance } from "../landing/model";
+import { landingModel } from "../landing/model";
+import { presented } from "../landing/present";
+import { autoLayout, type AutoLayout } from "./autolayout";
 import {
+  alignedPlacement,
   anchor,
+  clampNodeToBounds,
+  type CanvasLayout,
   GAP,
+  freePlacement,
+  keepOrthogonalRoutes,
   insertedWaypoint,
   labelLines,
   layoutCanvas,
@@ -15,19 +24,32 @@ import {
   movable,
   movedNode,
   movedWaypoint,
+  nodeExtent,
   nodeUnder,
   overridesOf,
+  type PlacedNode,
+  type PlacedPort,
   portBox,
   portCenter,
   portFace,
+  portLabelPlacement,
   PORT_SIZE,
+  reattachRoute,
   removedWaypoint,
   shapeOf,
   steerable,
+  type Box,
+  type Side,
 } from "./layout";
-import { CLEARANCE, loadAvoid } from "./avoid";
+import { CLEARANCE, loadAvoid, MIN_JOG, portExitReach } from "./avoid";
 
 const WASM = path.resolve("node_modules/libavoid-js/dist/libavoid.wasm");
+
+interface LandingFixture {
+  hash: string;
+  render: Omit<RenderResult, "form" | "artifact" | "version">;
+  instances: EngineInstance[];
+}
 
 const origin = { uri: "file:///m.sysml", range: { start: { line: 0, character: 0 }, end: { line: 0, character: 4 } }, digest: "d0" };
 
@@ -48,6 +70,200 @@ function rendering(nodes: RenderNode[], edges: RenderEdge[] = [], extra: Partial
     version: 7,
     ...extra,
   };
+}
+
+function placedNode(
+  id: string,
+  x: number,
+  y: number,
+  width = 80,
+  height = 40,
+  ports: RenderNode["ports"] = [],
+) {
+  return layoutCanvas(rendering([node(id, id, { x, y, width, height, ports })])).nodes.get(id)!;
+}
+
+function layoutWithPorts(
+  nodes: RenderNode[],
+  edges: RenderEdge[],
+  ports: AutoLayout["ports"],
+  bounds: Box,
+): CanvasLayout {
+  return layoutCanvas(
+    rendering(nodes, edges),
+    { bounds },
+    { nodes: new Map(), routes: new Map(), ports },
+  );
+}
+
+function orthogonal(points: RenderPoint[]): boolean {
+  return points.every((point, index) => {
+    if (index === 0) {
+      return true;
+    }
+    const previous = points[index - 1];
+    return Math.abs(point.x - previous.x) <= 1e-6 || Math.abs(point.y - previous.y) <= 1e-6;
+  });
+}
+
+function assertPointNear(actual: RenderPoint, expected: RenderPoint, context: string): void {
+  assert.ok(
+    Math.abs(actual.x - expected.x) <= 1e-6 && Math.abs(actual.y - expected.y) <= 1e-6,
+    `${context}: expected ${JSON.stringify(expected)}, got ${JSON.stringify(actual)}`,
+  );
+}
+
+function pointDirection(start: RenderPoint, end: RenderPoint): RenderPoint {
+  const dx = end.x - start.x;
+  const dy = end.y - start.y;
+  return Math.abs(dx) >= Math.abs(dy) ? { x: Math.sign(dx), y: 0 } : { x: 0, y: Math.sign(dy) };
+}
+
+function assertRouteDirections(
+  points: RenderPoint[],
+  start: RenderPoint,
+  end: RenderPoint,
+  startDirection: RenderPoint,
+  endDirection: RenderPoint,
+): void {
+  assert.ok(orthogonal(points));
+  assertPointNear(points[0], start, "route start");
+  assertPointNear(points.at(-1)!, end, "route end");
+  assert.ok(Math.hypot(points[1].x - points[0].x, points[1].y - points[0].y) > 1e-6);
+  assert.ok(Math.hypot(points.at(-1)!.x - points.at(-2)!.x, points.at(-1)!.y - points.at(-2)!.y) > 1e-6);
+  assert.deepEqual(pointDirection(points[0], points[1]), startDirection);
+  assert.deepEqual(pointDirection(points.at(-1)!, points.at(-2)!), endDirection);
+}
+
+function portNode(id: string, x: number, y: number, width = 160, height = 70): RenderNode {
+  return node(id, id, { x, y, width, height, ports: [{ id: `${id}.api`, name: "api" }] });
+}
+
+function connectedEdge(from: string, to: string): RenderEdge {
+  return {
+    from,
+    to,
+    fromPort: `${from}.api`,
+    toPort: `${to}.api`,
+    label: "",
+    kind: "connection",
+    fqn: `M::${from}_${to}`,
+  };
+}
+
+function fixedPorts(...entries: Array<[string, Side, number]>): AutoLayout["ports"] {
+  const ports: AutoLayout["ports"] = new Map();
+  for (const [id, side, offset] of entries) {
+    ports.set(id, { side, offset });
+  }
+  return ports;
+}
+
+function freeAt(
+  node: PlacedNode,
+  at: RenderPoint,
+  others: PlacedNode[],
+  portExitLeg: number | ((node: PlacedNode, port: PlacedPort) => number) = 0,
+): boolean {
+  const exitLeg = (entry: PlacedNode, port: PlacedPort): number =>
+    typeof portExitLeg === "number" ? portExitLeg : portExitLeg(entry, port);
+  const extent = nodeExtent(
+    { ...node, box: { ...node.box, x: at.x, y: at.y } },
+    (port) => exitLeg(node, port),
+  );
+  const expanded = {
+    x: extent.x - CLEARANCE,
+    y: extent.y - CLEARANCE,
+    width: extent.width + 2 * CLEARANCE,
+    height: extent.height + 2 * CLEARANCE,
+  };
+  return others.every((other) => {
+    const extent = nodeExtent(other, (port) => exitLeg(other, port));
+    const obstacle = {
+      x: extent.x - CLEARANCE,
+      y: extent.y - CLEARANCE,
+      width: extent.width + 2 * CLEARANCE,
+      height: extent.height + 2 * CLEARANCE,
+    };
+    return (
+      expanded.x >= obstacle.x + obstacle.width ||
+      expanded.x + expanded.width <= obstacle.x ||
+      expanded.y >= obstacle.y + obstacle.height ||
+      expanded.y + expanded.height <= obstacle.y
+    );
+  });
+}
+
+function nearestFreeByBruteForce(
+  node: PlacedNode,
+  at: RenderPoint,
+  others: PlacedNode[],
+  bounds: Box,
+): RenderPoint | undefined {
+  const min = clampNodeToBounds(
+    node,
+    { x: Number.NEGATIVE_INFINITY, y: Number.NEGATIVE_INFINITY },
+    bounds,
+  );
+  const max = clampNodeToBounds(
+    node,
+    { x: Number.POSITIVE_INFINITY, y: Number.POSITIVE_INFINITY },
+    bounds,
+  );
+  let nearest: RenderPoint | undefined;
+  let nearestDistance = Number.POSITIVE_INFINITY;
+  for (let x = min.x; x <= max.x; x++) {
+    for (let y = min.y; y <= max.y; y++) {
+      const candidate = { x, y };
+      const distance = Math.hypot(candidate.x - at.x, candidate.y - at.y);
+      if (distance < nearestDistance && freeAt(node, candidate, others)) {
+        nearest = candidate;
+        nearestDistance = distance;
+      }
+    }
+  }
+  return nearest;
+}
+
+function insetBox(box: Box, distance: number): Box {
+  return {
+    x: box.x + distance,
+    y: box.y + distance,
+    width: Math.max(0, box.width - 2 * distance),
+    height: Math.max(0, box.height - 2 * distance),
+  };
+}
+
+function assertOrthogonalRoutes(layout: CanvasLayout, bounds: Box, context = "layout"): void {
+  for (const edge of layout.edges) {
+    const source = layout.nodes.get(edge.edge.from)!;
+    const target = layout.nodes.get(edge.edge.to)!;
+    const sourcePort = source.ports.find((port) => port.port.id === edge.edge.fromPort)!;
+    const targetPort = target.ports.find((port) => port.port.id === edge.edge.toPort)!;
+    assert.equal(edge.rerouted, true);
+    assert.deepEqual(edge.points[0], portFace(source.box, sourcePort));
+    assert.deepEqual(edge.points.at(-1), portFace(target.box, targetPort));
+    assert.ok(
+      edge.points.every(
+        ({ x, y }) =>
+          x >= bounds.x && y >= bounds.y && x <= bounds.x + bounds.width && y <= bounds.y + bounds.height,
+      ),
+    );
+    for (let index = 1; index < edge.points.length; index++) {
+      const previous = edge.points[index - 1];
+      const current = edge.points[index];
+      assert.ok(
+        previous.x === current.x || previous.y === current.y,
+        `${context} route ${edge.edge.from} → ${edge.edge.to} has a diagonal segment: ${JSON.stringify({
+          segment: [previous, current],
+          source: source.box,
+          sourcePort,
+          target: target.box,
+          targetPort,
+        })}`,
+      );
+    }
+  }
 }
 
 test("layoutCanvas draws a pinned node's edge straight until the router has loaded", () => {
@@ -858,6 +1074,984 @@ test("layoutCanvas places edge ports on the sides facing the opposite endpoint",
   const square = portBox(a.box, a.ports[0]);
   assert.equal(square.width, PORT_SIZE);
   assert.equal(square.height, PORT_SIZE);
+});
+
+test("clampNodeToBounds keeps port squares, labels, and pin exit legs inside its bounds", () => {
+  const layout = layoutCanvas(rendering(
+    [
+      node("a", "a", { x: 0, y: 0, width: 100, height: 60, ports: [{ id: "a.i", name: "i" }] }),
+      node("b", "b", { x: 300, y: 0, width: 100, height: 60, ports: [{ id: "b.i", name: "i" }] }),
+    ],
+    [{ from: "a", to: "b", fromPort: "a.i", toPort: "b.i", label: "", kind: "connection", fqn: "M::ab" }],
+  ));
+  const entry = layout.nodes.get("a")!;
+  const port = entry.ports[0];
+  assert.equal(port.side, "east");
+  const bounds = { x: 10, y: 20, width: 200, height: 120 };
+  const extent = nodeExtent(entry, CLEARANCE);
+  const square = portBox(entry.box, port);
+  const label = portLabelPlacement(entry.box, port).bounds;
+  const face = portFace(entry.box, port);
+  const exit = { x: face.x + CLEARANCE, y: face.y };
+  assert.ok(extent.x <= square.x && extent.y <= square.y);
+  assert.ok(extent.x + extent.width >= square.x + square.width);
+  assert.ok(extent.y + extent.height >= square.y + square.height);
+  assert.ok(extent.x <= label.x && extent.y <= label.y);
+  assert.ok(extent.x + extent.width >= label.x + label.width);
+  assert.ok(extent.y + extent.height >= label.y + label.height);
+  assert.ok(extent.x + extent.width >= exit.x);
+  assert.ok(exit.y >= extent.y && exit.y <= extent.y + extent.height);
+
+  const at = clampNodeToBounds(entry, { x: 1000, y: 1000 }, bounds, CLEARANCE);
+  const dx = at.x - entry.box.x;
+  const dy = at.y - entry.box.y;
+  const movedExtent = { ...extent, x: extent.x + dx, y: extent.y + dy };
+  assert.ok(movedExtent.x >= bounds.x);
+  assert.ok(movedExtent.y >= bounds.y);
+  assert.ok(movedExtent.x + movedExtent.width <= bounds.x + bounds.width);
+  assert.ok(movedExtent.y + movedExtent.height <= bounds.y + bounds.height);
+});
+
+test("clampNodeToBounds reserves a different exit reach for each port", () => {
+  const layout = layoutCanvas(rendering(
+    [
+      node("west", "west", { x: 0, y: 60, width: 80, height: 40 }),
+      node("target", "target", {
+        x: 300,
+        y: 60,
+        width: 100,
+        height: 60,
+        ports: [
+          { id: "target.in", name: "in" },
+          { id: "target.out", name: "out" },
+        ],
+      }),
+      node("east", "east", { x: 700, y: 60, width: 80, height: 40 }),
+    ],
+    [
+      { from: "west", to: "target", toPort: "target.in", label: "", kind: "connection", fqn: "M::westTarget" },
+      { from: "target", to: "east", fromPort: "target.out", label: "", kind: "connection", fqn: "M::targetEast" },
+    ],
+  ));
+  const entry = layout.nodes.get("target")!;
+  const west = entry.ports.find((port) => port.port.id === "target.in")!;
+  const east = entry.ports.find((port) => port.port.id === "target.out")!;
+  assert.equal(west.side, "west");
+  assert.equal(east.side, "east");
+  const exitLeg = (port: (typeof entry.ports)[number]) => (port === west ? 40 : 60);
+  const extent = nodeExtent(entry, exitLeg);
+  assert.equal(extent.x, portFace(entry.box, west).x - 40);
+  assert.equal(extent.x + extent.width, portFace(entry.box, east).x + 60);
+
+  const bounds = { x: 10, y: 0, width: 600, height: 300 };
+  const at = clampNodeToBounds(entry, { x: -1000, y: entry.box.y }, bounds, exitLeg);
+  const moved = { ...entry, box: { ...entry.box, ...at } };
+  const movedExtent = nodeExtent(moved, exitLeg);
+  assert.equal(movedExtent.x, bounds.x);
+  assert.ok(movedExtent.x + movedExtent.width <= bounds.x + bounds.width);
+  assert.equal(portFace(moved.box, west).x - 40, bounds.x);
+  assert.ok(portFace(moved.box, east).x + 60 <= bounds.x + bounds.width);
+});
+
+test("freePlacement returns an already-free position unchanged", () => {
+  const moving = placedNode("moving", 100, 100);
+  const other = placedNode("other", 300, 100);
+  const bounds: Box = { x: 0, y: 0, width: 500, height: 300 };
+
+  assert.deepEqual(freePlacement(moving, moving.box, [other], bounds, 0), { x: moving.box.x, y: moving.box.y });
+});
+
+test("freePlacement moves an overlap on the left to its nearest free side", () => {
+  const moving = placedNode("moving", 100, 100);
+  const other = placedNode("other", 150, 100);
+  const bounds: Box = { x: 0, y: 0, width: 500, height: 300 };
+
+  assert.deepEqual(freePlacement(moving, moving.box, [other], bounds, 0), { x: 38, y: 100 });
+});
+
+test("freePlacement respects a wall and chooses the other side of an overlap", () => {
+  const moving = placedNode("moving", 100, 20);
+  const other = placedNode("other", 70, 20);
+  const bounds: Box = { x: 0, y: 0, width: 300, height: 80 };
+
+  assert.deepEqual(freePlacement(moving, moving.box, [other], bounds, 0), { x: 182, y: 20 });
+});
+
+test("freePlacement includes each node's port exit leg in its extent", () => {
+  const moving = placedNode("moving", 100, 100, 80, 40, [{ id: "moving.out", name: "out" }]);
+  moving.ports[0].side = "east";
+  const other = placedNode("other", 230, 100);
+  const bounds: Box = { x: 0, y: 0, width: 500, height: 300 };
+  const withNoExit = freePlacement(moving, moving.box, [other], bounds, 0);
+  const withExit = freePlacement(moving, moving.box, [other], bounds, (entry, port) => {
+    assert.equal(entry.node.id, "moving");
+    assert.equal(port.port.id, "moving.out");
+    return 40;
+  });
+
+  assert.deepEqual(withNoExit, { x: 88, y: moving.box.y });
+  assert.ok(withExit);
+  assert.notDeepEqual(withExit, moving.box);
+});
+
+test("freePlacement returns its clamped position when no free spot exists", () => {
+  const moving = placedNode("moving", 100, 20);
+  const other = placedNode("other", 0, 0, 200, 80);
+  const bounds: Box = { x: 0, y: 0, width: 200, height: 80 };
+
+  assert.deepEqual(freePlacement(moving, moving.box, [other], bounds, 0), { x: moving.box.x, y: moving.box.y });
+});
+
+test("freePlacement jumps past an overlap in the requested direction", () => {
+  const moving = placedNode("moving", 100, 20, 40, 40);
+  const other = placedNode("other", 110, 20, 40, 40);
+  const bounds: Box = { x: 0, y: 0, width: 300, height: 100 };
+
+  assert.deepEqual(
+    freePlacement(moving, { x: 100, y: 20 }, [other], bounds, 0, { x: 1, y: 0 }),
+    { x: 182, y: 20 },
+  );
+});
+
+test("freePlacement leaves a directional step unchanged when that direction is blocked", () => {
+  const moving = placedNode("moving", 100, 20, 40, 40);
+  const other = placedNode("other", 110, 20, 40, 40);
+  const bounds: Box = { x: 0, y: 0, width: 200, height: 100 };
+
+  assert.equal(freePlacement(moving, { x: 100, y: 20 }, [other], bounds, 0, { x: 1, y: 0 }), undefined);
+});
+
+test("alignedPlacement lines up a short east-to-west offset in either direction", () => {
+  const bounds: Box = { x: 0, y: 0, width: 900, height: 400 };
+  for (const offset of [5, -5]) {
+    const movingNode = portNode("moving", 80, 100);
+    const targetNode = portNode("target", 500, 100 + offset);
+    const layout = layoutWithPorts(
+      [movingNode, targetNode],
+      [connectedEdge("moving", "target")],
+      fixedPorts(["moving.api", "east", 0.5], ["target.api", "west", 0.5]),
+      bounds,
+    );
+    const moving = layout.nodes.get("moving")!;
+    const target = layout.nodes.get("target")!;
+    const at = { x: moving.box.x, y: moving.box.y };
+    const placed = alignedPlacement(moving, at, layout, bounds, 0);
+    const ownCenter = portCenter({ ...moving.box, ...placed }, moving.ports[0]);
+    const targetCenter = portCenter(target.box, target.ports[0]);
+
+    assert.equal(placed.x, at.x);
+    assert.equal(placed.y, at.y + offset);
+    assert.equal(ownCenter.y, targetCenter.y);
+  }
+});
+
+test("alignedPlacement ignores east ports wired to other east ports", () => {
+  const bounds: Box = { x: 0, y: 0, width: 900, height: 400 };
+  const layout = layoutWithPorts(
+    [portNode("moving", 80, 100), portNode("target", 500, 105)],
+    [connectedEdge("moving", "target")],
+    fixedPorts(["moving.api", "east", 0.5], ["target.api", "east", 0.5]),
+    bounds,
+  );
+  const moving = layout.nodes.get("moving")!;
+  const at = { x: moving.box.x, y: moving.box.y };
+
+  assert.deepEqual(alignedPlacement(moving, at, layout, bounds, 0), at);
+});
+
+test("alignedPlacement ignores a west port to the left of an east port", () => {
+  const bounds: Box = { x: 0, y: 0, width: 900, height: 400 };
+  const layout = layoutWithPorts(
+    [portNode("moving", 500, 100), portNode("target", 100, 105)],
+    [connectedEdge("moving", "target")],
+    fixedPorts(["moving.api", "east", 0.5], ["target.api", "west", 0.5]),
+    bounds,
+  );
+  const moving = layout.nodes.get("moving")!;
+  const at = { x: moving.box.x, y: moving.box.y };
+
+  assert.deepEqual(alignedPlacement(moving, at, layout, bounds, 0), at);
+});
+
+test("alignedPlacement ignores south-to-north ports that face apart", () => {
+  const bounds: Box = { x: 0, y: 0, width: 900, height: 500 };
+  const layout = layoutWithPorts(
+    [portNode("moving", 80, 300), portNode("target", 85, 100)],
+    [connectedEdge("moving", "target")],
+    fixedPorts(["moving.api", "south", 0.5], ["target.api", "north", 0.5]),
+    bounds,
+  );
+  const moving = layout.nodes.get("moving")!;
+  const at = { x: moving.box.x, y: moving.box.y };
+
+  assert.deepEqual(alignedPlacement(moving, at, layout, bounds, 0), at);
+});
+
+test("alignedPlacement leaves zero and exactly MIN_JOG offsets unchanged", () => {
+  const bounds: Box = { x: 0, y: 0, width: 900, height: 400 };
+  for (const offset of [0, MIN_JOG]) {
+    const layout = layoutWithPorts(
+      [portNode("moving", 80, 100), portNode("target", 500, 100 + offset)],
+      [connectedEdge("moving", "target")],
+      fixedPorts(["moving.api", "east", 0.5], ["target.api", "west", 0.5]),
+      bounds,
+    );
+    const moving = layout.nodes.get("moving")!;
+    const at = { x: moving.box.x, y: moving.box.y };
+
+    assert.deepEqual(alignedPlacement(moving, at, layout, bounds, 0), at);
+  }
+});
+
+test("alignedPlacement rejects an alignment blocked inside the clearance buffers", () => {
+  const bounds: Box = { x: 0, y: 0, width: 900, height: 500 };
+  const movingNode = portNode("moving", 80, 100);
+  const targetNode = portNode("target", 500, 105);
+  const edges = [connectedEdge("moving", "target")];
+  const ports = fixedPorts(["moving.api", "east", 0.5], ["target.api", "west", 0.5]);
+  const initial = layoutWithPorts([movingNode, targetNode], edges, ports, bounds);
+  const movingExtent = nodeExtent(initial.nodes.get("moving")!);
+  const blocker = node("blocker", "blocker", {
+    x: movingNode.x,
+    y: movingExtent.y + movingExtent.height + 2 * CLEARANCE,
+    width: movingNode.width,
+    height: 40,
+  });
+  const layout = layoutWithPorts([movingNode, targetNode, blocker], edges, ports, bounds);
+  const moving = layout.nodes.get("moving")!;
+  const at = { x: moving.box.x, y: moving.box.y };
+  const others = [...layout.nodes.values()].filter((entry) => entry.node.id !== "moving");
+
+  assert.deepEqual(freePlacement(moving, at, others, bounds, 0), at);
+  assert.deepEqual(alignedPlacement(moving, at, layout, bounds, 0), at);
+});
+
+test("alignedPlacement rejects an alignment that would cross the bounds", () => {
+  const bounds: Box = { x: 0, y: 0, width: 900, height: 260 };
+  const layout = layoutWithPorts(
+    [portNode("moving", 80, 190), portNode("target", 500, 195)],
+    [connectedEdge("moving", "target")],
+    fixedPorts(["moving.api", "east", 0.5], ["target.api", "west", 0.5]),
+    bounds,
+  );
+  const moving = layout.nodes.get("moving")!;
+  const at = { x: moving.box.x, y: moving.box.y };
+  const others = [...layout.nodes.values()].filter((entry) => entry.node.id !== "moving");
+
+  assert.deepEqual(freePlacement(moving, at, others, bounds, 0), at);
+  assert.deepEqual(alignedPlacement(moving, at, layout, bounds, 0), at);
+});
+
+test("alignedPlacement minimizes remaining jogs before choosing the smaller shift", () => {
+  const bounds: Box = { x: 0, y: 0, width: 1000, height: 400 };
+  const layout = layoutWithPorts(
+    [portNode("moving", 80, 100), portNode("plus", 450, 104), portNode("minus", 700, 94)],
+    [connectedEdge("moving", "plus"), connectedEdge("moving", "minus")],
+    fixedPorts(
+      ["moving.api", "east", 0.5],
+      ["plus.api", "west", 0.5],
+      ["minus.api", "west", 0.5],
+    ),
+    bounds,
+  );
+  const moving = layout.nodes.get("moving")!;
+  const at = { x: moving.box.x, y: moving.box.y };
+
+  assert.deepEqual(alignedPlacement(moving, at, layout, bounds, 0), { x: at.x, y: at.y + 4 });
+});
+
+test("alignedPlacement lines up north-to-south ports on x", () => {
+  const bounds: Box = { x: 0, y: 0, width: 900, height: 500 };
+  const layout = layoutWithPorts(
+    [portNode("moving", 80, 300), portNode("target", 85, 100)],
+    [connectedEdge("moving", "target")],
+    fixedPorts(["moving.api", "north", 0.5], ["target.api", "south", 0.5]),
+    bounds,
+  );
+  const moving = layout.nodes.get("moving")!;
+  const at = { x: moving.box.x, y: moving.box.y };
+  const placed = alignedPlacement(moving, at, layout, bounds, 0);
+
+  assert.deepEqual(placed, { x: at.x + 5, y: at.y });
+  assert.equal(portCenter({ ...moving.box, ...placed }, moving.ports[0]).x, portCenter(
+    layout.nodes.get("target")!.box,
+    layout.nodes.get("target")!.ports[0],
+  ).x);
+});
+
+test("alignedPlacement ignores mixed-side port pairs", () => {
+  const bounds: Box = { x: 0, y: 0, width: 900, height: 400 };
+  const layout = layoutWithPorts(
+    [portNode("moving", 80, 100), portNode("target", 500, 105)],
+    [connectedEdge("moving", "target")],
+    fixedPorts(["moving.api", "east", 0.5], ["target.api", "north", 0.5]),
+    bounds,
+  );
+  const moving = layout.nodes.get("moving")!;
+  const at = { x: moving.box.x, y: moving.box.y };
+
+  assert.deepEqual(alignedPlacement(moving, at, layout, bounds, 0), at);
+});
+
+test("alignedPlacement ignores hidden edges and hidden other nodes", () => {
+  const bounds: Box = { x: 0, y: 0, width: 900, height: 400 };
+  const makeLayout = (): CanvasLayout =>
+    layoutWithPorts(
+      [portNode("moving", 80, 100), portNode("target", 500, 105)],
+      [connectedEdge("moving", "target")],
+      fixedPorts(["moving.api", "east", 0.5], ["target.api", "west", 0.5]),
+      bounds,
+    );
+  const hiddenEdgeLayout = makeLayout();
+  hiddenEdgeLayout.edges[0].hidden = true;
+  const hiddenEdgeMoving = hiddenEdgeLayout.nodes.get("moving")!;
+  const hiddenEdgeAt = { x: hiddenEdgeMoving.box.x, y: hiddenEdgeMoving.box.y };
+  assert.deepEqual(
+    alignedPlacement(hiddenEdgeMoving, hiddenEdgeAt, hiddenEdgeLayout, bounds, 0),
+    hiddenEdgeAt,
+  );
+
+  const hiddenNodeLayout = makeLayout();
+  hiddenNodeLayout.nodes.get("target")!.hidden = true;
+  const hiddenNodeMoving = hiddenNodeLayout.nodes.get("moving")!;
+  const hiddenNodeAt = { x: hiddenNodeMoving.box.x, y: hiddenNodeMoving.box.y };
+  assert.deepEqual(
+    alignedPlacement(hiddenNodeMoving, hiddenNodeAt, hiddenNodeLayout, bounds, 0),
+    hiddenNodeAt,
+  );
+});
+
+test("alignedPlacement preserves jog-length libavoid routes across seeded short offsets", async () => {
+  await loadAvoid(WASM);
+  const bounds: Box = { x: 0, y: 0, width: 800, height: 450 };
+  const edges = [connectedEdge("moving", "target")];
+  const ports = fixedPorts(["moving.api", "east", 0.5], ["target.api", "west", 0.5]);
+  let seed = 0x91b4c7d3;
+  const randomInt = (max: number): number => {
+    seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
+    return seed % (max + 1);
+  };
+  for (let sample = 0; sample < 200; sample++) {
+    const offset = (randomInt(1) === 0 ? -1 : 1) * (1 + randomInt(MIN_JOG - 2));
+    const targetY = 60 + randomInt(260);
+    const nodes = [portNode("moving", 80, targetY - offset), portNode("target", 500, targetY)];
+    const initial = layoutWithPorts(nodes, edges, ports, bounds);
+    const moving = initial.nodes.get("moving")!;
+    const others = [...initial.nodes.values()].filter((entry) => entry.node.id !== "moving");
+    const at = freePlacement(moving, moving.box, others, bounds, portExitReach(1))!;
+    const placed = alignedPlacement(moving, at, initial, bounds, portExitReach(1));
+    const layout = layoutCanvas(
+      rendering(nodes, edges),
+      { nodes: new Map([["moving", { ...moving.box, ...placed }]]), bounds },
+      { nodes: new Map(), routes: new Map(), ports },
+    );
+    const edge = layout.edges[0];
+    const source = layout.nodes.get("moving")!;
+    const target = layout.nodes.get("target")!;
+
+    assert.equal(
+      portCenter(source.box, source.ports[0]).y,
+      portCenter(target.box, target.ports[0]).y,
+      `seeded scene ${sample}: ${JSON.stringify({ offset, targetY, at, placed, source: source.box, target: target.box })}`,
+    );
+    assert.equal(edge.rerouted, true);
+    for (let index = 1; index < edge.points.length; index++) {
+      assert.ok(
+        Math.hypot(
+          edge.points[index].x - edge.points[index - 1].x,
+          edge.points[index].y - edge.points[index - 1].y,
+        ) >= MIN_JOG,
+        `seeded scene ${sample} had a short route segment: ${JSON.stringify(edge.points)}`,
+      );
+    }
+  }
+});
+
+test("freePlacement finds the nearest free position in the off-grid review scene", () => {
+  const bounds: Box = { x: 0, y: 0, width: 180, height: 120 };
+  const moving = placedNode("moving", 6, 70, 16, 16);
+  const others = [
+    placedNode("a", 67, 58, 48, 48),
+    placedNode("b", 1, 88, 16, 23),
+    placedNode("c", 19, 69, 33, 14),
+    placedNode("d", 79, 30, 15, 36),
+    placedNode("e", 15, 2, 17, 31),
+  ];
+  const at = { x: 6, y: 70 };
+  const result = freePlacement(moving, at, others, bounds, 0)!;
+  const bruteForce = nearestFreeByBruteForce(moving, at, others, bounds);
+
+  assert.ok(bruteForce);
+  assert.ok(freeAt(moving, result, others));
+  assert.ok(
+    Math.hypot(result.x - at.x, result.y - at.y) <=
+      Math.hypot(bruteForce.x - at.x, bruteForce.y - at.y) + 1e-9,
+  );
+});
+
+test("freePlacement matches a one-unit brute-force search over 200 seeded scenes", () => {
+  const bounds: Box = { x: 0, y: 0, width: 120, height: 120 };
+  let seed = 0x91e10da5;
+  const integer = (min: number, max: number): number => {
+    seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
+    return min + (seed % (max - min + 1));
+  };
+  let checked = 0;
+  for (let sample = 0; sample < 200; sample++) {
+    const width = integer(8, 32);
+    const height = integer(8, 32);
+    const moving = placedNode(
+      "moving",
+      integer(0, bounds.width - width),
+      integer(0, bounds.height - height),
+      width,
+      height,
+    );
+    const at = {
+      x: integer(0, bounds.width - width),
+      y: integer(0, bounds.height - height),
+    };
+    const others = Array.from({ length: integer(1, 5) }, (_, index) => {
+      const otherWidth = integer(12, 40);
+      const otherHeight = integer(12, 40);
+      return placedNode(
+        `other-${sample}-${index}`,
+        integer(0, bounds.width - otherWidth),
+        integer(0, bounds.height - otherHeight),
+        otherWidth,
+        otherHeight,
+      );
+    });
+    const bruteForce = nearestFreeByBruteForce(moving, at, others, bounds);
+    if (!bruteForce) {
+      continue;
+    }
+    checked++;
+    const result = freePlacement(moving, at, others, bounds, 0);
+
+    assert.ok(result, `no placement returned in seeded scene ${sample}`);
+    assert.ok(freeAt(moving, result, others), `placement is occupied in seeded scene ${sample}`);
+    assert.ok(
+      Math.hypot(result.x - at.x, result.y - at.y) <=
+        Math.hypot(bruteForce.x - at.x, bruteForce.y - at.y) + 1,
+      `placement is not nearest in seeded scene ${sample}`,
+    );
+  }
+  assert.ok(checked > 100, `only ${checked} scenes had a free spot`);
+});
+
+test("reattachRoute moves a start perpendicular without changing its exit leg", () => {
+  const route = [
+    { x: 0, y: 0 },
+    { x: 20, y: 0 },
+    { x: 20, y: 40 },
+    { x: 80, y: 40 },
+  ];
+  const start = { x: 0, y: 5 };
+  const end = route.at(-1)!;
+  const reattached = reattachRoute(route, start, end);
+
+  assert.ok(orthogonal(reattached));
+  assertPointNear(reattached[0], start, "start");
+  assertPointNear(reattached.at(-1)!, end, "end");
+  assert.equal(Math.hypot(reattached[1].x - reattached[0].x, reattached[1].y - reattached[0].y), 20);
+});
+
+test("reattachRoute moves the first two bends along the start axis to preserve its exit leg", () => {
+  const route = [
+    { x: 0, y: 0 },
+    { x: 20, y: 0 },
+    { x: 20, y: 40 },
+    { x: 80, y: 40 },
+  ];
+  const start = { x: 5, y: 0 };
+  const end = route.at(-1)!;
+  const reattached = reattachRoute(route, start, end);
+
+  assert.ok(orthogonal(reattached));
+  assertPointNear(reattached[0], start, "start");
+  assertPointNear(reattached.at(-1)!, end, "end");
+  assert.equal(Math.hypot(reattached[1].x - reattached[0].x, reattached[1].y - reattached[0].y), 20);
+});
+
+test("reattachRoute makes a straight route into an orthogonal Z when its ends are no longer level", () => {
+  const horizontal = reattachRoute(
+    [{ x: 0, y: 0 }, { x: 100, y: 0 }],
+    { x: 10, y: 20 },
+    { x: 100, y: 0 },
+  );
+  assert.ok(orthogonal(horizontal));
+  assertPointNear(horizontal[0], { x: 10, y: 20 }, "horizontal start");
+  assertPointNear(horizontal.at(-1)!, { x: 100, y: 0 }, "horizontal end");
+  assert.equal(horizontal.length, 4);
+
+  const vertical = reattachRoute(
+    [{ x: 10, y: 0 }, { x: 10, y: 100 }],
+    { x: 0, y: 10 },
+    { x: 30, y: 100 },
+  );
+  assert.ok(orthogonal(vertical));
+  assertPointNear(vertical[0], { x: 0, y: 10 }, "vertical start");
+  assertPointNear(vertical.at(-1)!, { x: 30, y: 100 }, "vertical end");
+  assert.equal(vertical.length, 4);
+});
+
+test("reattachRoute keeps an L orthogonal when its start moves perpendicular", () => {
+  const start = { x: 0, y: 10 };
+  const end = { x: 40, y: 60 };
+  const reattached = reattachRoute([{ x: 0, y: 0 }, { x: 40, y: 0 }, end], start, end);
+
+  assert.ok(orthogonal(reattached));
+  assertPointNear(reattached[0], start, "start");
+  assertPointNear(reattached.at(-1)!, end, "end");
+});
+
+test("reattachRoute keeps both moved ends orthogonal", () => {
+  const start = { x: 0, y: 10 };
+  const end = { x: 70, y: 80 };
+  const reattached = reattachRoute(
+    [
+      { x: 0, y: 0 },
+      { x: 20, y: 0 },
+      { x: 20, y: 30 },
+      { x: 60, y: 30 },
+      { x: 60, y: 70 },
+    ],
+    start,
+    end,
+  );
+
+  assert.ok(orthogonal(reattached));
+  assertPointNear(reattached[0], start, "start");
+  assertPointNear(reattached.at(-1)!, end, "end");
+});
+
+test("reattachRoute leaves a non-orthogonal input unchanged", () => {
+  const route = [{ x: 0, y: 0 }, { x: 10, y: 5 }, { x: 20, y: 0 }];
+  assert.equal(reattachRoute(route, { x: 0, y: 10 }, { x: 20, y: 10 }), route);
+});
+
+test("reattachRoute keeps a three-point horizontal exit pointing out after the start passes its bend", () => {
+  const route = [{ x: 100, y: 100 }, { x: 120, y: 100 }, { x: 120, y: 200 }];
+  const start = { x: 150, y: 100 };
+  const end = route.at(-1)!;
+  const reattached = reattachRoute(route, start, end);
+
+  assertRouteDirections(reattached, start, end, { x: 1, y: 0 }, { x: 0, y: -1 });
+});
+
+test("reattachRoute keeps a three-point vertical exit pointing out after the start passes its bend", () => {
+  const route = [{ x: 100, y: 100 }, { x: 100, y: 120 }, { x: 200, y: 120 }];
+  const start = { x: 100, y: 150 };
+  const end = route.at(-1)!;
+  const reattached = reattachRoute(route, start, end);
+
+  assertRouteDirections(reattached, start, end, { x: 0, y: 1 }, { x: -1, y: 0 });
+});
+
+test("reattachRoute keeps a three-point end pointing into its port after the end passes its bend", () => {
+  const route = [{ x: 100, y: 100 }, { x: 100, y: 200 }, { x: 120, y: 200 }];
+  const start = route[0];
+  const end = { x: 80, y: 200 };
+  const reattached = reattachRoute(route, start, end);
+
+  assertRouteDirections(reattached, start, end, { x: 0, y: 1 }, { x: -1, y: 0 });
+});
+
+test("reattachRoute preserves outward directions when a four-point Z start passes its middle bend", () => {
+  const route = [{ x: 100, y: 100 }, { x: 120, y: 100 }, { x: 120, y: 150 }, { x: 180, y: 150 }];
+  const start = { x: 130, y: 100 };
+  const end = route.at(-1)!;
+  const reattached = reattachRoute(route, start, end);
+
+  assertRouteDirections(reattached, start, end, { x: 1, y: 0 }, { x: -1, y: 0 });
+});
+
+test("reattachRoute goes around vertically when a straight route's start passes its end", () => {
+  const start = { x: 250, y: 120 };
+  const end = { x: 200, y: 100 };
+  const reattached = reattachRoute([{ x: 100, y: 100 }, { x: 200, y: 100 }], start, end);
+
+  assertRouteDirections(reattached, start, end, { x: 1, y: 0 }, { x: -1, y: 0 });
+  const a = { x: start.x + CLEARANCE, y: start.y };
+  const b = { x: end.x - CLEARANCE, y: end.y };
+  const middleY = (a.y + b.y) / 2;
+  assert.deepEqual(reattached, [
+    start,
+    a,
+    { x: a.x, y: middleY },
+    { x: b.x, y: middleY },
+    b,
+    end,
+  ]);
+});
+
+test("keepOrthogonalRoutes replaces only diagonals with matching visible orthogonal routes", () => {
+  const bounds: Box = { x: 0, y: 0, width: 900, height: 500 };
+  const nodes = [portNode("a", 80, 100), portNode("b", 500, 100), portNode("c", 500, 300)];
+  const nextEdges = [
+    connectedEdge("a", "b"),
+    connectedEdge("a", "b"),
+    connectedEdge("a", "b"),
+    connectedEdge("a", "b"),
+    connectedEdge("a", "b"),
+    connectedEdge("a", "c"),
+  ];
+  const previousEdges = [...nextEdges];
+  previousEdges[5] = connectedEdge("a", "b");
+  const ports = fixedPorts(["a.api", "east", 0.5], ["b.api", "west", 0.5], ["c.api", "west", 0.5]);
+  const previous = layoutWithPorts(nodes, previousEdges, ports, bounds);
+  const next = layoutWithPorts(nodes, nextEdges, ports, bounds);
+  const endpoints = (layout: CanvasLayout, index: number): [RenderPoint, RenderPoint] => {
+    const edge = layout.edges[index];
+    const source = layout.nodes.get(edge.edge.from)!;
+    const target = layout.nodes.get(edge.edge.to)!;
+    return [portFace(source.box, source.ports[0]), portFace(target.box, target.ports[0])];
+  };
+  const setPoints = (layout: CanvasLayout, index: number, points: RenderPoint[], hidden?: boolean): void => {
+    layout.edges[index] = {
+      ...layout.edges[index],
+      points,
+      route: points.slice(1, -1),
+      hidden: hidden ?? layout.edges[index].hidden,
+    };
+  };
+  const [aToBStart, aToBEnd] = endpoints(next, 0);
+  const [aToCStart, aToCEnd] = endpoints(next, 5);
+  const diagonal = (start: RenderPoint, end: RenderPoint): RenderPoint[] => [
+    start,
+    { x: (start.x + end.x) / 2, y: start.y + 20 },
+    end,
+  ];
+
+  setPoints(previous, 0, [aToBStart, aToBEnd]);
+  setPoints(next, 0, diagonal(aToBStart, aToBEnd));
+  setPoints(previous, 1, [aToBStart, aToBEnd]);
+  setPoints(next, 1, [aToBStart, { x: 300, y: aToBStart.y }, { x: 300, y: 180 }, { x: aToBEnd.x, y: 180 }, aToBEnd]);
+  setPoints(previous, 2, diagonal(aToBStart, aToBEnd));
+  setPoints(next, 2, diagonal(aToBStart, aToBEnd));
+  setPoints(previous, 3, [aToBStart, aToBEnd]);
+  setPoints(next, 3, diagonal(aToBStart, aToBEnd), true);
+  setPoints(previous, 4, [aToBStart, aToBEnd], true);
+  setPoints(next, 4, diagonal(aToBStart, aToBEnd));
+  setPoints(previous, 5, [aToBStart, aToBEnd]);
+  setPoints(next, 5, diagonal(aToCStart, aToCEnd));
+
+  const kept = keepOrthogonalRoutes(next, previous);
+  const replacement = kept.edges[0];
+  assert.ok(orthogonal(replacement.points));
+  assert.deepEqual(replacement.points, [aToBStart, aToBEnd]);
+  assert.deepEqual(replacement.route, []);
+  assert.deepEqual(replacement.label, { x: (aToBStart.x + aToBEnd.x) / 2, y: aToBStart.y });
+  assert.equal(replacement.rerouted, true);
+  for (const index of [1, 2, 3, 4, 5]) {
+    assert.equal(kept.edges[index], next.edges[index], `edge ${index} should stay unchanged`);
+  }
+});
+
+test("layoutCanvas passes bounds through to libavoid's route constraints", async () => {
+  await loadAvoid(WASM);
+  const bounds: Box = { x: 0, y: 0, width: 500, height: 260 };
+  const result = rendering(
+    [
+      node("source", "source", {
+        x: 50,
+        y: 190,
+        width: 80,
+        height: 40,
+        ports: [{ id: "source.out", name: "out" }],
+      }),
+      node("target", "target", {
+        x: 370,
+        y: 190,
+        width: 80,
+        height: 40,
+        ports: [{ id: "target.in", name: "in" }],
+      }),
+      node("obstacle", "obstacle", { x: 210, y: 80, width: 80, height: 172 }),
+    ],
+    [{ from: "source", to: "target", fromPort: "source.out", toPort: "target.in", label: "", kind: "connection", fqn: "M::edge" }],
+  );
+  const unbounded = layoutCanvas(result);
+  assert.ok(unbounded.edges[0].points.some(
+    ({ x, y }) => x < bounds.x || y < bounds.y || x > bounds.x + bounds.width || y > bounds.y + bounds.height,
+  ));
+
+  const bounded = layoutCanvas(result, { bounds });
+  const route = bounded.edges[0].points;
+  const source = bounded.nodes.get("source")!;
+  const target = bounded.nodes.get("target")!;
+  assert.equal(bounded.edges[0].rerouted, true);
+  assert.deepEqual(route[0], portFace(source.box, source.ports[0]));
+  assert.deepEqual(route.at(-1), portFace(target.box, target.ports[0]));
+  assert.ok(route.every(
+    ({ x, y }) => x >= bounds.x && y >= bounds.y && x <= bounds.x + bounds.width && y <= bounds.y + bounds.height,
+  ));
+  for (let index = 1; index < route.length; index++) {
+    assert.ok(route[index - 1].x === route[index].x || route[index - 1].y === route[index].y);
+  }
+});
+
+test("layoutCanvas reroutes attached orthogonal wires after a dropped node is freed", async () => {
+  await loadAvoid(WASM);
+  const bounds: Box = { x: 0, y: 0, width: 700, height: 320 };
+  const result = rendering(
+    [
+      node("source", "source", {
+        x: 40,
+        y: 120,
+        width: 80,
+        height: 40,
+        ports: [{ id: "source.out", name: "out" }],
+      }),
+      node("moving", "moving", {
+        x: 300,
+        y: 120,
+        width: 80,
+        height: 40,
+        ports: [
+          { id: "moving.in", name: "in" },
+          { id: "moving.out", name: "out" },
+        ],
+      }),
+      node("target", "target", {
+        x: 560,
+        y: 120,
+        width: 80,
+        height: 40,
+        ports: [{ id: "target.in", name: "in" }],
+      }),
+    ],
+    [
+      { from: "source", to: "moving", fromPort: "source.out", toPort: "moving.in", label: "", kind: "connection", fqn: "M::sourceMoving" },
+      { from: "moving", to: "target", fromPort: "moving.out", toPort: "target.in", label: "", kind: "connection", fqn: "M::movingTarget" },
+    ],
+  );
+  const before = layoutCanvas(result, { bounds });
+  const moving = before.nodes.get("moving")!;
+  const at = freePlacement(
+    moving,
+    before.nodes.get("source")!.box,
+    [...before.nodes.values()].filter((entry) => entry.node.id !== "moving"),
+    bounds,
+    CLEARANCE,
+  )!;
+  assert.notDeepEqual(at, before.nodes.get("source")!.box);
+
+  const after = layoutCanvas(result, { nodes: new Map([["moving", at]]), bounds });
+  for (const edge of after.edges) {
+    const source = after.nodes.get(edge.edge.from)!;
+    const target = after.nodes.get(edge.edge.to)!;
+    const sourcePort = source.ports.find((port) => port.port.id === edge.edge.fromPort)!;
+    const targetPort = target.ports.find((port) => port.port.id === edge.edge.toPort)!;
+    assert.equal(edge.rerouted, true);
+    assert.deepEqual(edge.points[0], portFace(source.box, sourcePort));
+    assert.deepEqual(edge.points.at(-1), portFace(target.box, targetPort));
+    for (let index = 1; index < edge.points.length; index++) {
+      assert.ok(edge.points[index - 1].x === edge.points[index].x || edge.points[index - 1].y === edge.points[index].y);
+    }
+  }
+});
+
+test("landing drag keeps right-angled routes at the captured Pilot obstruction", async () => {
+  await loadAvoid(WASM);
+  const fixture = JSON.parse(readFileSync("src/landing/stack.json", "utf8")) as LandingFixture;
+  const model = landingModel(fixture.hash, fixture.render as RenderResult, fixture.instances);
+  const result = presented(model);
+  const auto = await autoLayout(result);
+  assert.ok(auto, "ELK should lay out the saved landing render");
+
+  const bounds: Box = {
+    x: -213.082559,
+    y: -413.648204,
+    width: 1098.165089,
+    height: 907.244513,
+  };
+  const positions: Record<string, RenderPoint> = {
+    n1: { x: 301.3853, y: 116.4220 },
+    n7: { x: 282.2569, y: 218.4220 },
+    n13: { x: 12.8074, y: 95.7248 },
+    n19: { x: 628.9174, y: 255.5811 },
+  };
+  const layoutAt = (pilotX: number): CanvasLayout => {
+    const nodes = new Map<string, LayoutGeometry>();
+    for (const entry of result.nodes) {
+      const geometry = auto.nodes.get(entry.id);
+      const position = positions[entry.id];
+      assert.ok(geometry && position, `ELK should place landing box ${entry.id}`);
+      nodes.set(entry.id, { ...geometry, x: entry.id === "n13" ? pilotX : position.x, y: position.y });
+    }
+    return layoutCanvas(result, { nodes, bounds }, auto);
+  };
+  const next = layoutAt(positions.n13.x);
+  const pilotEdge = next.edges.find(({ edge }) => edge.from === "n13" && edge.to === "n19");
+  assert.ok(pilotEdge);
+  assert.ok(
+    !orthogonal(pilotEdge.points),
+    "the captured Pilot position should reproduce its diagonal route",
+  );
+
+  const previous = layoutAt(positions.n13.x - 40);
+  for (const edge of previous.edges) {
+    assert.ok(
+      orthogonal(edge.points),
+      `the prior Pilot position should route ${edge.edge.from} → ${edge.edge.to} orthogonally`,
+    );
+  }
+
+  const kept = keepOrthogonalRoutes(next, previous);
+  for (const edge of kept.edges) {
+    assert.ok(orthogonal(edge.points), `kept route ${edge.edge.from} → ${edge.edge.to} should be orthogonal`);
+    const source = kept.nodes.get(edge.edge.from)!;
+    const target = kept.nodes.get(edge.edge.to)!;
+    const sourcePort = source.ports.find((port) => port.port.id === edge.edge.fromPort);
+    const targetPort = target.ports.find((port) => port.port.id === edge.edge.toPort);
+    assert.ok(sourcePort && targetPort);
+    assertPointNear(edge.points[0], portFace(source.box, sourcePort), `${edge.edge.from} port face`);
+    assertPointNear(edge.points.at(-1)!, portFace(target.box, targetPort), `${edge.edge.to} port face`);
+  }
+});
+
+test("landing stacked-drop repro starts with diagonal routes", async () => {
+  await loadAvoid(WASM);
+  const boxes: Record<string, Box> = {
+    n1: { x: 133, y: 240, width: 159, height: 70 },
+    n7: { x: -206.9174346923828, y: 331.2325134277344, width: 189, height: 70 },
+    n13: { x: 36, y: 36, width: 256, height: 70 },
+    n19: { x: -169.9174346923828, y: 417.2325134277344, width: 234, height: 70 },
+  };
+  const names: Record<string, string> = {
+    n1: "OpenSysML",
+    n7: "sysml-toolkit",
+    n13: "SysML v2 Pilot Implementation",
+    n19: "Flexo MMS",
+  };
+  const nodes = Object.entries(boxes).map(([id, box]) =>
+    node(id, names[id], { ...box, ports: [{ id: `${id}.api`, name: "api" }] }),
+  );
+  const edges = [
+    { from: "n13", to: "n19", fromPort: "n13.api", toPort: "n19.api", label: "", kind: "connection", fqn: "M::n13n19" },
+    { from: "n1", to: "n19", fromPort: "n1.api", toPort: "n19.api", label: "", kind: "connection", fqn: "M::n1n19" },
+    { from: "n7", to: "n19", fromPort: "n7.api", toPort: "n19.api", label: "", kind: "connection", fqn: "M::n7n19" },
+  ] as const;
+  const ports: AutoLayout["ports"] = new Map();
+  ports.set("n1.api", { side: "east", offset: 0.5 });
+  ports.set("n7.api", { side: "east", offset: 0.5 });
+  ports.set("n13.api", { side: "east", offset: 0.5 });
+  ports.set("n19.api", { side: "west", offset: 0.5 });
+  const auto: AutoLayout = { nodes: new Map(), routes: new Map(), ports };
+  const bounds: Box = {
+    x: -213.08255948571724,
+    y: -413.64820438139134,
+    width: 1098.1650895737687,
+    height: 907.2445130634958,
+  };
+  const result = rendering(nodes, [...edges]);
+  const stacked = layoutCanvas(result, { bounds }, auto);
+  const exitReach = (entry: PlacedNode, port: PlacedPort): number => {
+    const sharing = edges.filter(
+      (edge) =>
+        (edge.from === entry.node.id && edge.fromPort === port.port.id) ||
+        (edge.to === entry.node.id && edge.toPort === port.port.id),
+    ).length;
+    return portExitReach(sharing);
+  };
+
+  assert.ok(
+    stacked.edges.some(({ points }) =>
+      points.some(
+        (point, index) =>
+          index > 0 && point.x !== points[index - 1].x && point.y !== points[index - 1].y,
+      ),
+    ),
+    "the stacked layout should reproduce at least one diagonal fallback route",
+  );
+
+  const settled = new Map<string, LayoutGeometry>();
+  for (const id of ["n7", "n19"]) {
+    const current = layoutCanvas(result, { nodes: settled, bounds }, auto);
+    const moving = current.nodes.get(id)!;
+    const others = [...current.nodes.values()].filter((entry) => entry.node.id !== id && !entry.hidden);
+    const at = freePlacement(moving, moving.box, others, insetBox(bounds, CLEARANCE), exitReach);
+
+    assert.ok(at, `expected ${id} to have a free placement`);
+    assert.ok(freeAt(moving, at, others, exitReach), `expected ${id} to be clear of both routing buffers`);
+    settled.set(id, at);
+  }
+  assertOrthogonalRoutes(layoutCanvas(result, { nodes: settled, bounds }, auto), bounds);
+});
+
+test("freePlacement keeps a seeded four-node chain routable after drops", async () => {
+  await loadAvoid(WASM);
+  const bounds: Box = { x: 0, y: 0, width: 700, height: 400 };
+  const result = rendering(
+    [
+      node("a", "a", { x: 40, y: 180, width: 80, height: 40, ports: [{ id: "a.out", name: "out" }] }),
+      node("b", "b", {
+        x: 220,
+        y: 180,
+        width: 80,
+        height: 40,
+        ports: [{ id: "b.in", name: "in" }, { id: "b.out", name: "out" }],
+      }),
+      node("c", "c", {
+        x: 400,
+        y: 180,
+        width: 80,
+        height: 40,
+        ports: [{ id: "c.in", name: "in" }, { id: "c.out", name: "out" }],
+      }),
+      node("d", "d", { x: 580, y: 180, width: 80, height: 40, ports: [{ id: "d.in", name: "in" }] }),
+    ],
+    [
+      { from: "a", to: "b", fromPort: "a.out", toPort: "b.in", label: "", kind: "connection", fqn: "M::ab" },
+      { from: "b", to: "c", fromPort: "b.out", toPort: "c.in", label: "", kind: "connection", fqn: "M::bc" },
+      { from: "c", to: "d", fromPort: "c.out", toPort: "d.in", label: "", kind: "connection", fqn: "M::cd" },
+    ],
+  );
+  const auto: AutoLayout = {
+    nodes: new Map(),
+    routes: new Map(),
+    ports: new Map([
+      ["a.out", { side: "east", offset: 0.5 }],
+      ["b.in", { side: "west", offset: 0.5 }],
+      ["b.out", { side: "east", offset: 0.5 }],
+      ["c.in", { side: "west", offset: 0.5 }],
+      ["c.out", { side: "east", offset: 0.5 }],
+      ["d.in", { side: "west", offset: 0.5 }],
+    ]),
+  };
+  let seed = 0x7a4d39b1;
+  const randomInt = (max: number): number => {
+    seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
+    return seed % (max + 1);
+  };
+  const inset = insetBox(bounds, CLEARANCE);
+  const exitReach = () => portExitReach(1);
+  let checked = 0;
+  for (let sample = 0; sample < 200; sample++) {
+    const settled = new Map<string, LayoutGeometry>();
+    let current = layoutCanvas(result, { bounds }, auto);
+    let allFree = true;
+    for (const id of ["a", "b", "c", "d"]) {
+      const moving = current.nodes.get(id)!;
+      const others = [...current.nodes.values()].filter((entry) => entry.node.id !== id && !entry.hidden);
+      const at = { x: randomInt(620), y: randomInt(320) };
+      const placed = freePlacement(moving, at, others, inset, exitReach);
+      if (!placed || !freeAt(moving, placed, others, exitReach)) {
+        allFree = false;
+        break;
+      }
+      settled.set(id, placed);
+      current = layoutCanvas(result, { nodes: settled, bounds }, auto);
+    }
+    if (allFree) {
+      checked++;
+      const boxes = [...current.nodes.values()].map(({ node: { id }, box }) => ({ id, box }));
+      assertOrthogonalRoutes(current, bounds, `seeded scene ${sample}: ${JSON.stringify(boxes)}`);
+    }
+  }
+  assert.ok(checked > 0, "expected seeded scenes where every drop found a free position");
 });
 
 test("layoutCanvas routes a lower-left sender into a west port from outside its face", async () => {

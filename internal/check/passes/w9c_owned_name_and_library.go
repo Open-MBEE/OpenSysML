@@ -4,6 +4,7 @@ import (
 	"sort"
 
 	"github.com/Open-MBEE/OpenSysML/internal/check/passes/kit"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
@@ -22,6 +23,9 @@ func (W9CShortNameDistinguishabilityPass) Run(ctx *Context, name string, root *a
 	if ctx == nil || ctx.Index == nil || root == nil {
 		return nil
 	}
+	// Attach the model so the resolver can tell metaclasses apart.
+	_ = ctx.Model()
+	r := ctx.Resolver()
 	rootScope := ctx.Index.DocumentRoot(name)
 	if rootScope == nil {
 		return nil
@@ -40,14 +44,14 @@ func (W9CShortNameDistinguishabilityPass) Run(ctx *Context, name string, root *a
 	})
 	var diags []diag.Diagnostic
 	for _, scope := range order {
-		diags = append(diags, w9cShortNameConflicts(byScope[scope])...)
+		diags = append(diags, w9cShortNameConflicts(byScope[scope], r)...)
 	}
 	return diags
 }
 
 // w9cShortNameConflicts reports one diagnostic per member whose short name is
 // another member's name or short name, at the repeated identifier.
-func w9cShortNameConflicts(members []*symbols.Symbol) []diag.Diagnostic {
+func w9cShortNameConflicts(members []*symbols.Symbol, r *resolve.Resolver) []diag.Diagnostic {
 	uses := map[string][]*symbols.Symbol{}
 	for _, sym := range members {
 		for _, key := range w9cKeysOf(sym) {
@@ -58,7 +62,13 @@ func w9cShortNameConflicts(members []*symbols.Symbol) []diag.Diagnostic {
 	for _, sym := range members {
 		keys := w9cKeysOf(sym)
 		for _, key := range keys {
-			if len(uses[key.name]) < 2 || !w9cAnyShort(uses[key.name], key.name) {
+			group := []*symbols.Symbol{sym}
+			for _, other := range uses[key.name] {
+				if other != sym && !r.DistinguishableByMetaclass(sym, other) {
+					group = append(group, other)
+				}
+			}
+			if len(group) < 2 || !w9cAnyShort(group, key.name) {
 				continue
 			}
 			diags = append(diags, diag.Diagnostic{

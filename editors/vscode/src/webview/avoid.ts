@@ -6,7 +6,13 @@ import { GAP, portFace, PORT_SIZE, snap, type Box, type PortPosition } from "./g
 import type { RenderPoint } from "../protocol";
 
 export const CLEARANCE = GAP / 2;
+export const NUDGING = 8;
+export const MIN_JOG = 16;
 export const EXCLUSIVE_PIN_LIMIT = 12;
+
+export function portExitReach(sharing: number): number {
+  return CLEARANCE + NUDGING * Math.max(0, sharing - 1);
+}
 
 type Avoid = ReturnType<typeof AvoidLib.getInstance>;
 type ShapeRef = InstanceType<Avoid["ShapeRef"]>;
@@ -57,15 +63,27 @@ interface ShapePins {
   ports: Map<string, number>;
 }
 
+/** Holds a shape's routing-clearance bounds and its raw interior. */
+export interface RoutingObstacle {
+  routing: Box;
+  raw: Box;
+}
+
 /** The route libavoid finds for each edge, by edge index; undefined when the router is not loaded or the pass fails. */
-export function avoidRoutes(shapes: Map<string, AvoidShape>, edges: AvoidEdge[]): Map<number, RenderPoint[]> | undefined {
+export function avoidRoutes(
+  shapes: Map<string, AvoidShape>,
+  edges: AvoidEdge[],
+  /** Routes stay inside bounds. */
+  bounds?: Box,
+): Map<number, RenderPoint[]> | undefined {
   if (!avoid) {
     return undefined;
   }
   const api = avoid;
   const router = new api.Router(api.OrthogonalRouting);
+  const frameRefs: ShapeRef[] = [];
   try {
-    router.setRoutingParameter(api.idealNudgingDistance, 8);
+    router.setRoutingParameter(api.idealNudgingDistance, NUDGING);
     router.setRoutingParameter(api.segmentPenalty, 50);
     router.setRoutingOption(api.nudgeSharedPathsWithCommonEndPoint, true);
     router.setRoutingOption(api.performUnifyingNudgingPreprocessingStep, true);
@@ -90,6 +108,9 @@ export function avoidRoutes(shapes: Map<string, AvoidShape>, edges: AvoidEdge[])
         id,
         addShape(api, router, shape, (counts.get(id) ?? 0) <= EXCLUSIVE_PIN_LIMIT, () => nextPortClass++),
       );
+    }
+    if (bounds) {
+      frameRefs.push(...addBoundsFrames(api, router, bounds));
     }
 
     const connectors: Array<{ index: number; connector: ConnRef; edge: AvoidEdge }> = [];
@@ -140,13 +161,510 @@ export function avoidRoutes(shapes: Map<string, AvoidShape>, edges: AvoidEdge[])
         routes.set(index, route);
       }
     }
-    return routes;
+    const obstacles = new Map<string, RoutingObstacle>();
+    for (const [id, shape] of shapes) {
+      obstacles.set(id, routingObstacle(shape));
+    }
+    const ends = new Map<number, [string, string]>();
+    for (const edge of usable) {
+      ends.set(edge.index, [edge.from, edge.to]);
+    }
+    return straightenJogs(routes, obstacles, ends, bounds);
   } catch (error) {
     reportAvoidFailure("routing failed", error);
     return undefined;
   } finally {
     api.destroy(router);
   }
+}
+
+interface OrthogonalSegment {
+  axis: "horizontal" | "vertical";
+  direction: -1 | 1;
+  length: number;
+}
+
+interface JogShift {
+  points: [number, number];
+  movedSegment: number;
+  changedSegment: number;
+  mergedSegment: [number, number];
+  delta: RenderPoint;
+}
+
+/** Straightens short Z-jogs without losing clearance or adding wire crossings. */
+export function straightenJogs(
+  routes: Map<number, RenderPoint[]>,
+  obstacles: Map<string, RoutingObstacle>,
+  ends: Map<number, [string, string]>,
+  bounds?: Box,
+): Map<number, RenderPoint[]> {
+  const straightened = new Map<number, RenderPoint[]>();
+  for (const [index, route] of routes) {
+    straightened.set(index, route.map(({ x, y }) => ({ x, y })));
+  }
+
+  while (true) {
+    let changed = false;
+    for (const [index, route] of straightened) {
+      for (let jog = 1; jog + 2 < route.length; jog++) {
+        const shifts = jogShifts(route, jog);
+        const ordered = shifts.sort(
+          (first, second) =>
+            segmentLength(route[first.movedSegment], route[first.movedSegment + 1]) -
+            segmentLength(route[second.movedSegment], route[second.movedSegment + 1]),
+        );
+        for (const shift of ordered) {
+          const candidate = shiftedRoute(route, shift);
+          if (!candidate || !legalShift(index, route, candidate, shift, straightened, obstacles, ends, bounds)) {
+            continue;
+          }
+          straightened.set(index, compactRoute(candidate));
+          changed = true;
+          break;
+        }
+        if (changed) {
+          break;
+        }
+      }
+      if (changed) {
+        break;
+      }
+    }
+    if (!changed) {
+      return straightened;
+    }
+  }
+}
+
+function jogShifts(route: RenderPoint[], jog: number): JogShift[] {
+  const previous = orthogonalSegment(route[jog - 1], route[jog]);
+  const short = orthogonalSegment(route[jog], route[jog + 1]);
+  const next = orthogonalSegment(route[jog + 1], route[jog + 2]);
+  if (
+    !previous ||
+    !short ||
+    !next ||
+    short.length >= MIN_JOG ||
+    previous.axis !== next.axis ||
+    previous.axis === short.axis ||
+    previous.direction !== next.direction
+  ) {
+    return [];
+  }
+
+  const delta = { x: route[jog + 1].x - route[jog].x, y: route[jog + 1].y - route[jog].y };
+  const shifts: JogShift[] = [];
+  if (jog > 1) {
+    shifts.push({
+      points: [jog - 1, jog],
+      movedSegment: jog - 1,
+      changedSegment: jog - 2,
+      mergedSegment: [jog - 1, jog + 2],
+      delta,
+    });
+  }
+  if (jog + 2 < route.length - 1) {
+    shifts.push({
+      points: [jog + 1, jog + 2],
+      movedSegment: jog + 1,
+      changedSegment: jog + 2,
+      mergedSegment: [jog - 1, jog + 2],
+      delta: { x: -delta.x, y: -delta.y },
+    });
+  }
+  return shifts;
+}
+
+function shiftedRoute(route: RenderPoint[], shift: JogShift): RenderPoint[] {
+  return route.map((point, index) =>
+    shift.points.includes(index)
+      ? { x: point.x + shift.delta.x, y: point.y + shift.delta.y }
+      : { x: point.x, y: point.y },
+  );
+}
+
+function legalShift(
+  index: number,
+  route: RenderPoint[],
+  candidate: RenderPoint[],
+  shift: JogShift,
+  routes: Map<number, RenderPoint[]>,
+  obstacles: Map<string, RoutingObstacle>,
+  ends: Map<number, [string, string]>,
+  bounds?: Box,
+): boolean {
+  if (bounds && shift.points.some((point) => !inside(candidate[point], bounds))) {
+    return false;
+  }
+  for (const segmentIndex of [shift.movedSegment, shift.changedSegment]) {
+    const before = orthogonalSegment(route[segmentIndex], route[segmentIndex + 1]);
+    const after = orthogonalSegment(candidate[segmentIndex], candidate[segmentIndex + 1]);
+    if (!before || !after || before.axis !== after.axis || before.direction !== after.direction) {
+      return false;
+    }
+    if (
+      (segmentIndex === 0 || segmentIndex === route.length - 2) &&
+      after.length < Math.min(before.length, CLEARANCE)
+    ) {
+      return false;
+    }
+    if (crossesObstacle(index, candidate[segmentIndex], candidate[segmentIndex + 1], obstacles, ends)) {
+      return false;
+    }
+    for (const [otherIndex, other] of routes) {
+      if (
+        otherIndex !== index &&
+        other.slice(1).some((point, otherSegment) =>
+          lanesTooClose(
+            candidate[segmentIndex],
+            candidate[segmentIndex + 1],
+            other[otherSegment],
+            point,
+          ),
+        )
+      ) {
+        return false;
+      }
+    }
+  }
+  const [mergeStart, mergeEnd] = shift.mergedSegment;
+  const merged = orthogonalSegment(candidate[mergeStart], candidate[mergeEnd]);
+  if (!merged) {
+    return false;
+  }
+  if (
+    bounds &&
+    (!inside(candidate[mergeStart], bounds) || !inside(candidate[mergeEnd], bounds))
+  ) {
+    return false;
+  }
+  if (crossesObstacle(index, candidate[mergeStart], candidate[mergeEnd], obstacles, ends)) {
+    return false;
+  }
+  if (
+    (mergeStart === 0 &&
+      merged.length < Math.min(segmentLength(route[0], route[1]), CLEARANCE)) ||
+    (mergeEnd === route.length - 1 &&
+      merged.length < Math.min(segmentLength(route.at(-2)!, route.at(-1)!), CLEARANCE))
+  ) {
+    return false;
+  }
+  for (const [otherIndex, other] of routes) {
+    if (
+      otherIndex !== index &&
+      other.slice(1).some((point, otherSegment) =>
+        lanesTooClose(
+          candidate[mergeStart],
+          candidate[mergeEnd],
+          other[otherSegment],
+          point,
+        ),
+      )
+    ) {
+      return false;
+    }
+  }
+  return !addsCrossings(index, route, candidate, routes);
+}
+
+function crossesObstacle(
+  route: number,
+  a: RenderPoint,
+  b: RenderPoint,
+  obstacles: Map<string, RoutingObstacle>,
+  ends: Map<number, [string, string]>,
+): boolean {
+  const routeEnds: string[] = ends.get(route) ?? [];
+  for (const [id, obstacle] of obstacles) {
+    const box = routeEnds.includes(id) ? obstacle.raw : obstacle.routing;
+    if (crossesInterior(a, b, box)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function addsCrossings(
+  index: number,
+  route: RenderPoint[],
+  candidate: RenderPoint[],
+  routes: Map<number, RenderPoint[]>,
+): boolean {
+  for (const [otherIndex, other] of routes) {
+    if (otherIndex !== index && properCrossings(candidate, other) > properCrossings(route, other)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function properCrossings(route: RenderPoint[], other: RenderPoint[]): number {
+  let crossings = 0;
+  for (let first = 1; first < route.length; first++) {
+    for (let second = 1; second < other.length; second++) {
+      if (properlyCrosses(route[first - 1], route[first], other[second - 1], other[second])) {
+        crossings++;
+      }
+    }
+  }
+  return crossings;
+}
+
+function properlyCrosses(a: RenderPoint, b: RenderPoint, c: RenderPoint, d: RenderPoint): boolean {
+  const first = orthogonalSegment(a, b);
+  const second = orthogonalSegment(c, d);
+  if (!first || !second || first.axis === second.axis) {
+    return false;
+  }
+  const horizontalStart = first.axis === "horizontal" ? a : c;
+  const horizontalEnd = first.axis === "horizontal" ? b : d;
+  const verticalStart = first.axis === "vertical" ? a : c;
+  const verticalEnd = first.axis === "vertical" ? b : d;
+  const x = verticalStart.x;
+  const y = horizontalStart.y;
+  return (
+    x > Math.min(horizontalStart.x, horizontalEnd.x) &&
+    x < Math.max(horizontalStart.x, horizontalEnd.x) &&
+    y > Math.min(verticalStart.y, verticalEnd.y) &&
+    y < Math.max(verticalStart.y, verticalEnd.y)
+  );
+}
+
+function orthogonalSegment(a: RenderPoint, b: RenderPoint): OrthogonalSegment | undefined {
+  if (a.x === b.x && a.y !== b.y) {
+    return { axis: "vertical", direction: Math.sign(b.y - a.y) as -1 | 1, length: Math.abs(b.y - a.y) };
+  }
+  if (a.y === b.y && a.x !== b.x) {
+    return { axis: "horizontal", direction: Math.sign(b.x - a.x) as -1 | 1, length: Math.abs(b.x - a.x) };
+  }
+  return undefined;
+}
+
+function segmentLength(a: RenderPoint, b: RenderPoint): number {
+  return Math.abs(b.x - a.x) + Math.abs(b.y - a.y);
+}
+
+function inside(point: RenderPoint, bounds: Box): boolean {
+  return (
+    point.x >= bounds.x &&
+    point.y >= bounds.y &&
+    point.x <= bounds.x + bounds.width &&
+    point.y <= bounds.y + bounds.height
+  );
+}
+
+function crossesInterior(a: RenderPoint, b: RenderPoint, box: Box): boolean {
+  if (a.y === b.y) {
+    return (
+      a.y > box.y &&
+      a.y < box.y + box.height &&
+      Math.max(Math.min(a.x, b.x), box.x) < Math.min(Math.max(a.x, b.x), box.x + box.width)
+    );
+  }
+  return (
+    a.x > box.x &&
+    a.x < box.x + box.width &&
+    Math.max(Math.min(a.y, b.y), box.y) < Math.min(Math.max(a.y, b.y), box.y + box.height)
+  );
+}
+
+function lanesTooClose(a: RenderPoint, b: RenderPoint, c: RenderPoint, d: RenderPoint): boolean {
+  const first = orthogonalSegment(a, b);
+  const second = orthogonalSegment(c, d);
+  if (!first || !second || first.axis !== second.axis) {
+    return false;
+  }
+  if (first.axis === "horizontal") {
+    return (
+      Math.abs(a.y - c.y) < NUDGING &&
+      Math.min(Math.max(a.x, b.x), Math.max(c.x, d.x)) >
+        Math.max(Math.min(a.x, b.x), Math.min(c.x, d.x))
+    );
+  }
+  return (
+    Math.abs(a.x - c.x) < NUDGING &&
+    Math.min(Math.max(a.y, b.y), Math.max(c.y, d.y)) >
+      Math.max(Math.min(a.y, b.y), Math.min(c.y, d.y))
+  );
+}
+
+/** Removes zero-length and same-direction collinear points from an orthogonal route. */
+export function compactRoute(route: RenderPoint[]): RenderPoint[] {
+  const compacted: RenderPoint[] = [];
+  for (const point of route) {
+    if (compacted.at(-1)?.x === point.x && compacted.at(-1)?.y === point.y) {
+      continue;
+    }
+    while (compacted.length >= 2) {
+      const previous = orthogonalSegment(compacted.at(-2)!, compacted.at(-1)!);
+      const next = orthogonalSegment(compacted.at(-1)!, point);
+      if (!previous || !next || previous.axis !== next.axis || previous.direction !== next.direction) {
+        break;
+      }
+      compacted.pop();
+    }
+    compacted.push(point);
+  }
+  return compacted;
+}
+
+function addBoundsFrames(
+  api: Avoid,
+  router: InstanceType<Avoid["Router"]>,
+  bounds: Box,
+): ShapeRef[] {
+  const thickness = Math.max(bounds.width, bounds.height, CLEARANCE);
+  const horizontalWidth = bounds.width + 2 * thickness;
+  const verticalHeight = bounds.height + 2 * thickness;
+  const frames: Box[] = [
+    {
+      x: bounds.x - thickness,
+      y: bounds.y - CLEARANCE - thickness,
+      width: horizontalWidth,
+      height: thickness,
+    },
+    {
+      x: bounds.x - thickness,
+      y: bounds.y + bounds.height + CLEARANCE,
+      width: horizontalWidth,
+      height: thickness,
+    },
+    {
+      x: bounds.x - CLEARANCE - thickness,
+      y: bounds.y - thickness,
+      width: thickness,
+      height: verticalHeight,
+    },
+    {
+      x: bounds.x + bounds.width + CLEARANCE,
+      y: bounds.y - thickness,
+      width: thickness,
+      height: verticalHeight,
+    },
+  ];
+  return frames.map((box) => {
+    const center = new api.Point(box.x + box.width / 2, box.y + box.height / 2);
+    const rectangle = new api.Rectangle(center, box.width, box.height);
+    try {
+      return new api.ShapeRef(router, rectangle);
+    } finally {
+      api.destroy(rectangle);
+      api.destroy(center);
+    }
+  });
+}
+
+function shapeRoutingBox(shapeData: AvoidShape): Box {
+  const box = shapeData.box;
+  const portsOn = (side: PortPosition["side"]) => shapeData.ports?.some((port) => port.side === side) ?? false;
+  const westGrowth = portsOn("west") ? PORT_SIZE / 2 : 0;
+  const eastGrowth = portsOn("east") ? PORT_SIZE / 2 : 0;
+  const northGrowth = portsOn("north") ? PORT_SIZE / 2 : 0;
+  const southGrowth = portsOn("south") ? PORT_SIZE / 2 : 0;
+  return {
+    x: box.x - westGrowth,
+    y: box.y - northGrowth,
+    width: box.width + westGrowth + eastGrowth,
+    height: box.height + northGrowth + southGrowth,
+  };
+}
+
+/** Builds the routing geometry shared by libavoid and route simplification. */
+export function routingObstacle(shapeData: AvoidShape): RoutingObstacle {
+  const box = shapeRoutingBox(shapeData);
+  return {
+    routing: {
+      x: box.x - CLEARANCE,
+      y: box.y - CLEARANCE,
+      width: box.width + 2 * CLEARANCE,
+      height: box.height + 2 * CLEARANCE,
+    },
+    raw: shapeData.box,
+  };
+}
+
+export interface RoutingPinPosition {
+  id?: string;
+  side: PortPosition["side"];
+  x: number;
+  y: number;
+}
+
+/** Computes bounded libavoid portions for a shape's generic and named pins. */
+export function routingPinPositions(shapeData: AvoidShape): RoutingPinPosition[] {
+  const box = shapeData.box;
+  const routingBox = shapeRoutingBox(shapeData);
+  const offsets = [0.25, 0.5, 0.75] as const;
+  const generic: RoutingPinPosition[] = [
+    ...offsets.map((offset) => ({ side: "north" as const, x: box.x + box.width * offset, y: box.y })),
+    ...offsets.map((offset) => ({
+      side: "east" as const,
+      x: box.x + box.width,
+      y: box.y + box.height * offset,
+    })),
+    ...offsets.map((offset) => ({
+      side: "south" as const,
+      x: box.x + box.width * offset,
+      y: box.y + box.height,
+    })),
+    ...offsets.map((offset) => ({ side: "west" as const, x: box.x, y: box.y + box.height * offset })),
+  ];
+  const named = (shapeData.ports ?? []).map((port) => ({
+    id: port.id,
+    side: port.side,
+    ...portFace(box, port),
+  }));
+  const portion = (value: number): number => Math.max(0, Math.min(1, value));
+  const genericPins = generic.map(({ side, x, y }) => {
+    switch (side) {
+      case "north":
+        return {
+          side,
+          x: portion((x - routingBox.x) / routingBox.width),
+          y: shapeData.ports?.some((port) => port.side === side)
+            ? portion((box.y - routingBox.y) / routingBox.height)
+            : 0,
+        };
+      case "east":
+        return {
+          side,
+          x: shapeData.ports?.some((port) => port.side === side)
+            ? portion((box.x + box.width - routingBox.x) / routingBox.width)
+            : 1,
+          y: portion((y - routingBox.y) / routingBox.height),
+        };
+      case "south":
+        return {
+          side,
+          x: portion((x - routingBox.x) / routingBox.width),
+          y: shapeData.ports?.some((port) => port.side === side)
+            ? portion((box.y + box.height - routingBox.y) / routingBox.height)
+            : 1,
+        };
+      case "west":
+        return {
+          side,
+          x: shapeData.ports?.some((port) => port.side === side)
+            ? portion((box.x - routingBox.x) / routingBox.width)
+            : 0,
+          y: portion((y - routingBox.y) / routingBox.height),
+        };
+    }
+  });
+  const namedPins = named.map(({ id, side, x, y }) => {
+    switch (side) {
+      case "north":
+        return { id, side, x: portion((x - routingBox.x) / routingBox.width), y: 0 };
+      case "east":
+        return { id, side, x: 1, y: portion((y - routingBox.y) / routingBox.height) };
+      case "south":
+        return { id, side, x: portion((x - routingBox.x) / routingBox.width), y: 1 };
+      case "west":
+        return { id, side, x: 0, y: portion((y - routingBox.y) / routingBox.height) };
+    }
+  });
+  return [...genericPins, ...namedPins];
 }
 
 // addShape is a box as a routing obstacle, with twelve proportional pins spread
@@ -158,18 +676,7 @@ function addShape(
   exclusive: boolean,
   allocatePortClass: () => number,
 ): ShapePins {
-  const box = shapeData.box;
-  const portsOn = (side: PortPosition["side"]) => shapeData.ports?.some((port) => port.side === side) ?? false;
-  const westGrowth = portsOn("west") ? PORT_SIZE / 2 : 0;
-  const eastGrowth = portsOn("east") ? PORT_SIZE / 2 : 0;
-  const northGrowth = portsOn("north") ? PORT_SIZE / 2 : 0;
-  const southGrowth = portsOn("south") ? PORT_SIZE / 2 : 0;
-  const routingBox = {
-    x: box.x - westGrowth,
-    y: box.y - northGrowth,
-    width: box.width + westGrowth + eastGrowth,
-    height: box.height + northGrowth + southGrowth,
-  };
+  const routingBox = shapeRoutingBox(shapeData);
   const center = new api.Point(routingBox.x + routingBox.width / 2, routingBox.y + routingBox.height / 2);
   const rectangle = new api.Rectangle(center, routingBox.width, routingBox.height);
   let shape: ShapeRef;
@@ -180,52 +687,30 @@ function addShape(
     api.destroy(center);
   }
 
-  const offsets = [0.25, 0.5, 0.75] as const;
-  const position = (x: number, y: number, direction: number) =>
-    [(x - routingBox.x) / routingBox.width, (y - routingBox.y) / routingBox.height, direction] as const;
-  const pins = [
-    ...offsets.map((offset) => position(box.x + box.width * offset, box.y, api.ConnDirUp)),
-    ...offsets.map((offset) => position(box.x + box.width, box.y + box.height * offset, api.ConnDirRight)),
-    ...offsets.map((offset) => position(box.x + box.width * offset, box.y + box.height, api.ConnDirDown)),
-    ...offsets.map((offset) => position(box.x, box.y + box.height * offset, api.ConnDirLeft)),
-  ];
-  for (const [x, y, direction] of pins) {
-    const pin = new api.ShapeConnectionPin(shape, PIN_CLASS, x, y, true, 0, direction);
-    pin.setExclusive(exclusive);
-  }
+  const direction = {
+    north: api.ConnDirUp,
+    east: api.ConnDirRight,
+    south: api.ConnDirDown,
+    west: api.ConnDirLeft,
+  };
   const ports = new Map<string, number>();
-  (shapeData.ports ?? []).forEach((port) => {
-    const classId = allocatePortClass();
-    const face = portFace(box, port);
-    let x: number;
-    let y: number;
-    let direction: number;
-    switch (port.side) {
-      case "north":
-        x = (face.x - routingBox.x) / routingBox.width;
-        y = 0;
-        direction = api.ConnDirUp;
-        break;
-      case "east":
-        x = 1;
-        y = (face.y - routingBox.y) / routingBox.height;
-        direction = api.ConnDirRight;
-        break;
-      case "south":
-        x = (face.x - routingBox.x) / routingBox.width;
-        y = 1;
-        direction = api.ConnDirDown;
-        break;
-      case "west":
-        x = 0;
-        y = (face.y - routingBox.y) / routingBox.height;
-        direction = api.ConnDirLeft;
-        break;
+  for (const pinPosition of routingPinPositions(shapeData)) {
+    const named = pinPosition.id !== undefined;
+    const classId = named ? allocatePortClass() : PIN_CLASS;
+    const pin = new api.ShapeConnectionPin(
+      shape,
+      classId,
+      pinPosition.x,
+      pinPosition.y,
+      true,
+      0,
+      direction[pinPosition.side],
+    );
+    pin.setExclusive(named ? false : exclusive);
+    if (pinPosition.id !== undefined) {
+      ports.set(pinPosition.id, classId);
     }
-    const pin = new api.ShapeConnectionPin(shape, classId, x, y, true, 0, direction);
-    pin.setExclusive(false);
-    ports.set(port.id, classId);
-  });
+  }
   return { shape, ports };
 }
 

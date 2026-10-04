@@ -3,6 +3,7 @@ package model
 import (
 	"fmt"
 	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
@@ -323,5 +324,36 @@ func TestRecordKeyFollowsTheIndexLibrary(t *testing.T) {
 func TestRecordedOfAnUnknownDocumentIsFalse(t *testing.T) {
 	if NewWorkspace().Recorded("nowhere.sysml") {
 		t.Fatal("an unknown document is reported recorded")
+	}
+}
+
+// A document's diagnostics must not differ between a cold cache and the warm
+// one its analysis just wrote, nor between a recorded answer and a loaded one:
+// the library diamond below is silent when the members' metaclasses do not
+// conform (KerML 8.3.2.4.3), whatever path the document took.
+func TestLibraryDiamondDiagnosticsMatchColdAndWarm(t *testing.T) {
+	src := []byte("package Test {\n\tpart def ABlock;\n\taction def AnAction {\n\t\taction a : ABlock;\n\t}\n}\n")
+	cache, err := libs.NewCacheIn(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	open := func(recorded bool) []string {
+		ws := NewWorkspace(WithRecordCache(cache))
+		ws.SetOnDisk("d.sysml", src)
+		if ws.Recorded("d.sysml") != recorded {
+			t.Fatalf("d.sysml recorded=%v, want %v", ws.Recorded("d.sysml"), recorded)
+		}
+		got := messagesOf(ws.Diagnostics("d.sysml"))
+		ws.Close("d.sysml")
+		return got
+	}
+	cold, warm := open(false), open(true)
+	if !reflect.DeepEqual(cold, warm) {
+		t.Fatalf("cold diagnostics %v, warm %v", cold, warm)
+	}
+	for _, m := range cold {
+		if strings.Contains(m, "Duplicate of") {
+			t.Fatalf("the Action/Part diamond still warns: %v", cold)
+		}
 	}
 }

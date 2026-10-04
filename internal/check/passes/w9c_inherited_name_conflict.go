@@ -101,7 +101,7 @@ func (c *w9cConflictChecker) check(sym *symbols.Symbol) {
 	}
 	spans := append([]source.Span{sym.DeclSpan}, c.chainSpans(sym)...)
 	for _, name := range names {
-		if from := c.conflictingBases(contributionsOf(contribs, name)); len(from) > 1 {
+		if from := c.conflictingBases(c.metaclassPartners(contributionsOf(contribs, name))); len(from) > 1 {
 			for _, span := range spans {
 				c.report(span, name, from)
 			}
@@ -227,7 +227,7 @@ func (c *w9cConflictChecker) checkOwnedNames(sym *symbols.Symbol, contribs []w9c
 				if len(cands) == 0 {
 					continue
 				}
-				if from := c.conflictingBases(c.notSpecializedBy(mem, cands)); len(from) > 0 {
+				if from := c.conflictingBases(c.metaclassConformers(mem, c.notSpecializedBy(mem, cands))); len(from) > 0 {
 					c.report(key.span, key.name, from)
 				}
 			}
@@ -255,6 +255,40 @@ func ownedKeysOf(mem *symbols.Symbol) []w9cKey {
 		}
 	}
 	return keys
+}
+
+// metaclassConformers drops the candidates whose member's metaclass conforms
+// to mem's in neither direction (KerML 8.3.2.4.3); a nil resolver keeps all.
+func (c *w9cConflictChecker) metaclassConformers(mem *symbols.Symbol, cands []w9cCandidate) []w9cCandidate {
+	if c.resolver == nil {
+		return cands
+	}
+	out := cands[:0]
+	for _, cand := range cands {
+		if !c.resolver.DistinguishableByMetaclass(mem, cand.member) {
+			out = append(out, cand)
+		}
+	}
+	return out
+}
+
+// metaclassPartners keeps the candidates some other candidate is
+// indistinguishable from; two candidates naming the same member are not
+// partners (KerML 8.3.2.4.3).
+func (c *w9cConflictChecker) metaclassPartners(cands []w9cCandidate) []w9cCandidate {
+	if c.resolver == nil {
+		return cands
+	}
+	out := make([]w9cCandidate, 0, len(cands))
+	for _, cand := range cands {
+		for _, other := range cands {
+			if other.member != cand.member && !c.resolver.DistinguishableByMetaclass(cand.member, other.member) {
+				out = append(out, cand)
+				break
+			}
+		}
+	}
+	return out
 }
 
 // notSpecializedBy drops the inherited features mem redefines, subsets or is an

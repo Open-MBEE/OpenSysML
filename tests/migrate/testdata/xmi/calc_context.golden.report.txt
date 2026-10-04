@@ -1,13 +1,12 @@
 # SysML v1 to v2 migration report: calc_context.xmi
-# migrated 21 element(s): 17 mapped, 4 approximated, 0 unmapped (0 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)
+# migrated 21 element(s): 18 mapped, 3 approximated, 0 unmapped (0 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)
 
-## approximated (4)
+## approximated (3)
 CallBehaviorAction	Plant::Run::rate	_rRate	-> rate	(the behavior acts on a Tank through its parameter context, which is bound to Run::context.tank, the caller's one part that is one; the calc Tank::Rate is evaluated when the action runs; a calc is no action node)
 Parameter	Plant::Run::result	_runResult	-> Plant::Run::result	(the return parameter is written as an out parameter)
-ValueSpecificationAction	Plant::Run::two	_rTwo	-> two	(no edge leads to the node, so it starts with the activity)
 Parameter	Tank::Rate::result	_rateResult	-> Tank::Rate::result	(the return parameter is written as an out parameter)
 
-## mapped (17)
+## mapped (18)
 Model	Model	_m	(the root model's members are written at the top level)
 «Block» Class	Plant	_plant	-> Plant
 Activity	Plant::Run	_run	-> Plant::Run	(acts on its owner Plant, which it takes as its parameter context, since its this is the def's own occurrence)
@@ -19,6 +18,7 @@ ObjectFlow	Plant::Run::<ObjectFlow>	_rf4	(the action waits for the value as well
 InputPin	Plant::Run::rate::factor	_rRateFactor	-> Plant::Run::rate.factor
 OutputPin	Plant::Run::rate::result	_rRateOut	-> Plant::Run::rate.result
 ActivityParameterNode	Plant::Run::result	_rOut	-> Plant::Run::result	(the flows to and from the node name the parameter result)
+ValueSpecificationAction	Plant::Run::two	_rTwo	-> two	(no edge leads to the node, so it starts with the activity)
 OutputPin	Plant::Run::two::result	_rTwoOut	-> Plant::Run::two.result
 Property	Plant::tank	_pTank	-> Plant::tank
 «Block» Class	Tank	_tank	-> Tank
