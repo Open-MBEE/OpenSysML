@@ -51,6 +51,9 @@ const (
 	// between them as ordered messages, which is
 	// StandardViewDefinitions::SequenceView.
 	KindSequence Kind = "sequence"
+	// KindTimeline renders a run's trace as each object machine's states over
+	// clock time; no view states it.
+	KindTimeline Kind = "timeline"
 	// KindGeometry is StandardViewDefinitions::GeometryView.
 	KindGeometry Kind = "geometry"
 )
@@ -303,9 +306,8 @@ type Edge struct {
 	openFrom, openTo bool
 }
 
-// Rendering is what a view renders to: the nodes and edges of one artifact,
-// which Text and Mermaid write out. It is a value, not a live view of the
-// model: nothing in it points back into the AST.
+// Rendering is what a view or run renders to. It is a value, not a live view of
+// the model: nothing in it points back into the AST.
 type Rendering struct {
 	// View is the rendered view, by qualified name as the notation writes it.
 	View string
@@ -315,6 +317,8 @@ type Rendering struct {
 	// the standard view definition it specializes, or "" when the view states
 	// nothing and the default was used.
 	Stated string
+	// Run marks a rendering of a run's trace rather than of a view.
+	Run bool
 	// Roots are the top-level nodes, in the order the view exposes them.
 	Roots []*Node
 	// Edges join nodes, in the order the model and the lowered graphs give them.
@@ -325,6 +329,9 @@ type Rendering struct {
 	// Rows are the rows of a tabular rendering, each holding one cell per
 	// column, in the order the view exposes the elements.
 	Rows [][]string
+	// Lanes are a timeline's object machines, in the order the run first
+	// recorded them.
+	Lanes []Lane
 	// RowOrigins is where each row's element was declared, one entry per row.
 	RowOrigins []Origin
 	// Canvas is the drawing surface the view states, nil for a view stating
@@ -346,10 +353,41 @@ type Rendering struct {
 	drawn *Drawn
 }
 
-// Empty reports whether the rendering has nothing to show: no node, edge,
-// row or picture.
+// Lane is one object machine in a run timeline.
+type Lane struct {
+	ID          string
+	Name        string
+	Spans       []Span
+	Transitions []LaneTransition
+	Marks       []Mark
+}
+
+// Span is a state's occupancy of a lane over clock time.
+type Span struct {
+	State    string
+	From, To float64
+	Triggers []string
+	Through  []string
+	Open     bool
+}
+
+// LaneTransition is a transition recorded at an instant in a lane.
+type LaneTransition struct {
+	At       float64
+	From, To string
+	Event    string
+}
+
+// Mark is a choice or guard record attached to a lane at an instant.
+type Mark struct {
+	At   float64
+	Kind string
+	Text string
+}
+
+// Empty reports whether the rendering has nothing to show.
 func (r *Rendering) Empty() bool {
-	return len(r.Roots) == 0 && len(r.Edges) == 0 && len(r.Rows) == 0 && len(r.Pictures) == 0
+	return len(r.Roots) == 0 && len(r.Edges) == 0 && len(r.Rows) == 0 && len(r.Pictures) == 0 && len(r.Lanes) == 0
 }
 
 // Positioned reports whether a Layout or Route places some node of a

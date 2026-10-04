@@ -1,0 +1,40 @@
+---
+config:
+  fontFamily: "Helvetica, Arial, sans-serif"
+  theme: base
+  themeCSS: ".edgeLabel rect { opacity: 1 !important; } .cluster-label .nodeLabel { text-align: center; }"
+  gantt:
+    displayMode: compact
+  themeVariables:
+    fontFamily: "Helvetica, Arial, sans-serif"
+    fontSize: "14px"
+    primaryColor: "#FFFFFF"
+    secondaryColor: "#FFFFFF"
+    tertiaryColor: "#FFFFFF"
+    background: "#FFFFFF"
+    primaryBorderColor: "#181818"
+    primaryTextColor: "#000000"
+    lineColor: "#181818"
+    textColor: "#000000"
+    noteBkgColor: "#FEFFDD"
+    noteBorderColor: "#181818"
+    noteTextColor: "#000000"
+    clusterBkg: "#FFFFFF"
+    clusterBorder: "#181818"
+    edgeLabelBackground: "#FFFFFF"
+---
+%% run — timeline rendering (the trace of a run to t = 6)
+%% not represented: Mermaid gantt draws no note; choice and guard records are comments
+%% t=0 choice entering modes: next waiting(entry), charged(entry) (unordered; took waiting(entry) first)
+gantt
+    dateFormat x
+    axisFormat %M:%S.%L
+    todayMarker off
+    section #35;2.modes
+        waiting | charged :l0s0, 0, 1000
+        sending | charged (time) :l0s1, 1000, 3000
+        sent | charged (time) :l0s2, 3000, 4000
+        sent | low (time) :active, l0s3, 4000, 6000
+    section #35;4.modes
+        listening :l1s0, 0, 1000
+        received (accept Ping) :active, l1s1, 1000, 6000

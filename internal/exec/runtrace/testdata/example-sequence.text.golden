@@ -1,0 +1,7 @@
+run - sequence rendering (the trace of a run to t = 6)
+
+object #2 : Sender
+object #4 : Receiver
+
+messages:
+  #2 => #4: t=1 Ping

@@ -63,6 +63,9 @@ const (
 
 // MachineForm is the machine-readable form of renderings of this kind.
 func (k Kind) MachineForm() Form {
+	if k == KindTimeline {
+		return FormMermaid
+	}
 	if k == KindTable {
 		return FormMarkdown
 	}
@@ -88,7 +91,7 @@ func (k Kind) SupportsForm(form Form) bool {
 		}
 	case FormPlantUML:
 		switch k {
-		case KindTree, KindInterconnection, KindState, KindAction, KindSequence:
+		case KindTree, KindInterconnection, KindState, KindAction, KindSequence, KindTimeline:
 			return true
 		}
 	}

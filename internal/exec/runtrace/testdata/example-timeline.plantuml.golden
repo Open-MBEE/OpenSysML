@@ -1,0 +1,18 @@
+@startuml
+' run — timeline rendering (the trace of a run to t = 6)
+scale 1 as 140 pixels
+concise "#2.modes" as l0
+concise "#4.modes" as l1
+@0
+l0 is "waiting | charged"
+note top of l0 : choice entering modes: next waiting(entry), charged(entry) (unordered; took waiting(entry) first)
+l1 is "listening"
+@1
+l0 is "sending | charged (time)"
+l1 is "received (accept Ping)"
+@3
+l0 is "sent | charged (time)"
+@4
+l0 is "sent | low (time)"
+@6
+@enduml

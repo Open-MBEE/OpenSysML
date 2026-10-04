@@ -50,7 +50,7 @@ func (ev Event) Machine() string { return ev.machine }
 
 // Payload is an accept's or send's payload, `name = value` per parameter in
 // name order, in the runtime's notation.
-func (ev Event) Payload() []string { return payloadTexts(ev.record) }
+func (ev Event) Payload() []string { return ev.record.PayloadTexts() }
 
 // Alternatives are a choice's alternatives as offered, nil for any other record.
 func (ev Event) Alternatives() []string {

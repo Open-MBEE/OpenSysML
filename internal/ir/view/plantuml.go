@@ -36,6 +36,9 @@ func (r *Rendering) PlantUMLWith(options Options) (string, error) {
 	if err := options.Ports.check(); err != nil {
 		return "", err
 	}
+	if r.Run && r.Kind == KindTimeline {
+		return r.runTimelinePlantUML(), nil
+	}
 	r = r.settleUnplaced(options.Unplaced, FormPlantUML)
 	w := &plantumlWriter{borders: r.Kind.paletteBorders(), fills: familyFills{palette: options.Palette, tree: r.Kind == KindTree},
 		labels: labelsOf(r.Roots, false, nil), ports: r.portView(options.Ports)}
@@ -65,7 +68,9 @@ func (r *Rendering) PlantUMLWith(options Options) (string, error) {
 	notices = append(notices, r.visualNotices(noFontOrEdgeStyle, true)...)
 	b := &w.b
 	b.WriteString("@startuml\n")
-	if r.View == "" {
+	if r.Run {
+		fmt.Fprintf(b, "' run — %s rendering", r.Kind)
+	} else if r.View == "" {
 		fmt.Fprintf(b, "' %s rendering", r.Kind)
 	} else {
 		fmt.Fprintf(b, "' %s — %s rendering", r.View, r.Kind)

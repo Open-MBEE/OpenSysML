@@ -11,6 +11,7 @@ import (
 
 	"github.com/Open-MBEE/OpenSysML/internal/exec/objref"
 	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
+	"github.com/Open-MBEE/OpenSysML/internal/exec/runtrace"
 	"github.com/Open-MBEE/OpenSysML/internal/ir/view"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
@@ -56,6 +57,18 @@ func (s *Session) Complete(line string, pos int) Completion {
 	if command == "%render" && atSecondArgument(head) {
 		word := lastField(head)
 		return completion(word, matchingPrefix(renderForms(), word))
+	}
+	if command == "%render-run" && argumentIndex(head) == 1 {
+		word := lastField(head)
+		kinds := make([]string, 0, len(runtrace.Kinds()))
+		for _, kind := range runtrace.Kinds() {
+			kinds = append(kinds, string(kind))
+		}
+		return completion(word, matchingPrefix(kinds, word))
+	}
+	if command == "%render-run" && argumentIndex(head) == 2 {
+		word := lastField(head)
+		return completion(word, matchingPrefix([]string{"text", "mermaid", "plantuml", "dot"}, word))
 	}
 	if command == "%render" && atPaletteArgument(head) {
 		word := lastField(head)

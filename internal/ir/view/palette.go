@@ -104,6 +104,9 @@ var paletteForms = []Form{FormDot, FormMermaid, FormPlantUML}
 // SupportsPalette reports whether a rendering of the kind is drawn as nodes a
 // palette can fill: the kinds a form that fills nodes is written for.
 func (k Kind) SupportsPalette() bool {
+	if k == KindTimeline {
+		return false
+	}
 	return slices.ContainsFunc(paletteForms, k.SupportsForm)
 }
 

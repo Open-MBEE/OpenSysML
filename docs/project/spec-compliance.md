@@ -2592,6 +2592,14 @@ boundaries; the landed Track E behavior is recorded in the execution rows and th
 | `trace_test.go` | Golden trace test infrastructure | ~200 |
 | `trace_calc_test.go` | Trace determinism and canonical rendering unit tests | ~180 |
 
+### Run renderings
+
+| Run output | Implementation | Tests | Status |
+|---|---|---|---|
+| State occupancy over clock time, per object machine, with transitions and choice/guard marks | `internal/exec/runtrace/timeline.go` `Timeline`; `internal/ir/view/run_timeline.go` text, Mermaid and PlantUML writers | `internal/exec/runtrace/runtrace_test.go`; run-rendering goldens under `internal/exec/runtrace/testdata/` | ✅ Implemented and tested |
+| Ordered sends and accepts between objects, including unmatched and environment messages | `internal/exec/runtrace/sequence.go` `Sequence`; existing `KindSequence` writers | `internal/exec/runtrace/runtrace_test.go`; run-rendering goldens under `internal/exec/runtrace/testdata/` | ✅ Implemented and tested |
+| State trace records retain the written state path and innermost orthogonal region | `internal/exec/runtime/trace.go` `TraceRecord`; `internal/exec/runtime/state_executor.go` `StateExecutor.RegionOf` | `internal/exec/runtime/trace_records_test.go` `TestStateTraceRecordsCarryWrittenPathsAndInnermostRegions` | ✅ Implemented and tested |
+
 ### Runtime bounds: every limit a model can reach
 
 A run is bounded, and a bound that silently changed a result would be the worst outcome, so each

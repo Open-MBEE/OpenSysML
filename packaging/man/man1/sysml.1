@@ -431,6 +431,10 @@ Report errors only, suppressing warnings
 Report each execution step: expression evaluation, calc invocation, action
 tokens, state transitions
 .TP
+.BR \-render\-run " \fIkind\fP=\fIpath\fP"
+Render the trace of a run as timeline or sequence into path (\- is stdout);
+form comes from \-render\-form or the path extension
+.TP
 .BR \-cpuprofile " \fIfile\fP"
 Write a CPU profile of the run to this file, for go tool pprof
 .TP

@@ -601,6 +601,9 @@ func runChecks(files []string, exprs []string, c checks) int {
 	}
 
 	sess := newSession()
+	if len(renderRuns) > 0 {
+		sess.SetRecording(true)
+	}
 	sess.SetCheckDiverge(c.checker.diverge)
 	sess.SetCheckProperties(c.checker.properties)
 	sess.SetCheckInputs(c.checker.inputs)
@@ -774,7 +777,7 @@ func runChecks(files []string, exprs []string, c checks) int {
 			rep.verdict(v)
 		}
 		c.runQueries(sess, rep)
-		return rep.finish()
+		return finishRunCheck(rep, sess)
 	}
 	for _, value := range c.actions {
 		name, performer := repl.SplitBehavior(value)
@@ -790,7 +793,7 @@ func runChecks(files []string, exprs []string, c checks) int {
 	}
 	c.runQueries(sess, rep)
 
-	return rep.finish()
+	return finishRunCheck(rep, sess)
 }
 
 // runQueries executes each -run-query after the behaviors named have run, so a

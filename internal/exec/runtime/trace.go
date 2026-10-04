@@ -81,6 +81,9 @@ type TraceRecord struct {
 	// State is the state entered, exited or stepped; From and To are a fired
 	// transition's endpoints.
 	State, From, To string
+	// Path qualifies a state by its written enclosing states; Region qualifies
+	// the innermost orthogonal region, and is empty outside every region.
+	Path, Region string
 	// Event is the trigger a transition fired on, or the signal or operation an
 	// accept or send carries; Payload is the message's payload.
 	Event   string
@@ -135,6 +138,40 @@ func (r TraceRecord) Text() string {
 		return line
 	}
 	return r.Kind.String() + " " + r.Event
+}
+
+// Machine names the behavior a record came from as its object exhibits it, or
+// as declared when it is anonymous or the record has no object.
+func (r TraceRecord) Machine() string {
+	behavior := r.Origin.Behavior
+	if behavior == nil {
+		return ""
+	}
+	if r.Origin.Object != nil {
+		for _, b := range r.Origin.Object.Behaviors() {
+			if b.Symbol == behavior || (b.State != nil && b.State.StateMachineSymbol() == behavior) {
+				if b.Name != "" {
+					return b.Name
+				}
+				break
+			}
+		}
+	}
+	return behavior.Name
+}
+
+// PayloadTexts renders a message payload as `name = value` entries in name order.
+func (r TraceRecord) PayloadTexts() []string {
+	names := make([]string, 0, len(r.Payload))
+	for name := range r.Payload {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	out := make([]string, 0, len(names))
+	for _, name := range names {
+		out = append(out, name+" = "+FormatValue(r.Payload[name]))
+	}
+	return out
 }
 
 // TraceRecorder keeps a run's trace as typed records, in the order they were
@@ -323,13 +360,13 @@ func (tr *TraceRecorder) RecordStateEndedWithOccurrence(machine string, abandone
 }
 
 // RecordStateEntry records entering a state with optional entry action execution.
-func (tr *TraceRecorder) RecordStateEntry(origin TraceOrigin, state string, hasEntryAction bool) {
-	tr.add(TraceRecord{Kind: TraceEntry, Origin: origin, State: state, Action: hasEntryAction})
+func (tr *TraceRecorder) RecordStateEntry(origin TraceOrigin, state, path, region string, hasEntryAction bool) {
+	tr.add(TraceRecord{Kind: TraceEntry, Origin: origin, State: state, Path: path, Region: region, Action: hasEntryAction})
 }
 
 // RecordStateExit records exiting a state with optional exit action execution.
-func (tr *TraceRecorder) RecordStateExit(origin TraceOrigin, state string, hasExitAction bool) {
-	tr.add(TraceRecord{Kind: TraceExit, Origin: origin, State: state, Action: hasExitAction})
+func (tr *TraceRecorder) RecordStateExit(origin TraceOrigin, state, path, region string, hasExitAction bool) {
+	tr.add(TraceRecord{Kind: TraceExit, Origin: origin, State: state, Path: path, Region: region, Action: hasExitAction})
 }
 
 // RecordActionNodeEnter records a token entering the flow an action node owns,
@@ -483,8 +520,8 @@ func (tr *TraceRecorder) record(entry string) {
 
 // RecordDoStep records one action of a state's do behavior, which is how the
 // interleaving of concurrently active states' do behaviors becomes visible.
-func (tr *TraceRecorder) RecordDoStep(origin TraceOrigin, state string) {
-	tr.add(TraceRecord{Kind: TraceDo, Origin: origin, State: state})
+func (tr *TraceRecorder) RecordDoStep(origin TraceOrigin, state, path, region string) {
+	tr.add(TraceRecord{Kind: TraceDo, Origin: origin, State: state, Path: path, Region: region})
 }
 
 // RecordEvent records an event being processed.

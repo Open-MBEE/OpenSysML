@@ -849,6 +849,8 @@ every palette, and text stays black.
 | --- | --- | --- |
 | CLI | `-render <view> -render-form mermaid\|dot\|plantuml`; `-render-all <dir>` writes `.mmd`, `.dot` or `.puml`; `-render-palette <name>` fills nodes in each form where applicable | [`docs/reference/cli.md`](../reference/cli.md#rendering-a-view) |
 | REPL | `%render <view> mermaid\|dot\|plantuml [palette] [pilot\|cameo]`; `%help` names the options; form, palette and style complete where accepted | [`docs/reference/repl-commands.md`](../reference/repl-commands.md#rendering-a-view) |
+| CLI run output | `-render-run timeline=<path>` or `sequence=<path>` writes text, Mermaid or PlantUML; DOT is refused | [`docs/reference/cli.md`](../reference/cli.md#rendering-a-run) |
+| REPL run output | `%render-run timeline\|sequence [text\|mermaid\|plantuml\|dot]` renders the recorded run without changing the session | [`docs/reference/repl-commands.md`](../reference/repl-commands.md#rendering-a-run) |
 | LSP | `"form": "mermaid"`, `"dot"` or `"plantuml"` and `"palette": "<name>"` on `opensysml/render`; `Rendering.Fills` carries each node's fill and border for clients drawing their own SVG | [`docs/reference/lsp.md`](../reference/lsp.md) |
 | VS Code | `SysML: Export Diagram` picks among the forms the server lists under its `openSysmlRenderForms` capability (the documented five for a server without it, which predates `csv` and `tsv`), sends the pick as `form`, and saves `.dot` or `.puml` (`.mmd`, `.md`, `.csv`, `.tsv`, `.txt` for the others) | [`docs/guide/08-editors.md`](../guide/08-editors.md#exporting-a-diagram) |
 | CLI, REPL, LSP, documents | `-render-style pilot\|cameo` beside `-render-palette`; `%render <view> mermaid [palette] [pilot\|cameo]`; `"style": "cameo"` on `opensysml/render` and the `openSysmlRenderStyles` capability; `docrender.MarkdownOptions.Style`/`HTMLOptions.Style` and `docpdf.Options.Style`. Unsupported style details receive a `not represented: style …` notice; an unknown name is a typed `*view.UnknownDrawingStyleError` | [`docs/reference/cli.md`](../reference/cli.md#rendering-a-view), [`docs/reference/repl-commands.md`](../reference/repl-commands.md#rendering-a-view), [`docs/reference/lsp.md`](../reference/lsp.md) |
@@ -863,8 +865,39 @@ render-form field — `RenderDocument` alone, to Markdown — so the wire contra
 and did not change. A view-render RPC added later would take the form as a string, as
 `-render-form` does.
 
+## Run renderings
+
+Run renderings describe a recorded execution, not a model view. A timeline is a new
+`view.KindTimeline`: no existing kind carries occupancy over time, and `KindState` is a graph of
+declared states rather than the states an object held during one run. A run sequence reuses
+`KindSequence` and its existing writers because both are lifelines with ordered messages.
+
+The timeline forms are text, Mermaid and PlantUML. Mermaid uses a compact Gantt chart with a
+shared time axis; Mermaid's `timeline` grammar groups categorical periods and has neither
+durations nor a shared time axis. PlantUML uses `concise` lifelines because parallel state
+configurations are free text rather than a fixed ordered state axis that `robust` requires. DOT
+is refused for both run kinds: it has no time axis, and the existing sequence writer also refuses
+DOT.
+
+Each rendering is capped at 200 spans or messages for readability and to keep renderer input
+within practical text-size limits. Later content is reported in a `not represented:` notice.
+When a recorder itself dropped earlier events, the rendering starts from the first kept state
+entry and reports that senders or acceptors of earlier messages may be missing.
+
+Run renderings are not embedded in documents. Document backends do not run behaviors:
+`-render-document` refuses `-state` and `-advance`, and a document `Diagram` kind selects a model
+rendering. Use `-render-run` or `%render-run` after executing the behavior instead. The LSP has
+no live run and therefore does not offer run rendering.
+
 ## Test contract
 
+- `internal/exec/runtrace`: text, Mermaid and PlantUML goldens for both run kinds; empty, capped,
+  truncated, guard, unmatched and broadcast-message cases; choice marks, self-transitions and
+  DOT refusal. `internal/ir/view/run_timeline_test.go` checks that timeline form support does not
+  make it a model view kind or a pseudo-view.
+- `cmd/sysml/render_run_test.go` and `internal/frontend/repl/run_render_test.go`: CLI artifact
+  output and incompatible modes, and REPL output, missing-trace handling, form refusal and
+  completion.
 - `internal/ir/view/dot_test.go`: a `*.dot.golden` beside every Mermaid golden for the tree,
   interconnection, state, state-entry, action and filtered fixtures, each walked by an in-test
   DOT syntax check — balanced braces, every edge endpoint declared as a node or a cluster,

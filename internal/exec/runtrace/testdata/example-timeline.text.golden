@@ -1,0 +1,19 @@
+run - timeline rendering (the trace of a run to t = 6)
+
+#2.modes
+  0 .. 1  waiting | charged
+  1 .. 3  sending | charged  on time
+  3 .. 4  sent | charged  on time
+  4 .. 6  sent | low  on time  (held at the end)
+  transitions:
+    t=1 waiting -> sending (time)
+    t=3 sending -> sent (time)
+    t=4 charged -> low (time)
+  noted:
+    t=0 choice entering modes: next waiting(entry), charged(entry) (unordered; took waiting(entry) first)
+
+#4.modes
+  0 .. 1  listening
+  1 .. 6  received  on accept Ping  (held at the end)
+  transitions:
+    t=1 listening -> received (accept Ping)

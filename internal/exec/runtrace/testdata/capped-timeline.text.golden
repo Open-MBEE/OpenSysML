@@ -1,0 +1,407 @@
+run - timeline rendering (the trace of a run to t = 201)
+
+#1.modes
+  0 .. 1      s0
+  1 .. 2      s1  on tick
+  2 .. 3      s2  on tick
+  3 .. 4      s3  on tick
+  4 .. 5      s4  on tick
+  5 .. 6      s5  on tick
+  6 .. 7      s6  on tick
+  7 .. 8      s7  on tick
+  8 .. 9      s8  on tick
+  9 .. 10     s9  on tick
+  10 .. 11    s10  on tick
+  11 .. 12    s11  on tick
+  12 .. 13    s12  on tick
+  13 .. 14    s13  on tick
+  14 .. 15    s14  on tick
+  15 .. 16    s15  on tick
+  16 .. 17    s16  on tick
+  17 .. 18    s17  on tick
+  18 .. 19    s18  on tick
+  19 .. 20    s19  on tick
+  20 .. 21    s20  on tick
+  21 .. 22    s21  on tick
+  22 .. 23    s22  on tick
+  23 .. 24    s23  on tick
+  24 .. 25    s24  on tick
+  25 .. 26    s25  on tick
+  26 .. 27    s26  on tick
+  27 .. 28    s27  on tick
+  28 .. 29    s28  on tick
+  29 .. 30    s29  on tick
+  30 .. 31    s30  on tick
+  31 .. 32    s31  on tick
+  32 .. 33    s32  on tick
+  33 .. 34    s33  on tick
+  34 .. 35    s34  on tick
+  35 .. 36    s35  on tick
+  36 .. 37    s36  on tick
+  37 .. 38    s37  on tick
+  38 .. 39    s38  on tick
+  39 .. 40    s39  on tick
+  40 .. 41    s40  on tick
+  41 .. 42    s41  on tick
+  42 .. 43    s42  on tick
+  43 .. 44    s43  on tick
+  44 .. 45    s44  on tick
+  45 .. 46    s45  on tick
+  46 .. 47    s46  on tick
+  47 .. 48    s47  on tick
+  48 .. 49    s48  on tick
+  49 .. 50    s49  on tick
+  50 .. 51    s50  on tick
+  51 .. 52    s51  on tick
+  52 .. 53    s52  on tick
+  53 .. 54    s53  on tick
+  54 .. 55    s54  on tick
+  55 .. 56    s55  on tick
+  56 .. 57    s56  on tick
+  57 .. 58    s57  on tick
+  58 .. 59    s58  on tick
+  59 .. 60    s59  on tick
+  60 .. 61    s60  on tick
+  61 .. 62    s61  on tick
+  62 .. 63    s62  on tick
+  63 .. 64    s63  on tick
+  64 .. 65    s64  on tick
+  65 .. 66    s65  on tick
+  66 .. 67    s66  on tick
+  67 .. 68    s67  on tick
+  68 .. 69    s68  on tick
+  69 .. 70    s69  on tick
+  70 .. 71    s70  on tick
+  71 .. 72    s71  on tick
+  72 .. 73    s72  on tick
+  73 .. 74    s73  on tick
+  74 .. 75    s74  on tick
+  75 .. 76    s75  on tick
+  76 .. 77    s76  on tick
+  77 .. 78    s77  on tick
+  78 .. 79    s78  on tick
+  79 .. 80    s79  on tick
+  80 .. 81    s80  on tick
+  81 .. 82    s81  on tick
+  82 .. 83    s82  on tick
+  83 .. 84    s83  on tick
+  84 .. 85    s84  on tick
+  85 .. 86    s85  on tick
+  86 .. 87    s86  on tick
+  87 .. 88    s87  on tick
+  88 .. 89    s88  on tick
+  89 .. 90    s89  on tick
+  90 .. 91    s90  on tick
+  91 .. 92    s91  on tick
+  92 .. 93    s92  on tick
+  93 .. 94    s93  on tick
+  94 .. 95    s94  on tick
+  95 .. 96    s95  on tick
+  96 .. 97    s96  on tick
+  97 .. 98    s97  on tick
+  98 .. 99    s98  on tick
+  99 .. 100   s99  on tick
+  100 .. 101  s100  on tick
+  101 .. 102  s101  on tick
+  102 .. 103  s102  on tick
+  103 .. 104  s103  on tick
+  104 .. 105  s104  on tick
+  105 .. 106  s105  on tick
+  106 .. 107  s106  on tick
+  107 .. 108  s107  on tick
+  108 .. 109  s108  on tick
+  109 .. 110  s109  on tick
+  110 .. 111  s110  on tick
+  111 .. 112  s111  on tick
+  112 .. 113  s112  on tick
+  113 .. 114  s113  on tick
+  114 .. 115  s114  on tick
+  115 .. 116  s115  on tick
+  116 .. 117  s116  on tick
+  117 .. 118  s117  on tick
+  118 .. 119  s118  on tick
+  119 .. 120  s119  on tick
+  120 .. 121  s120  on tick
+  121 .. 122  s121  on tick
+  122 .. 123  s122  on tick
+  123 .. 124  s123  on tick
+  124 .. 125  s124  on tick
+  125 .. 126  s125  on tick
+  126 .. 127  s126  on tick
+  127 .. 128  s127  on tick
+  128 .. 129  s128  on tick
+  129 .. 130  s129  on tick
+  130 .. 131  s130  on tick
+  131 .. 132  s131  on tick
+  132 .. 133  s132  on tick
+  133 .. 134  s133  on tick
+  134 .. 135  s134  on tick
+  135 .. 136  s135  on tick
+  136 .. 137  s136  on tick
+  137 .. 138  s137  on tick
+  138 .. 139  s138  on tick
+  139 .. 140  s139  on tick
+  140 .. 141  s140  on tick
+  141 .. 142  s141  on tick
+  142 .. 143  s142  on tick
+  143 .. 144  s143  on tick
+  144 .. 145  s144  on tick
+  145 .. 146  s145  on tick
+  146 .. 147  s146  on tick
+  147 .. 148  s147  on tick
+  148 .. 149  s148  on tick
+  149 .. 150  s149  on tick
+  150 .. 151  s150  on tick
+  151 .. 152  s151  on tick
+  152 .. 153  s152  on tick
+  153 .. 154  s153  on tick
+  154 .. 155  s154  on tick
+  155 .. 156  s155  on tick
+  156 .. 157  s156  on tick
+  157 .. 158  s157  on tick
+  158 .. 159  s158  on tick
+  159 .. 160  s159  on tick
+  160 .. 161  s160  on tick
+  161 .. 162  s161  on tick
+  162 .. 163  s162  on tick
+  163 .. 164  s163  on tick
+  164 .. 165  s164  on tick
+  165 .. 166  s165  on tick
+  166 .. 167  s166  on tick
+  167 .. 168  s167  on tick
+  168 .. 169  s168  on tick
+  169 .. 170  s169  on tick
+  170 .. 171  s170  on tick
+  171 .. 172  s171  on tick
+  172 .. 173  s172  on tick
+  173 .. 174  s173  on tick
+  174 .. 175  s174  on tick
+  175 .. 176  s175  on tick
+  176 .. 177  s176  on tick
+  177 .. 178  s177  on tick
+  178 .. 179  s178  on tick
+  179 .. 180  s179  on tick
+  180 .. 181  s180  on tick
+  181 .. 182  s181  on tick
+  182 .. 183  s182  on tick
+  183 .. 184  s183  on tick
+  184 .. 185  s184  on tick
+  185 .. 186  s185  on tick
+  186 .. 187  s186  on tick
+  187 .. 188  s187  on tick
+  188 .. 189  s188  on tick
+  189 .. 190  s189  on tick
+  190 .. 191  s190  on tick
+  191 .. 192  s191  on tick
+  192 .. 193  s192  on tick
+  193 .. 194  s193  on tick
+  194 .. 195  s194  on tick
+  195 .. 196  s195  on tick
+  196 .. 197  s196  on tick
+  197 .. 198  s197  on tick
+  198 .. 199  s198  on tick
+  199 .. 200  s199  on tick
+  transitions:
+    t=1 s0 -> s1 (tick)
+    t=2 s1 -> s2 (tick)
+    t=3 s2 -> s3 (tick)
+    t=4 s3 -> s4 (tick)
+    t=5 s4 -> s5 (tick)
+    t=6 s5 -> s6 (tick)
+    t=7 s6 -> s7 (tick)
+    t=8 s7 -> s8 (tick)
+    t=9 s8 -> s9 (tick)
+    t=10 s9 -> s10 (tick)
+    t=11 s10 -> s11 (tick)
+    t=12 s11 -> s12 (tick)
+    t=13 s12 -> s13 (tick)
+    t=14 s13 -> s14 (tick)
+    t=15 s14 -> s15 (tick)
+    t=16 s15 -> s16 (tick)
+    t=17 s16 -> s17 (tick)
+    t=18 s17 -> s18 (tick)
+    t=19 s18 -> s19 (tick)
+    t=20 s19 -> s20 (tick)
+    t=21 s20 -> s21 (tick)
+    t=22 s21 -> s22 (tick)
+    t=23 s22 -> s23 (tick)
+    t=24 s23 -> s24 (tick)
+    t=25 s24 -> s25 (tick)
+    t=26 s25 -> s26 (tick)
+    t=27 s26 -> s27 (tick)
+    t=28 s27 -> s28 (tick)
+    t=29 s28 -> s29 (tick)
+    t=30 s29 -> s30 (tick)
+    t=31 s30 -> s31 (tick)
+    t=32 s31 -> s32 (tick)
+    t=33 s32 -> s33 (tick)
+    t=34 s33 -> s34 (tick)
+    t=35 s34 -> s35 (tick)
+    t=36 s35 -> s36 (tick)
+    t=37 s36 -> s37 (tick)
+    t=38 s37 -> s38 (tick)
+    t=39 s38 -> s39 (tick)
+    t=40 s39 -> s40 (tick)
+    t=41 s40 -> s41 (tick)
+    t=42 s41 -> s42 (tick)
+    t=43 s42 -> s43 (tick)
+    t=44 s43 -> s44 (tick)
+    t=45 s44 -> s45 (tick)
+    t=46 s45 -> s46 (tick)
+    t=47 s46 -> s47 (tick)
+    t=48 s47 -> s48 (tick)
+    t=49 s48 -> s49 (tick)
+    t=50 s49 -> s50 (tick)
+    t=51 s50 -> s51 (tick)
+    t=52 s51 -> s52 (tick)
+    t=53 s52 -> s53 (tick)
+    t=54 s53 -> s54 (tick)
+    t=55 s54 -> s55 (tick)
+    t=56 s55 -> s56 (tick)
+    t=57 s56 -> s57 (tick)
+    t=58 s57 -> s58 (tick)
+    t=59 s58 -> s59 (tick)
+    t=60 s59 -> s60 (tick)
+    t=61 s60 -> s61 (tick)
+    t=62 s61 -> s62 (tick)
+    t=63 s62 -> s63 (tick)
+    t=64 s63 -> s64 (tick)
+    t=65 s64 -> s65 (tick)
+    t=66 s65 -> s66 (tick)
+    t=67 s66 -> s67 (tick)
+    t=68 s67 -> s68 (tick)
+    t=69 s68 -> s69 (tick)
+    t=70 s69 -> s70 (tick)
+    t=71 s70 -> s71 (tick)
+    t=72 s71 -> s72 (tick)
+    t=73 s72 -> s73 (tick)
+    t=74 s73 -> s74 (tick)
+    t=75 s74 -> s75 (tick)
+    t=76 s75 -> s76 (tick)
+    t=77 s76 -> s77 (tick)
+    t=78 s77 -> s78 (tick)
+    t=79 s78 -> s79 (tick)
+    t=80 s79 -> s80 (tick)
+    t=81 s80 -> s81 (tick)
+    t=82 s81 -> s82 (tick)
+    t=83 s82 -> s83 (tick)
+    t=84 s83 -> s84 (tick)
+    t=85 s84 -> s85 (tick)
+    t=86 s85 -> s86 (tick)
+    t=87 s86 -> s87 (tick)
+    t=88 s87 -> s88 (tick)
+    t=89 s88 -> s89 (tick)
+    t=90 s89 -> s90 (tick)
+    t=91 s90 -> s91 (tick)
+    t=92 s91 -> s92 (tick)
+    t=93 s92 -> s93 (tick)
+    t=94 s93 -> s94 (tick)
+    t=95 s94 -> s95 (tick)
+    t=96 s95 -> s96 (tick)
+    t=97 s96 -> s97 (tick)
+    t=98 s97 -> s98 (tick)
+    t=99 s98 -> s99 (tick)
+    t=100 s99 -> s100 (tick)
+    t=101 s100 -> s101 (tick)
+    t=102 s101 -> s102 (tick)
+    t=103 s102 -> s103 (tick)
+    t=104 s103 -> s104 (tick)
+    t=105 s104 -> s105 (tick)
+    t=106 s105 -> s106 (tick)
+    t=107 s106 -> s107 (tick)
+    t=108 s107 -> s108 (tick)
+    t=109 s108 -> s109 (tick)
+    t=110 s109 -> s110 (tick)
+    t=111 s110 -> s111 (tick)
+    t=112 s111 -> s112 (tick)
+    t=113 s112 -> s113 (tick)
+    t=114 s113 -> s114 (tick)
+    t=115 s114 -> s115 (tick)
+    t=116 s115 -> s116 (tick)
+    t=117 s116 -> s117 (tick)
+    t=118 s117 -> s118 (tick)
+    t=119 s118 -> s119 (tick)
+    t=120 s119 -> s120 (tick)
+    t=121 s120 -> s121 (tick)
+    t=122 s121 -> s122 (tick)
+    t=123 s122 -> s123 (tick)
+    t=124 s123 -> s124 (tick)
+    t=125 s124 -> s125 (tick)
+    t=126 s125 -> s126 (tick)
+    t=127 s126 -> s127 (tick)
+    t=128 s127 -> s128 (tick)
+    t=129 s128 -> s129 (tick)
+    t=130 s129 -> s130 (tick)
+    t=131 s130 -> s131 (tick)
+    t=132 s131 -> s132 (tick)
+    t=133 s132 -> s133 (tick)
+    t=134 s133 -> s134 (tick)
+    t=135 s134 -> s135 (tick)
+    t=136 s135 -> s136 (tick)
+    t=137 s136 -> s137 (tick)
+    t=138 s137 -> s138 (tick)
+    t=139 s138 -> s139 (tick)
+    t=140 s139 -> s140 (tick)
+    t=141 s140 -> s141 (tick)
+    t=142 s141 -> s142 (tick)
+    t=143 s142 -> s143 (tick)
+    t=144 s143 -> s144 (tick)
+    t=145 s144 -> s145 (tick)
+    t=146 s145 -> s146 (tick)
+    t=147 s146 -> s147 (tick)
+    t=148 s147 -> s148 (tick)
+    t=149 s148 -> s149 (tick)
+    t=150 s149 -> s150 (tick)
+    t=151 s150 -> s151 (tick)
+    t=152 s151 -> s152 (tick)
+    t=153 s152 -> s153 (tick)
+    t=154 s153 -> s154 (tick)
+    t=155 s154 -> s155 (tick)
+    t=156 s155 -> s156 (tick)
+    t=157 s156 -> s157 (tick)
+    t=158 s157 -> s158 (tick)
+    t=159 s158 -> s159 (tick)
+    t=160 s159 -> s160 (tick)
+    t=161 s160 -> s161 (tick)
+    t=162 s161 -> s162 (tick)
+    t=163 s162 -> s163 (tick)
+    t=164 s163 -> s164 (tick)
+    t=165 s164 -> s165 (tick)
+    t=166 s165 -> s166 (tick)
+    t=167 s166 -> s167 (tick)
+    t=168 s167 -> s168 (tick)
+    t=169 s168 -> s169 (tick)
+    t=170 s169 -> s170 (tick)
+    t=171 s170 -> s171 (tick)
+    t=172 s171 -> s172 (tick)
+    t=173 s172 -> s173 (tick)
+    t=174 s173 -> s174 (tick)
+    t=175 s174 -> s175 (tick)
+    t=176 s175 -> s176 (tick)
+    t=177 s176 -> s177 (tick)
+    t=178 s177 -> s178 (tick)
+    t=179 s178 -> s179 (tick)
+    t=180 s179 -> s180 (tick)
+    t=181 s180 -> s181 (tick)
+    t=182 s181 -> s182 (tick)
+    t=183 s182 -> s183 (tick)
+    t=184 s183 -> s184 (tick)
+    t=185 s184 -> s185 (tick)
+    t=186 s185 -> s186 (tick)
+    t=187 s186 -> s187 (tick)
+    t=188 s187 -> s188 (tick)
+    t=189 s188 -> s189 (tick)
+    t=190 s189 -> s190 (tick)
+    t=191 s190 -> s191 (tick)
+    t=192 s191 -> s192 (tick)
+    t=193 s192 -> s193 (tick)
+    t=194 s193 -> s194 (tick)
+    t=195 s194 -> s195 (tick)
+    t=196 s195 -> s196 (tick)
+    t=197 s196 -> s197 (tick)
+    t=198 s197 -> s198 (tick)
+    t=199 s198 -> s199 (tick)
+    t=200 s199 -> s200 (tick)
+
+not represented:
+  - 2 later state changes after t = 200 are not drawn (at most 200 spans are)
