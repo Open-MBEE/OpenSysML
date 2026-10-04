@@ -6,6 +6,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/convert"
 )
 
@@ -80,6 +82,51 @@ func TestLoadPathsReportConvertsAPIJSONAndReportsWarnings(t *testing.T) {
 	}
 	if !strings.Contains(strings.Join(report.Found, "\n"), "warning: the library element") {
 		t.Fatalf("load report omitted the conversion warning: %v", report.Found)
+	}
+}
+
+func TestLoadPathsReportKeepsConvertedSourceKind(t *testing.T) {
+	path := writeFile(t, filepath.Join(t.TempDir(), "model.json"), "API JSON")
+	text := []byte("package P { part all; }\n")
+	session := NewSessionWithSourceConverter(func(name string, data []byte, warn func(string)) ([]byte, bool, error) {
+		if filepath.Ext(name) != ".json" {
+			return data, false, nil
+		}
+		return text, true, nil
+	})
+
+	_, err := session.LoadPathsReport([]string{path})
+	if err != nil {
+		t.Fatal(err)
+	}
+	doc := session.ws.Document(path)
+	if doc == nil {
+		t.Fatalf("workspace did not open %s", path)
+	}
+	if doc.Kind() != source.KindSysML {
+		t.Fatalf("document kind = %v, want SysML", doc.Kind())
+	}
+	if len(doc.ParseDiagnostics) != 0 {
+		t.Fatalf("converted SysML has parse diagnostics: %v", doc.ParseDiagnostics)
+	}
+	if len(doc.AST.Members) != 1 {
+		t.Fatalf("converted SysML AST has %d root members, want one", len(doc.AST.Members))
+	}
+	rootMember, ok := doc.AST.Members[0].(*ast.Membership)
+	if !ok {
+		t.Fatalf("converted SysML root member = %T, want membership", doc.AST.Members[0])
+	}
+	pkg, ok := rootMember.Member.(*ast.Package)
+	if !ok || len(pkg.Members) != 1 {
+		t.Fatalf("converted SysML AST has package members %v, want one package member", doc.AST.Members)
+	}
+	pkgMember, ok := pkg.Members[0].(*ast.Membership)
+	if !ok {
+		t.Fatalf("converted SysML package member = %T, want membership", pkg.Members[0])
+	}
+	usage, ok := pkgMember.Member.(*ast.Usage)
+	if !ok || usage.Ident.Name != "all" || usage.IsAll {
+		t.Fatalf("converted SysML part = %#v, want named `all` without the all modifier", pkg.Members[0])
 	}
 }
 

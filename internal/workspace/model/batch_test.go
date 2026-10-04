@@ -10,6 +10,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/libs"
@@ -267,6 +268,77 @@ func TestOpenAllReplacesEarlierDocuments(t *testing.T) {
 	}
 }
 
+func TestOpenAllUsesExplicitSourceKind(t *testing.T) {
+	text := []byte("package P { part all; }")
+	ws := NewWorkspace()
+	ws.OpenAll([]Input{{Name: "m.json", Content: text, Kind: source.KindSysML}})
+
+	doc := ws.Document("m.json")
+	if doc == nil {
+		t.Fatal("m.json was not opened")
+	}
+	if doc.Kind() != source.KindSysML || ws.index.DocumentKind("m.json") != source.KindSysML {
+		t.Fatalf("document/index kinds = %v/%v, want SysML", doc.Kind(), ws.index.DocumentKind("m.json"))
+	}
+	if len(doc.ParseDiagnostics) != 0 {
+		t.Fatalf("explicit SysML input has parse diagnostics: %v", doc.ParseDiagnostics)
+	}
+	if len(doc.AST.Members) != 1 {
+		t.Fatalf("explicit SysML AST has %d root members, want one", len(doc.AST.Members))
+	}
+	rootMember, ok := doc.AST.Members[0].(*ast.Membership)
+	if !ok {
+		t.Fatalf("explicit SysML root member = %T, want membership", doc.AST.Members[0])
+	}
+	pkg, ok := rootMember.Member.(*ast.Package)
+	if !ok || len(pkg.Members) != 1 {
+		t.Fatalf("explicit SysML AST has package members %v, want one package member", doc.AST.Members)
+	}
+	pkgMember, ok := pkg.Members[0].(*ast.Membership)
+	if !ok {
+		t.Fatalf("explicit SysML package member = %T, want membership", pkg.Members[0])
+	}
+	usage, ok := pkgMember.Member.(*ast.Usage)
+	if !ok || usage.Ident.Name != "all" || usage.IsAll {
+		t.Fatalf("explicit SysML part = %#v, want named `all` without the all modifier", pkg.Members[0])
+	}
+	if syms := ws.LookupQualified("P::all"); len(syms) != 1 {
+		t.Fatalf("P::all = %d symbols, want 1", len(syms))
+	}
+
+	inferred := NewWorkspace()
+	inferred.OpenAll([]Input{{Name: "m.json", Content: text}})
+	control := inferred.Document("m.json")
+	if control == nil {
+		t.Fatal("input without an explicit kind was not opened")
+	}
+	if control.Kind() != source.KindUnknown {
+		t.Fatalf("control document kind = %v, want unknown", control.Kind())
+	}
+	if len(control.AST.Members) != 1 {
+		t.Fatalf("unknown-kind AST has %d root members, want one", len(control.AST.Members))
+	}
+	controlRootMember, ok := control.AST.Members[0].(*ast.Membership)
+	if !ok {
+		t.Fatalf("unknown-kind root member = %T, want membership", control.AST.Members[0])
+	}
+	controlPkg, ok := controlRootMember.Member.(*ast.Package)
+	if !ok || len(controlPkg.Members) != 1 {
+		t.Fatalf("unknown-kind AST has package members %v, want one package member", control.AST.Members)
+	}
+	controlPkgMember, ok := controlPkg.Members[0].(*ast.Membership)
+	if !ok {
+		t.Fatalf("unknown-kind package member = %T, want membership", controlPkg.Members[0])
+	}
+	controlUsage, ok := controlPkgMember.Member.(*ast.Usage)
+	if !ok || controlUsage.Ident.Name == "all" || !controlUsage.IsAll {
+		t.Fatalf("unknown-kind part = %#v, want an unnamed usage with the all modifier", controlPkg.Members[0])
+	}
+	if syms := inferred.LookupQualified("P::all"); len(syms) != 0 {
+		t.Fatalf("P::all = %d symbols for unknown kind, want none", len(syms))
+	}
+}
+
 // A document another caller changes while a batch parses keeps that change: the
 // batch installs only over what it reserved, so an edit, a buffer opened, a
 // removal and an open-then-remove made meanwhile all stand, and only the
@@ -285,7 +357,7 @@ func TestOpenAllKeepsAChangeMadeWhileItParsed(t *testing.T) {
 	was := ws.reserveBatch(inputs)
 	docs := make([]batchDoc, len(inputs))
 	for i, in := range inputs {
-		docs[i] = batchDoc{doc: newDocument(in.Name, in.Content, in.Version)}
+		docs[i] = batchDoc{doc: newDocument(in.Name, in.Content, in.Version, in.Kind)}
 	}
 	ws.Update("a.sysml", []byte("package A { part def Edited; }"), 3)
 	ws.Open("b.sysml", []byte("package B { part def Opened; }"), 1)

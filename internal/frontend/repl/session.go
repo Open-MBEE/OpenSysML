@@ -47,6 +47,7 @@ func parseDocName(origin string) string {
 type snippet struct {
 	src   string
 	names []string
+	kind  source.Kind
 	// origin is the file this snippet was read from, empty for a submission
 	// typed at the prompt, and key identifies that file across the ways its path
 	// can be written.
@@ -427,7 +428,7 @@ func (s *Session) accept(origin, src string) {
 // A loaded file supersedes only itself and what the prompt said about the same
 // names, since several files of one model commonly open the same package.
 func (s *Session) acceptFrom(origin, src string) (declared []string, drops []dropReport) {
-	return s.acceptParsed(origin, src, preparse(origin, src))
+	return s.acceptParsed(origin, src, preparse(origin, src), source.KindUnknown)
 }
 
 // parsed is what a submission's text parses to, taken before it is accepted so
@@ -447,16 +448,19 @@ func preparse(origin, src string) parsed {
 func preparseWithKind(origin, src string, kind source.Kind) parsed {
 	doc := parseDocName(origin)
 	data := []byte(src)
-	sourceFile := source.New(doc, data)
-	if kind != source.KindUnknown {
-		sourceFile = source.NewWithKind(doc, data, kind)
-	}
-	p := parser.New(sourceFile)
+	p := parser.New(sourceForKind(doc, data, kind))
 	return parsed{p: p, root: p.ParseFile(), closes: closesItsOwnText(doc, src)}
 }
 
+func sourceForKind(name string, data []byte, kind source.Kind) *source.SourceFile {
+	if kind == source.KindUnknown {
+		return source.New(name, data)
+	}
+	return source.NewWithKind(name, data, kind)
+}
+
 // acceptParsed is acceptFrom over a parse already taken.
-func (s *Session) acceptParsed(origin, src string, pre parsed) (declared []string, drops []dropReport) {
+func (s *Session) acceptParsed(origin, src string, pre parsed, kind source.Kind) (declared []string, drops []dropReport) {
 	p, root := pre.p, pre.root
 	names := declaredNames(root)
 	declared = names
@@ -483,6 +487,7 @@ func (s *Session) acceptParsed(origin, src string, pre parsed) (declared []strin
 			src:    src,
 			origin: origin,
 			key:    key,
+			kind:   kind,
 			gen:    s.version,
 			open:   true,
 			diags:  parser.AsDiagnostics(p.Diagnostics, p.Warnings),
@@ -512,7 +517,7 @@ func (s *Session) acceptParsed(origin, src string, pre parsed) (declared []strin
 				kept = append(kept, sn)
 			}
 		}
-		s.snippets = append(kept, snippet{src: src, names: names, origin: origin, key: key, gen: s.version})
+		s.snippets = append(kept, snippet{src: src, names: names, origin: origin, key: key, kind: kind, gen: s.version})
 		return declared, append(drops, s.reopenedNamespaces(key, root)...)
 	}
 	if len(names) > 0 {
@@ -549,6 +554,7 @@ func (s *Session) acceptParsed(origin, src string, pre parsed) (declared []strin
 		src:    comments + text,
 		names:  names,
 		origin: origin,
+		kind:   kind,
 		gen:    s.version,
 		prefix: len(comments),
 		own:    mergedOwn,
@@ -724,7 +730,7 @@ func (s *Session) openDocuments() {
 		}
 		live[sn.origin] = true
 		if doc := s.ws.Document(sn.origin); doc == nil || doc.Version != sn.gen {
-			inputs = append(inputs, model.Input{Name: sn.origin, Content: []byte(sn.src), Version: sn.gen})
+			inputs = append(inputs, model.Input{Name: sn.origin, Content: []byte(sn.src), Version: sn.gen, Kind: sn.kind})
 		}
 	}
 	for _, name := range s.ws.DocumentNames() {
@@ -931,7 +937,7 @@ func (s *Session) submitEach(files []SourceFile) (res Result, byFile [][]string,
 		parses[i] = preparseWithKind(files[i].Name, files[i].Text, files[i].Kind)
 	})
 	for i, f := range files {
-		names, dropped := s.acceptParsed(f.Name, f.Text, parses[i])
+		names, dropped := s.acceptParsed(f.Name, f.Text, parses[i], f.Kind)
 		for _, name := range names {
 			if !seen[name] {
 				seen[name] = true
@@ -1309,7 +1315,7 @@ func (s *Session) runtimeModel() (*runtime.Model, error) {
 	// the line it was submitted on rather than a byte offset, and the buffer's
 	// scope tree, so a carried object is rebound to the symbols the prompt reaches.
 	for _, doc := range s.sessionDocs() {
-		model.RegisterSource(source.New(doc.Name, doc.Content))
+		model.RegisterSource(sourceForKind(doc.Name, doc.Content, doc.Kind()))
 		model.RegisterScope(doc.Scope)
 	}
 	return model, nil

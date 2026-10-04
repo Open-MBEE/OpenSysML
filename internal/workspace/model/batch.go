@@ -12,16 +12,19 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/libs"
 )
 
 // Input is one document a batch opens: the name it is indexed under, its text
-// and its version. A Transient input is a buffer no file holds, the REPL's
-// transcript: it is never read from or written to the record cache.
+// and its version. Kind is optional; when unknown the name determines it. A
+// Transient input is a buffer no file holds, the REPL's transcript: it is never
+// read from or written to the record cache.
 type Input struct {
 	Name      string
 	Content   []byte
 	Version   int
+	Kind      source.Kind
 	Transient bool
 }
 
@@ -71,7 +74,7 @@ func (w *Workspace) OpenAll(inputs []Input) {
 				return
 			}
 		}
-		docs[i] = batchDoc{doc: newDocument(in.Name, bytes.Clone(in.Content), in.Version)}
+		docs[i] = batchDoc{doc: newDocument(in.Name, bytes.Clone(in.Content), in.Version, in.Kind)}
 	})
 	w.commitBatch(was, docs)
 }
@@ -112,10 +115,19 @@ func (w *Workspace) cachedRecords(inputs []Input) []*libs.InterfaceRecord {
 			return
 		}
 		if rec, ok := w.records.LoadInterface(keys[i]); ok && w.recordAcceptedLocked(rec) == nil {
-			recs[i] = rec
+			if rec.Kind == inputKind(inputs[i]) {
+				recs[i] = rec
+			}
 		}
 	})
 	return recs
+}
+
+func inputKind(in Input) source.Kind {
+	if in.Kind != source.KindUnknown {
+		return in.Kind
+	}
+	return source.KindOf(in.Name)
 }
 
 // reserveBatch is each input's name's change count as the batch starts, which is
@@ -180,7 +192,7 @@ func (w *Workspace) commitBatch(was map[string]uint64, docs []batchDoc) {
 	parsed := make([]*Document, len(stale))
 	ParallelFor(w.workers, len(stale), func(i int) {
 		held := w.docs[stale[i]]
-		parsed[i] = newDocument(held.Name, held.Content, held.Version)
+		parsed[i] = newDocument(held.Name, held.Content, held.Version, held.Kind())
 	})
 	for i, name := range stale {
 		w.docs[name] = parsed[i]

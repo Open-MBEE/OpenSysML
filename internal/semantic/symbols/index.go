@@ -389,6 +389,11 @@ func (idx *Index) AddDocumentScope(name string, root *ast.RootNamespace, rs *Sco
 	idx.addDocument(name, root, rs, source.KindOf(name), false)
 }
 
+// AddDocumentScopeWithKind adds an existing scope tree and records its explicit language.
+func (idx *Index) AddDocumentScopeWithKind(name string, root *ast.RootNamespace, rs *Scope, kind source.Kind) {
+	idx.addDocument(name, root, rs, kind, true)
+}
+
 // AddDocumentWithKind builds the scope tree for root and records its explicit
 // language, which is needed when the document name does not carry an extension.
 func (idx *Index) AddDocumentWithKind(name string, root *ast.RootNamespace, kind source.Kind) {
