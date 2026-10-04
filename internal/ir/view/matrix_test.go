@@ -322,7 +322,7 @@ func TestMatrixOutputIsUnchangedWithSourceLinksEnabled(t *testing.T) {
 
 func TestGridViewMatrixRefusesGraphForms(t *testing.T) {
 	rendering := render(t, "matrix.sysml", "MatrixViews::allRelations")
-	for _, form := range []Form{FormMermaid, FormDot, FormPlantUML} {
+	for _, form := range []Form{FormMermaid, FormDot, FormPlantUML, FormD2} {
 		_, err := rendering.Write(form)
 		var wrong *WrongFormError
 		if !errors.As(err, &wrong) || wrong.Kind != KindMatrix || wrong.Form != form ||

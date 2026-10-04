@@ -133,6 +133,9 @@ func TestRenderWritesPlantUMLWhenAskedFor(t *testing.T) {
 	if got := s.Complete("%render Demo::summary plantuml ", len("%render Demo::summary plantuml ")); !slices.Contains(got.Candidates, "okabe-ito") {
 		t.Errorf("completing the palette after plantuml offered %v", got.Candidates)
 	}
+	if got := s.Complete("%render Demo::summary d", len("%render Demo::summary d")); !slices.Equal(got.Candidates, []string{"d2", "dot"}) {
+		t.Errorf("completing d offered %v, want d2 and dot", got.Candidates)
+	}
 	if got := s.Complete("%render Demo::summary pl", len("%render Demo::summary pl")); !slices.Equal(got.Candidates, []string{"plantuml"}) {
 		t.Errorf("completing the form offered %v", got.Candidates)
 	}
@@ -159,7 +162,7 @@ func TestRenderDotTakesAPalette(t *testing.T) {
 		`unknown palette "rainbow"; the palettes are okabe-ito, tol-bright, tol-muted, tol-light, brewer-set2, brewer-dark2, viridis, cividis`,
 		renderUsage)
 	wants(t, run(t, s, "%render Demo::summary mermaid okabe-ito"), "classDef palette0 fill:#")
-	wants(t, run(t, s, "%render Demo::summary text okabe-ito"), "a palette fills the mermaid, dot and plantuml forms only, not text")
+	wants(t, run(t, s, "%render Demo::summary text okabe-ito"), "a palette fills the mermaid, dot, plantuml and d2 forms only, not text")
 	wants(t, run(t, s, "%render Demo::summary dot okabe-ito cameo extra"), renderUsage)
 	if got := s.Complete("%render Demo::summary dot ", len("%render Demo::summary dot ")); !slices.Contains(got.Candidates, "okabe-ito") || !slices.Contains(got.Candidates, "viridis") {
 		t.Errorf("completing the palette offered %v", got.Candidates)
@@ -292,7 +295,7 @@ func TestRenderGridViewRelationshipMatrixAndPseudoView(t *testing.T) {
 			}
 		}
 	}
-	for _, form := range []string{"mermaid", "dot", "plantuml"} {
+	for _, form := range []string{"mermaid", "dot", "plantuml", "d2"} {
 		out := run(t, s, "%render Matrix::relationshipMatrix "+form)
 		if !strings.Contains(out, "matrix rendering is not written as "+form) {
 			t.Errorf("matrix as %s = %s", form, out)

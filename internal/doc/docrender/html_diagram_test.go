@@ -142,6 +142,31 @@ func TestHTMLDiagramPlantUMLForm(t *testing.T) {
 	}
 }
 
+// TestHTMLDiagramD2Form checks a D2 render writes each diagram as its source
+// in a pre element classed by the form, the palette as fills, and the
+// sequence as D2's sequence diagram.
+func TestHTMLDiagramD2Form(t *testing.T) {
+	got := renderedFigureForm(t, "Chain", graphRendering(view.KindState), view.DirectionLeftRight, view.FormD2)
+	for _, want := range []string{`data-diagram-kind="state"`, `data-direction="LR"`, `<pre class="d2"># state rendering`, "direction: right\n", "classes: {\n", "\nn0 -- n1: { class: connection }</pre>", `<figcaption class="sysml-caption">Chain</figcaption>`} {
+		if !strings.Contains(got, want) {
+			t.Errorf("missing %q:\n%s", want, got)
+		}
+	}
+	if strings.Contains(got, "mermaid") || strings.Contains(got, "digraph") || strings.Contains(got, "@startuml") {
+		t.Errorf("another form in a D2 figure:\n%s", got)
+	}
+	got = renderedFigureOptions(t, "", graphRendering(view.KindTree), view.Options{Palette: view.PaletteOkabeIto}, view.FormD2)
+	if !strings.Contains(got, `data-palette="okabe-ito"`) || !strings.Contains(got, `style: { fill: &#34;#`) {
+		t.Errorf("palette not carried into the figure:\n%s", got)
+	}
+	if strings.Contains(renderedFigureForm(t, "", graphRendering(view.KindTree), "", view.FormD2), "data-palette") {
+		t.Errorf("an unfilled figure carries a palette attribute")
+	}
+	if sequence := renderedFigureForm(t, "", graphRendering(view.KindSequence), "", view.FormD2); !strings.Contains(sequence, `<pre class="d2">`) || !strings.Contains(sequence, "shape: sequence_diagram\n") || !strings.Contains(sequence, "  n0 -- n1: { class: connection }\n}</pre>") {
+		t.Errorf("sequence as d2:\n%s", sequence)
+	}
+}
+
 // TestHTMLDiagramTableKind checks a table-kind view renders as a real table,
 // keeps its notices as comments, and explains an empty rendering.
 func TestHTMLDiagramTableKind(t *testing.T) {
@@ -161,8 +186,10 @@ func TestHTMLDiagramTableKind(t *testing.T) {
 			t.Errorf("table figure lacks %q:\n%s", want, got)
 		}
 	}
-	if dot := renderedFigureForm(t, "Masses", &view.Rendering{Kind: view.KindTable, Columns: []string{"name"}, Rows: [][]string{{"optics"}}}, "", view.FormDot); !strings.Contains(dot, `<table class="sysml-table"`) || strings.Contains(dot, "<pre") {
-		t.Errorf("a table is not a table in the dot form:\n%s", dot)
+	for _, form := range []view.Form{view.FormDot, view.FormD2} {
+		if got := renderedFigureForm(t, "Masses", &view.Rendering{Kind: view.KindTable, Columns: []string{"name"}, Rows: [][]string{{"optics"}}}, "", form); !strings.Contains(got, `<table class="sysml-table"`) || strings.Contains(got, "<pre") {
+			t.Errorf("a table is not a table in the %s form:\n%s", form, got)
+		}
 	}
 	empty := renderedFigure(t, "", &view.Rendering{Kind: view.KindTable}, "")
 	if !strings.Contains(empty, "the view exposes nothing; the rendering is empty") {
@@ -171,22 +198,24 @@ func TestHTMLDiagramTableKind(t *testing.T) {
 }
 
 func TestHTMLDiagramMatrixKindIsATable(t *testing.T) {
-	got := renderedFigureForm(t, "Relationships", &view.Rendering{
-		Kind:    view.KindMatrix,
-		Columns: []string{"Source / Target", "Observatory::target"},
-		Rows:    [][]string{{"Observatory::source", "satisfy"}},
-	}, "", view.FormDot)
-	for _, want := range []string{
-		`<table class="sysml-table" data-content="matrix">`,
-		`<th scope="col" data-column="Source / Target">Source / Target</th>`,
-		`<td class="sysml-cell" data-column="Observatory::target">satisfy</td>`,
-	} {
-		if !strings.Contains(got, want) {
-			t.Errorf("matrix figure lacks %q:\n%s", want, got)
+	for _, form := range []view.Form{view.FormDot, view.FormD2} {
+		got := renderedFigureForm(t, "Relationships", &view.Rendering{
+			Kind:    view.KindMatrix,
+			Columns: []string{"Source / Target", "Observatory::target"},
+			Rows:    [][]string{{"Observatory::source", "satisfy"}},
+		}, "", form)
+		for _, want := range []string{
+			`<table class="sysml-table" data-content="matrix">`,
+			`<th scope="col" data-column="Source / Target">Source / Target</th>`,
+			`<td class="sysml-cell" data-column="Observatory::target">satisfy</td>`,
+		} {
+			if !strings.Contains(got, want) {
+				t.Errorf("matrix figure in %s lacks %q:\n%s", form, want, got)
+			}
 		}
-	}
-	if strings.Contains(got, "<pre") {
-		t.Errorf("matrix was written as a graph:\n%s", got)
+		if strings.Contains(got, "<pre") {
+			t.Errorf("matrix was written as a graph in %s:\n%s", form, got)
+		}
 	}
 }
 

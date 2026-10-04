@@ -595,8 +595,15 @@ func TestRenderHonorsTheFormAsked(t *testing.T) {
 		TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
 		View:         "KitViews::widgetTree",
 		Form:         "png",
-	}); err == nil || !strings.Contains(err.Error(), "no rendering form") || !strings.Contains(err.Error(), `"dot"`) || !strings.Contains(err.Error(), `"plantuml"`) {
-		t.Errorf("err = %v, want it to refuse the form and offer dot and plantuml", err)
+	}); err == nil || !strings.Contains(err.Error(), "no rendering form") || !strings.Contains(err.Error(), `"dot"`) || !strings.Contains(err.Error(), `"plantuml"`) || !strings.Contains(err.Error(), `"d2"`) {
+		t.Errorf("err = %v, want it to refuse the form and offer dot, plantuml and d2", err)
+	}
+	if _, err := call(t, s, MethodRender, &renderParams{
+		TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
+		View:         "KitViews::widgetMatrix",
+		Form:         string(view.FormD2),
+	}); err == nil || !strings.Contains(err.Error(), "matrix rendering is not written as d2") {
+		t.Errorf("D2 of a matrix = %v, want a matrix wrong-form error", err)
 	}
 }
 
@@ -616,7 +623,7 @@ func TestRenderAnswersEveryAdvertisedForm(t *testing.T) {
 	if !ok {
 		t.Fatalf("%s = %#v, want a list of forms", RenderFormsCapability, experimental[RenderFormsCapability])
 	}
-	if want := []string{"text", "mermaid", "markdown", "dot", "plantuml", "csv", "tsv"}; !slices.Equal(advertised, want) {
+	if want := []string{"text", "mermaid", "markdown", "dot", "plantuml", "d2", "csv", "tsv"}; !slices.Equal(advertised, want) {
 		t.Fatalf("%s = %v, want %v", RenderFormsCapability, advertised, want)
 	}
 	// A table is the one kind written in Markdown, CSV and TSV; the tree view has every other form.
