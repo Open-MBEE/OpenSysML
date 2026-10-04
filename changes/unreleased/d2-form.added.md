@@ -6,5 +6,4 @@
   `link:` attributes — and `-render-all` writes `.d2` files. Documents take `-diagram-form d2` (`%render-document <name> d2`, `diagramForm:
   "d2"`): a ` ```d2 ` fence in Markdown, `<pre class="d2">` in HTML, and in a PDF the figure drawn
   by the `d2` executable that `OPENSYSML_D2` names (or `d2` on `PATH`), kept as source under a
-  notice without one. Matrix renderings remain tabular and refuse D2, like tables.
-  `scripts/download-doc-pdf-toolchain.sh` provisions a pinned D2.
+  notice without one. `scripts/download-doc-pdf-toolchain.sh` provisions a pinned D2.
