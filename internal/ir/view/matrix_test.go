@@ -287,6 +287,39 @@ func TestMatrixRowsRetainSourceOrigins(t *testing.T) {
 	}
 }
 
+func TestMatrixOutputIsUnchangedWithSourceLinksEnabled(t *testing.T) {
+	rendering := render(t, "matrix.sysml", "MatrixViews::allRelations")
+	links := Links{
+		Template: "https://source.example/{file}#L{line}",
+		Sites: func(Origin) (Site, bool) {
+			return Site{File: "model.sysml", Line: 17, Col: 4}, true
+		},
+	}
+	if !links.Enabled() {
+		t.Fatal("test links are not enabled")
+	}
+	if len(rendering.RowOrigins) == 0 {
+		t.Fatal("matrix has no row origins")
+	}
+	if got, ok := links.URL(rendering.RowOrigins[0]); !ok || got != "https://source.example/model.sysml#L17" {
+		t.Fatalf("row origin link = %q, %t; want a source URL", got, ok)
+	}
+	for _, form := range []Form{FormText, FormMarkdown, FormCSV, FormTSV} {
+		withoutLinks, err := rendering.Write(form)
+		if err != nil {
+			t.Fatalf("Write(%s): %v", form, err)
+		}
+		withLinks, err := rendering.WriteWith(form, Options{Links: links})
+		if err != nil {
+			t.Fatalf("WriteWith(%s, links): %v", form, err)
+		}
+		if withLinks != withoutLinks {
+			t.Errorf("%s output changed with source links enabled:\nwith links:\n%s\nwithout links:\n%s",
+				form, withLinks, withoutLinks)
+		}
+	}
+}
+
 func TestGridViewMatrixRefusesGraphForms(t *testing.T) {
 	rendering := render(t, "matrix.sysml", "MatrixViews::allRelations")
 	for _, form := range []Form{FormMermaid, FormDot, FormPlantUML} {

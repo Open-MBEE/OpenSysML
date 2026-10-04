@@ -183,10 +183,15 @@ func call(t *testing.T, s *Server, method string, params any) (json.RawMessage, 
 
 // render is one opensysml/render request, decoded.
 func render(t *testing.T, s *Server, docURI uri.URI, viewName string) *renderResult {
+	return renderWithLinkTemplate(t, s, docURI, viewName, "")
+}
+
+func renderWithLinkTemplate(t *testing.T, s *Server, docURI uri.URI, viewName, template string) *renderResult {
 	t.Helper()
 	raw, err := call(t, s, MethodRender, &renderParams{
 		TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
 		View:         viewName,
+		LinkTemplate: template,
 	})
 	if err != nil {
 		t.Fatalf("render %q: %v", viewName, err)
@@ -196,6 +201,31 @@ func render(t *testing.T, s *Server, docURI uri.URI, viewName string) *renderRes
 		t.Fatalf("decode render result: %v", err)
 	}
 	return &out
+}
+
+func TestRenderWritesSourceLinks(t *testing.T) {
+	s, docURI := renderServer(t, "kit.sysml", renderModel)
+	template := "https://example.test/src/{file}#L{line}:{col}"
+	params, err := json.Marshal(renderParams{
+		TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
+		View:         "KitViews::widgetTree",
+		LinkTemplate: template,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var wire map[string]any
+	if err := json.Unmarshal(params, &wire); err != nil {
+		t.Fatal(err)
+	}
+	if wire["linkTemplate"] != template {
+		t.Errorf("wire linkTemplate = %v, want %q", wire["linkTemplate"], template)
+	}
+	out := renderWithLinkTemplate(t, s, docURI, "KitViews::widgetTree", template)
+	if !strings.Contains(out.Artifact, `click n0 href "https://example.test/src/`) ||
+		!strings.Contains(out.Artifact, "#L") {
+		t.Errorf("render artifact lacks source links:\n%s", out.Artifact)
+	}
 }
 
 // Every rendering kind this package produces is served over the protocol, with
