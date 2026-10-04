@@ -1815,8 +1815,13 @@ func (a *activity) objectFlow(e *sysmlv1.Element) {
 		a.m.add(e, Unmapped, "", "nothing the flow carries comes from a pin or parameter")
 		return
 	}
-	selfFlows := a.selfFlows(e, tgt)
-	if a.edgeSelf[e] && !selfFlows {
+	named := a.selfFlows(e, tgt)
+	selfFlows := named && !realGuard(e)
+	switch {
+	case a.edgeSelf[e] && named && !selfFlows:
+		a.m.add(e, Approximated, "", "the flow carries this under the guard ["+describeValue(firstOwned(e, "guard"))+
+			"], which a flow from the read self result cannot be written with, so the value is not written")
+	case a.edgeSelf[e] && !selfFlows:
 		a.m.add(e, Approximated, "", "the flow carries this, which the action names directly")
 	}
 	if a.dataOnly[e] && !a.dryFlow(e) {
@@ -1844,7 +1849,7 @@ func (a *activity) objectFlow(e *sysmlv1.Element) {
 			a.objectFlowSource(e, s, tgt, to)
 		}
 	}
-	if g := firstOwned(e, "guard"); g != nil && realGuard(e) && !a.guardedFlow(e) {
+	if g := firstOwned(e, "guard"); g != nil && realGuard(e) && !a.guardedFlow(e) && !named {
 		a.m.add(e, Approximated, "", "the guard ["+describeValue(g)+"] on an object flow is not written")
 	}
 }

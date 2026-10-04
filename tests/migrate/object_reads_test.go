@@ -130,3 +130,31 @@ func TestReadSelfResultFlowsToTheActionsItFeeds(t *testing.T) {
 	wantNote(t, r, "_g2", migrate.Mapped, "")
 	wantClean(t, "self_flows.sysml", r)
 }
+
+const guardedSelfFlow = `
+    <packagedElement xmi:type="uml:Class" xmi:id="_acct" name="Acct" classifierBehavior="_run">
+      <ownedBehavior xmi:type="uml:Activity" xmi:id="_run" name="Run">
+        <node xmi:type="uml:InitialNode" xmi:id="_init"/>
+        <node xmi:type="uml:ReadSelfAction" xmi:id="_rs" name="me">
+          <result xmi:type="uml:OutputPin" xmi:id="_rsOut" name="result" type="_acct"/>
+        </node>
+        <node xmi:type="uml:OpaqueAction" xmi:id="_op" name="use">
+          <inputValue xmi:type="uml:InputPin" xmi:id="_opIn" name="argument" type="_acct"/>
+        </node>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_c1" source="_init" target="_op"/>
+        <edge xmi:type="uml:ObjectFlow" xmi:id="_g1" source="_rsOut" target="_opIn">
+          <guard xmi:type="uml:LiteralBoolean" xmi:id="_g1Guard" value="false"/>
+        </edge>
+      </ownedBehavior>
+    </packagedElement>`
+
+// A guard on the flow from a self read must gate the value, and a flow written from
+// the result would deliver it even when a separate path starts the receiver.
+func TestGuardedReadSelfResultFlowIsNotWrittenUnguarded(t *testing.T) {
+	r := migrateDocument(t, guardedSelfFlow,
+		`<sysml:Block xmi:id="_s9" base_Class="_acct"/>`)
+	wantLine(t, r.Notation, "out result : Acct[1] = this;")
+	wantNoLine(t, r.Notation, "flow me.result to 'use'.argument;")
+	wantNote(t, r, "_g1", migrate.Approximated, "the flow carries this under the guard [false]")
+	wantClean(t, "guarded_self_flow.sysml", r)
+}
