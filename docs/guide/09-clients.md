@@ -486,6 +486,22 @@ model.eval("(T::u > 3) and false")               # False
 model.eval("SequenceFunctions::size(T::rack.gear)")   # Undetermined, gear is [1..*]
 ```
 
+For an existing JSON export, the metamodel reader builds the same typed element hierarchy
+without connecting to a service:
+
+```python
+from opensysml import read_json
+from opensysml.metamodel import PartUsage
+
+graph = read_json("vehicle.json")
+for part in graph.all(PartUsage):
+    print(part.declared_name)
+```
+
+This is distinct from `opensysml.generate`, which creates classes for definitions in a user's
+model. See the [metamodel classes and JSON reader reference](../reference/python-api.md#metamodel-classes-and-the-json-reader)
+for naming, input formats, and missing-property errors.
+
 ### Requiring a usable model
 
 A model with syntax errors still parses to a `Model`, because the service reports what it

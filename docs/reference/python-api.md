@@ -109,6 +109,54 @@ accepted: instantiating a *usage* reports the usage's own FQN (`Demo::myCar`, no
 it would break the ordinary way to obtain an instance. `Vehicle.unchecked(inst)`
 is the explicit escape hatch for a deliberately unchecked view.
 
+## Metamodel classes and the JSON reader
+
+`opensysml.generate` creates classes for definitions in a user's SysML model. The separate
+`opensysml.metamodel` package contains generated classes for the SysML metamodel itself. Use
+`opensysml.read_json` to wrap an exported JSON document without starting a service:
+
+```python
+import opensysml
+from opensysml.metamodel import PartDefinition, PartUsage
+
+graph = opensysml.read_json("vehicle.json")
+vehicle = next(
+    definition for definition in graph.all(PartDefinition)
+    if definition.declared_name == "Vehicle"
+)
+print([feature.declared_name for feature in vehicle.owned_feature])
+for part in graph.all(PartUsage):
+    print(part.declared_name)
+```
+
+Elements use the metaclass inheritance hierarchy, so `isinstance(part, Feature)` works. Property
+names use `snake_case` primarily (`owned_feature`) and expose their SysML `camelCase` spelling as
+an alias (`ownedFeature`) to the same descriptor. `PartUsage.from_json_key("partDefinition")`
+returns the primary Python name, and `PartUsage.json_key("part_definition")` returns the JSON key.
+Strings passed to `read_json` are file paths, not JSON text; bytes, mappings, and sequences of
+element mappings are also accepted. The reader understands DataVersion and Commit envelopes.
+
+Missing keys raise `NotSupplied`, including absent multi-valued properties. Dangling `@id` and
+unresolved `@ref` values raise `UnresolvedReference` when accessed. Invalid document structure
+raises `MalformedDocument`, and a value outside its declared type raises `MalformedValue`.
+These exceptions share `MetamodelError`, a subclass of `opensysml.errors.OpenSysMLError`:
+
+| Error | Raised when |
+| --- | --- |
+| `NotSupplied` | A declared JSON key is absent; `.derived` identifies computed properties. |
+| `UnresolvedReference` | A reference's `@id` is absent from the graph or its `@ref` cannot be resolved. |
+| `MalformedValue` | A property value has the wrong primitive, enum, array, or reference shape. |
+| `MalformedDocument` | The input is not an element object/array, or has missing/duplicate IDs or types. |
+| `UnknownJSONKey` | A JSON key is not declared for the selected metaclass. |
+
+The OpenSysML `api-json` export carries owned properties and a few derived ones, such as
+`ownedFeature`, `owner`, and `qualifiedName`. An export may omit derived properties such as
+`feature`, `inheritedFeature`, and `definition`; a local service can also include a `type`
+relationship for an explicitly typed usage. Accessing an omitted property raises `NotSupplied`
+with `derived=True`. Toolkit `full-json` exports include those derived values.
+Providing engine-computed derived properties, implementing metamodel operations, and loading JSON
+into the OpenSysML engine are separate follow-up work.
+
 ### Keeping a generated module honest
 
 A generated module records what it was generated from, so a stale one can be
