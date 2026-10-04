@@ -55,12 +55,12 @@ flowchart TD
   n5 -.->|"typing"| n0
   n6 -.->|"typing"| n0
   n7 -.->|"typing"| n4
-  n0 ---|"reference"| n8
+  n0 ---|"◇"| n8
   n9 -.->|"typing"| n1
-  n0 --- n9
+  n0 ---|"◆"| n9
   n10 -.->|"typing"| n3
-  n0 ---|"reference"| n10
+  n0 ---|"◇"| n10
   n11 -->|"redefines"| n8
-  n5 ---|"reference"| n11
+  n5 ---|"◇"| n11
   n12 -->|"redefines"| n8
-  n6 ---|"reference"| n12
+  n6 ---|"◇"| n12

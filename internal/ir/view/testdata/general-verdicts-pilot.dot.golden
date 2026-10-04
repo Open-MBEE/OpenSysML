@@ -7,8 +7,8 @@ digraph "GeneralViews::requirementView" {
   graph [fontname="Helvetica"];
   node [shape=box, style=filled, fillcolor=white, color="#181818", fontname="Helvetica", fontsize=14, penwidth=0.5];
   edge [color="#181818", fontname="Helvetica", fontsize=13, penwidth=1];
-  "n0" [label=<<font point-size="10"><i>«requirement def»</i></font><br/><b>VehicleRequirements::MassRequirement</b><br/>id R1, &#34;The total mass of the vehicle shall not exceed the stated...&#34;>];
-  "n1" [label=<<font point-size="10"><i>«requirement def»</i></font><br/><b>VehicleRequirements::StoppingRequirement</b><br/>id R2, &#34;The vehicle shall stop within the stated distance.&#34;>];
+  "n0" [label=<<font point-size="10"><i>«requirement def»</i></font><br/><b>VehicleRequirements::MassRequirement</b><br/>id R1, “The total mass of the vehicle shall not exceed the stated...”>];
+  "n1" [label=<<font point-size="10"><i>«requirement def»</i></font><br/><b>VehicleRequirements::StoppingRequirement</b><br/>id R2, “The vehicle shall stop within the stated distance.”>];
   "n2" [label=<<font point-size="10"><i>«requirement def»</i></font><br/><b>VehicleRequirements::EmergencyStopRequirement</b><br/>id R3>];
   "n3" [style="rounded,filled", label=<<font point-size="10"><i>«requirement»</i></font><br/><b>VehicleRequirements::vehicleMass : MassRequirement</b><br/>id R1.1, verdict pass by Cases::light, fail by Cases::heavy>, fillcolor="#EEBF99", color="#D55E00"];
   "n4" [style="rounded,filled", label=<<font point-size="10"><i>«requirement»</i></font><br/><b>VehicleRequirements::chassisMass : MassRequirement</b><br/>id R1.2, verdict pass by Cases::chassis>, fillcolor="#99D8C7", color="#009E73"];

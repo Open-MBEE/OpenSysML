@@ -15,8 +15,8 @@ digraph "GeneralViews::requirementView" {
     color="#5B5B59";
     penwidth=1;
     margin=8;
-    "n0" [label=<<table border="0" cellborder="0" cellspacing="0" cellpadding="2"><tr><td><font point-size="9">«requirement def»</font><br/><b>MassRequirement</b></td></tr><hr/><tr><td align="left">id R1, &#34;The total mass of the vehicle shall not exceed the stated...&#34;</td></tr></table>>];
-    "n1" [label=<<table border="0" cellborder="0" cellspacing="0" cellpadding="2"><tr><td><font point-size="9">«requirement def»</font><br/><b>StoppingRequirement</b></td></tr><hr/><tr><td align="left">id R2, &#34;The vehicle shall stop within the stated distance.&#34;</td></tr></table>>];
+    "n0" [label=<<table border="0" cellborder="0" cellspacing="0" cellpadding="2"><tr><td><font point-size="9">«requirement def»</font><br/><b>MassRequirement</b></td></tr><hr/><tr><td align="left">id R1, “The total mass of the vehicle shall not exceed the stated...”</td></tr></table>>];
+    "n1" [label=<<table border="0" cellborder="0" cellspacing="0" cellpadding="2"><tr><td><font point-size="9">«requirement def»</font><br/><b>StoppingRequirement</b></td></tr><hr/><tr><td align="left">id R2, “The vehicle shall stop within the stated distance.”</td></tr></table>>];
     "n2" [label=<<table border="0" cellborder="0" cellspacing="0" cellpadding="2"><tr><td><font point-size="9">«requirement def»</font><br/><b>EmergencyStopRequirement</b></td></tr><hr/><tr><td align="left">id R3</td></tr></table>>];
     "n3" [label=<<table border="0" cellborder="0" cellspacing="0" cellpadding="2"><tr><td><font point-size="9">«requirement»</font><br/><b>vehicleMass : MassRequirement</b></td></tr><hr/><tr><td align="left">id R1.1, verdict pass by Cases::light, fail by Cases::heavy</td></tr></table>>, fillcolor="#EEBF99", color="#D55E00"];
     "n4" [label=<<table border="0" cellborder="0" cellspacing="0" cellpadding="2"><tr><td><font point-size="9">«requirement»</font><br/><b>chassisMass : MassRequirement</b></td></tr><hr/><tr><td align="left">id R1.2, verdict pass by Cases::chassis</td></tr></table>>, fillcolor="#99D8C7", color="#009E73"];

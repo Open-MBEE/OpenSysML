@@ -96,7 +96,8 @@ A relationship end that does not resolve draws no edge and is listed as a notice
 definitions, requirements deriving each other, packages importing each other) is drawn once per
 edge: the graph is built from symbols, never by following edges. Node and edge order is the model's
 declaration order, so a rendering is deterministic. The writers draw `specialization` as UML's
-hollow triangle, `typing` dashed, `composition` with a filled diamond and `reference` with a hollow one, each
+hollow triangle, `typing` dashed, `composition` with a filled diamond and `reference` with a hollow one (a Mermaid flowchart, which has
+no diamond head, leads the edge's label with `◆` or `◇` instead), each
 requirement relationship dashed and named by its keyword (`«satisfy»`, `«verify»`), as the
 interconnection already does for its requirement and allocation edges. The Cameo style frames
 the three kinds `req`, `bdd` and `pkg`.

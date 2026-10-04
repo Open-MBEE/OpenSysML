@@ -43,8 +43,8 @@ skinparam wrapWidth 300
 hide stereotype
 hide circle
 hide empty members
-class "<size:10>//«requirement def»//</size>\n**VehicleRequirements::MassRequirement**\nid R1, <U+0022>The total mass of the vehicle shall not exceed the stated...<U+0022>" as n0 <<requirement def>>
-class "<size:10>//«requirement def»//</size>\n**VehicleRequirements::StoppingRequirement**\nid R2, <U+0022>The vehicle shall stop within the stated distance.<U+0022>" as n1 <<requirement def>>
+class "<size:10>//«requirement def»//</size>\n**VehicleRequirements::MassRequirement**\nid R1, “The total mass of the vehicle shall not exceed the stated...”" as n0 <<requirement def>>
+class "<size:10>//«requirement def»//</size>\n**VehicleRequirements::StoppingRequirement**\nid R2, “The vehicle shall stop within the stated distance.”" as n1 <<requirement def>>
 class "<size:10>//«requirement def»//</size>\n**VehicleRequirements::EmergencyStopRequirement**\nid R3" as n2 <<requirement def>>
 class "<size:10>//«requirement»//</size>\n**VehicleRequirements::vehicleMass : MassRequirement**\nid R1.1" as n3 <<requirement>> <<usage>>
 class "<size:10>//«requirement»//</size>\n**VehicleRequirements::chassisMass : MassRequirement**\nid R1.2" as n4 <<requirement>> <<usage>>

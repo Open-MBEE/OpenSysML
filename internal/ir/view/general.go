@@ -332,7 +332,7 @@ func (r *Renderer) requirementDetail(sym *symbols.Symbol) string {
 		parts = append(parts, "id "+sym.ShortName)
 	}
 	if docs := r.model.DocumentationOf(sym); len(docs) > 0 {
-		parts = append(parts, `"`+excerpt(docs[0], requirementExcerptRunes)+`"`)
+		parts = append(parts, "“"+excerpt(docs[0], requirementExcerptRunes)+"”")
 	}
 	return strings.Join(parts, ", ")
 }

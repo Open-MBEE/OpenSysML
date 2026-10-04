@@ -27,8 +27,12 @@ config:
 %% not represented: Cameo gradients are drawn flat
 %% not represented: Mermaid has no diagram frame with header tab
 flowchart TD
-  n0["«requirement def»<br>VehicleRequirements::MassRequirement<br>id R1, #quot;The total mass of the vehicle shall not exceed the stated...#quot;"]
-  n1["«requirement def»<br>VehicleRequirements::StoppingRequirement<br>id R2, #quot;The vehicle shall stop within the stated distance.#quot;"]
+  n0["`*«requirement def»*
+**VehicleRequirements::MassRequirement**
+id R1, “The total mass of the vehicle shall not exceed the stated...”`"]
+  n1["`*«requirement def»*
+**VehicleRequirements::StoppingRequirement**
+id R2, “The vehicle shall stop within the stated distance.”`"]
   n2["`*«requirement def»*
 **VehicleRequirements::EmergencyStopRequirement**
 id R3`"]

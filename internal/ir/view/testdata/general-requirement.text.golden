@@ -1,7 +1,7 @@
 GeneralViews::requirementView - requirement rendering (view def GeneralView, filter @RequirementDefinition or @RequirementUsage)
 
-requirement def VehicleRequirements::MassRequirement (id R1, "The total mass of the vehicle shall not exceed the stated...")
-requirement def VehicleRequirements::StoppingRequirement (id R2, "The vehicle shall stop within the stated distance.")
+requirement def VehicleRequirements::MassRequirement (id R1, “The total mass of the vehicle shall not exceed the stated...”)
+requirement def VehicleRequirements::StoppingRequirement (id R2, “The vehicle shall stop within the stated distance.”)
 requirement def VehicleRequirements::EmergencyStopRequirement (id R3)
 requirement VehicleRequirements::vehicleMass : MassRequirement (id R1.1)
 requirement VehicleRequirements::chassisMass : MassRequirement (id R1.2)

@@ -1801,9 +1801,15 @@ func mermaidArrow(kind EdgeKind) string {
 }
 
 // mermaidEdgeLabel is an edge's flowchart label: its own, or for an edge whose
-// arrow a flowchart draws like another kind's, its kind.
+// arrow a flowchart draws like another kind's, its kind; a flowchart has no
+// diamond head, so composition and reference lead with a filled or hollow one.
 func mermaidEdgeLabel(edge Edge) string {
-	if edge.Label == "" && (edge.Kind == EdgeSpecialization || edge.Kind == EdgeTyping || edge.Kind == EdgeReference) {
+	switch {
+	case edge.Kind == EdgeComposition:
+		return strings.TrimSpace("◆ " + edge.Label)
+	case edge.Kind == EdgeReference:
+		return strings.TrimSpace("◇ " + edge.Label)
+	case edge.Label == "" && (edge.Kind == EdgeSpecialization || edge.Kind == EdgeTyping):
 		return edge.Kind.String()
 	}
 	return edge.Label

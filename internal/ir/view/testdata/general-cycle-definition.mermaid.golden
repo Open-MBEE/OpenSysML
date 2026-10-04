@@ -32,5 +32,5 @@ flowchart TD
 **Loops::Looped**`"]
   n3["`*«part def»*
 **Cycles::C**`"]
-  n0 ---|"b"| n1
-  n1 ---|"a"| n0
+  n0 ---|"◆ b"| n1
+  n1 ---|"◆ a"| n0
