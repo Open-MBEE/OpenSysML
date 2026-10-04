@@ -771,9 +771,11 @@ func (s *Service) parseModel(inputs []sourceInput, mode diag.ConformanceMode) (s
 		for _, field := range []string{input.name, input.language, input.content} {
 			fmt.Fprintf(&key, "\x00%d\x00%s", len(field), field)
 		}
-		fmt.Fprintf(&key, "\x00%d", len(input.warnings))
-		for _, warning := range input.warnings {
-			fmt.Fprintf(&key, "\x00%d\x00%s", len(warning), warning)
+		if len(input.warnings) > 0 {
+			fmt.Fprintf(&key, "\x00%d", len(input.warnings))
+			for _, warning := range input.warnings {
+				fmt.Fprintf(&key, "\x00%d\x00%s", len(warning), warning)
+			}
 		}
 	}
 	modelHash := computeHash(key.String())
