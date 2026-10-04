@@ -821,6 +821,7 @@ origins and bundled library declarations — is not linked.
 | DOT | Nodes and edges receive quoted `URL` and `tooltip` attributes; a composite node's URL and tooltip are cluster attributes, not attributes of its invisible anchor. The tooltip is the qualified name when available, otherwise `file:line:col`. |
 | PlantUML | Linkable nodes carry `[[url]]` after stereotypes and before palette colors, and edges carry links. PlantUML SVG drops links on `<<start>>`, `<<fork>>`, `<<join>>`, `<<end>>`, `<<choice>>`, `<<history>>` and `<<history*>>` pseudostates; an unlinked pseudostate inside a linked composite state takes the composite's link. Ports and initial/start pseudostate arrows are not linked. |
 | Mermaid flowchart | Linkable nodes receive `click` statements after the edges and classes. Edges and subgraphs are not linked. |
+| D2 | Nodes, containers, pseudostate glyphs, edges and sequence lifelines and messages carry `link: "url"` after their `class`, which D2 draws as an SVG anchor for every one of them. Pins are not linked: a port's link is its owner's. |
 | Mermaid state diagram | Simple states are linked; composite states are not. |
 | Mermaid sequence diagram | Participants receive `link` statements; messages are not linked. Mermaid CLI 11.16.0 drops participant URL fragments in SVG. |
 
@@ -925,7 +926,8 @@ italic as `bold`/`italic`; a font family is noticed, D2 setting fonts per theme.
 noticed as not represented, as it is in PlantUML; notes and pictures are noticed, the `dot` form
 drawing them; positions and routes are kept as `# canvas:`, `# layout:` and `# route:` comments
 through the geometry-comment helpers the Mermaid and PlantUML forms share, D2 laying the diagram
-out itself.
+out itself. A `-render-link` template writes each located node's and edge's URL as `link: "…"`
+beside its `class` — see [Source links](#source-links).
 
 ## Surfaces
 
@@ -1093,8 +1095,10 @@ and did not change. A view-render RPC added later would take the form as a strin
   comments and a notice counts it. D2 draws in one look — a `cameo` style is noticed — and sets
   fonts per theme, so a `DiagramLayout::Style` font family is noticed; notes and pictures are
   noticed, the `dot` form drawing them. A fork or join bar draws no label, and the pins no edge
-  ends at are counted in a notice, as in Mermaid. No hyperlinks are written, for the reason the
-  PlantUML form writes none.
+  ends at are counted in a notice, as in Mermaid. A `-render-link` template is written as `link:`
+  on every located node and edge, the lifelines and messages of a sequence included, and D2
+  keeps each as an SVG anchor; pins carry none (`links-*-d2.golden`, and
+  `TestLinkedFormsRenderAsSVG` compiles the linked form through a `d2` on the machine).
 - Producing D2 runs no `d2`. The goldens are checked by the in-test syntax walk; a `d2` on the
   machine compiles them too, through the optional check `OPENSYSML_D2` or `PATH` turns on.
 - Under the `pilot` style a control node (fork, join, decision) with no stated box takes the

@@ -42,6 +42,7 @@ func (r *Rendering) D2With(options Options) (string, error) {
 		ports:   r.portView(options.Ports),
 		nested:  r.Kind != KindTree,
 		glyphs:  r.Kind == KindState || r.Kind == KindAction,
+		links:   options.Links,
 		paths:   map[string]string{},
 		classes: map[string]bool{},
 	}
@@ -90,6 +91,7 @@ type d2Writer struct {
 	ports   portView                   // the ports drawn of each node, and how they are named
 	nested  bool                       // whether children are nested containers rather than nodes joined by lines
 	glyphs  bool                       // whether control nodes are drawn as pseudostate glyphs
+	links   Links                      // the source link each node and edge carries; zero links none
 	used    map[string]map[string]bool // the action pins an edge ends at
 	paths   map[string]string          // each node's and drawn pin's path from the root scope
 	classes map[string]bool            // the classes the body uses
@@ -224,7 +226,7 @@ func (w *d2Writer) writeTree(r *Rendering) {
 	var contain func(node *Node)
 	contain = func(node *Node) {
 		for _, child := range node.Children {
-			w.writeArrow("", w.paths[node.ID], w.paths[child.ID], "--", "", "edge", nil)
+			w.writeArrow("", w.paths[node.ID], w.paths[child.ID], "--", "", "edge", nil, Origin{})
 			contain(child)
 		}
 	}
@@ -275,14 +277,18 @@ func (w *d2Writer) writeEmpty(r *Rendering) {
 	fmt.Fprintf(&w.body, "empty: %s\n", d2Quote(r.blankReason(FormD2)))
 }
 
-// writeNode writes one node under scope: its label, class and style, then
-// the pins it draws and, when children nest, its children, each by path.
+// writeNode writes one node under scope: its label, class, source link and
+// style, then the pins it draws and, when children nest, its children, each
+// by path. Pins are not linked: a port's link is its owner's.
 func (w *d2Writer) writeNode(node *Node, scope, indent string) {
 	key := d2Key(node.ID)
 	path := d2Path(scope, key)
 	w.paths[node.ID] = path
 	class := w.class(node)
 	attrs := []string{"class: " + class}
+	if link := w.link(node.Origin); link != "" {
+		attrs = append(attrs, link)
+	}
 	if style := w.nodeStyle(node); style != "" {
 		attrs = append(attrs, "style: { "+style+" }")
 	}
@@ -480,14 +486,18 @@ func (w *d2Writer) writeEdge(indent string, edge Edge) {
 	case EdgeFlow:
 		class = "flow"
 	}
-	w.writeArrow(indent, w.end(edge.From, edge.FromPort), w.end(edge.To, edge.ToPort), arrow, edge.Label, class, edge.Style)
+	w.writeArrow(indent, w.end(edge.From, edge.FromPort), w.end(edge.To, edge.ToPort), arrow, edge.Label, class, edge.Style, edge.Origin)
 }
 
 // writeArrow writes one connection statement between two paths, with its
-// label when it carries one and the colours and font of its Style.
-func (w *d2Writer) writeArrow(indent, from, to, arrow, label, class string, style *Style) {
+// label when it carries one, its source link and the colours and font of its
+// Style.
+func (w *d2Writer) writeArrow(indent, from, to, arrow, label, class string, style *Style, origin Origin) {
 	w.classes[class] = true
 	attrs := []string{"class: " + class}
+	if link := w.link(origin); link != "" {
+		attrs = append(attrs, link)
+	}
 	if style != nil {
 		if own := slices.Concat(d2Colors(style, false), d2Font(style)); len(own) > 0 {
 			attrs = append(attrs, "style: { "+strings.Join(own, "; ")+" }")
@@ -498,6 +508,16 @@ func (w *d2Writer) writeArrow(indent, from, to, arrow, label, class string, styl
 		return
 	}
 	fmt.Fprintf(&w.body, "%s%s %s %s: %s { %s }\n", indent, from, arrow, to, d2Quote(label), strings.Join(attrs, "; "))
+}
+
+// link is the `link` attribute of a located origin's source site, empty when
+// links are off or the origin has no site; D2 keeps it as the SVG anchor.
+func (w *d2Writer) link(origin Origin) string {
+	url, ok := w.links.URL(origin)
+	if !ok {
+		return ""
+	}
+	return "link: " + d2Quote(url)
 }
 
 // end is the path an edge ends at: the pin's where the edge names one that is

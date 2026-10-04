@@ -741,7 +741,7 @@ path as loaded, not a path resolved against the rendering's output directory: us
 paths when a link must work outside the process's working directory. Synthetic origins, missed
 source locations and bundled library declarations are left unlinked. DOT writes `URL` and
 `tooltip` attributes; PlantUML writes `[[url]]` on nodes and edges (not ports or initial
-pseudostate arrows); Mermaid writes `click` statements for non-composite flowchart and simple state
+pseudostate arrows); D2 writes `link:` on nodes, containers and edges (not pins); Mermaid writes `click` statements for non-composite flowchart and simple state
 nodes and `link` statements for sequence participants, but not edges, subgraphs or composite
 states. The pinned Mermaid CLI 11.16.0 defaults to `securityLevel: strict`, which strips links
 with non-HTTP(S) schemes, including `vscode://` and `file:///`. It rewrites sequence hrefs under
