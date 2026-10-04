@@ -74,7 +74,9 @@ jobs:
 
       - name: Run the test suite
         id: tests
-        run: go test ./...
+        run: |
+          go test ./...
+          go test -C tools ./...
 
       - name: Report the verdict
         if: always()

@@ -57,7 +57,9 @@ if [[ -n "$source_dir" ]]; then
 		exit 1
 	fi
 	cp "$source_dir"/libraries/*.sysml "$source_dir"/libraries/*.kerml "$upstream/" 2>/dev/null || true
-	[[ -f "$source_dir/engine-contract.json" ]] && cp "$source_dir/engine-contract.json" "$upstream/"
+	if [[ -f "$source_dir/engine-contract.json" ]]; then
+		cp "$source_dir/engine-contract.json" "$upstream/"
+	fi
 	resolved="local tree $source_dir"
 else
 	fetch_ref="$EXTENSIONS_COMMIT"
@@ -81,7 +83,9 @@ else
 		git -C "$work/git" show "FETCH_HEAD:$path" >"$work/tree/$path"
 	done < <(git -C "$work/git" ls-tree -r --name-only FETCH_HEAD -- libraries engine-contract.json)
 	cp "$work/tree"/libraries/*.sysml "$work/tree"/libraries/*.kerml "$upstream/" 2>/dev/null || true
-	[[ -f "$work/tree/engine-contract.json" ]] && cp "$work/tree/engine-contract.json" "$upstream/"
+	if [[ -f "$work/tree/engine-contract.json" ]]; then
+		cp "$work/tree/engine-contract.json" "$upstream/"
+	fi
 fi
 
 # An upstream holding no libraries at all is refused: it would empty the
@@ -90,6 +94,12 @@ fi
 upstream_libs="$(find "$upstream" -maxdepth 1 -type f \( -name '*.sysml' -o -name '*.kerml' \) | wc -l | tr -d ' ')"
 if [[ "$upstream_libs" -eq 0 ]]; then
 	echo "error: upstream holds no .sysml or .kerml library file; refusing to sync an empty set" >&2
+	exit 1
+fi
+
+# Without the contract the sync would delete the vendored manifest as drift.
+if [[ ! -f "$upstream/engine-contract.json" ]]; then
+	echo "error: upstream holds no engine-contract.json; refusing to sync without the engine contract" >&2
 	exit 1
 fi
 

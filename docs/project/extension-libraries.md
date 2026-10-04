@@ -20,7 +20,8 @@ OpenSysML consumes them as a vendored copy at
   `--check` reports drift without writing (run by `make
   extension-libraries-check`, which CI runs on every pull request); `--ref
   REF` syncs a branch or tag instead of the pin; `--source DIR` syncs a local
-  upstream checkout. An upstream holding no libraries is refused, and a file
+  upstream checkout. An upstream holding no libraries or no
+  `engine-contract.json` is refused, and a file
   the upstream does not carry — `README.md` aside, which the vendored copy
   owns — is an error, so edits are never made here: they go upstream, the pin
   is bumped, and the sync re-runs.
@@ -36,5 +37,6 @@ OpenSysML consumes them as a vendored copy at
   request that re-pins, and a MAJOR upstream release.
 - `.github/workflows/extension-libraries-upstream.yml` is the advisory
   nightly: it syncs the upstream `main` (or a dispatch-given ref), checks the
-  library snapshot and runs the whole suite, so an upstream change that
+  library snapshot and runs the whole suite in both Go modules (`./...` and
+  `tools`), so an upstream change that
   breaks OpenSysML surfaces within a day. It is not a required check.
