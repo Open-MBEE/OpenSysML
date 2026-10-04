@@ -40,6 +40,10 @@ connecting to models.
     options:
       heading_level: 3
 
+::: opensysml.CAPABILITY_CONVERT_DOCUMENTS
+    options:
+      heading_level: 3
+
 ::: opensysml.load
     options:
       heading_level: 3
