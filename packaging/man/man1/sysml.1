@@ -294,16 +294,16 @@ With \-compile, write the generated source to \-o instead of building it
 .BR \-render " \fIview\fP"
 Render this view of the model instead of running it, in the form its render
 member states; #<kind> renders every file loaded and #<kind>:<element> one
-element, kind being tree, interconnection, state, action, sequence or table,
-without a declared view
+element, kind being tree, interconnection, state, action, sequence, table or
+matrix, without a declared view
 .TP
 .BR \-render\-all " \fIdir\fP"
 Render every declared view into this directory
 .TP
 .BR \-render\-form " \fIform\fP"
 Form \-render or \-render\-all writes: text, mermaid, markdown, dot, plantuml,
-csv or tsv (csv and tsv for a table); default from the destination for
-\-render, each kind's machine form for \-render\-all
+csv or tsv (csv and tsv for a table or matrix); default from the destination
+for \-render, each kind's machine form for \-render\-all
 .TP
 .BR \-render\-palette " \fIpalette\fP"
 Palette the dot, mermaid or plantuml form fills nodes from, by keyword family:
@@ -342,8 +342,8 @@ drives an external converter
 .TP
 .BR \-diagram\-form " \fIform\fP"
 Form the documents' graph\-shaped diagrams are written in: mermaid, dot or
-plantuml; unset, a positioned view is dot and any other mermaid; a table\-kind
-view is a table either way
+plantuml; unset, a positioned view is dot and any other mermaid; a table or
+matrix view is a table either way
 .TP
 .B \-doc\-title\-page
 Put the document title on a page of its own (html or pdf)
@@ -988,8 +988,9 @@ it states, as inline SVG when dot is installed and as a dot fence otherwise,
 and every other graph\-shaped view is Mermaid source; with Graphviz absent a
 positioned view falls back to Mermaid under a notice saying so.
 \-diagram\-form mermaid, dot or plantuml writes every graph\-shaped one in
-that form instead, in Markdown and HTML alike, while a table\-kind view stays
-a table. Neither Graphviz nor PlantUML is needed to write a fence.
+that form instead, in Markdown and HTML alike, while a table or relationship
+matrix view stays a table. Neither Graphviz nor PlantUML is needed to write a
+fence.
 .PP
 \-doc\-form html writes semantic HTML instead, carrying each element's
 identity and kind, styled by a stylesheet in a cascade layer your own CSS

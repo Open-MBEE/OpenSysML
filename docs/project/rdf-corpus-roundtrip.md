@@ -9,7 +9,7 @@ pin in `scripts/pilot-pin.sh`.
 
 | Root | Files |
 |---|---|
-| `committed` (everything under `examples/` outside the downloaded roots) | 46 |
+| `committed` (everything under `examples/` outside the downloaded roots) | 47 |
 | `sysml-v2-training` | 100 |
 | `pilot-corpora/kerml-examples` | 58 |
 | `pilot-corpora/sysml-examples` | 99 |
@@ -59,15 +59,15 @@ Recorded against the corpus above, reproduced byte-identically on a second run:
 
 | Verdict | Files |
 |---|---|
-| `stable` | 352 |
+| `stable` | 353 |
 | `whitespace-only` | 7 |
 | `graph-diff` | 0 |
 | `unwritable` | 0 |
 | `unparseable` | 0 |
 | `refused` | 0 |
-| **total** | **359** |
+| **total** | **360** |
 
-So every one of the 359 files converts to Turtle: 352 come back byte-identical, and seven differ
+So every one of the 360 files converts to Turtle: 353 come back byte-identical, and seven differ
 only in normalized source-text whitespace. The decoder writes each file back from the
 `sysx:sourceText` it carries (see [What the gate does not
 do](#what-the-gate-does-not-do)). The per-file ratchet records the seven whitespace-only results
@@ -158,11 +158,11 @@ to, under the same `sysx:sourceText` normalisation.
 
 | Verdict | Files |
 |---|---|
-| `stable` | 350 |
+| `stable` | 351 |
 | `whitespace-only` | 7 |
 | `graph-diff` | 2 |
 | every other verdict | 0 |
-| **total** | **359** |
+| **total** | **360** |
 
 The two forms are one graph, so a file's two verdicts should agree, and they do for every file
 but two: `Vehicle Example/Annex_A_VehicleViews.sysml` and `Vehicle Example/SysML v2 Spec Annex A
