@@ -133,32 +133,44 @@ the model into a directory.
 ```
 ---
 config:
+  fontFamily: "Helvetica, Arial, sans-serif"
+  theme: base
+  …
   flowchart:
     subGraphTitleMargin:
       bottom: 24
 ---
 %% RobotViews::interfaces — interconnection rendering (render asInterconnectionDiagram)
 flowchart LR
-  subgraph n0 ["«part def»<br>Platform"]
+  subgraph n0 ["`*«part def»*
+**Platform**`"]
     direction LR
-    n3["«part»<br>battery : Battery"]
-    n5["«part»<br>mobility : Mobility"]
+    n1("`*«attribute»*
+**mass : Real**`")
+    …
+    subgraph n3 ["`*«part»*
+**battery : Battery**`"]
+      direction LR
+      n3_anchor[" "]
+      n3.0["outlet"]
+    end
     …
   end
-  n3 ---|"drivePower"| n5
-  n6 ---|"imageryLink"| n8
-  n3 -.->|"of Charge"| n5
-  n6 -.->|"of Frame"| n8
+  n3.0 ===|"drivePower"| n5.0
+  n6 ===|"imageryLink"| n8.0
+  n3_anchor -.->|"of Charge"| n5_anchor
+  n6 -.->|"of Frame"| n8_anchor
+  …
 ```
 
 ```
-wrote rendered/RobotViews.interfaces.mmd (mermaid, 549 bytes)
-wrote rendered/RobotViews.overview.mmd (mermaid, 914 bytes)
-wrote rendered/RobotViews.overview.interfaceSubview.mmd (mermaid, 565 bytes)
-wrote rendered/RobotViews.modes.mmd (mermaid, 631 bytes)
-wrote rendered/RobotViews.run.mmd (mermaid, 678 bytes)
-wrote rendered/RobotViews.partsTable.md (markdown, 835 bytes)
-wrote rendered/RobotViews.criticalParts.mmd (mermaid, 878 bytes)
+wrote rendered/RobotViews.interfaces.mmd (mermaid, 1819 bytes)
+wrote rendered/RobotViews.modes.mmd (mermaid, 1419 bytes)
+wrote rendered/RobotViews.run.mmd (mermaid, 2109 bytes)
+wrote rendered/RobotViews.partsTable.md (markdown, 842 bytes)
+wrote rendered/RobotViews.criticalParts.mmd (mermaid, 1783 bytes)
+wrote rendered/RobotViews.overview.mmd (mermaid, 1886 bytes)
+wrote rendered/RobotViews.overview.interfaceSubview.mmd (mermaid, 1835 bytes)
 ```
 
 **Identify elements with an OSLC query.** `-query` takes
@@ -485,18 +497,18 @@ state def RobotBehavior::Modes
   start
   state idle (initial)
   state approach
-    state rolling (entry)
+    state rolling (entry / roll)
     state holding
-  state handling (entry)
-  state safing (entry)
-  state done (completes)
+  state handling (entry / inspect)
+  state safing (entry / record)
+  final done
 
 transitions:
   start of RobotBehavior::Modes -> idle
-  idle -> rolling: idle_to_rolling: after 5 [s]
-  approach -> handling: approach_to_handling: after 20 [s]
-  rolling -> holding: rolling_to_holding: after 10 [s]
-  rolling -> safing: rolling_to_safe: [faults > 0]
+  idle -> rolling: after 5 [s]
+  approach -> handling: after 20 [s]
+  rolling -> holding: after 10 [s]
+  rolling -> safing: [faults > 0]
   handling -> done
 ```
 
