@@ -74,6 +74,10 @@ package MatrixViews {
 		filter @SysML::AllocationUsage;
 		expose MatrixModel::**;
 	}
+	view shortNameGridView : grv {
+		filter @SysML::AllocationUsage;
+		expose MatrixModel::**;
+	}
 	view def InheritedAllocationMatrix :> GridView {
 		filter @SysML::AllocationUsage;
 	}

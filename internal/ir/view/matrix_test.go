@@ -48,6 +48,79 @@ func TestMatrixGoldenForms(t *testing.T) {
 	}
 }
 
+func TestGridViewShortNameWithRelationshipFilterUsesMatrix(t *testing.T) {
+	r, idx := loadFixture(t, "matrix.sysml")
+	rendering, err := r.Render(lookup(t, idx, "MatrixViews::shortNameGridView"))
+	if err != nil {
+		t.Fatalf("Render: %v", err)
+	}
+	if rendering.Kind != KindMatrix || rendering.Stated != "view def GridView" || len(rendering.Rows) == 0 {
+		t.Fatalf("short-name GridView rendering = %#v, want a nonempty matrix", rendering.Data())
+	}
+}
+
+func TestMatrixContributorsIncludeEveryExposedOwner(t *testing.T) {
+	r, idx := loadFixture(t, "matrix.sysml")
+	viewSym := lookup(t, idx, "MatrixViews::allRelations")
+	verification := lookup(t, idx, "MatrixModel::vehicleVerification")
+	var target *symbols.Symbol
+	visited := map[*symbols.Scope]bool{}
+	var findVerification func(*symbols.Scope)
+	findVerification = func(scope *symbols.Scope) {
+		if scope == nil || visited[scope] || target != nil {
+			return
+		}
+		visited[scope] = true
+		for _, member := range scope.AllMembers() {
+			if keyword, edges := r.matrixEdges(member); member.Name == "r1" && keyword == "verify" && len(edges) != 0 {
+				target = member
+				return
+			}
+			findVerification(member.Scope)
+		}
+	}
+	findVerification(verification.Scope)
+	if target == nil {
+		t.Fatal("vehicleVerification has no nested verify r1 usage")
+	}
+
+	exposed, err := r.model.ExposedMembers(viewSym)
+	if err != nil {
+		t.Fatalf("ExposedMembers: %v", err)
+	}
+	if !slices.ContainsFunc(exposed, func(elem *symbols.Symbol) bool {
+		return symbols.SameElement(elem, target)
+	}) {
+		t.Fatal("verification usage is not exposed")
+	}
+	if keyword, edges := r.matrixEdges(target); keyword != "verify" || len(edges) == 0 {
+		t.Fatalf("verification usage edges = %q, %v; want a drawn verify edge", keyword, edges)
+	}
+
+	rendering, err := r.Render(viewSym)
+	if err != nil {
+		t.Fatalf("Render: %v", err)
+	}
+	if name := r.notationName(target); strings.Contains(strings.Join(rendering.Notices, "\n"), name) {
+		t.Fatalf("exposed verification usage with a drawn edge was left out: %s", name)
+	}
+}
+
+func TestNamedExposedElementsIncludeImportedDerivationMembers(t *testing.T) {
+	r, idx := loadFixture(t, "matrix.sysml")
+	viewSym := lookup(t, idx, "MatrixViews::allRelations")
+	exposed, err := r.model.ExposedElements(viewSym)
+	if err != nil {
+		t.Fatalf("ExposedElements: %v", err)
+	}
+	for _, elem := range exposed {
+		if strings.HasSuffix(idx.GetFQN(elem), "DerivationConnections::derivations") {
+			return
+		}
+	}
+	t.Fatal("named ExposedElements path omitted DerivationConnections::derivations")
+}
+
 func TestGridViewMatrixSelectorsAndEmptyCases(t *testing.T) {
 	r, idx := loadFixture(t, "matrix.sysml")
 	cases := []struct {

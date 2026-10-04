@@ -1,5 +1,5 @@
 <!-- MatrixViews::allRelations — matrix rendering (view def GridView) -->
-<!-- not represented: 2 exposed elements state no satisfy, verify, allocate, connect, derive, refine, dependency relationship and are left out of the matrix: DerivationConnections::derivations, MatrixModel::vehicleVerification::r1 -->
+<!-- not represented: 1 exposed element states no satisfy, verify, allocate, connect, derive, refine, dependency relationship and is left out of the matrix: DerivationConnections::derivations -->
 | Source / Target | MatrixModel::r1 | MatrixModel::namedSatisfy | MatrixModel::DetailedRequirement | MatrixModel::vehicle::engine | MatrixModel::vehicle | MatrixModel::r2 | MatrixModel::VehicleVerification::r1 | MatrixModel::vehicle::targetPort |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | MatrixModel::vehicle | satisfy, refine, dependency | satisfy | satisfy |  |  | satisfy |  |  |

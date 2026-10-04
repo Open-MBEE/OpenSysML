@@ -460,7 +460,7 @@ func (r *Renderer) KindOf(view *symbols.Symbol) (Kind, string, error) {
 	if err != nil {
 		return "", "", err
 	}
-	definitionKind, definitionStated := r.viewDefinitionKind(view)
+	definitionKind, definitionStated, definition := r.viewDefinitionKind(view)
 	for _, rendering := range renderings {
 		kind, ok := r.renderingKind(rendering)
 		if !ok {
@@ -483,7 +483,7 @@ func (r *Renderer) KindOf(view *symbols.Symbol) (Kind, string, error) {
 		return kind, stated, nil
 	}
 	if definitionKind != "" {
-		if definitionStated == "view def GridView" {
+		if definition != nil && r.fqn(definition) == viewDefinitionsPackage+"GridView" {
 			if shown := r.matrixShownKinds(view); len(shown) != 0 {
 				return KindMatrix, definitionStated, nil
 			}
@@ -586,13 +586,13 @@ func (r *Renderer) renderingKind(rendering semantics.ViewRendering) (Kind, bool)
 // specializes presents, and how it says so. The nearest supertype decides, so a
 // StateTransitionView is a state rendering and not the interconnection view it
 // in turn specializes.
-func (r *Renderer) viewDefinitionKind(view *symbols.Symbol) (Kind, string) {
+func (r *Renderer) viewDefinitionKind(view *symbols.Symbol) (Kind, string, *symbols.Symbol) {
 	for _, sym := range append([]*symbols.Symbol{view}, r.model.AllSupertypes(view)...) {
 		if kind, ok := standardKind(standardViewDefinitions, viewDefinitionsPackage, r.fqn(sym)); ok {
-			return kind, "view def " + sym.Name
+			return kind, "view def " + sym.Name, sym
 		}
 	}
-	return "", ""
+	return "", "", nil
 }
 
 // nodeIDs hands out the identities a rendering's nodes are named by, which the

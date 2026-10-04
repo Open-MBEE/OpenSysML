@@ -4,10 +4,32 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/parser"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
+
+func buildRelationshipModelWithStdlib(t *testing.T, name string, kind source.Kind, src string) (*Model, *symbols.Scope) {
+	t.Helper()
+	idx := stdlibIndex(t)
+	for _, libraryDoc := range idx.Documents() {
+		idx.MarkLibrary(libraryDoc)
+	}
+	p := parser.New(source.New(name, []byte(src)))
+	root := p.ParseFile()
+	if len(p.Diagnostics) != 0 {
+		t.Fatalf("parse diagnostics: %v", p.Diagnostics)
+	}
+	idx.AddDocumentWithKind(name, root, kind)
+	idx.ExpandWildcardImports()
+	r := resolve.New(idx)
+	m := NewModel(r)
+	r.SetModel(m)
+	r.ResolveDocument(name, root)
+	return m, idx.DocumentRoot(name)
+}
 
 func nestedRelationshipUsage(t *testing.T, owner *symbols.Symbol, keyword string) *symbols.Symbol {
 	t.Helper()
@@ -100,7 +122,7 @@ func TestRelationshipEdgesOfReturnsNoEdgesForUnsupportedKind(t *testing.T) {
 }
 
 func TestRelationshipEdgesOfDerivationRefinementAndDependency(t *testing.T) {
-	m, root := buildModelWithStdlibNamedKind(t, "t.sysml", source.KindSysML, `package P {
+	m, root := buildRelationshipModelWithStdlib(t, "t.sysml", source.KindSysML, `package P {
 		private import RequirementDerivation::*;
 		private import ModelingMetadata::Refinement;
 		requirement originalRequirement;

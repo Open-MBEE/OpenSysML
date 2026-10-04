@@ -104,29 +104,40 @@ func (r *Renderer) renderMatrix(exposed []*symbols.Symbol, shown []string, pseud
 		allowed[keyword] = true
 	}
 	var elements []*symbols.Symbol
-	owners := map[symbols.ElementKey]*symbols.Symbol{}
+	owners := map[symbols.ElementKey]map[symbols.ElementKey]bool{}
 	seen := map[symbols.ElementKey]bool{}
-	var addOwned func(*symbols.Symbol, *symbols.Symbol, int)
-	addOwned = func(elem, origin *symbols.Symbol, depth int) {
-		if elem == nil || semantics.IsView(elem) || depth > r.treeDepth() {
-			return
+	for _, origin := range exposed {
+		if origin == nil {
+			continue
 		}
-		key := symbols.KeyOf(elem)
-		if seen[key] {
-			return
+		originKey := symbols.KeyOf(origin)
+		visited := map[symbols.ElementKey]bool{}
+		var addOwned func(*symbols.Symbol, int)
+		addOwned = func(elem *symbols.Symbol, depth int) {
+			if elem == nil || semantics.IsView(elem) || depth > r.treeDepth() {
+				return
+			}
+			key := symbols.KeyOf(elem)
+			if visited[key] {
+				return
+			}
+			visited[key] = true
+			if owners[key] == nil {
+				owners[key] = map[symbols.ElementKey]bool{}
+			}
+			owners[key][originKey] = true
+			if !seen[key] {
+				seen[key] = true
+				elements = append(elements, elem)
+			}
+			if depth >= r.treeDepth() {
+				return
+			}
+			for _, member := range r.matrixContainedMembers(elem) {
+				addOwned(member, depth+1)
+			}
 		}
-		seen[key] = true
-		owners[key] = origin
-		elements = append(elements, elem)
-		if depth >= r.treeDepth() {
-			return
-		}
-		for _, member := range r.matrixContainedMembers(elem) {
-			addOwned(member, origin, depth+1)
-		}
-	}
-	for _, elem := range exposed {
-		addOwned(elem, elem, 0)
+		addOwned(origin, 0)
 	}
 
 	var edges []matrixEdge
@@ -141,8 +152,8 @@ func (r *Renderer) renderMatrix(exposed []*symbols.Symbol, shown []string, pseud
 				continue
 			}
 			edges = append(edges, matrixEdge{keyword: keyword, source: edge.Source, target: edge.Target})
-			if owner := owners[symbols.KeyOf(elem)]; owner != nil {
-				contributed[symbols.KeyOf(owner)] = true
+			for owner := range owners[symbols.KeyOf(elem)] {
+				contributed[owner] = true
 			}
 		}
 	}
@@ -259,10 +270,10 @@ func matrixOmittedNotice(elements []*symbols.Symbol, shown []string, r *Renderer
 		names[i] = r.notationName(elem)
 	}
 	count := len(elements)
-	elementWord, verb := "elements", "state"
+	elementWord, verb, agreement := "elements", "state", "are"
 	if count == 1 {
-		elementWord, verb = "element", "states"
+		elementWord, verb, agreement = "element", "states", "is"
 	}
-	return fmt.Sprintf("%d exposed %s %s no %s relationship and are left out of the matrix: %s",
-		count, elementWord, verb, kindList, strings.Join(names, ", "))
+	return fmt.Sprintf("%d exposed %s %s no %s relationship and %s left out of the matrix: %s",
+		count, elementWord, verb, kindList, agreement, strings.Join(names, ", "))
 }

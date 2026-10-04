@@ -36,7 +36,6 @@ func buildModelWithStdlibNamedKind(t *testing.T, name string, kind source.Kind, 
 		t.Fatalf("parse diagnostics: %v", p.Diagnostics)
 	}
 	idx.AddDocumentWithKind(name, root, kind)
-	idx.ExpandWildcardImports()
 	r := resolve.New(idx)
 	m := NewModel(r)
 	r.SetModel(m)
