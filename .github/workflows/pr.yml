@@ -961,6 +961,10 @@ jobs:
       - name: Package the VS Code extension
         run: make vscode-package
 
+      - name: Build landing-page diagram bundle
+        working-directory: editors/vscode
+        run: npm run build:landing
+
       - name: Upload VS Code extension artifact
         uses: actions/upload-artifact@v4
         with:
