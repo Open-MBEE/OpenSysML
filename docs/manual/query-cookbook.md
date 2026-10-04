@@ -262,7 +262,7 @@ calc def NamedParts :> Query {
 
 ```console
 $ sysml cookbook.sysml -run-query "Cookbook::NamedParts"
-✓ Query Cookbook::NamedParts returned 12 rows
+✓ Query Cookbook::NamedParts returned 9 rows
   Row 1: Cookbook::telescope::primaryMirror
   Row 2: Cookbook::telescope::instrumentCluster
   ...

@@ -459,6 +459,11 @@ func (e *executor) reflectiveFeatureValues(
 	property string,
 	sym *symbols.Symbol,
 ) ([]Value, error) {
+	if property != "documentation" {
+		if elements, ok := e.context.Model.ReflectiveElements(sym, property); ok {
+			return reflectiveElementValues(sym, elements), nil
+		}
+	}
 	values, ok := e.context.Model.ReflectiveFeatureValues(sym, property)
 	if !ok {
 		return nil, e.featureError(expression, property, ElementValue(sym))
@@ -472,6 +477,14 @@ func (e *executor) reflectiveFeatureValues(
 		result = append(result, converted)
 	}
 	return result, nil
+}
+
+func reflectiveElementValues(sym *symbols.Symbol, elements []*symbols.Symbol) []Value {
+	values := make([]Value, 0, len(elements))
+	for _, element := range elements {
+		values = append(values, valueAt(ElementValue(element), ElementValue(sym).Origin()))
+	}
+	return values
 }
 
 // objectConformsTo reports whether an object is of a feature's declaring type.
