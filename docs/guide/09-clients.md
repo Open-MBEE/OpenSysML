@@ -385,6 +385,8 @@ states its concurrency, ownership and stability promises.
 client starts and stops automatically, so a script can parse, inspect, execute and convert a model
 without running `sysml` as a subprocess. The complete API, the generated typed classes and
 the measured latency are documented in [reference/python-api.md](../reference/python-api.md).
+[Metamodel classes and JSON](../reference/python-metamodel.md) reads a JSON export into generated
+SysML metamodel classes without a service.
 
 ### Installation
 

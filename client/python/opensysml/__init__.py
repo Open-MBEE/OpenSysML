@@ -103,7 +103,7 @@ __all__ = [
     "TypeMismatchError", "UnpinnedReleaseError", "UnsignedReleaseError",
     "UnsupportedOperationError", "UnsupportedValueError",
     "WrongKindError",
-    "load", "loads", "parse_sources", "connect", "convert",
+    "load", "loads", "parse_sources", "connect", "convert", "read_json",
     # "eval" is deprecated in favour of "evaluate", so it is not exported.
     "evaluate", "instantiate",
     "DEFAULT_PORT", "split_target",

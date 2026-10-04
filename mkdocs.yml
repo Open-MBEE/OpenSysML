@@ -207,6 +207,7 @@ nav:
       - Client libraries: reference/clients.md
       - Go packages: reference/api.md
       - Python API: reference/python-api.md
+      - Python metamodel classes: reference/python-metamodel.md
       - Node API: reference/node-api.md
       - Java API: reference/java-api.md
       - Rust API: reference/rust-api.md

@@ -801,11 +801,13 @@ the inventory in `tests/export/testdata/ontology-known-violations.txt`. The `typ
 `function` and `targetFeature` keys stay listed for the fixtures' unresolvable names and body
 parameters above; the parameters go when D1/D2 make expression bodies elements of the graph.
 
-The abstract-metaclass half is not mechanizable from the ontology: `SysML.owl` records no ecore
-abstractness (see D8), so every metaclass the encoder writes (`kinds.go` and the constants in
-`rdf_out.go`/`rdf_expr.go`) was checked by hand against the abstract classes of the pilot's
-`SysML.ecore` and `kerml.ecore` — `ConnectorAsUsage`, `ControlNode`, `Element`, `Expose`,
-`Import`, `InstantiationExpression`, `LoopActionUsage`, `Relationship`. Two were written:
+The abstract-metaclass half was checked by hand while the table came from `SysML.owl`, which
+records no ecore abstractness: every metaclass the encoder writes (`kinds.go` and the constants in
+`rdf_out.go`/`rdf_expr.go`) against the abstract classes of the pilot's `SysML.ecore` and
+`kerml.ecore` — `ConnectorAsUsage`, `ControlNode`, `Element`, `Expose`, `Import`,
+`InstantiationExpression`, `LoopActionUsage`, `Relationship`. Generated from the ecore (D8), the
+table now records them, and the same gate reports a subject typed by one as `abstract-class`; no
+golden graph has one. Two were written:
 `Import`, now `NamespaceImport` / `MembershipImport` and, for an `expose`, `NamespaceExpose` /
 `MembershipExpose` in place of an `sysx:isExpose` flag, and `ConnectorAsUsage` for a KerML
 `connector`, now `Connector`. The decoder still accepts both abstract classes from older graphs.
@@ -816,7 +818,9 @@ still delivers every `type`, `referent` and `targetFeature` of its fixture.
 
 [`Open-MBEE/sysmlv2-rdf-ontology`](https://github.com/Open-MBEE/sysmlv2-rdf-ontology) renders the
 OMG metamodel (version 202407, from `SysML.ecore`) as OML and OWL: `SysML.owl`, 172 classes, 348
-object properties, 63 datatype properties, with `rdfs:domain`/`rdfs:range` on each. It uses the
+object properties, 63 datatype properties, with `rdfs:domain`/`rdfs:range` on each, and has not
+been regenerated since. The current metamodel, version 20250201 as the pinned pilot's `SysML.ecore`
+declares it, has 175 classes, 351 object properties and 64 datatype properties. It uses the
 *same* namespace we do and its class IRIs are the plain metaclass names we already emit; the
 difference is the properties, each qualified by the metaclass that defines it
 (`sysml:Element_declaredName`, `sysml:Element_owner` with range `OwningMembership`), and a
@@ -830,9 +834,12 @@ structural decisions (`internal/translate/export/rdf_out.go`), so the profile is
 layer: property name → defining metaclass.
 
 **Done:** the table and the gate. `internal/translate/rdf/ontology` holds the term table generated
-from `SysML.owl` by `tools/gen/ontology` from a local checkout (version `202407`,
-upstream commit in the generated header): 411 properties spanning only **336 distinct unqualified
-names — 59 names are declared by more than one metaclass** (`type`, `value`, `source`, `target`,
+by `tools/gen/ontology` from the pilot's `SysML.ecore` at the release `scripts/pilot-pin.sh` pins
+(version `20250201`, pilot tag and commit in the generated header), naming each property by the
+OWL rendering's `<DefiningClass>_<name>` IRI and recording its multiplicity, ordering, derivation,
+redefinitions, subsettings and opposite; `make ontology-table-check` keeps it equal to the pin in
+CI. It holds 415 properties spanning only **342 distinct unqualified
+names — 58 names are declared by more than one metaclass** (`type`, `value`, `source`, `target`,
 …), so the unqualified convention is genuinely lossy in the other direction and a profile encoder
 has to pick by the subject's metaclass (`LookupProperty` returns every declaration;
 `AmbiguousNames` reports the set). The gate is `TestGoldenGraphsMatchOntology`, whose inventory is
@@ -840,8 +847,8 @@ also the profile's work list, sorted into five causes: properties the metamodel 
 relationship or membership element that we collapse into the element (`value` → `FeatureValue`,
 the multiplicity bounds → `MultiplicityRange`, `isNegated` → `Invariant`, a transition's ends →
 `Connector`) — the same collapse D3.3 undid for ownership and D1/D2 will undo for expressions and
-ends; names as literals (D7); metaclass names the 202407 rendering does not have (`FlowUsage`,
-which it calls `FlowConnectionUsage`, and `TerminateActionUsage`); the metaclasses of our own
+ends; names as literals (D7); metaclass names the metamodel does not have (`ClassUsage`,
+`IndividualDefinition`, `IndividualUsage`); the metaclasses of our own
 `sysx:` namespace; and the properties we write into the SysML namespace that no metaclass
 declares, each either a relationship the metamodel reifies as an element (`specializes`,
 `subsets`, `redefines`, `references`, `aliasedElement`, `via`) or a notation flag with no

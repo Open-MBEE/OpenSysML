@@ -55,7 +55,7 @@ const (
 )
 
 // Properties this mapping adds: argument order, which RDF does not carry, and
-// parts the 202407 metamodel rendering has no property for.
+// parts the metamodel has no property for.
 const (
 	xArgumentIndex    = "argumentIndex"
 	xArgumentName     = "argumentName"

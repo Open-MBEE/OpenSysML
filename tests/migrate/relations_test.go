@@ -1170,7 +1170,7 @@ func TestCollectionModifiersAreWritten(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, want := range []string{"isOrdered", "isNonunique"} {
+	for _, want := range []string{"isOrdered", `isUnique "false"`} {
 		if !strings.Contains(string(ttl), want) {
 			t.Errorf("Turtle lacks %s", want)
 		}
