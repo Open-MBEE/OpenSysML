@@ -1,5 +1,11 @@
 import assert from "node:assert/strict";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import {
+  copyFileSync,
+  mkdirSync,
+  mkdtempSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -31,6 +37,8 @@ import {
   type WasmWorkerRequest,
   type WasmWorkerResponse,
 } from "../src/core/wasm.js";
+import { WASM_PACKAGE } from "../src/core/package.js";
+import { resolveWasmSources } from "../src/node/wasm-source.js";
 import { SysMLService } from "../src/generated/sysml_pb.js";
 import { wasmArtifacts, type WasmArtifacts } from "./support/wasm.js";
 import { repoRoot, SAMPLE, useServiceBinary } from "./support/service.js";
@@ -232,6 +240,55 @@ test("Go constructor load failures are not cached", async () => {
     }
     rmSync(directory, { recursive: true, force: true });
   }
+});
+
+test("Node WASM package resolution uses package-local assets", () => {
+  const directory = mkdtempSync(join(tmpdir(), "opensysml-wasm-package-"));
+  const packageDirectory = join(directory, "node_modules", ...WASM_PACKAGE.split("/"));
+  mkdirSync(packageDirectory, { recursive: true });
+  const packageJson = join(packageDirectory, "package.json");
+  writeFileSync(packageJson, JSON.stringify({ name: WASM_PACKAGE, version: "0.0.0" }));
+  writeFileSync(join(packageDirectory, "sysml-wasm.wasm"), "wasm");
+  writeFileSync(join(packageDirectory, "wasm_exec.js"), "runtime");
+
+  const resolver = (specifier: string): string => {
+    assert.equal(specifier, `${WASM_PACKAGE}/package.json`);
+    return packageJson;
+  };
+  try {
+    assert.deepEqual(resolveWasmSources({}, resolver), {
+      wasm: join(packageDirectory, "sysml-wasm.wasm"),
+      wasmExec: join(packageDirectory, "wasm_exec.js"),
+    });
+    assert.deepEqual(resolveWasmSources({ wasmExec: "custom-runtime.js" }, resolver), {
+      wasm: join(packageDirectory, "sysml-wasm.wasm"),
+      wasmExec: "custom-runtime.js",
+    });
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test("Node WASM resolution reports the optional package installation command", () => {
+  assert.throws(
+    () =>
+      resolveWasmSources({}, () => {
+        throw new Error("not installed");
+      }),
+    (error: unknown) =>
+      error instanceof OpenSysMLError &&
+      new RegExp(
+        `^connectWasm needs sysml-wasm\\.wasm: install ${WASM_PACKAGE.replace("/", "\\/")} at \\d+\\.\\d+\\.\\d+, or pass wasm and wasmExec$`,
+      ).test(error.message),
+  );
+});
+
+test("Node WASM resolution requires wasmExec with a supplied module", () => {
+  assert.throws(
+    () => resolveWasmSources({ wasm: emptyWasm }, () => "unused"),
+    (error: unknown) =>
+      error instanceof OpenSysMLError && error.message.includes("wasmExec"),
+  );
 });
 
 test("worker calls remove aborted pending entries and ignore late answers", async () => {
@@ -470,6 +527,33 @@ for (const thread of ["worker", "inline"] as const) {
     await assert.rejects(() => wasm.loads(SAMPLE), ClosedConnectionError);
   });
 }
+
+test("Node connectWasm resolves real assets from the optional package", { skip: wasmSkip }, async () => {
+  const wasmFiles = requireArtifacts();
+  const directory = mkdtempSync(join(tmpdir(), "opensysml-wasm-package-"));
+  const packageDirectory = join(directory, "node_modules", ...WASM_PACKAGE.split("/"));
+  mkdirSync(packageDirectory, { recursive: true });
+  copyFileSync(wasmFiles.wasm, join(packageDirectory, "sysml-wasm.wasm"));
+  copyFileSync(wasmFiles.wasmExec, join(packageDirectory, "wasm_exec.js"));
+  const packageJson = join(packageDirectory, "package.json");
+  writeFileSync(packageJson, JSON.stringify({ name: WASM_PACKAGE, version: "0.0.0" }));
+  const sources = resolveWasmSources({}, (specifier) => {
+    assert.equal(specifier, `${WASM_PACKAGE}/package.json`);
+    return packageJson;
+  });
+  const wasm = await connectWasm(sources);
+  try {
+    await using native = await connect();
+    const wasmModel = await wasm.loads(SAMPLE);
+    const nativeModel = await native.loads(SAMPLE);
+    assert.equal(wasmModel.hash, nativeModel.hash);
+    assert.deepEqual(wasmModel.diagnostics, nativeModel.diagnostics);
+    assert.deepEqual(await wasmModel.eval("2 + 2"), await nativeModel.eval("2 + 2"));
+  } finally {
+    await wasm.close();
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
 
 test("Node WASM workers terminate on close and stale-version refusal", { skip: wasmSkip }, async () => {
   const originalTerminate = Object.getOwnPropertyDescriptor(WorkerPrototype, "terminate")

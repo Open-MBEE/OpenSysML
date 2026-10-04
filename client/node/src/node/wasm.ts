@@ -10,14 +10,14 @@ import {
   type WasmWorkerEndpoint,
   type WorkerWasmSource,
 } from "../core/wasm.js";
-import { loadNodeWasm, moduleSpecifier } from "./wasm-source.js";
+import { loadNodeWasm, moduleSpecifier, resolveWasmSources } from "./wasm-source.js";
 
 /** Options for connecting to a Go WebAssembly module from Node. */
 export interface WasmConnectOptions extends TransportOptions {
   /** Path, file URL, HTTP URL, or bytes of sysml-wasm.wasm. */
-  wasm: string | URL | Uint8Array;
+  wasm?: string | URL | Uint8Array;
   /** wasm_exec.js from the Go toolchain that built the module. */
-  wasmExec: string | URL;
+  wasmExec?: string | URL;
   /** Run the module in a worker thread (default) or this thread. */
   thread?: "worker" | "inline";
   version?: string;
@@ -27,20 +27,24 @@ export interface WasmConnectOptions extends TransportOptions {
 /**
  * Connects to sysml-wasm, in a worker by default or inline when requested.
  */
-export async function connectWasm(options: WasmConnectOptions): Promise<Connection> {
-  const wasmExec = moduleSpecifier(options.wasmExec);
+export async function connectWasm(options: WasmConnectOptions = {}): Promise<Connection> {
+  const sources = resolveWasmSources(options);
+  const wasmExec = moduleSpecifier(sources.wasmExec);
   let host: WasmHost;
   if (options.thread === "inline") {
-    const module = await loadNodeWasm(options.wasm);
+    const module = await loadNodeWasm(sources.wasm);
     const Go = await loadGoConstructor(wasmExec);
     host = await instantiateInline(module, Go);
   } else {
-    host = await startWorker(options.wasm, wasmExec);
+    host = await startWorker(sources.wasm, wasmExec);
   }
   return connectWasmHost(host, options);
 }
 
-async function startWorker(wasm: WasmConnectOptions["wasm"], wasmExec: string): Promise<WasmHost> {
+async function startWorker(
+  wasm: NonNullable<WasmConnectOptions["wasm"]>,
+  wasmExec: string,
+): Promise<WasmHost> {
   const worker = new Worker(new URL("./wasm-worker.js", import.meta.url));
   const host = new WorkerWasmHost(nodeWorkerEndpoint(worker));
   const { source, transfer } = workerSource(wasm);
@@ -56,7 +60,7 @@ async function startWorker(wasm: WasmConnectOptions["wasm"], wasmExec: string): 
 }
 
 function workerSource(
-  wasm: WasmConnectOptions["wasm"],
+  wasm: NonNullable<WasmConnectOptions["wasm"]>,
 ): { source: WorkerWasmSource; transfer: readonly ArrayBuffer[] } {
   if (wasm instanceof Uint8Array) {
     const bytes = Uint8Array.from(wasm);
