@@ -566,6 +566,8 @@
       width: 100%;
       height: auto;
       position: relative;
+      /* Boxes can be dragged anywhere in the hero, beyond the figure's own box. */
+      overflow: visible;
       font-family: Helvetica, Arial, sans-serif;
     }
     .osml-wire {
@@ -1101,13 +1103,16 @@
     card.hidden = false;
     card.querySelector(".osml-nodecard__close").addEventListener("click", closeCard);
     posEl = card.querySelector("[data-osml-pos]");
-    // Beside the box rather than over it, so its wires stay in view.
+    // Beside the box rather than over it, so its wires stay in view, and within the hero.
     var rr = root.getBoundingClientRect(), br = g.getBoundingClientRect();
+    var hr = hero.getBoundingClientRect();
     var cw = card.offsetWidth, ch = card.offsetHeight;
+    var minX = hr.left - rr.left + 4, maxX = Math.max(minX, hr.right - rr.left - cw - 4);
+    var minY = hr.top - rr.top + 4, maxY = Math.max(minY, hr.bottom - rr.top - ch - 4);
     var x = br.right - rr.left + 12;
-    if (x + cw > root.clientWidth - 4) x = br.left - rr.left - cw - 12;
-    x = Math.min(Math.max(x, 4), Math.max(4, root.clientWidth - cw - 4));
-    var y = Math.min(Math.max(br.top - rr.top, 4), Math.max(4, root.clientHeight - ch - 4));
+    if (x > maxX) x = br.left - rr.left - cw - 12;
+    x = Math.min(Math.max(x, minX), maxX);
+    var y = Math.min(Math.max(br.top - rr.top, minY), maxY);
     card.style.left = x + "px";
     card.style.top = y + "px";
     if (activeNode && activeNode !== k) {
@@ -1184,6 +1189,25 @@
     return pt.matrixTransform(svg.getScreenCTM().inverse());
   }
 
+  // A box stays within the hero band, clear of its edges by more than the float.
+  var hero = root.closest(".osml-hero") || root;
+  function heroBounds() {
+    var r = hero.getBoundingClientRect();
+    var a = svgPoint({ clientX: r.left, clientY: r.top });
+    var b = svgPoint({ clientX: r.right, clientY: r.bottom });
+    return { x0: a.x + 6, y0: a.y + 6, x1: b.x - 6, y1: b.y - 6 };
+  }
+  function keepInHero(n, b) {
+    n.dx = Math.min(Math.max(n.dx, b.x0 + n.w / 2 - n.cx), b.x1 - n.w / 2 - n.cx);
+    n.dy = Math.min(Math.max(n.dy, b.y0 + n.h / 2 - n.cy), b.y1 - n.h / 2 - n.cy);
+  }
+  window.addEventListener("resize", function () {
+    if (!root.isConnected) { ac.abort(); return; }
+    var b = heroBounds();
+    Object.keys(nodes).forEach(function (k) { keepInHero(nodes[k], b); });
+    relayout();
+  }, { signal: ac.signal });
+
   function bindNode(k) {
     var n = nodes[k];
     n.g.addEventListener("pointerdown", function (e) {
@@ -1216,6 +1240,7 @@
         clearTimeout(pressTimer);
       }
       n.dx = nx; n.dy = ny;
+      keepInHero(n, heroBounds());
       if (reduceMotion.matches) layout(0);
     });
     function endDrag() {
