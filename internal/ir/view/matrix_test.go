@@ -320,6 +320,119 @@ func TestMatrixPseudoViewRendersExposedRelationships(t *testing.T) {
 	}
 }
 
+func TestMatrixRendersDerivationConnectionDefinitions(t *testing.T) {
+	r, idx := loadSources(t, []string{"derivation-definition-matrix.sysml"}, [][]byte{[]byte(`package DerivationMatrixTest {
+	private import DocumentQueries::*;
+	private import KerML::Root::Element;
+	private import ScalarValues::*;
+	private import Requirements::*;
+	private import RequirementDerivation::*;
+	private import ModelingMetadata::Refinement;
+
+	requirement def R1;
+	requirement def R2;
+	#derivation connection def R1ToR2 {
+		end #original sourceRequirement : R1;
+		end #derive targetRequirement : R2;
+	}
+}
+
+package Support {
+	private import RequirementDerivation::*;
+	private import DerivationMatrixTest::*;
+
+	requirement r1 : R1;
+	requirement r2 : R2;
+	#derivation connection : R1ToR2 {
+		end sourceRequirement ::> r1;
+		end targetRequirement ::> r2;
+	}
+}
+
+package Views {
+	private import StandardViewDefinitions::*;
+
+	view derivationMatrix : GridView {
+		filter @RequirementDerivation::DerivationMetadata;
+		expose DerivationMatrixTest::**;
+	}
+
+	view satisfyOnlyMatrix : GridView {
+		filter @SysML::SatisfyRequirementUsage;
+		expose DerivationMatrixTest::**;
+	}
+}`)})
+	definition := lookup(t, idx, "DerivationMatrixTest::R1ToR2")
+	keyword, edges := r.matrixEdges(definition)
+	if keyword != "derive" || len(edges) != 1 ||
+		idx.GetFQN(edges[0].Source) != "DerivationMatrixTest::R1" ||
+		idx.GetFQN(edges[0].Target) != "DerivationMatrixTest::R2" {
+		t.Fatalf("definition matrix edge = %q, %v, want R1 -> R2 derive", keyword, edges)
+	}
+
+	wantColumns := []string{"Source / Target", "DerivationMatrixTest::R2"}
+	wantRow := []string{"DerivationMatrixTest::R1", "derive"}
+	assertMatrix := func(t *testing.T, rendering *Rendering) {
+		t.Helper()
+		if rendering.Kind != KindMatrix ||
+			!slices.Equal(rendering.Columns, wantColumns) ||
+			len(rendering.Rows) != 1 || !slices.Equal(rendering.Rows[0], wantRow) {
+			t.Fatalf("matrix = %#v, want columns %v and row %v", rendering.Data(), wantColumns, wantRow)
+		}
+	}
+
+	t.Run("pseudo view", func(t *testing.T) {
+		rendering, err := r.RenderExposed(
+			[]*symbols.Symbol{lookup(t, idx, "DerivationMatrixTest")},
+			KindMatrix,
+			"#matrix",
+		)
+		if err != nil {
+			t.Fatalf("RenderExposed: %v", err)
+		}
+		assertMatrix(t, rendering)
+		if len(rendering.Notices) != 0 {
+			t.Fatalf("#matrix notices = %v, want none", rendering.Notices)
+		}
+	})
+
+	t.Run("declared view", func(t *testing.T) {
+		rendering, err := r.Render(lookup(t, idx, "Views::derivationMatrix"))
+		if err != nil {
+			t.Fatalf("Render: %v", err)
+		}
+		assertMatrix(t, rendering)
+		for _, notice := range rendering.Notices {
+			if strings.Contains(notice, "DerivationMatrixTest::R1ToR2") {
+				t.Fatalf("derivation definition was left out: %v", rendering.Notices)
+			}
+		}
+	})
+
+	t.Run("satisfy-only selector", func(t *testing.T) {
+		rendering, err := r.Render(lookup(t, idx, "Views::satisfyOnlyMatrix"))
+		if err != nil {
+			t.Fatalf("Render: %v", err)
+		}
+		const want = "Views::satisfyOnlyMatrix - matrix rendering (view def GridView)\n\nthe view exposes nothing; the rendering is empty\n"
+		if rendering.Kind != KindMatrix || !rendering.Empty() ||
+			len(rendering.Columns) != 0 || len(rendering.Rows) != 0 ||
+			len(rendering.Notices) != 0 || rendering.Text() != want {
+			t.Fatalf("satisfy-only rendering = %#v\ntext:\n%s\nwant:\n%s",
+				rendering.Data(), rendering.Text(), want)
+		}
+
+		gated := &Rendering{Kind: KindMatrix}
+		r.renderMatrix([]*symbols.Symbol{definition}, []string{"satisfy"}, false, gated)
+		const wantNotice = "1 exposed element states no satisfy relationship and is left out of the matrix: DerivationMatrixTest::R1ToR2"
+		if !gated.Empty() || len(gated.Columns) != 0 || len(gated.Rows) != 0 ||
+			!slices.Equal(gated.Notices, []string{wantNotice}) {
+			t.Fatalf("unselected derivation definition rendering = %#v, want an empty matrix and notice %q",
+				gated.Data(), wantNotice)
+		}
+	})
+}
+
 func formNames(forms []Form) []string {
 	names := make([]string, len(forms))
 	for i, form := range forms {

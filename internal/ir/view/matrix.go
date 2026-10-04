@@ -262,6 +262,12 @@ func (r *Renderer) matrixEdges(sym *symbols.Symbol) (string, []semantics.Relatio
 		}
 		return "dependency", r.model.RelationshipEdgesOf(sym, semantics.RelationshipDependency)
 	}
+	if definition, ok := sym.Decl.(*ast.Definition); ok && definition.Kind == ast.DefConnection {
+		if edges := r.model.RelationshipEdgesOf(sym, semantics.RelationshipDerivation); len(edges) != 0 {
+			return "derive", edges
+		}
+		return "", nil
+	}
 	return "", nil
 }
 
