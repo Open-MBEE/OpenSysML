@@ -46,8 +46,8 @@ usecase "<size:10>//«use case»//</size>\n**CaseExamples::'Provide Transportati
 rectangle "<size:10>//«subject»//</size>\n**vehicle : Vehicle**" as n1 <<subject>> <<usage>> [[https://example.test/src/case.sysml#L27]]
 actor "<size:10>//«actor»//</size>\n**driver : Person**" as n2 <<actor>> <<usage>> [[https://example.test/src/case.sysml#L28]]
 note as n3
-  [[https://example.test/src/case.sysml#L29 **objective**
-Transport the vehicle and its passengers safely.]]
+  [[https://example.test/src/case.sysml#L29 **objective**]]
+  [[https://example.test/src/case.sysml#L29 Transport the vehicle and its passengers safely.]]
 end note
 usecase "<size:10>//«use case def»//</size>\n**CaseExamples::'Add Fuel'**" as n4 <<use case def>> [[https://example.test/src/case.sysml#L16]]
 rectangle "<size:10>//«subject»//</size>\n**vehicle : Vehicle**" as n5 <<subject>> <<usage>> [[https://example.test/src/case.sysml#L17]]
@@ -61,8 +61,8 @@ actor "<size:10>//«actor»//</size>\n**driver**" as n12 <<actor>> <<usage>> [[h
 usecase "<size:10>//«analysis def»//</size>\n**CaseExamples::FuelAnalysis**" as n13 <<analysis def>> [[https://example.test/src/case.sysml#L49]]
 rectangle "<size:10>//«subject»//</size>\n**vehicle : Vehicle**" as n14 <<subject>> <<usage>> [[https://example.test/src/case.sysml#L50]]
 note as n15
-  [[https://example.test/src/case.sysml#L51 **objective**
-Estimate the fuel remaining after a journey.]]
+  [[https://example.test/src/case.sysml#L51 **objective**]]
+  [[https://example.test/src/case.sysml#L51 Estimate the fuel remaining after a journey.]]
 end note
 usecase "<size:10>//«verification def»//</size>\n**CaseExamples::FuelVerification**" as n16 <<verification def>> [[https://example.test/src/case.sysml#L56]]
 rectangle "<size:10>//«subject»//</size>\n**vehicle : Vehicle**" as n17 <<subject>> <<usage>> [[https://example.test/src/case.sysml#L57]]

@@ -67,16 +67,16 @@ package "<size:10>//«package»//</size>\n**MixedExamples**" as n0 <<package>> [
     rectangle "<size:10>//«state»//</size>\n**ready : Ready**\ninitial" as n3 <<state>> <<usage>> [[https://example.test/src/mixed.sysml#L31]]
   }
   rectangle "<size:10>//«action def»//</size>\n**Operate**" as n5 <<action def>> [[https://example.test/src/mixed.sysml#L34]] {
-    circle "**initial**" as n6 <<start>>
+    circle "**initial**" as n6 <<start>> [[https://example.test/src/mixed.sysml#L35]]
     rectangle "<size:10>//«action»//</size>\n**'step'**" as n7 <<action>> <<usage>> [[https://example.test/src/mixed.sysml#L36]]
-    circle "**final**" as n8 <<end>>
+    circle "**final**" as n8 <<end>> [[https://example.test/src/mixed.sysml#L37]]
   }
   usecase "<size:10>//«use case def»//</size>\n**Inspection**" as n9 <<use case def>> [[https://example.test/src/mixed.sysml#L42]]
   actor "<size:10>//«actor»//</size>\n**operator : Person**" as n10 <<actor>> <<usage>> [[https://example.test/src/mixed.sysml#L43]]
   rectangle "<size:10>//«subject»//</size>\n**plant : Plant**" as n11 <<subject>> <<usage>> [[https://example.test/src/mixed.sysml#L44]]
   note as n12
-    [[https://example.test/src/mixed.sysml#L45 **objective**
-Inspect the plant and report its operating state.]]
+    [[https://example.test/src/mixed.sysml#L45 **objective**]]
+    [[https://example.test/src/mixed.sysml#L45 Inspect the plant and report its operating state.]]
   end note
   rectangle "<size:10>//«perform action»//</size>\n**run : Operate**\ndeclares no nodes" as n13 <<perform action>> <<usage>> [[https://example.test/src/mixed.sysml#L48]]
   rectangle "<size:10>//«exhibit state»//</size>\n**mode : Modes**" as n14 <<exhibit state>> <<usage>> [[https://example.test/src/mixed.sysml#L49]] {

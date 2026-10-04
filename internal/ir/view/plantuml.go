@@ -364,7 +364,13 @@ func (w *plantumlWriter) writeCaseMixedNode(node *Node, depth int, mixed bool) {
 	case node.Kind == "objective":
 		if url, ok := w.links.URL(node.Origin); ok {
 			note := strings.ReplaceAll(w.plantumlLabel(node), `\n`, "\n")
-			fmt.Fprintf(&w.b, "%snote as %s%s\n%s  [[%s %s]]\n%send note\n", indent, node.ID, w.noteDecoration(node), indent, url, note, indent)
+			fmt.Fprintf(&w.b, "%snote as %s%s\n", indent, node.ID, w.noteDecoration(node))
+			for _, line := range strings.Split(note, "\n") {
+				if line != "" {
+					fmt.Fprintf(&w.b, "%s  [[%s %s]]\n", indent, url, plantumlNoteLinkText(line))
+				}
+			}
+			fmt.Fprintf(&w.b, "%send note\n", indent)
 			return
 		}
 		fmt.Fprintf(&w.b, "%snote %s as %s%s\n", indent, label, node.ID, w.noteDecoration(node))
@@ -542,7 +548,7 @@ func (w *plantumlWriter) decoration(node *Node) string {
 	if pseudostate := plantumlPseudostates[node.Kind]; pseudostate != "" {
 		// PlantUML draws a pseudostate only when its stereotype stands alone.
 		fmt.Fprintf(&out, " <<%s>>", pseudostate)
-		if _, unlinked := plantumlUnlinkedPseudostates[pseudostate]; !unlinked {
+		if _, unlinked := plantumlUnlinkedPseudostates[pseudostate]; !unlinked || (w.kind != KindState && w.kind != KindAction) {
 			if url, ok := w.links.URL(node.Origin); ok {
 				fmt.Fprintf(&out, " [[%s]]", url)
 			}
@@ -631,6 +637,10 @@ func (w *plantumlWriter) plantumlLabel(node *Node) string {
 		parts = append(parts, plantumlText(line))
 	}
 	return strings.Join(parts, `\n`)
+}
+
+func plantumlNoteLinkText(text string) string {
+	return strings.ReplaceAll(text, "]", "~]")
 }
 
 // plantumlQuote wraps text in double quotes for a PlantUML display name.
