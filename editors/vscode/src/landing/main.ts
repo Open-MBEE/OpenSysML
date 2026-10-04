@@ -490,7 +490,7 @@ function mount(root: HTMLElement): Mounted {
     }
   }
 
-  // placeCard puts the card beside its box, on whichever side covers the fewest other boxes.
+  // placeCard keeps the card visible while preferring a spot beside its box.
   function placeCard(): void {
     if (!cardFor || card.hidden) {
       return;
@@ -500,11 +500,38 @@ function mount(root: HTMLElement): Mounted {
       return;
     }
     const heroRect = hero.getBoundingClientRect();
+    const headerBottom = document.querySelector<HTMLElement>(".md-header")?.getBoundingClientRect().bottom ?? 0;
+    const visibleLeft = Math.max(heroRect.left, 0);
+    const visibleTop = Math.max(heroRect.top, 0, headerBottom);
+    const visibleRight = Math.min(heroRect.right, window.innerWidth);
+    const visibleBottom = Math.min(heroRect.bottom, window.innerHeight);
+    const pad = 12;
+    const area = {
+      x: visibleLeft - heroRect.left + pad,
+      y: visibleTop - heroRect.top + pad,
+      width: Math.max(0, visibleRight - visibleLeft - 2 * pad),
+      height: Math.max(0, visibleBottom - visibleTop - 2 * pad),
+    };
     const at = shape.getBoundingClientRect();
     const box = new DOMRect(at.left - heroRect.left, at.top - heroRect.top, at.width, at.height);
-    const pad = 12;
     const gap = 14;
-    card.style.maxHeight = `${Math.max(120, heroRect.height - 2 * pad)}px`;
+    const style = getComputedStyle(card);
+    const horizontalInsets =
+      style.boxSizing === "border-box"
+        ? 0
+        : Number.parseFloat(style.paddingLeft) +
+          Number.parseFloat(style.paddingRight) +
+          Number.parseFloat(style.borderLeftWidth) +
+          Number.parseFloat(style.borderRightWidth);
+    const verticalInsets =
+      style.boxSizing === "border-box"
+        ? 0
+        : Number.parseFloat(style.paddingTop) +
+          Number.parseFloat(style.paddingBottom) +
+          Number.parseFloat(style.borderTopWidth) +
+          Number.parseFloat(style.borderBottomWidth);
+    card.style.maxWidth = `${Math.max(0, area.width - horizontalInsets)}px`;
+    card.style.maxHeight = `${Math.max(0, area.height - verticalInsets)}px`;
     const width = card.offsetWidth;
     const height = card.offsetHeight;
     const others = [...content.querySelectorAll<SVGGElement>("g.opensysml-node")]
@@ -516,27 +543,31 @@ function mount(root: HTMLElement): Mounted {
     const middleY = box.y + box.height / 2 - height / 2;
     const middleX = box.x + box.width / 2 - width / 2;
     const candidates = [
-      { x: box.right + gap, y: middleY },
-      { x: box.left - gap - width, y: middleY },
-      { x: middleX, y: box.bottom + gap },
-      { x: middleX, y: box.top - gap - height },
+      { side: "right", x: box.right + gap, y: middleY },
+      { side: "left", x: box.left - gap - width, y: middleY },
+      { side: "below", x: middleX, y: box.bottom + gap },
+      { side: "above", x: middleX, y: box.top - gap - height },
     ];
+    const placements = candidates.map((candidate) => {
+      const x = Math.min(Math.max(candidate.x, area.x), Math.max(area.x, area.x + area.width - width));
+      const y = Math.min(Math.max(candidate.y, area.y), Math.max(area.y, area.y + area.height - height));
+      const shift = Math.abs(x - candidate.x) + Math.abs(y - candidate.y);
+      return { ...candidate, x, y, shift, rect: new DOMRect(x, y, width, height) };
+    });
+    const uncovered = placements.filter((placement) => overlap(placement.rect, box) === 0);
+    const choices = uncovered.length > 0 ? uncovered : placements.filter(({ side }) => side === "below");
     let best: { x: number; y: number; cost: number } | undefined;
-    for (const candidate of candidates) {
-      const x = Math.min(Math.max(candidate.x, pad), Math.max(pad, heroRect.width - width - pad));
-      const y = Math.min(Math.max(candidate.y, pad), Math.max(pad, heroRect.height - height - pad));
-      const rect = new DOMRect(x, y, width, height);
-      // Covering its own box is worst; covering another is next; being pushed off its side counts a little.
+    for (const candidate of choices) {
+      // Avoid other boxes and large moves after first preferring spots that leave this one uncovered.
       const cost =
-        overlap(rect, box) * 4 +
-        others.reduce((sum, other) => sum + overlap(rect, other), 0) +
-        Math.abs(x - candidate.x) + Math.abs(y - candidate.y);
+        others.reduce((sum, other) => sum + overlap(candidate.rect, other), 0) +
+        candidate.shift;
       if (!best || cost < best.cost) {
-        best = { x, y, cost };
+        best = { x: candidate.x, y: candidate.y, cost };
       }
     }
-    card.style.left = `${Math.round(best!.x)}px`;
-    card.style.top = `${Math.round(best!.y)}px`;
+    card.style.left = `${best!.x}px`;
+    card.style.top = `${best!.y}px`;
   }
 
   // ---- moving boxes ----
@@ -863,6 +894,16 @@ function mount(root: HTMLElement): Mounted {
   });
   resize.observe(hero);
   resize.observe(stage);
+  window.addEventListener("resize", () => {
+    if (cardFor) {
+      placeCard();
+    }
+  }, { signal });
+  window.addEventListener("scroll", () => {
+    if (cardFor) {
+      placeCard();
+    }
+  }, { signal });
 
   void loadAvoid(root.dataset.osmlLibavoid ?? "").then(
     () => {
