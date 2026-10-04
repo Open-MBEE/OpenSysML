@@ -2,9 +2,10 @@
 	"type": "action",
 	"evaluate": "test::stopper",
 	"libraries": true,
-	"outputs": {
-		"x": {"type": "Integer", "value": 6},
-		"y": {"type": "Integer", "value": 0},
-		"cleaned": {"type": "Integer", "value": 5}
-	}
+	"outcomes": [
+		{"outputs": {"x": {"type": "Integer", "value": 1}, "y": {"type": "Integer", "value": 0}, "cleaned": {"type": "Integer", "value": 0}}},
+		{"outputs": {"x": {"type": "Integer", "value": 1}, "y": {"type": "Integer", "value": 0}, "cleaned": {"type": "Integer", "value": 5}}},
+		{"outputs": {"x": {"type": "Integer", "value": 6}, "y": {"type": "Integer", "value": 0}, "cleaned": {"type": "Integer", "value": 5}}}
+	],
+	"admissible": "A terminate action usage's body and its implicit terminate: each is performed, in which order is open"
 }

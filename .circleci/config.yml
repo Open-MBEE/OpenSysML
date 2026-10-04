@@ -287,6 +287,12 @@ jobs:
             go vet ./...
             go vet -C tools ./...
 
+      # The third-party notices link the licence text this bundle copies into
+      # docs/assets/landing, which is generated rather than tracked.
+      - run:
+          name: Build the landing-page diagram
+          command: make docs-landing-assets
+
       - run:
           name: Check documentation links
           command: python3 scripts/check-doc-links.py
@@ -416,7 +422,10 @@ jobs:
       - install-fmpy
 
       # One scripts/race-shard.sh shard per node: internal/exec/runtime alone peaks near
-      # 6.5 GB under -race, so it shares its 8 GB node only sequentially (tests/wasm, tools).
+      # 8.5 GB under -race, so it shares its 8 GB node only sequentially (tests/wasm, tools).
+      # The race detector's memory is per process and the corpus-wide exploration alone
+      # accounts for half of that peak, so the package runs as two processes: the
+      # exploration, then everything else (4 GB each).
       - run:
           name: Run Go race tests
           command: |
@@ -429,10 +438,14 @@ jobs:
             shard=${shards[$CIRCLE_NODE_INDEX]}
             pkgs=$(scripts/race-shard.sh "$shard")
             echo "shard $shard:"; echo "$pkgs"
-            go test -v -race -pgo=off -timeout 30m $pkgs
             if [ "$shard" = runtime ]; then
+              exploration='^TestExploreWithIsExploreOverTheConformanceCorpus$'
+              go test -v -race -pgo=off -timeout 30m -run "$exploration" $pkgs
+              go test -v -race -pgo=off -timeout 30m -skip "$exploration" $pkgs
               go test -v -race -pgo=off -timeout 30m ./tests/wasm
               go test -C tools -v -race -pgo=off -timeout 30m ./...
+            else
+              go test -v -race -pgo=off -timeout 30m $pkgs
             fi
           no_output_timeout: 30m
           environment:

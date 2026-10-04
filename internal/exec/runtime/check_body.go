@@ -92,7 +92,38 @@ func (f *engineFrame) spell(s *stateSpeller) string {
 	return "engine{" + s.localFrames(f.engine.env.frames, f.engine.env.unvalued) + "}"
 }
 
-func (f *stmtListFrame) spell(*stateSpeller) string { return fmt.Sprintf("stmt %d", f.i) }
+func (f *stmtListFrame) spell(s *stateSpeller) string {
+	if f.done == nil {
+		return fmt.Sprintf("stmt %d", f.i)
+	}
+	var b strings.Builder
+	fmt.Fprintf(&b, "stmt %d of ", f.i)
+	for i, done := range f.done {
+		switch {
+		case done:
+			b.WriteByte('+')
+		case f.blocked[i]:
+			b.WriteByte('!')
+		default:
+			b.WriteByte('-')
+		}
+	}
+	if f.switched >= 0 {
+		fmt.Fprintf(&b, " after %d", f.switched)
+	}
+	for i, strand := range f.strands {
+		if strand == nil {
+			continue
+		}
+		fmt.Fprintf(&b, " [%d:", i)
+		for _, inner := range strand.cursor {
+			b.WriteString(" ")
+			b.WriteString(inner.spell(s))
+		}
+		b.WriteString("]")
+	}
+	return b.String()
+}
 
 func (f *branchFrame) spell(*stateSpeller) string {
 	if f.elseBranch {

@@ -237,9 +237,11 @@ func TestConstraintWithoutConditionsIsNotAVerdict(t *testing.T) {
 	}
 }
 
-func TestConstraintBodyStatementIsNotAVerdict(t *testing.T) {
-	// The assignment would make the condition hold; ignoring it would report a
-	// false verdict, so the check must refuse instead.
+func TestConstraintBodyStepsRun(t *testing.T) {
+	// The body's statements are steps of one performance, run before its
+	// conditions are evaluated: the assignment makes the condition hold. A
+	// write of the constrained part's feature is refused — the implicit target
+	// of an assignment is the constraint's own performance (SysML v2 §7.17.9).
 	src := `
 		package test {
 			constraint def Reassigned {
@@ -268,58 +270,56 @@ func TestConstraintBodyStatementIsNotAVerdict(t *testing.T) {
 		t.Fatal("Reassigned not found")
 	}
 	satisfied, err := ctx.EvaluateConstraint(reassigned, testPkg)
-	if !errors.Is(err, ErrStatementNotExecuted) {
-		t.Fatalf("err = %v, want ErrStatementNotExecuted", err)
+	if err != nil {
+		t.Fatalf("err = %v", err)
 	}
-	if want := "`assign` statement"; err == nil || !strings.Contains(err.Error(), want) {
-		t.Errorf("err = %v, want it to name the %s", err, want)
-	}
-	if satisfied {
-		t.Error("a constraint whose body statement was skipped reported as satisfied")
+	if !satisfied {
+		t.Error("a constraint whose steps make its condition hold is not satisfied")
 	}
 
 	rig, ok := testPkg.LookupLocal("Rig")
 	if !ok {
 		t.Fatal("Rig not found")
 	}
-	feat := featureNamed(ctx, rig, "branched")
-	if feat == nil || feat.Symbol == nil {
-		t.Fatal("constraint feature not found")
-	}
-	satisfied, err = ctx.EvaluateConstraintOn(feat.Symbol, feat.DeclScope(), nil)
-	if !errors.Is(err, ErrStatementNotExecuted) {
-		t.Fatalf("err = %v, want ErrStatementNotExecuted", err)
-	}
-	if want := "`if` statement"; err == nil || !strings.Contains(err.Error(), want) {
-		t.Errorf("err = %v, want it to name the %s", err, want)
-	}
-	if satisfied {
-		t.Error("a constraint whose body statement was skipped reported as satisfied")
-	}
-
-	// A condition failing before the statement is no verdict either, not even
-	// for a negated constraint; the group case nests the statement.
-	for _, name := range []string{"failedFirst", "denied", "grouped"} {
+	for _, name := range []string{"branched", "failedFirst", "denied"} {
 		feat := featureNamed(ctx, rig, name)
 		if feat == nil || feat.Symbol == nil {
 			t.Fatalf("constraint %s not found", name)
 		}
 		satisfied, err := ctx.EvaluateConstraintOn(feat.Symbol, feat.DeclScope(), nil)
-		if !errors.Is(err, ErrStatementNotExecuted) {
-			t.Errorf("%s: err = %v, want ErrStatementNotExecuted", name, err)
+		if !errors.Is(err, ErrConstraintExternalAssignment) {
+			t.Errorf("%s: err = %v, want ErrConstraintExternalAssignment", name, err)
 		}
-		if want := "`assign` statement"; err == nil || !strings.Contains(err.Error(), want) {
-			t.Errorf("%s: err = %v, want it to name the %s", name, err, want)
+		if want := "z is not one of its features"; err == nil || !strings.Contains(err.Error(), want) {
+			t.Errorf("%s: err = %v, want it to say %s", name, err, want)
 		}
 		if satisfied {
-			t.Errorf("%s: reported as satisfied with its body statement skipped", name)
+			t.Errorf("%s: reported as satisfied with its refused write", name)
 		}
+	}
+
+	// A required condition failing first reports the violation: the nested
+	// body's steps are never reached.
+	feat := featureNamed(ctx, rig, "grouped")
+	if feat == nil || feat.Symbol == nil {
+		t.Fatal("constraint grouped not found")
+	}
+	satisfied, err = ctx.EvaluateConstraintOn(feat.Symbol, feat.DeclScope(), nil)
+	var violation *ViolationError
+	if !errors.As(err, &violation) {
+		t.Fatalf("grouped: err = %v, want a *ViolationError", err)
+	}
+	if violation.Condition != "z > 100" {
+		t.Errorf("grouped: violated condition = %q, want z > 100", violation.Condition)
+	}
+	if satisfied {
+		t.Error("grouped: reported as satisfied")
 	}
 }
 
-func TestConstraintBodyPerformIsNotAVerdict(t *testing.T) {
-	// A performed action is a usage, not a statement node, and it is one more
-	// thing the body does that a verdict would have to account for.
+func TestConstraintBodyPerformIsRefused(t *testing.T) {
+	// A performed action is a usage, not a statement node, and it is an effect
+	// outside the constraint's own performance, which a verdict refuses.
 	src := `
 		package test {
 			action def Bump { inout n; assign n := n + 10; }
@@ -349,8 +349,8 @@ func TestConstraintBodyPerformIsNotAVerdict(t *testing.T) {
 		t.Fatal("Performed not found")
 	}
 	satisfied, err := ctx.EvaluateConstraint(performed, testPkg)
-	if !errors.Is(err, ErrStatementNotExecuted) {
-		t.Fatalf("err = %v, want ErrStatementNotExecuted", err)
+	if !errors.Is(err, ErrConstraintEffect) {
+		t.Fatalf("err = %v, want ErrConstraintEffect", err)
 	}
 	if want := "`perform` statement"; err == nil || !strings.Contains(err.Error(), want) {
 		t.Errorf("err = %v, want it to name the %s", err, want)
@@ -373,8 +373,8 @@ func TestConstraintBodyPerformIsNotAVerdict(t *testing.T) {
 			evaluate = ctx.EvaluateRequirementOn
 		}
 		satisfied, err := evaluate(feat.Symbol, feat.DeclScope(), nil)
-		if !errors.Is(err, ErrStatementNotExecuted) {
-			t.Errorf("%s: err = %v, want ErrStatementNotExecuted", name, err)
+		if !errors.Is(err, ErrConstraintEffect) {
+			t.Errorf("%s: err = %v, want ErrConstraintEffect", name, err)
 		}
 		if want := "`perform` statement"; err == nil || !strings.Contains(err.Error(), want) {
 			t.Errorf("%s: err = %v, want it to name the %s", name, err, want)
@@ -385,9 +385,9 @@ func TestConstraintBodyPerformIsNotAVerdict(t *testing.T) {
 	}
 }
 
-func TestConstraintBodyActionFlowIsNotAVerdict(t *testing.T) {
-	// Action nodes and the successions between them are steps of the body too:
-	// a verdict that skipped them would answer a different constraint.
+func TestConstraintBodyActionFlowIsRefused(t *testing.T) {
+	// Action nodes perform actions — an effect outside the performance — and
+	// the successions between them are a stated flow a verdict does not order.
 	src := `
 		package test {
 			constraint def Flowed {
@@ -420,10 +420,10 @@ func TestConstraintBodyActionFlowIsNotAVerdict(t *testing.T) {
 		t.Fatal("Flowed not found")
 	}
 	satisfied, err := ctx.EvaluateConstraint(flowed, testPkg)
-	if !errors.Is(err, ErrStatementNotExecuted) {
-		t.Fatalf("err = %v, want ErrStatementNotExecuted", err)
+	if !errors.Is(err, ErrConstraintEffect) {
+		t.Fatalf("err = %v, want ErrConstraintEffect", err)
 	}
-	if want := "`action` statement"; err == nil || !strings.Contains(err.Error(), want) {
+	if want := "`perform` statement"; err == nil || !strings.Contains(err.Error(), want) {
 		t.Errorf("err = %v, want it to name the %s", err, want)
 	}
 	if satisfied {
@@ -444,10 +444,10 @@ func TestConstraintBodyActionFlowIsNotAVerdict(t *testing.T) {
 			evaluate = ctx.EvaluateRequirementOn
 		}
 		satisfied, err := evaluate(feat.Symbol, feat.DeclScope(), nil)
-		if !errors.Is(err, ErrStatementNotExecuted) {
-			t.Errorf("%s: err = %v, want ErrStatementNotExecuted", name, err)
+		if !errors.Is(err, ErrConstraintEffect) {
+			t.Errorf("%s: err = %v, want ErrConstraintEffect", name, err)
 		}
-		if want := "`action` statement"; err == nil || !strings.Contains(err.Error(), want) {
+		if want := "`perform` statement"; err == nil || !strings.Contains(err.Error(), want) {
 			t.Errorf("%s: err = %v, want it to name the %s", name, err, want)
 		}
 		if satisfied {
@@ -456,9 +456,9 @@ func TestConstraintBodyActionFlowIsNotAVerdict(t *testing.T) {
 	}
 }
 
-func TestConstraintBodySuccessionAloneIsNotAVerdict(t *testing.T) {
-	// A succession between actions declared outside the body is still a step
-	// the body states, and it is named by the keyword it was written with.
+func TestConstraintBodySuccessionIsRefused(t *testing.T) {
+	// A succession between actions declared outside the body is a stated flow
+	// a verdict does not order, and it is named by the keyword written.
 	src := `
 		package test {
 			part def Rig {
@@ -495,8 +495,8 @@ func TestConstraintBodySuccessionAloneIsNotAVerdict(t *testing.T) {
 			t.Fatalf("%s not found", name)
 		}
 		satisfied, err := ctx.EvaluateConstraintOn(feat.Symbol, feat.DeclScope(), nil)
-		if !errors.Is(err, ErrStatementNotExecuted) {
-			t.Errorf("%s: err = %v, want ErrStatementNotExecuted", name, err)
+		if !errors.Is(err, ErrStatementNotExecutable) {
+			t.Errorf("%s: err = %v, want ErrStatementNotExecutable", name, err)
 		}
 		if err == nil || !strings.Contains(err.Error(), want) {
 			t.Errorf("%s: err = %v, want it to name the %s", name, err, want)

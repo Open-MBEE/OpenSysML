@@ -99,6 +99,17 @@ func (ctx *Context) predicateShapeOf(sym *symbols.Symbol) *calcShape {
 func (ec *EvalContext) invokePredicate(sym *symbols.Symbol, args calcArgs) (Value, error) {
 	ctx := ec.ctx
 	shape := ctx.predicateShapeOf(sym)
+	if predicateOrderAware(ctx, sym) {
+		return ctx.invokeOrderedPredicate(shape, args, ec.self, func() (Value, error) {
+			return ec.invokePredicateDirect(sym, args)
+		})
+	}
+	return ec.invokePredicateDirect(sym, args)
+}
+
+func (ec *EvalContext) invokePredicateDirect(sym *symbols.Symbol, args calcArgs) (Value, error) {
+	ctx := ec.ctx
+	shape := ctx.predicateShapeOf(sym)
 	if err := shape.checkArgs(args); err != nil {
 		return Value{}, err
 	}

@@ -1,0 +1,5 @@
+{
+	"verdict": "divergent",
+	"divergent": {"y": ["0", "1"]},
+	"agreed": {"x": "1"}
+}
