@@ -62,9 +62,9 @@ export function avoidRoutes(shapes: Map<string, AvoidShape>, edges: AvoidEdge[])
   if (!avoid) {
     return undefined;
   }
-    const api = avoid;
-    const router = new api.Router(api.OrthogonalRouting);
-    try {
+  const api = avoid;
+  const router = new api.Router(api.OrthogonalRouting);
+  try {
     router.setRoutingParameter(api.idealNudgingDistance, 8);
     router.setRoutingParameter(api.segmentPenalty, 50);
     router.setRoutingOption(api.nudgeSharedPathsWithCommonEndPoint, true);
@@ -75,8 +75,7 @@ export function avoidRoutes(shapes: Map<string, AvoidShape>, edges: AvoidEdge[])
       shapes.get(edge.from)?.ports?.some((port) => port.id === edge.fromPort) ||
       shapes.get(edge.to)?.ports?.some((port) => port.id === edge.toPort),
     );
-    // Port faces project half a glyph beyond the node border.
-    router.setRoutingParameter(api.shapeBufferDistance, CLEARANCE - (hasPortEnds ? PORT_SIZE / 2 : 0));
+    router.setRoutingParameter(api.shapeBufferDistance, CLEARANCE);
     // Shape-connected nudging moves crowded port endpoints away from their faces.
     router.setRoutingOption(api.nudgeOrthogonalSegmentsConnectedToShapes, !hasPortEnds);
     const counts = new Map([...shapes.keys()].map((id) => [id, 0]));
@@ -123,11 +122,21 @@ export function avoidRoutes(shapes: Map<string, AvoidShape>, edges: AvoidEdge[])
       }
       const source = refs.get(edge.from)!;
       const target = refs.get(edge.to)!;
+      const sourceShapeData = shapes.get(edge.from)!;
+      const targetShapeData = shapes.get(edge.to)!;
       const hasPort =
         (edge.fromPort !== undefined && source.ports.has(edge.fromPort)) ||
         (edge.toPort !== undefined && target.ports.has(edge.toPort));
       const route = cleanRoute(points, hasPort);
       if (route) {
+        const sourcePort = sourceShapeData.ports?.find((port) => port.id === edge.fromPort);
+        const targetPort = targetShapeData.ports?.find((port) => port.id === edge.toPort);
+        if (sourcePort) {
+          alignPortFace(route, 0, 1, sourceShapeData.box, sourcePort);
+        }
+        if (targetPort) {
+          alignPortFace(route, route.length - 1, route.length - 2, targetShapeData.box, targetPort);
+        }
         routes.set(index, route);
       }
     }
@@ -150,8 +159,19 @@ function addShape(
   allocatePortClass: () => number,
 ): ShapePins {
   const box = shapeData.box;
-  const center = new api.Point(box.x + box.width / 2, box.y + box.height / 2);
-  const rectangle = new api.Rectangle(center, box.width, box.height);
+  const portsOn = (side: PortPosition["side"]) => shapeData.ports?.some((port) => port.side === side) ?? false;
+  const westGrowth = portsOn("west") ? PORT_SIZE / 2 : 0;
+  const eastGrowth = portsOn("east") ? PORT_SIZE / 2 : 0;
+  const northGrowth = portsOn("north") ? PORT_SIZE / 2 : 0;
+  const southGrowth = portsOn("south") ? PORT_SIZE / 2 : 0;
+  const routingBox = {
+    x: box.x - westGrowth,
+    y: box.y - northGrowth,
+    width: box.width + westGrowth + eastGrowth,
+    height: box.height + northGrowth + southGrowth,
+  };
+  const center = new api.Point(routingBox.x + routingBox.width / 2, routingBox.y + routingBox.height / 2);
+  const rectangle = new api.Rectangle(center, routingBox.width, routingBox.height);
   let shape: ShapeRef;
   try {
     shape = new api.ShapeRef(router, rectangle);
@@ -161,11 +181,13 @@ function addShape(
   }
 
   const offsets = [0.25, 0.5, 0.75] as const;
+  const position = (x: number, y: number, direction: number) =>
+    [(x - routingBox.x) / routingBox.width, (y - routingBox.y) / routingBox.height, direction] as const;
   const pins = [
-    ...offsets.map((offset) => [offset, 0, api.ConnDirUp] as const),
-    ...offsets.map((offset) => [1, offset, api.ConnDirRight] as const),
-    ...offsets.map((offset) => [offset, 1, api.ConnDirDown] as const),
-    ...offsets.map((offset) => [0, offset, api.ConnDirLeft] as const),
+    ...offsets.map((offset) => position(box.x + box.width * offset, box.y, api.ConnDirUp)),
+    ...offsets.map((offset) => position(box.x + box.width, box.y + box.height * offset, api.ConnDirRight)),
+    ...offsets.map((offset) => position(box.x + box.width * offset, box.y + box.height, api.ConnDirDown)),
+    ...offsets.map((offset) => position(box.x, box.y + box.height * offset, api.ConnDirLeft)),
   ];
   for (const [x, y, direction] of pins) {
     const pin = new api.ShapeConnectionPin(shape, PIN_CLASS, x, y, true, 0, direction);
@@ -180,27 +202,27 @@ function addShape(
     let direction: number;
     switch (port.side) {
       case "north":
-        x = (face.x - box.x) / box.width;
+        x = (face.x - routingBox.x) / routingBox.width;
         y = 0;
         direction = api.ConnDirUp;
         break;
       case "east":
         x = 1;
-        y = (face.y - box.y) / box.height;
+        y = (face.y - routingBox.y) / routingBox.height;
         direction = api.ConnDirRight;
         break;
       case "south":
-        x = (face.x - box.x) / box.width;
+        x = (face.x - routingBox.x) / routingBox.width;
         y = 1;
         direction = api.ConnDirDown;
         break;
       case "west":
         x = 0;
-        y = (face.y - box.y) / box.height;
+        y = (face.y - routingBox.y) / routingBox.height;
         direction = api.ConnDirLeft;
         break;
     }
-    const pin = new api.ShapeConnectionPin(shape, classId, x, y, true, -PORT_SIZE / 2, direction);
+    const pin = new api.ShapeConnectionPin(shape, classId, x, y, true, 0, direction);
     pin.setExclusive(false);
     ports.set(port.id, classId);
   });
@@ -228,6 +250,19 @@ function cleanRoute(points: RenderPoint[], preservePortFaces = false): RenderPoi
     }
   }
   return clean.length >= 2 ? clean : undefined;
+}
+
+function alignPortFace(route: RenderPoint[], pointIndex: number, adjacentIndex: number, box: Box, port: AvoidPort): void {
+  const face = portFace(box, port);
+  route[pointIndex] = face;
+  const adjacent = route[adjacentIndex];
+  const vertical = port.side === "north" || port.side === "south";
+  const actual = vertical ? adjacent.x : adjacent.y;
+  const expected = vertical ? face.x : face.y;
+  const tolerance = Number.EPSILON * Math.max(1, Math.abs(actual), Math.abs(expected)) * 4;
+  if (Math.abs(actual - expected) <= tolerance) {
+    route[adjacentIndex] = vertical ? { ...adjacent, x: expected } : { ...adjacent, y: expected };
+  }
 }
 
 function collinear(a: RenderPoint, b: RenderPoint, c: RenderPoint): boolean {
