@@ -17,9 +17,9 @@ package test {
 			state driving {
 				entry action mark {
 					assign machineDuring := isDuring(modes);
-					assign partDuring := isDuring(w);
-					assign w := destroy(w);
-					assign partAfter := isDuring(w);
+					then assign partDuring := isDuring(w);
+					then assign w := destroy(w);
+					then assign partAfter := isDuring(w);
 				}
 			}
 		}

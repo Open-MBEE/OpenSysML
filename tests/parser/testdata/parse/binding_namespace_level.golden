@@ -1,0 +1,58 @@
+(RootNamespace
+  (Membership visibility="default"
+    (Package name="P" library=false standard=false
+      (Membership visibility="default"
+        (Definition kind="part" abstract=false variation=false name="Car"))
+      (Membership visibility="default"
+        (Usage kind="part" name="a" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+          (Relationship kind="typing" target=Car
+            (*ast.QualifiedName))))
+      (Membership visibility="default"
+        (Usage kind="part" name="b" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+          (Relationship kind="typing" target=Car
+            (*ast.QualifiedName))))
+      (Membership visibility="default"
+        (Usage kind="binding" name="" ref=false direction="none" composite=false derived=false ordered=false nonunique=false keyword="bind"
+          (ConnectorEnd target="a"
+            (*ast.QualifiedName))
+          (ConnectorEnd target="b"
+            (*ast.QualifiedName))))
+      (Membership visibility="default"
+        (Usage kind="binding" name="named" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+          (ConnectorEnd target="a"
+            (*ast.QualifiedName))
+          (ConnectorEnd target="b"
+            (*ast.QualifiedName))))
+      (Membership visibility="default"
+        (Usage kind="part" name="c" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+          (Relationship kind="typing" target=Car
+            (*ast.QualifiedName))))
+      (Membership visibility="default"
+        (Usage kind="part" name="d" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+          (Relationship kind="typing" target=Car
+            (*ast.QualifiedName))
+          (Membership visibility="default"
+            (Usage kind="part" name="w2" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Car
+                (*ast.QualifiedName))))))
+      (Membership visibility="default"
+        (Usage kind="binding" name="" ref=false direction="none" composite=false derived=false ordered=false nonunique=false keyword="bind"
+          (ConnectorEnd target="c"
+            (*ast.QualifiedName))
+          (ConnectorEnd target="*ast.FeatureChainExpr"
+            (FeatureChainExpr member="w2"
+              (FeatureReference name="d")))))
+      (Membership visibility="default"
+        (Usage kind="binding" name="" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+          (Multiplicity range=false
+            (LiteralInteger value="1"))
+          (ConnectorEnd target="a"
+            (Multiplicity range=true
+              (LiteralInteger value="0")
+              (LiteralInteger value="1"))
+            (*ast.QualifiedName))
+          (ConnectorEnd target="b"
+            (Multiplicity range=true
+              (LiteralInteger value="0")
+              (LiteralInteger value="1"))
+            (*ast.QualifiedName)))))))

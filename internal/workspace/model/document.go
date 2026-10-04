@@ -28,6 +28,7 @@ type Document struct {
 	ParseDiagnostics []parser.Diagnostic
 	ParseWarnings    []parser.Diagnostic
 	Scope            *symbols.Scope
+	kind             source.Kind
 	sf               *source.SourceFile
 	digest           string
 	// recorded is set for a document installed from its interface record (see
@@ -58,6 +59,14 @@ func (d *Document) Recorded() bool {
 	return d != nil && d.recorded != nil
 }
 
+// Kind reports the document's source kind, inferred from its name when none is stored.
+func (d *Document) Kind() source.Kind {
+	if d.kind != source.KindUnknown {
+		return d.kind
+	}
+	return source.KindOf(d.Name)
+}
+
 // TopMembers reports the document's top-level members as written, from its
 // tree when loaded and from its record when recorded.
 func (d *Document) TopMembers() []libs.TopMember {
@@ -69,8 +78,8 @@ func (d *Document) TopMembers() []libs.TopMember {
 
 // newDocument parses content, which the workspace owns and never writes, and
 // builds the document's local scope tree.
-func newDocument(name string, content []byte, version int) *Document {
-	sf := source.New(name, content)
+func newDocument(name string, content []byte, version int, kind source.Kind) *Document {
+	sf := newDocumentSource(name, content, kind)
 	p := parser.New(sf)
 	root := p.ParseFile()
 	scope := symbols.Build(root)
@@ -83,9 +92,17 @@ func newDocument(name string, content []byte, version int) *Document {
 		ParseDiagnostics: p.Diagnostics,
 		ParseWarnings:    p.Warnings,
 		Scope:            scope,
+		kind:             sf.Kind(),
 		sf:               sf,
 		digest:           digestOf(content),
 	}
+}
+
+func newDocumentSource(name string, content []byte, kind source.Kind) *source.SourceFile {
+	if kind == source.KindUnknown {
+		return source.New(name, content)
+	}
+	return source.NewWithKind(name, content, kind)
 }
 
 // Digest fingerprints the document's text: equal for equal content, so a

@@ -6,10 +6,8 @@ package test {
 		out attribute legs : Integer;
 
 		first leg;
-		action leg {
-			assign legs := 1;
-			assign legs := legs + 1;
-		}
+		action leg assign legs := 1;
+		then assign legs := legs + 1;
 		succession first leg then done;
 		done;
 	}
