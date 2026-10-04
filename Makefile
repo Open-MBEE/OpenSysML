@@ -1,4 +1,4 @@
-.PHONY: all build extension-libraries-check extension-libraries-sync build-sysml build-prod build-wasm-prod build-lsp build-grpc build-engine build-core build-syntax build-sysml-wasm build-wasm build-wasm-wasip1 build-wasm-js wasm-check static-check windows-versioninfo-check man man-check install-tree pgo-profile conformance conformance-pkg conformance-rust conformance-julia conformance-matlab test test-shard coverage lint clean install help fuml-expected python-test python-coverage scripts-coverage node-coverage python-install proto proto-buf python-proto proto-ts proto-rust proto-lint proto-breaking vscode-grammar vscode-build vscode-package docs docs-install docs-serve docs-engine-assets docs-counts docs-check changelog-check changelog-render self-model
+.PHONY: all build extension-libraries-check extension-libraries-sync build-sysml build-prod build-wasm-prod build-lsp build-grpc build-engine build-core build-syntax build-sysml-wasm build-release-wasm build-wasm build-wasm-wasip1 build-wasm-js wasm-check static-check windows-versioninfo-check man man-check install-tree pgo-profile conformance conformance-pkg conformance-rust conformance-julia conformance-matlab test test-shard coverage lint clean install help fuml-expected python-test python-coverage scripts-coverage node-coverage python-install proto proto-buf python-proto proto-ts proto-rust proto-lint proto-breaking vscode-grammar vscode-build vscode-package docs docs-install docs-serve docs-engine-assets docs-counts docs-check changelog-check changelog-render self-model
 
 # Version information
 # Only release tags describe a build; the moving `nightly` tag is not a version.
@@ -140,6 +140,13 @@ build-sysml-wasm: ## Build bin/sysml-wasm natively (opt-in; not released)
 	@mkdir -p $(BIN_DIR)
 	$(GO_BUILD) -o $(BIN_DIR)/sysml-wasm ./cmd/sysml-wasm
 	@echo "✓ Built $(BIN_DIR)/sysml-wasm ($(VERSION))"
+
+build-release-wasm: ## Build release bin/wasm/release/sysml-wasm.wasm and wasm_exec.js
+	@echo "Building release WebAssembly assets..."
+	@mkdir -p $(WASM_DIR)/release
+	GOOS=js GOARCH=wasm $(GO_BUILD) -trimpath -o $(WASM_DIR)/release/sysml-wasm.wasm ./cmd/sysml-wasm
+	@cp "$(shell go env GOROOT)/lib/wasm/wasm_exec.js" $(WASM_DIR)/release/wasm_exec.js
+	@echo "✓ Built $(WASM_DIR)/release/sysml-wasm.wasm and wasm_exec.js ($(VERSION))"
 
 build-syntax: ## Build bin/sysml-syntax natively (opt-in; not released)
 	@echo "Building sysml-syntax..."

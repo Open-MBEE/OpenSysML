@@ -5,12 +5,18 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { test } from "node:test";
-import { PACKAGE_NAME, PLATFORM_PACKAGE_PREFIX } from "../src/core/package.js";
+import { PACKAGE_NAME, PLATFORM_PACKAGE_PREFIX, WASM_PACKAGE } from "../src/core/package.js";
 import { packageRoot } from "./support/service.js";
 
 const manifest = JSON.parse(
   readFileSync(join(packageRoot, "package.json"), "utf8"),
-) as { name: string; version: string; optionalDependencies: Record<string, string> };
+) as {
+  name: string;
+  version: string;
+  optionalDependencies: Record<string, string>;
+  peerDependencies: Record<string, string>;
+  peerDependenciesMeta: Record<string, { optional?: boolean }>;
+};
 
 test("package.json names the package PACKAGE_NAME describes", () => {
   assert.equal(manifest.name, PACKAGE_NAME);
@@ -36,4 +42,10 @@ test("optionalDependencies name exactly the five platform packages at this versi
   for (const [, version] of platforms) {
     assert.equal(version, manifest.version);
   }
+});
+
+test("the optional WASM peer package matches the client version", () => {
+  assert.equal(WASM_PACKAGE, `${PACKAGE_NAME}-wasm`);
+  assert.equal(manifest.peerDependencies[WASM_PACKAGE], manifest.version);
+  assert.equal(manifest.peerDependenciesMeta[WASM_PACKAGE].optional, true);
 });
