@@ -91,7 +91,7 @@ n10 -- n9
 n9 -- n11 : <U+00AB>subject<U+00BB>
 n9 .. n12
 n16 --> n15
-n26 -[thickness=3]- n27 : supply
+n26.0 -[thickness=3]- n27.0 : supply
 n3 ..> n1
 n10 ..> n31
 n11 ..> n25

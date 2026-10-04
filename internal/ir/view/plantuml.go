@@ -38,7 +38,8 @@ func (r *Rendering) PlantUMLWith(options Options) (string, error) {
 	}
 	r = r.settleUnplaced(options.Unplaced, FormPlantUML)
 	w := &plantumlWriter{kind: r.Kind, borders: r.Kind.paletteBorders(), fills: familyFills{palette: options.Palette, tree: r.Kind == KindTree},
-		labels: labelsOf(r.Roots, false, nil), ports: r.portView(options.Ports), links: options.Links}
+		labels: labelsOf(r.Roots, false, nil), ports: r.portView(options.Ports), links: options.Links,
+		writtenPorts: make(map[string]struct{})}
 	for _, root := range r.Roots {
 		w.fills.collect(root)
 	}
@@ -106,13 +107,14 @@ func (r *Rendering) PlantUMLWith(options Options) (string, error) {
 
 // plantumlWriter holds what one rendering's PlantUML form needs across nodes and edges.
 type plantumlWriter struct {
-	b       strings.Builder
-	kind    Kind
-	borders bool        // whether a filled node's border takes the family colour; a participant's cannot
-	fills   familyFills // the palette fills, by keyword family
-	labels  labeller    // the node labels, headed relative to the roots' namespace
-	ports   portView    // the ports drawn of each node, and how they are named
-	links   Links
+	b            strings.Builder
+	kind         Kind
+	borders      bool        // whether a filled node's border takes the family colour; a participant's cannot
+	fills        familyFills // the palette fills, by keyword family
+	labels       labeller    // the node labels, headed relative to the roots' namespace
+	ports        portView    // the ports drawn of each node, and how they are named
+	links        Links
+	writtenPorts map[string]struct{}
 }
 
 // countGeometry counts the nodes a Geometry positions and the edges with a route.
@@ -328,6 +330,7 @@ func (w *plantumlWriter) writeCaseMixedContainer(node *Node, depth int, mixed bo
 	indent := strings.Repeat("  ", depth)
 	fmt.Fprintf(&w.b, "%srectangle %s as %s%s {\n", indent, plantumlQuote(w.plantumlLabel(node)), node.ID, w.decoration(node))
 	for _, port := range w.ports.of(node) {
+		w.writtenPorts[port.ID] = struct{}{}
 		fmt.Fprintf(&w.b, "%s  port %s as %s\n", indent, plantumlQuote(plantumlText(w.ports.pinLabel(port))), port.ID)
 	}
 	for _, child := range node.Children {
@@ -465,7 +468,16 @@ func (w *plantumlWriter) writeSequenceDiagram(r *Rendering) {
 
 // writeEdge writes one edge as its kind's arrow, with its label when it carries one.
 func (w *plantumlWriter) writeEdge(edge Edge) {
-	w.writeArrowEdge(edge, edge.From, edge.To, false)
+	from, to := edge.From, edge.To
+	if w.kind == KindMixed {
+		if _, written := w.writtenPorts[edge.FromPort]; written {
+			from = edge.FromPort
+		}
+		if _, written := w.writtenPorts[edge.ToPort]; written {
+			to = edge.ToPort
+		}
+	}
+	w.writeArrowEdge(edge, from, to, false)
 }
 
 // writeArrow writes one arrow statement between two aliases.

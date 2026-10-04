@@ -325,6 +325,13 @@ func TestMixedActionPinsKeepTheirFormBehavior(t *testing.T) {
 	if !strings.Contains(textMinimal, "in request") {
 		t.Errorf("minimal text does not use the action pin direction:\n%s", textMinimal)
 	}
+	wantPlantUMLEdge := source.Ports[0].ID + " -[thickness=3]- " + sink.Ports[0].ID + " : supply"
+	if !strings.Contains(plantUMLMinimal, wantPlantUMLEdge) {
+		t.Errorf("minimal PlantUML connector does not end at its written ports %q:\n%s", wantPlantUMLEdge, plantUMLMinimal)
+	}
+	if svg := renderLinkedSVG(t, FormPlantUML, plantUMLMinimal); len(svg) == 0 {
+		t.Error("PlantUML rendered an empty SVG")
+	}
 
 	for label, output := range map[string]string{"minimal": mermaidMinimal, "full": mermaidFull} {
 		if strings.Contains(output, check.ID+"_p0[") || strings.Contains(output, `["request"]`) {
