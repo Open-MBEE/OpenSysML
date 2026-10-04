@@ -851,7 +851,7 @@ origins and bundled library declarations — is not linked.
 | Form | Linked elements |
 | --- | --- |
 | DOT | Nodes and edges receive quoted `URL` and `tooltip` attributes; a composite node's URL and tooltip are cluster attributes, not attributes of its invisible anchor. The tooltip is the qualified name when available, otherwise `file:line:col`. |
-| PlantUML | Linkable nodes carry `[[url]]` after stereotypes and before palette colors, and edges carry links. PlantUML SVG drops links on `<<start>>`, `<<fork>>`, `<<join>>`, `<<end>>`, `<<choice>>`, `<<history>>` and `<<history*>>` pseudostates; an unlinked pseudostate inside a linked composite state takes the composite's link. Ports and initial/start pseudostate arrows are not linked. |
+| PlantUML | Linkable nodes carry `[[url]]` after stereotypes and before palette colors, objective notes use a linked note body, and edges carry links. PlantUML SVG drops links on `<<start>>`, `<<fork>>`, `<<join>>`, `<<end>>`, `<<choice>>`, `<<history>>` and `<<history*>>` pseudostates; an unlinked pseudostate inside a linked composite state takes the composite's link. Ports and initial/start pseudostate arrows are not linked. |
 | Mermaid flowchart | Linkable nodes receive `click` statements after the edges and classes. Edges and subgraphs are not linked. |
 | Mermaid state diagram | Simple states are linked; composite states are not. |
 | Mermaid sequence diagram | Participants receive `link` statements; messages are not linked. Mermaid CLI 11.16.0 drops participant URL fragments in SVG. |

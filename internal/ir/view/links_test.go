@@ -279,6 +279,8 @@ func TestLinkedDiagramGoldens(t *testing.T) {
 		{"state", "state.sysml", "MachineViews::vehicleStates", []Form{FormMermaid, FormDot, FormPlantUML}},
 		{"action", "action.sysml", "FlowViews::driveView", []Form{FormMermaid, FormDot, FormPlantUML}},
 		{"sequence", "sequence.sysml", "SequenceViews::pubSubView", []Form{FormMermaid, FormPlantUML}},
+		{"case", "case.sysml", "CaseExamples::caseDiagram", []Form{FormMermaid, FormDot, FormPlantUML}},
+		{"mixed", "mixed.sysml", "MixedExamples::mixedDiagram", []Form{FormMermaid, FormDot, FormPlantUML}},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -309,8 +311,168 @@ func TestLinkedDiagramGoldens(t *testing.T) {
 				if form == FormMermaid {
 					assertMermaidClickTargetsDeclared(t, got)
 				}
+				if tc.name == "case" {
+					assertLinkedDiagramNode(t, rendering, got, form, options.Links, func(node *Node) bool {
+						return caseNodeKind(node.Kind)
+					}, "provide transportation")
+					assertLinkedDiagramNode(t, rendering, got, form, options.Links, func(node *Node) bool {
+						return node.Kind == "actor"
+					}, "driver")
+					if form == FormPlantUML {
+						assertLinkedObjectiveNote(t, rendering, got, options.Links)
+					}
+				} else if tc.name == "mixed" {
+					assertLinkedDiagramNode(t, rendering, got, form, options.Links, func(node *Node) bool {
+						return node.Kind == "part"
+					}, "pump")
+				}
 			}
 		})
+	}
+}
+
+func assertLinkedObjectiveNote(t *testing.T, rendering *Rendering, diagram string, links Links) {
+	t.Helper()
+	var objective *Node
+	var walk func(*Node)
+	walk = func(node *Node) {
+		if objective != nil {
+			return
+		}
+		if node.Kind == "objective" {
+			objective = node
+			return
+		}
+		for _, child := range node.Children {
+			walk(child)
+		}
+	}
+	for _, root := range rendering.Roots {
+		walk(root)
+	}
+	if objective == nil {
+		t.Fatal("no objective node in case rendering")
+	}
+	url, ok := links.URL(objective.Origin)
+	if !ok {
+		t.Fatal("objective node has no source URL")
+	}
+	lines := strings.Split(diagram, "\n")
+	for i, line := range lines {
+		if !strings.Contains(strings.TrimSpace(line), "note as "+objective.ID) {
+			continue
+		}
+		for _, body := range lines[i+1:] {
+			if strings.TrimSpace(body) == "end note" {
+				break
+			}
+			if strings.Contains(body, "[["+url+" ") {
+				return
+			}
+		}
+		t.Errorf("PlantUML objective note has no linked body for %q:\n%s", url, diagram)
+		return
+	}
+	t.Errorf("PlantUML has no note for objective %q:\n%s", objective.ID, diagram)
+}
+
+func assertLinkedDiagramNode(t *testing.T, rendering *Rendering, diagram string, form Form, links Links, matchesKind func(*Node) bool, namePart string) {
+	t.Helper()
+	namePart = strings.ToLower(namePart)
+	var found *Node
+	var walk func(*Node)
+	walk = func(node *Node) {
+		if found != nil {
+			return
+		}
+		if matchesKind(node) && strings.Contains(strings.ToLower(node.Name), namePart) {
+			found = node
+			return
+		}
+		for _, child := range node.Children {
+			walk(child)
+		}
+	}
+	for _, root := range rendering.Roots {
+		walk(root)
+	}
+	if found == nil {
+		t.Fatalf("no rendered node matching %q", namePart)
+	}
+	url, ok := links.URL(found.Origin)
+	if !ok {
+		t.Fatalf("node %q has no source URL", found.Name)
+	}
+	switch form {
+	case FormMermaid:
+		if !strings.Contains(diagram, fmt.Sprintf(`click %s href "%s"`, found.ID, url)) {
+			t.Errorf("Mermaid has no click link for %q (%s):\n%s", found.Name, found.ID, diagram)
+		}
+	case FormDot:
+		for _, line := range strings.Split(diagram, "\n") {
+			line = strings.TrimSpace(line)
+			if strings.HasPrefix(line, `"`+found.ID+`" [`) && strings.Contains(line, `URL="`+url+`"`) && strings.Contains(line, `tooltip="`) {
+				return
+			}
+		}
+		t.Errorf("DOT has no URL and tooltip for %q (%s):\n%s", found.Name, found.ID, diagram)
+	case FormPlantUML:
+		for _, line := range strings.Split(diagram, "\n") {
+			if strings.Contains(line, " as "+found.ID+" ") && strings.Contains(line, "[["+url+"]]") {
+				return
+			}
+		}
+		t.Errorf("PlantUML has no source link for %q (%s):\n%s", found.Name, found.ID, diagram)
+	}
+}
+
+func TestPlantUMLCaseObjectiveNoteLinkRendersAsSVG(t *testing.T) {
+	renderer, index := loadFixtures(t, "case.sysml")
+	rendering, err := renderer.Render(lookup(t, index, "CaseExamples::caseDiagram"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	lineIndex := fixtureText(t, "case.sysml").Lines()
+	links := Links{
+		Template: "https://example.test/src/{file}#L{line}",
+		Sites: renderer.Sites(FileLocator(renderer.model, func(doc string) *source.LineIndex {
+			if doc != "case.sysml" {
+				return nil
+			}
+			return lineIndex
+		})),
+	}
+	var objective *Node
+	var walk func(*Node)
+	walk = func(node *Node) {
+		if objective != nil {
+			return
+		}
+		if node.Kind == "objective" {
+			objective = node
+			return
+		}
+		for _, child := range node.Children {
+			walk(child)
+		}
+	}
+	for _, root := range rendering.Roots {
+		walk(root)
+	}
+	if objective == nil {
+		t.Fatal("no objective node in case rendering")
+	}
+	url, ok := links.URL(objective.Origin)
+	if !ok {
+		t.Fatal("objective node has no source URL")
+	}
+	input, err := rendering.WriteWith(FormPlantUML, Options{Links: links})
+	if err != nil {
+		t.Fatal(err)
+	}
+	svg := renderLinkedSVG(t, FormPlantUML, input)
+	if !svgAnchorHasHref(svg, url) {
+		t.Errorf("PlantUML SVG has no anchor for objective URL %q:\n%s", url, input)
 	}
 }
 

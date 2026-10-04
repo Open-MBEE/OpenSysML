@@ -1,0 +1,117 @@
+// view: MixedExamples::mixedDiagram
+// kind: mixed
+// stated: render asMixedDiagram
+// layout: dot
+digraph "MixedExamples::mixedDiagram" {
+  graph [fontname="Helvetica", compound=true];
+  node [shape=box, style=filled, fillcolor=white, color="#181818", fontname="Helvetica", fontsize=14, penwidth=0.5];
+  edge [color="#181818", fontname="Helvetica", fontsize=13, penwidth=1];
+  subgraph "cluster_n0" {
+    label=<<font point-size="10"><i>«package»</i></font><br/><b>MixedExamples</b>>;
+    color=black;
+    penwidth=1.5;
+    URL="https://example.test/src/mixed.sysml#L1";
+    tooltip="MixedExamples";
+    "n0" [shape=point, style=invis, width=0, height=0, label=""];
+    "n19" [label=<<font point-size="10"><i>«port def»</i></font><br/><b>FluidPort</b>>, URL="https://example.test/src/mixed.sysml#L5", tooltip="MixedExamples::FluidPort"];
+    "n20" [label=<<font point-size="10"><i>«part def»</i></font><br/><b>BaseUnit</b>>, URL="https://example.test/src/mixed.sysml#L6", tooltip="MixedExamples::BaseUnit"];
+    subgraph "cluster_n21" {
+      label=<<font point-size="10"><i>«part def»</i></font><br/><b>Pump</b>>;
+      color=black;
+      penwidth=0.5;
+      URL="https://example.test/src/mixed.sysml#L8";
+      tooltip="MixedExamples::Pump";
+      "n21" [shape=point, style=invis, width=0, height=0, label=""];
+      "n22" [style="rounded,filled", label=<<font point-size="10"><i>«port»</i></font><br/><b>outlet : FluidPort</b>>, URL="https://example.test/src/mixed.sysml#L9", tooltip="MixedExamples::Pump::outlet"];
+    }
+    subgraph "cluster_n23" {
+      label=<<font point-size="10"><i>«part def»</i></font><br/><b>Tank</b>>;
+      color=black;
+      penwidth=0.5;
+      URL="https://example.test/src/mixed.sysml#L12";
+      tooltip="MixedExamples::Tank";
+      "n23" [shape=point, style=invis, width=0, height=0, label=""];
+      "n24" [style="rounded,filled", label=<<font point-size="10"><i>«port»</i></font><br/><b>inlet : FluidPort</b>>, URL="https://example.test/src/mixed.sysml#L13", tooltip="MixedExamples::Tank::inlet"];
+    }
+    subgraph "cluster_n25" {
+      label=<<font point-size="10"><i>«part def»</i></font><br/><b>Plant</b>>;
+      color=black;
+      penwidth=0.5;
+      URL="https://example.test/src/mixed.sysml#L16";
+      tooltip="MixedExamples::Plant";
+      "n25" [shape=point, style=invis, width=0, height=0, label=""];
+      "n26" [style="rounded,filled", label=<<table border="0" cellborder="0" cellspacing="0" cellpadding="2"><tr><td colspan="2"><font point-size="10"><i>«part»</i></font><br/><b>pump : Pump</b></td></tr><tr><td port="n26.0" border="1" fixedsize="true" width="10" height="10"></td><td align="left"><font point-size="8">outlet : FluidPort</font></td></tr></table>>, URL="https://example.test/src/mixed.sysml#L17", tooltip="MixedExamples::Plant::pump"];
+      "n27" [style="rounded,filled", label=<<table border="0" cellborder="0" cellspacing="0" cellpadding="2"><tr><td port="n27.0" border="1" fixedsize="true" width="10" height="10"></td><td align="left"><font point-size="8">inlet : FluidPort</font></td></tr><tr><td colspan="2"><font point-size="10"><i>«part»</i></font><br/><b>tank : Tank</b></td></tr></table>>, URL="https://example.test/src/mixed.sysml#L18", tooltip="MixedExamples::Plant::tank"];
+    }
+    subgraph "cluster_n28" {
+      label=<<font point-size="10"><i>«connection def»</i></font><br/><b>Connection</b>>;
+      color=black;
+      penwidth=0.5;
+      URL="https://example.test/src/mixed.sysml#L22";
+      tooltip="MixedExamples::Connection";
+      "n28" [shape=point, style=invis, width=0, height=0, label=""];
+      "n29" [style="rounded,filled", label=<<font point-size="10"><i>«part»</i></font><br/><b>a</b>>, URL="https://example.test/src/mixed.sysml#L23", tooltip="MixedExamples::Connection::a"];
+      "n30" [style="rounded,filled", label=<<font point-size="10"><i>«part»</i></font><br/><b>b</b>>, URL="https://example.test/src/mixed.sysml#L24", tooltip="MixedExamples::Connection::b"];
+    }
+    "n1" [label=<<font point-size="10"><i>«state def»</i></font><br/><b>Ready</b><br/>declares no states>, URL="https://example.test/src/mixed.sysml#L27", tooltip="MixedExamples::Ready"];
+    subgraph "cluster_n2" {
+      label=<<font point-size="10"><i>«state def»</i></font><br/><b>Modes</b>>;
+      color=black;
+      penwidth=0.5;
+      URL="https://example.test/src/mixed.sysml#L29";
+      tooltip="MixedExamples::Modes";
+      "n2" [shape=point, style=invis, width=0, height=0, label=""];
+      "n4" [shape=point, fillcolor=black, label=""];
+      "n3" [style="rounded,filled", label=<<font point-size="10"><i>«state»</i></font><br/><b>ready : Ready</b><br/>initial>, URL="https://example.test/src/mixed.sysml#L31", tooltip="MixedExamples::Modes::ready"];
+    }
+    subgraph "cluster_n5" {
+      label=<<font point-size="10"><i>«action def»</i></font><br/><b>Operate</b>>;
+      color=black;
+      penwidth=0.5;
+      URL="https://example.test/src/mixed.sysml#L34";
+      tooltip="MixedExamples::Operate";
+      "n5" [shape=point, style=invis, width=0, height=0, label=""];
+      "n6" [shape=circle, fillcolor=black, label="", width=0.2, URL="https://example.test/src/mixed.sysml#L35", tooltip="MixedExamples::Operate::start"];
+      "n7" [style="rounded,filled", label=<<font point-size="10"><i>«action»</i></font><br/><b>&#39;step&#39;</b>>, URL="https://example.test/src/mixed.sysml#L36", tooltip="MixedExamples::Operate::'step'"];
+      "n8" [shape=doublecircle, fillcolor=black, label="", width=0.2, URL="https://example.test/src/mixed.sysml#L37", tooltip="mixed.sysml:37:3"];
+    }
+    "n9" [shape=ellipse, label=<<font point-size="10"><i>«use case def»</i></font><br/><b>Inspection</b>>, URL="https://example.test/src/mixed.sysml#L42", tooltip="MixedExamples::Inspection"];
+    "n10" [shape=box, label=<<font point-size="10"><i>«actor»</i></font><br/><b>operator : Person</b>>, URL="https://example.test/src/mixed.sysml#L43", tooltip="MixedExamples::Inspection::operator"];
+    "n11" [shape=box, label=<<font point-size="10"><i>«subject»</i></font><br/><b>plant : Plant</b>>, URL="https://example.test/src/mixed.sysml#L44", tooltip="MixedExamples::Inspection::plant"];
+    "n12" [shape=note, label=<<b>objective</b><br/>Inspect the plant and report its operating state.>, URL="https://example.test/src/mixed.sysml#L45", tooltip="mixed.sysml:45:3"];
+    "n13" [style="rounded,filled", label=<<font point-size="10"><i>«perform action»</i></font><br/><b>run : Operate</b><br/>declares no nodes>, URL="https://example.test/src/mixed.sysml#L48", tooltip="MixedExamples::Inspection::run"];
+    subgraph "cluster_n14" {
+      label=<<font point-size="10"><i>«exhibit state»</i></font><br/><b>mode : Modes</b>>;
+      color=black;
+      penwidth=0.5;
+      URL="https://example.test/src/mixed.sysml#L49";
+      tooltip="MixedExamples::Inspection::mode";
+      "n14" [shape=point, style=invis, width=0, height=0, label=""];
+      "n16" [shape=point, fillcolor=black, label=""];
+      "n15" [style="rounded,filled", label=<<font point-size="10"><i>«state»</i></font><br/><b>ready : Ready</b><br/>initial>, URL="https://example.test/src/mixed.sysml#L31", tooltip="MixedExamples::Modes::ready"];
+    }
+    "n31" [label=<<font point-size="10"><i>«part def»</i></font><br/><b>Person</b>>, URL="https://example.test/src/mixed.sysml#L52", tooltip="MixedExamples::Person"];
+    "n17" [style="rounded,filled", label=<<font point-size="10"><i>«view»</i></font><br/><b>mixedDiagram</b>>, URL="https://example.test/src/mixed.sysml#L54", tooltip="MixedExamples::mixedDiagram"];
+    "n18" [style="rounded,filled", label=<<font point-size="10"><i>«view»</i></font><br/><b>mixedLayout</b>>, URL="https://example.test/src/mixed.sysml#L59", tooltip="MixedExamples::mixedLayout"];
+  }
+  "n4" -> "n3" [URL="https://example.test/src/mixed.sysml#L30", tooltip="mixed.sysml:30:10"];
+  "n6" -> "n7" [URL="https://example.test/src/mixed.sysml#L38", tooltip="mixed.sysml:38:3"];
+  "n7" -> "n8" [URL="https://example.test/src/mixed.sysml#L39", tooltip="mixed.sysml:39:3"];
+  "n10" -> "n9" [dir=none, URL="https://example.test/src/mixed.sysml#L43", tooltip="MixedExamples::Inspection::operator"];
+  "n9" -> "n11" [label="«subject»", dir=none, URL="https://example.test/src/mixed.sysml#L44", tooltip="MixedExamples::Inspection::plant"];
+  "n9" -> "n12" [dir=none, style=dashed, URL="https://example.test/src/mixed.sysml#L45", tooltip="mixed.sysml:45:3"];
+  "n16" -> "n15" [URL="https://example.test/src/mixed.sysml#L30", tooltip="mixed.sysml:30:10"];
+  "n26":"n26.0" -> "n27":"n27.0" [label="supply", arrowhead=none, penwidth=3, URL="https://example.test/src/mixed.sysml#L19", tooltip="MixedExamples::Plant::supply"];
+  "n3" -> "n1" [style=dashed, arrowhead=open, URL="https://example.test/src/mixed.sysml#L31", tooltip="MixedExamples::Modes::ready"];
+  "n10" -> "n31" [style=dashed, arrowhead=open, URL="https://example.test/src/mixed.sysml#L43", tooltip="MixedExamples::Inspection::operator"];
+  "n11" -> "n25" [style=dashed, arrowhead=open, URL="https://example.test/src/mixed.sysml#L44", tooltip="MixedExamples::Inspection::plant", lhead="cluster_n25"];
+  "n13" -> "n5" [label="«perform»", style=dashed, arrowhead=open, URL="https://example.test/src/mixed.sysml#L48", tooltip="MixedExamples::Inspection::run", lhead="cluster_n5"];
+  "n14" -> "n2" [label="«exhibit»", style=dashed, arrowhead=open, URL="https://example.test/src/mixed.sysml#L49", tooltip="MixedExamples::Inspection::mode", ltail="cluster_n14", lhead="cluster_n2"];
+  "n21" -> "n20" [label="«specializes»", arrowhead=empty, URL="https://example.test/src/mixed.sysml#L8", tooltip="MixedExamples::Pump", ltail="cluster_n21"];
+  "n22" -> "n19" [style=dashed, arrowhead=open, URL="https://example.test/src/mixed.sysml#L9", tooltip="MixedExamples::Pump::outlet"];
+  "n23" -> "n20" [label="«specializes»", arrowhead=empty, URL="https://example.test/src/mixed.sysml#L12", tooltip="MixedExamples::Tank", ltail="cluster_n23"];
+  "n24" -> "n19" [style=dashed, arrowhead=open, URL="https://example.test/src/mixed.sysml#L13", tooltip="MixedExamples::Tank::inlet"];
+  "n25" -> "n20" [label="«specializes»", arrowhead=empty, URL="https://example.test/src/mixed.sysml#L16", tooltip="MixedExamples::Plant", ltail="cluster_n25"];
+  "n26" -> "n21" [style=dashed, arrowhead=open, URL="https://example.test/src/mixed.sysml#L17", tooltip="MixedExamples::Plant::pump", lhead="cluster_n21"];
+  "n27" -> "n23" [style=dashed, arrowhead=open, URL="https://example.test/src/mixed.sysml#L18", tooltip="MixedExamples::Plant::tank", lhead="cluster_n23"];
+}

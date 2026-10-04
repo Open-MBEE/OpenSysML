@@ -362,6 +362,11 @@ func (w *plantumlWriter) writeCaseMixedNode(node *Node, depth int, mixed bool) {
 	case node.Kind == "subject":
 		fmt.Fprintf(&w.b, "%srectangle %s as %s%s\n", indent, label, node.ID, w.decoration(node))
 	case node.Kind == "objective":
+		if url, ok := w.links.URL(node.Origin); ok {
+			note := strings.ReplaceAll(w.plantumlLabel(node), `\n`, "\n")
+			fmt.Fprintf(&w.b, "%snote as %s%s\n%s  [[%s %s]]\n%send note\n", indent, node.ID, w.noteDecoration(node), indent, url, note, indent)
+			return
+		}
 		fmt.Fprintf(&w.b, "%snote %s as %s%s\n", indent, label, node.ID, w.noteDecoration(node))
 	case mixed && controlKinds[node.Kind]:
 		fmt.Fprintf(&w.b, "%scircle %s as %s%s\n", indent, label, node.ID, w.decoration(node))
