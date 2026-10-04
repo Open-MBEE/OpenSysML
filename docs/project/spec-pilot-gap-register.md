@@ -68,6 +68,13 @@ turned out to rest on a clause after all — retained so it is not re-audited).
 | 19 | Cosmetic | `part p : ItemDef;` — a part typed only by a non-part definition | accepted | accepted | pilot-following justified: `parts` supplies `Part` through subsetting |
 | 20 | Cosmetic | Alias identity: an `alias` is a name, not an element | resolves to the aliased element | fixed to match | pilot-following justified by KerML §8.3.2.4 (`Membership`) |
 | 21 | Spurious error | A succession whose ends are qualified names (`first r::move then r::grip;` at package level) | `Must be an accessible feature (use dot notation for nesting)` at each end; the same ends on a `connect` are accepted | accepted, featured by the ends' innermost common featuring type, and executed | spec clear (KerML §8.3.4.5.3); pilot short |
+| 22 | Spurious error | A KerML metaclass as the type of a SysML metadata usage (`metadata m : KerML::Classifier;`), the case KERML-90 was resolved to admit | three errors | one error | spec ambiguous: the text both tools follow does not achieve the KERML-90 resolution |
+| 23 | Cosmetic | The implied subsetting of `outgoingHBLink` by a decision node's outgoing successions and of `incomingHBLink` by a merge node's incoming ones (SYSML21-306) | adds both, from `DecisionPerformance` where the OCL names `MergePerformance` | adds neither; its checks and execution do not consult them | spec defect (OCL, filed); ours short |
+| 24 | Missed diagnostic | The default `[1..1]` of a usage (SysML §7.6.3, non-normative: SYSML21-185) | by metaclass, so enumeration, view, rendering, actor and stakeholder usages take it; a reference subsetting of a type-owned feature withholds it | by keyword, so those five kinds take none; a reference subsetting does not withhold it | spec ambiguous (prose only); ours short of the prose and the pilot |
+| 25 | Cosmetic | The declaration production of a case usage (SYSML2-783) | `ActionUsageDeclaration` | the same syntax | no observable difference |
+| 26 | — | Five validation constraints the pilot source marks `TODO` | implemented under the `TODO` | implemented | no difference; the `TODO`s are stale |
+| 27 | Spurious error | An explicitly declared subject or return parameter of a variation usage | accepted: every `ParameterMembership` is exempt | rejected: only objectives are exempt | spec clear (`validateUsageVariationOwnedFeatureMembership`), both short for objectives; pilot short for parameters |
+| 28 | Cosmetic | A negative model-level-evaluable multiplicity bound (KERML-199) | rejected, by a `-2` marker the OCL does not have | rejected | spec OCL short of its prose; both follow the prose |
 
 Grouped inventories follow the detailed items: [the `spec-compliance.md` rows whose
 justification is the pilot or nothing](#inventory-a--spec-compliancemd-rows-justified-by-the-pilot-or-by-nothing),
@@ -682,6 +689,466 @@ That suggestion comes from comparing behavior, not from reading the pilot's sour
 type, by qualified name, intended to be well formed by the implied TypeFeaturing of KerML
 §8.4.4.6.1, as the same connector is?
 
+### 22. A KerML metaclass as the type of a SysML metadata usage (KERML-90)
+
+**Model text**
+
+```sysml
+package P { part def A { metadata m : KerML::Classifier; } }
+```
+
+with, for comparison, the KerML spelling `classifier A { metadata m : KerML::Classifier; }` and
+`package P { metadata def MC :> KerML::Classifier; part def A { metadata m : MC; } }`.
+
+**Pilot:** `2026-08` (`jupyter-sysml-kernel` 0.62.0), `validate-sysml-batch` (observation):
+
+```
+kerml90.sysml:1:26: error: A metadata usage must be typed by one metadata definition.
+kerml90.sysml:1:26: error: Must have exactly one metaclass
+kerml90.sysml:1:26: error: Must have a concrete type
+```
+
+The KerML spelling (`validate-kerml`) and the `metadata def MC` spelling validate clean. In the
+pinned source (reading), `KerMLValidator.checkMetadataFeature` opens with
+
+```
+// TODO: Submit new issue to revise this to actually fix the problem KERML-90 was trying to address.
+// validateMetadataFeatureMetaclass
+if (mf.type.filter(Metaclass).size() != 1) {
+```
+
+and checks `validateMetadataFeatureMetaclassNotAbstract` as `mf.type.exists[abstract]`, over every
+type rather than the metaclass; `SysMLValidator.checkMetadataUsage` adds
+`checkOneType(usg, Metaclass, …)`, which requires `FeatureUtil.getAllTypesOf` to return exactly
+one type. The model has two: `KerML::Classifier` and the abstract `Metadata::MetadataItem`, so
+all three checks fail.
+
+**OpenSysML:**
+
+```
+kerml90.sysml:1:26: error: A metadata usage must be typed by one metadata definition.
+sysml: kerml90.sysml did not analyse cleanly; no check was made
+```
+
+The error is the type tier's (`internal/check/passes/typecheck.go`, with the message from
+`pilotTypingMessage` in `internal/check/passes/w10b_usage_typing.go`): a SysML `metadata` usage
+must be typed by a metadata definition (`usageWantsDefKind`), and `KerML::Classifier` is a KerML
+metaclass. The error stops the later tiers, so the two KerML-side messages are not
+reached. The KerML spelling and the `metadata def MC` spelling are `no errors`.
+
+**Specification:**
+- KERML-90 (<https://issues.omg.org/issues/KERML-90>, closed in KerML 1.0b2) reported that
+  `MetadataFeature::metaclass`, a `[0..1]` redefinition of `type`, left a metadata usage typed by
+  a KerML metaclass two types, because SysML `checkMetadataUsageSpecialization` adds
+  `Metadata::MetadataItem`. The resolution changed `metaclass` to a subset of `type`: KerML
+  §8.3.4.12.3 `MetadataFeature`, "/metaclass : Metaclass [0..1] {subsets type}".
+- The same clause keeps `validateMetadataFeatureMetaclass`: "A MetadataFeature must have exactly
+  one type that is a Metaclass." (`type->selectByKind(Metaclass).size() = 1`), and
+  `validateMetadataFeatureMetaclassNotAbstract`: `not metaclass.isAbstract`.
+- SysML §8.3.27.3 `MetadataUsage`, `checkMetadataUsageSpecialization`: "A MetadataUsage must
+  directly or indirectly specialize the base MetadataUsage Metadata::metadataItems from the
+  Systems Model Library." `metadataItems` is typed by `Metadata::MetadataItem`, declared
+  `abstract metadata def MetadataItem :> Metaobject, Item`; a metadata definition is a
+  Metaclass. The same clause declares `/metadataDefinition : Metaclass [0..1] {redefines
+  itemDefinition, metaclass}`.
+
+The constraint that rejects the model is therefore KerML `validateMetadataFeatureMetaclass`,
+inherited by `MetadataUsage`: `checkMetadataUsageSpecialization` makes `MetadataItem` a type
+of `m`, `KerML::Classifier` does not specialize it, and both are Metaclasses, so
+`selectByKind(Metaclass)` has size 2. KERML-90 removed the `[0..1]` conflict on `metaclass`
+but not this count, because the second type is itself a Metaclass. In KerML the implied
+supertype is `Metaobjects::metaobjects`, typed by `Metaobjects::Metaobject`, which
+`KerML::Classifier` specializes, so one type remains. SysML 2.0 Part 1 states no constraint
+named `validateMetadataUsageType`, the pilot's first message.
+
+**Assessment:** both tools follow the published text, and the text does not achieve what
+KERML-90 was resolved to allow. This is a specification question, not an implementation gap. If
+the text were revised to admit the model, OpenSysML would have to change its type-tier rule as
+well as its metaclass count; the pilot would have to change its two counts.
+
+**Question for the authors:** is a KerML metaclass that does not specialize
+`Metadata::MetadataItem` intended to type a SysML metadata usage? If so, should
+`validateMetadataFeatureMetaclass` discount the type implied by `checkMetadataUsageSpecialization`,
+or should that constraint not apply to such a usage? If not, should SysML say so (for instance by
+typing `metadataDefinition` by `MetadataDefinition`)? Drafted in
+[omg-issues.md](omg-issues.md#proposed-specification-issue-a-kerml-metaclass-cannot-type-a-sysml-metadata-usage-kerml-90-follow-up).
+
+### 23. Decision-node outgoing and merge-node incoming successions are not given their implied subsetting (SYSML21-306)
+
+**Model text**
+
+```sysml
+package P {
+    action def A {
+        attribute x : ScalarValues::Integer;
+        first start;
+        then decide d;
+            if x > 0 then a;
+            if x <= 0 then b;
+        action a;
+        action b;
+        then merge m;
+        first a then m;
+        first b then m;
+    }
+}
+```
+
+**Pilot:** validates clean (observation, `2026-08`). Reading: `SuccessionAsUsageAdapter.addDefaultGeneralType`
+calls `addDecisionNodeOutgoingSuccessionSpecialization` and
+`addMergeNodeIncomingSuccessionSpecialization`, which add an implied specialization of the chain
+from the node to `ControlPerformances::DecisionPerformance::outgoingHBLink` and
+`ControlPerformances::MergePerformance::incomingHBLink` (`ImplicitGeneralizationMap`, keys
+`decision` and `merge`). The first carries
+
+```
+ * TODO: Update checkDecisionNodeOutgoingSuccessionSpecialization
+ *
+ * OCL refers to MergePerformance::outgoingHBLink rather than DecisionPerformance::outgoingHBLink.
+ * See SYSML21-306
+```
+
+**OpenSysML:** validates clean. It adds neither implied subsetting:
+`rg -n 'outgoingHBLink|incomingHBLink' internal` finds only the library declarations and their
+comments (`ControlPerformances.kerml` lines 22–48, `Actions.sysml` lines 303–317) and one comment in
+`internal/exec/runtime/state_route.go`. The control-node constraints
+(`internal/check/passes/behavior/control_node.go`, `ControlNodeSuccessionPass`) count a node's
+successions and read their declared end multiplicities; execution takes exactly one outgoing
+succession of a decision procedurally (`internal/exec/runtime/state_route.go`, `followOut`, citing
+`DecisionPerformance::outgoingHBLink: HappensBefore[1]`). Neither consults the subsetting.
+
+**Specification:**
+- SysML §8.3.17.7 `DecisionNode`, `checkDecisionNodeOutgoingSuccessionSpecialization`: "All
+  outgoing Successions from a DecisionNode must subset the inherited outgoingHBLink feature of the
+  DecisionNode", with OCL
+  `resolveGlobal('ControlPerformances::MergePerformance::outgoingHBLink')`. `MergePerformance`
+  declares `incomingHBLink`, not `outgoingHBLink`; `DecisionPerformance` declares
+  `outgoingHBLink` (`ControlPerformances.kerml`).
+- §8.3.17.13 `MergeNode`, `checkMergeNodeIncomingSuccessionSpecialization`: "All incoming
+  Successions to a MergeNode must subset the inherited incomingHBLink feature of the MergeNode."
+- §8.4.13.4 Control Nodes repeats the mix-up in prose: "checkDecisionNodeOutgoingSuccessionSpecialization
+  requires that any incoming Succession to a MergeNode specialize the Feature
+  DecisionPerformance::outgoingHBLink".
+- SYSML21-306 (<https://issues.omg.org/issues/SYSML21-306>, open) reports the OCL's qualified name.
+
+**Assessment:** a specification defect, filed; the pilot implements the evident intent. OpenSysML
+does not materialise either implied relationship, which is an OpenSysML limitation: a model's
+specializations as OpenSysML reports them (reflective queries, exported models) lack the two
+subsettings the pilot adds. Validation and execution do not depend on them.
+
+**Question for the authors:** none beyond SYSML21-306. The §8.4.13.4 sentence should be corrected
+with it.
+
+### 24. Default multiplicity of a usage (SYSML21-185)
+
+**Model text:** each probe declares a usage without a multiplicity in a definition `D` and
+redefines it with `[0..*]` in a specialization, so that the redefinition warnings
+(`validateRedefinitionMultiplicityConformance`, `validateSubsettingMultiplicityConformance`)
+appear exactly when the original took the default `[1..1]`:
+
+```sysml
+package P { enum def E { enum a; enum b; } part def D { enum e : E; } part def F :> D { enum :>> e [0..*]; } }
+```
+
+**Pilot:** reading. `ImplicitGeneralizationMap`:
+
+```
+// TODO: Update SysML specification to formalize default multiplicities.
+// See SYSML21-185
+put(MultiplicityImpl.class, "feature", "Base::exactlyOne");
+```
+
+The default is added when `isAddMultiplicity()` holds. `AttributeUsageAdapter`,
+`ItemUsageAdapter` (and so every part usage) and `PortUsageAdapter` return
+`UsageAdapter.isAddDefaultMultiplicity()`; `ConnectionUsageAdapter` returns `isEnd()`:
+
+```java
+return target.isEnd() ||
+       target.getOwningType() != null &&
+       target.getOwnedSubsetting().stream().
+            map(Subsetting::getSubsettedFeature).
+            filter(f->f != null).
+            map(FeatureUtil::getBasicFeatureOf).
+            noneMatch(f->f != null && f.getOwningType() != null);
+```
+
+`getOwnedSubsetting` returns every owned `Subsetting`, which includes `Redefinition`,
+`ReferenceSubsetting` and `CrossSubsetting` (KerML §8.3.3.3.8–§8.3.3.3.10). `getBasicFeatureOf`
+is the last chaining feature of a feature chain and the feature itself otherwise.
+
+**OpenSysML:** `semantics.ImplicitMultiplicityApplies` (`internal/semantic/semantics/multiplicity.go`)
+requires a usage owned by a type (`featureOwnedByType`: not owned by a package or namespace),
+written with the keyword `attribute`, `item`, `part` or `port`, and with no `RelSubsets` or
+`RelRedefines` relationship whose target is owned by a type. An end feature takes `[1..1]`
+separately (`internal/check/passes/multiplicity_conformance.go`, `conformanceMultiplicity`,
+`declaresEndFeature`).
+
+Observations, `2026-08` and this tree, each model in a file of its own (`D`, `E`, `F` as above):
+
+| Case | Model (inside `package P { … }`) | Pilot | OpenSysML |
+|---|---|---|---|
+| attribute, part, port, `ref part`, in a part or attribute definition | `part def D { part x; } part def E :> D { part :>> x [0..*]; }` (and the other keywords) | both warnings | both warnings |
+| occurrence | `part def D { occurrence x; } part def E :> D { occurrence :>> x [0..*]; }` | none | none |
+| enumeration usage | `enum def E { enum a; enum b; } part def D { enum e : E; } part def F :> D { enum :>> e [0..*]; }` | both warnings at `1:98` | **none** |
+| view usage | `view def V; part def D { view v : V; } part def F :> D { view :>> v [0..*]; }` | both warnings at `1:79` | **none** |
+| rendering usage | `rendering def R; part def D { rendering r : R; } part def F :> D { rendering :>> r [0..*]; }` | both warnings at `1:94` | **none** |
+| actor, stakeholder | `part def U; requirement def R { subject s : U; actor a : U; stakeholder k : U; } requirement def R2 :> R { subject :>> s; actor :>> a [0..*]; stakeholder :>> k [0..*]; }` | both warnings at `1:145` and `1:171` | **none** |
+| subsetting a type-owned feature | `part def D { part a [0..*]; part b :> a; } part def E :> D { part :>> b [0..*]; }` | none | none |
+| redefining a type-owned feature | `part def D { part a; } part def E :> D { part :>> a; } part def F :> E { part :>> a [0..*]; }` | none | none |
+| reference-subsetting a type-owned feature | `part def D { part a [0..*]; part b ::> a; } part def E :> D { part :>> b [0..*]; }` | none | **both warnings at `1:84`** |
+| subsetting a chain ending in a type-owned feature | `part p { part a [0..*]; } part def D { part b :> p.a; } part def E :> D { part :>> b [0..*]; }` | none | none |
+| subsetting a package-owned feature | `part q [0..*]; part def D { part b :> q; } part def E :> D { part :>> b [0..*]; }` | both warnings at `1:83` | both warnings at `1:83` |
+| end feature | `connection def C { end part a; end part b; } connection def C2 :> C { end part :>> a [0..*]; end part :>> b; }` | `End feature must have multiplicity 1` at `1:83`; the upper-bound warning at `1:96` | the same two, the first with OpenSysML's explanation appended |
+
+"Both warnings" is `warning: Redefining feature should not have smaller multiplicity lower bound`
+and `warning: Subsetting/redefining feature should not have larger multiplicity upper bound` at
+the redefining feature.
+
+**Specification:** SysML §7.6.3 Usages (non-normative): "a tighter default of [1..1] is implicitly
+declared for the usage if all of the following conditions hold: 1. The usage is an attribute usage,
+an item usage (including a part usage, except if it is a connection usage), or a port usage. 2. The
+usage is owned by a definition or another usage (not a package). 3. The usage does not have any
+explicit owned subsettings or owned redefinitions." An `EnumerationUsage` is an `AttributeUsage`
+(§8.3.8.3), `ViewUsage` and `RenderingUsage` are `PartUsage`s (§8.3.26.11, §8.3.26.6), and actors
+and stakeholders are `PartUsage`s owned through `ActorMembership`/`StakeholderMembership`. The end
+default is separate, §7.13.2: "If a multiplicity is not explicitly declared for an end feature,
+then a default of 1..1 is implicitly declared for it (regardless of the usual conditions for
+default multiplicity given in 7.6.3)". SYSML21-185
+(<https://issues.omg.org/issues/SYSML21-185>, open) records that Clause 8 states none of this
+normatively.
+
+**Assessment:** three differences.
+1. **Kind by keyword.** OpenSysML selects by the four keywords, so enumeration, view, rendering,
+   actor and stakeholder usages take no default, against condition 1 and the pilot. A redefinition
+   that widens one of them goes unreported (missed diagnostic).
+2. **Reference subsetting.** OpenSysML looks only at `RelSubsets` and `RelRedefines`, so `::>` to a
+   type-owned feature does not withhold the default; the pilot counts it, since a
+   `ReferenceSubsetting` is an owned subsetting, and so does condition 3. OpenSysML reports two
+   warnings the pilot does not (spurious diagnostic).
+3. **Subsetting a package-owned feature.** Both tools keep the default when every subsetted
+   feature is owned by no type; condition 3 withholds it for any explicit owned subsetting. Both
+   follow the pilot's rule rather than the prose.
+
+Redefinitions count in both: a `Redefinition` is an owned subsetting in the pilot, and OpenSysML
+names `RelRedefines`. Differences 1 and 2 are OpenSysML gaps against both the prose and the pilot;
+difference 3 is a question of which rule is intended.
+
+**Question for the authors:** when SYSML21-185 formalizes the default, is condition 3 meant
+literally (any owned subsetting or redefinition withholds it), or only a subsetting of a feature
+that has a featuring type, as the pilot implements?
+
+### 25. The declaration production of a case usage (SYSML2-783)
+
+**Model text**
+
+```sysml
+package P {
+    case def K;
+    case k : K;
+    case k2 : K :> k;
+    case k3 [1] : K = k;
+}
+```
+
+**Pilot:** validates clean (observation). `SysML.xtext` (reading):
+
+```
+// TODO: Correct erroneous use of ConstraintUsageDeclaration for CaseUsage from resolution of SYSML2-783.
+
+CaseUsage returns SysML::CaseUsage :
+	OccurrenceUsagePrefix CaseUsageKeyword ActionUsageDeclaration CaseBody
+;
+```
+
+**OpenSysML:** validates clean (`case` is parsed as a usage declaration in
+`internal/syntax/parser/defusage.go`).
+
+**Specification:** SysML §8.2.2.22 `CaseUsage = OccurrenceUsagePrefix 'case' ConstraintUsageDeclaration CaseBody`.
+§8.2.2.20 `ConstraintUsageDeclaration : ConstraintUsage = UsageDeclaration ValuePart?` and
+§8.2.2.17.2 `ActionUsageDeclaration : ActionUsage = UsageDeclaration ValuePart?`. SYSML2-783
+(<https://issues.omg.org/issues/SYSML2-783>, closed in SysML 2.0b2) revised the notation
+productions.
+
+**Assessment:** the two productions have the same right-hand side; only the declared target
+metaclass differs, and the `CaseUsage` rule creates the element. No observable difference. The
+pilot's comment says the published production, not its own, is in error.
+
+### 26. Validation constraints marked TODO in the pilot source
+
+The pilot source marks five constraints `TODO` and implements each immediately after the
+comment; OpenSysML implements all five. The eight control-node constraints the pilot marks
+`TODO: Check … (?)` (`SysMLValidator.xtend`, `checkControlNode` and its siblings) and does not
+implement are item 11.
+
+| Constraint | Pilot `TODO` (`KerMLValidator.xtend`) | OpenSysML |
+|---|---|---|
+| `validateRedefinitionMultiplicityConformance` | `// TODO: Add validateRedefinitionMultiplicityConformance`, then the lower-bound check | `internal/check/passes/multiplicity_conformance.go`, `constraintChecker.checkMultiplicityConformance` |
+| `validateSubsettingMultiplicityConformance` | `// TODO: Add validateSubsettingMultiplicityConformance`, then the upper-bound check | the same function |
+| `validateBindingConnectorTypeConformance` | `// TODO: Add validateBindingConnectorTypeConformance`, then `//Binding type conformance` | `internal/check/passes/w9c_bound_feature_types.go`, `W9CBoundFeatureTypesPass.Run` |
+| `validateFlowEndSubsetting` | `// TODO: Add validateFlowEndSubsetting? validateFlowEndImplicitSubsetting?`, then `getSubsettedNotRedefinedFeaturesOf(flowEnd).isEmpty` | `internal/check/passes/w8d_flow_end.go`, `W8DFlowEndPass.Run` |
+| `validateOperatorExpressionCastConformance` | `// TODO: Add validateOperatorExpressionCastConformance`, then the `as` check | `internal/check/passes/typecheck_expr.go`, `exprChecker.checkCast` |
+
+The models are the census probes under `tools/census/validation/testdata/probes/`, each a
+package `P`; pilot `validate-kerml`, `2026-08`, and this tree (observations):
+
+- `class A { feature x [1..2]; } class B specializes A { feature y [0..2] redefines x; }` —
+  both: `5:54: warning: Redefining feature should not have smaller multiplicity lower bound`.
+- `class A { feature x [0..2]; } class B specializes A { feature y [0..5] subsets x; }` — both:
+  `5:52: warning: Subsetting/redefining feature should not have larger multiplicity upper bound`.
+- `class C { feature x : ScalarValues::String; feature y : ScalarValues::Integer; binding x = y; }`
+  — both: `4:82: warning: Bound features should have conforming types`.
+- `class A { out feature o : ScalarValues::Integer; } class B { in feature i : ScalarValues::Integer; }
+  class C { feature a : A; feature b : B; flow from A::o to B::i; }` — both:
+  `6:43: error: Must have at least two related elements`, then at `6:53` and again at `6:61`
+  `error: Cannot identify flow end (use dot notation)` and
+  `error: Must be an accessible feature (use dot notation for nesting)`.
+- `feature s : ScalarValues::String; feature n = s as ScalarValues::Integer;` — pilot:
+  `5:15: warning: Cast argument should have conforming types`; OpenSysML: `5:15: warning: cast
+  argument is typed by String, unrelated to the target Integer: neither type specializes the
+  other, so the cast selects no value`.
+
+**Assessment:** no difference in verdict. Every one of the five `TODO`s is stale, not only the
+cast's. The census rows for these constraints are in
+[validation-constraints.md](validation-constraints.md).
+
+### 27. Variation parameters and stakeholder specialization
+
+**Model text**
+
+```sysml
+package P {
+    calc def C;
+    variation calc vc : C { variant calc c1 : C; }
+    variation requirement vr { variant requirement r1; }
+    variation case vk { variant case k1; }
+}
+```
+
+and, one per file, `variation calc vp { in p; variant calc c2; }`,
+`part def X; variation requirement vr { subject s : X; variant requirement r1; }`,
+`variation calc vc { return r : ScalarValues::Real; variant calc c1; }`,
+`variation case vk { objective o; variant case k1; }`; and
+`part def X; requirement def R { subject y : X; stakeholder s : X; }` against
+`part def X; part def Y { stakeholder s : X; }`.
+
+**Pilot:** reading. `SysMLValidator.checkUsage`, for `validateUsageVariationOwnedFeatureMembership`:
+
+```
+// NOTE: Need to allow parameters and objectives because they are currently physically inserted by transform implementation.
+// TODO: Add allowance of parameters and objectives in variations to spec? Or remove when possible?
+if (!(mem instanceof ParameterMembership || mem instanceof ObjectiveMembership)) {
+```
+
+`PartUsageAdapter.isRequirementStakeholder` adds the implied specialization of
+`Requirements::RequirementCheck::stakeholders` only when the stakeholder's owning type is a
+requirement definition or usage, noting that "checkPartUsageStakeholderSpecialization OCL doesn't
+explicitly require the owningType to be a RequirmentDefinition or RequirementUsage".
+
+Observations, `2026-08`, and this tree:
+
+| Model | Pilot | OpenSysML |
+|---|---|---|
+| the three variations above | clean | clean |
+| `in p` in a variation calc | `2:25: error: An owned usage of a variation must be a variant.` | the same |
+| `subject s : X` in a variation requirement | clean | `1:52: error: An owned usage of a variation must be a variant.` |
+| `return r` in a variation calc | clean | `1:33: error: An owned usage of a variation must be a variant.` |
+| `objective o` in a variation case | clean | clean |
+| `stakeholder` in a requirement definition | clean | clean |
+| `stakeholder` in a part definition | `3:18: error: mismatched input 'stakeholder' expecting '}'` and `4:1: error: extraneous input '}' expecting EOF` | `3:18: error: 'stakeholder' declares a stakeholder of a requirement and is only allowed in a requirement body; move it into the requirement it belongs to` |
+
+**OpenSysML:** `internal/check/passes/w8d_variability.go`, `checkMembers`, exempts an objective,
+a metadata usage and, in an enumeration, an enumerated value, and reports a subject member and
+every other non-variant usage. A stakeholder outside a requirement body is a parser diagnostic
+(`internal/syntax/parser/defusage.go`).
+
+**Specification:** SysML §8.3.6.4 `Usage`, `validateUsageVariationOwnedFeatureMembership`: "If a
+Usage is a variation, then it must not have any ownedFeatureMemberships."
+(`isVariation implies ownedFeatureMembership->isEmpty()`); §8.3.6.2 states the same for a
+definition. A `ParameterMembership` and an `ObjectiveMembership` are `FeatureMembership`s. SysML
+§8.3.11.3 `PartUsage`, `checkPartUsageStakeholderSpecialization`: "If a PartUsage is owned via a
+StakeholderMembership, then it must directly or indirectly specialize either
+Requirements::RequirementCheck::stakeholders."
+
+**Assessment:** the parameters a variation gets without writing them, and the stakeholder
+restriction, make no observable difference: the inserted parameters draw nothing in either tool,
+and both grammars admit `stakeholder` only in a requirement body, where the pilot's condition
+always holds. The parameter exemption does differ for a parameter written in the model: the pilot
+exempts every `ParameterMembership`, so an explicit subject or return parameter is accepted,
+while OpenSysML exempts only objectives and rejects it. By the OCL both are rejected, and so is
+the objective both tools accept. Neither tool is fully faithful.
+
+**Question for the authors:** the pilot's own: should a variation be allowed parameters and an
+objective? If it should, `validateUsageVariationOwnedFeatureMembership` and
+`validateDefinitionVariationOwnedFeatureMembership` need to exempt them. If not, should the
+inserted ones be inserted at all?
+
+### 28. Multiplicity bound non-negativity (KERML-199)
+
+Two corrections the pilot maintainers have made or ruled on are already recorded, and only the
+second needs a register entry:
+
+- Systems-Modeling/SysML-v2-Pilot-Implementation#802, `Type::multiplicity` reached through
+  alias and reference memberships, fixed upstream on ST6RI-975, is item 9 and
+  [omg-issues.md](omg-issues.md#a-multiplicity-is-found-through-aliases-and-references-pilot-2026-07).
+- Systems-Modeling/SysML-v2-Pilot-Implementation#803 is recorded in
+  [omg-issues.md](omg-issues.md#a-bound-naming-a-package-level-feature-is-rejected-whatever-its-type-pilot-2026-07)
+  and [pilot-differential.md](pilot-differential.md#multiplicity-bound-result-types-round). What
+  follows is the OCL point behind it.
+
+**Model text**
+
+```kerml
+package P { feature k : ScalarValues::Integer = -1; feature d [k]; }
+```
+
+and `package P { feature n : ScalarValues::Natural = 2; feature e [n]; }`.
+
+**Pilot:** `validate-kerml`, `2026-08` (observation):
+`kerml199.kerml:1:64: error: Must have a Natural value`; the second model is clean. Reading:
+`KerMLValidator.checkMultiplicityRange`:
+
+```
+// TODO: Correct validateMultiplicityBoundResults OCL from KERML-199.
+// validateMultiplicityRangeBoundResultTypes
+for (b: mult.bound) {
+    if (if (b.isModelLevelEvaluable) mult.valueOf(b) == -2 else !b.isInteger) {
+```
+
+and `MultiplicityRange_valueOf_InvocationDelegate` returns `-2` "to represent a "null" result".
+
+**OpenSysML:** the same error at `1:64`; the second model is `no errors`.
+`internal/check/passes/w8c_multiplicity_bounds.go`, `multiplicityBoundsChecker.checkBound`: an
+evaluable bound must fold to a non-negative integer or `*`; any other bound must have an
+Integer-conforming result type.
+
+**Specification:** KerML 1.1 Beta 2 §8.3.4.11.2 `MultiplicityRange`,
+`validateMultiplicityRangeBoundResultTypes`; the clause has the same number in KerML 1.0
+(formal/2026-03-01), from which this quotation is taken: "The results of the bound Expression(s)
+of a MultiplicityRange must be typed by ScalarValues::Intger from the Kernel Data Types Library.
+If a bound is model-level evaluable, then it must evaluate to a non-negative value." (so spelt),
+with OCL
+
+```
+bound->forAll(b |
+    b.result.specializesFromLibrary('ScalarValues::Integer') and
+    let value : UnlimitedNatural = valueOf(b) in
+    value <> null implies value >= 0
+)
+```
+
+The same clause's `valueOf` returns `null` for a bound that is not model-level evaluable, whose
+evaluation is not a single element, or whose `LiteralInteger` value is negative (`if value >= 0
+then value else null`), so `value >= 0` holds whenever `value <> null` and the clause cannot
+fail. KERML-199 (<https://issues.omg.org/issues/KERML-199>, closed) introduced the
+non-negativity sentence.
+
+**Assessment:** the OCL is short of its prose. Both tools implement the prose, the pilot by
+reading `valueOf`'s `null` as its `-2` marker. No difference.
+
+**Question for the authors:** should `validateMultiplicityRangeBoundResultTypes` test the
+evaluated bound directly, for example `bound.isModelLevelEvaluable implies valueOf(b) <> null`,
+so that its OCL rejects a negative bound as its prose does?
+
 ## Inventory A — `spec-compliance.md` rows justified by the pilot or by nothing
 
 Every row of `docs/project/spec-compliance.md` was classified as (a) citing a specification
@@ -762,7 +1229,7 @@ are the negative corpus's evidence for that item.
 
 ## How this list was produced, and how to keep it current
 
-The register is an audit of four sources, each re-runnable from the repository root:
+The register is an audit of five sources, each re-runnable from the repository root:
 
 1. **`spec-compliance.md` rows.** Every table row and list item under each `##` section was
    classified by regular expression: (a) mentions `KerML`/`SysML` with a `§` or `8.x` clause number;
@@ -786,6 +1253,13 @@ The register is an audit of four sources, each re-runnable from the repository r
    against the committed referee baseline (`tools/referee/reject`, see
    [pilot-rejection.md](pilot-rejection.md)).
 
+5. **Pilot source.** The pinned tag, cloned sparsely (`org.omg.kerml.xtext`, `org.omg.sysml.xtext`,
+   `org.omg.sysml.logic`), was searched with `rg -n 'TODO|NOTE:|KERML-[0-9]+|SYSML2-[0-9]+|SYSML21-[0-9]+'`
+   for the places where the pilot's own source admits a departure from the specification or cites
+   an OMG issue. Each hit was read against the OpenSysML code and, where a model shows it, both
+   validators were run. Items 22–28 and the membership-distinguishability entry in
+   [omg-issues.md](omg-issues.md#defects-in-the-pilot-implementation) come from this sweep.
+
 **Specification text.** Download the two PDFs from the OMG URLs in the overview, extract text
 (any PDF text extractor; this audit used `pypdf`), and grep for the constraint names quoted in an
 item. Record the document numbers printed on the title pages; if they differ from the ones stated
@@ -799,7 +1273,7 @@ of the detailed items. Close an item by linking the PR or the upstream answer th
 move it to a **Closed** section rather than deleting it, so that the next audit does not re-derive
 it.
 
-**Author questions.** The open questions are items 2, 3, 5, 6, 7, 8, 10, 13, 14 and 16. They are
+**Author questions.** The open questions are items 2, 3, 5, 6, 7, 8, 10, 13, 14, 16, 22, 24, 27 and 28. They are
 drafted for a maintainer to raise with the specification authors (as with the nested-redefinition
 question); nothing has been posted upstream from this register, and the register should be updated
 with the answer when one arrives.
