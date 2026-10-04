@@ -2,8 +2,9 @@
 
 [![Nightly snapshot](https://github.com/Open-MBEE/OpenSysML/actions/workflows/nightly.yml/badge.svg?branch=develop)](https://github.com/Open-MBEE/OpenSysML/actions/workflows/nightly.yml)
 
-Every night the newest green commit on `develop` is built into the same binaries a
-release ships and published as the prerelease **[`nightly`](https://github.com/Open-MBEE/OpenSysML/releases/tag/nightly)**.
+Every night the newest green commit on `develop` is built into the same binaries
+and WebAssembly assets a release ships and published as the prerelease
+**[`nightly`](https://github.com/Open-MBEE/OpenSysML/releases/tag/nightly)**.
 It is a development build: what a change looks like the day it lands, before the next
 stable release ([latest](https://github.com/Open-MBEE/OpenSysML/releases/latest), installed as
 described in the [install guide](../guide/01-install.md)) carries it.
@@ -48,7 +49,12 @@ The assets are the ones a stable release ships, laid out the same way (see
   darwin/arm64 and windows/amd64;
 - `sysml-<os>-<arch>.tar.gz` and `sysml-lsp-<os>-<arch>.tar.gz` — each binary on its own;
 - `sysml-grpc-<os>-<arch>` with a `.sha256` sidecar — the gRPC service, raw;
+- `wasm/sysml-wasm.wasm` and `wasm/wasm_exec.js` with `.sha256` sidecars — the
+  combined WebAssembly module and matching Go runtime;
 - `SHA256SUMS.txt` over all of the above and its cosign bundle `SHA256SUMS.txt.bundle`.
+
+The nightly checksum manifest is cosign-signed; nightly assets do not have SLSA
+provenance, just like the other assets in the snapshot.
 
 And one a stable release does not ship:
 

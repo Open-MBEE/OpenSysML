@@ -207,6 +207,8 @@ jobs:
             echo
             printf '%s' "The snapshot is replaced each night and is never the \`latest\` release; Homebrew,"
             printf '%s' " PyPI, npm and the Windows installer follow the stable line only. The"
+            printf '%s' " \`sysml-wasm.wasm\` module and matching \`wasm_exec.js\` are available in its assets."
+            printf '%s' " The"
             printf '%s' " [snapshot page](https://opensysml.org/project/nightly/) explains what it is, how"
             printf '%s' " to verify it and what to expect from it; the"
             printf '%s\n' " [install guide](https://opensysml.org/guide/01-install/) covers the stable releases."
@@ -258,5 +260,6 @@ jobs:
             --latest=false \
             dist/*.tar.gz dist/*.zip dist/opensysml-sysml.vsix \
             dist/SHA256SUMS.txt dist/SHA256SUMS.txt.bundle \
-            dist/grpc/sysml-grpc-*
+            dist/grpc/sysml-grpc-* \
+            dist/wasm/sysml-wasm.wasm dist/wasm/wasm_exec.js dist/wasm/*.sha256
           gh release view "$TAG" --json url,assets --jq '.url, (.assets[].name)'
