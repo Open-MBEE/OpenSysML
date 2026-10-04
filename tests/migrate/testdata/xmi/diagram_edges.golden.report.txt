@@ -4,7 +4,7 @@
 
 ## approximated (9)
 Transition	Behavior::Modes::<Region>::<Transition>	_t_restart	-> Behavior::Modes::'Halted accept Go then Running'	(written as 2 transitions, one per trigger)
-OpaqueBehavior	Behavior::Modes::<Region>::Running::spin	_st_running_do	-> Behavior::Modes::Running::spin	(the body is kept as a comment: the statement "keep turning" is not an assignment of a v2 expression (language English))
+OpaqueBehavior	Behavior::Modes::<Region>::Running::spin	_st_running_do	-> Behavior::Modes::Running::spin	(the body is kept as a textual representation, which is not executed: the statement "keep turning" is not an assignment of a v2 expression (language English))
 Package	Requirements	_pkg_reqs	-> RequirementsModel	(written as RequirementsModel since a root package named Requirements would be hidden by the standard library's Requirements)
 «Satisfy» Abstraction	Requirements::<Abstraction>	_dep_satisfy_pairs	(written as 2 relationships, one per client–supplier pair)
 «TestCase» Activity	Requirements::Mass Test	_tc_mass	-> RequirementsModel::'Mass Test'	(the test case's behavior is not migrated; only its verified requirements are)

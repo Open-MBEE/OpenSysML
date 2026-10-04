@@ -33,6 +33,7 @@ package Structure {
             }
             succession 'start to ignite' first start then ignite;
             action ignite {
+                rep language "JavaScript" /* ignited = true; */
                 attribute ignited : ScalarValues::Boolean;
                 assign ignited := true;
             }
@@ -47,6 +48,7 @@ package Structure {
                 expose Engine;
                 render Views::asTextualNotation;
             }
+            rep language "JavaScript" /* ignited = false; */
             first start then body;
             action body {
                 attribute ignited : ScalarValues::Boolean;
@@ -92,6 +94,7 @@ package Behavior {
         }
         succession 'start to start engine' first start then 'start engine';
         action 'start engine' {
+            rep language "JavaScript" /* running = true; */
             attribute running : ScalarValues::Boolean;
             assign running := true;
         }

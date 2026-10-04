@@ -331,7 +331,7 @@ func TestLocalsABodyDeclaresAreNoReadsOfTheOwner(t *testing.T) {
 	r := migrateDocument(t, localsModel, `<sysml:Block xmi:id="_b1" base_Class="_counter"/>`)
 	for _, line := range []string{
 		"action def Compute {",
-		`the construct "let count" is outside the translated subset: count is already a feature here, which a declaration would shadow`,
+		`rep language "JavaScript" /* let count = 1; count += 1; */`,
 		"action tally {",
 		"attribute n : ScalarValues::Integer;",
 		"assign count := n + 1;",

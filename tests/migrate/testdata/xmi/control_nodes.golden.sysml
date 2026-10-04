@@ -9,13 +9,9 @@ package Control {
             fork 'fork';
             succession 'fork to heat' first 'fork' then heat;
             succession 'fork to cool' first 'fork' then cool;
-            action heat {
-                /* body not migrated (the body is empty) */
-            }
+            action heat;
             succession 'heat to join' first heat then 'join';
-            action cool {
-                /* body not migrated (the body is empty) */
-            }
+            action cool;
             succession 'cool to join' first cool then 'join';
             join 'join';
             succession 'join to check' first 'join' then check;

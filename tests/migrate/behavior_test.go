@@ -153,7 +153,7 @@ func TestActivityMigratesToAnExecutableActionDef(t *testing.T) {
 	} {
 		wantLine(t, r.Notation, line)
 	}
-	wantNote(t, r, "_stamp", migrate.Approximated, "the body is kept as a comment")
+	wantNote(t, r, "_stamp", migrate.Approximated, "the body is kept as a textual representation, which is not executed")
 	wantNote(t, r, "_e8", migrate.Approximated, "the guard [Focus lost] is kept as a comment and the edge written unguarded")
 	wantNote(t, r, "_dcA", migrate.Approximated, "written as a fixed wait of 3.0 s before 'Point'")
 	wantNote(t, r, "_dcB", migrate.Approximated, "written as a wait drawn uniformly over [1.0, 8.0] s before 'Focus'")
@@ -889,7 +889,7 @@ func TestActivityWithSendAcceptAndOperationCalls(t *testing.T) {
 	wantNote(t, r, "_twice", migrate.Mapped, "")
 	wantNote(t, r, "_tr", migrate.Approximated, "the return parameter is written as an out parameter")
 	wantNote(t, r, "_rcv", migrate.Approximated, "the reception has no method, so it only accepts the signal")
-	wantNote(t, r, "_js", migrate.Approximated, "the body is kept as a comment")
+	wantNote(t, r, "_js", migrate.Approximated, "the body is kept as a textual representation, which is not executed")
 	wantNote(t, r, "_log", migrate.Approximated, "the pin 't' it passes for the parameter t of Station::Logging receives none: 'compute', which feeds it, produces no value; v1 runs the callee without the value, so the parameter is declared admitting none")
 	wantNote(t, r, "_point", migrate.Mapped, "written as an action usage of Telescope, which a call on an object performs, so its body runs on the object and reaches its features")
 	wantNote(t, r, "_callTgt", migrate.Mapped, "the call performs the usage point of the target this.tel")
@@ -1001,7 +1001,7 @@ func TestNestedDefProbabilityReadsThroughContext(t *testing.T) {
 	t.Run("held by a part a node of the body is named like", func(t *testing.T) {
 		r := migrateFixtureFile(t, "probability_part_shadowed")
 		wantLine(t, r.Notation, "part mission : Mission;")
-		wantLine(t, r.Notation, "action mission {")
+		wantLine(t, r.Notation, "action mission;")
 		wantLine(t, r.Notation, "first 'decide' then a { @Stochastic::Probability { p = Sub::mission.pr; } }")
 		wantLine(t, r.Notation, "first 'decide' then b { @Stochastic::Probability { p = 1.0 - Sub::mission.pr; } }")
 		wantNote(t, r, "_ea", migrate.Mapped, "the probability reads the property pr of the object performing the action")

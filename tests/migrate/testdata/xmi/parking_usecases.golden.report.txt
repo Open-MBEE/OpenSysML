@@ -1,12 +1,12 @@
 # SysML v1 to v2 migration report: parking_usecases.xmi
-# migrated 44 element(s): 29 mapped, 12 approximated, 3 unmapped (0 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)
+# migrated 44 element(s): 30 mapped, 11 approximated, 3 unmapped (0 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)
 
 ## unmapped (3)
 Extend	Use Cases::Leave Garage::<Extend>	_extLost	(the extended use case is not in the document; 1 extendedCase reference(s) resolve to nothing in the document (_lostCase))
 Include	Use Cases::Leave Garage::<Include>	_incLost	(the included use case is not in the document; 1 addition reference(s) resolve to nothing in the document (_lostCase))
 ExtensionPoint	Use Cases::Park Car::garage full	_epFull	(v2 has no extension points; an extending use case is written as a dependency on the extended one)
 
-## approximated (12)
+## approximated (11)
 Actor	Context::Attendant	_attendant	-> Context::Attendant	(a UML actor is written as a part def)
 Actor	Context::Bank	_bank	-> Context::Bank	(a UML actor is written as a part def)
 Actor	Context::Driver	_driver	-> Context::Driver	(a UML actor is written as a part def)
@@ -14,13 +14,12 @@ Association	Use Cases::<Association>	_aParkWait	-> 'Use Cases'::unnamed	(the ano
 Property	Use Cases::<Association>::<Property>	_eParkD	-> 'Use Cases'::'Park Car'::driver	(the end at the use case is the use case def the actor is declared in)
 Property	Use Cases::<Association>::<Property>	_eParkA	-> 'Use Cases'::'Park Car'::attendant	(the end at the use case is the use case def the actor is declared in)
 Activity	Use Cases::Park Car::Park Flow	_parkFlow	-> 'Use Cases'::'Park Car'::'Park Flow'	(the classifier behavior is run by every object of Use Cases::Park Car as its usage park Flow)
-OpaqueAction	Use Cases::Park Car::Park Flow::Enter	_pfEnter	-> Enter	(the body is kept as a comment: the body is empty)
 UseCase	Use Cases::Pay Fee	_pay	-> 'Use Cases'::'Pay Fee'	(v2 admits one subject per case, so the subject Context::Ticket is written as the reference usage ticket)
 Property	Use Cases::Settlement::<Property>	_ePayB	-> 'Use Cases'::'Pay Fee'::bank	(the end at the use case is the use case def the actor is declared in)
 Property	Use Cases::Valet Service::offer	_svcCase	-> 'Use Cases'::'Valet Service'::offer	(a property typed by a behavior is written as a reference use case usage)
 Extend	Use Cases::Wait For Space::<Extend>	_extFull	(v2 has no extend: the extension is written as a plain dependency on the extended use case; it applies at extension point(s) 'garage full' when {English} no bay is free, which only a comment keeps)
 
-## mapped (29)
+## mapped (30)
 Package	Context	_ctx	-> Context
 Comment	Context::Driver::<Comment>	_driverDoc
 «Block» Class	Context::Garage	_garage	-> Context::Garage
@@ -43,6 +42,7 @@ Include	Use Cases::Park Car::<Include>	_incPay	-> 'Use Cases'::'Park Car'::'pay 
 ActivityFinalNode	Use Cases::Park Car::Park Flow::<ActivityFinalNode>	_pfEnd	-> final
 ControlFlow	Use Cases::Park Car::Park Flow::<ControlFlow>	_pfE2
 InitialNode	Use Cases::Park Car::Park Flow::<InitialNode>	_pfStart	-> start
+OpaqueAction	Use Cases::Park Car::Park Flow::Enter	_pfEnter	-> Enter	(its body is empty, so it is written as an action that does nothing)
 Property	Use Cases::Pay Fee::amount	_payAmount	-> 'Use Cases'::'Pay Fee'::amount
 Include	Use Cases::Pay Fee::authorise	_incAuth	-> 'Use Cases'::'Pay Fee'::authorise
 Association	Use Cases::Settlement	_aBankPay	-> 'Use Cases'::Settlement	(the association is also written as the actor bank of the use case 'Use Cases'::'Pay Fee')

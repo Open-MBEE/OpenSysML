@@ -2293,17 +2293,25 @@ func (a *activity) unassigned(pin *sysmlv1.Element) bool {
 	return pin.Parent != nil && pin.Parent.Type == "OpaqueAction" && !a.opaqueOf(pin.Parent).assigned[pin]
 }
 
-// opaqueAction writes an opaque action as an action of assignments when its body is
-// a sequence of them, else with the body kept as a comment; its pins stay unwritten.
+// opaqueAction writes translated assignments and keeps every opaque body as text.
 func (a *activity) opaqueAction(n *sysmlv1.Element, name string) {
 	r := a.opaqueOf(n)
 	a.m.w.block(actionKw+name, func() {
 		a.pins(n, nil)
+		a.m.textualReps(n)
 		if !r.ok {
 			a.inert[n] = true
-			body, lang := opaqueBody(n)
-			a.m.opaqueComment(body, lang, r.note)
-			a.m.add(n, Approximated, name, "the body is kept as a comment: "+r.note)
+			if r.note == "the body is empty" && opaqueBodiesEmpty(n) {
+				a.m.add(n, Mapped, name, "its body is empty, so it is written as an action that does nothing")
+				return
+			}
+			a.m.opaqueBodyComments(n, r.note)
+			_, lang := opaqueBody(n)
+			keptAs := "a textual representation, which is not executed"
+			if lang == "" {
+				keptAs = "a comment"
+			}
+			a.m.add(n, Approximated, name, "the body is kept as "+keptAs+": "+r.note)
 			return
 		}
 		a.m.w.lines(r.lines)

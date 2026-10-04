@@ -6,13 +6,9 @@ part def Chooser {
         decide 'decide';
         first 'decide' then defaulted { @Stochastic::Probability { p = pDefault; } }
         first 'decide' if pMissing > 0.0 then missing { @Stochastic::Probability { p = pMissing; } }
-        action defaulted {
-            /* body not migrated (the body is empty) */
-        }
+        action defaulted;
         first defaulted then 'merge';
-        action missing {
-            /* body not migrated (the body is empty) */
-        }
+        action missing;
         first missing then 'merge';
         merge 'merge';
         first 'merge' then final;

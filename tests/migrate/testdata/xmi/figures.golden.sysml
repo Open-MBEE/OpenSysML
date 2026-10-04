@@ -19,13 +19,9 @@ package Plant {
                 render Views::asInterconnectionDiagram;
             }
             first start then Fill;
-            action Fill {
-                /* body not migrated (the body is empty) */
-            }
+            action Fill;
             first Fill then Vent;
-            action Vent {
-                /* body not migrated (the body is empty) */
-            }
+            action Vent;
             first Vent then final;
             action final terminate;
             metadata MigrationMetadata::SynthesizedName about final;

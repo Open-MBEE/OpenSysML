@@ -7,9 +7,7 @@ package Recovery {
             else 'merge';
             comment /* Retries until the budget is spent. */
             first 'decide' if attempts < 3 then retry;
-            action retry {
-                /* body not migrated (the body is empty) */
-            }
+            action retry;
             first retry then 'merge';
             merge 'merge';
             first 'merge' then final;

@@ -6,8 +6,8 @@ ControlFlow	Plant::Fill::<ControlFlow>	_f3a	(the guard [{JavaScript} on] is kept
 ActivityPartition	Plant::Fill::Elsewhere	_gone	(a partition names who performs its nodes; it is kept as a comment; the partition represents an element outside the document)
 ActivityPartition	Plant::Fill::Operator	_unset	(a partition names who performs its nodes; it is kept as a comment; the partition represents nothing)
 ActivityPartition	Plant::Fill::Spare	_spare	(a partition names who performs its nodes; it is kept as a comment; the partition represents the context's tank, read as this.tank, but nothing in it names the object's features)
-OpaqueAction	Plant::Fill::mine	_mine	-> mine	(the body is kept as a comment: the name "this.level" resolves to nothing readable: Tank has no feature level)
-OpaqueAction	Plant::Fill::torn	_torn	-> torn	(the body is kept as a comment: the name "volume" resolves to nothing readable: nothing visible from Plant::Fill::torn is called volume; it is in the partitions 'Tank' (this.tank) and 'Pump' (this.pump), which represent different objects, so names resolve through no partition)
+OpaqueAction	Plant::Fill::mine	_mine	-> mine	(the body is kept as a textual representation, which is not executed: the name "this.level" resolves to nothing readable: Tank has no feature level)
+OpaqueAction	Plant::Fill::torn	_torn	-> torn	(the body is kept as a textual representation, which is not executed: the name "volume" resolves to nothing readable: nothing visible from Plant::Fill::torn is called volume; it is in the partitions 'Tank' (this.tank) and 'Pump' (this.pump), which represent different objects, so names resolve through no partition)
 
 ## mapped (56)
 «Block» Class	Control	_control	-> Control

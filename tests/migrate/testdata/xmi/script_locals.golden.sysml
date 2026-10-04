@@ -12,6 +12,7 @@ part def Executive {
     state def 'Executive Behavior' {
         in ref context : Executive[1];
         entry action stamp {
+            rep language "JavaScript" /* t0 = simtime; */
             assign context.t0 := localClock.currentTime;
         }
         then Aligning;
@@ -21,6 +22,12 @@ part def Executive {
         state Idle;
         transition first Aligning accept after 3.0 [SI::s]
             do action diffTime {
+                rep language "JavaScript" /* t1 = simtime;
+                 * tdiffOld = tdiff;
+                 * tdiff = (t1 - t0);
+                 * tStep = tdiff - tdiffOld;
+                 * print("step " + tStep);
+                 */
                 attribute t1 : ScalarValues::Real;
                 assign t1 := localClock.currentTime;
                 attribute tdiffOld : ScalarValues::Real;
@@ -31,16 +38,14 @@ part def Executive {
             then Phasing;
         transition first Phasing accept after 2.0 [SI::s]
             do action javaDiff {
-                /* body not migrated (the name "tdiffOld" resolves to nothing readable: nothing visible from Executive::Executive Behavior::<Region>::<Transition>::javaDiff is called tdiffOld) {Java}:
-                 * tdiffOld = tdiff;
+                rep language "Java" /* tdiffOld = tdiff;
                  * tdiff = tdiff + 1.0;
                  */
             }
             then Counting;
         transition first Counting
             do action readFirst {
-                /* body not migrated (the name "stepsOld" resolves to nothing readable: nothing visible from Executive::Executive Behavior::<Region>::<Transition>::readFirst is called stepsOld) {JavaScript}:
-                 * steps = steps + stepsOld;
+                rep language "JavaScript" /* steps = steps + stepsOld;
                  * stepsOld = steps;
                  */
             }

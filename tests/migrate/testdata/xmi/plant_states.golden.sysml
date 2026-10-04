@@ -20,6 +20,7 @@ part def Plant {
         state Work {
             entry; then Prep;
             exit action tally {
+                rep language "JavaScript" /* count = count + 1; */
                 assign context.count := context.count + 1;
             }
             state Prep;
@@ -58,7 +59,9 @@ part def Plant {
         transition first Idle accept Resume then Work.Run;
         transition first Work accept Hold then Pause;
         transition first Pause accept Resume
-            do action log { }
+            do action log {
+                rep language "JavaScript" /* println("resuming at " + count); */
+            }
             then Work.last;
         transition first Idle accept Enter then Cell.warmStart;
         transition first Cell.spent then Idle;

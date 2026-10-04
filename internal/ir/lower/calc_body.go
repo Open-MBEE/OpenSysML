@@ -58,8 +58,8 @@ func calcStep(member ast.Node, scope *symbols.Scope) (Statement, bool) {
 			return nil, false
 		}
 		return usageStatement(m, scope)
-	case *ast.Definition, *ast.Documentation, *ast.Comment, *ast.Import, *ast.Alias:
-		// Declares a member of the calculation, not a step of it.
+	case *ast.Definition, *ast.Documentation, *ast.Comment, *ast.TextualRepresentation, *ast.Import, *ast.Alias:
+		// An annotation or declaration describes the calculation, not a step of it.
 		return nil, false
 	case *ast.SuccessionEdge:
 		// A calculation body runs its steps in declaration order, so a

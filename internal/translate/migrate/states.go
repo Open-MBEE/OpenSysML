@@ -2203,13 +2203,15 @@ func (m *migration) writeInlineBody(kw string, b, owner *sysmlv1.Element, header
 	case "OpaqueBehavior", "FunctionBehavior":
 		body, lang := opaqueBody(b)
 		lines, ok, note := m.statements(body, lang, b)
+		empty := !ok && note == "the body is empty" && opaqueBodiesEmpty(b)
 		enclose(header, func() {
 			m.comments(b)
 			m.parameters(b, b)
+			m.textualReps(b)
 			if ok {
 				m.w.lines(lines)
-			} else {
-				m.opaqueComment(body, lang, note)
+			} else if !empty {
+				m.opaqueBodyComments(b, note)
 			}
 			if m.keeping != "" {
 				m.w.line(m.keeping)
@@ -2217,8 +2219,14 @@ func (m *migration) writeInlineBody(kw string, b, owner *sysmlv1.Element, header
 		})
 		if ok {
 			m.add(b, Approximated, m.v2Name(b), "the "+langName(lang)+" body is written as v2 assignments")
+		} else if empty {
+			m.add(b, Mapped, m.v2Name(b), "")
 		} else {
-			m.add(b, Approximated, m.v2Name(b), "the body is kept as a comment: "+note)
+			keptAs := "a textual representation, which is not executed"
+			if lang == "" {
+				keptAs = "a comment"
+			}
+			m.add(b, Approximated, m.v2Name(b), "the body is kept as "+keptAs+": "+note)
 		}
 		return true
 	}
