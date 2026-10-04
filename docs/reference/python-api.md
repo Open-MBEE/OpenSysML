@@ -48,6 +48,10 @@ connecting to models.
     options:
       heading_level: 3
 
+::: opensysml.read_json
+    options:
+      heading_level: 3
+
 ::: opensysml.parse_sources
     options:
       heading_level: 3

@@ -1226,7 +1226,7 @@ jobs:
           make python-install
           # Pinned and wheel-only: an unpinned resolve runs whatever was
           # published today, and a source distribution runs its own build code.
-          pip install --only-binary :all: pytest==9.0.3 pytest-mock==3.15.1 psutil==7.2.2 fmpy==0.3.32 mypy==2.4.0 'pyright[nodejs]==1.1.414'
+          pip install --only-binary :all: pytest==9.0.3 pytest-mock==3.15.1 psutil==7.2.2 fmpy==0.3.32 mypy==2.4.0 types-protobuf==7.35.1.20260906 'pyright[nodejs]==1.1.414'
 
       # The FMI runner test's FMUs, same pin as the Go gate's.
       - name: Cache the Reference-FMUs
