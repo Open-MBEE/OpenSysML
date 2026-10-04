@@ -250,13 +250,13 @@ func (w *caseWalk) edgeIDs(sym *symbols.Symbol, from, to string, kind EdgeKind, 
 	}
 }
 
-// caseFamily reports whether sym belongs to the case definition and usage families.
 // caseNotation reports whether a rendering of kind draws its typing, reference
 // and composition edges in the case diagram's notation rather than a graph's.
 func caseNotation(kind Kind) bool {
 	return kind == KindCase || kind == KindMixed
 }
 
+// caseFamily reports whether sym belongs to the case definition and usage families.
 func caseFamily(sym *symbols.Symbol) bool {
 	if sym == nil {
 		return false
