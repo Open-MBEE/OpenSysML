@@ -27,6 +27,10 @@ The diagram panel bundles or depends on these third-party packages:
     https://github.com/Aksem/adaptagrams/tree/v1.0.4 (commit
     `dd3236536399e5297b353d02c0b751eeaaf63aee`), a fork of
     https://github.com/mjwybrow/adaptagrams.
+    Before compiling, libavoid-js's build (`tools/generate.py` at v0.4.5) adds
+    two forward declarations, `class Router;` and
+    `struct HyperedgeNewAndDeletedObjectLists;`, to
+    `cola/libavoid/hyperedgeimprover.h`; no other libavoid source is changed.
 
   To use a modified libavoid, replace `dist/libavoid.wasm` in the installed
   extension with one built from the modified sources against the libavoid-js
