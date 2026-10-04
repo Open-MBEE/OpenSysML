@@ -205,7 +205,7 @@ test("Go constructors are cached per runtime script and restore the previous glo
   }
 });
 
-test("preloaded Go runtime scripts are captured from the global", async () => {
+test("preloaded Go runtime scripts require an omitted wasmExec", async () => {
   const directory = mkdtempSync(join(tmpdir(), "opensysml-wasm-exec-"));
   const runtime = globalThis as typeof globalThis & { Go?: GoConstructor };
   const initial = runtime.Go;
@@ -218,7 +218,49 @@ test("preloaded Go runtime scripts are captured from the global", async () => {
     const preloaded = runtime.Go;
     assert.ok(preloaded);
     assert.equal(preloaded.name, "GoPreloaded");
-    assert.strictEqual(await loadGoConstructor(specifier), preloaded);
+    const message = `wasm_exec.js at ${specifier} did not install Go here; it may already have run in this realm. Omit wasmExec to use the installed Go, or load the runtime in a worker`;
+    await assert.rejects(
+      loadGoConstructor(specifier),
+      (error: unknown) => error instanceof OpenSysMLError && error.message === message,
+    );
+    assert.strictEqual(runtime.Go, preloaded);
+    assert.strictEqual(await loadGoConstructor(), preloaded);
+  } finally {
+    if (initial === undefined) {
+      delete runtime.Go;
+    } else {
+      runtime.Go = initial;
+    }
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test("empty Go runtime scripts are rejected without caching an existing constructor", async () => {
+  const directory = mkdtempSync(join(tmpdir(), "opensysml-wasm-exec-"));
+  const runtime = globalThis as typeof globalThis & { Go?: GoConstructor };
+  const initial = runtime.Go;
+  const path = join(directory, "go-empty.mjs");
+  const specifier = `${pathToFileURL(path).href}?empty`;
+  const previous = class PreviousGo extends FakeGo {};
+  const message = `wasm_exec.js at ${specifier} did not install Go here; it may already have run in this realm. Omit wasmExec to use the installed Go, or load the runtime in a worker`;
+  writeFileSync(path, "export {};\n");
+  runtime.Go = previous;
+
+  try {
+    const firstFailure = loadGoConstructor(specifier);
+    await assert.rejects(
+      firstFailure,
+      (error: unknown) => error instanceof OpenSysMLError && error.message === message,
+    );
+    assert.strictEqual(runtime.Go, previous);
+
+    const retry = loadGoConstructor(specifier);
+    assert.notStrictEqual(retry, firstFailure);
+    await assert.rejects(
+      retry,
+      (error: unknown) => error instanceof OpenSysMLError && error.message === message,
+    );
+    assert.strictEqual(runtime.Go, previous);
   } finally {
     if (initial === undefined) {
       delete runtime.Go;
@@ -251,6 +293,28 @@ test("Go constructor lookups without a runtime wait for explicit loads", async (
     assert.strictEqual(runtime.Go, preloaded);
   } finally {
     await Promise.allSettled([slowLoad, queuedLookup]);
+    if (initial === undefined) {
+      delete runtime.Go;
+    } else {
+      runtime.Go = initial;
+    }
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test("failed Go runtime scripts restore an initially empty global", async () => {
+  const directory = mkdtempSync(join(tmpdir(), "opensysml-wasm-exec-"));
+  const runtime = globalThis as typeof globalThis & { Go?: GoConstructor };
+  const initial = runtime.Go;
+  const path = join(directory, "go-broken.mjs");
+  const specifier = `${pathToFileURL(path).href}?broken`;
+  writeFileSync(path, 'globalThis.Go = class GoBroken {};\nthrow new Error("failed");\n');
+  delete runtime.Go;
+
+  try {
+    await assert.rejects(loadGoConstructor(specifier), /could not load wasm_exec\.js/);
+    assert.equal(runtime.Go, undefined);
+  } finally {
     if (initial === undefined) {
       delete runtime.Go;
     } else {
@@ -429,6 +493,16 @@ for (const thread of ["worker", "inline"] as const) {
     const nativeModel = await native.loads(SAMPLE);
     assert.equal(wasmModel.hash, nativeModel.hash);
     assert.deepEqual(wasmModel.diagnostics, nativeModel.diagnostics);
+    if (thread === "inline") {
+      await using secondWasm = await connectWasm({
+        wasm: wasmFiles.wasm,
+        wasmExec: wasmFiles.wasmExec,
+        thread: "inline",
+      });
+      const secondModel = await secondWasm.loads(SAMPLE);
+      assert.equal(secondModel.hash, nativeModel.hash);
+      assert.deepEqual(await secondModel.eval("2 + 2"), await nativeModel.eval("2 + 2"));
+    }
     const wasmCar = await wasmModel.symbol("Sample::Car");
     const nativeCar = await nativeModel.symbol("Sample::Car");
     assert.equal(wasmCar.id, nativeCar.id);
@@ -580,9 +654,9 @@ test("Node WASM workers terminate on close and stale-version refusal", { skip: w
 test("browser inline WASM connections answer client calls", { skip: wasmSkip }, async () => {
   const wasmFiles = requireArtifacts();
   const bytes = new Uint8Array(await readFile(wasmFiles.wasm));
+  await import(pathToFileURL(wasmFiles.wasmExec).href);
   await using connection = await connectBrowserWasm({
     wasm: new Response(bytes, { headers: { "Content-Type": "application/wasm" } }),
-    wasmExec: pathToFileURL(wasmFiles.wasmExec),
   });
   await using native = await connect();
   const wasmModel = await connection.loads(SAMPLE);
