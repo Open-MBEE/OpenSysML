@@ -790,6 +790,11 @@ func (a *activity) checkInitialSuccessions() {
 	}
 }
 
+func optionalPin(pin *sysmlv1.Element) bool {
+	lv := firstOwned(pin, "lowerValue")
+	return lv != nil && boundValue(lv) == "0"
+}
+
 // starvedPin returns an input pin of n that must hold a value for n to fire but
 // that nothing fills: no object flow feeds it, its flows trace to no producer, or
 // only parameters taking no value do, and it is no value pin; nil when all are served.
@@ -803,7 +808,7 @@ func (a *activity) starvedPin(n *sysmlv1.Element) *sysmlv1.Element {
 		case len(a.sources[pin]) > 0 && !a.unvaluedSources(pin):
 			continue
 		}
-		if lv := firstOwned(pin, "lowerValue"); lv != nil && boundValue(lv) == "0" {
+		if optionalPin(pin) {
 			continue
 		}
 		return pin
@@ -2564,7 +2569,7 @@ func (a *activity) sendSignal(n *sysmlv1.Element, name string) {
 			case len(a.sources[t]) > 0:
 				line += " to " + a.m.respellThis(writeName(a.names[t]), a.act)
 			default:
-				if pin := writeName(a.names[t]); pin != "" {
+				if pin := writeName(a.names[t]); pin != "" && !optionalPin(t) {
 					line += " to " + pin
 				} else {
 					note = joinNotes(note, "the target pin holds nothing a flow names; the signal is sent to the sender")

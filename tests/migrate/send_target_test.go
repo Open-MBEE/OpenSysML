@@ -120,6 +120,38 @@ const pingUnfilledTarget = `
 
 const pingUnfilledTargetApplications = `<sysml:Block xmi:id="_s1" base_Class="_node"/>`
 
+const pingOptionalUnfilledTarget = `
+    <packagedElement xmi:type="uml:Signal" xmi:id="_ping" name="Ping"/>
+    <packagedElement xmi:type="uml:SignalEvent" xmi:id="_pingEv" signal="_ping"/>
+    <packagedElement xmi:type="uml:Class" xmi:id="_node" name="Node">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_hits" name="hits">
+        <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Integer"/>
+        <defaultValue xmi:type="uml:LiteralInteger" xmi:id="_hits0" value="0"/>
+      </ownedAttribute>
+      <ownedBehavior xmi:type="uml:Activity" xmi:id="_notify" name="Notify">
+        <node xmi:type="uml:InitialNode" xmi:id="_init"/>
+        <node xmi:type="uml:SendSignalAction" xmi:id="_send" name="send" signal="_ping">
+          <target xmi:type="uml:InputPin" xmi:id="_target" name="target" type="_node">
+            <lowerValue xmi:type="uml:LiteralInteger" xmi:id="_targetLower" value="0"/>
+          </target>
+        </node>
+        <node xmi:type="uml:AcceptEventAction" xmi:id="_accept" name="receive">
+          <trigger xmi:type="uml:Trigger" xmi:id="_trigger" event="_pingEv"/>
+        </node>
+        <node xmi:type="uml:OpaqueAction" xmi:id="_mark" name="mark">
+          <language>JavaScript</language>
+          <body>hits = hits + 1;</body>
+        </node>
+        <node xmi:type="uml:ActivityFinalNode" xmi:id="_final"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_e1" source="_init" target="_send"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_e2" source="_send" target="_accept"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_e3" source="_accept" target="_mark"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_e4" source="_mark" target="_final"/>
+      </ownedBehavior>
+    </packagedElement>`
+
+const pingOptionalUnfilledTargetApplications = `<sysml:Block xmi:id="_s1" base_Class="_node"/>`
+
 // A send whose target pin is fed by an object flow is written as a send to the
 // pin, bound to what feeds it — an activity parameter here, in turn fed by a
 // structural read in the caller. The result runs: the ping reaches the node
@@ -196,5 +228,27 @@ func TestSendTargetNothingFillsIsStillTheReceiver(t *testing.T) {
 	}
 	if diags := errors(t, "unfilled-target-send.sysml", r.Notation); len(diags) != 0 {
 		t.Errorf("migrated notation has validation errors: %v\n%s", diags, r.Notation)
+	}
+}
+
+func TestSendTargetOptionalNothingFillsIsSentToTheSender(t *testing.T) {
+	r := migrateDocument(t, pingOptionalUnfilledTarget, pingOptionalUnfilledTargetApplications)
+	wantLine(t, r.Notation, "send new Ping();")
+	if strings.Contains(string(r.Notation), "to target") {
+		t.Errorf("an optional unfilled target must not be used as a receiver:\n%s", r.Notation)
+	}
+	if es := entriesFor(r, "_send"); len(es) != 1 || !strings.Contains(es[0].Note, "the signal is sent to the sender") {
+		t.Errorf("entries for _send = %+v, want the receiver-less sender note", es)
+	}
+	if diags := errors(t, "optional-unfilled-target-send.sysml", r.Notation); len(diags) != 0 {
+		t.Fatalf("migrated notation has validation errors: %v\n%s", diags, r.Notation)
+	}
+
+	s := session(t, r)
+	meta(t, s, "%instantiate Node")
+	started := meta(t, s, "%action Node::notify #1")
+	continued := meta(t, s, "%continue")
+	if out := meta(t, s, "%eval in #1 : hits"); !strings.Contains(out, "= 1") {
+		t.Errorf("the accept did not complete after the sender received the ping: %s\naction: %s\ncontinue: %s\n%s", out, started, continued, r.Notation)
 	}
 }
