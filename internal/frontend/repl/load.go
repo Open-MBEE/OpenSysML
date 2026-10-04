@@ -6,7 +6,6 @@ import (
 	"io/fs"
 
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
-	"github.com/Open-MBEE/OpenSysML/internal/translate/convert"
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/project"
 )
 
@@ -126,11 +125,15 @@ func (s *Session) readSources(paths []string) ([]SourceFile, error) {
 			return nil, err
 		}
 		var warnings []string
-		text, converted, err := convert.ModelSource(name, data, func(message string) {
-			warnings = append(warnings, message)
-		})
-		if err != nil {
-			return nil, fmt.Errorf("cannot convert %s: %w", name, err)
+		text, converted := data, false
+		if s.sourceConverter != nil {
+			var err error
+			text, converted, err = s.sourceConverter(name, data, func(message string) {
+				warnings = append(warnings, message)
+			})
+			if err != nil {
+				return nil, fmt.Errorf("cannot convert %s: %w", name, err)
+			}
 		}
 		var kind source.Kind
 		if converted {

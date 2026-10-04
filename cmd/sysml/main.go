@@ -758,7 +758,7 @@ func resolveRunBounds() int {
 // newSession returns a session in the output modes the flags asked for, under
 // the run bounds resolved at startup.
 func newSession() *repl.Session {
-	sess := repl.NewSession()
+	sess := repl.NewSessionWithSourceConverter(convert.ModelSource)
 	sess.SetToolVersion("sysml " + Version)
 	if err := sess.SetBudgets(budgets); err != nil {
 		// Unreachable: budgets are validated in main before any session exists.

@@ -69,6 +69,9 @@ type snippet struct {
 	diags []diag.Diagnostic
 }
 
+// SourceConverter transforms a named source file before the REPL parses it.
+type SourceConverter func(name string, data []byte, warn func(string)) (text []byte, converted bool, err error)
+
 // Session accumulates submissions: what is typed into the transcript document,
 // and each loaded file into a document of its own.
 type Session struct {
@@ -79,9 +82,10 @@ type Session struct {
 	mu    sync.Mutex
 	state sync.Mutex
 
-	ws       *model.Workspace
-	snippets []snippet
-	version  int
+	ws              *model.Workspace
+	sourceConverter SourceConverter
+	snippets        []snippet
+	version         int
 
 	// Runtime execution context
 	rtCtx *runtime.Context
@@ -290,14 +294,25 @@ func (s *stateSession) selfOf() string {
 
 // NewSession returns a session over a fresh workspace.
 func NewSession() *Session {
+	return newSession(nil)
+}
+
+// NewSessionWithSourceConverter returns a fresh session that converts named
+// source files before parsing them.
+func NewSessionWithSourceConverter(converter SourceConverter) *Session {
+	return newSession(converter)
+}
+
+func newSession(converter SourceConverter) *Session {
 	s := &Session{
-		ws:          model.NewWorkspace(),
-		instances:   make(map[string]*runtime.Instance),
-		budgets:     runtime.DefaultBudgets(),
-		engines:     engines.Default(),
-		verbosity:   VerbosityNormal,
-		toolVersion: "sysml dev",
-		now:         time.Now,
+		ws:              model.NewWorkspace(),
+		sourceConverter: converter,
+		instances:       make(map[string]*runtime.Instance),
+		budgets:         runtime.DefaultBudgets(),
+		engines:         engines.Default(),
+		verbosity:       VerbosityNormal,
+		toolVersion:     "sysml dev",
+		now:             time.Now,
 	}
 	s.setJobs(analysis.DefaultJobs())
 	return s

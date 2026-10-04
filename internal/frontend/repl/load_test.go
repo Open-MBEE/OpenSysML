@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/Open-MBEE/OpenSysML/internal/translate/convert"
 )
 
 func writeFile(t *testing.T, path, content string) string {
@@ -64,7 +66,7 @@ func TestLoadingADirectoryResolvesRegardlessOfFileName(t *testing.T) {
 
 func TestLoadPathsReportConvertsAPIJSONAndReportsWarnings(t *testing.T) {
 	path := filepath.Join("..", "..", "..", "tests", "export", "testdata", "interchange", "library_identity.toolkit.full.json")
-	session := NewSession()
+	session := NewSessionWithSourceConverter(convert.ModelSource)
 
 	report, err := session.LoadPathsReport([]string{path})
 	if err != nil {

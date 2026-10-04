@@ -59,3 +59,17 @@ func TestValidateUnconvertibleAPIJSONNamesFile(t *testing.T) {
 		t.Fatalf("failed conversion did not name %s (exit %d):\n%s", path, result.status, result.output())
 	}
 }
+
+func TestSessionLoadsAPIJSONFiles(t *testing.T) {
+	session := newSession()
+	report, err := session.LoadPathsReport([]string{apiJSONFixture(t, "library_identity.toolkit.full.json")})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if report.Errors || len(report.Declared) == 0 {
+		t.Fatalf("converted API JSON did not load cleanly: %+v", report)
+	}
+	if !strings.Contains(strings.Join(report.Found, "\n"), "warning: the library element") {
+		t.Fatalf("load report omitted the conversion warning: %v", report.Found)
+	}
+}
