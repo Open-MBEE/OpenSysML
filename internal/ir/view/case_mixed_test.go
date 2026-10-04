@@ -676,6 +676,22 @@ func TestMixedBuildsStructuresQueuedByDeferredMembers(t *testing.T) {
 	assertRenderingEdgeEndpoints(t, rendering)
 }
 
+func TestMixedConnectsStructuresAcrossDeferredMembers(t *testing.T) {
+	renderer, index := loadFixture(t, "mixed-deferred-connector.sysml")
+	rendering, err := renderer.Render(lookup(t, index, "DeferredConnector::connectorView"))
+	if err != nil {
+		t.Fatalf("Render(connectorView): %v", err)
+	}
+	vehicle := findNodeByOrigin(t, rendering.Roots, symbolOrigin(lookup(t, index, "DeferredConnector::Vehicle")))
+	a := findDirectChildByOrigin(t, vehicle, symbolOrigin(lookup(t, index, "DeferredConnector::Vehicle::a")))
+	requirement := findDirectChildByOrigin(t, vehicle, symbolOrigin(lookup(t, index, "DeferredConnector::Vehicle::r")))
+	b := findDirectChildByOrigin(t, requirement, symbolOrigin(lookup(t, index, "DeferredConnector::Vehicle::r::b")))
+	if !hasRenderingEdge(rendering, EdgeConnection, a.ID, b.ID) && !hasRenderingEdge(rendering, EdgeConnection, b.ID, a.ID) {
+		t.Errorf("rendering has no connection edge between a and b: %+v", rendering.Edges)
+	}
+	assertRenderingEdgeEndpoints(t, rendering)
+}
+
 func findNodeByOrigin(t *testing.T, roots []*Node, origin symbols.Origin) *Node {
 	t.Helper()
 	var found *Node

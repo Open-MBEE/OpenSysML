@@ -291,6 +291,11 @@ func (w *featureWalk) endNode(connector *symbols.Symbol, attachment ast.Node) ed
 	}
 	target, resolved := w.r.resolver.ResolveTarget(connector.OwnerScope, attachment)
 	if operand := chainOperand(attachment); operand != nil {
+		if resolved && w.mixed && target.Owner() != nil && !mixedStructural(target.Owner()) {
+			if node := w.nodes[target]; node != nil {
+				return edgeEnd{node: node}
+			}
+		}
 		if base := w.endNode(connector, operand); base.node != nil {
 			if at := w.memberEnd(base.node, target); at.node != nil {
 				return at

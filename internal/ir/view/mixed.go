@@ -18,9 +18,7 @@ func (r *Renderer) renderMixed(view *symbols.Symbol, exposed []*symbols.Symbol, 
 	}
 	w.renderStructures()
 	w.cases.resolveIncludedCases()
-	for _, caseSym := range w.cases.order {
-		w.remember(caseSym, w.cases.drawn[caseSym])
-	}
+	w.rememberCaseNodes()
 	w.referenceEdges()
 }
 
@@ -50,7 +48,17 @@ type mixedStructure struct {
 
 // render dispatches one symbol to its mixed-view node builder.
 func (w *mixedWalk) render(sym *symbols.Symbol, exposed bool, parent *Node) {
-	if sym == nil || w.seen[sym] {
+	if sym == nil {
+		return
+	}
+	if mixedStructural(sym) {
+		if node := w.nodes[sym]; node != nil {
+			w.seen[sym] = true
+			w.attachBuiltStructure(node, parent)
+			return
+		}
+	}
+	if w.seen[sym] {
 		return
 	}
 	w.seen[sym] = true
@@ -69,9 +77,7 @@ func (w *mixedWalk) render(sym *symbols.Symbol, exposed bool, parent *Node) {
 		w.cases.container = parent
 		w.cases.render(sym, exposed, nil)
 		w.cases.container = nil
-		for _, caseSym := range w.cases.order {
-			w.remember(caseSym, w.cases.drawn[caseSym])
-		}
+		w.rememberCaseNodes()
 		for _, member := range w.r.containedMembers(sym) {
 			if semantics.IsActorUsage(member) || semantics.IsSubjectUsage(member) || semantics.IsObjectiveUsage(member) {
 				w.seen[member] = true
@@ -166,59 +172,97 @@ func (w *mixedWalk) walkStructureMembers(sym *symbols.Symbol, parent *Node) {
 	}
 }
 
-// renderStructures builds queued feature subtrees with the shared node IDs.
+// discoverDeferredStructureMembers finds structures and connectors behind deferred members.
+func (w *mixedWalk) discoverDeferredStructureMembers() {
+	queued := map[*symbols.Symbol]bool{}
+	for _, entry := range w.structures {
+		queued[entry.sym] = true
+	}
+	visited := map[*symbols.Symbol]bool{}
+	var discover func(*symbols.Symbol)
+	discover = func(sym *symbols.Symbol) {
+		if sym == nil || visited[sym] {
+			return
+		}
+		visited[sym] = true
+		switch {
+		case w.r.drawsConnector(sym):
+			if !queued[sym] {
+				w.structures = append(w.structures, &mixedStructure{sym: sym})
+				queued[sym] = true
+			}
+			w.seen[sym] = true
+		case mixedStructural(sym):
+			if !w.structureOwners[sym] {
+				if !queued[sym] {
+					w.structures = append(w.structures, &mixedStructure{sym: sym})
+					queued[sym] = true
+				}
+				w.walkStructureMembers(sym, nil)
+			}
+			for _, member := range w.deferredMembers[sym] {
+				discover(member)
+			}
+		default:
+			for _, member := range w.r.containedMembers(sym) {
+				discover(member)
+			}
+		}
+	}
+	for i := 0; i < len(w.structureOrder); i++ {
+		for _, member := range w.deferredMembers[w.structureOrder[i]] {
+			discover(member)
+		}
+	}
+}
+
+// renderStructures builds all queued feature subtrees in one shared-ID pass.
 func (w *mixedWalk) renderStructures() {
 	if len(w.structures) == 0 {
 		return
 	}
-	structureIndex, ownerIndex := 0, 0
-	for structureIndex < len(w.structures) {
-		batch := w.structures[structureIndex:]
-		structureIndex = len(w.structures)
-		exposed := make([]*symbols.Symbol, len(batch))
-		for i, entry := range batch {
-			exposed[i] = entry.sym
+	w.discoverDeferredStructureMembers()
+	exposed := make([]*symbols.Symbol, len(w.structures))
+	for i, entry := range w.structures {
+		exposed[i] = entry.sym
+	}
+	temp := &Rendering{drawn: w.out.drawn}
+	members := w.r.renderInterconnectionWithIDs(w.view, exposed, temp, w.ids, true)
+	var index func(*symbols.Symbol)
+	index = func(sym *symbols.Symbol) {
+		node := members[sym]
+		if node == nil || w.nodes[sym] != nil {
+			return
 		}
-		temp := &Rendering{drawn: w.out.drawn}
-		members := w.r.renderInterconnectionWithIDs(w.view, exposed, temp, w.ids, true)
-		var index func(*symbols.Symbol)
-		index = func(sym *symbols.Symbol) {
-			node := members[sym]
-			if node == nil || w.nodes[sym] != nil {
-				return
-			}
-			w.remember(sym, node)
-			w.seen[sym] = true
-			for _, member := range w.r.containedMembers(sym) {
-				index(member)
-			}
+		w.remember(sym, node)
+		w.seen[sym] = true
+		for _, member := range w.r.containedMembers(sym) {
+			index(member)
 		}
-		for _, entry := range batch {
-			index(entry.sym)
+	}
+	for _, entry := range w.structures {
+		index(entry.sym)
+	}
+	w.renderDeferredStructureMembers(members, w.structureOrder)
+	roots := map[*Node]bool{}
+	for _, root := range temp.Roots {
+		roots[root] = true
+	}
+	for _, entry := range w.structures {
+		node := members[entry.sym]
+		if !entry.placed || node == nil || !roots[node] {
+			continue
 		}
-		ownerEnd := len(w.structureOrder)
-		w.renderDeferredStructureMembers(members, w.structureOrder[ownerIndex:ownerEnd])
-		ownerIndex = ownerEnd
-		roots := map[*Node]bool{}
-		for _, root := range temp.Roots {
-			roots[root] = true
+		if entry.parent == nil {
+			w.out.Roots[entry.index] = node
+		} else {
+			entry.parent.Children[entry.index] = node
 		}
-		for _, entry := range batch {
-			node := members[entry.sym]
-			if !entry.placed || node == nil || !roots[node] {
-				continue
-			}
-			if entry.parent == nil {
-				w.out.Roots[entry.index] = node
-			} else {
-				entry.parent.Children[entry.index] = node
-			}
-		}
-		w.out.Edges = append(w.out.Edges, temp.Edges...)
-		w.out.Notes = append(w.out.Notes, temp.Notes...)
-		w.out.Notices = append(w.out.Notices, temp.Notices...)
 	}
 	w.removeStructuralSlots()
+	w.out.Edges = append(w.out.Edges, temp.Edges...)
+	w.out.Notes = append(w.out.Notes, temp.Notes...)
+	w.out.Notices = append(w.out.Notices, temp.Notices...)
 }
 
 // renderDeferredStructureMembers attaches members after their structural owners are indexed.
@@ -300,6 +344,20 @@ func (w *mixedWalk) append(node, parent *Node) {
 	parent.Children = append(parent.Children, node)
 }
 
+// attachBuiltStructure places an indexed feature without duplicating it.
+func (w *mixedWalk) attachBuiltStructure(node, parent *Node) {
+	siblings := w.out.Roots
+	if parent != nil {
+		siblings = parent.Children
+	}
+	for _, sibling := range siblings {
+		if sibling == node {
+			return
+		}
+	}
+	w.append(node, parent)
+}
+
 // remember indexes one semantic symbol and its shared node.
 func (w *mixedWalk) remember(sym *symbols.Symbol, node *Node) {
 	if sym == nil || node == nil || w.nodes[sym] != nil {
@@ -307,6 +365,21 @@ func (w *mixedWalk) remember(sym *symbols.Symbol, node *Node) {
 	}
 	w.nodes[sym] = node
 	w.order = append(w.order, sym)
+}
+
+// rememberCaseNodes indexes case-specific nodes over generic feature nodes.
+func (w *mixedWalk) rememberCaseNodes() {
+	for _, sym := range w.cases.order {
+		node := w.cases.drawn[sym]
+		if node == nil {
+			continue
+		}
+		if w.nodes[sym] == nil {
+			w.remember(sym, node)
+		} else {
+			w.nodes[sym] = node
+		}
+	}
 }
 
 // referenceEdges adds typing, specialization, perform and exhibit links between drawn nodes.
