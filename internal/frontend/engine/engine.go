@@ -20,6 +20,7 @@ import (
 	fsyntax "github.com/Open-MBEE/OpenSysML/internal/frontend/syntax"
 	"github.com/Open-MBEE/OpenSysML/internal/ir/view"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast/astcodec"
@@ -91,6 +92,19 @@ type cachedModel struct {
 	Library   libs.Source
 	Mode      diag.ConformanceMode
 	model     *runtime.Model
+	resolver  *resolve.Resolver
+	typed     *semantics.Model
+}
+
+// typedModel builds the checker-typed model and resolver the runtime and renderer
+// share.
+func (m *cachedModel) typedModel() *semantics.Model {
+	if m.typed == nil {
+		m.resolver = resolve.New(m.Index)
+		m.typed = passes.NewTypedModel(m.resolver)
+		m.typed.SetSourceText(m.sourceText())
+	}
+	return m.typed
 }
 
 // semantics is the model-derived runtime part as a grpc CachedModel builds one:
@@ -100,10 +114,8 @@ func (m *cachedModel) semantics() *runtime.Model {
 	if m.model != nil {
 		return m.model
 	}
-	resolver := resolve.New(m.Index)
-	sem := passes.NewTypedModel(resolver)
-	sem.SetSourceText(m.sourceText())
-	m.model = runtime.NewModel(sem, resolver)
+	sem := m.typedModel()
+	m.model = runtime.NewModel(sem, m.resolver)
 	m.model.SetExpressionParser(parser.ParseOneExpression)
 	for _, doc := range m.Documents {
 		m.model.RegisterSource(doc.Source)
@@ -280,8 +292,144 @@ func (e *Engine) Call(ctx context.Context, method string, params []byte) (result
 			return nil, err
 		}
 		return e.executeState(ctx, &req)
+	case "RenderView":
+		// RenderView is served by sysml-engine, not sysml-grpc.
+		var req JRenderViewRequest
+		if err := decode(params, &req); err != nil {
+			return nil, err
+		}
+		return e.renderView(&req)
 	}
 	return nil, statusErrorf(codeUnimplemented, "%s is not served by sysml-engine", method)
+}
+
+// renderView builds the data a diagram client draws from a declared view or a
+// targeted pseudo-view, without requiring a current-document context.
+func (e *Engine) renderView(req *JRenderViewRequest) ([]byte, error) {
+	cached, ok := e.get(req.ModelHash)
+	if !ok {
+		return nil, statusErrorf(codeNotFound, msgModelNotFound, req.ModelHash)
+	}
+	if req.View == "" {
+		return nil, statusError(codeInvalidArgument, "view is required")
+	}
+	ports, ok := view.ParsePorts(req.Ports)
+	if !ok {
+		return nil, statusError(codeInvalidArgument, (&view.UnknownPortsError{Name: req.Ports}).Error())
+	}
+
+	sem := cached.typedModel()
+	renderer := view.NewRenderer(sem, cached.resolver, cached.sourceText())
+	var rendering *view.Rendering
+	var err error
+	if strings.HasPrefix(req.View, view.PseudoViewPrefix) {
+		kind, target, valid := view.ParsePseudoView(req.View)
+		if !valid {
+			return nil, statusErrorf(codeInvalidArgument, "%s is no pseudo-view: write %s",
+				req.View, strings.Join(view.PseudoViewSpecs(), ", "))
+		}
+		if target == "" {
+			return nil, statusErrorf(codeInvalidArgument, "%s is untargeted; name an element as #<kind>:<qualified name> (supported: %s)",
+				req.View, strings.Join(view.PseudoViewSpecs(), ", "))
+		}
+		syms := lookupNamed(cached.Index, target)
+		if len(syms) == 0 {
+			return nil, statusErrorf(codeNotFound, "%s: %s names nothing in this model", req.View, target)
+		}
+		stated := fmt.Sprintf("no view declared; rendering %s directly", target)
+		rendering, err = renderer.RenderExposed([]*symbols.Symbol{syms[0]}, kind, stated)
+	} else {
+		syms := lookupNamed(cached.Index, req.View)
+		if len(syms) == 0 {
+			return nil, statusErrorf(codeNotFound, "no view named %s", req.View)
+		}
+		rendering, err = renderer.Render(syms[0])
+		if errors.Is(err, semantics.ErrNotAView) {
+			return nil, statusError(codeInvalidArgument, err.Error())
+		}
+	}
+	if err != nil {
+		return nil, statusError(codeInvalidArgument, err.Error())
+	}
+	return marshalRenderView(rendering.DataFor(ports))
+}
+
+func marshalRenderView(data view.Data) ([]byte, error) {
+	out := &JRenderViewResponse{
+		View:    data.View,
+		Kind:    string(data.Kind),
+		Stated:  data.Stated,
+		Notices: data.Notices,
+		Nodes:   make([]JRenderNode, 0, len(data.Nodes)),
+		Edges:   make([]JRenderEdge, 0, len(data.Edges)),
+	}
+	if out.Notices == nil {
+		out.Notices = []string{}
+	}
+	if len(data.Columns) > 0 {
+		out.Columns = data.Columns
+	}
+	if data.Canvas != nil {
+		out.Canvas = &JRenderCanvas{Unit: data.Canvas.Unit}
+		if data.Canvas.HasSize {
+			width, height := data.Canvas.Width, data.Canvas.Height
+			out.Canvas.Width, out.Canvas.Height = &width, &height
+		}
+	}
+	for _, node := range data.Nodes {
+		item := JRenderNode{
+			ID:              node.ID,
+			Kind:            node.Kind,
+			Name:            node.Name,
+			NameSynthesized: node.NameSynthesized,
+			Type:            node.Type,
+			Detail:          node.Detail,
+			Parent:          node.Parent,
+			Style:           jRenderStyle(node.Style),
+		}
+		if node.Style != nil {
+			item.Fill = node.Style.Fill
+			item.Border = node.Style.Line
+		}
+		if node.Geometry != nil {
+			x, y := node.Geometry.X, node.Geometry.Y
+			item.X, item.Y, item.Collapsed = &x, &y, node.Geometry.Collapsed
+			if node.Geometry.HasSize {
+				width, height := node.Geometry.Width, node.Geometry.Height
+				item.Width, item.Height = &width, &height
+			}
+		}
+		for _, port := range node.Ports {
+			item.Ports = append(item.Ports, JRenderPort{
+				ID: port.ID, Name: port.Name, Type: port.Type, Direction: port.Direction.String(),
+			})
+		}
+		out.Nodes = append(out.Nodes, item)
+	}
+	for _, edge := range data.Edges {
+		item := JRenderEdge{
+			From: edge.From, To: edge.To, FromPort: edge.FromPort, ToPort: edge.ToPort,
+			Label: edge.Label, Kind: edge.Kind.String(), Style: jRenderStyle(edge.Style),
+		}
+		for _, point := range edge.Route {
+			item.Route = append(item.Route, JRenderPoint{X: point.X, Y: point.Y})
+		}
+		out.Edges = append(out.Edges, item)
+	}
+	for _, row := range data.Rows {
+		out.Rows = append(out.Rows, JRenderRow{Cells: row.Cells})
+	}
+	return marshal(out)
+}
+
+func jRenderStyle(style *view.Style) *JRenderStyle {
+	if style == nil {
+		return nil
+	}
+	return &JRenderStyle{
+		Fill: style.Fill, Line: style.Line, Text: style.Text, Font: style.Font,
+		FontSize: style.FontSize, Bold: style.Bold, Italic: style.Italic,
+	}
 }
 
 // decode reads the request body as protojson does over the lowerCamel field
