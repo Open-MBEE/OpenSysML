@@ -522,6 +522,25 @@ func (a *activity) linkEdges(control map[[2]*sysmlv1.Element]bool) {
 	}
 }
 
+// fedAcross marks the pins of a structured node's actions that an object flow
+// owned outside the node leads to.
+func (a *activity) fedAcross() {
+	if !isStructured(a.act) {
+		return
+	}
+	for cur := a.act.Parent; cur != nil; cur = cur.Parent {
+		for _, e := range cur.Owned("edge") {
+			tgt := a.m.model.Ref(e, "target")
+			if e.Type == "ObjectFlow" && tgt != nil && ownerNode(tgt).Parent == a.act {
+				a.fed[tgt] = true
+			}
+		}
+		if cur.Type == "Activity" {
+			return
+		}
+	}
+}
+
 // resolveData follows each object flow back through control and buffer nodes
 // to the pin or parameter node its value comes from, `this` for a ReadSelfAction.
 func (a *activity) resolveData() {
@@ -536,6 +555,7 @@ func (a *activity) resolveData() {
 			a.fed[tgt] = true
 		}
 	}
+	a.fedAcross()
 	var trace func(e *sysmlv1.Element, seen map[*sysmlv1.Element]bool) []*sysmlv1.Element
 	trace = func(e *sysmlv1.Element, seen map[*sysmlv1.Element]bool) []*sysmlv1.Element {
 		if seen[e] {
@@ -1517,8 +1537,7 @@ func (a *activity) declareKind(n *sysmlv1.Element, name string) {
 	case "ValueSpecificationAction":
 		a.valueAction(n, name)
 	case "ReadSelfAction":
-		a.m.w.line(actionKw + name + ";")
-		a.m.add(n, Approximated, name, "the object read is this, which the actions its result flows into name directly")
+		a.readSelf(n, name)
 	case "ReadStructuralFeatureAction":
 		a.readFeature(n, name)
 	case "AddStructuralFeatureValueAction":
@@ -2378,7 +2397,7 @@ func (a *activity) objectOf(pin *sysmlv1.Element) (expr string, typ *sysmlv1.Ele
 // readObject is the object a structural feature action reads or writes: what
 // its object pin holds, or this when the pin is absent or nothing feeds it.
 func (a *activity) readObject(obj *sysmlv1.Element) (expr string, typ *sysmlv1.Element, ok bool) {
-	if obj == nil || len(a.sources[obj]) == 0 && !a.selfFed[obj] {
+	if obj == nil || len(a.sources[obj]) == 0 && !a.selfFed[obj] && !a.fed[obj] {
 		return a.self(), a.selfType(), true
 	}
 	return a.objectOf(obj)
@@ -2399,7 +2418,7 @@ func (a *activity) featureOn(objPin, f *sysmlv1.Element) (string, string) {
 		}
 		return a.m.respellThis(obj+"."+writeName(a.m.nameOf(f)), a.act), ""
 	}
-	if objPin == nil || len(a.sources[objPin]) == 0 {
+	if objPin == nil || len(a.sources[objPin]) == 0 && !a.fed[objPin] {
 		return "", ""
 	}
 	pname, ok := a.names[objPin]
@@ -2410,6 +2429,35 @@ func (a *activity) featureOn(objPin, f *sysmlv1.Element) (string, string) {
 		return "", "the object pin is a " + qualifiedName(t) + noFeature + a.m.nameOf(f)
 	}
 	return writeName(pname) + "." + writeName(a.m.nameOf(f)), ""
+}
+
+// readSelf writes a read self action as an action whose result is the object
+// the activity acts on; the actions the result flows into name it directly.
+func (a *activity) readSelf(n *sysmlv1.Element, name string) {
+	results := n.Owned("result")
+	if len(results) == 0 {
+		a.m.w.line(actionKw + name + ";")
+		a.m.add(n, Mapped, name, "")
+		return
+	}
+	a.m.w.block(actionKw+name, func() {
+		r := results[0]
+		pname := a.m.nameOf(r)
+		if pname == "" {
+			pname = "result"
+		}
+		typ, note := a.m.typeRef(a.m.model.Ref(r, "type"), a.def)
+		decl := "out " + writeName(pname)
+		if typ != "" {
+			decl += " : " + typ
+		}
+		mult, mnote := a.m.multiplicity(r)
+		note = joinNotes(note, mnote)
+		a.markSelf()
+		a.m.w.line(decl + shaped(mult, r, true, false) + " = " + a.m.respellThis(a.self(), a.act) + ";")
+		a.m.add(r, verdictFor(note), a.m.v2Name(n)+"."+pname, note)
+	})
+	a.m.add(n, Mapped, name, "")
 }
 
 // readFeature writes a read of a structural feature as an action whose

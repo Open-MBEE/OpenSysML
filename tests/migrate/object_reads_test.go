@@ -1,0 +1,93 @@
+package migrate_test
+
+import (
+	"testing"
+
+	"github.com/Open-MBEE/OpenSysML/internal/translate/migrate"
+)
+
+// objectReads is a block whose behavior reads itself and its features: at the
+// top level, inside a structured node, across the node's boundary, and through
+// an association end the block does not own.
+const objectReads = `
+    <packagedElement xmi:type="uml:Class" xmi:id="_item" name="Item"/>
+    <packagedElement xmi:type="uml:Association" xmi:id="_link" name="Link" memberEnd="_holder _held">
+      <ownedEnd xmi:type="uml:Property" xmi:id="_holder" name="holder" type="_account" association="_link"/>
+      <ownedEnd xmi:type="uml:Property" xmi:id="_held" name="held" type="_item" association="_link"/>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Class" xmi:id="_account" name="Account" classifierBehavior="_update">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_balance" name="balance">` + integerHref + `</ownedAttribute>
+      <ownedBehavior xmi:type="uml:Activity" xmi:id="_update" name="Update">
+        <node xmi:type="uml:ReadSelfAction" xmi:id="_self" name="self">
+          <result xmi:type="uml:OutputPin" xmi:id="_selfOut" name="result" type="_account"/>
+        </node>
+        <node xmi:type="uml:ReadStructuralFeatureAction" xmi:id="_read" name="read balance" structuralFeature="_balance">
+          <object xmi:type="uml:InputPin" xmi:id="_readObj" name="object" type="_account"/>
+          <result xmi:type="uml:OutputPin" xmi:id="_readOut" name="result">` + integerHref + `</result>
+        </node>
+        <node xmi:type="uml:ReadStructuralFeatureAction" xmi:id="_readHeld" name="read held" structuralFeature="_held">
+          <object xmi:type="uml:InputPin" xmi:id="_heldObj" name="object" type="_account"/>
+          <result xmi:type="uml:OutputPin" xmi:id="_heldOut" name="result" type="_item"/>
+        </node>
+        <node xmi:type="uml:StructuredActivityNode" xmi:id="_body" name="body">
+          <node xmi:type="uml:ReadSelfAction" xmi:id="_innerSelf" name="inner self">
+            <result xmi:type="uml:OutputPin" xmi:id="_innerSelfOut" name="result" type="_account"/>
+          </node>
+          <node xmi:type="uml:ReadStructuralFeatureAction" xmi:id="_innerRead" name="inner read" structuralFeature="_balance">
+            <object xmi:type="uml:InputPin" xmi:id="_innerObj" name="object" type="_account"/>
+            <result xmi:type="uml:OutputPin" xmi:id="_innerOut" name="result">` + integerHref + `</result>
+          </node>
+          <node xmi:type="uml:ReadStructuralFeatureAction" xmi:id="_crossRead" name="cross read" structuralFeature="_balance">
+            <object xmi:type="uml:InputPin" xmi:id="_crossObj" name="object" type="_account"/>
+            <result xmi:type="uml:OutputPin" xmi:id="_crossOut" name="result">` + integerHref + `</result>
+          </node>
+          <edge xmi:type="uml:ObjectFlow" xmi:id="_f3" source="_innerSelfOut" target="_innerObj"/>
+        </node>
+        <edge xmi:type="uml:ObjectFlow" xmi:id="_f1" source="_selfOut" target="_readObj"/>
+        <edge xmi:type="uml:ObjectFlow" xmi:id="_f2" source="_selfOut" target="_heldObj"/>
+        <edge xmi:type="uml:ObjectFlow" xmi:id="_f4" source="_selfOut" target="_crossObj"/>
+      </ownedBehavior>
+    </packagedElement>`
+
+const objectReadsApps = `
+  <sysml:Block xmi:id="_s1" base_Class="_account"/>
+  <sysml:Block xmi:id="_s2" base_Class="_item"/>`
+
+// A read self action's result is bound to the object the behavior runs on, at
+// the top level and inside a structured node.
+func TestReadSelfActionResultIsThis(t *testing.T) {
+	r := migrateDocument(t, objectReads, objectReadsApps)
+	wantLine(t, r.Notation, "out result : Account[1] = this;")
+	wantNote(t, r, "_selfOut", migrate.Mapped, "")
+	wantNote(t, r, "_innerSelf", migrate.Mapped, "")
+	wantNote(t, r, "_innerSelfOut", migrate.Mapped, "")
+	wantClean(t, "object_reads.sysml", r)
+}
+
+// A read structural feature action is the feature chain on its object: this
+// inside a structured node is the behavior's context, not the node, and an
+// object a flow brings into the node is the object pin, not this.
+func TestReadFeatureChainsOnTheObjectItReads(t *testing.T) {
+	r := migrateDocument(t, objectReads, objectReadsApps)
+	for _, line := range []string{
+		"out result[1] = balance;",
+		"in object : Account[1];",
+		"out result[1] = object.balance;",
+	} {
+		wantLine(t, r.Notation, line)
+	}
+	wantNote(t, r, "_read", migrate.Mapped, "")
+	wantNote(t, r, "_innerRead", migrate.Mapped, "")
+	wantNote(t, r, "_innerOut", migrate.Mapped, "")
+	wantNote(t, r, "_crossOut", migrate.Mapped, "")
+	wantClean(t, "object_reads.sysml", r)
+}
+
+// An association-owned end is no feature of the type at its other end in v2,
+// so a read of it through that type is left unmigrated rather than written
+// as a chain that does not resolve.
+func TestReadOfAnAssociationOwnedEndIsRefused(t *testing.T) {
+	r := migrateDocument(t, objectReads, objectReadsApps)
+	wantNote(t, r, "_readHeld", migrate.Unmapped, "the object read, this, is a Account, which has no feature held")
+	wantNoLine(t, r.Notation, "out result : Item[1] = held;")
+}
