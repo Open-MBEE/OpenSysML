@@ -272,6 +272,24 @@ if ok "staged for another unix platform" --version "$good" --os "${other%-*}" --
 	said "staged for $other, not run on this $host machine"
 fi
 
+# --help must be complete when the script arrives on stdin, as the one-liner has it.
+for how in file stdin; do
+	n=$((n + 1))
+	set +e
+	case $how in
+	file) out=$(sh "$root/install.sh" --help 2>&1) ;;
+	stdin) out=$(cat "$root/install.sh" | sh -s -- --help 2>&1) ;;
+	esac
+	status=$?
+	set -e
+	if [ "$status" -ne 0 ] || [[ "$out" != *"--verify-signature   also verify"* ]] || [[ "$out" != *"[OPENSYSML_TOOLS]"* ]]; then
+		echo "FAIL --help from $how: exit $status" >&2 && printf '%s\n' "$out" >&2
+		failures=$((failures + 1))
+	else
+		echo "ok   --help from $how"
+	fi
+done
+
 if ok "dry run" --version "$good" --tools all --dry-run --prefix @P@; then
 	said "Dry run: nothing downloaded or installed."
 	said "download/$good/sysml-grpc-$host"

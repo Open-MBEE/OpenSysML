@@ -141,9 +141,21 @@ if (Test-Ok 'staged for windows, signed release' -Version $Signed -Os windows) {
     Assert-Installed sysml.exe, sysml-lsp.exe
     Assert-Said 'the release carries the signed Windows build; installing opensysml-windows-amd64-signed.zip'
     Assert-Said 'opensysml-windows-amd64-signed.zip verified'
+    if ($PSVersionTable.PSEdition -eq 'Desktop' -or (Get-Variable IsWindows -ValueOnly -ErrorAction SilentlyContinue)) {
+        Assert-Said 'the Authenticode signature of sysml.exe is'
+    } else {
+        Assert-Said 'sysml.exe is Authenticode-signed; only Windows can check the signature'
+    }
     if ((Get-Content -LiteralPath (Join-Path $script:dir sysml.exe) -Raw) -notlike '*, signed*') {
         Write-Failure 'the signed windows build was not the one installed'
     }
+}
+
+if (Test-Ok 'dry run of the signed release' -Version $Signed -Os windows -DryRun) {
+    Assert-Said 'the release carries the signed Windows build; installing opensysml-windows-amd64-signed.zip'
+    Assert-Said "download/$Signed/opensysml-windows-amd64-signed.zip"
+    Assert-Said 'Dry run: nothing downloaded or installed.'
+    if (Test-Path -LiteralPath $script:dir) { Write-Failure "dry run created $script:dir" }
 }
 
 if (Test-Ok 'dry run' -Version $Good -Tools all -DryRun) {

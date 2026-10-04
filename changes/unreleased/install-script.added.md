@@ -6,6 +6,6 @@
   nightly snapshot, the tools (`sysml`, `sysml-lsp`, `sysml-grpc` or `all`), the destination
   and a release mirror; `--dry-run` shows the choice, and `--verify-signature` additionally
   checks the manifest's cosign signature. The Windows script installs the portable ZIP for the
-  current user, preferring the signed build when the release carries one, and puts it on the
-  user `PATH`. The scripts live at the repository root, are published from the documentation
+  current user, preferring the signed build when the release carries one (its Authenticode
+  signatures must verify), and puts it on the user `PATH`. The scripts live at the repository root, are published from the documentation
   site, and are tested in CI against a release served from localhost.

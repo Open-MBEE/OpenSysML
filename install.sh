@@ -14,26 +14,7 @@
 # curl or wget, which never set macOS's quarantine attribute, so Gatekeeper does
 # not object (docs/guide/01-install.md, "macOS: Gatekeeper").
 #
-# Options (each has an environment variable, so a piped `sh` can be configured):
-#
-#   --version <tag>      release tag (v0.9.1), `latest` (default) or `nightly`
-#                        [OPENSYSML_VERSION]
-#   --tools <list>       comma-separated subset of sysml,sysml-lsp,sysml-grpc, or
-#                        `all`; default `sysml,sysml-lsp`      [OPENSYSML_TOOLS]
-#   --prefix <dir>       install under <dir>/bin and <dir>/share/man/man1; default
-#                        /usr/local when writable, else ~/.local [OPENSYSML_PREFIX]
-#   --bin-dir <dir>      install the binaries into <dir> and no manual pages
-#                        (overrides --prefix)                  [OPENSYSML_BIN_DIR]
-#   --os <os>, --arch <arch>
-#                        stage another platform's build instead of this machine's
-#                        (linux|darwin|windows, amd64|arm64); it is not run
-#   --base-url <url>     where the releases are, for a mirror; default
-#                        https://github.com/Open-MBEE/OpenSysML/releases
-#                        [OPENSYSML_DOWNLOAD_BASE]
-#   --verify-signature   also verify SHA256SUMS.txt's cosign bundle against the
-#                        identity that signs the releases (needs cosign on PATH)
-#   --dry-run            print what would be installed and from where, then exit
-#   -h, --help           this text
+# Run with --help for the options.
 #
 # Needs: curl or wget; tar (unzip or a zip-capable tar for the Windows archive);
 # sha256sum, shasum or openssl.
@@ -60,8 +41,35 @@ verify_signature=false
 dry_run=false
 
 usage() {
-	sed -n '2,/^set -eu/{/^set -eu/d;s/^# \{0,1\}//;p;}' "$0" 2>/dev/null ||
-		echo "usage: install.sh [--version <tag>] [--tools <list>] [--prefix <dir>|--bin-dir <dir>] [--os <os>] [--arch <arch>] [--base-url <url>] [--verify-signature] [--dry-run]"
+	# A literal, not read back from $0: piped through `sh` there is no file to read.
+	cat <<'EOF'
+usage: install.sh [--version <tag>] [--tools <list>] [--prefix <dir>|--bin-dir <dir>]
+                  [--os <os> --arch <arch>] [--base-url <url>] [--verify-signature] [--dry-run]
+
+Installs the OpenSysML command-line tools (sysml, sysml-lsp, sysml-grpc) from a
+GitHub release, checking every download against the release's SHA256SUMS.txt.
+
+Options (each has an environment variable, so a piped `sh` can be configured):
+
+  --version <tag>      release tag (v0.9.1), `latest` (default) or `nightly`
+                       [OPENSYSML_VERSION]
+  --tools <list>       comma-separated subset of sysml,sysml-lsp,sysml-grpc, or
+                       `all`; default `sysml,sysml-lsp`      [OPENSYSML_TOOLS]
+  --prefix <dir>       install under <dir>/bin and <dir>/share/man/man1; default
+                       /usr/local when writable, else ~/.local [OPENSYSML_PREFIX]
+  --bin-dir <dir>      install the binaries into <dir> and no manual pages
+                       (overrides --prefix)                  [OPENSYSML_BIN_DIR]
+  --os <os>, --arch <arch>
+                       stage another platform's build instead of this machine's
+                       (linux|darwin|windows, amd64|arm64); it is not run
+  --base-url <url>     where the releases are, for a mirror; default
+                       https://github.com/Open-MBEE/OpenSysML/releases
+                       [OPENSYSML_DOWNLOAD_BASE]
+  --verify-signature   also verify SHA256SUMS.txt's cosign bundle against the
+                       identity that signs the releases (needs cosign on PATH)
+  --dry-run            print what would be installed and from where, then exit
+  -h, --help           this text
+EOF
 }
 
 info() { printf '%s\n' "$*"; }

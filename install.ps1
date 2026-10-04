@@ -216,6 +216,16 @@ function Get-Asset([string]$Asset, [switch]$Optional) {
     }
 }
 
+function Test-Asset([string]$Asset) {
+    # $true when the release has the asset; a HEAD request, nothing is downloaded.
+    try {
+        Invoke-WebRequest -UseBasicParsing -Method Head -Uri (Get-AssetUrl $Asset) | Out-Null
+        return $true
+    } catch {
+        return $false
+    }
+}
+
 function Test-Checksum([string]$Asset, [string]$Manifest) {
     $expected = $null
     foreach ($line in Get-Content -LiteralPath (Join-Path $Work $Manifest)) {
@@ -228,34 +238,48 @@ function Test-Checksum([string]$Asset, [string]$Manifest) {
     Write-Host "  $Asset verified"
 }
 
-# The signed Windows build is published beside the unsigned one with its own
-# manifest; a release without it (and every nightly) has only the unsigned build.
+# The Authenticode-signed Windows build is published beside the unsigned one
+# with its own manifest; a release without it (and every nightly) has only the
+# unsigned build. Which one applies is settled here so a dry run previews it.
 $Manifest = 'SHA256SUMS.txt'
 $Bundle = if ($Os -eq 'windows') { "opensysml-$Platform.zip" } else { "opensysml-$Platform.tar.gz" }
 $GrpcAsset = "sysml-grpc-$Platform$Exe"
+$SignedBuild = ($Os -eq 'windows') -and ($Version -ne 'nightly') -and (Test-Asset 'SHA256SUMS-windows-signed.txt')
+if ($SignedBuild) {
+    $Manifest = 'SHA256SUMS-windows-signed.txt'
+    $Bundle = "opensysml-$Platform-signed.zip"
+    $GrpcAsset = "sysml-grpc-$Platform-signed$Exe"
+}
 
 Write-Host "Installing OpenSysML ($ReleaseName) for $Platform"
 Write-Host "  tools:    $($Tools -join ' ')"
 Write-Host "  binaries: $InstallDir"
 Write-Host "  from:     $(Get-AssetUrl $Bundle)"
 if ($WantGrpc) { Write-Host "            $(Get-AssetUrl $GrpcAsset)" }
+if ($SignedBuild) { Write-Host "  the release carries the signed Windows build; installing $Bundle" }
 if ($DryRun) {
     Write-Host 'Dry run: nothing downloaded or installed.'
     return
 }
 
+function Test-Authenticode([string]$Path, [string]$Name) {
+    # The manifest only says which bytes to expect; what vouches for a signed
+    # build is its Authenticode signature, which only Windows can check.
+    if (-not ($HostIsWindows -and (Get-Command Get-AuthenticodeSignature -ErrorAction SilentlyContinue))) {
+        Write-Host "  $Name is Authenticode-signed; only Windows can check the signature, so it was not"
+        return
+    }
+    $signature = Get-AuthenticodeSignature -LiteralPath $Path
+    if ($signature.Status -ne 'Valid') {
+        Fail "the Authenticode signature of $Name is $($signature.Status) ($($signature.StatusMessage)); not installing an unverified build of $ReleaseName"
+    }
+    Write-Host "  $Name signed by $($signature.SignerCertificate.Subject)"
+}
+
 New-Item -ItemType Directory -Path $Work -Force | Out-Null
 try {
     Write-Host 'Downloading...'
-    if ($Os -eq 'windows' -and $Version -ne 'nightly' -and (Get-Asset 'SHA256SUMS-windows-signed.txt' -Optional)) {
-        $Manifest = 'SHA256SUMS-windows-signed.txt'
-        $Bundle = "opensysml-$Platform-signed.zip"
-        $GrpcAsset = "sysml-grpc-$Platform-signed$Exe"
-        Write-Host "  the release carries the signed Windows build; installing $Bundle"
-    } else {
-        Get-Asset $Manifest | Out-Null
-    }
-
+    Get-Asset $Manifest | Out-Null
     Get-Asset $Bundle | Out-Null
     Test-Checksum $Bundle $Manifest
     if ($WantGrpc) {
@@ -285,6 +309,7 @@ try {
     foreach ($tool in $Tools) {
         $source = if ($tool -eq 'sysml-grpc') { Join-Path $Work $GrpcAsset } else { Join-Path $Extracted "$tool$Exe" }
         if (-not (Test-Path -LiteralPath $source -PathType Leaf)) { Fail "$Bundle has no $tool$Exe" }
+        if ($SignedBuild) { Test-Authenticode $source "$tool$Exe" }
         $destination = Join-Path $InstallDir "$tool$Exe"
         # Copy beside the destination first, so an interrupted copy never leaves a
         # half-written binary under the final name.

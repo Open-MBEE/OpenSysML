@@ -30,7 +30,8 @@ irm https://opensysml.org/install.ps1 | iex
 The portable ZIP is installed to `%LOCALAPPDATA%\Programs\OpenSysML`, which is added to the
 *user* `PATH` (new terminals see it; `-NoPath` leaves `PATH` alone). When the release carries
 the SignPath-signed build, `opensysml-windows-amd64-signed.zip` is installed in preference to
-the unsigned one. The ZIP has no solver; the [MSI](#windows-msi) remains the route to a
+the unsigned one, and each executable's Authenticode signature must verify (`Get-AuthenticodeSignature`)
+before it is installed; `SHA256SUMS-windows-signed.txt` only says which bytes to expect. The ZIP has no solver; the [MSI](#windows-msi) remains the route to a
 system-wide install with Z3 bundled.
 
 Options are passed after `sh -s --` on Unix and as parameters on Windows; each also has an
