@@ -215,3 +215,19 @@ func TestCheckReportsEachKind(t *testing.T) {
 		}
 	}
 }
+
+// TestCheckReadsTheMostSpecificType checks a subject stating several rdf:types as
+// the class the graph reader selects, whatever order the types are stated in.
+func TestCheckReadsTheMostSpecificType(t *testing.T) {
+	for _, order := range [][]string{{"Element", "PartUsage"}, {"PartUsage", "Element"}} {
+		graph := rdf.NewGraph()
+		part := rdf.ElementIRI("M::p")
+		for _, class := range order {
+			graph.Add(part, rdf.IRI(rdf.RDFType), rdf.SysMLTerm(class))
+		}
+		graph.Add(part, rdf.SysMLTerm("isComposite"), rdf.Bool(true)) // declared on Feature
+		if got := ontology.Check(graph); len(got) != 0 {
+			t.Errorf("types %v: unexpected violations %v", order, got)
+		}
+	}
+}

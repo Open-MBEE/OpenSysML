@@ -70,8 +70,10 @@ func Check(g *rdf.Graph) []Violation {
 		}
 	}
 	declared := make(map[rdf.Term]bool)
+	types := make(map[rdf.Term]string)
 	for _, subject := range g.Subjects() {
-		typeIRI := g.Type(subject)
+		typeIRI := subjectType(g, subject)
+		types[subject] = typeIRI
 		if typeIRI == "" {
 			if hasSysMLProperty[subject] {
 				out = append(out, Violation{
@@ -100,7 +102,7 @@ func Check(g *rdf.Graph) []Violation {
 		if !strings.HasPrefix(triple.Predicate.Value, rdf.SysML) {
 			continue
 		}
-		class := classNameOf(g.Type(triple.Subject))
+		class := classNameOf(types[triple.Subject])
 		if class == "" {
 			continue // already reported as an untyped subject
 		}
@@ -166,6 +168,47 @@ func objectMatchesKind(kind PropertyKind, object rdf.Term) bool {
 
 // classNameOf returns the local name of an rdf:type IRI, or "" when there is
 // none. An IRI outside the SysML namespace is kept whole, to stay recognizable.
+// MostSpecific picks the class IRI among those stated that every other is a
+// superclass of, reporting false when there is none.
+func MostSpecific(classIRIs []string) (string, bool) {
+	for _, class := range classIRIs {
+		specific := true
+		for _, other := range classIRIs {
+			if !subclassOf(class, other) {
+				specific = false
+				break
+			}
+		}
+		if specific {
+			return class, true
+		}
+	}
+	return "", false
+}
+
+// subclassOf reports whether the class iri is ancestor or a subclass of it in
+// the SysML ontology; a class outside the SysML namespace has no superclass.
+func subclassOf(class, ancestor string) bool {
+	return class == ancestor || strings.HasPrefix(class, rdf.SysML) && strings.HasPrefix(ancestor, rdf.SysML) &&
+		IsAncestorOrSelf(rdf.LocalName(class), rdf.LocalName(ancestor))
+}
+
+// subjectType returns the class subject is read as: its most specific stated
+// rdf:type, or the first one when the stated types are unrelated.
+func subjectType(g *rdf.Graph, subject rdf.Term) string {
+	var stated []string
+	for _, object := range g.Objects(subject, rdf.RDFType) {
+		stated = append(stated, object.Value)
+	}
+	if len(stated) == 0 {
+		return ""
+	}
+	if class, ok := MostSpecific(stated); ok {
+		return class
+	}
+	return stated[0]
+}
+
 func classNameOf(typeIRI string) string {
 	if typeIRI == "" {
 		return ""

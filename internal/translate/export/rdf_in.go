@@ -302,7 +302,7 @@ func checkTypes(graph *rdf.Graph) (map[rdf.Term]string, error) {
 	}
 	metaclasses := make(map[rdf.Term]string, len(stated))
 	for _, subject := range subjects {
-		class, ok := mostSpecific(stated[subject])
+		class, ok := ontology.MostSpecific(stated[subject])
 		if !ok {
 			return nil, &UnsupportedError{
 				What: fmt.Sprintf("the subject <%s>", subject.Value),
@@ -312,31 +312,6 @@ func checkTypes(graph *rdf.Graph) (map[rdf.Term]string, error) {
 		metaclasses[subject] = class
 	}
 	return metaclasses, nil
-}
-
-// mostSpecific picks the class among those stated that every other is a
-// superclass of, reporting false when there is none.
-func mostSpecific(classes []string) (string, bool) {
-	for _, class := range classes {
-		specific := true
-		for _, other := range classes {
-			if !subclassOf(class, other) {
-				specific = false
-				break
-			}
-		}
-		if specific {
-			return class, true
-		}
-	}
-	return "", false
-}
-
-// subclassOf reports whether the class iri is ancestor or a subclass of it in
-// the SysML ontology; a class of this mapping's extension has no superclass.
-func subclassOf(class, ancestor string) bool {
-	return class == ancestor || strings.HasPrefix(class, rdf.SysML) && strings.HasPrefix(ancestor, rdf.SysML) &&
-		ontology.IsAncestorOrSelf(rdf.LocalName(class), rdf.LocalName(ancestor))
 }
 
 // metaclass returns the local name of the class subject is written as, or ""
