@@ -223,6 +223,7 @@ produce the same model hash and return the core response, including roots and di
 
 A hash from either parse method is shared by every method that takes a `modelHash`, including
 `GetDiagnostics`, `GetSymbol`, `Evaluate`, `Instantiate`, `ExecuteAction` and `ExecuteState`.
+The module retains the 16 most recently used models; an evicted hash is evicted for every method.
 `GetServerInfo` returns the build version and these capabilities, in order:
 `type_facts`, `enum_values`, `evaluate_subject`, `symbol_attributes`, `unset_value`,
 `feature_values`, `inline_language`, `strict_conformance`, `parse_sources`, `complex_values`,

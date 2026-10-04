@@ -5,6 +5,7 @@
 package combined
 
 import (
+	"container/list"
 	"context"
 	"encoding/json"
 	"io"
@@ -14,6 +15,8 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/jsonrpc"
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/libs"
 )
+
+const maxModels = 16
 
 var capabilities = []string{
 	"type_facts",
@@ -46,20 +49,28 @@ type Server struct {
 	engine  *engine.Engine
 	core    *core.Core
 	version string
+	models  *list.List
+	byHash  map[string]*list.Element
 }
 
 // New builds both frontends over one frozen standard-library snapshot.
 func New(version string) (*Server, error) {
 	index, src := libs.FrozenLibrary()
-	execution, err := engine.NewWithLibrary(index, src)
+	execution, err := engine.NewWithLibrary(index, src, 0)
 	if err != nil {
 		return nil, err
 	}
-	validation, err := core.NewWithLibrary(index, src)
+	validation, err := core.NewWithLibrary(index, src, 0)
 	if err != nil {
 		return nil, err
 	}
-	return &Server{engine: execution, core: validation, version: version}, nil
+	return &Server{
+		engine:  execution,
+		core:    validation,
+		version: version,
+		models:  list.New(),
+		byHash:  make(map[string]*list.Element),
+	}, nil
 }
 
 // Call runs one combined method with protojson-shaped request parameters.
@@ -70,14 +81,7 @@ func (s *Server) Call(ctx context.Context, method string, params []byte) ([]byte
 		if err != nil {
 			return nil, err
 		}
-		engineBody, err := s.engine.Call(ctx, method, params)
-		if err != nil {
-			return nil, err
-		}
-		if err := sameModelHash(body, engineBody); err != nil {
-			return nil, err
-		}
-		return body, nil
+		return s.finishParse(ctx, body, method, params)
 	case "ParseFile":
 		body, err := s.core.Call(ctx, method, params)
 		if err != nil {
@@ -85,6 +89,7 @@ func (s *Server) Call(ctx context.Context, method string, params []byte) ([]byte
 		}
 		var req core.JParseFileRequest
 		if err := jsonrpc.Decode(params, &req); err != nil {
+			s.discardUnretained(body)
 			return nil, err
 		}
 		document := &engine.JSourceDocument{}
@@ -100,20 +105,22 @@ func (s *Server) Call(ctx context.Context, method string, params []byte) ([]byte
 			StrictConformance: req.StrictConformance,
 		})
 		if err != nil {
+			s.discardUnretained(body)
 			return nil, jsonrpc.Errorf(jsonrpc.CodeInternal, "encoding engine ParseSources request: %v", err)
 		}
-		engineBody, err := s.engine.Call(ctx, "ParseSources", engineParams)
-		if err != nil {
-			return nil, err
-		}
-		if err := sameModelHash(body, engineBody); err != nil {
-			return nil, err
-		}
-		return body, nil
+		return s.finishParse(ctx, body, "ParseSources", engineParams)
 	case "GetDiagnostics", "GetSymbol":
-		return s.core.Call(ctx, method, params)
+		body, err := s.core.Call(ctx, method, params)
+		if err == nil {
+			s.touchRequest(params)
+		}
+		return body, err
 	case "Evaluate", "Instantiate", "ExecuteAction", "ExecuteState":
-		return s.engine.Call(ctx, method, params)
+		body, err := s.engine.Call(ctx, method, params)
+		if err == nil {
+			s.touchRequest(params)
+		}
+		return body, err
 	case "GetServerInfo":
 		return json.Marshal(struct {
 			Version      string   `json:"version,omitempty"`
@@ -125,19 +132,92 @@ func (s *Server) Call(ctx context.Context, method string, params []byte) ([]byte
 	}
 }
 
-func sameModelHash(coreBody, engineBody []byte) error {
-	var coreResponse, engineResponse struct {
+func (s *Server) finishParse(ctx context.Context, coreBody []byte, method string, params []byte) ([]byte, error) {
+	engineBody, err := s.engine.Call(ctx, method, params)
+	if err != nil {
+		s.discardUnretained(coreBody, engineBody)
+		return nil, err
+	}
+	if err := sameModelHash(coreBody, engineBody); err != nil {
+		s.discardUnretained(coreBody, engineBody)
+		return nil, err
+	}
+	hash, err := responseModelHash(coreBody)
+	if err != nil {
+		s.discardUnretained(coreBody, engineBody)
+		return nil, jsonrpc.Errorf(jsonrpc.CodeInternal, "decoding core model hash: %v", err)
+	}
+	s.retain(hash)
+	return coreBody, nil
+}
+
+func (s *Server) retain(hash string) {
+	if hash == "" {
+		return
+	}
+	if elem, ok := s.byHash[hash]; ok {
+		s.models.MoveToFront(elem)
+		return
+	}
+	s.byHash[hash] = s.models.PushFront(hash)
+	if s.models.Len() > maxModels {
+		oldest := s.models.Back()
+		evicted := oldest.Value.(string)
+		s.models.Remove(oldest)
+		delete(s.byHash, evicted)
+		s.core.Evict(evicted)
+		s.engine.Evict(evicted)
+	}
+}
+
+func (s *Server) touchRequest(params []byte) {
+	var req struct {
 		ModelHash string `json:"modelHash"`
 	}
-	if err := json.Unmarshal(coreBody, &coreResponse); err != nil {
+	if json.Unmarshal(params, &req) != nil {
+		return
+	}
+	if elem, ok := s.byHash[req.ModelHash]; ok {
+		s.models.MoveToFront(elem)
+	}
+}
+
+func (s *Server) discardUnretained(responses ...[]byte) {
+	for _, body := range responses {
+		hash, err := responseModelHash(body)
+		if err != nil || hash == "" {
+			continue
+		}
+		if _, retained := s.byHash[hash]; retained {
+			continue
+		}
+		s.core.Evict(hash)
+		s.engine.Evict(hash)
+	}
+}
+
+func responseModelHash(body []byte) (string, error) {
+	var response struct {
+		ModelHash string `json:"modelHash"`
+	}
+	if err := json.Unmarshal(body, &response); err != nil {
+		return "", err
+	}
+	return response.ModelHash, nil
+}
+
+func sameModelHash(coreBody, engineBody []byte) error {
+	coreHash, err := responseModelHash(coreBody)
+	if err != nil {
 		return jsonrpc.Errorf(jsonrpc.CodeInternal, "decoding core model hash: %v", err)
 	}
-	if err := json.Unmarshal(engineBody, &engineResponse); err != nil {
+	engineHash, err := responseModelHash(engineBody)
+	if err != nil {
 		return jsonrpc.Errorf(jsonrpc.CodeInternal, "decoding engine model hash: %v", err)
 	}
-	if coreResponse.ModelHash != engineResponse.ModelHash {
+	if coreHash != engineHash {
 		return jsonrpc.Errorf(jsonrpc.CodeInternal,
-			"sysml-wasm model hash mismatch: core %q, engine %q", coreResponse.ModelHash, engineResponse.ModelHash)
+			"sysml-wasm model hash mismatch: core %q, engine %q", coreHash, engineHash)
 	}
 	return nil
 }
