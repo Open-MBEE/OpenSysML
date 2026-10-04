@@ -28,7 +28,7 @@ func writeRunTimelineText(b *strings.Builder, r *Rendering) {
 		for i, span := range lane.Spans {
 			fmt.Fprintf(b, "  %s%s  %s", times[i], strings.Repeat(" ", width-utf8.RuneCountInString(times[i])), span.State)
 			if len(span.Triggers) > 0 {
-				fmt.Fprintf(b, "  on %s", strings.Join(span.Triggers, ", "))
+				fmt.Fprintf(b, " (%s)", strings.Join(span.Triggers, ", "))
 			}
 			if span.Open {
 				b.WriteString("  (held at the end)")
@@ -106,7 +106,7 @@ func (r *Rendering) runTimelineMermaid(options Options) string {
 func (r *Rendering) mermaidTimelineNotices() []string {
 	var notices []string
 	zero := 0
-	fractional := !wholeMillisecond(runUntil(r))
+	fractional := !wholeMillisecond(r.RunUntil)
 	for _, lane := range r.Lanes {
 		for _, span := range lane.Spans {
 			if span.To <= span.From {
@@ -132,7 +132,7 @@ func (r *Rendering) mermaidTimelineNotices() []string {
 	if fractional {
 		notices = append(notices, "instants are rounded to the nearest millisecond")
 	}
-	if runUntil(r) >= 3600 {
+	if r.RunUntil >= 3600 {
 		notices = append(notices, "the axis reads minutes and seconds; it wraps past an hour")
 	}
 	for _, lane := range r.Lanes {
@@ -159,12 +159,12 @@ func (r *Rendering) runTimelinePlantUML() string {
 		fmt.Fprintf(&b, "' %s\n@enduml\n", r.EmptyReason())
 		return b.String()
 	}
-	fmt.Fprintf(&b, "scale 1 as %d pixels\n", timelineScale(r.Lanes, runUntil(r)))
+	fmt.Fprintf(&b, "scale 1 as %d pixels\n", timelineScale(r.Lanes, r.RunUntil))
 	for _, lane := range r.Lanes {
 		fmt.Fprintf(&b, "concise %s as %s\n", plantumlQuote(plantumlText(lane.Name)), lane.ID)
 	}
 	var changes []timelineChange
-	until := runUntil(r)
+	until := r.RunUntil
 	for _, lane := range r.Lanes {
 		for i, span := range lane.Spans {
 			changes = append(changes, timelineChange{span.From, fmt.Sprintf("%s is %s", lane.ID,
@@ -224,28 +224,6 @@ func timelineStateLabel(span Span) string {
 		label += " (" + strings.Join(span.Triggers, ", ") + ")"
 	}
 	return label
-}
-
-func runUntil(r *Rendering) float64 {
-	const prefix = "the trace of a run to t = "
-	if strings.HasPrefix(r.Stated, prefix) {
-		if until, err := strconv.ParseFloat(strings.TrimPrefix(r.Stated, prefix), 64); err == nil {
-			return until
-		}
-	}
-	var until float64
-	for _, lane := range r.Lanes {
-		for _, span := range lane.Spans {
-			until = math.Max(until, span.To)
-		}
-		for _, transition := range lane.Transitions {
-			until = math.Max(until, transition.At)
-		}
-		for _, mark := range lane.Marks {
-			until = math.Max(until, mark.At)
-		}
-	}
-	return until
 }
 
 func runInstant(instant float64) string {

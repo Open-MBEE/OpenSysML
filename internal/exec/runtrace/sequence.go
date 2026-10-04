@@ -134,8 +134,14 @@ func sequence(trace *runtime.TraceRecorder, options Options) *view.Rendering {
 		if len(later) == 1 {
 			verb = "is"
 		}
-		out.Notices = append(out.Notices, fmt.Sprintf("%d later %s, t = %s to %s, %s not drawn (at most %d are)",
-			len(later), plural(len(later), "message", "messages"), runInstant(later[0].at), runInstant(later[len(later)-1].at), verb, limit))
+		first, last := runInstant(later[0].at), runInstant(later[len(later)-1].at)
+		if first == last {
+			out.Notices = append(out.Notices, fmt.Sprintf("%d later %s, at t = %s, %s not drawn (at most %d are)",
+				len(later), plural(len(later), "message", "messages"), first, verb, limit))
+		} else {
+			out.Notices = append(out.Notices, fmt.Sprintf("%d later %s, t = %s to %s, %s not drawn (at most %d are)",
+				len(later), plural(len(later), "message", "messages"), first, last, verb, limit))
+		}
 		messages = messages[:limit]
 	}
 	if count, upTo := trace.Dropped(); count > 0 {

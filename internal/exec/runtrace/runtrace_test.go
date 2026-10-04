@@ -216,6 +216,16 @@ func TestSequenceCapsMessagesAndReportsDroppedRecords(t *testing.T) {
 	if !strings.Contains(notices, "3 later messages, t = 2 to 4, are not drawn (at most 2 are)") {
 		t.Errorf("message cap notice = %s", notices)
 	}
+	equalInstants := runtime.NewEventRecorder(0)
+	for i := 0; i < 4; i++ {
+		equalInstants.RecordSend(runtime.TraceOrigin{At: 2, Object: object},
+			runtime.Message{SignalType: "Ping"}, nil)
+	}
+	equal := Sequence(equalInstants, Options{Until: 3, Limit: 2})
+	if got := strings.Join(equal.Notices, "\n"); !strings.Contains(got,
+		"2 later messages, at t = 2, are not drawn (at most 2 are)") {
+		t.Errorf("equal-instant cap notice = %s", got)
+	}
 	truncated := runtime.NewEventRecorder(3)
 	for i := 0; i < 5; i++ {
 		truncated.RecordSend(runtime.TraceOrigin{At: float64(i), Object: object},

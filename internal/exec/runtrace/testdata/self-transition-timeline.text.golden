@@ -2,6 +2,6 @@ run - timeline rendering (the trace of a run to t = 2)
 
 #1.modes
   0 .. 1  idle
-  1 .. 2  idle  on accept Tick  (held at the end)
+  1 .. 2  idle (accept Tick)  (held at the end)
   transitions:
     t=1 idle -> idle (accept Tick)

@@ -462,7 +462,7 @@ func plantumlQuote(text string) string {
 }
 
 // plantumlText writes text so PlantUML shows it as it is. A quote, a backslash,
-// an angle bracket and the creole escape `~` become `<U+XXXX>` escapes, as does
+// a hash, an angle bracket and the creole escape `~` become `<U+XXXX>` escapes, as does
 // each of a run of the characters creole reads doubled (`**`, `//`, `__`, `--`,
 // `[[`, `]]`); a newline becomes `\n`.
 func plantumlText(text string) string {
@@ -472,7 +472,7 @@ func plantumlText(text string) string {
 		switch {
 		case c == '\n':
 			out.WriteString(`\n`)
-		case strings.ContainsRune(`"\<>~`, c),
+		case strings.ContainsRune(`"#\<>~`, c),
 			strings.ContainsRune("*/_-[]", c) && (i > 0 && runes[i-1] == c || i+1 < len(runes) && runes[i+1] == c):
 			fmt.Fprintf(&out, "<U+%04X>", c)
 		default:

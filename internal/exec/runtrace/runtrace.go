@@ -80,8 +80,9 @@ func kindNames() string {
 
 func runRendering(kind view.Kind, options Options) *view.Rendering {
 	return &view.Rendering{
-		Kind:   kind,
-		Run:    true,
-		Stated: fmt.Sprintf("the trace of a run to t = %s", runInstant(options.Until)),
+		Kind:     kind,
+		Run:      true,
+		RunUntil: options.Until,
+		Stated:   fmt.Sprintf("the trace of a run to t = %s", runInstant(options.Until)),
 	}
 }

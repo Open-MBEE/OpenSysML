@@ -1,19 +1,39 @@
 run - timeline rendering (the trace of a run to t = 6)
 
-#2.modes
+RunTimeline::mission.controller.modes
   0 .. 1  waiting | charged
-  1 .. 3  sending | charged  on time
-  3 .. 4  sent | charged  on time
-  4 .. 6  sent | low  on time  (held at the end)
+  1 .. 2  acknowledged | charged (time, accept Ack)
+  via sending
+  2 .. 3  waiting | charged (time)
+  3 .. 4  acknowledged | charged (time, accept Ack)
+  via sending
+  4 .. 5  waiting | charged (time)
+  5 .. 6  acknowledged | charged (time, accept Ack)
+  via sending
+  6 .. 6  waiting | charged (time)  (held at the end)
   transitions:
     t=1 waiting -> sending (time)
-    t=3 sending -> sent (time)
-    t=4 charged -> low (time)
+    t=1 sending -> acknowledged (accept Ack)
+    t=2 acknowledged -> waiting (time)
+    t=3 waiting -> sending (time)
+    t=3 sending -> acknowledged (accept Ack)
+    t=4 acknowledged -> waiting (time)
+    t=5 waiting -> sending (time)
+    t=5 sending -> acknowledged (accept Ack)
+    t=6 acknowledged -> waiting (time)
   noted:
     t=0 choice entering modes: next waiting(entry), charged(entry) (unordered; took waiting(entry) first)
 
-#4.modes
-  0 .. 1  listening
-  1 .. 6  received  on accept Ping  (held at the end)
+RunTimeline::mission.instrument.modes
+  0 .. 1    waiting
+  1 .. 2.5  acknowledged (accept Ping)
+  2.5 .. 3  waiting (time)
+  3 .. 4.5  acknowledged (accept Ping)
+  4.5 .. 5  waiting (time)
+  5 .. 6    acknowledged (accept Ping)  (held at the end)
   transitions:
-    t=1 listening -> received (accept Ping)
+    t=1 waiting -> acknowledged (accept Ping)
+    t=2.5 acknowledged -> waiting (time)
+    t=3 waiting -> acknowledged (accept Ping)
+    t=4.5 acknowledged -> waiting (time)
+    t=5 waiting -> acknowledged (accept Ping)

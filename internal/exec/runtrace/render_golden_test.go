@@ -83,6 +83,14 @@ func TestRunRenderingGoldens(t *testing.T) {
 		t.Fatal(err)
 	}
 	cases = append(cases, renderingGolden{name: "self-transition-timeline", form: view.FormText, run: selfTransition})
+	hashLabel := runtime.NewTraceRecorder()
+	hashObject, hashBehavior := traceObject(7, "receiver")
+	hashLabel.RecordStateEntry(traceOrigin(0, hashObject, hashBehavior), "ready", "ready", "", false)
+	hashRun, err := Render(KindTimeline, hashLabel, Options{Until: 1})
+	if err != nil {
+		t.Fatal(err)
+	}
+	cases = appendForms(cases, "hash-label-timeline", hashRun)
 	for _, kind := range []Kind{KindTimeline, KindSequence} {
 		run, err := Render(kind, example, options)
 		if err != nil {
@@ -145,14 +153,29 @@ func exampleRun(t *testing.T) (*runtime.TraceRecorder, Options) {
 		t.Fatal(err)
 	}
 	packageScope := index.DocumentRoot(path).Children()[0]
-	_, err = ctx.Instantiate(mustSymbol(t, packageScope, "mission"))
+	root, err := ctx.Instantiate(mustSymbol(t, packageScope, "mission"))
 	if err != nil {
 		t.Fatal(err)
+	}
+	labels := make(map[int64]string)
+	for _, feature := range []string{"controller", "instrument"} {
+		fv, err := root.GetFeatureValue(ctx, feature)
+		if err != nil {
+			t.Fatal(err)
+		}
+		id, ok := fv.HeldValue().Object()
+		if !ok {
+			t.Fatalf("mission.%s does not hold an object", feature)
+		}
+		labels[id] = "RunTimeline::mission." + feature
 	}
 	if _, err := ctx.Advance(6); err != nil {
 		t.Fatal(err)
 	}
-	return ctx.Trace(), Options{Until: 6}
+	return ctx.Trace(), Options{
+		Until: 6,
+		Label: func(inst *runtime.Instance) string { return labels[inst.ID] },
+	}
 }
 
 func mustSymbol(t *testing.T, scope *symbols.Scope, name string) *symbols.Symbol {

@@ -1,7 +1,12 @@
 run - sequence rendering (the trace of a run to t = 6)
 
-object #2 : Sender
-object #4 : Receiver
+object RunTimeline::mission.controller : Controller
+object RunTimeline::mission.instrument : Instrument
 
 messages:
-  #2 => #4: t=1 Ping
+  RunTimeline::mission.controller => RunTimeline::mission.instrument: t=1 Ping (seq = 1)
+  RunTimeline::mission.instrument => RunTimeline::mission.controller: t=1 Ack (seq = 1)
+  RunTimeline::mission.controller => RunTimeline::mission.instrument: t=3 Ping (seq = 1)
+  RunTimeline::mission.instrument => RunTimeline::mission.controller: t=3 Ack (seq = 1)
+  RunTimeline::mission.controller => RunTimeline::mission.instrument: t=5 Ping (seq = 1)
+  RunTimeline::mission.instrument => RunTimeline::mission.controller: t=5 Ack (seq = 1)

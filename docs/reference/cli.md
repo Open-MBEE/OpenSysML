@@ -472,8 +472,8 @@ also asks to print it. Repeat the flag for both renderings:
 ```bash
 sysml examples/run-timeline/run-timeline.sysml \
   -instantiate RunTimeline::mission \
-  -state "RunTimeline::Sender::modes RunTimeline::mission.sender" \
-  -state "RunTimeline::Receiver::modes RunTimeline::mission.sender.receiver" \
+  -state "RunTimeline::Controller::modes RunTimeline::mission.controller" \
+  -state "RunTimeline::Instrument::modes RunTimeline::mission.instrument" \
   -advance 6 \
   -render-run timeline=timeline.mmd \
   -render-run sequence=sequence.puml

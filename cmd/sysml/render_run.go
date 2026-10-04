@@ -63,10 +63,14 @@ func runRenderTargetsFromFlags() ([]runRenderTarget, error) {
 		}
 		form := view.Form(renderForm)
 		if renderForm == "" {
-			var found bool
-			form, found = runRenderFormFromPath(path)
-			if !found {
-				return nil, fmt.Errorf("-render-run path %q has no recognized form extension; use -render-form text, mermaid or plantuml", path)
+			if path == "-" {
+				form = view.FormText
+			} else {
+				var found bool
+				form, found = runRenderFormFromPath(path)
+				if !found {
+					return nil, fmt.Errorf("-render-run path %q has no recognized form extension; use -render-form text, mermaid or plantuml", path)
+				}
 			}
 		} else if !slices.Contains(view.Forms(), form) {
 			return nil, fmt.Errorf("unknown rendering form %q; -render-form takes %s", renderForm, formList())

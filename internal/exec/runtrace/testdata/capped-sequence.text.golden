@@ -206,4 +206,4 @@ messages:
   #1 => #2: t=199 Ping
 
 not represented:
-  - 1 later message, t = 200 to 200, is not drawn (at most 200 are)
+  - 1 later message, at t = 200, is not drawn (at most 200 are)

@@ -319,6 +319,8 @@ type Rendering struct {
 	Stated string
 	// Run marks a rendering of a run's trace rather than of a view.
 	Run bool
+	// RunUntil is the clock instant through which a run rendering was recorded.
+	RunUntil float64
 	// Roots are the top-level nodes, in the order the view exposes them.
 	Roots []*Node
 	// Edges join nodes, in the order the model and the lowered graphs give them.

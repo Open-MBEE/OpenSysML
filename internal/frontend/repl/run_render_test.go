@@ -22,6 +22,16 @@ func TestRenderRunBuildsTimelineAndSequence(t *testing.T) {
 	wants(t, run(t, s, "%render-run sequence text"), "run - sequence rendering", "go")
 }
 
+func TestRenderRunUsesHeldObjectPathLabels(t *testing.T) {
+	s := loadFixture(t, "testdata/run_render_nested.sysml")
+	run(t, s, "%trace on")
+	run(t, s, "%instantiate mission")
+	run(t, s, `%state "NestedRun::Controller::modes NestedRun::mission.controller"`)
+	run(t, s, "%advance 1")
+
+	wants(t, run(t, s, "%render-run timeline"), "NestedRun::mission.controller.modes")
+}
+
 func TestRenderRunReportsMissingTraceAndRefusesDot(t *testing.T) {
 	fresh := NewSession()
 	wants(t, run(t, fresh, "%render-run timeline"), "error: the session records no trace; %trace on before the run")

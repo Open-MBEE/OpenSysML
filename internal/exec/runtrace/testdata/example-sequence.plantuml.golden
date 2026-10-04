@@ -40,7 +40,12 @@ note {
 </style>
 skinparam wrapWidth 300
 hide stereotype
-participant "<size:10>//«object»//</size>\n**#2 : Sender**" as n0 <<object>> <<usage>>
-participant "<size:10>//«object»//</size>\n**#4 : Receiver**" as n1 <<object>> <<usage>>
-n0 -> n1 : t=1 Ping
+participant "<size:10>//«object»//</size>\n**'mission.controller' : Controller**" as n0 <<object>> <<usage>>
+participant "<size:10>//«object»//</size>\n**'mission.instrument' : Instrument**" as n1 <<object>> <<usage>>
+n0 -> n1 : t=1 Ping (seq = 1)
+n1 -> n0 : t=1 Ack (seq = 1)
+n0 -> n1 : t=3 Ping (seq = 1)
+n1 -> n0 : t=3 Ack (seq = 1)
+n0 -> n1 : t=5 Ping (seq = 1)
+n1 -> n0 : t=5 Ack (seq = 1)
 @enduml

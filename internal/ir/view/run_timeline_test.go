@@ -38,7 +38,7 @@ func TestTimelineKindIsOnlyAStandaloneRunKind(t *testing.T) {
 
 func TestRunTimelineTextWritesLanesSpansTransitionsAndMarks(t *testing.T) {
 	rendering := &Rendering{
-		Kind: KindTimeline, Run: true, Stated: "the trace of a run to t = 4",
+		Kind: KindTimeline, Run: true, RunUntil: 4, Stated: "the trace of a run to t = 4",
 		Lanes: []Lane{{
 			ID: "l0", Name: "T::rover.Machine",
 			Spans: []Span{
@@ -55,7 +55,7 @@ func TestRunTimelineTextWritesLanesSpansTransitionsAndMarks(t *testing.T) {
 		"run - timeline rendering (the trace of a run to t = 4)",
 		"T::rover.Machine",
 		"0 .. 1.5  closed",
-		"1.5 .. 4  open | parked  on accept Open  (held at the end)",
+		"1.5 .. 4  open | parked (accept Open)  (held at the end)",
 		"  via a, b",
 		"transitions:",
 		"t=1.5 closed -> open (accept Open)",
@@ -68,14 +68,14 @@ func TestRunTimelineTextWritesLanesSpansTransitionsAndMarks(t *testing.T) {
 			t.Errorf("timeline text is missing %q:\n%s", want, text)
 		}
 	}
-	if !rendering.Data().Run || len(rendering.Data().Lanes) != 1 {
+	if !rendering.Data().Run || rendering.Data().RunUntil != 4 || len(rendering.Data().Lanes) != 1 {
 		t.Errorf("timeline data = %+v, want its run and lane", rendering.Data())
 	}
 }
 
 func TestRunTimelineMermaidWritesCompactGantt(t *testing.T) {
 	rendering := &Rendering{
-		Kind: KindTimeline, Run: true, Stated: "the trace of a run to t = 3600.5",
+		Kind: KindTimeline, Run: true, RunUntil: 3600.5, Stated: "the trace of a run to t = 3600.5",
 		Lanes: []Lane{{
 			ID: "l0", Name: "lane: # ;",
 			Spans: []Span{
@@ -115,7 +115,7 @@ func TestRunTimelineMermaidWritesCompactGantt(t *testing.T) {
 
 func TestRunTimelinePlantUMLWritesTimingChanges(t *testing.T) {
 	rendering := &Rendering{
-		Kind: KindTimeline, Run: true, Stated: "the trace of a run to t = 3",
+		Kind: KindTimeline, Run: true, RunUntil: 3, Stated: "the trace of a run to t = 3",
 		Lanes: []Lane{{
 			ID: "l0", Name: "Rover",
 			Spans: []Span{
@@ -146,8 +146,22 @@ func TestRunTimelinePlantUMLWritesTimingChanges(t *testing.T) {
 	}
 }
 
+func TestRunTimelinePlantUMLUsesRunUntilField(t *testing.T) {
+	rendering := &Rendering{
+		Kind: KindTimeline, Run: true, RunUntil: 7, Stated: "the trace of a run to t = 4",
+		Lanes: []Lane{{ID: "l0", Name: "Rover", Spans: []Span{{State: "moving", From: 1, To: 2, Open: true}}}},
+	}
+	puml, err := rendering.PlantUML()
+	if err != nil {
+		t.Fatalf("PlantUML: %v", err)
+	}
+	if !strings.Contains(puml, "@7\n@enduml") {
+		t.Errorf("PlantUML ignored RunUntil:\n%s", puml)
+	}
+}
+
 func TestRunTimelineAndSequenceEmptyMessages(t *testing.T) {
-	timeline := &Rendering{Kind: KindTimeline, Run: true, Stated: "the trace of a run to t = 4"}
+	timeline := &Rendering{Kind: KindTimeline, Run: true, RunUntil: 4, Stated: "the trace of a run to t = 4"}
 	if !timeline.Empty() || !timeline.blank() {
 		t.Errorf("empty timeline: Empty=%t blank=%t", timeline.Empty(), timeline.blank())
 	}
@@ -162,7 +176,7 @@ func TestRunTimelineAndSequenceEmptyMessages(t *testing.T) {
 	if err != nil || !strings.Contains(puml, timeline.EmptyReason()) {
 		t.Errorf("empty timeline PlantUML = %q, %v", puml, err)
 	}
-	sequence := &Rendering{Kind: KindSequence, Run: true, Stated: "the trace of a run to t = 4"}
+	sequence := &Rendering{Kind: KindSequence, Run: true, RunUntil: 4, Stated: "the trace of a run to t = 4"}
 	if got := sequence.EmptyReason(); got != "the run recorded no message; the rendering is empty" {
 		t.Errorf("sequence empty reason = %q", got)
 	}
@@ -173,7 +187,7 @@ func TestRunTimelineAndSequenceEmptyMessages(t *testing.T) {
 
 func TestRunSequenceHeadersDoNotChangeItsWriters(t *testing.T) {
 	rendering := &Rendering{
-		Kind: KindSequence, Run: true, Stated: "the trace of a run to t = 2",
+		Kind: KindSequence, Run: true, RunUntil: 2, Stated: "the trace of a run to t = 2",
 		Roots: []*Node{{ID: "n0", Kind: "object", Name: "A"}, {ID: "n1", Kind: "object", Name: "B"}},
 		Edges: []Edge{{From: "n0", To: "n1", Label: "t=1 Ping", Kind: EdgeFlow}},
 	}

@@ -62,5 +62,5 @@ func (s *Session) runTraceRendering(kind runtrace.Kind) (*view.Rendering, error)
 		trace = s.rtCtx.Trace()
 		until = s.rtCtx.Clock().Now()
 	}
-	return runtrace.Render(kind, trace, runtrace.Options{Label: s.instanceName, Until: until})
+	return runtrace.Render(kind, trace, runtrace.Options{Label: s.runTraceLabel, Until: until})
 }

@@ -1,0 +1,1 @@
+- **Correct run rendering labels and output details.** Run diagrams preserve held object paths, explicit end instants, literal PlantUML labels, payload-bearing sibling messages and text output when written to stdout.

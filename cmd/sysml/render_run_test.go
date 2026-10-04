@@ -24,8 +24,8 @@ func TestRenderRunExampleMatchesGoldens(t *testing.T) {
 	}
 	args := []string{
 		"-instantiate", "RunTimeline::mission",
-		"-state", "RunTimeline::Sender::modes RunTimeline::mission.sender",
-		"-state", "RunTimeline::Receiver::modes RunTimeline::mission.sender.receiver",
+		"-state", "RunTimeline::Controller::modes RunTimeline::mission.controller",
+		"-state", "RunTimeline::Instrument::modes RunTimeline::mission.instrument",
 		"-advance", "6",
 	}
 	for golden, path := range outputs {
@@ -99,7 +99,7 @@ func TestRenderRunWritesStdoutWithoutLosingTheVerdict(t *testing.T) {
 	binary := buildCLI(t)
 	got := check(t, binary, behaviorModel,
 		"-state", "Mission::Cycle", "-advance", "1",
-		"-render-run", "timeline=-", "-render-form", "text",
+		"-render-run", "timeline=-",
 	)
 	if got.status != 0 {
 		t.Fatalf("exit status = %d\n%s", got.status, got.output())

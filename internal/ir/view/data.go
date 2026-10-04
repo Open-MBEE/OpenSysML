@@ -13,6 +13,8 @@ type Data struct {
 	Stated string
 	// Run marks a rendering of a run's trace rather than of a view.
 	Run bool
+	// RunUntil is the clock instant through which a run rendering was recorded.
+	RunUntil float64
 	// Nodes are every node of the rendering, parents before children, each
 	// naming its parent.
 	Nodes []NodeData
@@ -85,15 +87,16 @@ type RowData struct {
 // Data is the rendering in machine-consumable form.
 func (r *Rendering) Data() Data {
 	out := Data{
-		View:    r.View,
-		Kind:    r.Kind,
-		Stated:  r.Stated,
-		Run:     r.Run,
-		Columns: r.Columns,
-		Lanes:   r.Lanes,
-		Canvas:  r.Canvas,
-		Notes:   r.Notes,
-		Notices: r.Notices,
+		View:     r.View,
+		Kind:     r.Kind,
+		Stated:   r.Stated,
+		Run:      r.Run,
+		RunUntil: r.RunUntil,
+		Columns:  r.Columns,
+		Lanes:    r.Lanes,
+		Canvas:   r.Canvas,
+		Notes:    r.Notes,
+		Notices:  r.Notices,
 	}
 	for _, root := range r.Roots {
 		out.Nodes = appendNodeData(out.Nodes, root, "")

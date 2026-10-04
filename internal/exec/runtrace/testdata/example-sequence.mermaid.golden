@@ -32,6 +32,11 @@ config:
 ---
 %% run — sequence rendering (the trace of a run to t = 6)
 sequenceDiagram
-  participant n0 as «object»<br>#35;2 : Sender
-  participant n1 as «object»<br>#35;4 : Receiver
-  n0->>n1: t=1 Ping
+  participant n0 as «object»<br>'mission.controller' : Controller
+  participant n1 as «object»<br>'mission.instrument' : Instrument
+  n0->>n1: t=1 Ping (seq = 1)
+  n1->>n0: t=1 Ack (seq = 1)
+  n0->>n1: t=3 Ping (seq = 1)
+  n1->>n0: t=3 Ack (seq = 1)
+  n0->>n1: t=5 Ping (seq = 1)
+  n1->>n0: t=5 Ack (seq = 1)
