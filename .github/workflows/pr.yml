@@ -1072,6 +1072,10 @@ jobs:
       - name: Check the test-suite figures hook
         run: python3 scripts/mkdocs_suite_figures-test.py
 
+      # Sphinx roles in the Python docstrings are rewritten when the site is built.
+      - name: Check the Sphinx-role rewriting hook
+        run: python3 scripts/griffe_sphinx_roles-test.py
+
       # --strict: a link or anchor a moved page left behind fails here rather than
       # publishing a 404 from main.
       - name: Build documentation site

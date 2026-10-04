@@ -42,6 +42,40 @@ class RewriteRolesTests(unittest.TestCase):
 
         self.assertEqual(result, "Call [`Connection.parse_sources`][opensysml.Connection.parse_sources].")
 
+    def test_labeled_role_resolves_target_and_records_it(self):
+        target = "opensysml.connection.Connection.parse_sources"
+        calls = []
+
+        def resolve(name, role):
+            calls.append((name, role))
+            if name == target and role == "meth":
+                return "opensysml.Connection.parse_sources"
+            return None
+
+        result = roles.rewrite_roles(
+            ":meth:`Connection.parse_sources <opensysml.connection.Connection.parse_sources>`",
+            resolve,
+        )
+
+        self.assertEqual(result, "[`Connection.parse_sources`][opensysml.Connection.parse_sources]")
+        self.assertEqual(calls, [(target, "meth")])
+
+    def test_unresolved_labeled_role_displays_its_label(self):
+        result = roles.rewrite_roles(
+            ":class:`label <opensysml.private.Missing>`",
+            lambda name, role: None,
+        )
+
+        self.assertEqual(result, "`label`")
+
+    def test_labeled_role_keeps_explicit_label_with_short_prefix(self):
+        result = roles.rewrite_roles(
+            ":class:`~package.LongName <opensysml.LongName>`",
+            lambda name, role: "opensysml.LongName",
+        )
+
+        self.assertEqual(result, "[`package.LongName`][opensysml.LongName]")
+
     def test_extension_resolves_bare_methods_before_top_level_functions(self):
         from griffe import temporary_visited_package
 
@@ -66,6 +100,31 @@ class Conn:
             self.assertEqual(
                 convert.docstring.value,
                 "See [`load`][opensysml.Conn.load] and [`load`][opensysml.load].",
+            )
+
+    def test_extension_resolves_labeled_canonical_submodule_target_to_export(self):
+        from griffe import temporary_visited_package
+
+        modules = {
+            "__init__.py": '''\
+from .connection import Connection
+__all__ = ["Connection"]
+''',
+            "connection.py": '''\
+class Connection:
+    """A connection."""
+
+    def parse_sources(self):
+        """See :meth:`Connection.parse_sources <opensysml.connection.Connection.parse_sources>`."""
+''',
+        }
+        with temporary_visited_package("opensysml", modules=modules) as package:
+            roles.SphinxRolesExtension().on_package(pkg=package)
+            connection = package.get_member("Connection").target
+            method = connection.get_member("parse_sources")
+            self.assertEqual(
+                method.docstring.value,
+                "See [`Connection.parse_sources`][opensysml.Connection.parse_sources].",
             )
 
     def test_unresolved_name_becomes_code_span(self):
