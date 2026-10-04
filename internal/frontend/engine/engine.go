@@ -164,31 +164,33 @@ type Engine struct {
 	libIndex *symbols.Index
 	libSrc   libs.Source
 	budgets  runtime.Budgets
-	// models is the bounded store of parsed models keyed by content hash,
-	// oldest at the back.
-	models *list.List
-	byHash map[string]*list.Element
+	// models stores parsed models keyed by content hash, oldest at the back.
+	models    *list.List
+	byHash    map[string]*list.Element
+	maxModels int
 }
 
 // New builds an engine over the frozen standard library snapshot, under the
 // runtime budgets a default sysml-grpc NewService runs with.
 func New() (*Engine, error) {
 	index, src := libs.FrozenLibrary()
-	return NewWithLibrary(index, src)
+	return NewWithLibrary(index, src, maxCachedModels)
 }
 
 // NewWithLibrary builds an engine over a shared standard library snapshot.
-func NewWithLibrary(index *symbols.Index, src libs.Source) (*Engine, error) {
+// A nonpositive maxModels disables automatic eviction.
+func NewWithLibrary(index *symbols.Index, src libs.Source, maxModels int) (*Engine, error) {
 	budgets, err := runtime.BudgetsFromEnv()
 	if err != nil {
 		return nil, err
 	}
 	return &Engine{
-		libIndex: index,
-		libSrc:   src,
-		budgets:  budgets,
-		models:   list.New(),
-		byHash:   make(map[string]*list.Element),
+		libIndex:  index,
+		libSrc:    src,
+		budgets:   budgets,
+		models:    list.New(),
+		byHash:    make(map[string]*list.Element),
+		maxModels: maxModels,
 	}, nil
 }
 
@@ -202,6 +204,16 @@ func (e *Engine) get(hash string) (*cachedModel, bool) {
 	return elem.Value.(*cacheEntry).model, true
 }
 
+// Evict removes a cached model; absent hashes are ignored.
+func (e *Engine) Evict(hash string) {
+	elem, ok := e.byHash[hash]
+	if !ok {
+		return
+	}
+	e.models.Remove(elem)
+	delete(e.byHash, hash)
+}
+
 // add caches model under hash, evicting the oldest model at the bound.
 func (e *Engine) add(hash string, model *cachedModel) {
 	if elem, ok := e.byHash[hash]; ok {
@@ -209,7 +221,7 @@ func (e *Engine) add(hash string, model *cachedModel) {
 		elem.Value.(*cacheEntry).model = model
 		return
 	}
-	if e.models.Len() >= maxCachedModels {
+	if e.maxModels > 0 && e.models.Len() >= e.maxModels {
 		if oldest := e.models.Back(); oldest != nil {
 			e.models.Remove(oldest)
 			delete(e.byHash, oldest.Value.(*cacheEntry).hash)
