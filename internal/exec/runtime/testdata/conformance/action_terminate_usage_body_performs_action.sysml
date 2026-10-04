@@ -21,7 +21,7 @@ package test {
 		then stop;
 		action stop terminate {
 			perform action cleanup : Cleanup;
-			assign x := x + cleaned;
+			then assign x := x + cleaned;
 		}
 		then action a2 { assign y := 2; }
 		then done;

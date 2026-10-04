@@ -169,6 +169,45 @@ func TestMarkdownTelescopeReportDotGolden(t *testing.T) {
 	}
 }
 
+// TestMarkdownTelescopeReportD2Golden locks the report with D2 diagrams: the
+// fences change, every other block matches the Mermaid golden.
+func TestMarkdownTelescopeReportD2Golden(t *testing.T) {
+	path := filepath.Join("testdata", "telescope_report.sysml")
+	got, err := Markdown(fixtureDocument(t, path, "Observatory::MassReport"),
+		MarkdownOptions{DiagramForm: view.FormD2})
+	if err != nil {
+		t.Fatalf("render document as D2: %v", err)
+	}
+	golden := filepath.Join("testdata", "telescope_report.d2.golden.md")
+	if *update {
+		if err := os.WriteFile(golden, []byte(got), 0o644); err != nil {
+			t.Fatalf("update golden: %v", err)
+		}
+		return
+	}
+	want, err := os.ReadFile(golden)
+	if err != nil {
+		t.Fatalf("read golden (run with -update to create): %v", err)
+	}
+	if got != string(want) {
+		t.Errorf("rendered Markdown differs from %s (run with -update after intentional changes)\ngot:\n%s", golden, got)
+	}
+	for _, want := range []string{
+		"```d2\n# Observatory::interconnectView — interconnection rendering",
+		"```d2\n# state rendering (the diagram states kind \"state\")\n",
+		"direction: right\n",
+		"}\n```\n",
+		"| name | mass |\n| --- | --- |\n",
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("rendering does not contain %q\n%s", want, got)
+		}
+	}
+	if strings.Contains(got, "```mermaid") || strings.Contains(got, "```plantuml") {
+		t.Errorf("a diagram is another form when D2 is asked for:\n%s", got)
+	}
+}
+
 func TestMarkdownDiagramSourceLinks(t *testing.T) {
 	path := filepath.Join("testdata", "telescope_report.sysml")
 	document := fixtureDocument(t, path, "Observatory::MassReport")

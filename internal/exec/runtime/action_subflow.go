@@ -203,11 +203,14 @@ func (e *ActionExecutor) driveSubflow(f *subflowFrame) error {
 			e.ctx.bodyPerformed()
 		}
 		if moved {
+			if err := e.ctx.switchStrand(); err != nil {
+				return err
+			}
 			switch {
 			case e.ctx.stepsTokens():
 				// A run one move at a time pauses before its next, its machine going on meanwhile.
 				if e.canAct(perf) {
-					if err := e.ctx.tokenStepBody(); err != nil {
+					if err := e.ctx.tokenStepBody(perf.graph); err != nil {
 						return err
 					}
 				}
@@ -253,10 +256,15 @@ func (e *ActionExecutor) stepSubflow(perf *actionFrame) (moved, performed bool, 
 	before := e.subflowLocations(perf)
 	performing := e.performingTokens(perf)
 	if !e.ctx.stepsTokens() {
+		pauses := e.pauses
 		if err := e.stepSubflowSweep(perf); err != nil {
 			return false, false, err
 		}
-		return e.subflowMoved(perf, before, performing)
+		moved, performed, err := e.subflowMoved(perf, before, performing)
+		if e.yieldedIn(perf, pauses) {
+			moved, performed = true, true
+		}
+		return moved, performed, err
 	}
 	// A token moving on a loop may stand where it stood, so the move itself counts.
 	acted, performed, err := e.stepSubflowMove(perf)
@@ -273,13 +281,15 @@ func (e *ActionExecutor) stepSubflowSweep(perf *actionFrame) (err error) {
 	defer e.beginSweep()()
 	order := e.beginStepOrder()
 	endWrites := e.beginStepWrites(e.stepCount + 1)
-	eligible := func(t Token) bool { return t.inFlowOf(perf) }
+	eligible := func(t Token) bool { return t.inFlowOf(perf) && !t.drivenUnder(perf) }
 	if e.ctx.scheduling().oneMove() {
 		// Paused work that would only pause again is no alternative to pick.
-		eligible = func(t Token) bool { return t.inFlowOf(perf) && (t.body == nil || t.resumable()) }
+		eligible = func(t Token) bool {
+			return t.inFlowOf(perf) && !t.drivenUnder(perf) && (t.body == nil || t.resumable())
+		}
 	}
 	candidates := e.stepCandidates(&order, eligible, perf)
-	schedule := e.ctx.scheduling().scheduleStep(candidates)
+	schedule := e.scheduleSubflowStep(perf, candidates)
 	for id, ok := schedule.Next(); ok; id, ok = schedule.Next() {
 		i := e.tokenIndex(id)
 		if i < 0 || e.moving(e.tokens[i]) || !e.tokens[i].inFlowOf(perf) {
@@ -299,6 +309,18 @@ func (e *ActionExecutor) stepSubflowSweep(perf *actionFrame) (err error) {
 		err = refused
 	}
 	return err
+}
+
+// An unordered case body keeps declaration order under the fixed schedules.
+func (e *ActionExecutor) scheduleSubflowStep(perf *actionFrame, candidates stepTokens) *tokenSchedule {
+	scheduler := e.ctx.scheduling()
+	if perf.graph != nil && perf.graph.UnstatedCaseFlow && scheduler.oneMove() {
+		candidates.stepped = true
+	}
+	if perf.graph != nil && perf.graph.UnstatedCaseFlow && scheduler.policy.kind == scheduleReverse {
+		return &tokenSchedule{order: candidates.ids}
+	}
+	return scheduler.scheduleStep(candidates)
 }
 
 // stepSubflowMove is the step of a flow run one token move at a time: its silent
@@ -328,7 +350,7 @@ func (e *ActionExecutor) stepSubflowMove(perf *actionFrame) (acted, performed bo
 func (e *ActionExecutor) drawOneMove(perf *actionFrame) (acted, performed bool, err error) {
 	defer e.beginSweep()()
 	order := e.beginStepOrder()
-	schedule := e.ctx.scheduling().scheduleStep(e.stepCandidates(&order, oneMoveEligibleIn(perf), perf))
+	schedule := e.scheduleSubflowStep(perf, e.stepCandidates(&order, oneMoveEligibleIn(perf), perf))
 	for id, ok := schedule.Next(); ok; id, ok = schedule.Next() {
 		i := e.tokenIndex(id)
 		if i < 0 || e.moving(e.tokens[i]) || !e.tokens[i].inFlowOf(perf) {
@@ -355,7 +377,9 @@ func (e *ActionExecutor) drawOneMove(perf *actionFrame) (acted, performed bool, 
 
 // oneMoveEligibleIn is the eligibility of a step moving one token of perf's flow.
 func oneMoveEligibleIn(perf *actionFrame) func(Token) bool {
-	return func(t Token) bool { return t.inFlowOf(perf) && (t.body == nil || t.resumable()) }
+	return func(t Token) bool {
+		return t.inFlowOf(perf) && !t.drivenUnder(perf) && (t.body == nil || t.resumable())
+	}
 }
 
 // canAct reports whether a token of perf's flow would act were it stepped now.
@@ -388,7 +412,7 @@ func (e *ActionExecutor) silentPass(perf *actionFrame) (moved bool, err error) {
 	defer e.beginSweep()()
 	for i := 0; i < len(e.tokens); i++ {
 		t := e.tokens[i]
-		if e.moving(t) || !t.inFlowOf(perf) || !e.silentMove(t) {
+		if e.moving(t) || !t.inFlowOf(perf) || t.drivenUnder(perf) || !e.silentMove(t) {
 			continue
 		}
 		did, err := e.stepTokenNoting(i, &stepOrder{})
@@ -441,6 +465,17 @@ func (e *ActionExecutor) subflowMoved(perf *actionFrame, before map[int64]ast.No
 		}
 	}
 	return moved, performed, nil
+}
+
+// yieldedIn reports a token of perf's flow whose work yielded after the executor's
+// pauses-th pause, a move of its node made.
+func (e *ActionExecutor) yieldedIn(perf *actionFrame, pauses int64) bool {
+	for _, idx := range e.tokensIn(perf) {
+		if run := e.tokens[idx].body; run != nil && run.pausedAt > pauses && run.paused.yielded {
+			return true
+		}
+	}
+	return false
 }
 
 // subflowLocations returns where each token of perf's flow sits, by token ID.
@@ -505,6 +540,16 @@ func (t Token) inFlowOf(perf *actionFrame) bool {
 	}
 	for f := t.frame; f != nil; f = f.parent {
 		if f == perf {
+			return true
+		}
+	}
+	return false
+}
+
+// drivenUnder reports a token of a flow nested in perf's that another token's work drives.
+func (t Token) drivenUnder(perf *actionFrame) bool {
+	for f := t.frame; f != nil && f != perf; f = f.parent {
+		if f.inBody {
 			return true
 		}
 	}

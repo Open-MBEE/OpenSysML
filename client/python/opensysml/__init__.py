@@ -214,7 +214,7 @@ def parse_sources(documents, host='localhost', port=None, strict=False,
 
 def load(file_path, host='localhost', port=None, strict=False,
          strict_conformance=False):
-    """Load a SysML model from file using the default connection.
+    """Load a SysML model from a .sysml, .kerml, or API element-form .json file.
     
     Convenience function that uses a module-level singleton connection.
     

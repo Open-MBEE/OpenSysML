@@ -12,11 +12,9 @@ package test {
 		attribute doneB : Boolean := false;
 		action a { assign total := total + 1; assign doneA := true; }
 		action b { assign total := total + 10; assign doneB := true; }
-		action c {
-			assign seen := total;
-			assign cRuns := cRuns + 1;
-			assign total := total + 100;
-		}
+		action c assign seen := total;
+		then assign cRuns := cRuns + 1;
+		then assign total := total + 100;
 		succession first a then c;
 		succession first b then c;
 	}

@@ -1,5 +1,6 @@
 exit: idle
 stmt action body
+enter action node: state behavior <anonymous>
   stmt assign log
         eval feature log -> 0
         eval literal 10 -> 10
@@ -18,10 +19,12 @@ stmt action body
       eval operator * -> 120
       eval literal 3 -> 3
     eval operator + -> 123
+leave action node: state behavior <anonymous>
 enter: busy
 transition: idle -> busy (event: accept Go)
 exit: busy
 stmt action body
+enter action node: state behavior <anonymous>
   stmt assign log
         eval feature log -> 123
         eval literal 10 -> 10
@@ -34,5 +37,6 @@ stmt action body
       eval operator * -> 12340
       eval literal 5 -> 5
     eval operator + -> 12345
+leave action node: state behavior <anonymous>
 enter: done
 transition: busy -> done (event: accept Go)

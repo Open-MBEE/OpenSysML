@@ -1,0 +1,10 @@
+{
+	"type": "action",
+	"libraries": true,
+	"trace": true,
+	"outputs": {
+		"x": {"type": "Integer", "value": 1},
+		"y": {"type": "Integer", "value": 2},
+		"z": {"type": "Integer", "value": 3}
+	}
+}

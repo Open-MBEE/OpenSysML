@@ -24,7 +24,7 @@ package test {
 		action stop terminate {
 			out code : Integer;
 			perform action report : Report;
-			assign code := 42;
+			then assign code := 42;
 		}
 		then action a2 { assign x := 2; }
 		then done;
