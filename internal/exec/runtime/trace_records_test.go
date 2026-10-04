@@ -183,7 +183,7 @@ func TestEventRecorderKeepsTheMostRecentRecords(t *testing.T) {
 	mark := tr.Mark()
 	tr.RecordStateEntry(at(2, nil), "c", "c", "", false)
 	tr.RecordStateEntry(at(3, nil), "d", "d", "", false)
-	tr.RecordAcceptAt(mark, at(2, nil), "Go", nil)
+	tr.RecordAcceptAt(mark, at(2, nil), 0, "Go", nil)
 	states := func() string {
 		var out []string
 		for _, r := range tr.Records() {

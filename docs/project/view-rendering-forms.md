@@ -880,9 +880,17 @@ is refused for both run kinds: it has no time axis, and the existing sequence wr
 DOT.
 
 Each rendering is capped at 200 spans or messages for readability and to keep renderer input
-within practical text-size limits. Later content is reported in a `not represented:` notice.
-When a recorder itself dropped earlier events, the rendering starts from the first kept state
-entry and reports that senders or acceptors of earlier messages may be missing.
+within practical text-size limits. Timelines select spans in stable time order, with lane order
+breaking ties, and retain only a prefix of each lane; a lane's last retained span ends at its first
+dropped span's start. Later state changes and messages are reported in a `not represented:` notice.
+Parallel-region state identity includes both the state path and region path, so same-named states in
+sibling regions remain separate leaves. A termination record closes the lane's occupancy at that
+instant and adds a `terminate` mark without changing the legacy printed trace line.
+
+Sequence renderings pair nonzero message serials exactly. Serial-zero records retain the legacy
+FIFO pairing by event and target, using only serial-zero sends. When a recorder itself dropped
+earlier events, the rendering starts from the first kept state entry and reports that senders or
+acceptors of earlier messages may be missing.
 
 Run renderings are not embedded in documents. Document backends do not run behaviors:
 `-render-document` refuses `-state` and `-advance`, and a document `Diagram` kind selects a model

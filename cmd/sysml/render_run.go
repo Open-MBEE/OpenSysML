@@ -22,6 +22,10 @@ func runRenderModeMisuse() string {
 	switch {
 	case len(renderRuns) == 0:
 		return "-render-run needs a value of the form <timeline|sequence>=<path>"
+	case modelChecks.jsonOut && renderRunWritesStdout():
+		return "-render-run cannot write to stdout with -json; name a file for the rendering"
+	case flagGiven("compare-results"):
+		return "-render-run cannot be combined with -compare-results"
 	case len(modelChecks.actions) == 0 && len(modelChecks.states) == 0 && !modelChecks.advance.given:
 		return "-render-run needs -action, -state or -advance to record a behavior run"
 	case schedule.text == "explore":
@@ -48,6 +52,16 @@ func runRenderModeMisuse() string {
 		return "-render-palette, -render-style, -render-ports and -render-unplaced apply to model renderings, not -render-run"
 	}
 	return ""
+}
+
+func renderRunWritesStdout() bool {
+	for _, value := range renderRuns {
+		_, path, ok := strings.Cut(value, "=")
+		if ok && path == "-" {
+			return true
+		}
+	}
+	return false
 }
 
 func runRenderTargetsFromFlags() ([]runRenderTarget, error) {

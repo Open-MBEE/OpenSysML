@@ -3,6 +3,7 @@ package main
 import (
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"testing"
 )
@@ -28,7 +29,13 @@ func TestRenderRunExampleMatchesGoldens(t *testing.T) {
 		"-state", "RunTimeline::Instrument::modes RunTimeline::mission.instrument",
 		"-advance", "6",
 	}
-	for golden, path := range outputs {
+	keys := make([]string, 0, len(outputs))
+	for golden := range outputs {
+		keys = append(keys, golden)
+	}
+	sort.Strings(keys)
+	for _, golden := range keys {
+		path := outputs[golden]
 		kind := "timeline"
 		if strings.Contains(golden, "sequence") {
 			kind = "sequence"
@@ -39,7 +46,8 @@ func TestRenderRunExampleMatchesGoldens(t *testing.T) {
 	if got.status != 0 {
 		t.Fatalf("exit status = %d\n%s", got.status, got.output())
 	}
-	for golden, path := range outputs {
+	for _, golden := range keys {
+		path := outputs[golden]
 		actual, err := os.ReadFile(path) // #nosec G304 -- the path is created by the test.
 		if err != nil {
 			t.Fatal(err)
@@ -111,6 +119,49 @@ func TestRenderRunWritesStdoutWithoutLosingTheVerdict(t *testing.T) {
 	}
 	if strings.Contains(got.stdout, "[trace]") {
 		t.Errorf("silent recording printed trace lines:\n%s", got.stdout)
+	}
+}
+
+func TestRenderRunRefusesJSONStdoutAndCompareResults(t *testing.T) {
+	binary := buildCLI(t)
+	dir := t.TempDir()
+	cases := []struct {
+		name string
+		args []string
+		want string
+		path string
+	}{
+		{
+			name: "JSON stdout",
+			args: []string{
+				"-state", "Mission::Cycle", "-advance", "1", "-json",
+				"-render-run", "timeline=" + filepath.Join(dir, "timeline.txt"),
+				"-render-run", "sequence=-",
+			},
+			want: "-render-run cannot write to stdout with -json; name a file for the rendering",
+			path: filepath.Join(dir, "timeline.txt"),
+		},
+		{
+			name: "compare results",
+			args: []string{
+				"-state", "Mission::Cycle", "-advance", "1",
+				"-compare-results", filepath.Join(dir, "missing.json"),
+				"-render-run", "timeline=" + filepath.Join(dir, "timeline.txt"),
+			},
+			want: "-render-run cannot be combined with -compare-results",
+			path: filepath.Join(dir, "timeline.txt"),
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := check(t, binary, behaviorModel, tc.args...)
+			if got.status != 2 || !strings.Contains(got.stderr, tc.want) {
+				t.Errorf("status = %d, want 2 with %q:\n%s", got.status, tc.want, got.output())
+			}
+			if _, err := os.Stat(tc.path); !os.IsNotExist(err) {
+				t.Errorf("rendering output path exists after refusal: stat error = %v", err)
+			}
+		})
 	}
 }
 

@@ -812,9 +812,9 @@ func (e *StateExecutor) recordAccept(event Event, mark int, at float64) {
 	origin := TraceOrigin{At: at, Object: e.self, Behavior: e.stateMachine}
 	switch payload := event.Payload.(type) {
 	case Message:
-		tr.RecordAcceptAt(mark, origin, acceptedEventName(payload), payload.Payload)
+		tr.RecordAcceptAt(mark, origin, payload.Serial, acceptedEventName(payload), payload.Payload)
 	case Call:
-		tr.RecordAcceptAt(mark, origin, payload.Operation, payload.Args)
+		tr.RecordAcceptAt(mark, origin, 0, payload.Operation, payload.Args)
 	}
 }
 
@@ -2370,7 +2370,7 @@ func (e *StateExecutor) terminateMachine(fromName string, trigger ast.Node, stop
 	}
 	abandoned := e.abandonMachine()
 	if e.trace() != nil {
-		e.trace().RecordStateTerminate(name, abandoned)
+		e.trace().RecordStateTerminate(e.traceOrigin(), name, abandoned)
 	}
 	e.state = StateTerminated
 	e.ctx.endPerformanceLife(e.occurrence)

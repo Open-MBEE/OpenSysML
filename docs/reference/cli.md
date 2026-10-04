@@ -482,7 +482,9 @@ sysml examples/run-timeline/run-timeline.sysml \
 The output extension selects text (`.txt`), Mermaid (`.mmd`, `.mermaid`) or PlantUML
 (`.puml`, `.plantuml`); `-render-form` can select a form for another extension. DOT is not
 available for run output. A run rendering cannot be combined with a model or document rendering,
-query, schedule exploration or multi-run analysis.
+query, schedule exploration or multi-run analysis. Run output cannot be written to standard output
+with `-json`; name a file for each rendering instead. `-render-run` cannot be combined with
+`-compare-results`.
 
 ## Rendering a view
 

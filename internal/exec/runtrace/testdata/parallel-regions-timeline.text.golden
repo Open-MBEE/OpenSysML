@@ -1,0 +1,9 @@
+run - timeline rendering (the trace of a run to t = 2)
+
+box.modes
+  0 .. 1  waiting | waiting
+  1 .. 2  done | waiting (time)  (held at the end)
+  transitions:
+    t=1 waiting -> done (time)
+  noted:
+    t=0 choice entering open: next left.waiting(entry), right.waiting(entry) (unordered; took left.waiting(entry) first)

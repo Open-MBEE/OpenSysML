@@ -79,6 +79,18 @@ func imageInto(t *testing.T, ctx *Context, objects ...*Instance) *Context {
 	return dst
 }
 
+func TestHeldImageImportAdvancesTheMessageSerial(t *testing.T) {
+	_, ctx, bulb := lampBulb(t)
+	ctx.messages = append(ctx.messages, Message{Object: bulb.ID, SignalType: "Ping", Serial: 41})
+	dst := imageInto(t, ctx, bulb)
+	dst.PostMessage(Message{SignalType: "Pong"})
+
+	messages := dst.PendingMessages()
+	if len(messages) != 2 || messages[0].Serial != 41 || messages[1].Serial != 42 {
+		t.Fatalf("messages = %+v, want imported serial 41 followed by 42", messages)
+	}
+}
+
 // A held entry survives a portable image: the copy remains at the same entry
 // boundary and finishes with the same result as the source.
 func TestHeldImageCarriesAnEntryBoundary(t *testing.T) {

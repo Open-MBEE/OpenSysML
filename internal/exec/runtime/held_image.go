@@ -793,6 +793,9 @@ func (m *materializing) run() error {
 	}
 	// Nothing below fails: what names the objects made is installed once they all stand.
 	dst.messages = append(dst.messages, messages...)
+	for _, msg := range messages {
+		dst.messageSerial = max(dst.messageSerial, msg.Serial)
+	}
 	dst.bus.posts += uint64(len(messages))
 	dst.workChanged()
 	for sym, ids := range img.occurrences {

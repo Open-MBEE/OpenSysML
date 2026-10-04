@@ -25,7 +25,7 @@ type Event struct {
 }
 
 // Kind names the record's kind as its `kind` property does: `accept`, `send`,
-// `transition`, `entry`, `exit`, `do`, `choice`, `guard`.
+// `transition`, `entry`, `exit`, `do`, `choice`, `guard`, `terminate`.
 func (ev Event) Kind() string { return ev.record.Kind.String() }
 
 // At is the clock instant the record was made at, in clock units.

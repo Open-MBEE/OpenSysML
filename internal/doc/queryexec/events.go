@@ -40,6 +40,7 @@ var eventKinds = map[string]runtime.TraceKind{
 	"do":         runtime.TraceDo,
 	"choice":     runtime.TraceChoice,
 	"guard":      runtime.TraceGuard,
+	"terminate":  runtime.TraceTerminate,
 }
 
 // evaluateEvents lists the trace's records of the requested kinds, made by the

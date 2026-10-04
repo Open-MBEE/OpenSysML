@@ -41,6 +41,40 @@ func TestRunRenderingGoldens(t *testing.T) {
 		cases = appendForms(cases, "empty-"+string(kind), empty)
 	}
 
+	parallelTrace, parallelOptions, _, _ := fixtureRun(t, "parallel-regions.sysml", "box", 2)
+	parallelTimeline, err := Render(KindTimeline, parallelTrace, parallelOptions)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cases = append(cases, renderingGolden{name: "parallel-regions-timeline", form: view.FormText, run: parallelTimeline})
+
+	serialTrace, serialOptions, serialCtx, mission := fixtureRun(t, "serial-pairing.sysml", "mission", 2)
+	serialLabels := make(map[int64]string)
+	for _, name := range []string{"alpha", "beta", "receiver"} {
+		value, err := mission.GetFeatureValue(serialCtx, name)
+		if err != nil {
+			t.Fatal(err)
+		}
+		id, ok := value.HeldValue().Object()
+		if !ok {
+			t.Fatalf("mission.%s does not hold an object", name)
+		}
+		serialLabels[id] = "SerialPairing::mission." + name
+	}
+	serialOptions.Label = func(inst *runtime.Instance) string { return serialLabels[inst.ID] }
+	serialSequence, err := Render(KindSequence, serialTrace, serialOptions)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cases = append(cases, renderingGolden{name: "serial-pairing-sequence", form: view.FormText, run: serialSequence})
+
+	terminationTrace, terminationOptions, _, _ := fixtureRun(t, "termination.sysml", "mission", 10)
+	terminationTimeline, err := Render(KindTimeline, terminationTrace, terminationOptions)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cases = append(cases, renderingGolden{name: "termination-timeline", form: view.FormText, run: terminationTimeline})
+
 	cappedTimeline := longTimeline()
 	cappedTimelineOptions := Options{Until: 201, Limit: 200}
 	capped, err := Render(KindTimeline, cappedTimeline, cappedTimelineOptions)
@@ -178,6 +212,42 @@ func exampleRun(t *testing.T) (*runtime.TraceRecorder, Options) {
 	}
 }
 
+func fixtureRun(t *testing.T, filename, instanceName string, until float64) (*runtime.TraceRecorder, Options, *runtime.Context, *runtime.Instance) {
+	t.Helper()
+	path := filepath.Join("testdata", filename)
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	src := source.New(path, data)
+	file := parser.New(src).ParseFile()
+	index := libs.NewModelIndex()
+	index.AddDocument(path, file)
+	resolver := resolve.New(index)
+	ctx := runtime.NewContext(runtime.NewModel(semantics.NewModel(resolver), resolver), 100_000)
+	ctx.SetTrace(runtime.NewTraceRecorder())
+	if err := ctx.SetSchedule(runtime.DefaultSchedulePolicy); err != nil {
+		t.Fatal(err)
+	}
+	packageScope := index.DocumentRoot(path).Children()[0]
+	root, err := ctx.Instantiate(mustSymbol(t, packageScope, instanceName))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ctx.Advance(until); err != nil {
+		t.Fatal(err)
+	}
+	return ctx.Trace(), Options{
+		Until: until,
+		Label: func(inst *runtime.Instance) string {
+			if inst.Type != nil {
+				return inst.Type.Name
+			}
+			return ""
+		},
+	}, ctx, root
+}
+
 func mustSymbol(t *testing.T, scope *symbols.Scope, name string) *symbols.Symbol {
 	t.Helper()
 	if scope == nil {
@@ -219,7 +289,7 @@ func longSequence() *runtime.TraceRecorder {
 	receiver, receiverBehavior := traceObject(2, "receiver")
 	for at := 0; at < 201; at++ {
 		trace.RecordSend(traceOrigin(float64(at), sender, senderBehavior), runtime.Message{SignalType: "Ping"}, receiver)
-		trace.RecordAccept(traceOrigin(float64(at), receiver, receiverBehavior), "Ping", nil)
+		trace.RecordAccept(traceOrigin(float64(at), receiver, receiverBehavior), 0, "Ping", nil)
 	}
 	return trace
 }
@@ -240,9 +310,9 @@ func truncatedSequenceTrace() *runtime.TraceRecorder {
 	sender, senderBehavior := traceObject(1, "sender")
 	receiver, receiverBehavior := traceObject(2, "receiver")
 	trace.RecordSend(traceOrigin(0, sender, senderBehavior), runtime.Message{SignalType: "Old"}, receiver)
-	trace.RecordAccept(traceOrigin(1, receiver, receiverBehavior), "Old", nil)
+	trace.RecordAccept(traceOrigin(1, receiver, receiverBehavior), 0, "Old", nil)
 	trace.RecordSend(traceOrigin(2, sender, senderBehavior), runtime.Message{SignalType: "Ping"}, receiver)
-	trace.RecordAccept(traceOrigin(3, receiver, receiverBehavior), "Ping", nil)
+	trace.RecordAccept(traceOrigin(3, receiver, receiverBehavior), 0, "Ping", nil)
 	return trace
 }
 
@@ -262,8 +332,8 @@ func messageEdgeCases() *runtime.TraceRecorder {
 	trace.RecordSend(traceOrigin(0, sender, senderBehavior), runtime.Message{SignalType: "Unmatched"}, receiver)
 	trace.RecordSend(traceOrigin(1, nil, nil), runtime.Message{SignalType: "Outside"}, nil)
 	trace.RecordSend(traceOrigin(2, sender, senderBehavior), runtime.Message{SignalType: "Broadcast"}, nil)
-	trace.RecordAccept(traceOrigin(2.5, receiver, receiverBehavior), "Broadcast", nil)
-	trace.RecordAccept(traceOrigin(3, receiver, receiverBehavior), "Missing", nil)
+	trace.RecordAccept(traceOrigin(2.5, receiver, receiverBehavior), 0, "Broadcast", nil)
+	trace.RecordAccept(traceOrigin(3, receiver, receiverBehavior), 0, "Missing", nil)
 	return trace
 }
 

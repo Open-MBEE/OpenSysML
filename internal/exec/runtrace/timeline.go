@@ -20,9 +20,14 @@ type timelineLane struct {
 	rendering *view.Lane
 	key       laneKey
 	regions   map[string]int
-	states    map[string]activeState
-	first     map[string]int
+	states    map[stateKey]activeState
+	first     map[stateKey]int
 	nextOrder int
+}
+
+type stateKey struct {
+	path   string
+	region string
 }
 
 type activeState struct {
@@ -34,10 +39,11 @@ type timelineGroup struct {
 	at          float64
 	states      []runtime.TraceRecord
 	transitions []runtime.TraceRecord
+	terminated  []runtime.TraceRecord
 }
 
 type transientState struct {
-	path   string
+	key    stateKey
 	record runtime.TraceRecord
 	order  int
 }
@@ -51,16 +57,16 @@ func timeline(trace *runtime.TraceRecorder, options Options) *view.Rendering {
 	lanes := make([]*timelineLane, 0)
 	byKey := make(map[laneKey]*timelineLane)
 	for _, record := range records {
-		if record.Kind != runtime.TraceEntry && record.Kind != runtime.TraceExit {
+		if record.Kind != runtime.TraceEntry && record.Kind != runtime.TraceExit && record.Kind != runtime.TraceTerminate {
 			continue
 		}
 		key := keyOf(record.Origin)
 		if lane := byKey[key]; lane != nil {
 			lane.regionOrder(record.Region)
 			if record.Kind == runtime.TraceEntry {
-				path := statePath(record)
-				if _, seen := lane.first[path]; !seen {
-					lane.first[path] = lane.nextOrder
+				key := stateKeyOf(record)
+				if _, seen := lane.first[key]; !seen {
+					lane.first[key] = lane.nextOrder
 					lane.nextOrder++
 				}
 			}
@@ -72,12 +78,11 @@ func timeline(trace *runtime.TraceRecorder, options Options) *view.Rendering {
 		}
 		stateLane := &timelineLane{
 			rendering: lane, key: key,
-			regions: make(map[string]int), states: make(map[string]activeState), first: make(map[string]int),
+			regions: make(map[string]int), states: make(map[stateKey]activeState), first: make(map[stateKey]int),
 		}
 		stateLane.regionOrder(record.Region)
 		if record.Kind == runtime.TraceEntry {
-			path := statePath(record)
-			stateLane.first[path] = stateLane.nextOrder
+			stateLane.first[stateKeyOf(record)] = stateLane.nextOrder
 			stateLane.nextOrder++
 		}
 		lanes = append(lanes, stateLane)
@@ -88,7 +93,7 @@ func timeline(trace *runtime.TraceRecorder, options Options) *view.Rendering {
 		groups[lane] = make(map[float64]*timelineGroup)
 	}
 	for _, record := range records {
-		if record.Kind != runtime.TraceEntry && record.Kind != runtime.TraceExit {
+		if record.Kind != runtime.TraceEntry && record.Kind != runtime.TraceExit && record.Kind != runtime.TraceTerminate {
 			continue
 		}
 		lane := byKey[keyOf(record.Origin)]
@@ -98,7 +103,11 @@ func timeline(trace *runtime.TraceRecorder, options Options) *view.Rendering {
 				group = &timelineGroup{at: record.Origin.At}
 				groups[lane][record.Origin.At] = group
 			}
-			group.states = append(group.states, record)
+			if record.Kind == runtime.TraceTerminate {
+				group.terminated = append(group.terminated, record)
+			} else {
+				group.states = append(group.states, record)
+			}
 		}
 	}
 	for _, record := range records {
@@ -127,6 +136,16 @@ func timeline(trace *runtime.TraceRecorder, options Options) *view.Rendering {
 			lane.rendering.Marks = append(lane.rendering.Marks, view.Mark{
 				At: record.Origin.At, Kind: record.Kind.String(), Text: record.Text(),
 			})
+		case runtime.TraceTerminate:
+			if lane == nil {
+				lane = laneForObject(lanes, key.object)
+			}
+			if lane == nil {
+				continue
+			}
+			lane.rendering.Marks = append(lane.rendering.Marks, view.Mark{
+				At: record.Origin.At, Kind: record.Kind.String(), Text: record.Text(),
+			})
 		}
 	}
 	for _, lane := range lanes {
@@ -137,7 +156,7 @@ func timeline(trace *runtime.TraceRecorder, options Options) *view.Rendering {
 		sort.SliceStable(ordered, func(i, j int) bool { return ordered[i].at < ordered[j].at })
 		currentSpan := -1
 		for _, group := range ordered {
-			through, changed := lane.apply(group.states)
+			through, changed := lane.apply(group.states, len(group.terminated) > 0)
 			if !changed {
 				continue
 			}
@@ -187,45 +206,51 @@ func timeline(trace *runtime.TraceRecorder, options Options) *view.Rendering {
 	return out
 }
 
-func (lane *timelineLane) apply(records []runtime.TraceRecord) ([]transientState, bool) {
-	entered := make(map[string]runtime.TraceRecord)
+func (lane *timelineLane) apply(records []runtime.TraceRecord, terminated bool) ([]transientState, bool) {
+	entered := make(map[stateKey]runtime.TraceRecord)
 	var exitedLeaves []transientState
 	changed := false
 	for _, record := range records {
-		path := statePath(record)
+		key := stateKeyOf(record)
 		lane.regionOrder(record.Region)
 		switch record.Kind {
 		case runtime.TraceEntry:
-			order, seen := lane.first[path]
+			order, seen := lane.first[key]
 			if !seen {
 				order = lane.nextOrder
 				lane.nextOrder++
-				lane.first[path] = order
+				lane.first[key] = order
 			}
-			if current, ok := lane.states[path]; ok {
+			if current, ok := lane.states[key]; ok {
 				order = current.order
 			}
-			lane.states[path] = activeState{record: record, order: order}
-			entered[path] = record
+			lane.states[key] = activeState{record: record, order: order}
+			entered[key] = record
 			changed = true
 		case runtime.TraceExit:
-			current, ok := lane.states[path]
+			current, ok := lane.states[key]
 			if !ok {
 				continue
 			}
-			if !lane.hasDescendant(path) {
-				exitedLeaves = append(exitedLeaves, transientState{path: path, record: current.record, order: current.order})
+			if !lane.hasDescendant(key) {
+				exitedLeaves = append(exitedLeaves, transientState{key: key, record: current.record, order: current.order})
 			}
-			delete(lane.states, path)
+			delete(lane.states, key)
 			changed = true
 		}
 	}
+	if terminated {
+		for key := range lane.states {
+			delete(lane.states, key)
+		}
+		changed = true
+	}
 	through := make([]transientState, 0)
 	for _, exited := range exitedLeaves {
-		if _, wasEntered := entered[exited.path]; !wasEntered {
+		if _, wasEntered := entered[exited.key]; !wasEntered {
 			continue
 		}
-		if _, active := lane.states[exited.path]; active {
+		if _, active := lane.states[exited.key]; active {
 			continue
 		}
 		through = append(through, exited)
@@ -241,7 +266,7 @@ func (lane *timelineLane) apply(records []runtime.TraceRecord) ([]transientState
 	for _, item := range through {
 		parent := false
 		for _, other := range through {
-			if strings.HasPrefix(other.path, item.path+".") {
+			if other.key.descendsFrom(item.key) {
 				parent = true
 				break
 			}
@@ -255,8 +280,8 @@ func (lane *timelineLane) apply(records []runtime.TraceRecord) ([]transientState
 
 func (lane *timelineLane) leaves() []activeState {
 	var leaves []activeState
-	for path, state := range lane.states {
-		if !lane.hasDescendant(path) {
+	for key, state := range lane.states {
+		if !lane.hasDescendant(key) {
 			leaves = append(leaves, state)
 		}
 	}
@@ -270,14 +295,20 @@ func (lane *timelineLane) leaves() []activeState {
 	return leaves
 }
 
-func (lane *timelineLane) hasDescendant(path string) bool {
-	prefix := path + "."
+func (lane *timelineLane) hasDescendant(parent stateKey) bool {
 	for active := range lane.states {
-		if strings.HasPrefix(active, prefix) {
+		if active.descendsFrom(parent) {
 			return true
 		}
 	}
 	return false
+}
+
+func (key stateKey) descendsFrom(parent stateKey) bool {
+	if !strings.HasPrefix(key.path, parent.path+".") {
+		return false
+	}
+	return parent.region == "" || key.region == parent.region || strings.HasPrefix(key.region, parent.region+".")
 }
 
 func (lane *timelineLane) regionOrder(region string) int {
@@ -343,6 +374,10 @@ func statePath(record runtime.TraceRecord) string {
 	return record.State
 }
 
+func stateKeyOf(record runtime.TraceRecord) stateKey {
+	return stateKey{path: statePath(record), region: record.Region}
+}
+
 type spanRef struct {
 	lane  int
 	index int
@@ -362,32 +397,36 @@ func applyTimelineLimit(rendering *view.Rendering, requested int) {
 	}
 	sort.SliceStable(spans, func(i, j int) bool { return spans[i].from < spans[j].from })
 	cutoff := spans[limit].from
+	firstDropped := make(map[int]int)
+	for _, span := range spans[limit:] {
+		if index, exists := firstDropped[span.lane]; !exists || span.index < index {
+			firstDropped[span.lane] = span.index
+		}
+	}
 	dropped := 0
 	for laneIndex := range rendering.Lanes {
 		lane := &rendering.Lanes[laneIndex]
-		kept := lane.Spans[:0]
-		for _, span := range lane.Spans {
-			if span.From >= cutoff {
-				dropped++
-				continue
-			}
-			if span.To > cutoff || span.Open && span.To >= cutoff {
-				span.To = cutoff
-				span.Open = false
-			}
-			kept = append(kept, span)
+		dropIndex, hasDrops := firstDropped[laneIndex]
+		if !hasDrops {
+			continue
 		}
-		lane.Spans = kept
+		dropped += len(lane.Spans) - dropIndex
+		boundary := lane.Spans[dropIndex].From
+		lane.Spans = lane.Spans[:dropIndex]
+		if dropIndex > 0 {
+			lane.Spans[dropIndex-1].To = boundary
+			lane.Spans[dropIndex-1].Open = false
+		}
 		transitions := lane.Transitions[:0]
 		for _, transition := range lane.Transitions {
-			if transition.At <= cutoff {
+			if transition.At <= boundary {
 				transitions = append(transitions, transition)
 			}
 		}
 		lane.Transitions = transitions
 		marks := lane.Marks[:0]
 		for _, mark := range lane.Marks {
-			if mark.At <= cutoff {
+			if mark.At <= boundary {
 				marks = append(marks, mark)
 			}
 		}
@@ -397,7 +436,7 @@ func applyTimelineLimit(rendering *view.Rendering, requested int) {
 	if dropped == 1 {
 		verb = "is"
 	}
-	rendering.Notices = append(rendering.Notices, fmt.Sprintf("%d later state %s after t = %s %s not drawn (at most %d spans are)",
+	rendering.Notices = append(rendering.Notices, fmt.Sprintf("%d later state %s from t = %s %s not drawn (at most %d spans are)",
 		dropped, plural(dropped, "change", "changes"), runInstant(cutoff), verb, limit))
 }
 

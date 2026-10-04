@@ -113,6 +113,23 @@ func TestTimelineGroupsStateChangesAndOrdersParallelLeaves(t *testing.T) {
 	}
 }
 
+func TestTimelineDistinguishesSameNamedStatesInSiblingRegions(t *testing.T) {
+	trace, options, _, _ := fixtureRun(t, "parallel-regions.sysml", "box", 2)
+	rendering, err := Render(KindTimeline, trace, options)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := rendering.Write(view.FormText)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{"0 .. 1  waiting | waiting", "1 .. 2  done | waiting"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("timeline is missing %q:\n%s", want, got)
+		}
+	}
+}
+
 func TestTimelineTruncationAndSpanLimit(t *testing.T) {
 	truncated := runtime.NewEventRecorder(3)
 	object := testObject(1, "Rover")
@@ -147,9 +164,68 @@ func TestTimelineTruncationAndSpanLimit(t *testing.T) {
 		t.Errorf("last capped span = %+v", last)
 	}
 	if !strings.Contains(strings.Join(limited.Notices, "\n"),
-		"3 later state changes after t = 200 are not drawn (at most 200 spans are)") {
+		"3 later state changes from t = 200 are not drawn (at most 200 spans are)") {
 		t.Errorf("cap notice = %v", limited.Notices)
 	}
+}
+
+func TestTimelineCapUsesStableSpanIdentityForEqualInstants(t *testing.T) {
+	trace := runtime.NewEventRecorder(0)
+	behavior := &symbols.Symbol{Name: "Machine"}
+	for i := int64(1); i <= 201; i++ {
+		object := testObject(i, fmt.Sprintf("Object%d", i))
+		trace.RecordStateEntry(runtime.TraceOrigin{At: 0, Object: object, Behavior: behavior},
+			fmt.Sprintf("state%d", i), fmt.Sprintf("state%d", i), "", false)
+	}
+
+	rendering := Timeline(trace, Options{Until: 1, Limit: 200})
+	total := 0
+	for _, lane := range rendering.Lanes {
+		total += len(lane.Spans)
+	}
+	if total != 200 {
+		t.Fatalf("retained %d spans, want exactly 200", total)
+	}
+	for i := 0; i < 200; i++ {
+		lane := rendering.Lanes[i]
+		if lane.Name != fmt.Sprintf("#%d.Machine", i+1) || len(lane.Spans) != 1 ||
+			lane.Spans[0].State != fmt.Sprintf("state%d", i+1) {
+			t.Errorf("retained lane %d = %+v, want the corresponding first stable span", i, lane)
+		}
+	}
+	if len(rendering.Notices) == 0 ||
+		rendering.Notices[len(rendering.Notices)-1] != "1 later state change from t = 0 is not drawn (at most 200 spans are)" {
+		t.Fatalf("cap notice = %v", rendering.Notices)
+	}
+}
+
+func TestTimelineClosesTerminatedMachineAtTermination(t *testing.T) {
+	trace, options, _, _ := fixtureRun(t, "termination.sysml", "mission", 10)
+	rendering := Timeline(trace, options)
+	var terminatedLane *view.Lane
+	for i := range rendering.Lanes {
+		if strings.Contains(rendering.Lanes[i].Name, "Stopper.modes") {
+			terminatedLane = &rendering.Lanes[i]
+			break
+		}
+	}
+	if terminatedLane == nil {
+		t.Fatalf("no stopper lane in %+v", rendering.Lanes)
+	}
+	if len(terminatedLane.Spans) != 1 {
+		t.Fatalf("stopper spans = %+v, want one span ending at termination", terminatedLane.Spans)
+	}
+	span := terminatedLane.Spans[0]
+	if span.From != 0 || span.To != 2 || span.Open {
+		t.Errorf("stopper span = %+v, want a closed span from 0 to 2", span)
+	}
+	for _, mark := range terminatedLane.Marks {
+		if mark.Kind == "terminate" && mark.At == 2 &&
+			mark.Text == "terminated with occurrence: modes (do behavior abandoned: waiting)" {
+			return
+		}
+	}
+	t.Errorf("stopper marks = %+v, want a terminate mark at 2", terminatedLane.Marks)
 }
 
 func TestSequencePairsMessagesAndKeepsUnmatchedEndpoints(t *testing.T) {
@@ -161,11 +237,11 @@ func TestSequencePairsMessagesAndKeepsUnmatchedEndpoints(t *testing.T) {
 		SignalType: "Ping", Payload: map[string]runtime.Value{"z": runtime.NewStringValue("last"), "a": runtime.NewStringValue("first")},
 	}, receiver)
 	trace.RecordSend(runtime.TraceOrigin{At: 0.5, Object: sender}, runtime.Message{SignalType: "Ping"}, other)
-	trace.RecordAccept(runtime.TraceOrigin{At: 1, Object: other}, "Ping", nil)
-	trace.RecordAccept(runtime.TraceOrigin{At: 2, Object: receiver}, "Ping", nil)
+	trace.RecordAccept(runtime.TraceOrigin{At: 1, Object: other}, 0, "Ping", nil)
+	trace.RecordAccept(runtime.TraceOrigin{At: 2, Object: receiver}, 0, "Ping", nil)
 	trace.RecordSend(runtime.TraceOrigin{At: 3, Object: other}, runtime.Message{SignalType: "Notice"}, receiver)
 	trace.RecordSend(runtime.TraceOrigin{At: 4}, runtime.Message{SignalType: "Broadcast"}, other)
-	trace.RecordAccept(runtime.TraceOrigin{At: 5, Object: receiver}, "Pong", nil)
+	trace.RecordAccept(runtime.TraceOrigin{At: 5, Object: receiver}, 0, "Pong", nil)
 	rendering := Sequence(trace, Options{
 		Until: 6,
 		Label: func(instance *runtime.Instance) string { return instance.Type.Name },
@@ -198,6 +274,89 @@ func TestSequencePairsMessagesAndKeepsUnmatchedEndpoints(t *testing.T) {
 		rendering.Roots[0].Kind != "object" || rendering.Roots[0].Name != "Sender" || rendering.Roots[0].Type != "Sender" ||
 		rendering.Roots[3].Kind != "environment" || rendering.Roots[3].Name != "environment" {
 		t.Errorf("participants = %+v", rendering.Roots)
+	}
+}
+
+func TestSequencePairsNonzeroSerialsAndRetainsLegacyPairing(t *testing.T) {
+	trace := runtime.NewEventRecorder(0)
+	alpha, alphaBehavior := traceObject(1, "Alpha")
+	beta, betaBehavior := traceObject(2, "Beta")
+	legacy, legacyBehavior := traceObject(3, "Legacy")
+	receiver, receiverBehavior := traceObject(4, "Receiver")
+	trace.RecordSend(traceOrigin(0, alpha, alphaBehavior), runtime.Message{
+		Serial: 11, SignalType: "Ping", Payload: map[string]runtime.Value{"seq": runtime.NewStringValue("one")},
+	}, receiver)
+	trace.RecordSend(traceOrigin(0.5, beta, betaBehavior), runtime.Message{
+		Serial: 12, SignalType: "Ping", Payload: map[string]runtime.Value{"seq": runtime.NewStringValue("two")},
+	}, receiver)
+	trace.RecordSend(traceOrigin(1, legacy, legacyBehavior), runtime.Message{
+		SignalType: "Ping", Payload: map[string]runtime.Value{"seq": runtime.NewStringValue("three")},
+	}, receiver)
+	trace.RecordAccept(traceOrigin(2, receiver, receiverBehavior), 12, "Ping", nil)
+	trace.RecordAccept(traceOrigin(3, receiver, receiverBehavior), 0, "Ping", nil)
+
+	rendering := Sequence(trace, Options{
+		Until: 4,
+		Label: func(instance *runtime.Instance) string { return instance.Type.Name },
+	})
+	if len(rendering.Edges) != 3 {
+		t.Fatalf("edges = %+v, want the two sends and one serial-zero send", rendering.Edges)
+	}
+	if !strings.Contains(rendering.Edges[0].Label, `seq = "one"`) || !strings.Contains(rendering.Edges[0].Label, "not accepted") {
+		t.Errorf("earlier same-event send = %+v, want unmatched Alpha message", rendering.Edges[0])
+	}
+	if !strings.Contains(rendering.Edges[1].Label, `seq = "two"`) || strings.Contains(rendering.Edges[1].Label, "not accepted") ||
+		rendering.Edges[1].From != "n2" {
+		t.Errorf("matching serial send = %+v, want the Beta message accepted", rendering.Edges[1])
+	}
+	if !strings.Contains(rendering.Edges[2].Label, `seq = "three"`) || strings.Contains(rendering.Edges[2].Label, "not accepted") ||
+		rendering.Edges[2].From != "n3" {
+		t.Errorf("serial-zero send = %+v, want legacy event/target pairing", rendering.Edges[2])
+	}
+}
+
+func TestSequenceUsesAcceptedBetaMessageIdentityEndToEnd(t *testing.T) {
+	trace, options, ctx, mission := fixtureRun(t, "serial-pairing.sysml", "mission", 2)
+	labels := make(map[int64]string)
+	for _, name := range []string{"alpha", "beta", "receiver"} {
+		value, err := mission.GetFeatureValue(ctx, name)
+		if err != nil {
+			t.Fatal(err)
+		}
+		id, ok := value.HeldValue().Object()
+		if !ok {
+			t.Fatalf("mission.%s does not hold an object", name)
+		}
+		labels[id] = "SerialPairing::mission." + name
+	}
+	options.Label = func(instance *runtime.Instance) string { return labels[instance.ID] }
+	rendering := Sequence(trace, options)
+	rootNames := make(map[string]string, len(rendering.Roots))
+	for _, root := range rendering.Roots {
+		rootNames[root.ID] = root.Name
+	}
+	alphaUnmatched, betaAccepted := false, false
+	for _, edge := range rendering.Edges {
+		switch {
+		case strings.Contains(edge.Label, "seq = 1"):
+			alphaUnmatched = rootNames[edge.From] == "SerialPairing::mission.alpha" &&
+				strings.Contains(edge.Label, "not accepted")
+		case strings.Contains(edge.Label, "seq = 2"):
+			betaAccepted = rootNames[edge.From] == "SerialPairing::mission.beta" &&
+				!strings.Contains(edge.Label, "not accepted")
+		}
+	}
+	if !alphaUnmatched || !betaAccepted {
+		t.Fatalf("sequence edges = %+v, roots = %+v; want Alpha unmatched and Beta's payload accepted",
+			rendering.Edges, rendering.Roots)
+	}
+	artifact, err := rendering.WriteWith(view.FormText, view.Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if text := string(artifact); !strings.Contains(text, "SerialPairing::mission.beta") ||
+		!strings.Contains(text, "seq = 2") {
+		t.Errorf("sequence diagram does not identify Beta and its payload:\n%s", text)
 	}
 }
 

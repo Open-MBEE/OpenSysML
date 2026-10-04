@@ -404,4 +404,4 @@ run - timeline rendering (the trace of a run to t = 201)
     t=200 s199 -> s200 (tick)
 
 not represented:
-  - 2 later state changes after t = 200 are not drawn (at most 200 spans are)
+  - 2 later state changes from t = 200 are not drawn (at most 200 spans are)

@@ -38,6 +38,9 @@ const (
 	TraceChoice
 	// TraceGuard is a guard the run read to report a choice and could not evaluate.
 	TraceGuard
+	// TraceTerminate is a state machine's performance ending without exiting its states:
+	// a terminate action, or the end of the occurrence performing it.
+	TraceTerminate
 )
 
 // String names the kind as a query reads it.
@@ -61,6 +64,8 @@ func (k TraceKind) String() string {
 		return "choice"
 	case TraceGuard:
 		return "guard"
+	case TraceTerminate:
+		return "terminate"
 	}
 	return fmt.Sprintf("TraceKind(%d)", int(k))
 }
@@ -88,6 +93,8 @@ type TraceRecord struct {
 	// accept or send carries; Payload is the message's payload.
 	Event   string
 	Payload map[string]Value
+	// Message is the Serial of the message a send posted or an accept took; 0 for none.
+	Message uint64
 	// Target is the object a send was addressed to, nil for a broadcast or a
 	// destination named only as text (kept in To).
 	Target *Instance
@@ -127,6 +134,8 @@ func (r TraceRecord) Line() (line string, printed bool) {
 		return fmt.Sprintf("do: %s", r.State), true
 	case TraceChoice, TraceGuard:
 		return r.Note.String(), true
+	case TraceTerminate:
+		return r.text, true
 	}
 	return "", false
 }
@@ -303,11 +312,11 @@ func (tr *TraceRecorder) Mark() int {
 
 // RecordAcceptAt records an accept as RecordAccept does, placed at mark: before
 // the records the dispatch of the event made. A mark already printed stays printed.
-func (tr *TraceRecorder) RecordAcceptAt(mark int, origin TraceOrigin, event string, payload map[string]Value) {
+func (tr *TraceRecorder) RecordAcceptAt(mark int, origin TraceOrigin, serial uint64, event string, payload map[string]Value) {
 	if !tr.enabled {
 		return
 	}
-	record := TraceRecord{Kind: TraceAccept, Origin: origin, Event: event, Payload: payload}
+	record := TraceRecord{Kind: TraceAccept, Origin: origin, Event: event, Message: serial, Payload: payload}
 	mark = min(max(mark-tr.dropped, 0), len(tr.records))
 	tr.records = append(tr.records, TraceRecord{})
 	copy(tr.records[mark+1:], tr.records[mark:])
@@ -325,8 +334,8 @@ func (tr *TraceRecorder) RecordStateTransition(origin TraceOrigin, fromState, to
 
 // RecordAccept records an event a behavior took off its queue: the signal or
 // operation it names, with the payload it carries.
-func (tr *TraceRecorder) RecordAccept(origin TraceOrigin, event string, payload map[string]Value) {
-	tr.add(TraceRecord{Kind: TraceAccept, Origin: origin, Event: event, Payload: payload})
+func (tr *TraceRecorder) RecordAccept(origin TraceOrigin, serial uint64, event string, payload map[string]Value) {
+	tr.add(TraceRecord{Kind: TraceAccept, Origin: origin, Event: event, Message: serial, Payload: payload})
 }
 
 // RecordSend records a message posted onto the bus by the object at origin, or
@@ -336,27 +345,31 @@ func (tr *TraceRecorder) RecordSend(origin TraceOrigin, msg Message, target *Ins
 	if msg.EventName != "" {
 		event = msg.EventName
 	}
-	tr.add(TraceRecord{Kind: TraceSend, Origin: origin, Event: event, To: msg.Target, Target: target, Payload: msg.Payload})
+	tr.add(TraceRecord{Kind: TraceSend, Origin: origin, Event: event, Message: msg.Serial, To: msg.Target, Target: target, Payload: msg.Payload})
 }
 
-// RecordStateTerminate records the machine's performance ending at the terminate
-// action stop, with the states whose do behaviors it abandoned.
-func (tr *TraceRecorder) RecordStateTerminate(stop string, abandoned []string) {
+// RecordStateTerminate records a state machine's performance ending without exiting its
+// states: a terminate action, or the end of the occurrence performing it.
+func (tr *TraceRecorder) RecordStateTerminate(origin TraceOrigin, stop string, abandoned []string) {
+	text := fmt.Sprintf("terminate: %s", stop)
 	if len(abandoned) == 0 {
-		tr.line(fmt.Sprintf("terminate: %s", stop))
-		return
+		tr.add(TraceRecord{Kind: TraceTerminate, Origin: origin, text: text})
+	} else {
+		text += fmt.Sprintf(" (do behavior abandoned: %s)", strings.Join(abandoned, ", "))
+		tr.add(TraceRecord{Kind: TraceTerminate, Origin: origin, text: text})
 	}
-	tr.line(fmt.Sprintf("terminate: %s (do behavior abandoned: %s)", stop, strings.Join(abandoned, ", ")))
 }
 
 // RecordStateEndedWithOccurrence records the machine's performance ending with the
 // occurrence a `terminate` named, with the states whose do behaviors it abandoned.
-func (tr *TraceRecorder) RecordStateEndedWithOccurrence(machine string, abandoned []string) {
+func (tr *TraceRecorder) RecordStateEndedWithOccurrence(origin TraceOrigin, machine string, abandoned []string) {
+	text := fmt.Sprintf("terminated with occurrence: %s", machine)
 	if len(abandoned) == 0 {
-		tr.line(fmt.Sprintf("terminated with occurrence: %s", machine))
-		return
+		tr.add(TraceRecord{Kind: TraceTerminate, Origin: origin, text: text})
+	} else {
+		text += fmt.Sprintf(" (do behavior abandoned: %s)", strings.Join(abandoned, ", "))
+		tr.add(TraceRecord{Kind: TraceTerminate, Origin: origin, text: text})
 	}
-	tr.line(fmt.Sprintf("terminated with occurrence: %s (do behavior abandoned: %s)", machine, strings.Join(abandoned, ", ")))
 }
 
 // RecordStateEntry records entering a state with optional entry action execution.

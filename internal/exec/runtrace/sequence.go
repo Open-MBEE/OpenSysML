@@ -54,6 +54,7 @@ func sequence(trace *runtime.TraceRecorder, options Options) *view.Rendering {
 	}
 	records := trace.Records()
 	queues := make(map[string]map[int64]*sendQueue)
+	bySerial := make(map[uint64]*sendRef)
 	var sends []*sendRef
 	var messages []runMessage
 	for index, record := range records {
@@ -65,6 +66,10 @@ func sequence(trace *runtime.TraceRecorder, options Options) *view.Rendering {
 			}
 			ref := &sendRef{index: index, record: record, target: target}
 			sends = append(sends, ref)
+			if record.Message != 0 {
+				bySerial[record.Message] = ref
+				continue
+			}
 			if queues[record.Event] == nil {
 				queues[record.Event] = make(map[int64]*sendQueue)
 			}
@@ -80,7 +85,15 @@ func sequence(trace *runtime.TraceRecorder, options Options) *view.Rendering {
 			if record.Origin.Object != nil {
 				objectID = record.Origin.Object.ID
 			}
-			if byTarget := queues[record.Event]; byTarget != nil {
+			if record.Message != 0 {
+				paired = bySerial[record.Message]
+				if paired != nil && paired.used {
+					paired = nil
+				}
+				if paired != nil {
+					paired.used = true
+				}
+			} else if byTarget := queues[record.Event]; byTarget != nil {
 				broadcast := byTarget[0]
 				targeted := byTarget[objectID]
 				paired = earliestSend(broadcast, targeted)
