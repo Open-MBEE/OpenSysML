@@ -117,6 +117,9 @@ it again at the prompt *replaces* it (`note: replaced package …`) rather than 
 loaded file, edit it and load it again. Tab completion completes paths after `%load` and `%save`,
 and meta-commands and symbol names everywhere else.
 
+A specifically named API element-form `.json` file is converted and loaded; directory and glob
+expansion still collects only `.sysml` and `.kerml` files.
+
 A loaded file's imports are followed to its neighbors: when a file imports a root namespace that
 neither the loaded files nor the standard library declare, the `.sysml` and `.kerml` files beside
 and below it are searched for one declaring that name, and each is loaded too, its own imports
@@ -129,6 +132,9 @@ diagnostic pointing at the offending line of the file. None of its contents ente
 session, so the next submission is parsed against the model as it stood before the load. In
 non-interactive use, a load's diagnostics are errors, so a script that loads a malformed
 file fails rather than continuing against an empty session.
+
+An explicitly named API element-form `.json` file is converted to SysML notation before loading;
+diagnostic positions refer to the converted notation, not to positions in the JSON document.
 
 Each loaded file is a document of its own, analysed as the editor and the checker analyse it,
 while everything typed at the prompt forms one transcript document. The transcript is kept

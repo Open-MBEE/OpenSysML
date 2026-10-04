@@ -1595,7 +1595,7 @@ func TestActivityParametersFlowThroughNestedCalls(t *testing.T) {
 	wantNote(t, r, "_pInN", migrate.Mapped, "")
 	wantNote(t, r, "_pOf1", migrate.Mapped, "")
 	wantNote(t, r, "_twice", migrate.Mapped, "")
-	wantNote(t, r, "_seedV", migrate.Approximated, "no edge leads to the node, so it starts with the activity")
+	wantNote(t, r, "_seedV", migrate.Mapped, "no edge leads to the node, so it starts with the activity")
 	wantNote(t, r, "_stray", migrate.Approximated, "the action never fires: its input pin 'x' must hold a value, but no object flow feeds it")
 	wantNote(t, r, "_rOf1", migrate.Mapped, "")
 

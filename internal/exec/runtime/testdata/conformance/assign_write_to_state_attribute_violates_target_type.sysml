@@ -12,7 +12,7 @@ package test {
 		state go {
 			entry action set {
 				assign raw := "not a number";
-				assign reading := raw;
+				then assign reading := raw;
 			}
 		}
 	}

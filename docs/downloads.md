@@ -7,6 +7,20 @@ description: Download OpenSysML release binaries, nightly builds and client pack
 Stable links below follow the latest release. The [install guide](guide/01-install.md)
 covers checksum and signature verification, Gatekeeper on macOS, and the optional SMT solver.
 
+## Install script
+
+One command on every platform: it picks the bundle below for this machine, verifies it
+against `SHA256SUMS.txt` and installs `sysml` and `sysml-lsp`. The
+[install guide](guide/01-install.md#with-the-install-script) lists its options — a pinned
+release or the nightly, `sysml-grpc` as well, another directory.
+
+```bash
+curl -fsSL https://opensysml.org/install.sh | sh        # Linux and macOS
+```
+```powershell
+irm https://opensysml.org/install.ps1 | iex             # Windows
+```
+
 ## Stable release
 
 | Platform | Bundle | Note |
@@ -73,6 +87,7 @@ See [all releases](https://github.com/Open-MBEE/OpenSysML/releases).
 ## Nightly
 
 Nightly bundles rebuild `develop`. They contain `sysml` and `sysml-lsp` but have no MSI or provenance.
+The install script installs one with `--version nightly` (`-Version nightly` on Windows).
 
 | Platform | Bundle |
 |---|---|

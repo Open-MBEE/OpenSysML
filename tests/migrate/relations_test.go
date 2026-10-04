@@ -1082,7 +1082,7 @@ func TestOpaqueBodiesCheckCastBoundsAndUsageEnds(t *testing.T) {
       </ownedRule>
       <ownedRule xmi:type="uml:Constraint" xmi:id="_param" name="param" constrainedElement="_cb">
         <specification xmi:type="uml:OpaqueExpression" xmi:id="_paramValue">
-          <body>{ in v : Pt; (as Pt[v.x]) }</body>
+          <body>{ in v : ScalarValues::Real; (as Pt[v]) }</body>
           <language>SysML</language>
         </specification>
       </ownedRule>
@@ -1171,7 +1171,7 @@ func TestCollectionModifiersAreWritten(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, want := range []string{"isOrdered", "isNonunique"} {
+	for _, want := range []string{"isOrdered", `isUnique "false"`} {
 		if !strings.Contains(string(ttl), want) {
 			t.Errorf("Turtle lacks %s", want)
 		}

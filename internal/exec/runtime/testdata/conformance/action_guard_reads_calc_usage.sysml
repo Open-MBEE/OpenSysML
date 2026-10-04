@@ -14,7 +14,7 @@ package test {
         first start;
         action bump {
             assign i := i + 1;
-            assign log := log + t.d;
+            then assign log := log + t.d;
         }
         decide check;
         done;

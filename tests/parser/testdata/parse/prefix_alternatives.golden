@@ -43,6 +43,4 @@
             (*ast.QualifiedName))
           (Multiplicity range=true
             (LiteralInteger value="0")
-            (OperatorExpr operator="+"
-              (FeatureReference name="n")
-              (LiteralInteger value="1"))))))))
+            (FeatureReference name="n")))))))

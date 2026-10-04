@@ -4771,8 +4771,34 @@ func (p *Parser) parseMultiplicityBound() ast.Node {
 		p.error(op.Span, fmt.Sprintf("a multiplicity bound cannot start with '%s': "+
 			"a bound is a literal or a feature name (KerML.xtext MultiplicityExpressionMember)",
 			p.src.Text(op.Span)))
+		return p.parseBinary(precAdditive)
 	}
-	return p.parseBinary(precAdditive)
+	var openParen lexer.Token
+	parenthesized := p.at(lexer.LParen)
+	if parenthesized {
+		openParen = p.peek()
+	}
+	bound := p.parseBinary(precAdditive)
+	if bound != nil && (parenthesized || !isMultiplicityBoundForm(bound)) {
+		sp := bound.Span()
+		if parenthesized {
+			sp = p.spanFrom(openParen.Span.Offset)
+		}
+		p.error(sp, "a multiplicity bound must be a literal or a feature name "+
+			"(KerML.xtext MultiplicityExpressionMember)")
+	}
+	return bound
+}
+
+// isMultiplicityBoundForm reports whether a parsed bound is a LiteralExpression
+// or a FeatureReferenceExpression, the two forms MultiplicityExpressionMember admits.
+func isMultiplicityBoundForm(bound ast.Node) bool {
+	switch bound.(type) {
+	case *ast.LiteralInteger, *ast.LiteralReal, *ast.LiteralString, *ast.LiteralBool,
+		*ast.LiteralInfinity, *ast.FeatureReference, *ast.ErrorNode:
+		return true
+	}
+	return false
 }
 
 // atMetadataIdentification reports whether an identification is declared before

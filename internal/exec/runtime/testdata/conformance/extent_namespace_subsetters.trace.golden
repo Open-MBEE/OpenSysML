@@ -1,0 +1,48 @@
+enter calc test::extents
+  stmt return
+          enter calc SequenceFunctions::size
+materialize: c1 #1
+materialize: vs #2
+materialize: c2 #3
+materialize: c3 #4
+materialize: c #5
+            eval operator all -> (instance#1, instance#2, instance#3, instance#4, instance#5)
+            bind seq = (instance#1, instance#2, instance#3, instance#4, instance#5) [argument]
+          exit calc SequenceFunctions::size -> 5
+        eval invoke size -> 5
+        eval literal 5 -> 5
+      eval operator == -> true
+          enter calc SequenceFunctions::size
+            eval feature vs -> (instance#1, instance#2)
+            bind seq = (instance#1, instance#2) [argument]
+          exit calc SequenceFunctions::size -> 2
+        eval invoke size -> 2
+        eval literal 2 -> 2
+      eval operator == -> true
+          eval feature vs -> (instance#1, instance#2)
+          eval literal 1 -> 1
+        eval index -> instance#1
+        eval feature c1 -> instance#1
+      eval operator === -> true
+          enter calc SequenceFunctions::size
+            eval feature avs -> (instance#3, instance#4)
+            bind seq = (instance#3, instance#4) [argument]
+          exit calc SequenceFunctions::size -> 2
+        eval invoke size -> 2
+        eval literal 2 -> 2
+      eval operator == -> true
+          eval feature avs -> (instance#3, instance#4)
+          eval literal 1 -> 1
+        eval index -> instance#3
+        eval feature c2 -> instance#3
+      eval operator === -> true
+          eval feature avs -> (instance#3, instance#4)
+          eval literal 2 -> 2
+        eval index -> instance#4
+        eval feature c3 -> instance#4
+      eval operator === -> true
+        eval feature v -> instance#5
+        eval feature c -> instance#5
+      eval operator === -> true
+    eval sequence of 7 -> (true, true, true, true, true, true, true)
+exit calc test::extents -> (true, true, true, true, true, true, true)

@@ -120,29 +120,59 @@ func chooseNames(name, library string, text []byte, want *wanted, previous *name
 			chains = append(chains, ref)
 			continue
 		}
-		member, target := e.memberOf(ref), e.writtenTarget(ref)
-		if alias, ok := memberAliases[member]; ok && alias != "" {
-			member = alias
-		}
+		target := e.writtenTarget(ref)
 		if alias, ok := targetAliases[target]; ok && alias != "" {
 			target = alias
 		}
-		key := nameKey{member: member, target: target}
-		if _, ok := want.references[key]; !ok && ref.Within == nil {
-			// A graph written before the payload was a feature states `of T`
-			// from the flow itself.
-			if flow := (nameKey{member: e.fqn[ref.Member], target: key.target}); flow != key {
-				if _, ok := want.references[flow]; ok {
-					key = flow
+		memberGroups := e.memberOfCandidates(ref)
+		var key nameKey
+		matched := false
+		for _, members := range memberGroups {
+			var matches []nameKey
+			seen := map[nameKey]bool{}
+			for _, member := range members {
+				if alias, ok := memberAliases[member]; ok && alias != "" {
+					member = alias
+				}
+				candidate := nameKey{member: member, target: target}
+				if _, ok := want.references[candidate]; ok && !seen[candidate] {
+					matches = append(matches, candidate)
+					seen[candidate] = true
 				}
 			}
+			if len(matches) > 1 {
+				return nil, false, &UnsupportedError{
+					What: fmt.Sprintf("the reference to %s from %s", target, e.memberOf(ref)),
+					Note: "the member's qualified name matches multiple graph references, so its spelling cannot be checked unambiguously",
+				}
+			}
+			if len(matches) == 1 {
+				key, matched = matches[0], true
+				break
+			}
 		}
-		if _, ok := want.references[key]; ok {
+		if matched {
 			occurrences[key] = append(occurrences[key], ref)
 			continue
 		}
-		if as := (segmentKey{member: e.memberOf(ref), name: qualifiedText(ref.QN)}); len(writtenAs[as]) > 0 {
-			roots[as] = append(roots[as], ref)
+		rootMatched := false
+		for _, members := range memberGroups {
+			for _, member := range members {
+				if alias, ok := memberAliases[member]; ok && alias != "" {
+					member = alias
+				}
+				as := segmentKey{member: member, name: qualifiedText(ref.QN)}
+				if len(writtenAs[as]) > 0 {
+					roots[as] = append(roots[as], ref)
+					rootMatched = true
+					break
+				}
+			}
+			if rootMatched {
+				break
+			}
+		}
+		if rootMatched {
 			continue
 		}
 		misread = append(misread, ref)
@@ -150,11 +180,24 @@ func chooseNames(name, library string, text []byte, want *wanted, previous *name
 	// A spelling read as another element is still an occurrence of the reference
 	// written that way, unless every writing of it already read back correctly.
 	for _, ref := range misread {
-		key, ok := written[nameKey{member: e.memberOf(ref), target: qualifiedText(ref.QN)}]
-		if !ok || len(occurrences[key]) >= want.references[key].count {
-			continue
+		found := false
+		for _, members := range e.memberOfCandidates(ref) {
+			for _, member := range members {
+				if alias, ok := memberAliases[member]; ok && alias != "" {
+					member = alias
+				}
+				key, ok := written[nameKey{member: member, target: qualifiedText(ref.QN)}]
+				if !ok || len(occurrences[key]) >= want.references[key].count {
+					continue
+				}
+				occurrences[key] = append(occurrences[key], ref)
+				found = true
+				break
+			}
+			if found {
+				break
+			}
 		}
-		occurrences[key] = append(occurrences[key], ref)
 	}
 	if err := e.checkStarts(want.starts, declared); err != nil {
 		return nil, false, err
@@ -260,17 +303,74 @@ func addParserAlias(aliases map[string]string, parsed, identity string) {
 // declaration itself, or the one whose expression body declares that declaration.
 func (e *encoder) memberOf(ref resolve.Reference) string {
 	if ref.Within != nil {
-		return e.fqn[ref.Within]
+		return e.qualifiedMemberName(ref.Within)
+	}
+	if member := e.triggerMembers[ref.Member]; member != "" {
+		return member
 	}
 	// The type of `flow of T` is the typing of the payload feature the flow
 	// owns, which the graph states it from.
 	if u, ok := ref.Member.(*ast.Usage); ok && u.FlowEnds != nil && u.FlowEnds.PayloadDecl == nil &&
 		ref.QN != nil && ast.Node(ref.QN) == u.FlowEnds.Payload {
 		if payload := e.payloadOf(u); payload != nil {
-			return e.fqn[payload]
+			return e.qualifiedMemberName(payload)
 		}
 	}
-	return e.fqn[ref.Member]
+	return e.qualifiedMemberName(ref.Member)
+}
+
+func (e *encoder) memberOfCandidates(ref resolve.Reference) [][]string {
+	if ref.Within != nil {
+		return [][]string{e.memberNameCandidates(ref.Within)}
+	}
+	if member := e.triggerMembers[ref.Member]; member != "" {
+		return [][]string{{member}}
+	}
+	if u, ok := ref.Member.(*ast.Usage); ok && u.FlowEnds != nil && u.FlowEnds.PayloadDecl == nil &&
+		ref.QN != nil && ast.Node(ref.QN) == u.FlowEnds.Payload {
+		if payload := e.payloadOf(u); payload != nil {
+			return [][]string{e.memberNameCandidates(payload), e.memberNameCandidates(ref.Member)}
+		}
+	}
+	return [][]string{e.memberNameCandidates(ref.Member)}
+}
+
+func (e *encoder) memberNameCandidates(node ast.Node) []string {
+	qualified, positional := e.qualifiedMemberName(node), e.fqn[node]
+	if qualified != positional {
+		return []string{qualified, positional}
+	}
+	return []string{qualified}
+}
+
+func (e *encoder) qualifiedMemberName(node ast.Node) string {
+	fqn := e.fqn[node]
+	sym := e.ids.declSym[node]
+	if sym == nil || fqn == "" {
+		return fqn
+	}
+	var chain []*symbols.Symbol
+	for current := sym; current != nil; {
+		chain = append(chain, current)
+		if current.OwnerScope == nil {
+			break
+		}
+		owner := current.OwnerScope.Owner()
+		if owner == current {
+			break
+		}
+		current = owner
+	}
+	segments := identitySegments(fqn)
+	if len(segments) != len(chain) {
+		return fqn
+	}
+	for i, current := range chain {
+		if current.EffectiveName() {
+			segments[len(chain)-1-i] = identitySegment(current.Name)
+		}
+	}
+	return strings.Join(segments, "::")
 }
 
 // writtenKeys indexes the wanted references by the member and the spelling
@@ -526,19 +626,38 @@ func respelledOperand(node ast.Node, chosen map[*ast.QualifiedName]string) (ast.
 // graph names in the body it is written in.
 func (e *encoder) checkStarts(starts map[string]string, declared map[string]ast.Node) error {
 	for fqn, target := range starts {
-		initial, ok := declared[fqn].(*ast.InitialNode)
-		if !ok {
+		switch initial := declared[fqn].(type) {
+		case *ast.InitialNode:
+			if _, reached, ok := e.linked(e.res.InitialSymbol(initial)); ok && reached == target {
+				continue
+			}
+			return &UnsupportedError{
+				What: fmt.Sprintf("the initial node %s", fqn),
+				Note: fmt.Sprintf("`first %s` does not name %s in the body it is written in, so the notation cannot state it", nameText(initial.Name()), target),
+			}
+		case *ast.Usage:
+			if initial.Kind == ast.UsageSuccession && len(initial.ConnectorEnds) == 2 {
+				if source, ok := initial.ConnectorEnds[0].Target.(*ast.QualifiedName); ok {
+					if _, reached, ok := e.linked(e.res.EndSymbol(source)); ok {
+						if reached == target {
+							continue
+						}
+						return &UnsupportedError{
+							What: fmt.Sprintf("the initial node %s", fqn),
+							Note: fmt.Sprintf("`first %s` does not name %s in the body it is written in, so the notation cannot state it", qualifiedText(source), target),
+						}
+					}
+				}
+			}
+		default:
 			return &UnsupportedError{
 				What: fmt.Sprintf("the initial node %s", fqn),
 				Note: "the notation written for it does not read back as an initial node, so its start cannot be checked",
 			}
 		}
-		if _, reached, ok := e.linked(e.res.InitialSymbol(initial)); ok && reached == target {
-			continue
-		}
 		return &UnsupportedError{
 			What: fmt.Sprintf("the initial node %s", fqn),
-			Note: fmt.Sprintf("`first %s` does not name %s in the body it is written in, so the notation cannot state it", nameText(initial.Name()), target),
+			Note: "the notation written for it does not read back as an initial node, so its start cannot be checked",
 		}
 	}
 	return nil

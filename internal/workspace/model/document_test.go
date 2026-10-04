@@ -4,10 +4,11 @@ import (
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
 func TestNewDocumentParses(t *testing.T) {
-	d := newDocument("a.sysml", []byte("package P { namespace N; }"), 1)
+	d := newDocument("a.sysml", []byte("package P { namespace N; }"), 1, source.KindUnknown)
 	if d.Name != "a.sysml" {
 		t.Fatalf("Name = %q, want a.sysml", d.Name)
 	}
@@ -33,7 +34,7 @@ func TestNewDocumentParses(t *testing.T) {
 }
 
 func TestNewDocumentReportsParseDiagnostics(t *testing.T) {
-	d := newDocument("bad.sysml", []byte("package"), 1)
+	d := newDocument("bad.sysml", []byte("package"), 1, source.KindUnknown)
 	if len(d.ParseDiagnostics) == 0 {
 		t.Fatal("expected parse diagnostics for incomplete package")
 	}

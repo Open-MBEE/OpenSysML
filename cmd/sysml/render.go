@@ -43,6 +43,12 @@ func runRender(files []string) error {
 	if err != nil {
 		return err
 	}
+	if options.Links.Template != "" {
+		options.Links.Sites, err = sess.ViewSites()
+		if err != nil {
+			return err
+		}
+	}
 	artifact, err := rendering.WriteWith(form, options)
 	if err != nil {
 		return err
@@ -74,6 +80,12 @@ func runRenderAll(files []string) error {
 	}
 	if len(views) == 0 {
 		return errors.New("the model declares no views; nothing was rendered")
+	}
+	if options.Links.Template != "" {
+		options.Links.Sites, err = sess.ViewSites()
+		if err != nil {
+			return err
+		}
 	}
 	if err := os.MkdirAll(renderAllDir, 0o750); err != nil {
 		return fmt.Errorf("create rendering directory %s: %w", renderAllDir, err)
@@ -144,6 +156,12 @@ func renderFilenames(views []model.ViewInfo, form view.Form) (map[string]string,
 // names, each of which must be one there is.
 func renderOptions(width int) (view.Options, error) {
 	options := view.Options{Width: width}
+	if renderLink != "" {
+		if err := view.ParseLinkTemplate(renderLink); err != nil {
+			return view.Options{}, fmt.Errorf("-render-link: %w", err)
+		}
+		options.Links.Template = renderLink
+	}
 	if renderPalette != "" {
 		palette, ok := view.ParsePalette(renderPalette)
 		if !ok {
@@ -274,6 +292,8 @@ func renderExtension(form view.Form) string {
 		return ".dot"
 	case view.FormPlantUML:
 		return ".puml"
+	case view.FormD2:
+		return ".d2"
 	case view.FormCSV:
 		return ".csv"
 	case view.FormTSV:

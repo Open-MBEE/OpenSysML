@@ -1,0 +1,5 @@
+# ErrorViews::emptySequenceView — sequence rendering (view def SequenceView)
+sequence: "" {
+  shape: sequence_diagram
+  empty: "the view exposes nothing; the rendering is empty"
+}

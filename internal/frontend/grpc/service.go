@@ -21,6 +21,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/parser"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
+	"github.com/Open-MBEE/OpenSysML/internal/translate/convert"
 )
 
 // msgModelNotFound formats the not-found status for an unknown model hash.
@@ -607,6 +608,7 @@ type sourceInput struct {
 	language string
 	content  string
 	kind     source.Kind
+	warnings []string
 }
 
 // ParseFile parses a SysML file and caches the result
@@ -731,7 +733,20 @@ func fileInput(path string) (sourceInput, error) {
 	if err != nil {
 		return sourceInput{}, statusErrorf(connect.CodeNotFound, "file not found: %v", err)
 	}
-	return sourceInput{name: path, content: string(data), kind: source.KindOf(path)}, nil
+	var warnings []string
+	text, converted, err := convert.ModelSource(path, data, func(message string) {
+		warnings = append(warnings, message)
+	})
+	if err != nil {
+		return sourceInput{}, statusError(connect.CodeInvalidArgument, err.Error())
+	}
+	kind := source.KindOf(path)
+	if converted {
+		kind = source.KindSysML
+	}
+	return sourceInput{
+		name: path, content: string(text), kind: kind, warnings: warnings,
+	}, nil
 }
 
 // parseModel parses the documents into one model and caches it, or returns the
@@ -755,6 +770,12 @@ func (s *Service) parseModel(inputs []sourceInput, mode diag.ConformanceMode) (s
 	for _, input := range inputs {
 		for _, field := range []string{input.name, input.language, input.content} {
 			fmt.Fprintf(&key, "\x00%d\x00%s", len(field), field)
+		}
+		if len(input.warnings) > 0 {
+			fmt.Fprintf(&key, "\x00%d", len(input.warnings))
+			for _, warning := range input.warnings {
+				fmt.Fprintf(&key, "\x00%d\x00%s", len(warning), warning)
+			}
 		}
 	}
 	modelHash := computeHash(key.String())
@@ -783,6 +804,7 @@ func (s *Service) parseModel(inputs []sourceInput, mode diag.ConformanceMode) (s
 			Source:      srcFile,
 			ParseDiags:  p.Diagnostics,
 			Diagnostics: parser.AsDiagnostics(p.Diagnostics, p.Warnings),
+			Warnings:    append([]string(nil), input.warnings...),
 		})
 	}
 
@@ -855,6 +877,13 @@ func (s *Service) modelDiagnostics(model *CachedModel) []*pb.Diagnostic {
 	for _, doc := range model.Documents {
 		for _, diag := range doc.Diagnostics {
 			pbDiags = append(pbDiags, DiagnosticToProto(diag, doc.Source))
+		}
+		for _, warning := range doc.Warnings {
+			pbDiags = append(pbDiags, &pb.Diagnostic{
+				Severity: diag.SeverityWarning.String(),
+				Message:  warning,
+				Span:     &pb.Span{File: doc.Source.Name()},
+			})
 		}
 	}
 	return s.filterDiagnosticCapabilities(pbDiags)

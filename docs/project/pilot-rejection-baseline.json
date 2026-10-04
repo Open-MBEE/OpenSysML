@@ -28,7 +28,7 @@
         "dir": "tools/referee/reject/testdata/negative",
         "origin": "ours",
         "files": 317,
-        "digest": "sha256:2e15a8018f95e879039f9c9fd7eb31b87ddd04437df53080239bebc3f5185ba7"
+        "digest": "sha256:bfbaaaa8dcd73173f98774ddbd20f6124788fc7f377fb45a419f4dca3a8ef272"
       }
     ],
     "recorded": "2026-10-04"
@@ -1638,7 +1638,7 @@
     {
       "path": "semantic/k37-multiplicity-bound-not-natural.kerml",
       "source": "semantic",
-      "rule": "a multiplicity bound must have a Natural value (KerML 8.3.3.6 validateMultiplicityRangeResultTypes; pilot validateMultiplicityRangeResultTypes).",
+      "rule": "a multiplicity bound must have a Natural value (KerML 8.3.4.11.2 validateMultiplicityRangeResultTypes; pilot validateMultiplicityRangeResultTypes).",
       "mode": "default",
       "bucket": "both-reject",
       "oursErrors": 1,
