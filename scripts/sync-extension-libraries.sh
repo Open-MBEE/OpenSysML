@@ -90,7 +90,7 @@ fi
 
 # An upstream holding no libraries at all is refused: it would empty the
 # vendored directory, which is how a sync of a ref that does not carry them
-# (such as a pre-import main) would silently break the engine.
+# (such as a branch cut before the import) would silently break the engine.
 upstream_libs="$(find "$upstream" -maxdepth 1 -type f \( -name '*.sysml' -o -name '*.kerml' \) | wc -l | tr -d ' ')"
 if [[ "$upstream_libs" -eq 0 ]]; then
 	echo "error: upstream holds no .sysml or .kerml library file; refusing to sync an empty set" >&2
