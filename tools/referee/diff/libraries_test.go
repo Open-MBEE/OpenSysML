@@ -7,6 +7,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Open-MBEE/OpenSysML/internal/workspace/envvar"
+	"github.com/Open-MBEE/OpenSysML/internal/workspace/libs"
 	"github.com/Open-MBEE/OpenSysML/tools/oracle/baseline"
 )
 
@@ -84,8 +86,48 @@ func TestProvenanceRecordsTheLibraries(t *testing.T) {
 	}
 }
 
+// The libraries handed over are the ones inside the standard-library root this
+// implementation loads, so an OPENSYSML_LIBRARY_PATH override moves both sides
+// of the comparison together instead of only the reference's.
+func TestResolveFollowsTheLibraryRootOpenSysMLLoads(t *testing.T) {
+	repo := t.TempDir()
+	validator := filepath.Join(repo, "validate-sysml-batch")
+	if err := os.WriteFile(validator, []byte("#!/bin/sh\n"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(repo, "go.mod"), []byte("module github.com/Open-MBEE/OpenSysML\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	bundled := filepath.Join(repo, filepath.FromSlash(defaultLibraries))
+	override := filepath.Join(repo, "libraries", openSysMLLibraries)
+	for _, dir := range []string{bundled, override} {
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	clearLibraryOverride(t)
+	opts := options{repo: repo, validator: validator, log: io.Discard}
+	if err := opts.resolve(); err != nil {
+		t.Fatal(err)
+	}
+	if opts.libraries != bundled {
+		t.Errorf("libraries = %s, want the bundled %s", opts.libraries, bundled)
+	}
+
+	t.Setenv(libs.LibraryPathEnvVar, filepath.Dir(override))
+	opts = options{repo: repo, validator: validator, log: io.Discard}
+	if err := opts.resolve(); err != nil {
+		t.Fatal(err)
+	}
+	if opts.libraries != override {
+		t.Errorf("libraries = %s, want the overriding %s", opts.libraries, override)
+	}
+}
+
 // A library directory outside the repository could not be recorded in a
-// committed baseline, so resolve refuses it rather than measuring it silently.
+// committed baseline, so resolve refuses an override there rather than
+// measuring it silently.
 func TestResolveRefusesLibrariesOutsideTheRepository(t *testing.T) {
 	repo := t.TempDir()
 	validator := filepath.Join(repo, "validate-sysml-batch")
@@ -96,16 +138,29 @@ func TestResolveRefusesLibrariesOutsideTheRepository(t *testing.T) {
 		t.Fatal(err)
 	}
 	outside := t.TempDir()
+	if err := os.Mkdir(filepath.Join(outside, openSysMLLibraries), 0o755); err != nil {
+		t.Fatal(err)
+	}
 
-	opts := options{repo: repo, validator: validator, libraries: outside, log: io.Discard}
+	clearLibraryOverride(t)
+	t.Setenv(libs.LibraryPathEnvVar, outside)
+	opts := options{repo: repo, validator: validator, log: io.Discard}
 	err := opts.resolve()
 	if err == nil || !strings.Contains(err.Error(), "outside the repository") {
 		t.Errorf("resolve() = %v, want a refusal naming the repository", err)
 	}
 
+	clearLibraryOverride(t)
 	opts = options{repo: repo, validator: validator, log: io.Discard}
 	err = opts.resolve()
 	if err == nil || !strings.Contains(err.Error(), "library directory not found") {
-		t.Errorf("resolve() without the default libraries = %v, want it to name the missing directory", err)
+		t.Errorf("resolve() without the bundled libraries = %v, want it to name the missing directory", err)
 	}
+}
+
+// clearLibraryOverride unsets both spellings of the library-root override for
+// the test, so the bundled tree is what resolve derives the libraries from.
+func clearLibraryOverride(t *testing.T) {
+	t.Setenv(libs.LibraryPathEnvVar, "")
+	t.Setenv(envvar.Legacy(libs.LibraryPathEnvVar), "")
 }
