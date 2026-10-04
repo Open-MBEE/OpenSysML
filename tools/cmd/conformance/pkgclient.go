@@ -328,8 +328,11 @@ func (c *pkgClient) executeState(ctx context.Context, request protoreflect.Messa
 	if err := retype(request, req); err != nil {
 		return nil, err
 	}
-	run, err := c.api.ExecuteState(ctx, c.model(req.ModelHash), req.StateMachineSymbolId, req.Events,
-		opensysml.WithSchedule(req.Schedule))
+	options := []opensysml.ExecuteOption{opensysml.WithSchedule(req.Schedule)}
+	if req.Trace {
+		options = append(options, opensysml.WithTrace())
+	}
+	run, err := c.api.ExecuteState(ctx, c.model(req.ModelHash), req.StateMachineSymbolId, req.Events, options...)
 	var failure *opensysml.FailureError
 	if errors.As(err, &failure) {
 		return &pb.ExecuteStateResponse{
@@ -340,11 +343,47 @@ func (c *pkgClient) executeState(ctx context.Context, request protoreflect.Messa
 	if err != nil {
 		return nil, apiError(err)
 	}
-	return &pb.ExecuteStateResponse{
+	response := &pb.ExecuteStateResponse{
 		StatesVisited: run.Visited,
 		FinalContext:  valuesToProto(run.Context),
 		Diagnostics:   diagnosticsToProto(run.Diagnostics),
-	}, nil
+		TraceDropped:  int32(run.TraceDropped),
+	}
+	for _, event := range run.Trace {
+		record, err := documentEventToProto(event)
+		if err != nil {
+			return nil, err
+		}
+		response.Trace = append(response.Trace, record)
+	}
+	return response, nil
+}
+
+func documentEventToProto(event opensysml.DocumentEvent) (*pb.DocumentEvent, error) {
+	time := cellToProto(event.Time)
+	if time == nil {
+		return nil, fmt.Errorf("unsupported state trace time value %T", event.Time)
+	}
+	record := &pb.DocumentEvent{
+		Kind:         event.Kind,
+		Time:         time,
+		Machine:      event.Machine,
+		State:        event.State,
+		From:         event.From,
+		To:           event.To,
+		Event:        event.Event,
+		Payload:      append([]string(nil), event.Payload...),
+		Alternatives: append([]string(nil), event.Alternatives...),
+		Taken:        event.Taken,
+		Text:         event.Text,
+	}
+	if event.Object != nil {
+		record.Object = documentObjectToProto(*event.Object)
+	}
+	if event.Target != nil {
+		record.Target = documentObjectToProto(*event.Target)
+	}
+	return record, nil
 }
 
 func (c *pkgClient) verifyConstraint(ctx context.Context, request protoreflect.Message) (proto.Message, error) {

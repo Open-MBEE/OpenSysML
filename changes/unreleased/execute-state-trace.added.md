@@ -1,0 +1,1 @@
+- **Return state-machine execution traces from the service, clients, and browser engine.** Opt-in traces expose typed event, state, transition, and choice records for a single run.

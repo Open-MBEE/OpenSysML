@@ -17,6 +17,7 @@ from opensysml.capabilities import (
     CAPABILITY_PERFORMER,
     CAPABILITY_SCHEDULE,
     CAPABILITY_SCHEDULE_EXPLORE,
+    CAPABILITY_STATE_TRACE,
     CAPABILITY_VERIFICATION,
     MissingCapabilityError,
 )
@@ -45,6 +46,7 @@ EXPLORING = (
     CAPABILITY_SCHEDULE_EXPLORE,
 )
 CURRENT = EXPLORING + (CAPABILITY_PERFORMER,)
+CURRENT_TRACE = CURRENT + (CAPABILITY_STATE_TRACE,)
 
 
 def test_a_performer_is_carried_on_every_run_request():
@@ -91,6 +93,34 @@ def test_a_performer_is_not_sent_to_a_service_without_the_capability():
             call()
         assert excinfo.value.capability == CAPABILITY_PERFORMER
     stub.ExecuteAction.assert_not_called()
+    stub.ExecuteState.assert_not_called()
+
+
+def test_state_trace_is_requested_and_decoded():
+    stub = Mock()
+    stub.ExecuteState.return_value = sysml_pb2.ExecuteStateResponse(
+        trace=[sysml_pb2.DocumentEvent(kind="entry", time=sysml_pb2.DocumentValue(real_value=1.5), state="active", text="enter: active")],
+        trace_dropped=3,
+    )
+    conn = make_connection(stub, CURRENT_TRACE)
+
+    result = conn.execute_state("Wire::Craft::modes", "hash", trace=True)
+
+    request = stub.ExecuteState.call_args.args[0]
+    assert request.trace
+    assert [event.kind for event in result["trace"]] == ["entry"]
+    assert result["trace"][0].state == "active"
+    assert result["trace_dropped"] == 3
+
+
+def test_state_trace_is_not_sent_without_its_capability():
+    stub = Mock()
+    conn = make_connection(stub, CURRENT)
+
+    with pytest.raises(MissingCapabilityError) as excinfo:
+        conn.execute_state("Wire::Craft::modes", "hash", trace=True)
+
+    assert excinfo.value.capability == CAPABILITY_STATE_TRACE
     stub.ExecuteState.assert_not_called()
 
 

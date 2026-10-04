@@ -443,12 +443,32 @@ type JExecuteStateRequest struct {
 	Events               []string `json:"events,omitempty"`
 	Schedule             string   `json:"schedule,omitempty"`
 	PerformerSymbolId    string   `json:"performerSymbolId,omitempty"`
+	Trace                bool     `json:"trace,omitempty"`
 }
 
 type JExecuteStateResponse struct {
 	StatesVisited []string           `json:"statesVisited,omitempty"`
 	FinalContext  map[string]*JValue `json:"finalContext,omitempty"`
 	Error         string             `json:"error,omitempty"`
-	Diagnostics   []*JDiagnostic     `json:"diagnostics,omitempty"`
+	Diagnostics   []*JDiagnostic    `json:"diagnostics,omitempty"`
 	FinalTime     F64                `json:"finalTime,omitempty"`
+	Trace         []JTraceEvent      `json:"trace,omitempty"`
+	TraceDropped  int                `json:"traceDropped,omitempty"`
+}
+
+// JTraceEvent is one documented state-machine execution record.
+type JTraceEvent struct {
+	Kind         string   `json:"kind"`
+	At           F64      `json:"at"`
+	Object       string   `json:"object,omitempty"`
+	Machine      string   `json:"machine,omitempty"`
+	State        string   `json:"state,omitempty"`
+	From         string   `json:"from,omitempty"`
+	To           string   `json:"to,omitempty"`
+	Target       string   `json:"target,omitempty"`
+	Event        string   `json:"event,omitempty"`
+	Payload      []string `json:"payload,omitempty"`
+	Alternatives []string `json:"alternatives,omitempty"`
+	Taken        string   `json:"taken,omitempty"`
+	Text         string   `json:"text"`
 }

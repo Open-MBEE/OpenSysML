@@ -978,6 +978,8 @@ public final class Protos {
         response.getStatesVisitedList(),
         values(response.getFinalContextMap()),
         finalTimeReported ? OptionalDouble.of(response.getFinalTime()) : OptionalDouble.empty(),
+        response.getTraceList().stream().map(Protos::documentEvent).toList(),
+        response.getTraceDropped(),
         diagnostics(response.getDiagnosticsList()));
   }
 

@@ -667,6 +667,16 @@ class ApiIntegrationTest {
         model.executeAction(
             "Test::race", Map.of(), ExecutionOptions.defaults().withSchedule("declared"));
     assertEquals(new Value.IntegerValue(3), declared.outputs().get("x"));
+    assertThrows(
+        IllegalArgumentException.class,
+        () ->
+            model.executeAction(
+                "Test::addFive", Map.of(), ExecutionOptions.defaults().withTrace()));
+    assertThrows(
+        IllegalArgumentException.class,
+        () ->
+            model.exploreAction(
+                "Test::race", Map.of(), ExecutionOptions.defaults().withTrace()));
   }
 
   @Test
@@ -718,6 +728,11 @@ class ApiIntegrationTest {
     StateRun run = model.executeState("Test::Machine", List.of());
     assertEquals(List.of("init", "Running", "done"), run.statesVisited());
     assertEquals(Optional.of("done"), run.finalState());
+    assertTrue(run.trace().isEmpty());
+    StateRun traced =
+        model.executeState("Test::Machine", List.of(), ExecutionOptions.defaults().withTrace());
+    assertEquals("entry", traced.trace().get(0).kind());
+    assertEquals(0, traced.traceDropped());
 
     Exploration exploration = model.exploreState("Test::Machine", List.of());
     assertTrue(exploration.complete());
@@ -725,6 +740,11 @@ class ApiIntegrationTest {
     assertEquals(Optional.of("done"), exploration.outcomes().get(0).finalState());
     assertEquals(
         List.of("init", "Running", "done"), exploration.outcomes().get(0).statesVisited());
+    assertThrows(
+        IllegalArgumentException.class,
+        () ->
+            model.exploreState(
+                "Test::Machine", List.of(), ExecutionOptions.defaults().withTrace()));
 
     assertThrows(ModelException.class, () -> model.executeState("Test::NoMachine", List.of()));
   }

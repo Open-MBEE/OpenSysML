@@ -864,6 +864,7 @@ impl Runner {
         let options = RunOptions {
             schedule: optional(request.schedule),
             performer: optional(request.performer_symbol_id),
+            trace: false,
         };
         let hash = &request.model_hash;
         let action = &request.action_symbol_id;
@@ -899,6 +900,7 @@ impl Runner {
         let options = RunOptions {
             schedule: optional(request.schedule),
             performer: optional(request.performer_symbol_id),
+            trace: request.trace,
         };
         let hash = &request.model_hash;
         let machine = &request.state_machine_symbol_id;

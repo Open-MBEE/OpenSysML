@@ -121,6 +121,9 @@ satisfaction assertion; `Validation` one per assertion about an object. `CalcRes
 `ActionRun` or `StateRun` its outputs, the states visited and the final clock instant; an
 `Exploration` its distinct `Outcome`s and whether it explored every order. A `SweepTable`
 is one `SweepRow` per point, and a failed row keeps the outputs and verdicts it reached.
+`RunOptions.trace` opts a state run into typed `DocumentEvent` records in
+`StateRun.trace`, with `StateRun.trace_dropped` reporting records the service
+discarded. The option requires `state_trace` and is refused with exploration.
 
 ## Editing
 

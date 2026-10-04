@@ -154,6 +154,28 @@ pub struct DocumentEvent {
     pub taken: String,
 }
 
+pub(crate) fn document_event_from_wire(event: wire::DocumentEvent) -> Result<DocumentEvent, Error> {
+    let time = match event.time {
+        Some(time) => value_of(*time)?,
+        None => return Err(Error::Decode("document event carries no time".to_owned())),
+    };
+    Ok(DocumentEvent {
+        kind: event.kind,
+        time: Box::new(time),
+        text: event.text,
+        object: event.object.map(|o| object_of(*o)),
+        machine: event.machine,
+        state: event.state,
+        from_state: event.from,
+        to_state: event.to,
+        target: event.target.map(|o| object_of(*o)),
+        event: event.event,
+        payload: event.payload,
+        alternatives: event.alternatives,
+        taken: event.taken,
+    })
+}
+
 impl fmt::Display for DocumentEvent {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}: {}", self.time, self.text)

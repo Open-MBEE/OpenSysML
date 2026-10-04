@@ -97,6 +97,7 @@ test("the service advertises schedule, explore and performer", async () => {
   assert.ok(connection.info.has("schedule"));
   assert.ok(connection.info.has("schedule_explore"));
   assert.ok(connection.info.has("performer"));
+  assert.ok(connection.info.has("state_trace"));
 });
 
 test("the policy selects which write stands", async () => {
@@ -123,6 +124,22 @@ test("the policy selects the transition taken", async () => {
     schedule: "seed:3",
   });
   assert.deepEqual(seeded.statesVisited, ["idle", "high"]);
+});
+
+test("a state run returns its requested typed trace", async () => {
+  await using connection = await connect();
+  const model = await connection.loads(SCHEDULE_MODEL);
+
+  const untraced = await model.executeState("Sched::Dispatcher", { events: ["Go"] });
+  assert.deepEqual(untraced.trace, []);
+  assert.equal(untraced.traceDropped, 0);
+
+  const traced = await model.executeState("Sched::Dispatcher", {
+    events: ["Go"],
+    trace: true,
+  });
+  assert.ok(traced.trace.length > 0);
+  assert.equal(traced.trace[0].kind, "entry");
 });
 
 test("an analysis performs its actions under the policy", async () => {

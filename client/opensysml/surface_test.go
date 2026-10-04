@@ -249,6 +249,16 @@ func TestExecuteStateTracesTheStatesVisited(t *testing.T) {
 	if strings.Join(run.Visited, ",") != "init,Running,done" {
 		t.Errorf("visited = %v, want init, Running, done", run.Visited)
 	}
+	if len(run.Trace) != 0 || run.TraceDropped != 0 {
+		t.Fatalf("unrequested trace = %v dropped %d", run.Trace, run.TraceDropped)
+	}
+	traced, err := client.ExecuteState(context.Background(), model, "Test::Machine", nil, opensysml.WithTrace())
+	if err != nil {
+		t.Fatalf("ExecuteState with trace: %v", err)
+	}
+	if len(traced.Trace) == 0 || traced.TraceDropped != 0 || traced.Trace[0].Kind != "entry" {
+		t.Errorf("trace = %v dropped %d, want entry records and no drops", traced.Trace, traced.TraceDropped)
+	}
 }
 
 func TestVerifyConstraintAnswersAVerdictAboutTheSubject(t *testing.T) {

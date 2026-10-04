@@ -1027,6 +1027,10 @@ pub struct StateRun {
     pub final_context: BTreeMap<String, Value>,
     /// The simulated time the run ended at; 0 from a service predating `final_time`.
     pub final_time: f64,
+    /// The documented execution records, when requested.
+    pub trace: Vec<crate::document::DocumentEvent>,
+    /// The number of oldest records the service discarded.
+    pub trace_dropped: i32,
     /// Diagnostics the service reported.
     pub diagnostics: Vec<Diagnostic>,
     pub(crate) wire: wire::ExecuteStateResponse,

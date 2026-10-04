@@ -20,6 +20,7 @@ import {
   CAPABILITY_MIGRATE,
   CAPABILITY_PARSE_SOURCES,
   CAPABILITY_PERFORMER,
+  CAPABILITY_STATE_TRACE,
   CAPABILITY_QUERY,
   CAPABILITY_RENDER_DOCUMENT,
   CAPABILITY_RENDER_DOCUMENT_HTML,
@@ -104,7 +105,9 @@ import {
 import {
   bindingHoldsBigInt,
   buildBindings,
+  documentEventOf,
   documentResult,
+  DocumentEvent,
   type BindingValues,
   type DocumentQueryResult,
 } from "./document.js";
@@ -743,11 +746,14 @@ export class Connection {
       events?: readonly string[];
       schedule?: string;
       performer?: string;
+      trace?: boolean;
     } = {},
   ): Promise<{
     statesVisited: string[];
     finalContext: ReadonlyMap<string, SysMLValue | UnsupportedValueError>;
     finalTime: number;
+    trace: DocumentEvent[];
+    traceDropped: number;
   }> {
     refuseExploring(options.schedule, "exploreState");
     const response = await this.sendExecuteState(
@@ -766,6 +772,8 @@ export class Connection {
       statesVisited: [...response.statesVisited],
       finalContext: valuesMap(Object.entries(response.finalContext)),
       finalTime: response.finalTime,
+      trace: response.trace.map(documentEventOf),
+      traceDropped: response.traceDropped,
     };
   }
 
@@ -798,11 +806,13 @@ export class Connection {
       events?: readonly string[];
       schedule?: string;
       performer?: string;
+      trace?: boolean;
     },
   ): Promise<ExecuteStateResponse> {
     const capabilities = this.runCapabilities(
       options.schedule,
       options.performer,
+      options.trace,
     );
     const response = await callRpc(
       this.rpc.executeState(
@@ -812,6 +822,7 @@ export class Connection {
           events: [...(options.events ?? [])],
           schedule: options.schedule ?? "",
           performerSymbolId: options.performer ?? "",
+          trace: options.trace ?? false,
         }),
         this.callOptions(),
       ),
@@ -1304,10 +1315,14 @@ export class Connection {
   private runCapabilities(
     schedule: string | undefined,
     performer: string | undefined,
+    trace = false,
   ): string[] {
     const capabilities = scheduleCapabilities(schedule);
     if (performer !== undefined && performer !== "") {
       capabilities.push(CAPABILITY_PERFORMER);
+    }
+    if (trace) {
+      capabilities.push(CAPABILITY_STATE_TRACE);
     }
     for (const capability of capabilities) {
       requireCapability(this.info, capability, upgradeRemedy(capability));

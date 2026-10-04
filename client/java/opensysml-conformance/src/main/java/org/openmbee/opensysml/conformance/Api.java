@@ -420,6 +420,9 @@ final class Api {
   private ExecuteStateResponse executeState(ExecuteStateRequest request) {
     Model model = connection.model(request.getModelHash());
     ExecutionOptions options = execution(request.getSchedule(), request.getPerformerSymbolId());
+    if (request.getTrace()) {
+      options = options.withTrace();
+    }
     try {
       if (options.explores()) {
         Exploration exploration =
@@ -438,6 +441,10 @@ final class Api {
               .putAllFinalContext(Rendering.values(run.finalContext()))
               .addAllDiagnostics(Rendering.diagnostics(run.diagnostics()));
       run.finalTime().ifPresent(response::setFinalTime);
+      run.trace().stream()
+          .map(event -> Protos.proto(event).getEvent())
+          .forEach(response::addTrace);
+      response.setTraceDropped(run.traceDropped());
       return response.build();
     } catch (ModelException e) {
       return ExecuteStateResponse.newBuilder()

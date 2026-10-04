@@ -57,6 +57,15 @@ struct DocumentEvent
 end
 Base.show(io::IO, event::DocumentEvent) = print(io, "$(event.time): $(event.text)")
 
+"""The states, context, simulation time, and optional trace from one machine run."""
+struct StateRun
+    states_visited::Vector{String}
+    final_context::Dict{String,Any}
+    final_time::Float64
+    trace::Vector{DocumentEvent}
+    trace_dropped::Int
+end
+
 struct DocumentRow
     element::ElementRef
     cells::Vector{Vector{Any}}

@@ -639,7 +639,8 @@ class Model:
             action_symbol_id, self._hash, inputs=inputs, schedule=schedule, performer=performer
         )
 
-    def execute_state(self, state_machine_symbol_id, events=None, schedule=None, performer=None):
+    def execute_state(self, state_machine_symbol_id, events=None, schedule=None, performer=None,
+                      trace=False):
         """Execute one of this model's state machines.
 
         Args:
@@ -653,9 +654,12 @@ class Model:
                 :meth:`execute_action`; an object exhibiting the machine runs
                 the one it exhibits, hearing its siblings over their connectors.
                 Guards and actions read and write the object's feature values
+            trace (bool): Whether to return the run's typed execution trace;
+                requires the ``state_trace`` capability
 
         Returns:
-            dict: {'states_visited': [...], 'final_context': {...}, 'final_time': float};
+            dict: {'states_visited': [...], 'final_context': {...}, 'final_time': float,
+                'trace': [DocumentEvent, ...], 'trace_dropped': int};
                 ``final_context`` also holds the performer's attributes under
                 ``this.`` (``'this.speed'``); a context value the wire format
                 cannot represent is reported as an UnsupportedValueError in its
@@ -667,11 +671,13 @@ class Model:
             ExecutionError: If the state machine could not be executed
             ModelNotFoundError: If the service no longer holds this model
             MissingCapabilityError: If a schedule is given and the service
-                predates ``schedule``, or a performer and it predates ``performer``
+                predates ``schedule``, a performer and it predates ``performer``,
+                or trace is requested and it predates ``state_trace``
             InvalidRequestError: If the schedule names no policy
         """
         return self._client.execute_state(
-            state_machine_symbol_id, self._hash, events=events, schedule=schedule, performer=performer
+            state_machine_symbol_id, self._hash, events=events, schedule=schedule,
+            performer=performer, trace=trace
         )
 
     def explore_state(self, state_machine_symbol_id, events=None, schedule="explore", performer=None):

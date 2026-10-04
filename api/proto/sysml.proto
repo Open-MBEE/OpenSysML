@@ -805,6 +805,9 @@ message ExecuteStateRequest {
   // connects to it reaches the run; one exhibiting it under several usages is
   // an error. Empty runs the machine outside any object.
   string performer_symbol_id = 5;
+  // Ask for the run's trace in ExecuteStateResponse.trace. Advertised as the
+  // "state_trace" capability; a service withholding it refuses true with UNIMPLEMENTED.
+  bool trace = 6;
 }
 
 // ExecuteStateResponse contains state machine execution trace
@@ -823,6 +826,11 @@ message ExecuteStateResponse {
   // it started at: the clock advances through every time-triggered transition
   // the machine took. Populated under the "final_time" capability.
   double final_time = 7;
+  // The run's trace in the order the run made it, when the request asked for it:
+  // also on a run that failed, up to the failure. Empty under an explore schedule.
+  repeated DocumentEvent trace = 8;
+  // How many of the oldest records the service's held-events bound discarded.
+  int32 trace_dropped = 9;
 }
 
 // ConvertRequest asks for a model in another representation. A model_hash
@@ -1841,6 +1849,9 @@ message ServerInfoResponse {
   //   "final_time"   - ExecuteActionResponse and ExecuteStateResponse report
   //                  final_time, the run's simulation clock when it ended;
   //                  without it the field is 0 whatever the run waited on.
+  //   "state_trace" - ExecuteStateRequest can ask for the run's typed trace in
+  //                  ExecuteStateResponse.trace, including records before a failure.
+  //                  Traces are unavailable under an explore schedule.
   //   "engines"      - the ListEngines RPC lists the analysis engines; the
   //                  verification and sweep requests take an `engine`, the
   //                  engine the question is put to, unset meaning "auto"; and

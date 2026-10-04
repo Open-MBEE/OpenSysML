@@ -100,7 +100,7 @@ org.openmbee.opensysml.proto.Value defaultValue);
   /**
    * <code>repeated .sysml.Diagnostic diagnostics = 4 [json_name = "diagnostics"];</code>
    */
-  java.util.List<org.openmbee.opensysml.proto.Diagnostic> 
+  java.util.List<org.openmbee.opensysml.proto.Diagnostic>
       getDiagnosticsList();
   /**
    * <code>repeated .sysml.Diagnostic diagnostics = 4 [json_name = "diagnostics"];</code>
@@ -113,7 +113,7 @@ org.openmbee.opensysml.proto.Value defaultValue);
   /**
    * <code>repeated .sysml.Diagnostic diagnostics = 4 [json_name = "diagnostics"];</code>
    */
-  java.util.List<? extends org.openmbee.opensysml.proto.DiagnosticOrBuilder> 
+  java.util.List<? extends org.openmbee.opensysml.proto.DiagnosticOrBuilder>
       getDiagnosticsOrBuilderList();
   /**
    * <code>repeated .sysml.Diagnostic diagnostics = 4 [json_name = "diagnostics"];</code>
@@ -131,7 +131,7 @@ org.openmbee.opensysml.proto.Value defaultValue);
    *
    * <code>repeated .sysml.Outcome outcomes = 5 [json_name = "outcomes"];</code>
    */
-  java.util.List<org.openmbee.opensysml.proto.Outcome> 
+  java.util.List<org.openmbee.opensysml.proto.Outcome>
       getOutcomesList();
   /**
    * <pre>
@@ -165,7 +165,7 @@ org.openmbee.opensysml.proto.Value defaultValue);
    *
    * <code>repeated .sysml.Outcome outcomes = 5 [json_name = "outcomes"];</code>
    */
-  java.util.List<? extends org.openmbee.opensysml.proto.OutcomeOrBuilder> 
+  java.util.List<? extends org.openmbee.opensysml.proto.OutcomeOrBuilder>
       getOutcomesOrBuilderList();
   /**
    * <pre>
@@ -206,4 +206,63 @@ org.openmbee.opensysml.proto.Value defaultValue);
    * @return The finalTime.
    */
   double getFinalTime();
+
+  /**
+   * <pre>
+   * The run's trace in the order the run made it, when the request asked for it:
+   * also on a run that failed, up to the failure. Empty under an explore schedule.
+   * </pre>
+   *
+   * <code>repeated .sysml.DocumentEvent trace = 8 [json_name = "trace"];</code>
+   */
+  java.util.List<org.openmbee.opensysml.proto.DocumentEvent>
+      getTraceList();
+  /**
+   * <pre>
+   * The run's trace in the order the run made it, when the request asked for it:
+   * also on a run that failed, up to the failure. Empty under an explore schedule.
+   * </pre>
+   *
+   * <code>repeated .sysml.DocumentEvent trace = 8 [json_name = "trace"];</code>
+   */
+  org.openmbee.opensysml.proto.DocumentEvent getTrace(int index);
+  /**
+   * <pre>
+   * The run's trace in the order the run made it, when the request asked for it:
+   * also on a run that failed, up to the failure. Empty under an explore schedule.
+   * </pre>
+   *
+   * <code>repeated .sysml.DocumentEvent trace = 8 [json_name = "trace"];</code>
+   */
+  int getTraceCount();
+  /**
+   * <pre>
+   * The run's trace in the order the run made it, when the request asked for it:
+   * also on a run that failed, up to the failure. Empty under an explore schedule.
+   * </pre>
+   *
+   * <code>repeated .sysml.DocumentEvent trace = 8 [json_name = "trace"];</code>
+   */
+  java.util.List<? extends org.openmbee.opensysml.proto.DocumentEventOrBuilder>
+      getTraceOrBuilderList();
+  /**
+   * <pre>
+   * The run's trace in the order the run made it, when the request asked for it:
+   * also on a run that failed, up to the failure. Empty under an explore schedule.
+   * </pre>
+   *
+   * <code>repeated .sysml.DocumentEvent trace = 8 [json_name = "trace"];</code>
+   */
+  org.openmbee.opensysml.proto.DocumentEventOrBuilder getTraceOrBuilder(
+      int index);
+
+  /**
+   * <pre>
+   * How many of the oldest records the service's held-events bound discarded.
+   * </pre>
+   *
+   * <code>int32 trace_dropped = 9 [json_name = "traceDropped"];</code>
+   * @return The traceDropped.
+   */
+  int getTraceDropped();
 }

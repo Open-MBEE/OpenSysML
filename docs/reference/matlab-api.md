@@ -117,11 +117,15 @@ The package functions and corresponding `Model` methods cover expression evaluat
 instantiation, single-run action and state execution, behavior exploration, constraint and
 requirement verification, satisfaction verification, instance validation, calculations,
 analyses, and parameter sweeps. Options are name-value pairs; supported options vary by method
-and include `inputs`, `events`, `schedule`, `performer`, `subject`, `arguments`,
+and include `inputs`, `events`, `schedule`, `performer`, `trace`, `subject`, `arguments`,
 `namedArguments`, `engine`, and `question`. Explore schedules return an `Exploration`; a normal
 `executeAction`, `executeState`, or `runAnalysis` request answers one run. Exploration entry
 points are `opensysml.exploreAction`, `opensysml.exploreState`, and
 `opensysml.exploreAnalysis`.
+
+`executeState(..., 'trace', true)` returns typed `DocumentEvent` entries in
+`trace` and the discarded-record count in `traceDropped`; it checks the
+`state_trace` capability before sending the request.
 
 `opensysml.listEngines(conn)` returns `EngineInfo` records. Engine selection is available with
 the `engine` option on supported calculation, verification, analysis, and sweep methods; a named

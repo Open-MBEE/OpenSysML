@@ -248,7 +248,10 @@ Beside the model reads above, the client covers every RPC the service offers:
   `ElementRef`/`ObjectRef` bindings, **`model.renderDocument`** to Markdown or HTML;
 - **`model.executeAction`/`executeState`** for runs and
   **`exploreAction`/`exploreState`/`exploreAnalysis`** for explorations of every
-  schedule — the two families refuse each other's `schedule`, as the wire does;
+  schedule — the two families refuse each other's `schedule`, as the wire does.
+  `model.executeState(symbolId, { trace: true })` requests typed `DocumentEvent`
+  records in `trace` and reports discarded records in `traceDropped`; it requires
+  `state_trace` and cannot be combined with an explore schedule;
 - **`model.verifyConstraint`/`verifyRequirement`/`verifySatisfaction`/`satisfied`,
   `validateInstance`, `calc`, `runAnalysis`, `runSweep`** (ranges as
   `parameter → [from, to]` or `[from, to, step]`), all taking `engine`,

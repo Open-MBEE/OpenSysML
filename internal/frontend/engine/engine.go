@@ -14,6 +14,7 @@ import (
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/check/passes"
+	"github.com/Open-MBEE/OpenSysML/internal/doc/queryexec"
 	"github.com/Open-MBEE/OpenSysML/internal/exec/objref"
 	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/jsonrpc"
@@ -43,6 +44,8 @@ const (
 	codeUnimplemented      = jsonrpc.CodeUnimplemented
 	codeInternal           = jsonrpc.CodeInternal
 )
+
+const stateTraceLimit = 100000
 
 // Error is a refused call: the canonical status code and its message.
 type Error = jsonrpc.Error
@@ -927,9 +930,15 @@ func (e *Engine) executeState(ctx context.Context, req *JExecuteStateRequest) ([
 	if err := runtimeCtx.SetSchedule(schedule); err != nil {
 		return nil, statusError(codeInvalidArgument, err.Error())
 	}
+	var traceRecorder *runtime.TraceRecorder
+	if req.Trace {
+		traceRecorder = runtime.NewEventRecorder(stateTraceLimit)
+		runtimeCtx.SetTrace(traceRecorder)
+	}
 	self, err := e.performer(cached, runtimeCtx, req.PerformerSymbolId)
 	if err != nil {
-		return marshal(&JExecuteStateResponse{Error: err.Error()})
+		trace, dropped := stateTraceToJSON(runtimeCtx, traceRecorder)
+		return marshal(&JExecuteStateResponse{Error: err.Error(), Trace: trace, TraceDropped: dropped})
 	}
 
 	outcome, err := runtimeCtx.StateOutcomePerformedBy(stateMachine, self, req.Events)
@@ -940,11 +949,14 @@ func (e *Engine) executeState(ctx context.Context, req *JExecuteStateRequest) ([
 	}
 	finalContext, statesVisited := outcome.Outputs, outcome.StateVisits
 	diags := runNoteDiagnosticsToProto(runtimeCtx.Notes(), cached)
+	trace, dropped := stateTraceToJSON(runtimeCtx, traceRecorder)
 	if err != nil {
 		return marshal(&JExecuteStateResponse{
 			Error:       fmt.Sprintf("state machine execution failed: %v", err),
 			Diagnostics: diags,
 			FinalTime:   F64(runtimeCtx.Clock().Now()),
+			Trace:       trace,
+			TraceDropped: dropped,
 		})
 	}
 
@@ -953,7 +965,39 @@ func (e *Engine) executeState(ctx context.Context, req *JExecuteStateRequest) ([
 		FinalContext:  valuesToProto(runtimeCtx, finalContext, cached.Index),
 		Diagnostics:   diags,
 		FinalTime:     F64(runtimeCtx.Clock().Now()),
+		Trace:         trace,
+		TraceDropped:  dropped,
 	})
+}
+
+func stateTraceToJSON(rt *runtime.Context, recorder *runtime.TraceRecorder) ([]JTraceEvent, int) {
+	if recorder == nil {
+		return nil, 0
+	}
+	events := queryexec.EventsFromTrace(rt, recorder.Records())
+	trace := make([]JTraceEvent, len(events))
+	for i, event := range events {
+		record := event.Record()
+		_, object := event.Object()
+		_, target := event.Target()
+		trace[i] = JTraceEvent{
+			Kind:         event.Kind(),
+			At:           F64(event.At()),
+			Object:       object,
+			Machine:      event.Machine(),
+			State:        record.State,
+			From:         record.From,
+			To:           record.To,
+			Target:       target,
+			Event:        record.Event,
+			Payload:      event.Payload(),
+			Alternatives: event.Alternatives(),
+			Taken:        event.Taken(),
+			Text:         event.Text(),
+		}
+	}
+	dropped, _ := recorder.Dropped()
+	return trace, dropped
 }
 
 // valuesToProto converts each value of a named map.

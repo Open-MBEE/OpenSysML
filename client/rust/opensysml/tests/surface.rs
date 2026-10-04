@@ -428,6 +428,23 @@ fn an_action_runs_explores_and_a_state_machine_steps() {
         "{refused:?}"
     );
 
+    let trace_for_action = RunOptions {
+        trace: true,
+        ..Default::default()
+    };
+    assert!(matches!(
+        model.execute_action("Demo::addFive", &BTreeMap::new(), &trace_for_action),
+        Err(Error::InvalidRequest(message)) if message.contains("state run")
+    ));
+    assert!(matches!(
+        model.explore_action("Demo::race", &BTreeMap::new(), &trace_for_action),
+        Err(Error::InvalidRequest(message)) if message.contains("state run")
+    ));
+    assert!(matches!(
+        model.explore_state::<&str>("Demo::Machine", &[], &trace_for_action),
+        Err(Error::InvalidRequest(message)) if message.contains("one run")
+    ));
+
     let state = model
         .execute_state::<&str>("Demo::Machine", &[], &RunOptions::default())
         .unwrap();
@@ -436,6 +453,19 @@ fn an_action_runs_explores_and_a_state_machine_steps() {
         "{:?}",
         state.states_visited
     );
+    assert!(state.trace.is_empty());
+    let traced = model
+        .execute_state::<&str>(
+            "Demo::Machine",
+            &[],
+            &RunOptions {
+                trace: true,
+                ..Default::default()
+            },
+        )
+        .unwrap();
+    assert_eq!(traced.trace.first().map(|event| event.kind.as_str()), Some("entry"));
+    assert_eq!(traced.trace_dropped, 0);
 }
 
 #[test]

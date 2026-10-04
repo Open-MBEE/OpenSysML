@@ -91,10 +91,12 @@ separate from `strict`. `parse_sources` preserves input order and accepts
 
 Model operations include `evaluate(model, expression; context, subject)`,
 `instantiate(model, symbol_id)`, `execute_action(model, symbol_id; inputs,
-schedule)`, and `execute_state(model, symbol_id; events, schedule)`.
+schedule)`, and `execute_state(model, symbol_id; events, schedule, trace)`.
 `execute_action` returns an `ActionOutputs` dictionary of output parameters;
 performer attributes are available separately as `performer`. `execute_state`
-returns a `StateRun` with `states_visited`, `final_context`, and `final_time`.
+returns a `StateRun` with `states_visited`, `final_context`, `final_time`,
+`trace::Vector{DocumentEvent}`, and `trace_dropped`. Requesting a trace checks
+the `state_trace` capability locally and cannot be combined with exploration.
 `Instance`, `InstanceRef`, `TypeFacts`, `SymbolFacts`, `SymbolInfo`,
 `Multiplicity`, and `Diagnostic` carry decoded model and service results.
 

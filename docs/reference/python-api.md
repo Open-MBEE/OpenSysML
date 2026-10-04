@@ -157,6 +157,12 @@ A parsed model is the entry point for symbol lookup, evaluation and execution.
     options:
       heading_level: 3
 
+`Model.execute_state(..., trace=True)` returns typed `DocumentEvent` records in
+the result's `trace` list and the discarded-record count in `trace_dropped`.
+The option is capability-gated by `state_trace` and cannot be combined with an
+explore schedule; the same option and result fields are available on
+`Connection.execute_state`.
+
 ## opensysml.symbol
 
 Symbols represent declarations and their resolved facts in a model.

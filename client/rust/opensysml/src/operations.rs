@@ -9,14 +9,15 @@ use crate::capabilities::{
     CAPABILITY_MEASUREMENT_REFS, CAPABILITY_METAOBJECT_VALUES, CAPABILITY_MIGRATE,
     CAPABILITY_OSLC_QUERY, CAPABILITY_PARSE_SOURCES, CAPABILITY_PERFORMER, CAPABILITY_QUERY,
     CAPABILITY_RENDER_DOCUMENT, CAPABILITY_RENDER_DOCUMENT_HTML, CAPABILITY_SCHEDULE,
-    CAPABILITY_SCHEDULE_EXPLORE, CAPABILITY_SET_VALUES, CAPABILITY_STRICT_CONFORMANCE,
+    CAPABILITY_SCHEDULE_EXPLORE, CAPABILITY_SET_VALUES, CAPABILITY_STATE_TRACE,
+    CAPABILITY_STRICT_CONFORMANCE,
     CAPABILITY_STRUCTURED_VALUES, CAPABILITY_TENSOR_VALUES, CAPABILITY_VERIFICATION,
     CAPABILITY_VERIFICATION_QUESTIONS,
 };
 use crate::conversion::{conversion_of, request_of, Conversion, ConvertOptions, ConvertSource};
 use crate::document::{
-    binding_holds_big_int, bindings_to_wire, result_of, DocumentForm, DocumentQueryResult,
-    DocumentValue,
+    binding_holds_big_int, bindings_to_wire, document_event_from_wire, result_of, DocumentForm,
+    DocumentQueryResult, DocumentValue,
 };
 use crate::domain::{Model, Value};
 use crate::encode::value_to_wire;
@@ -71,6 +72,8 @@ pub struct RunOptions {
     pub schedule: Option<String>,
     /// Qualified name of the part performing the behavior, whose attributes it reads and writes.
     pub performer: Option<String>,
+    /// Return a state's documented execution records.
+    pub trace: bool,
 }
 
 /// What to ask a verification and of whom.
@@ -461,8 +464,12 @@ impl Connection {
         events: &[S],
         schedule: Option<&str>,
         performer: Option<&str>,
+        trace: bool,
     ) -> Result<wire::ExecuteStateResponse, Error> {
-        let capabilities = self.run_capabilities(schedule, performer)?;
+        let mut capabilities = self.run_capabilities(schedule, performer)?;
+        if trace {
+            capabilities.push(CAPABILITY_STATE_TRACE);
+        }
         self.gated_rpc(
             "ExecuteState",
             wire::ExecuteStateRequest {
@@ -471,6 +478,7 @@ impl Connection {
                 events: events.iter().map(|e| e.as_ref().to_owned()).collect(),
                 schedule: schedule.unwrap_or_default().to_owned(),
                 performer_symbol_id: performer.unwrap_or_default().to_owned(),
+                trace,
             },
             &capabilities,
         )
@@ -484,6 +492,7 @@ impl Connection {
         inputs: &BTreeMap<String, Value>,
         options: &RunOptions,
     ) -> Result<ActionRun, Error> {
+        Self::refuse_action_trace(options)?;
         refuse_exploring(options.schedule.as_deref(), "explore_action")?;
         let response = self.run_action(
             model_hash,
@@ -519,6 +528,7 @@ impl Connection {
         inputs: &BTreeMap<String, Value>,
         options: &RunOptions,
     ) -> Result<Exploration, Error> {
+        Self::refuse_action_trace(options)?;
         let schedule = options.schedule.as_deref().unwrap_or(SCHEDULE_EXPLORE);
         require_exploring(schedule)?;
         let response = self.run_action(
@@ -529,6 +539,15 @@ impl Connection {
             options.performer.as_deref(),
         )?;
         exploration_of(ExploredResponse::Action(Box::new(response)))
+    }
+
+    fn refuse_action_trace(options: &RunOptions) -> Result<(), Error> {
+        if options.trace {
+            return Err(Error::InvalidRequest(
+                "a state trace is only valid for a state run".to_owned(),
+            ));
+        }
+        Ok(())
     }
 
     /// Run a state machine once, dispatching `events` in order.
@@ -546,6 +565,7 @@ impl Connection {
             events,
             options.schedule.as_deref(),
             options.performer.as_deref(),
+            options.trace,
         )?;
         let wire = response.clone();
         let diagnostics = diagnostics_of(&response.diagnostics);
@@ -560,6 +580,12 @@ impl Connection {
             states_visited: response.states_visited,
             final_context: value_map(&response.final_context)?,
             final_time: response.final_time,
+            trace: response
+                .trace
+                .into_iter()
+                .map(document_event_from_wire)
+                .collect::<Result<_, _>>()?,
+            trace_dropped: response.trace_dropped,
             diagnostics,
             wire,
         })
@@ -575,12 +601,18 @@ impl Connection {
     ) -> Result<Exploration, Error> {
         let schedule = options.schedule.as_deref().unwrap_or(SCHEDULE_EXPLORE);
         require_exploring(schedule)?;
+        if options.trace {
+            return Err(Error::InvalidRequest(
+                "a trace describes one run, not an exploration".to_owned(),
+            ));
+        }
         let response = self.run_state(
             model_hash,
             machine_id,
             events,
             Some(schedule),
             options.performer.as_deref(),
+            false,
         )?;
         exploration_of(ExploredResponse::State(Box::new(response)))
     }
