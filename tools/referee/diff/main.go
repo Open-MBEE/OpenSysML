@@ -46,6 +46,13 @@ type languageBatch struct {
 	Files []string
 }
 
+// defaultLibraries is the OpenSysML library directory the reference validators
+// are handed beside the standard library, so a model that imports one of this
+// project's libraries is compared on its own diagnostics rather than on the
+// reference's unresolved-reference cascade. It is the copy this implementation
+// compiles against, so both sides resolve the same library text.
+const defaultLibraries = "internal/workspace/libs/stdlib/OpenSysML Libraries"
+
 var defaultRoots = []corpusRoot{
 	{Name: "training", Dir: "examples/sysml-v2-training", Pinned: true},
 	{Name: "pilot-examples", Dir: "examples/pilot-corpora/sysml-examples", Pinned: true},
@@ -66,6 +73,7 @@ func Main(args []string, stderr io.Writer) int {
 	validator := flags.String("validator", "", "pilot SysML validator executable (default: <repo>/build/pilot-sysml-validator/validate-sysml-batch)")
 	kermlValidator := flags.String("kerml-validator", "", "KerML pilot validator executable (default: <repo>/build/pilot-kerml-validator/validate-kerml)")
 	syside := flags.String("syside", "", "optional Sensmetry SysIDE launcher for a third column (default: <repo>/build/syside/validate-syside if present)")
+	libraries := flags.String("libraries", "", "OpenSysML library directory the pilot validators resolve against beside the standard library (default: <repo>/"+defaultLibraries+")")
 	out := flags.String("out", "", "output directory for the reports (default: <repo>/build/pilot-diff)")
 	timeout := flags.Duration("timeout", 0, "per-batch timeout for the pilot validator (0: no limit)")
 	update := flags.Bool("update", false, "record this run as "+committedBaseline)
@@ -82,6 +90,7 @@ func Main(args []string, stderr io.Writer) int {
 		validator:      *validator,
 		kermlValidator: *kermlValidator,
 		syside:         *syside,
+		libraries:      *libraries,
 		out:            *out,
 		timeout:        *timeout,
 		update:         *update,
@@ -102,6 +111,7 @@ type options struct {
 	validator      string
 	kermlValidator string
 	syside         string
+	libraries      string
 	out            string
 	timeout        time.Duration
 	update         bool
@@ -110,7 +120,8 @@ type options struct {
 }
 
 // resolve fills the paths left empty on the command line and reports the tools
-// that are missing: the pilot validator is required, SysIDE only when named.
+// that are missing: the pilot validator and the libraries are required, SysIDE
+// only when named.
 func (o *options) resolve() error {
 	var err error
 	if o.repo, err = repo.Choose(o.repo); err != nil {
@@ -119,6 +130,7 @@ func (o *options) resolve() error {
 	o.validator = repo.Resolve(o.repo, o.validator)
 	o.kermlValidator = repo.Resolve(o.repo, o.kermlValidator)
 	o.syside = repo.Resolve(o.repo, o.syside)
+	o.libraries = repo.Resolve(o.repo, o.libraries)
 	o.out = repo.Resolve(o.repo, o.out)
 	if o.validator == "" {
 		o.validator = filepath.Join(o.repo, "build", "pilot-sysml-validator", "validate-sysml-batch")
@@ -129,8 +141,19 @@ func (o *options) resolve() error {
 	if o.out == "" {
 		o.out = filepath.Join(o.repo, "build", "pilot-diff")
 	}
+	if o.libraries == "" {
+		o.libraries = filepath.Join(o.repo, filepath.FromSlash(defaultLibraries))
+	}
 	if _, err := os.Stat(o.validator); err != nil {
 		return fmt.Errorf("pilot validator not found at %s: run ./scripts/download-pilot-sysml-validator.sh", o.validator)
+	}
+	// Recorded in the baseline's provenance, so the libraries must be material
+	// this repository owns.
+	if rel := relativeTo(o.repo, o.libraries); rel == o.libraries {
+		return fmt.Errorf("libraries at %s lie outside the repository %s", o.libraries, o.repo)
+	}
+	if info, err := os.Stat(o.libraries); err != nil || !info.IsDir() {
+		return fmt.Errorf("library directory not found at %s", o.libraries)
 	}
 
 	// Named explicitly: fail loudly. Defaulted: the third column is optional,
@@ -163,11 +186,15 @@ func run(opts options) error {
 
 	// Recorded relative to the repository where possible: the JSON is committed
 	// as a baseline, so it must not carry a machine-specific path.
-	report := &Report{Validator: relativeTo(opts.repo, opts.validator), Errata: newErrataReport(overlay)}
+	report := &Report{
+		Validator: relativeTo(opts.repo, opts.validator),
+		Libraries: relativeTo(opts.repo, opts.libraries),
+		Errata:    newErrataReport(overlay),
+	}
 	if report.Pilot, err = pilotVersion(opts.validator); err != nil {
 		return err
 	}
-	if report.Provenance, err = provenance(opts.repo, report.Pilot); err != nil {
+	if report.Provenance, err = provenance(opts.repo, report.Pilot, report.Libraries); err != nil {
 		return err
 	}
 	// Only a recorded baseline is dated, so two plain runs stay byte-identical.
@@ -214,7 +241,7 @@ func run(opts options) error {
 			if err != nil {
 				return err
 			}
-			batchTheirs, err := pilotDiagnostics(pilot, opts.repo, root.Dir, batch.Files, opts.timeout, opts.log)
+			batchTheirs, err := pilotDiagnostics(pilot, opts.libraries, opts.repo, root.Dir, batch.Files, opts.timeout, opts.log)
 			if err != nil {
 				return err
 			}

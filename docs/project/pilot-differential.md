@@ -95,16 +95,21 @@ bridges print identical diagnostics). That is what a model checked together with
 libraries needs: two of them, `RandomFunctions.kerml` and `OpenSysMLMathFunctions.kerml`, are
 KerML, and a model that calls `RandomFunctions::uniform` would otherwise report every such call
 as `Couldn't resolve reference to Element 'RandomFunctions::uniform'` plus `Must invoke a
-behavior or a behavioral feature`. Pass the whole library directory:
+behavior or a behavioral feature`. Both bridges take `--extension-library DIR` (repeatable),
+which loads a directory's `.kerml` and `.sysml` files the way `sysml.library` is loaded —
+resolved against, never validated — and the harness hands the OpenSysML libraries over that
+way on every batch (`-libraries`, default `internal/workspace/libs/stdlib/OpenSysML Libraries`,
+the copy this implementation compiles against; see the
+[supplied-libraries round](#supplied-libraries-round)). To ask the reference the same question
+by hand:
 
 ```bash
-build/pilot-sysml-validator/validate-sysml-batch model.sysml \
-    "internal/workspace/libs/stdlib/OpenSysML Libraries"
+build/pilot-sysml-validator/validate-sysml-batch \
+    --extension-library "internal/workspace/libs/stdlib/OpenSysML Libraries" model.sysml
 ```
 
 This harness still hands each language to its own bridge (a `.kerml` file of a root goes to
-`validate-kerml`), so the committed baseline's verdicts are unchanged by this; only the bridge's
-source digest in its provenance moved.
+`validate-kerml`, with the same libraries).
 
 EMF renders object references with an identity hash code and an absolute `file:` URI, which
 would differ between runs and machines; the bridge rewrites those to the display path, so
@@ -126,6 +131,13 @@ repeated runs are byte-identical.
 
 `kerml-examples` is collected as KerML; every other root is collected as SysML, which leaves our
 own `.kerml` fixtures out of the comparison (see the known limitation below).
+
+Beside the roots, every batch hands the reference the OpenSysML libraries
+(`internal/workspace/libs/stdlib/OpenSysML Libraries`, 14 files), loaded like the standard
+library: resolved against, never validated. They are not a compared root — library files report
+nothing — but they are part of what a run measured, so the baseline's provenance records them as
+the `opensysml-libraries` input, and a changed library is a movement to adjudicate like a changed
+corpus.
 
 The OMG corpora are not vendored, for the same licensing reason as the training corpus, and the
 pilot release they are fetched at is pinned once in `scripts/pilot-pin.sh` — the same pin the
@@ -236,10 +248,10 @@ nor double-counted as two independent disagreements.
 | `examples/pilot-corpora/sysml-examples` | 99 | 91 | 12 | 0 | 0 | 0 | 12 | 0 |
 | `examples/pilot-corpora/sysml-validation` | 56 | 56 | 0 | 0 | 0 | 0 | 0 | 0 |
 | `examples/pilot-corpora/kerml-examples` | 58 | 56 | 9 | 0 | 0 | 0 | 9 | 0 |
-| `tests/testdata` | 19 | 10 | 44 | 68 | 34 | 1 | 9 | 33 |
-| `examples` | 46 | 33 | 7 | 1591 | 0 | 1 | 6 | 1590 |
+| `tests/testdata` | 19 | 10 | 44 | 55 | 34 | 1 | 9 | 20 |
+| `examples` | 46 | 37 | 7 | 62 | 0 | 0 | 7 | 62 |
 | `tools/referee/diff/testdata` (probes) | 4 | 1 | 6 | 0 | 0 | 0 | 6 | 0 |
-| **Total** | **382** | **346** | **79** | **1659** | **34** | **2** | **43** | **1623** |
+| **Total** | **382** | **350** | **79** | **117** | **34** | **1** | **44** | **82** |
 
 **Read the `only ours` total by root, never as one number.** Step 2 removes nine resolver false
 positives from the reference's **own** corpora: `pilot-examples` 16 → **7** and
@@ -260,7 +272,7 @@ report `action-step-multiplicity-not-fixed` because the executor refuses non-fix
 training corpus gate still asserts zero semantic errors. This brings the current reference-corpus
 total to 21 only-ours diagnostics, of which 20 remain candidate conformance mismatches and the
 Camera warning is an intentional execution-scope warning. The
-`examples` root carries 1 outside the demos that draw diagnostics on purpose (the five MOSA
+`examples` root carries 1 outside the demos that draw diagnostics on purpose (the six MOSA
 warnings of the [MOSA library round](#mosa-library-round) and the unbound-parameter advisory of
 the [runtime showcase round](#runtime-showcase-round)): the non-standard-notation warning on the
 `junction` of `pseudostates-demo.sysml`, the one demo that keeps the pseudostate notation because
@@ -273,16 +285,61 @@ pilot has no value-level uniqueness constraint, so all 5 are one-sided by constr
 true positives about our own examples, not candidate false positives about our implementation** — the
 column header is wrong for them, and the honest count of suspect diagnostics of ours against the
 reference corpora is **20** (11 on `sysml-examples`, 9 on `kerml-examples`) — of which six, the
-`Expressions.kerml` operator diagnostics, are deliberate and adjudicated below rather than suspect. `severity-only` (2) holds pairs of the same shape:
+`Expressions.kerml` operator diagnostics, are deliberate and adjudicated below rather than suspect. `severity-only` (1) holds pairs of the same shape:
 where the pilot errors on a line we warn on, the pair sits in severity-only rather than either side
 changing what it detects.
 
 Per category, the only-ours totals are: `training` 1 `multiplicity`; `pilot-examples` 4
 `unmapped`, 2 `units`, 5 `kind-mismatch`, 1 `multiplicity`; `kerml-examples` 9 `unmapped`;
-`testdata` 8 `unmapped`, 1 `multiplicity`; `examples` 4 `unmapped`, 2 `multiplicity`; `probes`
-6 `unmapped`. Only-pilot: `testdata` 20 `kind-mismatch`, 3 `unmapped`, 3 `syntax`, 7
-`unresolved-reference`; `examples` 6 `syntax`, 29 `unmapped`, 667 `kind-mismatch`, 888
-`unresolved-reference`.
+`testdata` 8 `unmapped`, 1 `multiplicity`; `examples` 4 `unmapped`, 1 `kind-mismatch`, 2
+`multiplicity`; `probes` 6 `unmapped`. Only-pilot: `testdata` 12 `kind-mismatch`, 3 `unmapped`,
+3 `syntax`, 2 `unresolved-reference`; `examples` 6 `syntax`, 19 `unmapped`, 37 `kind-mismatch`.
+
+### Supplied-libraries round
+
+The reference validators are now handed the OpenSysML libraries beside the standard library on
+every batch: both bridges take `--extension-library DIR`, which loads a directory the way
+`sysml.library` is loaded — resolved against, never validated — and the harness passes
+`internal/workspace/libs/stdlib/OpenSysML Libraries` (14 files, the copy this implementation
+compiles against) through it; `-libraries` names another directory, and the provenance records
+the one used as the `opensysml-libraries` input. Until now a model that imported
+`DocumentQueries`, `OOSEM`, `MOSA`, `AnalysisRecords`, `StateMachines` or
+`OpenSysMLMathFunctions` was compared against the reference's cascade from a namespace it could
+not resolve — the rounds below record 347 such rows on `self-model/document.sysml`, 294 on
+`oosem-demo/oosem-demo.sysml`, 440 on `mosa-demo/mosa-demo.sysml` and 397 on
+`analysis-results-demo/lander-results.sysml` — and the `examples` only-pilot column measured how
+much the demos asked of our libraries rather than conformance. Those cascades are gone: only-pilot
+on `examples` 1590 → **62**, on `testdata` 33 → **20** (the 13 rows of `passes/deferred_keeper.sysml`,
+the same cause), pilot diagnostics 1659 → **117**. The pinned roots do not move, since nothing in
+them imports a library of ours, and nothing we report moved.
+
+What remains on `examples` is read row by row. The six `syntax` rows are the two deliberate
+deviations: `frame concern` inside a `view` body (`views-demo.sysml`,
+`disposal-robot-demo/robot.sysml`, `self-model/views.sysml`, two rows each), which the grammar
+allows only in requirement and viewpoint bodies; and the two `unmapped` `Only one objective is
+allowed.` rows (`solver-demo.sysml`:183, `robot.sysml`:564), the second objective of a
+lexicographic `%optimize`. The 37 `kind-mismatch` rows are all the warning `Bound features should
+have conforming types` on a part, package or view bound to a feature the `DocumentQueries` library
+types as `Element` — `in root = Landers::scout` (`lander-results.sysml`:542), `in :>> root =
+vehicle` (`mosa-demo.sysml` 342–362), `in root = rover` (`verdicts-demo/rover.sysml` 138–152)
+and the `root` and diagram `source` bindings of `self-model/document.sysml` (29 rows) — a question
+about the library's parameter typing, not about the demos. The 17 `unmapped` rows are `Duplicate
+of inherited member name` warnings at `document.sysml`:409, where the invariant table's source
+inherits same-named features (`goPackage`, `tree`, `index`, …) from several self-model parts at
+once. One pair moved column: the reference's error at `mosa-demo.sysml`:195 belonged to the
+cascade, so our deliberate `conforms to no standard` warning there is no longer severity-only but
+only-ours — the demo's six intentional warnings now all sit in that column (5 → **6**), and
+severity-only falls 2 → **1**.
+
+| Count | Before | Now |
+|---|---:|---:|
+| overall: fully agreeing | 346 | **350** |
+| only ours | 43 | **44** |
+| only pilot | 1623 | **82** |
+| severity-only | 2 | **1** |
+| our diagnostics / pilot diagnostics | 79 / 1659 | **79 / 117** |
+| `examples`: fully agreeing / only pilot | 33 / 1590 | **37 / 62** |
+| `testdata`: only pilot | 33 | **20** |
 
 ### Demo validity round
 
@@ -858,9 +915,9 @@ cascades through the rest of the file. The movement is entirely one file,
 
 | Count | Before the initializer rewrite | Now |
 |---|---:|---:|
-| only pilot | 82 | **1623** |
-| pilot diagnostics | 123 | **1659** |
-| severity-only | 9 | **2** |
+| only pilot | 82 | **82** |
+| pilot diagnostics | 123 | **117** |
+| severity-only | 9 | **1** |
 
 The rewrite itself took only-pilot to 61 and pilot diagnostics to 101; the `Now` column states
 those counts as the later rounds leave them.
@@ -1082,14 +1139,14 @@ page's history.
 
 | Count | Now |
 |---|---:|
-| overall: fully agreeing / only ours / our diagnostics | **346 / 43 / 79** |
-| only pilot | **1623** |
-| pilot diagnostics | **1659** |
-| severity-only | **2** |
+| overall: fully agreeing / only ours / our diagnostics | **350 / 44 / 79** |
+| only pilot | **82** |
+| pilot diagnostics | **117** |
+| severity-only | **1** |
 | unmapped, our side | **35** |
 | kerml-examples: only ours | **9** |
 | pilot-examples: only ours | **12** |
-| examples: only pilot | **1590** |
+| examples: only pilot | **62** |
 
 The KerML root is now the *cleanest* of the three OMG roots in proportion: **9** only-ours against 6
 only-pilot, with 56 of 58 files fully agreeing (439 / 6 and 10 / 58 when the root was added, and
@@ -2857,7 +2914,10 @@ moved count is a claim about one of the two implementations, and it needs a reas
 
 `-update` records a run as the committed baseline; `-check` re-runs the comparison and fails
 unless the fresh report reproduces it, printing the differing fields. Both flags exist on all
-three oracles, and `-check` is what a reader should run before quoting a figure.
+three oracles, and `-check` is what a reader should run before quoting a figure. `-libraries DIR`
+names the library directory the reference is handed beside the standard one (default
+`internal/workspace/libs/stdlib/OpenSysML Libraries`); it must lie inside the repository, since
+the baseline records it.
 
 ### How this record is kept true
 
@@ -2866,7 +2926,8 @@ describe this repository:
 
 - **Provenance in every baseline.** `provenance` records the pinned tag and artifact, a digest of
   each validator bridge's source, and a digest and file count of every corpus root the run
-  compared, alongside the ISO date it was recorded. No absolute path is an identity, so two
+  compared and of the library directory the reference was handed, alongside the ISO date it was
+  recorded. No absolute path is an identity, so two
   machines that agree on the pin and the inputs record the same provenance.
 - **A Java-free guard in the normal suite.** `TestCommittedBaselineStatesThisRepositorysProvenance`
   (in each oracle's package) compares that record against the repository as it stands. If the pin

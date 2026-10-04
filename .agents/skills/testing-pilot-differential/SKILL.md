@@ -23,9 +23,9 @@ GNU-format diagnostics **relative to `--root`**. Consequences for testing:
 - `-validator /nonexistent` now says `run ./scripts/download-pilot-sysml-validator.sh`.
 - Measured at the `2026-08` pin after bare parameters took their effective range `[0..*]`, removing
   the adjudicated `Behaviors.kerml:14` multiplicity warning (the `[1]` `RocketEquation` inputs keep
-  its warning at `delta-v-budget.sysml:93`): `382 file(s), 346 fully agreeing; 34 agreed, 43 only
-  ours, 1623 only the pilot's`, JSON totals `openSysMLDiagnostics 79 / pilotDiagnostics 1659 /
-  severityMismatch 2`; the two new only-ours rows are the expected `action-step-multiplicity-not-fixed`
+  its warning at `delta-v-budget.sysml:93`): `382 file(s), 350 fully agreeing; 34 agreed, 44 only
+  ours, 82 only the pilot's`, JSON totals `openSysMLDiagnostics 79 / pilotDiagnostics 117 /
+  severityMismatch 1`; the two new only-ours rows are the expected `action-step-multiplicity-not-fixed`
   warnings on `training/18. Action Performance/Action Performance Example.sysml:10` and
   `pilot-examples/Camera Example/Camera.sysml:4`. ~2 min wall, byte-identical across runs *and* after a from-scratch rebuild of
   `build/pilot-validator`. The six `kerml-examples` pilot-only rows the `2026-07` run carried (`The
@@ -146,8 +146,8 @@ parameters took their effective range `[0..*]` and removed the adjudicated `Beha
 warning (the `[1]` `RocketEquation` inputs still produce the warning at
 `delta-v-budget.sysml:93`), is current: the action-step multiplicity rule adds the two expected
 `action-step-multiplicity-not-fixed` warnings on `takePhoto[*]` in the training corpus and
-`takePicture[*]` in `Camera Example/Camera.sysml`; a live run gives `382 file(s), 346 fully
-agreeing; 34 agreed, 43 only ours, 1623 only the pilot's`, byte-identical to the committed baseline, and
+`takePicture[*]` in `Camera Example/Camera.sysml`; a live run gives `382 file(s), 350 fully
+agreeing; 34 agreed, 44 only ours, 82 only the pilot's`, byte-identical to the committed baseline, and
 `docs/project/pilot-differential.md`'s "Results" table matches. The prior rebaseline, when the
 Legend of the Red Dragon example left for its own repository, gave
 <!-- doc-count:historical -->`380 file(s), 344 fully agreeing; 38 agreed, 42 only ours, 1614 only the pilot's`.
@@ -234,6 +234,26 @@ and aggregate totals do not drown out the question you are asking (did any pre-e
 move?). A run at `82ff0fac` gives 0 changed, 0 removed, 10 added
 (`examples/parser_features_demo_*.kerml`). Files clean on both sides appear in no entry map at
 all, so a newly-compared clean file shows up only as `filesFullyAgreeing +1`.
+
+## The OpenSysML libraries the reference is handed
+
+Every batch passes `--extension-library "<repo>/internal/workspace/libs/stdlib/OpenSysML Libraries"`
+to the bridge (both `validate-sysml-batch` and `validate-kerml` take it, repeatably); the bridge
+loads the directory like `sysml.library` — resolved against, never validated. The harness flag is
+`-libraries DIR` (must lie inside the repository; it is recorded in the baseline's provenance as
+the `opensysml-libraries` input, 14 files), and `resolve` fails loudly when the directory is
+missing or outside the tree. Proving it is load-bearing:
+
+- `-libraries` pointed at a directory holding one trivial `.sysml` → `examples` only-pilot jumps
+  from 62 back into the hundreds (`self-model/document.sysml` alone carries ~347
+  `unresolved-reference`/`kind-mismatch` rows without `DocumentQueries`), and the provenance test
+  then fails on `inputs[opensysml-libraries].digest`.
+- by hand: `build/pilot-sysml-validator/validate-sysml-batch examples/oosem-demo/oosem-demo.sysml`
+  prints ~294 rows; add `--extension-library "internal/workspace/libs/stdlib/OpenSysML Libraries"`
+  and it prints none. `--extension-library /nonexistent` → exit 2
+  `Error: extension library not found`.
+- the library files themselves never appear in the output: a diagnostic naming a path under
+  `OpenSysML Libraries` would be logged as `pilot output not attributable to a corpus file`.
 
 ## Auditing a docs-only PR's numeric claims against the report
 

@@ -46,7 +46,7 @@ func currentProvenance(t *testing.T) (string, baseline.Record) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	current, err := provenance(repo, "")
+	current, err := provenance(repo, "", defaultLibraries)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -12,13 +12,13 @@
       {
         "name": "pilot-sysml-validator",
         "source": "scripts/pilot-sysml-validator/ValidateSysML.java",
-        "sourceDigest": "sha256:fe6dc20d8723bb5022322b5701b98d13d90a560882c0970b90aa7305073f60ad",
+        "sourceDigest": "sha256:50ed14f8a0ca9014ae3aa7453dfe464f16e767a11c52b25d554b48e191aa09fc",
         "release": "2026-08 (jupyter-sysml-kernel 0.62.0)"
       },
       {
         "name": "pilot-kerml-validator",
         "source": "scripts/pilot-kerml-validator/ValidateKerML.java",
-        "sourceDigest": "sha256:e90d0eaddc85b4f6b3e09c7a0ea0448e8a6abec9fa0467b86112013bf0d70ecb",
+        "sourceDigest": "sha256:b89029eea7fcee7459bdc645a52af8ba8370f1bbaa64ff780ceb4bdc578d2de6",
         "release": "2026-08 (jupyter-sysml-kernel 0.62.0)"
       }
     ],
@@ -31,7 +31,7 @@
         "digest": "sha256:2e30292021138a84093d0a233f0d20f3796cf641ec3e9f7edaf291ab4bb1bbbd"
       }
     ],
-    "recorded": "2026-10-02"
+    "recorded": "2026-10-04"
   },
   "totals": {
     "cases": 312,
