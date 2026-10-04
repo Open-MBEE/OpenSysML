@@ -1,0 +1,44 @@
+# MachineViews::thermostat — state rendering (view def StateTransitionView)
+classes: {
+  definition: { style: { fill: white; stroke: "#181818"; stroke-width: 1; font-color: black; font-size: 14 } }
+  usage: { style: { fill: white; stroke: "#181818"; stroke-width: 1; font-color: black; font-size: 14; border-radius: 8 } }
+  region: { style: { fill: white; stroke: "#181818"; stroke-width: 1; font-color: black; font-size: 14; stroke-dash: 3 } }
+  initial: { shape: oval; width: 18; height: 18; style: { fill: black; stroke: black } }
+  edge: { style: { stroke: "#181818"; font-size: 13; font-color: black; stroke-width: 1 } }
+}
+n0: "«state def»\nThermostat" {
+  class: definition
+  n12: "" { class: initial }
+  n1: "«state»\nheating" { class: usage }
+  n2: "«state»\nidle" {
+    class: usage
+    n13: "" { class: initial }
+    n3: "«state»\ndrying" { class: usage }
+    n4: "«state»\nresting" { class: usage }
+  }
+  n5: "«state»\nmonitoring" {
+    class: usage
+    n6: "«region»\nlights" {
+      class: region
+      n14: "" { class: initial }
+      n8: "«state»\nlit" { class: usage }
+      n9: "«state»\nunlit" { class: usage }
+    }
+    n7: "«region»\nfans" {
+      class: region
+      n15: "" { class: initial }
+      n10: "«state»\noff\ninitial" { class: usage }
+      n11: "«state»\non" { class: usage }
+    }
+  }
+}
+n0.n12 -> n0.n1: "[cold]" { class: edge }
+n0.n12 -> n0.n2: "[not cold]" { class: edge }
+n0.n2.n13 -> n0.n2.n3: "[wet]" { class: edge }
+n0.n2.n13 -> n0.n2.n4: { class: edge }
+n0.n5.n6.n14 -> n0.n5.n6.n8: "[dark]" { class: edge }
+n0.n5.n6.n14 -> n0.n5.n6.n9: "[not dark]" { class: edge }
+n0.n5.n7.n15 -> n0.n5.n7.n10: { class: edge }
+n0.n1 -> n0.n2: { class: edge }
+n0.n2 -> n0.n5: { class: edge }
+n0.n5.n7.n10 -> n0.n5.n7.n11: { class: edge }
