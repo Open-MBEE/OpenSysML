@@ -2,6 +2,7 @@ package export_test
 
 import (
 	"encoding/json"
+	"slices"
 	"strings"
 	"testing"
 
@@ -222,5 +223,139 @@ func TestModelOfSeveralDocumentsHasARootNamespacePerDocument(t *testing.T) {
 		if back.Type(subject) == "https://www.omg.org/spec/SysML#Namespace" {
 			t.Errorf("reading the form back keeps the root namespace %s", subject.Value)
 		}
+	}
+}
+
+// referencing marks every document but the named ones Referenced.
+func referencing(docs []export.ModelDocument, written ...string) []export.ModelDocument {
+	out := make([]export.ModelDocument, len(docs))
+	for i, doc := range docs {
+		doc.Referenced = !slices.Contains(written, doc.File.Name())
+		out[i] = doc
+	}
+	return out
+}
+
+// apiElements converts a model to API JSON and keys each element by its @id.
+func apiElements(t *testing.T, docs []export.ModelDocument) map[string]string {
+	t.Helper()
+	graph, err := export.ModelToRDFWith(docs, export.IDQualifiedName)
+	if err != nil {
+		t.Fatal(err)
+	}
+	out, err := export.WriteAPIJSON(graph)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var elements []map[string]any
+	if err := json.Unmarshal(out, &elements); err != nil {
+		t.Fatal(err)
+	}
+	byID := map[string]string{}
+	for _, e := range elements {
+		text, err := json.Marshal(e)
+		if err != nil {
+			t.Fatal(err)
+		}
+		byID[e["@id"].(string)] = string(text)
+	}
+	return byID
+}
+
+// A model converted with only some of its documents written holds exactly the
+// elements those documents contribute to the whole model's conversion: over
+// every document, the conversions written one at a time partition it.
+func TestModelWritesOnlyItsUnreferencedDocuments(t *testing.T) {
+	docs := modelDocuments(t,
+		"lib.sysml", `package Lib {
+    metadata def Tag { attribute level : ScalarValues::Integer; }
+    enum def Kind { enum a; enum b; }
+    part def Base { attribute x : ScalarValues::Integer; }
+    part def Engine :> Base {
+        attribute :>> x default = 1;
+        attribute kind : Kind;
+    }
+    state def Modes { entry; then off; state off; state on; transition off then on; }
+}
+`,
+		"app.sysml", `package App {
+    private import Lib::*;
+    private import Lib::Tag;
+    part e1 : Engine { @Tag { level = 2; } attribute :>> kind = Kind::b; }
+    part e2 : Engine { attribute :>> x = 3; }
+}
+`,
+		"fleet.sysml", `package Fleet {
+    private import App::*;
+    part spare :> e2;
+    part pair[2] : Lib::Engine;
+}
+`,
+	)
+	whole := apiElements(t, docs)
+	parts := map[string]string{}
+	for _, doc := range docs {
+		name := doc.File.Name()
+		for id, element := range apiElements(t, referencing(docs, name)) {
+			if prior, taken := parts[id]; taken {
+				t.Errorf("%s writes %s, which another document also wrote:\n%s", name, id, prior)
+			}
+			parts[id] = element
+		}
+	}
+	for id, element := range whole {
+		if parts[id] != element {
+			t.Errorf("%s: the whole model writes\n%s\nthe document declaring it writes\n%s", id, element, parts[id])
+		}
+	}
+	for id := range parts {
+		if _, ok := whole[id]; !ok {
+			t.Errorf("%s is written by one document but not by the whole model", id)
+		}
+	}
+}
+
+// A referenced document is not written, but a reference into it links the
+// element its own conversion writes.
+func TestModelLinksIntoAReferencedDocument(t *testing.T) {
+	docs := modelDocuments(t,
+		"lib.sysml", "package Lib { part def Engine; }\n",
+		"app.sysml", "package App { private import Lib::*; part e : Engine; }\n",
+	)
+	written := apiElements(t, referencing(docs, "app.sysml"))
+	lib := apiElements(t, referencing(docs, "lib.sysml"))
+	if _, ok := written["Lib__Engine"]; ok {
+		t.Errorf("Lib::Engine is written though lib.sysml is referenced")
+	}
+	if _, ok := lib["Lib__Engine"]; !ok {
+		t.Fatalf("lib.sysml written alone has no Lib__Engine: %v", lib)
+	}
+	linked := false
+	for _, element := range written {
+		linked = linked || strings.Contains(element, `"type":{"@id":"Lib__Engine"}`)
+	}
+	if !linked {
+		t.Errorf("no element of app.sysml is typed by Lib__Engine: %v", written)
+	}
+}
+
+// A referenced document still declares its elements: one whose id lands on a
+// subject a written document mints is refused, as in the whole model, whether
+// the id is derived from the name or declared.
+func TestModelRefusesASubjectAReferencedDocumentAlsoDeclares(t *testing.T) {
+	for _, tc := range []struct{ name, a, b string }{
+		{"derived", "package P { part def A; }\n", "package P { part def B; }\n"},
+		{"declared", `package P { part def A { @IdentityMetadata::ElementId { id = "shared"; } } }` + "\n",
+			`package Q { part def B { @IdentityMetadata::ElementId { id = "shared"; } } }` + "\n"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			docs := modelDocuments(t, "a.sysml", tc.a, "b.sysml", tc.b)
+			for _, written := range []string{"a.sysml", "b.sysml"} {
+				_, err := export.ModelToRDFWith(referencing(docs, written), export.IDQualifiedName)
+				if err == nil || !strings.Contains(err.Error(), "a.sysml") || !strings.Contains(err.Error(), "b.sysml") {
+					t.Errorf("only %s written: err = %v, want a refusal naming both", written, err)
+				}
+			}
+		})
 	}
 }
