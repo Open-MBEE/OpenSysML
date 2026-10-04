@@ -1,0 +1,1 @@
+- Evaluator property ordering, cache access, and feature direction now follow the metamodel semantics.

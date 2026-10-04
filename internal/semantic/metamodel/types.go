@@ -7,11 +7,12 @@ import (
 
 // Membership identifies an element's membership without depending on an export format.
 type Membership struct {
-	Symbol *symbols.Symbol
-	Node   ast.Node
-	Member *symbols.Symbol
-	Owner  *symbols.Symbol
-	Kind   string
+	Symbol  *symbols.Symbol
+	Node    ast.Node
+	Member  *symbols.Symbol
+	Owner   *symbols.Symbol
+	Feature bool
+	kind    string
 }
 
 // Element is a semantic element and the membership that owns it, when it has one.
@@ -54,11 +55,12 @@ type Value struct {
 	Success    bool
 }
 
-// Rule describes a property derivation the evaluator serves.
+// Rule describes the basis for an evaluator-served property.
 type Rule struct {
 	DefiningClass string
 	Property      string
 	Constraint    string
+	Basis         string
 }
 
 // Omission explains why a derived property has no faithful evaluator rule.
@@ -76,10 +78,14 @@ func ElementOf(sym *symbols.Symbol) Element {
 	var membership Membership
 	owner := sym.Owner()
 	if sym.Kind == symbols.SymbolAlias {
-		membership = Membership{Symbol: sym, Node: sym.Decl, Member: sym, Owner: owner, Kind: "Alias"}
+		membership = Membership{Symbol: sym, Node: sym.Decl, Member: sym, Owner: owner, kind: "Alias"}
 		return Element{Symbol: sym, Node: sym.Decl, Membership: membership, IsMembership: true}
 	} else if hasOwningMembership(sym, owner) {
-		membership = Membership{Node: sym.Decl, Member: sym, Owner: owner, Kind: membershipKind(sym)}
+		kind := membershipKind(sym)
+		membership = Membership{
+			Node: sym.Decl, Member: sym, Owner: owner,
+			Feature: sym.IsFeature(), kind: kind,
+		}
 	}
 	return Element{Symbol: sym, Node: sym.Decl, Membership: membership}
 }
@@ -112,7 +118,9 @@ func membershipKind(sym *symbols.Symbol) string {
 		case usage.IsVariant:
 			return "VariantMembership"
 		case usage.IsResult:
-			return "ResultExpressionMembership"
+			return "ReturnParameterMembership"
+		case usage.IsBodyParameter:
+			return "ParameterMembership"
 		case usage.IsEnd:
 			return "EndFeatureMembership"
 		}
@@ -128,19 +136,6 @@ func membershipKind(sym *symbols.Symbol) string {
 		return "FeatureMembership"
 	}
 	return "OwningMembership"
-}
-
-func isFeatureMembershipKind(kind string) bool {
-	switch kind {
-	case "ActorMembership", "EndFeatureMembership", "FeatureMembership",
-		"ObjectiveMembership", "ParameterMembership", "RequirementConstraintMembership",
-		"RequirementVerificationMembership", "ResultExpressionMembership",
-		"ReturnParameterMembership", "StateSubactionMembership", "SubjectMembership",
-		"TransitionFeatureMembership", "ViewRenderingMembership":
-		return true
-	default:
-		return false
-	}
 }
 
 func hasOwningMembership(sym, owner *symbols.Symbol) bool {

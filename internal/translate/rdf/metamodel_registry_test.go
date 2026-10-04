@@ -20,8 +20,8 @@ func TestDerivedPropertyRegistryCoverage(t *testing.T) {
 		if served[key] {
 			t.Errorf("duplicate evaluator rule for %s", key)
 		}
-		if rule.Constraint == "" {
-			t.Errorf("evaluator rule for %s has no constraint", key)
+		if (rule.Constraint == "") == (rule.Basis == "") {
+			t.Errorf("evaluator rule for %s must have exactly one constraint or basis", key)
 		}
 		if derived[key] && served[key] {
 			t.Errorf("derived property %s has multiple evaluator entries", key)

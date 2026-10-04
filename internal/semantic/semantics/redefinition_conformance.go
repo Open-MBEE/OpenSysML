@@ -170,6 +170,18 @@ func (m *Model) EffectiveDirection(owner, feature *symbols.Symbol) ast.FeatureDi
 	return m.directionThrough(owner, feature)
 }
 
+// DeclaredDirection returns the direction stated on a feature declaration.
+func (m *Model) DeclaredDirection(feature *symbols.Symbol) ast.FeatureDirection {
+	if m == nil {
+		return ast.DirNone
+	}
+	traits, ok := featureTraitsOf(feature)
+	if !ok {
+		return ast.DirNone
+	}
+	return traits.Direction
+}
+
 // owningTypeOf returns the type declaring sym, or nil at the top level.
 func owningTypeOf(sym *symbols.Symbol) *symbols.Symbol {
 	if sym == nil || sym.OwnerScope == nil {

@@ -233,7 +233,7 @@ func TestEvaluatorCoreProperties(t *testing.T) {
 	testProperty(t, evaluator, ElementOf(typed), "Feature", "crossFeature")
 
 	for _, property := range []string{
-		"definition", "usage", "nestedUsage", "directedUsage", "variant",
+		"definition", "usage", "ownedUsage", "nestedUsage", "directedUsage", "variant",
 		"isReference", "owningUsage", "owningDefinition", "nestedPart", "nestedAttribute",
 	} {
 		testProperty(t, evaluator, ElementOf(parent), "Usage", property)
@@ -327,6 +327,166 @@ func TestEvaluatorInheritanceVisibilityAndRedefinition(t *testing.T) {
 	}
 }
 
+func TestEvaluatorMembershipDeclarationOrder(t *testing.T) {
+	evaluator, root := newTestEvaluator(t, "membership-order.sysml", `package Base {
+		part def Anything;
+	}
+	package Parts {
+		part def Part;
+	}
+	package P {
+		attribute def Data;
+		part def Base {
+			part inheritedFirst;
+			part inheritedLast;
+		}
+		part def Derived specializes Base {
+			part alpha;
+			attribute : Data;
+			alias inheritedAlias for inheritedFirst;
+			part middle;
+			attribute : Data;
+			part omega;
+		}
+	}`)
+	pkg := testSymbol(t, root, "P")
+	derived := testSymbol(t, pkg.Scope, "Derived")
+
+	local := valueMemberships(t, testProperty(t, evaluator, ElementOf(derived), "Namespace", "ownedMembership"))
+	if len(local) != 6 {
+		t.Fatalf("ownedMembership count = %d, want six local declarations", len(local))
+	}
+	for i := 1; i < len(local); i++ {
+		if local[i-1].Node == nil || local[i].Node == nil ||
+			local[i-1].Node.Span().Offset >= local[i].Node.Span().Offset {
+			t.Fatalf("ownedMembership is not in declaration order: %#v", local)
+		}
+	}
+	if local[2].kind != "Alias" {
+		t.Fatalf("third owned membership kind = %q, want alias at its declaration position", local[2].kind)
+	}
+	for _, i := range []int{1, 4} {
+		name := testProperty(t, evaluator, ElementOf(local[i].Member), "Element", "name")
+		if name.Kind != NullValue {
+			t.Fatalf("unnamed owned member at position %d has name %#v", i, name)
+		}
+	}
+	if !local[0].Feature || local[2].Feature || !local[3].Feature {
+		t.Fatalf("membership feature flags around alias are incorrect: %#v", local)
+	}
+
+	inherited := valueMemberships(t, testProperty(t, evaluator, ElementOf(derived), "Type", "inheritedMembership"))
+	all := valueMemberships(t, testProperty(t, evaluator, ElementOf(derived), "Namespace", "membership"))
+	wantMemberships := append(append([]Membership(nil), local...), inherited...)
+	assertMembershipOrder(t, all, membershipMembers(wantMemberships))
+
+	localMembers := resolveMembershipMembers(t, evaluator, local)
+	allMembers := resolveMembershipMembers(t, evaluator, wantMemberships)
+	assertElementSymbolOrder(t, valueElements(t, testProperty(t, evaluator, ElementOf(derived), "Namespace", "ownedMember")), localMembers)
+	assertElementSymbolOrder(t, valueElements(t, testProperty(t, evaluator, ElementOf(derived), "Namespace", "member")), allMembers)
+
+	alias := testSymbol(t, derived.Scope, "inheritedAlias")
+	if ElementOf(alias).Membership.Feature {
+		t.Fatal("alias membership is incorrectly marked as a FeatureMembership")
+	}
+}
+
+func TestEvaluatorFeatureDirectionAndDirectedFeature(t *testing.T) {
+	evaluator, root := newTestEvaluator(t, "direction.sysml", `package Base {
+		part def Anything;
+	}
+	package Parts {
+		part def Part;
+	}
+	package Actions {
+		action def Action;
+	}
+	package Calculations {
+		calc def Calculation;
+	}
+	package P {
+		part def Base {
+			in attribute directed;
+		}
+		part def Derived specializes Base {
+			attribute :>> directed;
+		}
+		calc def Compute {
+			in attribute input;
+			return attribute result;
+		}
+		action def Loop {
+			loop action charging { } until true;
+		}
+	}`)
+	pkg := testSymbol(t, root, "P")
+	base := testSymbol(t, pkg.Scope, "Base")
+	derived := testSymbol(t, pkg.Scope, "Derived")
+	compute := testSymbol(t, pkg.Scope, "Compute")
+	loop := testSymbol(t, pkg.Scope, "Loop")
+	baseDirection := testProperty(t, evaluator, ElementOf(testSymbol(t, base.Scope, "directed")), "Feature", "direction")
+	if baseDirection.Kind != EnumValue || baseDirection.Enum != "in" {
+		t.Fatalf("declared Feature::direction = %#v, want in", baseDirection)
+	}
+	redefinedDirection := testProperty(t, evaluator, ElementOf(testSymbol(t, derived.Scope, "directed")), "Feature", "direction")
+	if redefinedDirection.Kind != NullValue {
+		t.Fatalf("redefined Feature::direction = %#v, want null", redefinedDirection)
+	}
+	input := testProperty(t, evaluator, ElementOf(testSymbol(t, compute.Scope, "input")), "Feature", "direction")
+	if input.Kind != EnumValue || input.Enum != "in" {
+		t.Fatalf("input Feature::direction = %#v, want in", input)
+	}
+	result := testProperty(t, evaluator, ElementOf(testSymbol(t, compute.Scope, "result")), "Feature", "direction")
+	if result.Kind != EnumValue || result.Enum != "out" {
+		t.Fatalf("return Feature::direction = %#v, want out", result)
+	}
+	loopDecl := loop.Decl.(*ast.Definition)
+	loopNode := loopDecl.Members[0].(*ast.WhileLoopActionNode)
+	bodyMembership := loopNode.Body[0].(*ast.Membership)
+	body := bodyMembership.Member.(*ast.Usage)
+	bodyDirection := testProperty(t, evaluator, NodeOf(body), "Feature", "direction")
+	if bodyDirection.Kind != EnumValue || bodyDirection.Enum != "in" {
+		t.Fatalf("body parameter Feature::direction = %#v, want in", bodyDirection)
+	}
+	directed := valueElements(t, testProperty(t, evaluator, ElementOf(compute), "Type", "directedFeature"))
+	if !containsElementSymbol(directed, testSymbol(t, compute.Scope, "input")) ||
+		!containsElementSymbol(directed, testSymbol(t, compute.Scope, "result")) {
+		t.Fatalf("Type::directedFeature = %v, want input and return parameters", directed)
+	}
+}
+
+func TestEvaluatorChainedFeatureFeaturingType(t *testing.T) {
+	evaluator, root := newTestEvaluator(t, "chaining.sysml", `package Base {
+		part def Anything;
+		attribute def DataValue;
+		attribute dataValues : DataValue;
+	}
+	package Parts {
+		part def Part;
+		feature parts : Part;
+	}
+	package P {
+		part def Container {
+			part source {
+				part target;
+			}
+private feature chainedValue chains source.target;
+		}
+	}`)
+	pkg := testSymbol(t, root, "P")
+	container := testSymbol(t, pkg.Scope, "Container")
+	source := testSymbol(t, container.Scope, "source")
+	chain := testSymbol(t, container.Scope, "chainedValue")
+	chainingFeatures := valueElements(t, testProperty(t, evaluator, ElementOf(chain), "Feature", "chainingFeature"))
+	if len(chainingFeatures) != 1 || chainingFeatures[0].Symbol != testSymbol(t, source.Scope, "target") {
+		t.Fatalf("Feature::chainingFeature = %v, want source.target", chainingFeatures)
+	}
+	featuringTypes := valueElements(t, testProperty(t, evaluator, ElementOf(chain), "Feature", "featuringType"))
+	if !containsElementSymbol(featuringTypes, container) || !containsElementSymbol(featuringTypes, source) {
+		t.Fatalf("Feature::featuringType = %v, want Container and source", featuringTypes)
+	}
+}
+
 func TestEvaluatorIncludesImpliedSpecializations(t *testing.T) {
 	evaluator, root := newTestEvaluator(t, "implicit.sysml", `package Base {
 		part def Anything;
@@ -378,6 +538,8 @@ func TestEvaluatorImportMemberships(t *testing.T) {
 	membershipImport := testSymbol(t, root, "MembershipImport")
 	recursiveImport := testSymbol(t, root, "RecursiveImport")
 
+	sourceMemberships := valueMemberships(t, testProperty(t, evaluator, ElementOf(sourcePackage), "Namespace", "membership"))
+	assertMembershipOrder(t, sourceMemberships, []*symbols.Symbol{exported, imported})
 	namespaceMemberships := valueMemberships(t, testProperty(t, evaluator, ElementOf(namespaceImport), "Namespace", "importedMembership"))
 	membershipMemberships := valueMemberships(t, testProperty(t, evaluator, ElementOf(membershipImport), "Namespace", "importedMembership"))
 	recursiveMemberships := valueMemberships(t, testProperty(t, evaluator, ElementOf(recursiveImport), "Namespace", "importedMembership"))
@@ -437,4 +599,55 @@ func membershipHasMember(memberships []Membership, member *symbols.Symbol) bool 
 		}
 	}
 	return false
+}
+
+func resolveMembershipMembers(t *testing.T, evaluator *Evaluator, memberships []Membership) []*symbols.Symbol {
+	t.Helper()
+	var out []*symbols.Symbol
+	for _, membership := range memberships {
+		member := membership.Member
+		if member.Kind == symbols.SymbolAlias {
+			resolved, ok := evaluator.resolver.ResolveAliasTarget(member)
+			if !ok || resolved == nil {
+				t.Fatal("could not resolve alias")
+			}
+			member = resolved
+		}
+		if !containsSymbol(out, member) {
+			out = append(out, member)
+		}
+	}
+	return out
+}
+
+func membershipMembers(memberships []Membership) []*symbols.Symbol {
+	var out []*symbols.Symbol
+	for _, membership := range memberships {
+		out = append(out, membership.Member)
+	}
+	return out
+}
+
+func assertMembershipOrder(t *testing.T, got []Membership, want []*symbols.Symbol) {
+	t.Helper()
+	if len(got) != len(want) {
+		t.Fatalf("membership count = %d, want %d: %#v", len(got), len(want), got)
+	}
+	for i, expected := range want {
+		if got[i].Member != expected {
+			t.Fatalf("membership[%d].Member = %v, want %v", i, got[i].Member, expected)
+		}
+	}
+}
+
+func assertElementSymbolOrder(t *testing.T, got []Element, want []*symbols.Symbol) {
+	t.Helper()
+	if len(got) != len(want) {
+		t.Fatalf("element count = %d, want %d: %#v", len(got), len(want), got)
+	}
+	for i, expected := range want {
+		if got[i].Symbol != expected {
+			t.Fatalf("element[%d] = %v, want %v", i, got[i].Symbol, expected)
+		}
+	}
 }

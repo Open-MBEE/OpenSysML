@@ -45,18 +45,25 @@ func (e *Evaluator) Property(el Element, definingClass, name string) (Value, boo
 	if e == nil || e.model == nil {
 		return Value{}, false
 	}
-	e.mu.Lock()
-	defer e.mu.Unlock()
 	key := propertyKey{element: el, class: definingClass, name: name}
+	e.mu.Lock()
 	if cached, ok := e.cache[key]; ok {
+		e.mu.Unlock()
 		return cloneValue(cached.value), cached.ok
 	}
+	e.mu.Unlock()
 	if _, served := ruleConstraints[keyName(definingClass, name)]; !served {
 		return Value{}, false
 	}
 	value, ok := e.derive(el, definingClass, name)
 	value.Success = ok
-	e.cache[key] = cachedValue{value: cloneValue(value), ok: ok}
+	e.mu.Lock()
+	if cached, found := e.cache[key]; found {
+		value, ok = cloneValue(cached.value), cached.ok
+	} else {
+		e.cache[key] = cachedValue{value: cloneValue(value), ok: ok}
+	}
+	e.mu.Unlock()
 	return value, ok
 }
 
@@ -234,22 +241,20 @@ func (e *Evaluator) namespaceProperty(el Element, sym *symbols.Symbol, name stri
 			return Value{}, false
 		}
 		ordered := make([]*symbols.Symbol, 0, len(members))
-		if sym.Scope != nil {
-			for _, member := range sym.Scope.Members() {
-				if member.Kind == symbols.SymbolAlias {
-					if e.resolver == nil {
-						return Value{}, false
-					}
-					target, resolved := e.resolver.ResolveAliasTarget(member)
-					if !resolved || target == nil {
-						return Value{}, false
-					}
-					member = target
-				} else if !hasMembership(ElementOf(member).Membership) {
-					continue
+		for _, member := range directOwnedSymbols(e.model, sym) {
+			if member.Kind == symbols.SymbolAlias {
+				if e.resolver == nil {
+					return Value{}, false
 				}
-				ordered = appendUniqueSymbols(ordered, []*symbols.Symbol{member})
+				target, resolved := e.resolver.ResolveAliasTarget(member)
+				if !resolved || target == nil {
+					return Value{}, false
+				}
+				member = target
+			} else if !hasMembership(ElementOf(member).Membership) {
+				continue
 			}
+			ordered = appendUniqueSymbols(ordered, []*symbols.Symbol{member})
 		}
 		ordered = appendUniqueSymbols(ordered, members)
 		return symbolSequence(ordered), true
@@ -270,7 +275,6 @@ func (e *Evaluator) namespaceProperty(el Element, sym *symbols.Symbol, name stri
 		if !ok {
 			return Value{}, false
 		}
-		members = append(members, e.ownedAliases(sym)...)
 		return membershipSequence(uniqueMemberships(memberships(members))), true
 	case "importedMembership":
 		imported, ok := e.importedSymbols(sym)
@@ -371,6 +375,13 @@ func (e *Evaluator) typeProperty(el Element, sym *symbols.Symbol, name string) (
 }
 
 func (e *Evaluator) featureProperty(el Element, sym *symbols.Symbol, name string) (Value, bool) {
+	if name == "direction" && sym == nil {
+		direction := e.featureDirectionOf(el)
+		if direction == ast.DirNone {
+			return nullValue(), true
+		}
+		return enumValue(direction.String()), true
+	}
 	if sym == nil || !sym.IsFeature() {
 		return Value{}, false
 	}
@@ -381,37 +392,19 @@ func (e *Evaluator) featureProperty(el Element, sym *symbols.Symbol, name string
 			return Value{}, false
 		}
 		return symbolSequence(types), true
-	case "featuringType", "owningType":
+	case "owningType":
 		if !e.completeSupertypes(sym) {
 			return Value{}, false
 		}
 		membership := ElementOf(sym).Membership
-		if name == "owningType" {
-			if isFeatureMembershipKind(membership.Kind) && membership.Owner != nil {
-				return elementValue(ElementOf(membership.Owner)), true
-			}
-			return nullValue(), true
+		if membership.Feature && membership.Owner != nil {
+			return elementValue(ElementOf(membership.Owner)), true
 		}
-		for _, rel := range semantics.RelationshipsOf(sym) {
-			if rel != nil && rel.Kind == ast.RelChains {
-				return Value{}, false
-			}
-		}
-		var types []*symbols.Symbol
-		if isType(membership.Owner) && membership.Kind != "VariantMembership" {
-			types = append(types, membership.Owner)
-		}
-		for _, rel := range semantics.RelationshipsOf(sym) {
-			if rel == nil || rel.Kind != ast.RelFeaturedBy {
-				continue
-			}
-			target := e.model.RelationshipTarget(sym, rel)
-			if target == nil {
-				return Value{}, false
-			}
-			if !containsSymbol(types, target) {
-				types = append(types, target)
-			}
+		return nullValue(), true
+	case "featuringType":
+		types, ok := e.featuringTypes(sym, make(map[*symbols.Symbol]bool))
+		if !ok {
+			return Value{}, false
 		}
 		return symbolSequence(types), true
 	case "ownedTyping":
@@ -446,11 +439,11 @@ func (e *Evaluator) featureProperty(el Element, sym *symbols.Symbol, name string
 		}
 		return booleanValue(false), true
 	case "direction":
-		if !e.completeSupertypes(sym) {
-			return Value{}, false
+		direction := e.featureDirectionOf(el)
+		if direction == ast.DirNone {
+			return nullValue(), true
 		}
-		owner := sym.Owner()
-		return enumValue(e.model.EffectiveDirection(owner, sym).String()), true
+		return enumValue(direction.String()), true
 	case "chainingFeature":
 		return e.relationshipTargets(sym, ast.RelChains)
 	case "crossFeature":
@@ -494,11 +487,11 @@ func (e *Evaluator) usageProperty(el Element, sym *symbols.Symbol, name string) 
 		}
 		return elementHandles(usages), true
 	case "ownedUsage":
-		value, ok := e.model.ReflectiveElements(sym, name)
+		members, ok := e.model.ReflectiveElements(sym, "ownedMember")
 		if !ok {
 			return Value{}, false
 		}
-		return symbolSequence(value), true
+		return elementHandles(usageSymbols(members)), true
 	case "nestedUsage":
 		if !e.completeMembers(sym) {
 			return Value{}, false
@@ -830,6 +823,9 @@ func (e *Evaluator) directedFeatures(owner *symbols.Symbol, members []*symbols.S
 			continue
 		}
 		direction := e.model.EffectiveDirection(owner, member)
+		if property == "directedFeature" {
+			direction = e.featureDirection(member)
+		}
 		switch property {
 		case "input":
 			if direction == ast.DirIn || direction == ast.DirInOut {
@@ -846,6 +842,89 @@ func (e *Evaluator) directedFeatures(owner *symbols.Symbol, members []*symbols.S
 		}
 	}
 	return out, true
+}
+
+func (e *Evaluator) featureDirection(feature *symbols.Symbol) ast.FeatureDirection {
+	if direction := e.model.DeclaredDirection(feature); direction != ast.DirNone {
+		return direction
+	}
+	membership := ElementOf(feature).Membership
+	switch membership.kind {
+	case "ParameterMembership":
+		return ast.DirIn
+	case "ReturnParameterMembership":
+		return ast.DirOut
+	}
+	if usage, ok := feature.Decl.(*ast.Usage); ok {
+		if usage.IsBodyParameter {
+			return ast.DirIn
+		}
+		if usage.IsResult {
+			return ast.DirOut
+		}
+	}
+	return ast.DirNone
+}
+
+func (e *Evaluator) featureDirectionOf(el Element) ast.FeatureDirection {
+	if el.Symbol != nil {
+		return e.featureDirection(el.Symbol)
+	}
+	if usage, ok := el.Node.(*ast.Usage); ok {
+		if usage.Direction != ast.DirNone {
+			return usage.Direction
+		}
+		if usage.IsBodyParameter {
+			return ast.DirIn
+		}
+		if usage.IsResult {
+			return ast.DirOut
+		}
+	}
+	return ast.DirNone
+}
+
+func (e *Evaluator) featuringTypes(sym *symbols.Symbol, visiting map[*symbols.Symbol]bool) ([]*symbols.Symbol, bool) {
+	if sym == nil || visiting[sym] || !e.completeSupertypes(sym) {
+		return nil, false
+	}
+	visiting[sym] = true
+	defer delete(visiting, sym)
+
+	membership := ElementOf(sym).Membership
+	var types []*symbols.Symbol
+	if isType(membership.Owner) && membership.kind != "VariantMembership" {
+		types = append(types, membership.Owner)
+	}
+	chainingFeatureFound := false
+	for _, rel := range semantics.RelationshipsOf(sym) {
+		if rel == nil {
+			continue
+		}
+		switch rel.Kind {
+		case ast.RelChains:
+			if chainingFeatureFound {
+				continue
+			}
+			chainingFeatureFound = true
+			target := e.model.RelationshipTarget(sym, rel)
+			if target == nil {
+				return nil, false
+			}
+			chainTypes, ok := e.featuringTypes(target, visiting)
+			if !ok {
+				return nil, false
+			}
+			types = appendUniqueSymbols(types, chainTypes)
+		case ast.RelFeaturedBy:
+			target := e.model.RelationshipTarget(sym, rel)
+			if target == nil {
+				return nil, false
+			}
+			types = appendUniqueSymbols(types, []*symbols.Symbol{target})
+		}
+	}
+	return types, true
 }
 
 func (e *Evaluator) effectiveFeatures(sym *symbols.Symbol) ([]*symbols.Symbol, bool) {
@@ -882,19 +961,6 @@ func (e *Evaluator) memberElements(members []*symbols.Symbol) ([]*symbols.Symbol
 	return out, true
 }
 
-func (e *Evaluator) ownedAliases(sym *symbols.Symbol) []*symbols.Symbol {
-	if sym == nil || sym.Scope == nil {
-		return nil
-	}
-	var aliases []*symbols.Symbol
-	for _, member := range sym.Scope.Members() {
-		if member != nil && member.Kind == symbols.SymbolAlias {
-			aliases = append(aliases, member)
-		}
-	}
-	return aliases
-}
-
 func (e *Evaluator) namespaceMembers(sym *symbols.Symbol) ([]*symbols.Symbol, bool) {
 	if sym == nil {
 		return nil, false
@@ -925,23 +991,18 @@ func (e *Evaluator) namespaceMembers(sym *symbols.Symbol) ([]*symbols.Symbol, bo
 			members = append(members, member)
 		}
 	}
-	if sym.Scope != nil {
-		for _, member := range sym.Scope.Members() {
+	for _, member := range directOwnedSymbols(e.model, sym) {
+		if member != nil {
 			appendMember(member)
 		}
 	}
 	for _, member := range all {
-		if member != nil && member.Owner() != sym && e.model.EffectiveNameOf(member) != "" {
+		if member != nil && member.Owner() == sym {
 			appendMember(member)
 		}
 	}
 	for _, member := range all {
-		if member != nil && member.Owner() == sym && e.model.EffectiveNameOf(member) == "" {
-			appendMember(member)
-		}
-	}
-	for _, member := range all {
-		if member != nil && member.Owner() != sym && e.model.EffectiveNameOf(member) == "" {
+		if member != nil && member.Owner() != sym {
 			appendMember(member)
 		}
 	}
@@ -1204,7 +1265,7 @@ func featureMemberships(members []*symbols.Symbol) []Membership {
 			continue
 		}
 		membership := ElementOf(member).Membership
-		if isFeatureMembershipKind(membership.Kind) {
+		if membership.Feature {
 			out = append(out, membership)
 		}
 	}
@@ -1380,7 +1441,7 @@ func ownedElementSymbols(model *semantics.Model, sym *symbols.Symbol) []*symbols
 
 func ownedFeatureSymbols(model *semantics.Model, sym *symbols.Symbol) []*symbols.Symbol {
 	var out []*symbols.Symbol
-	for _, member := range ownedElementSymbols(model, sym) {
+	for _, member := range directOwnedSymbols(model, sym) {
 		if member != nil && member.IsFeature() {
 			out = append(out, member)
 		}
@@ -1403,18 +1464,48 @@ func directOwnedSymbols(model *semantics.Model, sym *symbols.Symbol) []*symbols.
 	if sym == nil {
 		return nil
 	}
-	out := ownedSymbols(sym, true)
+	var out []*symbols.Symbol
+	if sym.Scope != nil {
+		for _, member := range sym.Scope.Members() {
+			if member != nil && member.Owner() == sym && hasMembership(ElementOf(member).Membership) {
+				out = appendUniqueSymbols(out, []*symbols.Symbol{member})
+			}
+		}
+	}
+	for _, member := range ownedSymbols(sym, true) {
+		if member != nil && hasMembership(ElementOf(member).Membership) {
+			out = appendUniqueSymbols(out, []*symbols.Symbol{member})
+		}
+	}
 	seen := make(map[*symbols.Symbol]bool, len(out))
 	for _, member := range out {
 		seen[member] = true
 	}
 	for _, member := range ownedElementSymbols(model, sym) {
-		if member != nil && member.Owner() == sym && !seen[member] {
+		if member != nil && member.Owner() == sym && hasMembership(ElementOf(member).Membership) && !seen[member] {
 			seen[member] = true
 			out = append(out, member)
 		}
 	}
+	slices.SortStableFunc(out, func(left, right *symbols.Symbol) int {
+		leftOffset, rightOffset := declarationOffset(left), declarationOffset(right)
+		switch {
+		case leftOffset < rightOffset:
+			return -1
+		case leftOffset > rightOffset:
+			return 1
+		default:
+			return 0
+		}
+	})
 	return out
+}
+
+func declarationOffset(sym *symbols.Symbol) int {
+	if sym == nil || sym.Decl == nil {
+		return int(^uint(0) >> 1)
+	}
+	return sym.Decl.Span().Offset
 }
 
 func hasMembership(membership Membership) bool {
