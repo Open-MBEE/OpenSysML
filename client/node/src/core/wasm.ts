@@ -488,14 +488,14 @@ export function serveWasmPort(port: WasmPortLike, loaders: WasmPortLoaders = {})
 
 /** Loads and caches the Go constructor installed by wasm_exec.js. */
 export function loadGoConstructor(wasmExec?: string): Promise<GoConstructor> {
-  const runtime = globalThis as typeof globalThis & { Go?: GoConstructor };
   if (wasmExec === undefined) {
-    if (runtime.Go === undefined) {
-      return Promise.reject(
-        new OpenSysMLError("Go is unavailable; supply the matching wasm_exec.js"),
-      );
-    }
-    return Promise.resolve(runtime.Go);
+    return goConstructorLoads.then(() => {
+      const Go = globalGoConstructor();
+      if (Go === undefined) {
+        throw new OpenSysMLError("Go is unavailable; supply the matching wasm_exec.js");
+      }
+      return Go;
+    });
   }
   const cached = goConstructors.get(wasmExec);
   if (cached !== undefined) {
@@ -518,8 +518,6 @@ export function loadGoConstructor(wasmExec?: string): Promise<GoConstructor> {
 async function loadGoConstructorFromScript(wasmExec: string): Promise<GoConstructor> {
   const runtime = globalThis as typeof globalThis & { Go?: GoConstructor };
   const previous = runtime.Go;
-  delete runtime.Go;
-  let loaded: GoConstructor | undefined;
   try {
     try {
       await import(wasmExec);
@@ -532,16 +530,16 @@ async function loadGoConstructorFromScript(wasmExec: string): Promise<GoConstruc
       }
       importScripts(wasmExec);
     }
-    loaded = globalGoConstructor();
+    // A script imported elsewhere may be cached, so capture the current global.
+    const loaded = globalGoConstructor();
     if (loaded === undefined) {
       throw new OpenSysMLError("Go is unavailable; supply the matching wasm_exec.js");
     }
     return loaded;
   } finally {
-    if (previous !== undefined) {
+    const loaded = globalGoConstructor();
+    if (previous !== undefined && previous !== loaded) {
       runtime.Go = previous;
-    } else if (loaded === undefined) {
-      delete runtime.Go;
     }
   }
 }
