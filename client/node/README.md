@@ -232,6 +232,9 @@ await using connection = await connectWasm({
 });
 ```
 
+If the page loads `wasm_exec.js` itself, omit `wasmExec` to use the installed Go
+constructor.
+
 The browser worker module can be bundled from
 `@openmbee/opensysml/browser/wasm-worker`. Bundle the module and runtime from
 the npm package with:
