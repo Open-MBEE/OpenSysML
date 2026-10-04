@@ -212,8 +212,9 @@
   "scripts": {
     "grammar": "go run ./tools/gengrammar -out syntaxes",
     "build": "node esbuild.mjs",
+    "build:landing": "node tools/build-landing.mjs",
     "watch": "node esbuild.mjs --watch",
-    "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p src/webview/tsconfig.json",
+    "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p src/webview/tsconfig.json && tsc --noEmit -p src/landing/tsconfig.json",
     "test": "node tools/test.mjs",
     "package": "npm run typecheck && npm test && npm run build -- --production && vsce package --no-dependencies --out opensysml-sysml.vsix"
   },

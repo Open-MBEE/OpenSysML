@@ -1251,7 +1251,7 @@ package P {
 
 #### Expected
 
-No diagnostics. Both `k` are typed by `ScalarValues::Natural`, so under KerML 1.1 8.3.3.6
+No diagnostics. Both `k` are typed by `ScalarValues::Natural`, so under KerML 1.1 8.3.4.11.2
 (`validateMultiplicityRangeBoundResultTypes`: each bound's `result` conforms to `Natural`, the
 lower bound possibly to `Integer`) both `[k]` are well formed — or, if a bound must evaluate to a
 literal, both should be rejected alike.
