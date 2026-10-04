@@ -29,6 +29,7 @@ const generalViewName = viewDefinitionsPackage + "GeneralView"
 var (
 	requirementMetaclasses  = []string{"RequirementDefinition", "RequirementUsage"}
 	packageMetaclasses      = []string{"Package"}
+	caseMetaclasses         = []string{"CaseDefinition", "CaseUsage"}
 	relationshipMetaclasses = []string{"Relationship"}
 	definitionMetaclasses   = []string{"Definition", "Usage"}
 )
@@ -53,7 +54,7 @@ func (r *Renderer) generalSpecialization(view *symbols.Symbol) (Kind, string, bo
 		}
 		texts = append(texts, text)
 	}
-	for _, kind := range []Kind{KindRequirement, KindPackage, KindDefinition} {
+	for _, kind := range []Kind{KindRequirement, KindPackage, KindCase, KindDefinition} {
 		if selected[kind] {
 			return kind, strings.Join(texts, "; "), true
 		}
@@ -125,7 +126,8 @@ func (r *Renderer) classifyFilter(p *symbols.FilterPredicate, selected map[Kind]
 	return "", false
 }
 
-// metaclassGraph is the graph a SysML or KerML metaclass selects, "" for a
+// metaclassGraph is the graph a SysML or KerML metaclass selects (a case
+// metaclass the case diagram a CaseView draws), "" for a
 // relationship metaclass, which selects none; false for any other type.
 func (r *Renderer) metaclassGraph(fqn string) (Kind, bool) {
 	if !strings.HasPrefix(fqn, "SysML::") && !strings.HasPrefix(fqn, "KerML::") {
@@ -149,6 +151,8 @@ func (r *Renderer) metaclassGraph(fqn string) (Kind, bool) {
 		return KindRequirement, true
 	case has(packageMetaclasses):
 		return KindPackage, true
+	case has(caseMetaclasses):
+		return KindCase, true
 	case has(relationshipMetaclasses):
 		return "", true
 	case has(definitionMetaclasses):
@@ -336,7 +340,7 @@ func (r *Renderer) requirementDetail(sym *symbols.Symbol) string {
 	if sym.ShortName != "" {
 		parts = append(parts, "id "+sym.ShortName)
 	}
-	if docs := r.model.DocumentationOf(sym); len(docs) > 0 {
+	if docs := r.documentation(sym); len(docs) > 0 {
 		parts = append(parts, "“"+excerpt(docs[0], requirementExcerptRunes)+"”")
 	}
 	return strings.Join(parts, ", ")

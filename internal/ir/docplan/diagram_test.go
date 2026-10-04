@@ -106,6 +106,28 @@ func TestCompileDiagramWithElementAndKind(t *testing.T) {
 	}
 }
 
+func TestCompileDiagramWithCaseAndMixedPseudoKinds(t *testing.T) {
+	for _, kind := range []view.Kind{view.KindCase, view.KindMixed} {
+		t.Run(string(kind), func(t *testing.T) {
+			fixture := loadPlanningFixture(t, diagramDocument(`
+				part selected : Diagram {
+					attribute redefines kind = "`+string(kind)+`";
+					ref redefines source = imagingChain;
+				}
+			`))
+			plan := fixture.mustCompile(t, "Report")
+			reference := plan.Content()[0].Diagram()
+			target, ok := reference.Target()
+			if !ok || target == nil {
+				t.Fatal("reference names no target element")
+			}
+			if reference.Kind() != kind {
+				t.Fatalf("kind = %q, want %q", reference.Kind(), kind)
+			}
+		})
+	}
+}
+
 func TestCompileDiagramWithoutSource(t *testing.T) {
 	fixture := loadPlanningFixture(t, diagramDocument(`
 		part imaging : Diagram {
@@ -393,6 +415,34 @@ func TestCompileDiagramRejectsVerdictsOnATree(t *testing.T) {
 	want := `document Observatory::Report diagram Observatory::Report::imaging states overlay "verdicts", but a tree rendering draws none; it is drawn on a requirement rendering`
 	if planning.Error() != want {
 		t.Fatalf("error = %q, want %q", planning.Error(), want)
+	}
+}
+
+func TestCompileDiagramOfAGeneralViewCaseRoute(t *testing.T) {
+	fixture := loadPlanningFixture(t, diagramModel+`
+	use case def Observe;
+	use case observe : Observe;
+
+	view useCaseView : StandardViewDefinitions::GeneralView {
+		filter @SysML::UseCaseUsage;
+		expose observe;
+	}
+
+	part def Report :> Document {
+		attribute redefines title = "Report";
+		part useCases : Diagram {
+			ref redefines source = useCaseView;
+		}
+		part verdicts : Diagram {
+			attribute redefines overlay = "verdicts";
+			ref redefines source = useCaseView;
+		}
+	}
+`)
+	_, err := fixture.compile(t, "Report")
+	planning := planningError(t, err)
+	if planning.Kind != ErrorUnsupportedOverlay || planning.Expected != "case" {
+		t.Fatalf("error = %+v", planning)
 	}
 }
 

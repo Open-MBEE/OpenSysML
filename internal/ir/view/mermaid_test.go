@@ -28,6 +28,10 @@ func TestMermaidFlowchartShapes(t *testing.T) {
 		{"region", "region", false, StylePilot, `["`},
 		{"package", "part package", false, StylePilot, `["`},
 		{"usage", "part", false, StylePilot, `("`},
+		{"case", "analysis case def", false, StylePilot, `([`},
+		{"actor", "actor", false, StylePilot, `["`},
+		{"subject", "subject", false, StylePilot, `["`},
+		{"objective", "objective", false, StylePilot, `@{ shape: notch-rect, label:`},
 		{"cameo", "part", false, StyleCameo, `["`},
 		{"start", startKind, true, StylePilot, `@{ shape: f-circ, label: "" }`},
 		{"initial", "initial", true, StylePilot, `@{ shape: f-circ, label: "" }`},
@@ -44,14 +48,18 @@ func TestMermaidFlowchartShapes(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			node := &Node{ID: "n", Kind: tc.kind, Name: tc.kind, NameSynthesized: tc.synth}
-			got := mermaidNodeShape(node, labels, Options{Style: tc.style})
+			kind := KindAction
+			if caseNodeKind(tc.kind) || tc.kind == "actor" || tc.kind == "subject" || tc.kind == "objective" {
+				kind = KindCase
+			}
+			got := mermaidNodeShape(kind, node, labels, Options{Style: tc.style})
 			if !strings.HasPrefix(got, tc.want) {
 				t.Errorf("shape = %q, want prefix %q", got, tc.want)
 			}
 		})
 	}
 	for _, kind := range []string{"decision", "merge", "choice"} {
-		if got := mermaidNodeShape(&Node{ID: "n", Kind: kind}, labels, Options{}); got != `{" "}` {
+		if got := mermaidNodeShape(KindAction, &Node{ID: "n", Kind: kind}, labels, Options{}); got != `{" "}` {
 			t.Errorf("empty %s shape = %q, want blank diamond", kind, got)
 		}
 	}
@@ -274,7 +282,7 @@ func TestGoldenMermaidPalette(t *testing.T) {
 }
 
 func TestMermaidEdgeSyntaxAndLinkStyleIndices(t *testing.T) {
-	if got, want := []string{mermaidArrow(EdgeConnection), mermaidArrow(EdgeBinding), mermaidArrow(EdgeFlow), mermaidArrow(EdgeSuccession)},
+	if got, want := []string{mermaidArrow(KindInterconnection, EdgeConnection), mermaidArrow(KindInterconnection, EdgeBinding), mermaidArrow(KindAction, EdgeFlow), mermaidArrow(KindAction, EdgeSuccession)},
 		[]string{"===", "===", "-.->", "-->"}; fmt.Sprint(got) != fmt.Sprint(want) {
 		t.Errorf("arrows = %v, want %v", got, want)
 	}

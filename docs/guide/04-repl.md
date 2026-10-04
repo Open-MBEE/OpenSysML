@@ -294,8 +294,9 @@ member before a name nested inside another element.
 `%render <name>` renders the exposed elements in the form the view's `render` member specifies: a
 containment tree with nested views as subtrees, an interconnection diagram of the exposed parts
 and the connections between them, a state machine's states and transitions, an action's nodes and
-successions, or a table of the exposed elements. A view that specifies no rendering is drawn
-as a tree:
+successions, a case diagram of cases and their actors, subjects and objectives, a mixed canvas
+combining structure, behavior and cases, or a table of the exposed elements. A view that specifies
+no rendering is drawn as a tree:
 
 ```
 sysml> %render Demo::summary
@@ -312,9 +313,15 @@ view Demo::summary::detail
 A view that states `render asElementTable;` is rendered as aligned columns instead, listing the
 exposed elements, what they declare, and the views nested inside the rendered view.
 
-`%render <name> mermaid` writes a graph-shaped rendering as a Mermaid diagram, and
-`%render <name> markdown` writes a table as a Markdown table. Either can be pasted straight
-into a Markdown document or an editor. A diagram node is labelled the way the graphical notation
+The bundled `OpenSysMLRenderings` library selects cases with `render asCaseDiagram;` and mixed content
+with `render asMixedDiagram;`; `CaseView` and `MixedView` provide the same choices by specialization.
+For a model with no declared view, `%render #case` and `%render #mixed` draw the loaded content, and
+`#case:<element>` or `#mixed:<element>` draws one element directly.
+
+`%render <name> mermaid` writes a graph-shaped rendering as a Mermaid diagram, `dot` as Graphviz
+DOT, and `plantuml` as PlantUML. `%render <name> markdown` writes a table as a Markdown table.
+These forms can be pasted straight into a document or an editor. A diagram node is labelled the way
+the graphical notation
 heads a compartment — the kind in guillemets, `«part»`, first, then the name, `wheel : Wheel`, on
 the next line — while the text form above keeps the keyword leading, as the notation declares it.
 If you ask for a form the rendering kind does not support, the REPL tells you which form it does

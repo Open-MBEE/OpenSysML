@@ -69,7 +69,6 @@ func loadSources(t *testing.T, names []string, contents [][]byte) (*Renderer, *s
 		}
 		return sf.Text(span)
 	}
-	sem.SetSourceText(text)
 	return NewRenderer(sem, resolver, text), idx
 }
 
@@ -116,6 +115,8 @@ func TestGoldenRenderings(t *testing.T) {
 		{"state-entry", "state-entry.sysml", "MachineViews::thermostat", KindState},
 		{"state-pseudostates", "cameo-behavior.sysml", "NotationViews::alignmentView", KindState},
 		{"action", "action.sysml", "FlowViews::driveView", KindAction},
+		{"case", "case.sysml", "CaseExamples::caseDiagram", KindCase},
+		{"mixed", "mixed.sysml", "MixedExamples::mixedDiagram", KindMixed},
 		{"typed-action", "typed-behavior.sysml", "TypedViews::cycleView", KindAction},
 		{"typed-state", "typed-behavior.sysml", "TypedViews::boilerView", KindState},
 		{"filters", "filters.sysml", "FilteredViews::safetyView", KindTree},
@@ -136,12 +137,17 @@ func TestGoldenRenderings(t *testing.T) {
 		{"general-cycle-requirement", "general-robust.sysml", "RobustViews::loopRequirements", KindRequirement},
 		{"general-import-cycle", "general-robust.sysml", "RobustViews::importCycle", KindPackage},
 		{"general-empty", "general-robust.sysml", "RobustViews::noRequirements", KindRequirement},
+		{"general-case", "general-case.sysml", "UseCaseViews::useCaseView", KindCase},
+		{"general-case-definitions", "general-case.sysml", "UseCaseViews::caseDefinitionView", KindCase},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			rendering := render(t, tc.file, tc.view)
 			if rendering.Kind != tc.kind {
 				t.Errorf("kind = %q, want %q", rendering.Kind, tc.kind)
+			}
+			if tc.kind == KindCase || tc.kind == KindMixed {
+				assertRenderingEdgeEndpoints(t, rendering)
 			}
 			checkGolden(t, filepath.Join("testdata", tc.name+".text.golden"), rendering.Text())
 			form := tc.kind.MachineForm()
@@ -840,6 +846,8 @@ func TestMermaidSizeCountsEdges(t *testing.T) {
 		{"state-entry.sysml", "MachineViews::thermostat"},
 		{"action.sysml", "FlowViews::driveView"},
 		{"sequence-vehicle.sysml", "VehicleSequenceViews::startVehicleView"},
+		{"case.sysml", "CaseExamples::caseDiagram"},
+		{"mixed.sysml", "MixedExamples::mixedDiagram"},
 	} {
 		rendering := render(t, tc.file, tc.view)
 		drawn := len(rendering.Edges)

@@ -294,8 +294,8 @@ With \-compile, write the generated source to \-o instead of building it
 .BR \-render " \fIview\fP"
 Render this view of the model instead of running it, in the form its render
 member states; #<kind> renders every file loaded and #<kind>:<element> one
-element, kind being tree, interconnection, state, action, sequence or table,
-without a declared view
+element, kind being tree, interconnection, state, action, case, mixed,
+sequence or table, without a declared view
 .TP
 .BR \-render\-all " \fIdir\fP"
 Render every declared view into this directory
@@ -328,9 +328,9 @@ applies to \-render, \-render\-all and document diagrams
 .TP
 .BR \-render\-ports " \fIdisplay\fP"
 How much of a part's ports \-render or \-render\-all draws on an
-interconnection: minimal (default), the ports its connectors end at, each a
-small square on the part's border named beside it, or full, every port,
-labelled name : Type
+interconnection or mixed rendering: minimal (default), the ports its
+interconnection edges end at, each a small square on the part's border named
+beside it, or full, every port, labelled name : Type
 .TP
 .BR \-render\-overlay " \fIoverlay\fP"
 What \-render or \-render\-all draws over a requirement rendering's structure:
@@ -939,18 +939,18 @@ text legible on every fill. \-render\-style names the look the DOT and Mermaid
 forms draw in: pilot (default), the Pilot visualizer's, or cameo, the look of
 Cameo Systems Modeler \(em a diagram frame with a header tab, Arial text,
 gradient fills, compartments and the UML pseudo\-state symbols \(em for a
-diagram migrated from Cameo to keep its look. An interconnection draws on each
-part the ports its connectors end at, each a small square on the part's border
-named beside it; \-render\-ports full draws every port a part has, labelled
-name : Type. A DiagramLayout Style on a member colours it over either look,
-and a Note is drawn beside the member it is about. A view whose members carry
-DiagramLayout positions draws the placed members and the edges between them in
-every graph form, and leaves a member with no position undrawn: the DOT form
-pins each at its stated place, so nothing lands on a positioned box, while
-Mermaid and PlantUML lay the same members out themselves. \-render\-unplaced
-strip draws the unplaced members too, in rows in a strip below a DOT drawing.
-The same setting shapes the diagrams of \-render\-document and
-\-render\-documents.
+diagram migrated from Cameo to keep its look. An interconnection or mixed
+rendering draws on each part the ports its interconnection edges end at, each
+a small square on the part's border named beside it; \-render\-ports full
+draws every port a part has, labelled name : Type. A DiagramLayout Style on a
+member colours it over either look, and a Note is drawn beside the member it
+is about. A view whose members carry DiagramLayout positions draws the placed
+members and the edges between them in every graph form, and leaves a member
+with no position undrawn: the DOT form pins each at its stated place, so
+nothing lands on a positioned box, while Mermaid and PlantUML lay the same
+members out themselves. \-render\-unplaced strip draws the unplaced members
+too, in rows in a strip below a DOT drawing. The same setting shapes the
+diagrams of \-render\-document and \-render\-documents.
 .SH RENDERING A DOCUMENT
 .RS 2
 .nf

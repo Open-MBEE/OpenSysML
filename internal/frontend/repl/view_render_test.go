@@ -298,7 +298,9 @@ func TestRenderOfAnUnknownNameReports(t *testing.T) {
 func TestPseudoViewsRenderThroughTheSession(t *testing.T) {
 	s := NewSession()
 	res := s.Submit(`package Direct {
+    private import OpenSysMLRenderings::*;
     port def Port;
+    part def Person;
     part def Network {
         port left : Port;
         port right : Port;
@@ -312,6 +314,13 @@ func TestPseudoViewsRenderThroughTheSession(t *testing.T) {
         first start;
         action finish;
         succession first start then finish;
+    }
+    use case def Mission {
+        actor operator : Person;
+    }
+    view missionView {
+        expose Direct::Mission;
+        render asCaseDiagram;
     }
 }`)
 	for _, d := range res.Diagnostics {
@@ -329,6 +338,10 @@ func TestPseudoViewsRenderThroughTheSession(t *testing.T) {
 		{"#state:Direct::Machine", view.KindState, view.FormMermaid, "stateDiagram-v2"},
 		{"#action:Flow", view.KindAction, view.FormMermaid, "flowchart TD"},
 		{"#interconnection:Direct::Network", view.KindInterconnection, view.FormMermaid, "flowchart LR"},
+		{"#case", view.KindCase, view.FormMermaid, "flowchart LR"},
+		{"#case:Direct::Mission", view.KindCase, view.FormMermaid, "flowchart LR"},
+		{"#mixed", view.KindMixed, view.FormMermaid, "flowchart TD"},
+		{"#mixed:Direct::Machine", view.KindMixed, view.FormMermaid, "flowchart TD"},
 		{"#table:Direct::Network", view.KindTable, view.FormMarkdown, "| Element | Kind | Type | Declared in |"},
 	}
 	for _, tc := range cases {
@@ -355,6 +368,16 @@ func TestPseudoViewsRenderThroughTheSession(t *testing.T) {
 	}
 	if text := run(t, s, "%render #tree"); !strings.HasPrefix(text, "tree rendering") {
 		t.Errorf("%%render did not accept #tree:\n%s", text)
+	}
+	if text := run(t, s, "%render #case"); !strings.HasPrefix(text, "case rendering") {
+		t.Errorf("%%render did not accept #case:\n%s", text)
+	}
+	if text := run(t, s, "%render #mixed:Direct::Machine"); !strings.HasPrefix(text, "mixed rendering") {
+		t.Errorf("%%render did not accept a targeted #mixed pseudo-view:\n%s", text)
+	}
+	declared, err := s.ViewRendering("Direct::missionView")
+	if err != nil || declared.Kind != view.KindCase {
+		t.Errorf("declared case rendering = %+v, %v", declared, err)
 	}
 }
 
@@ -613,9 +636,9 @@ func TestRenderDotTakesAStyle(t *testing.T) {
 	}
 }
 
-// A word after the form names the port display an interconnection's parts are
-// drawn with — minimal, the default, or full — one of them at most; it
-// completes beside the palettes and styles, and a name none has is refused
+// A word after the form names the port display an interconnection or mixed
+// view's parts are drawn with — minimal, the default, or full — one of them at
+// most; it completes beside the palettes and styles, and a name none has is refused
 // with the two there are.
 func TestRenderDotTakesAPortDisplay(t *testing.T) {
 	s := viewSession(t)
@@ -642,7 +665,13 @@ func TestRenderDotTakesAPortDisplay(t *testing.T) {
 // verification cases decide one way each.
 func generalViewsSession(t *testing.T) *Session {
 	t.Helper()
-	src, err := os.ReadFile(filepath.Join("..", "..", "..", "examples", "general-views-demo", "vehicle.sysml"))
+	return exampleSession(t, "vehicle.sysml")
+}
+
+// exampleSession loads one model of the GeneralView example.
+func exampleSession(t *testing.T, file string) *Session {
+	t.Helper()
+	src, err := os.ReadFile(filepath.Join("..", "..", "..", "examples", "general-views-demo", file))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -653,6 +682,15 @@ func generalViewsSession(t *testing.T) *Session {
 		}
 	}
 	return s
+}
+
+// %render draws a GeneralView filtered on a case metaclass as a case rendering.
+func TestRenderDrawsAGeneralViewCaseRoute(t *testing.T) {
+	s := exampleSession(t, "use-cases.sysml")
+	wants(t, run(t, s, "%render UseCaseViews::useCaseView mermaid"),
+		"case rendering (view def GeneralView, filter @UseCaseUsage)", "flowchart LR", "«include»")
+	wants(t, run(t, s, "%render UseCaseViews::caseDefinitionView text"), "use case def VehicleUseCases::'Add Fuel'")
+	wants(t, run(t, s, "%render UseCaseViews::useCaseView text verdicts"), "a case rendering draws no verdicts overlay")
 }
 
 // %render draws a requirement rendering's verdicts only when asked, by running

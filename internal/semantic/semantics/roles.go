@@ -354,6 +354,11 @@ func (m *Model) SubjectsOf(sym *symbols.Symbol) (owned, inherited []*symbols.Sym
 	return m.visibleRoles(sym, subjectRole)
 }
 
+// ActorsOf returns the actors and stakeholders a case owns and inherits.
+func (m *Model) ActorsOf(sym *symbols.Symbol) (owned, inherited []*symbols.Symbol) {
+	return m.visibleRoles(sym, actorRole)
+}
+
 func (m *Model) visibleRoles(sym *symbols.Symbol, role caseRole) (owned, inherited []*symbols.Symbol) {
 	if m == nil || sym == nil {
 		return nil, nil

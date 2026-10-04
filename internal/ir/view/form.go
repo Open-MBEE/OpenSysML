@@ -83,12 +83,12 @@ func (k Kind) SupportsForm(form Form) bool {
 		return k == KindTable
 	case FormDot:
 		switch k {
-		case KindTree, KindInterconnection, KindState, KindAction, KindRequirement, KindDefinition, KindPackage:
+		case KindTree, KindInterconnection, KindState, KindAction, KindCase, KindMixed, KindRequirement, KindDefinition, KindPackage:
 			return true
 		}
 	case FormPlantUML:
 		switch k {
-		case KindTree, KindInterconnection, KindState, KindAction, KindSequence, KindRequirement, KindDefinition, KindPackage:
+		case KindTree, KindInterconnection, KindState, KindAction, KindCase, KindMixed, KindSequence, KindRequirement, KindDefinition, KindPackage:
 			return true
 		}
 	}
@@ -145,8 +145,8 @@ func (e *WrongFormError) Unwrap() error { return ErrWrongForm }
 
 // Options are what a rendering is written with beside its form. Each form
 // takes the ones that apply to it: the text form its Width, Mermaid, DOT and
-// PlantUML their Direction, Palette, Style and Unplaced, and the interconnection
-// forms their Ports display. A form ignores the rest.
+// PlantUML their Direction, Palette, Style and Unplaced, and interconnection
+// and mixed forms their Ports display. A form ignores the rest.
 type Options struct {
 	// Links is the source link each node and edge is written with; zero writes none.
 	Links Links
@@ -156,8 +156,8 @@ type Options struct {
 	// Palette is the palette the DOT, Mermaid and PlantUML forms fill nodes from, by
 	// keyword family; empty draws in black and white.
 	Palette Palette
-	// Ports is how much of a part's ports an interconnection draws; empty
-	// draws the connected ones, as PortsMinimal does.
+	// Ports is how much of a part's ports an interconnection or mixed rendering
+	// draws; empty draws the connected ones, as PortsMinimal does.
 	Ports Ports
 	// Style is the look the DOT and Mermaid forms draw in; empty is the Pilot's, StylePilot.
 	Style DrawingStyle

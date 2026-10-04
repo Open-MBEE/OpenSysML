@@ -60,8 +60,8 @@
         "name": "examples",
         "dir": "examples",
         "origin": "ours",
-        "files": 47,
-        "digest": "sha256:c4784870ee883ffb7f788dabdd3c3a83e5d11d97bc27e9866de74b87082fa184"
+        "files": 48,
+        "digest": "sha256:c7ffc3f950d65dfcc4cfcb8f4b9ce61a27b754682b9ed3ddd737d76ebd6d0554"
       },
       {
         "name": "probes",
@@ -74,14 +74,14 @@
     "recorded": "2026-10-04"
   },
   "totals": {
-    "files": 383,
-    "filesFullyAgreeing": 345,
+    "files": 384,
+    "filesFullyAgreeing": 346,
     "agreement": 38,
     "severityMismatch": 2,
     "openSysMLOnly": 43,
-    "pilotOnly": 1629,
+    "pilotOnly": 1632,
     "openSysMLDiagnostics": 83,
-    "pilotDiagnostics": 1669
+    "pilotDiagnostics": 1672
   },
   "roots": [
     {
@@ -860,14 +860,14 @@
       "name": "examples",
       "dir": "examples",
       "totals": {
-        "files": 47,
-        "filesFullyAgreeing": 32,
+        "files": 48,
+        "filesFullyAgreeing": 33,
         "agreement": 4,
         "severityMismatch": 1,
         "openSysMLOnly": 6,
-        "pilotOnly": 1596,
+        "pilotOnly": 1599,
         "openSysMLDiagnostics": 11,
-        "pilotDiagnostics": 1601
+        "pilotDiagnostics": 1604
       },
       "files": [
         {
@@ -7992,13 +7992,31 @@
           "openSysMLOnly": [],
           "pilotOnly": [
             {
-              "line": 176,
+              "line": 143,
+              "severity": "error",
+              "category": "unresolved-reference",
+              "count": 1
+            },
+            {
+              "line": 173,
+              "severity": "error",
+              "category": "unresolved-reference",
+              "count": 1
+            },
+            {
+              "line": 178,
+              "severity": "error",
+              "category": "unresolved-reference",
+              "count": 1
+            },
+            {
+              "line": 197,
               "severity": "error",
               "category": "syntax",
               "count": 1
             },
             {
-              "line": 178,
+              "line": 199,
               "severity": "error",
               "category": "syntax",
               "count": 1
@@ -8445,14 +8463,14 @@
       }
     ],
     "totals": {
-      "files": 383,
-      "filesFullyAgreeing": 346,
+      "files": 384,
+      "filesFullyAgreeing": 347,
       "agreement": 38,
       "severityMismatch": 2,
       "openSysMLOnly": 42,
-      "pilotOnly": 1629,
+      "pilotOnly": 1632,
       "openSysMLDiagnostics": 82,
-      "pilotDiagnostics": 1669
+      "pilotDiagnostics": 1672
     },
     "findings": [
       {

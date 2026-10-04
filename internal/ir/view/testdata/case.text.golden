@@ -1,0 +1,42 @@
+CaseExamples::caseDiagram - case rendering (render asCaseDiagram)
+
+use case CaseExamples::'Provide Transportation' : 'Enter Vehicle'
+subject vehicle : Vehicle
+actor driver : Person
+objective (Transport the vehicle and its passengers safely.)
+use case def CaseExamples::'Add Fuel'
+subject vehicle : Vehicle
+actor fueler : Person
+include use case 'enter vehicle' : 'Enter Vehicle'
+subject vehicle
+actor driver
+use case 'Drive Vehicle'
+subject vehicle
+actor driver
+analysis def CaseExamples::FuelAnalysis
+subject vehicle : Vehicle
+objective (Estimate the fuel remaining after a journey.)
+verification def CaseExamples::FuelVerification
+subject vehicle : Vehicle
+objective
+
+relationships:
+  CaseExamples::'Provide Transportation' -- vehicle: «subject»
+  driver -- CaseExamples::'Provide Transportation'
+  CaseExamples::'Provide Transportation' .. objective n3
+  CaseExamples::'Add Fuel' -- vehicle: «subject»
+  fueler -- CaseExamples::'Add Fuel'
+  CaseExamples::'Provide Transportation' ..> CaseExamples::'Add Fuel': «include»
+  CaseExamples::'Provide Transportation' ..> 'enter vehicle': «include»
+  'enter vehicle' -- vehicle: «subject»
+  driver -- 'enter vehicle'
+  CaseExamples::'Provide Transportation' *-- 'Drive Vehicle'
+  'Drive Vehicle' -- vehicle: «subject»
+  driver -- 'Drive Vehicle'
+  CaseExamples::FuelAnalysis -- vehicle: «subject»
+  CaseExamples::FuelAnalysis .. objective n15
+  CaseExamples::FuelVerification -- vehicle: «subject»
+  CaseExamples::FuelVerification .. objective n18
+
+not represented:
+  - part def CaseExamples::Tool holds no case; a case rendering does not show it

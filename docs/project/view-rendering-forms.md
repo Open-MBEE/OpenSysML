@@ -13,15 +13,17 @@ PlantUML compare, and what the writers emit — the
 ## The rendering and its forms
 
 A view renders into a `view.Rendering` (`internal/ir/view/view.go`): the kind (`tree`,
-`interconnection`, `state`, `action`, `sequence`, `table`, and the [GeneralView graphs](#generalview-graphs)
+`interconnection`, `state`, `action`, `case`, `mixed`, `sequence`, `table`, and the [GeneralView graphs](#generalview-graphs)
 `requirement`, `definition` and `package`), typed nodes with an identifier, a
 kind, a name, the declared type of a typed usage, an optional detail holding the notes (`initial`,
 `already shown`, `own flow`) and their children, edges with a label and an `EdgeKind`
-(connection, binding, transition, succession, flow, and the GeneralView graphs' specialization, typing, composition, reference, containment, import, satisfy, verify, derive, refine and allocate), a table's columns and rows, the origin of every node
-and row, and notices for what the kind could not represent. The tree, interconnection, state and
-action kinds are produced from the model — the last two from the lowered `StateGraph` and
-`ActionGraph` the runtime executes — and nothing in the rendering is text of any diagram
-language.
+(connection, binding, transition, succession, flow, composition, association, include, anchor,
+typing, specialization, reference, and the GeneralView graphs' containment, import, satisfy, verify,
+derive, refine and allocate), a table's columns and rows, the origin of every node
+and row, and notices for what the kind could not represent. The tree, interconnection, state,
+action, case and mixed kinds are produced from the model — the behavior kinds from the lowered
+`StateGraph` and `ActionGraph` the runtime executes — and nothing in the rendering is text of any
+diagram language.
 
 What a kind walks into nodes is model content. A view's own bookkeeping is left out of every
 kind, by the one member walk the kinds share (`contentKind` in `tree.go`): a
@@ -44,9 +46,9 @@ A **form** is a writer over that tree (`internal/ir/view/form.go`):
 | `text` | `text.go` | every kind | What a person reads at a terminal |
 | `markdown` | `markdown.go` | `table` | The machine-readable form of a table |
 | `csv`, `tsv` | `delimited.go` | `table` | A table as comma- or tab-separated values, for spreadsheets and scripts |
-| `mermaid` | `mermaid.go` | `tree`, `interconnection`, `state`, `action`, `sequence`, `requirement`, `definition`, `package` | The default machine-readable form of the graph-shaped kinds |
-| `dot` | `dot.go` | `tree`, `interconnection`, `state`, `action`, `requirement`, `definition`, `package` | Graphviz DOT, the alternative to Mermaid |
-| `plantuml` | `plantuml.go` | `tree`, `interconnection`, `state`, `action`, `sequence`, `requirement`, `definition`, `package` | PlantUML in the Pilot visualizer's B&W style, for PlantUML toolchains |
+| `mermaid` | `mermaid.go` | `tree`, `interconnection`, `state`, `action`, `case`, `mixed`, `sequence`, `requirement`, `definition`, `package` | The default machine-readable form of the graph-shaped kinds |
+| `dot` | `dot.go` | `tree`, `interconnection`, `state`, `action`, `case`, `mixed`, `requirement`, `definition`, `package` | Graphviz DOT, the alternative to Mermaid |
+| `plantuml` | `plantuml.go` | `tree`, `interconnection`, `state`, `action`, `case`, `mixed`, `sequence`, `requirement`, `definition`, `package` | PlantUML in the Pilot visualizer's B&W style, for PlantUML toolchains |
 
 `Kind.MachineForm` chooses the form a tool gets when none is asked for — `markdown` for a table,
 `mermaid` for everything else — and `Kind.SupportsForm` decides whether a kind can be written in
@@ -54,6 +56,24 @@ a form at all. Asking for a form the kind is not written in is one typed `WrongF
 the kind, the form asked and the form the kind uses, on every surface: the CLI stops with status 2
 (`-render-all` skips the view and says so), the REPL prints the usage, the LSP refuses the request,
 and a document's `Diagram` block is refused at planning time.
+
+## Standard views first
+
+A model selects a rendering with a standard view wherever one exists: a view definition from
+`StandardViewDefinitions` narrowed by its element filters. Names in the non-normative OpenSysML
+libraries, such as `CaseView`, are optional shorter forms of a standard route, never the only
+route. The extension libraries hold only what standard SysML cannot express: mixed diagrams,
+results from runs, and layout.
+
+| Rendering | Route | Standard or extension |
+| --- | --- | --- |
+| Use case diagram | `GeneralView` with a case-family filter (`filter @SysML::UseCaseUsage;`); `CaseView` or `render asCaseDiagram;` from `OpenSysMLRenderings` is the shorter form | standard |
+| Requirement, definition and package graphs | `GeneralView` with a requirement, definition/usage or package filter ([GeneralView graphs](#generalview-graphs)) | standard |
+| Relationship matrix | `GridView` with a relationship filter | standard |
+| Mixed diagram | `MixedView` or `render asMixedDiagram;` from `OpenSysMLRenderings` | extension |
+| Run timeline and run sequence | `-render-run` on the CLI, `%render-run` in the REPL; no view declares them | CLI and REPL only |
+| Verdicts overlay | `Diagram::overlay = "verdicts"` from `DocumentQueries` in a document; `-render-overlay verdicts`, `%render … verdicts` and the LSP `overlay` option elsewhere ([The verdicts overlay](#the-verdicts-overlay)) | extension |
+| Layout | `Layout`, `Route` and `Canvas` annotations from [DiagramLayout](diagram-layout-annotations.md) | extension |
 
 ## GeneralView graphs
 
@@ -72,19 +92,30 @@ library metaclass and is matched through the metaclasses it specializes:
 | --- | --- | --- |
 | `RequirementDefinition`, `RequirementUsage` (so `SatisfyRequirementUsage`, `ConcernUsage` too) | the requirement view | `requirement` |
 | `Package` (so `LibraryPackage`) | the package view | `package` |
+| `CaseDefinition`, `CaseUsage` (so `UseCaseDefinition`, `UseCaseUsage`, the analysis and verification cases too) | the [case diagram](#case-and-mixed-diagrams) | `case` |
 | `Relationship` (`Specialization`, `FeatureTyping`, `Import`, `AllocationUsage`, …) | nothing of its own; it may stand beside one that selects | — |
 | `Definition`, `Usage` | the definition and usage view | `definition` |
 
 The rows are tried in that order for each metaclass, and when the view's filters select more than
-one kind, `requirement` is drawn before `package` and `package` before `definition`, so the
-library's requirement-view filter list (`RequirementUsage or Specialization or AllocationUsage …`)
-draws a requirement graph. Anything else keeps the view a tree, byte for byte as before: no
+one kind, `requirement` is drawn before `package`, `package` before `case` and `case` before
+`definition`, so the library's requirement-view filter list (`RequirementUsage or Specialization
+or AllocationUsage …`) draws a requirement graph, `@SysML::Definition or @SysML::UseCaseUsage`
+draws a case diagram and `@SysML::RequirementUsage or @SysML::UseCaseUsage` a requirement graph. Anything else keeps the view a tree, byte for byte as before: no
 filter, a filter naming only relationships, a conjunction, a negation, a user metadata
 condition (`@Safety`), a feature test (`@Safety::isMandatory`), or any of them mixed into an `or`
 with a recognized condition. A recognized filter admitting nothing is an empty graph of its kind,
 which says so.
 
-What each graph draws, as nodes from the exposed set and edges between drawn nodes:
+A GeneralView that selects `case` is the case diagram itself: `Renderer.KindOf` answers `case`
+and the [case writer](#case-and-mixed-diagrams) draws the exposed set, so the view needs only the
+standard library and every form writes, links included, what a `CaseView` exposing the same
+elements writes, but for the provenance line, which names the GeneralView and its filter
+(`view def GeneralView, filter @UseCaseUsage`) where a CaseView names `render asCaseDiagram`.
+`CaseView` remains the shorter way to write the same view, with the OpenSysML library; a mixed
+diagram has no GeneralView route and still needs `MixedView` or `render asMixedDiagram;`.
+See `examples/general-views-demo/use-cases.sysml`.
+
+What each of the other graphs draws, as nodes from the exposed set and edges between drawn nodes:
 
 | Kind | Nodes | Edges (`EdgeKind`) |
 | --- | --- | --- |
@@ -224,6 +255,40 @@ arguments (`accept setSpeed(value)`, `accept halt()` — the parentheses tell a 
 path does not carry that path across the drawing. A time or change event, and an accept of an
 event feature (`accept :> shutDown`), keep their written text.
 
+## Case and mixed diagrams
+
+SysML's `CaseDefinition`/`CaseUsage` is the family root; `usecase` would mislabel analysis and
+verification cases. Import `OpenSysMLRenderings::*` and select a kind
+with `render asCaseDiagram;` or `render asMixedDiagram;`, or specialize `CaseView` or `MixedView`;
+a `GeneralView` filtered on a case metaclass is the same case diagram with the standard library
+alone ([GeneralView graphs](#generalview-graphs)).
+These declarations use the non-normative OpenSysML library rather than new SysML syntax: models
+using them are valid SysML v2 with a dependency on `OpenSysMLRenderings`.
+The same kinds are available without a declared view as `#case`, `#mixed`, `#case:<element>` and
+`#mixed:<element>`. Case diagrams default to left-to-right; mixed diagrams default to top-to-bottom.
+
+A case walk passes through containers until it reaches a case-family element. Cases remain flat
+nodes, including nested cases, because PlantUML use cases cannot be nested. A case owns an
+association to each actor, a `«subject»` association to its subject, and an anchor to its objective;
+the objective's documentation is its node detail, not a layout note. A nested case is joined by a
+composition edge. An included reference draws its target once and joins it with `«include»`; an
+included case declared inline gets its own node and an include edge. Exposed containers with no
+case are reported rather than silently disappearing.
+
+A mixed view puts several diagram traditions on one canvas and shares each model element's node:
+packages become containers, structures use the interconnection nodes and connectors, states and
+actions use their existing behavior renderers, and cases use the case renderer. Other definitions
+remain tree-content nodes. Typing, specialization, perform and exhibit references are added only
+when both endpoints are present in the drawing. Mermaid and DOT keep state/action control nodes;
+the PlantUML component dialect writes them as explicit keyword-bearing circles or rectangles.
+
+The writers preserve the same semantics with each notation's native shapes: Mermaid uses stadium
+cases, boxes for actors and subjects, notes for objectives, dashed include/typing/reference arrows,
+undirected association lines and dotted anchor lines; DOT uses ellipses, boxes and note-shaped
+objectives with the corresponding edge attributes; PlantUML uses `usecase`, `actor`, subject
+rectangles and notes. Graph kinds keep Mermaid as their machine form. Markdown, CSV and TSV are
+table-only forms and return `WrongFormError` for both new kinds.
+
 ## Mermaid
 
 Mermaid is the default machine-readable form for graph-shaped views. Trees, interconnections and
@@ -236,12 +301,12 @@ table records what each rendering feature writes:
 
 | Feature | Mermaid syntax and behavior |
 | --- | --- |
-| Definitions, regions, package kinds | Square flowchart nodes, `n0["…"]`; other non-symbol leaves are rounded `n0("…")` nodes. Cameo follows the DOT skin's rounded rule. |
+| Definitions, regions, package kinds | Square flowchart nodes, `n0["…"]`; cases use stadium nodes, actors and subjects use keyword-bearing rectangles, and objectives use note nodes. Other non-symbol leaves are rounded `n0("…")` nodes. Cameo follows the DOT skin's rounded rule. |
 | Tree containment | Plain shaped nodes joined by `---`; tree nodes are never subgraphs and have no synthetic anchors. |
 | Initial, final, junction, fork and join | `f-circ` for initial and junction nodes, `fr-circ` for final nodes, and `fork` for fork/join bars. Only fork/join bars use the `control` class. Named fork/join nodes are listed in a notice because the bar draws no label. |
 | Decision, merge, choice and history | Diamonds; empty and synthesized decision names use a blank diamond. Shallow/deep history use `(("H"))` and `(("H*"))`. |
 | State pseudostates and final transitions | Mermaid state stereotypes (`<<fork>>`, `<<join>>`, `<<choice>>`) and `[*]` for initial/final markers. A final in the same state body is implicit; cross-body final transitions retain the explicit final and receive a notice. |
-| Edges | `===` for connections/bindings, `-.->` for flows, `-->` for other edges, and `---` for tree containment. Links to non-tree clusters use a hidden anchor inside the subgraph. Per-edge styles use `linkStyle` indices spanning containment, rendering edges and note anchors. |
+| Edges | `===` for connections/bindings, `-.->` for flows and typing/references, `-.->|"«include»"|` for includes, `---` for associations and tree containment, `-.-` for anchors, and `-->|"«specializes»"|` for specialization. Links to non-tree clusters use a hidden anchor inside the subgraph. Per-edge styles use `linkStyle` indices spanning containment, rendering edges and note anchors. |
 | Markdown labels | Flowchart node and subgraph titles use bold head lines, an italic keyword line and plain detail lines. Unsafe punctuation, list-like starts, non-multiplicity `*` and non-intraword `_` use the plain escaped label instead. State, sequence and edge labels are unchanged. |
 | Theme variables | Common font, primary/secondary/tertiary, background, line/text and note variables are shared. Flowcharts add cluster and edge-label variables; state diagrams add state, composite and transition variables; sequences add actor, signal, label-box, activation and sequence-number variables. |
 | Styles and palettes | `classDef`/`class` fill applicable nodes by keyword family; palettes override Cameo fills. `Style` CSS covers Mermaid's supported node and edge fields; unsupported fields are listed in notices. Sequence palettes are accepted but cannot fill individual participants. Cluster anchors do not receive palette fills or count as model nodes. |
@@ -393,7 +458,7 @@ digraph "VehicleViews::vehicleView" {
   ends at the pin (`Edge.FromPort`/`Edge.ToPort`; `featureWalk.endNode`, `memberEnd`), and one
   naming the part, or a feature of it that is no port, at the node. How many of the pins are
   drawn, and how they are named, is the `Options.Ports` display (`ports.go`: `PortsMinimal`,
-  `PortsFull`, `portView`), the interconnection's alone (`Kind.SupportsPorts`); the node keeps
+  `PortsFull`, `portView`), the interconnection and mixed renderings (`Kind.SupportsPorts`); the node keeps
   every port, the form filtering what it draws. Under `minimal`, the default, a part draws the
   pins an edge of the rendering ends at (`Edge.FromPort`/`Edge.ToPort`) and no other, each named
   alone: in DOT a plain node becomes a `shape=plain` HTML table whose body cell is the part's
@@ -880,7 +945,7 @@ origins and bundled library declarations — is not linked.
 | Form | Linked elements |
 | --- | --- |
 | DOT | Nodes and edges receive quoted `URL` and `tooltip` attributes; a composite node's URL and tooltip are cluster attributes, not attributes of its invisible anchor. The tooltip is the qualified name when available, otherwise `file:line:col`. |
-| PlantUML | Linkable nodes carry `[[url]]` after stereotypes and before palette colors, and edges carry links. PlantUML SVG drops links on `<<start>>`, `<<fork>>`, `<<join>>`, `<<end>>`, `<<choice>>`, `<<history>>` and `<<history*>>` pseudostates; an unlinked pseudostate inside a linked composite state takes the composite's link. Ports and initial/start pseudostate arrows are not linked. |
+| PlantUML | Linkable nodes carry `[[url]]` after stereotypes and before palette colors, each non-empty objective-note body line has its own link, and edges carry links. PlantUML SVG drops links on `<<start>>`, `<<fork>>`, `<<join>>`, `<<end>>`, `<<choice>>`, `<<history>>` and `<<history*>>` pseudostates in the state-diagram dialect (also used for action diagrams); an unlinked pseudostate inside a linked composite state takes the composite's link. Mixed-diagram control circles retain their links. Ports and initial/start pseudostate arrows are not linked. |
 | Mermaid flowchart | Linkable nodes receive `click` statements after the edges and classes. Edges and subgraphs are not linked. |
 | Mermaid state diagram | Simple states are linked; composite states are not. |
 | Mermaid sequence diagram | Participants receive `link` statements; messages are not linked. Mermaid CLI 11.16.0 drops participant URL fragments in SVG. |
@@ -964,6 +1029,12 @@ and did not change. A view-render RPC added later would take the form as a strin
   `general-unrecognized` are GeneralViews that stay trees, identical to the tree before this
   change; `testdata/general-robust.sysml` draws the cycles and the empty filter result.
   REPL, CLI and LSP tests run the verdicts of `examples/general-views-demo` end to end.
+- `internal/ir/view/general_case_test.go`: a GeneralView filtered on a case metaclass (a use case
+  filter, a filtered `expose` of cases, an analysis case definition) and a `CaseView` exposing
+  the same elements write the same text, Mermaid, DOT and PlantUML, source links included, but
+  for the provenance each states; the `general-case` and `general-case-definitions` goldens and
+  `links-general-case-*` are drawn from `testdata/general-case.sysml`. REPL, CLI, LSP and
+  document-planning tests render `examples/general-views-demo/use-cases.sysml` as a case diagram.
 - `internal/ir/view/dot_test.go`: a `*.dot.golden` beside every Mermaid golden for the tree,
   interconnection, state, state-entry, action and filtered fixtures, each walked by an in-test
   DOT syntax check — balanced braces, every edge endpoint declared as a node or a cluster,

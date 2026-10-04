@@ -283,8 +283,8 @@ package OpenSysMLSurfaces {
     // one that is not produced is told so rather than rendered as another.
     part def ViewEngine :> CodeUnit {
         attribute :>> goPackage = "internal/ir/view";
-        attribute recognizedKinds : Integer = 11;
-        attribute supportedKinds : Integer = 9;
+        attribute recognizedKinds : Integer = 13;
+        attribute supportedKinds : Integer = 11;
         part tree : RenderingKind { attribute :>> kind = "tree"; }
         part interconnection : RenderingKind { attribute :>> kind = "interconnection"; }
         part stateDiagram : RenderingKind { attribute :>> kind = "state"; }
@@ -295,6 +295,8 @@ package OpenSysMLSurfaces {
         }
         part table : RenderingKind { attribute :>> kind = "table"; }
         part sequence : RenderingKind { attribute :>> kind = "sequence"; }
+        part caseDiagram : RenderingKind { attribute :>> kind = "case"; }
+        part mixedDiagram : RenderingKind { attribute :>> kind = "mixed"; }
         part requirementGraph : RenderingKind { attribute :>> kind = "requirement"; }
         part definitionGraph : RenderingKind { attribute :>> kind = "definition"; }
         part packageGraph : RenderingKind { attribute :>> kind = "package"; }
@@ -695,7 +697,7 @@ package OpenSysMLSurfaces {
              * produced say so instead of being drawn as something else. */
         subject views : ViewEngine;
         require constraint {
-            views.recognizedKinds == 11 and views.supportedKinds == 9
+            views.recognizedKinds == 13 and views.supportedKinds == 11
                 and not views.textual.supported and not views.geometry.supported
                 and views.sequence.supported
         }

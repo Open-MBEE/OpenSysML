@@ -228,7 +228,7 @@ nor double-counted as two independent disagreements.
 
 ---
 
-## Results (pilot `2026-08`, 383 files)
+## Results (pilot `2026-08`, 384 files)
 
 | Root | Files | Fully agreeing | Ours | Pilot | Agreed | Severity-only | Only ours | Only pilot |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
@@ -237,9 +237,9 @@ nor double-counted as two independent disagreements.
 | `examples/pilot-corpora/sysml-validation` | 56 | 56 | 0 | 0 | 0 | 0 | 0 | 0 |
 | `examples/pilot-corpora/kerml-examples` | 58 | 56 | 9 | 0 | 0 | 0 | 9 | 0 |
 | `tests/testdata` | 19 | 10 | 44 | 68 | 34 | 1 | 9 | 33 |
-| `examples` | 47 | 32 | 11 | 1601 | 4 | 1 | 6 | 1596 |
+| `examples` | 48 | 33 | 11 | 1604 | 4 | 1 | 6 | 1599 |
 | `tools/referee/diff/testdata` (probes) | 4 | 1 | 6 | 0 | 0 | 0 | 6 | 0 |
-| **Total** | **383** | **345** | **83** | **1669** | **38** | **2** | **43** | **1629** |
+| **Total** | **384** | **346** | **83** | **1672** | **38** | **2** | **43** | **1632** |
 
 **Read the `only ours` total by root, never as one number.** Step 2 removes nine resolver false
 positives from the reference's **own** corpora: `pilot-examples` 16 → **7** and
@@ -281,7 +281,7 @@ Per category, the only-ours totals are: `training` 1 `multiplicity`; `pilot-exam
 `unmapped`, 2 `units`, 5 `kind-mismatch`, 1 `multiplicity`; `kerml-examples` 9 `unmapped`;
 `testdata` 8 `unmapped`, 1 `multiplicity`; `examples` 4 `unmapped`, 2 `multiplicity`; `probes`
 6 `unmapped`. Only-pilot: `testdata` 20 `kind-mismatch`, 3 `unmapped`, 3 `syntax`, 7
-`unresolved-reference`; `examples` 6 `syntax`, 29 `unmapped`, 673 `kind-mismatch`, 888
+`unresolved-reference`; `examples` 6 `syntax`, 29 `unmapped`, 673 `kind-mismatch`, 891
 `unresolved-reference`.
 
 ### Legend of the Red Dragon departure round
@@ -827,8 +827,8 @@ cascades through the rest of the file. The movement is entirely one file,
 
 | Count | Before the initializer rewrite | Now |
 |---|---:|---:|
-| only pilot | 82 | **1629** |
-| pilot diagnostics | 123 | **1669** |
+| only pilot | 82 | **1632** |
+| pilot diagnostics | 123 | **1672** |
 | severity-only | 9 | **2** |
 
 The rewrite itself took only-pilot to 61 and pilot diagnostics to 101; the `Now` column states
@@ -1051,14 +1051,14 @@ page's history.
 
 | Count | Now |
 |---|---:|
-| overall: fully agreeing / only ours / our diagnostics | **345 / 43 / 83** |
-| only pilot | **1629** |
-| pilot diagnostics | **1669** |
+| overall: fully agreeing / only ours / our diagnostics | **346 / 43 / 83** |
+| only pilot | **1632** |
+| pilot diagnostics | **1672** |
 | severity-only | **2** |
 | unmapped, our side | **35** |
 | kerml-examples: only ours | **9** |
 | pilot-examples: only ours | **12** |
-| examples: only pilot | **1596** |
+| examples: only pilot | **1599** |
 
 The KerML root is now the *cleanest* of the three OMG roots in proportion: **9** only-ours against 6
 only-pilot, with 56 of 58 files fully agreeing (439 / 6 and 10 / 58 when the root was added, and
@@ -3271,7 +3271,7 @@ true positive: the identical construct at line 10 is now an agreement.
 
 ### The census the verdicts above account for
 
-Deduplicated by message, the 58 only-pilot occurrences distribute as follows. No entry is a rule the
+Deduplicated by message, the 61 only-pilot occurrences distribute as follows. No entry is a rule the
 reference has and we lack: every one is either adjudicated above or a diagnostic downstream of
 notation the reference cannot parse.
 
@@ -3285,6 +3285,7 @@ notation the reference cannot parse.
 | 2 | typing-kind (`attribute`, `occurrence/item/part`) | one downstream of an unresolved type, one in a file the reference cannot parse |
 | 1 | `Must be model-level evaluable` | reported by both; a categorizer asymmetry in this harness |
 | 23 | syntax and unresolved-reference cascades | `views-demo.sysml`, `passes/import_no_visibility.sysml`, `pseudostates-demo.sysml`, `phase-c-behavioral-bodies.sysml`, `solver-demo.sysml` — retained extensions the reference has no production for, plus what its recovery reports afterwards |
+| 3 | unresolved references to `OpenSysMLRenderings`, `asCaseDiagram` and `asMixedDiagram` | `views-demo.sysml` — unresolved only when the non-normative OpenSysML library folder is omitted; models using it are valid SysML v2 with that library dependency |
 
 Every verdict here was taken from a matched pair of runs over a reduced model, not from the corpus
 row: `build/pilot-sysml-validator/validate-sysml-batch --root <dir> <file>` against

@@ -28,3 +28,13 @@ sysml vehicle.sysml -render GeneralViews::requirementView -render-form dot \
 In the REPL, `%render GeneralViews::requirementView dot verdicts` does the same. Which filters
 select which graph is recorded in
 [View rendering forms](../../docs/project/view-rendering-forms.md#generalview-graphs).
+
+`use-cases.sysml` needs only the standard library. Its `UseCaseViews::useCaseView`
+(`filter @SysML::UseCaseUsage;`) and `UseCaseViews::caseDefinitionView`
+(`expose VehicleUseCases::*[@SysML::CaseDefinition];`) are GeneralViews drawn as case diagrams —
+the subject, actors, objective and includes of each case — exactly as a `CaseView` exposing the
+same elements draws them, which needs `OpenSysMLRenderings`:
+
+```bash
+sysml use-cases.sysml -render UseCaseViews::useCaseView -render-form plantuml
+```

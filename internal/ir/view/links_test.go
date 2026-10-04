@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -282,6 +283,9 @@ func TestLinkedDiagramGoldens(t *testing.T) {
 		{"general-requirement", "general.sysml", "GeneralViews::requirementView", []Form{FormMermaid, FormDot, FormPlantUML}},
 		{"general-definition", "general.sysml", "GeneralViews::definitionView", []Form{FormMermaid, FormDot, FormPlantUML}},
 		{"general-package", "general.sysml", "GeneralViews::packageView", []Form{FormMermaid, FormDot, FormPlantUML}},
+		{"general-case", "general-case.sysml", "UseCaseViews::useCaseView", []Form{FormMermaid, FormDot, FormPlantUML}},
+		{"case", "case.sysml", "CaseExamples::caseDiagram", []Form{FormMermaid, FormDot, FormPlantUML}},
+		{"mixed", "mixed.sysml", "MixedExamples::mixedDiagram", []Form{FormMermaid, FormDot, FormPlantUML}},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -312,8 +316,291 @@ func TestLinkedDiagramGoldens(t *testing.T) {
 				if form == FormMermaid {
 					assertMermaidClickTargetsDeclared(t, got)
 				}
+				if tc.name == "case" {
+					assertLinkedDiagramNode(t, rendering, got, form, options.Links, func(node *Node) bool {
+						return caseNodeKind(node.Kind)
+					}, "provide transportation")
+					assertLinkedDiagramNode(t, rendering, got, form, options.Links, func(node *Node) bool {
+						return node.Kind == "actor"
+					}, "driver")
+					if form == FormPlantUML {
+						assertLinkedObjectiveNote(t, rendering, got, options.Links)
+					}
+				} else if tc.name == "mixed" {
+					assertLinkedDiagramNode(t, rendering, got, form, options.Links, func(node *Node) bool {
+						return node.Kind == "part"
+					}, "b")
+					if form == FormPlantUML {
+						assertLinkedDiagramNode(t, rendering, got, form, options.Links, func(node *Node) bool {
+							return node.Kind == "initial"
+						}, "")
+					}
+				}
 			}
 		})
+	}
+}
+
+func assertLinkedObjectiveNote(t *testing.T, rendering *Rendering, diagram string, links Links) {
+	t.Helper()
+	var objective *Node
+	var walk func(*Node)
+	walk = func(node *Node) {
+		if objective != nil {
+			return
+		}
+		if node.Kind == "objective" {
+			objective = node
+			return
+		}
+		for _, child := range node.Children {
+			walk(child)
+		}
+	}
+	for _, root := range rendering.Roots {
+		walk(root)
+	}
+	if objective == nil {
+		t.Fatal("no objective node in case rendering")
+	}
+	url, ok := links.URL(objective.Origin)
+	if !ok {
+		t.Fatal("objective node has no source URL")
+	}
+	lines := strings.Split(diagram, "\n")
+	for i, line := range lines {
+		if !strings.Contains(strings.TrimSpace(line), "note as "+objective.ID) {
+			continue
+		}
+		for _, body := range lines[i+1:] {
+			if strings.TrimSpace(body) == "end note" {
+				break
+			}
+			if strings.Contains(body, "[["+url+" ") {
+				return
+			}
+		}
+		t.Errorf("PlantUML objective note has no linked body for %q:\n%s", url, diagram)
+		return
+	}
+	t.Errorf("PlantUML has no note for objective %q:\n%s", objective.ID, diagram)
+}
+
+func assertLinkedDiagramNode(t *testing.T, rendering *Rendering, diagram string, form Form, links Links, matchesKind func(*Node) bool, namePart string) {
+	t.Helper()
+	namePart = strings.ToLower(namePart)
+	var found *Node
+	var walk func(*Node)
+	walk = func(node *Node) {
+		if found != nil {
+			return
+		}
+		if matchesKind(node) && strings.Contains(strings.ToLower(node.Name), namePart) {
+			found = node
+			return
+		}
+		for _, child := range node.Children {
+			walk(child)
+		}
+	}
+	for _, root := range rendering.Roots {
+		walk(root)
+	}
+	if found == nil {
+		t.Fatalf("no rendered node matching %q", namePart)
+	}
+	url, ok := links.URL(found.Origin)
+	if !ok {
+		t.Fatalf("node %q has no source URL", found.Name)
+	}
+	switch form {
+	case FormMermaid:
+		if !strings.Contains(diagram, fmt.Sprintf(`click %s href "%s"`, found.ID, url)) {
+			t.Errorf("Mermaid has no click link for %q (%s):\n%s", found.Name, found.ID, diagram)
+		}
+	case FormDot:
+		for _, line := range strings.Split(diagram, "\n") {
+			line = strings.TrimSpace(line)
+			if strings.HasPrefix(line, `"`+found.ID+`" [`) && strings.Contains(line, `URL="`+url+`"`) && strings.Contains(line, `tooltip="`) {
+				return
+			}
+		}
+		t.Errorf("DOT has no URL and tooltip for %q (%s):\n%s", found.Name, found.ID, diagram)
+	case FormPlantUML:
+		for _, line := range strings.Split(diagram, "\n") {
+			if strings.Contains(line, " as "+found.ID+" ") && strings.Contains(line, "[["+url+"]]") {
+				return
+			}
+		}
+		t.Errorf("PlantUML has no source link for %q (%s):\n%s", found.Name, found.ID, diagram)
+	}
+}
+
+func TestPlantUMLCaseObjectiveNoteLinkRendersAsSVG(t *testing.T) {
+	renderer, index := loadFixtures(t, "case.sysml")
+	rendering, err := renderer.Render(lookup(t, index, "CaseExamples::caseDiagram"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	lineIndex := fixtureText(t, "case.sysml").Lines()
+	links := Links{
+		Template: "https://example.test/src/{file}#L{line}",
+		Sites: renderer.Sites(FileLocator(renderer.model, func(doc string) *source.LineIndex {
+			if doc != "case.sysml" {
+				return nil
+			}
+			return lineIndex
+		})),
+	}
+	var objective *Node
+	var walk func(*Node)
+	walk = func(node *Node) {
+		if objective != nil {
+			return
+		}
+		if node.Kind == "objective" {
+			objective = node
+			return
+		}
+		for _, child := range node.Children {
+			walk(child)
+		}
+	}
+	for _, root := range rendering.Roots {
+		walk(root)
+	}
+	if objective == nil {
+		t.Fatal("no objective node in case rendering")
+	}
+	url, ok := links.URL(objective.Origin)
+	if !ok {
+		t.Fatal("objective node has no source URL")
+	}
+	input, err := rendering.WriteWith(FormPlantUML, Options{Links: links})
+	if err != nil {
+		t.Fatal(err)
+	}
+	svg := renderLinkedSVG(t, FormPlantUML, input)
+	if !svgAnchorContainsText(svg, url, "Transport") {
+		t.Errorf("PlantUML SVG has no objective-text anchor for %q:\n%s", url, svg)
+	}
+	if !svgAnchorContainsText(svg, url, "objective") {
+		t.Errorf("PlantUML SVG has no objective-title anchor for %q:\n%s", url, svg)
+	}
+	if !svgAnchorContainsBoldText(svg, url, "objective") {
+		t.Errorf("PlantUML SVG does not render the objective title in bold inside %q:\n%s", url, svg)
+	}
+	if bytes.Contains(svg, []byte("[[")) {
+		t.Errorf("PlantUML SVG contains literal Creole link syntax:\n%s", svg)
+	}
+	if bytes.Contains(svg, []byte("**")) {
+		t.Errorf("PlantUML SVG contains literal bold syntax:\n%s", svg)
+	}
+}
+
+func TestPlantUMLLinkedObjectiveNotePreservesParagraphBreaks(t *testing.T) {
+	const model = `package ObjectiveParagraphExamples {
+	private import Views::*;
+	private import StandardViewDefinitions::*;
+	private import OpenSysMLRenderings::*;
+
+	use case def Sample {
+		objective {
+			doc /* First step.
+
+			Second step. */
+		}
+	}
+
+	view diagram {
+		expose Sample;
+		render asCaseDiagram;
+	}
+}`
+	renderer, index := loadSources(t, []string{"paragraphs.sysml"}, [][]byte{[]byte(model)})
+	rendering, err := renderer.Render(lookup(t, index, "ObjectiveParagraphExamples::diagram"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	links := Links{
+		Template: "https://example.test/src/{file}#L{line}",
+		Sites: func(origin Origin) (Site, bool) {
+			return Site{File: origin.Doc, Line: 1, Col: 1}, true
+		},
+	}
+	diagram, err := rendering.WriteWith(FormPlantUML, Options{Links: links})
+	if err != nil {
+		t.Fatal(err)
+	}
+	const url = "https://example.test/src/paragraphs.sysml#L1"
+	want := fmt.Sprintf("[[%s First step.]]\n  \n  [[%s Second step.]]", url, url)
+	if !strings.Contains(diagram, want) {
+		t.Fatalf("PlantUML objective note lost its paragraph break:\n%s", diagram)
+	}
+	svg := renderLinkedSVG(t, FormPlantUML, diagram)
+	firstY, ok := svgAnchorTextY(svg, url, "First")
+	if !ok {
+		t.Fatalf("PlantUML SVG has no linked first paragraph:\n%s", svg)
+	}
+	secondY, ok := svgAnchorTextY(svg, url, "Second")
+	if !ok {
+		t.Fatalf("PlantUML SVG has no linked second paragraph:\n%s", svg)
+	}
+	if secondY-firstY < 25 {
+		t.Errorf("PlantUML SVG did not render a paragraph gap: first y=%g, second y=%g", firstY, secondY)
+	}
+}
+
+func TestPlantUMLMixedInitialCircleLinkRendersAsSVG(t *testing.T) {
+	renderer, index := loadFixtures(t, "mixed.sysml")
+	rendering, err := renderer.Render(lookup(t, index, "MixedExamples::mixedDiagram"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	lineIndex := fixtureText(t, "mixed.sysml").Lines()
+	links := Links{
+		Template: "https://example.test/src/{file}#L{line}",
+		Sites: renderer.Sites(FileLocator(renderer.model, func(doc string) *source.LineIndex {
+			if doc != "mixed.sysml" {
+				return nil
+			}
+			return lineIndex
+		})),
+	}
+	var initial *Node
+	var walk func(*Node)
+	walk = func(node *Node) {
+		if initial != nil {
+			return
+		}
+		if node.Kind == "initial" {
+			initial = node
+			return
+		}
+		for _, child := range node.Children {
+			walk(child)
+		}
+	}
+	for _, root := range rendering.Roots {
+		walk(root)
+	}
+	if initial == nil {
+		t.Fatal("no initial control node in mixed rendering")
+	}
+	url, ok := links.URL(initial.Origin)
+	if !ok {
+		t.Fatal("mixed initial control node has no source URL")
+	}
+	if !strings.HasSuffix(url, "#L35") {
+		t.Fatalf("mixed initial control node URL = %q, want source line 35", url)
+	}
+	input, err := rendering.WriteWith(FormPlantUML, Options{Links: links})
+	if err != nil {
+		t.Fatal(err)
+	}
+	svg := renderLinkedSVG(t, FormPlantUML, input)
+	if !svgAnchorHasHref(svg, url) {
+		t.Errorf("PlantUML SVG has no anchor for mixed initial control URL %q:\n%s", url, input)
 	}
 }
 
@@ -478,13 +765,7 @@ func TestPlantUMLLinksPrecedeColorsAndExcludePorts(t *testing.T) {
 
 func TestPlantUMLPseudostateLinksAreOmittedWhenSVGDropsThem(t *testing.T) {
 	origin := Origin{Doc: "model.sysml", Span: source.Span{Offset: 1, Len: 1}}
-	writer := plantumlWriter{links: Links{
-		Template: "https://example.test/{file}",
-		Sites: func(Origin) (Site, bool) {
-			return Site{File: "model.sysml", Line: 1, Col: 1}, true
-		},
-	}}
-	for _, tc := range []struct {
+	pseudostates := []struct {
 		kind, stereotype string
 	}{
 		{"initial", "start"},
@@ -497,13 +778,40 @@ func TestPlantUMLPseudostateLinksAreOmittedWhenSVGDropsThem(t *testing.T) {
 		{"junction", "choice"},
 		{"shallow history", "history"},
 		{"deep history", "history*"},
-	} {
-		t.Run(tc.kind, func(t *testing.T) {
-			got := writer.decoration(&Node{Kind: tc.kind, Origin: origin})
-			if want := " <<" + tc.stereotype + ">>"; got != want {
-				t.Errorf("decoration = %q, want unlinked pseudostate %q", got, want)
+	}
+	for _, diagramKind := range []Kind{KindState, KindAction} {
+		t.Run(string(diagramKind), func(t *testing.T) {
+			writer := plantumlWriter{kind: diagramKind, links: Links{
+				Template: "https://example.test/{file}",
+				Sites: func(Origin) (Site, bool) {
+					return Site{File: "model.sysml", Line: 1, Col: 1}, true
+				},
+			}}
+			for _, tc := range pseudostates {
+				t.Run(tc.kind, func(t *testing.T) {
+					got := writer.decoration(&Node{Kind: tc.kind, Origin: origin})
+					if want := " <<" + tc.stereotype + ">>"; got != want {
+						t.Errorf("decoration = %q, want unlinked pseudostate %q", got, want)
+					}
+				})
 			}
 		})
+	}
+}
+
+func TestPlantUMLNoteLinkTextEscapesClosingBracketsInSVG(t *testing.T) {
+	const text = "part]name"
+	if got, want := plantumlNoteLinkText(text), "part~]name"; got != want {
+		t.Fatalf("plantumlNoteLinkText(%q) = %q, want %q", text, got, want)
+	}
+	const url = "https://example.test/note"
+	input := fmt.Sprintf("@startuml\nnote as n1\n  [[%s %s]]\nend note\n@enduml\n", url, plantumlNoteLinkText(text))
+	svg := renderLinkedSVG(t, FormPlantUML, input)
+	if !svgAnchorContainsText(svg, url, text) {
+		t.Errorf("PlantUML SVG has no link for note text %q:\n%s", text, svg)
+	}
+	if bytes.Contains(svg, []byte("[[")) {
+		t.Errorf("PlantUML SVG contains literal Creole link syntax:\n%s", svg)
 	}
 }
 
@@ -769,6 +1077,161 @@ func svgAnchorContainsElement(svg []byte, href, child string) bool {
 				if anchorDepth == 0 {
 					inTargetAnchor = false
 				}
+			}
+		}
+	}
+}
+
+func svgAnchorContainsText(svg []byte, href, text string) bool {
+	decoder := xml.NewDecoder(bytes.NewReader(svg))
+	inTargetAnchor := false
+	anchorDepth := 0
+	var content strings.Builder
+	for {
+		token, err := decoder.Token()
+		if err != nil {
+			return false
+		}
+		switch element := token.(type) {
+		case xml.StartElement:
+			if inTargetAnchor {
+				if element.Name.Local == "a" {
+					anchorDepth++
+				}
+				continue
+			}
+			if element.Name.Local != "a" {
+				continue
+			}
+			for _, attr := range element.Attr {
+				if attr.Name.Local == "href" && attr.Value == href {
+					inTargetAnchor = true
+					anchorDepth = 1
+					content.Reset()
+					break
+				}
+			}
+		case xml.CharData:
+			if inTargetAnchor {
+				content.Write([]byte(element))
+				if strings.Contains(content.String(), text) {
+					return true
+				}
+			}
+		case xml.EndElement:
+			if inTargetAnchor && element.Name.Local == "a" {
+				anchorDepth--
+				if anchorDepth == 0 {
+					inTargetAnchor = false
+					content.Reset()
+				}
+			}
+		}
+	}
+}
+
+func svgAnchorContainsBoldText(svg []byte, href, text string) bool {
+	decoder := xml.NewDecoder(bytes.NewReader(svg))
+	inTargetAnchor := false
+	inText := false
+	bold := false
+	var content strings.Builder
+	for {
+		token, err := decoder.Token()
+		if err != nil {
+			return false
+		}
+		switch element := token.(type) {
+		case xml.StartElement:
+			if !inTargetAnchor && element.Name.Local == "a" {
+				for _, attr := range element.Attr {
+					if attr.Name.Local == "href" && attr.Value == href {
+						inTargetAnchor = true
+						break
+					}
+				}
+			} else if inTargetAnchor && element.Name.Local == "text" {
+				inText = true
+				bold = false
+				content.Reset()
+				for _, attr := range element.Attr {
+					switch attr.Name.Local {
+					case "font-weight":
+						bold = attr.Value == "700" || attr.Value == "bold"
+					case "style":
+						style := strings.ToLower(attr.Value)
+						bold = bold || strings.Contains(style, "font-weight:700") || strings.Contains(style, "font-weight:bold")
+					}
+				}
+			}
+		case xml.CharData:
+			if inText {
+				content.Write([]byte(element))
+			}
+		case xml.EndElement:
+			if inTargetAnchor && inText && element.Name.Local == "text" {
+				if bold && strings.Contains(content.String(), text) {
+					return true
+				}
+				inText = false
+			}
+			if inTargetAnchor && element.Name.Local == "a" {
+				inTargetAnchor = false
+			}
+		}
+	}
+}
+
+func svgAnchorTextY(svg []byte, href, text string) (float64, bool) {
+	decoder := xml.NewDecoder(bytes.NewReader(svg))
+	inTargetAnchor := false
+	inText := false
+	var y float64
+	hasY := false
+	var content strings.Builder
+	for {
+		token, err := decoder.Token()
+		if err != nil {
+			return 0, false
+		}
+		switch element := token.(type) {
+		case xml.StartElement:
+			if !inTargetAnchor && element.Name.Local == "a" {
+				for _, attr := range element.Attr {
+					if attr.Name.Local == "href" && attr.Value == href {
+						inTargetAnchor = true
+						break
+					}
+				}
+			} else if inTargetAnchor && element.Name.Local == "text" {
+				inText = true
+				hasY = false
+				content.Reset()
+				for _, attr := range element.Attr {
+					if attr.Name.Local == "y" {
+						var err error
+						y, err = strconv.ParseFloat(attr.Value, 64)
+						if err != nil {
+							return 0, false
+						}
+						hasY = true
+						break
+					}
+				}
+			}
+		case xml.CharData:
+			if inText {
+				content.Write([]byte(element))
+			}
+		case xml.EndElement:
+			if inTargetAnchor && inText && element.Name.Local == "text" {
+				if strings.Contains(content.String(), text) {
+					return y, hasY
+				}
+				inText = false
+			}
+			if inTargetAnchor && element.Name.Local == "a" {
+				inTargetAnchor = false
 			}
 		}
 	}
