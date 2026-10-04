@@ -86,13 +86,13 @@ const conformanceLib = `
 	concern def CostConcern { subject s : Vehicle; require constraint { s.mass > 1.0 } }
 `
 
-// A view framing every concern its viewpoint frames conforms, and each concern
-// is evaluated against the exposed elements its subject admits.
+// A view satisfying a viewpoint conforms when each concern the viewpoint
+// frames holds of the exposed elements its subject admits.
 func TestViewConformanceFramedAndHolding(t *testing.T) {
 	m, root := buildModel(t, conformanceLib+`
 		viewpoint def VP { frame concern mass : MassConcern; }
 		viewpoint vp : VP;
-		view v { expose vehicle; expose wheel; satisfy vp; frame concern mass : MassConcern; }
+		view v { expose vehicle; expose wheel; satisfy vp; }
 	`)
 	eval := &fakeEvaluator{}
 	report := conformance(t, m, sym(t, root, "v"), eval)
@@ -101,22 +101,24 @@ func TestViewConformanceFramedAndHolding(t *testing.T) {
 	wantNames(t, "concerns evaluated", eval.asked, []string{"mass/vehicle"})
 }
 
-// A concern the viewpoint frames and the view does not is a non-conformance,
-// reported as such rather than left silent.
-func TestViewConformanceMissingConcernIsViolated(t *testing.T) {
+// A view frames nothing of its own — a view body admits no `frame` member —
+// so without an evaluator every framed concern is not evaluated, and with one
+// each conforms or is violated per its condition alone.
+func TestViewConformanceViewFramesNothing(t *testing.T) {
 	m, root := buildModel(t, conformanceLib+`
 		viewpoint def VP { frame concern mass : MassConcern; frame concern cost : CostConcern; }
 		viewpoint vp : VP;
-		view v { expose vehicle; satisfy vp; frame concern mass : MassConcern; }
+		view v { expose vehicle; satisfy vp; }
 	`)
-	report := conformance(t, m, sym(t, root, "v"), &fakeEvaluator{})
-	vp := onlyViewpoint(t, report)
+	vp := onlyViewpoint(t, conformance(t, m, sym(t, root, "v"), nil))
 	wantNames(t, "concerns of vp", concernNames(vp), []string{"mass", "cost"})
+	wantVerdict(t, "verdict of mass", vp.Concerns[0].Verdict, VerdictNotEvaluated, vp.Concerns[0].Reason)
+	wantVerdict(t, "verdict of cost", vp.Concerns[1].Verdict, VerdictNotEvaluated, vp.Concerns[1].Reason)
+
+	eval := &fakeEvaluator{fails: map[string]bool{"cost": true}}
+	vp = onlyViewpoint(t, conformance(t, m, sym(t, root, "v"), eval))
+	wantVerdict(t, "verdict of mass", vp.Concerns[0].Verdict, VerdictConforms, vp.Concerns[0].Reason)
 	wantVerdict(t, "verdict of cost", vp.Concerns[1].Verdict, VerdictViolated, vp.Concerns[1].Reason)
-	if !strings.Contains(vp.Concerns[1].Reason, "not by the view") {
-		t.Fatalf("reason for cost = %q, want it to say the view does not frame it", vp.Concerns[1].Reason)
-	}
-	wantVerdict(t, "verdict of v", report.Verdict, VerdictViolated, "a concern is not framed")
 }
 
 // A concern whose condition is false of an exposed element is a violation, one
@@ -126,7 +128,7 @@ func TestViewConformanceFalseConditionIsViolated(t *testing.T) {
 		viewpoint def VP { frame concern mass : MassConcern; }
 		viewpoint vp : VP;
 		part other : Vehicle;
-		view v { expose vehicle; expose other; satisfy vp; frame concern mass : MassConcern; }
+		view v { expose vehicle; expose other; satisfy vp; }
 	`)
 	eval := &fakeEvaluator{fails: map[string]bool{"mass": true}}
 	report := conformance(t, m, sym(t, root, "v"), eval)
@@ -144,7 +146,7 @@ func TestViewConformanceUnevaluableConcern(t *testing.T) {
 	m, root := buildModel(t, conformanceLib+`
 		viewpoint def VP { frame concern mass : MassConcern; }
 		viewpoint vp : VP;
-		view v { expose vehicle; satisfy vp; frame concern mass : MassConcern; }
+		view v { expose vehicle; satisfy vp; }
 	`)
 	eval := &fakeEvaluator{broken: map[string]bool{"mass": true}}
 	vp := onlyViewpoint(t, conformance(t, m, sym(t, root, "v"), eval))
@@ -160,7 +162,7 @@ func TestViewConformanceNoSubjectIsUnevaluable(t *testing.T) {
 	m, root := buildModel(t, conformanceLib+`
 		viewpoint def VP { frame concern mass : MassConcern; }
 		viewpoint vp : VP;
-		view v { expose wheel; satisfy vp; frame concern mass : MassConcern; }
+		view v { expose wheel; satisfy vp; }
 	`)
 	eval := &fakeEvaluator{}
 	vp := onlyViewpoint(t, conformance(t, m, sym(t, root, "v"), eval))
@@ -178,7 +180,7 @@ func TestViewConformanceExposingNothingIsUnevaluable(t *testing.T) {
 	m, root := buildModel(t, conformanceLib+`
 		viewpoint def VP { frame concern mass : MassConcern; }
 		viewpoint vp : VP;
-		view v { satisfy vp; frame concern mass : MassConcern; }
+		view v { satisfy vp; }
 	`)
 	vp := onlyViewpoint(t, conformance(t, m, sym(t, root, "v"), &fakeEvaluator{}))
 	wantVerdict(t, "verdict of mass", vp.Concerns[0].Verdict, VerdictUnevaluable, vp.Concerns[0].Reason)
@@ -194,7 +196,7 @@ func TestViewConformanceInheritedSatisfy(t *testing.T) {
 		viewpoint def VP { frame concern mass : MassConcern; }
 		viewpoint vp : VP;
 		view def StructureView { satisfy vp; }
-		view v : StructureView { expose vehicle; frame concern mass : MassConcern; }
+		view v : StructureView { expose vehicle; }
 	`)
 	vp := onlyViewpoint(t, conformance(t, m, sym(t, root, "v"), &fakeEvaluator{}))
 	if vp.SatisfiedIn != sym(t, root, "StructureView") {
@@ -203,46 +205,17 @@ func TestViewConformanceInheritedSatisfy(t *testing.T) {
 	wantVerdict(t, "verdict of mass", vp.Concerns[0].Verdict, VerdictConforms, vp.Concerns[0].Reason)
 }
 
-// A framing inherited from a view definition frames for the view.
-func TestViewConformanceInheritedFraming(t *testing.T) {
-	m, root := buildModel(t, conformanceLib+`
-		viewpoint def VP { frame concern mass : MassConcern; }
-		viewpoint vp : VP;
-		view def StructureView { frame concern mass : MassConcern; }
-		view v : StructureView { expose vehicle; satisfy vp; }
-	`)
-	vp := onlyViewpoint(t, conformance(t, m, sym(t, root, "v"), &fakeEvaluator{}))
-	wantVerdict(t, "verdict of mass", vp.Concerns[0].Verdict, VerdictConforms, vp.Concerns[0].Reason)
-	if vp.Concerns[0].FramedIn != sym(t, root, "StructureView") {
-		t.Fatalf("mass framed in %v, want the view definition StructureView that declares it", vp.Concerns[0].FramedIn)
-	}
-}
-
-// A concern framed by a nested view frames for its container (tool-defined: the
-// container's conformance is what the view tree as a whole addresses).
-func TestViewConformanceNestedViewFraming(t *testing.T) {
-	m, root := buildModel(t, conformanceLib+`
-		viewpoint def VP { frame concern mass : MassConcern; }
-		viewpoint vp : VP;
-		view v { expose vehicle; satisfy vp; view inner { frame concern mass : MassConcern; } }
-	`)
-	vp := onlyViewpoint(t, conformance(t, m, sym(t, root, "v"), &fakeEvaluator{}))
-	wantVerdict(t, "verdict of mass", vp.Concerns[0].Verdict, VerdictConforms, vp.Concerns[0].Reason)
-	if vp.Concerns[0].FramedIn == nil || localName(vp.Concerns[0].FramedIn.Name) != "inner" {
-		t.Fatalf("mass framed in %v, want the nested view inner", vp.Concerns[0].FramedIn)
-	}
-}
-
 // A concern a viewpoint inherits is framed by the viewpoint too, so the view
-// must frame it.
+// answers it the way it answers the declared ones.
 func TestViewConformanceInheritedViewpointFraming(t *testing.T) {
 	m, root := buildModel(t, conformanceLib+`
 		viewpoint def BaseVP { frame concern mass : MassConcern; }
 		viewpoint def VP :> BaseVP { frame concern cost : CostConcern; }
 		viewpoint vp : VP;
-		view v { expose vehicle; satisfy vp; frame concern cost : CostConcern; }
+		view v { expose vehicle; satisfy vp; }
 	`)
-	vp := onlyViewpoint(t, conformance(t, m, sym(t, root, "v"), &fakeEvaluator{}))
+	eval := &fakeEvaluator{fails: map[string]bool{"mass": true}}
+	vp := onlyViewpoint(t, conformance(t, m, sym(t, root, "v"), eval))
 	wantNames(t, "concerns of vp", concernNames(vp), []string{"cost", "mass"})
 	wantVerdict(t, "verdict of mass", vp.Concerns[1].Verdict, VerdictViolated, vp.Concerns[1].Reason)
 }
@@ -255,7 +228,7 @@ func TestViewConformanceReferenceFramingMatches(t *testing.T) {
 		part vehicle : Vehicle;
 		concern modularity { subject s : Vehicle; require constraint { true } }
 		viewpoint perspective { frame modularity; }
-		view v { expose vehicle; satisfy perspective; frame modularity; }
+		view v { expose vehicle; satisfy perspective; }
 	`)
 	eval := &fakeEvaluator{}
 	vp := onlyViewpoint(t, conformance(t, m, sym(t, root, "v"), eval))
@@ -287,7 +260,7 @@ func TestViewConformanceUnresolvedStakeholder(t *testing.T) {
 	m, root := buildModel(t, conformanceLib+`
 		viewpoint def VP { stakeholder se : Missing; frame concern mass : MassConcern; }
 		viewpoint vp : VP;
-		view v { expose vehicle; satisfy vp; frame concern mass : MassConcern; }
+		view v { expose vehicle; satisfy vp; }
 	`)
 	vp := onlyViewpoint(t, conformance(t, m, sym(t, root, "v"), &fakeEvaluator{}))
 	var reasons []string
@@ -309,7 +282,7 @@ func TestViewConformanceResolvedStakeholdersAreQuiet(t *testing.T) {
 		part def Engineer;
 		viewpoint def VP { stakeholder se : Engineer; stakeholder anyone; frame concern mass : MassConcern; }
 		viewpoint vp : VP;
-		view v { expose vehicle; satisfy vp; frame concern mass : MassConcern; }
+		view v { expose vehicle; satisfy vp; }
 	`)
 	vp := onlyViewpoint(t, conformance(t, m, sym(t, root, "v"), &fakeEvaluator{}))
 	for _, p := range vp.Parties {
@@ -320,17 +293,17 @@ func TestViewConformanceResolvedStakeholdersAreQuiet(t *testing.T) {
 	wantVerdict(t, "verdict of vp", vp.Verdict, VerdictConforms, vp.Reason)
 }
 
-// Without an evaluator only the structural question is answered: a framed
-// concern is not evaluated, and a missing one is still a violation.
+// Without an evaluator only the structural question is answered: every framed
+// concern is not evaluated.
 func TestViewConformanceWithoutEvaluator(t *testing.T) {
 	m, root := buildModel(t, conformanceLib+`
 		viewpoint def VP { frame concern mass : MassConcern; frame concern cost : CostConcern; }
 		viewpoint vp : VP;
-		view v { expose vehicle; satisfy vp; frame concern mass : MassConcern; }
+		view v { expose vehicle; satisfy vp; }
 	`)
 	vp := onlyViewpoint(t, conformance(t, m, sym(t, root, "v"), nil))
 	wantVerdict(t, "verdict of mass", vp.Concerns[0].Verdict, VerdictNotEvaluated, vp.Concerns[0].Reason)
-	wantVerdict(t, "verdict of cost", vp.Concerns[1].Verdict, VerdictViolated, vp.Concerns[1].Reason)
+	wantVerdict(t, "verdict of cost", vp.Concerns[1].Verdict, VerdictNotEvaluated, vp.Concerns[1].Reason)
 }
 
 // A viewpoint framing no concern asks nothing of the view, so no conformance
@@ -365,28 +338,24 @@ func TestViewConformanceUnresolvedFramedConcern(t *testing.T) {
 	}
 }
 
-// A framing referencing a concern usage frames that usage, not the definition it
-// is typed by, whose values the usage may mask. Two usages of one definition are
-// therefore different concerns.
+// A framing referencing a concern usage frames that usage, not the definition
+// it is typed by, whose values the usage may mask — so it is the usage whose
+// conditions are evaluated.
 func TestViewConformanceFramesTheNamedConcernUsage(t *testing.T) {
 	m, root := buildModel(t, conformanceLib+`
 		concern tight : MassConcern;
 		concern loose : MassConcern;
 		viewpoint def VP { frame tight; }
 		viewpoint vp : VP;
-		view framingTheUsage { expose vehicle; satisfy vp; frame tight; }
-		view framingAnother { expose vehicle; satisfy vp; frame loose; }
+		view v { expose vehicle; satisfy vp; }
 	`)
 	eval := &fakeEvaluator{}
-	vp := onlyViewpoint(t, conformance(t, m, sym(t, root, "framingTheUsage"), eval))
+	vp := onlyViewpoint(t, conformance(t, m, sym(t, root, "v"), eval))
 	if got := vp.Concerns[0].Target; got != sym(t, root, "tight") {
 		t.Fatalf("framed concern target = %v, want the tight usage", got)
 	}
 	wantVerdict(t, "verdict of tight", vp.Concerns[0].Verdict, VerdictConforms, vp.Concerns[0].Reason)
 	wantNames(t, "concerns evaluated", eval.asked, []string{"tight/vehicle"})
-
-	other := onlyViewpoint(t, conformance(t, m, sym(t, root, "framingAnother"), &fakeEvaluator{}))
-	wantVerdict(t, "verdict of tight", other.Concerns[0].Verdict, VerdictViolated, other.Concerns[0].Reason)
 }
 
 // A satisfy stating a subject asserts a requirement of that subject, as the
@@ -403,7 +372,6 @@ func TestViewConformanceIgnoresSatisfyWithASubject(t *testing.T) {
 			satisfy requirement conformance : VehicleSpecification by vehicle;
 			satisfy spec by vehicle;
 			satisfy vp;
-			frame concern mass : MassConcern;
 		}
 	`)
 	report := conformance(t, m, sym(t, root, "v"), &fakeEvaluator{})
@@ -414,24 +382,18 @@ func TestViewConformanceIgnoresSatisfyWithASubject(t *testing.T) {
 	wantVerdict(t, "verdict of v", report.Verdict, VerdictConforms, vp.Reason)
 }
 
-// A view framing a concern without naming its type frames it under that name:
-// the framings share no resolved concern, so the name is what matches, either
-// way round.
-func TestViewConformanceUntypedFramingMatchesByName(t *testing.T) {
+// An untyped `frame concern mass;` in the viewpoint declares a concern under
+// that name, which evaluation then answers.
+func TestViewConformanceUntypedViewpointFraming(t *testing.T) {
 	m, root := buildModel(t, conformanceLib+`
-		viewpoint def VP { frame concern mass : MassConcern; }
-		viewpoint vp : VP;
 		viewpoint def UntypedVP { frame concern mass; }
 		viewpoint untypedVp : UntypedVP;
-		view untypedByTheView { expose vehicle; satisfy vp; frame concern mass; }
-		view untypedByTheViewpoint { expose vehicle; satisfy untypedVp; frame concern mass : MassConcern; }
+		view v { expose vehicle; satisfy untypedVp; }
 	`)
-	for _, name := range []string{"untypedByTheView", "untypedByTheViewpoint"} {
-		vp := onlyViewpoint(t, conformance(t, m, sym(t, root, name), &fakeEvaluator{}))
-		if vp.Concerns[0].FramedBy == nil {
-			t.Errorf("%s: mass reported as not framed (%s), want it framed under its name", name, vp.Concerns[0].Reason)
-		}
-	}
+	eval := &fakeEvaluator{}
+	vp := onlyViewpoint(t, conformance(t, m, sym(t, root, "v"), eval))
+	wantVerdict(t, "verdict of mass", vp.Concerns[0].Verdict, VerdictConforms, vp.Concerns[0].Reason)
+	wantNames(t, "concerns evaluated", eval.asked, []string{"mass/vehicle"})
 }
 
 // Satisfies and framings come back in declaration order even where a named
@@ -448,9 +410,6 @@ func TestViewConformanceOrdersMixedNamedAndAnonymousMembers(t *testing.T) {
 			expose vehicle;
 			satisfy vp;
 			satisfy requirement named : OtherVP;
-			frame alpha;
-			frame concern middle : MassConcern;
-			frame omega;
 		}
 	`)
 	report := conformance(t, m, sym(t, root, "v"), &fakeEvaluator{})
@@ -491,9 +450,6 @@ func TestViewConformanceIsDeterministic(t *testing.T) {
 		view v {
 			expose vehicle; expose second;
 			satisfy vp; satisfy other;
-			frame concern mass : MassConcern;
-			frame concern cost : CostConcern;
-			frame concern cost2 : CostConcern;
 		}
 	`)
 	view := sym(t, root, "v")

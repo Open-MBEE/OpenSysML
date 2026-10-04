@@ -615,13 +615,13 @@ package RobotViews {
     }
 
     // States no rendering, so a tree renders it, with the interconnection view
-    // nested. `%view` checks the robots exposed against the concern framed here.
+    // nested. `%view` checks the robots exposed against the concern the
+    // satisfied viewpoint frames.
     view overview {
         expose Robot::fielded;
         expose Robot::heavyMockup;
         view interfaceSubview :> interfaces;
 
         satisfy operationsPerspective;
-        frame concern mass : MassBudget;
     }
 }

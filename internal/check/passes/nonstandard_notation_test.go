@@ -267,6 +267,29 @@ func TestTargetSuccessionAfterANonActionMemberIsAnExtension(t *testing.T) {
 	wantSilent(t, "a.kerml", "behavior A { step a; then a; }")
 }
 
+// TargetSuccessionMember is an ActionBodyItem, and a state body reads
+// `then <target>;` as a target transition; in a body that admits neither it is
+// an extension whatever member precedes it.
+func TestTargetSuccessionOutsideAnActionOrStateBodyIsAnExtension(t *testing.T) {
+	const outside = "`then <target>;` outside an action or state body"
+	wantNotation(t, "a.sysml", "view v { action x; then y; }", CodeNonstandardNotation, outside)
+	wantNotation(t, "a.sysml", "view def V { action x; then y; }", CodeNonstandardNotation, outside)
+	wantNotation(t, "a.sysml", "part def P { action x; then y; }", CodeNonstandardNotation, outside)
+	wantNotation(t, "a.sysml", "viewpoint def V { frame f; then y; }", CodeNonstandardNotation, outside)
+
+	got := notationDiags(t, "a.sysml", "view v { action x; then y; }", diag.ConformanceStrict)
+	if len(got) != 1 || got[0].Severity != diag.SeverityError || !got[0].Notation {
+		t.Fatalf("strict got %+v, want one notation error", got)
+	}
+
+	wantSilent(t, "a.sysml", "action def A { action x; then y; }")
+	wantSilent(t, "a.sysml", "action def A { action x; if true then y; else y; }")
+	wantSilent(t, "a.sysml", "state def S { state x; then y; state y; }")
+	wantSilent(t, "a.sysml", "state s { state x; then t; state t; }")
+	wantSilent(t, "a.sysml", "action def A { action x; then action y; }")
+	wantSilent(t, "a.sysml", "action def A { action x; action y; first x then y; }")
+}
+
 // RequirementConstraintMember belongs to a RequirementBody; anywhere else the
 // parser rejects `assume`/`require` outright (see the negative parser tests).
 func TestRequirementConstraintInsideARequirementBodyIsSilent(t *testing.T) {

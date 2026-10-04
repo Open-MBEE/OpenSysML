@@ -268,6 +268,21 @@ func TestNegative(t *testing.T) {
 		// ValuePart, unlike the performed action reference that shares its shape.
 		{"render_reference_value", "view def V { render r = 3; }"},
 
+		// FramedConcernMember is a RequirementBodyItem, ElementFilterMember a
+		// package/view-body item, and AcceptNode an ActionBodyItem (SysML.xtext):
+		// each is rejected by the bodies its grammar omits.
+		{"frame_in_view_body", "view V { frame concern c : C; }"},
+		{"frame_ref_in_view_body", "view V { frame c; }"},
+		{"frame_in_view_def_body", "view def V { frame concern c : C; }"},
+		{"frame_in_rendering_body", "rendering def R { frame c; }"},
+		{"frame_in_part_def_body", "part def P { frame c; }"},
+		{"filter_in_viewpoint_def_body", "viewpoint def V { filter true; }"},
+		{"filter_in_rendering_body", "rendering def R { filter true; }"},
+		{"filter_in_part_def_body", "part def P { filter true; }"},
+		{"accept_in_view_body", "view V { accept S; }"},
+		{"accept_action_in_view_body", "view V { action a accept S; }"},
+		{"accept_in_part_def_body", "part def P { accept S; }"},
+
 		// The sequence index and the collection notations: `#` indexes through a
 		// parenthesized index and `.?` selects through a body, so each is
 		// rejected where the notation it needs is absent rather than parsed as

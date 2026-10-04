@@ -112,6 +112,12 @@ const (
 	// only the view usage admits `expose`.
 	bodyViewDef
 	bodyView
+	// bodyPackage is a PackageBodyElement body: a package's or the file root's.
+	bodyPackage
+	// bodySuccession is the UsageBody an action target succession ends in
+	// (SysML.xtext:1698): it takes the action members of the body around it —
+	// accept nodes included — but no initial node or target succession of its own.
+	bodySuccession
 )
 
 // carriesActions reports whether the body admits ActionBodyItem (action, calc,
@@ -124,6 +130,14 @@ func (c bodyContext) carriesActions() bool {
 	return false
 }
 
+// admitsAcceptNode reports whether the body admits an AcceptNode: the
+// action-admitting bodies (SysML.xtext ActionBodyItem), a state body and the
+// usage body an action target succession carries, whose own members are read
+// the way they always have been.
+func (c bodyContext) admitsAcceptNode() bool {
+	return c.carriesActions() || c == bodyState || c == bodySuccession
+}
+
 // pushBodyContext enters a body of the given notation and returns the function
 // that leaves it.
 func (p *Parser) pushBodyContext(c bodyContext) func() {
@@ -132,10 +146,11 @@ func (p *Parser) pushBodyContext(c bodyContext) func() {
 	return func() { p.bodyCtx = p.bodyCtx[:depth] }
 }
 
-// bodyContext returns the notation of the innermost body being parsed.
+// bodyContext returns the notation of the innermost body being parsed; the
+// file root reads as a package body (SysML.xtext PackageBodyElement).
 func (p *Parser) bodyContext() bodyContext {
 	if len(p.bodyCtx) == 0 {
-		return bodyOther
+		return bodyPackage
 	}
 	return p.bodyCtx[len(p.bodyCtx)-1]
 }

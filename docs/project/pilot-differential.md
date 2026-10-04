@@ -237,9 +237,9 @@ nor double-counted as two independent disagreements.
 | `examples/pilot-corpora/sysml-validation` | 56 | 56 | 0 | 0 | 0 | 0 | 0 | 0 |
 | `examples/pilot-corpora/kerml-examples` | 58 | 56 | 9 | 0 | 0 | 0 | 9 | 0 |
 | `tests/testdata` | 19 | 10 | 44 | 68 | 34 | 1 | 9 | 33 |
-| `examples` | 45 | 30 | 11 | 1601 | 4 | 1 | 6 | 1596 |
+| `examples` | 45 | 32 | 11 | 1595 | 4 | 1 | 6 | 1590 |
 | `tools/referee/diff/testdata` (probes) | 4 | 1 | 6 | 0 | 0 | 0 | 6 | 0 |
-| **Total** | **381** | **343** | **83** | **1669** | **38** | **2** | **43** | **1629** |
+| **Total** | **381** | **345** | **83** | **1663** | **38** | **2** | **43** | **1623** |
 
 **Read the `only ours` total by root, never as one number.** Step 2 removes nine resolver false
 positives from the reference's **own** corpora: `pilot-examples` 16 → **7** and
@@ -281,7 +281,7 @@ Per category, the only-ours totals are: `training` 1 `multiplicity`; `pilot-exam
 `unmapped`, 2 `units`, 5 `kind-mismatch`, 1 `multiplicity`; `kerml-examples` 9 `unmapped`;
 `testdata` 8 `unmapped`, 1 `multiplicity`; `examples` 4 `unmapped`, 2 `multiplicity`; `probes`
 6 `unmapped`. Only-pilot: `testdata` 20 `kind-mismatch`, 3 `unmapped`, 3 `syntax`, 7
-`unresolved-reference`; `examples` 6 `syntax`, 29 `unmapped`, 673 `kind-mismatch`, 888
+`unresolved-reference`; `examples` 29 `unmapped`, 673 `kind-mismatch`, 888
 `unresolved-reference`.
 
 ### Legend of the Red Dragon departure round
@@ -742,9 +742,9 @@ no parser, validator or runtime code — every demo's `%`-command output is unch
 |---|---|---:|
 | `action-executor-demo.sysml` | `then done;` in place of a standalone `done;` declaration | 3 → **0** |
 | `phase-c-behavioral-bodies.sysml` | `entry`/`do`/`exit <action>` and named effect actions; declared Boolean features accepted with `accept when` | 3 → **0** |
-| `views-demo.sysml` | the descent flow as `first`/`fork`/`join`/`decide` with successions; `Descender::mass` declared without a default the two landers rebind; the framing view declared last | 8 → **2** |
+| `views-demo.sysml` | the descent flow as `first`/`fork`/`join`/`decide` with successions; `Descender::mass` declared without a default the two landers rebind | 8 → **0** |
 | `solver-demo.sysml` | `assert constraint` for an analysis case's own conditions; each objective redefines the subject it inherits | 15 → **5** |
-| `disposal-robot-demo/robot.sysml` | the same objective subject redefinition; the framing view declared last | 17 → **7** |
+| `disposal-robot-demo/robot.sysml` | the same objective subject redefinition | 17 → **1** |
 | `pseudostates-demo.sysml` | a state named `ready` rather than one shadowing the library's `start` | 8 → **7** |
 
 `require <constraint>` outside a requirement body and a standalone `done;` are the two the audit
@@ -771,11 +771,11 @@ What remains is adjudicated as extension notation this project supports delibera
   The exemption is the analysis case alone; a `case`, `verification` or `use case` declaration
   with a second objective is reported as the reference reports it, since no other case kind has
   the lexicographic semantics.
-- **`frame concern` in a view usage** (`views-demo.sysml`, `robot.sysml`) — `FramedConcernMember` is
-  a requirement-body member in the pilot grammar, not a view-body one, and the demos frame a concern
-  in the view because that is what `%view` evaluates the exposed elements against. Declaring the
-  framing view last confines the reference's recovery to the file's closing lines, 2 syntax rows
-  each instead of the whole view package.
+The `frame concern` member the demos once wrote in a view usage is retired, not adjudicated:
+`FramedConcernMember` is a requirement-body member in the pilot grammar, not a view-body one, so we
+now reject it the way the reference always did, and `%view` evaluates the exposed elements against
+the concern the satisfied viewpoint frames instead. `views-demo.sysml` and `robot.sysml` dropped the
+member, and the 2 syntax rows each are gone with it.
 
 The `testdata` fixtures the same notation appears in are unchanged: `passes/import_no_visibility.sysml`
 and `parse/namespaces.sysml` exist to exercise the diagnostics they carry, so their rows stay
@@ -827,8 +827,8 @@ cascades through the rest of the file. The movement is entirely one file,
 
 | Count | Before the initializer rewrite | Now |
 |---|---:|---:|
-| only pilot | 82 | **1629** |
-| pilot diagnostics | 123 | **1669** |
+| only pilot | 82 | **1623** |
+| pilot diagnostics | 123 | **1663** |
 | severity-only | 9 | **2** |
 
 The rewrite itself took only-pilot to 61 and pilot diagnostics to 101; the `Now` column states
@@ -853,7 +853,7 @@ view and analysis packages, and each is a construct the pinned artifact does not
 
 | What the demo writes | Rows | What the pilot reports |
 |---|---:|---|
-| `frame concern` in a view usage | 2 syntax | the member is not in its view grammar, and the cascade takes the file's closing brace |
+| `frame concern` in a view usage (removed since — a view frames nothing; the satisfied viewpoint does, and we reject the member too) | 2 → **0** syntax | the member is not in its view grammar, and the cascade takes the file's closing brace |
 | `view … : StateTransitionView` / `: ActionFlowView`, `render asElementTable` | 3 `unresolved-reference`, 4 `kind-mismatch` | our standard view definitions and rendering, which its libraries do not publish |
 | `objective … { require constraint … }` with `attribute :>> best` | 6 `unmapped` | one subject per requirement, no rebinding of `best`, one objective per analysis case (the rebinding rows retired with the objective-evaluation round, which states the value as the library's `eval`) |
 | a second objective for a lexicographic optimum | 2 `unmapped` | `Only one objective is allowed` |
@@ -1051,14 +1051,14 @@ page's history.
 
 | Count | Now |
 |---|---:|
-| overall: fully agreeing / only ours / our diagnostics | **343 / 43 / 83** |
-| only pilot | **1629** |
-| pilot diagnostics | **1669** |
+| overall: fully agreeing / only ours / our diagnostics | **345 / 43 / 83** |
+| only pilot | **1623** |
+| pilot diagnostics | **1663** |
 | severity-only | **2** |
 | unmapped, our side | **35** |
 | kerml-examples: only ours | **9** |
 | pilot-examples: only ours | **12** |
-| examples: only pilot | **1596** |
+| examples: only pilot | **1590** |
 
 The KerML root is now the *cleanest* of the three OMG roots in proportion: **9** only-ours against 6
 only-pilot, with 56 of 58 files fully agreeing (439 / 6 and 10 / 58 when the root was added, and
