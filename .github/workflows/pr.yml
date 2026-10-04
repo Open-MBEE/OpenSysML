@@ -726,7 +726,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-    timeout-minutes: 10
+    timeout-minutes: 15
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -747,6 +747,13 @@ jobs:
             COMMIT="$(git rev-parse --short HEAD)" \
             BUILD_TIME="$(date -u '+%Y-%m-%d_%H:%M:%S')" \
             GO_VERSION="$(go version | awk '{print $3}')"
+
+      - name: Build the combined WebAssembly module
+        run: |
+          mkdir -p bin/wasm
+          GOOS=js GOARCH=wasm go build -trimpath -ldflags="-s -w" \
+            -o bin/wasm/sysml-wasm.wasm ./cmd/sysml-wasm
+          cp "$(go env GOROOT)/lib/wasm/wasm_exec.js" bin/wasm/
 
       - name: Verify binaries
         run: |
@@ -1109,6 +1116,9 @@ jobs:
         run: |
           chmod +x bin/sysml-grpc
           echo "OPENSYSML_BINARY=$(pwd)/bin/sysml-grpc" >> "$GITHUB_ENV"
+          echo "OPENSYSML_WASM=$(pwd)/bin/wasm/sysml-wasm.wasm" >> "$GITHUB_ENV"
+          echo "OPENSYSML_WASM_EXEC=$(pwd)/bin/wasm/wasm_exec.js" >> "$GITHUB_ENV"
+          echo "OPENSYSML_REQUIRE_WASM=1" >> "$GITHUB_ENV"
 
       - name: Install the client's dependencies
         working-directory: client/node
