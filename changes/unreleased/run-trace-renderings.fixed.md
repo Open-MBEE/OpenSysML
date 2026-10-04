@@ -1,1 +1,0 @@
-- **Keep run rendering output specific to sessions.** Run diagrams preserve held object paths, explicit end instants, payload-bearing sibling messages and text output when written to stdout. Timeline span origins appear on their span line, and sequence lifelines preserve full session paths rather than applying model-name formatting.
