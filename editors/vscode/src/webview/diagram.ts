@@ -13,6 +13,7 @@ import {
 import { cameoLook, type DiagramStyle, pilotLook, STYLE_LABELS, STYLES, styleOf } from "../style";
 import { MenuCommand, MenuItem, nodeMenu, paletteItems } from "./actions";
 import { autoLayout, type AutoLayout } from "./autolayout";
+import { loadAvoid, reportAvoidFailure } from "./avoid";
 import { cssEscape, drawCanvas, liftNode } from "./canvas";
 import { dragHint, Drop, dropOn } from "./drop";
 import { tableOf } from "./table";
@@ -51,7 +52,8 @@ const undrawableList = document.getElementById("undrawable-list") as HTMLElement
 const adder = document.getElementById("add") as HTMLSelectElement;
 const menu = document.getElementById("menu") as HTMLUListElement;
 
-const documentURI = (JSON.parse(body.dataset.state ?? "{}") as { uri?: string }).uri ?? "";
+const state = JSON.parse(body.dataset.state ?? "{}") as { uri?: string; avoid?: string };
+const documentURI = state.uri ?? "";
 const saved = (vscode.getState() ?? {}) as { view?: string; last?: RenderResult; style?: string };
 let selected = saved.view ?? "";
 // A rendering saved by an older extension is normalized like a fresh one, and
@@ -84,6 +86,18 @@ if (last) {
   draw(last);
   diagram.classList.add("stale");
 }
+
+// The WASM router loads after the first draw, so edges it would route stay
+// straight until it answers; a drawn mermaid rendering is laid out again then.
+loadAvoid(state.avoid ?? "").then(
+  () => {
+    if (last && layout && !gesture) {
+      layout = layoutCanvas(last, {}, auto);
+      show(layout);
+    }
+  },
+  (error: unknown) => reportAvoidFailure("failed to load", error),
+);
 
 // The look changes at once; the extension keeps the choice and renders for its palette.
 styler.addEventListener("change", () => {

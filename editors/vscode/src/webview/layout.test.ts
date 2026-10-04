@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import path from "node:path";
 import { test } from "node:test";
 
 import type { RenderEdge, RenderNode, RenderResult } from "../protocol";
@@ -20,7 +21,9 @@ import {
   shapeOf,
   steerable,
 } from "./layout";
-import { CLEARANCE } from "./reroute";
+import { CLEARANCE, loadAvoid } from "./avoid";
+
+const WASM = path.resolve("node_modules/libavoid-js/dist/libavoid.wasm");
 
 const origin = { uri: "file:///m.sysml", range: { start: { line: 0, character: 0 }, end: { line: 0, character: 4 } }, digest: "d0" };
 
@@ -42,6 +45,19 @@ function rendering(nodes: RenderNode[], edges: RenderEdge[] = [], extra: Partial
     ...extra,
   };
 }
+
+test("layoutCanvas draws a pinned node's edge straight until the router has loaded", () => {
+  const layout = layoutCanvas(rendering(
+    [
+      node("a", "a", { x: 0, y: 0, width: 100, height: 40 }),
+      node("b", "b", { x: 400, y: 200, width: 100, height: 40 }),
+      node("c", "c", { x: 180, y: -20, width: 60, height: 80 }),
+    ],
+    [{ from: "a", to: "b", label: "", kind: "connection", fqn: "M::ab" }],
+  ));
+  assert.equal(layout.edges[0].rerouted, false);
+  assert.equal(layout.edges[0].points.length, 2);
+});
 
 test("layoutCanvas places unplaced roots in a near-square grid, in order, from the margin", () => {
   const layout = layoutCanvas(rendering([node("a", "a"), node("b", "b"), node("c", "c"), node("d", "d"), node("e", "e")]));
@@ -450,7 +466,7 @@ test("overridesOf previews a gesture: the moved node and route show where the dr
   assert.equal(preview.edges[0].points.length, 2);
 });
 
-test("layoutCanvas takes an auto layout's geometry for nodes the model does not place", () => {
+test("layoutCanvas takes an auto layout's geometry for nodes the model does not place", async () => {
   const auto: AutoLayout = {
     nodes: new Map([
       ["a", { x: 100, y: 50, width: 140, height: 60 }],
@@ -463,6 +479,7 @@ test("layoutCanvas takes an auto layout's geometry for nodes the model does not 
     [node("a", "a"), node("b", "b"), node("c", "c", { x: 50, y: 400, width: 90, height: 50 })],
     [{ from: "a", to: "b", label: "", kind: "connection", fqn: "M::ab" }, { from: "a", to: "c", label: "", kind: "connection", fqn: "M::ac" }],
   );
+  await loadAvoid(WASM);
   const layout = layoutCanvas(result, {}, auto);
   const a = layout.nodes.get("a")!;
   const b = layout.nodes.get("b")!;
@@ -547,7 +564,8 @@ function lengthMidpoint(points: { x: number; y: number }[]): { x: number; y: num
   return points[0] ?? { x: 0, y: 0 };
 }
 
-test("layoutCanvas routes a pinned node's edge orthogonally around the box between its ends", () => {
+test("layoutCanvas routes a pinned node's edge orthogonally around the box between its ends", async () => {
+  await loadAvoid(WASM);
   const layout = layoutCanvas(rendering(
     [
       node("a", "a", { x: 0, y: 0, width: 100, height: 40 }),
@@ -594,7 +612,8 @@ test("layoutCanvas leaves a stated route and an overridden straight edge alone",
   assert.deepEqual(straight.route, []);
 });
 
-test("liftedEdges draws a crossing rerouted edge straight and shifts an inner one whole", () => {
+test("liftedEdges draws a crossing rerouted edge straight and shifts an inner one whole", async () => {
+  await loadAvoid(WASM);
   const layout = layoutCanvas(rendering(
     [
       node("a", "a", { x: 0, y: 0 }),
@@ -618,7 +637,8 @@ test("liftedEdges draws a crossing rerouted edge straight and shifts an inner on
   assert.deepEqual(crossing.route, []);
 });
 
-test("held keeps an unmoved rerouted edge's route and draws a moved end's straight", () => {
+test("held keeps an unmoved rerouted edge's route and draws a moved end's straight", async () => {
+  await loadAvoid(WASM);
   const result = rendering(
     [
       node("a", "a", { x: 0, y: 0, width: 100, height: 40 }),
@@ -643,7 +663,8 @@ test("held keeps an unmoved rerouted edge's route and draws a moved end's straig
   assert.equal(preview.edges[1].rerouted, true);
 });
 
-test("movedNode writes no route for a rerouted edge, and movedWaypoint writes one", () => {
+test("movedNode writes no route for a rerouted edge, and movedWaypoint writes one", async () => {
+  await loadAvoid(WASM);
   const layout = layoutCanvas(rendering(
     [
       node("a", "a", { x: 0, y: 0 }),
@@ -662,4 +683,52 @@ test("movedNode writes no route for a rerouted edge, and movedWaypoint writes on
   assert.deepEqual(placements.edges, [
     { index: 0, route: [{ x: 33, y: 45 }, ...edge.route.slice(1)] },
   ]);
+});
+
+// overlapLength is how much two axis-aligned collinear segments share.
+function overlapLength(
+  a0: { x: number; y: number },
+  a1: { x: number; y: number },
+  b0: { x: number; y: number },
+  b1: { x: number; y: number },
+): number {
+  if (a0.y === a1.y && b0.y === b1.y && a0.y === b0.y) {
+    return Math.max(0, Math.min(Math.max(a0.x, a1.x), Math.max(b0.x, b1.x)) - Math.max(Math.min(a0.x, a1.x), Math.min(b0.x, b1.x)));
+  }
+  if (a0.x === a1.x && b0.x === b1.x && a0.x === b0.x) {
+    return Math.max(0, Math.min(Math.max(a0.y, a1.y), Math.max(b0.y, b1.y)) - Math.max(Math.min(a0.y, a1.y), Math.min(b0.y, b1.y)));
+  }
+  return 0;
+}
+
+test("layoutCanvas separates three edges into one target: no shared collinear segment over a pixel", async () => {
+  await loadAvoid(WASM);
+  const layout = layoutCanvas(rendering(
+    [
+      node("a", "a", { x: 0, y: 0, width: 100, height: 40 }),
+      node("b", "b", { x: 0, y: 200, width: 100, height: 40 }),
+      node("c", "c", { x: 0, y: 400, width: 100, height: 40 }),
+      node("d", "d", { x: 400, y: 200, width: 100, height: 40 }),
+    ],
+    [
+      { from: "a", to: "d", label: "", kind: "connection", fqn: "M::ad" },
+      { from: "b", to: "d", label: "", kind: "connection", fqn: "M::bd" },
+      { from: "c", to: "d", label: "", kind: "connection", fqn: "M::cd" },
+    ],
+  ));
+  assert.ok(layout.edges.every((edge) => edge.rerouted));
+  for (let first = 0; first < layout.edges.length; first++) {
+    for (let second = first + 1; second < layout.edges.length; second++) {
+      const a = layout.edges[first].points;
+      const b = layout.edges[second].points;
+      for (let i = 1; i < a.length; i++) {
+        for (let j = 1; j < b.length; j++) {
+          assert.ok(
+            overlapLength(a[i - 1], a[i], b[j - 1], b[j]) <= 1,
+            `edges ${first} and ${second} share a collinear segment`,
+          );
+        }
+      }
+    }
+  }
 });

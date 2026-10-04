@@ -207,3 +207,6 @@ so `src/webview` has its own `tsconfig.json`.
 
 Press <kbd>F5</kbd> in VS Code with `editors/vscode` open to launch an Extension
 Development Host. `examples/demo.sysml` is a highlighting smoke-test file.
+
+Third-party licences for the bundled dependencies are listed in
+[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).

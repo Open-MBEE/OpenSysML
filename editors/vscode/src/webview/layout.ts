@@ -14,7 +14,7 @@ import {
 } from "../protocol";
 import type { AutoLayout } from "./autolayout";
 import { GAP, snap, type Box } from "./geometry";
-import { orthogonalRoute } from "./reroute";
+import { avoidRoutes } from "./avoid";
 
 export { GAP, snap } from "./geometry";
 export type { Box } from "./geometry";
@@ -175,34 +175,8 @@ export function layoutCanvas(result: RenderResult, overrides: Overrides = {}, au
     reach(entry.box.x, entry.box.y);
     reach(entry.box.x + entry.box.width, entry.box.y + entry.box.height);
   }
-  const shown = [...placed.values()].filter((entry) => !entry.hidden);
-  const held = overrides.held;
-  const around = held
-    ? // A held layout's rerouted edge keeps its route while its ends have not moved.
-      (source: PlacedNode, target: PlacedNode, index: number): RenderPoint[] | undefined => {
-        const edge = held.edges[index];
-        return edge?.rerouted === true &&
-          sameBox(held.nodes.get(edge.edge.from)?.box, source.box) &&
-          sameBox(held.nodes.get(edge.edge.to)?.box, target.box)
-          ? edge.points
-          : undefined;
-      }
-    : // Every drawn box is an obstacle but the edge's own ends and their ancestors.
-      (source: PlacedNode, target: PlacedNode): RenderPoint[] | undefined => {
-        const excluded = new Set<PlacedNode>();
-        for (let entry: PlacedNode | undefined = source; entry; entry = entry.parent) {
-          excluded.add(entry);
-        }
-        for (let entry: PlacedNode | undefined = target; entry; entry = entry.parent) {
-          excluded.add(entry);
-        }
-        return orthogonalRoute(
-          source.box,
-          target.box,
-          shown.filter((entry) => !excluded.has(entry)).map((entry) => entry.box),
-        );
-      };
-  const edges = (result.edges ?? []).map((edge, index) => routeEdge(edge, index, placed, overrides.routes, auto, around));
+  const edges = (result.edges ?? []).map((edge, index) => routeEdge(edge, index, placed, overrides.routes, auto));
+  rerouteAroundBoxes(edges, placed, roots, overrides, auto);
   for (const edge of edges) {
     if (edge.hidden) {
       continue;
@@ -458,15 +432,12 @@ function routeEdge(
   placed: Map<string, PlacedNode>,
   routes: Map<number, RenderPoint[] | undefined> | undefined,
   auto?: AutoLayout,
-  // Routes an edge otherwise drawn straight around the other boxes; the route is the panel's, never the model's.
-  around?: (source: PlacedNode, target: PlacedNode, index: number) => RenderPoint[] | undefined,
 ): PlacedEdge {
   const stated = routes?.has(index) ? routes.get(index) : edge.route;
   const source = placed.get(edge.from);
   const target = placed.get(edge.to);
-  const routed =
-    stated === undefined && source?.pinned === false && target?.pinned === false ? auto?.routes.get(index) : undefined;
-  if (routed !== undefined && routed.length >= 2) {
+  const routed = autoRoute(edge, index, routes, auto, source, target);
+  if (routed !== undefined) {
     // ELK's anchors already lie on the boxes' borders, so its polyline is drawn
     // verbatim and a drag edits only the inner waypoints.
     return {
@@ -478,21 +449,6 @@ function routeEdge(
       hidden: source?.hidden === true || target?.hidden === true,
       rerouted: false,
     };
-  }
-  if (
-    around !== undefined &&
-    !routes?.has(index) &&
-    (edge.route?.length ?? 0) === 0 &&
-    edge.from !== edge.to &&
-    source !== undefined &&
-    target !== undefined &&
-    !source.hidden &&
-    !target.hidden
-  ) {
-    const points = around(source, target, index);
-    if (points !== undefined) {
-      return { edge, index, points, route: points.slice(1, -1), label: midpoint(points), hidden: false, rerouted: true };
-    }
   }
   const route = stated ?? [];
   const from = source?.box ?? { x: 0, y: 0, width: 0, height: 0 };
@@ -512,6 +468,118 @@ function routeEdge(
 
 function sameBox(a: Box | undefined, b: Box): boolean {
   return a !== undefined && a.x === b.x && a.y === b.y && a.width === b.width && a.height === b.height;
+}
+
+// autoRoute is the auto layout's route for an edge, usable only where neither end
+// is placed: an end the model or a gesture moved is where the route was computed.
+function autoRoute(
+  edge: RenderEdge,
+  index: number,
+  routes: Map<number, RenderPoint[] | undefined> | undefined,
+  auto: AutoLayout | undefined,
+  source: PlacedNode | undefined,
+  target: PlacedNode | undefined,
+): RenderPoint[] | undefined {
+  const stated = routes?.has(index) ? routes.get(index) : edge.route;
+  const routed =
+    stated === undefined && source?.pinned === false && target?.pinned === false ? auto?.routes.get(index) : undefined;
+  return routed !== undefined && routed.length >= 2 ? routed : undefined;
+}
+
+// avoidable is an edge the panel routes around the boxes: nothing states its route,
+// the auto layout has none for it, and both ends are drawn, distinct and not hidden.
+function avoidable(
+  edge: RenderEdge,
+  index: number,
+  placed: Map<string, PlacedNode>,
+  routes: Map<number, RenderPoint[] | undefined> | undefined,
+  auto: AutoLayout | undefined,
+): boolean {
+  const source = placed.get(edge.from);
+  const target = placed.get(edge.to);
+  return (
+    !routes?.has(index) &&
+    (edge.route?.length ?? 0) === 0 &&
+    edge.from !== edge.to &&
+    source !== undefined &&
+    target !== undefined &&
+    !source.hidden &&
+    !target.hidden &&
+    autoRoute(edge, index, routes, auto, source, target) === undefined
+  );
+}
+
+// rerouteAroundBoxes replaces the drawn-straight avoidable edges with routes around
+// the boxes: the held layout's kept where its ends have not moved during a gesture,
+// else one libavoid pass over every drawn box. The route is the panel's, never the model's.
+function rerouteAroundBoxes(
+  edges: PlacedEdge[],
+  placed: Map<string, PlacedNode>,
+  roots: PlacedNode[],
+  overrides: Overrides,
+  auto: AutoLayout | undefined,
+): void {
+  const held = overrides.held;
+  if (held) {
+    for (const edge of edges) {
+      const kept = held.edges[edge.index];
+      const source = placed.get(edge.edge.from);
+      const target = placed.get(edge.edge.to);
+      if (
+        kept?.rerouted === true &&
+        source !== undefined &&
+        target !== undefined &&
+        sameBox(held.nodes.get(kept.edge.from)?.box, source.box) &&
+        sameBox(held.nodes.get(kept.edge.to)?.box, target.box)
+      ) {
+        edges[edge.index] = { ...edge, points: kept.points, route: kept.route, label: kept.label, rerouted: true };
+      }
+    }
+    return;
+  }
+  const indices = edges
+    .filter((edge) => avoidable(edge.edge, edge.index, placed, overrides.routes, auto))
+    .map((edge) => edge.index);
+  if (indices.length === 0) {
+    return;
+  }
+  // Every drawn leaf is an obstacle, and so is a container an edge ends on.
+  const shapes = new Map<string, Box>();
+  const visit = (entry: PlacedNode): void => {
+    if (entry.hidden) {
+      return;
+    }
+    const shown = entry.children.filter((child) => !child.hidden);
+    if (shown.length === 0) {
+      shapes.set(entry.node.id, entry.box);
+    }
+    for (const child of shown) {
+      visit(child);
+    }
+  };
+  for (const root of roots) {
+    visit(root);
+  }
+  for (const index of indices) {
+    const edge = edges[index].edge;
+    shapes.set(edge.from, placed.get(edge.from)!.box);
+    shapes.set(edge.to, placed.get(edge.to)!.box);
+  }
+  const routes = avoidRoutes(
+    shapes,
+    indices.map((index) => ({ index, from: edges[index].edge.from, to: edges[index].edge.to })),
+  );
+  if (!routes) {
+    return;
+  }
+  for (const index of indices) {
+    const points = routes.get(index);
+    if (!points) {
+      continue;
+    }
+    const edge = edges[index];
+    edges[index] = { ...edge, points, route: points.slice(1, -1), label: midpoint(points), rerouted: true };
+  }
 }
 
 function center(box: Box): RenderPoint {
