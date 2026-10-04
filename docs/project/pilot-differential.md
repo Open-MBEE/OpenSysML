@@ -228,7 +228,7 @@ nor double-counted as two independent disagreements.
 
 ---
 
-## Results (pilot `2026-08`, 381 files)
+## Results (pilot `2026-08`, 382 files)
 
 | Root | Files | Fully agreeing | Ours | Pilot | Agreed | Severity-only | Only ours | Only pilot |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
@@ -237,9 +237,9 @@ nor double-counted as two independent disagreements.
 | `examples/pilot-corpora/sysml-validation` | 56 | 56 | 0 | 0 | 0 | 0 | 0 | 0 |
 | `examples/pilot-corpora/kerml-examples` | 58 | 56 | 9 | 0 | 0 | 0 | 9 | 0 |
 | `tests/testdata` | 19 | 10 | 44 | 68 | 34 | 1 | 9 | 33 |
-| `examples` | 45 | 30 | 11 | 1604 | 4 | 1 | 6 | 1599 |
+| `examples` | 46 | 31 | 11 | 1604 | 4 | 1 | 6 | 1599 |
 | `tools/referee/diff/testdata` (probes) | 4 | 1 | 6 | 0 | 0 | 0 | 6 | 0 |
-| **Total** | **381** | **343** | **83** | **1672** | **38** | **2** | **43** | **1632** |
+| **Total** | **382** | **344** | **83** | **1672** | **38** | **2** | **43** | **1632** |
 
 The case and mixed views added to `examples/views-demo.sysml` account for the three additional
 pilot-only diagnostics in the `examples` root when the pinned pilot runs without OpenSysML's
@@ -1060,7 +1060,7 @@ page's history.
 
 | Count | Now |
 |---|---:|
-| overall: fully agreeing / only ours / our diagnostics | **343 / 43 / 83** |
+| overall: fully agreeing / only ours / our diagnostics | **344 / 43 / 83** |
 | only pilot | **1632** |
 | pilot diagnostics | **1672** |
 | severity-only | **2** |

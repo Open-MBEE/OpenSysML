@@ -7,6 +7,7 @@ export type {
   ResponseTap,
   TransportOptions,
 } from "./connection.js";
+export type { WasmHost } from "./wasm.js";
 export { Instance, InstanceTree, Model, ModelSymbol, decodeDiagnostic } from "./model.js";
 export type {
   AttributeFacts,
