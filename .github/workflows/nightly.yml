@@ -239,6 +239,8 @@ jobs:
           } > notes.md
           cat notes.md
 
+      # Recreated rather than edited, so no asset of a previous night survives.
+      # `gh release delete` leaves the tag behind; it is moved by hand.
       - name: Publish the prerelease at the moving tag
         env:
           GH_TOKEN: ${{ github.token }}
