@@ -5,6 +5,72 @@ work. Nothing else is needed for the rest of this guide.
 
 ## From a release build (recommended)
 
+### With the install script
+
+One command installs the current release's `sysml` and `sysml-lsp` on any supported
+platform. The script works out the operating system and architecture, downloads the matching
+bundle with the release's `SHA256SUMS.txt`, refuses to install anything whose digest does not
+match, and runs each installed binary's `--version` before reporting where it went.
+
+**Linux and macOS:**
+```bash
+curl -fsSL https://opensysml.org/install.sh | sh
+```
+Binaries go to `/usr/local/bin` when it is writable and to `~/.local/bin` otherwise, with the
+manual pages beside them under `share/man/man1`; the script says so when the directory is not
+on your `PATH`. It needs `curl` or `wget`, `tar`, and `sha256sum`, `shasum` or `openssl` —
+all present on a stock Linux or macOS system — and it never edits a shell profile. On macOS
+the download is made by `curl`, so Gatekeeper raises none of the prompts described in
+[macOS: Gatekeeper](#macos-gatekeeper).
+
+**Windows (PowerShell 5.1 or later, no administrator rights):**
+```powershell
+irm https://opensysml.org/install.ps1 | iex
+```
+The portable ZIP is installed to `%LOCALAPPDATA%\Programs\OpenSysML`, which is added to the
+*user* `PATH` (new terminals see it; `-NoPath` leaves `PATH` alone). When the release carries
+the SignPath-signed build, `opensysml-windows-amd64-signed.zip` is installed in preference to
+the unsigned one. The ZIP has no solver; the [MSI](#windows-msi) remains the route to a
+system-wide install with Z3 bundled.
+
+Options are passed after `sh -s --` on Unix and as parameters on Windows; each also has an
+environment variable for unattended installs:
+
+| Choice | `install.sh` | `install.ps1` | Environment |
+|---|---|---|---|
+| Release: a tag, `latest` or `nightly` | `--version v0.9.1` | `-Version v0.9.1` | `OPENSYSML_VERSION` |
+| Tools: `sysml`, `sysml-lsp`, `sysml-grpc` or `all` | `--tools sysml` | `-Tools sysml` | `OPENSYSML_TOOLS` |
+| Where to install | `--prefix ~/opt` or `--bin-dir ~/bin` | `-InstallDir D:\Tools\OpenSysML` | `OPENSYSML_PREFIX`, `OPENSYSML_BIN_DIR`, `OPENSYSML_INSTALL_DIR` |
+| A mirror of the GitHub release tree | `--base-url URL` | `-BaseUrl URL` | `OPENSYSML_DOWNLOAD_BASE` |
+| Show the choice, install nothing | `--dry-run` | `-DryRun` | |
+| Also verify the manifest's cosign signature | `--verify-signature` | | |
+
+```bash
+# the language server alone, into a directory of your own, from the nightly snapshot
+curl -fsSL https://opensysml.org/install.sh | sh -s -- --tools sysml-lsp --bin-dir ~/bin --version nightly
+
+# everything the release publishes, with the checksum manifest's signature checked by cosign
+curl -fsSL https://opensysml.org/install.sh | sh -s -- --tools all --verify-signature
+```
+```powershell
+# the REPL alone, pinned to a release
+& ([scriptblock]::Create((irm https://opensysml.org/install.ps1))) -Tools sysml -Version v0.9.1
+```
+
+`--verify-signature` checks `SHA256SUMS.txt` against the signature the release pipeline
+publishes beside it (see [the signed checksum manifest](../project/releasing.md#the-signed-checksum-manifest)); it needs
+[cosign](https://docs.sigstore.dev/cosign/system_config/installation/) on `PATH`. Without it
+the script still verifies every download against the manifest; the signature additionally
+proves the manifest itself came from the project's CI.
+
+The scripts are [`install.sh`](https://github.com/Open-MBEE/OpenSysML/blob/main/install.sh)
+and [`install.ps1`](https://github.com/Open-MBEE/OpenSysML/blob/main/install.ps1) at the root
+of the repository, so a checkout runs `./install.sh`, and `--os`/`--arch` (`-Os`/`-Arch`)
+stage another platform's build into a directory without running it, for an image or an
+offline machine.
+
+### By hand
+
 Download the latest release for your platform from [GitHub Releases](https://github.com/Open-MBEE/OpenSysML/releases)
 — the [downloads page](../downloads.md) summarizes every artifact and package-manager
 route, including the prebuilt VS Code extension:
@@ -40,6 +106,7 @@ tar xzf opensysml.tar.gz
 sudo mv sysml sysml-lsp /usr/local/bin/
 ```
 
+<a id="windows-msi"></a>
 **Windows — use the installer.** Download `opensysml-<x.y.z>-windows-amd64.msi` from
 [releases](https://github.com/Open-MBEE/OpenSysML/releases/latest) and run it. A setup wizard
 lets you pick the destination folder and the optional components; by default it installs
