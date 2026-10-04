@@ -14,7 +14,7 @@ import (
 )
 
 func TestCaseAndMixedFixturesHaveNoErrorDiagnostics(t *testing.T) {
-	files := []string{"case.sysml", "mixed.sysml"}
+	files := []string{"case.sysml", "mixed.sysml", "mixed-inherited-actor.sysml"}
 	idx := libs.NewModelIndex()
 	roots := make(map[string]*ast.RootNamespace, len(files))
 	parseDiagnostics := make(map[string][]diag.Diagnostic, len(files))

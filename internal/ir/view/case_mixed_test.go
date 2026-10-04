@@ -291,6 +291,146 @@ func TestMixedViewContainsSharedKindsAndReferenceEdges(t *testing.T) {
 	}
 }
 
+func TestMixedInheritedRoleOccurrencesKeepTypingEdges(t *testing.T) {
+	renderer, index := loadFixture(t, "mixed-inherited-actor.sysml")
+	rendering, err := renderer.Render(lookup(t, index, "MixedInheritedActor::mixedView"))
+	if err != nil {
+		t.Fatalf("Render(mixedView): %v", err)
+	}
+	nodes := rendering.Data().Nodes
+	nodesByKindAndName := map[string][]NodeData{}
+	for _, node := range nodes {
+		nodesByKindAndName[node.Kind+"\x00"+node.Name] = append(nodesByKindAndName[node.Kind+"\x00"+node.Name], node)
+	}
+	drivers := nodesByKindAndName["actor\x00driver"]
+	vehicles := nodesByKindAndName["subject\x00vehicle"]
+	people := nodesByKindAndName["part def\x00MixedInheritedActor::Person"]
+	vehicleDefs := nodesByKindAndName["part def\x00MixedInheritedActor::Vehicle"]
+	if len(drivers) != 2 || len(vehicles) != 2 {
+		t.Fatalf("drawn inherited roles: drivers=%d subjects=%d, want two each", len(drivers), len(vehicles))
+	}
+	if len(people) != 1 || len(vehicleDefs) != 1 {
+		t.Fatalf("drawn definitions: Person=%d Vehicle=%d, want one each", len(people), len(vehicleDefs))
+	}
+	for _, tc := range []struct {
+		name    string
+		sources []NodeData
+		target  NodeData
+	}{
+		{name: "driver", sources: drivers, target: people[0]},
+		{name: "vehicle", sources: vehicles, target: vehicleDefs[0]},
+	} {
+		for _, source := range tc.sources {
+			count := 0
+			for _, edge := range rendering.Edges {
+				if edge.Kind == EdgeTyping && edge.From == source.ID && edge.To == tc.target.ID {
+					count++
+				}
+			}
+			if count != 1 {
+				t.Errorf("%s node %s has %d typing edges to %s, want one", tc.name, source.ID, count, tc.target.ID)
+			}
+			dataCount := 0
+			for _, edge := range rendering.Data().Edges {
+				if edge.Kind == EdgeTyping && edge.From == source.ID && edge.To == tc.target.ID {
+					dataCount++
+				}
+			}
+			if dataCount != 1 {
+				t.Errorf("data: %s node %s has %d typing edges to %s, want one", tc.name, source.ID, dataCount, tc.target.ID)
+			}
+		}
+	}
+
+	text := rendering.Text()
+	if count := strings.Count(text, "  driver ..> "); count != len(drivers) {
+		t.Errorf("text has %d driver typing lines, want %d:\n%s", count, len(drivers), text)
+	}
+	if count := strings.Count(text, "  vehicle ..> "); count != len(vehicles) {
+		t.Errorf("text has %d subject typing lines, want %d:\n%s", count, len(vehicles), text)
+	}
+
+	mermaid := rendering.Mermaid()
+	if got := mermaidEdges(mermaid); got != len(rendering.Edges) {
+		t.Errorf("Mermaid declares %d edges, want %d:\n%s", got, len(rendering.Edges), mermaid)
+	}
+	for _, edge := range rendering.Edges {
+		if edge.Kind == EdgeTyping && !strings.Contains(mermaid, edge.From+" -.-> "+edge.To) {
+			t.Errorf("Mermaid omits typing edge %s -> %s:\n%s", edge.From, edge.To, mermaid)
+		}
+	}
+
+	dot, err := rendering.DOT()
+	if err != nil {
+		t.Fatalf("DOT: %v", err)
+	}
+	checkDOTSyntax(t, dot)
+	for _, edge := range rendering.Edges {
+		if edge.Kind != EdgeTyping {
+			continue
+		}
+		found := false
+		for _, line := range strings.Split(dot, "\n") {
+			if strings.HasPrefix(strings.TrimSpace(line), dotQuote(edge.From)+" -> "+dotQuote(edge.To)+" [") &&
+				strings.Contains(line, "style=dashed") && strings.Contains(line, "arrowhead=open") {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Errorf("DOT omits styled typing edge %s -> %s:\n%s", edge.From, edge.To, dot)
+		}
+	}
+
+	plantuml, err := rendering.PlantUML()
+	if err != nil {
+		t.Fatalf("PlantUML: %v", err)
+	}
+	checkPlantUMLSyntax(t, plantuml)
+	checkPlantUMLRenders(t, plantuml)
+	for _, edge := range rendering.Edges {
+		if edge.Kind == EdgeTyping && !strings.Contains(plantuml, edge.From+" ..> "+edge.To) {
+			t.Errorf("PlantUML omits typing edge %s -> %s:\n%s", edge.From, edge.To, plantuml)
+		}
+	}
+
+	caseRendering, err := renderer.Render(lookup(t, index, "MixedInheritedActor::caseView"))
+	if err != nil {
+		t.Fatalf("Render(caseView): %v", err)
+	}
+	caseNodes := map[string]NodeData{}
+	caseDrivers := 0
+	caseData := caseRendering.Data()
+	for _, node := range caseData.Nodes {
+		switch {
+		case node.Kind == "use case def" && strings.HasSuffix(node.Name, "::A"):
+			caseNodes["A"] = node
+		case node.Kind == "use case def" && strings.HasSuffix(node.Name, "::B"):
+			caseNodes["B"] = node
+		case node.Kind == "actor" && node.Name == "driver":
+			caseDrivers++
+		}
+	}
+	if len(caseNodes) != 2 || caseDrivers != 2 {
+		t.Errorf("case rendering has %d cases and %d drivers, want two each", len(caseNodes), caseDrivers)
+	}
+	for name, caseNode := range caseNodes {
+		count := 0
+		for _, edge := range caseRendering.Edges {
+			if edge.Kind == EdgeAssociation && edge.To == caseNode.ID {
+				for _, node := range caseData.Nodes {
+					if node.Kind == "actor" && node.Name == "driver" && node.ID == edge.From {
+						count++
+					}
+				}
+			}
+		}
+		if count != 1 {
+			t.Errorf("case %s has %d driver associations, want one", name, count)
+		}
+	}
+}
+
 func TestCaseAndMixedLayoutRoutesReachDrawnElements(t *testing.T) {
 	caseRenderer, caseIndex := loadFixture(t, "case.sysml")
 	caseView := lookup(t, caseIndex, "CaseExamples::caseLayout")

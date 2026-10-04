@@ -12,7 +12,8 @@ import (
 
 // renderCase walks exposed elements and writes case nodes, roles and relationships.
 func (r *Renderer) renderCase(view *symbols.Symbol, exposed []*symbols.Symbol, out *Rendering) {
-	w := &caseWalk{r: r, view: view, ids: &nodeIDs{}, drawn: map[*symbols.Symbol]*Node{}, out: out}
+	w := &caseWalk{r: r, view: view, ids: &nodeIDs{}, drawn: map[*symbols.Symbol]*Node{},
+		occurrences: map[*symbols.Symbol][]*Node{}, out: out}
 	for _, elem := range exposed {
 		if !w.collect(elem, true, nil, map[*symbols.Symbol]bool{}) {
 			out.Notices = append(out.Notices, fmt.Sprintf("%s %s holds no case; a case rendering does not show it",
@@ -27,6 +28,7 @@ type caseWalk struct {
 	view          *symbols.Symbol
 	ids           *nodeIDs
 	drawn         map[*symbols.Symbol]*Node
+	occurrences   map[*symbols.Symbol][]*Node
 	order         []*symbols.Symbol
 	out           *Rendering
 	container     *Node
@@ -94,6 +96,7 @@ func (w *caseWalk) render(sym *symbols.Symbol, exposed bool, owner *Node) *Node 
 		Geometry: w.r.geometryOf(w.view, sym, w.out)}
 	w.r.dress(w.view, sym, node, w.out)
 	w.drawn[sym] = node
+	w.occurrences[sym] = append(w.occurrences[sym], node)
 	w.order = append(w.order, sym)
 	w.append(node)
 	if w.out.drawn != nil {
@@ -197,6 +200,7 @@ func (w *caseWalk) roleNode(owner *symbols.Symbol, caseNode *Node, sym *symbols.
 	w.r.dress(w.view, sym, node, w.out)
 	w.append(node)
 	w.drawn[sym] = node
+	w.occurrences[sym] = append(w.occurrences[sym], node)
 	w.order = append(w.order, sym)
 	if w.out.drawn != nil {
 		w.out.drawn.noteMember(owner, sym)
@@ -217,6 +221,7 @@ func (w *caseWalk) objectiveNode(owner *symbols.Symbol, caseNode *Node, sym *sym
 	w.r.dress(w.view, sym, node, w.out)
 	w.append(node)
 	w.drawn[sym] = node
+	w.occurrences[sym] = append(w.occurrences[sym], node)
 	w.order = append(w.order, sym)
 	if w.out.drawn != nil {
 		w.out.drawn.noteMember(owner, sym)
