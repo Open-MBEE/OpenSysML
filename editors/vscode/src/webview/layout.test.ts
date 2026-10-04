@@ -1194,6 +1194,48 @@ test("alignedPlacement lines up a short east-to-west offset in either direction"
   }
 });
 
+test("alignedPlacement ignores east ports wired to other east ports", () => {
+  const bounds: Box = { x: 0, y: 0, width: 900, height: 400 };
+  const layout = layoutWithPorts(
+    [portNode("moving", 80, 100), portNode("target", 500, 105)],
+    [connectedEdge("moving", "target")],
+    fixedPorts(["moving.api", "east", 0.5], ["target.api", "east", 0.5]),
+    bounds,
+  );
+  const moving = layout.nodes.get("moving")!;
+  const at = { x: moving.box.x, y: moving.box.y };
+
+  assert.deepEqual(alignedPlacement(moving, at, layout, bounds, 0), at);
+});
+
+test("alignedPlacement ignores a west port to the left of an east port", () => {
+  const bounds: Box = { x: 0, y: 0, width: 900, height: 400 };
+  const layout = layoutWithPorts(
+    [portNode("moving", 500, 100), portNode("target", 100, 105)],
+    [connectedEdge("moving", "target")],
+    fixedPorts(["moving.api", "east", 0.5], ["target.api", "west", 0.5]),
+    bounds,
+  );
+  const moving = layout.nodes.get("moving")!;
+  const at = { x: moving.box.x, y: moving.box.y };
+
+  assert.deepEqual(alignedPlacement(moving, at, layout, bounds, 0), at);
+});
+
+test("alignedPlacement ignores south-to-north ports that face apart", () => {
+  const bounds: Box = { x: 0, y: 0, width: 900, height: 500 };
+  const layout = layoutWithPorts(
+    [portNode("moving", 80, 300), portNode("target", 85, 100)],
+    [connectedEdge("moving", "target")],
+    fixedPorts(["moving.api", "south", 0.5], ["target.api", "north", 0.5]),
+    bounds,
+  );
+  const moving = layout.nodes.get("moving")!;
+  const at = { x: moving.box.x, y: moving.box.y };
+
+  assert.deepEqual(alignedPlacement(moving, at, layout, bounds, 0), at);
+});
+
 test("alignedPlacement leaves zero and exactly MIN_JOG offsets unchanged", () => {
   const bounds: Box = { x: 0, y: 0, width: 900, height: 400 };
   for (const offset of [0, MIN_JOG]) {
@@ -1270,7 +1312,7 @@ test("alignedPlacement minimizes remaining jogs before choosing the smaller shif
 test("alignedPlacement lines up north-to-south ports on x", () => {
   const bounds: Box = { x: 0, y: 0, width: 900, height: 500 };
   const layout = layoutWithPorts(
-    [portNode("moving", 80, 100), portNode("target", 85, 300)],
+    [portNode("moving", 80, 300), portNode("target", 85, 100)],
     [connectedEdge("moving", "target")],
     fixedPorts(["moving.api", "north", 0.5], ["target.api", "south", 0.5]),
     bounds,

@@ -582,9 +582,6 @@ export function alignedPlacement(
     otherNode: PlacedNode;
     axis: "x" | "y";
   }> = [];
-  const horizontal = (side: Side): boolean => side === "east" || side === "west";
-  const vertical = (side: Side): boolean => side === "north" || side === "south";
-
   for (const placed of layout.edges) {
     if (placed.hidden) {
       continue;
@@ -609,11 +606,16 @@ export function alignedPlacement(
     if (!port || !other) {
       continue;
     }
-    const axis = horizontal(port.side) && horizontal(other.side)
-      ? "y"
-      : vertical(port.side) && vertical(other.side)
-        ? "x"
-        : undefined;
+    const ownFace = portFace({ ...node.box, x: at.x, y: at.y }, port);
+    const otherFace = portFace(otherNode.box, other);
+    const axis =
+      (port.side === "east" && other.side === "west" && otherFace.x > ownFace.x) ||
+      (port.side === "west" && other.side === "east" && otherFace.x < ownFace.x)
+        ? "y"
+        : (port.side === "south" && other.side === "north" && otherFace.y > ownFace.y) ||
+            (port.side === "north" && other.side === "south" && otherFace.y < ownFace.y)
+          ? "x"
+          : undefined;
     if (axis) {
       pairs.push({ port, other, otherNode, axis });
     }
