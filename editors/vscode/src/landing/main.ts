@@ -3,7 +3,7 @@
 // the same canvas code as the VS Code diagram panel.
 import type { LayoutGeometry, RenderPoint, RenderResult } from "../protocol";
 import { autoLayout, type AutoLayout } from "../webview/autolayout";
-import { loadAvoid, portExitReach } from "../webview/avoid";
+import { CLEARANCE, loadAvoid, portExitReach } from "../webview/avoid";
 import { cssEscape, drawCanvas } from "../webview/canvas";
 import {
   clampNodeToBounds,
@@ -39,6 +39,15 @@ const LONG_PRESS = 550;
 const EDIT_DELAY = 300;
 const MAX_SCALE = 1.6;
 const HOP = 1000;
+
+function insetBox(box: Box, distance: number): Box {
+  return {
+    x: box.x + distance,
+    y: box.y + distance,
+    width: Math.max(0, box.width - 2 * distance),
+    height: Math.max(0, box.height - 2 * distance),
+  };
+}
 
 interface Mounted {
   dispose(): void;
@@ -199,8 +208,12 @@ function mount(root: HTMLElement): Mounted {
     };
   }
 
+  function placementBounds(): Box {
+    return insetBox(bounds(), CLEARANCE);
+  }
+
   function clamped(node: PlacedNode, at: RenderPoint): RenderPoint {
-    return clampNodeToBounds(node, at, bounds(), (port) => exitReach(node, port));
+    return clampNodeToBounds(node, at, placementBounds(), (port) => exitReach(node, port));
   }
 
   function exitReach(node: PlacedNode, port: PlacedPort): number {
@@ -239,7 +252,7 @@ function mount(root: HTMLElement): Mounted {
             entry,
             bounded,
             [...settled.values()].filter((other) => other.node.id !== entry.node.id),
-            bounds(),
+            placementBounds(),
             exitReach,
           )) ||
         bounded;
@@ -660,7 +673,7 @@ function mount(root: HTMLElement): Mounted {
     hero.classList.remove("osml-hero--dragging");
     if (ended.moved) {
       const entry = layout.nodes.get(ended.id);
-      const at = entry && freePlacement(entry, ended.at, otherNodes(ended.id), bounds(), exitReach);
+      const at = entry && freePlacement(entry, ended.at, otherNodes(ended.id), placementBounds(), exitReach);
       if (at) {
         moveTo(ended.id, at);
       }
@@ -764,7 +777,7 @@ function mount(root: HTMLElement): Mounted {
         entry,
         { x: box.x + direction[0] * step, y: box.y + direction[1] * step },
         otherNodes(id),
-        bounds(),
+        placementBounds(),
         exitReach,
         { x: direction[0], y: direction[1] },
       );

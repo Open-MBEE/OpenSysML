@@ -2,11 +2,12 @@ import assert from "node:assert/strict";
 import path from "node:path";
 import { test } from "node:test";
 
-import type { RenderEdge, RenderNode, RenderPoint, RenderResult } from "../protocol";
+import type { LayoutGeometry, RenderEdge, RenderNode, RenderPoint, RenderResult } from "../protocol";
 import type { AutoLayout } from "./autolayout";
 import {
   anchor,
   clampNodeToBounds,
+  type CanvasLayout,
   GAP,
   freePlacement,
   insertedWaypoint,
@@ -21,6 +22,7 @@ import {
   nodeUnder,
   overridesOf,
   type PlacedNode,
+  type PlacedPort,
   portBox,
   portCenter,
   portFace,
@@ -31,7 +33,7 @@ import {
   steerable,
   type Box,
 } from "./layout";
-import { CLEARANCE, loadAvoid } from "./avoid";
+import { CLEARANCE, loadAvoid, portExitReach } from "./avoid";
 
 const WASM = path.resolve("node_modules/libavoid-js/dist/libavoid.wasm");
 
@@ -67,8 +69,18 @@ function placedNode(
   return layoutCanvas(rendering([node(id, id, { x, y, width, height, ports })])).nodes.get(id)!;
 }
 
-function freeAt(node: PlacedNode, at: RenderPoint, others: PlacedNode[]): boolean {
-  const extent = nodeExtent({ ...node, box: { ...node.box, x: at.x, y: at.y } });
+function freeAt(
+  node: PlacedNode,
+  at: RenderPoint,
+  others: PlacedNode[],
+  portExitLeg: number | ((node: PlacedNode, port: PlacedPort) => number) = 0,
+): boolean {
+  const exitLeg = (entry: PlacedNode, port: PlacedPort): number =>
+    typeof portExitLeg === "number" ? portExitLeg : portExitLeg(entry, port);
+  const extent = nodeExtent(
+    { ...node, box: { ...node.box, x: at.x, y: at.y } },
+    (port) => exitLeg(node, port),
+  );
   const expanded = {
     x: extent.x - CLEARANCE,
     y: extent.y - CLEARANCE,
@@ -76,7 +88,13 @@ function freeAt(node: PlacedNode, at: RenderPoint, others: PlacedNode[]): boolea
     height: extent.height + 2 * CLEARANCE,
   };
   return others.every((other) => {
-    const obstacle = nodeExtent(other);
+    const extent = nodeExtent(other, (port) => exitLeg(other, port));
+    const obstacle = {
+      x: extent.x - CLEARANCE,
+      y: extent.y - CLEARANCE,
+      width: extent.width + 2 * CLEARANCE,
+      height: extent.height + 2 * CLEARANCE,
+    };
     return (
       expanded.x >= obstacle.x + obstacle.width ||
       expanded.x + expanded.width <= obstacle.x ||
@@ -115,6 +133,47 @@ function nearestFreeByBruteForce(
     }
   }
   return nearest;
+}
+
+function insetBox(box: Box, distance: number): Box {
+  return {
+    x: box.x + distance,
+    y: box.y + distance,
+    width: Math.max(0, box.width - 2 * distance),
+    height: Math.max(0, box.height - 2 * distance),
+  };
+}
+
+function assertOrthogonalRoutes(layout: CanvasLayout, bounds: Box, context = "layout"): void {
+  for (const edge of layout.edges) {
+    const source = layout.nodes.get(edge.edge.from)!;
+    const target = layout.nodes.get(edge.edge.to)!;
+    const sourcePort = source.ports.find((port) => port.port.id === edge.edge.fromPort)!;
+    const targetPort = target.ports.find((port) => port.port.id === edge.edge.toPort)!;
+    assert.equal(edge.rerouted, true);
+    assert.deepEqual(edge.points[0], portFace(source.box, sourcePort));
+    assert.deepEqual(edge.points.at(-1), portFace(target.box, targetPort));
+    assert.ok(
+      edge.points.every(
+        ({ x, y }) =>
+          x >= bounds.x && y >= bounds.y && x <= bounds.x + bounds.width && y <= bounds.y + bounds.height,
+      ),
+    );
+    for (let index = 1; index < edge.points.length; index++) {
+      const previous = edge.points[index - 1];
+      const current = edge.points[index];
+      assert.ok(
+        previous.x === current.x || previous.y === current.y,
+        `${context} route ${edge.edge.from} → ${edge.edge.to} has a diagonal segment: ${JSON.stringify({
+          segment: [previous, current],
+          source: source.box,
+          sourcePort,
+          target: target.box,
+          targetPort,
+        })}`,
+      );
+    }
+  }
 }
 
 test("layoutCanvas draws a pinned node's edge straight until the router has loaded", () => {
@@ -1017,7 +1076,7 @@ test("freePlacement moves an overlap on the left to its nearest free side", () =
   const other = placedNode("other", 150, 100);
   const bounds: Box = { x: 0, y: 0, width: 500, height: 300 };
 
-  assert.deepEqual(freePlacement(moving, moving.box, [other], bounds, 0), { x: 54, y: 100 });
+  assert.deepEqual(freePlacement(moving, moving.box, [other], bounds, 0), { x: 38, y: 100 });
 });
 
 test("freePlacement respects a wall and chooses the other side of an overlap", () => {
@@ -1025,7 +1084,7 @@ test("freePlacement respects a wall and chooses the other side of an overlap", (
   const other = placedNode("other", 70, 20);
   const bounds: Box = { x: 0, y: 0, width: 300, height: 80 };
 
-  assert.deepEqual(freePlacement(moving, moving.box, [other], bounds, 0), { x: 166, y: 20 });
+  assert.deepEqual(freePlacement(moving, moving.box, [other], bounds, 0), { x: 182, y: 20 });
 });
 
 test("freePlacement includes each node's port exit leg in its extent", () => {
@@ -1040,7 +1099,7 @@ test("freePlacement includes each node's port exit leg in its extent", () => {
     return 40;
   });
 
-  assert.deepEqual(withNoExit, { x: moving.box.x, y: moving.box.y });
+  assert.deepEqual(withNoExit, { x: 88, y: moving.box.y });
   assert.ok(withExit);
   assert.notDeepEqual(withExit, moving.box);
 });
@@ -1060,7 +1119,7 @@ test("freePlacement jumps past an overlap in the requested direction", () => {
 
   assert.deepEqual(
     freePlacement(moving, { x: 100, y: 20 }, [other], bounds, 0, { x: 1, y: 0 }),
-    { x: 166, y: 20 },
+    { x: 182, y: 20 },
   );
 });
 
@@ -1073,7 +1132,7 @@ test("freePlacement leaves a directional step unchanged when that direction is b
 });
 
 test("freePlacement finds the nearest free position in the off-grid review scene", () => {
-  const bounds: Box = { x: 0, y: 0, width: 120, height: 120 };
+  const bounds: Box = { x: 0, y: 0, width: 180, height: 120 };
   const moving = placedNode("moving", 6, 70, 16, 16);
   const others = [
     placedNode("a", 67, 58, 48, 48),
@@ -1247,6 +1306,148 @@ test("layoutCanvas reroutes attached orthogonal wires after a dropped node is fr
       assert.ok(edge.points[index - 1].x === edge.points[index].x || edge.points[index - 1].y === edge.points[index].y);
     }
   }
+});
+
+test("landing stacked-drop repro starts with diagonal routes", async () => {
+  await loadAvoid(WASM);
+  const boxes: Record<string, Box> = {
+    n1: { x: 133, y: 240, width: 159, height: 70 },
+    n7: { x: -206.9174346923828, y: 331.2325134277344, width: 189, height: 70 },
+    n13: { x: 36, y: 36, width: 256, height: 70 },
+    n19: { x: -169.9174346923828, y: 417.2325134277344, width: 234, height: 70 },
+  };
+  const names: Record<string, string> = {
+    n1: "OpenSysML",
+    n7: "sysml-toolkit",
+    n13: "SysML v2 Pilot Implementation",
+    n19: "Flexo MMS",
+  };
+  const nodes = Object.entries(boxes).map(([id, box]) =>
+    node(id, names[id], { ...box, ports: [{ id: `${id}.api`, name: "api" }] }),
+  );
+  const edges = [
+    { from: "n13", to: "n19", fromPort: "n13.api", toPort: "n19.api", label: "", kind: "connection", fqn: "M::n13n19" },
+    { from: "n1", to: "n19", fromPort: "n1.api", toPort: "n19.api", label: "", kind: "connection", fqn: "M::n1n19" },
+    { from: "n7", to: "n19", fromPort: "n7.api", toPort: "n19.api", label: "", kind: "connection", fqn: "M::n7n19" },
+  ] as const;
+  const ports: AutoLayout["ports"] = new Map();
+  ports.set("n1.api", { side: "east", offset: 0.5 });
+  ports.set("n7.api", { side: "east", offset: 0.5 });
+  ports.set("n13.api", { side: "east", offset: 0.5 });
+  ports.set("n19.api", { side: "west", offset: 0.5 });
+  const auto: AutoLayout = { nodes: new Map(), routes: new Map(), ports };
+  const bounds: Box = {
+    x: -213.08255948571724,
+    y: -413.64820438139134,
+    width: 1098.1650895737687,
+    height: 907.2445130634958,
+  };
+  const result = rendering(nodes, [...edges]);
+  const stacked = layoutCanvas(result, { bounds }, auto);
+  const exitReach = (entry: PlacedNode, port: PlacedPort): number => {
+    const sharing = edges.filter(
+      (edge) =>
+        (edge.from === entry.node.id && edge.fromPort === port.port.id) ||
+        (edge.to === entry.node.id && edge.toPort === port.port.id),
+    ).length;
+    return portExitReach(sharing);
+  };
+
+  assert.ok(
+    stacked.edges.some(({ points }) =>
+      points.some(
+        (point, index) =>
+          index > 0 && point.x !== points[index - 1].x && point.y !== points[index - 1].y,
+      ),
+    ),
+    "the stacked layout should reproduce at least one diagonal fallback route",
+  );
+
+  const settled = new Map<string, LayoutGeometry>();
+  for (const id of ["n7", "n19"]) {
+    const current = layoutCanvas(result, { nodes: settled, bounds }, auto);
+    const moving = current.nodes.get(id)!;
+    const others = [...current.nodes.values()].filter((entry) => entry.node.id !== id && !entry.hidden);
+    const at = freePlacement(moving, moving.box, others, insetBox(bounds, CLEARANCE), exitReach);
+
+    assert.ok(at, `expected ${id} to have a free placement`);
+    assert.ok(freeAt(moving, at, others, exitReach), `expected ${id} to be clear of both routing buffers`);
+    settled.set(id, at);
+  }
+  assertOrthogonalRoutes(layoutCanvas(result, { nodes: settled, bounds }, auto), bounds);
+});
+
+test("freePlacement keeps a seeded four-node chain routable after drops", async () => {
+  await loadAvoid(WASM);
+  const bounds: Box = { x: 0, y: 0, width: 700, height: 400 };
+  const result = rendering(
+    [
+      node("a", "a", { x: 40, y: 180, width: 80, height: 40, ports: [{ id: "a.out", name: "out" }] }),
+      node("b", "b", {
+        x: 220,
+        y: 180,
+        width: 80,
+        height: 40,
+        ports: [{ id: "b.in", name: "in" }, { id: "b.out", name: "out" }],
+      }),
+      node("c", "c", {
+        x: 400,
+        y: 180,
+        width: 80,
+        height: 40,
+        ports: [{ id: "c.in", name: "in" }, { id: "c.out", name: "out" }],
+      }),
+      node("d", "d", { x: 580, y: 180, width: 80, height: 40, ports: [{ id: "d.in", name: "in" }] }),
+    ],
+    [
+      { from: "a", to: "b", fromPort: "a.out", toPort: "b.in", label: "", kind: "connection", fqn: "M::ab" },
+      { from: "b", to: "c", fromPort: "b.out", toPort: "c.in", label: "", kind: "connection", fqn: "M::bc" },
+      { from: "c", to: "d", fromPort: "c.out", toPort: "d.in", label: "", kind: "connection", fqn: "M::cd" },
+    ],
+  );
+  const auto: AutoLayout = {
+    nodes: new Map(),
+    routes: new Map(),
+    ports: new Map([
+      ["a.out", { side: "east", offset: 0.5 }],
+      ["b.in", { side: "west", offset: 0.5 }],
+      ["b.out", { side: "east", offset: 0.5 }],
+      ["c.in", { side: "west", offset: 0.5 }],
+      ["c.out", { side: "east", offset: 0.5 }],
+      ["d.in", { side: "west", offset: 0.5 }],
+    ]),
+  };
+  let seed = 0x7a4d39b1;
+  const randomInt = (max: number): number => {
+    seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
+    return seed % (max + 1);
+  };
+  const inset = insetBox(bounds, CLEARANCE);
+  const exitReach = () => portExitReach(1);
+  let checked = 0;
+  for (let sample = 0; sample < 200; sample++) {
+    const settled = new Map<string, LayoutGeometry>();
+    let current = layoutCanvas(result, { bounds }, auto);
+    let allFree = true;
+    for (const id of ["a", "b", "c", "d"]) {
+      const moving = current.nodes.get(id)!;
+      const others = [...current.nodes.values()].filter((entry) => entry.node.id !== id && !entry.hidden);
+      const at = { x: randomInt(620), y: randomInt(320) };
+      const placed = freePlacement(moving, at, others, inset, exitReach);
+      if (!placed || !freeAt(moving, placed, others, exitReach)) {
+        allFree = false;
+        break;
+      }
+      settled.set(id, placed);
+      current = layoutCanvas(result, { nodes: settled, bounds }, auto);
+    }
+    if (allFree) {
+      checked++;
+      const boxes = [...current.nodes.values()].map(({ node: { id }, box }) => ({ id, box }));
+      assertOrthogonalRoutes(current, bounds, `seeded scene ${sample}: ${JSON.stringify(boxes)}`);
+    }
+  }
+  assert.ok(checked > 0, "expected seeded scenes where every drop found a free position");
 });
 
 test("layoutCanvas routes a lower-left sender into a west port from outside its face", async () => {

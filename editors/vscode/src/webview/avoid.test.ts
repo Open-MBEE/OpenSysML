@@ -11,6 +11,7 @@ import {
   NUDGING,
   portExitReach,
   routingObstacle,
+  routingPinPositions,
   straightenJogs,
   type AvoidPort,
   type AvoidShape,
@@ -686,6 +687,21 @@ test("avoidRoutes keeps the generic pin on the node box when another side has a 
   assert.ok(route);
   assertRoutes([source, target], [{ source: 0, target: 1 }], [route]);
   assert.equal(route[0].x, source.x + source.width);
+});
+
+test("routingPinPositions bounds generic and named portions on fractional west-port boxes", () => {
+  const pins = routingPinPositions({
+    box: { x: -169.9174346923828, y: 417.2325134277344, width: 234, height: 70 },
+    ports: [{ id: "n19.api", side: "west", offset: 0.5 }],
+  });
+
+  assert.equal(pins.length, 13);
+  for (const { x, y } of pins) {
+    assert.ok(x >= 0 && x <= 1, `x portion ${x} was outside [0, 1]`);
+    assert.ok(y >= 0 && y <= 1, `y portion ${y} was outside [0, 1]`);
+  }
+  assert.deepEqual(pins.at(-1), { id: "n19.api", side: "west", x: 0, y: 0.5 });
+  assert.ok(pins.filter(({ side }) => side === "east").every(({ x }) => x === 1));
 });
 
 test("avoidRoutes keeps an unported route when a distant ported connection is added", async () => {

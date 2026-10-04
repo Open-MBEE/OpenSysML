@@ -511,7 +511,7 @@ export function freePlacement(
   const expandedAt = (point: RenderPoint): Box => inflate(extentAt(node, point), CLEARANCE);
   const otherExtents = others
     .filter((other) => other.node.id !== node.node.id && !other.hidden)
-    .map((other) => extentAt(other, other.box));
+    .map((other) => inflate(extentAt(other, other.box), CLEARANCE));
   const isFree = (point: RenderPoint): boolean => {
     const extent = expandedAt(point);
     return otherExtents.every((other) => !intersectsBoxes(extent, other));

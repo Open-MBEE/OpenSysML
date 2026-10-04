@@ -583,6 +583,89 @@ export function routingObstacle(shapeData: AvoidShape): RoutingObstacle {
   };
 }
 
+export interface RoutingPinPosition {
+  id?: string;
+  side: PortPosition["side"];
+  x: number;
+  y: number;
+}
+
+/** Computes bounded libavoid portions for a shape's generic and named pins. */
+export function routingPinPositions(shapeData: AvoidShape): RoutingPinPosition[] {
+  const box = shapeData.box;
+  const routingBox = shapeRoutingBox(shapeData);
+  const offsets = [0.25, 0.5, 0.75] as const;
+  const generic: RoutingPinPosition[] = [
+    ...offsets.map((offset) => ({ side: "north" as const, x: box.x + box.width * offset, y: box.y })),
+    ...offsets.map((offset) => ({
+      side: "east" as const,
+      x: box.x + box.width,
+      y: box.y + box.height * offset,
+    })),
+    ...offsets.map((offset) => ({
+      side: "south" as const,
+      x: box.x + box.width * offset,
+      y: box.y + box.height,
+    })),
+    ...offsets.map((offset) => ({ side: "west" as const, x: box.x, y: box.y + box.height * offset })),
+  ];
+  const named = (shapeData.ports ?? []).map((port) => ({
+    id: port.id,
+    side: port.side,
+    ...portFace(box, port),
+  }));
+  const portion = (value: number): number => Math.max(0, Math.min(1, value));
+  const genericPins = generic.map(({ side, x, y }) => {
+    switch (side) {
+      case "north":
+        return {
+          side,
+          x: portion((x - routingBox.x) / routingBox.width),
+          y: shapeData.ports?.some((port) => port.side === side)
+            ? portion((box.y - routingBox.y) / routingBox.height)
+            : 0,
+        };
+      case "east":
+        return {
+          side,
+          x: shapeData.ports?.some((port) => port.side === side)
+            ? portion((box.x + box.width - routingBox.x) / routingBox.width)
+            : 1,
+          y: portion((y - routingBox.y) / routingBox.height),
+        };
+      case "south":
+        return {
+          side,
+          x: portion((x - routingBox.x) / routingBox.width),
+          y: shapeData.ports?.some((port) => port.side === side)
+            ? portion((box.y + box.height - routingBox.y) / routingBox.height)
+            : 1,
+        };
+      case "west":
+        return {
+          side,
+          x: shapeData.ports?.some((port) => port.side === side)
+            ? portion((box.x - routingBox.x) / routingBox.width)
+            : 0,
+          y: portion((y - routingBox.y) / routingBox.height),
+        };
+    }
+  });
+  const namedPins = named.map(({ id, side, x, y }) => {
+    switch (side) {
+      case "north":
+        return { id, side, x: portion((x - routingBox.x) / routingBox.width), y: 0 };
+      case "east":
+        return { id, side, x: 1, y: portion((y - routingBox.y) / routingBox.height) };
+      case "south":
+        return { id, side, x: portion((x - routingBox.x) / routingBox.width), y: 1 };
+      case "west":
+        return { id, side, x: 0, y: portion((y - routingBox.y) / routingBox.height) };
+    }
+  });
+  return [...genericPins, ...namedPins];
+}
+
 // addShape is a box as a routing obstacle, with twelve proportional pins spread
 // over its sides for connectors to attach at.
 function addShape(
@@ -592,7 +675,6 @@ function addShape(
   exclusive: boolean,
   allocatePortClass: () => number,
 ): ShapePins {
-  const box = shapeData.box;
   const routingBox = shapeRoutingBox(shapeData);
   const center = new api.Point(routingBox.x + routingBox.width / 2, routingBox.y + routingBox.height / 2);
   const rectangle = new api.Rectangle(center, routingBox.width, routingBox.height);
@@ -604,52 +686,30 @@ function addShape(
     api.destroy(center);
   }
 
-  const offsets = [0.25, 0.5, 0.75] as const;
-  const position = (x: number, y: number, direction: number) =>
-    [(x - routingBox.x) / routingBox.width, (y - routingBox.y) / routingBox.height, direction] as const;
-  const pins = [
-    ...offsets.map((offset) => position(box.x + box.width * offset, box.y, api.ConnDirUp)),
-    ...offsets.map((offset) => position(box.x + box.width, box.y + box.height * offset, api.ConnDirRight)),
-    ...offsets.map((offset) => position(box.x + box.width * offset, box.y + box.height, api.ConnDirDown)),
-    ...offsets.map((offset) => position(box.x, box.y + box.height * offset, api.ConnDirLeft)),
-  ];
-  for (const [x, y, direction] of pins) {
-    const pin = new api.ShapeConnectionPin(shape, PIN_CLASS, x, y, true, 0, direction);
-    pin.setExclusive(exclusive);
-  }
+  const direction = {
+    north: api.ConnDirUp,
+    east: api.ConnDirRight,
+    south: api.ConnDirDown,
+    west: api.ConnDirLeft,
+  };
   const ports = new Map<string, number>();
-  (shapeData.ports ?? []).forEach((port) => {
-    const classId = allocatePortClass();
-    const face = portFace(box, port);
-    let x: number;
-    let y: number;
-    let direction: number;
-    switch (port.side) {
-      case "north":
-        x = (face.x - routingBox.x) / routingBox.width;
-        y = 0;
-        direction = api.ConnDirUp;
-        break;
-      case "east":
-        x = 1;
-        y = (face.y - routingBox.y) / routingBox.height;
-        direction = api.ConnDirRight;
-        break;
-      case "south":
-        x = (face.x - routingBox.x) / routingBox.width;
-        y = 1;
-        direction = api.ConnDirDown;
-        break;
-      case "west":
-        x = 0;
-        y = (face.y - routingBox.y) / routingBox.height;
-        direction = api.ConnDirLeft;
-        break;
+  for (const pinPosition of routingPinPositions(shapeData)) {
+    const named = pinPosition.id !== undefined;
+    const classId = named ? allocatePortClass() : PIN_CLASS;
+    const pin = new api.ShapeConnectionPin(
+      shape,
+      classId,
+      pinPosition.x,
+      pinPosition.y,
+      true,
+      0,
+      direction[pinPosition.side],
+    );
+    pin.setExclusive(named ? false : exclusive);
+    if (pinPosition.id !== undefined) {
+      ports.set(pinPosition.id, classId);
     }
-    const pin = new api.ShapeConnectionPin(shape, classId, x, y, true, 0, direction);
-    pin.setExclusive(false);
-    ports.set(port.id, classId);
-  });
+  }
   return { shape, ports };
 }
 
