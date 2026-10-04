@@ -163,7 +163,7 @@ test("straightenJogs removes a short Z jog without moving its endpoints", () => 
     { x: 40, y: 64 },
   ];
   const routes = new Map([[0, route]]);
-  const straightened = straightenJogs(routes, []);
+  const straightened = straightenJogs(routes, new Map(), new Map());
   const result = straightened.get(0)!;
 
   assert.equal(MIN_JOG, 16);
@@ -188,7 +188,7 @@ test("straightenJogs keeps a jog of exactly one grid square", () => {
     { x: 16, y: 80 },
     { x: 40, y: 80 },
   ];
-  assert.deepEqual(straightenJogs(new Map([[0, route]]), []).get(0), route);
+  assert.deepEqual(straightenJogs(new Map([[0, route]]), new Map(), new Map()).get(0), route);
 });
 
 test("straightenJogs keeps a short jog forced by facing endpoints", () => {
@@ -198,7 +198,7 @@ test("straightenJogs keeps a short jog forced by facing endpoints", () => {
     { x: 16, y: 6 },
     { x: 100, y: 6 },
   ];
-  assert.deepEqual(straightenJogs(new Map([[0, route]]), []).get(0), route);
+  assert.deepEqual(straightenJogs(new Map([[0, route]]), new Map(), new Map()).get(0), route);
 });
 
 test("straightenJogs leaves a U-turn unchanged", () => {
@@ -209,7 +209,7 @@ test("straightenJogs leaves a U-turn unchanged", () => {
     { x: 8, y: 0 },
     { x: 40, y: 0 },
   ];
-  assert.deepEqual(straightenJogs(new Map([[0, route]]), []).get(0), route);
+  assert.deepEqual(straightenJogs(new Map([[0, route]]), new Map(), new Map()).get(0), route);
 });
 
 test("straightenJogs tries the other shift when the shorter one crosses an obstacle", () => {
@@ -221,8 +221,8 @@ test("straightenJogs tries the other shift when the shorter one crosses an obsta
     { x: 8, y: 80 },
     { x: 40, y: 80 },
   ];
-  const obstacles = [{ x: 7, y: 10, width: 2, height: 20 }];
-  const result = straightenJogs(new Map([[0, route]]), obstacles).get(0)!;
+  const obstacles = new Map([["obstacle", { x: 7, y: 10, width: 2, height: 20 }]]);
+  const result = straightenJogs(new Map([[0, route]]), obstacles, new Map()).get(0)!;
 
   assert.ok(result.length < route.length);
   assert.deepEqual(result[0], route[0]);
@@ -239,11 +239,40 @@ test("straightenJogs keeps a jog when both shifts cross obstacles", () => {
     { x: 8, y: 80 },
     { x: 40, y: 80 },
   ];
-  const obstacles = [
-    { x: 7, y: 10, width: 2, height: 20 },
-    { x: -1, y: 50, width: 2, height: 20 },
+  const obstacles = new Map([
+    ["first", { x: 7, y: 10, width: 2, height: 20 }],
+    ["second", { x: -1, y: 50, width: 2, height: 20 }],
+  ]);
+  assert.deepEqual(straightenJogs(new Map([[0, route]]), obstacles, new Map()).get(0), route);
+});
+
+test("straightenJogs preserves the routing clearance from shape buffers", () => {
+  const route = [
+    { x: -40, y: 0 },
+    { x: 0, y: 0 },
+    { x: 0, y: 40 },
+    { x: 15, y: 40 },
+    { x: 15, y: 100 },
+    { x: 45, y: 100 },
   ];
-  assert.deepEqual(straightenJogs(new Map([[0, route]]), obstacles).get(0), route);
+  const raw = { x: 16, y: -100, width: 40, height: 100 };
+  const obstacle = {
+    x: raw.x - CLEARANCE,
+    y: raw.y - CLEARANCE,
+    width: raw.width + 2 * CLEARANCE,
+    height: raw.height + 2 * CLEARANCE,
+    raw,
+  };
+  const routes = new Map([[0, route]]);
+  const result = straightenJogs(
+    routes,
+    new Map<string, Box>([["obstacle", obstacle]]),
+    new Map<number, [string, string]>([[0, ["source", "target"]]]),
+  ).get(0)!;
+
+  assert.ok(result.length < route.length);
+  assert.deepEqual(result[1], { x: 0, y: 0 });
+  assert.deepEqual(result[2], { x: 0, y: 100 });
 });
 
 test("straightenJogs keeps the port exit leg at least its clearance", () => {
@@ -255,7 +284,7 @@ test("straightenJogs keeps the port exit leg at least its clearance", () => {
     { x: 8, y: 80 },
     { x: 40, y: 80 },
   ];
-  const result = straightenJogs(new Map([[0, route]]), []).get(0)!;
+  const result = straightenJogs(new Map([[0, route]]), new Map(), new Map()).get(0)!;
 
   assert.deepEqual(result[0], route[0]);
   assert.deepEqual(result.at(-1), route.at(-1));
@@ -277,7 +306,47 @@ test("straightenJogs keeps a lane away from a nearby parallel route", () => {
     [0, route],
     [1, nearby],
   ]);
-  assert.deepEqual(straightenJogs(routes, []).get(0), route);
+  assert.deepEqual(straightenJogs(routes, new Map(), new Map()).get(0), route);
+});
+
+test("straightenJogs rejects a shift that crosses another route when the other shift is legal", () => {
+  const route = [
+    { x: -30, y: 0 },
+    { x: 0, y: 0 },
+    { x: 0, y: 40 },
+    { x: 15, y: 40 },
+    { x: 15, y: 80 },
+    { x: 45, y: 80 },
+  ];
+  const crossing = [{ x: 12, y: 20 }, { x: 30, y: 20 }];
+  const routes = new Map([
+    [0, route],
+    [1, crossing],
+  ]);
+  const result = straightenJogs(routes, new Map(), new Map()).get(0)!;
+
+  assert.ok(result.length < route.length);
+  assert.deepEqual(result.slice(1, 3), [{ x: 0, y: 0 }, { x: 0, y: 80 }]);
+});
+
+test("straightenJogs keeps a jog when both shifts would add crossings", () => {
+  const route = [
+    { x: -30, y: 0 },
+    { x: 0, y: 0 },
+    { x: 0, y: 40 },
+    { x: 15, y: 40 },
+    { x: 15, y: 80 },
+    { x: 45, y: 80 },
+  ];
+  const crossingAbove = [{ x: 12, y: 20 }, { x: 30, y: 20 }];
+  const crossingBelow = [{ x: -10, y: 60 }, { x: 10, y: 60 }];
+  const routes = new Map([
+    [0, route],
+    [1, crossingAbove],
+    [2, crossingBelow],
+  ]);
+
+  assert.deepEqual(straightenJogs(routes, new Map(), new Map()).get(0), route);
 });
 
 test("straightenJogs rejects a shift that leaves the routing bounds", () => {
@@ -289,7 +358,7 @@ test("straightenJogs rejects a shift that leaves the routing bounds", () => {
     { x: 40, y: 60 },
   ];
   const bounds: Box = { x: 0, y: 0, width: 4, height: 80 };
-  assert.deepEqual(straightenJogs(new Map([[0, route]]), [], bounds).get(0), route);
+  assert.deepEqual(straightenJogs(new Map([[0, route]]), new Map(), new Map(), bounds).get(0), route);
 });
 
 function onBorder(point: RenderPoint, box: Box): boolean {
@@ -403,14 +472,32 @@ function assertRoutes(boxes: Box[], pairs: Pair[], routes: Array<RenderPoint[] |
   return routed;
 }
 
-function assertStraighteningIdempotent(boxes: Box[], routes: Array<RenderPoint[] | undefined>): void {
+function assertStraighteningIdempotent(
+  boxes: Box[],
+  pairs: Pair[],
+  routes: Array<RenderPoint[] | undefined>,
+): void {
   const current = new Map<number, RenderPoint[]>();
   routes.forEach((route, index) => {
     if (route) {
       current.set(index, route);
     }
   });
-  const straightened = straightenJogs(current, boxes);
+  const obstacles = new Map<string, Box>();
+  boxes.forEach((box, index) => {
+    obstacles.set(`node-${index}`, {
+      x: box.x - CLEARANCE,
+      y: box.y - CLEARANCE,
+      width: box.width + 2 * CLEARANCE,
+      height: box.height + 2 * CLEARANCE,
+      raw: box,
+    } as Box);
+  });
+  const ends = new Map<number, [string, string]>();
+  pairs.forEach(({ source, target }, index) => {
+    ends.set(index, [`node-${source}`, `node-${target}`]);
+  });
+  const straightened = straightenJogs(current, obstacles, ends);
   for (const [index, route] of current) {
     const result = straightened.get(index)!;
     assert.deepEqual(result, route, `straightening changed seeded route ${index} a second time`);
@@ -437,7 +524,7 @@ test("avoidRoutes routes every edge orthogonally over 500 seeded scenes", async 
     const pairs = [pair, ...randomPairs(boxes.length, 2, extraPairSeed(sample))];
     const routes = routeScene(boxes, pairs);
     routed += assertRoutes(boxes, pairs, routes);
-    assertStraighteningIdempotent(boxes, routes);
+    assertStraighteningIdempotent(boxes, pairs, routes);
     sample++;
   }
   assert.equal(routed, samples * 3);
@@ -452,7 +539,7 @@ test("avoidRoutes separates three sources sharing one target over 500 seeded sce
     const pairs = randomSharedTargetPairs(grown.length, extraPairSeed(sample));
     const routes = routeScene(grown, pairs);
     routed += assertRoutes(grown, pairs, routes);
-    assertStraighteningIdempotent(grown, routes);
+    assertStraighteningIdempotent(grown, pairs, routes);
     sample++;
   }
   assert.equal(routed, samples * 3);

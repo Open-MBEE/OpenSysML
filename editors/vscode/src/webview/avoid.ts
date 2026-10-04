@@ -63,6 +63,10 @@ interface ShapePins {
   ports: Map<string, number>;
 }
 
+interface RoutingObstacle extends Box {
+  raw: Box;
+}
+
 /** The route libavoid finds for each edge, by edge index; undefined when the router is not loaded or the pass fails. */
 export function avoidRoutes(
   shapes: Map<string, AvoidShape>,
@@ -155,7 +159,15 @@ export function avoidRoutes(
         routes.set(index, route);
       }
     }
-    return straightenJogs(routes, [...shapes.values()].map(({ box }) => box), bounds);
+    const obstacles = new Map<string, Box>();
+    for (const [id, shape] of shapes) {
+      obstacles.set(id, grownRoutingObstacle(shape));
+    }
+    const ends = new Map<number, [string, string]>();
+    for (const edge of usable) {
+      ends.set(edge.index, [edge.from, edge.to]);
+    }
+    return straightenJogs(routes, obstacles, ends, bounds);
   } catch (error) {
     reportAvoidFailure("routing failed", error);
     return undefined;
@@ -178,10 +190,11 @@ interface JogShift {
   delta: RenderPoint;
 }
 
-/** Straightens short Z-jogs when the replacement route remains clear. */
+/** Straightens short Z-jogs without losing clearance or adding wire crossings. */
 export function straightenJogs(
   routes: Map<number, RenderPoint[]>,
-  obstacles: Box[],
+  obstacles: Map<string, Box>,
+  ends: Map<number, [string, string]>,
   bounds?: Box,
 ): Map<number, RenderPoint[]> {
   const straightened = new Map<number, RenderPoint[]>();
@@ -201,7 +214,7 @@ export function straightenJogs(
         );
         for (const shift of ordered) {
           const candidate = shiftedRoute(route, shift);
-          if (!candidate || !legalShift(index, route, candidate, shift, straightened, obstacles, bounds)) {
+          if (!candidate || !legalShift(index, route, candidate, shift, straightened, obstacles, ends, bounds)) {
             continue;
           }
           straightened.set(index, compactRoute(candidate));
@@ -275,7 +288,8 @@ function legalShift(
   candidate: RenderPoint[],
   shift: JogShift,
   routes: Map<number, RenderPoint[]>,
-  obstacles: Box[],
+  obstacles: Map<string, Box>,
+  ends: Map<number, [string, string]>,
   bounds?: Box,
 ): boolean {
   if (bounds && shift.points.some((point) => !inside(candidate[point], bounds))) {
@@ -293,7 +307,7 @@ function legalShift(
     ) {
       return false;
     }
-    if (obstacles.some((box) => crossesInterior(candidate[segmentIndex], candidate[segmentIndex + 1], box))) {
+    if (crossesObstacle(index, candidate[segmentIndex], candidate[segmentIndex + 1], obstacles, ends)) {
       return false;
     }
     for (const [otherIndex, other] of routes) {
@@ -323,7 +337,7 @@ function legalShift(
   ) {
     return false;
   }
-  if (obstacles.some((box) => crossesInterior(candidate[mergeStart], candidate[mergeEnd], box))) {
+  if (crossesObstacle(index, candidate[mergeStart], candidate[mergeEnd], obstacles, ends)) {
     return false;
   }
   if (
@@ -349,7 +363,70 @@ function legalShift(
       return false;
     }
   }
-  return true;
+  return !addsCrossings(index, route, candidate, routes);
+}
+
+function crossesObstacle(
+  route: number,
+  a: RenderPoint,
+  b: RenderPoint,
+  obstacles: Map<string, Box>,
+  ends: Map<number, [string, string]>,
+): boolean {
+  const routeEnds: string[] = ends.get(route) ?? [];
+  for (const [id, obstacle] of obstacles) {
+    const ownBox = routeEnds.includes(id) ? (obstacle as RoutingObstacle).raw ?? obstacle : obstacle;
+    if (crossesInterior(a, b, ownBox)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function addsCrossings(
+  index: number,
+  route: RenderPoint[],
+  candidate: RenderPoint[],
+  routes: Map<number, RenderPoint[]>,
+): boolean {
+  for (const [otherIndex, other] of routes) {
+    if (otherIndex !== index && properCrossings(candidate, other) > properCrossings(route, other)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function properCrossings(route: RenderPoint[], other: RenderPoint[]): number {
+  let crossings = 0;
+  for (let first = 1; first < route.length; first++) {
+    for (let second = 1; second < other.length; second++) {
+      if (properlyCrosses(route[first - 1], route[first], other[second - 1], other[second])) {
+        crossings++;
+      }
+    }
+  }
+  return crossings;
+}
+
+function properlyCrosses(a: RenderPoint, b: RenderPoint, c: RenderPoint, d: RenderPoint): boolean {
+  const first = orthogonalSegment(a, b);
+  const second = orthogonalSegment(c, d);
+  if (!first || !second || first.axis === second.axis) {
+    return false;
+  }
+  const horizontalStart = first.axis === "horizontal" ? a : c;
+  const horizontalEnd = first.axis === "horizontal" ? b : d;
+  const verticalStart = first.axis === "vertical" ? a : c;
+  const verticalEnd = first.axis === "vertical" ? b : d;
+  const x = verticalStart.x;
+  const y = horizontalStart.y;
+  return (
+    x > Math.min(horizontalStart.x, horizontalEnd.x) &&
+    x < Math.max(horizontalStart.x, horizontalEnd.x) &&
+    y > Math.min(verticalStart.y, verticalEnd.y) &&
+    y < Math.max(verticalStart.y, verticalEnd.y)
+  );
 }
 
 function orthogonalSegment(a: RenderPoint, b: RenderPoint): OrthogonalSegment | undefined {
@@ -475,6 +552,32 @@ function addBoundsFrames(
   });
 }
 
+function shapeRoutingBox(shapeData: AvoidShape): Box {
+  const box = shapeData.box;
+  const portsOn = (side: PortPosition["side"]) => shapeData.ports?.some((port) => port.side === side) ?? false;
+  const westGrowth = portsOn("west") ? PORT_SIZE / 2 : 0;
+  const eastGrowth = portsOn("east") ? PORT_SIZE / 2 : 0;
+  const northGrowth = portsOn("north") ? PORT_SIZE / 2 : 0;
+  const southGrowth = portsOn("south") ? PORT_SIZE / 2 : 0;
+  return {
+    x: box.x - westGrowth,
+    y: box.y - northGrowth,
+    width: box.width + westGrowth + eastGrowth,
+    height: box.height + northGrowth + southGrowth,
+  };
+}
+
+function grownRoutingObstacle(shapeData: AvoidShape): RoutingObstacle {
+  const box = shapeRoutingBox(shapeData);
+  return {
+    x: box.x - CLEARANCE,
+    y: box.y - CLEARANCE,
+    width: box.width + 2 * CLEARANCE,
+    height: box.height + 2 * CLEARANCE,
+    raw: shapeData.box,
+  };
+}
+
 // addShape is a box as a routing obstacle, with twelve proportional pins spread
 // over its sides for connectors to attach at.
 function addShape(
@@ -485,17 +588,7 @@ function addShape(
   allocatePortClass: () => number,
 ): ShapePins {
   const box = shapeData.box;
-  const portsOn = (side: PortPosition["side"]) => shapeData.ports?.some((port) => port.side === side) ?? false;
-  const westGrowth = portsOn("west") ? PORT_SIZE / 2 : 0;
-  const eastGrowth = portsOn("east") ? PORT_SIZE / 2 : 0;
-  const northGrowth = portsOn("north") ? PORT_SIZE / 2 : 0;
-  const southGrowth = portsOn("south") ? PORT_SIZE / 2 : 0;
-  const routingBox = {
-    x: box.x - westGrowth,
-    y: box.y - northGrowth,
-    width: box.width + westGrowth + eastGrowth,
-    height: box.height + northGrowth + southGrowth,
-  };
+  const routingBox = shapeRoutingBox(shapeData);
   const center = new api.Point(routingBox.x + routingBox.width / 2, routingBox.y + routingBox.height / 2);
   const rectangle = new api.Rectangle(center, routingBox.width, routingBox.height);
   let shape: ShapeRef;
