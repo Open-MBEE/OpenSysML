@@ -137,16 +137,16 @@ func TestRunWritesTheTable(t *testing.T) {
 	}
 }
 
-// TestUpperBoundMultiplicity pins the rule: upper bound 1 (ecore's default) is
-// single-valued; any bound above 1, or -1 (unbounded), is multi-valued.
+// TestUpperBoundMultiplicity pins EMF's rule: upper bound 1 (the default) or -2 (unspecified)
+// is single-valued; any bound above 1, or -1 (unbounded), is multi-valued.
 func TestUpperBoundMultiplicity(t *testing.T) {
-	for upper, want := range map[string]bool{"": false, "1": false, "2": true, "5": true, "-1": true} {
+	for upper, want := range map[string]bool{"": false, "1": false, "-2": false, "2": true, "5": true, "-1": true} {
 		got, err := isMany(upper)
 		if err != nil || got != want {
 			t.Errorf("isMany(%q) = %v, %v; want %v", upper, got, err, want)
 		}
 	}
-	for _, upper := range []string{"0", "-2", "many"} {
+	for _, upper := range []string{"0", "-3", "many"} {
 		if _, err := isMany(upper); err == nil {
 			t.Errorf("isMany(%q) accepted an upper bound ecore cannot mean", upper)
 		}
@@ -232,7 +232,7 @@ func TestRunRejectsAMetamodelTheTableCannotHold(t *testing.T) {
 		{"unknown primitive", wrap(element(feature("EAttribute", "n", `eType="types.ecore#//Char"`, ""))),
 			"no primitive the table maps"},
 		{"zero upper bound", wrap(element(feature("EAttribute", "n", `upperBound="0" eType="types.ecore#//String"`, ""))),
-			`upperBound "0" is neither a positive integer nor -1`},
+			`upperBound "0" is not -2, -1 or a positive integer`},
 		{"unknown enum range", wrap(element(feature("EAttribute", "n", `eType="#//Missing"`, ""))),
 			"which the table cannot range over"},
 		{"empty enumeration", wrap(`<eClassifiers xsi:type="ecore:EEnum" name="VisibilityKind"/>`),
