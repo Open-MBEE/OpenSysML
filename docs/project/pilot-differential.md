@@ -2856,11 +2856,11 @@ fetches. Together they bound how long a stale figure can survive to about a day.
 
 ### Multiplicity bound result types round
 
-`validateMultiplicityRangeResultTypes` (KerML 1.1 8.3.3.6) is a constraint-tier rule
-(`passes/w8c_multiplicity_bounds.go`): a model-level-evaluable bound must evaluate to a
-non-negative integer or `*`; a bound that is not model-level evaluable is judged by whether its
-result type conforms to Integer. The rule moves no row of the reference corpora — the only
-non-literal bounds in the four OMG roots (`Simple Tests/MultiplicityTest.sysml`,
+`validateMultiplicityRangeResultTypes` (KerML 1.1 8.3.4.11.2 `MultiplicityRange`) is a
+constraint-tier rule (`passes/w8c_multiplicity_bounds.go`): a model-level-evaluable bound must
+evaluate to a non-negative integer or `*`; a bound that is not model-level evaluable is judged by
+whether its result type conforms to Integer. The rule moves no row of the reference corpora — the
+only non-literal bounds in the four OMG roots (`Simple Tests/MultiplicityTest.sysml`,
 `Geometry Examples/VehicleGeometryAndCoordinateFrames.sysml`) name Integer- or Natural-typed
 sibling features, which both sides accept — and moves
 `semantic/k37-multiplicity-bound-not-natural.kerml` to both-reject. The package-level bound
@@ -2868,17 +2868,17 @@ disagreement is now adjudicated toward the pilot; the exponentiation difference 
 adjudicated toward the specification:
 
 - **A package-level feature without a value is not a valid evaluable bound.** The maintainer
-  ruled the pilot correct, not buggy: the prose in KerML 1.1 §8.3.3.6 requires a model-level-
+  ruled the pilot correct, not buggy: the prose in KerML 1.1 §8.3.4.11.2 requires a model-level-
   evaluable bound to evaluate to a non-negative value. Under §8.3.4.8.5, a package-level feature
   without a value is model-level evaluable and evaluates to itself, so `[k]` is rejected by both
   validators. A type member is not model-level evaluable and is judged by its result type. An
-  evaluable bound the evaluator does not fold (for example, a cast) is also judged by its result
-  type; only a folded value other than a non-negative integer or `*`, or an evaluation that
-  reaches a feature with no value, directly or through another feature's value, is rejected. The
-  pilot also rejects `feature k : Natural = 2 as Natural; feature d [k];`, whose evaluation does
-  not yield a literal there; OpenSysML accepts it, since the cast evaluates to 2. The constraint's
-  OCL (`value <> null implies value >= 0` over
-  `valueOf`, §8.3.3.1.9) cannot
+  evaluable bound the evaluator does not fold (for example, a feature whose value is a cast) is
+  also judged by its result type; only a folded value other than a non-negative integer or `*`, or
+  an evaluation that reaches a feature with no value, directly or through another feature's value,
+  is rejected. The pilot also rejects
+  `feature k : Natural = 2 as Natural; feature d [k];`, whose evaluation does not yield a literal
+  there; OpenSysML accepts it, since the cast evaluates to 2. The constraint's OCL
+  (`value <> null implies value >= 0` over `valueOf`, §8.3.3.1.9) cannot
   distinguish a non-literal result from a negative value because `valueOf` returns null for
   both. OpenSysML follows the prose;
   [omg-issues.md](omg-issues.md#a-bound-naming-a-package-level-feature-is-rejected-whatever-its-type-pilot-2026-07)
@@ -2888,9 +2888,11 @@ adjudicated toward the specification:
   passes its check. `IntegerFunctions::'**'` is declared `in y : Natural`, and an Integer
   exponent resolves to `RationalFunctions::'**'`, whose result is Rational; we accept the
   exponentiation only when the exponent is Natural-conforming (`k : Natural`, `p : Positive`, a
-  literal, or `+`/`*`/`%` over such). The pilot's grammar admits only a literal or a feature
-  reference as a bound (`MultiplicityExpressionMember`), so no arithmetic bound reaches its
-  validator and the difference has no referee row; it is a reading of the library.
+  literal, or `+`/`*`/`%` over such). Both grammars admit only a literal or a feature
+  reference as a bound (`MultiplicityExpressionMember`): an arithmetic, cast,
+  parenthesised, chained or invoked bound such as `[2 ** n]` is a syntax error on both sides, so
+  the exponent typing above applies only to the tree recovered from that error and the difference
+  has no referee row; it is a reading of the library.
 
 ### Binary-link specialization round
 
