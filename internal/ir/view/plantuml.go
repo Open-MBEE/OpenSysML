@@ -24,8 +24,8 @@ func (r *Rendering) PlantUML() (string, error) {
 // UnplacedStrip. Placement itself is written as comments, PlantUML having no
 // absolute positions; for pinned positions use the DOT form.
 func (r *Rendering) PlantUMLWith(options Options) (string, error) {
-	if !r.Kind.SupportsForm(FormPlantUML) {
-		return "", &WrongFormError{Form: FormPlantUML, Kind: r.Kind, View: r.View}
+	if !r.supportsForm(FormPlantUML) {
+		return "", r.wrongFormError(FormPlantUML)
 	}
 	if err := options.Palette.check(); err != nil {
 		return "", err

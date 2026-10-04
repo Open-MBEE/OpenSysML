@@ -9,7 +9,7 @@ import (
 	"strings"
 )
 
-// Palette names the set of fill colours the DOT, Mermaid and PlantUML forms
+// Palette names the set of fill colours the DOT, Mermaid, PlantUML and D2 forms
 // colour nodes with, one per keyword family (part, item, port, …, see
 // paletteFamilies). Mermaid sequence diagrams report that they cannot fill
 // individual participants. The empty Palette is the black-and-white default;
@@ -95,11 +95,11 @@ func (p Palette) check() error {
 // paletteNotice is the notice a form that does not fill nodes writes for a
 // palette asked for, so the request is not dropped silently.
 func paletteNotice(palette Palette) string {
-	return fmt.Sprintf("palette %s; only the DOT, Mermaid and PlantUML forms fill nodes by keyword family", palette)
+	return fmt.Sprintf("palette %s; only the DOT, Mermaid, PlantUML and D2 forms fill nodes by keyword family", palette)
 }
 
 // paletteForms are the forms that fill nodes from a palette.
-var paletteForms = []Form{FormDot, FormMermaid, FormPlantUML}
+var paletteForms = []Form{FormDot, FormMermaid, FormPlantUML, FormD2}
 
 // SupportsPalette reports whether a rendering of the kind is drawn as nodes a
 // palette can fill: the kinds a form that fills nodes is written for.
@@ -192,8 +192,8 @@ type Fill struct {
 	Border string
 }
 
-// Fills is the fill each node takes under the palette, by node ID, as the DOT, Mermaid and PlantUML
-// forms fill it; a node left black and white, and every node under no palette, is absent.
+// Fills is the fill each node takes under the palette, by node ID, as the DOT, Mermaid, PlantUML
+// and D2 forms fill it; a node left black and white, and every node under no palette, is absent.
 func (r *Rendering) Fills(palette Palette) (map[string]Fill, error) {
 	if err := palette.check(); err != nil {
 		return nil, err

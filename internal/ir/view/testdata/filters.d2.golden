@@ -1,0 +1,11 @@
+# FilteredViews::safetyView — tree rendering
+classes: {
+  definition: { style: { fill: white; stroke: "#181818"; stroke-width: 1; font-color: black; font-size: 14 } }
+  usage: { style: { fill: white; stroke: "#181818"; stroke-width: 1; font-color: black; font-size: 14; border-radius: 8 } }
+  edge: { style: { stroke: "#181818"; font-size: 13; font-color: black; stroke-width: 1 } }
+}
+n0: "«part def»\nRadio" { class: definition }
+n1: "«part def»\nAirbag" { class: definition }
+n2: "«part def»\nBraking::Brake" { class: definition }
+n3: "«part»\npad" { class: usage }
+n2 -- n3: { class: edge }

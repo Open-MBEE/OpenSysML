@@ -52,8 +52,8 @@ func (r *Rendering) DOT() (string, error) {
 // control nodes a migration made up are elided (withoutStandIns). The layout is
 // the same whatever the palette: it changes fills and borders alone.
 func (r *Rendering) DOTWith(options Options) (string, error) {
-	if !r.Kind.SupportsForm(FormDot) {
-		return "", &WrongFormError{Form: FormDot, Kind: r.Kind, View: r.View}
+	if !r.supportsForm(FormDot) {
+		return "", r.wrongFormError(FormDot)
 	}
 	if err := options.Palette.check(); err != nil {
 		return "", err

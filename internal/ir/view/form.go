@@ -9,8 +9,8 @@ import (
 // Form is a written form of a rendering: the human-readable text every kind has,
 // the machine-readable form of the kind — a Mermaid diagram for the
 // graph-shaped kinds, a Markdown table for the tabular one — the Graphviz
-// DOT and PlantUML forms a graph-shaped kind can be asked for instead, and the
-// CSV and TSV forms a table can.
+// DOT, PlantUML and D2 forms a graph-shaped kind can be asked for instead, and
+// the CSV and TSV forms a table can.
 type Form string
 
 const (
@@ -24,6 +24,8 @@ const (
 	FormDot Form = "dot"
 	// FormPlantUML is a PlantUML diagram of a graph-shaped or sequence rendering.
 	FormPlantUML Form = "plantuml"
+	// FormD2 is a D2 diagram of a graph-shaped or sequence rendering.
+	FormD2 Form = "d2"
 	// FormCSV is comma-separated values of a tabular rendering.
 	FormCSV Form = "csv"
 	// FormTSV is tab-separated values of a tabular rendering.
@@ -33,12 +35,12 @@ const (
 // Forms are the forms a rendering can be asked for, in the order they are
 // offered.
 func Forms() []Form {
-	return []Form{FormText, FormMermaid, FormMarkdown, FormDot, FormPlantUML, FormCSV, FormTSV}
+	return []Form{FormText, FormMermaid, FormMarkdown, FormDot, FormPlantUML, FormD2, FormCSV, FormTSV}
 }
 
 // DiagramForms are the forms a document render writes its graph-shaped
 // diagrams as; a table-kind view is written as a table whichever is chosen.
-func DiagramForms() []Form { return []Form{FormMermaid, FormDot, FormPlantUML} }
+func DiagramForms() []Form { return []Form{FormMermaid, FormDot, FormPlantUML, FormD2} }
 
 // FormNames spells the forms as a list, for help and error text.
 func FormNames(forms []Form) string {
@@ -74,8 +76,8 @@ func (k Kind) MachineForm() Form {
 
 // SupportsForm reports whether renderings of the kind are written in form:
 // every kind has the text form and its machine form, the kinds drawn as a
-// graph of nodes and edges have the DOT and PlantUML forms as well, a
-// sequence has PlantUML's sequence grammar, and a table has CSV and TSV.
+// graph of nodes and edges have the DOT, PlantUML and D2 forms as well, a
+// sequence has PlantUML's and D2's sequence grammars, and a table has CSV and TSV.
 func (k Kind) SupportsForm(form Form) bool {
 	switch form {
 	case FormText:
@@ -92,6 +94,11 @@ func (k Kind) SupportsForm(form Form) bool {
 	case FormPlantUML:
 		switch k {
 		case KindTree, KindInterconnection, KindState, KindAction, KindSequence, KindTimeline:
+			return true
+		}
+	case FormD2:
+		switch k {
+		case KindTree, KindInterconnection, KindState, KindAction, KindSequence:
 			return true
 		}
 	}
@@ -124,11 +131,22 @@ type WrongFormError struct {
 	Form Form
 	Kind Kind
 	View string
+	run  bool
 }
 
 func (e *WrongFormError) Error() string {
+	forms := e.Kind.SupportedForms()
+	if e.run {
+		runForms := make([]Form, 0, len(forms))
+		for _, form := range forms {
+			if form != FormD2 {
+				runForms = append(runForms, form)
+			}
+		}
+		forms = runForms
+	}
 	msg := fmt.Sprintf("%s %s rendering is not written as %s; ask for %s",
-		e.Kind.article(), e.Kind, e.Form, joinForms(e.Kind.SupportedForms(), "or"))
+		e.Kind.article(), e.Kind, e.Form, joinForms(forms, "or"))
 	if e.View == "" {
 		return msg
 	}
@@ -146,18 +164,29 @@ func joinForms(forms []Form, conjunction string) string {
 
 func (e *WrongFormError) Unwrap() error { return ErrWrongForm }
 
+func (r *Rendering) supportsForm(form Form) bool {
+	if r.Run && form == FormD2 {
+		return false
+	}
+	return r.Kind.SupportsForm(form)
+}
+
+func (r *Rendering) wrongFormError(form Form) *WrongFormError {
+	return &WrongFormError{Form: form, Kind: r.Kind, View: r.View, run: r.Run}
+}
+
 // Options are what a rendering is written with beside its form. Each form
-// takes the ones that apply to it: the text form its Width, Mermaid, DOT and
-// PlantUML their Direction, Palette, Style and Unplaced, and the interconnection
-// forms their Ports display. A form ignores the rest.
+// takes the ones that apply to it: the text form its Width, Mermaid, DOT,
+// PlantUML and D2 their Direction, Palette, Style and Unplaced, and the
+// interconnection forms their Ports display. A form ignores the rest.
 type Options struct {
 	// Links is the source link each node and edge is written with; zero writes none.
 	Links Links
 	// Direction is the flow direction a graph-shaped form is drawn in; empty
 	// leaves each kind's default.
 	Direction Direction
-	// Palette is the palette the DOT, Mermaid and PlantUML forms fill nodes from, by
-	// keyword family; empty draws in black and white.
+	// Palette is the palette the DOT, Mermaid, PlantUML and D2 forms fill nodes
+	// from, by keyword family; empty draws in black and white.
 	Palette Palette
 	// Ports is how much of a part's ports an interconnection draws; empty
 	// draws the connected ones, as PortsMinimal does.
@@ -195,9 +224,9 @@ func (r *Rendering) WriteWith(form Form, options Options) (string, error) {
 	switch form {
 	case FormText:
 		return r.textWith(options), nil
-	case FormMermaid, FormMarkdown, FormDot, FormPlantUML, FormCSV, FormTSV:
-		if !r.Kind.SupportsForm(form) {
-			return "", &WrongFormError{Form: form, Kind: r.Kind, View: r.View}
+	case FormMermaid, FormMarkdown, FormDot, FormPlantUML, FormD2, FormCSV, FormTSV:
+		if !r.supportsForm(form) {
+			return "", r.wrongFormError(form)
 		}
 		switch form {
 		case FormMarkdown:
@@ -210,6 +239,8 @@ func (r *Rendering) WriteWith(form Form, options Options) (string, error) {
 			return r.DOTWith(options)
 		case FormPlantUML:
 			return r.PlantUMLWith(options)
+		case FormD2:
+			return r.D2With(options)
 		case FormMermaid:
 			if err := options.Palette.check(); err != nil {
 				return "", err

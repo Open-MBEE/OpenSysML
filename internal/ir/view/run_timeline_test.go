@@ -27,7 +27,7 @@ func TestTimelineKindIsOnlyAStandaloneRunKind(t *testing.T) {
 			t.Errorf("timeline does not support %s", form)
 		}
 	}
-	for _, form := range []Form{FormMarkdown, FormDot, FormCSV, FormTSV} {
+	for _, form := range []Form{FormMarkdown, FormDot, FormD2, FormCSV, FormTSV} {
 		rendering := &Rendering{Kind: KindTimeline, Run: true}
 		if KindTimeline.SupportsForm(form) {
 			t.Errorf("timeline supports %s", form)
@@ -35,6 +35,18 @@ func TestTimelineKindIsOnlyAStandaloneRunKind(t *testing.T) {
 		if _, err := rendering.Write(form); !errors.Is(err, ErrWrongForm) {
 			t.Errorf("timeline in %s: error = %v, want ErrWrongForm", form, err)
 		}
+	}
+}
+
+func TestRunSequenceDoesNotSupportD2(t *testing.T) {
+	rendering := &Rendering{Kind: KindSequence, Run: true}
+	_, err := rendering.WriteWith(FormD2, Options{})
+	var wrong *WrongFormError
+	if !errors.As(err, &wrong) {
+		t.Fatalf("WriteWith(d2) = %v, want WrongFormError", err)
+	}
+	if got, want := err.Error(), "a sequence rendering is not written as d2; ask for text, mermaid or plantuml"; got != want {
+		t.Errorf("WriteWith(d2) error = %q, want %q", got, want)
 	}
 }
 
