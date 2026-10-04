@@ -25,7 +25,7 @@ import {
   type PortPosition,
   type Side,
 } from "./geometry";
-import { avoidRoutes, type AvoidShape } from "./avoid";
+import { avoidRoutes, CLEARANCE, type AvoidShape } from "./avoid";
 
 export { GAP, portBox, portCenter, portFace, PORT_SIZE, snap } from "./geometry";
 export type { Box, PortPosition, Side } from "./geometry";
@@ -491,6 +491,122 @@ export function clampNodeToBounds(
     x: Math.min(Math.max(at.x, minX), Math.max(minX, bounds.x + bounds.width - right)),
     y: Math.min(Math.max(at.y, minY), Math.max(minY, bounds.y + bounds.height - bottom)),
   };
+}
+
+/** Finds the nearest free, in-bounds position for a node. */
+export function freePlacement(
+  node: PlacedNode,
+  at: RenderPoint,
+  others: PlacedNode[],
+  bounds: Box,
+  portExitLeg: number | ((node: PlacedNode, port: PlacedPort) => number),
+  direction?: { x: number; y: number },
+): RenderPoint | undefined {
+  const exitLeg = (entry: PlacedNode, port: PlacedPort): number =>
+    typeof portExitLeg === "number" ? portExitLeg : portExitLeg(entry, port);
+  const clamp = (point: RenderPoint): RenderPoint =>
+    clampNodeToBounds(node, point, bounds, (port) => exitLeg(node, port));
+  const extentAt = (entry: PlacedNode, point: RenderPoint): Box =>
+    nodeExtent({ ...entry, box: { ...entry.box, x: point.x, y: point.y } }, (port) => exitLeg(entry, port));
+  const expandedAt = (point: RenderPoint): Box => inflate(extentAt(node, point), CLEARANCE);
+  const otherExtents = others
+    .filter((other) => other.node.id !== node.node.id && !other.hidden)
+    .map((other) => ({ node: other, extent: extentAt(other, other.box) }));
+  const isFree = (point: RenderPoint): boolean => {
+    const extent = expandedAt(point);
+    return otherExtents.every(({ extent: other }) => !intersectsBoxes(extent, other));
+  };
+  const clampedAt = clamp(at);
+  if (isFree(clampedAt)) {
+    return clampedAt;
+  }
+
+  const candidates = new Map<string, RenderPoint>();
+  const add = (point: RenderPoint): void => {
+    const candidate = clamp(point);
+    candidates.set(`${candidate.x},${candidate.y}`, candidate);
+  };
+  add(clampedAt);
+  const movingAtOrigin = expandedAt({ x: node.box.x, y: node.box.y });
+  const leftOffset = movingAtOrigin.x - node.box.x;
+  const rightOffset = movingAtOrigin.x + movingAtOrigin.width - node.box.x;
+  const topOffset = movingAtOrigin.y - node.box.y;
+  const bottomOffset = movingAtOrigin.y + movingAtOrigin.height - node.box.y;
+  const movingExtent = expandedAt(clampedAt);
+  for (const { extent } of otherExtents) {
+    if (!intersectsBoxes(movingExtent, extent)) {
+      continue;
+    }
+    add({ x: extent.x - rightOffset, y: clampedAt.y });
+    add({ x: extent.x + extent.width - leftOffset, y: clampedAt.y });
+    add({ x: clampedAt.x, y: extent.y - bottomOffset });
+    add({ x: clampedAt.x, y: extent.y + extent.height - topOffset });
+  }
+
+  const baseExtent = extentAt(node, node.box);
+  const minX = bounds.x - (baseExtent.x - node.box.x);
+  const minY = bounds.y - (baseExtent.y - node.box.y);
+  const maxX = Math.max(minX, bounds.x + bounds.width - (baseExtent.x + baseExtent.width - node.box.x));
+  const maxY = Math.max(minY, bounds.y + bounds.height - (baseExtent.y + baseExtent.height - node.box.y));
+  const maxRadius = Math.max(
+    Math.abs(clampedAt.x - minX),
+    Math.abs(clampedAt.x - maxX),
+    Math.abs(clampedAt.y - minY),
+    Math.abs(clampedAt.y - maxY),
+  );
+  const rings = Math.ceil(maxRadius / 16);
+  for (let ring = 1; ring <= rings; ring++) {
+    const radius = ring * 16;
+    for (let offset = -radius; offset <= radius; offset += 16) {
+      add({ x: clampedAt.x + offset, y: clampedAt.y - radius });
+      add({ x: clampedAt.x + offset, y: clampedAt.y + radius });
+    }
+    for (let offset = -radius + 16; offset < radius; offset += 16) {
+      add({ x: clampedAt.x - radius, y: clampedAt.y + offset });
+      add({ x: clampedAt.x + radius, y: clampedAt.y + offset });
+    }
+  }
+
+  const ordered = [...candidates.values()].sort(
+    (first, second) => Math.hypot(first.x - at.x, first.y - at.y) - Math.hypot(second.x - at.x, second.y - at.y),
+  );
+  for (const candidate of ordered) {
+    if (direction && !movesInDirection(candidate, at, direction)) {
+      continue;
+    }
+    if (isFree(candidate)) {
+      return candidate;
+    }
+  }
+  return direction ? undefined : clampedAt;
+}
+
+function movesInDirection(candidate: RenderPoint, at: RenderPoint, direction: RenderPoint): boolean {
+  if (direction.x !== 0 && direction.y === 0) {
+    return (candidate.x - at.x) * direction.x > 0 && candidate.y === at.y;
+  }
+  if (direction.y !== 0 && direction.x === 0) {
+    return (candidate.y - at.y) * direction.y > 0 && candidate.x === at.x;
+  }
+  return false;
+}
+
+function inflate(box: Box, distance: number): Box {
+  return {
+    x: box.x - distance,
+    y: box.y - distance,
+    width: box.width + 2 * distance,
+    height: box.height + 2 * distance,
+  };
+}
+
+function intersectsBoxes(first: Box, second: Box): boolean {
+  return (
+    first.x < second.x + second.width &&
+    first.x + first.width > second.x &&
+    first.y < second.y + second.height &&
+    first.y + first.height > second.y
+  );
 }
 
 function placePorts(edges: RenderEdge[], placed: Map<string, PlacedNode>, auto?: AutoLayout): void {

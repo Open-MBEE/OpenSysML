@@ -8,6 +8,7 @@ import {
   anchor,
   clampNodeToBounds,
   GAP,
+  freePlacement,
   insertedWaypoint,
   labelLines,
   layoutCanvas,
@@ -52,6 +53,17 @@ function rendering(nodes: RenderNode[], edges: RenderEdge[] = [], extra: Partial
     version: 7,
     ...extra,
   };
+}
+
+function placedNode(
+  id: string,
+  x: number,
+  y: number,
+  width = 80,
+  height = 40,
+  ports: RenderNode["ports"] = [],
+) {
+  return layoutCanvas(rendering([node(id, id, { x, y, width, height, ports })])).nodes.get(id)!;
 }
 
 test("layoutCanvas draws a pinned node's edge straight until the router has loaded", () => {
@@ -941,6 +953,74 @@ test("clampNodeToBounds reserves a different exit reach for each port", () => {
   assert.ok(portFace(moved.box, east).x + 60 <= bounds.x + bounds.width);
 });
 
+test("freePlacement returns an already-free position unchanged", () => {
+  const moving = placedNode("moving", 100, 100);
+  const other = placedNode("other", 300, 100);
+  const bounds: Box = { x: 0, y: 0, width: 500, height: 300 };
+
+  assert.deepEqual(freePlacement(moving, moving.box, [other], bounds, 0), { x: moving.box.x, y: moving.box.y });
+});
+
+test("freePlacement moves an overlap on the left to its nearest free side", () => {
+  const moving = placedNode("moving", 100, 100);
+  const other = placedNode("other", 150, 100);
+  const bounds: Box = { x: 0, y: 0, width: 500, height: 300 };
+
+  assert.deepEqual(freePlacement(moving, moving.box, [other], bounds, 0), { x: 54, y: 100 });
+});
+
+test("freePlacement respects a wall and chooses the other side of an overlap", () => {
+  const moving = placedNode("moving", 100, 20);
+  const other = placedNode("other", 70, 20);
+  const bounds: Box = { x: 0, y: 0, width: 300, height: 80 };
+
+  assert.deepEqual(freePlacement(moving, moving.box, [other], bounds, 0), { x: 166, y: 20 });
+});
+
+test("freePlacement includes each node's port exit leg in its extent", () => {
+  const moving = placedNode("moving", 100, 100, 80, 40, [{ id: "moving.out", name: "out" }]);
+  moving.ports[0].side = "east";
+  const other = placedNode("other", 230, 100);
+  const bounds: Box = { x: 0, y: 0, width: 500, height: 300 };
+  const withNoExit = freePlacement(moving, moving.box, [other], bounds, 0);
+  const withExit = freePlacement(moving, moving.box, [other], bounds, (entry, port) => {
+    assert.equal(entry.node.id, "moving");
+    assert.equal(port.port.id, "moving.out");
+    return 40;
+  });
+
+  assert.deepEqual(withNoExit, { x: moving.box.x, y: moving.box.y });
+  assert.ok(withExit);
+  assert.notDeepEqual(withExit, moving.box);
+});
+
+test("freePlacement returns its clamped position when no free spot exists", () => {
+  const moving = placedNode("moving", 100, 20);
+  const other = placedNode("other", 0, 0, 200, 80);
+  const bounds: Box = { x: 0, y: 0, width: 200, height: 80 };
+
+  assert.deepEqual(freePlacement(moving, moving.box, [other], bounds, 0), { x: moving.box.x, y: moving.box.y });
+});
+
+test("freePlacement jumps past an overlap in the requested direction", () => {
+  const moving = placedNode("moving", 100, 20, 40, 40);
+  const other = placedNode("other", 110, 20, 40, 40);
+  const bounds: Box = { x: 0, y: 0, width: 300, height: 100 };
+
+  assert.deepEqual(
+    freePlacement(moving, { x: 100, y: 20 }, [other], bounds, 0, { x: 1, y: 0 }),
+    { x: 166, y: 20 },
+  );
+});
+
+test("freePlacement leaves a directional step unchanged when that direction is blocked", () => {
+  const moving = placedNode("moving", 100, 20, 40, 40);
+  const other = placedNode("other", 110, 20, 40, 40);
+  const bounds: Box = { x: 0, y: 0, width: 200, height: 100 };
+
+  assert.equal(freePlacement(moving, { x: 100, y: 20 }, [other], bounds, 0, { x: 1, y: 0 }), undefined);
+});
+
 test("layoutCanvas passes bounds through to libavoid's route constraints", async () => {
   await loadAvoid(WASM);
   const bounds: Box = { x: 0, y: 0, width: 500, height: 260 };
@@ -981,6 +1061,67 @@ test("layoutCanvas passes bounds through to libavoid's route constraints", async
   ));
   for (let index = 1; index < route.length; index++) {
     assert.ok(route[index - 1].x === route[index].x || route[index - 1].y === route[index].y);
+  }
+});
+
+test("layoutCanvas reroutes attached orthogonal wires after a dropped node is freed", async () => {
+  await loadAvoid(WASM);
+  const bounds: Box = { x: 0, y: 0, width: 700, height: 320 };
+  const result = rendering(
+    [
+      node("source", "source", {
+        x: 40,
+        y: 120,
+        width: 80,
+        height: 40,
+        ports: [{ id: "source.out", name: "out" }],
+      }),
+      node("moving", "moving", {
+        x: 300,
+        y: 120,
+        width: 80,
+        height: 40,
+        ports: [
+          { id: "moving.in", name: "in" },
+          { id: "moving.out", name: "out" },
+        ],
+      }),
+      node("target", "target", {
+        x: 560,
+        y: 120,
+        width: 80,
+        height: 40,
+        ports: [{ id: "target.in", name: "in" }],
+      }),
+    ],
+    [
+      { from: "source", to: "moving", fromPort: "source.out", toPort: "moving.in", label: "", kind: "connection", fqn: "M::sourceMoving" },
+      { from: "moving", to: "target", fromPort: "moving.out", toPort: "target.in", label: "", kind: "connection", fqn: "M::movingTarget" },
+    ],
+  );
+  const before = layoutCanvas(result, { bounds });
+  const moving = before.nodes.get("moving")!;
+  const at = freePlacement(
+    moving,
+    before.nodes.get("source")!.box,
+    [...before.nodes.values()].filter((entry) => entry.node.id !== "moving"),
+    bounds,
+    CLEARANCE,
+  )!;
+  assert.notDeepEqual(at, before.nodes.get("source")!.box);
+
+  const after = layoutCanvas(result, { nodes: new Map([["moving", at]]), bounds });
+  for (const edge of after.edges) {
+    const source = after.nodes.get(edge.edge.from)!;
+    const target = after.nodes.get(edge.edge.to)!;
+    const sourcePort = source.ports.find((port) => port.port.id === edge.edge.fromPort)!;
+    const targetPort = target.ports.find((port) => port.port.id === edge.edge.toPort)!;
+    assert.equal(edge.rerouted, true);
+    assert.deepEqual(edge.points[0], portFace(source.box, sourcePort));
+    assert.deepEqual(edge.points.at(-1), portFace(target.box, targetPort));
+    for (let index = 1; index < edge.points.length; index++) {
+      assert.ok(edge.points[index - 1].x === edge.points[index].x || edge.points[index - 1].y === edge.points[index].y);
+    }
   }
 });
 

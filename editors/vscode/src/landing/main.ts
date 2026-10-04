@@ -7,11 +7,13 @@ import { loadAvoid, portExitReach } from "../webview/avoid";
 import { cssEscape, drawCanvas } from "../webview/canvas";
 import {
   clampNodeToBounds,
+  freePlacement,
   layoutCanvas,
   type Box,
   type CanvasLayout,
   type Overrides,
   type PlacedNode,
+  type PlacedPort,
 } from "../webview/layout";
 import {
   JOURNEY_EVENTS,
@@ -198,30 +200,44 @@ function mount(root: HTMLElement): Mounted {
   }
 
   function clamped(node: PlacedNode, at: RenderPoint): RenderPoint {
-    return clampNodeToBounds(node, at, bounds(), (port) => {
-      const sharing = layout.edges.filter(
-        ({ edge, hidden }) =>
-          !hidden &&
-          ((edge.from === node.node.id && edge.fromPort === port.port.id) ||
-            (edge.to === node.node.id && edge.toPort === port.port.id)),
-      ).length;
-      return portExitReach(sharing);
-    });
+    return clampNodeToBounds(node, at, bounds(), (port) => exitReach(node, port));
   }
 
-  // keepInHero moves any box the hero no longer holds back inside it.
+  function exitReach(node: PlacedNode, port: PlacedPort): number {
+    const sharing = layout.edges.filter(
+      ({ edge, hidden }) =>
+        !hidden &&
+        ((edge.from === node.node.id && edge.fromPort === port.port.id) ||
+          (edge.to === node.node.id && edge.toPort === port.port.id)),
+    ).length;
+    return portExitReach(sharing);
+  }
+
+  function otherNodes(id: string): PlacedNode[] {
+    return [...layout.nodes.values()].filter((entry) => entry.node.id !== id && !entry.hidden);
+  }
+
+  // keepInHero clamps boxes in model order and frees each from earlier boxes.
   function keepInHero(): void {
     let changed = false;
+    const settled: PlacedNode[] = [];
     for (const part of model.parts.values()) {
       const entry = layout.nodes.get(part.id);
-      if (!entry) {
+      if (!entry || entry.hidden) {
         continue;
       }
-      const at = clamped(entry, entry.box);
+      const requested = placed.get(part.feature) ?? entry.box;
+      const bounded = clamped(entry, requested);
+      const at = freePlacement(entry, bounded, settled, bounds(), exitReach);
+      if (!at) {
+        settled.push(entry);
+        continue;
+      }
       if (at.x !== entry.box.x || at.y !== entry.box.y) {
         placed.set(part.feature, at);
         changed = true;
       }
+      settled.push({ ...entry, box: { ...entry.box, ...at } });
     }
     if (changed) {
       layout = layoutCanvas(result, overrides(), auto);
@@ -633,7 +649,11 @@ function mount(root: HTMLElement): Mounted {
     gesture = undefined;
     hero.classList.remove("osml-hero--dragging");
     if (ended.moved) {
-      moveTo(ended.id, ended.at);
+      const entry = layout.nodes.get(ended.id);
+      const at = entry && freePlacement(entry, ended.at, otherNodes(ended.id), bounds(), exitReach);
+      if (at) {
+        moveTo(ended.id, at);
+      }
     } else if (!cancelled && !ended.longPressed) {
       openProject(ended.id);
     }
@@ -726,9 +746,21 @@ function mount(root: HTMLElement): Mounted {
       openCard(id, true);
     } else if (steps[event.key] && laidOut) {
       event.preventDefault();
-      const box = layout.nodes.get(id)!.box;
+      const entry = layout.nodes.get(id)!;
+      const box = entry.box;
       const step = (event.shiftKey ? 4 : 1) * KEY_STEP;
-      moveTo(id, { x: box.x + steps[event.key][0] * step, y: box.y + steps[event.key][1] * step });
+      const direction = steps[event.key];
+      const at = freePlacement(
+        entry,
+        { x: box.x + direction[0] * step, y: box.y + direction[1] * step },
+        otherNodes(id),
+        bounds(),
+        exitReach,
+        { x: direction[0], y: direction[1] },
+      );
+      if (at) {
+        moveTo(id, at);
+      }
     }
   });
   const light = (id: string | undefined): void => {
