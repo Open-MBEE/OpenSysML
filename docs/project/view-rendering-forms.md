@@ -88,9 +88,9 @@ What each graph draws, as nodes from the exposed set and edges between drawn nod
 
 | Kind | Nodes | Edges (`EdgeKind`) |
 | --- | --- | --- |
-| `requirement` | requirement and concern definitions and usages, labelled with their short name as `id` and the first line of their documentation or text, and the drawn ends of the relationships below | `satisfy` (from the satisfying feature), `verify` (from the verification case whose objective verifies it), `derive` (a `#derivation` connection's `derivedRequirement` from its `originalRequirement`), `refine` (a `#refinement` dependency), `allocate`, `specialization`, `typing` |
-| `definition` | definitions and usages | `specialization` (subclassification, subsetting, redefinition), `typing`, `composition` (a part, item or other composite feature to the drawn definitions typing it, named by the feature) and `reference` (a `ref` feature likewise) |
-| `package` | packages | `containment` (an owned package) and `import` (a membership or namespace import, recursive or not, to the package it names) |
+| `requirement` | requirement and concern definitions and usages, labelled with their short name as `id` and the first line of their documentation or text, and the drawn ends of the relationships below | `satisfy` (from the satisfying feature), `verify` (from each verification case whose objectives verify it: its own, and those it inherits and does not redefine or restate by name, as the runtime runs them), `derive` (a `#derivation` connection's `derivedRequirement` from its `originalRequirement`), `refine` (a `#refinement` dependency), `allocate`, `specialization`, `typing` |
+| `definition` | definitions and usages | `specialization` (subclassification, subsetting — a same-named subsetting to the inherited feature, as `DirectSupertypes` reads it — redefinition), `typing`, `composition` (a part, item or other composite feature to the drawn definitions typing it, named by the feature) and `reference` (a `ref` feature likewise) |
+| `package` | packages | `containment` (an owned package) and `import` (a membership or namespace import, recursive or not, to the package it names, or to the package owning the member it names, labelled `::<member>`; one edge per import declaration, linked to it) |
 
 A relationship end that does not resolve draws no edge and is listed as a notice, and a cycle (mutually recursive part
 definitions, requirements deriving each other, packages importing each other) is drawn once per
@@ -108,8 +108,10 @@ A requirement graph takes an opt-in overlay, `verdicts`: each requirement drawn 
 the verdict of every verification case verifying it (`verdict pass by Cases::light, fail by
 Cases::heavy`) and filled by the worst of them — `error` over `fail` over `inconclusive` over
 `pass` — in the Okabe-Ito colours `#009E73`, `#F0E442`, `#D55E00` and `#CC79A7`, in every form
-and style. The cases run through `runtime.RequirementVerdicts`, the REPL's and a document's over the
-runtime context the model is executed by and a workspace's over a declared reader, the
+and style, replacing the fill and line of a requirement the view styles and keeping the rest of its
+style. The cases run through `runtime.RequirementVerdicts`, the REPL's and a document's over the
+runtime context the model is executed by and a workspace's over a declared reader, which answers
+each requirement by its declaring document and span rather than its qualified name, the
 subcases a case performs left to their case. Without the overlay nothing runs and the rendering
 is the structural one; asking for it on another kind is refused (`a definition rendering draws no
 verdicts overlay`), and an unknown overlay is refused with the overlays there are.

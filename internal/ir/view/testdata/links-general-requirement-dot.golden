@@ -18,7 +18,10 @@ digraph "GeneralViews::requirementView" {
   "n8" [style="rounded,filled", label=<<font point-size="10"><i>«part»</i></font><br/><b>VehicleStructure::heavyVehicle : Vehicle</b>>, URL="https://example.test/src/general.sysml#L17", tooltip="VehicleStructure::heavyVehicle"];
   "n9" [style="rounded,filled", label=<<font point-size="10"><i>«action»</i></font><br/><b>VehicleStructure::brake : Brake</b>>, URL="https://example.test/src/general.sysml#L20", tooltip="VehicleStructure::brake"];
   "n10" [label=<<font point-size="10"><i>«verification def»</i></font><br/><b>VehicleVerification::MassTest</b>>, URL="https://example.test/src/general.sysml#L67", tooltip="VehicleVerification::MassTest"];
-  "n11" [label=<<font point-size="10"><i>«verification def»</i></font><br/><b>VehicleVerification::StopTest</b>>, URL="https://example.test/src/general.sysml#L80", tooltip="VehicleVerification::StopTest"];
+  "n11" [style="rounded,filled", label=<<font point-size="10"><i>«verification»</i></font><br/><b>VehicleVerification::lightMassTest : MassTest</b>>, URL="https://example.test/src/general.sysml#L74", tooltip="VehicleVerification::lightMassTest"];
+  "n12" [style="rounded,filled", label=<<font point-size="10"><i>«verification»</i></font><br/><b>VehicleVerification::heavyMassTest : MassTest</b>>, URL="https://example.test/src/general.sysml#L77", tooltip="VehicleVerification::heavyMassTest"];
+  "n13" [label=<<font point-size="10"><i>«verification def»</i></font><br/><b>VehicleVerification::StopTest</b>>, URL="https://example.test/src/general.sysml#L80", tooltip="VehicleVerification::StopTest"];
+  "n14" [style="rounded,filled", label=<<font point-size="10"><i>«verification»</i></font><br/><b>VehicleVerification::stopTest : StopTest</b>>, URL="https://example.test/src/general.sysml#L86", tooltip="VehicleVerification::stopTest"];
   "n2" -> "n1" [arrowhead=empty, URL="https://example.test/src/general.sysml#L42", tooltip="VehicleRequirements::EmergencyStopRequirement"];
   "n3" -> "n0" [arrowhead=empty, style=dashed, URL="https://example.test/src/general.sysml#L44", tooltip="VehicleRequirements::vehicleMass"];
   "n4" -> "n0" [arrowhead=empty, style=dashed, URL="https://example.test/src/general.sysml#L47", tooltip="VehicleRequirements::chassisMass"];
@@ -30,5 +33,8 @@ digraph "GeneralViews::requirementView" {
   "n7" -> "n5" [label="satisfy", arrowhead=vee, style=dashed, URL="https://example.test/src/general.sysml#L58", tooltip="general.sysml:58:2"];
   "n5" -> "n9" [label="allocate", arrowhead=vee, style=dashed, URL="https://example.test/src/general.sysml#L59", tooltip="general.sysml:59:2"];
   "n10" -> "n3" [label="verify", arrowhead=vee, style=dashed, URL="https://example.test/src/general.sysml#L70", tooltip="VehicleVerification::MassTest::vehicleMass"];
-  "n11" -> "n5" [label="verify", arrowhead=vee, style=dashed, URL="https://example.test/src/general.sysml#L83", tooltip="VehicleVerification::StopTest::emergencyStop"];
+  "n11" -> "n3" [label="verify", arrowhead=vee, style=dashed, URL="https://example.test/src/general.sysml#L70", tooltip="VehicleVerification::MassTest::vehicleMass"];
+  "n12" -> "n3" [label="verify", arrowhead=vee, style=dashed, URL="https://example.test/src/general.sysml#L70", tooltip="VehicleVerification::MassTest::vehicleMass"];
+  "n13" -> "n5" [label="verify", arrowhead=vee, style=dashed, URL="https://example.test/src/general.sysml#L83", tooltip="VehicleVerification::StopTest::emergencyStop"];
+  "n14" -> "n5" [label="verify", arrowhead=vee, style=dashed, URL="https://example.test/src/general.sysml#L83", tooltip="VehicleVerification::StopTest::emergencyStop"];
 }

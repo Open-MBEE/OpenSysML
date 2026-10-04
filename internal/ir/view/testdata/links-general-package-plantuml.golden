@@ -48,8 +48,8 @@ class "<size:10>//«package»//</size>\n**VehicleRequirements**" as n2 <<package
 class "<size:10>//«package»//</size>\n**VehicleVerification**" as n3 <<package>> [[https://example.test/src/general.sysml#L62]]
 class "<size:10>//«package»//</size>\n**GeneralViews**" as n4 <<package>> [[https://example.test/src/general.sysml#L91]]
 n0 +-- n1 : [[https://example.test/src/general.sysml#L22]]
-n2 ..> n0 : private import ::* [[https://example.test/src/general.sysml#L27]]
-n3 ..> n0 : private import ::* [[https://example.test/src/general.sysml#L62]]
-n3 ..> n1 : private import ::* [[https://example.test/src/general.sysml#L62]]
-n3 ..> n2 : private import ::* [[https://example.test/src/general.sysml#L62]]
+n2 ..> n0 : private import ::* [[https://example.test/src/general.sysml#L31]]
+n3 ..> n0 : private import ::* [[https://example.test/src/general.sysml#L63]]
+n3 ..> n1 : private import ::* [[https://example.test/src/general.sysml#L64]]
+n3 ..> n2 : private import ::* [[https://example.test/src/general.sysml#L65]]
 @enduml

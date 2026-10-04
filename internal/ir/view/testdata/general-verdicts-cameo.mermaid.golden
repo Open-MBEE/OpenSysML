@@ -54,8 +54,14 @@ id R3.1, verdict inconclusive by Cases::stop (no verdict bound), error by Cases:
   n9("`**VehicleStructure::brake : Brake**`")
   n10["`*«verification def»*
 **VehicleVerification::MassTest**`"]
-  n11["`*«verification def»*
+  n11["`*«verification»*
+**VehicleVerification::lightMassTest : MassTest**`"]
+  n12["`*«verification»*
+**VehicleVerification::heavyMassTest : MassTest**`"]
+  n13["`*«verification def»*
 **VehicleVerification::StopTest**`"]
+  n14["`*«verification»*
+**VehicleVerification::stopTest : StopTest**`"]
   n2 -->|"specialization"| n1
   n3 -.->|"typing"| n0
   n4 -.->|"typing"| n0
@@ -67,10 +73,13 @@ id R3.1, verdict inconclusive by Cases::stop (no verdict bound), error by Cases:
   n7 -.->|"satisfy"| n5
   n5 -.->|"allocate"| n9
   n10 -.->|"verify"| n3
-  n11 -.->|"verify"| n5
+  n11 -.->|"verify"| n3
+  n12 -.->|"verify"| n3
+  n13 -.->|"verify"| n5
+  n14 -.->|"verify"| n5
   classDef palette0 fill:#FFCC99,stroke:#99795C
   classDef palette1 fill:#E1E1C3,stroke:#424242
-  class n0,n1,n2,n3,n4,n5,n6,n7,n8,n10,n11 palette0
+  class n0,n1,n2,n3,n4,n5,n6,n7,n8,n10,n11,n12,n13,n14 palette0
   class n9 palette1
   style n3 fill:#EEBF99,stroke:#D55E00
   style n4 fill:#99D8C7,stroke:#009E73

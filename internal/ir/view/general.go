@@ -172,6 +172,8 @@ type generalGraph struct {
 type generalEdgeKey struct {
 	from, to, label string
 	kind            EdgeKind
+	// origin tells apart the import edges distinct declarations draw.
+	origin Origin
 }
 
 // renderGeneral draws the exposed elements the graph's kind admits as nodes,
@@ -301,9 +303,12 @@ func (g *generalGraph) drawn(sym *symbols.Symbol) *Node {
 	return g.nodes[symbols.KeyOf(sym)]
 }
 
-// add records an edge once.
+// add records an edge once: an import edge once per import declaration.
 func (g *generalGraph) add(edge Edge) {
 	key := generalEdgeKey{from: edge.From, to: edge.To, label: edge.Label, kind: edge.Kind}
+	if edge.Kind == EdgeImport {
+		key.origin = edge.Origin
+	}
 	if g.edges[key] {
 		return
 	}
@@ -411,6 +416,11 @@ func (g *generalGraph) structuralEdges(sym *symbols.Symbol) {
 			g.unresolved(rel.Kind.String()+" relationship", sym, rel.Target)
 			continue
 		}
+		if rel.Kind == ast.RelSubsets {
+			if inherited := g.r.model.GeneralizationTargetOf(sym, rel); inherited != nil {
+				target = inherited
+			}
+		}
 		if to := g.drawn(target); to != nil && to != from {
 			g.add(Edge{From: from.ID, To: to.ID, Kind: kind, Label: label, Origin: symbolOrigin(sym)})
 		}
@@ -498,12 +508,15 @@ func (g *generalGraph) packageEdges(pkg *symbols.Symbol) {
 			g.unresolved("import", pkg, imp.Imported)
 			continue
 		}
+		label := importLabel(imp)
 		to := g.drawn(target)
 		if to == nil && target.OwnerScope != nil && imp.Kind == ast.ImportMembership {
-			to = g.drawn(target.OwnerScope.Owner())
+			if to = g.drawn(target.OwnerScope.Owner()); to != nil {
+				label += " ::" + target.Name
+			}
 		}
 		if to != nil && to != node {
-			g.add(Edge{From: node.ID, To: to.ID, Kind: EdgeImport, Label: importLabel(imp), Origin: symbolOrigin(pkg)})
+			g.add(Edge{From: node.ID, To: to.ID, Kind: EdgeImport, Label: label, Origin: nodeOrigin(pkg.DocName, imp)})
 		}
 	}
 }
@@ -672,23 +685,60 @@ func (g *generalGraph) satisfyEdges(sym *symbols.Symbol) []Edge {
 }
 
 // verifyEdges draws, from a verification case, an edge to each requirement
-// its objective's `verify` members name.
+// the `verify` members of its objectives name.
 func (g *generalGraph) verifyEdges(verification *symbols.Symbol) []Edge {
-	if verification.Scope == nil {
-		return nil
-	}
 	var out []Edge
-	for _, objective := range append(slices.Clone(verification.Scope.Members()), verification.Scope.AnonymousMembers()...) {
-		usage, ok := objective.Decl.(*ast.Usage)
-		if !ok || usage.Kind != ast.UsageObjective || objective.Scope == nil {
-			continue
-		}
+	for _, objective := range g.objectivesOf(verification) {
 		for _, member := range append(slices.Clone(objective.Scope.Members()), objective.Scope.AnonymousMembers()...) {
 			for _, requirement := range g.verified(verification, member) {
 				if edge, ok := g.relate(verification, requirement, EdgeVerify, member); ok {
 					out = append(out, edge)
 				}
 			}
+		}
+	}
+	return out
+}
+
+// objectivesOf is the objectives a verification case runs, as the runtime
+// places them: inherited ones first, each replaced by one redefining or renaming it.
+func (g *generalGraph) objectivesOf(verification *symbols.Symbol) []*symbols.Symbol {
+	m := g.r.model
+	var out []*symbols.Symbol
+	place := func(obj *symbols.Symbol) {
+		for i, prev := range out {
+			if prev == obj || slices.Contains(m.AllRedefinedFeatures(prev), obj) {
+				return
+			}
+			name := m.EffectiveNameOf(obj)
+			if slices.Contains(m.AllRedefinedFeatures(obj), prev) || name != "" && name == m.EffectiveNameOf(prev) {
+				out[i] = obj
+				return
+			}
+		}
+		out = append(out, obj)
+	}
+	sources := m.MemberSources(verification)
+	for i := len(sources) - 1; i >= 0; i-- {
+		for _, obj := range ownObjectives(sources[i]) {
+			place(obj)
+		}
+	}
+	for _, obj := range ownObjectives(verification) {
+		place(obj)
+	}
+	return out
+}
+
+// ownObjectives is the objectives sym declares in its own body.
+func ownObjectives(sym *symbols.Symbol) []*symbols.Symbol {
+	if sym == nil || sym.Scope == nil {
+		return nil
+	}
+	var out []*symbols.Symbol
+	for _, member := range append(slices.Clone(sym.Scope.Members()), sym.Scope.AnonymousMembers()...) {
+		if usage, ok := member.Decl.(*ast.Usage); ok && usage.Kind == ast.UsageObjective && member.Scope != nil {
+			out = append(out, member)
 		}
 	}
 	return out

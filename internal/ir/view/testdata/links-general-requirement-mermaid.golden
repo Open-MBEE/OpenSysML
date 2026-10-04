@@ -52,8 +52,14 @@ id R3.1`")
 **VehicleStructure::brake : Brake**`")
   n10["`*«verification def»*
 **VehicleVerification::MassTest**`"]
-  n11["`*«verification def»*
+  n11("`*«verification»*
+**VehicleVerification::lightMassTest : MassTest**`")
+  n12("`*«verification»*
+**VehicleVerification::heavyMassTest : MassTest**`")
+  n13["`*«verification def»*
 **VehicleVerification::StopTest**`"]
+  n14("`*«verification»*
+**VehicleVerification::stopTest : StopTest**`")
   n2 -->|"specialization"| n1
   n3 -.->|"typing"| n0
   n4 -.->|"typing"| n0
@@ -65,7 +71,10 @@ id R3.1`")
   n7 -.->|"satisfy"| n5
   n5 -.->|"allocate"| n9
   n10 -.->|"verify"| n3
-  n11 -.->|"verify"| n5
+  n11 -.->|"verify"| n3
+  n12 -.->|"verify"| n3
+  n13 -.->|"verify"| n5
+  n14 -.->|"verify"| n5
   click n0 href "https://example.test/src/general.sysml#L33"
   click n1 href "https://example.test/src/general.sysml#L39"
   click n2 href "https://example.test/src/general.sysml#L42"
@@ -77,4 +86,7 @@ id R3.1`")
   click n8 href "https://example.test/src/general.sysml#L17"
   click n9 href "https://example.test/src/general.sysml#L20"
   click n10 href "https://example.test/src/general.sysml#L67"
-  click n11 href "https://example.test/src/general.sysml#L80"
+  click n11 href "https://example.test/src/general.sysml#L74"
+  click n12 href "https://example.test/src/general.sysml#L77"
+  click n13 href "https://example.test/src/general.sysml#L80"
+  click n14 href "https://example.test/src/general.sysml#L86"

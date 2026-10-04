@@ -55,7 +55,10 @@ class "<size:10>//«part»//</size>\n**VehicleStructure::vehicle : Vehicle**" as
 class "<size:10>//«part»//</size>\n**VehicleStructure::heavyVehicle : Vehicle**" as n8 <<part>> <<usage>>
 class "<size:10>//«action»//</size>\n**VehicleStructure::brake : Brake**" as n9 <<action>> <<usage>>
 class "<size:10>//«verification def»//</size>\n**VehicleVerification::MassTest**" as n10 <<verification def>>
-class "<size:10>//«verification def»//</size>\n**VehicleVerification::StopTest**" as n11 <<verification def>>
+class "<size:10>//«verification»//</size>\n**VehicleVerification::lightMassTest : MassTest**" as n11 <<verification>> <<usage>>
+class "<size:10>//«verification»//</size>\n**VehicleVerification::heavyMassTest : MassTest**" as n12 <<verification>> <<usage>>
+class "<size:10>//«verification def»//</size>\n**VehicleVerification::StopTest**" as n13 <<verification def>>
+class "<size:10>//«verification»//</size>\n**VehicleVerification::stopTest : StopTest**" as n14 <<verification>> <<usage>>
 n2 --|> n1
 n3 ..|> n0
 n4 ..|> n0
@@ -67,5 +70,8 @@ n8 ..> n3 : satisfy
 n7 ..> n5 : satisfy
 n5 ..> n9 : allocate
 n10 ..> n3 : verify
-n11 ..> n5 : verify
+n11 ..> n3 : verify
+n12 ..> n3 : verify
+n13 ..> n5 : verify
+n14 ..> n5 : verify
 @enduml

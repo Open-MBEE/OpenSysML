@@ -208,3 +208,111 @@ func TestOverlaySupport(t *testing.T) {
 		t.Error("ParseOverlay accepted an unknown overlay")
 	}
 }
+
+// A verification usage verifies what the objective it inherits names, unless it
+// restates that objective.
+func TestGeneralViewInheritedObjectiveVerifies(t *testing.T) {
+	text := renderSource(t, "Model::requirements", `package Model {
+	private import StandardViewDefinitions::*;
+	requirement r;
+	requirement s;
+	verification def Check {
+		objective {
+			verify r;
+		}
+	}
+	verification check : Check;
+	verification recheck : Check {
+		objective {
+			verify s;
+		}
+	}
+	view requirements : GeneralView {
+		filter @SysML::RequirementUsage;
+		expose Model::*;
+	}
+}`).Text()
+	for _, want := range []string{"Model::Check ..> Model::r: verify", "Model::check ..> Model::r: verify", "Model::recheck ..> Model::s: verify"} {
+		if !strings.Contains(text, want) {
+			t.Errorf("rendering lacks %q:\n%s", want, text)
+		}
+	}
+	if strings.Contains(text, "Model::recheck ..> Model::r") {
+		t.Errorf("recheck verifies the objective it restates:\n%s", text)
+	}
+}
+
+// A feature subsetting the inherited feature of its own name draws its edge to
+// that feature.
+func TestGeneralViewInheritedSubsetting(t *testing.T) {
+	text := renderSource(t, "Model::definitions", `package Model {
+	private import StandardViewDefinitions::*;
+	part def Base {
+		part p;
+	}
+	part def Derived :> Base {
+		part p :> p;
+	}
+	view definitions : GeneralView {
+		filter @SysML::PartDefinition or @SysML::PartUsage;
+		expose Model::**;
+	}
+}`).Text()
+	if want := "Model::Derived::p --|> Model::Base::p: subsets"; !strings.Contains(text, want) {
+		t.Errorf("rendering lacks %q:\n%s", want, text)
+	}
+}
+
+// Each import of a member of a drawn package draws its own edge, named by the
+// member.
+func TestGeneralViewMemberImportsStayDistinct(t *testing.T) {
+	rendering := renderSource(t, "Model::packages", `package Model {
+	private import StandardViewDefinitions::*;
+	package Q {
+		part def A;
+		part def B;
+	}
+	package P {
+		import Q::A;
+		import Q::B;
+	}
+	view packages : GeneralView {
+		filter @SysML::Package;
+		expose Model::**;
+	}
+}`)
+	text := rendering.Text()
+	for _, want := range []string{"Model::P ..> Model::Q: import ::A", "Model::P ..> Model::Q: import ::B"} {
+		if !strings.Contains(text, want) {
+			t.Errorf("rendering lacks %q:\n%s", want, text)
+		}
+	}
+	origins := map[Origin]bool{}
+	for _, edge := range rendering.Edges {
+		if edge.Kind == EdgeImport {
+			origins[edge.Origin] = true
+		}
+	}
+	if len(origins) != 2 {
+		t.Errorf("import edges have %d distinct origins, want one per import declaration", len(origins))
+	}
+}
+
+// A verdict recolours a requirement the view styles, keeping the rest of its
+// Style and leaving the declared Style unchanged.
+func TestVerdictOverlayRecoloursStyledRequirement(t *testing.T) {
+	declared := &Style{Fill: "#0000FF", Line: "#0000FF", Text: "#FFFFFF", Font: "Courier"}
+	node := &Node{Style: declared}
+	g := &generalGraph{r: &Renderer{verdicts: fixedVerdicts}}
+	g.overlayVerdicts(&symbols.Symbol{Name: "vehicleMass"}, node)
+	want := Style{Fill: paletteFill("#D55E00", true), Line: "#D55E00", Text: "#FFFFFF", Font: "Courier"}
+	if node.Verdict != "fail" || *node.Style != want {
+		t.Errorf("verdict %q, style %+v; want fail, %+v", node.Verdict, *node.Style, want)
+	}
+	if node.verdictStyled {
+		t.Error("a declared Style is marked as the verdict's")
+	}
+	if declared.Fill != "#0000FF" || declared.Line != "#0000FF" {
+		t.Errorf("the declared Style changed: %+v", *declared)
+	}
+}

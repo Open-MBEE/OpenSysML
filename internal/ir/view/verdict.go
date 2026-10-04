@@ -71,7 +71,7 @@ var verdictColors = map[string]string{
 }
 
 // overlayVerdicts labels a requirement node with each verdict on it and
-// colours it by the worst, unless the view styles the node itself.
+// colours it by the worst, over the fill and line the view styles it with.
 func (g *generalGraph) overlayVerdicts(sym *symbols.Symbol, node *Node) {
 	if g.r.verdicts == nil {
 		return
@@ -97,10 +97,14 @@ func (g *generalGraph) overlayVerdicts(sym *symbols.Symbol, node *Node) {
 	node.Verdict = verdictOrder[worst]
 	node.Detail = detailWith(node.Detail, "verdict "+strings.Join(parts, ", "))
 	if node.Style == nil {
-		color := verdictColors[node.Verdict]
-		node.Style = &Style{Fill: paletteFill(color, true), Line: color}
+		node.Style = &Style{}
 		node.verdictStyled = true
+	} else {
+		style := *node.Style
+		node.Style = &style
 	}
+	color := verdictColors[node.Verdict]
+	node.Style.Fill, node.Style.Line = paletteFill(color, true), color
 }
 
 // verdictRank orders a verdict kind by severity, -1 for one not known.

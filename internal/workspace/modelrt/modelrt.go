@@ -41,8 +41,8 @@ func New(origin Detacher) (*Runtime, error) {
 func (r *Runtime) Model() *runtime.Model { return r.model }
 
 // RequirementVerdicts is the verdict overlay of the workspace r was built from:
-// a requirement, named by its qualified name, answers the verdicts of the cases
-// r's documents declare verifying it, run in one context over r.
+// a requirement, the declaration of its document and span, answers the verdicts
+// of the cases r's documents declare verifying it, run in one context over r.
 func (r *Runtime) RequirementVerdicts() view.Verdicts {
 	var scopes []*symbols.Scope
 	for _, name := range r.Documents() {
@@ -53,7 +53,9 @@ func (r *Runtime) RequirementVerdicts() view.Verdicts {
 	verdicts := runtime.RequirementVerdicts(runtime.NewContext(r.model, runtime.DefaultBudgets().MaxSteps), scopes)
 	return func(req *symbols.Symbol) []view.Verdict {
 		for _, sym := range r.Index().LookupQualified(symbols.FQNOf(req)) {
-			return verdicts(sym)
+			if symbols.SameElement(sym, req) {
+				return verdicts(sym)
+			}
 		}
 		return nil
 	}

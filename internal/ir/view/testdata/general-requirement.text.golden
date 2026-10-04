@@ -11,7 +11,10 @@ part VehicleStructure::vehicle : Vehicle
 part VehicleStructure::heavyVehicle : Vehicle
 action VehicleStructure::brake : Brake
 verification def VehicleVerification::MassTest
+verification VehicleVerification::lightMassTest : MassTest
+verification VehicleVerification::heavyMassTest : MassTest
 verification def VehicleVerification::StopTest
+verification VehicleVerification::stopTest : StopTest
 
 relationships:
   VehicleRequirements::EmergencyStopRequirement --|> VehicleRequirements::StoppingRequirement
@@ -25,7 +28,10 @@ relationships:
   VehicleStructure::vehicle ..> VehicleRequirements::emergencyStop: satisfy
   VehicleRequirements::emergencyStop ..> VehicleStructure::brake: allocate
   VehicleVerification::MassTest ..> VehicleRequirements::vehicleMass: verify
+  VehicleVerification::lightMassTest ..> VehicleRequirements::vehicleMass: verify
+  VehicleVerification::heavyMassTest ..> VehicleRequirements::vehicleMass: verify
   VehicleVerification::StopTest ..> VehicleRequirements::emergencyStop: verify
+  VehicleVerification::stopTest ..> VehicleRequirements::emergencyStop: verify
 
 not represented:
   - 4 exposed standard library element(s) not drawn; a requirement rendering draws the model's own elements

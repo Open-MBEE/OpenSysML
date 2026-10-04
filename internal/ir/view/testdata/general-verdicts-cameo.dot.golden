@@ -26,7 +26,10 @@ digraph "GeneralViews::requirementView" {
     "n8" [label=<<font point-size="9">«part»</font><br/><b>heavyVehicle : Vehicle</b>>];
     "n9" [style="rounded,filled", fillcolor="#E1E1C3:#F7F7EF", color="#424242", label=<<b>brake : Brake</b>>];
     "n10" [label=<<font point-size="9">«verification def»</font><br/><b>MassTest</b>>];
-    "n11" [label=<<font point-size="9">«verification def»</font><br/><b>StopTest</b>>];
+    "n11" [label=<<font point-size="9">«verification»</font><br/><b>lightMassTest : MassTest</b>>];
+    "n12" [label=<<font point-size="9">«verification»</font><br/><b>heavyMassTest : MassTest</b>>];
+    "n13" [label=<<font point-size="9">«verification def»</font><br/><b>StopTest</b>>];
+    "n14" [label=<<font point-size="9">«verification»</font><br/><b>stopTest : StopTest</b>>];
   }
   "n2" -> "n1" [arrowhead=empty];
   "n3" -> "n0" [arrowhead=empty, style=dashed];
@@ -39,5 +42,8 @@ digraph "GeneralViews::requirementView" {
   "n7" -> "n5" [label="satisfy", arrowhead=vee, style=dashed];
   "n5" -> "n9" [label="allocate", arrowhead=vee, style=dashed];
   "n10" -> "n3" [label="verify", arrowhead=vee, style=dashed];
-  "n11" -> "n5" [label="verify", arrowhead=vee, style=dashed];
+  "n11" -> "n3" [label="verify", arrowhead=vee, style=dashed];
+  "n12" -> "n3" [label="verify", arrowhead=vee, style=dashed];
+  "n13" -> "n5" [label="verify", arrowhead=vee, style=dashed];
+  "n14" -> "n5" [label="verify", arrowhead=vee, style=dashed];
 }

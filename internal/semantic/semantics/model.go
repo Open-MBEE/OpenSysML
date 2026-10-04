@@ -330,40 +330,9 @@ func (m *Model) DirectSupertypes(sym *symbols.Symbol) []*symbols.Symbol {
 		if rel == nil || rel.Target == nil || !GeneralizationKind(rel.Kind) {
 			continue
 		}
-		// Unwrap FeatureReference if needed
-		targetNode := rel.Target
-		if fr, ok := targetNode.(*ast.FeatureReference); ok {
-			targetNode = fr.Name
-		}
-		qn, isQN := targetNode.(*ast.QualifiedName)
-		if !isQN {
-			// A chain target (`subsets b.f`) generalizes to the chain's final feature.
-			if fc, isChain := targetNode.(*ast.FeatureChainExpr); isChain {
-				target, ok := m.chainTarget(sym, rel.Kind, fc)
-				if ok && target != nil && target != sym && !seen[target] {
-					seen[target] = true
-					out = append(out, target)
-				}
-			}
+		target := m.GeneralizationTargetOf(sym, rel)
+		if target == nil {
 			continue
-		}
-		target, ok := m.generalizationTarget(sym, rel.Kind, qn)
-		if !ok || target == nil {
-			continue
-		}
-		if resolved, aliasOK := m.resolver.ResolveAliasTarget(target); aliasOK {
-			target = resolved
-		} else {
-			continue
-		}
-		// A same-named subsetting targets the inherited feature, not the binding
-		// that resolves first in the owner's scope.
-		if len(qn.Parts) == 1 && rel.Kind == ast.RelSubsets && !subsetsSibling(sym, target) {
-			if redefined := m.inheritedFeature(sym, qn); redefined != nil {
-				target = redefined
-			} else if target == sym {
-				continue
-			}
 		}
 		if seen[target] {
 			continue
@@ -595,6 +564,49 @@ func (m *Model) recordedElement(ref symbols.ElementRef) *symbols.Symbol {
 // may still change and must not be recorded as a fact.
 func (m *Model) SupertypesProvisional(sym *symbols.Symbol) bool {
 	return m.provisionalSupers[sym]
+}
+
+// GeneralizationTargetOf is the supertype a generalization relationship of sym
+// names, as DirectSupertypes reads it: a same-named subsetting targets the
+// inherited feature; nil when the target does not resolve or is sym itself.
+func (m *Model) GeneralizationTargetOf(sym *symbols.Symbol, rel *ast.Relationship) *symbols.Symbol {
+	if sym == nil || rel == nil || rel.Target == nil {
+		return nil
+	}
+	targetNode := rel.Target
+	if fr, ok := targetNode.(*ast.FeatureReference); ok {
+		targetNode = fr.Name
+	}
+	qn, isQN := targetNode.(*ast.QualifiedName)
+	if !isQN {
+		// A chain target (`subsets b.f`) generalizes to the chain's final feature.
+		if fc, isChain := targetNode.(*ast.FeatureChainExpr); isChain {
+			if target, ok := m.chainTarget(sym, rel.Kind, fc); ok && target != nil && target != sym {
+				return target
+			}
+		}
+		return nil
+	}
+	target, ok := m.generalizationTarget(sym, rel.Kind, qn)
+	if !ok || target == nil {
+		return nil
+	}
+	resolved, aliasOK := m.resolver.ResolveAliasTarget(target)
+	if !aliasOK {
+		return nil
+	}
+	target = resolved
+	// A same-named subsetting targets the inherited feature, not the binding
+	// that resolves first in the owner's scope.
+	if len(qn.Parts) == 1 && rel.Kind == ast.RelSubsets && !subsetsSibling(sym, target) {
+		if redefined := m.inheritedFeature(sym, qn); redefined != nil {
+			return redefined
+		}
+		if target == sym {
+			return nil
+		}
+	}
+	return target
 }
 
 // supersUnstable reports whether sym's supertype answer may still change: it was
