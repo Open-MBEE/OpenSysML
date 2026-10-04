@@ -234,7 +234,7 @@ rather than draw it. Those limits stop at a ceiling of twenty times the defaults
 (`view.MermaidTextCeiling`, `view.MermaidEdgeCeiling`), and a chart past the ceiling is refused
 by every backend with a typed `oversized-diagram` error naming it and its size, so a model of
 any size bounds the work a browser or `mmdc` is asked for; such a diagram is drawn with
-`-diagram-form dot` or `plantuml`. When pre-rendered images are supplied, the `<pre>`
+`-diagram-form dot`, `plantuml` or `d2`. When pre-rendered images are supplied, the `<pre>`
 is replaced by `<img>` with the caption as its `alt` text; that is the path the PDF converters
 use, since no print engine runs Mermaid. Table-kind views keep rendering as a table, as they do
 in Markdown.

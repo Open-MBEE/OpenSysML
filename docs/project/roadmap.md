@@ -2432,8 +2432,8 @@ showing it unset. Small; after B2, and it belongs with Q1's page that says which
 
 A view's rendering is a `view.Rendering` — typed nodes (`part def`, `state`, `fork`,
 `decision`, a lifeline), edges with labels, notices for what was not represented — and a
-**form** is only a writer over it: `text`, `markdown`, `mermaid` and, since W1 and W2 landed,
-`dot` and `plantuml`, chosen by `-render-form`, `%render <name> <form>`, the `opensysml/render` request the VS Code
+**form** is only a writer over it: `text`, `markdown`, `mermaid` and, since W1, W2 and W4 landed,
+`dot`, `plantuml` and `d2`, chosen by `-render-form`, `%render <name> <form>`, the `opensysml/render` request the VS Code
 panel makes, and the document renderer, which embeds the Mermaid form in HTML and rasterizes it
 through `mmdc` for PDF. The tree, interconnection, state, action and sequence kinds all render — the
 state rendering from the lowered `StateGraph` (regions, entry transitions, triggers, guards,
@@ -2500,7 +2500,7 @@ writer has a stable URL for an `Origin`.
 
 ## W3 — the forms where renderings surface
 
-`dot` and `plantuml` join `text`, `markdown` and `mermaid` everywhere a form is chosen:
+`dot`, `plantuml` and `d2` join `text`, `markdown` and `mermaid` everywhere a form is chosen:
 `-render-form`, `%render`, the `opensysml/render` request (the VS Code panel keeps Mermaid, which
 it can draw in-process, and offers the others as *save as*), and the document renderer. **Landed**
 — for `dot` with W1, for `plantuml` with W2, and the PDF rasterization and the panel's export in
@@ -2529,11 +2529,38 @@ kinds drawn as their notation and labels fitted to a stated box (#560, `v0.9.0`)
 kept off compartment rows (#589) and Cameo behaviour notation for action and state views in the
 DOT writer (#623), both `v0.9.1`, as [view-rendering-forms.md](view-rendering-forms.md) records
 row by row. Open against `develop`: #757, a part's typed ports drawn on the interconnection view
-with connectors ended at them. Nothing else is open in the track.
+with connectors ended at them. The `d2` form of [W4](#w4--a-d2-form) took the same route the day
+it landed: `-render-form d2` (`-render-all` writes `.d2`), `%render <name> d2 [palette]`,
+`"form": "d2"`, `-diagram-form d2` (` ```d2 ` fences, `<pre class="d2">`), the PDF backend
+drawing a block through the `d2` executable `OPENSYSML_D2` names and keeping the source under a
+notice without one, the toolchain script provisioning a pinned release, and the panel's export
+saving `.d2`. Nothing else is open in the track.
+
+## W4 — a `d2` form
+
+**Landed** — see [view rendering forms](view-rendering-forms.md#d2). A D2 writer over
+`Rendering` (`internal/ir/view/d2.go`) for [D2](https://d2lang.com), the declarative diagram
+language whose containers nest to any depth: a tree is flat nodes joined by containment lines (as
+every other form draws it), an interconnection nested containers with a drawn port a small node
+inside the part that owns it and connectors between the ports' full paths, a state or action
+rendering nested containers with its control nodes as pseudostate glyphs — a filled dot, a
+double-bordered dot, a bar, a diamond, an `H` circle — and a sequence D2's own
+`shape: sequence_diagram`, so every kind the PlantUML form writes, D2 writes too. The Pilot's B&W
+look is one `classes` block each node and edge names; the named palettes fill nodes with the same
+hex per node as DOT; every direction is drawn (`direction: down|right|up|left`), where PlantUML
+reverses none; DiagramLayout geometry is kept as `#` comments through the helpers the Mermaid and
+PlantUML forms share, D2 laying the diagram out itself. Goldens beside every `*.mermaid.golden`
+are walked by an in-test D2 syntax check; a `d2` executable is never needed — one found through
+`OPENSYSML_D2` or `PATH` turns on an extra compile of every golden.
+
+Writing D2 in-process was considered — D2 is a Go library — and not taken: the layout engines and
+font bundles it brings would weigh on every binary for the PDF backend's sake alone, so the PDF
+backend runs the `d2` executable as it runs Graphviz and the PlantUML jar, an optional tool
+located by environment variable.
 
 W1 landed first, being the smaller grammar and the one Graphviz-based pipelines want; W2 followed
-over the same node kinds and the sequence; W3 landed with each. Independent of every other track:
-nothing here touched the rendering model, only writers over it.
+over the same node kinds and the sequence; W4 over the same again; W3 landed with each.
+Independent of every other track: nothing here touched the rendering model, only writers over it.
 
 ---
 

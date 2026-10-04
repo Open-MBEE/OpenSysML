@@ -292,6 +292,8 @@ func renderExtension(form view.Form) string {
 		return ".dot"
 	case view.FormPlantUML:
 		return ".puml"
+	case view.FormD2:
+		return ".d2"
 	case view.FormCSV:
 		return ".csv"
 	case view.FormTSV:

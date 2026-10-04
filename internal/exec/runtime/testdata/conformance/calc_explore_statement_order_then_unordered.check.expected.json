@@ -1,0 +1,4 @@
+{
+	"verdict": "divergent",
+	"divergent": {"r": ["15", "23", "35"]}
+}

@@ -357,6 +357,12 @@ func diagramSource(name string, rendering *view.Rendering, options view.Options,
 			return "", err
 		}
 		return strings.TrimRight(puml, "\n"), nil
+	case view.FormD2:
+		d2, err := rendering.D2With(options)
+		if err != nil {
+			return "", err
+		}
+		return strings.TrimRight(d2, "\n"), nil
 	}
 	return "", &Error{Kind: ErrorUnknownForm, DiagramForm: form}
 }

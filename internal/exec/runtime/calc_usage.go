@@ -130,21 +130,6 @@ func indexOfAnonymousResult(outs []calcOutput) (int, bool) {
 	return 0, false
 }
 
-// calcSteps is the computation an invoked calc runs: its lowered body without
-// the value bindings of its `out` features. An `out` binding states what that
-// feature is, not a step of the body, so a calc declaring several of them
-// returns none of them by falling off the end of its body.
-func calcSteps(body []lower.Statement) []lower.Statement {
-	steps := make([]lower.Statement, 0, len(body))
-	for _, stmt := range body {
-		if ret, ok := stmt.(lower.Return); ok && isOutputBinding(ret.Node) {
-			continue
-		}
-		steps = append(steps, stmt)
-	}
-	return steps
-}
-
 // assignedOutputs are the outputs the body's statements assign, on any path
 // through it: what the calc computes, whichever way an execution branches.
 func assignedOutputs(stmts []lower.Statement, outputs []calcOutput, aliases map[string]string) map[string]bool {
@@ -185,14 +170,6 @@ func collectAssignedOutputs(stmts []lower.Statement, declared map[string]string,
 			}
 		}
 	}
-}
-
-// isOutputBinding reports whether a lowered return states an `out` feature's
-// value rather than a `return`. A result parameter stays a return: it is the
-// one value the calc designates.
-func isOutputBinding(node ast.Node) bool {
-	usage, ok := node.(*ast.Usage)
-	return ok && usage.Direction == ast.DirOut && !usage.IsResult
 }
 
 // output finds the output feature of that name.

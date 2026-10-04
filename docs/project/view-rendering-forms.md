@@ -1,13 +1,13 @@
 # View rendering forms — the view engine's writers
 
-> **Labels.** This is an engineering record. "Track W" and its items (`W1`–`W3`) name entries of
+> **Labels.** This is an engineering record. "Track W" and its items (`W1`–`W4`) name entries of
 > [the roadmap](roadmap.md), where each is stated in full; a reader who only wants the design can
 > ignore them.
 
-Status: **`text`, `markdown`, `csv`, `tsv`, `mermaid`, `dot` and `plantuml` implemented** — `dot` is Track W's
-`W1` and `plantuml` its `W2`, both wired into every surface `W3` names. This page records how a
-view's rendering is separated from the forms it is written in, how Mermaid, Graphviz DOT and
-PlantUML compare, and what the writers emit — the
+Status: **`text`, `markdown`, `csv`, `tsv`, `mermaid`, `dot`, `plantuml` and `d2` implemented** — `dot` is Track W's
+`W1`, `plantuml` its `W2` and `d2` its `W4`, each wired into every surface `W3` names. This page records how a
+view's rendering is separated from the forms it is written in, how Mermaid, Graphviz DOT,
+PlantUML and D2 compare, and what the writers emit — the
 [DiagramLayout](diagram-layout-annotations.md) geometry included.
 
 ## The rendering and its forms
@@ -46,6 +46,7 @@ A **form** is a writer over that tree (`internal/ir/view/form.go`):
 | `mermaid` | `mermaid.go` | `tree`, `interconnection`, `state`, `action`, `sequence` | The default machine-readable form of the graph-shaped kinds |
 | `dot` | `dot.go` | `tree`, `interconnection`, `state`, `action` | Graphviz DOT, the alternative to Mermaid |
 | `plantuml` | `plantuml.go` | `tree`, `interconnection`, `state`, `action`, `sequence` | PlantUML in the Pilot visualizer's B&W style, for PlantUML toolchains |
+| `d2` | `d2.go` | `tree`, `interconnection`, `state`, `action`, `sequence` | [D2](https://d2lang.com) in the same look, for D2 toolchains; nested containers and D2's own sequence diagram |
 
 `Kind.MachineForm` chooses the form a tool gets when none is asked for — `markdown` for a table,
 `mermaid` for everything else — and `Kind.SupportsForm` decides whether a kind can be written in
@@ -820,6 +821,7 @@ origins and bundled library declarations — is not linked.
 | DOT | Nodes and edges receive quoted `URL` and `tooltip` attributes; a composite node's URL and tooltip are cluster attributes, not attributes of its invisible anchor. The tooltip is the qualified name when available, otherwise `file:line:col`. |
 | PlantUML | Linkable nodes carry `[[url]]` after stereotypes and before palette colors, and edges carry links. PlantUML SVG drops links on `<<start>>`, `<<fork>>`, `<<join>>`, `<<end>>`, `<<choice>>`, `<<history>>` and `<<history*>>` pseudostates; an unlinked pseudostate inside a linked composite state takes the composite's link. Ports and initial/start pseudostate arrows are not linked. |
 | Mermaid flowchart | Linkable nodes receive `click` statements after the edges and classes. Edges and subgraphs are not linked. |
+| D2 | Nodes, containers, pseudostate glyphs, edges and sequence lifelines and messages carry `link: "url"` after their `class`, which D2 draws as an SVG anchor for every one of them. Pins are not linked: a port's link is its owner's. |
 | Mermaid state diagram | Simple states are linked; composite states are not. |
 | Mermaid sequence diagram | Participants receive `link` statements; messages are not linked. Mermaid CLI 11.16.0 drops participant URL fragments in SVG. |
 
@@ -867,22 +869,82 @@ alike — with the [palette rules](#palettes) shared with DOT unchanged: same fa
 contrast lightening, same hex per node. Pseudostates, control nodes and containers stay B&W under
 every palette, and text stays black.
 
+## D2
+
+The `d2` form is for toolchains that draw with [D2](https://d2lang.com), Terrastruct's declarative
+diagram language, whose strengths match the renderings: containers nest to any depth, so an
+interconnection's parts and a state's regions are drawn inside their owners as the Pilot draws
+them; every node and edge takes a `class` from one `classes` block, so the B&W look is stated once;
+and it has a sequence diagram of its own (`shape: sequence_diagram`). It is produced by pure text
+emission over the rendering tree, as the other forms are: **no `d2` executable** is needed to
+write it, and neither the writer, its tests nor the CLI, REPL and LSP surfaces run one. The PDF
+backend alone runs it, to draw the figure it embeds: `internal/doc/docpdf` writes each block to a
+`.d2` file, runs `d2 --layout=dagre --pad=16 <block>.d2 <block>.svg`, the `d2` from
+`OPENSYSML_D2` or `PATH`, moves the `<mask>` that cuts each connection's label out of its line
+under `<defs>` (WeasyPrint draws a mask written after its use as content, a white rectangle
+over the whole figure), and keeps the source under a notice when the executable is absent —
+see [Surfaces](#surfaces).
+
+```d2
+# VehicleViews::vehicleView — tree rendering
+classes: {
+  definition: { style: { fill: white; stroke: "#181818"; stroke-width: 1; font-color: black; font-size: 14 } }
+  usage: { style: { fill: white; stroke: "#181818"; stroke-width: 1; font-color: black; font-size: 14; border-radius: 8 } }
+  edge: { style: { stroke: "#181818"; font-size: 13; font-color: black; stroke-width: 1 } }
+}
+n0: "«part def»\nVehicles::Vehicle" { class: definition }
+n1: "«part»\nengine : Engine" { class: usage }
+n0 -- n1: { class: edge }
+```
+
+One shape per kind, chosen so each golden is drawn losslessly:
+
+| Kind | D2 |
+| --- | --- |
+| `tree` | Flat nodes joined by `--` containment lines, as the Mermaid, DOT and PlantUML trees draw it; nesting them would draw the containment twice |
+| `interconnection` | A node with children is a container (`n0: "…" { class: usage; n1: … }`); a drawn port is a small `pin`-classed node inside the part that owns it; a connection joins the ports' full paths (`n0.n1."n1.0" -- n0.n2."n2.0": "supply"`) |
+| `state`, `action` | Containers for composite states, regions and actions with a body; control nodes as pseudostate glyphs — `initial` a filled dot (a start and a junction), `final` a double-bordered dot, `terminate` an `×`, `bar` for fork and join, `choice` a diamond for decision, choice and merge, `history` an `H` circle; an action's pins as `pin` nodes, as in the interconnection |
+| `sequence` | One `sequence: "" { shape: sequence_diagram … }` container holding the lifelines in root order and the `->` messages in edge order, one for one with the Mermaid form |
+
+Edges follow the Pilot: `--` at `stroke-width: 3` for a connection, `--` for a binding, `->` with
+`stroke-dash: 3` for a flow, `->` for a transition or succession, labelled as the DOT form labels
+them. `TB`/`LR`/`BT`/`RL` become `direction: down`/`right`/`up`/`left` — D2 draws every direction,
+where PlantUML does not. Every label is one double-quoted string with `\`, `"`, a newline and the
+`${` substitution escaped; every node is the rendering's identifier-safe ID, quoted where it holds
+a `.` (`"n1.0"`) so D2 does not read it as a path.
+
+The look is the [DOT style](#style) restated as D2 classes: `definition` square and `usage` with
+`border-radius: 8`, both white with a `#181818` 1 px stroke and 14 pt black text; `package` and
+`region` containers (the region's `stroke-dash: 3` for an orthogonal region, as DOT dashes it);
+`pin` at 10 pt; `edge` 1 px, `connection` 3 px, `flow` dashed, all with 13 pt labels; the
+pseudostate classes above. A palette fills a node as `style: { fill: "#hex"; stroke: "#hex" }`
+after its class, the [palette rules](#palettes) shared with DOT unchanged — same family, same
+tint, same contrast lightening, same hex per node — and a container's fill is written the same
+way, so an interconnection's outer part is tinted as its DOT cluster is. A `DiagramLayout::Style`
+writes its colours as `fill`, `stroke` and `font-color`, its size as `font-size` and bold and
+italic as `bold`/`italic`; a font family is noticed, D2 setting fonts per theme. A `cameo` style is
+noticed as not represented, as it is in PlantUML; notes and pictures are noticed, the `dot` form
+drawing them; positions and routes are kept as `# canvas:`, `# layout:` and `# route:` comments
+through the geometry-comment helpers the Mermaid and PlantUML forms share, D2 laying the diagram
+out itself. A `-render-link` template writes each located node's and edge's URL as `link: "…"`
+beside its `class` — see [Source links](#source-links).
+
 ## Surfaces
 
-`dot`, `mermaid` and `plantuml` are accepted wherever a form is chosen:
+`dot`, `mermaid`, `plantuml` and `d2` are accepted wherever a form is chosen:
 
 | Surface | Where | Documentation |
 | --- | --- | --- |
-| CLI | `-render <view> -render-form mermaid\|dot\|plantuml`; `-render-all <dir>` writes `.mmd`, `.dot` or `.puml`; `-render-palette <name>` fills nodes in each form where applicable | [`docs/reference/cli.md`](../reference/cli.md#rendering-a-view) |
-| REPL | `%render <view> mermaid\|dot\|plantuml [palette] [pilot\|cameo]`; `%help` names the options; form, palette and style complete where accepted | [`docs/reference/repl-commands.md`](../reference/repl-commands.md#rendering-a-view) |
-| LSP | `"form": "mermaid"`, `"dot"` or `"plantuml"` and `"palette": "<name>"` on `opensysml/render`; `Rendering.Fills` carries each node's fill and border for clients drawing their own SVG | [`docs/reference/lsp.md`](../reference/lsp.md) |
-| VS Code | `SysML: Export Diagram` picks among the forms the server lists under its `openSysmlRenderForms` capability (the documented five for a server without it, which predates `csv` and `tsv`), sends the pick as `form`, and saves `.dot` or `.puml` (`.mmd`, `.md`, `.csv`, `.tsv`, `.txt` for the others) | [`docs/guide/08-editors.md`](../guide/08-editors.md#exporting-a-diagram) |
+| CLI | `-render <view> -render-form mermaid\|dot\|plantuml\|d2`; `-render-all <dir>` writes `.mmd`, `.dot`, `.puml` or `.d2`; `-render-palette <name>` fills nodes in each form where applicable | [`docs/reference/cli.md`](../reference/cli.md#rendering-a-view) |
+| REPL | `%render <view> mermaid\|dot\|plantuml\|d2 [palette] [pilot\|cameo]`; `%help` names the options; form, palette and style complete where accepted | [`docs/reference/repl-commands.md`](../reference/repl-commands.md#rendering-a-view) |
+| LSP | `"form": "mermaid"`, `"dot"`, `"plantuml"` or `"d2"` and `"palette": "<name>"` on `opensysml/render`; `Rendering.Fills` carries each node's fill and border for clients drawing their own SVG | [`docs/reference/lsp.md`](../reference/lsp.md) |
+| VS Code | `SysML: Export Diagram` picks among the forms the server lists under its `openSysmlRenderForms` capability (the documented six for a server without it, which predates `csv` and `tsv`), sends the pick as `form`, and saves `.dot`, `.puml` or `.d2` (`.mmd`, `.md`, `.csv`, `.tsv`, `.txt` for the others) | [`docs/guide/08-editors.md`](../guide/08-editors.md#exporting-a-diagram) |
 | CLI, REPL, LSP, documents | `-render-style pilot\|cameo` beside `-render-palette`; `%render <view> mermaid [palette] [pilot\|cameo]`; `"style": "cameo"` on `opensysml/render` and the `openSysmlRenderStyles` capability; `docrender.MarkdownOptions.Style`/`HTMLOptions.Style` and `docpdf.Options.Style`. Unsupported style details receive a `not represented: style …` notice; an unknown name is a typed `*view.UnknownDrawingStyleError` | [`docs/reference/cli.md`](../reference/cli.md#rendering-a-view), [`docs/reference/repl-commands.md`](../reference/repl-commands.md#rendering-a-view), [`docs/reference/lsp.md`](../reference/lsp.md) |
 | CLI, REPL, LSP, documents | `-render-style pilot\|cameo` beside `-render-palette`, on `-render`, `-render-all` and the document renderers; `%render <view> dot [palette] [pilot\|cameo]` and `%render-document <name> dot [style]`; `"style": "cameo"` on `opensysml/render`, the styles listed by the `openSysmlRenderStyles` capability; `docrender.MarkdownOptions.Style`/`HTMLOptions.Style` and `docpdf.Options.Style`. A form that draws no style writes a `not represented: style …` notice; an unknown name is a typed `*view.UnknownDrawingStyleError` naming the styles there are | [`docs/reference/cli.md`](../reference/cli.md#rendering-a-view), [`docs/reference/repl-commands.md`](../reference/repl-commands.md#rendering-a-view), [`docs/reference/lsp.md`](../reference/lsp.md) |
 | CLI, REPL, LSP, documents | `-render-ports minimal\|full` on `-render` and `-render-all`; `%render <view> <form> [minimal\|full]` in any order with the palette and style; `"ports": "full"` on `opensysml/render`, the displays listed by the `openSysmlRenderPorts` capability; `Diagram::ports` in a document, carried as `view.Options.Ports` (`invalid-ports`, `unsupported-ports` errors) | [`docs/reference/cli.md`](../reference/cli.md#rendering-a-view), [`docs/reference/repl-commands.md`](../reference/repl-commands.md#rendering-a-view), [`docs/reference/lsp.md`](../reference/lsp.md), [`docs/manual/authoring.md`](../manual/authoring.md#diagrams) |
 | VS Code | The diagram panel's **Style** list and `opensysml.diagram.style`: `pilot` draws the panel's SVG under this section's B&W rules, `cameo` asks the server for the [Cameo look](#the-cameo-style), a palette name fills its nodes from the `fill` and `border` the server returns | [`editors/vscode/README.md`](../../editors/vscode/README.md#the-diagram-panel) |
 | CLI, REPL, LSP, VS Code | A table view takes `csv` or `tsv` as well: `-render <view> -render-form csv\|tsv` (`-render-all` writes `.csv` or `.tsv` for each table and skips every other view), `%render <view> csv\|tsv`, `"form": "csv"` or `"tsv"` on `opensysml/render`. Either is a header record of the columns, then a record per row, fields quoted as RFC 4180 quotes them; a notice is never inside the records: the CLI writes it to standard error, LSP returns it in the response, and `%render` lists it after a blank line | [`docs/reference/cli.md`](../reference/cli.md#rendering-a-view), [`docs/reference/repl-commands.md`](../reference/repl-commands.md#rendering-a-view), [`docs/reference/lsp.md`](../reference/lsp.md) |
-| Documents | `-render-document`/`-render-documents … -diagram-form mermaid\|dot\|plantuml`, `%render-document <name> mermaid\|dot\|plantuml`, `"diagramForm"` on `opensysml/renderDocument`: graph-shaped blocks use Mermaid, DOT or PlantUML source; HTML carries `data-palette` and `data-style`, and local Mermaid pictures are inlined before source is collected. PDF draws with the selected tool; absent optional DOT/PlantUML tools leave readable source under a notice, while a missing Mermaid CLI is an error. A `Diagram` block states what is drawn, not the notation; its palette and style apply where the selected form supports them | [`docs/manual/authoring.md`](../manual/authoring.md#diagrams), [`docs/manual/outputs.md`](../manual/outputs.md), [`docs/reference/environment.md`](../reference/environment.md) |
+| Documents | `-render-document`/`-render-documents … -diagram-form mermaid\|dot\|plantuml\|d2`, `%render-document <name> mermaid\|dot\|plantuml\|d2`, `"diagramForm"` on `opensysml/renderDocument`: graph-shaped blocks use Mermaid, DOT, PlantUML or D2 source; HTML carries `data-palette` and `data-style`, and local Mermaid pictures are inlined before source is collected. PDF draws with the selected tool; absent optional DOT/PlantUML/D2 tools leave readable source under a notice, while a missing Mermaid CLI is an error. A `Diagram` block states what is drawn, not the notation; its palette and style apply where the selected form supports them | [`docs/manual/authoring.md`](../manual/authoring.md#diagrams), [`docs/manual/outputs.md`](../manual/outputs.md), [`docs/reference/environment.md`](../reference/environment.md) |
 
 The gRPC service (`api/proto/sysml.proto`, `internal/frontend/grpc`) has no view-render RPC and no
 render-form field — `RenderDocument` alone, to Markdown — so the wire contract carries no form
@@ -956,34 +1018,47 @@ and did not change. A view-render RPC added later would take the form as a strin
   every palette. When `OPENSYSML_PLANTUML_JAR` names a PlantUML jar and `java` is on the `PATH`,
   every golden is additionally passed through `-checkonly`; the check is silent without them and
   nothing in `go test` depends on the jar.
+- `internal/ir/view/d2_test.go`: a `*.d2.golden` beside every Mermaid golden — the same fixtures
+  the PlantUML goldens cover, the palette variants included — each walked by an in-test D2 syntax
+  check: balanced braces, every quoted string closed, every edge endpoint declared as a node (by
+  its full path inside its containers), the `classes` block the first statement; the wrong-form
+  errors for `table`, `textual` and `geometry`; every direction; the palette parity test asserting
+  the same fill hex per node as the DOT form over every golden model and palette; the ports drawn
+  under `minimal` and `full`; an action's pins and their flows by path; the escaping of `\`, `"`,
+  `${` and newlines; the geometry comments and their notice; the style, font, note and picture
+  notices; the empty rendering. When `OPENSYSML_D2` names a `d2` executable or one is on `PATH`,
+  every golden is additionally compiled to SVG; the check is silent without one and nothing in
+  `go test` depends on it.
 - `internal/ir/view/label_test.go`, `render_test.go`: the label lines of a typed usage, an
   untyped usage, a definition, an anonymous node and a node with notes; the text form's
   keyword-leading line; the same `<br>`-joined label in the flowchart, state and sequence
   Mermaid grammars; the escaping of `<`, `>`, `"` and `#` in a Mermaid label.
 - `cmd/sysml/render_test.go`, `internal/frontend/repl/view_render_test.go`, `internal/frontend/lsp/render_test.go`:
-  each form on each surface — DOT refused for a table or sequence, PlantUML for a table and
-  written for a sequence; `-render-all` writing `.dot` and `.puml`; palettes accepted by Mermaid
+  each form on each surface — DOT refused for a table or sequence, PlantUML and D2 for a table and
+  written for a sequence; `-render-all` writing `.dot`, `.puml` and `.d2`; palettes accepted by Mermaid
   and refused by name with the palettes there are.
 - `internal/ir/docplan`, `docir`, `docrender`: the `Diagram` block's `palette` accepted,
   refused when unknown (`invalid-palette`) or stated on a kind with no graphical form
   (`unsupported-palette`), carried into the document IR and onto the HTML figures.
 - `internal/doc/docrender`, `docpdf`, `cmd/sysml`, `internal/frontend/repl`, `internal/frontend/lsp`: the
-  render-time diagram form defaulting to Mermaid, written as a `dot` or `plantuml` fence and a
-  `<pre class="dot">` or `<pre class="plantuml">` for every graph-shaped block with tables left
+  render-time diagram form defaulting to Mermaid, written as a `dot`, `plantuml` or `d2` fence and a
+  `<pre class="dot">`, `<pre class="plantuml">` or `<pre class="d2">` for every graph-shaped block with tables left
   as tables, refused for an unknown form and for a kind with no DOT form.
 - `internal/doc/docpdf/diagrams_test.go`, `cmd/sysml/render_document_pdf_test.go`: with fake tools, a DOT block drawn by the `dot` that
-  `OPENSYSML_DOT` names and a PlantUML block by `java -jar <jar> -tsvg -pipe` fed on stdin; the
+  `OPENSYSML_DOT` names, a PlantUML block by `java -jar <jar> -tsvg -pipe` fed on stdin and a D2
+  block by the `d2` that `OPENSYSML_D2` names, run on a `.d2` file holding the block's source; the
   `// layout:` header choosing `dot`, `neato`, `neato -n` and `neato -n2`; the block kept as
-  source under a notice naming `OPENSYSML_DOT`, `OPENSYSML_PLANTUML_JAR` or `OPENSYSML_JAVA` when
+  source under a notice naming `OPENSYSML_DOT`, `OPENSYSML_PLANTUML_JAR`, `OPENSYSML_JAVA` or `OPENSYSML_D2` when
   the tool is absent; a failing tool or one that writes no SVG the typed `tool-failed` error
   carrying its stderr; Mermaid, DOT and PlantUML blocks of one document drawn in source order,
   Mermaid still required. `internal/doc/docpdf/integration_test.go` draws through the pinned Graphviz
   and PlantUML that `scripts/download-doc-pdf-toolchain.sh` provisions — an ordinary graph, a
   `neato -n` layout whose nodes stay where the model put them, a malformed PlantUML refused with
-  `Syntax Error` — and CI's `pdf-toolchain` job runs it with `OPENSYSML_REQUIRE_PDF_TOOLCHAIN=1`,
+  `Syntax Error`, the report's D2 diagrams compiled by the pinned `d2` and a malformed block it
+  refuses — and CI's `pdf-toolchain` job runs it with `OPENSYSML_REQUIRE_PDF_TOOLCHAIN=1`,
   so a missing tool there fails instead of skipping.
 - `editors/vscode/src/export.test.ts`, `internal/frontend/lsp/render_test.go`: the export picker offering
-  the server's forms, the pick sent as `form`, the artifact saved under `.dot`/`.puml`/`.mmd`/
+  the server's forms, the pick sent as `form`, the artifact saved under `.dot`/`.puml`/`.d2`/`.mmd`/
   `.md`/`.txt` with the matching filter, nothing sent or written when the pick or the save dialog
   is dismissed; the server advertising `openSysmlRenderForms` and answering each form it lists.
 
@@ -997,12 +1072,12 @@ and did not change. A view-render RPC added later would take the form as a strin
   be represented. Picture geometry and z-order survive only as comments; Mermaid chooses placement.
 - A `Route` is written as the polyline through its waypoints; the writer does not smooth it
   into a curve, and Graphviz draws it as given.
-- The PDF backend draws a DOT or PlantUML diagram only when the tool is installed: Graphviz and
-  the PlantUML jar are optional, so without them the source stays readable under a notice
+- The PDF backend draws a DOT, PlantUML or D2 diagram only when the tool is installed: Graphviz,
+  the PlantUML jar and `d2` are optional, so without them the source stays readable under a notice
   naming the variable to set, where a missing `mmdc` is an error. The figure is embedded as SVG;
   Graphviz's own `-Tpdf` output is not embedded by WeasyPrint.
 - A `sequence` rendering has no DOT form. DOT has no sequence-diagram vocabulary; the Mermaid
-  `sequenceDiagram` and PlantUML sequence forms are its machine-readable ones.
+  `sequenceDiagram`, PlantUML sequence and D2 `sequence_diagram` forms are its machine-readable ones.
 - The PlantUML form cannot pin a position or a route: DiagramLayout geometry is written as
   comments and a notice counts it; `dot` is the form that honours it.
 - PlantUML draws no reversed direction: `BT` and `RL` read as `TB` and `LR`, and a notice says so.
@@ -1016,6 +1091,16 @@ and did not change. A view-render RPC added later would take the form as a strin
 - Producing PlantUML runs no jar. The goldens are checked by the in-test syntax walk; a jar on
   the machine is used by hand, or by the optional `-checkonly` check that `OPENSYSML_PLANTUML_JAR`
   turns on.
+- The D2 form cannot pin a position or a route either: DiagramLayout geometry is written as `#`
+  comments and a notice counts it. D2 draws in one look — a `cameo` style is noticed — and sets
+  fonts per theme, so a `DiagramLayout::Style` font family is noticed; notes and pictures are
+  noticed, the `dot` form drawing them. A fork or join bar draws no label, and the pins no edge
+  ends at are counted in a notice, as in Mermaid. A `-render-link` template is written as `link:`
+  on every located node and edge, the lifelines and messages of a sequence included, and D2
+  keeps each as an SVG anchor; pins carry none (`links-*-d2.golden`, and
+  `TestLinkedFormsRenderAsSVG` compiles the linked form through a `d2` on the machine).
+- Producing D2 runs no `d2`. The goldens are checked by the in-test syntax walk; a `d2` on the
+  machine compiles them too, through the optional check `OPENSYSML_D2` or `PATH` turns on.
 - Under the `pilot` style a control node (fork, join, decision) with no stated box takes the
   default box with its kind in the label; the symbol shapes are drawn for a stated box, and
   always under `cameo`.

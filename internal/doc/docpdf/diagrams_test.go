@@ -22,7 +22,7 @@ import (
 func withoutDiagramTools(t *testing.T) {
 	t.Helper()
 	missing := t.TempDir()
-	for _, env := range []string{MermaidEnv, DotEnv, JavaEnv, PlantUMLJarEnv} {
+	for _, env := range []string{MermaidEnv, DotEnv, JavaEnv, PlantUMLJarEnv, D2Env} {
 		t.Setenv(env, filepath.Join(missing, "no-"+strings.ToLower(env)+"-here"))
 	}
 }
@@ -47,6 +47,20 @@ if [ -n "$out" ]; then
 else
   printf '<svg xmlns="http://www.w3.org/2000/svg"><text>drawn by `+name+`</text></svg>'
 fi
+`)
+	return log
+}
+
+// fakeD2 writes a fake d2 that writes an SVG to the file its last argument
+// names, as d2 takes its output, logging its arguments to d2.log in dir and
+// keeping a copy of each input there.
+func fakeD2(t *testing.T, dir string) string {
+	t.Helper()
+	log := filepath.Join(dir, "d2.log")
+	fakeTool(t, dir, "d2", D2Env, `printf 'args:%s\n' "$*" >> "`+log+`"
+in=""; out=""; for arg; do in="$out"; out="$arg"; done
+cp "$in" "`+dir+`/"
+printf '<svg xmlns="http://www.w3.org/2000/svg"><text>drawn by d2</text></svg>' > "$out"
 `)
 	return log
 }
@@ -186,6 +200,43 @@ func TestDrawDOTWritesTheDiagramSource(t *testing.T) {
 		source, err := os.ReadFile(filepath.Join(dir, images[i][:len(images[i])-len(".svg")]+".dot"))
 		if err != nil || string(source) != diagram.Source+"\n" {
 			t.Fatalf("dot input %d: %q, %v; want the diagram's source", i+1, source, err)
+		}
+	}
+}
+
+// TestRenderD2WithFakeD2 checks the D2 form is drawn by the d2 the
+// environment names: each block written to a .d2 file, d2 run on it with the
+// layout engine pinned, and its SVG embedded in the page in diagram order.
+func TestRenderD2WithFakeD2(t *testing.T) {
+	dir := t.TempDir()
+	withoutDiagramTools(t)
+	log := fakeD2(t, dir)
+	capture := captureWeasyPrint(t, dir)
+	if _, err := Render(telescopeDocument(t), "weasyprint", Options{DiagramForm: view.FormD2}); err != nil {
+		t.Fatalf("Render: %v", err)
+	}
+	page, listing := readCapture(t, capture)
+	images := fileRefs(captureDir(t, capture), []string{"diagram-1.svg", "diagram-2.svg"})
+	first, second := strings.Index(page, `<img src="`+images[0]+`"`), strings.Index(page, `<img src="`+images[1]+`"`)
+	if first < 0 || second < 0 || first > second || strings.Contains(page, `<pre class="d2">`) {
+		t.Fatalf("page does not show the two drawn diagrams in order:\n%s", page)
+	}
+	for _, file := range []string{"diagram-1.d2", "diagram-1.svg", "diagram-2.d2", "diagram-2.svg"} {
+		if !strings.Contains(listing, file) {
+			t.Fatalf("render directory lacks %s:\n%s", file, listing)
+		}
+	}
+	args, _ := os.ReadFile(log)
+	for _, want := range []string{"args:--layout=dagre --pad=16 diagram-1.d2 diagram-1.svg\n", "args:--layout=dagre --pad=16 diagram-2.d2 diagram-2.svg\n"} {
+		if !strings.Contains(string(args), want) {
+			t.Fatalf("d2 arguments lack %q: %s", want, args)
+		}
+	}
+	diagrams := telescopeDiagrams(t, view.FormD2)
+	for i, diagram := range diagrams {
+		source, err := os.ReadFile(filepath.Join(dir, fmt.Sprintf("diagram-%d.d2", i+1)))
+		if err != nil || string(source) != diagram.Source+"\n" {
+			t.Fatalf("d2 input %d: %q, %v; want the diagram's source", i+1, source, err)
 		}
 	}
 }
@@ -440,6 +491,29 @@ func TestDrawDiagramToolWroteNoSVG(t *testing.T) {
 	}
 }
 
+// TestDrawDiagramD2WroteNoSVG checks a d2 that exits 0 without writing an SVG
+// document fails as every tool does — a typed failure naming d2 and the
+// diagram, not the error of the mask pass reading a file that is not there.
+func TestDrawDiagramD2WroteNoSVG(t *testing.T) {
+	cases := map[string]string{
+		"nothing":      "exit 0\n",
+		"diagnostics":  `printf 'err: layout failed\n' > "$out"`,
+		"malformedXML": `printf '<svg xmlns="http://www.w3.org/2000/svg"><mask id="m">unclosed' > "$out"`,
+	}
+	for name, script := range cases {
+		t.Run(name, func(t *testing.T) {
+			dir := t.TempDir()
+			withoutDiagramTools(t)
+			fakeTool(t, dir, "d2", D2Env, `out=""; for arg; do out="$arg"; done`+"\n"+script+"\n")
+			_, err := drawDiagrams(dir, telescopeDiagrams(t, view.FormD2))
+			var docErr *Error
+			if !errors.As(err, &docErr) || docErr.Kind != ErrorToolFailed || docErr.Tool != d2Tool.name || !strings.Contains(docErr.Detail, "wrote no SVG") || !strings.Contains(docErr.Detail, "diagram 1") {
+				t.Fatalf("got %v, want ErrorToolFailed from d2 naming diagram 1", err)
+			}
+		})
+	}
+}
+
 // TestDrawDiagramToolWroteAPrefacedSVG checks a drawing opening on an XML
 // declaration and a DOCTYPE, as Graphviz and PlantUML write it, is accepted.
 func TestDrawDiagramToolWroteAPrefacedSVG(t *testing.T) {
@@ -548,7 +622,7 @@ func TestRenderForPandocDrawsDOTAndPlantUML(t *testing.T) {
 			t.Fatal(err)
 		}
 		images := fileRefs(captureDir(t, capture), []string{"diagram-1.svg", "diagram-2.svg"})
-		for _, want := range []string{`local forms = {mermaid = true, dot = true, plantuml = true}`, `local images = {"` + images[0] + `", "` + images[1] + `"}`} {
+		for _, want := range []string{`local forms = {mermaid = true, dot = true, plantuml = true, d2 = true}`, `local images = {"` + images[0] + `", "` + images[1] + `"}`} {
 			if !strings.Contains(string(filter), want) {
 				t.Fatalf("%s filter lacks %q:\n%s", form, want, filter)
 			}
@@ -589,5 +663,74 @@ func TestRenderDOTStyleReachesGraphviz(t *testing.T) {
 	_, err = Render(telescopeDocument(t), "weasyprint", Options{DiagramForm: view.FormDot, Style: "magicdraw"})
 	if err == nil || !strings.Contains(err.Error(), `unknown drawing style "magicdraw"`) {
 		t.Fatalf("an unknown drawing style: %v", err)
+	}
+}
+
+// TestDefineMasksMovesD2MasksIntoDefs wraps the masks d2 writes after the
+// connections in <defs>, leaves a mask already defined there alone, and
+// does not rewrite an SVG without one.
+func TestDefineMasksMovesD2MasksIntoDefs(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "d.svg")
+	write := func(svg string) {
+		t.Helper()
+		if err := os.WriteFile(path, []byte(svg), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	read := func() string {
+		t.Helper()
+		svg, err := os.ReadFile(path) // #nosec G304 -- a test file
+		if err != nil {
+			t.Fatal(err)
+		}
+		return string(svg)
+	}
+
+	write(`<svg xmlns="http://www.w3.org/2000/svg"><svg class="d2-1 d2-svg">
+<path d="M 0 0 L 1 1" mask="url(#d2-1)" />
+<mask id="d2-1" maskUnits="userSpaceOnUse" x="-17" y="-17" width="90" height="287">
+<rect x="-17" y="-17" width="90" height="287" fill="white"></rect>
+<rect x="18" y="116" width="21" height="21" fill="black"></rect>
+</mask><mask id="d2-2"><rect fill="white"/></mask></svg></svg>`)
+	if err := defineMasks(path); err != nil {
+		t.Fatal(err)
+	}
+	got := read()
+	for _, want := range []string{
+		`<path d="M 0 0 L 1 1" mask="url(#d2-1)" />` + "\n" + `<defs><mask id="d2-1" maskUnits="userSpaceOnUse" x="-17" y="-17" width="90" height="287">`,
+		`</mask></defs><defs><mask id="d2-2"><rect fill="white"/></mask></defs></svg></svg>`,
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("rewritten SVG lacks %q:\n%s", want, got)
+		}
+	}
+	if n := strings.Count(got, "<defs>"); n != 2 || strings.Count(got, "</defs>") != 2 {
+		t.Errorf("want each of the two masks under its own <defs>, got %d:\n%s", n, got)
+	}
+	if strings.Count(got, `fill="black"`) != 1 || strings.Count(got, "<mask") != 2 {
+		t.Errorf("the masks' contents must be kept:\n%s", got)
+	}
+
+	write(`<svg xmlns="http://www.w3.org/2000/svg"><defs>
+	<mask id="m"><rect/></mask></defs><rect mask="url(#m)"/></svg>`)
+	if err := defineMasks(path); err != nil {
+		t.Fatal(err)
+	}
+	if got := read(); strings.Count(got, "<defs>") != 1 {
+		t.Errorf("a mask already under <defs> was wrapped again:\n%s", got)
+	}
+
+	plain := `<svg xmlns="http://www.w3.org/2000/svg"><rect/></svg>`
+	write(plain)
+	if err := defineMasks(path); err != nil {
+		t.Fatal(err)
+	}
+	if got := read(); got != plain {
+		t.Errorf("an SVG without masks was rewritten:\n%s", got)
+	}
+
+	if err := defineMasks(filepath.Join(dir, "missing.svg")); err == nil {
+		t.Error("a missing SVG must be an error")
 	}
 }

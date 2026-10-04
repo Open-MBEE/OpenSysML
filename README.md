@@ -61,7 +61,23 @@ certification is claimed.
 
 ### Install
 
-**Download pre-built binaries:**
+**Install script** — picks the release build for this machine, verifies it against the
+release's `SHA256SUMS.txt`, and installs `sysml` and `sysml-lsp`:
+```bash
+# Linux and macOS: /usr/local/bin when writable, otherwise ~/.local/bin
+curl -fsSL https://opensysml.org/install.sh | sh
+```
+```powershell
+# Windows: %LOCALAPPDATA%\Programs\OpenSysML, added to the user PATH
+irm https://opensysml.org/install.ps1 | iex
+```
+Both scripts take a release (`--version v0.9.1`, `nightly`), a tool list (`--tools sysml`,
+`sysml-lsp`, `sysml-grpc`, `all`) and a destination (`--prefix`, or `-InstallDir` on Windows),
+and `--dry-run` shows the choice without installing; `sh -s -- --help` lists the rest. The
+scripts are [`install.sh`](install.sh) and [`install.ps1`](install.ps1) in this repository,
+so a checkout runs them as `./install.sh`.
+
+**Download pre-built binaries by hand:**
 ```bash
 # Linux x64 (use opensysml-linux-arm64.tar.gz on arm64)
 wget https://github.com/Open-MBEE/OpenSysML/releases/latest/download/opensysml-linux-amd64.tar.gz
@@ -83,10 +99,11 @@ make build
 ./bin/sysml
 ```
 
-> **macOS — use Homebrew.** The released binaries are not Developer ID signed or notarized,
-> so a tarball downloaded *in a browser* carries `com.apple.quarantine` and Gatekeeper shows
-> "cannot be opened because the developer cannot be verified". Homebrew downloads with
-> `curl`, which never sets that attribute, so `brew install` avoids the prompt entirely.
+> **macOS — use the install script or Homebrew.** The released binaries are not Developer ID
+> signed or notarized, so a tarball downloaded *in a browser* carries `com.apple.quarantine`
+> and Gatekeeper shows "cannot be opened because the developer cannot be verified". The
+> install script and Homebrew both download with `curl`, which never sets that attribute, so
+> neither meets the prompt.
 > When the tarball is downloaded directly (`curl -fL ... opensysml-darwin-arm64.tar.gz`, followed
 > by `xattr -d com.apple.quarantine`), see
 > [the guide](docs/guide/01-install.md#macos-gatekeeper). Signing and notarization are the
@@ -302,7 +319,7 @@ The project is under active development, with the core infrastructure operationa
 | Model save to notation (`%save model.sysml`, `sysml -convert sysml`) | ✅ Complete — writes the source through the formatter, so comments and spacing survive |
 | SysML ↔ RDF Turtle conversion (`%save model.ttl`, `sysml -convert ttl`) | 🧪 **Experimental** — packages, definitions, usages, ports, connections, values, documentation, and the nodes an action or state body states (every one of the 346 models under `examples/` converts and round-trips; what is not mapped is refused with the construct named), but the vocabulary may change without a compatibility path. Every run says so; see [the RDF mapping's status](docs/reference/rdf-mapping.md#status-experimental) and [worked example](examples/rdf-interop-demo.sysml) |
 | SysML v1 → v2 migration (`sysml Model.xmi -migrate sysml`, `.uml` and `.mdzip` too; migrated, not converted — `-convert` refuses a v1 model) | 🧪 **Experimental** — OMG UML 2.5 XMI with the SysML 1.x profile is read and written as v2 notation or RDF: packages, blocks, value types, properties, ports and connectors, requirements with satisfy/verify/derive, constraint blocks, instances and allocations, with a per-element migration report (mapped, approximated, unmapped, skipped). Behaviors, operations and units are not migrated yet, and the mapping may change without a compatibility path. Every run says so; see [the migration's status](docs/reference/sysml-v1-migration.md#status-experimental) |
-| View rendering (`%render <view>`, `sysml -render`) | ✅ Complete for the kinds produced — containment tree, interconnection diagram, state machine, action flow, sequence diagram and table, as indented text or in the kind's machine-readable form (Mermaid, Markdown, Graphviz DOT with `-render-form dot`, PlantUML in the Pilot visualizer's B&W style with `-render-form plantuml`). State and action renderings read the graph the runtime executes; the notation itself is tool-defined ([SysML v2 §10.2](docs/project/spec-compliance.md)) |
+| View rendering (`%render <view>`, `sysml -render`) | ✅ Complete for the kinds produced — containment tree, interconnection diagram, state machine, action flow, sequence diagram and table, as indented text or in the kind's machine-readable form (Mermaid, Markdown, Graphviz DOT with `-render-form dot`, PlantUML in the Pilot visualizer's B&W style with `-render-form plantuml`, [D2](https://d2lang.com) with `-render-form d2`). State and action renderings read the graph the runtime executes; the notation itself is tool-defined ([SysML v2 §10.2](docs/project/spec-compliance.md)) |
 | Constraint solving (`%check`, `%explain`, `%solve`, `%configure`, `%optimize`) | 🧪 **Experimental** — an external SMT-LIB 2 solver decides whether conditions *can* be satisfied, explains an `unsat` with a minimal unsat core, synthesises satisfying values, enumerates the variant selections a model permits and optimizes an `analysis def`'s objectives (optimization needs z3, which implements it). The solver is optional and discovered on `PATH` or through `OPENSYSML_SMT`; a build with none reports that rather than a verdict — see [installing a solver](docs/guide/01-install.md#installing-a-solver-optional) |
 | Source-preserving model edits (`ApplyEdits`, `model.edit()`) | ✅ Complete for four operations — set a feature's value, rename a declaration, add a member, and delete a declaration — rewriting the bytes of the model's own source so every untouched byte is identical. A rename rewrites the references to the renamed element too, and a non-cascade deletion of a referenced element is refused rather than approximated |
 | Standard library bundling | ✅ Complete |

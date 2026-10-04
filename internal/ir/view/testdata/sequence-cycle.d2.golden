@@ -1,0 +1,13 @@
+# OrderingViews::deadlockView — sequence rendering (view def SequenceView)
+# not represented: successions form a cycle (answering, heard to sent); the messages are shown in declaration order
+classes: {
+  usage: { style: { fill: white; stroke: "#181818"; stroke-width: 1; font-color: black; font-size: 14; border-radius: 8 } }
+  flow: { style: { stroke: "#181818"; font-size: 13; font-color: black; stroke-width: 1; stroke-dash: 3 } }
+}
+sequence: "" {
+  shape: sequence_diagram
+  n0: "«part»\nnear" { class: usage }
+  n1: "«part»\nfar" { class: usage }
+  n0 -> n1: "ask" { class: flow }
+  n1 -> n0: "reply" { class: flow }
+}

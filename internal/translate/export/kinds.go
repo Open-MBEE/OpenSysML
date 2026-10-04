@@ -172,6 +172,11 @@ func declaredMetaclass(decl ast.Node) string {
 	switch n := decl.(type) {
 	case *ast.Namespace:
 		return "Namespace"
+	case *ast.Package:
+		if n.IsLibrary {
+			return mLibraryPackage
+		}
+		return mPackage
 	case *ast.Definition:
 		return definitionMetaclass[n.Kind]
 	case *ast.Usage:

@@ -346,7 +346,9 @@ and their bodies may hold whatever an action body holds: a flow of nodes joined 
 (`first start; then …`; every node no succession leads to starts with the behavior, unordered),
 forks, joins and decisions, timed and signal accepts, sends, nested action nodes with flows of
 their own, and typed usages with pin bindings (`do action poll : Poll { inout n = ticks; }`). A
-body stating no flow still runs its statements in declaration order. A braced block without the
+body stating no flow leaves the statements no `then` relates unordered: `declared` takes them in
+declaration order, and `explore` and `-engine check` reach every order
+([below](#seeing-the-whole-outcome-set-explore)). A braced block without the
 keyword — `entry { … }`, `do { … }`, `exit { … }`, and a transition's `do { … }` — is one
 anonymous action with that body, the same as `entry action { … }`: an attribute declared inside
 the block is local to it and shadows the state's, and a `terminate;` in it ends the whole block
@@ -768,7 +770,19 @@ tried. Under `explore` an action step is one token advancing one node — not, a
 policies, every steppable token moving once — so the picks fall in consecutive steps and a branch
 of several nodes can run ahead of, or be overtaken by, a concurrent one at each of them. A
 `complete` exploration therefore covers every interleaving of the nodes the library leaves
-unordered, at body granularity: the statements of one body run without interruption. A run that
+unordered. Where another performance's moves can change what a leaf body computes, the body
+yields after its initial values are read and after each statement, so a concurrent branch may
+run between a body's snapshot `attribute t : Integer := c` and its `assign c := t + 1`; the
+statements of a nested body run first to last, and an action definition's own statements in
+the token order each policy gives them (`reverse` last to first). A calc or constraint body is
+performed whole inside the step that evaluates it: no other performance runs between its
+statements, but the statements no `then` relates are unordered among themselves, so `explore`
+and `-engine check` reach every order of them (a calc whose `y := y * 10` and `y := y + 2` are
+unordered returns `12` or `30`), and its result expression or condition is evaluated after
+them; `declared` and `reverse` run calc and constraint bodies in declaration order. A case body
+stating no succession likewise leaves its steps unordered under `explore`, `-engine check`,
+replay and seeded schedules, while `declared` and `reverse` perform them in declaration order.
+A run that
 fails under some order is an outcome of its own (`error: …`), not the end of the exploration; a
 behavior with no choice point explores in exactly one run (`no choice points`
 in the witness column); the same model explores to the same table every time. With `-trace`, the

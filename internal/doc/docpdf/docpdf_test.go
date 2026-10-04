@@ -661,13 +661,13 @@ func TestRenderReaderStylesheets(t *testing.T) {
 }
 
 // TestRenderDiagramFormKeepsSourceForOtherForms checks that a document whose
-// diagrams are asked for as DOT or PlantUML renders without Graphviz or the
-// PlantUML jar, showing each diagram as source, and looks for no Mermaid CLI.
+// diagrams are asked for as DOT, PlantUML or D2 renders without Graphviz, the
+// PlantUML jar or d2, showing each diagram as source, and looks for no Mermaid CLI.
 func TestRenderDiagramFormKeepsSourceForOtherForms(t *testing.T) {
 	dir := t.TempDir()
 	withoutDiagramTools(t)
 	capture := captureWeasyPrint(t, dir)
-	for _, form := range []view.Form{view.FormDot, view.FormPlantUML} {
+	for _, form := range []view.Form{view.FormDot, view.FormPlantUML, view.FormD2} {
 		if _, err := Render(telescopeDocument(t), "weasyprint", Options{DiagramForm: form}); err != nil {
 			t.Fatalf("Render %s: %v", form, err)
 		}
@@ -784,7 +784,7 @@ func TestRenderForPandoc(t *testing.T) {
 		t.Fatal(err)
 	}
 	images := fileRefs(work, []string{"diagram-1.svg", "diagram-2.svg"})
-	for _, want := range []string{`local forms = {mermaid = true, dot = true, plantuml = true}`, `local images = {"` + images[0] + `", "` + images[1] + `"}`, "local math = {\n}"} {
+	for _, want := range []string{`local forms = {mermaid = true, dot = true, plantuml = true, d2 = true}`, `local images = {"` + images[0] + `", "` + images[1] + `"}`, "local math = {\n}"} {
 		if !strings.Contains(string(filter), want) {
 			t.Fatalf("filter lacks %q:\n%s", want, filter)
 		}
@@ -823,7 +823,7 @@ func TestRenderForPandocLeavesDefaultStylesOff(t *testing.T) {
 }
 
 // TestRenderForPandocKeepsOtherFormsUnderNotice checks a document whose
-// diagrams are asked for as DOT or PlantUML, without Graphviz or the jar, is
+// diagrams are asked for as DOT, PlantUML or D2, without Graphviz, the jar or d2, is
 // handed to pandoc with a filter that draws nothing and sets the notice the
 // print stylesheet sets over the HTML backend's page, so both inputs say the same.
 func TestRenderForPandocKeepsOtherFormsUnderNotice(t *testing.T) {
@@ -833,7 +833,7 @@ func TestRenderForPandocKeepsOtherFormsUnderNotice(t *testing.T) {
 	fakeTool(t, dir, "pandoc", PandocEnv,
 		`cp "$(dirname "$1")/artwork.lua" "`+capture+`.lua"; out=""; while [ $# -gt 0 ]; do [ "$1" = "--output" ] && out="$2"; shift; done; printf '%%PDF-1.7 fake' > "$out"`+"\n")
 	fakeTool(t, dir, "weasyprint", WeasyPrintEnv, "exit 0\n")
-	for form, notice := range map[view.Form]string{view.FormDot: dotNotice, view.FormPlantUML: plantumlNotice} {
+	for form, notice := range map[view.Form]string{view.FormDot: dotNotice, view.FormPlantUML: plantumlNotice, view.FormD2: d2Notice} {
 		if _, err := Render(telescopeDocument(t), "pandoc", Options{DiagramForm: form}); err != nil {
 			t.Fatalf("Render %s: %v", form, err)
 		}
@@ -841,7 +841,7 @@ func TestRenderForPandocKeepsOtherFormsUnderNotice(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		for _, want := range []string{`local forms = {mermaid = true, dot = true, plantuml = true}`, `local images = {"", ""}`, luaString(notice)} {
+		for _, want := range []string{`local forms = {mermaid = true, dot = true, plantuml = true, d2 = true}`, `local images = {"", ""}`, luaString(notice)} {
 			if !strings.Contains(string(filter), want) {
 				t.Fatalf("%s filter lacks %q:\n%s", form, want, filter)
 			}
