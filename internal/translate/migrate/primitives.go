@@ -172,6 +172,19 @@ func (p *primitive) result(i int, args []string) string {
 	return expr
 }
 
+// binaryCallFunc is the function an expression template of the form `F($1,
+// $2)` calls, or "" when the template is no such call: a binary function a
+// reduce action's body can invoke pairwise over the elements.
+var binaryCall = regexp.MustCompile(`^(.+)\(\$1, \$2\)$`)
+
+func binaryCallFunc(template string) string {
+	m := binaryCall.FindStringSubmatch(template)
+	if m == nil || strings.ContainsAny(m[1], "() ") {
+		return ""
+	}
+	return m[1]
+}
+
 // primitiveCalled returns the library primitive a call behavior action calls by the raw href
 // of its behavior: the OMG href by fragment, an href into the library's own module by target.
 func (m *migration) primitiveCalled(n *sysmlv1.Element) *primitiveCall {

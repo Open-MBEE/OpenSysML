@@ -25,7 +25,7 @@ const (
 func (m *migration) activityBody(act, def *sysmlv1.Element) {
 	keeping := m.keeping
 	m.keeping = ""
-	m.unwrittenMembers(act, "observation")
+	m.unwrittenMembers(act, "observation", "variable")
 	for _, c := range act.Children {
 		switch c.Role {
 		case "ownedBehavior", "nestedClassifier", "ownedAttribute":
@@ -124,9 +124,15 @@ type activity struct {
 	// every outgoing edge carries a value only: they route data and start nothing.
 	dataNode map[*sysmlv1.Element]bool
 	// sink marks the control nodes no edge leaves: a token they take ends there.
-	sink  map[*sysmlv1.Element]bool
-	nodes []*sysmlv1.Element
-	edges []*sysmlv1.Element
+	sink map[*sysmlv1.Element]bool
+	// vars is the v2 name each variable of the body is declared under, so the
+	// variable actions write it; raised is the terminate action a raise ends the
+	// activity through; outs is every node's outgoing edges.
+	vars   map[*sysmlv1.Element]string
+	raised map[*sysmlv1.Element]string
+	outs   map[*sysmlv1.Element][]*sysmlv1.Element
+	nodes  []*sysmlv1.Element
+	edges  []*sysmlv1.Element
 	// data lists the object flows to write once the nodes are declared.
 	data []string
 	// written maps each (producer, pin) pair a flow or bind is written for to
@@ -173,6 +179,8 @@ func (m *migration) newActivity(act, def *sysmlv1.Element) *activity {
 		dead:        map[*sysmlv1.Element]bool{},
 		dataNode:    map[*sysmlv1.Element]bool{},
 		sink:        map[*sysmlv1.Element]bool{},
+		vars:        map[*sysmlv1.Element]string{},
+		raised:      map[*sysmlv1.Element]string{},
 		edgeSources: map[*sysmlv1.Element][]*sysmlv1.Element{},
 		edgeSelf:    map[*sysmlv1.Element]bool{},
 		written:     map[[2]*sysmlv1.Element]*sysmlv1.Element{},
@@ -349,6 +357,7 @@ func baseName(n *sysmlv1.Element) string {
 // write writes the graph: the successions from start, then each node with
 // its wait, declaration and outgoing successions, then the object flows.
 func (a *activity) write() {
+	a.declareVariables()
 	a.link()
 	a.resolveData()
 	a.deaden()
@@ -377,7 +386,18 @@ func (a *activity) write() {
 	for _, n := range a.nodes {
 		switch {
 		case a.dataNode[n]:
-			a.m.add(n, Approximated, "", "the node routes data only: the flows through it are written from their sources to the pins it leads to")
+			switch n.Type {
+			case "CentralBufferNode":
+				if len(a.outs[n]) <= 1 {
+					a.m.add(n, Mapped, "", "writing the flow from its source to its target behaves as the buffer does")
+				} else {
+					a.m.add(n, Approximated, "", bufferFanOutNote)
+				}
+			case "DataStoreNode":
+				a.m.add(n, Approximated, "", dataStoreNote)
+			default:
+				a.m.add(n, Approximated, "", "the node routes data only: the flows through it are written from their sources to the pins it leads to")
+			}
 			continue
 		case a.sink[n] && !a.entered(n):
 			a.m.add(n, Skipped, "", unreferencedNote+": no edge leads to or leaves the node")
@@ -419,6 +439,7 @@ func (a *activity) write() {
 // does one into a control or buffer node whose every outgoing edge does.
 func (a *activity) link() {
 	controlled, control, outs := a.controlIndex()
+	a.outs = outs
 	for _, e := range a.edges {
 		src, tgt := a.m.model.Ref(e, "source"), a.m.model.Ref(e, "target")
 		if src == nil || tgt == nil || nodeKind(tgt) != nodePin || !controlled[tgt.Parent] || a.guardedFlow(e) {
@@ -936,6 +957,13 @@ func (a *activity) successions(n *sysmlv1.Element) {
 		a.m.w.block(actionKw+s.name, func() { a.m.w.lines(s.lines) })
 		a.madeUp(s.name)
 		from = s.name
+	}
+	if end, ok := a.raised[n]; ok {
+		for _, e := range a.succ[n] {
+			a.m.add(e, Unmapped, "", "the action raises an exception, so no token leaves it")
+		}
+		a.m.w.line(firstKw + from + thenKw + end + ";")
+		return
 	}
 	var outs []*sysmlv1.Element
 	entry := map[*sysmlv1.Element]string{}
@@ -1505,9 +1533,31 @@ func (a *activity) declareKind(n *sysmlv1.Element, name string) {
 	case "MergeNode":
 		a.m.w.block("merge "+name, func() { a.objectFeatures(n) })
 		a.m.add(n, Mapped, name, "")
-	case "CentralBufferNode", "DataStoreNode", "ExpansionNode":
+	case "CentralBufferNode":
+		a.m.w.line(actionKw + name + ";")
+		if len(a.outs[n]) <= 1 {
+			a.m.add(n, Mapped, name, "writing the flow from its source to its target behaves as the buffer does")
+		} else {
+			a.m.add(n, Approximated, name, bufferFanOutNote)
+		}
+	case "DataStoreNode":
+		a.m.w.line(actionKw + name + ";")
+		a.m.add(n, Approximated, name, dataStoreNote)
+	case "ExpansionNode":
 		a.m.w.line(actionKw + name + ";")
 		a.m.add(n, Approximated, name, "an object node holds no tokens in v2: the flows through it are written from its sources to its targets")
+	case "ReadVariableAction":
+		a.readVariable(n, name)
+	case "ClearVariableAction":
+		a.clearVariable(n, name)
+	case "AddVariableValueAction":
+		a.addVariable(n, name)
+	case "RemoveVariableValueAction":
+		a.removeVariable(n, name)
+	case "ReduceAction":
+		a.reduceAction(n, name)
+	case "RaiseExceptionAction":
+		a.raiseException(n, name)
 	case "CallBehaviorAction":
 		a.callBehavior(n, name)
 	case "CallOperationAction":
@@ -1558,7 +1608,10 @@ func inputPins(n *sysmlv1.Element) []*sysmlv1.Element {
 		}
 	}
 	ins = append(ins, n.Owned("target")...)
-	return append(ins, n.Owned("insertAt")...)
+	ins = append(ins, n.Owned("insertAt")...)
+	ins = append(ins, n.Owned("removeAt")...)
+	ins = append(ins, n.Owned("collection")...)
+	return append(ins, n.Owned("exception")...)
 }
 
 // outputPins lists the output pins of an action, results first.
@@ -2497,6 +2550,350 @@ func (a *activity) writeFeature(n *sysmlv1.Element, name string) {
 	a.m.add(n, verdictFor(note), name, note)
 }
 
+// The notes the buffer and variable nodes and actions repeat.
+const (
+	bufferFanOutNote = "the buffer offers each token to one of its targets; the flows written give every target the value"
+	dataStoreNote    = "a data store keeps every value and gives each reader a copy; a v2 flow holds no store, so the flows through it are written from its sources to its targets"
+)
+
+// declareVariables declares the variables a.act owns as private features before
+// the node graph, and records the name each is written under for the variable
+// actions. A body that is no action def's or usage's — an activity written as
+// another kind of body — declares no local features, and its variables are not written.
+func (a *activity) declareVariables() {
+	variables := a.act.Owned("variable")
+	if len(variables) == 0 {
+		return
+	}
+	if a.act == a.def && !isStructured(a.act) {
+		if cat, _ := a.m.classify(a.act); cat != catActionDef && cat != catStateDef {
+			form := cat.keyword()
+			if form == "" {
+				form = "no v2 form"
+			}
+			for _, v := range variables {
+				a.m.add(v, Unmapped, "", "a variable of "+describe(a.act)+" is not written: the "+a.act.Type+" is written as "+form+", whose body declares no local features")
+			}
+			return
+		}
+	}
+	for _, v := range variables {
+		a.declareVariable(v)
+	}
+}
+
+// variableDataType reports whether t is a type a variable is declared as an
+// attribute of: a data-type kind, or a primitive value type scalarValue maps.
+func (a *activity) variableDataType(t *sysmlv1.Element) bool {
+	switch t.Type {
+	case "DataType", "PrimitiveType", "Enumeration":
+		return true
+	}
+	return a.m.scalarValue(t) != ""
+}
+
+// declareVariable writes one variable: an attribute of a data-type kind, a ref
+// item of any other classifier, an untyped ref when it has no type or its type
+// is not written; the note explains whatever is dropped.
+func (a *activity) declareVariable(v *sysmlv1.Element) {
+	name := writeName(a.name(v, "variable"))
+	a.vars[v] = a.names[v]
+	t := a.m.model.Ref(v, "type")
+	typ, tnote := a.m.typeRef(t, a.def)
+	mult, mnote := a.m.multiplicity(v)
+	note := joinNotes(tnote, mnote)
+	shape := shaped(mult, v, false, false)
+	var decl string
+	switch {
+	case typ != "" && a.variableDataType(t):
+		decl = "private attribute " + name + " : " + typ + shape
+	case typ != "":
+		decl = "private ref item " + name + " : " + typ + shape
+	default:
+		decl = "private ref " + name + shape
+	}
+	a.m.w.line(decl + ";")
+	a.m.add(v, verdictFor(note), name, note)
+}
+
+// variableOf is the variable a variable action reads or writes: the v2 name it
+// was declared under, or nil when the action's variable reference resolves to
+// nothing or to a variable no enclosing scope declared.
+func (a *activity) variableOf(n *sysmlv1.Element) (string, *sysmlv1.Element) {
+	v := a.m.model.Ref(n, "variable")
+	if v == nil {
+		return "", nil
+	}
+	name, ok := a.vars[v]
+	if !ok {
+		return "", v
+	}
+	return writeName(name), v
+}
+
+// variableTarget is the variable a variable action writes against: its
+// declared v2 name, or "" once the failure is kept as a placeholder — the
+// variable reference resolving to nothing or to a variable no enclosing scope
+// declared, or a pin of the action named for it.
+func (a *activity) variableTarget(n *sysmlv1.Element, name string) string {
+	vname, v := a.variableOf(n)
+	if vname == "" {
+		why := "the variable has no v2 declaration"
+		if v == nil {
+			why = joinNotes(a.m.dangling(n, "variable"), why)
+		}
+		a.placeholder(n, name, why, Unmapped)
+		return ""
+	}
+	a.settlePins(n)
+	for _, pin := range append(inputPins(n), outputPins(n)...) {
+		if d, ok := a.m.pins[pin]; ok && d.name == a.vars[v] {
+			a.placeholder(n, name, "a pin of the action shares the variable's name", Unmapped)
+			return ""
+		}
+	}
+	return vname
+}
+
+// readVariable writes a read of a variable as an action whose result pin is
+// bound to it, the out line written as readFeature writes it.
+func (a *activity) readVariable(n *sysmlv1.Element, name string) {
+	vname := a.variableTarget(n, name)
+	if vname == "" {
+		return
+	}
+	results := n.Owned("result")
+	a.m.w.block(actionKw+name, func() {
+		a.declarePins(n, inputPins(n), nil, nil)
+		for _, r := range results[1:] {
+			a.m.add(r, Unmapped, "", "the action reads one value; the pin takes nothing")
+		}
+		if len(results) == 0 {
+			a.m.w.lines(commentLines("reads " + vname + ", which flows nowhere"))
+			return
+		}
+		r := results[0]
+		pname := a.m.nameOf(r)
+		if pname == "" {
+			pname = "result"
+		}
+		a.names[r] = pname
+		typ, tnote := a.m.typeRef(a.m.model.Ref(r, "type"), a.def)
+		decl := "out " + writeName(pname)
+		if typ != "" {
+			decl += " : " + typ
+		}
+		mult, mnote := a.m.multiplicity(r)
+		tnote = joinNotes(tnote, mnote)
+		a.m.w.line(decl + shaped(mult, r, true, false) + " = " + vname + ";")
+		a.m.add(r, verdictFor(tnote), a.m.v2Name(n)+"."+pname, tnote)
+	})
+	a.m.add(n, Mapped, name, "")
+}
+
+// clearVariable writes a clear variable action as an action emptying the variable.
+func (a *activity) clearVariable(n *sysmlv1.Element, name string) {
+	vname := a.variableTarget(n, name)
+	if vname == "" {
+		return
+	}
+	a.m.w.block(actionKw+name, func() {
+		a.pins(n, nil)
+		a.m.w.line("assign " + vname + " := null;")
+	})
+	a.m.add(n, Mapped, name, "")
+}
+
+// addVariable writes an add variable value action as an assignment to the
+// variable: the value replacing it when the action replaces all or the
+// variable holds one, else included in it — at the insertAt position when the
+// action takes one, after removing a value re-added to a unique variable, as
+// UML moves it rather than duplicating. A pin admitting no value is guarded as
+// writeFeature guards it.
+func (a *activity) addVariable(n *sysmlv1.Element, name string) {
+	val := firstOwned(n, "value")
+	if val == nil {
+		a.placeholder(n, name, "the action has no value pin", Unmapped)
+		return
+	}
+	vname := a.variableTarget(n, name)
+	if vname == "" {
+		return
+	}
+	v := a.m.model.Ref(n, "variable")
+	upper := "1"
+	if uv := firstOwned(v, "upperValue"); uv != nil && boundValue(uv) != "" {
+		upper = boundValue(uv)
+	}
+	note := ""
+	a.m.w.block(actionKw+name, func() {
+		a.pins(n, nil)
+		added := writeName(a.names[val])
+		base := added
+		if n.Attrs["isReplaceAll"] != "true" && upper != "1" {
+			base = vname
+			if v.Attrs["isUnique"] != "false" {
+				base = "SequenceFunctions::excluding(" + vname + ", " + added + ")"
+			}
+			if at := firstOwned(n, "insertAt"); at != nil {
+				base = "SequenceFunctions::includingAt(" + base + ", " + writeName(a.names[val]) + ", " + writeName(a.names[at]) + ")"
+			} else {
+				base = "SequenceFunctions::including(" + base + ", " + writeName(a.names[val]) + ")"
+			}
+		}
+		assign := "assign " + vname + " := " + base + ";"
+		if a.m.lacksValue(val) {
+			a.m.w.lines([]string{"if " + writeName(a.names[val]) + "->SequenceFunctions::notEmpty() {", "    " + assign, "}"})
+			note = "the pin " + describe(val) + " admits no value, which the variable cannot hold: it is written only when the pin holds one"
+			return
+		}
+		a.m.w.line(assign)
+	})
+	a.m.add(n, verdictFor(note), name, note)
+}
+
+// removeVariable writes a remove variable value action as an assignment to the
+// variable without the value: the value at the removeAt position, or the value
+// itself — approximated when the variable holds repeated values and the action
+// removes only the first, since v2 removes every occurrence.
+func (a *activity) removeVariable(n *sysmlv1.Element, name string) {
+	vname := a.variableTarget(n, name)
+	if vname == "" {
+		return
+	}
+	at := firstOwned(n, "removeAt")
+	val := firstOwned(n, "value")
+	if at == nil && val == nil {
+		a.placeholder(n, name, "the action has no value or removeAt pin", Unmapped)
+		return
+	}
+	v := a.m.model.Ref(n, "variable")
+	note := ""
+	a.m.w.block(actionKw+name, func() {
+		a.pins(n, nil)
+		if at != nil {
+			a.m.w.line("assign " + vname + " := SequenceFunctions::excludingAt(" + vname + ", " + writeName(a.names[at]) + ");")
+			return
+		}
+		a.m.w.line("assign " + vname + " := SequenceFunctions::excluding(" + vname + ", " + writeName(a.names[val]) + ");")
+	})
+	if at == nil && v.Attrs["isUnique"] == "false" && n.Attrs["isRemoveDuplicates"] != "true" {
+		note = "every occurrence of the value is removed, not only the first"
+	}
+	a.m.add(n, verdictFor(note), name, note)
+}
+
+// reduceAction writes a reduce action as an action whose result is the
+// collection folded by the reducer's v2 function, called pairwise over the
+// elements: `collection->ControlFunctions::reduce {in x; in y; F(x, y)}`. A
+// library primitive whose v2 counterpart is a binary function is F; a v1
+// behavior written as a calc or function def with two in parameters and one
+// return is F by reference; anything else has no v2 function.
+func (a *activity) reduceAction(n *sysmlv1.Element, name string) {
+	fn, why := a.reducerFunc(n)
+	if fn == "" {
+		a.placeholder(n, name, why, Unmapped)
+		return
+	}
+	collection := firstOwned(n, "collection")
+	results := n.Owned("result")
+	a.m.w.block(actionKw+name, func() {
+		a.declarePins(n, inputPins(n), nil, nil)
+		for _, r := range results[1:] {
+			a.m.add(r, Unmapped, "", "the action reduces to one value; the pin takes nothing")
+		}
+		if len(results) == 0 {
+			a.m.w.lines(commentLines("reduces " + writeName(a.names[collection]) + ", which flows nowhere"))
+			return
+		}
+		r := results[0]
+		pname := a.m.nameOf(r)
+		if pname == "" {
+			pname = "result"
+		}
+		a.names[r] = pname
+		typ, tnote := a.m.typeRef(a.m.model.Ref(r, "type"), a.def)
+		decl := "out " + writeName(pname)
+		if typ != "" {
+			decl += " : " + typ
+		}
+		mult, mnote := a.m.multiplicity(r)
+		tnote = joinNotes(tnote, mnote)
+		body := "{in x; in y; " + fn + "(x, y)}"
+		a.m.w.line(decl + shaped(mult, r, true, false) + " = " + writeName(a.names[collection]) + "->ControlFunctions::reduce " + body + ";")
+		a.m.add(r, verdictFor(tnote), a.m.v2Name(n)+"."+pname, tnote)
+	})
+	a.m.add(n, Mapped, name, "")
+}
+
+// reducerFunc is the v2 function a reduce action's reducer becomes: the
+// qualified v2 library function a mapped primitive binary function is, or the
+// reference to a v1 behavior written as a calc or function def of two in
+// parameters and one return; "" and why when the reducer has no v2 function.
+func (a *activity) reducerFunc(n *sysmlv1.Element) (fn, why string) {
+	if p := a.m.primitiveReducer(n); p != nil {
+		if len(p.ins) != 2 || len(p.outs) != 1 {
+			return "", "the reducer " + p.qualified() + " takes " + strconv.Itoa(len(p.ins)) + " argument(s), and a reduction calls a binary function"
+		}
+		if f := binaryCallFunc(p.outs[0]); f != "" {
+			return f, ""
+		}
+		return "", "the reducer " + p.qualified() + " has no v2 function"
+	}
+	reducer := a.m.model.Ref(n, "reducer")
+	if reducer == nil {
+		return "", joinNotes(a.m.dangling(n, "reducer"), "the reducer has no v2 function")
+	}
+	if cat, _ := a.m.classify(reducer); cat != catCalcDef {
+		form := cat.keyword()
+		if form == "" {
+			form = "no v2 form"
+		}
+		return "", "the reducer " + qualifiedName(reducer) + " is written as " + form + ", not a calc or function def, so it has no v2 function"
+	}
+	var ins, rets int
+	for _, p := range a.m.actionParameters(reducer) {
+		switch p.Attrs["direction"] {
+		case "return":
+			rets++
+		default:
+			ins++
+		}
+	}
+	if ins != 2 || rets != 1 {
+		return "", "the reducer " + qualifiedName(reducer) + " takes " + strconv.Itoa(ins) + " in parameter(s) and gives " + strconv.Itoa(rets) + " return(s); a reduction calls a function of two in parameters and one return"
+	}
+	return a.m.ref(reducer, a.def), ""
+}
+
+// raiseException writes a raise exception action: its pins and a sibling
+// terminate action the succession after it leads to, since v2 has no
+// exceptions — with no handler, raising ends the activity. The action's own
+// outgoing edges carry no token; successions reports each.
+func (a *activity) raiseException(n *sysmlv1.Element, name string) {
+	a.m.w.block(actionKw+name, func() { a.pins(n, nil) })
+	end := writeName(a.fresh("terminate"))
+	a.m.w.line(actionKw + end + " terminate;")
+	a.madeUp(end)
+	a.raised[n] = end
+	a.m.add(n, Approximated, name, "v2 has no exceptions: raising one ends the enclosing activity, as an activity final does; the exception value is not passed to a caller")
+}
+
+// primitiveReducer returns the library primitive a reduce action's reducer is
+// known to be, by the raw href of the reducer reference, as primitiveCalled
+// reads the behavior reference of a call.
+func (m *migration) primitiveReducer(n *sysmlv1.Element) *primitiveCall {
+	for _, id := range n.RefIDs("reducer") {
+		if p := primitiveAt(id); p != nil {
+			return &primitiveCall{p, "the reducer is known by its OMG href " + id}
+		}
+		if p := primitiveNamed(id, m.model.Lookup(id)); p != nil {
+			return p
+		}
+	}
+	return nil
+}
+
 // sendSignal writes a send signal action as an action sending a new instance of the
 // signal, over the port named or to the object the target pin holds.
 func (a *activity) sendSignal(n *sysmlv1.Element, name string) {
@@ -2692,10 +3089,10 @@ func (a *activity) structured(n *sysmlv1.Element, name string) {
 	}
 	a.m.w.block(actionKw+name, func() {
 		a.pins(n, nil)
-		for _, v := range n.Owned("variable") {
-			a.m.add(v, Unmapped, "", "a structured node's variable is not written")
-		}
 		inner := a.m.newActivity(n, n)
+		for v, declared := range a.vars {
+			inner.vars[v] = declared
+		}
 		inner.write()
 	})
 	if note != "" {
