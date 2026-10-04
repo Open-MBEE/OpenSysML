@@ -5,6 +5,8 @@ import (
 	"slices"
 	"strings"
 	"testing"
+
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
 func TestTimelineKindIsOnlyAStandaloneRunKind(t *testing.T) {
@@ -243,6 +245,121 @@ func TestRunTimelinePlantUMLScaleFitsLabelsAndCapsWidth(t *testing.T) {
 	longScale := timelineScale(lanes, 10_000)
 	if width := longScale * 10_000; width > 4000 {
 		t.Errorf("long timeline width = %g pixels, want at most 4000", width)
+	}
+}
+
+func TestRunTimelinePlantUMLLinksLanesAndSingleStateSpans(t *testing.T) {
+	laneOrigin := Origin{Doc: "run.sysml", Span: source.Span{Offset: 1, Len: 1}}
+	spanOrigin := Origin{Doc: "run.sysml", Span: source.Span{Offset: 2, Len: 1}}
+	rendering := &Rendering{
+		Kind: KindTimeline, Run: true, RunUntil: 3,
+		Lanes: []Lane{{
+			ID: "l0", Name: "Machine", Origin: laneOrigin,
+			Spans: []Span{
+				{State: "ready", Origin: spanOrigin, From: 0, To: 1},
+				{State: "left.waiting | right.waiting", From: 1, To: 3, Open: true},
+			},
+		}},
+	}
+	links := Links{
+		Template: "https://example.test/src/{file}#L{line}",
+		Sites: func(origin Origin) (Site, bool) {
+			return Site{File: origin.Doc, Line: origin.Span.Offset}, true
+		},
+	}
+	got, err := rendering.WriteWith(FormPlantUML, Options{Links: links})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{
+		`concise "[[https://example.test/src/run.sysml#L1 Machine]]" as l0`,
+		`l0 is "[[https://example.test/src/run.sysml#L2 ready]]"`,
+		`l0 is "left.waiting | right.waiting"`,
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("run timeline PlantUML is missing %q:\n%s", want, got)
+		}
+	}
+	if strings.Contains(got, `[[https://example.test/src/run.sysml#L0 left.waiting`) {
+		t.Errorf("multi-state span was linked:\n%s", got)
+	}
+}
+
+func TestRunTimelinePlantUMLEscapesLinkedLabels(t *testing.T) {
+	origin := Origin{Doc: "run.sysml", Span: source.Span{Offset: 1, Len: 1}}
+	rendering := &Rendering{
+		Kind: KindTimeline, Run: true, RunUntil: 1,
+		Lanes: []Lane{{
+			ID: "l0", Name: `machine # "quotes]`, Origin: origin,
+			Spans: []Span{{State: `ready # "quotes]`, Origin: origin, From: 0, To: 1, Open: true}},
+		}},
+	}
+	links := Links{
+		Template: "https://example.test/src/{file}#L{line}",
+		Sites: func(origin Origin) (Site, bool) {
+			return Site{File: origin.Doc, Line: 9}, true
+		},
+	}
+	got, err := rendering.WriteWith(FormPlantUML, Options{Links: links})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{
+		`concise "[[https://example.test/src/run.sysml#L9 machine <U+0023> <U+0022>quotes<U+005D>]]" as l0`,
+		`l0 is "[[https://example.test/src/run.sysml#L9 ready <U+0023> <U+0022>quotes<U+005D>]]"`,
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("PlantUML label is missing safe link markup %q:\n%s", want, got)
+		}
+	}
+}
+
+func TestRunTimelinePlantUMLLeavesUnsafeLabelsUnlinked(t *testing.T) {
+	origin := Origin{Doc: "run.sysml", Span: source.Span{Offset: 1, Len: 1}}
+	rendering := &Rendering{
+		Kind: KindTimeline, Run: true, RunUntil: 1,
+		Lanes: []Lane{{ID: "l0", Name: "machine\tname", Origin: origin}},
+	}
+	got, err := rendering.WriteWith(FormPlantUML, Options{Links: Links{
+		Template: "https://example.test/src/{file}#L{line}",
+		Sites: func(origin Origin) (Site, bool) {
+			return Site{File: origin.Doc, Line: 1}, true
+		},
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(got, "[[") || !strings.Contains(got, "concise \"machine\tname\" as l0") {
+		t.Errorf("unsafe lane label should remain readable and unlinked:\n%s", got)
+	}
+}
+
+func TestRunTimelineUnlinkedFormsIgnoreLinks(t *testing.T) {
+	origin := Origin{Doc: "run.sysml", Span: source.Span{Offset: 1, Len: 1}}
+	rendering := &Rendering{
+		Kind: KindTimeline, Run: true, RunUntil: 1,
+		Lanes: []Lane{{ID: "l0", Name: "Machine", Origin: origin, Spans: []Span{
+			{State: "ready", Origin: origin, From: 0, To: 1, Open: true},
+		}}},
+	}
+	options := Options{Links: Links{
+		Template: "https://example.test/src/{file}#L{line}",
+		Sites: func(origin Origin) (Site, bool) {
+			return Site{File: origin.Doc, Line: 1}, true
+		},
+	}}
+	for _, form := range []Form{FormMermaid, FormText} {
+		plain, err := rendering.WriteWith(form, Options{})
+		if err != nil {
+			t.Fatal(err)
+		}
+		linked, err := rendering.WriteWith(form, options)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if linked != plain {
+			t.Errorf("linked %s timeline differs from unlinked output:\nplain:\n%s\nlinked:\n%s", form, plain, linked)
+		}
 	}
 }
 

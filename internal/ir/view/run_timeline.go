@@ -130,7 +130,7 @@ func (r *Rendering) mermaidTimelineNotices() []string {
 	return notices
 }
 
-func (r *Rendering) runTimelinePlantUML() string {
+func (r *Rendering) runTimelinePlantUML(options Options) string {
 	var b strings.Builder
 	b.WriteString("@startuml\n")
 	fmt.Fprintf(&b, "' run — %s rendering", r.Kind)
@@ -151,7 +151,8 @@ func (r *Rendering) runTimelinePlantUML() string {
 	}
 	fmt.Fprintf(&b, "scale 1 as %s pixels\n", strconv.FormatFloat(timelineScale(r.Lanes, r.RunUntil), 'f', -1, 64))
 	for _, lane := range r.Lanes {
-		fmt.Fprintf(&b, "concise %s as %s\n", plantumlQuote(plantumlText(lane.Name)), lane.ID)
+		label := plantumlTimelineLabel(options.Links, lane.Origin, lane.Name)
+		fmt.Fprintf(&b, "concise %s as %s\n", plantumlQuote(label), lane.ID)
 	}
 	var changes []timelineChange
 	until := r.RunUntil
@@ -166,8 +167,8 @@ func (r *Rendering) runTimelinePlantUML() string {
 			if span.To <= span.From {
 				continue
 			}
-			changes = append(changes, timelineChange{span.From, fmt.Sprintf("%s is %s", lane.ID,
-				plantumlQuote(plantumlText(timelineStateLabel(span))))})
+			label := plantumlTimelineLabel(options.Links, span.Origin, timelineStateLabel(span))
+			changes = append(changes, timelineChange{span.From, fmt.Sprintf("%s is %s", lane.ID, plantumlQuote(label))})
 			if !span.Open && i == lastDrawn && span.To < until {
 				changes = append(changes, timelineChange{span.To, lane.ID + " is {hidden}"})
 			}
@@ -193,6 +194,44 @@ func (r *Rendering) runTimelinePlantUML() string {
 	}
 	b.WriteString("@enduml\n")
 	return b.String()
+}
+
+func plantumlTimelineLabel(links Links, origin Origin, label string) string {
+	text := plantumlText(label)
+	url, ok := links.URL(origin)
+	if !ok || !safePlantUMLLinkURL(url) {
+		return text
+	}
+	for _, r := range label {
+		if r < 0x20 && r != '\n' {
+			return text
+		}
+	}
+	text = strings.NewReplacer("[", "<U+005B>", "]", "<U+005D>").Replace(text)
+	return "[[" + url + " " + text + "]]"
+}
+
+func safePlantUMLLinkURL(url string) bool {
+	if url == "" {
+		return false
+	}
+	for i := 0; i < len(url); i++ {
+		c := url[i]
+		if c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' || c >= '0' && c <= '9' ||
+			strings.ContainsRune("-._~:/?#@!$&'()*+,;=", rune(c)) {
+			continue
+		}
+		if c == '%' && i+2 < len(url) && plantumlHexDigit(url[i+1]) && plantumlHexDigit(url[i+2]) {
+			i += 2
+			continue
+		}
+		return false
+	}
+	return true
+}
+
+func plantumlHexDigit(c byte) bool {
+	return c >= '0' && c <= '9' || c >= 'a' && c <= 'f' || c >= 'A' && c <= 'F'
 }
 
 func timelineZeroSpanNotice(lanes []Lane) string {

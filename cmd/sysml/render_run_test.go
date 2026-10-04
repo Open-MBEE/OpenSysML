@@ -103,6 +103,62 @@ func TestRenderRunWritesEachFormAfterTheVerdict(t *testing.T) {
 	}
 }
 
+func TestRenderRunLinksTimelineAndSequence(t *testing.T) {
+	data, err := os.ReadFile(filepath.Join("..", "..", "examples", "run-timeline", "run-timeline.sysml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	binary := buildCLI(t)
+	dir := t.TempDir()
+	timelinePath := filepath.Join(dir, "timeline.puml")
+	sequencePath := filepath.Join(dir, "sequence.mmd")
+	got := check(t, binary, string(data),
+		"-instantiate", "RunTimeline::mission",
+		"-state", "RunTimeline::Controller::modes RunTimeline::mission.controller",
+		"-state", "RunTimeline::Instrument::modes RunTimeline::mission.instrument",
+		"-advance", "6",
+		"-render-link", "https://example.test/src/{file}#L{line}",
+		"-render-run", "timeline="+timelinePath,
+		"-render-run", "sequence="+sequencePath,
+	)
+	if got.status != 0 {
+		t.Fatalf("exit status = %d\n%s", got.status, got.output())
+	}
+	timeline, err := os.ReadFile(timelinePath) // #nosec G304 -- this path is created by the test.
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(timeline), `[[https://example.test/src/`) ||
+		!strings.Contains(string(timeline), `#L`) ||
+		!strings.Contains(string(timeline), `RunTimeline::mission.controller.modes`) {
+		t.Errorf("linked timeline is missing source links or visible labels:\n%s", timeline)
+	}
+	sequence, err := os.ReadFile(sequencePath) // #nosec G304 -- this path is created by the test.
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(sequence), "link n0: Source @ https://example.test/src/") ||
+		!strings.Contains(string(sequence), "RunTimeline::mission.controller") {
+		t.Errorf("linked sequence is missing participant links or visible labels:\n%s", sequence)
+	}
+}
+
+func TestRenderRunRejectsInvalidLinkBeforeWriting(t *testing.T) {
+	binary := buildCLI(t)
+	path := filepath.Join(t.TempDir(), "timeline.puml")
+	got := check(t, binary, behaviorModel,
+		"-state", "Mission::Cycle", "-advance", "1",
+		"-render-link", "https://example.test/{unknown}",
+		"-render-run", "timeline="+path,
+	)
+	if got.status != 2 || !strings.Contains(got.stderr, "unknown link template placeholder {unknown}") {
+		t.Fatalf("status = %d, want invalid-link refusal:\n%s", got.status, got.output())
+	}
+	if _, err := os.Stat(path); !os.IsNotExist(err) {
+		t.Errorf("rendering output path exists after invalid-link refusal: stat error = %v", err)
+	}
+}
+
 func TestRenderRunWritesStdoutWithoutLosingTheVerdict(t *testing.T) {
 	binary := buildCLI(t)
 	got := check(t, binary, behaviorModel,

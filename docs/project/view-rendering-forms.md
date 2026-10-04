@@ -822,6 +822,10 @@ origins and bundled library declarations — is not linked.
 | Mermaid flowchart | Linkable nodes receive `click` statements after the edges and classes. Edges and subgraphs are not linked. |
 | Mermaid state diagram | Simple states are linked; composite states are not. |
 | Mermaid sequence diagram | Participants receive `link` statements; messages are not linked. Mermaid CLI 11.16.0 drops participant URL fragments in SVG. |
+| Run timeline, PlantUML | A lane links to its state-machine declaration; a span links only when it represents one state. Parallel spans with several active states are unlinked. |
+| Run timeline, Mermaid gantt | No links: `click`/`href` directives do not produce anchors in Mermaid CLI's SVG output. |
+| Run sequence, Mermaid and PlantUML | Object participants link to the declaration of their instance type. The environment participant and messages are unlinked because trace records have no message source site. |
+| Run text | No links; labels remain the recorded paths and states. |
 
 The writers emit no link syntax when links are disabled or no site is available.
 
@@ -875,8 +879,8 @@ every palette, and text stays black.
 | --- | --- | --- |
 | CLI | `-render <view> -render-form mermaid\|dot\|plantuml`; `-render-all <dir>` writes `.mmd`, `.dot` or `.puml`; `-render-palette <name>` fills nodes in each form where applicable | [`docs/reference/cli.md`](../reference/cli.md#rendering-a-view) |
 | REPL | `%render <view> mermaid\|dot\|plantuml [palette] [pilot\|cameo]`; `%help` names the options; form, palette and style complete where accepted | [`docs/reference/repl-commands.md`](../reference/repl-commands.md#rendering-a-view) |
-| CLI run output | `-render-run timeline=<path>` or `sequence=<path>` writes text, Mermaid or PlantUML; DOT is refused | [`docs/reference/cli.md`](../reference/cli.md#rendering-a-run) |
-| REPL run output | `%render-run timeline\|sequence [text\|mermaid\|plantuml\|dot]` renders the recorded run without changing the session | [`docs/reference/repl-commands.md`](../reference/repl-commands.md#rendering-a-run) |
+| CLI run output | `-render-run timeline=<path>` or `sequence=<path>` writes text, Mermaid or PlantUML; `-render-link` links PlantUML timeline lanes and single-state spans and sequence participants; DOT is refused | [`docs/reference/cli.md`](../reference/cli.md#rendering-a-run) |
+| REPL run output | `%render-run timeline\|sequence [text\|mermaid\|plantuml\|dot] [link=<template>]` renders the recorded run without changing the session; links follow the CLI run-rendering rules | [`docs/reference/repl-commands.md`](../reference/repl-commands.md#rendering-a-run) |
 | LSP | `"form": "mermaid"`, `"dot"` or `"plantuml"` and `"palette": "<name>"` on `opensysml/render`; `Rendering.Fills` carries each node's fill and border for clients drawing their own SVG | [`docs/reference/lsp.md`](../reference/lsp.md) |
 | VS Code | `SysML: Export Diagram` picks among the forms the server lists under its `openSysmlRenderForms` capability (the documented five for a server without it, which predates `csv` and `tsv`), sends the pick as `form`, and saves `.dot` or `.puml` (`.mmd`, `.md`, `.csv`, `.tsv`, `.txt` for the others) | [`docs/guide/08-editors.md`](../guide/08-editors.md#exporting-a-diagram) |
 | CLI, REPL, LSP, documents | `-render-style pilot\|cameo` beside `-render-palette`; `%render <view> mermaid [palette] [pilot\|cameo]`; `"style": "cameo"` on `opensysml/render` and the `openSysmlRenderStyles` capability; `docrender.MarkdownOptions.Style`/`HTMLOptions.Style` and `docpdf.Options.Style`. Unsupported style details receive a `not represented: style …` notice; an unknown name is a typed `*view.UnknownDrawingStyleError` | [`docs/reference/cli.md`](../reference/cli.md#rendering-a-view), [`docs/reference/repl-commands.md`](../reference/repl-commands.md#rendering-a-view), [`docs/reference/lsp.md`](../reference/lsp.md) |
@@ -903,15 +907,21 @@ shared time axis; Mermaid's `timeline` grammar groups categorical periods and ha
 durations nor a shared time axis. PlantUML uses `concise` lifelines because parallel state
 configurations are free text rather than a fixed ordered state axis that `robust` requires. DOT
 is refused for both run kinds: it has no time axis, and the existing sequence writer also refuses
-DOT.
+DOT. With source links enabled, PlantUML timeline lanes link to machine declarations and spans
+link only when exactly one state is active; Mermaid gantt remains byte-identical because its
+`click` directives do not create anchors in Mermaid CLI SVGs. Run sequence links belong to object
+participants' type declarations, not messages or the environment participant.
 
 Each rendering is capped at 200 spans or messages for readability and to keep renderer input
 within practical text-size limits. Timelines select spans in stable time order, with lane order
-breaking ties, and retain only a prefix of each lane; a lane's last retained span ends at its first
-dropped span's start. Later state changes and messages are reported in a `not represented:` notice.
+breaking ties, and retain only a prefix of each lane; a lane's last retained span ends no later than
+its first dropped span's start, preserving any earlier end across an inactive gap. Later state
+changes and messages are reported in a `not represented:` notice.
 Parallel-region state identity includes both the state path and region path, so same-named states in
-sibling regions remain separate leaves. A termination record closes the lane's occupancy at that
-instant and adds a `terminate` mark without changing the legacy printed trace line.
+sibling regions remain separate leaves; colliding leaf names are disambiguated by the shortest
+trailing part of their paths, falling back to region paths when necessary. A termination record
+closes the lane's occupancy at that instant and adds a `terminate` mark without changing the
+legacy printed trace line.
 
 Sequence renderings pair nonzero message serials exactly. Serial-zero records retain the legacy
 FIFO pairing by event and target, using only serial-zero sends. When a recorder itself dropped
@@ -930,8 +940,8 @@ no live run and therefore does not offer run rendering.
   DOT refusal. `internal/ir/view/run_timeline_test.go` checks that timeline form support does not
   make it a model view kind or a pseudo-view.
 - `cmd/sysml/render_run_test.go` and `internal/frontend/repl/run_render_test.go`: CLI artifact
-  output and incompatible modes, and REPL output, missing-trace handling, form refusal and
-  completion.
+  output and incompatible modes, source links and invalid templates, and REPL output,
+  missing-trace handling, form refusal, link parsing and completion.
 - `internal/ir/view/dot_test.go`: a `*.dot.golden` beside every Mermaid golden for the tree,
   interconnection, state, state-entry, action and filtered fixtures, each walked by an in-test
   DOT syntax check — balanced braces, every edge endpoint declared as a node or a cluster,

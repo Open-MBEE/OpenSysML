@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"slices"
+	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/exec/runtrace"
 	"github.com/Open-MBEE/OpenSysML/internal/ir/view"
@@ -17,7 +18,7 @@ func runViewKind(kind runtrace.Kind) view.Kind {
 }
 
 func (s *Session) metaRenderRun(args []string) ([]string, bool, error) {
-	if len(args) < 1 || len(args) > 2 {
+	if len(args) < 1 || len(args) > 3 {
 		return []string{renderRunUsage}, false, nil
 	}
 	kind, ok := runtrace.ParseKind(args[0])
@@ -25,13 +26,31 @@ func (s *Session) metaRenderRun(args []string) ([]string, bool, error) {
 		return []string{fmt.Sprintf("unknown run rendering %q; want timeline or sequence; %s", args[0], renderRunUsage)}, false, nil
 	}
 	form := view.FormText
-	if len(args) == 2 {
-		form = view.Form(args[1])
-		if !slices.Contains(view.Forms(), form) {
-			return []string{fmt.Sprintf("unknown form %q; %s", args[1], renderRunUsage)}, false, nil
+	formSet := false
+	linkSet := false
+	links := view.Links{}
+	for _, arg := range args[1:] {
+		if strings.HasPrefix(arg, "link=") {
+			if linkSet {
+				return []string{renderRunUsage}, false, nil
+			}
+			links.Template = strings.TrimPrefix(arg, "link=")
+			if err := view.ParseLinkTemplate(links.Template); err != nil {
+				return []string{err.Error() + "; " + renderRunUsage}, false, nil
+			}
+			linkSet = true
+			continue
 		}
+		if formSet {
+			return []string{renderRunUsage}, false, nil
+		}
+		form = view.Form(arg)
+		if !slices.Contains(view.Forms(), form) {
+			return []string{fmt.Sprintf("unknown form %q; %s", arg, renderRunUsage)}, false, nil
+		}
+		formSet = true
 	}
-	if _, err := (&view.Rendering{Kind: runViewKind(kind), Run: true}).WriteWith(form, view.Options{}); err != nil {
+	if _, err := (&view.Rendering{Kind: runViewKind(kind), Run: true}).WriteWith(form, view.Options{Links: links}); err != nil {
 		return []string{"error: " + err.Error()}, false, nil
 	}
 	rendering, err := s.runTraceRendering(kind)
@@ -41,7 +60,15 @@ func (s *Session) metaRenderRun(args []string) ([]string, bool, error) {
 	if err != nil {
 		return []string{"error: " + err.Error()}, false, nil
 	}
-	lines, err := artifactLines(rendering, form, view.Options{Width: s.renderWidth})
+	options := view.Options{Width: s.renderWidth, Links: links}
+	if links.Template != "" {
+		renderer, err := s.viewRenderer()
+		if err != nil {
+			return []string{"error: " + err.Error()}, false, nil
+		}
+		options.Links.Sites = renderer.Sites(s.sessionLocator())
+	}
+	lines, err := artifactLines(rendering, form, options)
 	if err != nil {
 		return []string{"error: " + err.Error()}, false, nil
 	}

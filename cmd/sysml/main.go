@@ -397,8 +397,8 @@ func runCLI() int {
 		fmt.Fprintln(os.Stderr, "sysml: -render-palette is the palette -render or -render-all fills DOT, Mermaid or PlantUML with; name the view to render with -render or a directory with -render-all")
 		return 2
 	}
-	if renderLink != "" && renderView == "" && renderAllDir == "" && renderDoc == "" && renderDocsDir == "" {
-		fmt.Fprintln(os.Stderr, "sysml: -render-link links rendered elements to their source; name what to render with -render, -render-all, -render-document or -render-documents")
+	if renderLink != "" && renderView == "" && renderAllDir == "" && renderDoc == "" && renderDocsDir == "" && len(renderRuns) == 0 {
+		fmt.Fprintln(os.Stderr, "sysml: -render-link links rendered elements to their source; name what to render with -render, -render-all, -render-document, -render-documents or -render-run")
 		return 2
 	}
 	if renderPorts != "" && renderView == "" && renderAllDir == "" {

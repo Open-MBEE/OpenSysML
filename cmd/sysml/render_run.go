@@ -90,7 +90,7 @@ func runRenderTargetsFromFlags() ([]runRenderTarget, error) {
 			return nil, fmt.Errorf("unknown rendering form %q; -render-form takes %s", renderForm, formList())
 		}
 		probe := &view.Rendering{Kind: runRenderViewKind(kind), Run: true}
-		if _, err := probe.WriteWith(form, view.Options{}); err != nil {
+		if _, err := probe.WriteWith(form, view.Options{Links: view.Links{Template: renderLink}}); err != nil {
 			return nil, fmt.Errorf("-render-run %s: %w", kind, err)
 		}
 		targets = append(targets, runRenderTarget{kind: kind, path: path, form: form})
@@ -139,13 +139,24 @@ func finishRunCheck(rep *reporter, sess *repl.Session) int {
 		fmt.Fprintln(os.Stderr, errPrefix, err)
 		return 2
 	}
+	var sites view.Sites
+	if renderLink != "" {
+		sites, err = sess.ViewSites()
+		if err != nil {
+			fmt.Fprintln(os.Stderr, errPrefix, err)
+			return 2
+		}
+	}
 	for _, target := range targets {
 		rendering, err := sess.RunTraceRendering(target.kind)
 		if err != nil {
 			fmt.Fprintln(os.Stderr, errPrefix, err)
 			return 2
 		}
-		artifact, err := rendering.WriteWith(target.form, view.Options{Width: artifactWidth(target.path, terminalWidth())})
+		artifact, err := rendering.WriteWith(target.form, view.Options{
+			Width: artifactWidth(target.path, terminalWidth()),
+			Links: view.Links{Template: renderLink, Sites: sites},
+		})
 		if err != nil {
 			fmt.Fprintln(os.Stderr, errPrefix, err)
 			return 2

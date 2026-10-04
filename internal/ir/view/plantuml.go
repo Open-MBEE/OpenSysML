@@ -37,7 +37,7 @@ func (r *Rendering) PlantUMLWith(options Options) (string, error) {
 		return "", err
 	}
 	if r.Run && r.Kind == KindTimeline {
-		return r.runTimelinePlantUML(), nil
+		return r.runTimelinePlantUML(options), nil
 	}
 	r = r.settleUnplaced(options.Unplaced, FormPlantUML)
 	w := &plantumlWriter{borders: r.Kind.paletteBorders(), fills: familyFills{palette: options.Palette, tree: r.Kind == KindTree},

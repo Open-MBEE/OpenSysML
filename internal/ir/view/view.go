@@ -357,8 +357,10 @@ type Rendering struct {
 
 // Lane is one object machine in a run timeline.
 type Lane struct {
-	ID          string
-	Name        string
+	ID   string
+	Name string
+	// Origin is where the lane's state machine was declared.
+	Origin      Origin
 	Spans       []Span
 	Transitions []LaneTransition
 	Marks       []Mark
@@ -366,7 +368,9 @@ type Lane struct {
 
 // Span is a state's occupancy of a lane over clock time.
 type Span struct {
-	State    string
+	State string
+	// Origin is where the one state shown by the span was declared.
+	Origin   Origin
 	From, To float64
 	Triggers []string
 	Through  []string

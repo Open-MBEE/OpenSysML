@@ -311,9 +311,10 @@ okabe\-ito, tol\-bright, tol\-muted, tol\-light, brewer\-set2, brewer\-dark2,
 viridis or cividis; default black and white
 .TP
 .BR \-render\-link " \fItemplate\fP"
-Link template for rendered elements: {file} is the path as loaded; use
-absolute paths for vscode:// or file:// links. Placeholders: {file}, {line},
-{col}, {qname}, {id}
+Source link template for \-render, \-render\-all, \-render\-document,
+\-render\-documents and \-render\-run. Placeholders: {file}, {line}, {col},
+{qname}, {id}; {file} is the path as loaded (use absolute paths for vscode://
+or file:// links)
 .TP
 .BR \-render\-unplaced " \fIplacement\fP"
 Where a graph form of a view some Layout positions puts the nodes none does:

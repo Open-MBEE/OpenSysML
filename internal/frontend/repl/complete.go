@@ -68,7 +68,7 @@ func (s *Session) Complete(line string, pos int) Completion {
 	}
 	if command == "%render-run" && argumentIndex(head) == 2 {
 		word := lastField(head)
-		return completion(word, matchingPrefix([]string{"text", "mermaid", "plantuml", "dot"}, word))
+		return completion(word, matchingPrefix([]string{"text", "mermaid", "plantuml", "dot", "link="}, word))
 	}
 	if command == "%render" && atPaletteArgument(head) {
 		word := lastField(head)

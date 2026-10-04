@@ -223,6 +223,7 @@ func (set *participantSet) add(participant participant) string {
 		node.Name = instanceName(participant.object, set.labelFn)
 		if participant.object.Type != nil {
 			node.Type = participant.object.Type.Name
+			node.Origin = participant.object.Type.Origin()
 		}
 	case participant.behavior != nil:
 		key.behavior = participant.behavior

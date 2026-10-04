@@ -31,7 +31,7 @@ import (
 // when none is named, then a palette, style and port display the form draws.
 const (
 	renderUsage    = "usage: %render <name> [text|mermaid|markdown|dot|plantuml|csv|tsv [palette] [pilot|cameo] [minimal|full] [link=<template>]]"
-	renderRunUsage = "usage: %render-run <timeline|sequence> [text|mermaid|plantuml|dot]"
+	renderRunUsage = "usage: %render-run <timeline|sequence> [text|mermaid|plantuml|dot] [link=<template>]"
 )
 
 // isMeta reports whether a trimmed input line is a meta command.
@@ -234,7 +234,7 @@ var metaCommandTable = []metaCommand{
 	{name: cmdSamples, group: groupBehavioral, args: "<n> <seed> <name>[(<args>)] [<object>] <p>=<from>..<to>...", desc: "run an analysis case or calc over <n> values drawn uniformly from each range with the given seed, and print the table"},
 	{name: cmdRuns, group: groupBehavioral, args: "<n> [<seed>] <action> [<observable>...]", desc: "run an action <n> times, each run's modeled randomness seeded from the given seed — left out under %draws min, max or average — and print the table of the observables with each one's distribution"},
 	{name: cmdRunQuery, group: groupBehavioral, args: "<name> [<p>=<expr>...]", desc: "execute a document query and print its rows, with each binding written as <parameter>=<expression>"},
-	{name: "%render-run", group: groupBehavioral, args: "<timeline|sequence> [form]", desc: "render the recorded run as a state timeline or message sequence"},
+	{name: "%render-run", group: groupBehavioral, args: "<timeline|sequence> [form] [link=<template>]", desc: "render the recorded run as a state timeline or message sequence, optionally linking declarations to their source"},
 	{name: cmdRenderDocument, group: groupBehavioral, args: "<name> [mermaid|dot|plantuml]", desc: "compile a document definition, run its queries and print the rendered Markdown, its graph-shaped diagrams as Mermaid, Graphviz DOT or PlantUML"},
 	{name: "%constraint", group: groupBehavioral, args: argName, desc: "evaluate a constraint definition"},
 	{name: "%requirement", group: groupBehavioral, args: argName, desc: "evaluate a requirement definition"},

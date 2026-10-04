@@ -89,6 +89,8 @@ type TraceRecord struct {
 	// Path qualifies a state by its written enclosing states; Region qualifies
 	// the innermost orthogonal region, and is empty outside every region.
 	Path, Region string
+	// Source is where the state an entry or exit names was declared; zero when unknown.
+	Source symbols.Origin
 	// Event is the trigger a transition fired on, or the signal or operation an
 	// accept or send carries; Payload is the message's payload.
 	Event   string
@@ -374,12 +376,28 @@ func (tr *TraceRecorder) RecordStateEndedWithOccurrence(origin TraceOrigin, mach
 
 // RecordStateEntry records entering a state with optional entry action execution.
 func (tr *TraceRecorder) RecordStateEntry(origin TraceOrigin, state, path, region string, hasEntryAction bool) {
-	tr.add(TraceRecord{Kind: TraceEntry, Origin: origin, State: state, Path: path, Region: region, Action: hasEntryAction})
+	tr.RecordStateEntryWithSource(origin, state, path, region, hasEntryAction, symbols.Origin{})
+}
+
+// RecordStateEntryWithSource records entering a state with its declaration origin.
+func (tr *TraceRecorder) RecordStateEntryWithSource(origin TraceOrigin, state, path, region string, hasEntryAction bool, source symbols.Origin) {
+	tr.add(TraceRecord{
+		Kind: TraceEntry, Origin: origin, State: state, Path: path, Region: region,
+		Source: source, Action: hasEntryAction,
+	})
 }
 
 // RecordStateExit records exiting a state with optional exit action execution.
 func (tr *TraceRecorder) RecordStateExit(origin TraceOrigin, state, path, region string, hasExitAction bool) {
-	tr.add(TraceRecord{Kind: TraceExit, Origin: origin, State: state, Path: path, Region: region, Action: hasExitAction})
+	tr.RecordStateExitWithSource(origin, state, path, region, hasExitAction, symbols.Origin{})
+}
+
+// RecordStateExitWithSource records exiting a state with its declaration origin.
+func (tr *TraceRecorder) RecordStateExitWithSource(origin TraceOrigin, state, path, region string, hasExitAction bool, source symbols.Origin) {
+	tr.add(TraceRecord{
+		Kind: TraceExit, Origin: origin, State: state, Path: path, Region: region,
+		Source: source, Action: hasExitAction,
+	})
 }
 
 // RecordActionNodeEnter records a token entering the flow an action node owns,

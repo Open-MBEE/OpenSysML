@@ -72,9 +72,14 @@ func timeline(trace *runtime.TraceRecorder, options Options) *view.Rendering {
 			}
 			continue
 		}
+		var origin view.Origin
+		if record.Origin.Behavior != nil {
+			origin = record.Origin.Behavior.Origin()
+		}
 		lane := &view.Lane{
-			ID:   fmt.Sprintf("l%d", len(lanes)),
-			Name: laneName(record, options.Label),
+			ID:     fmt.Sprintf("l%d", len(lanes)),
+			Name:   laneName(record, options.Label),
+			Origin: origin,
 		}
 		stateLane := &timelineLane{
 			rendering: lane, key: key,
@@ -169,14 +174,19 @@ func timeline(trace *runtime.TraceRecorder, options Options) *view.Rendering {
 				currentSpan = -1
 				continue
 			}
-			stateNames := make([]string, len(leaves))
+			leafRecords := make([]runtime.TraceRecord, len(leaves))
 			for i, leaf := range leaves {
-				stateNames[i] = leaf.record.State
+				leafRecords[i] = leaf.record
 			}
-			span := view.Span{State: strings.Join(stateNames, " | "), From: group.at, To: group.at}
-			for _, item := range through {
-				span.Through = append(span.Through, item.record.State)
+			span := view.Span{State: strings.Join(stateLabels(leafRecords), " | "), From: group.at, To: group.at}
+			if len(leaves) == 1 {
+				span.Origin = leaves[0].record.Source
 			}
+			throughRecords := make([]runtime.TraceRecord, len(through))
+			for i, item := range through {
+				throughRecords[i] = item.record
+			}
+			span.Through = stateLabels(throughRecords)
 			for _, transition := range group.transitions {
 				if transition.Event != "" {
 					span.Triggers = append(span.Triggers, transition.Event)
@@ -204,6 +214,73 @@ func timeline(trace *runtime.TraceRecorder, options Options) *view.Rendering {
 	}
 	applyTimelineLimit(out, options.Limit)
 	return out
+}
+
+func stateLabels(records []runtime.TraceRecord) []string {
+	labels := make([]string, len(records))
+	byName := make(map[string][]int)
+	for i, record := range records {
+		labels[i] = record.State
+		byName[record.State] = append(byName[record.State], i)
+	}
+	for name, indexes := range byName {
+		if len(indexes) < 2 {
+			continue
+		}
+		paths := make([]string, len(indexes))
+		for i, index := range indexes {
+			paths[i] = records[index].Path
+		}
+		suffixes, ok := uniqueTrailingPaths(paths)
+		if !ok {
+			regions := make([]string, len(indexes))
+			for i, index := range indexes {
+				regions[i] = records[index].Region
+			}
+			suffixes, ok = uniqueTrailingPaths(regions)
+			if ok {
+				for i := range suffixes {
+					suffixes[i] += "." + name
+				}
+			}
+		}
+		if ok {
+			for i, index := range indexes {
+				labels[index] = suffixes[i]
+			}
+		}
+	}
+	return labels
+}
+
+func uniqueTrailingPaths(paths []string) ([]string, bool) {
+	parts := make([][]string, len(paths))
+	maxParts := 0
+	for i, path := range paths {
+		if path == "" {
+			return nil, false
+		}
+		parts[i] = strings.Split(path, ".")
+		maxParts = max(maxParts, len(parts[i]))
+	}
+	for width := 1; width <= maxParts; width++ {
+		suffixes := make([]string, len(parts))
+		seen := make(map[string]bool, len(parts))
+		unique := true
+		for i, path := range parts {
+			start := max(0, len(path)-width)
+			suffixes[i] = strings.Join(path[start:], ".")
+			if seen[suffixes[i]] {
+				unique = false
+				break
+			}
+			seen[suffixes[i]] = true
+		}
+		if unique {
+			return suffixes, true
+		}
+	}
+	return nil, false
 }
 
 func (lane *timelineLane) apply(records []runtime.TraceRecord, terminated bool) ([]transientState, bool) {
@@ -414,7 +491,7 @@ func applyTimelineLimit(rendering *view.Rendering, requested int) {
 		boundary := lane.Spans[dropIndex].From
 		lane.Spans = lane.Spans[:dropIndex]
 		if dropIndex > 0 {
-			lane.Spans[dropIndex-1].To = boundary
+			lane.Spans[dropIndex-1].To = min(lane.Spans[dropIndex-1].To, boundary)
 			lane.Spans[dropIndex-1].Open = false
 		}
 		transitions := lane.Transitions[:0]

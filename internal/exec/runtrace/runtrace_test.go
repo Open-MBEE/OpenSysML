@@ -115,6 +115,25 @@ func TestTimelineGroupsStateChangesAndOrdersParallelLeaves(t *testing.T) {
 
 func TestTimelineDistinguishesSameNamedStatesInSiblingRegions(t *testing.T) {
 	trace, options, _, _ := fixtureRun(t, "parallel-regions.sysml", "box", 2)
+	var waiting []runtime.TraceRecord
+	for _, record := range trace.Records() {
+		if record.Kind == runtime.TraceEntry && record.State == "waiting" {
+			waiting = append(waiting, record)
+		}
+	}
+	if len(waiting) != 2 {
+		t.Fatalf("waiting entries = %+v, want two sibling leaves", waiting)
+	}
+	regions := make(map[string]bool, len(waiting))
+	for _, record := range waiting {
+		if record.Path != "open.waiting" {
+			t.Errorf("waiting path = %q, want open.waiting", record.Path)
+		}
+		regions[record.Region] = true
+	}
+	if !regions["open.left"] || !regions["open.right"] {
+		t.Errorf("waiting regions = %v, want open.left and open.right", regions)
+	}
 	rendering, err := Render(KindTimeline, trace, options)
 	if err != nil {
 		t.Fatal(err)
@@ -123,10 +142,20 @@ func TestTimelineDistinguishesSameNamedStatesInSiblingRegions(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, want := range []string{"0 .. 1  waiting | waiting", "1 .. 2  done | waiting"} {
+	for _, want := range []string{"0 .. 1  left.waiting | right.waiting", "1 .. 2  done | waiting"} {
 		if !strings.Contains(got, want) {
 			t.Errorf("timeline is missing %q:\n%s", want, got)
 		}
+	}
+}
+
+func TestTimelineDisambiguatesThroughLabelsByRegionPath(t *testing.T) {
+	got := stateLabels([]runtime.TraceRecord{
+		{State: "waiting", Path: "open.waiting", Region: "open.left"},
+		{State: "waiting", Path: "open.waiting", Region: "open.right"},
+	})
+	if strings.Join(got, " | ") != "left.waiting | right.waiting" {
+		t.Errorf("through labels = %v, want [left.waiting right.waiting]", got)
 	}
 }
 
@@ -196,6 +225,24 @@ func TestTimelineCapUsesStableSpanIdentityForEqualInstants(t *testing.T) {
 	if len(rendering.Notices) == 0 ||
 		rendering.Notices[len(rendering.Notices)-1] != "1 later state change from t = 0 is not drawn (at most 200 spans are)" {
 		t.Fatalf("cap notice = %v", rendering.Notices)
+	}
+}
+
+func TestTimelineCapDoesNotExtendAcrossInactiveGap(t *testing.T) {
+	rendering := &view.Rendering{Lanes: []view.Lane{{
+		Spans: []view.Span{
+			{State: "finished", From: 0, To: 1, Open: true},
+			{State: "later", From: 4, To: 5},
+		},
+	}}}
+
+	applyTimelineLimit(rendering, 1)
+
+	if len(rendering.Lanes[0].Spans) != 1 {
+		t.Fatalf("spans = %+v, want one retained span", rendering.Lanes[0].Spans)
+	}
+	if span := rendering.Lanes[0].Spans[0]; span.To != 1 || span.Open {
+		t.Errorf("last kept span = %+v, want its original end 1 and closed", span)
 	}
 }
 

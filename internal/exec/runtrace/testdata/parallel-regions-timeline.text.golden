@@ -1,7 +1,7 @@
 run - timeline rendering (the trace of a run to t = 2)
 
 box.modes
-  0 .. 1  waiting | waiting
+  0 .. 1  left.waiting | right.waiting
   1 .. 2  done | waiting (time)  (held at the end)
   transitions:
     t=1 waiting -> done (time)

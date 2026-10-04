@@ -20,9 +20,10 @@ import (
 var updateRunGoldens = flag.Bool("update", false, "rewrite run-rendering goldens")
 
 type renderingGolden struct {
-	name string
-	form view.Form
-	run  *view.Rendering
+	name    string
+	form    view.Form
+	run     *view.Rendering
+	options view.Options
 }
 
 func TestRunRenderingGoldens(t *testing.T) {
@@ -34,6 +35,29 @@ func TestRunRenderingGoldens(t *testing.T) {
 			t.Fatal(err)
 		}
 		cases = appendForms(cases, "example-"+string(kind), run)
+		if kind == KindSequence {
+			path := filepath.Join("..", "..", "..", "examples", "run-timeline", "run-timeline.sysml")
+			data, err := os.ReadFile(path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			linkedOptions := view.Options{Links: linksForTestFile(path, data)}
+			for _, form := range []view.Form{view.FormMermaid, view.FormPlantUML} {
+				cases = append(cases, renderingGolden{
+					name: "example-sequence-links", form: form, run: run, options: linkedOptions,
+				})
+			}
+		} else {
+			path := filepath.Join("..", "..", "..", "examples", "run-timeline", "run-timeline.sysml")
+			data, err := os.ReadFile(path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			cases = append(cases, renderingGolden{
+				name: "example-timeline-links", form: view.FormPlantUML, run: run,
+				options: view.Options{Links: linksForTestFile(path, data)},
+			})
+		}
 		empty, err := Render(kind, runtime.NewTraceRecorder(), Options{})
 		if err != nil {
 			t.Fatal(err)
@@ -47,6 +71,15 @@ func TestRunRenderingGoldens(t *testing.T) {
 		t.Fatal(err)
 	}
 	cases = append(cases, renderingGolden{name: "parallel-regions-timeline", form: view.FormText, run: parallelTimeline})
+	parallelPath := filepath.Join("testdata", "parallel-regions.sysml")
+	parallelData, err := os.ReadFile(parallelPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cases = append(cases, renderingGolden{
+		name: "parallel-regions-timeline-links", form: view.FormPlantUML, run: parallelTimeline,
+		options: view.Options{Links: linksForTestFile(parallelPath, parallelData)},
+	})
 
 	serialTrace, serialOptions, serialCtx, mission := fixtureRun(t, "serial-pairing.sysml", "mission", 2)
 	serialLabels := make(map[int64]string)
@@ -135,7 +168,7 @@ func TestRunRenderingGoldens(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name+"."+string(tc.form), func(t *testing.T) {
-			got, err := tc.run.Write(tc.form)
+			got, err := tc.run.WriteWith(tc.form, tc.options)
 			if tc.form == view.FormDot {
 				if err == nil {
 					t.Fatal("DOT rendering unexpectedly succeeded")
@@ -159,6 +192,21 @@ func TestRunRenderingGoldens(t *testing.T) {
 				t.Errorf("golden mismatch; run with -update to accept:\n%s", firstDifference(string(want), got))
 			}
 		})
+	}
+}
+
+func linksForTestFile(path string, data []byte) view.Links {
+	doc := filepath.Clean(path)
+	lines := source.NewLineIndex(data)
+	return view.Links{
+		Template: "https://example.test/src/{file}#L{line}",
+		Sites: func(origin view.Origin) (view.Site, bool) {
+			if filepath.Clean(origin.Doc) != doc || !origin.Located() {
+				return view.Site{}, false
+			}
+			pos := lines.PosAt(origin.Span.Offset)
+			return view.Site{File: filepath.Base(doc), Line: pos.Line, Col: pos.Col}, true
+		},
 	}
 }
 

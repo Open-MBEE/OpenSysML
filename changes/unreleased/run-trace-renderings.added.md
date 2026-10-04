@@ -1,1 +1,1 @@
-- **Render recorded runs as timelines and message sequences.** The CLI and REPL can write a behavior's state occupancy and ordered messages as text, Mermaid or PlantUML without adding model-view vocabulary.
+- **Render recorded runs as timelines and message sequences.** The CLI and REPL can write a behavior's state occupancy and ordered messages as text, Mermaid or PlantUML without adding model-view vocabulary. Source links connect sequence participants to their type declarations and PlantUML timeline lanes and single-state spans to their declarations.
