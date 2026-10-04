@@ -178,15 +178,15 @@ elmt:ThenAfterMembers__AfterFlow
     sysml:ownedMember elmt:ThenAfterMembers__AfterFlow__a, elmt:ThenAfterMembers__AfterFlow___401, elmt:ThenAfterMembers__AfterFlow__b, elmt:ThenAfterMembers__AfterFlow___403 ;
     sysml:ownedMembership elmt:ThenAfterMembers__AfterFlow__a_om, elmt:ThenAfterMembers__AfterFlow___401_om, elmt:ThenAfterMembers__AfterFlow__b_om, elmt:ThenAfterMembers__AfterFlow___403_om ;
     sysml:ownedRelationship elmt:ThenAfterMembers__AfterFlow__a_om, elmt:ThenAfterMembers__AfterFlow___401_om, elmt:ThenAfterMembers__AfterFlow__b_om, elmt:ThenAfterMembers__AfterFlow___403_om ;
-    sysml:ownedFeature elmt:ThenAfterMembers__AfterFlow__a, elmt:ThenAfterMembers__AfterFlow__b, elmt:ThenAfterMembers__AfterFlow___403 ;
-    sysml:ownedFeatureMembership elmt:ThenAfterMembers__AfterFlow__a_om, elmt:ThenAfterMembers__AfterFlow__b_om, elmt:ThenAfterMembers__AfterFlow___403_om ;
+    sysml:ownedFeature elmt:ThenAfterMembers__AfterFlow__a, elmt:ThenAfterMembers__AfterFlow___401, elmt:ThenAfterMembers__AfterFlow__b, elmt:ThenAfterMembers__AfterFlow___403 ;
+    sysml:ownedFeatureMembership elmt:ThenAfterMembers__AfterFlow__a_om, elmt:ThenAfterMembers__AfterFlow___401_om, elmt:ThenAfterMembers__AfterFlow__b_om, elmt:ThenAfterMembers__AfterFlow___403_om ;
     sysx:sourceText "    action def AfterFlow {\n" ;
     sysx:sourceTail "    }\n" ;
     json:ownedMember "[{\"@id\":\"ThenAfterMembers__AfterFlow__a\"},{\"@id\":\"ThenAfterMembers__AfterFlow___401\"},{\"@id\":\"ThenAfterMembers__AfterFlow__b\"},{\"@id\":\"ThenAfterMembers__AfterFlow___403\"}]" ;
     json:ownedMembership "[{\"@id\":\"ThenAfterMembers__AfterFlow__a_om\"},{\"@id\":\"ThenAfterMembers__AfterFlow___401_om\"},{\"@id\":\"ThenAfterMembers__AfterFlow__b_om\"},{\"@id\":\"ThenAfterMembers__AfterFlow___403_om\"}]" ;
     json:ownedRelationship "[{\"@id\":\"ThenAfterMembers__AfterFlow__a_om\"},{\"@id\":\"ThenAfterMembers__AfterFlow___401_om\"},{\"@id\":\"ThenAfterMembers__AfterFlow__b_om\"},{\"@id\":\"ThenAfterMembers__AfterFlow___403_om\"}]" ;
-    json:ownedFeature "[{\"@id\":\"ThenAfterMembers__AfterFlow__a\"},{\"@id\":\"ThenAfterMembers__AfterFlow__b\"},{\"@id\":\"ThenAfterMembers__AfterFlow___403\"}]" ;
-    json:ownedFeatureMembership "[{\"@id\":\"ThenAfterMembers__AfterFlow__a_om\"},{\"@id\":\"ThenAfterMembers__AfterFlow__b_om\"},{\"@id\":\"ThenAfterMembers__AfterFlow___403_om\"}]" .
+    json:ownedFeature "[{\"@id\":\"ThenAfterMembers__AfterFlow__a\"},{\"@id\":\"ThenAfterMembers__AfterFlow___401\"},{\"@id\":\"ThenAfterMembers__AfterFlow__b\"},{\"@id\":\"ThenAfterMembers__AfterFlow___403\"}]" ;
+    json:ownedFeatureMembership "[{\"@id\":\"ThenAfterMembers__AfterFlow__a_om\"},{\"@id\":\"ThenAfterMembers__AfterFlow___401_om\"},{\"@id\":\"ThenAfterMembers__AfterFlow__b_om\"},{\"@id\":\"ThenAfterMembers__AfterFlow___403_om\"}]" .
 
 elmt:ThenAfterMembers__AfterFlow_om
     a sysml:OwningMembership ;
@@ -261,14 +261,16 @@ elmt:ThenAfterMembers__AfterFlow___401
     json:ownedEndFeature "[{\"@id\":\"ThenAfterMembers__AfterFlow___401_pend0\"},{\"@id\":\"ThenAfterMembers__AfterFlow___401_pend1\"}]" .
 
 elmt:ThenAfterMembers__AfterFlow___401_om
-    a sysml:OwningMembership ;
+    a sysml:FeatureMembership ;
     sysml:elementId "ThenAfterMembers__AfterFlow___401_om" ;
     sysml:owner elmt:ThenAfterMembers__AfterFlow ;
     sysml:memberElement elmt:ThenAfterMembers__AfterFlow___401 ;
     sysml:ownedMemberElement elmt:ThenAfterMembers__AfterFlow___401 ;
     sysml:ownedRelatedElement elmt:ThenAfterMembers__AfterFlow___401 ;
     sysml:owningRelatedElement elmt:ThenAfterMembers__AfterFlow ;
-    sysml:membershipOwningNamespace elmt:ThenAfterMembers__AfterFlow .
+    sysml:membershipOwningNamespace elmt:ThenAfterMembers__AfterFlow ;
+    sysml:ownedMemberFeature elmt:ThenAfterMembers__AfterFlow___401 ;
+    sysml:owningType elmt:ThenAfterMembers__AfterFlow .
 
 expr:ThenAfterMembers__AfterFlow___401_pend0
     a sysml:FlowEnd ;
@@ -7110,15 +7112,15 @@ elmt:ThenAfterMembers__AfterPerform
     sysml:ownedMember elmt:ThenAfterMembers__AfterPerform___400, elmt:ThenAfterMembers__AfterPerform___401, elmt:ThenAfterMembers__AfterPerform__b, elmt:ThenAfterMembers__AfterPerform___403 ;
     sysml:ownedMembership elmt:ThenAfterMembers__AfterPerform___400_om, elmt:ThenAfterMembers__AfterPerform___401_om, elmt:ThenAfterMembers__AfterPerform__b_om, elmt:ThenAfterMembers__AfterPerform___403_om ;
     sysml:ownedRelationship elmt:ThenAfterMembers__AfterPerform___400_om, elmt:ThenAfterMembers__AfterPerform___401_om, elmt:ThenAfterMembers__AfterPerform__b_om, elmt:ThenAfterMembers__AfterPerform___403_om ;
-    sysml:ownedFeature elmt:ThenAfterMembers__AfterPerform___400, elmt:ThenAfterMembers__AfterPerform__b, elmt:ThenAfterMembers__AfterPerform___403 ;
-    sysml:ownedFeatureMembership elmt:ThenAfterMembers__AfterPerform___400_om, elmt:ThenAfterMembers__AfterPerform__b_om, elmt:ThenAfterMembers__AfterPerform___403_om ;
+    sysml:ownedFeature elmt:ThenAfterMembers__AfterPerform___400, elmt:ThenAfterMembers__AfterPerform___401, elmt:ThenAfterMembers__AfterPerform__b, elmt:ThenAfterMembers__AfterPerform___403 ;
+    sysml:ownedFeatureMembership elmt:ThenAfterMembers__AfterPerform___400_om, elmt:ThenAfterMembers__AfterPerform___401_om, elmt:ThenAfterMembers__AfterPerform__b_om, elmt:ThenAfterMembers__AfterPerform___403_om ;
     sysx:sourceText "    action def AfterPerform {\n" ;
     sysx:sourceTail "    }\n" ;
     json:ownedMember "[{\"@id\":\"ThenAfterMembers__AfterPerform___400\"},{\"@id\":\"ThenAfterMembers__AfterPerform___401\"},{\"@id\":\"ThenAfterMembers__AfterPerform__b\"},{\"@id\":\"ThenAfterMembers__AfterPerform___403\"}]" ;
     json:ownedMembership "[{\"@id\":\"ThenAfterMembers__AfterPerform___400_om\"},{\"@id\":\"ThenAfterMembers__AfterPerform___401_om\"},{\"@id\":\"ThenAfterMembers__AfterPerform__b_om\"},{\"@id\":\"ThenAfterMembers__AfterPerform___403_om\"}]" ;
     json:ownedRelationship "[{\"@id\":\"ThenAfterMembers__AfterPerform___400_om\"},{\"@id\":\"ThenAfterMembers__AfterPerform___401_om\"},{\"@id\":\"ThenAfterMembers__AfterPerform__b_om\"},{\"@id\":\"ThenAfterMembers__AfterPerform___403_om\"}]" ;
-    json:ownedFeature "[{\"@id\":\"ThenAfterMembers__AfterPerform___400\"},{\"@id\":\"ThenAfterMembers__AfterPerform__b\"},{\"@id\":\"ThenAfterMembers__AfterPerform___403\"}]" ;
-    json:ownedFeatureMembership "[{\"@id\":\"ThenAfterMembers__AfterPerform___400_om\"},{\"@id\":\"ThenAfterMembers__AfterPerform__b_om\"},{\"@id\":\"ThenAfterMembers__AfterPerform___403_om\"}]" .
+    json:ownedFeature "[{\"@id\":\"ThenAfterMembers__AfterPerform___400\"},{\"@id\":\"ThenAfterMembers__AfterPerform___401\"},{\"@id\":\"ThenAfterMembers__AfterPerform__b\"},{\"@id\":\"ThenAfterMembers__AfterPerform___403\"}]" ;
+    json:ownedFeatureMembership "[{\"@id\":\"ThenAfterMembers__AfterPerform___400_om\"},{\"@id\":\"ThenAfterMembers__AfterPerform___401_om\"},{\"@id\":\"ThenAfterMembers__AfterPerform__b_om\"},{\"@id\":\"ThenAfterMembers__AfterPerform___403_om\"}]" .
 
 elmt:ThenAfterMembers__AfterPerform_om
     a sysml:OwningMembership ;
@@ -7194,14 +7196,16 @@ elmt:ThenAfterMembers__AfterPerform___401
     json:ownedEndFeature "[{\"@id\":\"ThenAfterMembers__AfterPerform___401_pend0\"},{\"@id\":\"ThenAfterMembers__AfterPerform___401_pend1\"}]" .
 
 elmt:ThenAfterMembers__AfterPerform___401_om
-    a sysml:OwningMembership ;
+    a sysml:FeatureMembership ;
     sysml:elementId "ThenAfterMembers__AfterPerform___401_om" ;
     sysml:owner elmt:ThenAfterMembers__AfterPerform ;
     sysml:memberElement elmt:ThenAfterMembers__AfterPerform___401 ;
     sysml:ownedMemberElement elmt:ThenAfterMembers__AfterPerform___401 ;
     sysml:ownedRelatedElement elmt:ThenAfterMembers__AfterPerform___401 ;
     sysml:owningRelatedElement elmt:ThenAfterMembers__AfterPerform ;
-    sysml:membershipOwningNamespace elmt:ThenAfterMembers__AfterPerform .
+    sysml:membershipOwningNamespace elmt:ThenAfterMembers__AfterPerform ;
+    sysml:ownedMemberFeature elmt:ThenAfterMembers__AfterPerform___401 ;
+    sysml:owningType elmt:ThenAfterMembers__AfterPerform .
 
 expr:ThenAfterMembers__AfterPerform___401_pend0
     a sysml:FlowEnd ;
@@ -7489,15 +7493,15 @@ elmt:ThenAfterMembers__ThenAlone
     sysml:ownedMember elmt:ThenAfterMembers__ThenAlone__a, elmt:ThenAfterMembers__ThenAlone___401, elmt:ThenAfterMembers__ThenAlone___402, elmt:ThenAfterMembers__ThenAlone__b ;
     sysml:ownedMembership elmt:ThenAfterMembers__ThenAlone__a_om, elmt:ThenAfterMembers__ThenAlone___401_om, elmt:ThenAfterMembers__ThenAlone___402_om, elmt:ThenAfterMembers__ThenAlone__b_om ;
     sysml:ownedRelationship elmt:ThenAfterMembers__ThenAlone__a_om, elmt:ThenAfterMembers__ThenAlone___401_om, elmt:ThenAfterMembers__ThenAlone___402_om, elmt:ThenAfterMembers__ThenAlone__b_om ;
-    sysml:ownedFeature elmt:ThenAfterMembers__ThenAlone__a, elmt:ThenAfterMembers__ThenAlone___402, elmt:ThenAfterMembers__ThenAlone__b ;
-    sysml:ownedFeatureMembership elmt:ThenAfterMembers__ThenAlone__a_om, elmt:ThenAfterMembers__ThenAlone___402_om, elmt:ThenAfterMembers__ThenAlone__b_om ;
+    sysml:ownedFeature elmt:ThenAfterMembers__ThenAlone__a, elmt:ThenAfterMembers__ThenAlone___401, elmt:ThenAfterMembers__ThenAlone___402, elmt:ThenAfterMembers__ThenAlone__b ;
+    sysml:ownedFeatureMembership elmt:ThenAfterMembers__ThenAlone__a_om, elmt:ThenAfterMembers__ThenAlone___401_om, elmt:ThenAfterMembers__ThenAlone___402_om, elmt:ThenAfterMembers__ThenAlone__b_om ;
     sysx:sourceText "    action def ThenAlone {\n" ;
     sysx:sourceTail "    }\n" ;
     json:ownedMember "[{\"@id\":\"ThenAfterMembers__ThenAlone__a\"},{\"@id\":\"ThenAfterMembers__ThenAlone___401\"},{\"@id\":\"ThenAfterMembers__ThenAlone___402\"},{\"@id\":\"ThenAfterMembers__ThenAlone__b\"}]" ;
     json:ownedMembership "[{\"@id\":\"ThenAfterMembers__ThenAlone__a_om\"},{\"@id\":\"ThenAfterMembers__ThenAlone___401_om\"},{\"@id\":\"ThenAfterMembers__ThenAlone___402_om\"},{\"@id\":\"ThenAfterMembers__ThenAlone__b_om\"}]" ;
     json:ownedRelationship "[{\"@id\":\"ThenAfterMembers__ThenAlone__a_om\"},{\"@id\":\"ThenAfterMembers__ThenAlone___401_om\"},{\"@id\":\"ThenAfterMembers__ThenAlone___402_om\"},{\"@id\":\"ThenAfterMembers__ThenAlone__b_om\"}]" ;
-    json:ownedFeature "[{\"@id\":\"ThenAfterMembers__ThenAlone__a\"},{\"@id\":\"ThenAfterMembers__ThenAlone___402\"},{\"@id\":\"ThenAfterMembers__ThenAlone__b\"}]" ;
-    json:ownedFeatureMembership "[{\"@id\":\"ThenAfterMembers__ThenAlone__a_om\"},{\"@id\":\"ThenAfterMembers__ThenAlone___402_om\"},{\"@id\":\"ThenAfterMembers__ThenAlone__b_om\"}]" .
+    json:ownedFeature "[{\"@id\":\"ThenAfterMembers__ThenAlone__a\"},{\"@id\":\"ThenAfterMembers__ThenAlone___401\"},{\"@id\":\"ThenAfterMembers__ThenAlone___402\"},{\"@id\":\"ThenAfterMembers__ThenAlone__b\"}]" ;
+    json:ownedFeatureMembership "[{\"@id\":\"ThenAfterMembers__ThenAlone__a_om\"},{\"@id\":\"ThenAfterMembers__ThenAlone___401_om\"},{\"@id\":\"ThenAfterMembers__ThenAlone___402_om\"},{\"@id\":\"ThenAfterMembers__ThenAlone__b_om\"}]" .
 
 elmt:ThenAfterMembers__ThenAlone_om
     a sysml:OwningMembership ;
@@ -7572,14 +7576,16 @@ elmt:ThenAfterMembers__ThenAlone___401
     json:ownedEndFeature "[{\"@id\":\"ThenAfterMembers__ThenAlone___401_pend0\"},{\"@id\":\"ThenAfterMembers__ThenAlone___401_pend1\"}]" .
 
 elmt:ThenAfterMembers__ThenAlone___401_om
-    a sysml:OwningMembership ;
+    a sysml:FeatureMembership ;
     sysml:elementId "ThenAfterMembers__ThenAlone___401_om" ;
     sysml:owner elmt:ThenAfterMembers__ThenAlone ;
     sysml:memberElement elmt:ThenAfterMembers__ThenAlone___401 ;
     sysml:ownedMemberElement elmt:ThenAfterMembers__ThenAlone___401 ;
     sysml:ownedRelatedElement elmt:ThenAfterMembers__ThenAlone___401 ;
     sysml:owningRelatedElement elmt:ThenAfterMembers__ThenAlone ;
-    sysml:membershipOwningNamespace elmt:ThenAfterMembers__ThenAlone .
+    sysml:membershipOwningNamespace elmt:ThenAfterMembers__ThenAlone ;
+    sysml:ownedMemberFeature elmt:ThenAfterMembers__ThenAlone___401 ;
+    sysml:owningType elmt:ThenAfterMembers__ThenAlone .
 
 expr:ThenAfterMembers__ThenAlone___401_pend0
     a sysml:FlowEnd ;

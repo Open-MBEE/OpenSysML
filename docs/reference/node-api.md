@@ -23,6 +23,8 @@ The package is published on npm. From a checkout, build it with
 
 Both re-export the isomorphic core; the browser entry point requires an
 `address`, since there is nothing to fall back to.
+Both also export `connectWasm()` for the combined WebAssembly module; see
+[WebAssembly, without a service](../../client/node/README.md#webassembly-without-a-service).
 
 ## Opening a connection
 

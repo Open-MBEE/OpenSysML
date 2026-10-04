@@ -45,6 +45,9 @@ type DiagramOptions struct {
 	// Style is the drawing style every DOT or Mermaid diagram is drawn in, the
 	// Pilot look when empty; the other forms draw one look.
 	Style view.DrawingStyle
+
+	// LinkTemplate fills source links for diagram elements.
+	LinkTemplate string
 }
 
 // check rejects a form there is none of and a drawing style there is none of.

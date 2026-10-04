@@ -1,0 +1,49 @@
+@startuml
+' SequenceViews::pubSubView — sequence rendering (view def SequenceView)
+<style>
+root {
+  BackGroundColor white
+  FontName SansSerif
+  FontSize 14
+  FontColor black
+  LineColor #181818
+  HorizontalAlignment left
+}
+element {
+  BackGroundColor white
+  LineColor #181818
+  LineThickness 0.5
+  RoundCorner 0
+  Shadowing 0.0
+}
+start, end, activityBar {
+  BackGroundColor black
+}
+arrow {
+  LineColor #181818
+  LineThickness 1
+  FontSize 13
+}
+note {
+  BackGroundColor #FEFFDD
+  FontSize 13
+}
+.usage {
+  RoundCorner 20
+}
+.package {
+  LineThickness 1.5
+}
+.region {
+  LineStyle 4
+}
+</style>
+skinparam wrapWidth 300
+hide stereotype
+participant "<size:10>//«part»//</size>\n**producer**" as n0 <<part>> <<usage>> [[https://example.test/src/sequence.sysml#L26]]
+participant "<size:10>//«part»//</size>\n**server**" as n1 <<part>> <<usage>> [[https://example.test/src/sequence.sysml#L32]]
+participant "<size:10>//«part»//</size>\n**consumer**" as n2 <<part>> <<usage>> [[https://example.test/src/sequence.sysml#L41]]
+n2 -> n1 : [[https://example.test/src/sequence.sysml#L38]] subscribe_message
+n0 -> n1 : [[https://example.test/src/sequence.sysml#L30]] publish_message
+n1 -> n2 : [[https://example.test/src/sequence.sysml#L39]] deliver_message
+@enduml

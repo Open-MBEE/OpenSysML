@@ -94,6 +94,7 @@ type renderParams struct {
 	Palette      string                          `json:"palette,omitempty"`
 	Style        string                          `json:"style,omitempty"`
 	Ports        string                          `json:"ports,omitempty"`
+	LinkTemplate string                          `json:"linkTemplate,omitempty"`
 }
 
 // renderResult is one rendering: the artifact a client draws, plus the nodes and
@@ -315,7 +316,14 @@ func (s *Server) Views(params *viewsParams) *viewsResult {
 // workspace the rendering was made under.
 func (s *Server) Render(params *renderParams) (*renderResult, error) {
 	name := uriToName(params.TextDocument.URI)
-	rendering, snapshot, err := s.ws.RenderView(name, params.View)
+	var rendering *view.Rendering
+	var snapshot *model.Snapshot
+	var err error
+	if params.LinkTemplate != "" {
+		rendering, snapshot, err = s.ws.RenderViewLinked(name, params.View)
+	} else {
+		rendering, snapshot, err = s.ws.RenderView(name, params.View)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -337,7 +345,10 @@ func (s *Server) Render(params *renderParams) (*renderResult, error) {
 	if err != nil {
 		return nil, err
 	}
-	artifact, err := rendering.WriteWith(form, view.Options{Palette: colors, Style: style, Ports: ports})
+	artifact, err := rendering.WriteWith(form, view.Options{
+		Palette: colors, Style: style, Ports: ports,
+		Links: view.Links{Template: params.LinkTemplate, Sites: snapshot.Sites()},
+	})
 	if err != nil {
 		return nil, err
 	}

@@ -22,6 +22,8 @@ theme:
   # shipped partial minus tab-mode hiding of inactive top-level items); every
   # documentation page is otherwise the theme as shipped.
   custom_dir: overrides
+  logo: assets/opensysml-mark-white.png
+  favicon: assets/favicon.png
   features:
     - navigation.instant
     - navigation.tracking
@@ -52,6 +54,7 @@ theme:
 
 extra_css:
   - stylesheets/footer.css
+  - stylesheets/header.css
   - stylesheets/ecosystem.css
 
 extra:
@@ -218,6 +221,7 @@ nav:
           - Errors: clients/python/errors.md
           - The service: clients/python/service.md
           - Typed classes: clients/python/typed-classes.md
+          - Metamodel classes and JSON: clients/python/metamodel.md
       - Node: clients/node.md
       - Java: clients/java.md
       - Rust: clients/rust.md

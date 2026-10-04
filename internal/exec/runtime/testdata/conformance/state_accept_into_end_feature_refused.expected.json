@@ -1,0 +1,16 @@
+{
+	"type": "state",
+	"events": [
+		{
+			"signal": "Reading",
+			"args": {
+				"v": {
+					"type": "Integer",
+					"value": 3
+				}
+			}
+		}
+	],
+	"error": "accept last: feature is read-only: last is constant as an end feature",
+	"libraries": true
+}

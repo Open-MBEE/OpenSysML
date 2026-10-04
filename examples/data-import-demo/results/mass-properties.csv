@@ -1,0 +1,3 @@
+element,serial,mass [kg],qualified
+RoverDemo::scout,S-001,182.4,True
+RoverDemo::hauler,,311.0,False
