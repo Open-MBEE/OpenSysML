@@ -495,6 +495,7 @@ func (r *Rendering) writeMermaidFrontmatter(b *strings.Builder, labels labeller,
 	}
 	if r.Run && r.Kind == KindTimeline {
 		b.WriteString("  gantt:\n    displayMode: compact\n")
+		fmt.Fprintf(b, "    leftPadding: %d\n", runTimelineMermaidLeftPadding(r.Lanes))
 	}
 	b.WriteString("  themeVariables:\n")
 	variables := []themeVariable{

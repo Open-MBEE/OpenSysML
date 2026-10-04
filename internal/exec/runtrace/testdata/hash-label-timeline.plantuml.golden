@@ -5,4 +5,5 @@ concise "<U+0023>7.modes" as l0
 @0
 l0 is "ready"
 @1
+l0 is {hidden}
 @enduml

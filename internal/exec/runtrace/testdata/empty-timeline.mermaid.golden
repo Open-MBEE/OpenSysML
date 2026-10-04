@@ -5,6 +5,7 @@ config:
   themeCSS: ".edgeLabel rect { opacity: 1 !important; } .cluster-label .nodeLabel { text-align: center; }"
   gantt:
     displayMode: compact
+    leftPadding: 75
   themeVariables:
     fontFamily: "Helvetica, Arial, sans-serif"
     fontSize: "14px"

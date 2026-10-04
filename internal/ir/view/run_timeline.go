@@ -159,7 +159,7 @@ func (r *Rendering) runTimelinePlantUML() string {
 		fmt.Fprintf(&b, "' %s\n@enduml\n", r.EmptyReason())
 		return b.String()
 	}
-	fmt.Fprintf(&b, "scale 1 as %d pixels\n", timelineScale(r.Lanes, r.RunUntil))
+	fmt.Fprintf(&b, "scale 1 as %s pixels\n", strconv.FormatFloat(timelineScale(r.Lanes, r.RunUntil), 'f', -1, 64))
 	for _, lane := range r.Lanes {
 		fmt.Fprintf(&b, "concise %s as %s\n", plantumlQuote(plantumlText(lane.Name)), lane.ID)
 	}
@@ -169,13 +169,16 @@ func (r *Rendering) runTimelinePlantUML() string {
 		for i, span := range lane.Spans {
 			changes = append(changes, timelineChange{span.From, fmt.Sprintf("%s is %s", lane.ID,
 				plantumlQuote(plantumlText(timelineStateLabel(span))))})
-			if !span.Open && i == len(lane.Spans)-1 {
+			if !span.Open && i == len(lane.Spans)-1 && span.To < until {
 				changes = append(changes, timelineChange{span.To, lane.ID + " is {hidden}"})
 			}
 		}
 		for _, mark := range lane.Marks {
 			changes = append(changes, timelineChange{mark.At, fmt.Sprintf("note top of %s : %s", lane.ID, plantumlText(mark.Text))})
 		}
+	}
+	for _, lane := range r.Lanes {
+		changes = append(changes, timelineChange{at: until, line: lane.ID + " is {hidden}"})
 	}
 	changes = append(changes, timelineChange{at: until})
 	sort.SliceStable(changes, func(i, j int) bool { return changes[i].at < changes[j].at })
@@ -198,24 +201,43 @@ type timelineChange struct {
 	line string
 }
 
-func timelineScale(lanes []Lane, until float64) int {
-	shortest := math.Inf(1)
+func timelineScale(lanes []Lane, until float64) float64 {
+	const (
+		minimumSpanWidth = 140.0
+		characterWidth   = 7.0
+		labelPadding     = 24.0
+		maximumWidth     = 4000.0
+	)
+	duration := math.Max(0, until)
+	scale := 1.0
 	for _, lane := range lanes {
 		for _, span := range lane.Spans {
-			if duration := span.To - span.From; duration > 0 {
-				shortest = math.Min(shortest, duration)
+			spanDuration := span.To - span.From
+			if spanDuration > 0 {
+				duration = math.Max(duration, span.To)
+				labelWidth := float64(utf8.RuneCountInString(timelineStateLabel(span)))*characterWidth + labelPadding
+				spanWidth := math.Max(minimumSpanWidth, labelWidth)
+				scale = math.Max(scale, math.Ceil(spanWidth/spanDuration))
 			}
 		}
 	}
-	duration := math.Max(0, until)
-	scale := 1
-	if !math.IsInf(shortest, 1) {
-		scale = max(1, int(math.Ceil(140/shortest)))
-	}
-	if float64(scale)*duration > 2400 && duration > 0 {
-		scale = max(1, int(2400/duration))
+	if duration > 0 && scale*duration > maximumWidth {
+		scale = maximumWidth / duration
 	}
 	return scale
+}
+
+func runTimelineMermaidLeftPadding(lanes []Lane) int {
+	const (
+		defaultPadding = 75
+		characterWidth = 7
+		labelPadding   = 24
+	)
+	padding := defaultPadding
+	for _, lane := range lanes {
+		padding = max(padding, utf8.RuneCountInString(lane.Name)*characterWidth+labelPadding)
+	}
+	return padding
 }
 
 func timelineStateLabel(span Span) string {

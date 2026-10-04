@@ -88,7 +88,7 @@ func TestRunTimelineMermaidWritesCompactGantt(t *testing.T) {
 	mermaid := rendering.Mermaid()
 	for _, want := range []string{
 		"fontFamily: \"Helvetica, Arial, sans-serif\"",
-		"  gantt:\n    displayMode: compact\n",
+		"  gantt:\n    displayMode: compact\n    leftPadding: 87\n",
 		"%% run — timeline rendering (the trace of a run to t = 3600.5)",
 		"%% t=0.125 guard: x not evaluated",
 		"gantt",
@@ -109,6 +109,19 @@ func TestRunTimelineMermaidWritesCompactGantt(t *testing.T) {
 	}
 	if !strings.Contains(mermaid, "%% t=0.125 guard: x not evaluated\ngantt") {
 		t.Errorf("multiline mark escaped the Mermaid comment:\n%s", mermaid)
+	}
+}
+
+func TestRunTimelineMermaidLeftPaddingKeepsDefaultMinimum(t *testing.T) {
+	rendering := &Rendering{
+		Kind: KindTimeline,
+		Run:  true,
+		Lanes: []Lane{{
+			ID: "l0", Name: "A",
+		}},
+	}
+	if got := rendering.Mermaid(); !strings.Contains(got, "    leftPadding: 75\n") {
+		t.Errorf("timeline Mermaid left padding is below the default:\n%s", got)
 	}
 }
 
@@ -134,7 +147,7 @@ func TestRunTimelinePlantUMLWritesTimingChanges(t *testing.T) {
 		`concise "Rover" as l0`,
 		"@0\nl0 is \"idle\"\n",
 		"@1.25\nl0 is \"moving (accept Go)\"\nnote top of l0 : choice: moving\n",
-		"@3\n@enduml",
+		"@3\nl0 is {hidden}\n@enduml",
 	} {
 		if !strings.Contains(puml, want) {
 			t.Errorf("timeline PlantUML is missing %q:\n%s", want, puml)
@@ -154,8 +167,28 @@ func TestRunTimelinePlantUMLUsesRunUntilField(t *testing.T) {
 	if err != nil {
 		t.Fatalf("PlantUML: %v", err)
 	}
-	if !strings.Contains(puml, "@7\n@enduml") {
+	if !strings.Contains(puml, "@7\nl0 is {hidden}\n@enduml") {
 		t.Errorf("PlantUML ignored RunUntil:\n%s", puml)
+	}
+}
+
+func TestRunTimelinePlantUMLScaleFitsLabelsAndCapsWidth(t *testing.T) {
+	span := Span{
+		State: "acknowledged | charged", From: 0, To: 1,
+		Triggers: []string{"time", "accept Ack"},
+	}
+	lanes := []Lane{{Spans: []Span{span}}}
+	scale := timelineScale(lanes, 6)
+	labelWidth := max(140, len([]rune(timelineStateLabel(span)))*7+24)
+	if scale < float64(labelWidth) {
+		t.Errorf("scale = %g pixels/s, want at least %d pixels for the label", scale, labelWidth)
+	}
+	if width := scale * 6; width > 4000 {
+		t.Errorf("timeline width = %g pixels, want at most 4000", width)
+	}
+	longScale := timelineScale(lanes, 10_000)
+	if width := longScale * 10_000; width > 4000 {
+		t.Errorf("long timeline width = %g pixels, want at most 4000", width)
 	}
 }
 
