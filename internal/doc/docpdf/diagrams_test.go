@@ -642,3 +642,72 @@ func TestRenderDOTStyleReachesGraphviz(t *testing.T) {
 		t.Fatalf("an unknown drawing style: %v", err)
 	}
 }
+
+// TestDefineMasksMovesD2MasksIntoDefs wraps the masks d2 writes after the
+// connections in <defs>, leaves a mask already defined there alone, and
+// does not rewrite an SVG without one.
+func TestDefineMasksMovesD2MasksIntoDefs(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "d.svg")
+	write := func(svg string) {
+		t.Helper()
+		if err := os.WriteFile(path, []byte(svg), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	read := func() string {
+		t.Helper()
+		svg, err := os.ReadFile(path) // #nosec G304 -- a test file
+		if err != nil {
+			t.Fatal(err)
+		}
+		return string(svg)
+	}
+
+	write(`<svg xmlns="http://www.w3.org/2000/svg"><svg class="d2-1 d2-svg">
+<path d="M 0 0 L 1 1" mask="url(#d2-1)" />
+<mask id="d2-1" maskUnits="userSpaceOnUse" x="-17" y="-17" width="90" height="287">
+<rect x="-17" y="-17" width="90" height="287" fill="white"></rect>
+<rect x="18" y="116" width="21" height="21" fill="black"></rect>
+</mask><mask id="d2-2"><rect fill="white"/></mask></svg></svg>`)
+	if err := defineMasks(path); err != nil {
+		t.Fatal(err)
+	}
+	got := read()
+	for _, want := range []string{
+		`<path d="M 0 0 L 1 1" mask="url(#d2-1)" />` + "\n" + `<defs><mask id="d2-1" maskUnits="userSpaceOnUse" x="-17" y="-17" width="90" height="287">`,
+		`</mask></defs><defs><mask id="d2-2"><rect fill="white"/></mask></defs></svg></svg>`,
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("rewritten SVG lacks %q:\n%s", want, got)
+		}
+	}
+	if n := strings.Count(got, "<defs>"); n != 2 || strings.Count(got, "</defs>") != 2 {
+		t.Errorf("want each of the two masks under its own <defs>, got %d:\n%s", n, got)
+	}
+	if strings.Count(got, `fill="black"`) != 1 || strings.Count(got, "<mask") != 2 {
+		t.Errorf("the masks' contents must be kept:\n%s", got)
+	}
+
+	write(`<svg xmlns="http://www.w3.org/2000/svg"><defs>
+	<mask id="m"><rect/></mask></defs><rect mask="url(#m)"/></svg>`)
+	if err := defineMasks(path); err != nil {
+		t.Fatal(err)
+	}
+	if got := read(); strings.Count(got, "<defs>") != 1 {
+		t.Errorf("a mask already under <defs> was wrapped again:\n%s", got)
+	}
+
+	plain := `<svg xmlns="http://www.w3.org/2000/svg"><rect/></svg>`
+	write(plain)
+	if err := defineMasks(path); err != nil {
+		t.Fatal(err)
+	}
+	if got := read(); got != plain {
+		t.Errorf("an SVG without masks was rewritten:\n%s", got)
+	}
+
+	if err := defineMasks(filepath.Join(dir, "missing.svg")); err == nil {
+		t.Error("a missing SVG must be an error")
+	}
+}

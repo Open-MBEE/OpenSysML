@@ -637,6 +637,9 @@ func TestRenderDiagramsWithInstalledD2(t *testing.T) {
 	if err != nil || !strings.Contains(string(svg), "camera") {
 		t.Fatalf("d2 SVG lacks the interconnection's parts: %v\n%s", err, svg)
 	}
+	if !strings.Contains(string(svg), "<defs><mask ") || strings.Count(string(svg), "<mask ") != strings.Count(string(svg), "<defs><mask ") {
+		t.Fatalf("d2's connection-label mask must be under <defs> for WeasyPrint:\n%s", svg)
+	}
 
 	rejected := []docrender.Diagram{{Name: "bad", Form: view.FormD2, Source: "a -> \n{"}}
 	_, err = drawDiagrams(t.TempDir(), rejected)

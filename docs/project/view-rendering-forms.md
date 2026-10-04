@@ -852,9 +852,11 @@ and it has a sequence diagram of its own (`shape: sequence_diagram`). It is prod
 emission over the rendering tree, as the other forms are: **no `d2` executable** is needed to
 write it, and neither the writer, its tests nor the CLI, REPL and LSP surfaces run one. The PDF
 backend alone runs it, to draw the figure it embeds: `internal/doc/docpdf` writes each block to a
-`.d2` file and runs `d2 --layout=dagre --pad=16 <block>.d2 <block>.svg`, the `d2` from
-`OPENSYSML_D2` or `PATH`, and keeps the source under a notice when it is absent — see
-[Surfaces](#surfaces).
+`.d2` file, runs `d2 --layout=dagre --pad=16 <block>.d2 <block>.svg`, the `d2` from
+`OPENSYSML_D2` or `PATH`, moves the `<mask>` that cuts each connection's label out of its line
+under `<defs>` (WeasyPrint draws a mask written after its use as content, a white rectangle
+over the whole figure), and keeps the source under a notice when the executable is absent —
+see [Surfaces](#surfaces).
 
 ```d2
 # VehicleViews::vehicleView — tree rendering

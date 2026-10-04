@@ -1038,7 +1038,8 @@ by Graphviz (`dot`; override with `OPENSYSML_DOT`), as SVG under the layout engi
 `-diagram-form plantuml` by the PlantUML jar `OPENSYSML_PLANTUML_JAR` names, run by `java`
 (override with `OPENSYSML_JAVA`) as `java -jar <jar> -tsvg -pipe`; under `-diagram-form d2` by
 the `d2` executable (override with `OPENSYSML_D2`) as `d2 --layout=dagre --pad=16 <block>.d2
-<block>.svg`. All three are optional where
+<block>.svg`, its connection-label masks moved under `<defs>` so WeasyPrint applies rather than
+draws them. All three are optional where
 `mmdc` is required: a missing Graphviz, jar, Java or `d2` keeps each diagram's source in the PDF under
 a notice naming the variable to set, and the render succeeds; a tool that is present and fails
 is a typed `tool-failed` error carrying its output.
