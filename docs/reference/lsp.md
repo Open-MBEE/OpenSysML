@@ -10,7 +10,7 @@ result:
     "openSysmlRender": true, "openSysmlRenderDocument": true, "openSysmlStdlibContent": true,
     "openSysmlApplyModelEdit": true, "openSysmlDebug": true,
     "openSysmlCrossDocumentLayout": true, "openSysmlRenderPalette": true,
-    "openSysmlRenderForms": ["text", "mermaid", "markdown", "dot", "plantuml", "csv", "tsv"],
+    "openSysmlRenderForms": ["text", "mermaid", "markdown", "dot", "plantuml", "d2", "csv", "tsv"],
     "openSysmlRenderStyles": ["pilot", "cameo"], "openSysmlRenderPorts": ["minimal", "full"] } } }
 ```
 
@@ -21,7 +21,7 @@ that turns model operations into text edits, `openSysmlDebug` the
 [`opensysml/debug/*`](#opensysmldebug-requests) requests that run a drawn
 behavior and report where it stands, and `openSysmlRenderPalette` that a
 `palette` named in an `opensysml/render` request colours the result's nodes
-(`fill`, `border`) as well as its Mermaid, DOT or PlantUML artifact. `openSysmlRenderForms` lists
+(`fill`, `border`) as well as its Mermaid, DOT, PlantUML or D2 artifact. `openSysmlRenderForms` lists
 the forms `opensysml/render` writes and `openSysmlRenderStyles` the drawing styles its `style`
 draws the DOT form in, the first the default (`openSysmlRenderPorts` lists likewise the port
 displays its `ports` draws an interconnection or mixed rendering's parts with, a server without
@@ -124,8 +124,8 @@ Renders one view of a document.
 | --- | --- |
 | `textDocument.uri` | The document to render. It must be one the session holds — an open document, or a workspace file the server read. |
 | `view` | The qualified name of a view the document declares, a pseudo-view (below), or omitted. |
-| `form` | `mermaid`, `text`, `markdown`, `dot`, `plantuml`, `csv` or `tsv`. Omitted writes the machine form of the rendering's kind: `markdown` for a table, `mermaid` for every other kind. `dot` writes Graphviz DOT for a `tree`, `interconnection`, `state`, `action`, `case` or `mixed` rendering, without needing Graphviz installed; `plantuml` writes PlantUML for those kinds and a `sequence`, without needing a PlantUML jar; `csv` and `tsv` write a `table` rendering as comma- or tab-separated values, a header record of its columns and then one record per row. |
-| `palette` | Optional. A palette the `dot`, `mermaid` and `plantuml` forms fill nodes with by keyword family: `okabe-ito`, `tol-bright`, `tol-muted`, `tol-light`, `brewer-set2`, `brewer-dark2`, `viridis` or `cividis` ([the palettes](../project/view-rendering-forms.md#palettes)). Omitted or empty draws black and white. Mermaid sequence diagrams note that they cannot fill individual participants; `text` and `markdown` ignore palettes. A server advertising `openSysmlRenderPalette` gives each node the palette colours as `fill` and `border`, so a client drawing the nodes itself can use the same colours. |
+| `form` | `mermaid`, `text`, `markdown`, `dot`, `plantuml`, `d2`, `csv` or `tsv`. Omitted writes the machine form of the rendering's kind: `markdown` for a table, `mermaid` for every other kind. `dot` writes Graphviz DOT for a `tree`, `interconnection`, `state`, `action`, `case` or `mixed` rendering, without needing Graphviz installed; `plantuml` writes PlantUML for those kinds and a `sequence`, without needing a PlantUML jar; `d2` writes a [D2](https://d2lang.com) diagram for a `tree`, `interconnection`, `state`, `action`, `sequence`, `requirement`, `definition` or `package` rendering, without needing `d2`; `csv` and `tsv` write a `table` rendering as comma- or tab-separated values, a header record of its columns and then one record per row. |
+| `palette` | Optional. A palette the `dot`, `mermaid`, `plantuml` and `d2` forms fill nodes with by keyword family: `okabe-ito`, `tol-bright`, `tol-muted`, `tol-light`, `brewer-set2`, `brewer-dark2`, `viridis` or `cividis` ([the palettes](../project/view-rendering-forms.md#palettes)). Omitted or empty draws black and white. Mermaid sequence diagrams note that they cannot fill individual participants; `text` and `markdown` ignore palettes. A server advertising `openSysmlRenderPalette` gives each node the palette colours as `fill` and `border`, so a client drawing the nodes itself can use the same colours. |
 | `style` | Optional. The drawing style the `dot` or `mermaid` form draws in: `pilot` (the default, the Pilot visualizer's B&W) or `cameo`, the look of Cameo Systems Modeler — 11 pt Arial, gradient fills in Cameo's colours, compartments and UML pseudo-state symbols ([the measurements](../project/view-rendering-forms.md#the-cameo-style)). Mermaid draws supported Cameo details but flattens gradients and omits the frame and header tab; unsupported details are noted. PlantUML notes a style other than `pilot` as not represented; `text` and `markdown` ignore it. The result's `style` names the style drawn, the default when omitted. |
 | `ports` | Optional. How much of a part's ports an interconnection or mixed rendering draws: `minimal` (the default), the ports an interconnection edge ends at, each a small square on the part's border named beside it, or `full`, every port a part has, labelled `name : Type`. Other kinds ignore it. |
 | `overlay` | Optional. `verdicts` runs the verification cases verifying each requirement of a `requirement` rendering and labels and colours the requirement by their verdicts, each node carrying the worst as `verdict` (`pass`, `inconclusive`, `fail`, `error`). Omitted, nothing runs. Refused on another kind, and when unknown. |
@@ -141,9 +141,9 @@ several, the request is ambiguous and fails, naming them
 than picking one. If it declares none, the request fails and points at the pseudo-views.
 
 A `form` the rendering kind cannot be written in (Mermaid for a table, Markdown for a
-diagram, DOT for a table or a sequence, PlantUML for a table) is refused, and the reply names
-the form the kind does use. A `form` that is not one of the seven is refused, and the reply names
-all seven. A
+diagram, DOT for a table or a sequence, PlantUML or D2 for a table, D2 for a case or mixed diagram) is refused, and the reply names
+the form the kind does use. A `form` that is not one of the eight is refused, and the reply names
+all eight. A
 `palette` that names none of the eight is refused, and the reply names them
 (`unknown palette "rainbow"; the palettes are okabe-ito, …, cividis`). A `style` that is neither is refused likewise
 (`unknown drawing style "sketch"; the styles are pilot, cameo`), and a `ports` that is neither
@@ -215,7 +215,7 @@ The result, for `{"view": "KitViews::widgetTree"}` over a document declaring
 | `view` | The view rendered, by qualified name; empty for a pseudo-view. |
 | `kind` | `tree`, `interconnection`, `state`, `action`, `case`, `mixed`, `sequence` or `table`. |
 | `stated` | How the kind was decided — the rendering the view names, the standard view definition it specializes, or that no view was declared. Empty when the view took the default. |
-| `artifact` | What to draw or show: a Mermaid diagram, a Graphviz DOT graph, a PlantUML diagram, the text form, or a Markdown table. |
+| `artifact` | What to draw or show: a Mermaid diagram, a Graphviz DOT graph, a PlantUML diagram, a D2 diagram, the text form, or a Markdown table. |
 | `nodes`, `edges` | What the artifact is made of, so a client can map a click on it back to the source. A node's `kind` is the keyword the notation declares it with (`part def`, `state`), its `name` the qualified name of an element the view exposes or the simple name of one nested in it, its `type` the declared type of a typed usage (`Cog` for `part cog : Cog`, empty otherwise), and its `detail` the notes the artifact draws after the name (`initial`, `already shown`); a client never parses the type out of the detail. A node's `parent` is the node containing it, when one does. An edge's `kind` is `connection`, `transition`, `succession`, `flow`, `composition`, `association`, `include`, `anchor`, `typing`, `specialization` or `reference`. |
 | `ports`, `fromPort`, `toPort` | A node's optional `ports` array contains the port pins drawn on it, each with an `id`, `name`, optional `type` and optional `direction` (`in`, `out`, `inout`; omitted for an undirected port). A request's `ports` display controls which pins appear in interconnection and mixed renderings: `minimal` lists pins reached by an interconnection edge, while `full` lists every pin. An edge's optional `fromPort` and `toPort` are the IDs of its endpoint pins in those arrays. |
 | `rows`, `columns` | A table rendering's cells, in place of nodes and edges. |
@@ -337,10 +337,10 @@ gives its target, tagged where the set would tag it.
 ```
 
 `name` is the qualified name of a document definition, as `opensysml/documents`
-lists it. An optional `diagramForm`, `"mermaid"`, `"dot"` or `"plantuml"`, is the form every
+lists it. An optional `diagramForm`, `"mermaid"`, `"dot"`, `"plantuml"` or `"d2"`, is the form every
 graph-shaped diagram block of the document is written in — a ` ```dot ` fence of Graphviz DOT
-under `"dot"`, a ` ```plantuml ` fence under `"plantuml"`, as
-`sysml -render-document -diagram-form dot|plantuml` writes. Omitted, the form is chosen per
+under `"dot"`, a ` ```plantuml ` fence under `"plantuml"`, a ` ```d2 ` fence under `"d2"`, as
+`sysml -render-document -diagram-form dot|plantuml|d2` writes. Omitted, the form is chosen per
 diagram as the CLI chooses it: a view some `DiagramLayout::Layout` or `Route` positions is drawn
 by Graphviz where it states (inline SVG when `dot` is installed, a ` ```dot ` fence otherwise, and
 Mermaid under a visible notice naming the missing tool when it is not), every other graph-shaped

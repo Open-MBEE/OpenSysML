@@ -196,6 +196,10 @@
     content: "This diagram is written in PlantUML, which the PDF backend did not draw: the PlantUML jar or java was not found. Point OPENSYSML_PLANTUML_JAR at the jar, and OPENSYSML_JAVA at a java that is not on PATH, to have the diagram drawn; its source follows.";
   }
 
+  .sysml-document .sysml-diagram pre.d2::before {
+    content: "This diagram is written in D2, which the PDF backend did not draw: d2 was not found. Install it and point OPENSYSML_D2 at its executable to have the diagram drawn; its source follows.";
+  }
+
   .sysml-document .sysml-formula .sysml-math {
     overflow-x: visible;
   }

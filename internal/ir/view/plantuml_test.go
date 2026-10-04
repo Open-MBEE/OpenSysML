@@ -304,17 +304,17 @@ func TestPlantUMLFormSupport(t *testing.T) {
 			t.Errorf("%s has PlantUML as its machine form", kind)
 		}
 	}
-	if got := fmt.Sprint(Forms()); got != "[text mermaid markdown dot plantuml csv tsv]" {
+	if got := fmt.Sprint(Forms()); got != "[text mermaid markdown dot plantuml d2 csv tsv]" {
 		t.Errorf("Forms() = %s", got)
 	}
-	if got := fmt.Sprint(DiagramForms()); got != "[mermaid dot plantuml]" {
+	if got := fmt.Sprint(DiagramForms()); got != "[mermaid dot plantuml d2]" {
 		t.Errorf("DiagramForms() = %s", got)
 	}
-	if got := KindSequence.SupportedForms(); fmt.Sprint(got) != "[text mermaid plantuml]" {
+	if got := KindSequence.SupportedForms(); fmt.Sprint(got) != "[text mermaid plantuml d2]" {
 		t.Errorf("sequence forms = %v", got)
 	}
 	if !FormPlantUML.TakesPalette() || !FormDot.TakesPalette() || !FormMermaid.TakesPalette() || FormText.TakesPalette() {
-		t.Error("TakesPalette: want mermaid, dot and plantuml alone")
+		t.Error("TakesPalette: want mermaid, dot, plantuml and d2 alone")
 	}
 	unsupported := []*Rendering{
 		render(t, "table.sysml", "TableViews::partsTable"),

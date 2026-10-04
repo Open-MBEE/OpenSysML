@@ -275,14 +275,14 @@ func TestLinkedDiagramGoldens(t *testing.T) {
 		name, file, view string
 		forms            []Form
 	}{
-		{"interconnection", "interconnection.sysml", "PlantViews::loopView", []Form{FormMermaid, FormDot, FormPlantUML}},
-		{"tree", "tree.sysml", "VehicleViews::vehicleView", []Form{FormMermaid, FormDot, FormPlantUML}},
-		{"state", "state.sysml", "MachineViews::vehicleStates", []Form{FormMermaid, FormDot, FormPlantUML}},
-		{"action", "action.sysml", "FlowViews::driveView", []Form{FormMermaid, FormDot, FormPlantUML}},
-		{"sequence", "sequence.sysml", "SequenceViews::pubSubView", []Form{FormMermaid, FormPlantUML}},
-		{"general-requirement", "general.sysml", "GeneralViews::requirementView", []Form{FormMermaid, FormDot, FormPlantUML}},
-		{"general-definition", "general.sysml", "GeneralViews::definitionView", []Form{FormMermaid, FormDot, FormPlantUML}},
-		{"general-package", "general.sysml", "GeneralViews::packageView", []Form{FormMermaid, FormDot, FormPlantUML}},
+		{"interconnection", "interconnection.sysml", "PlantViews::loopView", []Form{FormMermaid, FormDot, FormPlantUML, FormD2}},
+		{"tree", "tree.sysml", "VehicleViews::vehicleView", []Form{FormMermaid, FormDot, FormPlantUML, FormD2}},
+		{"state", "state.sysml", "MachineViews::vehicleStates", []Form{FormMermaid, FormDot, FormPlantUML, FormD2}},
+		{"action", "action.sysml", "FlowViews::driveView", []Form{FormMermaid, FormDot, FormPlantUML, FormD2}},
+		{"sequence", "sequence.sysml", "SequenceViews::pubSubView", []Form{FormMermaid, FormPlantUML, FormD2}},
+		{"general-requirement", "general.sysml", "GeneralViews::requirementView", []Form{FormMermaid, FormDot, FormPlantUML, FormD2}},
+		{"general-definition", "general.sysml", "GeneralViews::definitionView", []Form{FormMermaid, FormDot, FormPlantUML, FormD2}},
+		{"general-package", "general.sysml", "GeneralViews::packageView", []Form{FormMermaid, FormDot, FormPlantUML, FormD2}},
 		{"general-case", "general-case.sysml", "UseCaseViews::useCaseView", []Form{FormMermaid, FormDot, FormPlantUML}},
 		{"case", "case.sysml", "CaseExamples::caseDiagram", []Form{FormMermaid, FormDot, FormPlantUML}},
 		{"mixed", "mixed.sysml", "MixedExamples::mixedDiagram", []Form{FormMermaid, FormDot, FormPlantUML}},
@@ -834,7 +834,7 @@ func TestLinkWritersDoNotLinkZeroOrigins(t *testing.T) {
 	copy := *rendering
 	copy.Roots = []*Node{{ID: "n0", Kind: "part", Name: "synthetic", Origin: zero}}
 	copy.Edges = []Edge{{From: "n0", To: "n0", Kind: EdgeConnection, Origin: zero}}
-	for _, form := range []Form{FormMermaid, FormDot, FormPlantUML} {
+	for _, form := range []Form{FormMermaid, FormDot, FormPlantUML, FormD2} {
 		got, err := copy.WriteWith(form, Options{Links: links})
 		if err != nil {
 			t.Errorf("%s: %v", form, err)
@@ -858,7 +858,7 @@ func TestLinkedFormsRenderAsSVG(t *testing.T) {
 			return origin.Doc, source.Pos{Line: 2, Col: 1}, origin.Located()
 		}),
 	}
-	for _, form := range []Form{FormDot, FormPlantUML, FormMermaid} {
+	for _, form := range []Form{FormDot, FormPlantUML, FormMermaid, FormD2} {
 		t.Run(string(form), func(t *testing.T) {
 			input, err := rendering.WriteWith(form, Options{Links: links})
 			if err != nil {
@@ -1292,6 +1292,29 @@ func renderLinkedSVG(t *testing.T, form Form, input string) []byte {
 		command := exec.Command(binary, args...)
 		if output, err := command.CombinedOutput(); err != nil {
 			t.Fatalf("mmdc: %v\n%s", err, output)
+		}
+		svg, err := os.ReadFile(outputPath)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return svg
+	case FormD2:
+		binary := os.Getenv("OPENSYSML_D2")
+		if binary == "" {
+			var err error
+			binary, err = exec.LookPath("d2")
+			if err != nil {
+				t.Skip("d2 is not installed")
+			}
+		}
+		dir := t.TempDir()
+		inputPath, outputPath := filepath.Join(dir, "diagram.d2"), filepath.Join(dir, "diagram.svg")
+		if err := os.WriteFile(inputPath, []byte(input), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		command := exec.Command(binary, "--layout=dagre", inputPath, outputPath)
+		if output, err := command.CombinedOutput(); err != nil {
+			t.Fatalf("d2: %v\n%s", err, output)
 		}
 		svg, err := os.ReadFile(outputPath)
 		if err != nil {

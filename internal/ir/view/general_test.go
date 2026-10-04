@@ -166,7 +166,7 @@ func TestGoldenVerdictOverlay(t *testing.T) {
 		t.Fatal(err)
 	}
 	checkGolden(t, filepath.Join("testdata", "general-verdicts.text.golden"), rendering.Text())
-	for _, form := range []Form{FormMermaid, FormDot, FormPlantUML} {
+	for _, form := range []Form{FormMermaid, FormDot, FormPlantUML, FormD2} {
 		for _, style := range []DrawingStyle{StylePilot, StyleCameo} {
 			artifact, err := rendering.WriteWith(form, Options{Style: style})
 			if err != nil {

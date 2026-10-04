@@ -1,0 +1,36 @@
+# GeneralViews::definitionView — definition rendering (view def GeneralView, filter @Definition or @Usage)
+classes: {
+  definition: { style: { fill: white; stroke: "#181818"; stroke-width: 1; font-color: black; font-size: 14 } }
+  usage: { style: { fill: white; stroke: "#181818"; stroke-width: 1; font-color: black; font-size: 14; border-radius: 8 } }
+  specialization: { target-arrowhead: { shape: triangle; style: { filled: false } }; style: { stroke: "#181818"; font-size: 13; font-color: black; stroke-width: 1 } }
+  typing: { target-arrowhead: { shape: triangle; style: { filled: false } }; style: { stroke: "#181818"; font-size: 13; font-color: black; stroke-width: 1; stroke-dash: 3 } }
+  composition: { source-arrowhead: { shape: diamond; style: { filled: true } }; target-arrowhead: { shape: arrow }; style: { stroke: "#181818"; font-size: 13; font-color: black; stroke-width: 1 } }
+  reference: { source-arrowhead: { shape: diamond; style: { filled: false } }; target-arrowhead: { shape: arrow }; style: { stroke: "#181818"; font-size: 13; font-color: black; stroke-width: 1 } }
+}
+n0: "«part def»\nVehicle" { class: definition; link: "https://example.test/src/general.sysml#L4" }
+n1: "«part def»\nChassis" { class: definition; link: "https://example.test/src/general.sysml#L9" }
+n2: "«part def»\nLightChassis" { class: definition; link: "https://example.test/src/general.sysml#L10" }
+n3: "«part def»\nDriver" { class: definition; link: "https://example.test/src/general.sysml#L11" }
+n4: "«action def»\nBrake" { class: definition; link: "https://example.test/src/general.sysml#L12" }
+n5: "«part»\nvehicle : Vehicle" { class: usage; link: "https://example.test/src/general.sysml#L14" }
+n6: "«part»\nheavyVehicle : Vehicle" { class: usage; link: "https://example.test/src/general.sysml#L17" }
+n7: "«action»\nbrake : Brake" { class: usage; link: "https://example.test/src/general.sysml#L20" }
+n8: "«attribute»\nmass : Real" { class: usage; link: "https://example.test/src/general.sysml#L5" }
+n9: "«part»\nchassis : Chassis" { class: usage; link: "https://example.test/src/general.sysml#L6" }
+n10: "«part»\ndriver : Driver" { class: usage; link: "https://example.test/src/general.sysml#L7" }
+n11: "«attribute»\nmass" { class: usage; link: "https://example.test/src/general.sysml#L15" }
+n12: "«attribute»\nmass" { class: usage; link: "https://example.test/src/general.sysml#L18" }
+n13: "«part def»\nPowertrain::Engine" { class: definition; link: "https://example.test/src/general.sysml#L23" }
+n2 -> n1: { class: specialization; link: "https://example.test/src/general.sysml#L10" }
+n5 -> n0: { class: typing; link: "https://example.test/src/general.sysml#L14" }
+n6 -> n0: { class: typing; link: "https://example.test/src/general.sysml#L17" }
+n7 -> n4: { class: typing; link: "https://example.test/src/general.sysml#L20" }
+n0 <-> n8: { class: reference; link: "https://example.test/src/general.sysml#L5" }
+n9 -> n1: { class: typing; link: "https://example.test/src/general.sysml#L6" }
+n0 <-> n9: { class: composition; link: "https://example.test/src/general.sysml#L6" }
+n10 -> n3: { class: typing; link: "https://example.test/src/general.sysml#L7" }
+n0 <-> n10: { class: reference; link: "https://example.test/src/general.sysml#L7" }
+n11 -> n8: "redefines" { class: specialization; link: "https://example.test/src/general.sysml#L15" }
+n5 <-> n11: { class: reference; link: "https://example.test/src/general.sysml#L15" }
+n12 -> n8: "redefines" { class: specialization; link: "https://example.test/src/general.sysml#L18" }
+n6 <-> n12: { class: reference; link: "https://example.test/src/general.sysml#L18" }

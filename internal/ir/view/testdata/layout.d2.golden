@@ -1,0 +1,27 @@
+# PlantViews::placedView — interconnection rendering (render asInterconnectionDiagram)
+# not represented: 2 positioned node(s) and 1 route(s) kept as comments; D2 pins no position, the dot form does
+# not represented: 1 node(s) and 0 edge(s) name a font; D2 draws no font family, the dot form does
+# not represented: 4 note(s); the dot form draws notes
+classes: {
+  definition: { style: { fill: white; stroke: "#181818"; stroke-width: 1; font-color: black; font-size: 14 } }
+  usage: { style: { fill: white; stroke: "#181818"; stroke-width: 1; font-color: black; font-size: 14; border-radius: 8 } }
+  pin: { style: { fill: white; stroke: "#181818"; stroke-width: 1; font-color: black; font-size: 10 } }
+  connection: { style: { stroke: "#181818"; font-size: 13; font-color: black; stroke-width: 3 } }
+}
+# canvas: unit=px w=1200 h=800
+# layout: n1 x=300 y=40 collapsed
+# layout: n2 x=500 y=40 w=120 h=60
+# route: n1->n2 400,70 450,120 500,70
+n0: "«part def»\nLoop" {
+  class: definition
+  n1: "«part»\npump : Pump" {
+    class: usage
+    style: { fill: "#FFE8BD"; stroke: "#333333"; font-size: 11; bold: true }
+    "n1.0": "outlet" { class: pin }
+  }
+  n2: "«part»\ntank : Tank" {
+    class: usage
+    "n2.0": "inlet" { class: pin }
+  }
+}
+n0.n1."n1.0" -- n0.n2."n2.0": "supply" { class: connection; style: { stroke: "#0000FF" } }
