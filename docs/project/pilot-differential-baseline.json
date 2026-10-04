@@ -62,7 +62,7 @@
         "dir": "examples",
         "origin": "ours",
         "files": 46,
-        "digest": "sha256:e5df4e3a22157dbd9e871a8bd69de05e470cfe654c771443344b8c8d6fc1cdf9"
+        "digest": "sha256:84b98a913aac3cfc4c11183a3414efae57dd4a76edca7bddcbadf0967c3801c7"
       },
       {
         "name": "probes",
@@ -83,13 +83,13 @@
   },
   "totals": {
     "files": 382,
-    "filesFullyAgreeing": 350,
+    "filesFullyAgreeing": 351,
     "agreement": 34,
     "severityMismatch": 1,
     "openSysMLOnly": 44,
-    "pilotOnly": 82,
+    "pilotOnly": 80,
     "openSysMLDiagnostics": 79,
-    "pilotDiagnostics": 117
+    "pilotDiagnostics": 115
   },
   "roots": [
     {
@@ -832,13 +832,13 @@
       "dir": "examples",
       "totals": {
         "files": 46,
-        "filesFullyAgreeing": 37,
+        "filesFullyAgreeing": 38,
         "agreement": 0,
         "severityMismatch": 0,
         "openSysMLOnly": 7,
-        "pilotOnly": 62,
+        "pilotOnly": 60,
         "openSysMLDiagnostics": 7,
-        "pilotDiagnostics": 62
+        "pilotDiagnostics": 60
       },
       "files": [
         {
@@ -862,19 +862,13 @@
           "openSysMLOnly": [],
           "pilotOnly": [
             {
-              "line": 564,
-              "severity": "error",
-              "category": "unmapped",
-              "count": 1
-            },
-            {
-              "line": 625,
+              "line": 591,
               "severity": "error",
               "category": "syntax",
               "count": 1
             },
             {
-              "line": 627,
+              "line": 593,
               "severity": "error",
               "category": "syntax",
               "count": 1
@@ -1173,20 +1167,6 @@
           ]
         },
         {
-          "path": "solver-demo.sysml",
-          "agreement": [],
-          "severityMismatch": [],
-          "openSysMLOnly": [],
-          "pilotOnly": [
-            {
-              "line": 183,
-              "severity": "error",
-              "category": "unmapped",
-              "count": 1
-            }
-          ]
-        },
-        {
           "path": "verdicts-demo/rover.sysml",
           "agreement": [],
           "severityMismatch": [],
@@ -1340,11 +1320,6 @@
     {
       "side": "opensysml",
       "message": "operator '+' is not defined for String and Natural",
-      "count": 2
-    },
-    {
-      "side": "pilot",
-      "message": "Only one objective is allowed.",
       "count": 2
     },
     {
@@ -1668,13 +1643,13 @@
     ],
     "totals": {
       "files": 382,
-      "filesFullyAgreeing": 351,
+      "filesFullyAgreeing": 352,
       "agreement": 34,
       "severityMismatch": 1,
       "openSysMLOnly": 43,
-      "pilotOnly": 82,
+      "pilotOnly": 80,
       "openSysMLDiagnostics": 78,
-      "pilotDiagnostics": 117
+      "pilotDiagnostics": 115
     },
     "findings": [
       {
