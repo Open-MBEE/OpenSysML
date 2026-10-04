@@ -519,10 +519,14 @@ function rerouteAroundBoxes(
   overrides: Overrides,
   auto: AutoLayout | undefined,
 ): void {
+  const indices = edges
+    .filter((edge) => avoidable(edge.edge, edge.index, placed, overrides.routes, auto))
+    .map((edge) => edge.index);
   const held = overrides.held;
   if (held) {
-    for (const edge of edges) {
-      const kept = held.edges[edge.index];
+    for (const index of indices) {
+      const edge = edges[index];
+      const kept = held.edges[index];
       const source = placed.get(edge.edge.from);
       const target = placed.get(edge.edge.to);
       if (
@@ -532,14 +536,11 @@ function rerouteAroundBoxes(
         sameBox(held.nodes.get(kept.edge.from)?.box, source.box) &&
         sameBox(held.nodes.get(kept.edge.to)?.box, target.box)
       ) {
-        edges[edge.index] = { ...edge, points: kept.points, route: kept.route, label: kept.label, rerouted: true };
+        edges[index] = { ...edge, points: kept.points, route: kept.route, label: kept.label, rerouted: true };
       }
     }
     return;
   }
-  const indices = edges
-    .filter((edge) => avoidable(edge.edge, edge.index, placed, overrides.routes, auto))
-    .map((edge) => edge.index);
   if (indices.length === 0) {
     return;
   }

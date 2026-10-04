@@ -732,3 +732,22 @@ test("layoutCanvas separates three edges into one target: no shared collinear se
     }
   }
 });
+
+test("a waypoint drag in progress keeps its route over the held layout's generated one", async () => {
+  await loadAvoid(WASM);
+  const result = rendering(
+    [
+      node("a", "a", { x: 0, y: 0, width: 100, height: 40 }),
+      node("b", "b", { x: 400, y: 200, width: 100, height: 40 }),
+      node("c", "c", { x: 180, y: -20, width: 60, height: 80 }),
+    ],
+    [{ from: "a", to: "b", label: "", kind: "connection", fqn: "M::ab" }],
+  );
+  const layout = layoutCanvas(result);
+  const [edge] = layout.edges;
+  assert.equal(edge.rerouted, true);
+  // The gesture's route, not the layout it started from, is what the preview shows.
+  const preview = layoutCanvas(result, { ...overridesOf(movedWaypoint(layout, 0, 0, { x: 33.4, y: 44.6 })!), held: layout });
+  assert.equal(preview.edges[0].rerouted, false);
+  assert.deepEqual(preview.edges[0].route, [{ x: 33, y: 45 }, ...edge.route.slice(1)]);
+});
