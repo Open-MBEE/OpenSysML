@@ -497,7 +497,7 @@ func (d *decoder) flowPayload(el *element) *element {
 
 // flowMetaclasses are the usages whose head takes an `of` clause
 // (SysML-textual-bnf FlowDeclaration, MessageDeclaration).
-var flowMetaclasses = map[string]bool{"FlowUsage": true, "SuccessionFlowUsage": true}
+var flowMetaclasses = map[string]bool{mFlowUsage: true, mSuccessionFlowUsage: true}
 
 // relatedEnds reads the ends of a head in the order they are written, each
 // behind the multiplicity it states, with the payload of a flow kept apart: it
@@ -1028,14 +1028,17 @@ func (d *decoder) flowEndSegments(end rdf.Term, in *element) ([]rdf.Term, error)
 	refuse := func(note string) ([]rdf.Term, error) {
 		return nil, &UnsupportedError{What: fmt.Sprintf("the flow end <%s> of <%s>", end.Value, in.iri), Note: note}
 	}
-	if d.graph.HasProperty(end, rdf.SysML+pDeclaredName) {
-		return refuse("it declares a name, and the `from`/`to` form writes the end by its reference chain")
-	}
-	if d.graph.HasProperty(end, rdf.SysML+pDeclaredShortName) {
-		return refuse("it declares a short name, and the `from`/`to` form writes the end by its reference chain")
-	}
-	if len(d.graph.Objects(end, rdf.SysML+pOwnedAnnotation)) > 0 {
-		return refuse("it owns annotations, which the `from`/`to` form cannot carry")
+	toolkitFeatures := d.toolkitFlowFeatures(end)
+	toolkitShape := len(toolkitFeatures) > 0
+	if toolkitShape {
+		if d.graph.HasProperty(end, rdf.SysML+pDeclaredName) ||
+			d.graph.HasProperty(end, rdf.SysML+pDeclaredShortName) ||
+			len(d.graph.Objects(end, rdf.SysML+pOwnedAnnotation)) > 0 {
+			return refuse("it declares a name or annotations that the `from`/`to` form cannot carry")
+		}
+		if len(toolkitFeatures) != 1 {
+			return refuse(fmt.Sprintf("it owns %d toolkit FlowFeatures, and a flow end writes exactly one reference chain", len(toolkitFeatures)))
+		}
 	}
 	var segments []rdf.Term
 	target, ok, err := d.standardEndTarget(end, in)
@@ -1070,12 +1073,11 @@ func (d *decoder) flowEndSegments(end rdf.Term, in *element) ([]rdf.Term, error)
 	if len(redefined) != 1 {
 		return refuse(fmt.Sprintf("its FlowFeature redefines %d features, and a flow end names exactly one", len(redefined)))
 	}
-	toolkitFeatures := d.toolkitFlowFeatures(end)
-	if len(toolkitFeatures) > 0 {
-		if len(toolkitFeatures) != 1 || len(features) != 1 || features[0] != toolkitFeatures[0] {
-			return refuse(fmt.Sprintf("it owns %d toolkit FlowFeatures, and a flow end writes exactly one reference chain", len(toolkitFeatures)))
-		}
+	if toolkitShape {
 		feature := toolkitFeatures[0]
+		if len(features) != 1 || features[0] != feature {
+			return refuse("its toolkit FlowFeature is not the only feature the flow end owns")
+		}
 		flowFeature, flowEnd := d.byIRI[feature.Value], d.byIRI[end.Value]
 		if flowFeature == nil || flowEnd == nil {
 			return refuse("its FlowFeature is not an implied ReferenceUsage owned through a FeatureMembership")

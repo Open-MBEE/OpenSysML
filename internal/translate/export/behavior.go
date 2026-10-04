@@ -87,6 +87,8 @@ var libraryDone = ast.QualifiedNameOf("Actions", "Action", "done")
 
 var libraryStateStart = ast.QualifiedNameOf("States", "StateAction", "start")
 
+var libraryTransitionLinkSource = ast.QualifiedNameOf("Actions", "TransitionAction", "transitionLinkSource")
+
 // libraryReference is the subject of a standard library element named from
 // the global scope, or its name when no library is loaded.
 func (e *encoder) libraryReference(name *ast.QualifiedName) rdf.Term {

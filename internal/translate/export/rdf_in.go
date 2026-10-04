@@ -90,8 +90,24 @@ func ToSysML(graph *rdf.Graph) ([]byte, error) {
 
 // ToSysMLWarn converts a graph to notation and reports non-fatal resolutions.
 func ToSysMLWarn(graph *rdf.Graph, warn func(string)) ([]byte, error) {
+	return toSysML(graph, warn, false)
+}
+
+// APIJSONToSysML reads an API element document and converts its owned graph.
+func APIJSONToSysML(data []byte, warn func(string)) ([]byte, error) {
+	graph, err := ReadAPIJSON(data)
+	if err != nil {
+		return nil, &APIJSONReadError{err: err}
+	}
+	return toSysML(graph, warn, true)
+}
+
+func toSysML(graph *rdf.Graph, warn func(string), owned bool) ([]byte, error) {
 	if graph == nil || graph.Len() == 0 {
 		return nil, &UnsupportedError{What: "an empty graph", Note: "nothing to convert"}
+	}
+	if !owned {
+		graph = rdf.NewGraphOf(slices.Clone(graph.Triples()), graph.Prefixes)
 	}
 	if err := checkExtensionNamespace(graph); err != nil {
 		return nil, err
@@ -110,6 +126,7 @@ func ToSysMLWarn(graph *rdf.Graph, warn func(string)) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
+	graph.Compact()
 	graph, err = rdf.ReconcileCollections(graph)
 	if err != nil {
 		var malformed *rdf.AnnotationError
@@ -127,6 +144,7 @@ func ToSysMLWarn(graph *rdf.Graph, warn func(string)) ([]byte, error) {
 	if err := checkValueFlags(graph); err != nil {
 		return nil, err
 	}
+	graph.Compact()
 	warned := map[string]bool{}
 	report := func(message string) {
 		if warn != nil && !warned[message] {
@@ -2078,7 +2096,8 @@ func (d *decoder) usageHead(el *element, kind ast.UsageKind) (string, error) {
 		// without the word, which only an explicit direction earns.
 		words = append(words, direction)
 	}
-	keyword := d.keywordOr(el, usageKeyword(kind))
+	canonicalKeyword := usageKeyword(kind)
+	keyword := d.keywordOr(el, canonicalKeyword)
 	// A `message` is the flow whose ends are event occurrences it owns as
 	// parameters; their metaclass says `message` where the graph states none.
 	if kind == ast.UsageFlow && keyword == usageKeyword(kind) {
@@ -2350,6 +2369,20 @@ func (d *decoder) usageHead(el *element, kind ast.UsageKind) (string, error) {
 		}
 		words = append(words, strings.Join(satisfyTargets, ", "))
 		skip = append(skip, ast.RelSubsets)
+		subjects, err := d.referenceList(el, rdf.SysML+relationshipProperty[ast.RelSubject])
+		if err != nil {
+			return "", err
+		}
+		if len(subjects) > 1 {
+			return "", &UnsupportedError{
+				What: fmt.Sprintf("the satisfy usage <%s>", el.iri),
+				Note: "its subject parameter states more than one `by` reference",
+			}
+		}
+		if len(subjects) == 1 {
+			words = append(words, "by", subjects[0])
+			skip = append(skip, ast.RelSubject)
+		}
 	case kind == ast.UsageSatisfy:
 		words = append(words, "requirement")
 	}
@@ -2482,6 +2515,16 @@ func (d *decoder) usageHead(el *element, kind ast.UsageKind) (string, error) {
 		typedPart = ""
 		skip = append(skip, ast.RelTyping)
 	}
+	if isResult && el.metaclass == mReferenceUsage {
+		subsets, err := d.referenceList(el, rdf.SysML+relationshipProperty[ast.RelSubsets])
+		if err != nil {
+			return "", err
+		}
+		if len(subsets) > 0 {
+			words = append(words, ":>", strings.Join(subsets, ", "))
+			skip = append(skip, ast.RelSubsets)
+		}
+	}
 	relationships, err := d.relationshipWords(el, typedPart, skip...)
 	if err != nil {
 		return "", err
@@ -2490,8 +2533,7 @@ func (d *decoder) usageHead(el *element, kind ast.UsageKind) (string, error) {
 	if hasEnds {
 		// A connector's own multiplicity is its declaration, written ahead of
 		// the ends; after them it would read as the last end's.
-		declared := multPart != "" || len(words) > declaredAt ||
-			el.metaclass == mSuccession && keyword == usageKeyword(ast.UsageSuccession)
+		declared := multPart != "" || len(words) > declaredAt
 		if declared && keywordAt < len(words) && words[keywordAt] == "bind" {
 			// SysML's `bind` shorthand declares nothing; `bind [1] a = b` gives the
 			// first end the `[1]`, so the declaration takes the `binding … bind` form.

@@ -368,6 +368,14 @@ func convert(name string, data []byte, from, to Format, tolerateSyntaxErrors boo
 		return out, nil, err
 
 	case from == FormatAPIJSON:
+		if to == FormatSysML {
+			out, err := export.APIJSONToSysML(data, opts.Warn)
+			var readErr *export.APIJSONReadError
+			if errors.As(err, &readErr) {
+				return nil, nil, &SyntaxError{Name: name, Messages: []string{readErr.Error()}}
+			}
+			return out, nil, err
+		}
 		// The input is the API element form; api-json to api-json normalizes it
 		// as Turtle to Turtle does.
 		graph, err := readAPIJSON(name, data)

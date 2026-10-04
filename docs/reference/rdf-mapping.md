@@ -573,6 +573,12 @@ The `sysx:` properties:
 | `sysx:isKindImplicit` | The declaration wrote no kind keyword (`in x : Real;`), which takes its kind from its owner. Without it the canonical keyword would come back written out, declaring what the author did not. A kind named in a comment in the head (`in /* attribute */ x : Real;`) is trivia, not a keyword the declaration wrote. |
 | the behavioral properties | `sysx:guard`, `sysx:expression`, `sysx:payload`, … — the parts of a behavioral node the vocabulary has no predicate for, listed under [Behavior](#behavior). |
 
+A `return` parameter written without a kind keyword is a `ReferenceUsage`
+owned through a `ReturnParameterMembership`. OpenSysML-authored graphs retain
+`sysx:isKindImplicit` for this form. The API-JSON reader supplies that marker
+for a toolkit `ReferenceUsage` result with no `sysx:declaredKeyword`, so it also
+writes the return without a kind keyword.
+
 For expressions and end-binding heads, the encoder still emits these `sysx:`
 terms. They carry notation or ordering facts for which the metamodel has
 no property; they are annotations, not replacements for the standard shape:
@@ -1687,6 +1693,11 @@ is a synonym for the kind (`allocate` for an allocation) it is carried as
 `satisfy` end form and the `verify` keyword, but is no satisfy: it is the
 `sysml:RequirementUsage` a `sysml:RequirementVerificationMembership` owns, with
 `sysml:kind "requirement"` (SysML-textual-bnf RequirementVerificationMember).
+
+For `satisfy R by a.b`, the subject parameter's value is a
+`FeatureReferenceExpression` whose `referent` is an owned chain `Feature`.
+The chain is the `FeatureChainMember` in SysML.xtext's
+`SatisfactionReferenceExpression` grammar, rather than expression text.
 
 An anonymous connector's own multiplicity (`sysml:lowerBound`/`sysml:upperBound`
 on the connector, as against on an end node) is its declaration, and is written

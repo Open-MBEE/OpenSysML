@@ -124,6 +124,63 @@ func TestSuccessionEndsUseExternalMembershipSource(t *testing.T) {
 	}
 }
 
+func TestSuccessionEndsFromNamedMembersUseExplicitFirst(t *testing.T) {
+	graph := rdf.NewGraph()
+	owner := elmt("owner")
+	source := elmt("source")
+	succession := elmt("succession")
+	target := elmt("target")
+	sourceEnd := elmt("succession__source")
+	sourceMembership := elmt("succession__source-membership")
+	targetEnd := elmt("succession__target")
+	targetMembership := elmt("succession__target-membership")
+	for subject, metaclass := range map[rdf.Term]string{
+		source:           "OccurrenceUsage",
+		succession:       mSuccession,
+		target:           "OccurrenceUsage",
+		sourceEnd:        mReferenceUsage,
+		sourceMembership: mEndFeatureMembership,
+		targetEnd:        mReferenceUsage,
+		targetMembership: mEndFeatureMembership,
+	} {
+		graph.Add(subject, rdf.IRI(rdf.RDFType), rdf.SysMLTerm(metaclass))
+	}
+	for _, end := range []struct {
+		membership rdf.Term
+		element    rdf.Term
+	}{
+		{sourceMembership, sourceEnd},
+		{targetMembership, targetEnd},
+	} {
+		graph.Add(succession, rdf.SysMLTerm(pOwnedRelationship), end.membership)
+		graph.Add(end.membership, rdf.SysMLTerm(pMemberElement), end.element)
+	}
+	graph.Add(sourceEnd, rdf.SysMLTerm(pReferences), source)
+	graph.Add(targetEnd, rdf.SysMLTerm(pReferences), target)
+
+	n := &normalizer{
+		graph: graph,
+		meta: func(term rdf.Term) string {
+			return rdf.LocalName(graph.Type(term))
+		},
+		memberOwner: map[string]rdf.Term{succession.Value: owner},
+		ownerMembers: map[string][]rdf.Term{
+			owner.Value: {source, succession, target},
+		},
+	}
+	n.deriveSuccessionEnds()
+
+	if got, ok := graph.Object(succession, rdf.OpenSysML+xEndVerb); !ok || got != rdf.String("first") {
+		t.Fatalf("succession end verb %v, want first", got)
+	}
+	if got, ok := graph.Object(succession, rdf.SysML+pTargetFeature); !ok || got != target {
+		t.Fatalf("succession target %v, want %s", got, target)
+	}
+	if graph.HasProperty(succession, rdf.OpenSysML+xEndForm) {
+		t.Fatal("a named succession source should not use positional then form")
+	}
+}
+
 func TestSequencesFromMatchesInitialMembershipReferent(t *testing.T) {
 	graph := rdf.NewGraph()
 	membership := elmt("initial-membership")

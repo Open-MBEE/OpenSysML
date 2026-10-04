@@ -139,22 +139,15 @@ func withoutRootNamespace(graph *rdf.Graph) *rdf.Graph {
 	if len(dropped) == 0 {
 		return graph
 	}
-	out := rdf.NewGraph()
-	for prefix, iri := range graph.Prefixes {
-		out.Prefixes[prefix] = iri
-	}
-	for _, triple := range graph.Triples() {
-		if dropped[triple.Subject.Value] ||
-			dropped[triple.Object.Value] && triple.Object.IsIRI() ||
-			droppedMemberIndexes[triple.Subject.Value] && triple.Predicate.Value == rdf.OpenSysML+xMemberIndex {
-			continue
-		}
-		out.AddTriple(triple)
-	}
+	graph.RewriteTriples(func(triple *rdf.Triple) bool {
+		return !dropped[triple.Subject.Value] &&
+			!(dropped[triple.Object.Value] && triple.Object.IsIRI()) &&
+			!(droppedMemberIndexes[triple.Subject.Value] && triple.Predicate.Value == rdf.OpenSysML+xMemberIndex)
+	})
 	for _, index := range indexes {
-		out.Add(index.member, rdf.OpenSysMLTerm(xMemberIndex), rdf.Int(index.index))
+		graph.Add(index.member, rdf.OpenSysMLTerm(xMemberIndex), rdf.Int(index.index))
 	}
-	return out
+	return graph
 }
 
 type rootIndex struct {

@@ -64,6 +64,13 @@ func TestToolkitFlowEndAndPayload(t *testing.T) {
 	}
 }
 
+func TestToolkitSatisfyByRoundTripsAsReference(t *testing.T) {
+	out := decodeToolkitFixture(t, "satisfy_by.toolkit.full.json", nil)
+	if !strings.Contains(string(out), "satisfy mission by vehicle.engine;") {
+		t.Fatalf("the satisfy subject was not written as a `by` reference:\n%s", out)
+	}
+}
+
 func TestToolkitFlowEndRefusesUnrepresentableDetails(t *testing.T) {
 	for _, tc := range []struct {
 		name string
@@ -138,6 +145,39 @@ func TestToolkitTransitionClauses(t *testing.T) {
 		}
 	}
 	t.Fatalf("the entry was not kept as the positional `first start then x;` form:\n%s", text)
+}
+
+func TestToolkitTransitionSourceUsesRedefinitionTarget(t *testing.T) {
+	var objects []map[string]any
+	if err := json.Unmarshal(toolkitFixture(t, "transitions.toolkit.full.json"), &objects); err != nil {
+		t.Fatal(err)
+	}
+	changed := false
+	for _, object := range objects {
+		if object["@type"] == "ReferenceUsage" && object["name"] == "transitionLinkSource" {
+			object["name"] = "derivedNameChanged"
+			changed = true
+			break
+		}
+	}
+	if !changed {
+		t.Fatal("the toolkit transition source parameter was not found")
+	}
+	data, err := json.Marshal(objects)
+	if err != nil {
+		t.Fatal(err)
+	}
+	graph, err := export.ReadAPIJSON(data)
+	if err != nil {
+		t.Fatalf("ReadAPIJSON: %v", err)
+	}
+	out, err := export.ToSysML(graph)
+	if err != nil {
+		t.Fatalf("ToSysML: %v", err)
+	}
+	if !bytes.Contains(out, []byte("transition triggered first x accept Go then y;")) {
+		t.Fatalf("the source was not recovered from its implied Redefinition target:\n%s", out)
+	}
 }
 
 func TestToolkitInferredSuccessionClause(t *testing.T) {

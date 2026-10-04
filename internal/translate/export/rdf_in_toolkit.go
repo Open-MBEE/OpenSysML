@@ -255,10 +255,8 @@ func lastSegmentText(qname string) string {
 	return nameText(identityName(segments[len(segments)-1]))
 }
 
-// deriveNormativeGraph runs the whole normalization over the graph and
-// returns the completed graph: a copy first, since the sparse form also
-// states defaults this mapping never writes, and a stated default would
-// print the keyword a graph carrying none reads the same way.
+// deriveNormativeGraph normalizes the owned graph in place, removing stated
+// defaults and deriving the collapsed properties this mapping reads.
 func deriveNormativeGraph(graph *rdf.Graph, metaclasses map[rdf.Term]string) (*rdf.Graph, error) {
 	meta := func(t rdf.Term) string { return rdf.LocalName(metaclasses[t]) }
 	chainIndex := chainOwnerIndex(graph, meta)
@@ -708,6 +706,7 @@ func (n *normalizer) deriveSuccessionEnds() {
 		source, target := n.successionEnds(subject)
 		if source.Value != "" {
 			graph.Add(subject, rdf.SysMLTerm(pSourceFeature), source)
+			graph.Add(subject, rdf.OpenSysMLTerm(xEndVerb), rdf.String("first"))
 		}
 		previous, next := n.sequencedNeighbours(owner, subject)
 		if source.Value == "" && previous.Value != "" && target.Value != "" {
@@ -719,13 +718,14 @@ func (n *normalizer) deriveSuccessionEnds() {
 			if source.Value == "" {
 				graph.Add(subject, rdf.OpenSysMLTerm(xEndForm), rdf.String(formThen))
 			}
-		case source.Value == "" && target.Value != "" && target == next:
-			graph.Add(subject, rdf.OpenSysMLTerm(xEndForm), rdf.String(formThen))
-			graph.Add(subject, rdf.OpenSysMLTerm(xTargetMember), next)
-		case graph.HasProperty(subject, rdf.SysML+pTargetFeature):
+		case source.Value != "" && graph.HasProperty(subject, rdf.SysML+pTargetFeature):
 		case next.Value != "":
-			graph.Add(subject, rdf.OpenSysMLTerm(xEndForm), rdf.String(formThen))
-			graph.Add(subject, rdf.OpenSysMLTerm(xTargetMember), next)
+			if source.Value == "" {
+				graph.Add(subject, rdf.OpenSysMLTerm(xEndForm), rdf.String(formThen))
+				graph.Add(subject, rdf.OpenSysMLTerm(xTargetMember), next)
+			} else {
+				graph.Add(subject, rdf.SysMLTerm(pTargetFeature), next)
+			}
 		}
 	}
 }
@@ -987,7 +987,7 @@ func (n *normalizer) deriveSatisfySubject(subject rdf.Term) {
 				continue
 			}
 			graph.Add(parameter, rdf.SysMLTerm(pValue), value)
-			target := firstIRI(graph, value, pReferent, pTargetFeature)
+			target := firstObject(graph, value, pReferent, pTargetFeature)
 			if target.Value != "" {
 				graph.Add(subject, rdf.SysMLTerm("subject"), target)
 			}
@@ -1275,7 +1275,7 @@ func successionEndReferents(graph *rdf.Graph, meta func(rdf.Term) string, succes
 	return out
 }
 
-// dropStatedDefaults copies the graph without the triples the sparse form
+// dropStatedDefaults removes triples the sparse form
 // writes where this mapping writes nothing: a stated default reads identically
 // to an absent one, and a printed keyword would declare it twice.
 func dropStatedDefaults(graph *rdf.Graph, meta func(rdf.Term) string, elementForm bool, chainIndex map[string][]rdf.Term) (*rdf.Graph, error) {
@@ -1288,33 +1288,39 @@ func dropStatedDefaults(graph *rdf.Graph, meta func(rdf.Term) string, elementFor
 	if err != nil {
 		return nil, err
 	}
-	out := rdf.NewGraph()
-	for _, triple := range graph.Triples() {
+	var unresolvedTriples []rdf.Triple
+	graph.RewriteTriples(func(triple *rdf.Triple) bool {
 		if d.dropped(triple.Subject.Value) || d.ownsDroppedMember(triple.Subject) {
-			continue
+			return false
 		}
 		object, keep := triple.Object, true
 		if object.IsIRI() {
 			var unresolvedName string
-			object, unresolvedName, keep = d.iriObject(triple)
+			object, unresolvedName, keep = d.iriObject(*triple)
 			if keep && unresolvedName != "" {
-				out.Add(triple.Subject, triple.Predicate, writtenReference(unresolvedName))
-				continue
+				unresolvedTriples = append(unresolvedTriples, rdf.Triple{
+					Subject: triple.Subject, Predicate: triple.Predicate,
+					Object: writtenReference(unresolvedName),
+				})
+				return false
 			}
 		}
 		if keep && !object.IsIRI() {
-			object, keep = d.literalObject(triple, object)
+			object, keep = d.literalObject(*triple, object)
 		}
 		if !keep {
-			continue
+			return false
 		}
 		triple.Object = object
-		out.AddTriple(triple)
+		return true
+	})
+	for _, triple := range unresolvedTriples {
+		graph.AddTriple(triple)
 	}
 	for member, name := range d.unresolvedRef {
-		out.Add(rdf.IRI(member), rdf.SysMLTerm(pMemberElement), rdf.String(name))
+		graph.Add(rdf.IRI(member), rdf.SysMLTerm(pMemberElement), rdf.String(name))
 	}
-	return out, nil
+	return graph, nil
 }
 
 var (
@@ -1414,6 +1420,16 @@ func (d *defaultDropper) dropped(v string) bool {
 		referencing := firstIRI(d.graph, subject, pReferencingFeature, pOwningFeature, pOwningRelatedElement, pOwner)
 		if d.meta(referencing) == mReferenceUsage &&
 			!d.graph.HasProperty(referencing, rdf.SysML+pReferences) {
+			return d.membershipOwned[v] || d.unresolvedTR[v]
+		}
+	}
+	if d.implied[v] && d.meta(subject) == mRedefinition {
+		referencing := firstIRI(d.graph, subject, pOwningRelatedElement, pOwner)
+		membership := firstIRI(d.graph, referencing, pOwningMembership, pOwningRelationship)
+		owner := firstIRI(d.graph, membership, pOwningRelatedElement, pOwner)
+		if d.meta(referencing) == mReferenceUsage &&
+			d.meta(membership) == mParameterMembership &&
+			d.meta(owner) == mTransition {
 			return d.membershipOwned[v] || d.unresolvedTR[v]
 		}
 	}
