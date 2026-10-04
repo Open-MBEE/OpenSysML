@@ -408,6 +408,7 @@ func doc() usage.Doc {
 				usage.Ex("sysml model.sysml -render Views::vehicleView -render-form dot -render-style cameo", "drawn as Cameo draws it"),
 				usage.Ex("sysml model.sysml -render Views::loopView -render-form dot -render-ports full", "every port of every part, typed"),
 				usage.Ex("sysml model.sysml -render Views::vehicleView -render-form plantuml -o view.puml", ""),
+				usage.Ex("sysml model.sysml -render Views::vehicleView -render-form d2 -o view.d2", ""),
 				usage.Ex("sysml model.sysml -render Views::partsTable -render-form csv -o parts.csv", ""),
 				usage.Ex("sysml types.sysml model.sysml -render Views::vehicleView", "several files, loaded as one model"),
 				usage.Ex("sysml model.sysml -render-all rendered", ""),
@@ -420,20 +421,20 @@ func doc() usage.Doc {
 					"represent — go on stderr. Every file named is loaded as one " +
 					"model, so a view may expose elements a sibling file declares. " +
 					"-render-form names the form written — text, mermaid, markdown, dot, " +
-					"plantuml, csv or tsv; by default -render takes it from the destination and " +
+					"plantuml, d2, csv or tsv; by default -render takes it from the destination and " +
 					"-render-all writes each kind's machine form, one file per view named " +
 					"by its qualified name with :: as . and every byte unsafe in a filename " +
 					"(/, \\, :, ., %, control characters, what Windows reserves) as %XX; " +
 					"a name past 255 bytes is cut and tagged ~ and a hash of the whole. " +
 					"A graph-shaped rendering is written as a Mermaid diagram by " +
 					"default, as Graphviz DOT with -render-form dot and as PlantUML with " +
-					"-render-form plantuml, which also writes a sequence rendering; neither " +
-					"Graphviz nor PlantUML is needed to write them. A table is written as a " +
+					"-render-form plantuml or as D2 with -render-form d2, which both also write a sequence " +
+					"rendering; neither Graphviz, PlantUML nor D2 is needed to write them. A table is written as a " +
 					"Markdown table by default, and as comma- or tab-separated values with " +
 					"-render-form csv or tsv: a header record of the columns, then a record " +
 					"per row, quoted as RFC 4180 quotes a field. Graph forms are drawn in the " +
 					"black-and-white style of the SysML v2 Pilot visualizer; -render-palette " +
-					"fills the DOT, Mermaid and PlantUML nodes by keyword family from a colourblind-safe palette " +
+					"fills the DOT, Mermaid, PlantUML and D2 nodes by keyword family from a colourblind-safe palette " +
 					"(okabe-ito, tol-bright, tol-muted, tol-light, brewer-set2, brewer-dark2, " +
 					"viridis or cividis), keeping black text legible on every fill. " +
 					"-render-style names the look the DOT and Mermaid forms draw in: pilot (default), " +
@@ -448,7 +449,7 @@ func doc() usage.Doc {
 					"A view whose members carry DiagramLayout positions draws the placed " +
 					"members and the edges between them in every graph form, and leaves a " +
 					"member with no position undrawn: the DOT form pins each at its stated " +
-					"place, so nothing lands on a positioned box, while Mermaid and PlantUML " +
+					"place, so nothing lands on a positioned box, while Mermaid, PlantUML and D2 " +
 					"lay the same members out themselves. -render-unplaced strip draws the " +
 					"unplaced members too, in rows in a strip below a DOT drawing. " +
 					"The same setting shapes the diagrams of -render-document and " +
@@ -468,6 +469,7 @@ func doc() usage.Doc {
 				usage.Ex("sysml model.sysml -render-document Reports::MassReport -doc-form html -html-math cdn -o report.html", "formulas typeset in the browser"),
 				usage.Ex("sysml model.sysml -render-document Reports::MassReport -diagram-form dot -o report.md", "diagrams as Graphviz DOT"),
 				usage.Ex("sysml model.sysml -render-document Reports::MassReport -diagram-form plantuml -o report.md", "diagrams as PlantUML"),
+				usage.Ex("sysml model.sysml -render-document Reports::MassReport -diagram-form d2 -o report.md", "diagrams as D2"),
 				usage.Ex("sysml model.sysml -render-document Reports::MassReport -doc-form pdf "+
 					"-pdf-engine pandoc -doc-title-page -doc-toc -doc-number-sections -o report.pdf", ""),
 				usage.Ex("sysml -html-default-css -o sysml-document.css", "the default stylesheet"),
@@ -481,10 +483,10 @@ func doc() usage.Doc {
 					"positions is drawn by Graphviz where it states, as inline SVG when dot " +
 					"is installed and as a dot fence otherwise, and every other graph-shaped " +
 					"view is Mermaid source; with Graphviz absent a positioned view falls " +
-					"back to Mermaid under a notice saying so. -diagram-form mermaid, dot " +
-					"or plantuml writes every graph-shaped one in that form instead, in " +
+					"back to Mermaid under a notice saying so. -diagram-form mermaid, dot, " +
+					"plantuml or d2 writes every graph-shaped one in that form instead, in " +
 					"Markdown and HTML alike, while a table-kind view stays a table. Neither " +
-					"Graphviz nor PlantUML is needed to write a fence.",
+					"Graphviz, PlantUML nor D2 is needed to write a fence.",
 				"-doc-form html writes semantic HTML instead, carrying each element's " +
 					"identity and kind, styled by a stylesheet in a cascade layer your " +
 					"own CSS overrides without !important.",
@@ -663,8 +665,8 @@ func registerFlags(fs *flag.FlagSet) {
 
 	fs.StringVar(&renderView, "render", "", "Render this view of the model instead of running it, in the form its render member states; #<kind> renders every file loaded and #<kind>:<element> one element, kind being tree, interconnection, state, action, sequence or table, without a declared view")
 	fs.StringVar(&renderAllDir, "render-all", "", "Render every declared view into this directory")
-	fs.StringVar(&renderForm, "render-form", "", "Form -render or -render-all writes: text, mermaid, markdown, dot, plantuml, csv or tsv (csv and tsv for a table); default from the destination for -render, each kind's machine form for -render-all")
-	fs.StringVar(&renderPalette, "render-palette", "", "Palette the dot, mermaid or plantuml form fills nodes from, by keyword family: okabe-ito, tol-bright, tol-muted, tol-light, brewer-set2, brewer-dark2, viridis or cividis; default black and white")
+	fs.StringVar(&renderForm, "render-form", "", "Form -render or -render-all writes: text, mermaid, markdown, dot, plantuml, d2, csv or tsv (csv and tsv for a table); default from the destination for -render, each kind's machine form for -render-all")
+	fs.StringVar(&renderPalette, "render-palette", "", "Palette the dot, mermaid, plantuml or d2 form fills nodes from, by keyword family: okabe-ito, tol-bright, tol-muted, tol-light, brewer-set2, brewer-dark2, viridis or cividis; default black and white")
 	fs.StringVar(&renderStyle, "render-style", "", "Drawing style of the dot or mermaid form: pilot (default), the Pilot visualizer's black and white, or cameo, the look of Cameo Systems Modeler; applies to -render, -render-all and document diagrams")
 	fs.StringVar(&renderPorts, "render-ports", "", "How much of a part's ports -render or -render-all draws on an interconnection: minimal (default), the ports its connectors end at, each a small square on the part's border named beside it, or full, every port, labelled name : Type")
 	fs.StringVar(&renderUnplaced, "render-unplaced", "", "Where a graph form of a view some Layout positions puts the nodes none does: omit (default) leaves them undrawn in every form, strip draws them, in rows below the dot drawing; applies to -render, -render-all and document diagrams")
@@ -672,7 +674,7 @@ func registerFlags(fs *flag.FlagSet) {
 	fs.StringVar(&renderDoc, "render-document", "", "Compile this document definition, run its queries and write the rendered document")
 	fs.StringVar(&renderDocsDir, "render-documents", "", "Render every document definition, linked to one another, into this directory; a document that cannot be rendered gets a page stating why and the run exits 3")
 	fs.StringVar(&docForm, "doc-form", "", docFormUsage())
-	fs.StringVar(&diagramForm, "diagram-form", "", "Form the documents' graph-shaped diagrams are written in: mermaid, dot or plantuml; unset, a positioned view is dot and any other mermaid; a table-kind view is a table either way")
+	fs.StringVar(&diagramForm, "diagram-form", "", "Form the documents' graph-shaped diagrams are written in: mermaid, dot, plantuml or d2; unset, a positioned view is dot and any other mermaid; a table-kind view is a table either way")
 	fs.BoolVar(&docNumberFigures, "doc-number-figures", false, docNumberFiguresUsage())
 
 	fs.BoolVar(&debugMode, "debug", false, "Report every diagnostic over the whole session buffer, with the pass that produced it")

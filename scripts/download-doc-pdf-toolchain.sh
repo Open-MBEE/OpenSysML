@@ -3,8 +3,9 @@
 # into build/doc-pdf/: WeasyPrint (the default engine), pandoc (an alternative
 # engine, which also drives WeasyPrint), mermaid-cli (mmdc) for Mermaid diagram
 # pre-rendering, Graphviz for DOT diagrams, the PlantUML jar for PlantUML
-# diagrams, and KaTeX for formula typesetting. Prince is commercial and is not
-# provisioned here; install it separately and select it with -pdf-engine prince.
+# diagrams, d2 for D2 diagrams, and KaTeX for formula typesetting. Prince is
+# commercial and is not provisioned here; install it separately and select it
+# with -pdf-engine prince.
 # Java, which runs the PlantUML jar, is not provisioned either: it is taken from
 # PATH, or from where OPENSYSML_JAVA points.
 #
@@ -34,14 +35,18 @@ GRAPHVIZ_SHA256_UBUNTU_24_04="1ac34dac4dde843ec0069d51c4a5e06f036dbf9a4303f4aaf1
 GRAPHVIZ_SHA256_UBUNTU_26_04="f183e9e351576ab323ded649074cfef7945b7de223c7e43c42fb6ec2d3e32a7f"
 PLANTUML_VERSION="1.2026.8"
 PLANTUML_SHA256="5e1ecfa8ecd32c90b03bbf3b1eb6f020943f98ab0fcf4032be31a0002ee2c462"
+# D2 publishes a static Linux binary per architecture, unpacked under build/doc-pdf/d2.
+D2_VERSION="0.9.0"
+D2_SHA256_AMD64="5669ddc46b99e942cc96078f4a4e36d5e62103348f4c05179ede27802fdd87a9"
+D2_SHA256_ARM64="ac2c028697199479acb321db1e3d68caee9f2ba492ed73caa3cd13f3829bf913"
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 dest="$repo_root/build/doc-pdf"
 mkdir -p "$dest"
 
 case "$(uname -m)" in
-x86_64) pandoc_arch="amd64" pandoc_sha256="$PANDOC_SHA256_AMD64" ;;
-aarch64 | arm64) pandoc_arch="arm64" pandoc_sha256="$PANDOC_SHA256_ARM64" ;;
+x86_64) pandoc_arch="amd64" pandoc_sha256="$PANDOC_SHA256_AMD64" d2_sha256="$D2_SHA256_AMD64" ;;
+aarch64 | arm64) pandoc_arch="arm64" pandoc_sha256="$PANDOC_SHA256_ARM64" d2_sha256="$D2_SHA256_ARM64" ;;
 *)
 	echo "unsupported architecture $(uname -m); install pandoc yourself and point OPENSYSML_PANDOC at it" >&2
 	exit 1
@@ -198,6 +203,24 @@ else
 	mv "$plantuml.part" "$plantuml"
 fi
 
+d2="$dest/d2/d2-v$D2_VERSION/bin/d2"
+if [[ -x "$d2" ]]; then
+	echo "D2 $D2_VERSION already present at $d2"
+else
+	echo "Fetching D2 $D2_VERSION ..."
+	mkdir -p "$dest/d2"
+	tarball="$dest/d2-v$D2_VERSION-linux-$pandoc_arch.tar.gz"
+	curl -fsSL --proto "$HTTPS_ONLY" --proto-redir "$HTTPS_ONLY" -o "$tarball" \
+		"https://github.com/terrastruct/d2/releases/download/v$D2_VERSION/d2-v$D2_VERSION-linux-$pandoc_arch.tar.gz"
+	echo "$d2_sha256  $tarball" | sha256sum -c -
+	rm -rf "$dest/d2/d2-v$D2_VERSION"
+	tar -xzf "$tarball" -C "$dest/d2" "d2-v$D2_VERSION/bin/d2"
+	if ! "$d2" --version 2>&1 | grep -q "^v$D2_VERSION$"; then
+		echo "the unpacked D2 does not run: $("$d2" --version 2>&1)" >&2
+		exit 1
+	fi
+fi
+
 echo
 echo "Done. Point the sysml binary at the pinned copies:"
 echo "  export OPENSYSML_PANDOC=$pandoc_dir/bin/pandoc"
@@ -211,6 +234,7 @@ else
 	echo "  export OPENSYSML_DOT=$graphviz/bin/dot"
 fi
 echo "  export OPENSYSML_PLANTUML_JAR=$plantuml"
+echo "  export OPENSYSML_D2=$d2"
 if command -v java >/dev/null 2>&1; then
 	echo "  # java is on PATH ($(command -v java)); set OPENSYSML_JAVA to use another."
 else

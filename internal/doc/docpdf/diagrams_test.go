@@ -22,7 +22,7 @@ import (
 func withoutDiagramTools(t *testing.T) {
 	t.Helper()
 	missing := t.TempDir()
-	for _, env := range []string{MermaidEnv, DotEnv, JavaEnv, PlantUMLJarEnv} {
+	for _, env := range []string{MermaidEnv, DotEnv, JavaEnv, PlantUMLJarEnv, D2Env} {
 		t.Setenv(env, filepath.Join(missing, "no-"+strings.ToLower(env)+"-here"))
 	}
 }
@@ -47,6 +47,20 @@ if [ -n "$out" ]; then
 else
   printf '<svg xmlns="http://www.w3.org/2000/svg"><text>drawn by `+name+`</text></svg>'
 fi
+`)
+	return log
+}
+
+// fakeD2 writes a fake d2 that writes an SVG to the file its last argument
+// names, as d2 takes its output, logging its arguments to d2.log in dir and
+// keeping a copy of each input there.
+func fakeD2(t *testing.T, dir string) string {
+	t.Helper()
+	log := filepath.Join(dir, "d2.log")
+	fakeTool(t, dir, "d2", D2Env, `printf 'args:%s\n' "$*" >> "`+log+`"
+in=""; out=""; for arg; do in="$out"; out="$arg"; done
+cp "$in" "`+dir+`/"
+printf '<svg xmlns="http://www.w3.org/2000/svg"><text>drawn by d2</text></svg>' > "$out"
 `)
 	return log
 }
@@ -186,6 +200,43 @@ func TestDrawDOTWritesTheDiagramSource(t *testing.T) {
 		source, err := os.ReadFile(filepath.Join(dir, images[i][:len(images[i])-len(".svg")]+".dot"))
 		if err != nil || string(source) != diagram.Source+"\n" {
 			t.Fatalf("dot input %d: %q, %v; want the diagram's source", i+1, source, err)
+		}
+	}
+}
+
+// TestRenderD2WithFakeD2 checks the D2 form is drawn by the d2 the
+// environment names: each block written to a .d2 file, d2 run on it with the
+// layout engine pinned, and its SVG embedded in the page in diagram order.
+func TestRenderD2WithFakeD2(t *testing.T) {
+	dir := t.TempDir()
+	withoutDiagramTools(t)
+	log := fakeD2(t, dir)
+	capture := captureWeasyPrint(t, dir)
+	if _, err := Render(telescopeDocument(t), "weasyprint", Options{DiagramForm: view.FormD2}); err != nil {
+		t.Fatalf("Render: %v", err)
+	}
+	page, listing := readCapture(t, capture)
+	images := fileRefs(captureDir(t, capture), []string{"diagram-1.svg", "diagram-2.svg"})
+	first, second := strings.Index(page, `<img src="`+images[0]+`"`), strings.Index(page, `<img src="`+images[1]+`"`)
+	if first < 0 || second < 0 || first > second || strings.Contains(page, `<pre class="d2">`) {
+		t.Fatalf("page does not show the two drawn diagrams in order:\n%s", page)
+	}
+	for _, file := range []string{"diagram-1.d2", "diagram-1.svg", "diagram-2.d2", "diagram-2.svg"} {
+		if !strings.Contains(listing, file) {
+			t.Fatalf("render directory lacks %s:\n%s", file, listing)
+		}
+	}
+	args, _ := os.ReadFile(log)
+	for _, want := range []string{"args:--layout=dagre --pad=16 diagram-1.d2 diagram-1.svg\n", "args:--layout=dagre --pad=16 diagram-2.d2 diagram-2.svg\n"} {
+		if !strings.Contains(string(args), want) {
+			t.Fatalf("d2 arguments lack %q: %s", want, args)
+		}
+	}
+	diagrams := telescopeDiagrams(t, view.FormD2)
+	for i, diagram := range diagrams {
+		source, err := os.ReadFile(filepath.Join(dir, fmt.Sprintf("diagram-%d.d2", i+1)))
+		if err != nil || string(source) != diagram.Source+"\n" {
+			t.Fatalf("d2 input %d: %q, %v; want the diagram's source", i+1, source, err)
 		}
 	}
 }
@@ -548,7 +599,7 @@ func TestRenderForPandocDrawsDOTAndPlantUML(t *testing.T) {
 			t.Fatal(err)
 		}
 		images := fileRefs(captureDir(t, capture), []string{"diagram-1.svg", "diagram-2.svg"})
-		for _, want := range []string{`local forms = {mermaid = true, dot = true, plantuml = true}`, `local images = {"` + images[0] + `", "` + images[1] + `"}`} {
+		for _, want := range []string{`local forms = {mermaid = true, dot = true, plantuml = true, d2 = true}`, `local images = {"` + images[0] + `", "` + images[1] + `"}`} {
 			if !strings.Contains(string(filter), want) {
 				t.Fatalf("%s filter lacks %q:\n%s", form, want, filter)
 			}

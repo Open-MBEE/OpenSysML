@@ -532,7 +532,7 @@ save are the text document's.
 
 The canvas has two looks, chosen by `opensysml.diagram.style` and the panel's
 **Style** list (`src/style.ts`): `theme`, which takes its colours from the VS Code
-theme, and the pilot visualizer's Standard B&W that the DOT and PlantUML forms
+theme, and the pilot visualizer's Standard B&W that the DOT, PlantUML and D2 forms
 follow (`docs/project/view-rendering-forms.md#style`), as CSS on the `pilot` class
 — white canvas, black text, 0.5 px `#181818` borders, square definitions and
 rounded usages by a class the node's kind gives its box, heavier packages, dashed
@@ -544,7 +544,7 @@ render in the new style. A palette is that look plus the `fill` and `border`
 the server puts on each node when the render request names one; the canvas sets
 each it is given as a custom property on the node's shape (a sequence participant
 comes with the fill alone) and computes no colour itself, so
-the panel, DOT and PlantUML of one view agree hex for hex and the contrast rule
+the panel, DOT, PlantUML and D2 of one view agree hex for hex and the contrast rule
 lives in one place. The server advertises `openSysmlRenderPalette`; without it the
 panel asks for no palette, draws `pilot`, and says why under the diagram.
 

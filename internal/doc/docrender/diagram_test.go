@@ -126,6 +126,33 @@ func TestDiagramPlantUMLForm(t *testing.T) {
 	}
 }
 
+// A render in the D2 form writes each graph-shaped diagram, the sequence
+// included, as a d2 fence in the diagram's direction.
+func TestDiagramD2Form(t *testing.T) {
+	for _, kind := range []view.Kind{view.KindTree, view.KindInterconnection, view.KindAction, view.KindState} {
+		got := renderedDiagramForm(t, "", graphRendering(kind), view.DirectionLeftRight, view.FormD2)
+		if !strings.HasPrefix(got, "```d2\n# "+string(kind)+" rendering") || !strings.HasSuffix(got, "}\n```") {
+			t.Errorf("%s: not a d2 fence:\n%s", kind, got)
+		}
+		for _, want := range []string{"classes: {\n", "direction: right\n", `"«part»\na" { class: usage }`} {
+			if !strings.Contains(got, want) {
+				t.Errorf("%s: missing %q:\n%s", kind, want, got)
+			}
+		}
+		if strings.Contains(got, "flowchart") || strings.Contains(got, "digraph") || strings.Contains(got, "@startuml") {
+			t.Errorf("%s: another form in a d2 fence:\n%s", kind, got)
+		}
+	}
+	sequence := renderedDiagramForm(t, "", graphRendering(view.KindSequence), "", view.FormD2)
+	if !strings.Contains(sequence, "shape: sequence_diagram\n") || !strings.Contains(sequence, `n0: "«part»\na"`) || !strings.Contains(sequence, "n0 -- n1: { class: connection }\n") {
+		t.Errorf("sequence as d2:\n%s", sequence)
+	}
+	got := renderedDiagramForm(t, "Chain", graphRendering(view.KindTree), "", view.FormD2)
+	if !strings.HasPrefix(got, "*Chain*\n\n```d2\n") {
+		t.Errorf("captioned d2: %s", got)
+	}
+}
+
 // The diagram form is checked once per render: a form no diagram is written
 // as is a typed error before anything is written, while empty picks per
 // diagram — Mermaid for one nothing positions.

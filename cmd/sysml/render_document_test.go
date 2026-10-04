@@ -93,6 +93,7 @@ func TestRenderDocumentDiagramForm(t *testing.T) {
 		"mermaid":  "telescope_report.golden.md",
 		"dot":      "telescope_report.dot.golden.md",
 		"plantuml": "telescope_report.plantuml.golden.md",
+		"d2":       "telescope_report.d2.golden.md",
 	}
 	for form, name := range goldens {
 		golden, err := os.ReadFile(filepath.Join("..", "..", "internal", "doc", "docrender", "testdata", name))
@@ -117,6 +118,11 @@ func TestRenderDocumentDiagramForm(t *testing.T) {
 		t.Fatal(err)
 	} else if !strings.Contains(string(puml), "```plantuml\n@startuml\n") || strings.Contains(string(puml), "```mermaid") || !strings.Contains(string(puml), "| name | mass |") {
 		t.Errorf("plantuml rendering does not write PlantUML diagrams next to pipe tables:\n%s", puml)
+	}
+	if d2, err := exec.Command(binary, fixture, "-render-document", "Observatory::MassReport", "-diagram-form", "d2").Output(); err != nil {
+		t.Fatal(err)
+	} else if !strings.Contains(string(d2), "```d2\n# Observatory::interconnectView") || strings.Contains(string(d2), "```mermaid") || !strings.Contains(string(d2), "| name | mass |") {
+		t.Errorf("d2 rendering does not write D2 diagrams next to pipe tables:\n%s", d2)
 	}
 
 	wantReport(t, check(t, binary, documentModel, "-render-document", "Reports::MassReport", "-diagram-form", "svg"),

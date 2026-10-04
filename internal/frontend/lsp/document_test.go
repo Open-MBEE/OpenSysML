@@ -498,7 +498,7 @@ const diagramDocumentModel = `package Imaging {
 `
 
 // TestRenderDocumentDiagramForm writes the document's graph-shaped diagrams
-// as Mermaid when diagramForm is absent and as DOT or PlantUML when named; the
+// as Mermaid when diagramForm is absent and as DOT, PlantUML or D2 when named; the
 // Mermaid block carries its theme and the cluster-title margin it needs.
 func TestRenderDocumentDiagramForm(t *testing.T) {
 	ws, s, _ := openDocumentModel(t)
@@ -509,6 +509,7 @@ func TestRenderDocumentDiagramForm(t *testing.T) {
 		"mermaid":  {"```mermaid\n", mermaidHeader},
 		"dot":      {"```dot\n", "// view: Imaging::chainView\n// kind: interconnection\n"},
 		"plantuml": {"```plantuml\n", "@startuml\n' Imaging::chainView — interconnection rendering"},
+		"d2":       {"```d2\n", "# Imaging::chainView — interconnection rendering"},
 	}
 	for form, want := range cases {
 		res, err := s.RenderDocument(&renderDocumentParams{Name: "Imaging::ChainReport", DiagramForm: form})
@@ -527,12 +528,15 @@ func TestRenderDocumentDiagramForm(t *testing.T) {
 		if form == "plantuml" && (!strings.Contains(res.Markdown, "n1.0 -[thickness=3]- n2.0 : link\n") || !strings.Contains(res.Markdown, "@enduml\n```")) {
 			t.Errorf("diagramForm %q: not a PlantUML interconnection:\n%s", form, res.Markdown)
 		}
+		if form == "d2" && (!strings.Contains(res.Markdown, `n0.n1."n1.0" -- n0.n2."n2.0": "link" { class: connection }`+"\n") || !strings.Contains(res.Markdown, "}\n```")) {
+			t.Errorf("diagramForm %q: not a D2 interconnection:\n%s", form, res.Markdown)
+		}
 	}
 	if _, err := s.RenderDocument(&renderDocumentParams{Name: "Imaging::ChainReport", DiagramForm: "svg"}); err == nil ||
 		!strings.Contains(err.Error(), `no diagram form is named "svg"`) || !strings.Contains(err.Error(), "mermaid, dot, plantuml") {
 		t.Fatalf("err = %v, want an unknown-form error naming the forms", err)
 	}
-	for _, form := range []string{"dot", "plantuml"} {
+	for _, form := range []string{"dot", "plantuml", "d2"} {
 		res, err := s.RenderDocument(&renderDocumentParams{Name: "Observatory::MassReport", DiagramForm: form})
 		if err != nil {
 			t.Fatalf("table-only document as %s: %v", form, err)
