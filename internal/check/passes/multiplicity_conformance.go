@@ -86,11 +86,8 @@ func upperBoundWidened(sub, sup semantics.Range) bool {
 	return sub.Upper.Value > sup.Upper.Value
 }
 
-// conformanceMultiplicity is the multiplicity a feature is held to by the
-// conformance rules: the declared one, or the implicit 1..1 the reference gives
-// an end feature and an attribute, item, part or port usage that is owned by a
-// type and subsets no feature that a type owns. Other usages have none, and the
-// rules then have nothing to compare (SysML v2 §7.9.2 default multiplicity).
+// conformanceMultiplicity is the declared range or the implicit [1..1] for an
+// end feature or eligible usage with no relationship to a type-owned feature.
 func (cc *constraintChecker) conformanceMultiplicity(sym *symbols.Symbol) (semantics.Range, bool) {
 	if rng, ok := cc.model.MultiplicityOf(sym); ok {
 		return rng, true

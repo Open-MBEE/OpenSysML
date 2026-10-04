@@ -23,3 +23,18 @@ func TestDuplicateOwnedMemberNamesAreWarnings(t *testing.T) {
 		}
 	}
 }
+
+// Without a semantic model no metaclass is known, so two members of one name
+// are never distinguishable by metaclass (KerML 8.3.2.4.3) and both warn.
+func TestDuplicateOwnedMemberNamesNoModel(t *testing.T) {
+	const src = "package P { part def A; attribute def A; }"
+	r := resolveDoc(t, "d.sysml", src)
+	if len(r.Diagnostics) != 2 {
+		t.Fatalf("got %d diagnostics, want 2: %v", len(r.Diagnostics), r.Diagnostics)
+	}
+	for _, d := range r.Diagnostics {
+		if d.Code != CodeNameConflict || d.Message != "Duplicate of other owned member name" {
+			t.Errorf("got %s %q, want %s %q", d.Code, d.Message, CodeNameConflict, "Duplicate of other owned member name")
+		}
+	}
+}

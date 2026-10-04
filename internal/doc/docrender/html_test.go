@@ -67,6 +67,20 @@ func TestHTMLTelescopeReportGolden(t *testing.T) {
 	checkGolden(t, got, filepath.Join("testdata", "telescope_report.golden.html"))
 }
 
+func TestHTMLDiagramSourceLinks(t *testing.T) {
+	path := filepath.Join("testdata", "telescope_report.sysml")
+	got := renderFixtureHTML(t, path, "Observatory::MassReport", HTMLOptions{
+		DiagramForm:  view.FormMermaid,
+		LinkTemplate: "https://example.test/src/{file}#L{line}",
+	})
+	if !strings.Contains(got, `click n1 href &#34;https://example.test/src/telescope_report.sysml#L`) {
+		t.Errorf("HTML diagram does not link the source node:\n%s", got)
+	}
+	if strings.Contains(got, `securityLevel: 'loose'`) {
+		t.Errorf("HTML diagram link relaxed Mermaid security:\n%s", got)
+	}
+}
+
 // TestHTMLTelescopeReportFragmentGolden locks the fragment rendering with a
 // title page, a table of contents and numbered sections.
 func TestHTMLTelescopeReportFragmentGolden(t *testing.T) {

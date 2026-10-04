@@ -33,8 +33,13 @@ func TestEffectiveParameterRange(t *testing.T) {
 			action def One { in x : Real[1]; }
 			action def Opt { in x : Real[0..1]; }
 			action def Kwd { in attribute x : Real; }
+			action def ItemParam { in item x; }
 			action def FromSeed specializes Seed { in energy :>> energy; }
 			action def FromBare specializes Bare { in x :>> x; }
+			action def ReferenceSubset {
+				part a [2];
+				in part x ::> a;
+			}
 			part def Holder { part p : Part[1..*]; }
 			part def Part { }
 			part def Sub specializes Holder { part p :>> p; }
@@ -51,6 +56,8 @@ func TestEffectiveParameterRange(t *testing.T) {
 		{"One", "x", AssumedRange(), false},   // [1] required
 		{"Opt", "x", Range{Lower: Bound{Value: 0, Known: true}, Upper: Bound{Value: 1, Known: true}}, true},
 		{"Kwd", "x", AssumedRange(), false}, // `in attribute` → implicit [1..1]
+		{"ItemParam", "x", AssumedRange(), false},
+		{"ReferenceSubset", "x", Range{Lower: Bound{Value: 2, Known: true}, Upper: Bound{Value: 2, Known: true}}, false},
 		{"Seed", "energy", Range{Lower: Bound{Value: 1, Known: true}, Upper: Bound{Infinite: true, Known: true}}, false},
 		{"FromSeed", "energy", Range{Lower: Bound{Value: 1, Known: true}, Upper: Bound{Infinite: true, Known: true}}, false}, // bare over [1..*] → required
 		{"FromBare", "x", UnboundedRange(), true}, // bare over bare → optional

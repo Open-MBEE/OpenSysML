@@ -180,7 +180,8 @@ func TestExpressionPositionsAllEmitTrees(t *testing.T) {
     attribute limit : Integer = 4;
     part def Car {
         attribute pressure : Integer;
-        attribute wheels : Integer[1..limit + 1];
+        attribute wheelLimit : Integer = limit + 1;
+        attribute wheels : Integer[1..wheelLimit];
         assert constraint { pressure > 0 }
     }
     state def Machine {
@@ -202,7 +203,7 @@ func TestExpressionPositionsAllEmitTrees(t *testing.T) {
 	for _, want := range []struct{ suffix, metaclass string }{
 		{"_pvalue", "LiteralInteger"}, // limit = 4
 		{"wheels_plowerBound", "LiteralInteger"},
-		{"wheels_pupperBound", "OperatorExpression"},
+		{"wheels_pupperBound", "FeatureReferenceExpression"},
 		{"_pguard", "OperatorExpression"},
 		{"_pfilter", "OperatorExpression"},
 	} {
@@ -438,7 +439,8 @@ func TestExpressionTreesKeepTheRoundTripExact(t *testing.T) {
 `, "wheels.?{in w : Wheel; w.worn}->notEmpty()"},
 		"bounds and guards": {`package P {
     attribute n : Integer;
-    attribute many : Integer[1..n + 1];
+    attribute manyLimit : Integer = n + 1;
+    attribute many : Integer[1..manyLimit];
     state def S {
         state a;
         transition first a if n > 1 then a;

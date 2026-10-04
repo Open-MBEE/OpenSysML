@@ -6810,7 +6810,7 @@
         "tests/migrate/context_test.go:TestCallsFromObjectsLackingTheCalleesContextAreNotPerformed",
         "tests/migrate/arguments_test.go:TestCallsWithoutRequiredArgumentsAdmitNone"
       ],
-            "reason": "the typed form `action n : B;` is written wherever v2 can type the call, its pins the parameters it redefines (`action n : B { in x = …; }`); a fUML or Alf library behavior, which v2 has no type for, computes through the v2 library instead (see the behaviours with no OMG mapping); a block-owned behavior that reads its block is written `perform action n ::> obj.usage;`, since a def nested in a part def reaches none of the block's features; a callee owned by another block gets a bound `context` parameter, bound to the caller's object or to the caller's one part of that block (`bind n.context = …;` or `action n : B { in ref :>> context = …; }`); each per-call loss stays in the ledger under its own row or reason: edge notes such as no edge leading to the node, a context left unbound where the caller holds no object of the callee's block (performed as an empty step), and arguments missing or empty in the v1 model (PSSM: 95 mapped, 1058 approximated, 6 unmapped of 1159; of the approximated, 1040 carry edge notes and 218 only those; 580 library calls, 199 usage performances, 110 contexts bound to a part, 206 empty steps, 170 calls missing arguments)",
+      "reason": "the typed form `action n : B;` is written wherever v2 can type the call, its pins the parameters it redefines (`action n : B { in x = …; }`); a fUML or Alf library behavior, which v2 has no type for, computes through the v2 library instead (see the behaviours with no OMG mapping); a block-owned behavior that reads its block is written `perform action n ::> obj.usage;`, since a def nested in a part def reaches none of the block's features; a callee owned by another block gets a bound `context` parameter, bound to the caller's object or to the caller's one part of that block (`bind n.context = …;` or `action n : B { in ref :>> context = …; }`); each per-call loss stays in the ledger under its own row or reason: edge notes such as several edges leaving the node, which a fork carries (a node no edge leads to is started by the activity, which is mapped), a context left unbound where the caller holds no object of the callee's block (performed as an empty step), and arguments missing or empty in the v1 model (PSSM: 304 mapped, 849 approximated, 6 unmapped of 1159; of the approximated, 831 carry edge notes and 9 only those; 580 library calls, 199 usage performances, 110 contexts bound to a part, 206 empty steps, 170 calls missing arguments)",
       "scope": [
         "uml:CallBehaviorAction"
       ]
@@ -7352,7 +7352,7 @@
         "tests/migrate/context_test.go:TestCallsFromObjectsLackingTheCalleesContextAreNotPerformed",
         "tests/migrate/arguments_test.go:TestCallsWithoutRequiredArgumentsAdmitNone"
       ],
-            "reason": "the typed form `action n : B;` is written wherever v2 can type the call, its pins the parameters it redefines (`action n : B { in x = …; }`); a fUML or Alf library behavior, which v2 has no type for, computes through the v2 library instead (see the behaviours with no OMG mapping); a block-owned behavior that reads its block is written `perform action n ::> obj.usage;`, since a def nested in a part def reaches none of the block's features; a callee owned by another block gets a bound `context` parameter, bound to the caller's object or to the caller's one part of that block (`bind n.context = …;` or `action n : B { in ref :>> context = …; }`); each per-call loss stays in the ledger under its own row or reason: edge notes such as no edge leading to the node, a context left unbound where the caller holds no object of the callee's block (performed as an empty step), and arguments missing or empty in the v1 model (PSSM: 95 mapped, 1058 approximated, 6 unmapped of 1159; of the approximated, 1040 carry edge notes and 218 only those; 580 library calls, 199 usage performances, 110 contexts bound to a part, 206 empty steps, 170 calls missing arguments)",
+      "reason": "the typed form `action n : B;` is written wherever v2 can type the call, its pins the parameters it redefines (`action n : B { in x = …; }`); a fUML or Alf library behavior, which v2 has no type for, computes through the v2 library instead (see the behaviours with no OMG mapping); a block-owned behavior that reads its block is written `perform action n ::> obj.usage;`, since a def nested in a part def reaches none of the block's features; a callee owned by another block gets a bound `context` parameter, bound to the caller's object or to the caller's one part of that block (`bind n.context = …;` or `action n : B { in ref :>> context = …; }`); each per-call loss stays in the ledger under its own row or reason: edge notes such as several edges leaving the node, which a fork carries (a node no edge leads to is started by the activity, which is mapped), a context left unbound where the caller holds no object of the callee's block (performed as an empty step), and arguments missing or empty in the v1 model (PSSM: 304 mapped, 849 approximated, 6 unmapped of 1159; of the approximated, 831 carry edge notes and 9 only those; 580 library calls, 199 usage performances, 110 contexts bound to a part, 206 empty steps, 170 calls missing arguments)",
       "scope": [
         "uml:CallBehaviorAction"
       ]
@@ -8933,15 +8933,21 @@
         "value"
       ],
       "ocl": "sha256:d7570c6fc391f5b3ed72b1b43fe089954bc46a6c1434ad61a5daff9ace6ca895",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
-        "internal/translate/migrate/activity.go:valueAction"
+        "internal/translate/migrate/activity.go:valueAction",
+        "internal/translate/migrate/arguments.go:valueActionRefusal",
+        "internal/translate/migrate/activity.go:startTargets"
       ],
       "tests": [
+        "tests/migrate/value_action_test.go:TestValueActionResultKeepsThePinsMultiplicity",
+        "tests/migrate/value_action_test.go:TestValueActionLiteralTakesTheResultsScalarType",
+        "tests/migrate/value_action_test.go:TestValueActionResultCountingOtherThanOneIsNotBound",
+        "tests/migrate/arguments_test.go:TestUnwrittenValuesAreNotPassedToCalls",
         "tests/migrate/migrate_test.go:TestGoldenNotation",
         "tests/corpus/pssm_migration_test.go:TestPSSMSuiteMigration"
       ],
-      "reason": "written as an action whose result is bound to the translated value; an untranslatable value leaves the result unbound (PSSM: 1045 approximated)",
+      "reason": "written as `action n { out result : T[m] = v; }`, an ActionUsage whose result pin is an `out` feature typed and bounded as the pin declares (its multiplicity and ordering kept) and bound to the translated value, as the mapping writes it; a node no edge leads to is started by the activity (`first start then n;`), v1's rule for a node with no incoming edge; a value whose translation does not conform to the pin's type (a literal of a value type with no scalar base, an instance of another type, a string that spells no value of the pin's scalar), or a result pin that cannot hold the action's one value (lower bound above one, upper bound zero), is deliberately left unbound, its action kept as a commented placeholder, since binding it fails validation (`cannot bind Natural value to a feature typed by Coords`) (PSSM: 1035 mapped, 10 approximated of 1045, the 10 for a sibling's name; none refused); candidate erratum: the mapping binds the value as v1 stores it, so a typed-in string on a scalar pin (a LiteralString \"2\" on an Integer result) becomes a String FeatureValue of an Integer feature, which v2 typing rejects (`cannot bind String value to a feature typed by Integer`); the literal is written as the scalar the pin holds (`out result : Integer[1] = 2;`)",
       "scope": [
         "uml:ValueSpecificationAction"
       ]
@@ -8961,15 +8967,21 @@
         "ownedRelationship"
       ],
       "ocl": "sha256:076dcd7f2b0b076ac328fc05efdd3ad39f61ce2a5848b8dcc4f07b41459af2a3",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
-        "internal/translate/migrate/activity.go:valueAction"
+        "internal/translate/migrate/activity.go:valueAction",
+        "internal/translate/migrate/arguments.go:valueActionRefusal",
+        "internal/translate/migrate/activity.go:startTargets"
       ],
       "tests": [
+        "tests/migrate/value_action_test.go:TestValueActionResultKeepsThePinsMultiplicity",
+        "tests/migrate/value_action_test.go:TestValueActionLiteralTakesTheResultsScalarType",
+        "tests/migrate/value_action_test.go:TestValueActionResultCountingOtherThanOneIsNotBound",
+        "tests/migrate/arguments_test.go:TestUnwrittenValuesAreNotPassedToCalls",
         "tests/migrate/migrate_test.go:TestGoldenNotation",
         "tests/corpus/pssm_migration_test.go:TestPSSMSuiteMigration"
       ],
-      "reason": "written as an action whose result is bound to the translated value; an untranslatable value leaves the result unbound (PSSM: 1045 approximated)",
+      "reason": "written as `action n { out result : T[m] = v; }`, an ActionUsage whose result pin is an `out` feature typed and bounded as the pin declares (its multiplicity and ordering kept) and bound to the translated value, as the mapping writes it; a node no edge leads to is started by the activity (`first start then n;`), v1's rule for a node with no incoming edge; a value whose translation does not conform to the pin's type (a literal of a value type with no scalar base, an instance of another type, a string that spells no value of the pin's scalar), or a result pin that cannot hold the action's one value (lower bound above one, upper bound zero), is deliberately left unbound, its action kept as a commented placeholder, since binding it fails validation (`cannot bind Natural value to a feature typed by Coords`) (PSSM: 1035 mapped, 10 approximated of 1045, the 10 for a sibling's name; none refused) (see candidate errata for a typed-in string)",
       "scope": [
         "uml:ValueSpecificationAction"
       ]
@@ -8988,15 +9000,21 @@
         "ownedRelationship"
       ],
       "ocl": "sha256:2acb93d4a41b9fc0ad86b55750de290036c57c1076fc3758ee5fec0339ae8464",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
-        "internal/translate/migrate/activity.go:valueAction"
+        "internal/translate/migrate/activity.go:valueAction",
+        "internal/translate/migrate/arguments.go:valueActionRefusal",
+        "internal/translate/migrate/activity.go:startTargets"
       ],
       "tests": [
+        "tests/migrate/value_action_test.go:TestValueActionResultKeepsThePinsMultiplicity",
+        "tests/migrate/value_action_test.go:TestValueActionLiteralTakesTheResultsScalarType",
+        "tests/migrate/value_action_test.go:TestValueActionResultCountingOtherThanOneIsNotBound",
+        "tests/migrate/arguments_test.go:TestUnwrittenValuesAreNotPassedToCalls",
         "tests/migrate/migrate_test.go:TestGoldenNotation",
         "tests/corpus/pssm_migration_test.go:TestPSSMSuiteMigration"
       ],
-      "reason": "written as an action whose result is bound to the translated value; an untranslatable value leaves the result unbound (PSSM: 1045 approximated)",
+      "reason": "written as `action n { out result : T[m] = v; }`, an ActionUsage whose result pin is an `out` feature typed and bounded as the pin declares (its multiplicity and ordering kept) and bound to the translated value, as the mapping writes it; a node no edge leads to is started by the activity (`first start then n;`), v1's rule for a node with no incoming edge; a value whose translation does not conform to the pin's type (a literal of a value type with no scalar base, an instance of another type, a string that spells no value of the pin's scalar), or a result pin that cannot hold the action's one value (lower bound above one, upper bound zero), is deliberately left unbound, its action kept as a commented placeholder, since binding it fails validation (`cannot bind Natural value to a feature typed by Coords`) (PSSM: 1035 mapped, 10 approximated of 1045, the 10 for a sibling's name; none refused) (see candidate errata for a typed-in string)",
       "scope": [
         "uml:ValueSpecificationAction"
       ]
