@@ -1,4 +1,4 @@
-.PHONY: all build build-sysml build-prod build-wasm-prod build-lsp build-grpc build-engine build-core build-syntax build-sysml-wasm build-release-wasm build-wasm build-wasm-wasip1 build-wasm-js wasm-check static-check windows-versioninfo-check man man-check install-tree pgo-profile conformance conformance-pkg conformance-rust conformance-julia conformance-matlab test test-shard coverage lint clean install help fuml-expected python-test python-coverage scripts-coverage node-coverage python-install proto proto-buf python-proto proto-ts proto-rust proto-lint proto-breaking vscode-grammar vscode-build vscode-package docs docs-install docs-serve docs-engine-assets docs-counts docs-check changelog-check changelog-render self-model
+.PHONY: all build build-sysml build-prod build-wasm-prod build-lsp build-grpc build-engine build-core build-syntax build-sysml-wasm build-release-wasm build-wasm build-wasm-wasip1 build-wasm-js wasm-check static-check windows-versioninfo-check man man-check install-tree pgo-profile conformance conformance-pkg conformance-rust conformance-julia conformance-matlab test test-shard coverage lint clean install help ontology-table ontology-table-check python-metamodel python-metamodel-check fuml-expected python-test python-coverage scripts-coverage node-coverage python-install proto proto-buf python-proto proto-ts proto-rust proto-lint proto-breaking vscode-grammar vscode-build vscode-package docs docs-install docs-serve docs-engine-assets docs-landing-assets docs-counts docs-check changelog-check changelog-render self-model
 
 # Version information
 # Only release tags describe a build; the moving `nightly` tag is not a version.
@@ -322,6 +322,24 @@ stdlib-snapshot-check: ## Verify the committed library snapshot matches the bund
 	go run -C $(TOOLS_DIR) ./gen/snapshot -check
 	@echo "✓ stdlib.snapshot is current"
 
+ontology-table: ## Regenerate the metamodel table from the pilot SysML.ecore that scripts/pilot-pin.sh pins
+	./scripts/download-pilot-metamodel.sh
+	go run -C $(TOOLS_DIR) ./gen/ontology
+	@echo "✓ internal/translate/rdf/ontology/table.go regenerated"
+
+ontology-table-check: ## Verify the committed metamodel table matches the pinned pilot SysML.ecore, as CI does
+	./scripts/download-pilot-metamodel.sh
+	go run -C $(TOOLS_DIR) ./gen/ontology -check
+	@echo "✓ internal/translate/rdf/ontology/table.go is current"
+
+python-metamodel: ## Regenerate Python metaclass classes from the ontology table
+	go run -C $(TOOLS_DIR) ./gen/pymetamodel
+	@echo "✓ Python metamodel generated"
+
+python-metamodel-check: ## Verify generated Python metaclass classes are current
+	go run -C $(TOOLS_DIR) ./gen/pymetamodel -check
+	@echo "✓ Python metamodel is current"
+
 fuml-expected: ## Regenerate docs/project/fuml-referee-expected.json from the pinned fUML reference implementation (needs a JDK)
 	./scripts/fuml-expected.sh
 	@echo "✓ fuml-referee-expected.json regenerated"
@@ -508,7 +526,7 @@ docs: ## Build the documentation site, failing on a broken link
 	$(PYTHON) -m mkdocs build --strict --site-dir $(SITE_DIR)
 	@echo "✓ Built $(SITE_DIR)/"
 
-# The cli page's in-browser REPL fetches these two assets; they are built, never
+# The cli page's in-browser REPL fetches these assets; they are built, never
 # vendored. The Pages job runs this target before `docs`; a local `make docs` or
 # `docs-serve` preview wants the same target first or the REPL cannot load.
 docs-engine-assets: ## Build the in-browser engine assets into docs/assets
@@ -522,7 +540,12 @@ docs-engine-assets: ## Build the in-browser engine assets into docs/assets
 	@cp "$$(go env GOROOT)/lib/wasm/wasm_exec.js" docs/assets/
 	@echo "✓ Built docs/assets/sysml-engine.wasm.gz, sysml-repl.wasm.gz, repl-examples/ + wasm_exec.js"
 
-docs-serve: docs-install ## Serve the documentation site with live reload
+# The landing page's diagram and router assets are built from the extension's
+# source rather than vendored; Pages and local previews need both bundles.
+docs-landing-assets: ## Build the landing-page diagram assets into docs/assets
+	cd $(VSCODE_DIR) && npm ci && npm run build:landing
+
+docs-serve: docs-install ## Serve docs with live reload (build docs-engine-assets and docs-landing-assets first)
 	$(PYTHON) -m mkdocs serve --strict
 
 help: ## Show this help message

@@ -1,6 +1,7 @@
 package docir
 
 import (
+	"reflect"
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/ir/view"
@@ -63,7 +64,7 @@ func TestEvaluateDiagramFromDeclaredView(t *testing.T) {
 	if diagram.Direction() != "" || diagram.Palette() != "" {
 		t.Fatalf("direction = %q, palette = %q", diagram.Direction(), diagram.Palette())
 	}
-	if options := diagram.Options(); options != (view.Options{}) {
+	if options := diagram.Options(); !reflect.DeepEqual(options, view.Options{}) {
 		t.Fatalf("options = %+v", options)
 	}
 	rendering := diagram.Rendering()
@@ -139,10 +140,10 @@ func TestEvaluateDiagramCarriesThePalette(t *testing.T) {
 		t.Fatalf("palette = %q", diagram.Palette())
 	}
 	want := view.Options{Direction: view.DirectionLeftRight, Palette: view.PaletteTolMuted}
-	if diagram.Options() != want {
+	if !reflect.DeepEqual(diagram.Options(), want) {
 		t.Fatalf("options = %+v, want %+v", diagram.Options(), want)
 	}
-	if clone := cloneContent([]Content{diagram})[0]; clone.Options() != want {
+	if clone := cloneContent([]Content{diagram})[0]; !reflect.DeepEqual(clone.Options(), want) {
 		t.Fatalf("cloned options = %+v", clone.Options())
 	}
 }
@@ -160,10 +161,10 @@ func TestEvaluateDiagramCarriesThePortDisplay(t *testing.T) {
 		t.Fatalf("ports = %q", diagram.Ports())
 	}
 	want := view.Options{Ports: view.PortsFull}
-	if diagram.Options() != want {
+	if !reflect.DeepEqual(diagram.Options(), want) {
 		t.Fatalf("options = %+v, want %+v", diagram.Options(), want)
 	}
-	if clone := cloneContent([]Content{diagram})[0]; clone.Options() != want {
+	if clone := cloneContent([]Content{diagram})[0]; !reflect.DeepEqual(clone.Options(), want) {
 		t.Fatalf("clone options = %+v, want %+v", clone.Options(), want)
 	}
 }

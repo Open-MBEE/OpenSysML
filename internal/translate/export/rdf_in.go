@@ -302,7 +302,7 @@ func checkTypes(graph *rdf.Graph) (map[rdf.Term]string, error) {
 	}
 	metaclasses := make(map[rdf.Term]string, len(stated))
 	for _, subject := range subjects {
-		class, ok := mostSpecific(stated[subject])
+		class, ok := ontology.MostSpecific(stated[subject])
 		if !ok {
 			return nil, &UnsupportedError{
 				What: fmt.Sprintf("the subject <%s>", subject.Value),
@@ -312,31 +312,6 @@ func checkTypes(graph *rdf.Graph) (map[rdf.Term]string, error) {
 		metaclasses[subject] = class
 	}
 	return metaclasses, nil
-}
-
-// mostSpecific picks the class among those stated that every other is a
-// superclass of, reporting false when there is none.
-func mostSpecific(classes []string) (string, bool) {
-	for _, class := range classes {
-		specific := true
-		for _, other := range classes {
-			if !subclassOf(class, other) {
-				specific = false
-				break
-			}
-		}
-		if specific {
-			return class, true
-		}
-	}
-	return "", false
-}
-
-// subclassOf reports whether the class iri is ancestor or a subclass of it in
-// the SysML ontology; a class of this mapping's extension has no superclass.
-func subclassOf(class, ancestor string) bool {
-	return class == ancestor || strings.HasPrefix(class, rdf.SysML) && strings.HasPrefix(ancestor, rdf.SysML) &&
-		ontology.IsAncestorOrSelf(rdf.LocalName(class), rdf.LocalName(ancestor))
 }
 
 // metaclass returns the local name of the class subject is written as, or ""
@@ -1671,6 +1646,14 @@ func (d *decoder) head(el *element) (string, error) {
 	return d.memberPrefixed(el, head)
 }
 
+// featuresUndeclaredIn202407 are the SysML Feature metaclasses the 202407 metamodel
+// table did not declare, so an earlier mapping never owned them as features.
+var featuresUndeclaredIn202407 = map[string]bool{
+	"ConstructorExpression": true, "FlowEnd": true, "FlowUsage": true, "IndexExpression": true,
+	"InstantiationExpression": true, "PayloadFeature": true, "SuccessionFlowUsage": true,
+	"TerminateActionUsage": true,
+}
+
 // typeFeatureMember reports whether a type owns el, a feature, through a plain
 // OwningMembership rather than a FeatureMembership (KerML.xtext TypeFeatureMember).
 func (d *decoder) typeFeatureMember(el *element) bool {
@@ -1681,6 +1664,11 @@ func (d *decoder) typeFeatureMember(el *element) bool {
 	// A variant is flagged as one whatever its membership is typed; an end's
 	// cross feature is written in the end's head (ownedCrossFeature).
 	if d.boolOf(el, rdf.SysML+"isVariant") || d.enumeratedValue(el) || d.ownedCrossFeature(el.owner) == el {
+		return false
+	}
+	// A mapping predating these metaclasses owned them through a plain
+	// OwningMembership; SysML has no `member`, so that shape is a plain feature.
+	if !d.kerml(el) && featuresUndeclaredIn202407[el.metaclass] {
 		return false
 	}
 	m, owned := d.owningMembership[el.iri]
@@ -2327,7 +2315,7 @@ func (d *decoder) usageHead(el *element, kind ast.UsageKind) (string, error) {
 	if d.boolOf(el, rdf.SysML+"isOrdered") {
 		multPart += " ordered"
 	}
-	if d.boolOf(el, rdf.SysML+"isNonunique") {
+	if d.nonunique(el) {
 		multPart += " nonunique"
 	}
 	typed, err := d.referenceList(el, rdf.SysML+relationshipProperty[ast.RelTyping])
@@ -3543,13 +3531,11 @@ func (d *decoder) crossFeatureWords(cross *element) ([]string, error) {
 	case mult != "":
 		words = append(words, mult)
 	}
-	for _, flag := range []struct {
-		property string
-		keyword  string
-	}{{"isOrdered", "ordered"}, {"isNonunique", "nonunique"}} {
-		if d.boolOf(cross, rdf.SysML+flag.property) {
-			words = append(words, flag.keyword)
-		}
+	if d.boolOf(cross, rdf.SysML+"isOrdered") {
+		words = append(words, "ordered")
+	}
+	if d.nonunique(cross) {
+		words = append(words, "nonunique")
 	}
 	if len(words) == 0 {
 		return nil, &UnsupportedError{
@@ -4096,6 +4082,15 @@ func (d *decoder) boolOf(el *element, property string) bool {
 		return d.graph.BoolValue(value, property)
 	}
 	return false
+}
+
+// nonunique reads `nonunique` from Feature::isUnique false, or from the
+// isNonunique an earlier mapping wrote for it.
+func (d *decoder) nonunique(el *element) bool {
+	if unique, stated := d.graph.Lexical(rdf.IRI(el.iri), rdf.SysML+pIsUnique); stated {
+		return unique == "false" || unique == "0"
+	}
+	return d.boolOf(el, rdf.SysML+"isNonunique")
 }
 
 // declaresUsage reports whether el is a usage declaration rather than a body

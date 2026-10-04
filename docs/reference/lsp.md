@@ -127,6 +127,11 @@ Renders one view of a document.
 | `palette` | Optional. A palette the `dot`, `mermaid` and `plantuml` forms fill nodes with by keyword family: `okabe-ito`, `tol-bright`, `tol-muted`, `tol-light`, `brewer-set2`, `brewer-dark2`, `viridis` or `cividis` ([the palettes](../project/view-rendering-forms.md#palettes)). Omitted or empty draws black and white. Mermaid sequence diagrams note that they cannot fill individual participants; `text` and `markdown` ignore palettes. A server advertising `openSysmlRenderPalette` gives each node the palette colours as `fill` and `border`, so a client drawing the nodes itself can use the same colours. |
 | `style` | Optional. The drawing style the `dot` or `mermaid` form draws in: `pilot` (the default, the Pilot visualizer's B&W) or `cameo`, the look of Cameo Systems Modeler — 11 pt Arial, gradient fills in Cameo's colours, compartments and UML pseudo-state symbols ([the measurements](../project/view-rendering-forms.md#the-cameo-style)). Mermaid draws supported Cameo details but flattens gradients and omits the frame and header tab; unsupported details are noted. PlantUML notes a style other than `pilot` as not represented; `text` and `markdown` ignore it. The result's `style` names the style drawn, the default when omitted. |
 | `ports` | Optional. How much of a part's ports an interconnection draws: `minimal` (the default), the ports a connector of the view ends at, each a small square on the part's border named beside it, or `full`, every port a part has, labelled `name : Type`. Other kinds ignore it. |
+| `linkTemplate` | Optional. Template for source links on diagram elements, with `{file}`, `{line}`, `{col}`, `{qname}` and `{id}` placeholders. `{file}` is the path as loaded. Only on-disk workspace documents are linked; bundled libraries and non-file documents have no source link. |
+
+The VS Code export sends `<uriScheme>://file/{file}:{line}:{col}`. Those links survive in DOT
+and PlantUML SVG, but Mermaid CLI 11.16.0's default strict-mode renderer strips them because
+their scheme is not HTTP(S).
 
 Omitting `view` renders the view the document declares. If the document declares
 several, the request is ambiguous and fails, naming them
@@ -206,6 +211,7 @@ The result, for `{"view": "KitViews::widgetTree"}` over a document declaring
 | `stated` | How the kind was decided — the rendering the view names, the standard view definition it specializes, or that no view was declared. Empty when the view took the default. |
 | `artifact` | What to draw or show: a Mermaid diagram, a Graphviz DOT graph, a PlantUML diagram, the text form, or a Markdown table. |
 | `nodes`, `edges` | What the artifact is made of, so a client can map a click on it back to the source. A node's `kind` is the keyword the notation declares it with (`part def`, `state`), its `name` the qualified name of an element the view exposes or the simple name of one nested in it, its `type` the declared type of a typed usage (`Cog` for `part cog : Cog`, empty otherwise), and its `detail` the notes the artifact draws after the name (`initial`, `already shown`); a client never parses the type out of the detail. A node's `parent` is the node containing it, when one does. An edge's `kind` is `connection`, `transition`, `succession` or `flow`. |
+| `ports`, `fromPort`, `toPort` | A node's optional `ports` array contains the port pins drawn on it, each with an `id`, `name`, optional `type` and optional `direction` (`in`, `out`, `inout`; omitted for an undirected port). A request's `ports` display controls which pins appear: `minimal` lists pins reached by an interconnection edge, while `full` lists every pin. An edge's optional `fromPort` and `toPort` are the IDs of its endpoint pins in those arrays. |
 | `rows`, `columns` | A table rendering's cells, in place of nodes and edges. |
 | `origin` | Where the element was declared, as a document URI, the `range` of the whole declaration and, when the declaration names one, the `selectionRange` of the identifier alone. A client highlights the element whose `range` holds the cursor and navigates to its `selectionRange`, as `textDocument/definition` does. `digest` fingerprints the text the ranges are of, the same for the same text whatever its version: a `setLayout` or `setRoute` of an element another document declares hands it back as its `digest`, with the URI as `declaredIn`, so the target is read in the text it was rendered from or answered `stale`. Every `origin` of one rendering is of the text the rendering was made from, read under one lock, whatever a document holds since. Absent for an element with no locatable declaration: a standard library symbol the index served from its cache, or a step a lowering sequenced without a declaration of its own, carries none rather than a bogus range. |
 | `notices` | What the rendering could not represent, as the text form reports it. |
@@ -339,6 +345,10 @@ document, or names a document whose planning or query execution fails, the
 request fails with the typed error's message (for example `Observatory::Subsystem
 is not a document: one is a part def specializing DocumentQueries::Document`)
 rather than crashing or answering with partial output.
+
+An optional `linkTemplate` request field applies `{file}`, `{line}`, `{col}`, `{qname}` and `{id}`
+to linkable diagram elements. Only on-disk workspace documents are linked; bundled libraries and
+non-file documents have no source link.
 
 ## `opensysml/stdlibContent` (request)
 

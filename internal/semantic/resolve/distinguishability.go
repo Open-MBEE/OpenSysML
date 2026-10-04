@@ -101,14 +101,18 @@ func (r *Resolver) checkInheritedAmbiguity(
 	sort.Strings(names)
 	for _, name := range names {
 		members := r.withoutImplicitlyRedefined(inherited[name], model)
-		if len(members) < 2 {
+		// Keep the members some other member is indistinguishable from; the
+		// rest conflict with nothing and belong to neither warning nor `from`.
+		var kept []*symbols.Symbol
+		for _, member := range members {
+			if len(r.duplicatesOf(member, othersOf(members, member))) > 0 {
+				kept = append(kept, member)
+			}
+		}
+		if len(kept) < 2 {
 			continue
 		}
-		dups := r.duplicatesOf(members[0], members[1:])
-		if len(dups) == 0 {
-			continue
-		}
-		r.duplicateInherited(owner, name, members)
+		r.duplicateInherited(owner, name, kept)
 	}
 }
 
@@ -360,16 +364,56 @@ func redefinerOtherThan(redefiners []*symbols.Symbol, sym *symbols.Symbol) bool 
 }
 
 // duplicatesOf returns the members of others that make sym's name ambiguous:
-// every one naming a different element.
+// every one naming a different element of a conforming metaclass.
 func (r *Resolver) duplicatesOf(sym *symbols.Symbol, others []*symbols.Symbol) []*symbols.Symbol {
 	var out []*symbols.Symbol
 	for _, other := range others {
-		if r.sameElement(sym, other) {
+		if r.sameElement(sym, other) || r.DistinguishableByMetaclass(sym, other) {
 			continue
 		}
 		out = append(out, other)
 	}
 	return out
+}
+
+// othersOf is members without member itself.
+func othersOf(members []*symbols.Symbol, member *symbols.Symbol) []*symbols.Symbol {
+	out := make([]*symbols.Symbol, 0, len(members)-1)
+	for _, m := range members {
+		if m != member {
+			out = append(out, m)
+		}
+	}
+	return out
+}
+
+// DistinguishableByMetaclass reports whether neither member's element has a
+// metaclass conforming to the other's (KerML 8.3.2.4.3); unknown is never distinguishable.
+func (r *Resolver) DistinguishableByMetaclass(a, b *symbols.Symbol) bool {
+	model, ok := r.model.(metaclassProvider)
+	if !ok {
+		return false
+	}
+	ea, eb := a, b
+	if a.Kind == symbols.SymbolAlias {
+		target, ok := r.ResolveAliasTarget(a)
+		if !ok || target == nil {
+			return false
+		}
+		ea = target
+	}
+	if b.Kind == symbols.SymbolAlias {
+		target, ok := r.ResolveAliasTarget(b)
+		if !ok || target == nil {
+			return false
+		}
+		eb = target
+	}
+	ma, mb := model.MetaclassOf(ea), model.MetaclassOf(eb)
+	if ma == nil || mb == nil {
+		return false
+	}
+	return !model.Conforms(ma, mb) && !model.Conforms(mb, ma)
 }
 
 // sameElement reports whether two members name the same element, which no

@@ -241,7 +241,7 @@ nor double-counted as two independent disagreements.
 
 ---
 
-## Results (pilot `2026-08`, 382 files)
+## Results (pilot `2026-08`, 384 files)
 
 | Root | Files | Fully agreeing | Ours | Pilot | Agreed | Severity-only | Only ours | Only pilot |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
@@ -249,10 +249,10 @@ nor double-counted as two independent disagreements.
 | `examples/pilot-corpora/sysml-examples` | 99 | 91 | 12 | 0 | 0 | 0 | 12 | 0 |
 | `examples/pilot-corpora/sysml-validation` | 56 | 56 | 0 | 0 | 0 | 0 | 0 | 0 |
 | `examples/pilot-corpora/kerml-examples` | 58 | 56 | 9 | 0 | 0 | 0 | 9 | 0 |
-| `tests/testdata` | 19 | 10 | 44 | 55 | 34 | 1 | 9 | 20 |
+| `tests/testdata` | 21 | 11 | 55 | 77 | 45 | 1 | 9 | 31 |
 | `examples` | 46 | 38 | 7 | 60 | 0 | 0 | 7 | 60 |
 | `tools/referee/diff/testdata` (probes) | 4 | 1 | 6 | 0 | 0 | 0 | 6 | 0 |
-| **Total** | **382** | **351** | **79** | **115** | **34** | **1** | **44** | **80** |
+| **Total** | **384** | **352** | **90** | **137** | **45** | **1** | **44** | **91** |
 
 **Read the `only ours` total by root, never as one number.** Step 2 removes nine resolver false
 positives from the reference's **own** corpora: `pilot-examples` 16 → **7** and
@@ -293,7 +293,7 @@ changing what it detects.
 Per category, the only-ours totals are: `training` 1 `multiplicity`; `pilot-examples` 4
 `unmapped`, 2 `units`, 5 `kind-mismatch`, 1 `multiplicity`; `kerml-examples` 9 `unmapped`;
 `testdata` 8 `unmapped`, 1 `multiplicity`; `examples` 4 `unmapped`, 1 `kind-mismatch`, 2
-`multiplicity`; `probes` 6 `unmapped`. Only-pilot: `testdata` 12 `kind-mismatch`, 3 `unmapped`,
+`multiplicity`; `probes` 6 `unmapped`. Only-pilot: `testdata` 12 `kind-mismatch`, 14 `unmapped`,
 3 `syntax`, 2 `unresolved-reference`; `examples` 6 `syntax`, 17 `unmapped`, 37 `kind-mismatch`.
 
 ### Single-objective round
@@ -310,9 +310,9 @@ warnings read in the round below, nothing else.
 
 | Count | Before | Now |
 |---|---:|---:|
-| overall: fully agreeing | 350 | **351** |
-| only pilot | 82 | **80** |
-| pilot diagnostics | 117 | **115** |
+| overall: fully agreeing | 351 | **352** |
+| only pilot | 93 | **91** |
+| pilot diagnostics | 139 | **137** |
 | `examples`: fully agreeing / only pilot | 37 / 62 | **38 / 60** |
 
 ### Supplied-libraries round
@@ -331,8 +331,8 @@ not resolve — the rounds below record 347 such rows on `self-model/document.sy
 `oosem-demo/oosem-demo.sysml`, 440 on `mosa-demo/mosa-demo.sysml` and 397 on
 `analysis-results-demo/lander-results.sysml` — and the `examples` only-pilot column measured how
 much the demos asked of our libraries rather than conformance. Those cascades are gone: only-pilot
-on `examples` 1590 → **62**, on `testdata` 33 → **20** (the 13 rows of `passes/deferred_keeper.sysml`,
-the same cause), pilot diagnostics 1659 → **117**. The pinned roots do not move, since nothing in
+on `examples` 1590 → **62**, on `testdata` 44 → **31** (the 13 rows of `passes/deferred_keeper.sysml`,
+the same cause), pilot diagnostics 1681 → **139**. The pinned roots do not move, since nothing in
 them imports a library of ours, and nothing we report moved.
 
 What remains on `examples` is read row by row. The six `syntax` rows are the two deliberate
@@ -355,13 +355,13 @@ severity-only falls 2 → **1**.
 
 | Count | Before | Now |
 |---|---:|---:|
-| overall: fully agreeing | 346 | **350** |
+| overall: fully agreeing | 347 | **351** |
 | only ours | 43 | **44** |
-| only pilot | 1623 | **82** |
+| only pilot | 1634 | **93** |
 | severity-only | 2 | **1** |
-| our diagnostics / pilot diagnostics | 79 / 1659 | **79 / 117** |
+| our diagnostics / pilot diagnostics | 90 / 1681 | **90 / 139** |
 | `examples`: fully agreeing / only pilot | 33 / 1590 | **37 / 62** |
-| `testdata`: only pilot | 33 | **20** |
+| `testdata`: only pilot | 44 | **31** |
 
 ### Demo validity round
 
@@ -388,10 +388,10 @@ it. Nothing we report moved.
 
 | Count | Before | Now |
 |---|---:|---:|
-| overall: fully agreeing | 344 | **346** |
-| agreed | 38 | **34** |
-| only pilot | 1629 | **1623** |
-| our diagnostics / pilot diagnostics | 83 / 1669 | **79 / 1659** |
+| overall: fully agreeing | 345 | **347** |
+| agreed | 49 | **45** |
+| only pilot | 1640 | **1634** |
+| our diagnostics / pilot diagnostics | 94 / 1691 | **90 / 1681** |
 | `examples`: fully agreeing / agreed / only pilot | 31 / 4 / 1596 | **33 / 0 / 1590** |
 
 ### Legend of the Red Dragon departure round
@@ -937,8 +937,8 @@ cascades through the rest of the file. The movement is entirely one file,
 
 | Count | Before the initializer rewrite | Now |
 |---|---:|---:|
-| only pilot | 82 | **80** |
-| pilot diagnostics | 123 | **115** |
+| only pilot | 82 | **91** |
+| pilot diagnostics | 123 | **137** |
 | severity-only | 9 | **1** |
 
 The rewrite itself took only-pilot to 61 and pilot diagnostics to 101; the `Now` column states
@@ -1161,11 +1161,11 @@ page's history.
 
 | Count | Now |
 |---|---:|
-| overall: fully agreeing / only ours / our diagnostics | **351 / 44 / 79** |
-| only pilot | **80** |
-| pilot diagnostics | **115** |
+| overall: fully agreeing / only ours / our diagnostics | **352 / 44 / 90** |
+| only pilot | **91** |
+| pilot diagnostics | **137** |
 | severity-only | **1** |
-| unmapped, our side | **35** |
+| unmapped, our side | **46** |
 | kerml-examples: only ours | **9** |
 | pilot-examples: only ours | **12** |
 | examples: only pilot | **60** |
@@ -2972,11 +2972,11 @@ fetches. Together they bound how long a stale figure can survive to about a day.
 
 ### Multiplicity bound result types round
 
-`validateMultiplicityRangeResultTypes` (KerML 1.1 8.3.3.6) is a constraint-tier rule
-(`passes/w8c_multiplicity_bounds.go`): a model-level-evaluable bound must evaluate to a
-non-negative integer or `*`; a bound that is not model-level evaluable is judged by whether its
-result type conforms to Integer. The rule moves no row of the reference corpora — the only
-non-literal bounds in the four OMG roots (`Simple Tests/MultiplicityTest.sysml`,
+`validateMultiplicityRangeResultTypes` (KerML 1.1 8.3.4.11.2 `MultiplicityRange`) is a
+constraint-tier rule (`passes/w8c_multiplicity_bounds.go`): a model-level-evaluable bound must
+evaluate to a non-negative integer or `*`; a bound that is not model-level evaluable is judged by
+whether its result type conforms to Integer. The rule moves no row of the reference corpora — the
+only non-literal bounds in the four OMG roots (`Simple Tests/MultiplicityTest.sysml`,
 `Geometry Examples/VehicleGeometryAndCoordinateFrames.sysml`) name Integer- or Natural-typed
 sibling features, which both sides accept — and moves
 `semantic/k37-multiplicity-bound-not-natural.kerml` to both-reject. The package-level bound
@@ -2984,17 +2984,17 @@ disagreement is now adjudicated toward the pilot; the exponentiation difference 
 adjudicated toward the specification:
 
 - **A package-level feature without a value is not a valid evaluable bound.** The maintainer
-  ruled the pilot correct, not buggy: the prose in KerML 1.1 §8.3.3.6 requires a model-level-
+  ruled the pilot correct, not buggy: the prose in KerML 1.1 §8.3.4.11.2 requires a model-level-
   evaluable bound to evaluate to a non-negative value. Under §8.3.4.8.5, a package-level feature
   without a value is model-level evaluable and evaluates to itself, so `[k]` is rejected by both
   validators. A type member is not model-level evaluable and is judged by its result type. An
-  evaluable bound the evaluator does not fold (for example, a cast) is also judged by its result
-  type; only a folded value other than a non-negative integer or `*`, or an evaluation that
-  reaches a feature with no value, directly or through another feature's value, is rejected. The
-  pilot also rejects `feature k : Natural = 2 as Natural; feature d [k];`, whose evaluation does
-  not yield a literal there; OpenSysML accepts it, since the cast evaluates to 2. The constraint's
-  OCL (`value <> null implies value >= 0` over
-  `valueOf`, §8.3.3.1.9) cannot
+  evaluable bound the evaluator does not fold (for example, a feature whose value is a cast) is
+  also judged by its result type; only a folded value other than a non-negative integer or `*`, or
+  an evaluation that reaches a feature with no value, directly or through another feature's value,
+  is rejected. The pilot also rejects
+  `feature k : Natural = 2 as Natural; feature d [k];`, whose evaluation does not yield a literal
+  there; OpenSysML accepts it, since the cast evaluates to 2. The constraint's OCL
+  (`value <> null implies value >= 0` over `valueOf`, §8.3.3.1.9) cannot
   distinguish a non-literal result from a negative value because `valueOf` returns null for
   both. OpenSysML follows the prose;
   [omg-issues.md](omg-issues.md#a-bound-naming-a-package-level-feature-is-rejected-whatever-its-type-pilot-2026-07)
@@ -3004,9 +3004,11 @@ adjudicated toward the specification:
   passes its check. `IntegerFunctions::'**'` is declared `in y : Natural`, and an Integer
   exponent resolves to `RationalFunctions::'**'`, whose result is Rational; we accept the
   exponentiation only when the exponent is Natural-conforming (`k : Natural`, `p : Positive`, a
-  literal, or `+`/`*`/`%` over such). The pilot's grammar admits only a literal or a feature
-  reference as a bound (`MultiplicityExpressionMember`), so no arithmetic bound reaches its
-  validator and the difference has no referee row; it is a reading of the library.
+  literal, or `+`/`*`/`%` over such). Both grammars admit only a literal or a feature
+  reference as a bound (`MultiplicityExpressionMember`): an arithmetic, cast,
+  parenthesised, chained or invoked bound such as `[2 ** n]` is a syntax error on both sides, so
+  the exponent typing above applies only to the tree recovered from that error and the difference
+  has no referee row; it is a reading of the library.
 
 ### Binary-link specialization round
 
@@ -3352,6 +3354,15 @@ case or requirement are implicit redefinitions; and the assignments in a metadat
 redefinitions of the metadata definition's features (`MetadataBodyUsage` in the pinned grammar), not
 second members of those names. Fixtures: `testdata/passes/inherited_name_library_base.sysml` (positive,
 two warnings) and `..._clean.sysml` (negative, silent on both sides).
+
+`testdata/passes/distinguishable_by_metaclass.sysml` (positive) and `..._clean.sysml` (negative)
+join the corpus: 11 agreed rows on the first, where same or specializing metaclasses warn in both
+tools, and 11 only-pilot's rows on the second, each a `Duplicate of …` warning between members
+whose metaclasses conform in neither direction. Adjudicated against KerML §8.3.2.4.3
+`Membership::isDistinguishableFrom`: specification clear, pilot short (its
+`// TODO: Add member element metaclass check`); see
+[gap register #13](spec-pilot-gap-register.md#13-indistinguishable-memberships-severity-and-anonymous-performed-actions).
+No other row moved.
 
 Movement, against the clean-cache run this branch merges (the census `main` records):
 
