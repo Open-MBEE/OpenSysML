@@ -22,6 +22,7 @@ def read_json(
     | Sequence[Mapping[str, Any]] | Mapping[str, Any],
     *,
     supertypes: Mapping[str, str] | None = None,
+    check_ranges: bool = True,
 ) -> ElementGraph:
     """Read an exported JSON document; strings and paths name files, not JSON text."""
     value = _read_source(source)
@@ -36,7 +37,7 @@ def read_json(
         items = _unwrap_items(_as_sequence(value))
     else:
         raise MalformedDocument("document must be an object or an array of elements")
-    return ElementGraph(items, supertypes=supertypes)
+    return ElementGraph(items, supertypes=supertypes, check_ranges=check_ranges)
 
 
 def _read_source(
@@ -83,13 +84,21 @@ def _unwrap_items(items: Sequence[Any]) -> list[dict[str, Any]]:
 class ElementGraph:
     """Indexed document elements with lazy, cached metaclass wrappers."""
 
-    __slots__ = ("_data_by_id", "_order", "_cache", "_supertypes", "_roots")
+    __slots__ = (
+        "_data_by_id",
+        "_order",
+        "_cache",
+        "_supertypes",
+        "_check_ranges",
+        "_roots",
+    )
 
     def __init__(
         self,
         elements: Sequence[Mapping[str, Any]],
         *,
         supertypes: Mapping[str, str] | None = None,
+        check_ranges: bool = True,
     ) -> None:
         data_by_id: dict[str, dict[str, Any]] = {}
         order: list[str] = []
@@ -108,6 +117,7 @@ class ElementGraph:
         self._order = tuple(order)
         self._cache: dict[str, Element] = {}
         self._supertypes = supertypes or {}
+        self._check_ranges = check_ranges
         self._roots: tuple[Namespace, ...] | None = None
 
     def __getitem__(self, element_id: str) -> Element:
@@ -132,6 +142,11 @@ class ElementGraph:
 
     def __len__(self) -> int:
         return len(self._order)
+
+    @property
+    def check_ranges(self) -> bool:
+        """Whether reference targets are checked against declared metaclass ranges."""
+        return self._check_ranges
 
     def __iter__(self) -> Iterator[Element]:
         for element_id in self._order:

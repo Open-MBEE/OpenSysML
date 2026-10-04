@@ -110,6 +110,8 @@ an alias (`ownedFeature`) to the same descriptor. `PartUsage.from_json_key("part
 returns the primary Python name, and `PartUsage.json_key("part_definition")` returns the JSON key.
 Strings passed to `read_json` are file paths, not JSON text; bytes, mappings, and sequences of
 element mappings are also accepted. The reader understands DataVersion and Commit envelopes.
+Reference targets are checked against their declared metaclass ranges by default; pass
+`check_ranges=False` to return out-of-range targets as written.
 
 Missing keys raise `NotSupplied`, including absent multi-valued properties. Dangling `@id` and
 unresolved `@ref` values raise `UnresolvedReference` when accessed. Invalid document structure
@@ -120,7 +122,7 @@ These exceptions share `MetamodelError`, a subclass of `opensysml.errors.OpenSys
 | --- | --- |
 | `NotSupplied` | A declared JSON key is absent; `.derived` identifies computed properties. |
 | `UnresolvedReference` | A reference's `@id` is absent from the graph or its `@ref` cannot be resolved. |
-| `MalformedValue` | A property value has the wrong primitive, enum, array, or reference shape. |
+| `MalformedValue` | A property value has the wrong primitive, enum, array, or reference shape, or (when range checks are enabled) a reference targets the wrong metaclass. |
 | `MalformedDocument` | The input is not an element object/array, or has missing/duplicate IDs or types. |
 | `UnknownJSONKey` | A JSON key is not declared for the selected metaclass. |
 

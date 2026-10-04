@@ -192,6 +192,32 @@ def test_many_reference_ranges_are_checked_per_item():
         graph["definition"].owned_feature
 
 
+def test_range_checks_can_be_disabled_for_derived_references():
+    document = [
+        element(
+            "requirement",
+            "RequirementDefinition",
+            ownedInterface=[{"@id": "reference"}],
+            result={"@id": "requirement"},
+        ),
+        element("reference", "ReferenceUsage"),
+    ]
+
+    checked = read_json(document)
+    assert checked.check_ranges is True
+    with pytest.raises(MalformedValue):
+        checked["requirement"].owned_interface
+    with pytest.raises(MalformedValue):
+        checked["requirement"].result
+
+    unchecked = read_json(document, check_ranges=False)
+    assert unchecked.check_ranges is False
+    assert unchecked["requirement"].owned_interface == (unchecked["reference"],)
+    assert unchecked["requirement"].result is unchecked["requirement"]
+    with pytest.raises(AttributeError):
+        unchecked.check_ranges = True
+
+
 def test_missing_and_null_properties_preserve_cardinality():
     usage = read_json(element())["e"]
     with pytest.raises(NotSupplied) as excinfo:

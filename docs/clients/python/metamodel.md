@@ -52,7 +52,10 @@ A property the JSON does not carry raises `NotSupplied` (its `.derived` says
 whether the property is computed). It never reads as `None` or `()` instead:
 only an explicit `null` or `[]` in the JSON means empty. A reference to an `@id`
 the document does not contain raises `UnresolvedReference` when read. A reference
-to an element of the wrong metaclass raises `MalformedValue`.
+to an element of the wrong metaclass raises `MalformedValue`. Some exports write
+derived values outside their range (sysml-toolkit full-json sets a requirement
+definition's `result` to the definition itself, for example);
+`read_json(..., check_ranges=False)` returns such elements as written instead.
 
 OpenSysML's `api-json` export carries the owned properties it writes plus some derived ones
 (`ownedFeature`, `owner`, `qualifiedName`, `ownedMember`, ...). It carries no `feature`,

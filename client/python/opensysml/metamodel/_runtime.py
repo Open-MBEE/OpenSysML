@@ -238,6 +238,8 @@ class _Property(Generic[T]):
                 raise UnresolvedReference(
                     element_id, None, self._property(instance), instance.json_id
                 ) from None
+            if not instance.graph.check_ranges:
+                return cast(T, target)
             expected = self._expected_metaclass()
             if expected is not None and not isinstance(target, expected):
                 raise self._malformed(
