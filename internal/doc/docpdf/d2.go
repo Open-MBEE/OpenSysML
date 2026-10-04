@@ -1,6 +1,8 @@
 package docpdf
 
 import (
+	"errors"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -24,8 +26,8 @@ func (d *d2Rasterizer) prepare(string) error {
 	return nil
 }
 
-// draw runs d2 in dir on the block written to a .d2 file beside the SVG; the
-// layout engine is named so a D2_LAYOUT in the environment does not pick one.
+// draw runs d2 in dir on the block written to a .d2 file beside the SVG, the
+// layout named so D2_LAYOUT cannot pick one; a missing SVG is the caller's check.
 func (d *d2Rasterizer) draw(dir, source, output string) error {
 	input := strings.TrimSuffix(output, ".svg") + ".d2"
 	if err := os.WriteFile(filepath.Join(dir, input), []byte(source+"\n"), 0o600); err != nil {
@@ -34,7 +36,11 @@ func (d *d2Rasterizer) draw(dir, source, output string) error {
 	if err := runTool(dir, d.d2, "--layout=dagre", "--pad=16", input, output); err != nil {
 		return err
 	}
-	return defineMasks(filepath.Join(dir, output))
+	svg := filepath.Join(dir, output)
+	if _, err := os.Stat(svg); errors.Is(err, fs.ErrNotExist) {
+		return nil
+	}
+	return defineMasks(svg)
 }
 
 // svgMask matches one <mask> element; d2 writes them flat, never nested.

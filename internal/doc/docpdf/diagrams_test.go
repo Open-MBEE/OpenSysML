@@ -491,6 +491,29 @@ func TestDrawDiagramToolWroteNoSVG(t *testing.T) {
 	}
 }
 
+// TestDrawDiagramD2WroteNoSVG checks a d2 that exits 0 without writing an SVG
+// document fails as every tool does — a typed failure naming d2 and the
+// diagram, not the error of the mask pass reading a file that is not there.
+func TestDrawDiagramD2WroteNoSVG(t *testing.T) {
+	cases := map[string]string{
+		"nothing":      "exit 0\n",
+		"diagnostics":  `printf 'err: layout failed\n' > "$out"`,
+		"malformedXML": `printf '<svg xmlns="http://www.w3.org/2000/svg"><mask id="m">unclosed' > "$out"`,
+	}
+	for name, script := range cases {
+		t.Run(name, func(t *testing.T) {
+			dir := t.TempDir()
+			withoutDiagramTools(t)
+			fakeTool(t, dir, "d2", D2Env, `out=""; for arg; do out="$arg"; done`+"\n"+script+"\n")
+			_, err := drawDiagrams(dir, telescopeDiagrams(t, view.FormD2))
+			var docErr *Error
+			if !errors.As(err, &docErr) || docErr.Kind != ErrorToolFailed || docErr.Tool != d2Tool.name || !strings.Contains(docErr.Detail, "wrote no SVG") || !strings.Contains(docErr.Detail, "diagram 1") {
+				t.Fatalf("got %v, want ErrorToolFailed from d2 naming diagram 1", err)
+			}
+		})
+	}
+}
+
 // TestDrawDiagramToolWroteAPrefacedSVG checks a drawing opening on an XML
 // declaration and a DOCTYPE, as Graphviz and PlantUML write it, is accepted.
 func TestDrawDiagramToolWroteAPrefacedSVG(t *testing.T) {
