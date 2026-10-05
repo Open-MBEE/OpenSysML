@@ -333,21 +333,21 @@ def render_view_result(response):
             node.id, node.kind, node.name, node.name_synthesized, node.type, node.detail,
             node.text, node.stand_in, node.parent,
             tuple(RenderPort(port.id, port.name, port.type, port.direction) for port in node.ports),
-            _render_span(node.origin),
-            None if node.geometry is None else RenderGeometry(
+            _render_span(node.origin if node.HasField("origin") else None),
+            None if not node.HasField("geometry") else RenderGeometry(
                 node.geometry.x, node.geometry.y, node.geometry.width, node.geometry.height,
                 node.geometry.has_size, node.geometry.collapsed,
             ),
-            _render_style(node.style),
+            _render_style(node.style if node.HasField("style") else None),
         )
         for node in response.nodes
     )
     edges = tuple(
         RenderEdge(
             getattr(edge, "from"), edge.to, edge.from_port, edge.to_port, edge.label, edge.name, edge.kind,
-            _render_span(edge.origin),
+            _render_span(edge.origin if edge.HasField("origin") else None),
             tuple(RenderPoint(point.x, point.y) for point in edge.route),
-            _render_style(edge.style),
+            _render_style(edge.style if edge.HasField("style") else None),
         )
         for edge in response.edges
     )
@@ -356,11 +356,14 @@ def render_view_result(response):
         canvas = RenderCanvas(
             response.canvas.unit, response.canvas.width, response.canvas.height, response.canvas.has_size
         )
-    rows = tuple(RenderRow(tuple(row.cells), _render_span(row.origin)) for row in response.rows)
+    rows = tuple(
+        RenderRow(tuple(row.cells), _render_span(row.origin if row.HasField("origin") else None))
+        for row in response.rows
+    )
     notes = tuple(
         RenderNote(
             note.text, note.anchor, note.edge_from, note.edge_to, note.x, note.y, note.width,
-            note.height, note.has_size, _render_span(note.origin),
+            note.height, note.has_size, _render_span(note.origin if note.HasField("origin") else None),
         )
         for note in response.notes
     )

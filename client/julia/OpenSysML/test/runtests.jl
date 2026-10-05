@@ -44,6 +44,43 @@ const FIXTURES = normpath(joinpath(@__DIR__, "..", "..", "..", "..", "conformanc
     @test rendered.notes[1].edge_to == "n1"
     @test rendered.notices == ["notice"]
     @test OpenSysML.rendered_view_result(Dict{String,Any}()).canvas === nothing
+    sparse = OpenSysML.rendered_view_result(Dict{String,Any}(
+        "nodes" => [Dict{String,Any}()], "edges" => [Dict{String,Any}()],
+        "rows" => [Dict{String,Any}()], "notes" => [Dict{String,Any}()]))
+    @test isnothing(sparse.nodes[1].origin)
+    @test isnothing(sparse.nodes[1].geometry)
+    @test isnothing(sparse.nodes[1].style)
+    @test isnothing(sparse.edges[1].origin)
+    @test isnothing(sparse.edges[1].style)
+    @test isnothing(sparse.rows[1].origin)
+    @test isnothing(sparse.notes[1].origin)
+end
+
+@testset "RenderView preserves service not-found messages" begin
+    factory = (text, _) -> SymbolNotFoundError("Demo::missing"; service_message=text)
+    for (view, message) in (("Demo::missing", "no view named Demo::missing"),
+                            ("#interconnection:Nope",
+                             "#interconnection:Nope: Nope names nothing in this model"))
+        err = try
+            OpenSysML._translate(; not_found=(text, _) ->
+                SymbolNotFoundError(view; service_message=text)) do
+                throw(OpenSysML.ConnectError("not_found", message, 404))
+            end
+        catch caught
+            caught
+        end
+        @test err isa SymbolNotFoundError
+        @test err.name == view
+        @test sprint(showerror, err) == message
+    end
+    model_error = try
+        OpenSysML._translate(; not_found=factory) do
+            throw(OpenSysML.ConnectError("not_found", "model not found: abc", 404))
+        end
+    catch caught
+        caught
+    end
+    @test model_error isa ModelNotFoundError
 end
 
 @testset "decode_value: the twenty-two arms" begin

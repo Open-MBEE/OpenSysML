@@ -388,7 +388,8 @@ function render_view(model::Model, view_name::AbstractString; ports="minimal")
     ports in ("minimal", "full") || throw(ArgumentError("ports must be 'minimal' or 'full'"))
     conn = model.connection
     require_capability(conn, CAPABILITY_RENDER_VIEW)
-    answer = _translate(; not_found=SymbolNotFoundError,
+    answer = _translate(; not_found=(message, _) ->
+        SymbolNotFoundError(view_name; service_message=message),
         capabilities=(CAPABILITY_RENDER_VIEW,), connection=conn) do
         call(conn, "RenderView", Dict{String,Any}("modelHash" => model.hash,
             "view" => String(view_name), "ports" => ports == "minimal" ? "" : ports))

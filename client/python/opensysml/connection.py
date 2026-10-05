@@ -101,6 +101,7 @@ from opensysml.errors import (
     StaleServiceError,
     SymbolNotFoundError,
     UnsupportedValueError,
+    ViewNotFoundError,
     WrongKindError,
     from_rpc_error,
     translate_rpc_errors,
@@ -1837,7 +1838,9 @@ class Connection:
             ports="" if ports == "minimal" else ports,
         )
         with translate_rpc_errors(
-            not_found=SymbolNotFoundError,
+            not_found=lambda message, code: ViewNotFoundError(
+                view_name, message, code=code
+            ),
             unimplemented=self._capability_refusal((CAPABILITY_RENDER_VIEW,)),
         ):
             response = self._stub.RenderView(request)

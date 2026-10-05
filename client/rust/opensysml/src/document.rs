@@ -658,43 +658,46 @@ mod render_view_tests {
             view: "Demo::view".to_owned(),
             kind: "interconnection".to_owned(),
             stated: "rendered".to_owned(),
-            nodes: vec![wire::RenderNode {
-                id: "n0".to_owned(),
-                kind: "part".to_owned(),
-                name: "root".to_owned(),
-                name_synthesized: true,
-                r#type: "Demo::Part".to_owned(),
-                detail: "detail".to_owned(),
-                text: "text".to_owned(),
-                stand_in: true,
-                ports: vec![wire::RenderPort {
-                    id: "n0.0".to_owned(),
-                    name: "api".to_owned(),
-                    r#type: "Demo::API".to_owned(),
-                    direction: "inout".to_owned(),
-                }],
-                origin: Some(wire::Span {
-                    file: "views.sysml".to_owned(),
-                    start_line: 4,
+            nodes: vec![
+                wire::RenderNode {
+                    id: "n0".to_owned(),
+                    kind: "part".to_owned(),
+                    name: "root".to_owned(),
+                    name_synthesized: true,
+                    r#type: "Demo::Part".to_owned(),
+                    detail: "detail".to_owned(),
+                    text: "text".to_owned(),
+                    stand_in: true,
+                    ports: vec![wire::RenderPort {
+                        id: "n0.0".to_owned(),
+                        name: "api".to_owned(),
+                        r#type: "Demo::API".to_owned(),
+                        direction: "inout".to_owned(),
+                    }],
+                    origin: Some(wire::Span {
+                        file: "views.sysml".to_owned(),
+                        start_line: 4,
+                        ..Default::default()
+                    }),
+                    geometry: Some(wire::RenderGeometry {
+                        x: 1.0,
+                        y: 2.0,
+                        width: 3.0,
+                        height: 4.0,
+                        has_size: true,
+                        collapsed: true,
+                    }),
+                    style: Some(wire::RenderStyle {
+                        fill: "#fff".to_owned(),
+                        font_size: 12.0,
+                        bold: true,
+                        italic: true,
+                        ..Default::default()
+                    }),
                     ..Default::default()
-                }),
-                geometry: Some(wire::RenderGeometry {
-                    x: 1.0,
-                    y: 2.0,
-                    width: 3.0,
-                    height: 4.0,
-                    has_size: true,
-                    collapsed: true,
-                }),
-                style: Some(wire::RenderStyle {
-                    fill: "#fff".to_owned(),
-                    font_size: 12.0,
-                    bold: true,
-                    italic: true,
-                    ..Default::default()
-                }),
-                ..Default::default()
-            }],
+                },
+                wire::RenderNode::default(),
+            ],
             edges: vec![wire::RenderEdge {
                 from: "n0".to_owned(),
                 to: "n1".to_owned(),
@@ -735,11 +738,18 @@ mod render_view_tests {
         assert_eq!(rendered.nodes[0].origin.as_ref().unwrap().start_line, 4);
         assert!(rendered.nodes[0].geometry.as_ref().unwrap().collapsed);
         assert_eq!(rendered.nodes[0].style.as_ref().unwrap().font_size, 12.0);
+        assert!(rendered.nodes[1].origin.is_none());
+        assert!(rendered.nodes[1].geometry.is_none());
+        assert!(rendered.nodes[1].style.is_none());
         assert_eq!(rendered.edges[0].from_port, "n0.0");
+        assert!(rendered.edges[0].origin.is_none());
+        assert!(rendered.edges[0].style.is_none());
         assert_eq!(rendered.edges[0].route[0].x, 2.0);
         assert_eq!(rendered.rows[0].cells, vec!["x".to_owned()]);
+        assert!(rendered.rows[0].origin.is_none());
         assert!(rendered.canvas.as_ref().unwrap().has_size);
         assert_eq!(rendered.notes[0].edge_to, "n1");
+        assert!(rendered.notes[0].origin.is_none());
         assert_eq!(rendered.notices, vec!["notice".to_owned()]);
 
         let empty = rendered_view_of(wire::RenderViewResponse::default());

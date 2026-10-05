@@ -90,6 +90,19 @@ test("rendered view decoder preserves wire fields and message presence", () => {
   assert.equal(rendered.notes[0]?.edgeTo, "n1");
   assert.deepEqual(rendered.notices, ["notice"]);
   assert.equal(renderedViewOf(create(RenderViewResponseSchema, {})).canvas, undefined);
+  const sparse = renderedViewOf(create(RenderViewResponseSchema, {
+    nodes: [{}],
+    edges: [{}],
+    rows: [{}],
+    notes: [{}],
+  }));
+  assert.equal(sparse.nodes[0]?.origin, undefined);
+  assert.equal(sparse.nodes[0]?.geometry, undefined);
+  assert.equal(sparse.nodes[0]?.style, undefined);
+  assert.equal(sparse.edges[0]?.origin, undefined);
+  assert.equal(sparse.edges[0]?.style, undefined);
+  assert.equal(sparse.rows[0]?.origin, undefined);
+  assert.equal(sparse.notes[0]?.origin, undefined);
 });
 
 test("states and events over the object instantiate built", async () => {

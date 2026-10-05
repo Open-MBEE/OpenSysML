@@ -396,7 +396,8 @@ class Model:
             ValueError: If ``ports`` is neither ``"minimal"`` nor ``"full"``
             MissingCapabilityError: If the service cannot render views
             InvalidRequestError: If the view is malformed or does not render
-            SymbolNotFoundError: If the view or pseudo-view target is missing
+            ViewNotFoundError: If the view or pseudo-view target is missing;
+                also a SymbolNotFoundError and KeyError
             ModelNotFoundError: If the service no longer holds this model
         """
         return self.connection.render_view(self._hash, view_name, ports=ports)

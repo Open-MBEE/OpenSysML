@@ -41,6 +41,7 @@ from opensysml.errors import (
     ModelNotFoundError,
     SymbolNotFoundError,
     UnsupportedValueError,
+    ViewNotFoundError,
 )
 from opensysml.proto import sysml_pb2, sysml_pb2_grpc
 from opensysml.values import Quantity, Unit, UnitFactor
@@ -350,6 +351,7 @@ def test_render_view_decodes_all_fields_and_optional_messages():
     response.notes.add(
         text="note", anchor="n0", edge_from="n0", edge_to="n1",
         x=1, y=2, width=3, height=4, has_size=True,
+        origin=sysml_pb2.Span(file="views.sysml"),
     )
 
     rendered = render_view_result(response)
@@ -366,7 +368,22 @@ def test_render_view_decodes_all_fields_and_optional_messages():
     assert rendered.rows[0].cells == ("x",)
     assert rendered.canvas.has_size
     assert rendered.notes[0].text == "note"
+    assert rendered.notes[0].origin.file == "views.sysml"
     assert rendered.notices == ("notice",)
+
+    sparse = render_view_result(sysml_pb2.RenderViewResponse(
+        nodes=[sysml_pb2.RenderNode()],
+        edges=[sysml_pb2.RenderEdge()],
+        rows=[sysml_pb2.RenderRow()],
+        notes=[sysml_pb2.RenderNote()],
+    ))
+    assert (sparse.nodes[0].origin, sparse.nodes[0].geometry, sparse.nodes[0].style) == (
+        None, None, None,
+    )
+    assert (sparse.edges[0].origin, sparse.edges[0].style) == (None, None)
+    assert sparse.rows[0].origin is None
+    assert sparse.notes[0].origin is None
+
     empty = render_view_result(sysml_pb2.RenderViewResponse())
     assert empty.canvas is None
     assert empty.nodes == ()
@@ -984,6 +1001,37 @@ class TestDocumentsAgainstRealService:
         assert len(rendered.edges) == 1
         assert rendered.edges[0].from_port and rendered.edges[0].to_port
         assert all(node.origin is not None for node in rendered.nodes)
+
+    @pytest.mark.parametrize(
+        ("view_name", "service_message"),
+        [
+            ("RenderViewDemo::Missing", "no view named RenderViewDemo::Missing"),
+            (
+                "#interconnection:Nope",
+                "#interconnection:Nope: Nope names nothing in this model",
+            ),
+        ],
+    )
+    def test_a_missing_view_preserves_its_name_and_service_message(
+        self, real_service, view_name, service_message
+    ):
+        with Connection(port=real_service, auto_start=False) as conn:
+            model = conn.load(VIEW_FIXTURE)
+            with pytest.raises(ViewNotFoundError) as excinfo:
+                model.render_view(view_name)
+        error = excinfo.value
+        assert error.name == view_name
+        assert str(error) == service_message
+        assert error.suggestions == []
+        assert error.code == grpc.StatusCode.NOT_FOUND
+        assert isinstance(error, SymbolNotFoundError)
+        assert isinstance(error, KeyError)
+
+    def test_a_render_view_with_an_unknown_model_hash_is_model_not_found(self, real_service):
+        with Connection(port=real_service, auto_start=False) as conn:
+            with pytest.raises(ModelNotFoundError) as excinfo:
+                conn.render_view("unknown-render-view-model-hash", "Demo::View")
+        assert excinfo.value.code == grpc.StatusCode.NOT_FOUND
 
     def test_an_unknown_query_raises_symbol_not_found(self, real_service, telescope):
         with Connection(port=real_service, auto_start=False) as conn:
