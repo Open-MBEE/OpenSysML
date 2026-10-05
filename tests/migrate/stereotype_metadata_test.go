@@ -290,6 +290,51 @@ func TestElementImportIsWritten(t *testing.T) {
 	}
 }
 
+func TestElementImportSkipsUnnamedProperty(t *testing.T) {
+	const note = "the imported element is written without a name, so no import or alias can name it"
+	for _, tt := range []struct {
+		name  string
+		alias string
+	}{
+		{name: "without alias"},
+		{name: "with alias", alias: ` alias="A"`},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			members := `
+    <packagedElement xmi:type="uml:Class" xmi:id="_owner" name="P">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_anonymous" type="_engine" aggregation="composite"/>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Class" xmi:id="_engine" name="Engine"/>
+    <packagedElement xmi:type="uml:Package" xmi:id="_importer" name="Q">
+      <elementImport xmi:type="uml:ElementImport" xmi:id="_import" importedElement="_anonymous"` + tt.alias + `/>
+    </packagedElement>`
+			applications := `
+  <sysml:Block xmi:id="_ownerBlock" base_Class="_owner"/>
+  <sysml:Block xmi:id="_engineBlock" base_Class="_engine"/>`
+			r := migrateDocument(t, members, applications)
+			assertStereotypeMigrationValid(t, r)
+			wantLine(t, r.Notation, "part : Engine;")
+
+			es := entriesFor(r, "_import")
+			if len(es) != 1 {
+				t.Fatalf("ElementImport entries = %+v, want one skipped entry", es)
+			}
+			if es[0].Verdict != migrate.Skipped || es[0].Note != note {
+				t.Errorf("ElementImport entry = %+v, want Skipped with note %q", es[0], note)
+			}
+			for _, line := range strings.Split(string(r.Notation), "\n") {
+				line = strings.TrimSpace(line)
+				if strings.HasPrefix(line, "public import ") ||
+					strings.HasPrefix(line, "private import ") ||
+					strings.HasPrefix(line, "alias ") ||
+					strings.HasPrefix(line, "private alias ") {
+					t.Errorf("import of unnamed property was written: %q\n%s", line, r.Notation)
+				}
+			}
+		})
+	}
+}
+
 func TestElementImportReservesAliasNames(t *testing.T) {
 	members := `
     <packagedElement xmi:type="uml:Class" xmi:id="_payloadType" name="Payload"/>

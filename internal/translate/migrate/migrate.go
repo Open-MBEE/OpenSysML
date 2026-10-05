@@ -1192,6 +1192,10 @@ func (m *migration) elementImport(e *sysmlv1.Element) {
 		m.add(e, Skipped, "", "the imported element is not written")
 		return
 	}
+	if m.writtenName(target) == "" {
+		m.add(e, Skipped, "", "the imported element is written without a name, so no import or alias can name it")
+		return
+	}
 	name := e.Attrs["alias"]
 	if name == "" {
 		name = m.writtenName(target)
