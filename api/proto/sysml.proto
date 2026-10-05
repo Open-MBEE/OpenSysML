@@ -2170,7 +2170,7 @@ message DocumentState {
 // DocumentEvent is one row an `Events` query answered: one record of the
 // session's trace, in the order the run made it.
 message DocumentEvent {
-  // "accept", "send", "transition", "entry", "exit", "do", "choice" or "guard".
+  // "accept", "send", "transition", "entry", "exit", "do", "choice", "guard" or "terminate".
   string kind = 1;
   // The clock's instant when the record was made: a quantity in the clock's
   // unit when the library reduces one, else a bare real of clock units.

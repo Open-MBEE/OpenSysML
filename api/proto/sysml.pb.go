@@ -10816,7 +10816,7 @@ func (x *DocumentState) GetEnclosing() []string {
 // session's trace, in the order the run made it.
 type DocumentEvent struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// "accept", "send", "transition", "entry", "exit", "do", "choice" or "guard".
+	// "accept", "send", "transition", "entry", "exit", "do", "choice", "guard" or "terminate".
 	Kind string `protobuf:"bytes,1,opt,name=kind,proto3" json:"kind,omitempty"`
 	// The clock's instant when the record was made: a quantity in the clock's
 	// unit when the library reduces one, else a bare real of clock units.

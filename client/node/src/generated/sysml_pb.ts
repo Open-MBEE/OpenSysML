@@ -6071,7 +6071,7 @@ export const DocumentStateSchema: GenMessage<DocumentState> = /*@__PURE__*/
  */
 export type DocumentEvent = Message<"sysml.DocumentEvent"> & {
   /**
-   * "accept", "send", "transition", "entry", "exit", "do", "choice" or "guard".
+   * "accept", "send", "transition", "entry", "exit", "do", "choice", "guard" or "terminate".
    *
    * @generated from field: string kind = 1;
    */
