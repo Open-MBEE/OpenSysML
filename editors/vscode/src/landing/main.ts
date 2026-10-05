@@ -941,6 +941,8 @@ function mount(root: HTMLElement): Mounted {
   let seedPicked = false;
   let runSeed: number | undefined;
   const randomSeed = (): number => 1 + Math.floor(Math.random() * 9999);
+  const sameEvents = (a: readonly string[], b: readonly string[]): boolean =>
+    a.length === b.length && a.every((event, index) => event === b[index]);
 
   on(runBtn, "click", () => {
     if (running) {
@@ -952,6 +954,7 @@ function mount(root: HTMLElement): Mounted {
     syncDebugControls();
     status("Loading the engine and reading the model…");
     void (async () => {
+      let ran = false;
       try {
         const current = await runnable();
         if (!current) {
@@ -966,6 +969,7 @@ function mount(root: HTMLElement): Mounted {
         const used = seed;
         const started = performance.now();
         const visited = journey(await engine(), current, used);
+        ran = true;
         const ms = Math.max(1, Math.round(performance.now() - started));
         if (visited.length === 0) {
           throw new Error("ExecuteState visited none of the diagram's parts");
@@ -982,7 +986,8 @@ function mount(root: HTMLElement): Mounted {
         running = false;
         runBtn.disabled = false;
         syncDebugControls();
-        if (run !== undefined && runSeed !== seed) {
+        if (ran && run !== undefined && (runSeed !== seed || !sameEvents(sent, JOURNEY_EVENTS))) {
+          sent = [...JOURNEY_EVENTS];
           if (debugPanel.hidden) {
             run = undefined;
           } else {
