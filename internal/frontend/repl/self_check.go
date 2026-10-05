@@ -95,7 +95,7 @@ func (s *Session) resolveSelfCheckPackages(pkgs []string) ([]selfCheckRulePackag
 			missing = append(missing, name)
 			continue
 		}
-		key := strings.Join(segs, "\x00")
+		key := fmt.Sprintf("%q", segs)
 		if seen[key] {
 			continue
 		}
