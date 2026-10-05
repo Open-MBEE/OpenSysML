@@ -1,6 +1,7 @@
 package migrate
 
 import (
+	"slices"
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/translate/xmi/sysmlv1"
@@ -12,6 +13,7 @@ func (m *migration) viewBody(e *sysmlv1.Element) {
 	saved := m.scope
 	m.scope = e
 	m.comments(e)
+	m.additionalViewpointConformances(e)
 	m.conformGeneralizations(e)
 	m.taggedViewpoints(e)
 	m.members(e)
@@ -34,8 +36,7 @@ func (m *migration) conforms(g *sysmlv1.Element) bool {
 	return cat == catViewpoint
 }
 
-// conformGeneralizations writes a view's Conform generalizations as satisfy
-// members, each with a report entry of its own.
+// conformGeneralizations accounts for a view's Conform generalizations.
 func (m *migration) conformGeneralizations(e *sysmlv1.Element) {
 	for _, g := range e.Owned("generalization") {
 		if !m.conforms(g) {
@@ -46,22 +47,8 @@ func (m *migration) conformGeneralizations(e *sysmlv1.Element) {
 			m.unmapped(g, note)
 			continue
 		}
-		m.satisfyViewpoint(e, vp)
 		m.add(g, Mapped, m.v2Name(e), "")
 	}
-}
-
-// satisfyViewpoint writes the satisfy member of view for vp, once however many
-// relationships name it.
-func (m *migration) satisfyViewpoint(view, vp *sysmlv1.Element) {
-	if m.satisfied[view] == nil {
-		m.satisfied[view] = map[*sysmlv1.Element]bool{}
-	}
-	if m.satisfied[view][vp] {
-		return
-	}
-	m.satisfied[view][vp] = true
-	m.w.line("satisfy " + m.ref(vp, view) + ";")
 }
 
 // viewpointNote says why vp cannot be satisfied: it is absent, external, not
@@ -79,7 +66,7 @@ func (m *migration) viewpointNote(vp, view *sysmlv1.Element) string {
 	if cat, _ := m.classify(vp); cat != catViewpoint {
 		return qualifiedName(vp) + " becomes a " + cat.keyword() + ", which a view cannot satisfy"
 	}
-	return m.featuredNote(vp, view)
+	return ""
 }
 
 // featuredNote says why a usage cannot be named from scope: a feature of a
@@ -132,8 +119,7 @@ func (m *migration) usageChain(u, d *sysmlv1.Element) string {
 	return strings.Join(path, ".")
 }
 
-// taggedViewpoints satisfies the viewpoints the «View» stereotype's viewpoint
-// tag names, in either spelling the profile has used, when a Conform does not.
+// taggedViewpoints accounts for the viewpoints named by «View» tags.
 func (m *migration) taggedViewpoints(e *sysmlv1.Element) {
 	v := stereo(e, "View")
 	if v == nil {
@@ -150,9 +136,81 @@ func (m *migration) taggedViewpoints(e *sysmlv1.Element) {
 				m.downgrade(e, "the "+tag+" tag is not written: "+note)
 				continue
 			}
-			m.satisfyViewpoint(e, vp)
 		}
 	}
+}
+
+// conformedViewpoints returns the first valid viewpoint reference for a view.
+func (m *migration) conformedViewpoints(e *sysmlv1.Element) string {
+	conformances := m.viewpointConformances(e)
+	if len(conformances) == 0 {
+		return ""
+	}
+	return m.ref(conformances[0].viewpoint, e)
+}
+
+// viewpointConformances returns valid viewpoint sources in migration precedence order.
+func (m *migration) viewpointConformances(e *sysmlv1.Element) []viewpointConformance {
+	var out []viewpointConformance
+	seen := map[*sysmlv1.Element]bool{}
+	add := func(vp, source *sysmlv1.Element, kind conformanceSource) {
+		if vp == nil || seen[vp] || m.viewpointNote(vp, e) != "" {
+			return
+		}
+		seen[vp] = true
+		out = append(out, viewpointConformance{viewpoint: vp, source: source, kind: kind})
+	}
+	for _, g := range e.Owned("generalization") {
+		if m.conforms(g) {
+			add(m.model.Ref(g, "general"), g, generalizationConformance)
+		}
+	}
+	if v := stereo(e, "View"); v != nil {
+		for _, tag := range viewpointTags {
+			for _, id := range v.IDs(tag) {
+				add(m.model.Lookup(id), e, taggedConformance)
+			}
+		}
+	}
+	for _, conformance := range m.conformed[e] {
+		add(conformance.viewpoint, conformance.source, dependencyConformance)
+	}
+	return out
+}
+
+// additionalViewpointConformances reports and comments conformance beyond a view's first viewpoint.
+func (m *migration) additionalViewpointConformances(e *sysmlv1.Element) {
+	conformances := m.viewpointConformances(e)
+	if len(conformances) < 2 {
+		return
+	}
+	for _, conformance := range conformances[1:] {
+		note := "v2 types a view by one view definition, so its conformance to " +
+			qualifiedName(conformance.viewpoint) + " is kept as a comment"
+		m.w.line("/* conforms to " + m.ref(conformance.viewpoint, e) + " */")
+		switch conformance.kind {
+		case generalizationConformance, dependencyConformance:
+			m.downgrade(conformance.source, note)
+		case taggedConformance:
+			m.downgrade(e, note)
+		}
+	}
+}
+
+// conformanceSource identifies how a view names a viewpoint it conforms to.
+type conformanceSource uint8
+
+const (
+	generalizationConformance conformanceSource = iota
+	taggedConformance
+	dependencyConformance
+)
+
+// viewpointConformance records a view's viewpoint and the source that names it.
+type viewpointConformance struct {
+	viewpoint *sysmlv1.Element
+	source    *sysmlv1.Element
+	kind      conformanceSource
 }
 
 const (
@@ -165,8 +223,8 @@ const (
 // viewpointTags are the «View» tags naming the viewpoint a view conforms to.
 var viewpointTags = []string{"viewpoint", "viewPoint"}
 
-// placeConform registers a «Conform» dependency as a satisfy member in the body
-// of each view it has as client; the report entry is written where it stands.
+// placeConform registers a «Conform» dependency as a viewpoint type of each view
+// it has as client; the report entry is written where it stands.
 func (m *migration) placeConform(d *sysmlv1.Element) {
 	pl := &placement{}
 	m.unplaced[d] = pl
@@ -188,7 +246,11 @@ func (m *migration) placeConform(d *sysmlv1.Element) {
 		}
 		pl.write(m.v2Name(p.client))
 		view, vp := p.client, p.supplier
-		m.extras[view] = append(m.extras[view], func() { m.satisfyViewpoint(view, vp) })
+		m.conformed[view] = append(m.conformed[view], viewpointConformance{
+			viewpoint: vp,
+			source:    d,
+			kind:      dependencyConformance,
+		})
 	}
 }
 
@@ -351,95 +413,215 @@ func (m *migration) absentNote(id string) string {
 	return "the exposed element " + id + " is not in the document"
 }
 
-// viewpointBody writes a viewpoint usage: its doc, the tags v2 has a slot for,
-// its members and its stereotype tags.
+// viewpointBody writes a viewpoint definition and its nested viewpoint usage.
 func (m *migration) viewpointBody(e *sysmlv1.Element) {
 	saved := m.scope
 	m.scope = e
-	concerns := m.framedComments(e)
 	m.comments(e)
-	m.viewpointTags(e, concerns)
+	name := m.freshName(e, lowerFirst(m.nameFor(e)))
+	m.w.madeUp(writeName(name))
+	m.w.block("viewpoint "+writeName(name), func() {
+		m.viewpointTags(e)
+	})
+	m.w.line("satisfy " + writeName(name) + ";")
+	m.rendering(e)
 	m.members(e)
 	m.classifierBehavior(e)
 	m.stereotypeComments(e)
 	m.scope = saved
 }
 
-// viewpointTags writes the «Viewpoint» tags: the purpose as doc, joined by the
-// language, method and presentation v2 has no slot for; the stakeholders as
-// stakeholder usages; the concerns, as text or comments, as framed concerns.
-func (m *migration) viewpointTags(e *sysmlv1.Element, concerns []*sysmlv1.Element) {
+// viewpointTags writes the nested viewpoint usage's parameters and documentation.
+func (m *migration) viewpointTags(e *sysmlv1.Element) {
 	vp := stereo(e, "Viewpoint")
 	if vp == nil {
 		return
 	}
-	if doc := m.viewpointDoc(e); doc != "" {
-		m.w.lines(prefixFirst("doc ", commentLines(doc)))
-	}
-	subject := false
+	m.w.line("subject;")
+	wroteStakeholder := false
 	for _, id := range vp.IDs("stakeholder") {
-		if !subject && m.stakeholderWritable(e, id) {
-			m.w.line("subject;")
-			m.add(e, Mapped, "", subjectNote("stakeholders"))
-			subject = true
-		}
+		wroteStakeholder = wroteStakeholder || m.stakeholderWritable(e, id)
 		m.stakeholder(e, id)
 	}
-	for _, concern := range vp.Tags["concern"] {
-		m.frameConcern(concern)
+	if wroteStakeholder {
+		m.add(e, Mapped, "", subjectNote("stakeholders"))
 	}
-	for _, c := range concerns {
+	for _, c := range m.concernLists[e] {
 		text := m.commentBody(c)
+		if info := m.concerns[c]; info != nil && info.homed {
+			m.w.line("frame " + m.ref(c, e) + ";")
+			continue
+		}
 		if text == "" {
 			m.add(c, Skipped, "", "empty comment")
 			continue
 		}
 		m.frameConcern(text)
-		m.add(c, Mapped, "", "")
+		m.add(c, Approximated, "", concernFallbackNote(c))
+	}
+	for _, concern := range vp.Tags["concern"] {
+		m.frameConcern(concern)
+	}
+	if doc := m.viewpointDoc(e); doc != "" {
+		m.w.lines(prefixFirst("doc ", commentLines(doc)))
+	}
+	if purpose := vp.Tag("purpose"); purpose != "" {
+		m.w.block("require constraint", func() {
+			m.w.lines(prefixFirst("doc ", commentLines(purpose)))
+		})
+	}
+	if vp.Tag("language") != "" || vp.Tag("presentation") != "" {
+		m.downgrade(e, "SysMLv1Library::ViewpointData is unavailable, so language and presentation are retained as documentation")
 	}
 }
 
-// viewpointDoc is the doc a viewpoint's tags write: the purpose, joined by the
-// language, method and presentation v2 has no slot for; "" for none.
+// viewpointDoc is the documentation a viewpoint's unsupported tags write.
 func (m *migration) viewpointDoc(e *sysmlv1.Element) string {
 	vp := stereo(e, "Viewpoint")
 	if vp == nil {
 		return ""
 	}
 	var doc []string
-	if p := vp.Tag("purpose"); p != "" {
-		doc = append(doc, p)
-	}
-	for _, tag := range []string{"language", "method", "presentation"} {
+	for _, tag := range []string{"language", "presentation"} {
 		if vs := vp.Tags[tag]; len(vs) > 0 {
 			doc = append(doc, tag+": "+strings.Join(m.tagValues(vs), ", "))
+		}
+	}
+	for _, id := range vp.IDs("method") {
+		t := m.model.Lookup(id)
+		if t == nil || !m.renderableMethod(t) {
+			doc = append(doc, "method: "+strings.Join(m.tagValues([]string{id}), ", "))
+			m.downgrade(e, "the method tag entry "+id+" cannot be rendered as an action")
 		}
 	}
 	return strings.Join(doc, "\n")
 }
 
-// framedComments resolves the comments a viewpoint's concernList tag names and
-// marks them framed, so they are written as concerns rather than comments.
-func (m *migration) framedComments(e *sysmlv1.Element) []*sysmlv1.Element {
+// concernInfo records the stakeholders and owner eligibility for a concern comment.
+type concernInfo struct {
+	stakeholders []*sysmlv1.Element
+	homed        bool
+}
+
+// prepareConcerns indexes concern comments before declarations are written.
+func (m *migration) prepareConcerns() {
+	var concernOrder []*sysmlv1.Element
+	var walk func(*sysmlv1.Element)
+	walk = func(e *sysmlv1.Element) {
+		recordConcerns := func(s *sysmlv1.Stereotype, stakeholder bool) {
+			if s == nil {
+				return
+			}
+			for _, id := range s.IDs("concernList") {
+				c := m.model.Lookup(id)
+				if c == nil {
+					m.downgrade(e, "the concernList tag names "+id+notInDocument)
+					continue
+				}
+				if c.Type != "Comment" {
+					m.downgrade(e, "the concernList tag names the "+kindOf(c)+" "+qualifiedName(c)+", which is not a comment and frames no concern")
+					continue
+				}
+				m.framed[c] = true
+				m.concernLists[e] = append(m.concernLists[e], c)
+				info := m.concerns[c]
+				if info == nil {
+					info = &concernInfo{}
+					m.concerns[c] = info
+					concernOrder = append(concernOrder, c)
+				}
+				if stakeholder && !slices.Contains(info.stakeholders, e) {
+					info.stakeholders = append(info.stakeholders, e)
+				}
+			}
+		}
+		recordConcerns(stereo(e, "Viewpoint"), false)
+		recordConcerns(stereo(e, "Stakeholder"), true)
+		for _, c := range e.Children {
+			walk(c)
+		}
+	}
+	for _, root := range m.model.Roots {
+		walk(root)
+	}
+	for _, c := range concernOrder {
+		info := m.concerns[c]
+		owner := c.Parent
+		if owner == nil {
+			continue
+		}
+		if m.flattened(owner) {
+			info.homed = true
+		} else if owner.Type == "Package" {
+			info.homed = !m.isLibrary(owner) && m.written(owner)
+		} else {
+			cat, _ := m.classify(owner)
+			info.homed = (cat == catPartDef || cat == catActionDef || cat == catRequirementDef ||
+				cat == catUseCaseDef || cat == catView || cat == catViewpoint) && m.written(owner)
+		}
+		if info.homed {
+			m.names[c] = m.freshName(owner, "concern")
+			m.synthesized[c] = true
+		}
+	}
+}
+
+// concernFallbackNote explains why a concern comment remains an anonymous frame.
+func concernFallbackNote(c *sysmlv1.Element) string {
+	if c.Parent == nil {
+		return "the concern comment has no written package or classifier owner, so it remains an anonymous framed concern"
+	}
+	return "the concern comment is owned by the " + kindOf(c.Parent) + " " + qualifiedName(c.Parent) + ", which cannot own a v2 concern usage"
+}
+
+// renderableMethod reports whether e can be emitted as a rendering action.
+func (m *migration) renderableMethod(e *sysmlv1.Element) bool {
+	if e == nil || e.IsProxy() || !m.written(e) {
+		return false
+	}
+	switch e.Type {
+	case "Operation", "Activity", "OpaqueBehavior", "FunctionBehavior", "Interaction":
+		return true
+	}
+	return false
+}
+
+// rendering writes a Viewpoint's Create operations and written method tags.
+func (m *migration) rendering(e *sysmlv1.Element) {
 	vp := stereo(e, "Viewpoint")
 	if vp == nil {
-		return nil
+		return
 	}
-	var concerns []*sysmlv1.Element
-	for _, id := range vp.IDs("concernList") {
-		c := m.model.Lookup(id)
-		if c == nil {
-			m.downgrade(e, "the concernList tag names "+id+notInDocument)
+	var methods []*sysmlv1.Element
+	seen := map[*sysmlv1.Element]bool{}
+	add := func(method *sysmlv1.Element) {
+		if !m.renderableMethod(method) || seen[method] {
+			return
+		}
+		seen[method] = true
+		methods = append(methods, method)
+	}
+	for _, op := range e.Owned("ownedOperation") {
+		if stereo(op, "Create") == nil {
 			continue
 		}
-		if c.Type != "Comment" {
-			m.downgrade(e, "the concernList tag names the "+kindOf(c)+" "+qualifiedName(c)+", which is not a comment and frames no concern")
-			continue
+		method := m.bodyMethod(op)
+		if method == nil || !m.renderableMethod(method) {
+			method = op
 		}
-		m.framed[c] = true
-		concerns = append(concerns, c)
+		add(method)
 	}
-	return concerns
+	for _, id := range vp.IDs("method") {
+		add(m.model.Lookup(id))
+	}
+	if len(methods) == 0 {
+		return
+	}
+	m.w.block("rendering", func() {
+		for _, method := range methods {
+			m.w.line("action : " + m.ref(method, e) + ";")
+		}
+	})
 }
 
 // subjectNote explains the anonymous subject written before a case's or

@@ -1,5 +1,5 @@
 # SysML v1 to v2 migration report: report_views.xmi
-# migrated 41 element(s): 26 mapped, 10 approximated, 5 unmapped (0 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)
+# migrated 41 element(s): 25 mapped, 11 approximated, 5 unmapped (0 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)
 
 ## unmapped (5)
 «Expose» Dependency	Views::<Dependency>	_exposeGone	(the exposed element _nowhere is not in the document; applied stereotypes «Expose»)
@@ -8,19 +8,20 @@
 «Conform» Dependency	Views::<Dependency>	_conformToBlock	(Viewpoints::Plain Block becomes a part def, which a view cannot satisfy; applied stereotypes «Conform»)
 «Conform» Dependency	Views::<Dependency>	_conformFromBlock	(the client Pump System::Pump is not a view: v2 lets a view alone satisfy a viewpoint; applied stereotypes «Conform»)
 
-## approximated (10)
+## approximated (11)
 Diagram	Pump BDD	_bdd	-> 'Pump System'::'Pump BDD'	(a diagram of unknown kind written as a view rendered asTextualNotation; the diagram names no owner; written in package 'Pump System', which holds it; no diagram representation is serialized: what the diagram is and shows is unknown, and the view exposes nothing)
 Actor	Stakeholders::Maintainer	_maintainer	-> Stakeholders::Maintainer	(a UML actor is written as a part def)
 «Stakeholder» Class	Stakeholders::Operator	_operator	-> Stakeholders::Operator	(a v1 «Stakeholder» is written as a part def; «Stakeholder» concern = Keep the pump running. has no v2 form)
 «Stakeholder» Class	Stakeholders::Safety Inspector	_inspector	-> Stakeholders::'Safety Inspector'	(a v1 «Stakeholder» is written as a part def)
-«Viewpoint» Class	Viewpoints::Operations Viewpoint	_opsVp	-> Viewpoints::'Operations Viewpoint'	(v2 places the subject before the stakeholders, so an anonymous subject is declared; the stakeholder tag names _absentStakeholder, which is not in the document)
+«Viewpoint» Class	Viewpoints::Operations Viewpoint	_opsVp	-> Viewpoints::'Operations Viewpoint'	(the stakeholder tag names _absentStakeholder, which is not in the document; v2 places the subject before the stakeholders, so an anonymous subject is declared)
+«Viewpoint» Class	Viewpoints::Safety Viewpoint	_safetyVp	-> Viewpoints::'Safety Viewpoint'	(v2 places the subject before the stakeholders, so an anonymous subject is declared; SysMLv1Library::ViewpointData is unavailable, so language and presentation are retained as documentation)
 Package	Views	_views	-> ViewsModel	(written as ViewsModel since a root package named Views would be hidden by the standard library's Views)
 «Expose» Dependency	Views::<Dependency>	_exposeReq	(written as 2 relationships, one per client–supplier pair)
 «View» Package	Views::Handbook	_viewPkg	-> ViewsModel::Handbook	(a «View» package is written as a view usage holding its members)
 Class	Views::Handbook::Chapter	_chapter	-> ViewsModel::Handbook::Chapter	(a plain UML class without «Block» is written as a part def)
 «View» Class	Views::Odd View	_oddView	-> ViewsModel::'Odd View'	(generalization of Viewpoints::Plain Block is not written: it becomes a part def, not a view; the viewpoint tag names _missingVp, which is not in the document)
 
-## mapped (26)
+## mapped (25)
 Model	Model	_m	(the root model's members are written at the top level)
 Package	Pump System	_sys	-> 'Pump System'
 «Requirement» Class	Pump System::Guard Fitted	_safetyReq	-> 'Pump System'::'Guard Fitted'
@@ -31,9 +32,8 @@ Property	Pump System::Pump::motor	_motor	-> 'Pump System'::Pump::motor
 Package	Stakeholders	_people	-> Stakeholders
 Package	Viewpoints	_vps	-> Viewpoints
 «Block» Class	Viewpoints::Plain Block	_notAViewpoint	-> Viewpoints::'Plain Block'
-«Viewpoint» Class	Viewpoints::Safety Viewpoint	_safetyVp	-> Viewpoints::'Safety Viewpoint'	(v2 places the subject before the stakeholders, so an anonymous subject is declared)
 Comment	Viewpoints::Safety Viewpoint::<Comment>	_safetyVpDoc
-Comment	Viewpoints::Safety Viewpoint::<Comment>	_hazardConcern
+Comment	Viewpoints::Safety Viewpoint::<Comment>	_hazardConcern	-> Viewpoints::'Safety Viewpoint'::'concern'
 Activity	Viewpoints::Safety Viewpoint::Collect Guards	_collect	-> Viewpoints::'Safety Viewpoint'::'Collect Guards'
 «Expose» Dependency	Views::<Dependency>	_exposeSys	-> ViewsModel::'Safety View'
 «Expose» Dependency	Views::<Dependency>	_exposeDiagram	-> ViewsModel::'Safety View'

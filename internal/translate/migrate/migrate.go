@@ -146,8 +146,10 @@ func FromModelOptions(name string, model *sysmlv1.Model, opts Options) *Result {
 		flows:             map[*sysmlv1.Element][]*sysmlv1.Element{},
 		outcomes:          map[*sysmlv1.Element]*flowOutcome{},
 		unplaced:          map[*sysmlv1.Element]*placement{},
-		satisfied:         map[*sysmlv1.Element]map[*sysmlv1.Element]bool{},
+		conformed:         map[*sysmlv1.Element][]viewpointConformance{},
 		framed:            map[*sysmlv1.Element]bool{},
+		concerns:          map[*sysmlv1.Element]*concernInfo{},
+		concernLists:      map[*sysmlv1.Element][]*sysmlv1.Element{},
 		taken:             map[*sysmlv1.Element]map[string]bool{},
 		parallel:          map[*sysmlv1.Element]string{},
 		exposed:           map[*sysmlv1.Element]string{},
@@ -337,9 +339,10 @@ type migration struct {
 	// the placements of the relationships ending at activity nodes, judged once all are written.
 	placeholders map[*sysmlv1.Element]bool
 	nodeEnds     map[*sysmlv1.Element]*placement
-	// extras are members other elements contribute to a body: a Satisfy is
-	// written inside the block that satisfies.
+	// extras are members other elements contribute to a body.
 	extras map[*sysmlv1.Element][]func()
+	// conformed lists the viewpoints placed in each view by Conform dependencies.
+	conformed map[*sysmlv1.Element][]viewpointConformance
 	// viewNames records the simple names imported into each view by its exposures.
 	viewNames map[*sysmlv1.Element]map[string]bool
 	// viewOf plans each diagram's view; hosted lists the views each body opens with.
@@ -519,10 +522,12 @@ type migration struct {
 	// actors gives each association linking a use case to an actor the actor
 	// usage it is written as in the use case's body.
 	actors map[*sysmlv1.Element]*actorLink
-	// satisfied records, per view, the viewpoints its body satisfies so far.
-	satisfied map[*sysmlv1.Element]map[*sysmlv1.Element]bool
 	// framed marks the comments a viewpoint's concernList names, written as its concerns.
 	framed map[*sysmlv1.Element]bool
+	// concerns records comments named by viewpoint and stakeholder concern lists.
+	concerns map[*sysmlv1.Element]*concernInfo
+	// concernLists records each viewpoint or stakeholder's resolved concerns.
+	concernLists map[*sysmlv1.Element][]*sysmlv1.Element
 	// clocks memoizes the names a simulation configuration gives the clock.
 	clocks map[string]string
 	// observed memoizes, per observation, the durations and time expressions that read it.
@@ -630,6 +635,7 @@ func weaker(a, b Verdict) bool {
 // features the connectors and slots that will be written reach.
 func (m *migration) prepare() {
 	m.planEdges()
+	m.prepareConcerns()
 	var reachers, configs, laned, associations, behaviors []*sysmlv1.Element
 	var links []*actorLink
 	var walk func(e *sysmlv1.Element)
@@ -639,7 +645,6 @@ func (m *migration) prepare() {
 		if e.Parent == nil {
 			m.avoidLibraryRoots(e)
 		}
-		m.framedComments(e)
 		if simulationConfig(e) != nil {
 			configs = append(configs, e)
 		}
@@ -1210,9 +1215,8 @@ func (m *migration) classifier(e *sysmlv1.Element) {
 	}
 }
 
-// classifierHeader builds the declaration line a classifier is written with:
-// abstract, its keyword and name, its requirement id, its generalizations; n
-// notes what the generalizations and dangling ends leave out.
+// classifierHeader builds a classifier declaration with its keyword, name,
+// requirement id, view type and generalizations; n notes what the latter omit.
 func (m *migration) classifierHeader(e *sysmlv1.Element, cat category, name string) (header string, n string) {
 	var b strings.Builder
 	if (e.Attrs["isAbstract"] == "true" && cat != catValue) || m.abstractOperation(e) {
@@ -1231,6 +1235,11 @@ func (m *migration) classifierHeader(e *sysmlv1.Element, cat category, name stri
 		}
 	}
 	b.WriteString(writeName(name))
+	if cat == catView {
+		if viewpoint := m.conformedViewpoints(e); viewpoint != "" {
+			b.WriteString(" : " + viewpoint)
+		}
+	}
 	var gens string
 	if cat == catMetadataDef {
 		gens, n = m.metadataGenerals(e)
@@ -2081,7 +2090,7 @@ func (m *migration) typeKeyword(t *sysmlv1.Element) (keyword, note string) {
 	case catView:
 		return "view", ""
 	case catViewpoint:
-		return "viewpoint", ""
+		return "view", ""
 	case catNone, catLibrary:
 		return "attribute", "typed by library element " + t.Name + " with no known v2 counterpart"
 	case catUnmapped:
@@ -2331,10 +2340,10 @@ func (m *migration) featureTyping(b *strings.Builder, p, ind *sysmlv1.Element, p
 }
 
 // typing is the specialization a feature's type is written with: subsetting
-// when the type becomes a usage, as a view or viewpoint does, else typing.
+// when the type becomes a usage, as a view does, else typing.
 func (m *migration) typing(t *sysmlv1.Element) string {
 	if t != nil {
-		if cat, _ := m.classify(t); cat == catView || cat == catViewpoint {
+		if cat, _ := m.classify(t); cat == catView {
 			return " :> "
 		}
 	}
@@ -2672,7 +2681,7 @@ func (m *migration) typeRef(t, scope *sysmlv1.Element) (string, string) {
 		return "", "library type " + qualifiedName(t) + " has no known v2 counterpart and is not written"
 	case catUnmapped, catNone:
 		return "", "type " + qualifiedName(t) + " is not migrated and is not written"
-	case catView, catViewpoint:
+	case catView:
 		if note := m.featuredNote(t, scope); note != "" {
 			return "", note + "; the usage is not subset"
 		}
@@ -3484,7 +3493,7 @@ func (m *migration) definitionEnd(e *sysmlv1.Element) bool {
 		return false
 	}
 	switch c, _ := m.classify(e); c {
-	case catView, catViewpoint, catValue:
+	case catView, catValue:
 		return false
 	}
 	return m.isDefinition(e)
@@ -3559,6 +3568,9 @@ func (m *migration) writeComments(e *sysmlv1.Element, first bool) {
 	}
 	for _, c := range e.Owned("ownedComment") {
 		if m.framed[c] {
+			if info := m.concerns[c]; info != nil && info.homed && c.Parent == e {
+				m.writeConcern(c)
+			}
 			continue
 		}
 		about := m.model.Refs(c, "annotatedElement")
@@ -3580,6 +3592,32 @@ func (m *migration) writeComments(e *sysmlv1.Element, first bool) {
 		}
 		m.add(c, verdictFor(missing), "", missing)
 	}
+}
+
+// writeConcern writes a homed concern comment as a named usage at its owner.
+func (m *migration) writeConcern(c *sysmlv1.Element) {
+	name := m.names[c]
+	if name == "" {
+		name = m.nameFor(c)
+	}
+	m.madeUp(c, writeName(name))
+	m.w.block("concern "+writeName(name), func() {
+		if text := m.commentBody(c); text != "" {
+			m.w.lines(prefixFirst("doc ", commentLines(text)))
+		}
+		m.w.line("subject;")
+		for _, s := range m.concerns[c].stakeholders {
+			m.stakeholder(c, s.ID)
+		}
+	})
+	note := ""
+	if text := m.commentBody(c); text == "" {
+		note = "empty comment"
+	}
+	if m.annotatesOthers(c, c.Parent) {
+		note = joinNotes(note, "a v2 concern annotates nothing, so the comment's annotations are not carried")
+	}
+	m.add(c, verdictFor(note), m.v2Name(c), note)
 }
 
 // docComment is the comment e's body writes as doc: the first with text that
@@ -3682,6 +3720,7 @@ var consumedTags = map[string]map[string]bool{
 	"FlowPort":           {"direction": true},
 	"NestedConnectorEnd": {"propertyPath": true},
 	"View":               {"viewpoint": true, "viewPoint": true},
+	"Stakeholder":        {"concernList": true},
 	"Viewpoint": {"stakeholder": true, "purpose": true, "concern": true, "concernList": true,
 		"language": true, "method": true, "presentation": true},
 }
