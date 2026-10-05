@@ -43,6 +43,43 @@ var eventKinds = map[string]runtime.TraceKind{
 	"terminate":  runtime.TraceTerminate,
 }
 
+// EventsFromTrace converts documented trace records into rows in run order.
+func EventsFromTrace(ctx *runtime.Context, records []runtime.TraceRecord) []Event {
+	labels := make(sessionLabelMap)
+	events := make([]Event, 0, len(records))
+	for index, record := range records {
+		if !documentedEventKind(record.Kind) {
+			continue
+		}
+		events = append(events, eventFromRecord(ctx, labels, record, index))
+	}
+	return events
+}
+
+func documentedEventKind(kind runtime.TraceKind) bool {
+	for _, documented := range eventKinds {
+		if kind == documented {
+			return true
+		}
+	}
+	return false
+}
+
+func eventFromRecord(ctx *runtime.Context, labels sessionLabelMap, record runtime.TraceRecord, index int) Event {
+	object := record.Origin.Object
+	at := record.Origin.At
+	return Event{
+		record:  record,
+		at:      at,
+		time:    instantValue(ctx, at),
+		object:  object,
+		label:   labels.label(object),
+		machine: record.Machine(),
+		target:  labels.label(record.Target),
+		index:   index,
+	}
+}
+
 // evaluateEvents lists the trace's records of the requested kinds, made by the
 // source objects (any object when unbound) at an instant in [since, before).
 func (e *executor) evaluateEvents(expression queryplan.Expression) (sequence, error) {
@@ -125,16 +162,7 @@ func (e *executor) evaluateEvents(expression queryplan.Expression) (sequence, er
 		if !e.consumeVisit() {
 			return sequence{}, e.budgetError(expression)
 		}
-		result.values = append(result.values, EventValue(Event{
-			record:  record,
-			at:      at,
-			time:    instantValue(e.context.Runtime, at),
-			object:  object,
-			label:   labels.label(object),
-			machine: record.Machine(),
-			target:  labels.label(record.Target),
-			index:   index,
-		}))
+		result.values = append(result.values, EventValue(eventFromRecord(e.context.Runtime, labels, record, index)))
 	}
 	return result, nil
 }
