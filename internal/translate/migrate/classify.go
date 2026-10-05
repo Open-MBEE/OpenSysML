@@ -684,8 +684,8 @@ func (m *migration) classifiersOf(e *sysmlv1.Element) []*sysmlv1.Element {
 	return m.snapshots[e].classifiers
 }
 
-// individualClassifiers returns the kind an individual takes from its first
-// classifier of a kind, preferring a part def over an occurrence def.
+// individualClassifiers returns the kind an individual takes from its first classifier of a kind
+// (a port def gives none; a part def outranks an occurrence def) and the classifiers it specializes.
 func (m *migration) individualClassifiers(e *sysmlv1.Element) (kind category, written []*sysmlv1.Element, note string) {
 	occurrences, _, _ := m.instanceClassifiers(e)
 	kinds := make([]category, len(occurrences))
@@ -721,8 +721,8 @@ func (m *migration) individualClassifiers(e *sysmlv1.Element) (kind category, wr
 	return kind, written, strings.Join(notes, "; ")
 }
 
-// individualKeyword is the declaration keyword for an individual of the kind,
-// or `individual def` when no definition kind is available.
+// individualKeyword is the declaration keyword of an individual of the kind:
+// `individual part def`, or `individual def` for an instance of an interface block.
 func individualKeyword(kind category) string {
 	if kind == catNone {
 		return "individual def"
