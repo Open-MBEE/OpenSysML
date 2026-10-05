@@ -131,7 +131,7 @@ func (m *Model) constantDeclaration(sym *symbols.Symbol, seen map[*symbols.Symbo
 	if !ok {
 		return nil
 	}
-	if mods.Has(symbols.ModConstant) || m.implicitlyConstantEnd(sym) {
+	if m.FeatureIsConstant(sym) {
 		return sym
 	}
 	if mods.Has(symbols.ModVariable) || seen[sym] {

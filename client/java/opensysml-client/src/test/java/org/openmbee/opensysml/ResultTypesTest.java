@@ -107,13 +107,19 @@ class ResultTypesTest {
 
     Map<String, Value> context = new LinkedHashMap<>(Map.of("n", new Value.IntegerValue(1)));
     StateRun run =
-        new StateRun(new ArrayList<>(List.of("init", "done")), context, OptionalDouble.empty(), List.of());
+        new StateRun(
+            new ArrayList<>(List.of("init", "done")),
+            context,
+            OptionalDouble.empty(),
+            List.of(),
+            0,
+            List.of());
     context.clear();
     assertEquals(Optional.of("done"), run.finalState());
     assertEquals(1, run.finalContext().size());
     assertEquals(
         Optional.empty(),
-        new StateRun(List.of(), Map.of(), OptionalDouble.empty(), List.of()).finalState());
+        new StateRun(List.of(), Map.of(), OptionalDouble.empty(), List.of(), 0, List.of()).finalState());
   }
 
   @Test
@@ -256,6 +262,8 @@ class ResultTypesTest {
         ExecutionOptions.defaults().withSchedule("seed:7").withPerformer("Demo::sedan");
     assertEquals(Optional.of("seed:7"), options.schedule());
     assertEquals(Optional.of("Demo::sedan"), options.performer());
+    assertTrue(options.withTrace().trace());
+    assertFalse(ExecutionOptions.defaults().trace());
     assertEquals(Optional.empty(), ExecutionOptions.defaults().performer());
   }
 
