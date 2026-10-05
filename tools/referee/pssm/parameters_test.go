@@ -417,7 +417,7 @@ func TestParametersCallBindsInputsAndReturnsOutputs(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, want := range []string{
-		"accept 'or'(left, right) do {\n            assign trigger_v_or_left := left;\n            assign trigger_v_or_right := right;\n        } then S1;",
+		"accept 'or'(left, right) do {\n            assign trigger_v_or_left := left;\n            then assign trigger_v_or_right := right;\n        } then S1;",
 		"in left = trigger_v_or_left;",
 		"in right = trigger_v_or_right;",
 		"out result : Boolean;",
@@ -637,8 +637,8 @@ func TestParametersInoutBindsOnceAndReturns(t *testing.T) {
 		"inout count : Integer;\n        attribute count_written : Integer = 0;\n        first start;",
 		"inout count = trigger_bump_count;",
 		"inout count = count;",
-		"assign count_written := (count + 1);\n            assign log :=",
-		"ToString(count) + \"]\"));\n            assign count := count_written;\n",
+		"assign count_written := (count + 1);\n            then assign log :=",
+		"ToString(count) + \"]\"));\n            then assign count := count_written;\n",
 	} {
 		if !strings.Contains(m.Text, want) {
 			t.Errorf("emitted text lacks %q:\n%s", want, m.Text)
@@ -664,7 +664,7 @@ func TestParametersInoutWritesReadInputs(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := "assign b_written := (a + 1);\n            assign a_written := (b + 1);\n"
+	want := "assign b_written := (a + 1);\n            then assign a_written := (b + 1);\n"
 	if !strings.Contains(m.Text, want) {
 		t.Errorf("emitted text lacks %q:\n%s", want, m.Text)
 	}

@@ -1,0 +1,10 @@
+step 1: token 1@s
+choice statements in action node s: next 1 if, 2 assign x (unordered; took 2 assign x first)
+stmt assign x
+  eval literal 1 -> 1
+stmt if
+    eval feature x -> 1
+    eval literal 0 -> 0
+  eval operator == -> false
+step 2: token 1@done
+step 3: no active tokens

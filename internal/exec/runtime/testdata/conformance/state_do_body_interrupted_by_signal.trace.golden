@@ -1,5 +1,6 @@
 do: busy
 stmt action body
+enter action node: state behavior work
   stmt assign log
       eval feature log -> ""
       eval literal "s1 " -> "s1 "

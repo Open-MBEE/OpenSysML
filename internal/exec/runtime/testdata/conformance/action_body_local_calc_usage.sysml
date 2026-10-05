@@ -19,13 +19,13 @@ package test {
 		first start;
 
 		action compute {
-			assign v := 2.0;
 			calc t : Twice { in k = v; }
-			assign doubled := t.d;
+			assign v := 2.0;
+			then assign doubled := t.d;
 			while i < 3 {
-				assign i := i + 1;
 				calc step : Twice { in k = i; }
-				assign acc := acc + step.d;
+				assign i := i + 1;
+				then assign acc := acc + step.d;
 			}
 		}
 

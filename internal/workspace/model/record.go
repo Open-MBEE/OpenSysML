@@ -10,7 +10,6 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
-	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/libs"
 )
 
@@ -73,7 +72,7 @@ func (w *Workspace) interfaceRecordLocked(name string, doc *Document, src libs.S
 	if !ok {
 		return nil, fmt.Errorf("%w: %s has no analysis to record", libs.ErrUnrecordable, name)
 	}
-	rec, err := libs.WriteInterface(name, source.KindOf(name), w.index, resolver, sem, gathered, diags)
+	rec, err := libs.WriteInterface(name, doc.Kind(), w.index, resolver, sem, gathered, diags)
 	if err != nil {
 		return nil, err
 	}
@@ -173,12 +172,14 @@ func (w *Workspace) recordAcceptedLocked(rec *libs.InterfaceRecord) error {
 // record's staleness is judged by is on. Caller holds the write lock.
 func (w *Workspace) installRecordedLocked(rec *libs.InterfaceRecord, scope *symbols.Scope, content []byte, version int) {
 	w.semanticsLocked()
+	sf := newDocumentSource(rec.Name, content, rec.Kind)
 	doc := &Document{
 		Name:    rec.Name,
 		Content: content,
 		Version: version,
 		Scope:   scope,
-		sf:      source.New(rec.Name, content),
+		kind:    sf.Kind(),
+		sf:      sf,
 		digest:  rec.Digest,
 		recorded: &recordedDiagnostics{
 			diagnostics: diag.Clone(rec.Diagnostics),
@@ -192,5 +193,5 @@ func (w *Workspace) installRecordedLocked(rec *libs.InterfaceRecord, scope *symb
 	w.changes[rec.Name]++
 	w.displaceLocked(rec.Name)
 	w.releaseStandInLocked(rec.Name)
-	w.index.AddRecordedDocument(rec.Name, rec.Kind, scope, rec.Scope.Gathered.Clone())
+	w.index.AddRecordedDocument(rec.Name, doc.Kind(), scope, rec.Scope.Gathered.Clone())
 }

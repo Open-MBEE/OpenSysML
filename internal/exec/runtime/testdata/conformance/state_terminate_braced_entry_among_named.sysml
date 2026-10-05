@@ -12,7 +12,7 @@ package Test {
 
 		state s {
 			entry action head { assign log := log + "head;"; }
-			entry { assign a := 1; terminate; assign a := 9; }
+			entry { assign a := 1; then terminate; then assign a := 9; }
 			entry action tail { assign log := log + "tail;"; }
 		}
 	}

@@ -109,6 +109,30 @@ func TestEnumerationVariationComesBackFromTheGraphAlone(t *testing.T) {
 	}
 }
 
+func TestForeignEnumerationAbstractFlagWritesNoKeyword(t *testing.T) {
+	turtle, err := convert.Convert("enum.sysml", []byte(enumVariationModel), convert.FormatSysML, convert.FormatTurtle)
+	if err != nil {
+		t.Fatalf("to turtle: %v", err)
+	}
+	turtle = withoutTriples(t, withoutSourceText(t, turtle), "sysml:isAbstract")
+	graph, err := rdf.ParseTurtle(turtle)
+	if err != nil {
+		t.Fatalf("parse turtle: %v", err)
+	}
+	graph.Add(rdf.ElementIRI("V::Level"), rdf.IRI(rdf.SysML+"isAbstract"), rdf.Bool(true))
+
+	text, err := export.ToSysML(graph)
+	if err != nil {
+		t.Fatalf("back to notation: %v", err)
+	}
+	if strings.Contains(string(text), "abstract enum def") {
+		t.Fatalf("enumeration abstractness has no grammar prefix:\n%s", text)
+	}
+	if _, err := convert.Convert("enum.sysml", text, convert.FormatSysML, convert.FormatTurtle); err != nil {
+		t.Fatalf("parse notation: %v\n%s", err, text)
+	}
+}
+
 // A graph from another tool may flag an enumerated value sysml:isVariant under
 // a plain OwningMembership; the flag is still not written back as `variant`.
 func TestForeignEnumeratedValueFlagWritesNoKeyword(t *testing.T) {

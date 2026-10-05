@@ -1,0 +1,21 @@
+stmt assign r
+    enter analysis test::An
+      stmt declare x
+        eval literal 1 -> 1
+      stmt action body
+enter action node: analysis test::An
+        stmt assign x
+            eval feature x -> 1
+            eval literal 10 -> 10
+          eval operator * -> 10
+        stmt assign x
+            eval feature x -> 10
+            eval literal 2 -> 2
+          eval operator + -> 12
+choice step 1: tokens 1@s1, 2@s2 (unordered; took 1@s1 first)
+leave action node: analysis test::An
+      stmt return
+        eval feature x -> 12
+    exit analysis test::An -> 12
+  eval invoke An -> 12
+step 1: no active tokens

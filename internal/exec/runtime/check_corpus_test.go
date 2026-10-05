@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 	"testing"
@@ -29,6 +30,9 @@ type CheckExpected struct {
 	Divergent map[string][]string `json:"divergent,omitempty"`
 	// Agreed lists features every schedule leaves with one value, and that value.
 	Agreed map[string]string `json:"agreed,omitempty"`
+	// Failures lists every distinct typed runtime error a schedule fails with, each
+	// matched as a substring, in canonical order; a failure unlisted fails the case.
+	Failures []string `json:"failures,omitempty"`
 }
 
 // checkCase is one action or state conformance case with an admissible set, ready to check and explore.
@@ -203,6 +207,9 @@ func TestCheckConformanceOracles(t *testing.T) {
 						t.Fatalf("reduce=%v: %s diverges over %v, want %v", opts.Reduce, feature, got, values)
 					}
 				}
+				if got := failureTexts(report); !matchesFailures(got, want.Failures) {
+					t.Fatalf("reduce=%v: failures %q, want %q", opts.Reduce, got, want.Failures)
+				}
 				for feature, value := range want.Agreed {
 					for _, final := range report.Finals {
 						got, held := final.Values[feature]
@@ -221,11 +228,15 @@ func TestCheckConformanceOracles(t *testing.T) {
 func TestCheckAgreesWithExploreOverTheConformanceCorpus(t *testing.T) {
 	for _, c := range checkCorpus(t) {
 		t.Run(c.name, func(t *testing.T) {
-			want := explored(t, c.explore(t))
+			x := c.explore(t)
+			want, failed := exploredFinals(x), exploredFailures(x)
 			for _, opts := range []CheckOptions{reduced(), unreduced()} {
 				report := c.checked(t, opts)
-				if len(report.Violations) != 0 || len(report.BoundsHit) != 0 {
+				if len(report.BoundsHit) != 0 || slices.ContainsFunc(report.Violations, func(v Violation) bool { return v.Kind != ViolationFailure }) {
 					t.Fatalf("reduce=%v: %s, violations %v, want a clean complete search", opts.Reduce, report.Status(), report.Violations)
+				}
+				if got := failureTexts(report); !sameFailures(got, failed) {
+					t.Fatalf("reduce=%v: check failures\n%s\nexplore failures\n%s", opts.Reduce, strings.Join(got, "\n"), strings.Join(failed, "\n"))
 				}
 				got := finalOutcomes(report)
 				if strings.Join(got, "\n") != strings.Join(want, "\n") {
@@ -234,6 +245,53 @@ func TestCheckAgreesWithExploreOverTheConformanceCorpus(t *testing.T) {
 			}
 		})
 	}
+}
+
+// exploredFinals is the outcome set an exploration reached, its failed runs aside, sorted.
+func exploredFinals(x *Exploration) []string {
+	var out []string
+	for _, o := range x.Outcomes {
+		if o.Outcome.Err == nil {
+			out = append(out, o.Outcome.String())
+		}
+	}
+	sort.Strings(out)
+	return out
+}
+
+// exploredFailures is every distinct error an exploration's runs failed with, sorted.
+func exploredFailures(x *Exploration) []string {
+	var out []string
+	for _, o := range x.Outcomes {
+		if o.Outcome.Err != nil {
+			out = append(out, o.Outcome.Err.Error())
+		}
+	}
+	sort.Strings(out)
+	return slices.Compact(out)
+}
+
+// failureTexts is every distinct typed runtime error a check's schedules fail with, sorted.
+func failureTexts(report *CheckReport) []string {
+	var out []string
+	for _, v := range report.Violations {
+		if v.Kind == ViolationFailure && v.Err != nil {
+			out = append(out, v.Err.Error())
+		}
+	}
+	sort.Strings(out)
+	return slices.Compact(out)
+}
+
+// matchesFailures reports whether each failure contains the expectation at its place.
+func matchesFailures(got, want []string) bool {
+	return slices.EqualFunc(got, want, strings.Contains)
+}
+
+// sameFailures reports whether a check's failures are an exploration's, each run's
+// error being the failure the check reports wrapped by the invocation.
+func sameFailures(check, explore []string) bool {
+	return slices.EqualFunc(explore, check, strings.HasSuffix)
 }
 
 // explored is the outcome set an exploration reached, sorted as the check sorts its finals.
