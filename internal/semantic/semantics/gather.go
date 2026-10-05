@@ -4,7 +4,6 @@ import (
 	"sort"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
-	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
 
 // The names of the shared frames the workspace-wide indexes are built in (see
@@ -42,7 +41,8 @@ func (m *Model) gatherOf(doc string) *docGather {
 }
 
 // collectAbout walks a scope tree — anonymous members included, so `metadata :
-// T about x;` counts like a named usage — for its `about` metadata usages.
+// T about x;` and `@T about x;` count like a named usage — for its `about`
+// metadata usages.
 func (m *Model) collectAbout(scope *symbols.Scope, g *docGather, seen map[*symbols.Symbol]bool) {
 	if scope == nil {
 		return
@@ -52,7 +52,7 @@ func (m *Model) collectAbout(scope *symbols.Scope, g *docGather, seen map[*symbo
 			return true
 		}
 		seen[sym] = true
-		if usage, ok := sym.Decl.(*ast.Usage); ok && sym.Kind == symbols.SymbolMetadataUsage && annotatesOthers(usage) {
+		if sym.Kind == symbols.SymbolMetadataUsage && annotatesOthers(sym.Decl) {
 			g.about = append(g.about, sym)
 		} else if sym.Recorded() && len(sym.Facts.About) > 0 {
 			g.about = append(g.about, sym)

@@ -15,10 +15,15 @@ const (
 	refreshCommand    = "go run -C tools ./cmd/pilot-diff -update"
 )
 
+// librariesInput names the provenance input that records the libraries the
+// reference validators resolved against; a changed library is a changed measurement.
+const librariesInput = "opensysml-libraries"
+
 // provenance identifies everything this oracle compares: the pin, the reference
-// bridges, the declared errata and each corpus root's contents. A release of ""
+// bridges, the declared errata, each corpus root's contents and the libraries
+// (a repository-relative directory) handed to the reference. A release of ""
 // resolves it from the pin, which is what a checkout without the validators has.
-func provenance(repo, release string) (baseline.Record, error) {
+func provenance(repo, release, libraries string) (baseline.Record, error) {
 	pin, err := baseline.ReadPin(repo)
 	if err != nil {
 		return baseline.Record{}, err
@@ -61,6 +66,26 @@ func provenance(repo, release string) (baseline.Record, error) {
 			Digest: digest,
 		})
 	}
+
+	libraryRoot := corpusRoot{Name: librariesInput, Dir: libraries}
+	files, err := collectFiles(repo, libraryRoot)
+	if err != nil {
+		return baseline.Record{}, err
+	}
+	if len(files) == 0 {
+		return baseline.Record{}, fmt.Errorf("no .sysml or .kerml files under the library directory %s", libraries)
+	}
+	digest, err := baseline.DigestFiles(filepath.Join(repo, filepath.FromSlash(libraries)), files)
+	if err != nil {
+		return baseline.Record{}, fmt.Errorf("digest %s: %w", libraries, err)
+	}
+	record.Inputs = append(record.Inputs, baseline.Input{
+		Name:   libraryRoot.Name,
+		Dir:    libraries,
+		Origin: libraryRoot.origin(),
+		Files:  len(files),
+		Digest: digest,
+	})
 	return record, nil
 }
 

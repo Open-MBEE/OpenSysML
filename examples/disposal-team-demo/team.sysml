@@ -5,7 +5,7 @@ package Team {
     private import SI::*;
     private import ISQ::*;
     private import SequenceFunctions::*;
-    private import RealFunctions::sum;
+    private import QuantityCalculations::sum;
     private import ControlFunctions::*;
 
     // Quantities carry units, so the payload budget is stated in kilograms.
@@ -104,7 +104,7 @@ package TeamComms {
 
     part def Unit {
         port command : ~CommandPort;
-        attribute accepted : Integer = 0;
+        attribute commandsAccepted : Integer = 0;
         attribute lastCode : Integer = 0;
 
         exhibit state duty {
@@ -114,7 +114,7 @@ package TeamComms {
 
             state working {
                 entry action count {
-                    assign accepted := accepted + 1;
+                    assign commandsAccepted := commandsAccepted + 1;
                 }
             }
 

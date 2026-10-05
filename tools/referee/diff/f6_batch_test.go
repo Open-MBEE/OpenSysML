@@ -30,7 +30,7 @@ func TestPilotDiagnosticsIsOneBatchPerRoot(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	got, err := pilotDiagnostics(validator, repo, ".", files, 0, io.Discard)
+	got, err := pilotDiagnostics(validator, "", repo, ".", files, 0, io.Discard)
 	if err != nil {
 		t.Fatal(err)
 	}

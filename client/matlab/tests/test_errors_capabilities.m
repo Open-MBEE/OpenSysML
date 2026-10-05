@@ -45,6 +45,18 @@ function test_errors_capabilities()
     err = opensysml.lastError();
     assert_equal(numel(err.diagnostics), 1, 'diagnostics side channel');
 
+    traceEvent = opensysml.internal.decodeDocumentValue(struct('event', ...
+        struct('kind', 'entry', 'time', struct('realValue', 1.5), ...
+        'state', 'active', 'text', 'enter: active')));
+    details = struct('trace', {{traceEvent}}, 'traceDropped', 2);
+    expect_error(@() opensysml.internal.checkError( ...
+        struct('error', 'state machine failed'), 'ExecuteState', details), ...
+        'opensysml:diagnostics:execution');
+    err = opensysml.lastError();
+    assert_equal(err.details.trace{1}.kind, 'entry', 'failed state trace');
+    assert_equal(err.details.trace{1}.state, 'active', 'failed state trace state');
+    assert_equal(err.details.traceDropped, 2, 'failed state trace dropped count');
+
     old = opensysml.external('old.invalid:1');
     old.primeServerInfo(struct('answered', false));
     assert_equal(old.hasCapability('query'), false, 'old server has no capabilities');

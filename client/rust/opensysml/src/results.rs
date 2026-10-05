@@ -440,6 +440,8 @@ impl Verdict {
                 message: format!("{}: {}", self.named(), self.error),
                 reason: self.reason,
                 diagnostics: self.diagnostics.clone(),
+                trace: Vec::new(),
+                trace_dropped: 0,
             })
         }
     }
@@ -867,6 +869,8 @@ impl Outcome {
                 message: self.error.clone(),
                 reason: FailureReason::Unspecified,
                 diagnostics: self.diagnostics.clone(),
+                trace: Vec::new(),
+                trace_dropped: 0,
             })
         } else {
             Ok(self)
@@ -935,6 +939,8 @@ impl Exploration {
                 message: self.status(),
                 reason: FailureReason::Unspecified,
                 diagnostics: Vec::new(),
+                trace: Vec::new(),
+                trace_dropped: 0,
             })
         }
     }
@@ -1027,6 +1033,10 @@ pub struct StateRun {
     pub final_context: BTreeMap<String, Value>,
     /// The simulated time the run ended at; 0 from a service predating `final_time`.
     pub final_time: f64,
+    /// The documented execution records, when requested.
+    pub trace: Vec<crate::document::DocumentEvent>,
+    /// The number of oldest records the service discarded.
+    pub trace_dropped: i32,
     /// Diagnostics the service reported.
     pub diagnostics: Vec<Diagnostic>,
     pub(crate) wire: wire::ExecuteStateResponse,
@@ -1055,6 +1065,8 @@ pub(crate) fn failure_of(message: &str, reason: i32, diagnostics: Vec<Diagnostic
             message: message.to_owned(),
             reason: reason_of(reason),
             diagnostics,
+            trace: Vec::new(),
+            trace_dropped: 0,
         }
     }
 }
@@ -1133,6 +1145,8 @@ pub(crate) fn single_verdict(
             message: error.to_owned(),
             reason: FailureReason::Unspecified,
             diagnostics,
+            trace: Vec::new(),
+            trace_dropped: 0,
         });
     }
     let pb = verdict.ok_or_else(|| Error::Decode("response carries no verdict".to_owned()))?;

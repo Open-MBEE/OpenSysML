@@ -2,6 +2,7 @@
 // can catch the family without knowing the members.
 
 import type { ServerInfo } from "./capabilities.js";
+import type { DocumentEvent } from "./document.js";
 import type { AnalysisResult } from "./verdict.js";
 
 /** Base class of every error this client raises. */
@@ -183,7 +184,24 @@ export class EvaluationError extends OpenSysMLError {
 }
 
 /** A run — an execution, verification, calculation, analysis or sweep — failed. */
-export class ExecutionError extends EvaluationError {}
+export class ExecutionError extends EvaluationError {
+  /** Partial ExecuteState trace, when a traced run failed. */
+  readonly trace: readonly DocumentEvent[];
+  /** Oldest ExecuteState trace records the service discarded. */
+  readonly traceDropped: number;
+
+  constructor(
+    message: string,
+    reason: FailureCause = "unspecified",
+    diagnostics: readonly ModelDiagnostic[] = [],
+    trace: readonly DocumentEvent[] = [],
+    traceDropped = 0,
+  ) {
+    super(message, reason, diagnostics);
+    this.trace = trace;
+    this.traceDropped = traceDropped;
+  }
+}
 
 /** The element a verification named is of another kind, a wrong request rather than a verdict. */
 export class WrongKindError extends ExecutionError {}

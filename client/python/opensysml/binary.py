@@ -1026,6 +1026,25 @@ def _fallback_to_path_or_raise(version, binary_path, download_error):
     )
 
 
+def _cached_binary(force_download, versions, github_repo, binary_path, implicit):
+    """The cached executable and why it is stale, or (None, None) with nothing cached.
+
+    A stale reason of None keeps the cache. An unrecorded executable may be a
+    developer's hand-installed build, so an implicit request keeps it.
+    """
+    if force_download or not os.path.exists(binary_path) or not os.access(binary_path, os.X_OK):
+        return None, None
+    if implicit and not os.path.exists(metadata_path()):
+        return binary_path, None
+    if implicit and cached_release(github_repo) in versions:
+        return binary_path, None
+    return binary_path, stale_cache_reason(versions[0], github_repo)
+
+
+def _unavailable_details(unavailable):
+    return '; '.join(f'{candidate}: {error}' for candidate, error in unavailable)
+
+
 def _ensure_binary_locked(force_download, versions, github_repo, binary_path, implicit=False):
     """The cache or a download of the release tags asked for, with the cache held.
 
@@ -1034,30 +1053,18 @@ def _ensure_binary_locked(force_download, versions, github_repo, binary_path, im
     """
     version = versions[0]
     requested_versions = ', '.join(versions)
-    # An unrecorded executable may be a developer's hand-installed build.
-    cached = None
-    if not force_download and os.path.exists(binary_path):
-        if os.access(binary_path, os.X_OK):
-            if implicit and not os.path.exists(metadata_path()):
-                return binary_path
-            if implicit and cached_release(github_repo) in versions:
-                stale = None
-            else:
-                stale = stale_cache_reason(version, github_repo)
-            if stale is None:
-                return binary_path
-            cached = binary_path
-            download_target = (
-                f'one of {requested_versions}'
-                if implicit and len(versions) > 1
-                else version
-            )
-            warnings.warn(
-                f"Replacing the cached sysml-grpc: {stale}. Downloading "
-                f"{download_target}.",
-                stacklevel=3,
-            )
-    
+    cached, stale = _cached_binary(force_download, versions, github_repo, binary_path, implicit)
+    if cached is not None:
+        if stale is None:
+            return cached
+        download_target = (
+            f'one of {requested_versions}' if implicit and len(versions) > 1 else version
+        )
+        warnings.warn(
+            f"Replacing the cached sysml-grpc: {stale}. Downloading {download_target}.",
+            stacklevel=3,
+        )
+
     unavailable = []
     for candidate in versions:
         try:
@@ -1080,23 +1087,18 @@ def _ensure_binary_locked(force_download, versions, github_repo, binary_path, im
                 stacklevel=3,
             )
         else:
-            details = '; '.join(
-                f'{candidate}: {error}' for candidate, error in unavailable
-            )
             warnings.warn(
                 f"Keeping the cached sysml-grpc at {cached}: none of the built-against "
-                f"releases {requested_versions} could be downloaded ({details}). It may "
-                "be an older release than asked for.",
+                f"releases {requested_versions} could be downloaded "
+                f"({_unavailable_details(unavailable)}). It may be an older release than "
+                "asked for.",
                 stacklevel=3,
             )
         return cached
 
     if len(unavailable) == 1:
         raise unavailable[0][1]
-    details = '; '.join(
-        f'{candidate}: {error}' for candidate, error in unavailable
-    )
     raise ConnectionError(
         f"Could not download any of the built-against releases "
-        f"({requested_versions}): {details}"
+        f"({requested_versions}): {_unavailable_details(unavailable)}"
     )

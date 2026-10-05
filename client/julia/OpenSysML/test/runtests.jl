@@ -254,7 +254,9 @@ end
     port = getsockname(listener)[2]
     close(listener)
     canned = Ref{String}("{}")
+    requested = Ref("")
     server = HTTP.serve!(ip"127.0.0.1", port) do req
+        requested[] = String(req.body)
         HTTP.Response(200, ["Content-Type" => "application/json"], canned[])
     end
     conn = OpenSysML.external("127.0.0.1:$(port)")
@@ -280,6 +282,31 @@ end
         @test empty_state.states_visited == String[]
         @test empty_state.final_context == Dict{String,Any}()
         @test empty_state.final_time == 0.0
+
+        conn.info = ServerInfo("", [CAPABILITY_STATE_TRACE], true, conn.origin)
+        canned[] = """{"trace":[{"kind":"transition","time":{"realValue":2.5},"text":"transition: idle -> active on Go","machine":"Demo::Machine","from":"idle","to":"active","event":"Go"}],"traceDropped":2}"""
+        traced = execute_state(model, "S"; trace=true)
+        @test traced.trace isa Vector{DocumentEvent}
+        @test traced.trace[1].kind == "transition"
+        @test traced.trace[1].from_state == "idle"
+        @test traced.trace_dropped == 2
+        @test occursin("\"trace\":true", requested[])
+
+        canned[] = """{"error":"state machine failed","trace":[{"kind":"entry","time":{"realValue":1.5},"state":"active","text":"enter: active"}],"traceDropped":2}"""
+        failure = try
+            execute_state(model, "S"; trace=true)
+            nothing
+        catch err
+            err
+        end
+        @test failure isa ExecutionFailure
+        @test length(failure.trace) == 1
+        @test failure.trace[1].kind == "entry"
+        @test failure.trace[1].state == "active"
+        @test failure.trace_dropped == 2
+
+        conn.info = ServerInfo("", String[], true, conn.origin)
+        @test_throws MissingCapabilityError execute_state(model, "S"; trace=true)
     finally
         close(server)
     end
@@ -329,6 +356,9 @@ const GRPC_BINARY = get(ENV, "OPENSYSML_GRPC_BINARY",
             @test states.states_visited == ["init", "Running", "done"]
             @test states.final_context == Dict{String,Any}()
             @test states.final_time == 0.0
+            traced_states = execute_state(bmodel, "Test::Machine"; trace=true)
+            @test !isempty(traced_states.trace)
+            @test first(traced_states.trace) isa DocumentEvent
 
             strict_failure = try
                 parse_source(conn, "package Broken { part def"; strict=true)

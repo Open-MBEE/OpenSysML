@@ -14,26 +14,26 @@ import java.util.OptionalDouble;
  * @param finalContext the machine's context when execution stopped, by feature name
  * @param finalTime the run's simulation clock when it ended, in seconds from the 0 it started at;
  *     absent from a service without the {@code final_time} capability
+ * @param trace the documented execution records returned when requested
+ * @param traceDropped the number of oldest records the service discarded
  * @param diagnostics what the service reported while executing
  */
 public record StateRun(
     List<String> statesVisited,
     Map<String, Value> finalContext,
     OptionalDouble finalTime,
+    List<DocumentValue.DocumentEvent> trace,
+    int traceDropped,
     List<Diagnostic> diagnostics) {
 
   /**
    * Creates a state run, copying its collections.
-   *
-   * @param statesVisited the trace
-   * @param finalContext the context by feature name
-   * @param finalTime the final time, when reported
-   * @param diagnostics the diagnostics
    */
   public StateRun {
     statesVisited = List.copyOf(statesVisited);
     finalContext = Map.copyOf(finalContext);
     Objects.requireNonNull(finalTime, "finalTime");
+    trace = List.copyOf(trace);
     diagnostics = List.copyOf(diagnostics);
   }
 

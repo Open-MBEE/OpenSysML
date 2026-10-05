@@ -114,7 +114,7 @@ func (c *metadataAnnotationChecker) checkMetadataUsage(sym *symbols.Symbol, u *a
 	if typeRef == nil {
 		return
 	}
-	if symbols.UsageAnnotatesOthers(u) {
+	if symbols.AnnotatesOthers(u) {
 		for _, metaclass := range c.model.AboutAnnotatedElementViolations(sym.OwnerScope, typeRef, about) {
 			c.reportCannotAnnotate(u.Span(), metaclass)
 		}

@@ -5,12 +5,14 @@ import (
 	"crypto/sha256"
 	"errors"
 	"fmt"
+	"math"
 	"os"
 	"strings"
 
 	"connectrpc.com/connect"
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
 	"github.com/Open-MBEE/OpenSysML/internal/check/passes"
+	"github.com/Open-MBEE/OpenSysML/internal/doc/queryexec"
 	"github.com/Open-MBEE/OpenSysML/internal/exec/analysis"
 	engineset "github.com/Open-MBEE/OpenSysML/internal/exec/engines"
 	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
@@ -239,6 +241,9 @@ const CapabilityFinalTime = "final_time"
 // ExecuteStateRequest; a service without it runs outside any object, so clients must not send it.
 const CapabilityPerformer = "performer"
 
+// CapabilityStateTrace names the ExecuteState trace request field.
+const CapabilityStateTrace = "state_trace"
+
 // CapabilityMetaobjectValues names the capability of carrying an element
 // reflected on as an instance of its metaclass (`x meta T`, the last element of
 // `x.metadata`) as Value.metaobject, rather than as an unsupported null.
@@ -286,6 +291,7 @@ var capabilities = []string{
 	CapabilityActionBodyStatementAuthoring,
 	CapabilityMigrate,
 	CapabilityBigIntValues,
+	CapabilityStateTrace,
 }
 
 type capabilityAvailability struct {
@@ -1199,6 +1205,15 @@ func (s *Service) ExecuteState(ctx context.Context, req *pb.ExecuteStateRequest)
 	if err != nil {
 		return nil, err
 	}
+	_, explores := schedule.Exploration()
+	if req.Trace && explores {
+		return nil, statusError(connect.CodeInvalidArgument, "state traces are unavailable under an explore schedule")
+	}
+	if req.Trace {
+		if err := s.requireCapability(CapabilityStateTrace); err != nil {
+			return nil, err
+		}
+	}
 	if req.PerformerSymbolId != "" {
 		if err := s.requireCapability(CapabilityPerformer); err != nil {
 			return nil, err
@@ -1220,7 +1235,7 @@ func (s *Service) ExecuteState(ctx context.Context, req *pb.ExecuteStateRequest)
 	}
 	stateMachine := syms[0]
 
-	if _, explores := schedule.Exploration(); explores {
+	if explores {
 		x, err := s.explore(ctx, req.StateMachineSymbolId, schedule, analysis.Auto(), cached, func(rt *runtime.Context) (runtime.Outcome, error) {
 			self, err := s.performer(cached, rt, req.PerformerSymbolId)
 			if err != nil {
@@ -1242,9 +1257,15 @@ func (s *Service) ExecuteState(ctx context.Context, req *pb.ExecuteStateRequest)
 	if err := runtimeCtx.SetSchedule(schedule); err != nil {
 		return nil, statusError(connect.CodeInvalidArgument, err.Error())
 	}
+	var traceRecorder *runtime.TraceRecorder
+	if req.Trace {
+		traceRecorder = runtime.NewEventRecorder(s.maxHeldEvents)
+		runtimeCtx.SetTrace(traceRecorder)
+	}
 	self, err := s.performer(cached, runtimeCtx, req.PerformerSymbolId)
 	if err != nil {
-		return &pb.ExecuteStateResponse{Error: err.Error()}, nil
+		trace, dropped := stateTraceToProto(runtimeCtx, cached.Index, traceRecorder)
+		return &pb.ExecuteStateResponse{Error: err.Error(), Trace: trace, TraceDropped: dropped}, nil
 	}
 
 	// The final context is the outcome an exploration compares: the machine's own
@@ -1258,11 +1279,14 @@ func (s *Service) ExecuteState(ctx context.Context, req *pb.ExecuteStateRequest)
 	}
 	finalContext, statesVisited := ran.final, ran.visited
 	diags := s.filterDiagnosticCapabilities(RunNoteDiagnosticsToProto(runtimeCtx.Notes(), cached))
+	trace, dropped := stateTraceToProto(runtimeCtx, cached.Index, traceRecorder)
 	if err != nil {
 		return &pb.ExecuteStateResponse{
-			Error:       fmt.Sprintf("state machine execution failed: %v", err),
-			Diagnostics: diags,
-			FinalTime:   s.finalTime(runtimeCtx),
+			Error:        fmt.Sprintf("state machine execution failed: %v", err),
+			Diagnostics:  diags,
+			FinalTime:    s.finalTime(runtimeCtx),
+			Trace:        trace,
+			TraceDropped: dropped,
 		}, nil
 	}
 
@@ -1277,7 +1301,32 @@ func (s *Service) ExecuteState(ctx context.Context, req *pb.ExecuteStateRequest)
 		FinalContext:  pbContext,
 		Diagnostics:   diags,
 		FinalTime:     s.finalTime(runtimeCtx),
+		Trace:         trace,
+		TraceDropped:  dropped,
 	}, nil
+}
+
+func stateTraceToProto(rt *runtime.Context, idx *symbols.Index, recorder *runtime.TraceRecorder) ([]*pb.DocumentEvent, int32) {
+	if recorder == nil {
+		return nil, 0
+	}
+	events := queryexec.EventsFromTrace(rt, recorder.Records())
+	trace := make([]*pb.DocumentEvent, len(events))
+	for i, event := range events {
+		trace[i] = documentEvent(idx, event)
+	}
+	dropped, _ := recorder.Dropped()
+	return trace, traceDroppedCountToInt32(int64(dropped))
+}
+
+func traceDroppedCountToInt32(dropped int64) int32 {
+	if dropped < 0 {
+		return 0
+	}
+	if dropped > math.MaxInt32 {
+		return math.MaxInt32
+	}
+	return int32(dropped)
 }
 
 // buildParseResponse constructs ParseFileResponse from cached model

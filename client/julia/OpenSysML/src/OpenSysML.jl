@@ -53,6 +53,7 @@ export Connection, Model, Diagnostic, Instance, InstanceRef, Quantity,
        as_str, as_quantity, as_enum_literal, as_object, as_typed, feature_value,
        optional_feature_value, list_feature_value, generate_source, generate_main
 
+include("document_types.jl")
 include("errors.jl")
 include("binary.jl")
 include("values.jl")
@@ -114,7 +115,8 @@ for capability in (
     :CAPABILITY_TENSOR_VALUES, :CAPABILITY_METAOBJECT_VALUES,
     :CAPABILITY_VERIFICATION_VERDICTS, :CAPABILITY_INFINITY_VALUE,
     :CAPABILITY_DIAGNOSTIC_CODES, :CAPABILITY_SCHEDULE, :CAPABILITY_CASE_EVALUATIONS,
-    :CAPABILITY_SCHEDULE_EXPLORE, :CAPABILITY_PERFORMER, :CAPABILITY_FINAL_TIME,
+    :CAPABILITY_SCHEDULE_EXPLORE, :CAPABILITY_PERFORMER, :CAPABILITY_STATE_TRACE,
+    :CAPABILITY_FINAL_TIME,
     :CAPABILITY_ENGINES, :CAPABILITY_UNDETERMINED_VALUE, :CAPABILITY_BIG_INT_VALUES
 )
     @eval export $capability

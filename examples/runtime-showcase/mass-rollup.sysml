@@ -3,7 +3,7 @@
 package MassRollup {
     private import ISQ::*;
     private import SI::*;
-    private import RealFunctions::sum;
+    private import QuantityCalculations::sum;
 
     abstract part def Component {
         part subcomponents : Component[*] default null;

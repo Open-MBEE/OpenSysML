@@ -130,4 +130,15 @@ public interface ExecuteStateRequestOrBuilder extends
    */
   com.google.protobuf.ByteString
       getPerformerSymbolIdBytes();
+
+  /**
+   * <pre>
+   * Ask for the run's trace in ExecuteStateResponse.trace. Advertised as the
+   * "state_trace" capability; a service withholding it refuses true with UNIMPLEMENTED.
+   * </pre>
+   *
+   * <code>bool trace = 6 [json_name = "trace"];</code>
+   * @return The trace.
+   */
+  boolean getTrace();
 }

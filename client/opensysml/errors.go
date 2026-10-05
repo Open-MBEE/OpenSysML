@@ -105,6 +105,10 @@ type FailureError struct {
 	Message string
 	// Diagnostics the response carried alongside the failure, if any.
 	Diagnostics []Diagnostic
+	// Trace is the partial ExecuteState trace when that run failed.
+	Trace []DocumentEvent
+	// TraceDropped is the number of oldest ExecuteState trace records discarded.
+	TraceDropped int
 }
 
 // Error renders the failure the service reported.

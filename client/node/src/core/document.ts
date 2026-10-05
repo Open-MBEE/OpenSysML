@@ -5,6 +5,7 @@
 import { create } from "@bufbuild/protobuf";
 import type {
   DocumentObject as PbDocumentObject,
+  DocumentEvent as PbDocumentEvent,
   DocumentQueryBinding,
   DocumentQueryRow,
   DocumentValue as PbDocumentValue,
@@ -505,6 +506,11 @@ function eventOf(event: NonNullable<Extract<PbDocumentValue["kind"], { case: "ev
     alternatives: [...event.alternatives],
     taken: event.taken,
   });
+}
+
+/** Decode a run-trace event using the document query's event conversion. */
+export function documentEventOf(event: PbDocumentEvent): DocumentEvent {
+  return eventOf(event);
 }
 
 function valueOf(value: PbDocumentValue | undefined): DocumentValue {

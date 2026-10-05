@@ -58,17 +58,51 @@ func run(repoDir, grammarDir, out, baseline string, log io.Writer) error {
 	if err != nil {
 		return err
 	}
-	grammarDir, out, baseline = repo.Resolve(repoDir, grammarDir), repo.Resolve(repoDir, out), repo.Resolve(repoDir, baseline)
+	if log == nil {
+		log = io.Discard
+	}
+	grammarDir = repo.Resolve(repoDir, grammarDir)
 	if grammarDir == "" {
 		grammarDir = filepath.Join(repoDir, "build", "pilot-grammars")
 	}
+	out, baseline = repo.Resolve(repoDir, out), repo.Resolve(repoDir, baseline)
 	if out == "" {
 		out = filepath.Join(repoDir, "build", "grammar-coverage")
 	}
-
-	files, err := grammarFiles(grammarDir)
+	report, _, err := measure(repoDir, grammarDir, log)
 	if err != nil {
 		return err
+	}
+	if err := writeReports(out, report, log); err != nil {
+		return err
+	}
+	if baseline == "" {
+		return nil
+	}
+	return writeBaseline(baseline, report, log)
+}
+
+// Measure parses the selected Xtext grammars and measures their input-presence
+// evidence against the repository corpora. It does not write report files.
+func Measure(repoDir, grammarDir string, log io.Writer) (*Report, []*Grammar, error) {
+	repoDir, err := repo.Choose(repoDir)
+	if err != nil {
+		return nil, nil, err
+	}
+	grammarDir = repo.Resolve(repoDir, grammarDir)
+	if grammarDir == "" {
+		grammarDir = filepath.Join(repoDir, "build", "pilot-grammars")
+	}
+	if log == nil {
+		log = io.Discard
+	}
+	return measure(repoDir, grammarDir, log)
+}
+
+func measure(repoDir, grammarDir string, log io.Writer) (*Report, []*Grammar, error) {
+	files, err := grammarFiles(grammarDir)
+	if err != nil {
+		return nil, nil, err
 	}
 
 	var parsedGrammars []*Grammar
@@ -77,11 +111,11 @@ func run(repoDir, grammarDir, out, baseline string, log io.Writer) error {
 		// #nosec G304 -- the grammar directory is named on the command line.
 		data, err := os.ReadFile(path)
 		if err != nil {
-			return err
+			return nil, nil, err
 		}
 		parsed, err := ParseGrammar(filepath.Base(path), string(data))
 		if err != nil {
-			return err
+			return nil, nil, err
 		}
 		fmt.Fprintf(log, "%s: %d production(s)\n", parsed.Name, len(parsed.Productions))
 		parsedGrammars = append(parsedGrammars, parsed)
@@ -92,30 +126,24 @@ func run(repoDir, grammarDir, out, baseline string, log io.Writer) error {
 
 	lits, err := newLitTable(literals)
 	if err != nil {
-		return err
+		return nil, nil, err
 	}
 	index, err := buildLiteralIndex(repoDir, evidenceRoots, lits)
 	if err != nil {
-		return err
+		return nil, nil, err
 	}
 	corpusFiles := 0
 	for _, root := range index.Roots() {
 		corpusFiles += root.Files
 	}
 	if corpusFiles == 0 {
-		return fmt.Errorf("no .sysml or .kerml files found under %s: is -repo right?", repoDir)
+		return nil, nil, fmt.Errorf("no .sysml or .kerml files found under %s: is -repo right?", repoDir)
 	}
 	fmt.Fprintf(log, "searched %d corpus file(s) for %d distinct literal(s)\n", corpusFiles, len(lits.order))
 
 	rows := classifyAll(parsedGrammars, newAnalyzer(parsedGrammars, lits), index)
 	report := buildReport(pilotTag(grammarDir), rows, index.Roots())
-	if err := writeReports(out, report, log); err != nil {
-		return err
-	}
-	if baseline == "" {
-		return nil
-	}
-	return writeBaseline(baseline, report, log)
+	return report, parsedGrammars, nil
 }
 
 // classifyAll classifies every production, keeping the grammars in the order

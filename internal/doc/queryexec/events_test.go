@@ -105,6 +105,51 @@ func eventFixture(t *testing.T) lampFixture {
 	return loadLampFixture(t, eventQueries)
 }
 
+func TestEventsFromTraceFiltersAndMapsRecords(t *testing.T) {
+	fixture := eventFixture(t)
+	behavior := fixture.symbol(t, "LampMachine")
+	records := []runtime.TraceRecord{
+		{
+			Kind: runtime.TraceTransition,
+			Origin: runtime.TraceOrigin{
+				At: 1.25, Object: fixture.lamp1, Behavior: behavior,
+			},
+			From: "off", To: "on", Event: "accept Toggle",
+		},
+		{Kind: runtime.TraceLine},
+		{
+			Kind: runtime.TraceChoice,
+			Origin: runtime.TraceOrigin{
+				At: 2, Object: fixture.lamp1, Behavior: behavior,
+			},
+			Note: runtime.ChoicePoint{
+				Alternatives: []string{"first -> on", "second -> off"},
+				Taken:        1,
+			},
+		},
+	}
+
+	events := EventsFromTrace(fixture.ctx, records)
+	if len(events) != 2 {
+		t.Fatalf("EventsFromTrace returned %d events, want 2", len(events))
+	}
+	transition := events[0]
+	if transition.Kind() != "transition" || transition.At() != 1.25 || transition.Machine() != "lp" {
+		t.Fatalf("transition = %s at %g in %s", transition.Kind(), transition.At(), transition.Machine())
+	}
+	if got := transition.Record(); got.From != "off" || got.To != "on" || got.Event != "accept Toggle" {
+		t.Fatalf("transition record = %+v", got)
+	}
+	object, label := transition.Object()
+	if object != fixture.lamp1 || label != "#"+strconv.FormatInt(fixture.lamp1.ID, 10) {
+		t.Fatalf("transition object = %v, %q", object, label)
+	}
+	choice := events[1]
+	if choice.Kind() != "choice" || strings.Join(choice.Alternatives(), ",") != "first -> on,second -> off" || choice.Taken() != "second -> off" {
+		t.Fatalf("choice = %s, alternatives %v, taken %q", choice.Kind(), choice.Alternatives(), choice.Taken())
+	}
+}
+
 // quantity folds a quantity expression in the fixture's package for a binding.
 func (f lampFixture) quantity(t *testing.T, expr string) Value {
 	t.Helper()

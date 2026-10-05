@@ -273,25 +273,41 @@ func collectAboutUsages(scope *Scope, seen map[*Symbol]bool, out *[]*Symbol) {
 			return true
 		}
 		seen[sym] = true
-		if sym.Kind == SymbolMetadataUsage {
-			if usage, ok := sym.Decl.(*ast.Usage); ok && UsageAnnotatesOthers(usage) {
-				*out = append(*out, sym)
-			}
+		if sym.Kind == SymbolMetadataUsage && AnnotatesOthers(sym.Decl) {
+			*out = append(*out, sym)
 		}
 		collectAboutUsages(sym.Scope, seen, out)
 		return true
 	})
 }
 
-// UsageAnnotatesOthers reports whether a metadata usage states what it
-// annotates (`metadata m about p;`), rather than annotating its owner.
-func UsageAnnotatesOthers(u *ast.Usage) bool {
-	for _, rel := range u.Relationships {
-		if rel != nil && rel.Kind == ast.RelAnnotates {
-			return true
+// AnnotatesOthers reports whether a metadata usage states what it annotates
+// (`metadata m about p;`, `@M about p;`), rather than annotating its owner.
+func AnnotatesOthers(decl ast.Node) bool { return len(MetadataAboutRefs(decl)) > 0 }
+
+// MetadataAboutRefs is the names a metadata usage's `about` clause states, in
+// either spelling of the usage; nil for any other declaration.
+func MetadataAboutRefs(decl ast.Node) []*ast.QualifiedName {
+	switch d := decl.(type) {
+	case *ast.PrefixMetadata:
+		return d.About
+	case *ast.Usage:
+		if d.Kind != ast.UsageMetadata {
+			return nil
 		}
+		var out []*ast.QualifiedName
+		for _, rel := range d.Relationships {
+			if rel == nil || rel.Kind != ast.RelAnnotates {
+				continue
+			}
+			if qn, ok := rel.Target.(*ast.QualifiedName); ok {
+				out = append(out, qn)
+			}
+		}
+		return out
+	default:
+		return nil
 	}
-	return false
 }
 
 type derivedValue struct {

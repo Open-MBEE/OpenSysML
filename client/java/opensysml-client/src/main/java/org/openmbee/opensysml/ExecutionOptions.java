@@ -13,8 +13,9 @@ import java.util.Optional;
  * @param performer the object the behavior runs on, as {@code sysml -action "<action> <object>"}
  *     names it: a part definition or usage to make an object of, or a path from one into its parts
  *     ({@code "Mission::mission.vehicle"}), made for the run. Absent runs outside any object.
+ * @param trace whether a state run returns its documented execution trace
  */
-public record ExecutionOptions(Optional<String> schedule, Optional<String> performer) {
+public record ExecutionOptions(Optional<String> schedule, Optional<String> performer, boolean trace) {
 
   private static final String EXPLORE = "explore";
 
@@ -35,7 +36,7 @@ public record ExecutionOptions(Optional<String> schedule, Optional<String> perfo
    * @return the default options
    */
   public static ExecutionOptions defaults() {
-    return new ExecutionOptions(Optional.empty(), Optional.empty());
+    return new ExecutionOptions(Optional.empty(), Optional.empty(), false);
   }
 
   /**
@@ -45,7 +46,7 @@ public record ExecutionOptions(Optional<String> schedule, Optional<String> perfo
    * @return options naming it
    */
   public ExecutionOptions withSchedule(String schedule) {
-    return new ExecutionOptions(Optional.of(schedule), performer);
+    return new ExecutionOptions(Optional.of(schedule), performer, trace);
   }
 
   /**
@@ -55,7 +56,12 @@ public record ExecutionOptions(Optional<String> schedule, Optional<String> perfo
    * @return options naming it
    */
   public ExecutionOptions withPerformer(String performer) {
-    return new ExecutionOptions(schedule, Optional.of(performer));
+    return new ExecutionOptions(schedule, Optional.of(performer), trace);
+  }
+
+  /** The same options with a state-run trace requested. */
+  public ExecutionOptions withTrace() {
+    return new ExecutionOptions(schedule, performer, true);
   }
 
   /**

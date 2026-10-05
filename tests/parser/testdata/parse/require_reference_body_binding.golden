@@ -1,0 +1,56 @@
+(RootNamespace
+  (Membership visibility="default"
+    (Package name="Freight" library=false standard=false
+      (Import visibility="private" all=false kind=namespace recursive=false imported="ScalarValues" filtered=false)
+      (Membership visibility="default"
+        (Definition kind="part" abstract=false variation=false name="Wagon"
+          (Membership visibility="default"
+            (Usage kind="attribute" name="tare" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Real
+                (*ast.QualifiedName))))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="cargo" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Real
+                (*ast.QualifiedName))))))
+      (Membership visibility="default"
+        (Definition kind="requirement" abstract=false variation=false name="WagonMassCap"
+          (SubjectMember name="w" type="Wagon")
+          (Usage kind="attribute" name="actual" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+            (Relationship kind="typing" target=Real
+              (*ast.QualifiedName))
+            (OperatorExpr operator="+"
+              (FeatureChainExpr member="tare"
+                (FeatureReference name="w"))
+              (FeatureChainExpr member="cargo"
+                (FeatureReference name="w"))))
+          (Usage kind="attribute" name="cap" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+            (Relationship kind="typing" target=Real
+              (*ast.QualifiedName)))
+          (AssumeMember
+            (ConstraintMember assert=true negated=false
+              (OperatorExpr operator=">"
+                (FeatureChainExpr member="cargo"
+                  (FeatureReference name="w"))
+                (LiteralInteger value="0"))))
+          (RequireMember
+            (ConstraintMember assert=true negated=false
+              (OperatorExpr operator="<="
+                (FeatureReference name="actual")
+                (FeatureReference name="cap"))))))
+      (Membership visibility="default"
+        (Usage kind="requirement" name="ladenLimit" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+          (Relationship kind="typing" target=WagonMassCap
+            (*ast.QualifiedName))
+          (Usage kind="attribute" name="" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+            (Relationship kind="redefines" target=cap
+              (*ast.QualifiedName))
+            (LiteralInteger value="1000"))))
+      (Membership visibility="default"
+        (Usage kind="requirement" name="wagonSpec" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+          (SubjectMember name="unit" type="Wagon")
+          (RequireMember name="ladenLimit"
+            (Usage kind="attribute" name="w" ref=false direction="in" composite=false derived=false ordered=false nonunique=false
+              (FeatureReference name="unit")))
+          (AssumeMember name="ladenLimit"
+            (Usage kind="attribute" name="w" ref=false direction="in" composite=false derived=false ordered=false nonunique=false
+              (FeatureReference name="unit"))))))))

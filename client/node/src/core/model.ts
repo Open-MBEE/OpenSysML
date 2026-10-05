@@ -454,7 +454,12 @@ export class Model {
   /** Executes a state machine of this model. */
   executeState(
     stateMachineSymbolId: string,
-    options: { events?: readonly string[]; schedule?: string; performer?: string } = {},
+    options: {
+      events?: readonly string[];
+      schedule?: string;
+      performer?: string;
+      trace?: boolean;
+    } = {},
   ) {
     return this.connection.executeState(this.hash, stateMachineSymbolId, options);
   }

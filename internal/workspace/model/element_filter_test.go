@@ -819,3 +819,35 @@ func TestCompletionOffersOnlyAdmittedRootNames(t *testing.T) {
 		}
 	}
 }
+
+// An `@M about x;` usage annotates `x`, so a filter selecting `@M` passes `x`
+// and not the namespace the usage is written in.
+func TestFilteredImportSeesPrefixAboutAnnotation(t *testing.T) {
+	ws := NewWorkspace()
+	ws.Open("file:///about.sysml", []byte(`package Tagged {
+	metadata def Safety;
+	part vehicle {
+		part seatBelt;
+		part keylessEntry;
+		@Safety about seatBelt;
+	}
+}
+
+package Imported {
+	public import Tagged::vehicle::*[@Tagged::Safety];
+	public import Tagged::*[@Tagged::Safety];
+}`), 1)
+	ws.Open("file:///client.sysml", []byte(`package Client {
+	private import Imported::*;
+	alias a for seatBelt;
+	alias b for keylessEntry;
+	alias c for vehicle;
+}`), 1)
+	var msgs []string
+	for _, d := range ws.Diagnostics("file:///client.sysml") {
+		msgs = append(msgs, d.Message)
+	}
+	if len(msgs) != 2 || !strings.Contains(msgs[0], "keylessEntry") || !strings.Contains(msgs[1], "vehicle") {
+		t.Fatalf("only the element an about usage names passes the filter, got %v", msgs)
+	}
+}

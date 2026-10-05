@@ -395,6 +395,7 @@ export class Runner {
     ExecuteState: (call) =>
       this.model(call).executeState(String(call.request["state_machine_symbol_id"]), {
         ...stringOption(call.request, "schedule", "schedule"),
+        ...flagOption(call.request, "trace", "trace"),
       }),
     Convert: ({ request, modelHash }) =>
       this.connection.convert(stringOf(request["to_format"]), convertSource(request, modelHash), {

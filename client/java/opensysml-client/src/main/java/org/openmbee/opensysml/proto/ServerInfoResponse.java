@@ -207,6 +207,9 @@ private static final long serialVersionUID = 0L;
    * "final_time"   - ExecuteActionResponse and ExecuteStateResponse report
    * final_time, the run's simulation clock when it ended;
    * without it the field is 0 whatever the run waited on.
+   * "state_trace"  - ExecuteStateRequest can ask for the run's typed trace in
+   * ExecuteStateResponse.trace, including records before a failure.
+   * Traces are unavailable under an explore schedule.
    * "engines"      - the ListEngines RPC lists the analysis engines; the
    * verification and sweep requests take an `engine`, the
    * engine the question is put to, unset meaning "auto"; and
@@ -331,6 +334,9 @@ private static final long serialVersionUID = 0L;
    * "final_time"   - ExecuteActionResponse and ExecuteStateResponse report
    * final_time, the run's simulation clock when it ended;
    * without it the field is 0 whatever the run waited on.
+   * "state_trace"  - ExecuteStateRequest can ask for the run's typed trace in
+   * ExecuteStateResponse.trace, including records before a failure.
+   * Traces are unavailable under an explore schedule.
    * "engines"      - the ListEngines RPC lists the analysis engines; the
    * verification and sweep requests take an `engine`, the
    * engine the question is put to, unset meaning "auto"; and
@@ -454,6 +460,9 @@ private static final long serialVersionUID = 0L;
    * "final_time"   - ExecuteActionResponse and ExecuteStateResponse report
    * final_time, the run's simulation clock when it ended;
    * without it the field is 0 whatever the run waited on.
+   * "state_trace"  - ExecuteStateRequest can ask for the run's typed trace in
+   * ExecuteStateResponse.trace, including records before a failure.
+   * Traces are unavailable under an explore schedule.
    * "engines"      - the ListEngines RPC lists the analysis engines; the
    * verification and sweep requests take an `engine`, the
    * engine the question is put to, unset meaning "auto"; and
@@ -578,6 +587,9 @@ private static final long serialVersionUID = 0L;
    * "final_time"   - ExecuteActionResponse and ExecuteStateResponse report
    * final_time, the run's simulation clock when it ended;
    * without it the field is 0 whatever the run waited on.
+   * "state_trace"  - ExecuteStateRequest can ask for the run's typed trace in
+   * ExecuteStateResponse.trace, including records before a failure.
+   * Traces are unavailable under an explore schedule.
    * "engines"      - the ListEngines RPC lists the analysis engines; the
    * verification and sweep requests take an `engine`, the
    * engine the question is put to, unset meaning "auto"; and
@@ -1151,6 +1163,9 @@ private static final long serialVersionUID = 0L;
      * "final_time"   - ExecuteActionResponse and ExecuteStateResponse report
      * final_time, the run's simulation clock when it ended;
      * without it the field is 0 whatever the run waited on.
+     * "state_trace"  - ExecuteStateRequest can ask for the run's typed trace in
+     * ExecuteStateResponse.trace, including records before a failure.
+     * Traces are unavailable under an explore schedule.
      * "engines"      - the ListEngines RPC lists the analysis engines; the
      * verification and sweep requests take an `engine`, the
      * engine the question is put to, unset meaning "auto"; and
@@ -1276,6 +1291,9 @@ private static final long serialVersionUID = 0L;
      * "final_time"   - ExecuteActionResponse and ExecuteStateResponse report
      * final_time, the run's simulation clock when it ended;
      * without it the field is 0 whatever the run waited on.
+     * "state_trace"  - ExecuteStateRequest can ask for the run's typed trace in
+     * ExecuteStateResponse.trace, including records before a failure.
+     * Traces are unavailable under an explore schedule.
      * "engines"      - the ListEngines RPC lists the analysis engines; the
      * verification and sweep requests take an `engine`, the
      * engine the question is put to, unset meaning "auto"; and
@@ -1399,6 +1417,9 @@ private static final long serialVersionUID = 0L;
      * "final_time"   - ExecuteActionResponse and ExecuteStateResponse report
      * final_time, the run's simulation clock when it ended;
      * without it the field is 0 whatever the run waited on.
+     * "state_trace"  - ExecuteStateRequest can ask for the run's typed trace in
+     * ExecuteStateResponse.trace, including records before a failure.
+     * Traces are unavailable under an explore schedule.
      * "engines"      - the ListEngines RPC lists the analysis engines; the
      * verification and sweep requests take an `engine`, the
      * engine the question is put to, unset meaning "auto"; and
@@ -1523,6 +1544,9 @@ private static final long serialVersionUID = 0L;
      * "final_time"   - ExecuteActionResponse and ExecuteStateResponse report
      * final_time, the run's simulation clock when it ended;
      * without it the field is 0 whatever the run waited on.
+     * "state_trace"  - ExecuteStateRequest can ask for the run's typed trace in
+     * ExecuteStateResponse.trace, including records before a failure.
+     * Traces are unavailable under an explore schedule.
      * "engines"      - the ListEngines RPC lists the analysis engines; the
      * verification and sweep requests take an `engine`, the
      * engine the question is put to, unset meaning "auto"; and
@@ -1648,6 +1672,9 @@ private static final long serialVersionUID = 0L;
      * "final_time"   - ExecuteActionResponse and ExecuteStateResponse report
      * final_time, the run's simulation clock when it ended;
      * without it the field is 0 whatever the run waited on.
+     * "state_trace"  - ExecuteStateRequest can ask for the run's typed trace in
+     * ExecuteStateResponse.trace, including records before a failure.
+     * Traces are unavailable under an explore schedule.
      * "engines"      - the ListEngines RPC lists the analysis engines; the
      * verification and sweep requests take an `engine`, the
      * engine the question is put to, unset meaning "auto"; and
@@ -1779,6 +1806,9 @@ private static final long serialVersionUID = 0L;
      * "final_time"   - ExecuteActionResponse and ExecuteStateResponse report
      * final_time, the run's simulation clock when it ended;
      * without it the field is 0 whatever the run waited on.
+     * "state_trace"  - ExecuteStateRequest can ask for the run's typed trace in
+     * ExecuteStateResponse.trace, including records before a failure.
+     * Traces are unavailable under an explore schedule.
      * "engines"      - the ListEngines RPC lists the analysis engines; the
      * verification and sweep requests take an `engine`, the
      * engine the question is put to, unset meaning "auto"; and
@@ -1909,6 +1939,9 @@ private static final long serialVersionUID = 0L;
      * "final_time"   - ExecuteActionResponse and ExecuteStateResponse report
      * final_time, the run's simulation clock when it ended;
      * without it the field is 0 whatever the run waited on.
+     * "state_trace"  - ExecuteStateRequest can ask for the run's typed trace in
+     * ExecuteStateResponse.trace, including records before a failure.
+     * Traces are unavailable under an explore schedule.
      * "engines"      - the ListEngines RPC lists the analysis engines; the
      * verification and sweep requests take an `engine`, the
      * engine the question is put to, unset meaning "auto"; and
@@ -2039,6 +2072,9 @@ private static final long serialVersionUID = 0L;
      * "final_time"   - ExecuteActionResponse and ExecuteStateResponse report
      * final_time, the run's simulation clock when it ended;
      * without it the field is 0 whatever the run waited on.
+     * "state_trace"  - ExecuteStateRequest can ask for the run's typed trace in
+     * ExecuteStateResponse.trace, including records before a failure.
+     * Traces are unavailable under an explore schedule.
      * "engines"      - the ListEngines RPC lists the analysis engines; the
      * verification and sweep requests take an `engine`, the
      * engine the question is put to, unset meaning "auto"; and
@@ -2166,6 +2202,9 @@ private static final long serialVersionUID = 0L;
      * "final_time"   - ExecuteActionResponse and ExecuteStateResponse report
      * final_time, the run's simulation clock when it ended;
      * without it the field is 0 whatever the run waited on.
+     * "state_trace"  - ExecuteStateRequest can ask for the run's typed trace in
+     * ExecuteStateResponse.trace, including records before a failure.
+     * Traces are unavailable under an explore schedule.
      * "engines"      - the ListEngines RPC lists the analysis engines; the
      * verification and sweep requests take an `engine`, the
      * engine the question is put to, unset meaning "auto"; and

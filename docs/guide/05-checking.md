@@ -224,8 +224,8 @@ error: evaluation failed: type mismatch: operator '+' is not defined for the unb
 ```
 
 **Metadata:** `elem.metadata` is the sequence of metadata annotating `elem`, one object per
-annotation in the order written — an inline `@` annotation and a `metadata … about elem`
-usage declared elsewhere take their places by source position, across files in document
+annotation in the order written — an inline `@` annotation and an `about elem`
+usage declared elsewhere (`metadata m : M about elem;` or `@M about elem;`) take their places by source position, across files in document
 order — each carrying the values its body binds over the defaults its
 `metadata def` declares — followed by one *reflective metaobject* of the element's own
 metaclass (KerML §8.3.4.8.15), so the metadata of an element nothing annotates is that one
@@ -370,9 +370,55 @@ to one is refused as a `type mismatch` naming both dimensions. See
 [Behavior](06-behavior.md) for the same rule over `assign`. An argument is bound to the
 parameter it fills, and that binding is judged like an explicit `bind`: `sum(robots.mass)`
 handing `MassValue`s to `RealFunctions::sum`, declared over `Real`, draws the validation warning
-`Bound features should have conforming types` at the argument, as the SysML v2 pilot reports it.
+`Bound features should have conforming types` at the argument, as the SysML v2 pilot reports it;
+`QuantityCalculations::sum` is the sum declared over quantities, and takes them silently.
 
-## Sets and tensors
+## Arrays, sets and tensors
+
+**Arrays:** a `Collections::Array` is one value of a fixed shape — `dimensions` gives the length
+of each axis and `elements` the flattened elements in row-major order, the last index varying
+fastest — and `rank` and `flattenedSize` are read from that shape. The library declares only
+`Array`; a matrix, a tensor of plain numbers or a grid of some element type is a specialization
+the model declares itself, and a usage of it is shaped by redefining `dimensions` and `elements`.
+`CollectionFunctions::'array#'` takes one index per dimension, counted from 1.
+
+```sysml
+sysml> package Grid {
+  ...>     private import ScalarValues::*;
+  ...>     private import Collections::*;
+  ...>     private import CollectionFunctions::*;
+  ...>     attribute def Matrix :> Array {
+  ...>         attribute :>> elements : Real;
+  ...>     }
+  ...>     attribute m : Matrix {
+  ...>         :>> dimensions = (2, 2);
+  ...>         :>> elements = (1.0, 2.0, 3.0, 4.0);
+  ...>     }
+  ...>     attribute corner = 'array#'(m, (2, 1));
+  ...>     attribute n = m.flattenedSize;
+  ...> }
+✓ package Grid
+
+sysml> %eval Grid::m
+✓ Grid::m
+  = Array(2, 2)[1.0, 2.0, 3.0, 4.0]
+
+sysml> %eval Grid::m.rank
+✓ Grid::m.rank
+  = 2
+
+sysml> %eval Grid::corner
+✓ Grid::corner
+  = 3.0
+
+sysml> %eval Grid::n
+✓ Grid::n
+  = 4
+```
+
+Typing `m : Matrix` without declaring `Matrix` is an unresolved reference, in this
+implementation and in the SysML v2 pilot alike. A `TensorQuantityValue` — a tensor of quantities
+with a unit per component — is a different library type, built as shown under *Tensors* below.
 
 **Sets:** the library declares the elements of a `Collections::Set` unique and unordered, so a
 `Set` holds a set: the elements it was given with every repeat dropped and no order of its own.
@@ -514,31 +560,33 @@ from an FMI model (`-convert sysml model.fmu`), its evaluation runs the FMU thro
 
 **Calculations as values:**
 
-A `calc def`, a `calc` usage or an `in calc` parameter named where a value is expected is a
-*function value*: the calculation, together with whatever it closes over. It is passed as an
-argument, held in a feature, compared with `==`, and invoked by the parameter that receives it;
-reading it on its own answers the function, named by its declaration.
+A `calc` usage or an `in calc` parameter named where a value is expected is a *function value*:
+the calculation, together with whatever it closes over. It is passed as an argument, held in a
+feature, compared with `==`, and invoked by the parameter that receives it; reading it on its own
+answers the function, named by its declaration.
 
 ```sysml
 sysml> package Gains {
   ...>     private import ScalarValues::*;
   ...>     calc def Square { in v : Real; return : Real = v * v; }
+  ...>     calc square : Square;
   ...>     calc def Apply { in calc f { in v : Real; return : Real; } in a : Real; return : Real = f(a); }
   ...> }
 ✓ package Gains
 
-sysml> %calc Gains::Apply(Gains::Square, 3.0)
-✓ Gains::Apply(Gains::Square, 3.0)
+sysml> %calc Gains::Apply(Gains::square, 3.0)
+✓ Gains::Apply(Gains::square, 3.0)
   = 9.0
   standing: value (observed: 1 run under reverse)
 
-sysml> %eval Gains::Square
-✓ Gains::Square
-  = Gains::Square
+sysml> %eval Gains::square
+✓ Gains::square
+  = Gains::square
 ```
 
-A `calc def` is a definition, not a feature, so it is passed as an argument or referenced through
-a `calc` usage rather than bound directly as a feature's value. A nested `calc` closes over the
+A `calc def` is a definition, not a feature, so a function is passed through a `calc` usage of it
+rather than by naming the definition: `Apply(Square, 3.0)` is accepted here but refused by the
+reference implementation as `Must be a valid feature`. A nested `calc` closes over the
 features around it, and `SampledFunctions::Sample` from the analysis library takes a function value
 and tabulates it over a domain.
 

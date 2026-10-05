@@ -34,6 +34,10 @@ type StateRun struct {
 	// FinalTime is the run's simulation clock when it ended, in seconds from
 	// the 0 it started at; 0 from a service without CapabilityFinalTime.
 	FinalTime float64
+	// Trace is the documented execution record sequence, when requested.
+	Trace []DocumentEvent
+	// TraceDropped is the number of oldest trace records the service discarded.
+	TraceDropped int
 	// Diagnostics the execution reported.
 	Diagnostics []Diagnostic
 }
@@ -44,6 +48,7 @@ type ExecuteOption func(*executeOptions)
 type executeOptions struct {
 	schedule  string
 	performer string
+	trace     bool
 }
 
 // WithSchedule names the policy a run resolves its choice points under, as sysml
@@ -56,6 +61,28 @@ func WithSchedule(policy string) ExecuteOption {
 // does: a declaration the run creates an object of, or a path into one ("Mission::mission.vehicle").
 func PerformedBy(path string) ExecuteOption {
 	return func(o *executeOptions) { o.performer = path }
+}
+
+// WithTrace asks ExecuteState to return the run's execution trace.
+func WithTrace() ExecuteOption {
+	return func(o *executeOptions) { o.trace = true }
+}
+
+func (c *client) requireTrace(ctx context.Context, trace bool) error {
+	if !trace {
+		return nil
+	}
+	info, err := c.serverInfo(ctx)
+	if err != nil {
+		return err
+	}
+	if !info.Has(CapabilityStateTrace) {
+		return &StatusError{
+			Code:    CodeUnimplemented,
+			Message: fmt.Sprintf("capability %q is unavailable", CapabilityStateTrace),
+		}
+	}
+	return nil
 }
 
 // requirePerformer refuses to send a performer to a service without the
@@ -107,6 +134,9 @@ func (c *client) ExecuteAction(
 	for _, opt := range opts {
 		opt(&options)
 	}
+	if err := refuseTrace(options.trace, "WithTrace is only valid for ExecuteState"); err != nil {
+		return nil, err
+	}
 	if err := refuseExploring("ExecuteAction", "ExploreAction", options.schedule); err != nil {
 		return nil, err
 	}
@@ -150,6 +180,13 @@ func (c *client) ExecuteAction(
 	}, nil
 }
 
+func refuseTrace(trace bool, message string) error {
+	if !trace {
+		return nil
+	}
+	return &StatusError{Code: CodeInvalidArgument, Message: message}
+}
+
 func (c *client) ExecuteState(
 	ctx context.Context,
 	model *Model,
@@ -174,24 +211,36 @@ func (c *client) ExecuteState(
 	if err := c.requirePerformer(ctx, options.performer); err != nil {
 		return nil, err
 	}
+	if err := c.requireTrace(ctx, options.trace); err != nil {
+		return nil, err
+	}
 	resp, err := c.caller.executeState(ctx, &pb.ExecuteStateRequest{
 		ModelHash:            hash,
 		StateMachineSymbolId: stateMachineSymbolID,
 		Events:               append([]string(nil), events...),
 		Schedule:             options.schedule,
 		PerformerSymbolId:    options.performer,
+		Trace:                options.trace,
 	})
 	if err != nil {
 		return nil, err
 	}
 	diagnostics := diagnosticsFromProto(resp.Diagnostics)
 	if resp.Error != "" {
-		return nil, &FailureError{Op: "ExecuteState", Message: resp.Error, Diagnostics: diagnostics}
+		return nil, &FailureError{
+			Op:           "ExecuteState",
+			Message:      resp.Error,
+			Diagnostics:  diagnostics,
+			Trace:        documentEventsFromProto(resp.Trace),
+			TraceDropped: int(resp.TraceDropped),
+		}
 	}
 	return &StateRun{
-		Visited:     append([]string(nil), resp.StatesVisited...),
-		Context:     valuesFromProto(resp.FinalContext),
-		FinalTime:   resp.FinalTime,
-		Diagnostics: diagnostics,
+		Visited:      append([]string(nil), resp.StatesVisited...),
+		Context:      valuesFromProto(resp.FinalContext),
+		FinalTime:    resp.FinalTime,
+		Trace:        documentEventsFromProto(resp.Trace),
+		TraceDropped: int(resp.TraceDropped),
+		Diagnostics:  diagnostics,
 	}, nil
 }

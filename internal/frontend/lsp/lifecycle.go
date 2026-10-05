@@ -35,6 +35,11 @@ func (s *Server) Initialize(ctx context.Context, params *protocol.InitializePara
 			CompletionProvider: &protocol.CompletionOptions{
 				TriggerCharacters: []string{":", "."},
 			},
+			SignatureHelpProvider: &protocol.SignatureHelpOptions{
+				TriggerCharacters:   []string{"(", ","},
+				RetriggerCharacters: []string{","},
+			},
+			CodeLensProvider:                &protocol.CodeLensOptions{ResolveProvider: true},
 			DocumentFormattingProvider:      true,
 			DocumentRangeFormattingProvider: true,
 			RenameProvider:                  &protocol.RenameOptions{PrepareProvider: true},

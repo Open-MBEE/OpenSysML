@@ -3,8 +3,15 @@
 
 import assert from "node:assert/strict";
 import { before, test } from "node:test";
-import { InvalidRequestError, connect, formatValue } from "../src/node/index.js";
+import { create } from "@bufbuild/protobuf";
+import {
+  DocumentEventSchema,
+  DocumentValueSchema,
+  ExecuteStateResponseSchema,
+} from "../src/generated/sysml_pb.js";
+import { ExecutionError, InvalidRequestError, connect, formatValue } from "../src/node/index.js";
 import type { SysMLValue } from "../src/node/index.js";
+import { fakeConnection } from "./support/fake.js";
 import { useServiceBinary } from "./support/service.js";
 
 before(() => {
@@ -97,6 +104,7 @@ test("the service advertises schedule, explore and performer", async () => {
   assert.ok(connection.info.has("schedule"));
   assert.ok(connection.info.has("schedule_explore"));
   assert.ok(connection.info.has("performer"));
+  assert.ok(connection.info.has("state_trace"));
 });
 
 test("the policy selects which write stands", async () => {
@@ -123,6 +131,56 @@ test("the policy selects the transition taken", async () => {
     schedule: "seed:3",
   });
   assert.deepEqual(seeded.statesVisited, ["idle", "high"]);
+});
+
+test("a state run returns its requested typed trace", async () => {
+  await using connection = await connect();
+  const model = await connection.loads(SCHEDULE_MODEL);
+
+  const untraced = await model.executeState("Sched::Dispatcher", { events: ["Go"] });
+  assert.deepEqual(untraced.trace, []);
+  assert.equal(untraced.traceDropped, 0);
+
+  const traced = await model.executeState("Sched::Dispatcher", {
+    events: ["Go"],
+    trace: true,
+  });
+  assert.ok(traced.trace.length > 0);
+  assert.equal(traced.trace[0].kind, "entry");
+});
+
+test("a failed traced state run carries its partial trace on the execution error", async () => {
+  const event = create(DocumentEventSchema, {
+    kind: "entry",
+    time: create(DocumentValueSchema, {
+      kind: { case: "realValue", value: 1.5 },
+    }),
+    state: "active",
+    text: "enter: active",
+  });
+  const connection = await fakeConnection(["state_trace"], (method) => {
+    assert.equal(method, "ExecuteState");
+    return create(ExecuteStateResponseSchema, {
+      error: "state machine failed",
+      trace: [event],
+      traceDropped: 2,
+    });
+  });
+  try {
+    await assert.rejects(
+      () => connection.executeState("model-hash", "Trace::Machine", { trace: true }),
+      (error: unknown) => {
+        assert.ok(error instanceof ExecutionError);
+        assert.equal(error.trace.length, 1);
+        assert.equal(error.trace[0].kind, "entry");
+        assert.equal(error.trace[0].state, "active");
+        assert.equal(error.traceDropped, 2);
+        return true;
+      },
+    );
+  } finally {
+    await connection.close();
+  }
 });
 
 test("an analysis performs its actions under the policy", async () => {

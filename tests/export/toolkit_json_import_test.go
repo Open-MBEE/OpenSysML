@@ -191,6 +191,43 @@ func TestToolkitInferredSuccessionClause(t *testing.T) {
 	}
 }
 
+// A succession whose source the toolkit resolves to the nameless action of an
+// `entry;` membership is written as `then idle;` by position, since `first`
+// has no name to spell for it.
+func TestToolkitEntrySuccessionIsPositional(t *testing.T) {
+	out := decodeToolkitFixture(t, "state_entry.toolkit.full.json", nil)
+	want := toolkitFixture(t, "state_entry.golden.sysml")
+	if !bytes.Equal(out, want) {
+		t.Fatalf("the decoded state notation changed:\n--- want ---\n%s\n--- got ---\n%s", want, out)
+	}
+	if !strings.Contains(string(out), "entry;\n            then idle;\n            state idle;") {
+		t.Fatalf("the entry succession was not written by position:\n%s", out)
+	}
+	// The notation the toolkit's graph decodes to re-exports and reads back unchanged.
+	file := source.New("state_entry.sysml", out)
+	p := parser.New(file)
+	root := p.ParseFile()
+	graph, err := export.ToRDF(file, root)
+	if err != nil {
+		t.Fatalf("ToRDF: %v", err)
+	}
+	reexported, err := export.WriteAPIJSON(graph)
+	if err != nil {
+		t.Fatalf("WriteAPIJSON: %v", err)
+	}
+	reread, err := export.ReadAPIJSON(reexported)
+	if err != nil {
+		t.Fatalf("ReadAPIJSON: %v", err)
+	}
+	again, err := export.ToSysML(reread)
+	if err != nil {
+		t.Fatalf("ToSysML: %v", err)
+	}
+	if !bytes.Equal(again, out) {
+		t.Fatalf("the re-exported notation changed:\n--- want ---\n%s\n--- got ---\n%s", out, again)
+	}
+}
+
 func TestToolkitLibraryFallbackWarns(t *testing.T) {
 	const oldID = "11111111-2222-4333-8444-555555555555"
 	var warnings []string

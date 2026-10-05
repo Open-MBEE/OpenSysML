@@ -76,11 +76,14 @@ there are any, and `raiseForErrors()` raises with the diagnostics and model in t
 
 `get(fqn)` resolves a qualified id. `find(name)` accepts a short name and returns an empty value
 when it finds no result. `walk(depth)` traverses child symbols to the requested depth; its default
-is unlimited. `opensysml.symbol(model, id)` returns a `Symbol`, which exposes `id`, `name`,
-`kind`, `typeFacts`, `multiplicity`, `specializations`, and the decoded `record`. Its methods
-include `children()`, `attributes()`, `parts()`, `getAttr(name)`, `facts()`, and
-`attributeFacts()`. Symbol collections use cells. `opensysml.diagnostics(model)` returns
-diagnostic records with severity, message, file, line, column and code.
+is unlimited. `opensysml.getSymbol(model, id)` returns the `GetSymbol` answer as a plain record;
+`model.symbol(id)` wraps it in a `Symbol`, which exposes `id`, `name`, `kind`, `typeFacts`,
+`multiplicity`, `specializations`, and the decoded `record`. Its methods include `children()`,
+`attributes()`, `parts()`, `getAttr(name)`, `facts()`, and `attributeFacts()`. Symbol collections
+use cells. The function is `getSymbol`, not `symbol`: MATLAB names a class file after the class,
+so a `symbol.m` beside `Symbol.m` cannot coexist on a case-insensitive file system.
+`opensysml.diagnostics(model)` returns diagnostic records with severity, message, file, line,
+column and code.
 
 `opensysml.call(conn, method, request)` sends a decoded request to
 `/sysml.SysMLService/<method>`; `opensysml.callRaw(conn, method, requestJsonText)` returns
@@ -117,11 +120,17 @@ The package functions and corresponding `Model` methods cover expression evaluat
 instantiation, single-run action and state execution, behavior exploration, constraint and
 requirement verification, satisfaction verification, instance validation, calculations,
 analyses, and parameter sweeps. Options are name-value pairs; supported options vary by method
-and include `inputs`, `events`, `schedule`, `performer`, `subject`, `arguments`,
+and include `inputs`, `events`, `schedule`, `performer`, `trace`, `subject`, `arguments`,
 `namedArguments`, `engine`, and `question`. Explore schedules return an `Exploration`; a normal
 `executeAction`, `executeState`, or `runAnalysis` request answers one run. Exploration entry
 points are `opensysml.exploreAction`, `opensysml.exploreState`, and
 `opensysml.exploreAnalysis`.
+
+`executeState(..., 'trace', true)` returns typed `DocumentEvent` entries in
+`trace` and the discarded-record count in `traceDropped`; it checks the
+`state_trace` capability before sending the request.
+A failed traced run keeps its existing error identifier; `lastError().details`
+includes its partial `trace` and `traceDropped`.
 
 `opensysml.listEngines(conn)` returns `EngineInfo` records. Engine selection is available with
 the `engine` option on supported calculation, verification, analysis, and sweep methods; a named

@@ -11,7 +11,7 @@ dependency footprint, service ownership and release verification are in
 <dependency>
   <groupId>org.openmbee</groupId>
   <artifactId>opensysml</artifactId>
-  <version>0.9.1</version>
+  <version>0.9.2</version>
 </dependency>
 ```
 
@@ -125,9 +125,14 @@ for (Outcome outcome : all.outcomes()) {
 `executeAction`/`executeState` run once and answer an `ActionRun` (`outputs`,
 `finalTime`, `diagnostics`) or a `StateRun` (`statesVisited`, `finalContext`,
 `finalTime`, `diagnostics`). `finalTime` is filled only by a service advertising
-`final_time`. `ExecutionOptions` carries a `schedule` and a `performer`; the
-capabilities they need (`schedule`, `performer`) are checked before the call, and a
-schedule the service does not know is refused as `INVALID_ARGUMENT`.
+`final_time`. `ExecutionOptions` carries a `schedule`, a `performer`, and the
+state-run-only `withTrace()` option. The client checks their respective
+capabilities (`schedule`, `performer`, `state_trace`) before the call; an unknown
+schedule or trace with exploration is refused as `INVALID_ARGUMENT`. A requested
+trace is returned as typed `DocumentEvent` values in `StateRun.trace()` with
+`traceDropped()` reporting records discarded by the service's bound.
+A failed traced run remains a `ModelException`; its `trace()` and
+`traceDropped()` carry the records made before failure and the discarded count.
 `exploreAction`/`exploreState` take an exploration schedule (`explore`,
 `explore:runs=N,depth=M`; a non-exploring schedule is an `IllegalArgumentException`)
 and answer an `Exploration` of `Outcome`s, each a distinct end state with the

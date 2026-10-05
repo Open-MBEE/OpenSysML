@@ -1,6 +1,7 @@
 use std::str::FromStr;
 use thiserror::Error;
 
+use crate::document::DocumentEvent;
 use crate::domain::Diagnostic;
 use crate::edit::EditError;
 use crate::results::AnalysisResult;
@@ -229,6 +230,10 @@ pub enum Error {
         reason: FailureReason,
         /// Diagnostics reported with it.
         diagnostics: Vec<Diagnostic>,
+        /// Records made before a traced state run failed.
+        trace: Vec<DocumentEvent>,
+        /// Oldest trace records the service discarded.
+        trace_dropped: i32,
     },
     /// A call named an element of another kind than it asks about: a wrong request, not a verdict.
     #[error("wrong kind: {message}")]

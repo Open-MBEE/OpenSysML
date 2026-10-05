@@ -1,0 +1,1 @@
+- **A standalone `@M about x;` annotates `x`, not the namespace it is written in.** The `@` spelling of a metadata usage with an `about` clause is now indexed exactly like `metadata M about x;`, so `x.metadata`, `annotatedElements`, and the `[@M]` import and expose filters see it, and the owning namespace no longer does. A bare `@M;` still annotates its owner.

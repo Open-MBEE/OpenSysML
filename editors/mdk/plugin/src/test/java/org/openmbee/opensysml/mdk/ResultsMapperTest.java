@@ -72,7 +72,13 @@ class ResultsMapperTest {
 
   @Test
   void stateRunExposesScheduleAndFinalTime() {
-    var run = new StateRun(List.of("Off", "On"), Map.of("count", new Value.IntegerValue(2)), OptionalDouble.of(3.5), List.of());
+    var run = new StateRun(
+        List.of("Off", "On"),
+        Map.of("count", new Value.IntegerValue(2)),
+        OptionalDouble.of(3.5),
+        List.of(),
+        0,
+        List.of());
     var result = ResultsMapper.map(request(Operation.EXECUTE_STATE, "A::sm"), run, ELAPSED);
     assertEquals(List.of("Off", "On"), result.schedule());
     assertEquals(Optional.of("3.5"), result.finalTime());

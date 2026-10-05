@@ -2,6 +2,7 @@ package opensysml
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
@@ -78,4 +79,34 @@ func TestAPerformerIsNotSentWithoutTheCapability(t *testing.T) {
 	wantUnimplemented(t, "ExploreAction", err)
 	_, err = c.ExploreState(ctx, model, "M", nil, PerformedBy("M::m.part"))
 	wantUnimplemented(t, "ExploreState", err)
+}
+
+func TestStateTraceIsNotSentWithoutTheCapability(t *testing.T) {
+	old := &oldCaller{t: t, capabilities: []string{CapabilityVerification, CapabilitySchedule}}
+	c := &client{caller: old}
+	_, err := c.ExecuteState(context.Background(), &Model{Hash: "h"}, "M", nil, WithTrace())
+	wantUnimplemented(t, "ExecuteState", err)
+}
+
+func TestTraceOptionIsLimitedToSingleStateRuns(t *testing.T) {
+	c := &client{caller: &oldCaller{t: t}}
+	model := &Model{Hash: "h"}
+	for _, operation := range []func() error{
+		func() error {
+			_, err := c.ExecuteAction(context.Background(), model, "A", nil, WithTrace())
+			return err
+		},
+		func() error {
+			_, err := c.ExploreAction(context.Background(), model, "A", nil, WithTrace())
+			return err
+		},
+		func() error {
+			_, err := c.ExploreState(context.Background(), model, "M", nil, WithTrace())
+			return err
+		},
+	} {
+		if err := operation(); !errors.Is(err, CodeInvalidArgument) {
+			t.Errorf("trace option error = %v, want CodeInvalidArgument", err)
+		}
+	}
 }

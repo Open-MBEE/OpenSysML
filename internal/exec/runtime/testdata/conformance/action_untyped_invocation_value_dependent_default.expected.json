@@ -1,0 +1,8 @@
+{
+	"type": "action",
+	"evaluate": "test::caller",
+	"outputs": {
+		"result": {"type": "Integer", "value": 7},
+		"run.r": {"type": "Integer", "value": 7}
+	}
+}

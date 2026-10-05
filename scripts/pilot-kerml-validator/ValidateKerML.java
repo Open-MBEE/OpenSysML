@@ -80,6 +80,18 @@ public final class ValidateKerML extends SysMLUtil {
         }
     }
 
+    /**
+     * Load a library directory beyond the standard one, such as the OpenSysML libraries, the same
+     * way: its files are resolved against but never validated. Only the KerML files when the
+     * SysML language is not registered.
+     */
+    private void loadExtensionLibrary(Path library, boolean kernelOnly) {
+        readAll(library.toString(), false, KERML_EXTENSION);
+        if (!kernelOnly) {
+            readAll(library.toString(), false, SYSML_EXTENSION);
+        }
+    }
+
     /** Read every input file into the shared resource set and the Xtext index. */
     private void readInputs(List<Path> files) {
         for (Path file : files) {
@@ -174,12 +186,16 @@ public final class ValidateKerML extends SysMLUtil {
     }
 
     private static void usage() {
-        STDERR.println("usage: validate-kerml --library DIR [--root DIR] [--kernel-only] FILE...");
+        STDERR.println("usage: validate-kerml --library DIR [--extension-library DIR]..."
+                + " [--root DIR] [--kernel-only] FILE...");
+        STDERR.println("--extension-library DIR is loaded like the standard library:"
+                + " resolved against, never validated.");
     }
 
     public static void main(String[] args) {
         try {
             Path library = null;
+            List<Path> extensions = new ArrayList<>();
             Path root = null;
             boolean kernelOnly = false;
             List<String> inputs = new ArrayList<>();
@@ -188,6 +204,8 @@ public final class ValidateKerML extends SysMLUtil {
                 String argument = args[index++];
                 switch (argument) {
                     case "--library" -> library = value(args, index++, "--library");
+                    case "--extension-library" ->
+                            extensions.add(value(args, index++, "--extension-library"));
                     case "--root" -> root = value(args, index++, "--root");
                     case "--kernel-only" -> kernelOnly = true;
                     case "-h", "--help" -> {
@@ -206,6 +224,12 @@ public final class ValidateKerML extends SysMLUtil {
                 STDERR.println("Error: SysML library not found: " + library);
                 usage();
                 System.exit(2);
+            }
+            for (Path extension : extensions) {
+                if (!Files.isDirectory(extension)) {
+                    STDERR.println("Error: extension library not found: " + extension);
+                    System.exit(2);
+                }
             }
             if (inputs.isEmpty()) {
                 usage();
@@ -238,6 +262,9 @@ public final class ValidateKerML extends SysMLUtil {
 
             ValidateKerML instance = new ValidateKerML(validator, root);
             instance.loadLibrary(library, kernelOnly);
+            for (Path extension : extensions) {
+                instance.loadExtensionLibrary(extension, kernelOnly);
+            }
             instance.readInputs(files);
             instance.validateInputs();
             System.exit(instance.hasErrors ? 1 : 0);

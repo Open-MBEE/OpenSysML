@@ -10,6 +10,7 @@
 package diff
 
 import (
+	"bytes"
 	"flag"
 	"fmt"
 	"io"
@@ -20,6 +21,8 @@ import (
 	"time"
 
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
+	"github.com/Open-MBEE/OpenSysML/internal/workspace/envvar"
+	"github.com/Open-MBEE/OpenSysML/internal/workspace/libs"
 	"github.com/Open-MBEE/OpenSysML/tools/oracle/baseline"
 	"github.com/Open-MBEE/OpenSysML/tools/oracle/errata"
 	"github.com/Open-MBEE/OpenSysML/tools/oracle/repo"
@@ -45,6 +48,22 @@ type languageBatch struct {
 	Kind  source.Kind
 	Files []string
 }
+
+// bundledLibraryRoot is the standard-library tree this implementation embeds and
+// loads when libs.LibraryPathEnvVar does not name another; openSysMLLibraries
+// is the directory inside that tree holding this project's own libraries. The
+// reference validators are handed that directory beside the standard library,
+// so a model that imports one of this project's libraries is compared on its
+// own diagnostics rather than on the reference's unresolved-reference cascade.
+// The directory is derived from the root OpenSysML itself loads, never named
+// on the command line, so both sides always resolve the same library text.
+const (
+	bundledLibraryRoot = "internal/workspace/libs/stdlib"
+	openSysMLLibraries = "OpenSysML Libraries"
+)
+
+// defaultLibraries is the library directory handed over when no override is set.
+const defaultLibraries = bundledLibraryRoot + "/" + openSysMLLibraries
 
 var defaultRoots = []corpusRoot{
 	{Name: "training", Dir: "examples/sysml-v2-training", Pinned: true},
@@ -102,6 +121,7 @@ type options struct {
 	validator      string
 	kermlValidator string
 	syside         string
+	libraries      string
 	out            string
 	timeout        time.Duration
 	update         bool
@@ -110,7 +130,10 @@ type options struct {
 }
 
 // resolve fills the paths left empty on the command line and reports the tools
-// that are missing: the pilot validator is required, SysIDE only when named.
+// that are missing: the pilot validator and the libraries are required, SysIDE
+// only when named. The libraries are not an option: they are taken from the
+// standard-library root this implementation loads (libs.DefaultSource), so an
+// OPENSYSML_LIBRARY_PATH override moves both sides of the comparison at once.
 func (o *options) resolve() error {
 	var err error
 	if o.repo, err = repo.Choose(o.repo); err != nil {
@@ -132,6 +155,9 @@ func (o *options) resolve() error {
 	if _, err := os.Stat(o.validator); err != nil {
 		return fmt.Errorf("pilot validator not found at %s: run ./scripts/download-pilot-sysml-validator.sh", o.validator)
 	}
+	if o.libraries, err = librariesHandedOver(o.repo); err != nil {
+		return err
+	}
 
 	// Named explicitly: fail loudly. Defaulted: the third column is optional,
 	// and its absence must leave the two-way report byte-identical.
@@ -145,6 +171,79 @@ func (o *options) resolve() error {
 		}
 		fmt.Fprintf(o.log, "comparing against the pilot only; run ./scripts/download-syside.sh for a third column\n")
 		o.syside = ""
+	}
+	return nil
+}
+
+// librariesHandedOver returns the OpenSysML library directory the reference is
+// handed: the one inside the standard-library root OpenSysML loads, which is the
+// bundled tree unless libs.LibraryPathEnvVar names another. The directory is
+// recorded in the baseline's provenance, so it must be material this repository
+// owns; an override outside the tree is refused rather than measured silently.
+// Without an override OpenSysML loads the libraries embedded in this build, so
+// the directory under repoDir must hold that very text: a -repo naming another
+// checkout whose libraries differ would hand the reference one text while
+// OpenSysML judged by another, and is refused too.
+func librariesHandedOver(repoDir string) (string, error) {
+	root := filepath.Join(repoDir, filepath.FromSlash(bundledLibraryRoot))
+	override := envvar.Lookup(libs.LibraryPathEnvVar)
+	if override != "" {
+		abs, err := filepath.Abs(override)
+		if err != nil {
+			return "", fmt.Errorf("%s=%s: %w", libs.LibraryPathEnvVar, override, err)
+		}
+		root = abs
+	}
+	libraries := filepath.Join(root, openSysMLLibraries)
+	if rel := relativeTo(repoDir, libraries); rel == libraries {
+		return "", fmt.Errorf("libraries at %s lie outside the repository %s (%s must name a library root inside it)", libraries, repoDir, libs.LibraryPathEnvVar)
+	}
+	if info, err := os.Stat(libraries); err != nil || !info.IsDir() {
+		return "", fmt.Errorf("library directory not found at %s", libraries)
+	}
+	if override == "" {
+		if err := sameAsLoaded(libraries); err != nil {
+			return "", err
+		}
+	}
+	return libraries, nil
+}
+
+// sameAsLoaded reports whether the library directory holds exactly the OpenSysML
+// library text this build embeds and loads: the same model files, byte for byte.
+func sameAsLoaded(libraries string) error {
+	differs := func(name string) error {
+		return fmt.Errorf("the libraries at %s differ from the ones this build loads (%s): "+
+			"run pilot-diff from the checkout under comparison, or set %s to its %s so both sides load that text",
+			libraries, name, libs.LibraryPathEnvVar, filepath.FromSlash(bundledLibraryRoot))
+	}
+	loaded := libs.BundledSource()
+	prefix := openSysMLLibraries + "/"
+	embedded := map[string]bool{}
+	for _, name := range loaded.List() {
+		if !strings.HasPrefix(name, prefix) {
+			continue
+		}
+		rel := strings.TrimPrefix(name, prefix)
+		embedded[rel] = true
+		want, err := loaded.Read(name)
+		if err != nil {
+			return err
+		}
+		// #nosec G304 -- the directory is inside the repository under comparison.
+		got, err := os.ReadFile(filepath.Join(libraries, filepath.FromSlash(rel)))
+		if err != nil || !bytes.Equal(got, want) {
+			return differs(rel)
+		}
+	}
+	onDisk, err := collectFiles(libraries, corpusRoot{Name: librariesInput, Dir: "."})
+	if err != nil {
+		return err
+	}
+	for _, rel := range onDisk {
+		if !embedded[rel] {
+			return differs(rel)
+		}
 	}
 	return nil
 }
@@ -163,11 +262,15 @@ func run(opts options) error {
 
 	// Recorded relative to the repository where possible: the JSON is committed
 	// as a baseline, so it must not carry a machine-specific path.
-	report := &Report{Validator: relativeTo(opts.repo, opts.validator), Errata: newErrataReport(overlay)}
+	report := &Report{
+		Validator: relativeTo(opts.repo, opts.validator),
+		Libraries: relativeTo(opts.repo, opts.libraries),
+		Errata:    newErrataReport(overlay),
+	}
 	if report.Pilot, err = pilotVersion(opts.validator); err != nil {
 		return err
 	}
-	if report.Provenance, err = provenance(opts.repo, report.Pilot); err != nil {
+	if report.Provenance, err = provenance(opts.repo, report.Pilot, report.Libraries); err != nil {
 		return err
 	}
 	// Only a recorded baseline is dated, so two plain runs stay byte-identical.
@@ -214,7 +317,7 @@ func run(opts options) error {
 			if err != nil {
 				return err
 			}
-			batchTheirs, err := pilotDiagnostics(pilot, opts.repo, root.Dir, batch.Files, opts.timeout, opts.log)
+			batchTheirs, err := pilotDiagnostics(pilot, opts.libraries, opts.repo, root.Dir, batch.Files, opts.timeout, opts.log)
 			if err != nil {
 				return err
 			}

@@ -144,7 +144,7 @@ func (c *featureReferenceChecker) annotationType(body *symbols.Scope) *symbols.S
 		// Resolution links the body to the metadata type it names.
 		return body.Owner()
 	case *ast.Usage:
-		if n.Kind != ast.UsageMetadata || symbols.UsageAnnotatesOthers(n) || body.Owner().OwnerScope == nil {
+		if n.Kind != ast.UsageMetadata || symbols.AnnotatesOthers(n) || body.Owner().OwnerScope == nil {
 			return nil
 		}
 		for _, rel := range n.Relationships {

@@ -116,6 +116,7 @@ func writeMixedRoot(t *testing.T, repo, sysmlLog, kermlLog string) (string, stri
 	write("scripts/pilot-pin.sh", "PILOT_TAG=\"${PILOT_TAG:-2026-05}\"\nPILOT_COMMIT=\"${PILOT_COMMIT:-fa709f28dfd49dfdb7ee83e4e19da2f57e0eb3aa}\"\nPILOT_ARTIFACT_VERSION=\"${PILOT_ARTIFACT_VERSION:-0.60.1}\"\n", 0o644)
 	write("scripts/pilot-sysml-validator/ValidateSysML.java", "class ValidateSysML {}\n", 0o644)
 	write("scripts/pilot-kerml-validator/ValidateKerML.java", "class ValidateKerML {}\n", 0o644)
+	copyLoadedLibraries(t, filepath.Join(repo, filepath.FromSlash(defaultLibraries)))
 
 	write("mixed/Model.sysml", "package P;\n", 0o644)
 	write("mixed/Lib.kerml", "package Q;\n", 0o644)

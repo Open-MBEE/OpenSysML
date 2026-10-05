@@ -758,6 +758,73 @@
       color: #ffcdd2;
       opacity: 1;
     }
+    /* The debugger: steps through the trace ExecuteState returns for the sent events. */
+    .osml-debug {
+      margin: .7rem 0 0;
+      padding: .6rem .8rem;
+      border: 1px solid rgba(255, 255, 255, .25);
+      border-radius: .3rem;
+      background: rgba(0, 0, 0, .25);
+      font-size: .64rem;
+      text-align: left;
+    }
+    .osml-debug[hidden] { display: none; }
+    .osml-debug__bar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: .4rem;
+      align-items: center;
+      margin-bottom: .45rem;
+    }
+    .osml-debug__label { font-weight: 700; margin-right: .2rem; }
+    .osml-debug button,
+    .osml-debug select,
+    .osml-debug input {
+      font: inherit;
+      color: inherit;
+      padding: .2rem .55rem;
+      border: 1px solid rgba(255, 255, 255, .45);
+      border-radius: .2rem;
+      background: transparent;
+    }
+    .osml-debug button { cursor: pointer; }
+    .osml-debug button:hover:not(:disabled),
+    .osml-debug button:focus-visible {
+      background-color: var(--md-accent-fg-color);
+      color: var(--osml-hero-from);
+    }
+    .osml-debug button:disabled { opacity: .45; cursor: default; }
+    .osml-debug button[aria-pressed="true"] { background: rgba(255, 213, 79, .25); }
+    .osml-debug select option { color: #181818; }
+    .osml-debug input { width: 5.5em; }
+    .osml-debug label { display: inline-flex; gap: .3rem; align-items: center; }
+    .osml-debug__hint { margin: 0 0 .45rem; opacity: .8; }
+    .osml-debug__now { margin: 0; font-weight: 700; }
+    .osml-debug__queue { margin: .2rem 0 .45rem; opacity: .9; }
+    .osml-debug__trace {
+      max-height: 11rem;
+      overflow-y: auto;
+      position: relative;
+      margin: 0;
+      padding: .3rem .3rem .3rem 2.4rem;
+      border-radius: .2rem;
+      background: rgba(0, 0, 0, .3);
+      font-family: var(--md-code-font-family, monospace);
+      font-size: .58rem;
+      line-height: 1.6;
+    }
+    .osml-debug__trace:empty { display: none; }
+    .osml-debug__record { opacity: .6; }
+    .osml-debug__record--transition,
+    .osml-debug__record--choice { color: #fff59d; }
+    .osml-debug__record.is-ignored { color: #ffcc80; }
+    .osml-debug__record--error { color: #ef9a9a; opacity: 1; }
+    .osml-debug__record.is-current {
+      opacity: 1;
+      background: rgba(255, 213, 79, .22);
+      outline: 1px solid #ffd54f;
+    }
+    .osml-debug__record.is-current ~ .osml-debug__record { opacity: .35; }
     .osml-schematic__edit { margin: .7rem 0 0; }
     .osml-schematic__edit[hidden] { display: none; }
     .osml-schematic__src {
@@ -936,7 +1003,39 @@
       <div class="osml-schematic__run">
         <button type="button" class="osml-btn osml-btn--primary" data-osml-run>&#9654; Run the model</button>
         <button type="button" class="osml-btn" data-osml-source aria-expanded="false" aria-controls="osml-schematic-edit">Edit the model</button>
+        <button type="button" class="osml-btn" data-osml-debug aria-expanded="false" aria-controls="osml-schematic-debug">Debug the run</button>
         <p class="osml-schematic__status" data-osml-status aria-live="polite">This diagram is a SysML model. Run it or edit it in your browser on the OpenSysML engine (about 7 MB, downloaded once).</p>
+      </div>
+      <div class="osml-debug" id="osml-schematic-debug" data-osml-debugger hidden>
+        <div class="osml-debug__bar" role="group" aria-label="Send an event to the state machine">
+          <span class="osml-debug__label">Send</span>
+          <button type="button" data-osml-send="Commit">Commit</button>
+          <button type="button" data-osml-send="Pull">Pull</button>
+          <button type="button" data-osml-send="Check">Check</button>
+          <button type="button" data-osml-send="Push">Push</button>
+          <button type="button" data-osml-debug-reset title="Start again with no events">Reset</button>
+        </div>
+        <div class="osml-debug__bar" role="group" aria-label="Step through the run">
+          <button type="button" data-osml-step-back aria-label="Step back">&#9664; Back</button>
+          <button type="button" data-osml-play aria-pressed="false">&#9654; Play</button>
+          <button type="button" data-osml-step aria-label="Step forward">Step &#9654;</button>
+          <label>Speed
+            <select data-osml-speed>
+              <option value="0.5">0.5&times;</option>
+              <option value="1" selected>1&times;</option>
+              <option value="2">2&times;</option>
+              <option value="4">4&times;</option>
+            </select>
+          </label>
+          <label>Seed
+            <input type="number" min="0" step="1" inputmode="numeric" placeholder="none" data-osml-seed aria-describedby="osml-debug-seed-hint">
+          </label>
+          <button type="button" data-osml-reseed>New seed</button>
+        </div>
+        <p class="osml-debug__hint" id="osml-debug-seed-hint">The start and each <code>Pull</code> out of Flexo are free choices. With no seed the engine takes its default branch; a seed picks each branch at random, the same way every time.</p>
+        <p class="osml-debug__now" data-osml-debug-now aria-live="polite"></p>
+        <p class="osml-debug__queue">Waiting events: <span data-osml-debug-queue>empty</span></p>
+        <ol class="osml-debug__trace" data-osml-debug-trace aria-label="The run's trace"></ol>
       </div>
       <div class="osml-schematic__edit" id="osml-schematic-edit" data-osml-editor hidden>
         <textarea class="osml-schematic__src" data-osml-src spellcheck="false" autocomplete="off" autocapitalize="off" aria-label="The diagram's SysML model" aria-describedby="osml-schematic-hint"></textarea>

@@ -1,0 +1,1 @@
+- **Add an advisory grammar-to-metaclass map.** The generated reports relate grammar productions to recognized metaclasses, feature assignments and existing corpus evidence without gating CI.

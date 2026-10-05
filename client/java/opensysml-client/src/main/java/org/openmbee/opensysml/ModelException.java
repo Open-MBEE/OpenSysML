@@ -1,5 +1,6 @@
 package org.openmbee.opensysml;
 
+import java.io.EOFException;
 import java.io.IOException;
 import java.io.InvalidObjectException;
 import java.io.ObjectInputStream;
@@ -9,6 +10,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import org.openmbee.opensysml.internal.Protos;
 
 /**
  * A failure the service reported inside an answer it did give: an expression that would not
@@ -22,9 +24,13 @@ public class ModelException extends OpenSysMLException {
 
   private static final long serialVersionUID = 2L;
   private static final int MAX_SERIALIZED_DIAGNOSTICS = 100_000;
+  private static final int MAX_SERIALIZED_TRACE = 100_000;
+  private static final int MAX_SERIALIZED_TRACE_EVENT_BYTES = 16 * 1024 * 1024;
 
   private final FailureReason failureReason;
   private transient List<Diagnostic> diagnostics;
+  private transient List<DocumentValue.DocumentEvent> trace;
+  private final int traceDropped;
 
   /**
    * Creates a model exception.
@@ -44,9 +50,29 @@ public class ModelException extends OpenSysMLException {
    * @param diagnostics diagnostics the answer carried
    */
   public ModelException(String message, FailureReason failureReason, List<Diagnostic> diagnostics) {
+    this(message, failureReason, diagnostics, List.of(), 0);
+  }
+
+  /**
+   * Creates a state-run failure with its partial execution trace.
+   *
+   * @param message the failure, as the service worded it
+   * @param failureReason what kind of failure it is
+   * @param diagnostics diagnostics the answer carried
+   * @param trace records made before the run failed
+   * @param traceDropped oldest records the service discarded
+   */
+  public ModelException(
+      String message,
+      FailureReason failureReason,
+      List<Diagnostic> diagnostics,
+      List<DocumentValue.DocumentEvent> trace,
+      int traceDropped) {
     super(message);
     this.failureReason = Objects.requireNonNull(failureReason, "failureReason");
     this.diagnostics = List.copyOf(Objects.requireNonNull(diagnostics, "diagnostics"));
+    this.trace = List.copyOf(Objects.requireNonNull(trace, "trace"));
+    this.traceDropped = traceDropped;
   }
 
   /**
@@ -65,6 +91,16 @@ public class ModelException extends OpenSysMLException {
    */
   public List<Diagnostic> diagnostics() {
     return diagnostics;
+  }
+
+  /** The typed partial trace carried by a failed traced state run. */
+  public List<DocumentValue.DocumentEvent> trace() {
+    return trace;
+  }
+
+  /** The oldest trace records the service discarded. */
+  public int traceDropped() {
+    return traceDropped;
   }
 
   @Serial
@@ -87,6 +123,18 @@ public class ModelException extends OpenSysMLException {
         stream.writeInt(span.endLine());
         stream.writeInt(span.endColumn());
       }
+    }
+    if (trace.size() > MAX_SERIALIZED_TRACE) {
+      throw new InvalidObjectException("too many trace records");
+    }
+    stream.writeInt(trace.size());
+    for (DocumentValue.DocumentEvent event : trace) {
+      byte[] bytes = Protos.proto(event).getEvent().toByteArray();
+      if (bytes.length > MAX_SERIALIZED_TRACE_EVENT_BYTES) {
+        throw new InvalidObjectException("trace record is too large");
+      }
+      stream.writeInt(bytes.length);
+      stream.write(bytes);
     }
   }
 
@@ -128,5 +176,30 @@ public class ModelException extends OpenSysMLException {
       restored.add(new Diagnostic(diagnosticSeverity, diagnosticMessage, diagnosticCode, span));
     }
     diagnostics = List.copyOf(restored);
+    List<DocumentValue.DocumentEvent> restoredTrace = List.of();
+    int traceCount;
+    try {
+      traceCount = stream.readInt();
+    } catch (EOFException legacy) {
+      trace = restoredTrace;
+      return;
+    }
+    if (traceCount < 0) {
+      throw new InvalidObjectException("negative trace count");
+    }
+    if (traceCount > MAX_SERIALIZED_TRACE) {
+      throw new InvalidObjectException("too many trace records");
+    }
+    List<org.openmbee.opensysml.proto.DocumentEvent> events = new ArrayList<>(traceCount);
+    for (int index = 0; index < traceCount; index++) {
+      int length = stream.readInt();
+      if (length < 0 || length > MAX_SERIALIZED_TRACE_EVENT_BYTES) {
+        throw new InvalidObjectException("invalid trace record size");
+      }
+      byte[] bytes = new byte[length];
+      stream.readFully(bytes);
+      events.add(org.openmbee.opensysml.proto.DocumentEvent.parseFrom(bytes));
+    }
+    trace = Protos.documentEvents(events);
   }
 }

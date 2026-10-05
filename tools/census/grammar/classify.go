@@ -222,6 +222,8 @@ func (an *analyzer) branches(p Production, core mask) [][]mask {
 		case optExpr:
 			an.addBranch(p.Grammar, v.Item, core, seen, &out)
 			walk(v.Item)
+		case assignExpr:
+			walk(v.Value)
 		}
 	}
 	walk(p.Body)
@@ -334,6 +336,12 @@ func (an *analyzer) paths(grammar string, e expr) []mask {
 			return []mask{{}}
 		}
 		return an.Paths(called)
+	case actionExpr:
+		return []mask{{}}
+	case assignExpr:
+		return an.paths(grammar, v.Value)
+	case crossRefExpr:
+		return []mask{{}}
 	case optExpr:
 		// Optional and zero-or-more parts are treated as not taken, keeping the
 		// requirement a lower bound on what an input must contain.

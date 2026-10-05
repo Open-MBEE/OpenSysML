@@ -274,6 +274,10 @@ func stripModelSource(src string) string {
 	return string(out)
 }
 
+// StripModelSource returns the source with comments and quoted text blanked
+// while preserving byte offsets and line structure.
+func StripModelSource(src string) string { return stripModelSource(src) }
+
 // quotedWidth returns how many bytes the quoted run at the start of s occupies,
 // or the rest of s when it is unterminated.
 func quotedWidth(s string, quote byte) int {

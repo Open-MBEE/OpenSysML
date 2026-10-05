@@ -77,7 +77,12 @@ abstract type ExecutionError <: DiagnosticError end
 struct ExecutionFailure <: ExecutionError
     message::String
     diagnostics::Vector{Diagnostic}
+    trace::Vector{DocumentEvent}
+    trace_dropped::Int
 end
+ExecutionFailure(message, diagnostics=Diagnostic[]; trace=DocumentEvent[], trace_dropped=0) =
+    ExecutionFailure(String(message), Diagnostic[d for d in diagnostics],
+                     DocumentEvent[event for event in trace], Int(trace_dropped))
 
 DiagnosticError(message, diagnostics=Diagnostic[]) =
     ExecutionFailure(String(message), Diagnostic[d for d in diagnostics])
@@ -87,8 +92,11 @@ ExecutionError(message, diagnostics=Diagnostic[]) =
 struct WrongKindError <: ExecutionError
     message::String
     diagnostics::Vector{Diagnostic}
-    WrongKindError(message, diagnostics=Diagnostic[]) =
-        new(String(message), Diagnostic[d for d in diagnostics])
+    trace::Vector{DocumentEvent}
+    trace_dropped::Int
+    WrongKindError(message, diagnostics=Diagnostic[]; trace=DocumentEvent[], trace_dropped=0) =
+        new(String(message), Diagnostic[d for d in diagnostics],
+            DocumentEvent[event for event in trace], Int(trace_dropped))
 end
 
 struct AnalysisRunError <: ExecutionError

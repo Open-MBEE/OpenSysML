@@ -10,8 +10,12 @@ grpc`` and switch on status codes to tell a missing file from a dead service.
 import builtins
 import warnings
 from contextlib import contextmanager
+from typing import TYPE_CHECKING
 
 import grpc
+
+if TYPE_CHECKING:
+    from opensysml.document import DocumentEvent
 
 
 class OpenSysMLError(Exception):
@@ -229,12 +233,22 @@ class ExecutionError(OpenSysMLError, builtins.RuntimeError):
     Attributes:
         message (str): Error description
         diagnostics (list): List of Diagnostic objects (if available)
+        trace (tuple[DocumentEvent, ...]): Partial ExecuteState trace on failure
+        trace_dropped (int): Oldest trace records discarded by the service
     """
 
-    def __init__(self, message, diagnostics=None):
+    def __init__(
+        self,
+        message,
+        diagnostics=None,
+        trace: tuple["DocumentEvent", ...] = (),
+        trace_dropped=0,
+    ):
         super().__init__(message)
         self.message = message
         self.diagnostics = diagnostics or []
+        self.trace = tuple(trace)
+        self.trace_dropped = trace_dropped
 
 
 class WrongKindError(ExecutionError):

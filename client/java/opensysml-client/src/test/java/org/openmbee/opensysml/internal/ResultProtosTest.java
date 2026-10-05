@@ -124,6 +124,31 @@ class ResultProtosTest {
   }
 
   @Test
+  void aStateRunDecodesItsTypedTraceAndDroppedRecordCount() {
+    var record =
+        org.openmbee.opensysml.proto.DocumentEvent.newBuilder()
+            .setKind("transition")
+            .setTime(
+                org.openmbee.opensysml.proto.DocumentValue.newBuilder().setRealValue(2.5))
+            .setMachine("Demo::Machine")
+            .setFrom("idle")
+            .setTo("active")
+            .setEvent("Go")
+            .setText("transition: idle -> active on Go")
+            .build();
+    StateRun run =
+        Protos.stateRun(
+            ExecuteStateResponse.newBuilder().addTrace(record).setTraceDropped(4).build(), true);
+
+    assertEquals(1, run.trace().size());
+    assertEquals("transition", run.trace().get(0).kind());
+    assertEquals("idle", run.trace().get(0).from());
+    assertEquals("active", run.trace().get(0).to());
+    assertEquals("Go", run.trace().get(0).event());
+    assertEquals(4, run.traceDropped());
+  }
+
+  @Test
   void aVerificationCarriesItsObjectsBodyVerdictsAndDiagnostics() {
     VerifyConstraintResponse response =
         VerifyConstraintResponse.newBuilder()

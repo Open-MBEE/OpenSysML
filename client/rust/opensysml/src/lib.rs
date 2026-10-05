@@ -41,8 +41,8 @@ pub use conversion::{
     EXPERIMENTAL_NOTICE, FORMAT_API_JSON, FORMAT_SYSML, FORMAT_TURTLE,
 };
 pub use document::{
-    DocumentEvent, DocumentForm, DocumentQueryResult, DocumentRow, DocumentState, DocumentValue,
-    DocumentVerdict, ElementRef, ObjectRef,
+    document_event_to_wire, DocumentEvent, DocumentForm, DocumentQueryResult, DocumentRow,
+    DocumentState, DocumentValue, DocumentVerdict, ElementRef, ObjectRef,
 };
 pub use edit::{
     ActionOptions, AppliedEdit, Body, CalcOptions, CommentOptions, ConnectionOptions,

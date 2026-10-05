@@ -43,19 +43,25 @@ func pinnedValue(pin, name string) string {
 }
 
 // pilotDiagnostics runs a reference validator over one corpus root as a single
-// batch and returns its diagnostics per file.
+// batch and returns its diagnostics per file. libraries, when not empty, is a
+// library directory the validator loads beside the standard library, resolved
+// against but never validated, so its files report nothing of their own.
 //
 // Both validators load every input into one resource set before validating any
 // of it, and report each diagnostic under its path relative to --root, so the
 // batch needs neither an import ordering nor unique base names.
-func pilotDiagnostics(validator, repo, dir string, files []string, timeout time.Duration, log io.Writer) (map[string][]diagnostic, error) {
+func pilotDiagnostics(validator, libraries, repo, dir string, files []string, timeout time.Duration, log io.Writer) (map[string][]diagnostic, error) {
 	root, err := filepath.Abs(filepath.Join(repo, dir))
 	if err != nil {
 		return nil, fmt.Errorf("resolve corpus root: %w", err)
 	}
 
 	byPath := make(map[string]string, len(files))
-	args := []string{"--root", root}
+	var args []string
+	if libraries != "" {
+		args = append(args, "--extension-library", libraries)
+	}
+	args = append(args, "--root", root)
 	for _, rel := range files {
 		byPath[rel] = rel
 		args = append(args, filepath.Join(root, filepath.FromSlash(rel)))

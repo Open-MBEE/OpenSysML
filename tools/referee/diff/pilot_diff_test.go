@@ -250,7 +250,7 @@ func TestPilotDiagnosticsAttribution(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	got, err := pilotDiagnostics(bridge, repo, ".", []string{rel}, 0, io.Discard)
+	got, err := pilotDiagnostics(bridge, "", repo, ".", []string{rel}, 0, io.Discard)
 	if err != nil {
 		t.Fatal(err)
 	}

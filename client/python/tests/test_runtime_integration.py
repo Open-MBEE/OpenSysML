@@ -394,6 +394,25 @@ class TestRuntimeIntegration:
         result = self.conn.execute_state("Test::Machine", model.hash)
         assert result["states_visited"] == ["init", "Running", "done"]
 
+    def test_execute_state_returns_requested_event_trace(self):
+        source = '''
+        package Test {
+            state Machine {
+                entry; then init;
+                state init;
+                succession first init then done;
+            }
+        }
+        '''
+        model = self.conn.load_from_content(source)
+
+        result = model.execute_state("Test::Machine", trace=True)
+
+        assert [event.kind for event in result["trace"]]
+        assert result["trace"][0].kind == "entry"
+        assert result["trace"][0].state == "init"
+        assert result["trace_dropped"] == 0
+
     def test_the_model_answers_the_hash_taking_calls_itself(self):
         """Every call taking a model_hash is reachable on the model it is about.
 

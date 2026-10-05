@@ -15,6 +15,9 @@ import (
 // counts, but no message text, so two runs diff cleanly.
 type Report struct {
 	Validator string `json:"validator"`
+	// Libraries is the library directory the validators resolved against beside
+	// the standard library; its digest is among the provenance inputs.
+	Libraries string `json:"libraries"`
 	Pilot     string `json:"pilotRelease"`
 	// Provenance identifies the inputs this run measured, so a committed
 	// baseline can be checked against the repository without the validators.
@@ -371,7 +374,7 @@ func stripSeverityExamples(entries []SeverityEntry) []SeverityEntry {
 func renderText(report *Report) string {
 	var b strings.Builder
 	b.WriteString("OpenSysML vs OMG SysML v2 Pilot Implementation — diagnostic comparison\n")
-	fmt.Fprintf(&b, "pilot release: %s\nvalidator:     %s\n\n", report.Pilot, report.Validator)
+	fmt.Fprintf(&b, "pilot release: %s\nvalidator:     %s\nlibraries:     %s\n\n", report.Pilot, report.Validator, report.Libraries)
 	if report.Syside != nil {
 		fmt.Fprintf(&b, "third implementation: Sensmetry SysIDE %s, %s standard library (%s)\n",
 			report.Syside.Version, report.Syside.Library, report.Syside.Validator)

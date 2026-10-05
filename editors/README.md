@@ -33,7 +33,7 @@ directory here with its own build.
 
 ## Versions
 
-The editors carry the core version — `0.9.1` now — the same lockstep the clients
+The editors carry the core version — `0.9.2` now — the same lockstep the clients
 follow, even though nothing publishes them. `check_version.py --editors` checks
 every manifest (the two package.json files and their locks, the Cameo and SysON
 poms and their children's `<parent><version>`), and a release fails early when

@@ -24,6 +24,7 @@ class _UnresolvedExpectedRange:
 
 
 _UNRESOLVED_EXPECTED_RANGE = _UnresolvedExpectedRange()
+_PRIMITIVE_RANGES = frozenset({"bool", "str", "int", "float"})
 
 
 class MetamodelError(OpenSysMLError):
@@ -222,6 +223,10 @@ class _Property(Generic[T]):
     def _convert(self, value: Any, instance: _ElementBase) -> T:
         if not isinstance(value, Mapping):
             return self._primitive(value, instance)
+        if self._scalar_range():
+            raise self._malformed(
+                instance, f"expected {self.range}, got a reference object {value!r}"
+            )
         reference = cast(Mapping[str, Any], value)
         if "@ref" in reference:
             ref = reference["@ref"]
@@ -259,6 +264,12 @@ class _Property(Generic[T]):
             expected = cast(type[_ElementBase] | None, REGISTRY.get(self.range))
             self._expected_range = expected
         return expected
+
+    def _scalar_range(self) -> bool:
+        """Whether the range is a primitive or an enumeration rather than a metaclass."""
+        from ._generated import ENUMERATIONS
+
+        return self.range in _PRIMITIVE_RANGES or self.range in ENUMERATIONS
 
     def _primitive(self, value: Any, instance: _ElementBase) -> T:
         if self.range == "bool":

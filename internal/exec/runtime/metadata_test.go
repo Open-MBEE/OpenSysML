@@ -707,3 +707,75 @@ func TestAdoptReadsAChangedAboutAnnotationAgain(t *testing.T) {
 		t.Errorf("the edited annotation reused object %d, made for what it said before", before)
 	}
 }
+
+// metadataPrefixAboutSrc states every `about` annotation with the `@` spelling:
+// with and without a body, about one element and about two, from the annotated
+// element's own namespace and from the package enclosing it.
+const metadataPrefixAboutSrc = `
+package test {
+	private import ScalarValues::*;
+
+	metadata def Tag {
+		attribute label : String default "none";
+	}
+
+	part def S {
+		attribute q : Real default 0.0;
+		attribute r : Real default 1.0;
+		@Tag about q;
+		@Tag about q, r {
+			label = "both";
+		}
+	}
+
+	@Tag about S::r {
+		label = "elsewhere";
+	}
+}
+`
+
+// TestMetadataAccessPrefixAboutForm reads metadata an `@M about x` usage states:
+// it annotates what its clause names, exactly as `metadata M about x` does, and
+// not the namespace owning it.
+func TestMetadataAccessPrefixAboutForm(t *testing.T) {
+	for expr, want := range map[string][]string{
+		"test::S::q.metadata": {"test::Tag", "test::Tag"},
+		"test::S::r.metadata": {"test::Tag", "test::Tag"},
+		"test::S.metadata":    {},
+		"test.metadata":       {},
+	} {
+		ctx, got, err := evalDeclaredExpr(t, metadataPrefixAboutSrc, expr)
+		if err != nil {
+			t.Fatalf("%s failed: %v", expr, err)
+		}
+		if names := metadataTypeNames(t, ctx, got); !slices.Equal(names, want) {
+			t.Errorf("%s types = %v, want %v", expr, names, want)
+		}
+	}
+}
+
+// TestMetadataAccessPrefixAboutBoundValues reads the values an `@M about x`
+// body binds, in textual order, over the defaults its type declares.
+func TestMetadataAccessPrefixAboutBoundValues(t *testing.T) {
+	for expr, want := range map[string][]string{
+		"test::S::q.metadata": {`"none"`, `"both"`},
+		"test::S::r.metadata": {`"both"`, `"elsewhere"`},
+	} {
+		ctx, got, err := evalDeclaredExpr(t, metadataPrefixAboutSrc, expr)
+		if err != nil {
+			t.Fatalf("%s failed: %v", expr, err)
+		}
+		elements := elementsOf(got)
+		var labels []string
+		for _, elem := range elements[:len(elements)-1] {
+			inst, ok := ctx.getInstance(elem.Instance)
+			if !ok {
+				t.Fatalf("%s: element %v is no object", expr, elem.Kind)
+			}
+			labels = append(labels, FormatValue(featureValue(t, ctx, inst, "label")))
+		}
+		if !slices.Equal(labels, want) {
+			t.Errorf("%s labels = %v, want %v", expr, labels, want)
+		}
+	}
+}

@@ -161,15 +161,15 @@ data values, and an annotation is an object.
 
 ## A calculation as a value
 
-A `calc def`, a `calc` usage or an `in calc` parameter named where a value is
-expected is a *function value*: the calculation itself, together with whatever
-it closes over. `Apply` takes one as its `in calc f` parameter and invokes it
-as `f(a)`:
+A `calc` usage or an `in calc` parameter named where a value is expected is a
+*function value*: the calculation itself, together with whatever it closes
+over. `square` and `halve` are usages of the `Square` and `Halve` definitions;
+`Apply` takes one as its `in calc f` parameter and invokes it as `f(a)`:
 
 ```
 %calc Squared(3.0)
 %calc Halved(3.0)
-%calc Apply(Halve, 9.0)
+%calc Apply(halve, 9.0)
 ```
 
 ```
@@ -177,7 +177,7 @@ as `f(a)`:
   = 9.0
 ✓ Halved(3.0)
   = 1.5
-✓ Apply(Halve, 9.0)
+✓ Apply(halve, 9.0)
   = 4.5
 ```
 
@@ -219,12 +219,11 @@ Features:
 
 A definition is not a feature, so `ref transfer = Square;` is refused by the
 checker ("Must be a valid feature") where `ref transfer = amplify;` — a calc
-usage — is fine; a `calc def` is passed as an argument, as `Apply(Square, 3.0)`
-does, or held through a usage of it. Passing a definition is the one place the
-reference implementation disagrees with this file: it reports `Apply(Square,
-3.0)` as "Must be a valid feature" too, because it has no function values to
-receive a `calc def`. To stay within what both accept, name a usage —
-`Apply(transfer, 3.0)` — instead.
+usage — is fine. The same distinction is why the file passes `square` rather
+than `Square`: this implementation also accepts a `calc def` named directly as
+an argument, `Apply(Square, 3.0)`, but the reference implementation reports it
+as "Must be a valid feature", having no function values to receive a
+definition. A usage — `calc square : Square;` — is what both accept.
 
 ## `Set` — no order, no repeats
 
