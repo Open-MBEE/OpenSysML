@@ -2939,6 +2939,73 @@ actually descend into:
   second part with its own `connect ox to oy`. The send must still fail with the typed error — if the
   scope walk goes too far it could pick up the unrelated part's connectors.
 
+## Reflecting on connector ends and owned relationships (PR #938)
+
+Reflection is driven from the CLI: `bin/sysml model.sysml -e "<expr>"` with
+`M = SequenceFunctions::last(Pkg::Asm::c1.metadata)`; every element prints as
+`meta(<fqn> : <metaclass>)`. The pre-fix shapes double as A/B canaries against a binary built from
+the parent commit. A fixture that exercises the whole family:
+
+```sysml
+package R {
+    private import ScalarValues::*;
+    port def P { attribute v : Real; }
+    part def Source { port y : P; }
+    part def Sink { port u : P; }
+    connection def C { end source[1] : P; end target[1] : P; }
+    interface def I { end a : P; end b : ~P; }
+    part def Asm {
+        part s : Source;
+        part k : Sink;
+        connection c1 : C connect [1] s.y to [1] k.u;
+        interface i1 : I connect s.y to k.u;
+        attribute x : Real;
+        part sub { attribute w : Real; }
+    }
+    part def Derived :> Asm {
+        attribute :>> x = 2.0;
+        attribute deep :>> sub.w;
+    }
+}
+```
+
+- **The fixture must analyse clean before any reflection claim counts.** A single error makes
+  every `-e` run end in `sysml: model.sysml did not analyse cleanly` with no value printed, which
+  looks exactly like a reflection failure. The mistakes that produce it: `derived` as a feature
+  name (`"derived" is a reserved keyword … write 'derived' to use it as a name`); `attribute :>> x`
+  in the *same* body that declares `x` (`unresolved reference: x — did you mean R::Derived::x?`) —
+  a redefinition belongs in a subtype, as above; and a chain that passes through a port or other
+  reference (`:>> s.y.v`: `nested redefinition through reference y has no owned object to redefine
+  on`) — chain through a composite part (`:>> sub.w`) instead. Unnamed ends print identically
+  (`meta(R::Asm::c1::<unnamed> : …)` twice), so tell them apart through
+  `.ownedReferenceSubsetting.referencedFeature.chainingFeature`, which names the chain
+  (`[meta(R::Asm::k : …PartUsage), meta(R::Sink::u : …PortUsage)]`), never through the printed text.
+- **Count, do not just print.** For a binary connector typed by a definition with two named ends,
+  `SequenceFunctions::size(M.ownedMember)`, `size(M.ownedElement)`, `size(M.ownedFeature)`,
+  `size(M.ownedEndFeature)` and `size(M.connectorEnd)` are all `2`. `4` means the unnamed `connect`
+  ends were appended to the inherited `source`/`target` instead of replacing them by position;
+  `0` (with `ownedEndFeature = []` and `connectorEnd` failing
+  `no reflective metaclass classifies the element`) is the pre-fix shape. Per end,
+  `ownedSubsetting` has one element and it is the same `ReferenceSubsetting` that
+  `ownedReferenceSubsetting` yields. For `attribute :>> x`, `ownedRedefinition` is one
+  `Redefinition` whose `redefinedFeature` is the *supertype's* `x` (`meta(R::Asm::x : …)`) and
+  `ownedSubsetting` returns that same relationship. For a chain target,
+  `ownedRedefinition.redefinedFeature.chainingFeature` is the whole chain in order
+  (`[R::Asm::sub, R::Asm::sub::w]`), `redefinedFeature.owner` is the declaring attribute
+  (`R::Derived::deep`), the relationship's `ownedRelatedElement` is the chain feature, and the
+  relationship's own `ownedElement` is `[]` — a relationship owns its related elements directly, not
+  through a relationship of its own. A property the library declares but the engine does not
+  derive fails with `reflective feature is not derived: <Metaclass>::<property> for <fqn>`;
+  `inheritedFeature` is one, so it serves as the negative control.
+- **Interface ends are `PortUsage`, connection ends are `ReferenceUsage`.** `i1.ownedEndFeature`
+  prints `[meta(R::Asm::i1::<unnamed> : SysML::Systems::PortUsage), …]` while `c1`'s ends print
+  `SysML::Systems::ReferenceUsage`; expecting `ReferenceUsage` on an interface end is a wrong
+  expectation, not a defect. The relationship metaobjects are KerML metaclasses —
+  `KerML::Core::ReferenceSubsetting`, `KerML::Core::Redefinition`, and `KerML::Core::FeatureTyping`
+  from `ownedSpecialization` — and the chain feature is a `KerML::Core::Feature`.
+  `M.relatedFeature` / `sourceFeature` / `targetFeature` give the chain *tips*
+  (`R::Source::y`, `R::Sink::u`) and are the quickest check that an end attached where intended.
+
 ## Driving a state machine and its transition effects on camera
 
 - **`-e` is not a file flag.** `sysml -e <expr> [file]` evaluates an expression; to load a model
