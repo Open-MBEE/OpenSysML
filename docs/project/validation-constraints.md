@@ -83,8 +83,8 @@ object, though it keeps its ordinal); and a feature-chain target (`:> a.b`, `::>
 `crosses a.b`) derives no target-side feature, so an application that needs it is reported
 unevaluated. The membership family (`OwningMembership`, `FeatureMembership`,
 `ownedRelationship`, `membership`, `ownedMembership`, `ownedImport`) is not yet reflected and
-stays unsupported. An extended definition or usage (`#service def X`) classifies as
-Definition/Usage, so the constraints that apply to those metaclasses reach it.
+stays unsupported. An extended definition (`#service def X`) classifies as Definition, so
+the constraints that apply to that metaclass reach it.
 
 Three further constraints are excluded because their applications on a relationship with a
 feature-chain target cannot be evaluated yet: `validateSubsettingUniquenessConformance`,
