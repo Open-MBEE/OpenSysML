@@ -365,7 +365,7 @@ def migrate(to_format, file_path=None, content=None, from_format='', report=Fals
         >>> import opensysml
         >>> migrated = opensysml.migrate("sysml", file_path="Vehicle.mdzip", report=True)
         >>> migrated.report.summary
-        'migrated 93 element(s): 77 mapped, 13 approximated, 3 unmapped (...)'
+        'migrated 93 element(s): 78 mapped, 12 approximated, 3 unmapped (...)'
         >>> migrated.write("Vehicle.sysml")
         'Vehicle.sysml'
     """
