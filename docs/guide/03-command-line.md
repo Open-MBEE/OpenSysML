@@ -87,7 +87,7 @@ $ sysml -satisfy checks.sysml
   standing: violated (witnessed: 1 run under reverse)
 ```
 
-`-self-check` applies the 13 constraints in OpenSysML's `SysMLValidation` library to every
+`-self-check` applies the 41 constraints in OpenSysML's `SysMLValidation` library to every
 reflectively classified element in the workspace. A clean run reports the number of checked
 elements and applications; constraints whose reflective features are not derived are counted
 as unevaluated rather than treated as violations. See the [validation-constraint census page](../project/validation-constraints.md).
@@ -186,6 +186,9 @@ bad.sysml:2:45: error: expected an expression
 sysml: bad.sysml did not analyse cleanly; no check was made
 exit=2
 ```
+
+An explicitly named API element-form `.json` file is converted before validation. Diagnostic
+positions refer to the converted SysML notation, not to positions in the JSON document.
 
 A single `-` stands for standard input wherever a file name is accepted, so you can pipe a model
 in; its diagnostics are reported against `<stdin>`. To read a file that is actually named `-`,

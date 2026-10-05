@@ -1,0 +1,10 @@
+{
+	"type": "action",
+	"libraries": true,
+	"trace": true,
+	"outcomes": [
+		{"outputs": {"v": {"type": "Real", "value": 2.0}, "doubled": {"type": "Real", "value": 2.0}}},
+		{"outputs": {"v": {"type": "Real", "value": 2.0}, "doubled": {"type": "Real", "value": 4.0}}}
+	],
+	"admissible": "Direct statements of one body no succession orders: each is performed, in which order is open"
+}

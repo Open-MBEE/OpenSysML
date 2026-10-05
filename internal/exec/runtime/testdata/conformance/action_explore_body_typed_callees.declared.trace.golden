@@ -1,0 +1,22 @@
+step 1: token 1@f
+step 2: token 2@a, token 3@b
+materialize: counter #1
+eval chain c -> 0
+stmt assign counter.c
+    eval feature t -> 0
+    eval literal 1 -> 1
+  eval operator + -> 1
+step 1: no active tokens
+eval chain c -> 1
+stmt assign counter.c
+    eval feature t -> 1
+    eval literal 1 -> 1
+  eval operator + -> 2
+step 1: no active tokens
+choice step 3: tokens 2@a, 3@b (unordered; took 2@a first)
+step 3: token 2@j, token 3@j
+step 4: token 4@look
+stmt assign seen
+  eval chain c -> 2
+step 5: token 4@done
+step 6: no active tokens

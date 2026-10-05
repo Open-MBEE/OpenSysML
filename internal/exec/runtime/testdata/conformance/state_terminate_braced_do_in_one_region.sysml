@@ -13,8 +13,8 @@ package Test {
 			state lwork {
 				do {
 					assign a := 1;
-					terminate;
-					assign a := 9;
+					then terminate;
+					then assign a := 9;
 				}
 			}
 			state ldone;
@@ -26,8 +26,8 @@ package Test {
 			state rwork {
 				do {
 					assign b := 1;
-					assign b := b + 1;
-					assign b := b + 1;
+					then assign b := b + 1;
+					then assign b := b + 1;
 				}
 			}
 			state rdone;

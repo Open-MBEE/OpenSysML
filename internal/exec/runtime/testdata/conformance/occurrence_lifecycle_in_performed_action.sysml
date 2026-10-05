@@ -25,19 +25,15 @@ package test {
 			part fresh : Widget;
 			part spare : Widget;
 			first start;
-			then action begin {
-				assign createdIsFresh := create(fresh) === fresh;
-				assign freshDuringGo := isDuring(fresh);
-			}
-			then action work {
-				assign armDuring := isDuring(arm);
-				assign goDuring := isDuring(go);
-				assign freshDuringWork := isDuring(fresh);
-				assign spares := addNew(spares, spare);
-				assign spareCount := size(spares);
-				assign arm := destroy(arm);
-				assign armAfter := isDuring(arm);
-			}
+			then action begin assign createdIsFresh := create(fresh) === fresh;
+			then assign freshDuringGo := isDuring(fresh);
+			then action work assign armDuring := isDuring(arm);
+			then assign goDuring := isDuring(go);
+			then assign freshDuringWork := isDuring(fresh);
+			then assign spares := addNew(spares, spare);
+			then assign spareCount := size(spares);
+			then assign arm := destroy(arm);
+			then assign armAfter := isDuring(arm);
 			then done;
 		}
 	}

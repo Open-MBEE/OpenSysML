@@ -10,6 +10,9 @@ import (
 type frame struct {
 	slots *slotFrame
 	vars  map[string]Value
+	// unvalued marks names the frame declares but holds no value for: a read
+	// answers as missing, a write binds.
+	unvalued map[string]bool
 	// aliases map the name of a redefined feature to the name of the feature
 	// redefining it, which the frame binds it under (`in g :>> x` holds x as g).
 	aliases map[string]string
@@ -133,10 +136,22 @@ func (f frame) lookup(name string) (Value, bool) {
 	return value, ok
 }
 
-// has reports whether the frame binds name.
+// has reports whether the frame binds name or declares it unvalued.
 func (f frame) has(name string) bool {
+	if f.unvalued[name] {
+		return true
+	}
 	_, ok := f.lookup(name)
 	return ok
+}
+
+// markUnvalued records a name the frame declares but holds no value for, which
+// a read answers as missing and a write binds.
+func (f frame) markUnvalued(name string) {
+	if f.unvalued == nil {
+		f.unvalued = map[string]bool{}
+	}
+	f.unvalued[name] = true
 }
 
 // set binds name: in its slot when the frame has one for it, else in the map.
@@ -145,6 +160,7 @@ func (f frame) set(name string, value Value) {
 	if f.slots != nil && f.slots.set(name, value) {
 		return
 	}
+	delete(f.unvalued, name)
 	f.vars[name] = value
 }
 

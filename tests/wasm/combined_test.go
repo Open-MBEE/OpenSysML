@@ -369,6 +369,7 @@ func TestCombinedDependencies(t *testing.T) {
 	required := []string{
 		module + "/internal/frontend/engine",
 		module + "/internal/frontend/core",
+		module + "/internal/doc/queryexec",
 	}
 	for _, target := range []wasmTarget{{name: "js", goos: "js"}, {name: "wasip1", goos: "wasip1"}} {
 		t.Run(target.name, func(t *testing.T) {
@@ -398,6 +399,9 @@ func TestCombinedDependencies(t *testing.T) {
 }
 
 func forbiddenCombinedDependency(module, dependency string) bool {
+	if dependency == module+"/internal/doc/queryexec" {
+		return false
+	}
 	for _, prefix := range []string{
 		module + "/api/",
 		"google.golang.org/protobuf",

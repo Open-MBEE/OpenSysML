@@ -416,7 +416,11 @@ func (w *Workspace) Remove(name string) {
 // reindexLocked reparses name and incrementally updates the global index.
 // Caller must hold the write lock.
 func (w *Workspace) reindexLocked(name string, content []byte, version int) {
-	doc := newDocument(name, content, version)
+	kind := source.KindUnknown
+	if held := w.docs[name]; held != nil {
+		kind = held.Kind()
+	}
+	doc := newDocument(name, content, version, kind)
 	w.docs[name] = doc
 	w.changes[name]++
 	w.installLocked(doc)
@@ -429,7 +433,7 @@ func (w *Workspace) reindexLocked(name string, content []byte, version int) {
 // expands wildcard imports once its documents are in. Caller holds the write lock.
 func (w *Workspace) installLocked(doc *Document) {
 	w.displaceLocked(doc.Name)
-	w.index.AddDocumentScope(doc.Name, doc.AST, doc.Scope) // removes stale entries first
+	w.index.AddDocumentScopeWithKind(doc.Name, doc.AST, doc.Scope, doc.Kind()) // removes stale entries first
 	w.standInLocked(doc.Name, doc)
 }
 
@@ -610,9 +614,9 @@ func (w *Workspace) diagnosticsLocked(name string, doc *Document) []diag.Diagnos
 func (w *Workspace) analyze(name string, doc *Document, batch *passes.Batch) ([]diag.Diagnostic, *resolve.Reads) {
 	parseDiags := parser.AsDiagnostics(doc.ParseDiagnostics, doc.ParseWarnings)
 	if batch != nil {
-		return passes.AnalyzeInBatch(name, source.KindOf(name), doc.AST, parseDiags, w.index, w.analysis, batch)
+		return passes.AnalyzeInBatch(name, doc.Kind(), doc.AST, parseDiags, w.index, w.analysis, batch)
 	}
-	return passes.AnalyzeShared(name, source.KindOf(name), doc.AST, parseDiags, w.analysis, w.sharedLocked()), nil
+	return passes.AnalyzeShared(name, doc.Kind(), doc.AST, parseDiags, w.analysis, w.sharedLocked()), nil
 }
 
 // LookupQualified resolves a fully-qualified name against the global index under

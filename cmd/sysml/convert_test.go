@@ -12,6 +12,7 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/Open-MBEE/OpenSysML/internal/translate/convert"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/migrate"
 	"github.com/Open-MBEE/OpenSysML/tests/testutil/gobuild"
 )
@@ -117,6 +118,62 @@ func TestConvertToStdout(t *testing.T) {
 	out := run(t, binary, model, "-convert", "ttl")
 	if !strings.Contains(out, "@prefix sysml:") {
 		t.Errorf("expected Turtle on stdout, got:\n%s", out)
+	}
+}
+
+func TestConvertAPIJSONLibraryFallbackWarnsOnStderr(t *testing.T) {
+	binary := buildCLI(t)
+	data, err := os.ReadFile(filepath.Join("..", "..", "tests", "export", "testdata", "interchange", "library_identity.toolkit.full.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	input := filepath.Join(t.TempDir(), "library.json")
+	if err := os.WriteFile(input, data, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	result := runCommand(t, exec.Command(binary, input, "-from", "api-json", "-convert", "sysml"))
+	if result.status != 0 {
+		t.Fatalf("conversion exited %d:\n%s%s", result.status, result.stdout, result.stderr)
+	}
+	if !strings.Contains(result.stderr, "warning: the library element") ||
+		!strings.Contains(result.stderr, "resolved by its qualified name ScalarValues::Real") {
+		t.Errorf("the library identity warning was not written to stderr:\n%s", result.stderr)
+	}
+	if strings.Contains(result.stdout, "warning:") || !strings.Contains(result.stdout, "library package DocumentLibrary") {
+		t.Errorf("stdout contains the wrong conversion output:\n%s", result.stdout)
+	}
+}
+
+func TestConvertRecordedReportsAPIJSONWarning(t *testing.T) {
+	stdout, err := os.CreateTemp(t.TempDir(), "stdout")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = stdout.Close() })
+	stderr, err := os.CreateTemp(t.TempDir(), "stderr")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = stderr.Close() })
+	oldStdout, oldStderr := os.Stdout, os.Stderr
+	os.Stdout, os.Stderr = stdout, stderr
+	defer func() {
+		os.Stdout, os.Stderr = oldStdout, oldStderr
+	}()
+
+	status, err := convertRecorded(apiJSONFixture(t, "library_identity.toolkit.full.json"), convert.FormatSysML)
+	if err != nil || status != 0 {
+		t.Fatalf("recorded conversion returned status %d, error %v", status, err)
+	}
+	if err := stderr.Sync(); err != nil {
+		t.Fatal(err)
+	}
+	warnings, err := os.ReadFile(stderr.Name())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(warnings), "warning: the library element") {
+		t.Fatalf("recorded conversion omitted the library warning:\n%s", warnings)
 	}
 }
 

@@ -8,6 +8,7 @@ stmt action body
         eval feature k -> 3
         eval literal 0 -> 0
       eval operator > -> true
+enter action node: loop body of state behavior <anonymous>
       stmt assign log
             eval feature log -> 0
             eval literal 10 -> 10
@@ -18,10 +19,12 @@ stmt action body
           eval feature k -> 3
           eval literal 1 -> 1
         eval operator - -> 2
+leave action node: loop body of state behavior <anonymous>
     iteration 2
         eval feature k -> 2
         eval literal 0 -> 0
       eval operator > -> true
+enter action node: loop body of state behavior <anonymous>
       stmt assign log
             eval feature log -> 3
             eval literal 10 -> 10
@@ -32,10 +35,12 @@ stmt action body
           eval feature k -> 2
           eval literal 1 -> 1
         eval operator - -> 1
+leave action node: loop body of state behavior <anonymous>
     iteration 3
         eval feature k -> 1
         eval literal 0 -> 0
       eval operator > -> true
+enter action node: loop body of state behavior <anonymous>
       stmt assign log
             eval feature log -> 32
             eval literal 10 -> 10
@@ -46,6 +51,7 @@ stmt action body
           eval feature k -> 1
           eval literal 1 -> 1
         eval operator - -> 0
+leave action node: loop body of state behavior <anonymous>
     iteration 4
         eval feature k -> 0
         eval literal 0 -> 0

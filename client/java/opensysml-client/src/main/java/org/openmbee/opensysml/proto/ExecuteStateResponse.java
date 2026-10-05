@@ -37,6 +37,7 @@ private static final long serialVersionUID = 0L;
     error_ = "";
     diagnostics_ = java.util.Collections.emptyList();
     outcomes_ = java.util.Collections.emptyList();
+    trace_ = java.util.Collections.emptyList();
   }
 
   public static final com.google.protobuf.Descriptors.Descriptor
@@ -396,6 +397,87 @@ org.openmbee.opensysml.proto.Value defaultValue) {
     return finalTime_;
   }
 
+  public static final int TRACE_FIELD_NUMBER = 8;
+  @SuppressWarnings("serial")
+  private java.util.List<org.openmbee.opensysml.proto.DocumentEvent> trace_;
+  /**
+   * <pre>
+   * The run's trace in the order the run made it, when the request asked for it:
+   * also on a run that failed, up to the failure. Empty under an explore schedule.
+   * </pre>
+   *
+   * <code>repeated .sysml.DocumentEvent trace = 8 [json_name = "trace"];</code>
+   */
+  @java.lang.Override
+  public java.util.List<org.openmbee.opensysml.proto.DocumentEvent> getTraceList() {
+    return trace_;
+  }
+  /**
+   * <pre>
+   * The run's trace in the order the run made it, when the request asked for it:
+   * also on a run that failed, up to the failure. Empty under an explore schedule.
+   * </pre>
+   *
+   * <code>repeated .sysml.DocumentEvent trace = 8 [json_name = "trace"];</code>
+   */
+  @java.lang.Override
+  public java.util.List<? extends org.openmbee.opensysml.proto.DocumentEventOrBuilder> 
+      getTraceOrBuilderList() {
+    return trace_;
+  }
+  /**
+   * <pre>
+   * The run's trace in the order the run made it, when the request asked for it:
+   * also on a run that failed, up to the failure. Empty under an explore schedule.
+   * </pre>
+   *
+   * <code>repeated .sysml.DocumentEvent trace = 8 [json_name = "trace"];</code>
+   */
+  @java.lang.Override
+  public int getTraceCount() {
+    return trace_.size();
+  }
+  /**
+   * <pre>
+   * The run's trace in the order the run made it, when the request asked for it:
+   * also on a run that failed, up to the failure. Empty under an explore schedule.
+   * </pre>
+   *
+   * <code>repeated .sysml.DocumentEvent trace = 8 [json_name = "trace"];</code>
+   */
+  @java.lang.Override
+  public org.openmbee.opensysml.proto.DocumentEvent getTrace(int index) {
+    return trace_.get(index);
+  }
+  /**
+   * <pre>
+   * The run's trace in the order the run made it, when the request asked for it:
+   * also on a run that failed, up to the failure. Empty under an explore schedule.
+   * </pre>
+   *
+   * <code>repeated .sysml.DocumentEvent trace = 8 [json_name = "trace"];</code>
+   */
+  @java.lang.Override
+  public org.openmbee.opensysml.proto.DocumentEventOrBuilder getTraceOrBuilder(
+      int index) {
+    return trace_.get(index);
+  }
+
+  public static final int TRACE_DROPPED_FIELD_NUMBER = 9;
+  private int traceDropped_ = 0;
+  /**
+   * <pre>
+   * How many of the oldest records the service's held-events bound discarded.
+   * </pre>
+   *
+   * <code>int32 trace_dropped = 9 [json_name = "traceDropped"];</code>
+   * @return The traceDropped.
+   */
+  @java.lang.Override
+  public int getTraceDropped() {
+    return traceDropped_;
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -433,6 +515,12 @@ org.openmbee.opensysml.proto.Value defaultValue) {
     }
     if (java.lang.Double.doubleToRawLongBits(finalTime_) != 0) {
       output.writeDouble(7, finalTime_);
+    }
+    for (int i = 0; i < trace_.size(); i++) {
+      output.writeMessage(8, trace_.get(i));
+    }
+    if (traceDropped_ != 0) {
+      output.writeInt32(9, traceDropped_);
     }
     getUnknownFields().writeTo(output);
   }
@@ -480,6 +568,14 @@ org.openmbee.opensysml.proto.Value defaultValue) {
       size += com.google.protobuf.CodedOutputStream
         .computeDoubleSize(7, finalTime_);
     }
+    for (int i = 0; i < trace_.size(); i++) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeMessageSize(8, trace_.get(i));
+    }
+    if (traceDropped_ != 0) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeInt32Size(9, traceDropped_);
+    }
     size += getUnknownFields().getSerializedSize();
     memoizedSize = size;
     return size;
@@ -513,6 +609,10 @@ org.openmbee.opensysml.proto.Value defaultValue) {
     if (java.lang.Double.doubleToLongBits(getFinalTime())
         != java.lang.Double.doubleToLongBits(
             other.getFinalTime())) return false;
+    if (!getTraceList()
+        .equals(other.getTraceList())) return false;
+    if (getTraceDropped()
+        != other.getTraceDropped()) return false;
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -549,6 +649,12 @@ org.openmbee.opensysml.proto.Value defaultValue) {
     hash = (37 * hash) + FINAL_TIME_FIELD_NUMBER;
     hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
         java.lang.Double.doubleToLongBits(getFinalTime()));
+    if (getTraceCount() > 0) {
+      hash = (37 * hash) + TRACE_FIELD_NUMBER;
+      hash = (53 * hash) + getTraceList().hashCode();
+    }
+    hash = (37 * hash) + TRACE_DROPPED_FIELD_NUMBER;
+    hash = (53 * hash) + getTraceDropped();
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
     return hash;
@@ -708,6 +814,7 @@ org.openmbee.opensysml.proto.Value defaultValue) {
         internalGetDiagnosticsFieldBuilder();
         internalGetOutcomesFieldBuilder();
         internalGetExplorationFieldBuilder();
+        internalGetTraceFieldBuilder();
       }
     }
     @java.lang.Override
@@ -738,6 +845,14 @@ org.openmbee.opensysml.proto.Value defaultValue) {
         explorationBuilder_ = null;
       }
       finalTime_ = 0D;
+      if (traceBuilder_ == null) {
+        trace_ = java.util.Collections.emptyList();
+      } else {
+        trace_ = null;
+        traceBuilder_.clear();
+      }
+      bitField0_ = (bitField0_ & ~0x00000080);
+      traceDropped_ = 0;
       return this;
     }
 
@@ -789,6 +904,15 @@ org.openmbee.opensysml.proto.Value defaultValue) {
       } else {
         result.outcomes_ = outcomesBuilder_.build();
       }
+      if (traceBuilder_ == null) {
+        if (((bitField0_ & 0x00000080) != 0)) {
+          trace_ = java.util.Collections.unmodifiableList(trace_);
+          bitField0_ = (bitField0_ & ~0x00000080);
+        }
+        result.trace_ = trace_;
+      } else {
+        result.trace_ = traceBuilder_.build();
+      }
     }
 
     private void buildPartial0(org.openmbee.opensysml.proto.ExecuteStateResponse result) {
@@ -812,6 +936,9 @@ org.openmbee.opensysml.proto.Value defaultValue) {
       }
       if (((from_bitField0_ & 0x00000040) != 0)) {
         result.finalTime_ = finalTime_;
+      }
+      if (((from_bitField0_ & 0x00000100) != 0)) {
+        result.traceDropped_ = traceDropped_;
       }
       result.bitField0_ |= to_bitField0_;
     }
@@ -904,6 +1031,35 @@ org.openmbee.opensysml.proto.Value defaultValue) {
       if (java.lang.Double.doubleToRawLongBits(other.getFinalTime()) != 0) {
         setFinalTime(other.getFinalTime());
       }
+      if (traceBuilder_ == null) {
+        if (!other.trace_.isEmpty()) {
+          if (trace_.isEmpty()) {
+            trace_ = other.trace_;
+            bitField0_ = (bitField0_ & ~0x00000080);
+          } else {
+            ensureTraceIsMutable();
+            trace_.addAll(other.trace_);
+          }
+          onChanged();
+        }
+      } else {
+        if (!other.trace_.isEmpty()) {
+          if (traceBuilder_.isEmpty()) {
+            traceBuilder_.dispose();
+            traceBuilder_ = null;
+            trace_ = other.trace_;
+            bitField0_ = (bitField0_ & ~0x00000080);
+            traceBuilder_ = 
+              com.google.protobuf.GeneratedMessage.alwaysUseFieldBuilders ?
+                 internalGetTraceFieldBuilder() : null;
+          } else {
+            traceBuilder_.addAllMessages(other.trace_);
+          }
+        }
+      }
+      if (other.getTraceDropped() != 0) {
+        setTraceDropped(other.getTraceDropped());
+      }
       this.mergeUnknownFields(other.getUnknownFields());
       onChanged();
       return this;
@@ -988,6 +1144,24 @@ org.openmbee.opensysml.proto.Value defaultValue) {
               bitField0_ |= 0x00000040;
               break;
             } // case 57
+            case 66: {
+              org.openmbee.opensysml.proto.DocumentEvent m =
+                  input.readMessage(
+                      org.openmbee.opensysml.proto.DocumentEvent.parser(),
+                      extensionRegistry);
+              if (traceBuilder_ == null) {
+                ensureTraceIsMutable();
+                trace_.add(m);
+              } else {
+                traceBuilder_.addMessage(m);
+              }
+              break;
+            } // case 66
+            case 72: {
+              traceDropped_ = input.readInt32();
+              bitField0_ |= 0x00000100;
+              break;
+            } // case 72
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -2152,6 +2326,380 @@ org.openmbee.opensysml.proto.Value defaultValue) {
     public Builder clearFinalTime() {
       bitField0_ = (bitField0_ & ~0x00000040);
       finalTime_ = 0D;
+      onChanged();
+      return this;
+    }
+
+    private java.util.List<org.openmbee.opensysml.proto.DocumentEvent> trace_ =
+      java.util.Collections.emptyList();
+    private void ensureTraceIsMutable() {
+      if (!((bitField0_ & 0x00000080) != 0)) {
+        trace_ = new java.util.ArrayList<org.openmbee.opensysml.proto.DocumentEvent>(trace_);
+        bitField0_ |= 0x00000080;
+       }
+    }
+
+    private com.google.protobuf.RepeatedFieldBuilder<
+        org.openmbee.opensysml.proto.DocumentEvent, org.openmbee.opensysml.proto.DocumentEvent.Builder, org.openmbee.opensysml.proto.DocumentEventOrBuilder> traceBuilder_;
+
+    /**
+     * <pre>
+     * The run's trace in the order the run made it, when the request asked for it:
+     * also on a run that failed, up to the failure. Empty under an explore schedule.
+     * </pre>
+     *
+     * <code>repeated .sysml.DocumentEvent trace = 8 [json_name = "trace"];</code>
+     */
+    public java.util.List<org.openmbee.opensysml.proto.DocumentEvent> getTraceList() {
+      if (traceBuilder_ == null) {
+        return java.util.Collections.unmodifiableList(trace_);
+      } else {
+        return traceBuilder_.getMessageList();
+      }
+    }
+    /**
+     * <pre>
+     * The run's trace in the order the run made it, when the request asked for it:
+     * also on a run that failed, up to the failure. Empty under an explore schedule.
+     * </pre>
+     *
+     * <code>repeated .sysml.DocumentEvent trace = 8 [json_name = "trace"];</code>
+     */
+    public int getTraceCount() {
+      if (traceBuilder_ == null) {
+        return trace_.size();
+      } else {
+        return traceBuilder_.getCount();
+      }
+    }
+    /**
+     * <pre>
+     * The run's trace in the order the run made it, when the request asked for it:
+     * also on a run that failed, up to the failure. Empty under an explore schedule.
+     * </pre>
+     *
+     * <code>repeated .sysml.DocumentEvent trace = 8 [json_name = "trace"];</code>
+     */
+    public org.openmbee.opensysml.proto.DocumentEvent getTrace(int index) {
+      if (traceBuilder_ == null) {
+        return trace_.get(index);
+      } else {
+        return traceBuilder_.getMessage(index);
+      }
+    }
+    /**
+     * <pre>
+     * The run's trace in the order the run made it, when the request asked for it:
+     * also on a run that failed, up to the failure. Empty under an explore schedule.
+     * </pre>
+     *
+     * <code>repeated .sysml.DocumentEvent trace = 8 [json_name = "trace"];</code>
+     */
+    public Builder setTrace(
+        int index, org.openmbee.opensysml.proto.DocumentEvent value) {
+      if (traceBuilder_ == null) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        ensureTraceIsMutable();
+        trace_.set(index, value);
+        onChanged();
+      } else {
+        traceBuilder_.setMessage(index, value);
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * The run's trace in the order the run made it, when the request asked for it:
+     * also on a run that failed, up to the failure. Empty under an explore schedule.
+     * </pre>
+     *
+     * <code>repeated .sysml.DocumentEvent trace = 8 [json_name = "trace"];</code>
+     */
+    public Builder setTrace(
+        int index, org.openmbee.opensysml.proto.DocumentEvent.Builder builderForValue) {
+      if (traceBuilder_ == null) {
+        ensureTraceIsMutable();
+        trace_.set(index, builderForValue.build());
+        onChanged();
+      } else {
+        traceBuilder_.setMessage(index, builderForValue.build());
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * The run's trace in the order the run made it, when the request asked for it:
+     * also on a run that failed, up to the failure. Empty under an explore schedule.
+     * </pre>
+     *
+     * <code>repeated .sysml.DocumentEvent trace = 8 [json_name = "trace"];</code>
+     */
+    public Builder addTrace(org.openmbee.opensysml.proto.DocumentEvent value) {
+      if (traceBuilder_ == null) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        ensureTraceIsMutable();
+        trace_.add(value);
+        onChanged();
+      } else {
+        traceBuilder_.addMessage(value);
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * The run's trace in the order the run made it, when the request asked for it:
+     * also on a run that failed, up to the failure. Empty under an explore schedule.
+     * </pre>
+     *
+     * <code>repeated .sysml.DocumentEvent trace = 8 [json_name = "trace"];</code>
+     */
+    public Builder addTrace(
+        int index, org.openmbee.opensysml.proto.DocumentEvent value) {
+      if (traceBuilder_ == null) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        ensureTraceIsMutable();
+        trace_.add(index, value);
+        onChanged();
+      } else {
+        traceBuilder_.addMessage(index, value);
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * The run's trace in the order the run made it, when the request asked for it:
+     * also on a run that failed, up to the failure. Empty under an explore schedule.
+     * </pre>
+     *
+     * <code>repeated .sysml.DocumentEvent trace = 8 [json_name = "trace"];</code>
+     */
+    public Builder addTrace(
+        org.openmbee.opensysml.proto.DocumentEvent.Builder builderForValue) {
+      if (traceBuilder_ == null) {
+        ensureTraceIsMutable();
+        trace_.add(builderForValue.build());
+        onChanged();
+      } else {
+        traceBuilder_.addMessage(builderForValue.build());
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * The run's trace in the order the run made it, when the request asked for it:
+     * also on a run that failed, up to the failure. Empty under an explore schedule.
+     * </pre>
+     *
+     * <code>repeated .sysml.DocumentEvent trace = 8 [json_name = "trace"];</code>
+     */
+    public Builder addTrace(
+        int index, org.openmbee.opensysml.proto.DocumentEvent.Builder builderForValue) {
+      if (traceBuilder_ == null) {
+        ensureTraceIsMutable();
+        trace_.add(index, builderForValue.build());
+        onChanged();
+      } else {
+        traceBuilder_.addMessage(index, builderForValue.build());
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * The run's trace in the order the run made it, when the request asked for it:
+     * also on a run that failed, up to the failure. Empty under an explore schedule.
+     * </pre>
+     *
+     * <code>repeated .sysml.DocumentEvent trace = 8 [json_name = "trace"];</code>
+     */
+    public Builder addAllTrace(
+        java.lang.Iterable<? extends org.openmbee.opensysml.proto.DocumentEvent> values) {
+      if (traceBuilder_ == null) {
+        ensureTraceIsMutable();
+        com.google.protobuf.AbstractMessageLite.Builder.addAll(
+            values, trace_);
+        onChanged();
+      } else {
+        traceBuilder_.addAllMessages(values);
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * The run's trace in the order the run made it, when the request asked for it:
+     * also on a run that failed, up to the failure. Empty under an explore schedule.
+     * </pre>
+     *
+     * <code>repeated .sysml.DocumentEvent trace = 8 [json_name = "trace"];</code>
+     */
+    public Builder clearTrace() {
+      if (traceBuilder_ == null) {
+        trace_ = java.util.Collections.emptyList();
+        bitField0_ = (bitField0_ & ~0x00000080);
+        onChanged();
+      } else {
+        traceBuilder_.clear();
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * The run's trace in the order the run made it, when the request asked for it:
+     * also on a run that failed, up to the failure. Empty under an explore schedule.
+     * </pre>
+     *
+     * <code>repeated .sysml.DocumentEvent trace = 8 [json_name = "trace"];</code>
+     */
+    public Builder removeTrace(int index) {
+      if (traceBuilder_ == null) {
+        ensureTraceIsMutable();
+        trace_.remove(index);
+        onChanged();
+      } else {
+        traceBuilder_.remove(index);
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * The run's trace in the order the run made it, when the request asked for it:
+     * also on a run that failed, up to the failure. Empty under an explore schedule.
+     * </pre>
+     *
+     * <code>repeated .sysml.DocumentEvent trace = 8 [json_name = "trace"];</code>
+     */
+    public org.openmbee.opensysml.proto.DocumentEvent.Builder getTraceBuilder(
+        int index) {
+      return internalGetTraceFieldBuilder().getBuilder(index);
+    }
+    /**
+     * <pre>
+     * The run's trace in the order the run made it, when the request asked for it:
+     * also on a run that failed, up to the failure. Empty under an explore schedule.
+     * </pre>
+     *
+     * <code>repeated .sysml.DocumentEvent trace = 8 [json_name = "trace"];</code>
+     */
+    public org.openmbee.opensysml.proto.DocumentEventOrBuilder getTraceOrBuilder(
+        int index) {
+      if (traceBuilder_ == null) {
+        return trace_.get(index);  } else {
+        return traceBuilder_.getMessageOrBuilder(index);
+      }
+    }
+    /**
+     * <pre>
+     * The run's trace in the order the run made it, when the request asked for it:
+     * also on a run that failed, up to the failure. Empty under an explore schedule.
+     * </pre>
+     *
+     * <code>repeated .sysml.DocumentEvent trace = 8 [json_name = "trace"];</code>
+     */
+    public java.util.List<? extends org.openmbee.opensysml.proto.DocumentEventOrBuilder> 
+         getTraceOrBuilderList() {
+      if (traceBuilder_ != null) {
+        return traceBuilder_.getMessageOrBuilderList();
+      } else {
+        return java.util.Collections.unmodifiableList(trace_);
+      }
+    }
+    /**
+     * <pre>
+     * The run's trace in the order the run made it, when the request asked for it:
+     * also on a run that failed, up to the failure. Empty under an explore schedule.
+     * </pre>
+     *
+     * <code>repeated .sysml.DocumentEvent trace = 8 [json_name = "trace"];</code>
+     */
+    public org.openmbee.opensysml.proto.DocumentEvent.Builder addTraceBuilder() {
+      return internalGetTraceFieldBuilder().addBuilder(
+          org.openmbee.opensysml.proto.DocumentEvent.getDefaultInstance());
+    }
+    /**
+     * <pre>
+     * The run's trace in the order the run made it, when the request asked for it:
+     * also on a run that failed, up to the failure. Empty under an explore schedule.
+     * </pre>
+     *
+     * <code>repeated .sysml.DocumentEvent trace = 8 [json_name = "trace"];</code>
+     */
+    public org.openmbee.opensysml.proto.DocumentEvent.Builder addTraceBuilder(
+        int index) {
+      return internalGetTraceFieldBuilder().addBuilder(
+          index, org.openmbee.opensysml.proto.DocumentEvent.getDefaultInstance());
+    }
+    /**
+     * <pre>
+     * The run's trace in the order the run made it, when the request asked for it:
+     * also on a run that failed, up to the failure. Empty under an explore schedule.
+     * </pre>
+     *
+     * <code>repeated .sysml.DocumentEvent trace = 8 [json_name = "trace"];</code>
+     */
+    public java.util.List<org.openmbee.opensysml.proto.DocumentEvent.Builder> 
+         getTraceBuilderList() {
+      return internalGetTraceFieldBuilder().getBuilderList();
+    }
+    private com.google.protobuf.RepeatedFieldBuilder<
+        org.openmbee.opensysml.proto.DocumentEvent, org.openmbee.opensysml.proto.DocumentEvent.Builder, org.openmbee.opensysml.proto.DocumentEventOrBuilder> 
+        internalGetTraceFieldBuilder() {
+      if (traceBuilder_ == null) {
+        traceBuilder_ = new com.google.protobuf.RepeatedFieldBuilder<
+            org.openmbee.opensysml.proto.DocumentEvent, org.openmbee.opensysml.proto.DocumentEvent.Builder, org.openmbee.opensysml.proto.DocumentEventOrBuilder>(
+                trace_,
+                ((bitField0_ & 0x00000080) != 0),
+                getParentForChildren(),
+                isClean());
+        trace_ = null;
+      }
+      return traceBuilder_;
+    }
+
+    private int traceDropped_ ;
+    /**
+     * <pre>
+     * How many of the oldest records the service's held-events bound discarded.
+     * </pre>
+     *
+     * <code>int32 trace_dropped = 9 [json_name = "traceDropped"];</code>
+     * @return The traceDropped.
+     */
+    @java.lang.Override
+    public int getTraceDropped() {
+      return traceDropped_;
+    }
+    /**
+     * <pre>
+     * How many of the oldest records the service's held-events bound discarded.
+     * </pre>
+     *
+     * <code>int32 trace_dropped = 9 [json_name = "traceDropped"];</code>
+     * @param value The traceDropped to set.
+     * @return This builder for chaining.
+     */
+    public Builder setTraceDropped(int value) {
+
+      traceDropped_ = value;
+      bitField0_ |= 0x00000100;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * How many of the oldest records the service's held-events bound discarded.
+     * </pre>
+     *
+     * <code>int32 trace_dropped = 9 [json_name = "traceDropped"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearTraceDropped() {
+      bitField0_ = (bitField0_ & ~0x00000100);
+      traceDropped_ = 0;
       onChanged();
       return this;
     }

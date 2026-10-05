@@ -15,19 +15,17 @@ package test {
 		fork split;
 		action pre;
 		merge gate;
-		action slow {
-			assign n := n + 1;
-			if n == 1 {
-				action inner {
-					first start;
-					then action nap accept after 10 [s];
-					then done;
-				}
-				assign late := late + 1;
-			} else {
-				terminate slow;
-				assign late := late + 10;
+		action slow assign n := n + 1;
+		then if n == 1 {
+			action inner {
+				first start;
+				then action nap accept after 10 [s];
+				then done;
 			}
+			assign late := late + 1;
+		} else {
+			terminate slow;
+			then assign late := late + 10;
 		}
 		action after { assign y := y + 1; }
 		succession first start then split;
