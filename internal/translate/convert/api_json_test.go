@@ -3,6 +3,7 @@ package convert_test
 import (
 	"errors"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -102,6 +103,38 @@ func TestAPIJSONToolkitCompactFixture(t *testing.T) {
 		if !strings.Contains(string(text), want) {
 			t.Errorf("the notation does not contain %q:\n%s", want, text)
 		}
+	}
+}
+
+func TestLibraryFallbackWarningsReachBothGraphImportPaths(t *testing.T) {
+	data, err := os.ReadFile(filepath.Join("..", "..", "..", "tests", "export", "testdata", "interchange", "library_identity.toolkit.full.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	turtle, err := convert.Convert("library.json", data, convert.FormatAPIJSON, convert.FormatTurtle)
+	if err != nil {
+		t.Fatalf("api-json to ttl: %v", err)
+	}
+	for _, input := range []struct {
+		name string
+		from convert.Format
+		data []byte
+	}{
+		{name: "api-json", from: convert.FormatAPIJSON, data: data},
+		{name: "ttl", from: convert.FormatTurtle, data: turtle},
+	} {
+		t.Run(input.name, func(t *testing.T) {
+			var warnings []string
+			_, err := convert.ConvertWith(input.name, input.data, input.from, convert.FormatSysML, convert.Options{
+				Warn: func(message string) { warnings = append(warnings, message) },
+			})
+			if err != nil {
+				t.Fatalf("%s to sysml: %v", input.name, err)
+			}
+			if len(warnings) != 1 || !strings.Contains(warnings[0], "ScalarValues::Real") {
+				t.Fatalf("warnings = %v", warnings)
+			}
+		})
 	}
 }
 

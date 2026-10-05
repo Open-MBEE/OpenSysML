@@ -1,0 +1,17 @@
+step 1: token 1@s
+choice statements in action node s: next 1 assign x, 2 assign x, 3 assign x (unordered; took 2 assign x first)
+stmt assign x
+    eval feature x -> 1
+    eval literal 2 -> 2
+  eval operator * -> 2
+choice statements in action node s: next 1 assign x, 3 assign x (unordered; took 1 assign x first)
+stmt assign x
+    eval feature x -> 2
+    eval literal 1 -> 1
+  eval operator + -> 3
+stmt assign x
+    eval feature x -> 3
+    eval literal 3 -> 3
+  eval operator + -> 6
+step 2: token 1@done
+step 3: no active tokens

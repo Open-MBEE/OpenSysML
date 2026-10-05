@@ -1,0 +1,19 @@
+(RootNamespace
+  (Membership visibility="default"
+    (Package name="test" library=false standard=false
+      (Import visibility="private" all=false kind=namespace recursive=false imported="ScalarValues" filtered=false)
+      (Membership visibility="default"
+        (Definition kind="calc" abstract=false variation=false name="Ordered"
+          (Usage kind="attribute" name="" ref=false direction="out" composite=false derived=false ordered=false nonunique=false
+            (Relationship kind="typing" target=Integer
+              (*ast.QualifiedName)))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="y" ref=false direction="none" composite=false derived=false ordered=false nonunique=false initial=true
+              (Relationship kind="typing" target=Integer
+                (*ast.QualifiedName))
+              (LiteralInteger value="1")))
+          (*ast.AssignmentActionNode)
+          (*ast.AssignmentActionNode)
+          (SuccessionEdge source="@assign" target="@assign")
+          (*ast.AssignmentActionNode)
+          (FeatureReference name="y"))))))

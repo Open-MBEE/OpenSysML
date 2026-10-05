@@ -67,7 +67,7 @@ func (s *Session) printElement(name string) ([]string, bool, error) {
 		// session never read, or was restored from an index cache holding no tree.
 		return []string{fmt.Sprintf("no notation to print for %s: this session declares it nowhere", shown)}, false, nil
 	}
-	file := source.New(doc.Name, doc.Content)
+	file := sourceForKind(doc.Name, doc.Content, doc.Kind())
 	return replext.Notation().PrintElement(file, declarationSpan(sym), shown), false, nil
 }
 

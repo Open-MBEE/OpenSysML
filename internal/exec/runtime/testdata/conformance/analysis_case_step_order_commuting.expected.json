@@ -1,0 +1,7 @@
+{
+  "libraries": true,
+  "type": "analysis",
+  "evaluate": "test::Commute",
+  "schedule": "reverse",
+  "result": {"type": "Integer", "value": 3}
+}

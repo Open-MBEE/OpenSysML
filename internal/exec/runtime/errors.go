@@ -339,9 +339,24 @@ var (
 	// condition to evaluate: reporting a verdict would claim a check that never ran.
 	ErrNoConditions = errors.New("no condition to evaluate")
 
-	// ErrStatementNotExecuted is returned when a constraint body states an action
-	// statement: the evaluator does not run it, so a verdict would ignore it.
-	ErrStatementNotExecuted = errors.New("statement in a constraint body is not executed by OpenSysML")
+	// ErrConstraintExternalAssignment is returned when a constraint body's
+	// assignment targets a name the constraint's own performance holds no
+	// feature for — the implicit target is the performance (SysML v2 §7.17.9),
+	// and the name is a feature of the constrained object, not of it.
+	ErrConstraintExternalAssignment = errors.New("assignment outside the constraint performance")
+
+	// ErrConstraintEffect is returned when a constraint body states an effect
+	// outside its own performance — a chained or qualified write, a send, a
+	// performed action, a terminate — which a verdict does not perform.
+	ErrConstraintEffect = errors.New("effect outside the constraint performance")
+
+	// ErrOrderDependentPreview is returned when a guard's verdict varies by
+	// statement order inside a preview, where a scheduler choice cannot be made.
+	ErrOrderDependentPreview = errors.New("order-dependent guard in a preview")
+
+	// ErrOrderDependentGuardEffect is returned when a swept guard constraint may
+	// write a feature outside its own performance.
+	ErrOrderDependentGuardEffect = errors.New("order-dependent guard may write outside its constraint performance")
 
 	// ErrUnboundSubject is returned when a condition reads a subject nothing
 	// supplied: the check is about no object, so it reaches no verdict.

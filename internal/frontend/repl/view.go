@@ -375,7 +375,7 @@ func (s *Session) sessionSourceText() view.SourceText {
 	}
 	files := make(map[string]*source.SourceFile, len(docs))
 	for _, doc := range docs {
-		files[doc.Name] = source.New(doc.Name, doc.Content)
+		files[doc.Name] = sourceForKind(doc.Name, doc.Content, doc.Kind())
 	}
 	return source.TextOf(files, libs.Text(s.libSource))
 }
@@ -532,7 +532,7 @@ func (r *reportRuntime) runtime() (*runtime.Context, error) {
 	model := runtime.NewModel(sem, resolver)
 	model.SetExpressionParser(parser.ParseOneExpression)
 	for _, doc := range r.session.sessionDocs() {
-		model.RegisterSource(source.New(doc.Name, doc.Content))
+		model.RegisterSource(sourceForKind(doc.Name, doc.Content, doc.Kind()))
 	}
 	ctx := runtime.NewContext(model, r.session.budgets.MaxSteps)
 	if err := ctx.SetBudgets(r.session.budgets); err != nil {

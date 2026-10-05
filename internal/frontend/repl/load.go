@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io/fs"
 
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/project"
 )
 
@@ -65,7 +66,21 @@ func (s *Session) loadPathsReport(paths []string) (LoadReport, error) {
 		}
 	}
 	found, declared := renderSplit(s.submitFiles(srcs), s.verbosity)
+	found = append(found, conversionWarnings(srcs, s.verbosity)...)
 	return LoadReport{Loaded: loaded, Found: found, Declared: declared, Errors: s.hasAnalysisErrors()}, nil
+}
+
+func conversionWarnings(files []SourceFile, verbosity Verbosity) []string {
+	if verbosity <= VerbosityQuiet {
+		return nil
+	}
+	var lines []string
+	for _, file := range files {
+		for _, warning := range file.Warnings {
+			lines = append(lines, "warning: "+warning)
+		}
+	}
+	return lines
 }
 
 // ExpandPaths turns the paths a caller was given — files, directories to walk
@@ -109,7 +124,22 @@ func (s *Session) readSources(paths []string) ([]SourceFile, error) {
 		if err := reservedName(name); err != nil {
 			return nil, err
 		}
-		files = append(files, SourceFile{Name: name, Text: string(data)})
+		var warnings []string
+		text, converted := data, false
+		if s.sourceConverter != nil {
+			var err error
+			text, converted, err = s.sourceConverter(name, data, func(message string) {
+				warnings = append(warnings, message)
+			})
+			if err != nil {
+				return nil, fmt.Errorf("cannot convert %s: %w", name, err)
+			}
+		}
+		var kind source.Kind
+		if converted {
+			kind = source.KindSysML
+		}
+		files = append(files, SourceFile{Name: name, Text: string(text), Kind: kind, Warnings: warnings})
 	}
 	return files, nil
 }

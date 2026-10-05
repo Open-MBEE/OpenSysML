@@ -14,8 +14,8 @@ package test {
 			if true {
 				action stop terminate {
 					assign x := 1;
-					terminate stop;
-					assign y := 5;
+					then terminate stop;
+					then assign y := 5;
 				}
 				action later { assign y := 2; }
 			}

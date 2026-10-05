@@ -1,0 +1,93 @@
+(RootNamespace
+  (Membership visibility="default"
+    (Package name="BodyInterleavings" library=false standard=false
+      (Import visibility="private" all=false kind=namespace recursive=false imported="ScalarValues" filtered=false)
+      (Membership visibility="default"
+        (Definition kind="part" abstract=false variation=false name="Counter"
+          (Membership visibility="default"
+            (Usage kind="attribute" name="c" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Integer
+                (*ast.QualifiedName))
+              (LiteralInteger value="0")))))
+      (Membership visibility="default"
+        (Usage kind="part" name="counter" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+          (Relationship kind="typing" target=Counter
+            (*ast.QualifiedName))))
+      (Membership visibility="default"
+        (Definition kind="action" abstract=false variation=false name="Inc"
+          (Membership visibility="default"
+            (Usage kind="attribute" name="t" ref=false direction="none" composite=false derived=false ordered=false nonunique=false initial=true
+              (Relationship kind="typing" target=Integer
+                (*ast.QualifiedName))
+              (FeatureChainExpr member="c"
+                (FeatureReference name="counter"))))
+          (*ast.AssignmentActionNode)))
+      (Membership visibility="default"
+        (Definition kind="action" abstract=false variation=false name="Race"
+          (Membership visibility="default"
+            (Usage kind="attribute" name="c" ref=false direction="none" composite=false derived=false ordered=false nonunique=false initial=true
+              (Relationship kind="typing" target=Integer
+                (*ast.QualifiedName))
+              (LiteralInteger value="0")))
+          (InitialNode name="start" successor="a")
+          (Usage kind="action" name="a" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+            (Multiplicity range=false
+              (LiteralInteger value="2"))
+            (Membership visibility="default"
+              (Usage kind="attribute" name="t" ref=false direction="none" composite=false derived=false ordered=false nonunique=false initial=true
+                (Relationship kind="typing" target=Integer
+                  (*ast.QualifiedName))
+                (FeatureReference name="c")))
+            (*ast.AssignmentActionNode))
+          (FinalNode)
+          (SuccessionEdge source="a" target="@done")))
+      (Membership visibility="default"
+        (Definition kind="action" abstract=false variation=false name="GuardBranch"
+          (Membership visibility="default"
+            (Usage kind="attribute" name="c" ref=false direction="none" composite=false derived=false ordered=false nonunique=false initial=true
+              (Relationship kind="typing" target=Integer
+                (*ast.QualifiedName))
+              (LiteralInteger value="0")))
+          (InitialNode name="start" successor="a")
+          (Usage kind="action" name="a" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+            (Multiplicity range=false
+              (LiteralInteger value="2"))
+            (IfActionNode
+              (OperatorExpr operator="<"
+                (FeatureReference name="c")
+                (LiteralInteger value="1"))
+              (IfBranchNode kind="then"
+                (*ast.AssignmentActionNode))))
+          (FinalNode)
+          (SuccessionEdge source="a" target="@done")))
+      (Membership visibility="default"
+        (Definition kind="action" abstract=false variation=false name="Callees"
+          (InitialNode name="start" successor="")
+          (ForkNode name="f")
+          (SuccessionEdge source="start" target="f")
+          (SuccessionEdge source="f" target="a")
+          (SuccessionEdge source="f" target="b")
+          (Membership visibility="default"
+            (Usage kind="action" name="a" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Inc
+                (*ast.QualifiedName))))
+          (Membership visibility="default"
+            (Usage kind="action" name="b" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Usage kind="action" name="pb" ref=false direction="none" composite=false derived=false ordered=false nonunique=false prefix="perform"
+                (Relationship kind="typing" target=Inc
+                  (*ast.QualifiedName)))))
+          (Membership visibility="default"
+            (Usage kind="succession" name="" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (ConnectorEnd target="a"
+                (*ast.QualifiedName))
+              (ConnectorEnd target="j"
+                (*ast.QualifiedName))))
+          (Membership visibility="default"
+            (Usage kind="succession" name="" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (ConnectorEnd target="b"
+                (*ast.QualifiedName))
+              (ConnectorEnd target="j"
+                (*ast.QualifiedName))))
+          (JoinNode name="j")
+          (FinalNode)
+          (SuccessionEdge source="j" target="@done"))))))
