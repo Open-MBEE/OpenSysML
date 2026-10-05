@@ -2579,6 +2579,11 @@ func (a *activity) declareVariables() {
 		return
 	}
 	for _, v := range variables {
+		// A variable already declared at an enclosing level — as a LoopNode's
+		// own variables are, at the loop action — is not declared again.
+		if _, declared := a.vars[v]; declared {
+			continue
+		}
 		a.declareVariable(v)
 	}
 }

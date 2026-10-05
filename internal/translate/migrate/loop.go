@@ -100,6 +100,9 @@ func (a *activity) loopShape(n *sysmlv1.Element) (s *loopShape, why string) {
 			continue
 		}
 		if nodeKind(nd) == nodeControl {
+			if nd.Type != "ForkNode" {
+				return nil, describe(nd) + " routes data by a choice a pin default cannot make"
+			}
 			s.routers = append(s.routers, nd)
 			continue
 		}
@@ -125,21 +128,30 @@ func (a *activity) loopShape(n *sysmlv1.Element) (s *loopShape, why string) {
 		lvPin[lv] = true
 	}
 	if len(s.routers) > 0 {
-		reached := map[*sysmlv1.Element]bool{}
+		reached := map[*sysmlv1.Element]*sysmlv1.Element{}
 		for changed := true; changed; {
 			changed = false
 			for _, e := range n.Owned("edge") {
 				src, tgt := a.m.model.Ref(e, "source"), a.m.model.Ref(e, "target")
-				if lvPin[src] || reached[src] {
-					if r := s.isRouter(tgt); r && !reached[tgt] {
-						reached[tgt] = true
+				lv := src
+				if !lvPin[lv] {
+					lv = reached[src]
+					if lv == nil {
+						continue
+					}
+				}
+				if s.isRouter(tgt) {
+					if from := reached[tgt]; from == nil {
+						reached[tgt] = lv
 						changed = true
+					} else if from != lv {
+						return nil, describe(tgt) + " carries values from more than one loop variable"
 					}
 				}
 			}
 		}
 		for _, nd := range s.routers {
-			if !reached[nd] {
+			if reached[nd] == nil {
 				return nil, describe(nd) + " routes data no loop variable provides"
 			}
 		}
@@ -172,6 +184,15 @@ func (a *activity) sortLoopEdges(n *sysmlv1.Element, s *loopShape) {
 	s.routed = map[*sysmlv1.Element]bool{}
 	s.routedSrc = map[*sysmlv1.Element]*sysmlv1.Element{}
 	var routing []*sysmlv1.Element
+	// Every same-part edge is partitioned before the feed and unmapped
+	// decisions are made, so a cross-part flow listed first cannot take a pin
+	// its own part already feeds.
+	type loopEdgeWork struct {
+		e, src, tgt *sysmlv1.Element
+		pf, pt      int
+		pfOk, ptOk  bool
+	}
+	var work []loopEdgeWork
 	for _, e := range n.Owned("edge") {
 		src, tgt := a.m.model.Ref(e, "source"), a.m.model.Ref(e, "target")
 		if src == nil || tgt == nil {
@@ -186,11 +207,18 @@ func (a *activity) sortLoopEdges(n *sysmlv1.Element, s *loopShape) {
 			routing = append(routing, e)
 		case pfOk && ptOk && pf == pt:
 			s.edges[pf] = append(s.edges[pf], e)
-		case pfOk && ptOk && e.Type == "ControlFlow":
+		default:
+			work = append(work, loopEdgeWork{e, src, tgt, pf, pt, pfOk, ptOk})
+		}
+	}
+	for _, w := range work {
+		e, src, tgt := w.e, w.src, w.tgt
+		switch {
+		case w.pfOk && w.ptOk && e.Type == "ControlFlow":
 			a.m.unmapped(e, "a control flow between parts of the loop is not written")
-		case pfOk && ptOk && nodeKind(tgt) == nodePin && s.earlier(pf, pt):
-			a.feedPin(e, s, pt, tgt, src, pf)
-		case pfOk && ptOk:
+		case w.pfOk && w.ptOk && nodeKind(tgt) == nodePin && s.earlier(w.pf, w.pt):
+			a.feedPin(e, s, w.pt, tgt, src, w.pf)
+		case w.pfOk && w.ptOk:
 			a.m.unmapped(e, "the flow runs from a later part of the loop to an earlier one; nothing carries the value back")
 		case lvPin[tgt]:
 			a.m.unmapped(e, "the loop variable "+describe(tgt)+" takes its value from its loop-variable input")
@@ -292,6 +320,24 @@ func (a *activity) calleeOf(n *sysmlv1.Element) *sysmlv1.Element {
 // loop performing test before body — or body before test when the loop tests
 // last — and the results read from the variables at the end.
 func (a *activity) loopNode(n *sysmlv1.Element, name string, s *loopShape) {
+	// Settle the loop's pins first so they keep the source names; name the
+	// loop variables and the loop's own variables next, and choose the made-up
+	// names last, so no member of the loop action shadows another.
+	a.settleLoopPins(n, s.lvIns)
+	for _, pin := range append(inputPins(n), s.lvIns...) {
+		a.used[a.m.pins[pin].name] = true
+		a.m.take(n, a.m.pins[pin].name)
+	}
+	for _, pin := range outputPins(n) {
+		a.used[a.m.pins[pin].name] = true
+		a.m.take(n, a.m.pins[pin].name)
+	}
+	for _, lv := range s.loopVars {
+		a.vars[lv] = a.name(lv, "variable")
+	}
+	for _, v := range n.Owned("variable") {
+		a.vars[v] = a.name(v, "variable")
+	}
 	setup := a.fresh("setup")
 	iterate := a.fresh("iterate")
 	test := a.fresh("test")
@@ -303,12 +349,6 @@ func (a *activity) loopNode(n *sysmlv1.Element, name string, s *loopShape) {
 		a.m.take(n, madeUp)
 	}
 	partName := [3]string{setup, test, body}
-	// Name the loop's pins and variables before the part writers spell feeds
-	// with them; both calls settle the same names their declarations reuse.
-	a.settleLoopPins(n, s.lvIns)
-	for _, lv := range s.loopVars {
-		a.name(lv, "variable")
-	}
 	writers := a.loopParts(n, s, partName, ended)
 	a.m.w.block(actionKw+name, func() {
 		for _, madeUp := range []string{iterate, results, ended} {
@@ -320,10 +360,16 @@ func (a *activity) loopNode(n *sysmlv1.Element, name string, s *loopShape) {
 		a.declarePins(n, append(inputPins(n), s.lvIns...), outputPins(n), nil)
 		for i, lv := range s.loopVars {
 			vname, decl, note := a.variableFeature(lv)
-			a.vars[lv] = a.names[lv]
 			decl += " := " + writeName(a.m.pins[s.lvIns[i]].name)
 			a.m.w.line(decl + ";")
 			a.m.add(lv, verdictFor(note), vname, note)
+		}
+		// The LoopNode's own variables are declared here once, at the loop
+		// level, so every part's write reaches the same member.
+		for _, v := range n.Owned("variable") {
+			vname, decl, note := a.variableFeature(v)
+			a.m.w.line(decl + ";")
+			a.m.add(v, verdictFor(note), vname, note)
 		}
 		a.m.w.line("private attribute " + writeName(ended) + " : ScalarValues::Boolean := false;")
 		if len(s.parts[loopSetup]) > 0 {
@@ -414,15 +460,20 @@ func (a *activity) loopParts(n *sysmlv1.Element, s *loopShape, partName [3]strin
 			inner.vars[v] = declared
 			inner.used[declared] = true
 		}
+		for _, pin := range append(inputPins(n), s.lvIns...) {
+			if d, ok := a.m.pins[pin]; ok {
+				inner.used[d.name] = true
+			}
+		}
+		for _, pin := range outputPins(n) {
+			if d, ok := a.m.pins[pin]; ok {
+				inner.used[d.name] = true
+			}
+		}
 		for _, reserved := range partName {
 			inner.used[reserved] = true
 		}
 		inner.used[ended] = true
-		for _, lv := range s.loopVars {
-			if name := a.names[lv]; name != "" {
-				inner.used[name] = true
-			}
-		}
 		writers[part] = inner
 	}
 	for part := loopSetup; part <= loopBody; part++ {

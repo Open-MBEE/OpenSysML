@@ -208,11 +208,11 @@
       },
       "uml:LoopNode": {
         "pssm": 2,
-        "fixtures": 5
+        "fixtures": 9
       },
       "uml:ObjectFlow": {
         "pssm": 11312,
-        "fixtures": 113
+        "fixtures": 123
       },
       "uml:ObjectFlow[weight]": {
         "pssm": 2065,
@@ -220,7 +220,7 @@
       },
       "uml:OpaqueAction": {
         "pssm": 0,
-        "fixtures": 147
+        "fixtures": 157
       },
       "uml:OpaqueBehavior": {
         "pssm": 0,
@@ -284,7 +284,7 @@
       },
       "uml:ReadVariableAction": {
         "pssm": 0,
-        "fixtures": 6
+        "fixtures": 7
       },
       "uml:ReclassifyObjectAction": {
         "pssm": 0,
@@ -352,7 +352,7 @@
       },
       "uml:Variable": {
         "pssm": 0,
-        "fixtures": 8
+        "fixtures": 9
       }
     }
   },

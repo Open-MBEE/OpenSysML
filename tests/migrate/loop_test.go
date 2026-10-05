@@ -1,6 +1,7 @@
 package migrate_test
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/translate/migrate"
@@ -50,6 +51,11 @@ func TestLoopNodeTestedFirstFixture(t *testing.T) {
 	// a flow from the body back to the test cannot be written.
 	wantNote(t, r, "_fork", migrate.Approximated, "the node routes data only")
 	wantNote(t, r, "_back", migrate.Unmapped, "the flow runs from a later part of the loop to an earlier one; nothing carries the value back")
+
+	// A cross-part flow listed before a same-part flow into the same pin
+	// loses to it: the pin is already fed inside its part, so it takes no
+	// default.
+	wantNote(t, r, "_ordX", migrate.Unmapped, "the pin 'v' is already fed inside its part")
 }
 
 // Post-tested, over an untyped multi-valued loop variable: body before test.
@@ -90,4 +96,43 @@ func TestLoopNodeFallbackFixture(t *testing.T) {
 	wantNote(t, r, "_mismatch", migrate.Approximated, "the loop variables, inputs, body outputs and results differ in count: the body is written once")
 	wantLine(t, r.Notation, "action mismatch {")
 	wantLine(t, r.Notation, "action mb {")
+
+	// Loop-level routing is only a fork's: a decision node falls back, as
+	// does a fork two loop variables feed.
+	wantNote(t, r, "_decide", migrate.Approximated, "'choose' routes data by a choice a pin default cannot make: the body is written once")
+	wantNote(t, r, "_twofork", migrate.Approximated, "'joiner' carries values from more than one loop variable: the body is written once")
+}
+
+// A LoopNode's own variables are declared once, at the loop action level, so
+// a write the setup or the body makes reaches the read the test makes on the
+// next pass — the activity VarLoop's loop owns total.
+func TestLoopNodeOwnedVariableFixture(t *testing.T) {
+	r := migrateFixtureFile(t, "loops")
+	wantClean(t, "loops.xmi", r)
+
+	wantNote(t, r, "_vloop", migrate.Mapped, "")
+	wantNote(t, r, "_vTotal", migrate.Mapped, "")
+	if n := strings.Count(string(r.Notation), "private attribute total"); n != 1 {
+		t.Errorf("expected exactly one private attribute total declaration, found %d", n)
+	}
+	wantLine(t, r.Notation, "private attribute total : ScalarValues::Integer;")
+	wantLine(t, r.Notation, "assign total := 0;")
+	wantLine(t, r.Notation, "assign total := total + x;")
+	wantLine(t, r.Notation, "out r : ScalarValues::Integer[1] = total;")
+}
+
+// Every member of the loop action takes a distinct name: the pins keep the
+// source names, the loop variables and the made-up members avoid them.
+func TestLoopNodeNameCollisionsFixture(t *testing.T) {
+	r := migrateFixtureFile(t, "loops")
+	wantClean(t, "loops.xmi", r)
+
+	wantLine(t, r.Notation, "in p : ScalarValues::Integer[1];")
+	wantLine(t, r.Notation, "in test : ScalarValues::Integer[1];")
+	wantLine(t, r.Notation, "out ended : ScalarValues::Integer[1];")
+	wantLine(t, r.Notation, "private attribute p2 : ScalarValues::Integer := test;")
+	wantLine(t, r.Notation, "private attribute ended2 : ScalarValues::Boolean := false;")
+	wantLine(t, r.Notation, "action test2 {")
+	wantLine(t, r.Notation, "} until ended2;")
+	wantLine(t, r.Notation, "assign ended := p2;")
 }
