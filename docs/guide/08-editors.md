@@ -162,9 +162,11 @@ LSP client; only the syntax highlighting is specific to VS Code.
 Above each executable `action`, `state`, `calc`, `constraint` and `requirement` declared
 outside another behavior the server offers a *Run* or *Evaluate* code lens naming it, and above
 each definition a reference count that opens the references peek. Clicking *Run* or *Evaluate*
-saves the file and runs the matching `sysml` check on it — `sysml -action Demo::Charge
-demo.sysml`, `-state`, `-calc`, `-constraint` or `-requirement` — as a task, so the result
-appears in the task terminal. The `sysml` binary is looked for beside the `sysml-lsp` in use,
+saves every unsaved model file and runs the matching `sysml` check over the workspace folders —
+`sysml -action Demo::Charge <folder>`, `-state`, `-calc`, `-constraint` or `-requirement` — as
+a task, so the result appears in the task terminal and a name another file declares without an
+import resolves as it does in the editor. A file outside every folder runs alone. The `sysml`
+binary is looked for beside the `sysml-lsp` in use,
 then in an open workspace's `bin/`, then on `PATH`. Inside a call's argument list the
 parameter list of what it calls appears as you type, and inlay hints show the type a feature
 declared without one is inferred to have and the constant a value evaluates to from the model

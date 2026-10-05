@@ -174,8 +174,8 @@ func activeParameter(content []byte, call *ast.InvocationExpr, open, offset int,
 }
 
 // topLevelCommas counts the commas between from and to that separate the
-// arguments of the list opened just before from, skipping nested lists, bodies
-// and strings.
+// arguments of the list opened just before from, skipping nested lists, bodies,
+// strings and comments.
 func topLevelCommas(content []byte, from, to int) int {
 	if to > len(content) {
 		to = len(content)
@@ -191,6 +191,14 @@ func topLevelCommas(content []byte, from, to int) int {
 			for i++; i < to && content[i] != '"'; i++ {
 				if content[i] == '\\' {
 					i++
+				}
+			}
+		case '/':
+			if i+1 < to && content[i+1] == '/' {
+				for i += 2; i < to && content[i] != '\n'; i++ {
+				}
+			} else if i+1 < to && content[i+1] == '*' {
+				for i += 3; i < to && (content[i-1] != '*' || content[i] != '/'); i++ {
 				}
 			}
 		case ',':

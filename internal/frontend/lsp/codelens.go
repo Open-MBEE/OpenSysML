@@ -13,7 +13,7 @@ import (
 
 // runElementCommand is the client command a Run or Evaluate lens invokes, with
 // one runElementArgs argument. The VS Code extension implements it by running
-// the matching `sysml` check on the document.
+// the matching `sysml` check over the workspace.
 const runElementCommand = "opensysml.runElement"
 
 // showReferencesCommand is the editor command a reference-count lens invokes,
@@ -29,10 +29,12 @@ type runElementArgs struct {
 }
 
 // codeLensData is what a reference-count lens carries to its resolve request:
-// the definition it counts the references of.
+// the definition it counts the references of, told apart from another
+// declaration of the same name in the document by where its name is written.
 type codeLensData struct {
 	URI     protocol.DocumentURI `json:"uri"`
 	Element string               `json:"element"`
+	Name    int                  `json:"name"`
 }
 
 // CodeLens answers the lenses of a document: a reference count on each
@@ -65,9 +67,10 @@ func (s *Server) CodeLens(ctx context.Context, params *protocol.CodeLensParams) 
 			}
 			rng := pos.rangeOf(sym.NameSpan)
 			if sym.DeclaresDefinition() {
-				out = append(out, protocol.CodeLens{Range: rng, Data: codeLensData{URI: uri, Element: fqn}})
+				out = append(out, protocol.CodeLens{Range: rng, Data: codeLensData{URI: uri, Element: fqn, Name: sym.NameSpan.Offset}})
 			}
-			if kind, ok := executableKind(sym); ok {
+			// `sysml` runs an element by name, so a name declared twice runs nothing.
+			if kind, ok := executableKind(sym); ok && len(s.ws.LookupQualified(fqn)) == 1 {
 				out = append(out, protocol.CodeLens{Range: rng, Command: runCommand(uri, fqn, sym.Name, kind)})
 			}
 		}
@@ -87,7 +90,7 @@ func (s *Server) CodeLensResolve(ctx context.Context, lens *protocol.CodeLens) (
 		return lens, nil
 	}
 	name := uriToName(data.URI)
-	sym := s.definitionNamed(name, data.Element)
+	sym := s.definitionNamed(name, data.Element, data.Name)
 	if sym == nil {
 		return lens, nil
 	}
@@ -135,10 +138,11 @@ func lensData(lens *protocol.CodeLens) (codeLensData, bool) {
 	return data, true
 }
 
-// definitionNamed is the definition the named document declares under fqn.
-func (s *Server) definitionNamed(doc, fqn string) *symbols.Symbol {
+// definitionNamed is the definition the named document declares under fqn with
+// its name written at offset nameAt, nil once an edit has moved it.
+func (s *Server) definitionNamed(doc, fqn string, nameAt int) *symbols.Symbol {
 	for _, sym := range s.ws.LookupQualified(fqn) {
-		if sym.DocName == doc && sym.DeclaresDefinition() {
+		if sym.DocName == doc && sym.DeclaresDefinition() && sym.NameSpan.Offset == nameAt {
 			return sym
 		}
 	}

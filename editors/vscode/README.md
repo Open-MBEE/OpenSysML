@@ -173,9 +173,11 @@ The command exists only when the server advertises
 Above each executable `action`, `state`, `calc`, `constraint` and `requirement`
 the server offers a *Run* or *Evaluate* lens (and above each definition a
 reference count, which opens the references peek). Clicking *Run* or *Evaluate*
-saves the file and runs the matching `sysml` check on it — `sysml -action
-Demo::Charge demo.sysml`, `-state`, `-calc`, `-constraint` or `-requirement` —
-as a task, so the result appears in the task terminal. The `sysml` binary is
+saves every unsaved model file and runs the matching `sysml` check over the
+workspace folders — `sysml -action Demo::Charge <folder>`, `-state`, `-calc`,
+`-constraint` or `-requirement` — as a task, so the result appears in the task
+terminal and a name another file declares without an import resolves as it does
+in the editor; a file outside every folder runs alone. The `sysml` binary is
 looked for beside the `sysml-lsp` in use, then in an open workspace's `bin/`,
 then on `PATH`; a warning says how to build it when none is found.
 

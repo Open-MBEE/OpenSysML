@@ -58,11 +58,17 @@ func (s *Server) InlayHint(params *inlayHintParams) ([]inlayHint, error) {
 	}
 	pos := positionsOf(doc)
 	out := []inlayHint{}
+	// A declaration spanning several lines may put a hint outside the range.
+	add := func(hint inlayHint) {
+		if inRange(hint.Position, params.Range) {
+			out = append(out, hint)
+		}
+	}
 	for _, hint := range s.ws.FeatureHintsInDoc(name, syms) {
 		usage := hint.Symbol.Decl.(*ast.Usage)
 		if hint.Type != nil {
 			if at, ok := typeHintOffset(hint.Symbol, usage); ok {
-				out = append(out, inlayHint{
+				add(inlayHint{
 					Position:    pos.position(at),
 					Label:       ": " + typeName(hint.Type),
 					Kind:        inlayHintKindType,
@@ -72,7 +78,7 @@ func (s *Server) InlayHint(params *inlayHintParams) ([]inlayHint, error) {
 			}
 		}
 		if text, ok := constantText(hint.Value); hint.HasValue && ok {
-			out = append(out, inlayHint{
+			add(inlayHint{
 				Position:    pos.position(usage.Value.Span().End()),
 				Label:       "= " + text,
 				Tooltip:     "value evaluated from the model",
@@ -81,6 +87,15 @@ func (s *Server) InlayHint(params *inlayHintParams) ([]inlayHint, error) {
 		}
 	}
 	return out, nil
+}
+
+// inRange reports whether p lies in r, its end included: an editor asking for
+// the lines on screen is owed the hint at the end of the last one.
+func inRange(p protocol.Position, r protocol.Range) bool {
+	before := func(a, b protocol.Position) bool {
+		return a.Line < b.Line || (a.Line == b.Line && a.Character <= b.Character)
+	}
+	return before(r.Start, p) && before(p, r.End)
 }
 
 // usagesIn lists the usages declared under scope whose declaration overlaps

@@ -1,9 +1,13 @@
 // Runs the element a Run or Evaluate code lens names: the matching `sysml`
-// check on the element's file, as a task whose terminal shows the result.
+// check over the workspace's model files, as a task whose terminal shows the
+// result.
 
 import * as vscode from "vscode";
 
-import { asRunElementArgs, runArguments, runTitle } from "./runargs";
+import { asRunElementArgs, runArguments, runPaths, runTitle } from "./runargs";
+
+/** The languages whose documents `sysml` reads from disk, so a dirty one is saved first. */
+const MODEL_LANGUAGES = new Set(["sysml", "kerml"]);
 
 /** The command the server's lenses invoke; see internal/frontend/lsp/codelens.go. */
 export const RUN_ELEMENT_COMMAND = "opensysml.runElement";
@@ -41,14 +45,16 @@ export class ElementRunner implements vscode.Disposable {
       );
       return;
     }
-    const argv = runArguments(args, uri.fsPath);
+    const folders = (vscode.workspace.workspaceFolders ?? [])
+      .filter((folder) => folder.uri.scheme === "file")
+      .map((folder) => folder.uri.fsPath);
+    const argv = runArguments(args, runPaths(uri.fsPath, folders));
     if (!argv) {
       void vscode.window.showErrorMessage(`No sysml check runs a ${args.kind}.`);
       return;
     }
-    const editor = vscode.window.visibleTextEditors.find((e) => e.document.uri.toString() === uri.toString());
-    if (editor?.document.isDirty) {
-      await editor.document.save();
+    if (!(await this.saveModelDocuments())) {
+      return;
     }
     this.output.appendLine(`Running ${tool} ${argv.join(" ")}`);
     const task = new vscode.Task(
@@ -60,5 +66,22 @@ export class ElementRunner implements vscode.Disposable {
     );
     task.presentationOptions = { reveal: vscode.TaskRevealKind.Always, clear: true, focus: false };
     await vscode.tasks.executeTask(task);
+  }
+
+  /**
+   * Saves every dirty model document, hidden ones included, so the run reads what
+   * the editor shows; false, after a message, when one could not be saved.
+   */
+  private async saveModelDocuments(): Promise<boolean> {
+    const dirty = vscode.workspace.textDocuments.filter((d) => d.isDirty && MODEL_LANGUAGES.has(d.languageId));
+    const saved = await Promise.all(dirty.map((d) => d.save()));
+    const failed = dirty.filter((_, i) => !saved[i]);
+    if (failed.length > 0) {
+      void vscode.window.showErrorMessage(
+        `Not run: ${failed.map((d) => vscode.workspace.asRelativePath(d.uri)).join(", ")} could not be saved.`,
+      );
+      return false;
+    }
+    return true;
   }
 }

@@ -30,15 +30,27 @@ export function asRunElementArgs(value: unknown): RunElementArgs | undefined {
 }
 
 /**
- * The `sysml` arguments running the element on its file, e.g.
- * `["-calc", "Demo::Fall", "/ws/demo.sysml"]`; undefined for a kind no check takes.
+ * The `sysml` arguments running the element over the given model paths — the
+ * workspace folders the language server indexes, so a name another file declares
+ * without an import resolves as it does in the editor — e.g.
+ * `["-calc", "Demo::Fall", "/ws"]`; undefined for a kind no check takes.
  */
-export function runArguments(args: RunElementArgs, file: string): string[] | undefined {
+export function runArguments(args: RunElementArgs, paths: string[]): string[] | undefined {
   const flag = FLAGS[args.kind];
-  if (!flag) {
+  if (!flag || paths.length === 0) {
     return undefined;
   }
-  return [flag, args.element, file];
+  return [flag, args.element, ...paths];
+}
+
+/**
+ * The paths a run loads for a file: every workspace folder on disk, which is what
+ * the language server indexes, or the file alone when it lies outside them all.
+ */
+export function runPaths(file: string, folders: readonly string[]): string[] {
+  const sep = file.includes("\\") ? "\\" : "/";
+  const inside = folders.some((folder) => file === folder || file.startsWith(folder.endsWith(sep) ? folder : folder + sep));
+  return inside ? [...folders] : [file];
 }
 
 /** The title the task running the element is shown under. */

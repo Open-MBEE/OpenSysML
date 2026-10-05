@@ -2,6 +2,7 @@ package lsp
 
 import (
 	"context"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -59,7 +60,7 @@ const editorFactsModel = `package Demo {
 func openEditorFactsModel(t *testing.T) (*Server, uri.URI) {
 	t.Helper()
 	s := NewServer(model.NewWorkspace())
-	u := uri.File("/tmp/editor_facts.sysml")
+	u := uri.File(filepath.Join(t.TempDir(), "editor_facts.sysml"))
 	openDoc(t, s, u, editorFactsModel)
 	return s, u
 }
@@ -304,7 +305,7 @@ func TestCodeLensResolveCountsReferences(t *testing.T) {
 		t.Fatal("no reference lens on Demo::Fall")
 	}
 	// A client sends the lens back decoded generically.
-	fall.Data = map[string]any{"uri": string(u), "element": "Demo::Fall"}
+	fall.Data = map[string]any{"uri": string(u), "element": "Demo::Fall", "name": fall.Data.(codeLensData).Name}
 	resolved, err := s.CodeLensResolve(context.Background(), fall)
 	if err != nil {
 		t.Fatalf("CodeLensResolve: %v", err)
@@ -331,5 +332,124 @@ func TestCodeLensSkipsLibraryDocuments(t *testing.T) {
 	})
 	if err != nil || len(lenses) != 0 {
 		t.Errorf("CodeLens on a library document = %v, %v; want none", lenses, err)
+	}
+}
+
+const overloadModel = `package Lib {
+    private import ScalarValues::*;
+    calc def pick { in n : Integer; return r : Integer = n; }
+    calc def pick { in s : String; return r : String = s; }
+    attribute a = pick(2);
+    attribute b = pick("s");
+    attribute c = pick("t");
+}
+`
+
+func TestCodeLensTellsOverloadsApart(t *testing.T) {
+	s := NewServer(model.NewWorkspace())
+	u := uri.File(filepath.Join(t.TempDir(), "overloads.sysml"))
+	openDoc(t, s, u, overloadModel)
+	lenses, err := s.CodeLens(context.Background(), &protocol.CodeLensParams{TextDocument: protocol.TextDocumentIdentifier{URI: u}})
+	if err != nil {
+		t.Fatalf("CodeLens: %v", err)
+	}
+	var titles []string
+	for _, lens := range lenses {
+		if lens.Command != nil {
+			t.Errorf("run lens %q on a name declared twice, which sysml cannot run", lens.Command.Title)
+			continue
+		}
+		data := lens.Data.(codeLensData)
+		lens.Data = map[string]any{"uri": string(u), "element": data.Element, "name": data.Name}
+		resolved, err := s.CodeLensResolve(context.Background(), &lens)
+		if err != nil || resolved.Command == nil {
+			t.Fatalf("CodeLensResolve(%+v) = %+v, %v", data, resolved, err)
+		}
+		titles = append(titles, resolved.Command.Title)
+	}
+	if len(titles) != 2 || titles[0] != "1 reference" || titles[1] != "2 references" {
+		t.Errorf("resolved titles = %v, want the Integer pick's one call and the String pick's two", titles)
+	}
+}
+
+const typingModel = `package Typing {
+    private import ScalarValues::*;
+    calc def Fall { in h : Real; in g : Real = 9.81; return t : Real = h / g; }
+    attribute commented = Fall(20.0 /* height, in metres */, 9.81);
+    attribute lined = Fall(20.0, // the height,
+        9.81);
+    attribute partial = Fall(20.0,
+    attribute named = Fall(h = 20.0, g
+}
+`
+
+func TestSignatureHelpIgnoresCommasInComments(t *testing.T) {
+	s := NewServer(model.NewWorkspace())
+	u := uri.File(filepath.Join(t.TempDir(), "typing.sysml"))
+	openDoc(t, s, u, typingModel)
+	for _, anchor := range []string{"metres */, 9.", "// the height,\n        9."} {
+		pos := positionAfter(t, typingModel, anchor)
+		help, err := s.SignatureHelp(context.Background(), &protocol.SignatureHelpParams{
+			TextDocumentPositionParams: protocol.TextDocumentPositionParams{TextDocument: protocol.TextDocumentIdentifier{URI: u}, Position: pos},
+		})
+		if err != nil || help == nil || help.ActiveParameter != 1 {
+			t.Errorf("SignatureHelp(%q) = %+v, %v; want the second parameter active", anchor, help, err)
+		}
+	}
+}
+
+func TestSignatureHelpAnswersWhileAListIsBeingTyped(t *testing.T) {
+	s := NewServer(model.NewWorkspace())
+	u := uri.File(filepath.Join(t.TempDir(), "typing.sysml"))
+	openDoc(t, s, u, typingModel)
+	for _, anchor := range []string{"partial = Fall(20.0,", "named = Fall(h = 20.0, g"} {
+		pos := positionAfter(t, typingModel, anchor)
+		help, err := s.SignatureHelp(context.Background(), &protocol.SignatureHelpParams{
+			TextDocumentPositionParams: protocol.TextDocumentPositionParams{TextDocument: protocol.TextDocumentIdentifier{URI: u}, Position: pos},
+		})
+		if err != nil || help == nil || len(help.Signatures) == 0 {
+			t.Fatalf("SignatureHelp(%q) = %+v, %v; want the signature of the unfinished call", anchor, help, err)
+		}
+		if help.ActiveParameter != 1 {
+			t.Errorf("SignatureHelp(%q) active parameter = %d, want g", anchor, help.ActiveParameter)
+		}
+	}
+}
+
+const multilineModel = `package Lines {
+    private import ScalarValues::*;
+    attribute base : Real = 10.0;
+    attribute total =
+        base;
+}
+`
+
+func TestInlayHintsOutsideTheRangeAreDropped(t *testing.T) {
+	s := NewServer(model.NewWorkspace())
+	u := uri.File(filepath.Join(t.TempDir(), "lines.sysml"))
+	openDoc(t, s, u, multilineModel)
+	first := positionAfter(t, multilineModel, "attribute total")
+	hintsOn := func(line uint32) []string {
+		hints, err := s.InlayHint(&inlayHintParams{
+			TextDocument: protocol.TextDocumentIdentifier{URI: u},
+			Range:        protocol.Range{Start: protocol.Position{Line: line}, End: protocol.Position{Line: line + 1}},
+		})
+		if err != nil {
+			t.Fatalf("InlayHint: %v", err)
+		}
+		var labels []string
+		for _, h := range hints {
+			if h.Position.Line != line {
+				t.Errorf("hint %+v outside the requested line %d", h, line)
+			}
+			labels = append(labels, h.Label)
+		}
+		return labels
+	}
+	if got := hintsOn(first.Line); len(got) != 1 || got[0] != ": Real" {
+		t.Errorf("hints on the name's line = %v, want only its type", got)
+	}
+	if got := hintsOn(first.Line + 1); len(got) != 1 || got[0] != "= 10.0" {
+		t.Errorf("hints on the value's line = %v, want only its value", got)
 	}
 }
