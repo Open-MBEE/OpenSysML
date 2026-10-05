@@ -1,4 +1,4 @@
-standard library package MigrationMetadata {
+library package MigrationMetadata {
     doc /* What a migration from another modeling language had to make up
          * because its source left it unstated. Non-normative OpenSysML
          * extension, proposed for standardization; see the design record. */

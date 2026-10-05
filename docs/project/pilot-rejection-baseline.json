@@ -27,15 +27,15 @@
         "name": "negative-corpus",
         "dir": "tools/referee/reject/testdata/negative",
         "origin": "ours",
-        "files": 312,
-        "digest": "sha256:1ecdd699da76c53d081e958a6c57be668f8f98d10bfe3e809f0189741253533a"
+        "files": 317,
+        "digest": "sha256:bfbaaaa8dcd73173f98774ddbd20f6124788fc7f377fb45a419f4dca3a8ef272"
       }
     ],
-    "recorded": "2026-10-04"
+    "recorded": "2026-10-05"
   },
   "totals": {
-    "cases": 312,
-    "bothReject": 303,
+    "cases": 317,
+    "bothReject": 308,
     "pilotOnlyRejects": 0,
     "oursOnlyRejects": 9,
     "bothAccept": 0
@@ -48,16 +48,16 @@
   "sources": [
     {
       "source": "extensions",
-      "cases": 10,
-      "bothReject": 10,
+      "cases": 11,
+      "bothReject": 11,
       "pilotOnlyRejects": 0,
       "oursOnlyRejects": 0,
       "bothAccept": 0
     },
     {
       "source": "grammar",
-      "cases": 108,
-      "bothReject": 108,
+      "cases": 112,
+      "bothReject": 112,
       "pilotOnlyRejects": 0,
       "oursOnlyRejects": 0,
       "bothAccept": 0
@@ -186,6 +186,17 @@
       "oursErrors": 1,
       "pilotErrors": 3,
       "defaultBucket": "pilot-only-rejects"
+    },
+    {
+      "path": "extensions/x11-target-succession-outside-action-body.sysml",
+      "source": "extensions",
+      "rule": "TargetSuccessionMember is an ActionBodyItem; a view body admits no 'then \u003ctarget\u003e;' succession (SysML.xtext:1367 ActionBodyItem, :1693 TargetSuccessionMember, :2359 ViewBodyItem).",
+      "mode": "strict",
+      "bucket": "both-reject",
+      "oursErrors": 2,
+      "pilotErrors": 2,
+      "defaultBucket": "both-reject",
+      "defaultErrors": 1
     },
     {
       "path": "grammar/g01-unclosed-package-body.sysml",
@@ -915,6 +926,42 @@
       "bucket": "both-reject",
       "oursErrors": 1,
       "pilotErrors": 3
+    },
+    {
+      "path": "grammar/g82-frame-in-view-body.sysml",
+      "source": "grammar",
+      "rule": "FramedConcernMember is a RequirementBodyItem; a view body admits no 'frame' (SysML.xtext:2062 RequirementBodyItem, :2359 ViewBodyItem).",
+      "mode": "default",
+      "bucket": "both-reject",
+      "oursErrors": 1,
+      "pilotErrors": 2
+    },
+    {
+      "path": "grammar/g83-frame-in-view-def-body.sysml",
+      "source": "grammar",
+      "rule": "FramedConcernMember is a RequirementBodyItem; a view def body admits no 'frame' (SysML.xtext:2062 RequirementBodyItem, :2329 ViewDefinitionBodyItem).",
+      "mode": "default",
+      "bucket": "both-reject",
+      "oursErrors": 1,
+      "pilotErrors": 2
+    },
+    {
+      "path": "grammar/g84-filter-outside-package-or-view-body.sysml",
+      "source": "grammar",
+      "rule": "ElementFilterMember is a PackageBodyElement, ViewDefinitionBodyItem and ViewBodyItem; a rendering def body admits no 'filter' (SysML.xtext:227 ElementFilterMember, :2329 ViewDefinitionBodyItem, :2359 ViewBodyItem).",
+      "mode": "default",
+      "bucket": "both-reject",
+      "oursErrors": 1,
+      "pilotErrors": 2
+    },
+    {
+      "path": "grammar/g85-accept-outside-action-body.sysml",
+      "source": "grammar",
+      "rule": "AcceptNode is an ActionBodyItem; a view body admits no 'accept' (SysML.xtext:1367 ActionBodyItem, :1434 AcceptNode, :2359 ViewBodyItem).",
+      "mode": "default",
+      "bucket": "both-reject",
+      "oursErrors": 1,
+      "pilotErrors": 2
     },
     {
       "path": "grammar/k01-specializes-without-target.kerml",
@@ -3037,8 +3084,8 @@
       }
     ],
     "totals": {
-      "cases": 312,
-      "bothReject": 303,
+      "cases": 317,
+      "bothReject": 308,
       "pilotOnlyRejects": 0,
       "oursOnlyRejects": 9,
       "bothAccept": 0

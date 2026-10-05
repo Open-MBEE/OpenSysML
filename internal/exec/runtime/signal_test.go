@@ -1685,9 +1685,9 @@ func TestAddressedSendToAnObjectNeedsThatObject(t *testing.T) {
 func TestAddressedSendToReceiverOfAnotherObjectCarriesItsIdentity(t *testing.T) {
 	idx, _, ctx := buildRuntime(t, "<test>", parseAndBuild(t, `package test {
 		private import ScalarValues::*;
-		part def Node { action reader accept n : Integer; }
+		part def Node { action reader { accept n : Integer; } }
 		part def Talker {
-			action reader accept n : Integer;
+			action reader { accept n : Integer; }
 			action talk { first start; done; succession first start then done; }
 		}
 		part alpha : Node;
@@ -1987,7 +1987,7 @@ func TestAddressedSendToQualifiedElementOfATwinObject(t *testing.T) {
 		port def PingPort { in item ping : Integer; }
 		part def Node {
 			port inPort : PingPort;
-			action reader accept n : Integer;
+			action reader { accept n : Integer; }
 			action listen { first start; done; succession first start then done; }
 		}
 		part alpha : Node;

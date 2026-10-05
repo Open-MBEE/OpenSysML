@@ -158,8 +158,6 @@ const conformanceModel = `package Demo {
     view report : StructureView {
         expose Demo::vehicle;
         expose Demo::wheel;
-        frame concern modularity : Modularity;
-        frame concern documented : Documented;
     }
 }`
 
@@ -176,7 +174,7 @@ func conformanceSession(t *testing.T) *Session {
 }
 
 // %view reports the conformance of a view to the viewpoint it satisfies: a
-// concern that holds, one that does not, one the view never framed, and where
+// concern that holds, one that does not, one stating no condition, and where
 // the satisfy came from.
 func TestViewReportsViewpointConformance(t *testing.T) {
 	out, _, err := conformanceSession(t).RunMeta("%view Demo::report")
@@ -187,7 +185,7 @@ func TestViewReportsViewpointConformance(t *testing.T) {
 	for _, want := range []string{
 		"viewpoint conformance",
 		"satisfy structure (from Demo::StructureView)",
-		"concern budget: violated (framed by the viewpoint but not by the view)",
+		"concern budget: violated",
 		"concern modularity: conforms",
 		"concern documented: unevaluable",
 		"states no condition to evaluate",
@@ -209,9 +207,6 @@ func TestViewReportsAViolatedConcernPerElement(t *testing.T) {
     private import Demo::*;
     view budgeted : StructureView {
         expose Demo::vehicle;
-        frame concern budget : MassBudget;
-        frame concern modularity : Modularity;
-        frame concern documented : Documented;
     }
 }`)
 	for _, d := range res.Diagnostics {
@@ -315,7 +310,6 @@ func TestViewLeavesNoAmbiguityForALaterCheck(t *testing.T) {
     view carView : StructureView {
         expose Checked::car;
         expose Checked::spare;
-        frame concern modularity : Modularity;
     }
 }`)
 	for _, d := range res.Diagnostics {
@@ -373,7 +367,7 @@ func TestViewSharesTheObjectOfAQuotedName(t *testing.T) {
 	res := s.Submit(`package Quoted {
     private import Demo::*;
     part 'road car' : Vehicle;
-    view quotedView : StructureView { expose Quoted::'road car'; frame concern modularity : Modularity; }
+    view quotedView : StructureView { expose Quoted::'road car'; }
 }`)
 	for _, d := range res.Diagnostics {
 		if d.Severity == diag.SeverityError {
@@ -421,7 +415,7 @@ func TestViewChecksAConcernWhoseSubjectIsAnything(t *testing.T) {
     concern def Named { subject s : Base::Anything; require constraint { 1.0 > 2.0 } }
     viewpoint def AnyPerspective { frame concern named : Named; }
     viewpoint anything : AnyPerspective;
-    view anyView { expose Demo::wheel; satisfy anything; frame concern named : Named; }
+    view anyView { expose Demo::wheel; satisfy anything; }
 }`)
 	for _, d := range res.Diagnostics {
 		if d.Severity == diag.SeverityError {

@@ -54,7 +54,7 @@ Two metadata definitions, shipped as a non-normative OpenSysML library extension
 stdlib already carries two such files; the conformance gate counts them separately):
 
 ```sysml
-standard library package IdentityMetadata {
+library package IdentityMetadata {
     doc /* Binds notation to repository identity. Non-normative OpenSysML
          * extension, proposed for standardization; see the design record. */
 

@@ -170,9 +170,8 @@ package LanderViews {
         expose Lander::heavyDescender;
         view interfaceSubview :> interfaces;
 
-        // What `%view` checks the exposed landers against: the concern the
-        // viewpoint frames, framed by this view too.
+        // `%view` checks the exposed landers against the concern the
+        // satisfied viewpoint frames.
         satisfy massPerspective;
-        frame concern mass : Lander::MassBudget;
     }
 }

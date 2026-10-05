@@ -50,7 +50,7 @@ Libraries/DiagramLayout.sysml`, counted by the stdlib conformance gate with the 
 extensions):
 
 ```sysml
-standard library package DiagramLayout {
+library package DiagramLayout {
     metadata def Layout {
         attribute x : ScalarValues::Real;
         attribute y : ScalarValues::Real;

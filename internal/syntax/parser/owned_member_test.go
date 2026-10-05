@@ -114,6 +114,17 @@ func TestMemberOutsideOwningBodyIsRejected(t *testing.T) {
 		{"render in part usage under view", "view def V { part p { render r; } }", "render", `kind="render"`},
 		{"render in typed usage under nested view", "view def V { view v { x { render r; } } }", "render", `kind="render"`},
 		{"render in typed usage under view usage", "view v { x : T { render r; } }", "render", `kind="render"`},
+		// FramedConcernMember is a RequirementBodyItem and ElementFilterMember a
+		// package/view-body one (SysML.xtext), so neither parses in these bodies.
+		{"frame in view", "view V { frame concern c : C; }", "frame", `kind="frame"`},
+		{"frame reference in view", "view V { frame c; }", "frame", `kind="frame"`},
+		{"frame in view def", "view def V { frame concern c : C; }", "frame", `kind="frame"`},
+		{"frame in rendering def", "rendering def R { frame c; }", "frame", `kind="frame"`},
+		{"frame in part def", "part def P { frame c; }", "frame", `kind="frame"`},
+		{"filter in viewpoint def", "viewpoint def V { filter true; }", "filter", "FilterMember"},
+		{"filter in rendering def", "rendering def R { filter true; }", "filter", "FilterMember"},
+		{"filter in part def", "part def P { filter true; }", "filter", "FilterMember"},
+		{"filter in namespace", "package P { namespace N { filter true; } }", "filter", "FilterMember"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -154,7 +165,7 @@ func TestMemberOutsideOwningBodyIsRejected(t *testing.T) {
 // KerML reserves none of the member keywords, so each names an ordinary feature
 // in a `.kerml` file, in every shape the KerML Feature production offers.
 func TestOwnedMemberKeywordsAreKerMLNames(t *testing.T) {
-	for _, word := range []string{"actor", "subject", "stakeholder", "objective", "entry", "do", "exit", "render"} {
+	for _, word := range []string{"actor", "subject", "stakeholder", "objective", "entry", "do", "exit", "render", "frame"} {
 		for _, shape := range []string{
 			"feature %s : A;",
 			"feature %s;",
@@ -203,6 +214,19 @@ func TestMemberInsideOwningBodyStaysClean(t *testing.T) {
 		{"viewpoint usage", "viewpoint vp { subject v : V; actor a : Person; stakeholder s : Person; }"},
 		{"satisfy body", "part p { satisfy r by p { subject v : V; actor a : Person; } }"},
 		{"frame body", "requirement def R { frame c { stakeholder s : Person; actor a : Person; } }"},
+		{"frame in requirement", "concern def C; requirement r { frame concern c : C; frame c; }"},
+		{"frame in concern", "concern def C; concern k { frame concern c : C; frame c; }"},
+		{"frame in viewpoint def", "concern def C; viewpoint def V { frame concern c : C; frame c; }"},
+		{"frame in viewpoint usage", "concern def C; viewpoint v { frame concern c : C; frame c; }"},
+		{"filter in root", "filter true;"},
+		{"filter in package", "package P { filter true; }"},
+		{"filter in library package", "library package L { filter true; }"},
+		{"filter in view", "view v { filter true; }"},
+		{"filter in view def", "view def V { filter true; }"},
+		{"accept in action body", "action def A { item def S; action a { accept S; } }"},
+		{"accept in calc body", "item def S; calc c { accept S; }"},
+		{"accept in case body", "item def S; case c { accept S; }"},
+		{"accept in state body", "state s { state t; accept after 5 then t; }"},
 		{"objective body", "case def C { objective o { subject v : V; actor a : Person; stakeholder s : Person; } }"},
 		{"case def", "case def C { subject v : V; actor a : Person; objective o; }"},
 		{"case usage", "case c { subject v : V; actor a : Person; objective { require constraint { x > 0 } } }"},

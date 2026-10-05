@@ -389,7 +389,16 @@ func (p *Parser) parseDeclaration(start int) ast.Node {
 	case p.atKeyword("multiplicity"):
 		return p.parseMultiplicityDecl(start)
 	case p.atKeyword("filter"):
-		return p.parseFilter(start)
+		var misplaced *ast.ErrorNode
+		if !p.bodyAdmitsMember("filter") {
+			misplaced = p.misplacedMember(p.peek())
+		}
+		f := p.parseFilter(start)
+		if misplaced != nil {
+			misplaced.NodeSpan = f.Span()
+			return misplaced
+		}
+		return f
 	case p.atKeyword("locale"):
 		// An anonymous comment carrying a locale (SysML.xtext Comment: the
 		// `comment` keyword is optional).
@@ -426,15 +435,17 @@ func (p *Parser) parseDeclaration(start int) ast.Node {
 	}
 }
 
-// parseNamespaceBody parses `{ member* }` or `;`. Returns (members, hasBody).
-// The caller has already consumed the declaration head up to this point.
-func (p *Parser) parseNamespaceBody() ([]ast.Node, bool) {
+// parseNamespaceBody parses `{ member* }` or `;` under the body notation ctx
+// (a package's own body, or the plain namespace body of an import, alias,
+// namespace, dependency or multiplicity). Returns (members, hasBody). The
+// caller has already consumed the declaration head up to this point.
+func (p *Parser) parseNamespaceBody(ctx bodyContext) ([]ast.Node, bool) {
 	if p.accept2(lexer.Semicolon) || !p.expectBodyOrEnd("declaration") {
 		return nil, false
 	}
 	// A package/namespace body has its own notation; it never inherits the
 	// enclosing body's (e.g. an interface's default-end allowance).
-	defer p.pushBodyContext(bodyOther)()
+	defer p.pushBodyContext(ctx)()
 	var members []ast.Node
 	for !p.atEOF() && !p.at(lexer.RBrace) {
 		p.memberStart()
@@ -665,7 +676,7 @@ func (p *Parser) parseImport(start int, vis ast.Visibility) *ast.Import {
 
 	p.parseImportTail(imp)
 
-	imp.Body, imp.HasBody = p.parseNamespaceBody()
+	imp.Body, imp.HasBody = p.parseNamespaceBody(bodyOther)
 	imp.NodeSpan = p.spanFrom(start)
 	return imp
 }
@@ -731,7 +742,7 @@ func (p *Parser) parseAlias(start int, vis ast.Visibility) *ast.Alias {
 	} else {
 		al.For = p.parseQualifiedName()
 	}
-	al.Body, al.HasBody = p.parseNamespaceBody()
+	al.Body, al.HasBody = p.parseNamespaceBody(bodyOther)
 	al.NodeSpan = p.spanFrom(start)
 	return al
 }
@@ -773,7 +784,7 @@ func (p *Parser) parseDependency(start int) ast.Node {
 	} else {
 		dep.Suppliers = p.parseQualifiedNameList()
 	}
-	dep.Body, dep.HasBody = p.parseNamespaceBody()
+	dep.Body, dep.HasBody = p.parseNamespaceBody(bodyOther)
 	dep.NodeSpan = p.spanFrom(start)
 	return dep
 }
@@ -844,7 +855,7 @@ func (p *Parser) parsePackage(start int) ast.Node {
 		return p.errorNodeSkip(start, "expected 'package'")
 	}
 	id := p.parseIdentification()
-	members, hasBody := p.parseNamespaceBody()
+	members, hasBody := p.parseNamespaceBody(bodyPackage)
 	pkg := &ast.Package{
 		Prefixes:   prefixes,
 		Ident:      id,
@@ -864,7 +875,7 @@ func (p *Parser) parseNamespace(start int) ast.Node {
 		return p.errorNodeSkip(start, "expected 'namespace'")
 	}
 	id := p.parseIdentification()
-	members, hasBody := p.parseNamespaceBody()
+	members, hasBody := p.parseNamespaceBody(bodyOther)
 	ns := &ast.Namespace{Prefixes: prefixes, Ident: id, Members: members, HasBody: hasBody}
 	ns.NodeSpan = p.spanFrom(start)
 	return ns
@@ -967,7 +978,7 @@ func (p *Parser) parseMultiplicityDecl(start int) ast.Node {
 	}
 
 	// Parse body or semicolon
-	members, hasBody := p.parseNamespaceBody()
+	members, hasBody := p.parseNamespaceBody(bodyOther)
 
 	md := &ast.MultiplicityDecl{
 		Ident:   ident,

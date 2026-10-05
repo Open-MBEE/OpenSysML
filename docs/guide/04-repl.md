@@ -216,11 +216,12 @@ conforms to the viewpoints it satisfies. Conformance checking is read-only and r
 declaration order. Each `satisfy` gets a verdict of `conforms`, `violated` or `unevaluable`,
 followed by a verdict for each concern the viewpoint frames; a concern whose condition fails
 names the exposed element it failed for and the reason. A `satisfy` inherited from a
-specialized view is marked `(from <view>)`. A concern the viewpoint frames but the view does
-not is reported as `violated`. A concern that states no condition, or names one that does not
-resolve, is reported as `unevaluable` with the reason, not as a pass. These verdicts, and
-the way a nested view's framing is treated, are this implementation's own decisions, because
-SysML v2 leaves verification verdict semantics non-normative.
+specialized view is marked `(from <view>)`. A view frames nothing of its own — a view body
+admits no `frame` member — so each concern the viewpoint frames is checked against the exposed
+elements directly. A concern that states no condition, or names one that does not
+resolve, is reported as `unevaluable` with the reason, not as a pass. These verdicts are this
+implementation's own decisions, because SysML v2 leaves verification verdict semantics
+non-normative.
 
 ```
 sysml> package Demo {
@@ -256,8 +257,6 @@ sysml> package Demo {
   ...>     viewpoint structure : StructurePerspective;
   ...>     view def StructureView {
   ...>         satisfy structure;
-  ...>         frame concern budget : MassBudget;
-  ...>         frame concern modularity : Modularity;
   ...>     }
   ...>     view report : StructureView {
   ...>         expose vehicle;
