@@ -160,6 +160,11 @@
         "category": "SysML",
         "title": "Render Document",
         "enablement": "opensysml.renderDocumentSupported"
+      },
+      {
+        "command": "opensysml.runElement",
+        "category": "SysML",
+        "title": "Run Element"
       }
     ],
     "keybindings": [
@@ -176,6 +181,12 @@
       }
     ],
     "menus": {
+      "commandPalette": [
+        {
+          "command": "opensysml.runElement",
+          "when": "false"
+        }
+      ],
       "editor/title": [
         {
           "command": "opensysml.openDiagram",

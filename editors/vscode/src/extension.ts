@@ -1,5 +1,5 @@
 import { accessSync, constants } from "node:fs";
-import { delimiter, join } from "node:path";
+import { delimiter, dirname, join } from "node:path";
 import * as vscode from "vscode";
 import {
   ClientCapabilities,
@@ -13,9 +13,11 @@ import {
 import { DiagramPanels } from "./diagram";
 import { DocumentRendering } from "./document";
 import { CROSS_DOCUMENT_CAPABILITY, STDLIB_SCHEME } from "./protocol";
+import { ElementRunner } from "./run";
 import { StdlibDocuments } from "./stdlib";
 
 const EXECUTABLE = process.platform === "win32" ? "sysml-lsp.exe" : "sysml-lsp";
+const TOOL = process.platform === "win32" ? "sysml.exe" : "sysml";
 
 // Tells the server the diagram panel pins another document's declarations to
 // the text they were drawn from, so renderings may name them.
@@ -36,6 +38,9 @@ let watcher: vscode.FileSystemWatcher;
 let diagrams: DiagramPanels;
 let documents: DocumentRendering;
 let stdlib: StdlibDocuments;
+let runner: ElementRunner;
+// The server started last, which the `sysml` a code lens runs is looked for beside.
+let serverCommand: string | undefined;
 // Start/stop run one at a time: overlapping restarts would otherwise leave an
 // unreferenced client, and its server process, running forever.
 let queue: Promise<void> = Promise.resolve();
@@ -54,10 +59,12 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   diagrams = new DiagramPanels(context.extensionUri, output, context.workspaceState);
   documents = new DocumentRendering(output);
   stdlib = new StdlibDocuments(output);
+  runner = new ElementRunner(output, resolveTool);
   context.subscriptions.push(
     diagrams,
     documents,
     stdlib,
+    runner,
     vscode.commands.registerCommand("opensysml.restartServer", () => restart()),
     // The server binary is resolved at start, so pointing the setting at a fresh
     // build takes effect on the next restart rather than on reload.
@@ -107,6 +114,7 @@ async function startClient(): Promise<void> {
     );
     return;
   }
+  serverCommand = command;
   output.appendLine(`Starting ${command}`);
 
   const args = config.get<string[]>("server.args", []);
@@ -167,6 +175,26 @@ function resolveServer(configured: string): string | undefined {
     }
   }
   return onPath(EXECUTABLE);
+}
+
+// resolveTool finds the `sysml` a code lens runs: beside the server in use,
+// then in an open workspace's bin/, then on PATH.
+function resolveTool(): string | undefined {
+  if (serverCommand) {
+    const sibling = join(dirname(serverCommand), TOOL);
+    if (isExecutable(sibling)) {
+      return sibling;
+    }
+  }
+  if (vscode.workspace.isTrusted) {
+    for (const folder of vscode.workspace.workspaceFolders ?? []) {
+      const candidate = join(folder.uri.fsPath, "bin", TOOL);
+      if (isExecutable(candidate)) {
+        return candidate;
+      }
+    }
+  }
+  return onPath(TOOL);
 }
 
 function onPath(executable: string): string | undefined {
