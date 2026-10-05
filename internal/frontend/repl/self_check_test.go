@@ -1,8 +1,10 @@
 package repl
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strconv"
 	"strings"
 	"testing"
@@ -665,4 +667,337 @@ func assertSelfCheckViolation(t *testing.T, verdicts []Verdict, constraint, elem
 		}
 	}
 	t.Fatalf("no %s violation for %s in %+v", constraint, element, verdicts)
+}
+
+func loadSelfCheckFixture(t *testing.T, files ...SourceFile) *Session {
+	t.Helper()
+	s := NewSession()
+	result := s.SubmitFiles(files)
+	if errs := errorDiagnostics(result.Diagnostics); len(errs) > 0 {
+		t.Fatalf("fixtures did not load cleanly: %v", errs)
+	}
+	if s.HasErrors() {
+		t.Fatal("fixtures have model errors")
+	}
+	return s
+}
+
+func TestSelfCheckPackageAppliesARuleThatHolds(t *testing.T) {
+	s := loadSelfCheckFixture(t,
+		SourceFile{Name: "model.sysml", Text: `package M {
+			part def P { doc /* stated */ }
+			part def Q { doc /* also stated */ }
+		}`},
+		SourceFile{Name: "rules.sysml", Text: `package Acme {
+			package Rules {
+				private import SequenceFunctions::*;
+				constraint def partDefinitionHasDocumentation {
+					in pd : SysML::PartDefinition;
+					not pd.documentation->isEmpty();
+				}
+			}
+		}`})
+
+	verdicts, stats, err := s.selfCheckRun("SysMLValidation", false, []string{"Acme::Rules"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := stats.applications["Acme::Rules::partDefinitionHasDocumentation"]; got == 0 {
+		t.Fatalf("rule was not applied: %+v", stats.applications)
+	}
+	if stats.violations != 0 || stats.evaluationErrors != 0 {
+		t.Fatalf("documented part defs produced %d violations and %d errors: %+v", stats.violations, stats.evaluationErrors, verdicts)
+	}
+}
+
+func TestSelfCheckPackageReportsAViolationUnderItsQualifiedName(t *testing.T) {
+	s := loadSelfCheckFixture(t,
+		SourceFile{Name: "model.sysml", Text: `package M {
+			part def P;
+		}`},
+		SourceFile{Name: "rules.sysml", Text: `package Acme {
+			package Rules {
+				private import SequenceFunctions::*;
+				constraint def partDefinitionHasDocumentation {
+					in pd : SysML::PartDefinition;
+					not pd.documentation->isEmpty();
+				}
+			}
+		}`})
+
+	verdicts, stats, err := s.selfCheckRun("SysMLValidation", false, []string{"Acme::Rules"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if stats.violations == 0 {
+		t.Fatalf("undocumented part def produced no violation: %+v", verdicts)
+	}
+	found := false
+	for _, verdict := range verdicts {
+		text := verdict.Subject + "\n" + strings.Join(verdict.Lines, "\n")
+		if verdict.Status == VerdictFails && strings.HasPrefix(verdict.Subject, "Acme::Rules::") &&
+			strings.Contains(text, "fails for M::P") {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("no violation under the rule's qualified name: %+v", verdicts)
+	}
+}
+
+func TestSelfCheckPackageEvaluationErrorLeavesSummaryUnresolved(t *testing.T) {
+	// The non-Boolean body is a model error the CLI would gate on; the session
+	// API still evaluates it and reports the run unresolved, as the bundled
+	// constraint of the same shape does.
+	s := NewSession()
+	s.SubmitFiles([]SourceFile{
+		{Name: "model.sysml", Text: `package M { part def P; }`},
+		{Name: "rules.sysml", Text: `package Acme {
+			package Rules {
+				constraint def notBoolean {
+					in pd : SysML::PartDefinition;
+					1;
+				}
+			}
+		}`},
+	})
+
+	verdicts, stats, err := s.selfCheckRun("SysMLValidation", false, []string{"Acme::Rules"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if stats.evaluationErrors == 0 {
+		t.Fatalf("non-Boolean rule produced no evaluation error: %+v", stats)
+	}
+	if summary := verdicts[len(verdicts)-1]; summary.Status != VerdictUnresolved {
+		t.Fatalf("summary = %+v, want unresolved", summary)
+	}
+}
+
+func TestSelfCheckPackageUnknownNameEvaluatesNothing(t *testing.T) {
+	s := loadSelfCheckFixture(t,
+		SourceFile{Name: "model.sysml", Text: `package M { part def P; }`},
+		SourceFile{Name: "rules.sysml", Text: `package Acme { package Rules { } }`})
+
+	verdicts, err := s.SelfCheckPackages([]string{"Acme::Nope", "Acme::AlsoNope"})
+	if verdicts != nil {
+		t.Fatalf("verdicts = %+v, want nil", verdicts)
+	}
+	if !errors.Is(err, ErrSelfCheckPackageNotFound) {
+		t.Fatalf("err = %v, want ErrSelfCheckPackageNotFound", err)
+	}
+	for _, name := range []string{"Acme::Nope", "Acme::AlsoNope"} {
+		if !strings.Contains(err.Error(), name) {
+			t.Fatalf("error does not name %s: %v", name, err)
+		}
+	}
+	if err := s.ResolveSelfCheckPackages([]string{"Acme::Nope"}); !errors.Is(err, ErrSelfCheckPackageNotFound) {
+		t.Fatalf("ResolveSelfCheckPackages = %v, want ErrSelfCheckPackageNotFound", err)
+	}
+	if err := s.ResolveSelfCheckPackages([]string{"Acme::Rules"}); err != nil {
+		t.Fatalf("ResolveSelfCheckPackages = %v, want nil", err)
+	}
+}
+
+func TestSelfCheckPackageSkipsANonMetaclassParameterWithAWarning(t *testing.T) {
+	s := loadSelfCheckFixture(t,
+		SourceFile{Name: "model.sysml", Text: `package M { part def P; }`},
+		SourceFile{Name: "rules.sysml", Text: `package Acme {
+			package Rules {
+				private import ScalarValues::*;
+				private import SequenceFunctions::*;
+				constraint def integerRule {
+					in x : ScalarValues::Integer;
+					true;
+				}
+				constraint def modelTypeRule {
+					in x : M::P;
+					true;
+				}
+				constraint def holdsRule {
+					in pd : SysML::PartDefinition;
+					true;
+				}
+			}
+		}`})
+
+	verdicts, stats, err := s.selfCheckRun("SysMLValidation", false, []string{"Acme::Rules"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, name := range []string{"Acme::Rules::integerRule", "Acme::Rules::modelTypeRule"} {
+		if stats.applications[name] != 0 {
+			t.Errorf("skipped rule %s was applied", name)
+		}
+		found := false
+		for _, verdict := range verdicts {
+			text := strings.Join(verdict.Lines, "\n")
+			if verdict.Subject == name && strings.Contains(text, "warning:") &&
+				strings.Contains(text, "is skipped") {
+				found = true
+			}
+		}
+		if !found {
+			t.Errorf("no skip warning for %s: %+v", name, verdicts)
+		}
+	}
+	if stats.applications["Acme::Rules::holdsRule"] == 0 {
+		t.Error("the metaclass-typed rule was not applied")
+	}
+}
+
+func TestSelfCheckPackageWarnsWhenAPackageYieldsNoConstraints(t *testing.T) {
+	s := loadSelfCheckFixture(t,
+		SourceFile{Name: "model.sysml", Text: `package M { part def P; }`},
+		SourceFile{Name: "rules.sysml", Text: `package Acme { package Rules { part def Z; } }`})
+
+	verdicts, _, err := s.selfCheckRun("SysMLValidation", false, []string{"Acme::Rules"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	found := false
+	for _, verdict := range verdicts {
+		if strings.Contains(strings.Join(verdict.Lines, "\n"), "has no applicable constraint definitions") {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("no empty-package warning: %+v", verdicts)
+	}
+	if summary := verdicts[len(verdicts)-1]; !strings.Contains(strings.Join(summary.Lines, "\n"), "Self-model check:") {
+		t.Fatalf("run did not complete: %+v", summary)
+	}
+}
+
+func TestSelfCheckPackageAppliesNestedPackageConstraints(t *testing.T) {
+	s := loadSelfCheckFixture(t,
+		SourceFile{Name: "model.sysml", Text: `package M { part def P { doc /* stated */ } }`},
+		SourceFile{Name: "rules.sysml", Text: `package Acme {
+			package Rules {
+				package Nested {
+					private import SequenceFunctions::*;
+					constraint def partDefinitionHasDocumentation {
+						in pd : SysML::PartDefinition;
+						not pd.documentation->isEmpty();
+					}
+				}
+			}
+		}`})
+
+	_, stats, err := s.selfCheckRun("SysMLValidation", false, []string{"Acme::Rules"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := stats.applications["Acme::Rules::Nested::partDefinitionHasDocumentation"]; got == 0 {
+		t.Fatalf("nested constraint was not applied: %+v", stats.applications)
+	}
+}
+
+func TestSelfCheckAppliesSeveralPackagesAtOnce(t *testing.T) {
+	s := loadSelfCheckFixture(t,
+		SourceFile{Name: "model.sysml", Text: `package M { part def P { doc /* stated */ } }`},
+		SourceFile{Name: "rules_a.sysml", Text: `package Acme {
+			package Rules {
+				private import SequenceFunctions::*;
+				constraint def documented {
+					in pd : SysML::PartDefinition;
+					not pd.documentation->isEmpty();
+				}
+			}
+		}`},
+		SourceFile{Name: "rules_b.sysml", Text: `package Beta {
+			constraint def anything {
+				in pd : SysML::PartDefinition;
+				true;
+			}
+		}`})
+
+	_, stats, err := s.selfCheckRun("SysMLValidation", false, []string{"Acme::Rules", "Beta"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, name := range []string{"Acme::Rules::documented", "Beta::anything"} {
+		if stats.applications[name] == 0 {
+			t.Errorf("%s was not applied: %+v", name, stats.applications)
+		}
+	}
+}
+
+func TestSelfCheckPackageElementsAreNotChecked(t *testing.T) {
+	const model = `package M { part def P { doc /* stated */ } }`
+	const rules = `package Acme {
+		package Rules {
+			private import SequenceFunctions::*;
+			constraint def documented {
+				in pd : SysML::PartDefinition;
+				not pd.documentation->isEmpty();
+			}
+		}
+	}`
+	modelOnly := loadSelfCheckFixture(t, SourceFile{Name: "model.sysml", Text: model})
+	_, baseline, err := modelOnly.selfCheckRun("SysMLValidation", false, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	s := loadSelfCheckFixture(t,
+		SourceFile{Name: "model.sysml", Text: model},
+		SourceFile{Name: "rules.sysml", Text: rules})
+	verdicts, stats, err := s.selfCheckRun("SysMLValidation", false, []string{"Acme"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if stats.elements != baseline.elements {
+		t.Errorf("elements = %d, want %d as checked of the model alone", stats.elements, baseline.elements)
+	}
+	for _, verdict := range verdicts {
+		if strings.Contains(verdict.Subject, "for Acme::") {
+			t.Errorf("a rule-package element was checked: %+v", verdict)
+		}
+	}
+}
+
+func TestSelfCheckIgnoresRulePackagesWithoutTheFlag(t *testing.T) {
+	files := []SourceFile{
+		{Name: "model.sysml", Text: `package M { part def P { doc /* stated */ } }`},
+		{Name: "rules.sysml", Text: `package Acme {
+			package Rules {
+				constraint def anything {
+					in pd : SysML::PartDefinition;
+					false;
+				}
+			}
+		}`},
+	}
+	s := loadSelfCheckFixture(t, files...)
+	for _, verdict := range s.SelfCheck() {
+		if strings.Contains(verdict.Subject, "Acme::") {
+			t.Fatalf("SelfCheck() applied a rule-package constraint: %+v", verdict)
+		}
+	}
+	got, err := s.SelfCheckPackages(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := s.SelfCheck(); !reflect.DeepEqual(got, want) {
+		t.Fatalf("SelfCheckPackages(nil) = %+v, want SelfCheck() = %+v", got, want)
+	}
+}
+
+func TestSelfCheckPackageNamingTheBundledPackageDoesNotDoubleApply(t *testing.T) {
+	s := loadSelfCheckFixture(t, SourceFile{Name: "model.sysml", Text: `package M { part def P; }`})
+
+	_, bundled, err := s.selfCheckRun("SysMLValidation", false, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, doubled, err := s.selfCheckRun("SysMLValidation", false, []string{"SysMLValidation"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for name, want := range bundled.applications {
+		if doubled.applications[name] != want {
+			t.Errorf("%s applications = %d, want %d", name, doubled.applications[name], want)
+		}
+	}
 }

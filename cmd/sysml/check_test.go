@@ -581,3 +581,157 @@ func TestCheckReportsDiagramLayoutFindings(t *testing.T) {
 		"model.sysml:4:9: error: Canvas annotates part def E::Pump, which is no view; a Canvas belongs in the body of the view it sizes",
 		"model.sysml:10:38: error: connection E::Loop::supply: Route binds 3 values to points; waypoints are x, y pairs, so the count must be even")
 }
+
+// checkFiles runs the binary on several files written to one temporary
+// directory, so a check can be exercised over a model and its rule files.
+func checkFiles(t *testing.T, binary string, files map[string]string, args ...string) runOutcome {
+	t.Helper()
+	dir := t.TempDir()
+	var paths []string
+	for name, text := range files {
+		path := filepath.Join(dir, name)
+		if err := os.WriteFile(path, []byte(text), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		paths = append(paths, path)
+	}
+	cmd := exec.Command(binary, append(args, paths...)...)
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout, cmd.Stderr = &stdout, &stderr
+	err := cmd.Run()
+	result := runOutcome{stdout: stdout.String(), stderr: stderr.String()}
+	var exit *exec.ExitError
+	switch {
+	case err == nil:
+	case errors.As(err, &exit):
+		result.status = exit.ExitCode()
+	default:
+		t.Fatalf("%v: %v\n%s", args, err, result.output())
+	}
+	return result
+}
+
+const selfCheckRuleModel = `package M {
+	part def Documented { doc /* stated */ }
+	part def Bare;
+	port def PortDef;
+	part def Host {
+		in port directed : PortDef;
+		port undirected;
+	}
+}
+`
+
+const selfCheckRuleFile = `package Acme {
+	package ModelingRules {
+		private import SequenceFunctions::*;
+		constraint def partDefinitionHasDocumentation {
+			in pd : SysML::PartDefinition;
+			not pd.documentation->isEmpty();
+		}
+		constraint def portUsageDeclaresDirection {
+			in p : SysML::PortUsage;
+			not p.direction->isEmpty();
+		}
+	}
+}
+`
+
+func TestSelfCheckPackageFlagAppliesRulePackages(t *testing.T) {
+	binary := buildCLI(t)
+
+	violated := checkFiles(t, binary, map[string]string{
+		"model.sysml": selfCheckRuleModel,
+		"rules.sysml": selfCheckRuleFile,
+	}, "-self-check-package", "Acme::ModelingRules")
+	wantReport(t, violated, 1,
+		"Acme::ModelingRules::partDefinitionHasDocumentation fails for M::Bare",
+		"Acme::ModelingRules::portUsageDeclaresDirection fails for M::Host::undirected",
+		"Self-model check: ")
+
+	passing := checkFiles(t, binary, map[string]string{
+		"model.sysml": `package M {
+			part def P { doc /* stated */ }
+			port def PD;
+			part def H { doc /* stated */ in port p : PD; }
+		}`,
+		"rules.sysml": selfCheckRuleFile,
+	}, "-self-check-package", "Acme::ModelingRules")
+	wantReport(t, passing, 0, ", 0 violations,")
+
+	// The flag implies -self-check, so the summary is reported without it.
+	implied := checkFiles(t, binary, map[string]string{
+		"model.sysml": `package M { part def P { doc /* stated */ } }`,
+		"rules.sysml": selfCheckRuleFile,
+	}, "-self-check-package", "Acme::ModelingRules")
+	wantReport(t, implied, 0, "Self-model check: ")
+}
+
+func TestSelfCheckPackageFlagReportsWhatCannotApply(t *testing.T) {
+	binary := buildCLI(t)
+
+	evalError := checkFiles(t, binary, map[string]string{
+		"model.sysml": `package M { part def P; }`,
+		"rules.sysml": `package Acme {
+			package Rules {
+				constraint def notBoolean {
+					in pd : SysML::PartDefinition;
+					1;
+				}
+			}
+		}`,
+	}, "-self-check-package", "Acme::Rules")
+	if evalError.status != 2 {
+		t.Errorf("eval-error rule exit status = %d, want 2:\n%s", evalError.status, evalError.output())
+	}
+
+	unknown := checkFiles(t, binary, map[string]string{
+		"model.sysml": `package M { part def P; }`,
+	}, "-self-check-package", "Acme::Nope")
+	wantReport(t, unknown, 2, "Acme::Nope names no package")
+	rejectReport(t, unknown, "Self-model check:")
+
+	empty := checkFiles(t, binary, map[string]string{
+		"model.sysml": `package M { part def P; }`,
+	}, "-self-check-package", "")
+	if empty.status != 2 || !strings.Contains(empty.output(), "-self-check-package needs a package name") {
+		t.Errorf("empty -self-check-package status = %d:\n%s", empty.status, empty.output())
+	}
+
+	skipped := checkFiles(t, binary, map[string]string{
+		"model.sysml": `package M { part def P; }`,
+		"rules.sysml": `package Acme {
+			package Rules {
+				private import ScalarValues::*;
+				constraint def integerRule {
+					in x : ScalarValues::Integer;
+					true;
+				}
+			}
+		}`,
+	}, "-self-check-package", "Acme::Rules")
+	if skipped.status != 0 || !strings.Contains(skipped.stderr, "Acme::Rules::integerRule is skipped") {
+		t.Errorf("non-metaclass rule status = %d, want 0 with a warning:\n%s", skipped.status, skipped.output())
+	}
+
+	two := checkFiles(t, binary, map[string]string{
+		"model.sysml":   `package M { part def P { doc /* stated */ } }`,
+		"rules_a.sysml": selfCheckRuleFile,
+		"rules_b.sysml": `package Beta {
+			constraint def anything {
+				in pd : SysML::PartDefinition;
+				true;
+			}
+		}`,
+	}, "-self-check-package", "Acme::ModelingRules", "-self-check-package", "Beta")
+	wantReport(t, two, 0, ", 0 violations,")
+
+	jsonReport := checkFiles(t, binary, map[string]string{
+		"model.sysml": `package M { part def P { doc /* stated */ } }`,
+		"rules.sysml": selfCheckRuleFile,
+	}, "-self-check-package", "Acme::ModelingRules", "-json")
+	if jsonReport.status != 0 || !json.Valid([]byte(jsonReport.stdout)) ||
+		!strings.Contains(jsonReport.stdout, "Self-model check: ") {
+		t.Errorf("JSON report status=%d is invalid or missing its summary:\n%s", jsonReport.status, jsonReport.output())
+	}
+}
