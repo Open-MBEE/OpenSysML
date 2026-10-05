@@ -1115,6 +1115,13 @@ func (p *Parser) parseMoreFeatureModifiers(m *featureMods) {
 			}
 			return
 		}
+		// `composite` or `portion` closes the feature prefix: a word that reads
+		// as a modifier may not follow it, even as a name.
+		if m.isComposite && t.Kind == lexer.Identifier && p.src.Text(t.Span) == "readonly" {
+			p.error(t.Span, "'readonly' cannot follow '"+compositeOrPortionWord(m.isPortion)+
+				"': a prefix says "+compositeOrPortionPair+", not both")
+			return
+		}
 		if t.Kind == lexer.Identifier && p.src.Text(t.Span) == varPrefixWord {
 			next := p.peekN(1)
 			// KerML FeaturePrefix puts prefix metadata after `var`: `var #M feature f`.
@@ -1132,6 +1139,14 @@ func (p *Parser) parseMoreFeatureModifiers(m *featureMods) {
 		}
 		if t.Kind != lexer.Keyword {
 			return
+		}
+		// `composite` or `portion` closes the feature prefix: only `ordered`
+		// and `nonunique` may still follow; `end` and a repeated prefix keep
+		// their own checks.
+		if m.isComposite && featureModifierKeywords[t.KeywordID] &&
+			t.KeywordID != "ordered" && t.KeywordID != "nonunique" &&
+			t.KeywordID != "end" && t.KeywordID != "composite" && t.KeywordID != "portion" {
+			p.prefixConflict(t, compositeOrPortionWord(m.isPortion), compositeOrPortionPair)
 		}
 		switch t.KeywordID {
 		case "abstract":

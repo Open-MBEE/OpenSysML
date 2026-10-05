@@ -5,5 +5,7 @@ package P {
 		ref [1];
 		ref [1] :> x;
 		ref;
+		derived ref = x;
+		derived ref { }
 	}
 }

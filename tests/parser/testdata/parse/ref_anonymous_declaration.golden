@@ -22,4 +22,9 @@
               (Multiplicity range=false
                 (LiteralInteger value="1"))))
           (Membership visibility="default"
-            (Usage kind="attribute" name="" ref=true direction="none" composite=false derived=false ordered=false nonunique=false)))))))
+            (Usage kind="attribute" name="" ref=true direction="none" composite=false derived=false ordered=false nonunique=false))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="" ref=true direction="none" composite=false derived=true ordered=false nonunique=false
+              (FeatureReference name="x")))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="" ref=true direction="none" composite=false derived=true ordered=false nonunique=false)))))))

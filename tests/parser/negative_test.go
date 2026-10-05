@@ -37,6 +37,16 @@ func TestNegative(t *testing.T) {
 		{"derived_value_without_name", "part def D { derived = x; }"},
 		{"composite_body_without_name", "part def D { composite { } }"},
 		{"end_value_without_name", "part def D { end = x; }"},
+		// `composite` or `portion` closes the feature prefix: no other feature
+		// modifier may follow it (SysML.xtext BasicFeaturePrefix).
+		{"composite_ref_decl", "part def D { composite ref; }"},
+		{"composite_ref_body", "part def D { composite ref { } }"},
+		{"portion_ref_body", "part def D { portion ref { } }"},
+		{"composite_readonly", "part def D { composite readonly; }"},
+		{"composite_derived", "part def D { composite derived x; }"},
+		{"composite_visibility", "part def D { composite private x; }"},
+		{"composite_direction", "part def D { composite in x; }"},
+		{"composite_abstract", "part def D { composite abstract x; }"},
 		{"invalid_keyword_combo", "def usage MyPart;"},
 		{"incomplete_connection", "connector c connect a"},
 		{"unterminated_string", `part p { doc /* comment `},
