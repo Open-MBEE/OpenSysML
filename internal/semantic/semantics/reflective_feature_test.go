@@ -992,6 +992,13 @@ func reflectiveRecordedFacts(model *Model, idx *symbols.Index, sym *symbols.Symb
 			}
 		}
 	}
+	if ref := model.ReferencedFeature(sym); ref != nil {
+		if r, found := idx.RefTo(ref); found {
+			facts.References = r
+		} else {
+			facts.References = symbols.ElementRef{FQN: model.fqnOf(ref)}
+		}
+	}
 	if _, ok := sym.Decl.(*ast.PrefixMetadata); ok {
 		if types, supported := model.ReflectiveElements(sym, "type"); supported && len(types) == 1 {
 			if ref, found := idx.RefTo(types[0]); found {

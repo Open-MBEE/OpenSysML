@@ -81,9 +81,9 @@ func TestSelfCheckReportsViolationsAndUnevaluatedConstraints(t *testing.T) {
 				in element : KerML::Feature;
 				not element.isComposite;
 			}
-			constraint def inspectTypeSpecializations {
+			constraint def inspectInheritedFeatures {
 				in element : KerML::Type;
-				element.ownedSpecialization->isEmpty();
+				element.inheritedFeature->isEmpty();
 			}
 			part def P { part c; }
 		}
@@ -135,9 +135,9 @@ func TestSelfCheckUnevaluatedOnlyDoesNotFailSummary(t *testing.T) {
 	const src = `
 		package T {
 			private import SequenceFunctions::*;
-			constraint def inspectTypeSpecializations {
+			constraint def inspectInheritedFeatures {
 				in element : KerML::Type;
-				element.ownedSpecialization->isEmpty();
+				element.inheritedFeature->isEmpty();
 			}
 			part def P;
 		}

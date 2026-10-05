@@ -950,6 +950,14 @@ func (m *Model) metaclassOf(sym *symbols.Symbol) *symbols.Symbol {
 	if sym == nil {
 		return nil
 	}
+	// A relationship a declaration owns, and the feature its chain target
+	// denotes, are KerML elements in either language.
+	if info, ok := m.relationshipInfo[sym]; ok {
+		return m.ownedRelationshipMetaclass(info)
+	}
+	if _, ok := sym.Decl.(*ast.FeatureChainExpr); ok {
+		return m.kermlMetaclass("Feature")
+	}
 	// A relationship written keyword-first is classified by its own kind in
 	// either language, since no symbol kind distinguishes its forms.
 	if rel, ok := sym.RelationshipDecl(); ok {
@@ -1289,6 +1297,9 @@ func (m *Model) ReflectiveElements(sym *symbols.Symbol, feature string) ([]*symb
 		}
 		return []*symbols.Symbol{owner}, true
 	case "owningType":
+		if _, isRelationship := m.relationshipInfo[sym]; isRelationship {
+			return m.ownedRelationshipElements(sym, feature)
+		}
 		if !m.reflectiveMetaclassConforms(sym, "Feature") {
 			return nil, false
 		}
@@ -1416,21 +1427,30 @@ func (m *Model) ReflectiveElements(sym *symbols.Symbol, feature string) ([]*symb
 			return nil, false
 		}
 		return m.conformingTypes(sym, "Metaclass"), true
-	case "endFeature", "ownedEndFeature":
-		if !m.reflectiveMetaclassConforms(sym, "Type") {
+	case "endFeature", "ownedEndFeature", "connectorEnd":
+		// Connector::connectorEnd redefines Type::endFeature.
+		metaclass := "Type"
+		if feature == "connectorEnd" {
+			metaclass = "Connector"
+		}
+		if !m.reflectiveMetaclassConforms(sym, metaclass) {
 			return nil, false
 		}
-		ends := m.EndFeatures(sym)
-		if feature == "endFeature" {
-			return ends, true
-		}
-		owned := make([]*symbols.Symbol, 0, len(ends))
-		for _, end := range ends {
-			if end != nil && m.ownerOf(end) == sym {
-				owned = append(owned, end)
+		// An end with no symbol of its own holds its position as a nil entry.
+		var ends []*symbols.Symbol
+		for _, end := range m.EndFeatures(sym) {
+			if end != nil && (feature != "ownedEndFeature" || m.ownerOf(end) == sym) {
+				ends = append(ends, end)
 			}
 		}
-		return owned, true
+		return ends, true
+	case "chainingFeature":
+		if !m.reflectiveMetaclassConforms(sym, "Feature") {
+			return nil, false
+		}
+		return m.chainingFeaturesOf(sym), true
+	case "source", "target", "relatedElement", "ownedRelatedElement", "owningRelatedElement":
+		return m.ownedRelationshipElements(sym, feature)
 	case "unioningType":
 		if !m.reflectiveMetaclassConforms(sym, "Type") {
 			return nil, false
@@ -1455,6 +1475,14 @@ func (m *Model) ReflectiveElements(sym *symbols.Symbol, feature string) ([]*symb
 		return ownedMembersOf(sym), true
 	case "ownedElement":
 		return m.ownedElementsOf(sym), true
+	case "ownedSpecialization", "ownedSubclassification", "ownedTyping", "ownedSubsetting",
+		"ownedRedefinition", "ownedReferenceSubsetting", "ownedCrossSubsetting",
+		"ownedFeatureInverting", "ownedTypeFeaturing", "ownedDisjoining":
+		property := ownedRelationshipProperties[feature]
+		if !m.reflectiveMetaclassConforms(sym, property.owner) {
+			return nil, false
+		}
+		return m.ownedRelationshipsConforming(sym, property.relationship), true
 	case "member":
 		return m.membersIncludingAnonymous(sym), true
 	case "feature":
@@ -1720,6 +1748,17 @@ func (m *Model) ownedElementsOf(sym *symbols.Symbol) []*symbols.Symbol {
 			members = append(members, doc)
 		}
 	}
+	// A relationship's chain target is an element the declaration owns through
+	// the relationship (`::> a.b`).
+	for _, rel := range m.OwnedRelationshipSymbols(sym) {
+		owned, _ := m.ownedRelationshipElements(rel, "ownedRelatedElement")
+		for _, elem := range owned {
+			if !seen[elem] {
+				seen[elem] = true
+				members = append(members, elem)
+			}
+		}
+	}
 	return members
 }
 
@@ -1972,6 +2011,12 @@ func (m *Model) reflectiveFeatureValue(sym *symbols.Symbol, feature string) (sym
 			return emptyValue(), true
 		}
 		return stringOrEmpty(m.fqnOf(sym)), true
+	case "isImplied":
+		// A relationship a declaration owns is written, not implied.
+		if _, ok := m.relationshipInfo[sym]; !ok {
+			return symbols.FilterValue{}, false
+		}
+		return boolValue(false), true
 	case "direction":
 		direction, ok := ReflectiveDirection(sym)
 		if !ok {

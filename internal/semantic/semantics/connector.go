@@ -44,10 +44,9 @@ func (m *Model) isConnectorLike(sym *symbols.Symbol) bool {
 
 // ownedEnds returns the end features sym owns, one entry per end in
 // declaration order: first the ends of its `connect` clause, then the `end`
-// features of its body. An end that declares no name of its own — `connect a
-// to b` — still occupies its position, as does one whose symbol is not
-// registered; both are reported as a nil entry. A recorded connector reads
-// its ends from its record.
+// features of its body. An end whose symbol is not registered still occupies
+// its position, reported as a nil entry. A recorded connector reads its ends
+// from its record, which carries no entry for an end with no name of its own.
 func (m *Model) ownedEnds(sym *symbols.Symbol) []*symbols.Symbol {
 	if sym == nil || sym.Scope == nil {
 		return nil
@@ -65,10 +64,6 @@ func (m *Model) ownedEnds(sym *symbols.Symbol) []*symbols.Symbol {
 	if u, ok := sym.Decl.(*ast.Usage); ok {
 		for _, end := range u.ConnectorEnds {
 			if end == nil {
-				continue
-			}
-			if _, declares := end.DeclaredName(); !declares {
-				out = append(out, nil)
 				continue
 			}
 			out = append(out, memberSymbol(sym.Scope, end))
@@ -370,8 +365,7 @@ func declaresEnd(sym *symbols.Symbol) bool {
 	}
 	switch d := sym.Decl.(type) {
 	case *ast.ConnectorEnd:
-		_, declares := d.DeclaredName()
-		return declares
+		return true
 	case *ast.Usage:
 		return d.IsEnd
 	}
@@ -402,7 +396,9 @@ func (m *Model) UnmatchedConnectorEnds(sym *symbols.Symbol) (*symbols.Symbol, []
 		}
 		var unmatched []*symbols.Symbol
 		for i, end := range owned {
-			if end == nil || i < len(supEnds) || len(namedEnds(end, supEnds)) > 0 {
+			// An end with no name of its own matches by position alone; one
+			// beyond the general's arity is an excess end, not an unmatched one.
+			if end == nil || end.Name == "" || i < len(supEnds) || len(namedEnds(end, supEnds)) > 0 {
 				continue
 			}
 			unmatched = append(unmatched, end)
@@ -766,7 +762,9 @@ func (m *Model) connectorEndAttachments(sym *symbols.Symbol, ends []connectorEnd
 		att := ConnectorEndAttachment{Attachment: end.attachment, End: end.end}
 		general := m.generalEndAt(sym, i)
 		switch {
-		case i < len(owned) && owned[i] != nil:
+		// An end named by its own declaration names the attachment; one that
+		// only names what it attaches to takes the name of the end it redefines.
+		case i < len(owned) && owned[i] != nil && owned[i].Name != "":
 			att.Name, att.EndFeature = leafName(owned[i].Name), owned[i]
 		case general != nil:
 			att.Name, att.EndFeature = leafName(general.Name), general

@@ -2289,6 +2289,7 @@ func (e *encoder) connectorEnd(subject rdf.Term, end connectorEndSpec) error {
 	e.graph.Add(subject, e.sysml(pConnectorEnd), feature)
 	e.graph.Add(subject, e.sysml(pOwnedRelationship), membership)
 	e.graph.Add(subject, e.sysml(pOwnedMembership), membership)
+	e.graph.Add(subject, e.sysml(pOwnedMember), feature)
 	e.graph.Add(subject, e.sysml(pOwnedFeatureMembership), membership)
 	e.graph.Add(subject, e.sysml(pOwnedFeature), feature)
 	e.graph.Add(subject, e.sysml(pOwnedEndFeature), feature)

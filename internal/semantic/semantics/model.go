@@ -53,6 +53,10 @@ type Model struct {
 	typingArgs map[*ast.InvocationExpr]bool
 	composed   map[composedKey][]*symbols.Symbol
 	ends       map[*symbols.Symbol][]connectorEnd
+	// ownedRelationships memoizes the symbols standing for the relationships a
+	// declaration owns, and relationshipInfo what each of them stands for.
+	ownedRelationships map[*symbols.Symbol][]*symbols.Symbol
+	relationshipInfo   map[*symbols.Symbol]ownedRelationship
 	// subtracting memoizes whether a type reaches a difference (see cast.go).
 	subtracting map[*symbols.Symbol]bool
 	// referential memoizes a parameter's referentiality (see shape.go).
@@ -167,6 +171,8 @@ func NewModel(resolver *resolve.Resolver) *Model {
 		typingArgs:          make(map[*ast.InvocationExpr]bool),
 		composed:            make(map[composedKey][]*symbols.Symbol),
 		ends:                make(map[*symbols.Symbol][]connectorEnd),
+		ownedRelationships:  make(map[*symbols.Symbol][]*symbols.Symbol),
+		relationshipInfo:    make(map[*symbols.Symbol]ownedRelationship),
 		subtracting:         make(map[*symbols.Symbol]bool),
 		referential:         make(map[*symbols.Symbol]bool),
 		implicitBase:        make(map[*symbols.Symbol][]*symbols.Symbol),

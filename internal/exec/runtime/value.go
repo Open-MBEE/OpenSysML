@@ -271,9 +271,7 @@ func symbolQualifiedText(sym *symbols.Symbol) string {
 	}
 	if sym.Name == "" {
 		if sym.OwnerScope != nil && sym.OwnerScope.Owner() != nil {
-			if owner := symbols.FQNOf(sym.OwnerScope.Owner()); owner != "" {
-				return owner + "::" + unnamedText
-			}
+			return symbolQualifiedText(sym.OwnerScope.Owner()) + "::" + unnamedText
 		}
 		return unnamedText
 	}

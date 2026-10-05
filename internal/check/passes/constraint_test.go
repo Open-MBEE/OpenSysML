@@ -818,6 +818,39 @@ func TestConstraintInterfaceFlowPairsDirectedFeatures(t *testing.T) {
 	if !hasCode(unpaired, "port-conjugation") {
 		t.Errorf("expected port-conjugation diagnostic for unpaired flow feature, got %v", unpaired)
 	}
+
+	// A usage of the interface inherits the pairing its definition's flow states.
+	const usage = `port def Source { out item sent; }
+	port def Target { in item received; }
+	part def Sender { port out1 : Source; }
+	part def Receiver { port in1 : Target; }
+	part def Assembly {
+		part sender : Sender;
+		part receiver : Receiver;
+		interface link : Link connect sender.out1 to receiver.in1;
+	}
+	`
+	inherited := constraintDiags(t, usage+`interface def Link {
+		end a : Source;
+		end b : Target;
+		flow a.sent to b.received;
+	}`)
+	if hasCode(inherited, "port-conjugation") {
+		t.Errorf("unexpected port-conjugation diagnostic for a usage of a flow-paired interface: %v", inherited)
+	}
+	unflowed := constraintDiags(t, usage+`interface def Link {
+		end a : Source;
+		end b : Target;
+	}`)
+	warned := 0
+	for _, d := range unflowed {
+		if d.Code == "port-conjugation" {
+			warned++
+		}
+	}
+	if warned != 2 {
+		t.Errorf("port-conjugation diagnostics for an unpaired interface and its usage = %d, want 2: %v", warned, unflowed)
+	}
 }
 
 // A `variant` whose owner is not a variation offers no choice, so it is an error

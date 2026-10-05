@@ -197,7 +197,8 @@ func (w *interfaceWriter) facts(sym *symbols.Symbol) symbols.LibraryFacts {
 	if ends, ok := m.OwnedConnectorEnds(sym); ok {
 		facts.Ends = make([]symbols.ElementRef, len(ends))
 		for i, end := range ends {
-			if end != nil {
+			// An end with no name of its own has no reference a record can carry.
+			if end != nil && end.Name != "" {
 				facts.Ends[i] = w.ref(sym, end, "connector end")
 			}
 		}
