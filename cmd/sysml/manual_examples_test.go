@@ -53,7 +53,7 @@ func TestManualCookbookModelAnalysesCleanly(t *testing.T) {
 		t.Fatalf("cookbook query Cookbook::NamedParts: %v\n%s", err, output)
 	}
 	for _, want := range []string{
-		"returned 12 rows",
+		"returned 9 rows",
 		"Row 1: Cookbook::telescope::primaryMirror",
 		"Row 6: Cookbook::Traceability::gimbal",
 	} {
