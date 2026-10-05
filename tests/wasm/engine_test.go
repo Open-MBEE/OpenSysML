@@ -77,8 +77,8 @@ func forbiddenEngineDependency(module, dependency string) bool {
 			return true
 		}
 	}
-	// The engine does not evaluate or render documents.
-	if hasDependencyPrefix(dependency, module+"/internal/doc") {
+	// ExecuteState's trace events come from queryexec; the document IR and backends stay out.
+	if hasDependencyPrefix(dependency, module+"/internal/doc") && dependency != module+"/internal/doc/queryexec" {
 		return true
 	}
 	// The workspace pipeline belongs to the LSP and REPL.
