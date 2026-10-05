@@ -103,6 +103,7 @@ not_in_nav: |
   project/exact-rational-evaluation.md
   project/expansion-regions.md
   project/bitwise-complement.md
+  project/constraint-body-steps.md
   project/exception-handlers.md
   project/pilot-differential.md
   project/spec-pilot-gap-register.md
@@ -117,6 +118,7 @@ hooks:
   - scripts/mkdocs_landing.py
   - scripts/mkdocs_census.py
   - scripts/mkdocs_suite_figures.py
+  - scripts/mkdocs_install_scripts.py
 
 markdown_extensions:
   - admonition

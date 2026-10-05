@@ -576,6 +576,16 @@ func (m *Model) recordedElements(sym *symbols.Symbol, refs []symbols.ElementRef)
 	return out
 }
 
+func (m *Model) recordedSequence(refs []symbols.ElementRef) []*symbols.Symbol {
+	var out []*symbols.Symbol
+	for _, ref := range refs {
+		if target := m.recordedElement(ref); target != nil {
+			out = append(out, target)
+		}
+	}
+	return out
+}
+
 // recordedElement restores the element a fact names, or nil when the name no
 // longer declares one.
 func (m *Model) recordedElement(ref symbols.ElementRef) *symbols.Symbol {

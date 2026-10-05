@@ -603,27 +603,28 @@ func TestVariationSortIsShared(t *testing.T) {
 	}
 }
 
-// TestBodyStatementRefuses: a statement in a constraint body is not executed, so
-// the translation refuses rather than solving the conditions as if it ran.
+// TestBodyStatementRefuses: the solver does not encode the steps a constraint
+// body performs before its result expression, so the translation refuses
+// rather than solving the conditions as if the steps ran.
 func TestBodyStatementRefuses(t *testing.T) {
 	refused := refusal(t, constraintSource(`
 		attribute y : Integer = 1;
 		assign y := 10;
 		y > 5
 	`), "test::C")
-	if refused.Construct != "body statement" {
-		t.Errorf("refused construct is %q, want the body statement", refused.Construct)
+	if refused.Construct != "constraint body steps" {
+		t.Errorf("refused construct is %q, want the constraint body steps", refused.Construct)
 	}
-	if !strings.Contains(refused.Reason, "does not execute") {
-		t.Errorf("refusal reason is %q, want it to say the statement is not executed", refused.Reason)
+	if !strings.Contains(refused.Reason, "does not encode the steps") {
+		t.Errorf("refusal reason is %q, want it to say the steps are not encoded", refused.Reason)
 	}
-	if refused.Condition != "`assign` statement" {
-		t.Errorf("refused condition is %q, want the assign statement", refused.Condition)
+	if refused.Condition != "the body's steps then { y > 5 }" {
+		t.Errorf("refused condition is %q, want the body's steps and condition", refused.Condition)
 	}
 }
 
-// TestPerformedActionRefuses: a performed action is a usage rather than a
-// statement node, and translation refuses it the same way, nested or not.
+// TestPerformedActionRefuses: a performed action is a step of the constraint
+// body, and translation refuses the steps the same way, nested or not.
 func TestPerformedActionRefuses(t *testing.T) {
 	src := `
 		package test {
@@ -641,13 +642,16 @@ func TestPerformedActionRefuses(t *testing.T) {
 			}
 		}
 	`
-	for _, name := range []string{"test::C", "test::Rig::nested"} {
+	for name, want := range map[string]string{
+		"test::C":           "the body's steps then { y > 5 }",
+		"test::Rig::nested": "the body's steps then { z > 5 }",
+	} {
 		refused := refusal(t, src, name)
-		if refused.Construct != "body statement" {
-			t.Errorf("%s: refused construct is %q, want the body statement", name, refused.Construct)
+		if refused.Construct != "constraint body steps" {
+			t.Errorf("%s: refused construct is %q, want the constraint body steps", name, refused.Construct)
 		}
-		if refused.Condition != "`perform` statement" {
-			t.Errorf("%s: refused condition is %q, want the perform statement", name, refused.Condition)
+		if refused.Condition != want {
+			t.Errorf("%s: refused condition is %q, want %s", name, refused.Condition, want)
 		}
 	}
 }
@@ -674,14 +678,14 @@ func TestActionFlowRefuses(t *testing.T) {
 		}
 	`
 	for name, want := range map[string]string{
-		"test::C":           "`action` statement",
-		"test::Rig::edge":   "`first` statement",
-		"test::Rig::node":   "`action` statement",
-		"test::Rig::nested": "`action` statement",
+		"test::C":           "the body's steps then { y > 5 }",
+		"test::Rig::edge":   "the body's steps then { z > 5 }",
+		"test::Rig::node":   "the body's steps then { z > 5 }",
+		"test::Rig::nested": "the body's steps then { z > 5 }",
 	} {
 		refused := refusal(t, src, name)
-		if refused.Construct != "body statement" {
-			t.Errorf("%s: refused construct is %q, want the body statement", name, refused.Construct)
+		if refused.Construct != "constraint body steps" {
+			t.Errorf("%s: refused construct is %q, want the constraint body steps", name, refused.Construct)
 		}
 		if refused.Condition != want {
 			t.Errorf("%s: refused condition is %q, want %s", name, refused.Condition, want)

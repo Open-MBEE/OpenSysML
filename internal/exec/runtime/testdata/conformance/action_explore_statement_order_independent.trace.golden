@@ -1,0 +1,9 @@
+step 1: token 1@s
+stmt assign x
+  eval literal 1 -> 1
+stmt assign y
+  eval literal 2 -> 2
+stmt assign z
+  eval literal 3 -> 3
+step 2: token 1@done
+step 3: no active tokens
