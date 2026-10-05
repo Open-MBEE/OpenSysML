@@ -19,7 +19,7 @@ function test_live()
     model = opensysml.parseSource(conn, fileread(fixture), 'name', 'simple_part.sysml');
     assert_equal(ischar(model.hash) && ~isempty(model.hash), true, 'parseSource hash');
 
-    sym = opensysml.symbol(model, 'Test::SimplePart');
+    sym = opensysml.getSymbol(model, 'Test::SimplePart');
     assert_equal(isstruct(sym), true, 'symbol is a record');
 
     v = opensysml.evaluate(model, '2 + 2');
@@ -47,7 +47,7 @@ function test_live()
     assert_equal(numel(rows.elements), 3, 'query elements');
 
     assert_error(@() opensysml.evaluate(model, '1 +'), 'opensysml:diagnostics', 'bad expression -> diagnostics');
-    assert_error(@() opensysml.symbol(struct_hash_model(conn), 'No::Such'), 'opensysml:connect', 'stale/bad hash -> connect error');
+    assert_error(@() opensysml.getSymbol(struct_hash_model(conn), 'No::Such'), 'opensysml:connect', 'stale/bad hash -> connect error');
 
     m2 = opensysml.parseSources(conn, {{'a.sysml', 'package A { part def P; }'}, {'b.sysml', 'package B { part def Q; }'}});
     assert_equal(~isempty(m2.hash), true, 'parseSources');
