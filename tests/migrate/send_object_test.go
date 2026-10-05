@@ -80,3 +80,43 @@ func TestSendObjectWithoutRequestIsAPlaceholder(t *testing.T) {
 	}
 	session(t, r)
 }
+
+// pingSelfFedRequest is pingSelfFedTarget with the send a send object action:
+// it sends the Ping the node's msg holds to the object read self gives.
+var pingSelfFedRequest = strings.NewReplacer(
+	`<ownedBehavior xmi:type="uml:Activity" xmi:id="_notify" name="Notify">`,
+	`<ownedAttribute xmi:type="uml:Property" xmi:id="_msg" name="msg" type="_ping" aggregation="composite"/>
+      <ownedBehavior xmi:type="uml:Activity" xmi:id="_notify" name="Notify">
+        <node xmi:type="uml:ReadStructuralFeatureAction" xmi:id="_readMsg" name="read msg" structuralFeature="_msg">
+          <result xmi:type="uml:OutputPin" xmi:id="_readMsgOut" name="result"/>
+        </node>`,
+	`<node xmi:type="uml:SendSignalAction" xmi:id="_send" name="send" signal="_ping">`,
+	`<node xmi:type="uml:SendObjectAction" xmi:id="_send" name="send">
+          <request xmi:type="uml:InputPin" xmi:id="_request" name="request"/>`,
+	`<edge xmi:type="uml:ControlFlow" xmi:id="_e1" source="_init" target="_readSelf"/>`,
+	`<edge xmi:type="uml:ControlFlow" xmi:id="_e0" source="_init" target="_readMsg"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_e1" source="_readMsg" target="_readSelf"/>
+        <edge xmi:type="uml:ObjectFlow" xmi:id="_of0" source="_readMsgOut" target="_request"/>`,
+).Replace(pingSelfFedTarget)
+
+// A send object action whose target pin read self fills binds the pin to the
+// sender and sends to it: the node takes the Ping it sent itself.
+func TestSendObjectTargetFedByReadSelfIsBoundToTheSender(t *testing.T) {
+	r := migrateDocument(t, pingSelfFedRequest, pingSelfFedTargetApplications)
+	wantLine(t, r.Notation, "in target : Node[1] = this;")
+	wantLine(t, r.Notation, "send request to target;")
+	if es := entriesFor(r, "_send"); len(es) != 1 || es[0].Verdict != migrate.Mapped || es[0].Note != "" {
+		t.Errorf("entries for _send = %+v, want one mapped entry without a note", es)
+	}
+	if diags := errors(t, "self-fed-send-object.sysml", r.Notation); len(diags) != 0 {
+		t.Fatalf("migrated notation has validation errors: %v\n%s", diags, r.Notation)
+	}
+
+	s := session(t, r)
+	meta(t, s, "%instantiate Node")
+	started := meta(t, s, "%action Node::notify #1")
+	continued := meta(t, s, "%continue")
+	if out := meta(t, s, "%eval in #1 : hits"); !strings.Contains(out, "= 1") {
+		t.Errorf("the accept did not complete after the sender received the ping: %s\naction: %s\ncontinue: %s\n%s", out, started, continued, r.Notation)
+	}
+}
