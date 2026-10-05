@@ -2404,7 +2404,7 @@ func (a *activity) valueAction(n *sysmlv1.Element, name string) {
 // objectOf writes the object a pin holds when it is read from this (`this`, `this.f`
 // and so on down); typ is that object's classifier, nil when it is not known.
 func (a *activity) objectOf(pin *sysmlv1.Element) (expr string, typ *sysmlv1.Element, ok bool) {
-	if a.selfFed[pin] && !isStructured(a.act) {
+	if a.selfFed[pin] {
 		return a.self(), a.selfType(), true
 	}
 	srcs := a.sources[pin]

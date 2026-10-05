@@ -196,7 +196,7 @@ func TestStructuredNodeBoundaryFeedsObjectPin(t *testing.T) {
 	wantClean(t, "object_write_structured_boundary.sysml", r)
 }
 
-// A structured node's ReadSelf flow writes through its typed object pin.
+// A structured node's ReadSelf flow resolves through the enclosing activity's classifier.
 func TestStructuredNodeReadSelfTargetsFedObjectPin(t *testing.T) {
 	nodes := `<node xmi:type="uml:StructuredActivityNode" xmi:id="_statement" name="statement">
         <node xmi:type="uml:InitialNode" xmi:id="_innerInit"/>
@@ -212,7 +212,8 @@ func TestStructuredNodeReadSelfTargetsFedObjectPin(t *testing.T) {
       </node>`
 	activity := objectWriteActivity("", nodes, "", "_statement")
 	r := objectWriteModel(t, activity, "", "")
-	wantLine(t, r.Notation, "assign object.single := ();")
+	wantLine(t, r.Notation, "assign single := ();")
+	wantNoStatement(t, r.Notation, "assign object.single")
 	wantClean(t, "object_write_structured_self_flow.sysml", r)
 }
 
