@@ -1,4 +1,6 @@
 step 1: token 1@sum
+enter action node: sum
+step 2: token 1@for i
 stmt for i
     eval literal 1 -> 1
     eval literal 10 -> 10
@@ -53,6 +55,7 @@ stmt for i
         eval feature tenths -> 0.9
         eval literal 0.1 -> 0.1
       eval operator + -> 1.0
+step 3: token 1@for n
 stmt for n
     eval literal 1 -> 1
     eval literal 4 -> 4
@@ -85,9 +88,11 @@ stmt for n
           eval feature n -> 4
         eval operator / -> 0.25
       eval operator + -> 25/12
+step 4: token 1@assign reachesOne
 stmt assign reachesOne
     eval feature tenths -> 1.0
     eval literal 1 -> 1
   eval operator == -> true
-step 2: token 1@done
-step 3: no active tokens
+leave action node: sum
+step 5: token 1@done
+step 6: no active tokens
