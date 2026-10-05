@@ -46,6 +46,11 @@ type productionKey struct {
 	name    string
 }
 
+type expressionID struct {
+	grammar string
+	id      int
+}
+
 type shapeInfo struct {
 	production Production
 	returns    string
@@ -125,7 +130,7 @@ func Shapes(grammars []*Grammar) []Shape {
 				ReturnsDefaulted: p.Returns == "",
 				Datatype:         info.datatype,
 			}
-			ownerSets := map[int]map[string]bool{}
+			ownerSets := map[expressionID]map[string]bool{}
 			start := newStates("")
 			if p.Kind == KindFragment {
 				start = newStates(info.returns)
@@ -236,7 +241,7 @@ func sameStates(left, right stateSet) bool {
 }
 
 func interpretShape(e expr, states stateSet, owner shapeInfo, defaultReturns string, infos map[productionKey]shapeInfo,
-	resolver *analyzer, creates map[productionKey][]string, owners map[int]map[string]bool,
+	resolver *analyzer, creates map[productionKey][]string, owners map[expressionID]map[string]bool,
 	produced map[string]bool, activeFragments map[productionKey]bool,
 ) stateSet {
 	switch v := e.(type) {
@@ -247,15 +252,16 @@ func interpretShape(e expr, states stateSet, owner shapeInfo, defaultReturns str
 			produced[v.Type] = true
 		}
 		if v.Feature != "" && owners != nil {
-			owners[v.id] = map[string]bool{v.Type: true}
+			owners[expressionID{grammar: v.grammar, id: v.id}] = map[string]bool{v.Type: true}
 		}
 		return newStates(v.Type)
 	case assignExpr:
 		if owners != nil {
-			targets := owners[v.id]
+			key := expressionID{grammar: v.grammar, id: v.id}
+			targets := owners[key]
 			if targets == nil {
 				targets = map[string]bool{}
-				owners[v.id] = targets
+				owners[key] = targets
 			}
 			for state := range states {
 				if state == "" {
@@ -371,7 +377,7 @@ func sameStrings(left, right []string) bool {
 	return true
 }
 
-func appendShapeContents(shape *Shape, e expr, owners map[int]map[string]bool, info shapeInfo,
+func appendShapeContents(shape *Shape, e expr, owners map[expressionID]map[string]bool, info shapeInfo,
 	infos map[productionKey]shapeInfo, resolver *analyzer,
 ) {
 	switch v := e.(type) {
@@ -386,7 +392,8 @@ func appendShapeContents(shape *Shape, e expr, owners map[int]map[string]bool, i
 	case assignExpr:
 		shape.Assignments = append(shape.Assignments, Assignment{
 			Feature: v.Feature, Op: v.Op, Line: v.Line, Value: exprValue(v.Value),
-			CrossRef: crossRefTypes(v.Value), Owners: sortedOwnerSet(owners[v.id]),
+			CrossRef: crossRefTypes(v.Value),
+			Owners:   sortedOwnerSet(owners[expressionID{grammar: v.grammar, id: v.id}]),
 		})
 	case refExpr:
 		called, ok := resolver.lookup(info.production.Grammar, v.Name)

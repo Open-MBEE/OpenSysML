@@ -132,6 +132,30 @@ Either : Left | Right;
 	}
 }
 
+func TestShapesInheritedFragmentExpressionIDsAreGrammarScoped(t *testing.T) {
+	const base = `
+grammar org.example.Base
+fragment Shared returns SysML::Shared : {SysML::Other.other = current};
+`
+	const derived = `
+grammar org.example.Derived with org.example.Base
+Caller returns SysML::Caller : field = 'value' Shared;
+`
+	shapes := parseShapes(t, base, derived)
+
+	caller := shapeNamed(shapes, "Caller")
+	if len(caller.Assignments) != 1 ||
+		!reflect.DeepEqual(caller.Assignments[0].Owners, []string{"SysML::Caller"}) {
+		t.Errorf("caller assignment owners = %+v, want only SysML::Caller", caller.Assignments)
+	}
+	fragment := shapeNamed(shapes, "Shared")
+	if len(fragment.Assignments) != 1 ||
+		fragment.Assignments[0].Feature != "other" ||
+		!reflect.DeepEqual(fragment.Assignments[0].Owners, []string{"SysML::Other"}) {
+		t.Errorf("fragment assignment = %+v, want standalone SysML::Other owner", fragment.Assignments)
+	}
+}
+
 func TestShapesLeftRecursiveCreates(t *testing.T) {
 	shapes := parseShapes(t, `
 grammar org.example.A

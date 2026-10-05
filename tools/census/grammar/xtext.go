@@ -65,12 +65,14 @@ type altExpr struct{ Items []expr }
 type actionExpr struct {
 	Type, Feature, Op string
 	Line              int
+	grammar           string
 	id                int
 }
 type assignExpr struct {
 	Feature, Op string
 	Value       expr
 	Line        int
+	grammar     string
 	id          int
 }
 type crossRefExpr struct{ Type, Terminal string }
@@ -428,7 +430,10 @@ func (p *grammarParser) parsePrimary() (expr, error) {
 				return nil, err
 			}
 			p.nextExprID++
-			return assignExpr{Feature: name, Op: op, Value: value, Line: first.line, id: p.nextExprID}, nil
+			return assignExpr{
+				Feature: name, Op: op, Value: value, Line: first.line,
+				grammar: p.out.Name, id: p.nextExprID,
+			}, nil
 		}
 		return refExpr{Name: name}, nil
 	}
@@ -441,7 +446,7 @@ func (p *grammarParser) parseAction() (expr, error) {
 		return nil, fmt.Errorf("line %d: expected an action type, found %q", p.peek().line, p.peek().text)
 	}
 	typ := p.parseActionType()
-	action := actionExpr{Type: typ, Line: open.line}
+	action := actionExpr{Type: typ, Line: open.line, grammar: p.out.Name}
 	if p.accept(tokPunct, "}") {
 		p.nextExprID++
 		action.id = p.nextExprID

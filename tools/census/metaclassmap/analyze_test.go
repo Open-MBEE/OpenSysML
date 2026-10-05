@@ -79,13 +79,15 @@ func TestAnalyzeReflectiveChecks(t *testing.T) {
 	const doc = "tests/parser/testdata/parse/reflect.sysml"
 	content := []byte("package Demo {\npart def A;\n}\n")
 	shape := grammar.Shape{
-		Grammar: "Toy.xtext", Name: "Part", Kind: grammar.KindRule,
+		Grammar: "Toy.xtext", Name: "Part", Kind: grammar.KindRule, Line: 7,
 		Returns: "SysML::NotAType", ReturnsDefaulted: true,
 		Actions: []grammar.Action{{Metaclass: "SysML::AlsoMissing"}},
 		Assignments: []grammar.Assignment{{
 			Feature: "ownedRelationship", Op: "+=", Value: "Name", Owners: []string{"SysML::PartDefinition"},
 		}, {
 			Feature: "notAFeature", Op: "=", Value: "'x'", Owners: []string{"SysML::PartDefinition"},
+		}, {
+			Feature: "feature", Op: "=", Value: "'x'", Owners: []string{"SysML::UnknownType"},
 		}},
 	}
 	coverage := &grammar.Report{
@@ -105,18 +107,36 @@ func TestAnalyzeReflectiveChecks(t *testing.T) {
 			missingTypes++
 		}
 	}
-	if missingTypes != 2 {
-		t.Errorf("missing types = %d, want missing return and action", missingTypes)
+	if missingTypes != 3 {
+		t.Errorf("missing types = %d, want missing return, action, and assignment owner", missingTypes)
 	}
-	if len(production.Assignments) != 2 ||
+	if len(production.Assignments) != 3 ||
 		production.Assignments[0].Status != "found" ||
 		production.Assignments[0].DeclaredBy != "KerML::Root::Element" ||
-		production.Assignments[1].Status != "missing" {
+		production.Assignments[1].Status != "missing" ||
+		production.Assignments[2].Status != "owner-missing" {
 		t.Errorf("assignment checks = %+v", production.Assignments)
 	}
-	if report.Totals.Assignments != 2 || report.Totals.AssignmentsFound != 1 ||
-		report.Totals.AssignmentsMissing != 1 || report.Totals.TypesByStatus["missing"] != 2 {
+	if report.Totals.Assignments != 3 || report.Totals.AssignmentsFound != 1 ||
+		report.Totals.AssignmentsMissing != 1 || report.Totals.OwnerMissing != 1 ||
+		report.Grammars[0].Totals.OwnerMissing != 1 || report.Totals.TypesByStatus["missing"] != 3 {
 		t.Errorf("totals = %+v", report.Totals)
+	}
+	summary := report.Summary()
+	if len(summary.MissingTypes) != 3 ||
+		summary.MissingTypes[0].Name != "SysML::NotAType" ||
+		len(summary.OwnerMissingAssignments) != 1 ||
+		summary.OwnerMissingAssignments[0] != (FeatureFinding{
+			Grammar: "Toy.xtext", Production: "Part", Line: 7,
+			Feature: "feature", Owner: "SysML::UnknownType",
+		}) {
+		t.Errorf("summary findings = %+v", summary)
+	}
+	if !bytes.Contains([]byte(report.Text()), []byte("Assignments: 3 total, 1 found, 1 missing, 1 owner-missing")) {
+		t.Errorf("text summary omits owner-missing count:\n%s", report.Text())
+	}
+	if !bytes.Contains([]byte(report.Markdown()), []byte("owner missing")) {
+		t.Errorf("Markdown table omits owner-missing assignment:\n%s", report.Markdown())
 	}
 }
 

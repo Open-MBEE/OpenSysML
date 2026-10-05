@@ -54,20 +54,24 @@ func Main(args []string, stderr io.Writer) int {
 // run measures the grammars and writes the reports; log receives the progress
 // lines.
 func run(repoDir, grammarDir, out, baseline string, log io.Writer) error {
+	repoDir, err := repo.Choose(repoDir)
+	if err != nil {
+		return err
+	}
 	if log == nil {
 		log = io.Discard
 	}
-	report, _, err := Measure(repoDir, grammarDir, log)
-	if err != nil {
-		return err
-	}
-	repoDir, err = repo.Choose(repoDir)
-	if err != nil {
-		return err
+	grammarDir = repo.Resolve(repoDir, grammarDir)
+	if grammarDir == "" {
+		grammarDir = filepath.Join(repoDir, "build", "pilot-grammars")
 	}
 	out, baseline = repo.Resolve(repoDir, out), repo.Resolve(repoDir, baseline)
 	if out == "" {
 		out = filepath.Join(repoDir, "build", "grammar-coverage")
+	}
+	report, _, err := measure(repoDir, grammarDir, log)
+	if err != nil {
+		return err
 	}
 	if err := writeReports(out, report, log); err != nil {
 		return err

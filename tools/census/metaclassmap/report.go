@@ -34,6 +34,7 @@ type Totals struct {
 	Assignments         int            `json:"assignments"`
 	AssignmentsFound    int            `json:"assignmentsFound"`
 	AssignmentsMissing  int            `json:"assignmentsMissing"`
+	OwnerMissing        int            `json:"ownerMissing"`
 	EnumLiteralsFound   int            `json:"enumLiteralsFound"`
 	EnumLiteralsMissing int            `json:"enumLiteralsMissing"`
 	Differential        map[string]int `json:"differential"`
@@ -97,14 +98,15 @@ type Differential struct {
 // Summary is the compact baseline: counts and actionable findings, without
 // repeating every production row.
 type Summary struct {
-	PilotTag             string               `json:"pilotTag"`
-	Totals               Totals               `json:"totals"`
-	Grammars             []GrammarTotals      `json:"grammars"`
-	MissingTypes         []TypeFinding        `json:"missingTypes"`
-	MissingFeatures      []FeatureFinding     `json:"missingFeatures"`
-	MissingEnumLiterals  []EnumLiteralFinding `json:"missingEnumLiterals"`
-	DefaultedReturnRules []DefaultedReturn    `json:"defaultedReturnRules"`
-	Disagreements        []Disagreement       `json:"disagreements"`
+	PilotTag                string               `json:"pilotTag"`
+	Totals                  Totals               `json:"totals"`
+	Grammars                []GrammarTotals      `json:"grammars"`
+	MissingTypes            []TypeFinding        `json:"missingTypes"`
+	MissingFeatures         []FeatureFinding     `json:"missingFeatures"`
+	OwnerMissingAssignments []FeatureFinding     `json:"ownerMissingAssignments"`
+	MissingEnumLiterals     []EnumLiteralFinding `json:"missingEnumLiterals"`
+	DefaultedReturnRules    []DefaultedReturn    `json:"defaultedReturnRules"`
+	Disagreements           []Disagreement       `json:"disagreements"`
 }
 
 // GrammarTotals is a grammar's counts in a compact baseline.
@@ -201,6 +203,8 @@ func (t *Totals) add(p Production) {
 			t.AssignmentsFound++
 		} else if check.Status == "missing" {
 			t.AssignmentsMissing++
+		} else if check.Status == "owner-missing" {
+			t.OwnerMissing++
 		}
 	}
 	for _, check := range p.Assignments {
@@ -222,13 +226,14 @@ func (t *Totals) add(p Production) {
 // Summary returns the deterministic compact representation used as baseline.
 func (r *Report) Summary() *Summary {
 	out := &Summary{
-		PilotTag:             r.PilotTag,
-		Totals:               r.Totals,
-		MissingTypes:         []TypeFinding{},
-		MissingFeatures:      []FeatureFinding{},
-		MissingEnumLiterals:  []EnumLiteralFinding{},
-		DefaultedReturnRules: []DefaultedReturn{},
-		Disagreements:        []Disagreement{},
+		PilotTag:                r.PilotTag,
+		Totals:                  r.Totals,
+		MissingTypes:            []TypeFinding{},
+		MissingFeatures:         []FeatureFinding{},
+		OwnerMissingAssignments: []FeatureFinding{},
+		MissingEnumLiterals:     []EnumLiteralFinding{},
+		DefaultedReturnRules:    []DefaultedReturn{},
+		Disagreements:           []Disagreement{},
 	}
 	for _, g := range r.Grammars {
 		out.Grammars = append(out.Grammars, GrammarTotals{Name: g.Name, Totals: g.Totals})
@@ -242,6 +247,13 @@ func (r *Report) Summary() *Summary {
 				}
 			}
 			for _, check := range p.Assignments {
+				if check.Status == "owner-missing" {
+					out.OwnerMissingAssignments = append(out.OwnerMissingAssignments, FeatureFinding{
+						Grammar: p.Shape.Grammar, Production: p.Shape.Name, Line: p.Shape.Line,
+						Feature: check.Feature, Owner: check.Owner,
+					})
+					continue
+				}
 				if check.Status != "missing" {
 					continue
 				}
@@ -332,8 +344,8 @@ func (r *Report) Text() string {
 	fmt.Fprintf(&b, "Defaulted returns: %d\nDatatype productions: %d\n", r.Totals.ReturnsDefaulted, r.Totals.Datatype)
 	writeCountMap(&b, "Types by status", r.Totals.TypesByStatus)
 	fmt.Fprintf(&b, "Missing types: %d\n", r.Totals.TypesByStatus["missing"])
-	fmt.Fprintf(&b, "Assignments: %d total, %d found, %d missing\n",
-		r.Totals.Assignments, r.Totals.AssignmentsFound, r.Totals.AssignmentsMissing)
+	fmt.Fprintf(&b, "Assignments: %d total, %d found, %d missing, %d owner-missing\n",
+		r.Totals.Assignments, r.Totals.AssignmentsFound, r.Totals.AssignmentsMissing, r.Totals.OwnerMissing)
 	fmt.Fprintf(&b, "Enum literals: %d total, %d found, %d missing\n",
 		r.Totals.EnumLiteralsFound+r.Totals.EnumLiteralsMissing,
 		r.Totals.EnumLiteralsFound, r.Totals.EnumLiteralsMissing)
@@ -389,8 +401,11 @@ func formatAssignments(p Production) string {
 	var out []string
 	for _, check := range p.Assignments {
 		mark := "✗"
-		if check.Status == "found" {
+		switch check.Status {
+		case "found":
 			mark = "✓"
+		case "owner-missing":
+			mark = "owner missing"
 		}
 		out = append(out, fmt.Sprintf("%s %s %s → %s::%s %s", check.Feature, check.Op, check.Value,
 			check.Owner, check.Feature, mark))

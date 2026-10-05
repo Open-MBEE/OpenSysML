@@ -36,22 +36,23 @@ func Analyze(coverage *grammar.Report, shapes []grammar.Shape, files map[string]
 		}
 		ws.Open(filepath.ToSlash(doc), content, 1)
 	}
-	reflection := &reflectiveModel{}
 	queryDoc := ""
 	if len(documents) > 0 {
 		queryDoc = documents[0]
 	}
+	var report *Report
+	var analyzeErr error
 	err := ws.Read(func(reading *model.Reading) error {
-		reflection.index = reading.Index()
 		reading.Query(queryDoc, func(_ *resolve.Resolver, sem *semantics.Model) {
-			reflection.sem = sem
+			reflection := &reflectiveModel{index: reading.Index(), sem: sem}
+			report, analyzeErr = analyze(coverage, shapes, files, reflection)
 		})
-		return nil
+		return analyzeErr
 	})
 	if err != nil {
 		return nil, err
 	}
-	return analyze(coverage, shapes, files, reflection)
+	return report, nil
 }
 
 func analyze(coverage *grammar.Report, shapes []grammar.Shape, files map[string][]byte,
@@ -383,7 +384,7 @@ func elementAt(index *symbols.Index, doc string, content []byte, offset int) *sy
 	if root == nil {
 		return nil
 	}
-	stripped := stripSource(string(content))
+	stripped := grammar.StripModelSource(string(content))
 	var symbolsInDocument []*symbols.Symbol
 	seenSymbols := map[*symbols.Symbol]bool{}
 	seenScopes := map[*symbols.Scope]bool{}
@@ -446,10 +447,6 @@ func declarationHeader(sym *symbols.Symbol, stripped string) (int, int, bool) {
 
 func isHeaderWhitespace(char byte) bool {
 	return char == ' ' || char == '\t' || char == '\r' || char == '\n'
-}
-
-func stripSource(content string) string {
-	return grammar.StripModelSource(content)
 }
 
 func lastName(qualified string) string {

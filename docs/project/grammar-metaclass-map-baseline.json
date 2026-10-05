@@ -19,6 +19,7 @@
     "assignments": 797,
     "assignmentsFound": 742,
     "assignmentsMissing": 55,
+    "ownerMissing": 0,
     "enumLiteralsFound": 24,
     "enumLiteralsMissing": 0,
     "differential": {
@@ -59,6 +60,7 @@
         "assignments": 244,
         "assignmentsFound": 244,
         "assignmentsMissing": 0,
+        "ownerMissing": 0,
         "enumLiteralsFound": 7,
         "enumLiteralsMissing": 0,
         "differential": {
@@ -99,6 +101,7 @@
         "assignments": 140,
         "assignmentsFound": 91,
         "assignmentsMissing": 49,
+        "ownerMissing": 0,
         "enumLiteralsFound": 0,
         "enumLiteralsMissing": 0,
         "differential": {
@@ -139,6 +142,7 @@
         "assignments": 413,
         "assignmentsFound": 407,
         "assignmentsMissing": 6,
+        "ownerMissing": 0,
         "enumLiteralsFound": 17,
         "enumLiteralsMissing": 0,
         "differential": {
@@ -547,6 +551,7 @@
       "owner": "SysML::SelectExpression"
     }
   ],
+  "ownerMissingAssignments": [],
   "missingEnumLiterals": [],
   "defaultedReturnRules": [],
   "disagreements": [
