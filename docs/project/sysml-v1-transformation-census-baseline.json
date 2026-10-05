@@ -1082,12 +1082,8 @@
       ],
       "ocl": "sha256:afb0d8f3bc8f467814040335373b6caf5eec3d652ac77681acbdacf8ee64f9f2",
       "status": "deliberate",
-      "implementation": [
-        "internal/translate/migrate/migrate.go:itemFlow"
-      ],
-      "tests": [
-        "tests/migrate/stereotype_metadata_test.go:TestItemFlowConveysItsItem"
-      ],
+      "implementation": [],
+      "tests": [],
       "reason": "«Rate», «Continuous» and «Discrete» would be written as `@SysMLv1Library::RateData` metadata: OMG names SysMLv1Library but does not publish it, so the flow is written without rate metadata",
       "scope": [
         "sysml:Rate",
@@ -1112,12 +1108,8 @@
       ],
       "ocl": "sha256:d78fea89f84600bc1e529e61295b4855fb72f4c64e2cfe4b6eeec36a27c2c4d8",
       "status": "deliberate",
-      "implementation": [
-        "internal/translate/migrate/migrate.go:itemFlow"
-      ],
-      "tests": [
-        "tests/migrate/stereotype_metadata_test.go:TestItemFlowConveysItsItem"
-      ],
+      "implementation": [],
+      "tests": [],
       "reason": "«Rate», «Continuous» and «Discrete» would be written as `@SysMLv1Library::RateData` metadata: OMG names SysMLv1Library but does not publish it, so the flow is written without rate metadata",
       "scope": [
         "sysml:Rate",
@@ -1142,12 +1134,8 @@
       ],
       "ocl": "sha256:37d46f9ad55fbbd8dea7e5e5b0d3616f239f76983670e847c84841699cc9d041",
       "status": "deliberate",
-      "implementation": [
-        "internal/translate/migrate/migrate.go:itemFlow"
-      ],
-      "tests": [
-        "tests/migrate/stereotype_metadata_test.go:TestItemFlowConveysItsItem"
-      ],
+      "implementation": [],
+      "tests": [],
       "reason": "«Rate», «Continuous» and «Discrete» would be written as `@SysMLv1Library::RateData` metadata: OMG names SysMLv1Library but does not publish it, so the flow is written without rate metadata",
       "scope": [
         "sysml:Rate",
@@ -1172,12 +1160,8 @@
       ],
       "ocl": "sha256:5faeb3b916ff0e8887a7ad56d4e03fea1a5be33a1583c4c2aa64552072c38f4c",
       "status": "deliberate",
-      "implementation": [
-        "internal/translate/migrate/migrate.go:itemFlow"
-      ],
-      "tests": [
-        "tests/migrate/stereotype_metadata_test.go:TestItemFlowConveysItsItem"
-      ],
+      "implementation": [],
+      "tests": [],
       "reason": "«Rate», «Continuous» and «Discrete» would be written as `@SysMLv1Library::RateData` metadata: OMG names SysMLv1Library but does not publish it, so the flow is written without rate metadata",
       "scope": [
         "sysml:Rate",
@@ -1202,12 +1186,8 @@
       ],
       "ocl": "sha256:6a40e9df403f7fd4e4b0af34342201b48aa0a7a163bec93e28d5d95d5788ab10",
       "status": "deliberate",
-      "implementation": [
-        "internal/translate/migrate/migrate.go:itemFlow"
-      ],
-      "tests": [
-        "tests/migrate/stereotype_metadata_test.go:TestItemFlowConveysItsItem"
-      ],
+      "implementation": [],
+      "tests": [],
       "reason": "«Rate», «Continuous» and «Discrete» would be written as `@SysMLv1Library::RateData` metadata: OMG names SysMLv1Library but does not publish it, so the flow is written without rate metadata",
       "scope": [
         "sysml:Rate",
@@ -1232,12 +1212,8 @@
       ],
       "ocl": "sha256:0e5fea22dfe977cc5e412fa5bf2e48fe67e0782c5479355975c4172c1b565d76",
       "status": "deliberate",
-      "implementation": [
-        "internal/translate/migrate/migrate.go:itemFlow"
-      ],
-      "tests": [
-        "tests/migrate/stereotype_metadata_test.go:TestItemFlowConveysItsItem"
-      ],
+      "implementation": [],
+      "tests": [],
       "reason": "«Rate», «Continuous» and «Discrete» would be written as `@SysMLv1Library::RateData` metadata: OMG names SysMLv1Library but does not publish it, so the flow is written without rate metadata",
       "scope": [
         "sysml:Rate",
@@ -1262,12 +1238,8 @@
       ],
       "ocl": "sha256:cdbbb2ea1bee7e28b220048a83f2eb2593fcaf13f9b48f807042b7eb5e6a9e3d",
       "status": "deliberate",
-      "implementation": [
-        "internal/translate/migrate/migrate.go:itemFlow"
-      ],
-      "tests": [
-        "tests/migrate/stereotype_metadata_test.go:TestItemFlowConveysItsItem"
-      ],
+      "implementation": [],
+      "tests": [],
       "reason": "«Rate», «Continuous» and «Discrete» would be written as `@SysMLv1Library::RateData` metadata: OMG names SysMLv1Library but does not publish it, so the flow is written without rate metadata",
       "scope": [
         "sysml:Rate",
@@ -1292,12 +1264,8 @@
       ],
       "ocl": "sha256:60d8207a8f6ebfa88a9b4cbc9477eee5e41bab88fc711cecf57f2e4b53459374",
       "status": "deliberate",
-      "implementation": [
-        "internal/translate/migrate/migrate.go:itemFlow"
-      ],
-      "tests": [
-        "tests/migrate/stereotype_metadata_test.go:TestItemFlowConveysItsItem"
-      ],
+      "implementation": [],
+      "tests": [],
       "reason": "«Rate», «Continuous» and «Discrete» would be written as `@SysMLv1Library::RateData` metadata: OMG names SysMLv1Library but does not publish it, so the flow is written without rate metadata",
       "scope": [
         "sysml:Rate",
@@ -1322,12 +1290,8 @@
       ],
       "ocl": "sha256:8eb815c542fed7e21b55ab78e717982136a1053e4fcce38ff7b1b805293795fe",
       "status": "deliberate",
-      "implementation": [
-        "internal/translate/migrate/migrate.go:itemFlow"
-      ],
-      "tests": [
-        "tests/migrate/stereotype_metadata_test.go:TestItemFlowConveysItsItem"
-      ],
+      "implementation": [],
+      "tests": [],
       "reason": "«Rate», «Continuous» and «Discrete» would be written as `@SysMLv1Library::RateData` metadata: OMG names SysMLv1Library but does not publish it, so the flow is written without rate metadata",
       "scope": [
         "sysml:Rate",
@@ -1352,12 +1316,8 @@
       ],
       "ocl": "sha256:d8babc038734f57eafaa1d2d4c60e2c21f64af081301f261ac8fe6f985441ee2",
       "status": "deliberate",
-      "implementation": [
-        "internal/translate/migrate/migrate.go:itemFlow"
-      ],
-      "tests": [
-        "tests/migrate/stereotype_metadata_test.go:TestItemFlowConveysItsItem"
-      ],
+      "implementation": [],
+      "tests": [],
       "reason": "«Rate», «Continuous» and «Discrete» would be written as `@SysMLv1Library::RateData` metadata: OMG names SysMLv1Library but does not publish it, so the flow is written without rate metadata",
       "scope": [
         "sysml:Rate",
@@ -4273,7 +4233,7 @@
         "tests/migrate/behavior_test.go:TestActivityWithSendAcceptAndOperationCalls",
         "tests/migrate/behavior_more_test.go:TestStateMachineWithOrthogonalRegionsAndGuards"
       ],
-      "reason": "OMG's note leaves the mapping undefined beyond an AcceptActionUsage; a v2 change trigger (`accept when`) waits for a Boolean condition to become true, but a change-structural-feature event fires on any change to a feature's value, which no v2 condition states; the migrator writes the stereotyped AcceptEventAction as an ordinary `action changed accept when true;` and reports it Mapped, and reports the stereotyped ChangeEvent Mapped as `accept when true` (8 mapped, 2 approximated, 0 unmapped in the probe)",
+      "reason": "OMG's note leaves the mapping undefined beyond an AcceptActionUsage; a v2 change trigger (`accept when`) waits for a Boolean condition to become true, but a change-structural-feature event fires on any change to a feature's value, which no v2 condition states; the action goes through the ordinary accept-event path, which writes its change trigger, having no change expression, as `accept when true` (PSSM 0, fixtures 0, TMT 0)",
       "scope": [
         "sysml:AcceptChangeStructuralFeatureEventAction"
       ]

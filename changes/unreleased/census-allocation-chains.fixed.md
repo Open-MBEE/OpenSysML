@@ -1,0 +1,1 @@
+- SysML v1 migration chains nested allocation-end features relative to their typed source or target definition, so paths such as `source.run.'set status'` navigate from the allocation end.

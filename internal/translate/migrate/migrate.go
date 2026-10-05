@@ -1161,6 +1161,7 @@ func (m *migration) imports(e *sysmlv1.Element) {
 	m.add(e, Mapped, m.v2Name(target), "")
 }
 
+// reserveElementImportAliases takes each element import's alias in its namespace before names are planned.
 func (m *migration) reserveElementImportAliases() {
 	var walk func(*sysmlv1.Element)
 	walk = func(e *sysmlv1.Element) {
@@ -1180,6 +1181,7 @@ func (m *migration) reserveElementImportAliases() {
 	}
 }
 
+// elementImport writes an element import as an import, or an alias when it names one.
 func (m *migration) elementImport(e *sysmlv1.Element) {
 	target := m.model.Ref(e, "importedElement")
 	if target == nil || target.IsProxy() || m.isLibrary(target) {
@@ -1222,6 +1224,7 @@ func (m *migration) elementImport(e *sysmlv1.Element) {
 	m.add(e, Mapped, m.v2Name(target), "")
 }
 
+// elementImportClash finds the member or other import of e's namespace that already holds name.
 func (m *migration) elementImportClash(e *sysmlv1.Element, name string) (*sysmlv1.Element, bool) {
 	if e.Parent == nil {
 		return nil, false
@@ -3595,11 +3598,14 @@ func (m *migration) allocationFallbackNote(client, supplier *sysmlv1.Element) st
 	}
 	var notes []string
 	for _, e := range []*sysmlv1.Element{client, supplier} {
-		if _, _, _, ok := m.allocationEnd(e); ok {
+		owner, _, _, ok := m.allocationEnd(e)
+		if ok {
 			continue
 		}
 		if m.packageFeature(e) {
 			notes = append(notes, "its end "+qualifiedName(e)+" is a feature of a package, which no allocation end can be typed by, so a plain dependency stands for it")
+		} else if owner != nil {
+			notes = append(notes, "its end "+qualifiedName(e)+" has no feature path relative to its enclosing written definition, so a plain dependency stands for it")
 		} else {
 			notes = append(notes, "its end "+qualifiedName(e)+" has no enclosing written definition to type an allocation end, so a plain dependency stands for it")
 		}
@@ -3615,7 +3621,15 @@ func (m *migration) allocationEnd(e *sysmlv1.Element) (owner *sysmlv1.Element, c
 	}
 	for p := e.Parent; p != nil; p = p.Parent {
 		if m.definitionEnd(p) && m.written(p) {
-			return p, m.ref(e, p), false, true
+			segments, owner := m.segments(e), m.segments(p)
+			if len(segments) <= len(owner) || !slices.Equal(segments[:len(owner)], owner) {
+				return p, "", false, false
+			}
+			chain := make([]string, len(segments)-len(owner))
+			for i, name := range segments[len(owner):] {
+				chain[i] = writeName(name)
+			}
+			return p, strings.Join(chain, "."), false, true
 		}
 	}
 	return nil, "", false, false

@@ -142,7 +142,8 @@ func TestMultiEndedDependenciesWriteEveryPair(t *testing.T) {
 	r := migrateDocument(t, members, applications)
 	for _, line := range []string{
 		"allocation def 'A to C' {", "allocation def 'A to D' {", "allocation def 'B to C' {", "allocation def 'B to D' {",
-		"end a : A;", "end c : C;", "end d : D;", "end b : B;",
+		"end :>> source : A;", "end :>> source : B;",
+		"end :>> target : C;", "end :>> target : D;",
 		"satisfy requirement : R1;", "satisfy requirement : R2;",
 	} {
 		wantLine(t, r.Notation, line)
@@ -668,7 +669,7 @@ func TestFlowOverSeveralConnectorsIsReportedOnce(t *testing.T) {
 	})
 	t.Run("one broken", func(t *testing.T) {
 		r := multiConnectorFlow(t, "_missing", "_p_spare")
-		wantLine(t, r.Notation, "flow 'out'.fuel to spare.'in'.fuel;")
+		wantLine(t, r.Notation, "flow of Gas from 'out'.fuel to spare.'in'.fuel;")
 		es := entriesFor(r, "_if")
 		if len(es) != 1 || es[0].Verdict != migrate.Approximated ||
 			!strings.Contains(es[0].Note, "only the flow of Gas is written; realizing connector 'feed1' is not migrated") {
@@ -683,8 +684,8 @@ func TestFlowOverSeveralConnectorsIsReportedOnce(t *testing.T) {
 	})
 	t.Run("both written", func(t *testing.T) {
 		r := multiConnectorFlow(t, "_p_engine", "_p_spare")
-		wantLine(t, r.Notation, "flow 'out'.fuel to engine.'in'.fuel;")
-		wantLine(t, r.Notation, "flow 'out'.fuel to spare.'in'.fuel;")
+		wantLine(t, r.Notation, "flow of Gas from 'out'.fuel to engine.'in'.fuel;")
+		wantLine(t, r.Notation, "flow of Gas from 'out'.fuel to spare.'in'.fuel;")
 		if es := entriesFor(r, "_if"); len(es) != 1 || es[0].Verdict != migrate.Mapped {
 			t.Errorf("entries for _if = %+v, want one mapped entry", es)
 		}
@@ -1385,8 +1386,8 @@ func TestNamedRelationshipsKeepTheirNames(t *testing.T) {
 	wantLine(t, r.Notation, "verify requirement ver : Req;")
 	wantLine(t, r.Notation, "dependency 'ref' from Thing to Req {")
 	wantLine(t, r.Notation, "allocation def alloc {")
-	wantLine(t, r.Notation, "end thing : Thing;")
-	wantLine(t, r.Notation, "end piece : Piece;")
+	wantLine(t, r.Notation, "end :>> source : Thing;")
+	wantLine(t, r.Notation, "end :>> target : Piece;")
 	wantLine(t, r.Notation, "dependency trace from Thing to Req; /* «Trace» */")
 	wantLine(t, r.Notation, "dependency copy from Req2 to Req; /* «Copy» */")
 	for id, want := range map[string]struct {

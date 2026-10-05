@@ -319,3 +319,11 @@ func TestPackageURIIsNotWritten(t *testing.T) {
 		t.Errorf("package URI was written:\n%s", r.Notation)
 	}
 }
+
+func TestAllocationChainIsRelativeToItsDefinition(t *testing.T) {
+	r := migrateDocument(t, ownerUsageAllocation, ownerUsageAllocationApplications)
+	assertStereotypeMigrationValid(t, r)
+	wantLine(t, r.Notation, "end :>> source : Ctl;")
+	wantLine(t, r.Notation, "allocate source.run.'set status' to target;")
+	wantNoLine(t, r.Notation, "allocate source.Ctl::run")
+}
