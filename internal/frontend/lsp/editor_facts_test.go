@@ -453,3 +453,28 @@ func TestInlayHintsOutsideTheRangeAreDropped(t *testing.T) {
 		t.Errorf("hints on the value's line = %v, want only its value", got)
 	}
 }
+
+func TestInlayHintAtTheRangeEndBelongsToTheNextRange(t *testing.T) {
+	s := NewServer(model.NewWorkspace())
+	u := uri.File(filepath.Join(t.TempDir(), "lines.sysml"))
+	openDoc(t, s, u, multilineModel)
+	at := positionAfter(t, multilineModel, "attribute total")
+	hintsIn := func(r protocol.Range) int {
+		hints, err := s.InlayHint(&inlayHintParams{TextDocument: protocol.TextDocumentIdentifier{URI: u}, Range: r})
+		if err != nil {
+			t.Fatalf("InlayHint: %v", err)
+		}
+		return len(hints)
+	}
+	start := protocol.Position{Line: at.Line}
+	if n := hintsIn(protocol.Range{Start: start, End: at}); n != 0 {
+		t.Errorf("%d hints in a range ending where the type hint sits; the end is excluded", n)
+	}
+	after := protocol.Position{Line: at.Line, Character: at.Character + 1}
+	if n := hintsIn(protocol.Range{Start: start, End: after}); n != 1 {
+		t.Errorf("%d hints in a range ending just past the type hint, want it alone", n)
+	}
+	if n := hintsIn(protocol.Range{Start: at, End: after}); n != 1 {
+		t.Errorf("%d hints in a range starting on the type hint, want it included", n)
+	}
+}

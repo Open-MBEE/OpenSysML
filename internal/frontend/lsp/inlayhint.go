@@ -89,13 +89,13 @@ func (s *Server) InlayHint(params *inlayHintParams) ([]inlayHint, error) {
 	return out, nil
 }
 
-// inRange reports whether p lies in r, its end included: an editor asking for
-// the lines on screen is owed the hint at the end of the last one.
+// inRange reports whether p lies in r, which like every LSP range includes its
+// start and excludes its end.
 func inRange(p protocol.Position, r protocol.Range) bool {
-	before := func(a, b protocol.Position) bool {
-		return a.Line < b.Line || (a.Line == b.Line && a.Character <= b.Character)
+	less := func(a, b protocol.Position) bool {
+		return a.Line < b.Line || (a.Line == b.Line && a.Character < b.Character)
 	}
-	return before(r.Start, p) && before(p, r.End)
+	return !less(p, r.Start) && less(p, r.End)
 }
 
 // usagesIn lists the usages declared under scope whose declaration overlaps
