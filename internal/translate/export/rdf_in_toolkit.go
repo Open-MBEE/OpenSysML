@@ -691,7 +691,9 @@ func (n *normalizer) rangeBounds(subject rdf.Term) ([]rdf.Term, int) {
 // deriveSuccessionEnds states the ends of a succession written between
 // members through its unnamed reference features: the member an end targets
 // where the toolkit resolves it, `then` beside the next member where it names
-// nothing.
+// nothing. A source the notation names by position alone — the `entry;`
+// action or another nameless member written right before — is stated as that
+// position, since `first` has no name to spell for it.
 func (n *normalizer) deriveSuccessionEnds() {
 	graph := n.graph
 	for _, subject := range graph.Subjects() {
@@ -704,23 +706,24 @@ func (n *normalizer) deriveSuccessionEnds() {
 			continue
 		}
 		source, target := n.successionEnds(subject)
-		if source.Value != "" {
+		previous, next := n.sequencedNeighbours(owner, subject)
+		named := source.Value != "" && !n.positionalSource(source, previous)
+		if named {
 			graph.Add(subject, rdf.SysMLTerm(pSourceFeature), source)
 			graph.Add(subject, rdf.OpenSysMLTerm(xEndVerb), rdf.String("first"))
 		}
-		previous, next := n.sequencedNeighbours(owner, subject)
-		if source.Value == "" && previous.Value != "" && target.Value != "" {
+		if !named && previous.Value != "" && target.Value != "" {
 			graph.Add(subject, rdf.OpenSysMLTerm(xSourceMember), previous)
 		}
 		switch {
-		case target.Value != "" && target != next:
+		case target.Value != "" && (target != next || source.Value != ""):
 			graph.Add(subject, rdf.SysMLTerm(pTargetFeature), target)
-			if source.Value == "" {
+			if !named {
 				graph.Add(subject, rdf.OpenSysMLTerm(xEndForm), rdf.String(formThen))
 			}
-		case source.Value != "" && graph.HasProperty(subject, rdf.SysML+pTargetFeature):
+		case named && graph.HasProperty(subject, rdf.SysML+pTargetFeature):
 		case next.Value != "":
-			if source.Value == "" {
+			if !named {
 				graph.Add(subject, rdf.OpenSysMLTerm(xEndForm), rdf.String(formThen))
 				graph.Add(subject, rdf.OpenSysMLTerm(xTargetMember), next)
 			} else {
@@ -728,6 +731,16 @@ func (n *normalizer) deriveSuccessionEnds() {
 			}
 		}
 	}
+}
+
+// positionalSource reports a resolved source end that only its position
+// names: a nameless member — or the one a nameless `entry;` membership owns —
+// written right before the succession (SysML v2 1.0 § 7.17.4).
+func (n *normalizer) positionalSource(source, previous rdf.Term) bool {
+	if previous.Value == "" || n.graph.HasProperty(source, rdf.SysML+pDeclaredName) {
+		return false
+	}
+	return source == previous || n.memberOwner[source.Value] == previous
 }
 
 // successionEnds is what a succession's end features refer to, falling back
@@ -745,9 +758,6 @@ func (n *normalizer) successionEnds(subject rdf.Term) (source, target rdf.Term) 
 		if t := firstIRI(graph, last, "featureTarget"); target.Value == "" && t.IsIRI() && t != last {
 			target = t
 		}
-	}
-	if source.Value != "" {
-		graph.Add(subject, rdf.SysMLTerm(pSourceFeature), source)
 	}
 	return source, target
 }
@@ -773,7 +783,7 @@ func (n *normalizer) sequencedNeighbours(owner, subject rdf.Term) (previous, nex
 			m = mMembership
 		}
 		return m != "" && !ontology.IsAncestorOrSelf(m, "Succession") &&
-			(m == mMembership || !relationshipLike(m))
+			(m == mMembership || m == mSubaction || !relationshipLike(m))
 	}
 	members := n.ownerMembers[owner.Value]
 	for i, member := range members {

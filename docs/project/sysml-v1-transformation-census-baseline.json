@@ -8668,14 +8668,16 @@
         "ownedRelationship"
       ],
       "ocl": "sha256:c494af3665131f03cd2522640151b765ae7ad82609d67d79976d13ef41c9c2d7",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
-        "internal/translate/migrate/activity.go:declareKind"
+        "internal/translate/migrate/activity.go:readSelf",
+        "internal/translate/migrate/context.go:self"
       ],
       "tests": [
+        "tests/migrate/object_reads_test.go:TestReadSelfActionResultIsThis",
         "tests/corpus/pssm_migration_test.go:TestPSSMSuiteMigration"
       ],
-      "reason": "written as an action with no body: the object read is `this`, which the actions its result flows into name directly",
+      "reason": "written as `action n { out result : T[1] = this; }`, an ActionUsage whose result pin is an `out` feature typed and bounded as the pin declares and bound to `this` (spelled `context` in a def whose body is written there), the Occurrence::this the mapping's FeatureReferenceExpression names; a node no edge leads to is started by the activity (`first start then n;`) (PSSM: 1038 mapped, 7 approximated of 1045, the 7 for a sibling's name)",
       "scope": [
         "uml:ReadSelfAction"
       ]
@@ -8695,14 +8697,16 @@
         "memberElement"
       ],
       "ocl": "sha256:5f3b25fc5ae30087714065d8e4ebed942794d32d7589bbeff8df6d1b1a3c1f7f",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
-        "internal/translate/migrate/activity.go:declareKind"
+        "internal/translate/migrate/activity.go:readSelf",
+        "internal/translate/migrate/context.go:self"
       ],
       "tests": [
+        "tests/migrate/object_reads_test.go:TestReadSelfActionResultIsThis",
         "tests/corpus/pssm_migration_test.go:TestPSSMSuiteMigration"
       ],
-      "reason": "written as an action with no body: the object read is `this`, which the actions its result flows into name directly",
+      "reason": "written as `action n { out result : T[1] = this; }`, an ActionUsage whose result pin is an `out` feature typed and bounded as the pin declares and bound to `this` (spelled `context` in a def whose body is written there), the Occurrence::this the mapping's FeatureReferenceExpression names; a node no edge leads to is started by the activity (`first start then n;`) (PSSM: 1038 mapped, 7 approximated of 1045, the 7 for a sibling's name)",
       "scope": [
         "uml:ReadSelfAction"
       ]
@@ -8722,14 +8726,16 @@
         "value"
       ],
       "ocl": "sha256:d2dbd3dd49d05aa521bb1e16c038f2b7116aaeeb8fd5f627e82d8e9f3fdc6b5d",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
-        "internal/translate/migrate/activity.go:declareKind"
+        "internal/translate/migrate/activity.go:readSelf",
+        "internal/translate/migrate/context.go:self"
       ],
       "tests": [
+        "tests/migrate/object_reads_test.go:TestReadSelfActionResultIsThis",
         "tests/corpus/pssm_migration_test.go:TestPSSMSuiteMigration"
       ],
-      "reason": "written as an action with no body: the object read is `this`, which the actions its result flows into name directly",
+      "reason": "written as `action n { out result : T[1] = this; }`, an ActionUsage whose result pin is an `out` feature typed and bounded as the pin declares and bound to `this` (spelled `context` in a def whose body is written there), the Occurrence::this the mapping's FeatureReferenceExpression names; a node no edge leads to is started by the activity (`first start then n;`) (PSSM: 1038 mapped, 7 approximated of 1045, the 7 for a sibling's name)",
       "scope": [
         "uml:ReadSelfAction"
       ]
@@ -8751,14 +8757,18 @@
         "filter"
       ],
       "ocl": "sha256:6c4e136ec794cc1a9856e57ab86460fdeaa8fc8b398c786e2803aea84894ce25",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
-        "internal/translate/migrate/activity.go:declareKind"
+        "internal/translate/migrate/activity.go:readSelf",
+        "internal/translate/migrate/context.go:self",
+        "internal/translate/migrate/activity.go:selfFlows"
       ],
       "tests": [
+        "tests/migrate/object_reads_test.go:TestReadSelfActionResultIsThis",
+        "tests/migrate/object_reads_test.go:TestReadSelfResultFlowsToTheActionsItFeeds",
         "tests/corpus/pssm_migration_test.go:TestPSSMSuiteMigration"
       ],
-      "reason": "written as an action with no body: the object read is `this`, which the actions its result flows into name directly",
+      "reason": "written as `action n { out result : T[1] = this; }`, an ActionUsage whose result pin is an `out` feature typed and bounded as the pin declares and bound to `this` (spelled `context` in a def whose body is written there), the Occurrence::this the mapping's FeatureReferenceExpression names; a node no edge leads to is started by the activity (`first start then n;`) (PSSM: 1038 mapped, 7 approximated of 1045, the 7 for a sibling's name); the result flows to each pin it feeds that the receiving action declares (`flow n.result to a.p;`, PSSM: 315 flows), while an object pin folded into the action that receives it names `this` itself; a node named `this` is renamed, since every action inherits Occurrence::this; candidate erratum: the mapping marks the result pin abstract (isAbstract = true) while binding it to `this` with a FeatureValue, but an abstract feature's values are those of the features specializing it and the pin has none, so the binding contradicts it; the pin is written as a concrete `out` feature",
       "scope": [
         "uml:ReadSelfAction"
       ]
@@ -8817,14 +8827,18 @@
       ],
       "operations": [],
       "ocl": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
-        "internal/translate/migrate/activity.go:declareKind"
+        "internal/translate/migrate/activity.go:readSelf",
+        "internal/translate/migrate/context.go:self",
+        "internal/translate/migrate/activity.go:selfFlows"
       ],
       "tests": [
+        "tests/migrate/object_reads_test.go:TestReadSelfActionResultIsThis",
+        "tests/migrate/object_reads_test.go:TestReadSelfResultFlowsToTheActionsItFeeds",
         "tests/corpus/pssm_migration_test.go:TestPSSMSuiteMigration"
       ],
-      "reason": "written as an action with no body: the object read is `this`, which the actions its result flows into name directly",
+      "reason": "written as `action n { out result : T[1] = this; }`, an ActionUsage whose result pin is an `out` feature typed and bounded as the pin declares and bound to `this` (spelled `context` in a def whose body is written there), the Occurrence::this the mapping's FeatureReferenceExpression names; a node no edge leads to is started by the activity (`first start then n;`) (PSSM: 1038 mapped, 7 approximated of 1045, the 7 for a sibling's name); the result flows to each pin it feeds that the receiving action declares (`flow n.result to a.p;`, PSSM: 315 flows), while an object pin folded into the action that receives it names `this` itself; a node named `this` is renamed, since every action inherits Occurrence::this",
       "scope": [
         "uml:ReadSelfAction"
       ]
@@ -9638,14 +9652,21 @@
         "ownedMemberFeature"
       ],
       "ocl": "sha256:88bc8bd51034f6733a32942a540d0acd5fb8954f10f196f4e362a678dbb886de",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
-        "internal/translate/migrate/activity.go:readFeature"
+        "internal/translate/migrate/activity.go:readFeature",
+        "internal/translate/migrate/activity.go:featureOn",
+        "internal/translate/migrate/activity.go:readObject",
+        "internal/translate/migrate/activity.go:fedAcross",
+        "internal/translate/migrate/context.go:selfType"
       ],
       "tests": [
-        "tests/migrate/parameter_multiplicity_test.go:TestReadFeatureResultsKeepTheirDeclaredMultiplicity"
+        "tests/migrate/object_reads_test.go:TestReadFeatureChainsOnTheObjectItReads",
+        "tests/migrate/object_reads_test.go:TestReadOfAnAssociationOwnedEndIsRefused",
+        "tests/migrate/parameter_multiplicity_test.go:TestReadFeatureResultsKeepTheirDeclaredMultiplicity",
+        "tests/corpus/pssm_migration_test.go:TestPSSMSuiteMigration"
       ],
-      "reason": "a read whose object resolves is written as the feature chain on its result pin; one whose object comes through a pin it cannot resolve is unmapped (PSSM: 655 of 896)",
+      "reason": "written as `action n { out result : T[m] = object.f; }`, the result pin bound to the feature chain from the object the action reads, the FeatureChainExpression the mapping writes: the object is `this` (written as the bare feature) when nothing feeds the object pin or a read self action does, the behavior's context also inside a structured node, and the object pin (`in object : C[1];`) when a flow brings another object; a read of a feature the object's v2 type does not have is deliberately left unmigrated, since the chain would not resolve: an association-owned end is a feature of the connection def, not of the type at its other end, and a state machine's attribute is no feature of its context (PSSM: 257 mapped, 325 approximated, 314 unmapped of 896; the 325 are reads whose object flows into a structured node from outside it, written in the mapping's form as reference actions the activity does not perform; the 314 read a feature the object's type lacks, of the 896 reads 315 naming an association-owned end and 2 a state machine attribute)",
       "scope": [
         "uml:ReadStructuralFeatureAction"
       ]
@@ -9665,14 +9686,21 @@
         "ownedRelationship"
       ],
       "ocl": "sha256:0a352df9f77cbd0232a68e528d10318e64ac9d6449dd8a701ce1b5bcbd90be66",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
-        "internal/translate/migrate/activity.go:readFeature"
+        "internal/translate/migrate/activity.go:readFeature",
+        "internal/translate/migrate/activity.go:featureOn",
+        "internal/translate/migrate/activity.go:readObject",
+        "internal/translate/migrate/activity.go:fedAcross",
+        "internal/translate/migrate/context.go:selfType"
       ],
       "tests": [
-        "tests/migrate/parameter_multiplicity_test.go:TestReadFeatureResultsKeepTheirDeclaredMultiplicity"
+        "tests/migrate/object_reads_test.go:TestReadFeatureChainsOnTheObjectItReads",
+        "tests/migrate/object_reads_test.go:TestReadOfAnAssociationOwnedEndIsRefused",
+        "tests/migrate/parameter_multiplicity_test.go:TestReadFeatureResultsKeepTheirDeclaredMultiplicity",
+        "tests/corpus/pssm_migration_test.go:TestPSSMSuiteMigration"
       ],
-      "reason": "a read whose object resolves is written as the feature chain on its result pin; one whose object comes through a pin it cannot resolve is unmapped (PSSM: 655 of 896)",
+      "reason": "written as `action n { out result : T[m] = object.f; }`, the result pin bound to the feature chain from the object the action reads, the FeatureChainExpression the mapping writes: the object is `this` (written as the bare feature) when nothing feeds the object pin or a read self action does, the behavior's context also inside a structured node, and the object pin (`in object : C[1];`) when a flow brings another object; a read of a feature the object's v2 type does not have is deliberately left unmigrated, since the chain would not resolve: an association-owned end is a feature of the connection def, not of the type at its other end, and a state machine's attribute is no feature of its context (PSSM: 257 mapped, 325 approximated, 314 unmapped of 896; the 325 are reads whose object flows into a structured node from outside it, written in the mapping's form as reference actions the activity does not perform; the 314 read a feature the object's type lacks, of the 896 reads 315 naming an association-owned end and 2 a state machine attribute)",
       "scope": [
         "uml:ReadStructuralFeatureAction"
       ]
@@ -9692,14 +9720,21 @@
         "value"
       ],
       "ocl": "sha256:aad702d59cd15034e2e74ad5b62419530222a25d65385ad4f46909bc621f2c0a",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
-        "internal/translate/migrate/activity.go:readFeature"
+        "internal/translate/migrate/activity.go:readFeature",
+        "internal/translate/migrate/activity.go:featureOn",
+        "internal/translate/migrate/activity.go:readObject",
+        "internal/translate/migrate/activity.go:fedAcross",
+        "internal/translate/migrate/context.go:selfType"
       ],
       "tests": [
-        "tests/migrate/parameter_multiplicity_test.go:TestReadFeatureResultsKeepTheirDeclaredMultiplicity"
+        "tests/migrate/object_reads_test.go:TestReadFeatureChainsOnTheObjectItReads",
+        "tests/migrate/object_reads_test.go:TestReadOfAnAssociationOwnedEndIsRefused",
+        "tests/migrate/parameter_multiplicity_test.go:TestReadFeatureResultsKeepTheirDeclaredMultiplicity",
+        "tests/corpus/pssm_migration_test.go:TestPSSMSuiteMigration"
       ],
-      "reason": "a read whose object resolves is written as the feature chain on its result pin; one whose object comes through a pin it cannot resolve is unmapped (PSSM: 655 of 896)",
+      "reason": "written as `action n { out result : T[m] = object.f; }`, the result pin bound to the feature chain from the object the action reads, the FeatureChainExpression the mapping writes: the object is `this` (written as the bare feature) when nothing feeds the object pin or a read self action does, the behavior's context also inside a structured node, and the object pin (`in object : C[1];`) when a flow brings another object; a read of a feature the object's v2 type does not have is deliberately left unmigrated, since the chain would not resolve: an association-owned end is a feature of the connection def, not of the type at its other end, and a state machine's attribute is no feature of its context (PSSM: 257 mapped, 325 approximated, 314 unmapped of 896; the 325 are reads whose object flows into a structured node from outside it, written in the mapping's form as reference actions the activity does not perform; the 314 read a feature the object's type lacks, of the 896 reads 315 naming an association-owned end and 2 a state machine attribute)",
       "scope": [
         "uml:ReadStructuralFeatureAction"
       ]
@@ -9719,14 +9754,21 @@
         "ownedRelationship"
       ],
       "ocl": "sha256:d199daa446b349e61423f84f6b84cb31296a83c25b9b947cbd7aff60a8dec25d",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
-        "internal/translate/migrate/activity.go:readFeature"
+        "internal/translate/migrate/activity.go:readFeature",
+        "internal/translate/migrate/activity.go:featureOn",
+        "internal/translate/migrate/activity.go:readObject",
+        "internal/translate/migrate/activity.go:fedAcross",
+        "internal/translate/migrate/context.go:selfType"
       ],
       "tests": [
-        "tests/migrate/parameter_multiplicity_test.go:TestReadFeatureResultsKeepTheirDeclaredMultiplicity"
+        "tests/migrate/object_reads_test.go:TestReadFeatureChainsOnTheObjectItReads",
+        "tests/migrate/object_reads_test.go:TestReadOfAnAssociationOwnedEndIsRefused",
+        "tests/migrate/parameter_multiplicity_test.go:TestReadFeatureResultsKeepTheirDeclaredMultiplicity",
+        "tests/corpus/pssm_migration_test.go:TestPSSMSuiteMigration"
       ],
-      "reason": "a read whose object resolves is written as the feature chain on its result pin; one whose object comes through a pin it cannot resolve is unmapped (PSSM: 655 of 896)",
+      "reason": "written as `action n { out result : T[m] = object.f; }`, the result pin bound to the feature chain from the object the action reads, the FeatureChainExpression the mapping writes: the object is `this` (written as the bare feature) when nothing feeds the object pin or a read self action does, the behavior's context also inside a structured node, and the object pin (`in object : C[1];`) when a flow brings another object; a read of a feature the object's v2 type does not have is deliberately left unmigrated, since the chain would not resolve: an association-owned end is a feature of the connection def, not of the type at its other end, and a state machine's attribute is no feature of its context (PSSM: 257 mapped, 325 approximated, 314 unmapped of 896; the 325 are reads whose object flows into a structured node from outside it, written in the mapping's form as reference actions the activity does not perform; the 314 read a feature the object's type lacks, of the 896 reads 315 naming an association-owned end and 2 a state machine attribute)",
       "scope": [
         "uml:ReadStructuralFeatureAction"
       ]
@@ -9744,14 +9786,21 @@
       ],
       "operations": [],
       "ocl": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
-        "internal/translate/migrate/activity.go:readFeature"
+        "internal/translate/migrate/activity.go:readFeature",
+        "internal/translate/migrate/activity.go:featureOn",
+        "internal/translate/migrate/activity.go:readObject",
+        "internal/translate/migrate/activity.go:fedAcross",
+        "internal/translate/migrate/context.go:selfType"
       ],
       "tests": [
-        "tests/migrate/parameter_multiplicity_test.go:TestReadFeatureResultsKeepTheirDeclaredMultiplicity"
+        "tests/migrate/object_reads_test.go:TestReadFeatureChainsOnTheObjectItReads",
+        "tests/migrate/object_reads_test.go:TestReadOfAnAssociationOwnedEndIsRefused",
+        "tests/migrate/parameter_multiplicity_test.go:TestReadFeatureResultsKeepTheirDeclaredMultiplicity",
+        "tests/corpus/pssm_migration_test.go:TestPSSMSuiteMigration"
       ],
-      "reason": "a read whose object resolves is written as the feature chain on its result pin; one whose object comes through a pin it cannot resolve is unmapped (PSSM: 655 of 896)",
+      "reason": "written as `action n { out result : T[m] = object.f; }`, the result pin bound to the feature chain from the object the action reads, the FeatureChainExpression the mapping writes: the object is `this` (written as the bare feature) when nothing feeds the object pin or a read self action does, the behavior's context also inside a structured node, and the object pin (`in object : C[1];`) when a flow brings another object; a read of a feature the object's v2 type does not have is deliberately left unmigrated, since the chain would not resolve: an association-owned end is a feature of the connection def, not of the type at its other end, and a state machine's attribute is no feature of its context (PSSM: 257 mapped, 325 approximated, 314 unmapped of 896; the 325 are reads whose object flows into a structured node from outside it, written in the mapping's form as reference actions the activity does not perform; the 314 read a feature the object's type lacks, of the 896 reads 315 naming an association-owned end and 2 a state machine attribute)",
       "scope": [
         "uml:ReadStructuralFeatureAction"
       ]
@@ -9771,14 +9820,21 @@
         "memberElement"
       ],
       "ocl": "sha256:367053f90954cb7cbf6c8510354f6aaecb22c09c55d34482e980f068488f6531",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
-        "internal/translate/migrate/activity.go:readFeature"
+        "internal/translate/migrate/activity.go:readFeature",
+        "internal/translate/migrate/activity.go:featureOn",
+        "internal/translate/migrate/activity.go:readObject",
+        "internal/translate/migrate/activity.go:fedAcross",
+        "internal/translate/migrate/context.go:selfType"
       ],
       "tests": [
-        "tests/migrate/parameter_multiplicity_test.go:TestReadFeatureResultsKeepTheirDeclaredMultiplicity"
+        "tests/migrate/object_reads_test.go:TestReadFeatureChainsOnTheObjectItReads",
+        "tests/migrate/object_reads_test.go:TestReadOfAnAssociationOwnedEndIsRefused",
+        "tests/migrate/parameter_multiplicity_test.go:TestReadFeatureResultsKeepTheirDeclaredMultiplicity",
+        "tests/corpus/pssm_migration_test.go:TestPSSMSuiteMigration"
       ],
-      "reason": "a read whose object resolves is written as the feature chain on its result pin; one whose object comes through a pin it cannot resolve is unmapped (PSSM: 655 of 896)",
+      "reason": "written as `action n { out result : T[m] = object.f; }`, the result pin bound to the feature chain from the object the action reads, the FeatureChainExpression the mapping writes: the object is `this` (written as the bare feature) when nothing feeds the object pin or a read self action does, the behavior's context also inside a structured node, and the object pin (`in object : C[1];`) when a flow brings another object; a read of a feature the object's v2 type does not have is deliberately left unmigrated, since the chain would not resolve: an association-owned end is a feature of the connection def, not of the type at its other end, and a state machine's attribute is no feature of its context (PSSM: 257 mapped, 325 approximated, 314 unmapped of 896; the 325 are reads whose object flows into a structured node from outside it, written in the mapping's form as reference actions the activity does not perform; the 314 read a feature the object's type lacks, of the 896 reads 315 naming an association-owned end and 2 a state machine attribute)",
       "scope": [
         "uml:ReadStructuralFeatureAction"
       ]
@@ -9798,14 +9854,21 @@
         "ownedRelationship"
       ],
       "ocl": "sha256:dc767145997be9ce60d93c2e82e9203419b71f3b5356171b736a33c9af96868f",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
-        "internal/translate/migrate/activity.go:readFeature"
+        "internal/translate/migrate/activity.go:readFeature",
+        "internal/translate/migrate/activity.go:featureOn",
+        "internal/translate/migrate/activity.go:readObject",
+        "internal/translate/migrate/activity.go:fedAcross",
+        "internal/translate/migrate/context.go:selfType"
       ],
       "tests": [
-        "tests/migrate/parameter_multiplicity_test.go:TestReadFeatureResultsKeepTheirDeclaredMultiplicity"
+        "tests/migrate/object_reads_test.go:TestReadFeatureChainsOnTheObjectItReads",
+        "tests/migrate/object_reads_test.go:TestReadOfAnAssociationOwnedEndIsRefused",
+        "tests/migrate/parameter_multiplicity_test.go:TestReadFeatureResultsKeepTheirDeclaredMultiplicity",
+        "tests/corpus/pssm_migration_test.go:TestPSSMSuiteMigration"
       ],
-      "reason": "a read whose object resolves is written as the feature chain on its result pin; one whose object comes through a pin it cannot resolve is unmapped (PSSM: 655 of 896)",
+      "reason": "written as `action n { out result : T[m] = object.f; }`, the result pin bound to the feature chain from the object the action reads, the FeatureChainExpression the mapping writes: the object is `this` (written as the bare feature) when nothing feeds the object pin or a read self action does, the behavior's context also inside a structured node, and the object pin (`in object : C[1];`) when a flow brings another object; a read of a feature the object's v2 type does not have is deliberately left unmigrated, since the chain would not resolve: an association-owned end is a feature of the connection def, not of the type at its other end, and a state machine's attribute is no feature of its context (PSSM: 257 mapped, 325 approximated, 314 unmapped of 896; the 325 are reads whose object flows into a structured node from outside it, written in the mapping's form as reference actions the activity does not perform; the 314 read a feature the object's type lacks, of the 896 reads 315 naming an association-owned end and 2 a state machine attribute)",
       "scope": [
         "uml:ReadStructuralFeatureAction"
       ]
@@ -9825,14 +9888,21 @@
         "ownedMemberFeature"
       ],
       "ocl": "sha256:4607640fdcf18e33ea385afddc2c8cf1a96e5a2f6c6b39855a192f97c062d4dc",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
-        "internal/translate/migrate/activity.go:readFeature"
+        "internal/translate/migrate/activity.go:readFeature",
+        "internal/translate/migrate/activity.go:featureOn",
+        "internal/translate/migrate/activity.go:readObject",
+        "internal/translate/migrate/activity.go:fedAcross",
+        "internal/translate/migrate/context.go:selfType"
       ],
       "tests": [
-        "tests/migrate/parameter_multiplicity_test.go:TestReadFeatureResultsKeepTheirDeclaredMultiplicity"
+        "tests/migrate/object_reads_test.go:TestReadFeatureChainsOnTheObjectItReads",
+        "tests/migrate/object_reads_test.go:TestReadOfAnAssociationOwnedEndIsRefused",
+        "tests/migrate/parameter_multiplicity_test.go:TestReadFeatureResultsKeepTheirDeclaredMultiplicity",
+        "tests/corpus/pssm_migration_test.go:TestPSSMSuiteMigration"
       ],
-      "reason": "a read whose object resolves is written as the feature chain on its result pin; one whose object comes through a pin it cannot resolve is unmapped (PSSM: 655 of 896)",
+      "reason": "written as `action n { out result : T[m] = object.f; }`, the result pin bound to the feature chain from the object the action reads, the FeatureChainExpression the mapping writes: the object is `this` (written as the bare feature) when nothing feeds the object pin or a read self action does, the behavior's context also inside a structured node, and the object pin (`in object : C[1];`) when a flow brings another object; a read of a feature the object's v2 type does not have is deliberately left unmigrated, since the chain would not resolve: an association-owned end is a feature of the connection def, not of the type at its other end, and a state machine's attribute is no feature of its context (PSSM: 257 mapped, 325 approximated, 314 unmapped of 896; the 325 are reads whose object flows into a structured node from outside it, written in the mapping's form as reference actions the activity does not perform; the 314 read a feature the object's type lacks, of the 896 reads 315 naming an association-owned end and 2 a state machine attribute)",
       "scope": [
         "uml:ReadStructuralFeatureAction"
       ]
@@ -9852,14 +9922,21 @@
         "value"
       ],
       "ocl": "sha256:d46012eda46894e0d9d77d7bcd6ffe20093a7e2c2e1791e03cef219dc3d89004",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
-        "internal/translate/migrate/activity.go:readFeature"
+        "internal/translate/migrate/activity.go:readFeature",
+        "internal/translate/migrate/activity.go:featureOn",
+        "internal/translate/migrate/activity.go:readObject",
+        "internal/translate/migrate/activity.go:fedAcross",
+        "internal/translate/migrate/context.go:selfType"
       ],
       "tests": [
-        "tests/migrate/parameter_multiplicity_test.go:TestReadFeatureResultsKeepTheirDeclaredMultiplicity"
+        "tests/migrate/object_reads_test.go:TestReadFeatureChainsOnTheObjectItReads",
+        "tests/migrate/object_reads_test.go:TestReadOfAnAssociationOwnedEndIsRefused",
+        "tests/migrate/parameter_multiplicity_test.go:TestReadFeatureResultsKeepTheirDeclaredMultiplicity",
+        "tests/corpus/pssm_migration_test.go:TestPSSMSuiteMigration"
       ],
-      "reason": "a read whose object resolves is written as the feature chain on its result pin; one whose object comes through a pin it cannot resolve is unmapped (PSSM: 655 of 896)",
+      "reason": "written as `action n { out result : T[m] = object.f; }`, the result pin bound to the feature chain from the object the action reads, the FeatureChainExpression the mapping writes: the object is `this` (written as the bare feature) when nothing feeds the object pin or a read self action does, the behavior's context also inside a structured node, and the object pin (`in object : C[1];`) when a flow brings another object; a read of a feature the object's v2 type does not have is deliberately left unmigrated, since the chain would not resolve: an association-owned end is a feature of the connection def, not of the type at its other end, and a state machine's attribute is no feature of its context (PSSM: 257 mapped, 325 approximated, 314 unmapped of 896; the 325 are reads whose object flows into a structured node from outside it, written in the mapping's form as reference actions the activity does not perform; the 314 read a feature the object's type lacks, of the 896 reads 315 naming an association-owned end and 2 a state machine attribute)",
       "scope": [
         "uml:ReadStructuralFeatureAction"
       ]
@@ -9879,14 +9956,21 @@
         "memberElement"
       ],
       "ocl": "sha256:f7738e7b8fe002bd3527d9783c1933c40c1b4f52e9a21098310b5a5a4a900a35",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
-        "internal/translate/migrate/activity.go:readFeature"
+        "internal/translate/migrate/activity.go:readFeature",
+        "internal/translate/migrate/activity.go:featureOn",
+        "internal/translate/migrate/activity.go:readObject",
+        "internal/translate/migrate/activity.go:fedAcross",
+        "internal/translate/migrate/context.go:selfType"
       ],
       "tests": [
-        "tests/migrate/parameter_multiplicity_test.go:TestReadFeatureResultsKeepTheirDeclaredMultiplicity"
+        "tests/migrate/object_reads_test.go:TestReadFeatureChainsOnTheObjectItReads",
+        "tests/migrate/object_reads_test.go:TestReadOfAnAssociationOwnedEndIsRefused",
+        "tests/migrate/parameter_multiplicity_test.go:TestReadFeatureResultsKeepTheirDeclaredMultiplicity",
+        "tests/corpus/pssm_migration_test.go:TestPSSMSuiteMigration"
       ],
-      "reason": "a read whose object resolves is written as the feature chain on its result pin; one whose object comes through a pin it cannot resolve is unmapped (PSSM: 655 of 896)",
+      "reason": "written as `action n { out result : T[m] = object.f; }`, the result pin bound to the feature chain from the object the action reads, the FeatureChainExpression the mapping writes: the object is `this` (written as the bare feature) when nothing feeds the object pin or a read self action does, the behavior's context also inside a structured node, and the object pin (`in object : C[1];`) when a flow brings another object; a read of a feature the object's v2 type does not have is deliberately left unmigrated, since the chain would not resolve: an association-owned end is a feature of the connection def, not of the type at its other end, and a state machine's attribute is no feature of its context (PSSM: 257 mapped, 325 approximated, 314 unmapped of 896; the 325 are reads whose object flows into a structured node from outside it, written in the mapping's form as reference actions the activity does not perform; the 314 read a feature the object's type lacks, of the 896 reads 315 naming an association-owned end and 2 a state machine attribute)",
       "scope": [
         "uml:ReadStructuralFeatureAction"
       ]
@@ -9906,14 +9990,21 @@
         "ownedMemberParameter"
       ],
       "ocl": "sha256:75c7e2cd1741ba7efe470d73f747f1dabf808b655443e9bd57a340c2767fef6b",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
-        "internal/translate/migrate/activity.go:readFeature"
+        "internal/translate/migrate/activity.go:readFeature",
+        "internal/translate/migrate/activity.go:featureOn",
+        "internal/translate/migrate/activity.go:readObject",
+        "internal/translate/migrate/activity.go:fedAcross",
+        "internal/translate/migrate/context.go:selfType"
       ],
       "tests": [
-        "tests/migrate/parameter_multiplicity_test.go:TestReadFeatureResultsKeepTheirDeclaredMultiplicity"
+        "tests/migrate/object_reads_test.go:TestReadFeatureChainsOnTheObjectItReads",
+        "tests/migrate/object_reads_test.go:TestReadOfAnAssociationOwnedEndIsRefused",
+        "tests/migrate/parameter_multiplicity_test.go:TestReadFeatureResultsKeepTheirDeclaredMultiplicity",
+        "tests/corpus/pssm_migration_test.go:TestPSSMSuiteMigration"
       ],
-      "reason": "a read whose object resolves is written as the feature chain on its result pin; one whose object comes through a pin it cannot resolve is unmapped (PSSM: 655 of 896)",
+      "reason": "written as `action n { out result : T[m] = object.f; }`, the result pin bound to the feature chain from the object the action reads, the FeatureChainExpression the mapping writes: the object is `this` (written as the bare feature) when nothing feeds the object pin or a read self action does, the behavior's context also inside a structured node, and the object pin (`in object : C[1];`) when a flow brings another object; a read of a feature the object's v2 type does not have is deliberately left unmigrated, since the chain would not resolve: an association-owned end is a feature of the connection def, not of the type at its other end, and a state machine's attribute is no feature of its context (PSSM: 257 mapped, 325 approximated, 314 unmapped of 896; the 325 are reads whose object flows into a structured node from outside it, written in the mapping's form as reference actions the activity does not perform; the 314 read a feature the object's type lacks, of the 896 reads 315 naming an association-owned end and 2 a state machine attribute)",
       "scope": [
         "uml:ReadStructuralFeatureAction"
       ]
@@ -9934,14 +10025,21 @@
         "direction"
       ],
       "ocl": "sha256:3372687032feab7ab263000cd5fa37a062269e201af7ffec3573314ab71ca2e0",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
-        "internal/translate/migrate/activity.go:readFeature"
+        "internal/translate/migrate/activity.go:readFeature",
+        "internal/translate/migrate/activity.go:featureOn",
+        "internal/translate/migrate/activity.go:readObject",
+        "internal/translate/migrate/activity.go:fedAcross",
+        "internal/translate/migrate/context.go:selfType"
       ],
       "tests": [
-        "tests/migrate/parameter_multiplicity_test.go:TestReadFeatureResultsKeepTheirDeclaredMultiplicity"
+        "tests/migrate/object_reads_test.go:TestReadFeatureChainsOnTheObjectItReads",
+        "tests/migrate/object_reads_test.go:TestReadOfAnAssociationOwnedEndIsRefused",
+        "tests/migrate/parameter_multiplicity_test.go:TestReadFeatureResultsKeepTheirDeclaredMultiplicity",
+        "tests/corpus/pssm_migration_test.go:TestPSSMSuiteMigration"
       ],
-      "reason": "a read whose object resolves is written as the feature chain on its result pin; one whose object comes through a pin it cannot resolve is unmapped (PSSM: 655 of 896)",
+      "reason": "written as `action n { out result : T[m] = object.f; }`, the result pin bound to the feature chain from the object the action reads, the FeatureChainExpression the mapping writes: the object is `this` (written as the bare feature) when nothing feeds the object pin or a read self action does, the behavior's context also inside a structured node, and the object pin (`in object : C[1];`) when a flow brings another object; a read of a feature the object's v2 type does not have is deliberately left unmigrated, since the chain would not resolve: an association-owned end is a feature of the connection def, not of the type at its other end, and a state machine's attribute is no feature of its context (PSSM: 257 mapped, 325 approximated, 314 unmapped of 896; the 325 are reads whose object flows into a structured node from outside it, written in the mapping's form as reference actions the activity does not perform; the 314 read a feature the object's type lacks, of the 896 reads 315 naming an association-owned end and 2 a state machine attribute)",
       "scope": [
         "uml:ReadStructuralFeatureAction"
       ]
@@ -9960,14 +10058,21 @@
         "ownedRelationship"
       ],
       "ocl": "sha256:4ba6e2f6d77ffe791bba86118d015ce0204560780523da1c90dc1d497983fdad",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
-        "internal/translate/migrate/activity.go:readFeature"
+        "internal/translate/migrate/activity.go:readFeature",
+        "internal/translate/migrate/activity.go:featureOn",
+        "internal/translate/migrate/activity.go:readObject",
+        "internal/translate/migrate/activity.go:fedAcross",
+        "internal/translate/migrate/context.go:selfType"
       ],
       "tests": [
-        "tests/migrate/parameter_multiplicity_test.go:TestReadFeatureResultsKeepTheirDeclaredMultiplicity"
+        "tests/migrate/object_reads_test.go:TestReadFeatureChainsOnTheObjectItReads",
+        "tests/migrate/object_reads_test.go:TestReadOfAnAssociationOwnedEndIsRefused",
+        "tests/migrate/parameter_multiplicity_test.go:TestReadFeatureResultsKeepTheirDeclaredMultiplicity",
+        "tests/corpus/pssm_migration_test.go:TestPSSMSuiteMigration"
       ],
-      "reason": "a read whose object resolves is written as the feature chain on its result pin; one whose object comes through a pin it cannot resolve is unmapped (PSSM: 655 of 896)",
+      "reason": "written as `action n { out result : T[m] = object.f; }`, the result pin bound to the feature chain from the object the action reads, the FeatureChainExpression the mapping writes: the object is `this` (written as the bare feature) when nothing feeds the object pin or a read self action does, the behavior's context also inside a structured node, and the object pin (`in object : C[1];`) when a flow brings another object; a read of a feature the object's v2 type does not have is deliberately left unmigrated, since the chain would not resolve: an association-owned end is a feature of the connection def, not of the type at its other end, and a state machine's attribute is no feature of its context (PSSM: 257 mapped, 325 approximated, 314 unmapped of 896; the 325 are reads whose object flows into a structured node from outside it, written in the mapping's form as reference actions the activity does not perform; the 314 read a feature the object's type lacks, of the 896 reads 315 naming an association-owned end and 2 a state machine attribute)",
       "scope": [
         "uml:ReadStructuralFeatureAction"
       ]
