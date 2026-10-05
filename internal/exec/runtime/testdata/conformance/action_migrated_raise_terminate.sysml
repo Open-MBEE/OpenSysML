@@ -1,5 +1,5 @@
 // The form a migrated RaiseExceptionAction writes: the raise is followed by a
-// terminate action, so a later step never performs.
+// terminate action, and the step after the terminate never performs.
 package test {
 	private import ScalarValues::*;
 
@@ -12,12 +12,12 @@ package test {
 			in exception : Integer = 1;
 		}
 		action 'terminate' terminate;
-		action after {
+		action later {
 			assign reached := 1;
 		}
-		action final terminate;
 
 		first start then raise;
 		first raise then 'terminate';
+		first 'terminate' then later;
 	}
 }

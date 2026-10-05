@@ -195,7 +195,7 @@ func (m *migration) newActivity(act, def *sysmlv1.Element) *activity {
 	}
 	for _, owner := range []*sysmlv1.Element{def, act} {
 		for _, c := range owner.Children {
-			if c.Role != "node" && c.Role != "edge" && c.Role != "observation" && m.nameOf(c) != "" {
+			if c.Role != "node" && c.Role != "edge" && c.Role != "observation" && c.Role != "variable" && m.nameOf(c) != "" {
 				a.used[m.nameOf(c)] = true
 			}
 		}
@@ -2665,12 +2665,12 @@ func (a *activity) readVariable(n *sysmlv1.Element, name string) {
 	results := n.Owned("result")
 	a.m.w.block(actionKw+name, func() {
 		a.declarePins(n, inputPins(n), nil, nil)
-		for _, r := range results[1:] {
-			a.m.add(r, Unmapped, "", "the action reads one value; the pin takes nothing")
-		}
 		if len(results) == 0 {
 			a.m.w.lines(commentLines("reads " + vname + ", which flows nowhere"))
 			return
+		}
+		for _, r := range results[1:] {
+			a.m.add(r, Unmapped, "", "the action reads one value; the pin takes nothing")
 		}
 		r := results[0]
 		pname := a.m.nameOf(r)
@@ -2796,15 +2796,19 @@ func (a *activity) reduceAction(n *sysmlv1.Element, name string) {
 		return
 	}
 	collection := firstOwned(n, "collection")
+	if collection == nil {
+		a.placeholder(n, name, "the action has no collection pin", Unmapped)
+		return
+	}
 	results := n.Owned("result")
 	a.m.w.block(actionKw+name, func() {
 		a.declarePins(n, inputPins(n), nil, nil)
-		for _, r := range results[1:] {
-			a.m.add(r, Unmapped, "", "the action reduces to one value; the pin takes nothing")
-		}
 		if len(results) == 0 {
 			a.m.w.lines(commentLines("reduces " + writeName(a.names[collection]) + ", which flows nowhere"))
 			return
+		}
+		for _, r := range results[1:] {
+			a.m.add(r, Unmapped, "", "the action reduces to one value; the pin takes nothing")
 		}
 		r := results[0]
 		pname := a.m.nameOf(r)
@@ -2876,7 +2880,11 @@ func (a *activity) raiseException(n *sysmlv1.Element, name string) {
 	a.m.w.line(actionKw + end + " terminate;")
 	a.madeUp(end)
 	a.raised[n] = end
-	a.m.add(n, Approximated, name, "v2 has no exceptions: raising one ends the enclosing activity, as an activity final does; the exception value is not passed to a caller")
+	note := "v2 has no exceptions: raising one ends the enclosing activity, as an activity final does; the exception value is not passed to a caller"
+	if isStructured(a.act) {
+		note += "; inside a structured node, the terminate ends only that node"
+	}
+	a.m.add(n, Approximated, name, note)
 }
 
 // primitiveReducer returns the library primitive a reduce action's reducer is

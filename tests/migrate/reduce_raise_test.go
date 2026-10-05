@@ -21,10 +21,19 @@ func TestReduceRaiseFixture(t *testing.T) {
 	wantNote(t, r, "_reduceModel", migrate.Mapped, "")
 	wantNote(t, r, "_reduceNone", migrate.Unmapped, "not a calc or function def, so it has no v2 function")
 
+	// A reduce with no result pin comments the fold and still maps; one with no
+	// collection pin has nothing to fold and is a placeholder.
+	wantLine(t, r.Notation, "/* reduces collection, which flows nowhere */")
+	wantNote(t, r, "_reduceNoOut", migrate.Mapped, "")
+	wantNote(t, r, "_reduceNoIn", migrate.Unmapped, "the action has no collection pin")
+
 	// A raise exception writes a sibling terminate after it; its own outgoing
 	// edge carries no token.
 	wantNote(t, r, "_raise", migrate.Approximated, "v2 has no exceptions: raising one ends the enclosing activity, as an activity final does; the exception value is not passed to a caller")
 	wantLine(t, r.Notation, "action 'terminate' terminate;")
 	wantLine(t, r.Notation, "first raise then 'terminate';")
 	wantNote(t, r, "_ra2", migrate.Unmapped, "the action raises an exception, so no token leaves it")
+
+	// A raise inside a structured node ends only that node's performance.
+	wantNote(t, r, "_raiseNested", migrate.Approximated, "inside a structured node, the terminate ends only that node")
 }

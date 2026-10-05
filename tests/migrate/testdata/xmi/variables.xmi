@@ -37,13 +37,14 @@
         </variable>
         <node xmi:type="uml:InitialNode" xmi:id="_init"/>
         <node xmi:type="uml:ReadVariableAction" xmi:id="_read" name="read" variable="_vCount">
-          <result xmi:type="uml:OutputPin" xmi:id="_readOut" name="count">
+          <result xmi:type="uml:OutputPin" xmi:id="_readOut" name="result">
             <type href="http://www.omg.org/spec/SysML/20181001/SysML.xmi#SysML_dataType.Integer"/>
             <lowerValue xmi:type="uml:LiteralInteger" xmi:id="_readOutL" value="0"/>
             <upperValue xmi:type="uml:LiteralUnlimitedNatural" xmi:id="_readOutU" value="*"/>
           </result>
         </node>
         <node xmi:type="uml:ClearVariableAction" xmi:id="_clear" name="clear" variable="_vCount"/>
+        <node xmi:type="uml:ReadVariableAction" xmi:id="_readless" name="readless" variable="_vCount"/>
         <node xmi:type="uml:AddVariableValueAction" xmi:id="_add" name="add" variable="_vCount">
           <value xmi:type="uml:InputPin" xmi:id="_addVal" name="value">
             <type href="http://www.omg.org/spec/SysML/20181001/SysML.xmi#SysML_dataType.Integer"/>
@@ -88,7 +89,7 @@
           </result>
         </node>
         <node xmi:type="uml:ReadVariableAction" xmi:id="_clash" name="clash" variable="_vCount">
-          <result xmi:type="uml:OutputPin" xmi:id="_clashOut" name="count2">
+          <result xmi:type="uml:OutputPin" xmi:id="_clashOut" name="count">
             <type href="http://www.omg.org/spec/SysML/20181001/SysML.xmi#SysML_dataType.Integer"/>
           </result>
         </node>
@@ -179,6 +180,18 @@
             <type href="http://www.omg.org/spec/SysML/20181001/SysML.xmi#SysML_dataType.Integer"/>
           </result>
         </node>
+        <node xmi:type="uml:ReduceAction" xmi:id="_reduceNoOut" name="reduceNoOut">
+          <reducer xmi:type="uml:FunctionBehavior" href="http://www.omg.org/spec/FUML/20180501/fUML_Library.xmi#PrimitiveBehaviors-IntegerFunctions-plus"/>
+          <collection xmi:type="uml:InputPin" xmi:id="_reduceNoOutIn" name="collection">
+            <type href="http://www.omg.org/spec/SysML/20181001/SysML.xmi#SysML_dataType.Integer"/>
+          </collection>
+        </node>
+        <node xmi:type="uml:ReduceAction" xmi:id="_reduceNoIn" name="reduceNoIn">
+          <reducer xmi:type="uml:FunctionBehavior" href="http://www.omg.org/spec/FUML/20180501/fUML_Library.xmi#PrimitiveBehaviors-IntegerFunctions-plus"/>
+          <result xmi:type="uml:OutputPin" xmi:id="_reduceNoInOut" name="result">
+            <type href="http://www.omg.org/spec/SysML/20181001/SysML.xmi#SysML_dataType.Integer"/>
+          </result>
+        </node>
         <node xmi:type="uml:ReduceAction" xmi:id="_reduceNone" name="reduceNone" reducer="_play">
           <collection xmi:type="uml:InputPin" xmi:id="_reduceNoneIn" name="collection">
             <type href="http://www.omg.org/spec/SysML/20181001/SysML.xmi#SysML_dataType.Integer"/>
@@ -196,6 +209,7 @@
         <edge xmi:type="uml:ObjectFlow" xmi:id="_rf1" source="_redFeed" target="_reduceIn"/>
         <edge xmi:type="uml:ObjectFlow" xmi:id="_rf2" source="_redFeed" target="_reduceModelIn"/>
         <edge xmi:type="uml:ObjectFlow" xmi:id="_rf3" source="_redFeed" target="_reduceNoneIn"/>
+        <edge xmi:type="uml:ObjectFlow" xmi:id="_rf5" source="_redFeed" target="_reduceNoOutIn"/>
         <ownedParameter xmi:type="uml:Parameter" xmi:id="_redFeedP" name="feed" direction="in">
           <type href="http://www.omg.org/spec/SysML/20181001/SysML.xmi#SysML_dataType.Integer"/>
           <lowerValue xmi:type="uml:LiteralInteger" xmi:id="_redFeedL" value="0"/>
@@ -217,9 +231,19 @@
         <node xmi:type="uml:ActivityParameterNode" xmi:id="_raiseFeed" name="feed">
           <parameter xmi:idref="_raiseFeedP"/>
         </node>
+        <node xmi:type="uml:StructuredActivityNode" xmi:id="_nestRaise" name="nestRaise">
+          <node xmi:type="uml:InitialNode" xmi:id="_nestRaiseInit"/>
+          <node xmi:type="uml:RaiseExceptionAction" xmi:id="_raiseNested" name="raiseNested">
+            <exception xmi:type="uml:InputPin" xmi:id="_raiseNestedIn" name="exception">
+              <type href="http://www.omg.org/spec/SysML/20181001/SysML.xmi#SysML_dataType.Integer"/>
+            </exception>
+          </node>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_nre1" source="_nestRaiseInit" target="_raiseNested"/>
+        </node>
         <node xmi:type="uml:ActivityFinalNode" xmi:id="_raiseFinal"/>
         <edge xmi:type="uml:ControlFlow" xmi:id="_ra1" source="_raiseInit" target="_raise"/>
         <edge xmi:type="uml:ObjectFlow" xmi:id="_rf4" source="_raiseFeed" target="_raiseIn"/>
+        <edge xmi:type="uml:ObjectFlow" xmi:id="_rf6" source="_raiseFeed" target="_raiseNestedIn"/>
         <edge xmi:type="uml:ControlFlow" xmi:id="_ra2" source="_raise" target="_after"/>
         <edge xmi:type="uml:ControlFlow" xmi:id="_ra3" source="_after" target="_raiseFinal"/>
         <ownedParameter xmi:type="uml:Parameter" xmi:id="_raiseFeedP" name="feed" direction="in">

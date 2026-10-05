@@ -172,11 +172,12 @@ func (p *primitive) result(i int, args []string) string {
 	return expr
 }
 
+// binaryCall matches an expression template of the form `F($1, $2)`.
+var binaryCall = regexp.MustCompile(`^(.+)\(\$1, \$2\)$`)
+
 // binaryCallFunc is the function an expression template of the form `F($1,
 // $2)` calls, or "" when the template is no such call: a binary function a
 // reduce action's body can invoke pairwise over the elements.
-var binaryCall = regexp.MustCompile(`^(.+)\(\$1, \$2\)$`)
-
 func binaryCallFunc(template string) string {
 	m := binaryCall.FindStringSubmatch(template)
 	if m == nil || strings.ContainsAny(m[1], "() ") {
