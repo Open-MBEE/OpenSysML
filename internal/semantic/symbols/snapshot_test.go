@@ -61,6 +61,27 @@ func TestSnapshotRoundTripKeepsTheGraph(t *testing.T) {
 	}
 }
 
+func TestSnapshotRoundTripsMetadataType(t *testing.T) {
+	idx := frozenBase(t, snapshotDocs)
+	metadataTypes := idx.LookupQualified("D::Safety")
+	if len(metadataTypes) == 0 {
+		t.Fatal("D::Safety was not indexed")
+	}
+	want := ElementRef{FQN: "D", Path: []int32{2, 1}, Doc: "d.sysml"}
+	metadataTypes[0].Facts = &LibraryFacts{MetadataType: want}
+
+	got := roundTrip(t, idx)
+	decoded := got.LookupQualified("D::Safety")
+	if len(decoded) == 0 || decoded[0].Facts == nil {
+		t.Fatal("D::Safety metadata facts were not restored")
+	}
+	have := decoded[0].Facts.MetadataType
+	if have.FQN != want.FQN || have.Doc != want.Doc || len(have.Path) != len(want.Path) ||
+		have.Path[0] != want.Path[0] || have.Path[1] != want.Path[1] {
+		t.Errorf("metadata type ref = %+v, want %+v", have, want)
+	}
+}
+
 // Writing the decoded index again must give the bytes it was read from.
 func TestSnapshotReencodesIdentically(t *testing.T) {
 	first := pack.NewWriter()
