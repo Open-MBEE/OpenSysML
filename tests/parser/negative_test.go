@@ -28,6 +28,15 @@ func TestNegative(t *testing.T) {
 		{"numeric_name", "part def 123;"},
 		{"missing_semicolon", "part def Engine"},
 		{"ref_anonymous_unclosed_multiplicity", "package P { ref [1 = x; }"},
+		// Visibility, direction, `abstract`, `variation` and `constant` alone
+		// declare no feature; the multiplicity form is the one exception
+		// (SysML.xtext UsageDeclaration).
+		{"visibility_without_feature", "part def D { private ; }"},
+		{"visibility_body_without_feature", "part def D { private { } }"},
+		{"visibility_value_without_feature", "part def D { private = x; }"},
+		{"derived_value_without_name", "part def D { derived = x; }"},
+		{"composite_body_without_name", "part def D { composite { } }"},
+		{"end_value_without_name", "part def D { end = x; }"},
 		{"invalid_keyword_combo", "def usage MyPart;"},
 		{"incomplete_connection", "connector c connect a"},
 		{"unterminated_string", `part p { doc /* comment `},

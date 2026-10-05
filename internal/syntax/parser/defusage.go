@@ -3180,12 +3180,15 @@ func (p *Parser) parseBodyMember() ast.Node {
 		// `ref [1] = x;`, `ref = x;`, `ref { ... }`, `ref;` and the like under
 		// the other feature modifiers — while `derived` admits only the
 		// multiplicity form, `composite` (unlike `portion`) not a bare body,
-		// and `end` none at all.
-		namelessBlocked := mods.isEnd ||
-			(mods.isDerived && !p.at(lexer.LBracket)) ||
-			(mods.isComposite && !mods.isPortion && p.at(lexer.LBrace))
-		hasNamelessDecl := !namelessBlocked &&
-			(p.at(lexer.LBracket) || p.at(lexer.LBrace) || p.at(lexer.Semicolon) || p.valueOperatorAt(0))
+		// and `end` none at all. The multiplicity form stands alone
+		// (`private [1];`); every other form needs a feature-level modifier,
+		// not visibility, a direction, `abstract`, `variation` or `constant`.
+		nameless := p.at(lexer.LBracket)
+		if p.at(lexer.LBrace) || p.at(lexer.Semicolon) || p.valueOperatorAt(0) {
+			nameless = nameless || mods.isReference || mods.isReadonly || mods.isPortion ||
+				(mods.isComposite && !p.at(lexer.LBrace))
+		}
+		hasNamelessDecl := nameless && !mods.isEnd
 
 		if hasNameAndType || hasTypeOnly || hasRelationship || hasNameAndRelationship || hasNameOnly || hasNameAndBody || hasNameAndMult || hasNamelessDecl {
 			var id ast.Identification
