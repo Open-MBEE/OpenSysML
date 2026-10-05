@@ -193,6 +193,7 @@ exclude_docs: |
   project/fuml-referee.md
   project/behavior-semantic-oracle.md
   project/grammar-coverage.md
+  project/grammar-metaclass-map.md
   project/validation-constraints.md
   project/sysml-v1-transformation-census.md
   project/element-identity-annotations.md
