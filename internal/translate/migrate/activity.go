@@ -1091,6 +1091,9 @@ func (a *activity) isElse(e *sysmlv1.Element) bool {
 		return strings.TrimSpace(body) == "else"
 	case "LiteralString":
 		return strings.TrimSpace(g.Attrs["value"]) == "else"
+	case "Expression":
+		return len(g.Owned("operand")) == 0 &&
+			strings.EqualFold(strings.TrimSpace(g.Attrs["symbol"]), "else")
 	}
 	return false
 }

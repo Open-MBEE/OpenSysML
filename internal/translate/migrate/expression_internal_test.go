@@ -24,6 +24,12 @@ func treeModel(spec string) string {
       <ownedAttribute xmi:type="uml:Property" xmi:id="_b" name="b">
         <type href="http://www.omg.org/spec/UML/20161101/PrimitiveTypes.xmi#Real"/>
       </ownedAttribute>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_p" name="p">
+        <type href="http://www.omg.org/spec/UML/20161101/PrimitiveTypes.xmi#Boolean"/>
+      </ownedAttribute>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_q" name="q">
+        <type href="http://www.omg.org/spec/UML/20161101/PrimitiveTypes.xmi#Boolean"/>
+      </ownedAttribute>
       <ownedAttribute xmi:type="uml:Property" xmi:id="_mm" name="m" type="_mode"/>
       <ownedRule xmi:type="uml:Constraint" xmi:id="_rule" name="r" constrainedElement="_blk">
         ` + spec + `
@@ -41,6 +47,9 @@ func leaf(symbol string) string {
 	leafCount++
 	return `<operand xmi:type="uml:Expression" xmi:id="_leaf` + strconv.Itoa(leafCount) + `" symbol="` + symbol + `"/>`
 }
+
+// boolLeaf is leaf: the bare symbol names one of the block's Boolean attributes.
+func boolLeaf(symbol string) string { return leaf(symbol) }
 
 func TestExpressionTreeLowering(t *testing.T) {
 	for _, tc := range []struct{ name, spec, want string }{
@@ -119,9 +128,18 @@ func TestExpressionTreeLowering(t *testing.T) {
 		{"element value naming nothing is refused",
 			`<specification xmi:type="uml:Expression" xmi:id="_s" symbol="==">` + leaf("a") + `<operand xmi:type="uml:ElementValue" xmi:id="_ev"/></specification>`,
 			`the UML Expression tree has no v2 form: the construct "<ElementValue>" is outside the translated subset: the element value names no element`},
+		{"xor over Booleans is written",
+			`<specification xmi:type="uml:Expression" xmi:id="_s" symbol="xor">` + boolLeaf("p") + boolLeaf("q") + `</specification>`,
+			"constraint r { p xor q }"},
+		{"implies over Booleans is written",
+			`<specification xmi:type="uml:Expression" xmi:id="_s" symbol="implies">` + boolLeaf("p") + boolLeaf("q") + `</specification>`,
+			"constraint r { p implies q }"},
+		{"xor over non-Booleans is a type refusal",
+			`<specification xmi:type="uml:Expression" xmi:id="_s" symbol="xor">` + leaf("a") + leaf("b") + `</specification>`,
+			`the UML Expression tree has no v2 form: the types at "xor" disagree: an operand is a Real, not a Boolean`},
 		{"unknown operator symbol is refused",
-			`<specification xmi:type="uml:Expression" xmi:id="_s" symbol="implies">` + leaf("a") + leaf("b") + `</specification>`,
-			`not migrated: Constraint 'r' implies(a, b) — the UML Expression tree has no v2 form: the call "implies" is not in the translated function table`},
+			`<specification xmi:type="uml:Expression" xmi:id="_s" symbol="nand">` + leaf("a") + leaf("b") + `</specification>`,
+			`not migrated: Constraint 'r' nand(a, b) — the UML Expression tree has no v2 form: the call "nand" is not in the translated function table`},
 		{"interval operand is refused",
 			`<specification xmi:type="uml:Expression" xmi:id="_s" symbol="&lt;">` + leaf("a") + `<operand xmi:type="uml:Interval" xmi:id="_i"/></specification>`,
 			`the UML Expression tree has no v2 form: the construct "<Interval>" is outside the translated subset: a UML Interval has no v2 expression`},

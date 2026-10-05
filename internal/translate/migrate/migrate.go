@@ -3066,7 +3066,7 @@ func (m *migration) rule(r *sysmlv1.Element) {
 		m.unmappedExpr(r, spec, note)
 		return
 	}
-	decl := "constraint"
+	decl := "assert constraint"
 	if m.nameOf(r) != "" {
 		decl += " " + writeName(m.nameOf(r))
 	}
