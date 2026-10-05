@@ -64,7 +64,7 @@ func (s *Session) mergeSubmission(src string, root *ast.RootNamespace, comments 
 		if sn.gen == s.version || sn.open || (sn.origin != "" && !s.recordMerge) {
 			continue
 		}
-		cand, ok := namedNamespace(sn.src, newDecl.name)
+		cand, ok := namedNamespace(sn.src, newDecl.name, sn.kind)
 		// A different header is a different declaration, whatever it names: it
 		// replaces the old one rather than adding to a body it did not write.
 		if !ok || cand.header != newDecl.header {
@@ -96,8 +96,8 @@ func (s *Session) mergeSubmission(src string, root *ast.RootNamespace, comments 
 			// A file's text is updated where it is, its origin and key kept, so
 			// a later reload of the file still supersedes it; the submission's
 			// own text is wholly inside it and is not appended again.
-			names := declaredNames(parser.New(source.New(parseDocName(sn.origin), []byte(merged))).ParseFile())
-			s.snippets[i] = snippet{src: merged, names: names, origin: sn.origin, key: sn.key, gen: s.version, own: own}
+			names := declaredNames(parser.New(sourceForKind(parseDocName(sn.origin), []byte(merged), sn.kind)).ParseFile())
+			s.snippets[i] = snippet{src: merged, names: names, origin: sn.origin, key: sn.key, kind: sn.kind, gen: s.version, own: own}
 			return "", nil, dropReport{merged: true, decl: newDecl.desc, lost: replaced, gone: gone}, true, true
 		}
 		s.snippets = append(s.snippets[:i:i], s.snippets[i+1:]...)
@@ -147,7 +147,7 @@ func (s *Session) reopenedNamespaces(key string, root *ast.RootNamespace) []drop
 		if len(shared) == 0 {
 			continue
 		}
-		snRoot := parser.New(source.New(parseDocName(sn.origin), []byte(sn.src))).ParseFile()
+		snRoot := parser.New(sourceForKind(parseDocName(sn.origin), []byte(sn.src), sn.kind)).ParseFile()
 		for _, name := range shared {
 			if _, ok := namedNamespaceIn(sn.src, snRoot, name); ok {
 				reopened[name] = true
@@ -218,8 +218,8 @@ func namespaceDepth(src string, decl nsDecl, segs []string) int {
 // namedNamespace finds the namespace declaration of the given name in an
 // accepted snippet. It reports false unless exactly one member declares that
 // name, so an ambiguous snippet keeps the replacement behavior.
-func namedNamespace(src, name string) (nsDecl, bool) {
-	return namedNamespaceIn(src, parser.New(source.New(docName, []byte(src))).ParseFile(), name)
+func namedNamespace(src, name string, kind source.Kind) (nsDecl, bool) {
+	return namedNamespaceIn(src, parser.New(sourceForKind(docName, []byte(src), kind)).ParseFile(), name)
 }
 
 // namedNamespaceIn is namedNamespace over a parse the caller already has.

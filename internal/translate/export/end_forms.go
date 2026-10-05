@@ -497,7 +497,7 @@ func (d *decoder) flowPayload(el *element) *element {
 
 // flowMetaclasses are the usages whose head takes an `of` clause
 // (SysML-textual-bnf FlowDeclaration, MessageDeclaration).
-var flowMetaclasses = map[string]bool{"FlowUsage": true, "SuccessionFlowUsage": true}
+var flowMetaclasses = map[string]bool{mFlowUsage: true, mSuccessionFlowUsage: true}
 
 // relatedEnds reads the ends of a head in the order they are written, each
 // behind the multiplicity it states, with the payload of a flow kept apart: it
@@ -637,7 +637,9 @@ func (d *decoder) standardEndFeatures(el *element) ([]rdf.Term, error) {
 // member is written in its body as `end`, not in its head: the abstract
 // syntax is the same.
 func (d *decoder) appendEnd(el *element, terms []rdf.Term, term rdf.Term) []rdf.Term {
-	if d.declaredChild(el, term) || slices.Contains(terms, term) {
+	flowEnd := d.byIRI[term.Value]
+	headFlowEnd := flowEnd != nil && flowEnd.metaclass == mFlowEnd && d.headEnd(flowEnd, el)
+	if (d.declaredChild(el, term) && !headFlowEnd) || slices.Contains(terms, term) {
 		return terms
 	}
 	return append(terms, term)
@@ -866,6 +868,19 @@ func (d *decoder) declaredChild(el *element, term rdf.Term) bool {
 
 // standardEndTarget resolves an end through ReferenceSubsetting, then the
 // interim sysml:references property, refusing conflicting representations.
+func referenceSubsettingIndex(graph *rdf.Graph, meta func(rdf.Term) string, subjects []rdf.Term) map[string][]rdf.Term {
+	index := map[string][]rdf.Term{}
+	for _, subject := range subjects {
+		if meta(subject) != mReferenceSubsetting {
+			continue
+		}
+		if referencing, ok := graph.Object(subject, rdf.SysML+pReferencingFeature); ok && referencing.IsIRI() {
+			index[referencing.Value] = append(index[referencing.Value], subject)
+		}
+	}
+	return index
+}
+
 func (d *decoder) standardEndTarget(end rdf.Term, in *element) (rdf.Term, bool, error) {
 	var relationships []rdf.Term
 	appendUnique := func(term rdf.Term) {
@@ -882,13 +897,8 @@ func (d *decoder) standardEndTarget(end rdf.Term, in *element) (rdf.Term, bool, 
 		}
 	}
 	if len(relationships) == 0 {
-		for _, subject := range d.graph.Subjects() {
-			if d.metaclass(subject) != mReferenceSubsetting {
-				continue
-			}
-			if referencing, ok := d.graph.Object(subject, rdf.SysML+pReferencingFeature); ok && referencing == end {
-				appendUnique(subject)
-			}
+		for _, relationship := range d.referenceSubsettings[end.Value] {
+			appendUnique(relationship)
 		}
 	}
 	var target rdf.Term
@@ -981,6 +991,35 @@ func (d *decoder) flowEndText(end rdf.Term, in *element) (string, error) {
 	return text, nil
 }
 
+func (d *decoder) flowFeatureImplied(el, parent *element) (bool, error) {
+	if parent == nil || parent.metaclass != mFlowEnd || el.metaclass != mReferenceUsage {
+		return false, nil
+	}
+	membership, owned := d.owningMembership[el.iri]
+	if !owned || d.metaclass(rdf.IRI(membership.iri)) != mFeatureMembership {
+		return false, nil
+	}
+	subject := rdf.IRI(el.iri)
+	if d.graph.HasProperty(subject, rdf.SysML+pDeclaredName) ||
+		d.graph.HasProperty(subject, rdf.SysML+pDeclaredShortName) ||
+		len(d.graph.Objects(subject, rdf.SysML+pOwnedAnnotation)) > 0 {
+		return false, nil
+	}
+	relationships := d.graph.Objects(subject, rdf.SysML+pOwnedRelationship)
+	redefinitions := 0
+	for _, relation := range relationships {
+		meta := d.metaclass(relation)
+		if meta == mRedefinition {
+			redefinitions++
+			continue
+		}
+		if !impliedRelationshipMetaclasses[meta] || !d.graph.BoolValue(relation, rdf.SysML+pIsImplied) {
+			return false, nil
+		}
+	}
+	return redefinitions == 1, nil
+}
+
 // flowEndSegments is the chain a FlowEnd is written as: what its
 // ReferenceSubsetting names, if anything, then the feature its FlowFeature
 // redefines. The FlowFeature is found through ownedFeature, else through the
@@ -988,6 +1027,18 @@ func (d *decoder) flowEndText(end rdf.Term, in *element) (string, error) {
 func (d *decoder) flowEndSegments(end rdf.Term, in *element) ([]rdf.Term, error) {
 	refuse := func(note string) ([]rdf.Term, error) {
 		return nil, &UnsupportedError{What: fmt.Sprintf("the flow end <%s> of <%s>", end.Value, in.iri), Note: note}
+	}
+	if d.graph.HasProperty(end, rdf.SysML+pDeclaredName) ||
+		d.graph.HasProperty(end, rdf.SysML+pDeclaredShortName) ||
+		len(d.graph.Objects(end, rdf.SysML+pOwnedAnnotation)) > 0 {
+		return refuse("it declares a name or annotations that the `from`/`to` form cannot carry")
+	}
+	toolkitFeatures := d.toolkitFlowFeatures(end)
+	toolkitShape := len(toolkitFeatures) > 0
+	if toolkitShape {
+		if len(toolkitFeatures) != 1 {
+			return refuse(fmt.Sprintf("it owns %d toolkit FlowFeatures, and a flow end writes exactly one reference chain", len(toolkitFeatures)))
+		}
 	}
 	var segments []rdf.Term
 	target, ok, err := d.standardEndTarget(end, in)
@@ -1022,7 +1073,122 @@ func (d *decoder) flowEndSegments(end rdf.Term, in *element) ([]rdf.Term, error)
 	if len(redefined) != 1 {
 		return refuse(fmt.Sprintf("its FlowFeature redefines %d features, and a flow end names exactly one", len(redefined)))
 	}
+	if toolkitShape {
+		feature := toolkitFeatures[0]
+		if len(features) != 1 || features[0] != feature {
+			return refuse("its toolkit FlowFeature is not the only feature the flow end owns")
+		}
+		flowFeature, flowEnd := d.byIRI[feature.Value], d.byIRI[end.Value]
+		if flowFeature == nil || flowEnd == nil {
+			return refuse("its FlowFeature is not an implied ReferenceUsage owned through a FeatureMembership")
+		}
+		implied, err := d.flowFeatureImplied(flowFeature, flowEnd)
+		if err != nil {
+			return nil, err
+		}
+		if !implied {
+			return refuse("its FlowFeature is not an implied ReferenceUsage owned through a FeatureMembership")
+		}
+		if d.graph.HasProperty(feature, rdf.SysML+pDeclaredName) ||
+			d.graph.HasProperty(feature, rdf.SysML+pDeclaredShortName) ||
+			len(d.graph.Objects(feature, rdf.SysML+pOwnedAnnotation)) > 0 {
+			return refuse("its FlowFeature declares a name or annotations that the `from`/`to` form cannot carry")
+		}
+		if d.graph.HasProperty(feature, rdf.SysML+pValue) {
+			return refuse("its FlowFeature carries a value that the `from`/`to` form cannot carry")
+		}
+		for _, relation := range d.graph.Objects(feature, rdf.SysML+pOwnedRelationship) {
+			meta := d.metaclass(relation)
+			if meta == mRedefinition {
+				continue
+			}
+			if !impliedRelationshipMetaclasses[meta] || !d.graph.BoolValue(relation, rdf.SysML+pIsImplied) {
+				return refuse(fmt.Sprintf("its FlowFeature owns a %s relationship that the `from`/`to` form cannot carry", meta))
+			}
+		}
+		if name, hasName := d.graph.Lexical(feature, rdf.SysML+pName); hasName {
+			redefinedName, err := d.flowEndTargetName(redefined[0])
+			if err != nil {
+				return nil, err
+			}
+			if name != redefinedName {
+				return refuse("its FlowFeature's derived name does not match the feature it redefines")
+			}
+		}
+		for _, relation := range d.graph.Objects(end, rdf.SysML+pOwnedRelationship) {
+			meta := d.metaclass(relation)
+			switch {
+			case meta == mReferenceSubsetting, meta == mFeatureMembership:
+			case impliedRelationshipMetaclasses[meta] && d.graph.BoolValue(relation, rdf.SysML+pIsImplied):
+			default:
+				return refuse(fmt.Sprintf("it owns a %s relationship that the `from`/`to` form cannot carry", meta))
+			}
+		}
+		if name, hasName := d.graph.Lexical(end, rdf.SysML+pName); hasName {
+			var endRedefined []rdf.Term
+			endRedefined = append(endRedefined, d.graph.Objects(end, rdf.SysML+relationshipProperty[ast.RelRedefines])...)
+			if len(endRedefined) == 0 {
+				for _, relation := range d.graph.Objects(end, rdf.SysML+pOwnedRelationship) {
+					if d.metaclass(relation) != mRedefinition {
+						continue
+					}
+					if target, ok := d.graph.Object(relation, rdf.SysML+"redefinedFeature"); ok {
+						endRedefined = append(endRedefined, target)
+					}
+				}
+			}
+			if len(endRedefined) != 1 {
+				return refuse(fmt.Sprintf("its derived name has %d redefined features, and a flow end names exactly one", len(endRedefined)))
+			}
+			redefinedName, err := d.flowEndTargetName(endRedefined[0])
+			if err != nil {
+				return nil, err
+			}
+			if name != redefinedName {
+				return refuse("its derived name does not match the feature it redefines")
+			}
+		}
+	}
 	return append(segments, redefined[0]), nil
+}
+
+func (d *decoder) toolkitFlowFeatures(end rdf.Term) []rdf.Term {
+	var features []rdf.Term
+	seen := map[string]bool{}
+	for _, membership := range d.graph.Objects(end, rdf.SysML+pOwnedFeatureMembership) {
+		if d.metaclass(membership) != mFeatureMembership {
+			continue
+		}
+		feature, ok := d.graph.Object(membership, rdf.SysML+pMemberElement)
+		if !ok || d.metaclass(feature) != mReferenceUsage {
+			continue
+		}
+		owning, ok := d.owningMembership[feature.Value]
+		if !ok || owning.iri != membership.Value || seen[feature.Value] {
+			continue
+		}
+		seen[feature.Value] = true
+		features = append(features, feature)
+	}
+	return features
+}
+
+func (d *decoder) flowEndTargetName(target rdf.Term) (string, error) {
+	if name, ok := d.graph.Lexical(target, rdf.SysML+pName); ok {
+		return name, nil
+	}
+	if !target.IsIRI() {
+		return "", &UnsupportedError{What: fmt.Sprintf("the flow-end redefinition target %s", target), Note: "it has no name"}
+	}
+	el, err := d.referencedElement(target.Value)
+	if err != nil {
+		return "", err
+	}
+	segments := identitySegments(el.qname)
+	if len(segments) == 0 {
+		return "", &UnsupportedError{What: fmt.Sprintf("the flow-end redefinition target <%s>", target.Value), Note: "it has no qualified name"}
+	}
+	return identityName(segments[len(segments)-1]), nil
 }
 
 // standardEndName renders an end's declared name and ReferencesKeyword.
