@@ -1141,12 +1141,21 @@ func (p *Parser) parseMoreFeatureModifiers(m *featureMods) {
 		if t.Kind != lexer.Keyword {
 			return
 		}
-		// `composite` or `portion` closes the feature prefix: only `ordered`
-		// and `nonunique` may still follow; `end` and a repeated prefix keep
-		// their own checks.
+		// `composite` or `portion` closes the feature prefix: only `ordered`,
+		// `nonunique` — and in KerML `const` — may still follow; `end` and a
+		// repeated prefix keep their own checks. In KerML `ordered` names the
+		// feature, so a name may not follow it.
+		kerml := p.src.Kind() == source.KindKerML
+		if m.isComposite && kerml &&
+			(t.KeywordID == "ordered" || t.KeywordID == "nonunique") &&
+			p.peekN(1).Kind == lexer.Identifier {
+			p.error(p.peekN(1).Span, fmt.Sprintf("'%s' cannot follow '%s'",
+				p.src.Text(p.peekN(1).Span), t.KeywordID))
+		}
 		if m.isComposite && featureModifierKeywords[t.KeywordID] &&
 			t.KeywordID != "ordered" && t.KeywordID != "nonunique" &&
-			t.KeywordID != "end" && t.KeywordID != "composite" && t.KeywordID != "portion" {
+			t.KeywordID != "end" && t.KeywordID != "composite" && t.KeywordID != "portion" &&
+			!(kerml && t.KeywordID == "const") {
 			p.prefixConflict(t, compositeOrPortionWord(m.isPortion), compositeOrPortionPair)
 		}
 		switch t.KeywordID {

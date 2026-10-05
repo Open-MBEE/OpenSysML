@@ -592,6 +592,10 @@ func TestNegativeKerML(t *testing.T) {
 		{"featured_by_no_terminator", "package P { class A; feature f featured by A }"},
 		{"by_without_featured", "package P { class A; feature f by A; }"},
 
+		// In KerML the word `ordered` names the feature after `composite`, so
+		// a name may not follow it.
+		{"composite_ordered_name", "class C { composite ordered x; }"},
+
 		// A parenthesized end list holds at least two ends and closes
 		// (KerML.xtext:842).
 		{"nary_connector_unclosed", "package P { feature a; feature b; connector c (a, b; }"},
