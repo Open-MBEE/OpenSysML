@@ -34,7 +34,7 @@ part def Gate {
                     /* not migrated: CreateObjectAction 'new log' — no v2 form for a UML CreateObjectAction */
                 }
                 action 'drop log' {
-                    /* not migrated: DestroyObjectAction 'drop log' — no v2 form for a UML DestroyObjectAction */
+                    /* not migrated: DestroyObjectAction 'drop log' — the action has no target pin */
                 }
                 metadata MigrationMetadata::SynthesizedName about 'fork';
                 metadata MigrationMetadata::StandIn about 'fork';
