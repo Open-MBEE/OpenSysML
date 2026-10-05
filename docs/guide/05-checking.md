@@ -224,8 +224,8 @@ error: evaluation failed: type mismatch: operator '+' is not defined for the unb
 ```
 
 **Metadata:** `elem.metadata` is the sequence of metadata annotating `elem`, one object per
-annotation in the order written — an inline `@` annotation and a `metadata … about elem`
-usage declared elsewhere take their places by source position, across files in document
+annotation in the order written — an inline `@` annotation and an `about elem`
+usage declared elsewhere (`metadata m : M about elem;` or `@M about elem;`) take their places by source position, across files in document
 order — each carrying the values its body binds over the defaults its
 `metadata def` declares — followed by one *reflective metaobject* of the element's own
 metaclass (KerML §8.3.4.8.15), so the metadata of an element nothing annotates is that one

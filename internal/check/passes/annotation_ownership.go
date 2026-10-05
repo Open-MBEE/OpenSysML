@@ -70,25 +70,8 @@ func (c *annotationOwnershipChecker) check(sym *symbols.Symbol) {
 
 // annotatedElementRefs lists the names an annotating element's `about` clause states.
 func annotatedElementRefs(decl ast.Node) []*ast.QualifiedName {
-	switch d := decl.(type) {
-	case *ast.Comment:
-		return d.About
-	case *ast.PrefixMetadata:
-		return d.About
-	case *ast.Usage:
-		if d.Kind != ast.UsageMetadata {
-			return nil
-		}
-		var out []*ast.QualifiedName
-		for _, rel := range d.Relationships {
-			if rel == nil || rel.Kind != ast.RelAnnotates {
-				continue
-			}
-			if qn, ok := rel.Target.(*ast.QualifiedName); ok {
-				out = append(out, qn)
-			}
-		}
-		return out
+	if c, ok := decl.(*ast.Comment); ok {
+		return c.About
 	}
-	return nil
+	return symbols.MetadataAboutRefs(decl)
 }
