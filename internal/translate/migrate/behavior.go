@@ -271,11 +271,21 @@ func (m *migration) parameterSet(set *sysmlv1.Element) {
 			note = joinNotes(note, "the parameter "+describe(p)+" of the set is not written")
 			continue
 		}
-		pname := m.nameOf(p)
-		if pname == "" {
-			pname = m.nameFor(p)
+		if m.shadowedParams[p] {
+			note = joinNotes(note, "the parameter "+describe(p)+" shares its name with the operation's parameter and is not written separately")
+			continue
 		}
-		members = append(members, "ref "+m.parameterShape(p)+" = "+writeName(pname)+";")
+		// The feature the member binds is the operation's parameter a method
+		// parameter realizes, so its name and shape come from there.
+		bound := p
+		if op := m.realizes[p]; op != nil {
+			bound = op
+		}
+		pname := m.nameOf(bound)
+		if pname == "" {
+			pname = m.nameFor(bound)
+		}
+		members = append(members, "ref "+m.parameterShape(bound)+" = "+writeName(pname)+";")
 	}
 	for _, c := range set.Owned("ownedRule") {
 		m.unmapped(c, "a parameter set's condition has no target in the transformation")
@@ -326,6 +336,7 @@ func (m *migration) parameter(p, scope *sysmlv1.Element, declared map[string]boo
 	dir, note := parameterDirection(p)
 	if declared != nil {
 		if declared[name] {
+			m.shadowedParams[p] = true
 			m.add(p, Mapped, m.v2Name(p), "shares the name of the operation's parameter, which is written once")
 			return
 		}

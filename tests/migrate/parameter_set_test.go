@@ -53,3 +53,51 @@ func TestParameterSetOfAnUnwrittenParameter(t *testing.T) {
 	wantNote(t, r, "_set1", migrate.Approximated, "not in the document and are not written")
 	wantNote(t, r, "_set2", migrate.Unmapped, "the set binds no parameter that is written")
 }
+
+// A set on an operation's method binds the feature the operation declares: a
+// realized parameter is referenced by the operation parameter's name, not by a
+// name the method declared.
+func TestParameterSetBindsTheOperationParameterAMethodParameterRealizes(t *testing.T) {
+	r := migrateDocument(t, `
+    <packagedElement xmi:type="uml:Class" xmi:id="_c" name="C">
+      <ownedOperation xmi:type="uml:Operation" xmi:id="_op" name="Run" method="_body">
+        <ownedParameter xmi:type="uml:Parameter" xmi:id="_x" name="x" direction="in">
+          <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
+        </ownedParameter>
+      </ownedOperation>
+      <ownedBehavior xmi:type="uml:Activity" xmi:id="_body" name="Body" specification="_op">
+        <ownedParameter xmi:type="uml:Parameter" xmi:id="_y" name="y" direction="in">
+          <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
+        </ownedParameter>
+        <ownedParameterSet xmi:type="uml:ParameterSet" xmi:id="_set" name="args" parameter="_y"/>
+      </ownedBehavior>
+    </packagedElement>`, "")
+	wantLine(t, r.Notation, "ref [1] = x;")
+	out := string(r.Notation)
+	if strings.Contains(out, "= y;") {
+		t.Errorf("the set binds the method parameter's name, which is not declared:\n%s", out)
+	}
+	wantNote(t, r, "_set", migrate.Mapped, "")
+	wantClean(t, "parameter_set_realized.sysml", r)
+}
+
+// A method parameter shadowed by the operation's own parameter is left out of
+// the set: its name resolves to a feature that differs in direction or type.
+func TestParameterSetLeavesOutAShadowedParameter(t *testing.T) {
+	r := migrateDocument(t, `
+    <packagedElement xmi:type="uml:Class" xmi:id="_c" name="C">
+      <ownedOperation xmi:type="uml:Operation" xmi:id="_op" name="Run" method="_body">
+        <ownedParameter xmi:type="uml:Parameter" xmi:id="_x" name="x" direction="in">
+          <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
+        </ownedParameter>
+      </ownedOperation>
+      <ownedBehavior xmi:type="uml:Activity" xmi:id="_body" name="Body" specification="_op">
+        <ownedParameter xmi:type="uml:Parameter" xmi:id="_mx" name="x" direction="in">
+          <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#String"/>
+        </ownedParameter>
+        <ownedParameterSet xmi:type="uml:ParameterSet" xmi:id="_set" name="args" parameter="_mx"/>
+      </ownedBehavior>
+    </packagedElement>`, "")
+	wantNote(t, r, "_set", migrate.Unmapped, "shares its name with the operation's parameter and is not written separately")
+	wantClean(t, "parameter_set_shadowed.sysml", r)
+}
