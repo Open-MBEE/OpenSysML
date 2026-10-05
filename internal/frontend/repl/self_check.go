@@ -74,42 +74,56 @@ func (s *Session) selfCheckWithCounts(pkg string, includeWorkspacePackages bool)
 	return verdicts, counts
 }
 
+// selfCheckRulePackage is one distinct -self-check-package name resolved to
+// every package symbol declaring it — a package may be re-opened across files.
+type selfCheckRulePackage struct {
+	name    string
+	symbols []*symbols.Symbol
+}
+
 // resolveSelfCheckPackages resolves each distinct name to every package symbol
-// it declares — one package may be re-opened across files — in argument order.
-func (s *Session) resolveSelfCheckPackages(pkgs []string) ([]*symbols.Symbol, error) {
+// it declares, in argument order. Quoted segments are read the way the notation
+// reads them, and a name the notation cannot read counts as missing.
+func (s *Session) resolveSelfCheckPackages(pkgs []string) ([]selfCheckRulePackage, error) {
 	idx := s.browseIndex()
-	var resolved []*symbols.Symbol
+	var groups []selfCheckRulePackage
 	seen := make(map[string]bool)
 	var missing []string
 	for _, name := range pkgs {
-		if seen[name] {
+		p := s.parseName(name)
+		key := name
+		if p.ok {
+			key = p.name
+		}
+		if seen[key] {
 			continue
 		}
-		seen[name] = true
-		found := false
-		if idx != nil {
-			for _, sym := range idx.LookupQualified(name) {
+		seen[key] = true
+		group := selfCheckRulePackage{name: name}
+		if p.ok && idx != nil {
+			for _, sym := range idx.LookupQualified(p.name) {
 				if sym.Kind == symbols.SymbolPackage && sym.Scope != nil {
-					resolved = append(resolved, sym)
-					found = true
+					group.symbols = append(group.symbols, sym)
 				}
 			}
 		}
-		if !found {
+		if len(group.symbols) == 0 {
 			missing = append(missing, name)
+			continue
 		}
+		groups = append(groups, group)
 	}
 	if len(missing) > 0 {
 		return nil, fmt.Errorf("-self-check-package %s names no package the loaded models or libraries declare: %w",
 			strings.Join(missing, ", "), ErrSelfCheckPackageNotFound)
 	}
-	return resolved, nil
+	return groups, nil
 }
 
 func (s *Session) selfCheckRun(pkg string, includeWorkspacePackages bool, rulePackages []string) ([]Verdict, selfCheckCounts, error) {
 	counts := selfCheckCounts{applications: make(map[string]int)}
 	idx := s.browseIndex()
-	rulePackageSymbols, err := s.resolveSelfCheckPackages(rulePackages)
+	rulePackageGroups, err := s.resolveSelfCheckPackages(rulePackages)
 	if err != nil {
 		return nil, counts, err
 	}
@@ -121,7 +135,7 @@ func (s *Session) selfCheckRun(pkg string, includeWorkspacePackages bool, rulePa
 	resolver := resolve.New(idx)
 	sem := passes.NewTypedModel(resolver)
 	sem.SetSourceText(s.sessionSourceText())
-	elements := selfCheckElements(idx, sem, rulePackageSymbols)
+	elements := selfCheckElements(idx, sem, rulePackageGroups)
 	counts.elements = len(elements)
 	sources := selfCheckSources(s.sessionDocs())
 
@@ -134,7 +148,7 @@ func (s *Session) selfCheckRun(pkg string, includeWorkspacePackages bool, rulePa
 
 	// The rule packages' constraints apply after the bundled ones; a constraint
 	// whose input is not metaclass-typed, and a package yielding none, warns.
-	ruleConstraints, warnings := selfCheckRuleConstraints(sem, rulePackageSymbols, constraints, sources)
+	ruleConstraints, warnings := selfCheckRuleConstraints(sem, rulePackageGroups, constraints, sources)
 	verdicts = append(verdicts, warnings...)
 	constraints = append(constraints, ruleConstraints...)
 
@@ -232,22 +246,31 @@ func selfCheckConstraints(idx *symbols.Index, sem *semantics.Model, pkg string, 
 // declare, recursing into nested packages. skipped are the warning verdicts for
 // constraints whose first in parameter cannot type an element and for named
 // packages yielding no applicable constraint; both come before the verdicts.
-func selfCheckRuleConstraints(sem *semantics.Model, packages []*symbols.Symbol, bundled []selfCheckConstraint,
+func selfCheckRuleConstraints(sem *semantics.Model, groups []selfCheckRulePackage, bundled []selfCheckConstraint,
 	sources map[string]*source.SourceFile) ([]selfCheckConstraint, []Verdict) {
 	seen := make(map[symbols.ElementKey]bool, len(bundled))
+	applicable := make(map[symbols.ElementKey]bool, len(bundled))
 	for _, c := range bundled {
 		seen[symbols.KeyOf(c.symbol)] = true
+		applicable[symbols.KeyOf(c.symbol)] = true
 	}
 	var constraints []selfCheckConstraint
 	var warnings []Verdict
-	var walk func(*symbols.Scope)
-	walk = func(scope *symbols.Scope) {
+	var walk func(*symbols.Scope, *bool)
+	walk = func(scope *symbols.Scope, found *bool) {
 		for _, sym := range scope.AllMembers() {
 			switch {
 			case sym.Kind == symbols.SymbolPackage && sym.Scope != nil:
-				walk(sym.Scope)
-			case sym.Kind == symbols.SymbolConstraintDef && !seen[symbols.KeyOf(sym)]:
-				seen[symbols.KeyOf(sym)] = true
+				walk(sym.Scope, found)
+			case sym.Kind == symbols.SymbolConstraintDef:
+				key := symbols.KeyOf(sym)
+				if seen[key] {
+					if applicable[key] {
+						*found = true
+					}
+					continue
+				}
+				seen[key] = true
 				fqn := selfCheckName(sym)
 				paramType, typed := selfCheckParamType(sem, sym)
 				var meta *symbols.Symbol
@@ -262,19 +285,23 @@ func selfCheckRuleConstraints(sem *semantics.Model, packages []*symbols.Symbol, 
 					warnings = append(warnings, selfCheckSkipVerdict(fqn, selfCheckLocation(sym, sources),
 						fqn+" is skipped: its first in parameter is not typed by a SysML or KerML metaclass"))
 				default:
+					applicable[key] = true
+					*found = true
 					constraints = append(constraints, selfCheckConstraint{symbol: sym, paramType: paramType})
 				}
 			}
 		}
 	}
-	for _, pkg := range packages {
-		before := len(constraints)
-		walk(pkg.Scope)
-		if len(constraints) == before {
+	for _, group := range groups {
+		found := false
+		for _, pkg := range group.symbols {
+			walk(pkg.Scope, &found)
+		}
+		if !found {
 			warnings = append(warnings, Verdict{
-				Subject: selfCheckName(pkg),
+				Subject: selfCheckName(group.symbols[0]),
 				Status:  VerdictUnresolved,
-				Lines:   []string{fmt.Sprintf("warning: self-check package %s has no applicable constraint definitions", selfCheckName(pkg))},
+				Lines:   []string{fmt.Sprintf("warning: self-check package %s has no applicable constraint definitions", selfCheckName(group.symbols[0]))},
 			})
 		}
 	}
@@ -305,14 +332,16 @@ func selfCheckSkipVerdict(subject, location, message string) Verdict {
 	}}
 }
 
-func selfCheckElements(idx *symbols.Index, sem *semantics.Model, exclude []*symbols.Symbol) []selfCheckElement {
+func selfCheckElements(idx *symbols.Index, sem *semantics.Model, exclude []selfCheckRulePackage) []selfCheckElement {
 	var out []selfCheckElement
 	seenSymbols := make(map[*symbols.Symbol]bool)
 	seenScopes := make(map[*symbols.Scope]bool)
 	// A rule package's elements are checked by nothing, at any depth.
-	for _, pkg := range exclude {
-		seenSymbols[pkg] = true
-		seenScopes[pkg.Scope] = true
+	for _, group := range exclude {
+		for _, pkg := range group.symbols {
+			seenSymbols[pkg] = true
+			seenScopes[pkg.Scope] = true
+		}
 	}
 	var walk func(*symbols.Scope)
 	walk = func(scope *symbols.Scope) {

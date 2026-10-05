@@ -665,6 +665,21 @@ func TestSelfCheckPackageFlagAppliesRulePackages(t *testing.T) {
 		"rules.sysml": selfCheckRuleFile,
 	}, "-self-check-package", "Acme::ModelingRules")
 	wantReport(t, implied, 0, "Self-model check: ")
+
+	// A name with quoted segments resolves the way the notation reads it.
+	quoted := checkFiles(t, binary, map[string]string{
+		"model.sysml": `package M { part def P { doc /* stated */ } }`,
+		"rules.sysml": `package Acme {
+			package 'Modeling Rules' {
+				private import SequenceFunctions::*;
+				constraint def documented {
+					in pd : SysML::PartDefinition;
+					not pd.documentation->isEmpty();
+				}
+			}
+		}`,
+	}, "-self-check-package", "Acme::'Modeling Rules'")
+	wantReport(t, quoted, 0, ", 0 violations,")
 }
 
 func TestSelfCheckPackageFlagReportsWhatCannotApply(t *testing.T) {

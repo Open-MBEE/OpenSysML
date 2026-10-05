@@ -989,7 +989,7 @@ func TestSelfCheckPackageNamingTheBundledPackageDoesNotDoubleApply(t *testing.T)
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, doubled, err := s.selfCheckRun("SysMLValidation", false, []string{"SysMLValidation"})
+	verdicts, doubled, err := s.selfCheckRun("SysMLValidation", false, []string{"SysMLValidation"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -997,5 +997,109 @@ func TestSelfCheckPackageNamingTheBundledPackageDoesNotDoubleApply(t *testing.T)
 		if doubled.applications[name] != want {
 			t.Errorf("%s applications = %d, want %d", name, doubled.applications[name], want)
 		}
+	}
+	for _, verdict := range verdicts {
+		if strings.Contains(strings.Join(verdict.Lines, "\n"), "has no applicable constraint definitions") {
+			t.Errorf("SysMLValidation warned as empty: %+v", verdict)
+		}
+	}
+}
+
+func TestSelfCheckPackageReopenedAcrossFilesAppliesOnce(t *testing.T) {
+	s := loadSelfCheckFixture(t,
+		SourceFile{Name: "model.sysml", Text: `package M { part def P { doc /* stated */ } }`},
+		SourceFile{Name: "rules_a.sysml", Text: `package Acme {
+			package Rules {
+				private import SequenceFunctions::*;
+				constraint def documented {
+					in pd : SysML::PartDefinition;
+					not pd.documentation->isEmpty();
+				}
+			}
+		}`},
+		SourceFile{Name: "rules_b.sysml", Text: `package Acme {
+			package Rules {
+				part def Stub;
+			}
+		}`})
+
+	verdicts, stats, err := s.selfCheckRun("SysMLValidation", false, []string{"Acme::Rules"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if stats.applications["Acme::Rules::documented"] == 0 {
+		t.Fatalf("re-opened rule was not applied: %+v", stats.applications)
+	}
+	for _, verdict := range verdicts {
+		if strings.Contains(strings.Join(verdict.Lines, "\n"), "has no applicable constraint definitions") {
+			t.Errorf("one declaration being empty warned the whole package: %+v", verdict)
+		}
+	}
+}
+
+func TestSelfCheckPackageParentAndNestedBothRequestedWarnForNeither(t *testing.T) {
+	s := loadSelfCheckFixture(t,
+		SourceFile{Name: "model.sysml", Text: `package M { part def P { doc /* stated */ } }`},
+		SourceFile{Name: "rules.sysml", Text: `package Acme {
+			package Rules {
+				package Nested {
+					private import SequenceFunctions::*;
+					constraint def documented {
+						in pd : SysML::PartDefinition;
+						not pd.documentation->isEmpty();
+					}
+				}
+			}
+		}`})
+
+	verdicts, stats, err := s.selfCheckRun("SysMLValidation", false,
+		[]string{"Acme::Rules", "Acme::Rules::Nested"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if stats.applications["Acme::Rules::Nested::documented"] == 0 {
+		t.Fatalf("nested rule was not applied: %+v", stats.applications)
+	}
+	for _, verdict := range verdicts {
+		if strings.Contains(strings.Join(verdict.Lines, "\n"), "has no applicable constraint definitions") {
+			t.Errorf("a requested package warned as empty: %+v", verdict)
+		}
+	}
+}
+
+func TestSelfCheckPackageQuotedSegmentsResolve(t *testing.T) {
+	s := loadSelfCheckFixture(t,
+		SourceFile{Name: "model.sysml", Text: `package M { part def P { doc /* stated */ } }`},
+		SourceFile{Name: "rules.sysml", Text: `package Acme {
+			package 'Modeling Rules' {
+				private import SequenceFunctions::*;
+				constraint def documented {
+					in pd : SysML::PartDefinition;
+					not pd.documentation->isEmpty();
+				}
+			}
+		}`})
+
+	_, stats, err := s.selfCheckRun("SysMLValidation", false, []string{"Acme::'Modeling Rules'"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if stats.applications["Acme::Modeling Rules::documented"] == 0 {
+		t.Fatalf("quoted rule was not applied: %+v", stats.applications)
+	}
+}
+
+func TestSelfCheckPackageUnparseableNameIsMissing(t *testing.T) {
+	s := loadSelfCheckFixture(t, SourceFile{Name: "model.sysml", Text: `package M { part def P; }`})
+
+	verdicts, err := s.SelfCheckPackages([]string{"Acme::"})
+	if verdicts != nil {
+		t.Fatalf("verdicts = %+v, want nil", verdicts)
+	}
+	if !errors.Is(err, ErrSelfCheckPackageNotFound) {
+		t.Fatalf("err = %v, want ErrSelfCheckPackageNotFound", err)
+	}
+	if !strings.Contains(err.Error(), "Acme::") {
+		t.Fatalf("error does not name Acme::: %v", err)
 	}
 }
