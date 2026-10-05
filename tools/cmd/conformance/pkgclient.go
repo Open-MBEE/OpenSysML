@@ -730,10 +730,14 @@ func (c *pkgClient) renderView(ctx context.Context, request protoreflect.Message
 		}
 	}
 	for _, node := range rendered.Nodes {
+		origin, err := renderSpanToProto(node.Origin)
+		if err != nil {
+			return nil, fmt.Errorf("convert RenderView node %q origin: %w", node.Name, err)
+		}
 		converted := &pb.RenderNode{
 			Id: node.ID, Kind: node.Kind, Name: node.Name, NameSynthesized: node.NameSynthesized,
 			Type: node.Type, Detail: node.Detail, Text: node.Text, StandIn: node.StandIn, Parent: node.Parent,
-			Origin: renderSpanToProto(node.Origin),
+			Origin: origin,
 		}
 		for _, port := range node.Ports {
 			converted.Ports = append(converted.Ports, &pb.RenderPort{
@@ -750,9 +754,13 @@ func (c *pkgClient) renderView(ctx context.Context, request protoreflect.Message
 		response.Nodes = append(response.Nodes, converted)
 	}
 	for _, edge := range rendered.Edges {
+		origin, err := renderSpanToProto(edge.Origin)
+		if err != nil {
+			return nil, fmt.Errorf("convert RenderView edge %q origin: %w", edge.Name, err)
+		}
 		converted := &pb.RenderEdge{
 			From: edge.From, To: edge.To, FromPort: edge.FromPort, ToPort: edge.ToPort,
-			Label: edge.Label, Name: edge.Name, Kind: edge.Kind, Origin: renderSpanToProto(edge.Origin),
+			Label: edge.Label, Name: edge.Name, Kind: edge.Kind, Origin: origin,
 			Style: renderStyleToProto(edge.Style),
 		}
 		for _, point := range edge.Route {
@@ -761,28 +769,41 @@ func (c *pkgClient) renderView(ctx context.Context, request protoreflect.Message
 		response.Edges = append(response.Edges, converted)
 	}
 	for _, row := range rendered.Rows {
+		origin, err := renderSpanToProto(row.Origin)
+		if err != nil {
+			return nil, fmt.Errorf("convert RenderView row origin: %w", err)
+		}
 		response.Rows = append(response.Rows, &pb.RenderRow{
-			Cells: row.Cells, Origin: renderSpanToProto(row.Origin),
+			Cells: row.Cells, Origin: origin,
 		})
 	}
 	for _, note := range rendered.Notes {
+		origin, err := renderSpanToProto(note.Origin)
+		if err != nil {
+			return nil, fmt.Errorf("convert RenderView note origin: %w", err)
+		}
 		response.Notes = append(response.Notes, &pb.RenderNote{
 			Text: note.Text, Anchor: note.Anchor, EdgeFrom: note.EdgeFrom, EdgeTo: note.EdgeTo,
 			X: note.X, Y: note.Y, Width: note.Width, Height: note.Height, HasSize: note.HasSize,
-			Origin: renderSpanToProto(note.Origin),
+			Origin: origin,
 		})
 	}
 	return response, nil
 }
 
-func renderSpanToProto(span *opensysml.Span) *pb.Span {
+func renderSpanToProto(span *opensysml.Span) (*pb.Span, error) {
 	if span == nil {
-		return nil
+		return nil, nil
 	}
-	return &pb.Span{
-		File: span.File, StartLine: int32(span.StartLine), StartCol: int32(span.StartCol),
-		EndLine: int32(span.EndLine), EndCol: int32(span.EndCol),
+	coordinates := [4]int{span.StartLine, span.StartCol, span.EndLine, span.EndCol}
+	converted := [4]int32{}
+	for i, coordinate := range coordinates {
+		if coordinate < math.MinInt32 || coordinate > math.MaxInt32 {
+			return nil, fmt.Errorf("span coordinate %d is outside the int32 range", coordinate)
+		}
+		converted[i] = int32(coordinate)
 	}
+	return &pb.Span{File: span.File, StartLine: converted[0], StartCol: converted[1], EndLine: converted[2], EndCol: converted[3]}, nil
 }
 
 func renderStyleToProto(style *opensysml.RenderStyle) *pb.RenderStyle {
