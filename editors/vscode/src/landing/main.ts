@@ -937,6 +937,11 @@ function mount(root: HTMLElement): Mounted {
     return source === goodSource ? model : read(source, "run");
   }
 
+  let seed: number | undefined;
+  let seedPicked = false;
+  let runSeed: number | undefined;
+  const randomSeed = (): number => 1 + Math.floor(Math.random() * 9999);
+
   on(runBtn, "click", () => {
     if (running) {
       return;
@@ -952,14 +957,23 @@ function mount(root: HTMLElement): Mounted {
         if (!current) {
           return;
         }
+        const picked = seed === undefined || seedPicked;
+        if (picked) {
+          seed = randomSeed();
+          seedPicked = true;
+          seedEl.value = String(seed);
+        }
+        const used = seed;
         const started = performance.now();
-        const visited = journey(await engine(), current);
+        const visited = journey(await engine(), current, used);
         const ms = Math.max(1, Math.round(performance.now() - started));
         if (visited.length === 0) {
           throw new Error("ExecuteState visited none of the diagram's parts");
         }
         const names = visited.map((id) => partOf(id)?.attrs.label ?? id);
-        status(`ExecuteState ran ModelJourney on ${JOURNEY_EVENTS.join(", ")} in ${ms} ms: ${names.join(" → ")}`);
+        status(
+          `ExecuteState ran ModelJourney on ${JOURNEY_EVENTS.join(", ")} under ${picked ? "random seed" : "seed"} ${used} in ${ms} ms: ${names.join(" → ")}`,
+        );
         runBtn.textContent = "▶ Run it again";
         await animate(visited);
       } catch (error) {
@@ -968,7 +982,13 @@ function mount(root: HTMLElement): Mounted {
         running = false;
         runBtn.disabled = false;
         syncDebugControls();
-        if (!debugPanel.hidden) {
+        if (run !== undefined && runSeed !== seed) {
+          if (debugPanel.hidden) {
+            run = undefined;
+          } else {
+            void rerun(-1);
+          }
+        } else if (!debugPanel.hidden) {
           showStep(cursor, false);
         }
       }
@@ -980,7 +1000,6 @@ function mount(root: HTMLElement): Mounted {
   // sent so far; the panel then steps through that run's trace record by record.
 
   let sent: string[] = [...JOURNEY_EVENTS];
-  let seed: number | undefined;
   let run: JourneyRun | undefined;
   let steps: DebugStep[] = [];
   // The last trace record shown; -1 is before the first.
@@ -1096,6 +1115,7 @@ function mount(root: HTMLElement): Mounted {
       rerunStale = false;
       const started = performance.now();
       run = runJourney(client, current, sent, seed);
+      runSeed = seed;
       steps = debugSteps(run.trace);
       const ms = Math.max(1, Math.round(performance.now() - started));
       const schedule = seed === undefined ? "the default schedule" : `seed ${seed}`;
@@ -1152,6 +1172,7 @@ function mount(root: HTMLElement): Mounted {
 
   function setSeed(next: number | undefined): void {
     seed = next;
+    seedPicked = false;
     seedEl.value = next === undefined ? "" : String(next);
     void rerun(-1);
   }
@@ -1205,7 +1226,7 @@ function mount(root: HTMLElement): Mounted {
     const parsed = Number(value);
     setSeed(value === "" || !Number.isSafeInteger(parsed) || parsed < 0 ? undefined : parsed);
   });
-  on(reseedBtn, "click", () => setSeed(1 + Math.floor(Math.random() * 9999)));
+  on(reseedBtn, "click", () => setSeed(randomSeed()));
 
   // ---- editing the model ----
 

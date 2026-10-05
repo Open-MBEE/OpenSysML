@@ -130,6 +130,40 @@ test("journey maps visited feature names to node ids and drops unknown states", 
   );
 });
 
+test("journey adds a seed only when defined", () => {
+  const model = landingModel(fixture.hash, fixtureRender, fixture.instances);
+  const calls: Array<{ method: string; params: Record<string, unknown> }> = [];
+  const engine: EngineClient = {
+    call(method, params) {
+      calls.push({ method, params: JSON.parse(params) as Record<string, unknown> });
+      return JSON.stringify({ result: { statesVisited: [] } });
+    },
+  };
+
+  journey(engine, model, 42);
+  journey(engine, model);
+
+  assert.deepEqual(calls, [
+    {
+      method: "ExecuteState",
+      params: {
+        modelHash: fixture.hash,
+        stateMachineSymbolId: JOURNEY_SYMBOL,
+        events: JOURNEY_EVENTS,
+        schedule: "seed:42",
+      },
+    },
+    {
+      method: "ExecuteState",
+      params: {
+        modelHash: fixture.hash,
+        stateMachineSymbolId: JOURNEY_SYMBOL,
+        events: JOURNEY_EVENTS,
+      },
+    },
+  ]);
+});
+
 test("runJourney requests a trace and adds a seed only when defined", () => {
   const model = landingModel(fixture.hash, fixtureRender, fixture.instances);
   const calls: Array<{ method: string; params: Record<string, unknown> }> = [];
