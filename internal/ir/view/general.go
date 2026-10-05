@@ -6,7 +6,6 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/Open-MBEE/OpenSysML/internal/semantic/query"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
@@ -649,7 +648,7 @@ func (g *generalGraph) resolvedEnds(name string, rel *symbols.Symbol, scope *sym
 // satisfyEdges draws `satisfy R by x`: from x, or from the element owning the
 // satisfy when it names no subject, to R.
 func (g *generalGraph) satisfyEdges(sym *symbols.Symbol) []Edge {
-	ends, ok := query.SatisfyEndsOf(sym)
+	ends, ok := semantics.SatisfyEndsOf(sym)
 	if !ok {
 		return nil
 	}
