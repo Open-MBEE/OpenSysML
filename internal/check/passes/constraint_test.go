@@ -851,6 +851,32 @@ func TestConstraintInterfaceFlowPairsDirectedFeatures(t *testing.T) {
 	if warned != 2 {
 		t.Errorf("port-conjugation diagnostics for an unpaired interface and its usage = %d, want 2: %v", warned, unflowed)
 	}
+
+	// Ends typed by one port offer the same features on both sides, so a flow
+	// is read by the end it starts at: one from an end to itself pairs nothing,
+	// and one direction leaves the other unpaired; both directions suffice.
+	const samePort = `port def P { out item sent; in item received; }
+	part def H { port p : P; }
+	part def Asm {
+		part h1 : H;
+		part h2 : H;
+		interface cross : Cross connect h1.p to h2.p;
+		interface sub : Sub connect h1.p to h2.p;
+	}
+	interface def Cross { end x : P; end y : P; flow x.sent to y.received; flow y.sent to x.received; }
+	interface def Sub :> Cross { end :>> x; end :>> y; }
+	`
+	if same := constraintDiags(t, samePort+`interface def Same { end x : P; end y : P; flow x.sent to x.received; }`); !hasCode(same, "port-conjugation") {
+		t.Errorf("expected port-conjugation diagnostic for a flow within one end, got %v", same)
+	}
+	if half := constraintDiags(t, samePort+`interface def Half { end x : P; end y : P; flow x.sent to y.received; }`); !hasCode(half, "port-conjugation") {
+		t.Errorf("expected port-conjugation diagnostic for one direction between like-typed ends, got %v", half)
+	}
+	for _, d := range constraintDiags(t, samePort) {
+		if d.Code == "port-conjugation" {
+			t.Errorf("unexpected port-conjugation diagnostic for flows in both directions between like-typed ends: %v", d)
+		}
+	}
 }
 
 // A `variant` whose owner is not a variation offers no choice, so it is an error

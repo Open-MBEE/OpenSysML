@@ -115,8 +115,13 @@ func TestReflectiveConnectorEndsAreOwnedMembers(t *testing.T) {
 				if ownedRelated := reflectiveElementsOf(t, fixture.model, rel, "ownedRelatedElement"); len(ownedRelated) != 1 || ownedRelated[0] != target {
 					t.Errorf("%s end %d reference subsetting owns %v, want its chain feature", name, i, fqns(ownedRelated))
 				}
-				if owners := reflectiveElementsOf(t, fixture.model, target, "owner"); len(owners) != 1 || owners[0] != rel {
-					t.Errorf("%s end %d chain feature owner = %v, want the reference subsetting", name, i, fqns(owners))
+				// The chain feature's owner is the end owning the relationship that
+				// owns it; the relationship owns nothing through a relationship of its own.
+				if owners := reflectiveElementsOf(t, fixture.model, target, "owner"); len(owners) != 1 || owners[0] != end {
+					t.Errorf("%s end %d chain feature owner = %v, want the end", name, i, fqns(owners))
+				}
+				if owned := reflectiveElementsOf(t, fixture.model, rel, "ownedElement"); len(owned) != 0 {
+					t.Errorf("%s end %d reference subsetting ownedElement = %v, want none", name, i, fqns(owned))
 				}
 			}
 			if tips := reflectiveElementsOf(t, fixture.model, connector, "relatedFeature"); len(tips) != 2 ||

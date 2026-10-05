@@ -15,7 +15,7 @@
     "firstChain": {"type": "Sequence", "elements": [{"type": "Metaobject", "value": "meta(test::Asm::s : SysML::Systems::PartUsage)"}, {"type": "Metaobject", "value": "meta(test::Source::y : SysML::Systems::PortUsage)"}]},
     "secondChain": {"type": "Sequence", "elements": [{"type": "Metaobject", "value": "meta(test::Asm::k : SysML::Systems::PartUsage)"}, {"type": "Metaobject", "value": "meta(test::Sink::u : SysML::Systems::PortUsage)"}]},
     "referenceSource": {"type": "Sequence", "elements": [{"type": "Metaobject", "value": "meta(test::Asm::c1::<unnamed> : SysML::Systems::ReferenceUsage)"}]},
-    "referenceTargetOwner": {"type": "Sequence", "elements": [{"type": "Metaobject", "value": "meta(test::Asm::c1::<unnamed>::<unnamed> : KerML::Core::ReferenceSubsetting)"}]},
+    "referenceTargetOwner": {"type": "Sequence", "elements": [{"type": "Metaobject", "value": "meta(test::Asm::c1::<unnamed> : SysML::Systems::ReferenceUsage)"}]},
     "connectorSubsettings": {"type": "Sequence", "elements": []},
     "redefinitions": {"type": "Sequence", "elements": [{"type": "Metaobject", "value": "meta(test::Derived::x::<unnamed> : KerML::Core::Redefinition)"}]},
     "redefined": {"type": "Sequence", "elements": [{"type": "Metaobject", "value": "meta(test::Base::x : SysML::Systems::AttributeUsage)"}]},

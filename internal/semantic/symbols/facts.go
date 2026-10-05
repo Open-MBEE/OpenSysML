@@ -81,6 +81,11 @@ type LibraryFacts struct {
 	// order, as derived from the declaration.
 	RelatedFeatures []ElementRef
 
+	// EndPaths are the features each end of a connector object usage names in
+	// order, outermost first (`connect a.b to c` has [a b] and [c]), in end
+	// order; an end whose attachment resolves to nothing has an empty path.
+	EndPaths [][]ElementRef
+
 	// MetadataType is the type named by a prefix metadata usage, zero when it
 	// does not resolve.
 	MetadataType ElementRef
@@ -191,6 +196,7 @@ func (f LibraryFacts) Clone() LibraryFacts {
 	f.About = cloneRefs(f.About)
 	f.Ends = cloneRefs(f.Ends)
 	f.RelatedFeatures = cloneRefs(f.RelatedFeatures)
+	f.EndPaths = clonePaths(f.EndPaths)
 	f.Alias = f.Alias.Clone()
 	f.References = f.References.Clone()
 	f.BaseType = f.BaseType.Clone()

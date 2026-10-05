@@ -19,7 +19,7 @@ import (
 // interfaceFormatVersion is the on-disk format version of an interface record.
 // Bump it whenever InterfaceRecord, symbols.DocumentRecord or
 // symbols.LibraryFacts changes shape or meaning.
-const interfaceFormatVersion = 16
+const interfaceFormatVersion = 17
 
 // ErrUnrecordable reports a document whose interface cannot be written without
 // its tree: a fact a reader needs has no name to restore it by. The document is
@@ -165,6 +165,14 @@ func (w *interfaceWriter) facts(sym *symbols.Symbol) symbols.LibraryFacts {
 	}
 	if related, ok := m.ReflectiveElements(sym, "relatedFeature"); ok {
 		facts.RelatedFeatures = w.refs(sym, related, "related feature")
+	}
+	if paths := m.ConnectorEndFeaturePaths(sym); len(paths) > 0 {
+		facts.EndPaths = make([][]symbols.ElementRef, len(paths))
+		for i, path := range paths {
+			if len(path) > 0 {
+				facts.EndPaths[i] = w.refs(sym, path, "connector end path")
+			}
+		}
 	}
 	if facts.Supers == nil {
 		facts.Supers = []symbols.ElementRef{}

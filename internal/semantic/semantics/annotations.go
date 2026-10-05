@@ -1467,10 +1467,10 @@ func (m *Model) ReflectiveElements(sym *symbols.Symbol, feature string) ([]*symb
 		}
 		return m.DifferencingTypes(sym), true
 	case "owner":
-		if sym.OwnerScope == nil || sym.OwnerScope.Owner() == nil {
-			return nil, true
+		if owner := m.reflectiveOwner(sym); owner != nil {
+			return []*symbols.Symbol{owner}, true
 		}
-		return []*symbols.Symbol{sym.OwnerScope.Owner()}, true
+		return nil, true
 	case "ownedMember":
 		return ownedMembersOf(sym), true
 	case "ownedElement":
@@ -1727,7 +1727,27 @@ func (m *Model) dependencyEnds(sym *symbols.Symbol, names []*ast.QualifiedName) 
 // ownedElementsOf is Element::ownedElement: the members sym's body declares,
 // the named ones in declaration order and then those declared without a
 // name, and its documentation.
+// reflectiveOwner is Element::owner of sym: the owner of its scope, or, for
+// the chain feature a relationship owns, the element owning that relationship
+// (KerML 8.3.2.1: owningRelationship.owningRelatedElement).
+func (m *Model) reflectiveOwner(sym *symbols.Symbol) *symbols.Symbol {
+	if sym.OwnerScope == nil {
+		return nil
+	}
+	owner := sym.OwnerScope.Owner()
+	if info, isRelationship := m.relationshipInfo[owner]; isRelationship {
+		return info.owner
+	}
+	return owner
+}
+
+// ownedElementsOf is Element::ownedElement of sym: the elements its owned
+// relationships own (KerML 8.3.2.1), so a relationship, which owns its chain
+// feature directly rather than through a relationship of its own, owns none.
 func (m *Model) ownedElementsOf(sym *symbols.Symbol) []*symbols.Symbol {
+	if _, isRelationship := m.relationshipInfo[sym]; isRelationship {
+		return nil
+	}
 	members := ownedMembersOf(sym)
 	seen := make(map[*symbols.Symbol]bool, len(members))
 	for _, member := range members {

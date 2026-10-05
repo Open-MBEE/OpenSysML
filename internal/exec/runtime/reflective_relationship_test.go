@@ -83,7 +83,7 @@ func TestReflectiveConnectorEndsAreOwned(t *testing.T) {
 		"owningRelatedElement":              "meta(test::Asm::c1::<unnamed> : SysML::Systems::ReferenceUsage)",
 		"isImplied":                         "false",
 		"referencedFeature.chainingFeature": "[meta(test::Asm::s : SysML::Systems::PartUsage), meta(test::Source::y : SysML::Systems::PortUsage)]",
-		"referencedFeature.owner":           "meta(test::Asm::c1::<unnamed>::<unnamed> : KerML::Core::ReferenceSubsetting)",
+		"referencedFeature.owner":           "meta(test::Asm::c1::<unnamed> : SysML::Systems::ReferenceUsage)",
 	} {
 		if got := reflectText(t, first+"."+property); got != want {
 			t.Errorf("first end's reference subsetting %s = %s, want %s", property, got, want)
@@ -125,6 +125,11 @@ func TestReflectivePlainUsageRelationships(t *testing.T) {
 		"(test::Derived::deep meta SysML::AttributeUsage).ownedRedefinition.redefinedFeature.chainingFeature": "[meta(test::Base::sub : SysML::Systems::PartUsage), meta(test::Base::sub::w : SysML::Systems::AttributeUsage)]",
 		"(test::Derived::deep meta SysML::AttributeUsage).ownedRedefinition.relatedElement":                   "[meta(test::Derived::deep : SysML::Systems::AttributeUsage), meta(test::Derived::deep::<unnamed>::<unnamed> : KerML::Core::Feature)]",
 		"(test::Derived::deep meta SysML::AttributeUsage).ownedElement":                                       "[meta(test::Derived::deep::<unnamed>::<unnamed> : KerML::Core::Feature)]",
+		"(test::Derived::deep meta SysML::AttributeUsage).ownedRedefinition.ownedRelatedElement":              "[meta(test::Derived::deep::<unnamed>::<unnamed> : KerML::Core::Feature)]",
+		"(test::Derived::deep meta SysML::AttributeUsage).ownedRedefinition.ownedElement":                     "[]",
+		"(test::Derived::deep meta SysML::AttributeUsage).ownedRedefinition.redefinedFeature.owner":           "[meta(test::Derived::deep : SysML::Systems::AttributeUsage)]",
+		"(test::Derived::x meta SysML::AttributeUsage).ownedElement":                                          "[]",
+		"(test::Derived::x meta SysML::AttributeUsage).ownedRedefinition.ownedRelatedElement":                 "[]",
 		"(test::Derived meta SysML::PartDefinition).ownedSubclassification.general":                           "[meta(test::Base : SysML::Systems::PartDefinition)]",
 		"(test::Derived meta SysML::PartDefinition).ownedSpecialization.specific":                             "[meta(test::Derived : SysML::Systems::PartDefinition)]",
 	} {

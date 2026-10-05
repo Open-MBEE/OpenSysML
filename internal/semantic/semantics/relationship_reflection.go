@@ -71,8 +71,8 @@ func (m *Model) OwnedRelationshipSymbols(sym *symbols.Symbol) []*symbols.Symbol 
 			out = append(out, rel)
 		}
 	}
-	m.ownedRelationships[sym] = out
 	journal(m, m.ownedRelationships, sym, sym.Decl)
+	m.ownedRelationships[sym] = out
 	return out
 }
 
@@ -157,8 +157,8 @@ func (m *Model) newOwnedRelationship(info ownedRelationship, ownerScope *symbols
 		}
 		scope.DefineAnonymous(info.chain)
 	}
-	m.relationshipInfo[rel] = info
 	journal(m, m.relationshipInfo, rel, info.owner.Decl)
+	m.relationshipInfo[rel] = info
 	return rel
 }
 

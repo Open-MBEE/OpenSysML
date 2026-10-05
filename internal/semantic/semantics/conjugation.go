@@ -329,7 +329,10 @@ func (m *Model) InterfaceEndPortMismatch(sym *symbols.Symbol) (a, b *symbols.Sym
 // interfaceFlowPairedFeatures collects, per end, the features the flows of the
 // interface sym pair with a compatible feature on the other end (§8.2.2.14):
 // the flows it declares and those it inherits, `interface m : Mounting connect
-// a to b` having Mounting's, each read as the two features its ends reference.
+// a to b` having Mounting's. Each flow end is read as the interface end its
+// chain starts at and the port feature it reaches, so a flow between the two
+// ends pairs them even when both are typed by the same port, and a flow
+// within one end pairs nothing.
 func (m *Model) interfaceFlowPairedFeatures(sym *symbols.Symbol, ends []*symbols.Symbol) map[*symbols.Symbol]map[string]bool {
 	paired := make(map[*symbols.Symbol]map[string]bool)
 	if sym == nil || len(ends) != 2 {
@@ -340,29 +343,41 @@ func (m *Model) interfaceFlowPairedFeatures(sym *symbols.Symbol, ends []*symbols
 		paired[end] = make(map[string]bool)
 		_, features[end], _ = m.endPortFeatures(end)
 	}
-	for _, member := range m.interfaceFlows(sym) {
-		related := m.connectorRelatedFeatures(member, "relatedFeature")
-		if len(related) != 2 {
+	for _, flow := range m.interfaceFlows(sym) {
+		paths := m.ConnectorEndFeaturePaths(flow)
+		if len(paths) != 2 {
 			continue
 		}
-		for _, from := range ends {
-			for _, to := range ends {
-				if from == to {
-					continue
-				}
-				source, sourceOK := portFeatureOf(features[from], related[0])
-				target, targetOK := portFeatureOf(features[to], related[1])
-				if !sourceOK || !targetOK ||
-					!flowDirectionsConform(source.Direction, target.Direction) ||
-					!m.featureTypesConform(source.Symbol, target.Symbol) {
-					continue
-				}
-				paired[from][source.Name] = true
-				paired[to][target.Name] = true
-			}
+		from, source, fromOK := m.flowEndFeature(ends, features, paths[0])
+		to, target, toOK := m.flowEndFeature(ends, features, paths[1])
+		if !fromOK || !toOK || from == to ||
+			!flowDirectionsConform(source.Direction, target.Direction) ||
+			!m.featureTypesConform(source.Symbol, target.Symbol) {
+			continue
 		}
+		paired[from][source.Name] = true
+		paired[to][target.Name] = true
 	}
 	return paired
+}
+
+// flowEndFeature finds which of the interface ends a flow end's chain starts at
+// (the end itself, or one redefining it, as `connect a to b` ends redefine the
+// interface definition's by position) and the feature of its port it reaches.
+func (m *Model) flowEndFeature(ends []*symbols.Symbol, features map[*symbols.Symbol][]PortFeature, path []*symbols.Symbol) (*symbols.Symbol, PortFeature, bool) {
+	if len(path) < 2 {
+		return nil, PortFeature{}, false
+	}
+	head, tip := path[0], path[len(path)-1]
+	for _, end := range ends {
+		if end != head && !slices.Contains(m.AllRedefinedFeatures(end), head) {
+			continue
+		}
+		if feature, ok := portFeatureOf(features[end], tip); ok {
+			return end, feature, true
+		}
+	}
+	return nil, PortFeature{}, false
 }
 
 // interfaceFlows returns the flows the interface sym declares or inherits,

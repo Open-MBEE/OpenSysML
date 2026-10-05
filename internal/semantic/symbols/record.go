@@ -391,6 +391,9 @@ func (in interner) facts(f *LibraryFacts) {
 	in.refs(f.About)
 	in.refs(f.Ends)
 	in.refs(f.RelatedFeatures)
+	for _, path := range f.EndPaths {
+		in.refs(path)
+	}
 	in.ref(&f.Alias)
 	in.ref(&f.References)
 	in.ref(&f.BaseType)
