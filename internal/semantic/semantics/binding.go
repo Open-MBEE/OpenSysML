@@ -32,8 +32,11 @@ func (m *Model) LookupBinding(scope *symbols.Scope, typ *symbols.Symbol, name *a
 
 // SignatureParameter is one input parameter of a callee as a call binds it.
 type SignatureParameter struct {
-	Name     string // the name a runtime keys the binding by
-	Optional bool   // may go without an argument: a default, or a multiplicity admitting none
+	Name     string          // the name a runtime keys the binding by
+	Symbol   *symbols.Symbol // the parameter as the callee, or a general of it, declares it
+	Type     *symbols.Symbol // the declared type, nil when untyped or unresolved
+	Optional bool            // may go without an argument: a default, or a multiplicity admitting none
+	Default  bool            // declares a default, itself or along what it redefines
 }
 
 // SignatureParametersOf lists callee's effective input parameters in signature order —
@@ -45,7 +48,8 @@ func (m *Model) SignatureParametersOf(callee *symbols.Symbol) []SignatureParamet
 	sig := m.signatureOf(callee)
 	params := make([]SignatureParameter, len(sig.params))
 	for i, p := range sig.params {
-		params[i] = SignatureParameter{Name: p.name, Optional: p.optional}
+		value, _ := m.ParameterDefault(p.sym)
+		params[i] = SignatureParameter{Name: p.name, Symbol: p.sym, Type: p.typ, Optional: p.optional, Default: value != nil}
 	}
 	return params
 }

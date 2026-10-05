@@ -64,10 +64,10 @@ package test {
                 in m = m + dt * k3.dm;
             }
             assign x := x + dt / 6.0 * (k1.dx + 2.0 * k2.dx + 2.0 * k3.dx + k4.dx);
-            assign h := h + dt / 6.0 * (k1.dh + 2.0 * k2.dh + 2.0 * k3.dh + k4.dh);
-            assign vx := vx + dt / 6.0 * (k1.dvx + 2.0 * k2.dvx + 2.0 * k3.dvx + k4.dvx);
-            assign vh := vh + dt / 6.0 * (k1.dvh + 2.0 * k2.dvh + 2.0 * k3.dvh + k4.dvh);
-            assign m := m + dt / 6.0 * (k1.dm + 2.0 * k2.dm + 2.0 * k3.dm + k4.dm);
+            then assign h := h + dt / 6.0 * (k1.dh + 2.0 * k2.dh + 2.0 * k3.dh + k4.dh);
+            then assign vx := vx + dt / 6.0 * (k1.dvx + 2.0 * k2.dvx + 2.0 * k3.dvx + k4.dvx);
+            then assign vh := vh + dt / 6.0 * (k1.dvh + 2.0 * k2.dvh + 2.0 * k3.dvh + k4.dvh);
+            then assign m := m + dt / 6.0 * (k1.dm + 2.0 * k2.dm + 2.0 * k3.dm + k4.dm);
         }
 
         return : Real = h;

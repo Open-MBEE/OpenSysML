@@ -18,12 +18,12 @@ package test {
                     action p {
                         out v : Integer;
                         assign v := 1;
-                        assign total := total + v;
+                        then assign total := total + v;
                     }
                     action q {
                         out v : Integer;
                         assign v := 20;
-                        assign total := total + v;
+                        then assign total := total + v;
                     }
                 }
             }

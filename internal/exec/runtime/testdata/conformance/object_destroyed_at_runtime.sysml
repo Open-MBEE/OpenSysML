@@ -26,19 +26,15 @@ package test {
 
 		perform action cycle {
 			first start;
-			then action make {
-				assign cars := addNew(cars, new Car(1));
-				assign cars := addNew(cars, new Car(2));
-				assign spare := cars#(2);
-				assign extentBefore := size(all Car);
-			}
-			then action scrap {
-				assign sameObject := destroy(spare) === cars#(2);
-				assign extentAfter := size(all Car);
-				assign heldAfter := size(cars);
-				assign spareAlive := isDuring(spare);
-				assign firstAlive := isDuring(cars#(1));
-			}
+			then action make assign cars := addNew(cars, new Car(1));
+			then assign cars := addNew(cars, new Car(2));
+			then assign spare := cars#(2);
+			then assign extentBefore := size(all Car);
+			then action scrap assign sameObject := destroy(spare) === cars#(2);
+			then assign extentAfter := size(all Car);
+			then assign heldAfter := size(cars);
+			then assign spareAlive := isDuring(spare);
+			then assign firstAlive := isDuring(cars#(1));
 			then done;
 		}
 	}

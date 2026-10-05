@@ -10,7 +10,6 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
-	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
 // Query evaluates OSLC element-identification query text and renders one
@@ -161,7 +160,7 @@ func (m *replQueryModel) positionalNames() {
 				continue
 			}
 			docs = append(docs, replext.PositionalDocument{
-				File: source.New(doc.Name, doc.Content),
+				File: sourceForKind(doc.Name, doc.Content, doc.Kind()),
 				Root: root,
 			})
 		}

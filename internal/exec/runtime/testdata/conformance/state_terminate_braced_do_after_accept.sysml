@@ -18,10 +18,10 @@ package Test {
 		state s {
 			do {
 				action wait { first start; then action w accept Go; then done; }
-				assign d := 1;
-				terminate;
-				action again { first start; then action w accept Go; then done; }
-				assign d := 9;
+				then assign d := 1;
+				then terminate;
+				then action again { first start; then action w accept Go; then done; }
+				then assign d := 9;
 			}
 		}
 		state t;

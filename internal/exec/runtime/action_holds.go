@@ -18,8 +18,12 @@ func (e *ActionExecutor) Holds(sym *symbols.Symbol, scope *symbols.Scope) (bool,
 		return false, fmt.Errorf("%w: no condition named", ErrNoConditions)
 	}
 	defer e.ctx.beginExecutorRun(&e.driven)()
-	defer e.ctx.beginProbe()()
+	return e.ctx.everyStatementOrder(func() (bool, error) {
+		return e.holds(sym, scope)
+	})
+}
 
+func (e *ActionExecutor) holds(sym *symbols.Symbol, scope *symbols.Scope) (bool, error) {
 	kind, what := "constraint", "assertion"
 	if err := RequireConstraint(sym); err != nil {
 		if RequireRequirement(sym) != nil {
