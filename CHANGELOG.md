@@ -7,6 +7,62 @@ release is described in [docs/project/releasing.md](docs/project/releasing.md).
 
 ## Unreleased
 
+## 0.9.2 — 2026-10-05
+
+### Added
+
+- **The service's `Convert` takes the id form.** `ConvertRequest.id_form` spells derived element ids as `sysml -id` does when notation is written as a graph (`ttl`, `api-json`), from inline content, a file or a parsed model of several documents: `qualified` (the default) or `uuid`. A service client got only the qualified form before. Any other value, or one given for another direction, is `INVALID_ARGUMENT` (#732).
+
+- **A converted model names the standard library elements it references.** A reference to a library element is its normative id, a hash no reader can turn back into a name. Turtle, the API's JSON and `Convert` now state each referenced library element under that id, with its metaclass, `qualifiedName` and `declaredName`, marked `isLibraryElement` (KerML `Element::isLibraryElement`). Every `@id` an API JSON output references is then an element of it. The library itself is still not exported, and reading a graph back checks each name against the bundled library (#731).
+
+- **Add generated SysML metaclasses and a standalone JSON element reader to the Python client.** Read API and toolkit exports as a lazy typed graph without loading JSON into the engine.
+
+- **A query can report an element's `elementId`.** `select: ["elementId"]` (and `where` on it, and OSLC) reports the `elementId` `Convert` writes for the element: a declared id, a standard-library element's normative id, or the encoding of its qualified or positional name, from the writer's own identity tables. A query result then joins a converted graph, which the qualified name did not do for a library element or a declared id (#733).
+
+### Changed
+
+- **The metamodel table is generated from the OMG SysML v2 metamodel version 20250201, read from the pinned pilot implementation's `SysML.ecore`, and records each property's ordering, derivation, redefinitions, subsettings and opposite.** It was pinned to the 202407 rendering of `Open-MBEE/sysmlv2-rdf-ontology`, which has not moved since. The table now declares `FlowUsage`, `PayloadFeature`, `FlowEnd`, `TerminateActionUsage` and the other metaclasses added since, so a type owns them through a `sysml:FeatureMembership` and lists them in `sysml:ownedFeature`, as it owns any feature; `nonunique` is written `sysml:isUnique false`, since the metamodel no longer declares `isNonunique`. Graphs written by earlier releases still read. `ontology.Property` gains `Ordered`, `Derived`, `Redefines`, `Subsets` and `Opposite`, `ontology.Class` gains `Abstract`, and the ontology gate reports a subject typed by an abstract metaclass. CI fails when the table drifts from the pinned metamodel (`make ontology-table-check`).
+
+- **Stamp Rust release digests into each published crate.** The publish job adds the release tag's
+  service-asset digests from its checksum manifest, so a crates.io installation can verify and
+  download the binary it was built against by default. A Git-checkout build or a request for
+  another release still needs a matching pin or `$OPENSYSML_ALLOW_UNPINNED_DOWNLOAD`; Rust does not
+  verify the manifest's Sigstore signature itself.
+
+- **A download refused because `sigstore` is not installed says so.** When no pin covers a release and the `sigstore` package the signed manifest is verified with cannot be imported, `opensysml` raises `SigstoreUnavailableError` (an `UnpinnedReleaseError`) naming the package, the install (`python -m pip install 'sigstore>=4.5.0,<5'`), and that a release of `opensysml` pins its own core release, so this arises only for another release or an older client. The binary is still not downloaded unverified.
+
+### Fixed
+
+- **Clients use their built-against service release by default.** Python and Java download and
+  verify that release. A Rust crate published from a release tag also verifies its built-against
+  release: the publish job stamps its digests from the release checksum manifest. A Git-checkout
+  build or a request for another release still needs a pin or
+  `$OPENSYSML_ALLOW_UNPINNED_DOWNLOAD`; Rust does not verify the manifest's Sigstore signature.
+
+- A bare `assume c;`, `require c;` or `assert c;`, and one naming a feature chain (`require q.k;`), is now exported in the reference form the grammar gives it: the constraint usage owns a `ReferenceSubsetting` to the feature (or to the chain feature of `q.k`), as `require P::c;` already did, rather than an inline `sysx:condition` expression. The notation, and graphs that state a condition inline, read back as before.
+
+- **`first a then b;` owns its connector ends.** It was exported as a `SuccessionAsUsage` with only the derived `sourceFeature` and `targetFeature`, so a reader of the API's JSON found no ends. It now owns two `ConnectorEnd`s under `EndFeatureMembership`s, each with a `ReferenceSubsetting` to the feature it names, as the grammar's `SuccessionAsUsage` does; the derived properties are still written, and the notation reads back unchanged. A graph whose ends and derived properties name different features, or whose end declares a name or bounds, is refused rather than written without them (#760).
+
+- **The gRPC service reports the parser's warnings, and what the notation passes make of them, as the command line does.** `ParseFile` and `ParseSources` handed the analysis an empty parse-diagnostic list, so a reserved keyword written as a name (`part filter : X;`) loaded with no diagnostic where `sysml -validate` reports the `reserved-keyword-name` error, and strict conformance never escalated a parser `nonstandard-notation` warning. The service now hands the analysis the parse's errors and warnings the way the workspace does and reports each diagnostic once; the Python, Java, Julia and other clients see the same diagnostics for a document as the CLI. Edits validate their result under the same parse diagnostics.
+
+- **Uniqueness and constancy conformance hold of an implicit subsetting.** `action def A { action b[*] nonunique; }` was accepted, though `b` implicitly subsets the unique `Actions::Action::subactions`; only a written `:>`/`:>>` was checked. The feature the usage implicitly subsets is now checked as a written one is, and the finding is reported at the declaration, once (#726).
+
+- **The metamodel JSON reader unwraps standalone DataVersion envelopes, excludes namespaces with owner metadata from roots, rejects references to the wrong metaclass by default, and rejects non-finite real values.** This reports malformed exported values when read, lets callers opt out of range checking with `check_ranges=False`, and resolves custom metaclasses through `supertypes=`.
+
+- **Ecore upper bounds above one are multi-valued in the ontology table.** `MultiplicityRange::bound` and `Flow::flowEnd` (upper bound 2) were marked single-valued; they are now `Many`, so api-json writes them as arrays.
+
+- **A released `opensysml` wheel verifies the service it downloads against a digest it ships.** The release pipeline now builds the `sysml-grpc` binaries first, hashes them and stamps their digests under the release tag into the `release-digests.json` the wheel and sdist package (`pin_release_checksums.py --from-binaries`), and fails the release unless the built wheel and sdist pin all five service assets and the signed `SHA256SUMS.txt` lists the same digests. `pip install opensysml==X.Y.Z` followed by `opensysml.connect()` therefore installs its own core release with no environment variable and no `sigstore` at run time; the signed manifest is what the client verifies for another release, or one newer than itself.
+
+- **A query reports each element's own `elementId` where two identity scopes declare one qualified name.** The ids a conversion writes were recorded by qualified name, so of two elements named alike in two scopes the query reported the id written last for both. They are now recorded by declaration as well, so each reports the id `Convert` writes for it.
+
+- A transition now owns what the grammar gives it ahead of its trigger: the `FeatureChainMember` naming the source of a `first` transition (a `Membership` whose member is the state, or for `first a.b` an `OwningMembership` owning the chain), then an `EmptyParameterMember`, and a second one ahead of a trigger. A chained target (`then b.c`) is the feature chain its end's reference subsetting owns, rather than the feature it reaches. `first b.c` and `then b.c` read back as written, where they came back as `first c` and `then c`; a source member or chained end that disagrees with the transition's `sysml:source`/`sysml:target` is refused. A graph in the API element form that states the structure alone, without the collapsed source and target, or a chain only by its derived `chainingFeature` list, reads back the same (#803).
+
+- `variant x;` is now exported as the `VariantReference` the grammar gives it: a `ReferenceUsage` whose owned `ReferenceSubsetting` references the `x` visible outside the variation, rather than a new `PartUsage` declaring `x`. `variant P::x;` and `variant a.b;`, whose reference is a qualified name or a feature chain, now parse, and are exported the same way, with the chain feature owned for `a.b`. Reading back writes `variant x;` only when `x` reaches the referenced feature, and refuses it otherwise. An unresolved `variant x;` keeps `x` as a literal reference, an unrestricted name such as `'a::b'` staying one name. `variant ref x;` declares `x`, as the grammar reads it, and is written back as `variant ref x;` rather than `ref variant x;`.
+
+- **The Windows MSI jobs no longer check out the repository, so a tag whose tree Windows cannot check out can still get its installer.** The `msi` and `msi-signed` jobs consume `packaging/msi`, `scripts/build-msi.sh` and `LICENSE`, which the Linux build job uploads as a workflow artifact from the tagged commit; `git checkout` on Windows — which fails on any tracked path it forbids — is no longer on the installer's critical path.
+
+- **The Windows release workflow can be re-run against an existing tag, and the tree checks out on Windows again.** A document-renderer fixture whose name held `<`/`>` broke `git checkout` on the Windows runners, so no MSI was built; the fixture is renamed, a hygiene test now rejects tracked paths Windows cannot hold, and `release-windows.yml` accepts a `tag` dispatch input (`gh workflow run release-windows.yml --ref main -f tag=vX.Y.Z`) that builds the tagged commit and publishes only the MSI assets.
+
 ## 0.9.1 — 2026-09-26
 
 ### Added

@@ -1,1 +1,0 @@
-- **Ecore upper bounds above one are multi-valued in the ontology table.** `MultiplicityRange::bound` and `Flow::flowEnd` (upper bound 2) were marked single-valued; they are now `Many`, so api-json writes them as arrays.
