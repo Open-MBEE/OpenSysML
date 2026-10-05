@@ -134,6 +134,42 @@ func TestCheckExitStatus(t *testing.T) {
 	rejectReport(t, undecided, "✗ Requirement Rover::touchdown failed")
 }
 
+func TestSelfCheckFlagRunsOnlyOnCleanModels(t *testing.T) {
+	binary := buildCLI(t)
+	const clean = `package P { part def A; }`
+	got := check(t, binary, clean, "-self-check")
+	wantReport(t, got, 0, "Self-model check: ", ", 0 violations,")
+
+	jsonReport := check(t, binary, clean, "-self-check", "-json")
+	if jsonReport.status != 0 || !json.Valid([]byte(jsonReport.stdout)) ||
+		!strings.Contains(jsonReport.stdout, "Self-model check: ") {
+		t.Errorf("JSON self-check report status=%d is invalid or missing its summary:\n%s",
+			jsonReport.status, jsonReport.output())
+	}
+
+	const constantAttribute = `package P { part def T { constant attribute a; } }`
+	constantCheck := check(t, binary, constantAttribute, "-self-check")
+	wantReport(t, constantCheck, 0, "Self-model check: ", ", 0 violations,")
+
+	const connectionEnds = `package P {
+		part def T;
+		connection def C { end part a : T; end part b : T; }
+	}`
+	endsCheck := check(t, binary, connectionEnds, "-self-check")
+	wantReport(t, endsCheck, 0, "Self-model check: ", ", 0 violations,")
+	rejectReport(t, endsCheck, "validateConnectionDefinitionIsSufficient fails for P::C",
+		"validateFeatureEndIsConstant fails")
+
+	const broken = `package P { part def A :> Missing; }`
+	failed := check(t, binary, broken, "-self-check")
+	if failed.status == 0 || !strings.Contains(failed.output(), "did not analyse cleanly; no check was made") {
+		t.Errorf("self-check ran on a model with errors (status %d):\n%s", failed.status, failed.output())
+	}
+	if strings.Contains(failed.output(), "Self-model check:") {
+		t.Errorf("self-check reported a verdict for a model with errors:\n%s", failed.output())
+	}
+}
+
 // rejectReport checks that a report does not say something, which is how wording
 // that contradicts the exit status is caught.
 func rejectReport(t *testing.T, got runOutcome, substrings ...string) {
@@ -162,6 +198,22 @@ func TestEvalAfterInstantiateThroughCLI(t *testing.T) {
 	answered := check(t, binary, model, "-e", "P::Sensor::reading")
 	wantReport(t, answered, 0, "= 0.0")
 	rejectReport(t, answered, "(on ")
+}
+
+// TestEvalOfBoundNamespaceMembersThroughCLI: `-e` reads usages a namespace-owned
+// binding joins through the binding's class, so the valued end's declared value
+// is the class's one object rather than a second construction.
+func TestEvalOfBoundNamespaceMembersThroughCLI(t *testing.T) {
+	binary := buildCLI(t)
+	const model = `package P {
+    part def Car;
+    part x : Car;
+    part y : Car = new Car();
+    bind x = y;
+}
+`
+	got := check(t, binary, model, "-e", "P::x", "-e", "P::y", "-e", "P::x === P::y")
+	wantReport(t, got, 0, "= Instance(ID: 1)", "= true")
 }
 
 // TestCheckOfInheritedConstraintAfterInstantiate checks what `-instantiate p

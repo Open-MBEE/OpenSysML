@@ -1,0 +1,1 @@
+- **A data-import demo.** `examples/data-import-demo` imports a Python script's CSV, JSON, JSON Lines and TSV output into a rover model with `-import … -convert sysml -o`, a mapping file for the JSON report, `-import-dry-run` and `%import`.

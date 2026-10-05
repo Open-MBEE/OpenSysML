@@ -12,8 +12,9 @@ package test {
 
     part def Assembly {
         attribute k : Integer = 3;
+        attribute gridBound : Integer = k * 1000;
         part cell : Component[2000];
-        part grid : Component[k * 1000];
+        part grid : Component[gridBound];
         part spare : Component :> grid {
             attribute :>> unitMass = 5.0;
         }

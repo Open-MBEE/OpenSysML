@@ -12,7 +12,7 @@ package test {
 		action accumulate {
 			while count < 6 {
 				assign count := count + 1;
-				if count == 3 {
+				then if count == 3 {
 					assign bursts := bursts + 1;
 					attribute inner : Integer = 0;
 					while inner < 3 {

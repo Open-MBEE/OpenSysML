@@ -1,0 +1,7 @@
+step 1: token 1@s
+stmt assign x
+  eval literal 1 -> 1
+stmt assign y
+  eval feature x -> 1
+step 2: token 1@done
+step 3: no active tokens

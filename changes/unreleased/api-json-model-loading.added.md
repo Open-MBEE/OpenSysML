@@ -1,0 +1,1 @@
+- **Load API element-form JSON files directly.** Explicitly named `.json` model files are converted to SysML notation before parsing; diagnostics refer to that notation.

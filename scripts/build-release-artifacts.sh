@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 #
-# Cross-compile sysml, sysml-lsp and sysml-grpc for every released platform and
+# Cross-compile sysml, sysml-lsp and sysml-grpc for every released platform,
+# and sysml-wasm for JavaScript,
 # lay them out as release assets, the way the CircleCI `build-release` job does.
 #
 # Usage: VERSION=<version> scripts/build-release-artifacts.sh [dist-dir]
@@ -13,6 +14,7 @@
 #   sysml-<os>-<arch>.tar.gz, sysml-lsp-<os>-<arch>.tar.gz   (.zip on Windows)
 #   opensysml-<os>-<arch>.tar.gz                              (.zip on Windows)
 #   grpc/sysml-grpc-<os>-<arch>[.exe] with a .sha256 sidecar
+#   wasm/sysml-wasm.wasm and wasm/wasm_exec.js with .sha256 sidecars
 #   SHA256SUMS.txt
 #
 # Every binary is then checked for the version it should report: the host
@@ -45,6 +47,7 @@ build() { # <make target> <binary name> <platform> <destination>
 
 rm -rf "$DIST"
 mkdir -p "$DIST/grpc"
+mkdir -p "$DIST/wasm"
 
 for platform in "${PLATFORMS[@]}"; do
   build build-sysml sysml "$platform" "$DIST/sysml-${platform}"
@@ -53,6 +56,10 @@ for platform in "${PLATFORMS[@]}"; do
   # a .sha256 sidecar, so these are published unarchived.
   build build-grpc sysml-grpc "$platform" "$DIST/grpc/sysml-grpc-${platform}"
 done
+
+make build-release-wasm \
+  VERSION="$VERSION" COMMIT="$COMMIT" BUILD_TIME="$BUILD_TIME" GO_VERSION="$GO_VERSION"
+mv bin/wasm/release/sysml-wasm.wasm bin/wasm/release/wasm_exec.js "$DIST/wasm/"
 
 cd "$DIST"
 
@@ -90,6 +97,8 @@ rm -rf stage
 sha256sum ./*.tar.gz ./*.zip | sed 's|\./||' > SHA256SUMS.txt
 (cd grpc && sha256sum sysml-grpc-* >> ../SHA256SUMS.txt)
 (cd grpc && for f in sysml-grpc-*; do sha256sum "$f" > "$f.sha256"; done)
+(cd wasm && sha256sum sysml-wasm.wasm wasm_exec.js >> ../SHA256SUMS.txt)
+(cd wasm && for f in sysml-wasm.wasm wasm_exec.js; do sha256sum "$f" > "$f.sha256"; done)
 cat SHA256SUMS.txt
 
 host="$(go env GOHOSTOS)-$(go env GOHOSTARCH)"
@@ -99,7 +108,7 @@ fail() {
   echo "The version ldflags (see the Makefile's LDFLAGS) did not reach this build." >&2
   status=1
 }
-for binary in sysml-* grpc/sysml-grpc-*; do
+for binary in sysml-* grpc/sysml-grpc-* wasm/sysml-wasm.wasm; do
   if [[ "$binary" == *.tar.gz || "$binary" == *.zip || "$binary" == *.sha256 ]]; then
     continue
   fi

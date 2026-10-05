@@ -42,8 +42,9 @@ type reporter struct {
 	err  io.Writer
 	json bool
 
-	verdicts []repl.Verdict
-	report   checkReport
+	verdicts       []repl.Verdict
+	statusVerdicts []repl.Verdict
+	report         checkReport
 	// findings counts the model errors the run itself produced, which are
 	// reported as diagnostics and decide no check.
 	findings int
@@ -695,6 +696,33 @@ func (r *reporter) diags(diags []repl.Diagnostic) {
 // the other failures to run go.
 func (r *reporter) verdict(v repl.Verdict) {
 	r.verdicts = append(r.verdicts, v)
+	r.statusVerdicts = append(r.statusVerdicts, v)
+	r.reportVerdict(v)
+}
+
+func (r *reporter) selfCheck(verdicts []repl.Verdict) {
+	for _, v := range verdicts {
+		r.verdicts = append(r.verdicts, v)
+		if v.Subject == "Self-model check" || selfCheckEvaluationError(v) {
+			r.statusVerdicts = append(r.statusVerdicts, v)
+		}
+		r.reportVerdict(v)
+	}
+}
+
+func selfCheckEvaluationError(v repl.Verdict) bool {
+	if v.Status != repl.VerdictUnresolved {
+		return false
+	}
+	for _, line := range v.Lines {
+		if strings.Contains(line, "error: could not be evaluated:") {
+			return true
+		}
+	}
+	return false
+}
+
+func (r *reporter) reportVerdict(v repl.Verdict) {
 	if r.json {
 		// The lines are reported with the check itself, not twice.
 		return
@@ -742,7 +770,7 @@ func (r *reporter) finish() int {
 // status is the outcome of the whole run: a check that could not be made leaves
 // it unresolved, and otherwise the worst verdict decided stands.
 func (r *reporter) status() (repl.VerdictStatus, int) {
-	worst := repl.WorstStatus(r.verdicts)
+	worst := repl.WorstStatus(r.statusVerdicts)
 	if !r.clean() {
 		worst = repl.VerdictUnresolved
 	}

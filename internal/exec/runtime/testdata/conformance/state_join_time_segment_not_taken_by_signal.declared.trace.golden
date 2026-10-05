@@ -7,12 +7,14 @@ stmt assign log
 choice events at t=1.0: time c1 1->c2, time d1 1->d2 (unordered; dispatched time c1 1->c2 first)
 exit: c1
 stmt action body
+enter action node: state behavior <anonymous>
   stmt assign log
       eval feature log -> "b "
       eval literal "c " -> "c "
     eval operator + -> "b c "
   stmt send
 materialize: Go #1
+leave action node: state behavior <anonymous>
 enter: c2
 transition: c1 -> c2 (event: time)
 choice events at t=1.0: time d1 1->d2, accept Go (unordered; dispatched time d1 1->d2 first)

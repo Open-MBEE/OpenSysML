@@ -2,6 +2,8 @@ package semantics
 
 import (
 	"errors"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
@@ -169,6 +171,231 @@ func TestClassificationOfASubjectFromAnotherIndexGeneration(t *testing.T) {
 		got, err := m.EvalClassification(root, op, stale)
 		if err != nil || got != tc.want {
 			t.Fatalf("%q for a %s of an earlier generation = %v (err=%v), want %v", tc.cond, tc.name, got, err, tc.want)
+		}
+	}
+}
+
+func TestMetaclassOfControlNodesAndEventOccurrences(t *testing.T) {
+	const src = `
+		package N {
+			action def A2 {
+				fork f2;
+				join j2;
+				merge m2;
+				decide d2;
+			}
+			action def A3 {
+				first start;
+				then fork f;
+			}
+			part def Q { event occurrence e2; }
+		}
+	`
+	m, root := buildModelWithStdlib(t, src)
+	n := sym(t, root, "N")
+	a2 := sym(t, n.Scope, "A2")
+	a3 := sym(t, n.Scope, "A3")
+	q := sym(t, n.Scope, "Q")
+	for _, tc := range []struct {
+		sym  *symbols.Symbol
+		want string
+	}{
+		{sym(t, a2.Scope, "f2"), "ForkNode"},
+		{sym(t, a2.Scope, "j2"), "JoinNode"},
+		{sym(t, a2.Scope, "m2"), "MergeNode"},
+		{sym(t, a2.Scope, "d2"), "DecisionNode"},
+		{sym(t, a3.Scope, "f"), "ForkNode"},
+		{sym(t, q.Scope, "e2"), "EventOccurrenceUsage"},
+	} {
+		meta := m.MetaclassOf(tc.sym)
+		if meta == nil || meta.Name != tc.want {
+			t.Errorf("%s metaclass = %v, want SysML::%s", tc.sym.Name, meta, tc.want)
+		}
+	}
+
+	event := sym(t, q.Scope, "e2")
+	if ref, ok := m.ReflectiveFeatureValue(event, "isReference"); !ok || !ref.Bool {
+		t.Errorf("event occurrence isReference = %v (present %t), want true", ref, ok)
+	}
+
+	p := parser.New(source.New("<classification>", []byte("@SysML::ActionUsage")))
+	filter, ok := p.ParseExpression().(*ast.OperatorExpr)
+	if len(p.Diagnostics) != 0 || !ok {
+		t.Fatalf("failed to parse action usage filter: %v", p.Diagnostics)
+	}
+	elementFilter := symbols.ElementFilter{Expr: filter, Scope: root, Span: filter.Span()}
+	for _, name := range []string{"f2", "j2", "m2", "d2"} {
+		if got, err := m.EvalElementFilter(elementFilter, sym(t, a2.Scope, name)); err != nil || !got {
+			t.Errorf("@SysML::ActionUsage for %s = %t, err=%v; want true", name, got, err)
+		}
+	}
+}
+
+func TestKerMLFeatureMetaclassClassification(t *testing.T) {
+	const inline = `package N {
+		class Camera {
+			feature timeSlices;
+			portion focusedState: Camera subsets timeSlices;
+		}
+	}`
+	m, root := buildModelWithStdlibNamedKind(t, "inline.kerml", source.KindKerML, inline)
+	camera := nestedSym(t, root, "N::Camera")
+	for _, name := range []string{"timeSlices", "focusedState"} {
+		feature := sym(t, camera.Scope, name)
+		meta := m.MetaclassOf(feature)
+		if meta == nil || meta.Name != "Feature" {
+			t.Errorf("KerML %s metaclass = %v, want KerML::Feature", name, meta)
+		}
+	}
+	if got, ok := m.ReflectiveFeatureValue(sym(t, camera.Scope, "focusedState"), "isPortion"); !ok || !got.Bool {
+		t.Errorf("KerML portion isPortion = %v (present %t), want true", got, ok)
+	}
+
+	path := filepath.Join("..", "..", "..", "examples", "pilot-corpora", "kerml-examples", "Vehicle Example", "VehicleUsages.kerml")
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read VehicleUsages.kerml: %v", err)
+	}
+	vehicleModel, vehicleRoot := buildModelWithStdlibNamedKind(t, path, source.KindKerML, string(data))
+	vehiclePackage := sym(t, vehicleRoot, "VehicleUsages")
+	feature := sym(t, vehiclePackage.Scope, "T1")
+	meta := vehicleModel.MetaclassOf(feature)
+	if meta == nil || meta.Name != "Feature" {
+		t.Errorf("VehicleUsages::T1 metaclass = %v, want KerML::Feature", meta)
+	}
+}
+
+func TestKerMLConstantFeatureIsVariableButSysMLConstantIsNot(t *testing.T) {
+	kerml, root := buildModelWithStdlibNamedKind(t, "constant.kerml", source.KindKerML,
+		`package N { class C { const end feature b; } }`)
+	feature := nestedSym(t, root, "N::C::b")
+	for name, want := range map[string]bool{"isConstant": true, "isVariable": true, "isEnd": true} {
+		got, ok := kerml.ReflectiveFeatureValue(feature, name)
+		if !ok || got.Bool != want {
+			t.Errorf("KerML C::b.%s = %v (present %t), want %t", name, got, ok, want)
+		}
+	}
+
+	sysml, root := buildModelWithStdlib(t, `package N {
+		part def T {
+			constant attribute a;
+			ref part borrowed;
+		}
+		attribute def A { constant attribute c; }
+		constant attribute p;
+	}`)
+	for path, want := range map[string]struct {
+		constant bool
+		variable bool
+	}{
+		"N::T::a":        {constant: true, variable: true},
+		"N::T::borrowed": {variable: true},
+		"N::A::c":        {constant: true},
+		"N::p":           {constant: true},
+	} {
+		attribute := nestedSym(t, root, path)
+		for name, expected := range map[string]bool{"isConstant": want.constant, "isVariable": want.variable} {
+			got, ok := sysml.ReflectiveFeatureValue(attribute, name)
+			if !ok || got.Bool != expected {
+				t.Errorf("%s.%s = %v (present %t), want %t", path, name, got, ok, expected)
+			}
+		}
+	}
+}
+
+func TestKerMLCrossFeatureBooleanFlagsAreDerived(t *testing.T) {
+	m, root := buildModelWithStdlibNamedKind(t, "cross.kerml", source.KindKerML,
+		`package P {
+			class A { in feature f; }
+			class B conjugates A;
+			feature g ~ B::f;
+		}`)
+	feature := nestedSym(t, root, "P::g")
+	if got := m.MetaclassOf(feature); got == nil || got.Name != "Feature" {
+		t.Fatalf("KerML cross feature metaclass = %v, want KerML::Feature", got)
+	}
+	for _, name := range []string{
+		"isEnd", "isPortion", "isConstant", "isVariable", "isComposite",
+		"isDerived", "isAbstract", "isOrdered", "isUnique",
+	} {
+		if _, ok := m.ReflectiveFeatureValue(feature, name); !ok {
+			t.Errorf("KerML cross feature %s is underived (kind %s, declaration %T, feature %t)",
+				name, feature.Kind, feature.Decl, feature.IsFeature())
+		}
+	}
+}
+
+func TestKerMLBodyExpressionParametersClassifyAsFeatures(t *testing.T) {
+	const src = `package P {
+		attribute values : Integer[*];
+		attribute positives = values->select { in item : Integer; item > 0 };
+	}`
+	m, root := buildModelWithStdlibNamedKind(t, "body.kerml", source.KindKerML, src)
+	param := bodyParameter(t, root, "item")
+	assertKerMLBodyParameter(t, m, param)
+}
+
+func bodyParameter(t *testing.T, root *symbols.Scope, name string) *symbols.Symbol {
+	t.Helper()
+	var found *symbols.Symbol
+	var walk func(*symbols.Scope)
+	walk = func(scope *symbols.Scope) {
+		for _, sym := range scope.Members() {
+			if sym.Name == name {
+				if _, ok := sym.Decl.(*ast.BodyExpr); ok {
+					found = sym
+					return
+				}
+			}
+		}
+		for _, child := range scope.Children() {
+			walk(child)
+			if found != nil {
+				return
+			}
+		}
+	}
+	walk(root)
+	if found == nil {
+		t.Fatalf("body parameter %q not found", name)
+	}
+	return found
+}
+
+func assertKerMLBodyParameter(t *testing.T, m *Model, param *symbols.Symbol) {
+	t.Helper()
+	if got := m.MetaclassOf(param); got == nil || got.Name != "Feature" {
+		t.Fatalf("KerML body parameter metaclass = %v, want KerML::Feature", got)
+	}
+	for _, name := range []string{
+		"isEnd", "isPortion", "isConstant", "isVariable", "isComposite",
+		"isDerived", "isAbstract", "isOrdered", "isUnique",
+	} {
+		if _, ok := m.ReflectiveFeatureValue(param, name); !ok {
+			t.Errorf("KerML body parameter %s is underived", name)
+		}
+	}
+}
+
+func TestEnumerationUsageIsReferentialAndNonComposite(t *testing.T) {
+	const src = `
+		package E {
+			enum def Color { red; green; }
+		}
+	`
+	m, root := buildModelWithStdlib(t, src)
+	color := sym(t, sym(t, root, "E").Scope, "Color")
+	for _, name := range []string{"red", "green"} {
+		literal := sym(t, color.Scope, name)
+		meta := m.MetaclassOf(literal)
+		if meta == nil || meta.Name != "EnumerationUsage" {
+			t.Errorf("%s metaclass = %v, want SysML::EnumerationUsage", name, meta)
+		}
+		for feature, want := range map[string]bool{"isComposite": false, "isReference": true} {
+			got, ok := m.ReflectiveFeatureValue(literal, feature)
+			if !ok || got.Bool != want {
+				t.Errorf("%s.%s = %v (present %t), want %t", name, feature, got, ok, want)
+			}
 		}
 	}
 }

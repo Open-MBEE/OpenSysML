@@ -97,6 +97,9 @@ type AdmittedOutcome struct {
 	FinalState  string                   `json:"finalState,omitempty"`
 	Terminated  bool                     `json:"terminated,omitempty"`
 	StateVisits []string                 `json:"stateVisits,omitempty"`
+	// Error is the text a run of an action case fails with under the schedules
+	// reaching this outcome, matched as a substring; it states nothing else.
+	Error string `json:"error,omitempty"`
 	// Probability states the exact probability from model-weighted draws.
 	Probability *float64 `json:"probability,omitempty"`
 	// ProbabilityRange states the minimum and maximum probability over schedulers.
@@ -592,7 +595,7 @@ func exploreConformanceCase(t *testing.T, fresh func() *Context, idx *symbols.In
 	}
 	for _, explored := range exploration.Outcomes {
 		witness := FormatChoices(explored.Witness)
-		if explored.Outcome.Err != nil {
+		if explored.Outcome.Err != nil && !listsError(expected.Outcomes) {
 			t.Errorf("exploration reached an error the case does not list: %v\n  witness: %s", explored.Outcome.Err, witness)
 			continue
 		}
@@ -684,12 +687,37 @@ func conformanceRun(t *testing.T, idx *symbols.Index, path string, expected Expe
 // validateOutcome checks an outcome a run reached against one the case admits.
 func validateOutcome(r reporter, ctx *Context, want AdmittedOutcome, got Outcome) {
 	r.Helper()
+	if validateOutcomeError(r, want.Error, got.Err) {
+		return
+	}
 	validateTerminated(r, got.Terminated, want.Terminated)
 	validateFinalState(r, got.FinalState, want.FinalState)
 	validateStateVisits(r, got.StateVisits, want.StateVisits)
 	if want.Outputs != nil {
 		validateOutputs(r, ctx, want.Outputs, got.Outputs)
 	}
+}
+
+// listsError reports whether an admissible set lists a run failing as an outcome.
+func listsError(outcomes []AdmittedOutcome) bool {
+	return slices.ContainsFunc(outcomes, func(o AdmittedOutcome) bool { return o.Error != "" })
+}
+
+// validateOutcomeError checks a run's failure against an outcome's error, reporting
+// whether either states one, so that the outcome's result is not checked besides.
+func validateOutcomeError(r reporter, want string, got error) bool {
+	r.Helper()
+	switch {
+	case want == "" && got == nil:
+		return false
+	case want == "":
+		r.Errorf("the run failed with %q, this outcome states a result", got)
+	case got == nil:
+		r.Errorf("the run completed, this outcome states the error %q", want)
+	case !strings.Contains(got.Error(), want):
+		r.Errorf("the run failed with %q, this outcome states an error containing %q", got, want)
+	}
+	return true
 }
 
 // oraclePath is the semantic oracle an admissible set must cite a section of.
@@ -778,7 +806,15 @@ func admissibleSchemaProblems(expected ExpectedOutcome, oracleTitles map[string]
 		problems = append(problems, "outcomes lists one result; state it as the single outcome")
 	}
 	for i, outcome := range expected.Outcomes {
-		if outcome.Outputs == nil && outcome.FinalState == "" && outcome.StateVisits == nil && !outcome.Terminated {
+		if outcome.Error != "" {
+			if expected.Type != "action" {
+				problems = append(problems, fmt.Sprintf("outcome %d states an error; error outcomes apply to action cases", i+1))
+			}
+			if outcome.Outputs != nil || outcome.FinalState != "" || outcome.StateVisits != nil || outcome.Terminated ||
+				outcome.Probability != nil || outcome.ProbabilityRange != nil {
+				problems = append(problems, fmt.Sprintf("outcome %d states an error beside a result", i+1))
+			}
+		} else if outcome.Outputs == nil && outcome.FinalState == "" && outcome.StateVisits == nil && !outcome.Terminated {
 			problems = append(problems, fmt.Sprintf("outcome %d states nothing", i+1))
 		}
 		if p := outcome.Probability; p != nil && (*p < 0 || *p > 1) {
@@ -968,6 +1004,12 @@ func runActionConformance(t *testing.T, ctx *Context, idx *symbols.Index, path s
 	// Execute action
 	outcome, err := ctx.ActionOutcomePerformedBy(actionSym, nil, nil)
 	outputs := outcome.Outputs
+	if err != nil && listsError(expected.Outcomes) {
+		matchOutcome(t, expected.Outcomes, func(r reporter, admitted AdmittedOutcome) {
+			validateOutcomeError(r, admitted.Error, err)
+		})
+		return
+	}
 	if expected.Error != "" {
 		if err == nil {
 			t.Fatalf("expected execution to fail with %q, it completed with outputs %v", expected.Error, outputs)
@@ -985,6 +1027,9 @@ func runActionConformance(t *testing.T, ctx *Context, idx *symbols.Index, path s
 	validateOutputs(t, ctx, expected.Outputs, outputs)
 	if len(expected.Outcomes) > 0 {
 		matchOutcome(t, expected.Outcomes, func(r reporter, admitted AdmittedOutcome) {
+			if validateOutcomeError(r, admitted.Error, nil) {
+				return
+			}
 			validateTerminated(r, outcome.Terminated, admitted.Terminated)
 			validateOutputs(r, ctx, admitted.Outputs, outputs)
 		})

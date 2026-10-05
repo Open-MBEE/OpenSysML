@@ -1,0 +1,18 @@
+stmt assign r
+choice result of calc test::Ord under the statement orders of its body: next 12, 30 (unordered; took 30 first)
+    enter calc test::Ord
+      stmt declare y
+        eval literal 1 -> 1
+      stmt assign y
+          eval feature y -> 1
+          eval literal 2 -> 2
+        eval operator + -> 3
+      stmt assign y
+          eval feature y -> 3
+          eval literal 10 -> 10
+        eval operator * -> 30
+      stmt return
+        eval feature y -> 30
+    exit calc test::Ord -> 30
+  eval invoke Ord -> 30
+step 1: no active tokens

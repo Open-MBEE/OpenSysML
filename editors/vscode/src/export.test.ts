@@ -71,29 +71,35 @@ test("serverStyles takes the drawing styles the server advertises, none from a s
   assert.deepEqual(serverStyles({ [RENDER_STYLES_CAPABILITY]: ["cameo", 3] }), []);
 });
 
-test("an export asks the server for the drawing style the panel draws in, and for none under the other looks", async () => {
+test("an export asks the server for the drawing style and source links, and omits an absent style", async () => {
   const styled = new FakeHost("dot", echoForm);
-  await exportRendering(styled, { uri: "file:///ws/kit.sysml", documentName: "kit.sysml", view: "", forms: ["dot"], style: "cameo" });
+  await exportRendering(styled, {
+    uri: "file:///ws/kit.sysml", documentName: "kit.sysml", view: "", forms: ["dot"], style: "cameo",
+    linkTemplate: "vscode://file/{file}:{line}:{col}",
+  });
   assert.equal(styled.requests[0].style, "cameo");
+  assert.equal(styled.requests[0].linkTemplate, "vscode://file/{file}:{line}:{col}");
   const plain = new FakeHost("dot", echoForm);
   await exportRendering(plain, { uri: "file:///ws/kit.sysml", documentName: "kit.sysml", view: "", forms: ["dot"] });
   assert.equal(plain.requests[0].style, undefined);
+  assert.equal(plain.requests[0].linkTemplate, undefined);
 });
 
-test("serverForms takes the forms the server advertises, else the documented five", () => {
-  assert.deepEqual(serverForms({ [RENDER_FORMS_CAPABILITY]: ["text", "mermaid", "markdown", "dot", "plantuml"] }), [
+test("serverForms takes the forms the server advertises, else the documented six", () => {
+  assert.deepEqual(serverForms({ [RENDER_FORMS_CAPABILITY]: ["text", "mermaid", "markdown", "dot", "plantuml", "d2"] }), [
     "text",
     "mermaid",
     "markdown",
     "dot",
     "plantuml",
+    "d2",
   ]);
   assert.deepEqual(serverForms({ [RENDER_FORMS_CAPABILITY]: ["mermaid", "dot", "mermaid"] }), ["mermaid", "dot"]);
   assert.deepEqual(serverForms(undefined), DOCUMENTED_FORMS);
   assert.deepEqual(serverForms({ openSysmlRender: true }), DOCUMENTED_FORMS);
   assert.deepEqual(serverForms({ [RENDER_FORMS_CAPABILITY]: [] }), DOCUMENTED_FORMS);
   assert.deepEqual(serverForms({ [RENDER_FORMS_CAPABILITY]: ["dot", 3] }), DOCUMENTED_FORMS);
-  assert.deepEqual(DOCUMENTED_FORMS, ["text", "mermaid", "markdown", "dot", "plantuml"]);
+  assert.deepEqual(DOCUMENTED_FORMS, ["text", "mermaid", "markdown", "dot", "plantuml", "d2"]);
 });
 
 test("every form saves under its own extension and filter, and an unknown one as text", () => {
@@ -105,6 +111,7 @@ test("every form saves under its own extension and filter, and an unknown one as
       ["markdown", ".md", "Markdown"],
       ["dot", ".dot", "Graphviz DOT"],
       ["plantuml", ".puml", "PlantUML"],
+      ["d2", ".d2", "D2"],
       ["csv", ".csv", "CSV"],
       ["tsv", ".tsv", "TSV"],
     ],
@@ -112,17 +119,19 @@ test("every form saves under its own extension and filter, and an unknown one as
   assert.deepEqual(exportFile("svg"), { extension: ".txt", filter: "Text" });
   assert.equal(exportFileName("car.sysml", "dot"), "car.dot");
   assert.equal(exportFileName("core.kerml", "plantuml"), "core.puml");
+  assert.equal(exportFileName("core.kerml", "d2"), "core.d2");
   assert.equal(exportFileName("notes", "mermaid"), "notes.mmd");
 });
 
 test("the picker offers the server's forms in its order, each naming the file it saves as", () => {
-  const items = formPickItems(["mermaid", "dot", "plantuml", "svg"]);
+  const items = formPickItems(["mermaid", "dot", "plantuml", "d2", "svg"]);
   assert.deepEqual(
     items.map((item) => [item.label, item.value, item.description.split(" — ")[0]]),
     [
       ["mermaid", "mermaid", ".mmd"],
       ["dot", "dot", ".dot"],
       ["plantuml", "plantuml", ".puml"],
+      ["d2", "d2", ".d2"],
       ["svg", "svg", ".txt"],
     ],
   );
@@ -143,6 +152,7 @@ test("picking dot asks the server for dot and saves the answer as a .dot file", 
 test("picking plantuml saves a .puml, and the other forms their own extension", async () => {
   for (const [form, name] of [
     ["plantuml", "car.puml"],
+    ["d2", "car.d2"],
     ["mermaid", "car.mmd"],
     ["text", "car.txt"],
     ["markdown", "car.md"],
