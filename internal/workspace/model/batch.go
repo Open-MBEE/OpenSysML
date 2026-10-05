@@ -63,6 +63,39 @@ func (w *Workspace) SetWorkers(n int) error {
 // the documents opened (see libs.Provenance); the others, and the records that
 // do not hold, are parsed.
 func (w *Workspace) OpenAll(inputs []Input) {
+	w.installBatch(inputs, true)
+}
+
+// SetOnDiskAll is SetOnDisk over the inputs as one batch: the files' content is
+// recorded for them all, and those without an open buffer are parsed on the
+// workers, added to the index in order and wildcard imports expanded once, as
+// OpenAll does; an open buffer stays authoritative. Version is each file's
+// document version, zero as SetOnDisk gives it.
+func (w *Workspace) SetOnDiskAll(inputs []Input) {
+	w.installBatch(w.recordOnDisk(inputs), false)
+}
+
+// recordOnDisk records each input's content as its file's, and returns the
+// inputs whose name has no open buffer: those the files' content is held for.
+func (w *Workspace) recordOnDisk(inputs []Input) []Input {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	closed := make([]Input, 0, len(inputs))
+	for _, in := range inputs {
+		w.onDisk[in.Name] = bytes.Clone(in.Content)
+		if !w.open[in.Name] {
+			closed = append(closed, in)
+		}
+	}
+	return closed
+}
+
+// installBatch parses the inputs on the workers and installs them as one batch,
+// marking them open when open says so.
+func (w *Workspace) installBatch(inputs []Input, open bool) {
+	if len(inputs) == 0 {
+		return
+	}
 	was := w.reserveBatch(inputs)
 	recs := w.cachedRecords(inputs)
 	docs := make([]batchDoc, len(inputs))
@@ -76,7 +109,7 @@ func (w *Workspace) OpenAll(inputs []Input) {
 		}
 		docs[i] = batchDoc{doc: newDocument(in.Name, bytes.Clone(in.Content), in.Version, in.Kind)}
 	})
-	w.commitBatch(was, docs)
+	w.commitBatch(was, docs, open)
 }
 
 // batchDoc is one document a batch installs: parsed, or built from its record.
@@ -146,7 +179,8 @@ func (w *Workspace) reserveBatch(inputs []Input) map[string]uint64 {
 // commitBatch installs the parsed and recorded documents whose name is as the
 // batch reserved it; a name changed since keeps its newer state. A record whose
 // provenance does not hold among the documents installed is parsed in its place.
-func (w *Workspace) commitBatch(was map[string]uint64, docs []batchDoc) {
+// The parsed documents are marked open when open says so.
+func (w *Workspace) commitBatch(was map[string]uint64, docs []batchDoc, open bool) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	var installed, recorded []string
@@ -156,7 +190,9 @@ func (w *Workspace) commitBatch(was map[string]uint64, docs []batchDoc) {
 			continue
 		}
 		if d.doc != nil {
-			w.open[name] = true
+			if open {
+				w.open[name] = true
+			}
 			w.docs[name] = d.doc
 			w.changes[name]++
 			w.installLocked(d.doc)
