@@ -1482,6 +1482,12 @@ func unwrappedDeclMembers(decl ast.Node) []ast.Node {
 	if oc, ok := ast.OwnedConstraintOf(decl); ok {
 		return oc.Body
 	}
+	switch m := decl.(type) {
+	case *ast.AssumeMember:
+		return m.Body
+	case *ast.RequireMember:
+		return m.Body
+	}
 	members := ast.DeclMembers(decl)
 	if members == nil {
 		return nil

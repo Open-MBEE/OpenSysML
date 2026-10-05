@@ -1,0 +1,8 @@
+{
+  "type": "satisfy",
+  "libraries": true,
+  "assertions": {
+    "satisfy wagonSpec by wagon1": false,
+    "satisfy wagonSpec by wagon2": true
+  }
+}

@@ -2,8 +2,9 @@
 
 Syntax highlighting and language support for `.sysml` and `.kerml` files, backed by
 OpenSysML's `sysml-lsp` server: diagnostics, hover, go-to-definition, document
-symbols, typed completion, a live diagram panel, and Markdown rendering of
-native document definitions.
+symbols, typed completion, signature help, inlay hints, code lenses that run a
+behavior or evaluate a calculation, a live diagram panel, and Markdown rendering
+of native document definitions.
 
 This extension is side-loaded. It is deliberately **not published** to the Visual
 Studio Marketplace or Open VSX.
@@ -166,6 +167,19 @@ The command exists only when the server advertises
 `experimental: { openSysmlRenderDocument: true }`. The requests behind it —
 `opensysml/documents` and `opensysml/renderDocument` — are documented in
 [docs/reference/lsp.md](../../docs/reference/lsp.md).
+
+## Running an element from a code lens
+
+Above each executable `action`, `state`, `calc`, `constraint` and `requirement`
+the server offers a *Run* or *Evaluate* lens (and above each definition a
+reference count, which opens the references peek). Clicking *Run* or *Evaluate*
+saves every unsaved model file and runs the matching `sysml` check over the
+workspace folders — `sysml -action Demo::Charge <folder>`, `-state`, `-calc`,
+`-constraint` or `-requirement` — as a task, so the result appears in the task
+terminal and a name another file declares without an import resolves as it does
+in the editor; a file outside every folder runs alone. The `sysml` binary is
+looked for beside the `sysml-lsp` in use, then in an open workspace's `bin/`,
+then on `PATH`; a warning says how to build it when none is found.
 
 ## Settings
 
