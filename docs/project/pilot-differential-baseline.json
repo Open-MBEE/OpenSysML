@@ -62,7 +62,7 @@
         "dir": "examples",
         "origin": "ours",
         "files": 46,
-        "digest": "sha256:4537a09f54cdf23dfdb935014876ab944ef7227b51eb15d1d06217d91e7ff2be"
+        "digest": "sha256:1e662c18b5557f9ff2c6897294ae31d26827922e87a87985761094ca83129bc0"
       },
       {
         "name": "probes",
@@ -76,20 +76,20 @@
         "dir": "internal/workspace/libs/stdlib/OpenSysML Libraries",
         "origin": "ours",
         "files": 14,
-        "digest": "sha256:03ee354becea1d032c43d49269836056ab8696f811819d7c1f031a30924b09cb"
+        "digest": "sha256:c8fd5be0587dff0ad403b4599e7333381c22f762d19fd3232c0ad9a302f45389"
       }
     ],
-    "recorded": "2026-10-04"
+    "recorded": "2026-10-05"
   },
   "totals": {
     "files": 384,
-    "filesFullyAgreeing": 355,
+    "filesFullyAgreeing": 352,
     "agreement": 45,
     "severityMismatch": 1,
     "openSysMLOnly": 44,
-    "pilotOnly": 85,
+    "pilotOnly": 91,
     "openSysMLDiagnostics": 90,
-    "pilotDiagnostics": 131
+    "pilotDiagnostics": 137
   },
   "roots": [
     {
@@ -932,13 +932,13 @@
       "dir": "examples",
       "totals": {
         "files": 46,
-        "filesFullyAgreeing": 41,
+        "filesFullyAgreeing": 38,
         "agreement": 0,
         "severityMismatch": 0,
         "openSysMLOnly": 7,
-        "pilotOnly": 54,
+        "pilotOnly": 60,
         "openSysMLDiagnostics": 7,
-        "pilotDiagnostics": 54
+        "pilotDiagnostics": 60
       },
       "files": [
         {
@@ -951,6 +951,26 @@
               "line": 542,
               "severity": "warning",
               "category": "kind-mismatch",
+              "count": 1
+            }
+          ]
+        },
+        {
+          "path": "disposal-robot-demo/robot.sysml",
+          "agreement": [],
+          "severityMismatch": [],
+          "openSysMLOnly": [],
+          "pilotOnly": [
+            {
+              "line": 591,
+              "severity": "error",
+              "category": "syntax",
+              "count": 1
+            },
+            {
+              "line": 593,
+              "severity": "error",
+              "category": "syntax",
               "count": 1
             }
           ]
@@ -1227,6 +1247,26 @@
           ]
         },
         {
+          "path": "self-model/views.sysml",
+          "agreement": [],
+          "severityMismatch": [],
+          "openSysMLOnly": [],
+          "pilotOnly": [
+            {
+              "line": 197,
+              "severity": "error",
+              "category": "syntax",
+              "count": 1
+            },
+            {
+              "line": 199,
+              "severity": "error",
+              "category": "syntax",
+              "count": 1
+            }
+          ]
+        },
+        {
           "path": "verdicts-demo/rover.sysml",
           "agreement": [],
           "severityMismatch": [],
@@ -1248,6 +1288,26 @@
               "line": 152,
               "severity": "warning",
               "category": "kind-mismatch",
+              "count": 1
+            }
+          ]
+        },
+        {
+          "path": "views-demo.sysml",
+          "agreement": [],
+          "severityMismatch": [],
+          "openSysMLOnly": [],
+          "pilotOnly": [
+            {
+              "line": 176,
+              "severity": "error",
+              "category": "syntax",
+              "count": 1
+            },
+            {
+              "line": 178,
+              "severity": "error",
+              "category": "syntax",
               "count": 1
             }
           ]
@@ -1728,13 +1788,13 @@
     ],
     "totals": {
       "files": 384,
-      "filesFullyAgreeing": 356,
+      "filesFullyAgreeing": 353,
       "agreement": 45,
       "severityMismatch": 1,
       "openSysMLOnly": 43,
-      "pilotOnly": 85,
+      "pilotOnly": 91,
       "openSysMLDiagnostics": 89,
-      "pilotDiagnostics": 131
+      "pilotDiagnostics": 137
     },
     "findings": [
       {

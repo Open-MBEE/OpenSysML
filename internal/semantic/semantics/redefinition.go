@@ -57,11 +57,12 @@ func behaviorLike(sym *symbols.Symbol) bool {
 	return false
 }
 
-// behaviorDefinitionKind reports whether definitions of kind own parameters.
+// behaviorDefinitionKind reports whether definitions of kind own ordered parameters.
 func behaviorDefinitionKind(kind ast.DefinitionKind) bool {
 	switch kind {
 	case ast.DefAction, ast.DefState, ast.DefCalc, ast.DefConstraint,
-		ast.DefRequirement, ast.DefCase, ast.DefAnalysisCase,
+		ast.DefRequirement, ast.DefConcern, ast.DefViewpoint,
+		ast.DefCase, ast.DefAnalysisCase,
 		ast.DefVerificationCase, ast.DefUseCase, ast.DefBehavior,
 		ast.DefPredicate, ast.DefBool:
 		return true
@@ -69,11 +70,12 @@ func behaviorDefinitionKind(kind ast.DefinitionKind) bool {
 	return false
 }
 
-// behaviorUsageKind reports whether usages of kind own parameters.
+// behaviorUsageKind reports whether usages of kind own ordered parameters.
 func behaviorUsageKind(kind ast.UsageKind) bool {
 	switch kind {
 	case ast.UsageAction, ast.UsageState, ast.UsageCalc, ast.UsageExpr,
-		ast.UsageConstraint, ast.UsageRequirement, ast.UsageCase,
+		ast.UsageConstraint, ast.UsageRequirement, ast.UsageConcern,
+		ast.UsageViewpoint, ast.UsageFramedConcern, ast.UsageCase,
 		ast.UsageAnalysisCase, ast.UsageVerificationCase, ast.UsageUseCase,
 		ast.UsageStep, ast.UsageBehavior, ast.UsagePredicate, ast.UsageBool,
 		ast.UsageInteraction, ast.UsageObjective:
@@ -360,14 +362,26 @@ func (m *Model) implicitParameterTargets(sym *symbols.Symbol, matchDirection boo
 	if sym == nil {
 		return nil
 	}
-	usage, ok := sym.Decl.(*ast.Usage)
-	if !ok || usage.Direction == ast.DirNone {
-		return nil
-	}
-	for _, rel := range usage.Relationships {
-		if rel != nil && rel.Kind == ast.RelRedefines {
+	var direction ast.FeatureDirection
+	var isResult bool
+	if sym.Recorded() {
+		if sym.Facts == nil || sym.Facts.Direction == ast.DirNone || len(sym.Facts.Redefines) > 0 {
 			return nil // explicit redefinition governs
 		}
+		direction = sym.Facts.Direction
+		isResult = sym.Facts.Modifiers.Has(symbols.ModResult)
+	} else {
+		usage, ok := sym.Decl.(*ast.Usage)
+		if !ok || usage.Direction == ast.DirNone {
+			return nil
+		}
+		for _, rel := range usage.Relationships {
+			if rel != nil && rel.Kind == ast.RelRedefines {
+				return nil // explicit redefinition governs
+			}
+		}
+		direction = usage.Direction
+		isResult = usage.IsResult
 	}
 	if sym.OwnerScope == nil {
 		return nil
@@ -383,7 +397,7 @@ func (m *Model) implicitParameterTargets(sym *symbols.Symbol, matchDirection boo
 			break
 		}
 	}
-	if position < 0 && !usage.IsResult {
+	if position < 0 && !isResult {
 		return nil
 	}
 
@@ -394,7 +408,7 @@ func (m *Model) implicitParameterTargets(sym *symbols.Symbol, matchDirection boo
 		}
 		supParams := m.parametersOf(sup)
 		var target parameter
-		if usage.IsResult {
+		if isResult {
 			target = supParams.result
 		} else {
 			if position >= len(supParams.positional) {
@@ -407,7 +421,7 @@ func (m *Model) implicitParameterTargets(sym *symbols.Symbol, matchDirection boo
 		}
 		// A redefining parameter has the same direction as the parameter it
 		// redefines; a position whose directions disagree is not a redefinition.
-		if matchDirection && target.direction != usage.Direction {
+		if matchDirection && target.direction != direction {
 			continue
 		}
 		out = append(out, target.sym)
