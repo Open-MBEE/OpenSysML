@@ -38,6 +38,10 @@ function test_live()
 
     states = opensysml.executeState(bmodel, 'Test::Machine');
     assert_equal(states.statesVisited, {'init'; 'Running'; 'done'}, 'executeState visited');
+    traced = opensysml.executeState(bmodel, 'Test::Machine', 'trace', true);
+    assert_equal(isempty(traced.trace), false, 'executeState trace');
+    assert_equal(traced.trace{1}.type, 'event', 'executeState typed trace event');
+    assert_equal(traced.traceDropped, 0, 'executeState trace dropped');
 
     rows = opensysml.query(qmodel, 'oslc.where=rdf:type="PartUsage"&oslc.select=sysml:name');
     assert_equal(numel(rows.elements), 3, 'query elements');
