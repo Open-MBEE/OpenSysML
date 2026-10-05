@@ -138,6 +138,20 @@
         }
       }
     },
+    "taskDefinitions": [
+      {
+        "type": "opensysml",
+        "required": [
+          "element"
+        ],
+        "properties": {
+          "element": {
+            "type": "string",
+            "description": "Qualified name of the element a Run or Evaluate code lens checks."
+          }
+        }
+      }
+    ],
     "commands": [
       {
         "command": "opensysml.restartServer",

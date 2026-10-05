@@ -131,7 +131,7 @@ func inferredType(sem *semantics.Model, scope *symbols.Scope, sym *symbols.Symbo
 			break
 		}
 	}
-	if typ == nil || semantics.IsAnything(typ) || typ == sym {
+	if typ == nil || semantics.IsAnything(typ) || semantics.IsDataValue(typ) || typ == sym {
 		return nil
 	}
 	return typ

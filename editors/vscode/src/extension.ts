@@ -13,6 +13,7 @@ import {
 import { DiagramPanels } from "./diagram";
 import { DocumentRendering } from "./document";
 import { CROSS_DOCUMENT_CAPABILITY, STDLIB_SCHEME } from "./protocol";
+import { SHOW_REFERENCES_COMMAND, showReferencesArguments } from "./references";
 import { ElementRunner } from "./run";
 import { StdlibDocuments } from "./stdlib";
 
@@ -133,6 +134,21 @@ async function startClient(): Promise<void> {
     ],
     outputChannel: output,
     synchronize: { fileEvents: watcher },
+    middleware: {
+      // A reference-count lens resolves to the editor's references peek, whose
+      // arguments the server can only state in protocol form.
+      resolveCodeLens: async (lens, token, next) => {
+        const resolved = await next(lens, token);
+        const converter = client?.protocol2CodeConverter;
+        if (resolved?.command?.command === SHOW_REFERENCES_COMMAND && converter) {
+          const args = showReferencesArguments(resolved.command.arguments, converter);
+          if (args) {
+            resolved.command = { ...resolved.command, arguments: args };
+          }
+        }
+        return resolved;
+      },
+    },
   };
 
   client = new LanguageClient("opensysml", "SysML v2 Language Server", serverOptions, clientOptions);

@@ -68,7 +68,7 @@ func (s *Server) CodeLens(ctx context.Context, params *protocol.CodeLensParams) 
 				out = append(out, protocol.CodeLens{Range: rng, Data: codeLensData{URI: uri, Element: fqn}})
 			}
 			if kind, ok := executableKind(sym); ok {
-				out = append(out, protocol.CodeLens{Range: rng, Command: runCommand(uri, fqn, kind)})
+				out = append(out, protocol.CodeLens{Range: rng, Command: runCommand(uri, fqn, sym.Name, kind)})
 			}
 		}
 		for _, child := range scope.Children() {
@@ -146,13 +146,13 @@ func (s *Server) definitionNamed(doc, fqn string) *symbols.Symbol {
 }
 
 // runCommand is the lens command running or evaluating the named element.
-func runCommand(uri protocol.DocumentURI, fqn, kind string) *protocol.Command {
-	title := "Evaluate"
+func runCommand(uri protocol.DocumentURI, fqn, name, kind string) *protocol.Command {
+	verb := "Evaluate"
 	if kind == "action" || kind == "state" {
-		title = "Run"
+		verb = "Run"
 	}
 	return &protocol.Command{
-		Title:     title,
+		Title:     verb + " " + name,
 		Command:   runElementCommand,
 		Arguments: []interface{}{runElementArgs{URI: uri, Element: fqn, Kind: kind}},
 	}

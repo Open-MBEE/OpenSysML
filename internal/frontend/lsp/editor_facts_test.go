@@ -185,6 +185,9 @@ func TestInlayHintsInferTypesAndModelLevelValues(t *testing.T) {
 		if strings.Contains(line, "attribute base") || strings.Contains(line, "attribute mass") {
 			t.Errorf("hint %q on %q, which declares its type and a literal value", h.Label, line)
 		}
+		if (strings.Contains(line, "attribute twice") || strings.Contains(line, "attribute count")) && strings.HasPrefix(h.Label, ":") {
+			t.Errorf("type hint %q on %q: arithmetic is typed no closer than DataValue", h.Label, line)
+		}
 	}
 	typed := 0
 	for _, h := range hints {
@@ -251,7 +254,7 @@ func TestCodeLensOffersReferenceCountsAndRunCommands(t *testing.T) {
 			continue
 		}
 		args := lens.Command.Arguments[0].(runElementArgs)
-		runs[args.Element] = lens.Command.Title + " " + args.Kind
+		runs[args.Element] = lens.Command.Title + " (" + args.Kind + ")"
 	}
 	wantCounts := []string{"Demo::Fall", "Demo::Rover", "Demo::Charge", "Demo::Mission", "Demo::Positive"}
 	for _, fqn := range wantCounts {
@@ -260,13 +263,13 @@ func TestCodeLensOffersReferenceCountsAndRunCommands(t *testing.T) {
 		}
 	}
 	wantRuns := map[string]string{
-		"Demo::Fall":      "Evaluate calc",
-		"Demo::drop":      "Evaluate calc",
-		"Demo::Charge":    "Run action",
-		"Demo::charge":    "Run action",
-		"Demo::Mission":   "Run state",
-		"Demo::wagonSpec": "Evaluate requirement",
-		"Demo::Positive":  "Evaluate constraint",
+		"Demo::Fall":      "Evaluate Fall (calc)",
+		"Demo::drop":      "Evaluate drop (calc)",
+		"Demo::Charge":    "Run Charge (action)",
+		"Demo::charge":    "Run charge (action)",
+		"Demo::Mission":   "Run Mission (state)",
+		"Demo::wagonSpec": "Evaluate wagonSpec (requirement)",
+		"Demo::Positive":  "Evaluate Positive (constraint)",
 	}
 	for fqn, want := range wantRuns {
 		if runs[fqn] != want {

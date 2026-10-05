@@ -160,8 +160,8 @@ LSP client; only the syntax highlighting is specific to VS Code.
 ### Running an element from the editor
 
 Above each executable `action`, `state`, `calc`, `constraint` and `requirement` declared
-outside another behavior the server offers a *Run* or *Evaluate* code lens, and above each
-definition a reference count that opens the references peek. Clicking *Run* or *Evaluate*
+outside another behavior the server offers a *Run* or *Evaluate* code lens naming it, and above
+each definition a reference count that opens the references peek. Clicking *Run* or *Evaluate*
 saves the file and runs the matching `sysml` check on it — `sysml -action Demo::Charge
 demo.sysml`, `-state`, `-calc`, `-constraint` or `-requirement` — as a task, so the result
 appears in the task terminal. The `sysml` binary is looked for beside the `sysml-lsp` in use,
@@ -259,14 +259,17 @@ same way, so its imports of sibling files resolve rather than being reported unr
   parameter the cursor's argument binds is active, by position for a positional argument
   (the operand of `x->f(…)` counting as the first) and by name for a named one
 - ✅ Code lens (`textDocument/codeLens`, resolved on demand with `codeLens/resolve`): a
-  reference count on each definition, which the editor's references peek opens, and a *Run*
-  (action, state) or *Evaluate* (calc, constraint, requirement) command on each executable
+  reference count on each definition, which the editor's references peek opens
+  (`editor.action.showReferences`, whose URI, position and locations the VS Code extension
+  converts from their protocol form), and a *Run* (action, state) or *Evaluate* (calc,
+  constraint, requirement) command, titled with the element's name, on each executable
   declaration that is not a step or substate of another behavior. The command is
   `opensysml.runElement` with the document URI, the element's qualified name and its kind;
   the VS Code extension implements it, and another client registers a command of that name
 - ✅ Inlay hints (`textDocument/inlayHint`): after the name of a feature declared without a
   type, the type it is inferred to have — that of its value, else what the features it
-  redefines or subsets give it; after a feature's non-literal value, the constant it
+  redefines or subsets give it — when it is more specific than `DataValue`, the result the
+  `DataFunctions` operators declare for arithmetic; after a feature's non-literal value, the constant it
   evaluates to from the model alone (`attribute twice = base * 2;` shows `= 20.0` when `base`
   is a package-level `10.0`). A value that reads an instance's feature gets no hint, since
   the model alone does not fix it. Only the declarations in the requested range are read, so

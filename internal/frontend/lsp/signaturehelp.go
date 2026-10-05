@@ -39,7 +39,7 @@ func (s *Server) SignatureHelp(ctx context.Context, params *protocol.SignatureHe
 	for i, sig := range sigs {
 		help.Signatures = append(help.Signatures, signatureInformation(sig))
 		if sig.Selected {
-			help.ActiveSignature = uint32(i)
+			help.ActiveSignature = uint32(i) // #nosec G115 -- a handful of overloads.
 		}
 	}
 	help.ActiveParameter = activeParameter(doc.Content, call, open, offset, sigs[help.ActiveSignature])
@@ -162,7 +162,7 @@ func activeParameter(content []byte, call *ast.InvocationExpr, open, offset int,
 		name := arg.Name.Parts[len(arg.Name.Parts)-1].Text
 		for i, p := range sig.Params {
 			if p.Name == name {
-				return uint32(i)
+				return uint32(i) // #nosec G115 -- a parameter list's length.
 			}
 		}
 	}
@@ -170,7 +170,7 @@ func activeParameter(content []byte, call *ast.InvocationExpr, open, offset int,
 	if call.Operand != nil {
 		index++
 	}
-	return uint32(index)
+	return uint32(index) // #nosec G115 -- an argument list's length.
 }
 
 // topLevelCommas counts the commas between from and to that separate the
