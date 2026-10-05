@@ -54,6 +54,34 @@ class SuiteTest {
   }
 
   @Test
+  void aRequestedStateTraceSurvivesTheJavaConformanceAdapter() {
+    Scenario scenario =
+        scenarios.stream()
+            .filter(item -> item.id().equals("execute_state/a_requested_trace_reports_transitions"))
+            .findFirst()
+            .orElseThrow();
+    ByteArrayOutputStream captured = new ByteArrayOutputStream();
+    try (Connection connection =
+            Connection.open(
+                ConnectionOptions.builder()
+                    .binaryPath(ServiceBinary.required())
+                    .encoding(Encoding.PROTOBUF)
+                    .build());
+        PrintStream out = new PrintStream(captured, true, StandardCharsets.UTF_8)) {
+      Runner runner =
+          new Runner(
+              "trace",
+              connection,
+              conformance.resolve("fixtures"),
+              out,
+              true,
+              Mutations.NONE);
+      Report.Summary summary = runner.runAll(List.of(scenario), Optional.empty());
+      assertEquals(1, summary.passed, () -> captured.toString(StandardCharsets.UTF_8));
+    }
+  }
+
+  @Test
   void theSkippedScenariosAreTheOnesThePublicApiDoesNotCover() {
     Report.Summary summary = run(Encoding.PROTOBUF, Mutations.NONE);
     List<Report.Result> skipped =

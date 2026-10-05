@@ -1,6 +1,8 @@
 package runtime
 
 import (
+	"maps"
+
 	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 )
@@ -14,6 +16,9 @@ type frame struct {
 	ensureCells func() *bodyCells
 	masked      map[string]bool
 	visible     map[string]bool
+	// unvalued marks names the frame declares but holds no value for: a read
+	// answers as missing, a write binds.
+	unvalued map[string]bool
 	// aliases map the name of a redefined feature to the name of the feature
 	// redefining it, which the frame binds it under (`in g :>> x` holds x as g).
 	aliases map[string]string
@@ -124,13 +129,16 @@ func (f frame) performs() *symbols.Symbol {
 // withVars is the frame holding vars in place of its own, still answering for
 // the same run and performance.
 func (f frame) withVars(vars map[string]Value) frame {
-	return frame{vars: vars, masked: f.masked, visible: f.visible, aliases: f.aliases, perf: f.perf, owner: f.owner, lexical: f.lexical, write: f.write, performed: f.performed, run: f.run, merged: f.merged, firing: f.firing}
+	return frame{vars: vars, masked: f.masked, visible: f.visible, unvalued: f.unvalued, aliases: f.aliases, perf: f.perf, owner: f.owner, lexical: f.lexical, write: f.write, performed: f.performed, run: f.run, merged: f.merged, firing: f.firing}
 }
 
 // lookup finds name in the frame: a slot binding it, else the map.
 func (f frame) lookup(name string) (Value, bool) {
 	name = canonical(f.aliases, name)
 	if f.visible != nil && !f.visible[name] {
+		return Value{}, false
+	}
+	if f.unvalued[name] {
 		return Value{}, false
 	}
 	if f.slots != nil {
@@ -148,6 +156,9 @@ func (f frame) read(ctx *Context, name string) (Value, bool, error) {
 	if f.masked[name] || (f.visible != nil && !f.visible[name]) {
 		return Value{}, false, nil
 	}
+	if f.unvalued[name] {
+		return Value{}, false, &NoValueError{Feature: name}
+	}
 	if f.slots != nil {
 		if value, ok := f.slots.lookup(name); ok {
 			return value, true, nil
@@ -163,15 +174,28 @@ func (f frame) read(ctx *Context, name string) (Value, bool, error) {
 	return ctx.readBodyCell(f.cells, name)
 }
 
-// has reports whether the frame binds name.
+// has reports whether the frame binds name or declares it unvalued.
 func (f frame) has(name string) bool {
+	if f.unvalued[name] {
+		return true
+	}
 	_, ok := f.lookup(name)
 	return ok
+}
+
+// markUnvalued records a name the frame declares but holds no value for, which
+// a read answers as missing and a write binds.
+func (f frame) markUnvalued(name string) {
+	if f.unvalued == nil {
+		f.unvalued = map[string]bool{}
+	}
+	f.unvalued[name] = true
 }
 
 // set binds name: in its slot when the frame has one for it, else in the map.
 func (f frame) set(name string, value Value) {
 	name = canonical(f.aliases, name)
+	delete(f.unvalued, name)
 	if f.slots != nil && f.slots.set(name, value) {
 		return
 	}
@@ -181,6 +205,7 @@ func (f frame) set(name string, value Value) {
 // setBody writes through the frame's dependency cell when one is present.
 func (f frame) setBody(ctx *Context, name string, value Value) {
 	name = canonical(f.aliases, name)
+	delete(f.unvalued, name)
 	if f.slots != nil && f.slots.set(name, value) {
 		return
 	}
@@ -193,6 +218,8 @@ func (f frame) setBody(ctx *Context, name string, value Value) {
 
 // bindParam binds parameter i, named name: by position in the slots, else by name.
 func (f frame) bindParam(i int, name string, value Value) {
+	name = canonical(f.aliases, name)
+	delete(f.unvalued, name)
 	if f.slots != nil {
 		f.slots.bind(i, value)
 		return
@@ -205,14 +232,14 @@ func (f frame) each(fn func(name string, value Value)) {
 	if f.slots != nil {
 		f.slots.each(func(name string, value Value) {
 			name = canonical(f.aliases, name)
-			if f.visible == nil || f.visible[name] {
+			if !f.unvalued[name] && (f.visible == nil || f.visible[name]) {
 				fn(name, value)
 			}
 		})
 	}
 	for name, value := range f.vars {
 		name = canonical(f.aliases, name)
-		if f.visible == nil || f.visible[name] {
+		if !f.unvalued[name] && (f.visible == nil || f.visible[name]) {
 			fn(name, value)
 		}
 	}
@@ -225,6 +252,12 @@ func (f frame) visibleNames() map[string]bool {
 	if f.cells != nil {
 		for _, name := range f.cells.order {
 			names[canonical(f.aliases, name)] = true
+		}
+	}
+	for name := range f.unvalued {
+		name = canonical(f.aliases, name)
+		if f.visible == nil || f.visible[name] {
+			names[name] = true
 		}
 	}
 	return names
@@ -255,6 +288,7 @@ func (f frame) snapshot() frame {
 			out.visible[name] = visible
 		}
 	}
+	out.unvalued = maps.Clone(f.unvalued)
 	if len(f.aliases) > 0 {
 		out.aliases = make(map[string]string, len(f.aliases))
 		for name, alias := range f.aliases {

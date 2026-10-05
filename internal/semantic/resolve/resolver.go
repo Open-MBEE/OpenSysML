@@ -27,6 +27,21 @@ type supertypeProvider interface {
 	DirectSupertypes(sym *symbols.Symbol) []*symbols.Symbol
 }
 
+// invocationResultProvider is the part of the semantic model that reports the
+// result parameter of a function or expression, inherited ones included, and
+// whether calling a declaration evaluates one. *semantics.Model implements it.
+type invocationResultProvider interface {
+	ResultParameterOf(sym *symbols.Symbol) *symbols.Symbol
+	Evaluates(sym *symbols.Symbol) bool
+}
+
+// metaclassProvider is the part of the semantic model that classifies an
+// element by its library metaclass and decides conformance. *semantics.Model implements it.
+type metaclassProvider interface {
+	MetaclassOf(sym *symbols.Symbol) *symbols.Symbol
+	Conforms(a, b *symbols.Symbol) bool
+}
+
 // maskChecker is the part of the semantic model that reports redefinition
 // masking: which of a type's inheritable members it does not inherit because
 // one of its features redefines them. *semantics.Model implements it.

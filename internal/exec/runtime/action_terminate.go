@@ -118,7 +118,7 @@ func (e *performances) terminateTargets(perf *actionFrame, s lower.Effect) ([]*a
 		return []*actionFrame{perf.parent}, nil
 	case lower.TerminateNode:
 		for f := perf; f != nil; f = f.parent {
-			if f.node == s.Target {
+			if f.node == s.Target && !f.body {
 				ongoing := e.ongoingWith(f, s.Target)
 				pending, err := e.flow.beginPending(f.parent, s.Target)
 				return append(ongoing, pending...), err
@@ -247,10 +247,25 @@ func (t Token) performed() []*actionFrame {
 	if w, ok := t.body.work.(*usageWork); ok {
 		held = append(held, w.perf)
 	}
-	cursor := t.body.cursor
+	return append(held, performedIn(t.body.cursor)...)
+}
+
+// performedIn returns the performances the frames of cursor perform, outermost first,
+// with those of the statements an unordered list among them set aside.
+func performedIn(cursor []bodyFrame) []*actionFrame {
+	var held []*actionFrame
 	for i := len(cursor) - 1; i >= 0; i-- {
-		if f, ok := cursor[i].(*performFrame); ok && f.perf != nil {
-			held = append(held, f.perf)
+		switch f := cursor[i].(type) {
+		case *performFrame:
+			if f.perf != nil {
+				held = append(held, f.perf)
+			}
+		case *stmtListFrame:
+			for _, s := range f.strands {
+				if s != nil {
+					held = append(held, performedIn(s.cursor)...)
+				}
+			}
 		}
 	}
 	return held

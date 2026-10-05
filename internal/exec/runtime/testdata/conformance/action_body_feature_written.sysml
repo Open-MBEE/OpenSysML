@@ -9,8 +9,8 @@ package test {
 		first start;
 		then action update {
 			assign live := 99;
-			assign source := 5;
-			assign result := live;
+			then assign source := 5;
+			then assign result := live;
 		}
 		then done;
 	}

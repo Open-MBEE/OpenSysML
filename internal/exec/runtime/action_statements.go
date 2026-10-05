@@ -15,13 +15,15 @@ type actionStmtHost struct {
 	node ast.Node // the action node whose body is running, for diagnostics
 	// perf is the performance the body runs in, whose features it declares into.
 	perf *actionFrame
+	// graph is the flow node is a node of.
+	graph *lower.ActionGraph
 }
 
 // executeBody runs the lowered statements graph records for node in perf, the
 // performance they belong to, with the performances around it in lexical reach.
 func (e *performances) executeBody(perf *actionFrame, graph *lower.ActionGraph, node ast.Node) error {
 	_, err := e.ctx.runStatements(func() *stmtEngine {
-		host := &actionStmtHost{exec: e, node: node, perf: perf}
+		host := &actionStmtHost{exec: e, node: node, perf: perf, graph: graph}
 		lexical := perf.lexicalFrames()
 		return newStmtEngineIn(e.ctx, host, lexical[len(lexical)-1], lexical[:len(lexical)-1])
 	}, graph.Bodies[node])
@@ -125,6 +127,28 @@ func (h *actionStmtHost) materializeOccurrence() (*Instance, error) {
 }
 
 // acceptReturn rejects a `return`: an action node computes no result to return.
+// statementOrder is how stmts may be ordered where the schedule picks it: a body's
+// statements are subactions no succession orders.
+func (h *actionStmtHost) statementOrder(stmts []lower.Statement) *lower.StatementOrder {
+	if len(stmts) < 2 {
+		return nil
+	}
+	order := h.exec.statementOrder(h.graph, h.node, stmts)
+	if h.exec.ctx.scheduling().ordersStatements() || order.HasReversePrecedence() || order.HasSkipped() {
+		return order
+	}
+	return nil
+}
+
+func (h *actionStmtHost) orderStep() int {
+	if h.exec.flow == nil {
+		return 0
+	}
+	return h.exec.flow.stepCount + 1
+}
+
+func (h *actionStmtHost) yieldsBetweenStatements() bool { return true }
+
 func (h *actionStmtHost) acceptReturn(Value, lower.Return) error {
 	return fmt.Errorf("%w: %s", ErrReturnOutsideCalc, h.describe())
 }

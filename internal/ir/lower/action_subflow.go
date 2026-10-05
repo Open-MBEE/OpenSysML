@@ -1,7 +1,7 @@
 package lower
 
 import (
-	"errors"
+	"slices"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
@@ -95,18 +95,19 @@ func lowerActionNode(graph *ActionGraph, node *ast.Usage, scope *symbols.Scope) 
 	graph.Subflows[node] = &Subflow{Graph: sub, Err: err}
 }
 
-// lowerTerminateNode records what a terminate action usage runs: the statements of
-// its body as a leaf's, then the terminate it stands for. A body stating a flow of
-// its own has no place to end the performance from, so it is refused at initialize.
+// lowerTerminateNode records what a terminate action usage runs: its body, the
+// statements of a leaf or the flow it states as a block, then the terminate it stands for.
 func lowerTerminateNode(graph *ActionGraph, node *ast.Usage, scope *symbols.Scope) {
 	if statesOwnFlow(node.Members) {
-		if graph.Subflows == nil {
-			graph.Subflows = make(map[ast.Node]*Subflow)
-		}
-		graph.Subflows[node] = &Subflow{Err: errors.New("a terminate action usage states no flow of its own")}
-		return
+		// The node's parameters and attributes are its own (lowerFeatures), not the block's.
+		steps := slices.DeleteFunc(slices.Clone(node.Members), func(member ast.Node) bool {
+			m, ok := unwrapMembership(member).(*ast.Usage)
+			return ok && DeclaresNodeFeature(m)
+		})
+		graph.Bodies[node] = []Statement{lowerStatedBlock(node, steps, scope)}
+	} else {
+		lowerBody(graph, node, scope)
 	}
-	lowerBody(graph, node, scope)
 	graph.Bodies[node] = append(graph.Bodies[node], lowerStatement(node, scope))
 }
 

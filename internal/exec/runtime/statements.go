@@ -67,7 +67,10 @@ func (env *stmtEnv) leave(ctx *Context, forget bool) {
 	}
 }
 
-// declareUnvalued marks a name the innermost entered block declares without a value.
+// declareUnvalued marks a name the innermost entered block declares without a
+// value — or the body's own data when no block is entered, which marks it
+// declared for a write while a read answers as missing, like a feature stated
+// without a value.
 func (env *stmtEnv) declareUnvalued(name string) {
 	depth := len(env.frames)
 	if depth == 0 {
@@ -95,6 +98,7 @@ func (env *stmtEnv) frameDeclares(i int, name string) bool {
 // behavior's own data when no block is entered.
 func (env *stmtEnv) declare(ctx *Context, name string, value Value) {
 	if depth := len(env.frames); depth > 0 {
+		delete(env.unvalued[depth-1], name)
 		if cells := env.cells[depth-1]; cells != nil {
 			ctx.writeBodyCell(cells, name, value)
 		} else {
@@ -102,6 +106,7 @@ func (env *stmtEnv) declare(ctx *Context, name string, value Value) {
 		}
 		return
 	}
+	delete(env.unvaluedLocal, name)
 	if env.localCells != nil {
 		ctx.writeBodyCell(env.localCells, name, value)
 	} else {
@@ -145,6 +150,7 @@ func (env *stmtEnv) assignRootLocal(ctx *Context, name string, value Value) bool
 	if !env.rootDeclares(name) {
 		return false
 	}
+	delete(env.unvaluedLocal, name)
 	if env.localCells != nil {
 		ctx.writeBodyCell(env.localCells, name, value)
 	} else {
@@ -168,6 +174,7 @@ func (env *stmtEnv) holdsLocal(name string) bool {
 func (env *stmtEnv) assignLocal(ctx *Context, name string, value Value) bool {
 	for i := len(env.frames) - 1; i >= 0; i-- {
 		if env.frameDeclares(i, name) {
+			delete(env.unvalued[i], name)
 			if cells := env.cells[i]; cells != nil {
 				ctx.writeBodyCell(cells, name, value)
 			} else {
@@ -177,6 +184,7 @@ func (env *stmtEnv) assignLocal(ctx *Context, name string, value Value) bool {
 		}
 	}
 	if env.rootDeclares(name) {
+		delete(env.unvaluedLocal, name)
 		if env.localCells != nil {
 			ctx.writeBodyCell(env.localCells, name, value)
 		} else {
@@ -211,6 +219,40 @@ func (env *stmtEnv) values(ctx *Context) (map[string]Value, error) {
 	return merged, nil
 }
 
+func (env *stmtEnv) constraintResult(ctx *Context) (frame, error) {
+	values := make(map[string]Value, env.data.width()+len(env.locals))
+	if err := env.data.eachCurrent(ctx, func(name string, value Value) { values[name] = value }); err != nil {
+		return frame{}, err
+	}
+	if err := ctx.deriveBodyCells(env.localCells); err != nil {
+		return frame{}, err
+	}
+	maps.Copy(values, env.locals)
+	result := env.data
+	result.unvalued = maps.Clone(env.data.unvalued)
+	for name := range env.locals {
+		delete(result.unvalued, name)
+	}
+	if len(env.unvaluedLocal) > 0 {
+		if result.unvalued == nil {
+			result.unvalued = make(map[string]bool, len(env.unvaluedLocal))
+		}
+		for name := range env.unvaluedLocal {
+			result.markUnvalued(name)
+		}
+	}
+	var cells *bodyCells
+	if env.localCells != nil {
+		localCells := *env.localCells
+		localCells.vars = values
+		localCells.cells = maps.Clone(env.localCells.cells)
+		localCells.order = slices.Clone(env.localCells.order)
+		cells = &localCells
+	}
+	result.vars, result.cells, result.ensureCells = values, cells, nil
+	return result, nil
+}
+
 // localFrames returns the entered block maps and their dependency-cell stores.
 func (env *stmtEnv) localFrames() ([]map[string]Value, []*bodyCells) {
 	locals := make([]map[string]Value, 0, len(env.frames)+1)
@@ -224,18 +266,19 @@ func (env *stmtEnv) localFrames() ([]map[string]Value, []*bodyCells) {
 
 // localFrame exposes the behavior's root locals as an evaluation frame.
 func (env *stmtEnv) localFrame() frame {
-	local := env.bodyFrame(env.locals, env.localCells)
+	local := env.bodyFrame(env.locals, env.localCells, env.unvaluedLocal)
 	return local
 }
 
 // bodyFrame marks local values as lexical bindings in the run that owns the data frame.
-func (env *stmtEnv) bodyFrame(vars map[string]Value, cells *bodyCells) frame {
+func (env *stmtEnv) bodyFrame(vars map[string]Value, cells *bodyCells, unvalued map[string]bool) frame {
 	local := mapFrame(vars)
 	local.owner, local.perf = env.data.owner, env.data.perf
 	local.run, local.performed = env.data.run, env.data.performed
 	local.merged, local.firing = env.data.merged, env.data.firing
 	local.cells = cells
 	local.lexical = true
+	local.unvalued = unvalued
 	return local
 }
 
@@ -295,6 +338,15 @@ type stmtHost interface {
 	// assignment binds that output for this activation rather than writing a value
 	// the body merely holds.
 	declaredOutput(name string) bool
+	// statementOrder is how stmts, the host's body or a block in it, may be
+	// ordered under the run's schedule; nil keeps declaration order.
+	statementOrder(stmts []lower.Statement) *lower.StatementOrder
+	// orderStep is the step a statement order is chosen in, as the run's other
+	// choices of the step name it.
+	orderStep() int
+	// yieldsBetweenStatements reports whether this list participates in its
+	// enclosing action body's interleaving.
+	yieldsBetweenStatements() bool
 	// acceptReturn takes the value a `return` yields.
 	acceptReturn(value Value, s lower.Return) error
 	// effect states an effect on the world outside the body, over engine's values.
@@ -336,6 +388,10 @@ type stmtEngine struct {
 	frameBuf []frame
 	// thisOccurrence is host.materializeOccurrence, bound once for every evalIn.
 	thisOccurrence func() (*Instance, error)
+	// features are the valued features a body's statements may name where the
+	// host supplies them — a constraint's parameters — nil where the body's
+	// frame answers every name already.
+	features map[string]scopedExpr
 }
 
 // newStmtEngineOver returns an engine running statements against data, which also
@@ -386,11 +442,11 @@ func (e *stmtEngine) evalIn(scope *symbols.Scope) *EvalContext {
 	if e.env.perf != nil {
 		frames = append(frames, performanceFrame(e.env.perf))
 	}
-	root := e.env.bodyFrame(e.env.locals, e.env.localCells)
+	root := e.env.bodyFrame(e.env.locals, e.env.localCells, e.env.unvaluedLocal)
 	root.ensureCells = func() *bodyCells { return e.ensureRootCells() }
 	frames = append(frames, root)
 	for i := range e.env.frames {
-		frames = append(frames, e.env.bodyFrame(e.env.frames[i], e.env.cells[i]))
+		frames = append(frames, e.env.bodyFrame(e.env.frames[i], e.env.cells[i], e.env.unvalued[i]))
 		index := i
 		frames[len(frames)-1].ensureCells = func() *bodyCells { return e.ensureLocalCells(index) }
 	}
@@ -404,6 +460,7 @@ func (e *stmtEngine) evalIn(scope *symbols.Scope) *EvalContext {
 		thisOccurrence: e.thisOccurrence,
 		frames:         frames,
 		trace:          e.ctx.trace,
+		features:       e.features,
 		inBehaviorBody: true,
 		activation:     e.activation,
 	}
@@ -419,14 +476,14 @@ func (e *stmtEngine) evalInDepth(scope *symbols.Scope, depth int) *EvalContext {
 	if e.env.perf != nil {
 		frames = append(frames, performanceFrame(e.env.perf))
 	}
-	root := e.env.bodyFrame(e.env.locals, e.env.localCells)
+	root := e.env.bodyFrame(e.env.locals, e.env.localCells, e.env.unvaluedLocal)
 	root.ensureCells = func() *bodyCells { return e.ensureRootCells() }
 	frames = append(frames, root)
 	if depth > len(e.env.frames) {
 		depth = len(e.env.frames)
 	}
 	for i, local := range e.env.frames[:depth] {
-		frames = append(frames, e.env.bodyFrame(local, e.env.cells[i]))
+		frames = append(frames, e.env.bodyFrame(local, e.env.cells[i], e.env.unvalued[i]))
 		index := i
 		frames[len(frames)-1].ensureCells = func() *bodyCells { return e.ensureLocalCells(index) }
 	}
@@ -480,26 +537,114 @@ type stmtListFrame struct {
 	i        int
 	run      *runState
 	elements int64
+	order    *lower.StatementOrder
+	// done and blocked track an unordered list's statements (lower.StatementOrder);
+	// i is -1 between two of them. divided is whether another performance may run between.
+	done, blocked []bool
+	divided       bool
+	// strands holds, by position, each statement started and set aside at an inner
+	// boundary so a statement it does not commute with runs meanwhile; switched is
+	// the one just set aside, -1 for none, and levels the trace levels i opened under.
+	strands  []*stmtStrand
+	switched int
+	levels   int
 }
 
-func (f *stmtListFrame) abandon(*Context) { f.run.elements = f.elements }
+// stmtStrand is a statement of an unordered list set aside mid-way: the frames it
+// paused at, innermost first, the trace levels and elements it holds, and why it paused.
+type stmtStrand struct {
+	cursor []bodyFrame
+	levels int
+	run    *runState
+	held   int64
+	paused bodyPause
+}
 
-func (f *stmtListFrame) clone() bodyFrame { c := *f; return &c }
+func (s *stmtStrand) clone() *stmtStrand {
+	c := *s
+	c.cursor = make([]bodyFrame, len(s.cursor))
+	for i, f := range s.cursor {
+		c.cursor[i] = f.clone()
+	}
+	return &c
+}
+
+// abandon gives back the elements the paused statement held; one yielded before
+// its next statement has none open. The statements set aside are abandoned too.
+func (f *stmtListFrame) abandon(ctx *Context) {
+	if f.run != nil && (f.i >= 0 || f.strands == nil) {
+		f.run.elements = f.elements
+	}
+	f.abandonStrands(ctx)
+}
+
+// abandonStrands ends what the statements set aside hold open, innermost first.
+func (f *stmtListFrame) abandonStrands(ctx *Context) {
+	for i, s := range f.strands {
+		if s == nil {
+			continue
+		}
+		for _, inner := range s.cursor {
+			inner.abandon(ctx)
+		}
+		if s.run != nil {
+			s.run.elements -= s.held
+		}
+		f.strands[i] = nil
+	}
+}
+
+func (f *stmtListFrame) clone() bodyFrame {
+	c := *f
+	c.done, c.blocked = slices.Clone(f.done), slices.Clone(f.blocked)
+	if f.strands != nil {
+		c.strands = make([]*stmtStrand, len(f.strands))
+		for i, s := range f.strands {
+			if s != nil {
+				c.strands[i] = s.clone()
+			}
+		}
+	}
+	return &c
+}
 
 // run executes statements in declaration order, stopping at a `return`; a body
 // pausing in one is re-entered at that statement, one yielding between two at
 // the next.
 func (e *stmtEngine) run(stmts []lower.Statement) (stmtFlow, error) {
+	return e.runWithOrder(stmts, nil)
+}
+
+func (e *stmtEngine) runWithOrder(stmts []lower.Statement, explicitOrder *lower.StatementOrder) (stmtFlow, error) {
 	f, resumed, err := popFrame[*stmtListFrame](e.ctx)
 	if err != nil {
 		return flowNext, err
 	}
+	order := explicitOrder
+	if order == nil && resumed {
+		order = f.order
+	}
+	if order == nil {
+		order = e.host.statementOrder(stmts)
+	}
 	if !resumed {
 		f = &stmtListFrame{}
+		divided := e.host.yieldsBetweenStatements() && e.ctx.body != nil && e.ctx.body.yields
+		if order != nil && order.Reorders(divided) {
+			f.i, f.done, f.blocked = -1, make([]bool, len(stmts)), make([]bool, len(stmts))
+			f.divided, f.switched = divided, -1
+		}
 	}
+	f.order = order
 	resumed = resumed && !e.ctx.yieldedHere()
+	if f.done != nil {
+		return e.runUnordered(stmts, f, resumed)
+	}
 	for ; f.i < len(stmts); f.i++ {
-		if err := e.ctx.yieldBody(); err != nil {
+		if order != nil && order.Skipped(f.i) {
+			continue
+		}
+		if err := e.yieldBody(); err != nil {
 			return flowNext, e.ctx.pausing(f, err)
 		}
 		flow, err := e.statement(stmts[f.i], f, resumed)
@@ -507,9 +652,158 @@ func (e *stmtEngine) run(stmts []lower.Statement) (stmtFlow, error) {
 		if err != nil || flow == flowReturn {
 			return flow, e.ctx.pausing(f, err)
 		}
-		e.ctx.bodyPerformed()
+		e.bodyPerformed()
 	}
 	return flowNext, nil
+}
+
+// runUnordered executes statements no succession orders, each next one as the
+// run's schedule picks among those lower.StatementOrder lets run next. A statement
+// started is set aside at an inner boundary where one it does not commute with may
+// run between its moves, so that one's moves may fall between them.
+func (e *stmtEngine) runUnordered(stmts []lower.Statement, f *stmtListFrame, resumed bool) (flow stmtFlow, err error) {
+	order := f.order
+	if order == nil {
+		order = e.host.statementOrder(stmts)
+	}
+	var level *listLevel
+	if e.host.yieldsBetweenStatements() {
+		level = e.ctx.enterList(f, order)
+	}
+	defer e.ctx.leaveList(level)
+	defer func() {
+		if err != nil && !paused(err) {
+			f.abandonStrands(e.ctx)
+		}
+	}()
+	for {
+		if f.i < 0 {
+			next := f.candidates(order, !e.ctx.scheduling().ordersStatements())
+			if len(next) == 0 {
+				return flowNext, nil
+			}
+			if err := e.yieldBody(); err != nil {
+				return flowNext, e.ctx.pausing(f, err)
+			}
+			f.i, f.switched = e.pickStatement(stmts, next), -1
+			if e.host.yieldsBetweenStatements() {
+				resumed = e.ctx.resumeStrand(f)
+			} else {
+				resumed = false
+			}
+			if level != nil {
+				level.moved = false
+			}
+		}
+		flow, err := e.statement(stmts[f.i], f, resumed)
+		resumed = false
+		if paused(err) && e.ctx.body != nil && e.ctx.body.paused.strand == f {
+			e.ctx.setAside(f)
+			continue
+		}
+		if err != nil || flow == flowReturn {
+			return flow, e.ctx.pausing(f, err)
+		}
+		order.Ran(f.i, f.done, f.blocked, f.divided)
+		f.i = -1
+		e.bodyPerformed()
+	}
+}
+
+// candidates lists, ascending, the statements the list may run or go on with next:
+// after one was set aside, it or those it does not commute with; else those
+// lower.StatementOrder lets start next, with every one set aside.
+func (f *stmtListFrame) candidates(order *lower.StatementOrder, fixed bool) []int {
+	var next []int
+	if f.switched >= 0 {
+		next = append(order.Rivals(f.switched, f.done, f.divided), f.switched)
+	} else if fixed {
+		next = order.NextFixed(f.done, f.blocked, f.divided)
+	} else {
+		next = order.Next(f.done, f.blocked, f.divided)
+		for i, s := range f.strands {
+			if s != nil {
+				next = append(next, i)
+			}
+		}
+	}
+	slices.Sort(next)
+	return slices.Compact(next)
+}
+
+// setAside keeps the frames of f's statement, paused at an inner boundary, as a
+// strand of f, closing the trace levels it holds while the list goes on.
+func (ctx *Context) setAside(f *stmtListFrame) {
+	run := ctx.body
+	if f.strands == nil {
+		f.strands = make([]*stmtStrand, len(f.done))
+	}
+	s := &stmtStrand{
+		cursor: run.cursor,
+		levels: ctx.bodyLevels() - f.levels,
+		run:    f.run,
+		paused: bodyPause{yielded: true},
+	}
+	if f.run != nil {
+		s.held = f.run.elements - f.elements
+	}
+	f.strands[f.i] = s
+	run.cursor, run.paused = nil, bodyPause{}
+	ctx.trace.setNesting(run.traceBase + f.levels)
+	f.switched, f.i = f.i, -1
+}
+
+// resumeStrand readies f's statement i to go on where it was set aside, reporting
+// whether it was: its frames resume and its trace levels reopen.
+func (ctx *Context) resumeStrand(f *stmtListFrame) bool {
+	f.levels = ctx.bodyLevels()
+	if f.strands == nil || f.strands[f.i] == nil {
+		return false
+	}
+	s := f.strands[f.i]
+	f.strands[f.i] = nil
+	run := ctx.body
+	run.resuming, run.paused = s.cursor, s.paused
+	f.run = s.run
+	if s.run != nil {
+		f.elements = s.run.elements - s.held
+	}
+	ctx.trace.setNesting(run.traceBase + f.levels + s.levels)
+	return true
+}
+
+// statementsWherePrefix opens where a statement order names the body it was made in.
+const statementsWherePrefix = "statements in "
+
+// pickStatement picks the statement to run next among next, two or more a
+// choice point of the run's schedule.
+func (e *stmtEngine) pickStatement(stmts []lower.Statement, next []int) int {
+	if len(next) == 1 {
+		return next[0]
+	}
+	if !e.ctx.scheduling().ordersStatements() {
+		return next[0]
+	}
+	alts := make([]string, len(next))
+	for k, i := range next {
+		alts[k] = fmt.Sprintf("%d %s", i+1, stmtLabel(stmts[i]))
+	}
+	choice := ChoicePoint{
+		Kind:         ChoiceStatementOrder,
+		Step:         e.host.orderStep(),
+		Where:        statementsWherePrefix + e.host.describe(),
+		Alternatives: alts,
+	}
+	if e.ctx.statementOrderSweep != nil {
+		choice.Taken = e.ctx.statementOrderSweep.choose(&choice)
+		if e.ctx.statementOrderGuardBodies != nil {
+			e.ctx.statementOrderGuardBodies[e.host.describe()] = true
+		}
+		return next[choice.Taken]
+	}
+	choice.Taken = e.ctx.scheduling().choose(choice, nil)
+	e.ctx.noteChoice(choice)
+	return next[choice.Taken]
 }
 
 // statement executes one lowered statement, recording it in the trace with the
@@ -664,7 +958,6 @@ func (e *stmtEngine) execute(stmt lower.Statement) (stmtFlow, error) {
 			e.env.data.setBody(e.ctx, s.Name, value)
 			return flowNext, nil
 		}
-		value := Value{Kind: ValNull}
 		if s.Value != nil {
 			evaluated, err := e.evalIn(s.Scope).Eval(s.Value)
 			if err != nil {
@@ -673,9 +966,17 @@ func (e *stmtEngine) execute(stmt lower.Statement) (stmtFlow, error) {
 			if err := e.ctx.checkBodyDeclaration(s.Scope, e.host.describe(), s.Name, &evaluated); err != nil {
 				return flowNext, err
 			}
-			value = evaluated
+			e.env.declare(e.ctx, s.Name, evaluated)
+			return flowNext, nil
 		}
-		e.env.declare(e.ctx, s.Name, value)
+		// A constraint body's performance declares a valueless name as missing
+		// until a step binds it — a read answers as missing, a write binds it;
+		// every other body binds null for it, as it always has.
+		if _, constraint := e.host.(*constraintStmtHost); constraint {
+			e.env.declareUnvalued(s.Name)
+		} else {
+			e.env.declare(e.ctx, s.Name, Value{Kind: ValNull})
+		}
 		return flowNext, nil
 	case lower.DeclareUsage:
 		return flowNext, e.declareUsage(s)
@@ -769,6 +1070,7 @@ func (e *stmtEngine) ifStatement(stmt lower.If) (stmtFlow, error) {
 			return flowNext, nil
 		}
 		f = &branchFrame{elseBranch: !holds}
+		e.ctx.guardPerformed()
 	}
 	branch := stmt.Then
 	if f.elseBranch {
@@ -911,7 +1213,7 @@ func (e *stmtEngine) blockFlow(block lower.Block) (stmtFlow, error) {
 	}
 	resumed = resumed && !e.ctx.yieldedHere()
 	for f.node != nil {
-		if err := e.ctx.yieldBody(); err != nil {
+		if err := e.yieldBody(); err != nil {
 			return flowNext, e.ctx.pausing(f, err)
 		}
 		// A node reached spends a step, so a flow that does not end fails the run.
@@ -925,7 +1227,7 @@ func (e *stmtEngine) blockFlow(block lower.Block) (stmtFlow, error) {
 		if err != nil || flow == flowReturn {
 			return flow, e.ctx.pausing(f, err)
 		}
-		e.ctx.bodyPerformed()
+		e.bodyPerformed()
 		successors := graph.Edges[f.node]
 		if len(successors) == 0 {
 			return flowNext, nil
@@ -933,6 +1235,19 @@ func (e *stmtEngine) blockFlow(block lower.Block) (stmtFlow, error) {
 		f.node = successors[0].Target
 	}
 	return flowNext, nil
+}
+
+func (e *stmtEngine) yieldBody() error {
+	if !e.host.yieldsBetweenStatements() {
+		return nil
+	}
+	return e.ctx.yieldBody()
+}
+
+func (e *stmtEngine) bodyPerformed() {
+	if e.host.yieldsBetweenStatements() {
+		e.ctx.bodyPerformed()
+	}
 }
 
 // blockNode runs one node of a block's flow: the host performs an action usage in
@@ -1077,7 +1392,7 @@ func (e *stmtEngine) loop(stmt lower.Loop) (stmtFlow, error) {
 	defer func() { leave(!preserve) }()
 
 	for {
-		if err := e.ctx.yieldBody(); err != nil {
+		if err := e.yieldBody(); err != nil {
 			preserve = true
 			return flowNext, e.ctx.pausing(f, err)
 		}
@@ -1092,7 +1407,7 @@ func (e *stmtEngine) loop(stmt lower.Loop) (stmtFlow, error) {
 			preserve = paused(err)
 			return flow, e.ctx.pausing(f, err)
 		}
-		e.ctx.bodyPerformed()
+		e.bodyPerformed()
 	}
 }
 
@@ -1161,7 +1476,7 @@ func (e *stmtEngine) forLoop(stmt lower.Loop) (stmtFlow, error) {
 		}
 		f = &loopFrame{elements: elements}
 		if len(elements) == 0 {
-			e.ctx.bodyPerformed()
+			e.bodyPerformed()
 		}
 	}
 	resumed = resumed && !e.ctx.yieldedHere()
@@ -1170,7 +1485,7 @@ func (e *stmtEngine) forLoop(stmt lower.Loop) (stmtFlow, error) {
 	defer func() { leave(!preserve) }()
 
 	for f.iteration < len(f.elements) || resumed {
-		if err := e.ctx.yieldBody(); err != nil {
+		if err := e.yieldBody(); err != nil {
 			preserve = true
 			return flowNext, e.ctx.pausing(f, err)
 		}
@@ -1185,7 +1500,7 @@ func (e *stmtEngine) forLoop(stmt lower.Loop) (stmtFlow, error) {
 			preserve = paused(err)
 			return flow, e.ctx.pausing(f, err)
 		}
-		e.ctx.bodyPerformed()
+		e.bodyPerformed()
 	}
 	return flowNext, nil
 }

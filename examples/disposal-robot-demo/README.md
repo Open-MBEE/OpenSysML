@@ -514,7 +514,7 @@ system and the computer.
 
 [`robot_demo.py`](robot_demo.py) asks the same questions through the `opensysml`
 client, which talks to the `sysml-grpc` service
-([guide chapter 9](../../docs/guide/09-clients.md#from-python) covers installing both):
+(the [Python client guide](../../docs/clients/python/index.md) covers installing both):
 
 ```bash
 pip install opensysml

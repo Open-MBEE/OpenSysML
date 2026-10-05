@@ -10,8 +10,8 @@ package test {
 		first start;
 		then action change {
 			assign source := 5;
-			assign fallback := 9;
-			assign result := snapshot * 10 + fallback;
+			then assign fallback := 9;
+			then assign result := snapshot * 10 + fallback;
 		}
 		then done;
 	}

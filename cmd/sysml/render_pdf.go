@@ -67,5 +67,6 @@ func pdfOptions() (docpdf.Options, error) {
 		DiagramForm:         page.DiagramForm,
 		Unplaced:            page.Unplaced,
 		Style:               page.Style,
+		LinkTemplate:        page.LinkTemplate,
 	}, nil
 }

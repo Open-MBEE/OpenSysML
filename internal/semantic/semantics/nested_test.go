@@ -27,6 +27,22 @@ func buildModelWithStdlib(t *testing.T, src string) (*Model, *symbols.Scope) {
 	return m, idx.DocumentRoot(name)
 }
 
+func buildModelWithStdlibNamedKind(t *testing.T, name string, kind source.Kind, src string) (*Model, *symbols.Scope) {
+	t.Helper()
+	idx := stdlibIndex(t)
+	p := parser.New(source.New(name, []byte(src)))
+	root := p.ParseFile()
+	if len(p.Diagnostics) != 0 {
+		t.Fatalf("parse diagnostics: %v", p.Diagnostics)
+	}
+	idx.AddDocumentWithKind(name, root, kind)
+	r := resolve.New(idx)
+	m := NewModel(r)
+	r.SetModel(m)
+	r.ResolveDocument(name, root)
+	return m, idx.DocumentRoot(name)
+}
+
 // nestedSym resolves the symbol at a `::`-separated path under the root scope.
 func nestedSym(t *testing.T, root *symbols.Scope, path string) *symbols.Symbol {
 	t.Helper()

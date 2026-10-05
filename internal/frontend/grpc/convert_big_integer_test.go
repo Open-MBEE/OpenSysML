@@ -162,8 +162,15 @@ package W {
 // rather than reading it as null. An Integer within int64 is unaffected.
 func TestBigIntCapability(t *testing.T) {
 	ctx := context.Background()
-	if all := Capabilities(); all[len(all)-1] != CapabilityBigIntValues {
-		t.Errorf("capabilities %v do not end with %q, the newest", all, CapabilityBigIntValues)
+	found := false
+	for _, capability := range Capabilities() {
+		if capability == CapabilityBigIntValues {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Errorf("capabilities %v omit %q", Capabilities(), CapabilityBigIntValues)
 	}
 
 	withheld := mustNewServiceWithout(t, CapabilityBigIntValues)

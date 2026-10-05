@@ -16,7 +16,7 @@ package test {
 				} else {
 					assign seen2 := live;
 				}
-				assign visits := visits + 1;
+				then assign visits := visits + 1;
 			}
 		}
 		state done;

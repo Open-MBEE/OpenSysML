@@ -11,18 +11,18 @@ package test {
 			entry {
 				attribute entryValue : Integer = source;
 				assign source := 2;
-				assign log := entryValue;
+				then assign log := entryValue;
 			}
 			do {
 				attribute doValue : Integer = source;
 				assign source := 3;
-				assign log := log * 10 + doValue;
-				assign complete := true;
+				then assign log := log * 10 + doValue;
+				then assign complete := true;
 			}
 			exit {
 				attribute exitValue : Integer = source;
 				assign source := 4;
-				assign log := log * 10 + exitValue;
+				then assign log := log * 10 + exitValue;
 			}
 		}
 		state done;

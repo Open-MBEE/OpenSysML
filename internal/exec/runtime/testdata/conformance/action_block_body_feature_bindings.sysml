@@ -10,17 +10,17 @@ package test {
 			while source < 3 {
 				attribute local : Integer = source;
 				assign source := source + 1;
-				assign total := total + local;
+				then assign total := total + local;
 			}
-			if source == 3 {
+			then if source == 3 {
 				attribute branch : Integer = source;
 				assign source := 6;
-				assign total := total + branch;
+				then assign total := total + branch;
 			}
-			for i in 1..2 {
+			then for i in 1..2 {
 				attribute each : Integer = source + i;
 				assign source := source + 1;
-				assign total := total + each;
+				then assign total := total + each;
 			}
 		}
 		then done;

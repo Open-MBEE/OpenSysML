@@ -27,6 +27,7 @@ export const ALL_CAPABILITIES = [
   "schedule",
   "schedule_explore",
   "performer",
+  "state_trace",
   "feature_values",
   "complex_values",
   "structured_values",

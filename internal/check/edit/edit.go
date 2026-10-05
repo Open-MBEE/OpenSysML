@@ -453,6 +453,7 @@ type Model struct {
 	// deferred are the references the Apply call's operations wrote that are
 	// judged against the model the whole batch leaves, set by Apply.
 	deferred *deferredRefs
+	tokens   *modelTokenCache
 }
 
 // Document is the source of another document of a Model's index, as Index was
@@ -484,6 +485,7 @@ func (m Model) inDocument(name string) (Model, bool) {
 		Source: doc.Source, Root: root, Index: m.Index,
 		ParseDiags: doc.ParseDiags, SemDiags: doc.SemDiags,
 		NewIndex: m.NewIndex, Indexed: m.Indexed, Analysis: m.Analysis, Other: m.Other, Documents: m.Documents, reindex: m.reindex,
+		tokens: new(modelTokenCache),
 	}, true
 }
 
@@ -589,49 +591,70 @@ func unedited(m Model) rewrites {
 // Apply applies every operation to m's source, or none of them, and returns the
 // edited notation. Every refusal is an *Error naming its kind.
 func Apply(m Model, ops []Operation) (*Result, error) {
+	originalOps := append([]Operation(nil), ops...)
+	result, _, err := apply(m, ops, false)
+	if applyObserver != nil {
+		applyObserver(m, originalOps, result, err)
+	}
+	return result, err
+}
+
+// applyObserver compares Apply with the sequential implementation in tests.
+var applyObserver func(m Model, ops []Operation, res *Result, err error)
+
+// apply runs operations sequentially or in independent segments.
+func apply(m Model, ops []Operation, sequential bool) (*Result, []int, error) {
 	if m.Source == nil || m.Root == nil || m.Index == nil {
-		return nil, &Error{Failure: FailureResultInvalid, Message: "no parsed model to edit"}
+		return nil, nil, &Error{Failure: FailureResultInvalid, Message: "no parsed model to edit"}
 	}
 	if len(ops) == 0 {
-		return nil, &Error{Failure: FailureNoOperations, Message: "no edit operations requested"}
+		return nil, nil, &Error{Failure: FailureNoOperations, Message: "no edit operations requested"}
 	}
 	m.reindex = newReindexer(m)
 	m.deferred = new(deferredRefs)
+	m.tokens = new(modelTokenCache)
+	ops = append([]Operation(nil), ops...)
 	if !needsSequential(ops) {
-		return applyBatch(m, ops)
+		result, err := applyBatch(m, ops)
+		if err != nil {
+			return nil, []int{0}, err
+		}
+		return result, []int{0}, nil
+	}
+	if !sequential {
+		return applySegments(m, ops)
 	}
 
 	current := m
 	edited := unedited(m)
-	ops = append([]Operation(nil), ops...)
+	starts := make([]int, 0, len(ops))
 	for i, op := range ops {
+		starts = append(starts, i)
 		splices, err := current.splicesFor(i, op)
 		if err != nil {
-			return nil, err
+			return nil, starts, err
 		}
 		if err := current.rewrite(edited, splices); err != nil {
-			return nil, err
+			return nil, starts, err
 		}
 		m.deferred.rebase(m.Source.Name(), splices)
 		if err := current.rebaseDeclarations(ops[i+1:], i+1, splices); err != nil {
-			return nil, err
+			return nil, starts, err
 		}
 		current = reparseModel(m, edited)
 		m.deferred.locate(current)
 		if err := current.relocateDeclarations(ops[i+1:], i+1); err != nil {
-			return nil, err
+			return nil, starts, err
 		}
 	}
 	if err := m.validate(edited); err != nil {
-		return nil, err
+		return nil, starts, err
 	}
-	return edited.result(m.Source.Name()), nil
+	return edited.result(m.Source.Name()), starts, nil
 }
 
-// needsSequential reports whether one operation may see another's work: a name
-// an earlier one declares, renames or removes, or bytes it already rewrote.
-// Values sit apart from one another and move no name, so only a request of
-// nothing but set-value is proven independent.
+// needsSequential reports whether a request is not a pure set-value batch.
+// Pure set-value requests still use applyBatch; mixed requests use segments.
 func needsSequential(ops []Operation) bool {
 	if len(ops) == 1 {
 		return false
@@ -751,6 +774,7 @@ func reparseModel(base Model, edited rewrites) Model {
 		ParseDiags: p.Diagnostics,
 		NewIndex:   base.NewIndex, Indexed: base.Indexed, Analysis: base.Analysis, Other: other, Documents: base.Documents, reindex: base.reindex,
 		deferred: base.deferred,
+		tokens:   new(modelTokenCache),
 	}
 }
 

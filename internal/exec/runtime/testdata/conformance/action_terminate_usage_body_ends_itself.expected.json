@@ -1,8 +1,9 @@
 {
 	"type": "action",
 	"libraries": true,
-	"outputs": {
-		"x": {"type": "Integer", "value": 2},
-		"y": {"type": "Integer", "value": 0}
-	}
+	"outcomes": [
+		{"outputs": {"x": {"type": "Integer", "value": 1}, "y": {"type": "Integer", "value": 0}}},
+		{"outputs": {"x": {"type": "Integer", "value": 2}, "y": {"type": "Integer", "value": 0}}}
+	],
+	"admissible": "A terminate action usage's body and its implicit terminate: each is performed, in which order is open"
 }

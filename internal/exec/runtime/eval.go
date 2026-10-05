@@ -456,6 +456,13 @@ func (ctx *Context) EvalDeclaredValue(sym *symbols.Symbol) (Value, error) {
 		if ctx.namesOneObject(sym) || ctx.namesObjects(sym) {
 			return ctx.denotedValue(sym)
 		}
+		// A usage a binding connector governs reads as the binding's value, as
+		// an expression read of the same name answers.
+		if class, _ := ctx.namespaceClassMember(sym); class != nil || ctx.optionalValueless(sym) {
+			if val, bound, err := ctx.namespaceBoundValue(sym); bound || err != nil {
+				return val, err
+			}
+		}
 		// Read as a name of it is read: a feature nothing values is undetermined.
 		return NewEvalContext(ctx, sym.OwnerScope).withoutValue(sym, ctx.qualifiedSymbolName(sym), nil)
 	}
@@ -1118,6 +1125,22 @@ func (ec *EvalContext) declaredValue(sym *symbols.Symbol, value ast.Node) (Value
 	if !namespaceObjectUsage(sym) {
 		return ec.evaluateDeclared(sym, value)
 	}
+	// A binding connector joining this usage makes its ends denote the same
+	// values; resolving it records the binding before the value is read.
+	if _, bound, err := ec.ctx.namespaceBoundObjects(sym); err != nil {
+		return Value{}, err
+	} else if bound {
+		if val, ok := ec.ctx.namespaceBindings[sym]; ok {
+			return val, nil
+		}
+		// The class's member declaring sym may be a different scope tree's
+		// symbol for it; its recorded binding is this usage's value too.
+		if _, member := ec.ctx.namespaceClassMember(sym); member != sym {
+			if val, ok := ec.ctx.namespaceBindings[member]; ok {
+				return val, nil
+			}
+		}
+	}
 	if ec.ctx.binding(sym) {
 		return Value{}, &CyclicBindingError{Usage: sym, Stated: ec.ctx.qualifiedSymbolName(sym)}
 	}
@@ -1196,7 +1219,15 @@ func (ec *EvalContext) conformHeld(sym *symbols.Symbol, val Value, countJudged b
 // materialized once. Reports whether the symbol denotes such objects.
 func (ec *EvalContext) occurrenceReference(sym *symbols.Symbol) (Value, bool, error) {
 	if !ec.ctx.namesOneObject(sym) && !ec.ctx.namesObjects(sym) {
-		return Value{}, false, nil
+		class, _ := ec.ctx.namespaceClassMember(sym)
+		if class == nil && !ec.ctx.optionalValueless(sym) {
+			return Value{}, false, nil
+		}
+		// Of itself the usage may denote nothing, but a binding connector
+		// may have bound it to another usage's value, or a subsetting may
+		// have filled it — reads through the binding answer those.
+		ec.ctx.noteDeclarationRead(sym)
+		return ec.ctx.namespaceBoundValue(sym)
 	}
 	ec.ctx.noteDeclarationRead(sym)
 	val, err := ec.ctx.denotedValue(sym)
@@ -2162,7 +2193,8 @@ func (ec *EvalContext) evalIdentity(n *ast.OperatorExpr) (Value, error) {
 // stricter than equality: a value of another kind, or a constant of another
 // kind, is never the same value, so an Integer is not identical to a Real of
 // equal magnitude, nor an enumeration's literal to the bare scalar it equals or
-// to another enumeration's literal of that value.
+// to another enumeration's literal of that value. Two sequences are identical
+// element by element.
 func valueIdentical(left, right Value) bool {
 	if isEmptyValue(left) || isEmptyValue(right) {
 		return isEmptyValue(left) && isEmptyValue(right)
@@ -2173,7 +2205,29 @@ func valueIdentical(left, right Value) bool {
 	if left.Kind == ValConst && left.Const.Kind != right.Const.Kind {
 		return false
 	}
+	if left.Kind == ValSequence {
+		return sequenceIdentical(left.Sequence(), right.Sequence())
+	}
 	return valueEqual(left, right)
+}
+
+// sequenceIdentical is `===` extended to sequences as SequenceFunctions::same
+// is: the same size and each element identical to its counterpart.
+func sequenceIdentical(a, b *Sequence) bool {
+	if a == nil || b == nil {
+		return a == b
+	}
+	if a.Size() != b.Size() {
+		return false
+	}
+	for i := 0; i < a.Size(); i++ {
+		x, _ := a.At(i)
+		y, _ := b.At(i)
+		if !valueIdentical(x, y) {
+			return false
+		}
+	}
+	return true
 }
 
 // evalArithmetic evaluates arithmetic operators (+, -, *, /, %, **).

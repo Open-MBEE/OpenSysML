@@ -89,6 +89,8 @@ export {
   verifyManifest,
 } from "./signing.js";
 export { PrivateService, currentPrivateService } from "./service.js";
+export { connectWasm } from "./wasm.js";
+export type { WasmConnectOptions } from "./wasm.js";
 
 /** Names a service to connect to instead of starting one. */
 export const SERVICE_ENV = "OPENSYSML_SERVICE";

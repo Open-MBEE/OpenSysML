@@ -51,6 +51,10 @@ type LibraryFacts struct {
 	// Direction is the declared feature direction of a usage.
 	Direction ast.FeatureDirection
 
+	// Portion is the `snapshot` or `timeslice` prefix of a usage, or
+	// PortionNone when the declaration has no portion keyword.
+	Portion ast.PortionKind
+
 	// Modifiers are the declaration's boolean modifiers (`end`, `derived`, ...).
 	Modifiers Modifiers
 
@@ -72,6 +76,14 @@ type LibraryFacts struct {
 	// its `connect` clause, then its body's `end` features. A zero entry is
 	// an end with no symbol of its own (`connect a to b`).
 	Ends []ElementRef
+
+	// RelatedFeatures are the features a connector's ends reference, in end
+	// order, as derived from the declaration.
+	RelatedFeatures []ElementRef
+
+	// MetadataType is the type named by a prefix metadata usage, zero when it
+	// does not resolve.
+	MetadataType ElementRef
 
 	// Node is the class of declaration the symbol was made from.
 	Node NodeKind
@@ -123,6 +135,10 @@ const (
 	NodePrefixMetadata
 	NodeTransition
 	NodeOther
+	NodeFork
+	NodeJoin
+	NodeMerge
+	NodeDecision
 )
 
 // NodeKindOf classifies a declaring node.
@@ -156,6 +172,14 @@ func NodeKindOf(decl ast.Node) NodeKind {
 		return NodePrefixMetadata
 	case *ast.TransitionMember:
 		return NodeTransition
+	case *ast.ForkNode:
+		return NodeFork
+	case *ast.JoinNode:
+		return NodeJoin
+	case *ast.MergeNode:
+		return NodeMerge
+	case *ast.DecisionNode:
+		return NodeDecision
 	}
 	return NodeOther
 }
@@ -166,9 +190,11 @@ func (f LibraryFacts) Clone() LibraryFacts {
 	f.Redefines = cloneRefs(f.Redefines)
 	f.About = cloneRefs(f.About)
 	f.Ends = cloneRefs(f.Ends)
+	f.RelatedFeatures = cloneRefs(f.RelatedFeatures)
 	f.Alias = f.Alias.Clone()
 	f.References = f.References.Clone()
 	f.BaseType = f.BaseType.Clone()
+	f.MetadataType = f.MetadataType.Clone()
 	f.Relationships = slices.Clone(f.Relationships)
 	for i := range f.Relationships {
 		f.Relationships[i].Target = f.Relationships[i].Target.Clone()
@@ -381,6 +407,8 @@ const (
 	ModNamesNothing
 	// ModValued marks a usage whose declaration binds it a value (`= v`, `default v`).
 	ModValued
+	// ModMayTimeVary marks a SysML usage whose derived Usage::mayTimeVary holds (SysML v2 §8.3.6.4).
+	ModMayTimeVary
 )
 
 // Has reports whether every modifier of mask is set.
@@ -406,6 +434,8 @@ func IsAbstract(sym *Symbol) bool {
 	case *ast.Definition:
 		return d.IsAbstract
 	case *ast.Usage:
+		return d.IsAbstract
+	case *ast.CrossFeatureMember:
 		return d.IsAbstract
 	}
 	return false

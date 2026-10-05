@@ -3,7 +3,20 @@
 // carry the edge and the waypoint or segment they stand on; the panel script
 // reads those attributes off whatever the pointer lands on.
 import type { RenderPoint } from "../protocol";
-import { CanvasLayout, FONT_SIZE, liftedEdges, MARGIN, movable, PlacedEdge, PlacedNode, steerable } from "./layout";
+import {
+  CanvasLayout,
+  FONT_SIZE,
+  liftedEdges,
+  MARGIN,
+  movable,
+  PlacedEdge,
+  PlacedNode,
+  portBox,
+  portLabelPlacement,
+  PORT_SIZE,
+  steerable,
+  type PlacedPort,
+} from "./layout";
 
 const SVG = "http://www.w3.org/2000/svg";
 const LINE_HEIGHT = 18;
@@ -156,6 +169,9 @@ function drawNode(parent: SVGElement, entry: PlacedNode, layout: CanvasLayout): 
     });
     group.append(text);
   }
+  for (const port of entry.ports) {
+    group.append(drawPort(box, port, entry));
+  }
   if (entry.collapsed && entry.children.length > 0) {
     const mark = element("text", { x: String(box.x + box.width - LABEL_PAD_X), y: String(box.y + LABEL_PAD_Y + LINE_HEIGHT * 0.8), class: "collapsed", "text-anchor": "end" });
     mark.textContent = "+";
@@ -167,6 +183,45 @@ function drawNode(parent: SVGElement, entry: PlacedNode, layout: CanvasLayout): 
       drawNode(parent, child, layout);
     }
   }
+}
+
+function drawPort(box: PlacedNode["box"], port: PlacedPort, entry: PlacedNode): SVGGElement {
+  const square = portBox(box, port);
+  const label = portLabelPlacement(box, port);
+  const group = element("g", { class: "port", "data-port": port.port.id }) as SVGGElement;
+  const title = element("title", {});
+  title.textContent = port.port.type ? `${port.port.name} : ${port.port.type}` : port.port.name;
+  const classes = ["port-shape"];
+  if (entry.shape === "box") {
+    classes.push(boxClass(entry.node.kind));
+    if (entry.children.length > 0 && !entry.collapsed) {
+      classes.push("container");
+    }
+  } else {
+    classes.push("filled");
+  }
+  const rect = element("rect", {
+    x: String(square.x),
+    y: String(square.y),
+    width: String(PORT_SIZE),
+    height: String(PORT_SIZE),
+    class: classes.join(" "),
+  });
+  if (entry.node.fill !== undefined) {
+    rect.style.setProperty("--node-fill", entry.node.fill);
+  }
+  if (entry.node.border !== undefined) {
+    rect.style.setProperty("--node-border", entry.node.border);
+  }
+  const text = element("text", {
+    x: String(label.x),
+    y: String(label.y),
+    "text-anchor": label.anchor,
+    class: "port-label",
+  });
+  text.textContent = port.port.name;
+  group.append(title, rect, text);
+  return group;
 }
 
 // labelLineClass styles the i-th label line: the head, then the «kind» of a

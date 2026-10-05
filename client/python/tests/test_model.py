@@ -659,7 +659,8 @@ class TestModelRuntimeCalls:
             "states_visited": ["init"]
         }
         client.execute_state.assert_called_once_with(
-            "Demo::Machine", "hash1", events=["go"], schedule=None, performer=None
+            "Demo::Machine", "hash1", events=["go"], schedule=None, performer=None,
+            trace=False
         )
 
     def test_instantiate_raises_what_the_connection_raises(self):

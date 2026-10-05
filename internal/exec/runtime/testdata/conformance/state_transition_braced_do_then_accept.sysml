@@ -17,12 +17,12 @@ package Test {
 
         transition first idle accept Go do {
             assign log := log * 10 + 1;
-            assign log := log * 10 + 2;
-            assign log := log * 10 + 3;
+            then assign log := log * 10 + 2;
+            then assign log := log * 10 + 3;
         } then busy;
         transition first busy accept Go do {
             assign log := log * 10 + 4;
-            assign log := log * 10 + 5;
+            then assign log := log * 10 + 5;
         } then done;
     }
 }

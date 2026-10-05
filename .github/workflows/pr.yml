@@ -339,6 +339,10 @@ jobs:
       - name: Test the pilot downloader
         run: scripts/pilot-pin-test.sh
 
+      # install.sh and install.ps1 against a release served from localhost.
+      - name: Test the install scripts
+        run: scripts/install-test.sh
+
       - name: Cache the OMG training corpus
         uses: actions/cache@v4
         with:
@@ -726,7 +730,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-    timeout-minutes: 10
+    timeout-minutes: 15
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -747,6 +751,13 @@ jobs:
             COMMIT="$(git rev-parse --short HEAD)" \
             BUILD_TIME="$(date -u '+%Y-%m-%d_%H:%M:%S')" \
             GO_VERSION="$(go version | awk '{print $3}')"
+
+      - name: Build the combined WebAssembly module
+        run: |
+          mkdir -p bin/wasm
+          GOOS=js GOARCH=wasm go build -trimpath -ldflags="-s -w" \
+            -o bin/wasm/sysml-wasm.wasm ./cmd/sysml-wasm
+          cp "$(go env GOROOT)/lib/wasm/wasm_exec.js" bin/wasm/
 
       - name: Verify binaries
         run: |
@@ -928,6 +939,7 @@ jobs:
           OPENSYSML_KATEX: ${{ github.workspace }}/build/doc-pdf/katex/node_modules/.bin/katex
           OPENSYSML_DOT: ${{ github.workspace }}/build/doc-pdf/graphviz/bin/dot
           OPENSYSML_PLANTUML_JAR: ${{ github.workspace }}/build/doc-pdf/plantuml/plantuml-1.2026.8.jar
+          OPENSYSML_D2: ${{ github.workspace }}/build/doc-pdf/d2/d2-v0.9.0/bin/d2
         run: go test -count=1 -v -run Installed ./internal/ir/view ./internal/doc/docpdf ./tests/migrate
 
   vscode-extension:
@@ -953,6 +965,10 @@ jobs:
       # gated by go test ./editors/... in the job above.
       - name: Package the VS Code extension
         run: make vscode-package
+
+      - name: Build landing-page diagram bundle
+        working-directory: editors/vscode
+        run: npm run build:landing
 
       - name: Upload VS Code extension artifact
         uses: actions/upload-artifact@v4
@@ -1020,8 +1036,18 @@ jobs:
           go-version-file: go.mod
           cache: true
 
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: editors/vscode/package-lock.json
+
       - name: Install documentation toolchain
         run: make docs-install
+
+      - name: Build the landing-page diagram
+        run: make docs-landing-assets
 
       - name: Check documentation links
         run: python3 scripts/check-doc-links.py
@@ -1072,6 +1098,14 @@ jobs:
       - name: Check the test-suite figures hook
         run: python3 scripts/mkdocs_suite_figures-test.py
 
+      # Sphinx roles in the Python docstrings are rewritten when the site is built.
+      - name: Check the Sphinx-role rewriting hook
+        run: python3 scripts/griffe_sphinx_roles-test.py
+
+      # The install scripts are served from the site root, copied from the tree.
+      - name: Check the install-script publishing hook
+        run: python3 scripts/mkdocs_install_scripts-test.py
+
       # --strict: a link or anchor a moved page left behind fails here rather than
       # publishing a 404 from main.
       - name: Build documentation site
@@ -1109,6 +1143,9 @@ jobs:
         run: |
           chmod +x bin/sysml-grpc
           echo "OPENSYSML_BINARY=$(pwd)/bin/sysml-grpc" >> "$GITHUB_ENV"
+          echo "OPENSYSML_WASM=$(pwd)/bin/wasm/sysml-wasm.wasm" >> "$GITHUB_ENV"
+          echo "OPENSYSML_WASM_EXEC=$(pwd)/bin/wasm/wasm_exec.js" >> "$GITHUB_ENV"
+          echo "OPENSYSML_REQUIRE_WASM=1" >> "$GITHUB_ENV"
 
       - name: Install the client's dependencies
         working-directory: client/node
@@ -1226,7 +1263,7 @@ jobs:
           make python-install
           # Pinned and wheel-only: an unpinned resolve runs whatever was
           # published today, and a source distribution runs its own build code.
-          pip install --only-binary :all: pytest==9.0.3 pytest-mock==3.15.1 psutil==7.2.2 fmpy==0.3.32
+          pip install --only-binary :all: pytest==9.0.3 pytest-mock==3.15.1 psutil==7.2.2 fmpy==0.3.32 mypy==2.4.0 types-protobuf==7.35.1.20260906 'pyright[nodejs]==1.1.414'
 
       # The FMI runner test's FMUs, same pin as the Go gate's.
       - name: Cache the Reference-FMUs
@@ -1265,6 +1302,7 @@ jobs:
       - name: Run Python client tests
         env:
           OPENSYSML_REQUIRE_SERVICE: 1
+          OPENSYSML_REQUIRE_TYPECHECKERS: 1
         run: make python-test
 
       - name: Verify Python client import

@@ -1,0 +1,13 @@
+stmt declare y
+  eval literal 1 -> 1
+stmt assign y
+    eval feature y -> 1
+    eval literal 10 -> 10
+  eval operator * -> 10
+stmt assign y
+    eval feature y -> 10
+    eval literal 2 -> 2
+  eval operator + -> 12
+  eval feature y -> 12
+  eval literal 12 -> 12
+eval operator == -> true
