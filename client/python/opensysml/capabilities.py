@@ -228,6 +228,7 @@ CAPABILITY_SCHEDULE_EXPLORE = "schedule_explore"
 #: call — and anew for each explored run. Without it the service would run the
 #: behavior outside any object, so the client refuses to send a performer.
 CAPABILITY_PERFORMER = "performer"
+CAPABILITY_STATE_TRACE = "state_trace"
 
 #: ``final_time`` populated on an action or state run's response: the run's
 #: simulation clock when it ended, in seconds, read as the ``final_time`` of

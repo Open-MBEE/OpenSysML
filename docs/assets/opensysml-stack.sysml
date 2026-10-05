@@ -1,6 +1,6 @@
 // The OpenSysML stack, as the landing page draws it. The in-browser engine
-// parses this file, instantiates `stack` for the diagram's boxes and wires,
-// and runs `ModelJourney` for the animation along them.
+// parses this file, instantiates and renders `stack` through RenderView, and
+// runs `ModelJourney` for the animation along its wires.
 package OpenSysMLStack {
     private import ScalarValues::*;
 
@@ -61,18 +61,23 @@ package OpenSysMLStack {
     // Where one model change travels: written and run in OpenSysML, committed
     // to Flexo, pulled into sysml-toolkit and pushed back, then checked
     // against the OMG reference. Each state is named for the part it is at.
+    item def Commit;
+    item def Pull;
+    item def Check;
+    item def Push;
+
     state def ModelJourney {
         entry; then opensysml;
 
         state opensysml;
-        transition commit_change first opensysml accept commit then flexo;
+        transition commit_change first opensysml accept Commit then flexo;
 
         state flexo;
-        transition pull_change first flexo accept pull then toolkit;
-        transition check_change first flexo accept check then pilot;
+        transition pull_change first flexo accept Pull then toolkit;
+        transition check_change first flexo accept Check then pilot;
 
         state toolkit;
-        transition push_change first toolkit accept push then flexo;
+        transition push_change first toolkit accept Push then flexo;
 
         state pilot;
     }

@@ -690,21 +690,23 @@ class ExecuteActionResponse(_message.Message):
     def __init__(self, outputs: _Optional[_Mapping[str, Value]] = ..., error: _Optional[str] = ..., diagnostics: _Optional[_Iterable[_Union[Diagnostic, _Mapping]]] = ..., outcomes: _Optional[_Iterable[_Union[Outcome, _Mapping]]] = ..., exploration: _Optional[_Union[ExplorationStatus, _Mapping]] = ..., final_time: _Optional[float] = ..., performer_attributes: _Optional[_Mapping[str, Value]] = ...) -> None: ...
 
 class ExecuteStateRequest(_message.Message):
-    __slots__ = ("model_hash", "state_machine_symbol_id", "events", "schedule", "performer_symbol_id")
+    __slots__ = ("model_hash", "state_machine_symbol_id", "events", "schedule", "performer_symbol_id", "trace")
     MODEL_HASH_FIELD_NUMBER: _ClassVar[int]
     STATE_MACHINE_SYMBOL_ID_FIELD_NUMBER: _ClassVar[int]
     EVENTS_FIELD_NUMBER: _ClassVar[int]
     SCHEDULE_FIELD_NUMBER: _ClassVar[int]
     PERFORMER_SYMBOL_ID_FIELD_NUMBER: _ClassVar[int]
+    TRACE_FIELD_NUMBER: _ClassVar[int]
     model_hash: str
     state_machine_symbol_id: str
     events: _containers.RepeatedScalarFieldContainer[str]
     schedule: str
     performer_symbol_id: str
-    def __init__(self, model_hash: _Optional[str] = ..., state_machine_symbol_id: _Optional[str] = ..., events: _Optional[_Iterable[str]] = ..., schedule: _Optional[str] = ..., performer_symbol_id: _Optional[str] = ...) -> None: ...
+    trace: bool
+    def __init__(self, model_hash: _Optional[str] = ..., state_machine_symbol_id: _Optional[str] = ..., events: _Optional[_Iterable[str]] = ..., schedule: _Optional[str] = ..., performer_symbol_id: _Optional[str] = ..., trace: _Optional[bool] = ...) -> None: ...
 
 class ExecuteStateResponse(_message.Message):
-    __slots__ = ("states_visited", "final_context", "error", "diagnostics", "outcomes", "exploration", "final_time")
+    __slots__ = ("states_visited", "final_context", "error", "diagnostics", "outcomes", "exploration", "final_time", "trace", "trace_dropped")
     class FinalContextEntry(_message.Message):
         __slots__ = ("key", "value")
         KEY_FIELD_NUMBER: _ClassVar[int]
@@ -719,6 +721,8 @@ class ExecuteStateResponse(_message.Message):
     OUTCOMES_FIELD_NUMBER: _ClassVar[int]
     EXPLORATION_FIELD_NUMBER: _ClassVar[int]
     FINAL_TIME_FIELD_NUMBER: _ClassVar[int]
+    TRACE_FIELD_NUMBER: _ClassVar[int]
+    TRACE_DROPPED_FIELD_NUMBER: _ClassVar[int]
     states_visited: _containers.RepeatedScalarFieldContainer[str]
     final_context: _containers.MessageMap[str, Value]
     error: str
@@ -726,7 +730,9 @@ class ExecuteStateResponse(_message.Message):
     outcomes: _containers.RepeatedCompositeFieldContainer[Outcome]
     exploration: ExplorationStatus
     final_time: float
-    def __init__(self, states_visited: _Optional[_Iterable[str]] = ..., final_context: _Optional[_Mapping[str, Value]] = ..., error: _Optional[str] = ..., diagnostics: _Optional[_Iterable[_Union[Diagnostic, _Mapping]]] = ..., outcomes: _Optional[_Iterable[_Union[Outcome, _Mapping]]] = ..., exploration: _Optional[_Union[ExplorationStatus, _Mapping]] = ..., final_time: _Optional[float] = ...) -> None: ...
+    trace: _containers.RepeatedCompositeFieldContainer[DocumentEvent]
+    trace_dropped: int
+    def __init__(self, states_visited: _Optional[_Iterable[str]] = ..., final_context: _Optional[_Mapping[str, Value]] = ..., error: _Optional[str] = ..., diagnostics: _Optional[_Iterable[_Union[Diagnostic, _Mapping]]] = ..., outcomes: _Optional[_Iterable[_Union[Outcome, _Mapping]]] = ..., exploration: _Optional[_Union[ExplorationStatus, _Mapping]] = ..., final_time: _Optional[float] = ..., trace: _Optional[_Iterable[_Union[DocumentEvent, _Mapping]]] = ..., trace_dropped: _Optional[int] = ...) -> None: ...
 
 class ConvertRequest(_message.Message):
     __slots__ = ("file_path", "content", "model_hash", "from_format", "to_format", "tolerate_syntax_errors", "id_form", "documents")

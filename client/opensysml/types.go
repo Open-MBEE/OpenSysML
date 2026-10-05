@@ -61,6 +61,7 @@ const (
 	CapabilityCaseEvaluations                = sysmlgrpc.CapabilityCaseEvaluations
 	CapabilityFinalTime                      = sysmlgrpc.CapabilityFinalTime
 	CapabilityPerformer                      = sysmlgrpc.CapabilityPerformer
+	CapabilityStateTrace                     = sysmlgrpc.CapabilityStateTrace
 	CapabilityEngines                        = sysmlgrpc.CapabilityEngines
 	CapabilityUndeterminedValue              = sysmlgrpc.CapabilityUndeterminedValue
 	CapabilityBigIntValues                   = sysmlgrpc.CapabilityBigIntValues

@@ -105,6 +105,8 @@ pub const CAPABILITY_CASE_EVALUATIONS: &str = "case_evaluations";
 pub const CAPABILITY_SCHEDULE_EXPLORE: &str = "schedule_explore";
 /// `performer_symbol_id` on the action and state requests.
 pub const CAPABILITY_PERFORMER: &str = "performer";
+/// The `trace` field of an `ExecuteStateRequest`.
+pub const CAPABILITY_STATE_TRACE: &str = "state_trace";
 /// `final_time` populated on an action or state run's response.
 pub const CAPABILITY_FINAL_TIME: &str = "final_time";
 /// `ListEngines`, the `engine` selection and the standing reported on responses.

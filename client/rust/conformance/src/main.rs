@@ -865,6 +865,7 @@ impl Runner {
         let options = RunOptions {
             schedule: optional(request.schedule),
             performer: optional(request.performer_symbol_id),
+            trace: false,
         };
         let hash = &request.model_hash;
         let action = &request.action_symbol_id;
@@ -900,6 +901,7 @@ impl Runner {
         let options = RunOptions {
             schedule: optional(request.schedule),
             performer: optional(request.performer_symbol_id),
+            trace: request.trace,
         };
         let hash = &request.model_hash;
         let machine = &request.state_machine_symbol_id;
@@ -920,6 +922,8 @@ impl Runner {
                 &wire::ExecuteStateResponse {
                     error: failure.error,
                     diagnostics: failure.diagnostics,
+                    trace: failure.trace,
+                    trace_dropped: failure.trace_dropped,
                     ..Default::default()
                 },
             ),
@@ -981,6 +985,8 @@ impl Runner {
                     error: String::new(),
                     reason: FailureReason::Unspecified,
                     diagnostics: failure.diagnostics,
+                    trace: Vec::new(),
+                    trace_dropped: 0,
                 },
             ));
         }
@@ -1333,6 +1339,8 @@ struct Failure {
     error: String,
     reason: FailureReason,
     diagnostics: Vec<wire::Diagnostic>,
+    trace: Vec<wire::DocumentEvent>,
+    trace_dropped: i32,
 }
 
 impl Failure {
@@ -1342,10 +1350,18 @@ impl Failure {
                 message,
                 reason,
                 diagnostics,
+                trace,
+                trace_dropped,
             } => Ok(Self {
                 error: message,
                 reason,
                 diagnostics: diagnostics_wire(&diagnostics),
+                trace: trace
+                    .iter()
+                    .map(opensysml::document_event_to_wire)
+                    .collect::<Result<_, _>>()
+                    .map_err(classify_error)?,
+                trace_dropped,
             }),
             Error::WrongKind {
                 message,
@@ -1354,6 +1370,8 @@ impl Failure {
                 error: message,
                 reason: FailureReason::WrongKind,
                 diagnostics: diagnostics_wire(&diagnostics),
+                trace: Vec::new(),
+                trace_dropped: 0,
             }),
             Error::Conversion {
                 message,
@@ -1366,6 +1384,8 @@ impl Failure {
                 error: message,
                 reason: FailureReason::Unspecified,
                 diagnostics: diagnostics_wire(&diagnostics),
+                trace: Vec::new(),
+                trace_dropped: 0,
             }),
             other => Err(classify_error(other)),
         }

@@ -1,0 +1,18 @@
+/* A larger header mark within the header's 2.4rem, set close to the site title. */
+.md-header__button.md-logo {
+  padding: 0.1rem 0.2rem;
+}
+
+.md-header__button.md-logo img {
+  height: 1.8rem;
+}
+
+/* Below this width Material hides the logo and the menu button takes its place. */
+@media screen and (min-width: 76.25em) {
+  [dir="ltr"] .md-header__button.md-logo ~ .md-header__title {
+    margin-left: 0.2rem;
+  }
+  [dir="rtl"] .md-header__button.md-logo ~ .md-header__title {
+    margin-right: 0.2rem;
+  }
+}

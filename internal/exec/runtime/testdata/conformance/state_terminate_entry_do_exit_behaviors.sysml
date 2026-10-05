@@ -13,18 +13,18 @@ package test {
 		state idle {
 			entry action begin {
 				assign count := 1;
-				terminate;
-				assign count := 99;
+				then terminate;
+				then assign count := 99;
 			}
 			do action tick {
 				assign later := 5;
-				terminate;
-				assign later := 77;
+				then terminate;
+				then assign later := 77;
 			}
 			exit action leave {
 				assign count := count + 10;
-				terminate;
-				assign count := 0;
+				then terminate;
+				then assign count := 0;
 			}
 		}
 		state next;

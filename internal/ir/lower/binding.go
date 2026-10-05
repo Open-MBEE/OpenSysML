@@ -51,6 +51,28 @@ func ToBindings(decl ast.Node, scope *symbols.Scope) []Binding {
 	return out
 }
 
+// NamespaceBindings lowers the binding connectors a namespace scope owns
+// directly. ToBindings reads a declaration's members, which a package or
+// namespace body is not, so bindings owned there are collected from the
+// scope's own symbols.
+func NamespaceBindings(scope *symbols.Scope) []Binding {
+	if scope == nil {
+		return nil
+	}
+	var out []Binding
+	scope.ForEachMember(func(sym *symbols.Symbol) bool {
+		u, ok := sym.Decl.(*ast.Usage)
+		if !ok || u.Kind != ast.UsageBinding {
+			return true
+		}
+		if binding, ok := lowerBinding(u, scope); ok {
+			out = append(out, binding)
+		}
+		return true
+	})
+	return out
+}
+
 func lowerBinding(u *ast.Usage, scope *symbols.Scope) (Binding, bool) {
 	if u == nil {
 		return Binding{}, false

@@ -760,10 +760,10 @@ var usageSymbolKinds = map[ast.UsageKind]SymbolKind{
 	ast.UsageAnalysisCase:     SymbolAnalysisCaseUsage,
 	ast.UsageVerificationCase: SymbolVerificationCaseUsage,
 	ast.UsageUseCase:          SymbolUseCaseUsage,
-	// Subject is a requirement parameter - treat as part usage for structural purposes
+	// Subject is a requirement parameter - treat as a part usage for structural purposes.
 	ast.UsageSubject: SymbolPartUsage,
-	// Objective is a requirement parameter - treat as part usage for structural purposes
-	ast.UsageObjective: SymbolPartUsage,
+	// Objective is a requirement usage (SysML v2 §8.3.20).
+	ast.UsageObjective: SymbolRequirementUsage,
 	// An actor and a stakeholder are part usages (SysML v2 §8.3.19).
 	ast.UsageActor:       SymbolPartUsage,
 	ast.UsageStakeholder: SymbolPartUsage,

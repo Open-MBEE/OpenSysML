@@ -8,6 +8,8 @@ import { OpenSysMLError } from "../core/errors.js";
 import { baseUrl, encodingOf, interceptors, timeoutOf } from "../core/transport.js";
 
 export * from "../core/index.js";
+export { connectWasm } from "./wasm.js";
+export type { BrowserWasmConnectOptions } from "./wasm.js";
 
 /** How a browser connects: the address is required, because nothing can be started. */
 export interface BrowserConnectOptions extends TransportOptions {

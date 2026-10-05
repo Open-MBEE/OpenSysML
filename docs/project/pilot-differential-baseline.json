@@ -53,15 +53,15 @@
         "name": "testdata",
         "dir": "tests/testdata",
         "origin": "ours",
-        "files": 19,
-        "digest": "sha256:b77b1163db27281d114c44e6c28b23552681140ec1ac752e28cbbe64a3077fc4"
+        "files": 21,
+        "digest": "sha256:c3328f034ca7b4ec852a4a688cea6727bf209bd740af27edf32a759ac72b29c3"
       },
       {
         "name": "examples",
         "dir": "examples",
         "origin": "ours",
-        "files": 45,
-        "digest": "sha256:8b0d334dcd91c03c9e2b12bc9be59204e0ec714520deaab52d81e3454c2c4744"
+        "files": 46,
+        "digest": "sha256:7d4322cf546559c3c82fe63bb450753c3f0634288c21b59a38aa66ea66cd0638"
       },
       {
         "name": "probes",
@@ -71,17 +71,17 @@
         "digest": "sha256:b0153c55bbfcdacabab911725dc44e0e7f4d3a501a281b1f3f2a13cda19737c6"
       }
     ],
-    "recorded": "2026-10-03"
+    "recorded": "2026-10-04"
   },
   "totals": {
-    "files": 381,
-    "filesFullyAgreeing": 343,
-    "agreement": 38,
+    "files": 384,
+    "filesFullyAgreeing": 345,
+    "agreement": 49,
     "severityMismatch": 2,
     "openSysMLOnly": 43,
-    "pilotOnly": 1629,
-    "openSysMLDiagnostics": 83,
-    "pilotDiagnostics": 1669
+    "pilotOnly": 1640,
+    "openSysMLDiagnostics": 94,
+    "pilotDiagnostics": 1691
   },
   "roots": [
     {
@@ -381,14 +381,14 @@
       "name": "testdata",
       "dir": "tests/testdata",
       "totals": {
-        "files": 19,
-        "filesFullyAgreeing": 10,
-        "agreement": 34,
+        "files": 21,
+        "filesFullyAgreeing": 11,
+        "agreement": 45,
         "severityMismatch": 1,
         "openSysMLOnly": 9,
-        "pilotOnly": 33,
-        "openSysMLDiagnostics": 44,
-        "pilotDiagnostics": 68
+        "pilotOnly": 44,
+        "openSysMLDiagnostics": 55,
+        "pilotDiagnostics": 90
       },
       "files": [
         {
@@ -656,6 +656,106 @@
           ]
         },
         {
+          "path": "passes/distinguishable_by_metaclass.sysml",
+          "agreement": [
+            {
+              "line": 1,
+              "severity": "warning",
+              "category": "unmapped",
+              "count": 2
+            },
+            {
+              "line": 2,
+              "severity": "warning",
+              "category": "unmapped",
+              "count": 2
+            },
+            {
+              "line": 3,
+              "severity": "warning",
+              "category": "unmapped",
+              "count": 2
+            },
+            {
+              "line": 4,
+              "severity": "warning",
+              "category": "unmapped",
+              "count": 2
+            },
+            {
+              "line": 6,
+              "severity": "warning",
+              "category": "unmapped",
+              "count": 1
+            },
+            {
+              "line": 7,
+              "severity": "warning",
+              "category": "unmapped",
+              "count": 1
+            },
+            {
+              "line": 8,
+              "severity": "warning",
+              "category": "unmapped",
+              "count": 1
+            }
+          ],
+          "severityMismatch": [],
+          "openSysMLOnly": [],
+          "pilotOnly": []
+        },
+        {
+          "path": "passes/distinguishable_by_metaclass_clean.sysml",
+          "agreement": [],
+          "severityMismatch": [],
+          "openSysMLOnly": [],
+          "pilotOnly": [
+            {
+              "line": 1,
+              "severity": "warning",
+              "category": "unmapped",
+              "count": 2
+            },
+            {
+              "line": 3,
+              "severity": "warning",
+              "category": "unmapped",
+              "count": 1
+            },
+            {
+              "line": 4,
+              "severity": "warning",
+              "category": "unmapped",
+              "count": 2
+            },
+            {
+              "line": 5,
+              "severity": "warning",
+              "category": "unmapped",
+              "count": 1
+            },
+            {
+              "line": 6,
+              "severity": "warning",
+              "category": "unmapped",
+              "count": 1
+            },
+            {
+              "line": 7,
+              "severity": "warning",
+              "category": "unmapped",
+              "count": 3
+            },
+            {
+              "line": 8,
+              "severity": "warning",
+              "category": "unmapped",
+              "count": 1
+            }
+          ]
+        },
+        {
           "path": "passes/errors.sysml",
           "agreement": [
             {
@@ -860,8 +960,8 @@
       "name": "examples",
       "dir": "examples",
       "totals": {
-        "files": 45,
-        "filesFullyAgreeing": 30,
+        "files": 46,
+        "filesFullyAgreeing": 31,
         "agreement": 4,
         "severityMismatch": 1,
         "openSysMLOnly": 6,
@@ -8087,13 +8187,18 @@
   "unmapped": [
     {
       "side": "pilot",
-      "message": "Cannot override a binding feature value",
+      "message": "Duplicate of other owned member name",
+      "count": 17
+    },
+    {
+      "side": "opensysml",
+      "message": "Duplicate of other owned member name",
       "count": 10
     },
     {
       "side": "pilot",
-      "message": "Duplicate of other owned member name",
-      "count": 5
+      "message": "Cannot override a binding feature value",
+      "count": 10
     },
     {
       "side": "opensysml",
@@ -8112,12 +8217,27 @@
     },
     {
       "side": "opensysml",
-      "message": "Duplicate of other owned member name",
+      "message": "operator '+' is not defined for String and Natural",
       "count": 2
     },
     {
-      "side": "opensysml",
-      "message": "operator '+' is not defined for String and Natural",
+      "side": "pilot",
+      "message": "Duplicate of inherited member name 'X' from B",
+      "count": 2
+    },
+    {
+      "side": "pilot",
+      "message": "Duplicate of inherited member name 'X' from B1, B2",
+      "count": 2
+    },
+    {
+      "side": "pilot",
+      "message": "Duplicate of inherited member name 'self' from Part",
+      "count": 2
+    },
+    {
+      "side": "pilot",
+      "message": "Duplicate of owned member name",
       "count": 2
     },
     {
@@ -8172,12 +8292,27 @@
     },
     {
       "side": "opensysml",
+      "message": "Duplicate of inherited member name 'X' from B",
+      "count": 1
+    },
+    {
+      "side": "opensysml",
+      "message": "Duplicate of inherited member name 'X' from B1, B2",
+      "count": 1
+    },
+    {
+      "side": "opensysml",
       "message": "Duplicate of inherited member name 'done' from Action",
       "count": 1
     },
     {
       "side": "opensysml",
       "message": "Duplicate of inherited member name 'start' from StateAction",
+      "count": 1
+    },
+    {
+      "side": "opensysml",
+      "message": "Duplicate of owned member name",
       "count": 1
     },
     {
@@ -8298,6 +8433,16 @@
     {
       "side": "pilot",
       "message": "Duplicate of inherited member name 'runtime' from executionIsBounded, snapshotsAreRunState",
+      "count": 1
+    },
+    {
+      "side": "pilot",
+      "message": "Duplicate of inherited member name 'start' from Action",
+      "count": 1
+    },
+    {
+      "side": "pilot",
+      "message": "Duplicate of inherited member name 'start' from Part",
       "count": 1
     },
     {
@@ -8445,14 +8590,14 @@
       }
     ],
     "totals": {
-      "files": 381,
-      "filesFullyAgreeing": 344,
-      "agreement": 38,
+      "files": 384,
+      "filesFullyAgreeing": 346,
+      "agreement": 49,
       "severityMismatch": 2,
       "openSysMLOnly": 42,
-      "pilotOnly": 1629,
-      "openSysMLDiagnostics": 82,
-      "pilotDiagnostics": 1669
+      "pilotOnly": 1640,
+      "openSysMLDiagnostics": 93,
+      "pilotDiagnostics": 1691
     },
     "findings": [
       {

@@ -69,6 +69,7 @@ const (
 	pIsDefault                 = "isDefault"
 	pIsInitial                 = "isInitial"
 	pIsEnd                     = "isEnd"
+	pIsUnique                  = "isUnique"
 	pName                      = "name"
 	pReferences                = "references"
 	pConnectorEnd              = "connectorEnd"
@@ -77,6 +78,7 @@ const (
 	pOwnedEndFeature           = "ownedEndFeature"
 	pImportedNamespace         = "importedNamespace"
 	pImportedMembership        = "importedMembership"
+	pImportedElement           = "importedElement"
 	pAliasFor                  = "aliasedElement" // an older mapping's alias target, read only
 	pMemberName                = "memberName"
 	pMemberShortName           = "memberShortName"
@@ -505,6 +507,7 @@ func newEncoderOver(file *source.SourceFile, root *ast.RootNamespace, form IDFor
 		performed:          map[ast.Node]bool{},
 		effects:            map[ast.Node]bool{},
 		triggerParams:      map[ast.Node]string{},
+		triggerMembers:     map[ast.Node]string{},
 		payloads:           map[*ast.Usage]*ast.Usage{},
 		payloadFeatures:    map[*ast.Usage]bool{},
 		fqn:                map[ast.Node]string{},
@@ -526,6 +529,7 @@ func newEncoderOver(file *source.SourceFile, root *ast.RootNamespace, form IDFor
 	if err := e.collect(root.Members, ""); err != nil {
 		return nil, err
 	}
+	e.indexTriggerMembers()
 	return e, nil
 }
 
@@ -558,7 +562,8 @@ type encoder struct {
 	effects map[ast.Node]bool
 	// triggerParams holds the parameters of a transition's trigger action: each
 	// maps to the AcceptActionUsage property that names it, if any.
-	triggerParams map[ast.Node]string
+	triggerParams  map[ast.Node]string
+	triggerMembers map[ast.Node]string
 	// payloads holds the PayloadFeature each flow's `of` clause declares, keyed
 	// by the flow: the declared feature of `of p : T`, or one made up for
 	// `of T`, which states only its typing (SysML-textual-bnf PayloadFeature).
@@ -597,6 +602,19 @@ type encoder struct {
 	// membershipImports are the membership imports, whose imported membership
 	// is written once every membership is minted.
 	membershipImports []membershipImport
+}
+
+func (e *encoder) indexTriggerMembers() {
+	for node, fqn := range e.fqn {
+		transition, ok := node.(*ast.TransitionMember)
+		if !ok || transition.Trigger == nil {
+			continue
+		}
+		e.triggerMembers[transition.Trigger] = fqn
+		if event, ok := transition.Trigger.(*ast.AcceptEvent); ok && event.Payload != nil {
+			e.triggerMembers[event.Payload] = fqn
+		}
+	}
 }
 
 // membershipImport is a membership import's subject and the name it imports.
@@ -1481,11 +1499,11 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 			{"isPortion", n.IsPortion || n.Portion != ast.PortionNone},
 			{"isDerived", n.IsDerived},
 			{"isOrdered", n.IsOrdered},
-			{"isNonunique", n.IsNonunique},
 			{"isAccept", n.IsAccept},
 			{"isResult", n.IsResult},
 			{"isParallel", n.IsParallel},
 		})
+		e.nonunique(subject, n.IsNonunique)
 		// `: ~P` types the port by P's conjugate; the usage owns no Conjugation
 		// of its own, so Type::isConjugated stays false on it.
 		if n.HasConjugatedTyping() {
@@ -2632,6 +2650,14 @@ func (e *encoder) flags(subject rdf.Term, flags []boolProperty) {
 	}
 }
 
+// nonunique states `nonunique` as Feature::isUnique false, the metamodel's one
+// uniqueness property.
+func (e *encoder) nonunique(subject rdf.Term, nonunique bool) {
+	if nonunique {
+		e.graph.Add(subject, e.sysml(pIsUnique), rdf.Bool(false))
+	}
+}
+
 // prefixes maps the `#M` annotations ahead of a declaration as metadata usages
 // it owns after its body members (PrefixMetadataMember), keyed `#` for the writer.
 func (e *encoder) prefixes(subject rdf.Term, fqn string, prefixes []*ast.PrefixMetadata, members []ast.Node) error {
@@ -2687,8 +2713,8 @@ func (e *encoder) crossFeature(subject rdf.Term, fqn string, n *ast.Usage) error
 		{"isPortion", cross.IsPortion},
 		{"isDerived", cross.IsDerived},
 		{"isOrdered", cross.IsOrdered},
-		{"isNonunique", cross.IsNonunique},
 	})
+	e.nonunique(crossSubject, cross.IsNonunique)
 	if keyword := directionKeyword(cross.Direction); keyword != "" {
 		e.graph.Add(crossSubject, e.sysml(pDirection), rdf.String(keyword))
 	}

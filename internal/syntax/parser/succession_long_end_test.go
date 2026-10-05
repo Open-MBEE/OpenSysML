@@ -9,14 +9,14 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
-// longSourceEnd is a connector end whose multiplicity holds well over a hundred
-// tokens, so `then` sits far past any fixed lookahead window.
+// longSourceEnd is a connector end whose qualified-name bound holds well over
+// a hundred tokens, so `then` sits far past any fixed lookahead window.
 func longSourceEnd() string {
-	args := make([]string, 80)
-	for i := range args {
-		args[i] = fmt.Sprintf("a%d", i)
+	parts := make([]string, 100)
+	for i := range parts {
+		parts[i] = fmt.Sprintf("a%d", i)
 	}
-	return "[f(" + strings.Join(args, ", ") + ")] src"
+	return "[" + strings.Join(parts, "::") + "] src"
 }
 
 // longSourceName is a transition source spelled as a qualified name of over a

@@ -10,6 +10,10 @@ func (m *Model) UsageMayTimeVary(sym *symbols.Symbol) bool {
 	if sym == nil {
 		return false
 	}
+	if sym.Recorded() {
+		return !m.isKerMLDoc(sym) && sym.Facts.Node == symbols.NodeUsage &&
+			sym.Facts.Modifiers.Has(symbols.ModMayTimeVary)
+	}
 	usage, ok := sym.Decl.(*ast.Usage)
 	if !ok || sym.OwnerScope == nil {
 		return false
@@ -31,6 +35,13 @@ func (m *Model) UsageMayTimeVary(sym *symbols.Symbol) bool {
 func (m *Model) FeatureIsVariable(sym *symbols.Symbol) bool {
 	if sym == nil || isKerMLTypeDecl(sym) {
 		return false
+	}
+	if sym.Recorded() {
+		mods := sym.Facts.Modifiers
+		if m.isKerMLDoc(sym) {
+			return mods.Has(symbols.ModVariable) || mods.Has(symbols.ModConstant)
+		}
+		return mods.Has(symbols.ModVariable) || m.UsageMayTimeVary(sym)
 	}
 	switch d := sym.Decl.(type) {
 	case *ast.Usage:

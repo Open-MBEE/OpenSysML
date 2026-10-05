@@ -96,7 +96,13 @@ running orthogonally around the boxes (a rendering of more than 600 nodes falls 
 square grid). Dragging a node writes that annotation — into
 the view's body when a view is drawn, into the element's own when the document is drawn
 directly — as one edit when the pointer is released; dragging the handle on an edge bends it
-through a `Route` waypoint. The geometry is on every node and edge the server sends (`x`, `y`,
+through a `Route` waypoint. An edge at a node the model places, which ELK's route no longer
+fits, is routed at right angles around the other boxes — out of every container except the
+ones its ends lie inside — by the panel's bundled libavoid router once the node is dropped,
+and drawn straight until the router has loaded, while it is dragged, or when the router finds
+no route; that route is the panel's own — it may overlap an ELK-routed edge, which the router
+does not see — and written to the model only once one of its waypoints is dragged.
+The geometry is on every node and edge the server sends (`x`, `y`,
 `width`, `height`, `route`) and in the Mermaid the REPL and the document pipeline write as
 `%% layout:` comments, so other clients can honor it; see
 [Diagram layout annotations](../project/diagram-layout-annotations.md). A drag applies to the
@@ -108,7 +114,7 @@ tree, interconnection, state and action diagrams, which read the annotations bac
 the drawn view in a form you pick from a list: Mermaid (`.mmd`) with the model's positions as
 `%% layout:` comments, Graphviz DOT (`.dot`) with the positions as `pos` attributes and a
 `// layout:` header naming the engine that keeps them, PlantUML (`.puml`) in the Pilot
-visualizer's style, Markdown (`.md`), comma-separated (`.csv`) or tab-separated (`.tsv`) values
+visualizer's style, D2 (`.d2`) in the same look, Markdown (`.md`), comma-separated (`.csv`) or tab-separated (`.tsv`) values
 for a table, or the text form (`.txt`). The list is the
 one the connected server advertises, so it matches what that server writes; the pick is sent
 as the request's `form`, the server writes that form, and the save dialog opens on the matching
