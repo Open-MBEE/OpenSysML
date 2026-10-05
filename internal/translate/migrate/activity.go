@@ -2297,7 +2297,7 @@ func (a *activity) callOperation(n *sysmlv1.Element, name string) {
 		note = ""
 	case a.m.asUsage[op] && t == nil:
 		note = joinNotes(note, a.performUsage(name, op))
-	case port == nil && len(a.sources[t]) > 0 && !a.m.asUsage[op] && a.callOnTargetLine(n, t, op, name, &note):
+	case a.targetBound(n, t) && a.callOnTargetLine(n, t, op, name, &note):
 	case a.m.asUsage[op]:
 		a.m.w.line(actionKw + name + ";")
 		note = joinNotes(note, a.m.nameOf(op)+" is an action of "+qualifiedName(op.Parent)+", performed on an object of it, and the target pin names none read from this, so an empty step stands for the call")

@@ -66,6 +66,21 @@ func (a *activity) callOnTarget(n, t, op *sysmlv1.Element, name string) (string,
 	return a.targetNote(n, t, op, pname), true
 }
 
+// targetBound reports whether the call n is written on the object its target pin t
+// holds, t declared as its parameter: a flow feeds t naming no object read from this.
+func (a *activity) targetBound(n, t *sysmlv1.Element) bool {
+	op := a.m.model.Ref(n, "operation")
+	if t == nil || op == nil || op.Parent == nil || a.m.model.Ref(n, "onPort") != nil ||
+		len(a.sources[t]) == 0 || a.m.asUsage[op] {
+		return false
+	}
+	if _, _, ok := a.receiverOf(t, op); ok {
+		return false
+	}
+	typ, _ := a.m.typeRef(op.Parent, a.def)
+	return typ != ""
+}
+
 // callOnTargetLine writes callOnTarget's call, recording it mapped in place of *note; false,
 // writing nothing, when the operation's class has no v2 type for the pin.
 func (a *activity) callOnTargetLine(n, t, op *sysmlv1.Element, name string, note *string) bool {
