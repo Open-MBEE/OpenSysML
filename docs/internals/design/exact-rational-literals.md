@@ -130,5 +130,6 @@ and less predictable part.
 3. **Independently of either**, two small things are worth doing: make `ExprResultType`
    report a `LiteralReal` as `Rational`, as the write check and KerML §8.4.4.9.2 already do
    (`valuetype.go` reports `Real` today), so the two type queries agree; and decide the
-   untyped-literal inference rule (`attribute x = 0.1;` is `Rational` by the lattice) in the
-   guide, since it determines which features the hybrid would make exact.
+   untyped-literal inference rule in the guide, since it determines which features the hybrid
+   would make exact: `attribute x = 0.1;` is `Real` today, the feature inheriting its value's
+   `ExprResultType`, and would become `Rational` once that query follows the lattice.
