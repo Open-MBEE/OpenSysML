@@ -1,1 +1,0 @@
-- **The messages-and-events demo validates clean.** `examples/parser_features_demo_messages_events.sysml` declared its two channel messages `nonunique`, which a message in a part cannot be (it implicitly subsets the unique `Parts::Part::ownedActions`); the modifier is dropped and the example is no longer a known failure (#758).
