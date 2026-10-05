@@ -430,6 +430,8 @@ function mount(root: HTMLElement): Mounted {
       run = undefined;
     } else if (rerunning === undefined) {
       void rerun(-1);
+    } else {
+      rerunStale = true;
     }
   }
 
@@ -457,7 +459,7 @@ function mount(root: HTMLElement): Mounted {
     clearTimeout(editTimer);
     editTimer = setTimeout(() => {
       editTimer = undefined;
-      if (running) {
+      if (running || rerunning !== undefined) {
         scheduleEdit();
         return;
       }
@@ -984,7 +986,9 @@ function mount(root: HTMLElement): Mounted {
   // The last trace record shown; -1 is before the first.
   let cursor = -1;
   let playing = false;
+  let playback = 0;
   let rerunning: Promise<void> | undefined;
+  let rerunStale = false;
 
   const stateLabel = (state: string | undefined): string =>
     state === undefined ? "nowhere yet" : model.parts.get(state)?.attrs.label ?? state;
@@ -1084,6 +1088,10 @@ function mount(root: HTMLElement): Mounted {
         return;
       }
       const client = await engine();
+      if (current !== model) {
+        rerunStale = true;
+        return;
+      }
       const started = performance.now();
       run = runJourney(client, current, sent, seed);
       steps = debugSteps(run.trace);
@@ -1102,7 +1110,11 @@ function mount(root: HTMLElement): Mounted {
       })
       .finally(() => {
         rerunning = undefined;
-        void showStep(Math.min(from, steps.length - 1), false);
+        if (rerunStale) {
+          rerunStale = false;
+          return rerun(-1);
+        }
+        return showStep(Math.min(from, steps.length - 1), false);
       });
     rerunning = pending;
     syncDebugControls();
@@ -1110,7 +1122,9 @@ function mount(root: HTMLElement): Mounted {
   }
 
   function pause(): void {
+    playback++;
     playing = false;
+    dropToken();
     syncDebugControls();
   }
 
@@ -1118,16 +1132,20 @@ function mount(root: HTMLElement): Mounted {
     if (playing || running) {
       return;
     }
+    const mine = ++playback;
     playing = true;
     syncDebugControls();
-    while (playing && !signal.aborted && cursor < steps.length - 1) {
+    while (mine === playback && !signal.aborted && cursor < steps.length - 1) {
       await showStep(cursor + 1, true);
-      if (playing) {
-        await delay(450 / speed());
+      if (mine !== playback) {
+        break;
       }
+      await delay(450 / speed());
     }
-    playing = false;
-    syncDebugControls();
+    if (mine === playback) {
+      playing = false;
+      syncDebugControls();
+    }
   }
 
   function setSeed(next: number | undefined): void {
@@ -1281,6 +1299,7 @@ function mount(root: HTMLElement): Mounted {
     if (signal.aborted) {
       return;
     }
+    pause();
     const active = gesture;
     gesture = undefined;
     if (active) {
@@ -1290,7 +1309,6 @@ function mount(root: HTMLElement): Mounted {
         active.frame = undefined;
       }
     }
-    playing = false;
     ac.abort();
     resize.disconnect();
     navigation?.unsubscribe();
