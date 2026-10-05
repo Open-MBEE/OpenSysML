@@ -104,7 +104,7 @@
       },
       "uml:AddVariableValueAction": {
         "pssm": 0,
-        "fixtures": 4
+        "fixtures": 6
       },
       "uml:Association": {
         "pssm": 4,
@@ -212,7 +212,7 @@
       },
       "uml:ObjectFlow": {
         "pssm": 11312,
-        "fixtures": 98
+        "fixtures": 99
       },
       "uml:ObjectFlow[weight]": {
         "pssm": 2065,
@@ -220,11 +220,11 @@
       },
       "uml:OpaqueAction": {
         "pssm": 0,
-        "fixtures": 131
+        "fixtures": 134
       },
       "uml:OpaqueBehavior": {
         "pssm": 0,
-        "fixtures": 48
+        "fixtures": 49
       },
       "uml:Package[URI]": {
         "pssm": 0,
@@ -292,7 +292,7 @@
       },
       "uml:ReduceAction": {
         "pssm": 0,
-        "fixtures": 5
+        "fixtures": 6
       },
       "uml:Region": {
         "pssm": 248,
@@ -352,7 +352,7 @@
       },
       "uml:Variable": {
         "pssm": 0,
-        "fixtures": 5
+        "fixtures": 8
       }
     }
   },

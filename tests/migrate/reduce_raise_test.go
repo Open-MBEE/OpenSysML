@@ -21,6 +21,14 @@ func TestReduceRaiseFixture(t *testing.T) {
 	wantNote(t, r, "_reduceModel", migrate.Mapped, "")
 	wantNote(t, r, "_reduceNone", migrate.Unmapped, "not a calc or function def, so it has no v2 function")
 
+	// An input and a result pin named alike settle distinct names, and the
+	// flow names the settled result.
+	wantLine(t, r.Notation, "in result : ScalarValues::Integer[0..*];")
+	wantLine(t, r.Notation, "out result2 : ScalarValues::Integer[1] = result->ControlFunctions::reduce {in x; in y; IntegerFunctions::'+'(x, y)};")
+	wantLine(t, r.Notation, "bind 'out' = reduceClash.result2;")
+	wantNote(t, r, "_reduceClash", migrate.Mapped, "starts with the activity")
+	wantNote(t, r, "_reduceClashOut", migrate.Mapped, "")
+
 	// A reduce with no result pin comments the fold and still maps; one with no
 	// collection pin has nothing to fold and is a placeholder.
 	wantLine(t, r.Notation, "/* reduces collection, which flows nowhere */")

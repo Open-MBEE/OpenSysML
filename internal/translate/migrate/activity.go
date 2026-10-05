@@ -2565,17 +2565,16 @@ func (a *activity) declareVariables() {
 	if len(variables) == 0 {
 		return
 	}
-	if a.act == a.def && !isStructured(a.act) {
-		if cat, _ := a.m.classify(a.act); cat != catActionDef && cat != catStateDef {
-			form := cat.keyword()
-			if form == "" {
-				form = "no v2 form"
-			}
-			for _, v := range variables {
-				a.m.add(v, Unmapped, "", "a variable of "+describe(a.act)+" is not written: the "+a.act.Type+" is written as "+form+", whose body declares no local features")
-			}
-			return
+	if !a.m.declaresVariable(a.act) {
+		cat, _ := a.m.classify(a.act)
+		form := cat.keyword()
+		if form == "" {
+			form = "no v2 form"
 		}
+		for _, v := range variables {
+			a.m.add(v, Unmapped, "", "a variable of "+describe(a.act)+" is not written: the "+a.act.Type+" is written as "+form+", whose body declares no local features")
+		}
+		return
 	}
 	for _, v := range variables {
 		a.declareVariable(v)
@@ -2673,7 +2672,7 @@ func (a *activity) readVariable(n *sysmlv1.Element, name string) {
 			a.m.add(r, Unmapped, "", "the action reads one value; the pin takes nothing")
 		}
 		r := results[0]
-		pname := a.m.nameOf(r)
+		pname := a.m.pins[r].name
 		if pname == "" {
 			pname = "result"
 		}
@@ -2801,6 +2800,7 @@ func (a *activity) reduceAction(n *sysmlv1.Element, name string) {
 		return
 	}
 	results := n.Owned("result")
+	a.settlePins(n)
 	a.m.w.block(actionKw+name, func() {
 		a.declarePins(n, inputPins(n), nil, nil)
 		if len(results) == 0 {
@@ -2811,7 +2811,7 @@ func (a *activity) reduceAction(n *sysmlv1.Element, name string) {
 			a.m.add(r, Unmapped, "", "the action reduces to one value; the pin takes nothing")
 		}
 		r := results[0]
-		pname := a.m.nameOf(r)
+		pname := a.m.pins[r].name
 		if pname == "" {
 			pname = "result"
 		}
@@ -3100,6 +3100,10 @@ func (a *activity) structured(n *sysmlv1.Element, name string) {
 		inner := a.m.newActivity(n, n)
 		for v, declared := range a.vars {
 			inner.vars[v] = declared
+			// An inherited name stays the outer variable's: an inner member named
+			// for it is renamed, so an unqualified reference resolves outward.
+			inner.used[declared] = true
+			a.m.take(n, declared)
 		}
 		inner.write()
 	})

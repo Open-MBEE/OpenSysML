@@ -29,6 +29,25 @@ func TestVariablesFixture(t *testing.T) {
 	wantNote(t, r, "_vInner", migrate.Mapped, "")
 	wantNote(t, r, "_nestRead", migrate.Mapped, "")
 
+	// An inner member named for an outer variable is renamed, so an
+	// unqualified name still resolves to the outer variable; an inner opaque
+	// body resolves the inner declaration, an outer one the outer's.
+	wantLine(t, r.Notation, "private attribute count2 : ScalarValues::Integer;")
+	wantNote(t, r, "_vShadow", migrate.Mapped, "")
+	wantLine(t, r.Notation, "assign count2 := value;")
+	wantNote(t, r, "_nestAddOuter", migrate.Approximated, "never fires")
+	wantNote(t, r, "_nestAddInner", migrate.Approximated, "never fires")
+	wantLine(t, r.Notation, "action 'count 2' {")
+	wantLine(t, r.Notation, "assign count2 := count2 + 1;")
+	wantLine(t, r.Notation, "assign rate := rate + 1;")
+	wantNote(t, r, "_vRate", migrate.Mapped, "")
+	wantNote(t, r, "_bump", migrate.Mapped, "the JavaScript body is translated to v2")
+
+	// A variable whose owner declares no variables stays unmapped, and a body
+	// naming it resolves nothing.
+	wantNote(t, r, "_vCalcVar", migrate.Unmapped, "not a place for a Variable")
+	wantNote(t, r, "_ghost", migrate.Approximated, "nothing visible from Vars::Variables::ghost is called calcVar")
+
 	// Read binds its result pin to the variable; clear empties it. A read with
 	// no result pin comments the read and still maps.
 	wantLine(t, r.Notation, "out result : ScalarValues::Integer[0..*] = count;")
