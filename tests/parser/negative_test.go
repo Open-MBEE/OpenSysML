@@ -27,6 +27,7 @@ func TestNegative(t *testing.T) {
 		{"empty_expression", "attribute x = ;"},
 		{"numeric_name", "part def 123;"},
 		{"missing_semicolon", "part def Engine"},
+		{"ref_anonymous_unclosed_multiplicity", "package P { ref [1 = x; }"},
 		{"invalid_keyword_combo", "def usage MyPart;"},
 		{"incomplete_connection", "connector c connect a"},
 		{"unterminated_string", `part p { doc /* comment `},

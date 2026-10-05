@@ -3176,8 +3176,11 @@ func (p *Parser) parseBodyMember() ast.Node {
 		hasNameAndMult := p.atName() && p.peekN(1).Kind == lexer.LBracket // name with multiplicity (e.g., ref payload [0..*])
 		// `end [1] : A;` — an unnamed feature declaring only its type.
 		hasTypeOnly := p.at(lexer.Colon)
+		// A DefaultReferenceUsage's identification is optional (SysML.xtext):
+		// `ref [1] = x;`, `ref = x;`, `ref { ... }`, `ref;`.
+		hasNamelessDecl := p.at(lexer.LBracket) || p.at(lexer.LBrace) || p.at(lexer.Semicolon) || p.valueOperatorAt(0)
 
-		if hasNameAndType || hasTypeOnly || hasRelationship || hasNameAndRelationship || hasNameOnly || hasNameAndBody || hasNameAndMult {
+		if hasNameAndType || hasTypeOnly || hasRelationship || hasNameAndRelationship || hasNameOnly || hasNameAndBody || hasNameAndMult || hasNamelessDecl {
 			var id ast.Identification
 
 			// Parse optional name
