@@ -30,6 +30,65 @@ func TestRuntimeRobustnessInheritedActionSteps(t *testing.T) {
 		}
 	})
 
+	t.Run("terminate_usage_body_flow_is_inherited", func(t *testing.T) {
+		src := `package test {
+			private import ScalarValues::*;
+			action def G {
+				out attribute x : Integer = 0;
+				out attribute later : Integer = 0;
+				first start then stop;
+				action stop terminate {
+					first start;
+					then action inner { assign x := 1; }
+					then done;
+				}
+				then action tail { assign later := 1; }
+				then done;
+			}
+			action def S :> G;
+		}`
+		for _, name := range []string{"G", "S"} {
+			t.Run(name, func(t *testing.T) {
+				outputs, err := executeInheritedAction(t, src, name)
+				if err != nil {
+					t.Fatalf("ExecuteAction(%s): %v", name, err)
+				}
+				assertIntOutput(t, outputs, "x", 1)
+				assertIntOutput(t, outputs, "later", 0)
+			})
+		}
+	})
+
+	t.Run("inherited_case_keeps_case_step_ordering", func(t *testing.T) {
+		src := `package test {
+			private import ScalarValues::*;
+			action def G {
+				out attribute r : Integer = 0;
+				analysis nested {
+					return : Integer;
+					attribute x : Integer := 1;
+					action multiply { assign x := x * 10; }
+					action add { assign x := x + 2; }
+					x
+				}
+				first start then nested;
+				first nested then read;
+				action read { assign r := nested.result; }
+				first read then done;
+			}
+			action def S :> G;
+		}`
+		for _, name := range []string{"G", "S"} {
+			t.Run(name, func(t *testing.T) {
+				outputs, err := executeInheritedAction(t, src, name)
+				if err != nil {
+					t.Fatalf("ExecuteAction(%s): %v", name, err)
+				}
+				assertIntOutput(t, outputs, "r", 12)
+			})
+		}
+	})
+
 	t.Run("specialization_flow_connects_inherited_steps", func(t *testing.T) {
 		outputs, err := executeInheritedAction(t, `package test {
 			private import ScalarValues::*;

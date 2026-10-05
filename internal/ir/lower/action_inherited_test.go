@@ -32,6 +32,79 @@ func TestToActionGraphInheritedActionNode(t *testing.T) {
 	}
 }
 
+func TestToActionGraphInheritsTerminateUsageBodyFlow(t *testing.T) {
+	src := `
+		action def G {
+			out attribute x : Integer = 0;
+			out attribute later : Integer = 0;
+			first start then stop;
+			action stop terminate {
+				first start;
+				then action inner { assign x := 1; }
+				then done;
+			}
+			then action tail { assign later := 1; }
+			then done;
+		}
+		action def S :> G;
+	`
+	derived, scope, root := inheritedActionDecl(t, src, "S")
+	graph, err := ToActionGraph(derived, scope)
+	if err != nil {
+		t.Fatalf("ToActionGraph: %v", err)
+	}
+	stop := actionMember(t, root, "G", "stop")
+	if namedNode(graph, "stop") != stop {
+		t.Fatalf("stop node = %p, want inherited terminate usage %p", namedNode(graph, "stop"), stop)
+	}
+	body := graph.Bodies[stop]
+	if len(body) != 2 {
+		t.Fatalf("stop body has %d statements, want stated flow and terminate effect", len(body))
+	}
+	flow, ok := body[0].(Block)
+	if !ok || flow.Graph == nil {
+		t.Fatalf("stop body first statement = %T, want flow block", body[0])
+	}
+	if namedNode(flow.Graph, "inner") == nil {
+		t.Fatal("inherited terminate body flow has no inner action step")
+	}
+	if _, ok := graph.TerminateUsage(stop); !ok {
+		t.Fatal("inherited terminate usage has no terminate effect")
+	}
+}
+
+func TestToActionGraphInheritsCaseAsCaseStep(t *testing.T) {
+	src := `
+		action def G {
+			analysis nested {
+				return : Integer;
+				attribute x : Integer := 1;
+				action multiply { assign x := x * 10; }
+				action add { assign x := x + 2; }
+				x
+			}
+			first start then nested;
+			first nested then done;
+		}
+		action def S :> G;
+	`
+	derived, scope, root := inheritedActionDecl(t, src, "S")
+	graph, err := ToActionGraph(derived, scope)
+	if err != nil {
+		t.Fatalf("ToActionGraph: %v", err)
+	}
+	nested := actionMember(t, root, "G", "nested")
+	if namedNode(graph, "nested") != nested {
+		t.Fatalf("nested node = %p, want inherited case %p", namedNode(graph, "nested"), nested)
+	}
+	if scope := graph.Scopes[nested]; scope == nil || scope.Node() != nested {
+		t.Fatalf("inherited case scope = %v, want its declaring case scope", scope)
+	}
+	if _, owns := graph.Subflows[nested]; owns {
+		t.Fatal("inherited case has an action subflow; its body belongs to case lowering")
+	}
+}
+
 func TestToActionGraphInheritedActionNodeThroughTwoSpecializations(t *testing.T) {
 	src := `
 		action def Grand { action a; }

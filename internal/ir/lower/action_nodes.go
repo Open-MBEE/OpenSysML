@@ -239,6 +239,10 @@ func ensureDeclaredActionNode(graph *ActionGraph, decl ast.Node, declaringScope 
 			break
 		}
 		recordNodeMultiplicity(graph, n)
+		if IsCaseNode(n) {
+			recordNodeScope(graph, n, childScope(declaringScope, n))
+			break
+		}
 		lowerActionNode(graph, n, childScope(declaringScope, n))
 	case *ast.ForkNode, *ast.JoinNode, *ast.MergeNode, *ast.DecisionNode, *ast.ActionExecutionNode:
 		lowerNodeBody(graph, n, ast.NodeBodyMembers(n), declaringScope)
