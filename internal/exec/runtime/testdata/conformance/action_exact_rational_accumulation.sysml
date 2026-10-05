@@ -13,10 +13,10 @@ package test {
 			for i in 1..10 {
 				assign tenths := tenths + 0.1;
 			}
-			for n in 1..4 {
+			then for n in 1..4 {
 				assign harmonic := harmonic + 1 / n;
 			}
-			assign reachesOne := tenths == 1;
+			then assign reachesOne := tenths == 1;
 		}
 		then done;
 	}
