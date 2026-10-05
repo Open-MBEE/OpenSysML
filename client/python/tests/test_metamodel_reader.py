@@ -119,14 +119,12 @@ def test_unknown_types_fall_back_or_follow_supertypes():
     assert isinstance(specialized, PartUsage)
     assert specialized.json_type == "vendor:SpecialPart"
 
+    cyclic = read_json(
+        element(element_type="VendorTypeA"),
+        supertypes={"VendorTypeA": "VendorTypeB", "VendorTypeB": "VendorTypeA"},
+    )
     with pytest.raises(MalformedDocument, match="supertype cycle"):
-        read_json(
-            element(element_type="VendorTypeA"),
-            supertypes={
-                "VendorTypeA": "VendorTypeB",
-                "VendorTypeB": "VendorTypeA",
-            },
-        )["e"]
+        cyclic["e"]
 
 
 def test_reference_resolution_is_lazy_and_cached():
@@ -246,18 +244,17 @@ def test_enum_and_primitive_values_and_malformed_values():
     assert read_json(element(direction="in"))["e"].direction is FeatureDirectionKind.IN
     assert read_json(element("t", "Type", isAbstract=True))["t"].is_abstract is True
 
-    with pytest.raises(MalformedValue):
-        read_json(element(partDefinition="definition"))["e"].part_definition
-    with pytest.raises(MalformedValue):
-        read_json(element(partDefinition=[None]))["e"].part_definition
-    with pytest.raises(MalformedValue):
-        read_json(element(partDefinition=["definition"]))["e"].part_definition
-    with pytest.raises(MalformedValue):
-        read_json(element(direction=["in"]))["e"].direction
-    with pytest.raises(MalformedValue):
-        read_json(element(direction="sideways"))["e"].direction
-    with pytest.raises(MalformedValue):
-        read_json(element("t", "Type", isAbstract="true"))["t"].is_abstract
+    for malformed, attribute in (
+        (element(partDefinition="definition"), "part_definition"),
+        (element(partDefinition=[None]), "part_definition"),
+        (element(partDefinition=["definition"]), "part_definition"),
+        (element(direction=["in"]), "direction"),
+        (element(direction="sideways"), "direction"),
+        (element("t", "Type", isAbstract="true"), "is_abstract"),
+    ):
+        read = read_json(malformed)[malformed["@id"]]
+        with pytest.raises(MalformedValue):
+            getattr(read, attribute)
 
     boolean_integer = read_json(element("i", "LiteralInteger", value=True))["i"]
     assert isinstance(boolean_integer, LiteralInteger)

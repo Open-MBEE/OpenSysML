@@ -61,6 +61,7 @@ SYNC_SCRIPT = os.path.join(REPO_ROOT, "scripts", "sync-release-digests.py")
 DEFAULT_REPO = "Open-MBEE/OpenSysML"
 #: The service binaries every release publishes; a package pin needs all of them.
 ASSET_PREFIX = "sysml-grpc-"
+SIDECAR_SUFFIX = ".sha256"
 SERVICE_ASSETS = frozenset(
     (
         "sysml-grpc-darwin-amd64",
@@ -170,7 +171,7 @@ def release_assets(repo, version):
     assets = {
         asset["name"]: asset["browser_download_url"]
         for asset in release.get("assets", [])
-        if asset["name"].startswith(ASSET_PREFIX) and not asset["name"].endswith(".sha256")
+        if asset["name"].startswith(ASSET_PREFIX) and not asset["name"].endswith(SIDECAR_SUFFIX)
     }
     if not assets:
         raise PinError(f"release {version} of {repo} publishes no {ASSET_PREFIX}* assets")
@@ -209,7 +210,7 @@ def served_digest(url):
         str or None: The digest read from the sidecar, or None when absent
     """
     try:
-        with urllib.request.urlopen(url + ".sha256", timeout=NETWORK_TIMEOUT) as response:
+        with urllib.request.urlopen(url + SIDECAR_SUFFIX, timeout=NETWORK_TIMEOUT) as response:
             return response.read().decode().split()[0].strip()
     except (urllib.error.URLError, IndexError, UnicodeDecodeError):
         return None
@@ -280,7 +281,7 @@ def manifest_service_digests(manifest_path):
         if not fields:
             continue
         asset = fields[1] if len(fields) > 1 else fields[0]
-        if asset.endswith(".sha256") or not asset.startswith(ASSET_PREFIX):
+        if asset.endswith(SIDECAR_SUFFIX) or not asset.startswith(ASSET_PREFIX):
             continue
         if len(fields) != 2:
             raise PinError(
@@ -326,13 +327,13 @@ def binary_service_digests(binaries_dir):
 
     digests = {}
     for asset in names:
-        if asset.endswith(".sha256") or not asset.startswith(ASSET_PREFIX):
+        if asset.endswith(SIDECAR_SUFFIX) or not asset.startswith(ASSET_PREFIX):
             continue
         path = os.path.join(binaries_dir, asset)
         if not os.path.isfile(path):
             continue
         digests[asset] = _file_digest(path)
-        sidecar = _sidecar_digest(path + ".sha256")
+        sidecar = _sidecar_digest(path + SIDECAR_SUFFIX)
         if sidecar is not None and sidecar != digests[asset]:
             raise PinError(
                 f"{asset} in {binaries_dir} hashes to {digests[asset]}, but its "

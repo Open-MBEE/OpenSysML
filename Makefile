@@ -268,6 +268,24 @@ stdlib-snapshot-check: ## Verify the committed library snapshot matches the bund
 	go run -C $(TOOLS_DIR) ./gen/snapshot -check
 	@echo "✓ stdlib.snapshot is current"
 
+ontology-table: ## Regenerate the metamodel table from the pilot SysML.ecore that scripts/pilot-pin.sh pins
+	./scripts/download-pilot-metamodel.sh
+	go run -C $(TOOLS_DIR) ./gen/ontology
+	@echo "✓ internal/translate/rdf/ontology/table.go regenerated"
+
+ontology-table-check: ## Verify the committed metamodel table matches the pinned pilot SysML.ecore, as CI does
+	./scripts/download-pilot-metamodel.sh
+	go run -C $(TOOLS_DIR) ./gen/ontology -check
+	@echo "✓ internal/translate/rdf/ontology/table.go is current"
+
+python-metamodel: ## Regenerate Python metaclass classes from the ontology table
+	go run -C $(TOOLS_DIR) ./gen/pymetamodel
+	@echo "✓ Python metamodel generated"
+
+python-metamodel-check: ## Verify generated Python metaclass classes are current
+	go run -C $(TOOLS_DIR) ./gen/pymetamodel -check
+	@echo "✓ Python metamodel is current"
+
 fuml-expected: ## Regenerate docs/project/fuml-referee-expected.json from the pinned fUML reference implementation (needs a JDK)
 	./scripts/fuml-expected.sh
 	@echo "✓ fuml-referee-expected.json regenerated"
