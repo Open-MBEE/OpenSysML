@@ -256,6 +256,16 @@ def test_enum_and_primitive_values_and_malformed_values():
         with pytest.raises(MalformedValue):
             getattr(read, attribute)
 
+    referenced = read_json(
+        [element(declaredName={"@id": "q"}, direction={"@id": "q"}), element("q")]
+    )["e"]
+    with pytest.raises(MalformedValue, match="expected str, got a reference object"):
+        referenced.declared_name
+    with pytest.raises(
+        MalformedValue, match="expected FeatureDirectionKind, got a reference object"
+    ):
+        referenced.direction
+
     boolean_integer = read_json(element("i", "LiteralInteger", value=True))["i"]
     assert isinstance(boolean_integer, LiteralInteger)
     with pytest.raises(MalformedValue):
