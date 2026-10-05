@@ -1,0 +1,816 @@
+{
+  "pilotTag": "2026-08",
+  "totals": {
+    "productions": 727,
+    "productionsByKind": {
+      "enum": 14,
+      "fragment": 154,
+      "rule": 550,
+      "terminal": 9
+    },
+    "returnsDefaulted": 116,
+    "datatype": 114,
+    "typesByStatus": {
+      "ecore": 123,
+      "kerml": 1137,
+      "missing": 0,
+      "sysml": 412
+    },
+    "assignments": 797,
+    "assignmentsFound": 742,
+    "assignmentsMissing": 55,
+    "enumLiteralsFound": 24,
+    "enumLiteralsMissing": 0,
+    "differential": {
+      "agree": 62,
+      "disagree": 19,
+      "undecided": 646
+    },
+    "undecidedByReason": {
+      "anchor-shared": 36,
+      "no-anchor": 62,
+      "no-element": 229,
+      "no-element-at-anchor": 73,
+      "no-input": 244,
+      "no-reflective-metaclass": 2,
+      "unlocated": 0
+    }
+  },
+  "grammars": [
+    {
+      "name": "KerML.xtext",
+      "totals": {
+        "productions": 176,
+        "productionsByKind": {
+          "enum": 3,
+          "fragment": 61,
+          "rule": 112,
+          "terminal": 0
+        },
+        "returnsDefaulted": 1,
+        "datatype": 2,
+        "typesByStatus": {
+          "ecore": 2,
+          "kerml": 470,
+          "missing": 0,
+          "sysml": 0
+        },
+        "assignments": 244,
+        "assignmentsFound": 244,
+        "assignmentsMissing": 0,
+        "enumLiteralsFound": 7,
+        "enumLiteralsMissing": 0,
+        "differential": {
+          "agree": 26,
+          "disagree": 5,
+          "undecided": 145
+        },
+        "undecidedByReason": {
+          "anchor-shared": 4,
+          "no-anchor": 12,
+          "no-element": 48,
+          "no-element-at-anchor": 21,
+          "no-input": 59,
+          "no-reflective-metaclass": 1,
+          "unlocated": 0
+        }
+      }
+    },
+    {
+      "name": "KerMLExpressions.xtext",
+      "totals": {
+        "productions": 108,
+        "productionsByKind": {
+          "enum": 0,
+          "fragment": 4,
+          "rule": 95,
+          "terminal": 9
+        },
+        "returnsDefaulted": 28,
+        "datatype": 24,
+        "typesByStatus": {
+          "ecore": 33,
+          "kerml": 255,
+          "missing": 0,
+          "sysml": 0
+        },
+        "assignments": 140,
+        "assignmentsFound": 91,
+        "assignmentsMissing": 49,
+        "enumLiteralsFound": 0,
+        "enumLiteralsMissing": 0,
+        "differential": {
+          "agree": 0,
+          "disagree": 1,
+          "undecided": 107
+        },
+        "undecidedByReason": {
+          "anchor-shared": 0,
+          "no-anchor": 5,
+          "no-element": 24,
+          "no-element-at-anchor": 9,
+          "no-input": 69,
+          "no-reflective-metaclass": 0,
+          "unlocated": 0
+        }
+      }
+    },
+    {
+      "name": "SysML.xtext",
+      "totals": {
+        "productions": 443,
+        "productionsByKind": {
+          "enum": 11,
+          "fragment": 89,
+          "rule": 343,
+          "terminal": 0
+        },
+        "returnsDefaulted": 87,
+        "datatype": 88,
+        "typesByStatus": {
+          "ecore": 88,
+          "kerml": 412,
+          "missing": 0,
+          "sysml": 412
+        },
+        "assignments": 413,
+        "assignmentsFound": 407,
+        "assignmentsMissing": 6,
+        "enumLiteralsFound": 17,
+        "enumLiteralsMissing": 0,
+        "differential": {
+          "agree": 36,
+          "disagree": 13,
+          "undecided": 394
+        },
+        "undecidedByReason": {
+          "anchor-shared": 32,
+          "no-anchor": 45,
+          "no-element": 157,
+          "no-element-at-anchor": 43,
+          "no-input": 116,
+          "no-reflective-metaclass": 1,
+          "unlocated": 0
+        }
+      }
+    }
+  ],
+  "missingTypes": [],
+  "missingFeatures": [
+    {
+      "grammar": "KerMLExpressions.xtext",
+      "production": "ConditionalExpression",
+      "line": 52,
+      "feature": "operand",
+      "owner": "SysML::OperatorExpression"
+    },
+    {
+      "grammar": "KerMLExpressions.xtext",
+      "production": "ConditionalExpression",
+      "line": 52,
+      "feature": "operand",
+      "owner": "SysML::OperatorExpression"
+    },
+    {
+      "grammar": "KerMLExpressions.xtext",
+      "production": "ConditionalExpression",
+      "line": 52,
+      "feature": "operand",
+      "owner": "SysML::OperatorExpression"
+    },
+    {
+      "grammar": "KerMLExpressions.xtext",
+      "production": "NullCoalescingExpression",
+      "line": 64,
+      "feature": "operand",
+      "owner": "SysML::OperatorExpression"
+    },
+    {
+      "grammar": "KerMLExpressions.xtext",
+      "production": "NullCoalescingExpression",
+      "line": 64,
+      "feature": "operand",
+      "owner": "SysML::OperatorExpression"
+    },
+    {
+      "grammar": "KerMLExpressions.xtext",
+      "production": "ImpliesExpression",
+      "line": 83,
+      "feature": "operand",
+      "owner": "SysML::OperatorExpression"
+    },
+    {
+      "grammar": "KerMLExpressions.xtext",
+      "production": "ImpliesExpression",
+      "line": 83,
+      "feature": "operand",
+      "owner": "SysML::OperatorExpression"
+    },
+    {
+      "grammar": "KerMLExpressions.xtext",
+      "production": "OrExpression",
+      "line": 100,
+      "feature": "operand",
+      "owner": "SysML::OperatorExpression"
+    },
+    {
+      "grammar": "KerMLExpressions.xtext",
+      "production": "OrExpression",
+      "line": 100,
+      "feature": "operand",
+      "owner": "SysML::OperatorExpression"
+    },
+    {
+      "grammar": "KerMLExpressions.xtext",
+      "production": "OrExpression",
+      "line": 100,
+      "feature": "operand",
+      "owner": "SysML::OperatorExpression"
+    },
+    {
+      "grammar": "KerMLExpressions.xtext",
+      "production": "XorExpression",
+      "line": 122,
+      "feature": "operand",
+      "owner": "SysML::OperatorExpression"
+    },
+    {
+      "grammar": "KerMLExpressions.xtext",
+      "production": "XorExpression",
+      "line": 122,
+      "feature": "operand",
+      "owner": "SysML::OperatorExpression"
+    },
+    {
+      "grammar": "KerMLExpressions.xtext",
+      "production": "AndExpression",
+      "line": 131,
+      "feature": "operand",
+      "owner": "SysML::OperatorExpression"
+    },
+    {
+      "grammar": "KerMLExpressions.xtext",
+      "production": "AndExpression",
+      "line": 131,
+      "feature": "operand",
+      "owner": "SysML::OperatorExpression"
+    },
+    {
+      "grammar": "KerMLExpressions.xtext",
+      "production": "AndExpression",
+      "line": 131,
+      "feature": "operand",
+      "owner": "SysML::OperatorExpression"
+    },
+    {
+      "grammar": "KerMLExpressions.xtext",
+      "production": "EqualityExpression",
+      "line": 155,
+      "feature": "operand",
+      "owner": "SysML::OperatorExpression"
+    },
+    {
+      "grammar": "KerMLExpressions.xtext",
+      "production": "EqualityExpression",
+      "line": 155,
+      "feature": "operand",
+      "owner": "SysML::OperatorExpression"
+    },
+    {
+      "grammar": "KerMLExpressions.xtext",
+      "production": "ClassificationExpression",
+      "line": 167,
+      "feature": "operand",
+      "owner": "SysML::OperatorExpression"
+    },
+    {
+      "grammar": "KerMLExpressions.xtext",
+      "production": "ClassificationExpression",
+      "line": 167,
+      "feature": "operand",
+      "owner": "SysML::OperatorExpression"
+    },
+    {
+      "grammar": "KerMLExpressions.xtext",
+      "production": "ClassificationExpression",
+      "line": 167,
+      "feature": "operand",
+      "owner": "SysML::OperatorExpression"
+    },
+    {
+      "grammar": "KerMLExpressions.xtext",
+      "production": "ClassificationExpression",
+      "line": 167,
+      "feature": "operand",
+      "owner": "SysML::OperatorExpression"
+    },
+    {
+      "grammar": "KerMLExpressions.xtext",
+      "production": "ClassificationExpression",
+      "line": 167,
+      "feature": "operand",
+      "owner": "SysML::OperatorExpression"
+    },
+    {
+      "grammar": "KerMLExpressions.xtext",
+      "production": "ClassificationExpression",
+      "line": 167,
+      "feature": "operand",
+      "owner": "SysML::OperatorExpression"
+    },
+    {
+      "grammar": "KerMLExpressions.xtext",
+      "production": "RelationalExpression",
+      "line": 234,
+      "feature": "operand",
+      "owner": "SysML::OperatorExpression"
+    },
+    {
+      "grammar": "KerMLExpressions.xtext",
+      "production": "RelationalExpression",
+      "line": 234,
+      "feature": "operand",
+      "owner": "SysML::OperatorExpression"
+    },
+    {
+      "grammar": "KerMLExpressions.xtext",
+      "production": "RangeExpression",
+      "line": 245,
+      "feature": "operand",
+      "owner": "SysML::OperatorExpression"
+    },
+    {
+      "grammar": "KerMLExpressions.xtext",
+      "production": "RangeExpression",
+      "line": 245,
+      "feature": "operand",
+      "owner": "SysML::OperatorExpression"
+    },
+    {
+      "grammar": "KerMLExpressions.xtext",
+      "production": "AdditiveExpression",
+      "line": 252,
+      "feature": "operand",
+      "owner": "SysML::OperatorExpression"
+    },
+    {
+      "grammar": "KerMLExpressions.xtext",
+      "production": "AdditiveExpression",
+      "line": 252,
+      "feature": "operand",
+      "owner": "SysML::OperatorExpression"
+    },
+    {
+      "grammar": "KerMLExpressions.xtext",
+      "production": "MultiplicativeExpression",
+      "line": 261,
+      "feature": "operand",
+      "owner": "SysML::OperatorExpression"
+    },
+    {
+      "grammar": "KerMLExpressions.xtext",
+      "production": "MultiplicativeExpression",
+      "line": 261,
+      "feature": "operand",
+      "owner": "SysML::OperatorExpression"
+    },
+    {
+      "grammar": "KerMLExpressions.xtext",
+      "production": "ExponentiationExpression",
+      "line": 270,
+      "feature": "operand",
+      "owner": "SysML::OperatorExpression"
+    },
+    {
+      "grammar": "KerMLExpressions.xtext",
+      "production": "ExponentiationExpression",
+      "line": 270,
+      "feature": "operand",
+      "owner": "SysML::OperatorExpression"
+    },
+    {
+      "grammar": "KerMLExpressions.xtext",
+      "production": "UnaryExpression",
+      "line": 281,
+      "feature": "operand",
+      "owner": "SysML::OperatorExpression"
+    },
+    {
+      "grammar": "KerMLExpressions.xtext",
+      "production": "PrimaryExpression",
+      "line": 299,
+      "feature": "operand",
+      "owner": "SysML::FeatureChainExpression"
+    },
+    {
+      "grammar": "KerMLExpressions.xtext",
+      "production": "PrimaryExpression",
+      "line": 299,
+      "feature": "operand",
+      "owner": "SysML::IndexExpression"
+    },
+    {
+      "grammar": "KerMLExpressions.xtext",
+      "production": "PrimaryExpression",
+      "line": 299,
+      "feature": "operand",
+      "owner": "SysML::IndexExpression"
+    },
+    {
+      "grammar": "KerMLExpressions.xtext",
+      "production": "PrimaryExpression",
+      "line": 299,
+      "feature": "operand",
+      "owner": "SysML::OperatorExpression"
+    },
+    {
+      "grammar": "KerMLExpressions.xtext",
+      "production": "PrimaryExpression",
+      "line": 299,
+      "feature": "operand",
+      "owner": "SysML::OperatorExpression"
+    },
+    {
+      "grammar": "KerMLExpressions.xtext",
+      "production": "PrimaryExpression",
+      "line": 299,
+      "feature": "operand",
+      "owner": "SysML::InvocationExpression"
+    },
+    {
+      "grammar": "KerMLExpressions.xtext",
+      "production": "PrimaryExpression",
+      "line": 299,
+      "feature": "operand",
+      "owner": "SysML::InvocationExpression"
+    },
+    {
+      "grammar": "KerMLExpressions.xtext",
+      "production": "PrimaryExpression",
+      "line": 299,
+      "feature": "operand",
+      "owner": "SysML::InvocationExpression"
+    },
+    {
+      "grammar": "KerMLExpressions.xtext",
+      "production": "PrimaryExpression",
+      "line": 299,
+      "feature": "operand",
+      "owner": "SysML::CollectExpression"
+    },
+    {
+      "grammar": "KerMLExpressions.xtext",
+      "production": "PrimaryExpression",
+      "line": 299,
+      "feature": "operand",
+      "owner": "SysML::CollectExpression"
+    },
+    {
+      "grammar": "KerMLExpressions.xtext",
+      "production": "PrimaryExpression",
+      "line": 299,
+      "feature": "operand",
+      "owner": "SysML::SelectExpression"
+    },
+    {
+      "grammar": "KerMLExpressions.xtext",
+      "production": "PrimaryExpression",
+      "line": 299,
+      "feature": "operand",
+      "owner": "SysML::SelectExpression"
+    },
+    {
+      "grammar": "KerMLExpressions.xtext",
+      "production": "PrimaryExpression",
+      "line": 299,
+      "feature": "operand",
+      "owner": "SysML::FeatureChainExpression"
+    },
+    {
+      "grammar": "KerMLExpressions.xtext",
+      "production": "SequenceExpression",
+      "line": 389,
+      "feature": "operand",
+      "owner": "SysML::OperatorExpression"
+    },
+    {
+      "grammar": "KerMLExpressions.xtext",
+      "production": "SequenceExpression",
+      "line": 389,
+      "feature": "operand",
+      "owner": "SysML::OperatorExpression"
+    },
+    {
+      "grammar": "SysML.xtext",
+      "production": "TargetExpression",
+      "line": 1571,
+      "feature": "operand",
+      "owner": "SysML::FeatureChainExpression"
+    },
+    {
+      "grammar": "SysML.xtext",
+      "production": "TargetExpression",
+      "line": 1571,
+      "feature": "operand",
+      "owner": "SysML::OperatorExpression"
+    },
+    {
+      "grammar": "SysML.xtext",
+      "production": "TargetExpression",
+      "line": 1571,
+      "feature": "operand",
+      "owner": "SysML::OperatorExpression"
+    },
+    {
+      "grammar": "SysML.xtext",
+      "production": "TargetExpression",
+      "line": 1571,
+      "feature": "operand",
+      "owner": "SysML::OperatorExpression"
+    },
+    {
+      "grammar": "SysML.xtext",
+      "production": "TargetExpression",
+      "line": 1571,
+      "feature": "operand",
+      "owner": "SysML::CollectExpression"
+    },
+    {
+      "grammar": "SysML.xtext",
+      "production": "TargetExpression",
+      "line": 1571,
+      "feature": "operand",
+      "owner": "SysML::SelectExpression"
+    }
+  ],
+  "missingEnumLiterals": [],
+  "defaultedReturnRules": [],
+  "disagreements": [
+    {
+      "grammar": "KerML.xtext",
+      "production": "LibraryPackage",
+      "location": {
+        "file": "internal/workspace/libs/stdlib/Domain Libraries/Analysis/AnalysisTooling.sysml",
+        "line": 1,
+        "column": 10
+      },
+      "symbolFqn": "AnalysisTooling",
+      "metaclass": "KerML::Kernel::Package",
+      "creates": [
+        "SysML::LibraryPackage"
+      ]
+    },
+    {
+      "grammar": "KerML.xtext",
+      "production": "TypeFeatureMember",
+      "location": {
+        "file": "internal/workspace/libs/stdlib/Kernel Libraries/Kernel Semantic Library/KerML.kerml",
+        "line": 124,
+        "column": 4
+      },
+      "symbolFqn": "KerML::Root::VisibilityKind::private",
+      "metaclass": "KerML::Core::Feature",
+      "creates": [
+        "SysML::OwningMembership"
+      ]
+    },
+    {
+      "grammar": "KerML.xtext",
+      "production": "Subclassification",
+      "location": {
+        "file": "internal/workspace/libs/stdlib/Kernel Libraries/Kernel Semantic Library/Occurrences.kerml",
+        "line": 729,
+        "column": 2
+      },
+      "symbolFqn": "Occurrences::",
+      "metaclass": "KerML::Core::Specialization",
+      "creates": [
+        "SysML::Subclassification"
+      ]
+    },
+    {
+      "grammar": "KerML.xtext",
+      "production": "FeatureValue",
+      "location": {
+        "file": "internal/workspace/libs/stdlib/Domain Libraries/Analysis/SampledFunctions.sysml",
+        "line": 54,
+        "column": 27
+      },
+      "symbolFqn": "SampledFunctions::Domain::",
+      "metaclass": "SysML::Systems::ReferenceUsage",
+      "creates": [
+        "SysML::FeatureValue"
+      ]
+    },
+    {
+      "grammar": "KerML.xtext",
+      "production": "ReturnFeatureMember",
+      "location": {
+        "file": "internal/workspace/libs/stdlib/Domain Libraries/Analysis/SampledFunctions.sysml",
+        "line": 54,
+        "column": 3
+      },
+      "symbolFqn": "SampledFunctions::Domain::",
+      "metaclass": "SysML::Systems::ReferenceUsage",
+      "creates": [
+        "SysML::ReturnParameterMembership"
+      ]
+    },
+    {
+      "grammar": "KerMLExpressions.xtext",
+      "production": "NamedArgument",
+      "location": {
+        "file": "internal/workspace/libs/stdlib/Domain Libraries/Analysis/SampledFunctions.sysml",
+        "line": 54,
+        "column": 27
+      },
+      "symbolFqn": "SampledFunctions::Domain::",
+      "metaclass": "SysML::Systems::ReferenceUsage",
+      "creates": [
+        "SysML::Feature"
+      ]
+    },
+    {
+      "grammar": "SysML.xtext",
+      "production": "LibraryPackage",
+      "location": {
+        "file": "internal/workspace/libs/stdlib/Domain Libraries/Analysis/AnalysisTooling.sysml",
+        "line": 1,
+        "column": 10
+      },
+      "symbolFqn": "AnalysisTooling",
+      "metaclass": "KerML::Kernel::Package",
+      "creates": [
+        "SysML::LibraryPackage"
+      ]
+    },
+    {
+      "grammar": "SysML.xtext",
+      "production": "VariantUsageMember",
+      "location": {
+        "file": "examples/sysml-v2-training/36. Variability/Variation Definitions.sysml",
+        "line": 26,
+        "column": 3
+      },
+      "symbolFqn": "Variation Definitions::DiameterChoices::diameterSmall",
+      "metaclass": "SysML::Systems::AttributeUsage",
+      "creates": [
+        "SysML::VariantMembership"
+      ]
+    },
+    {
+      "grammar": "SysML.xtext",
+      "production": "FeatureValue",
+      "location": {
+        "file": "internal/workspace/libs/stdlib/Domain Libraries/Analysis/SampledFunctions.sysml",
+        "line": 54,
+        "column": 27
+      },
+      "symbolFqn": "SampledFunctions::Domain::",
+      "metaclass": "SysML::Systems::ReferenceUsage",
+      "creates": [
+        "SysML::FeatureValue"
+      ]
+    },
+    {
+      "grammar": "SysML.xtext",
+      "production": "PerformActionUsage",
+      "location": {
+        "file": "internal/workspace/libs/stdlib/Systems Library/Actions.sysml",
+        "line": 538,
+        "column": 10
+      },
+      "symbolFqn": "body",
+      "metaclass": "SysML::Systems::ActionUsage",
+      "creates": [
+        "SysML::PerformActionUsage"
+      ]
+    },
+    {
+      "grammar": "SysML.xtext",
+      "production": "AcceptNode",
+      "location": {
+        "file": "internal/workspace/libs/stdlib/Kernel Libraries/Kernel Semantic Library/StatePerformances.kerml",
+        "line": 143,
+        "column": 31
+      },
+      "symbolFqn": "StatePerformances::StateTransitionPerformance::",
+      "metaclass": "KerML::Kernel::Succession",
+      "creates": [
+        "SysML::AcceptActionUsage"
+      ]
+    },
+    {
+      "grammar": "SysML.xtext",
+      "production": "SendNode",
+      "location": {
+        "file": "examples/sysml-v2-training/21. Asynchronous Messaging/Messaging Example.sysml",
+        "line": 31,
+        "column": 8
+      },
+      "symbolFqn": "Messaging Example::takePicture::",
+      "metaclass": "SysML::Systems::ActionUsage",
+      "creates": [
+        "SysML::SendActionUsage"
+      ]
+    },
+    {
+      "grammar": "SysML.xtext",
+      "production": "ExhibitStateUsage",
+      "location": {
+        "file": "examples/sysml-v2-training/26. State Exhibition/State Exhibition Example.sysml",
+        "line": 8,
+        "column": 3
+      },
+      "symbolFqn": "State Exhibition Example::vehicle::vehicleStates",
+      "metaclass": "SysML::Systems::StateUsage",
+      "creates": [
+        "SysML::ExhibitStateUsage"
+      ]
+    },
+    {
+      "grammar": "SysML.xtext",
+      "production": "ReturnParameterMember",
+      "location": {
+        "file": "internal/workspace/libs/stdlib/Domain Libraries/Analysis/SampledFunctions.sysml",
+        "line": 54,
+        "column": 3
+      },
+      "symbolFqn": "SampledFunctions::Domain::",
+      "metaclass": "SysML::Systems::ReferenceUsage",
+      "creates": [
+        "SysML::ReturnParameterMembership"
+      ]
+    },
+    {
+      "grammar": "SysML.xtext",
+      "production": "AssertConstraintUsage",
+      "location": {
+        "file": "internal/workspace/libs/stdlib/Domain Libraries/Analysis/SampledFunctions.sysml",
+        "line": 40,
+        "column": 3
+      },
+      "symbolFqn": "SampledFunctions::SampledFunction::",
+      "metaclass": "SysML::Systems::ConstraintUsage",
+      "creates": [
+        "SysML::AssertConstraintUsage"
+      ]
+    },
+    {
+      "grammar": "SysML.xtext",
+      "production": "SubjectUsage",
+      "location": {
+        "file": "internal/workspace/libs/stdlib/Domain Libraries/Analysis/TradeStudies.sysml",
+        "line": 45,
+        "column": 3
+      },
+      "symbolFqn": "TradeStudies::TradeStudyObjective::selectedAlternative",
+      "metaclass": "SysML::Systems::PartUsage",
+      "creates": [
+        "SysML::ReferenceUsage"
+      ]
+    },
+    {
+      "grammar": "SysML.xtext",
+      "production": "ObjectiveMember",
+      "location": {
+        "file": "internal/workspace/libs/stdlib/Domain Libraries/Analysis/TradeStudies.sysml",
+        "line": 146,
+        "column": 3
+      },
+      "symbolFqn": "TradeStudies::TradeStudy::tradeStudyObjective",
+      "metaclass": "SysML::Systems::RequirementUsage",
+      "creates": [
+        "SysML::ObjectiveMembership"
+      ]
+    },
+    {
+      "grammar": "SysML.xtext",
+      "production": "IncludeUseCaseUsage",
+      "location": {
+        "file": "examples/sysml-v2-training/35. Use Cases/Use Case Usage Example.sysml",
+        "line": 12,
+        "column": 8
+      },
+      "symbolFqn": "Use Case Usage Example::provide transportation::enter vehicle",
+      "metaclass": "SysML::Systems::UseCaseUsage",
+      "creates": [
+        "SysML::IncludeUseCaseUsage"
+      ]
+    },
+    {
+      "grammar": "SysML.xtext",
+      "production": "ViewRenderingMember",
+      "location": {
+        "file": "internal/workspace/libs/stdlib/OpenSysML Libraries/MOSA.sysml",
+        "line": 305,
+        "column": 3
+      },
+      "symbolFqn": "MOSA::ModularDecompositionView::asTreeDiagram",
+      "metaclass": "SysML::Systems::RenderingUsage",
+      "creates": [
+        "SysML::ViewRenderingMembership"
+      ]
+    }
+  ]
+}

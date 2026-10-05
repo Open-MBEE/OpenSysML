@@ -55,25 +55,38 @@ func (p Production) Literals() []string {
 	return out
 }
 
-// expr is a parsed Xtext right-hand side. Elements that consume no input of
-// their own — actions, cross-references, rule calls — collapse to refExpr,
-// because this tool only reasons about literals a production spells out itself.
+// expr is a parsed Xtext right-hand side.
 type expr interface{ isExpr() }
 
 type litExpr struct{ Value string }
 type refExpr struct{ Name string }
 type seqExpr struct{ Items []expr }
 type altExpr struct{ Items []expr }
+type actionExpr struct {
+	Type, Feature, Op string
+	Line              int
+	id                int
+}
+type assignExpr struct {
+	Feature, Op string
+	Value       expr
+	Line        int
+	id          int
+}
+type crossRefExpr struct{ Type, Terminal string }
 
 // optExpr is a `?` or `*` cardinality: input can exercise the production
 // without matching it at all.
 type optExpr struct{ Item expr }
 
-func (litExpr) isExpr() { /* marker: closed expr set */ }
-func (refExpr) isExpr() { /* marker: closed expr set */ }
-func (seqExpr) isExpr() { /* marker: closed expr set */ }
-func (altExpr) isExpr() { /* marker: closed expr set */ }
-func (optExpr) isExpr() { /* marker: closed expr set */ }
+func (litExpr) isExpr()      { /* marker: closed expr set */ }
+func (refExpr) isExpr()      { /* marker: closed expr set */ }
+func (seqExpr) isExpr()      { /* marker: closed expr set */ }
+func (altExpr) isExpr()      { /* marker: closed expr set */ }
+func (optExpr) isExpr()      { /* marker: closed expr set */ }
+func (actionExpr) isExpr()   { /* marker: closed expr set */ }
+func (assignExpr) isExpr()   { /* marker: closed expr set */ }
+func (crossRefExpr) isExpr() { /* marker: closed expr set */ }
 
 func collectLiterals(e expr, out map[string]bool) {
 	switch v := e.(type) {
@@ -89,6 +102,8 @@ func collectLiterals(e expr, out map[string]bool) {
 		}
 	case optExpr:
 		collectLiterals(v.Item, out)
+	case assignExpr:
+		collectLiterals(v.Value, out)
 	}
 }
 
@@ -119,9 +134,10 @@ func ParseGrammar(name, src string) (*Grammar, error) {
 }
 
 type grammarParser struct {
-	out  Grammar
-	toks []token
-	pos  int
+	out        Grammar
+	toks       []token
+	pos        int
+	nextExprID int
 }
 
 func (p *grammarParser) peek() token {
@@ -399,23 +415,92 @@ func (p *grammarParser) parsePrimary() (expr, error) {
 		}
 		return inner, nil
 	case t.kind == tokPunct && t.text == "{":
-		// An action assigns a type; it consumes nothing.
-		if err := p.skipBalanced("{", "}"); err != nil {
-			return nil, err
-		}
-		return nil, nil
+		return p.parseAction()
 	case t.kind == tokPunct && t.text == "[":
-		// A cross-reference consumes a name, never a literal.
-		if err := p.skipBalanced("[", "]"); err != nil {
-			return nil, err
-		}
-		return refExpr{Name: "crossReference"}, nil
+		return p.parseCrossReference()
 	case t.kind == tokIdent:
+		first := p.peek()
 		name := p.skipQualifiedName()
-		if p.accept(tokPunct, "=") || p.accept(tokPunct, "+=") || p.accept(tokPunct, "?=") {
-			return p.parsePrimary()
+		if p.at(tokPunct, "=") || p.at(tokPunct, "+=") || p.at(tokPunct, "?=") {
+			op := p.next().text
+			value, err := p.parsePrimary()
+			if err != nil {
+				return nil, err
+			}
+			p.nextExprID++
+			return assignExpr{Feature: name, Op: op, Value: value, Line: first.line, id: p.nextExprID}, nil
 		}
 		return refExpr{Name: name}, nil
 	}
 	return nil, fmt.Errorf("line %d: unexpected %q in a production body", t.line, t.text)
+}
+
+func (p *grammarParser) parseAction() (expr, error) {
+	open := p.next()
+	if p.peek().kind != tokIdent {
+		return nil, fmt.Errorf("line %d: expected an action type, found %q", p.peek().line, p.peek().text)
+	}
+	typ := p.parseActionType()
+	action := actionExpr{Type: typ, Line: open.line}
+	if p.accept(tokPunct, "}") {
+		p.nextExprID++
+		action.id = p.nextExprID
+		return action, nil
+	}
+	if err := p.expect(tokPunct, "."); err != nil {
+		return nil, err
+	}
+	feature := p.next()
+	if feature.kind != tokIdent {
+		return nil, fmt.Errorf("line %d: expected an action feature, found %q", feature.line, feature.text)
+	}
+	action.Feature = feature.text
+	if p.at(tokPunct, "=") || p.at(tokPunct, "+=") {
+		action.Op = p.next().text
+	} else {
+		return nil, fmt.Errorf("line %d: expected an action operator, found %q", p.peek().line, p.peek().text)
+	}
+	value := p.next()
+	if value.kind != tokIdent || value.text != "current" {
+		return nil, fmt.Errorf("line %d: expected %q in an assigned action, found %q", value.line, "current", value.text)
+	}
+	if err := p.expect(tokPunct, "}"); err != nil {
+		return nil, err
+	}
+	p.nextExprID++
+	action.id = p.nextExprID
+	return action, nil
+}
+
+func (p *grammarParser) parseActionType() string {
+	var b strings.Builder
+	b.WriteString(p.next().text)
+	for p.accept(tokPunct, "::") {
+		b.WriteString("::")
+		if p.peek().kind == tokIdent {
+			b.WriteString(p.next().text)
+		}
+	}
+	return b.String()
+}
+
+func (p *grammarParser) parseCrossReference() (expr, error) {
+	if err := p.expect(tokPunct, "["); err != nil {
+		return nil, err
+	}
+	if p.peek().kind != tokIdent {
+		return nil, fmt.Errorf("line %d: expected a cross-reference type, found %q", p.peek().line, p.peek().text)
+	}
+	typ := p.skipQualifiedName()
+	terminal := ""
+	if p.accept(tokPunct, "|") {
+		terminal = p.skipQualifiedName()
+		if terminal == "" {
+			return nil, fmt.Errorf("line %d: expected a cross-reference terminal, found %q", p.peek().line, p.peek().text)
+		}
+	}
+	if err := p.expect(tokPunct, "]"); err != nil {
+		return nil, err
+	}
+	return crossRefExpr{Type: typ, Terminal: terminal}, nil
 }
