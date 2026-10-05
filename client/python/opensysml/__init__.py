@@ -52,6 +52,7 @@ from opensysml.conversion import (
     format_of_path, is_experimental,
 )
 from opensysml.edit import AppliedEdit, Body, EditedDocument, EditResult, Editor
+from opensysml.metamodel import read_json
 from opensysml.errors import (
     OpenSysMLError, AnalysisRunError, ChecksumMismatchError, ConnectionError, ConversionError,
     EditError, EditResultError, EditTargetError, ExecutionError,
