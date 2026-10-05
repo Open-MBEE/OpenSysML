@@ -372,7 +372,52 @@ parameter it fills, and that binding is judged like an explicit `bind`: `sum(rob
 handing `MassValue`s to `RealFunctions::sum`, declared over `Real`, draws the validation warning
 `Bound features should have conforming types` at the argument, as the SysML v2 pilot reports it.
 
-## Sets and tensors
+## Arrays, sets and tensors
+
+**Arrays:** a `Collections::Array` is one value of a fixed shape — `dimensions` gives the length
+of each axis and `elements` the flattened elements in row-major order, the last index varying
+fastest — and `rank` and `flattenedSize` are read from that shape. The library declares only
+`Array`; a matrix, a tensor of plain numbers or a grid of some element type is a specialization
+the model declares itself, and a usage of it is shaped by redefining `dimensions` and `elements`.
+`CollectionFunctions::'array#'` takes one index per dimension, counted from 1.
+
+```sysml
+sysml> package Grid {
+  ...>     private import ScalarValues::*;
+  ...>     private import Collections::*;
+  ...>     private import CollectionFunctions::*;
+  ...>     attribute def Matrix :> Array {
+  ...>         attribute :>> elements : Real;
+  ...>     }
+  ...>     attribute m : Matrix {
+  ...>         :>> dimensions = (2, 2);
+  ...>         :>> elements = (1.0, 2.0, 3.0, 4.0);
+  ...>     }
+  ...>     attribute corner = 'array#'(m, (2, 1));
+  ...>     attribute n = m.flattenedSize;
+  ...> }
+✓ package Grid
+
+sysml> %eval Grid::m
+✓ Grid::m
+  = Array(2, 2)[1.0, 2.0, 3.0, 4.0]
+
+sysml> %eval Grid::m.rank
+✓ Grid::m.rank
+  = 2
+
+sysml> %eval Grid::corner
+✓ Grid::corner
+  = 3.0
+
+sysml> %eval Grid::n
+✓ Grid::n
+  = 4
+```
+
+Typing `m : Matrix` without declaring `Matrix` is an unresolved reference, in this
+implementation and in the SysML v2 pilot alike. A `TensorQuantityValue` — a tensor of quantities
+with a unit per component — is a different library type, built as shown under *Tensors* below.
 
 **Sets:** the library declares the elements of a `Collections::Set` unique and unordered, so a
 `Set` holds a set: the elements it was given with every repeat dropped and no order of its own.
