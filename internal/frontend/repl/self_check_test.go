@@ -773,13 +773,7 @@ datatype D;
 	s := NewSession()
 	s.SubmitFiles([]SourceFile{file})
 	verdicts, _ := s.selfCheckWithCounts("SysMLValidation", false)
-	for _, verdict := range verdicts {
-		if verdict.Status == VerdictFails &&
-			strings.Contains(verdict.Subject, "validateClassSpecialization") {
-			return
-		}
-	}
-	t.Fatalf("no validateClassSpecialization violation: %+v", verdicts)
+	assertSelfCheckViolation(t, verdicts, "validateClassSpecialization", "C")
 }
 
 func TestSelfCheckRelationshipConstraintViolations(t *testing.T) {
