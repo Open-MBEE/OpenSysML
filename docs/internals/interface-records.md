@@ -229,15 +229,15 @@ Demotion is the reverse. `Close` of a document whose buffer equals the file on
 disk, whose record the cache holds for that content and whose provenance is
 valid, installs the record in place of the tree (`demoteLocked`) and
 invalidates the name; a close of a changed buffer holds the disk bytes instead,
-as a closed file is held. `SetOnDisk` of a closed file, and `OpenAll` for each
-input, take the record for the content when the cache holds a valid one and
-parse otherwise (`holdOnDiskLocked`, `cachedRecords`). A record's reads are
-answered by its own document too (its identity judgment, its own names), so
-both install the record first and check its provenance among the documents
-then held, parsing it in place where that does not hold; a file set from disk
-before the siblings its analysis read (a batch installs them together; the
-language server's folder scan holds them one at a time) is parsed, and a later
-sibling does not demote it.
+as a closed file is held. `SetOnDisk` of a closed file, and `OpenAll` and
+`SetOnDiskAll` for each input, take the record for the content when the cache
+holds a valid one and parse otherwise (`holdOnDiskLocked`, `cachedRecords`). A
+record's reads are answered by its own document too (its identity judgment, its
+own names), so both install the record first and check its provenance among the
+documents then held, parsing it in place where that does not hold; a file set
+from disk alone, before the siblings its analysis read, is parsed, and a later
+sibling does not demote it. A batch installs the siblings together, and the
+language server's folder scan is one such batch (`SetOnDiskAll`).
 
 Records are written where a document has just been fully analyzed: the batch
 path (`DiagnosticsAll`, so `sysml -validate` and `-satisfy` and the REPL's
