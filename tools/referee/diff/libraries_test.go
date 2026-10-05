@@ -55,6 +55,7 @@ func TestPilotDiagnosticsHandsTheReferenceTheLibraries(t *testing.T) {
 // The libraries are part of what a run measures, so the baseline records them as
 // an input this repository owns: a changed library is a movement to adjudicate.
 func TestProvenanceRecordsTheLibraries(t *testing.T) {
+	clearLibraryOverride(t)
 	repo, current := currentProvenance(t)
 
 	var recorded *baseline.Input
@@ -99,11 +100,10 @@ func TestResolveFollowsTheLibraryRootOpenSysMLLoads(t *testing.T) {
 		t.Fatal(err)
 	}
 	bundled := filepath.Join(repo, filepath.FromSlash(defaultLibraries))
+	copyLoadedLibraries(t, bundled)
 	override := filepath.Join(repo, "libraries", openSysMLLibraries)
-	for _, dir := range []string{bundled, override} {
-		if err := os.MkdirAll(dir, 0o755); err != nil {
-			t.Fatal(err)
-		}
+	if err := os.MkdirAll(override, 0o755); err != nil {
+		t.Fatal(err)
 	}
 
 	clearLibraryOverride(t)
@@ -122,6 +122,58 @@ func TestResolveFollowsTheLibraryRootOpenSysMLLoads(t *testing.T) {
 	}
 	if opts.libraries != override {
 		t.Errorf("libraries = %s, want the overriding %s", opts.libraries, override)
+	}
+}
+
+// Without an override OpenSysML judges by the libraries embedded in this build,
+// so a -repo naming a checkout whose libraries hold other text is refused: the
+// reference would otherwise be handed one text while OpenSysML loaded another.
+// Naming that checkout's root in the override is what makes both load its text.
+func TestResolveRefusesACheckoutWhoseLibrariesDiffer(t *testing.T) {
+	validator := func(repo string) string {
+		path := filepath.Join(repo, "validate-sysml-batch")
+		if err := os.WriteFile(path, []byte("#!/bin/sh\n"), 0o700); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(repo, "go.mod"), []byte("module github.com/Open-MBEE/OpenSysML\n"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		return path
+	}
+	clearLibraryOverride(t)
+
+	edited := t.TempDir()
+	bundled := filepath.Join(edited, filepath.FromSlash(defaultLibraries))
+	copyLoadedLibraries(t, bundled)
+	first := readFile(t, filepath.Join(bundled, "StateMachines.sysml"))
+	if err := os.WriteFile(filepath.Join(bundled, "StateMachines.sysml"), []byte(first+"// edited\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	opts := options{repo: edited, validator: validator(edited), log: io.Discard}
+	err := opts.resolve()
+	if err == nil || !strings.Contains(err.Error(), "differ from the ones this build loads (StateMachines.sysml)") {
+		t.Errorf("resolve() over an edited library = %v, want a refusal naming the file", err)
+	}
+
+	added := t.TempDir()
+	bundled = filepath.Join(added, filepath.FromSlash(defaultLibraries))
+	copyLoadedLibraries(t, bundled)
+	if err := os.WriteFile(filepath.Join(bundled, "Extra.sysml"), []byte("library package Extra;\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	opts = options{repo: added, validator: validator(added), log: io.Discard}
+	err = opts.resolve()
+	if err == nil || !strings.Contains(err.Error(), "differ from the ones this build loads (Extra.sysml)") {
+		t.Errorf("resolve() over an added library = %v, want a refusal naming the file", err)
+	}
+
+	t.Setenv(libs.LibraryPathEnvVar, filepath.Join(edited, filepath.FromSlash(bundledLibraryRoot)))
+	opts = options{repo: edited, validator: validator(edited), log: io.Discard}
+	if err := opts.resolve(); err != nil {
+		t.Fatalf("resolve() with that checkout's root as the override: %v", err)
+	}
+	if want := filepath.Join(edited, filepath.FromSlash(defaultLibraries)); opts.libraries != want {
+		t.Errorf("libraries = %s, want %s", opts.libraries, want)
 	}
 }
 
@@ -155,6 +207,35 @@ func TestResolveRefusesLibrariesOutsideTheRepository(t *testing.T) {
 	err = opts.resolve()
 	if err == nil || !strings.Contains(err.Error(), "library directory not found") {
 		t.Errorf("resolve() without the bundled libraries = %v, want it to name the missing directory", err)
+	}
+}
+
+// copyLoadedLibraries writes the OpenSysML libraries this build loads under dir,
+// so a synthetic checkout holds the text resolve expects to find there.
+func copyLoadedLibraries(t *testing.T, dir string) {
+	t.Helper()
+	loaded := libs.BundledSource()
+	prefix := openSysMLLibraries + "/"
+	copied := 0
+	for _, name := range loaded.List() {
+		if !strings.HasPrefix(name, prefix) {
+			continue
+		}
+		content, err := loaded.Read(name)
+		if err != nil {
+			t.Fatal(err)
+		}
+		path := filepath.Join(dir, filepath.FromSlash(strings.TrimPrefix(name, prefix)))
+		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(path, content, 0o644); err != nil {
+			t.Fatal(err)
+		}
+		copied++
+	}
+	if copied == 0 {
+		t.Fatalf("this build embeds no files under %q", prefix)
 	}
 }
 
