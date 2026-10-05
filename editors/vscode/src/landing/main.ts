@@ -1092,6 +1092,8 @@ function mount(root: HTMLElement): Mounted {
         rerunStale = true;
         return;
       }
+      // This run uses the latest model, including one its own read adopted.
+      rerunStale = false;
       const started = performance.now();
       run = runJourney(client, current, sent, seed);
       steps = debugSteps(run.trace);
