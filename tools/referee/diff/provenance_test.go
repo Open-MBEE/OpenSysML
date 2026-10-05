@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Open-MBEE/OpenSysML/internal/workspace/libs"
 	"github.com/Open-MBEE/OpenSysML/tools/oracle/baseline"
 	oraclerepo "github.com/Open-MBEE/OpenSysML/tools/oracle/repo"
 )
@@ -39,18 +40,70 @@ func TestProvenanceGuardFailsOnAMovedPin(t *testing.T) {
 }
 
 // currentProvenance is the repository's provenance as it stands, resolved from
-// the pin rather than from a provisioned validator.
+// the pin rather than from a provisioned validator, over the library directory
+// a run would hand the reference.
 func currentProvenance(t *testing.T) (string, baseline.Record) {
 	t.Helper()
 	repo, err := oraclerepo.Root()
 	if err != nil {
 		t.Fatal(err)
 	}
-	current, err := provenance(repo, "", defaultLibraries)
+	libraries, err := librariesHandedOver(repo)
+	if err != nil {
+		t.Fatal(err)
+	}
+	current, err := provenance(repo, "", relativeTo(repo, libraries))
 	if err != nil {
 		t.Fatal(err)
 	}
 	return repo, current
+}
+
+// The Java-free guard digests the library directory a run would hand the
+// reference, so an OPENSYSML_LIBRARY_PATH override inside the repository moves
+// the recorded opensysml-libraries input instead of leaving the bundled digest.
+func TestCurrentProvenanceFollowsTheLibraryOverride(t *testing.T) {
+	clearLibraryOverride(t)
+	repo, bundled := currentProvenance(t)
+	bundledInput := libraryInput(t, bundled)
+
+	if err := os.MkdirAll(filepath.Join(repo, "build"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	root, err := os.MkdirTemp(filepath.Join(repo, "build"), "pilot-diff-libraries-")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.RemoveAll(root) })
+	libraries := filepath.Join(root, openSysMLLibraries)
+	if err := os.Mkdir(libraries, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(libraries, "Ext.sysml"), []byte("library package Ext;\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	t.Setenv(libs.LibraryPathEnvVar, root)
+	_, overridden := currentProvenance(t)
+	input := libraryInput(t, overridden)
+	if want := relativeTo(repo, libraries); input.Dir != want {
+		t.Errorf("libraries input dir = %q, want the override %q", input.Dir, want)
+	}
+	if input.Files != 1 || input.Digest == bundledInput.Digest {
+		t.Errorf("libraries input = %+v, want one file with a digest other than the bundled %s", input, bundledInput.Digest)
+	}
+}
+
+// libraryInput is the opensysml-libraries input of a provenance record.
+func libraryInput(t *testing.T, record baseline.Record) baseline.Input {
+	t.Helper()
+	for _, input := range record.Inputs {
+		if input.Name == librariesInput {
+			return input
+		}
+	}
+	t.Fatalf("provenance records no %q input:\n%+v", librariesInput, record.Inputs)
+	return baseline.Input{}
 }
 
 // corruptBaseline copies a committed baseline with one substitution applied, so
