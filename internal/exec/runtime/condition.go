@@ -313,8 +313,9 @@ func (ctx *Context) appendConditions(out []Condition, node ast.Node, scope *symb
 func (ctx *Context) appendRequirementConditions(out []Condition, member ast.Node, expr ast.Node, body []ast.Node,
 	scope *symbols.Scope, required bool, seen map[*symbols.Symbol]bool) []Condition {
 	if ref := ast.ConstraintReferenceOf(member); ref != nil {
-		out = ctx.appendReferencedConditions(out, member, ref, scope, required, seen)
-	} else if expr != nil {
+		return ctx.appendReferencedConditions(out, member, ref, body, scope, required, seen)
+	}
+	if expr != nil {
 		out = append(out, Condition{Expr: expr, Scope: scope, Required: required})
 	}
 	return ctx.appendOwnedConditions(out, member, body, scope, required, seen)
@@ -480,17 +481,17 @@ func statementKeyword(node ast.Node) (string, bool) {
 }
 
 // appendReferencedConditions appends what a require/assume member that
-// reference-subsets a requirement states: that requirement's own conditions,
-// which requiring it requires. A reference naming anything else, or one that
-// does not resolve, states the condition its name evaluates to.
-func (ctx *Context) appendReferencedConditions(out []Condition, decl ast.Node, ref ast.Node, scope *symbols.Scope,
-	required bool, seen map[*symbols.Symbol]bool) []Condition {
-	if ref == nil {
-		return out
-	}
+// reference-subsets a requirement states: that requirement's conditions, which
+// requiring it requires and assuming it assumes, read through the referencing
+// usage so the arguments its body binds (`require r { in w = unit; }`) are seen.
+// A reference naming anything else, or one that does not resolve, states the
+// condition its name evaluates to, followed by what its body owns.
+func (ctx *Context) appendReferencedConditions(out []Condition, decl ast.Node, ref ast.Node, body []ast.Node,
+	scope *symbols.Scope, required bool, seen map[*symbols.Symbol]bool) []Condition {
 	sym := ctx.referencedRequirement(scope, decl, ref)
 	if sym == nil {
-		return append(out, Condition{Expr: ref, Scope: scope, Required: required})
+		out = append(out, Condition{Expr: ref, Scope: scope, Required: required})
+		return ctx.appendOwnedConditions(out, decl, body, scope, required, seen)
 	}
 	if seen[sym] {
 		return out
@@ -500,11 +501,36 @@ func (ctx *Context) appendReferencedConditions(out []Condition, decl ast.Node, r
 	}
 	seen[sym] = true
 	defer delete(seen, sym)
-	conds := ctx.appendMemberConditions(nil, sym, ctx.chainMembers(sym, nil), true, seen)
-	for i := range conds {
-		conds[i].Required = required
+	start := len(out)
+	if usage := ctx.referencingConstraintOf(decl, scope); usage != nil {
+		out = ctx.appendMemberConditions(out, usage, ctx.chainMembers(usage, scope), true, seen)
+		setAssumed(out[start:], !required)
+		setConstraint(out[start:], usage)
+		return out
 	}
-	return append(out, conds...)
+	out = ctx.appendMemberConditions(out, sym, ctx.chainMembers(sym, nil), true, seen)
+	setAssumed(out[start:], !required)
+	return ctx.appendOwnedConditions(out, decl, body, scope, required, seen)
+}
+
+// referencingConstraintOf returns the constraint usage a `require r;` or
+// `assume r;` member declares, which reference-subsets r and owns the member's
+// body; nil when the symbol table declares none.
+func (ctx *Context) referencingConstraintOf(member ast.Node, scope *symbols.Scope) *symbols.Symbol {
+	body := symbols.ConstraintBodyScope(scope, member)
+	if body == nil || body.Owner() == nil || body.Owner().Decl != member {
+		return nil
+	}
+	return body.Owner()
+}
+
+// setAssumed turns conds, groups included, into assumptions when assumed is set;
+// the assumptions among them stay assumptions either way.
+func setAssumed(conds []Condition, assumed bool) {
+	for i := range conds {
+		conds[i].Required = conds[i].Required && !assumed
+		setAssumed(conds[i].Group, assumed)
+	}
 }
 
 // referencedRequirement resolves the requirement or constraint the require/assume
