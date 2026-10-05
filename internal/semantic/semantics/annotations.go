@@ -986,10 +986,10 @@ func (m *Model) metaclassOf(sym *symbols.Symbol) *symbols.Symbol {
 	if meta := m.kermlMetaclass(kermlMetaclassName(sym, m.isKerMLDoc(sym))); meta != nil {
 		return meta
 	}
-	// An extended definition or usage (`#service def X`, `class x`) is a SysML
-	// Definition/Usage however its keyword names it (SysML.xtext).
-	if sym.Kind == symbols.SymbolKerMLType && !m.isKerMLDoc(sym) {
-		if meta := m.sysmlMetaclass(extendedMetaclassName(sym)); meta != nil {
+	// An extended definition (`#service def X`) is a SysML Definition however
+	// its extension keywords name it (SysML.xtext).
+	if sym.Kind == symbols.SymbolKerMLType && !m.isKerMLDoc(sym) && extendedDefinition(sym) {
+		if meta := m.sysmlMetaclass("Definition"); meta != nil {
 			return meta
 		}
 	}
@@ -1046,24 +1046,16 @@ func sysmlMetaclassName(sym *symbols.Symbol) string {
 	return metaclassName(sym.Kind)
 }
 
-// extendedMetaclassName is the SysML metaclass of an extended definition or
-// usage: Definition for a definition declaration, Usage for a usage.
-func extendedMetaclassName(sym *symbols.Symbol) string {
+// extendedDefinition reports whether sym is an extended definition: a
+// `#kw def X` declaration, parsed as a def-keyworded Definition with no kind
+// keyword (SysML.xtext ExtendedDefinition).
+func extendedDefinition(sym *symbols.Symbol) bool {
 	if sym.Recorded() {
-		switch sym.Facts.Node {
-		case symbols.NodeDefinition:
-			return "Definition"
-		case symbols.NodeUsage:
-			return "Usage"
-		}
+		return sym.Facts.Node == symbols.NodeDefinition &&
+			sym.Facts.Keyword == "" && sym.Facts.DefKind == ast.DefClass
 	}
-	switch sym.Decl.(type) {
-	case *ast.Definition:
-		return "Definition"
-	case *ast.Usage:
-		return "Usage"
-	}
-	return ""
+	d, ok := sym.Decl.(*ast.Definition)
+	return ok && d.Keyword == "" && d.HasDefKeyword
 }
 
 // ConnectorEndMetaclassName is the SysML metaclass of a connector end: a
@@ -2067,6 +2059,7 @@ func (m *Model) reflectiveFeatureValue(sym *symbols.Symbol, feature string) (sym
 	case "isVariation":
 		isDefinition := sym.Kind.IsDefinition() &&
 			sym.Kind != symbols.SymbolMetaclass &&
+			(sym.Kind != symbols.SymbolKerMLType || extendedDefinition(sym)) &&
 			!m.isKerMLDoc(sym)
 		if !isDefinition &&
 			!m.reflectiveMetaclassConforms(sym, "Usage") {

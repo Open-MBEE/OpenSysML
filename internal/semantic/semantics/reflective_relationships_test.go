@@ -545,6 +545,20 @@ class D {
 	for _, fixture := range reflectiveFixtures(t, "extended-usage2.sysml", source.KindSysML, sysmlUsage) {
 		model := fixture.model
 		x := relFixtureSymbol(t, fixture, "x")
-		assertRelMetaclass(t, model, x, "Usage")
+		// KerML-notation declarations in a SysML document are not extended
+		// usages: `class x` keeps no metaclass, as before extended
+		// definitions classified.
+		if meta := model.MetaclassOf(x); meta != nil {
+			t.Errorf("class x metaclass = %s, want none", model.fqnOf(meta))
+		}
+	}
+	svcUsage := `package P {
+    metadata def service;
+    #service s;
+}`
+	for _, fixture := range reflectiveFixtures(t, "extended-usage3.sysml", source.KindSysML, svcUsage) {
+		model := fixture.model
+		s := relFixtureSymbol(t, fixture, "s")
+		assertRelMetaclass(t, model, s, "ReferenceUsage")
 	}
 }

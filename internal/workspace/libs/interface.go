@@ -231,7 +231,7 @@ func (w *interfaceWriter) facts(sym *symbols.Symbol) symbols.LibraryFacts {
 			if src, resolved := w.r.ResolveTarget(scope, member.Source); resolved && src != nil {
 				rel.Source = w.ref(sym, src, "relationship source")
 			}
-			if _, isChain := member.Target.(*ast.FeatureChainExpr); !isChain {
+			if !ast.IsFeatureChain(member.Target) {
 				if tgt, resolved := w.r.ResolveTarget(scope, member.Target); resolved && tgt != nil {
 					rel.Target = w.ref(sym, tgt, "relationship target")
 				}

@@ -742,3 +742,24 @@ class K2 conjugates KB;
 		t.Errorf("relationship constraints had %d evaluation errors: %+v", stats.evaluationErrors, verdicts)
 	}
 }
+
+func TestSelfCheckKerMLNotationTypesKeepBaseClassification(t *testing.T) {
+	file := SourceFile{Name: "kerml_notation.sysml", Text: `package P {
+	class x;
+	metadata def service;
+	#service def S;
+	#service s;
+}`}
+	s := NewSession()
+	result := s.SubmitFiles([]SourceFile{file})
+	if errs := errorDiagnostics(result.Diagnostics); len(errs) > 0 {
+		t.Fatalf("fixture did not load cleanly: %v", errs)
+	}
+	if s.HasErrors() {
+		t.Fatal("fixture has model errors")
+	}
+	_, stats := s.selfCheckWithCounts("SysMLValidation", true)
+	if stats.violations != 0 || stats.evaluationErrors != 0 {
+		t.Errorf("self-check had %d violations and %d errors", stats.violations, stats.evaluationErrors)
+	}
+}

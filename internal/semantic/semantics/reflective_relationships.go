@@ -222,7 +222,7 @@ func (m *Model) relationshipMemberEnds(sym *symbols.Symbol) (src, tgt *symbols.S
 	}
 	// A chain target names an implicit chaining feature the model has no
 	// element for, so the end stays unresolved and its features stay underived.
-	if _, isChain := member.Target.(*ast.FeatureChainExpr); !isChain {
+	if !ast.IsFeatureChain(member.Target) {
 		if resolved, ok := m.resolver.ResolveTarget(scope, member.Target); ok {
 			tgt = resolved
 		}
