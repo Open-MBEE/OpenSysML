@@ -151,9 +151,14 @@ func TestSelfCheckFlagRunsOnlyOnCleanModels(t *testing.T) {
 	constantCheck := check(t, binary, constantAttribute, "-self-check")
 	wantReport(t, constantCheck, 0, "Self-model check: ", ", 0 violations,")
 
-	const connectionEnds = `package P { connection def C { end part a; end part b; } }`
+	const connectionEnds = `package P {
+		part def T;
+		connection def C { end part a : T; end part b : T; }
+	}`
 	endsCheck := check(t, binary, connectionEnds, "-self-check")
 	wantReport(t, endsCheck, 0, "Self-model check: ", ", 0 violations,")
+	rejectReport(t, endsCheck, "validateConnectionDefinitionIsSufficient fails for P::C",
+		"validateFeatureEndIsConstant fails")
 
 	const broken = `package P { part def A :> Missing; }`
 	failed := check(t, binary, broken, "-self-check")
@@ -193,6 +198,22 @@ func TestEvalAfterInstantiateThroughCLI(t *testing.T) {
 	answered := check(t, binary, model, "-e", "P::Sensor::reading")
 	wantReport(t, answered, 0, "= 0.0")
 	rejectReport(t, answered, "(on ")
+}
+
+// TestEvalOfBoundNamespaceMembersThroughCLI: `-e` reads usages a namespace-owned
+// binding joins through the binding's class, so the valued end's declared value
+// is the class's one object rather than a second construction.
+func TestEvalOfBoundNamespaceMembersThroughCLI(t *testing.T) {
+	binary := buildCLI(t)
+	const model = `package P {
+    part def Car;
+    part x : Car;
+    part y : Car = new Car();
+    bind x = y;
+}
+`
+	got := check(t, binary, model, "-e", "P::x", "-e", "P::y", "-e", "P::x === P::y")
+	wantReport(t, got, 0, "= Instance(ID: 1)", "= true")
 }
 
 // TestCheckOfInheritedConstraintAfterInstantiate checks what `-instantiate p

@@ -30,12 +30,6 @@ Analyse the model:
 ```
 
 ```
-examples/disposal-team-demo/team.sysml:29:45: warning: Bound features should have conforming types
-        attribute payload : MassValue = sum(robots.mass) + sum(cradles.mass);
-                                            ^~~~~~~~~~~
-examples/disposal-team-demo/team.sysml:29:64: warning: Bound features should have conforming types
-        attribute payload : MassValue = sum(robots.mass) + sum(cradles.mass);
-                                                               ^~~~~~~~~~~~
 ✓ package Team
 ✓ package TeamComms
 ✓ package TeamMission
@@ -43,9 +37,11 @@ examples/disposal-team-demo/team.sysml:29:64: warning: Bound features should hav
 ✓ examples/disposal-team-demo/team.sysml: no errors
 ```
 
-The two warnings are the type-conformance check reporting, as the SysML v2 pilot
-does, that `RealFunctions::sum` is declared over `Real` and the payload hands it
-`MassValue` quantities; the sums evaluate all the same, in kilograms.
+The payload adds `sum(robots.mass)` to `sum(cradles.mass)` with
+`QuantityCalculations::sum`, the library's sum over quantities, so the result is
+in kilograms and the type-conformance check has nothing to say about it;
+`RealFunctions::sum` is declared over `Real` and would draw a warning for each
+`MassValue` argument.
 
 **Ask the fleet calculations.** `FleetReach` selects the robots reaching past a
 floor and reads their reach; `Endurance` reduces the charges to one total and
@@ -124,7 +120,7 @@ Features:
     command = Instance(ID: 11)
       issued = Instance(ID: 12)
         code = <unset>
-    accepted = 2
+    commandsAccepted = 2
     lastCode = 2
     duty = Instance(ID: 6)
       standingBy = <unknown>
@@ -138,7 +134,7 @@ Features:
         code = <unset>
 ```
 
-`accepted = 2` and `lastCode = 2` are the unit's own values: the messages were
+`commandsAccepted = 2` and `lastCode = 2` are the unit's own values: the messages were
 delivered on the unit's identity, not the console's, which is what a connector
 between two parts means. They are also the trace of the machine's path — the
 states print as `<unknown>` because `%features` reads values, not the
@@ -166,7 +162,7 @@ Features:
     command = Instance(ID: 12)
       issued = Instance(ID: 16)
         code = <unset>
-    accepted = 2
+    commandsAccepted = 2
     lastCode = 2
     duty = Instance(ID: 8)
       standingBy = <unknown>
@@ -174,7 +170,7 @@ Features:
     command = Instance(ID: 13)
       issued = Instance(ID: 18)
         code = <unset>
-    accepted = 2
+    commandsAccepted = 2
     lastCode = 2
     duty = Instance(ID: 9)
       standingBy = <unknown>
@@ -184,7 +180,7 @@ Features:
     target = [Instance(ID: 12), Instance(ID: 13)]
 ```
 
-The console issued two commands, and each unit accepted both — `accepted = 2`
+The console issued two commands, and each unit accepted both — `commandsAccepted = 2`
 and `lastCode = 2` on each element, not on the collection: every delivery keeps
 the element's own port and identity.
 

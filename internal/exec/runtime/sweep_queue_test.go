@@ -210,11 +210,32 @@ func TestRunSweepWithKeepsEachRowsWritesToItself(t *testing.T) {
 	}
 }
 
+// metDeadline is a context whose deadline is met when the test says so rather than when a
+// clock does, so a slow machine cannot meet it before every job has taken its first row.
+type metDeadline struct {
+	context.Context
+	done chan struct{}
+	once sync.Once
+}
+
+func (d *metDeadline) Done() <-chan struct{} { return d.done }
+
+func (d *metDeadline) Err() error {
+	select {
+	case <-d.done:
+		return context.DeadlineExceeded
+	default:
+		return nil
+	}
+}
+
+func (d *metDeadline) meet() { d.once.Do(func() { close(d.done) }) }
+
 // A deadline met mid-sweep ends the sweep with context.DeadlineExceeded and no table: no row
 // starts once the deadline is visible, the rows in flight finish and are discarded — an
 // absence, never a partial answer — as one job reports when it meets the deadline between
-// two rows. The rows the jobs take first wait out the deadline, so on any job count the
-// rows started are exactly the jobs' first ones.
+// two rows. The rows the jobs take first wait out the deadline, which the last of them to
+// start meets, so on any job count the rows started are exactly the jobs' first ones.
 func TestRunSweepWithStopsAtTheDeadline(t *testing.T) {
 	fresh, scope := sweepJobsFixture(t)
 	first := firstOf(t, fresh)
@@ -225,12 +246,14 @@ func TestRunSweepWithStopsAtTheDeadline(t *testing.T) {
 	}
 	double := sweepCalcRun(sym, scope)
 	for _, jobs := range []int{1, sweepJobs} {
-		stop, cancel := context.WithTimeout(context.Background(), 20*time.Millisecond)
+		stop := &metDeadline{Context: context.Background(), done: make(chan struct{})}
 		var started, finished, late atomic.Int64
 		waiting := func(ctx *Context, bindings []SweepBinding) (SweepRunResult, error) {
-			started.Add(1)
 			if stop.Err() != nil {
 				late.Add(1)
+			}
+			if started.Add(1) == int64(jobs) {
+				stop.meet()
 			}
 			if bindings[0].Value.Const.Int <= int64(sweepJobs) {
 				<-stop.Done()
@@ -240,7 +263,6 @@ func TestRunSweepWithStopsAtTheDeadline(t *testing.T) {
 			return result, err
 		}
 		table, err := RunSweepWith(stop, SweepWorkers{First: firstOf(t, fresh), Jobs: jobs, Fresh: fresh}, "test::Fib", plan, 0, waiting)
-		cancel()
 		if !errors.Is(err, context.DeadlineExceeded) || len(table.Rows) != 0 || table.Target != "" {
 			t.Fatalf("on %d jobs: table of %d rows and %v, want no table and context.DeadlineExceeded", jobs, len(table.Rows), err)
 		}

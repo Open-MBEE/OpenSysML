@@ -1933,29 +1933,68 @@ func (r *Resolver) getUsageType(scope *symbols.Scope, usage *ast.Usage) *symbols
 			}
 		}
 	}
-	// A feature with no declared type takes the type of the value bound to it
-	// (KerML 1.0 §7.4.9 FeatureValue), so its members are the value's members.
 	return r.valueType(scope, usage)
 }
 
-// valueType returns the feature a usage's value expression names, for the member
-// lookups a chain through the usage makes. Only the forms that denote a feature
-// are followed; anything else has no members to reach.
+// valueType returns the feature whose members a chain through an untyped usage reads: with no
+// declared specialization, direction or `default`, the usage specializes its value's result (KerML
+// 1.0 §8.3.3.3.4 checkFeatureValuationSpecialization; a behavior's `T(…)` and `new T(…)` instance T).
 func (r *Resolver) valueType(scope *symbols.Scope, usage *ast.Usage) *symbols.Symbol {
-	if usage.Value == nil || r.valuesInProgress[usage] {
+	if usage.Value == nil || usage.ValueIsDefault || usage.Direction != ast.DirNone || r.valuesInProgress[usage] {
 		return nil
+	}
+	for _, rel := range usage.Relationships {
+		if rel != nil && specializationKind(rel.Kind) {
+			return nil
+		}
 	}
 	r.valuesInProgress[usage] = true
 	defer delete(r.valuesInProgress, usage)
 
-	expr := usage.Value
 	var sym *symbols.Symbol
 	// The value is read on behalf of a member lookup, so its own diagnostics
 	// belong to the reference that wrote it, not to this one.
 	r.aside(func() {
-		if found, ok := r.ResolveTarget(scope, expr); ok {
-			sym = found
+		switch v := usage.Value.(type) {
+		case *ast.InvocationExpr:
+			sym = r.invocationResult(scope, v)
+		case *ast.ConstructorExpr:
+			if v.Type != nil {
+				sym, _ = r.ResolveQualified(scope, v.Type)
+			}
+		default:
+			if found, ok := r.ResolveTarget(scope, usage.Value); ok {
+				sym = found
+			}
 		}
 	})
 	return sym
+}
+
+// invocationResult returns the feature the result of `T(…)` specializes: the
+// result parameter of the function T, else the behavior T itself.
+func (r *Resolver) invocationResult(scope *symbols.Scope, inv *ast.InvocationExpr) *symbols.Symbol {
+	if inv.Type == nil {
+		return nil
+	}
+	callee, ok := r.ResolveInvocationName(scope, inv.Type)
+	if !ok || callee == nil {
+		return nil
+	}
+	if model, ok := r.model.(resultParameterProvider); ok {
+		if result := model.ResultParameterOf(callee); result != nil {
+			return result
+		}
+	}
+	return callee
+}
+
+// specializationKind reports whether a declared relationship is a
+// Specialization: a typing, subclassification, subsetting or redefinition.
+func specializationKind(k ast.RelationshipKind) bool {
+	switch k {
+	case ast.RelTyping, ast.RelSpecializes, ast.RelSubsets, ast.RelRedefines, ast.RelReferences, ast.RelCrosses:
+		return true
+	}
+	return false
 }

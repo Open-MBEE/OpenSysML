@@ -1241,6 +1241,23 @@ Under `"explore"` every run creates the object graph anew, so the machine is exp
 its assembly and each outcome's `outputs` are the object's features as that run left them,
 spelled as the executed `finalContext` spells them.
 
+Set `trace: true` to include the run's documented `accept`, `send`, `transition`, `entry`,
+`exit`, `do`, `choice` and `guard` records in `trace`, in execution order. Each record carries
+its clock instant as `time`, along with fields relevant to its kind; `text` is the line the
+trace prints. This transition record was captured from a traced `ExecuteState` call for
+`Test::Machine` in `conformance/fixtures/behavior.sysml`:
+
+```json
+{"kind":"transition", "time":{"quantity":{"realMagnitude":0, "unit":"s", "unitTerm":{"scaleNum":1, "scaleDen":1, "factors":[{"unitId":"SI::second", "exponent":1}]}}}, "machine":"Machine", "from":"init", "to":"Running", "text":"transition: init -> Running"}
+```
+
+The `state_trace` capability is checked before sending the option; a service that withholds it
+refuses the request with `UNIMPLEMENTED`. Tracing an explore schedule is `INVALID_ARGUMENT`,
+because one trace describes one run, not the outcomes of several runs. A failed run still returns
+the records made before failure. The response retains the newest records up to the service's
+held-event limit and reports discarded older records as `traceDropped`; without the option,
+`trace` and `traceDropped` are omitted.
+
 ### `EvaluateCalc`
 
 `arguments` is a positional list of `Value`s matching the calc's `in` parameters in order.

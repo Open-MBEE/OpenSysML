@@ -339,6 +339,10 @@ jobs:
       - name: Test the pilot downloader
         run: scripts/pilot-pin-test.sh
 
+      # install.sh and install.ps1 against a release served from localhost.
+      - name: Test the install scripts
+        run: scripts/install-test.sh
+
       - name: Cache the OMG training corpus
         uses: actions/cache@v4
         with:
@@ -1097,6 +1101,10 @@ jobs:
       # Sphinx roles in the Python docstrings are rewritten when the site is built.
       - name: Check the Sphinx-role rewriting hook
         run: python3 scripts/griffe_sphinx_roles-test.py
+
+      # The install scripts are served from the site root, copied from the tree.
+      - name: Check the install-script publishing hook
+        run: python3 scripts/mkdocs_install_scripts-test.py
 
       # --strict: a link or anchor a moved page left behind fails here rather than
       # publishing a 404 from main.

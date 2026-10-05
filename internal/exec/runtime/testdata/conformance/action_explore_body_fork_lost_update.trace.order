@@ -1,0 +1,5 @@
+# The fork precedes both branches; the join waits for both.
+f < a
+f < b
+a < j
+b < j

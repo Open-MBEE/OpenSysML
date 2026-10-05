@@ -930,6 +930,10 @@ pub struct ExecuteStateRequest {
     /// an error. Empty runs the machine outside any object.
     #[prost(string, tag="5")]
     pub performer_symbol_id: ::prost::alloc::string::String,
+    /// Ask for the run's trace in ExecuteStateResponse.trace. Advertised as the
+    /// "state_trace" capability; a service withholding it refuses true with UNIMPLEMENTED.
+    #[prost(bool, tag="6")]
+    pub trace: bool,
 }
 /// ExecuteStateResponse contains state machine execution trace
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -956,6 +960,13 @@ pub struct ExecuteStateResponse {
     /// the machine took. Populated under the "final_time" capability.
     #[prost(double, tag="7")]
     pub final_time: f64,
+    /// The run's trace in the order the run made it, when the request asked for it:
+    /// also on a run that failed, up to the failure. Empty under an explore schedule.
+    #[prost(message, repeated, tag="8")]
+    pub trace: ::prost::alloc::vec::Vec<DocumentEvent>,
+    /// How many of the oldest records the service's held-events bound discarded.
+    #[prost(int32, tag="9")]
+    pub trace_dropped: i32,
 }
 /// ConvertRequest asks for a model in another representation. A model_hash
 /// converts the source that parse read, so a file edited since then does not
@@ -2287,6 +2298,9 @@ pub struct ServerInfoResponse {
     ///    "final_time"   - ExecuteActionResponse and ExecuteStateResponse report
     ///                   final_time, the run's simulation clock when it ended;
     ///                   without it the field is 0 whatever the run waited on.
+    ///    "state_trace"  - ExecuteStateRequest can ask for the run's typed trace in
+    ///                   ExecuteStateResponse.trace, including records before a failure.
+    ///                   Traces are unavailable under an explore schedule.
     ///    "engines"      - the ListEngines RPC lists the analysis engines; the
     ///                   verification and sweep requests take an `engine`, the
     ///                   engine the question is put to, unset meaning "auto"; and
