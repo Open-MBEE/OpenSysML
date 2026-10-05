@@ -1,0 +1,16 @@
+# NoticeViews::handshakeView — sequence rendering (view def SequenceView)
+# not represented: attribute def Kit::Level has no place in a sequence rendering; it is not shown
+# not represented: a connect in Talk::Handshake states no direction; a sequence rendering shows directed messages only
+# not represented: message pending states no source and target; no message is drawn
+# not represented: message adrift attaches to monitor.tapped, which is on no lifeline the rendering shows; no message is drawn
+classes: {
+  usage: { style: { fill: white; stroke: "#181818"; stroke-width: 1; font-color: black; font-size: 14; border-radius: 8 } }
+  flow: { style: { stroke: "#181818"; font-size: 13; font-color: black; stroke-width: 1; stroke-dash: 3 } }
+}
+sequence: "" {
+  shape: sequence_diagram
+  n0: "«part»\ncaller" { class: usage }
+  n1: "«part»\ncallee" { class: usage }
+  n0 -> n0: "echo" { class: flow }
+  n0 -> n1: "of Ping" { class: flow }
+}

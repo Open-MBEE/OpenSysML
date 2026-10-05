@@ -25,7 +25,7 @@ package Test {
 				entry; then c1;
 				state c1;
 				state c2;
-				transition first c1 accept after 1 [s] do action { assign log := log + "c "; send new Go() to Machine; } then c2;
+				transition first c1 accept after 1 [s] do action { assign log := log + "c "; then send new Go() to Machine; } then c2;
 			}
 			state d {
 				entry; then d1;

@@ -14,7 +14,11 @@ an install without it refuses to verify rather than failing to import.
 
 import re
 
-from opensysml.errors import ManifestSignatureError, UnsignedReleaseError
+from opensysml.errors import (
+    ManifestSignatureError,
+    SigstoreUnavailableError,
+    UnsignedReleaseError,
+)
 
 #: Manifest of every published artifact's digest, and its sigstore bundle.
 MANIFEST_ASSET = 'SHA256SUMS.txt'
@@ -60,15 +64,22 @@ def _load_sigstore():
         _Sigstore: The API this module verifies with
 
     Raises:
-        UnsignedReleaseError: If it cannot be imported, so nothing can be verified
+        SigstoreUnavailableError: If it cannot be imported, so nothing can be
+            verified; the message names the package that is missing (sigstore,
+            or a package it depends on) and how to install it
     """
     try:
         return _Sigstore()
     except ImportError as e:
-        raise UnsignedReleaseError(
-            f"opensysml cannot verify the signature on {MANIFEST_ASSET}: {e}. "
-            f"Install opensysml's sigstore dependency, or ask for a release this "
-            f"opensysml pins a digest for with version=."
+        missing = (e.name or "sigstore").partition(".")[0]
+        package = (
+            "the sigstore package" if missing == "sigstore"
+            else f"the {missing} package sigstore depends on"
+        )
+        raise SigstoreUnavailableError(
+            f"opensysml cannot verify the signature on {MANIFEST_ASSET} because "
+            f"{package} is not installed ({e}); install it with "
+            f"{SigstoreUnavailableError.install_command}"
         )
 
 

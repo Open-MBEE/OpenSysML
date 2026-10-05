@@ -14,7 +14,10 @@
 
 # In-browser engine assets (make docs-engine-assets); built, never vendored
 /docs/assets/sysml-engine.wasm*
+/docs/assets/sysml-repl.wasm*
+/docs/assets/repl-examples/
 /docs/assets/wasm_exec.js
+/docs/assets/landing/
 
 # Julia package environments resolve locally; the pinned deps are in Project.toml.
 client/julia/**/Manifest.toml

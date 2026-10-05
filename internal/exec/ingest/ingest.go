@@ -162,6 +162,8 @@ type column struct {
 func readDelimited(name string, data []byte, comma rune, m *Map) ([]Row, error) {
 	r := csv.NewReader(bytes.NewReader(data))
 	r.Comma = comma
+	// Tab-separated files seldom quote, so a quote inside a cell is text.
+	r.LazyQuotes = comma == '\t'
 	header, err := r.Read()
 	if errors.Is(err, io.EOF) {
 		return nil, fmt.Errorf("%s: no header record", name)

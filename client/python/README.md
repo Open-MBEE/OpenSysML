@@ -45,20 +45,33 @@ print(model.eval("mass", subject="Demo::sedan"))
 1800.0
 ```
 
-## Service resolution
+## The service
 
-On its first connection, the client starts a `sysml-grpc` service if none was
-configured. It checks `$OPENSYSML_BINARY`, the shared cache, downloads the
-release it was built against, then checks `$PATH`. Release downloads are
-verified against the digest pinned in the package when one is available. For
-a release newer than the package's table, the client verifies the release's
-signed checksum manifest and uses its digest. A manifest that disagrees with
-a package pin is an integrity failure. Without a package pin or a digest from
-a verifiable signed manifest, the download is refused unless
-`OPENSYSML_ALLOW_UNPINNED_DOWNLOAD` opts into trusting a same-origin checksum.
-See the [service guide](https://opensysml.org/clients/python/service/) for
-cache ownership, offline behavior, trust configuration and external service
-setup.
+The client talks to a `sysml-grpc` service. You do not have to install or
+start one: the first connection starts a private service for the current
+interpreter and stops it when the interpreter exits.
+
+To find the service binary, the client checks, in order:
+
+1. `$OPENSYSML_BINARY`, if set.
+2. The shared cache at `~/.opensysml/bin/sysml-grpc`.
+3. A download of the OpenSysML release this package was built against.
+4. A `sysml-grpc` on `$PATH`.
+
+A downloaded binary is verified against a SHA-256 digest shipped inside the
+package, so a normal `pip install opensysml` followed by `opensysml.connect()`
+needs no environment variables and no extra setup. Downloading another release
+is also verified, through its signed checksum manifest; an unverifiable download
+is refused rather than trusted.
+
+To use a service you run yourself, pass its address:
+
+```python
+model = opensysml.connect("localhost:50051").load("model.sysml")
+```
+
+The [service guide](https://opensysml.org/clients/python/service/) covers the
+cache, offline use, trust configuration and connecting to an external service.
 
 ## Documentation
 

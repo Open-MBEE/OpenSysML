@@ -190,7 +190,7 @@ type CheckReport struct {
 	States   int
 	Moves    int
 	MaxDepth int
-	// BoundsHit names the bounds the search ran into: `depth`, `states`, and the
+	// BoundsHit names the search and statement-order bounds it ran into, and the
 	// executor's budgets by name (ExecutorBounds); none when exhaustive.
 	BoundsHit []string
 	// Limits are the executor's budgets the search ran under.
@@ -916,8 +916,14 @@ func ownerUnits(moves []searchMove) map[checkedExecutor]int {
 // evaluate asks the property of the state under a probe: what evaluating it
 // derives is given back.
 func (c *checker) evaluate(p CheckProperty) (bool, error) {
-	defer c.ctx.beginProbe()()
-	return p.Holds(c.ctx, c.inv)
+	holds, err := c.ctx.everyStatementOrder(func() (bool, error) {
+		return p.Holds(c.ctx, c.inv)
+	})
+	if errors.Is(err, ErrStatementOrderSweepLimit) {
+		c.hit(BoundStatementOrders)
+		return holds, nil
+	}
+	return holds, err
 }
 
 // scopeWith is scope with the reasons of more it lacks, sorted.
@@ -934,24 +940,61 @@ func scopeWith(scope, more []ObservationReason) []ObservationReason {
 // final records the outcome of a complete schedule, the first schedule
 // reaching each distinct outcome being its witness.
 func (c *checker) final() {
-	values, spelled, identity, scope := c.spellFinal()
-	c.scope = scopeWith(c.scope, scope)
-	if _, seen := c.finals[identity]; seen {
-		return
+	finals, err := c.spellFinalVariants()
+	if errors.Is(err, ErrStatementOrderSweepLimit) {
+		c.hit(BoundStatementOrders)
 	}
-	c.finals[identity] = len(c.results)
-	c.results = append(c.results, CheckFinal{
-		Outcome:  spelled,
-		Values:   values,
-		Witness:  c.witness(),
-		identity: identity,
-	})
+	for _, final := range finals {
+		c.scope = scopeWith(c.scope, final.scope)
+		if _, seen := c.finals[final.identity]; seen {
+			continue
+		}
+		c.finals[final.identity] = len(c.results)
+		witness := c.witness()
+		for _, choice := range final.choices {
+			choice.Where += finalOrderChoiceSuffix
+			witness.Choices = append(witness.Choices, choice)
+		}
+		c.results = append(c.results, CheckFinal{
+			Outcome:  final.spelled,
+			Values:   final.values,
+			Witness:  witness,
+			identity: final.identity,
+		})
+	}
 }
 
 // spellFinal renders the completed state's outcome and divergence values under a probe;
 // a selected performer feature the outcome leaves out (an item, one unset or in error) joins both.
 func (c *checker) spellFinal() (values map[string]string, spelled, identity string, scope []ObservationReason) {
-	defer c.ctx.beginProbe()()
+	finals, _ := c.spellFinalVariants()
+	if len(finals) == 0 {
+		return nil, "", "", nil
+	}
+	return finals[0].values, finals[0].spelled, finals[0].identity, finals[0].scope
+}
+
+type spelledCheckFinal struct {
+	values   map[string]string
+	spelled  string
+	identity string
+	scope    []ObservationReason
+	choices  []ChoiceTaken
+}
+
+func (c *checker) spellFinalVariants() ([]spelledCheckFinal, error) {
+	var finals []spelledCheckFinal
+	err := c.ctx.sweepStatementOrderVariants(func(sweep *statementOrderSweep) error {
+		values, spelled, identity, scope := c.spellFinalOnce()
+		finals = append(finals, spelledCheckFinal{
+			values: values, spelled: spelled, identity: identity, scope: scope, choices: slices.Clone(sweep.choices),
+		})
+		return nil
+	})
+	return finals, err
+}
+
+func (c *checker) spellFinalOnce() (values map[string]string, spelled, identity string, scope []ObservationReason) {
 	outcome := c.inv.Outcome()
 	values = c.divergenceValues()
 	spelled, identity, scope = outcome.String(), outcome.identity(), outcome.Scope
@@ -1435,12 +1478,13 @@ func divergences(finals []CheckFinal) []Divergence {
 // The executor budgets a search runs under, by the name a bound hit reports;
 // each names one field of Budgets, so a report spells the limit that stopped it.
 const (
-	BoundSteps       = "steps"
-	BoundActionSteps = "actionSteps"
-	BoundEvents      = "events"
-	BoundDoSteps     = "doSteps"
-	BoundElements    = "elements"
-	BoundBehaviors   = "behaviors"
+	BoundSteps           = "steps"
+	BoundActionSteps     = "actionSteps"
+	BoundEvents          = "events"
+	BoundDoSteps         = "doSteps"
+	BoundElements        = "elements"
+	BoundBehaviors       = "behaviors"
+	BoundStatementOrders = "statement orders"
 )
 
 // ExecutorBounds lists the executor budgets a bound hit may name, in report order.

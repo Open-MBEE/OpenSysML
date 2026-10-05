@@ -4,9 +4,9 @@
 # TestCheckReductionIsSound passing.
 76	87	76	87	por_shared_write
 28	34	28	41	por_guard_read
-19	18	20	20	por_trigger_read
-26	34	29	44	por_send_accept
-40	42	43	63	por_join
+40	46	40	47	por_trigger_read
+44	71	44	78	por_send_accept
+181	367	183	479	por_join
 18	21	18	21	por_dynamic_target
 24	40	85	220	por_independent_branches
 44	78	123	306	por_alias
@@ -16,7 +16,7 @@
 13	13	30	38	por_state_independent
 15	16	17	20	por_state_effect_write
 15	16	17	20	por_state_guard_read
-27	29	32	38	por_state_do_write
+46	50	56	68	por_state_do_write
 13	13	13	13	por_state_send_accept
 96	108	102	120	por_state_join_exit
 34	38	36	42	por_state_join_guard

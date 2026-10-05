@@ -1,0 +1,5 @@
+{
+	"type": "constraint",
+	"evaluate": "test::Rig::sends",
+	"error": "effect outside the constraint performance: constraint body: a send addresses the world the constraint judges"
+}

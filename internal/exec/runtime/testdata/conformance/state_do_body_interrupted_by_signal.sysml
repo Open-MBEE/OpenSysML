@@ -14,8 +14,8 @@ package Test {
         state busy {
             do action work {
                 assign log := log + "s1 ";
-                assign log := log + "s2 ";
-                assign log := log + "s3 ";
+                then assign log := log + "s2 ";
+                then assign log := log + "s3 ";
             }
             exit action leave {
                 assign log := log + "exit ";

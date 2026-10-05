@@ -29,8 +29,9 @@ func WriteAPIJSON(graph *rdf.Graph) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	elements := make([]apiJSONObject, 0, len(settled.Subjects()))
-	for _, subject := range settled.Subjects() {
+	subjects := settled.Subjects()
+	elements := make([]apiJSONObject, 0, len(subjects))
+	for _, subject := range subjects {
 		element, err := apiJSONElement(settled, subject)
 		if err != nil {
 			return nil, err

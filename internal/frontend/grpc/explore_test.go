@@ -478,7 +478,7 @@ package Pump {
     attribute level : Integer = 0;
     perform action fill : Fill {
       first start;
-      then action pour { assign level := level + 1; assign poured := level; }
+      then action pour { assign level := level + 1; then assign poured := level; }
       then done;
     }
   }

@@ -1,0 +1,5 @@
+{
+	"type": "constraint",
+	"evaluate": "test::Rig::writesPart",
+	"error": "assignment outside the constraint performance: constraint body: the implicit target of an assignment is the constraint's own performance (SysML v2 §7.17.9) and z is not one of its features"
+}

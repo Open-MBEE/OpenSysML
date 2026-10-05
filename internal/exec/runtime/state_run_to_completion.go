@@ -202,6 +202,9 @@ func (e *StateExecutor) settleEntered(leaf *ast.StateNode) error {
 // entryStep chooses between free dispatch and held entry work.
 func (e *StateExecutor) entryStep(progress *dueProgress) (bool, error) {
 	dispatch, free := e.dispatchFree(e.dueDispatch())
+	if dispatch.fails != nil {
+		return false, dispatch.fails
+	}
 	if !free && len(e.held) == 1 {
 		item := e.held[0]
 		e.held = slices.Delete(e.held, 0, 1)
@@ -264,6 +267,9 @@ func (e *StateExecutor) dispatchFree(d dueDispatch) (dueDispatch, bool) {
 	if !d.due || !d.acts {
 		return d, false
 	}
+	if d.fails != nil {
+		return d, true
+	}
 	scopes := e.heldScopes()
 	if len(scopes) == 0 {
 		return d, true
@@ -273,7 +279,12 @@ func (e *StateExecutor) dispatchFree(d dueDispatch) (dueDispatch, bool) {
 	}
 	free := make([]Event, 0, len(d.among))
 	for _, event := range d.among {
-		if !e.eventHeld(scopes, event) {
+		held, err := e.eventHeld(scopes, event)
+		if err != nil {
+			d.fails = err
+			return d, true
+		}
+		if !held {
 			free = append(free, event)
 		}
 	}
@@ -291,12 +302,30 @@ func (e *StateExecutor) dispatchFree(d dueDispatch) (dueDispatch, bool) {
 // noAmongFree reports whether a dispatch naming no candidate events may run:
 // its own event and every risen change must be free of the held scopes.
 func (e *StateExecutor) noAmongFree(d dueDispatch, scopes []*ast.StateNode) (dueDispatch, bool) {
-	if d.event != nil && e.eventHeld(scopes, *d.event) {
-		return d, false
+	if d.event != nil {
+		held, err := e.eventHeld(scopes, *d.event)
+		if err != nil {
+			d.fails = err
+			return d, true
+		}
+		if held {
+			return d, false
+		}
 	}
-	if risen, ok := e.risenChanges(); ok {
+	if risen, ok, err := e.risenChanges(); err != nil {
+		d.fails = err
+		return d, true
+	} else if ok {
 		for _, trans := range risen {
-			if trans != nil && e.eventHeld(scopes, Event{Payload: trans}) {
+			if trans == nil {
+				continue
+			}
+			held, err := e.eventHeld(scopes, Event{Payload: trans})
+			if err != nil {
+				d.fails = err
+				return d, true
+			}
+			if held {
 				return d, false
 			}
 		}
@@ -306,9 +335,9 @@ func (e *StateExecutor) noAmongFree(d dueDispatch, scopes []*ast.StateNode) (due
 
 // eventHeld reports whether event's transitions fall inside a held scope;
 // a selection that fails to preview is held rather than risked.
-func (e *StateExecutor) eventHeld(scopes []*ast.StateNode, event Event) bool {
+func (e *StateExecutor) eventHeld(scopes []*ast.StateNode, event Event) (bool, error) {
 	if trans, ok := event.Payload.(*lower.Transition); ok {
-		return scopeContains(e.graph, scopes, e.transitionOwner(trans))
+		return scopeContains(e.graph, scopes, e.transitionOwner(trans)), nil
 	}
 	var candidates []dispatchCandidate
 	var err error
@@ -316,16 +345,16 @@ func (e *StateExecutor) eventHeld(scopes []*ast.StateNode, event Event) bool {
 		candidates, err = e.selectTransitions(&event)
 	})
 	if err != nil {
-		return true
+		return false, err
 	}
 	for _, candidate := range candidates {
 		for _, index := range candidate.enabled {
 			if scopeContains(e.graph, scopes, e.graph.Transitions[candidate.source][index].Owner) {
-				return true
+				return true, nil
 			}
 		}
 	}
-	return false
+	return false, nil
 }
 
 func (e *StateExecutor) transitionOwner(trans *lower.Transition) *ast.StateNode {

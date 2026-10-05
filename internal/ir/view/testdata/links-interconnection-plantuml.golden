@@ -1,0 +1,54 @@
+@startuml
+' PlantViews::loopView — interconnection rendering (render asInterconnectionDiagram)
+<style>
+root {
+  BackGroundColor white
+  FontName SansSerif
+  FontSize 14
+  FontColor black
+  LineColor #181818
+  HorizontalAlignment left
+}
+element {
+  BackGroundColor white
+  LineColor #181818
+  LineThickness 0.5
+  RoundCorner 0
+  Shadowing 0.0
+}
+start, end, activityBar {
+  BackGroundColor black
+}
+arrow {
+  LineColor #181818
+  LineThickness 1
+  FontSize 13
+}
+note {
+  BackGroundColor #FEFFDD
+  FontSize 13
+}
+.usage {
+  RoundCorner 20
+}
+.package {
+  LineThickness 1.5
+}
+.region {
+  LineStyle 4
+}
+</style>
+skinparam wrapWidth 300
+hide stereotype
+rectangle "<size:10>//«part def»//</size>\n**Loop**" as n0 <<part def>> [[https://example.test/src/interconnection.sysml#L16]] {
+  rectangle "<size:10>//«part»//</size>\n**pump : Pump**" as n1 <<part>> <<usage>> [[https://example.test/src/interconnection.sysml#L17]] {
+    port "outlet" as n1.0
+  }
+  rectangle "<size:10>//«part»//</size>\n**tank : Tank**" as n2 <<part>> <<usage>> [[https://example.test/src/interconnection.sysml#L18]] {
+    port "inlet" as n2.0
+  }
+  rectangle "<size:10>//«part»//</size>\n**sensor : Pump**" as n3 <<part>> <<usage>> [[https://example.test/src/interconnection.sysml#L22]]
+}
+n1.0 -[thickness=3]- n2.0 : supply [[https://example.test/src/interconnection.sysml#L19]]
+n1 -[dashed]-> n2 : of Water [[https://example.test/src/interconnection.sysml#L20]]
+@enduml

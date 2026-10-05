@@ -1,0 +1,76 @@
+enter calc test::extents
+  stmt return
+          enter calc SequenceFunctions::size
+materialize: h #1
+start: performed action pf of #1
+materialize: Act #2
+start: exhibited state machine ex of #1
+materialize: St #3
+enter: s0
+run: exhibited state machine ex of #1
+materialize: Act #4
+            eval operator all -> (instance#4, instance#2)
+            bind seq = (instance#4, instance#2) [argument]
+          exit calc SequenceFunctions::size -> 2
+        eval invoke size -> 2
+        eval literal 2 -> 2
+      eval operator == -> true
+          enter calc SequenceFunctions::size
+materialize: St #5
+            eval operator all -> (instance#5, instance#3)
+            bind seq = (instance#5, instance#3) [argument]
+          exit calc SequenceFunctions::size -> 2
+        eval invoke size -> 2
+        eval literal 2 -> 2
+      eval operator == -> true
+          enter calc SequenceFunctions::size
+materialize: Lnk #6
+materialize: Car #7
+              eval feature a -> instance#7
+materialize: Car #8
+              eval feature b -> instance#8
+            eval operator all -> (instance#6)
+            bind seq = (instance#6) [argument]
+          exit calc SequenceFunctions::size -> 1
+        eval invoke size -> 1
+        eval literal 1 -> 1
+      eval operator == -> true
+          enter calc SequenceFunctions::size
+materialize: Ifc #9
+materialize: Pt #10
+              eval feature pa -> instance#10
+materialize: Pt #11
+              eval feature pb -> instance#11
+            eval operator all -> (instance#9)
+            bind seq = (instance#9) [argument]
+          exit calc SequenceFunctions::size -> 1
+        eval invoke size -> 1
+        eval literal 1 -> 1
+      eval operator == -> true
+          enter calc SequenceFunctions::size
+materialize: Aloc #12
+              eval feature a -> instance#7
+              eval feature b -> instance#8
+            eval operator all -> (instance#12)
+            bind seq = (instance#12) [argument]
+          exit calc SequenceFunctions::size -> 1
+        eval invoke size -> 1
+        eval literal 1 -> 1
+      eval operator == -> true
+          enter calc SequenceFunctions::size
+            eval operator all -> (instance#7, instance#8)
+            bind seq = (instance#7, instance#8) [argument]
+          exit calc SequenceFunctions::size -> 2
+        eval invoke size -> 2
+        eval literal 2 -> 2
+      eval operator == -> true
+          enter calc SequenceFunctions::size
+            eval operator all -> (instance#1)
+            bind seq = (instance#1) [argument]
+          exit calc SequenceFunctions::size -> 1
+        eval invoke size -> 1
+        eval literal 1 -> 1
+      eval operator == -> true
+    eval sequence of 7 -> (true, true, true, true, true, true, true)
+exit calc test::extents -> (true, true, true, true, true, true, true)
+enter: s0

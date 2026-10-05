@@ -6,6 +6,7 @@ import (
 
 	"github.com/Open-MBEE/OpenSysML/internal/check/passes"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/libs"
 )
 
@@ -41,7 +42,7 @@ func (w *Workspace) Recorded(name string) bool {
 // Caller holds the write lock.
 func (w *Workspace) hydrateLocked(name string) *Document {
 	held := w.docs[name]
-	doc := newDocument(name, held.Content, held.Version)
+	doc := newDocument(name, held.Content, held.Version, held.Kind())
 	w.docs[name] = doc
 	w.changes[name]++
 	w.installLocked(doc)
@@ -73,7 +74,7 @@ func (w *Workspace) hydrateAllLocked() {
 	parsed := make([]*Document, len(recorded))
 	ParallelFor(w.workers, len(recorded), func(i int) {
 		held := w.docs[recorded[i]]
-		parsed[i] = newDocument(held.Name, held.Content, held.Version)
+		parsed[i] = newDocument(held.Name, held.Content, held.Version, held.Kind())
 	})
 	for i, name := range recorded {
 		w.docs[name] = parsed[i]
@@ -129,7 +130,7 @@ func (w *Workspace) demoteLocked(name string, doc *Document) bool {
 	if w.standIns[name] != "" {
 		return false
 	}
-	rec := w.cachedRecordLocked(name, doc.Content)
+	rec := w.cachedRecordLocked(name, doc.Content, doc.Kind())
 	if rec == nil {
 		if _, ok := w.recordKeyLocked(name, doc.Content); !ok {
 			return false
@@ -159,7 +160,11 @@ func (w *Workspace) demoteLocked(name string, doc *Document) bool {
 // record's reads are answered by its own document too), else parsed. Caller
 // holds the write lock.
 func (w *Workspace) holdOnDiskLocked(name string, content []byte) {
-	if rec := w.acceptedRecordLocked(name, content); rec != nil {
+	kind := source.KindUnknown
+	if held := w.docs[name]; held != nil {
+		kind = held.Kind()
+	}
+	if rec := w.acceptedRecordLocked(name, content, kind); rec != nil {
 		if scope, err := symbols.BuildRecorded(rec.Scope, rec.Name); err == nil {
 			w.installRecordedLocked(rec, scope, content, 0)
 			w.index.ExpandWildcardImports()
@@ -176,16 +181,19 @@ func (w *Workspace) holdOnDiskLocked(name string, content []byte) {
 // the workspace has a cache and the record answers its question; whether its
 // provenance holds is the caller's to check among the documents it holds it
 // with. Caller holds the write lock.
-func (w *Workspace) acceptedRecordLocked(name string, content []byte) *libs.InterfaceRecord {
+func (w *Workspace) acceptedRecordLocked(name string, content []byte, kind source.Kind) *libs.InterfaceRecord {
 	if w.records == nil {
 		return nil
+	}
+	if kind == source.KindUnknown {
+		kind = source.KindOf(name)
 	}
 	key, ok := w.recordKeyLocked(name, content)
 	if !ok {
 		return nil
 	}
 	rec, ok := w.records.LoadInterface(key)
-	if !ok || w.recordAcceptedLocked(rec) != nil {
+	if !ok || rec.Kind != kind || w.recordAcceptedLocked(rec) != nil {
 		return nil
 	}
 	return rec
@@ -194,8 +202,8 @@ func (w *Workspace) acceptedRecordLocked(name string, content []byte) *libs.Inte
 // cachedRecordLocked is the record cache's record of the named content, when
 // the workspace has a cache, the record answers its question and its
 // provenance holds among the documents held. Caller holds the write lock.
-func (w *Workspace) cachedRecordLocked(name string, content []byte) *libs.InterfaceRecord {
-	rec := w.acceptedRecordLocked(name, content)
+func (w *Workspace) cachedRecordLocked(name string, content []byte, kind source.Kind) *libs.InterfaceRecord {
+	rec := w.acceptedRecordLocked(name, content, kind)
 	if rec == nil || !rec.Provenance.Valid(w.sourcesLocked()) {
 		return nil
 	}

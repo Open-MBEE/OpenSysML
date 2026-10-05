@@ -297,7 +297,23 @@ func invokeBoundAction(
 		return nil, nil, fmt.Errorf("invoke action %s: %w", inv.name(), err)
 	}
 	callee.name, callee.out = inv.name(), out
+	if err := ctx.startShotMove(callee); err != nil {
+		return nil, nil, err
+	}
 	return ctx.runCallee(callee)
+}
+
+// startShotMove pauses a body going one move at a time after a callee's start shot
+// read its initial values, a move of its own before its flow's first.
+func (ctx *Context) startShotMove(callee *calleeFrame) error {
+	if !callee.exec.readsAtStart() || callee.exec.state.Ended() {
+		return nil
+	}
+	if err := ctx.tokenStepBody(callee.exec.graph); err != nil {
+		callee.exec.held = paused(err)
+		return ctx.pausing(callee, err)
+	}
+	return nil
 }
 
 // calleeFrame is an action a body performs as a sub-execution, kept where the body

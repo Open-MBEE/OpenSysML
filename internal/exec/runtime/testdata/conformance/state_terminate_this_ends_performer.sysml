@@ -17,8 +17,8 @@ package test {
 			state busy {
 				do action work {
 					assign count := 1;
-					terminate this;
-					assign count := 2;
+					then terminate this;
+					then assign count := 2;
 				}
 				exit action leave {
 					assign exits := 1;

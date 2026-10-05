@@ -12,7 +12,7 @@ package test {
 		then action outer {
 			action inner {
 				assign x := 1;
-				terminate outer;
+				then terminate outer;
 			}
 			action late { assign y := 2; }
 			first inner;

@@ -221,7 +221,7 @@ func TestPaletteFillsAreLegible(t *testing.T) {
 // The notice a form that draws no palette writes names the palette and the
 // forms that do; a kind supports a palette when one of those forms writes it.
 func TestPaletteNotice(t *testing.T) {
-	want := fmt.Sprintf("palette %s; only the DOT, Mermaid and PlantUML forms fill nodes by keyword family", PaletteTolMuted)
+	want := fmt.Sprintf("palette %s; only the DOT, Mermaid, PlantUML and D2 forms fill nodes by keyword family", PaletteTolMuted)
 	if got := paletteNotice(PaletteTolMuted); got != want {
 		t.Errorf("paletteNotice = %q, want %q", got, want)
 	}
