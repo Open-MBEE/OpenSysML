@@ -50,9 +50,9 @@ instance.
 ```
 ✓ package MassRollup
 ✓ MassRollup::saturnV.totalMass
-  = 2941728.0 [kg]
+  = 2941728 [kg]
 ✓ MassRollup::saturnV.stage1.totalMass
-  = 2332000.0 [kg]
+  = 2332000 [kg]
 ```
 
 The 2 332 000 kg is 130 000 kg of stage structure, 2 160 000 kg of propellant
@@ -64,22 +64,13 @@ made an instance of the vehicle — three stages, eleven engines — and evaluat
 `saturnVWithIU` is the same stack with an instrument unit added. `InstrumentUnit`
 declares its height and inherits `mass`, but gives `mass` no value. Declaring a
 feature without a value is ordinary SysML — a definition is allowed to leave
-values to its usages — so validation has nothing to say about it. The two
-warnings it does raise are about something else: `RealFunctions::sum` is declared
-over `Real`, and the rollups hand it a sequence of `MassValue` quantities,
-which the type-conformance check reports as the SysML v2 pilot does:
+values to its usages — so validation has nothing to say about it:
 
 ```bash
 ./bin/sysml -validate examples/runtime-showcase/mass-rollup.sysml
 ```
 
 ```
-examples/runtime-showcase/mass-rollup.sysml:11:63: warning: Bound features should have conforming types
-        attribute totalMass :> ISQ::mass default = mass + sum(subcomponents.totalMass);
-                                                              ^~~~~~~~~~~~~~~~~~~~~~~
-examples/runtime-showcase/mass-rollup.sysml:33:63: warning: Bound features should have conforming types
-        attribute :>> totalMass = mass + propellantMass + sum(subcomponents.totalMass);
-                                                              ^~~~~~~~~~~~~~~~~~~~~~~
 ✓ package MassRollup
 ✓ examples/runtime-showcase/mass-rollup.sysml: no errors
 ```

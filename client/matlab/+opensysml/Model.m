@@ -144,7 +144,7 @@ classdef Model < handle
         end
 
         function result = symbol(m, id)
-            result = opensysml.Symbol(opensysml.symbol(m, id), m);
+            result = opensysml.Symbol(opensysml.getSymbol(m, id), m);
         end
 
         function result = get(m, fqn)
