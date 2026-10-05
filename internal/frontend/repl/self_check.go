@@ -218,18 +218,8 @@ func selfCheckConstraints(idx *symbols.Index, sem *semantics.Model, pkg string, 
 			if sym.Scope == nil {
 				return nil, fmt.Errorf("constraint %s has no declaration scope", selfCheckName(sym))
 			}
-			var paramType *symbols.Symbol
-			for _, param := range sym.Scope.AllMembers() {
-				usage, ok := param.Decl.(*ast.Usage)
-				if !ok || usage.Direction != ast.DirIn {
-					continue
-				}
-				if types := sem.FeatureTypeSet(param); len(types) > 0 {
-					paramType = types[0]
-				}
-				break
-			}
-			if paramType == nil {
+			paramType, ok := selfCheckParamType(sem, sym)
+			if !ok {
 				return nil, fmt.Errorf("constraint %s has no typed input parameter", selfCheckName(sym))
 			}
 			constraints = append(constraints, selfCheckConstraint{symbol: sym, paramType: paramType})
