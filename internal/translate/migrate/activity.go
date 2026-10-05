@@ -2593,8 +2593,17 @@ func (a *activity) writeObjectFeature(n, f *sysmlv1.Element) (feature, result, n
 		return "", "", "the feature " + a.m.nameOf(f) + " is an end owned by the association " + a.m.nameOf(f.Parent) +
 			", which the v2 class does not have; writing it creates or destroys a link", Unmapped
 	}
-	if fromPin && a.m.model.Ref(f, "type") == nil {
-		return "", "", "the feature " + a.m.nameOf(f) + " is untyped, so it has no v2 member to write through the object pin", Unmapped
+	if fromPin {
+		if a.m.model.Ref(f, "type") == nil {
+			return "", "", "the feature " + a.m.nameOf(f) + " is untyped, so it has no v2 member to write through the object pin", Unmapped
+		}
+		if a.m.writtenHidden(f) {
+			vis := f.Attrs["visibility"]
+			if vis == "package" {
+				vis = "private"
+			}
+			return "", "", "the feature " + a.m.nameOf(f) + " is written " + vis + " in v2, which a reference to the object cannot reach", Unmapped
+		}
 	}
 	feature = a.m.respellThis(target+"."+writeName(a.m.nameOf(f)), a.act)
 	if obj == nil || target == a.self() {

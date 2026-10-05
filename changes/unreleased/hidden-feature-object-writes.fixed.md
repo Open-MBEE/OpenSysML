@@ -1,0 +1,1 @@
+- **Mark writes through object pins to hidden features as unmapped.** References cannot reach features written as private or protected in v2.

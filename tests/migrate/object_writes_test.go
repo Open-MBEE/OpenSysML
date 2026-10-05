@@ -37,6 +37,9 @@ const objectWriteFeatures = `
       <ownedAttribute xmi:type="uml:Property" xmi:id="_part" name="part" type="_child" aggregation="composite"/>
       <ownedAttribute xmi:type="uml:Property" xmi:id="_untyped" name="untyped">
         <lowerValue xmi:type="uml:LiteralInteger" xmi:id="_untypedLo" value="0"/>
+      </ownedAttribute>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_hidden" name="hidden" visibility="private">
+        <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Integer"/>
       </ownedAttribute>`
 
 func objectWriteActivity(parameters, nodes, flows string, order ...string) string {
@@ -359,6 +362,25 @@ func TestObjectWriteAssociationEndStaysUnmapped(t *testing.T) {
 	wantNote(t, r, "_write", migrate.Unmapped,
 		"the feature tests is an end owned by the association A_tests_testSuite, which the v2 class does not have; writing it creates or destroys a link")
 	wantClean(t, "object_write_association_end.sysml", r)
+}
+
+func TestFlowFedObjectWriteRejectsHiddenFeature(t *testing.T) {
+	params := `<ownedParameter xmi:type="uml:Parameter" xmi:id="_source" name="source" type="_box" direction="in"/>`
+	nodes := `<node xmi:type="uml:ActivityParameterNode" xmi:id="_sourceNode" name="source" parameter="_source"/>` +
+		objectWriteAdd("_fedWrite", "fedWrite", "_hidden", `isReplaceAll="true"`,
+			objectWritePin("object", "_fedObject", "object", "_box"),
+			objectWriteLiteralPin("value", "_fedValue", "fedValue", "http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Integer", "LiteralInteger", "1"), "", "") +
+		objectWriteAdd("_selfWrite", "selfWrite", "_hidden", `isReplaceAll="true"`, "",
+			objectWriteLiteralPin("value", "_selfValue", "selfValue", "http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Integer", "LiteralInteger", "2"), "", "")
+	activity := objectWriteActivity(params, nodes, objectWriteFlow("_sourceToObject", "_sourceNode", "_fedObject"),
+		"_fedWrite", "_selfWrite")
+	r := objectWriteModel(t, activity, "", "")
+	wantNoStatement(t, r.Notation, "assign object.hidden := fedValue;")
+	wantNote(t, r, "_fedWrite", migrate.Unmapped,
+		"the feature hidden is written private in v2, which a reference to the object cannot reach")
+	wantLine(t, r.Notation, "assign hidden := selfValue;")
+	wantNote(t, r, "_selfWrite", migrate.Mapped, "")
+	wantClean(t, "object_write_hidden_feature.sysml", r)
 }
 
 // A self-context write keeps its existing target, while [0..1] is assigned as
