@@ -216,6 +216,58 @@ func TestBindingEndFailuresAreDistinguishable(t *testing.T) {
 	}
 }
 
+// An expression written as a connector, binding or flow end — `s.y#(1)`,
+// `s.y[1]`, `s.y->first` — is one mistake, so it is reported once, at the end,
+// as the end's ErrorNode target; the parse resynchronises at the next end or
+// the declaration's end, and the member after it still parses. A ConnectorEnd
+// is a feature chain (SysML BNF 8.2.2.13.1), and `#(…)` is an expression
+// operator (KerML 8.2.5.8.2), so the model stays rejected.
+func TestExpressionEndIsReportedOnce(t *testing.T) {
+	const asm = "package P { part def Source { port y[2]; } part def Sink { port u; } " +
+		"connection def C { end source[1]; end target[1]; } part def Asm { part s : Source; part k : Sink; "
+	const rest = " part z; } }"
+	tests := []struct {
+		name    string
+		member  string
+		message string
+	}{
+		{"connect_element_selection", "connection : C connect [1] s.y#(1) to [1] k.u;", msgConnectorEndExpression},
+		{"connect_index", "connection : C connect [1] s.y[1] to [1] k.u;", msgConnectorEndExpression},
+		{"connect_invocation", "connection : C connect [1] s.y->first to [1] k.u;", msgConnectorEndExpression},
+		{"connect_shorthand", "connect s.y#(1) to k.u;", msgConnectorEndExpression},
+		{"connect_second_end", "connect s.y to k.u#(1);", msgConnectorEndExpression},
+		{"connect_nary", "connect (s.y#(1), k.u);", msgConnectorEndExpression},
+		{"connect_arithmetic", "connect s.y + 1 to k.u;", msgConnectorEndExpression},
+		{"connect_unbalanced", "connect s.y#(1 to k.u;", msgConnectorEndExpression},
+		{"interface_shorthand", "interface s.y#(1) to k.u;", msgConnectorEndExpression},
+		{"allocate_shorthand", "allocate s.y#(1) to k.u;", msgConnectorEndExpression},
+		{"allocation_declared", "allocation : C allocate s.y#(1) to k.u;", msgConnectorEndExpression},
+		{"succession_source", "succession s#(1) then k;", msgConnectorEndExpression},
+		{"succession_target", "succession first s then k->first;", msgConnectorEndExpression},
+		{"bind_left", "bind s.y#(1) = k.u;", msgBindingEndExpression},
+		{"bind_right", "bind s.y = k.u[1];", msgBindingEndExpression},
+		{"flow_shorthand", "flow s.y#(1) to k.u;", msgFlowEndExpression},
+		{"flow_from", "flow f from s.y[1] to k.u;", msgFlowEndExpression},
+		{"flow_to", "flow of X from s.y to k.u->first;", msgFlowEndExpression},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			p := New(source.New(tt.name+".sysml", []byte(asm+tt.member+rest)))
+			root := p.ParseFile()
+			if len(p.Diagnostics) != 1 || p.Diagnostics[0].Message != tt.message {
+				t.Fatalf("want exactly one diagnostic %q, got %v", tt.message, p.Diagnostics)
+			}
+			dump := ast.Dump(root)
+			if !strings.Contains(dump, "ErrorNode") {
+				t.Fatalf("expected an ErrorNode target:\n%s", dump)
+			}
+			if !strings.Contains(dump, `name="z"`) {
+				t.Errorf("member after the malformed end was not parsed:\n%s", dump)
+			}
+		})
+	}
+}
+
 // An expression assignment target is rejected with its own message, while a
 // name or a chain ending in a feature stays accepted (SysML.xtext TargetParameter).
 func TestAssignmentTargetMustNameFeature(t *testing.T) {
