@@ -27,11 +27,12 @@ type supertypeProvider interface {
 	DirectSupertypes(sym *symbols.Symbol) []*symbols.Symbol
 }
 
-// resultParameterProvider is the part of the semantic model that reports the
-// result parameter of a function or expression, inherited ones included.
-// *semantics.Model implements it.
-type resultParameterProvider interface {
+// invocationResultProvider is the part of the semantic model that reports the
+// result parameter of a function or expression, inherited ones included, and
+// whether calling a declaration evaluates one. *semantics.Model implements it.
+type invocationResultProvider interface {
 	ResultParameterOf(sym *symbols.Symbol) *symbols.Symbol
+	Evaluates(sym *symbols.Symbol) bool
 }
 
 // metaclassProvider is the part of the semantic model that classifies an
