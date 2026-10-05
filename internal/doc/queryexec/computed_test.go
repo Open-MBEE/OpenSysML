@@ -411,6 +411,43 @@ calc def Flags :> Query {
 	}
 }
 
+func TestExecuteTypedMetaclassFeatureIncludesAnonymousMembers(t *testing.T) {
+	fixture := loadExecutionFixture(t, `
+part def T {
+	in item;
+}
+calc def Owned :> Query {
+	in root : Element;
+	Project(
+		source = Named(qualifiedName = "Observatory::T"),
+		properties = ("name"),
+		columns = (Column(name = "owned", expression = KerML::Root::Namespace::ownedMember))
+	)
+}`)
+	result, err := fixture.execute(t, "Owned", Bindings{
+		"root": {ElementValue(fixture.symbol(t, "T"))},
+	}, Options{})
+	if err != nil {
+		t.Fatalf("execute Owned: %v", err)
+	}
+	if rows := result.Rows(); len(rows) != 1 {
+		t.Fatalf("rows = %d, want 1", len(rows))
+	}
+	typeSymbol := fixture.symbol(t, "T")
+	owned, ok := fixture.model.ReflectiveElements(typeSymbol, "ownedMember")
+	if !ok || len(owned) != 1 || owned[0].Name != "" {
+		t.Fatalf("T.ownedMember = %v (supported %t), want its anonymous input parameter", owned, ok)
+	}
+	values := result.Rows()[0].Cells()[1].Values()
+	if len(values) != 1 {
+		t.Fatalf("owned cell = %v, want the anonymous input parameter", values)
+	}
+	got, ok := values[0].Element()
+	if !ok || got != owned[0] {
+		t.Fatalf("owned cell value = %v, want anonymous parameter %p", values[0], owned[0])
+	}
+}
+
 // An enumeration definition reads isVariation = true without declaring the
 // modifier, as the metamodel derives it.
 func TestExecuteComputedEnumerationVariationFlag(t *testing.T) {
