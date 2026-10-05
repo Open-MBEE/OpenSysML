@@ -282,4 +282,81 @@ standard library package SysMLValidation {
         in element : KerML::MetadataFeature;
         element.metaclass->forAll { in c : KerML::Metaclass; not c.isAbstract }
     }
+
+    /* KerML: Specializations */
+
+    constraint def validateSpecializationSpecificNotConjugated {
+        doc /* not specific.isConjugated */
+        in element : KerML::Specialization;
+        not element.specific.isConjugated
+    }
+
+    constraint def validateBehaviorSpecialization {
+        doc /* ownedSpecialization.general->forAll(not oclIsKindOf(Structure)) */
+        in element : KerML::Behavior;
+        element.ownedSpecialization->forAll { in s : KerML::Specialization;
+            not (s.general istype KerML::Structure) }
+    }
+
+    constraint def validateStructureSpecialization {
+        doc /* ownedSpecialization.general->forAll(not oclIsKindOf(Behavior)) */
+        in element : KerML::Structure;
+        element.ownedSpecialization->forAll { in s : KerML::Specialization;
+            not (s.general istype KerML::Behavior) }
+    }
+
+    constraint def validateClassSpecialization {
+        doc /* ownedSpecialization.general->forAll(not oclIsKindOf(DataType)) and not oclIsKindOf(Association) implies ownedSpecialization.general->forAll(not oclIsKindOf(Association)) */
+        in element : KerML::Class;
+        (element.ownedSpecialization->forAll { in s : KerML::Specialization;
+                not (s.general istype KerML::DataType) }
+            and not (element istype KerML::Association))
+        implies element.ownedSpecialization->forAll { in s : KerML::Specialization;
+            not (s.general istype KerML::Association) }
+    }
+
+    constraint def validateDataTypeSpecialization {
+        doc /* ownedSpecialization.general->forAll(not oclIsKindOf(Class) and not oclIsKindOf(Association)) */
+        in element : KerML::DataType;
+        element.ownedSpecialization->forAll { in s : KerML::Specialization;
+            not (s.general istype KerML::Class) and not (s.general istype KerML::Association) }
+    }
+
+    /* KerML: Subsetting and redefinition */
+
+    constraint def validateSubsettingUniquenessConformance {
+        doc /* subsettedFeature.isUnique implies subsettingFeature.isUnique */
+        in element : KerML::Subsetting;
+        element.subsettedFeature.isUnique implies element.subsettingFeature.isUnique
+    }
+
+    constraint def validateSubsettingConstantConformance {
+        doc /* subsettedFeature.isConstant and subsettingFeature.isVariable implies subsettingFeature.isConstant */
+        in element : KerML::Subsetting;
+        element.subsettedFeature.isConstant and element.subsettingFeature.isVariable
+            implies element.subsettingFeature.isConstant
+    }
+
+    constraint def validateRedefinitionEndConformance {
+        doc /* redefinedFeature.isEnd and redefiningFeature.owningType <> null and (redefiningFeature.owningType.oclIsKindOf(Association) or redefiningFeature.owningType.oclIsKindOf(Connector)) implies redefiningFeature.isEnd */
+        in element : KerML::Redefinition;
+        (element.redefinedFeature.isEnd and
+            element.redefiningFeature.owningType->exists { in t : KerML::Type;
+                t istype KerML::Association or t istype KerML::Connector })
+        implies element.redefiningFeature.isEnd
+    }
+
+    constraint def validateFeatureOwnedReferenceSubsetting {
+        doc /* ownedSubsetting->selectByKind(ReferenceSubsetting)->size() <= 1 */
+        in element : KerML::Feature;
+        size(element.ownedSubsetting->select { in s : KerML::Subsetting;
+            s istype KerML::ReferenceSubsetting }) <= 1
+    }
+
+    constraint def validateFeatureOwnedCrossSubsetting {
+        doc /* ownedSubsetting->selectByKind(CrossSubsetting)->size() <= 1 */
+        in element : KerML::Feature;
+        size(element.ownedSubsetting->select { in s : KerML::Subsetting;
+            s istype KerML::CrossSubsetting }) <= 1
+    }
 }

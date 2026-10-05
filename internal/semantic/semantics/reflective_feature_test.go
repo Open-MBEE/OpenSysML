@@ -1045,19 +1045,47 @@ func reflectiveRecordedFacts(model *Model, idx *symbols.Index, sym *symbols.Symb
 			}
 		}
 	}
+	refOf := func(target *symbols.Symbol) symbols.ElementRef {
+		if ref, ok := idx.RefTo(target); ok {
+			return ref
+		}
+		return symbols.ElementRef{FQN: model.fqnOf(target)}
+	}
+	if rel, ok := sym.RelationshipDecl(); ok {
+		if member, memberOK := sym.Decl.(*ast.RelationshipMember); memberOK {
+			scope := sym.OwnerScope
+			if scope == nil {
+				scope = sym.Scope
+			}
+			if src, resolved := model.resolver.ResolveTarget(scope, member.Source); resolved && src != nil {
+				rel.Source = refOf(src)
+			}
+			if tgt, resolved := model.resolver.ResolveTarget(scope, member.Target); resolved && tgt != nil {
+				rel.Target = refOf(tgt)
+			}
+		}
+		facts.Relationship = &rel
+	}
 	for _, rel := range RelationshipsOf(sym) {
 		if rel == nil {
 			continue
 		}
 		rf := symbols.RelationshipFacts{Kind: rel.Kind, Conjugated: rel.Conjugated}
+		node := rel.Target
+		if fr, isRef := node.(*ast.FeatureReference); isRef {
+			node = fr.Name
+		}
+		_, rf.Chain = node.(*ast.FeatureChainExpr)
 		if target := model.RelationshipTarget(sym, rel); target != nil {
-			if ref, ok := idx.RefTo(target); ok {
-				rf.Target = ref
-			} else {
-				rf.Target = symbols.ElementRef{FQN: model.fqnOf(target)}
-			}
+			rf.Target = refOf(target)
 		}
 		facts.Relationships = append(facts.Relationships, rf)
+	}
+	if subsetted := model.SubsettedMultiplicity(sym); subsetted != nil {
+		facts.Relationships = append(facts.Relationships, symbols.RelationshipFacts{
+			Kind:   ast.RelSubsets,
+			Target: refOf(subsetted),
+		})
 	}
 	return facts
 }

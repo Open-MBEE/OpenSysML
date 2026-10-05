@@ -12,7 +12,7 @@ reader who only wants the verdicts can ignore them.
 
 ## OpenSysML self-model validation
 
-The `SysMLValidation` standard-library package states 41 validation constraints as SysML
+The `SysMLValidation` standard-library package states 51 validation constraints as SysML
 constraint definitions over reflective KerML and SysML metaclasses. `sysml -self-check`
 applies each constraint to every reflectively classified element in the non-library workspace.
 The library currently states:
@@ -58,6 +58,32 @@ The library currently states:
 - `validateTypeDifferencingTypesNotSelf`
 - `validateAssociationEndTypes`
 - `validateMetadataFeatureMetaclassNotAbstract`
+- `validateSpecializationSpecificNotConjugated`
+- `validateBehaviorSpecialization`
+- `validateStructureSpecialization`
+- `validateClassSpecialization`
+- `validateDataTypeSpecialization`
+- `validateSubsettingUniquenessConformance`
+- `validateSubsettingConstantConformance`
+- `validateRedefinitionEndConformance`
+- `validateFeatureOwnedReferenceSubsetting`
+- `validateFeatureOwnedCrossSubsetting`
+
+### Reflective relationship objects
+
+The constraints that read relationship-valued features evaluate over *reflective relationship
+objects*: a relationship written as notation on an element (`:`, `:>`, `:>>`, `::>`, `=>`,
+`~`, `conjugates`, `subsets`, `redefines`, `references`, `crosses`, typed/defined by) is
+reflected as an element of its own — a `Subclassification`, `FeatureTyping`, `Subsetting`,
+`Redefinition`, `ReferenceSubsetting`, `CrossSubsetting`, `Conjugation`, `Specialization` or
+`ConjugatedPortTyping` — and reached from its owner through `ownedSpecialization`,
+`ownedSubclassification`, `ownedTyping`, `ownedSubsetting`, `ownedRedefinition`,
+`ownedReferenceSubsetting`, `ownedCrossSubsetting` and `ownedConjugator`. Only written
+relationships are reflected: relationships implied by implicit supertypes are not
+synthesized, and a feature-chain target (`:> a.b`, `::> a.b`, `crosses a.b`) derives no
+target-side feature, so an application that needs it is reported unevaluated. The membership
+family (`OwningMembership`, `FeatureMembership`, `ownedRelationship`, `membership`,
+`ownedMembership`, `ownedImport`) is not yet reflected and stays unsupported.
 
 Constraints whose OCL reads reflective features the current model does not derive are omitted
 from the library. If an included constraint cannot be evaluated because a reflective feature is

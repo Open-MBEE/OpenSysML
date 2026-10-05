@@ -83,7 +83,7 @@ func TestSelfCheckReportsViolationsAndUnevaluatedConstraints(t *testing.T) {
 			}
 			constraint def inspectTypeSpecializations {
 				in element : KerML::Type;
-				element.ownedSpecialization->isEmpty();
+				element.ownedRelationship->isEmpty();
 			}
 			part def P { part c; }
 		}
@@ -137,7 +137,7 @@ func TestSelfCheckUnevaluatedOnlyDoesNotFailSummary(t *testing.T) {
 			private import SequenceFunctions::*;
 			constraint def inspectTypeSpecializations {
 				in element : KerML::Type;
-				element.ownedSpecialization->isEmpty();
+				element.ownedRelationship->isEmpty();
 			}
 			part def P;
 		}
@@ -665,4 +665,123 @@ func assertSelfCheckViolation(t *testing.T, verdicts []Verdict, constraint, elem
 		}
 	}
 	t.Fatalf("no %s violation for %s in %+v", constraint, element, verdicts)
+}
+
+// Relationship notation is reflected as metaobjects, so the relationship-valued
+// constraints of the validation library evaluate over them.
+func TestSelfCheckReflectiveRelationshipConstraints(t *testing.T) {
+	const sysmlSrc = `
+package M {
+    part def T;
+    port def Pd;
+    part def Base {
+        part c;
+    }
+    part def D :> Base {
+        part a;
+        part b subsets a;
+        part e references a;
+        part d :>> c;
+        constant attribute ac;
+        constant attribute bc subsets ac;
+        port p : ~Pd;
+    }
+    part def S :> T;
+    action def B;
+    attribute def AD;
+}`
+	const kermlSrc = `
+class ShoppingCart { feature selectedProducts : Product[*]; }
+class Product { feature inCart : ShoppingCart[0..1]; }
+assoc ProductSelection {
+    end feature cart : ShoppingCart[1] crosses selectedProduct.inCart;
+    end feature selectedProduct : Product[1] crosses cart.selectedProducts;
+}
+class K;
+assoc A {
+    end feature x : K;
+    end feature y : K;
+}
+assoc A2 specializes A {
+    end feature x2 redefines x;
+    end feature y2 redefines y;
+}
+class KB { feature f1; }
+class KD specializes KB {
+    feature g redefines f1;
+}
+class K2 conjugates KB;
+`
+	s := NewSession()
+	result := s.SubmitFiles([]SourceFile{
+		{Name: "rel_self_check.sysml", Text: sysmlSrc},
+		{Name: "rel_self_check.kerml", Text: kermlSrc},
+	})
+	if errs := errorDiagnostics(result.Diagnostics); len(errs) > 0 {
+		t.Fatalf("fixtures did not load cleanly: %v", errs)
+	}
+	if s.HasErrors() {
+		t.Fatal("fixtures have model errors")
+	}
+	verdicts, stats := s.selfCheckWithCounts("SysMLValidation", false)
+	for _, constraint := range []string{
+		"validateSpecializationSpecificNotConjugated",
+		"validateBehaviorSpecialization",
+		"validateStructureSpecialization",
+		"validateClassSpecialization",
+		"validateDataTypeSpecialization",
+		"validateSubsettingUniquenessConformance",
+		"validateSubsettingConstantConformance",
+		"validateRedefinitionEndConformance",
+		"validateFeatureOwnedReferenceSubsetting",
+		"validateFeatureOwnedCrossSubsetting",
+	} {
+		if stats.applications["SysMLValidation::"+constraint] == 0 {
+			t.Errorf("%s was never applied", constraint)
+		}
+	}
+	if stats.violations != 0 {
+		t.Errorf("clean fixtures produced %d violations: %+v", stats.violations, verdicts)
+	}
+	if stats.evaluationErrors != 0 {
+		t.Errorf("relationship constraints had %d evaluation errors: %+v", stats.evaluationErrors, verdicts)
+	}
+	// The crosses targets are feature chains, whose crossed features are not
+	// derivable, so those applications stay unevaluated.
+	foundUnevaluated := false
+	for _, verdict := range verdicts {
+		if strings.Contains(verdict.Subject, "CrossSubsetting of 'ProductSelection::") &&
+			strings.Contains(strings.Join(verdict.Lines, "\n"), "could not be evaluated") {
+			foundUnevaluated = true
+		}
+	}
+	if !foundUnevaluated {
+		t.Errorf("expected an unevaluated verdict for a chain-crossed feature: %+v", verdicts)
+	}
+}
+
+// A variable feature subsetting a constant one violates the reflective
+// Subsetting constraint even though no Go pass rejects the model first.
+func TestSelfCheckSubsettingConstantConformanceViolation(t *testing.T) {
+	const src = `
+package M {
+    part def D {
+        constant attribute ac;
+        attribute bc subsets ac;
+    }
+}`
+	s := NewSession()
+	result := s.SubmitFiles([]SourceFile{{Name: "rel_violation.sysml", Text: src}})
+	if errs := errorDiagnostics(result.Diagnostics); len(errs) > 0 {
+		t.Fatalf("fixture did not load cleanly: %v", errs)
+	}
+	if s.HasErrors() {
+		t.Fatal("fixture has model errors")
+	}
+	verdicts, stats := s.selfCheckWithCounts("SysMLValidation", false)
+	if stats.violations == 0 {
+		t.Fatal("variable-subsets-constant produced no violation")
+	}
+	assertSelfCheckViolation(t, verdicts,
+		"validateSubsettingConstantConformance", "Subsetting of 'M::D::bc'")
 }
