@@ -43,6 +43,11 @@ const (
 	msgExpectedShortName    = "expected short name after '<'"
 	msgExpectedCloseAngle   = "expected '>'"
 	msgExpectedLocaleString = "expected locale string"
+	msgBindingEndExpression = "a binding end names a feature, not an expression; " +
+		"declare a feature with the expression as its value and bind to that"
+	msgConnectorEndExpression = "a connector end names a feature, not an expression; " +
+		"name the feature itself and put any multiplicity before it"
+	msgFlowEndExpression    = "a flow end names a feature, not an expression; name the feature itself"
 	msgImportVisibility     = "import without a visibility indicator: SysML v2 requires public, private or protected before 'import'"
 	msgDeferNotationRemoved = "the OpenSysML `defer <event>;` extension was removed: SysML v2 has no deferral notation; model a deferred signal with an ordered buffer (`item deferred : Sig[*] ordered;`), a do action whose accept loop keeps each occurrence while the state is active, and an exit action that sends each kept occurrence to self (docs/reference/sysml-v1-migration.md, Deferred signals)"
 )
