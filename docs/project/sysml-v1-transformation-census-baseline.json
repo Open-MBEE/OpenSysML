@@ -13373,7 +13373,7 @@
         "tests/migrate/parameter_set_test.go:TestParameterSetOfAnUnwrittenParameter",
         "tests/migrate/migrate_test.go:TestGoldenConstructFixtures"
       ],
-      "reason": "a parameter set is written `ref set { ref [m] = p; ... }` in its behavior's def, one unnamed reference usage per parameter bound to it with its multiplicity; a condition has no target and is reported unmapped (PSSM, TMT and the fixtures hold no parameter set)",
+      "reason": "a parameter set is written `ref set { ref [m] = p; ... }` in its behavior's def, one unnamed reference usage per parameter bound to it with its multiplicity; a condition has no target and is reported unmapped (PSSM and TMT hold no parameter set; the parameter_sets fixture holds 5)",
       "scope": [
         "uml:ParameterSet"
       ]
@@ -13403,7 +13403,7 @@
         "tests/migrate/parameter_set_test.go:TestParameterSetOfAnUnwrittenParameter",
         "tests/migrate/migrate_test.go:TestGoldenConstructFixtures"
       ],
-      "reason": "a parameter set is written `ref set { ref [m] = p; ... }` in its behavior's def, one unnamed reference usage per parameter bound to it with its multiplicity; a condition has no target and is reported unmapped (PSSM, TMT and the fixtures hold no parameter set)",
+      "reason": "a parameter set is written `ref set { ref [m] = p; ... }` in its behavior's def, one unnamed reference usage per parameter bound to it with its multiplicity; a condition has no target and is reported unmapped (PSSM and TMT hold no parameter set; the parameter_sets fixture holds 5)",
       "scope": [
         "uml:ParameterSet"
       ]
@@ -13433,7 +13433,7 @@
         "tests/migrate/parameter_set_test.go:TestParameterSetOfAnUnwrittenParameter",
         "tests/migrate/migrate_test.go:TestGoldenConstructFixtures"
       ],
-      "reason": "a parameter set is written `ref set { ref [m] = p; ... }` in its behavior's def, one unnamed reference usage per parameter bound to it with its multiplicity; a condition has no target and is reported unmapped (PSSM, TMT and the fixtures hold no parameter set)",
+      "reason": "a parameter set is written `ref set { ref [m] = p; ... }` in its behavior's def, one unnamed reference usage per parameter bound to it with its multiplicity; a condition has no target and is reported unmapped (PSSM and TMT hold no parameter set; the parameter_sets fixture holds 5)",
       "scope": [
         "uml:ParameterSet"
       ]
@@ -13463,7 +13463,7 @@
         "tests/migrate/parameter_set_test.go:TestParameterSetOfAnUnwrittenParameter",
         "tests/migrate/migrate_test.go:TestGoldenConstructFixtures"
       ],
-      "reason": "a parameter set is written `ref set { ref [m] = p; ... }` in its behavior's def, one unnamed reference usage per parameter bound to it with its multiplicity; a condition has no target and is reported unmapped (PSSM, TMT and the fixtures hold no parameter set)",
+      "reason": "a parameter set is written `ref set { ref [m] = p; ... }` in its behavior's def, one unnamed reference usage per parameter bound to it with its multiplicity; a condition has no target and is reported unmapped (PSSM and TMT hold no parameter set; the parameter_sets fixture holds 5)",
       "scope": [
         "uml:ParameterSet"
       ]
@@ -13493,7 +13493,7 @@
         "tests/migrate/parameter_set_test.go:TestParameterSetOfAnUnwrittenParameter",
         "tests/migrate/migrate_test.go:TestGoldenConstructFixtures"
       ],
-      "reason": "a parameter set is written `ref set { ref [m] = p; ... }` in its behavior's def, one unnamed reference usage per parameter bound to it with its multiplicity; a condition has no target and is reported unmapped (PSSM, TMT and the fixtures hold no parameter set)",
+      "reason": "a parameter set is written `ref set { ref [m] = p; ... }` in its behavior's def, one unnamed reference usage per parameter bound to it with its multiplicity; a condition has no target and is reported unmapped (PSSM and TMT hold no parameter set; the parameter_sets fixture holds 5)",
       "scope": [
         "uml:ParameterSet"
       ]
@@ -13523,7 +13523,7 @@
         "tests/migrate/parameter_set_test.go:TestParameterSetOfAnUnwrittenParameter",
         "tests/migrate/migrate_test.go:TestGoldenConstructFixtures"
       ],
-      "reason": "a parameter set is written `ref set { ref [m] = p; ... }` in its behavior's def, one unnamed reference usage per parameter bound to it with its multiplicity; a condition has no target and is reported unmapped (PSSM, TMT and the fixtures hold no parameter set)",
+      "reason": "a parameter set is written `ref set { ref [m] = p; ... }` in its behavior's def, one unnamed reference usage per parameter bound to it with its multiplicity; a condition has no target and is reported unmapped (PSSM and TMT hold no parameter set; the parameter_sets fixture holds 5)",
       "scope": [
         "uml:ParameterSet"
       ]
@@ -13554,7 +13554,7 @@
         "tests/migrate/parameter_set_test.go:TestParameterSetOfAnUnwrittenParameter",
         "tests/migrate/migrate_test.go:TestGoldenConstructFixtures"
       ],
-      "reason": "a parameter set is written `ref set { ref [m] = p; ... }` in its behavior's def, one unnamed reference usage per parameter bound to it with its multiplicity; a condition has no target and is reported unmapped (PSSM, TMT and the fixtures hold no parameter set)",
+      "reason": "a parameter set is written `ref set { ref [m] = p; ... }` in its behavior's def, one unnamed reference usage per parameter bound to it with its multiplicity; a condition has no target and is reported unmapped (PSSM and TMT hold no parameter set; the parameter_sets fixture holds 5)",
       "scope": [
         "uml:ParameterSet"
       ]
