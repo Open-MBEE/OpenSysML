@@ -308,11 +308,11 @@ standard library package SysMLValidation {
     constraint def validateClassSpecialization {
         doc /* ownedSpecialization.general->forAll(not oclIsKindOf(DataType)) and not oclIsKindOf(Association) implies ownedSpecialization.general->forAll(not oclIsKindOf(Association)) */
         in element : KerML::Class;
-        (element.ownedSpecialization->forAll { in s : KerML::Specialization;
-                not (s.general istype KerML::DataType) }
-            and not (element istype KerML::Association))
-        implies element.ownedSpecialization->forAll { in s : KerML::Specialization;
-            not (s.general istype KerML::Association) }
+        element.ownedSpecialization->forAll { in s : KerML::Specialization;
+            not (s.general istype KerML::DataType) } and
+        ((element istype KerML::Association) or
+            element.ownedSpecialization->forAll { in s : KerML::Specialization;
+                not (s.general istype KerML::Association) })
     }
 
     constraint def validateDataTypeSpecialization {
@@ -336,5 +336,22 @@ standard library package SysMLValidation {
         in element : KerML::Feature;
         size(element.ownedSubsetting->select { in s : KerML::Subsetting;
             s istype KerML::CrossSubsetting }) <= 1
+    }
+
+    /* SysML: variations */
+
+    constraint def validateUsageVariationSpecialization {
+        doc /* isVariation implies not ownedSpecialization.specific->exists( oclIsKindOf(Definition) and oclAsType(Definition).isVariation or oclIsKindOf(Usage) and oclAsType(Usage).isVariation) */
+        in element : SysML::Usage;
+        element.isVariation implies not element.ownedSpecialization->exists { in s : KerML::Specialization;
+            (s.general istype SysML::Definition and (s.general as SysML::Definition).isVariation) or
+            (s.general istype SysML::Usage and (s.general as SysML::Usage).isVariation) }
+    }
+
+    constraint def validateDefinitionVariationSpecialization {
+        doc /* isVariation implies not ownedSpecialization.specific->exists( oclIsKindOf(Definition) and oclAsType(Definition).isVariation) */
+        in element : SysML::Definition;
+        element.isVariation implies not element.ownedSpecialization->exists { in s : KerML::Specialization;
+            s.general istype SysML::Definition and (s.general as SysML::Definition).isVariation }
     }
 }

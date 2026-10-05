@@ -16,9 +16,11 @@ func (m *Model) ImplicitRelationships(sym *symbols.Symbol) []*symbols.Symbol {
 	if m == nil || sym == nil || sym.Implicit != nil {
 		return nil
 	}
+	defer m.own(sym).LeaveDoc()
 	if cached, ok := m.implicitRels[sym]; ok {
 		return cached
 	}
+	journal(m, m.implicitRels, sym, sym.Decl)
 	out := m.implicitRelationshipsOf(sym)
 	m.implicitRels[sym] = out
 	return out
@@ -166,6 +168,45 @@ var featureTypingMetaclassNames = map[string]bool{
 	"FeatureTyping": true, "ConjugatedPortTyping": true,
 }
 
+// relationshipEndFeature reports whether feature is the source- or target-side
+// end the relationship metaclass meta declares. ConjugatedPortTyping answers
+// only its `portDefinition`; its general end stays unimplemented.
+func relationshipEndFeature(meta, feature string) (sourceSide, targetSide bool) {
+	switch feature {
+	case "subclassifier":
+		sourceSide = meta == "Subclassification"
+	case "typedFeature":
+		sourceSide = featureTypingMetaclassNames[meta]
+	case "subsettingFeature":
+		sourceSide = subsettingMetaclassNames[meta]
+	case "redefiningFeature":
+		sourceSide = meta == "Redefinition"
+	case "referencingFeature":
+		sourceSide = meta == "ReferenceSubsetting"
+	case "crossingFeature":
+		sourceSide = meta == "CrossSubsetting"
+	case "conjugatedType":
+		sourceSide = meta == "Conjugation"
+	case "superclassifier":
+		targetSide = meta == "Subclassification"
+	case "type":
+		targetSide = meta == "FeatureTyping"
+	case "portDefinition":
+		targetSide = meta == "ConjugatedPortTyping"
+	case "subsettedFeature":
+		targetSide = subsettingMetaclassNames[meta]
+	case "redefinedFeature":
+		targetSide = meta == "Redefinition"
+	case "referencedFeature":
+		targetSide = meta == "ReferenceSubsetting"
+	case "crossedFeature":
+		targetSide = meta == "CrossSubsetting"
+	case "originalType":
+		targetSide = meta == "Conjugation"
+	}
+	return sourceSide, targetSide
+}
+
 // implicitRelationshipEnds resolves the ends of the relationship object sym
 // reflects: its owning element as source, and the named target, whose
 // resolution is reported separately since an unresolved or chained target
@@ -260,25 +301,7 @@ func (m *Model) implicitRelationshipElements(sym *symbols.Symbol, feature string
 	}
 	// Per-metaclass ends: the source end answers the owning element, the
 	// target end what the edge resolves to.
-	sourceEnd := map[string]bool{
-		"subclassifier":      meta == "Subclassification",
-		"typedFeature":       featureTypingMetaclassNames[meta],
-		"subsettingFeature":  subsettingMetaclassNames[meta],
-		"redefiningFeature":  meta == "Redefinition",
-		"referencingFeature": meta == "ReferenceSubsetting",
-		"crossingFeature":    meta == "CrossSubsetting",
-		"conjugatedType":     meta == "Conjugation",
-	}
-	targetEnd := map[string]bool{
-		"superclassifier":   meta == "Subclassification",
-		"type":              meta == "FeatureTyping",
-		"portDefinition":    meta == "ConjugatedPortTyping",
-		"subsettedFeature":  subsettingMetaclassNames[meta],
-		"redefinedFeature":  meta == "Redefinition",
-		"referencedFeature": meta == "ReferenceSubsetting",
-		"crossedFeature":    meta == "CrossSubsetting",
-		"originalType":      meta == "Conjugation",
-	}
+	srcEnd, tgtEnd := relationshipEndFeature(meta, feature)
 	switch {
 	case feature == "specific" && specializationMetaclassNames[meta]:
 		return source, true
@@ -287,9 +310,9 @@ func (m *Model) implicitRelationshipElements(sym *symbols.Symbol, feature string
 			return []*symbols.Symbol{tgt}, true
 		}
 		return nil, false
-	case sourceEnd[feature]:
+	case srcEnd:
 		return source, true
-	case targetEnd[feature]:
+	case tgtEnd:
 		if tgtOK {
 			return []*symbols.Symbol{tgt}, true
 		}
@@ -351,24 +374,7 @@ func (m *Model) relationshipMemberElements(sym *symbols.Symbol, rel symbols.Rela
 		"owningType", "owningClassifier", "owningFeature":
 		return []*symbols.Symbol{}, true
 	}
-	sourceEnd := map[string]bool{
-		"subclassifier":      meta == "Subclassification",
-		"typedFeature":       featureTypingMetaclassNames[meta],
-		"subsettingFeature":  subsettingMetaclassNames[meta],
-		"redefiningFeature":  meta == "Redefinition",
-		"referencingFeature": meta == "ReferenceSubsetting",
-		"crossingFeature":    meta == "CrossSubsetting",
-		"conjugatedType":     meta == "Conjugation",
-	}
-	targetEnd := map[string]bool{
-		"superclassifier":   meta == "Subclassification",
-		"type":              meta == "FeatureTyping",
-		"subsettedFeature":  subsettingMetaclassNames[meta],
-		"redefinedFeature":  meta == "Redefinition",
-		"referencedFeature": meta == "ReferenceSubsetting",
-		"crossedFeature":    meta == "CrossSubsetting",
-		"originalType":      meta == "Conjugation",
-	}
+	srcEnd, tgtEnd := relationshipEndFeature(meta, feature)
 	switch {
 	case feature == "specific" && specializationMetaclassNames[meta]:
 		if src == nil {
@@ -380,12 +386,12 @@ func (m *Model) relationshipMemberElements(sym *symbols.Symbol, rel symbols.Rela
 			return nil, false
 		}
 		return target, true
-	case sourceEnd[feature]:
+	case srcEnd:
 		if src == nil {
 			return nil, false
 		}
 		return source, true
-	case targetEnd[feature]:
+	case tgtEnd:
 		if tgt == nil {
 			return nil, false
 		}

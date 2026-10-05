@@ -562,3 +562,71 @@ class D {
 		assertRelMetaclass(t, model, s, "ReferenceUsage")
 	}
 }
+
+// A recorded owner lists the same relationship objects as its AST self,
+// including a multiplicity's `subsets` and the include echo the AST skips.
+func TestImplicitRelationshipsASTRecordedParity(t *testing.T) {
+	check := func(t *testing.T, fixtures []reflectiveFixture, owners []string) {
+		t.Helper()
+		astModel, recModel := fixtures[0].model, fixtures[1].model
+		for _, path := range owners {
+			astSym := nestedSym(t, fixtures[0].root, path)
+			recSym := nestedSym(t, fixtures[1].root, path)
+			astRels := astModel.ImplicitRelationships(astSym)
+			recRels := recModel.ImplicitRelationships(recSym)
+			if len(astRels) != len(recRels) {
+				t.Fatalf("%s: %d AST objects, %d recorded", path, len(astRels), len(recRels))
+			}
+			for i := range astRels {
+				ar, rr := astRels[i], recRels[i]
+				if astModel.implicitMetaclassName(ar) != recModel.implicitMetaclassName(rr) {
+					t.Errorf("%s rel %d: metaclass %s vs recorded %s", path, i,
+						astModel.implicitMetaclassName(ar), recModel.implicitMetaclassName(rr))
+				}
+				if ar.Implicit.Ordinal != rr.Implicit.Ordinal {
+					t.Errorf("%s rel %d: ordinal %d vs recorded %d", path, i, ar.Implicit.Ordinal, rr.Implicit.Ordinal)
+				}
+				if symbols.KeyOf(ar) != symbols.KeyOf(rr) {
+					t.Errorf("%s rel %d: KeyOf %s vs recorded %s", path, i, symbols.KeyOf(ar), symbols.KeyOf(rr))
+				}
+				_, astTgt, astOK := astModel.implicitRelationshipEnds(ar)
+				_, recTgt, recOK := recModel.implicitRelationshipEnds(rr)
+				if astOK != recOK {
+					t.Errorf("%s rel %d: target resolved %t vs recorded %t", path, i, astOK, recOK)
+					continue
+				}
+				if astOK && astModel.fqnOf(astTgt) != recModel.fqnOf(recTgt) {
+					t.Errorf("%s rel %d: target %s vs recorded %s", path, i,
+						astModel.fqnOf(astTgt), recModel.fqnOf(recTgt))
+				}
+			}
+		}
+	}
+	sysmlSrc := `package P {
+    part def A;
+    port def Pd;
+    use case def UC1;
+    part f { part g; }
+    part a : A;
+    part b :> A;
+    part c :>> a;
+    part d ::> a;
+    port p : ~Pd;
+    part e :> f.g;
+    multiplicity one [1];
+    multiplicity some subsets one;
+    use case uc2 : UC1;
+    use case uc {
+        include use case uc1 : UC1;
+        include uc2;
+    }
+}`
+	check(t, reflectiveFixtures(t, "parity.sysml", source.KindSysML, sysmlSrc),
+		[]string{"P::a", "P::b", "P::c", "P::d", "P::p", "P::e", "P::some", "P::uc"})
+	kermlSrc := `class CA;
+class CB conjugates CA;
+class KC { feature kf; }
+class KD specializes KC { feature x crosses kf crosses kf; }`
+	check(t, reflectiveFixtures(t, "parity.kerml", source.KindKerML, kermlSrc),
+		[]string{"CB", "KD::x"})
+}
