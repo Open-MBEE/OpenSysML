@@ -19,12 +19,16 @@ import {
 } from "../webview/layout";
 import {
   JOURNEY_EVENTS,
+  debugSteps,
   journey,
   landingModel,
   readModel,
+  runJourney,
+  type DebugStep,
   type Diagnostic,
   type EngineClient,
   type EngineInstance,
+  type JourneyRun,
   type LandingModel,
   type LandingPart,
 } from "./model";
@@ -123,6 +127,19 @@ function mount(root: HTMLElement): Mounted {
   const editor = root.querySelector<HTMLElement>("[data-osml-editor]")!;
   const srcEl = root.querySelector<HTMLTextAreaElement>("[data-osml-src]")!;
   const resetBtn = root.querySelector<HTMLButtonElement>("[data-osml-reset]")!;
+  const debugBtn = root.querySelector<HTMLButtonElement>("[data-osml-debug]")!;
+  const debugPanel = root.querySelector<HTMLElement>("[data-osml-debugger]")!;
+  const sendBtns = [...debugPanel.querySelectorAll<HTMLButtonElement>("[data-osml-send]")];
+  const debugResetBtn = debugPanel.querySelector<HTMLButtonElement>("[data-osml-debug-reset]")!;
+  const backBtn = debugPanel.querySelector<HTMLButtonElement>("[data-osml-step-back]")!;
+  const playBtn = debugPanel.querySelector<HTMLButtonElement>("[data-osml-play]")!;
+  const stepBtn = debugPanel.querySelector<HTMLButtonElement>("[data-osml-step]")!;
+  const speedSel = debugPanel.querySelector<HTMLSelectElement>("[data-osml-speed]")!;
+  const seedEl = debugPanel.querySelector<HTMLInputElement>("[data-osml-seed]")!;
+  const reseedBtn = debugPanel.querySelector<HTMLButtonElement>("[data-osml-reseed]")!;
+  const nowEl = debugPanel.querySelector<HTMLElement>("[data-osml-debug-now]")!;
+  const queueEl = debugPanel.querySelector<HTMLElement>("[data-osml-debug-queue]")!;
+  const traceEl = debugPanel.querySelector<HTMLOListElement>("[data-osml-debug-trace]")!;
   const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
   const ac = new AbortController();
   const { signal } = ac;
@@ -407,6 +424,12 @@ function mount(root: HTMLElement): Mounted {
     relayOut();
     if (cardFor) {
       fillCard(cardFor);
+    }
+    // A debugger run belongs to the model it ran; a new model runs afresh.
+    if (debugPanel.hidden) {
+      run = undefined;
+    } else if (rerunning === undefined) {
+      void rerun(-1);
     }
   }
 
@@ -822,17 +845,21 @@ function mount(root: HTMLElement): Mounted {
     return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
-  function travel(index: number, forward: boolean): Promise<void> {
+  // Each move of the token takes a new motion number; an older travel stops where it is.
+  let motion = 0;
+
+  function travel(index: number, forward: boolean, duration = HOP): Promise<void> {
+    const mine = ++motion;
     return new Promise((resolve) => {
       let began: number | undefined;
       const step = (now: number): void => {
         const line = content.querySelector<SVGGeometryElement>(`g.opensysml-edge[data-edge="${index}"] .line`);
-        if (signal.aborted || !line || !token) {
+        if (signal.aborted || mine !== motion || !line || !token) {
           resolve();
           return;
         }
         began ??= now;
-        const t = Math.min(1, (now - began) / HOP);
+        const t = Math.min(1, (now - began) / duration);
         const eased = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
         const at = line.getPointAtLength(line.getTotalLength() * (forward ? eased : 1 - eased));
         token.setAttribute("cx", String(at.x));
@@ -847,12 +874,30 @@ function mount(root: HTMLElement): Mounted {
     });
   }
 
+  function showToken(): SVGCircleElement {
+    if (!token) {
+      token = document.createElementNS(SVG_NS, "circle");
+      token.setAttribute("class", "osml-token");
+      token.setAttribute("r", "7");
+      content.append(token);
+    }
+    token.style.display = "";
+    return token;
+  }
+
+  function dropToken(): void {
+    motion++;
+    token?.remove();
+    token = undefined;
+  }
+
+  function edgeBetween(from: string | undefined, to: string | undefined): number {
+    return result.edges.findIndex(
+      (edge) => (edge.from === from && edge.to === to) || (edge.from === to && edge.to === from),
+    );
+  }
+
   async function animate(visited: string[]): Promise<void> {
-    token = document.createElementNS(SVG_NS, "circle");
-    token.setAttribute("class", "osml-token");
-    token.setAttribute("r", "7");
-    token.style.display = "none";
-    content.append(token);
     try {
       for (let i = 0; i < visited.length && !signal.aborted; i++) {
         liveNode = visited[i];
@@ -863,39 +908,45 @@ function mount(root: HTMLElement): Mounted {
           await delay(1200);
           break;
         }
-        const index = result.edges.findIndex(
-          (edge) => (edge.from === liveNode && edge.to === next) || (edge.from === next && edge.to === liveNode),
-        );
+        const index = edgeBetween(liveNode, next);
         if (index < 0 || reduceMotion.matches) {
           await delay(800);
           continue;
         }
         liveEdge = index;
         syncClasses();
-        token.style.display = "";
+        showToken();
         await travel(index, result.edges[index].from === liveNode);
-        token.style.display = "none";
+        if (token) {
+          token.style.display = "none";
+        }
       }
     } finally {
-      token?.remove();
-      token = undefined;
+      dropToken();
       liveNode = undefined;
       liveEdge = undefined;
       syncClasses();
     }
   }
 
+  // The model to run: the editor's text when it reads cleanly, else the last good model.
+  async function runnable(): Promise<LandingModel | undefined> {
+    const source = await currentSource();
+    return source === goodSource ? model : read(source, "run");
+  }
+
   on(runBtn, "click", () => {
     if (running) {
       return;
     }
+    pause();
     running = true;
     runBtn.disabled = true;
+    syncDebugControls();
     status("Loading the engine and reading the model…");
     void (async () => {
       try {
-        const source = await currentSource();
-        const current = source === goodSource ? model : await read(source, "run");
+        const current = await runnable();
         if (!current) {
           return;
         }
@@ -914,9 +965,227 @@ function mount(root: HTMLElement): Mounted {
       } finally {
         running = false;
         runBtn.disabled = false;
+        syncDebugControls();
+        if (!debugPanel.hidden) {
+          showStep(cursor, false);
+        }
       }
     })();
   });
+
+  // ---- debugging the model ----
+  // Every change re-runs ModelJourney from the start on the engine with all the events
+  // sent so far; the panel then steps through that run's trace record by record.
+
+  let sent: string[] = [...JOURNEY_EVENTS];
+  let seed: number | undefined;
+  let run: JourneyRun | undefined;
+  let steps: DebugStep[] = [];
+  // The last trace record shown; -1 is before the first.
+  let cursor = -1;
+  let playing = false;
+  let rerunning: Promise<void> | undefined;
+
+  const stateLabel = (state: string | undefined): string =>
+    state === undefined ? "nowhere yet" : model.parts.get(state)?.attrs.label ?? state;
+
+  function speed(): number {
+    const value = Number(speedSel.value);
+    return Number.isFinite(value) && value > 0 ? value : 1;
+  }
+
+  function recordText(step: DebugStep): string {
+    const { record } = step;
+    if (step.ignored) {
+      return `${record.text}: ignored, no transition out of ${stateLabel(step.state)} accepts it`;
+    }
+    return record.text;
+  }
+
+  function fillTrace(): void {
+    const items = steps.map((step, index) => {
+      const item = document.createElement("li");
+      item.className = `osml-debug__record osml-debug__record--${step.record.kind}`;
+      item.classList.toggle("is-ignored", step.ignored === true);
+      item.dataset.index = String(index);
+      item.textContent = recordText(step);
+      return item;
+    });
+    if (run?.error) {
+      const failed = document.createElement("li");
+      failed.className = "osml-debug__record osml-debug__record--error";
+      failed.textContent = `The run failed: ${run.error}`;
+      items.push(failed);
+    }
+    traceEl.replaceChildren(...items);
+  }
+
+  function syncDebugControls(): void {
+    const idle = !running && rerunning === undefined;
+    for (const button of sendBtns) {
+      button.disabled = !idle;
+    }
+    debugResetBtn.disabled = !idle;
+    playBtn.disabled = !idle || (!playing && cursor >= steps.length - 1);
+    backBtn.disabled = !idle || playing || cursor < 0;
+    stepBtn.disabled = !idle || playing || cursor >= steps.length - 1;
+    seedEl.disabled = !idle;
+    reseedBtn.disabled = !idle;
+    playBtn.textContent = playing ? "❚❚ Pause" : "▶ Play";
+    playBtn.setAttribute("aria-pressed", String(playing));
+  }
+
+  function showStep(index: number, animated: boolean): Promise<void> {
+    cursor = Math.max(-1, Math.min(index, steps.length - 1));
+    const step = steps[cursor];
+    liveNode = step?.state === undefined ? undefined : idOf(step.state);
+    const edge = step?.edge ? edgeBetween(idOf(step.edge.from), idOf(step.edge.to)) : -1;
+    liveEdge = edge < 0 ? undefined : edge;
+    syncClasses();
+    for (const item of traceEl.querySelectorAll<HTMLElement>("li[data-index]")) {
+      const current = Number(item.dataset.index) === cursor;
+      item.classList.toggle("is-current", current);
+      if (current) {
+        item.setAttribute("aria-current", "step");
+        const box = traceEl.getBoundingClientRect();
+        const row = item.getBoundingClientRect();
+        traceEl.scrollTop += row.top - box.top - (traceEl.clientHeight - row.height) / 2;
+      } else {
+        item.removeAttribute("aria-current");
+      }
+    }
+    const accepted = step?.accepted ?? 0;
+    const queue = sent.slice(accepted);
+    queueEl.textContent = queue.length === 0 ? "empty" : queue.join(", ");
+    const position = steps.length === 0 ? "no records" : `record ${cursor + 1} of ${steps.length}`;
+    const where = step === undefined ? "Not started" : `In ${stateLabel(step.state)}`;
+    const choice = step?.record.kind === "choice" ? `, chose ${step.record.taken ?? "?"}` : "";
+    nowEl.textContent = `${where}${choice} · ${position} · ${accepted} of ${sent.length} events taken`;
+    syncDebugControls();
+    if (!animated || liveEdge === undefined || reduceMotion.matches || !step?.edge) {
+      dropToken();
+      return Promise.resolve();
+    }
+    showToken();
+    const forward = result.edges[liveEdge].from === idOf(step.edge.from);
+    return travel(liveEdge, forward, HOP / speed()).then(() => {
+      if (cursor === index) {
+        dropToken();
+      }
+    });
+  }
+
+  // rerun runs the sent events afresh and shows the run from record `from`.
+  function rerun(from: number): Promise<void> {
+    pause();
+    const pending = (async () => {
+      const current = await runnable();
+      if (!current) {
+        return;
+      }
+      const client = await engine();
+      const started = performance.now();
+      run = runJourney(client, current, sent, seed);
+      steps = debugSteps(run.trace);
+      const ms = Math.max(1, Math.round(performance.now() - started));
+      const schedule = seed === undefined ? "the default schedule" : `seed ${seed}`;
+      status(
+        run.error
+          ? `ExecuteState failed after ${steps.length} trace records: ${run.error}`
+          : `ExecuteState ran ModelJourney on ${sent.length} events under ${schedule} in ${ms} ms: ${steps.length} trace records.`,
+        run.error !== undefined,
+      );
+      fillTrace();
+    })()
+      .catch((error: unknown) => {
+        status(`The engine could not run the model (${message(error)}). The diagram still works.`, true);
+      })
+      .finally(() => {
+        rerunning = undefined;
+        void showStep(Math.min(from, steps.length - 1), false);
+      });
+    rerunning = pending;
+    syncDebugControls();
+    return pending;
+  }
+
+  function pause(): void {
+    playing = false;
+    syncDebugControls();
+  }
+
+  async function play(): Promise<void> {
+    if (playing || running) {
+      return;
+    }
+    playing = true;
+    syncDebugControls();
+    while (playing && !signal.aborted && cursor < steps.length - 1) {
+      await showStep(cursor + 1, true);
+      if (playing) {
+        await delay(450 / speed());
+      }
+    }
+    playing = false;
+    syncDebugControls();
+  }
+
+  function setSeed(next: number | undefined): void {
+    seed = next;
+    seedEl.value = next === undefined ? "" : String(next);
+    void rerun(-1);
+  }
+
+  on(debugBtn, "click", () => {
+    const open = debugPanel.hidden;
+    debugPanel.hidden = !open;
+    debugBtn.setAttribute("aria-expanded", String(open));
+    debugBtn.textContent = open ? "Hide the debugger" : "Debug the run";
+    if (!open) {
+      pause();
+      dropToken();
+      liveNode = undefined;
+      liveEdge = undefined;
+      syncClasses();
+      return;
+    }
+    if (run === undefined) {
+      status("Loading the engine and running the model…");
+      void rerun(-1);
+    } else {
+      void showStep(cursor, false);
+    }
+  });
+  for (const button of sendBtns) {
+    on(button, "click", () => {
+      const event = button.dataset.osmlSend;
+      if (!event) {
+        return;
+      }
+      const end = steps.length - 1;
+      sent = [...sent, event];
+      void rerun(end).then(() => play());
+    });
+  }
+  on(debugResetBtn, "click", () => {
+    sent = [];
+    void rerun(-1).then(() => play());
+  });
+  on(playBtn, "click", () => {
+    if (playing) {
+      pause();
+    } else {
+      void play();
+    }
+  });
+  on(stepBtn, "click", () => void showStep(cursor + 1, true));
+  on(backBtn, "click", () => void showStep(cursor - 1, false));
+  on(seedEl, "change", () => {
+    const value = seedEl.value.trim();
+    const parsed = Number(value);
+    setSeed(value === "" || !Number.isSafeInteger(parsed) || parsed < 0 ? undefined : parsed);
+  });
+  on(reseedBtn, "click", () => setSeed(1 + Math.floor(Math.random() * 9999)));
 
   // ---- editing the model ----
 
@@ -1021,6 +1290,7 @@ function mount(root: HTMLElement): Mounted {
         active.frame = undefined;
       }
     }
+    playing = false;
     ac.abort();
     resize.disconnect();
     navigation?.unsubscribe();
