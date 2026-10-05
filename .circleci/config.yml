@@ -2563,7 +2563,7 @@ jobs:
               echo "Error: cargo package did not create ${crate}."
               exit 1
             fi
-            python3 - "${crate}" "${CIRCLE_TAG}" <<'PY'
+            python3 - "${crate}" "${CIRCLE_TAG}" \<<'PY'
             import json
             import sys
             import tarfile
