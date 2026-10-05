@@ -3693,13 +3693,14 @@ func (p *Parser) parseBindingEnd() *ast.ConnectorEnd {
 
 // parseExpressionEndTarget parses the expression written where an end should
 // name a feature and reports it once as msg, kept as the end's ErrorNode target.
-// A malformed expression is skipped up to the next end delimiter instead, so
-// the one mistake yields the one diagnostic.
+// A malformed expression — one that fails to parse, or stops short of an
+// operator (`a ? b`) — is skipped up to the next end delimiter instead, so the
+// one mistake yields the one diagnostic.
 func (p *Parser) parseExpressionEndTarget(msg string) ast.Node {
 	start := p.peek().Span.Offset
 	cp := p.checkpoint()
 	expr := p.ParseExpression()
-	clean := expr != nil && len(p.Diagnostics) == cp.diagnosticLen
+	clean := expr != nil && len(p.Diagnostics) == cp.diagnosticLen && !p.atExpressionOperator()
 	if !clean {
 		p.restore(cp)
 	}
@@ -3714,15 +3715,30 @@ func (p *Parser) parseExpressionEndTarget(msg string) ast.Node {
 }
 
 // skipToEndDelimiter skips the rest of a malformed connector end: up to the
-// delimiter after an end (`to` or `then` anywhere, as no expression contains
-// them; `=`, `,` or `)` outside any nesting) or the end of the declaration
-// (`;`, `{`, `}`, EOF).
+// delimiter after an end (`to`, `then`, `=`, `,` or `)` outside any nesting)
+// or the end of the declaration (`;`, `{`, `}`, EOF). A `to` or `then` inside
+// nesting that never closes (`a#(1 to b;`) is the delimiter after all.
 func (p *Parser) skipToEndDelimiter() {
 	depth := 0
+	var nested *parseCheckpoint
+	defer func() {
+		if nested != nil {
+			if depth > 0 {
+				p.restore(*nested)
+			}
+			p.release()
+		}
+	}()
 	for !p.atEOF() && !p.at(lexer.Semicolon) && !p.at(lexer.LBrace) && !p.at(lexer.RBrace) {
 		switch {
 		case p.atKeyword("to"), p.atKeyword("then"):
-			return
+			if depth == 0 {
+				return
+			}
+			if nested == nil {
+				cp := p.checkpoint()
+				nested = &cp
+			}
 		case p.at(lexer.LParen), p.at(lexer.LBracket):
 			depth++
 		case p.at(lexer.RParen), p.at(lexer.RBracket):
