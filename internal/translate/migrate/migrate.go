@@ -1765,7 +1765,7 @@ func (m *migration) instanceSlot(e, slot, f *sysmlv1.Element, kw, prefix string)
 			return nil, slotValueSubject + describe(inst) + " is not written as an individual: " + note, false
 		}
 		kind, classifiers, _ := m.individualClassifiers(inst)
-		if kind == catNone || kind.keyword() != kw+" def" {
+		if kind == catNone || !individualTypes(kind, kw) {
 			return nil, slotValueSubject + describe(inst) + " is an " + individualKeyword(kind) + ", which cannot type " + article(kw) + kw, false
 		}
 		if !m.instanceOf(classifiers, t) {

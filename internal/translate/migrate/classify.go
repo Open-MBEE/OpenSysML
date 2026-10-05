@@ -684,8 +684,8 @@ func (m *migration) classifiersOf(e *sysmlv1.Element) []*sysmlv1.Element {
 	return m.snapshots[e].classifiers
 }
 
-// individualClassifiers returns the kind an individual takes from its first classifier
-// of a kind (part def, constraint def; a port def gives none) and the classifiers of that kind.
+// individualClassifiers returns the kind an individual takes from its first
+// classifier of a kind, preferring a part def over an occurrence def.
 func (m *migration) individualClassifiers(e *sysmlv1.Element) (kind category, written []*sysmlv1.Element, note string) {
 	occurrences, _, _ := m.instanceClassifiers(e)
 	kinds := make([]category, len(occurrences))
@@ -699,10 +699,18 @@ func (m *migration) individualClassifiers(e *sysmlv1.Element) (kind category, wr
 			kind = cc
 		}
 	}
+	if kind == catOccurrenceDef {
+		for _, k := range kinds {
+			if k == catPartDef {
+				kind = catPartDef
+				break
+			}
+		}
+	}
 	var notes []string
 	for i, c := range occurrences {
 		switch {
-		case kinds[i] == kind:
+		case kinds[i] == kind || kind == catPartDef && kinds[i] == catOccurrenceDef:
 			written = append(written, c)
 		case kinds[i] == catNone:
 			notes = append(notes, classifierSubject+qualifiedName(c)+" is not written: an "+individualKeyword(kind)+" cannot specialize a port def")
@@ -713,11 +721,16 @@ func (m *migration) individualClassifiers(e *sysmlv1.Element) (kind category, wr
 	return kind, written, strings.Join(notes, "; ")
 }
 
-// individualKeyword is the declaration keyword of an individual of the kind:
-// `individual part def`, or `individual def` for an instance of an interface block.
+// individualKeyword is the declaration keyword for an individual of the kind,
+// or `individual def` when no definition kind is available.
 func individualKeyword(kind category) string {
 	if kind == catNone {
 		return "individual def"
 	}
 	return "individual " + kind.keyword()
+}
+
+// individualTypes reports whether an individual of the kind can type a kw usage.
+func individualTypes(kind category, kw string) bool {
+	return kind.keyword() == kw+" def" || kw == "occurrence" && kind == catPartDef
 }
