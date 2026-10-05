@@ -986,8 +986,11 @@ function mount(root: HTMLElement): Mounted {
         running = false;
         runBtn.disabled = false;
         syncDebugControls();
-        if (ran && run !== undefined && (runSeed !== seed || !sameEvents(sent, JOURNEY_EVENTS))) {
-          sent = [...JOURNEY_EVENTS];
+        const eventsStale = ran && !sameEvents(sent, JOURNEY_EVENTS);
+        if (run !== undefined && (runSeed !== seed || eventsStale)) {
+          if (eventsStale) {
+            sent = [...JOURNEY_EVENTS];
+          }
           if (debugPanel.hidden) {
             run = undefined;
           } else {
