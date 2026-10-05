@@ -370,7 +370,8 @@ to one is refused as a `type mismatch` naming both dimensions. See
 [Behavior](06-behavior.md) for the same rule over `assign`. An argument is bound to the
 parameter it fills, and that binding is judged like an explicit `bind`: `sum(robots.mass)`
 handing `MassValue`s to `RealFunctions::sum`, declared over `Real`, draws the validation warning
-`Bound features should have conforming types` at the argument, as the SysML v2 pilot reports it.
+`Bound features should have conforming types` at the argument, as the SysML v2 pilot reports it;
+`QuantityCalculations::sum` is the sum declared over quantities, and takes them silently.
 
 ## Arrays, sets and tensors
 
@@ -559,31 +560,33 @@ from an FMI model (`-convert sysml model.fmu`), its evaluation runs the FMU thro
 
 **Calculations as values:**
 
-A `calc def`, a `calc` usage or an `in calc` parameter named where a value is expected is a
-*function value*: the calculation, together with whatever it closes over. It is passed as an
-argument, held in a feature, compared with `==`, and invoked by the parameter that receives it;
-reading it on its own answers the function, named by its declaration.
+A `calc` usage or an `in calc` parameter named where a value is expected is a *function value*:
+the calculation, together with whatever it closes over. It is passed as an argument, held in a
+feature, compared with `==`, and invoked by the parameter that receives it; reading it on its own
+answers the function, named by its declaration.
 
 ```sysml
 sysml> package Gains {
   ...>     private import ScalarValues::*;
   ...>     calc def Square { in v : Real; return : Real = v * v; }
+  ...>     calc square : Square;
   ...>     calc def Apply { in calc f { in v : Real; return : Real; } in a : Real; return : Real = f(a); }
   ...> }
 ✓ package Gains
 
-sysml> %calc Gains::Apply(Gains::Square, 3.0)
-✓ Gains::Apply(Gains::Square, 3.0)
+sysml> %calc Gains::Apply(Gains::square, 3.0)
+✓ Gains::Apply(Gains::square, 3.0)
   = 9.0
   standing: value (observed: 1 run under reverse)
 
-sysml> %eval Gains::Square
-✓ Gains::Square
-  = Gains::Square
+sysml> %eval Gains::square
+✓ Gains::square
+  = Gains::square
 ```
 
-A `calc def` is a definition, not a feature, so it is passed as an argument or referenced through
-a `calc` usage rather than bound directly as a feature's value. A nested `calc` closes over the
+A `calc def` is a definition, not a feature, so a function is passed through a `calc` usage of it
+rather than by naming the definition: `Apply(Square, 3.0)` is accepted here but refused by the
+reference implementation as `Must be a valid feature`. A nested `calc` closes over the
 features around it, and `SampledFunctions::Sample` from the analysis library takes a function value
 and tabulates it over a domain.
 
