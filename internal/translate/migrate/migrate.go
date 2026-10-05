@@ -3580,6 +3580,9 @@ func (m *migration) writeComments(e *sysmlv1.Element, first bool) {
 			m.add(c, Skipped, "", "empty comment")
 			continue
 		}
+		if note := m.concernCommentFallback(c); note != "" {
+			m.downgrade(c, note)
+		}
 		if m.annotatesOthers(c, e) {
 			scope := m.scope
 			m.w.hole(func() { m.commentAbout(c, about, text, missing, scope) })
@@ -3689,6 +3692,9 @@ func (m *migration) comment(c *sysmlv1.Element) {
 	if text == "" {
 		m.add(c, Skipped, "", "empty comment")
 		return
+	}
+	if note := m.concernCommentFallback(c); note != "" {
+		m.downgrade(c, note)
 	}
 	m.w.lines(prefixFirst(commentPrefix, commentLines(text)))
 	m.add(c, Mapped, "", "")

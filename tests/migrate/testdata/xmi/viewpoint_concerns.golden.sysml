@@ -26,9 +26,6 @@ package ViewsModel {
             stakeholder reviewer : Reviewer;
             frame 'concern 2';
             frame 'concern';
-            frame concern {
-                doc /* Enumeration concern */
-            }
             frame ViewsModel::'concern';
             frame $::'concern';
             frame concern {
@@ -67,7 +64,15 @@ package ViewsModel {
         satisfy 'safety Viewpoint';
         metadata MigrationMetadata::SynthesizedName about 'safety Viewpoint';
     }
-    enum def Fallback;
+    enum def Fallback {
+        doc /* Enumeration concern */
+    }
+    view 'Inherited Base' : 'Review Viewpoint';
+    view 'Inherited Derived' :> 'Inherited Base' {
+        /* conforms to 'Safety Viewpoint' */
+    }
+    view 'Inherited Same' :> 'Inherited Base';
+    view 'Multiple Bases' :> 'Generalized View', 'Tagged View';
     view 'Generalized View' : 'Review Viewpoint';
     view 'Tagged View' : 'Safety Viewpoint';
     view 'Conforming View' : 'Review Viewpoint';

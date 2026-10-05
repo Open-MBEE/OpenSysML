@@ -146,11 +146,25 @@ func (m *migration) conformedViewpoints(e *sysmlv1.Element) string {
 	if len(conformances) == 0 {
 		return ""
 	}
+	if conformances[0].kind == inheritedConformance {
+		return ""
+	}
 	return m.ref(conformances[0].viewpoint, e)
 }
 
 // viewpointConformances returns valid viewpoint sources in migration precedence order.
 func (m *migration) viewpointConformances(e *sysmlv1.Element) []viewpointConformance {
+	return m.viewpointConformancesSeen(e, map[*sysmlv1.Element]bool{})
+}
+
+// viewpointConformancesSeen includes effective conformances without following a cycle.
+func (m *migration) viewpointConformancesSeen(e *sysmlv1.Element, visiting map[*sysmlv1.Element]bool) []viewpointConformance {
+	if e == nil || visiting[e] {
+		return nil
+	}
+	visiting[e] = true
+	defer delete(visiting, e)
+
 	var out []viewpointConformance
 	seen := map[*sysmlv1.Element]bool{}
 	add := func(vp, source *sysmlv1.Element, kind conformanceSource) {
@@ -159,6 +173,22 @@ func (m *migration) viewpointConformances(e *sysmlv1.Element) []viewpointConform
 		}
 		seen[vp] = true
 		out = append(out, viewpointConformance{viewpoint: vp, source: source, kind: kind})
+	}
+	for _, g := range e.Owned("generalization") {
+		if m.conforms(g) {
+			continue
+		}
+		base := m.model.Ref(g, "general")
+		if base == nil || !m.written(base) {
+			continue
+		}
+		if cat, _ := m.classify(base); cat != catView {
+			continue
+		}
+		inherited := m.viewpointConformancesSeen(base, visiting)
+		if len(inherited) > 0 {
+			add(inherited[0].viewpoint, g, inheritedConformance)
+		}
 	}
 	for _, g := range e.Owned("generalization") {
 		if m.conforms(g) {
@@ -185,6 +215,13 @@ func (m *migration) additionalViewpointConformances(e *sysmlv1.Element) {
 		return
 	}
 	for _, conformance := range conformances[1:] {
+		if conformance.kind == inheritedConformance {
+			base := m.model.Ref(conformance.source, "general")
+			note := "inherits a second viewpoint through " + qualifiedName(base) +
+				"; v2 types a view by one view definition"
+			m.add(conformance.source, Approximated, m.v2Name(e), note)
+			continue
+		}
 		note := "v2 types a view by one view definition, so its conformance to " +
 			qualifiedName(conformance.viewpoint) + " is kept as a comment"
 		m.w.line("/* conforms to " + m.ref(conformance.viewpoint, e) + " */")
@@ -204,6 +241,7 @@ const (
 	generalizationConformance conformanceSource = iota
 	taggedConformance
 	dependencyConformance
+	inheritedConformance
 )
 
 // viewpointConformance records a view's viewpoint and the source that names it.
@@ -499,8 +537,9 @@ func (m *migration) viewpointDoc(e *sysmlv1.Element) string {
 
 // concernInfo records the stakeholders and owner eligibility for a concern comment.
 type concernInfo struct {
-	stakeholders []*sysmlv1.Element
-	homed        bool
+	stakeholders    []*sysmlv1.Element
+	homed           bool
+	viewpointListed bool
 }
 
 // prepareConcerns indexes concern comments before declarations are written.
@@ -522,7 +561,6 @@ func (m *migration) prepareConcerns() {
 					m.downgrade(e, "the concernList tag names the "+kindOf(c)+" "+qualifiedName(c)+", which is not a comment and frames no concern")
 					continue
 				}
-				m.framed[c] = true
 				m.concernLists[e] = append(m.concernLists[e], c)
 				info := m.concerns[c]
 				if info == nil {
@@ -530,8 +568,12 @@ func (m *migration) prepareConcerns() {
 					m.concerns[c] = info
 					concernOrder = append(concernOrder, c)
 				}
-				if stakeholder && !slices.Contains(info.stakeholders, e) {
-					info.stakeholders = append(info.stakeholders, e)
+				if stakeholder {
+					if !slices.Contains(info.stakeholders, e) {
+						info.stakeholders = append(info.stakeholders, e)
+					}
+				} else {
+					info.viewpointListed = true
 				}
 			}
 		}
@@ -547,23 +589,39 @@ func (m *migration) prepareConcerns() {
 	for _, c := range concernOrder {
 		info := m.concerns[c]
 		owner := c.Parent
-		if owner == nil {
-			continue
-		}
-		if m.flattened(owner) {
-			info.homed = true
-		} else if owner.Type == "Package" {
-			info.homed = !m.isLibrary(owner) && m.written(owner)
-		} else {
-			cat, _ := m.classify(owner)
-			info.homed = (cat == catPartDef || cat == catActionDef || cat == catRequirementDef ||
-				cat == catUseCaseDef || cat == catView || cat == catViewpoint) && m.written(owner)
+		if owner != nil {
+			if m.flattened(owner) {
+				info.homed = true
+			} else if owner.Type == "Package" {
+				info.homed = !m.isLibrary(owner) && m.written(owner)
+			} else {
+				cat, _ := m.classify(owner)
+				info.homed = (cat == catPartDef || cat == catActionDef || cat == catRequirementDef ||
+					cat == catUseCaseDef || cat == catView || cat == catViewpoint) && m.written(owner)
+			}
 		}
 		if info.homed {
 			m.names[c] = m.freshName(owner, "concern")
 			m.synthesized[c] = true
 		}
+		if info.homed || info.viewpointListed {
+			m.framed[c] = true
+		}
 	}
+}
+
+// concernCommentFallbackNote explains why a stakeholder-only concern stays a comment.
+func concernCommentFallbackNote() string {
+	return "the concern is kept as a comment because its owner cannot own a v2 concern usage and no viewpoint frames it"
+}
+
+// concernCommentFallback returns the downgrade for an unhomed concern no viewpoint lists.
+func (m *migration) concernCommentFallback(c *sysmlv1.Element) string {
+	info := m.concerns[c]
+	if info == nil || info.homed || info.viewpointListed || len(info.stakeholders) == 0 {
+		return ""
+	}
+	return concernCommentFallbackNote()
 }
 
 // concernFallbackNote explains why a concern comment remains an anonymous frame.
