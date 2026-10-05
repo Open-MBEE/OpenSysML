@@ -77,6 +77,16 @@ stmt assign object.values
     exit calc SequenceFunctions::excludingAt -> (2, 4)
   eval invoke SequenceFunctions::excludingAt -> (2, 4)
   eval feature object -> instance#3
+step 9: token 1@if
+stmt if
+    eval literal 3 -> 3
+      enter calc SequenceFunctions::size
+          eval feature object -> instance#3
+        eval chain values -> (2, 4)
+        bind seq = (2, 4) [argument]
+      exit calc SequenceFunctions::size -> 2
+    eval invoke SequenceFunctions::size -> 2
+  eval operator <= -> false
 leave action node: write
-step 9: token 1@done
-step 10: no active tokens
+step 10: token 1@done
+step 11: no active tokens

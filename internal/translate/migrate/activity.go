@@ -2634,7 +2634,7 @@ func (a *activity) removeFeature(n *sysmlv1.Element, name string) {
 		return
 	}
 	value, removeAt := firstOwned(n, "value"), firstOwned(n, "removeAt")
-	byPosition := removeAt != nil && f.Attrs["isOrdered"] == "true" && f.Attrs["isUnique"] == "false"
+	byPosition := removeAt != nil && n.Attrs["isRemoveDuplicates"] != "true"
 	if value == nil && !byPosition {
 		a.placeholder(n, name, "the action names no value or position to remove", Unmapped)
 		return
@@ -2654,17 +2654,20 @@ func (a *activity) removeFeature(n *sysmlv1.Element, name string) {
 			a.placeholderBody(n, name, why, verdict)
 			return
 		}
-		var expr string
 		if byPosition {
 			index := writeName(a.names[removeAt])
-			expr = "SequenceFunctions::excludingAt(" + feature + ", " + index + ", " + index + ")"
+			a.m.w.lines([]string{
+				"if " + index + " <= SequenceFunctions::size(" + feature + ") {",
+				"    assign " + feature + " := SequenceFunctions::excludingAt(" + feature + ", " + index + ", " + index + ");",
+				"}",
+			})
 		} else {
-			expr = "SequenceFunctions::excluding(" + feature + ", " + writeName(a.names[value]) + ")"
+			expr := "SequenceFunctions::excluding(" + feature + ", " + writeName(a.names[value]) + ")"
 			if f.Attrs["isUnique"] == "false" && n.Attrs["isRemoveDuplicates"] != "true" {
 				note = "every occurrence of the value is removed, where v1 removes one"
 			}
+			a.m.w.line("assign " + feature + " := " + expr + ";")
 		}
-		a.m.w.line("assign " + feature + " := " + expr + ";")
 		written = true
 	})
 	if written {
@@ -2685,6 +2688,8 @@ func (a *activity) clearFeature(n *sysmlv1.Element, name string) {
 		return
 	}
 	var written bool
+	outcome := Mapped
+	var note string
 	a.m.w.block(actionKw+name, func() {
 		ins, outs := inputPins(n), outputPins(n)
 		a.prepareInputPinNames(n, ins)
@@ -2695,6 +2700,10 @@ func (a *activity) clearFeature(n *sysmlv1.Element, name string) {
 			return
 		}
 		passThrough := lower >= 1 && a.clearPassesThrough(n, f)
+		if passThrough {
+			outcome = Approximated
+			note = "the feature is not emptied: the replace-all write that takes the result replaces its value, so an action that reads the feature before that write sees the old value"
+		}
 		if lower >= 1 && !passThrough {
 			a.declarePinsWithValues(n, ins, outs, nil, nil)
 			note := "the feature " + a.m.nameOf(f) + " must hold at least one value, so it cannot be emptied in v2"
@@ -2708,7 +2717,7 @@ func (a *activity) clearFeature(n *sysmlv1.Element, name string) {
 		written = true
 	})
 	if written {
-		a.m.add(n, Mapped, name, "")
+		a.m.add(n, outcome, name, note)
 	}
 }
 

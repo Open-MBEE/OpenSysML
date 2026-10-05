@@ -378,25 +378,46 @@ func TestObjectWriteKeepsSelfAndOptionalScalarWrites(t *testing.T) {
 // Value and position removals lower to sequence operations, with duplicate
 // removal's one-versus-all semantic difference reported as an approximation.
 func TestRemoveFeatureUsesValueAndPosition(t *testing.T) {
-	nodes := objectWriteRemove("_byValue", "byValue", "_optionalItems", `isRemoveDuplicates="true"`, "",
-		objectWriteLiteralPin("value", "_byValuePin", "value", "http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Integer", "LiteralInteger", "1"), "",
+	nodes := objectWriteRemove("_byValue", "byValue", "_bag", `isRemoveDuplicates="true"`, "",
+		objectWriteLiteralPin("value", "_byValuePin", "value", "http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Integer", "LiteralInteger", "1"),
+		objectWriteLiteralPin("removeAt", "_byValueIndex", "removeAt", "http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Integer", "LiteralInteger", "2"),
 		objectWriteOutputPin("_byValueResult", "result", "_box")) +
 		objectWriteRemove("_byPosition", "byPosition", "_bag", "", "",
 			"", objectWriteLiteralPin("removeAt", "_removeIndex", "removeAt", "http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Integer", "LiteralInteger", "2"), "") +
+		objectWriteRemove("_byPositionUnique", "byPositionUnique", "_items", "", "",
+			"", objectWriteLiteralPin("removeAt", "_uniqueRemoveIndex", "removeAt", "http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Integer", "LiteralInteger", "2"), "") +
 		objectWriteRemove("_duplicates", "duplicates", "_bag", "", "",
 			objectWriteLiteralPin("value", "_duplicateValue", "value", "http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Integer", "LiteralInteger", "3"), "", "") +
 		objectWriteRemove("_missing", "missing", "_bag", "", "", "", "", "")
-	activity := objectWriteActivity("", nodes, "", "_byValue", "_byPosition", "_duplicates", "_missing")
+	activity := objectWriteActivity("", nodes, "", "_byValue", "_byPosition", "_byPositionUnique", "_duplicates", "_missing")
 	r := objectWriteModel(t, activity, "", "")
-	for _, line := range []string{
-		"assign optionalItems := SequenceFunctions::excluding(optionalItems, value);",
-		"assign bag := SequenceFunctions::excludingAt(bag, removeAt, removeAt);",
-		"assign bag := SequenceFunctions::excluding(bag, value);",
+	for action, want := range map[string][]string{
+		"byValue": {
+			"assign bag := SequenceFunctions::excluding(bag, value);",
+		},
+		"byPosition": {
+			"if removeAt <= SequenceFunctions::size(bag) {",
+			"    assign bag := SequenceFunctions::excludingAt(bag, removeAt, removeAt);",
+		},
+		"byPositionUnique": {
+			"if removeAt <= SequenceFunctions::size(items) {",
+			"    assign items := SequenceFunctions::excludingAt(items, removeAt, removeAt);",
+		},
 	} {
-		wantLine(t, r.Notation, line)
+		body := objectWriteActionBody(t, r.Notation, action)
+		for _, line := range want {
+			if !strings.Contains(body, line) {
+				t.Errorf("%s action body lacks %q:\n%s", action, line, body)
+			}
+		}
+	}
+	byValueBody := objectWriteActionBody(t, r.Notation, "byValue")
+	if strings.Contains(byValueBody, "SequenceFunctions::excludingAt") {
+		t.Errorf("byValue action uses positional removal despite isRemoveDuplicates:\n%s", byValueBody)
 	}
 	wantNote(t, r, "_byValue", migrate.Mapped, "")
 	wantNote(t, r, "_byPosition", migrate.Mapped, "")
+	wantNote(t, r, "_byPositionUnique", migrate.Mapped, "")
 	wantNote(t, r, "_duplicates", migrate.Approximated, "every occurrence of the value is removed, where v1 removes one")
 	wantNote(t, r, "_missing", migrate.Unmapped, "the action names no value or position to remove")
 	wantLine(t, r.Notation, "out result : Box[1] = this;")
@@ -424,7 +445,8 @@ func TestClearOptionalAndReplaceAllPassThrough(t *testing.T) {
 	wantLine(t, r.Notation, "assign optionalItems := ();")
 	wantNoStatement(t, r.Notation, "assign items := ();")
 	wantNote(t, r, "_optional", migrate.Mapped, "")
-	wantNote(t, r, "_pass", migrate.Mapped, "")
+	wantNote(t, r, "_pass", migrate.Approximated,
+		"the feature is not emptied: the replace-all write that takes the result replaces its value, so an action that reads the feature before that write sees the old value")
 	wantNote(t, r, "_mandatory", migrate.Unmapped, "the feature items must hold at least one value, so it cannot be emptied in v2")
 	wantLine(t, r.Notation, "out result : Box[1] = this;")
 	wantClean(t, "object_write_clear.sysml", r)
