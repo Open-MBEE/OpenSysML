@@ -1,0 +1,7 @@
+{
+  "libraries": true,
+  "type": "analysis",
+  "evaluate": "test::An",
+  "schedule": "declared",
+  "result": {"type": "Integer", "value": 12}
+}

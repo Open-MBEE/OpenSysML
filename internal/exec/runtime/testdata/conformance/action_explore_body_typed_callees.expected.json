@@ -1,0 +1,12 @@
+{
+	"type": "action",
+	"evaluate": "test::TypedCallees",
+	"libraries": true,
+	"trace": true,
+	"outcomes": [
+		{"outputs": {"a.t": {"type": "Integer", "value": 0}, "b.t": {"type": "Integer", "value": 0}, "seen": {"type": "Integer", "value": 1}}},
+		{"outputs": {"a.t": {"type": "Integer", "value": 0}, "b.t": {"type": "Integer", "value": 1}, "seen": {"type": "Integer", "value": 2}}},
+		{"outputs": {"a.t": {"type": "Integer", "value": 1}, "b.t": {"type": "Integer", "value": 0}, "seen": {"type": "Integer", "value": 2}}}
+	],
+	"admissible": "A leaf body's start shot and its assignments: another performance may run between them"
+}

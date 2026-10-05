@@ -13,6 +13,7 @@ func TestRuntimeRobustnessResumableInlineDoBody(t *testing.T) {
 	t.Run("exit_mid_loop_drops_the_pending_iterations", testDoBodyExitMidLoopDropsThePendingIterations)
 	t.Run("exit_mid_iteration_drops_the_rest_of_the_iteration", testDoBodyExitMidIterationDropsTheRestOfTheIteration)
 	t.Run("empty_branch_is_a_round_of_its_own", testDoBodyEmptyBranchIsARoundOfItsOwn)
+	t.Run("stated_flow_loop_and_if_nodes_yield_as_statements", testDoBodyStatedFlowNodesYieldAsStatements)
 	t.Run("exit_on_a_clock_wait_after_a_loop_leaves_no_timer", testDoBodyExitOnAClockWaitAfterALoopLeavesNoTimer)
 	t.Run("non_terminating_body_exceeds_the_step_limit", testDoBodyNonTerminatingExceedsTheStepLimit)
 	t.Run("non_terminating_flow_body_exceeds_the_step_limit", testDoBodyNonTerminatingFlowExceedsTheStepLimit)
@@ -166,6 +167,44 @@ func testDoBodyEmptyBranchIsARoundOfItsOwn(t *testing.T) {
 		if !run.body.ended || exec.HasPendingDoWork() {
 			t.Errorf("%s: body ended = %v, pending do work %v; want the body ended with nothing due", compound, run.body.ended, exec.HasPendingDoWork())
 		}
+	}
+}
+
+// testDoBodyStatedFlowNodesYieldAsStatements: a `for` or `if` node of a do body's
+// stated flow yields after each iteration and branch statement, as in a statement list:
+// the round before the Stop runs one more, and the rest is dropped.
+func testDoBodyStatedFlowNodesYieldAsStatements(t *testing.T) {
+	for _, c := range []struct {
+		body   string
+		rounds []int64
+		after  int64
+	}{
+		{"assign total := 0; then for i in 1..5 { assign total := total + i; }", []int64{0, 1, 3}, 6},
+		{"assign total := 1; then if true { assign total := total + 1; then assign total := total * 10; then assign total := total + 5; }", []int64{1, 2}, 20},
+		{"assign total := 1; then while total < 1000 { assign total := total * 10; }", []int64{1, 10}, 100},
+	} {
+		goroutines := goruntime.NumGoroutine()
+		exec := stateExecutorForSource(t, "Machine", doBodyMachine(c.body))
+		run := pausedDoRun(t, exec)
+		for round, want := range c.rounds {
+			if round > 0 {
+				if _, err := exec.RunDoRound(); err != nil {
+					t.Fatalf("%s: do round %d: %v", c.body, round+1, err)
+				}
+			}
+			if total := exec.StateData()["total"]; !valueEqual(total, integerValue(want)) {
+				t.Fatalf("%s: total = %v after %d round(s); want %d", c.body, total, round+1, want)
+			}
+		}
+		exec.SendSignal("Stop", nil)
+		if err := exec.RunToCompletion(); err != nil {
+			t.Fatalf("%s: run to completion: %v", c.body, err)
+		}
+		data := exec.StateData()
+		if !valueEqual(data["total"], integerValue(c.after)) || !valueEqual(data["after"], integerValue(c.after)) {
+			t.Errorf("%s: total = %v, after = %v; want %d and %d: one round before the Stop, the rest dropped", c.body, data["total"], data["after"], c.after, c.after)
+		}
+		assertDoBodyAbandoned(t, exec, run, goroutines)
 	}
 }
 

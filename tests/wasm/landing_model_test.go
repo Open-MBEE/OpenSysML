@@ -225,8 +225,9 @@ func TestLandingStackModel(t *testing.T) {
 	t.Logf("RenderView landing edges: %+v; API port ids: %+v", diagram.Edges, portIDs)
 
 	var journey struct {
-		StatesVisited []string `json:"statesVisited"`
-		Error         string   `json:"error"`
+		StatesVisited []string             `json:"statesVisited"`
+		Trace         []engine.JTraceEvent `json:"trace"`
+		Error         string               `json:"error"`
 	}
 	call("ExecuteState", map[string]any{
 		"modelHash":            parsed.ModelHash,
@@ -236,8 +237,55 @@ func TestLandingStackModel(t *testing.T) {
 	if journey.Error != "" {
 		t.Fatalf("ExecuteState: %s", journey.Error)
 	}
+	if len(journey.Trace) != 0 {
+		t.Fatalf("unrequested trace has %d records", len(journey.Trace))
+	}
 	if want := []string{"opensysml", "flexo", "toolkit", "flexo", "pilot"}; !reflect.DeepEqual(journey.StatesVisited, want) {
 		t.Errorf("journey: got %v, want %v", journey.StatesVisited, want)
+	}
+
+	var tracedJourney struct {
+		Trace []engine.JTraceEvent `json:"trace"`
+		Error string               `json:"error"`
+	}
+	call("ExecuteState", map[string]any{
+		"modelHash":            parsed.ModelHash,
+		"stateMachineSymbolId": "OpenSysMLStack::ModelJourney",
+		"events":               []string{"Commit", "Pull", "Push", "Check"},
+		"trace":                true,
+	}, &tracedJourney)
+	if tracedJourney.Error != "" {
+		t.Fatalf("traced ExecuteState: %s", tracedJourney.Error)
+	}
+	wantTrace := []engine.JTraceEvent{
+		{Kind: "entry", State: "opensysml"},
+		{Kind: "accept", Event: "Commit"},
+		{Kind: "exit", State: "opensysml"},
+		{Kind: "entry", State: "flexo"},
+		{Kind: "transition", From: "opensysml", To: "flexo", Event: "accept Commit"},
+		{Kind: "accept", Event: "Pull"},
+		{Kind: "exit", State: "flexo"},
+		{Kind: "entry", State: "toolkit"},
+		{Kind: "transition", From: "flexo", To: "toolkit", Event: "accept Pull"},
+		{Kind: "accept", Event: "Push"},
+		{Kind: "exit", State: "toolkit"},
+		{Kind: "entry", State: "flexo"},
+		{Kind: "transition", From: "toolkit", To: "flexo", Event: "accept Push"},
+		{Kind: "accept", Event: "Check"},
+		{Kind: "exit", State: "flexo"},
+		{Kind: "entry", State: "pilot"},
+		{Kind: "transition", From: "flexo", To: "pilot", Event: "accept Check"},
+	}
+	if len(tracedJourney.Trace) != len(wantTrace) {
+		t.Fatalf("traced journey has %d records, want %d: %+v", len(tracedJourney.Trace), len(wantTrace), tracedJourney.Trace)
+	}
+	for i, want := range wantTrace {
+		got := tracedJourney.Trace[i]
+		if got.Kind != want.Kind || got.State != want.State || got.From != want.From ||
+			got.To != want.To || got.Event != want.Event {
+			t.Errorf("trace[%d] = %+v, want kind=%q state=%q from=%q to=%q event=%q",
+				i, got, want.Kind, want.State, want.From, want.To, want.Event)
+		}
 	}
 }
 

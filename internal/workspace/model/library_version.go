@@ -173,7 +173,7 @@ func (w *Workspace) libraryDocumentLocked(name string) *Document {
 	if err != nil {
 		return nil
 	}
-	doc := newDocument(name, bytes.Clone(content), 0)
+	doc := newDocument(name, bytes.Clone(content), 0, source.KindUnknown)
 	w.libDocs[name] = doc
 	return doc
 }

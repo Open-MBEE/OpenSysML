@@ -212,7 +212,8 @@ func (e *StateExecutor) newDoRun(behavior lower.StateBehavior, firing *firing) *
 		return nil
 	}
 	host := e.behaviorHost(behavior, firing)
-	body := &bodyRun{work: host, awaitsMessages: true, yields: true, steps: e.ctx.scheduling().oneMove()}
+	oneMove := e.ctx.scheduling().oneMove()
+	body := &bodyRun{work: host, awaitsMessages: true, yields: true, steps: oneMove, guards: oneMove, nodesYield: true}
 	return &doRun{host: host, body: body}
 }
 
@@ -419,6 +420,23 @@ func (h *stateStmtHost) materializeOccurrence() (*Instance, error) {
 }
 
 // acceptReturn rejects a `return`: a state behavior computes no result.
+// statementOrder is how stmts may be ordered where the schedule picks it: an inline
+// body's statements are subactions of the behavior's performance no succession orders.
+func (h *stateStmtHost) statementOrder(stmts []lower.Statement) *lower.StatementOrder {
+	if len(stmts) < 2 || !h.exec.ctx.scheduling().ordersStatements() {
+		return nil
+	}
+	graph := h.flow.graph
+	if graph == nil {
+		graph = &lower.ActionGraph{Scope: h.behavior.Scope}
+	}
+	return h.perfs.statementOrder(graph, h.behavior.Node, stmts)
+}
+
+func (h *stateStmtHost) orderStep() int { return 0 }
+
+func (h *stateStmtHost) yieldsBetweenStatements() bool { return true }
+
 func (h *stateStmtHost) acceptReturn(Value, lower.Return) error {
 	return fmt.Errorf("%w: %s", ErrReturnOutsideCalc, h.describe())
 }
