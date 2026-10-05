@@ -85,6 +85,8 @@ package ExpressionsDemo {
 
     calc def Square { in v : Real; return : Real = v * v; }
     calc def Halve { in v : Real; return : Real = v / 2.0; }
+    calc square : Square;
+    calc halve : Halve;
 
     calc def Apply {
         in calc f { in v : Real; return : Real; }
@@ -92,12 +94,12 @@ package ExpressionsDemo {
         return : Real = f(a);
     }
 
-    calc def Squared { in a : Real; return : Real = Apply(Square, a); }
-    calc def Halved { in a : Real; return : Real = Apply(Halve, a); }
+    calc def Squared { in a : Real; return : Real = Apply(square, a); }
+    calc def Halved { in a : Real; return : Real = Apply(halve, a); }
 
     calc def SquaresOf {
         in xs : Real[0..*];
-        attribute sampled : SampledFunction = Sample(Square, xs);
+        attribute sampled : SampledFunction = Sample(square, xs);
         return : Real[0..*] = Range(sampled);
     }
 
@@ -107,7 +109,7 @@ package ExpressionsDemo {
         ref transfer = amplify;
         attribute sameTransfer : Boolean = transfer == amplify;
         attribute atThree : Real = Apply(transfer, 3.0);
-        attribute squaredAtThree : Real = Apply(Square, 3.0);
+        attribute squaredAtThree : Real = Apply(square, 3.0);
     }
 
     // --- Sets: unordered, no repeats ------------------------------------------
