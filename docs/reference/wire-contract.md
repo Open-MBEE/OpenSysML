@@ -182,6 +182,18 @@ $ … /ParseSources -d '{"documents":[{"name":"a.sysml","content":"package A { a
 {"modelHash":"f90104e75e9172ab29c8648e3529a103e178756d35b4643d03c8c64419eaabae","roots":[{"kind":"RootNamespace","childIds":["A"]}]}
 ```
 
+### Parsing the same documents again after an edit
+
+A client that re-parses one model after each edit (an editor, a build that recompiles) sends the
+same documents by name with some contents changed. From the second parse of a document set, the
+service answers from an incremental workspace it keeps for that set
+(`internal/frontend/grpc/lineage.go`): it re-parses only the documents whose content changed, and
+re-analyzes only those and the documents whose analysis read them. Nothing in the request or the
+answer changes. The model, its hash, its diagnostics and every later call on it are what a first
+parse of the same documents gives; only the time differs. A set is keyed by its documents' names
+and languages and the conformance mode, and the service keeps the four most recently used.
+`ParseFile` parses its one document whole.
+
 A **stale or unknown hash** is therefore always HTTP 404 with `"code":"not_found"`, on every
 method that takes one. The message is `model not found: <hash>` everywhere except `ApplyEdits`
 and `Convert`, which say `model <hash> is no longer cached: parse it again …`. The Python
