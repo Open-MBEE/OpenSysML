@@ -212,7 +212,7 @@
       },
       "uml:ObjectFlow": {
         "pssm": 11312,
-        "fixtures": 96
+        "fixtures": 98
       },
       "uml:ObjectFlow[weight]": {
         "pssm": 2065,
@@ -252,7 +252,7 @@
       },
       "uml:RaiseExceptionAction": {
         "pssm": 0,
-        "fixtures": 1
+        "fixtures": 2
       },
       "uml:ReadExtentAction": {
         "pssm": 0,
@@ -284,7 +284,7 @@
       },
       "uml:ReadVariableAction": {
         "pssm": 0,
-        "fixtures": 5
+        "fixtures": 6
       },
       "uml:ReclassifyObjectAction": {
         "pssm": 0,
@@ -292,7 +292,7 @@
       },
       "uml:ReduceAction": {
         "pssm": 0,
-        "fixtures": 3
+        "fixtures": 5
       },
       "uml:Region": {
         "pssm": 248,
