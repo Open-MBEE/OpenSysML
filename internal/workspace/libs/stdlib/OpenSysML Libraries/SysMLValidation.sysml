@@ -324,28 +324,6 @@ standard library package SysMLValidation {
 
     /* KerML: Subsetting and redefinition */
 
-    constraint def validateSubsettingUniquenessConformance {
-        doc /* subsettedFeature.isUnique implies subsettingFeature.isUnique */
-        in element : KerML::Subsetting;
-        element.subsettedFeature.isUnique implies element.subsettingFeature.isUnique
-    }
-
-    constraint def validateSubsettingConstantConformance {
-        doc /* subsettedFeature.isConstant and subsettingFeature.isVariable implies subsettingFeature.isConstant */
-        in element : KerML::Subsetting;
-        element.subsettedFeature.isConstant and element.subsettingFeature.isVariable
-            implies element.subsettingFeature.isConstant
-    }
-
-    constraint def validateRedefinitionEndConformance {
-        doc /* redefinedFeature.isEnd and redefiningFeature.owningType <> null and (redefiningFeature.owningType.oclIsKindOf(Association) or redefiningFeature.owningType.oclIsKindOf(Connector)) implies redefiningFeature.isEnd */
-        in element : KerML::Redefinition;
-        (element.redefinedFeature.isEnd and
-            element.redefiningFeature.owningType->exists { in t : KerML::Type;
-                t istype KerML::Association or t istype KerML::Connector })
-        implies element.redefiningFeature.isEnd
-    }
-
     constraint def validateFeatureOwnedReferenceSubsetting {
         doc /* ownedSubsetting->selectByKind(ReferenceSubsetting)->size() <= 1 */
         in element : KerML::Feature;

@@ -682,8 +682,6 @@ package M {
         part b subsets a;
         part e references a;
         part d :>> c;
-        constant attribute ac;
-        constant attribute bc subsets ac;
         port p : ~Pd;
     }
     part def S :> T;
@@ -730,9 +728,6 @@ class K2 conjugates KB;
 		"validateStructureSpecialization",
 		"validateClassSpecialization",
 		"validateDataTypeSpecialization",
-		"validateSubsettingUniquenessConformance",
-		"validateSubsettingConstantConformance",
-		"validateRedefinitionEndConformance",
 		"validateFeatureOwnedReferenceSubsetting",
 		"validateFeatureOwnedCrossSubsetting",
 	} {
@@ -746,42 +741,4 @@ class K2 conjugates KB;
 	if stats.evaluationErrors != 0 {
 		t.Errorf("relationship constraints had %d evaluation errors: %+v", stats.evaluationErrors, verdicts)
 	}
-	// The crosses targets are feature chains, whose crossed features are not
-	// derivable, so those applications stay unevaluated.
-	foundUnevaluated := false
-	for _, verdict := range verdicts {
-		if strings.Contains(verdict.Subject, "CrossSubsetting of 'ProductSelection::") &&
-			strings.Contains(strings.Join(verdict.Lines, "\n"), "could not be evaluated") {
-			foundUnevaluated = true
-		}
-	}
-	if !foundUnevaluated {
-		t.Errorf("expected an unevaluated verdict for a chain-crossed feature: %+v", verdicts)
-	}
-}
-
-// A variable feature subsetting a constant one violates the reflective
-// Subsetting constraint even though no Go pass rejects the model first.
-func TestSelfCheckSubsettingConstantConformanceViolation(t *testing.T) {
-	const src = `
-package M {
-    part def D {
-        constant attribute ac;
-        attribute bc subsets ac;
-    }
-}`
-	s := NewSession()
-	result := s.SubmitFiles([]SourceFile{{Name: "rel_violation.sysml", Text: src}})
-	if errs := errorDiagnostics(result.Diagnostics); len(errs) > 0 {
-		t.Fatalf("fixture did not load cleanly: %v", errs)
-	}
-	if s.HasErrors() {
-		t.Fatal("fixture has model errors")
-	}
-	verdicts, stats := s.selfCheckWithCounts("SysMLValidation", false)
-	if stats.violations == 0 {
-		t.Fatal("variable-subsets-constant produced no violation")
-	}
-	assertSelfCheckViolation(t, verdicts,
-		"validateSubsettingConstantConformance", "Subsetting of 'M::D::bc'")
 }

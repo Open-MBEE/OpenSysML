@@ -986,6 +986,13 @@ func (m *Model) metaclassOf(sym *symbols.Symbol) *symbols.Symbol {
 	if meta := m.kermlMetaclass(kermlMetaclassName(sym, m.isKerMLDoc(sym))); meta != nil {
 		return meta
 	}
+	// An extended definition or usage (`#service def X`, `class x`) is a SysML
+	// Definition/Usage however its keyword names it (SysML.xtext).
+	if sym.Kind == symbols.SymbolKerMLType && !m.isKerMLDoc(sym) {
+		if meta := m.sysmlMetaclass(extendedMetaclassName(sym)); meta != nil {
+			return meta
+		}
+	}
 	return m.sysmlMetaclass(sysmlMetaclassName(sym))
 }
 
@@ -1037,6 +1044,26 @@ func sysmlMetaclassName(sym *symbols.Symbol) string {
 		}
 	}
 	return metaclassName(sym.Kind)
+}
+
+// extendedMetaclassName is the SysML metaclass of an extended definition or
+// usage: Definition for a definition declaration, Usage for a usage.
+func extendedMetaclassName(sym *symbols.Symbol) string {
+	if sym.Recorded() {
+		switch sym.Facts.Node {
+		case symbols.NodeDefinition:
+			return "Definition"
+		case symbols.NodeUsage:
+			return "Usage"
+		}
+	}
+	switch sym.Decl.(type) {
+	case *ast.Definition:
+		return "Definition"
+	case *ast.Usage:
+		return "Usage"
+	}
+	return ""
 }
 
 // ConnectorEndMetaclassName is the SysML metaclass of a connector end: a
@@ -2039,7 +2066,7 @@ func (m *Model) reflectiveFeatureValue(sym *symbols.Symbol, feature string) (sym
 	switch feature {
 	case "isVariation":
 		isDefinition := sym.Kind.IsDefinition() &&
-			sym.Kind != symbols.SymbolMetaclass && sym.Kind != symbols.SymbolKerMLType &&
+			sym.Kind != symbols.SymbolMetaclass &&
 			!m.isKerMLDoc(sym)
 		if !isDefinition &&
 			!m.reflectiveMetaclassConforms(sym, "Usage") {

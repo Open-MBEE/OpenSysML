@@ -31,18 +31,19 @@ func (m *Model) implicitRelationshipsOf(owner *symbols.Symbol) []*symbols.Symbol
 	var out []*symbols.Symbol
 	if owner.Recorded() {
 		for ordinal, rel := range owner.Facts.Relationships {
-			if implicitRelationshipKind(rel.Kind) {
+			if implicitRelationshipKind(rel.Kind) && !rel.Echo {
 				out = append(out, implicitRelationshipSymbol(owner, ordinal, rel.Kind, rel.Conjugated, nil))
 			}
 		}
 		return out
 	}
 	ordinal := 0
-	for _, rel := range RelationshipsOf(owner) {
+	rels := RelationshipsOf(owner)
+	for i, rel := range rels {
 		if rel == nil {
 			continue
 		}
-		if implicitRelationshipKind(rel.Kind) {
+		if implicitRelationshipKind(rel.Kind) && !IncludeUseCaseEcho(rels, i) {
 			out = append(out, implicitRelationshipSymbol(owner, ordinal, rel.Kind, rel.Conjugated, rel))
 		}
 		ordinal++
@@ -71,6 +72,24 @@ func implicitRelationshipSymbol(owner *symbols.Symbol, ordinal int, kind ast.Rel
 			Owner: owner, Ordinal: ordinal, Kind: kind, Conjugated: conjugated, Node: node,
 		},
 	}
+}
+
+// IncludeUseCaseEcho reports whether rels[i] is the `includes` the parser
+// echoes for `include use case uc : UC`: a RelIncludes immediately followed by
+// the RelTyping whose target it repeats node-for-node. The full form carries
+// no ReferenceSubsetting (SysML.xtext IncludeUseCaseUsage), so the echo is no
+// relationship object — but it still holds its ordinal.
+func IncludeUseCaseEcho(rels []*ast.Relationship, i int) bool {
+	if i < 0 || i >= len(rels) || rels[i] == nil || rels[i].Kind != ast.RelIncludes {
+		return false
+	}
+	for j := i + 1; j < len(rels); j++ {
+		if rels[j] == nil {
+			continue
+		}
+		return rels[j].Kind == ast.RelTyping && rels[j].Target == rels[i].Target
+	}
+	return false
 }
 
 // implicitRelationshipKind reports whether a written relationship kind belongs
@@ -155,14 +174,10 @@ func (m *Model) implicitRelationshipEnds(sym *symbols.Symbol) (src, tgt *symbols
 	rel := sym.Implicit
 	src = rel.Owner
 	if rel.Node != nil {
-		node := rel.Node.Target
-		if fr, ok := node.(*ast.FeatureReference); ok {
-			node = fr.Name
-		}
 		// A chain target's real general is an implicit chaining feature the
 		// model has no element for (KerML 8.3.3.3.9), so no feature of the
 		// relationship may answer the chain's final feature.
-		if _, isChain := node.(*ast.FeatureChainExpr); isChain {
+		if ast.IsFeatureChain(rel.Node.Target) {
 			return src, nil, false
 		}
 		tgt = m.RelationshipTarget(rel.Owner, rel.Node)
@@ -205,8 +220,12 @@ func (m *Model) relationshipMemberEnds(sym *symbols.Symbol) (src, tgt *symbols.S
 	if resolved, ok := m.resolver.ResolveTarget(scope, member.Source); ok {
 		src = resolved
 	}
-	if resolved, ok := m.resolver.ResolveTarget(scope, member.Target); ok {
-		tgt = resolved
+	// A chain target names an implicit chaining feature the model has no
+	// element for, so the end stays unresolved and its features stay underived.
+	if _, isChain := member.Target.(*ast.FeatureChainExpr); !isChain {
+		if resolved, ok := m.resolver.ResolveTarget(scope, member.Target); ok {
+			tgt = resolved
+		}
 	}
 	return src, tgt
 }
@@ -314,8 +333,14 @@ func (m *Model) relationshipMemberElements(sym *symbols.Symbol, rel symbols.Rela
 	}
 	switch feature {
 	case "source":
+		if src == nil {
+			return nil, false
+		}
 		return source, true
 	case "target":
+		if tgt == nil {
+			return nil, false
+		}
 		return target, true
 	case "relatedElement":
 		if src == nil || tgt == nil {
@@ -346,6 +371,9 @@ func (m *Model) relationshipMemberElements(sym *symbols.Symbol, rel symbols.Rela
 	}
 	switch {
 	case feature == "specific" && specializationMetaclassNames[meta]:
+		if src == nil {
+			return nil, false
+		}
 		return source, true
 	case feature == "general" && specializationMetaclassNames[meta]:
 		if tgt == nil {
@@ -353,6 +381,9 @@ func (m *Model) relationshipMemberElements(sym *symbols.Symbol, rel symbols.Rela
 		}
 		return target, true
 	case sourceEnd[feature]:
+		if src == nil {
+			return nil, false
+		}
 		return source, true
 	case targetEnd[feature]:
 		if tgt == nil {
@@ -387,9 +418,13 @@ func (m *Model) implicitRelationshipValues(sym *symbols.Symbol, feature string) 
 	if elements, ok := m.implicitRelationshipElements(sym, feature); ok {
 		values := make([]symbols.FilterValue, 0, len(elements))
 		for _, element := range elements {
-			if fqn := m.fqnOf(element); fqn != "" {
-				values = append(values, symbols.FilterValue{Kind: symbols.FilterValueRef, RefFQN: fqn})
+			fqn := m.fqnOf(element)
+			if fqn == "" {
+				// An unnamed end (an anonymous feature) cannot be read back,
+				// so a shortened list is no answer at all.
+				return nil, false
 			}
+			values = append(values, symbols.FilterValue{Kind: symbols.FilterValueRef, RefFQN: fqn})
 		}
 		return values, true
 	}

@@ -12,7 +12,7 @@ reader who only wants the verdicts can ignore them.
 
 ## OpenSysML self-model validation
 
-The `SysMLValidation` standard-library package states 51 validation constraints as SysML
+The `SysMLValidation` standard-library package states 48 validation constraints as SysML
 constraint definitions over reflective KerML and SysML metaclasses. `sysml -self-check`
 applies each constraint to every reflectively classified element in the non-library workspace.
 The library currently states:
@@ -63,9 +63,6 @@ The library currently states:
 - `validateStructureSpecialization`
 - `validateClassSpecialization`
 - `validateDataTypeSpecialization`
-- `validateSubsettingUniquenessConformance`
-- `validateSubsettingConstantConformance`
-- `validateRedefinitionEndConformance`
 - `validateFeatureOwnedReferenceSubsetting`
 - `validateFeatureOwnedCrossSubsetting`
 
@@ -80,10 +77,34 @@ reflected as an element of its own — a `Subclassification`, `FeatureTyping`, `
 `ownedSubclassification`, `ownedTyping`, `ownedSubsetting`, `ownedRedefinition`,
 `ownedReferenceSubsetting`, `ownedCrossSubsetting` and `ownedConjugator`. Only written
 relationships are reflected: relationships implied by implicit supertypes are not
-synthesized, and a feature-chain target (`:> a.b`, `::> a.b`, `crosses a.b`) derives no
-target-side feature, so an application that needs it is reported unevaluated. The membership
-family (`OwningMembership`, `FeatureMembership`, `ownedRelationship`, `membership`,
-`ownedMembership`, `ownedImport`) is not yet reflected and stays unsupported.
+synthesized; the `includes` the parser echoes for `include use case uc : UC` (the full
+IncludeUseCaseUsage form declares no ReferenceSubsetting, so the echo is no relationship
+object, though it keeps its ordinal); and a feature-chain target (`:> a.b`, `::> a.b`,
+`crosses a.b`) derives no target-side feature, so an application that needs it is reported
+unevaluated. The membership family (`OwningMembership`, `FeatureMembership`,
+`ownedRelationship`, `membership`, `ownedMembership`, `ownedImport`) is not yet reflected and
+stays unsupported. An extended definition or usage (`#service def X`) classifies as
+Definition/Usage, so the constraints that apply to those metaclasses reach it.
+
+Three further constraints are excluded because their applications on a relationship with a
+feature-chain target cannot be evaluated yet: `validateSubsettingUniquenessConformance`,
+`validateSubsettingConstantConformance` and `validateRedefinitionEndConformance`. Each reads
+the subsetted or redefined feature, which for a chain target (`subsets a.b`, `redefines a.b`,
+`crosses a.b`) is the implicit chaining Feature of KerML 8.3.3.3 — an element OpenSysML does
+not yet reflect — so every such application would report unevaluated. They become evaluable
+once chaining features are reflected.
+
+Two candidate constraints were tried and left out as specification divergences rather than
+model errors: `validateUsageVariationSpecialization` and
+`validateDefinitionVariationSpecialization`. As written, each reads
+`ownedSpecialization.specific` — which is always the element itself — so every variation with
+any written specialization fails: on the corpus probe they reported 43 violations in all,
+including `validateUsageVariationSpecialization` failures for the variation members of
+`7b-Variant Configurations.sysml` and `VehicleVariabilityModel.sysml`, and
+`validateDefinitionVariationSpecialization` failures for the variation definitions of
+`Variation Definitions.sysml` and `SysML v2 Spec Annex A SimpleVehicleModel.sysml`. The pilot's
+Java validator checks the specialization's *general* instead of its specific, so the same
+models pass there; whether the constraint text or the reading is authoritative is open.
 
 Constraints whose OCL reads reflective features the current model does not derive are omitted
 from the library. If an included constraint cannot be evaluated because a reflective feature is

@@ -1060,22 +1060,22 @@ func reflectiveRecordedFacts(model *Model, idx *symbols.Index, sym *symbols.Symb
 			if src, resolved := model.resolver.ResolveTarget(scope, member.Source); resolved && src != nil {
 				rel.Source = refOf(src)
 			}
-			if tgt, resolved := model.resolver.ResolveTarget(scope, member.Target); resolved && tgt != nil {
-				rel.Target = refOf(tgt)
+			if _, isChain := member.Target.(*ast.FeatureChainExpr); !isChain {
+				if tgt, resolved := model.resolver.ResolveTarget(scope, member.Target); resolved && tgt != nil {
+					rel.Target = refOf(tgt)
+				}
 			}
 		}
 		facts.Relationship = &rel
 	}
-	for _, rel := range RelationshipsOf(sym) {
+	rels := RelationshipsOf(sym)
+	for i, rel := range rels {
 		if rel == nil {
 			continue
 		}
 		rf := symbols.RelationshipFacts{Kind: rel.Kind, Conjugated: rel.Conjugated}
-		node := rel.Target
-		if fr, isRef := node.(*ast.FeatureReference); isRef {
-			node = fr.Name
-		}
-		_, rf.Chain = node.(*ast.FeatureChainExpr)
+		rf.Echo = IncludeUseCaseEcho(rels, i)
+		rf.Chain = ast.IsFeatureChain(rel.Target)
 		if target := model.RelationshipTarget(sym, rel); target != nil {
 			rf.Target = refOf(target)
 		}

@@ -227,25 +227,26 @@ func (w *interfaceWriter) facts(sym *symbols.Symbol) symbols.LibraryFacts {
 			if scope == nil {
 				scope = sym.Scope
 			}
+			// A chain target names no element a record can restore: leave it zero.
 			if src, resolved := w.r.ResolveTarget(scope, member.Source); resolved && src != nil {
 				rel.Source = w.ref(sym, src, "relationship source")
 			}
-			if tgt, resolved := w.r.ResolveTarget(scope, member.Target); resolved && tgt != nil {
-				rel.Target = w.ref(sym, tgt, "relationship target")
+			if _, isChain := member.Target.(*ast.FeatureChainExpr); !isChain {
+				if tgt, resolved := w.r.ResolveTarget(scope, member.Target); resolved && tgt != nil {
+					rel.Target = w.ref(sym, tgt, "relationship target")
+				}
 			}
 		}
 		facts.Relationship = &rel
 	}
-	for _, rel := range semantics.RelationshipsOf(sym) {
+	rels := semantics.RelationshipsOf(sym)
+	for i, rel := range rels {
 		if rel == nil {
 			continue
 		}
 		rf := symbols.RelationshipFacts{Kind: rel.Kind, Conjugated: rel.Conjugated}
-		node := rel.Target
-		if fr, isRef := node.(*ast.FeatureReference); isRef {
-			node = fr.Name
-		}
-		_, rf.Chain = node.(*ast.FeatureChainExpr)
+		rf.Echo = semantics.IncludeUseCaseEcho(rels, i)
+		rf.Chain = ast.IsFeatureChain(rel.Target)
 		if target := m.RelationshipTarget(sym, rel); target != nil {
 			rf.Target = w.ref(sym, target, rel.Kind.String()+" target")
 		}

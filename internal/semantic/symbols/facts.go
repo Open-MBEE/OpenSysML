@@ -249,6 +249,9 @@ type RelationshipFacts struct {
 	// Chain marks a target written as a feature chain (`subsets a.b`), whose
 	// recorded reference reaches only the chain's final feature.
 	Chain bool
+	// Echo marks the `includes` the parser repeats of a use case's typing
+	// target (`include use case uc : UC`), which declares no relationship.
+	Echo bool
 }
 
 // RelationshipDecl is the relationship a keyword-first member declares, which

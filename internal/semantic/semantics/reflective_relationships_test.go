@@ -447,3 +447,104 @@ func TestImplicitRelationshipNegatives(t *testing.T) {
 		assertRelUnsupported(t, model, b, "ownedSubclassification")
 	}
 }
+
+// `include use case uc : UC` echoes its typing target as an includes edge the
+// abstract syntax does not declare, so only the shorthand yields a
+// ReferenceSubsetting object.
+func TestImplicitIncludeUseCaseEcho(t *testing.T) {
+	src := `package P {
+    use case def UC1;
+    use case uc2;
+    use case def D {
+        include use case uc1 : UC1;
+        include uc2;
+    }
+}`
+	for _, fixture := range reflectiveFixtures(t, "include-echo.sysml", source.KindSysML, src) {
+		model := fixture.model
+		uc1 := relFixtureSymbol(t, fixture, "uc1")
+		rels := model.ImplicitRelationships(uc1)
+		if len(rels) != 1 {
+			t.Fatalf("ImplicitRelationships(uc1) = %d, want 1", len(rels))
+		}
+		assertRelMetaclass(t, model, rels[0], "FeatureTyping")
+		// The include shorthand still reflects a ReferenceSubsetting.
+		var ref *symbols.Symbol
+		var walk func(scope *symbols.Scope)
+		walk = func(scope *symbols.Scope) {
+			for _, sym := range scope.AllMembers() {
+				for _, rel := range model.ImplicitRelationships(sym) {
+					if relMetaName(model, rel) == "ReferenceSubsetting" {
+						ref = rel
+					}
+				}
+				walk(sym.Scope)
+			}
+		}
+		walk(fixture.root)
+		if ref == nil {
+			t.Fatal("no ReferenceSubsetting reflected for the include shorthand")
+		}
+		if elems, ok := model.ReflectiveElements(ref, "referencingFeature"); !ok || len(elems) != 1 {
+			t.Errorf("referencingFeature = %v (supported %t), want the include usage", elems, ok)
+		}
+		if elems, ok := model.ReflectiveElements(ref, "referencedFeature"); !ok || len(elems) != 1 ||
+			elems[0] != relFixtureSymbol(t, fixture, "uc2") {
+			t.Errorf("referencedFeature = %v (supported %t), want uc2", elems, ok)
+		}
+	}
+}
+
+// A keyword relationship member with an unresolved or chained end leaves the
+// features on that side underived, like a written edge.
+func TestKeywordRelationshipMemberUnresolvedEnds(t *testing.T) {
+	src := `package P {
+    classifier B;
+    specialization Gen subtype Missing specializes B;
+    specialization Chain subtype B specializes B.self;
+}`
+	for _, fixture := range reflectiveFixtures(t, "keyword-unresolved.kerml", source.KindKerML, src) {
+		model := fixture.model
+		gen := relFixtureSymbol(t, fixture, "Gen")
+		assertRelUnsupported(t, model, gen, "specific")
+		assertRelUnsupported(t, model, gen, "source")
+		assertRelFeature(t, model, gen, "general", relFixtureSymbol(t, fixture, "B"))
+		chain := relFixtureSymbol(t, fixture, "Chain")
+		assertRelUnsupported(t, model, chain, "general")
+		assertRelUnsupported(t, model, chain, "target")
+		assertRelUnsupported(t, model, chain, "relatedElement")
+	}
+}
+
+// An extended definition or usage classifies as Definition/Usage whatever its
+// keyword names it.
+func TestExtendedDefinitionUsageMetaclass(t *testing.T) {
+	src := `package P {
+    metadata def service;
+    #service def APISService;
+}`
+	for _, fixture := range reflectiveFixtures(t, "extended-def.sysml", source.KindSysML, src) {
+		model := fixture.model
+		svc := relFixtureSymbol(t, fixture, "APISService")
+		assertRelMetaclass(t, model, svc, "Definition")
+	}
+	kermlSrc := `class C;
+class D {
+    class x;
+}`
+	for _, fixture := range reflectiveFixtures(t, "extended-usage.kerml", source.KindKerML, kermlSrc) {
+		model := fixture.model
+		x := relFixtureSymbol(t, fixture, "x")
+		if meta := model.MetaclassOf(x); meta == nil {
+			t.Error("class usage has no metaclass")
+		}
+	}
+	sysmlUsage := `package P {
+    class x;
+}`
+	for _, fixture := range reflectiveFixtures(t, "extended-usage2.sysml", source.KindSysML, sysmlUsage) {
+		model := fixture.model
+		x := relFixtureSymbol(t, fixture, "x")
+		assertRelMetaclass(t, model, x, "Usage")
+	}
+}
