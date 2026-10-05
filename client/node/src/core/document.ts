@@ -162,7 +162,7 @@ export class DocumentState {
 
 /** A row an `Events` query answered: one record of a session's trace. Answered only. */
 export class DocumentEvent {
-  /** "accept", "send", "transition", "entry", "exit", "do", "choice" or "guard". */
+  /** "accept", "send", "transition", "entry", "exit", "do", "choice", "guard" or "terminate". */
   readonly kind: string;
   /** The instant the record was written at: a quantity, an int or a real. */
   readonly time: DocumentValue;
