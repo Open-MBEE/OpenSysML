@@ -146,9 +146,8 @@ func TestViewpointConcernMigration(t *testing.T) {
 		t.Errorf("inherited and repeated conformance = %+v, want no downgrade", entries)
 	}
 	if entries := entriesFor(r, "_gBaseTwo"); len(entries) != 1 ||
-		entries[0].Verdict != migrate.Approximated ||
-		!strings.Contains(entries[0].Note, "inherits a second viewpoint through Views::Tagged View") {
-		t.Errorf("second inherited viewpoint = %+v, want its generalization approximated", entries)
+		entries[0].Verdict != migrate.Mapped || entries[0].Note != "" {
+		t.Errorf("second inherited viewpoint = %+v, want its generalization mapped without a note", entries)
 	}
 
 	idx := libs.NewModelIndex()

@@ -14,7 +14,7 @@ func (m *migration) viewBody(e *sysmlv1.Element) {
 	m.scope = e
 	m.comments(e)
 	m.additionalViewpointConformances(e)
-	m.conformGeneralizations(e)
+	m.viewGeneralizations(e)
 	m.taggedViewpoints(e)
 	m.members(e)
 	m.classifierBehavior(e)
@@ -36,10 +36,18 @@ func (m *migration) conforms(g *sysmlv1.Element) bool {
 	return cat == catViewpoint
 }
 
-// conformGeneralizations accounts for a view's Conform generalizations.
-func (m *migration) conformGeneralizations(e *sysmlv1.Element) {
+// viewGeneralizations reports a view's viewpoint conformances and written view bases.
+func (m *migration) viewGeneralizations(e *sysmlv1.Element) {
 	for _, g := range e.Owned("generalization") {
 		if !m.conforms(g) {
+			base := m.model.Ref(g, "general")
+			if base != nil && m.written(base) {
+				if cat, _ := m.classify(base); cat == catView {
+					if general, _ := m.general(e, g, catView); general != "" {
+						m.add(g, Mapped, m.v2Name(e), "")
+					}
+				}
+			}
 			continue
 		}
 		vp := m.model.Ref(g, "general")
@@ -216,10 +224,6 @@ func (m *migration) additionalViewpointConformances(e *sysmlv1.Element) {
 	}
 	for _, conformance := range conformances[1:] {
 		if conformance.kind == inheritedConformance {
-			base := m.model.Ref(conformance.source, "general")
-			note := "inherits a second viewpoint through " + qualifiedName(base) +
-				"; v2 types a view by one view definition"
-			m.add(conformance.source, Approximated, m.v2Name(e), note)
 			continue
 		}
 		note := "v2 types a view by one view definition, so its conformance to " +
