@@ -284,7 +284,7 @@ because the service listens on a TCP port** — 40% of the file. Enumerated, not
 | **Total** | | **~690** |
 
 Plus roughly 25 of `__init__`'s 64 lines (address, channel, refcount and release fields). The
-behaviors documented in the "Service ownership" section of `client/python/README.md` —
+behaviors documented in the "Service ownership" section of `client/python/DEVELOPING.md` —
 "never stop a service you did not start", pid records authenticated by process start time so a
 reused pid is never signalled, stale-record cleanup, replacing a wrong-release service — are
 **entirely** in that 690. Under stdio the question they answer does not arise: the child is
