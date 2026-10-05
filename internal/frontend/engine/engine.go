@@ -296,7 +296,7 @@ func (e *Engine) Call(ctx context.Context, method string, params []byte) (result
 		}
 		return e.executeState(ctx, &req)
 	case "RenderView":
-		// RenderView is served by sysml-engine, not sysml-grpc.
+		// RenderView is served by both sysml-engine and sysml-grpc.
 		var req JRenderViewRequest
 		if err := decode(params, &req); err != nil {
 			return nil, err

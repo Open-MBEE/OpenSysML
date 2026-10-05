@@ -2045,7 +2045,7 @@ with protobuf JSON:
 Two query surfaces exist and answer differently shaped tables. Their semantics — what may be
 selected, filtered and bound — are on the Go API page and are not repeated here:
 [SysML v2 API & Services `Query`](api.md#sysml-v2-api--services-query) and
-[Native document queries and rendering over gRPC](api.md#native-document-queries-and-rendering-over-grpc).
+[Native document queries and rendering over gRPC](api.md#native-documents-and-views-over-grpc).
 Each is its own capability: `Query` needs `query` (and `oslc_query` when the request uses
 `oslcQuery`); `RunDocumentQuery` needs `document_query`; `RenderDocument` needs
 `render_document`, and `render_document_html` too when its `form` is `html`.
