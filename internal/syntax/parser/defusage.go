@@ -1141,10 +1141,8 @@ func (p *Parser) parseMoreFeatureModifiers(m *featureMods) {
 		if t.Kind != lexer.Keyword {
 			return
 		}
-		// `composite` or `portion` closes the feature prefix: only `ordered`,
-		// `nonunique` — and in KerML `const` — may still follow; `end` and a
-		// repeated prefix keep their own checks. In KerML `ordered` names the
-		// feature, so a name may not follow it.
+		// `composite`/`portion` closes the prefix to all but `ordered`, `nonunique` and
+		// KerML `const`; in KerML a trailing `ordered` is the feature's name.
 		kerml := p.src.Kind() == source.KindKerML
 		if m.isComposite && kerml &&
 			(t.KeywordID == "ordered" || t.KeywordID == "nonunique") &&
