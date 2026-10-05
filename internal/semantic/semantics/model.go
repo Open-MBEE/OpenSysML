@@ -1084,6 +1084,14 @@ func IsAnything(sym *symbols.Symbol) bool {
 			sym.OwnerScope.Owner().Name == "Base"))
 }
 
+// IsDataValue reports whether sym is the library's Base::DataValue, the result
+// every DataFunctions operator declares and so the type of nothing in particular.
+func IsDataValue(sym *symbols.Symbol) bool {
+	return sym != nil && (sym.Name == "Base::DataValue" ||
+		(sym.Name == "DataValue" && sym.OwnerScope != nil && sym.OwnerScope.Owner() != nil &&
+			sym.OwnerScope.Owner().Name == "Base"))
+}
+
 // HasSpecializationCycle reports whether sym participates in a specialization
 // cycle: sym is reachable from itself through one or more generalization edges
 // (including a direct self-specialization). AllSupertypes excludes its own
