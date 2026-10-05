@@ -8,8 +8,8 @@ use std::env;
 use opensysml::{
     AnalysisOptions, Connection, Constraint, ConvertOptions, ConvertSource, DocumentForm,
     DocumentValue, ElementRef, Error, FailureReason, IdForm, MemberOptions, MigrateOptions,
-    MigrateSource, Model, Query, RunOptions, SourceDocument, SourcesOptions, SweepOptions,
-    SweepRange, Value, VerifyOptions,
+    MigrateSource, Model, Query, RenderViewPorts, RunOptions, SourceDocument, SourcesOptions,
+    SweepOptions, SweepRange, Value, VerifyOptions,
 };
 
 const DEMO: &str = r#"
@@ -386,6 +386,32 @@ fn a_document_query_answers_typed_rows_and_a_document_renders() {
         .render_document("Observatory::MassReport", DocumentForm::Html)
         .unwrap();
     assert!(html.contains("<"), "{html}");
+}
+
+#[test]
+fn a_rendered_view_keeps_ports_edges_and_origins() {
+    let Some(connection) = service_or_skip() else {
+        return;
+    };
+    let model = parsed(
+        &connection,
+        include_str!("../../../../conformance/fixtures/views.sysml"),
+    );
+    let rendered = model.render_view("RenderViewDemo::connections").unwrap();
+    assert_eq!(rendered.kind, "interconnection");
+    assert_eq!(rendered.edges.len(), 1);
+    assert!(!rendered.edges[0].from_port.is_empty());
+    assert!(!rendered.edges[0].to_port.is_empty());
+    assert!(rendered.nodes.iter().all(|node| node.origin.is_some()));
+
+    let full = model
+        .render_view_with_ports("RenderViewDemo::connections", RenderViewPorts::Full)
+        .unwrap();
+    assert!(full
+        .nodes
+        .iter()
+        .flat_map(|node| &node.ports)
+        .any(|port| port.name == "spare"));
 }
 
 #[test]

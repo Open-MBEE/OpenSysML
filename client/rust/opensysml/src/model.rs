@@ -102,6 +102,19 @@ impl Model {
         self.connection
             .render_document(self.hash(), document_id, form)
     }
+    /// Render a named view with minimal ports.
+    pub fn render_view(&self, view_name: &str) -> Result<crate::document::RenderedView, Error> {
+        self.connection.render_view(self.hash(), view_name)
+    }
+    /// Render a named view with the requested port selection.
+    pub fn render_view_with_ports(
+        &self,
+        view_name: &str,
+        ports: crate::document::RenderViewPorts,
+    ) -> Result<crate::document::RenderedView, Error> {
+        self.connection
+            .render_view_with_ports(self.hash(), view_name, ports)
+    }
 
     /// The symbol a qualified or short name names; `None` when the model declares none.
     ///

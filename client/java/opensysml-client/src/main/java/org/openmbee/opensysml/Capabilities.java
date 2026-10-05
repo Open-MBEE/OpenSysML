@@ -157,6 +157,9 @@ public final class Capabilities {
   /** The {@code RenderDocument} RPC also renders a named document to HTML. */
   public static final String RENDER_DOCUMENT_HTML = "render_document_html";
 
+  /** The service renders named and targeted pseudo-views as diagram data. */
+  public static final String RENDER_VIEW = "render_view";
+
   /** A parse can judge the source as conforming SysML v2. */
   public static final String STRICT_CONFORMANCE = "strict_conformance";
 

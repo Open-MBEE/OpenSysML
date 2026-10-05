@@ -16,9 +16,9 @@ use normalize::normalize;
 use opensysml::{
     wire, AnalysisOptions, Connection, ConvertOptions, ConvertSource, DocumentForm, DocumentValue,
     EditError, Error, EvalOptions, ExploredResponse, FailureReason, IdForm, Language, Layout,
-    MigrateOptions, MigrateSource, Model, ModelResponse, ParseOptions, Query, RunOptions,
-    SourceDocument, SourcesOptions, Status, SweepOptions, SweepRange, Value as SysmlValue,
-    VerifyOptions,
+    MigrateOptions, MigrateSource, Model, ModelResponse, ParseOptions, Query, RenderViewPorts,
+    RunOptions, SourceDocument, SourcesOptions, Status, SweepOptions, SweepRange,
+    Value as SysmlValue, VerifyOptions,
 };
 use prost::Message;
 use prost_reflect::{DescriptorPool, DeserializeOptions, DynamicMessage, SerializeOptions};
@@ -420,6 +420,7 @@ impl Runner {
             "Query" => self.query(request),
             "RunDocumentQuery" => self.run_document_query(request),
             "RenderDocument" => self.render_document(request),
+            "RenderView" => self.render_view(request),
             "ExecuteAction" => self.execute_action(request),
             "ExecuteState" => self.execute_state(request),
             "ListEngines" => self.list_engines(),
@@ -833,6 +834,27 @@ impl Runner {
                     },
                 };
                 Answer::Response(self.wire_json("sysml.RenderDocumentResponse", &response))
+            }
+            Err(error) => classify_error(error),
+        }
+    }
+
+    fn render_view(&self, request: &DynamicMessage) -> Answer {
+        let request: wire::RenderViewRequest = match decode(request) {
+            Ok(request) => request,
+            Err(answer) => return answer,
+        };
+        let ports = match request.ports.as_str() {
+            "" | "minimal" => RenderViewPorts::Minimal,
+            "full" => RenderViewPorts::Full,
+            other => return Answer::Unrepresentable(format!("render-view ports {other:?}")),
+        };
+        match self
+            .connection
+            .render_view_with_ports(&request.model_hash, &request.view, ports)
+        {
+            Ok(rendered) => {
+                Answer::Response(self.wire_json("sysml.RenderViewResponse", rendered.wire()))
             }
             Err(error) => classify_error(error),
         }

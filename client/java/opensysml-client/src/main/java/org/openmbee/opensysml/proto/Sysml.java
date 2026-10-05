@@ -691,6 +691,61 @@ public final class Sysml extends com.google.protobuf.GeneratedFile {
   static final 
     com.google.protobuf.GeneratedMessage.FieldAccessorTable
       internal_static_sysml_RenderDocumentResponse_fieldAccessorTable;
+  static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_sysml_RenderViewRequest_descriptor;
+  static final 
+    com.google.protobuf.GeneratedMessage.FieldAccessorTable
+      internal_static_sysml_RenderViewRequest_fieldAccessorTable;
+  static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_sysml_RenderViewResponse_descriptor;
+  static final 
+    com.google.protobuf.GeneratedMessage.FieldAccessorTable
+      internal_static_sysml_RenderViewResponse_fieldAccessorTable;
+  static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_sysml_RenderNode_descriptor;
+  static final 
+    com.google.protobuf.GeneratedMessage.FieldAccessorTable
+      internal_static_sysml_RenderNode_fieldAccessorTable;
+  static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_sysml_RenderPort_descriptor;
+  static final 
+    com.google.protobuf.GeneratedMessage.FieldAccessorTable
+      internal_static_sysml_RenderPort_fieldAccessorTable;
+  static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_sysml_RenderEdge_descriptor;
+  static final 
+    com.google.protobuf.GeneratedMessage.FieldAccessorTable
+      internal_static_sysml_RenderEdge_fieldAccessorTable;
+  static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_sysml_RenderGeometry_descriptor;
+  static final 
+    com.google.protobuf.GeneratedMessage.FieldAccessorTable
+      internal_static_sysml_RenderGeometry_fieldAccessorTable;
+  static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_sysml_RenderCanvas_descriptor;
+  static final 
+    com.google.protobuf.GeneratedMessage.FieldAccessorTable
+      internal_static_sysml_RenderCanvas_fieldAccessorTable;
+  static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_sysml_RenderStyle_descriptor;
+  static final 
+    com.google.protobuf.GeneratedMessage.FieldAccessorTable
+      internal_static_sysml_RenderStyle_fieldAccessorTable;
+  static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_sysml_RenderPoint_descriptor;
+  static final 
+    com.google.protobuf.GeneratedMessage.FieldAccessorTable
+      internal_static_sysml_RenderPoint_fieldAccessorTable;
+  static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_sysml_RenderRow_descriptor;
+  static final 
+    com.google.protobuf.GeneratedMessage.FieldAccessorTable
+      internal_static_sysml_RenderRow_fieldAccessorTable;
+  static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_sysml_RenderNote_descriptor;
+  static final 
+    com.google.protobuf.GeneratedMessage.FieldAccessorTable
+      internal_static_sysml_RenderNote_fieldAccessorTable;
 
   public static com.google.protobuf.Descriptors.FileDescriptor
       getDescriptor() {
@@ -1306,78 +1361,131 @@ public final class Sysml extends com.google.protobuf.GeneratedFile {
       "t\022\035\n\nmodel_hash\030\001 \001(\tR\tmodelHash\022\037\n\013docu" +
       "ment_id\030\002 \001(\tR\ndocumentId\022\022\n\004form\030\003 \001(\tR" +
       "\004form\"H\n\026RenderDocumentResponse\022\032\n\010markd" +
-      "own\030\001 \001(\tR\010markdown\022\022\n\004html\030\002 \001(\tR\004html*" +
-      "\261\001\n\rFailureReason\022\036\n\032FAILURE_REASON_UNSP" +
-      "ECIFIED\020\000\022\035\n\031FAILURE_REASON_EVALUATION\020\001" +
-      "\022\035\n\031FAILURE_REASON_WRONG_KIND\020\002\022$\n FAILU" +
-      "RE_REASON_AMBIGUOUS_SUBJECT\020\003\022\034\n\030FAILURE" +
-      "_REASON_UNDECIDED\020\004*\214\005\n\013EditFailure\022\034\n\030E" +
-      "DIT_FAILURE_UNSPECIFIED\020\000\022\036\n\032EDIT_FAILUR" +
-      "E_NO_OPERATIONS\020\001\022\037\n\033EDIT_FAILURE_UNKNOW" +
-      "N_TARGET\020\002\022!\n\035EDIT_FAILURE_AMBIGUOUS_TAR" +
-      "GET\020\003\022\033\n\027EDIT_FAILURE_NOT_VALUED\020\004\022\036\n\032ED" +
-      "IT_FAILURE_INVALID_VALUE\020\005\022\035\n\031EDIT_FAILU" +
-      "RE_INVALID_NAME\020\006\022\032\n\026EDIT_FAILURE_NOT_NA" +
-      "MED\020\007\022\"\n\036EDIT_FAILURE_RENAME_REFERENCED\020" +
-      "\010\022\"\n\036EDIT_FAILURE_OVERLAPPING_EDITS\020\t\022\037\n" +
-      "\033EDIT_FAILURE_RESULT_INVALID\020\n\022\036\n\032EDIT_F" +
-      "AILURE_OWNER_UNKNOWN\020\013\022$\n EDIT_FAILURE_O" +
-      "WNER_NOT_NAMESPACE\020\014\022\035\n\031EDIT_FAILURE_ILL" +
-      "EGAL_KIND\020\r\022\"\n\036EDIT_FAILURE_MEMBER_NAME_" +
-      "TAKEN\020\016\022\"\n\036EDIT_FAILURE_DELETE_REFERENCE" +
-      "D\020\017\022$\n EDIT_FAILURE_OWNER_INSIDE_TARGET\020" +
-      "\020\022 \n\034EDIT_FAILURE_MOVE_REFERENCED\020\021\022%\n!E" +
-      "DIT_FAILURE_REFERENCED_ELSEWHERE\020\022*\222\001\n\021P" +
-      "rimitiveOperator\022\"\n\036PRIMITIVE_OPERATOR_U" +
-      "NSPECIFIED\020\000\022\034\n\030PRIMITIVE_OPERATOR_EQUAL" +
-      "\020\001\022\036\n\032PRIMITIVE_OPERATOR_GREATER\020\002\022\033\n\027PR" +
-      "IMITIVE_OPERATOR_LESS\020\003*n\n\021CompositeOper" +
-      "ator\022\"\n\036COMPOSITE_OPERATOR_UNSPECIFIED\020\000" +
-      "\022\032\n\026COMPOSITE_OPERATOR_AND\020\001\022\031\n\025COMPOSIT" +
-      "E_OPERATOR_OR\020\0022\371\014\n\014SysMLService\022D\n\rGetS" +
-      "erverInfo\022\030.sysml.ServerInfoRequest\032\031.sy" +
-      "sml.ServerInfoResponse\022>\n\tParseFile\022\027.sy" +
-      "sml.ParseFileRequest\032\030.sysml.ParseFileRe" +
-      "sponse\022G\n\014ParseSources\022\032.sysml.ParseSour" +
-      "cesRequest\032\033.sysml.ParseSourcesResponse\022" +
-      ";\n\tGetSymbol\022\027.sysml.GetSymbolRequest\032\025." +
-      "sysml.SymbolResponse\022G\n\016GetDiagnostics\022\031" +
-      ".sysml.DiagnosticsRequest\032\032.sysml.Diagno" +
-      "sticsResponse\022;\n\010Evaluate\022\026.sysml.Evalua" +
-      "teRequest\032\027.sysml.EvaluateResponse\022D\n\013In" +
-      "stantiate\022\031.sysml.InstantiateRequest\032\032.s" +
-      "ysml.InstantiateResponse\022J\n\rExecuteActio" +
-      "n\022\033.sysml.ExecuteActionRequest\032\034.sysml.E" +
-      "xecuteActionResponse\022G\n\014ExecuteState\022\032.s" +
-      "ysml.ExecuteStateRequest\032\033.sysml.Execute" +
-      "StateResponse\0228\n\007Convert\022\025.sysml.Convert" +
-      "Request\032\026.sysml.ConvertResponse\0228\n\007Migra" +
-      "te\022\025.sysml.MigrateRequest\032\026.sysml.Migrat" +
-      "eResponse\022A\n\nApplyEdits\022\030.sysml.ApplyEdi" +
-      "tsRequest\032\031.sysml.ApplyEditsResponse\022S\n\020" +
-      "VerifyConstraint\022\036.sysml.VerifyConstrain" +
-      "tRequest\032\037.sysml.VerifyConstraintRespons" +
-      "e\022V\n\021VerifyRequirement\022\037.sysml.VerifyReq" +
-      "uirementRequest\032 .sysml.VerifyRequiremen" +
-      "tResponse\022Y\n\022VerifySatisfaction\022 .sysml." +
-      "VerifySatisfactionRequest\032!.sysml.Verify" +
-      "SatisfactionResponse\022S\n\020ValidateInstance" +
-      "\022\036.sysml.ValidateInstanceRequest\032\037.sysml" +
-      ".ValidateInstanceResponse\022G\n\014EvaluateCal" +
-      "c\022\032.sysml.EvaluateCalcRequest\032\033.sysml.Ev" +
-      "aluateCalcResponse\022D\n\013RunAnalysis\022\031.sysm" +
-      "l.RunAnalysisRequest\032\032.sysml.RunAnalysis" +
-      "Response\022;\n\010RunSweep\022\026.sysml.RunSweepReq" +
-      "uest\032\027.sysml.RunSweepResponse\022D\n\013ListEng" +
-      "ines\022\031.sysml.ListEnginesRequest\032\032.sysml." +
-      "ListEnginesResponse\0222\n\005Query\022\023.sysml.Que" +
-      "ryRequest\032\024.sysml.QueryResponse\022S\n\020RunDo" +
-      "cumentQuery\022\036.sysml.RunDocumentQueryRequ" +
-      "est\032\037.sysml.RunDocumentQueryResponse\022M\n\016" +
-      "RenderDocument\022\034.sysml.RenderDocumentReq" +
-      "uest\032\035.sysml.RenderDocumentResponseBJ\n\034o" +
-      "rg.openmbee.opensysml.protoP\001Z(github.co" +
-      "m/Open-MBEE/OpenSysML/api/protob\006proto3"
+      "own\030\001 \001(\tR\010markdown\022\022\n\004html\030\002 \001(\tR\004html\"" +
+      "\\\n\021RenderViewRequest\022\035\n\nmodel_hash\030\001 \001(\t" +
+      "R\tmodelHash\022\022\n\004view\030\002 \001(\tR\004view\022\024\n\005ports" +
+      "\030\003 \001(\tR\005ports\"\326\002\n\022RenderViewResponse\022\022\n\004" +
+      "view\030\001 \001(\tR\004view\022\022\n\004kind\030\002 \001(\tR\004kind\022\026\n\006" +
+      "stated\030\003 \001(\tR\006stated\022\'\n\005nodes\030\004 \003(\0132\021.sy" +
+      "sml.RenderNodeR\005nodes\022\'\n\005edges\030\005 \003(\0132\021.s" +
+      "ysml.RenderEdgeR\005edges\022\030\n\007columns\030\006 \003(\tR" +
+      "\007columns\022$\n\004rows\030\007 \003(\0132\020.sysml.RenderRow" +
+      "R\004rows\022+\n\006canvas\030\010 \001(\0132\023.sysml.RenderCan" +
+      "vasR\006canvas\022\'\n\005notes\030\t \003(\0132\021.sysml.Rende" +
+      "rNoteR\005notes\022\030\n\007notices\030\n \003(\tR\007notices\"\215" +
+      "\003\n\nRenderNode\022\016\n\002id\030\001 \001(\tR\002id\022\022\n\004kind\030\002 " +
+      "\001(\tR\004kind\022\022\n\004name\030\003 \001(\tR\004name\022)\n\020name_sy" +
+      "nthesized\030\004 \001(\010R\017nameSynthesized\022\022\n\004type" +
+      "\030\005 \001(\tR\004type\022\026\n\006detail\030\006 \001(\tR\006detail\022\022\n\004" +
+      "text\030\007 \001(\tR\004text\022\031\n\010stand_in\030\010 \001(\010R\007stan" +
+      "dIn\022\026\n\006parent\030\t \001(\tR\006parent\022\'\n\005ports\030\n \003" +
+      "(\0132\021.sysml.RenderPortR\005ports\022#\n\006origin\030\013" +
+      " \001(\0132\013.sysml.SpanR\006origin\0221\n\010geometry\030\014 " +
+      "\001(\0132\025.sysml.RenderGeometryR\010geometry\022(\n\005" +
+      "style\030\r \001(\0132\022.sysml.RenderStyleR\005style\"b" +
+      "\n\nRenderPort\022\016\n\002id\030\001 \001(\tR\002id\022\022\n\004name\030\002 \001" +
+      "(\tR\004name\022\022\n\004type\030\003 \001(\tR\004type\022\034\n\tdirectio" +
+      "n\030\004 \001(\tR\tdirection\"\235\002\n\nRenderEdge\022\022\n\004fro" +
+      "m\030\001 \001(\tR\004from\022\016\n\002to\030\002 \001(\tR\002to\022\033\n\tfrom_po" +
+      "rt\030\003 \001(\tR\010fromPort\022\027\n\007to_port\030\004 \001(\tR\006toP" +
+      "ort\022\024\n\005label\030\005 \001(\tR\005label\022\022\n\004name\030\006 \001(\tR" +
+      "\004name\022\022\n\004kind\030\007 \001(\tR\004kind\022#\n\006origin\030\010 \001(" +
+      "\0132\013.sysml.SpanR\006origin\022(\n\005route\030\t \003(\0132\022." +
+      "sysml.RenderPointR\005route\022(\n\005style\030\n \001(\0132" +
+      "\022.sysml.RenderStyleR\005style\"\223\001\n\016RenderGeo" +
+      "metry\022\014\n\001x\030\001 \001(\001R\001x\022\014\n\001y\030\002 \001(\001R\001y\022\024\n\005wid" +
+      "th\030\003 \001(\001R\005width\022\026\n\006height\030\004 \001(\001R\006height\022" +
+      "\031\n\010has_size\030\005 \001(\010R\007hasSize\022\034\n\tcollapsed\030" +
+      "\006 \001(\010R\tcollapsed\"k\n\014RenderCanvas\022\022\n\004unit" +
+      "\030\001 \001(\tR\004unit\022\024\n\005width\030\002 \001(\001R\005width\022\026\n\006he" +
+      "ight\030\003 \001(\001R\006height\022\031\n\010has_size\030\004 \001(\010R\007ha" +
+      "sSize\"\246\001\n\013RenderStyle\022\022\n\004fill\030\001 \001(\tR\004fil" +
+      "l\022\022\n\004line\030\002 \001(\tR\004line\022\022\n\004text\030\003 \001(\tR\004tex" +
+      "t\022\022\n\004font\030\004 \001(\tR\004font\022\033\n\tfont_size\030\005 \001(\001" +
+      "R\010fontSize\022\022\n\004bold\030\006 \001(\010R\004bold\022\026\n\006italic" +
+      "\030\007 \001(\010R\006italic\")\n\013RenderPoint\022\014\n\001x\030\001 \001(\001" +
+      "R\001x\022\014\n\001y\030\002 \001(\001R\001y\"F\n\tRenderRow\022\024\n\005cells\030" +
+      "\001 \003(\tR\005cells\022#\n\006origin\030\002 \001(\0132\013.sysml.Spa" +
+      "nR\006origin\"\370\001\n\nRenderNote\022\022\n\004text\030\001 \001(\tR\004" +
+      "text\022\026\n\006anchor\030\002 \001(\tR\006anchor\022\033\n\tedge_fro" +
+      "m\030\003 \001(\tR\010edgeFrom\022\027\n\007edge_to\030\004 \001(\tR\006edge" +
+      "To\022\014\n\001x\030\005 \001(\001R\001x\022\014\n\001y\030\006 \001(\001R\001y\022\024\n\005width\030" +
+      "\007 \001(\001R\005width\022\026\n\006height\030\010 \001(\001R\006height\022\031\n\010" +
+      "has_size\030\t \001(\010R\007hasSize\022#\n\006origin\030\n \001(\0132" +
+      "\013.sysml.SpanR\006origin*\261\001\n\rFailureReason\022\036" +
+      "\n\032FAILURE_REASON_UNSPECIFIED\020\000\022\035\n\031FAILUR" +
+      "E_REASON_EVALUATION\020\001\022\035\n\031FAILURE_REASON_" +
+      "WRONG_KIND\020\002\022$\n FAILURE_REASON_AMBIGUOUS" +
+      "_SUBJECT\020\003\022\034\n\030FAILURE_REASON_UNDECIDED\020\004" +
+      "*\214\005\n\013EditFailure\022\034\n\030EDIT_FAILURE_UNSPECI" +
+      "FIED\020\000\022\036\n\032EDIT_FAILURE_NO_OPERATIONS\020\001\022\037" +
+      "\n\033EDIT_FAILURE_UNKNOWN_TARGET\020\002\022!\n\035EDIT_" +
+      "FAILURE_AMBIGUOUS_TARGET\020\003\022\033\n\027EDIT_FAILU" +
+      "RE_NOT_VALUED\020\004\022\036\n\032EDIT_FAILURE_INVALID_" +
+      "VALUE\020\005\022\035\n\031EDIT_FAILURE_INVALID_NAME\020\006\022\032" +
+      "\n\026EDIT_FAILURE_NOT_NAMED\020\007\022\"\n\036EDIT_FAILU" +
+      "RE_RENAME_REFERENCED\020\010\022\"\n\036EDIT_FAILURE_O" +
+      "VERLAPPING_EDITS\020\t\022\037\n\033EDIT_FAILURE_RESUL" +
+      "T_INVALID\020\n\022\036\n\032EDIT_FAILURE_OWNER_UNKNOW" +
+      "N\020\013\022$\n EDIT_FAILURE_OWNER_NOT_NAMESPACE\020" +
+      "\014\022\035\n\031EDIT_FAILURE_ILLEGAL_KIND\020\r\022\"\n\036EDIT" +
+      "_FAILURE_MEMBER_NAME_TAKEN\020\016\022\"\n\036EDIT_FAI" +
+      "LURE_DELETE_REFERENCED\020\017\022$\n EDIT_FAILURE" +
+      "_OWNER_INSIDE_TARGET\020\020\022 \n\034EDIT_FAILURE_M" +
+      "OVE_REFERENCED\020\021\022%\n!EDIT_FAILURE_REFEREN" +
+      "CED_ELSEWHERE\020\022*\222\001\n\021PrimitiveOperator\022\"\n" +
+      "\036PRIMITIVE_OPERATOR_UNSPECIFIED\020\000\022\034\n\030PRI" +
+      "MITIVE_OPERATOR_EQUAL\020\001\022\036\n\032PRIMITIVE_OPE" +
+      "RATOR_GREATER\020\002\022\033\n\027PRIMITIVE_OPERATOR_LE" +
+      "SS\020\003*n\n\021CompositeOperator\022\"\n\036COMPOSITE_O" +
+      "PERATOR_UNSPECIFIED\020\000\022\032\n\026COMPOSITE_OPERA" +
+      "TOR_AND\020\001\022\031\n\025COMPOSITE_OPERATOR_OR\020\0022\274\r\n" +
+      "\014SysMLService\022D\n\rGetServerInfo\022\030.sysml.S" +
+      "erverInfoRequest\032\031.sysml.ServerInfoRespo" +
+      "nse\022>\n\tParseFile\022\027.sysml.ParseFileReques" +
+      "t\032\030.sysml.ParseFileResponse\022G\n\014ParseSour" +
+      "ces\022\032.sysml.ParseSourcesRequest\032\033.sysml." +
+      "ParseSourcesResponse\022;\n\tGetSymbol\022\027.sysm" +
+      "l.GetSymbolRequest\032\025.sysml.SymbolRespons" +
+      "e\022G\n\016GetDiagnostics\022\031.sysml.DiagnosticsR" +
+      "equest\032\032.sysml.DiagnosticsResponse\022;\n\010Ev" +
+      "aluate\022\026.sysml.EvaluateRequest\032\027.sysml.E" +
+      "valuateResponse\022D\n\013Instantiate\022\031.sysml.I" +
+      "nstantiateRequest\032\032.sysml.InstantiateRes" +
+      "ponse\022J\n\rExecuteAction\022\033.sysml.ExecuteAc" +
+      "tionRequest\032\034.sysml.ExecuteActionRespons" +
+      "e\022G\n\014ExecuteState\022\032.sysml.ExecuteStateRe" +
+      "quest\032\033.sysml.ExecuteStateResponse\0228\n\007Co" +
+      "nvert\022\025.sysml.ConvertRequest\032\026.sysml.Con" +
+      "vertResponse\0228\n\007Migrate\022\025.sysml.MigrateR" +
+      "equest\032\026.sysml.MigrateResponse\022A\n\nApplyE" +
+      "dits\022\030.sysml.ApplyEditsRequest\032\031.sysml.A" +
+      "pplyEditsResponse\022S\n\020VerifyConstraint\022\036." +
+      "sysml.VerifyConstraintRequest\032\037.sysml.Ve" +
+      "rifyConstraintResponse\022V\n\021VerifyRequirem" +
+      "ent\022\037.sysml.VerifyRequirementRequest\032 .s" +
+      "ysml.VerifyRequirementResponse\022Y\n\022Verify" +
+      "Satisfaction\022 .sysml.VerifySatisfactionR" +
+      "equest\032!.sysml.VerifySatisfactionRespons" +
+      "e\022S\n\020ValidateInstance\022\036.sysml.ValidateIn" +
+      "stanceRequest\032\037.sysml.ValidateInstanceRe" +
+      "sponse\022G\n\014EvaluateCalc\022\032.sysml.EvaluateC" +
+      "alcRequest\032\033.sysml.EvaluateCalcResponse\022" +
+      "D\n\013RunAnalysis\022\031.sysml.RunAnalysisReques" +
+      "t\032\032.sysml.RunAnalysisResponse\022;\n\010RunSwee" +
+      "p\022\026.sysml.RunSweepRequest\032\027.sysml.RunSwe" +
+      "epResponse\022D\n\013ListEngines\022\031.sysml.ListEn" +
+      "ginesRequest\032\032.sysml.ListEnginesResponse" +
+      "\0222\n\005Query\022\023.sysml.QueryRequest\032\024.sysml.Q" +
+      "ueryResponse\022S\n\020RunDocumentQuery\022\036.sysml" +
+      ".RunDocumentQueryRequest\032\037.sysml.RunDocu" +
+      "mentQueryResponse\022M\n\016RenderDocument\022\034.sy" +
+      "sml.RenderDocumentRequest\032\035.sysml.Render" +
+      "DocumentResponse\022A\n\nRenderView\022\030.sysml.R" +
+      "enderViewRequest\032\031.sysml.RenderViewRespo" +
+      "nseBJ\n\034org.openmbee.opensysml.protoP\001Z(g" +
+      "ithub.com/Open-MBEE/OpenSysML/api/protob" +
+      "\006proto3"
     };
     descriptor = com.google.protobuf.Descriptors.FileDescriptor
       .internalBuildGeneratedFileFrom(descriptorData,
@@ -2181,6 +2289,72 @@ public final class Sysml extends com.google.protobuf.GeneratedFile {
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_RenderDocumentResponse_descriptor,
         new java.lang.String[] { "Markdown", "Html", });
+    internal_static_sysml_RenderViewRequest_descriptor =
+      getDescriptor().getMessageType(123);
+    internal_static_sysml_RenderViewRequest_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
+        internal_static_sysml_RenderViewRequest_descriptor,
+        new java.lang.String[] { "ModelHash", "View", "Ports", });
+    internal_static_sysml_RenderViewResponse_descriptor =
+      getDescriptor().getMessageType(124);
+    internal_static_sysml_RenderViewResponse_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
+        internal_static_sysml_RenderViewResponse_descriptor,
+        new java.lang.String[] { "View", "Kind", "Stated", "Nodes", "Edges", "Columns", "Rows", "Canvas", "Notes", "Notices", });
+    internal_static_sysml_RenderNode_descriptor =
+      getDescriptor().getMessageType(125);
+    internal_static_sysml_RenderNode_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
+        internal_static_sysml_RenderNode_descriptor,
+        new java.lang.String[] { "Id", "Kind", "Name", "NameSynthesized", "Type", "Detail", "Text", "StandIn", "Parent", "Ports", "Origin", "Geometry", "Style", });
+    internal_static_sysml_RenderPort_descriptor =
+      getDescriptor().getMessageType(126);
+    internal_static_sysml_RenderPort_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
+        internal_static_sysml_RenderPort_descriptor,
+        new java.lang.String[] { "Id", "Name", "Type", "Direction", });
+    internal_static_sysml_RenderEdge_descriptor =
+      getDescriptor().getMessageType(127);
+    internal_static_sysml_RenderEdge_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
+        internal_static_sysml_RenderEdge_descriptor,
+        new java.lang.String[] { "From", "To", "FromPort", "ToPort", "Label", "Name", "Kind", "Origin", "Route", "Style", });
+    internal_static_sysml_RenderGeometry_descriptor =
+      getDescriptor().getMessageType(128);
+    internal_static_sysml_RenderGeometry_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
+        internal_static_sysml_RenderGeometry_descriptor,
+        new java.lang.String[] { "X", "Y", "Width", "Height", "HasSize", "Collapsed", });
+    internal_static_sysml_RenderCanvas_descriptor =
+      getDescriptor().getMessageType(129);
+    internal_static_sysml_RenderCanvas_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
+        internal_static_sysml_RenderCanvas_descriptor,
+        new java.lang.String[] { "Unit", "Width", "Height", "HasSize", });
+    internal_static_sysml_RenderStyle_descriptor =
+      getDescriptor().getMessageType(130);
+    internal_static_sysml_RenderStyle_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
+        internal_static_sysml_RenderStyle_descriptor,
+        new java.lang.String[] { "Fill", "Line", "Text", "Font", "FontSize", "Bold", "Italic", });
+    internal_static_sysml_RenderPoint_descriptor =
+      getDescriptor().getMessageType(131);
+    internal_static_sysml_RenderPoint_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
+        internal_static_sysml_RenderPoint_descriptor,
+        new java.lang.String[] { "X", "Y", });
+    internal_static_sysml_RenderRow_descriptor =
+      getDescriptor().getMessageType(132);
+    internal_static_sysml_RenderRow_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
+        internal_static_sysml_RenderRow_descriptor,
+        new java.lang.String[] { "Cells", "Origin", });
+    internal_static_sysml_RenderNote_descriptor =
+      getDescriptor().getMessageType(133);
+    internal_static_sysml_RenderNote_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
+        internal_static_sysml_RenderNote_descriptor,
+        new java.lang.String[] { "Text", "Anchor", "EdgeFrom", "EdgeTo", "X", "Y", "Width", "Height", "HasSize", "Origin", });
     descriptor.resolveAllFeaturesImmutable();
   }
 

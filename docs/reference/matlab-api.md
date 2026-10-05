@@ -218,6 +218,10 @@ returns a `DocumentQueryResult` with `columns` and `rows`; both are cell collect
 `elementRef(id)`, and `objectRef(id, path)` are supported. `model.renderDocument(documentId,
 'form', 'markdown')` returns Markdown; `'html'` requests HTML and requires both
 `render_document` and `render_document_html`.
+`model.renderView(viewName, 'ports', 'minimal')` returns a typed
+`opensysml.RenderedView` with ordered nodes, edges, ports, rows, notes and
+origins; geometry, style and canvas are empty when absent. Use `'full'` to
+include every declared port. The call requires `render_view`.
 
 ## Edit builder
 

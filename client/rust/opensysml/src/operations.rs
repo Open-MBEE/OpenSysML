@@ -15,8 +15,8 @@ use crate::capabilities::{
 };
 use crate::conversion::{conversion_of, request_of, Conversion, ConvertOptions, ConvertSource};
 use crate::document::{
-    binding_holds_big_int, bindings_to_wire, document_event_from_wire, result_of, DocumentForm,
-    DocumentQueryResult, DocumentValue,
+    binding_holds_big_int, bindings_to_wire, document_event_from_wire, rendered_view_of, result_of,
+    DocumentForm, DocumentQueryResult, DocumentValue, RenderViewPorts, RenderedView,
 };
 use crate::domain::{Model, Value};
 use crate::encode::value_to_wire;
@@ -418,6 +418,34 @@ impl Connection {
             DocumentForm::Markdown => response.markdown,
             DocumentForm::Html => response.html,
         })
+    }
+
+    /// Render a named view with minimal ports.
+    pub fn render_view(&self, model_hash: &str, view_name: &str) -> Result<RenderedView, Error> {
+        self.render_view_with_ports(model_hash, view_name, RenderViewPorts::Minimal)
+    }
+
+    /// Render a named view with the requested port selection.
+    pub fn render_view_with_ports(
+        &self,
+        model_hash: &str,
+        view_name: &str,
+        ports: RenderViewPorts,
+    ) -> Result<RenderedView, Error> {
+        self.require_all(&[crate::capabilities::CAPABILITY_RENDER_VIEW])?;
+        let response = self.gated_rpc(
+            "RenderView",
+            wire::RenderViewRequest {
+                model_hash: model_hash.to_owned(),
+                view: view_name.to_owned(),
+                ports: match ports {
+                    RenderViewPorts::Minimal => String::new(),
+                    RenderViewPorts::Full => "full".to_owned(),
+                },
+            },
+            &[crate::capabilities::CAPABILITY_RENDER_VIEW],
+        )?;
+        Ok(rendered_view_of(response))
     }
 
     fn run_capabilities(

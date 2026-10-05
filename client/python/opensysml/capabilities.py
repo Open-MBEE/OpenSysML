@@ -58,6 +58,9 @@ CAPABILITY_DOCUMENT_QUERY = "document_query"
 #: Without it the service refuses with ``UNIMPLEMENTED``.
 CAPABILITY_RENDER_DOCUMENT = "render_document"
 
+#: The ``RenderView`` RPC, which returns typed diagram data.
+CAPABILITY_RENDER_VIEW = "render_view"
+
 #: ``form`` on ``RenderDocumentRequest``, which asks ``RenderDocument`` for the
 #: HTML page instead of Markdown. Without it the service would render Markdown
 #: whatever form was asked, so the client refuses to ask for HTML.

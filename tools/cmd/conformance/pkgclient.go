@@ -96,6 +96,8 @@ func (c *pkgClient) dispatch(ctx context.Context, method string, request protore
 		return c.runDocumentQuery(ctx, request)
 	case "RenderDocument":
 		return c.renderDocument(ctx, request)
+	case "RenderView":
+		return c.renderView(ctx, request)
 	case "Convert":
 		return c.convert(ctx, request)
 	case "Migrate":
@@ -702,6 +704,95 @@ func (c *pkgClient) renderDocument(ctx context.Context, request protoreflect.Mes
 		return nil, apiError(err)
 	}
 	return &pb.RenderDocumentResponse{Markdown: markdown}, nil
+}
+
+func (c *pkgClient) renderView(ctx context.Context, request protoreflect.Message) (proto.Message, error) {
+	req := &pb.RenderViewRequest{}
+	if err := retype(request, req); err != nil {
+		return nil, err
+	}
+	var options []opensysml.RenderViewOption
+	if req.Ports == "full" {
+		options = append(options, opensysml.WithFullPorts())
+	}
+	rendered, err := c.api.RenderView(ctx, c.model(req.ModelHash), req.View, options...)
+	if err != nil {
+		return nil, apiError(err)
+	}
+	response := &pb.RenderViewResponse{
+		View: rendered.View, Kind: rendered.Kind, Stated: rendered.Stated,
+		Columns: rendered.Columns, Notices: rendered.Notices,
+	}
+	if rendered.Canvas != nil {
+		response.Canvas = &pb.RenderCanvas{
+			Unit: rendered.Canvas.Unit, Width: rendered.Canvas.Width, Height: rendered.Canvas.Height,
+			HasSize: rendered.Canvas.HasSize,
+		}
+	}
+	for _, node := range rendered.Nodes {
+		converted := &pb.RenderNode{
+			Id: node.ID, Kind: node.Kind, Name: node.Name, NameSynthesized: node.NameSynthesized,
+			Type: node.Type, Detail: node.Detail, Text: node.Text, StandIn: node.StandIn, Parent: node.Parent,
+			Origin: renderSpanToProto(node.Origin),
+		}
+		for _, port := range node.Ports {
+			converted.Ports = append(converted.Ports, &pb.RenderPort{
+				Id: port.ID, Name: port.Name, Type: port.Type, Direction: port.Direction,
+			})
+		}
+		if node.Geometry != nil {
+			converted.Geometry = &pb.RenderGeometry{
+				X: node.Geometry.X, Y: node.Geometry.Y, Width: node.Geometry.Width, Height: node.Geometry.Height,
+				HasSize: node.Geometry.HasSize, Collapsed: node.Geometry.Collapsed,
+			}
+		}
+		converted.Style = renderStyleToProto(node.Style)
+		response.Nodes = append(response.Nodes, converted)
+	}
+	for _, edge := range rendered.Edges {
+		converted := &pb.RenderEdge{
+			From: edge.From, To: edge.To, FromPort: edge.FromPort, ToPort: edge.ToPort,
+			Label: edge.Label, Name: edge.Name, Kind: edge.Kind, Origin: renderSpanToProto(edge.Origin),
+			Style: renderStyleToProto(edge.Style),
+		}
+		for _, point := range edge.Route {
+			converted.Route = append(converted.Route, &pb.RenderPoint{X: point.X, Y: point.Y})
+		}
+		response.Edges = append(response.Edges, converted)
+	}
+	for _, row := range rendered.Rows {
+		response.Rows = append(response.Rows, &pb.RenderRow{
+			Cells: row.Cells, Origin: renderSpanToProto(row.Origin),
+		})
+	}
+	for _, note := range rendered.Notes {
+		response.Notes = append(response.Notes, &pb.RenderNote{
+			Text: note.Text, Anchor: note.Anchor, EdgeFrom: note.EdgeFrom, EdgeTo: note.EdgeTo,
+			X: note.X, Y: note.Y, Width: note.Width, Height: note.Height, HasSize: note.HasSize,
+			Origin: renderSpanToProto(note.Origin),
+		})
+	}
+	return response, nil
+}
+
+func renderSpanToProto(span *opensysml.Span) *pb.Span {
+	if span == nil {
+		return nil
+	}
+	return &pb.Span{
+		File: span.File, StartLine: int32(span.StartLine), StartCol: int32(span.StartCol),
+		EndLine: int32(span.EndLine), EndCol: int32(span.EndCol),
+	}
+}
+
+func renderStyleToProto(style *opensysml.RenderStyle) *pb.RenderStyle {
+	if style == nil {
+		return nil
+	}
+	return &pb.RenderStyle{
+		Fill: style.Fill, Line: style.Line, Text: style.Text, Font: style.Font, FontSize: style.FontSize,
+		Bold: style.Bold, Italic: style.Italic,
+	}
 }
 
 func (c *pkgClient) migrate(ctx context.Context, request protoreflect.Message) (proto.Message, error) {

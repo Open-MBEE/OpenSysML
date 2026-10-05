@@ -1954,6 +1954,92 @@ or mdzip) is migrated; call Convert with the same source`; `toFormat` naming a v
 is not one with what is wrong with it. An unreadable `filePath` or `layoutPath` is `not_found`
 with `file not found:`.
 
+## `RenderView`
+
+`RenderView` returns the machine-readable fields of a named view or targeted pseudo-view. The
+response preserves node and edge order, parent links, ports, source spans, table rows, notes and
+notices; optional canvas, geometry and style messages are absent when the model states none.
+Pictures are not included. An omitted or `minimal` `ports` value includes only ports used by
+rendered connections; `full` includes every declared port. The service advertises this method as
+the `render_view` capability.
+
+This excerpt was captured by calling the gRPC service with
+`RenderViewDemo::connections` from `conformance/fixtures/views.sysml` and marshaling the response
+with protobuf JSON:
+
+```json
+{
+  "view": "RenderViewDemo::connections",
+  "kind": "interconnection",
+  "stated": "render asInterconnectionDiagram",
+  "nodes": [
+    {
+      "id": "n0",
+      "kind": "part def",
+      "name": "RenderViewDemo::Assembly",
+      "origin": {
+        "file": "<content>",
+        "startLine": 21,
+        "startCol": 5,
+        "endLine": 25,
+        "endCol": 6
+      }
+    },
+    {
+      "id": "n1",
+      "kind": "part",
+      "name": "sender",
+      "type": "Sender",
+      "parent": "n0",
+      "ports": [
+        {"id": "n1.0", "name": "api", "type": "API"}
+      ],
+      "origin": {
+        "file": "<content>",
+        "startLine": 22,
+        "startCol": 9,
+        "endLine": 22,
+        "endCol": 30
+      }
+    },
+    {
+      "id": "n2",
+      "kind": "part",
+      "name": "receiver",
+      "type": "Receiver",
+      "parent": "n0",
+      "ports": [
+        {"id": "n2.0", "name": "api", "type": "API"}
+      ],
+      "origin": {
+        "file": "<content>",
+        "startLine": 23,
+        "startCol": 9,
+        "endLine": 23,
+        "endCol": 34
+      }
+    }
+  ],
+  "edges": [
+    {
+      "from": "n1",
+      "to": "n2",
+      "fromPort": "n1.0",
+      "toPort": "n2.0",
+      "label": "link",
+      "kind": "connection",
+      "origin": {
+        "file": "<content>",
+        "startLine": 24,
+        "startCol": 9,
+        "endLine": 24,
+        "endCol": 87
+      }
+    }
+  ]
+}
+```
+
 ## Queries
 
 Two query surfaces exist and answer differently shaped tables. Their semantics — what may be
