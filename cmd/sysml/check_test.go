@@ -670,20 +670,23 @@ func TestSelfCheckPackageFlagAppliesRulePackages(t *testing.T) {
 func TestSelfCheckPackageFlagReportsWhatCannotApply(t *testing.T) {
 	binary := buildCLI(t)
 
+	// The division evaluates cleanly but fails at runtime, so the verdict is an
+	// evaluation error beside a summary that counts nothing failed.
 	evalError := checkFiles(t, binary, map[string]string{
 		"model.sysml": `package M { part def P; }`,
 		"rules.sysml": `package Acme {
 			package Rules {
-				constraint def notBoolean {
+				private import SequenceFunctions::*;
+				constraint def divideByZero {
 					in pd : SysML::PartDefinition;
-					1;
+					pd.name->size() / 0 > 0;
 				}
 			}
 		}`,
 	}, "-self-check-package", "Acme::Rules")
-	if evalError.status != 2 {
-		t.Errorf("eval-error rule exit status = %d, want 2:\n%s", evalError.status, evalError.output())
-	}
+	wantReport(t, evalError, 2,
+		"error: could not be evaluated: constraint Acme::Rules::divideByZero",
+		"Self-model check: ")
 
 	unknown := checkFiles(t, binary, map[string]string{
 		"model.sysml": `package M { part def P; }`,

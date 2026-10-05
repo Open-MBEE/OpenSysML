@@ -746,21 +746,19 @@ func TestSelfCheckPackageReportsAViolationUnderItsQualifiedName(t *testing.T) {
 }
 
 func TestSelfCheckPackageEvaluationErrorLeavesSummaryUnresolved(t *testing.T) {
-	// The non-Boolean body is a model error the CLI would gate on; the session
-	// API still evaluates it and reports the run unresolved, as the bundled
-	// constraint of the same shape does.
-	s := NewSession()
-	s.SubmitFiles([]SourceFile{
-		{Name: "model.sysml", Text: `package M { part def P; }`},
-		{Name: "rules.sysml", Text: `package Acme {
+	// The division analyses cleanly but fails at runtime, so the run reports an
+	// evaluation error rather than a model error the CLI would gate on.
+	s := loadSelfCheckFixture(t,
+		SourceFile{Name: "model.sysml", Text: `package M { part def P; }`},
+		SourceFile{Name: "rules.sysml", Text: `package Acme {
 			package Rules {
-				constraint def notBoolean {
+				private import SequenceFunctions::*;
+				constraint def divideByZero {
 					in pd : SysML::PartDefinition;
-					1;
+					pd.name->size() / 0 > 0;
 				}
 			}
-		}`},
-	})
+		}`})
 
 	verdicts, stats, err := s.selfCheckRun("SysMLValidation", false, []string{"Acme::Rules"})
 	if err != nil {
