@@ -154,6 +154,67 @@ pub struct DocumentEvent {
     pub taken: String,
 }
 
+pub(crate) fn document_event_from_wire(event: wire::DocumentEvent) -> Result<DocumentEvent, Error> {
+    let time = match event.time {
+        Some(time) => value_of(*time)?,
+        None => return Err(Error::Decode("document event carries no time".to_owned())),
+    };
+    Ok(DocumentEvent {
+        kind: event.kind,
+        time: Box::new(time),
+        text: event.text,
+        object: event.object.map(|o| object_of(*o)),
+        machine: event.machine,
+        state: event.state,
+        from_state: event.from,
+        to_state: event.to,
+        target: event.target.map(|o| object_of(*o)),
+        event: event.event,
+        payload: event.payload,
+        alternatives: event.alternatives,
+        taken: event.taken,
+    })
+}
+
+/// Encode a typed state-run event for a service response.
+pub fn document_event_to_wire(event: &DocumentEvent) -> Result<wire::DocumentEvent, Error> {
+    Ok(wire::DocumentEvent {
+        kind: event.kind.clone(),
+        time: Some(Box::new(bound_value("trace time", &event.time)?)),
+        text: event.text.clone(),
+        object: event
+            .object
+            .as_ref()
+            .map(|object| Box::new(object_to_wire(object))),
+        machine: event.machine.clone(),
+        state: event.state.clone(),
+        from: event.from_state.clone(),
+        to: event.to_state.clone(),
+        target: event
+            .target
+            .as_ref()
+            .map(|target| Box::new(object_to_wire(target))),
+        event: event.event.clone(),
+        payload: event.payload.clone(),
+        alternatives: event.alternatives.clone(),
+        taken: event.taken.clone(),
+    })
+}
+
+fn object_to_wire(object: &ObjectRef) -> wire::DocumentObject {
+    use wire::document_value::Kind;
+    wire::DocumentObject {
+        instance_id: object.id,
+        path: object.path.clone(),
+        element: object.element.as_ref().map(|element| {
+            Box::new(wire::DocumentValue {
+                element_type: element.element_type.clone(),
+                kind: Some(Kind::ElementId(element.id.clone())),
+            })
+        }),
+    }
+}
+
 impl fmt::Display for DocumentEvent {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}: {}", self.time, self.text)
