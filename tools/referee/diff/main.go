@@ -10,6 +10,7 @@
 package diff
 
 import (
+	"bytes"
 	"flag"
 	"fmt"
 	"io"
@@ -179,12 +180,17 @@ func (o *options) resolve() error {
 // bundled tree unless libs.LibraryPathEnvVar names another. The directory is
 // recorded in the baseline's provenance, so it must be material this repository
 // owns; an override outside the tree is refused rather than measured silently.
+// Without an override OpenSysML loads the libraries embedded in this build, so
+// the directory under repoDir must hold that very text: a -repo naming another
+// checkout whose libraries differ would hand the reference one text while
+// OpenSysML judged by another, and is refused too.
 func librariesHandedOver(repoDir string) (string, error) {
 	root := filepath.Join(repoDir, filepath.FromSlash(bundledLibraryRoot))
-	if dir := envvar.Lookup(libs.LibraryPathEnvVar); dir != "" {
-		abs, err := filepath.Abs(dir)
+	override := envvar.Lookup(libs.LibraryPathEnvVar)
+	if override != "" {
+		abs, err := filepath.Abs(override)
 		if err != nil {
-			return "", fmt.Errorf("%s=%s: %w", libs.LibraryPathEnvVar, dir, err)
+			return "", fmt.Errorf("%s=%s: %w", libs.LibraryPathEnvVar, override, err)
 		}
 		root = abs
 	}
@@ -195,7 +201,51 @@ func librariesHandedOver(repoDir string) (string, error) {
 	if info, err := os.Stat(libraries); err != nil || !info.IsDir() {
 		return "", fmt.Errorf("library directory not found at %s", libraries)
 	}
+	if override == "" {
+		if err := sameAsLoaded(libraries); err != nil {
+			return "", err
+		}
+	}
 	return libraries, nil
+}
+
+// sameAsLoaded reports whether the library directory holds exactly the OpenSysML
+// library text this build embeds and loads: the same model files, byte for byte.
+func sameAsLoaded(libraries string) error {
+	differs := func(name string) error {
+		return fmt.Errorf("the libraries at %s differ from the ones this build loads (%s): "+
+			"run pilot-diff from the checkout under comparison, or set %s to its %s so both sides load that text",
+			libraries, name, libs.LibraryPathEnvVar, filepath.FromSlash(bundledLibraryRoot))
+	}
+	loaded := libs.BundledSource()
+	prefix := openSysMLLibraries + "/"
+	embedded := map[string]bool{}
+	for _, name := range loaded.List() {
+		if !strings.HasPrefix(name, prefix) {
+			continue
+		}
+		rel := strings.TrimPrefix(name, prefix)
+		embedded[rel] = true
+		want, err := loaded.Read(name)
+		if err != nil {
+			return err
+		}
+		// #nosec G304 -- the directory is inside the repository under comparison.
+		got, err := os.ReadFile(filepath.Join(libraries, filepath.FromSlash(rel)))
+		if err != nil || !bytes.Equal(got, want) {
+			return differs(rel)
+		}
+	}
+	onDisk, err := collectFiles(libraries, corpusRoot{Name: librariesInput, Dir: "."})
+	if err != nil {
+		return err
+	}
+	for _, rel := range onDisk {
+		if !embedded[rel] {
+			return differs(rel)
+		}
+	}
+	return nil
 }
 
 func run(opts options) error {

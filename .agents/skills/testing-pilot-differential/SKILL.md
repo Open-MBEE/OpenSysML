@@ -245,7 +245,13 @@ loads (`internal/workspace/libs/stdlib`, or `OPENSYSML_LIBRARY_PATH` when set), 
 the comparison always see the same library text; the directory is recorded in the baseline's
 provenance as the `opensysml-libraries` input (14 files), and `resolve` fails loudly when it is
 missing or outside the tree (`TestResolveFollowsTheLibraryRootOpenSysMLLoads`,
-`TestResolveRefusesLibrariesOutsideTheRepository`). Proving it is load-bearing:
+`TestResolveRefusesLibrariesOutsideTheRepository`). Without an override OpenSysML loads the
+libraries embedded in the build, so `-repo <other checkout>` is refused when that checkout's
+`OpenSysML Libraries` differ byte for byte from the embedded ones — set `OPENSYSML_LIBRARY_PATH`
+to that checkout's `internal/workspace/libs/stdlib` to have both sides load its text
+(`TestResolveRefusesACheckoutWhoseLibrariesDiffer`). The Java-free provenance guard digests the
+same directory `resolve` derives (`TestCurrentProvenanceFollowsTheLibraryOverride`). Proving it is
+load-bearing:
 
 - `OPENSYSML_LIBRARY_PATH` pointed at a copy of the stdlib tree inside the repository (under
   `build/`) whose `OpenSysML Libraries` holds one trivial `.sysml`, with `-out` elsewhere → the

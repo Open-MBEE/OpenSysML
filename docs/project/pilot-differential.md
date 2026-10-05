@@ -2941,7 +2941,10 @@ directory the reference is handed beside the standard one is not a flag: it is
 `OpenSysML Libraries` under the standard-library root OpenSysML loads
 (`internal/workspace/libs/stdlib`, or `OPENSYSML_LIBRARY_PATH` when set), so the two sides
 cannot be given different libraries; it must lie inside the repository, since the baseline
-records it.
+records it. Without an override OpenSysML loads the libraries embedded in the build, so a
+`-repo` naming another checkout is refused when that checkout's `OpenSysML Libraries` differ
+from the embedded ones; setting `OPENSYSML_LIBRARY_PATH` to that checkout's library root has both
+sides load its text.
 
 ### How this record is kept true
 
