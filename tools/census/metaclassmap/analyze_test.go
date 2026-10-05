@@ -11,10 +11,16 @@ import (
 
 func TestAnalyzeDifferentialBuckets(t *testing.T) {
 	const doc = "tests/parser/testdata/parse/map.sysml"
+	const relationshipDoc = "tests/parser/testdata/parse/relationships.kerml"
 	content := []byte("package Demo {\npart def A;\npart def B;\nattribute def C;\nimport Demo::*;\n}\n")
+	relationshipContent := []byte("package P {\nclassifier A;\nclassifier B;\nspecialization Gen subtype A specializes B;\n}\n")
 	shapes := []grammar.Shape{
 		{Grammar: "Toy.xtext", Name: "Part", Kind: grammar.KindRule, Returns: "SysML::PartDefinition",
 			Creates: []string{"SysML::PartDefinition"}, Anchors: []string{"part"}},
+		{Grammar: "Toy.xtext", Name: "RelationshipNotReified", Kind: grammar.KindRule,
+			Creates: []string{"SysML::OwningMembership"}, Anchors: []string{"part"}},
+		{Grammar: "Toy.xtext", Name: "DifferentRelationship", Kind: grammar.KindRule,
+			Creates: []string{"KerML::Subclassification"}, Anchors: []string{"specialization"}},
 		{Grammar: "Toy.xtext", Name: "Shared", Kind: grammar.KindRule, Returns: "SysML::Shared",
 			Creates: []string{"SysML::ActionDefinition"}, Anchors: []string{"part"}},
 		{Grammar: "Toy.xtext", Name: "Disagree", Kind: grammar.KindRule, Returns: "SysML::Disagree",
@@ -30,6 +36,8 @@ func TestAnalyzeDifferentialBuckets(t *testing.T) {
 	}
 	rows := []grammar.Row{
 		evidenceRow("Part", "part", 2, doc),
+		evidenceRow("RelationshipNotReified", "part", 2, doc),
+		evidenceRow("DifferentRelationship", "specialization", 4, relationshipDoc),
 		evidenceRow("Shared", "part", 2, doc),
 		evidenceRow("Disagree", "attribute", 4, doc),
 		evidenceRow("NoElementAtAnchor", "import", 5, doc),
@@ -41,18 +49,22 @@ func TestAnalyzeDifferentialBuckets(t *testing.T) {
 		PilotTag: "fixture",
 		Grammars: []grammar.GrammarReport{{Name: "Toy.xtext", Productions: rows}},
 	}
-	report, err := Analyze(coverage, shapes, map[string][]byte{doc: content})
+	report, err := Analyze(coverage, shapes, map[string][]byte{
+		doc: content, relationshipDoc: relationshipContent,
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
 	want := map[string]struct{ bucket, reason string }{
-		"Part":              {"agree", ""},
-		"Shared":            {"undecided", "anchor-shared"},
-		"Disagree":          {"disagree", ""},
-		"NoElementAtAnchor": {"undecided", "no-element-at-anchor"},
-		"NoAnchor":          {"undecided", "no-anchor"},
-		"NoInput":           {"undecided", "no-input"},
-		"NoElement":         {"undecided", "no-element"},
+		"Part":                   {"agree", ""},
+		"RelationshipNotReified": {"undecided", "relationship-not-reified"},
+		"DifferentRelationship":  {"disagree", ""},
+		"Shared":                 {"undecided", "anchor-shared"},
+		"Disagree":               {"disagree", ""},
+		"NoElementAtAnchor":      {"undecided", "no-element-at-anchor"},
+		"NoAnchor":               {"undecided", "no-anchor"},
+		"NoInput":                {"undecided", "no-input"},
+		"NoElement":              {"undecided", "no-element"},
 	}
 	for _, production := range report.Grammars[0].Productions {
 		expect := want[production.Shape.Name]

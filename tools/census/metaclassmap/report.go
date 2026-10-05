@@ -174,7 +174,8 @@ func newTotals() Totals {
 		},
 		UndecidedByReason: map[string]int{
 			"no-input": 0, "no-element": 0, "no-anchor": 0, "unlocated": 0,
-			"no-element-at-anchor": 0, "no-reflective-metaclass": 0, "anchor-shared": 0,
+			"no-element-at-anchor": 0, "no-reflective-metaclass": 0,
+			"relationship-not-reified": 0, "anchor-shared": 0,
 		},
 	}
 }

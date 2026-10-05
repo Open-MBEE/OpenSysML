@@ -166,7 +166,6 @@ exclude_docs: |
   internals/design/**
   internals/notes/**
   project/*.json
-  !project/grammar-metaclass-map-baseline.json
   project/omg-issues.md
   project/performance-census-2026-09.md
   project/execution-performance-2026-09.md
@@ -193,6 +192,7 @@ exclude_docs: |
   project/fuml-referee.md
   project/behavior-semantic-oracle.md
   project/grammar-coverage.md
+  project/grammar-metaclass-map.md
   project/validation-constraints.md
   project/sysml-v1-transformation-census.md
   project/element-identity-annotations.md
@@ -292,8 +292,7 @@ nav:
       - FMI models: reference/fmi.md
       - Grammar: reference/grammar/README.md
       - Grammar conformance audit: reference/grammar/conformance-audit.md
-      - Grammar-to-metaclass map: project/grammar-metaclass-map.md
       - WebAssembly builds: reference/wasm.md
       - Third-party notices: project/third-party-notices.md
-  # Most internals/ and project/ contributor records stay out of the tab bar.
-  # The grammar-to-metaclass map and third-party notices are public documentation exceptions.
+  # internals/ and project/ contributor records are kept out of the tab bar; the
+  # public third-party notices are the exception.

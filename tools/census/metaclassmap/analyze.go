@@ -9,9 +9,12 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/model"
 	"github.com/Open-MBEE/OpenSysML/tools/census/grammar"
 )
+
+const relationshipFQN = "KerML::Root::Relationship"
 
 type reflectiveModel struct {
 	index *symbols.Index
@@ -307,6 +310,10 @@ func differential(row grammar.Row, shape grammar.Shape, allShapes []grammar.Shap
 			return result
 		}
 	}
+	if createsConformToRelationship(reflection, shape.Creates) &&
+		!conformsToRelationship(reflection.sem, meta) {
+		return undecided("relationship-not-reified")
+	}
 	var shared []string
 	for _, other := range allShapes {
 		if shapeKey(other.Grammar, other.Name) == shapeKey(shape.Grammar, shape.Name) ||
@@ -327,6 +334,45 @@ func differential(row grammar.Row, shape grammar.Shape, allShapes []grammar.Shap
 	}
 	result.Bucket = "disagree"
 	return result
+}
+
+func createsConformToRelationship(reflection *reflectiveModel, creates []string) bool {
+	if reflection == nil || reflection.sem == nil || len(creates) == 0 {
+		return false
+	}
+	for _, created := range creates {
+		var candidates []*symbols.Symbol
+		if reflection.index != nil {
+			candidates = reflection.index.LookupQualified(created)
+		}
+		if len(candidates) == 0 {
+			candidates = []*symbols.Symbol{reflection.sem.Metaclass(lastName(created))}
+		}
+		if len(candidates) == 0 || candidates[0] == nil {
+			return false
+		}
+		for _, candidate := range candidates {
+			if !conformsToRelationship(reflection.sem, candidate) {
+				return false
+			}
+		}
+	}
+	return true
+}
+
+func conformsToRelationship(sem *semantics.Model, metaclass *symbols.Symbol) bool {
+	if sem == nil || metaclass == nil {
+		return false
+	}
+	if symbols.FQNOf(metaclass) == relationshipFQN {
+		return true
+	}
+	for _, supertype := range sem.AllSupertypes(metaclass) {
+		if symbols.FQNOf(supertype) == relationshipFQN {
+			return true
+		}
+	}
+	return false
 }
 
 func elementAt(index *symbols.Index, doc string, content []byte, offset int) *symbols.Symbol {
@@ -380,19 +426,26 @@ func declarationHeader(sym *symbols.Symbol, stripped string) (int, int, bool) {
 		return 0, 0, false
 	}
 	end := sym.DeclSpan.End()
-	if end <= start || end > len(stripped) {
+	if end < start {
+		return 0, 0, false
+	}
+	if end > len(stripped) {
 		end = len(stripped)
 	}
 	if sym.NameSpan.Len > 0 && sym.NameSpan.Offset >= start && sym.NameSpan.Offset <= end {
 		return start, sym.NameSpan.Offset, true
 	}
 	for i := start; i < end; i++ {
-		if stripped[i] == ';' || stripped[i] == '{' {
+		if !source.IsIdentCont(stripped[i]) && !isHeaderWhitespace(stripped[i]) {
 			end = i
 			break
 		}
 	}
 	return start, end, true
+}
+
+func isHeaderWhitespace(char byte) bool {
+	return char == ' ' || char == '\t' || char == '\r' || char == '\n'
 }
 
 func stripSource(content string) string {
