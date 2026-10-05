@@ -240,7 +240,7 @@ func TestLandingStackModel(t *testing.T) {
 	if len(journey.Trace) != 0 {
 		t.Fatalf("unrequested trace has %d records", len(journey.Trace))
 	}
-	if want := []string{"opensysml", "flexo", "toolkit", "flexo", "pilot"}; !reflect.DeepEqual(journey.StatesVisited, want) {
+	if want := []string{"start", "opensysml", "flexo", "toolkit", "flexo", "pilot"}; !reflect.DeepEqual(journey.StatesVisited, want) {
 		t.Errorf("journey: got %v, want %v", journey.StatesVisited, want)
 	}
 
@@ -258,12 +258,17 @@ func TestLandingStackModel(t *testing.T) {
 		t.Fatalf("traced ExecuteState: %s", tracedJourney.Error)
 	}
 	wantTrace := []engine.JTraceEvent{
+		{Kind: "entry", State: "start"},
+		{Kind: "choice", Alternatives: []string{"1->opensysml", "2->flexo"}, Taken: "1->opensysml"},
+		{Kind: "exit", State: "start"},
 		{Kind: "entry", State: "opensysml"},
+		{Kind: "transition", From: "start", To: "opensysml"},
 		{Kind: "accept", Event: "Commit"},
 		{Kind: "exit", State: "opensysml"},
 		{Kind: "entry", State: "flexo"},
 		{Kind: "transition", From: "opensysml", To: "flexo", Event: "accept Commit"},
 		{Kind: "accept", Event: "Pull"},
+		{Kind: "choice", Alternatives: []string{"1->toolkit", "2->pilot", "3->opensysml"}, Taken: "1->toolkit"},
 		{Kind: "exit", State: "flexo"},
 		{Kind: "entry", State: "toolkit"},
 		{Kind: "transition", From: "flexo", To: "toolkit", Event: "accept Pull"},
@@ -282,10 +287,68 @@ func TestLandingStackModel(t *testing.T) {
 	for i, want := range wantTrace {
 		got := tracedJourney.Trace[i]
 		if got.Kind != want.Kind || got.State != want.State || got.From != want.From ||
-			got.To != want.To || got.Event != want.Event {
-			t.Errorf("trace[%d] = %+v, want kind=%q state=%q from=%q to=%q event=%q",
-				i, got, want.Kind, want.State, want.From, want.To, want.Event)
+			got.To != want.To || got.Event != want.Event ||
+			!reflect.DeepEqual(got.Alternatives, want.Alternatives) || got.Taken != want.Taken {
+			t.Errorf("trace[%d] = %+v, want kind=%q state=%q from=%q to=%q event=%q alternatives=%v taken=%q",
+				i, got, want.Kind, want.State, want.From, want.To, want.Event, want.Alternatives, want.Taken)
 		}
+	}
+
+	var seedTwo struct {
+		StatesVisited []string             `json:"statesVisited"`
+		Trace         []engine.JTraceEvent `json:"trace"`
+		Error         string               `json:"error"`
+	}
+	call("ExecuteState", map[string]any{
+		"modelHash":            parsed.ModelHash,
+		"stateMachineSymbolId": "OpenSysMLStack::ModelJourney",
+		"events":               []string{"Commit", "Pull", "Push", "Check"},
+		"schedule":             "seed:2",
+		"trace":                true,
+	}, &seedTwo)
+	if seedTwo.Error != "" {
+		t.Fatalf("seed:2 ExecuteState: %s", seedTwo.Error)
+	}
+	if want := []string{"start", "flexo", "opensysml"}; !reflect.DeepEqual(seedTwo.StatesVisited, want) {
+		t.Errorf("seed:2 journey: got %v, want %v", seedTwo.StatesVisited, want)
+	}
+	commitIndex := -1
+	for i, event := range seedTwo.Trace {
+		if event.Kind == "accept" && event.Event == "Commit" {
+			commitIndex = i
+			break
+		}
+	}
+	if commitIndex < 0 || commitIndex+1 >= len(seedTwo.Trace) ||
+		seedTwo.Trace[commitIndex+1].Kind != "accept" || seedTwo.Trace[commitIndex+1].Event != "Pull" {
+		t.Errorf("seed:2 expected consecutive Commit and Pull accepts, got %+v", seedTwo.Trace)
+	}
+	var lastTransition *engine.JTraceEvent
+	for i := range seedTwo.Trace {
+		if seedTwo.Trace[i].Kind == "transition" {
+			lastTransition = &seedTwo.Trace[i]
+		}
+	}
+	if lastTransition == nil || lastTransition.From != "flexo" || lastTransition.To != "opensysml" ||
+		lastTransition.Event != "accept Pull" {
+		t.Errorf("seed:2 last transition = %+v, want flexo -> opensysml on accept Pull", lastTransition)
+	}
+
+	var seedFive struct {
+		StatesVisited []string `json:"statesVisited"`
+		Error         string   `json:"error"`
+	}
+	call("ExecuteState", map[string]any{
+		"modelHash":            parsed.ModelHash,
+		"stateMachineSymbolId": "OpenSysMLStack::ModelJourney",
+		"events":               []string{"Commit", "Pull", "Push", "Check"},
+		"schedule":             "seed:5",
+	}, &seedFive)
+	if seedFive.Error != "" {
+		t.Fatalf("seed:5 ExecuteState: %s", seedFive.Error)
+	}
+	if want := []string{"start", "flexo", "pilot", "flexo", "pilot"}; !reflect.DeepEqual(seedFive.StatesVisited, want) {
+		t.Errorf("seed:5 journey: got %v, want %v", seedFive.StatesVisited, want)
 	}
 }
 
