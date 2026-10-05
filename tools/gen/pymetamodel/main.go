@@ -112,86 +112,112 @@ SOURCE_COMMIT = %q
 
 `, version, tag, commit, regenerate, version, tag, commit)
 
-	for _, enum := range m.enums {
-		fmt.Fprintf(&b, "class %s(str, Enum):\n", enum.Name)
-		for _, literal := range enum.Literals {
-			fmt.Fprintf(&b, "    %s = %q\n", strings.ToUpper(literal), literal)
-		}
-		b.WriteString("\n\n")
-	}
-
+	writeEnums(&b, m)
 	for _, class := range m.classes {
-		if class.Name == "Element" {
-			fmt.Fprintf(&b, "class Element(_ElementBase):\n")
-		} else if len(class.Parents) == 0 {
-			fmt.Fprintf(&b, "class %s:\n", class.Name)
-		} else {
-			fmt.Fprintf(&b, "class %s(%s):\n", class.Name, strings.Join(class.Parents, ", "))
+		if err := writeClass(&b, class, m); err != nil {
+			return nil, err
 		}
-		doc := "Metaclass ``" + class.Name + "``."
-		if class.Abstract {
-			doc = "Abstract metaclass ``" + class.Name + "``."
-		}
-		fmt.Fprintf(&b, "    %q\n    __slots__ = ()\n", doc)
-		fmt.Fprintf(&b, "    METACLASS: ClassVar[str] = %q\n", class.Name)
-		writeJSONKeys(&b, class, m)
-		for _, property := range m.declaredProperties(class.Name) {
-			snake := toSnake(property.Name)
-			rangeAnnotation, rangeName, err := m.pythonRange(property)
-			if err != nil {
-				return nil, err
-			}
-			descriptor := "Opt"
-			if property.Many {
-				descriptor = "Many"
-			}
-			fmt.Fprintf(&b, "    %s: %s[%s] = %s(%q, %q",
-				snake, descriptor, rangeAnnotation, descriptor, property.Name, rangeName)
-			if property.Many {
-				fmt.Fprintf(&b, ", ordered=%s", pythonBool(property.Ordered))
-			}
-			if property.Derived {
-				b.WriteString(", derived=True")
-			}
-			b.WriteString(")\n")
-			parts := []string{"single"}
-			if property.Many {
-				parts = []string{"many"}
-				if property.Ordered {
-					parts = append(parts, "ordered")
-				}
-			}
-			if property.Derived {
-				parts = append(parts, "derived")
-			}
-			doc := fmt.Sprintf("``%s::%s`` (%s).", class.Name, property.Name, strings.Join(parts, ", "))
-			if len(property.Redefines) > 0 {
-				targets := make([]string, len(property.Redefines))
-				for i, redefined := range property.Redefines {
-					targets[i] = "``" + redefined + "``"
-				}
-				doc += " Redefines " + strings.Join(targets, ", ") + "."
-			}
-			fmt.Fprintf(&b, "    %q\n", doc)
-			if property.Name != snake && !pythonKeywords[property.Name] {
-				fmt.Fprintf(&b, "    %s = %s\n", property.Name, snake)
-			}
+	}
+	writeModuleMembers(&b, m)
+	return []byte(b.String()), nil
+}
+
+func writeEnums(b *strings.Builder, m *model) {
+	for _, enum := range m.enums {
+		fmt.Fprintf(b, "class %s(str, Enum):\n", enum.Name)
+		for _, literal := range enum.Literals {
+			fmt.Fprintf(b, "    %s = %q\n", strings.ToUpper(literal), literal)
 		}
 		b.WriteString("\n\n")
 	}
+}
 
+func writeClass(b *strings.Builder, class ontology.Class, m *model) error {
+	switch {
+	case class.Name == "Element":
+		fmt.Fprintf(b, "class Element(_ElementBase):\n")
+	case len(class.Parents) == 0:
+		fmt.Fprintf(b, "class %s:\n", class.Name)
+	default:
+		fmt.Fprintf(b, "class %s(%s):\n", class.Name, strings.Join(class.Parents, ", "))
+	}
+	doc := "Metaclass ``" + class.Name + "``."
+	if class.Abstract {
+		doc = "Abstract metaclass ``" + class.Name + "``."
+	}
+	fmt.Fprintf(b, "    %q\n    __slots__ = ()\n", doc)
+	fmt.Fprintf(b, "    METACLASS: ClassVar[str] = %q\n", class.Name)
+	writeJSONKeys(b, class, m)
+	for _, property := range m.declaredProperties(class.Name) {
+		if err := writeProperty(b, class, property, m); err != nil {
+			return err
+		}
+	}
+	b.WriteString("\n\n")
+	return nil
+}
+
+func writeProperty(b *strings.Builder, class ontology.Class, property ontology.Property, m *model) error {
+	snake := toSnake(property.Name)
+	rangeAnnotation, rangeName, err := m.pythonRange(property)
+	if err != nil {
+		return err
+	}
+	descriptor := "Opt"
+	if property.Many {
+		descriptor = "Many"
+	}
+	fmt.Fprintf(b, "    %s: %s[%s] = %s(%q, %q",
+		snake, descriptor, rangeAnnotation, descriptor, property.Name, rangeName)
+	if property.Many {
+		fmt.Fprintf(b, ", ordered=%s", pythonBool(property.Ordered))
+	}
+	if property.Derived {
+		b.WriteString(", derived=True")
+	}
+	b.WriteString(")\n")
+	fmt.Fprintf(b, "    %q\n", propertyDoc(class, property))
+	if property.Name != snake && !pythonKeywords[property.Name] {
+		fmt.Fprintf(b, "    %s = %s\n", property.Name, snake)
+	}
+	return nil
+}
+
+func propertyDoc(class ontology.Class, property ontology.Property) string {
+	parts := []string{"single"}
+	if property.Many {
+		parts = []string{"many"}
+		if property.Ordered {
+			parts = append(parts, "ordered")
+		}
+	}
+	if property.Derived {
+		parts = append(parts, "derived")
+	}
+	doc := fmt.Sprintf("``%s::%s`` (%s).", class.Name, property.Name, strings.Join(parts, ", "))
+	if len(property.Redefines) > 0 {
+		targets := make([]string, len(property.Redefines))
+		for i, redefined := range property.Redefines {
+			targets[i] = "``" + redefined + "``"
+		}
+		doc += " Redefines " + strings.Join(targets, ", ") + "."
+	}
+	return doc
+}
+
+func writeModuleMembers(b *strings.Builder, m *model) {
 	b.WriteString("REGISTRY: Mapping[str, builtins.type[Element]] = MappingProxyType({\n")
 	for _, class := range m.classes {
-		fmt.Fprintf(&b, "    %q: %s,\n", class.Name, class.Name)
+		fmt.Fprintf(b, "    %q: %s,\n", class.Name, class.Name)
 	}
 	b.WriteString("})\n\n")
 	b.WriteString("ENUMERATIONS: Mapping[str, builtins.type[Enum]] = MappingProxyType({\n")
 	for _, enum := range m.enums {
-		fmt.Fprintf(&b, "    %q: %s,\n", enum.Name, enum.Name)
+		fmt.Fprintf(b, "    %q: %s,\n", enum.Name, enum.Name)
 	}
 	b.WriteString("})\n\nRUNTIME_MEMBERS = frozenset({\n")
 	for _, name := range runtimeMembers {
-		fmt.Fprintf(&b, "    %q,\n", name)
+		fmt.Fprintf(b, "    %q,\n", name)
 	}
 	b.WriteString("})\n\n__all__ = [\n")
 	names := make([]string, 0, len(m.classes)+len(m.enums)+7)
@@ -205,10 +231,9 @@ SOURCE_COMMIT = %q
 		"SOURCE_COMMIT", "SOURCE_TAG")
 	sort.Strings(names)
 	for _, name := range names {
-		fmt.Fprintf(&b, "    %q,\n", name)
+		fmt.Fprintf(b, "    %q,\n", name)
 	}
 	b.WriteString("]\n")
-	return []byte(b.String()), nil
 }
 
 func newModel(classes []ontology.Class, properties []ontology.Property,
@@ -220,40 +245,8 @@ func newModel(classes []ontology.Class, properties []ontology.Property,
 		mros:      make(map[string][]string, len(classes)),
 		effective: make(map[string]map[string]ontology.Property, len(classes)),
 	}
-	for _, class := range classes {
-		if class.Name == "" {
-			return nil, fmt.Errorf("metaclass without a name")
-		}
-		if _, duplicate := m.classBy[class.Name]; duplicate {
-			return nil, fmt.Errorf("metaclass %s is declared more than once", class.Name)
-		}
-		m.classBy[class.Name] = class
-	}
-	if _, ok := m.classBy["Element"]; !ok {
-		return nil, fmt.Errorf("metaclass Element is not declared")
-	}
-	for _, enum := range enums {
-		if enum.Name == "" || len(enum.Literals) == 0 {
-			return nil, fmt.Errorf("enumeration %q has no literals", enum.Name)
-		}
-		if _, duplicate := m.enumBy[enum.Name]; duplicate {
-			return nil, fmt.Errorf("enumeration %s is declared more than once", enum.Name)
-		}
-		m.enumBy[enum.Name] = enum
-	}
-	for name := range m.enumBy {
-		if _, exists := m.classBy[name]; exists {
-			return nil, fmt.Errorf("metaclass and enumeration share generated name %s", name)
-		}
-		if contains([]string{"METAMODEL_VERSION", "SOURCE_TAG", "SOURCE_COMMIT", "REGISTRY",
-			"ENUMERATIONS", "RUNTIME_MEMBERS"}, name) {
-			return nil, fmt.Errorf("enumeration %s collides with a generated module member", name)
-		}
-	}
-	for _, property := range properties {
-		if _, ok := m.classBy[property.DefiningClass]; !ok {
-			return nil, fmt.Errorf("%s::%s has no declaring metaclass", property.DefiningClass, property.Name)
-		}
+	if err := m.index(); err != nil {
+		return nil, err
 	}
 	order, err := m.topologicalOrder()
 	if err != nil {
@@ -268,21 +261,8 @@ func newModel(classes []ontology.Class, properties []ontology.Property,
 	if err := m.validateDeclarations(); err != nil {
 		return nil, err
 	}
-	for _, class := range m.classes {
-		effective := make(map[string]ontology.Property)
-		for _, ancestor := range m.mros[class.Name] {
-			for _, property := range m.properties {
-				if property.DefiningClass == ancestor {
-					if _, exists := effective[property.Name]; !exists {
-						effective[property.Name] = property
-					}
-				}
-			}
-		}
-		m.effective[class.Name] = effective
-		if err := m.validateEffective(class.Name, effective); err != nil {
-			return nil, err
-		}
+	if err := m.computeEffective(); err != nil {
+		return nil, err
 	}
 	for _, property := range properties {
 		if _, _, err := m.pythonRange(property); err != nil {
@@ -290,6 +270,68 @@ func newModel(classes []ontology.Class, properties []ontology.Property,
 		}
 	}
 	return m, nil
+}
+
+// index fills classBy and enumBy, refusing names that are missing, repeated or collide.
+func (m *model) index() error {
+	for _, class := range m.classes {
+		if class.Name == "" {
+			return fmt.Errorf("metaclass without a name")
+		}
+		if _, duplicate := m.classBy[class.Name]; duplicate {
+			return fmt.Errorf("metaclass %s is declared more than once", class.Name)
+		}
+		m.classBy[class.Name] = class
+	}
+	if _, ok := m.classBy["Element"]; !ok {
+		return fmt.Errorf("metaclass Element is not declared")
+	}
+	for _, enum := range m.enums {
+		if enum.Name == "" || len(enum.Literals) == 0 {
+			return fmt.Errorf("enumeration %q has no literals", enum.Name)
+		}
+		if _, duplicate := m.enumBy[enum.Name]; duplicate {
+			return fmt.Errorf("enumeration %s is declared more than once", enum.Name)
+		}
+		m.enumBy[enum.Name] = enum
+	}
+	for name := range m.enumBy {
+		if _, exists := m.classBy[name]; exists {
+			return fmt.Errorf("metaclass and enumeration share generated name %s", name)
+		}
+		if contains([]string{"METAMODEL_VERSION", "SOURCE_TAG", "SOURCE_COMMIT", "REGISTRY",
+			"ENUMERATIONS", "RUNTIME_MEMBERS"}, name) {
+			return fmt.Errorf("enumeration %s collides with a generated module member", name)
+		}
+	}
+	for _, property := range m.properties {
+		if _, ok := m.classBy[property.DefiningClass]; !ok {
+			return fmt.Errorf("%s::%s has no declaring metaclass", property.DefiningClass, property.Name)
+		}
+	}
+	return nil
+}
+
+// computeEffective records each class's properties along its linearization, nearest first.
+func (m *model) computeEffective() error {
+	for _, class := range m.classes {
+		effective := make(map[string]ontology.Property)
+		for _, ancestor := range m.mros[class.Name] {
+			for _, property := range m.properties {
+				if property.DefiningClass != ancestor {
+					continue
+				}
+				if _, exists := effective[property.Name]; !exists {
+					effective[property.Name] = property
+				}
+			}
+		}
+		m.effective[class.Name] = effective
+		if err := m.validateEffective(class.Name, effective); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (m *model) validateDeclarations() error {
@@ -403,40 +445,26 @@ func (m *model) linearize(name string, visiting map[string]bool) ([]string, erro
 		sequences = append(sequences, append([]string(nil), parentMRO...))
 	}
 	sequences = append(sequences, append([]string(nil), class.Parents...))
+	result, err := c3Merge(name, class.Parents, sequences)
+	if err != nil {
+		return nil, err
+	}
+	delete(visiting, name)
+	m.mros[name] = result
+	return result, nil
+}
+
+// c3Merge is the C3 merge of the parents' linearizations and the parent list.
+func c3Merge(name string, parents []string, sequences [][]string) ([]string, error) {
 	result := []string{name}
 	for {
-		active := sequences[:0]
-		for _, sequence := range sequences {
-			if len(sequence) != 0 {
-				active = append(active, sequence)
-			}
-		}
-		sequences = active
+		sequences = nonEmpty(sequences)
 		if len(sequences) == 0 {
-			break
+			return result, nil
 		}
-		var candidate string
-		for _, sequence := range sequences {
-			head := sequence[0]
-			inTail := false
-			for _, other := range sequences {
-				for _, tail := range other[1:] {
-					if tail == head {
-						inTail = true
-						break
-					}
-				}
-				if inTail {
-					break
-				}
-			}
-			if !inTail {
-				candidate = head
-				break
-			}
-		}
+		candidate := c3Candidate(sequences)
 		if candidate == "" {
-			return nil, fmt.Errorf("C3 linearization failed for %s: inconsistent parents %v", name, class.Parents)
+			return nil, fmt.Errorf("C3 linearization failed for %s: inconsistent parents %v", name, parents)
 		}
 		result = append(result, candidate)
 		for i, sequence := range sequences {
@@ -445,9 +473,35 @@ func (m *model) linearize(name string, visiting map[string]bool) ([]string, erro
 			}
 		}
 	}
-	delete(visiting, name)
-	m.mros[name] = result
-	return result, nil
+}
+
+func nonEmpty(sequences [][]string) [][]string {
+	active := sequences[:0]
+	for _, sequence := range sequences {
+		if len(sequence) != 0 {
+			active = append(active, sequence)
+		}
+	}
+	return active
+}
+
+// c3Candidate is the first head that no sequence carries in its tail, or "".
+func c3Candidate(sequences [][]string) string {
+	for _, sequence := range sequences {
+		if !inTails(sequence[0], sequences) {
+			return sequence[0]
+		}
+	}
+	return ""
+}
+
+func inTails(head string, sequences [][]string) bool {
+	for _, other := range sequences {
+		if contains(other[1:], head) {
+			return true
+		}
+	}
+	return false
 }
 
 func (m *model) ancestor(class, ancestor string) bool {
