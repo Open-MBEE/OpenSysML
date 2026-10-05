@@ -13,14 +13,16 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
 // Context provides the semantic workspace used by one execution; Index,
 // Resolver and Model are required, Runtime and Roots absent over the model alone.
 type Context struct {
-	Index    *symbols.Index
-	Resolver *resolve.Resolver
-	Model    *semantics.Model
+	Index     *symbols.Index
+	Resolver  *resolve.Resolver
+	Model     *semantics.Model
+	LineIndex func(doc string) *source.LineIndex
 	// Runtime holds the objects the query may read; nil makes object bindings
 	// and Objects typed errors.
 	Runtime *runtime.Context

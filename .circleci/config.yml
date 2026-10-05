@@ -287,6 +287,12 @@ jobs:
             go vet ./...
             go vet -C tools ./...
 
+      # The third-party notices link the licence text this bundle copies into
+      # docs/assets/landing, which is generated rather than tracked.
+      - run:
+          name: Build the landing-page diagram
+          command: make docs-landing-assets
+
       - run:
           name: Check documentation links
           command: python3 scripts/check-doc-links.py
@@ -416,7 +422,10 @@ jobs:
       - install-fmpy
 
       # One scripts/race-shard.sh shard per node: internal/exec/runtime alone peaks near
-      # 6.5 GB under -race, so it shares its 8 GB node only sequentially (tests/wasm, tools).
+      # 8.5 GB under -race, so it shares its 8 GB node only sequentially (tests/wasm, tools).
+      # The race detector's memory is per process and the corpus-wide exploration alone
+      # accounts for half of that peak, so the package runs as two processes: the
+      # exploration, then everything else (4 GB each).
       - run:
           name: Run Go race tests
           command: |
@@ -429,10 +438,14 @@ jobs:
             shard=${shards[$CIRCLE_NODE_INDEX]}
             pkgs=$(scripts/race-shard.sh "$shard")
             echo "shard $shard:"; echo "$pkgs"
-            go test -v -race -pgo=off -timeout 30m $pkgs
             if [ "$shard" = runtime ]; then
+              exploration='^TestExploreWithIsExploreOverTheConformanceCorpus$'
+              go test -v -race -pgo=off -timeout 30m -run "$exploration" $pkgs
+              go test -v -race -pgo=off -timeout 30m -skip "$exploration" $pkgs
               go test -v -race -pgo=off -timeout 30m ./tests/wasm
               go test -C tools -v -race -pgo=off -timeout 30m ./...
+            else
+              go test -v -race -pgo=off -timeout 30m $pkgs
             fi
           no_output_timeout: 30m
           environment:
@@ -505,6 +518,29 @@ jobs:
       - go/save-cache
       - install-solvers
       - download-corpora
+
+      # The metamodel table is generated from the pilot's SysML.ecore at the pin;
+      # a pin bump without regenerating it fails here.
+      - restore_cache:
+          keys:
+            - pilot-metamodel-v1-{{ checksum "scripts/download-pilot-metamodel.sh" }}-{{ checksum "scripts/pilot-pin.sh" }}
+
+      - run:
+          name: Download the pilot metamodel
+          command: ./scripts/download-pilot-metamodel.sh
+
+      - save_cache:
+          key: pilot-metamodel-v1-{{ checksum "scripts/download-pilot-metamodel.sh" }}-{{ checksum "scripts/pilot-pin.sh" }}
+          paths:
+            - build/pilot-metamodel
+
+      - run:
+          name: Check the metamodel table matches the pinned SysML.ecore
+          command: make ontology-table-check
+
+      - run:
+          name: Check generated Python metaclasses are current
+          command: make python-metamodel-check
 
       # The corpora gate alone, so its per-root verdict lines are legible in the
       # log and a skip cannot hide behind a green suite.
@@ -993,7 +1029,7 @@ jobs:
           command: |
             make python-install
             # Pinned and wheel-only, as in .github/workflows/pr.yml.
-            pip install --only-binary :all: pytest==9.0.3 pytest-mock==3.15.1 psutil==7.2.2 pytest-cov==7.0.0 fmpy==0.3.32
+            pip install --only-binary :all: pytest==9.0.3 pytest-mock==3.15.1 psutil==7.2.2 pytest-cov==7.0.0 fmpy==0.3.32 mypy==2.4.0 types-protobuf==7.35.1.20260906 'pyright[nodejs]==1.1.414'
       
       # The integration tests connect to a service on the standard port with
       # auto_start=False, which is the explicit opt-in to one the client does not
@@ -1027,7 +1063,7 @@ jobs:
       # service is provided here, so its absence is the bug, not a pass.
       - run:
           name: Run Python client tests
-          command: OPENSYSML_REQUIRE_SERVICE=1 OPENSYSML_REQUIRE_REFERENCE_FMUS=1 make python-coverage
+          command: OPENSYSML_REQUIRE_SERVICE=1 OPENSYSML_REQUIRE_REFERENCE_FMUS=1 OPENSYSML_REQUIRE_TYPECHECKERS=1 make python-coverage
 
       # The repository scripts the Go static checks run are Python too; running
       # them and their tests under coverage here credits what those checks execute.
@@ -1912,6 +1948,11 @@ jobs:
             
             GOOS=windows GOARCH=amd64 make build-grpc VERSION="$VERSION" COMMIT="$COMMIT" BUILD_TIME="$BUILD_TIME" GO_VERSION="$GO_VERSION"
             mv bin/sysml-grpc dist/grpc/sysml-grpc-windows-amd64.exe
+
+            # The Node client ships this combined WebAssembly module and matching Go runtime.
+            mkdir -p dist/wasm
+            make build-release-wasm VERSION="$VERSION" COMMIT="$COMMIT" BUILD_TIME="$BUILD_TIME" GO_VERSION="$GO_VERSION"
+            mv bin/wasm/release/sysml-wasm.wasm bin/wasm/release/wasm_exec.js dist/wasm/
             
             # Create tarballs
             cd dist
@@ -1984,7 +2025,7 @@ jobs:
                 *) fail "$binary" "it reports '${reported}'" ;;
               esac
             done
-            for binary in dist/sysml-* dist/grpc/sysml-grpc-*; do
+            for binary in dist/sysml-* dist/grpc/sysml-grpc-* dist/wasm/sysml-wasm.wasm; do
               case "$binary" in
                 *.tar.gz|*.zip|*.sha256) continue ;;
                 dist/sysml-linux-amd64|dist/sysml-lsp-linux-amd64) continue ;;
@@ -2034,6 +2075,8 @@ jobs:
             # the only checksum opensysml reads.
             (cd grpc && sha256sum sysml-grpc-* >> ../SHA256SUMS.txt)
             (cd grpc && for f in sysml-grpc-*; do sha256sum "$f" > "$f.sha256"; done)
+            (cd wasm && sha256sum sysml-wasm.wasm wasm_exec.js >> ../SHA256SUMS.txt)
+            (cd wasm && for f in sysml-wasm.wasm wasm_exec.js; do sha256sum "$f" > "$f.sha256"; done)
             cat SHA256SUMS.txt
 
       # The distribution was stamped from the binaries before the manifest
@@ -2134,7 +2177,7 @@ jobs:
                 command: |
                   export PATH="$(go env GOPATH)/bin:$PATH"
                   cd dist
-                  for artifact in opensysml-linux-amd64.tar.gz grpc/sysml-grpc-linux-amd64 opensysml-*-py3-none-any.whl; do
+                  for artifact in opensysml-linux-amd64.tar.gz grpc/sysml-grpc-linux-amd64 wasm/sysml-wasm.wasm opensysml-*-py3-none-any.whl; do
                     cosign verify-blob-attestation "$artifact" \
                       --bundle provenance.intoto.json.bundle \
                       --type slsaprovenance1 \
@@ -2191,6 +2234,7 @@ jobs:
           paths:
             - dist/SHA256SUMS.txt
             - dist/grpc/*.sha256
+            - dist/wasm/*.sha256
             - dist/opensysml-*-py3-none-any.whl
             - dist/opensysml-[0-9]*.tar.gz
       - unless:
@@ -2250,6 +2294,8 @@ jobs:
             echo "Publishing ${version} to the '${dist_tag}' dist-tag"
             # Proves the workspace carries the release binaries and sidecars.
             ls -l dist/grpc/sysml-grpc-*
+            ls -l dist/wasm/sysml-wasm.wasm dist/wasm/wasm_exec.js \
+              dist/wasm/sysml-wasm.wasm.sha256 dist/wasm/wasm_exec.js.sha256
 
       - run:
           name: Require the publishing token
@@ -2267,17 +2313,19 @@ jobs:
           name: Refuse a version already on the registry
           command: |
             # The package names come from package.json, not a literal list:
-            # the client itself plus the optionalDependencies that carry the
-            # platform binaries. Anything but six means the manifest drifted.
+            # the client, platform binaries and optional WASM peer. Anything
+            # but seven means the manifest drifted.
             names=$(node -e "
               const pkg = require('./client/node/package.json');
               const platforms = Object.keys(pkg.optionalDependencies || {})
                 .filter(n => n.startsWith(pkg.name + '-sysml-grpc-'));
-              console.log([pkg.name, ...platforms].join('\n'));
+              const wasm = Object.keys(pkg.peerDependencies || {})
+                .filter(n => n.startsWith(pkg.name + '-wasm'));
+              console.log([pkg.name, ...platforms, ...wasm].join('\n'));
             ")
             count=$(echo "$names" | wc -l)
-            if [ "$count" -ne 6 ]; then
-              echo "Error: expected 6 packages to publish (client + 5 platform),"
+            if [ "$count" -ne 7 ]; then
+              echo "Error: expected 7 packages to publish (client + 5 platform + WASM),"
               echo "package.json yields $count:"
               echo "$names"
               exit 1
@@ -2303,12 +2351,12 @@ jobs:
             npm test
 
       - run:
-          name: Build the per-platform packages
+          name: Build the platform and WASM packages
           command: |
             # These are build-release's bytes; the generator checks each one
             # against its .sha256 sidecar before packaging it.
             cd client/node
-            npm run platform-packages -- --binaries ../../dist/grpc
+            npm run platform-packages -- --binaries ../../dist/grpc --wasm ../../dist/wasm
 
       - run:
           name: Authenticate to npm
@@ -2323,8 +2371,9 @@ jobs:
             # No --provenance: the npm CLI only mints attestations on GitHub Actions and
             # GitLab CI/CD, and it fails rather than publish unattested when asked here.
             - run:
-                name: Publish the per-platform packages
+                name: Publish the WASM and per-platform packages
                 command: |
+                  npm publish client/node/packages/sysml-wasm --access public --tag "$NPM_DIST_TAG"
                   for directory in client/node/packages/sysml-grpc-*; do
                     npm publish "$directory" --access public --tag "$NPM_DIST_TAG"
                   done
@@ -2340,6 +2389,7 @@ jobs:
             - run:
                 name: "REHEARSAL: pack every package"
                 command: |
+                  npm pack client/node/packages/sysml-wasm --dry-run
                   for directory in client/node/packages/sysml-grpc-*; do
                     npm pack "$directory" --dry-run
                   done
@@ -2587,7 +2637,7 @@ jobs:
               echo "Error: cargo package did not create ${crate}."
               exit 1
             fi
-            python3 - "${crate}" "${CIRCLE_TAG}" <<'PY'
+            python3 - "${crate}" "${CIRCLE_TAG}" \<<'PY'
             import json
             import sys
             import tarfile
@@ -2673,6 +2723,7 @@ jobs:
                   # The opensysml wheel, the same bytes publish-pypi uploads.
                   mv dist/*.whl dist/release/
                   mv dist/grpc/* dist/release/
+                  mv dist/wasm/* dist/release/
                   mv dist/SHA256SUMS.txt dist/release/
                   # The signature over that manifest, which the Python client verifies
                   # before it trusts a digest from it.
@@ -2708,6 +2759,7 @@ jobs:
                 name: "REHEARSAL: check the release assets and the GitHub token"
                 command: |
                   ls dist/SHA256SUMS.txt > /dev/null
+                  ls dist/wasm/sysml-wasm.wasm dist/wasm/wasm_exec.js > /dev/null
                   set -- dist/opensysml-*-py3-none-any.whl
                   if [ ! -f "$1" ] || [ $# -ne 1 ]; then
                     echo "Error: expected exactly one dist/opensysml-*-py3-none-any.whl"

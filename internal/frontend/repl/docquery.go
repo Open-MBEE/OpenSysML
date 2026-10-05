@@ -11,6 +11,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/ir/queryplan"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
 // runQueryUsage is what %run-query accepts: a document query's name and its
@@ -185,12 +186,21 @@ func (s *Session) queryContext(ctx *runtime.Context) queryexec.Context {
 	for _, root := range carriers {
 		roots = append(roots, queryexec.Root{Label: root.name, Object: root.inst})
 	}
+	lineIndexes := make(map[string]*source.LineIndex)
+	for _, document := range s.sessionDocs() {
+		if document.Name != docName {
+			lineIndexes[document.Name] = document.Lines()
+		}
+	}
 	return queryexec.Context{
 		Index:    s.browseIndex(),
 		Resolver: ctx.Resolver(),
 		Model:    ctx.Semantics(),
 		Runtime:  ctx,
 		Roots:    roots,
+		LineIndex: func(doc string) *source.LineIndex {
+			return lineIndexes[doc]
+		},
 	}
 }
 

@@ -121,8 +121,8 @@
       "%eval MassRollup::saturnV.stage1.totalMass"
      ],
      "expect": [
-      "= 2941728.0 [kg]",
-      "= 2332000.0 [kg]"
+      "= 2941728 [kg]",
+      "= 2332000 [kg]"
      ]
     },
     {

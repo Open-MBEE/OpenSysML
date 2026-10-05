@@ -12,7 +12,7 @@ package test {
 			} else {
 				accept skippedThen : Integer;
 			}
-			if false {
+			then if false {
 				accept skippedElse : Integer;
 			} else {
 				accept elseValue : Integer;

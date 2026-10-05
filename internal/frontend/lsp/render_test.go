@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"reflect"
 	"regexp"
 	"slices"
 	"strings"
@@ -15,6 +16,7 @@ import (
 	"go.lsp.dev/protocol"
 	"go.lsp.dev/uri"
 
+	"github.com/Open-MBEE/OpenSysML/internal/frontend/engine"
 	"github.com/Open-MBEE/OpenSysML/internal/ir/view"
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/model"
 )
@@ -176,10 +178,15 @@ func call(t *testing.T, s *Server, method string, params any) (json.RawMessage, 
 
 // render is one opensysml/render request, decoded.
 func render(t *testing.T, s *Server, docURI uri.URI, viewName string) *renderResult {
+	return renderWithLinkTemplate(t, s, docURI, viewName, "")
+}
+
+func renderWithLinkTemplate(t *testing.T, s *Server, docURI uri.URI, viewName, template string) *renderResult {
 	t.Helper()
 	raw, err := call(t, s, MethodRender, &renderParams{
 		TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
 		View:         viewName,
+		LinkTemplate: template,
 	})
 	if err != nil {
 		t.Fatalf("render %q: %v", viewName, err)
@@ -189,6 +196,31 @@ func render(t *testing.T, s *Server, docURI uri.URI, viewName string) *renderRes
 		t.Fatalf("decode render result: %v", err)
 	}
 	return &out
+}
+
+func TestRenderWritesSourceLinks(t *testing.T) {
+	s, docURI := renderServer(t, "kit.sysml", renderModel)
+	template := "https://example.test/src/{file}#L{line}:{col}"
+	params, err := json.Marshal(renderParams{
+		TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
+		View:         "KitViews::widgetTree",
+		LinkTemplate: template,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var wire map[string]any
+	if err := json.Unmarshal(params, &wire); err != nil {
+		t.Fatal(err)
+	}
+	if wire["linkTemplate"] != template {
+		t.Errorf("wire linkTemplate = %v, want %q", wire["linkTemplate"], template)
+	}
+	out := renderWithLinkTemplate(t, s, docURI, "KitViews::widgetTree", template)
+	if !strings.Contains(out.Artifact, `click n0 href "https://example.test/src/`) ||
+		!strings.Contains(out.Artifact, "#L") {
+		t.Errorf("render artifact lacks source links:\n%s", out.Artifact)
+	}
 }
 
 // Every rendering kind this package produces is served over the protocol, with
@@ -531,8 +563,8 @@ func TestRenderHonorsTheFormAsked(t *testing.T) {
 		TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
 		View:         "KitViews::widgetTree",
 		Form:         "png",
-	}); err == nil || !strings.Contains(err.Error(), "no rendering form") || !strings.Contains(err.Error(), `"dot"`) || !strings.Contains(err.Error(), `"plantuml"`) {
-		t.Errorf("err = %v, want it to refuse the form and offer dot and plantuml", err)
+	}); err == nil || !strings.Contains(err.Error(), "no rendering form") || !strings.Contains(err.Error(), `"dot"`) || !strings.Contains(err.Error(), `"plantuml"`) || !strings.Contains(err.Error(), `"d2"`) {
+		t.Errorf("err = %v, want it to refuse the form and offer dot, plantuml and d2", err)
 	}
 }
 
@@ -552,7 +584,7 @@ func TestRenderAnswersEveryAdvertisedForm(t *testing.T) {
 	if !ok {
 		t.Fatalf("%s = %#v, want a list of forms", RenderFormsCapability, experimental[RenderFormsCapability])
 	}
-	if want := []string{"text", "mermaid", "markdown", "dot", "plantuml", "csv", "tsv"}; !slices.Equal(advertised, want) {
+	if want := []string{"text", "mermaid", "markdown", "dot", "plantuml", "d2", "csv", "tsv"}; !slices.Equal(advertised, want) {
 		t.Fatalf("%s = %v, want %v", RenderFormsCapability, advertised, want)
 	}
 	// A table is the one kind written in Markdown, CSV and TSV; the tree view has every other form.
@@ -1204,7 +1236,7 @@ func TestRenderTakesAPortDisplay(t *testing.T) {
 	if advertised, _ := experimental[RenderPortsCapability].([]string); !slices.Equal(advertised, []string{"minimal", "full"}) {
 		t.Fatalf("%s = %#v, want minimal then full", RenderPortsCapability, experimental[RenderPortsCapability])
 	}
-	render := func(t *testing.T, ports string) string {
+	render := func(t *testing.T, ports string) *renderResult {
 		t.Helper()
 		raw, err := call(t, s, MethodRender, &renderParams{
 			TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
@@ -1217,26 +1249,57 @@ func TestRenderTakesAPortDisplay(t *testing.T) {
 		if err := json.Unmarshal(raw, &out); err != nil {
 			t.Fatalf("decode render result: %v", err)
 		}
-		return out.Artifact
+		return &out
 	}
-	minimal := render(t, "")
+	minimalResult := render(t, "")
+	minimal := minimalResult.Artifact
 	for _, want := range []string{`port "out1" as `, `port "in1" as `} {
 		if !strings.Contains(minimal, want) {
 			t.Errorf("the default lacks %q:\n%s", want, minimal)
 		}
 	}
+	minimalPorts := map[string]renderPort{}
+	for _, node := range minimalResult.Nodes {
+		for _, port := range node.Ports {
+			minimalPorts[port.Name] = port
+		}
+	}
+	if len(minimalPorts) != 2 || minimalPorts["out1"].ID == "" || minimalPorts["in1"].ID == "" {
+		t.Errorf("default node ports = %+v, want only connected out1 and in1 pins", minimalPorts)
+	}
+	if len(minimalResult.Edges) != 1 || minimalResult.Edges[0].FromPort != minimalPorts["out1"].ID ||
+		minimalResult.Edges[0].ToPort != minimalPorts["in1"].ID {
+		t.Errorf("default edges = %+v, want endpoints at out1 and in1", minimalResult.Edges)
+	}
 	if strings.Contains(minimal, "spare") || strings.Contains(minimal, "Signal") {
 		t.Errorf("the default drew an unconnected port or a type:\n%s", minimal)
 	}
-	if render(t, "minimal") != minimal {
+	if got := render(t, "minimal").Artifact; got != minimal {
 		t.Errorf("ports=minimal differs from the default")
 	}
-	full := render(t, "full")
+	fullResult := render(t, "full")
+	full := fullResult.Artifact
 	for _, want := range []string{`port "out1 : Signal" as `, `port "in1 : <U+007E>Signal" as `, `port "spare : Signal" as `} {
 		if !strings.Contains(full, want) {
 			t.Errorf("ports=full lacks %q:\n%s", want, full)
 		}
 	}
+	fullPorts := map[string]renderPort{}
+	for _, node := range fullResult.Nodes {
+		for _, port := range node.Ports {
+			fullPorts[port.Name] = port
+		}
+	}
+	if len(fullPorts) != 3 || fullPorts["spare"].Type != "Signal" ||
+		fullPorts["in1"].Type != "~Signal" || fullPorts["out1"].Type != "Signal" {
+		t.Errorf("full node ports = %+v, want all three typed pins", fullPorts)
+	}
+	if len(fullResult.Edges) != 1 || fullResult.Edges[0].FromPort != fullPorts["out1"].ID ||
+		fullResult.Edges[0].ToPort != fullPorts["in1"].ID {
+		t.Errorf("full edges = %+v, want endpoints at out1 and in1", fullResult.Edges)
+	}
+	assertEngineRenderMatchesLSP(t, ported, minimalResult, "")
+	assertEngineRenderMatchesLSP(t, ported, fullResult, "full")
 	_, err = call(t, s, MethodRender, &renderParams{
 		TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
 		View:         "Demo::link", Form: string(view.FormDot), Ports: "all",
@@ -1244,5 +1307,156 @@ func TestRenderTakesAPortDisplay(t *testing.T) {
 	want := `unknown port display "all"; the displays are minimal, full`
 	if err == nil || !strings.Contains(err.Error(), want) {
 		t.Errorf("err = %v, want it to refuse the port display by name", err)
+	}
+}
+
+func assertEngineRenderMatchesLSP(t *testing.T, src string, lspResult *renderResult, ports string) {
+	t.Helper()
+	eng, err := engine.New()
+	if err != nil {
+		t.Fatalf("engine.New: %v", err)
+	}
+	body, err := json.Marshal(map[string]any{"documents": []map[string]string{
+		{"content": src, "name": "ported.sysml"},
+	}})
+	if err != nil {
+		t.Fatalf("marshal ParseSources request: %v", err)
+	}
+	parsedBody, err := eng.Call(context.Background(), "ParseSources", body)
+	if err != nil {
+		t.Fatalf("ParseSources: %v", err)
+	}
+	var parsed engine.JParseSourcesResponse
+	if err := json.Unmarshal(parsedBody, &parsed); err != nil {
+		t.Fatalf("decode ParseSources: %v", err)
+	}
+	renderBody, err := json.Marshal(map[string]string{
+		"modelHash": parsed.ModelHash, "view": "Demo::link", "ports": ports,
+	})
+	if err != nil {
+		t.Fatalf("marshal RenderView request: %v", err)
+	}
+	raw, err := eng.Call(context.Background(), "RenderView", renderBody)
+	if err != nil {
+		t.Fatalf("RenderView ports=%q: %v", ports, err)
+	}
+	var rendered engine.JRenderViewResponse
+	if err := json.Unmarshal(raw, &rendered); err != nil {
+		t.Fatalf("decode RenderView: %v", err)
+	}
+	nodes := make([]engine.JRenderNode, 0, len(lspResult.Nodes))
+	for _, node := range lspResult.Nodes {
+		converted := engine.JRenderNode{
+			ID: node.ID, Kind: node.Kind, Name: node.Name, NameSynthesized: node.NameSynthesized,
+			Type: node.Type, Detail: node.Detail, Parent: node.Parent, Fill: node.Fill, Border: node.Border,
+			X: node.X, Y: node.Y, Width: node.Width, Height: node.Height, Collapsed: node.Collapsed,
+		}
+		if node.Style != nil {
+			converted.Style = &engine.JRenderStyle{
+				Fill: node.Style.Fill, Line: node.Style.Line, Text: node.Style.Text, Font: node.Style.Font,
+				FontSize: node.Style.FontSize, Bold: node.Style.Bold, Italic: node.Style.Italic,
+			}
+		}
+		for _, port := range node.Ports {
+			converted.Ports = append(converted.Ports, engine.JRenderPort{
+				ID: port.ID, Name: port.Name, Type: port.Type, Direction: port.Direction,
+			})
+		}
+		nodes = append(nodes, converted)
+	}
+	if !reflect.DeepEqual(rendered.Nodes, nodes) {
+		t.Errorf("engine nodes for ports=%q differ from LSP:\nengine: %+v\nLSP: %+v", ports, rendered.Nodes, nodes)
+	}
+	edges := make([]engine.JRenderEdge, 0, len(lspResult.Edges))
+	for _, edge := range lspResult.Edges {
+		converted := engine.JRenderEdge{
+			From: edge.From, To: edge.To, FromPort: edge.FromPort, ToPort: edge.ToPort,
+			Label: edge.Label, Kind: edge.Kind,
+		}
+		if edge.Style != nil {
+			converted.Style = &engine.JRenderStyle{
+				Fill: edge.Style.Fill, Line: edge.Style.Line, Text: edge.Style.Text, Font: edge.Style.Font,
+				FontSize: edge.Style.FontSize, Bold: edge.Style.Bold, Italic: edge.Style.Italic,
+			}
+		}
+		for _, point := range edge.Route {
+			converted.Route = append(converted.Route, engine.JRenderPoint{X: point.X, Y: point.Y})
+		}
+		edges = append(edges, converted)
+	}
+	if !reflect.DeepEqual(rendered.Edges, edges) {
+		t.Errorf("engine edges for ports=%q differ from LSP:\nengine: %+v\nLSP: %+v", ports, rendered.Edges, edges)
+	}
+}
+
+func TestRenderKeepsActionPinsForEveryPortDisplay(t *testing.T) {
+	const src = `package Pins {
+	item def Bread;
+	item def Toast;
+
+	action def Heat {
+		in b : Bread;
+		out t : Toast;
+	}
+
+	action def ToastBread {
+		in bread : Bread;
+		out toast : Toast;
+		action heat : Heat { in b = bread; }
+		first start; then heat; then done;
+	}
+}
+`
+	s, docURI := renderServer(t, "action-pins.sysml", src)
+	renderWithPorts := func(ports string) *renderResult {
+		t.Helper()
+		raw, err := call(t, s, MethodRender, &renderParams{
+			TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
+			View:         "#action:Pins::ToastBread",
+			Ports:        ports,
+		})
+		if err != nil {
+			t.Fatalf("render action ports=%q: %v", ports, err)
+		}
+		var out renderResult
+		if err := json.Unmarshal(raw, &out); err != nil {
+			t.Fatalf("decode action rendering: %v", err)
+		}
+		return &out
+	}
+	minimal, full := renderWithPorts(""), renderWithPorts("full")
+	var minimalRoot, fullRoot *renderNode
+	for i := range minimal.Nodes {
+		if minimal.Nodes[i].Name == "Pins::ToastBread" {
+			minimalRoot = &minimal.Nodes[i]
+		}
+	}
+	for i := range full.Nodes {
+		if full.Nodes[i].Name == "Pins::ToastBread" {
+			fullRoot = &full.Nodes[i]
+		}
+	}
+	if minimalRoot == nil || fullRoot == nil {
+		t.Fatalf("action frame nodes: minimal=%+v full=%+v", minimal.Nodes, full.Nodes)
+	}
+	if !reflect.DeepEqual(minimalRoot.Ports, fullRoot.Ports) {
+		t.Errorf("action frame ports differ by display: default=%+v full=%+v", minimalRoot.Ports, fullRoot.Ports)
+	}
+	directions := map[string]string{}
+	for _, port := range minimalRoot.Ports {
+		directions[port.Name] = port.Direction
+	}
+	if !reflect.DeepEqual(directions, map[string]string{"bread": "in", "toast": "out"}) {
+		t.Errorf("action frame ports = %+v, want input and output pins", minimalRoot.Ports)
+	}
+	countPorts := func(nodes []renderNode) (count int) {
+		for _, node := range nodes {
+			count += len(node.Ports)
+		}
+		return count
+	}
+	if countPorts(minimal.Nodes) != countPorts(full.Nodes) {
+		t.Errorf("action ports count differs by display: default=%d full=%d",
+			countPorts(minimal.Nodes), countPorts(full.Nodes))
 	}
 }

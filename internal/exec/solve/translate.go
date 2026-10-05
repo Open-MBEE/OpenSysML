@@ -400,8 +400,8 @@ func (t *translator) pinnedAssertions(offset int) []Assertion {
 // A group stands for the conjunction of its conditions, so negating a group
 // negates that conjunction.
 func (t *translator) condition(cond runtime.Condition) (*Term, error) {
-	if cond.Statement != nil {
-		return nil, t.refuse(cond.Statement, "body statement", "OpenSysML does not execute a statement in a constraint body")
+	if cond.Steps != nil {
+		return nil, t.refuse(cond.Steps.Node, "constraint body steps", "not covered: the solver does not encode the steps a constraint body performs before its result expression")
 	}
 	if cond.Conflict != nil {
 		return nil, t.refuse(cond.Conflict.Node, "conflicting result expression", "only one owned or inherited result expression is allowed")
@@ -1093,8 +1093,8 @@ func conditionOrigin(cond runtime.Condition) (*symbols.Symbol, source.Span) {
 	if cond.Expr != nil {
 		span = cond.Expr.Span()
 	}
-	if cond.Statement != nil {
-		span = cond.Statement.Span()
+	if cond.Steps != nil {
+		span = cond.Steps.Node.Span()
 	}
 	if cond.Conflict != nil {
 		span = cond.Conflict.Node.Span()

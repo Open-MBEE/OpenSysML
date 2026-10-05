@@ -10,7 +10,7 @@ package test {
 		first start;
 		then action c1 {
 			assign x := 1;
-			terminate c1;
+			then terminate c1;
 		}
 		then action c2 { assign y := 2; }
 		then done;

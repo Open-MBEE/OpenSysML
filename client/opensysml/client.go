@@ -76,6 +76,7 @@ type Client interface {
 
 	// ExecuteState runs the named state machine, feeding it the events in
 	// order, and reports the states visited and the context left behind.
+	// A FailureError from a traced run carries its partial trace and dropped count.
 	// WithSchedule selects the scheduling policy, which requires the schedule
 	// capability, checked before anything is sent.
 	ExecuteState(ctx context.Context, model *Model, stateMachineSymbolID string, events []string, opts ...ExecuteOption) (*StateRun, error)

@@ -1,11 +1,12 @@
 // Copyright 2025 Open‐MBEE Foundation. All rights reserved.
 // Use of this source code is governed by the LICENSE file.
 
-// Package engine is an in-process execution engine over SysML text: it serves
-// the execution RPCs of SysMLService — ParseSources, Evaluate, Instantiate,
-// ExecuteAction and ExecuteState — with the answers of a default-capabilities
-// sysml-grpc, but shaped and marshalled as the proto3 JSON (protojson) of the
-// api/proto messages rather than as protobuf. WebAssembly clients decode the
+// Package engine is an in-process engine over SysML text: it serves the
+// execution RPCs of SysMLService — ParseSources, Evaluate, Instantiate,
+// ExecuteAction and ExecuteState — plus the engine-only RenderView call, with
+// the same answers as default-capabilities sysml-grpc for those RPCs, but shaped
+// and marshalled as the proto3 JSON (protojson) of the api/proto messages rather
+// than as protobuf. WebAssembly clients decode the
 // results with the generated types they already hold, and no protobuf runtime
 // is linked in, which is what keeps the js/wasm build small.
 package engine
@@ -325,6 +326,86 @@ type JParseSourcesResponse struct {
 	Diagnostics []*JDiagnostic `json:"diagnostics,omitempty"`
 }
 
+type JRenderViewRequest struct {
+	ModelHash string `json:"modelHash,omitempty"`
+	View      string `json:"view,omitempty"`
+	Ports     string `json:"ports,omitempty"`
+}
+
+type JRenderViewResponse struct {
+	View    string         `json:"view"`
+	Kind    string         `json:"kind"`
+	Stated  string         `json:"stated"`
+	Notices []string       `json:"notices"`
+	Canvas  *JRenderCanvas `json:"canvas,omitempty"`
+	Nodes   []JRenderNode  `json:"nodes"`
+	Edges   []JRenderEdge  `json:"edges"`
+	Columns []string       `json:"columns,omitempty"`
+	Rows    []JRenderRow   `json:"rows,omitempty"`
+}
+
+type JRenderCanvas struct {
+	Unit   string   `json:"unit,omitempty"`
+	Width  *float64 `json:"width,omitempty"`
+	Height *float64 `json:"height,omitempty"`
+}
+
+type JRenderNode struct {
+	ID              string        `json:"id"`
+	Kind            string        `json:"kind"`
+	Name            string        `json:"name"`
+	NameSynthesized bool          `json:"nameSynthesized,omitempty"`
+	Type            string        `json:"type"`
+	Detail          string        `json:"detail"`
+	Parent          string        `json:"parent,omitempty"`
+	Fill            string        `json:"fill,omitempty"`
+	Border          string        `json:"border,omitempty"`
+	Style           *JRenderStyle `json:"style,omitempty"`
+	X               *float64      `json:"x,omitempty"`
+	Y               *float64      `json:"y,omitempty"`
+	Width           *float64      `json:"width,omitempty"`
+	Height          *float64      `json:"height,omitempty"`
+	Collapsed       bool          `json:"collapsed,omitempty"`
+	Ports           []JRenderPort `json:"ports,omitempty"`
+}
+
+type JRenderPort struct {
+	ID        string `json:"id"`
+	Name      string `json:"name"`
+	Type      string `json:"type,omitempty"`
+	Direction string `json:"direction,omitempty"`
+}
+
+type JRenderStyle struct {
+	Fill     string  `json:"fill,omitempty"`
+	Line     string  `json:"line,omitempty"`
+	Text     string  `json:"text,omitempty"`
+	Font     string  `json:"font,omitempty"`
+	FontSize float64 `json:"fontSize,omitempty"`
+	Bold     bool    `json:"bold,omitempty"`
+	Italic   bool    `json:"italic,omitempty"`
+}
+
+type JRenderEdge struct {
+	From     string         `json:"from"`
+	To       string         `json:"to"`
+	FromPort string         `json:"fromPort,omitempty"`
+	ToPort   string         `json:"toPort,omitempty"`
+	Label    string         `json:"label"`
+	Kind     string         `json:"kind"`
+	Style    *JRenderStyle  `json:"style,omitempty"`
+	Route    []JRenderPoint `json:"route,omitempty"`
+}
+
+type JRenderPoint struct {
+	X float64 `json:"x"`
+	Y float64 `json:"y"`
+}
+
+type JRenderRow struct {
+	Cells []string `json:"cells"`
+}
+
 type JEvaluateRequest struct {
 	ModelHash       string `json:"modelHash,omitempty"`
 	Expression      string `json:"expression,omitempty"`
@@ -372,6 +453,7 @@ type JExecuteStateRequest struct {
 	Events               []string `json:"events,omitempty"`
 	Schedule             string   `json:"schedule,omitempty"`
 	PerformerSymbolId    string   `json:"performerSymbolId,omitempty"`
+	Trace                bool     `json:"trace,omitempty"`
 }
 
 type JExecuteStateResponse struct {
@@ -380,4 +462,23 @@ type JExecuteStateResponse struct {
 	Error         string             `json:"error,omitempty"`
 	Diagnostics   []*JDiagnostic     `json:"diagnostics,omitempty"`
 	FinalTime     F64                `json:"finalTime,omitempty"`
+	Trace         []JTraceEvent      `json:"trace,omitempty"`
+	TraceDropped  int                `json:"traceDropped,omitempty"`
+}
+
+// JTraceEvent is one documented state-machine execution record.
+type JTraceEvent struct {
+	Kind         string   `json:"kind"`
+	At           F64      `json:"at"`
+	Object       string   `json:"object,omitempty"`
+	Machine      string   `json:"machine,omitempty"`
+	State        string   `json:"state,omitempty"`
+	From         string   `json:"from,omitempty"`
+	To           string   `json:"to,omitempty"`
+	Target       string   `json:"target,omitempty"`
+	Event        string   `json:"event,omitempty"`
+	Payload      []string `json:"payload,omitempty"`
+	Alternatives []string `json:"alternatives,omitempty"`
+	Taken        string   `json:"taken,omitempty"`
+	Text         string   `json:"text"`
 }

@@ -474,22 +474,7 @@ def _value_of(value):
             enclosing=tuple(state.enclosing),
         )
     if kind == "event":
-        event = value.event
-        return DocumentEvent(
-            kind=event.kind,
-            time=_value_of(event.time),
-            text=event.text,
-            object=_object_of(event.object) if event.HasField("object") else None,
-            machine=event.machine,
-            state=event.state,
-            from_state=getattr(event, "from"),
-            to_state=event.to,
-            target=_object_of(event.target) if event.HasField("target") else None,
-            event=event.event,
-            payload=tuple(event.payload),
-            alternatives=tuple(event.alternatives),
-            taken=event.taken,
-        )
+        return document_event_of(value.event)
     raise UnsupportedValueError(
         f"the service answered a document value this client cannot read: {value}"
     )
@@ -498,3 +483,22 @@ def _value_of(value):
 def _object_of(obj):
     """An answered ``DocumentObject`` as the :class:`ObjectRef` it names."""
     return ObjectRef(id=obj.instance_id, path=obj.path, element=_element_of(obj.element))
+
+
+def document_event_of(event):
+    """An answered protobuf event as the client's typed document event."""
+    return DocumentEvent(
+        kind=event.kind,
+        time=_value_of(event.time),
+        text=event.text,
+        object=_object_of(event.object) if event.HasField("object") else None,
+        machine=event.machine,
+        state=event.state,
+        from_state=getattr(event, "from"),
+        to_state=event.to,
+        target=_object_of(event.target) if event.HasField("target") else None,
+        event=event.event,
+        payload=tuple(event.payload),
+        alternatives=tuple(event.alternatives),
+        taken=event.taken,
+    )

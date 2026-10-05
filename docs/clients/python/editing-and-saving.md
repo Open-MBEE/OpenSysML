@@ -13,7 +13,7 @@ model.save("model.ttl")
 model.save("out.sysml")
 
 opensysml.convert("ttl", file_path="model.sysml")
-opensysml.convert("sysml", content=turtle, from_format="ttl")
+opensysml.convert("sysml", content=turtle.content, from_format="ttl")
 ```
 
 A `Conversion` carries output text, source and target formats, and whether

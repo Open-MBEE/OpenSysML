@@ -13,7 +13,7 @@ package test {
 		then stop;
 		action stop terminate {
 			assign code := x + 41;
-			if code == 42 { assign x := x + 1; }
+			then if code == 42 { assign x := x + 1; }
 		}
 		then action a2 { assign y := 2; }
 		then done;

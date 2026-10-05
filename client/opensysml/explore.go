@@ -150,6 +150,9 @@ func (c *client) ExploreAction(
 	for _, opt := range opts {
 		opt(&options)
 	}
+	if err := refuseTrace(options.trace, "WithTrace is only valid for ExecuteState"); err != nil {
+		return nil, err
+	}
 	policy, err := explorePolicy("ExploreAction", options.schedule)
 	if err != nil {
 		return nil, err
@@ -201,6 +204,9 @@ func (c *client) ExploreState(
 	var options executeOptions
 	for _, opt := range opts {
 		opt(&options)
+	}
+	if err := refuseTrace(options.trace, "a trace describes one run, not an exploration"); err != nil {
+		return nil, err
 	}
 	policy, err := explorePolicy("ExploreState", options.schedule)
 	if err != nil {

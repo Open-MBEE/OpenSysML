@@ -2,9 +2,9 @@
 	"type": "action",
 	"evaluate": "test::stopper",
 	"libraries": true,
-	"outputs": {
-		"x": {"type": "Integer", "value": 1},
-		"result": {"type": "Integer", "value": 42},
-		"other": {"type": "Integer", "value": 0}
-	}
+	"outcomes": [
+		{"outputs": {"x": {"type": "Integer", "value": 1}, "result": {"type": "Integer", "value": 42}, "other": {"type": "Integer", "value": 0}}},
+		{"error": "assignment to result: multiplicity violation: 0 value(s) bound to a feature with multiplicity lower bound 1"}
+	],
+	"admissible": "A terminate action usage's body and its implicit terminate: each is performed, in which order is open"
 }

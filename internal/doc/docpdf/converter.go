@@ -41,6 +41,9 @@ const (
 	// PlantUMLJarEnv names the PlantUML jar that draws PlantUML blocks; absent,
 	// they are kept as source.
 	PlantUMLJarEnv = "OPENSYSML_PLANTUML_JAR"
+	// D2Env names the d2 executable that draws D2 blocks; absent, they are
+	// kept as source.
+	D2Env = "OPENSYSML_D2"
 )
 
 // toolTimeout bounds each converter subprocess, so a wedged tool is a typed
@@ -147,6 +150,7 @@ var (
 	katexTool      = tool{name: "katex", envVar: KatexEnv}
 	graphvizTool   = tool{name: "dot", envVar: DotEnv}
 	javaTool       = tool{name: "java", envVar: JavaEnv}
+	d2Tool         = tool{name: "d2", envVar: D2Env}
 )
 
 // locate finds the tool via its environment override or a PATH lookup;

@@ -11,6 +11,7 @@ from griffe import Alias, Class, Extension, Module
 
 
 _ROLE = re.compile(r":(?:py:)?(?P<role>class|meth|func|attr|exc|mod|data|obj):`(?P<short>~?)(?P<name>[^`]+)`")
+_LABEL_TARGET = re.compile(r"^(?P<label>.*?)\s*<(?P<target>[^<>]+)>$")
 _FENCE_START = re.compile(r"^[ \t]*(`{3,})([^`]*)$")
 _FENCE_END = re.compile(r"^[ \t]*(`{3,})[ \t]*$")
 
@@ -18,7 +19,12 @@ _FENCE_END = re.compile(r"^[ \t]*(`{3,})[ \t]*$")
 def _rewrite_plain_text(text: str, resolve: Callable[[str, str], str | None]) -> str:
     def replace(match: re.Match[str]) -> str:
         name = match.group("name")
-        display = name.rsplit(".", 1)[-1] if match.group("short") else name
+        label_target = _LABEL_TARGET.fullmatch(name)
+        if label_target is None:
+            display = name.rsplit(".", 1)[-1] if match.group("short") else name
+        else:
+            display = label_target.group("label")
+            name = label_target.group("target")
         target = resolve(name, match.group("role"))
         if target:
             return f"[`{display}`][{target}]"

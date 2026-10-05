@@ -599,7 +599,24 @@ class PublicTypesTest {
                 "unresolved",
                 Optional.of(new Diagnostic.Span("model.sysml", 2, 3, 2, 8))),
             new Diagnostic(Diagnostic.Severity.WARNING, "unlocated", "", Optional.empty()));
-    ModelException original = new ModelException("rejected", diagnostics);
+    DocumentValue.DocumentEvent event =
+        new DocumentValue.DocumentEvent(
+            "entry",
+            new DocumentValue.RealValue(1.5),
+            "enter: active",
+            Optional.empty(),
+            "Machine",
+            "active",
+            "",
+            "",
+            Optional.empty(),
+            "",
+            List.of(),
+            List.of(),
+            "");
+    ModelException original =
+        new ModelException(
+            "rejected", FailureReason.UNSPECIFIED, diagnostics, List.of(event), 2);
 
     ByteArrayOutputStream bytes = new ByteArrayOutputStream();
     try (ObjectOutputStream output = new ObjectOutputStream(bytes)) {
@@ -609,6 +626,8 @@ class PublicTypesTest {
         new ObjectInputStream(new ByteArrayInputStream(bytes.toByteArray()))) {
       ModelException restored = (ModelException) input.readObject();
       assertEquals(original.getMessage(), restored.getMessage());
+      assertEquals(List.of(event), restored.trace());
+      assertEquals(2, restored.traceDropped());
       List<Diagnostic> restoredDiagnostics = restored.diagnostics();
       Diagnostic first = diagnostics.get(0);
       assertEquals(diagnostics, restoredDiagnostics);

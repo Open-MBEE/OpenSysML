@@ -13,8 +13,8 @@ package test {
 		then stop;
 		action stop terminate {
 			assign x := x + 1;
-			terminate;
-			assign y := 5;
+			then terminate;
+			then assign y := 5;
 		}
 		then action a2 { assign y := 2; }
 		then done;

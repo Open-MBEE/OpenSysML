@@ -1179,7 +1179,15 @@ public final class Protos {
         response.getStatesVisitedList(),
         values(response.getFinalContextMap()),
         finalTimeReported ? OptionalDouble.of(response.getFinalTime()) : OptionalDouble.empty(),
+        documentEvents(response.getTraceList()),
+        response.getTraceDropped(),
         diagnostics(response.getDiagnosticsList()));
+  }
+
+  /** Decodes the typed records in a state-run trace. */
+  public static List<DocumentValue.DocumentEvent> documentEvents(
+      List<org.openmbee.opensysml.proto.DocumentEvent> events) {
+    return events.stream().map(Protos::documentEvent).toList();
   }
 
   /**

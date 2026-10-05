@@ -221,6 +221,8 @@ The [client index](../clients.md) links to the Go overview and walkthrough. The
 
 The [Python client guide](../clients/python/index.md) is split by task, from models and diagnostics through
 verification, editing, queries and service setup. See also the [Python API reference](../reference/python-api.md).
+[Metamodel classes and JSON](../clients/python/metamodel.md) reads a JSON export into generated
+SysML metamodel classes without a service.
 
 ## From Node or a browser
 

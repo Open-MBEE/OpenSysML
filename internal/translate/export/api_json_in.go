@@ -21,47 +21,72 @@ import (
 // same elements back; the unnamed root Namespace a document wraps its
 // top-level elements in is dropped, as the Turtle form does not carry it.
 func ReadAPIJSON(data []byte) (*rdf.Graph, error) {
-	elements, expressionIDs, err := parseAPIJSON(data)
+	expressionIDs, elementCount, err := apiJSONExpressionIDs(data)
 	if err != nil {
 		return nil, err
 	}
-	graph := rdf.NewGraph()
+	builder := rdf.NewGraphBuilder(elementCount * apiJSONEstimatedTriplesPerElement)
+	cache := newAPIJSONTermCache()
 	// The collection annotations are stated after every element's triples, the
 	// positions AnnotateCollections writes them in.
 	var annotations []apiJSONAnnotation
-	for _, element := range elements {
+	err = apiJSONElementsOf(data, apiJSONObjectOf, func(element apiJSONElementData) error {
 		var subject rdf.Term
-		if element.expression {
+		if expressionIDs[element.id] {
 			subject = rdf.IRI(rdf.Expression + element.id)
 		} else {
 			subject = rdf.ReferenceIRI(rdf.Term{}, element.id)
 		}
-		typ, err := apiJSONTypeIRI(element.typ)
+		typ, err := cache.typeIRI(element.typ)
 		if err != nil {
-			return nil, fmt.Errorf("element %q: %w", element.id, err)
+			return fmt.Errorf("element %q: %w", element.id, err)
 		}
-		graph.Add(subject, rdf.IRI(rdf.RDFType), typ)
+		builder.Add(subject, rdf.IRI(rdf.RDFType), typ)
 		for _, member := range element.members {
-			predicate, sysmlKey, err := apiJSONPredicate(member.key)
+			predicate, sysmlKey, err := cache.predicate(member.key)
 			if err != nil {
-				return nil, fmt.Errorf("element %q: %w", element.id, err)
+				return fmt.Errorf("element %q: %w", element.id, err)
 			}
-			if err := apiJSONTriples(graph, subject, predicate, sysmlKey, member.value, expressionIDs, &annotations); err != nil {
-				return nil, fmt.Errorf("element %q: %w", element.id, err)
+			if err := apiJSONTriples(builder, subject, predicate, sysmlKey, member.value, expressionIDs, cache, &annotations); err != nil {
+				return fmt.Errorf("element %q: %w", element.id, err)
 			}
 		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
 	}
 	for _, annotation := range annotations {
 		text, err := rdf.CollectionJSON(annotation.subject, annotation.members)
 		if err != nil {
 			return nil, err
 		}
-		graph.Add(annotation.subject, rdf.AnnotationJSONTerm(annotation.key), rdf.String(text))
+		builder.Add(annotation.subject, rdf.AnnotationJSONTerm(annotation.key), rdf.String(text))
 	}
 	if len(expressionIDs) > 0 {
-		graph.Prefixes[rdf.ExpressionPrefix] = rdf.Expression
+		builder.SetPrefix(rdf.ExpressionPrefix, rdf.Expression)
 	}
+	graph := builder.Build()
 	return withoutRootNamespace(graph), nil
+}
+
+// APIJSONReadError reports a failure to parse an API element document.
+type APIJSONReadError struct {
+	err error
+}
+
+func (e *APIJSONReadError) Error() string {
+	if e == nil || e.err == nil {
+		return "cannot read the API element document"
+	}
+	return e.err.Error()
+}
+
+func (e *APIJSONReadError) Unwrap() error {
+	if e == nil {
+		return nil
+	}
+	return e.err
 }
 
 // apiJSONElementData is one parsed element object: its identity, its class as
@@ -72,64 +97,73 @@ type apiJSONElementData struct {
 	expression    bool
 	qualifiedName bool
 	members       []apiJSONMember
+	indexMember   string
+	indexOwner    string
 }
 
 var apiJSONInteger = regexp.MustCompile(`^-?[0-9]+$`)
 
-// parseAPIJSON decodes the document into element objects, preserving member
-// order, and returns the ids classified into the expression namespace, since
-// references resolve against the whole document.
-func parseAPIJSON(data []byte) ([]apiJSONElementData, map[string]bool, error) {
-	objects, err := apiJSONObjectsOf(data)
-	if err != nil {
-		return nil, nil, err
+const apiJSONEstimatedTriplesPerElement = 10
+
+// apiJSONExpressionIDs indexes the element identities in a first pass, so the
+// second pass can stream their properties directly into the graph.
+func apiJSONExpressionIDs(data []byte) (map[string]bool, int, error) {
+	var objects []apiJSONElementData
+	if err := apiJSONElementsOf(data, apiJSONIndexObjectOf, func(object apiJSONElementData) error {
+		objects = append(objects, object)
+		return nil
+	}); err != nil {
+		return nil, 0, err
 	}
 	index, err := newAPIJSONIndex(objects)
 	if err != nil {
-		return nil, nil, err
+		return nil, 0, err
 	}
 	index.classifyExpressions(objects)
-	return objects, index.expressionIDs, nil
+	return index.expressionIDs, len(objects), nil
 }
 
-// apiJSONObjectsOf decodes the document's element objects: an array of them
-// or a single object, and nothing after it.
-func apiJSONObjectsOf(data []byte) ([]apiJSONElementData, error) {
+// apiJSONElementsOf visits each element object in either supported document
+// shape, rejecting trailing JSON values.
+func apiJSONElementsOf(data []byte, read func(*json.Decoder) (apiJSONElementData, error), visit func(apiJSONElementData) error) error {
 	dec := json.NewDecoder(bytes.NewReader(data))
 	dec.UseNumber()
 	start, err := dec.Token()
 	if err != nil {
-		return nil, fmt.Errorf("cannot read the API element document: %w", err)
+		return fmt.Errorf("cannot read the API element document: %w", err)
 	}
-	var objects []apiJSONElementData
 	switch start {
 	case json.Delim('['):
 		for dec.More() {
 			if token, err := dec.Token(); err != nil || token != json.Delim('{') {
-				return nil, fmt.Errorf("an API element array holds element objects, not %v", token)
+				return fmt.Errorf("an API element array holds element objects, not %v", token)
 			}
-			object, err := apiJSONObjectOf(dec)
+			object, err := read(dec)
 			if err != nil {
-				return nil, err
+				return err
 			}
-			objects = append(objects, object)
+			if err := visit(object); err != nil {
+				return err
+			}
 		}
 		if _, err := dec.Token(); err != nil {
-			return nil, fmt.Errorf("cannot read the API element array: %w", err)
+			return fmt.Errorf("cannot read the API element array: %w", err)
 		}
 	case json.Delim('{'):
-		object, err := apiJSONObjectOf(dec)
+		object, err := read(dec)
 		if err != nil {
-			return nil, err
+			return err
 		}
-		objects = append(objects, object)
+		if err := visit(object); err != nil {
+			return err
+		}
 	default:
-		return nil, fmt.Errorf("an API element document is an array of element objects or a single object, not %v", start)
+		return fmt.Errorf("an API element document is an array of element objects or a single object, not %v", start)
 	}
 	if _, err := dec.Token(); err != io.EOF {
-		return nil, fmt.Errorf("the API element document holds more than one JSON value")
+		return fmt.Errorf("the API element document holds more than one JSON value")
 	}
-	return objects, nil
+	return nil
 }
 
 // apiJSONIndex is what classifying the expression namespace reads across the
@@ -173,17 +207,7 @@ func newAPIJSONIndex(objects []apiJSONElementData) (*apiJSONIndex, error) {
 	// Opaque ids such as UUIDs carry no parent, so the membership that states
 	// the node as its member stands in.
 	for _, object := range objects {
-		member, owner := "", ""
-		for _, m := range object.members {
-			id, isRef := memberReference(m.value)
-			switch {
-			case !isRef:
-			case membershipMemberProperty(m.key):
-				member = id
-			case membershipOwnerProperty(m.key):
-				owner = id
-			}
-		}
+		member, owner := object.indexMember, object.indexOwner
 		if owner != "" && isRelationship(object.typ) {
 			index.relationshipOwner[object.id] = owner
 		}
@@ -304,6 +328,110 @@ func memberReference(value any) (string, bool) {
 
 // apiJSONObjectOf reads one '{...}' from the decoder — its '{' already consumed
 // — returning "@type"/"@id" extracted and the other members in written order.
+func apiJSONIndexObjectOf(dec *json.Decoder) (apiJSONElementData, error) {
+	object := apiJSONElementData{}
+	seen := map[string]bool{}
+	for dec.More() {
+		token, err := dec.Token()
+		if err != nil {
+			return object, err
+		}
+		key, ok := token.(string)
+		if !ok {
+			return object, fmt.Errorf("an element object's member key is a string, not %v", token)
+		}
+		if seen[key] {
+			return object, fmt.Errorf("element object states %q twice", key)
+		}
+		seen[key] = true
+		switch {
+		case key == "@type", key == "@id":
+			value, err := apiJSONValueOf(dec)
+			if err != nil {
+				return object, fmt.Errorf("%s: %w", key, err)
+			}
+			text, ok := value.(string)
+			if !ok {
+				return object, fmt.Errorf("%q is a string, not %v", key, value)
+			}
+			if key == "@type" {
+				object.typ = text
+			} else {
+				object.id = text
+			}
+		case strings.HasPrefix(key, "@"):
+			return object, fmt.Errorf("the key %q is not a keyword this document carries", key)
+		case key == "qualifiedName":
+			value, err := apiJSONValueOf(dec)
+			if err != nil {
+				return object, fmt.Errorf("%s: %w", key, err)
+			}
+			text, ok := value.(string)
+			object.qualifiedName = ok && text != ""
+		case membershipMemberProperty(key), membershipOwnerProperty(key):
+			value, err := apiJSONValueOf(dec)
+			if err != nil {
+				return object, fmt.Errorf("%s: %w", key, err)
+			}
+			if id, ok := memberReference(value); ok {
+				if membershipMemberProperty(key) {
+					object.indexMember = id
+				} else {
+					object.indexOwner = id
+				}
+			}
+		default:
+			if err := skipAPIJSONValue(dec); err != nil {
+				return object, fmt.Errorf("%s: %w", key, err)
+			}
+		}
+	}
+	if _, err := dec.Token(); err != nil {
+		return object, err
+	}
+	return object, nil
+}
+
+func skipAPIJSONValue(dec *json.Decoder) error {
+	token, err := dec.Token()
+	if err != nil {
+		return err
+	}
+	switch token {
+	case json.Delim('{'):
+		seen := map[string]bool{}
+		for dec.More() {
+			keyToken, err := dec.Token()
+			if err != nil {
+				return err
+			}
+			key, ok := keyToken.(string)
+			if !ok {
+				return fmt.Errorf("an object member key is a string, not %v", keyToken)
+			}
+			if seen[key] {
+				return fmt.Errorf("object states %q twice", key)
+			}
+			seen[key] = true
+			if err := skipAPIJSONValue(dec); err != nil {
+				return err
+			}
+		}
+		_, err := dec.Token()
+		return err
+	case json.Delim('['):
+		for dec.More() {
+			if err := skipAPIJSONValue(dec); err != nil {
+				return err
+			}
+		}
+		_, err := dec.Token()
+		return err
+	default:
+		return nil
+	}
+}
+
 func apiJSONObjectOf(dec *json.Decoder) (apiJSONElementData, error) {
 	var object apiJSONElementData
 	seen := map[string]bool{}
@@ -432,6 +560,89 @@ func apiJSONPredicate(key string) (rdf.Term, string, error) {
 	return rdf.SysMLTerm(key), key, nil
 }
 
+type apiJSONPredicateValue struct {
+	term rdf.Term
+	key  string
+}
+
+type apiJSONReferenceKey struct {
+	scope string
+	id    string
+}
+
+type apiJSONTermCache struct {
+	types      map[string]rdf.Term
+	predicates map[string]apiJSONPredicateValue
+	references map[apiJSONReferenceKey]rdf.Term
+	literals   map[string]string
+}
+
+func newAPIJSONTermCache() *apiJSONTermCache {
+	return &apiJSONTermCache{
+		types:      map[string]rdf.Term{},
+		predicates: map[string]apiJSONPredicateValue{},
+		references: map[apiJSONReferenceKey]rdf.Term{},
+		literals:   map[string]string{},
+	}
+}
+
+func (cache *apiJSONTermCache) literal(value string) string {
+	if stored, ok := cache.literals[value]; ok {
+		return stored
+	}
+	cache.literals[value] = value
+	return value
+}
+
+func (cache *apiJSONTermCache) typeIRI(typ string) (rdf.Term, error) {
+	if term, ok := cache.types[typ]; ok {
+		return term, nil
+	}
+	term, err := apiJSONTypeIRI(typ)
+	if err == nil {
+		cache.types[typ] = term
+	}
+	return term, err
+}
+
+func (cache *apiJSONTermCache) predicate(key string) (rdf.Term, string, error) {
+	if value, ok := cache.predicates[key]; ok {
+		return value.term, value.key, nil
+	}
+	term, local, err := apiJSONPredicate(key)
+	if err == nil {
+		cache.predicates[key] = apiJSONPredicateValue{term: term, key: local}
+	}
+	return term, local, err
+}
+
+// referenceTarget resolves one JSON id or unresolved name to its graph term.
+func (cache *apiJSONTermCache) referenceTarget(subject rdf.Term, object map[string]any, expressionIDs map[string]bool) (rdf.Term, error) {
+	if len(object) == 1 {
+		if id, ok := object["@id"].(string); ok && id != "" {
+			key := apiJSONReferenceKey{id: id}
+			if !strings.Contains(id, ":") {
+				if owner, ok := rdf.SubjectID(subject); ok {
+					key.scope, _, _ = strings.Cut(owner, ":")
+				}
+			}
+			if target, ok := cache.references[key]; ok {
+				return target, nil
+			}
+			target := rdf.ReferenceIRI(subject, id)
+			if targetID, ok := rdf.SubjectID(target); ok && expressionIDs[targetID] {
+				target = rdf.IRI(rdf.Expression + targetID)
+			}
+			cache.references[key] = target
+			return target, nil
+		}
+		if name, ok := object["@ref"].(string); ok && name != "" {
+			return rdf.String(cache.literal(name)), nil
+		}
+	}
+	return rdf.Term{}, fmt.Errorf("an object value is a reference {\"@id\": <id>} or {\"@ref\": <name>}")
+}
+
 // apiJSONAnnotation is a collection awaiting its json: literal: the members
 // a sysml: array stated, settled once every triple stands.
 type apiJSONAnnotation struct {
@@ -441,48 +652,28 @@ type apiJSONAnnotation struct {
 }
 
 // apiJSONTriples states one property of an element object as graph triples.
-func apiJSONTriples(graph *rdf.Graph, subject rdf.Term, predicate rdf.Term, sysmlKey string, value any, expressionIDs map[string]bool, annotations *[]apiJSONAnnotation) error {
+func apiJSONTriples(graph *rdf.GraphBuilder, subject rdf.Term, predicate rdf.Term, sysmlKey string, value any, expressionIDs map[string]bool, cache *apiJSONTermCache, annotations *[]apiJSONAnnotation) error {
 	switch v := value.(type) {
 	case nil:
 		// The API serves absent properties as null; nothing to state.
 		return nil
 	case map[string]any:
-		target, err := apiJSONReferenceTarget(subject, v, expressionIDs)
+		target, err := cache.referenceTarget(subject, v, expressionIDs)
 		if err != nil {
 			return err
 		}
 		graph.Add(subject, predicate, target)
 		return nil
 	case []any:
-		return apiJSONCollection(graph, subject, predicate, sysmlKey, v, expressionIDs, annotations)
+		return apiJSONCollection(graph, subject, predicate, sysmlKey, v, expressionIDs, cache, annotations)
 	default:
-		object, err := apiJSONScalarOf(subject, predicate, sysmlKey, value, expressionIDs)
+		object, err := apiJSONScalarOf(subject, predicate, sysmlKey, value, expressionIDs, cache)
 		if err != nil {
 			return err
 		}
 		graph.Add(subject, predicate, object)
 		return nil
 	}
-}
-
-// apiJSONReferenceTarget resolves a member object into the term it names: a
-// {"@id": <id>} reference the IRI it spells from subject, a {"@ref": <name>}
-// — sysml-toolkit's spelling of a target it could not resolve — the name
-// literal the mapping already writes for a name-valued reference.
-func apiJSONReferenceTarget(subject rdf.Term, object map[string]any, expressionIDs map[string]bool) (rdf.Term, error) {
-	if len(object) == 1 {
-		if id, ok := object["@id"].(string); ok && id != "" {
-			target := rdf.ReferenceIRI(subject, id)
-			if targetID, ok := rdf.SubjectID(target); ok && expressionIDs[targetID] {
-				target = rdf.IRI(rdf.Expression + targetID)
-			}
-			return target, nil
-		}
-		if name, ok := object["@ref"].(string); ok && name != "" {
-			return rdf.String(name), nil
-		}
-	}
-	return rdf.Term{}, fmt.Errorf("an object value is a reference {\"@id\": <id>} or {\"@ref\": <name>}")
 }
 
 // nonuniqueCollections are the derived KerML collections declared {nonunique}:
@@ -494,13 +685,13 @@ var nonuniqueCollections = map[string]bool{
 
 // apiJSONCollection states an array member: one triple per value, recording
 // a collection of at least two on a sysml: key for its json: annotation.
-func apiJSONCollection(graph *rdf.Graph, subject rdf.Term, predicate rdf.Term, sysmlKey string, values []any, expressionIDs map[string]bool, annotations *[]apiJSONAnnotation) error {
+func apiJSONCollection(graph *rdf.GraphBuilder, subject rdf.Term, predicate rdf.Term, sysmlKey string, values []any, expressionIDs map[string]bool, cache *apiJSONTermCache, annotations *[]apiJSONAnnotation) error {
 	if len(values) == 0 {
 		return nil
 	}
 	members := make([]rdf.Term, 0, len(values))
 	for _, value := range values {
-		member, err := apiJSONScalarOf(subject, predicate, sysmlKey, value, expressionIDs)
+		member, err := apiJSONScalarOf(subject, predicate, sysmlKey, value, expressionIDs, cache)
 		if err != nil {
 			return err
 		}
@@ -533,23 +724,24 @@ func apiJSONCollection(graph *rdf.Graph, subject rdf.Term, predicate rdf.Term, s
 // apiJSONScalarOf turns one JSON value into the term a triple holds: a
 // reference object an IRI, a bool or number its typed literal, a string a plain
 // literal — or the expression text a reference-valued property carries.
-func apiJSONScalarOf(subject rdf.Term, predicate rdf.Term, sysmlKey string, value any, expressionIDs map[string]bool) (rdf.Term, error) {
+func apiJSONScalarOf(subject rdf.Term, predicate rdf.Term, sysmlKey string, value any, expressionIDs map[string]bool, cache *apiJSONTermCache) (rdf.Term, error) {
 	switch v := value.(type) {
 	case bool:
 		return rdf.Bool(v), nil
 	case json.Number:
-		lexical := v.String()
+		lexical := cache.literal(v.String())
 		if apiJSONInteger.MatchString(lexical) {
 			return rdf.TypedLiteral(lexical, rdf.XSD+"integer"), nil
 		}
 		return exactRealLiteral(lexical)
 	case string:
+		v = cache.literal(v)
 		if apiJSONIsExpressionText(sysmlKey, v) {
 			return rdf.TypedLiteral(v, rdf.OpenSysML+dtExpression), nil
 		}
 		return rdf.String(v), nil
 	case map[string]any:
-		return apiJSONReferenceTarget(subject, v, expressionIDs)
+		return cache.referenceTarget(subject, v, expressionIDs)
 	case nil:
 		return rdf.Term{}, fmt.Errorf("a collection member cannot be null")
 	case []any:

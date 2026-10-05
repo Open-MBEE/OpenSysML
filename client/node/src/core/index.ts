@@ -7,6 +7,7 @@ export type {
   ResponseTap,
   TransportOptions,
 } from "./connection.js";
+export type { WasmHost } from "./wasm.js";
 export { Instance, InstanceTree, Model, ModelSymbol, decodeDiagnostic } from "./model.js";
 export type {
   AttributeFacts,
@@ -48,6 +49,7 @@ export {
   DocumentQueryResult,
   DocumentRow,
   DocumentEvent,
+  documentEventOf,
   DocumentState,
   DocumentVerdict,
   ElementRef,
@@ -142,6 +144,7 @@ export {
   CAPABILITY_MEASUREMENT_REFS,
   CAPABILITY_METAOBJECT_VALUES,
   CAPABILITY_PERFORMER,
+  CAPABILITY_STATE_TRACE,
   CAPABILITY_QUERY,
   CAPABILITY_SCHEDULE,
   CAPABILITY_SCHEDULE_EXPLORE,

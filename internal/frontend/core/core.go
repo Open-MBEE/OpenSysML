@@ -65,16 +65,24 @@ type Core struct {
 	library      libs.Source
 	models       *list.List
 	byHash       map[string]*list.Element
+	maxModels    int
 }
 
 // New builds a core server over the frozen standard-library snapshot.
 func New() (*Core, error) {
 	index, library := libs.FrozenLibrary()
+	return NewWithLibrary(index, library, maxCachedModels)
+}
+
+// NewWithLibrary builds a core server over a shared standard-library snapshot.
+// A nonpositive maxModels disables automatic eviction.
+func NewWithLibrary(index *symbols.Index, library libs.Source, maxModels int) (*Core, error) {
 	return &Core{
 		libraryIndex: index,
 		library:      library,
 		models:       list.New(),
 		byHash:       make(map[string]*list.Element),
+		maxModels:    maxModels,
 	}, nil
 }
 
@@ -290,12 +298,22 @@ func (c *Core) get(hash string) (*cachedModel, bool) {
 	return elem.Value.(*cacheEntry).model, true
 }
 
+// Evict removes a cached model; absent hashes are ignored.
+func (c *Core) Evict(hash string) {
+	elem, ok := c.byHash[hash]
+	if !ok {
+		return
+	}
+	c.models.Remove(elem)
+	delete(c.byHash, hash)
+}
+
 func (c *Core) add(hash string, model *cachedModel) *cachedModel {
 	if elem, ok := c.byHash[hash]; ok {
 		c.models.MoveToFront(elem)
 		return elem.Value.(*cacheEntry).model
 	}
-	if c.models.Len() >= maxCachedModels {
+	if c.maxModels > 0 && c.models.Len() >= c.maxModels {
 		if oldest := c.models.Back(); oldest != nil {
 			c.models.Remove(oldest)
 			delete(c.byHash, oldest.Value.(*cacheEntry).hash)

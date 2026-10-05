@@ -88,10 +88,13 @@ A `Model` exposes `hash`, `connection`, `diagnostics`, `documents`,
 `find` accepts a short name and can return an empty value when absent.
 `walk` traverses the model's children.
 
-`opensysml.symbol(model, id)` and model lookup return a `Symbol` with
+`opensysml.getSymbol(model, id)` returns the `GetSymbol` answer as a plain
+record; `model.symbol(id)` and model lookup wrap it in a `Symbol` with
 `id`, `name`, `kind`, `typeFacts`, `multiplicity`, `specializations`, and
 `record`. It provides `children()`, `attributes()`, `parts()`,
-`getAttr(name)`, `facts()`, and `attributeFacts()`.
+`getAttr(name)`, `facts()`, and `attributeFacts()`. The function is named
+`getSymbol` rather than `symbol` so that its file does not collide with
+`Symbol.m` on a case-insensitive file system.
 `opensysml.diagnostics(model)` returns diagnostic records as a cell array.
 
 ## Values

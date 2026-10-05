@@ -65,6 +65,9 @@ type Options struct {
 	// when empty.
 	Style view.DrawingStyle
 
+	// LinkTemplate fills source links for diagram elements.
+	LinkTemplate string
+
 	// TableColumns is the most columns one table is set with on a page: a
 	// table projecting more is split into continuation tables, each repeating
 	// the first column ahead of its share of the rest. 0 is DefaultTableColumns;
@@ -132,7 +135,7 @@ func Render(document *docir.Document, engine string, opts Options) ([]byte, erro
 	if err := converter.Available(); err != nil {
 		return nil, err
 	}
-	forms := docrender.DiagramOptions{Form: opts.DiagramForm, Unplaced: opts.Unplaced, Style: opts.Style}
+	forms := docrender.DiagramOptions{Form: opts.DiagramForm, Unplaced: opts.Unplaced, Style: opts.Style, LinkTemplate: opts.LinkTemplate}
 	forms.WithoutGraphviz = opts.DiagramForm == "" && !Graphviz{}.Available()
 	diagrams, err := docrender.Diagrams(document, forms)
 	if err != nil {
@@ -164,7 +167,7 @@ func Render(document *docir.Document, engine string, opts Options) ([]byte, erro
 	switch converter.Capabilities().Input {
 	case InputMarkdown:
 		markdown, err := docrender.Markdown(document, docrender.MarkdownOptions{
-			DiagramForm: opts.DiagramForm, WithoutGraphviz: forms.WithoutGraphviz, Unplaced: opts.Unplaced, Style: opts.Style,
+			DiagramForm: opts.DiagramForm, WithoutGraphviz: forms.WithoutGraphviz, Unplaced: opts.Unplaced, Style: opts.Style, LinkTemplate: opts.LinkTemplate,
 			OutputDir: base, NumberFigures: opts.NumberFigures, TableColumns: tableColumns(opts), TableMeasure: tableMeasure(opts),
 		})
 		if err != nil {
@@ -254,6 +257,7 @@ func htmlOptions(opts Options, withoutGraphviz bool, dir, base string, images []
 		WithoutGraphviz:     withoutGraphviz,
 		Unplaced:            opts.Unplaced,
 		Style:               opts.Style,
+		LinkTemplate:        opts.LinkTemplate,
 		DiagramImages:       images,
 		Math:                math.html,
 		OutputDir:           base,

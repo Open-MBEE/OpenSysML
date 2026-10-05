@@ -1,0 +1,1 @@
+- **The documentation no longer implies the standard library ships `Matrix`, `Tensor` or `*Array` specializations of `Collections::Array`.** The OMG library declares only `Array`; the handbook now shows how a model declares its own `Matrix :> Array` and shapes a usage of it with `:>> dimensions` and `:>> elements`.

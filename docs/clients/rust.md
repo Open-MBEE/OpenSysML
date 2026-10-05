@@ -80,9 +80,9 @@ stamped from the release checksum manifest at publish time. With nothing
 configured, it downloads the release it was built against, verifies it against
 those digests and installs it in the shared cache `~/.opensysml/bin/sysml-grpc`.
 
-`opensysml` 0.9.1 and earlier were published without these digests and do not
-download the service. For them, set `OPENSYSML_GRPC_BINARY` or put `sysml-grpc`
-on `$PATH`.
+`opensysml` 0.9.1 and earlier were published before this stamping: their digest
+table ends at v0.3.0, so they cannot download their own release. For them, set
+`OPENSYSML_GRPC_BINARY` or put `sysml-grpc` on `$PATH`.
 
 A crate built from a Git checkout, or asked for another release through
 `OPENSYSML_GRPC_VERSION`, needs a matching embedded pin or

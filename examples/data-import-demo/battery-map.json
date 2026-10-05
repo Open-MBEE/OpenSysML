@@ -1,0 +1,9 @@
+{
+  "records": "/results",
+  "element": {"path": "/unit", "prefix": "RoverDemo::"},
+  "features": {
+    "capacity": {"path": "/energy/value", "unitPath": "/energy/unit"},
+    "cells": {"path": "/cells"}
+  },
+  "ignore": ["note"]
+}

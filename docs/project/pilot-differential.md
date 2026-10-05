@@ -228,7 +228,7 @@ nor double-counted as two independent disagreements.
 
 ---
 
-## Results (pilot `2026-08`, 381 files)
+## Results (pilot `2026-08`, 384 files)
 
 | Root | Files | Fully agreeing | Ours | Pilot | Agreed | Severity-only | Only ours | Only pilot |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
@@ -236,10 +236,10 @@ nor double-counted as two independent disagreements.
 | `examples/pilot-corpora/sysml-examples` | 99 | 91 | 12 | 0 | 0 | 0 | 12 | 0 |
 | `examples/pilot-corpora/sysml-validation` | 56 | 56 | 0 | 0 | 0 | 0 | 0 | 0 |
 | `examples/pilot-corpora/kerml-examples` | 58 | 56 | 9 | 0 | 0 | 0 | 9 | 0 |
-| `tests/testdata` | 19 | 10 | 44 | 68 | 34 | 1 | 9 | 33 |
-| `examples` | 45 | 30 | 11 | 1601 | 4 | 1 | 6 | 1596 |
+| `tests/testdata` | 21 | 11 | 55 | 90 | 45 | 1 | 9 | 44 |
+| `examples` | 46 | 33 | 7 | 1591 | 0 | 1 | 6 | 1590 |
 | `tools/referee/diff/testdata` (probes) | 4 | 1 | 6 | 0 | 0 | 0 | 6 | 0 |
-| **Total** | **381** | **343** | **83** | **1669** | **38** | **2** | **43** | **1629** |
+| **Total** | **384** | **347** | **90** | **1681** | **45** | **2** | **43** | **1634** |
 
 **Read the `only ours` total by root, never as one number.** Step 2 removes nine resolver false
 positives from the reference's **own** corpora: `pilot-examples` 16 → **7** and
@@ -280,9 +280,40 @@ changing what it detects.
 Per category, the only-ours totals are: `training` 1 `multiplicity`; `pilot-examples` 4
 `unmapped`, 2 `units`, 5 `kind-mismatch`, 1 `multiplicity`; `kerml-examples` 9 `unmapped`;
 `testdata` 8 `unmapped`, 1 `multiplicity`; `examples` 4 `unmapped`, 2 `multiplicity`; `probes`
-6 `unmapped`. Only-pilot: `testdata` 20 `kind-mismatch`, 3 `unmapped`, 3 `syntax`, 7
-`unresolved-reference`; `examples` 6 `syntax`, 29 `unmapped`, 673 `kind-mismatch`, 888
+6 `unmapped`. Only-pilot: `testdata` 20 `kind-mismatch`, 14 `unmapped`, 3 `syntax`, 7
+`unresolved-reference`; `examples` 6 `syntax`, 29 `unmapped`, 667 `kind-mismatch`, 888
 `unresolved-reference`.
+
+### Demo validity round
+
+Three demos that validated clean on our side drew rows from the reference that were not
+extensions of ours but mistakes of the demos', each with a standard spelling both tools accept
+and the same answers under it. `disposal-team-demo/team.sysml` and
+`runtime-showcase/mass-rollup.sysml` summed `MassValue`s with `RealFunctions::sum`, declared over
+`Real`; both now import `QuantityCalculations::sum`, the library's sum over quantities, so the four
+agreed `Bound features should have conforming types` warnings the
+[argument-binding conformance round](#argument-binding-conformance-round) recorded are gone, the
+walkthroughs no longer present them as expected output, and the payload and rollup still evaluate
+in kilograms. `team.sysml` also assigned `accepted := accepted + 1` inside a state, where the
+reference resolved the name to the `accepted : Transfer[0..1]` every state inherits from
+`StatePerformances::StatePerformance` ahead of the part's `attribute accepted : Integer`
+([the team demo](#the-team-demo)); the counter is `commandsAccepted`, a name nothing inherited
+shadows, so the line-117 pair is retired by the demo rather than adjudicated. The name-resolution
+difference itself stands: our resolver still finds the part's attribute first, and the row's
+verdict records that. `expressions-demo.sysml` passed `calc def`s as function values —
+`Apply(Square, a)`, `Sample(Square, xs)` — which the reference refuses as `Must be a valid
+feature` and we accept as an extension; the file now declares `calc square : Square;` and
+`calc halve : Halve;` and passes those, which both accept, and the
+[expressions walkthrough](#expressions-walkthrough-round)'s four pilot-only rows are retired with
+it. Nothing we report moved.
+
+| Count | Before | Now |
+|---|---:|---:|
+| overall: fully agreeing | 345 | **347** |
+| agreed | 49 | **45** |
+| only pilot | 1640 | **1634** |
+| our diagnostics / pilot diagnostics | 94 / 1691 | **90 / 1681** |
+| `examples`: fully agreeing / agreed / only pilot | 31 / 4 / 1596 | **33 / 0 / 1590** |
 
 ### Legend of the Red Dragon departure round
 
@@ -791,8 +822,8 @@ the library's `eval` calculation):
 
 | Row | The reference's reading | Verdict |
 |---|---|---|
-| `:29` (2 `warning: Bound features should have conforming types`) | `attribute payload : MassValue = sum(robots.mass) + sum(cradles.mass);` — each `MassValue`-typed argument is bound to the `Real`-typed `collection` parameter of the imported `RealFunctions::sum`, and the reference judges that implied binding | **Agreed** since the [argument-binding conformance round](#argument-binding-conformance-round): we warn on the same two arguments at the same columns |
-| `:117` (`error: Referent must be time varying.` + the same warning) | `assign accepted := accepted + 1;` in a state's entry action, where the enclosing `part def` declares `attribute accepted : Integer` | A name-resolution difference, not a rule difference. The reference resolves `accepted` inside the state to the `accepted : Transfer[0..1]` that `StatePerformances::StatePerformance` contributes to every state, ahead of the part definition's own attribute; a `Transfer` is neither time-varying nor a `Real`, hence both rows. We resolve it to the declared attribute, an `Integer`, and the same two rules are then rightly silent. The identical assignment in an `action` of the same part def is clean on both sides, which is what isolates the state's inherited scope as the difference |
+| `:29` (2 `warning: Bound features should have conforming types`) | `attribute payload : MassValue = sum(robots.mass) + sum(cradles.mass);` — each `MassValue`-typed argument is bound to the `Real`-typed `collection` parameter of the imported `RealFunctions::sum`, and the reference judges that implied binding | **Agreed** since the [argument-binding conformance round](#argument-binding-conformance-round): we warn on the same two arguments at the same columns. Retired by the [demo validity round](#demo-validity-round), which imports `QuantityCalculations::sum` instead |
+| `:117` (`error: Referent must be time varying.` + the same warning) | `assign accepted := accepted + 1;` in a state's entry action, where the enclosing `part def` declares `attribute accepted : Integer` | A name-resolution difference, not a rule difference. The reference resolves `accepted` inside the state to the `accepted : Transfer[0..1]` that `StatePerformances::StatePerformance` contributes to every state, ahead of the part definition's own attribute; a `Transfer` is neither time-varying nor a `Real`, hence both rows. We resolve it to the declared attribute, an `Integer`, and the same two rules are then rightly silent. The identical assignment in an `action` of the same part def is clean on both sides, which is what isolates the state's inherited scope as the difference. Retired by the [demo validity round](#demo-validity-round), which names the counter `commandsAccepted`; the resolution difference is unchanged |
 
 ### Package-keyword round
 
@@ -827,8 +858,8 @@ cascades through the rest of the file. The movement is entirely one file,
 
 | Count | Before the initializer rewrite | Now |
 |---|---:|---:|
-| only pilot | 82 | **1629** |
-| pilot diagnostics | 123 | **1669** |
+| only pilot | 82 | **1634** |
+| pilot diagnostics | 123 | **1681** |
 | severity-only | 9 | **2** |
 
 The rewrite itself took only-pilot to 61 and pilot diagnostics to 101; the `Now` column states
@@ -1051,14 +1082,14 @@ page's history.
 
 | Count | Now |
 |---|---:|
-| overall: fully agreeing / only ours / our diagnostics | **343 / 43 / 83** |
-| only pilot | **1629** |
-| pilot diagnostics | **1669** |
+| overall: fully agreeing / only ours / our diagnostics | **347 / 43 / 90** |
+| only pilot | **1634** |
+| pilot diagnostics | **1681** |
 | severity-only | **2** |
-| unmapped, our side | **35** |
+| unmapped, our side | **46** |
 | kerml-examples: only ours | **9** |
 | pilot-examples: only ours | **12** |
-| examples: only pilot | **1596** |
+| examples: only pilot | **1590** |
 
 The KerML root is now the *cleanest* of the three OMG roots in proportion: **9** only-ours against 6
 only-pilot, with 56 of 58 files fully agreeing (439 / 6 and 10 / 58 when the root was added, and
@@ -2856,11 +2887,11 @@ fetches. Together they bound how long a stale figure can survive to about a day.
 
 ### Multiplicity bound result types round
 
-`validateMultiplicityRangeResultTypes` (KerML 1.1 8.3.3.6) is a constraint-tier rule
-(`passes/w8c_multiplicity_bounds.go`): a model-level-evaluable bound must evaluate to a
-non-negative integer or `*`; a bound that is not model-level evaluable is judged by whether its
-result type conforms to Integer. The rule moves no row of the reference corpora — the only
-non-literal bounds in the four OMG roots (`Simple Tests/MultiplicityTest.sysml`,
+`validateMultiplicityRangeResultTypes` (KerML 1.1 8.3.4.11.2 `MultiplicityRange`) is a
+constraint-tier rule (`passes/w8c_multiplicity_bounds.go`): a model-level-evaluable bound must
+evaluate to a non-negative integer or `*`; a bound that is not model-level evaluable is judged by
+whether its result type conforms to Integer. The rule moves no row of the reference corpora — the
+only non-literal bounds in the four OMG roots (`Simple Tests/MultiplicityTest.sysml`,
 `Geometry Examples/VehicleGeometryAndCoordinateFrames.sysml`) name Integer- or Natural-typed
 sibling features, which both sides accept — and moves
 `semantic/k37-multiplicity-bound-not-natural.kerml` to both-reject. The package-level bound
@@ -2868,17 +2899,17 @@ disagreement is now adjudicated toward the pilot; the exponentiation difference 
 adjudicated toward the specification:
 
 - **A package-level feature without a value is not a valid evaluable bound.** The maintainer
-  ruled the pilot correct, not buggy: the prose in KerML 1.1 §8.3.3.6 requires a model-level-
+  ruled the pilot correct, not buggy: the prose in KerML 1.1 §8.3.4.11.2 requires a model-level-
   evaluable bound to evaluate to a non-negative value. Under §8.3.4.8.5, a package-level feature
   without a value is model-level evaluable and evaluates to itself, so `[k]` is rejected by both
   validators. A type member is not model-level evaluable and is judged by its result type. An
-  evaluable bound the evaluator does not fold (for example, a cast) is also judged by its result
-  type; only a folded value other than a non-negative integer or `*`, or an evaluation that
-  reaches a feature with no value, directly or through another feature's value, is rejected. The
-  pilot also rejects `feature k : Natural = 2 as Natural; feature d [k];`, whose evaluation does
-  not yield a literal there; OpenSysML accepts it, since the cast evaluates to 2. The constraint's
-  OCL (`value <> null implies value >= 0` over
-  `valueOf`, §8.3.3.1.9) cannot
+  evaluable bound the evaluator does not fold (for example, a feature whose value is a cast) is
+  also judged by its result type; only a folded value other than a non-negative integer or `*`, or
+  an evaluation that reaches a feature with no value, directly or through another feature's value,
+  is rejected. The pilot also rejects
+  `feature k : Natural = 2 as Natural; feature d [k];`, whose evaluation does not yield a literal
+  there; OpenSysML accepts it, since the cast evaluates to 2. The constraint's OCL
+  (`value <> null implies value >= 0` over `valueOf`, §8.3.3.1.9) cannot
   distinguish a non-literal result from a negative value because `valueOf` returns null for
   both. OpenSysML follows the prose;
   [omg-issues.md](omg-issues.md#a-bound-naming-a-package-level-feature-is-rejected-whatever-its-type-pilot-2026-07)
@@ -2888,9 +2919,11 @@ adjudicated toward the specification:
   passes its check. `IntegerFunctions::'**'` is declared `in y : Natural`, and an Integer
   exponent resolves to `RationalFunctions::'**'`, whose result is Rational; we accept the
   exponentiation only when the exponent is Natural-conforming (`k : Natural`, `p : Positive`, a
-  literal, or `+`/`*`/`%` over such). The pilot's grammar admits only a literal or a feature
-  reference as a bound (`MultiplicityExpressionMember`), so no arithmetic bound reaches its
-  validator and the difference has no referee row; it is a reading of the library.
+  literal, or `+`/`*`/`%` over such). Both grammars admit only a literal or a feature
+  reference as a bound (`MultiplicityExpressionMember`): an arithmetic, cast,
+  parenthesised, chained or invoked bound such as `[2 ** n]` is a syntax error on both sides, so
+  the exponent typing above applies only to the tree recovered from that error and the difference
+  has no referee row; it is a reading of the library.
 
 ### Binary-link specialization round
 
@@ -3236,6 +3269,15 @@ case or requirement are implicit redefinitions; and the assignments in a metadat
 redefinitions of the metadata definition's features (`MetadataBodyUsage` in the pinned grammar), not
 second members of those names. Fixtures: `testdata/passes/inherited_name_library_base.sysml` (positive,
 two warnings) and `..._clean.sysml` (negative, silent on both sides).
+
+`testdata/passes/distinguishable_by_metaclass.sysml` (positive) and `..._clean.sysml` (negative)
+join the corpus: 11 agreed rows on the first, where same or specializing metaclasses warn in both
+tools, and 11 only-pilot's rows on the second, each a `Duplicate of …` warning between members
+whose metaclasses conform in neither direction. Adjudicated against KerML §8.3.2.4.3
+`Membership::isDistinguishableFrom`: specification clear, pilot short (its
+`// TODO: Add member element metaclass check`); see
+[gap register #13](spec-pilot-gap-register.md#13-indistinguishable-memberships-severity-and-anonymous-performed-actions).
+No other row moved.
 
 Movement, against the clean-cache run this branch merges (the census `main` records):
 

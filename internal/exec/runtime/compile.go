@@ -222,7 +222,7 @@ func (b *compileBatch) call(member, callee *calcShape) {
 }
 
 // settle withdraws eligibility from every member calling an ineligible shape,
-// to a fixpoint, and marks a member reading a library constant via a callee.
+// to a fixpoint, and propagates execution requirements through the call graph.
 func (b *compileBatch) settle() {
 	for changed := true; changed; {
 		changed = false

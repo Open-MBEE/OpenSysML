@@ -15,6 +15,8 @@ import (
 // ErrReplayDisagrees is the typed error every replay that reaches another state wraps.
 var ErrReplayDisagrees = errors.New("replay disagrees with the witness")
 
+const finalOrderChoiceSuffix = " (final outcome)"
+
 // ReplayDisagreement reports a replay that left another trace than its witness:
 // how, and the two traces.
 type ReplayDisagreement struct {
@@ -35,7 +37,30 @@ type Replayed struct {
 	Ctx *Context
 	Inv *Invocation
 	// Err is the error the last move raised, nil when the state is one the run went on from.
-	Err error
+	Err         error
+	finalOrders []ChoiceTaken
+}
+
+func splitFinalOrderChoices(w Witness) (Witness, []ChoiceTaken) {
+	run := cloneWitness(w)
+	run.Choices = run.Choices[:0]
+	var final []ChoiceTaken
+	for _, choice := range w.Choices {
+		if choice.Kind == ChoiceStatementOrder && strings.HasSuffix(choice.Where, finalOrderChoiceSuffix) {
+			choice.Where = strings.TrimSuffix(choice.Where, finalOrderChoiceSuffix)
+			final = append(final, choice)
+		} else {
+			run.Choices = append(run.Choices, choice)
+		}
+	}
+	return run, final
+}
+
+func (r *Replayed) withFinalStatementOrders(eval func() error) error {
+	if len(r.finalOrders) == 0 {
+		return eval()
+	}
+	return r.Ctx.sweepStatementOrdersAt(r.finalOrders, eval)
 }
 
 // Replay re-runs the witness: it starts the invocation start begins in the
@@ -66,13 +91,14 @@ func Replay(
 	if err != nil {
 		return nil, err
 	}
-	if err := ctx.SetSchedule(ReplayOf(w)); err != nil {
+	runWitness, finalOrders := splitFinalOrderChoices(w)
+	if err := ctx.SetSchedule(ReplayOf(runWitness)); err != nil {
 		return nil, err
 	}
 	if ctx.Trace() == nil {
 		ctx.SetTrace(NewTraceRecorder())
 	}
-	r := &Replayed{Ctx: ctx}
+	r := &Replayed{Ctx: ctx, finalOrders: finalOrders}
 	run, err := beginInvocation(ctx, start)
 	if err != nil {
 		r.Err = err
@@ -170,8 +196,13 @@ func (r *Replayed) agreeOnProperty(w Witness, p CheckProperty) error {
 
 // evaluate asks the property of the replayed run under a readiness probe, as the check did.
 func (r *Replayed) evaluate(p CheckProperty) (bool, error) {
-	defer r.Ctx.beginProbe()()
-	return p.Holds(r.Ctx, r.Inv)
+	holds, err := r.Ctx.everyStatementOrder(func() (bool, error) {
+		return p.Holds(r.Ctx, r.Inv)
+	})
+	if errors.Is(err, ErrStatementOrderSweepLimit) && !holds {
+		return false, nil
+	}
+	return holds, err
 }
 
 func (r *Replayed) disagree(w Witness, reason string) error {

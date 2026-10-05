@@ -465,31 +465,46 @@ func cellFromProto(value *pb.DocumentValue) Cell {
 		}
 		return state
 	case *pb.DocumentValue_Event:
-		event := DocumentEvent{
-			Kind:         kind.Event.GetKind(),
-			Time:         cellFromProto(kind.Event.GetTime()),
-			Machine:      kind.Event.GetMachine(),
-			State:        kind.Event.GetState(),
-			From:         kind.Event.GetFrom(),
-			To:           kind.Event.GetTo(),
-			Event:        kind.Event.GetEvent(),
-			Payload:      append([]string(nil), kind.Event.GetPayload()...),
-			Alternatives: append([]string(nil), kind.Event.GetAlternatives()...),
-			Taken:        kind.Event.GetTaken(),
-			Text:         kind.Event.GetText(),
-		}
-		if kind.Event.GetObject() != nil {
-			object := objectFromProto(kind.Event.GetObject())
-			event.Object = &object
-		}
-		if kind.Event.GetTarget() != nil {
-			target := objectFromProto(kind.Event.GetTarget())
-			event.Target = &target
-		}
-		return event
+		return documentEventFromProto(kind.Event)
 	default:
 		return nil
 	}
+}
+
+func documentEventsFromProto(events []*pb.DocumentEvent) []DocumentEvent {
+	if len(events) == 0 {
+		return nil
+	}
+	out := make([]DocumentEvent, len(events))
+	for i, event := range events {
+		out[i] = documentEventFromProto(event)
+	}
+	return out
+}
+
+func documentEventFromProto(event *pb.DocumentEvent) DocumentEvent {
+	converted := DocumentEvent{
+		Kind:         event.GetKind(),
+		Time:         cellFromProto(event.GetTime()),
+		Machine:      event.GetMachine(),
+		State:        event.GetState(),
+		From:         event.GetFrom(),
+		To:           event.GetTo(),
+		Event:        event.GetEvent(),
+		Payload:      append([]string(nil), event.GetPayload()...),
+		Alternatives: append([]string(nil), event.GetAlternatives()...),
+		Taken:        event.GetTaken(),
+		Text:         event.GetText(),
+	}
+	if event.GetObject() != nil {
+		object := objectFromProto(event.GetObject())
+		converted.Object = &object
+	}
+	if event.GetTarget() != nil {
+		target := objectFromProto(event.GetTarget())
+		converted.Target = &target
+	}
+	return converted
 }
 
 func objectFromProto(object *pb.DocumentObject) Object {
