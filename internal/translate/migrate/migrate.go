@@ -1372,10 +1372,7 @@ func (m *migration) general(e, g *sysmlv1.Element, cat category) (ref, note stri
 		return "", ""
 	}
 	tc, _ := m.classify(target)
-	if (cat == catPartDef && tc == catOccurrenceDef) || (cat == catOccurrenceDef && tc == catPartDef) {
-		return m.ref(target, m.scope), ""
-	}
-	if tc != cat {
+	if tc != cat && !((cat == catPartDef && tc == catOccurrenceDef) || (cat == catOccurrenceDef && tc == catPartDef)) {
 		return "", "generalization of " + qualifiedName(target) + " is not written: it becomes a " + tc.keyword() + ", not a " + cat.keyword()
 	}
 	if m.asUsage[target] {

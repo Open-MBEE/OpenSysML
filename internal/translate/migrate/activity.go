@@ -1490,11 +1490,8 @@ func (a *activity) leadIn(n *sysmlv1.Element, into string) {
 // reaches it would be a subaction performed with the activity (Actions::subactions).
 func (a *activity) declareNode(n *sysmlv1.Element, name string) {
 	if a.starved[n] != nil {
-		// Keep starved link actions as actions so their approximation retains its pins.
-		if _, isLinkAction := linkActionVerbs[n.Type]; !isLinkAction {
-			a.m.w.prefixed("ref ", actionKw, func() { a.declareKind(n, name) })
-			return
-		}
+		a.m.w.prefixed("ref ", actionKw, func() { a.declareKind(n, name) })
+		return
 	}
 	a.declareKind(n, name)
 }

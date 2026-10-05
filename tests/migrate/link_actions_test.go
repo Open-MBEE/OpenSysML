@@ -29,7 +29,7 @@ func TestLinkActionsKeepTheirPinsAsApproximateActions(t *testing.T) {
 				t.Fatalf("entries for %s = %+v, want one approximated entry with note %q", tc.id, entries, tc.note)
 			}
 			for _, want := range []string{
-				"action " + tc.name + " {",
+				"ref action " + tc.name + " {",
 				"in " + tc.input + ";",
 				"out " + tc.output + ";",
 			} {
@@ -37,8 +37,8 @@ func TestLinkActionsKeepTheirPinsAsApproximateActions(t *testing.T) {
 					t.Errorf("notation lacks %q:\n%s", want, r.Notation)
 				}
 			}
-			if strings.Contains(string(r.Notation), "ref action "+tc.name+" {") {
-				t.Errorf("%s is written as a reference action:\n%s", tc.name, r.Notation)
+			if strings.Contains(string(r.Notation), "\n    action "+tc.name+" {") {
+				t.Errorf("%s is written as an executable action:\n%s", tc.name, r.Notation)
 			}
 		})
 	}

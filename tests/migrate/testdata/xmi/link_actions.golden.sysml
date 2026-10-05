@@ -1,29 +1,29 @@
 action def LinksModel {
-    action clearAssociation {
+    ref action clearAssociation {
         in clearInput[1];
         out clearResult[1];
     }
-    action createLink {
+    ref action createLink {
         in createInput[1];
         out createResult[1];
     }
-    action createLinkObject {
+    ref action createLinkObject {
         in createObjectInput[1];
         out createObjectResult[1];
     }
-    action destroyLink {
+    ref action destroyLink {
         in destroyInput[1];
         out destroyResult[1];
     }
-    action readLink {
+    ref action readLink {
         in readInput[1];
         out readResult[1];
     }
-    action readLinkObjectEnd {
+    ref action readLinkObjectEnd {
         in readEndInput[1];
         out readEndResult[1];
     }
-    action readLinkObjectEndQualifier {
+    ref action readLinkObjectEndQualifier {
         in readQualifierInput[1];
         out readQualifierResult[1];
     }
