@@ -109,7 +109,7 @@ func RunNoteDiagnosticsToProto(notes []runtime.RunNote, model *CachedModel) []*p
 
 // SyntaxDiagnosticCode is the code every reporter gives a parser error; the
 // parser itself codes only warnings.
-const SyntaxDiagnosticCode = "syntax"
+const SyntaxDiagnosticCode = parser.CodeSyntax
 
 // ParserDiagnosticToProto converts a parser error to protobuf.
 func ParserDiagnosticToProto(diag parser.Diagnostic, sf *source.SourceFile) *pb.Diagnostic {

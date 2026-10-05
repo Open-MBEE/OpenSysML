@@ -920,7 +920,7 @@ func declaredMeasurementRef(id, text string, term semantics.UnitTerm, idx *symbo
 	if text != "" && !textSpellsUnit(text, unit, idx, sem) {
 		return runtime.Value{}, fmt.Errorf("%w: %s is not %s", ErrUnitIDMismatch, text, id)
 	}
-	return runtime.DeclaredMeasurementRef(unit, text, declared), nil
+	return runtime.DeclaredMeasurementRef(sem, unit, text, declared), nil
 }
 
 // textSpellsUnit reports whether unit text is one name for the declaration unit:

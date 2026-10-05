@@ -1,0 +1,153 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xmi:XMI xmi:version="2.5.1" xmlns:xmi="http://www.omg.org/spec/XMI/20131001"
+         xmlns:uml="http://www.omg.org/spec/UML/20161101"
+         xmlns:sysml="http://www.omg.org/spec/SysML/20181001/SysML">
+  <uml:Model xmi:type="uml:Model" xmi:id="_m" name="Model">
+    <packagedElement xmi:type="uml:Signal" xmi:id="_next" name="Next"/>
+    <packagedElement xmi:type="uml:SignalEvent" xmi:id="_nextEvent" name="nextEvent" signal="_next"/>
+    <packagedElement xmi:type="uml:Class" xmi:id="_plant" name="Plant">
+      <ownedBehavior xmi:type="uml:StateMachine" xmi:id="_life" name="Life">
+        <region xmi:type="uml:Region" xmi:id="_main" name="main">
+          <subvertex xmi:type="uml:Pseudostate" xmi:id="_init" kind="initial"/>
+          <!-- One of region da's two initials enters the sibling region db, which has no initial of its own. -->
+          <subvertex xmi:type="uml:State" xmi:id="_donate" name="Donate">
+            <region xmi:type="uml:Region" xmi:id="_da" name="da">
+              <subvertex xmi:type="uml:Pseudostate" xmi:id="_daStray" kind="initial"/>
+              <subvertex xmi:type="uml:Pseudostate" xmi:id="_daOwn" kind="initial"/>
+              <subvertex xmi:type="uml:State" xmi:id="_da1" name="da1"/>
+              <transition xmi:type="uml:Transition" xmi:id="_daStrayT" source="_daStray" target="_db1"/>
+              <transition xmi:type="uml:Transition" xmi:id="_daOwnT" source="_daOwn" target="_da1"/>
+            </region>
+            <region xmi:type="uml:Region" xmi:id="_db" name="db">
+              <subvertex xmi:type="uml:State" xmi:id="_db1" name="db1"/>
+            </region>
+          </subvertex>
+          <!-- Region ca's stray initial enters the same state as the sibling region cb's own initial. -->
+          <subvertex xmi:type="uml:State" xmi:id="_coincide" name="Coincide">
+            <region xmi:type="uml:Region" xmi:id="_ca" name="ca">
+              <subvertex xmi:type="uml:Pseudostate" xmi:id="_caStray" kind="initial"/>
+              <subvertex xmi:type="uml:Pseudostate" xmi:id="_caOwn" kind="initial"/>
+              <subvertex xmi:type="uml:State" xmi:id="_ca1" name="ca1"/>
+              <transition xmi:type="uml:Transition" xmi:id="_caStrayT" source="_caStray" target="_cb1"/>
+              <transition xmi:type="uml:Transition" xmi:id="_caOwnT" source="_caOwn" target="_ca1"/>
+            </region>
+            <region xmi:type="uml:Region" xmi:id="_cb" name="cb">
+              <subvertex xmi:type="uml:Pseudostate" xmi:id="_cbInit" kind="initial"/>
+              <subvertex xmi:type="uml:State" xmi:id="_cb1" name="cb1"/>
+              <transition xmi:type="uml:Transition" xmi:id="_cbInitT" source="_cbInit" target="_cb1"/>
+            </region>
+          </subvertex>
+          <!-- Region xa's stray initial enters another state of the sibling region xb than xb's own initial does. -->
+          <subvertex xmi:type="uml:State" xmi:id="_conflict" name="Conflict">
+            <region xmi:type="uml:Region" xmi:id="_xa" name="xa">
+              <subvertex xmi:type="uml:Pseudostate" xmi:id="_xaStray" kind="initial"/>
+              <subvertex xmi:type="uml:Pseudostate" xmi:id="_xaOwn" kind="initial"/>
+              <subvertex xmi:type="uml:State" xmi:id="_xa1" name="xa1"/>
+              <transition xmi:type="uml:Transition" xmi:id="_xaStrayT" source="_xaStray" target="_xb2" guard="_xaGuard">
+                <ownedRule xmi:type="uml:Constraint" xmi:id="_xaGuard">
+                  <specification xmi:type="uml:OpaqueExpression" xmi:id="_xaGuardSpec">
+                    <body>ready</body>
+                    <language>English</language>
+                  </specification>
+                </ownedRule>
+              </transition>
+              <transition xmi:type="uml:Transition" xmi:id="_xaOwnT" source="_xaOwn" target="_xa1"/>
+            </region>
+            <region xmi:type="uml:Region" xmi:id="_xb" name="xb">
+              <subvertex xmi:type="uml:Pseudostate" xmi:id="_xbInit" kind="initial"/>
+              <subvertex xmi:type="uml:State" xmi:id="_xb1" name="xb1"/>
+              <subvertex xmi:type="uml:State" xmi:id="_xb2" name="xb2"/>
+              <transition xmi:type="uml:Transition" xmi:id="_xbInitT" source="_xbInit" target="_xb1"/>
+            </region>
+          </subvertex>
+          <!-- Two initials of region ua both enter it. -->
+          <subvertex xmi:type="uml:State" xmi:id="_duplicate" name="Duplicate">
+            <region xmi:type="uml:Region" xmi:id="_ua" name="ua">
+              <subvertex xmi:type="uml:Pseudostate" xmi:id="_uaInit1" kind="initial"/>
+              <subvertex xmi:type="uml:Pseudostate" xmi:id="_uaInit2" kind="initial"/>
+              <subvertex xmi:type="uml:State" xmi:id="_ua1" name="ua1"/>
+              <subvertex xmi:type="uml:State" xmi:id="_ua2" name="ua2"/>
+              <transition xmi:type="uml:Transition" xmi:id="_uaInit1T" source="_uaInit1" target="_ua1"/>
+              <transition xmi:type="uml:Transition" xmi:id="_uaInit2T" source="_uaInit2" target="_ua2"/>
+            </region>
+          </subvertex>
+          <!-- Region na's stray initial enters a state inside the composite Inner of the sibling region nb;
+               Inner's one region, which has no initial, is written as Inner's body. -->
+          <subvertex xmi:type="uml:State" xmi:id="_nested" name="Nested">
+            <region xmi:type="uml:Region" xmi:id="_na" name="na">
+              <subvertex xmi:type="uml:Pseudostate" xmi:id="_naStray" kind="initial"/>
+              <subvertex xmi:type="uml:Pseudostate" xmi:id="_naOwn" kind="initial"/>
+              <subvertex xmi:type="uml:State" xmi:id="_na1" name="na1"/>
+              <transition xmi:type="uml:Transition" xmi:id="_naStrayT" source="_naStray" target="_inner1"/>
+              <transition xmi:type="uml:Transition" xmi:id="_naOwnT" source="_naOwn" target="_na1"/>
+            </region>
+            <region xmi:type="uml:Region" xmi:id="_nb" name="nb">
+              <subvertex xmi:type="uml:Pseudostate" xmi:id="_nbInit" kind="initial"/>
+              <subvertex xmi:type="uml:State" xmi:id="_inner" name="Inner">
+                <region xmi:type="uml:Region" xmi:id="_ni" name="ni">
+                  <subvertex xmi:type="uml:State" xmi:id="_inner1" name="inner1"/>
+                </region>
+              </subvertex>
+              <transition xmi:type="uml:Transition" xmi:id="_nbInitT" source="_nbInit" target="_inner"/>
+            </region>
+          </subvertex>
+          <!-- Region gb's own initial has no transition, so it is no entry; ga's stray initial donates one. -->
+          <subvertex xmi:type="uml:State" xmi:id="_dangle" name="Dangle">
+            <region xmi:type="uml:Region" xmi:id="_ga" name="ga">
+              <subvertex xmi:type="uml:Pseudostate" xmi:id="_gaStray" kind="initial"/>
+              <subvertex xmi:type="uml:Pseudostate" xmi:id="_gaOwn" kind="initial"/>
+              <subvertex xmi:type="uml:State" xmi:id="_ga1" name="ga1"/>
+              <transition xmi:type="uml:Transition" xmi:id="_gaStrayT" source="_gaStray" target="_gb1"/>
+              <transition xmi:type="uml:Transition" xmi:id="_gaOwnT" source="_gaOwn" target="_ga1"/>
+            </region>
+            <region xmi:type="uml:Region" xmi:id="_gb" name="gb">
+              <subvertex xmi:type="uml:Pseudostate" xmi:id="_gbInit" kind="initial"/>
+              <subvertex xmi:type="uml:State" xmi:id="_gb1" name="gb1"/>
+            </region>
+          </subvertex>
+          <transition xmi:type="uml:Transition" xmi:id="_enterDonate" source="_init" target="_donate"/>
+          <transition xmi:type="uml:Transition" xmi:id="_toCoincide" source="_donate" target="_coincide">
+            <trigger xmi:type="uml:Trigger" xmi:id="_toCoincideTrigger" event="_nextEvent"/>
+          </transition>
+          <transition xmi:type="uml:Transition" xmi:id="_toConflict" source="_coincide" target="_conflict">
+            <trigger xmi:type="uml:Trigger" xmi:id="_toConflictTrigger" event="_nextEvent"/>
+          </transition>
+          <transition xmi:type="uml:Transition" xmi:id="_toDuplicate" source="_conflict" target="_duplicate">
+            <trigger xmi:type="uml:Trigger" xmi:id="_toDuplicateTrigger" event="_nextEvent"/>
+          </transition>
+          <transition xmi:type="uml:Transition" xmi:id="_toNested" source="_duplicate" target="_nested">
+            <trigger xmi:type="uml:Trigger" xmi:id="_toNestedTrigger" event="_nextEvent"/>
+          </transition>
+          <transition xmi:type="uml:Transition" xmi:id="_toDangle" source="_nested" target="_dangle">
+            <trigger xmi:type="uml:Trigger" xmi:id="_toDangleTrigger" event="_nextEvent"/>
+          </transition>
+        </region>
+      </ownedBehavior>
+    </packagedElement>
+    <!-- Work's initial enters idle1 in the region of its sibling state Idle: no orthogonal region, so it is refused. -->
+    <packagedElement xmi:type="uml:Class" xmi:id="_site" name="Site">
+      <ownedBehavior xmi:type="uml:StateMachine" xmi:id="_cross" name="Cross">
+        <region xmi:type="uml:Region" xmi:id="_crossMain" name="main">
+          <subvertex xmi:type="uml:Pseudostate" xmi:id="_crossInit" kind="initial"/>
+          <subvertex xmi:type="uml:State" xmi:id="_work" name="Work">
+            <region xmi:type="uml:Region" xmi:id="_wr" name="wr">
+              <subvertex xmi:type="uml:Pseudostate" xmi:id="_wInit" kind="initial"/>
+              <subvertex xmi:type="uml:State" xmi:id="_work1" name="work1"/>
+              <transition xmi:type="uml:Transition" xmi:id="_wInitT" source="_wInit" target="_idle1"/>
+            </region>
+          </subvertex>
+          <subvertex xmi:type="uml:State" xmi:id="_idle" name="Idle">
+            <region xmi:type="uml:Region" xmi:id="_ir" name="ir">
+              <subvertex xmi:type="uml:Pseudostate" xmi:id="_iInit" kind="initial"/>
+              <subvertex xmi:type="uml:State" xmi:id="_idle1" name="idle1"/>
+              <transition xmi:type="uml:Transition" xmi:id="_iInitT" source="_iInit" target="_idle1"/>
+            </region>
+          </subvertex>
+          <transition xmi:type="uml:Transition" xmi:id="_crossInitT" source="_crossInit" target="_idle"/>
+        </region>
+      </ownedBehavior>
+    </packagedElement>
+  </uml:Model>
+  <sysml:Block xmi:id="_plantBlock" base_Class="_plant"/>
+  <sysml:Block xmi:id="_siteBlock" base_Class="_site"/>
+</xmi:XMI>

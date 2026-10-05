@@ -184,13 +184,12 @@ func TestNestedTransitionRelocatesToCommonAncestor(t *testing.T) {
 	for _, opts := range []migrate.Options{{}, {Strict: true}} {
 		r := migrateFixtureFileOptions(t, "transition_relocation", opts)
 		wantLine(t, r.Notation, "transition first Work.Run accept Stop then Parked.Ready;")
-		wantNote(t, r, "_region4Init", migrate.Unmapped, "the initial transition's target has no v2 form here")
-		wantNote(t, r, "_crossRegionInit", migrate.Unmapped, "its target lies in an orthogonal region")
-		if !strings.Contains(string(r.Notation), "no default entry: these regions have no written entry: 'region4'") {
-			t.Errorf("the region without a written initial entry has no default-entry note:\n%s", r.Notation)
-		}
-		if strings.Contains(string(r.Notation), "entry; then Parallel::region3::wait3;") {
-			t.Errorf("an initial transition into an orthogonal region was written:\n%s", r.Notation)
+		wantNote(t, r, "_region4Init", migrate.Approximated, "coincides with region3's own entry into 'wait3'")
+		wantNote(t, r, "_crossRegionInit", migrate.Approximated, "coincides with region3's own entry into 'wait3'")
+		wantLine(t, r.Notation, "no default entry: these regions have no written entry: 'region4'")
+		wantLine(t, r.Notation, "every initial pseudostate of the region enters another region: nothing enters this one")
+		if strings.Count(string(r.Notation), "then wait3;") != 1 {
+			t.Errorf("region3's entry into wait3 is not written exactly once:\n%s", r.Notation)
 		}
 	}
 
@@ -205,6 +204,102 @@ func TestNestedTransitionRelocatesToCommonAncestor(t *testing.T) {
 	meta(t, s, "%step")
 	if out := meta(t, s, "%current"); !strings.Contains(out, "Current state: Ready") {
 		t.Errorf("the relocated transition did not enter Parked.Ready:\n%s", out)
+	}
+}
+
+// testdata/xmi/orthogonal_initials.xmi: an initial pseudostate whose transition enters a
+// sibling orthogonal region is written as the entry of the region owning its target — the
+// sub-state of a parallel state, or the body of a nested composite state — unless that
+// region has an entry of its own: one into the same vertex it coincides with, one into
+// another it is refused for. A region's own initial is the one entering it, before any
+// duplicate is refused.
+func TestInitialIntoOrthogonalRegionEntersThatRegion(t *testing.T) {
+	for _, opts := range []migrate.Options{{}, {Strict: true}} {
+		r := migrateFixtureFileOptions(t, "orthogonal_initials", opts)
+		s := string(r.Notation)
+		for _, state := range []string{"Donate", "Coincide", "Conflict", "Nested", "Dangle"} {
+			if !strings.Contains(s, "state "+state+" {\n            entry; then regions;") {
+				t.Errorf("%s has no default entry into its regions:\n%s", state, s)
+			}
+		}
+		if strings.Contains(s, "no default entry") {
+			t.Errorf("a parallel state lacks a default entry:\n%s", s)
+		}
+
+		// (a) the stray initial is written as the entry of the sibling region owning its target.
+		wantLine(t, r.Notation, "state da {\n                    entry; then da1;")
+		wantLine(t, r.Notation, "state db {\n                    entry; then db1;")
+		wantNote(t, r, "_daOwn", migrate.Mapped, "written as the entry of the region")
+		wantNote(t, r, "_daStray", migrate.Approximated, "written as the entry of db, which owns its target 'db1', not of da")
+		wantNote(t, r, "_daStrayT", migrate.Approximated, "its target 'db1' lies in db, an orthogonal region of the pseudostate's, so it is written as the entry of db")
+
+		// (b) the stray initial coincides with the target region's own entry into the same state.
+		wantLine(t, r.Notation, "state cb {\n                    entry; then cb1;")
+		if strings.Count(s, "then cb1;") != 1 {
+			t.Errorf("cb's entry into cb1 is not written exactly once:\n%s", s)
+		}
+		wantNote(t, r, "_cbInit", migrate.Mapped, "written as the entry of the region")
+		wantNote(t, r, "_caStray", migrate.Approximated, "coincides with cb's own entry into 'cb1'")
+		wantNote(t, r, "_caStrayT", migrate.Approximated, "coincides with cb's own entry into 'cb1'")
+
+		// (c) the stray initial conflicts with the target region's own entry into another state.
+		wantLine(t, r.Notation, "state xb {\n                    entry; then xb1;")
+		wantLine(t, r.Notation, "state xa {\n                    /* not migrated: Pseudostate (_xaStray) — the initial transition's target has no v2 form here */")
+		wantNote(t, r, "_xaStrayT", migrate.Unmapped, "its target 'xb2' lies in xb, an orthogonal region whose own initial pseudostate enters 'xb1'; that entry is kept")
+		if strings.Contains(s, "then xb2;") {
+			t.Errorf("the conflicting stray initial was written:\n%s", s)
+		}
+		if opts.Strict {
+			wantNote(t, r, "_xaGuard", migrate.Unmapped, "its transition is not written: its target 'xb2' lies in xb")
+		} else if len(entriesFor(r, "_xaGuard")) != 0 {
+			t.Errorf("the guard of a refused transition is reported outside strict mode: %+v", entriesFor(r, "_xaGuard"))
+		}
+
+		// (d) two initials both entering the region: the first is written, the second refused.
+		wantLine(t, r.Notation, "state Duplicate {\n            /* not migrated: Pseudostate (_uaInit2) — a region has one initial pseudostate; (_uaInit1) is written as it */\n            entry; then ua1;")
+		wantNote(t, r, "_uaInit1", migrate.Mapped, "written as the entry of the region")
+
+		// (e) the target lies in a nested composite state's one region, written as that state's body.
+		wantLine(t, r.Notation, "state Inner {\n                        entry; then inner1;")
+		wantNote(t, r, "_naStray", migrate.Approximated, "written as the entry of the body of 'Inner', which owns its target 'inner1', not of na")
+		wantNote(t, r, "_naStrayT", migrate.Approximated, "so it is written as the entry of the body of 'Inner'")
+
+		// (f) the target region's own initial has no transition, so it is no entry: the stray one is donated.
+		wantLine(t, r.Notation, "state gb {\n                    /* not migrated: Pseudostate (_gbInit) — no transition leaves the initial pseudostate */\n                    entry; then gb1;")
+		wantNote(t, r, "_gbInit", migrate.Unmapped, "no transition leaves the initial pseudostate")
+		wantNote(t, r, "_gaStray", migrate.Approximated, "written as the entry of gb, which owns its target 'gb1', not of ga")
+
+		// (g) a target in a region of another, non-orthogonal state is refused, not donated.
+		wantLine(t, r.Notation, "state Work {\n            /* not migrated: Pseudostate (_wInit) — the initial transition's target has no v2 form here */")
+		wantNote(t, r, "_wInitT", migrate.Unmapped, "its target 'idle1' lies in 'ir', a region of 'Idle' and no orthogonal region of the pseudostate's; an initial transition enters its own region")
+		if strings.Count(s, "then idle1;") != 1 {
+			t.Errorf("Idle's own entry into idle1 is not written exactly once:\n%s", s)
+		}
+		if opts.Strict {
+			wantNote(t, r, "_wInit", migrate.Unmapped, "the initial transition's target has no v2 form here")
+		}
+	}
+
+	r := migrateFixtureFile(t, "orthogonal_initials")
+	s := session(t, r)
+	meta(t, s, "%instantiate Plant")
+	meta(t, s, "%state Plant::Life #1")
+	for _, want := range [][]string{
+		{"da1", "db1"},
+		{"ca1", "cb1"},
+		{"xa1", "xb1"},
+		{"ua1"},
+		{"na1", "inner1"},
+		{"ga1", "gb1"},
+	} {
+		out := meta(t, s, "%current")
+		for _, state := range want {
+			if !strings.Contains(out, state) {
+				t.Errorf("%s is not active:\n%s", state, out)
+			}
+		}
+		meta(t, s, "%send Next")
+		meta(t, s, "%step")
 	}
 }
 

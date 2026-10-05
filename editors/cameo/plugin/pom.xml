@@ -4,7 +4,7 @@
   <parent>
     <groupId>org.openmbee</groupId>
     <artifactId>opensysml-cameo-parent</artifactId>
-    <version>0.9.1</version>
+    <version>0.9.2</version>
   </parent>
   <artifactId>opensysml-cameo-plugin</artifactId>
   <name>OpenSysML Cameo plugin</name>

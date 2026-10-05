@@ -85,8 +85,29 @@ type element struct {
 // UnsupportedError: a converted file that dropped an element would be worse
 // than a failed conversion.
 func ToSysML(graph *rdf.Graph) ([]byte, error) {
+	return ToSysMLWarn(graph, nil)
+}
+
+// ToSysMLWarn converts a graph to notation and reports non-fatal resolutions.
+func ToSysMLWarn(graph *rdf.Graph, warn func(string)) ([]byte, error) {
+	return toSysML(graph, warn, false)
+}
+
+// APIJSONToSysML reads an API element document and converts its owned graph.
+func APIJSONToSysML(data []byte, warn func(string)) ([]byte, error) {
+	graph, err := ReadAPIJSON(data)
+	if err != nil {
+		return nil, &APIJSONReadError{err: err}
+	}
+	return toSysML(graph, warn, true)
+}
+
+func toSysML(graph *rdf.Graph, warn func(string), owned bool) ([]byte, error) {
 	if graph == nil || graph.Len() == 0 {
 		return nil, &UnsupportedError{What: "an empty graph", Note: "nothing to convert"}
+	}
+	if !owned {
+		graph = rdf.NewGraphOf(slices.Clone(graph.Triples()), graph.Prefixes)
 	}
 	if err := checkExtensionNamespace(graph); err != nil {
 		return nil, err
@@ -105,6 +126,7 @@ func ToSysML(graph *rdf.Graph) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
+	graph.Compact()
 	graph, err = rdf.ReconcileCollections(graph)
 	if err != nil {
 		var malformed *rdf.AnnotationError
@@ -122,10 +144,18 @@ func ToSysML(graph *rdf.Graph) ([]byte, error) {
 	if err := checkValueFlags(graph); err != nil {
 		return nil, err
 	}
+	graph.Compact()
+	warned := map[string]bool{}
+	report := func(message string) {
+		if warn != nil && !warned[message] {
+			warned[message] = true
+			warn(message)
+		}
+	}
 	// The first rendering writes every reference fully qualified; reading it
 	// chooses each the shortest spelling that reaches its element. Later
 	// renderings are re-read the same way until every spelling still does.
-	first := newDecoder(graph, metaclasses, nil)
+	first := newDecoder(graph, metaclasses, nil, report)
 	text, roots, err := first.notation()
 	if err != nil {
 		return nil, err
@@ -139,7 +169,7 @@ func ToSysML(graph *rdf.Graph) ([]byte, error) {
 		return nil, err
 	}
 	for {
-		d := newDecoder(graph, metaclasses, names)
+		d := newDecoder(graph, metaclasses, names, report)
 		if text, _, err = d.notation(); err != nil {
 			return nil, err
 		}
@@ -154,27 +184,36 @@ func ToSysML(graph *rdf.Graph) ([]byte, error) {
 	}
 }
 
-func newDecoder(graph *rdf.Graph, metaclasses map[rdf.Term]string, names *nameChoices) *decoder {
+func newDecoder(graph *rdf.Graph, metaclasses map[rdf.Term]string, names *nameChoices, warn func(string)) *decoder {
+	subjects := graph.Subjects()
+	meta := func(term rdf.Term) string { return rdf.LocalName(metaclasses[term]) }
 	d := &decoder{
-		graph:            graph,
-		metaclasses:      metaclasses,
-		byIRI:            map[string]*element{},
-		byID:             map[string]*element{},
-		dupID:            map[string]bool{},
-		memberships:      map[string]membership{},
-		owningMembership: map[string]membership{},
-		nodeMemberships:  map[string]membership{},
-		nodeMembership:   map[string]bool{},
-		expressionNodes:  map[string]bool{},
-		featureValues:    featureValueIndex(graph, metaclasses),
-		prefixed:         map[*element]bool{},
-		names:            names,
-		wanted:           newWanted(),
-		demoted:          map[*element]bool{},
-		demotedExpr:      map[string]bool{},
-		folded:           map[*element]*element{},
-		libraryRefs:      map[string]*element{},
+		graph:                graph,
+		metaclasses:          metaclasses,
+		warn:                 warn,
+		byIRI:                map[string]*element{},
+		byID:                 map[string]*element{},
+		dupID:                map[string]bool{},
+		memberships:          map[string]membership{},
+		owningMembership:     map[string]membership{},
+		nodeMemberships:      map[string]membership{},
+		nodeMembership:       map[string]bool{},
+		expressionNodes:      map[string]bool{},
+		featureValues:        featureValueIndex(graph, metaclasses, subjects),
+		portDefinitions:      newPortDefinitionIndex(graph, meta, subjects),
+		referenceSubsettings: referenceSubsettingIndex(graph, meta, subjects),
+		prefixed:             map[*element]bool{},
+		names:                names,
+		wanted:               newWanted(),
+		demoted:              map[*element]bool{},
+		demotedExpr:          map[string]bool{},
+		folded:               map[*element]*element{},
+		libraryCatalog:       identity.LibraryCatalog(libs.NewModelIndex()),
+		libraryRefs:          map[string]*element{},
+		importedMemberships:  map[string]*identity.LibraryElement{},
+		ambiguousImports:     map[string]bool{},
 	}
+	d.indexImportedMemberships(subjects)
 	return d
 }
 
@@ -269,7 +308,7 @@ func checkTypes(graph *rdf.Graph) (map[rdf.Term]string, error) {
 	}
 	metaclasses := make(map[rdf.Term]string, len(stated))
 	for _, subject := range subjects {
-		class, ok := mostSpecific(stated[subject])
+		class, ok := ontology.MostSpecific(stated[subject])
 		if !ok {
 			return nil, &UnsupportedError{
 				What: fmt.Sprintf("the subject <%s>", subject.Value),
@@ -279,31 +318,6 @@ func checkTypes(graph *rdf.Graph) (map[rdf.Term]string, error) {
 		metaclasses[subject] = class
 	}
 	return metaclasses, nil
-}
-
-// mostSpecific picks the class among those stated that every other is a
-// superclass of, reporting false when there is none.
-func mostSpecific(classes []string) (string, bool) {
-	for _, class := range classes {
-		specific := true
-		for _, other := range classes {
-			if !subclassOf(class, other) {
-				specific = false
-				break
-			}
-		}
-		if specific {
-			return class, true
-		}
-	}
-	return "", false
-}
-
-// subclassOf reports whether the class iri is ancestor or a subclass of it in
-// the SysML ontology; a class of this mapping's extension has no superclass.
-func subclassOf(class, ancestor string) bool {
-	return class == ancestor || strings.HasPrefix(class, rdf.SysML) && strings.HasPrefix(ancestor, rdf.SysML) &&
-		ontology.IsAncestorOrSelf(rdf.LocalName(class), rdf.LocalName(ancestor))
 }
 
 // metaclass returns the local name of the class subject is written as, or ""
@@ -401,7 +415,7 @@ func checkCardinality(graph *rdf.Graph) error {
 // checkValueFlags refuses sysml:isDefault or sysml:isInitial, whatever its value,
 // on a subject with no sysml:value, since the flags spell a feature value's operator.
 func checkValueFlags(graph *rdf.Graph) error {
-	featureValues := featureValueIndex(graph, nil)
+	featureValues := featureValueIndex(graph, nil, graph.Subjects())
 	for _, triple := range graph.Triples() {
 		predicate := triple.Predicate.Value
 		if predicate != rdf.SysML+pIsDefault && predicate != rdf.SysML+pIsInitial {
@@ -424,7 +438,7 @@ func checkValueFlags(graph *rdf.Graph) error {
 }
 
 // featureValueIndex maps each feature to its typed FeatureValue membership.
-func featureValueIndex(graph *rdf.Graph, metaclasses map[rdf.Term]string) map[string]rdf.Term {
+func featureValueIndex(graph *rdf.Graph, metaclasses map[rdf.Term]string, subjects []rdf.Term) map[string]rdf.Term {
 	index := map[string]rdf.Term{}
 	classOf := func(subject rdf.Term) string {
 		if metaclasses != nil {
@@ -434,22 +448,19 @@ func featureValueIndex(graph *rdf.Graph, metaclasses map[rdf.Term]string) map[st
 		}
 		return strings.TrimPrefix(graph.Type(subject), rdf.SysML)
 	}
-	for _, subject := range graph.Subjects() {
-		if classOf(subject) != mFeatureValue {
-			continue
-		}
-		for _, feature := range graph.Objects(subject, rdf.SysML+pFeatureWithValue) {
-			if feature.IsIRI() {
-				index[feature.Value] = subject
+	for _, subject := range subjects {
+		if classOf(subject) == mFeatureValue {
+			for _, feature := range graph.Objects(subject, rdf.SysML+pFeatureWithValue) {
+				if feature.IsIRI() {
+					index[feature.Value] = subject
+				}
 			}
 		}
-	}
-	for _, feature := range graph.Subjects() {
 		for _, property := range []string{pOwnedMembership, pOwnedRelationship} {
-			for _, membership := range graph.Objects(feature, rdf.SysML+property) {
+			for _, membership := range graph.Objects(subject, rdf.SysML+property) {
 				if membership.IsIRI() && classOf(membership) == mFeatureValue {
-					if _, exists := index[feature.Value]; !exists {
-						index[feature.Value] = membership
+					if _, exists := index[subject.Value]; !exists {
+						index[subject.Value] = membership
 					}
 				}
 			}
@@ -648,12 +659,14 @@ type decoder struct {
 	dupID map[string]bool
 	// memberships is keyed by membership IRI, and owningMembership by the IRI of
 	// the member each one owns.
-	memberships      map[string]membership
-	owningMembership map[string]membership
-	nodeMemberships  map[string]membership
-	nodeMembership   map[string]bool
-	expressionNodes  map[string]bool
-	featureValues    map[string]rdf.Term
+	memberships          map[string]membership
+	owningMembership     map[string]membership
+	nodeMemberships      map[string]membership
+	nodeMembership       map[string]bool
+	expressionNodes      map[string]bool
+	featureValues        map[string]rdf.Term
+	portDefinitions      portDefinitionIndex
+	referenceSubsettings map[string][]rdf.Term
 	// chainOwned indexes the FeatureChaining elements by the chain feature
 	// each names its owningRelatedElement, built on first lookup.
 	chainOwned map[string][]rdf.Term
@@ -687,7 +700,11 @@ type decoder struct {
 	// its notation is read in that document's place.
 	library string
 	// libraryRefs holds the library elements references reached by normative id.
-	libraryRefs map[string]*element
+	libraryRefs         map[string]*element
+	libraryCatalog      *identity.Catalog
+	importedMemberships map[string]*identity.LibraryElement
+	ambiguousImports    map[string]bool
+	warn                func(string)
 	// written records where each element landed in this pass's notation, the
 	// members of one ahead of it.
 	written []writing
@@ -727,7 +744,14 @@ type writing struct {
 // first: they are what tells an owned Expression from an expression node, and
 // what owns an element whose graph states ownership from the membership alone.
 func (d *decoder) build() ([]*element, error) {
+	stubs, err := d.libraryStubs()
+	if err != nil {
+		return nil, err
+	}
 	for _, subject := range d.graph.Subjects() {
+		if stubs[subject.Value] {
+			continue
+		}
 		if d.isMembership(subject) {
 			if err := d.readMembership(subject); err != nil {
 				return nil, err
@@ -736,7 +760,7 @@ func (d *decoder) build() ([]*element, error) {
 	}
 	var order []*element
 	for _, subject := range d.graph.Subjects() {
-		if d.isMembership(subject) || d.isExpressionNode(subject) || d.isFilterPackageNode(subject) {
+		if stubs[subject.Value] || d.isMembership(subject) || d.isExpressionNode(subject) || d.isFilterPackageNode(subject) {
 			// A node of an expression graph belongs to the declaration that holds
 			// the expression, not to an element of its own; so does a filter package.
 			continue
@@ -1235,15 +1259,95 @@ func (d *decoder) referencedElement(iri string) (*element, error) {
 	return target, nil
 }
 
+// libraryStubs finds references into the bundled library, not declarations.
+func (d *decoder) libraryStubs() (map[string]bool, error) {
+	stubs := map[string]bool{}
+	for _, subject := range d.graph.Subjects() {
+		if !LibraryReference(d.graph, subject) {
+			continue
+		}
+		id := rdf.LocalName(subject.Value)
+		if stated, ok := d.graph.Lexical(subject, rdf.SysML+pElementID); ok {
+			id = stated
+		}
+		if members := d.graph.Objects(subject, rdf.SysML+pMemberElement); len(members) > 0 {
+			catalog := d.libraryCatalog
+			owned, ok := catalog.OwningMembership(id)
+			member := members[0]
+			memberName, memberNameKind, hasMemberName := d.librarySubjectName(member)
+			if !ok && len(members) == 1 && member.IsIRI() && hasMemberName {
+				if candidate, found := catalog.ElementNamed(memberName); found && d.libraryMetaclassCompatible(member, candidate) {
+					owned, ok = candidate, true
+					if d.warn != nil {
+						d.warn(fmt.Sprintf("the library membership <%s> has id %q, which the bundled standard library does not have; resolved by its %s %s to the owning membership with id %q",
+							subject.Value, id, memberNameKind, memberName, candidate.OwningMembershipID))
+					}
+				}
+			}
+			if !ok {
+				note := fmt.Sprintf("it is marked sysml:isLibraryElement, but the bundled standard library has no owning membership with id %q", id)
+				if hasMemberName {
+					note += fmt.Sprintf(" or member %s %s", memberNameKind, memberName)
+				}
+				return nil, &UnsupportedError{
+					What: fmt.Sprintf("the library membership <%s>", subject.Value),
+					Note: note,
+				}
+			}
+			memberID := rdf.LocalName(member.Value)
+			if stated, ok := d.graph.Lexical(member, rdf.SysML+pElementID); ok {
+				memberID = stated
+			}
+			memberMatches := memberID == owned.ID
+			if !memberMatches && hasMemberName {
+				if candidate, found := catalog.ElementNamed(memberName); found {
+					memberMatches = candidate.ID == owned.ID && d.libraryMetaclassCompatible(member, candidate)
+				}
+			}
+			if len(members) != 1 || !member.IsIRI() || !d.graph.BoolValue(member, rdf.SysML+pIsLibraryElement) || !memberMatches {
+				return nil, &UnsupportedError{
+					What: fmt.Sprintf("the library membership <%s>", subject.Value),
+					Note: fmt.Sprintf("the bundled standard library gives id %q to the owning membership of %s (id %q), and its memberElement is not that library element", id, owned.FQN, owned.ID),
+				}
+			}
+			stubs[subject.Value] = true
+			continue
+		}
+		lib, ok := d.libraryElement(subject.Value, id)
+		if !ok {
+			note := fmt.Sprintf("it is marked sysml:isLibraryElement, but the bundled standard library has no element with id %q", id)
+			if name, kind, stated := d.librarySubjectName(subject); stated {
+				note += fmt.Sprintf(" or the stated %s %s", kind, name)
+			}
+			return nil, &UnsupportedError{
+				What: fmt.Sprintf("the library element <%s>", subject.Value),
+				Note: note,
+			}
+		}
+		if stated, ok := d.graph.Lexical(subject, rdf.SysML+pQualifiedName); ok && stated != lib.qname {
+			return nil, &UnsupportedError{
+				What: fmt.Sprintf("the library element <%s>", subject.Value),
+				Note: fmt.Sprintf("the graph names it %s, but the bundled standard library gives id %q to %s", stated, id, lib.qname),
+			}
+		}
+		stubs[subject.Value] = true
+	}
+	return stubs, nil
+}
+
 // libraryElement is the standard library element whose normative id a reference
 // names, if the norm fixes id for one; the graph need not define it.
 func (d *decoder) libraryElement(iri, id string) (*element, bool) {
 	if el, ok := d.libraryRefs[iri]; ok {
 		return el, true
 	}
-	lib, ok := identity.LibraryCatalog(libs.NewModelIndex()).Element(id)
+	lib, by, name, ok := d.resolveLibraryElement(iri, id)
 	if !ok {
 		return nil, false
+	}
+	if by != "" && d.warn != nil {
+		d.warn(fmt.Sprintf("the library element <%s> has id %q, which the bundled standard library does not have; resolved by its %s %s to the element with id %q",
+			iri, id, by, name, lib.ID))
 	}
 	el := &element{iri: iri, qname: lib.FQN, elementID: lib.ID, library: true}
 	if lib.Symbol != nil {
@@ -1254,6 +1358,125 @@ func (d *decoder) libraryElement(iri, id string) (*element, bool) {
 	}
 	d.libraryRefs[iri] = el
 	return el, true
+}
+
+func (d *decoder) resolveLibraryElement(iri, id string) (*identity.LibraryElement, string, string, bool) {
+	if d.libraryCatalog == nil {
+		return nil, "", "", false
+	}
+	if lib, ok := d.libraryCatalog.Element(id); ok {
+		return lib, "", "", d.libraryMetaclassCompatible(rdf.IRI(iri), lib)
+	}
+	subject := rdf.IRI(iri)
+	if name, by, stated := d.librarySubjectName(subject); stated {
+		if name == "" {
+			return nil, "", "", false
+		}
+		lib, ok := d.libraryCatalog.ElementNamed(name)
+		if !ok {
+			lib, ok = d.libraryCatalog.RootNamed(name)
+		}
+		if !ok || !d.libraryMetaclassCompatible(subject, lib) {
+			return nil, "", "", false
+		}
+		return lib, by, name, true
+	}
+	if lib, ok := d.importedMembershipTarget(iri); ok {
+		return lib, "qualified name", lib.FQN, true
+	}
+	return nil, "", "", false
+}
+
+func (d *decoder) librarySubjectName(subject rdf.Term) (string, string, bool) {
+	if name, ok := d.graph.Lexical(subject, rdf.SysML+pQualifiedName); ok {
+		return name, "qualified name", true
+	}
+	var names []string
+	seen := map[string]bool{}
+	for current := subject; current.IsIRI(); {
+		if seen[current.Value] {
+			return "", "", false
+		}
+		seen[current.Value] = true
+		if name, ok := d.graph.Lexical(current, rdf.SysML+pQualifiedName); ok {
+			return name + qualifiedNameSuffix(names), "name and owners", len(names) > 0
+		}
+		name, ok := d.graph.Lexical(current, rdf.SysML+pDeclaredName)
+		if !ok || name == "" {
+			return "", "", false
+		}
+		names = append([]string{name}, names...)
+		current = d.libraryOwner(current)
+	}
+	if len(names) == 0 {
+		return "", "", false
+	}
+	return strings.Join(names, "::"), "name and owners", true
+}
+
+func qualifiedNameSuffix(names []string) string {
+	if len(names) == 0 {
+		return ""
+	}
+	return "::" + strings.Join(names, "::")
+}
+
+func (d *decoder) libraryOwner(subject rdf.Term) rdf.Term {
+	if owner := firstIRI(d.graph, subject, pOwner, pOwningRelatedElement, pMembershipOwningNamespace, "owningNamespace"); owner.Value != "" {
+		return owner
+	}
+	if relationship := firstIRI(d.graph, subject, pOwningRelationship); relationship.Value != "" {
+		return firstIRI(d.graph, relationship, pMembershipOwningNamespace, pOwningRelatedElement, pOwner)
+	}
+	return rdf.Term{}
+}
+
+func (d *decoder) libraryMetaclassCompatible(subject rdf.Term, lib *identity.LibraryElement) bool {
+	stated := d.metaclass(subject)
+	if stated == "" {
+		return true
+	}
+	if lib.Symbol == nil {
+		return false
+	}
+	expected := declaredMetaclass(lib.Symbol.Decl)
+	return expected != "" && ontology.IsAncestorOrSelf(stated, expected)
+}
+
+func (d *decoder) importedMembershipTarget(iri string) (*identity.LibraryElement, bool) {
+	if d.ambiguousImports[iri] {
+		return nil, false
+	}
+	target, ok := d.importedMemberships[iri]
+	return target, ok
+}
+
+func (d *decoder) indexImportedMemberships(subjects []rdf.Term) {
+	for _, subject := range subjects {
+		if d.metaclass(subject) != mMembershipImport {
+			continue
+		}
+		membership, ok := d.graph.Object(subject, rdf.SysML+pImportedMembership)
+		if !ok || !membership.IsIRI() {
+			continue
+		}
+		imported, ok := d.graph.Object(subject, rdf.SysML+pImportedElement)
+		if !ok || !imported.IsIRI() {
+			continue
+		}
+		candidate, ok := d.libraryCatalog.Element(rdf.LocalName(imported.Value))
+		if !ok || !d.libraryMetaclassCompatible(imported, candidate) {
+			continue
+		}
+		if previous := d.importedMemberships[membership.Value]; previous != nil && previous.ID != candidate.ID {
+			delete(d.importedMemberships, membership.Value)
+			d.ambiguousImports[membership.Value] = true
+			continue
+		}
+		if !d.ambiguousImports[membership.Value] {
+			d.importedMemberships[membership.Value] = candidate
+		}
+	}
 }
 
 // checkMembershipEnds refuses a membership whose end is no element of the graph:
@@ -1573,6 +1796,14 @@ func (d *decoder) head(el *element) (string, error) {
 	return d.memberPrefixed(el, head)
 }
 
+// featuresUndeclaredIn202407 are the SysML Feature metaclasses the 202407 metamodel
+// table did not declare, so an earlier mapping never owned them as features.
+var featuresUndeclaredIn202407 = map[string]bool{
+	"ConstructorExpression": true, "FlowEnd": true, "FlowUsage": true, "IndexExpression": true,
+	"InstantiationExpression": true, "PayloadFeature": true, "SuccessionFlowUsage": true,
+	"TerminateActionUsage": true,
+}
+
 // typeFeatureMember reports whether a type owns el, a feature, through a plain
 // OwningMembership rather than a FeatureMembership (KerML.xtext TypeFeatureMember).
 func (d *decoder) typeFeatureMember(el *element) bool {
@@ -1583,6 +1814,11 @@ func (d *decoder) typeFeatureMember(el *element) bool {
 	// A variant is flagged as one whatever its membership is typed; an end's
 	// cross feature is written in the end's head (ownedCrossFeature).
 	if d.boolOf(el, rdf.SysML+"isVariant") || d.enumeratedValue(el) || d.ownedCrossFeature(el.owner) == el {
+		return false
+	}
+	// A mapping predating these metaclasses owned them through a plain
+	// OwningMembership; SysML has no `member`, so that shape is a plain feature.
+	if !d.kerml(el) && featuresUndeclaredIn202407[el.metaclass] {
 		return false
 	}
 	m, owned := d.owningMembership[el.iri]
@@ -1702,8 +1938,10 @@ func (d *decoder) declarationHead(el *element) (string, error) {
 	// order survives the round trip. A `succession` declaration whose head was
 	// kept verbatim never reaches here — print() writes its source text.
 	// A `succession` declaration that states the form its ends are written in
-	// is a head that binds ends, not an edge between two members.
-	if el.metaclass == mSuccession && (!d.statesEnds(el) || d.positionalSuccession(el)) {
+	// is a head that binds ends, not an edge between two members. The
+	// keyword-less `first a then b` owns its ends too, and is written by its
+	// source and target once they agree with them.
+	if el.metaclass == mSuccession && (!d.statesEnds(el) || d.positionalSuccession(el) || d.initialNode(el)) {
 		return d.successionHead(el)
 	}
 	// A control node, statement, state or region: the behavioral half of the
@@ -1769,11 +2007,10 @@ func (d *decoder) definitionHead(el *element, kind ast.DefinitionKind) (string, 
 	if keyword := d.visibility(el); keyword != "" {
 		words = append(words, keyword)
 	}
-	if d.boolOf(el, rdf.SysML+"isAbstract") {
+	if d.boolOf(el, rdf.SysML+"isAbstract") && kind != ast.DefEnumeration {
 		words = append(words, "abstract")
 	}
-	// An enumeration definition is a variation by what it is, not by a keyword
-	// (SysML v2 EnumerationDefinition); its isVariation writes nothing back.
+	// The enumeration grammar has no `abstract` or `variation` prefix.
 	if d.boolOf(el, rdf.SysML+"isVariation") && kind != ast.DefEnumeration {
 		words = append(words, "variation")
 	}
@@ -1859,7 +2096,8 @@ func (d *decoder) usageHead(el *element, kind ast.UsageKind) (string, error) {
 		// without the word, which only an explicit direction earns.
 		words = append(words, direction)
 	}
-	keyword := d.keywordOr(el, usageKeyword(kind))
+	canonicalKeyword := usageKeyword(kind)
+	keyword := d.keywordOr(el, canonicalKeyword)
 	// A `message` is the flow whose ends are event occurrences it owns as
 	// parameters; their metaclass says `message` where the graph states none.
 	if kind == ast.UsageFlow && keyword == usageKeyword(kind) {
@@ -1899,9 +2137,31 @@ func (d *decoder) usageHead(el *element, kind ast.UsageKind) (string, error) {
 			identWords = append(identWords, implicitName)
 		}
 	}
-	references, err := d.referenceList(el, rdf.SysML+relationshipProperty[ast.RelReferences])
-	if err != nil {
-		return "", err
+	// An unnamed variant ReferenceUsage that references a feature is a
+	// VariantReference (SysML-textual-bnf :343-345), written `variant x;` with
+	// no kind keyword of its own, whether or not the graph records `variant`.
+	referenceTerms := d.graph.Objects(rdf.IRI(el.iri), rdf.SysML+relationshipProperty[ast.RelReferences])
+	variantReference := el.metaclass == mReferenceUsage && d.boolOf(el, rdf.SysML+"isVariant") &&
+		len(identWords) == 0 && len(referenceTerms) > 0
+	variantName := ""
+	if variantReference {
+		keyword = "variant"
+		if variantName, err = d.variantName(el, referenceTerms); err != nil {
+			return "", err
+		}
+	}
+	var references []string
+	if variantName == "" {
+		if references, err = d.referenceList(el, rdf.SysML+relationshipProperty[ast.RelReferences]); err != nil {
+			return "", err
+		}
+	}
+	if variantReference && variantName == "" {
+		// Written as its reference, a variant's one-segment name would read
+		// back as `variant x;` naming itself: the reference is qualified.
+		if references, err = d.qualifiedReferences(el, referenceTerms, references); err != nil {
+			return "", err
+		}
 	}
 	portion, err := d.portionKind(el)
 	if err != nil {
@@ -1918,6 +2178,11 @@ func (d *decoder) usageHead(el *element, kind ast.UsageKind) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	// `variant` is a member keyword: the usage prefix it carries follows it
+	// (`variant ref x;`), so as the head's keyword it is written with the
+	// modifiers, ahead of them, rather than after them in the keyword's place.
+	isVariant := d.boolOf(el, rdf.SysML+"isVariant") && !d.enumeratedValue(el)
+	variantFirst := keyword == "variant" && isVariant
 	for _, flag := range []struct {
 		keyword string
 		set     bool
@@ -1925,7 +2190,7 @@ func (d *decoder) usageHead(el *element, kind ast.UsageKind) (string, error) {
 		{"variation", d.boolOf(el, rdf.SysML+"isVariation")},
 		// An enumerated value is a variant by what it is, not by a keyword
 		// (SysML.xtext EnumerationUsageMember); its isVariant writes nothing back.
-		{"variant", d.boolOf(el, rdf.SysML+"isVariant") && !d.enumeratedValue(el)},
+		{"variant", isVariant},
 		// `portion` is composite and stands in for `composite`
 		// (KerML.xtext BasicFeaturePrefix `isComposite ?= 'composite' | isPortion ?= 'portion'`).
 		{"portion", isPortion},
@@ -1937,11 +2202,12 @@ func (d *decoder) usageHead(el *element, kind ast.UsageKind) (string, error) {
 		{"timeslice", portion == "timeslice"},
 		{"event", event},
 		{"end", d.boolOf(el, rdf.SysML+"isEnd")},
-		{"ref", d.boolOf(el, rdf.SysML+"isReference")},
+		// A VariantReference is a reference usage by what it is.
+		{"ref", d.boolOf(el, rdf.SysML+"isReference") && !variantReference},
 	} {
 		// A keyword such as `snapshot` is both a modifier and a kind keyword;
 		// writing it here as well as below would declare it twice.
-		if flag.keyword == keyword {
+		if flag.keyword == keyword && !variantFirst {
 			continue
 		}
 		if flag.set {
@@ -1958,6 +2224,9 @@ func (d *decoder) usageHead(el *element, kind ast.UsageKind) (string, error) {
 				words = append(words, crossWords...)
 			}
 		}
+	}
+	if variantFirst {
+		keyword = ""
 	}
 	// Prefix metadata ends the usage prefix, ahead of the kind keyword
 	// (SysML.xtext UsagePrefix `UnextendedUsagePrefix UsageExtensionKeyword*`);
@@ -2100,6 +2369,20 @@ func (d *decoder) usageHead(el *element, kind ast.UsageKind) (string, error) {
 		}
 		words = append(words, strings.Join(satisfyTargets, ", "))
 		skip = append(skip, ast.RelSubsets)
+		subjects, err := d.referenceList(el, rdf.SysML+relationshipProperty[ast.RelSubject])
+		if err != nil {
+			return "", err
+		}
+		if len(subjects) > 1 {
+			return "", &UnsupportedError{
+				What: fmt.Sprintf("the satisfy usage <%s>", el.iri),
+				Note: "its subject parameter states more than one `by` reference",
+			}
+		}
+		if len(subjects) == 1 {
+			words = append(words, "by", subjects[0])
+			skip = append(skip, ast.RelSubject)
+		}
 	case kind == ast.UsageSatisfy:
 		words = append(words, "requirement")
 	}
@@ -2146,7 +2429,7 @@ func (d *decoder) usageHead(el *element, kind ast.UsageKind) (string, error) {
 	// A `perform` or a state's `entry`/`do`/`exit` names the action it performs,
 	// declaring no name of its own (SysML.xtext PerformActionUsageDeclaration),
 	// as `event m.start` and `assert c` name an occurrence or a constraint.
-	referencing := referenceMemberKeyword(keyword) || keyword == "event" || asserted
+	referencing := referenceMemberKeyword(keyword) || keyword == "event" || asserted || variantReference
 	if referencing && len(identWords) > 0 && !asserted {
 		// `event e;` names the `e` it refers to; a declared `e` spells its kind
 		// keyword out (`event occurrence e;`), which the graph does not state.
@@ -2155,7 +2438,7 @@ func (d *decoder) usageHead(el *element, kind ast.UsageKind) (string, error) {
 			Note: fmt.Sprintf("it declares a name (sysml:declaredName), which `%s` written as the kind keyword cannot: `%s <name>` names the feature it refers to, and a declaration is written `%s %s <name>`, so the notation would come back as a reference to a different element", keyword, keyword, keyword, usageKeyword(kind)),
 		}
 	}
-	if referencing && len(identWords) == 0 && len(references) == 0 {
+	if referencing && len(identWords) == 0 && len(references) == 0 && variantName == "" {
 		// With neither, `perform;` would come back as a feature named `perform`.
 		written := keyword
 		if asserted {
@@ -2168,7 +2451,11 @@ func (d *decoder) usageHead(el *element, kind ast.UsageKind) (string, error) {
 	}
 	referenced := referencing && len(identWords) == 0
 	if referenced {
-		words = append(words, strings.Join(references, ", "))
+		if variantName != "" {
+			words = append(words, variantName)
+		} else {
+			words = append(words, strings.Join(references, ", "))
+		}
 		skip = append(skip, ast.RelReferences)
 		// A qualified usage's redefinition follows the reference as `:>>`
 		// (SysML.xtext PerformActionUsageDeclaration & co.); `event` spells it.
@@ -2192,7 +2479,7 @@ func (d *decoder) usageHead(el *element, kind ast.UsageKind) (string, error) {
 	if d.boolOf(el, rdf.SysML+"isOrdered") {
 		multPart += " ordered"
 	}
-	if d.boolOf(el, rdf.SysML+"isNonunique") {
+	if d.nonunique(el) {
 		multPart += " nonunique"
 	}
 	typed, err := d.referenceList(el, rdf.SysML+relationshipProperty[ast.RelTyping])
@@ -2227,6 +2514,16 @@ func (d *decoder) usageHead(el *element, kind ast.UsageKind) (string, error) {
 		words = append(words, typed[0]+typedPart)
 		typedPart = ""
 		skip = append(skip, ast.RelTyping)
+	}
+	if isResult && el.metaclass == mReferenceUsage {
+		subsets, err := d.referenceList(el, rdf.SysML+relationshipProperty[ast.RelSubsets])
+		if err != nil {
+			return "", err
+		}
+		if len(subsets) > 0 {
+			words = append(words, ":>", strings.Join(subsets, ", "))
+			skip = append(skip, ast.RelSubsets)
+		}
 	}
 	relationships, err := d.relationshipWords(el, typedPart, skip...)
 	if err != nil {
@@ -2529,7 +2826,11 @@ func (d *decoder) importHead(el *element) (string, error) {
 		return "", err
 	}
 	if imported == "" {
-		return "", d.missing(target, sysmlPrefix+pImportedNamespace, "an import names the namespace or membership it imports")
+		property := pImportedNamespace
+		if target.metaclass == mMembershipImport || target.metaclass == mMembershipExpose {
+			property = pImportedMembership
+		}
+		return "", d.missing(target, sysmlPrefix+property, "an import names the namespace or membership it imports")
 	}
 	// `P::*::**` imports the members of P recursively; `P::**` imports P itself
 	// and, recursively, its members. An older graph states the kind of an
@@ -2665,6 +2966,19 @@ func (d *decoder) importedName(el *element) (string, error) {
 		}
 	}
 	if len(memberships) == 0 {
+		if membershipClass {
+			elements := d.graph.Objects(subject, rdf.SysML+pImportedElement)
+			if len(elements) > 1 {
+				return "", &UnsupportedError{
+					What: fmt.Sprintf("the import <%s>", el.iri),
+					Note: fmt.Sprintf("a membership import names one element, and it states %d %s%s values", len(elements), sysmlPrefix, pImportedElement),
+				}
+			}
+			if len(elements) == 1 {
+				return d.referenceName(elements[0], el)
+			}
+			return "", nil
+		}
 		return d.referenceText(el, rdf.SysML+pImportedNamespace)
 	}
 	term := memberships[0]
@@ -2910,6 +3224,98 @@ func (d *decoder) implicitRedefinitionName(el *element) (string, error) {
 	return nameText(name), nil
 }
 
+// qualifiedReferences respells, in more than one segment, each written
+// reference among el's terms whose element the graph links, and wants every
+// later spelling of it qualified too.
+func (d *decoder) qualifiedReferences(el *element, terms []rdf.Term, written []string) ([]string, error) {
+	if len(terms) != len(written) {
+		return written, nil
+	}
+	out := slices.Clone(written)
+	for i, term := range terms {
+		if term.IsLiteral() {
+			continue
+		}
+		if isChain, err := d.chainFeatureTerm(term); err != nil {
+			return nil, err
+		} else if isChain {
+			continue
+		}
+		target, err := d.referencedElement(term.Value)
+		if err != nil {
+			return nil, err
+		}
+		key := nameKey{member: d.writtenQName(el), target: target.qname}
+		ref, ok := d.wanted.references[key]
+		if !ok {
+			continue
+		}
+		ref.qualifiedOnly = true
+		if spellings := qualifiedSpellings([]string{ref.written}); len(spellings) == 0 {
+			if qualified := qualifiedSpellings(referenceSpellings(ref.qualified)); len(qualified) > 0 {
+				ref.written = qualified[0]
+				out[i] = qualifiedNameText(ref.written)
+			}
+		}
+		d.wanted.references[key] = ref
+	}
+	return out, nil
+}
+
+// literalVariantName writes a variant whose reference the graph keeps as a
+// name it does not link (an unresolved `variant x;`): a single name only for
+// the variant that answers to it, since `variant x;` is read as that variant.
+// A qualified name is written as the reference form; any other single name is
+// refused, as no notation states it.
+func (d *decoder) literalVariantName(el *element, term rdf.Term) (string, error) {
+	segments := identitySegments(term.Value)
+	if len(segments) != 1 {
+		return "", nil
+	}
+	name := identityName(segments[0])
+	if lastName(d.writtenQName(el)) == name {
+		return nameText(name), nil
+	}
+	return "", &UnsupportedError{
+		What: fmt.Sprintf("the variant <%s>", el.iri),
+		Note: fmt.Sprintf("it references the name %q, which the graph links to no element: `variant %s;` would be a variant named %s, which it is not, and a single name has no reference form", term.Value, term.Value, term.Value),
+	}
+}
+
+// lastName is the decoded name of a qualified name's last segment, so a
+// quoted `'a::b'` compares as the one name it is.
+func lastName(qname string) string {
+	segments := identitySegments(qname)
+	return identityName(segments[len(segments)-1])
+}
+
+// variantName is the name a VariantReference is written by, `variant x;`: the
+// name of the one feature it references, when that is also the name the
+// variant answers to; the check that x reaches that feature from the variation
+// is wanted of the rendering. Empty when the reference is written instead
+// (`variant P::x;`, `variant a.b;`).
+func (d *decoder) variantName(el *element, terms []rdf.Term) (string, error) {
+	if len(terms) != 1 {
+		return "", nil
+	}
+	if terms[0].IsLiteral() {
+		return d.literalVariantName(el, terms[0])
+	}
+	if isChain, err := d.chainFeatureTerm(terms[0]); err != nil || isChain {
+		return "", err
+	}
+	target, name, err := d.namedMember(terms[0])
+	if err != nil {
+		return "", err
+	}
+	qname := d.writtenQName(el)
+	if lastName(qname) != name {
+		return "", nil
+	}
+	d.wanted.variants[qname] = target.qname
+	return nameText(name), nil
+}
+
 // metadataBodyMember reports whether el is a `text = "…"` line inside a
 // metadata body: a ReferenceUsage owned through a FeatureMembership under a
 // MetadataUsage, declaring no kind keyword of its own.
@@ -3065,6 +3471,11 @@ func (d *decoder) identWords(el *element) []string {
 // implicit metadata-body name — when the rendering's anonymous index names it,
 // as the name the member's position reads it as.
 func (d *decoder) writtenQName(el *element) string {
+	if el.owner != nil && el.owner.metaclass == mAcceptAction &&
+		d.transitionFeatureKind(el.owner) == "trigger" &&
+		el.owner.owner != nil && el.owner.owner.metaclass == mTransition {
+		return d.writtenQName(el.owner.owner)
+	}
 	q := el.qname
 	i := strings.LastIndex(q, "::")
 	if i < 0 || strings.HasPrefix(q[i+len("::"):], "@") {
@@ -3274,7 +3685,8 @@ func (d *decoder) bodyChildren(el *element) []*element {
 	payload := d.flowPayload(el)
 	var out []*element
 	for _, child := range el.children {
-		if child != cross && child != payload && !child.implied && d.metadataSigil(child) != "#" {
+		headEnd := child.metaclass == mFlowEnd && d.headEnd(child, el)
+		if child != cross && child != payload && !headEnd && !child.implied && d.metadataSigil(child) != "#" {
 			out = append(out, child)
 		}
 	}
@@ -3316,13 +3728,11 @@ func (d *decoder) crossFeatureWords(cross *element) ([]string, error) {
 	case mult != "":
 		words = append(words, mult)
 	}
-	for _, flag := range []struct {
-		property string
-		keyword  string
-	}{{"isOrdered", "ordered"}, {"isNonunique", "nonunique"}} {
-		if d.boolOf(cross, rdf.SysML+flag.property) {
-			words = append(words, flag.keyword)
-		}
+	if d.boolOf(cross, rdf.SysML+"isOrdered") {
+		words = append(words, "ordered")
+	}
+	if d.nonunique(cross) {
+		words = append(words, "nonunique")
 	}
 	if len(words) == 0 {
 		return nil, &UnsupportedError{
@@ -3874,6 +4284,15 @@ func (d *decoder) boolOf(el *element, property string) bool {
 		return d.graph.BoolValue(value, property)
 	}
 	return false
+}
+
+// nonunique reads `nonunique` from Feature::isUnique false, or from the
+// isNonunique an earlier mapping wrote for it.
+func (d *decoder) nonunique(el *element) bool {
+	if unique, stated := d.graph.Lexical(rdf.IRI(el.iri), rdf.SysML+pIsUnique); stated {
+		return unique == "false" || unique == "0"
+	}
+	return d.boolOf(el, rdf.SysML+"isNonunique")
 }
 
 // declaresUsage reports whether el is a usage declaration rather than a body

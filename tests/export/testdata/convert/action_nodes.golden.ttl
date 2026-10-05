@@ -164,15 +164,15 @@ elmt:ActionNodes__Drive
     sysml:ownedMember elmt:ActionNodes__Drive__speed, elmt:ActionNodes__Drive__log, elmt:ActionNodes__Drive__antenna, elmt:ActionNodes__Drive__Stop, elmt:ActionNodes__Drive__brake, elmt:ActionNodes__Drive__split, elmt:ActionNodes__Drive__sync, elmt:ActionNodes__Drive__gather, elmt:ActionNodes__Drive__pick, elmt:ActionNodes__Drive___4010, elmt:ActionNodes__Drive__Brake, elmt:ActionNodes__Drive___4012, elmt:ActionNodes__Drive___4013, elmt:ActionNodes__Drive___4014, elmt:ActionNodes__Drive___4015, elmt:ActionNodes__Drive___4016, elmt:ActionNodes__Drive___4017, elmt:ActionNodes__Drive___4019, elmt:ActionNodes__Drive___4020 ;
     sysml:ownedMembership elmt:ActionNodes__Drive__speed_om, elmt:ActionNodes__Drive__log_om, elmt:ActionNodes__Drive__antenna_om, elmt:ActionNodes__Drive__Stop_om, elmt:ActionNodes__Drive___404, elmt:ActionNodes__Drive__brake_om, elmt:ActionNodes__Drive__split_om, elmt:ActionNodes__Drive__sync_om, elmt:ActionNodes__Drive__gather_om, elmt:ActionNodes__Drive__pick_om, elmt:ActionNodes__Drive___4010_om, elmt:ActionNodes__Drive__Brake_om, elmt:ActionNodes__Drive___4012_om, elmt:ActionNodes__Drive___4013_om, elmt:ActionNodes__Drive___4014_om, elmt:ActionNodes__Drive___4015_om, elmt:ActionNodes__Drive___4016_om, elmt:ActionNodes__Drive___4017_om, elmt:ActionNodes__Drive___4018, elmt:ActionNodes__Drive___4019_om, elmt:ActionNodes__Drive___4020_om ;
     sysml:ownedRelationship elmt:ActionNodes__Drive__speed_om, elmt:ActionNodes__Drive__log_om, elmt:ActionNodes__Drive__antenna_om, elmt:ActionNodes__Drive__Stop_om, elmt:ActionNodes__Drive___404, elmt:ActionNodes__Drive__brake_om, elmt:ActionNodes__Drive__split_om, elmt:ActionNodes__Drive__sync_om, elmt:ActionNodes__Drive__gather_om, elmt:ActionNodes__Drive__pick_om, elmt:ActionNodes__Drive___4010_om, elmt:ActionNodes__Drive__Brake_om, elmt:ActionNodes__Drive___4012_om, elmt:ActionNodes__Drive___4013_om, elmt:ActionNodes__Drive___4014_om, elmt:ActionNodes__Drive___4015_om, elmt:ActionNodes__Drive___4016_om, elmt:ActionNodes__Drive___4017_om, elmt:ActionNodes__Drive___4018, elmt:ActionNodes__Drive___4019_om, elmt:ActionNodes__Drive___4020_om ;
-    sysml:ownedFeature elmt:ActionNodes__Drive__speed, elmt:ActionNodes__Drive__log, elmt:ActionNodes__Drive__antenna, elmt:ActionNodes__Drive__brake, elmt:ActionNodes__Drive__split, elmt:ActionNodes__Drive__sync, elmt:ActionNodes__Drive__gather, elmt:ActionNodes__Drive__pick, elmt:ActionNodes__Drive___4010, elmt:ActionNodes__Drive__Brake, elmt:ActionNodes__Drive___4012, elmt:ActionNodes__Drive___4013, elmt:ActionNodes__Drive___4014, elmt:ActionNodes__Drive___4015, elmt:ActionNodes__Drive___4019, elmt:ActionNodes__Drive___4020 ;
-    sysml:ownedFeatureMembership elmt:ActionNodes__Drive__speed_om, elmt:ActionNodes__Drive__log_om, elmt:ActionNodes__Drive__antenna_om, elmt:ActionNodes__Drive__brake_om, elmt:ActionNodes__Drive__split_om, elmt:ActionNodes__Drive__sync_om, elmt:ActionNodes__Drive__gather_om, elmt:ActionNodes__Drive__pick_om, elmt:ActionNodes__Drive___4010_om, elmt:ActionNodes__Drive__Brake_om, elmt:ActionNodes__Drive___4012_om, elmt:ActionNodes__Drive___4013_om, elmt:ActionNodes__Drive___4014_om, elmt:ActionNodes__Drive___4015_om, elmt:ActionNodes__Drive___4019_om, elmt:ActionNodes__Drive___4020_om ;
+    sysml:ownedFeature elmt:ActionNodes__Drive__speed, elmt:ActionNodes__Drive__log, elmt:ActionNodes__Drive__antenna, elmt:ActionNodes__Drive__brake, elmt:ActionNodes__Drive__split, elmt:ActionNodes__Drive__sync, elmt:ActionNodes__Drive__gather, elmt:ActionNodes__Drive__pick, elmt:ActionNodes__Drive___4010, elmt:ActionNodes__Drive__Brake, elmt:ActionNodes__Drive___4012, elmt:ActionNodes__Drive___4013, elmt:ActionNodes__Drive___4014, elmt:ActionNodes__Drive___4015, elmt:ActionNodes__Drive___4016, elmt:ActionNodes__Drive___4017, elmt:ActionNodes__Drive___4019, elmt:ActionNodes__Drive___4020 ;
+    sysml:ownedFeatureMembership elmt:ActionNodes__Drive__speed_om, elmt:ActionNodes__Drive__log_om, elmt:ActionNodes__Drive__antenna_om, elmt:ActionNodes__Drive__brake_om, elmt:ActionNodes__Drive__split_om, elmt:ActionNodes__Drive__sync_om, elmt:ActionNodes__Drive__gather_om, elmt:ActionNodes__Drive__pick_om, elmt:ActionNodes__Drive___4010_om, elmt:ActionNodes__Drive__Brake_om, elmt:ActionNodes__Drive___4012_om, elmt:ActionNodes__Drive___4013_om, elmt:ActionNodes__Drive___4014_om, elmt:ActionNodes__Drive___4015_om, elmt:ActionNodes__Drive___4016_om, elmt:ActionNodes__Drive___4017_om, elmt:ActionNodes__Drive___4019_om, elmt:ActionNodes__Drive___4020_om ;
     sysx:sourceText "    action def Drive {\n" ;
     sysx:sourceTail "    }\n" ;
     json:ownedMember "[{\"@id\":\"ActionNodes__Drive__speed\"},{\"@id\":\"ActionNodes__Drive__log\"},{\"@id\":\"ActionNodes__Drive__antenna\"},{\"@id\":\"ActionNodes__Drive__Stop\"},{\"@id\":\"ActionNodes__Drive__brake\"},{\"@id\":\"ActionNodes__Drive__split\"},{\"@id\":\"ActionNodes__Drive__sync\"},{\"@id\":\"ActionNodes__Drive__gather\"},{\"@id\":\"ActionNodes__Drive__pick\"},{\"@id\":\"ActionNodes__Drive___4010\"},{\"@id\":\"ActionNodes__Drive__Brake\"},{\"@id\":\"ActionNodes__Drive___4012\"},{\"@id\":\"ActionNodes__Drive___4013\"},{\"@id\":\"ActionNodes__Drive___4014\"},{\"@id\":\"ActionNodes__Drive___4015\"},{\"@id\":\"ActionNodes__Drive___4016\"},{\"@id\":\"ActionNodes__Drive___4017\"},{\"@id\":\"ActionNodes__Drive___4019\"},{\"@id\":\"ActionNodes__Drive___4020\"}]" ;
     json:ownedMembership "[{\"@id\":\"ActionNodes__Drive__speed_om\"},{\"@id\":\"ActionNodes__Drive__log_om\"},{\"@id\":\"ActionNodes__Drive__antenna_om\"},{\"@id\":\"ActionNodes__Drive__Stop_om\"},{\"@id\":\"ActionNodes__Drive___404\"},{\"@id\":\"ActionNodes__Drive__brake_om\"},{\"@id\":\"ActionNodes__Drive__split_om\"},{\"@id\":\"ActionNodes__Drive__sync_om\"},{\"@id\":\"ActionNodes__Drive__gather_om\"},{\"@id\":\"ActionNodes__Drive__pick_om\"},{\"@id\":\"ActionNodes__Drive___4010_om\"},{\"@id\":\"ActionNodes__Drive__Brake_om\"},{\"@id\":\"ActionNodes__Drive___4012_om\"},{\"@id\":\"ActionNodes__Drive___4013_om\"},{\"@id\":\"ActionNodes__Drive___4014_om\"},{\"@id\":\"ActionNodes__Drive___4015_om\"},{\"@id\":\"ActionNodes__Drive___4016_om\"},{\"@id\":\"ActionNodes__Drive___4017_om\"},{\"@id\":\"ActionNodes__Drive___4018\"},{\"@id\":\"ActionNodes__Drive___4019_om\"},{\"@id\":\"ActionNodes__Drive___4020_om\"}]" ;
     json:ownedRelationship "[{\"@id\":\"ActionNodes__Drive__speed_om\"},{\"@id\":\"ActionNodes__Drive__log_om\"},{\"@id\":\"ActionNodes__Drive__antenna_om\"},{\"@id\":\"ActionNodes__Drive__Stop_om\"},{\"@id\":\"ActionNodes__Drive___404\"},{\"@id\":\"ActionNodes__Drive__brake_om\"},{\"@id\":\"ActionNodes__Drive__split_om\"},{\"@id\":\"ActionNodes__Drive__sync_om\"},{\"@id\":\"ActionNodes__Drive__gather_om\"},{\"@id\":\"ActionNodes__Drive__pick_om\"},{\"@id\":\"ActionNodes__Drive___4010_om\"},{\"@id\":\"ActionNodes__Drive__Brake_om\"},{\"@id\":\"ActionNodes__Drive___4012_om\"},{\"@id\":\"ActionNodes__Drive___4013_om\"},{\"@id\":\"ActionNodes__Drive___4014_om\"},{\"@id\":\"ActionNodes__Drive___4015_om\"},{\"@id\":\"ActionNodes__Drive___4016_om\"},{\"@id\":\"ActionNodes__Drive___4017_om\"},{\"@id\":\"ActionNodes__Drive___4018\"},{\"@id\":\"ActionNodes__Drive___4019_om\"},{\"@id\":\"ActionNodes__Drive___4020_om\"}]" ;
-    json:ownedFeature "[{\"@id\":\"ActionNodes__Drive__speed\"},{\"@id\":\"ActionNodes__Drive__log\"},{\"@id\":\"ActionNodes__Drive__antenna\"},{\"@id\":\"ActionNodes__Drive__brake\"},{\"@id\":\"ActionNodes__Drive__split\"},{\"@id\":\"ActionNodes__Drive__sync\"},{\"@id\":\"ActionNodes__Drive__gather\"},{\"@id\":\"ActionNodes__Drive__pick\"},{\"@id\":\"ActionNodes__Drive___4010\"},{\"@id\":\"ActionNodes__Drive__Brake\"},{\"@id\":\"ActionNodes__Drive___4012\"},{\"@id\":\"ActionNodes__Drive___4013\"},{\"@id\":\"ActionNodes__Drive___4014\"},{\"@id\":\"ActionNodes__Drive___4015\"},{\"@id\":\"ActionNodes__Drive___4019\"},{\"@id\":\"ActionNodes__Drive___4020\"}]" ;
-    json:ownedFeatureMembership "[{\"@id\":\"ActionNodes__Drive__speed_om\"},{\"@id\":\"ActionNodes__Drive__log_om\"},{\"@id\":\"ActionNodes__Drive__antenna_om\"},{\"@id\":\"ActionNodes__Drive__brake_om\"},{\"@id\":\"ActionNodes__Drive__split_om\"},{\"@id\":\"ActionNodes__Drive__sync_om\"},{\"@id\":\"ActionNodes__Drive__gather_om\"},{\"@id\":\"ActionNodes__Drive__pick_om\"},{\"@id\":\"ActionNodes__Drive___4010_om\"},{\"@id\":\"ActionNodes__Drive__Brake_om\"},{\"@id\":\"ActionNodes__Drive___4012_om\"},{\"@id\":\"ActionNodes__Drive___4013_om\"},{\"@id\":\"ActionNodes__Drive___4014_om\"},{\"@id\":\"ActionNodes__Drive___4015_om\"},{\"@id\":\"ActionNodes__Drive___4019_om\"},{\"@id\":\"ActionNodes__Drive___4020_om\"}]" .
+    json:ownedFeature "[{\"@id\":\"ActionNodes__Drive__speed\"},{\"@id\":\"ActionNodes__Drive__log\"},{\"@id\":\"ActionNodes__Drive__antenna\"},{\"@id\":\"ActionNodes__Drive__brake\"},{\"@id\":\"ActionNodes__Drive__split\"},{\"@id\":\"ActionNodes__Drive__sync\"},{\"@id\":\"ActionNodes__Drive__gather\"},{\"@id\":\"ActionNodes__Drive__pick\"},{\"@id\":\"ActionNodes__Drive___4010\"},{\"@id\":\"ActionNodes__Drive__Brake\"},{\"@id\":\"ActionNodes__Drive___4012\"},{\"@id\":\"ActionNodes__Drive___4013\"},{\"@id\":\"ActionNodes__Drive___4014\"},{\"@id\":\"ActionNodes__Drive___4015\"},{\"@id\":\"ActionNodes__Drive___4016\"},{\"@id\":\"ActionNodes__Drive___4017\"},{\"@id\":\"ActionNodes__Drive___4019\"},{\"@id\":\"ActionNodes__Drive___4020\"}]" ;
+    json:ownedFeatureMembership "[{\"@id\":\"ActionNodes__Drive__speed_om\"},{\"@id\":\"ActionNodes__Drive__log_om\"},{\"@id\":\"ActionNodes__Drive__antenna_om\"},{\"@id\":\"ActionNodes__Drive__brake_om\"},{\"@id\":\"ActionNodes__Drive__split_om\"},{\"@id\":\"ActionNodes__Drive__sync_om\"},{\"@id\":\"ActionNodes__Drive__gather_om\"},{\"@id\":\"ActionNodes__Drive__pick_om\"},{\"@id\":\"ActionNodes__Drive___4010_om\"},{\"@id\":\"ActionNodes__Drive__Brake_om\"},{\"@id\":\"ActionNodes__Drive___4012_om\"},{\"@id\":\"ActionNodes__Drive___4013_om\"},{\"@id\":\"ActionNodes__Drive___4014_om\"},{\"@id\":\"ActionNodes__Drive___4015_om\"},{\"@id\":\"ActionNodes__Drive___4016_om\"},{\"@id\":\"ActionNodes__Drive___4017_om\"},{\"@id\":\"ActionNodes__Drive___4019_om\"},{\"@id\":\"ActionNodes__Drive___4020_om\"}]" .
 
 elmt:ActionNodes__Drive_om
     a sysml:OwningMembership ;
@@ -1300,14 +1300,16 @@ elmt:ActionNodes__Drive___4016
     sysx:sourceText "        terminate;\n" .
 
 elmt:ActionNodes__Drive___4016_om
-    a sysml:OwningMembership ;
+    a sysml:FeatureMembership ;
     sysml:elementId "ActionNodes__Drive___4016_om" ;
     sysml:owner elmt:ActionNodes__Drive ;
     sysml:memberElement elmt:ActionNodes__Drive___4016 ;
     sysml:ownedMemberElement elmt:ActionNodes__Drive___4016 ;
     sysml:ownedRelatedElement elmt:ActionNodes__Drive___4016 ;
     sysml:owningRelatedElement elmt:ActionNodes__Drive ;
-    sysml:membershipOwningNamespace elmt:ActionNodes__Drive .
+    sysml:membershipOwningNamespace elmt:ActionNodes__Drive ;
+    sysml:ownedMemberFeature elmt:ActionNodes__Drive___4016 ;
+    sysml:owningType elmt:ActionNodes__Drive .
 
 elmt:ActionNodes__Drive___4017
     a sysml:TerminateActionUsage ;
@@ -1328,14 +1330,16 @@ elmt:ActionNodes__Drive___4017
     sysx:sourceText "        terminate brake;\n" .
 
 elmt:ActionNodes__Drive___4017_om
-    a sysml:OwningMembership ;
+    a sysml:FeatureMembership ;
     sysml:elementId "ActionNodes__Drive___4017_om" ;
     sysml:owner elmt:ActionNodes__Drive ;
     sysml:memberElement elmt:ActionNodes__Drive___4017 ;
     sysml:ownedMemberElement elmt:ActionNodes__Drive___4017 ;
     sysml:ownedRelatedElement elmt:ActionNodes__Drive___4017 ;
     sysml:owningRelatedElement elmt:ActionNodes__Drive ;
-    sysml:membershipOwningNamespace elmt:ActionNodes__Drive .
+    sysml:membershipOwningNamespace elmt:ActionNodes__Drive ;
+    sysml:ownedMemberFeature elmt:ActionNodes__Drive___4017 ;
+    sysml:owningType elmt:ActionNodes__Drive .
 
 expr:ActionNodes__Drive___4017_pexpression
     a sysml:FeatureReferenceExpression ;
@@ -1744,3 +1748,17 @@ expr:ActionNodes__Drive___4017_pexpression_preferent
     sysml:memberElement elmt:ActionNodes__Drive__brake ;
     sysml:owner expr:ActionNodes__Drive___4017_pexpression ;
     sysml:owningRelatedElement expr:ActionNodes__Drive___4017_pexpression .
+
+<urn:sysmlv2:element:0cdc3cd3-b06c-5c32-beda-0cf4ba164a64>
+    a sysml:ActionUsage ;
+    sysml:elementId "0cdc3cd3-b06c-5c32-beda-0cf4ba164a64" ;
+    sysml:qualifiedName "Actions::Action::done" ;
+    sysml:declaredName "done" ;
+    sysml:isLibraryElement "true"^^xsd:boolean .
+
+<urn:sysmlv2:element:9a0d2905-0f9c-5bb4-af74-9780d6db1817>
+    a sysml:ActionUsage ;
+    sysml:elementId "9a0d2905-0f9c-5bb4-af74-9780d6db1817" ;
+    sysml:qualifiedName "Actions::Action::start" ;
+    sysml:declaredName "start" ;
+    sysml:isLibraryElement "true"^^xsd:boolean .

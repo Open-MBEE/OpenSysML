@@ -1857,12 +1857,14 @@ func TestConditionWithAnUnsupportedKeywordIsReported(t *testing.T) {
 	if got := strings.Count(structural, `sysx:declaredKeyword "constraint" ;`); got != 2 {
 		t.Fatalf("expected two declared constraints in the graph, found %d:\n%s", got, structural)
 	}
-	// `require C;` reads as an inline condition naming C; the reference form is
-	// what a graph states through sysml:references.
-	const inline = `sysx:condition expr:P__R___402_pcondition`
-	if !strings.Contains(structural, inline) {
-		t.Fatalf("the inline require member was not found in the graph:\n%s", structural)
+	// `require C;` is the reference form, stated through sysml:references; a
+	// graph may also state the member's condition inline.
+	const reference = `sysml:references elmt:P__C ;`
+	if !strings.Contains(structural, reference) {
+		t.Fatalf("the reference-form require member was not found in the graph:\n%s", structural)
 	}
+	inlined := inlineCondition(t, structural, "elmt:P__R___402")
+	const inline = `sysx:condition "true"`
 	const declared, assert = `sysx:declaredKeyword "constraint" ;`, `sysx:declaredKeyword "assert" ;`
 	// The two declared constraints are written in source order: c, then d.
 	secondDeclared := strings.Replace(structural, declared, "\x00", 1)
@@ -1870,11 +1872,11 @@ func TestConditionWithAnUnsupportedKeywordIsReported(t *testing.T) {
 	for _, tc := range []struct{ name, edited, member string }{
 		{"bodied assume", strings.Replace(structural, declared, assert, 1), "assume"},
 		{"bodyless require", secondDeclared, "require"},
-		{"inline require", strings.Replace(structural, inline, `sysx:declaredKeyword "verify" ;`+"\n    "+inline, 1), "require"},
-		{"reference-form require", strings.Replace(structural, inline, `sysx:declaredKeyword "verify" ;`+"\n    "+`sysml:references elmt:P__C`, 1), "require"},
+		{"inline require", strings.Replace(inlined, inline, `sysx:declaredKeyword "verify" ;`+"\n    "+inline, 1), "require"},
+		{"reference-form require", strings.Replace(structural, reference, `sysx:declaredKeyword "verify" ;`+"\n    "+reference, 1), "require"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			if tc.edited == structural {
+			if tc.edited == structural || tc.edited == inlined {
 				t.Fatal("the graph was not edited")
 			}
 			_, err := convert.Convert("m.ttl", []byte(tc.edited), convert.FormatTurtle, convert.FormatSysML)
@@ -1910,14 +1912,11 @@ func TestInlineConditionWithDeclarationFactsIsReported(t *testing.T) {
 	if err != nil {
 		t.Fatalf("to turtle: %v", err)
 	}
+	// Both members are the reference form; a graph may state their conditions inline.
+	const require, assert = "elmt:P__R___400", "elmt:P__q___400"
 	structural := string(withoutTriples(t, turtle, "sysx:sourceText"))
-	const require, assert = `sysx:condition expr:P__R___400_pcondition`, `sysx:condition expr:P__q___400_pcondition`
-	for _, inline := range []string{require, assert} {
-		if !strings.Contains(structural, inline) {
-			t.Fatalf("%s was not found in the graph:\n%s", inline, structural)
-		}
-	}
-	for _, tc := range []struct{ name, inline, added, drops string }{
+	structural = inlineCondition(t, inlineCondition(t, structural, require), assert)
+	for _, tc := range []struct{ name, member, added, drops string }{
 		{"declared constraint keyword", require, `sysx:declaredKeyword "constraint" ;`, "declares a `constraint`"},
 		{"stated constraint", require, `sysml:references elmt:P__C ;`, "states a constraint through sysml:references"},
 		{"body", require, `sysx:hasBody "true"^^xsd:boolean ;`, "has a body"},
@@ -1929,10 +1928,14 @@ func TestInlineConditionWithDeclarationFactsIsReported(t *testing.T) {
 		{"asserted name", assert, `sysml:declaredName "c" ;`, "declares a name"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			edited := strings.Replace(structural, tc.inline, tc.added+"\n    "+tc.inline, 1)
-			if edited == structural {
-				t.Fatal("the graph was not edited")
+			// The added triple goes ahead of the member's own inline condition.
+			const inline = `sysx:condition "true"`
+			block := strings.Index(structural, tc.member+"\n")
+			if block < 0 || !strings.Contains(structural[block:], inline) {
+				t.Fatalf("%s states no inline condition:\n%s", tc.member, structural)
 			}
+			at := block + strings.Index(structural[block:], inline)
+			edited := structural[:at] + tc.added + "\n    " + structural[at:]
 			_, err := convert.Convert("m.ttl", []byte(edited), convert.FormatTurtle, convert.FormatSysML)
 			var unsupported *export.UnsupportedError
 			if !errors.As(err, &unsupported) {
@@ -1945,16 +1948,49 @@ func TestInlineConditionWithDeclarationFactsIsReported(t *testing.T) {
 			}
 		})
 	}
-	// The unedited graph still round-trips: the inline form alone is the form.
+	// The inlined graph alone still round-trips: the inline form is one form.
 	back, err := convert.Convert("m.ttl", []byte(structural), convert.FormatTurtle, convert.FormatSysML)
 	if err != nil {
 		t.Fatalf("back to sysml: %v", err)
 	}
-	for _, want := range []string{"require C;", "assert C;"} {
+	for _, want := range []string{"require true;", "assert true;"} {
 		if !strings.Contains(string(back), want) {
 			t.Errorf("expected %q in:\n%s", want, back)
 		}
 	}
+}
+
+// inlineCondition rewrites a reference-form condition member of a Turtle
+// document as one stating the condition `true` inline: its sysml:references
+// becomes sysx:condition, and the ReferenceSubsetting it owns and its
+// sysx:hasBody, which an inline condition does not state, are dropped.
+func inlineCondition(t *testing.T, turtle, member string) string {
+	t.Helper()
+	rs := member + "_rs"
+	var lines []string
+	inMember := false
+	for _, line := range strings.Split(string(withoutSubjects(t, []byte(turtle), rs)), "\n") {
+		if !strings.HasPrefix(line, " ") && line != "" {
+			inMember = line == member
+		}
+		trimmed := strings.TrimSpace(line)
+		switch {
+		case inMember && strings.HasPrefix(trimmed, "sysml:references "):
+			line = `    sysx:condition "true" ` + trimmed[len(trimmed)-1:]
+		case strings.HasSuffix(trimmed, " "+rs+" ;"), inMember && trimmed == `sysx:hasBody "false"^^xsd:boolean ;`:
+			continue
+		case strings.HasSuffix(trimmed, " "+rs+" ."), inMember && trimmed == `sysx:hasBody "false"^^xsd:boolean .`:
+			last := len(lines) - 1
+			lines[last] = strings.TrimSuffix(lines[last], ";") + "."
+			continue
+		}
+		lines = append(lines, line)
+	}
+	edited := strings.Join(lines, "\n")
+	if edited == turtle || strings.Contains(edited, rs) {
+		t.Fatalf("%s is not a reference-form condition member:\n%s", member, turtle)
+	}
+	return edited
 }
 
 // A head kept as source text writes its prefix annotations in that text; when
@@ -3270,7 +3306,7 @@ func TestElementIRIsEncodeQualifiedNames(t *testing.T) {
 // the succession a transition owns (`_succession`), the referent memberships an
 // expression's referent edge restates, and a
 // filtered import's unnamed `_fp` package with its `_im` import and `_efm` filter.
-var materializedSuffixID = regexp.MustCompile(`_(ft|sc|ss|sp|rd|rs)[0-9]*(_om)?$|_(subject|conjugated|pc|referent|preferent|targetFeature|succession)(_om)?$|_fp(_im|_efm)?$|_an$`)
+var materializedSuffixID = regexp.MustCompile(`_(ft|sc|ss|sp|rd|rs)[0-9]*(_om)?$|_(subject|conjugated|pc|referent|preferent|targetFeature|succession|linkparam|triggerparam)(_om)?$|_fp(_im|_efm)?$|_an$`)
 
 // materializedExprID is the same convention inside an expression node's id.
 var materializedExprID = regexp.MustCompile(`_(subject|conjugated|pc|referent|preferent|targetFeature|succession)(_|$)|_(ft|sc|ss|sp|rd|rs)[0-9]`)
@@ -3291,6 +3327,11 @@ func TestFixtureElementIDsRoundTrip(t *testing.T) {
 			t.Fatalf("%s: %v", path, err)
 		}
 		for _, subject := range graph.Subjects() {
+			// A library element the graph names keeps the normative id the
+			// references to it carry; its name is checked against the library.
+			if export.LibraryReference(graph, subject) {
+				continue
+			}
 			if strings.HasPrefix(subject.Value, rdf.Expression) && strings.HasSuffix(subject.Value, "_om") {
 				if _, ok := graph.Object(subject, rdf.SysML+"memberElement"); !ok {
 					t.Errorf("%s: expression membership %s has no member", path, subject.Value)
@@ -4020,8 +4061,10 @@ func TestMachineEndpointsLinkAcrossRegionsAndNesting(t *testing.T) {
 	turtle := toTurtle(t, filepath.Join("testdata", "convert", "endpoint_scopes.sysml"))
 	for _, want := range []string{
 		"sysml:targetFeature elmt:Machines__Lamp__on__heat__warm .",
-		"sysml:target elmt:Machines__Lamp__on__light__bright .",
-		"sysml:target elmt:Machines__Lamp__on__heat__hot .",
+		// A transition's own target, ahead of the order annotations its
+		// several owned relationships carry.
+		"sysml:target elmt:Machines__Lamp__on__light__bright ;\n    json:ownedRelationship",
+		"sysml:target elmt:Machines__Lamp__on__heat__hot ;\n    json:ownedRelationship",
 		"sysml:source elmt:Machines__Lamp__on__heat__hot ;",
 	} {
 		if !strings.Contains(turtle, want) {

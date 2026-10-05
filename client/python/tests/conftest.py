@@ -5,6 +5,21 @@ from unittest.mock import Mock, MagicMock
 from opensysml.proto import sysml_pb2
 
 
+@pytest.fixture(autouse=True)
+def integration_uses_an_existing_binary(request, monkeypatch):
+    if request.node.get_closest_marker("integration") is None:
+        return
+
+    from tests.service_gate import service_binary, skip_or_fail_without_service
+
+    binary = service_binary()
+    if binary is None:
+        skip_or_fail_without_service(
+            "no executable sysml-grpc is available; integration tests do not download one"
+        )
+    monkeypatch.setenv("OPENSYSML_BINARY", binary)
+
+
 @pytest.fixture
 def mock_pb_diagnostic():
     """Create mock protobuf Diagnostic."""

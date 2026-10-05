@@ -18,8 +18,7 @@ part def Plant {
                     state wait3;
                 }
                 state region4 {
-                    /* not migrated: Pseudostate (_region4Init) — the initial transition's target has no v2 form here */
-                    /* not migrated: Transition (_crossRegionInit) — its target lies in an orthogonal region */
+                    /* every initial pseudostate of the region enters another region: nothing enters this one */
                 }
             }
             transition first regions then done;

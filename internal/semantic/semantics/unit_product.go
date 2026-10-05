@@ -18,6 +18,7 @@ type UnitPower struct {
 	Name         string          // the unit as the model wrote it, quoted where the notation must (`'A/m'`)
 	Exponent     float64
 	DimensionOne bool      // the unit reduces to no base unit: an angle, a ratio, a count
+	Identity     bool      // the unit is the identity of unit products (`one`): a plain DimensionOneUnit at scale one
 	Reduces      *UnitTerm // what a unit resolving to none reduces to, where known; nil otherwise
 }
 
@@ -25,6 +26,9 @@ type UnitPower struct {
 // the canonical display form (`N*m`, `m**2`); UnitTerm, not this, decides conversion.
 type UnitProduct struct {
 	Powers []UnitPower
+	// Identity is the identity power (`one`) the product absorbed, kept apart from
+	// the powers so that it is the unit again once every other power cancels.
+	Identity *UnitPower
 }
 
 // NamedUnitProduct is the product of one named unit to the first power, spelt
@@ -77,6 +81,10 @@ func (p UnitProduct) Clone() UnitProduct {
 			out.Powers[i].Reduces = &reduces
 		}
 	}
+	if p.Identity != nil {
+		identity := *p.Identity
+		out.Identity = &identity
+	}
 	return out
 }
 
@@ -89,7 +97,18 @@ func (p UnitProduct) ShortSpelling() UnitProduct {
 			out.Powers[i].Name = unitNameSpelling(unitShortName(f.Unit))
 		}
 	}
+	if out.Identity != nil && out.Identity.Unit != nil {
+		out.Identity.Name = unitNameSpelling(unitShortName(out.Identity.Unit))
+	}
 	return out
+}
+
+// AllPowers is the powers with the identity the product absorbed among them, where it did.
+func (p UnitProduct) AllPowers() []UnitPower {
+	if p.Identity == nil {
+		return p.Powers
+	}
+	return append(slices.Clone(p.Powers), *p.Identity)
 }
 
 // Times returns the product of two unit products.
@@ -101,7 +120,7 @@ func (p UnitProduct) DividedBy(q UnitProduct) UnitProduct { return combineProduc
 // Pow raises every power of the product to exp.
 func (p UnitProduct) Pow(exp float64) UnitProduct {
 	out := UnitProduct{}
-	for _, f := range p.Powers {
+	for _, f := range p.AllPowers() {
 		f.Exponent *= exp
 		out.Powers = append(out.Powers, f)
 	}
@@ -109,10 +128,11 @@ func (p UnitProduct) Pow(exp float64) UnitProduct {
 }
 
 // Root divides every power by n, reporting false where a power does not divide
-// into a whole exponent: `m**2` has a square root `m`, `rad` and `km*m` have none.
+// into a whole exponent: `m**2` has a square root `m`, `rad` and `km*m` have none;
+// the identity `one` has every root, itself.
 func (p UnitProduct) Root(n float64) (UnitProduct, bool) {
 	for _, f := range p.Powers {
-		if math.Mod(f.Exponent, n) != 0 {
+		if !f.Identity && math.Mod(f.Exponent, n) != 0 {
 			return UnitProduct{}, false
 		}
 	}
@@ -203,8 +223,8 @@ func afterNameSegment(name string) (string, bool) {
 // signed by sign so that division shares multiplication's accumulation.
 func combineProducts(a, b UnitProduct, sign float64) UnitProduct {
 	out := UnitProduct{}
-	out.Powers = append(out.Powers, a.Powers...)
-	for _, f := range b.Powers {
+	out.Powers = append(out.Powers, a.AllPowers()...)
+	for _, f := range b.AllPowers() {
 		f.Exponent *= sign
 		out.Powers = append(out.Powers, f)
 	}
@@ -213,6 +233,8 @@ func combineProducts(a, b UnitProduct, sign float64) UnitProduct {
 
 // normalizeProduct merges repeated units (by symbol, or by name and reduction
 // where both are unresolved), drops cancelled powers and orders the rest by name.
+// The identity (`one`, any power of it) leaves a product it shares with any other
+// unit, remembered aside; a product of nothing but the identity is the identity.
 func normalizeProduct(p UnitProduct) UnitProduct {
 	merged := make([]UnitPower, 0, len(p.Powers))
 	for _, f := range p.Powers {
@@ -222,19 +244,29 @@ func normalizeProduct(p UnitProduct) UnitProduct {
 			continue
 		}
 		merged[at].Exponent += f.Exponent
-		merged[at].Name = shorterSpelling(merged[at].Name, f.Name)
+		if shorterSpelling(merged[at].Name, f.Name) == f.Name {
+			merged[at].Name, merged[at].Unit = f.Name, f.Unit
+		}
 		if merged[at].Reduces == nil {
 			merged[at].Reduces = f.Reduces
 		}
 	}
+	var identity *UnitPower
 	kept := merged[:0]
 	for _, f := range merged {
-		if f.Exponent != 0 {
+		switch {
+		case f.Identity:
+			f.Exponent = 1
+			identity = &f
+		case f.Exponent != 0:
 			kept = append(kept, f)
 		}
 	}
+	if len(kept) == 0 && identity != nil {
+		return UnitProduct{Powers: []UnitPower{*identity}}
+	}
 	slices.SortStableFunc(kept, func(a, b UnitPower) int { return strings.Compare(a.Name, b.Name) })
-	return UnitProduct{Powers: kept}
+	return UnitProduct{Powers: kept, Identity: identity}
 }
 
 // shorterSpelling picks, of two spellings of one unit, the one with fewer
@@ -255,10 +287,14 @@ func shorterSpelling(a, b string) string {
 	return min(a, b)
 }
 
-// sameUnit: two resolved powers are one unit by symbol; two unresolved ones by
-// text, unless both are known to reduce differently; a resolved and an
-// unresolved power are never the same unit.
+// sameUnit: two identity powers are one unit, whatever declares them; two other
+// resolved powers are one unit by symbol; two unresolved ones by text, unless
+// both are known to reduce differently; a resolved and an unresolved power are
+// never the same unit.
 func sameUnit(f, g UnitPower) bool {
+	if f.Identity && g.Identity {
+		return true
+	}
 	if f.Unit != nil || g.Unit != nil {
 		return f.Unit == g.Unit
 	}
@@ -341,15 +377,22 @@ func (m *Model) unitProductOfName(qn *ast.QualifiedName, lookup UnitLookup) (Uni
 	if qn == nil {
 		return UnitProduct{}, ErrUnitExpr
 	}
-	var unit *symbols.Symbol
-	dimensionOne := false
 	if sym, ok := lookup(qn); ok && sym != nil {
-		unit = sym
-		if term, err := m.UnitTermOf(unit); err == nil {
-			dimensionOne = term.Dimensionless()
-		}
+		return m.DeclaredUnitProduct(sym, UnitNameText(qn)), nil
 	}
-	return NamedUnitProduct(unit, UnitNameText(qn), dimensionOne), nil
+	return NamedUnitProduct(nil, UnitNameText(qn), false), nil
+}
+
+// DeclaredUnitProduct is the product of the one unit sym declares, spelt name,
+// flagged by what it reduces to: dimension one, and the identity where it is `one`.
+func (m *Model) DeclaredUnitProduct(sym *symbols.Symbol, name string) UnitProduct {
+	dimensionOne := false
+	if term, err := m.UnitTermOf(sym); err == nil {
+		dimensionOne = term.Dimensionless()
+	}
+	p := NamedUnitProduct(sym, name, dimensionOne)
+	p.Powers[0].Identity = m.IsIdentityUnit(sym)
+	return p
 }
 
 // unitProductOfOperator reads a product, quotient or power of units.

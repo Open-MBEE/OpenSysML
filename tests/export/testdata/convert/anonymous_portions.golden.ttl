@@ -719,3 +719,24 @@ elmt:AnonymousPortions__car___404_ft0
     sysml:owner elmt:AnonymousPortions__car___404 ;
     sysml:relatedElement elmt:AnonymousPortions__car___404, elmt:AnonymousPortions__Car ;
     json:relatedElement "[{\"@id\":\"AnonymousPortions__car___404\"},{\"@id\":\"AnonymousPortions__Car\"}]" .
+
+elmt:dd677401-a352-5fe3-846a-dad08d3eab06
+    a sysml:PartUsage ;
+    sysml:elementId "dd677401-a352-5fe3-846a-dad08d3eab06" ;
+    sysml:qualifiedName "Parts::Part::done" ;
+    sysml:declaredName "done" ;
+    sysml:isLibraryElement "true"^^xsd:boolean .
+
+elmt:ed80d442-d498-5236-96ae-71a8a52531d2
+    a sysml:PartUsage ;
+    sysml:elementId "ed80d442-d498-5236-96ae-71a8a52531d2" ;
+    sysml:qualifiedName "Parts::Part::start" ;
+    sysml:declaredName "start" ;
+    sysml:isLibraryElement "true"^^xsd:boolean .
+
+elmt:fa859d04-71c3-510a-bdb7-d35d7bc10bee
+    a sysml:AttributeUsage ;
+    sysml:elementId "fa859d04-71c3-510a-bdb7-d35d7bc10bee" ;
+    sysml:qualifiedName "Occurrences::Occurrence::portionOfLife" ;
+    sysml:declaredName "portionOfLife" ;
+    sysml:isLibraryElement "true"^^xsd:boolean .

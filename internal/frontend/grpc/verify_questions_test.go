@@ -279,7 +279,7 @@ func TestVerifyQuestionsSatisfaction(t *testing.T) {
 	}
 	requirement massLimit : MassLimit { attribute :>> cap = 2000.0; }
 	part craft : Craft { attribute :>> mass = 1200.0; }
-	part analysis { assert satisfy massLimit by craft; }
+	part 'analysis' { assert satisfy massLimit by craft; }
 }
 `
 	hash := mustVerifyModel(t, srv, source, "verify-satisfy-questions")
@@ -313,7 +313,7 @@ func TestVerifyQuestionsPinsNoSubObjectFeature(t *testing.T) {
 	}
 	requirement deepLimit : DeepLimit;
 	part craft : Thing { attribute :>> power = 5.0; }
-	part analysis { assert satisfy deepLimit by craft; }
+	part 'analysis' { assert satisfy deepLimit by craft; }
 }
 `
 	hash := mustVerifyModel(t, srv, source, "verify-satisfy-deep")
@@ -655,7 +655,7 @@ const failedDefaultsModelSource = `package P {
 	}
 	requirement massLimit : MassLimit;
 	part craft : Craft { attribute :>> mass = 1.0 / 0.0; }
-	part analysis { assert satisfy massLimit by craft; }
+	part 'analysis' { assert satisfy massLimit by craft; }
 }
 `
 
@@ -770,7 +770,7 @@ const satisfactionChainModelSource = `package P {
 			part :>> inner { attribute :>> power = 7.0; }
 		}
 	}
-	part analysis {
+	part 'analysis' {
 		assert satisfy r2 by craft;
 		assert satisfy r3 by craft;
 		assert satisfy r4 by craft;
@@ -950,7 +950,7 @@ const nestedReadModelSource = `package P {
 		assert constraint gatedBroken { gate > 0.0 or inner.broken > 0.0 }
 		assert constraint unbound { inner.free > 0.0 }
 	}
-	part item : Item;
+	part 'item' : Item;
 }
 `
 

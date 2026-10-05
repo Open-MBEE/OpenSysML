@@ -45,7 +45,7 @@ package Lib {
 
 TOP = """
 package Top {
-    import Lib::*;
+    private import Lib::*;
     part def Car {
         part engine : Engine;
     }
@@ -55,7 +55,7 @@ package Top {
 
 BROKEN = """
 package Broken {
-    import Lib::*;
+    private import Lib::*;
     part def Boat {
         part motor : Missing;
     }

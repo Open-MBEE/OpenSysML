@@ -20,6 +20,7 @@ import (
 // Property names in the SysML vocabulary.
 const (
 	pDeclaredName      = "declaredName"
+	pIsLibraryElement  = "isLibraryElement"
 	pDeclaredShortName = "declaredShortName"
 	pQualifiedName     = "qualifiedName"
 	pElementID         = "elementId"
@@ -68,6 +69,7 @@ const (
 	pIsDefault                 = "isDefault"
 	pIsInitial                 = "isInitial"
 	pIsEnd                     = "isEnd"
+	pIsUnique                  = "isUnique"
 	pName                      = "name"
 	pReferences                = "references"
 	pConnectorEnd              = "connectorEnd"
@@ -76,6 +78,7 @@ const (
 	pOwnedEndFeature           = "ownedEndFeature"
 	pImportedNamespace         = "importedNamespace"
 	pImportedMembership        = "importedMembership"
+	pImportedElement           = "importedElement"
 	pAliasFor                  = "aliasedElement" // an older mapping's alias target, read only
 	pMemberName                = "memberName"
 	pMemberShortName           = "memberShortName"
@@ -314,6 +317,14 @@ func (m *modelEncoders) declaringEncoder(node ast.Node) *encoder {
 // root elements name it (sysx:sourceDocument), since one graph no longer keeps
 // the documents apart.
 func ModelToRDFWith(documents []ModelDocument, form IDForm) (*rdf.Graph, error) {
+	out, _, _, err := modelToRDF(documents, form)
+	return out, err
+}
+
+// modelToRDF is ModelToRDFWith, also returning the resolver the model was
+// analyzed with and each document's encoder, whose identity tables are the
+// ones the graph's ids were minted from.
+func modelToRDF(documents []ModelDocument, form IDForm) (*rdf.Graph, *resolve.Resolver, []*encoder, error) {
 	res, model := analyzeModel(documents)
 	shared := &modelEncoders{declaring: map[ast.Node]*encoder{}}
 	encoders := make([]*encoder, len(documents))
@@ -321,7 +332,7 @@ func ModelToRDFWith(documents []ModelDocument, form IDForm) (*rdf.Graph, error) 
 	for i, doc := range documents {
 		e, err := newEncoderOver(doc.File, doc.Root, form, res, model)
 		if err != nil {
-			return nil, fmt.Errorf("%s: %w", doc.File.Name(), err)
+			return nil, nil, nil, fmt.Errorf("%s: %w", doc.File.Name(), err)
 		}
 		e.model = shared
 		for node := range e.fqn {
@@ -345,11 +356,11 @@ func ModelToRDFWith(documents []ModelDocument, form IDForm) (*rdf.Graph, error) 
 	declaredIn := map[string]mintedSubject{}
 	for i, e := range encoders {
 		if err := e.encodeDocument(documents[i].Root); err != nil {
-			return nil, fmt.Errorf("%s: %w", documents[i].File.Name(), err)
+			return nil, nil, nil, fmt.Errorf("%s: %w", documents[i].File.Name(), err)
 		}
 		for _, minted := range e.minted {
 			if prior, taken := declaredIn[minted.iri]; taken {
-				return nil, &UnsupportedError{
+				return nil, nil, nil, &UnsupportedError{
 					What: fmt.Sprintf("the declaration of %s at %s", minted.fqn, minted.at),
 					Note: fmt.Sprintf("its id lands on the same IRI as %s at %s, which another document declares, and merging two elements into one subject would be a different model", prior.fqn, prior.at),
 				}
@@ -368,7 +379,7 @@ func ModelToRDFWith(documents []ModelDocument, form IDForm) (*rdf.Graph, error) 
 			}
 		}
 	}
-	return out, nil
+	return out, res, encoders, nil
 }
 
 // encodeDocument converts a parsed document, returning the encoder that holds
@@ -398,6 +409,7 @@ func (e *encoder) encodeDocument(root *ast.RootNamespace) error {
 	if e.idErr != nil {
 		return e.idErr
 	}
+	e.libraryNames()
 	e.sourceText()
 	if err := rdf.AnnotateCollections(e.graph); err != nil {
 		return err
@@ -460,6 +472,7 @@ func newEncoderOver(file *source.SourceFile, root *ast.RootNamespace, form IDFor
 		performed:          map[ast.Node]bool{},
 		effects:            map[ast.Node]bool{},
 		triggerParams:      map[ast.Node]string{},
+		triggerMembers:     map[ast.Node]string{},
 		payloads:           map[*ast.Usage]*ast.Usage{},
 		payloadFeatures:    map[*ast.Usage]bool{},
 		fqn:                map[ast.Node]string{},
@@ -481,10 +494,14 @@ func newEncoderOver(file *source.SourceFile, root *ast.RootNamespace, form IDFor
 	if err := e.collect(root.Members, ""); err != nil {
 		return nil, err
 	}
+	e.indexTriggerMembers()
 	return e, nil
 }
 
 type encoder struct {
+	// libraryRefs are the standard library elements the document links to, by
+	// subject IRI, so the graph can name the ones it references.
+	libraryRefs map[string]libraryRef
 	// minted lists the subjects minted for this document's declarations, which a
 	// model of several documents checks no other document declares too.
 	minted []mintedSubject
@@ -510,7 +527,8 @@ type encoder struct {
 	effects map[ast.Node]bool
 	// triggerParams holds the parameters of a transition's trigger action: each
 	// maps to the AcceptActionUsage property that names it, if any.
-	triggerParams map[ast.Node]string
+	triggerParams  map[ast.Node]string
+	triggerMembers map[ast.Node]string
 	// payloads holds the PayloadFeature each flow's `of` clause declares, keyed
 	// by the flow: the declared feature of `of p : T`, or one made up for
 	// `of T`, which states only its typing (SysML-textual-bnf PayloadFeature).
@@ -549,6 +567,19 @@ type encoder struct {
 	// membershipImports are the membership imports, whose imported membership
 	// is written once every membership is minted.
 	membershipImports []membershipImport
+}
+
+func (e *encoder) indexTriggerMembers() {
+	for node, fqn := range e.fqn {
+		transition, ok := node.(*ast.TransitionMember)
+		if !ok || transition.Trigger == nil {
+			continue
+		}
+		e.triggerMembers[transition.Trigger] = fqn
+		if event, ok := transition.Trigger.(*ast.AcceptEvent); ok && event.Payload != nil {
+			e.triggerMembers[event.Payload] = fqn
+		}
+	}
 }
 
 // membershipImport is a membership import's subject and the name it imports.
@@ -653,6 +684,84 @@ func (e *encoder) importedMembership(name *ast.QualifiedName) rdf.Term {
 	return rdf.String(qualifiedText(name))
 }
 
+// libraryRef is a standard library element the document links to: its
+// declaration, qualified name and normative subject, and the subject of its
+// owning membership where the norm fixes one.
+type libraryRef struct {
+	node                ast.Node
+	fqn                 string
+	subject, membership rdf.Term
+}
+
+// libraryNames states, for each standard library element the graph references,
+// what the graph cannot otherwise say about it: its metaclass and qualified
+// name, marked isLibraryElement (KerML Element::isLibraryElement), so a reader
+// without the library can name what a normative id stands for. The library
+// itself is not exported: the element's members, relationships and owner stay
+// in the library. A library membership the graph references (an import of a
+// library member) is stated as the OwningMembership of that element.
+func (e *encoder) libraryNames() {
+	if len(e.libraryRefs) == 0 {
+		return
+	}
+	referenced := map[string]bool{}
+	for _, t := range e.graph.Triples() {
+		if t.Object.IsIRI() {
+			referenced[t.Object.Value] = true
+		}
+	}
+	subjects := make([]string, 0, len(e.libraryRefs))
+	for iri := range e.libraryRefs {
+		subjects = append(subjects, iri)
+	}
+	slices.Sort(subjects)
+	named := map[string]bool{}
+	// name states ref's element, reporting whether it is named in the graph.
+	name := func(ref libraryRef) bool {
+		if done, seen := named[ref.subject.Value]; seen {
+			return done
+		}
+		named[ref.subject.Value] = false
+		metaclass := declaredMetaclass(ref.node)
+		switch n := ref.node.(type) {
+		case *ast.Package:
+			// `standard library package` (KerML 1.0 § 8.3.4.13.3 LibraryPackage).
+			metaclass = mPackage
+			if n.IsLibrary {
+				metaclass = mLibraryPackage
+			}
+		case *ast.Alias:
+			// An alias is a Membership, which the graph names by the membership
+			// it is rather than as an element.
+			return false
+		}
+		if metaclass == "" {
+			return false
+		}
+		named[ref.subject.Value] = true
+		e.graph.Add(ref.subject, rdf.IRI(rdf.RDFType), e.sysml(metaclass))
+		e.graph.Add(ref.subject, e.sysml(pElementID), rdf.String(rdf.LocalName(ref.subject.Value)))
+		e.graph.Add(ref.subject, e.sysml(pQualifiedName), rdf.String(ref.fqn))
+		if declared, _ := declaredNameAndMembers(ref.node); declared != "" {
+			e.graph.Add(ref.subject, e.sysml(pDeclaredName), rdf.String(declared))
+		}
+		e.graph.Add(ref.subject, e.sysml(pIsLibraryElement), rdf.Bool(true))
+		return true
+	}
+	for _, iri := range subjects {
+		ref := e.libraryRefs[iri]
+		if referenced[iri] {
+			name(ref)
+		}
+		if ref.membership.Value != "" && referenced[ref.membership.Value] && name(ref) {
+			e.graph.Add(ref.membership, rdf.IRI(rdf.RDFType), e.sysml(mOwningMembership))
+			e.graph.Add(ref.membership, e.sysml(pElementID), rdf.String(rdf.LocalName(ref.membership.Value)))
+			e.graph.Add(ref.membership, e.sysml(pMemberElement), ref.subject)
+			e.graph.Add(ref.membership, e.sysml(pIsLibraryElement), rdf.Bool(true))
+		}
+	}
+}
+
 // claimLibrary reserves the IRIs of a library element the document links to,
 // and of its owning membership, so no element declared here lands on them.
 func (e *encoder) claimLibrary(node ast.Node, fqn string) {
@@ -663,6 +772,14 @@ func (e *encoder) claimLibrary(node ast.Node, fqn string) {
 			e.ids.owningMembershipOf(node, subject).Value, fqn + "'s owning membership",
 		})
 	}
+	if e.libraryRefs == nil {
+		e.libraryRefs = map[string]libraryRef{}
+	}
+	ref := libraryRef{node: node, fqn: fqn, subject: subject}
+	if e.ids.normativeMembership(node) {
+		ref.membership = e.ids.owningMembershipOf(node, subject)
+	}
+	e.libraryRefs[subject.Value] = ref
 	for _, c := range claims {
 		if prior, taken := e.claim(c.iri, c.standsFor); taken && e.idErr == nil {
 			e.idErr = &UnsupportedError{
@@ -1284,11 +1401,21 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 			}
 		}
 		implicitTarget := e.implicitMetadataBodyTarget(inBody, n)
+		variantTarget := e.variantReferenceTarget(n)
+		// The syntax makes a VariantReference, whether or not its name resolves.
+		variantReference := n.IsVariantReference()
+		if variantReference {
+			// A bare `variant x;` is a VariantReference (SysML-textual-bnf
+			// :343-345): a ReferenceUsage subsetting the feature x names, which
+			// names it, rather than a new usage declaring x.
+			metaclass = mReferenceUsage
+		}
 		head(rdf.SysMLTerm(metaclass))
 		if !shorthandRelationship(n) {
-			if implicitTarget.Value != "" {
+			if implicitTarget.Value != "" || variantReference {
 				// A metadata body's `name = …` redefines the metadata
-				// definition's feature of that name; it declares none.
+				// definition's feature of that name, and a `variant x;`
+				// references x; neither declares a name.
 				if n.Ident.ShortName != "" {
 					e.graph.Add(subject, e.sysml(pDeclaredShortName), rdf.String(n.Ident.ShortName))
 				}
@@ -1337,11 +1464,11 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 			{"isPortion", n.IsPortion || n.Portion != ast.PortionNone},
 			{"isDerived", n.IsDerived},
 			{"isOrdered", n.IsOrdered},
-			{"isNonunique", n.IsNonunique},
 			{"isAccept", n.IsAccept},
 			{"isResult", n.IsResult},
 			{"isParallel", n.IsParallel},
 		})
+		e.nonunique(subject, n.IsNonunique)
 		// `: ~P` types the port by P's conjugate; the usage owns no Conjugation
 		// of its own, so Type::isConjugated stays false on it.
 		if n.HasConjugatedTyping() {
@@ -1386,6 +1513,9 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 		if implicitTarget.Value != "" {
 			e.graph.Add(subject, e.sysml(relationshipProperty[ast.RelRedefines]), implicitTarget)
 			e.graph.Add(subject, e.sysx(xImplicitRedefinition), rdf.Bool(true))
+		}
+		if variantTarget.Value != "" {
+			e.graph.Add(subject, e.sysml(relationshipProperty[ast.RelReferences]), variantTarget)
 		}
 		if err := e.featureValue(subject, within, n.Value, n.ValueIsDefault, n.ValueIsInitial); err != nil {
 			return err
@@ -1561,12 +1691,7 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 			e.graph.Add(subject, e.sysx(xDeclaredKeyword), rdf.String("assume"))
 		}
 		e.flags(subject, []boolProperty{{"isNegated", n.IsNegated}})
-		reference, _ := n.Expression.(*ast.QualifiedName)
-		var expr ast.Node
-		if reference == nil {
-			expr = n.Expression
-		}
-		return e.condition(subject, fqn, within, expr, reference, n.Body != nil, n.Body)
+		return e.condition(subject, fqn, within, n.Expression, nil, n.Body != nil, n.Body)
 
 	case *ast.AssumeMember:
 		// An `assume` member owns its constraint usage through a
@@ -1928,6 +2053,13 @@ func isRelationship(metaclass string) bool {
 // expression, a reference to the constraint it states (`require R { … }`), or a
 // nested constraint stating its conditions in a body.
 func (e *encoder) condition(subject rdf.Term, fqn, owner string, expr ast.Node, ref *ast.QualifiedName, hasBody bool, body []ast.Node) error {
+	// A bare name or feature chain (`require c;`, `assume q.k;`) is the
+	// reference form: the constraint usage owns a ReferenceSubsetting to the
+	// feature it names (RequirementConstraintUsage, AssertConstraintUsage).
+	if target := conditionReference(expr); target != nil {
+		e.relationships(subject, owner, []*ast.Relationship{{Kind: ast.RelReferences, Target: target}})
+		expr = nil
+	}
 	if expr != nil {
 		return e.expression(subject, e.sysx(xCondition), xCondition, owner, expr)
 	}
@@ -1936,6 +2068,22 @@ func (e *encoder) condition(subject rdf.Term, fqn, owner string, expr ast.Node, 
 	}
 	e.graph.Add(subject, e.sysx(xHasBody), rdf.Bool(hasBody))
 	return e.encode(body, fqn, subject)
+}
+
+// conditionReference is the feature a bare condition names, as a relationship
+// target: a qualified name or a chain of them; nil for any other expression.
+func conditionReference(expr ast.Node) ast.Node {
+	switch x := expr.(type) {
+	case *ast.QualifiedName:
+		return x
+	case *ast.FeatureReference:
+		return conditionReference(x.Name)
+	case *ast.FeatureChainExpr:
+		if x.Member != nil && conditionReference(x.Operand) != nil {
+			return x
+		}
+	}
+	return nil
 }
 
 // requirementConditionDecl is the head an `assume`/`require` member declares
@@ -2385,6 +2533,30 @@ func (e *encoder) implicitMetadataBodyTarget(inBody bool, n *ast.Usage) rdf.Term
 	if target == nil || target == sym {
 		return rdf.Term{}
 	}
+	return e.symbolTerm(target)
+}
+
+// variantReferenceTarget is the term of the feature a bare `variant x;` names:
+// the like-named feature visible outside the variation, else the name x in
+// the segment form an unresolved reference is kept in (`'a::b'` stays one name); the zero term when n is no
+// such reference or states its reference itself (`variant P::x;`, `variant a.b;`).
+func (e *encoder) variantReferenceTarget(n *ast.Usage) rdf.Term {
+	if !n.IsVariantReference() || referencesFeature(n) {
+		return rdf.Term{}
+	}
+	if sym := e.ids.declSym[n]; sym != nil {
+		if target := e.ids.model.ReferencedFeature(sym); target != nil && target != sym {
+			if term := e.symbolTerm(target); term.Value != "" {
+				return term
+			}
+		}
+	}
+	return rdf.String(identitySegment(n.Ident.Name))
+}
+
+// symbolTerm is the term of the element a resolved symbol declares, or the zero
+// term when it has none the graph can name.
+func (e *encoder) symbolTerm(target *symbols.Symbol) rdf.Term {
 	if decl, fqn, ok := e.linked(target, true); ok {
 		return e.ids.subjectForNode(decl, fqn)
 	}
@@ -2443,6 +2615,14 @@ func (e *encoder) flags(subject rdf.Term, flags []boolProperty) {
 	}
 }
 
+// nonunique states `nonunique` as Feature::isUnique false, the metamodel's one
+// uniqueness property.
+func (e *encoder) nonunique(subject rdf.Term, nonunique bool) {
+	if nonunique {
+		e.graph.Add(subject, e.sysml(pIsUnique), rdf.Bool(false))
+	}
+}
+
 // prefixes maps the `#M` annotations ahead of a declaration as metadata usages
 // it owns after its body members (PrefixMetadataMember), keyed `#` for the writer.
 func (e *encoder) prefixes(subject rdf.Term, fqn string, prefixes []*ast.PrefixMetadata, members []ast.Node) error {
@@ -2498,8 +2678,8 @@ func (e *encoder) crossFeature(subject rdf.Term, fqn string, n *ast.Usage) error
 		{"isPortion", cross.IsPortion},
 		{"isDerived", cross.IsDerived},
 		{"isOrdered", cross.IsOrdered},
-		{"isNonunique", cross.IsNonunique},
 	})
+	e.nonunique(crossSubject, cross.IsNonunique)
 	if keyword := directionKeyword(cross.Direction); keyword != "" {
 		e.graph.Add(crossSubject, e.sysml(pDirection), rdf.String(keyword))
 	}

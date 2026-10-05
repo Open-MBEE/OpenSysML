@@ -724,7 +724,7 @@ func (a *adoption) planUnit(unit Unit) error {
 		return nil
 	}
 	term := semantics.UnitTerm{Scale: semantics.UnitScale(1)}
-	for _, power := range unit.Product.Powers {
+	for _, power := range unit.Product.AllPowers() {
 		what := "the unit " + power.Name + " it is measured in"
 		var reduces semantics.UnitTerm
 		switch {
@@ -774,18 +774,28 @@ func (a *adoption) planTerm(term semantics.UnitTerm) error {
 func (a *adoption) rewriteUnit(unit Unit) Unit {
 	powers := make([]semantics.UnitPower, len(unit.Product.Powers))
 	for i, power := range unit.Product.Powers {
-		if found, ok := a.rebound[power.Unit]; ok {
-			power.Unit = found
-		}
-		if power.Reduces != nil {
-			reduces := a.rewriteTerm(*power.Reduces)
-			power.Reduces = &reduces
-		}
-		powers[i] = power
+		powers[i] = a.rewritePower(power)
 	}
-	unit.Product = semantics.UnitProduct{Powers: powers}
+	product := semantics.UnitProduct{Powers: powers}
+	if unit.Product.Identity != nil {
+		identity := a.rewritePower(*unit.Product.Identity)
+		product.Identity = &identity
+	}
+	unit.Product = product
 	unit.Term = a.rewriteTerm(unit.Term)
 	return unit
+}
+
+// rewritePower is one power with the declaration it names rebound, its reduction too.
+func (a *adoption) rewritePower(power semantics.UnitPower) semantics.UnitPower {
+	if found, ok := a.rebound[power.Unit]; ok {
+		power.Unit = found
+	}
+	if power.Reduces != nil {
+		reduces := a.rewriteTerm(*power.Reduces)
+		power.Reduces = &reduces
+	}
+	return power
 }
 
 // rewriteTerm is the reduction with every base unit it names rebound.

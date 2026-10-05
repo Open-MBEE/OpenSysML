@@ -760,9 +760,10 @@ func (s *Service) parseModel(inputs []sourceInput, mode diag.ConformanceMode) (s
 			parsedClean = false
 		}
 		documents = append(documents, &CachedDocument{
-			Root:       root,
-			Source:     srcFile,
-			ParseDiags: p.Diagnostics,
+			Root:        root,
+			Source:      srcFile,
+			ParseDiags:  p.Diagnostics,
+			Diagnostics: parser.AsDiagnostics(p.Diagnostics, p.Warnings),
 		})
 	}
 
@@ -781,8 +782,8 @@ func (s *Service) parseModel(inputs []sourceInput, mode diag.ConformanceMode) (s
 		batch := &passes.Batch{Documents: names, Gathers: passes.NewGathers()}
 		passes.PrepareBatch(idx, batch)
 		for i, doc := range documents {
-			doc.PassesDiags, _ = passes.AnalyzeInBatch(inputs[i].name, inputs[i].kind, doc.Root,
-				make([]diag.Diagnostic, 0), idx, passes.Options{Conformance: mode}, batch)
+			doc.Diagnostics, _ = passes.AnalyzeInBatch(inputs[i].name, inputs[i].kind, doc.Root,
+				doc.Diagnostics, idx, passes.Options{Conformance: mode}, batch)
 		}
 	}
 
@@ -828,14 +829,12 @@ func (s *Service) GetDiagnostics(ctx context.Context, req *pb.DiagnosticsRequest
 }
 
 // modelDiagnostics are every document's diagnostics, document by document, each
-// located in the source it came from.
+// located in the source it came from. The parse's are among them once: the
+// passes report them, escalated where a pass judged the notation.
 func (s *Service) modelDiagnostics(model *CachedModel) []*pb.Diagnostic {
 	var pbDiags []*pb.Diagnostic
 	for _, doc := range model.Documents {
-		for _, diag := range doc.ParseDiags {
-			pbDiags = append(pbDiags, ParserDiagnosticToProto(diag, doc.Source))
-		}
-		for _, diag := range doc.PassesDiags {
+		for _, diag := range doc.Diagnostics {
 			pbDiags = append(pbDiags, DiagnosticToProto(diag, doc.Source))
 		}
 	}

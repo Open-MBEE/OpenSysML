@@ -52,6 +52,7 @@ from opensysml.conversion import (
     format_of_path, is_experimental,
 )
 from opensysml.edit import AppliedEdit, Body, EditedDocument, EditResult, Editor
+from opensysml.metamodel import read_json
 from opensysml.errors import (
     OpenSysMLError, AnalysisRunError, ChecksumMismatchError, ConnectionError, ConversionError,
     EditError, EditResultError, EditTargetError, ExecutionError,
@@ -62,7 +63,7 @@ from opensysml.errors import (
     ReferencedElsewhereError, Referrer,
     InstanceTypeError, InvalidRequestError, ManifestSignatureError, ModelError,
     ModelFileNotFoundError, ModelNotFoundError, ServiceError,
-    ServiceTimeoutError, StaleServiceError, SymbolNotFoundError,
+    ServiceTimeoutError, SigstoreUnavailableError, StaleServiceError, SymbolNotFoundError,
     TypeMismatchError, UnpinnedReleaseError, UnsignedReleaseError,
     UnsupportedOperationError, UnsupportedValueError, WrongKindError,
 )
@@ -98,12 +99,12 @@ __all__ = [
     "MissingCapabilityError",
     "CAPABILITY_CONSTRAINT_BODY_AUTHORING", "CAPABILITY_STATE_ACTION_AUTHORING",
     "ModelError", "ModelFileNotFoundError", "ModelNotFoundError",
-    "ServiceError", "ServiceTimeoutError", "StaleServiceError",
+    "ServiceError", "ServiceTimeoutError", "SigstoreUnavailableError", "StaleServiceError",
     "SymbolNotFoundError",
     "TypeMismatchError", "UnpinnedReleaseError", "UnsignedReleaseError",
     "UnsupportedOperationError", "UnsupportedValueError",
     "WrongKindError",
-    "load", "loads", "parse_sources", "connect", "convert",
+    "load", "loads", "parse_sources", "connect", "convert", "read_json",
     # "eval" is deprecated in favour of "evaluate", so it is not exported.
     "evaluate", "instantiate",
     "DEFAULT_PORT", "split_target",
