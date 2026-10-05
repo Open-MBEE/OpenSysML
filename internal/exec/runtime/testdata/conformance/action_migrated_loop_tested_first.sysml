@@ -8,10 +8,11 @@ package test {
 		first start then 'loop';
 		action 'loop' {
 			in iIn : Integer = 0;
+			in sIn : Integer = 0;
 			out iOut : Integer;
 			out sOut : Integer;
 			private attribute i : Integer := iIn;
-			private attribute s : Integer;
+			private attribute s : Integer := sIn;
 			private attribute ended : Boolean := false;
 			first start then setup;
 			action setup {
@@ -21,9 +22,6 @@ package test {
 					assign r := 0;
 				}
 			}
-			then action init {
-				assign s := setup.zero.r;
-			}
 			then action iterate {
 				loop {
 					action test {
@@ -31,6 +29,7 @@ package test {
 						action le {
 							in x : Integer = i;
 							in y : Integer = s;
+							in z : Integer = setup.zero.r;
 							out r : Boolean;
 							out k : Integer;
 							assign r := x <= y;

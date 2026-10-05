@@ -17,9 +17,7 @@ func TestLoopNodeTestedFirstFixture(t *testing.T) {
 	wantLine(t, r.Notation, "in iIn : ScalarValues::Integer[1];")
 	wantLine(t, r.Notation, "out sOut : ScalarValues::Integer[1];")
 	wantLine(t, r.Notation, "private attribute i : ScalarValues::Integer := iIn;")
-	wantLine(t, r.Notation, "private attribute s : ScalarValues::Integer;")
-	wantLine(t, r.Notation, "then action init {")
-	wantLine(t, r.Notation, "assign s := setup.zero.r;")
+	wantLine(t, r.Notation, "private attribute s : ScalarValues::Integer := sIn;")
 	wantLine(t, r.Notation, "private attribute ended : ScalarValues::Boolean := false;")
 	wantLine(t, r.Notation, "first start then setup;")
 	wantLine(t, r.Notation, "loop {")
@@ -29,9 +27,11 @@ func TestLoopNodeTestedFirstFixture(t *testing.T) {
 	wantNote(t, r, "_lvS", migrate.Mapped, "")
 
 	// The test part's pins take the loop variables and the decider names the
-	// test's pin; a test output feeds a body pin through a pin default.
+	// test's pin; a setup output feeds a test pin through a pin default, and
+	// a test output feeds a body pin the same way.
 	wantLine(t, r.Notation, "in x : ScalarValues::Integer[1] = i;")
 	wantLine(t, r.Notation, "in y : ScalarValues::Integer[1] = s;")
+	wantLine(t, r.Notation, "in z : ScalarValues::Integer[1] = setup.zero.r;")
 	wantLine(t, r.Notation, "then if not test.le.r {")
 	wantLine(t, r.Notation, "assign ended := true;")
 	wantLine(t, r.Notation, "in x : ScalarValues::Integer[1] = s;")
@@ -40,7 +40,8 @@ func TestLoopNodeTestedFirstFixture(t *testing.T) {
 	wantLine(t, r.Notation, "then assign s := body.plus.r;")
 	wantLine(t, r.Notation, "assign iOut := i;")
 	wantLine(t, r.Notation, "then assign sOut := s;")
-	wantNote(t, r, "_ze1", migrate.Mapped, "the loop variable 's' takes the setup's 'r'")
+	wantNote(t, r, "_ze1", migrate.Unmapped, "the loop variable 's' takes its value from its loop-variable input")
+	wantNote(t, r, "_ze2", migrate.Mapped, "the pin takes 'r', computed by an earlier part of the loop")
 	wantNote(t, r, "_lfe2", migrate.Mapped, "the pin takes the loop variable 'i'")
 	wantNote(t, r, "_lfe5", migrate.Mapped, "the pin takes the loop variable 's'")
 	wantNote(t, r, "_lfe6", migrate.Mapped, "the pin takes 'k', computed by an earlier part of the loop")
@@ -87,6 +88,6 @@ func TestLoopNodeFallbackFixture(t *testing.T) {
 	wantLine(t, r.Notation, "action dtest {")
 
 	wantNote(t, r, "_mismatch", migrate.Approximated, "the loop variables, inputs, body outputs and results differ in count: the body is written once")
-	wantLine(t, r.Notation, "ref action mismatch {")
-	wantLine(t, r.Notation, "in mIn : ScalarValues::Integer[1];")
+	wantLine(t, r.Notation, "action mismatch {")
+	wantLine(t, r.Notation, "action mb {")
 }

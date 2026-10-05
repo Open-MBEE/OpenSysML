@@ -1,34 +1,46 @@
 (RootNamespace
   (Membership visibility="default"
-    (Package name="P" library=false standard=false
+    (Package name="Loops" library=false standard=false
       (Membership visibility="default"
         (Definition kind="action" abstract=false variation=false name="Looping"
           (Membership visibility="default"
             (Usage kind="attribute" name="feed" ref=false direction="in" composite=false derived=false ordered=false nonunique=false
               (Relationship kind="typing" target=ScalarValues::Integer
-                (*ast.QualifiedName))))
+                (*ast.QualifiedName))
+              (Multiplicity range=false
+                (LiteralInteger value="1"))))
           (Membership visibility="default"
             (Usage kind="attribute" name="out" ref=false direction="out" composite=false derived=false ordered=false nonunique=false
               (Relationship kind="typing" target=ScalarValues::Integer
-                (*ast.QualifiedName))))
+                (*ast.QualifiedName))
+              (Multiplicity range=false
+                (LiteralInteger value="1"))))
           (InitialNode name="start" successor="loop")
           (Usage kind="action" name="loop" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
             (Membership visibility="default"
               (Usage kind="attribute" name="iIn" ref=false direction="in" composite=false derived=false ordered=false nonunique=false
                 (Relationship kind="typing" target=ScalarValues::Integer
-                  (*ast.QualifiedName))))
+                  (*ast.QualifiedName))
+                (Multiplicity range=false
+                  (LiteralInteger value="1"))))
             (Membership visibility="default"
               (Usage kind="attribute" name="sIn" ref=false direction="in" composite=false derived=false ordered=false nonunique=false
                 (Relationship kind="typing" target=ScalarValues::Integer
-                  (*ast.QualifiedName))))
+                  (*ast.QualifiedName))
+                (Multiplicity range=false
+                  (LiteralInteger value="1"))))
             (Membership visibility="default"
               (Usage kind="attribute" name="iOut" ref=false direction="out" composite=false derived=false ordered=false nonunique=false
                 (Relationship kind="typing" target=ScalarValues::Integer
-                  (*ast.QualifiedName))))
+                  (*ast.QualifiedName))
+                (Multiplicity range=false
+                  (LiteralInteger value="1"))))
             (Membership visibility="default"
               (Usage kind="attribute" name="sOut" ref=false direction="out" composite=false derived=false ordered=false nonunique=false
                 (Relationship kind="typing" target=ScalarValues::Integer
-                  (*ast.QualifiedName))))
+                  (*ast.QualifiedName))
+                (Multiplicity range=false
+                  (LiteralInteger value="1"))))
             (Membership visibility="private"
               (Usage kind="attribute" name="i" ref=false direction="none" composite=false derived=false ordered=false nonunique=false initial=true
                 (Relationship kind="typing" target=ScalarValues::Integer
@@ -38,9 +50,7 @@
               (Usage kind="attribute" name="s" ref=false direction="none" composite=false derived=false ordered=false nonunique=false initial=true
                 (Relationship kind="typing" target=ScalarValues::Integer
                   (*ast.QualifiedName))
-                (FeatureChainExpr member="r"
-                  (FeatureChainExpr member="zero"
-                    (FeatureReference name="setup")))))
+                (FeatureReference name="sIn")))
             (Membership visibility="private"
               (Usage kind="attribute" name="ended" ref=false direction="none" composite=false derived=false ordered=false nonunique=false initial=true
                 (Relationship kind="typing" target=ScalarValues::Boolean
@@ -55,7 +65,9 @@
                     (Membership visibility="default"
                       (Usage kind="attribute" name="r" ref=false direction="out" composite=false derived=false ordered=false nonunique=false
                         (Relationship kind="typing" target=ScalarValues::Integer
-                          (*ast.QualifiedName))))
+                          (*ast.QualifiedName))
+                        (Multiplicity range=false
+                          (LiteralInteger value="1"))))
                     (*ast.AssignmentActionNode)))))
             (Membership visibility="default"
               (Usage kind="action" name="iterate" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
@@ -70,20 +82,37 @@
                             (Usage kind="attribute" name="x" ref=false direction="in" composite=false derived=false ordered=false nonunique=false
                               (Relationship kind="typing" target=ScalarValues::Integer
                                 (*ast.QualifiedName))
+                              (Multiplicity range=false
+                                (LiteralInteger value="1"))
                               (FeatureReference name="i")))
                           (Membership visibility="default"
                             (Usage kind="attribute" name="y" ref=false direction="in" composite=false derived=false ordered=false nonunique=false
                               (Relationship kind="typing" target=ScalarValues::Integer
                                 (*ast.QualifiedName))
+                              (Multiplicity range=false
+                                (LiteralInteger value="1"))
                               (FeatureReference name="s")))
+                          (Membership visibility="default"
+                            (Usage kind="attribute" name="z" ref=false direction="in" composite=false derived=false ordered=false nonunique=false
+                              (Relationship kind="typing" target=ScalarValues::Integer
+                                (*ast.QualifiedName))
+                              (Multiplicity range=false
+                                (LiteralInteger value="1"))
+                              (FeatureChainExpr member="r"
+                                (FeatureChainExpr member="zero"
+                                  (FeatureReference name="setup")))))
                           (Membership visibility="default"
                             (Usage kind="attribute" name="r" ref=false direction="out" composite=false derived=false ordered=false nonunique=false
                               (Relationship kind="typing" target=ScalarValues::Boolean
-                                (*ast.QualifiedName))))
+                                (*ast.QualifiedName))
+                              (Multiplicity range=false
+                                (LiteralInteger value="1"))))
                           (Membership visibility="default"
                             (Usage kind="attribute" name="k" ref=false direction="out" composite=false derived=false ordered=false nonunique=false
                               (Relationship kind="typing" target=ScalarValues::Integer
-                                (*ast.QualifiedName))))
+                                (*ast.QualifiedName))
+                              (Multiplicity range=false
+                                (LiteralInteger value="1"))))
                           (*ast.AssignmentActionNode)
                           (*ast.AssignmentActionNode)))))
                   (IfActionNode
@@ -103,18 +132,24 @@
                                 (Usage kind="attribute" name="x" ref=false direction="in" composite=false derived=false ordered=false nonunique=false
                                   (Relationship kind="typing" target=ScalarValues::Integer
                                     (*ast.QualifiedName))
+                                  (Multiplicity range=false
+                                    (LiteralInteger value="1"))
                                   (FeatureReference name="s")))
                               (Membership visibility="default"
                                 (Usage kind="attribute" name="y" ref=false direction="in" composite=false derived=false ordered=false nonunique=false
                                   (Relationship kind="typing" target=ScalarValues::Integer
                                     (*ast.QualifiedName))
+                                  (Multiplicity range=false
+                                    (LiteralInteger value="1"))
                                   (FeatureChainExpr member="k"
                                     (FeatureChainExpr member="le"
                                       (FeatureReference name="test")))))
                               (Membership visibility="default"
                                 (Usage kind="attribute" name="r" ref=false direction="out" composite=false derived=false ordered=false nonunique=false
                                   (Relationship kind="typing" target=ScalarValues::Integer
-                                    (*ast.QualifiedName))))
+                                    (*ast.QualifiedName))
+                                  (Multiplicity range=false
+                                    (LiteralInteger value="1"))))
                               (*ast.AssignmentActionNode)))
                           (InitialNode name="plus" successor="inc")
                           (Membership visibility="default"
@@ -123,11 +158,15 @@
                                 (Usage kind="attribute" name="x" ref=false direction="in" composite=false derived=false ordered=false nonunique=false
                                   (Relationship kind="typing" target=ScalarValues::Integer
                                     (*ast.QualifiedName))
+                                  (Multiplicity range=false
+                                    (LiteralInteger value="1"))
                                   (FeatureReference name="i")))
                               (Membership visibility="default"
                                 (Usage kind="attribute" name="r" ref=false direction="out" composite=false derived=false ordered=false nonunique=false
                                   (Relationship kind="typing" target=ScalarValues::Integer
-                                    (*ast.QualifiedName))))
+                                    (*ast.QualifiedName))
+                                  (Multiplicity range=false
+                                    (LiteralInteger value="1"))))
                               (*ast.AssignmentActionNode)))))
                       (Membership visibility="default"
                         (Usage kind="action" name="next" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
@@ -142,7 +181,31 @@
                 (*ast.AssignmentActionNode)
                 (*ast.AssignmentActionNode)
                 (SuccessionEdge source="@assign" target="@assign")))
-            (SuccessionEdge source="iterate" target="results"))
+            (SuccessionEdge source="iterate" target="results")
+            (Membership visibility="default"
+              (Usage kind="metadata" name="" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+                (Relationship kind="typing" target=MigrationMetadata::SynthesizedName
+                  (*ast.QualifiedName))
+                (Relationship kind="about" target=iterate
+                  (*ast.QualifiedName))
+                (Relationship kind="about" target=results
+                  (*ast.QualifiedName))
+                (Relationship kind="about" target=ended
+                  (*ast.QualifiedName))
+                (Relationship kind="about" target=setup
+                  (*ast.QualifiedName))))
+            (Membership visibility="default"
+              (Usage kind="metadata" name="" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+                (Relationship kind="typing" target=MigrationMetadata::StandIn
+                  (*ast.QualifiedName))
+                (Relationship kind="about" target=iterate
+                  (*ast.QualifiedName))
+                (Relationship kind="about" target=results
+                  (*ast.QualifiedName))
+                (Relationship kind="about" target=ended
+                  (*ast.QualifiedName))
+                (Relationship kind="about" target=setup
+                  (*ast.QualifiedName)))))
           (InitialNode name="loop" successor="final")
           (Membership visibility="default"
             (Usage kind="action" name="final" ref=false direction="none" composite=false derived=false ordered=false nonunique=false terminate=true))
@@ -166,7 +229,13 @@
                 (*ast.QualifiedName))
               (ConnectorEnd target="*ast.FeatureChainExpr"
                 (FeatureChainExpr member="sOut"
-                  (FeatureReference name="loop")))))))
+                  (FeatureReference name="loop")))))
+          (Membership visibility="default"
+            (Usage kind="metadata" name="" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=MigrationMetadata::SynthesizedName
+                (*ast.QualifiedName))
+              (Relationship kind="about" target=final
+                (*ast.QualifiedName))))))
       (Membership visibility="default"
         (Definition kind="action" abstract=false variation=false name="PostLoop"
           (InitialNode name="start" successor="post")
@@ -232,7 +301,9 @@
                             (Membership visibility="default"
                               (Usage kind="attribute" name="r" ref=false direction="out" composite=false derived=false ordered=false nonunique=false
                                 (Relationship kind="typing" target=ScalarValues::Boolean
-                                  (*ast.QualifiedName))))))))
+                                  (*ast.QualifiedName))
+                                (Multiplicity range=false
+                                  (LiteralInteger value="1"))))))))
                     (SuccessionEdge source="next" target="test")
                     (IfActionNode
                       (OperatorExpr operator="not"
@@ -246,7 +317,33 @@
               (Membership visibility="default"
                 (Usage kind="action" name="results" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
                   (*ast.AssignmentActionNode)))
-              (SuccessionEdge source="iterate" target="results")))
+              (SuccessionEdge source="iterate" target="results")
+              (Membership visibility="default"
+                (Usage kind="metadata" name="" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+                  (Relationship kind="typing" target=MigrationMetadata::SynthesizedName
+                    (*ast.QualifiedName))
+                  (Relationship kind="about" target=iterate
+                    (*ast.QualifiedName))
+                  (Relationship kind="about" target=results
+                    (*ast.QualifiedName))
+                  (Relationship kind="about" target=ended
+                    (*ast.QualifiedName))))
+              (Membership visibility="default"
+                (Usage kind="metadata" name="" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+                  (Relationship kind="typing" target=MigrationMetadata::StandIn
+                    (*ast.QualifiedName))
+                  (Relationship kind="about" target=iterate
+                    (*ast.QualifiedName))
+                  (Relationship kind="about" target=results
+                    (*ast.QualifiedName))
+                  (Relationship kind="about" target=ended
+                    (*ast.QualifiedName))))))
           (InitialNode name="post" successor="final")
           (Membership visibility="default"
-            (Usage kind="action" name="final" ref=false direction="none" composite=false derived=false ordered=false nonunique=false terminate=true)))))))
+            (Usage kind="action" name="final" ref=false direction="none" composite=false derived=false ordered=false nonunique=false terminate=true))
+          (Membership visibility="default"
+            (Usage kind="metadata" name="" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=MigrationMetadata::SynthesizedName
+                (*ast.QualifiedName))
+              (Relationship kind="about" target=final
+                (*ast.QualifiedName)))))))))

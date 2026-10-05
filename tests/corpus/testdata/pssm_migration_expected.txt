@@ -5,8 +5,8 @@
 # ratchet whose every movement is adjudicated. See docs/project/pssm-migration.md.
 # Regenerate with:
 #   go test ./tests/corpus -run TestPSSMSuiteMigration -update-pssm-migration
-9405	approximated
-28658	mapped
+9404	approximated
+28652	mapped
 6	skipped
-9663	unmapped
+9660	unmapped
 13	validation-errors

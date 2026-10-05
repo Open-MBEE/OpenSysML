@@ -45,6 +45,9 @@
             <inputValue xmi:type="uml:InputPin" xmi:id="_leY" name="y">
               <type href="http://www.omg.org/spec/SysML/20181001/SysML.xmi#SysML_dataType.Integer"/>
             </inputValue>
+            <inputValue xmi:type="uml:InputPin" xmi:id="_leZ" name="z">
+              <type href="http://www.omg.org/spec/SysML/20181001/SysML.xmi#SysML_dataType.Integer"/>
+            </inputValue>
             <result xmi:type="uml:OutputPin" xmi:id="_leR" name="r">
               <type href="http://www.omg.org/spec/SysML/20181001/SysML.xmi#SysML_dataType.Boolean"/>
             </result>
@@ -79,6 +82,7 @@
           </node>
           <node xmi:type="uml:ForkNode" xmi:id="_fork"/>
           <edge xmi:type="uml:ObjectFlow" xmi:id="_ze1" source="_zeroR" target="_lvS"/>
+          <edge xmi:type="uml:ObjectFlow" xmi:id="_ze2" source="_zeroR" target="_leZ"/>
           <edge xmi:type="uml:ObjectFlow" xmi:id="_lfe1" source="_lvI" target="_fork"/>
           <edge xmi:type="uml:ObjectFlow" xmi:id="_lfe2" source="_fork" target="_leX"/>
           <edge xmi:type="uml:ObjectFlow" xmi:id="_lfe3" source="_fork" target="_incX"/>

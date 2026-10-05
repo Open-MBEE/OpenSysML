@@ -35,7 +35,6 @@ type loopShape struct {
 	decider     *sysmlv1.Element
 	deciderNode *sysmlv1.Element
 	feed        [3]map[*sysmlv1.Element]loopFeed
-	lvSrc       map[*sysmlv1.Element]*sysmlv1.Element // loop variable -> setup pin initializing it
 	// routing state: the loop variable each routing node passes on, the nodes
 	// one reaches, and the edges a feed was already reported for.
 	routedSrc map[*sysmlv1.Element]*sysmlv1.Element
@@ -71,7 +70,6 @@ func (a *activity) loopShape(n *sysmlv1.Element) (s *loopShape, why string) {
 	s = &loopShape{
 		testedFirst: n.Attrs["isTestedFirst"] != "false",
 		partOf:      map[*sysmlv1.Element]int{},
-		lvSrc:       map[*sysmlv1.Element]*sysmlv1.Element{},
 	}
 	s.parts[loopSetup] = a.m.model.Refs(n, "setupPart")
 	s.parts[loopTest] = a.m.model.Refs(n, "test")
@@ -194,13 +192,8 @@ func (a *activity) sortLoopEdges(n *sysmlv1.Element, s *loopShape) {
 			a.feedPin(e, s, pt, tgt, src, pf)
 		case pfOk && ptOk:
 			a.m.unmapped(e, "the flow runs from a later part of the loop to an earlier one; nothing carries the value back")
-		case pfOk && lvPin[tgt] && pf == loopSetup && e.Type == "ObjectFlow":
-			if _, taken := s.lvSrc[tgt]; taken {
-				a.m.unmapped(e, "a second setup value for the loop variable "+describe(tgt))
-			} else {
-				s.lvSrc[tgt] = src
-				a.m.add(e, Mapped, "", "the loop variable "+describe(tgt)+" takes the setup's "+describe(src))
-			}
+		case lvPin[tgt]:
+			a.m.unmapped(e, "the loop variable "+describe(tgt)+" takes its value from its loop-variable input")
 		default:
 			a.m.unmapped(e, "the edge between the loop's parts is not written")
 		}
@@ -300,20 +293,19 @@ func (a *activity) calleeOf(n *sysmlv1.Element) *sysmlv1.Element {
 // last — and the results read from the variables at the end.
 func (a *activity) loopNode(n *sysmlv1.Element, name string, s *loopShape) {
 	setup := a.fresh("setup")
-	init := a.fresh("init")
 	iterate := a.fresh("iterate")
 	test := a.fresh("test")
 	body := a.fresh("body")
 	next := a.fresh("next")
 	results := a.fresh("results")
 	ended := a.fresh("ended")
-	for _, madeUp := range []string{setup, init, iterate, test, body, next, results, ended} {
+	for _, madeUp := range []string{setup, iterate, test, body, next, results, ended} {
 		a.m.take(n, madeUp)
 	}
 	partName := [3]string{setup, test, body}
 	// Name the loop's pins and variables before the part writers spell feeds
 	// with them; both calls settle the same names their declarations reuse.
-	a.settlePins(n)
+	a.settleLoopPins(n, s.lvIns)
 	for _, lv := range s.loopVars {
 		a.name(lv, "variable")
 	}
@@ -325,13 +317,11 @@ func (a *activity) loopNode(n *sysmlv1.Element, name string, s *loopShape) {
 		if len(s.parts[loopSetup]) > 0 {
 			a.madeUp(writeName(setup))
 		}
-		a.pins(n, nil)
+		a.declarePins(n, append(inputPins(n), s.lvIns...), outputPins(n), nil)
 		for i, lv := range s.loopVars {
 			vname, decl, note := a.variableFeature(lv)
 			a.vars[lv] = a.names[lv]
-			if s.lvSrc[lv] == nil {
-				decl += " := " + writeName(a.m.pins[s.lvIns[i]].name)
-			}
+			decl += " := " + writeName(a.m.pins[s.lvIns[i]].name)
 			a.m.w.line(decl + ";")
 			a.m.add(lv, verdictFor(note), vname, note)
 		}
@@ -339,25 +329,6 @@ func (a *activity) loopNode(n *sysmlv1.Element, name string, s *loopShape) {
 		if len(s.parts[loopSetup]) > 0 {
 			a.m.w.line(firstKw + "start" + thenKw + writeName(setup) + ";")
 			a.m.w.block(actionKw+writeName(setup), func() { writers[loopSetup].write() })
-			// A variable the setup feeds is read once the setup has performed,
-			// in a step of its own — a feature default would read it too soon.
-			if len(s.lvSrc) > 0 {
-				a.m.w.block("then "+actionKw+writeName(init), func() {
-					nth := 0
-					for _, lv := range s.loopVars {
-						src := s.lvSrc[lv]
-						if src == nil {
-							continue
-						}
-						then := ""
-						if nth > 0 {
-							then = "then "
-						}
-						a.m.w.line(then + "assign " + writeName(a.names[lv]) + " := " + a.partRef(writers[loopSetup], setup, src) + ";")
-						nth++
-					}
-				})
-			}
 		} else {
 			a.m.w.line(firstKw + "start" + thenKw + writeName(iterate) + ";")
 		}
@@ -461,6 +432,19 @@ func (a *activity) loopParts(n *sysmlv1.Element, s *loopShape, partName [3]strin
 		}
 	}
 	return writers
+}
+
+// settleLoopPins fixes the declarations of the loop node's pins — inputs,
+// loop-variable inputs and outputs — in one name set, so a part writer's feed
+// can spell them before the loop is declared.
+func (a *activity) settleLoopPins(n *sysmlv1.Element, lvIns []*sysmlv1.Element) {
+	used := map[string]bool{}
+	for _, pin := range append(inputPins(n), lvIns...) {
+		a.settlePin(n, pin, "in", used)
+	}
+	for _, pin := range outputPins(n) {
+		a.settlePin(n, pin, "out", used)
+	}
 }
 
 // feedRef spells the value a feed gives a pin: the loop variable's name when

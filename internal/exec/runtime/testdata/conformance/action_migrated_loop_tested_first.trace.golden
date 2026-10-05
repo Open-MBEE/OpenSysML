@@ -1,6 +1,8 @@
 step 1: token 1@loop
 eval literal 0 -> 0
+eval literal 0 -> 0
 eval feature iIn -> 0
+eval feature sIn -> 0
 eval literal false -> false
 enter action node: loop
 step 2: token 1@start
@@ -11,16 +13,14 @@ step 5: token 1@zero
 stmt assign r
   eval literal 0 -> 0
 leave action node: setup
-step 6: token 1@init
-stmt assign s
-  eval chain r -> 0
-step 7: token 1@iterate
+step 6: token 1@iterate
 stmt loop until
   iteration 1
 enter action node: loop body of action node iterate
 enter action node: test
     eval feature i -> 0
     eval feature s -> 0
+    eval chain r -> 0
     stmt assign r
         eval feature x -> 0
         eval feature y -> 0
@@ -61,6 +61,7 @@ enter action node: loop body of action node iterate
 enter action node: test
     eval feature i -> 1
     eval feature s -> 0
+    eval chain r -> 0
     stmt assign r
         eval feature x -> 1
         eval feature y -> 0
@@ -77,17 +78,17 @@ leave action node: test
         eval literal true -> true
 leave action node: loop body of action node iterate
     eval feature ended -> true
-step 8: token 1@results
+step 7: token 1@results
 enter action node: results
-step 9: token 1@assign iOut
+step 8: token 1@assign iOut
 stmt assign iOut
   eval feature i -> 1
-step 10: token 1@assign sOut
+step 9: token 1@assign sOut
 stmt assign sOut
   eval feature s -> 0
 leave action node: results
 leave action node: loop
-step 11: token 1@final
+step 10: token 1@final
 stmt terminate
 terminate action: no token dropped
-step 12: no active tokens
+step 11: no active tokens

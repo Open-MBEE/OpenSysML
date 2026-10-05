@@ -1613,8 +1613,7 @@ func inputPins(n *sysmlv1.Element) []*sysmlv1.Element {
 	ins = append(ins, n.Owned("insertAt")...)
 	ins = append(ins, n.Owned("removeAt")...)
 	ins = append(ins, n.Owned("collection")...)
-	ins = append(ins, n.Owned("exception")...)
-	return append(ins, n.Owned("loopVariableInput")...)
+	return append(ins, n.Owned("exception")...)
 }
 
 // outputPins lists the output pins of an action, results first.
@@ -3102,12 +3101,12 @@ func (a *activity) structured(n *sysmlv1.Element, name string) {
 	case "ExpansionRegion":
 		note = "the region's body is written once; its expansion over the collection is not"
 	case "LoopNode":
-		if s, why := a.loopShape(n); s != nil {
+		s, why := a.loopShape(n)
+		if s != nil {
 			a.loopNode(n, name, s)
 			return
-		} else {
-			note = why + ": the body is written once"
 		}
+		note = why + ": the body is written once"
 	case "ConditionalNode":
 		note = "the node's clauses are written as one graph; their tests are not"
 	}

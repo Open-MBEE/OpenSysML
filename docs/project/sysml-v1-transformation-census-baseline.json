@@ -212,7 +212,7 @@
       },
       "uml:ObjectFlow": {
         "pssm": 11312,
-        "fixtures": 112
+        "fixtures": 113
       },
       "uml:ObjectFlow[weight]": {
         "pssm": 2065,
@@ -10004,7 +10004,7 @@
       ],
       "operations": [],
       "ocl": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "status": "faithful",
+      "status": "approximate",
       "implementation": [
         "internal/translate/migrate/activity.go:structured",
         "internal/translate/migrate/loop.go:loopNode",
@@ -10018,7 +10018,7 @@
         "internal/exec/runtime/robustness_migrated_loop_test.go:TestRuntimeRobustnessMigratedLoop",
         "tests/corpus/pssm_migration_test.go:TestPSSMSuiteMigration"
       ],
-      "reason": "a loop node that names a decider is written as a v2 loop: its loop variables and an `ended` flag as private features, its setup, test and body parts as action usages performing in the loop — test before body when tested first, else after — the values crossing parts as pin defaults, and its results read from the variables at the end; a loop naming no decider has no test result to write, so it keeps the body-once form and stays approximated per element; candidate erratum: the mapping gives only an ActionUsage and leaves its details undefined, so a loop's test and iteration are lost",
+      "reason": "a decider loop whose parts exchange values over pins the migrator writes is written as a v2 loop (the loops.xmi tested-first and post-tested fixtures): its loop variables and an `ended` flag as private features, its parts performing in the loop — test before body when tested first, else after — and its results read from the variables at the end; no corpus loop takes the loop form: PSSM's 2 fall back because their body outputs are structured-node output pins the migrator does not write, and TMT's 1 names no decider, so each keeps the body-once form and stays approximated per element; candidate erratum: the mapping gives only an ActionUsage and leaves its details undefined, so a loop's test and iteration are lost",
       "scope": [
         "uml:LoopNode"
       ]
