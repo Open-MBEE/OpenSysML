@@ -67,6 +67,14 @@ func TestTransitionGuardIsMetamodelStructure(t *testing.T) {
 		if owned := g.Objects(transition, rdf.SysML+"ownedFeatureMembership"); !containsTerm(owned, membership) {
 			t.Errorf("%s does not list its guard membership as an owned feature membership", name)
 		}
+		// guardExpression subsets Type::ownedFeature: a reader walking the
+		// owned features reaches the guard, and the membership names its type.
+		if owned := g.Objects(transition, rdf.SysML+"ownedFeature"); !containsTerm(owned, guard) {
+			t.Errorf("%s does not list its guard as an owned feature", name)
+		}
+		if owningType, _ := g.Object(membership, rdf.SysML+"owningType"); owningType != transition {
+			t.Errorf("%s's guard membership names %v as its owning type", name, owningType)
+		}
 	}
 
 	// The graph alone reads back to the guards as written.

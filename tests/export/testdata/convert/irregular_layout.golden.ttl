@@ -3046,7 +3046,7 @@ elmt:IrregularLayout__Ops___404
     sysml:ownedRelationship expr:IrregularLayout__Ops___404_psourcemember, elmt:IrregularLayout__Ops___404_linkparam_om, expr:IrregularLayout__Ops___404_pguard_om, elmt:IrregularLayout__Ops___404_succession_om ;
     sysml:ownedMembership expr:IrregularLayout__Ops___404_psourcemember, elmt:IrregularLayout__Ops___404_linkparam_om, expr:IrregularLayout__Ops___404_pguard_om, elmt:IrregularLayout__Ops___404_succession_om ;
     sysml:ownedFeatureMembership elmt:IrregularLayout__Ops___404_linkparam_om, expr:IrregularLayout__Ops___404_pguard_om ;
-    sysml:ownedFeature elmt:IrregularLayout__Ops___404_linkparam ;
+    sysml:ownedFeature elmt:IrregularLayout__Ops___404_linkparam, expr:IrregularLayout__Ops___404_pguard ;
     sysml:succession elmt:IrregularLayout__Ops___404_succession ;
     sysx:guard expr:IrregularLayout__Ops___404_pguard ;
     sysml:guardExpression expr:IrregularLayout__Ops___404_pguard ;
@@ -3054,7 +3054,8 @@ elmt:IrregularLayout__Ops___404
     sysml:target elmt:IrregularLayout__Ops__on ;
     json:ownedRelationship "[{\"@id\":\"IrregularLayout__Ops___404_psourcemember\"},{\"@id\":\"IrregularLayout__Ops___404_linkparam_om\"},{\"@id\":\"IrregularLayout__Ops___404_pguard_om\"},{\"@id\":\"IrregularLayout__Ops___404_succession_om\"}]" ;
     json:ownedMembership "[{\"@id\":\"IrregularLayout__Ops___404_psourcemember\"},{\"@id\":\"IrregularLayout__Ops___404_linkparam_om\"},{\"@id\":\"IrregularLayout__Ops___404_pguard_om\"},{\"@id\":\"IrregularLayout__Ops___404_succession_om\"}]" ;
-    json:ownedFeatureMembership "[{\"@id\":\"IrregularLayout__Ops___404_linkparam_om\"},{\"@id\":\"IrregularLayout__Ops___404_pguard_om\"}]" .
+    json:ownedFeatureMembership "[{\"@id\":\"IrregularLayout__Ops___404_linkparam_om\"},{\"@id\":\"IrregularLayout__Ops___404_pguard_om\"}]" ;
+    json:ownedFeature "[{\"@id\":\"IrregularLayout__Ops___404_linkparam\"},{\"@id\":\"IrregularLayout__Ops___404_pguard\"}]" .
 
 elmt:IrregularLayout__Ops___404_om
     a sysml:FeatureMembership ;
@@ -3313,6 +3314,7 @@ expr:IrregularLayout__Ops___404_pguard_om
     sysml:owningRelatedElement elmt:IrregularLayout__Ops___404 ;
     sysml:membershipOwningNamespace elmt:IrregularLayout__Ops___404 ;
     sysml:ownedMemberFeature expr:IrregularLayout__Ops___404_pguard ;
+    sysml:owningType elmt:IrregularLayout__Ops___404 ;
     sysml:kind "guard" ;
     sysml:transitionFeature expr:IrregularLayout__Ops___404_pguard .
 
