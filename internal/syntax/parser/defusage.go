@@ -3176,13 +3176,8 @@ func (p *Parser) parseBodyMember() ast.Node {
 		hasNameAndMult := p.atName() && p.peekN(1).Kind == lexer.LBracket // name with multiplicity (e.g., ref payload [0..*])
 		// `end [1] : A;` — an unnamed feature declaring only its type.
 		hasTypeOnly := p.at(lexer.Colon)
-		// A nameless declaration is admitted where the grammar admits one:
-		// `ref [1] = x;`, `ref = x;`, `ref { ... }`, `ref;` and the like under
-		// the other feature modifiers — while `derived` admits only the
-		// multiplicity form, `composite` (unlike `portion`) not a bare body,
-		// and `end` none at all. The multiplicity form stands alone
-		// (`private [1];`); every other form needs a feature-level modifier,
-		// not visibility, a direction, `abstract`, `variation` or `constant`.
+		// A nameless declaration (`ref [1] = x;`, `ref;`): the multiplicity form stands
+		// alone; the others need a feature-level modifier, and `end` admits none.
 		nameless := p.at(lexer.LBracket)
 		if p.at(lexer.LBrace) || p.at(lexer.Semicolon) || p.valueOperatorAt(0) {
 			nameless = nameless || mods.isReference || mods.isReadonly || mods.isPortion ||
