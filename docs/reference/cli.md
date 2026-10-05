@@ -379,7 +379,10 @@ $ sysml -self-check-package Acme::ModelingRules model.sysml rules.sysml
 A rule is a `constraint def` whose first `in` parameter is typed by a `SysML::…` or
 `KerML::…` metaclass; it applies to every element whose metaclass conforms, and its
 body is a Boolean expression over the element's reflective features (`name`,
-`qualifiedName`, `documentation`, `ownedMember`, `direction`, `isComposite`, …). Import
+`qualifiedName`, `documentation`, `ownedMember`, `direction`, `isComposite`, …). A
+metaclass feature is read by the name of its most specific redefinition, since a
+redefinition hides the name it redefines (KerML §7.4.7, §8.3.3.3): on a
+`SysML::PortUsage` that is `portDefinition`, not `type`. Import
 `SequenceFunctions::*` for `->isEmpty()` and friends:
 
 ```sysml

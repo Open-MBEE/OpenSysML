@@ -12,7 +12,10 @@ declares a direction". A rule is a `constraint def` whose first `in` parameter i
 typed by a `SysML::…` or `KerML::…` metaclass — `SysML::PartDefinition`,
 `SysML::PortUsage` — and whose body is a Boolean expression over the element's
 reflective features (`name`, `qualifiedName`, `documentation`, `ownedMember`,
-`isComposite`, …). It applies to every element the metaclass conforms to. The
+`isComposite`, …). A metaclass feature is read by the name of its most specific
+redefinition, since a redefinition hides the name it redefines (KerML §7.4.7,
+§8.3.3.3): on a `SysML::PortUsage` that is `portDefinition`, not `type`. It
+applies to every element the metaclass conforms to. The
 bundled `SysMLValidation.sysml`
 (`internal/workspace/libs/stdlib/OpenSysML Libraries/`) package is written the same way and is the reference.
 
