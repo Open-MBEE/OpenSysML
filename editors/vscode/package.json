@@ -138,6 +138,20 @@
         }
       }
     },
+    "taskDefinitions": [
+      {
+        "type": "opensysml",
+        "required": [
+          "element"
+        ],
+        "properties": {
+          "element": {
+            "type": "string",
+            "description": "Qualified name of the element a Run or Evaluate code lens checks."
+          }
+        }
+      }
+    ],
     "commands": [
       {
         "command": "opensysml.restartServer",
@@ -160,6 +174,11 @@
         "category": "SysML",
         "title": "Render Document",
         "enablement": "opensysml.renderDocumentSupported"
+      },
+      {
+        "command": "opensysml.runElement",
+        "category": "SysML",
+        "title": "Run Element"
       }
     ],
     "keybindings": [
@@ -176,6 +195,12 @@
       }
     ],
     "menus": {
+      "commandPalette": [
+        {
+          "command": "opensysml.runElement",
+          "when": "false"
+        }
+      ],
       "editor/title": [
         {
           "command": "opensysml.openDiagram",
