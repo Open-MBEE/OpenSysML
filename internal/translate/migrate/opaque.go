@@ -181,8 +181,8 @@ const (
 	looseAnd
 	looseXor
 	looseOr
-	looseConditional
 	looseImplies
+	looseConditional
 )
 
 // operand writes t as the operand of an operator that binds least of all.

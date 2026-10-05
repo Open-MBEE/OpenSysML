@@ -48,9 +48,6 @@ func leaf(symbol string) string {
 	return `<operand xmi:type="uml:Expression" xmi:id="_leaf` + strconv.Itoa(leafCount) + `" symbol="` + symbol + `"/>`
 }
 
-// boolLeaf is leaf: the bare symbol names one of the block's Boolean attributes.
-func boolLeaf(symbol string) string { return leaf(symbol) }
-
 func TestExpressionTreeLowering(t *testing.T) {
 	for _, tc := range []struct{ name, spec, want string }{
 		{"arithmetic and comparison",
@@ -129,11 +126,24 @@ func TestExpressionTreeLowering(t *testing.T) {
 			`<specification xmi:type="uml:Expression" xmi:id="_s" symbol="==">` + leaf("a") + `<operand xmi:type="uml:ElementValue" xmi:id="_ev"/></specification>`,
 			`the UML Expression tree has no v2 form: the construct "<ElementValue>" is outside the translated subset: the element value names no element`},
 		{"xor over Booleans is written",
-			`<specification xmi:type="uml:Expression" xmi:id="_s" symbol="xor">` + boolLeaf("p") + boolLeaf("q") + `</specification>`,
+			`<specification xmi:type="uml:Expression" xmi:id="_s" symbol="xor">` + leaf("p") + leaf("q") + `</specification>`,
 			"constraint r { p xor q }"},
 		{"implies over Booleans is written",
-			`<specification xmi:type="uml:Expression" xmi:id="_s" symbol="implies">` + boolLeaf("p") + boolLeaf("q") + `</specification>`,
+			`<specification xmi:type="uml:Expression" xmi:id="_s" symbol="implies">` + leaf("p") + leaf("q") + `</specification>`,
 			"constraint r { p implies q }"},
+		{"a conditional operand of implies is parenthesized",
+			`<specification xmi:type="uml:Expression" xmi:id="_s" symbol="implies">` +
+				`<operand xmi:type="uml:OpaqueExpression" xmi:id="_o"><body>p ? q : p</body><language>JavaScript</language></operand>` +
+				leaf("q") + `</specification>`,
+			"constraint r { (if p ? q else p) implies q }"},
+		{"an implies operand of or is parenthesized",
+			`<specification xmi:type="uml:Expression" xmi:id="_s" symbol="or">` + leaf("p") +
+				`<operand xmi:type="uml:Expression" xmi:id="_s1" symbol="implies">` + leaf("q") + leaf("p") + `</operand></specification>`,
+			"constraint r { p or (q implies p) }"},
+		{"an or operand of implies needs no parentheses",
+			`<specification xmi:type="uml:Expression" xmi:id="_s" symbol="implies">` +
+				`<operand xmi:type="uml:Expression" xmi:id="_s1" symbol="or">` + leaf("p") + leaf("q") + `</operand>` + leaf("p") + `</specification>`,
+			"constraint r { p or q implies p }"},
 		{"xor over non-Booleans is a type refusal",
 			`<specification xmi:type="uml:Expression" xmi:id="_s" symbol="xor">` + leaf("a") + leaf("b") + `</specification>`,
 			`the UML Expression tree has no v2 form: the types at "xor" disagree: an operand is a Real, not a Boolean`},
