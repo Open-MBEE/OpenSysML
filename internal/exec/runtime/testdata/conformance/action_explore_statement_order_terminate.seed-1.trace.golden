@@ -1,0 +1,9 @@
+step 1: token 1@s
+choice statements in action node s: next 1 assign x, 2 terminate (unordered; took 2 terminate first)
+stmt terminate
+terminate action node s: no token dropped
+step 2: token 1@next
+stmt assign z
+  eval literal 3 -> 3
+step 3: token 1@done
+step 4: no active tokens

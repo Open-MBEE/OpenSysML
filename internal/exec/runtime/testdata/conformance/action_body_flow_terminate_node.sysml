@@ -8,8 +8,8 @@ package test {
 			for i in 1..3 {
 				action a {
 					assign sum := sum + i;
-					terminate;
-					assign sum := sum + 1000;
+					then terminate;
+					then assign sum := sum + 1000;
 				}
 				action b { assign sum := sum + 1; }
 				succession a then b;

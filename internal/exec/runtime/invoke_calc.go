@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"sync"
 
 	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
@@ -168,7 +169,8 @@ type calcShape struct {
 	BodyOwner *symbols.Symbol // the calc whose body declares Body
 	// Steps is Body without the bindings of its `out` features, which are
 	// evaluated when those features are read rather than run as statements.
-	Steps []lower.Statement
+	Steps           []lower.Statement
+	statementOrders sync.Map
 	// Nodes are the action nodes the body's flow performs as the steps of a case.
 	Nodes []ast.Node
 	// BodyOutputs are the output features some statement of the body assigns,
@@ -238,7 +240,7 @@ func (ctx *Context) calcInterfaceOf(sym *symbols.Symbol) (*calcShape, error) {
 		return nil, fmt.Errorf("%w: %s states or inherits a result expression from each of %s",
 			ErrConflictingResultExpressions, label, strings.Join(names, ", "))
 	}
-	body, bodyOwner := ctx.calcBody(chain)
+	body, bodyOrder, bodyOwner := ctx.calcBodyWithOrder(chain)
 	shape := &calcShape{
 		Sym:       sym,
 		Name:      name,
@@ -246,8 +248,12 @@ func (ctx *Context) calcInterfaceOf(sym *symbols.Symbol) (*calcShape, error) {
 		Label:     label,
 		Body:      body,
 		BodyOwner: bodyOwner,
-		Steps:     calcSteps(body),
+		Steps:     lower.CalcSteps(body),
 	}
+	if len(shape.Steps) > 0 && bodyOrder != nil {
+		shape.statementOrders.Store(&shape.Steps[0], bodyOrder)
+	}
+	indexCalcStatementOrders(&shape.statementOrders, shape.Steps)
 	shape.Nodes = lower.BlockNodes(shape.Steps)
 	shape.Params = ctx.calcParameters(chain, &shape.Aliases)
 	shape.Outputs = ctx.calcOutputs(chain, &shape.Aliases)
@@ -283,6 +289,54 @@ func (ctx *Context) calcInterfaceOf(sym *symbols.Symbol) (*calcShape, error) {
 
 	ctx.model.calcShapes[sym] = shape
 	return shape, nil
+}
+
+func indexCalcStatementOrders(orders *sync.Map, stmts []lower.Statement) {
+	for _, stmt := range stmts {
+		switch s := stmt.(type) {
+		case lower.If:
+			indexCalcBlockOrder(orders, s.Then)
+			if s.Else != nil {
+				indexCalcBlockOrder(orders, *s.Else)
+			}
+		case lower.Loop:
+			indexCalcBlockOrder(orders, s.Body)
+		case lower.Block:
+			indexCalcBlockOrder(orders, s)
+		}
+	}
+}
+
+func indexCalcBlockOrder(orders *sync.Map, block lower.Block) {
+	if len(block.Statements) > 0 && block.Order != nil {
+		orders.Store(&block.Statements[0], block.Order)
+	}
+	if block.Graph != nil {
+		indexCalcGraphOrders(orders, block.Graph, make(map[*lower.ActionGraph]bool))
+	}
+	indexCalcStatementOrders(orders, block.Statements)
+}
+
+func indexCalcGraphOrders(orders *sync.Map, graph *lower.ActionGraph, seen map[*lower.ActionGraph]bool) {
+	if graph == nil || seen[graph] {
+		return
+	}
+	seen[graph] = true
+	for node, order := range graph.StatementOrders {
+		stmts := graph.Bodies[node]
+		if order != nil {
+			orders.Store(node, order)
+		}
+		if len(stmts) > 0 && order != nil {
+			orders.Store(&stmts[0], order)
+		}
+		indexCalcStatementOrders(orders, stmts)
+	}
+	for _, subflow := range graph.Subflows {
+		if subflow != nil {
+			indexCalcGraphOrders(orders, subflow.Graph, seen)
+		}
+	}
 }
 
 func calcBindings(chain []*symbols.Symbol) []lower.Binding {
@@ -392,21 +446,27 @@ func (ctx *Context) redeclaredIndex(index map[string]int, sym *symbols.Symbol, n
 // states one, otherwise the closest inherited one — with the calc that declares
 // it, whose scope the body's statements are written in.
 func (ctx *Context) calcBody(chain []*symbols.Symbol) ([]lower.Statement, *symbols.Symbol) {
+	body, _, owner := ctx.calcBodyWithOrder(chain)
+	return body, owner
+}
+
+func (ctx *Context) calcBodyWithOrder(chain []*symbols.Symbol) ([]lower.Statement, *lower.StatementOrder, *symbols.Symbol) {
 	var stated []lower.Statement
+	var statedOrder *lower.StatementOrder
 	var owner *symbols.Symbol
 	for i := len(chain) - 1; i >= 0; i-- {
 		link := chain[i]
-		stmts := lower.CalcBodyWith(link.Decl, unwrappedDeclMembers(link.Decl), link.Scope, ctx.Resolver())
+		stmts, order := lower.CalcBodyWithOrder(link.Decl, unwrappedDeclMembers(link.Decl), link.Scope, ctx.Resolver())
 		if lower.Returns(stmts) {
-			return stmts, link
+			return stmts, order, link
 		}
 		// A body that computes but returns nothing leaves an inherited result in
 		// force, so keep looking up the chain before settling for it.
 		if stated == nil && len(stmts) > 0 {
-			stated, owner = stmts, link
+			stated, statedOrder, owner = stmts, order, link
 		}
 	}
-	return stated, owner
+	return stated, statedOrder, owner
 }
 
 // unboundResultHint explains a `return` that declares a result parameter without
@@ -649,6 +709,16 @@ func (ctx *Context) invokeCalcShape(shape *calcShape, args calcArgs, callerScope
 // invokeCalcShapeIn is invokeCalcShape for a calc declared in a behavior body:
 // enclosing holds that body's bindings, outermost first, which the calc's own shadow.
 func (ctx *Context) invokeCalcShapeIn(shape *calcShape, args calcArgs, callerScope *symbols.Scope, self *Instance, enclosing []frame) (Value, error) {
+	if shape != nil && ctx.scheduling().ordersStatements() &&
+		ctx.reordersTransitively(shape.Sym) && ctx.pureTransitively(shape.Sym) {
+		return ctx.invokeWithStatementOrderResults(shape, args, self, len(enclosing) == 0, func() (Value, error) {
+			return ctx.invokeCalcShapeDirect(shape, args, callerScope, self, enclosing)
+		})
+	}
+	return ctx.invokeCalcShapeDirect(shape, args, callerScope, self, enclosing)
+}
+
+func (ctx *Context) invokeCalcShapeDirect(shape *calcShape, args calcArgs, callerScope *symbols.Scope, self *Instance, enclosing []frame) (Value, error) {
 	if shape.Uncomputed != nil {
 		return Value{}, shape.Uncomputed
 	}
@@ -661,7 +731,9 @@ func (ctx *Context) invokeCalcShapeIn(shape *calcShape, args calcArgs, callerSco
 	// a library constant the body reads before the library does, or the body
 	// reads the bindings enclosing it.
 	if ctx.compileCalcs && ctx.trace == nil && len(enclosing) == 0 {
-		if compiled := ctx.compiledCalcOf(shape); compiled != nil && (self == nil || !compiled.readsLibrary) {
+		if compiled := ctx.compiledCalcOf(shape); compiled != nil &&
+			(!ctx.scheduling().ordersStatements() || !ctx.reordersTransitively(shape.Sym)) &&
+			(self == nil || !compiled.readsLibrary) {
 			if result, ran, err := compiled.invokeBoxed(ctx, args); ran {
 				return result, err
 			}
@@ -1319,7 +1391,7 @@ func (ctx *Context) calcComputes(chain []*symbols.Symbol) bool {
 		return true
 	}
 	var aliases map[string]string
-	return len(assignedOutputs(calcSteps(body), ctx.calcOutputs(chain, &aliases), aliases)) > 0
+	return len(assignedOutputs(lower.CalcSteps(body), ctx.calcOutputs(chain, &aliases), aliases)) > 0
 }
 
 // isCalcDecl reports whether a declaration is a calc definition or usage, or an

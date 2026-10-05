@@ -12,13 +12,13 @@ package test {
 		then action p {
 			out v : Integer;
 			assign v := 2;
-			assign count := count + 1;
-			assign total := v * 10;
+			then assign count := count + 1;
+			then assign total := v * 10;
 		}
 		then action q {
 			out v : Integer;
 			assign v := 5;
-			assign count := count + 1;
+			then assign count := count + 1;
 		}
 		then done;
 	}
