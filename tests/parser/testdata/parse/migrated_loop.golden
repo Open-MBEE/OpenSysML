@@ -1,0 +1,252 @@
+(RootNamespace
+  (Membership visibility="default"
+    (Package name="P" library=false standard=false
+      (Membership visibility="default"
+        (Definition kind="action" abstract=false variation=false name="Looping"
+          (Membership visibility="default"
+            (Usage kind="attribute" name="feed" ref=false direction="in" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=ScalarValues::Integer
+                (*ast.QualifiedName))))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="out" ref=false direction="out" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=ScalarValues::Integer
+                (*ast.QualifiedName))))
+          (InitialNode name="start" successor="loop")
+          (Usage kind="action" name="loop" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+            (Membership visibility="default"
+              (Usage kind="attribute" name="iIn" ref=false direction="in" composite=false derived=false ordered=false nonunique=false
+                (Relationship kind="typing" target=ScalarValues::Integer
+                  (*ast.QualifiedName))))
+            (Membership visibility="default"
+              (Usage kind="attribute" name="sIn" ref=false direction="in" composite=false derived=false ordered=false nonunique=false
+                (Relationship kind="typing" target=ScalarValues::Integer
+                  (*ast.QualifiedName))))
+            (Membership visibility="default"
+              (Usage kind="attribute" name="iOut" ref=false direction="out" composite=false derived=false ordered=false nonunique=false
+                (Relationship kind="typing" target=ScalarValues::Integer
+                  (*ast.QualifiedName))))
+            (Membership visibility="default"
+              (Usage kind="attribute" name="sOut" ref=false direction="out" composite=false derived=false ordered=false nonunique=false
+                (Relationship kind="typing" target=ScalarValues::Integer
+                  (*ast.QualifiedName))))
+            (Membership visibility="private"
+              (Usage kind="attribute" name="i" ref=false direction="none" composite=false derived=false ordered=false nonunique=false initial=true
+                (Relationship kind="typing" target=ScalarValues::Integer
+                  (*ast.QualifiedName))
+                (FeatureReference name="iIn")))
+            (Membership visibility="private"
+              (Usage kind="attribute" name="s" ref=false direction="none" composite=false derived=false ordered=false nonunique=false initial=true
+                (Relationship kind="typing" target=ScalarValues::Integer
+                  (*ast.QualifiedName))
+                (FeatureChainExpr member="r"
+                  (FeatureChainExpr member="zero"
+                    (FeatureReference name="setup")))))
+            (Membership visibility="private"
+              (Usage kind="attribute" name="ended" ref=false direction="none" composite=false derived=false ordered=false nonunique=false initial=true
+                (Relationship kind="typing" target=ScalarValues::Boolean
+                  (*ast.QualifiedName))
+                (LiteralBool value=false)))
+            (InitialNode name="start" successor="setup")
+            (Membership visibility="default"
+              (Usage kind="action" name="setup" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+                (InitialNode name="start" successor="zero")
+                (Membership visibility="default"
+                  (Usage kind="action" name="zero" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+                    (Membership visibility="default"
+                      (Usage kind="attribute" name="r" ref=false direction="out" composite=false derived=false ordered=false nonunique=false
+                        (Relationship kind="typing" target=ScalarValues::Integer
+                          (*ast.QualifiedName))))
+                    (*ast.AssignmentActionNode)))))
+            (Membership visibility="default"
+              (Usage kind="action" name="iterate" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+                (WhileLoopActionNode kind="loop" variable=""
+                  (FeatureReference name="ended")
+                  (Membership visibility="default"
+                    (Usage kind="action" name="test" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+                      (InitialNode name="start" successor="le")
+                      (Membership visibility="default"
+                        (Usage kind="action" name="le" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+                          (Membership visibility="default"
+                            (Usage kind="attribute" name="x" ref=false direction="in" composite=false derived=false ordered=false nonunique=false
+                              (Relationship kind="typing" target=ScalarValues::Integer
+                                (*ast.QualifiedName))
+                              (FeatureReference name="i")))
+                          (Membership visibility="default"
+                            (Usage kind="attribute" name="y" ref=false direction="in" composite=false derived=false ordered=false nonunique=false
+                              (Relationship kind="typing" target=ScalarValues::Integer
+                                (*ast.QualifiedName))
+                              (FeatureReference name="s")))
+                          (Membership visibility="default"
+                            (Usage kind="attribute" name="r" ref=false direction="out" composite=false derived=false ordered=false nonunique=false
+                              (Relationship kind="typing" target=ScalarValues::Boolean
+                                (*ast.QualifiedName))))
+                          (Membership visibility="default"
+                            (Usage kind="attribute" name="k" ref=false direction="out" composite=false derived=false ordered=false nonunique=false
+                              (Relationship kind="typing" target=ScalarValues::Integer
+                                (*ast.QualifiedName))))
+                          (*ast.AssignmentActionNode)
+                          (*ast.AssignmentActionNode)))))
+                  (IfActionNode
+                    (OperatorExpr operator="not"
+                      (FeatureChainExpr member="r"
+                        (FeatureChainExpr member="le"
+                          (FeatureReference name="test"))))
+                    (IfBranchNode kind="then"
+                      (*ast.AssignmentActionNode))
+                    (IfBranchNode kind="else"
+                      (Membership visibility="default"
+                        (Usage kind="action" name="body" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+                          (InitialNode name="start" successor="plus")
+                          (Membership visibility="default"
+                            (Usage kind="action" name="plus" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+                              (Membership visibility="default"
+                                (Usage kind="attribute" name="x" ref=false direction="in" composite=false derived=false ordered=false nonunique=false
+                                  (Relationship kind="typing" target=ScalarValues::Integer
+                                    (*ast.QualifiedName))
+                                  (FeatureReference name="s")))
+                              (Membership visibility="default"
+                                (Usage kind="attribute" name="y" ref=false direction="in" composite=false derived=false ordered=false nonunique=false
+                                  (Relationship kind="typing" target=ScalarValues::Integer
+                                    (*ast.QualifiedName))
+                                  (FeatureChainExpr member="k"
+                                    (FeatureChainExpr member="le"
+                                      (FeatureReference name="test")))))
+                              (Membership visibility="default"
+                                (Usage kind="attribute" name="r" ref=false direction="out" composite=false derived=false ordered=false nonunique=false
+                                  (Relationship kind="typing" target=ScalarValues::Integer
+                                    (*ast.QualifiedName))))
+                              (*ast.AssignmentActionNode)))
+                          (InitialNode name="plus" successor="inc")
+                          (Membership visibility="default"
+                            (Usage kind="action" name="inc" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+                              (Membership visibility="default"
+                                (Usage kind="attribute" name="x" ref=false direction="in" composite=false derived=false ordered=false nonunique=false
+                                  (Relationship kind="typing" target=ScalarValues::Integer
+                                    (*ast.QualifiedName))
+                                  (FeatureReference name="i")))
+                              (Membership visibility="default"
+                                (Usage kind="attribute" name="r" ref=false direction="out" composite=false derived=false ordered=false nonunique=false
+                                  (Relationship kind="typing" target=ScalarValues::Integer
+                                    (*ast.QualifiedName))))
+                              (*ast.AssignmentActionNode)))))
+                      (Membership visibility="default"
+                        (Usage kind="action" name="next" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+                          (*ast.AssignmentActionNode)
+                          (*ast.AssignmentActionNode)
+                          (SuccessionEdge source="@assign" target="@assign")))
+                      (SuccessionEdge source="body" target="next")))
+                  (SuccessionEdge source="test" target="@if"))))
+            (SuccessionEdge source="setup" target="iterate")
+            (Membership visibility="default"
+              (Usage kind="action" name="results" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+                (*ast.AssignmentActionNode)
+                (*ast.AssignmentActionNode)
+                (SuccessionEdge source="@assign" target="@assign")))
+            (SuccessionEdge source="iterate" target="results"))
+          (InitialNode name="loop" successor="final")
+          (Membership visibility="default"
+            (Usage kind="action" name="final" ref=false direction="none" composite=false derived=false ordered=false nonunique=false terminate=true))
+          (Membership visibility="default"
+            (Usage kind="binding" name="" ref=false direction="none" composite=false derived=false ordered=false nonunique=false keyword="bind"
+              (ConnectorEnd target="*ast.FeatureChainExpr"
+                (FeatureChainExpr member="iIn"
+                  (FeatureReference name="loop")))
+              (ConnectorEnd target="feed"
+                (*ast.QualifiedName))))
+          (Membership visibility="default"
+            (Usage kind="binding" name="" ref=false direction="none" composite=false derived=false ordered=false nonunique=false keyword="bind"
+              (ConnectorEnd target="*ast.FeatureChainExpr"
+                (FeatureChainExpr member="sIn"
+                  (FeatureReference name="loop")))
+              (ConnectorEnd target="feed"
+                (*ast.QualifiedName))))
+          (Membership visibility="default"
+            (Usage kind="binding" name="" ref=false direction="none" composite=false derived=false ordered=false nonunique=false keyword="bind"
+              (ConnectorEnd target="out"
+                (*ast.QualifiedName))
+              (ConnectorEnd target="*ast.FeatureChainExpr"
+                (FeatureChainExpr member="sOut"
+                  (FeatureReference name="loop")))))))
+      (Membership visibility="default"
+        (Definition kind="action" abstract=false variation=false name="PostLoop"
+          (InitialNode name="start" successor="post")
+          (Membership visibility="default"
+            (Usage kind="action" name="post" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Membership visibility="default"
+                (Usage kind="attribute" name="xIn" ref=false direction="in" composite=false derived=false ordered=false nonunique=true
+                  (Multiplicity range=true
+                    (LiteralInteger value="0")
+                    (LiteralInfinity))))
+              (Membership visibility="default"
+                (Usage kind="attribute" name="xOut" ref=false direction="out" composite=false derived=false ordered=false nonunique=true
+                  (Multiplicity range=true
+                    (LiteralInteger value="0")
+                    (LiteralInfinity))))
+              (Membership visibility="private"
+                (Usage kind="attribute" name="x" ref=true direction="none" composite=false derived=false ordered=false nonunique=true initial=true
+                  (Multiplicity range=true
+                    (LiteralInteger value="0")
+                    (LiteralInfinity))
+                  (FeatureReference name="xIn")))
+              (Membership visibility="private"
+                (Usage kind="attribute" name="ended" ref=false direction="none" composite=false derived=false ordered=false nonunique=false initial=true
+                  (Relationship kind="typing" target=ScalarValues::Boolean
+                    (*ast.QualifiedName))
+                  (LiteralBool value=false)))
+              (InitialNode name="start" successor="iterate")
+              (Membership visibility="default"
+                (Usage kind="action" name="iterate" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+                  (WhileLoopActionNode kind="loop" variable=""
+                    (FeatureReference name="ended")
+                    (Membership visibility="default"
+                      (Usage kind="action" name="body" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+                        (InitialNode name="start" successor="grow")
+                        (Membership visibility="default"
+                          (Usage kind="action" name="grow" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+                            (Membership visibility="default"
+                              (Usage kind="attribute" name="v" ref=false direction="in" composite=false derived=false ordered=false nonunique=true
+                                (Multiplicity range=true
+                                  (LiteralInteger value="0")
+                                  (LiteralInfinity))
+                                (FeatureReference name="x")))
+                            (Membership visibility="default"
+                              (Usage kind="attribute" name="r" ref=false direction="out" composite=false derived=false ordered=false nonunique=true
+                                (Multiplicity range=true
+                                  (LiteralInteger value="0")
+                                  (LiteralInfinity))))))))
+                    (Membership visibility="default"
+                      (Usage kind="action" name="next" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+                        (*ast.AssignmentActionNode)))
+                    (SuccessionEdge source="body" target="next")
+                    (Membership visibility="default"
+                      (Usage kind="action" name="test" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+                        (InitialNode name="start" successor="lt")
+                        (Membership visibility="default"
+                          (Usage kind="action" name="lt" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+                            (Membership visibility="default"
+                              (Usage kind="attribute" name="v" ref=false direction="in" composite=false derived=false ordered=false nonunique=true
+                                (Multiplicity range=true
+                                  (LiteralInteger value="0")
+                                  (LiteralInfinity))
+                                (FeatureReference name="x")))
+                            (Membership visibility="default"
+                              (Usage kind="attribute" name="r" ref=false direction="out" composite=false derived=false ordered=false nonunique=false
+                                (Relationship kind="typing" target=ScalarValues::Boolean
+                                  (*ast.QualifiedName))))))))
+                    (SuccessionEdge source="next" target="test")
+                    (IfActionNode
+                      (OperatorExpr operator="not"
+                        (FeatureChainExpr member="r"
+                          (FeatureChainExpr member="lt"
+                            (FeatureReference name="test"))))
+                      (IfBranchNode kind="then"
+                        (*ast.AssignmentActionNode)))
+                    (SuccessionEdge source="test" target="@if"))))
+              (SuccessionEdge source="start" target="iterate")
+              (Membership visibility="default"
+                (Usage kind="action" name="results" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+                  (*ast.AssignmentActionNode)))
+              (SuccessionEdge source="iterate" target="results")))
+          (InitialNode name="post" successor="final")
+          (Membership visibility="default"
+            (Usage kind="action" name="final" ref=false direction="none" composite=false derived=false ordered=false nonunique=false terminate=true)))))))

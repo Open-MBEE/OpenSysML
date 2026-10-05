@@ -22,7 +22,7 @@
       },
       {
         "name": "fixtures",
-        "files": 94
+        "files": 95
       }
     ],
     "counts": {
@@ -208,11 +208,11 @@
       },
       "uml:LoopNode": {
         "pssm": 2,
-        "fixtures": 0
+        "fixtures": 5
       },
       "uml:ObjectFlow": {
         "pssm": 11312,
-        "fixtures": 99
+        "fixtures": 112
       },
       "uml:ObjectFlow[weight]": {
         "pssm": 2065,
@@ -220,7 +220,7 @@
       },
       "uml:OpaqueAction": {
         "pssm": 0,
-        "fixtures": 134
+        "fixtures": 147
       },
       "uml:OpaqueBehavior": {
         "pssm": 0,
@@ -10004,14 +10004,21 @@
       ],
       "operations": [],
       "ocl": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
-        "internal/translate/migrate/activity.go:structured"
+        "internal/translate/migrate/activity.go:structured",
+        "internal/translate/migrate/loop.go:loopNode",
+        "internal/translate/migrate/loop.go:loopShape"
       ],
       "tests": [
+        "tests/migrate/loop_test.go:TestLoopNodeTestedFirstFixture",
+        "tests/migrate/loop_test.go:TestLoopNodePostTestedFixture",
+        "tests/migrate/loop_test.go:TestLoopNodeFallbackFixture",
+        "internal/exec/runtime/conformance_test.go:TestExecutionConformance",
+        "internal/exec/runtime/robustness_migrated_loop_test.go:TestRuntimeRobustnessMigratedLoop",
         "tests/corpus/pssm_migration_test.go:TestPSSMSuiteMigration"
       ],
-      "reason": "a loop node is written as `action x { }` holding its body once; the loop test and iteration are not written",
+      "reason": "a loop node that names a decider is written as a v2 loop: its loop variables and an `ended` flag as private features, its setup, test and body parts as action usages performing in the loop — test before body when tested first, else after — the values crossing parts as pin defaults, and its results read from the variables at the end; a loop naming no decider has no test result to write, so it keeps the body-once form and stays approximated per element; candidate erratum: the mapping gives only an ActionUsage and leaves its details undefined, so a loop's test and iteration are lost",
       "scope": [
         "uml:LoopNode"
       ]

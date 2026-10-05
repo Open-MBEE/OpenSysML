@@ -1,0 +1,93 @@
+step 1: token 1@loop
+eval literal 0 -> 0
+eval feature iIn -> 0
+eval literal false -> false
+enter action node: loop
+step 2: token 1@start
+step 3: token 1@setup
+enter action node: setup
+step 4: token 1@start
+step 5: token 1@zero
+stmt assign r
+  eval literal 0 -> 0
+leave action node: setup
+step 6: token 1@init
+stmt assign s
+  eval chain r -> 0
+step 7: token 1@iterate
+stmt loop until
+  iteration 1
+enter action node: loop body of action node iterate
+enter action node: test
+    eval feature i -> 0
+    eval feature s -> 0
+    stmt assign r
+        eval feature x -> 0
+        eval feature y -> 0
+      eval operator <= -> true
+    stmt assign k
+        eval literal 10 -> 10
+        eval feature x -> 0
+      eval operator * -> 0
+leave action node: test
+    stmt if
+        eval chain r -> true
+      eval operator not -> false
+enter action node: branch body of loop body of action node iterate
+enter action node: body
+      eval feature s -> 0
+      eval chain k -> 0
+      stmt assign r
+          eval feature x -> 0
+          eval feature y -> 0
+        eval operator + -> 0
+      eval feature i -> 0
+      stmt assign r
+          eval feature x -> 0
+          eval literal 1 -> 1
+        eval operator + -> 1
+leave action node: body
+enter action node: next
+      stmt assign i
+        eval chain r -> 1
+      stmt assign s
+        eval chain r -> 0
+leave action node: next
+leave action node: branch body of loop body of action node iterate
+leave action node: loop body of action node iterate
+    eval feature ended -> false
+  iteration 2
+enter action node: loop body of action node iterate
+enter action node: test
+    eval feature i -> 1
+    eval feature s -> 0
+    stmt assign r
+        eval feature x -> 1
+        eval feature y -> 0
+      eval operator <= -> false
+    stmt assign k
+        eval literal 10 -> 10
+        eval feature x -> 1
+      eval operator * -> 10
+leave action node: test
+    stmt if
+        eval chain r -> false
+      eval operator not -> true
+      stmt assign ended
+        eval literal true -> true
+leave action node: loop body of action node iterate
+    eval feature ended -> true
+step 8: token 1@results
+enter action node: results
+step 9: token 1@assign iOut
+stmt assign iOut
+  eval feature i -> 1
+step 10: token 1@assign sOut
+stmt assign sOut
+  eval feature s -> 0
+leave action node: results
+leave action node: loop
+step 11: token 1@final
+stmt terminate
+terminate action: no token dropped
+step 12: no active tokens

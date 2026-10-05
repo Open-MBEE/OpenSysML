@@ -821,6 +821,8 @@ func (a *activity) starvedPin(n *sysmlv1.Element) *sysmlv1.Element {
 			continue
 		case pin.Type == "ValuePin" && firstOwned(pin, "value") != nil:
 			continue
+		case a.computed[pin] != "":
+			continue
 		case len(a.sources[pin]) > 0 && !a.unvaluedSources(pin):
 			continue
 		}
@@ -1611,7 +1613,8 @@ func inputPins(n *sysmlv1.Element) []*sysmlv1.Element {
 	ins = append(ins, n.Owned("insertAt")...)
 	ins = append(ins, n.Owned("removeAt")...)
 	ins = append(ins, n.Owned("collection")...)
-	return append(ins, n.Owned("exception")...)
+	ins = append(ins, n.Owned("exception")...)
+	return append(ins, n.Owned("loopVariableInput")...)
 }
 
 // outputPins lists the output pins of an action, results first.
@@ -2595,14 +2598,23 @@ func (a *activity) variableDataType(t *sysmlv1.Element) bool {
 // item of any other classifier, an untyped ref when it has no type or its type
 // is not written; the note explains whatever is dropped.
 func (a *activity) declareVariable(v *sysmlv1.Element) {
-	name := writeName(a.name(v, "variable"))
+	name, decl, note := a.variableFeature(v)
 	a.vars[v] = a.names[v]
+	a.m.w.line(decl + ";")
+	a.m.add(v, verdictFor(note), name, note)
+}
+
+// variableFeature is the feature a variable element — an activity's variable
+// or a LoopNode's loop variable pin — is declared as, with the name it takes
+// and the note explaining whatever is dropped: a loop writes the declaration
+// with an initial value of its own.
+func (a *activity) variableFeature(v *sysmlv1.Element) (name, decl, note string) {
+	name = writeName(a.name(v, "variable"))
 	t := a.m.model.Ref(v, "type")
 	typ, tnote := a.m.typeRef(t, a.def)
 	mult, mnote := a.m.multiplicity(v)
-	note := joinNotes(tnote, mnote)
+	note = joinNotes(tnote, mnote)
 	shape := shaped(mult, v, false, false)
-	var decl string
 	switch {
 	case typ != "" && a.variableDataType(t):
 		decl = "private attribute " + name + " : " + typ + shape
@@ -2611,8 +2623,7 @@ func (a *activity) declareVariable(v *sysmlv1.Element) {
 	default:
 		decl = "private ref " + name + shape
 	}
-	a.m.w.line(decl + ";")
-	a.m.add(v, verdictFor(note), name, note)
+	return name, decl, note
 }
 
 // variableOf is the variable a variable action reads or writes: the v2 name it
@@ -3091,7 +3102,12 @@ func (a *activity) structured(n *sysmlv1.Element, name string) {
 	case "ExpansionRegion":
 		note = "the region's body is written once; its expansion over the collection is not"
 	case "LoopNode":
-		note = "the loop's body is written once; its test and iteration are not"
+		if s, why := a.loopShape(n); s != nil {
+			a.loopNode(n, name, s)
+			return
+		} else {
+			note = why + ": the body is written once"
+		}
 	case "ConditionalNode":
 		note = "the node's clauses are written as one graph; their tests are not"
 	}
