@@ -2223,11 +2223,11 @@ func (d *decoder) usageHead(el *element, kind ast.UsageKind) (string, error) {
 		// An enumerated value is a variant by what it is, not by a keyword
 		// (SysML.xtext EnumerationUsageMember); its isVariant writes nothing back.
 		{"variant", isVariant},
+		{"derived", d.boolOf(el, rdf.SysML+"isDerived")},
 		// `portion` is composite and stands in for `composite`
 		// (KerML.xtext BasicFeaturePrefix `isComposite ?= 'composite' | isPortion ?= 'portion'`).
 		{"portion", isPortion},
 		{"composite", d.boolOf(el, rdf.SysML+"isComposite") && !isPortion},
-		{"derived", d.boolOf(el, rdf.SysML+"isDerived")},
 		{constantKeyword(kerml), d.boolOf(el, rdf.SysML+"isConstant")},
 		{"individual", d.boolOf(el, rdf.SysML+"isIndividual")},
 		{"snapshot", portion == "snapshot"},
