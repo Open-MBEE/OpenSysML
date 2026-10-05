@@ -17,7 +17,7 @@ A SysML v2 and KerML 1.1 implementation delivering the integrated tooling experi
 ### Design Principles
 
 - **Performance:** sub-millisecond parsing, a single static binary, and no JVM or Eclipse runtime
-- **Completeness:** SysML v2 textual notation support (107 of 107 bundled library files parse cleanly: 94 vendored OMG files and 13 OpenSysML extensions)
+- **Completeness:** SysML v2 textual notation support (98 of 98 standard library files parse cleanly: 94 vendored OMG files and 4 OpenSysML extensions)
 - **Executable models:** beyond validation, a runtime that instantiates, evaluates and simulates
 - **Incremental and lazy:** parse immediately and resolve semantics on demand, following the precedent set by gopls and rust-analyzer
 - **Immutable AST:** all semantic state resides in side tables keyed by node or symbol
@@ -260,7 +260,7 @@ source → lexer → parser → AST → symbol index → resolve → passes
 
 ### 8. Standard library (`internal/workspace/libs`)
 
-- **Source of truth:** the 107 library files under `internal/workspace/libs/stdlib/`, embedded in
+- **Source of truth:** the 98 library files under `internal/workspace/libs/stdlib/`, embedded in
   the binary; `OPENSYSML_LIBRARY_PATH` substitutes a directory of files for them.
 - **Shared base:** `libs.SharedBase()` builds one frozen `symbols.Index` of the library per
   process; every model is an overlay over it (`NewOverlay`), reading the library without copying
@@ -650,7 +650,7 @@ See [the guide](../guide/) for VS Code configuration.
 
 | Component | Status |
 |-----------|--------|
-| Lexer/Parser (structural + behavioral) | ✅ Operational (107/107 bundled libraries clean - see [conformance gate](../../internal/workspace/libs/stdlib_conformance_test.go)) |
+| Lexer/Parser (structural + behavioral) | ✅ Operational (105/105 stdlib clean - see [conformance gate](../../internal/workspace/libs/stdlib_conformance_test.go)) |
 | Symbol resolution & type system | ✅ Complete |
 | Validation passes (syntax → constraints) | ✅ Complete |
 | Expression evaluator & instance model (Tiers 1-3) | ✅ Complete |
@@ -664,7 +664,7 @@ See [the guide](../guide/) for VS Code configuration.
 | Standard library bundling | ✅ Complete |
 | LSP server implementation | ✅ Complete |
 
-**Parser coverage:** 107/107 bundled library files parse cleanly — the 94 official SysML v2 standard library files and the 13 non-normative OpenSysML extensions: `OpenSysML Libraries/OpenSysMLMathFunctions.kerml`, `DocumentQueries.sysml`, `IdentityMetadata.sysml`, `OOSEM.sysml`, `DiagramLayout.sysml`, `MOSA.sysml`, `RandomFunctions.kerml`, `Simulation.sysml`, `StateSpaceIntegration.sysml`, `Stochastic.sysml`, `AnalysisRecords.sysml`, `MigrationMetadata.sysml` and `OpenSysMLRenderings.sysml`. Conformance verified by [stdlib_conformance_test.go](../../internal/workspace/libs/stdlib_conformance_test.go). Grammar reference available at [OMG Xtext grammar](https://github.com/Systems-Modeling/SysML-v2-Pilot-Implementation/tree/master/org.omg.kerml.xtext/src/org/omg/kerml/xtext).
+**Parser coverage:** 106/106 bundled library files parse cleanly — the 94 official SysML v2 standard library files and the 12 non-normative OpenSysML extensions: `OpenSysML Libraries/OpenSysMLMathFunctions.kerml`, `DocumentQueries.sysml`, `IdentityMetadata.sysml`, `OOSEM.sysml`, `DiagramLayout.sysml`, `MOSA.sysml`, `RandomFunctions.kerml`, `Simulation.sysml`, `StateSpaceIntegration.sysml`, `Stochastic.sysml`, `AnalysisRecords.sysml` and `MigrationMetadata.sysml`. Conformance verified by [stdlib_conformance_test.go](../../internal/workspace/libs/stdlib_conformance_test.go). Grammar reference available at [OMG Xtext grammar](https://github.com/Systems-Modeling/SysML-v2-Pilot-Implementation/tree/master/org.omg.kerml.xtext/src/org/omg/kerml/xtext).
 
 ---
 
@@ -677,8 +677,8 @@ New grammar features require a **four-layer test contract** to ensure correctnes
 #### 1. Conformance Gate
 - **Purpose:** Ensure stdlib continues to parse cleanly
 - **Location:** `internal/workspace/libs/stdlib_conformance_test.go`
-- **Test:** `TestStdlibConformance` loads all 107 bundled library files
-- **Acceptance:** 107/107 files parse without errors
+- **Test:** `TestStdlibConformance` loads all 106 bundled library files
+- **Acceptance:** 106/106 files parse without errors
 - **Allowlist:** `testdata/stdlib_known_failures.txt` (currently empty)
 - **Failure mode:** Regression breaks previously-working stdlib files
 

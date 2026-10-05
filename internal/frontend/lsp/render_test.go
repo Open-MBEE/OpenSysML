@@ -652,6 +652,25 @@ func TestRenderAnswersEveryAdvertisedForm(t *testing.T) {
 	}
 }
 
+func TestRenderRefusesD2ForCaseAndMixed(t *testing.T) {
+	s, docURI := renderServer(t, "kit.sysml", renderModel)
+	for _, tc := range []struct {
+		name, kind string
+	}{
+		{"KitViews::widgetCases", "case"},
+		{"KitViews::widgetMixed", "mixed"},
+	} {
+		_, err := call(t, s, MethodRender, &renderParams{
+			TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
+			View:         tc.name,
+			Form:         string(view.FormD2),
+		})
+		if err == nil || !strings.Contains(err.Error(), tc.kind+" rendering is not written as d2; ask for text, mermaid, dot or plantuml") {
+			t.Errorf("%s as d2: err = %v, want the form refused", tc.name, err)
+		}
+	}
+}
+
 // The DOT form is honored for a graph-shaped view, is the same rendering as a
 // digraph, and is refused for a kind that has none with the forms it has.
 func TestRenderWritesDotWhenAskedFor(t *testing.T) {

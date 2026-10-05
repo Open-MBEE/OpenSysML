@@ -241,6 +241,15 @@ nor double-counted as two independent disagreements.
 | `tools/referee/diff/testdata` (probes) | 4 | 1 | 6 | 0 | 0 | 0 | 6 | 0 |
 | **Total** | **386** | **347** | **94** | **1694** | **49** | **2** | **43** | **1643** |
 
+The case and mixed views added to `examples/views-demo.sysml` account for the three additional
+pilot-only diagnostics in the `examples` root when the pinned pilot runs without OpenSysML's
+non-normative rendering library. Models using `OpenSysMLRenderings` are valid SysML v2 with that
+library dependency. Passing the library folder resolves the package and both rendering members; the
+three unresolved references occur only when the folder is omitted. The run with the folder still
+reports the separate `frame concern` syntax errors and library-package warnings, which this change
+does not address. The two existing pilot syntax diagnostics for `frame concern` remain, with their
+line numbers shifted by the added view declarations.
+
 **Read the `only ours` total by root, never as one number.** Step 2 removes nine resolver false
 positives from the reference's **own** corpora: `pilot-examples` 16 → **7** and
 `pilot-validation` 1 → **0**, with `kerml-examples` unmoved at 3; the `2026-07` corpus then
@@ -3282,7 +3291,7 @@ true positive: the identical construct at line 10 is now an agreement.
 
 ### The census the verdicts above account for
 
-Deduplicated by message, the 61 only-pilot occurrences distribute as follows. No entry is a rule the
+Deduplicated by message, the 58 only-pilot occurrences distribute as follows. No entry is a rule the
 reference has and we lack: every one is either adjudicated above or a diagnostic downstream of
 notation the reference cannot parse.
 
@@ -3296,7 +3305,6 @@ notation the reference cannot parse.
 | 2 | typing-kind (`attribute`, `occurrence/item/part`) | one downstream of an unresolved type, one in a file the reference cannot parse |
 | 1 | `Must be model-level evaluable` | reported by both; a categorizer asymmetry in this harness |
 | 23 | syntax and unresolved-reference cascades | `views-demo.sysml`, `passes/import_no_visibility.sysml`, `pseudostates-demo.sysml`, `phase-c-behavioral-bodies.sysml`, `solver-demo.sysml` — retained extensions the reference has no production for, plus what its recovery reports afterwards |
-| 3 | unresolved references to `OpenSysMLRenderings`, `asCaseDiagram` and `asMixedDiagram` | `views-demo.sysml` — unresolved only when the non-normative OpenSysML library folder is omitted; models using it are valid SysML v2 with that library dependency |
 
 Every verdict here was taken from a matched pair of runs over a reduced model, not from the corpus
 row: `build/pilot-sysml-validator/validate-sysml-batch --root <dir> <file>` against

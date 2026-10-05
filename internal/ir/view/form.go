@@ -73,8 +73,8 @@ func (k Kind) MachineForm() Form {
 
 // SupportsForm reports whether renderings of the kind are written in form:
 // every kind has the text form and its machine form, the kinds drawn as a
-// graph of nodes and edges have the DOT, PlantUML and D2 forms as well, a
-// sequence has PlantUML's and D2's sequence grammars, and a table has CSV and TSV.
+// graph of nodes and edges have DOT and PlantUML forms, tree, interconnection,
+// state and action also have D2, sequence has PlantUML and D2, and a table has CSV and TSV.
 func (k Kind) SupportsForm(form Form) bool {
 	switch form {
 	case FormText:

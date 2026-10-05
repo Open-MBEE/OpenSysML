@@ -51,6 +51,9 @@ A **form** is a writer over that tree (`internal/ir/view/form.go`):
 | `plantuml` | `plantuml.go` | `tree`, `interconnection`, `state`, `action`, `case`, `mixed`, `sequence`, `requirement`, `definition`, `package` | PlantUML in the Pilot visualizer's B&W style, for PlantUML toolchains |
 | `d2` | `d2.go` | `tree`, `interconnection`, `state`, `action`, `sequence`, `requirement`, `definition`, `package` | [D2](https://d2lang.com) in the same look, for D2 toolchains; nested containers and D2's own sequence diagram |
 
+D2 does not yet write case or mixed renderings and refuses them with the typed
+`WrongFormError`.
+
 `Kind.MachineForm` chooses the form a tool gets when none is asked for — `markdown` for a table,
 `mermaid` for everything else — and `Kind.SupportsForm` decides whether a kind can be written in
 a form at all. Asking for a form the kind is not written in is one typed `WrongFormError`, naming
@@ -1064,7 +1067,9 @@ beside its `class` — see [Source links](#source-links).
 
 ## Surfaces
 
-`dot`, `mermaid`, `plantuml` and `d2` are accepted wherever a form is chosen:
+`dot`, `mermaid`, `plantuml` and `d2` are accepted wherever a diagram form is chosen,
+subject to each kind's supported-form list above. In particular, case and mixed renderings
+refuse D2:
 
 | Surface | Where | Documentation |
 | --- | --- | --- |

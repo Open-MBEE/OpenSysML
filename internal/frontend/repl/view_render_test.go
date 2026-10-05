@@ -378,6 +378,15 @@ func TestPseudoViewsRenderThroughTheSession(t *testing.T) {
 	if text := run(t, s, "%render #mixed:Direct::Machine"); !strings.HasPrefix(text, "mixed rendering") {
 		t.Errorf("%%render did not accept a targeted #mixed pseudo-view:\n%s", text)
 	}
+	for _, spec := range []struct{ view, kind string }{
+		{"#case", "case"},
+		{"#mixed:Direct::Machine", "mixed"},
+	} {
+		got := run(t, s, "%render "+spec.view+" d2")
+		if !strings.Contains(got, spec.kind+" rendering is not written as d2; ask for text, mermaid, dot or plantuml") {
+			t.Errorf("%%render %s d2 = %q, want the form refused", spec.view, got)
+		}
+	}
 	declared, err := s.ViewRendering("Direct::missionView")
 	if err != nil || declared.Kind != view.KindCase {
 		t.Errorf("declared case rendering = %+v, %v", declared, err)

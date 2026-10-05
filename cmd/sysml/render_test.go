@@ -340,6 +340,43 @@ func TestRenderD2Form(t *testing.T) {
 	if table.status != exitUnevaluable || !strings.Contains(table.stderr, "table rendering is not written as d2; ask for text, markdown, csv or tsv") {
 		t.Errorf("D2 of a table = %d\n%s", table.status, table.output())
 	}
+	for _, tc := range []struct {
+		name, message string
+	}{
+		{"Demo::cases", "case rendering is not written as d2; ask for text, mermaid, dot or plantuml"},
+		{"Demo::mixed", "mixed rendering is not written as d2; ask for text, mermaid, dot or plantuml"},
+	} {
+		got := runStreams(t, binary, renderModel, "-render", tc.name, "-render-form", "d2")
+		if got.status != exitUnevaluable || got.stdout != "" || !strings.Contains(got.stderr, tc.message) {
+			t.Errorf("D2 of %s = %d\n%s", tc.name, got.status, got.output())
+		}
+	}
+
+	dir = filepath.Join(t.TempDir(), "case-mixed")
+	got = runStreams(t, binary, renderModel, "-render-all", dir, "-render-form", "d2")
+	if got.status != exitHolds {
+		t.Fatalf("-render-all as d2: exit status = %d\n%s", got.status, got.output())
+	}
+	files, err := os.ReadDir(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	wantFiles := []string{"Demo.empty.d2", "Demo.overview.d2"}
+	if len(files) != len(wantFiles) {
+		t.Errorf("-render-all as d2 wrote %v, want %v", files, wantFiles)
+	} else {
+		for i, name := range wantFiles {
+			if files[i].Name() != name {
+				t.Errorf("-render-all as d2 wrote %v, want %v", files, wantFiles)
+				break
+			}
+		}
+	}
+	for _, name := range []string{"Demo::cases", "Demo::mixed"} {
+		if !strings.Contains(got.stderr, name+": skipped:") || !strings.Contains(got.stderr, "not written as d2") {
+			t.Errorf("-render-all did not refuse %s as d2:\n%s", name, got.stderr)
+		}
+	}
 }
 
 // -render-palette fills the DOT and Mermaid forms' nodes from a named palette,

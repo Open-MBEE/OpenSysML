@@ -528,6 +528,9 @@ part structure : Diagram {
   sequence diagrams note that individual participants cannot be filled; HTML
   figures carry the palette as `data-palette`. Any other name, or a palette on
   a table diagram, is a typed error.
+  D2 fills nodes for tree, interconnection, state, action and sequence renderings;
+  it does not yet write case or mixed renderings and refuses them with a typed
+  `WrongFormError`.
   `ports` — `"minimal"` or `"full"` — is accepted by an interconnection or
   mixed diagram. `"minimal"`, the default, draws on each part the ports an
   interconnection edge ends at and no other, each a small square on the
@@ -644,9 +647,10 @@ it as source under a notice. PlantUML pins no positions, so a view's
 honours it ([the PlantUML form](../project/view-rendering-forms.md#plantuml)).
 
 Rendered with `-diagram-form d2` (`%render-document <name> d2`, `diagramForm: "d2"`),
-every diagram — the `sequence` kind included — is a fenced ` ```d2 ` block for a
-[D2](https://d2lang.com) toolchain, in the same B&W look as a `classes` block the
-nodes and edges name; a part's parts and drawn ports are containers nested in it.
+each `tree`, `interconnection`, `state`, `action` or `sequence` diagram is a fenced
+` ```d2 ` block for a [D2](https://d2lang.com) toolchain, in the same B&W look as a
+`classes` block the nodes and edges name; a part's parts and drawn ports are containers
+nested in it. Case and mixed diagrams are refused with a typed unrenderable-form error.
 No `d2` is needed to write it:
 
 ```markdown
