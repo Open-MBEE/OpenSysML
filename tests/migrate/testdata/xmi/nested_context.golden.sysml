@@ -17,16 +17,10 @@ part def Host {
                 action 'read sequencer' {
                     out result[1] = context.'aO Sequencer';
                 }
-                first 'read sequencer' then 'fork';
-                fork 'fork';
-                first 'fork' then one;
-                first 'fork' then 'join';
+                first 'read sequencer' then one;
                 action one {
                     out result[1] = 1;
                 }
-                first one then 'join';
-                join 'join';
-                first 'join' then 'set k';
                 action 'set k' {
                     in object[1];
                     in value[1];
@@ -34,10 +28,9 @@ part def Host {
                 }
                 first 'set k' then final;
                 action final terminate;
-                flow 'read sequencer'.result to 'set k'.object;
-                flow one.result to 'set k'.value;
-                metadata MigrationMetadata::SynthesizedName about 'fork', 'join', final;
-                metadata MigrationMetadata::StandIn about 'fork', 'join';
+                succession flow 'read sequencer'.result to 'set k'.object;
+                succession flow one.result to 'set k'.value;
+                metadata MigrationMetadata::SynthesizedName about final;
             }
             first start then set;
             action set : Set { in ref :>> context = Write::context; }

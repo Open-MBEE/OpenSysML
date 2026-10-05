@@ -575,6 +575,14 @@ func (s *stateSpeller) deliveries(b *strings.Builder, perf *actionFrame) {
 			fmt.Fprintf(b, " pending{%s.%s = (%s)}", s.node(perf.graph, node), pin, s.elements(pins[pin]))
 		}
 	}
+	for _, node := range sortedNodes(perf.held) {
+		pins := perf.held[node]
+		for _, pin := range slices.Sorted(maps.Keys(pins)) {
+			for _, h := range pins[pin] {
+				fmt.Fprintf(b, " held{%s.%s = %s by %s}", s.node(perf.graph, node), pin, s.value(h.value), nodeKey(h.flow))
+			}
+		}
+	}
 	for _, node := range sortedNodes(perf.nested) {
 		for _, delivery := range perf.nested[node] {
 			path := make([]string, 0, len(delivery.path)+1)

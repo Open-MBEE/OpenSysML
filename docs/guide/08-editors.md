@@ -96,7 +96,13 @@ running orthogonally around the boxes (a rendering of more than 600 nodes falls 
 square grid). Dragging a node writes that annotation — into
 the view's body when a view is drawn, into the element's own when the document is drawn
 directly — as one edit when the pointer is released; dragging the handle on an edge bends it
-through a `Route` waypoint. The geometry is on every node and edge the server sends (`x`, `y`,
+through a `Route` waypoint. An edge at a node the model places, which ELK's route no longer
+fits, is routed at right angles around the other boxes — out of every container except the
+ones its ends lie inside — by the panel's bundled libavoid router once the node is dropped,
+and drawn straight until the router has loaded, while it is dragged, or when the router finds
+no route; that route is the panel's own — it may overlap an ELK-routed edge, which the router
+does not see — and written to the model only once one of its waypoints is dragged.
+The geometry is on every node and edge the server sends (`x`, `y`,
 `width`, `height`, `route`) and in the Mermaid the REPL and the document pipeline write as
 `%% layout:` comments, so other clients can honor it; see
 [Diagram layout annotations](../project/diagram-layout-annotations.md). A drag applies to the
@@ -108,7 +114,7 @@ tree, interconnection, state and action diagrams, which read the annotations bac
 the drawn view in a form you pick from a list: Mermaid (`.mmd`) with the model's positions as
 `%% layout:` comments, Graphviz DOT (`.dot`) with the positions as `pos` attributes and a
 `// layout:` header naming the engine that keeps them, PlantUML (`.puml`) in the Pilot
-visualizer's style, Markdown (`.md`), comma-separated (`.csv`) or tab-separated (`.tsv`) values
+visualizer's style, D2 (`.d2`) in the same look, Markdown (`.md`), comma-separated (`.csv`) or tab-separated (`.tsv`) values
 for a table, or the text form (`.txt`). The list is the
 one the connected server advertises, so it matches what that server writes; the pick is sent
 as the request's `form`, the server writes that form, and the save dialog opens on the matching
@@ -150,6 +156,22 @@ extension-debugging loop.
 
 Other editors can launch `bin/sysml-lsp` over standard input and output through their own generic
 LSP client; only the syntax highlighting is specific to VS Code.
+
+### Running an element from the editor
+
+Above each executable `action`, `state`, `calc`, `constraint` and `requirement` declared
+outside another behavior the server offers a *Run* or *Evaluate* code lens naming it, and above
+each definition a reference count that opens the references peek. Clicking *Run* or *Evaluate*
+saves every unsaved model file and runs the matching `sysml` check over the workspace folders —
+`sysml -action Demo::Charge <folder>`, `-state`, `-calc`, `-constraint` or `-requirement` — as
+a task, so the result appears in the task terminal and a name another file declares without an
+import resolves as it does in the editor. A file outside every folder runs alone. The `sysml`
+binary is looked for beside the `sysml-lsp` in use,
+then in an open workspace's `bin/`, then on `PATH`. Inside a call's argument list the
+parameter list of what it calls appears as you type, and inlay hints show the type a feature
+declared without one is inferred to have and the constant a value evaluates to from the model
+alone (<kbd>Ctrl</kbd>+<kbd>Alt</kbd> toggles them when `editor.inlayHints.enabled` is
+`offUnlessPressed`).
 
 ## OpenCode
 
@@ -232,12 +254,34 @@ same way, so its imports of sibling files resolve rather than being reported unr
   makes it the user's file again; see
   [normative library identity](../reference/rdf-mapping.md#normative-library-identity)
 
+- ✅ Signature help (`textDocument/signatureHelp`, triggered by `(` and `,`): inside the
+  argument list of a calculation, function or action call, one signature per declaration the
+  call may invoke — the overload its arguments select, else those they leave tied — written
+  `Fall(h : Real, [g : Real]) : Real`, a bracketed parameter being one with a default. The
+  parameter the cursor's argument binds is active, by position for a positional argument
+  (the operand of `x->f(…)` counting as the first) and by name for a named one
+- ✅ Code lens (`textDocument/codeLens`, resolved on demand with `codeLens/resolve`): a
+  reference count on each definition, which the editor's references peek opens
+  (`editor.action.showReferences`, whose URI, position and locations the VS Code extension
+  converts from their protocol form), and a *Run* (action, state) or *Evaluate* (calc,
+  constraint, requirement) command, titled with the element's name, on each executable
+  declaration that is not a step or substate of another behavior. The command is
+  `opensysml.runElement` with the document URI, the element's qualified name and its kind;
+  the VS Code extension implements it, and another client registers a command of that name
+- ✅ Inlay hints (`textDocument/inlayHint`): after the name of a feature declared without a
+  type, the type it is inferred to have — that of its value, else what the features it
+  redefines or subsets give it — when it is more specific than `DataValue`, the result the
+  `DataFunctions` operators declare for arithmetic; after a feature's non-literal value, the constant it
+  evaluates to from the model alone (`attribute twice = base * 2;` shows `= 20.0` when `base`
+  is a package-level `10.0`). A value that reads an instance's feature gets no hint, since
+  the model alone does not fix it. Only the declarations in the requested range are read, so
+  the hints cost nothing until an editor asks for them
+
 **Not implemented:** semantic token deltas (`semanticTokens/full/delta`; the server keeps no
-previous result to diff against, so clients re-request the full set), signature help, code lens
-and inlay hints. A client that requests one of these gets a
-method-not-found response rather than a partial result. Quick fixes are offered only where the
-repair is unambiguous: a syntax error that could be fixed with either a body or a semicolon gets
-none.
+previous result to diff against, so clients re-request the full set). A client that requests
+one gets a method-not-found response rather than a partial result. Quick fixes are offered
+only where the repair is unambiguous: a syntax error that could be fixed with either a body or
+a semicolon gets none.
 
 **Testing the server:** the protocol is JSON-RPC over standard input and output, so you can send
 requests by hand. The following exchange, run against `bin/sysml-lsp`, formats a badly indented
@@ -283,4 +327,4 @@ To check the installation in an editor, open a file containing
 
 ---
 
-Next: [9. From your own program](09-clients.md).
+Next: [client libraries](../clients.md).

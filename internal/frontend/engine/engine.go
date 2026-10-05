@@ -14,12 +14,14 @@ import (
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/check/passes"
+	"github.com/Open-MBEE/OpenSysML/internal/doc/queryexec"
 	"github.com/Open-MBEE/OpenSysML/internal/exec/objref"
 	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/jsonrpc"
 	fsyntax "github.com/Open-MBEE/OpenSysML/internal/frontend/syntax"
 	"github.com/Open-MBEE/OpenSysML/internal/ir/view"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast/astcodec"
@@ -42,6 +44,8 @@ const (
 	codeUnimplemented      = jsonrpc.CodeUnimplemented
 	codeInternal           = jsonrpc.CodeInternal
 )
+
+const stateTraceLimit = 100000
 
 // Error is a refused call: the canonical status code and its message.
 type Error = jsonrpc.Error
@@ -91,6 +95,19 @@ type cachedModel struct {
 	Library   libs.Source
 	Mode      diag.ConformanceMode
 	model     *runtime.Model
+	resolver  *resolve.Resolver
+	typed     *semantics.Model
+}
+
+// typedModel builds the checker-typed model and resolver the runtime and renderer
+// share.
+func (m *cachedModel) typedModel() *semantics.Model {
+	if m.typed == nil {
+		m.resolver = resolve.New(m.Index)
+		m.typed = passes.NewTypedModel(m.resolver)
+		m.typed.SetSourceText(m.sourceText())
+	}
+	return m.typed
 }
 
 // semantics is the model-derived runtime part as a grpc CachedModel builds one:
@@ -100,10 +117,8 @@ func (m *cachedModel) semantics() *runtime.Model {
 	if m.model != nil {
 		return m.model
 	}
-	resolver := resolve.New(m.Index)
-	sem := passes.NewTypedModel(resolver)
-	sem.SetSourceText(m.sourceText())
-	m.model = runtime.NewModel(sem, resolver)
+	sem := m.typedModel()
+	m.model = runtime.NewModel(sem, m.resolver)
 	m.model.SetExpressionParser(parser.ParseOneExpression)
 	for _, doc := range m.Documents {
 		m.model.RegisterSource(doc.Source)
@@ -164,23 +179,33 @@ type Engine struct {
 	libIndex *symbols.Index
 	libSrc   libs.Source
 	budgets  runtime.Budgets
-	// models is the bounded store of parsed models keyed by content hash,
-	// oldest at the back.
-	models *list.List
-	byHash map[string]*list.Element
+	// models stores parsed models keyed by content hash, oldest at the back.
+	models    *list.List
+	byHash    map[string]*list.Element
+	maxModels int
 }
 
 // New builds an engine over the frozen standard library snapshot, under the
 // runtime budgets a default sysml-grpc NewService runs with.
 func New() (*Engine, error) {
+	index, src := libs.FrozenLibrary()
+	return NewWithLibrary(index, src, maxCachedModels)
+}
+
+// NewWithLibrary builds an engine over a shared standard library snapshot.
+// A nonpositive maxModels disables automatic eviction.
+func NewWithLibrary(index *symbols.Index, src libs.Source, maxModels int) (*Engine, error) {
 	budgets, err := runtime.BudgetsFromEnv()
 	if err != nil {
 		return nil, err
 	}
 	return &Engine{
-		budgets: budgets,
-		models:  list.New(),
-		byHash:  make(map[string]*list.Element),
+		libIndex:  index,
+		libSrc:    src,
+		budgets:   budgets,
+		models:    list.New(),
+		byHash:    make(map[string]*list.Element),
+		maxModels: maxModels,
 	}, nil
 }
 
@@ -194,6 +219,16 @@ func (e *Engine) get(hash string) (*cachedModel, bool) {
 	return elem.Value.(*cacheEntry).model, true
 }
 
+// Evict removes a cached model; absent hashes are ignored.
+func (e *Engine) Evict(hash string) {
+	elem, ok := e.byHash[hash]
+	if !ok {
+		return
+	}
+	e.models.Remove(elem)
+	delete(e.byHash, hash)
+}
+
 // add caches model under hash, evicting the oldest model at the bound.
 func (e *Engine) add(hash string, model *cachedModel) {
 	if elem, ok := e.byHash[hash]; ok {
@@ -201,7 +236,7 @@ func (e *Engine) add(hash string, model *cachedModel) {
 		elem.Value.(*cacheEntry).model = model
 		return
 	}
-	if e.models.Len() >= maxCachedModels {
+	if e.maxModels > 0 && e.models.Len() >= e.maxModels {
 		if oldest := e.models.Back(); oldest != nil {
 			e.models.Remove(oldest)
 			delete(e.byHash, oldest.Value.(*cacheEntry).hash)
@@ -210,12 +245,8 @@ func (e *Engine) add(hash string, model *cachedModel) {
 	e.byHash[hash] = e.models.PushFront(&cacheEntry{hash: hash, model: model})
 }
 
-// lib returns the frozen library index for one model to overlay, building it
-// once on the first parse.
+// lib returns the frozen library index for one model to overlay.
 func (e *Engine) lib() (*symbols.Index, libs.Source) {
-	if e.libIndex == nil {
-		e.libIndex, e.libSrc = libs.FrozenLibrary()
-	}
 	return e.libIndex, e.libSrc
 }
 
@@ -264,8 +295,144 @@ func (e *Engine) Call(ctx context.Context, method string, params []byte) (result
 			return nil, err
 		}
 		return e.executeState(ctx, &req)
+	case "RenderView":
+		// RenderView is served by sysml-engine, not sysml-grpc.
+		var req JRenderViewRequest
+		if err := decode(params, &req); err != nil {
+			return nil, err
+		}
+		return e.renderView(&req)
 	}
 	return nil, statusErrorf(codeUnimplemented, "%s is not served by sysml-engine", method)
+}
+
+// renderView builds the data a diagram client draws from a declared view or a
+// targeted pseudo-view, without requiring a current-document context.
+func (e *Engine) renderView(req *JRenderViewRequest) ([]byte, error) {
+	cached, ok := e.get(req.ModelHash)
+	if !ok {
+		return nil, statusErrorf(codeNotFound, msgModelNotFound, req.ModelHash)
+	}
+	if req.View == "" {
+		return nil, statusError(codeInvalidArgument, "view is required")
+	}
+	ports, ok := view.ParsePorts(req.Ports)
+	if !ok {
+		return nil, statusError(codeInvalidArgument, (&view.UnknownPortsError{Name: req.Ports}).Error())
+	}
+
+	sem := cached.typedModel()
+	renderer := view.NewRenderer(sem, cached.resolver, cached.sourceText())
+	var rendering *view.Rendering
+	var err error
+	if strings.HasPrefix(req.View, view.PseudoViewPrefix) {
+		kind, target, valid := view.ParsePseudoView(req.View)
+		if !valid {
+			return nil, statusErrorf(codeInvalidArgument, "%s is no pseudo-view: write %s",
+				req.View, strings.Join(view.PseudoViewSpecs(), ", "))
+		}
+		if target == "" {
+			return nil, statusErrorf(codeInvalidArgument, "%s is untargeted; name an element as #<kind>:<qualified name> (supported: %s)",
+				req.View, strings.Join(view.PseudoViewSpecs(), ", "))
+		}
+		syms := lookupNamed(cached.Index, target)
+		if len(syms) == 0 {
+			return nil, statusErrorf(codeNotFound, "%s: %s names nothing in this model", req.View, target)
+		}
+		stated := fmt.Sprintf("no view declared; rendering %s directly", target)
+		rendering, err = renderer.RenderExposed([]*symbols.Symbol{syms[0]}, kind, stated)
+	} else {
+		syms := lookupNamed(cached.Index, req.View)
+		if len(syms) == 0 {
+			return nil, statusErrorf(codeNotFound, "no view named %s", req.View)
+		}
+		rendering, err = renderer.Render(syms[0])
+		if errors.Is(err, semantics.ErrNotAView) {
+			return nil, statusError(codeInvalidArgument, err.Error())
+		}
+	}
+	if err != nil {
+		return nil, statusError(codeInvalidArgument, err.Error())
+	}
+	return marshalRenderView(rendering.DataFor(ports))
+}
+
+func marshalRenderView(data view.Data) ([]byte, error) {
+	out := &JRenderViewResponse{
+		View:    data.View,
+		Kind:    string(data.Kind),
+		Stated:  data.Stated,
+		Notices: data.Notices,
+		Nodes:   make([]JRenderNode, 0, len(data.Nodes)),
+		Edges:   make([]JRenderEdge, 0, len(data.Edges)),
+	}
+	if out.Notices == nil {
+		out.Notices = []string{}
+	}
+	if len(data.Columns) > 0 {
+		out.Columns = data.Columns
+	}
+	if data.Canvas != nil {
+		out.Canvas = &JRenderCanvas{Unit: data.Canvas.Unit}
+		if data.Canvas.HasSize {
+			width, height := data.Canvas.Width, data.Canvas.Height
+			out.Canvas.Width, out.Canvas.Height = &width, &height
+		}
+	}
+	for _, node := range data.Nodes {
+		item := JRenderNode{
+			ID:              node.ID,
+			Kind:            node.Kind,
+			Name:            node.Name,
+			NameSynthesized: node.NameSynthesized,
+			Type:            node.Type,
+			Detail:          node.Detail,
+			Parent:          node.Parent,
+			Style:           jRenderStyle(node.Style),
+		}
+		if node.Style != nil {
+			item.Fill = node.Style.Fill
+			item.Border = node.Style.Line
+		}
+		if node.Geometry != nil {
+			x, y := node.Geometry.X, node.Geometry.Y
+			item.X, item.Y, item.Collapsed = &x, &y, node.Geometry.Collapsed
+			if node.Geometry.HasSize {
+				width, height := node.Geometry.Width, node.Geometry.Height
+				item.Width, item.Height = &width, &height
+			}
+		}
+		for _, port := range node.Ports {
+			item.Ports = append(item.Ports, JRenderPort{
+				ID: port.ID, Name: port.Name, Type: port.Type, Direction: port.Direction.String(),
+			})
+		}
+		out.Nodes = append(out.Nodes, item)
+	}
+	for _, edge := range data.Edges {
+		item := JRenderEdge{
+			From: edge.From, To: edge.To, FromPort: edge.FromPort, ToPort: edge.ToPort,
+			Label: edge.Label, Kind: edge.Kind.String(), Style: jRenderStyle(edge.Style),
+		}
+		for _, point := range edge.Route {
+			item.Route = append(item.Route, JRenderPoint{X: point.X, Y: point.Y})
+		}
+		out.Edges = append(out.Edges, item)
+	}
+	for _, row := range data.Rows {
+		out.Rows = append(out.Rows, JRenderRow{Cells: row.Cells})
+	}
+	return marshal(out)
+}
+
+func jRenderStyle(style *view.Style) *JRenderStyle {
+	if style == nil {
+		return nil
+	}
+	return &JRenderStyle{
+		Fill: style.Fill, Line: style.Line, Text: style.Text, Font: style.Font,
+		FontSize: style.FontSize, Bold: style.Bold, Italic: style.Italic,
+	}
 }
 
 // decode reads the request body as protojson does over the lowerCamel field
@@ -763,9 +930,15 @@ func (e *Engine) executeState(ctx context.Context, req *JExecuteStateRequest) ([
 	if err := runtimeCtx.SetSchedule(schedule); err != nil {
 		return nil, statusError(codeInvalidArgument, err.Error())
 	}
+	var traceRecorder *runtime.TraceRecorder
+	if req.Trace {
+		traceRecorder = runtime.NewEventRecorder(stateTraceLimit)
+		runtimeCtx.SetTrace(traceRecorder)
+	}
 	self, err := e.performer(cached, runtimeCtx, req.PerformerSymbolId)
 	if err != nil {
-		return marshal(&JExecuteStateResponse{Error: err.Error()})
+		trace, dropped := stateTraceToJSON(runtimeCtx, traceRecorder)
+		return marshal(&JExecuteStateResponse{Error: err.Error(), Trace: trace, TraceDropped: dropped})
 	}
 
 	outcome, err := runtimeCtx.StateOutcomePerformedBy(stateMachine, self, req.Events)
@@ -776,11 +949,14 @@ func (e *Engine) executeState(ctx context.Context, req *JExecuteStateRequest) ([
 	}
 	finalContext, statesVisited := outcome.Outputs, outcome.StateVisits
 	diags := runNoteDiagnosticsToProto(runtimeCtx.Notes(), cached)
+	trace, dropped := stateTraceToJSON(runtimeCtx, traceRecorder)
 	if err != nil {
 		return marshal(&JExecuteStateResponse{
-			Error:       fmt.Sprintf("state machine execution failed: %v", err),
-			Diagnostics: diags,
-			FinalTime:   F64(runtimeCtx.Clock().Now()),
+			Error:        fmt.Sprintf("state machine execution failed: %v", err),
+			Diagnostics:  diags,
+			FinalTime:    F64(runtimeCtx.Clock().Now()),
+			Trace:        trace,
+			TraceDropped: dropped,
 		})
 	}
 
@@ -789,7 +965,39 @@ func (e *Engine) executeState(ctx context.Context, req *JExecuteStateRequest) ([
 		FinalContext:  valuesToProto(runtimeCtx, finalContext, cached.Index),
 		Diagnostics:   diags,
 		FinalTime:     F64(runtimeCtx.Clock().Now()),
+		Trace:         trace,
+		TraceDropped:  dropped,
 	})
+}
+
+func stateTraceToJSON(rt *runtime.Context, recorder *runtime.TraceRecorder) ([]JTraceEvent, int) {
+	if recorder == nil {
+		return nil, 0
+	}
+	events := queryexec.EventsFromTrace(rt, recorder.Records())
+	trace := make([]JTraceEvent, len(events))
+	for i, event := range events {
+		record := event.Record()
+		_, object := event.Object()
+		_, target := event.Target()
+		trace[i] = JTraceEvent{
+			Kind:         event.Kind(),
+			At:           F64(event.At()),
+			Object:       object,
+			Machine:      event.Machine(),
+			State:        record.State,
+			From:         record.From,
+			To:           record.To,
+			Target:       target,
+			Event:        record.Event,
+			Payload:      event.Payload(),
+			Alternatives: event.Alternatives(),
+			Taken:        event.Taken(),
+			Text:         event.Text(),
+		}
+	}
+	dropped, _ := recorder.Dropped()
+	return trace, dropped
 }
 
 // valuesToProto converts each value of a named map.

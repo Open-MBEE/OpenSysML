@@ -192,6 +192,9 @@ type HTMLOptions struct {
 	// when empty; the other forms draw one look.
 	Style view.DrawingStyle
 
+	// LinkTemplate fills source links for diagram elements. HTML content has no element-anchored sections.
+	LinkTemplate string
+
 	// Files is the file each document of the set this one is rendered in is
 	// written to, by qualified name; a cross-document reference links to the
 	// target's file here, or to DocumentHTMLFileName of its name when absent.
@@ -318,7 +321,7 @@ func (s Stylesheet) Check() error {
 
 // diagramOptions is the part of the options the diagrams are written by.
 func (o HTMLOptions) diagramOptions() DiagramOptions {
-	return DiagramOptions{Form: o.DiagramForm, WithoutGraphviz: o.WithoutGraphviz, Unplaced: o.Unplaced, Style: o.Style}
+	return DiagramOptions{Form: o.DiagramForm, WithoutGraphviz: o.WithoutGraphviz, Unplaced: o.Unplaced, Style: o.Style, LinkTemplate: o.LinkTemplate}
 }
 
 // htmlWriter accumulates one rendered document, its diagrams in the forms
@@ -1116,7 +1119,7 @@ func displayMathHTML(source string) string {
 // writeDiagram writes one diagram as a figure: a table-kind view as a table,
 // every other supported kind as the image drawn for it ahead of the render,
 // or else as its source in the render's diagram form — Mermaid, which a loaded
-// Mermaid script draws, or DOT or PlantUML — shown as text.
+// Mermaid script draws, or DOT, PlantUML or D2 — shown as text.
 func (w *htmlWriter) writeDiagram(node docir.Content, id string) error {
 	return w.writeFigure(id, node.Name(), w.captions.caption(node), node.Rendering(), figureOptions(node, w.forms))
 }

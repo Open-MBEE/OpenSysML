@@ -38,9 +38,15 @@
     }
 
     .osml-hero {
-      background: linear-gradient(120deg, var(--osml-hero-from), var(--osml-hero-to));
+      /* Graph paper: a faint 20px grid with a stronger line every fifth square. */
+      background:
+        linear-gradient(rgba(255, 255, 255, .09) 1px, transparent 1px) 0 0 / 100px 100px,
+        linear-gradient(90deg, rgba(255, 255, 255, .09) 1px, transparent 1px) 0 0 / 100px 100px,
+        linear-gradient(rgba(255, 255, 255, .04) 1px, transparent 1px) 0 0 / 20px 20px,
+        linear-gradient(90deg, rgba(255, 255, 255, .04) 1px, transparent 1px) 0 0 / 20px 20px,
+        linear-gradient(120deg, var(--osml-hero-from), var(--osml-hero-to));
       color: #fff;
-      padding: 4.4rem 0 4rem;
+      padding: 2rem 0 4rem;
     }
     /* 61rem is Material's own .md-grid width, so every band lines up with the
        documentation below. Widths are definite so long code lines scroll their own
@@ -69,6 +75,12 @@
     .osml-hero__inner > *,
     .osml-pane {
       min-width: 0;
+    }
+    .osml-hero__logo {
+      display: block;
+      width: 7rem;
+      height: 7rem;
+      margin: 0 auto 1.2rem;
     }
     .osml-hero__eyebrow {
       font-size: .68rem;
@@ -518,9 +530,6 @@
       font-size: .6rem;
       color: var(--md-default-fg-color--light);
     }
-    .osml-card--hub {
-      border-color: var(--md-accent-fg-color);
-    }
     .osml-eco__tag {
       display: inline-block;
       font-family: var(--md-code-font-family, monospace);
@@ -558,42 +567,55 @@
       margin: 0 auto;
       padding: 1rem 1.2rem .6rem;
     }
-    .osml-schematic svg {
-      display: block;
-      width: 100%;
-      height: auto;
+    .osml-hero { position: relative; }
+    /* The stage reserves the diagram's room in the hero; the drawing itself covers the
+       whole hero, so a box can be dragged anywhere on the blue. */
+    .osml-schematic__stage {
       position: relative;
+      min-height: 14rem;
+    }
+    .osml-schematic--drawn .osml-schematic__stage { min-height: 0; }
+    .osml-diagram {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      pointer-events: none;
+      z-index: 1;
       font-family: Helvetica, Arial, sans-serif;
     }
-    .osml-wire {
-      fill: none;
-      stroke: rgba(255, 255, 255, .55);
-      stroke-width: 1;
-      stroke-linecap: round;
-    }
-    .osml-node {
+    .osml-diagram .shape,
+    .osml-diagram .port-shape {
       fill: #fff;
       stroke: #181818;
       stroke-width: 1;
     }
-    .osml-nnode[data-osml-kind="runtime"] .osml-node { fill: #e3f2fd; stroke: #1565c0; }
-    .osml-nnode[data-osml-kind="runtime"] .osml-node-stereo { fill: #1565c0; }
-    .osml-nnode[data-osml-kind="toolchain"] .osml-node { fill: #e8f5e9; stroke: #2e7d32; }
-    .osml-nnode[data-osml-kind="toolchain"] .osml-node-stereo { fill: #2e7d32; }
-    .osml-nnode[data-osml-kind="reference"] .osml-node { fill: #f3e5f5; stroke: #6a1b9a; }
-    .osml-nnode[data-osml-kind="reference"] .osml-node-stereo { fill: #6a1b9a; }
-    .osml-nnode[data-osml-kind="model store"] .osml-node { fill: #fff3e0; stroke: var(--md-accent-fg-color); stroke-width: 2; }
-    .osml-nnode[data-osml-kind="model store"] .osml-node-stereo { fill: var(--md-accent-fg-color); }
-    .osml-node-stereo {
-      fill: #181818;
-      font-style: italic;
+    .osml-diagram g[data-kind="runtime"] > .shape,
+    .osml-diagram g[data-kind="runtime"] .port-shape { fill: #e3f2fd; stroke: #1565c0; }
+    .osml-diagram g[data-kind="runtime"] .keyword { fill: #1565c0; }
+    .osml-diagram g[data-kind="toolchain"] > .shape,
+    .osml-diagram g[data-kind="toolchain"] .port-shape { fill: #e8f5e9; stroke: #2e7d32; }
+    .osml-diagram g[data-kind="toolchain"] .keyword { fill: #2e7d32; }
+    .osml-diagram g[data-kind="reference"] > .shape,
+    .osml-diagram g[data-kind="reference"] .port-shape { fill: #f3e5f5; stroke: #6a1b9a; }
+    .osml-diagram g[data-kind="reference"] .keyword { fill: #6a1b9a; }
+    .osml-diagram g[data-kind="model store"] > .shape,
+    .osml-diagram g[data-kind="model store"] .port-shape { fill: #fff3e0; stroke: var(--md-accent-fg-color); stroke-width: 2; }
+    .osml-diagram g[data-kind="model store"] .keyword { fill: var(--md-accent-fg-color); }
+    .osml-diagram .label { fill: #181818; }
+    .osml-diagram .label .head { font-weight: 700; }
+    .osml-diagram .label .keyword { font-style: italic; font-size: .8em; }
+    .osml-diagram .label .detail { font-size: .8em; }
+    .osml-diagram .port-label {
+      fill: rgba(255, 255, 255, .85);
+      font-size: 11px;
     }
-    .osml-node-label {
-      fill: #181818;
-      font-weight: 700;
-    }
-    .osml-node-sub {
-      fill: #181818;
+    .osml-diagram .line {
+      fill: none;
+      stroke: rgba(255, 255, 255, .6);
+      stroke-width: 1.25;
+      stroke-linejoin: round;
     }
     .osml-schematic__caption {
       text-align: center;
@@ -601,36 +623,37 @@
       opacity: .75;
       margin: .4rem 0 0;
     }
-    .osml-nnode {
+    .osml-diagram g.osml-part {
+      pointer-events: auto;
       cursor: grab;
       touch-action: none;
       outline: none;
     }
-    .osml-nnode text {
-      pointer-events: none;
+    .osml-diagram g.osml-part text {
       user-select: none;
     }
-    .osml-nnode.is-dragging {
+    .osml-hero--dragging,
+    .osml-hero--dragging .osml-diagram g.osml-part {
       cursor: grabbing;
     }
-    .osml-nnode,
-    .osml-wire {
+    .osml-diagram g.osml-part,
+    .osml-diagram g.opensysml-edge {
       transition: opacity .25s;
     }
-    /* The hot node and its wires stay lit while the rest of the figure dims back. */
-    .osml-schematic--focus .osml-nnode:not(.is-hot),
-    .osml-schematic--focus .osml-wire:not(.is-hot) {
+    /* The hot box and its wires stay lit while the rest of the figure dims back. */
+    .osml-hero--focus .osml-diagram g.osml-part:not(.is-hot),
+    .osml-hero--focus .osml-diagram g.opensysml-edge:not(.is-hot) {
       opacity: .28;
     }
-    .osml-nnode.is-hot .osml-node,
-    .osml-nnode:focus-visible .osml-node {
+    .osml-diagram g.osml-part.is-hot > .shape,
+    .osml-diagram g.osml-part:focus-visible > .shape {
       stroke: #fff;
       stroke-width: 3;
     }
-    .osml-nnode.is-hot {
+    .osml-diagram g.osml-part.is-hot {
       filter: drop-shadow(0 0 .3rem #fff) drop-shadow(0 0 .9rem rgba(255, 255, 255, .55));
     }
-    .osml-wire.is-hot {
+    .osml-diagram g.opensysml-edge.is-hot .line {
       stroke: #fff;
       stroke-width: 2;
     }
@@ -648,6 +671,7 @@
       font-size: .62rem;
       line-height: 1.45;
       text-align: left;
+      overflow: auto;
     }
     .osml-nodecard[hidden] { display: none; }
     .osml-nodecard__stereo {
@@ -680,14 +704,14 @@
     }
     .osml-nodecard__close:hover { opacity: 1; }
     /* A run of the model: the token travels the wires the execution crossed. */
-    .osml-nnode.is-live .osml-node {
+    .osml-diagram g.osml-part.is-live > .shape {
       stroke: #ffd54f;
       stroke-width: 3;
     }
-    .osml-nnode.is-live {
+    .osml-diagram g.osml-part.is-live {
       filter: drop-shadow(0 0 .5rem #ffd54f);
     }
-    .osml-wire.is-live {
+    .osml-diagram g.opensysml-edge.is-live .line {
       stroke: #ffd54f;
       stroke-width: 2;
     }
@@ -734,19 +758,121 @@
       color: #ffcdd2;
       opacity: 1;
     }
-    .osml-schematic__src {
-      max-height: 22rem;
-      overflow: auto;
+    /* The debugger: steps through the trace ExecuteState returns for the sent events. */
+    .osml-debug {
       margin: .7rem 0 0;
+      padding: .6rem .8rem;
+      border: 1px solid rgba(255, 255, 255, .25);
+      border-radius: .3rem;
+      background: rgba(0, 0, 0, .25);
+      font-size: .64rem;
+      text-align: left;
+    }
+    .osml-debug[hidden] { display: none; }
+    .osml-debug__bar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: .4rem;
+      align-items: center;
+      margin-bottom: .45rem;
+    }
+    .osml-debug__label { font-weight: 700; margin-right: .2rem; }
+    .osml-debug button,
+    .osml-debug select,
+    .osml-debug input {
+      font: inherit;
+      color: inherit;
+      padding: .2rem .55rem;
+      border: 1px solid rgba(255, 255, 255, .45);
+      border-radius: .2rem;
+      background: transparent;
+    }
+    .osml-debug button { cursor: pointer; }
+    .osml-debug button:hover:not(:disabled),
+    .osml-debug button:focus-visible {
+      background-color: var(--md-accent-fg-color);
+      color: var(--osml-hero-from);
+    }
+    .osml-debug button:disabled { opacity: .45; cursor: default; }
+    .osml-debug button[aria-pressed="true"] { background: rgba(255, 213, 79, .25); }
+    .osml-debug select option { color: #181818; }
+    .osml-debug input { width: 5.5em; }
+    .osml-debug label { display: inline-flex; gap: .3rem; align-items: center; }
+    .osml-debug__hint { margin: 0 0 .45rem; opacity: .8; }
+    .osml-debug__now { margin: 0; font-weight: 700; }
+    .osml-debug__queue { margin: .2rem 0 .45rem; opacity: .9; }
+    .osml-debug__trace {
+      max-height: 11rem;
+      overflow-y: auto;
+      position: relative;
+      margin: 0;
+      padding: .3rem .3rem .3rem 2.4rem;
+      border-radius: .2rem;
+      background: rgba(0, 0, 0, .3);
+      font-family: var(--md-code-font-family, monospace);
+      font-size: .58rem;
+      line-height: 1.6;
+    }
+    .osml-debug__trace:empty { display: none; }
+    .osml-debug__record { opacity: .6; }
+    .osml-debug__record--transition,
+    .osml-debug__record--choice { color: #fff59d; }
+    .osml-debug__record.is-ignored { color: #ffcc80; }
+    .osml-debug__record--error { color: #ef9a9a; opacity: 1; }
+    .osml-debug__record.is-current {
+      opacity: 1;
+      background: rgba(255, 213, 79, .22);
+      outline: 1px solid #ffd54f;
+    }
+    .osml-debug__record.is-current ~ .osml-debug__record { opacity: .35; }
+    .osml-schematic__edit { margin: .7rem 0 0; }
+    .osml-schematic__edit[hidden] { display: none; }
+    .osml-schematic__src {
+      display: block;
+      box-sizing: border-box;
+      width: 100%;
+      height: 22rem;
+      resize: vertical;
+      overflow: auto;
+      margin: 0;
       padding: .7rem .9rem;
+      border: 1px solid rgba(255, 255, 255, .25);
       border-radius: .3rem;
       background: rgba(0, 0, 0, .35);
       color: #e8eaf6;
+      font-family: var(--md-code-font-family, monospace);
       font-size: .58rem;
       line-height: 1.5;
       text-align: left;
+      tab-size: 4;
+      white-space: pre;
     }
-    .osml-schematic__src[hidden] { display: none; }
+    .osml-schematic__src:focus { outline: 2px solid var(--md-accent-fg-color); outline-offset: 1px; }
+    .osml-schematic__src[aria-invalid="true"] { border-color: #ef9a9a; }
+    .osml-schematic__hint {
+      margin: .4rem 0 0;
+      font-size: .6rem;
+      opacity: .85;
+      text-align: left;
+    }
+    .osml-schematic__hint code {
+      padding: 0 .2em;
+      background: rgba(0, 0, 0, .3);
+      color: inherit;
+      font-size: .95em;
+    }
+    .osml-schematic__hint button {
+      margin-left: .3rem;
+      padding: .1rem .5rem;
+      border: 1px solid rgba(255, 255, 255, .5);
+      border-radius: .2rem;
+      background: transparent;
+      color: inherit;
+      font: inherit;
+      cursor: pointer;
+    }
+    .osml-schematic__hint button:hover,
+    .osml-schematic__hint button:focus { background-color: var(--md-accent-fg-color); }
     .osml-nodecard__note {
       margin-top: .45rem;
       font-size: .56rem;
@@ -827,6 +953,7 @@
     }
     @media screen and (max-width: 59.9375em) {
       .osml-hero h1 { font-size: 1.8rem; }
+      .osml-hero__logo { width: 5rem; height: 5rem; }
     }
     @media screen and (max-width: 29.9375em) {
       .osml-referee__grid { grid-template-columns: 1fr; }
@@ -848,6 +975,7 @@
 <section class="osml-hero">
   <div class="osml-hero__inner">
     <div class="osml-hero__copy">
+      <img class="osml-hero__logo" src="{{ 'assets/opensysml-logo-white.png' | url }}" alt="OpenSysML" width="112" height="112">
       <p class="osml-hero__eyebrow">Open source &middot; SysML v2 &middot; KerML</p>
       <h1>SysML v2 you can actually run.</h1>
       <p class="osml-hero__lede">
@@ -865,614 +993,75 @@
     <div class="osml-schematic" data-osml-schematic
          data-osml-model="{{ 'assets/opensysml-stack.sysml' | url }}"
          data-osml-engine="{{ base_url }}/assets/sysml-engine.wasm.gz"
-         data-osml-wasm-exec="{{ base_url }}/assets/wasm_exec.js">
-      <svg viewBox="0 0 900 460" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Diagram showing Flexo MMS at the center, connected to OpenSysML, sysml-toolkit, and the SysML v2 Pilot Implementation. Nodes can be dragged; clicking a node opens its project; right-clicking shows its attributes and edges.">
-        <defs>
-          <marker id="osml-arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto" markerUnits="strokeWidth">
-            <path d="M0,0 L8,4 L0,8 z" fill="rgba(255,255,255,.55)" />
-          </marker>
-        </defs>
-        <path class="osml-wire" data-osml-wire="opensysml,flexo" marker-end="url(#osml-arrow)" />
-        <path class="osml-wire" data-osml-wire="toolkit,flexo" marker-end="url(#osml-arrow)" />
-        <path class="osml-wire" data-osml-wire="pilot,flexo" marker-end="url(#osml-arrow)" />
-        <g class="osml-nnode" id="n-flexo" data-osml-node="flexo" data-osml-kind="model store" data-osml-href="https://github.com/Open-MBEE/flexo-mms.openmbee.org" tabindex="0" role="link" aria-label="Flexo MMS on GitHub">
-          <rect class="osml-node osml-node--hub" x="360" y="225" width="180" height="60" rx="0" />
-          <text class="osml-node-stereo" x="450" y="240" text-anchor="middle" font-size="10">&laquo;model store&raquo;</text>
-          <text class="osml-node-label" x="450" y="256" text-anchor="middle" font-size="14">Flexo MMS</text>
-          <text class="osml-node-sub" x="450" y="272" text-anchor="middle" font-size="10">Kotlin &middot; the versioned store</text>
-        </g>
-        <g class="osml-nnode" id="n-opensysml" data-osml-node="opensysml" data-osml-kind="runtime" data-osml-href="{{ config.repo_url }}" tabindex="0" role="link" aria-label="OpenSysML on GitHub">
-          <rect class="osml-node" x="120" y="70" width="180" height="60" rx="6" />
-          <text class="osml-node-stereo" x="210" y="85" text-anchor="middle" font-size="10">&laquo;runtime&raquo;</text>
-          <text class="osml-node-label" x="210" y="101" text-anchor="middle" font-size="14">OpenSysML</text>
-          <text class="osml-node-sub" x="210" y="117" text-anchor="middle" font-size="10">Go &middot; runtime + LSP</text>
-        </g>
-        <g class="osml-nnode" id="n-toolkit" data-osml-node="toolkit" data-osml-kind="toolchain" data-osml-href="https://github.com/Open-MBEE/sysml-toolkit" tabindex="0" role="link" aria-label="sysml-toolkit on GitHub">
-          <rect class="osml-node" x="600" y="70" width="180" height="60" rx="6" />
-          <text class="osml-node-stereo" x="690" y="85" text-anchor="middle" font-size="10">&laquo;toolchain&raquo;</text>
-          <text class="osml-node-label" x="690" y="101" text-anchor="middle" font-size="14">sysml-toolkit</text>
-          <text class="osml-node-sub" x="690" y="117" text-anchor="middle" font-size="10">Rust &middot; toolchain + LSP</text>
-        </g>
-        <g class="osml-nnode" id="n-pilot" data-osml-node="pilot" data-osml-kind="reference" data-osml-href="https://github.com/Systems-Modeling/SysML-v2-Pilot-Implementation" tabindex="0" role="link" aria-label="SysML v2 Pilot Implementation on GitHub">
-          <rect class="osml-node" x="330" y="395" width="240" height="60" rx="0" />
-          <text class="osml-node-stereo" x="450" y="410" text-anchor="middle" font-size="10">&laquo;reference&raquo;</text>
-          <text class="osml-node-label" x="450" y="426" text-anchor="middle" font-size="14">SysML v2 Pilot Implementation</text>
-          <text class="osml-node-sub" x="450" y="442" text-anchor="middle" font-size="10">Java &middot; OMG reference</text>
-        </g>
-      </svg>
-      <p class="osml-schematic__caption">One open interchange, three implementations, a version-controlled store. Drag the boxes around — click opens the project, right-click shows its attributes.</p>
+         data-osml-wasm-exec="{{ base_url }}/assets/wasm_exec.js"
+         data-osml-libavoid="{{ base_url }}/assets/landing/libavoid.wasm"
+         data-osml-script="{{ base_url }}/assets/landing/diagram.js">
+      <div class="osml-schematic__stage" data-osml-stage>
+        <noscript><p class="osml-schematic__status">The diagram is drawn in your browser from <a href="{{ 'assets/opensysml-stack.sysml' | url }}">its SysML model</a>; it needs JavaScript.</p></noscript>
+      </div>
+      <p class="osml-schematic__caption">One open interchange, three implementations, a version-controlled store. Drag the boxes around — click opens the project, right-click shows its attributes. Edit the model and the engine redraws the diagram as you type.</p>
       <div class="osml-schematic__run">
         <button type="button" class="osml-btn osml-btn--primary" data-osml-run>&#9654; Run the model</button>
-        <button type="button" class="osml-btn" data-osml-source aria-expanded="false">View the model</button>
-        <p class="osml-schematic__status" data-osml-status aria-live="polite">This diagram is a SysML model. Run it in your browser on the OpenSysML engine (about 7 MB, downloaded once).</p>
+        <button type="button" class="osml-btn" data-osml-source aria-expanded="false" aria-controls="osml-schematic-edit">Edit the model</button>
+        <button type="button" class="osml-btn" data-osml-debug aria-expanded="false" aria-controls="osml-schematic-debug">Debug the run</button>
+        <p class="osml-schematic__status" data-osml-status aria-live="polite">This diagram is a SysML model. Run it or edit it in your browser on the OpenSysML engine (about 7 MB, downloaded once).</p>
       </div>
-      <pre class="osml-schematic__src" data-osml-src hidden><code></code></pre>
+      <div class="osml-debug" id="osml-schematic-debug" data-osml-debugger hidden>
+        <div class="osml-debug__bar" role="group" aria-label="Send an event to the state machine">
+          <span class="osml-debug__label">Send</span>
+          <button type="button" data-osml-send="Commit">Commit</button>
+          <button type="button" data-osml-send="Pull">Pull</button>
+          <button type="button" data-osml-send="Check">Check</button>
+          <button type="button" data-osml-send="Push">Push</button>
+          <button type="button" data-osml-debug-reset title="Start again with no events">Reset</button>
+        </div>
+        <div class="osml-debug__bar" role="group" aria-label="Step through the run">
+          <button type="button" data-osml-step-back aria-label="Step back">&#9664; Back</button>
+          <button type="button" data-osml-play aria-pressed="false">&#9654; Play</button>
+          <button type="button" data-osml-step aria-label="Step forward">Step &#9654;</button>
+          <label>Speed
+            <select data-osml-speed>
+              <option value="0.5">0.5&times;</option>
+              <option value="1" selected>1&times;</option>
+              <option value="2">2&times;</option>
+              <option value="4">4&times;</option>
+            </select>
+          </label>
+          <label>Seed
+            <input type="number" min="0" step="1" inputmode="numeric" placeholder="none" data-osml-seed aria-describedby="osml-debug-seed-hint">
+          </label>
+          <button type="button" data-osml-reseed>New seed</button>
+        </div>
+        <p class="osml-debug__hint" id="osml-debug-seed-hint">The start and each <code>Pull</code> out of Flexo are free choices. With no seed the engine takes its default branch; a seed picks each branch at random, the same way every time.</p>
+        <p class="osml-debug__now" data-osml-debug-now aria-live="polite"></p>
+        <p class="osml-debug__queue">Waiting events: <span data-osml-debug-queue>empty</span></p>
+        <ol class="osml-debug__trace" data-osml-debug-trace aria-label="The run's trace"></ol>
+      </div>
+      <div class="osml-schematic__edit" id="osml-schematic-edit" data-osml-editor hidden>
+        <textarea class="osml-schematic__src" data-osml-src spellcheck="false" autocomplete="off" autocapitalize="off" aria-label="The diagram's SysML model" aria-describedby="osml-schematic-hint"></textarea>
+        <p class="osml-schematic__hint" id="osml-schematic-hint">The engine re-reads the model as you type. Try changing a <code>label</code> or <code>lang</code>, adding a <code>part</code> of type <code>Project</code>, connecting it with another <code>interface</code>, or deleting a <code>;</code> to see a diagnostic. <button type="button" data-osml-reset>Reset</button></p>
+      </div>
     </div>
 <script>
 (function () {
+  // The diagram is drawn by assets/landing/diagram.js, built from editors/vscode/src/landing.
   var root = document.querySelector("[data-osml-schematic]");
   if (!root) return;
-  var ac = new AbortController();
-  if (window.__osmlSchematicAbort) window.__osmlSchematicAbort.abort();
-  window.__osmlSchematicAbort = ac;
-  var SVG_NS = "http://www.w3.org/2000/svg";
-  var svg = root.querySelector("svg");
-  var reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
-
-  var nodes = {};
-  function addNode(g) {
-    var r = g.querySelector("rect");
-    var w = parseFloat(r.getAttribute("width")), h = parseFloat(r.getAttribute("height"));
-    nodes[g.dataset.osmlNode] = {
-      g: g, w: w, h: h,
-      cx: parseFloat(r.getAttribute("x")) + w / 2,
-      cy: parseFloat(r.getAttribute("y")) + h / 2,
-      dx: 0, dy: 0,
-      phase: Math.random() * Math.PI * 2,
-      model: null
-    };
-  }
-  root.querySelectorAll("[data-osml-node]").forEach(addNode);
-  var wires = Array.prototype.slice.call(root.querySelectorAll("[data-osml-wire]"));
-
-  function edgePoint(cx, cy, w, h, tx, ty) {
-    var dx = tx - cx, dy = ty - cy;
-    if (dx === 0 && dy === 0) return { x: cx, y: cy };
-    var t = Math.min((w / 2 + 2) / Math.abs(dx || 1e-9), (h / 2 + 2) / Math.abs(dy || 1e-9));
-    return { x: cx + dx * t, y: cy + dy * t };
-  }
-
-  function layout(t) {
-    var pos = {};
-    Object.keys(nodes).forEach(function (k) {
-      var n = nodes[k];
-      var ox = (n === dragging || reduceMotion.matches) ? 0 : Math.sin(t * 0.7 + n.phase) * 4;
-      var oy = (n === dragging || reduceMotion.matches) ? 0 : Math.cos(t * 0.9 + n.phase * 1.7) * 3;
-      pos[k] = { x: n.cx + n.dx + ox, y: n.cy + n.dy + oy };
-      n.g.setAttribute("transform", "translate(" + (n.dx + ox) + "," + (n.dy + oy) + ")");
-    });
-    wires.forEach(function (p) {
-      var ends = p.dataset.osmlWire.split(",");
-      var a = nodes[ends[0]], b = nodes[ends[1]];
-      var pa = pos[ends[0]], pb = pos[ends[1]];
-      var s = edgePoint(pa.x, pa.y, a.w, a.h, pb.x, pb.y);
-      var e = edgePoint(pb.x, pb.y, b.w, b.h, pa.x, pa.y);
-      var mx = e.x - s.x, my = e.y - s.y;
-      var px = -my * 0.06, py = mx * 0.06;
-      p.setAttribute("d",
-        "M" + s.x.toFixed(1) + "," + s.y.toFixed(1) +
-        " C" + (s.x + mx * 0.33 + px).toFixed(1) + "," + (s.y + my * 0.33 + py).toFixed(1) +
-        " " + (s.x + mx * 0.66 + px).toFixed(1) + "," + (s.y + my * 0.66 + py).toFixed(1) +
-        " " + e.x.toFixed(1) + "," + e.y.toFixed(1));
-    });
-    if (posEl && activeNode && pos[activeNode]) {
-      posEl.textContent = Math.round(pos[activeNode].x) + " · " + Math.round(pos[activeNode].y);
-    }
-  }
-  function relayout() {
-    layout(reduceMotion.matches ? 0 : performance.now() / 1000);
-  }
-
-  var dragging = null, dragFrom = null, pressFrom = null, moved = false, pressTimer = null, longPressed = false;
-
-  var escAttr = function (s) {
-    return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  if (window.osmlMountDiagram) { window.osmlMountDiagram(root); return; }
+  var script = document.createElement("script");
+  script.src = root.dataset.osmlScript;
+  script.onload = function () { if (root.isConnected) window.osmlMountDiagram(root); };
+  script.onerror = function () {
+    var status = root.querySelector("[data-osml-status]");
+    status.textContent = "The diagram's script did not load. Reload the page to try again.";
+    status.classList.add("osml-schematic__status--err");
   };
-
-  // The detail card: right-clicking a node pins its attributes (from the model once
-  // the engine has read it), live position and edges beside the box, and keeps it lit.
-  var card = document.createElement("div");
-  card.className = "osml-nodecard";
-  card.hidden = true;
-  card.setAttribute("role", "dialog");
-  root.appendChild(card);
-  var activeNode = null, posEl = null, modelHash = null;
-
-  function peerName(key) {
-    return nodes[key].g.querySelector(".osml-node-label").textContent;
-  }
-
-  function syncWires() {
-    wires.forEach(function (p) {
-      var ends = p.dataset.osmlWire.split(",");
-      p.classList.toggle("is-hot",
-        nodes[ends[0]].g.classList.contains("is-hot") ||
-        nodes[ends[1]].g.classList.contains("is-hot"));
-    });
-  }
-
-  function hot(k, on) {
-    nodes[k].g.classList.toggle("is-hot", on);
-    syncWires();
-  }
-
-  function setFocus() {
-    root.classList.toggle("osml-schematic--focus",
-      root.querySelector(".osml-nnode.is-hot") !== null);
-  }
-
-  function cool(k) {
-    if (activeNode === k || nodes[k].g.matches(":hover")) return;
-    hot(k, false);
-    setFocus();
-  }
-
-  function row(k, v) {
-    return '<div class="osml-nodecard__k">' + escAttr(k) + '</div><div class="osml-nodecard__v">' + v + '</div>';
-  }
-
-  function openCard(k) {
-    var n = nodes[k], g = n.g;
-    var stereo = g.querySelector(".osml-node-stereo").textContent;
-    var name = g.querySelector(".osml-node-label").textContent;
-    var sub = g.querySelector(".osml-node-sub").textContent;
-    var href = g.dataset.osmlHref || "";
-    var edges = wires.filter(function (p) {
-      return p.dataset.osmlWire.split(",").indexOf(k) >= 0;
-    }).map(function (p) {
-      var ends = p.dataset.osmlWire.split(",");
-      var text = (ends[0] === k ? "\u2192 " : "\u2190 ") + peerName(ends[0] === k ? ends[1] : ends[0]);
-      if (p.dataset.osmlInterface) text += " (" + p.dataset.osmlInterface + ")";
-      return '<div class="osml-nodecard__edge">' + escAttr(text) + '</div>';
-    }).join("");
-    var rows = "";
-    if (n.model) {
-      Object.keys(n.model.attrs).forEach(function (a) {
-        rows += row(a, escAttr(JSON.stringify(n.model.attrs[a])));
-      });
-      rows += row("symbol", escAttr(n.model.symbol));
-    } else {
-      rows += row("kind", escAttr(stereo)) + row("repo", escAttr(href.replace(/^https?:\/\//, "")));
-    }
-    rows += row("pos", '<span data-osml-pos>\u00b7</span>') + row("edges", edges);
-    card.innerHTML =
-      '<button class="osml-nodecard__close" type="button" aria-label="Close">\u00d7</button>' +
-      '<div class="osml-nodecard__stereo">' + escAttr(stereo) + '</div>' +
-      '<div class="osml-nodecard__name">' + escAttr(name) + '</div>' +
-      '<div class="osml-nodecard__sub">' + escAttr(sub) + '</div>' +
-      '<div class="osml-nodecard__attrs">' + rows + '</div>' +
-      '<div class="osml-nodecard__note">' + (n.model
-        ? "Read by the engine from model " + escAttr(modelHash.slice(0, 12))
-        : "Run the model to read these from the engine") + '</div>' +
-      '<a class="osml-nodecard__link" href="' + escAttr(href) + '" target="_blank" rel="noopener">Open project \u2197</a>';
-    card.hidden = false;
-    card.querySelector(".osml-nodecard__close").addEventListener("click", closeCard);
-    posEl = card.querySelector("[data-osml-pos]");
-    // Beside the box rather than over it, so its wires stay in view.
-    var rr = root.getBoundingClientRect(), br = g.getBoundingClientRect();
-    var cw = card.offsetWidth, ch = card.offsetHeight;
-    var x = br.right - rr.left + 12;
-    if (x + cw > root.clientWidth - 4) x = br.left - rr.left - cw - 12;
-    x = Math.min(Math.max(x, 4), Math.max(4, root.clientWidth - cw - 4));
-    var y = Math.min(Math.max(br.top - rr.top, 4), Math.max(4, root.clientHeight - ch - 4));
-    card.style.left = x + "px";
-    card.style.top = y + "px";
-    if (activeNode && activeNode !== k) {
-      var prev = activeNode;
-      activeNode = null;
-      cool(prev);
-    }
-    activeNode = k;
-    hot(k, true);
-    setFocus();
-    relayout();
-  }
-
-  function closeCard() {
-    if (!activeNode) return;
-    var k = activeNode;
-    activeNode = null;
-    posEl = null;
-    card.hidden = true;
-    cool(k);
-    setFocus();
-  }
-
-  document.addEventListener("pointerdown", function (e) {
-    if (!root.isConnected) { ac.abort(); return; }
-    if (!activeNode) return;
-    if (card.contains(e.target) || nodes[activeNode].g.contains(e.target)) return;
-    closeCard();
-  }, { signal: ac.signal });
-  document.addEventListener("keydown", function (e) {
-    if (!root.isConnected) { ac.abort(); return; }
-    if (e.key === "Escape" && activeNode) closeCard();
-  }, { signal: ac.signal });
-
-  // Draw-in: wires trace themselves in, nodes fade up behind them.
-  if (!reduceMotion.matches) {
-    wires.forEach(function (p, i) {
-      p.style.strokeDasharray = "400";
-      p.style.strokeDashoffset = "400";
-      p.getBoundingClientRect();
-      p.style.transition = "stroke-dashoffset .9s cubic-bezier(.4,0,.2,1) " + (0.15 + i * 0.18) + "s";
-      p.style.strokeDashoffset = "0";
-    });
-    Object.keys(nodes).forEach(function (k, i) {
-      var n = nodes[k];
-      n.g.style.opacity = "0";
-      n.g.style.transition = "opacity .7s ease " + (0.4 + i * 0.15) + "s";
-      n.g.getBoundingClientRect();
-      n.g.style.opacity = "1";
-    });
-  }
-  layout(0);
-  // Once drawn in, hand opacity back to the stylesheet so focus dimming applies.
-  setTimeout(function () {
-    wires.forEach(function (p) { p.style.strokeDasharray = ""; p.style.transition = ""; });
-    Object.keys(nodes).forEach(function (k) {
-      nodes[k].g.style.opacity = "";
-      nodes[k].g.style.transition = "";
-    });
-  }, 1700);
-
-  if (!reduceMotion.matches) {
-    (function tick(now) {
-      // Instant navigation swaps the page out without unloading it.
-      if (!root.isConnected) { ac.abort(); return; }
-      layout(now / 1000);
-      requestAnimationFrame(tick);
-    })(performance.now());
-  }
-
-  function svgPoint(evt) {
-    var pt = svg.createSVGPoint();
-    pt.x = evt.clientX; pt.y = evt.clientY;
-    return pt.matrixTransform(svg.getScreenCTM().inverse());
-  }
-
-  function bindNode(k) {
-    var n = nodes[k];
-    n.g.addEventListener("pointerdown", function (e) {
-      if (e.button !== 0) return;
-      dragging = n;
-      moved = false;
-      longPressed = false;
-      clearTimeout(pressTimer);
-      // Touch has no right button: a held, unmoved press opens the same card.
-      if (e.pointerType !== "mouse") {
-        pressTimer = setTimeout(function () {
-          if (dragging !== n || moved) return;
-          longPressed = true;
-          inspect(k);
-        }, 550);
-      }
-      var p = svgPoint(e);
-      pressFrom = { x: p.x, y: p.y };
-      dragFrom = { x: p.x - n.dx, y: p.y - n.dy };
-      n.g.setPointerCapture(e.pointerId);
-      n.g.classList.add("is-dragging");
-      e.preventDefault();
-    });
-    n.g.addEventListener("pointermove", function (e) {
-      if (dragging !== n) return;
-      var p = svgPoint(e);
-      var nx = p.x - dragFrom.x, ny = p.y - dragFrom.y;
-      if (!moved && Math.abs(p.x - pressFrom.x) + Math.abs(p.y - pressFrom.y) > 4) {
-        moved = true;
-        clearTimeout(pressTimer);
-      }
-      n.dx = nx; n.dy = ny;
-      if (reduceMotion.matches) layout(0);
-    });
-    function endDrag() {
-      if (dragging !== n) return false;
-      clearTimeout(pressTimer);
-      dragging = null;
-      pressFrom = null;
-      n.g.classList.remove("is-dragging");
-      return true;
-    }
-    n.g.addEventListener("pointerup", function () {
-      if (!endDrag()) return;
-      if (!moved && !longPressed && n.g.dataset.osmlHref) {
-        window.open(n.g.dataset.osmlHref, "_blank", "noopener");
-      }
-    });
-    // A touch drag can end through cancellation, or capture through another route.
-    n.g.addEventListener("pointercancel", endDrag);
-    n.g.addEventListener("lostpointercapture", endDrag);
-    n.g.addEventListener("contextmenu", function (e) {
-      e.preventDefault();
-      inspect(k);
-    });
-    n.g.addEventListener("pointerenter", function () {
-      hot(k, true);
-      setFocus();
-    });
-    n.g.addEventListener("pointerleave", function () {
-      cool(k);
-    });
-    n.g.addEventListener("focus", function () {
-      hot(k, true);
-      setFocus();
-    });
-    n.g.addEventListener("blur", function () {
-      cool(k);
-    });
-    n.g.addEventListener("keydown", function (e) {
-      if ((e.key === "Enter" || e.key === " ") && n.g.dataset.osmlHref) {
-        e.preventDefault();
-        window.open(n.g.dataset.osmlHref, "_blank", "noopener");
-      }
-    });
-  }
-  Object.keys(nodes).forEach(bindNode);
-
-  // The model behind the figure. The engine parses it, Instantiate yields the boxes
-  // and wires, and ExecuteState yields the path a run's token travels.
-  var STACK = "OpenSysMLStack::stack", JOURNEY = "OpenSysMLStack::ModelJourney";
-  var JOURNEY_EVENTS = ["commit", "pull", "push", "check"];
-  var statusEl = root.querySelector("[data-osml-status]");
-  var runBtn = root.querySelector("[data-osml-run]");
-  var srcBtn = root.querySelector("[data-osml-source]");
-  var srcEl = root.querySelector("[data-osml-src]");
-  var sourceText = null, model = null, running = false;
-
-  function status(text, isError) {
-    statusEl.textContent = text;
-    statusEl.classList.toggle("osml-schematic__status--err", !!isError);
-  }
-
-  function fetchSource() {
-    if (!sourceText) {
-      sourceText = fetch(root.dataset.osmlModel).then(function (r) {
-        if (!r.ok) throw new Error("the model did not download (HTTP " + r.status + ")");
-        return r.text();
-      });
-      sourceText.catch(function () { sourceText = null; });
-    }
-    return sourceText;
-  }
-
-  function loadEngine() {
-    return window.osmlLoadEngine({
-      wasmExec: root.dataset.osmlWasmExec,
-      engine: root.dataset.osmlEngine
-    });
-  }
-
-  function rpc(method, params) {
-    var reply = JSON.parse(globalThis.sysmlEngine.call(method, JSON.stringify(params)));
-    if (reply.error) throw new Error(method + ": " + (reply.error.message || JSON.stringify(reply.error)));
-    var res = reply.result || {};
-    if (res.error) throw new Error(method + ": " + res.error);
-    return res;
-  }
-
-  function readModel() {
-    if (!model) {
-      model = Promise.all([loadEngine(), fetchSource()]).then(function (got) {
-        var parsed = rpc("ParseSources", { documents: [{ name: "opensysml-stack.sysml", content: got[1] }] });
-        var diags = parsed.diagnostics || [];
-        if (diags.length) throw new Error("the model has " + diags.length + " diagnostic(s): " + (diags[0].message || ""));
-        var built = rpc("Instantiate", { modelHash: parsed.modelHash, symbolId: STACK });
-        var byId = {};
-        (built.instances || []).forEach(function (i) { byId[i.id] = i; });
-        var stack = (built.instances || []).filter(function (i) { return i.typeSymbolId === STACK; })[0];
-        if (!stack) throw new Error("Instantiate returned no " + STACK);
-        var value = function (inst, f) {
-          var fv = inst.featureValues && inst.featureValues[f];
-          return fv && fv.value;
-        };
-        var parts = {}, portOwner = {}, interfaces = [];
-        Object.keys(stack.featureValues || {}).forEach(function (f) {
-          var ref = value(stack, f), inst = ref && byId[ref.instanceId];
-          if (!inst) return;
-          if (value(inst, "label")) {
-            var attrs = {};
-            Object.keys(inst.featureValues).sort().forEach(function (a) {
-              var v = value(inst, a);
-              if (v && "stringValue" in v) attrs[a] = v.stringValue;
-            });
-            parts[f] = { symbol: inst.typeSymbolId, attrs: attrs };
-            var api = value(inst, "api");
-            if (api) portOwner[api.instanceId] = f;
-          } else if (value(inst, "client") && value(inst, "store")) {
-            interfaces.push({ name: f, inst: inst });
-          }
-        });
-        var edges = interfaces.map(function (x) {
-          var type = x.inst.typeSymbolId.split("::").pop();
-          return {
-            from: portOwner[value(x.inst, "client").instanceId],
-            to: portOwner[value(x.inst, "store").instanceId],
-            name: x.name + " : " + type
-          };
-        }).filter(function (e) { return e.from && e.to; });
-        return { hash: parsed.modelHash, parts: parts, edges: edges };
-      });
-      model.catch(function () { model = null; });
-    }
-    return model;
-  }
-
-  function svgEl(tag, attrs) {
-    var el = document.createElementNS(SVG_NS, tag);
-    Object.keys(attrs).forEach(function (a) { el.setAttribute(a, attrs[a]); });
-    return el;
-  }
-
-  // A part the hand-drawn figure lacks gets a box of its own along the bottom edge.
-  function newNode(k, label, slot) {
-    var w = Math.max(180, label.length * 8 + 30), h = 60;
-    var x = 20 + slot * 200, y = 395;
-    var g = svgEl("g", { "class": "osml-nnode", id: "n-" + k, "data-osml-node": k, tabindex: "0", role: "link" });
-    g.appendChild(svgEl("rect", { "class": "osml-node", x: x, y: y, width: w, height: h, rx: 6 }));
-    [["osml-node-stereo", 15, 10], ["osml-node-label", 31, 14], ["osml-node-sub", 47, 10]].forEach(function (t) {
-      g.appendChild(svgEl("text", { "class": t[0], x: x + w / 2, y: y + t[1], "text-anchor": "middle", "font-size": t[2] }));
-    });
-    svg.appendChild(g);
-    addNode(g);
-    bindNode(k);
-  }
-
-  function applyModel(m) {
-    modelHash = m.hash;
-    var slot = 0;
-    Object.keys(m.parts).forEach(function (k) {
-      var a = m.parts[k].attrs;
-      if (!nodes[k]) newNode(k, a.label, slot++);
-      var g = nodes[k].g;
-      nodes[k].model = m.parts[k];
-      g.dataset.osmlKind = a.kind || "";
-      g.dataset.osmlHref = a.repo || "";
-      g.setAttribute("aria-label", a.label + " on GitHub");
-      g.querySelector(".osml-node-stereo").textContent = "\u00ab" + (a.kind || "part") + "\u00bb";
-      g.querySelector(".osml-node-label").textContent = a.label;
-      g.querySelector(".osml-node-sub").textContent = [a.lang, a.role].filter(Boolean).join(" \u00b7 ");
-    });
-    Object.keys(nodes).forEach(function (k) {
-      if (m.parts[k]) return;
-      if (activeNode === k) closeCard();
-      nodes[k].g.remove();
-      delete nodes[k];
-    });
-    // The wires are the model's interfaces, client end to store end.
-    wires.forEach(function (p) { p.remove(); });
-    var firstNode = svg.querySelector(".osml-nnode");
-    wires = m.edges.map(function (e) {
-      var p = svgEl("path", {
-        "class": "osml-wire",
-        "data-osml-wire": e.from + "," + e.to,
-        "data-osml-interface": e.name,
-        "marker-end": "url(#osml-arrow)"
-      });
-      svg.insertBefore(p, firstNode);
-      return p;
-    });
-    syncWires();
-    setFocus();
-    relayout();
-    if (activeNode) openCard(activeNode);
-  }
-
-  function engineRead() {
-    status(globalThis.sysmlEngine ? "Reading the model\u2026" : "Loading the engine (about 7 MB, once)\u2026");
-    return readModel().then(function (m) {
-      if (modelHash !== m.hash) applyModel(m);
-      return m;
-    });
-  }
-
-  function inspect(k) {
-    openCard(k);
-    if (nodes[k].model || running) return;
-    engineRead().then(function () {
-      status("The engine read the model: " + Object.keys(nodes).length + " parts, " + wires.length + " interfaces.");
-    }, function (e) {
-      status("The engine could not read the model (" + e.message + "). The diagram still works.", true);
-    });
-  }
-
-  function light(k) {
-    Object.keys(nodes).forEach(function (n) { nodes[n].g.classList.toggle("is-live", n === k); });
-  }
-
-  function animate(visited) {
-    var token = svgEl("circle", { "class": "osml-token", r: 7 });
-    token.style.display = "none";
-    svg.appendChild(token);
-    return new Promise(function (resolve) {
-      var i = 0;
-      function finish() {
-        token.remove();
-        light(null);
-        wires.forEach(function (p) { p.classList.remove("is-live"); });
-        resolve();
-      }
-      function hop() {
-        if (!root.isConnected) { finish(); return; }
-        light(visited[i]);
-        if (i + 1 >= visited.length) { setTimeout(finish, 1200); return; }
-        var a = visited[i], b = visited[i + 1];
-        var wire = wires.filter(function (p) {
-          var e = p.dataset.osmlWire.split(",");
-          return (e[0] === a && e[1] === b) || (e[0] === b && e[1] === a);
-        })[0];
-        if (!wire || reduceMotion.matches) { i++; setTimeout(hop, 800); return; }
-        var forward = wire.dataset.osmlWire.split(",")[0] === a;
-        wire.classList.add("is-live");
-        token.style.display = "";
-        var start = null;
-        (function step(now) {
-          if (!root.isConnected) { finish(); return; }
-          if (start === null) start = now;
-          var f = Math.min(1, (now - start) / 1000);
-          var eased = f < 0.5 ? 2 * f * f : 1 - Math.pow(-2 * f + 2, 2) / 2;
-          var len = wire.getTotalLength();
-          var pt = wire.getPointAtLength(len * (forward ? eased : 1 - eased));
-          token.setAttribute("cx", pt.x);
-          token.setAttribute("cy", pt.y);
-          if (f < 1) { requestAnimationFrame(step); return; }
-          wire.classList.remove("is-live");
-          token.style.display = "none";
-          i++;
-          hop();
-        })(performance.now());
-      }
-      hop();
-    });
-  }
-
-  runBtn.addEventListener("click", function () {
-    if (running) return;
-    running = true;
-    runBtn.disabled = true;
-    engineRead().then(function (m) {
-      var t0 = performance.now();
-      var res = rpc("ExecuteState", { modelHash: m.hash, stateMachineSymbolId: JOURNEY, events: JOURNEY_EVENTS });
-      var ms = Math.max(1, Math.round(performance.now() - t0));
-      var visited = (res.statesVisited || []).filter(function (s) { return nodes[s]; });
-      if (!visited.length) throw new Error("ExecuteState visited none of the diagram's parts");
-      status("ExecuteState ran ModelJourney on " + JOURNEY_EVENTS.join(", ") + " in " + ms + " ms: " +
-        visited.map(peerName).join(" \u2192 ") + ".");
-      return animate(visited);
-    }).catch(function (e) {
-      status("The engine could not run the model (" + e.message + "). The diagram still works.", true);
-    }).then(function () {
-      running = false;
-      runBtn.disabled = false;
-      runBtn.textContent = "\u25b6 Run it again";
-    });
-  });
-
-  srcBtn.addEventListener("click", function () {
-    var open = srcEl.hidden;
-    srcEl.hidden = !open;
-    srcBtn.setAttribute("aria-expanded", String(open));
-    srcBtn.textContent = open ? "Hide the model" : "View the model";
-    if (!open || srcEl.textContent) return;
-    fetchSource().then(function (text) {
-      srcEl.firstChild.textContent = text;
-    }, function (e) {
-      srcEl.firstChild.textContent = "Could not load the model: " + e.message;
-    });
-  });
+  document.head.appendChild(script);
 })();
 </script>
 
   </div>
+  <div class="osml-nodecard" data-osml-card role="dialog" hidden></div>
 </section>
 
 <section class="osml-stack" id="stack">
@@ -1521,7 +1110,7 @@
         <a href="https://github.com/Systems-Modeling/SysML-v2-Pilot-Implementation">GitHub</a>
       </p>
     </div>
-    <div class="osml-card osml-card--hub">
+    <div class="osml-card">
       <p class="osml-spec__path">Open-MBEE / flexo-mms-*</p>
       <h3>Flexo MMS</h3>
       <p class="osml-spec__role">The model store</p>
@@ -1598,7 +1187,7 @@
       are all welcome.</p>
       <p class="osml-card__links">
         <a href="https://github.com/Open-MBEE/open-mbee.github.io/wiki/Participate-in-OpenMBEE-and-OpenSysML">Participate</a>
-        &middot; <a href="https://numfocus.org/donate-to-openmbee">Sponsor</a>
+        &middot; <a href="https://opencollective.com/openmbee/contribute">Sponsor</a>
       </p>
     </div>
   </div>
@@ -1612,12 +1201,13 @@
     <li>The one exception is the OMG reference implementation, which is licensed
     <b>EPL-2.0</b> rather than Apache-2.0.</li>
     <li>See the stack above for the specific license per project.</li>
+    <li>The diagram above bundles elkjs (EPL-2.0) and libavoid (LGPL-2.1-or-later); see the <a href="{{ 'project/third-party-notices/' | url }}">third-party notices</a>.</li>
   </ul>
 </section>
 
 <div class="osml-sponsor-dock">
-  <a class="osml-sponsor" href="https://numfocus.org/donate-to-openmbee" target="_blank" rel="noopener"
-     title="Sponsor OpenMBEE through NumFOCUS">
+  <a class="osml-sponsor" href="https://opencollective.com/openmbee/contribute" target="_blank" rel="noopener"
+     title="Sponsor OpenMBEE through NumFOCUS on Open Collective">
     <span class="osml-sponsor__icon" aria-hidden="true">{% include ".icons/octicons/heart-fill-24.svg" %}</span>
     <span class="osml-sponsor__label">Sponsor</span>
   </a>

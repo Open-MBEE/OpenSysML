@@ -118,6 +118,7 @@ var (
 	renderAllDir     string
 	renderForm       string
 	renderPalette    string
+	renderLink       string
 	renderUnplaced   string
 	renderStyle      string
 	renderPorts      string
@@ -381,7 +382,11 @@ func runCLI() int {
 		return 2
 	}
 	if renderPalette != "" && renderView == "" && renderAllDir == "" {
-		fmt.Fprintln(os.Stderr, "sysml: -render-palette is the palette -render or -render-all fills DOT, Mermaid or PlantUML with; name the view to render with -render or a directory with -render-all")
+		fmt.Fprintln(os.Stderr, "sysml: -render-palette is the palette -render or -render-all fills DOT, Mermaid, PlantUML or D2 with; name the view to render with -render or a directory with -render-all")
+		return 2
+	}
+	if renderLink != "" && renderView == "" && renderAllDir == "" && renderDoc == "" && renderDocsDir == "" {
+		fmt.Fprintln(os.Stderr, "sysml: -render-link links rendered elements to their source; name what to render with -render, -render-all, -render-document or -render-documents")
 		return 2
 	}
 	if renderPorts != "" && renderView == "" && renderAllDir == "" {
@@ -473,6 +478,13 @@ func runCLI() int {
 		fmt.Fprintln(os.Stderr, "sysml: -image-base-url accompanies -migrate of a SysML v1 model; write `sysml Model.mdzip -migrate sysml -image-base-url https://ve.example.org`")
 		return 2
 	}
+	if message := importMisuse(); message != "" {
+		fmt.Fprintf(os.Stderr, "sysml: %s\n", message)
+		return 2
+	}
+	if importDryRun {
+		return runImportDryRun(args)
+	}
 	if flagGiven("record-into") && len(modelChecks.records) == 0 {
 		fmt.Fprintln(os.Stderr, "sysml: -record-into accompanies -record-run; write `sysml model.sysml -record-run \"Pkg::Case\" -record-into Pkg::Log`")
 		return 2
@@ -531,7 +543,7 @@ func runCLI() int {
 		case convertFormat != "" || migrateFormat != "" || renderView != "" || renderDoc != "" || renderAllDir != "" || renderDocsDir != "" || queryText != "" || len(evalExprs) > 0:
 			fmt.Fprintf(os.Stderr, "sysml: %s syncs a change set; it cannot be combined with -convert, -migrate, -render, -render-all, -render-document, -render-documents, -query or -eval\n", mode)
 			return 2
-		case outputPath != "" || fromFormat != "" || renderForm != "" || renderPalette != "" || renderUnplaced != "" || renderStyle != "" || renderPorts != "" || docForm != "" || diagramForm != "" || pdfEngine != "" || pdfTitlePage || pdfTOC || pdfNumbering || docNumberFigures:
+		case outputPath != "" || fromFormat != "" || renderForm != "" || renderPalette != "" || renderLink != "" || renderUnplaced != "" || renderStyle != "" || renderPorts != "" || docForm != "" || diagramForm != "" || pdfEngine != "" || pdfTitlePage || pdfTOC || pdfNumbering || docNumberFigures:
 			fmt.Fprintf(os.Stderr, "sysml: %s reads SysML or Turtle inputs and reports the change set; -output, -from and the render options do not apply\n", mode)
 			return 2
 		case modelChecks.requested():
@@ -751,7 +763,7 @@ func resolveRunBounds() int {
 // newSession returns a session in the output modes the flags asked for, under
 // the run bounds resolved at startup.
 func newSession() *repl.Session {
-	sess := repl.NewSession()
+	sess := repl.NewSessionWithSourceConverter(convert.ModelSource)
 	sess.SetToolVersion("sysml " + Version)
 	if err := sess.SetBudgets(budgets); err != nil {
 		// Unreachable: budgets are validated in main before any session exists.

@@ -19,6 +19,28 @@ without changing the table.
 
 The table lives in client/release-digests.json, and `--write` syncs it into
 every client that ships a copy (scripts/sync-release-digests.py).
+
+With `--from-manifest` or `--from-binaries`, stamping the shared table also
+syncs client copies. An explicit `--table` for a package-local table stays
+isolated.
+
+A release job can stamp the table a package ships without a GitHub token or
+network access, from what the release has already produced. The Rust job
+stamps its crate from the checksum manifest:
+
+    python scripts/pin_release_checksums.py --version v0.9.1 \\
+        --from-manifest dist/SHA256SUMS.txt \\
+        --table client/rust/opensysml/release-digests.json
+
+The Python job builds the wheel before that manifest exists (the manifest lists
+the wheel), so it stamps from the service binaries themselves, hashed here:
+
+    python scripts/pin_release_checksums.py --version v0.9.1 \\
+        --from-binaries dist/grpc \\
+        --table client/python/opensysml/release-digests.json
+
+Both require all five service platforms, and a `.sha256` sidecar beside a
+binary must agree with the digest hashed from it.
 """
 
 import argparse
@@ -26,6 +48,7 @@ import hashlib
 import importlib.util
 import json
 import os
+import re
 import sys
 import urllib.error
 import urllib.request
@@ -36,7 +59,19 @@ REPO_ROOT = os.path.dirname(
 DIGESTS_FILE = os.path.join(REPO_ROOT, "client", "release-digests.json")
 SYNC_SCRIPT = os.path.join(REPO_ROOT, "scripts", "sync-release-digests.py")
 DEFAULT_REPO = "Open-MBEE/OpenSysML"
+#: The service binaries every release publishes; a package pin needs all of them.
 ASSET_PREFIX = "sysml-grpc-"
+SIDECAR_SUFFIX = ".sha256"
+SERVICE_ASSETS = frozenset(
+    (
+        "sysml-grpc-darwin-amd64",
+        "sysml-grpc-darwin-arm64",
+        "sysml-grpc-linux-amd64",
+        "sysml-grpc-linux-arm64",
+        "sysml-grpc-windows-amd64.exe",
+    )
+)
+SHA256_PATTERN = re.compile(r"[0-9a-f]{64}\Z")
 NETWORK_TIMEOUT = 60
 
 
@@ -136,7 +171,7 @@ def release_assets(repo, version):
     assets = {
         asset["name"]: asset["browser_download_url"]
         for asset in release.get("assets", [])
-        if asset["name"].startswith(ASSET_PREFIX) and not asset["name"].endswith(".sha256")
+        if asset["name"].startswith(ASSET_PREFIX) and not asset["name"].endswith(SIDECAR_SUFFIX)
     }
     if not assets:
         raise PinError(f"release {version} of {repo} publishes no {ASSET_PREFIX}* assets")
@@ -175,7 +210,7 @@ def served_digest(url):
         str or None: The digest read from the sidecar, or None when absent
     """
     try:
-        with urllib.request.urlopen(url + ".sha256", timeout=NETWORK_TIMEOUT) as response:
+        with urllib.request.urlopen(url + SIDECAR_SUFFIX, timeout=NETWORK_TIMEOUT) as response:
             return response.read().decode().split()[0].strip()
     except (urllib.error.URLError, IndexError, UnicodeDecodeError):
         return None
@@ -219,6 +254,235 @@ def render_table(table):
         str: The JSON document, ending in a newline
     """
     return json.dumps(table, indent=2, sort_keys=True) + "\n"
+
+
+def manifest_service_digests(manifest_path):
+    """The service digests a release's checksum manifest lists.
+
+    Args:
+        manifest_path (str): Path to the release's SHA256SUMS.txt
+
+    Returns:
+        dict: asset name -> SHA-256 hex digest, all five service assets
+
+    Raises:
+        PinError: If the manifest cannot be read, lists a malformed or duplicate
+            service entry, or lacks a service platform
+    """
+    digests = {}
+    try:
+        with open(manifest_path, encoding="utf-8") as manifest:
+            lines = manifest.readlines()
+    except (OSError, UnicodeError) as e:
+        raise PinError(f"cannot read checksum manifest {manifest_path}: {e}")
+
+    for line_number, line in enumerate(lines, start=1):
+        fields = line.split()
+        if not fields:
+            continue
+        asset = fields[1] if len(fields) > 1 else fields[0]
+        if asset.endswith(SIDECAR_SUFFIX) or not asset.startswith(ASSET_PREFIX):
+            continue
+        if len(fields) != 2:
+            raise PinError(
+                f"malformed checksum entry for {asset} on line {line_number} "
+                f"of {manifest_path}"
+            )
+        digest, asset = fields
+        if SHA256_PATTERN.fullmatch(digest) is None:
+            raise PinError(
+                f"malformed SHA-256 digest for {asset} on line {line_number} "
+                f"of {manifest_path}"
+            )
+        if asset in digests:
+            raise PinError(f"duplicate service asset {asset} in {manifest_path}")
+        digests[asset] = digest
+
+    _require_every_service_platform(digests, f"checksum manifest {manifest_path}")
+    return digests
+
+
+def binary_service_digests(binaries_dir):
+    """Hash the service binaries a release job has built, before any manifest exists.
+
+    The manifest that lists them is written after the Python distribution they
+    are stamped into, so the Python job hashes the binaries it was handed. A
+    `.sha256` sidecar beside a binary is compared with the digest, never used
+    as one, exactly as with a published release.
+
+    Args:
+        binaries_dir (str): Directory holding the sysml-grpc-* binaries
+
+    Returns:
+        dict: asset name -> SHA-256 hex digest, all five service assets
+
+    Raises:
+        PinError: If the directory cannot be read, a binary cannot be hashed, a
+            sidecar disagrees with its binary, or a service platform is absent
+    """
+    try:
+        names = sorted(os.listdir(binaries_dir))
+    except OSError as e:
+        raise PinError(f"cannot read the service binaries in {binaries_dir}: {e}")
+
+    digests = {}
+    for asset in names:
+        if asset.endswith(SIDECAR_SUFFIX) or not asset.startswith(ASSET_PREFIX):
+            continue
+        path = os.path.join(binaries_dir, asset)
+        if not os.path.isfile(path):
+            continue
+        digests[asset] = _file_digest(path)
+        sidecar = _sidecar_digest(path + SIDECAR_SUFFIX)
+        if sidecar is not None and sidecar != digests[asset]:
+            raise PinError(
+                f"{asset} in {binaries_dir} hashes to {digests[asset]}, but its "
+                f".sha256 says {sidecar}; the build is inconsistent and was not pinned"
+            )
+    _require_every_service_platform(digests, f"service binaries in {binaries_dir}")
+    return digests
+
+
+def _file_digest(path):
+    """The SHA-256 of a file, hashed as it is read.
+
+    Args:
+        path (str): File to hash
+
+    Returns:
+        str: SHA-256 hex digest
+
+    Raises:
+        PinError: If the file cannot be read
+    """
+    digest = hashlib.sha256()
+    try:
+        with open(path, "rb") as f:
+            for chunk in iter(lambda: f.read(1024 * 256), b""):
+                digest.update(chunk)
+    except OSError as e:
+        raise PinError(f"cannot hash {path}: {e}")
+    return digest.hexdigest()
+
+
+def _sidecar_digest(path):
+    """The digest a `.sha256` sidecar file records, if there is one.
+
+    Args:
+        path (str): Path of the sidecar
+
+    Returns:
+        str or None: The digest, or None when there is no sidecar
+
+    Raises:
+        PinError: If there is a sidecar and it does not hold a SHA-256 digest
+    """
+    try:
+        with open(path, encoding="utf-8") as f:
+            fields = f.read().split()
+    except FileNotFoundError:
+        return None
+    except (OSError, UnicodeError) as e:
+        raise PinError(f"cannot read the checksum sidecar {path}: {e}")
+    if not fields or SHA256_PATTERN.fullmatch(fields[0]) is None:
+        raise PinError(f"malformed SHA-256 digest in the checksum sidecar {path}")
+    return fields[0]
+
+
+def _require_every_service_platform(digests, source):
+    """Fail unless a digest was found for each service asset a release publishes.
+
+    Args:
+        digests (dict): asset name -> digest
+        source (str): Where the digests came from, for the message
+
+    Raises:
+        PinError: Naming the service assets that are absent
+    """
+    missing = sorted(SERVICE_ASSETS - digests.keys())
+    if missing:
+        raise PinError(f"{source} is missing service assets: {', '.join(missing)}")
+
+
+def stamp_from_manifest(manifest_path, version, repo=DEFAULT_REPO, table_path=None):
+    """Add one release's service digests from its already-produced checksum manifest.
+
+    Args:
+        manifest_path (str): Path to the release's SHA256SUMS.txt
+        version (str): Release tag
+        repo (str): GitHub repository (owner/repo)
+        table_path (str, optional): Digest table to update; defaults to DIGESTS_FILE
+
+    Returns:
+        bool: Whether a new pin was written
+
+    Raises:
+        PinError: If the manifest is invalid or an existing pin conflicts
+    """
+    return stamp(manifest_service_digests(manifest_path), version, repo, table_path)
+
+
+def stamp_from_binaries(binaries_dir, version, repo=DEFAULT_REPO, table_path=None):
+    """Add one release's service digests, hashed from the binaries it built.
+
+    Args:
+        binaries_dir (str): Directory holding the sysml-grpc-* binaries
+        version (str): Release tag
+        repo (str): GitHub repository (owner/repo)
+        table_path (str, optional): Digest table to update; defaults to DIGESTS_FILE
+
+    Returns:
+        bool: Whether a new pin was written
+
+    Raises:
+        PinError: If the binaries are incomplete or inconsistent, or an existing
+            pin conflicts
+    """
+    return stamp(binary_service_digests(binaries_dir), version, repo, table_path)
+
+
+def stamp(digests, version, repo=DEFAULT_REPO, table_path=None):
+    """Add one release's service digests to a table, refusing to change a pin.
+
+    Stamping DIGESTS_FILE syncs the client copies; an explicit alternate table
+    (the one a package ships, in a release job) is updated alone.
+
+    Args:
+        digests (dict): asset name -> SHA-256 hex digest, every service asset
+        version (str): Release tag
+        repo (str): GitHub repository (owner/repo)
+        table_path (str, optional): Digest table to update; defaults to DIGESTS_FILE
+
+    Returns:
+        bool: Whether a new pin was written; False when the same pin is there
+
+    Raises:
+        PinError: If the table cannot be read or written, or holds a different
+            pin for the release already
+    """
+    table_path = table_path or DIGESTS_FILE
+    sync_shared_table = os.path.realpath(table_path) == os.path.realpath(DIGESTS_FILE)
+    if sync_shared_table:
+        table_path = DIGESTS_FILE
+    table = pinned_table(table_path)
+    versions = table.get(repo, {})
+    if version in versions:
+        if versions[version] == digests:
+            return False
+        raise PinError(
+            f"a different digest pin already exists for {version} of {repo}; "
+            "refusing to replace it"
+        )
+
+    table.setdefault(repo, {})[version] = digests
+    try:
+        with open(table_path, "w", encoding="utf-8") as output:
+            output.write(render_table(table))
+    except OSError as e:
+        raise PinError(f"cannot write digest table {table_path}: {e}")
+    if sync_shared_table:
+        sync_clients(table_path)
+    return True
 
 
 def write_table(table, digests_file=None):
@@ -281,6 +545,24 @@ def main(argv=None):
     parser.add_argument("--version", help="release tag to pin, e.g. v0.0.8")
     parser.add_argument("--repo", default=DEFAULT_REPO, help="GitHub repository (owner/repo)")
     parser.add_argument(
+        "--from-manifest",
+        metavar="PATH",
+        help="stamp service asset digests from an existing checksum manifest",
+    )
+    parser.add_argument(
+        "--from-binaries",
+        metavar="DIR",
+        help="stamp service asset digests hashed from the built binaries in DIR",
+    )
+    parser.add_argument(
+        "--table",
+        default=DIGESTS_FILE,
+        help=(
+            "table to stamp; the shared source syncs client copies, "
+            "other tables stay isolated"
+        ),
+    )
+    parser.add_argument(
         "--write",
         action="store_true",
         help="rewrite client/release-digests.json instead of printing the table",
@@ -292,7 +574,30 @@ def main(argv=None):
     )
     args = parser.parse_args(argv)
 
+    stamping = args.from_manifest or args.from_binaries
+    if args.from_manifest and args.from_binaries:
+        parser.error("--from-manifest and --from-binaries are alternatives")
+    if stamping:
+        if args.check or args.write:
+            parser.error("--from-manifest/--from-binaries cannot be combined with --check or --write")
+        if not args.version:
+            parser.error("--version is required with --from-manifest/--from-binaries")
+    elif args.table != DIGESTS_FILE:
+        parser.error("--table can only be used with --from-manifest or --from-binaries")
+
     try:
+        if stamping:
+            if args.from_manifest:
+                digests = manifest_service_digests(args.from_manifest)
+            else:
+                digests = binary_service_digests(args.from_binaries)
+            for asset, digest in sorted(digests.items()):
+                print(f"{asset} {digest}", file=sys.stderr)
+            changed = stamp(digests, args.version, args.repo, args.table)
+            action = "stamped" if changed else "already has"
+            print(f"{action} {args.version} of {args.repo} in {args.table}")
+            return 0
+
         table = pinned_table()
         if args.check:
             problems = check(table)

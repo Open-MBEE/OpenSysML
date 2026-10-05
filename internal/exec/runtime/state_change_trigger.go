@@ -1,6 +1,7 @@
 package runtime
 
 import (
+	"errors"
 	"fmt"
 	"maps"
 	"strings"
@@ -129,7 +130,7 @@ func newChangePoll() *changePoll {
 
 // risenChanges polls the change conditions under a probe, keeping the latches,
 // and reports every transition whose rise would now dispatch, or fail (nil).
-func (e *StateExecutor) risenChanges() ([]*lower.Transition, bool) {
+func (e *StateExecutor) risenChanges() ([]*lower.Transition, bool, error) {
 	defer e.ctx.beginProbe()()
 	fired := maps.Clone(e.changeFired)
 	defer func() { e.changeFired = fired }()
@@ -141,7 +142,7 @@ func (e *StateExecutor) risenChanges() ([]*lower.Transition, bool) {
 	e.changeRearmed = make(map[*lower.Transition]bool)
 	defer func() { e.changeRearmed = nil }()
 	if err := e.observeChangeConditions(poll); err != nil {
-		return nil, true
+		return nil, true, err
 	}
 	var risen []*lower.Transition
 	for _, trans := range poll.observed {
@@ -149,20 +150,23 @@ func (e *StateExecutor) risenChanges() ([]*lower.Transition, bool) {
 			risen = append(risen, trans)
 		}
 	}
-	return risen, len(risen) > 0
+	return risen, len(risen) > 0, nil
 }
 
 // risenChange polls the change conditions under a probe, keeping the latches,
 // and reports the first transition whose rise would now dispatch, or fail (nil).
-func (e *StateExecutor) risenChange() (*lower.Transition, bool) {
-	risen, ok := e.risenChanges()
+func (e *StateExecutor) risenChange() (*lower.Transition, bool, error) {
+	risen, ok, err := e.risenChanges()
+	if err != nil {
+		return nil, ok, err
+	}
 	if !ok {
-		return nil, false
+		return nil, false, nil
 	}
 	if len(risen) == 0 {
-		return nil, true
+		return nil, true, nil
 	}
-	return risen[0], true
+	return risen[0], true, nil
 }
 
 // riseEnables reports whether the poll's rise is an occurrence for trans, one a
@@ -227,7 +231,14 @@ func (e *StateExecutor) observeChangeConditions(poll *changePoll) error {
 				// The guard is read once per poll, alongside the condition, so which
 				// transitions this rise enables does not depend on selection order.
 				if decided {
-					poll.guard[trans] = e.probeChangeGuard(poll, source, transitions, i)
+					var unevaluable *UnevaluableGuard
+					var err error
+					if poll.guard[trans], unevaluable, err = e.probeChangeGuard(poll, source, transitions, i); err != nil {
+						return err
+					}
+					if unevaluable != nil {
+						poll.unevaluable[trans] = *unevaluable
+					}
 				} else if poll.guard[trans], err = e.passesGuard(trans); err != nil {
 					return fmt.Errorf("state %s: eval change guard: %w", source.Name, err)
 				}
@@ -246,16 +257,20 @@ func (e *StateExecutor) observeChangeConditions(poll *changePoll) error {
 // probeChangeGuard reads the guard of the transition at position i out of state
 // once an earlier one is enabled, as a probe the context undoes whole. One that
 // cannot be evaluated is not enabled, consumes nothing and is noted on the poll.
-func (e *StateExecutor) probeChangeGuard(poll *changePoll, state *ast.StateNode, transitions []*lower.Transition, i int) bool {
+func (e *StateExecutor) probeChangeGuard(poll *changePoll, state *ast.StateNode, transitions []*lower.Transition, i int) (bool, *UnevaluableGuard, error) {
 	var pass bool
 	var err error
-	e.preview(func() { pass, err = e.passesGuard(transitions[i]) })
+	transition := transitions[i]
+	e.preview(func() { pass, err = e.passesGuard(transition) })
 	if err != nil {
-		poll.unevaluable[transitions[i]] = e.unevaluableTransition(state, transitions, i, fmt.Errorf("eval change guard: %w", err))
+		if errors.Is(err, ErrOrderDependentPreview) || errors.Is(err, ErrOrderDependentGuardEffect) {
+			return false, nil, err
+		}
+		note := e.unevaluableTransition(state, transitions, i, fmt.Errorf("eval change guard: %w", err))
 		poll.wait(transitions[i], state.Name, "guard is not evaluable")
-		return false
+		return false, &note, nil
 	}
-	return pass
+	return pass, nil, nil
 }
 
 // changeConditionHolds evaluates one change condition in the scope the
@@ -267,17 +282,22 @@ func (e *StateExecutor) changeConditionHolds(changeEvent *ast.ChangeEvent, trans
 	e.changeEvaluating = true
 	defer func() { e.changeEvaluating = false }()
 	endRead := e.ctx.beginChangeRead()
-	condVal, err := e.evalStepOf(trans.Source, changeEvent.Condition, trans.Scope)
+	holds, err := e.ctx.guardUnderStatementOrders(changeEvent.Condition, e.ctx.enclosingExecutorStep(), trans.Scope, func() (bool, error) {
+		condVal, err := e.evalStepOf(trans.Source, changeEvent.Condition, trans.Scope)
+		if err != nil {
+			return false, fmt.Errorf("eval change condition: %w", err)
+		}
+		if condVal.Kind != ValConst || condVal.Const.Kind != semantics.ValBool {
+			return false, fmt.Errorf("change condition must be boolean, got %v", condVal.Kind)
+		}
+		return condVal.Const.Bool, nil
+	})
+	reads := endRead()
 	if err != nil {
-		endRead()
-		return false, fmt.Errorf("eval change condition: %w", err)
+		return false, err
 	}
-	if condVal.Kind != ValConst || condVal.Const.Kind != semantics.ValBool {
-		endRead()
-		return false, fmt.Errorf("change condition must be boolean, got %v", condVal.Kind)
-	}
-	e.changeReads[trans] = endRead()
-	return condVal.Const.Bool, nil
+	e.changeReads[trans] = reads
+	return holds, nil
 }
 
 func (e *StateExecutor) observeFeatureWrite(fv *FeatureValue) {
@@ -365,7 +385,11 @@ func (e *StateExecutor) risenChangeTransitions(state *ast.StateNode, poll *chang
 			continue
 		}
 		if poll.condition[trans] && !e.changeFired[trans] && poll.guard[trans] {
-			if e.routeAvailable(trans, occurrence) {
+			available, err := e.routeAvailable(trans, occurrence)
+			if err != nil {
+				return nil, nil, err
+			}
+			if available {
 				enabled = append(enabled, i)
 			}
 		}

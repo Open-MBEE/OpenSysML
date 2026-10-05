@@ -51,6 +51,9 @@ func runConvert(files []string) (int, error) {
 	if len(files) == 0 {
 		return 0, errors.New("no model to convert; name the file to convert, as `sysml model.sysml -convert ttl`")
 	}
+	if len(files) > 1 && len(dataImports) > 0 {
+		return 0, errors.New("-import sets values in one model file; name a single file to convert")
+	}
 	if len(files) > 1 {
 		return convertModel(files, to)
 	}
@@ -58,7 +61,7 @@ func runConvert(files []string) (int, error) {
 
 	// A run asked to record puts the records in the session's buffer rather than
 	// in the file, so what is converted is that buffer's text, as %save writes it.
-	if len(modelChecks.records) > 0 {
+	if len(modelChecks.records) > 0 || len(dataImports) > 0 {
 		if err := recordedConvertMisuse(input); err != nil {
 			return 0, err
 		}
@@ -280,6 +283,14 @@ func writeMigrationFiles(path string, out []byte, to convert.Format, replaced bo
 	return nil
 }
 
+// sessionConverts names the flag that makes -convert write the session's buffer.
+func sessionConverts() string {
+	if len(modelChecks.records) > 0 {
+		return "-record-run converts the recorded session model"
+	}
+	return "-import converts the imported session model"
+}
+
 // recordedConvertMisuse is why a flag cannot share the run -record-run
 // converts: what is converted is the session the records join, not a branch
 // read or pushed.
@@ -289,7 +300,7 @@ func recordedConvertMisuse(input string) error {
 		return err
 	}
 	if inputIsURL {
-		return fmt.Errorf("-record-run converts the recorded session model; a repository branch is not an input it reads (%s)", inRef)
+		return fmt.Errorf("%s; a repository branch is not an input it reads (%s)", sessionConverts(), inRef)
 	}
 	if outputPath != "" {
 		outRef, outputIsURL, err := branchURL(outputPath)
@@ -297,11 +308,11 @@ func recordedConvertMisuse(input string) error {
 			return err
 		}
 		if outputIsURL {
-			return fmt.Errorf("-record-run converts the recorded session model; -o cannot push it to a repository branch (%s)", outRef)
+			return fmt.Errorf("%s; -o cannot push it to a repository branch (%s)", sessionConverts(), outRef)
 		}
 	}
 	if syncState != "" {
-		return errors.New("-record-run converts the recorded session model; -sync-state does not apply")
+		return fmt.Errorf("%s; -sync-state does not apply", sessionConverts())
 	}
 	return nil
 }
@@ -311,6 +322,9 @@ func recordedConvertMisuse(input string) error {
 // not analyse or a run that failed converts nothing.
 func convertRecorded(input string, to convert.Format) (int, error) {
 	if fromFormat != "" && fromFormat != "sysml" {
+		if len(modelChecks.records) == 0 {
+			return 0, fmt.Errorf("-import writes into SysML notation; -from %s does not apply", fromFormat)
+		}
 		return 0, fmt.Errorf("-record-run records into SysML notation; -from %s does not apply", fromFormat)
 	}
 	sess := newSession()
@@ -336,6 +350,9 @@ func convertRecorded(input string, to convert.Format) (int, error) {
 			writeLines(os.Stderr, created.FeatureValueErrors)
 			return 0, fmt.Errorf("%s did not materialize cleanly; nothing was converted", name)
 		}
+	}
+	if err := importInto(sess); err != nil {
+		return 0, err
 	}
 	for _, invocation := range modelChecks.records {
 		verdict := modelChecks.record(sess, invocation)
@@ -367,7 +384,9 @@ func convertRecorded(input string, to convert.Format) (int, error) {
 // convertOptions are the conversion settings -id asks for, refusing it for a
 // direction it does not apply to.
 func convertOptions(from, to convert.Format) (convert.Options, error) {
-	opts := convert.Options{}
+	opts := convert.Options{Warn: func(message string) {
+		fmt.Fprintf(os.Stderr, "warning: %s\n", message)
+	}}
 	if idForm == "" {
 		return opts, nil
 	}

@@ -192,7 +192,7 @@ func (e *StateExecutor) followOut(ps *ast.PseudostateNode, r route) (route, erro
 }
 
 // routeAvailable reports whether a transition's static route has a way through.
-func (e *StateExecutor) routeAvailable(trans *lower.Transition, event *Event) bool {
+func (e *StateExecutor) routeAvailable(trans *lower.Transition, event *Event) (bool, error) {
 	var routeErr error
 	e.preview(func() {
 		unbind := func() {} // nothing to unbind until a trigger binds arguments
@@ -224,7 +224,12 @@ func (e *StateExecutor) routeAvailable(trans *lower.Transition, event *Event) bo
 		}
 		_, routeErr = e.followOut(hist, route{})
 	})
-	return !errors.Is(routeErr, errNoWayThrough)
+	if routeErr != nil && e.ctx.scheduling().ordersStatements() {
+		if errors.Is(routeErr, ErrOrderDependentPreview) || errors.Is(routeErr, ErrOrderDependentGuardEffect) {
+			return false, routeErr
+		}
+	}
+	return !errors.Is(routeErr, errNoWayThrough), nil
 }
 
 // settleDraws makes the draws the route is open at, in turn, once the transition
@@ -333,7 +338,11 @@ func (e *StateExecutor) enabledBranches(ps *ast.PseudostateNode, outgoing []*low
 		var pass bool
 		if len(enabled) > 0 {
 			var unevaluable *UnevaluableGuard
-			if pass, unevaluable = e.probeBranch(ps, outgoing, i); unevaluable != nil {
+			var err error
+			if pass, unevaluable, err = e.probeBranch(ps, outgoing, i); err != nil {
+				return nil, nil, fmt.Errorf("%s %s: %w", ps.Kind, ps.Name, err)
+			}
+			if unevaluable != nil {
 				notes = append(notes, *unevaluable)
 			}
 		} else {
@@ -389,11 +398,14 @@ func (e *StateExecutor) pickBranch(ps *ast.PseudostateNode, outgoing []*lower.Tr
 // probeBranch reads whether the branch at position i out of ps holds once
 // another already does, as a probe the context undoes whole; one that cannot be
 // evaluated is not enabled and is returned as the note to record.
-func (e *StateExecutor) probeBranch(ps *ast.PseudostateNode, outgoing []*lower.Transition, i int) (bool, *UnevaluableGuard) {
+func (e *StateExecutor) probeBranch(ps *ast.PseudostateNode, outgoing []*lower.Transition, i int) (bool, *UnevaluableGuard, error) {
 	var pass bool
 	var err error
 	e.preview(func() { pass, err = e.passesGuard(outgoing[i]) })
 	if err != nil {
+		if errors.Is(err, ErrOrderDependentPreview) || errors.Is(err, ErrOrderDependentGuardEffect) {
+			return false, nil, err
+		}
 		file, _ := e.transitionLocation(ps, outgoing[i])
 		return false, &UnevaluableGuard{
 			Where:       pseudostateWhere(ps),
@@ -401,9 +413,9 @@ func (e *StateExecutor) probeBranch(ps *ast.PseudostateNode, outgoing []*lower.T
 			Reason:      err.Error(),
 			File:        file,
 			Span:        outgoing[i].Guard.Span(),
-		}
+		}, nil
 	}
-	return pass, nil
+	return pass, nil, nil
 }
 
 // branchPoint is the branches out of ps enabled, at their declared positions, as

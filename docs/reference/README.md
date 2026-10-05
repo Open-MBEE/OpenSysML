@@ -13,7 +13,7 @@ reading order.
 - **[External engines](external-engines.md)** — the `OPENSYSML_ENGINES` manifest entry, the
   protocol an engine speaks over its standard input and its JSON Schema, the `sources` and
   `graphs:1` model forms, what stands of an engine's answer and how each failure is reported
-- **[Client libraries](clients.md)** — the five ways to reach the engine from a program, what each
+- **[Client libraries](clients.md)** — the seven ways to reach the engine from a program, what each
   covers, and how to choose between them
 - **[Go packages](api.md)** — `client/opensysml` and the packages behind it, type by type
 - **[Python API](python-api.md)** — `opensysml`, its generated typed classes and latency

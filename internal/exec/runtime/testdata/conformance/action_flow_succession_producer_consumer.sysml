@@ -11,7 +11,7 @@ package test {
 		action producer {
 			out value : Integer;
 
-			action emit { assign i := i + 1; assign value := i; }
+			action emit assign i := i + 1; then assign value := i;
 			decide again;
 
 			succession first start then emit;

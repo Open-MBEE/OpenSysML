@@ -29,7 +29,7 @@ import (
 
 // renderUsage is how %render is written: a view, the form to write it in, text
 // when none is named, then a palette, style and port display the form draws.
-const renderUsage = "usage: %render <name> [text|mermaid|markdown|dot|plantuml|csv|tsv [palette] [pilot|cameo] [minimal|full]]"
+const renderUsage = "usage: %render <name> [text|mermaid|markdown|dot|plantuml|d2|csv|tsv [palette] [pilot|cameo] [minimal|full] [link=<template>]]"
 
 // isMeta reports whether a trimmed input line is a meta command.
 func isMeta(line string) bool {
@@ -124,6 +124,7 @@ const (
 	cmdQuery          = "%query"
 	cmdAnalysis       = "%analysis"
 	cmdRecord         = "%record"
+	cmdImport         = "%import"
 	cmdInvoke         = "%invoke"
 	cmdSweep          = "%sweep"
 	cmdSamples        = "%samples"
@@ -213,7 +214,7 @@ var metaCommandTable = []metaCommand{
 	{name: "%search", group: groupLibrary, args: "<substring>", desc: "list the declared and library symbols whose qualified name contains <substring>"},
 	{name: "%builtins", group: groupLibrary, desc: "list the library functions this build implements directly"},
 	{name: "%view", group: groupLibrary, args: argName, desc: "show what a view exposes, and the views nested in it"},
-	{name: "%render", group: groupLibrary, args: "<name> [form [palette] [style] [ports]]", desc: "render a view as the rendering it states — as text, as a Mermaid diagram or a Markdown table, or as Graphviz DOT or PlantUML, filled from a named palette and drawn in a style (pilot or cameo)"},
+	{name: "%render", group: groupLibrary, args: "<name> [form [palette] [style] [ports] [link=<template>]]", desc: "render a view as the rendering it states — as text, as a Mermaid diagram or a Markdown table, or as Graphviz DOT, PlantUML or D2, filled from a named palette, drawn in a style (pilot or cameo) and optionally linking elements to their source with a link template"},
 
 	{name: "%instantiate", group: groupRuntime, args: argName, desc: "create an instance of a part def"},
 	{name: "%eval", group: groupRuntime, args: "[in <name>|<path>|#<id> :] <expr>", desc: "evaluate an expression, in the named element or object when one is named"},
@@ -225,11 +226,12 @@ var metaCommandTable = []metaCommand{
 	{name: "%calc", group: groupBehavioral, args: "<name> <args>", desc: "invoke a calculation with arguments"},
 	{name: cmdAnalysis, group: groupBehavioral, args: "<name>[(<args>)] [<object>]", desc: "run an analysis case and report its outputs and the verdict of its objective; arguments bind its inputs and an object is its subject"},
 	{name: cmdRecord, group: groupBehavioral, args: "<name>[(<args>)] [<object>] [into <package>]", desc: "run an analysis case as %analysis does and record the run into the model as AnalysisRecords elements, into the package named or a Records package beside the case's"},
+	{name: cmdImport, group: groupBehavioral, args: "<file> [map <file>] [format csv|tsv|json|jsonl] [dry-run]", desc: "set feature values from a CSV, TSV, JSON or JSON Lines file, one row per element: an element column names it and each other column a feature, `mass [kg]` with its unit; a feature the element inherits is redefined in its body, and a value the model refuses imports nothing"},
 	{name: cmdSweep, group: groupBehavioral, args: "<name>[(<args>)] [<object>] <p>=<from>..<to>[:<step>]...", desc: "run an analysis case or calc once per value of each range, one run per row of the cartesian product, and print the table"},
 	{name: cmdSamples, group: groupBehavioral, args: "<n> <seed> <name>[(<args>)] [<object>] <p>=<from>..<to>...", desc: "run an analysis case or calc over <n> values drawn uniformly from each range with the given seed, and print the table"},
 	{name: cmdRuns, group: groupBehavioral, args: "<n> [<seed>] <action> [<observable>...]", desc: "run an action <n> times, each run's modeled randomness seeded from the given seed — left out under %draws min, max or average — and print the table of the observables with each one's distribution"},
 	{name: cmdRunQuery, group: groupBehavioral, args: "<name> [<p>=<expr>...]", desc: "execute a document query and print its rows, with each binding written as <parameter>=<expression>"},
-	{name: cmdRenderDocument, group: groupBehavioral, args: "<name> [mermaid|dot|plantuml]", desc: "compile a document definition, run its queries and print the rendered Markdown, its graph-shaped diagrams as Mermaid, Graphviz DOT or PlantUML"},
+	{name: cmdRenderDocument, group: groupBehavioral, args: "<name> [mermaid|dot|plantuml|d2]", desc: "compile a document definition, run its queries and print the rendered Markdown, its graph-shaped diagrams as Mermaid, Graphviz DOT, PlantUML or D2"},
 	{name: "%constraint", group: groupBehavioral, args: argName, desc: "evaluate a constraint definition"},
 	{name: "%requirement", group: groupBehavioral, args: argName, desc: "evaluate a requirement definition"},
 	{name: "%satisfy", group: groupBehavioral, args: "[name]", desc: "evaluate the satisfaction assertions of the model, or of one element"},
@@ -485,11 +487,10 @@ func (s *Session) doTrace(args []string) []string {
 	return []string{fmt.Sprintf("trace: %s", onOff(s.trace != nil))}
 }
 
-// metaRender reads the %render arguments — the name, an optional form, an
-// optional port display and, for a form that fills nodes, an optional palette
-// and drawing style — and renders the view they name.
+// metaRender reads the %render name, form and optional rendering settings,
+// including a source-link template, then renders the view they name.
 func (s *Session) metaRender(args []string) ([]string, bool, error) {
-	if len(args) < 1 || len(args) > 5 {
+	if len(args) < 1 || len(args) > 6 {
 		return []string{renderUsage}, false, nil
 	}
 	form := view.FormText
@@ -500,7 +501,19 @@ func (s *Session) metaRender(args []string) ([]string, bool, error) {
 		}
 	}
 	var opts view.Options
+	linkSet := false
 	for _, word := range args[min(2, len(args)):] {
+		if strings.HasPrefix(word, "link=") {
+			if linkSet {
+				return []string{renderUsage}, false, nil
+			}
+			opts.Links.Template = strings.TrimPrefix(word, "link=")
+			if err := view.ParseLinkTemplate(opts.Links.Template); err != nil {
+				return []string{err.Error() + "; " + renderUsage}, false, nil
+			}
+			linkSet = true
+			continue
+		}
 		if style, ok := view.ParseDrawingStyle(word); ok {
 			if opts.Style != "" {
 				return []string{renderUsage}, false, nil
@@ -516,7 +529,7 @@ func (s *Session) metaRender(args []string) ([]string, bool, error) {
 			continue
 		}
 		if !form.TakesPalette() {
-			return []string{fmt.Sprintf("a palette fills the mermaid, dot and plantuml forms only, not %s; %s", form, renderUsage)}, false, nil
+			return []string{fmt.Sprintf("a palette fills the mermaid, dot, plantuml and d2 forms only, not %s; %s", form, renderUsage)}, false, nil
 		}
 		palette, ok := view.ParsePalette(word)
 		if !ok {
@@ -572,6 +585,8 @@ func (s *Session) metaModelCommand(fields []string, line string) (metaResult, bo
 			return metaOut([]string{recordUsage}, false, nil), true
 		}
 		return metaOut(s.doRecord(strings.TrimPrefix(strings.TrimSpace(line), cmdRecord))), true
+	case cmdImport:
+		return metaOut(s.doImport(strings.TrimPrefix(strings.TrimSpace(line), cmdImport))), true
 	case cmdSweep:
 		if len(fields) < 2 {
 			return metaOut([]string{sweepUsage}, false, nil), true

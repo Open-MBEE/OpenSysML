@@ -726,7 +726,7 @@ func (e *emitter) plainAction(bh *Behavior, ind, where string) (string, error) {
 	}
 	var b strings.Builder
 	b.WriteString(" {\n")
-	writeStmts(&b, ind+"    ", stmts)
+	writeSequence(&b, ind+"    ", stmts)
 	return b.String() + ind + "}", nil
 }
 
@@ -754,7 +754,7 @@ func writeEntry(b *strings.Builder, inner, entryName, entry string, start *entry
 		fmt.Fprintf(b, "%stransition %s", inner, spell(entryName))
 		if len(start.effect) > 0 {
 			b.WriteString(" do {\n")
-			writeStmts(b, inner+"    ", start.effect)
+			writeSequence(b, inner+"    ", start.effect)
 			b.WriteString(inner + "}")
 		}
 		fmt.Fprintf(b, " then %s;\n", start.target)
@@ -967,7 +967,7 @@ func (e *emitter) transition(b *strings.Builder, ind string, t *Transition) erro
 		fmt.Fprintf(b, "%stransition %sfirst %s%s%s", ind, name, source, accept, guard)
 		if len(effect) > 0 {
 			b.WriteString(" do {\n")
-			writeStmts(b, ind+"    ", effect)
+			writeSequence(b, ind+"    ", effect)
 			b.WriteString(ind + "}")
 		}
 		fmt.Fprintf(b, " then %s;\n", target)
@@ -1432,7 +1432,7 @@ func (e *emitter) doBody(b *strings.Builder, ind, header string, do *Behavior, w
 		}
 		fmt.Fprintf(b, "%s%s {\n", ind, header)
 		writeStmts(b, ind+"    ", params)
-		writeStmts(b, ind+"    ", stmts)
+		writeSequence(b, ind+"    ", stmts)
 		fmt.Fprintf(b, "%s}\n", ind)
 		return nil
 	}
@@ -1445,7 +1445,7 @@ func (e *emitter) doBody(b *strings.Builder, ind, header string, do *Behavior, w
 			continue
 		}
 		fmt.Fprintf(b, "%s    then action step%d {\n", ind, i+1)
-		writeStmts(b, ind+"        ", s.stmts)
+		writeSequence(b, ind+"        ", s.stmts)
 		fmt.Fprintf(b, "%s    }\n", ind)
 	}
 	fmt.Fprintf(b, "%s    then done;\n%s}\n", ind, ind)
@@ -1525,6 +1525,17 @@ func isHarness(x *Expr) bool {
 
 func writeStmts(b *strings.Builder, ind string, stmts []string) {
 	for _, s := range stmts {
+		b.WriteString(ind + s + "\n")
+	}
+}
+
+// writeSequence writes a body's statements with `then` between them, the
+// order the UML behavior's control flow gives them.
+func writeSequence(b *strings.Builder, ind string, stmts []string) {
+	for i, s := range stmts {
+		if i > 0 {
+			s = "then " + s
+		}
 		b.WriteString(ind + s + "\n")
 	}
 }

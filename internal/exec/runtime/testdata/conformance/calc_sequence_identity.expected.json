@@ -1,0 +1,12 @@
+{
+	"type": "action",
+	"evaluate": "test::identities",
+	"libraries": true,
+	"outputs": {
+		"mixed": {"type": "Boolean", "value": false},
+		"kept": {"type": "Boolean", "value": true},
+		"differ": {"type": "Boolean", "value": true},
+		"nested": {"type": "Boolean", "value": false},
+		"equal": {"type": "Boolean", "value": true}
+	}
+}

@@ -143,3 +143,59 @@ func TestElementMetadataOrderedByDocumentThenPosition(t *testing.T) {
 		}
 	}
 }
+
+// The `@M about x` spelling of an `about` usage annotates what it names, from a
+// frozen library document and from the workspace alike, and never the
+// namespace it is written in.
+func TestAboutAnnotationInThePrefixSpelling(t *testing.T) {
+	m, lib, user := buildOverlayModel(t, `
+		metadata def Safety;
+		part def Belt;
+		part def Buckle;
+		package Notes {
+			@Safety about Belt;
+		}
+	`, `
+		metadata def Comfort;
+		part radio;
+		part def Seat {
+			part cushion;
+			@Comfort about cushion, radio;
+		}
+	`)
+
+	if types := annotationTypes(m, sym(t, lib, "Belt")); len(types) != 1 || types[0] != "Safety" {
+		t.Fatalf("annotations of Belt = %v, want [Safety]", types)
+	}
+	if types := annotationTypes(m, sym(t, lib, "Notes")); len(types) != 0 {
+		t.Fatalf("annotations of Notes = %v, want none", types)
+	}
+	if types := annotationTypes(m, sym(t, user, "radio")); len(types) != 1 || types[0] != "Comfort" {
+		t.Fatalf("annotations of radio = %v, want [Comfort]", types)
+	}
+	seat := sym(t, user, "Seat")
+	if types := annotationTypes(m, sym(t, seat.Scope, "cushion")); len(types) != 1 || types[0] != "Comfort" {
+		t.Fatalf("annotations of cushion = %v, want [Comfort]", types)
+	}
+	if types := annotationTypes(m, seat); len(types) != 0 {
+		t.Fatalf("annotations of Seat = %v, want none", types)
+	}
+
+	var usage *symbols.Symbol
+	seat.Scope.ForEachMember(func(s *symbols.Symbol) bool {
+		if s.Kind == symbols.SymbolMetadataUsage {
+			usage = s
+		}
+		return true
+	})
+	if usage == nil {
+		t.Fatal("Seat declares no metadata usage")
+	}
+	annotated := m.AnnotatedElementsOf(usage)
+	if len(annotated) != 2 || annotated[0] != sym(t, seat.Scope, "cushion") || annotated[1] != sym(t, user, "radio") {
+		t.Fatalf("AnnotatedElementsOf = %v, want [cushion radio]", annotated)
+	}
+	if facts := m.AboutAnnotationFactsOf(usage); facts == nil || facts.TypeFQN != "Comfort" {
+		t.Fatalf("AboutAnnotationFactsOf = %+v, want Comfort", facts)
+	}
+}

@@ -139,6 +139,7 @@ func documentOptions(outputDir string) docrender.HTMLOptions {
 		DiagramForm:         view.Form(diagramForm),
 		Unplaced:            view.Unplaced(renderUnplaced),
 		Style:               view.DrawingStyle(renderStyle),
+		LinkTemplate:        renderLink,
 		Drawer:              replext.Drawer(),
 		WithoutGraphviz:     replext.Drawer() == nil,
 		OutputDir:           outputDir,
@@ -149,7 +150,7 @@ func documentOptions(outputDir string) docrender.HTMLOptions {
 // outputDir, "" for standard output.
 func markdownOptions(outputDir string) docrender.MarkdownOptions {
 	return docrender.MarkdownOptions{
-		DiagramForm: view.Form(diagramForm), Unplaced: view.Unplaced(renderUnplaced), Style: view.DrawingStyle(renderStyle),
+		DiagramForm: view.Form(diagramForm), Unplaced: view.Unplaced(renderUnplaced), Style: view.DrawingStyle(renderStyle), LinkTemplate: renderLink,
 		Drawer: replext.Drawer(), WithoutGraphviz: replext.Drawer() == nil,
 		OutputDir: outputDir, NumberFigures: docNumberFigures,
 	}
@@ -168,6 +169,11 @@ func artifactDir() string {
 // -render-unplaced value naming no placement and a -render-style value naming
 // no drawing style.
 func checkDiagramForm() error {
+	if renderLink != "" {
+		if err := view.ParseLinkTemplate(renderLink); err != nil {
+			return fmt.Errorf("-render-link: %w", err)
+		}
+	}
 	if _, err := unplacedOption(); err != nil {
 		return err
 	}

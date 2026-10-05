@@ -91,10 +91,15 @@ separate from `strict`. `parse_sources` preserves input order and accepts
 
 Model operations include `evaluate(model, expression; context, subject)`,
 `instantiate(model, symbol_id)`, `execute_action(model, symbol_id; inputs,
-schedule)`, and `execute_state(model, symbol_id; events, schedule)`.
+schedule)`, and `execute_state(model, symbol_id; events, schedule, trace)`.
 `execute_action` returns an `ActionOutputs` dictionary of output parameters;
 performer attributes are available separately as `performer`. `execute_state`
-returns a `StateRun` with `states_visited`, `final_context`, and `final_time`.
+returns a `StateRun` with `states_visited`, `final_context`, `final_time`,
+`trace::Vector{DocumentEvent}`, and `trace_dropped`. Requesting a trace checks
+the `state_trace` capability locally and cannot be combined with exploration.
+A failed traced run keeps its existing `ExecutionFailure` or `WrongKindError`
+classification, with partial records on `trace` and the discarded count on
+`trace_dropped`.
 `Instance`, `InstanceRef`, `TypeFacts`, `SymbolFacts`, `SymbolInfo`,
 `Multiplicity`, and `Diagnostic` carry decoded model and service results.
 
@@ -235,5 +240,5 @@ julia --project=client/julia/OpenSysML \
 
 The package's [README](../../client/julia/OpenSysML/README.md) includes
 installation and examples. See the [wire contract](wire-contract.md) for the
-Connect-JSON shapes and the [client guide](../guide/09-clients.md#from-julia)
+Connect-JSON shapes and the [client guide](../clients/julia.md)
 for a walkthrough.

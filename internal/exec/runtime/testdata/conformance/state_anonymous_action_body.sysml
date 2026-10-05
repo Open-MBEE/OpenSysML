@@ -12,7 +12,7 @@ package Test {
                 attribute k : Integer = 3;
                 while k > 0 {
                     assign log := log * 10 + k;
-                    assign k := k - 1;
+                    then assign k := k - 1;
                 }
             }
             do action { assign log := log * 10 + 8; }

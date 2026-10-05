@@ -301,19 +301,19 @@ func TestCrossFeatureOrderingComesBackFromTheGraphAlone(t *testing.T) {
 `
 	g := turtleOf(t, "crossing", sysml)
 	elmt := func(name string) string { return rdf.ElementIRI(name).Value }
-	for _, flag := range []struct{ end, cross, property string }{
-		{"Crossing::C::x", "Crossing::C::x::x1", "isOrdered"},
-		{"Crossing::C::y", "Crossing::C::y::@0", "isOrdered"},
-		{"Crossing::C::y", "Crossing::C::y::@0", "isNonunique"},
-		{"Crossing::C::z", "Crossing::C::z::@0", "isNonunique"},
-		{"Crossing::C::w", "Crossing::C::w::@0", "isNonunique"},
+	for _, flag := range []struct{ end, cross, property, value string }{
+		{"Crossing::C::x", "Crossing::C::x::x1", "isOrdered", "true"},
+		{"Crossing::C::y", "Crossing::C::y::@0", "isOrdered", "true"},
+		{"Crossing::C::y", "Crossing::C::y::@0", "isUnique", "false"},
+		{"Crossing::C::z", "Crossing::C::z::@0", "isUnique", "false"},
+		{"Crossing::C::w", "Crossing::C::w::@0", "isUnique", "false"},
 	} {
-		wantLexical(t, g, elmt(flag.cross), rdf.SysML+flag.property, "true")
+		wantLexical(t, g, elmt(flag.cross), rdf.SysML+flag.property, flag.value)
 		if g.HasProperty(iri(elmt(flag.end)), rdf.SysML+flag.property) {
 			t.Errorf("the end <%s> took its cross feature's %s", flag.end, flag.property)
 		}
 	}
-	if g.HasProperty(iri(elmt("Crossing::C::x::x1")), rdf.SysML+"isNonunique") {
+	if g.HasProperty(iri(elmt("Crossing::C::x::x1")), rdf.SysML+"isUnique") {
 		t.Errorf("the ordered cross feature x1 is not nonunique")
 	}
 	if back := toNotation(t, withoutTriples(t, idTurtle(t, sysml), "sysx:sourceText")); back != sysml {

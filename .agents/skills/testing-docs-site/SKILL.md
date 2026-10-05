@@ -46,6 +46,27 @@ messages, reload, and confirm the loaded file carries the intended rule before
 diagnosing a CSS fix as ineffective. Do not change repository configuration solely
 to make a preview work.
 
+### The in-browser engines
+
+The landing diagram and the CLI page's REPL load generated assets: `docs/assets/sysml-engine.wasm.gz`,
+`sysml-repl.wasm.gz`, `wasm_exec.js` and `repl-examples/`. They are gitignored; if any is missing,
+run `make docs-engine-assets` before building the site.
+
+The REPL walkthroughs' inputs and expected output strings live in `docs/assets/repl-walkthroughs.json`.
+Run each step through its button and check only newly appended terminal output. Wait for the input
+queue to drain and `is-busy` to clear before sending the next command.
+
+To check the SMT refusal, declare a valid constraint first, for example
+`constraint def Positive { in x : ScalarValues::Integer; x > 0 }`, then run `%check Positive`. Expect
+the message that a WebAssembly build cannot start external processes.
+
+Completion considers every matching name, standard library included. `%inst` has several candidates;
+`%instanti` has one. For a shared-prefix test, pick names that no library name shares.
+
+At mobile width, navigate through the header menu. `label[for="__drawer"]` also matches a hidden
+overlay, so scope automation to `header label[for="__drawer"]`. Compare the document's width with the
+viewport's; a code textarea's own horizontal scrolling is not page overflow.
+
 ### Devin Secrets Needed
 
 None for the public local site and public outbound link checks.

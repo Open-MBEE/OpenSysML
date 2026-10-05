@@ -1216,7 +1216,7 @@ const objectLifecycleExploreModel = `
 				join sync;
 				action read {
 					assign count := size(all Car);
-					assign distinct := not (left === right);
+					then assign distinct := not (left === right);
 				}
 				done;
 				succession first start then split;

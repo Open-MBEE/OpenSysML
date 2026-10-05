@@ -97,9 +97,11 @@ type activity struct {
 	// and buffer nodes to the pins and parameter nodes that produce it, once each.
 	sources map[*sysmlv1.Element][]*sysmlv1.Element
 	// edgeSources and edgeSelf record the same per object flow: the producers
-	// its own source leads back to, and whether one is a ReadSelfAction.
+	// its own source leads back to, and whether one is a ReadSelfAction, whose
+	// result pins selfSources holds.
 	edgeSources map[*sysmlv1.Element][]*sysmlv1.Element
 	edgeSelf    map[*sysmlv1.Element]bool
+	selfSources map[*sysmlv1.Element][]*sysmlv1.Element
 	// inert marks the nodes written as placeholders, whose output pins no value reaches.
 	inert map[*sysmlv1.Element]bool
 	// computed is the v2 expression an output pin is declared with, when a library primitive gives its value.
@@ -113,6 +115,10 @@ type activity struct {
 	// control-flow-driven action that are written as successions it waits on too.
 	dataWhy map[*sysmlv1.Element]string
 	awaited map[*sysmlv1.Element]bool
+	// succFlow settles which object flows are written as succession flows.
+	succFlow map[*sysmlv1.Element]bool
+	// through marks the forks, joins and merges object flows pass through as features.
+	through map[*sysmlv1.Element]bool
 	// dead marks the calls found refused before writing, so that the calls their
 	// result pins feed know that no value reaches them.
 	dead map[*sysmlv1.Element]bool
@@ -164,11 +170,14 @@ func (m *migration) newActivity(act, def *sysmlv1.Element) *activity {
 		dataOnly:    map[*sysmlv1.Element]bool{},
 		dataWhy:     map[*sysmlv1.Element]string{},
 		awaited:     map[*sysmlv1.Element]bool{},
+		succFlow:    map[*sysmlv1.Element]bool{},
+		through:     map[*sysmlv1.Element]bool{},
 		dead:        map[*sysmlv1.Element]bool{},
 		dataNode:    map[*sysmlv1.Element]bool{},
 		sink:        map[*sysmlv1.Element]bool{},
 		edgeSources: map[*sysmlv1.Element][]*sysmlv1.Element{},
 		edgeSelf:    map[*sysmlv1.Element]bool{},
+		selfSources: map[*sysmlv1.Element][]*sysmlv1.Element{},
 		written:     map[[2]*sysmlv1.Element]*sysmlv1.Element{},
 		carriers:    map[[2]*sysmlv1.Element][]*sysmlv1.Element{},
 		inert:       map[*sysmlv1.Element]bool{},
@@ -196,9 +205,9 @@ func (m *migration) newActivity(act, def *sysmlv1.Element) *activity {
 }
 
 // inheritedActionNames are the members every action usage inherits, which a
-// synthesized member must not be called.
+// synthesized member must not be called; a node of one of these names is renamed.
 func inheritedActionNames() map[string]bool {
-	return map[string]bool{"start": true, "done": true, "self": true}
+	return map[string]bool{"start": true, "done": true, "self": true, "this": true}
 }
 
 // waitNode is the wait written before a node a duration constrains.
@@ -355,6 +364,7 @@ func (a *activity) write() {
 			}
 		}
 	}
+	a.settleThrough()
 	for _, n := range a.nodes {
 		if a.dataNode[n] {
 			continue
@@ -414,7 +424,7 @@ func (a *activity) link() {
 	controlled, control, outs := a.controlIndex()
 	for _, e := range a.edges {
 		src, tgt := a.m.model.Ref(e, "source"), a.m.model.Ref(e, "target")
-		if src == nil || tgt == nil || nodeKind(tgt) != nodePin || !controlled[tgt.Parent] {
+		if src == nil || tgt == nil || nodeKind(tgt) != nodePin || !controlled[tgt.Parent] || a.guardedFlow(e) {
 			continue
 		}
 		if from := ownerNode(src); nodeKind(from) != nodeParam && from != tgt.Parent {
@@ -503,7 +513,7 @@ func (a *activity) linkEdges(control map[[2]*sysmlv1.Element]bool) {
 			continue
 		}
 		pair := [2]*sysmlv1.Element{from, to}
-		if e.Type != "ControlFlow" && (control[pair] || linked[pair]) {
+		if e.Type != "ControlFlow" && !a.guardedFlow(e) && (control[pair] || linked[pair]) {
 			continue
 		}
 		a.succ[from] = append(a.succ[from], e)
@@ -511,6 +521,25 @@ func (a *activity) linkEdges(control map[[2]*sysmlv1.Element]bool) {
 			linked[pair] = true
 			a.next[from] = append(a.next[from], to)
 			a.prev[to] = append(a.prev[to], from)
+		}
+	}
+}
+
+// fedAcross marks the pins of a structured node's actions that an object flow
+// owned outside the node leads to.
+func (a *activity) fedAcross() {
+	if !isStructured(a.act) {
+		return
+	}
+	for cur := a.act.Parent; cur != nil; cur = cur.Parent {
+		for _, e := range cur.Owned("edge") {
+			tgt := a.m.model.Ref(e, "target")
+			if e.Type == "ObjectFlow" && tgt != nil && ownerNode(tgt).Parent == a.act {
+				a.fed[tgt] = true
+			}
+		}
+		if cur.Type == "Activity" {
+			return
 		}
 	}
 }
@@ -529,6 +558,7 @@ func (a *activity) resolveData() {
 			a.fed[tgt] = true
 		}
 	}
+	a.fedAcross()
 	var trace func(e *sysmlv1.Element, seen map[*sysmlv1.Element]bool) []*sysmlv1.Element
 	trace = func(e *sysmlv1.Element, seen map[*sysmlv1.Element]bool) []*sysmlv1.Element {
 		if seen[e] {
@@ -557,6 +587,7 @@ func (a *activity) resolveData() {
 			if s.Parent != nil && s.Parent.Type == "ReadSelfAction" {
 				a.selfFed[tgt] = true
 				a.edgeSelf[e] = true
+				a.selfSources[e] = append(a.selfSources[e], s)
 				continue
 			}
 			a.edgeSources[e] = append(a.edgeSources[e], s)
@@ -588,7 +619,7 @@ func (a *activity) entries(n *sysmlv1.Element) {
 		name = s.name
 	}
 	switch {
-	case len(a.prev[n]) <= 1:
+	case a.orderedPrev(n) <= 1:
 	case nodeKind(n) == nodeFinal || nodeKind(n) == nodeFlowFinal || a.sink[n]:
 		m := writeName(a.fresh("merge"))
 		a.merges[n] = m
@@ -654,7 +685,7 @@ func (a *activity) startTargets() (targets []*sysmlv1.Element, seen map[*sysmlv1
 		}
 		if a.starved[n] == nil {
 			targets = append(targets, n)
-			a.m.add(n, Approximated, "", "no edge leads to the node, so it starts with the activity")
+			a.m.add(n, Mapped, "", "no edge leads to the node, so it starts with the activity")
 		}
 		seen[n] = true
 	}
@@ -930,7 +961,16 @@ func (a *activity) successions(n *sysmlv1.Element) {
 		a.madeUp(s.name)
 		from = s.name
 	}
-	outs := a.succ[n]
+	var outs []*sysmlv1.Element
+	entry := map[*sysmlv1.Element]string{}
+	for _, e := range a.succ[n] {
+		if a.successionFlow(e) {
+			if entry[e] = a.flowEntry(ownerNode(a.m.model.Ref(e, "target"))); entry[e] == "" {
+				continue
+			}
+		}
+		outs = append(outs, e)
+	}
 	if len(outs) > 1 && n.Type != "ForkNode" && n.Type != "DecisionNode" {
 		f := a.fresh("fork")
 		a.m.w.line(firstKw + from + thenKw + writeName(f) + ";")
@@ -944,7 +984,10 @@ func (a *activity) successions(n *sysmlv1.Element) {
 		return
 	}
 	for _, e := range outs {
-		to := a.endpointIn(ownerNode(a.m.model.Ref(e, "target")))
+		to := entry[e]
+		if to == "" {
+			to = a.endpointIn(ownerNode(a.m.model.Ref(e, "target")))
+		}
 		if to == "" {
 			a.unwritableEdge(e)
 			continue
@@ -1474,17 +1517,17 @@ func (a *activity) declareKind(n *sysmlv1.Element, name string) {
 		a.m.w.line(actionKw + name + " terminate;")
 		a.m.add(n, Mapped, name, "")
 	case "ForkNode":
-		a.m.w.line("fork " + name + ";")
+		a.m.w.block("fork "+name, func() { a.objectFeatures(n) })
 		a.m.add(n, Mapped, name, "")
 	case "JoinNode":
-		a.m.w.line("join " + name + ";")
+		a.m.w.block("join "+name, func() { a.objectFeatures(n) })
 		a.m.add(n, Mapped, name, "")
 	case "DecisionNode":
 		a.m.w.line("decide " + name + ";")
 		a.m.add(n, Mapped, name, "")
 		return // successions writes the comments, after the else branch
 	case "MergeNode":
-		a.m.w.line("merge " + name + ";")
+		a.m.w.block("merge "+name, func() { a.objectFeatures(n) })
 		a.m.add(n, Mapped, name, "")
 	case "CentralBufferNode", "DataStoreNode", "ExpansionNode":
 		a.m.w.line(actionKw + name + ";")
@@ -1498,8 +1541,7 @@ func (a *activity) declareKind(n *sysmlv1.Element, name string) {
 	case "ValueSpecificationAction":
 		a.valueAction(n, name)
 	case "ReadSelfAction":
-		a.m.w.line(actionKw + name + ";")
-		a.m.add(n, Approximated, name, "the object read is this, which the actions its result flows into name directly")
+		a.readSelf(n, name)
 	case "ReadStructuralFeatureAction":
 		a.readFeature(n, name)
 	case "AddStructuralFeatureValueAction":
@@ -1761,6 +1803,10 @@ func (a *activity) objectFlow(e *sysmlv1.Element) {
 		a.m.unmapped(e, joinNotes(a.m.dangling(e, "source", "target"), "the flow lacks an end"))
 		return
 	}
+	if a.through[src] || a.through[tgt] {
+		a.throughFlow(e, src, tgt)
+		return
+	}
 	if k := nodeKind(tgt); k != nodePin && k != nodeParam {
 		a.objectFlowTarget(e, tgt)
 		return
@@ -1769,7 +1815,13 @@ func (a *activity) objectFlow(e *sysmlv1.Element) {
 		a.m.add(e, Unmapped, "", "nothing the flow carries comes from a pin or parameter")
 		return
 	}
-	if a.edgeSelf[e] {
+	named := a.selfFlows(e, tgt)
+	selfFlows := named && !realGuard(e)
+	switch {
+	case a.edgeSelf[e] && named && !selfFlows:
+		a.m.add(e, Approximated, "", "the flow carries this under the guard ["+describeValue(firstOwned(e, "guard"))+
+			"], which a flow from the read self result cannot be written with, so the value is not written")
+	case a.edgeSelf[e] && !selfFlows:
 		a.m.add(e, Approximated, "", "the flow carries this, which the action names directly")
 	}
 	if a.dataOnly[e] && !a.dryFlow(e) {
@@ -1780,19 +1832,40 @@ func (a *activity) objectFlow(e *sysmlv1.Element) {
 	}
 	if receiver, ok := a.receivers[tgt]; ok {
 		a.m.add(e, Mapped, "", "the flow names the object the call performs on, which the perform names as "+receiver)
+		a.keepOrder(e)
 		return
 	}
 	to, ok := a.pinRef(tgt)
 	if !ok {
 		a.m.add(e, Unmapped, "", "the flow's target "+describe(tgt)+" has no v2 name")
+		a.keepOrder(e)
 		return
 	}
 	for _, s := range a.edgeSources[e] {
 		a.objectFlowSource(e, s, tgt, to)
 	}
-	if g := firstOwned(e, "guard"); g != nil {
+	if selfFlows {
+		for _, s := range a.selfSources[e] {
+			a.objectFlowSource(e, s, tgt, to)
+		}
+	}
+	if g := firstOwned(e, "guard"); g != nil && realGuard(e) && !a.guardedFlow(e) && (!named || len(a.edgeSources[e]) > 0) {
 		a.m.add(e, Approximated, "", "the guard ["+describeValue(g)+"] on an object flow is not written")
 	}
+}
+
+// selfFlows reports whether the object flow e is written from the read self
+// results it carries: they and its target have v2 names; else the target names this.
+func (a *activity) selfFlows(e, tgt *sysmlv1.Element) bool {
+	if _, ok := a.pinRef(tgt); !ok || len(a.selfSources[e]) == 0 {
+		return false
+	}
+	for _, s := range a.selfSources[e] {
+		if _, ok := a.pinRef(s); !ok {
+			return false
+		}
+	}
+	return true
 }
 
 // objectFlowTarget records the object flow e whose target is no pin or
@@ -1838,6 +1911,7 @@ func (a *activity) objectFlowSource(e, s, tgt *sysmlv1.Element, to string) {
 	from, ok := a.pinRef(s)
 	if !ok {
 		a.m.add(e, Unmapped, "", "the flow's source "+describe(s)+" has no v2 name")
+		a.keepOrder(e)
 		return
 	}
 	if first, ok := a.written[[2]*sysmlv1.Element{s, tgt}]; ok {
@@ -1861,6 +1935,7 @@ func (a *activity) objectFlowSource(e, s, tgt *sysmlv1.Element, to string) {
 		a.m.w.line(flowNote + from + " to " + to + notWritten + describe(s.Parent) + " is not migrated and produces no value */")
 		a.m.add(e, Approximated, "", "the flow is kept as a comment: its source "+describe(s.Parent)+" is not migrated, so no value reaches "+describe(s))
 		a.starve(tgt, to, describe(s.Parent)+" is not migrated")
+		a.keepOrder(e)
 		return
 	}
 	if a.unassigned(s) {
@@ -1894,25 +1969,74 @@ func (a *activity) objectFlowSource(e, s, tgt *sysmlv1.Element, to string) {
 	a.m.add(e, Mapped, a.m.edgeTarget(e), "")
 }
 
-// dataEdge writes the flow e carries from from to to: a binding at a
-// parameter, a flow between pins, named as a member when a diagram shows e.
+// dataEdge writes the flow e carries from from to to: a binding at a parameter, a
+// flow of what the source pin is typed by between pins, a succession flow where it
+// also orders its actions; named as a member when a diagram shows e.
 func (a *activity) dataEdge(e, s, tgt *sysmlv1.Element, from, to string) {
-	kw, decl, base := "flow", "flow "+from+" to "+to, spoken(from)+" to "+spoken(to)
+	kw, base := "flow", spoken(from)+" to "+spoken(to)
 	if nodeKind(s) == nodeParam || nodeKind(tgt) == nodeParam {
-		kw, decl, base = "binding", "bind "+to+" = "+from, spoken(to)+" = "+spoken(from)
+		kw, base = "binding", spoken(to)+" = "+spoken(from)
 	}
 	namer := a.namer(e, s, tgt)
 	name := a.edgeFresh(namer, base)
 	if name != "" {
-		if kw == "flow" {
-			decl = "flow " + writeName(name) + " from " + from + " to " + to
-		} else {
-			decl = kw + " " + writeName(name) + " " + decl
-		}
 		a.m.madeUp(namer, writeName(name))
+	}
+	decl := "bind " + to + " = " + from
+	switch {
+	case kw == "flow":
+		decl = "flow " + a.flowHead(name, nil) + from + " to " + to
+		switch {
+		case a.successionFlow(e) && a.inert[s.Parent]:
+			defer a.keepOrder(e)
+		case a.gatedFlow(e):
+			if name == "" {
+				name = a.fresh(base)
+				a.m.w.madeUp(writeName(name))
+			}
+			a.gate(e, s.Parent, name)
+			decl = "succession flow " + a.flowHead(name, a.itemType(s, tgt)) + from + " to " + to
+		case a.successionFlow(e):
+			decl = "succession flow " + a.flowHead(name, a.itemType(s, tgt)) + from + " to " + to
+		}
+	case name != "":
+		decl = kw + " " + writeName(name) + " " + decl
 	}
 	a.m.w.line(decl + ";")
 	a.m.wroteEdgeAlso(e, a.def, kw, nil, name)
+}
+
+// gate writes the guarded succession from source that leads to the succession flow
+// named name, which e is written as: the flow moves its value only when the guard holds.
+func (a *activity) gate(e, source *sysmlv1.Element, name string) {
+	g := a.guard(e, "")
+	a.m.w.lines(g.comment)
+	a.m.w.line(firstKw + writeName(a.name(source, baseName(source))) + g.expr + thenKw + writeName(name) + ";")
+}
+
+// flowHead writes what a flow declares before its ends: its name and the type
+// item of what it carries, then from; nothing when it declares neither.
+func (a *activity) flowHead(name string, item *sysmlv1.Element) string {
+	var head []string
+	if name != "" {
+		head = append(head, writeName(name))
+	}
+	if typ, _ := a.m.typeRef(item, a.def); typ != "" {
+		head = append(head, "of "+typ)
+	}
+	if len(head) == 0 {
+		return ""
+	}
+	return strings.Join(head, " ") + " from "
+}
+
+// itemType is the classifier what travels from s to tgt is typed by: the source's,
+// else the target's.
+func (a *activity) itemType(s, tgt *sysmlv1.Element) *sysmlv1.Element {
+	if t := a.endType(s); t != nil {
+		return t
+	}
+	return a.endType(tgt)
 }
 
 // namer is the edge naming the member written once for what s carries to tgt: a
@@ -2267,11 +2391,11 @@ func (a *activity) valueAction(n *sysmlv1.Element, name string) {
 		typ, tnote := a.m.typeRef(a.m.model.Ref(r, "type"), a.def)
 		decl := "out " + writeName(pname)
 		if typ != "" {
-			decl += " : " + typ + "[1]"
-		} else {
-			decl += "[1]"
+			decl += " : " + typ
 		}
-		a.m.w.line(decl + " = " + expr + ";")
+		mult, mnote := a.m.multiplicity(r)
+		tnote = joinNotes(tnote, mnote)
+		a.m.w.line(decl + shaped(mult, r, true, false) + " = " + expr + ";")
 		a.m.add(r, verdictFor(tnote), a.m.v2Name(n)+"."+pname, tnote)
 	})
 	a.m.add(n, verdictFor(note), name, note)
@@ -2302,7 +2426,7 @@ func (a *activity) objectOf(pin *sysmlv1.Element) (expr string, typ *sysmlv1.Ele
 // readObject is the object a structural feature action reads or writes: what
 // its object pin holds, or this when the pin is absent or nothing feeds it.
 func (a *activity) readObject(obj *sysmlv1.Element) (expr string, typ *sysmlv1.Element, ok bool) {
-	if obj == nil || len(a.sources[obj]) == 0 && !a.selfFed[obj] {
+	if obj == nil || len(a.sources[obj]) == 0 && !a.selfFed[obj] && !a.fed[obj] {
 		return a.self(), a.selfType(), true
 	}
 	return a.objectOf(obj)
@@ -2323,7 +2447,7 @@ func (a *activity) featureOn(objPin, f *sysmlv1.Element) (string, string) {
 		}
 		return a.m.respellThis(obj+"."+writeName(a.m.nameOf(f)), a.act), ""
 	}
-	if objPin == nil || len(a.sources[objPin]) == 0 {
+	if objPin == nil || len(a.sources[objPin]) == 0 && !a.fed[objPin] {
 		return "", ""
 	}
 	pname, ok := a.names[objPin]
@@ -2334,6 +2458,36 @@ func (a *activity) featureOn(objPin, f *sysmlv1.Element) (string, string) {
 		return "", "the object pin is a " + qualifiedName(t) + noFeature + a.m.nameOf(f)
 	}
 	return writeName(pname) + "." + writeName(a.m.nameOf(f)), ""
+}
+
+// readSelf writes a read self action as an action whose result is the object
+// the activity acts on, which flows to the pins that have a v2 name.
+func (a *activity) readSelf(n *sysmlv1.Element, name string) {
+	results := n.Owned("result")
+	if len(results) == 0 {
+		a.m.w.line(actionKw + name + ";")
+		a.m.add(n, Mapped, name, "")
+		return
+	}
+	a.m.w.block(actionKw+name, func() {
+		r := results[0]
+		pname := a.m.nameOf(r)
+		if pname == "" {
+			pname = "result"
+		}
+		typ, note := a.m.typeRef(a.m.model.Ref(r, "type"), a.def)
+		decl := "out " + writeName(pname)
+		if typ != "" {
+			decl += " : " + typ
+		}
+		mult, mnote := a.m.multiplicity(r)
+		note = joinNotes(note, mnote)
+		a.markSelf()
+		a.names[r] = pname
+		a.m.w.line(decl + shaped(mult, r, true, false) + " = " + a.m.respellThis(a.self(), a.act) + ";")
+		a.m.add(r, verdictFor(note), a.m.v2Name(n)+"."+pname, note)
+	})
+	a.m.add(n, Mapped, name, "")
 }
 
 // readFeature writes a read of a structural feature as an action whose

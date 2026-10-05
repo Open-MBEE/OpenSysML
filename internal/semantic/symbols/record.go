@@ -390,9 +390,11 @@ func (in interner) facts(f *LibraryFacts) {
 	in.refs(f.Redefines)
 	in.refs(f.About)
 	in.refs(f.Ends)
+	in.refs(f.RelatedFeatures)
 	in.ref(&f.Alias)
 	in.ref(&f.References)
 	in.ref(&f.BaseType)
+	in.ref(&f.MetadataType)
 	for i := range f.Relationships {
 		in.ref(&f.Relationships[i].Target)
 	}

@@ -22,6 +22,8 @@ theme:
   # shipped partial minus tab-mode hiding of inactive top-level items); every
   # documentation page is otherwise the theme as shipped.
   custom_dir: overrides
+  logo: assets/opensysml-mark-white.png
+  favicon: assets/favicon.png
   features:
     - navigation.instant
     - navigation.tracking
@@ -52,6 +54,7 @@ theme:
 
 extra_css:
   - stylesheets/footer.css
+  - stylesheets/header.css
   - stylesheets/ecosystem.css
 
 extra:
@@ -69,8 +72,23 @@ plugins:
   # URL, and the pointer file left at the old path answers the links GitHub serves.
   - redirects:
       redirect_maps:
-        guide/09-python.md: guide/09-clients.md
+        guide/09-python.md: clients/python/index.md
         ecosystem.md: README.md
+  - mkdocstrings:
+      handlers:
+        python:
+          paths: [client/python]
+          options:
+            docstring_style: google
+            docstring_options:
+              warn_missing_types: false
+            extensions: [scripts/griffe_sphinx_roles.py]
+            show_source: false
+            members_order: source
+            filters: ["!^_"]
+            show_root_heading: true
+            show_signature_annotations: true
+            separate_signature: true
 
 not_in_nav: |
   guide/09-python.md
@@ -85,6 +103,7 @@ not_in_nav: |
   project/exact-rational-evaluation.md
   project/expansion-regions.md
   project/bitwise-complement.md
+  project/constraint-body-steps.md
   project/exception-handlers.md
   project/pilot-differential.md
   project/spec-pilot-gap-register.md
@@ -99,6 +118,7 @@ hooks:
   - scripts/mkdocs_landing.py
   - scripts/mkdocs_census.py
   - scripts/mkdocs_suite_figures.py
+  - scripts/mkdocs_install_scripts.py
 
 markdown_extensions:
   - admonition
@@ -154,6 +174,7 @@ exclude_docs: |
   project/performance-release-0.6-vs-0.4.2.md
   project/performance-release-0.8-vs-0.7.0.md
   project/performance-release-0.9.1-vs-0.9.0.md
+  project/performance-release-0.9.2-vs-0.9.1.md
   project/satellite-network-stress-test.md
   project/large-model-scaling-design.md
   project/native-compilation.md
@@ -172,6 +193,7 @@ exclude_docs: |
   project/fuml-referee.md
   project/behavior-semantic-oracle.md
   project/grammar-coverage.md
+  project/grammar-metaclass-map.md
   project/validation-constraints.md
   project/sysml-v1-transformation-census.md
   project/element-identity-annotations.md
@@ -191,7 +213,24 @@ nav:
   - Home: README.md
   - CLI: cli.md
   - Documentation: documentation.md
-  - Clients: clients.md
+  - Clients:
+      - clients.md
+      - Python:
+          - clients/python/index.md
+          - Models and symbols: clients/python/models.md
+          - Instances and values: clients/python/instances.md
+          - Verification and analysis: clients/python/verification.md
+          - Editing and saving: clients/python/editing-and-saving.md
+          - Queries and documents: clients/python/queries.md
+          - Errors: clients/python/errors.md
+          - The service: clients/python/service.md
+          - Typed classes: clients/python/typed-classes.md
+          - Metamodel classes and JSON: clients/python/metamodel.md
+      - Node: clients/node.md
+      - Java: clients/java.md
+      - Rust: clients/rust.md
+      - Julia: clients/julia.md
+      - MATLAB: clients/matlab.md
   - Community: community.md
   - Downloads: downloads.md
   - Guide:
@@ -220,6 +259,7 @@ nav:
       - Worked example: manual/worked-example.md
       - Requirements traceability examples: manual/traceability-examples.md
       - Recording analysis runs: manual/recording-analysis-runs.md
+      - Importing data into a model: manual/importing-data.md
       - Running external programs from a model: manual/running-external-programs.md
       - Limitations and troubleshooting: manual/troubleshooting.md
       - Worked example output: manual/examples/observatory.md
@@ -254,5 +294,6 @@ nav:
       - Grammar: reference/grammar/README.md
       - Grammar conformance audit: reference/grammar/conformance-audit.md
       - WebAssembly builds: reference/wasm.md
-  # internals/ and project/ are published but kept out of the tab bar: they are contributor
-  # records, reachable through links, search and GitHub (see not_in_nav).
+      - Third-party notices: project/third-party-notices.md
+  # internals/ and project/ contributor records are kept out of the tab bar; the
+  # public third-party notices are the exception.

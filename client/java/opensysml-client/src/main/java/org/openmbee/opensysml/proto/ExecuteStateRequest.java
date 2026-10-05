@@ -294,6 +294,22 @@ private static final long serialVersionUID = 0L;
     }
   }
 
+  public static final int TRACE_FIELD_NUMBER = 6;
+  private boolean trace_ = false;
+  /**
+   * <pre>
+   * Ask for the run's trace in ExecuteStateResponse.trace. Advertised as the
+   * "state_trace" capability; a service withholding it refuses true with UNIMPLEMENTED.
+   * </pre>
+   *
+   * <code>bool trace = 6 [json_name = "trace"];</code>
+   * @return The trace.
+   */
+  @java.lang.Override
+  public boolean getTrace() {
+    return trace_;
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -322,6 +338,9 @@ private static final long serialVersionUID = 0L;
     }
     if (!com.google.protobuf.GeneratedMessage.isStringEmpty(performerSymbolId_)) {
       com.google.protobuf.GeneratedMessage.writeString(output, 5, performerSymbolId_);
+    }
+    if (trace_ != false) {
+      output.writeBool(6, trace_);
     }
     getUnknownFields().writeTo(output);
   }
@@ -352,6 +371,10 @@ private static final long serialVersionUID = 0L;
     if (!com.google.protobuf.GeneratedMessage.isStringEmpty(performerSymbolId_)) {
       size += com.google.protobuf.GeneratedMessage.computeStringSize(5, performerSymbolId_);
     }
+    if (trace_ != false) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeBoolSize(6, trace_);
+    }
     size += getUnknownFields().getSerializedSize();
     memoizedSize = size;
     return size;
@@ -377,6 +400,8 @@ private static final long serialVersionUID = 0L;
         .equals(other.getSchedule())) return false;
     if (!getPerformerSymbolId()
         .equals(other.getPerformerSymbolId())) return false;
+    if (getTrace()
+        != other.getTrace()) return false;
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -400,6 +425,9 @@ private static final long serialVersionUID = 0L;
     hash = (53 * hash) + getSchedule().hashCode();
     hash = (37 * hash) + PERFORMER_SYMBOL_ID_FIELD_NUMBER;
     hash = (53 * hash) + getPerformerSymbolId().hashCode();
+    hash = (37 * hash) + TRACE_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
+        getTrace());
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
     return hash;
@@ -541,6 +569,7 @@ private static final long serialVersionUID = 0L;
           com.google.protobuf.LazyStringArrayList.emptyList();
       schedule_ = "";
       performerSymbolId_ = "";
+      trace_ = false;
       return this;
     }
 
@@ -590,6 +619,9 @@ private static final long serialVersionUID = 0L;
       if (((from_bitField0_ & 0x00000010) != 0)) {
         result.performerSymbolId_ = performerSymbolId_;
       }
+      if (((from_bitField0_ & 0x00000020) != 0)) {
+        result.trace_ = trace_;
+      }
     }
 
     @java.lang.Override
@@ -633,6 +665,9 @@ private static final long serialVersionUID = 0L;
         performerSymbolId_ = other.performerSymbolId_;
         bitField0_ |= 0x00000010;
         onChanged();
+      }
+      if (other.getTrace() != false) {
+        setTrace(other.getTrace());
       }
       this.mergeUnknownFields(other.getUnknownFields());
       onChanged();
@@ -686,6 +721,11 @@ private static final long serialVersionUID = 0L;
               bitField0_ |= 0x00000010;
               break;
             } // case 42
+            case 48: {
+              trace_ = input.readBool();
+              bitField0_ |= 0x00000020;
+              break;
+            } // case 48
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -1214,6 +1254,53 @@ private static final long serialVersionUID = 0L;
       checkByteStringIsUtf8(value);
       performerSymbolId_ = value;
       bitField0_ |= 0x00000010;
+      onChanged();
+      return this;
+    }
+
+    private boolean trace_ ;
+    /**
+     * <pre>
+     * Ask for the run's trace in ExecuteStateResponse.trace. Advertised as the
+     * "state_trace" capability; a service withholding it refuses true with UNIMPLEMENTED.
+     * </pre>
+     *
+     * <code>bool trace = 6 [json_name = "trace"];</code>
+     * @return The trace.
+     */
+    @java.lang.Override
+    public boolean getTrace() {
+      return trace_;
+    }
+    /**
+     * <pre>
+     * Ask for the run's trace in ExecuteStateResponse.trace. Advertised as the
+     * "state_trace" capability; a service withholding it refuses true with UNIMPLEMENTED.
+     * </pre>
+     *
+     * <code>bool trace = 6 [json_name = "trace"];</code>
+     * @param value The trace to set.
+     * @return This builder for chaining.
+     */
+    public Builder setTrace(boolean value) {
+
+      trace_ = value;
+      bitField0_ |= 0x00000020;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Ask for the run's trace in ExecuteStateResponse.trace. Advertised as the
+     * "state_trace" capability; a service withholding it refuses true with UNIMPLEMENTED.
+     * </pre>
+     *
+     * <code>bool trace = 6 [json_name = "trace"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearTrace() {
+      bitField0_ = (bitField0_ & ~0x00000020);
+      trace_ = false;
       onChanged();
       return this;
     }

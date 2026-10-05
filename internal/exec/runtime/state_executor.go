@@ -1235,8 +1235,10 @@ func (e *StateExecutor) dispatchInOrder(
 	defer func() { e.joinChosen = saved }()
 
 	acted := false
+	var previewErr error
 	gone := func(candidate dispatchCandidate) bool { return !e.isActive(candidate.leaf) || e.state.Ended() }
 	// A guard that cannot be read is left to the firing, which reports the error.
+	// An order-dependent verdict instead fails the dispatch as not covered.
 	void := func(candidate dispatchCandidate) bool {
 		if gone(candidate) {
 			return true
@@ -1244,7 +1246,14 @@ func (e *StateExecutor) dispatchInOrder(
 		var pass bool
 		var err error
 		e.preview(func() { pass, err = armed(candidate) })
-		return err == nil && !pass
+		if err != nil {
+			if errors.Is(err, ErrOrderDependentPreview) || errors.Is(err, ErrOrderDependentGuardEffect) {
+				previewErr = err
+				return true
+			}
+			return false
+		}
+		return !pass
 	}
 	firing := func(candidate dispatchCandidate) error {
 		if gone(candidate) {
@@ -1275,7 +1284,10 @@ func (e *StateExecutor) dispatchInOrder(
 			}
 			f.spawnAt(head, func() error { return firing(candidate) })
 		}
-		return f.drain()
+		if err := f.drain(); err != nil {
+			return err
+		}
+		return previewErr
 	})
 	return acted, err
 }
@@ -1746,7 +1758,7 @@ func (e *StateExecutor) completionEnabled(trans *lower.Transition) (bool, error)
 	if err != nil || !pass {
 		return false, err
 	}
-	return e.routeAvailable(trans, nil), nil
+	return e.routeAvailable(trans, nil)
 }
 
 // transitionDecided records what selecting the transition now firing noted, its
@@ -1807,7 +1819,11 @@ func (e *StateExecutor) enabledTransitions(state *ast.StateNode, event *Event) (
 		var ok bool
 		if len(enabled) > 0 {
 			var unevaluable *UnevaluableGuard
-			if ok, unevaluable = e.probeTransition(state, transitions, i, event); unevaluable != nil {
+			var err error
+			if ok, unevaluable, err = e.probeTransition(state, transitions, i, event); err != nil {
+				return nil, nil, err
+			}
+			if unevaluable != nil {
 				notes = append(notes, *unevaluable)
 			}
 		} else {
@@ -1826,15 +1842,19 @@ func (e *StateExecutor) enabledTransitions(state *ast.StateNode, event *Event) (
 // probeTransition reads whether the transition at position i out of state reacts
 // to event once another already does, as a probe the context undoes whole. One
 // that cannot be evaluated is not selected and is returned as the note to record.
-func (e *StateExecutor) probeTransition(state *ast.StateNode, transitions []*lower.Transition, i int, event *Event) (bool, *UnevaluableGuard) {
+func (e *StateExecutor) probeTransition(state *ast.StateNode, transitions []*lower.Transition, i int, event *Event) (bool, *UnevaluableGuard, error) {
 	var ok bool
 	var err error
-	e.preview(func() { ok, err = e.transitionEnabled(transitions[i], event) })
+	transition := transitions[i]
+	e.preview(func() { ok, err = e.transitionEnabled(transition, event) })
 	if err != nil {
+		if errors.Is(err, ErrOrderDependentPreview) || errors.Is(err, ErrOrderDependentGuardEffect) {
+			return false, nil, err
+		}
 		note := e.unevaluableTransition(state, transitions, i, err)
-		return false, &note
+		return false, &note, nil
 	}
-	return ok, nil
+	return ok, nil, nil
 }
 
 // transitionEnabled reports whether trans reacts to event: its trigger and guard
@@ -1857,7 +1877,7 @@ func (e *StateExecutor) transitionEnabled(trans *lower.Transition, event *Event)
 	if err != nil || !pass {
 		return false, err
 	}
-	return e.routeAvailable(trans, event), nil
+	return e.routeAvailable(trans, event)
 }
 
 // transitionChoice is the transitions out of state enabled for one event, at
@@ -2635,15 +2655,17 @@ func (e *StateExecutor) passesGuard(trans *lower.Transition) (bool, error) {
 	if trans == nil || trans.Guard == nil {
 		return true, nil
 	}
-	val, err := e.evalTransitionStep(trans, trans.Guard, trans.BodyScope)
-	if err != nil {
-		return false, fmt.Errorf("eval guard of %s: %w", transitionDescription(trans), err)
-	}
-	if val.Kind != ValConst || val.Const.Kind != semantics.ValBool {
-		return false, fmt.Errorf("%w: guard of %s must be boolean, got %s",
-			ErrTypeMismatch, transitionDescription(trans), describeOperand(val))
-	}
-	return val.Const.Bool, nil
+	return e.ctx.guardUnderStatementOrders(trans.Guard, e.ctx.enclosingExecutorStep(), trans.BodyScope, func() (bool, error) {
+		val, err := e.evalTransitionStep(trans, trans.Guard, trans.BodyScope)
+		if err != nil {
+			return false, fmt.Errorf("eval guard of %s: %w", transitionDescription(trans), err)
+		}
+		if val.Kind != ValConst || val.Const.Kind != semantics.ValBool {
+			return false, fmt.Errorf("%w: guard of %s must be boolean, got %s",
+				ErrTypeMismatch, transitionDescription(trans), describeOperand(val))
+		}
+		return val.Const.Bool, nil
+	})
 }
 
 // transitionDescription names a transition for a diagnostic: by the name it was
@@ -3735,6 +3757,9 @@ func (e *StateExecutor) countDoStep() error {
 // a dispatch that acts is due, drawn against the move under ChoiceStepOrder — dispatches.
 func (e *StateExecutor) stepDue(due []*doAction, progress *dueProgress) (bool, error) {
 	if dispatch := e.dueDispatch(); dispatch.acts {
+		if dispatch.fails != nil {
+			return false, dispatch.fails
+		}
 		dispatchNow, err := e.chooseStepOrder(due, dispatch.step)
 		if err != nil {
 			return false, err
@@ -3777,6 +3802,7 @@ type dueDispatch struct {
 	tied  []Event // the events tied at the head, the dispatch being the draw among them
 	among []Event // the tied events whose dispatch acts: what a step order draws among
 	acts  bool    // whether the dispatch takes its occurrence (eventActs)
+	fails error   // a preview failure the selected dispatch must surface
 }
 
 // dueDispatch describes the dispatch due now; due is false when none is.
@@ -3784,7 +3810,11 @@ func (e *StateExecutor) dueDispatch() dueDispatch {
 	one := func(label string, acts bool) dueDispatch {
 		return dueDispatch{due: true, label: label, step: label, acts: acts}
 	}
-	if trans, risen := e.risenChange(); risen {
+	if trans, risen, err := e.risenChange(); err != nil {
+		d := one(dispatchPrefix+"change", true)
+		d.fails = err
+		return d
+	} else if risen {
 		if trans == nil {
 			return one("dispatch change", true)
 		}
@@ -3797,7 +3827,12 @@ func (e *StateExecutor) dueDispatch() dueDispatch {
 		return dueDispatch{}
 	}
 	if tied := queue.Tied(); len(tied) >= 2 {
-		d := dueDispatch{due: true, label: dispatchTiedLabel, step: dispatchTiedLabel, tied: tied, among: e.actingEvents(tied)}
+		among, err := e.actingEvents(tied)
+		d := dueDispatch{due: true, label: dispatchTiedLabel, step: dispatchTiedLabel, tied: tied, among: among}
+		if err != nil {
+			d.fails = err
+			return d
+		}
 		d.acts = len(d.among) > 0
 		if len(d.among) == 1 {
 			d.step = dispatchPrefix + e.eventLabel(d.among[0])
@@ -3805,23 +3840,32 @@ func (e *StateExecutor) dueDispatch() dueDispatch {
 		return d
 	}
 	head := queue.Peek()
-	d := one(dispatchPrefix+e.eventLabel(head), len(e.actingEvents([]Event{head})) > 0)
+	among, err := e.actingEvents([]Event{head})
+	d := one(dispatchPrefix+e.eventLabel(head), len(among) > 0)
+	if err != nil {
+		d.fails = err
+		return d
+	}
 	d.event = &head
 	return d
 }
 
 // actingEvents previews which of the events a dispatch now would take (eventActs), in
 // order; an error in the preview counts as acting, the dispatch being where it surfaces.
-func (e *StateExecutor) actingEvents(events []Event) []Event {
+func (e *StateExecutor) actingEvents(events []Event) ([]Event, error) {
 	var acting []Event
+	var err error
 	e.preview(func() {
 		for _, event := range events {
-			if ok, err := e.eventActs(event); err != nil || ok {
+			if ok, eventErr := e.eventActs(event); eventErr != nil {
+				err = eventErr
+				return
+			} else if ok {
 				acting = append(acting, event)
 			}
 		}
 	})
-	return acting
+	return acting, err
 }
 
 // eventActs reports whether dispatching the event now would take it — fire a
@@ -5132,14 +5176,16 @@ func (e *StateExecutor) entryGuardHolds(owner ast.Node, entry *lower.EntryTransi
 	if entry.Guard == nil {
 		return true, nil
 	}
-	val, err := e.evalStepOf(e.bodyState(owner), entry.Guard, entry.Scope)
-	if err != nil {
-		return false, fmt.Errorf("eval guard of the entry transition into %s: %w", StateVertexName(entryTarget(entry)), err)
-	}
-	if val.Kind != ValConst || val.Const.Kind != semantics.ValBool {
-		return false, fmt.Errorf("guard of the entry transition into %s must be boolean, got %v", StateVertexName(entryTarget(entry)), val.Kind)
-	}
-	return val.Const.Bool, nil
+	return e.ctx.guardUnderStatementOrders(entry.Guard, e.ctx.enclosingExecutorStep(), entry.Scope, func() (bool, error) {
+		val, err := e.evalStepOf(e.bodyState(owner), entry.Guard, entry.Scope)
+		if err != nil {
+			return false, fmt.Errorf("eval guard of the entry transition into %s: %w", StateVertexName(entryTarget(entry)), err)
+		}
+		if val.Kind != ValConst || val.Const.Kind != semantics.ValBool {
+			return false, fmt.Errorf("guard of the entry transition into %s must be boolean, got %v", StateVertexName(entryTarget(entry)), val.Kind)
+		}
+		return val.Const.Bool, nil
+	})
 }
 
 // bodyState is the state whose attributes a body's entry transitions read: the

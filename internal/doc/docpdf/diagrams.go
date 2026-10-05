@@ -26,8 +26,8 @@ type rasterizer interface {
 	name() string
 }
 
-// diagramTool is one form's rasterizer and whether it may be absent: Graphviz
-// and PlantUML are optional, and without them the diagrams stay source.
+// diagramTool is one form's rasterizer and whether it may be absent: Graphviz,
+// PlantUML and D2 are optional, and without them the diagrams stay source.
 type diagramTool struct {
 	draw     rasterizer
 	optional bool
@@ -43,6 +43,8 @@ func diagramToolFor(form view.Form) (diagramTool, bool) {
 		return diagramTool{draw: &graphvizRasterizer{}, optional: true}, true
 	case view.FormPlantUML:
 		return diagramTool{draw: &plantumlRasterizer{}, optional: true}, true
+	case view.FormD2:
+		return diagramTool{draw: &d2Rasterizer{}, optional: true}, true
 	}
 	return diagramTool{}, false
 }

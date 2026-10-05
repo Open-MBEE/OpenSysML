@@ -3,7 +3,7 @@
 This page covers what `@openmbee/opensysml` exports, how its two entry points differ, and
 where its surface stops. To choose between the clients, see
 [client libraries](clients.md); for a task-oriented walkthrough, see
-[guide chapter 9](../guide/09-clients.md#from-node-or-a-browser). The client's own
+the [Node client guide](../clients/node.md). The client's own
 notes on packaging and its conformance run are in
 [client/node/README.md](../../client/node/README.md).
 
@@ -23,6 +23,8 @@ The package is published on npm. From a checkout, build it with
 
 Both re-export the isomorphic core; the browser entry point requires an
 `address`, since there is nothing to fall back to.
+Both also export `connectWasm()` for the combined WebAssembly module; see
+[WebAssembly, without a service](../../client/node/README.md#webassembly-without-a-service).
 
 ## Opening a connection
 
@@ -148,7 +150,7 @@ knowing its members.
 | `ClosedConnectionError` | the connection was closed and cannot be used again |
 | `ParseError` | a file could not be read, or its content did not parse; carries `diagnostics` |
 | `EvaluationError` | the call succeeded and the answer reports a model failure |
-| `ExecutionError` | an execution the service ran failed; carries `diagnostics` |
+| `ExecutionError` | an execution the service ran failed; carries `diagnostics`; a failed traced `executeState` also carries its partial `trace` and `traceDropped` |
 | `WrongKindError` | a verification or analysis named a symbol of another kind |
 | `AnalysisRunError` | an analysis run failed before it could report |
 | `ConversionError` | the service could not write the notation asked for |
@@ -246,7 +248,10 @@ Beside the model reads above, the client covers every RPC the service offers:
   `ElementRef`/`ObjectRef` bindings, **`model.renderDocument`** to Markdown or HTML;
 - **`model.executeAction`/`executeState`** for runs and
   **`exploreAction`/`exploreState`/`exploreAnalysis`** for explorations of every
-  schedule — the two families refuse each other's `schedule`, as the wire does;
+  schedule — the two families refuse each other's `schedule`, as the wire does.
+  `model.executeState(symbolId, { trace: true })` requests typed `DocumentEvent`
+  records in `trace` and reports discarded records in `traceDropped`; it requires
+  `state_trace` and cannot be combined with an explore schedule;
 - **`model.verifyConstraint`/`verifyRequirement`/`verifySatisfaction`/`satisfied`,
   `validateInstance`, `calc`, `runAnalysis`, `runSweep`** (ranges as
   `parameter → [from, to]` or `[from, to, step]`), all taking `engine`,

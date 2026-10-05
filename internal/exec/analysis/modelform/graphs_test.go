@@ -505,6 +505,57 @@ func TestGraphsActionCarriesTheFlowKind(t *testing.T) {
 	}
 }
 
+// A guarded succession leading to a succession flow keeps its own span on the edge
+// it orders and on the flow it gates, so a consumer finds both declarations.
+func TestGraphsActionCarriesTheGateOfAFlow(t *testing.T) {
+	const fixture = `package test {
+	private import ScalarValues::*;
+
+	action pass {
+		attribute go : Boolean = true;
+		action producer { out value : Integer; assign value := 1; }
+		action consumer { in value : Integer; }
+
+		succession first start then producer;
+		first producer if go then f;
+		succession flow f of Integer from producer.value to consumer.value;
+	}
+}
+`
+	model, idx := graphsModelOf(t, fixture)
+	g, data := exportGraphs(t, model, idx, "test::pass")
+	if len(g.Actions) != 1 || g.Actions[0].Error != "" {
+		t.Fatalf("actions %+v, want the subject lowered", g.Actions)
+	}
+	pass := g.Actions[0]
+	text := func(s *SpanForm) string {
+		if s == nil {
+			return ""
+		}
+		return fixture[s.Offset : s.Offset+s.Len]
+	}
+	const gate = "first producer if go then f;"
+	var edges int
+	for _, e := range pass.Edges {
+		if pass.Nodes[e.Target].Name != "consumer" {
+			continue
+		}
+		edges++
+		if got := text(e.Gate); got != gate || e.Guard == nil || e.Guard.Text != "go" {
+			t.Errorf("edge into consumer: gate %q guard %+v, want gate %q guarded by go", got, e.Guard, gate)
+		}
+	}
+	if edges != 1 || len(pass.Flows) != 1 {
+		t.Fatalf("%d edges into consumer, %d flows; want one of each", edges, len(pass.Flows))
+	}
+	if got := text(pass.Flows[0].Gate); got != gate {
+		t.Errorf("flow gate %q, want %q", got, gate)
+	}
+	if !strings.Contains(string(data), `"gate":`) {
+		t.Error("marshalled form lacks the gate")
+	}
+}
+
 func TestGraphsAreByteStable(t *testing.T) {
 	model, idx := graphsModel(t)
 	for _, subject := range []string{"test::run", "test::Machine"} {
