@@ -1115,9 +1115,10 @@ func (p *Parser) parseMoreFeatureModifiers(m *featureMods) {
 			}
 			return
 		}
-		// `composite` or `portion` closes the feature prefix: a word that reads
-		// as a modifier may not follow it, even as a name.
-		if m.isComposite && t.Kind == lexer.Identifier && p.src.Text(t.Span) == "readonly" {
+		// `composite` or `portion` closes the feature prefix in SysML, where
+		// `readonly` is reserved; in KerML the word is a valid feature name.
+		if m.isComposite && p.src.Kind() != source.KindKerML &&
+			t.Kind == lexer.Identifier && p.src.Text(t.Span) == "readonly" {
 			p.error(t.Span, "'readonly' cannot follow '"+compositeOrPortionWord(m.isPortion)+
 				"': a prefix says "+compositeOrPortionPair+", not both")
 			return

@@ -119,6 +119,8 @@
                 (LiteralInteger value="0")
                 (LiteralInteger value="1"))))
           (Membership visibility="default"
+            (Usage kind="attribute" name="readonly" ref=false direction="none" composite=true derived=false ordered=false nonunique=false))
+          (Membership visibility="default"
             (Usage kind="attribute" name="q" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
               (Relationship kind="typing" target=Real
                 (*ast.QualifiedName))))))
