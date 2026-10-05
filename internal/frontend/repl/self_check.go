@@ -90,18 +90,19 @@ func (s *Session) resolveSelfCheckPackages(pkgs []string) ([]selfCheckRulePackag
 	seen := make(map[string]bool)
 	var missing []string
 	for _, name := range pkgs {
-		p := s.parseName(name)
-		key := name
-		if p.ok {
-			key = p.name
+		segs, ok := nameSegments(name)
+		if !ok {
+			missing = append(missing, name)
+			continue
 		}
+		key := strings.Join(segs, "\x00")
 		if seen[key] {
 			continue
 		}
 		seen[key] = true
 		group := selfCheckRulePackage{name: name}
-		if p.ok && idx != nil {
-			for _, sym := range idx.LookupQualified(p.name) {
+		if idx != nil {
+			for _, sym := range idx.LookupQualified(strings.Join(segs, "::")) {
 				if sym.Kind == symbols.SymbolPackage && sym.Scope != nil {
 					group.symbols = append(group.symbols, sym)
 				}

@@ -1089,6 +1089,31 @@ func TestSelfCheckPackageQuotedSegmentsResolve(t *testing.T) {
 	}
 }
 
+func TestSelfCheckPackageQuotedSegmentHoldingColonsStaysDistinct(t *testing.T) {
+	files := []SourceFile{
+		{Name: "model.sysml", Text: `package M { part def P; }`},
+		{Name: "rules.sysml", Text: `package 'A::' {
+			constraint def anything {
+				in pd : SysML::PartDefinition;
+				true;
+			}
+		}`},
+	}
+	for _, order := range [][]string{{"'A::'", "A::"}, {"A::", "'A::'"}} {
+		s := loadSelfCheckFixture(t, files...)
+		verdicts, err := s.SelfCheckPackages(order)
+		if verdicts != nil {
+			t.Fatalf("%v: verdicts = %+v, want nil", order, verdicts)
+		}
+		if !errors.Is(err, ErrSelfCheckPackageNotFound) {
+			t.Fatalf("%v: err = %v, want ErrSelfCheckPackageNotFound", order, err)
+		}
+		if !strings.Contains(err.Error(), "A::") {
+			t.Fatalf("%v: error does not name A::: %v", order, err)
+		}
+	}
+}
+
 func TestSelfCheckPackageUnparseableNameIsMissing(t *testing.T) {
 	s := loadSelfCheckFixture(t, SourceFile{Name: "model.sysml", Text: `package M { part def P; }`})
 
