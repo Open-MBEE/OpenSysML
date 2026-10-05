@@ -24,7 +24,7 @@ package test {
 			state sending {
 				entry action downlink {
 					send new Sub(4.0, 6.0) via antenna;
-					send new Sub(b = 5.0) via antenna;
+					then send new Sub(b = 5.0) via antenna;
 				}
 			}
 		}

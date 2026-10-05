@@ -1,8 +1,8 @@
 package lower
 
 import (
-	"errors"
 	"fmt"
+	"slices"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
@@ -84,10 +84,6 @@ func lowerActionNode(graph *ActionGraph, node *ast.Usage, scope *symbols.Scope) 
 	}
 	lowerEffectiveActionNodeFeatures(graph, node, scope, members)
 	lowerEffectiveAccept(graph, node, members)
-	if node.IsTerminate {
-		lowerTerminateNode(graph, node, scope, members)
-		return
-	}
 	rawMembers := make([]ast.Node, 0, len(members))
 	for _, member := range members {
 		rawMembers = append(rawMembers, member.Decl)
@@ -104,6 +100,10 @@ func lowerActionNode(graph *ActionGraph, node *ast.Usage, scope *symbols.Scope) 
 			}
 			typedBody = false
 		}
+	}
+	if node.IsTerminate {
+		lowerTerminateNode(graph, node, scope, members, typedBody, typedTarget)
+		return
 	}
 	if !runsOwnFlow(rawMembers) && !typedBody {
 		for _, member := range BodyStatementMembers(rawMembers) {
@@ -307,26 +307,46 @@ func recordInvalidSubflow(graph *ActionGraph, node ast.Node, err error) {
 	graph.Subflows[node] = &Subflow{Err: err}
 }
 
-// lowerTerminateNode records what a terminate action usage runs: the statements of
-// its body as a leaf's, then the terminate it stands for. A body stating a flow of
-// its own has no place to end the performance from, so it is refused at initialize.
-func lowerTerminateNode(graph *ActionGraph, node *ast.Usage, scope *symbols.Scope, members []effectiveActionMember) {
+// lowerTerminateNode records what a terminate action usage runs: its body, the
+// statements of a leaf or the flow it states as a block, then the terminate it stands for.
+func lowerTerminateNode(
+	graph *ActionGraph,
+	node *ast.Usage,
+	scope *symbols.Scope,
+	members []effectiveActionMember,
+	typedBody bool,
+	typedTarget ast.Node,
+) {
 	rawMembers := make([]ast.Node, 0, len(members))
 	for _, member := range members {
 		rawMembers = append(rawMembers, member.Decl)
 	}
 	if statesOwnFlow(rawMembers) {
-		if graph.Subflows == nil {
-			graph.Subflows = make(map[ast.Node]*Subflow)
+		steps := slices.DeleteFunc(slices.Clone(node.Members), func(member ast.Node) bool {
+			m, ok := unwrapMembership(member).(*ast.Usage)
+			return ok && DeclaresNodeFeature(m)
+		})
+		ancestors := graph.lowering
+		if typedBody {
+			ancestors = appendLoweringAncestor(ancestors, typedTarget)
 		}
-		graph.Subflows[node] = &Subflow{Err: errors.New("a terminate action usage states no flow of its own")}
-		return
-	}
-	for _, member := range BodyStatementMembers(rawMembers) {
-		actual := unwrapMembership(member)
-		memberScope := effectiveMemberScope(members, actual, scope)
-		graph.recordDeclaredIn(actual, memberScope)
-		graph.Bodies[node] = append(graph.Bodies[node], lowerStatement(actual, memberScope, graph.resolver))
+		blockGraph, err := lowerActionFlowWithTypingAndAncestors(steps, scope, graph.resolver, typedBody, ancestors)
+		if blockGraph == nil {
+			blockGraph = newActionGraph(scope)
+			blockGraph.resolver = graph.resolver
+		}
+		if err != nil {
+			blockGraph.Invalid = err
+		}
+		StartFlow(blockGraph)
+		graph.Bodies[node] = []Statement{Block{Node: node, Scope: scope, Graph: blockGraph, Stated: true}}
+	} else {
+		for _, member := range BodyStatementMembers(rawMembers) {
+			actual := unwrapMembership(member)
+			memberScope := effectiveMemberScope(members, actual, scope)
+			graph.recordDeclaredIn(actual, memberScope)
+			graph.Bodies[node] = append(graph.Bodies[node], lowerStatement(actual, memberScope, graph.resolver))
+		}
 	}
 	graph.Bodies[node] = append(graph.Bodies[node], lowerStatement(node, scope, graph.resolver))
 }

@@ -1,0 +1,5 @@
+- **Derive reflective feature flags for KerML declarations and wrapper elements.** Classify KerML usages by their metaclass and apply ownership-derived reflective semantics without changing execution compositeness.
+- **Derive the type of prefix metadata reflectively.** Preserve its resolved metadata definition in interface records so `MetadataFeature` validation can evaluate the declared type.
+- Derive message connector endpoints reflectively and match the pilot's abstractness for message flows with fewer than two related features.
+- Place each subject parameter first in reflective input lists while preserving the owned-before-inherited order of other parameters.
+- Classify objectives as requirement usages rather than part usages, so `PartUsage` type filters and queries no longer return them.

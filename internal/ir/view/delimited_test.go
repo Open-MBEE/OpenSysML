@@ -115,7 +115,7 @@ func TestDelimitedFormsAreForTablesOnly(t *testing.T) {
 	}
 	_, err := render(t, "tree.sysml", "VehicleViews::vehicleView").Write(FormCSV)
 	var wrong *WrongFormError
-	if !errors.As(err, &wrong) || !strings.Contains(err.Error(), "ask for text, mermaid, dot or plantuml") {
+	if !errors.As(err, &wrong) || !strings.Contains(err.Error(), "ask for text, mermaid, dot, plantuml or d2") {
 		t.Errorf("csv of a tree error = %v, want a *WrongFormError offering the tree's forms", err)
 	}
 	tree := render(t, "tree.sysml", "VehicleViews::vehicleView")

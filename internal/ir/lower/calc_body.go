@@ -23,6 +23,12 @@ func CalcBody(owner ast.Node, members []ast.Node, scope *symbols.Scope) []Statem
 // CalcBodyWith is CalcBody reading the metadata the resolver identifies: a
 // weighted succession among a case's steps keeps its weight.
 func CalcBodyWith(owner ast.Node, members []ast.Node, scope *symbols.Scope, resolver *resolve.Resolver) []Statement {
+	body, _ := CalcBodyWithOrder(owner, members, scope, resolver)
+	return body
+}
+
+// CalcBodyWithOrder lowers the body and its calculation-statement order.
+func CalcBodyWithOrder(owner ast.Node, members []ast.Node, scope *symbols.Scope, resolver *resolve.Resolver) ([]Statement, *StatementOrder) {
 	body := make([]ast.Node, 0, len(members))
 	for _, member := range members {
 		if actual := unwrapMembership(member); actual != nil {
@@ -30,12 +36,32 @@ func CalcBodyWith(owner ast.Node, members []ast.Node, scope *symbols.Scope, reso
 		}
 	}
 	if PerformsSteps(owner) && len(flowNodesAmong(body)) > 0 {
-		return caseSteps(owner, body, scope, resolver)
+		stmts := caseSteps(owner, body, scope, resolver)
+		return stmts, nil
 	}
+	stmts, order := calcBodyStatements(body, scope, resolver, !PerformsSteps(owner))
+	if PerformsSteps(owner) {
+		return stmts, nil
+	}
+	for i, stmt := range stmts {
+		stmts[i] = calcStatementOrders(stmt)
+	}
+	return stmts, order
+}
 
-	var stmts, results []Statement
+func calcBodyStatements(body []ast.Node, scope *symbols.Scope, resolver *resolve.Resolver, ignoreNonStatementSuccessions bool) ([]Statement, *StatementOrder) {
+	members := make([]ast.Node, 0, len(body))
 	for _, member := range body {
-		stmt, ok := calcStep(member, scope, resolver)
+		if actual := unwrapMembership(member); actual != nil && !isAnnotation(actual) {
+			members = append(members, actual)
+		}
+	}
+	var stmts, results []Statement
+	for _, member := range members {
+		if _, ok := member.(*ast.SuccessionEdge); ok {
+			continue
+		}
+		stmt, ok := calcBodyStep(member, scope, resolver, ignoreNonStatementSuccessions)
 		if !ok {
 			continue
 		}
@@ -45,7 +71,37 @@ func CalcBodyWith(owner ast.Node, members []ast.Node, scope *symbols.Scope, reso
 		}
 		stmts = append(stmts, stmt)
 	}
-	return append(stmts, results...)
+	bodyStmts := append(stmts, results...)
+	order := CalcBodyStatementOrder(scope, members, CalcSteps(bodyStmts))
+	return bodyStmts, order
+}
+
+func calcBodyStep(member ast.Node, scope *symbols.Scope, resolver *resolve.Resolver, ignoreNonStatementSuccessions bool) (Statement, bool) {
+	if ignoreNonStatementSuccessions {
+		if usage, ok := member.(*ast.Usage); ok && (usage.IsSuccessionFlow() || usage.Kind == ast.UsageSuccession) {
+			return nil, false
+		}
+	}
+	return calcStep(member, scope, resolver)
+}
+
+// CalcSteps returns the statements an invocation performs, excluding bindings
+// of output features that are read when their values are needed.
+func CalcSteps(body []Statement) []Statement {
+	steps := make([]Statement, 0, len(body))
+	for _, stmt := range body {
+		ret, ok := stmt.(Return)
+		if ok && isOutputBinding(ret.Node) {
+			continue
+		}
+		steps = append(steps, stmt)
+	}
+	return steps
+}
+
+func isOutputBinding(node ast.Node) bool {
+	usage, ok := node.(*ast.Usage)
+	return ok && usage.Direction == ast.DirOut && !usage.IsResult
 }
 
 // calcStep lowers one member of a calculation body and reports whether it
@@ -57,20 +113,174 @@ func calcStep(member ast.Node, scope *symbols.Scope, resolver *resolve.Resolver)
 			// An input parameter is bound by the invocation, not by the body.
 			return nil, false
 		}
+		if m.IsSuccessionFlow() || m.Kind == ast.UsageSuccession {
+			return Unsupported{Description: statedFlowKeyword(member), Node: member, Scope: scope}, true
+		}
 		return usageStatement(m, scope)
 	case *ast.Definition, *ast.Documentation, *ast.Comment, *ast.Import, *ast.Alias:
 		// Declares a member of the calculation, not a step of it.
 		return nil, false
 	case *ast.SuccessionEdge:
-		// A calculation body runs its steps in declaration order, so a
-		// succession states nothing the order does not already state.
 		return nil, false
+	case *ast.ControlFlowEdge, *ast.InitialNode, *ast.ForkNode, *ast.JoinNode,
+		*ast.MergeNode, *ast.DecisionNode, *ast.FinalNode:
+		return Unsupported{Description: statedFlowKeyword(member), Node: member, Scope: scope}, true
 	default:
 		if ast.IsExpression(member) {
 			return Return{Value: member, Node: member, Scope: scope}, true
 		}
 		return lowerStatement(member, scope, resolver), true
 	}
+}
+
+func calcBlock(block Block, members []ast.Node) Block {
+	normalized := make([]ast.Node, 0, len(members))
+	for _, member := range members {
+		if actual := unwrapMembership(member); actual != nil && !isAnnotation(actual) {
+			normalized = append(normalized, actual)
+		}
+	}
+	if block.Graph == nil {
+		block.Order = CalcBodyStatementOrder(block.Scope, normalized, block.Statements)
+		for i, stmt := range block.Statements {
+			block.Statements[i] = calcStatementOrders(stmt)
+		}
+	} else {
+		if steps, ok := block.Graph.StatementList(); ok && block.Stated {
+			block.Order = CalcBodyStatementOrder(block.Scope, normalized, steps)
+		} else {
+			block.Order = CalcBodyStatementOrder(block.Scope, nil, nil)
+		}
+		calcGraphStatementOrders(block.Graph)
+	}
+	return block
+}
+
+func calcGraphStatementOrders(graph *ActionGraph) {
+	if graph == nil {
+		return
+	}
+	if graph.StatementOrders == nil {
+		graph.StatementOrders = make(map[ast.Node]*StatementOrder)
+	}
+	for _, node := range graph.Nodes {
+		stmts := graph.Bodies[node]
+		members := ast.NodeBodyMembers(node)
+		if usage, ok := node.(*ast.Usage); ok {
+			members = usage.Members
+		}
+		scope := graph.Scopes[node]
+		if scope == nil {
+			scope = graph.Scope
+		}
+		if len(stmts) > 0 {
+			graph.StatementOrders[node] = CalcBodyStatementOrder(scope, members, stmts)
+		}
+		for i, stmt := range stmts {
+			stmts[i] = calcStatementOrders(stmt)
+		}
+		graph.Bodies[node] = stmts
+		if subflow := graph.Subflows[node]; subflow != nil && subflow.Graph != nil {
+			if steps, ok := subflow.Graph.StatementList(); ok {
+				graph.StatementOrders[node] = CalcBodyStatementOrder(scope, members, steps)
+			}
+		}
+	}
+	for _, subflow := range graph.Subflows {
+		if subflow != nil {
+			calcGraphStatementOrders(subflow.Graph)
+		}
+	}
+}
+
+func calcStatementOrders(stmt Statement) Statement {
+	switch nested := stmt.(type) {
+	case If:
+		if node, ok := nested.Node.(*ast.IfActionNode); ok {
+			if node.Then != nil {
+				nested.Then = calcBlock(nested.Then, node.Then.Body)
+			}
+			if node.Else != nil && nested.Else != nil {
+				els := calcBlock(*nested.Else, node.Else.Body)
+				nested.Else = &els
+			}
+		}
+		return nested
+	case Loop:
+		if node, ok := nested.Node.(*ast.WhileLoopActionNode); ok {
+			nested.Body = calcBlock(nested.Body, node.Body)
+		}
+		return nested
+	case Block:
+		if node, ok := nested.Node.(*ast.Usage); ok {
+			return calcBlock(nested, node.Members)
+		}
+	}
+	return stmt
+}
+
+func calcSuccessionEnd(member ast.Node, name *ast.QualifiedName, stmts []Statement, index map[ast.Node]int) (int, bool) {
+	if member != nil {
+		node := unwrapMembership(member)
+		i, ok := index[node]
+		return i, ok
+	}
+	if name == nil || len(name.Parts) == 0 {
+		return 0, false
+	}
+	target := name.Parts[len(name.Parts)-1].Text
+	for i, stmt := range stmts {
+		if _, result := stmt.(Return); result {
+			continue
+		}
+		if unsupported, ok := stmt.(Unsupported); ok {
+			if _, succession := unsupported.Node.(*ast.SuccessionEdge); succession {
+				continue
+			}
+		}
+		if statementDeclares(statementNode(stmt), target) {
+			return i, true
+		}
+	}
+	return 0, false
+}
+
+func statementNode(stmt Statement) ast.Node {
+	switch s := stmt.(type) {
+	case Assign:
+		return s.Node
+	case Block:
+		return s.Node
+	case Declare:
+		return s.Node
+	case DeclareUsage:
+		return s.Node
+	case Effect:
+		return s.Node
+	case If:
+		return s.Node
+	case Loop:
+		return s.Node
+	case Return:
+		return s.Node
+	case Send:
+		return s.Node
+	case Unsupported:
+		return s.Node
+	default:
+		return nil
+	}
+}
+
+func statementDeclares(node ast.Node, name string) bool {
+	switch n := node.(type) {
+	case *ast.Usage:
+		actual, _ := ast.EffectiveName(n)
+		return actual == name
+	case *ast.InitialNode:
+		return n.Name() == name
+	}
+	return false
 }
 
 // usageStatement lowers a usage written in a statement position: a bound result

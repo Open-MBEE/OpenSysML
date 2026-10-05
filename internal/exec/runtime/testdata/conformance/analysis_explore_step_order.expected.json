@@ -1,0 +1,11 @@
+{
+  "libraries": true,
+  "type": "action",
+  "evaluate": "test::Use",
+  "trace": true,
+  "outcomes": [
+    {"outputs": {"r": {"type": "Integer", "value": 12}}},
+    {"outputs": {"r": {"type": "Integer", "value": 30}}}
+  ],
+  "admissible": "Subactions no succession orders: each is performed during the owner, in which order is open"
+}

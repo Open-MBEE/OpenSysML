@@ -1,0 +1,1 @@
+- **Add `-self-check` over the `SysMLValidation` library.** It applies the library's 41 reflective constraints to workspace elements and reports reflective features it cannot evaluate as unevaluated rather than as violations.

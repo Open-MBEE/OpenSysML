@@ -202,6 +202,36 @@ func (h *calcStmtHost) assignForeign(_ *EvalContext, s lower.Assign, _ Value) er
 
 // acceptReturn takes the value a `return` yields, which the result parameter
 // then holds, so it answers to that parameter's declaration.
+func (h *calcStmtHost) statementOrder(stmts []lower.Statement) *lower.StatementOrder {
+	if h.shape.performs() || len(stmts) < 2 {
+		return nil
+	}
+	key := &stmts[0]
+	if order, ok := h.shape.statementOrders.Load(key); ok {
+		order := order.(*lower.StatementOrder)
+		if h.ctx.scheduling().ordersStatements() || order.HasReversePrecedence() || order.HasSkipped() {
+			return order
+		}
+		return nil
+	}
+	order := lower.CalcBodyStatementOrder(h.shape.bodyScope(), nil, stmts)
+	actual, _ := h.shape.statementOrders.LoadOrStore(key, order)
+	order = actual.(*lower.StatementOrder)
+	if h.ctx.scheduling().ordersStatements() || order.HasReversePrecedence() || order.HasSkipped() {
+		return order
+	}
+	return nil
+}
+
+func (h *calcStmtHost) orderStep() int {
+	if h.flow != nil {
+		return h.flow.stepCount + 1
+	}
+	return h.ctx.enclosingExecutorStep()
+}
+
+func (h *calcStmtHost) yieldsBetweenStatements() bool { return false }
+
 func (h *calcStmtHost) acceptReturn(value Value, _ lower.Return) error {
 	if out := h.shape.resultOutput(); out != nil {
 		if err := out.Decl.check(h.ctx, &value, func() string { return "result" }); err != nil {
@@ -273,9 +303,16 @@ func (h *calcStmtHost) performNode(engine *stmtEngine, graph *lower.ActionGraph,
 		return flowNext, fmt.Errorf("%s: a binding or flow at a pin of %s in a body is not executable",
 			h.describe(), nodeDescription(node))
 	}
+	var nestedSteps []lower.Statement
+	var nestedOrder *lower.StatementOrder
 	if sub, owns := graph.Subflows[node]; owns && sub != nil {
-		return flowNext, fmt.Errorf("%s: the flow %s states of its own in a body is not executable",
-			h.describe(), nodeDescription(node))
+		var simple bool
+		nestedSteps, simple = sub.Graph.StatementList()
+		if !simple {
+			return flowNext, fmt.Errorf("%s: the flow %s states of its own in a body is not executable",
+				h.describe(), nodeDescription(node))
+		}
+		nestedOrder = graph.StatementOrders[node]
 	}
 	engine.env.enter()
 	defer engine.env.leave()
@@ -291,12 +328,20 @@ func (h *calcStmtHost) performNode(engine *stmtEngine, graph *lower.ActionGraph,
 		}
 		engine.env.declare(feature.Name, value)
 	}
+	if nestedSteps != nil {
+		return engine.runWithOrder(nestedSteps, nestedOrder)
+	}
 	return engine.run(graph.Bodies[node])
 }
 
 func (h *calcStmtHost) runBlockFlow(engine *stmtEngine, block lower.Block) (stmtFlow, error) {
 	if h.perfs != nil {
 		return h.perfs.performBlockFlow(h.perfs.root, engine, block)
+	}
+	if block.Stated {
+		if steps, ok := block.Graph.StatementList(); ok {
+			return engine.runWithOrder(steps, block.Order)
+		}
 	}
 	return flowNext, fmt.Errorf("%w: %s: the flow a body states in a calculation is not executable",
 		ErrStatementNotExecutable, h.describe())

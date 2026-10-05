@@ -18,7 +18,7 @@ package Test {
                     for i in 1..2 {
                         assign seq := seq * 10 + i;
                     }
-                    assign seq := seq * 10 + 3;
+                    then assign seq := seq * 10 + 3;
                 }
             }
             state ldone;
@@ -33,9 +33,9 @@ package Test {
             state rwork {
                 do action {
                     assign seq := seq * 10 + 4;
-                    if seq > 0 {
+                    then if seq > 0 {
                         assign seq := seq * 10 + 5;
-                        assign seq := seq * 10 + 6;
+                        then assign seq := seq * 10 + 6;
                     }
                 }
             }

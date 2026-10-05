@@ -1,7 +1,7 @@
 # The Rust client API
 
 This page covers what the `opensysml` crate exposes and why it is blocking. To choose between the clients, see [client libraries](clients.md); for a
-task-oriented walkthrough, see [guide chapter 9](../guide/09-clients.md#from-rust). The crate's own notes on
+task-oriented walkthrough, see the [Rust client guide](../clients/rust.md). The crate's own notes on
 binary provisioning and its trust model are in
 [client/rust/README.md](../../client/rust/README.md).
 
@@ -121,6 +121,9 @@ satisfaction assertion; `Validation` one per assertion about an object. `CalcRes
 `ActionRun` or `StateRun` its outputs, the states visited and the final clock instant; an
 `Exploration` its distinct `Outcome`s and whether it explored every order. A `SweepTable`
 is one `SweepRow` per point, and a failed row keeps the outputs and verdicts it reached.
+`RunOptions.trace` opts a state run into typed `DocumentEvent` records in
+`StateRun.trace`, with `StateRun.trace_dropped` reporting records the service
+discarded. The option requires `state_trace` and is refused with exploration.
 
 ## Editing
 
@@ -207,7 +210,7 @@ model failure.
 | `Conversion { message, diagnostics }` | the service could not write the model in that format |
 | `Migration { message }` | the service could not read the SysML v1 model it was asked to migrate |
 | `Unwritable(String)` | `Migration::write` refused its destination: it names the v1 model, or an image would land outside the model's directory |
-| `Execution { message, reason, diagnostics }` | a run, verification, calculation or analysis could not be answered; `reason` is the `FailureReason` |
+| `Execution { message, reason, diagnostics, trace, trace_dropped }` | a run, verification, calculation or analysis could not be answered; a failed traced state run keeps its partial trace and discarded count |
 | `WrongKind { message, diagnostics }` | the call named an element of another kind |
 | `AnalysisRun { message, result }` | an analysis failed, keeping what it established |
 | `Edit(Box<EditError>)` | the service refused an edit; nothing was written |

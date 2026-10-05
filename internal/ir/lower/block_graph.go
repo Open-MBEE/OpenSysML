@@ -24,6 +24,27 @@ func (block Block) Steps() []Statement {
 	return steps
 }
 
+// StatementList returns a graph's sequential statement nodes as one list.
+func (graph *ActionGraph) StatementList() ([]Statement, bool) {
+	if graph == nil || len(graph.Nodes) == 0 {
+		return nil, false
+	}
+	var steps []Statement
+	for _, node := range graph.Nodes {
+		switch node.(type) {
+		case *ast.AssignmentActionNode, *ast.IfActionNode, *ast.SendStatement,
+			*ast.TerminateStatement, *ast.WhileLoopActionNode:
+		default:
+			return nil, false
+		}
+		if len(graph.Edges[node]) > 1 || len(graph.Bodies[node]) != 1 {
+			return nil, false
+		}
+		steps = append(steps, graph.Bodies[node][0])
+	}
+	return steps, true
+}
+
 // blockNeedsFlow reports whether a block's members make it a declaration-order
 // token flow of its own.
 func blockNeedsFlow(members []ast.Node) bool {

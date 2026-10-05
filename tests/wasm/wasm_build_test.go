@@ -27,7 +27,7 @@ var wasmTargets = []wasmTarget{
 }
 
 // commands are the commands every target builds.
-var commands = []string{"sysml", "sysml-lsp", "sysml-grpc", "sysml-engine", "sysml-syntax", "sysml-core"}
+var commands = []string{"sysml", "sysml-lsp", "sysml-grpc", "sysml-engine", "sysml-syntax", "sysml-core", "sysml-wasm"}
 
 // versionStamp is what -version reports after the cross-link: the value the ldflags
 // below set, so a link that dropped the stamps is caught by a run, not by a release.

@@ -68,8 +68,9 @@ func w9cMessages(diags []diag.Diagnostic, prefix string) []string {
 }
 
 // An action typed by a part definition inherits self/start/done from both
-// Action and Part (ActionUsage_invalid.sysml.xt:40), as a warning.
-func TestW9CActionPartDiamondWarns(t *testing.T) {
+// Action and Part (ActionUsage_invalid.sysml.xt:40), but every pair is
+// distinguishable by metaclass (KerML 8.3.2.4.3), so nothing warns.
+func TestW9CActionPartDiamondStaysSilent(t *testing.T) {
 	src := `package Test {
 	part def ABlock;
 	action def AnAction {
@@ -78,13 +79,8 @@ func TestW9CActionPartDiamondWarns(t *testing.T) {
 }`
 	for _, warm := range []bool{false, true} {
 		got := w9cMessages(w9cLibraryDiags(t, src, warm), msgW9CDuplicateInherited)
-		want := []string{
-			msgW9CDuplicateInherited + " 'done' from Action, Part",
-			msgW9CDuplicateInherited + " 'self' from Action, Part",
-			msgW9CDuplicateInherited + " 'start' from Action, Part",
-		}
-		if strings.Join(got, "\n") != strings.Join(want, "\n") {
-			t.Errorf("warm=%v: got %v, want %v", warm, got, want)
+		if len(got) != 0 {
+			t.Errorf("warm=%v: got %v, want none", warm, got)
 		}
 	}
 }
@@ -256,14 +252,26 @@ func TestW9CRequirementMemberShortNameDistinguishability(t *testing.T) {
 		assume constraint <s> ac;
 	}
 }`,
-			lines: []int{3, 4},
+			lines: nil,
 		},
 		{
+			// AttributeUsage and ConstraintUsage conform to neither other
+			// (KerML 8.3.2.4.3).
 			name: "require short name repeats a member name",
 			src: `package Test {
 	requirement def R {
 		attribute rc;
 		require constraint <rc> c;
+	}
+}`,
+			lines: nil,
+		},
+		{
+			name: "same-metaclass short name repeats",
+			src: `package Test {
+	requirement def R {
+		attribute <rc> c1;
+		attribute <rc> c2;
 	}
 }`,
 			lines: []int{3, 4},
@@ -815,29 +823,30 @@ func TestW9CRedefinedUntypedFeatureStaysSilent(t *testing.T) {
 	}
 }
 
-// A variant only references a member of its variation, so it draws no diamond
-// (examples/pilot-corpora VehicleVariabilityModel.sysml:128).
+// A variant only references a member of its variation, so it draws no diamond:
+// the typed usages it references warn (a conforming D1/D2 pair), and the
+// variants referencing them do not (examples/pilot-corpora
+// VehicleVariabilityModel.sysml:128).
 func TestW9CVariantStaysSilent(t *testing.T) {
 	src := `package Test {
-	part def ABlock;
+	part def D1 { ref self; }
+	part def D2 { ref self; }
 	action def AnActivity;
 	part P {
-		action a4 : ABlock;
-		action a6 : ABlock;
+		part a4 :> D1, D2;
+		part a6 :> D1, D2;
 		variation action a : AnActivity {
 			variant a4;
 			variant a6;
 		}
 	}
 }`
-	got := w9cMessages(w9cLibraryDiags(t, src, false), msgW9CDuplicateInherited)
-	for _, msg := range got {
-		if !strings.Contains(msg, "from Action, Part") {
-			t.Errorf("unexpected %q", msg)
-		}
-	}
-	if len(got) != 6 { // a4 and a6 themselves, not the variants referencing them
-		t.Errorf("got %v, want the two typed actions only", got)
+	// `ref self` warns once inside each def, and the two typed parts draw the
+	// conforming `self` diamond; the variants stay silent.
+	w9cWantLines(t, src, "name-conflict", 2, 3, 6, 7)
+	got := w9cMessages(w9cLibraryDiags(t, src, false), msgW9CDuplicateInherited+" 'self' from D1, D2")
+	if len(got) != 2 {
+		t.Errorf("got %v, want the two typed parts only", got)
 	}
 }
 

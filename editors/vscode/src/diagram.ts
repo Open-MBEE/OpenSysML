@@ -420,7 +420,10 @@ export class DiagramPanels implements vscode.Disposable {
     };
     const drawing = drawingStyleOf(diagramStyle(resolved.uri));
     const style = drawing !== undefined && supportsStyle(client, drawing) ? drawing : undefined;
-    const outcome = await exportRendering(host, { uri, documentName, view, forms: serverForms(experimental(client)), style });
+    const outcome = await exportRendering(host, {
+      uri, documentName, view, forms: serverForms(experimental(client)), style,
+      linkTemplate: `${vscode.env.uriScheme}://file/{file}:{line}:{col}`,
+    });
     switch (outcome.kind) {
       case "saved":
         this.output.appendLine(`Exported ${outcome.form} of ${documentName} to ${vscode.Uri.parse(outcome.location).fsPath}`);
@@ -1389,8 +1392,8 @@ function webviewOptions(extensionUri: vscode.Uri): vscode.WebviewOptions {
 
 /**
  * html is the panel's document. Scripts are the bundled webview script alone,
- * allowed by nonce, and nothing is loaded from the network: the diagram is drawn
- * as SVG by that script.
+ * allowed by nonce, and its WASM router is fetched from this installation's
+ * bundle; nothing is loaded from the network: the diagram is drawn as SVG.
  */
 function html(
   webview: vscode.Webview,
@@ -1405,9 +1408,11 @@ function html(
     `img-src ${webview.cspSource} data:`,
     `style-src ${webview.cspSource} 'unsafe-inline'`,
     `font-src ${webview.cspSource} data:`,
-    `script-src 'nonce-${nonce}'`,
+    `script-src 'nonce-${nonce}' 'wasm-unsafe-eval'`,
+    `connect-src ${webview.cspSource}`,
   ].join("; ");
-  const state = attribute(JSON.stringify({ uri: docURI.toString(), view: selected }));
+  const avoid = webview.asWebviewUri(vscode.Uri.joinPath(extensionUri, "dist", "libavoid.wasm")).toString();
+  const state = attribute(JSON.stringify({ uri: docURI.toString(), view: selected, avoid }));
   return `<!DOCTYPE html>
 <html lang="en">
   <head>
@@ -1449,6 +1454,10 @@ function html(
       #diagram .shape { fill: var(--vscode-editorWidget-background, var(--vscode-editor-background)); stroke: var(--vscode-foreground); stroke-width: 1.25px; }
       #diagram .shape.container { fill: var(--vscode-sideBar-background, var(--vscode-editor-background)); }
       #diagram .shape.filled { fill: var(--vscode-foreground); }
+      #diagram .port-shape { fill: var(--vscode-editorWidget-background, var(--vscode-editor-background)); stroke: var(--vscode-foreground); stroke-width: 1.25px; }
+      #diagram .port-shape.container { fill: var(--vscode-sideBar-background, var(--vscode-editor-background)); }
+      #diagram .port-shape.filled { fill: var(--vscode-foreground); }
+      #diagram .port-label { fill: var(--vscode-foreground); font-size: 0.85em; }
       #diagram .label { fill: var(--vscode-foreground); }
       #diagram .label .head { font-weight: 600; }
       #diagram .label .keyword { font-size: 0.85em; opacity: 0.8; }
@@ -1483,6 +1492,12 @@ function html(
       #diagram.pilot .shape.package { rx: 0; stroke-width: 1.5px; }
       #diagram.pilot .shape.region { rx: 0; stroke-dasharray: 4 4; }
       #diagram.pilot .shape.filled { fill: black; stroke: black; }
+      #diagram.pilot .port-shape { fill: var(--node-fill, white); stroke: var(--node-border, #181818); stroke-width: 0.5px; }
+      #diagram.pilot .port-shape.container { fill: var(--node-fill, white); }
+      #diagram.pilot .port-shape.package { stroke-width: 1.5px; }
+      #diagram.pilot .port-shape.region { stroke-dasharray: 4 4; }
+      #diagram.pilot .port-shape.filled { fill: black; stroke: black; }
+      #diagram.pilot .port-label { fill: black; }
       #diagram.pilot .label { fill: black; }
       #diagram.pilot .label .head { font-weight: bold; }
       #diagram.pilot .label .keyword { font-style: italic; font-size: 0.72em; opacity: 1; }
@@ -1511,6 +1526,10 @@ function html(
       #diagram.cameo .shape.container { fill: var(--node-fill, url(#cameo-fill)); }
       #diagram.cameo .shape.usage { rx: 8px; }
       #diagram.cameo .shape.filled { fill: #424242; stroke: #424242; }
+      #diagram.cameo .port-shape { fill: var(--node-fill, url(#cameo-fill)); stroke: var(--node-border, #5B5B59); stroke-width: 1px; }
+      #diagram.cameo .port-shape.container { fill: var(--node-fill, url(#cameo-fill)); }
+      #diagram.cameo .port-shape.filled { fill: #424242; stroke: #424242; }
+      #diagram.cameo .port-label { fill: #424242; }
       #diagram.cameo .label { fill: #424242; }
       #diagram.cameo .label .keyword { font-style: normal; font-size: 0.82em; }
       #diagram.cameo .collapsed { fill: #424242; }

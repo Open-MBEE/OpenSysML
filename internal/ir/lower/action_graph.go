@@ -113,6 +113,13 @@ type ActionGraph struct {
 	// keyed by the first statement of the run, whose name names no step.
 	StatementRuns map[ast.Node]bool
 
+	// StatementOrders holds order metadata for body lists lowered as part of a
+	// calculation block's own flow.
+	StatementOrders map[ast.Node]*StatementOrder
+
+	// UnstatedCaseFlow marks an unordered case body lifted into an action graph.
+	UnstatedCaseFlow bool
+
 	// BlockNodes lists, per node, the action nodes its body's blocks (an `if` branch,
 	// a loop body) declare, in declaration order: subperformances reached by name from it.
 	BlockNodes map[ast.Node][]ast.Node
@@ -254,6 +261,7 @@ type Send struct {
 	Message   ast.Node
 	Target    string
 	TargetSym *symbols.Symbol
+	Node      ast.Node
 	// TargetPath records that Target is a feature chain (`a.b`) reaching through
 	// the sender's features, rather than a name in a namespace (`R`, `P::R`).
 	TargetPath bool
@@ -386,6 +394,9 @@ func (DeclareUsage) statement() { /* marker: closed Statement set */ }
 type Block struct {
 	Statements []Statement
 	Node       ast.Node // the loop or branch the block belongs to
+	// Order is the lowered statement order for a calculation or constraint block.
+	// Action blocks leave it nil and derive their order from the enclosing graph.
+	Order *StatementOrder
 	// Scope is the block's own scope, which its declarations, and a loop's
 	// condition, resolve in.
 	Scope *symbols.Scope
@@ -1980,7 +1991,7 @@ func lowerStatement(member ast.Node, scope *symbols.Scope, resolver *resolve.Res
 	case *ast.Usage:
 		return lowerUsageStatement(m, scope, resolver)
 	default:
-		return Unsupported{Description: fmt.Sprintf("%T", member), Node: member, Scope: scope}
+		return Unsupported{Description: statedFlowKeyword(member), Node: member, Scope: scope}
 	}
 }
 
@@ -2023,6 +2034,7 @@ func lowerSend(m *ast.SendStatement, scope *symbols.Scope) Statement {
 		Message:      message,
 		Target:       target,
 		TargetSym:    targetSym,
+		Node:         m,
 		TargetPath:   isPath,
 		TargetExpr:   targetExpr,
 		IsVia:        m.IsVia,

@@ -28,7 +28,7 @@ var htmlClassVocabulary = map[string]bool{
 	"sysml-definitions": true, "sysml-entry": true, "sysml-term": true, "sysml-description": true,
 	"sysml-diagram": true, "sysml-caption": true, "sysml-link": true, "sysml-ref": true,
 	"sysml-formula": true, "sysml-math": true,
-	"mermaid": true, "dot": true, "plantuml": true,
+	"mermaid": true, "dot": true, "plantuml": true, "d2": true,
 }
 
 // renderFixtureHTML evaluates a fixture document and renders it as HTML.
@@ -65,6 +65,20 @@ func TestHTMLTelescopeReportGolden(t *testing.T) {
 	got := renderFixtureHTML(t, filepath.Join("testdata", "telescope_report.sysml"),
 		"Observatory::MassReport", HTMLOptions{})
 	checkGolden(t, got, filepath.Join("testdata", "telescope_report.golden.html"))
+}
+
+func TestHTMLDiagramSourceLinks(t *testing.T) {
+	path := filepath.Join("testdata", "telescope_report.sysml")
+	got := renderFixtureHTML(t, path, "Observatory::MassReport", HTMLOptions{
+		DiagramForm:  view.FormMermaid,
+		LinkTemplate: "https://example.test/src/{file}#L{line}",
+	})
+	if !strings.Contains(got, `click n1 href &#34;https://example.test/src/telescope_report.sysml#L`) {
+		t.Errorf("HTML diagram does not link the source node:\n%s", got)
+	}
+	if strings.Contains(got, `securityLevel: 'loose'`) {
+		t.Errorf("HTML diagram link relaxed Mermaid security:\n%s", got)
+	}
 }
 
 // TestHTMLTelescopeReportFragmentGolden locks the fragment rendering with a
@@ -232,6 +246,20 @@ func TestHTMLDiagramForm(t *testing.T) {
 			t.Errorf("PlantUML rendering does not contain %q\n%s", want, plantuml)
 		}
 	}
+	d2 := renderFixtureHTML(t, path, "Observatory::MassReport", HTMLOptions{DiagramForm: view.FormD2})
+	for _, want := range []string{
+		`<pre class="d2"># Observatory::interconnectView — interconnection rendering`,
+		`<pre class="d2"># state rendering`,
+		"direction: right\n",
+		`<table class="sysml-table"`,
+	} {
+		if !strings.Contains(d2, want) {
+			t.Errorf("D2 rendering does not contain %q\n%s", want, d2)
+		}
+	}
+	if strings.Contains(d2, `class="mermaid"`) {
+		t.Errorf("a diagram is still Mermaid when D2 is asked for:\n%s", d2)
+	}
 	if strings.Contains(plantuml, `class="mermaid"`) || strings.Contains(plantuml, `class="dot"`) {
 		t.Errorf("a diagram is in another form when PlantUML is asked for:\n%s", plantuml)
 	}
@@ -257,6 +285,7 @@ func TestHTMLNoInlineStylesOrUnknownClasses(t *testing.T) {
 		{"telescope_report.sysml", "Observatory::MassReport", HTMLOptions{Fragment: true, TitlePage: true, TOC: true, NumberSections: true}},
 		{"telescope_report.sysml", "Observatory::MassReport", HTMLOptions{DiagramForm: view.FormDot}},
 		{"telescope_report.sysml", "Observatory::MassReport", HTMLOptions{DiagramForm: view.FormPlantUML}},
+		{"telescope_report.sysml", "Observatory::MassReport", HTMLOptions{DiagramForm: view.FormD2}},
 		{"math_report.sysml", "Optics::OpticsReport", HTMLOptions{}},
 	} {
 		got := renderFixtureHTML(t, filepath.Join("testdata", c.fixture), c.document, c.opts)

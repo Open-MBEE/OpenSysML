@@ -180,6 +180,9 @@ func Analyze(graph *lower.ActionGraph, model *semantics.Model, k int) (*Flow, er
 			if err := f.checkImplicitJoin(node); err != nil {
 				return nil, err
 			}
+			if err := f.checkBodyInterleaving(node); err != nil {
+				return nil, err
+			}
 		}
 	}
 	if f.Slots > MaxSlots {
@@ -303,7 +306,7 @@ func (f *Flow) checkNode(node ast.Node) error {
 			f.Delivers = true
 		}
 	}
-	return f.checkBody(node, label, graph.Bodies[node])
+	return f.checkBody(graph, node, label, graph.Bodies[node])
 }
 
 // refuseNested refuses a node stating a flow of its own, whatever that flow holds.
@@ -402,9 +405,23 @@ func (f *Flow) checkImplicitJoin(node ast.Node) error {
 		Reason: "a node several successions enter synchronizes over those still reachable while tokens run concurrently; only a join or a merge is encoded there"}
 }
 
+// checkBodyInterleaving refuses a body another token's moves may interleave
+// inside while tokens run concurrently: the encoding performs a body as one move.
+func (f *Flow) checkBodyInterleaving(node ast.Node) error {
+	if !lower.BodyDivides(f.FrameOf[node].Graph, node) {
+		return nil
+	}
+	return &UnsupportedError{Node: f.label(node), Construct: "body interleaving",
+		Reason: "another performance may interleave between this body's start and its statements, or between two of them; the encoding performs a body as one move"}
+}
+
 // checkBody refuses the statements of a body the stage does not encode, and
 // records the loops it unrolls.
-func (f *Flow) checkBody(node ast.Node, label string, body []lower.Statement) error {
+func (f *Flow) checkBody(graph *lower.ActionGraph, node ast.Node, label string, body []lower.Statement) error {
+	if lower.BodyStatementOrder(graph, node, body).Reorders(false) {
+		return &UnsupportedError{Node: label, Construct: "statement order",
+			Reason: "two statements no succession orders depend on each other; the encoding performs them in declaration order"}
+	}
 	for _, stmt := range body {
 		switch s := stmt.(type) {
 		case lower.Assign:
@@ -418,15 +435,15 @@ func (f *Flow) checkBody(node ast.Node, label string, body []lower.Statement) er
 		case lower.DeclareUsage:
 			return &UnsupportedError{Node: label, Construct: "usage declaration", Reason: "a body declaring a usage is not encoded"}
 		case lower.Block:
-			if err := f.checkBlock(node, label, s); err != nil {
+			if err := f.checkBlock(graph, node, label, s); err != nil {
 				return err
 			}
 		case lower.If:
-			if err := f.checkBlock(node, label, s.Then); err != nil {
+			if err := f.checkBlock(graph, node, label, s.Then); err != nil {
 				return err
 			}
 			if s.Else != nil {
-				if err := f.checkBlock(node, label, *s.Else); err != nil {
+				if err := f.checkBlock(graph, node, label, *s.Else); err != nil {
 					return err
 				}
 			}
@@ -437,7 +454,7 @@ func (f *Flow) checkBody(node ast.Node, label string, body []lower.Statement) er
 			if s.Condition == nil && s.Until == nil {
 				return &UnsupportedError{Node: label, Construct: "loop", Reason: "a loop with no condition ends only at the step budget"}
 			}
-			if err := f.checkBlock(node, label, s.Body); err != nil {
+			if err := f.checkBlock(graph, node, label, s.Body); err != nil {
 				return err
 			}
 			f.Loops = append(f.Loops, BodyLoop{Node: node, Label: label, Loop: s})
@@ -458,11 +475,11 @@ func (f *Flow) checkBody(node ast.Node, label string, body []lower.Statement) er
 }
 
 // checkBlock refuses a block that runs a flow of its own and checks its statements.
-func (f *Flow) checkBlock(node ast.Node, label string, block lower.Block) error {
+func (f *Flow) checkBlock(graph *lower.ActionGraph, node ast.Node, label string, block lower.Block) error {
 	if block.Graph != nil {
 		return &UnsupportedError{Node: label, Construct: "nested flow", Reason: "a block declaring action nodes is encoded by a later stage"}
 	}
-	return f.checkBody(node, label, block.Statements)
+	return f.checkBody(graph, node, label, block.Statements)
 }
 
 // sizeSlots decides how many tokens the frame's flow may hold at once within k

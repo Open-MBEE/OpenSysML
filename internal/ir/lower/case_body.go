@@ -24,34 +24,67 @@ func PerformsSteps(decl ast.Node) bool {
 	}
 }
 
-// caseSteps lowers a body whose steps are action nodes: the locals it declares, one
-// Block over the flow the steps state, then its results — its `return`s, wherever
-// declared, and the control flow ending the body that returns on some path
-// (trailingResults). A body stating successions or control nodes is the token flow
-// an action body is (ToActionGraph); one stating none runs its steps in declaration
-// order. The resolver reads the flow's `@Probability` annotations; nil reads none.
+// caseSteps lowers a body whose steps are action nodes: its locals, one Block
+// over the flow the steps state, then its results. A body stating successions or
+// control nodes is the token flow an action body is (ToActionGraph); otherwise
+// its action nodes and statements are unordered subactions.
 func caseSteps(owner ast.Node, body []ast.Node, scope *symbols.Scope, resolver *resolve.Resolver) []Statement {
 	trailing := trailingResults(body, scope, resolver)
 	if !statesOwnFlow(body) {
-		var results []Statement
-		graph := lowerBlockFlowWith(body, scope, resolver, func(graph *ActionGraph, nodes []ast.Node, member ast.Node) (Statement, bool) {
-			if usage, ok := member.(*ast.Usage); ok {
-				if stmt, connects := lowerBlockConnector(graph, nodes, usage, scope); connects {
-					return stmt, stmt != nil
-				}
+		trailing = caseTrailingResults(body, scope, resolver, trailing)
+		var locals, results []Statement
+		var members []ast.Node
+		statementRuns := make(map[ast.Node]Statement)
+		flowStarted := false
+		for _, member := range body {
+			actual := unwrapMembership(member)
+			if usage, ok := actual.(*ast.Usage); ok && caseFlowConnector(usage) {
+				members = append(members, member)
+				continue
+			}
+			if isFlowNode(actual) {
+				members = append(members, member)
+				flowStarted = true
+				continue
 			}
 			stmt, states := calcStep(member, scope, resolver)
 			if !states {
-				return nil, false
+				members = append(members, member)
+				continue
 			}
-			if isReturn(stmt) || trailing[member] {
+			if isReturn(stmt) || trailing[member] || caseOutputBinding(actual) {
 				results = append(results, stmt)
-				return nil, false
+				continue
 			}
-			return stmt, true
-		})
-		flow := Block{Node: owner, Scope: scope, Graph: graph, Own: true}
-		return append([]Statement{flow}, results...)
+			switch declared := stmt.(type) {
+			case Declare:
+				usage, _ := actual.(*ast.Usage)
+				if declared.Value == nil || usage != nil && usage.ValueIsInitial || !flowStarted {
+					locals = append(locals, stmt)
+				} else {
+					statementRuns[actual] = stmt
+				}
+			case DeclareUsage:
+				locals = append(locals, stmt)
+			default:
+				members = append(members, member)
+				flowStarted = true
+			}
+		}
+		graph, err := lowerActionFlow(members, scope, resolver)
+		if err != nil {
+			return append(append(locals, Unsupported{
+				Description: "the flow the steps of the body state: " + err.Error(),
+				Node:        owner,
+				Scope:       scope,
+			}), results...)
+		}
+		addCasePerformNodes(graph, members, scope)
+		addCaseStatementRuns(graph, body, statementRuns)
+		graph.UnstatedCaseFlow = true
+		StartFlow(graph)
+		flow := Block{Node: owner, Scope: scope, Graph: graph, Own: true, Stated: true}
+		return append(append(locals, flow), results...)
 	}
 
 	// The flow's nodes and the members sequencing them are the graph's; the
@@ -98,6 +131,97 @@ func caseSteps(owner ast.Node, body []ast.Node, scope *symbols.Scope, resolver *
 	StartFlow(graph)
 	flow := Block{Node: owner, Scope: scope, Graph: graph, Own: true, Stated: true}
 	return append(append(locals, flow), results...)
+}
+
+func addCasePerformNodes(graph *ActionGraph, members []ast.Node, scope *symbols.Scope) {
+	for _, member := range members {
+		node, ok := unwrapMembership(member).(*ast.PerformActionNode)
+		if !ok {
+			continue
+		}
+		graph.Nodes = append(graph.Nodes, node)
+		graph.Bodies[node] = []Statement{performEffect(node, scope)}
+	}
+}
+
+func caseOutputBinding(node ast.Node) bool {
+	usage, ok := node.(*ast.Usage)
+	if !ok || usage.Kind != ast.UsageAttribute || usage.Value == nil {
+		return false
+	}
+	for _, relationship := range usage.Relationships {
+		if relationship != nil && relationship.Kind == ast.RelRedefines {
+			return true
+		}
+	}
+	return false
+}
+
+func caseTrailingResults(body []ast.Node, scope *symbols.Scope, resolver *resolve.Resolver, trailing map[ast.Node]bool) map[ast.Node]bool {
+	for i := len(body) - 1; i >= 0; i-- {
+		member := body[i]
+		if trailing[member] || statesNoStep(unwrapMembership(member)) {
+			continue
+		}
+		if isFlowNode(unwrapMembership(member)) {
+			break
+		}
+		stmt, states := calcStep(member, scope, resolver)
+		if !states {
+			continue
+		}
+		if declared, ok := stmt.(Declare); ok {
+			usage, _ := unwrapMembership(member).(*ast.Usage)
+			if declared.Value != nil && usage != nil && !usage.ValueIsInitial {
+				trailing[member] = true
+				continue
+			}
+		}
+		if IsResult(stmt) {
+			trailing[member] = true
+			continue
+		}
+		break
+	}
+	return trailing
+}
+
+func addCaseStatementRuns(graph *ActionGraph, body []ast.Node, runs map[ast.Node]Statement) {
+	if len(runs) == 0 {
+		return
+	}
+	if graph.StatementRuns == nil {
+		graph.StatementRuns = make(map[ast.Node]bool)
+	}
+	existing := make(map[ast.Node]bool, len(graph.Nodes))
+	for _, node := range graph.Nodes {
+		existing[node] = true
+	}
+	var ordered []ast.Node
+	seen := make(map[ast.Node]bool, len(graph.Nodes)+len(runs))
+	for _, member := range body {
+		node := unwrapMembership(member)
+		if stmt, ok := runs[node]; ok {
+			graph.StatementRuns[node] = true
+			graph.Bodies[node] = []Statement{stmt}
+			ordered = append(ordered, node)
+			seen[node] = true
+		} else if existing[node] && !seen[node] {
+			ordered = append(ordered, node)
+			seen[node] = true
+		}
+	}
+	for _, node := range graph.Nodes {
+		if !seen[node] {
+			ordered = append(ordered, node)
+		}
+	}
+	graph.Nodes = ordered
+}
+
+func caseFlowConnector(member ast.Node) bool {
+	usage, ok := member.(*ast.Usage)
+	return ok && (usage.Kind == ast.UsageBinding || usage.Kind == ast.UsageFlow)
 }
 
 // isReturn reports a `return` of a body, a result parameter wherever it is declared.
@@ -152,6 +276,11 @@ func stepName(node ast.Node) string {
 // can start a flow stating steps, the graph keeps no start and running it
 // reports why (FlowStartError).
 func StartFlow(graph *ActionGraph) {
+	if graph.UnstatedCaseFlow {
+		graph.Initial = nil
+		graph.Concurrent = append([]ast.Node(nil), graph.Nodes...)
+		return
+	}
 	if graph.Initial == nil {
 		if start, err := CaseFlowStart(graph); err == nil {
 			graph.Initial = start

@@ -31,7 +31,7 @@ package test {
                     assign total := total + scaled.y;
                     assign runs := runs + 1;
                 }
-                if total > 50 {
+                then if total > 50 {
                     action doubled = Scale(total, 2) {
                         assign total := y;
                     }

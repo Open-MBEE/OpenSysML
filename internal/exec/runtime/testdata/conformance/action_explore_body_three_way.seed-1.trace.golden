@@ -1,0 +1,23 @@
+step 1: token 1@a
+step 2: token 1@a, token 2@a, token 3@a
+eval feature c -> 0
+eval feature c -> 0
+eval feature c -> 0
+choice step 3: tokens 1@a, 2@a, 3@a (unordered; took 3@a first)
+step 3: token 1@a, token 2@a, token 3@a
+stmt assign c
+    eval feature t -> 0
+    eval literal 1 -> 1
+  eval operator + -> 1
+stmt assign c
+    eval feature t -> 0
+    eval literal 1 -> 1
+  eval operator + -> 1
+stmt assign c
+    eval feature t -> 0
+    eval literal 1 -> 1
+  eval operator + -> 1
+choice step 4: writes c := 1 by token 1, c := 1 by token 2, c := 1 by token 3 (unordered; c := 1 by token 2 stood)
+choice step 4: tokens 1@a, 2@a, 3@a (unordered; took 3@a first)
+step 4: token 2@done
+step 5: no active tokens

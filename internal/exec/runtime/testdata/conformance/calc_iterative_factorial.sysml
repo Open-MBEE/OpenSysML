@@ -7,7 +7,7 @@ package test {
 		attribute i : Integer = 1;
 		while i <= n {
 			assign acc := acc * i;
-			assign i := i + 1;
+			then assign i := i + 1;
 		}
 		return : Integer = acc;
 	}
