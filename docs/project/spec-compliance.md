@@ -1094,8 +1094,11 @@ the flat sequence of its elements:
 
 - **`ValArray`** carries `Dimensions []int64` and the `Elements []Value` in
   row-major order — the last index varies fastest, as `Collections.kerml`
-  documents `Array::elements` — and is what a `Collections::Array` (and every
-  specialization: `Matrix`, `Tensor`, the `*Array` families) evaluates to. Its
+  documents `Array::elements` — and is what a `Collections::Array`, and any
+  specialization of it a model declares (`attribute def Matrix :> Array`),
+  evaluates to. The OMG library declares only `Array` itself: no `Matrix`,
+  `Tensor` or `*Array` family ships, and a model that wants one specializes
+  `Array` ([handbook](../guide/05-checking.md#arrays-sets-and-tensors)). Its
   derived features read out of the value: `rank` is the number of dimensions,
   `flattenedSize` their product, `dimensions` and `elements` the sequences
   carried; a rank-0 array holds one element. It prints as `Array(2, 3)[1, 2, 3,
