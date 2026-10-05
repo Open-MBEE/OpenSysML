@@ -13,8 +13,8 @@ typed by a `SysML::…` or `KerML::…` metaclass — `SysML::PartDefinition`,
 `SysML::PortUsage` — and whose body is a Boolean expression over the element's
 reflective features (`name`, `qualifiedName`, `documentation`, `ownedMember`,
 `isComposite`, …). It applies to every element the metaclass conforms to. The
-bundled [SysMLValidation](../../internal/workspace/libs/stdlib/OpenSysML%20Libraries/SysMLValidation.sysml)
-package is written the same way and is the reference.
+bundled `SysMLValidation.sysml`
+(`internal/workspace/libs/stdlib/OpenSysML Libraries/`) package is written the same way and is the reference.
 
 [`rover.sysml`](rover.sysml) is a small rover where every port declares a
 direction and one part def, `SensorBus`, carries no `doc`.
