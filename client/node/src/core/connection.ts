@@ -662,7 +662,7 @@ export class Connection {
     viewName: string,
     options: { ports?: "minimal" | "full" } = {},
   ): Promise<RenderedView> {
-    const ports = options.ports ?? "minimal";
+    const ports: string = options.ports ?? "minimal";
     if (ports !== "minimal" && ports !== "full") {
       throw new RangeError("ports must be 'minimal' or 'full'");
     }

@@ -577,7 +577,7 @@ pub(crate) fn rendered_view_of(response: wire::RenderViewResponse) -> RenderedVi
                         direction: port.direction,
                     })
                     .collect(),
-                origin: node.origin.map(&span),
+                origin: node.origin.map(span),
                 geometry: node.geometry.map(|geometry| RenderGeometry {
                     x: geometry.x,
                     y: geometry.y,
@@ -586,7 +586,7 @@ pub(crate) fn rendered_view_of(response: wire::RenderViewResponse) -> RenderedVi
                     has_size: geometry.has_size,
                     collapsed: geometry.collapsed,
                 }),
-                style: node.style.map(&style),
+                style: node.style.map(style),
             })
             .collect(),
         edges: response
@@ -600,7 +600,7 @@ pub(crate) fn rendered_view_of(response: wire::RenderViewResponse) -> RenderedVi
                 label: edge.label,
                 name: edge.name,
                 kind: edge.kind,
-                origin: edge.origin.map(&span),
+                origin: edge.origin.map(span),
                 route: edge
                     .route
                     .into_iter()
@@ -609,7 +609,7 @@ pub(crate) fn rendered_view_of(response: wire::RenderViewResponse) -> RenderedVi
                         y: point.y,
                     })
                     .collect(),
-                style: edge.style.map(&style),
+                style: edge.style.map(style),
             })
             .collect(),
         columns: response.columns,
@@ -618,7 +618,7 @@ pub(crate) fn rendered_view_of(response: wire::RenderViewResponse) -> RenderedVi
             .into_iter()
             .map(|row| RenderRow {
                 cells: row.cells,
-                origin: row.origin.map(&span),
+                origin: row.origin.map(span),
             })
             .collect(),
         canvas: response.canvas.map(|canvas| RenderCanvas {
@@ -640,7 +640,7 @@ pub(crate) fn rendered_view_of(response: wire::RenderViewResponse) -> RenderedVi
                 width: note.width,
                 height: note.height,
                 has_size: note.has_size,
-                origin: note.origin.map(&span),
+                origin: note.origin.map(span),
             })
             .collect(),
         notices: response.notices,
