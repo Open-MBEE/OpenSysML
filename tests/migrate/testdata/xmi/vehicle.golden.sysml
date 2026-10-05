@@ -86,7 +86,7 @@ package 'Vehicle Design' {
     }
     part def Motor :> Engine;
     part def Driver;
-    part def Helper;
+    occurrence def Helper;
     connection def Drives {
         end driver : Driver[0..1];
         end vehicle : Vehicle;

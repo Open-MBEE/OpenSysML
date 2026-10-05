@@ -393,7 +393,9 @@ func (m *migration) typedRows(src qx, types []sysmlv1.ElementRef, subtypes, indi
 	}
 	rows := src
 	if !typesAdmitAll(filters, l) {
-		var types, metadata uniqueNames
+		var metadata uniqueNames
+		var filtersToMerge []typeFilter
+		var qs []qx
 		for _, f := range filters {
 			switch {
 			case f.refused != "" && len(filters) == 1:
@@ -404,18 +406,17 @@ func (m *migration) typedRows(src qx, types []sysmlv1.ElementRef, subtypes, indi
 			case len(f.classifiers) > 0:
 				l.note(f.note)
 				for _, c := range f.classifiers {
-					types.add(m.plainName(c))
+					filtersToMerge = append(filtersToMerge, typeFilter{types: []string{m.plainName(c)}})
 				}
 			case f.metadata != "":
 				metadata.add(f.metadata)
 			default:
 				l.note(f.note)
-				types.add(f.types...)
+				filtersToMerge = append(filtersToMerge, f)
 			}
 		}
-		var qs []qx
-		if len(types) > 0 {
-			qs = append(qs, whereType(src, types...))
+		if len(filtersToMerge) > 0 {
+			qs = append(qs, mergeTypeFilters(filtersToMerge).query(src))
 		}
 		if len(metadata) > 0 {
 			qs = append(qs, qcall("WhereMetadata", qarg1("source", src), qstrs("'metadata'", metadata...)))

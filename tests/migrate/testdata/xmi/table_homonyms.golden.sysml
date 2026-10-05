@@ -82,13 +82,29 @@ package Shop {
     }
     calc def 'Catalog Map Rows' :> DocumentQueries::Query {
         DocumentQueries::Project(
-            source = DocumentQueries::WhereType(
-                source = DocumentQueries::RelatedElements(
-                    source = DocumentQueries::Named(qualifiedName = ("Shop::Catalog")),
-                    relationshipKind = "specialization",
-                    direction = "incoming",
-                    maxDepth = 1),
-                type = ("PartDefinition", "RequirementDefinition", "ConstraintDefinition", "PortDefinition", "VerificationCaseDefinition", "ActionDefinition", "StateDefinition", "CalculationDefinition", "ViewUsage", "ViewpointUsage")),
+            source = DocumentQueries::Except(
+                source = DocumentQueries::WhereType(
+                    source = DocumentQueries::RelatedElements(
+                        source = DocumentQueries::Named(qualifiedName = ("Shop::Catalog")),
+                        relationshipKind = "specialization",
+                        direction = "incoming",
+                        maxDepth = 1),
+                    type = ("PartDefinition", "RequirementDefinition", "ConstraintDefinition", "PortDefinition", "VerificationCaseDefinition", "ActionDefinition", "StateDefinition", "CalculationDefinition", "ViewUsage", "ViewpointUsage", "OccurrenceDefinition")),
+                exclude = DocumentQueries::Except(
+                    source = DocumentQueries::WhereType(
+                        source = DocumentQueries::RelatedElements(
+                            source = DocumentQueries::Named(qualifiedName = ("Shop::Catalog")),
+                            relationshipKind = "specialization",
+                            direction = "incoming",
+                            maxDepth = 1),
+                        type = ("ItemDefinition")),
+                    exclude = DocumentQueries::WhereType(
+                        source = DocumentQueries::RelatedElements(
+                            source = DocumentQueries::Named(qualifiedName = ("Shop::Catalog")),
+                            relationshipKind = "specialization",
+                            direction = "incoming",
+                            maxDepth = 1),
+                        type = ("PartDefinition", "RequirementDefinition", "ConstraintDefinition", "PortDefinition", "VerificationCaseDefinition", "ActionDefinition", "StateDefinition", "CalculationDefinition", "ViewUsage", "ViewpointUsage")))),
             properties = ("qualifiedName", "@type"))
     }
     part def 'Catalog Map Document' :> DocumentQueries::Document {

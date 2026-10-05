@@ -22,6 +22,16 @@ const (
 	neverAssigns = " never assigns "
 )
 
+var linkActionVerbs = map[string]string{
+	"ClearAssociationAction":           "clear",
+	"CreateLinkAction":                 "create",
+	"CreateLinkObjectAction":           "create",
+	"DestroyLinkAction":                "destroy",
+	"ReadLinkAction":                   "read",
+	"ReadLinkObjectEndAction":          "read",
+	"ReadLinkObjectEndQualifierAction": "read",
+}
+
 func (m *migration) activityBody(act, def *sysmlv1.Element) {
 	keeping := m.keeping
 	m.keeping = ""
@@ -100,7 +110,7 @@ type activity struct {
 	// its own source leads back to, and whether one is a ReadSelfAction.
 	edgeSources map[*sysmlv1.Element][]*sysmlv1.Element
 	edgeSelf    map[*sysmlv1.Element]bool
-	// inert marks the nodes written as placeholders, whose output pins no value reaches.
+	// inert marks nodes whose output pins produce no value.
 	inert map[*sysmlv1.Element]bool
 	// computed is the v2 expression an output pin is declared with, when a library primitive gives its value.
 	computed map[*sysmlv1.Element]string
@@ -1480,14 +1490,22 @@ func (a *activity) leadIn(n *sysmlv1.Element, into string) {
 // reaches it would be a subaction performed with the activity (Actions::subactions).
 func (a *activity) declareNode(n *sysmlv1.Element, name string) {
 	if a.starved[n] != nil {
-		a.m.w.prefixed("ref ", actionKw, func() { a.declareKind(n, name) })
-		return
+		// Keep starved link actions as actions so their approximation retains its pins.
+		if _, isLinkAction := linkActionVerbs[n.Type]; !isLinkAction {
+			a.m.w.prefixed("ref ", actionKw, func() { a.declareKind(n, name) })
+			return
+		}
 	}
 	a.declareKind(n, name)
 }
 
 // declareKind writes the declaration of n by its kind.
 func (a *activity) declareKind(n *sysmlv1.Element, name string) {
+	if verb, ok := linkActionVerbs[n.Type]; ok {
+		a.linkAction(n, name, verb)
+		a.m.writeComments(n, false)
+		return
+	}
 	switch n.Type {
 	case "ActivityFinalNode":
 		a.m.w.line(actionKw + name + " terminate;")
@@ -1545,6 +1563,12 @@ func (a *activity) placeholder(n *sysmlv1.Element, name, note string, v Verdict)
 		a.m.w.lines(commentLines("not migrated: " + kindOf(n) + " " + describe(n) + " — " + note))
 	})
 	a.m.add(n, v, name, note)
+}
+
+func (a *activity) linkAction(n *sysmlv1.Element, name, verb string) {
+	a.inert[n] = true
+	a.m.w.block(actionKw+name, func() { a.pins(n, nil) })
+	a.m.add(n, Approximated, name, "SysML v2 has no link action: the "+n.Type+" is written as an action with its pins and does not "+verb+" the link")
 }
 
 // inputPins lists the input pins of an action, arguments first; a value action's

@@ -55,10 +55,10 @@ package System {
     attribute def Torque {
         @Tailoring::'Ring A';
     }
-    part def 'Lost Thing' {
+    occurrence def 'Lost Thing' {
         @Tailoring::Lost;
     }
-    part def 'Foreign Thing' {
+    occurrence def 'Foreign Thing' {
         @Tailoring::Foreign;
     }
     dependency Spin to 'Speed Requirement' {

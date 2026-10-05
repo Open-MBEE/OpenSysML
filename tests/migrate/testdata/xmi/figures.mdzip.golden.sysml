@@ -123,7 +123,7 @@ package 'Plant Viewpoints' {
     }
 }
 package 'Plant Documents' {
-    part def 'Plant Handbook' {
+    occurrence def 'Plant Handbook' {
         view behaviors :> Behaviors;
         view pictures :> Pictures;
         view shown :> Shown;

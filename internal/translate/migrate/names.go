@@ -107,7 +107,7 @@ func (m *migration) writtenName(e *sysmlv1.Element) string {
 			return ""
 		}
 	case "Association", "AssociationClass":
-		if m.actors[e] != nil || (e.Type == "Association" && !ownsEveryEnd(e, m.model.Refs(e, "memberEnd"))) {
+		if !m.associationAsConnectionDef(e) {
 			return ""
 		}
 	}

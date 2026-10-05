@@ -196,14 +196,14 @@ package Observatory {
         }
     }
     package Documents {
-        part def 'Interface Control Document' {
+        occurrence def 'Interface Control Document' {
             view totals :> 'Interface Totals';
             view connections :> Connections;
             view interfaces :> Interfaces;
             view perPart :> 'Per Part';
             /* applied stereotype «Document» */
         }
-        part def 'Interface Summary' {
+        occurrence def 'Interface Summary' {
             view interfaces :> Interfaces;
             /* applied stereotype «Document» */
         }
@@ -226,11 +226,23 @@ package Observatory {
         calc def 'Interface Control Document Interface Totals Rows' :> DocumentQueries::Query {
             DocumentQueries::Project(
                 source = DocumentQueries::OrderBy(
-                    source = DocumentQueries::WhereType(
-                        source = DocumentQueries::Descendants(
-                            source = DocumentQueries::Named(qualifiedName = ("Observatory::Interface Types")),
-                            maxDepth = 1),
-                        type = ("PartDefinition", "RequirementDefinition", "ConstraintDefinition", "PortDefinition", "VerificationCaseDefinition", "ActionDefinition", "StateDefinition", "CalculationDefinition", "ViewUsage", "ViewpointUsage")),
+                    source = DocumentQueries::Except(
+                        source = DocumentQueries::WhereType(
+                            source = DocumentQueries::Descendants(
+                                source = DocumentQueries::Named(qualifiedName = ("Observatory::Interface Types")),
+                                maxDepth = 1),
+                            type = ("PartDefinition", "RequirementDefinition", "ConstraintDefinition", "PortDefinition", "VerificationCaseDefinition", "ActionDefinition", "StateDefinition", "CalculationDefinition", "ViewUsage", "ViewpointUsage", "OccurrenceDefinition")),
+                        exclude = DocumentQueries::Except(
+                            source = DocumentQueries::WhereType(
+                                source = DocumentQueries::Descendants(
+                                    source = DocumentQueries::Named(qualifiedName = ("Observatory::Interface Types")),
+                                    maxDepth = 1),
+                                type = ("ItemDefinition")),
+                            exclude = DocumentQueries::WhereType(
+                                source = DocumentQueries::Descendants(
+                                    source = DocumentQueries::Named(qualifiedName = ("Observatory::Interface Types")),
+                                    maxDepth = 1),
+                                type = ("PartDefinition", "RequirementDefinition", "ConstraintDefinition", "PortDefinition", "VerificationCaseDefinition", "ActionDefinition", "StateDefinition", "CalculationDefinition", "ViewUsage", "ViewpointUsage")))),
                     property = "name",
                     direction = "ascending",
                     missing = "last",
@@ -242,11 +254,23 @@ package Observatory {
         calc def 'Interface Control Document Per Type Rows' :> DocumentQueries::Query {
             DocumentQueries::Project(
                 source = DocumentQueries::OrderBy(
-                    source = DocumentQueries::WhereType(
-                        source = DocumentQueries::Descendants(
-                            source = DocumentQueries::Named(qualifiedName = ("Observatory::Interface Types")),
-                            maxDepth = 1),
-                        type = ("PartDefinition", "RequirementDefinition", "ConstraintDefinition", "PortDefinition", "VerificationCaseDefinition", "ActionDefinition", "StateDefinition", "CalculationDefinition", "ViewUsage", "ViewpointUsage")),
+                    source = DocumentQueries::Except(
+                        source = DocumentQueries::WhereType(
+                            source = DocumentQueries::Descendants(
+                                source = DocumentQueries::Named(qualifiedName = ("Observatory::Interface Types")),
+                                maxDepth = 1),
+                            type = ("PartDefinition", "RequirementDefinition", "ConstraintDefinition", "PortDefinition", "VerificationCaseDefinition", "ActionDefinition", "StateDefinition", "CalculationDefinition", "ViewUsage", "ViewpointUsage", "OccurrenceDefinition")),
+                        exclude = DocumentQueries::Except(
+                            source = DocumentQueries::WhereType(
+                                source = DocumentQueries::Descendants(
+                                    source = DocumentQueries::Named(qualifiedName = ("Observatory::Interface Types")),
+                                    maxDepth = 1),
+                                type = ("ItemDefinition")),
+                            exclude = DocumentQueries::WhereType(
+                                source = DocumentQueries::Descendants(
+                                    source = DocumentQueries::Named(qualifiedName = ("Observatory::Interface Types")),
+                                    maxDepth = 1),
+                                type = ("PartDefinition", "RequirementDefinition", "ConstraintDefinition", "PortDefinition", "VerificationCaseDefinition", "ActionDefinition", "StateDefinition", "CalculationDefinition", "ViewUsage", "ViewpointUsage")))),
                     property = "name",
                     direction = "ascending",
                     missing = "last",

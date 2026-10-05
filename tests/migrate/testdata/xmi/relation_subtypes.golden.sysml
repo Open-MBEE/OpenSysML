@@ -18,13 +18,29 @@ package Plant {
         }
         calc def 'Valve Requirement Map Rows' :> DocumentQueries::Query {
             DocumentQueries::Project(
-                source = DocumentQueries::WhereType(
-                    source = DocumentQueries::RelatedElements(
-                        source = DocumentQueries::Named(qualifiedName = ("Plant::Structure::Valve")),
-                        relationshipKind = "satisfaction",
-                        direction = "outgoing",
-                        maxDepth = 1),
-                    type = ("PartDefinition", "RequirementDefinition", "ConstraintDefinition", "PortDefinition", "VerificationCaseDefinition", "ActionDefinition", "StateDefinition", "CalculationDefinition", "ViewUsage", "ViewpointUsage")),
+                source = DocumentQueries::Except(
+                    source = DocumentQueries::WhereType(
+                        source = DocumentQueries::RelatedElements(
+                            source = DocumentQueries::Named(qualifiedName = ("Plant::Structure::Valve")),
+                            relationshipKind = "satisfaction",
+                            direction = "outgoing",
+                            maxDepth = 1),
+                        type = ("PartDefinition", "RequirementDefinition", "ConstraintDefinition", "PortDefinition", "VerificationCaseDefinition", "ActionDefinition", "StateDefinition", "CalculationDefinition", "ViewUsage", "ViewpointUsage", "OccurrenceDefinition")),
+                    exclude = DocumentQueries::Except(
+                        source = DocumentQueries::WhereType(
+                            source = DocumentQueries::RelatedElements(
+                                source = DocumentQueries::Named(qualifiedName = ("Plant::Structure::Valve")),
+                                relationshipKind = "satisfaction",
+                                direction = "outgoing",
+                                maxDepth = 1),
+                            type = ("ItemDefinition")),
+                        exclude = DocumentQueries::WhereType(
+                            source = DocumentQueries::RelatedElements(
+                                source = DocumentQueries::Named(qualifiedName = ("Plant::Structure::Valve")),
+                                relationshipKind = "satisfaction",
+                                direction = "outgoing",
+                                maxDepth = 1),
+                            type = ("PartDefinition", "RequirementDefinition", "ConstraintDefinition", "PortDefinition", "VerificationCaseDefinition", "ActionDefinition", "StateDefinition", "CalculationDefinition", "ViewUsage", "ViewpointUsage")))),
                 properties = ("qualifiedName", "@type"))
         }
         part def 'Valve Requirement Map Document' :> DocumentQueries::Document {
@@ -66,10 +82,20 @@ package Plant {
                         direction = "incoming",
                         maxDepth = 1,
                         aggregate = "list",
-                        targets = DocumentQueries::WhereType(
-                            source = DocumentQueries::Descendants(
-                                source = DocumentQueries::Named(qualifiedName = ("Plant::Structure"))),
-                            type = ("PartDefinition")))))
+                        targets = DocumentQueries::Except(
+                            source = DocumentQueries::WhereType(
+                                source = DocumentQueries::Descendants(
+                                    source = DocumentQueries::Named(qualifiedName = ("Plant::Structure"))),
+                                type = ("PartDefinition", "OccurrenceDefinition")),
+                            exclude = DocumentQueries::Except(
+                                source = DocumentQueries::WhereType(
+                                    source = DocumentQueries::Descendants(
+                                        source = DocumentQueries::Named(qualifiedName = ("Plant::Structure"))),
+                                    type = ("ItemDefinition")),
+                                exclude = DocumentQueries::WhereType(
+                                    source = DocumentQueries::Descendants(
+                                        source = DocumentQueries::Named(qualifiedName = ("Plant::Structure"))),
+                                    type = ("PartDefinition")))))))
         }
         part def 'Exact Satisfaction Matrix Document' :> DocumentQueries::Document {
             attribute redefines title = "Exact Satisfaction Matrix";
@@ -100,20 +126,40 @@ package Plant {
                         direction = "incoming",
                         maxDepth = 1,
                         aggregate = "list",
-                        targets = DocumentQueries::WhereType(
-                            source = DocumentQueries::Descendants(
-                                source = DocumentQueries::Named(qualifiedName = ("Plant"))),
-                            type = ("PartDefinition", "RequirementDefinition"))),
+                        targets = DocumentQueries::Except(
+                            source = DocumentQueries::WhereType(
+                                source = DocumentQueries::Descendants(
+                                    source = DocumentQueries::Named(qualifiedName = ("Plant"))),
+                                type = ("PartDefinition", "OccurrenceDefinition", "RequirementDefinition")),
+                            exclude = DocumentQueries::Except(
+                                source = DocumentQueries::WhereType(
+                                    source = DocumentQueries::Descendants(
+                                        source = DocumentQueries::Named(qualifiedName = ("Plant"))),
+                                    type = ("ItemDefinition")),
+                                exclude = DocumentQueries::WhereType(
+                                    source = DocumentQueries::Descendants(
+                                        source = DocumentQueries::Named(qualifiedName = ("Plant"))),
+                                    type = ("PartDefinition", "RequirementDefinition"))))),
                     DocumentQueries::RelatedColumn(
                         name = "Derived by",
                         relationshipKind = "derivation",
                         direction = "outgoing",
                         maxDepth = 1,
                         aggregate = "list",
-                        targets = DocumentQueries::WhereType(
-                            source = DocumentQueries::Descendants(
-                                source = DocumentQueries::Named(qualifiedName = ("Plant"))),
-                            type = ("PartDefinition", "RequirementDefinition")))))
+                        targets = DocumentQueries::Except(
+                            source = DocumentQueries::WhereType(
+                                source = DocumentQueries::Descendants(
+                                    source = DocumentQueries::Named(qualifiedName = ("Plant"))),
+                                type = ("PartDefinition", "OccurrenceDefinition", "RequirementDefinition")),
+                            exclude = DocumentQueries::Except(
+                                source = DocumentQueries::WhereType(
+                                    source = DocumentQueries::Descendants(
+                                        source = DocumentQueries::Named(qualifiedName = ("Plant"))),
+                                    type = ("ItemDefinition")),
+                                exclude = DocumentQueries::WhereType(
+                                    source = DocumentQueries::Descendants(
+                                        source = DocumentQueries::Named(qualifiedName = ("Plant"))),
+                                    type = ("PartDefinition", "RequirementDefinition")))))))
         }
         part def 'Wide Satisfaction Matrix Document' :> DocumentQueries::Document {
             attribute redefines title = "Wide Satisfaction Matrix";
@@ -129,13 +175,29 @@ package Plant {
         }
         calc def 'Seal Derivation Map Rows' :> DocumentQueries::Query {
             DocumentQueries::Project(
-                source = DocumentQueries::WhereType(
-                    source = DocumentQueries::RelatedElements(
-                        source = DocumentQueries::Named(qualifiedName = ("Plant::Requirements::SealRequirement")),
-                        relationshipKind = "derivation",
-                        direction = "incoming",
-                        maxDepth = 1),
-                    type = ("PartDefinition", "RequirementDefinition", "ConstraintDefinition", "PortDefinition", "VerificationCaseDefinition", "ActionDefinition", "StateDefinition", "CalculationDefinition", "ViewUsage", "ViewpointUsage")),
+                source = DocumentQueries::Except(
+                    source = DocumentQueries::WhereType(
+                        source = DocumentQueries::RelatedElements(
+                            source = DocumentQueries::Named(qualifiedName = ("Plant::Requirements::SealRequirement")),
+                            relationshipKind = "derivation",
+                            direction = "incoming",
+                            maxDepth = 1),
+                        type = ("PartDefinition", "RequirementDefinition", "ConstraintDefinition", "PortDefinition", "VerificationCaseDefinition", "ActionDefinition", "StateDefinition", "CalculationDefinition", "ViewUsage", "ViewpointUsage", "OccurrenceDefinition")),
+                    exclude = DocumentQueries::Except(
+                        source = DocumentQueries::WhereType(
+                            source = DocumentQueries::RelatedElements(
+                                source = DocumentQueries::Named(qualifiedName = ("Plant::Requirements::SealRequirement")),
+                                relationshipKind = "derivation",
+                                direction = "incoming",
+                                maxDepth = 1),
+                            type = ("ItemDefinition")),
+                        exclude = DocumentQueries::WhereType(
+                            source = DocumentQueries::RelatedElements(
+                                source = DocumentQueries::Named(qualifiedName = ("Plant::Requirements::SealRequirement")),
+                                relationshipKind = "derivation",
+                                direction = "incoming",
+                                maxDepth = 1),
+                            type = ("PartDefinition", "RequirementDefinition", "ConstraintDefinition", "PortDefinition", "VerificationCaseDefinition", "ActionDefinition", "StateDefinition", "CalculationDefinition", "ViewUsage", "ViewpointUsage")))),
                 properties = ("qualifiedName", "@type"))
         }
         part def 'Seal Derivation Map Document' :> DocumentQueries::Document {

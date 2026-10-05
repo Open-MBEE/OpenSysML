@@ -15,6 +15,7 @@ const (
 	catNone category = iota
 	catPackage
 	catPartDef
+	catOccurrenceDef
 	catPortDef
 	catAttributeDef
 	catEnumDef
@@ -59,6 +60,8 @@ func (c category) keyword() string {
 		return "package"
 	case catPartDef:
 		return "part def"
+	case catOccurrenceDef:
+		return "occurrence def"
 	case catPortDef:
 		return "port def"
 	case catAttributeDef:
@@ -106,6 +109,8 @@ func (c category) metaclass() string {
 	switch c {
 	case catPartDef:
 		return "SysML::PartDefinition"
+	case catOccurrenceDef:
+		return "SysML::OccurrenceDefinition"
 	case catPortDef:
 		return "SysML::PortDefinition"
 	case catAttributeDef:
@@ -554,7 +559,7 @@ func classifyClass(e *sysmlv1.Element) (category, string) {
 	case has(e, "Viewpoint"):
 		return catViewpoint, ""
 	}
-	return catPartDef, "a plain UML class without «Block» is written as a part def"
+	return catOccurrenceDef, ""
 }
 
 // classifyInstance decides whether an instance specification becomes an
@@ -565,6 +570,12 @@ func (m *migration) classifyInstance(e *sysmlv1.Element) (category, string) {
 	}
 	if len(m.classifiersOf(e)) == 0 {
 		return catUnmapped, joinNotes("an instance specification without a classifier has no v2 form", m.snapshots[e].note)
+	}
+	if association := m.instanceAssociation(e); association != nil && !m.associationAsConnectionDef(association) {
+		if m.actors[association] != nil {
+			return catUnmapped, "the link's association is written as an actor usage, so there is no connection def to specialize"
+		}
+		return catUnmapped, "the link's association is written as its member-end properties, so there is no connection def to specialize"
 	}
 	occurrences, values, note := m.instanceClassifiers(e)
 	switch {
@@ -577,6 +588,15 @@ func (m *migration) classifyInstance(e *sysmlv1.Element) (category, string) {
 		note = joinNotes(note, classifierSubject+qualifiedName(v)+" is not written: an individual cannot specialize a value type")
 	}
 	return catIndividualDef, note
+}
+
+func (m *migration) instanceAssociation(e *sysmlv1.Element) *sysmlv1.Element {
+	for _, c := range m.classifiersOf(e) {
+		if c.Type == "Association" || c.Type == "AssociationClass" {
+			return c
+		}
+	}
+	return nil
 }
 
 // classifyTestCase decides a «TestCase» behavior: a verification def, whose

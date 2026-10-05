@@ -431,7 +431,7 @@ package 'Yard Viewpoints' {
     }
 }
 package 'Yard Handbook' {
-    part def 'Yard Handbook' {
+    occurrence def 'Yard Handbook' {
         view blockDiagrams :> 'Block Diagrams';
         view sketchedDiagrams :> 'Sketched Diagrams';
         view retargetedDiagrams :> 'Retargeted Diagrams';

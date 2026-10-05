@@ -455,11 +455,11 @@ func (m *migration) stakeholderWritable(vp *sysmlv1.Element, id string) bool {
 		return false
 	}
 	cat, _ := m.classify(s)
-	return cat == catPartDef
+	return cat == catPartDef || cat == catOccurrenceDef
 }
 
-// stakeholder writes one stakeholder usage of a viewpoint, typed by the part
-// def the stakeholder class becomes.
+// stakeholder writes one stakeholder usage of a viewpoint, typed by the
+// definition the stakeholder class becomes.
 func (m *migration) stakeholder(vp *sysmlv1.Element, id string) {
 	s := m.model.Lookup(id)
 	switch {
@@ -473,7 +473,7 @@ func (m *migration) stakeholder(vp *sysmlv1.Element, id string) {
 		m.downgrade(vp, stakeholderSubject+qualifiedName(s)+" is not migrated and is not written")
 		return
 	}
-	if cat, _ := m.classify(s); cat != catPartDef {
+	if cat, _ := m.classify(s); cat != catPartDef && cat != catOccurrenceDef {
 		m.downgrade(vp, stakeholderSubject+qualifiedName(s)+" becomes a "+cat.keyword()+", which cannot type a stakeholder")
 		return
 	}
