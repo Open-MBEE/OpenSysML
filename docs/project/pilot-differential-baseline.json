@@ -61,8 +61,8 @@
         "name": "examples",
         "dir": "examples",
         "origin": "ours",
-        "files": 46,
-        "digest": "sha256:19c3ec940e9b0eafd3508270e2835bc785b605f5f79b5b762fae732d11aa7504"
+        "files": 47,
+        "digest": "sha256:c83c08619acd8905d991eafac1af437c8043d85645d3b5ab7cb40380ebdb289e"
       },
       {
         "name": "probes",
@@ -82,14 +82,14 @@
     "recorded": "2026-10-05"
   },
   "totals": {
-    "files": 384,
+    "files": 385,
     "filesFullyAgreeing": 351,
     "agreement": 45,
     "severityMismatch": 1,
     "openSysMLOnly": 44,
-    "pilotOnly": 93,
+    "pilotOnly": 100,
     "openSysMLDiagnostics": 90,
-    "pilotDiagnostics": 139
+    "pilotDiagnostics": 146
   },
   "roots": [
     {
@@ -931,14 +931,14 @@
       "name": "examples",
       "dir": "examples",
       "totals": {
-        "files": 46,
+        "files": 47,
         "filesFullyAgreeing": 37,
         "agreement": 0,
         "severityMismatch": 0,
         "openSysMLOnly": 7,
-        "pilotOnly": 62,
+        "pilotOnly": 69,
         "openSysMLDiagnostics": 7,
-        "pilotDiagnostics": 62
+        "pilotDiagnostics": 69
       },
       "files": [
         {
@@ -978,6 +978,26 @@
               "severity": "error",
               "category": "syntax",
               "count": 1
+            }
+          ]
+        },
+        {
+          "path": "gridview-relationship-matrix.sysml",
+          "agreement": [],
+          "severityMismatch": [],
+          "openSysMLOnly": [],
+          "pilotOnly": [
+            {
+              "line": 64,
+              "severity": "warning",
+              "category": "kind-mismatch",
+              "count": 1
+            },
+            {
+              "line": 64,
+              "severity": "warning",
+              "category": "unmapped",
+              "count": 6
             }
           ]
         },
@@ -1649,12 +1669,32 @@
     },
     {
       "side": "pilot",
+      "message": "Duplicate of inherited member name 'performanceRequirement' from RelationshipMatrixExample, obj",
+      "count": 1
+    },
+    {
+      "side": "pilot",
       "message": "Duplicate of inherited member name 'registry' from AnalysisFramework, tiersAreGated",
       "count": 1
     },
     {
       "side": "pilot",
+      "message": "Duplicate of inherited member name 'result' from ,",
+      "count": 1
+    },
+    {
+      "side": "pilot",
       "message": "Duplicate of inherited member name 'runtime' from executionIsBounded, snapshotsAreRunState",
+      "count": 1
+    },
+    {
+      "side": "pilot",
+      "message": "Duplicate of inherited member name 'self' from Metaobject, View",
+      "count": 1
+    },
+    {
+      "side": "pilot",
+      "message": "Duplicate of inherited member name 'source' from , controllerAllocation, plantAllocation, powerLink",
       "count": 1
     },
     {
@@ -1680,6 +1720,16 @@
     {
       "side": "pilot",
       "message": "Duplicate of inherited member name 'stdlib' from libraryIsClean, snapshotIsDerived",
+      "count": 1
+    },
+    {
+      "side": "pilot",
+      "message": "Duplicate of inherited member name 'subj' from , vehicleBudget",
+      "count": 1
+    },
+    {
+      "side": "pilot",
+      "message": "Duplicate of inherited member name 'target' from , controllerAllocation, plantAllocation, powerLink",
       "count": 1
     },
     {
@@ -1812,14 +1862,14 @@
       }
     ],
     "totals": {
-      "files": 384,
+      "files": 385,
       "filesFullyAgreeing": 352,
       "agreement": 45,
       "severityMismatch": 1,
       "openSysMLOnly": 43,
-      "pilotOnly": 93,
+      "pilotOnly": 100,
       "openSysMLDiagnostics": 89,
-      "pilotDiagnostics": 139
+      "pilotDiagnostics": 146
     },
     "findings": [
       {
