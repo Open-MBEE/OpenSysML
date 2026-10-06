@@ -60,6 +60,7 @@ const (
 	pKind                              = "kind"
 	pTransitionFeature                 = "transitionFeature"
 	pEffectAction                      = "effectAction"
+	pGuardExpression                   = "guardExpression"
 	pTriggerAction                     = "triggerAction"
 	pPayloadParameter                  = "payloadParameter"
 	pPayloadArgument                   = "payloadArgument"
