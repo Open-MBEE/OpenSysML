@@ -649,3 +649,38 @@ func TestBindingClauseEndsAreRelatedFeatures(t *testing.T) {
 		}
 	}
 }
+
+// TestUnnamedConnectEndsReplaceInheritedEnds covers that the ends a `connect`
+// clause declares without names take the place of the typing connector's
+// named ends (SysML v2 8.2.2.13.1) rather than being added to them, whether the
+// type is declared alongside or read from the standard library's record.
+func TestUnnamedConnectEndsReplaceInheritedEnds(t *testing.T) {
+	m, root := buildModel(t, `package P {
+		port def Q;
+		part def A { port p : Q; }
+		connection def C { end source : Q; end target : Q; }
+		interface def I { end x : Q; end y : Q; }
+		part def Asm {
+			part a : A;
+			part b : A;
+			connection c1 : C connect a.p to b.p;
+			connection c2 : C connect [1] a.p to [1] b.p;
+			interface i1 : I connect a.p to b.p;
+			connection c3 : Connections::BinaryConnection connect a.p to b.p;
+			interface i2 : Interfaces::BinaryInterface connect a.p to b.p;
+		}
+	}`)
+	asm := nested(t, sym(t, root, "P").Scope, "Asm")
+	for _, name := range []string{"c1", "c2", "i1", "c3", "i2"} {
+		conn := member(t, m, asm, name)
+		ends := m.EndFeatures(conn)
+		if len(ends) != 2 || m.ConnectorEndCount(conn) != 2 {
+			t.Fatalf("%s has %d end features and %d ends, want 2 and 2: %v", name, len(ends), m.ConnectorEndCount(conn), ends)
+		}
+		for i, end := range ends {
+			if _, ok := end.Decl.(*ast.ConnectorEnd); !ok || end.Name != "" || end.OwnerScope != conn.Scope {
+				t.Fatalf("%s end %d = %v, want the unnamed end its connect clause declares", name, i, end)
+			}
+		}
+	}
+}
