@@ -1208,7 +1208,7 @@ HTML needs the `render_document_html` capability, and PDF is not offered, since
 it needs the CLI's converter toolchain.
 
 `RenderView` answers a named view or targeted pseudo-view as ordered nodes,
-edges, table rows, notes, source spans and optional canvas/geometry/style data,
+edges, table and matrix rows, notes, source spans and optional canvas/geometry/style data,
 using the engine renderer's `view.Data` rather than diagram pictures. Its
 `ports` field is empty or `minimal` by default; `full` includes all declared
 ports. It is advertised by `render_view`, and a service without that capability
