@@ -21,7 +21,8 @@ func (r *Rendering) Text() string { return r.TextWidth(WidthUnbounded) }
 func (r *Rendering) TextWidth(width int) string { return r.textWith(Options{Width: width}) }
 
 // textWith is the text form written to options' width, listing under each part
-// of an interconnection the ports options' Ports display draws.
+// of an interconnection or mixed rendering the ports options' Ports display
+// draws.
 func (r *Rendering) textWith(options Options) string {
 	width := options.Width
 	var b strings.Builder
@@ -154,7 +155,8 @@ func endLabel(labels map[string]string, node, port string) string {
 
 // writeNodeText writes one node and its children, and records the label an edge
 // names the node by. A body's start is named by the body it starts. In an
-// interconnection, the node's ports the display draws are written under it,
+// interconnection or mixed view, the node's ports the display draws are written
+// under it,
 // each a line of its own, and recorded as `node.port`; elsewhere they are left
 // to the edges' labels, which an action's flows name their pins in.
 func writeNodeText(b *strings.Builder, node *Node, depth int, labels map[string]string, ports portView) {
@@ -193,10 +195,9 @@ func writeNodeText(b *strings.Builder, node *Node, depth int, labels map[string]
 	}
 }
 
-// pinLine is a port's line under its node: `port <label>` in an interconnection,
-// the pin's direction and name in an action (`in bread`), as declared.
+// pinLine is a part port's `port <label>` or an action pin's direction and name.
 func pinLine(port Port, ports portView) string {
-	if ports.interconnection {
+	if ports.interconnectionPort(port) {
 		return "port " + ports.pinLabel(port)
 	}
 	return strings.TrimSpace(port.Direction.String() + " " + port.Name)
@@ -391,6 +392,8 @@ func edgeSectionName(kind Kind) string {
 		return "flow"
 	case KindSequence:
 		return "messages"
+	case KindCase, KindMixed:
+		return "relationships"
 	}
 	return "connections"
 }
@@ -404,6 +407,20 @@ func edgeArrow(kind EdgeKind) string {
 		return "=="
 	case EdgeFlow:
 		return "=>"
+	case EdgeComposition:
+		return "*--"
+	case EdgeAssociation:
+		return "--"
+	case EdgeInclude:
+		return "..>"
+	case EdgeAnchor:
+		return ".."
+	case EdgeTyping:
+		return "..>"
+	case EdgeSpecialization:
+		return "--|>"
+	case EdgeReference:
+		return "..>"
 	}
 	return "->"
 }
