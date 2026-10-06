@@ -134,7 +134,7 @@ repeated runs are byte-identical.
 own `.kerml` fixtures out of the comparison (see the known limitation below).
 
 Beside the roots, every batch hands the reference the OpenSysML libraries
-(`internal/workspace/libs/stdlib/OpenSysML Libraries`, 14 files), loaded like the standard
+(`internal/workspace/libs/stdlib/OpenSysML Libraries`, 15 files), loaded like the standard
 library: resolved against, never validated. They are not a compared root — library files report
 nothing — but they are part of what a run measured, so the baseline's provenance records them as
 the `opensysml-libraries` input, and a changed library is a movement to adjudicate like a changed
@@ -342,7 +342,7 @@ warnings read in the round below, nothing else.
 The reference validators are now handed the OpenSysML libraries beside the standard library on
 every batch: both bridges take `--extension-library DIR`, which loads a directory the way
 `sysml.library` is loaded — resolved against, never validated — and the harness passes
-`internal/workspace/libs/stdlib/OpenSysML Libraries` (14 files, the copy this implementation
+`internal/workspace/libs/stdlib/OpenSysML Libraries` (15 files, the copy this implementation
 compiles against) through it. The directory is not an option of the harness: it is the
 `OpenSysML Libraries` directory of the standard-library root this implementation itself loads
 (the bundled tree, or `OPENSYSML_LIBRARY_PATH` when set), so both validators always resolve the
