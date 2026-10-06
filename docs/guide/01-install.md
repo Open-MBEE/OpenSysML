@@ -182,6 +182,8 @@ Ways to avoid it, best first:
    go install github.com/Open-MBEE/OpenSysML/cmd/sysml@latest
    go install github.com/Open-MBEE/OpenSysML/cmd/sysml-lsp@latest
    ```
+   `sysml -version` reports the release the binary was built from, or the commit when it was
+   installed from a checkout.
 4. **Clear the attribute** if you already downloaded the archive in a browser. Verify the
    checksum first: clearing the attribute disables a security check, so make sure the file
    really is the published one:

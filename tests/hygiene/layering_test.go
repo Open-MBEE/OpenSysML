@@ -115,6 +115,7 @@ var packageLayer = map[string]string{
 	"internal/workspace/libs/errata": "workspace",
 	"internal/workspace/project":     "workspace",
 	"internal/workspace/envvar":      "workspace",
+	"internal/workspace/buildinfo":   "workspace",
 
 	"api/proto":                     "frontend",
 	"api/proto/protoconnect":        "frontend",

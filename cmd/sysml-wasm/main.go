@@ -10,6 +10,7 @@ import (
 	"os"
 
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/combined"
+	"github.com/Open-MBEE/OpenSysML/internal/workspace/buildinfo"
 )
 
 var (
@@ -19,20 +20,23 @@ var (
 	GoVersion = "unknown"
 )
 
+// build is what this binary reports about itself: the linker's stamps, or the
+// module version and VCS metadata the toolchain recorded when none were passed.
+func build() buildinfo.Info {
+	return buildinfo.Resolve(buildinfo.Stamps{Version: Version, Commit: Commit, BuildTime: BuildTime, GoVersion: GoVersion})
+}
+
 func main() {
 	showVersion := flag.Bool("version", false, "Show version and exit")
 	useStdio := flag.Bool("stdio", false, "Serve stdio (the default outside the js WebAssembly target)")
 	flag.Parse()
 
 	if *showVersion {
-		fmt.Printf("sysml-wasm %s\n", Version)
-		fmt.Printf("  Commit:     %s\n", Commit)
-		fmt.Printf("  Build time: %s\n", BuildTime)
-		fmt.Printf("  Go version: %s\n", GoVersion)
+		fmt.Print(build().Report("sysml-wasm"))
 		return
 	}
 
-	server, err := combined.New(Version)
+	server, err := combined.New(build().Version)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "sysml-wasm: %v\n", err)
 		os.Exit(1)

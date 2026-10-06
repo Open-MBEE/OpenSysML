@@ -20,6 +20,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/usage"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/convert"
+	"github.com/Open-MBEE/OpenSysML/internal/workspace/buildinfo"
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/libs"
 )
 
@@ -33,6 +34,12 @@ var (
 	BuildTime = "unknown"
 	GoVersion = "unknown"
 )
+
+// build is what this binary reports about itself: the linker's stamps, or the
+// module version and VCS metadata the toolchain recorded when none were passed.
+func build() buildinfo.Info {
+	return buildinfo.Resolve(buildinfo.Stamps{Version: Version, Commit: Commit, BuildTime: BuildTime, GoVersion: GoVersion})
+}
 
 // sessionCompleter completes prompt input from the session: meta commands,
 // declared and library names, and file paths after %load and %save.
@@ -333,10 +340,7 @@ func runCLI() int {
 
 	// Handle version flag
 	if showVersion {
-		fmt.Printf("sysml %s\n", Version)
-		fmt.Printf("  Commit:     %s\n", Commit)
-		fmt.Printf("  Build time: %s\n", BuildTime)
-		fmt.Printf("  Go version: %s\n", GoVersion)
+		fmt.Print(build().Report("sysml"))
 		return 0
 	}
 
@@ -764,7 +768,7 @@ func resolveRunBounds() int {
 // the run bounds resolved at startup.
 func newSession() *repl.Session {
 	sess := repl.NewSessionWithSourceConverter(convert.ModelSource)
-	sess.SetToolVersion("sysml " + Version)
+	sess.SetToolVersion("sysml " + build().Version)
 	if err := sess.SetBudgets(budgets); err != nil {
 		// Unreachable: budgets are validated in main before any session exists.
 		fmt.Fprintln(os.Stderr, errPrefix, err)

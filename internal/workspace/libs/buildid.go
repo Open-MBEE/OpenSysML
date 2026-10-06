@@ -9,6 +9,8 @@ import (
 	"strconv"
 	"sync"
 	"time"
+
+	"github.com/Open-MBEE/OpenSysML/internal/workspace/buildinfo"
 )
 
 // buildID identifies the code that produced a record. It is part of every cache
@@ -60,7 +62,7 @@ func buildIDFromInfo(info *debug.BuildInfo) (string, bool) {
 	if revision != "" && !modified {
 		return "g" + revision, true
 	}
-	if v := info.Main.Version; v != "" && v != "(devel)" {
+	if v := info.Main.Version; buildinfo.Stamped(v) {
 		return "m" + v, true
 	}
 	return "", false

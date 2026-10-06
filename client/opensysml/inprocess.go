@@ -9,6 +9,7 @@ import (
 	"connectrpc.com/connect"
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
 	sysmlgrpc "github.com/Open-MBEE/OpenSysML/internal/frontend/grpc"
+	"github.com/Open-MBEE/OpenSysML/internal/workspace/buildinfo"
 )
 
 // defaultCacheSize matches the sysml-grpc default, so the two implementations
@@ -57,7 +58,7 @@ const modulePath = "github.com/Open-MBEE/OpenSysML"
 func buildVersion() string {
 	info, ok := debug.ReadBuildInfo()
 	if !ok {
-		return "dev"
+		return buildinfo.Unversioned
 	}
 	if info.Main.Path == modulePath {
 		return released(info.Main.Version)
@@ -67,20 +68,20 @@ func buildVersion() string {
 			continue
 		}
 		if dep.Replace != nil {
-			if version := released(dep.Replace.Version); version != "dev" {
+			if version := released(dep.Replace.Version); version != buildinfo.Unversioned {
 				return version
 			}
 		}
 		return released(dep.Version)
 	}
-	return "dev"
+	return buildinfo.Unversioned
 }
 
 // released reports a module version, or "dev" for one the toolchain leaves
 // unstamped: an unversioned build or a directory replacement.
 func released(version string) string {
-	if version == "" || version == "(devel)" {
-		return "dev"
+	if !buildinfo.Stamped(version) {
+		return buildinfo.Unversioned
 	}
 	return version
 }
