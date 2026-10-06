@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from opensysml import typed as _t
 
-SYSML_GENERATOR_VERSION = "4"
+SYSML_GENERATOR_VERSION = "5"
 """Emission schema this module was generated with."""
 
 SYSML_MODEL_HASH = "sha256:31eb18ac5d0577683b21c4854fc751385d8b92f724943e91f8548d00c6986016"
@@ -18,9 +18,9 @@ class Engine(_t.TypedObject):
     sysml_id = "Demo::Engine"
 
     @property
-    def power(self) -> float:
+    def power(self) -> _t.Fraction:
         """attributeUsage Demo::Engine::power."""
-        return _t.feature_value(self, "power", _t.as_float)
+        return _t.feature_value(self, "power", _t.as_rational)
 
 
 class Vehicle(_t.TypedObject):
@@ -34,6 +34,6 @@ class Vehicle(_t.TypedObject):
         return _t.feature_value(self, "engine", _t.as_typed(Engine))
 
     @property
-    def mass(self) -> float:
+    def mass(self) -> _t.Fraction:
         """attributeUsage Demo::Vehicle::mass."""
-        return _t.feature_value(self, "mass", _t.as_float)
+        return _t.feature_value(self, "mass", _t.as_rational)

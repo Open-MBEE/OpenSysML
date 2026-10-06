@@ -43,4 +43,28 @@ public interface ParseSourcesRequestOrBuilder extends
    * @return The strictConformance.
    */
   boolean getStrictConformance();
+
+  /**
+   * <pre>
+   * The model_hash of a model of these documents the client holds results of,
+   * typically the one its previous ParseSources returned. The answer's affected
+   * is relative to it. Reported as the "parse_sources_affected" capability.
+   * </pre>
+   *
+   * <code>string base_model_hash = 3 [json_name = "baseModelHash"];</code>
+   * @return The baseModelHash.
+   */
+  java.lang.String getBaseModelHash();
+  /**
+   * <pre>
+   * The model_hash of a model of these documents the client holds results of,
+   * typically the one its previous ParseSources returned. The answer's affected
+   * is relative to it. Reported as the "parse_sources_affected" capability.
+   * </pre>
+   *
+   * <code>string base_model_hash = 3 [json_name = "baseModelHash"];</code>
+   * @return The bytes for baseModelHash.
+   */
+  com.google.protobuf.ByteString
+      getBaseModelHashBytes();
 }

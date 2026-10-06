@@ -495,3 +495,20 @@ func TestSysMLDeclarationTwinsAreSilent(t *testing.T) {
 		}
 	}
 }
+
+// An import of the StateActivity extension library is reported at the import,
+// a warning by default and an error under strict conformance.
+func TestStateActivityImportIsReported(t *testing.T) {
+	for _, src := range []string{
+		"package P { private import StateActivity::*; state def S { state a; } }",
+		"package P { private import StateActivity::isActive; state def S { state a; } }",
+		"package P { private import StateActivity; state def S { state a; } }",
+	} {
+		wantNotation(t, "a.sysml", src, CodeNonstandardNotation, "`StateActivity` library is an OpenSysML extension")
+		got := notationDiags(t, "a.sysml", src, diag.ConformanceStrict)
+		if len(got) != 1 || got[0].Severity != diag.SeverityError || got[0].Code != CodeNonstandardNotation {
+			t.Errorf("strict: %s: got %+v, want one nonstandard-notation error", src, got)
+		}
+	}
+	wantSilent(t, "a.sysml", "package P { private import ScalarValues::*; private import States::*; state def S { state a; } }")
+}

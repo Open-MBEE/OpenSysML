@@ -84,6 +84,13 @@ func (fc *funcCompiler) recordFields(r *Record) string {
 				f.def = intLit(v)
 			case v.Kind == semantics.ValReal:
 				f.def = RealLit{Value: v.Real}
+			case v.Kind == semantics.ValRational && b.t.Elem() == TypeReal:
+				// A Real field holds the Rational default rounded once, as the interpreter does.
+				real, err := semantics.RealOf(v)
+				if err != nil {
+					return fmt.Sprintf("the default of %s.%s: %v", r.Short, sf.Name, err)
+				}
+				f.def = RealLit{Value: real.Real}
 			case v.Kind == semantics.ValBool:
 				f.def = BoolLit{Value: v.Bool}
 			default:
@@ -275,6 +282,9 @@ func (fc *funcCompiler) constructorLabel(typ *symbols.Symbol, typeRef, qn *ast.Q
 func (fc *funcCompiler) compileChain(n *ast.FeatureChainExpr) (Expr, error) {
 	if n.Member == nil || len(n.Member.Parts) == 0 {
 		return nil, fc.unsupported("a feature chain naming no feature")
+	}
+	if sym, ok := fc.c.resolver.ResolveTarget(fc.scope, n); ok && semantics.IsStateActivity(sym) {
+		return nil, fc.unsupported(fmt.Sprintf("%s: a read of a state's activity (StateActivity::isActive), which only the state machine running the state answers", chainText(n)))
 	}
 	x, err := fc.compileExpr(n.Operand)
 	if err != nil {

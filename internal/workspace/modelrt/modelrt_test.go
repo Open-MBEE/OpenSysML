@@ -97,3 +97,30 @@ func TestNewRuntimeKeepsCallerIndexedDocuments(t *testing.T) {
 		})
 	}
 }
+
+// A requirement answers the verdicts of its own declaration, not those of
+// another document's requirement of the same qualified name.
+func TestRequirementVerdictsByDeclaration(t *testing.T) {
+	ws := model.NewWorkspace()
+	ws.Open("alpha.sysml", []byte("package P { requirement limit; }\n"), 1)
+	ws.Open("beta.sysml", []byte("package P {\n    requirement limit;\n    verification check {\n        objective { verify limit; }\n    }\n}\n"), 1)
+	rt, err := modelrt.New(ws)
+	if err != nil {
+		t.Fatalf("modelrt.New: %v", err)
+	}
+	drawn, err := modelrt.New(ws)
+	if err != nil {
+		t.Fatalf("modelrt.New: %v", err)
+	}
+	alpha, beta := drawn.Declared("alpha.sysml", "P::limit"), drawn.Declared("beta.sysml", "P::limit")
+	if alpha == nil || beta == nil {
+		t.Fatal("P::limit is not declared in both documents")
+	}
+	verdicts := rt.RequirementVerdicts()
+	if got := verdicts(beta); len(got) != 1 || got[0].Case != "P::check" {
+		t.Errorf("beta.sysml's P::limit verdicts = %v, want the one of P::check", got)
+	}
+	if got := verdicts(alpha); len(got) != 0 {
+		t.Errorf("alpha.sysml's P::limit verdicts = %v, want none", got)
+	}
+}

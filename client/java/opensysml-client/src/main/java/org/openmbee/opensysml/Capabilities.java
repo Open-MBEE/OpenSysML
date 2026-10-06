@@ -54,8 +54,17 @@ public final class Capabilities {
   /** An Integer beyond int64 travels as {@code big_int_value} rather than as an unsupported null. */
   public static final String BIG_INT_VALUES = "big_int_values";
 
+  /**
+   * An exact Rational no double holds travels as {@code rational_value} rather than as an
+   * unsupported null.
+   */
+  public static final String RATIONAL_VALUES = "rational_values";
+
   /** A model converts with only the documents {@code documents} names written, the rest linked by id. */
   public static final String CONVERT_DOCUMENTS = "convert_documents";
+
+  /** A parse names the documents whose results may differ from those of {@code base_model_hash}. */
+  public static final String PARSE_SOURCES_AFFECTED = "parse_sources_affected";
 
   /** A complex number travels as itself rather than as an unsupported null. */
   public static final String COMPLEX_VALUES = "complex_values";

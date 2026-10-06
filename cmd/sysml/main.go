@@ -129,6 +129,7 @@ var (
 	renderUnplaced   string
 	renderStyle      string
 	renderPorts      string
+	renderOverlay    string
 	renderDoc        string
 	renderDocsDir    string
 	docForm          string
@@ -147,6 +148,7 @@ var (
 	htmlTheme        string
 	strictMode       bool
 	disabledLints    lintList
+	enabledLints     lintList
 	noRecordCache    bool
 	modelChecks      checks
 	compileCalc      string
@@ -399,6 +401,10 @@ func runCLI() int {
 	}
 	if renderPalette != "" && renderView == "" && renderAllDir == "" {
 		fmt.Fprintln(os.Stderr, "sysml: -render-palette is the palette -render or -render-all fills DOT, Mermaid, PlantUML or D2 with; name the view to render with -render or a directory with -render-all")
+		return 2
+	}
+	if renderOverlay != "" && renderView == "" && renderAllDir == "" {
+		fmt.Fprintln(os.Stderr, "sysml: -render-overlay is what -render or -render-all draws over a requirement rendering's structure; name the view to render with -render or a directory with -render-all")
 		return 2
 	}
 	if renderLink != "" && renderView == "" && renderAllDir == "" && renderDoc == "" && renderDocsDir == "" {
@@ -830,6 +836,11 @@ func newSession() *repl.Session {
 		os.Exit(2)
 	}
 	if err := sess.SetDisabledLints(disabledLints); err != nil {
+		// Unreachable: the codes were validated as the flag was parsed.
+		fmt.Fprintln(os.Stderr, errPrefix, err)
+		os.Exit(2)
+	}
+	if err := sess.SetEnabledLints(enabledLints); err != nil {
 		// Unreachable: the codes were validated as the flag was parsed.
 		fmt.Fprintln(os.Stderr, errPrefix, err)
 		os.Exit(2)

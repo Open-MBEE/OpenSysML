@@ -61,8 +61,8 @@
         "name": "examples",
         "dir": "examples",
         "origin": "ours",
-        "files": 48,
-        "digest": "sha256:a80914770ed799c76f966f70419f28bb618ea704eea214be0c4ca1fd16bc181b"
+        "files": 50,
+        "digest": "sha256:d9088e5424df569771dce01bae6dec149f7ffa6a8fc34dca2b098c15be43991c"
       },
       {
         "name": "probes",
@@ -75,15 +75,15 @@
         "name": "opensysml-libraries",
         "dir": "internal/workspace/libs/stdlib/OpenSysML Libraries",
         "origin": "ours",
-        "files": 15,
-        "digest": "sha256:cfa4ce639ac0808be3cf88a9e01fe6b0843964bc20b8187474bb737ed9adec50"
+        "files": 16,
+        "digest": "sha256:7899f774dc78406305374ab88f654965b502e10fdc6cc8085eec7a16226b8996"
       }
     ],
     "recorded": "2026-10-06"
   },
   "totals": {
-    "files": 386,
-    "filesFullyAgreeing": 357,
+    "files": 388,
+    "filesFullyAgreeing": 359,
     "agreement": 45,
     "severityMismatch": 1,
     "openSysMLOnly": 44,
@@ -931,8 +931,8 @@
       "name": "examples",
       "dir": "examples",
       "totals": {
-        "files": 48,
-        "filesFullyAgreeing": 43,
+        "files": 50,
+        "filesFullyAgreeing": 45,
         "agreement": 0,
         "severityMismatch": 0,
         "openSysMLOnly": 7,
@@ -1727,8 +1727,8 @@
       }
     ],
     "totals": {
-      "files": 386,
-      "filesFullyAgreeing": 358,
+      "files": 388,
+      "filesFullyAgreeing": 360,
       "agreement": 45,
       "severityMismatch": 1,
       "openSysMLOnly": 43,

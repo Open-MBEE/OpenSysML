@@ -8,15 +8,17 @@ use crate::capabilities::{
     CAPABILITY_ENUM_VALUES, CAPABILITY_FUNCTION_VALUES, CAPABILITY_INFINITY_VALUE,
     CAPABILITY_INLINE_LANGUAGE, CAPABILITY_MEASUREMENT_REFS, CAPABILITY_METAOBJECT_VALUES,
     CAPABILITY_MIGRATE, CAPABILITY_OSLC_QUERY, CAPABILITY_PARSE_SOURCES, CAPABILITY_PERFORMER,
-    CAPABILITY_QUERY, CAPABILITY_RENDER_DOCUMENT, CAPABILITY_RENDER_DOCUMENT_HTML,
-    CAPABILITY_SCHEDULE, CAPABILITY_SCHEDULE_EXPLORE, CAPABILITY_SET_VALUES,
-    CAPABILITY_STATE_TRACE, CAPABILITY_STRICT_CONFORMANCE, CAPABILITY_STRUCTURED_VALUES,
-    CAPABILITY_TENSOR_VALUES, CAPABILITY_VERIFICATION, CAPABILITY_VERIFICATION_QUESTIONS,
+    CAPABILITY_QUERY, CAPABILITY_RATIONAL_VALUES, CAPABILITY_RENDER_DOCUMENT,
+    CAPABILITY_RENDER_DOCUMENT_HTML, CAPABILITY_SCHEDULE, CAPABILITY_SCHEDULE_EXPLORE,
+    CAPABILITY_SET_VALUES, CAPABILITY_STATE_TRACE, CAPABILITY_STRICT_CONFORMANCE,
+    CAPABILITY_STRUCTURED_VALUES, CAPABILITY_TENSOR_VALUES, CAPABILITY_VERIFICATION,
+    CAPABILITY_VERIFICATION_QUESTIONS,
 };
 use crate::conversion::{conversion_of, request_of, Conversion, ConvertOptions, ConvertSource};
 use crate::document::{
-    binding_holds_big_int, bindings_to_wire, document_event_from_wire, rendered_view_of, result_of,
-    DocumentForm, DocumentQueryResult, DocumentValue, RenderViewPorts, RenderedView,
+    binding_holds_big_int, binding_holds_rational, binding_rationals_as_reals, bindings_to_wire,
+    document_event_from_wire, rendered_view_of, result_of, DocumentForm, DocumentQueryResult,
+    DocumentValue, RenderViewPorts, RenderedView,
 };
 use crate::domain::{Model, Value};
 use crate::encode::value_to_wire;
@@ -234,6 +236,7 @@ impl Connection {
             wire::ParseSourcesRequest {
                 documents: encoded,
                 strict_conformance: options.strict_conformance,
+                base_model_hash: String::new(),
             },
             &capabilities,
         )?;
@@ -374,10 +377,16 @@ impl Connection {
         query_id: &str,
         bindings: &[(K, Vec<DocumentValue>)],
     ) -> Result<DocumentQueryResult, Error> {
-        let bindings = bindings_to_wire(bindings)?;
+        let mut bindings = bindings_to_wire(bindings)?;
         self.require_all(&[CAPABILITY_DOCUMENT_QUERY])?;
+        if !self.capabilities().has(CAPABILITY_RATIONAL_VALUES) {
+            bindings.iter_mut().for_each(binding_rationals_as_reals);
+        }
         if bindings.iter().any(binding_holds_big_int) {
             self.require_all(&[CAPABILITY_BIG_INT_VALUES])?;
+        }
+        if bindings.iter().any(binding_holds_rational) {
+            self.require_all(&[CAPABILITY_RATIONAL_VALUES])?;
         }
         let response = self.gated_rpc(
             "RunDocumentQuery",

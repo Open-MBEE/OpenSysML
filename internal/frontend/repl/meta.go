@@ -29,7 +29,7 @@ import (
 
 // renderUsage is how %render is written: a view, the form to write it in, text
 // when none is named, then a palette, style and port display the form draws.
-const renderUsage = "usage: %render <name> [text|mermaid|markdown|dot|plantuml|d2|csv|tsv [palette] [pilot|cameo] [minimal|full] [link=<template>]]"
+const renderUsage = "usage: %render <name> [text|mermaid|markdown|dot|plantuml|d2|csv|tsv [palette] [pilot|cameo] [minimal|full] [verdicts] [link=<template>]]"
 
 // isMeta reports whether a trimmed input line is a meta command.
 func isMeta(line string) bool {
@@ -191,7 +191,7 @@ var metaCommandTable = []metaCommand{
 	{name: "%verbosity", group: groupSettings, args: "[level]", desc: "show or set output level: quiet, normal or debug"},
 	{name: "%trace", group: groupSettings, args: "[on|off]", desc: "show or set execution tracing (evaluation, calc, action and state steps)"},
 	{name: "%strict", group: groupSettings, args: "[on|off]", desc: "show or set strict conformance: report notation no SysML v2 production admits as an error"},
-	{name: "%lint", group: groupSettings, args: "[<code> on|off]", desc: "list the lints — warnings about models the specification accepts — each on or off, or switch one by its code: undeclared-signal, port-type-mismatch"},
+	{name: "%lint", group: groupSettings, args: "[<code> on|off]", desc: "list the lints — warnings about models the specification accepts — each on or off, or switch one by its code: undeclared-signal, port-type-mismatch, deferred-keeper-unmarked, rounded-real-literal (opt-in, off by default)"},
 	{name: "%schedule", group: groupSettings, args: "[<policy>]", desc: "show or set the scheduling policy runs started from here on resolve choice points under: declared, reverse or seed:<n>"},
 	{name: "%seed", group: groupSettings, args: "[<n>|off]", desc: "show or set the seed runs started from here on draw their modeled randomness from — Probability-weighted decisions, RandomFunctions — whatever the schedule; off leaves it to the schedule's seed:<n>"},
 	{name: "%draws", group: groupSettings, args: "[<policy>]", desc: "show or set how runs started from here on resolve RandomFunctions draws: random (from the seed), min, max or average of each call's distribution; min, max and average need no seed"},
@@ -501,8 +501,16 @@ func (s *Session) metaRender(args []string) ([]string, bool, error) {
 		}
 	}
 	var opts view.Options
+	var overlay view.Overlay
 	linkSet := false
 	for _, word := range args[min(2, len(args)):] {
+		if o, ok := view.ParseOverlay(word); ok && o != "" {
+			if overlay != "" {
+				return []string{renderUsage}, false, nil
+			}
+			overlay = o
+			continue
+		}
 		if strings.HasPrefix(word, "link=") {
 			if linkSet {
 				return []string{renderUsage}, false, nil
@@ -540,7 +548,7 @@ func (s *Session) metaRender(args []string) ([]string, bool, error) {
 		}
 		opts.Palette = palette
 	}
-	return s.doRender(args[0], form, opts)
+	return s.doRender(args[0], form, opts, overlay)
 }
 
 // metaModelCommand runs a model-level command, reporting whether the line

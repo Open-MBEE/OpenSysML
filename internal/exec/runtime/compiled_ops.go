@@ -10,13 +10,15 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
 
-// scalar is an unboxed Integer, Real or Boolean, the values the compiled calc
-// tier computes over; it is boxed into a Value only at an invocation boundary.
-// An Integer beyond int64 is held in big, immutable, with bits zero.
+// scalar is an unboxed Integer, Rational, Real or Boolean, the values the
+// compiled calc tier computes over; it is boxed into a Value only at an
+// invocation boundary. An Integer beyond int64 is held in big, immutable, with
+// bits zero; a Rational is held exactly in exact.
 type scalar struct {
-	kind scalarKind
-	bits uint64
-	big  *big.Int
+	kind  scalarKind
+	bits  uint64
+	big   *big.Int
+	exact semantics.Value
 }
 
 type scalarKind uint8
@@ -25,6 +27,7 @@ const (
 	scalarInt scalarKind = iota
 	scalarReal
 	scalarBool
+	scalarRational
 )
 
 // #nosec G115 -- the Integer's two's-complement bits are stored, not its magnitude.
@@ -61,6 +64,8 @@ func (s scalar) semantic() semantics.Value {
 		return semantics.IntValue(s.int())
 	case scalarReal:
 		return semantics.Value{Kind: semantics.ValReal, Real: s.real()}
+	case scalarRational:
+		return s.exact
 	default:
 		return semantics.Value{Kind: semantics.ValBool, Bool: s.truth()}
 	}
@@ -81,6 +86,8 @@ func scalarOfConst(c semantics.Value) (scalar, bool) {
 		return scalar{kind: scalarInt, big: c.BigIntView()}, true
 	case semantics.ValReal:
 		return realScalar(c.Real), true
+	case semantics.ValRational:
+		return scalar{kind: scalarRational, exact: c}, true
 	case semantics.ValBool:
 		return boolScalar(c.Bool), true
 	}

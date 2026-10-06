@@ -221,9 +221,14 @@ func declareStmt(s lower.Declare, slot int, value compiledExpr, check *scalarChe
 		if err != nil {
 			return scalar{}, false, fmt.Errorf("eval declaration %s: %w", s.Name, err)
 		}
-		if check != nil && !check.accepts(v) {
-			boxed := v.boxed()
-			if err := ctx.checkBodyDeclaration(s.Scope, calcBodyDescription, s.Name, &boxed); err != nil {
+		if check != nil {
+			if !check.accepts(v) {
+				boxed := v.boxed()
+				if err := ctx.checkBodyDeclaration(s.Scope, calcBodyDescription, s.Name, &boxed); err != nil {
+					return scalar{}, false, err
+				}
+			}
+			if v, err = check.held(v, nil); err != nil {
 				return scalar{}, false, err
 			}
 		}
@@ -240,8 +245,14 @@ func returnStmt(value compiledExpr, result *scalarCheck) compiledStmt {
 		if err != nil {
 			return scalar{}, false, fmt.Errorf("evaluating the returned expression: %w", err)
 		}
-		if result != nil && !result.accepts(v) {
-			if err := result.refuse(ctx, v, func() string { return "result" }); err != nil {
+		if result != nil {
+			what := func() string { return "result" }
+			if !result.accepts(v) {
+				if err := result.refuse(ctx, v, what); err != nil {
+					return scalar{}, false, err
+				}
+			}
+			if v, err = result.held(v, what); err != nil {
 				return scalar{}, false, err
 			}
 		}

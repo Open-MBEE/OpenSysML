@@ -108,8 +108,25 @@ type Term struct {
 	Str string
 
 	// IntRatio marks an OpDiv over widened integers: a whole-number quotient,
-	// which the evaluator computes as the exact ratio rounded once to float64.
+	// which the evaluator computes as the exact Rational ratio.
 	IntRatio bool
+}
+
+// Binary64 reports whether the evaluator computes the term in binary64: a Real
+// variable, or arithmetic one takes part in. Integer and Rational arithmetic,
+// literals included, is exact.
+func (t *Term) Binary64() bool {
+	switch t.Op {
+	case OpVar:
+		return t.Var.Binary64
+	case OpAdd, OpSub, OpMul, OpDiv, OpNeg, OpIte:
+		for _, arg := range t.Args {
+			if arg.Binary64() {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // Literal reports whether the term is a literal value, which is what makes a

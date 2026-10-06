@@ -110,6 +110,9 @@ type Resolver struct {
 	// resolving holds the depth (see enter) of each lookup on the stack, so a
 	// re-entrant query of the same name fails instead of recursing.
 	resolving map[ast.Node]int
+	// featuring holds the depth of each featured-member lookup (featuredMember)
+	// on the stack, whose scope walk may resolve the very chain that began it.
+	featuring map[featuredKey]int
 	// redefining holds the depth of each redefinition target being resolved,
 	// whose generals are found by resolving the targets of other redefinitions.
 	redefining map[*ast.QualifiedName]int
