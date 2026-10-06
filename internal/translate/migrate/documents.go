@@ -116,11 +116,10 @@ type contentPlan struct {
 	// query and rows are the row query's reserved name and expression, for
 	// the query-backed kinds; widths and labels are a Table's column widths
 	// and headings.
-	query      string
-	rows       qx
-	parameters []boundParameter
-	widths     []int
-	labels     []string
+	query  string
+	rows   qx
+	widths []int
+	labels []string
 	// location and alt are what an Image block shows and says for it.
 	location string
 	alt      string
@@ -882,8 +881,7 @@ type chain struct {
 	// perRow says the chain runs from each row of a table in turn, as a
 	// column's does: the holders are every row's elements together, so a step
 	// that spells its result from them, rather than from ctx, does not apply.
-	perRow     bool
-	parameters *lowered
+	perRow bool
 }
 
 func (c *chain) sub() *chain {
@@ -892,11 +890,6 @@ func (c *chain) sub() *chain {
 	s.diagrams = append([]*sysmlv1.Diagram(nil), c.diagrams...)
 	s.holders = append([]*sysmlv1.Element(nil), c.holders...)
 	s.active = append([]*sysmlv1.Element(nil), c.active...)
-	if c.parameters != nil {
-		parameters := *c.parameters
-		parameters.parameters = append([]boundParameter(nil), c.parameters.parameters...)
-		s.parameters = &parameters
-	}
 	return &s
 }
 
@@ -935,7 +928,6 @@ func contains(ss []string, s string) bool {
 // source elements stay followed for the diagrams they own.
 func (c *chain) roots(refs []sysmlv1.ElementRef, role string) {
 	c.ctx, c.diagrams, c.holders, c.vague, c.hazy, c.self, c.dropped, c.none, c.broken = qx{}, nil, nil, "", "", "", "", "", ""
-	c.parameters = &lowered{}
 	var names []string
 	for _, ref := range refs {
 		if d := c.m.model.Diagram(ref.ID); d != nil {
@@ -1120,7 +1112,6 @@ func (c *chain) fail(s *sysmlv1.DocGenStep, why string) {
 			c.broken = "«" + c.kind(s) + "» " + qualifiedName(s.Node) + unmigrated + why
 		}
 		c.ctx = qx{}
-		c.parameters = &lowered{}
 		c.refusedEntry(s, why)
 	}
 }
@@ -1253,7 +1244,6 @@ func (c *chain) collect(s *sysmlv1.DocGenStep, op string) {
 	}
 	if len(results) == 0 {
 		c.ctx = qx{}
-		c.parameters = &lowered{}
 		return
 	}
 	c.ctx = union(results)
@@ -1328,7 +1318,6 @@ func (c *chain) collectShown(s *sysmlv1.DocGenStep) {
 	}
 	diagrams, holders := c.diagrams, c.holders
 	c.ctx, c.diagrams, c.holders, c.dropped, c.none, c.hazy = qx{}, nil, nil, "", "", ""
-	c.parameters = &lowered{}
 	if c.vague != "" {
 		c.fail(s, "the diagrams it reads are known only when the query runs, and no query operation reads what a diagram shows")
 		return
@@ -1464,7 +1453,6 @@ func (c *chain) collectAssociated(s *sysmlv1.DocGenStep) {
 	}
 	holders := c.holders
 	c.holders, c.ctx = nil, qx{}
-	c.parameters = &lowered{}
 	var names []string
 	// reached is the shallowest level each type was met at; a shallower path
 	// walks it again, since more depth remains below it.
@@ -1649,19 +1637,11 @@ func (c *chain) filterTypes(s *sysmlv1.DocGenStep, tag string) {
 		return
 	}
 	l := &lowered{perRow: c.perRow}
-	if c.parameters != nil {
-		l.parameters = append([]boundParameter(nil), c.parameters.parameters...)
-	}
-	previousParameters := len(l.parameters)
 	kept := c.m.typedRows(c.ctx, refs, true, false, l)
 	if l.refused != "" {
 		c.fail(s, l.refused)
 		return
 	}
-	if c.parameters == nil {
-		c.parameters = &lowered{}
-	}
-	c.parameters.parameters = l.parameters
 	for _, n := range l.notes {
 		c.note(n)
 	}
@@ -1670,8 +1650,8 @@ func (c *chain) filterTypes(s *sysmlv1.DocGenStep, tag string) {
 	}
 	if s.Application.Tag("include") == "false" {
 		source := c.ctx
-		if len(l.parameters) > previousParameters {
-			source = qlit(l.parameters[previousParameters].name)
+		if !c.perRow {
+			source = qshared(source)
 		}
 		c.ctx = qcall("Except", qarg1("source", source), qarg1("exclude", kept))
 		return
@@ -1688,7 +1668,6 @@ func (c *chain) filterDiagramTypes(s *sysmlv1.DocGenStep) {
 	types := c.diagramTypes(s)
 	holders, diagrams, hazy := c.holders, c.diagrams, c.hazy
 	c.ctx, c.holders, c.diagrams, c.hazy = qx{}, nil, nil, ""
-	c.parameters = &lowered{}
 	// Naming no type, the filter keeps none or all, whatever their types.
 	for _, d := range diagrams {
 		if d.Kind == "" && len(types) > 0 {
@@ -1890,7 +1869,6 @@ func (c *chain) keepNamed(s *sysmlv1.DocGenStep, renamed []*sysmlv1.Element) {
 	}
 	if len(names) == 0 {
 		c.ctx = qx{}
-		c.parameters = &lowered{}
 		if len(c.diagrams) == 0 {
 			c.none = c.dropped
 			if c.none == "" {
@@ -1900,7 +1878,6 @@ func (c *chain) keepNamed(s *sysmlv1.DocGenStep, renamed []*sysmlv1.Element) {
 		return
 	}
 	c.ctx = qcall("Named", qstrs("qualifiedName", names...))
-	c.parameters = &lowered{}
 }
 
 // sort lowers a sort step to OrderBy over a query property and orders the current
@@ -2025,13 +2002,8 @@ func (c *chain) join(s *sysmlv1.DocGenStep) {
 	if len(s.Branches) > 0 {
 		dropped, vague, hazy, none = "", "", "", ""
 	}
-	parameters := &lowered{}
-	if c.parameters != nil {
-		parameters.parameters = append([]boundParameter(nil), c.parameters.parameters...)
-	}
 	for _, branch := range s.Branches {
 		sub := c.sub()
-		sub.parameters = parameters
 		sub.run(branch)
 		if sub.broken != "" {
 			c.broken, c.vague = sub.broken, sub.vague
@@ -2078,11 +2050,9 @@ func (c *chain) join(s *sysmlv1.DocGenStep) {
 	}
 	if len(results) == 0 {
 		c.ctx = qx{}
-		c.parameters = &lowered{}
 		return
 	}
 	c.ctx = union(results)
-	c.parameters = parameters
 }
 
 // group lowers a nested chain: a CollectionAndFilterGroup's result flows on,
@@ -2118,7 +2088,6 @@ func (c *chain) group(s *sysmlv1.DocGenStep, flows bool) {
 	}
 	c.ctx, c.diagrams, c.holders, c.vague, c.hazy, c.broken = sub.ctx, sub.diagrams, sub.holders, sub.vague, sub.hazy, sub.broken
 	c.dropped, c.none = sub.dropped, sub.none
-	c.parameters = sub.parameters
 	for _, n := range sub.notes {
 		c.note(n)
 	}
@@ -2277,9 +2246,6 @@ func (c *chain) captionParagraph(s *sysmlv1.DocGenStep, note, text string) {
 // document's host, its member name in the section.
 func (c *chain) block(s *sysmlv1.DocGenStep, kind, caption string, rows qx) *contentPlan {
 	cp := &contentPlan{kind: kind, node: s.Node, label: "«" + c.kind(s) + "» " + s.Node.Type, caption: caption, rows: rows}
-	if c.parameters != nil {
-		cp.parameters = append([]boundParameter(nil), c.parameters.parameters...)
-	}
 	cp.name = c.sec.names.claim(strings.ToLower(kind))
 	cp.query = c.m.viewName(c.dp.host, c.dp.root.title+" "+caption+rowsSuffix)
 	cp.notes = append(cp.notes, c.notes...)
@@ -2895,7 +2861,7 @@ func uniqueNotes(notes []string) []string {
 func (m *migration) writeQueries(sec *sectionPlan, prefix string, host *sysmlv1.Element) {
 	for _, cp := range m.blocks(sec) {
 		if cp.query != "" && cp.refused == "" && cp.table == nil {
-			m.writeQueryDef(cp.query, prefix, host, cp.parameters, cp.rows)
+			m.writeQueryDef(cp.query, prefix, host, cp.rows)
 		}
 	}
 }

@@ -3,6 +3,7 @@ package migrate_test
 import (
 	"bytes"
 	"os"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -191,56 +192,152 @@ func TestMigratedTablesExecute(t *testing.T) {
 		"Plant::Requirements::SealRequirement")
 }
 
-func TestExcludingTypeFilterBindsItsSourceOnce(t *testing.T) {
-	notation := string(migrateFixtureFile(t, "documents").Notation)
-	start := strings.Index(notation, "calc def 'Fleet Handbook Fleet Parts Rows'")
-	if start < 0 {
-		t.Fatal("Fleet Handbook Fleet Parts Rows query is missing")
+func TestUnionBranchesKeepSharedQueryParametersDeclared(t *testing.T) {
+	data, err := os.ReadFile("testdata/xmi/documents.xmi")
+	if err != nil {
+		t.Fatal(err)
 	}
-	query := notation[start:]
-	if end := strings.Index(query, "\n        }"); end >= 0 {
-		query = query[:end]
-	} else {
-		t.Fatal("Fleet Handbook Fleet Parts Rows query is unterminated")
+	replacements := [][2]string{
+		{
+			`<node xmi:type="uml:ForkNode" xmi:id="_trace_fork"/>`,
+			`<node xmi:type="uml:CallBehaviorAction" xmi:id="_trace_base" name="Collect Base"/>` +
+				`<node xmi:type="uml:ForkNode" xmi:id="_trace_fork"/>`,
+		},
+		{
+			`<edge xmi:type="uml:ControlFlow" xmi:id="_trace_e1" source="_trace_init" target="_trace_fork"/>`,
+			`<edge xmi:type="uml:ControlFlow" xmi:id="_trace_e0" source="_trace_init" target="_trace_base"/>` +
+				`<edge xmi:type="uml:ControlFlow" xmi:id="_trace_e1" source="_trace_base" target="_trace_fork"/>`,
+		},
+		{
+			`<node xmi:type="uml:CallBehaviorAction" xmi:id="_trace_owned" name="Collect Owned Elements"/>`,
+			`<node xmi:type="uml:StructuredActivityNode" xmi:id="_trace_owned" name="Flowing Group">` +
+				`<node xmi:type="uml:InitialNode" xmi:id="_trace_group_init"/>` +
+				`<node xmi:type="uml:CallBehaviorAction" xmi:id="_trace_group_collect" name="Collect Owned Elements"/>` +
+				`<edge xmi:type="uml:ControlFlow" xmi:id="_trace_group_e1" source="_trace_group_init" target="_trace_group_collect"/>` +
+				`</node>`,
+		},
+	}
+	for _, replacement := range replacements {
+		before, after := []byte(replacement[0]), []byte(replacement[1])
+		if count := bytes.Count(data, before); count != 1 {
+			t.Fatalf("fixture extension anchor occurs %d times, want 1: %s", count, before)
+		}
+		data = bytes.Replace(data, before, after, 1)
+	}
+	profileStart := []byte(`<Document_Profile_:CollectByDirectedRelationshipStereotypes xmi:id="_st_trace_satisfiers"`)
+	profileEnd := []byte(`</Document_Profile_:CollectByDirectedRelationshipStereotypes>`)
+	start := bytes.Index(data, profileStart)
+	if start < 0 {
+		t.Fatal("DocGen Union filter profile was not found")
+	}
+	end := bytes.Index(data[start:], profileEnd)
+	if end < 0 {
+		t.Fatal("DocGen Union filter profile is unterminated")
+	}
+	oldProfile := data[start : start+end+len(profileEnd)]
+	newProfile := []byte(
+		`<Document_Profile_:FilterByMetaclasses xmi:id="_st_trace_satisfiers" base_CallBehaviorAction="_trace_satisfiers" include="false" targets="_pkg_structure">` +
+			`<metaclasses href="http://www.omg.org/spec/UML/20131001/UML.xmi#Class"/>` +
+			`</Document_Profile_:FilterByMetaclasses>`,
+	)
+	data = bytes.Replace(data, oldProfile, newProfile, 1)
+	insert := []byte(`<Document_Profile_:FilterByMetaclasses xmi:id="_st_trace_satisfiers"`)
+	profile := []byte(
+		`<Document_Profile_:CollectOwnedElements xmi:id="_st_trace_base" base_CallBehaviorAction="_trace_base" depth="1"/>` +
+			`<Document_Profile_:CollectionAndFilterGroup xmi:id="_st_trace_group" base_StructuredActivityNode="_trace_owned"/>` +
+			`<Document_Profile_:CollectOwnedElements xmi:id="_st_trace_group_collect" base_CallBehaviorAction="_trace_group_collect" depth="1"/>` +
+			`<Document_Profile_:FilterByMetaclasses xmi:id="_st_trace_satisfiers"`,
+	)
+	if count := bytes.Count(data, insert); count != 1 {
+		t.Fatalf("filter profile insertion anchor occurs %d times, want 1", count)
+	}
+	data = bytes.Replace(data, insert, profile, 1)
+
+	r, err := migrate.Migrate("documents_union.xmi", data)
+	if err != nil {
+		t.Fatalf("Migrate: %v", err)
+	}
+	if diagnostics := errors(t, "documents_union.sysml", r.Notation); len(diagnostics) != 0 {
+		t.Fatalf("migrated Union notation has errors: %v", diagnostics)
 	}
 
-	inParameter := false
-	parameterCount, sourceDefaults, sourceInBody, sourceInDefault := 0, 0, 0, 0
-	for _, line := range strings.Split(query, "\n") {
+	found := false
+	for _, query := range queryDefinitionBodies(string(r.Notation)) {
+		if !strings.Contains(query, "DocumentQueries::Union(") ||
+			!strings.Contains(query, "DocumentQueries::Except(") {
+			continue
+		}
+		found = true
+		assertCandidateReferencesDeclared(t, query)
+	}
+	if !found {
+		t.Fatalf("extended DocGen Union fixture emitted no Union with an excluding filter:\n%s", r.Notation)
+	}
+}
+
+func TestIdenticalExcludingSourcesShareOneQueryParameter(t *testing.T) {
+	r := migrateFixtureFile(t, "documents")
+	for _, query := range queryDefinitionBodies(string(r.Notation)) {
+		if !strings.Contains(query, "calc def 'Fleet Handbook Fleet Parts Rows'") {
+			continue
+		}
+		if got := strings.Count(query, "in candidates :"); got != 1 {
+			t.Fatalf("identical shared sources declare candidates %d times, want once:\n%s", got, query)
+		}
+		if got := strings.Count(query, "source = candidates"); got < 3 {
+			t.Fatalf("query uses the shared source %d times, want the type filter and excluding branches:\n%s", got, query)
+		}
+		return
+	}
+	t.Fatal("documents fixture has no Fleet Parts row query")
+}
+
+var candidateReference = regexp.MustCompile(`\bcandidates[0-9]*\b`)
+
+func queryDefinitionBodies(notation string) []string {
+	var bodies []string
+	var current strings.Builder
+	inQuery := false
+	for _, line := range strings.Split(notation, "\n") {
 		trimmed := strings.TrimSpace(line)
-		if strings.HasPrefix(trimmed, "in candidates") {
-			inParameter = true
-			parameterCount++
-			sourceInDefault = 0
-			if !strings.Contains(trimmed, " : KerML::Root::Element [0..*] ordered = ") {
-				t.Errorf("bound parameter has the wrong type or multiplicity: %s", trimmed)
-			}
+		if !inQuery && strings.HasPrefix(trimmed, "calc def ") && strings.Contains(trimmed, "::Query {") {
+			inQuery = true
+			current.Reset()
 		}
-		if strings.Contains(line, `qualifiedName = ("Fleet::Structure")`) {
-			if inParameter {
-				sourceInDefault++
-			} else {
-				sourceInBody++
-			}
+		if !inQuery {
+			continue
 		}
-		if inParameter && strings.HasSuffix(trimmed, ";") {
-			if sourceInDefault > 0 {
-				if sourceInDefault != 1 {
-					t.Errorf("excluding source appears %d times in one parameter default", sourceInDefault)
-				}
-				sourceDefaults++
-			}
-			inParameter = false
+		current.WriteString(line)
+		current.WriteByte('\n')
+		if trimmed == "}" {
+			bodies = append(bodies, current.String())
+			inQuery = false
 		}
 	}
-	if parameterCount == 0 || sourceDefaults == 0 {
-		t.Fatalf("query has no defaulted candidate parameter for the excluding source:\n%s", query)
+	return bodies
+}
+
+func assertCandidateReferencesDeclared(t *testing.T, query string) {
+	t.Helper()
+	declarations := map[string]int{}
+	for _, line := range strings.Split(query, "\n") {
+		fields := strings.Fields(strings.TrimSpace(line))
+		if len(fields) >= 2 && fields[0] == "in" && candidateReference.MatchString(fields[1]) {
+			declarations[fields[1]]++
+		}
 	}
-	if sourceInBody != 0 {
-		t.Errorf("excluding source is still evaluated in the query body %d times:\n%s", sourceInBody, query)
+	if len(declarations) == 0 {
+		t.Fatalf("excluding query declares no shared source:\n%s", query)
 	}
-	if uses := strings.Count(query, "source = candidates"); uses < 3 {
-		t.Errorf("query body uses the bound source %d times, want the occurrence-aware type filter's repeated references:\n%s", uses, query)
+	for name, count := range declarations {
+		if count != 1 {
+			t.Errorf("%s is declared %d times, want once:\n%s", name, count, query)
+		}
+	}
+	for _, name := range candidateReference.FindAllString(query, -1) {
+		if declarations[name] == 0 {
+			t.Errorf("%s is referenced without a declaration:\n%s", name, query)
+		}
 	}
 }
 
@@ -517,7 +614,7 @@ func TestMigratedDocumentsRender(t *testing.T) {
 	}
 }
 
-func TestPerRowExcludingFilterDoesNotLeakBoundParameter(t *testing.T) {
+func TestPerRowExcludingFilterStaysInline(t *testing.T) {
 	data, err := os.ReadFile("testdata/xmi/docgen_columns.xmi")
 	if err != nil {
 		t.Fatal(err)

@@ -30,32 +30,14 @@ func (td *tableDoc) written() bool {
 // widths of its columns, the settings applied faithfully, the notes that make
 // it approximate, and why it was refused when it was.
 type lowered struct {
-	rows       qx
-	parameters []boundParameter
-	widths     []int
-	labels     []string
-	roots      []string
-	applied    []string
-	notes      []string
-	refused    string
-	perRow     bool
-}
-
-type boundParameter struct {
-	name  string
-	value qx
-}
-
-func (l *lowered) bind(src qx) qx {
-	if !src.isCall() {
-		return src
-	}
-	name := "candidates"
-	if len(l.parameters) > 0 {
-		name += strconv.Itoa(len(l.parameters) + 1)
-	}
-	l.parameters = append(l.parameters, boundParameter{name: name, value: src})
-	return qlit(name)
+	rows    qx
+	widths  []int
+	labels  []string
+	roots   []string
+	applied []string
+	notes   []string
+	refused string
+	perRow  bool
 }
 
 func (l *lowered) note(s string) {
@@ -192,7 +174,7 @@ func (m *migration) writeTable(td *tableDoc) {
 		m.report.Entries = append(m.report.Entries, *m.tableEntry(t, Unmapped, "", note))
 		return
 	}
-	m.writeQueryDef(td.query, prefix, host, l.parameters, l.rows)
+	m.writeQueryDef(td.query, prefix, host, l.rows)
 	m.inside(blockNames("Document", columnNames{"rows": true}), func() {
 		m.w.block("part def "+writeName(td.doc)+" :> "+m.queryPrefix(host)+"Document", func() {
 			m.w.line("attribute redefines title = " + stringLiteral(td.title) + ";")
@@ -440,7 +422,7 @@ func (m *migration) typedRows(src qx, types []sysmlv1.ElementRef, subtypes, indi
 		}
 		source := src
 		if merged.excluding != nil && !l.perRow {
-			source = l.bind(src)
+			source = qshared(src)
 		}
 		if len(filtersToMerge) > 0 {
 			qs = append(qs, merged.query(source))
