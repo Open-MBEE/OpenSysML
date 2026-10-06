@@ -152,7 +152,7 @@ elmt:Accepts__Observe_om
     sysml:membershipOwningNamespace elmt:Accepts .
 
 elmt:Accepts__Observe__trigger
-    a sysml:ActionUsage ;
+    a sysml:AcceptActionUsage ;
     sysml:qualifiedName "Accepts::Observe::trigger" ;
     sysx:sourceLine "5"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
@@ -166,6 +166,9 @@ elmt:Accepts__Observe__trigger
     sysml:owningMembership elmt:Accepts__Observe__trigger_om ;
     sysml:declaredName "trigger" ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:parameter elmt:Accepts__Observe__trigger__scene ;
+    sysml:input elmt:Accepts__Observe__trigger__scene ;
+    sysml:payloadParameter elmt:Accepts__Observe__trigger__scene ;
     sysml:ownedMember elmt:Accepts__Observe__trigger__scene ;
     sysml:ownedMembership elmt:Accepts__Observe__trigger__scene_om ;
     sysml:ownedRelationship elmt:Accepts__Observe__trigger__scene_om ;
@@ -210,7 +213,7 @@ elmt:Accepts__Observe__trigger__scene
     sysml:ownedRelationship elmt:Accepts__Observe__trigger__scene_ft0 .
 
 elmt:Accepts__Observe__trigger__scene_om
-    a sysml:FeatureMembership ;
+    a sysml:ParameterMembership ;
     sysml:elementId "Accepts__Observe__trigger__scene_om" ;
     sysml:owner elmt:Accepts__Observe__trigger ;
     sysml:memberElement elmt:Accepts__Observe__trigger__scene ;
@@ -218,6 +221,7 @@ elmt:Accepts__Observe__trigger__scene_om
     sysml:ownedRelatedElement elmt:Accepts__Observe__trigger__scene ;
     sysml:owningRelatedElement elmt:Accepts__Observe__trigger ;
     sysml:membershipOwningNamespace elmt:Accepts__Observe__trigger ;
+    sysml:ownedMemberParameter elmt:Accepts__Observe__trigger__scene ;
     sysml:ownedMemberFeature elmt:Accepts__Observe__trigger__scene ;
     sysml:owningType elmt:Accepts__Observe__trigger .
 
@@ -293,7 +297,7 @@ elmt:Accepts__Watch__lens_om
     sysml:owningType elmt:Accepts__Watch .
 
 elmt:Accepts__Watch__framed
-    a sysml:ActionUsage ;
+    a sysml:AcceptActionUsage ;
     sysml:qualifiedName "Accepts::Watch::framed" ;
     sysx:sourceLine "9"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
@@ -308,6 +312,9 @@ elmt:Accepts__Watch__framed
     sysml:declaredName "framed" ;
     sysml:via elmt:Accepts__Watch__lens ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:parameter elmt:Accepts__Watch__framed__scene ;
+    sysml:input elmt:Accepts__Watch__framed__scene ;
+    sysml:payloadParameter elmt:Accepts__Watch__framed__scene ;
     sysml:ownedMember elmt:Accepts__Watch__framed__scene ;
     sysml:ownedMembership elmt:Accepts__Watch__framed__scene_om ;
     sysml:ownedRelationship elmt:Accepts__Watch__framed__scene_om ;
@@ -352,7 +359,7 @@ elmt:Accepts__Watch__framed__scene
     sysml:ownedRelationship elmt:Accepts__Watch__framed__scene_ft0 .
 
 elmt:Accepts__Watch__framed__scene_om
-    a sysml:FeatureMembership ;
+    a sysml:ParameterMembership ;
     sysml:elementId "Accepts__Watch__framed__scene_om" ;
     sysml:owner elmt:Accepts__Watch__framed ;
     sysml:memberElement elmt:Accepts__Watch__framed__scene ;
@@ -360,6 +367,7 @@ elmt:Accepts__Watch__framed__scene_om
     sysml:ownedRelatedElement elmt:Accepts__Watch__framed__scene ;
     sysml:owningRelatedElement elmt:Accepts__Watch__framed ;
     sysml:membershipOwningNamespace elmt:Accepts__Watch__framed ;
+    sysml:ownedMemberParameter elmt:Accepts__Watch__framed__scene ;
     sysml:ownedMemberFeature elmt:Accepts__Watch__framed__scene ;
     sysml:owningType elmt:Accepts__Watch__framed .
 

@@ -2796,6 +2796,28 @@ func (d *decoder) acceptParam(el *element) *element {
 			return child
 		}
 	}
+	if el.metaclass != mAcceptAction {
+		return nil
+	}
+	// The pilot's shape flags no parameter: the payload is the one
+	// payloadParameter names, else the parameter the accept owns.
+	if stated, ok := d.graph.Object(rdf.IRI(el.iri), rdf.SysML+pPayloadParameter); ok {
+		for _, child := range el.children {
+			if child.iri == stated.Value {
+				return child
+			}
+		}
+		return nil
+	}
+	var params []*element
+	for _, child := range el.children {
+		if m, ok := d.owningMembership[child.iri]; ok && d.metaclass(rdf.IRI(m.iri)) == mParameterMembership {
+			params = append(params, child)
+		}
+	}
+	if len(params) == 1 {
+		return params[0]
+	}
 	return nil
 }
 

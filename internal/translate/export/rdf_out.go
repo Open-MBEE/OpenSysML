@@ -1328,7 +1328,13 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 			e.graph.Add(ownerTerm, e.sysml(pEffectAction), subject)
 		}
 	}
-	if property, ok := e.triggerParams[node]; ok {
+	property, ok := e.triggerParams[node]
+	if !ok && acceptPayload(node) {
+		// An accept node's payload is the parameter its payloadParameter names,
+		// owned as a trigger action's is (SysML.xtext PayloadParameterMember).
+		property, ok = pPayloadParameter, true
+	}
+	if ok {
 		h.membershipClass = mParameterMembership
 		h.membershipExtra = func(membership rdf.Term) {
 			e.graph.Add(membership, e.sysml(pOwnedMemberParameter), subject)

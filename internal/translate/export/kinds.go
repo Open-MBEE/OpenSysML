@@ -200,6 +200,8 @@ func usageMetaclassOf(n *ast.Usage, inMetadataBody bool) (string, bool) {
 		return mAssertConstraintUsage, true
 	case n.IsTerminate && n.Kind == ast.UsageAction:
 		return mTerminate, true
+	case acceptNode(n):
+		return mAcceptAction, true
 	case n.IsPerformedAction():
 		return mPerform, true
 	case n.IsExhibitedState():
@@ -254,6 +256,7 @@ var metaclassKeywordUsage = map[string]ast.UsageKind{
 	mEventOccurrenceUsage:  ast.UsageOccurrence,
 	mAssertConstraintUsage: ast.UsageConstraint,
 	mTerminate:             ast.UsageAction,
+	mAcceptAction:          ast.UsageAction,
 	mPerform:               ast.UsageAction,
 	mExhibitStateUsage:     ast.UsageState,
 	mIncludeUseCaseUsage:   ast.UsageUseCase,
@@ -472,4 +475,28 @@ func directionKeyword(d ast.FeatureDirection) string {
 		return ""
 	}
 	return d.String()
+}
+
+// acceptNode reports an accept node (SysML.xtext AcceptNode): the action usage
+// the parser builds around a payload parameter, named or not.
+func acceptNode(n *ast.Usage) bool {
+	if n.Kind != ast.UsageAction {
+		return false
+	}
+	for _, member := range n.Members {
+		if acceptPayload(member) {
+			return true
+		}
+	}
+	return false
+}
+
+// acceptPayload reports the payload parameter of an accept node, in or out of
+// its membership wrapper.
+func acceptPayload(node ast.Node) bool {
+	if m, ok := node.(*ast.Membership); ok {
+		node = m.Member
+	}
+	u, ok := node.(*ast.Usage)
+	return ok && u.IsAccept
 }

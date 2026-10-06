@@ -942,6 +942,11 @@ func (n *normalizer) bodiedOwners() map[string]bool {
 			!graph.HasProperty(m, rdf.SysML+pDeclaredName) {
 			continue
 		}
+		// An accept node's payload parameter is written in its head (SysML.xtext
+		// AcceptNodeDeclaration), not in a body.
+		if meta(owner) == mAcceptAction && meta(memberMembership[member]) == mParameterMembership {
+			continue
+		}
 		bodied[owner.Value] = true
 	}
 	return bodied
