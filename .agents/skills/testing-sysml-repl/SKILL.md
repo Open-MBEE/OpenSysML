@@ -2943,8 +2943,12 @@ actually descend into:
 
 Reflection is driven from the CLI: `bin/sysml model.sysml -e "<expr>"` with
 `M = SequenceFunctions::last(Pkg::Asm::c1.metadata)`; every element prints as
-`meta(<fqn> : <metaclass>)`. The pre-fix shapes double as A/B canaries against a binary built from
-the parent commit. A fixture that exercises the whole family:
+`meta(<fqn> : <metaclass>)`. The shapes below hold once a connector owns the ends its `connect`
+clause writes and a chain target is reflected as the feature it denotes (PR #938); on a tree
+without that change the end counts read `0`, `connectorEnd` fails and `chainingFeature` is
+underived, while the relationship metaobjects (`ownedRedefinition`, `ownedSubsetting`,
+`ownedSpecialization`) already derive. The pre-fix shapes double as A/B canaries against a binary
+built from `develop`. A fixture that exercises the whole family:
 
 ```sysml
 package R {
