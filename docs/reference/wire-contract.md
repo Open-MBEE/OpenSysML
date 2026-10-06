@@ -1885,6 +1885,15 @@ both declare (`package P` in each), which one graph would merge into one. Ids ar
 when the documents together declare more than one identity scope. The command line does the same
 for several files, to a file or standard output: `sysml a.sysml b.sysml -convert api-json`.
 
+`documents`, under the `convert_documents` capability, writes only some documents of such a model:
+each name is one the parse gave a document, and only the elements those documents declare are
+written, with the root namespace of each in the API element form. The model's other documents
+are still read: a reference into one is an `@id` link to the element as a conversion of its own
+document writes it, and an element one of them declares that a written document also declares is
+refused as above. So a client that holds a model's conversion can convert again only the documents
+an edit changed and replace their elements by `@id`. Empty `documents` writes every document. A name
+the model does not hold, or `documents` for a `filePath` or `content`, is `invalid_argument`.
+
 ```console
 $ … /Convert -d '{"filePath":"Vehicle.sysml","toFormat":"ttl"}'
 {

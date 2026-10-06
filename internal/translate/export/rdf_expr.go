@@ -697,6 +697,18 @@ func (e *encoder) expressionOwnership(node, owner rdf.Term, metaclass string) er
 		e.graph.Add(owner, e.sysml(pOwnedFeatureMembership), membership)
 		e.graph.Add(membership, e.sysml(pOwnedMemberParameter), node)
 	}
+	if metaclass == mTransitionFeatureMembership {
+		// A transition's guard (SysML-textual-bnf GuardExpressionMember,
+		// `'if' { kind = 'guard' }`): the transition states it as its
+		// guardExpression, which SysML v2 derives from this membership.
+		e.graph.Add(owner, e.sysml(pOwnedFeatureMembership), membership)
+		e.graph.Add(owner, e.sysml(pOwnedFeature), node)
+		e.graph.Add(membership, e.sysml(pOwnedMemberFeature), node)
+		e.graph.Add(membership, e.sysml(pOwningType), owner)
+		e.graph.Add(membership, e.sysml(pKind), rdf.String("guard"))
+		e.graph.Add(membership, e.sysml(pTransitionFeature), node)
+		e.graph.Add(owner, e.sysml(pGuardExpression), node)
+	}
 	if metaclass == mFeatureValue {
 		e.graph.Add(owner, e.sysml(pValue), node)
 		e.graph.Add(membership, e.sysml(pFeatureWithValue), owner)

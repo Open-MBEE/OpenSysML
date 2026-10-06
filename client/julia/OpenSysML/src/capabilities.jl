@@ -55,6 +55,7 @@ const CAPABILITY_ENGINES = "engines"
 const CAPABILITY_UNDETERMINED_VALUE = "undetermined_value"
 const CAPABILITY_BIG_INT_VALUES = "big_int_values"
 const CAPABILITY_RATIONAL_VALUES = "rational_values"
+const CAPABILITY_CONVERT_DOCUMENTS = "convert_documents"
 
 """The version and advertised capabilities reported by a sysml-grpc service."""
 struct ServerInfo

@@ -112,7 +112,7 @@ func runErrata(root corpusRoot, files []string, overlay *errata.Overlay, ours, t
 		if err != nil {
 			return erratumRun{}, err
 		}
-		batchTheirs, err := pilotDiagnostics(pilot, corrected, ".", batch.Files, opts.timeout, opts.log)
+		batchTheirs, err := pilotDiagnostics(pilot, opts.libraries, corrected, ".", batch.Files, opts.timeout, opts.log)
 		if err != nil {
 			return erratumRun{}, err
 		}

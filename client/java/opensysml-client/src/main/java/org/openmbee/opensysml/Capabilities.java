@@ -60,6 +60,9 @@ public final class Capabilities {
    */
   public static final String RATIONAL_VALUES = "rational_values";
 
+  /** A model converts with only the documents {@code documents} names written, the rest linked by id. */
+  public static final String CONVERT_DOCUMENTS = "convert_documents";
+
   /** A complex number travels as itself rather than as an unsupported null. */
   public static final String COMPLEX_VALUES = "complex_values";
 

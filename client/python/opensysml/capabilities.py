@@ -256,6 +256,10 @@ CAPABILITY_BIG_INT_VALUES = "big_int_values"
 #: and ``DocumentValue.rational_value``; a service without it reads one sent to it as null.
 CAPABILITY_RATIONAL_VALUES = "rational_values"
 
+#: ``ConvertRequest.documents``: a model converted with only the named documents written, the
+#: references into the others linked by id.
+CAPABILITY_CONVERT_DOCUMENTS = "convert_documents"
+
 
 @dataclass(frozen=True)
 class ServerInfo:

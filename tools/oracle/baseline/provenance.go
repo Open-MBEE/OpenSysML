@@ -61,7 +61,8 @@ type Tool struct {
 	Release      string `json:"release"`
 }
 
-// Input is one compared corpus root, identified by the digest of the files the
+// Input is one directory of files the run read — a compared corpus root, or a
+// library handed to the reference — identified by the digest of the files the
 // run actually read rather than by its directory's contents on any one machine.
 type Input struct {
 	Name   string `json:"name"`

@@ -27,6 +27,7 @@ from opensysml.capabilities import (
     CAPABILITY_STATE_ACTION_AUTHORING,
     CAPABILITY_BIG_INT_VALUES,
     CAPABILITY_RATIONAL_VALUES,
+    CAPABILITY_CONVERT_DOCUMENTS,
     MissingCapabilityError,
     ServerInfo,
 )
@@ -101,7 +102,7 @@ __all__ = [
     "InstanceTypeError", "InvalidRequestError", "ManifestSignatureError",
     "MissingCapabilityError",
     "CAPABILITY_CONSTRAINT_BODY_AUTHORING", "CAPABILITY_STATE_ACTION_AUTHORING",
-    "CAPABILITY_BIG_INT_VALUES", "CAPABILITY_RATIONAL_VALUES",
+    "CAPABILITY_BIG_INT_VALUES", "CAPABILITY_RATIONAL_VALUES", "CAPABILITY_CONVERT_DOCUMENTS",
     "ModelError", "ModelFileNotFoundError", "ModelNotFoundError",
     "ServiceError", "ServiceTimeoutError", "SigstoreUnavailableError", "StaleServiceError",
     "SymbolNotFoundError",
