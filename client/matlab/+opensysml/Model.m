@@ -139,6 +139,10 @@ classdef Model < handle
             text = opensysml.renderDocument(m, documentId, varargin{:});
         end
 
+        function result = renderView(m, viewName, varargin)
+            result = opensysml.renderView(m, viewName, varargin{:});
+        end
+
         function result = symbol(m, id)
             result = opensysml.Symbol(opensysml.getSymbol(m, id), m);
         end

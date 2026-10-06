@@ -70,6 +70,10 @@ const CapabilityRenderDocument = "render_document"
 // form field, which asks RenderDocument for HTML instead of Markdown.
 const CapabilityRenderDocumentHTML = "render_document_html"
 
+// CapabilityRenderView names the capability of the RenderView RPC, which
+// renders a declared or targeted pseudo-view as machine-readable diagram data.
+const CapabilityRenderView = "render_view"
+
 // CapabilityOSLCQuery names the capability of evaluating OSLC Query text.
 const CapabilityOSLCQuery = "oslc_query"
 
@@ -296,6 +300,7 @@ var capabilities = []string{
 	CapabilityMigrate,
 	CapabilityBigIntValues,
 	CapabilityStateTrace,
+	CapabilityRenderView,
 	CapabilityConvertDocuments,
 }
 

@@ -228,7 +228,7 @@ model:
 | `convert(to_format, &ConvertSource, &ConvertOptions)`, `Model::{to_sysml, to_turtle, to_api_json, save}` | `Convert` | `Conversion`, with `experimental_notice`; `IdForm` spells derived ids; a SysML v1 model is refused — it is migrated, not converted |
 | `migrate(to_format, &MigrateSource, &MigrateOptions)` | `Migrate` | `Migration`: the notation or Turtle a `.mdzip`, `.xmi` or `.uml` model became, its `MigrationReport` (every element mapped, approximated, unmapped or skipped), the image files `write(path)` puts beside the model, and the `experimental_notice` |
 | `query(&Query)`, `query_oslc(text)` | `Query` | `Vec<QueryElement>`; `Query` is built with `scope`, `select`, `filter` and `Constraint` |
-| `run_document_query(id, bindings)`, `render_document(id, DocumentForm)` | `RunDocumentQuery`, `RenderDocument` | typed `DocumentQueryResult` rows; Markdown or HTML |
+| `run_document_query(id, bindings)`, `render_document(id, DocumentForm)`, `render_view(name)` | `RunDocumentQuery`, `RenderDocument`, `RenderView` | typed query rows, Markdown or HTML, or `RenderedView` with optional layout data |
 | `execute_action`, `execute_state`, `explore_action`, `explore_state`, `explore_analysis` | `ExecuteAction`, `ExecuteState`, `RunAnalysis` | `ActionRun`, `StateRun`, `Exploration` (`Outcome`s, `complete`) |
 | `verify_constraint`, `verify_requirement`, `verify_satisfaction`, `satisfied` | `Verify*` | `Verdict`, `Satisfaction`: `Bound`, `Standing`, `WitnessAssignment`s, `VerificationVerdict`s |
 | `validate_instance`, `calc`, `run_analysis`, `run_sweep(&[SweepRange], &SweepOptions)` | `ValidateInstance`, `EvaluateCalc`, `RunAnalysis`, `RunSweep` | `Validation`, `CalcResult`, `AnalysisResult`, `SweepTable` of `SweepRow`s |
