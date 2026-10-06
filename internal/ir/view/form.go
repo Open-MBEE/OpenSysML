@@ -73,9 +73,10 @@ func (k Kind) MachineForm() Form {
 
 // SupportsForm reports whether renderings of the kind are written in form:
 // every kind has the text form and its machine form; tree, interconnection,
-// state, action, case and mixed have DOT and PlantUML, tree, interconnection,
-// state and action also have D2, sequence has PlantUML and D2, and tabular
-// kinds (table and matrix) have CSV and TSV.
+// state, action, case, mixed, requirement, definition and package have DOT and
+// PlantUML, tree, interconnection, state, action, requirement, definition and
+// package also have D2, sequence has PlantUML and D2, and tabular kinds (table
+// and matrix) have CSV and TSV.
 func (k Kind) SupportsForm(form Form) bool {
 	switch form {
 	case FormText:
@@ -86,17 +87,17 @@ func (k Kind) SupportsForm(form Form) bool {
 		return k.Tabular()
 	case FormDot:
 		switch k {
-		case KindTree, KindInterconnection, KindState, KindAction, KindCase, KindMixed:
+		case KindTree, KindInterconnection, KindState, KindAction, KindCase, KindMixed, KindRequirement, KindDefinition, KindPackage:
 			return true
 		}
 	case FormPlantUML:
 		switch k {
-		case KindTree, KindInterconnection, KindState, KindAction, KindCase, KindMixed, KindSequence:
+		case KindTree, KindInterconnection, KindState, KindAction, KindCase, KindMixed, KindSequence, KindRequirement, KindDefinition, KindPackage:
 			return true
 		}
 	case FormD2:
 		switch k {
-		case KindTree, KindInterconnection, KindState, KindAction, KindSequence:
+		case KindTree, KindInterconnection, KindState, KindAction, KindSequence, KindRequirement, KindDefinition, KindPackage:
 			return true
 		}
 	}

@@ -502,24 +502,28 @@ class SourceDocument(_message.Message):
     def __init__(self, file_path: _Optional[str] = ..., content: _Optional[str] = ..., language: _Optional[str] = ..., name: _Optional[str] = ...) -> None: ...
 
 class ParseSourcesRequest(_message.Message):
-    __slots__ = ("documents", "strict_conformance")
+    __slots__ = ("documents", "strict_conformance", "base_model_hash")
     DOCUMENTS_FIELD_NUMBER: _ClassVar[int]
     STRICT_CONFORMANCE_FIELD_NUMBER: _ClassVar[int]
+    BASE_MODEL_HASH_FIELD_NUMBER: _ClassVar[int]
     documents: _containers.RepeatedCompositeFieldContainer[SourceDocument]
     strict_conformance: bool
-    def __init__(self, documents: _Optional[_Iterable[_Union[SourceDocument, _Mapping]]] = ..., strict_conformance: _Optional[bool] = ...) -> None: ...
+    base_model_hash: str
+    def __init__(self, documents: _Optional[_Iterable[_Union[SourceDocument, _Mapping]]] = ..., strict_conformance: _Optional[bool] = ..., base_model_hash: _Optional[str] = ...) -> None: ...
 
 class ParseSourcesResponse(_message.Message):
-    __slots__ = ("model_hash", "roots", "diagnostics", "error")
+    __slots__ = ("model_hash", "roots", "diagnostics", "error", "affected")
     MODEL_HASH_FIELD_NUMBER: _ClassVar[int]
     ROOTS_FIELD_NUMBER: _ClassVar[int]
     DIAGNOSTICS_FIELD_NUMBER: _ClassVar[int]
     ERROR_FIELD_NUMBER: _ClassVar[int]
+    AFFECTED_FIELD_NUMBER: _ClassVar[int]
     model_hash: str
     roots: _containers.RepeatedCompositeFieldContainer[SymbolInfo]
     diagnostics: _containers.RepeatedCompositeFieldContainer[Diagnostic]
     error: str
-    def __init__(self, model_hash: _Optional[str] = ..., roots: _Optional[_Iterable[_Union[SymbolInfo, _Mapping]]] = ..., diagnostics: _Optional[_Iterable[_Union[Diagnostic, _Mapping]]] = ..., error: _Optional[str] = ...) -> None: ...
+    affected: _containers.RepeatedScalarFieldContainer[str]
+    def __init__(self, model_hash: _Optional[str] = ..., roots: _Optional[_Iterable[_Union[SymbolInfo, _Mapping]]] = ..., diagnostics: _Optional[_Iterable[_Union[Diagnostic, _Mapping]]] = ..., error: _Optional[str] = ..., affected: _Optional[_Iterable[str]] = ...) -> None: ...
 
 class ParseFileResponse(_message.Message):
     __slots__ = ("model_hash", "root", "diagnostics", "error")

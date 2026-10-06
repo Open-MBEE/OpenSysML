@@ -433,11 +433,12 @@ func doc() usage.Doc {
 					"(/, \\, :, ., %, control characters, what Windows reserves) as %XX; " +
 					"a name past 255 bytes is cut and tagged ~ and a hash of the whole. " +
 					"A graph-shaped rendering defaults to Mermaid. DOT writes tree, " +
-					"interconnection, state and action renderings, plus case and mixed; " +
-					"PlantUML writes those kinds and sequence. D2 writes tree, " +
-					"interconnection, state, action and sequence renderings, " +
-					"while case and mixed renderings refuse D2 with a typed error. Neither " +
-					"Graphviz, PlantUML nor D2 is needed to write them. A table or matrix is " +
+					"interconnection, state, action, case, mixed, requirement, definition and " +
+					"package renderings; PlantUML writes those kinds and sequence. D2 writes " +
+					"tree, interconnection, state, action, sequence, requirement, definition " +
+					"and package renderings; case and mixed renderings refuse D2 with a typed " +
+					"error. Table and matrix renderings refuse graph forms with a typed error. Neither " +
+					"Graphviz, PlantUML nor D2 is needed to write graph forms. A table or matrix is " +
 					"written as a " +
 					"Markdown table by default, and as comma- or tab-separated values with " +
 					"-render-form csv or tsv: a header record of the columns, then a record " +
@@ -496,8 +497,8 @@ func doc() usage.Doc {
 					"back to Mermaid under a notice saying so. -diagram-form mermaid, dot, " +
 					"plantuml or d2 writes every graph-shaped one in that form instead, in " +
 					"Markdown and HTML alike, while a table or matrix view stays a table. D2 " +
-					"writes tree, interconnection, state, action and sequence renderings, and " +
-					"refuses case and mixed diagrams. Neither " +
+					"writes tree, interconnection, state, action, sequence, requirement, " +
+					"definition and package renderings, and refuses case and mixed diagrams. Neither " +
 					"Graphviz, PlantUML nor D2 is needed to write a fence.",
 				"-doc-form html writes semantic HTML instead, carrying each element's " +
 					"identity and kind, styled by a stylesheet in a cascade layer your " +
@@ -678,17 +679,18 @@ func registerFlags(fs *flag.FlagSet) {
 
 	fs.StringVar(&renderView, "render", "", "Render this view of the model instead of running it, in the form its render member states; #<kind> renders every file loaded and #<kind>:<element> one element, kind being tree, interconnection, state, action, case, mixed, sequence, table or matrix, without a declared view")
 	fs.StringVar(&renderAllDir, "render-all", "", "Render every declared view into this directory")
-	fs.StringVar(&renderForm, "render-form", "", "Form -render or -render-all writes: text, mermaid, markdown, dot, plantuml, d2, csv or tsv (csv and tsv for a table or matrix); D2 writes tree, interconnection, state, action and sequence renderings, not case or mixed; default from the destination for -render, each kind's machine form for -render-all")
+	fs.StringVar(&renderForm, "render-form", "", "Form -render or -render-all writes: text, mermaid, markdown, dot, plantuml, d2, csv or tsv (csv and tsv for a table or matrix); D2 writes tree, interconnection, state, action, sequence, requirement, definition and package renderings, not case or mixed; default from the destination for -render, each kind's machine form for -render-all")
 	fs.StringVar(&renderPalette, "render-palette", "", "Palette the dot, mermaid, plantuml or d2 form fills nodes from, by keyword family: okabe-ito, tol-bright, tol-muted, tol-light, brewer-set2, brewer-dark2, viridis or cividis; default black and white")
 	fs.StringVar(&renderLink, "render-link", "", "Link template for rendered elements: {file} is the path as loaded; use absolute paths for vscode:// or file:// links. Placeholders: {file}, {line}, {col}, {qname}, {id}")
 	fs.StringVar(&renderStyle, "render-style", "", "Drawing style of the dot or mermaid form: pilot (default), the Pilot visualizer's black and white, or cameo, the look of Cameo Systems Modeler; applies to -render, -render-all and document diagrams")
 	fs.StringVar(&renderPorts, "render-ports", "", "How much of a part's ports -render or -render-all draws on an interconnection or mixed rendering: minimal (default), the ports its interconnection edges end at, each a small square on the part's border named beside it, or full, every port, labelled name : Type")
+	fs.StringVar(&renderOverlay, "render-overlay", "", "What -render or -render-all draws over a requirement rendering's structure: verdicts runs the verification cases verifying each requirement and colours and labels it by their verdicts; default none, a purely structural drawing")
 	fs.StringVar(&renderUnplaced, "render-unplaced", "", "Where a graph form of a view some Layout positions puts the nodes none does: omit (default) leaves them undrawn in every form, strip draws them, in rows below the dot drawing; applies to -render, -render-all and document diagrams")
 
 	fs.StringVar(&renderDoc, "render-document", "", "Compile this document definition, run its queries and write the rendered document")
 	fs.StringVar(&renderDocsDir, "render-documents", "", "Render every document definition, linked to one another, into this directory; a document that cannot be rendered gets a page stating why and the run exits 3")
 	fs.StringVar(&docForm, "doc-form", "", docFormUsage())
-	fs.StringVar(&diagramForm, "diagram-form", "", "Form the documents' graph-shaped diagrams are written in: mermaid, dot, plantuml or d2; D2 writes tree, interconnection, state, action and sequence renderings, not case or mixed; unset, a positioned view is dot and any other mermaid; a table or matrix view is a table either way")
+	fs.StringVar(&diagramForm, "diagram-form", "", "Form the documents' graph-shaped diagrams are written in: mermaid, dot, plantuml or d2; D2 writes tree, interconnection, state, action, sequence, requirement, definition and package renderings, not case or mixed; unset, a positioned view is dot and any other mermaid; a table or matrix view is a table either way")
 	fs.BoolVar(&docNumberFigures, "doc-number-figures", false, docNumberFiguresUsage())
 
 	fs.BoolVar(&debugMode, "debug", false, "Report every diagnostic over the whole session buffer, with the pass that produced it")
@@ -811,6 +813,7 @@ func optionGroups() []usage.OptionGroup {
 			usage.Opt("render-unplaced", "<placement>"),
 			usage.Opt("render-style", "<style>"),
 			usage.Opt("render-ports", "<display>"),
+			usage.Opt("render-overlay", "<overlay>"),
 		},
 	}, {
 		Title: "Rendering documents",

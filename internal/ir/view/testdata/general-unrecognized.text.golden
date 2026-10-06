@@ -1,0 +1,12 @@
+RobustViews::unrecognized - tree rendering (view def GeneralView)
+
+part def Loops::A
+  part b : B
+part def Loops::B
+  part a : A
+part def Cycles::C
+connection def DerivationConnections::Derivation
+  requirement originalRequirement
+  requirement derivedRequirements
+  assert constraint originalNotDerived
+  assert constraint originalImpliesDerived

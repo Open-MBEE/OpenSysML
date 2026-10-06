@@ -151,29 +151,23 @@ func (r *PropertyReader) multiplicityValues(sym *symbols.Symbol, property string
 }
 
 func (r *PropertyReader) satisfyEnd(sym *symbols.Symbol, property string) ([]string, bool) {
-	if sym.Kind != symbols.SymbolSatisfyRequirementUsage {
-		return nil, false
-	}
-	decl, ok := sym.Decl.(*ast.Usage)
-	if !ok || decl.Kind != ast.UsageSatisfy || decl.IsVerifiedRequirement() {
+	ends, ok := semantics.SatisfyEndsOf(sym)
+	if !ok {
 		return nil, false
 	}
 	if property == PropertySatisfiedRequirement {
-		if decl.DeclaresRequirement {
+		if ends.DeclaresRequirement {
 			return presentValues(r.elementIdentity(sym))
 		}
-		rel := decl.ReferenceSubsetting()
-		if rel == nil {
+		if ends.Requirement == nil {
 			return nil, false
 		}
-		return r.resolveTargetIdentity(sym, rel.Target)
+		return r.resolveTargetIdentity(sym, ends.Requirement)
 	}
-	for _, rel := range decl.Relationships {
-		if rel != nil && rel.Kind == ast.RelSubject {
-			return r.resolveTargetIdentity(sym, rel.Target)
-		}
+	if ends.Satisfier == nil {
+		return nil, false
 	}
-	return nil, false
+	return r.resolveTargetIdentity(sym, ends.Satisfier)
 }
 
 func (r *PropertyReader) resolveTargetIdentity(sym *symbols.Symbol, target ast.Node) ([]string, bool) {

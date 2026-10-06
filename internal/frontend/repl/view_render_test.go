@@ -2,6 +2,7 @@ package repl
 
 import (
 	"errors"
+	"os"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -711,5 +712,60 @@ func TestRenderDotTakesAPortDisplay(t *testing.T) {
 	}
 	if got := s.Complete("%render Demo::summary dot ", len("%render Demo::summary dot ")); !slices.Contains(got.Candidates, "minimal") || !slices.Contains(got.Candidates, "full") {
 		t.Errorf("completing after dot offered %v, want the port displays among them", got.Candidates)
+	}
+}
+
+// generalViewsSession loads the GeneralView example, whose requirement view the
+// verification cases decide one way each.
+func generalViewsSession(t *testing.T) *Session {
+	t.Helper()
+	return exampleSession(t, "vehicle.sysml")
+}
+
+// exampleSession loads one model of the GeneralView example.
+func exampleSession(t *testing.T, file string) *Session {
+	t.Helper()
+	src, err := os.ReadFile(filepath.Join("..", "..", "..", "examples", "general-views-demo", file))
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := NewSession()
+	for _, d := range s.Submit(string(src)).Diagnostics {
+		if d.Severity == diag.SeverityError {
+			t.Fatalf("model did not load: %v", d)
+		}
+	}
+	return s
+}
+
+// %render draws a GeneralView filtered on a case metaclass as a case rendering.
+func TestRenderDrawsAGeneralViewCaseRoute(t *testing.T) {
+	s := exampleSession(t, "use-cases.sysml")
+	wants(t, run(t, s, "%render UseCaseViews::useCaseView mermaid"),
+		"case rendering (view def GeneralView, filter @UseCaseUsage)", "flowchart LR", "«include»")
+	wants(t, run(t, s, "%render UseCaseViews::caseDefinitionView text"), "use case def VehicleUseCases::'Add Fuel'")
+	wants(t, run(t, s, "%render UseCaseViews::useCaseView text verdicts"), "a case rendering draws no verdicts overlay")
+}
+
+// %render draws a requirement rendering's verdicts only when asked, by running
+// the verification cases, and refuses them on a rendering of another kind.
+func TestRenderDrawsVerdictsWhenAskedFor(t *testing.T) {
+	s := generalViewsSession(t)
+	plain := run(t, s, "%render GeneralViews::requirementView text")
+	if !strings.Contains(plain, "requirement rendering") || strings.Contains(plain, "verdict") {
+		t.Errorf("the structural rendering is not purely structural:\n%s", plain)
+	}
+	overlaid := run(t, s, "%render GeneralViews::requirementView text verdicts")
+	wants(t, overlaid,
+		"vehicleMass : MassRequirement (id R1.1, verdict pass by VehicleVerification::lightMassTest, fail by VehicleVerification::heavyMassTest)",
+		"emergencyStop : EmergencyStopRequirement (id R3.1, verdict inconclusive by VehicleVerification::stopTest")
+	dot := run(t, s, "%render GeneralViews::requirementView dot okabe-ito cameo verdicts")
+	if !strings.Contains(dot, `color="#D55E00"`) {
+		t.Errorf("the failed requirement is not drawn in the fail colour:\n%s", dot)
+	}
+	wants(t, run(t, s, "%render GeneralViews::definitionView text verdicts"), "a definition rendering draws no verdicts overlay")
+	wants(t, run(t, s, "%render GeneralViews::requirementView text verdicts verdicts"), renderUsage)
+	if got := s.Complete("%render GeneralViews::requirementView dot verd", len("%render GeneralViews::requirementView dot verd")); !slices.Equal(got.Candidates, []string{"verdicts"}) {
+		t.Errorf("completing the overlay offered %v", got.Candidates)
 	}
 }

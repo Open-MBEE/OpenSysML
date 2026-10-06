@@ -13,11 +13,14 @@ PlantUML and D2 compare, and what the writers emit — the
 ## The rendering and its forms
 
 A view renders into a `view.Rendering` (`internal/ir/view/view.go`): the kind (`tree`,
-`interconnection`, `state`, `action`, `case`, `mixed`, `sequence`, `table`, `matrix`), typed nodes with an identifier, a
+`interconnection`, `state`, `action`, `case`, `mixed`, `sequence`, `table`, `matrix`, and the
+[GeneralView graphs](#generalview-graphs) `requirement`, `definition` and `package`), typed nodes
+with an identifier, a
 kind, a name, the declared type of a typed usage, an optional detail holding the notes (`initial`,
 `already shown`, `own flow`) and their children, edges with a label and an `EdgeKind`
 (connection, binding, transition, succession, flow, composition, association, include, anchor,
-typing, specialization, reference), a table's columns and rows, the origin of every node
+typing, specialization, reference, and the GeneralView graphs' containment, import, satisfy, verify,
+derive, refine and allocate), a table's columns and rows, the origin of every node
 and row, and notices for what the kind could not represent. The tree, interconnection, state,
 action, case and mixed kinds are produced from the model — the behavior kinds from the lowered
 `StateGraph` and `ActionGraph` the runtime executes — and nothing in the rendering is text of any
@@ -44,10 +47,10 @@ A **form** is a writer over that tree (`internal/ir/view/form.go`):
 | `text` | `text.go` | every kind | What a person reads at a terminal |
 | `markdown` | `markdown.go` | `table`, `matrix` | The machine-readable form of a table or relationship matrix |
 | `csv`, `tsv` | `delimited.go` | `table`, `matrix` | A table or relationship matrix as comma- or tab-separated values, for spreadsheets and scripts |
-| `mermaid` | `mermaid.go` | `tree`, `interconnection`, `state`, `action`, `case`, `mixed`, `sequence` | The default machine-readable form of the graph-shaped kinds |
-| `dot` | `dot.go` | `tree`, `interconnection`, `state`, `action`, `case`, `mixed` | Graphviz DOT, the alternative to Mermaid |
-| `plantuml` | `plantuml.go` | `tree`, `interconnection`, `state`, `action`, `case`, `mixed`, `sequence` | PlantUML in the Pilot visualizer's B&W style, for PlantUML toolchains |
-| `d2` | `d2.go` | `tree`, `interconnection`, `state`, `action`, `sequence` | [D2](https://d2lang.com) in the same look, for D2 toolchains; nested containers and D2's own sequence diagram |
+| `mermaid` | `mermaid.go` | `tree`, `interconnection`, `state`, `action`, `case`, `mixed`, `sequence`, `requirement`, `definition`, `package` | The default machine-readable form of the graph-shaped kinds |
+| `dot` | `dot.go` | `tree`, `interconnection`, `state`, `action`, `case`, `mixed`, `requirement`, `definition`, `package` | Graphviz DOT, the alternative to Mermaid |
+| `plantuml` | `plantuml.go` | `tree`, `interconnection`, `state`, `action`, `case`, `mixed`, `sequence`, `requirement`, `definition`, `package` | PlantUML in the Pilot visualizer's B&W style, for PlantUML toolchains |
+| `d2` | `d2.go` | `tree`, `interconnection`, `state`, `action`, `sequence`, `requirement`, `definition`, `package` | [D2](https://d2lang.com) in the same look, for D2 toolchains; nested containers and D2's own sequence diagram |
 
 `Kind.MachineForm` chooses the form a tool gets when none is asked for — `markdown` for a table or matrix,
 `mermaid` for everything else — and `Kind.SupportsForm` decides whether a kind can be written in
@@ -96,6 +99,96 @@ relationships. `#matrix` renders all loaded content as a matrix, and
 tables or any other rendering kind. Like a table, a matrix is written in `text`, `markdown`, `csv`
 and `tsv`. Mermaid, DOT, PlantUML and D2 have no table grammar, so requesting one of those forms
 is a typed wrong-form error naming `matrix`.
+
+## Standard views first
+
+A model selects a rendering with a standard view wherever one exists: a view definition from
+`StandardViewDefinitions` narrowed by its element filters. Names in the non-normative OpenSysML
+libraries, such as `CaseView`, are optional shorter forms of a standard route, never the only
+route. The extension libraries hold only what standard SysML cannot express: mixed diagrams,
+results from runs, and layout.
+
+| Rendering | Route | Standard or extension |
+| --- | --- | --- |
+| Use case diagram | `GeneralView` with a case-family filter (`filter @SysML::UseCaseUsage;`); `CaseView` or `render asCaseDiagram;` from `OpenSysMLRenderings` is the shorter form | standard |
+| Requirement, definition and package graphs | `GeneralView` with a requirement, definition/usage or package filter ([GeneralView graphs](#generalview-graphs)) | standard |
+| Relationship matrix | `GridView` with a positive, resolved relationship filter ([selector rules](#relationship-matrices)) | standard |
+| Mixed diagram | `MixedView` or `render asMixedDiagram;` from `OpenSysMLRenderings` | extension |
+| Run timeline and run sequence | `-render-run` on the CLI, `%render-run` in the REPL; no view declares them | CLI and REPL only |
+| Verdicts overlay | `Diagram::overlay = "verdicts"` from `DocumentQueries` in a document; `-render-overlay verdicts`, `%render … verdicts` and the LSP `overlay` option elsewhere ([The verdicts overlay](#the-verdicts-overlay)) | extension |
+| Layout | `Layout`, `Route` and `Canvas` annotations from [DiagramLayout](diagram-layout-annotations.md) | extension |
+
+## GeneralView graphs
+
+The OMG library documents `GeneralView`'s typical rendering as "a graph of nodes and edges" and
+lists, per specialization, the elements its filters keep. A view whose nearest standard view
+definition is `GeneralView` (`gv`) itself, and whose filters select one of those
+specializations, is drawn as that graph instead of a containment tree
+(`internal/ir/view/general.go`, `Renderer.generalSpecialization`). The filters read are the
+view's own `filter` members, those of the view definitions it specializes, and the conditions of
+its filtered `expose`s (`expose X::**[@SysML::Package];`). Each is compiled by the semantic filter
+evaluator, not matched as text, and selects a specialization only in one shape: a metaclass
+classification `@T` or `@@T`, or an `or` of them, where `T` resolves to a `SysML` or `KerML`
+library metaclass and is matched through the metaclasses it specializes:
+
+| The metaclass is or specializes | Selects | Kind |
+| --- | --- | --- |
+| `RequirementDefinition`, `RequirementUsage` (so `SatisfyRequirementUsage`, `ConcernUsage` too) | the requirement view | `requirement` |
+| `Package` (so `LibraryPackage`) | the package view | `package` |
+| `CaseDefinition`, `CaseUsage` (so `UseCaseDefinition`, `UseCaseUsage`, the analysis and verification cases too) | the [case diagram](#case-and-mixed-diagrams) | `case` |
+| `Relationship` (`Specialization`, `FeatureTyping`, `Import`, `AllocationUsage`, …) | nothing of its own; it may stand beside one that selects | — |
+| `Definition`, `Usage` | the definition and usage view | `definition` |
+
+The rows are tried in that order for each metaclass, and when the view's filters select more than
+one kind, `requirement` is drawn before `package`, `package` before `case` and `case` before
+`definition`, so the library's requirement-view filter list (`RequirementUsage or Specialization
+or AllocationUsage …`) draws a requirement graph, `@SysML::Definition or @SysML::UseCaseUsage`
+draws a case diagram and `@SysML::RequirementUsage or @SysML::UseCaseUsage` a requirement graph. Anything else keeps the view a tree, byte for byte as before: no
+filter, a filter naming only relationships, a conjunction, a negation, a user metadata
+condition (`@Safety`), a feature test (`@Safety::isMandatory`), or any of them mixed into an `or`
+with a recognized condition. A recognized filter admitting nothing is an empty graph of its kind,
+which says so.
+
+A GeneralView that selects `case` is the case diagram itself: `Renderer.KindOf` answers `case`
+and the [case writer](#case-and-mixed-diagrams) draws the exposed set, so the view needs only the
+standard library and every form writes, links included, what a `CaseView` exposing the same
+elements writes, but for the provenance line, which names the GeneralView and its filter
+(`view def GeneralView, filter @UseCaseUsage`) where a CaseView names `render asCaseDiagram`.
+`CaseView` remains the shorter way to write the same view, with the OpenSysML library; a mixed
+diagram has no GeneralView route and still needs `MixedView` or `render asMixedDiagram;`.
+See `examples/general-views-demo/use-cases.sysml`.
+
+What each of the other graphs draws, as nodes from the exposed set and edges between drawn nodes:
+
+| Kind | Nodes | Edges (`EdgeKind`) |
+| --- | --- | --- |
+| `requirement` | requirement and concern definitions and usages, labelled with their short name as `id` and the first line of their documentation or text, and the drawn ends of the relationships below | `satisfy` (from the satisfying feature), `verify` (from each verification case whose objectives verify it: its own, and those it inherits and does not redefine or restate by name, as the runtime runs them), `derive` (a `#derivation` connection's `derivedRequirement` from its `originalRequirement`), `refine` (a `#refinement` dependency), `allocate`, `specialization`, `typing` |
+| `definition` | definitions and usages | `specialization` (subclassification, subsetting — a same-named subsetting to the inherited feature, as `DirectSupertypes` reads it — redefinition), `typing`, `composition` (a part, item or other composite feature to the drawn definitions typing it, named by the feature) and `reference` (a `ref` feature likewise) |
+| `package` | packages | `containment` (an owned package) and `import` (a membership or namespace import, recursive or not, to the package it names, or to the package owning the member it names, labelled `::<member>`; one edge per import declaration, linked to it) |
+
+A relationship end that does not resolve draws no edge and is listed as a notice, and a cycle (mutually recursive part
+definitions, requirements deriving each other, packages importing each other) is drawn once per
+edge: the graph is built from symbols, never by following edges. Node and edge order is the model's
+declaration order, so a rendering is deterministic. The writers draw `specialization` as UML's
+hollow triangle, `typing` dashed, `composition` with a filled diamond and `reference` with a hollow one (a Mermaid flowchart, which has
+no diamond head, leads the edge's label with `◆` or `◇` instead), each
+requirement relationship dashed and named by its keyword (`«satisfy»`, `«verify»`), as the
+interconnection already does for its requirement and allocation edges. The Cameo style frames
+the three kinds `req`, `bdd` and `pkg`.
+
+### The verdicts overlay
+
+A requirement graph takes an opt-in overlay, `verdicts`: each requirement drawn is labelled with
+the verdict of every verification case verifying it (`verdict pass by Cases::light, fail by
+Cases::heavy`) and filled by the worst of them — `error` over `fail` over `inconclusive` over
+`pass` — in the Okabe-Ito colours `#009E73`, `#F0E442`, `#D55E00` and `#CC79A7`, in every form
+and style, replacing the fill and line of a requirement the view styles and keeping the rest of its
+style. The cases run through `runtime.RequirementVerdicts`, the REPL's and a document's over the
+runtime context the model is executed by and a workspace's over a declared reader, which answers
+each requirement by its declaring document and span rather than its qualified name, the
+subcases a case performs left to their case. Without the overlay nothing runs and the rendering
+is the structural one; asking for it on another kind is refused (`a definition rendering draws no
+verdicts overlay`), and an unknown overlay is refused with the overlays there are.
 
 ## Node labels
 
@@ -209,7 +302,9 @@ event feature (`accept :> shutDown`), keep their written text.
 
 SysML's `CaseDefinition`/`CaseUsage` is the family root; `usecase` would mislabel analysis and
 verification cases. Import `OpenSysMLRenderings::*` and select a kind
-with `render asCaseDiagram;` or `render asMixedDiagram;`, or specialize `CaseView` or `MixedView`.
+with `render asCaseDiagram;` or `render asMixedDiagram;`, or specialize `CaseView` or `MixedView`;
+a `GeneralView` filtered on a case metaclass is the same case diagram with the standard library
+alone ([GeneralView graphs](#generalview-graphs)).
 These declarations use the non-normative OpenSysML library rather than new SysML syntax: models
 using them are valid SysML v2 with a dependency on `OpenSysMLRenderings`.
 The same kinds are available without a declared view as `#case`, `#mixed`, `#case:<element>` and
@@ -978,11 +1073,17 @@ One shape per kind, chosen so each golden is drawn losslessly:
 | `tree` | Flat nodes joined by `--` containment lines, as the Mermaid, DOT and PlantUML trees draw it; nesting them would draw the containment twice |
 | `interconnection` | A node with children is a container (`n0: "…" { class: usage; n1: … }`); a drawn port is a small `pin`-classed node inside the part that owns it; a connection joins the ports' full paths (`n0.n1."n1.0" -- n0.n2."n2.0": "supply"`) |
 | `state`, `action` | Containers for composite states, regions and actions with a body; control nodes as pseudostate glyphs — `initial` a filled dot (a start and a junction), `final` a double-bordered dot, `terminate` an `×`, `bar` for fork and join, `choice` a diamond for decision, choice and merge, `history` an `H` circle; an action's pins as `pin` nodes, as in the interconnection |
+| `requirement`, `definition`, `package` | Flat nodes, `definition`, `usage` or `package` by their keyword, joined in the class-diagram notation the PlantUML form uses (see below) |
 | `sequence` | One `sequence: "" { shape: sequence_diagram … }` container holding the lifelines in root order and the `->` messages in edge order, one for one with the Mermaid form |
 
 Edges follow the Pilot: `--` at `stroke-width: 3` for a connection, `--` for a binding, `->` with
 `stroke-dash: 3` for a flow, `->` for a transition or succession, labelled as the DOT form labels
-them. `TB`/`LR`/`BT`/`RL` become `direction: down`/`right`/`up`/`left` — D2 draws every direction,
+them. A GeneralView graph's relationships each take a class of the same name: `specialization` a
+hollow triangle head, `typing` the same dashed, `composition` and `reference` a filled and a hollow
+diamond at the owner, `containment` a circle at the owner — those three written owner `<-` owned,
+so the head at the owner is the only one, D2 drawing a source arrowhead only where the connection
+has one — and import, satisfy, verify, derive, refine
+and allocate one dashed `dependency` arrow, labelled. A case or mixed rendering has no D2 form. `TB`/`LR`/`BT`/`RL` become `direction: down`/`right`/`up`/`left` — D2 draws every direction,
 where PlantUML does not. Every label is one double-quoted string with `\`, `"`, a newline and the
 `${` substitution escaped; every node is the rendering's identifier-safe ID, quoted where it holds
 a `.` (`"n1.0"`) so D2 does not read it as a path.
@@ -1021,6 +1122,7 @@ refuse D2:
 | VS Code | The diagram panel's **Style** list and `opensysml.diagram.style`: `pilot` draws the panel's SVG under this section's B&W rules, `cameo` asks the server for the [Cameo look](#the-cameo-style), a palette name fills its nodes from the `fill` and `border` the server returns | [`editors/vscode/README.md`](../../editors/vscode/README.md#the-diagram-panel) |
 | CLI, REPL, LSP, VS Code | A table or matrix view takes `csv` or `tsv` as well: `-render <view> -render-form csv\|tsv` (`-render-all` writes `.csv` or `.tsv` for each tabular view and skips every other view), `%render <view> csv\|tsv`, `"form": "csv"` or `"tsv"` on `opensysml/render`. Either is a header record of the columns, then a record per row, fields quoted as RFC 4180 quotes them; a notice is never inside the records: the CLI writes it to standard error, LSP returns it in the response, and `%render` lists it after a blank line | [`docs/reference/cli.md`](../reference/cli.md#rendering-a-view), [`docs/reference/repl-commands.md`](../reference/repl-commands.md#rendering-a-view), [`docs/reference/lsp.md`](../reference/lsp.md) |
 | Documents | `-render-document`/`-render-documents … -diagram-form mermaid\|dot\|plantuml\|d2`, `%render-document <name> mermaid\|dot\|plantuml\|d2`, `"diagramForm"` on `opensysml/renderDocument`: graph-shaped blocks use Mermaid, DOT, PlantUML or D2 source; HTML carries `data-palette` and `data-style`, and local Mermaid pictures are inlined before source is collected. PDF draws with the selected tool; absent optional DOT/PlantUML/D2 tools leave readable source under a notice, while a missing Mermaid CLI is an error. A `Diagram` block states what is drawn, not the notation; its palette and style apply where the selected form supports them | [`docs/manual/authoring.md`](../manual/authoring.md#diagrams), [`docs/manual/outputs.md`](../manual/outputs.md), [`docs/reference/environment.md`](../reference/environment.md) |
+| CLI, REPL, LSP, documents | `-render-overlay verdicts` on `-render` and `-render-all`; `%render <view> <form> [...] verdicts`; `"overlay": "verdicts"` on `opensysml/render`, the overlays listed by the `openSysmlRenderOverlays` capability and each node's `verdict` in the reply; `Diagram::overlay` in a document (`invalid-overlay`, `unsupported-overlay` errors) | [`docs/reference/cli.md`](../reference/cli.md#rendering-a-view), [`docs/reference/repl-commands.md`](../reference/repl-commands.md#rendering-a-view), [`docs/reference/lsp.md`](../reference/lsp.md), [`docs/manual/authoring.md`](../manual/authoring.md#diagrams) |
 
 The gRPC service (`api/proto/sysml.proto`, `internal/frontend/grpc`) has no view-render RPC and no
 render-form field — `RenderDocument` alone, to Markdown — so the wire contract carries no form
@@ -1029,6 +1131,22 @@ and did not change. A view-render RPC added later would take the form as a strin
 
 ## Test contract
 
+- `internal/ir/view/general_test.go`: which filter shapes select which graph and which keep the
+  tree (`@`/`@@`, `or`, the library's own lists, precedence, inherited filters, a filtered
+  `expose`, relationships alone, `and`, `not`, user metadata, a mixture); an unresolved
+  relationship end; the verdicts overlay from fixed verdicts in every form and both styles
+  (`general-verdicts.text.golden`, `general-verdicts-pilot.*.golden`, `general-verdicts-cameo.*.golden`) and its absence without one. The
+  `general-requirement`, `general-definition` and `general-package` goldens, in `text`, `mermaid`,
+  `dot` and `plantuml`, are drawn from `testdata/general.sysml`; `general-plain` and
+  `general-unrecognized` are GeneralViews that stay trees, identical to the tree before this
+  change; `testdata/general-robust.sysml` draws the cycles and the empty filter result.
+  REPL, CLI and LSP tests run the verdicts of `examples/general-views-demo` end to end.
+- `internal/ir/view/general_case_test.go`: a GeneralView filtered on a case metaclass (a use case
+  filter, a filtered `expose` of cases, an analysis case definition) and a `CaseView` exposing
+  the same elements write the same text, Mermaid, DOT and PlantUML, source links included, but
+  for the provenance each states; the `general-case` and `general-case-definitions` goldens and
+  `links-general-case-*` are drawn from `testdata/general-case.sysml`. REPL, CLI, LSP and
+  document-planning tests render `examples/general-views-demo/use-cases.sysml` as a case diagram.
 - `internal/ir/view/dot_test.go`: a `*.dot.golden` beside every Mermaid golden for the tree,
   interconnection, state, state-entry, action and filtered fixtures, each walked by an in-test
   DOT syntax check — balanced braces, every edge endpoint declared as a node or a cluster,
@@ -1195,3 +1313,9 @@ and did not change. A view-render RPC added later would take the form as a strin
   not built.
 - Producing DOT still runs no Graphviz binary. The goldens are checked by the in-test syntax
   walk; a Graphviz installation is used only by hand to look at them.
+- A GeneralView graph is selected only by the filter shapes [its section](#generalview-graphs)
+  lists; a conjunction or a user metadata filter keeps the tree even where it would admit only
+  requirements. No requirements table is drawn: a `GridView` is the table.
+- The verdicts overlay runs every verification case verifying a drawn requirement each time it is
+  drawn; a workspace (the LSP) runs them over the declared model, without the runtime a REPL
+  session or document keeps.

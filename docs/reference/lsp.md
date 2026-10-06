@@ -25,7 +25,8 @@ behavior and report where it stands, and `openSysmlRenderPalette` that a
 the forms `opensysml/render` writes and `openSysmlRenderStyles` the drawing styles its `style`
 draws the DOT form in, the first the default (`openSysmlRenderPorts` lists likewise the port
 displays its `ports` draws an interconnection or mixed rendering's parts with, a server without
-it drawing every port); a server without the former draws the Pilot look
+it drawing every port; `openSysmlRenderOverlays` lists the overlays its `overlay` draws, a server
+without it drawing none); a server without the former draws the Pilot look
 alone.
 
 A client that does not see that capability must not send these methods. That is
@@ -123,10 +124,11 @@ Renders one view of a document.
 | --- | --- |
 | `textDocument.uri` | The document to render. It must be one the session holds — an open document, or a workspace file the server read. |
 | `view` | The qualified name of a view the document declares, a pseudo-view (below), or omitted. |
-| `form` | `mermaid`, `text`, `markdown`, `dot`, `plantuml`, `d2`, `csv` or `tsv`. Omitted writes the machine form of the rendering's kind: `markdown` for a table or matrix, `mermaid` otherwise. `dot` writes Graphviz DOT for a `tree`, `interconnection`, `state`, `action`, `case` or `mixed` rendering, without needing Graphviz installed; `plantuml` writes PlantUML for those kinds and a `sequence`, without needing a PlantUML jar; `d2` writes a [D2](https://d2lang.com) diagram for `tree`, `interconnection`, `state`, `action` and `sequence`, without needing `d2`; case and mixed renderings are refused with a typed `WrongFormError`; `csv` and `tsv` write a `table` or matrix rendering as comma- or tab-separated values, a header record of its columns and then one record per row. |
+| `form` | `mermaid`, `text`, `markdown`, `dot`, `plantuml`, `d2`, `csv` or `tsv`. Omitted writes the machine form of the rendering's kind: `markdown` for a table or matrix, `mermaid` otherwise. `dot` writes Graphviz DOT for a `tree`, `interconnection`, `state`, `action`, `case`, `mixed`, `requirement`, `definition` or `package` rendering, without needing Graphviz installed; `plantuml` writes PlantUML for those kinds and a `sequence`, without needing a PlantUML jar; `d2` writes a [D2](https://d2lang.com) diagram for a `tree`, `interconnection`, `state`, `action`, `sequence`, `requirement`, `definition` or `package` rendering, without needing `d2`; case and mixed renderings are refused with a typed `WrongFormError`; `csv` and `tsv` write a `table` or matrix rendering as comma- or tab-separated values, a header record of its columns and then one record per row. |
 | `palette` | Optional. A palette the `dot`, `mermaid`, `plantuml` and `d2` forms fill nodes with by keyword family: `okabe-ito`, `tol-bright`, `tol-muted`, `tol-light`, `brewer-set2`, `brewer-dark2`, `viridis` or `cividis` ([the palettes](../project/view-rendering-forms.md#palettes)). Omitted or empty draws black and white. Mermaid sequence diagrams note that they cannot fill individual participants; `text` and `markdown` ignore palettes. A server advertising `openSysmlRenderPalette` gives each node the palette colours as `fill` and `border`, so a client drawing the nodes itself can use the same colours. |
 | `style` | Optional. The drawing style the `dot` or `mermaid` form draws in: `pilot` (the default, the Pilot visualizer's B&W) or `cameo`, the look of Cameo Systems Modeler — 11 pt Arial, gradient fills in Cameo's colours, compartments and UML pseudo-state symbols ([the measurements](../project/view-rendering-forms.md#the-cameo-style)). Mermaid draws supported Cameo details but flattens gradients and omits the frame and header tab; unsupported details are noted. PlantUML and D2 note a style other than `pilot` as not represented; `text` and `markdown` ignore it. The result's `style` names the style drawn, the default when omitted. |
 | `ports` | Optional. How much of a part's ports an interconnection or mixed rendering draws: `minimal` (the default), the ports an interconnection edge ends at, each a small square on the part's border named beside it, or `full`, every port a part has, labelled `name : Type`. Other kinds ignore it. |
+| `overlay` | Optional. `verdicts` runs the verification cases verifying each requirement of a `requirement` rendering and labels and colours the requirement by their verdicts, each node carrying the worst as `verdict` (`pass`, `inconclusive`, `fail`, `error`). Omitted, nothing runs. Refused on another kind, and when unknown. |
 | `linkTemplate` | Optional. Template for source links on diagram elements, with `{file}`, `{line}`, `{col}`, `{qname}` and `{id}` placeholders. `{file}` is the path as loaded. Only on-disk workspace documents are linked; bundled libraries and non-file documents have no source link. |
 
 The VS Code export sends `<uriScheme>://file/{file}:{line}:{col}`. Those links survive in DOT
@@ -145,7 +147,7 @@ one of the eight is refused, and the reply names all eight. A
 `palette` that names none of the eight is refused, and the reply names them
 (`unknown palette "rainbow"; the palettes are okabe-ito, …, cividis`). A `style` that is neither is refused likewise
 (`unknown drawing style "sketch"; the styles are pilot, cameo`), and a `ports` that is neither
-display (`unknown port display "all"; the displays are minimal, full`).
+display (`unknown port display "all"; the displays are minimal, full`); an `overlay` that is unknown names the overlays there are (`unknown overlay "colours"; the overlays are verdicts`).
 
 **Pseudo-views.** A document that is still being written usually declares no `view`,
 so a rendering can be requested as if one had been declared:
@@ -213,7 +215,7 @@ The result, for `{"view": "KitViews::widgetTree"}` over a document declaring
 | Field | Meaning |
 | --- | --- |
 | `view` | The view rendered, by qualified name; empty for a pseudo-view. |
-| `kind` | `tree`, `interconnection`, `state`, `action`, `case`, `mixed`, `sequence`, `table` or `matrix`. |
+| `kind` | `tree`, `interconnection`, `state`, `action`, `case`, `mixed`, `sequence`, `table`, `matrix`, `requirement`, `definition` or `package`. |
 | `stated` | How the kind was decided — the rendering the view names, the standard view definition it specializes, or that no view was declared. Empty when the view took the default. |
 | `artifact` | What to draw or show: a Mermaid diagram, a Graphviz DOT graph, a PlantUML diagram, a D2 diagram, the text form, or a Markdown table or relationship matrix. |
 | `nodes`, `edges` | What the artifact is made of, so a client can map a click on it back to the source. A node's `kind` is the keyword the notation declares it with (`part def`, `state`), its `name` the qualified name of an element the view exposes or the simple name of one nested in it, its `type` the declared type of a typed usage (`Cog` for `part cog : Cog`, empty otherwise), and its `detail` the notes the artifact draws after the name (`initial`, `already shown`); a client never parses the type out of the detail. A node's `parent` is the node containing it, when one does. An edge's `kind` is `connection`, `transition`, `succession`, `flow`, `composition`, `association`, `include`, `anchor`, `typing`, `specialization` or `reference`. |
