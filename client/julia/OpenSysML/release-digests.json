@@ -55,6 +55,104 @@
       "sysml-grpc-linux-amd64": "b39b720e020c325020af95c33640ad3583c938d74c40d29a0741fab6c03412de",
       "sysml-grpc-linux-arm64": "2faeacdbc3dcd20053b2dc79b559bbbf2f53b7470d982b9908c7665a53b37462",
       "sysml-grpc-windows-amd64.exe": "f50f1b53008154c1a5fb39eb56f09464dedcf081037af765978304b2f33615c6"
+    },
+    "v0.3.1": {
+      "sysml-grpc-darwin-amd64": "9e320e71064d4fd4dfb721bc08e86f420c1dd39da6a6229a10d683f299f1b43c",
+      "sysml-grpc-darwin-arm64": "9dc40683594ff7f4c679d19ff6c1a4e220f74ad0b94b9e871293ede473bda112",
+      "sysml-grpc-linux-amd64": "f3e3e4bc6f7786437932db69148658dd0f64d9e291bec5957754b75b87630c6e",
+      "sysml-grpc-linux-arm64": "1b4009712c1f74c83fae35fa927393867844c983835f2663af85a5c0373df6c7",
+      "sysml-grpc-windows-amd64.exe": "a14aa294a096e7eed54145b867ed19dfb604e1e77be4bbd8dc5dd0d84a1e4cf4"
+    },
+    "v0.4.0": {
+      "sysml-grpc-darwin-amd64": "fec8a8e647cfea68935f28c54691bd7c692685727cdf0052492aec3a440bac80",
+      "sysml-grpc-darwin-arm64": "1f3bf8caba84d60949add1426cb3be92d4e6ffe50ae6530ab3fea8dd9430a368",
+      "sysml-grpc-linux-amd64": "8b5d10b2f0f4175fd78936a7be3083668f0262c525a1ae7581d73b80a278a427",
+      "sysml-grpc-linux-arm64": "62718407f0606bad8673eb28a03dec37745bd7c30fbeea4c2e2d41bc2bb61b64",
+      "sysml-grpc-windows-amd64.exe": "72a532175348d73f23b208fc638715c6f9020b1a626517a04ca500afd2831ef2"
+    },
+    "v0.4.1": {
+      "sysml-grpc-darwin-amd64": "e7a03ea3e9f5d6681656d9f8fb9419b5a54e04b0ce64b465ec0fdc6abc8d6a3f",
+      "sysml-grpc-darwin-arm64": "ad6aa276842ee4e60fa18e158421b5a3e0adda605cfb166a3a0588eb7aef712b",
+      "sysml-grpc-linux-amd64": "125dadd7ee27738d62461cef12766a622494d9c69e18ddc5c12d51957abcf68b",
+      "sysml-grpc-linux-arm64": "9d7c835e2b61ed3357afa47dbd210f5c7d4afa8ec6a254f24f3f6909e3c4796c",
+      "sysml-grpc-windows-amd64.exe": "222a4ec5b8f535a654b53f684dc01da8004114e7944e5ea3bf2b65adfdca6966"
+    },
+    "v0.4.2": {
+      "sysml-grpc-darwin-amd64": "e137c8b41efedda4f2dd511e4bd98443bbcb40373c0b034ca19bed8594bc7773",
+      "sysml-grpc-darwin-arm64": "b931eafa0b56f3319e221b5524a6315fa44f3b5660db9f9ce98b2df8af9d683f",
+      "sysml-grpc-linux-amd64": "4719bc621befa5d5d9b1eb588393f0cee05f7329f9eee5a517016bfd56383923",
+      "sysml-grpc-linux-arm64": "a48fc6f29556b5aa1d0dd7ca3eb62362160e21fb6baa676336d35162a882ef7c",
+      "sysml-grpc-windows-amd64.exe": "08a931bc7c0af9df2f9a4bd03cd51f597974bb176467f8b1da71cd50d4ccbdbf"
+    },
+    "v0.4.3": {
+      "sysml-grpc-darwin-amd64": "12dcf12c09083261480db3f0533e455015f36a598fcf57f898071f5d0a38f55f",
+      "sysml-grpc-darwin-arm64": "f25f3f1a6b2e766f6355b6cb2fa9872102184eacee059bb784213b3cd550709f",
+      "sysml-grpc-linux-amd64": "24132eeafa93e23cb01e8759b469ea62bdb99e53834cc684995a5c7305675bcc",
+      "sysml-grpc-linux-arm64": "f54dff9572c625d415b527e81515dfed4cdd9075bb9d3b822b463f79c9e803dd",
+      "sysml-grpc-windows-amd64.exe": "0b188ec140872c0f93618602d5aa880daa864a84c00d4a8806cf97c80e8333fe"
+    },
+    "v0.5.0": {
+      "sysml-grpc-darwin-amd64": "8da7071431f7dec63bbab7465c9e9766ec45cc602ee55a5bcecc2df150132bf2",
+      "sysml-grpc-darwin-arm64": "17363e6aa06b1e83122e9b68bd9e1942333ec2eccd7ffc53b804585c5e672227",
+      "sysml-grpc-linux-amd64": "119b15545dea975e45636682cab075de551395536a4d42c4666776d71b70e990",
+      "sysml-grpc-linux-arm64": "8a6ef48a998e21b6a34cd3cce68d202135d8f9285ffe0f022a27550b5b93048a",
+      "sysml-grpc-windows-amd64.exe": "053de029407b1255e312a9836d2972a69826c98f64fe425866dfe81a931d154c"
+    },
+    "v0.5.1": {
+      "sysml-grpc-darwin-amd64": "32e11b447b221bad34c477afffb1b05c00eebfede5ba33da6864feddd74e8e3b",
+      "sysml-grpc-darwin-arm64": "3149379869d2f8f753053dae06e86dd0a22ac2ce04c410973b84523e592bbb48",
+      "sysml-grpc-linux-amd64": "9b1d33ae570f83eaf8deb1626f920d3bcbf65eff5a5b3c4b2ada53606ac9dd01",
+      "sysml-grpc-linux-arm64": "b4824822e36115474871658907fec6e311dee6db954c2ee12d8f43b5aca9795a",
+      "sysml-grpc-windows-amd64.exe": "5bc8de29420af2906da9aa2aa578ccd0eb3ebf56482d31e97b2df1fa53275f8f"
+    },
+    "v0.6.0": {
+      "sysml-grpc-darwin-amd64": "6195c3127ebb258032bc3e6a2478c67149e9718c6540995c796c4b4bcf3b0a0e",
+      "sysml-grpc-darwin-arm64": "e6489a5e2ba77ef6c3c906feaef83bc342c014b5943487d59eba037bfd83ec31",
+      "sysml-grpc-linux-amd64": "9368097f9e6ee9bec6cc2155403c3b0ff80202dba33eda0fc7938fb4b41d1168",
+      "sysml-grpc-linux-arm64": "b77852e30015a1bdde72da889a712174447dcd53696400980b0c0717f34daf91",
+      "sysml-grpc-windows-amd64.exe": "16447e3ff1e16bad36b2419f73f70b4b5f73bb8ad609f3a288412eef9fa54a62"
+    },
+    "v0.7.0": {
+      "sysml-grpc-darwin-amd64": "2e125afec790b674ac85c4445acc6b591d69a4eecfe49a390115644084e6ccb9",
+      "sysml-grpc-darwin-arm64": "223596d1990eedbfc091e30a7e469f411574f5adb3b3149ee63ed6ff134edb29",
+      "sysml-grpc-linux-amd64": "bd953bb9462fd99c588e6111bb22d235b863c2cb81d3afa8c2a116aa3589b534",
+      "sysml-grpc-linux-arm64": "806250c40ccb5ba84d84d92e39ffffdda0e2fc878af88574524f6728d205d51f",
+      "sysml-grpc-windows-amd64.exe": "ce5a795c5bb680eba6d22dbe555ca16c4cbb0fcf79f4611da62f83b3104c5753"
+    },
+    "v0.8.0": {
+      "sysml-grpc-darwin-amd64": "9b66402e3e6483c2b6e8c983fbea68463a1f51603b0f1246ba932a13af1e528c",
+      "sysml-grpc-darwin-arm64": "7a18e07bc3994bcc5965667ef7abee18efe015923b480e658a89644918b3af51",
+      "sysml-grpc-linux-amd64": "229d129b0051e008aab3bd077fd3087b82f322f15ad91135effdd3f65aae197c",
+      "sysml-grpc-linux-arm64": "4e844d0a415307507e88e6e2de40314207eb83bafa960e9b5a374ef8a942b3a6",
+      "sysml-grpc-windows-amd64.exe": "fbbc8c8cf35c0a5a6d4802dbe14980a8df89871ddd955341b0913e23d9da7625"
+    },
+    "v0.8.1": {
+      "sysml-grpc-darwin-amd64": "277df0b768c58709d99b3301fe954d3478ef69c44173b04e82359ad49b00dd56",
+      "sysml-grpc-darwin-arm64": "0c4d896ec61ca19085a0f67a7c5f28be4fef84f46ebc6df5e25c519a4fee5cff",
+      "sysml-grpc-linux-amd64": "c928b5e3a8bb6374b18a2a8de0d5694d9727d3a863f35dbb7b91cf2b1f85cc3a",
+      "sysml-grpc-linux-arm64": "b75ef2f1f3c3fe76932e84f94ac1cac3c4628f77e22eaaab439219b07c7d2a2d",
+      "sysml-grpc-windows-amd64.exe": "2f21bb9471ce913450e65d077f9f4ce1995ee5215f7b281cbf7c461e6b93c218"
+    },
+    "v0.9.0": {
+      "sysml-grpc-darwin-amd64": "0b707d2ad04f1e4ad074ebc529be32792f083a05edf8fad72a8bd5aee450dd89",
+      "sysml-grpc-darwin-arm64": "d2c0a5eeca4ffb8309712ae0f6da29e1a15dfdc3b2a201fa30920a76e863b166",
+      "sysml-grpc-linux-amd64": "930c85cc74a4da0ff9761b80688d30da5aade04d1f6ecf2c0c8235bad10e5449",
+      "sysml-grpc-linux-arm64": "3664264060fe1b59c9da278c2f10b6d57bec0f7ee9cc8fa2784d565916a74dcf",
+      "sysml-grpc-windows-amd64.exe": "b5268560bcff72ed3a64f93342cf3b3ff72b0145bf2c14ae3ffc6a4b5ab3f2b6"
+    },
+    "v0.9.1": {
+      "sysml-grpc-darwin-amd64": "ade96cc53eeb7bfbfd44db76a5c67f4566ccc2c4d36fc3d82e28759cd27745df",
+      "sysml-grpc-darwin-arm64": "1579ce333281cdf0ba83d76907850d628214331f319cc546b2215e6173a851c0",
+      "sysml-grpc-linux-amd64": "07cf2bca89531328b0f5ad3e21533f62ef6c9b1605ceaf308b951b44361ef463",
+      "sysml-grpc-linux-arm64": "6cde66836b884171650fcb246cbc976f66fc564bebb233a82a2ff1a0cb58e377",
+      "sysml-grpc-windows-amd64.exe": "74c55402c86b27fba749275750bb3ffd769c25428eaf4cad7cacaf843596a9ce"
+    },
+    "v0.9.2": {
+      "sysml-grpc-darwin-amd64": "e0a899530c03dfc4364c472d04e3f8748338ae72132f75f9351b9d162c8cb2cc",
+      "sysml-grpc-darwin-arm64": "f216818f2b37767d1aa7531a692612c7235e64ae9a21efe6b4de13d6832422f4",
+      "sysml-grpc-linux-amd64": "8577dacafa512416942639a3b2a7e38dc4a0bd89e64abce2e5e4faca581ee7c3",
+      "sysml-grpc-linux-arm64": "289f3fdff259f1a49960abbdead31a9cd7bb4d3789430303d1823beffda1b3cf",
+      "sysml-grpc-windows-amd64.exe": "d58a5b3ace4a627e59988b85d94d1b753ba7403b1477860f3ae2e8d83b3c3e99"
     }
   }
 }

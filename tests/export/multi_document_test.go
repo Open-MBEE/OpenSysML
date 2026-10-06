@@ -226,6 +226,82 @@ func TestModelOfSeveralDocumentsHasARootNamespacePerDocument(t *testing.T) {
 	}
 }
 
+// A root Namespace is minted free of the ids every document's wrapper took,
+// not only of the graph's subjects: a document whose root's id is `P_ns` next
+// to one whose root is `P` gets its own namespace, and roots `Q` and `Q_om`
+// their own memberships. Reading the form back drops them all.
+func TestModelOfSeveralDocumentsMintsDistinctRootNamespaces(t *testing.T) {
+	for _, model := range []struct {
+		name string
+		ids  [2]string
+	}{
+		{"namespace suffix", [2]string{"P", "P_ns"}},
+		{"membership suffix", [2]string{"Q", "Q_om"}},
+	} {
+		for _, id := range []export.IDForm{export.IDQualifiedName, export.IDUUID} {
+			t.Run(model.name+"/"+idFormName(id), func(t *testing.T) {
+				graph, err := export.ModelToRDFWith(modelDocuments(t,
+					"one.sysml", "package First { @IdentityMetadata::ElementId { id = \""+model.ids[0]+"\"; } part def A; }\n",
+					"two.sysml", "package Second { @IdentityMetadata::ElementId { id = \""+model.ids[1]+"\"; } part def B; }\n",
+				), id)
+				if err != nil {
+					t.Fatal(err)
+				}
+				out, err := export.WriteAPIJSON(graph)
+				if err != nil {
+					t.Fatal(err)
+				}
+				elements := rootElements(t, out)
+				seen := map[string]bool{}
+				namespaces := map[string]bool{}
+				memberships := map[string]bool{}
+				owners := map[string]string{}
+				for _, element := range elements {
+					elementID := rootString(t, element["@id"])
+					if seen[elementID] {
+						t.Errorf("@id %q appears twice:\n%s", elementID, out)
+					}
+					seen[elementID] = true
+					switch rootString(t, element["@type"]) {
+					case "Namespace":
+						namespaces[elementID] = true
+					case "OwningMembership":
+						if namespaces[rootRef(t, element["owningRelatedElement"])] {
+							memberships[elementID] = true
+						}
+					case "Package":
+						owners[rootString(t, element["declaredName"])] = rootRef(t, element["owner"])
+					}
+				}
+				if len(namespaces) != 2 {
+					t.Errorf("%d root Namespaces, want one per document:\n%s", len(namespaces), out)
+				}
+				if len(memberships) != 2 {
+					t.Errorf("%d root OwningMemberships, want one per document:\n%s", len(memberships), out)
+				}
+				first, second := owners["First"], owners["Second"]
+				if first == "" || second == "" || first == second {
+					t.Errorf("roots are owned by %v, want each by the namespace of its own document", owners)
+				}
+				back, err := export.ReadAPIJSON(out)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if !sameTriples(tripleSet(graph), tripleSet(back)) {
+					t.Errorf("reading the form back differs from the model:\n%v", diffTriples(tripleSet(back), tripleSet(graph)))
+				}
+			})
+		}
+	}
+}
+
+func idFormName(id export.IDForm) string {
+	if id == export.IDUUID {
+		return "uuid"
+	}
+	return "qualified"
+}
+
 // referencing marks every document but the named ones Referenced.
 func referencing(docs []export.ModelDocument, written ...string) []export.ModelDocument {
 	out := make([]export.ModelDocument, len(docs))

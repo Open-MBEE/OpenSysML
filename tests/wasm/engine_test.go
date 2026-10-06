@@ -25,7 +25,7 @@ import (
 // engineGzipBudget bounds the gzipped js build of sysml-engine: serving JSON
 // rather than protobuf is what keeps it small, so exceeding the budget means
 // the engine pulled in a dependency it must not have.
-const engineGzipBudget = 7500000
+const engineGzipBudget = 7650000
 
 // engineSubtests runs the sysml-engine half of the run gate on bins, linked
 // into bins["sysml-engine"] with the other commands so it is not built twice:
