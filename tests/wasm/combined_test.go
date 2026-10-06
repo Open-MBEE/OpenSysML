@@ -19,7 +19,10 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/jsonrpc"
 )
 
-const combinedGzipBudget = 8300000
+// combinedGzipBudget bounds growth of the gzipped js build of sysml-wasm, which
+// serves every surface at once; TestCombinedDependencies, not this budget,
+// catches a forbidden dependency.
+const combinedGzipBudget = 8500000
 
 const combinedModel = `package Demo { part def Item; }`
 
