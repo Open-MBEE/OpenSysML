@@ -1,9 +1,58 @@
 {
 	"type": "action",
+	"exploreBudget": {"runs": 2048},
 	"libraries": true,
-	"outputs": {
-		"c": {"type": "Integer", "value": 3},
-		"total": {"type": "Integer", "value": 6},
-		"n": {"type": "Integer", "value": 3}
-	}
+	"outcomes": [
+		{"outputs": {
+			"c": {"type": "Integer", "value": 3},
+			"total": {"type": "Integer", "value": 0},
+			"n": {"type": "Integer", "value": 3}
+		}},
+		{"outputs": {
+			"c": {"type": "Integer", "value": 3},
+			"total": {"type": "Integer", "value": 1},
+			"n": {"type": "Integer", "value": 3}
+		}},
+		{"outputs": {
+			"c": {"type": "Integer", "value": 3},
+			"total": {"type": "Integer", "value": 2},
+			"n": {"type": "Integer", "value": 3}
+		}},
+		{"outputs": {
+			"c": {"type": "Integer", "value": 3},
+			"total": {"type": "Integer", "value": 3},
+			"n": {"type": "Integer", "value": 3}
+		}},
+		{"outputs": {
+			"c": {"type": "Integer", "value": 3},
+			"total": {"type": "Integer", "value": 4},
+			"n": {"type": "Integer", "value": 3}
+		}},
+		{"outputs": {
+			"c": {"type": "Integer", "value": 3},
+			"total": {"type": "Integer", "value": 5},
+			"n": {"type": "Integer", "value": 3}
+		}},
+		{"outputs": {
+			"c": {"type": "Integer", "value": 3},
+			"total": {"type": "Integer", "value": 6},
+			"n": {"type": "Integer", "value": 3}
+		}},
+		{"outputs": {
+			"c": {"type": "Integer", "value": 3},
+			"total": {"type": "Integer", "value": 7},
+			"n": {"type": "Integer", "value": 3}
+		}},
+		{"outputs": {
+			"c": {"type": "Integer", "value": 3},
+			"total": {"type": "Integer", "value": 8},
+			"n": {"type": "Integer", "value": 3}
+		}},
+		{"outputs": {
+			"c": {"type": "Integer", "value": 3},
+			"total": {"type": "Integer", "value": 9},
+			"n": {"type": "Integer", "value": 3}
+		}}
+	],
+	"admissible": "Repeated action steps and shared writes"
 }

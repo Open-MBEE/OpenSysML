@@ -1,6 +1,7 @@
 // `a.x` read after every performance of `a` is the values of all three
 // performances' `x` (ControlFunctions '.': nonunique), so its size is three and
-// its sum is 1 + 2 + 3 whatever order the performances ran in.
+// `c` is three in every order; `total` depends on how the performances'
+// unordered statements interleave.
 package test {
 	private import ScalarValues::*;
 	private import SequenceFunctions::*;
