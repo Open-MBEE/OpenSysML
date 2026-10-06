@@ -80,7 +80,7 @@ func (ec *EvalContext) metaCastSubject(n *ast.OperatorExpr) (*symbols.Symbol, er
 	if resolved, aliased := ec.ctx.resolveAliasTarget(sym); aliased {
 		sym = resolved
 	}
-	if sym.Decl == nil {
+	if sym.Decl == nil && sym.Implicit == nil {
 		return nil, fmt.Errorf("%w: '%s' requires an element, but %s declares none",
 			ErrTypeMismatch, n.Operator, ec.ctx.qualifiedSymbolName(sym))
 	}

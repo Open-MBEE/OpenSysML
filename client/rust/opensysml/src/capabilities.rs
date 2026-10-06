@@ -23,6 +23,8 @@ pub const CAPABILITY_DOCUMENT_QUERY: &str = "document_query";
 pub const CAPABILITY_RENDER_DOCUMENT: &str = "render_document";
 /// `RenderDocumentRequest.form`, asking for the HTML page instead of Markdown.
 pub const CAPABILITY_RENDER_DOCUMENT_HTML: &str = "render_document_html";
+/// The `RenderView` RPC, rendering named views as machine-readable diagram data.
+pub const CAPABILITY_RENDER_VIEW: &str = "render_view";
 /// An enumeration literal as `Value.enum_literal`.
 pub const CAPABILITY_ENUM_VALUES: &str = "enum_values";
 /// Evaluating an expression against an instantiated subject.
@@ -118,6 +120,9 @@ pub const CAPABILITY_UNDETERMINED_VALUE: &str = "undetermined_value";
 /// An Integer beyond int64 as `Value.big_int_value`, `Quantity.big_int_magnitude` and
 /// `DocumentValue.big_int_value`; a service without it reads one sent to it as null.
 pub const CAPABILITY_BIG_INT_VALUES: &str = "big_int_values";
+/// `ConvertRequest.documents`: a model converted with only the named documents written, the
+/// references into the others linked by id.
+pub const CAPABILITY_CONVERT_DOCUMENTS: &str = "convert_documents";
 
 /// The remedy for a service lacking `capability`, naming both routes to one that has it.
 pub fn upgrade_remedy(capability: &str) -> String {

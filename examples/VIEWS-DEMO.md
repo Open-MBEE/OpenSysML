@@ -19,20 +19,19 @@ interchange form.
 ```
 view LanderViews::overview
   exposes
-    Lander::descender (partUsage)
-    Lander::heavyDescender (partUsage)
+    Lander::descender (part)
+    Lander::heavyDescender (part)
   nested views
-    LanderViews::overview::interfaceSubview (viewUsage)
+    LanderViews::overview::interfaceSubview (view)
   viewpoint conformance
     satisfy massPerspective: violated
       concern mass: violated
-        Lander::heavyDescender: satisfaction satisfy MassBudget by Lander::heavyDescender:
-        require condition evaluated to false: lander.mass <= maxMass
+        Lander::heavyDescender: satisfaction satisfy MassBudget by Lander::heavyDescender: require condition evaluated to false: lander.mass <= maxMass
 ```
 
-The view frames a mass concern and satisfies the viewpoint framing it, so
-conformance is checked against each exposed lander: `descender` is within the
-budget, `heavyDescender` is over it and named as the violation.
+The view satisfies a viewpoint that frames a mass concern, so that concern is
+checked against each exposed lander: `descender` is within the budget,
+`heavyDescender` is over it and named as the violation.
 
 ## `%render` — the rendering kinds
 
@@ -78,12 +77,16 @@ connections and flows between them as edges:
 LanderViews::interfaces - interconnection rendering (render asInterconnectionDiagram)
 
 part def Lander::Descender
+  attribute mass : Real
+  attribute partCount : Integer
   part tank : Tank
+    port outlet
   part thruster : Thruster
+    port supply
   …
 
 connections:
-  tank -- thruster: supply
+  tank.outlet -- thruster.supply: supply
   tank => thruster: of Fuel
 ```
 
@@ -110,7 +113,7 @@ transitions:
   start of descent -> braking
   cruise -> descent
   descent -> landed
-  braking -> hover: braking_to_hover: accept Signal [altitude < 100.0]
+  braking -> hover: accept Signal [altitude < 100.0]
 ```
 
 The action rendering comes from the lowered action graph, control nodes and
@@ -120,19 +123,30 @@ guarded successions alike:
 LanderViews::descentFlow - action rendering (view def ActionFlowView)
 
 action def Lander::Descend
+  in fuel
   initial start
   action deployParachute
   action burn (own flow)
-    …
+    in propellant
+    action ignite
+    action throttle
   fork split
   join sync
+  action touchdown
   decision check
+  final done
 
 flow:
+  ignite -> throttle
+  start -> split
+  deployParachute -> sync
+  burn -> sync
   split -> deployParachute
+  split -> burn
   sync -> check
+  touchdown -> done
   check -> touchdown: [altitude > 0.0]
-  …
+  check -> done
 ```
 
 The table rendering lists the exposed elements as rows, each with its kind, type
@@ -151,26 +165,39 @@ than written as something else.
 ```
 ---
 config:
+  fontFamily: "Helvetica, Arial, sans-serif"
+  theme: base
+  …
   flowchart:
     subGraphTitleMargin:
       bottom: 48
 ---
 %% LanderViews::descentFlow — action rendering (view def ActionFlowView)
+%% not represented: 2 fork/join name(s) (split, sync); Mermaid's fork bar draws no label
+%% not represented: 2 pin(s) not drawn (Lander::Descend.fuel, burn.propellant); a flowchart draws the pins an edge ends at
 flowchart TD
-  subgraph n0 ["«action def»<br>Descend"]
+  subgraph n0 ["`*«action def»*
+**Descend**`"]
     direction TD
-    n1["«initial»<br>start"]
-    n2["«action»<br>deployParachute"]
-    subgraph n3 ["«action»<br>burn<br>own flow"]
+    n1@{ shape: f-circ, label: "" }
+    n2("`*«action»*
+**deployParachute**`")
+    subgraph n3 ["`*«action»*
+**burn**
+own flow`"]
       direction TD
-    …
+      …
   end
-  n10 -->|"[altitude #gt; 0.0]"| n9
+  n4 --> n5
+  …
+  n9 -->|"[altitude #gt; 0.0]"| n8
+  …
 ```
 
-The leading frontmatter reserves the height of a cluster title's second and
-third lines, which Mermaid would otherwise draw under the first child; a
-flowchart with no such cluster has none.
+The leading frontmatter carries the theme and reserves the height of a cluster
+title's second and third lines, which Mermaid would otherwise draw under the
+first child. The `%% not represented` lines name what the text form shows and
+the diagram cannot: the names of fork and join bars, and pins no edge ends at.
 
 ```
 %render LanderViews::partsTable markdown
@@ -203,6 +230,7 @@ LanderViews::safetyView - tree rendering (the view states no rendering; a tree i
 
 part def Lander::Thruster
   attribute thrust : Real
+  item fuelIn : Fuel
   port supply : FuelPort
 part def Lander::Parachute
 ```
