@@ -11,6 +11,7 @@
   "constraints": {
     "readyIsActive": true,
     "armedIsNotActive": true,
-    "readyIsActiveWrong": false
+    "readyIsActiveWrong": false,
+    "modesIsActive": true
   }
 }

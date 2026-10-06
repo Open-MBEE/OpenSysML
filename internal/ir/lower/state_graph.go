@@ -1426,6 +1426,9 @@ func (g *StateGraph) StateNamed(scope *symbols.Scope, target ast.Node) (*ast.Sta
 	if g == nil || g.endpoints == nil || isNilEndpoint(target) {
 		return nil, false
 	}
+	if scope == nil {
+		scope = g.Scope
+	}
 	decl, ok := g.endpoints.Endpoint(scope, target)
 	if !ok {
 		return nil, false

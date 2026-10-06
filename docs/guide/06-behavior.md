@@ -569,7 +569,10 @@ is `false` while a transition's effect runs — the source has exited and the ta
 been entered, so the effect of a self-transition reads `false` and the state's entry, running once
 more, reads `true` again — before the machine starts and after it ends or is terminated. The
 value is the executor's own active configuration, so a run, `explore`, a `check`, a replayed
-witness and a snapshot all read the same thing. It is read-only: `assign fill.isActive := true;`
+witness and a snapshot all read the same thing. A read written through a part,
+`b.modes.ready.isActive`, is answered by the machine that part exhibits, so two parts running
+the same state usage are told apart; the machine usage itself, `modes.isActive`, is `true`
+while the machine holds an active configuration, awaiting events included. It is read-only: `assign fill.isActive := true;`
 is refused as a write to any derived feature is, and a calc reading it is reported as not
 compilable by the code generator, which has no machine to ask.
 

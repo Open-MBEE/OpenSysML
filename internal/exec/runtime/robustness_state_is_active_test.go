@@ -21,6 +21,7 @@ func TestRuntimeRobustnessStateIsActive(t *testing.T) {
 	t.Run("non_state_operand_is_unresolved", testStateIsActiveNonStateOperand)
 	t.Run("without_the_import_is_unresolved", testStateIsActiveWithoutImport)
 	t.Run("before_start_and_after_end_read_false", testStateIsActiveOutsideTheRun)
+	t.Run("machine_usage_reads_its_configuration", testStateIsActiveMachineUsage)
 }
 
 const stateIsActiveWriteFixture = `
@@ -166,4 +167,66 @@ func testStateIsActiveOutsideTheRun(t *testing.T) {
 		t.Fatalf("run: %v", err)
 	}
 	read("after end")
+}
+
+const stateIsActiveMachineUsageFixture = `
+	package test {
+		private import ScalarValues::*;
+		private import StateActivity::*;
+		item def Go;
+		state def M {
+			entry; then a;
+			state a;
+			transition first a accept Go then done;
+		}
+		part def Controller {
+			exhibit state modes : M;
+		}
+	}
+`
+
+// A machine usage is active while the machine it runs holds an active
+// configuration — suspended at quiescence awaiting an event, as instantiation
+// leaves it, as much as while it steps — and its states with it; once the
+// machine has completed, neither is.
+func testStateIsActiveMachineUsage(t *testing.T) {
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, stateIsActiveMachineUsageFixture))
+	controller := findSymbolByName(idx.DocumentRoot("<test>"), "Controller", ast.DefPart)
+	inst, err := ctx.Instantiate(controller)
+	if err != nil {
+		t.Fatalf("Instantiate: %v", err)
+	}
+	behavior, ok := inst.ExhibitedState()
+	if !ok || behavior.State == nil {
+		t.Fatal("Controller exhibits no state machine")
+	}
+	exec := behavior.State
+	read := func(when, text string, want bool) {
+		t.Helper()
+		expr, ok := parser.ParseOneExpression("<expr>", text)
+		if !ok {
+			t.Fatalf("parse %s", text)
+		}
+		val, err := ctx.EvalWithScopeOn(expr, controller.Scope, inst)
+		if err != nil {
+			t.Fatalf("%s: %s: %v", when, text, err)
+		}
+		if val.Kind != ValConst || val.Const.Kind != semantics.ValBool || val.Const.Bool != want {
+			t.Errorf("%s: %s = %s, want %v", when, text, describeValue(val), want)
+		}
+	}
+	if got := exec.State(); got != StateSuspended {
+		t.Fatalf("machine awaiting Go is %v, want %v", got, StateSuspended)
+	}
+	read("suspended awaiting Go", "modes.isActive", true)
+	read("suspended awaiting Go", "modes.a.isActive", true)
+	injectEvents(t, exec, []ExpectedEvent{{Signal: "Go"}})
+	if err := exec.RunToCompletion(); err != nil {
+		t.Fatalf("run to completion: %v", err)
+	}
+	if got := exec.State(); got != StateCompleted {
+		t.Fatalf("machine after Go is %v, want %v", got, StateCompleted)
+	}
+	read("after completion", "modes.isActive", false)
+	read("after completion", "modes.a.isActive", false)
 }

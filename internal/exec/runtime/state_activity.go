@@ -9,8 +9,9 @@ import (
 )
 
 // stateActivity answers a chain ending in StateActivity::isActive from the
-// configuration of the machine holding the state (StateExecutor.Activity): the
-// enclosing machine, else one the object read on or the operand's object exhibits.
+// configuration of the machine holding the state (StateExecutor.Activity): one
+// the object the operand names its state on exhibits (`b.modes.ready`), else
+// the enclosing machine, else one the object read on exhibits.
 func (ec *EvalContext) stateActivity(n *ast.FeatureChainExpr, base ast.Node, parts []ast.NameSegment) (Value, bool, error) {
 	if ec.ctx.model.semantics == nil || ec.ctx.model.resolver == nil || len(parts) == 0 {
 		return Value{}, false, nil
@@ -20,22 +21,42 @@ func (ec *EvalContext) stateActivity(n *ast.FeatureChainExpr, base ast.Node, par
 		return Value{}, false, nil
 	}
 	operand := ec.ctx.model.activityOperand(n)
+	if receivers := ec.activityReceivers(base, parts[:len(parts)-1]); len(receivers) > 0 {
+		for _, inst := range receivers {
+			if val, ok := ec.exhibitedActivity(inst, operand); ok {
+				return val, true, nil
+			}
+		}
+		return boolValue(false), true, nil
+	}
 	if machine, ok := ec.enclosingMachine(); ok {
 		if val, ok := ec.activityOf(machine, operand); ok {
 			return val, true, nil
 		}
 	}
-	for _, inst := range ec.activityObjects(base, parts[:len(parts)-1]) {
-		for _, b := range inst.ExhibitedStates() {
-			if b.State == nil {
-				continue
-			}
-			if val, ok := ec.activityOf(b.State, operand); ok {
-				return val, true, nil
-			}
+	for _, inst := range []*Instance{ec.self, ec.occurrence} {
+		if inst == nil {
+			continue
+		}
+		if val, ok := ec.exhibitedActivity(inst, operand); ok {
+			return val, true, nil
 		}
 	}
 	return boolValue(false), true, nil
+}
+
+// exhibitedActivity is the activity operand names within a machine inst
+// exhibits; false when none holds it.
+func (ec *EvalContext) exhibitedActivity(inst *Instance, operand ast.Node) (Value, bool) {
+	for _, b := range inst.ExhibitedStates() {
+		if b.State == nil {
+			continue
+		}
+		if val, ok := ec.activityOf(b.State, operand); ok {
+			return val, true
+		}
+	}
+	return Value{}, false
 }
 
 // activityOf is the activity of the state operand names within machine, or of
@@ -46,7 +67,7 @@ func (ec *EvalContext) activityOf(machine *StateExecutor, operand ast.Node) (Val
 		return boolValue(machine.Activity(state)), true
 	}
 	if usage, ok := ec.ctx.resolveTarget(ec.scope, operand); ok && machine.performs(usage) {
-		return boolValue(machine.State() == StateRunning || machine.State() == StateWaiting), true
+		return boolValue(!machine.State().Ended() && len(machine.ActiveStates()) > 0), true
 	}
 	return Value{}, false
 }
@@ -168,37 +189,31 @@ func (ec *EvalContext) enclosingMachine() (*StateExecutor, bool) {
 	return nil, false
 }
 
-// activityObjects are the objects whose exhibited machines may hold the state a
-// read of its activity names: the object the read's feature names resolve
-// against, the occurrence the read is made on and the object the chain's
-// operand, read up to the machine usage, denotes.
-func (ec *EvalContext) activityObjects(base ast.Node, statePath []ast.NameSegment) []*Instance {
-	var objects []*Instance
-	for _, inst := range []*Instance{ec.self, ec.occurrence} {
-		if inst != nil && !slices.Contains(objects, inst) {
-			objects = append(objects, inst)
-		}
-	}
+// activityReceivers are the objects an operand written through a feature that
+// is no state names its state on (`b.modes.ready` names b): the objects the
+// chain's prefixes denote, longest first. A chain opening on a state names
+// none, so the state is the enclosing machine's or the read object's own.
+func (ec *EvalContext) activityReceivers(base ast.Node, statePath []ast.NameSegment) []*Instance {
 	sym, named := ec.chainBaseSymbol(base)
-	if named && sym != nil {
-		if inst := ec.ctx.denotedInstance(sym); inst != nil && !slices.Contains(objects, inst) {
-			objects = append(objects, inst)
-		}
-	}
 	if named && isStateSymbol(sym) {
-		// The chain opens on a state, so it is a state path, not an object path.
-		return objects
+		return nil
 	}
+	var receivers []*Instance
 	for i := len(statePath) - 1; i >= 0; i-- {
 		val, err := ec.evalChainPrefix(base, statePath[:i])
 		if err != nil || val.Kind != ValInstance {
 			continue
 		}
-		if inst, ok := ec.ctx.instances[val.Instance]; ok && !slices.Contains(objects, inst) {
-			objects = append(objects, inst)
+		if inst, ok := ec.ctx.instances[val.Instance]; ok && !slices.Contains(receivers, inst) {
+			receivers = append(receivers, inst)
 		}
 	}
-	return objects
+	if named {
+		if inst := ec.ctx.denotedInstance(sym); inst != nil && !slices.Contains(receivers, inst) {
+			receivers = append(receivers, inst)
+		}
+	}
+	return receivers
 }
 
 // evalChainPrefix evaluates base followed by parts, as the chain they open reads.
