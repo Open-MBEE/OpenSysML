@@ -110,7 +110,7 @@ type Model struct {
 	// integerLiterals and realLiterals memoize the value each numeric literal
 	// node spells, so a literal in a recursion is parsed once per model.
 	integerLiterals map[*ast.LiteralInteger]semantics.Value
-	realLiterals    map[*ast.LiteralReal]float64
+	realLiterals    map[*ast.LiteralReal]semantics.Value
 
 	// census memoizes the object usages the model's namespaces declare; see modelUsages.
 	census *usageCensus
@@ -227,7 +227,7 @@ func NewModel(sem *semantics.Model, resolver *resolve.Resolver) *Model {
 		libraryPerformances: make(map[*symbols.Symbol]*libraryPerformance),
 		invocationTargets:   make(map[invocationKey]*invocationTarget),
 		integerLiterals:     make(map[*ast.LiteralInteger]semantics.Value),
-		realLiterals:        make(map[*ast.LiteralReal]float64),
+		realLiterals:        make(map[*ast.LiteralReal]semantics.Value),
 		behaving:            make(map[*symbols.Symbol]bool),
 		behavingFeatures:    make(map[*symbols.Symbol][]int),
 		redefGroups:         make(map[*symbols.Symbol][][]string),

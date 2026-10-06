@@ -2,9 +2,9 @@
   "type": "instance",
   "instantiate": "test::Vehicle",
   "slots": {
-    "mass": {"type": "Real", "value": 1500.0},
-    "folded": {"type": "Real", "value": 12.0},
-    "doubled": {"type": "Real", "value": 3000.0},
-    "total": {"type": "Real", "value": 1770.0}
+    "mass": {"type": "Rational", "value": "1500.0"},
+    "folded": {"type": "Rational", "value": "12.0"},
+    "doubled": {"type": "Rational", "value": "3000.0"},
+    "total": {"type": "Rational", "value": "1770.0"}
   }
 }

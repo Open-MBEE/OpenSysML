@@ -4,8 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math/big"
 	"os"
-	"strconv"
 	"strings"
 	"testing"
 
@@ -120,8 +120,8 @@ func TestSolvedIntegerDivisionAgreesWithEvaluator(t *testing.T) {
 	}
 }
 
-// Beyond 2^53 the encoding divides the exact Int terms and the evaluator rounds
-// the exact ratio once, so the solved quotient still matches the evaluated one.
+// Beyond 2^53 the encoding divides the exact Int terms and the evaluator's
+// quotient is the exact Rational, so the solved quotient matches the evaluated one.
 func TestSolvedQuotientAgreesBeyondFloatExactRange(t *testing.T) {
 	solver := requireSolver(t)
 	// 2^53+1 over 3 divides exactly; rounding the dividend to float64 first
@@ -145,7 +145,7 @@ func TestSolvedQuotientAgreesBeyondFloatExactRange(t *testing.T) {
 	}
 
 	// The exact-quotient condition the evaluator satisfies is satisfiable for
-	// the solver too, and the pre-rounded-operand answer is refused by both.
+	// the solver too, and a rounded-operand answer is refused by both.
 	for _, tc := range []struct {
 		quotient string
 		want     Status
@@ -166,19 +166,19 @@ func TestSolvedQuotientAgreesBeyondFloatExactRange(t *testing.T) {
 	}
 }
 
-// sameReal compares two rendered numbers by value, so the solver's `0.0` matches
-// the negative zero the evaluator renders for `0 / -3`.
+// sameReal compares two rendered numbers by exact value, so the solver's `0.0`
+// matches the evaluator's `0.0` and `-7/2` its `-3.5`.
 func sameReal(t *testing.T, got, want string) bool {
 	t.Helper()
-	gotF, err := strconv.ParseFloat(got, 64)
-	if err != nil {
-		t.Fatalf("parse solved value %q: %v", got, err)
+	gotR, ok := new(big.Rat).SetString(got)
+	if !ok {
+		t.Fatalf("parse solved value %q", got)
 	}
-	wantF, err := strconv.ParseFloat(want, 64)
-	if err != nil {
-		t.Fatalf("parse evaluated value %q: %v", want, err)
+	wantR, ok := new(big.Rat).SetString(want)
+	if !ok {
+		t.Fatalf("parse evaluated value %q", want)
 	}
-	return gotF == wantF
+	return gotR.Cmp(wantR) == 0
 }
 
 // Where a whole answer differs from the evaluator's — a truncated or Euclidean
@@ -304,22 +304,22 @@ func evaluatedDivision(t *testing.T, a, b int) (quotient, remainder string) {
 	if err != nil {
 		t.Fatalf("instantiate eval::P: %v", err)
 	}
-	return featureReal(t, ctx, inst, "q"), featureInteger(t, ctx, inst, "r")
+	return featureRational(t, ctx, inst, "q"), featureInteger(t, ctx, inst, "r")
 }
 
-// featureReal is the Real a feature value holds, rendered as the runtime
-// renders one.
-func featureReal(t *testing.T, ctx *runtime.Context, inst *runtime.Instance, name string) string {
+// featureRational is the exact Rational a feature value holds, rendered as the
+// runtime renders one.
+func featureRational(t *testing.T, ctx *runtime.Context, inst *runtime.Instance, name string) string {
 	t.Helper()
 	fv, err := inst.GetFeatureValue(ctx, name)
 	if err != nil {
 		t.Fatalf("read feature value %s: %v", name, err)
 	}
 	val := fv.HeldValue()
-	if val.Kind != runtime.ValConst || val.Const.Kind != semantics.ValReal {
-		t.Fatalf("feature value %s holds %v, want a Real", name, val)
+	if val.Kind != runtime.ValConst || val.Const.Kind != semantics.ValRational {
+		t.Fatalf("feature value %s holds %v, want a Rational", name, val)
 	}
-	return semantics.FormatReal(val.Const.Real)
+	return val.Const.FormatRational()
 }
 
 // featureInteger is the integer a feature value holds, materialized as any reader

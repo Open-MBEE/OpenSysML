@@ -501,6 +501,9 @@ func (c *client) calculate(
 		}
 		req.Arguments = append(req.Arguments, sent)
 	}
+	if err := c.fitRationals(ctx, req.Arguments...); err != nil {
+		return nil, err
+	}
 	resp, err := c.caller.evaluateCalc(ctx, req)
 	if err != nil {
 		return nil, err

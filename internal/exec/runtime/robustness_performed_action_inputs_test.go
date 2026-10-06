@@ -89,7 +89,7 @@ func testPerformedActionUnboundInput(t *testing.T, mult string, required bool) {
 	if err != nil {
 		t.Fatalf("read cycleTime: %v", err)
 	}
-	if got := fv.HeldValue(); got.Kind != ValQuantity || got.Quantity() == nil || got.Quantity().Num.Real != 200.0 {
+	if got := fv.HeldValue(); got.Kind != ValQuantity || got.Quantity() == nil || got.Quantity().Num.AsReal() != 200.0 {
 		t.Fatalf("cycleTime = %v, want 200.0 [s]", FormatValue(got))
 	}
 	behavior, ok := inst.Behavior("toastBread")
@@ -130,7 +130,7 @@ func testPerformedUsageUnboundInput(t *testing.T, mult string, required bool) {
 	if err != nil {
 		t.Fatalf("read cycleTime: %v", err)
 	}
-	if got := fv.HeldValue(); got.Kind != ValQuantity || got.Quantity() == nil || got.Quantity().Num.Real != 200.0 {
+	if got := fv.HeldValue(); got.Kind != ValQuantity || got.Quantity() == nil || got.Quantity().Num.AsReal() != 200.0 {
 		t.Fatalf("cycleTime = %v, want 200.0 [s]", FormatValue(got))
 	}
 	behavior, ok := inst.Behavior("applyHeat")

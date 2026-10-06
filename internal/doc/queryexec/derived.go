@@ -123,6 +123,8 @@ func constValue(value semantics.Value) (Value, bool) {
 		return BooleanValue(value.Bool), true
 	case semantics.ValInt:
 		return IntegerOf(value), true
+	case semantics.ValRational:
+		return RationalOf(value), true
 	case semantics.ValReal:
 		return RealValue(value.Real), true
 	default:

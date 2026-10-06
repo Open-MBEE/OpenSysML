@@ -108,7 +108,10 @@ func TestRegistrySolveIsTheSolversAnswer(t *testing.T) {
 func TestSolveGradesEachVerdict(t *testing.T) {
 	exact := intQuery("C", 2, 5)
 	rounded := intQuery("R", 2, 5)
-	rounded.Assertions = append(rounded.Assertions, solve.Assertion{Term: solve.Binary(solve.OpGt, solve.Bool, solve.ToReal(solve.VarTerm(rounded.Vars[0])), solve.IntTerm(0))})
+	x := &solve.Var{Name: "test::R::x", Sort: solve.Real, Binary64: true}
+	rounded.Vars = append(rounded.Vars, x)
+	sum := solve.Binary(solve.OpAdd, solve.Real, solve.VarTerm(x), solve.ToReal(solve.VarTerm(rounded.Vars[0])))
+	rounded.Assertions = append(rounded.Assertions, solve.Assertion{Term: solve.Binary(solve.OpGt, solve.Bool, sum, solve.IntTerm(0))})
 	if !rounded.Rounded() {
 		t.Fatal("the widened query must round")
 	}

@@ -1,5 +1,5 @@
 {
   "libraries": true,
   "type": "calc",
-  "error": "feature value v.elements: type mismatch: cannot write 1.5 (a Real) to a feature typed by Integer"
+  "error": "feature value v.elements: type mismatch: cannot write 1.5 (a Rational) to a feature typed by Integer"
 }
