@@ -168,24 +168,27 @@ const allocatedApplications = `
 // the action to a part places it on the structure, but names nothing to perform.
 // An action with pins is written as an action declaring them as its parameters,
 // approximated as computing nothing, so its result is declared admitting no value
-// and none is made up for it; the allocation is then written to it, as a plain
-// dependency, since an action of an action def is a feature no allocate of the
-// part reaches. One without pins is a bare step.
+// and none is made up for it; its cross-body allocation is written as an allocation
+// definition typed by the action def and block. One without pins is a bare step.
 func TestAllocatedCallsWithoutBehaviorDeclareTheirPins(t *testing.T) {
 	r := migrateDocument(t, allocatedCalls, allocatedApplications)
 	wantNote(t, r, "_measure", migrate.Approximated, "a step with no behavior and no duration, which passes the token on; its pins are declared as its parameters, but the action computes nothing, so its output 'reading' holds no value; its «Allocate» to Ctl::eye says where it runs, not what it does")
 	wantNote(t, r, "_measureOut", migrate.Approximated, "it is declared admitting no value: the action calls no behavior, so nothing computes it")
 	wantNote(t, r, "_settle", migrate.Approximated, "a step with no behavior and no duration; it passes the token on")
-	wantNote(t, r, "_alloc", migrate.Approximated, mixedEndsNote)
+	wantNote(t, r, "_alloc", migrate.Mapped, "")
 	for _, line := range []string{
 		"action measure {",
 		"out reading : ScalarValues::Real[0..1];",
 		"first measure then settle;",
 		"action settle;",
-		"dependency Ctl::Run::measure to Ctl::eye;",
+		"allocation def 'measure to eye' {",
+		"end :>> source : Ctl::Run;",
+		"end :>> target : Ctl;",
+		"allocate source.measure to target.eye;",
 	} {
 		wantLine(t, r.Notation, line)
 	}
+	wantNoLine(t, r.Notation, "dependency ")
 	wantNoLine(t, r.Notation, "not migrated: CallBehaviorAction 'measure'")
 	wantNoLine(t, r.Notation, "eye.")
 	wantNoLine(t, r.Notation, "reading :=")

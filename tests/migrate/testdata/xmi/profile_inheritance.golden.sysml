@@ -75,8 +75,8 @@ package System {
         @Tailoring::'Derived From';
     }
     allocation def 'Spin to Shaft' {
-        end spin : Spin;
-        end shaft : Shaft;
+        end :>> source : Spin;
+        end :>> target : Shaft;
         @Tailoring::'Assigned To';
     }
     metadata MigrationMetadata::SynthesizedName about 'Spin to Shaft';
