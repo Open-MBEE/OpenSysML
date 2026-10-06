@@ -179,9 +179,6 @@ func (fc *funcCompiler) boundFunction(qn *ast.QualifiedName) (*funcValue, bool) 
 func (fc *funcCompiler) compileFuncArg(node ast.Node, where string) (funcValue, error) {
 	ref, ok := node.(*ast.FeatureReference)
 	if !ok {
-		if _, isChain := node.(*ast.FeatureChainExpr); isChain {
-			return funcValue{}, fc.unsupported(where + ": a calc read off an object through a feature chain, whose function value closes over that object")
-		}
 		// Any other expression computes the function value at run time.
 		v, err := fc.compileExpr(node)
 		if err != nil {

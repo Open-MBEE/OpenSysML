@@ -1855,3 +1855,188 @@ class RenderDocumentResponse(_message.Message):
     markdown: str
     html: str
     def __init__(self, markdown: _Optional[str] = ..., html: _Optional[str] = ...) -> None: ...
+
+class RenderViewRequest(_message.Message):
+    __slots__ = ("model_hash", "view", "ports")
+    MODEL_HASH_FIELD_NUMBER: _ClassVar[int]
+    VIEW_FIELD_NUMBER: _ClassVar[int]
+    PORTS_FIELD_NUMBER: _ClassVar[int]
+    model_hash: str
+    view: str
+    ports: str
+    def __init__(self, model_hash: _Optional[str] = ..., view: _Optional[str] = ..., ports: _Optional[str] = ...) -> None: ...
+
+class RenderViewResponse(_message.Message):
+    __slots__ = ("view", "kind", "stated", "nodes", "edges", "columns", "rows", "canvas", "notes", "notices")
+    VIEW_FIELD_NUMBER: _ClassVar[int]
+    KIND_FIELD_NUMBER: _ClassVar[int]
+    STATED_FIELD_NUMBER: _ClassVar[int]
+    NODES_FIELD_NUMBER: _ClassVar[int]
+    EDGES_FIELD_NUMBER: _ClassVar[int]
+    COLUMNS_FIELD_NUMBER: _ClassVar[int]
+    ROWS_FIELD_NUMBER: _ClassVar[int]
+    CANVAS_FIELD_NUMBER: _ClassVar[int]
+    NOTES_FIELD_NUMBER: _ClassVar[int]
+    NOTICES_FIELD_NUMBER: _ClassVar[int]
+    view: str
+    kind: str
+    stated: str
+    nodes: _containers.RepeatedCompositeFieldContainer[RenderNode]
+    edges: _containers.RepeatedCompositeFieldContainer[RenderEdge]
+    columns: _containers.RepeatedScalarFieldContainer[str]
+    rows: _containers.RepeatedCompositeFieldContainer[RenderRow]
+    canvas: RenderCanvas
+    notes: _containers.RepeatedCompositeFieldContainer[RenderNote]
+    notices: _containers.RepeatedScalarFieldContainer[str]
+    def __init__(self, view: _Optional[str] = ..., kind: _Optional[str] = ..., stated: _Optional[str] = ..., nodes: _Optional[_Iterable[_Union[RenderNode, _Mapping]]] = ..., edges: _Optional[_Iterable[_Union[RenderEdge, _Mapping]]] = ..., columns: _Optional[_Iterable[str]] = ..., rows: _Optional[_Iterable[_Union[RenderRow, _Mapping]]] = ..., canvas: _Optional[_Union[RenderCanvas, _Mapping]] = ..., notes: _Optional[_Iterable[_Union[RenderNote, _Mapping]]] = ..., notices: _Optional[_Iterable[str]] = ...) -> None: ...
+
+class RenderNode(_message.Message):
+    __slots__ = ("id", "kind", "name", "name_synthesized", "type", "detail", "text", "stand_in", "parent", "ports", "origin", "geometry", "style")
+    ID_FIELD_NUMBER: _ClassVar[int]
+    KIND_FIELD_NUMBER: _ClassVar[int]
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    NAME_SYNTHESIZED_FIELD_NUMBER: _ClassVar[int]
+    TYPE_FIELD_NUMBER: _ClassVar[int]
+    DETAIL_FIELD_NUMBER: _ClassVar[int]
+    TEXT_FIELD_NUMBER: _ClassVar[int]
+    STAND_IN_FIELD_NUMBER: _ClassVar[int]
+    PARENT_FIELD_NUMBER: _ClassVar[int]
+    PORTS_FIELD_NUMBER: _ClassVar[int]
+    ORIGIN_FIELD_NUMBER: _ClassVar[int]
+    GEOMETRY_FIELD_NUMBER: _ClassVar[int]
+    STYLE_FIELD_NUMBER: _ClassVar[int]
+    id: str
+    kind: str
+    name: str
+    name_synthesized: bool
+    type: str
+    detail: str
+    text: str
+    stand_in: bool
+    parent: str
+    ports: _containers.RepeatedCompositeFieldContainer[RenderPort]
+    origin: Span
+    geometry: RenderGeometry
+    style: RenderStyle
+    def __init__(self, id: _Optional[str] = ..., kind: _Optional[str] = ..., name: _Optional[str] = ..., name_synthesized: _Optional[bool] = ..., type: _Optional[str] = ..., detail: _Optional[str] = ..., text: _Optional[str] = ..., stand_in: _Optional[bool] = ..., parent: _Optional[str] = ..., ports: _Optional[_Iterable[_Union[RenderPort, _Mapping]]] = ..., origin: _Optional[_Union[Span, _Mapping]] = ..., geometry: _Optional[_Union[RenderGeometry, _Mapping]] = ..., style: _Optional[_Union[RenderStyle, _Mapping]] = ...) -> None: ...
+
+class RenderPort(_message.Message):
+    __slots__ = ("id", "name", "type", "direction")
+    ID_FIELD_NUMBER: _ClassVar[int]
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    TYPE_FIELD_NUMBER: _ClassVar[int]
+    DIRECTION_FIELD_NUMBER: _ClassVar[int]
+    id: str
+    name: str
+    type: str
+    direction: str
+    def __init__(self, id: _Optional[str] = ..., name: _Optional[str] = ..., type: _Optional[str] = ..., direction: _Optional[str] = ...) -> None: ...
+
+class RenderEdge(_message.Message):
+    __slots__ = ("to", "from_port", "to_port", "label", "name", "kind", "origin", "route", "style")
+    FROM_FIELD_NUMBER: _ClassVar[int]
+    TO_FIELD_NUMBER: _ClassVar[int]
+    FROM_PORT_FIELD_NUMBER: _ClassVar[int]
+    TO_PORT_FIELD_NUMBER: _ClassVar[int]
+    LABEL_FIELD_NUMBER: _ClassVar[int]
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    KIND_FIELD_NUMBER: _ClassVar[int]
+    ORIGIN_FIELD_NUMBER: _ClassVar[int]
+    ROUTE_FIELD_NUMBER: _ClassVar[int]
+    STYLE_FIELD_NUMBER: _ClassVar[int]
+    to: str
+    from_port: str
+    to_port: str
+    label: str
+    name: str
+    kind: str
+    origin: Span
+    route: _containers.RepeatedCompositeFieldContainer[RenderPoint]
+    style: RenderStyle
+    def __init__(self, to: _Optional[str] = ..., from_port: _Optional[str] = ..., to_port: _Optional[str] = ..., label: _Optional[str] = ..., name: _Optional[str] = ..., kind: _Optional[str] = ..., origin: _Optional[_Union[Span, _Mapping]] = ..., route: _Optional[_Iterable[_Union[RenderPoint, _Mapping]]] = ..., style: _Optional[_Union[RenderStyle, _Mapping]] = ..., **kwargs) -> None: ...
+
+class RenderGeometry(_message.Message):
+    __slots__ = ("x", "y", "width", "height", "has_size", "collapsed")
+    X_FIELD_NUMBER: _ClassVar[int]
+    Y_FIELD_NUMBER: _ClassVar[int]
+    WIDTH_FIELD_NUMBER: _ClassVar[int]
+    HEIGHT_FIELD_NUMBER: _ClassVar[int]
+    HAS_SIZE_FIELD_NUMBER: _ClassVar[int]
+    COLLAPSED_FIELD_NUMBER: _ClassVar[int]
+    x: float
+    y: float
+    width: float
+    height: float
+    has_size: bool
+    collapsed: bool
+    def __init__(self, x: _Optional[float] = ..., y: _Optional[float] = ..., width: _Optional[float] = ..., height: _Optional[float] = ..., has_size: _Optional[bool] = ..., collapsed: _Optional[bool] = ...) -> None: ...
+
+class RenderCanvas(_message.Message):
+    __slots__ = ("unit", "width", "height", "has_size")
+    UNIT_FIELD_NUMBER: _ClassVar[int]
+    WIDTH_FIELD_NUMBER: _ClassVar[int]
+    HEIGHT_FIELD_NUMBER: _ClassVar[int]
+    HAS_SIZE_FIELD_NUMBER: _ClassVar[int]
+    unit: str
+    width: float
+    height: float
+    has_size: bool
+    def __init__(self, unit: _Optional[str] = ..., width: _Optional[float] = ..., height: _Optional[float] = ..., has_size: _Optional[bool] = ...) -> None: ...
+
+class RenderStyle(_message.Message):
+    __slots__ = ("fill", "line", "text", "font", "font_size", "bold", "italic")
+    FILL_FIELD_NUMBER: _ClassVar[int]
+    LINE_FIELD_NUMBER: _ClassVar[int]
+    TEXT_FIELD_NUMBER: _ClassVar[int]
+    FONT_FIELD_NUMBER: _ClassVar[int]
+    FONT_SIZE_FIELD_NUMBER: _ClassVar[int]
+    BOLD_FIELD_NUMBER: _ClassVar[int]
+    ITALIC_FIELD_NUMBER: _ClassVar[int]
+    fill: str
+    line: str
+    text: str
+    font: str
+    font_size: float
+    bold: bool
+    italic: bool
+    def __init__(self, fill: _Optional[str] = ..., line: _Optional[str] = ..., text: _Optional[str] = ..., font: _Optional[str] = ..., font_size: _Optional[float] = ..., bold: _Optional[bool] = ..., italic: _Optional[bool] = ...) -> None: ...
+
+class RenderPoint(_message.Message):
+    __slots__ = ("x", "y")
+    X_FIELD_NUMBER: _ClassVar[int]
+    Y_FIELD_NUMBER: _ClassVar[int]
+    x: float
+    y: float
+    def __init__(self, x: _Optional[float] = ..., y: _Optional[float] = ...) -> None: ...
+
+class RenderRow(_message.Message):
+    __slots__ = ("cells", "origin")
+    CELLS_FIELD_NUMBER: _ClassVar[int]
+    ORIGIN_FIELD_NUMBER: _ClassVar[int]
+    cells: _containers.RepeatedScalarFieldContainer[str]
+    origin: Span
+    def __init__(self, cells: _Optional[_Iterable[str]] = ..., origin: _Optional[_Union[Span, _Mapping]] = ...) -> None: ...
+
+class RenderNote(_message.Message):
+    __slots__ = ("text", "anchor", "edge_from", "edge_to", "x", "y", "width", "height", "has_size", "origin")
+    TEXT_FIELD_NUMBER: _ClassVar[int]
+    ANCHOR_FIELD_NUMBER: _ClassVar[int]
+    EDGE_FROM_FIELD_NUMBER: _ClassVar[int]
+    EDGE_TO_FIELD_NUMBER: _ClassVar[int]
+    X_FIELD_NUMBER: _ClassVar[int]
+    Y_FIELD_NUMBER: _ClassVar[int]
+    WIDTH_FIELD_NUMBER: _ClassVar[int]
+    HEIGHT_FIELD_NUMBER: _ClassVar[int]
+    HAS_SIZE_FIELD_NUMBER: _ClassVar[int]
+    ORIGIN_FIELD_NUMBER: _ClassVar[int]
+    text: str
+    anchor: str
+    edge_from: str
+    edge_to: str
+    x: float
+    y: float
+    width: float
+    height: float
+    has_size: bool
+    origin: Span
+    def __init__(self, text: _Optional[str] = ..., anchor: _Optional[str] = ..., edge_from: _Optional[str] = ..., edge_to: _Optional[str] = ..., x: _Optional[float] = ..., y: _Optional[float] = ..., width: _Optional[float] = ..., height: _Optional[float] = ..., has_size: _Optional[bool] = ..., origin: _Optional[_Union[Span, _Mapping]] = ...) -> None: ...

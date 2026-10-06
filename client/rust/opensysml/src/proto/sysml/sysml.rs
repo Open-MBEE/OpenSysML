@@ -2305,6 +2305,8 @@ pub struct ServerInfoResponse {
     ///                   and answers with typed rows.
     ///    "render_document" - the RenderDocument RPC renders a named document to
     ///                   Markdown.
+    ///    "render_view" - the RenderView RPC renders a declared view or targeted
+    ///                   pseudo-view as machine-readable diagram data.
     ///    "diagnostic_codes" - Diagnostic.code is populated, so an empty code is a
     ///                   finding none was assigned; without it every code is empty.
     ///    "schedule"     - ExecuteActionRequest, ExecuteStateRequest and
@@ -2847,6 +2849,197 @@ pub struct RenderDocumentResponse {
     pub markdown: ::prost::alloc::string::String,
     #[prost(string, tag="2")]
     pub html: ::prost::alloc::string::String,
+}
+/// RenderViewRequest names a declared view or targeted pseudo-view to render.
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct RenderViewRequest {
+    #[prost(string, tag="1")]
+    pub model_hash: ::prost::alloc::string::String,
+    /// A qualified view name or "#<kind>:<qualified name>" pseudo-view.
+    #[prost(string, tag="2")]
+    pub view: ::prost::alloc::string::String,
+    /// "" or "minimal" (the default), or "full", as view.ParsePorts reads it.
+    #[prost(string, tag="3")]
+    pub ports: ::prost::alloc::string::String,
+}
+/// RenderViewResponse carries all machine-readable fields of the rendering.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct RenderViewResponse {
+    #[prost(string, tag="1")]
+    pub view: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub kind: ::prost::alloc::string::String,
+    #[prost(string, tag="3")]
+    pub stated: ::prost::alloc::string::String,
+    /// Nodes are flattened with parents before children.
+    #[prost(message, repeated, tag="4")]
+    pub nodes: ::prost::alloc::vec::Vec<RenderNode>,
+    #[prost(message, repeated, tag="5")]
+    pub edges: ::prost::alloc::vec::Vec<RenderEdge>,
+    #[prost(string, repeated, tag="6")]
+    pub columns: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    #[prost(message, repeated, tag="7")]
+    pub rows: ::prost::alloc::vec::Vec<RenderRow>,
+    /// Unset when the view states no canvas.
+    #[prost(message, optional, tag="8")]
+    pub canvas: ::core::option::Option<RenderCanvas>,
+    #[prost(message, repeated, tag="9")]
+    pub notes: ::prost::alloc::vec::Vec<RenderNote>,
+    #[prost(string, repeated, tag="10")]
+    pub notices: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+}
+/// RenderNode is one flattened node of the rendering.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct RenderNode {
+    #[prost(string, tag="1")]
+    pub id: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub kind: ::prost::alloc::string::String,
+    #[prost(string, tag="3")]
+    pub name: ::prost::alloc::string::String,
+    #[prost(bool, tag="4")]
+    pub name_synthesized: bool,
+    #[prost(string, tag="5")]
+    pub r#type: ::prost::alloc::string::String,
+    #[prost(string, tag="6")]
+    pub detail: ::prost::alloc::string::String,
+    #[prost(string, tag="7")]
+    pub text: ::prost::alloc::string::String,
+    #[prost(bool, tag="8")]
+    pub stand_in: bool,
+    #[prost(string, tag="9")]
+    pub parent: ::prost::alloc::string::String,
+    #[prost(message, repeated, tag="10")]
+    pub ports: ::prost::alloc::vec::Vec<RenderPort>,
+    #[prost(message, optional, tag="11")]
+    pub origin: ::core::option::Option<Span>,
+    /// Unset when no layout positions the node.
+    #[prost(message, optional, tag="12")]
+    pub geometry: ::core::option::Option<RenderGeometry>,
+    #[prost(message, optional, tag="13")]
+    pub style: ::core::option::Option<RenderStyle>,
+}
+/// RenderPort is a feature drawn on a node's border.
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct RenderPort {
+    #[prost(string, tag="1")]
+    pub id: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub name: ::prost::alloc::string::String,
+    #[prost(string, tag="3")]
+    pub r#type: ::prost::alloc::string::String,
+    #[prost(string, tag="4")]
+    pub direction: ::prost::alloc::string::String,
+}
+/// RenderEdge joins two rendered nodes and may connect their ports.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct RenderEdge {
+    #[prost(string, tag="1")]
+    pub from: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub to: ::prost::alloc::string::String,
+    #[prost(string, tag="3")]
+    pub from_port: ::prost::alloc::string::String,
+    #[prost(string, tag="4")]
+    pub to_port: ::prost::alloc::string::String,
+    #[prost(string, tag="5")]
+    pub label: ::prost::alloc::string::String,
+    #[prost(string, tag="6")]
+    pub name: ::prost::alloc::string::String,
+    #[prost(string, tag="7")]
+    pub kind: ::prost::alloc::string::String,
+    #[prost(message, optional, tag="8")]
+    pub origin: ::core::option::Option<Span>,
+    #[prost(message, repeated, tag="9")]
+    pub route: ::prost::alloc::vec::Vec<RenderPoint>,
+    #[prost(message, optional, tag="10")]
+    pub style: ::core::option::Option<RenderStyle>,
+}
+/// RenderGeometry locates a node on the rendering's canvas.
+#[derive(Clone, Copy, PartialEq, ::prost::Message)]
+pub struct RenderGeometry {
+    #[prost(double, tag="1")]
+    pub x: f64,
+    #[prost(double, tag="2")]
+    pub y: f64,
+    #[prost(double, tag="3")]
+    pub width: f64,
+    #[prost(double, tag="4")]
+    pub height: f64,
+    #[prost(bool, tag="5")]
+    pub has_size: bool,
+    #[prost(bool, tag="6")]
+    pub collapsed: bool,
+}
+/// RenderCanvas is the rendering's drawing surface.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct RenderCanvas {
+    #[prost(string, tag="1")]
+    pub unit: ::prost::alloc::string::String,
+    #[prost(double, tag="2")]
+    pub width: f64,
+    #[prost(double, tag="3")]
+    pub height: f64,
+    #[prost(bool, tag="4")]
+    pub has_size: bool,
+}
+/// RenderStyle is the optional styling of a node or edge.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct RenderStyle {
+    #[prost(string, tag="1")]
+    pub fill: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub line: ::prost::alloc::string::String,
+    #[prost(string, tag="3")]
+    pub text: ::prost::alloc::string::String,
+    #[prost(string, tag="4")]
+    pub font: ::prost::alloc::string::String,
+    #[prost(double, tag="5")]
+    pub font_size: f64,
+    #[prost(bool, tag="6")]
+    pub bold: bool,
+    #[prost(bool, tag="7")]
+    pub italic: bool,
+}
+/// RenderPoint is a route waypoint on the rendering's canvas.
+#[derive(Clone, Copy, PartialEq, ::prost::Message)]
+pub struct RenderPoint {
+    #[prost(double, tag="1")]
+    pub x: f64,
+    #[prost(double, tag="2")]
+    pub y: f64,
+}
+/// RenderRow is one row of a tabular rendering.
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct RenderRow {
+    #[prost(string, repeated, tag="1")]
+    pub cells: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    #[prost(message, optional, tag="2")]
+    pub origin: ::core::option::Option<Span>,
+}
+/// RenderNote is a note box drawn on the rendering's canvas.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct RenderNote {
+    #[prost(string, tag="1")]
+    pub text: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub anchor: ::prost::alloc::string::String,
+    #[prost(string, tag="3")]
+    pub edge_from: ::prost::alloc::string::String,
+    #[prost(string, tag="4")]
+    pub edge_to: ::prost::alloc::string::String,
+    #[prost(double, tag="5")]
+    pub x: f64,
+    #[prost(double, tag="6")]
+    pub y: f64,
+    #[prost(double, tag="7")]
+    pub width: f64,
+    #[prost(double, tag="8")]
+    pub height: f64,
+    #[prost(bool, tag="9")]
+    pub has_size: bool,
+    #[prost(message, optional, tag="10")]
+    pub origin: ::core::option::Option<Span>,
 }
 /// FailureReason says what kind of failure an `error` reports, so a client acts
 /// on the kind rather than on the message text.

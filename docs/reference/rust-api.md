@@ -68,6 +68,11 @@ let external = Connection::external("localhost", 50051)?; // a service someone e
 | `apply_edits(hash, document, operations)` | one atomic batch of source-preserving edits |
 | `call(method, request)` | sends any `opensysml::wire` request message, for a field not yet wrapped |
 
+`Model::render_view(name, RenderViewPorts::Minimal)` returns a typed
+`RenderedView`; use `RenderViewPorts::Full` to include every declared port.
+Unset geometry, style and canvas are represented as absent optionals. The RPC
+requires the `render_view` capability.
+
 A private child is started with `-port 0 -health-port 0 -report-address
 -exit-with-parent` and its address read from its first stdout line, so no port is
 chosen or probed. One child serves the process, so its parse cache is shared, and

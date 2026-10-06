@@ -19,7 +19,7 @@ function connectError(code, message, status, method, conn, capabilities, request
                 identifier = 'opensysml:connect:symbolNotFound';
             elseif any(strcmp(method, {'ParseFile', 'ParseSources'})) && hasFilePath(request)
                 identifier = 'opensysml:connect:modelFileNotFound';
-            elseif any(strcmp(method, {'GetSymbol', 'RunDocumentQuery', 'RenderDocument'}))
+            elseif any(strcmp(method, {'GetSymbol', 'RunDocumentQuery', 'RenderDocument', 'RenderView'}))
                 identifier = 'opensysml:connect:symbolNotFound';
             else
                 identifier = 'opensysml:connect:modelNotFound';

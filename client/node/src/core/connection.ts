@@ -25,6 +25,7 @@ import {
   CAPABILITY_QUERY,
   CAPABILITY_RENDER_DOCUMENT,
   CAPABILITY_RENDER_DOCUMENT_HTML,
+  CAPABILITY_RENDER_VIEW,
   CAPABILITY_SCHEDULE,
   CAPABILITY_SCHEDULE_EXPLORE,
   CAPABILITY_STRICT_CONFORMANCE,
@@ -56,6 +57,7 @@ import {
   ParseSourcesRequestSchema,
   QueryRequestSchema,
   RenderDocumentRequestSchema,
+  RenderViewRequestSchema,
   RunAnalysisRequestSchema,
   RunDocumentQueryRequestSchema,
   RunSweepRequestSchema,
@@ -75,6 +77,7 @@ import {
   type Outcome as PbOutcome,
   type Query,
   type RunAnalysisResponse,
+  type RenderViewResponse,
   type Verdict as PbVerdict,
   type VerificationVerdict as PbVerificationVerdict,
 } from "../generated/sysml_pb.js";
@@ -114,6 +117,7 @@ import {
   type BindingValues,
   type DocumentQueryResult,
 } from "./document.js";
+import { renderedViewOf, type RenderedView } from "./render-view.js";
 import {
   engineInfoOf,
   standingOf,
@@ -659,6 +663,35 @@ export class Connection {
       capabilityRefusal(this.info, capabilities),
     );
     return form === "html" ? response.html : response.markdown;
+  }
+
+  /** Renders a named view or targeted pseudo-view as diagram data. */
+  async renderView(
+    modelHash: string,
+    viewName: string,
+    options: { ports?: "minimal" | "full" } = {},
+  ): Promise<RenderedView> {
+    const ports: string = options.ports ?? "minimal";
+    if (ports !== "minimal" && ports !== "full") {
+      throw new RangeError("ports must be 'minimal' or 'full'");
+    }
+    const capabilities = [CAPABILITY_RENDER_VIEW];
+    for (const capability of capabilities) {
+      requireCapability(this.info, capability, upgradeRemedy(capability));
+    }
+    const response: RenderViewResponse = await callRpc(
+      this.rpc.renderView(
+        create(RenderViewRequestSchema, {
+          modelHash,
+          view: viewName,
+          ports: ports === "minimal" ? "" : ports,
+        }),
+        this.callOptions(),
+      ),
+      "model",
+      capabilityRefusal(this.info, capabilities),
+    );
+    return renderedViewOf(response);
   }
 
   /** Executes an action definition. */

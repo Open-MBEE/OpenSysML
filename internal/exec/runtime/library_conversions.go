@@ -9,6 +9,7 @@ import (
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
 // ErrInvalidNotation reports a String a conversion function cannot read as a
@@ -372,7 +373,7 @@ func parseReal(name, s, typeName string) (Value, error) {
 
 // invalidNotation is the error for a String that is no notation of a type.
 func invalidNotation(name, s, typeName string) error {
-	return fmt.Errorf("%w: function %s: %s is not a %s", ErrInvalidNotation, name, strconv.Quote(s), typeName)
+	return fmt.Errorf("%w: function %s: %s is not a %s", ErrInvalidNotation, name, source.StringText(s), typeName)
 }
 
 // naturalValue wraps a non-negative Integer as a Natural.

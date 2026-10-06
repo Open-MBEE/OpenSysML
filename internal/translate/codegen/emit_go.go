@@ -54,14 +54,19 @@ var (
 
 // sysmlStep spends n evaluation steps of the run's budget.
 func sysmlStep(n int64) struct{} {
-	if sysmlSteps += n; sysmlSteps > sysmlMaxSteps {
+	if n > sysmlMaxSteps-sysmlSteps {
 		sysmlStepFail()
 	}
+	sysmlSteps += n
 	return struct{}{}
 }
 
+// sysmlStepFail leaves the counter one past the limit, saturating at the int64 maximum.
 func sysmlStepFail() {
-	sysmlSteps = sysmlMaxSteps + 1
+	sysmlSteps = sysmlMaxSteps
+	if sysmlSteps < math.MaxInt64 {
+		sysmlSteps++
+	}
 	sysmlFailf("evaluation step limit exceeded (%d steps; raise OPENSYSML_MAX_STEPS to allow more)", sysmlMaxSteps)
 }
 
@@ -348,6 +353,13 @@ func sysmlParseNum(s, name string) sysmlNum {
 		return sysmlNI(sysmlParseInt(s, name))
 	}
 	return sysmlNR(sysmlParseReal(s, name))
+}
+
+func sysmlAtLeastAt(v sysmlInt, lo int64, typ, where string) sysmlInt {
+	if sysmlICmp(v, sysmlI(lo)) < 0 {
+		sysmlFail(fmt.Sprintf("%s: type mismatch: cannot write %s (an Integer) to a feature typed by %s", where, v, typ))
+	}
+	return v
 }
 
 func sysmlAtLeast(v sysmlInt, lo int64, typ string) sysmlInt {
@@ -704,15 +716,53 @@ func sysmlParseString(s, name string) string {
 	return b.String()
 }
 
+// sysmlQuote writes t as the String literal that reads back to it: only the
+// quote, the backslash and \b \t \n \f \r are escaped.
+func sysmlQuote(t string) string {
+	var b strings.Builder
+	b.WriteByte('"')
+	for i := 0; i < len(t); i++ {
+		switch c := t[i]; c {
+		case '"', '\\':
+			b.WriteByte('\\')
+			b.WriteByte(c)
+		case '\b':
+			b.WriteString("\\b")
+		case '\t':
+			b.WriteString("\\t")
+		case '\n':
+			b.WriteString("\\n")
+		case '\f':
+			b.WriteString("\\f")
+		case '\r':
+			b.WriteString("\\r")
+		default:
+			b.WriteByte(c)
+		}
+	}
+	b.WriteByte('"')
+	return b.String()
+}
+
 func sysmlFormat(v any) string {
+	if o, ok := v.(sysmlHolder); ok {
+		held, unset := o.held()
+		if unset {
+			return "<unset>"
+		}
+		v = held
+	}
 	if t, ok := v.(string); ok {
-		return strconv.Quote(t)
+		return sysmlQuote(t)
 	}
 	if l, ok := v.(sysmlEnum); ok {
 		return sysmlLiterals[l]
 	}
 	if f, ok := v.(sysmlFn); ok {
 		return sysmlFnNames[f.c]
+	}
+	if r, ok := v.(*sysmlRec); ok {
+		return r.t + " object"
 	}
 	if n, ok := v.(sysmlNum); ok {
 		if n.real {
@@ -804,9 +854,15 @@ func (e *goEmitter) linef(format string, args ...any) {
 }
 
 func goType(t Type) string {
-	if t.IsEnum() || t.IsFn() {
+	if t.MayUnset() {
+		return "sysmlOpt[" + goType(t.Concrete()) + "]"
+	}
+	if t.IsEnum() || t.IsFn() || t.IsRec() {
 		if t.Many() {
 			return goSeqType(t)
+		}
+		if t.IsRec() {
+			return "*sysmlRec"
 		}
 		if t.IsFn() {
 			return "sysmlFn"
@@ -836,9 +892,13 @@ func goType(t Type) string {
 func goLocal(name string) string { return cLocal(name) }
 
 // goNarrowed checks v against the range of the feature it is written to.
-func goNarrowed(v string, r Range) string {
-	if r == RangeAny {
+// An unset value is checked only where strict.
+func goNarrowed(v string, t Type, r Range, strict bool) string {
+	switch {
+	case r == RangeAny:
 		return v
+	case t.MayUnset():
+		return fmt.Sprintf("sysmlNarrowOpt(%s, %d, %q, \"\", %t)", v, r.Lower(), r.String(), strict)
 	}
 	return fmt.Sprintf("sysmlAtLeast(%s, %d, %q)", v, r.Lower(), r.String())
 }
@@ -869,7 +929,7 @@ func (e *goEmitter) function(fn *Func) {
 				e.linef(goAssign, goLocal(p.Name), v)
 			}
 		case p.Range != RangeAny:
-			e.linef(goAssign, goLocal(p.Name), goNarrowed(goLocal(p.Name), p.Range))
+			e.linef(goAssign, goLocal(p.Name), goNarrowed(goLocal(p.Name), p.Type, p.Range, true))
 		}
 	}
 	e.resultRange = fn.ResultRange
@@ -909,10 +969,10 @@ func (e *goEmitter) block(stmts []Stmt) {
 func (e *goEmitter) stmt(s Stmt) {
 	switch s := s.(type) {
 	case Declare:
-		e.linef("var %s %s = %s", goLocal(s.Name), goType(s.T), goNarrowed(e.declInit(s), s.Range))
+		e.linef("var %s %s = %s", goLocal(s.Name), goType(s.T), goNarrowed(e.declInit(s), s.T, s.Range, false))
 		e.linef("_ = %s", goLocal(s.Name))
 	case Assign:
-		e.linef(goAssign, goLocal(s.Name), goNarrowed(e.expr(s.Value), s.Range))
+		e.linef(goAssign, goLocal(s.Name), goNarrowed(e.expr(s.Value), s.Value.Type(), s.Range, true))
 	case If:
 		e.linef("if %s {", e.expr(s.Cond))
 		e.indent++
@@ -941,7 +1001,7 @@ func (e *goEmitter) stmt(s Stmt) {
 	case Sample:
 		e.linef("%s", e.sample(s))
 	case Return:
-		e.linef("return %s", goNarrowed(e.expr(s.Value), e.resultRange))
+		e.linef("return %s", goNarrowed(e.expr(s.Value), s.Value.Type(), e.resultRange, true))
 	default:
 		e.err = fmt.Errorf("codegen: Go emitter has no case for %T", s)
 	}

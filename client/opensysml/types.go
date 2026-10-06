@@ -20,6 +20,7 @@ const (
 	CapabilityOSLCQuery                      = sysmlgrpc.CapabilityOSLCQuery
 	CapabilityDocumentQuery                  = sysmlgrpc.CapabilityDocumentQuery
 	CapabilityRenderDocument                 = sysmlgrpc.CapabilityRenderDocument
+	CapabilityRenderView                     = sysmlgrpc.CapabilityRenderView
 	CapabilityEnumValues                     = sysmlgrpc.CapabilityEnumValues
 	CapabilityEvaluateSubject                = sysmlgrpc.CapabilityEvaluateSubject
 	CapabilitySymbolAttributes               = sysmlgrpc.CapabilitySymbolAttributes

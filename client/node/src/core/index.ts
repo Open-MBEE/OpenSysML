@@ -57,6 +57,19 @@ export {
   buildBindings,
 } from "./document.js";
 export type { BindingValues, DocumentValue } from "./document.js";
+export type {
+  RenderCanvas,
+  RenderEdge,
+  RenderGeometry,
+  RenderNode,
+  RenderNote,
+  RenderPoint,
+  RenderPort,
+  RenderRow,
+  RenderSpan,
+  RenderStyle,
+  RenderedView,
+} from "./render-view.js";
 export {
   ENGINE_ALL,
   ENGINE_AUTO,

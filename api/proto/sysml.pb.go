@@ -9257,6 +9257,8 @@ type ServerInfoResponse struct {
 	//	               and answers with typed rows.
 	//	"render_document" - the RenderDocument RPC renders a named document to
 	//	               Markdown.
+	//	"render_view" - the RenderView RPC renders a declared view or targeted
+	//	               pseudo-view as machine-readable diagram data.
 	//	"diagnostic_codes" - Diagnostic.code is populated, so an empty code is a
 	//	               finding none was assigned; without it every code is empty.
 	//	"schedule"     - ExecuteActionRequest, ExecuteStateRequest and
@@ -11419,6 +11421,986 @@ func (x *RenderDocumentResponse) GetHtml() string {
 	return ""
 }
 
+// RenderViewRequest names a declared view or targeted pseudo-view to render.
+type RenderViewRequest struct {
+	state     protoimpl.MessageState `protogen:"open.v1"`
+	ModelHash string                 `protobuf:"bytes,1,opt,name=model_hash,json=modelHash,proto3" json:"model_hash,omitempty"`
+	// A qualified view name or "#<kind>:<qualified name>" pseudo-view.
+	View string `protobuf:"bytes,2,opt,name=view,proto3" json:"view,omitempty"`
+	// "" or "minimal" (the default), or "full", as view.ParsePorts reads it.
+	Ports         string `protobuf:"bytes,3,opt,name=ports,proto3" json:"ports,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RenderViewRequest) Reset() {
+	*x = RenderViewRequest{}
+	mi := &file_sysml_proto_msgTypes[124]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RenderViewRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RenderViewRequest) ProtoMessage() {}
+
+func (x *RenderViewRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_sysml_proto_msgTypes[124]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RenderViewRequest.ProtoReflect.Descriptor instead.
+func (*RenderViewRequest) Descriptor() ([]byte, []int) {
+	return file_sysml_proto_rawDescGZIP(), []int{124}
+}
+
+func (x *RenderViewRequest) GetModelHash() string {
+	if x != nil {
+		return x.ModelHash
+	}
+	return ""
+}
+
+func (x *RenderViewRequest) GetView() string {
+	if x != nil {
+		return x.View
+	}
+	return ""
+}
+
+func (x *RenderViewRequest) GetPorts() string {
+	if x != nil {
+		return x.Ports
+	}
+	return ""
+}
+
+// RenderViewResponse carries all machine-readable fields of the rendering.
+type RenderViewResponse struct {
+	state  protoimpl.MessageState `protogen:"open.v1"`
+	View   string                 `protobuf:"bytes,1,opt,name=view,proto3" json:"view,omitempty"`
+	Kind   string                 `protobuf:"bytes,2,opt,name=kind,proto3" json:"kind,omitempty"`
+	Stated string                 `protobuf:"bytes,3,opt,name=stated,proto3" json:"stated,omitempty"`
+	// Nodes are flattened with parents before children.
+	Nodes   []*RenderNode `protobuf:"bytes,4,rep,name=nodes,proto3" json:"nodes,omitempty"`
+	Edges   []*RenderEdge `protobuf:"bytes,5,rep,name=edges,proto3" json:"edges,omitempty"`
+	Columns []string      `protobuf:"bytes,6,rep,name=columns,proto3" json:"columns,omitempty"`
+	Rows    []*RenderRow  `protobuf:"bytes,7,rep,name=rows,proto3" json:"rows,omitempty"`
+	// Unset when the view states no canvas.
+	Canvas        *RenderCanvas `protobuf:"bytes,8,opt,name=canvas,proto3" json:"canvas,omitempty"`
+	Notes         []*RenderNote `protobuf:"bytes,9,rep,name=notes,proto3" json:"notes,omitempty"`
+	Notices       []string      `protobuf:"bytes,10,rep,name=notices,proto3" json:"notices,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RenderViewResponse) Reset() {
+	*x = RenderViewResponse{}
+	mi := &file_sysml_proto_msgTypes[125]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RenderViewResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RenderViewResponse) ProtoMessage() {}
+
+func (x *RenderViewResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_sysml_proto_msgTypes[125]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RenderViewResponse.ProtoReflect.Descriptor instead.
+func (*RenderViewResponse) Descriptor() ([]byte, []int) {
+	return file_sysml_proto_rawDescGZIP(), []int{125}
+}
+
+func (x *RenderViewResponse) GetView() string {
+	if x != nil {
+		return x.View
+	}
+	return ""
+}
+
+func (x *RenderViewResponse) GetKind() string {
+	if x != nil {
+		return x.Kind
+	}
+	return ""
+}
+
+func (x *RenderViewResponse) GetStated() string {
+	if x != nil {
+		return x.Stated
+	}
+	return ""
+}
+
+func (x *RenderViewResponse) GetNodes() []*RenderNode {
+	if x != nil {
+		return x.Nodes
+	}
+	return nil
+}
+
+func (x *RenderViewResponse) GetEdges() []*RenderEdge {
+	if x != nil {
+		return x.Edges
+	}
+	return nil
+}
+
+func (x *RenderViewResponse) GetColumns() []string {
+	if x != nil {
+		return x.Columns
+	}
+	return nil
+}
+
+func (x *RenderViewResponse) GetRows() []*RenderRow {
+	if x != nil {
+		return x.Rows
+	}
+	return nil
+}
+
+func (x *RenderViewResponse) GetCanvas() *RenderCanvas {
+	if x != nil {
+		return x.Canvas
+	}
+	return nil
+}
+
+func (x *RenderViewResponse) GetNotes() []*RenderNote {
+	if x != nil {
+		return x.Notes
+	}
+	return nil
+}
+
+func (x *RenderViewResponse) GetNotices() []string {
+	if x != nil {
+		return x.Notices
+	}
+	return nil
+}
+
+// RenderNode is one flattened node of the rendering.
+type RenderNode struct {
+	state           protoimpl.MessageState `protogen:"open.v1"`
+	Id              string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	Kind            string                 `protobuf:"bytes,2,opt,name=kind,proto3" json:"kind,omitempty"`
+	Name            string                 `protobuf:"bytes,3,opt,name=name,proto3" json:"name,omitempty"`
+	NameSynthesized bool                   `protobuf:"varint,4,opt,name=name_synthesized,json=nameSynthesized,proto3" json:"name_synthesized,omitempty"`
+	Type            string                 `protobuf:"bytes,5,opt,name=type,proto3" json:"type,omitempty"`
+	Detail          string                 `protobuf:"bytes,6,opt,name=detail,proto3" json:"detail,omitempty"`
+	Text            string                 `protobuf:"bytes,7,opt,name=text,proto3" json:"text,omitempty"`
+	StandIn         bool                   `protobuf:"varint,8,opt,name=stand_in,json=standIn,proto3" json:"stand_in,omitempty"`
+	Parent          string                 `protobuf:"bytes,9,opt,name=parent,proto3" json:"parent,omitempty"`
+	Ports           []*RenderPort          `protobuf:"bytes,10,rep,name=ports,proto3" json:"ports,omitempty"`
+	Origin          *Span                  `protobuf:"bytes,11,opt,name=origin,proto3" json:"origin,omitempty"`
+	// Unset when no layout positions the node.
+	Geometry      *RenderGeometry `protobuf:"bytes,12,opt,name=geometry,proto3" json:"geometry,omitempty"`
+	Style         *RenderStyle    `protobuf:"bytes,13,opt,name=style,proto3" json:"style,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RenderNode) Reset() {
+	*x = RenderNode{}
+	mi := &file_sysml_proto_msgTypes[126]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RenderNode) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RenderNode) ProtoMessage() {}
+
+func (x *RenderNode) ProtoReflect() protoreflect.Message {
+	mi := &file_sysml_proto_msgTypes[126]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RenderNode.ProtoReflect.Descriptor instead.
+func (*RenderNode) Descriptor() ([]byte, []int) {
+	return file_sysml_proto_rawDescGZIP(), []int{126}
+}
+
+func (x *RenderNode) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *RenderNode) GetKind() string {
+	if x != nil {
+		return x.Kind
+	}
+	return ""
+}
+
+func (x *RenderNode) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *RenderNode) GetNameSynthesized() bool {
+	if x != nil {
+		return x.NameSynthesized
+	}
+	return false
+}
+
+func (x *RenderNode) GetType() string {
+	if x != nil {
+		return x.Type
+	}
+	return ""
+}
+
+func (x *RenderNode) GetDetail() string {
+	if x != nil {
+		return x.Detail
+	}
+	return ""
+}
+
+func (x *RenderNode) GetText() string {
+	if x != nil {
+		return x.Text
+	}
+	return ""
+}
+
+func (x *RenderNode) GetStandIn() bool {
+	if x != nil {
+		return x.StandIn
+	}
+	return false
+}
+
+func (x *RenderNode) GetParent() string {
+	if x != nil {
+		return x.Parent
+	}
+	return ""
+}
+
+func (x *RenderNode) GetPorts() []*RenderPort {
+	if x != nil {
+		return x.Ports
+	}
+	return nil
+}
+
+func (x *RenderNode) GetOrigin() *Span {
+	if x != nil {
+		return x.Origin
+	}
+	return nil
+}
+
+func (x *RenderNode) GetGeometry() *RenderGeometry {
+	if x != nil {
+		return x.Geometry
+	}
+	return nil
+}
+
+func (x *RenderNode) GetStyle() *RenderStyle {
+	if x != nil {
+		return x.Style
+	}
+	return nil
+}
+
+// RenderPort is a feature drawn on a node's border.
+type RenderPort struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	Name          string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	Type          string                 `protobuf:"bytes,3,opt,name=type,proto3" json:"type,omitempty"`
+	Direction     string                 `protobuf:"bytes,4,opt,name=direction,proto3" json:"direction,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RenderPort) Reset() {
+	*x = RenderPort{}
+	mi := &file_sysml_proto_msgTypes[127]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RenderPort) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RenderPort) ProtoMessage() {}
+
+func (x *RenderPort) ProtoReflect() protoreflect.Message {
+	mi := &file_sysml_proto_msgTypes[127]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RenderPort.ProtoReflect.Descriptor instead.
+func (*RenderPort) Descriptor() ([]byte, []int) {
+	return file_sysml_proto_rawDescGZIP(), []int{127}
+}
+
+func (x *RenderPort) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *RenderPort) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *RenderPort) GetType() string {
+	if x != nil {
+		return x.Type
+	}
+	return ""
+}
+
+func (x *RenderPort) GetDirection() string {
+	if x != nil {
+		return x.Direction
+	}
+	return ""
+}
+
+// RenderEdge joins two rendered nodes and may connect their ports.
+type RenderEdge struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	From          string                 `protobuf:"bytes,1,opt,name=from,proto3" json:"from,omitempty"`
+	To            string                 `protobuf:"bytes,2,opt,name=to,proto3" json:"to,omitempty"`
+	FromPort      string                 `protobuf:"bytes,3,opt,name=from_port,json=fromPort,proto3" json:"from_port,omitempty"`
+	ToPort        string                 `protobuf:"bytes,4,opt,name=to_port,json=toPort,proto3" json:"to_port,omitempty"`
+	Label         string                 `protobuf:"bytes,5,opt,name=label,proto3" json:"label,omitempty"`
+	Name          string                 `protobuf:"bytes,6,opt,name=name,proto3" json:"name,omitempty"`
+	Kind          string                 `protobuf:"bytes,7,opt,name=kind,proto3" json:"kind,omitempty"`
+	Origin        *Span                  `protobuf:"bytes,8,opt,name=origin,proto3" json:"origin,omitempty"`
+	Route         []*RenderPoint         `protobuf:"bytes,9,rep,name=route,proto3" json:"route,omitempty"`
+	Style         *RenderStyle           `protobuf:"bytes,10,opt,name=style,proto3" json:"style,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RenderEdge) Reset() {
+	*x = RenderEdge{}
+	mi := &file_sysml_proto_msgTypes[128]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RenderEdge) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RenderEdge) ProtoMessage() {}
+
+func (x *RenderEdge) ProtoReflect() protoreflect.Message {
+	mi := &file_sysml_proto_msgTypes[128]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RenderEdge.ProtoReflect.Descriptor instead.
+func (*RenderEdge) Descriptor() ([]byte, []int) {
+	return file_sysml_proto_rawDescGZIP(), []int{128}
+}
+
+func (x *RenderEdge) GetFrom() string {
+	if x != nil {
+		return x.From
+	}
+	return ""
+}
+
+func (x *RenderEdge) GetTo() string {
+	if x != nil {
+		return x.To
+	}
+	return ""
+}
+
+func (x *RenderEdge) GetFromPort() string {
+	if x != nil {
+		return x.FromPort
+	}
+	return ""
+}
+
+func (x *RenderEdge) GetToPort() string {
+	if x != nil {
+		return x.ToPort
+	}
+	return ""
+}
+
+func (x *RenderEdge) GetLabel() string {
+	if x != nil {
+		return x.Label
+	}
+	return ""
+}
+
+func (x *RenderEdge) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *RenderEdge) GetKind() string {
+	if x != nil {
+		return x.Kind
+	}
+	return ""
+}
+
+func (x *RenderEdge) GetOrigin() *Span {
+	if x != nil {
+		return x.Origin
+	}
+	return nil
+}
+
+func (x *RenderEdge) GetRoute() []*RenderPoint {
+	if x != nil {
+		return x.Route
+	}
+	return nil
+}
+
+func (x *RenderEdge) GetStyle() *RenderStyle {
+	if x != nil {
+		return x.Style
+	}
+	return nil
+}
+
+// RenderGeometry locates a node on the rendering's canvas.
+type RenderGeometry struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	X             float64                `protobuf:"fixed64,1,opt,name=x,proto3" json:"x,omitempty"`
+	Y             float64                `protobuf:"fixed64,2,opt,name=y,proto3" json:"y,omitempty"`
+	Width         float64                `protobuf:"fixed64,3,opt,name=width,proto3" json:"width,omitempty"`
+	Height        float64                `protobuf:"fixed64,4,opt,name=height,proto3" json:"height,omitempty"`
+	HasSize       bool                   `protobuf:"varint,5,opt,name=has_size,json=hasSize,proto3" json:"has_size,omitempty"`
+	Collapsed     bool                   `protobuf:"varint,6,opt,name=collapsed,proto3" json:"collapsed,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RenderGeometry) Reset() {
+	*x = RenderGeometry{}
+	mi := &file_sysml_proto_msgTypes[129]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RenderGeometry) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RenderGeometry) ProtoMessage() {}
+
+func (x *RenderGeometry) ProtoReflect() protoreflect.Message {
+	mi := &file_sysml_proto_msgTypes[129]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RenderGeometry.ProtoReflect.Descriptor instead.
+func (*RenderGeometry) Descriptor() ([]byte, []int) {
+	return file_sysml_proto_rawDescGZIP(), []int{129}
+}
+
+func (x *RenderGeometry) GetX() float64 {
+	if x != nil {
+		return x.X
+	}
+	return 0
+}
+
+func (x *RenderGeometry) GetY() float64 {
+	if x != nil {
+		return x.Y
+	}
+	return 0
+}
+
+func (x *RenderGeometry) GetWidth() float64 {
+	if x != nil {
+		return x.Width
+	}
+	return 0
+}
+
+func (x *RenderGeometry) GetHeight() float64 {
+	if x != nil {
+		return x.Height
+	}
+	return 0
+}
+
+func (x *RenderGeometry) GetHasSize() bool {
+	if x != nil {
+		return x.HasSize
+	}
+	return false
+}
+
+func (x *RenderGeometry) GetCollapsed() bool {
+	if x != nil {
+		return x.Collapsed
+	}
+	return false
+}
+
+// RenderCanvas is the rendering's drawing surface.
+type RenderCanvas struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Unit          string                 `protobuf:"bytes,1,opt,name=unit,proto3" json:"unit,omitempty"`
+	Width         float64                `protobuf:"fixed64,2,opt,name=width,proto3" json:"width,omitempty"`
+	Height        float64                `protobuf:"fixed64,3,opt,name=height,proto3" json:"height,omitempty"`
+	HasSize       bool                   `protobuf:"varint,4,opt,name=has_size,json=hasSize,proto3" json:"has_size,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RenderCanvas) Reset() {
+	*x = RenderCanvas{}
+	mi := &file_sysml_proto_msgTypes[130]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RenderCanvas) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RenderCanvas) ProtoMessage() {}
+
+func (x *RenderCanvas) ProtoReflect() protoreflect.Message {
+	mi := &file_sysml_proto_msgTypes[130]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RenderCanvas.ProtoReflect.Descriptor instead.
+func (*RenderCanvas) Descriptor() ([]byte, []int) {
+	return file_sysml_proto_rawDescGZIP(), []int{130}
+}
+
+func (x *RenderCanvas) GetUnit() string {
+	if x != nil {
+		return x.Unit
+	}
+	return ""
+}
+
+func (x *RenderCanvas) GetWidth() float64 {
+	if x != nil {
+		return x.Width
+	}
+	return 0
+}
+
+func (x *RenderCanvas) GetHeight() float64 {
+	if x != nil {
+		return x.Height
+	}
+	return 0
+}
+
+func (x *RenderCanvas) GetHasSize() bool {
+	if x != nil {
+		return x.HasSize
+	}
+	return false
+}
+
+// RenderStyle is the optional styling of a node or edge.
+type RenderStyle struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Fill          string                 `protobuf:"bytes,1,opt,name=fill,proto3" json:"fill,omitempty"`
+	Line          string                 `protobuf:"bytes,2,opt,name=line,proto3" json:"line,omitempty"`
+	Text          string                 `protobuf:"bytes,3,opt,name=text,proto3" json:"text,omitempty"`
+	Font          string                 `protobuf:"bytes,4,opt,name=font,proto3" json:"font,omitempty"`
+	FontSize      float64                `protobuf:"fixed64,5,opt,name=font_size,json=fontSize,proto3" json:"font_size,omitempty"`
+	Bold          bool                   `protobuf:"varint,6,opt,name=bold,proto3" json:"bold,omitempty"`
+	Italic        bool                   `protobuf:"varint,7,opt,name=italic,proto3" json:"italic,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RenderStyle) Reset() {
+	*x = RenderStyle{}
+	mi := &file_sysml_proto_msgTypes[131]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RenderStyle) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RenderStyle) ProtoMessage() {}
+
+func (x *RenderStyle) ProtoReflect() protoreflect.Message {
+	mi := &file_sysml_proto_msgTypes[131]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RenderStyle.ProtoReflect.Descriptor instead.
+func (*RenderStyle) Descriptor() ([]byte, []int) {
+	return file_sysml_proto_rawDescGZIP(), []int{131}
+}
+
+func (x *RenderStyle) GetFill() string {
+	if x != nil {
+		return x.Fill
+	}
+	return ""
+}
+
+func (x *RenderStyle) GetLine() string {
+	if x != nil {
+		return x.Line
+	}
+	return ""
+}
+
+func (x *RenderStyle) GetText() string {
+	if x != nil {
+		return x.Text
+	}
+	return ""
+}
+
+func (x *RenderStyle) GetFont() string {
+	if x != nil {
+		return x.Font
+	}
+	return ""
+}
+
+func (x *RenderStyle) GetFontSize() float64 {
+	if x != nil {
+		return x.FontSize
+	}
+	return 0
+}
+
+func (x *RenderStyle) GetBold() bool {
+	if x != nil {
+		return x.Bold
+	}
+	return false
+}
+
+func (x *RenderStyle) GetItalic() bool {
+	if x != nil {
+		return x.Italic
+	}
+	return false
+}
+
+// RenderPoint is a route waypoint on the rendering's canvas.
+type RenderPoint struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	X             float64                `protobuf:"fixed64,1,opt,name=x,proto3" json:"x,omitempty"`
+	Y             float64                `protobuf:"fixed64,2,opt,name=y,proto3" json:"y,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RenderPoint) Reset() {
+	*x = RenderPoint{}
+	mi := &file_sysml_proto_msgTypes[132]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RenderPoint) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RenderPoint) ProtoMessage() {}
+
+func (x *RenderPoint) ProtoReflect() protoreflect.Message {
+	mi := &file_sysml_proto_msgTypes[132]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RenderPoint.ProtoReflect.Descriptor instead.
+func (*RenderPoint) Descriptor() ([]byte, []int) {
+	return file_sysml_proto_rawDescGZIP(), []int{132}
+}
+
+func (x *RenderPoint) GetX() float64 {
+	if x != nil {
+		return x.X
+	}
+	return 0
+}
+
+func (x *RenderPoint) GetY() float64 {
+	if x != nil {
+		return x.Y
+	}
+	return 0
+}
+
+// RenderRow is one row of a tabular rendering.
+type RenderRow struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Cells         []string               `protobuf:"bytes,1,rep,name=cells,proto3" json:"cells,omitempty"`
+	Origin        *Span                  `protobuf:"bytes,2,opt,name=origin,proto3" json:"origin,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RenderRow) Reset() {
+	*x = RenderRow{}
+	mi := &file_sysml_proto_msgTypes[133]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RenderRow) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RenderRow) ProtoMessage() {}
+
+func (x *RenderRow) ProtoReflect() protoreflect.Message {
+	mi := &file_sysml_proto_msgTypes[133]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RenderRow.ProtoReflect.Descriptor instead.
+func (*RenderRow) Descriptor() ([]byte, []int) {
+	return file_sysml_proto_rawDescGZIP(), []int{133}
+}
+
+func (x *RenderRow) GetCells() []string {
+	if x != nil {
+		return x.Cells
+	}
+	return nil
+}
+
+func (x *RenderRow) GetOrigin() *Span {
+	if x != nil {
+		return x.Origin
+	}
+	return nil
+}
+
+// RenderNote is a note box drawn on the rendering's canvas.
+type RenderNote struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Text          string                 `protobuf:"bytes,1,opt,name=text,proto3" json:"text,omitempty"`
+	Anchor        string                 `protobuf:"bytes,2,opt,name=anchor,proto3" json:"anchor,omitempty"`
+	EdgeFrom      string                 `protobuf:"bytes,3,opt,name=edge_from,json=edgeFrom,proto3" json:"edge_from,omitempty"`
+	EdgeTo        string                 `protobuf:"bytes,4,opt,name=edge_to,json=edgeTo,proto3" json:"edge_to,omitempty"`
+	X             float64                `protobuf:"fixed64,5,opt,name=x,proto3" json:"x,omitempty"`
+	Y             float64                `protobuf:"fixed64,6,opt,name=y,proto3" json:"y,omitempty"`
+	Width         float64                `protobuf:"fixed64,7,opt,name=width,proto3" json:"width,omitempty"`
+	Height        float64                `protobuf:"fixed64,8,opt,name=height,proto3" json:"height,omitempty"`
+	HasSize       bool                   `protobuf:"varint,9,opt,name=has_size,json=hasSize,proto3" json:"has_size,omitempty"`
+	Origin        *Span                  `protobuf:"bytes,10,opt,name=origin,proto3" json:"origin,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RenderNote) Reset() {
+	*x = RenderNote{}
+	mi := &file_sysml_proto_msgTypes[134]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RenderNote) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RenderNote) ProtoMessage() {}
+
+func (x *RenderNote) ProtoReflect() protoreflect.Message {
+	mi := &file_sysml_proto_msgTypes[134]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RenderNote.ProtoReflect.Descriptor instead.
+func (*RenderNote) Descriptor() ([]byte, []int) {
+	return file_sysml_proto_rawDescGZIP(), []int{134}
+}
+
+func (x *RenderNote) GetText() string {
+	if x != nil {
+		return x.Text
+	}
+	return ""
+}
+
+func (x *RenderNote) GetAnchor() string {
+	if x != nil {
+		return x.Anchor
+	}
+	return ""
+}
+
+func (x *RenderNote) GetEdgeFrom() string {
+	if x != nil {
+		return x.EdgeFrom
+	}
+	return ""
+}
+
+func (x *RenderNote) GetEdgeTo() string {
+	if x != nil {
+		return x.EdgeTo
+	}
+	return ""
+}
+
+func (x *RenderNote) GetX() float64 {
+	if x != nil {
+		return x.X
+	}
+	return 0
+}
+
+func (x *RenderNote) GetY() float64 {
+	if x != nil {
+		return x.Y
+	}
+	return 0
+}
+
+func (x *RenderNote) GetWidth() float64 {
+	if x != nil {
+		return x.Width
+	}
+	return 0
+}
+
+func (x *RenderNote) GetHeight() float64 {
+	if x != nil {
+		return x.Height
+	}
+	return 0
+}
+
+func (x *RenderNote) GetHasSize() bool {
+	if x != nil {
+		return x.HasSize
+	}
+	return false
+}
+
+func (x *RenderNote) GetOrigin() *Span {
+	if x != nil {
+		return x.Origin
+	}
+	return nil
+}
+
 var File_sysml_proto protoreflect.FileDescriptor
 
 const file_sysml_proto_rawDesc = "" +
@@ -12302,7 +13284,98 @@ const file_sysml_proto_rawDesc = "" +
 	"\x04form\x18\x03 \x01(\tR\x04form\"H\n" +
 	"\x16RenderDocumentResponse\x12\x1a\n" +
 	"\bmarkdown\x18\x01 \x01(\tR\bmarkdown\x12\x12\n" +
-	"\x04html\x18\x02 \x01(\tR\x04html*\xb1\x01\n" +
+	"\x04html\x18\x02 \x01(\tR\x04html\"\\\n" +
+	"\x11RenderViewRequest\x12\x1d\n" +
+	"\n" +
+	"model_hash\x18\x01 \x01(\tR\tmodelHash\x12\x12\n" +
+	"\x04view\x18\x02 \x01(\tR\x04view\x12\x14\n" +
+	"\x05ports\x18\x03 \x01(\tR\x05ports\"\xd6\x02\n" +
+	"\x12RenderViewResponse\x12\x12\n" +
+	"\x04view\x18\x01 \x01(\tR\x04view\x12\x12\n" +
+	"\x04kind\x18\x02 \x01(\tR\x04kind\x12\x16\n" +
+	"\x06stated\x18\x03 \x01(\tR\x06stated\x12'\n" +
+	"\x05nodes\x18\x04 \x03(\v2\x11.sysml.RenderNodeR\x05nodes\x12'\n" +
+	"\x05edges\x18\x05 \x03(\v2\x11.sysml.RenderEdgeR\x05edges\x12\x18\n" +
+	"\acolumns\x18\x06 \x03(\tR\acolumns\x12$\n" +
+	"\x04rows\x18\a \x03(\v2\x10.sysml.RenderRowR\x04rows\x12+\n" +
+	"\x06canvas\x18\b \x01(\v2\x13.sysml.RenderCanvasR\x06canvas\x12'\n" +
+	"\x05notes\x18\t \x03(\v2\x11.sysml.RenderNoteR\x05notes\x12\x18\n" +
+	"\anotices\x18\n" +
+	" \x03(\tR\anotices\"\x8d\x03\n" +
+	"\n" +
+	"RenderNode\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
+	"\x04kind\x18\x02 \x01(\tR\x04kind\x12\x12\n" +
+	"\x04name\x18\x03 \x01(\tR\x04name\x12)\n" +
+	"\x10name_synthesized\x18\x04 \x01(\bR\x0fnameSynthesized\x12\x12\n" +
+	"\x04type\x18\x05 \x01(\tR\x04type\x12\x16\n" +
+	"\x06detail\x18\x06 \x01(\tR\x06detail\x12\x12\n" +
+	"\x04text\x18\a \x01(\tR\x04text\x12\x19\n" +
+	"\bstand_in\x18\b \x01(\bR\astandIn\x12\x16\n" +
+	"\x06parent\x18\t \x01(\tR\x06parent\x12'\n" +
+	"\x05ports\x18\n" +
+	" \x03(\v2\x11.sysml.RenderPortR\x05ports\x12#\n" +
+	"\x06origin\x18\v \x01(\v2\v.sysml.SpanR\x06origin\x121\n" +
+	"\bgeometry\x18\f \x01(\v2\x15.sysml.RenderGeometryR\bgeometry\x12(\n" +
+	"\x05style\x18\r \x01(\v2\x12.sysml.RenderStyleR\x05style\"b\n" +
+	"\n" +
+	"RenderPort\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\x12\x12\n" +
+	"\x04type\x18\x03 \x01(\tR\x04type\x12\x1c\n" +
+	"\tdirection\x18\x04 \x01(\tR\tdirection\"\x9d\x02\n" +
+	"\n" +
+	"RenderEdge\x12\x12\n" +
+	"\x04from\x18\x01 \x01(\tR\x04from\x12\x0e\n" +
+	"\x02to\x18\x02 \x01(\tR\x02to\x12\x1b\n" +
+	"\tfrom_port\x18\x03 \x01(\tR\bfromPort\x12\x17\n" +
+	"\ato_port\x18\x04 \x01(\tR\x06toPort\x12\x14\n" +
+	"\x05label\x18\x05 \x01(\tR\x05label\x12\x12\n" +
+	"\x04name\x18\x06 \x01(\tR\x04name\x12\x12\n" +
+	"\x04kind\x18\a \x01(\tR\x04kind\x12#\n" +
+	"\x06origin\x18\b \x01(\v2\v.sysml.SpanR\x06origin\x12(\n" +
+	"\x05route\x18\t \x03(\v2\x12.sysml.RenderPointR\x05route\x12(\n" +
+	"\x05style\x18\n" +
+	" \x01(\v2\x12.sysml.RenderStyleR\x05style\"\x93\x01\n" +
+	"\x0eRenderGeometry\x12\f\n" +
+	"\x01x\x18\x01 \x01(\x01R\x01x\x12\f\n" +
+	"\x01y\x18\x02 \x01(\x01R\x01y\x12\x14\n" +
+	"\x05width\x18\x03 \x01(\x01R\x05width\x12\x16\n" +
+	"\x06height\x18\x04 \x01(\x01R\x06height\x12\x19\n" +
+	"\bhas_size\x18\x05 \x01(\bR\ahasSize\x12\x1c\n" +
+	"\tcollapsed\x18\x06 \x01(\bR\tcollapsed\"k\n" +
+	"\fRenderCanvas\x12\x12\n" +
+	"\x04unit\x18\x01 \x01(\tR\x04unit\x12\x14\n" +
+	"\x05width\x18\x02 \x01(\x01R\x05width\x12\x16\n" +
+	"\x06height\x18\x03 \x01(\x01R\x06height\x12\x19\n" +
+	"\bhas_size\x18\x04 \x01(\bR\ahasSize\"\xa6\x01\n" +
+	"\vRenderStyle\x12\x12\n" +
+	"\x04fill\x18\x01 \x01(\tR\x04fill\x12\x12\n" +
+	"\x04line\x18\x02 \x01(\tR\x04line\x12\x12\n" +
+	"\x04text\x18\x03 \x01(\tR\x04text\x12\x12\n" +
+	"\x04font\x18\x04 \x01(\tR\x04font\x12\x1b\n" +
+	"\tfont_size\x18\x05 \x01(\x01R\bfontSize\x12\x12\n" +
+	"\x04bold\x18\x06 \x01(\bR\x04bold\x12\x16\n" +
+	"\x06italic\x18\a \x01(\bR\x06italic\")\n" +
+	"\vRenderPoint\x12\f\n" +
+	"\x01x\x18\x01 \x01(\x01R\x01x\x12\f\n" +
+	"\x01y\x18\x02 \x01(\x01R\x01y\"F\n" +
+	"\tRenderRow\x12\x14\n" +
+	"\x05cells\x18\x01 \x03(\tR\x05cells\x12#\n" +
+	"\x06origin\x18\x02 \x01(\v2\v.sysml.SpanR\x06origin\"\xf8\x01\n" +
+	"\n" +
+	"RenderNote\x12\x12\n" +
+	"\x04text\x18\x01 \x01(\tR\x04text\x12\x16\n" +
+	"\x06anchor\x18\x02 \x01(\tR\x06anchor\x12\x1b\n" +
+	"\tedge_from\x18\x03 \x01(\tR\bedgeFrom\x12\x17\n" +
+	"\aedge_to\x18\x04 \x01(\tR\x06edgeTo\x12\f\n" +
+	"\x01x\x18\x05 \x01(\x01R\x01x\x12\f\n" +
+	"\x01y\x18\x06 \x01(\x01R\x01y\x12\x14\n" +
+	"\x05width\x18\a \x01(\x01R\x05width\x12\x16\n" +
+	"\x06height\x18\b \x01(\x01R\x06height\x12\x19\n" +
+	"\bhas_size\x18\t \x01(\bR\ahasSize\x12#\n" +
+	"\x06origin\x18\n" +
+	" \x01(\v2\v.sysml.SpanR\x06origin*\xb1\x01\n" +
 	"\rFailureReason\x12\x1e\n" +
 	"\x1aFAILURE_REASON_UNSPECIFIED\x10\x00\x12\x1d\n" +
 	"\x19FAILURE_REASON_EVALUATION\x10\x01\x12\x1d\n" +
@@ -12338,7 +13411,7 @@ const file_sysml_proto_rawDesc = "" +
 	"\x11CompositeOperator\x12\"\n" +
 	"\x1eCOMPOSITE_OPERATOR_UNSPECIFIED\x10\x00\x12\x1a\n" +
 	"\x16COMPOSITE_OPERATOR_AND\x10\x01\x12\x19\n" +
-	"\x15COMPOSITE_OPERATOR_OR\x10\x022\xf9\f\n" +
+	"\x15COMPOSITE_OPERATOR_OR\x10\x022\xbc\r\n" +
 	"\fSysMLService\x12D\n" +
 	"\rGetServerInfo\x12\x18.sysml.ServerInfoRequest\x1a\x19.sysml.ServerInfoResponse\x12>\n" +
 	"\tParseFile\x12\x17.sysml.ParseFileRequest\x1a\x18.sysml.ParseFileResponse\x12G\n" +
@@ -12363,7 +13436,9 @@ const file_sysml_proto_rawDesc = "" +
 	"\vListEngines\x12\x19.sysml.ListEnginesRequest\x1a\x1a.sysml.ListEnginesResponse\x122\n" +
 	"\x05Query\x12\x13.sysml.QueryRequest\x1a\x14.sysml.QueryResponse\x12S\n" +
 	"\x10RunDocumentQuery\x12\x1e.sysml.RunDocumentQueryRequest\x1a\x1f.sysml.RunDocumentQueryResponse\x12M\n" +
-	"\x0eRenderDocument\x12\x1c.sysml.RenderDocumentRequest\x1a\x1d.sysml.RenderDocumentResponseBJ\n" +
+	"\x0eRenderDocument\x12\x1c.sysml.RenderDocumentRequest\x1a\x1d.sysml.RenderDocumentResponse\x12A\n" +
+	"\n" +
+	"RenderView\x12\x18.sysml.RenderViewRequest\x1a\x19.sysml.RenderViewResponseBJ\n" +
 	"\x1corg.openmbee.opensysml.protoP\x01Z(github.com/Open-MBEE/OpenSysML/api/protob\x06proto3"
 
 var (
@@ -12379,7 +13454,7 @@ func file_sysml_proto_rawDescGZIP() []byte {
 }
 
 var file_sysml_proto_enumTypes = make([]protoimpl.EnumInfo, 4)
-var file_sysml_proto_msgTypes = make([]protoimpl.MessageInfo, 134)
+var file_sysml_proto_msgTypes = make([]protoimpl.MessageInfo, 145)
 var file_sysml_proto_goTypes = []any{
 	(FailureReason)(0),                   // 0: sysml.FailureReason
 	(EditFailure)(0),                     // 1: sysml.EditFailure
@@ -12509,16 +13584,27 @@ var file_sysml_proto_goTypes = []any{
 	(*RunDocumentQueryResponse)(nil),     // 125: sysml.RunDocumentQueryResponse
 	(*RenderDocumentRequest)(nil),        // 126: sysml.RenderDocumentRequest
 	(*RenderDocumentResponse)(nil),       // 127: sysml.RenderDocumentResponse
-	nil,                                  // 128: sysml.RunAnalysisRequest.NamedArgumentsEntry
-	nil,                                  // 129: sysml.Outcome.OutputsEntry
-	nil,                                  // 130: sysml.Instance.FeatureValuesEntry
-	nil,                                  // 131: sysml.ExecuteActionRequest.InputsEntry
-	nil,                                  // 132: sysml.ExecuteActionResponse.OutputsEntry
-	nil,                                  // 133: sysml.ExecuteActionResponse.PerformerAttributesEntry
-	nil,                                  // 134: sysml.ExecuteStateResponse.FinalContextEntry
-	nil,                                  // 135: sysml.SymbolInfo.MetadataEntry
-	nil,                                  // 136: sysml.QueryResultElement.PropertiesEntry
-	nil,                                  // 137: sysml.RunSweepRequest.NamedArgumentsEntry
+	(*RenderViewRequest)(nil),            // 128: sysml.RenderViewRequest
+	(*RenderViewResponse)(nil),           // 129: sysml.RenderViewResponse
+	(*RenderNode)(nil),                   // 130: sysml.RenderNode
+	(*RenderPort)(nil),                   // 131: sysml.RenderPort
+	(*RenderEdge)(nil),                   // 132: sysml.RenderEdge
+	(*RenderGeometry)(nil),               // 133: sysml.RenderGeometry
+	(*RenderCanvas)(nil),                 // 134: sysml.RenderCanvas
+	(*RenderStyle)(nil),                  // 135: sysml.RenderStyle
+	(*RenderPoint)(nil),                  // 136: sysml.RenderPoint
+	(*RenderRow)(nil),                    // 137: sysml.RenderRow
+	(*RenderNote)(nil),                   // 138: sysml.RenderNote
+	nil,                                  // 139: sysml.RunAnalysisRequest.NamedArgumentsEntry
+	nil,                                  // 140: sysml.Outcome.OutputsEntry
+	nil,                                  // 141: sysml.Instance.FeatureValuesEntry
+	nil,                                  // 142: sysml.ExecuteActionRequest.InputsEntry
+	nil,                                  // 143: sysml.ExecuteActionResponse.OutputsEntry
+	nil,                                  // 144: sysml.ExecuteActionResponse.PerformerAttributesEntry
+	nil,                                  // 145: sysml.ExecuteStateResponse.FinalContextEntry
+	nil,                                  // 146: sysml.SymbolInfo.MetadataEntry
+	nil,                                  // 147: sysml.QueryResultElement.PropertiesEntry
+	nil,                                  // 148: sysml.RunSweepRequest.NamedArgumentsEntry
 }
 var file_sysml_proto_depIdxs = []int32{
 	0,   // 0: sysml.Verdict.failure_reason:type_name -> sysml.FailureReason
@@ -12553,7 +13639,7 @@ var file_sysml_proto_depIdxs = []int32{
 	83,  // 29: sysml.CaseEvaluation.arguments:type_name -> sysml.Value
 	83,  // 30: sysml.CaseEvaluation.result:type_name -> sysml.Value
 	83,  // 31: sysml.RunAnalysisRequest.arguments:type_name -> sysml.Value
-	128, // 32: sysml.RunAnalysisRequest.named_arguments:type_name -> sysml.RunAnalysisRequest.NamedArgumentsEntry
+	139, // 32: sysml.RunAnalysisRequest.named_arguments:type_name -> sysml.RunAnalysisRequest.NamedArgumentsEntry
 	18,  // 33: sysml.RunAnalysisResponse.outputs:type_name -> sysml.CalcOutput
 	4,   // 34: sysml.RunAnalysisResponse.verdicts:type_name -> sysml.Verdict
 	39,  // 35: sysml.RunAnalysisResponse.instances:type_name -> sysml.Instance
@@ -12564,7 +13650,7 @@ var file_sysml_proto_depIdxs = []int32{
 	24,  // 40: sysml.RunAnalysisResponse.exploration:type_name -> sysml.ExplorationStatus
 	19,  // 41: sysml.RunAnalysisResponse.evaluations:type_name -> sysml.CaseEvaluation
 	6,   // 42: sysml.RunAnalysisResponse.bounds:type_name -> sysml.Bound
-	129, // 43: sysml.Outcome.outputs:type_name -> sysml.Outcome.OutputsEntry
+	140, // 43: sysml.Outcome.outputs:type_name -> sysml.Outcome.OutputsEntry
 	100, // 44: sysml.Outcome.diagnostics:type_name -> sysml.Diagnostic
 	22,  // 45: sysml.Outcome.probability_range:type_name -> sysml.ProbabilityRange
 	26,  // 46: sysml.ListEnginesResponse.engines:type_name -> sysml.EngineInfo
@@ -12577,19 +13663,19 @@ var file_sysml_proto_depIdxs = []int32{
 	100, // 53: sysml.DiagnosticsResponse.diagnostics:type_name -> sysml.Diagnostic
 	83,  // 54: sysml.EvaluateResponse.result:type_name -> sysml.Value
 	100, // 55: sysml.EvaluateResponse.diagnostics:type_name -> sysml.Diagnostic
-	130, // 56: sysml.Instance.feature_values:type_name -> sysml.Instance.FeatureValuesEntry
+	141, // 56: sysml.Instance.feature_values:type_name -> sysml.Instance.FeatureValuesEntry
 	83,  // 57: sysml.FeatureValue.value:type_name -> sysml.Value
 	83,  // 58: sysml.FeatureValue.values:type_name -> sysml.Value
 	39,  // 59: sysml.InstantiateResponse.instance:type_name -> sysml.Instance
 	100, // 60: sysml.InstantiateResponse.diagnostics:type_name -> sysml.Diagnostic
 	39,  // 61: sysml.InstantiateResponse.instances:type_name -> sysml.Instance
-	131, // 62: sysml.ExecuteActionRequest.inputs:type_name -> sysml.ExecuteActionRequest.InputsEntry
-	132, // 63: sysml.ExecuteActionResponse.outputs:type_name -> sysml.ExecuteActionResponse.OutputsEntry
+	142, // 62: sysml.ExecuteActionRequest.inputs:type_name -> sysml.ExecuteActionRequest.InputsEntry
+	143, // 63: sysml.ExecuteActionResponse.outputs:type_name -> sysml.ExecuteActionResponse.OutputsEntry
 	100, // 64: sysml.ExecuteActionResponse.diagnostics:type_name -> sysml.Diagnostic
 	23,  // 65: sysml.ExecuteActionResponse.outcomes:type_name -> sysml.Outcome
 	24,  // 66: sysml.ExecuteActionResponse.exploration:type_name -> sysml.ExplorationStatus
-	133, // 67: sysml.ExecuteActionResponse.performer_attributes:type_name -> sysml.ExecuteActionResponse.PerformerAttributesEntry
-	134, // 68: sysml.ExecuteStateResponse.final_context:type_name -> sysml.ExecuteStateResponse.FinalContextEntry
+	144, // 67: sysml.ExecuteActionResponse.performer_attributes:type_name -> sysml.ExecuteActionResponse.PerformerAttributesEntry
+	145, // 68: sysml.ExecuteStateResponse.final_context:type_name -> sysml.ExecuteStateResponse.FinalContextEntry
 	100, // 69: sysml.ExecuteStateResponse.diagnostics:type_name -> sysml.Diagnostic
 	23,  // 70: sysml.ExecuteStateResponse.outcomes:type_name -> sysml.Outcome
 	24,  // 71: sysml.ExecuteStateResponse.exploration:type_name -> sysml.ExplorationStatus
@@ -12624,7 +13710,7 @@ var file_sysml_proto_depIdxs = []int32{
 	100, // 100: sysml.ApplyEditsResponse.diagnostics:type_name -> sysml.Diagnostic
 	75,  // 101: sysml.ApplyEditsResponse.documents:type_name -> sysml.EditedDocument
 	76,  // 102: sysml.ApplyEditsResponse.referrers:type_name -> sysml.Referrer
-	135, // 103: sysml.SymbolInfo.metadata:type_name -> sysml.SymbolInfo.MetadataEntry
+	146, // 103: sysml.SymbolInfo.metadata:type_name -> sysml.SymbolInfo.MetadataEntry
 	82,  // 104: sysml.SymbolInfo.attributes:type_name -> sysml.AttributeInfo
 	80,  // 105: sysml.SymbolInfo.type_info:type_name -> sysml.TypeInfo
 	81,  // 106: sysml.SymbolInfo.multiplicity:type_name -> sysml.MultiplicityInfo
@@ -12665,12 +13751,12 @@ var file_sysml_proto_depIdxs = []int32{
 	2,   // 141: sysml.PrimitiveConstraint.operator:type_name -> sysml.PrimitiveOperator
 	3,   // 142: sysml.CompositeConstraint.operator:type_name -> sysml.CompositeOperator
 	107, // 143: sysml.CompositeConstraint.constraint:type_name -> sysml.Constraint
-	136, // 144: sysml.QueryResultElement.properties:type_name -> sysml.QueryResultElement.PropertiesEntry
+	147, // 144: sysml.QueryResultElement.properties:type_name -> sysml.QueryResultElement.PropertiesEntry
 	83,  // 145: sysml.SweepRange.start:type_name -> sysml.Value
 	83,  // 146: sysml.SweepRange.end:type_name -> sysml.Value
 	83,  // 147: sysml.SweepRange.step:type_name -> sysml.Value
 	83,  // 148: sysml.RunSweepRequest.arguments:type_name -> sysml.Value
-	137, // 149: sysml.RunSweepRequest.named_arguments:type_name -> sysml.RunSweepRequest.NamedArgumentsEntry
+	148, // 149: sysml.RunSweepRequest.named_arguments:type_name -> sysml.RunSweepRequest.NamedArgumentsEntry
 	111, // 150: sysml.RunSweepRequest.ranges:type_name -> sysml.SweepRange
 	18,  // 151: sysml.SweepRow.inputs:type_name -> sysml.CalcOutput
 	18,  // 152: sysml.SweepRow.outputs:type_name -> sysml.CalcOutput
@@ -12702,65 +13788,81 @@ var file_sysml_proto_depIdxs = []int32{
 	123, // 178: sysml.DocumentQueryRow.cells:type_name -> sysml.DocumentQueryCell
 	122, // 179: sysml.RunDocumentQueryResponse.columns:type_name -> sysml.DocumentQueryColumn
 	124, // 180: sysml.RunDocumentQueryResponse.rows:type_name -> sysml.DocumentQueryRow
-	83,  // 181: sysml.RunAnalysisRequest.NamedArgumentsEntry.value:type_name -> sysml.Value
-	83,  // 182: sysml.Outcome.OutputsEntry.value:type_name -> sysml.Value
-	40,  // 183: sysml.Instance.FeatureValuesEntry.value:type_name -> sysml.FeatureValue
-	83,  // 184: sysml.ExecuteActionRequest.InputsEntry.value:type_name -> sysml.Value
-	83,  // 185: sysml.ExecuteActionResponse.OutputsEntry.value:type_name -> sysml.Value
-	83,  // 186: sysml.ExecuteActionResponse.PerformerAttributesEntry.value:type_name -> sysml.Value
-	83,  // 187: sysml.ExecuteStateResponse.FinalContextEntry.value:type_name -> sysml.Value
-	83,  // 188: sysml.RunSweepRequest.NamedArgumentsEntry.value:type_name -> sysml.Value
-	102, // 189: sysml.SysMLService.GetServerInfo:input_type -> sysml.ServerInfoRequest
-	28,  // 190: sysml.SysMLService.ParseFile:input_type -> sysml.ParseFileRequest
-	30,  // 191: sysml.SysMLService.ParseSources:input_type -> sysml.ParseSourcesRequest
-	33,  // 192: sysml.SysMLService.GetSymbol:input_type -> sysml.GetSymbolRequest
-	35,  // 193: sysml.SysMLService.GetDiagnostics:input_type -> sysml.DiagnosticsRequest
-	37,  // 194: sysml.SysMLService.Evaluate:input_type -> sysml.EvaluateRequest
-	41,  // 195: sysml.SysMLService.Instantiate:input_type -> sysml.InstantiateRequest
-	43,  // 196: sysml.SysMLService.ExecuteAction:input_type -> sysml.ExecuteActionRequest
-	45,  // 197: sysml.SysMLService.ExecuteState:input_type -> sysml.ExecuteStateRequest
-	47,  // 198: sysml.SysMLService.Convert:input_type -> sysml.ConvertRequest
-	49,  // 199: sysml.SysMLService.Migrate:input_type -> sysml.MigrateRequest
-	54,  // 200: sysml.SysMLService.ApplyEdits:input_type -> sysml.ApplyEditsRequest
-	7,   // 201: sysml.SysMLService.VerifyConstraint:input_type -> sysml.VerifyConstraintRequest
-	9,   // 202: sysml.SysMLService.VerifyRequirement:input_type -> sysml.VerifyRequirementRequest
-	12,  // 203: sysml.SysMLService.VerifySatisfaction:input_type -> sysml.VerifySatisfactionRequest
-	14,  // 204: sysml.SysMLService.ValidateInstance:input_type -> sysml.ValidateInstanceRequest
-	16,  // 205: sysml.SysMLService.EvaluateCalc:input_type -> sysml.EvaluateCalcRequest
-	20,  // 206: sysml.SysMLService.RunAnalysis:input_type -> sysml.RunAnalysisRequest
-	112, // 207: sysml.SysMLService.RunSweep:input_type -> sysml.RunSweepRequest
-	25,  // 208: sysml.SysMLService.ListEngines:input_type -> sysml.ListEnginesRequest
-	104, // 209: sysml.SysMLService.Query:input_type -> sysml.QueryRequest
-	115, // 210: sysml.SysMLService.RunDocumentQuery:input_type -> sysml.RunDocumentQueryRequest
-	126, // 211: sysml.SysMLService.RenderDocument:input_type -> sysml.RenderDocumentRequest
-	103, // 212: sysml.SysMLService.GetServerInfo:output_type -> sysml.ServerInfoResponse
-	32,  // 213: sysml.SysMLService.ParseFile:output_type -> sysml.ParseFileResponse
-	31,  // 214: sysml.SysMLService.ParseSources:output_type -> sysml.ParseSourcesResponse
-	34,  // 215: sysml.SysMLService.GetSymbol:output_type -> sysml.SymbolResponse
-	36,  // 216: sysml.SysMLService.GetDiagnostics:output_type -> sysml.DiagnosticsResponse
-	38,  // 217: sysml.SysMLService.Evaluate:output_type -> sysml.EvaluateResponse
-	42,  // 218: sysml.SysMLService.Instantiate:output_type -> sysml.InstantiateResponse
-	44,  // 219: sysml.SysMLService.ExecuteAction:output_type -> sysml.ExecuteActionResponse
-	46,  // 220: sysml.SysMLService.ExecuteState:output_type -> sysml.ExecuteStateResponse
-	48,  // 221: sysml.SysMLService.Convert:output_type -> sysml.ConvertResponse
-	50,  // 222: sysml.SysMLService.Migrate:output_type -> sysml.MigrateResponse
-	74,  // 223: sysml.SysMLService.ApplyEdits:output_type -> sysml.ApplyEditsResponse
-	8,   // 224: sysml.SysMLService.VerifyConstraint:output_type -> sysml.VerifyConstraintResponse
-	11,  // 225: sysml.SysMLService.VerifyRequirement:output_type -> sysml.VerifyRequirementResponse
-	13,  // 226: sysml.SysMLService.VerifySatisfaction:output_type -> sysml.VerifySatisfactionResponse
-	15,  // 227: sysml.SysMLService.ValidateInstance:output_type -> sysml.ValidateInstanceResponse
-	17,  // 228: sysml.SysMLService.EvaluateCalc:output_type -> sysml.EvaluateCalcResponse
-	21,  // 229: sysml.SysMLService.RunAnalysis:output_type -> sysml.RunAnalysisResponse
-	114, // 230: sysml.SysMLService.RunSweep:output_type -> sysml.RunSweepResponse
-	27,  // 231: sysml.SysMLService.ListEngines:output_type -> sysml.ListEnginesResponse
-	105, // 232: sysml.SysMLService.Query:output_type -> sysml.QueryResponse
-	125, // 233: sysml.SysMLService.RunDocumentQuery:output_type -> sysml.RunDocumentQueryResponse
-	127, // 234: sysml.SysMLService.RenderDocument:output_type -> sysml.RenderDocumentResponse
-	212, // [212:235] is the sub-list for method output_type
-	189, // [189:212] is the sub-list for method input_type
-	189, // [189:189] is the sub-list for extension type_name
-	189, // [189:189] is the sub-list for extension extendee
-	0,   // [0:189] is the sub-list for field type_name
+	130, // 181: sysml.RenderViewResponse.nodes:type_name -> sysml.RenderNode
+	132, // 182: sysml.RenderViewResponse.edges:type_name -> sysml.RenderEdge
+	137, // 183: sysml.RenderViewResponse.rows:type_name -> sysml.RenderRow
+	134, // 184: sysml.RenderViewResponse.canvas:type_name -> sysml.RenderCanvas
+	138, // 185: sysml.RenderViewResponse.notes:type_name -> sysml.RenderNote
+	131, // 186: sysml.RenderNode.ports:type_name -> sysml.RenderPort
+	101, // 187: sysml.RenderNode.origin:type_name -> sysml.Span
+	133, // 188: sysml.RenderNode.geometry:type_name -> sysml.RenderGeometry
+	135, // 189: sysml.RenderNode.style:type_name -> sysml.RenderStyle
+	101, // 190: sysml.RenderEdge.origin:type_name -> sysml.Span
+	136, // 191: sysml.RenderEdge.route:type_name -> sysml.RenderPoint
+	135, // 192: sysml.RenderEdge.style:type_name -> sysml.RenderStyle
+	101, // 193: sysml.RenderRow.origin:type_name -> sysml.Span
+	101, // 194: sysml.RenderNote.origin:type_name -> sysml.Span
+	83,  // 195: sysml.RunAnalysisRequest.NamedArgumentsEntry.value:type_name -> sysml.Value
+	83,  // 196: sysml.Outcome.OutputsEntry.value:type_name -> sysml.Value
+	40,  // 197: sysml.Instance.FeatureValuesEntry.value:type_name -> sysml.FeatureValue
+	83,  // 198: sysml.ExecuteActionRequest.InputsEntry.value:type_name -> sysml.Value
+	83,  // 199: sysml.ExecuteActionResponse.OutputsEntry.value:type_name -> sysml.Value
+	83,  // 200: sysml.ExecuteActionResponse.PerformerAttributesEntry.value:type_name -> sysml.Value
+	83,  // 201: sysml.ExecuteStateResponse.FinalContextEntry.value:type_name -> sysml.Value
+	83,  // 202: sysml.RunSweepRequest.NamedArgumentsEntry.value:type_name -> sysml.Value
+	102, // 203: sysml.SysMLService.GetServerInfo:input_type -> sysml.ServerInfoRequest
+	28,  // 204: sysml.SysMLService.ParseFile:input_type -> sysml.ParseFileRequest
+	30,  // 205: sysml.SysMLService.ParseSources:input_type -> sysml.ParseSourcesRequest
+	33,  // 206: sysml.SysMLService.GetSymbol:input_type -> sysml.GetSymbolRequest
+	35,  // 207: sysml.SysMLService.GetDiagnostics:input_type -> sysml.DiagnosticsRequest
+	37,  // 208: sysml.SysMLService.Evaluate:input_type -> sysml.EvaluateRequest
+	41,  // 209: sysml.SysMLService.Instantiate:input_type -> sysml.InstantiateRequest
+	43,  // 210: sysml.SysMLService.ExecuteAction:input_type -> sysml.ExecuteActionRequest
+	45,  // 211: sysml.SysMLService.ExecuteState:input_type -> sysml.ExecuteStateRequest
+	47,  // 212: sysml.SysMLService.Convert:input_type -> sysml.ConvertRequest
+	49,  // 213: sysml.SysMLService.Migrate:input_type -> sysml.MigrateRequest
+	54,  // 214: sysml.SysMLService.ApplyEdits:input_type -> sysml.ApplyEditsRequest
+	7,   // 215: sysml.SysMLService.VerifyConstraint:input_type -> sysml.VerifyConstraintRequest
+	9,   // 216: sysml.SysMLService.VerifyRequirement:input_type -> sysml.VerifyRequirementRequest
+	12,  // 217: sysml.SysMLService.VerifySatisfaction:input_type -> sysml.VerifySatisfactionRequest
+	14,  // 218: sysml.SysMLService.ValidateInstance:input_type -> sysml.ValidateInstanceRequest
+	16,  // 219: sysml.SysMLService.EvaluateCalc:input_type -> sysml.EvaluateCalcRequest
+	20,  // 220: sysml.SysMLService.RunAnalysis:input_type -> sysml.RunAnalysisRequest
+	112, // 221: sysml.SysMLService.RunSweep:input_type -> sysml.RunSweepRequest
+	25,  // 222: sysml.SysMLService.ListEngines:input_type -> sysml.ListEnginesRequest
+	104, // 223: sysml.SysMLService.Query:input_type -> sysml.QueryRequest
+	115, // 224: sysml.SysMLService.RunDocumentQuery:input_type -> sysml.RunDocumentQueryRequest
+	126, // 225: sysml.SysMLService.RenderDocument:input_type -> sysml.RenderDocumentRequest
+	128, // 226: sysml.SysMLService.RenderView:input_type -> sysml.RenderViewRequest
+	103, // 227: sysml.SysMLService.GetServerInfo:output_type -> sysml.ServerInfoResponse
+	32,  // 228: sysml.SysMLService.ParseFile:output_type -> sysml.ParseFileResponse
+	31,  // 229: sysml.SysMLService.ParseSources:output_type -> sysml.ParseSourcesResponse
+	34,  // 230: sysml.SysMLService.GetSymbol:output_type -> sysml.SymbolResponse
+	36,  // 231: sysml.SysMLService.GetDiagnostics:output_type -> sysml.DiagnosticsResponse
+	38,  // 232: sysml.SysMLService.Evaluate:output_type -> sysml.EvaluateResponse
+	42,  // 233: sysml.SysMLService.Instantiate:output_type -> sysml.InstantiateResponse
+	44,  // 234: sysml.SysMLService.ExecuteAction:output_type -> sysml.ExecuteActionResponse
+	46,  // 235: sysml.SysMLService.ExecuteState:output_type -> sysml.ExecuteStateResponse
+	48,  // 236: sysml.SysMLService.Convert:output_type -> sysml.ConvertResponse
+	50,  // 237: sysml.SysMLService.Migrate:output_type -> sysml.MigrateResponse
+	74,  // 238: sysml.SysMLService.ApplyEdits:output_type -> sysml.ApplyEditsResponse
+	8,   // 239: sysml.SysMLService.VerifyConstraint:output_type -> sysml.VerifyConstraintResponse
+	11,  // 240: sysml.SysMLService.VerifyRequirement:output_type -> sysml.VerifyRequirementResponse
+	13,  // 241: sysml.SysMLService.VerifySatisfaction:output_type -> sysml.VerifySatisfactionResponse
+	15,  // 242: sysml.SysMLService.ValidateInstance:output_type -> sysml.ValidateInstanceResponse
+	17,  // 243: sysml.SysMLService.EvaluateCalc:output_type -> sysml.EvaluateCalcResponse
+	21,  // 244: sysml.SysMLService.RunAnalysis:output_type -> sysml.RunAnalysisResponse
+	114, // 245: sysml.SysMLService.RunSweep:output_type -> sysml.RunSweepResponse
+	27,  // 246: sysml.SysMLService.ListEngines:output_type -> sysml.ListEnginesResponse
+	105, // 247: sysml.SysMLService.Query:output_type -> sysml.QueryResponse
+	125, // 248: sysml.SysMLService.RunDocumentQuery:output_type -> sysml.RunDocumentQueryResponse
+	127, // 249: sysml.SysMLService.RenderDocument:output_type -> sysml.RenderDocumentResponse
+	129, // 250: sysml.SysMLService.RenderView:output_type -> sysml.RenderViewResponse
+	227, // [227:251] is the sub-list for method output_type
+	203, // [203:227] is the sub-list for method input_type
+	203, // [203:203] is the sub-list for extension type_name
+	203, // [203:203] is the sub-list for extension extendee
+	0,   // [0:203] is the sub-list for field type_name
 }
 
 func init() { file_sysml_proto_init() }
@@ -12862,7 +13964,7 @@ func file_sysml_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_sysml_proto_rawDesc), len(file_sysml_proto_rawDesc)),
 			NumEnums:      4,
-			NumMessages:   134,
+			NumMessages:   145,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

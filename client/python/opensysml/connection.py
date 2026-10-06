@@ -54,6 +54,7 @@ from opensysml.capabilities import (
     CAPABILITY_QUERY,
     CAPABILITY_RENDER_DOCUMENT,
     CAPABILITY_RENDER_DOCUMENT_HTML,
+    CAPABILITY_RENDER_VIEW,
     CAPABILITY_SCHEDULE,
     CAPABILITY_SCHEDULE_EXPLORE,
     CAPABILITY_SET_VALUES,
@@ -85,6 +86,7 @@ from opensysml.document import (
     binding_rationals_as_reals,
     build_bindings,
     document_event_of,
+    render_view_result,
     result_of as document_result,
 )
 from opensysml.edit import error_for_failure, failure_name, referrers_of, result_of
@@ -103,6 +105,7 @@ from opensysml.errors import (
     StaleServiceError,
     SymbolNotFoundError,
     UnsupportedValueError,
+    ViewNotFoundError,
     WrongKindError,
     from_rpc_error,
     translate_rpc_errors,
@@ -1841,6 +1844,25 @@ class Connection:
         ):
             response = self._stub.RenderDocument(request)
         return response.html if form == "html" else response.markdown
+
+    def render_view(self, model_hash, view_name, ports="minimal"):
+        """Render a named view with minimal or full ports."""
+        if ports not in ("minimal", "full"):
+            raise ValueError("ports must be 'minimal' or 'full'")
+        require(self.server_info(), CAPABILITY_RENDER_VIEW, upgrade_remedy(CAPABILITY_RENDER_VIEW))
+        request = sysml_pb2.RenderViewRequest(
+            model_hash=model_hash,
+            view=view_name,
+            ports="" if ports == "minimal" else ports,
+        )
+        with translate_rpc_errors(
+            not_found=lambda message, code: ViewNotFoundError(
+                view_name, message, code=code
+            ),
+            unimplemented=self._capability_refusal((CAPABILITY_RENDER_VIEW,)),
+        ):
+            response = self._stub.RenderView(request)
+        return render_view_result(response)
 
     def get_symbol(self, model_hash, symbol_id):
         """Fetch symbol by ID from cached model.

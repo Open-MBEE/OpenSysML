@@ -159,9 +159,11 @@ shasum -a 256 -c SHA256SUMS.txt --ignore-missing   # macOS; use sha256sum -c on 
 ```
 
 **Ahead of the next release:** the same archives are built from `develop` every night and
-published as the prerelease `nightly`. It is a development build, replaced nightly and never
-the `latest` release; [Nightly snapshots](../project/nightly.md) says what it contains, how to
-verify one, and what to expect from it.
+published as the prerelease `nightly-<yyyymmdd>-<commit>`, kept for 14 days, with `nightly`
+as the moving alias of the newest; the Python and Node clients go to PyPI and npm as
+development versions. It is a development build, never the `latest` release;
+[Nightly snapshots](../project/nightly.md) says what it contains, how to verify one, and what
+to expect from it.
 
 ## macOS: Gatekeeper
 

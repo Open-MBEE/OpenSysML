@@ -6,11 +6,14 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/lexer"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/codegen"
 )
 
@@ -162,6 +165,79 @@ var compiledCases = []compiledCase{
 	{"Seq::UniqLocAny", []string{"(1,1)"}},
 	{"Overloads::PickInt", []string{"7"}}, {"Overloads::PickReal", []string{"7.0"}}, {"Overloads::PickFlag", []string{"true"}},
 	{"Overloads::PickQualified", []string{"7"}}, {"Overloads::PickQualified", []string{"-7"}},
+	{"Rec::Read", []string{"1.5"}},
+	{"Rec::Local", []string{"1.5"}},
+	{"Rec::Named", []string{"1.5"}},
+	{"Rec::SameObject", []string{"1.5"}},
+	{"Rec::Alias", []string{"1.5"}},
+	{"Rec::EqualFeatures", []string{"1.5"}},
+	{"Rec::EqualIdent", []string{"1.5"}},
+	{"Rec::NotEqual", []string{"1.5"}},
+	{"Rec::Nested", []string{"1.5"}},
+	{"Rec::Chained", []string{"1.5"}},
+	{"Rec::Receiver", []string{"1.5"}},
+	{"Rec::ReceiverInner", []string{"1.5"}},
+	{"Rec::Passed", []string{"1.5"}},
+	{"Rec::Stored", []string{"1.5"}},
+	{"Rec::ClosureSame", []string{"1.5"}},
+	{"Rec::ClosureOther", []string{"1.5"}},
+	{"Rec::Defaulted", []string{"1.5"}},
+	{"Rec::Overridden", []string{"1.5"}},
+	{"Rec::DefaultedTenth", []string{"1.5"}},
+	{"Rec::SeqFeature", []string{"1.5"}},
+	{"Rec::SeqEmpty", []string{"1.5"}},
+	{"Rec::InSeq", []string{"1.5"}},
+	{"Rec::SeqIdent", []string{"1.5"}},
+	{"Rec::Returned", []string{"1.5"}},
+	{"Rec::IntKept", []string{"1.5"}},
+	{"Rec::RecVsNum", []string{"1.5"}},
+	{"Rec::NullCmp", []string{"1.5"}},
+	{"Rec::TooMany", []string{"1.5"}},
+	{"Rec::Steps", []string{"1.5"}},
+	{"Rec::UnsetRead", []string{"1.5"}},
+	{"Rec::UnsetNull", []string{"1.5"}},
+	{"Rec::UnsetTwo", []string{"1.5"}},
+	{"Rec::UnsetIdent", []string{"1.5"}},
+	{"Rec::UnsetAlias", []string{"1.5"}},
+	{"Rec::UnsetVsValue", []string{"1.5"}},
+	{"Rec::UnsetAdd", []string{"1.5"}},
+	{"Rec::UnsetAddRight", []string{"1.5"}},
+	{"Rec::UnsetNeg", []string{"1.5"}},
+	{"Rec::UnsetLt", []string{"1.5"}},
+	{"Rec::UnsetMul", []string{"1.5"}},
+	{"Rec::UnsetPow", []string{"1.5"}},
+	{"Rec::UnsetSize", []string{"1.5"}},
+	{"Rec::UnsetEmpty", []string{"1.5"}},
+	{"Rec::UnsetCoalesce", []string{"1.5"}},
+	{"Rec::UnsetLocal", []string{"1.5"}},
+	{"Rec::UnsetLocalEq", []string{"1.5"}},
+	{"Rec::UnsetCond", []string{"1.5"}},
+	{"Rec::UnsetAnd", []string{"1.5"}},
+	{"Rec::UnsetNot", []string{"1.5"}},
+	{"Rec::UnsetBoolRead", []string{"1.5"}},
+	{"Rec::UnsetNested", []string{"1.5"}},
+	{"Rec::UnsetRecord", []string{"1.5"}},
+	{"Rec::UnsetInt", []string{"1.5"}},
+	{"Rec::UnsetIntAdd", []string{"1.5"}},
+	{"Rec::UnsetPassed", []string{"1.5"}},
+	{"Rec::UnsetNatural", []string{"1.5"}},
+	{"Rec::UnsetDefault", []string{"1.5"}},
+	{"Rec::UnsetString", []string{"1.5"}},
+	{"Rec::UnsetConcat", []string{"1.5"}},
+	{"Rec::UnsetStep", []string{"1.5"}},
+	{"Rec::UnsetIntToNat", []string{"1.5"}},
+	{"Rec::UnsetNatToPos", []string{"1.5"}},
+	{"Rec::UnsetPosToNat", []string{"1.5"}},
+	{"Rec::UnsetDeclPos", []string{"1.5"}},
+	{"Rec::UnsetAssignPos", []string{"1.5"}},
+	{"Rec::UnsetFieldPos", []string{"1.5"}},
+	{"Rec::UnsetResultPos", []string{"1.5"}},
+	{"Rec::UnsetResultNat", []string{"1.5"}},
+	{"Rec::UnsetAssigned", []string{"1.5"}}, {"Rec::UnsetAssigned", []string{"-1.5"}},
+	{"Rec::UnsetIf", []string{"1.5"}}, {"Rec::UnsetIf", []string{"-1.5"}},
+	{"Rec::UnsetIfInt", []string{"1.5"}}, {"Rec::UnsetIfInt", []string{"-1.5"}},
+	{"Rec::Chosen", []string{"true"}}, {"Rec::Chosen", []string{"false"}},
+	{"Rec::Range", []string{"3"}}, {"Rec::Range", []string{"-1"}},
 	{"Closure::Pick", []string{"true"}}, {"Closure::Pick", []string{"false"}},
 	{"Closure::PickId", []string{"true"}}, {"Closure::PickId", []string{"false"}},
 	{"Closure::PickApply", []string{"true", "3.0"}}, {"Closure::PickApply", []string{"false", "3.0"}},
@@ -306,6 +382,7 @@ var compiledCases = []compiledCase{
 	{"Str::Build", []string{`"xy"`, "0"}}, {"Str::Build", []string{`"é,"`, "600"}},
 	{"Str::Names", []string{"3"}}, {"Str::Names", []string{"200"}}, {"Str::ForS", []string{`("a", "b,c")`}}, {"Str::ForS", []string{"null"}},
 	{"Str::Ctrl", []string{"\"\u00a0\u00ad\u200b\U0001F600\""}},
+	{"Str::Ctrl", []string{"\"\a\v\x01\x1b\x7f\u0085\u2028\ufeff\""}},
 	{"Str::Seq", []string{`"` + strings.Repeat("long ", 30) + `"`}},
 	{"Str::Joined", []string{`("a", "b", "c")`}}, {"Str::Joined", []string{"()"}},
 	{"E::Id", []string{"Compiled::E::Color::green"}}, {"E::Id", []string{"Compiled::E::Color::blue"}}, {"E::Red", nil},
@@ -344,6 +421,8 @@ func withinUlps(a, b string, n uint64) bool {
 	return bx-by <= n
 }
 
+var objectNumber = regexp.MustCompile(`(\S+) #\d+`)
+
 // failureClass is the part of a failure both surfaces spell the same way: the
 // class of a scalar fault, else the whole message once the interpreter's
 // context labels and the program's calc name are stripped.
@@ -358,7 +437,8 @@ func failureClass(calc, msg string) string {
 		line, _, _ := strings.Cut(rest, "\n")
 		return runtime.ErrStepLimitExceeded.Error() + line
 	}
-	msg = strings.TrimSpace(msg)
+	// A compiled program names an object by its type, having no object numbers.
+	msg = objectNumber.ReplaceAllString(strings.TrimSpace(msg), "$1 object")
 	if _, rest, ok := strings.Cut(msg, "Compiled::"+calc+": "); ok {
 		msg = rest
 	}
@@ -569,6 +649,13 @@ func TestCompiledCalcsAgreeWithInterpreter(t *testing.T) {
 				!refused["Closure::StrClosure"] || !refused["Closure::SeqClosure"] || !refused["Closure::FnClosure"] || refused["Closure::BoolClosure"]) {
 				t.Errorf("C refusals = %v: want the Integer-arithmetic calcs and closures capturing collections, Strings or functions refused and the rest compiled", refused)
 			}
+			// A C record keeps no String or collection, which the arena may reclaim.
+			cOnly := map[string]bool{"Rec::SeqFeature": true, "Rec::SeqEmpty": true, "Rec::UnsetString": true, "Rec::UnsetConcat": true, "Rec::UnsetIntAdd": true}
+			for _, c := range compiledCases {
+				if name := c.calc; strings.HasPrefix(name, "Rec::") && refused[name] != (target == codegen.TargetC && cOnly[name]) {
+					t.Errorf("%s refused = %v for %s", name, refused[name], target)
+				}
+			}
 			for _, repeat := range []string{"0", "-1", "x", "2x", ""} {
 				out, err := exec.Command(exes["Hypot"], "--repeat", repeat, "3.0", "4.0").CombinedOutput()
 				var exit *exec.ExitError
@@ -585,6 +672,78 @@ func TestCompiledCalcsAgreeWithInterpreter(t *testing.T) {
 			}
 			if out, err := exec.Command(exes["Hypot"], "--repeat", "3", "3.0", "4.0").Output(); err != nil || strings.TrimSpace(string(out)) != "5.0" {
 				t.Errorf("--repeat 3: got %q, %v", out, err)
+			}
+		})
+	}
+}
+
+// A String printed by the interpreter or a compiled program is a String literal
+// that reads back to the same String, so a result can be given as an argument.
+func TestCompiledStringResultsRoundTrip(t *testing.T) {
+	texts := []string{"\u200b", "\a\v\x01\x1b\x7f", "\u0085\u00a0\u00ad\u2028\u2029\ufeff", "\U0001F600\U000E0001", "\b\t\n\f\r\"'\\"}
+	for _, target := range codegen.Targets() {
+		t.Run(string(target), func(t *testing.T) {
+			t.Parallel()
+			if target == codegen.TargetC {
+				if _, err := exec.LookPath("cc"); err != nil {
+					t.Skip("no C compiler on PATH")
+				}
+			}
+			s := loadCompileFixture(t)
+			exe := filepath.Join(t.TempDir(), "StrStr")
+			buildCalc(t, s, "Str::StrStr", target, exe)
+			for _, text := range texts {
+				c := compiledCase{"Str::StrStr", []string{source.StringText(text)}}
+				printed, failure := interpreted(t, s, c)
+				if failure != "" {
+					t.Fatalf("%q: interpreter failed: %s", text, failure)
+				}
+				if got := source.StringValue(printed); got != text || len(lexer.InvalidEscapes(source.Span{}, printed)) > 0 {
+					t.Errorf("%q printed as %s, which reads back as %q", text, printed, got)
+				}
+				again := compiledCase{"Str::StrStr", []string{printed}}
+				for _, run := range []struct {
+					name   string
+					answer func() (string, string)
+				}{
+					{"compiled", func() (string, string) { return compiledRun(t, exe, c) }},
+					{"compiled, given the printed result", func() (string, string) { return compiledRun(t, exe, again) }},
+					{"interpreted, given the printed result", func() (string, string) { return interpreted(t, s, again) }},
+				} {
+					if value, failure := run.answer(); value != printed || failure != "" {
+						t.Errorf("%q %s = (%q, %q), want %s", text, run.name, value, failure, printed)
+					}
+				}
+			}
+		})
+	}
+}
+
+// A String holding a NUL, which only a literal in the model can, prints whole
+// on both targets, as the interpreter prints it.
+func TestCompiledStringResultHoldsNul(t *testing.T) {
+	model := "package Compiled { private import ScalarValues::*; calc def Nul { in a : String; return : String = \"x\x00\" + a + \"\x00y\"; } }"
+	c := compiledCase{"Nul", []string{"\"\u200b\""}}
+	for _, target := range codegen.Targets() {
+		t.Run(string(target), func(t *testing.T) {
+			t.Parallel()
+			if target == codegen.TargetC {
+				if _, err := exec.LookPath("cc"); err != nil {
+					t.Skip("no C compiler on PATH")
+				}
+			}
+			s := NewSession()
+			if errs := errorDiagnostics(s.Submit(model).Diagnostics); len(errs) > 0 {
+				t.Fatalf("model has errors: %v", errs)
+			}
+			want, failure := interpreted(t, s, c)
+			if failure != "" || want != "\"x\x00\u200b\x00y\"" {
+				t.Fatalf("interpreted = (%q, %q)", want, failure)
+			}
+			exe := filepath.Join(t.TempDir(), "Nul")
+			buildCalc(t, s, "Nul", target, exe)
+			if got, failure := compiledRun(t, exe, c); got != want || failure != "" {
+				t.Errorf("compiled = (%q, %q), want %q", got, failure, want)
 			}
 		})
 	}
@@ -707,6 +866,57 @@ func stepsTaken(t *testing.T, s *Session, c compiledCase, limit int64) (int64, b
 	return hi, true
 }
 
+// A step budget at the int64 limit still binds a compiled program: a range too
+// wide for it fails with the step-limit error, and the C counter, built with
+// the signed-overflow sanitizer, never overflows on the way.
+func TestCompiledStepBudgetAtTheInt64Limit(t *testing.T) {
+	limit := strconv.FormatInt(math.MaxInt64, 10)
+	want := "evaluation step limit exceeded (" + limit + " steps; raise OPENSYSML_MAX_STEPS to allow more)"
+	for _, target := range codegen.Targets() {
+		t.Run(string(target), func(t *testing.T) {
+			s := loadCompileFixture(t)
+			program, err := s.CompileCalc("Compiled::Seq::Sequence", target)
+			if err != nil {
+				t.Fatal(err)
+			}
+			exe := filepath.Join(t.TempDir(), "Sequence")
+			if target == codegen.TargetC {
+				buildSanitizedC(t, program, exe)
+			} else if err := codegen.Build(program, target, exe); err != nil {
+				t.Fatal(err)
+			}
+			cmd := exec.Command(exe, "--repeat", "2", limit)
+			cmd.Env = append(os.Environ(), runtime.MaxStepsEnvVar+"="+limit, runtime.MaxElementsEnvVar+"="+limit)
+			out, err := cmd.CombinedOutput()
+			var exit *exec.ExitError
+			if !errors.As(err, &exit) || exit.ExitCode() != 1 || !strings.Contains(string(out), want) || strings.Contains(string(out), "runtime error") {
+				t.Errorf("Seq::Sequence(%s) under a budget of %s: %v\n%s", limit, limit, err, out)
+			}
+		})
+	}
+}
+
+// buildSanitizedC builds program's C source into exe with the compiler's flags
+// and a sanitizer that aborts on signed overflow, skipping where cc lacks one.
+func buildSanitizedC(t *testing.T, program *codegen.Program, exe string) {
+	t.Helper()
+	if _, err := exec.LookPath("cc"); err != nil {
+		t.Skip("no C compiler on PATH")
+	}
+	src, err := codegen.Source(program, codegen.TargetC)
+	if err != nil {
+		t.Fatal(err)
+	}
+	path := exe + ".c"
+	if err := os.WriteFile(path, src, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	args := append(append([]string{}, codegen.CFlags...), "-fsanitize=signed-integer-overflow", "-fno-sanitize-recover=all", "-o", exe, path, "-lm")
+	if out, err := exec.Command("cc", args...).CombinedOutput(); err != nil {
+		t.Skipf("no signed-overflow sanitizer here: %v\n%s", err, out)
+	}
+}
+
 // A compiled program spends the interpreter's steps: with OPENSYSML_MAX_STEPS
 // at the least budget the interpreter needs it answers as the interpreter
 // does, and one step fewer it fails with the interpreter's step-limit error.
@@ -811,6 +1021,30 @@ func TestCompiledCLoopMemoryIsBounded(t *testing.T) {
 	}
 }
 
+// A C program frees a run's records when the next run begins, so repeated
+// runs that each make a record complete under a 64 MB limit.
+func TestCompiledCRecordsAreReleasedBetweenRuns(t *testing.T) {
+	if _, err := exec.LookPath("cc"); err != nil {
+		t.Skip("no C compiler on PATH")
+	}
+	if out, err := exec.Command("sh", "-c", "ulimit -v 65536").CombinedOutput(); err != nil {
+		t.Skipf("no address-space limit here: %v %s", err, out)
+	}
+	s := loadCompileFixture(t)
+	program, err := s.CompileCalc("Compiled::Rec::Read", codegen.TargetC)
+	if err != nil {
+		t.Fatal(err)
+	}
+	exe := filepath.Join(t.TempDir(), "Read")
+	if err := codegen.Build(program, codegen.TargetC, exe); err != nil {
+		t.Fatal(err)
+	}
+	out, err := exec.Command("sh", "-c", `ulimit -v 65536 && exec "$0" --repeat 3000000 1.5`, exe).CombinedOutput()
+	if err != nil || strings.TrimSpace(string(out)) != "1.5" {
+		t.Errorf("Read(1.5) repeated 3000000 times under a 64 MB limit: %v\n%s", err, out)
+	}
+}
+
 // A calc outside the subset is refused with the reason, never compiled wrong.
 func TestCompileRefusesWhatItCannotCompile(t *testing.T) {
 	s := loadCompileFixture(t)
@@ -821,7 +1055,7 @@ func TestCompileRefusesWhatItCannotCompile(t *testing.T) {
 		{"Refined", "members of its own"},
 		{"DynamicIntPow", "non-literal Integer exponent"},
 		{"Narrowed", "a Real bound to x, which is Integer"},
-		{"RecordParam", "type Refused::Point is not Integer, Real, Boolean, String or an enumeration"},
+		{"RecordParam", "parameter p takes a Refused::Point, a record, which a program cannot take on its command line"},
 		{"RationalParam", "type ScalarValues::Rational is not Integer, Real, Boolean, String or an enumeration"},
 		{"ExactProduct", "exact Rational arithmetic '*' over a value binary64 does not hold exactly"},
 		{"ExactPower", "'**' of an exact Rational by an Integer exponent"},
@@ -843,7 +1077,7 @@ func TestCompileRefusesWhatItCannotCompile(t *testing.T) {
 		{"ForwardedUnrelated", "cannot bind the function value Refused::Sq2 to a parameter typed by Compiled::Fn::Sq"},
 		{"IntegerNullRange", "a Real[0..*] at result, which holds Integer[0..*]"},
 		{"OuterClosure", "a calc declared in the body of Refused::BodyClosure, read from the body of Refused::OuterClosure"},
-		{"ObjectClosure", "a calc read off an object through a feature chain, whose function value closes over that object"},
+		{"ObjectClosure", "reference to twice, which is not a parameter, body-local attribute or compiled library constant"},
 		{"ObjectCalc", "a calc owned by Refused::Scaler, whose function value closes over that object"},
 		{"ReceiverQualified", "an invocation of a function value with a receiver (`x->f()`)"},
 		{"ForeignQualified", "in calc Compiled::Fn::ApplyQual::f: an `in calc` parameter invoked outside the body of the calc declaring it"},

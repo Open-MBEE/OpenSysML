@@ -242,6 +242,24 @@ func apiJSONType(typ rdf.Term) string {
 // multi-valued, or its single object as a scalar.
 func apiJSONSysMLValue(graph *rdf.Graph, subject rdf.Term, predicate, key, metaclass string, objectProperty bool) (any, error) {
 	objects := graph.Objects(subject, predicate)
+	if _, ok := graph.Object(subject, rdf.AnnotationJSON+key); ok && graph.CollectionsSettled() {
+		// The typed triples state the collection in the annotation's order (see
+		// rdf.Graph.MarkCollectionsSettled), so its members are read from them
+		// rather than from the annotation's JSON, which spells the same members.
+		values := make([]any, 0, len(objects))
+		for _, object := range objects {
+			if object.IsIRI() {
+				values = append(values, apiJSONReference{ID: rdf.ReferenceID(subject, object)})
+				continue
+			}
+			value, err := apiJSONScalar(subject, key, object, objectProperty)
+			if err != nil {
+				return nil, err
+			}
+			values = append(values, value)
+		}
+		return values, nil
+	}
 	if annotation, ok := graph.Object(subject, rdf.AnnotationJSON+key); ok {
 		if !annotation.IsLiteral() {
 			return nil, &UnsupportedError{
