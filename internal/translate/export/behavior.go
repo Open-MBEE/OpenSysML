@@ -108,6 +108,9 @@ func (e *encoder) libraryReference(name *ast.QualifiedName) rdf.Term {
 func (e *encoder) encodeBehavior(node ast.Node, head func(rdf.Term), subject rdf.Term, fqn, owner string, index int) (bool, error) {
 	switch n := node.(type) {
 	case *ast.InitialNode:
+		if guardedSuccession(n) {
+			return true, e.encodeGuardedSuccession(n, head, subject, fqn, owner)
+		}
 		return true, e.encodeInitialNode(n, head, subject, fqn, owner)
 
 	case *ast.FinalNode:
@@ -177,18 +180,9 @@ func (e *encoder) encodeBehavior(node ast.Node, head func(rdf.Term), subject rdf
 
 	case *ast.ControlFlowEdge:
 		// A guarded branch of a decision, or the `else` branch taken when no
-		// guarded one is. Which keyword introduced it decides how it is written.
-		head(rdf.SysMLTerm(mSuccession))
-		e.graph.Add(subject, e.sysx(xDeclaredKeyword), rdf.String(firstWord(e.text(n))))
-		if err := e.expression(subject, e.sysx(xGuard), xGuard, owner, n.Guard); err != nil {
-			return true, err
-		}
-		if n.IsElse {
-			e.graph.Add(subject, e.sysx(xIsElse), rdf.Bool(true))
-		}
-		return true, e.edgeEnds(subject, n, owner,
-			edgeEnd{name: n.Source, member: n.SourceMember, implied: impliedSource(n, n.Source), stands: e.preceding[n]},
-			edgeEnd{name: n.Target, member: n.TargetMember})
+		// guarded one is: a TransitionUsage either way (SysML.xtext
+		// GuardedTargetSuccession, DefaultTargetSuccession).
+		return true, e.encodeGuardedSuccession(n, head, subject, fqn, owner)
 
 	case *ast.WhileLoopActionNode:
 		return true, e.encodeLoop(n, head, subject, fqn, owner)
@@ -246,6 +240,56 @@ func (e *encoder) encodeBehavior(node ast.Node, head func(rdf.Term), subject rdf
 	return false, nil
 }
 
+// guardedSuccession reports whether a `first` is the guarded `first a if g then
+// b`, a TransitionUsage (SysML.xtext GuardedSuccession), not the succession or
+// initial-node membership an unguarded one is.
+func guardedSuccession(n *ast.InitialNode) bool {
+	return n.Guard != nil && qualifiedText(n.Successor) != ""
+}
+
+// encodeGuardedSuccession emits a guarded succession of an action body — the
+// `first a if g then b` of SysML.xtext GuardedSuccession, the `if g then b` of
+// GuardedTargetSuccession or the `else b` of DefaultTargetSuccession — as the
+// TransitionUsage each is: the state-machine shape of a transition, with the
+// source, guard, owned succession and target the grammar gives it, and the
+// keyword it was written with, so the notation comes back keyword-less.
+func (e *encoder) encodeGuardedSuccession(node ast.Node, head func(rdf.Term), subject rdf.Term, fqn, owner string) error {
+	view := &ast.TransitionMember{IsSuccession: true}
+	view.NodeSpan = node.Span()
+	var source edgeEnd
+	switch n := node.(type) {
+	case *ast.InitialNode:
+		view.Source, view.Target, view.Guard = n.First, n.Successor, n.Guard
+		view.Members, view.HasBody = n.Members, n.HasBody
+	case *ast.ControlFlowEdge:
+		// The source is the member written before, which the head does not
+		// name: the graph states it by position, as a succession's is.
+		view.Target, view.Guard = n.Target, n.Guard
+		source = edgeEnd{name: n.Source, member: n.SourceMember, implied: impliedSource(n, n.Source), stands: e.preceding[n]}
+		e.graph.Add(subject, e.sysx(xDeclaredKeyword), rdf.String(firstWord(e.text(n))))
+		if n.IsElse {
+			e.graph.Add(subject, e.sysx(xIsElse), rdf.Bool(true))
+		}
+	}
+	if err := e.encodeTransition(view, head, subject, fqn, owner); err != nil {
+		return err
+	}
+	if source.name == nil && source.member == nil {
+		return nil
+	}
+	if err := e.edgeEnd(subject, node, source, pSourceFeature, xSourceMember, "sequences from"); err != nil {
+		return err
+	}
+	// A target succession leaves the member before it, which is the source
+	// the transition derives (SysML.ecore TransitionUsage::source).
+	if source.name == nil {
+		if fqn, ok := e.fqn[source.member]; ok {
+			e.graph.Add(subject, e.sysml(pSource), e.ids.subjectForNode(source.member, fqn))
+		}
+	}
+	return nil
+}
+
 // initialSuccessionEnds emits the two connector ends of `first a then b;`: the
 // source the initial node names, the target its successor names.
 func (e *encoder) initialSuccessionEnds(subject rdf.Term, owner string, n *ast.InitialNode) error {
@@ -284,16 +328,13 @@ func (e *encoder) encodeInitialNode(n *ast.InitialNode, head func(rdf.Term), sub
 			e.graph.Add(subject, e.sysml(pMemberElement), start)
 		}
 	}
-	if err := e.expression(subject, e.sysx(xGuard), xGuard, owner, n.Guard); err != nil {
-		return err
-	}
 	if qualifiedText(n.Successor) != "" {
 		e.graph.Add(subject, e.sysml(pTargetFeature), e.edgeReference(n.Successor))
 		// `first a then b;` owns its two ends, each a ConnectorEnd referencing
 		// the feature it names (SysML-textual-bnf SuccessionAsUsage,
 		// ConnectorEndMember), beside the sourceFeature and targetFeature the
-		// ends derive. A guarded one is a transition, not a succession.
-		if n.Guard == nil && n.Name() != "" {
+		// ends derive.
+		if n.Name() != "" {
 			if err := e.initialSuccessionEnds(subject, owner, n); err != nil {
 				return err
 			}
@@ -779,49 +820,47 @@ func answersToFeature(member ast.Node) bool {
 // edgeEnds writes the ends of a succession: a name as a feature reference, an
 // unnamed end as the member it binds by position, anything else refused.
 func (e *encoder) edgeEnds(subject rdf.Term, node ast.Node, owner string, src, tgt edgeEnd) error {
-	ends := []struct {
-		end      edgeEnd
-		feature  string
-		member   string
-		sequence string
-	}{
-		{src, pSourceFeature, xSourceMember, "sequences from"},
-		{tgt, pTargetFeature, xTargetMember, "sequences to"},
+	if err := e.edgeEnd(subject, node, src, pSourceFeature, xSourceMember, "sequences from"); err != nil {
+		return err
 	}
-	for _, end := range ends {
-		if qualifiedText(end.end.name) == "" {
-			if _, done := end.end.member.(*ast.FinalNode); done {
-				// `then done;` reaches the library's Actions::Action::done
-				// feature, which an explicit succession end names outright.
-				e.graph.Add(subject, e.sysml(end.feature), e.libraryReference(libraryDone))
-				continue
-			}
-			fqn, ok := e.fqn[end.end.member]
-			if !ok {
-				return &UnsupportedError{
-					What: fmt.Sprintf("the succession at %s", e.where(node)),
-					Note: fmt.Sprintf("it neither names nor reaches the member it %s, so the order it declares cannot be written back", end.sequence),
-				}
-			}
-			e.graph.Add(subject, e.sysx(end.member), e.ids.subjectForNode(end.end.member, fqn))
-			continue
+	return e.edgeEnd(subject, node, tgt, pTargetFeature, xTargetMember, "sequences to")
+}
+
+// edgeEnd emits one end of a succession: the feature it names, or the member
+// it reaches by position where it names none.
+func (e *encoder) edgeEnd(subject rdf.Term, node ast.Node, end edgeEnd, feature, member, sequence string) error {
+	if qualifiedText(end.name) == "" {
+		if _, done := end.member.(*ast.FinalNode); done {
+			// `then done;` reaches the library's Actions::Action::done
+			// feature, which an explicit succession end names outright.
+			e.graph.Add(subject, e.sysml(feature), e.libraryReference(libraryDone))
+			return nil
 		}
-		// A name the parser took from an unnamed member is its naming feature's,
-		// which another member may share: the end is that member itself.
-		if end.end.implied && answersToFeature(end.end.stands) {
-			if fqn, ok := e.fqn[end.end.stands]; ok {
-				e.graph.Add(subject, e.sysml(end.feature), e.ids.subjectForNode(end.end.stands, fqn))
-				continue
+		fqn, ok := e.fqn[end.member]
+		if !ok {
+			return &UnsupportedError{
+				What: fmt.Sprintf("the succession at %s", e.where(node)),
+				Note: fmt.Sprintf("it neither names nor reaches the member it %s, so the order it declares cannot be written back", sequence),
 			}
 		}
-		term := e.edgeReference(end.end.name)
-		e.graph.Add(subject, e.sysml(end.feature), term)
-		// A name the parser took from the member before that links no element
-		// still binds that member: the graph states it by position as well.
-		if before, ok := e.preceding[node]; ok && end.end.implied && term.IsLiteral() {
-			if fqn, ok := e.fqn[before]; ok {
-				e.graph.Add(subject, e.sysx(end.member), e.ids.subjectForNode(before, fqn))
-			}
+		e.graph.Add(subject, e.sysx(member), e.ids.subjectForNode(end.member, fqn))
+		return nil
+	}
+	// A name the parser took from an unnamed member is its naming feature's,
+	// which another member may share: the end is that member itself.
+	if end.implied && answersToFeature(end.stands) {
+		if fqn, ok := e.fqn[end.stands]; ok {
+			e.graph.Add(subject, e.sysml(feature), e.ids.subjectForNode(end.stands, fqn))
+			return nil
+		}
+	}
+	term := e.edgeReference(end.name)
+	e.graph.Add(subject, e.sysml(feature), term)
+	// A name the parser took from the member before that links no element
+	// still binds that member: the graph states it by position as well.
+	if before, ok := e.preceding[node]; ok && end.implied && term.IsLiteral() {
+		if fqn, ok := e.fqn[before]; ok {
+			e.graph.Add(subject, e.sysx(member), e.ids.subjectForNode(before, fqn))
 		}
 	}
 	return nil
@@ -872,15 +911,17 @@ func (e *encoder) transitionSyntax(n *ast.TransitionMember) string {
 	return "source"
 }
 
-// transitionKeyword records `succession` on a guarded succession, which the
-// parser reads as a transition; the keyword is the one written before the source.
+// transitionKeyword records the keyword a transition was written with when it
+// is not `transition`: `succession` on a guarded succession, or the bare `first`
+// of one written keyword-less, which an action body admits and a `transition`
+// keyword would not read back into.
 func (e *encoder) transitionKeyword(subject rdf.Term, n *ast.TransitionMember) {
 	if n.Source == nil {
 		return
 	}
 	for _, word := range words(e.before(n, n.Source)) {
 		switch word {
-		case "succession":
+		case "succession", "first":
 			e.graph.Add(subject, e.sysx(xDeclaredKeyword), rdf.String(word))
 			return
 		case "transition":
@@ -1946,7 +1987,12 @@ func (d *decoder) transitionText(el *element, annotations []string, depth int) (
 		}
 		words = append(words, "do", text)
 	}
-	words = append(words, "then", target)
+	// `else b` is the default target succession, taken when no guarded one is.
+	if d.boolOf(el, rdf.OpenSysML+xIsElse) || d.keywordOr(el, "") == "else" {
+		words = append(words, "else", target)
+	} else {
+		words = append(words, "then", target)
+	}
 	bodyText, err := d.transitionBody(body, hasBody, annotations, depth)
 	if err != nil {
 		return "", "", err
@@ -2055,6 +2101,22 @@ func (d *decoder) transitionHead(el *element, syntax string) ([]string, error) {
 	var words []string
 	if visibility := d.visibility(el); visibility != "" {
 		words = append(words, visibility)
+	}
+	// A keyword-less `first a if g then b` declares no name, and its `first`
+	// takes the start's own name, as an initial node's does.
+	if keyword == "first" {
+		start, _, err := d.transitionObject(el, pSource)
+		if err != nil {
+			return nil, err
+		}
+		name, target, err := d.memberName(start)
+		if err != nil {
+			return nil, err
+		}
+		if target != nil {
+			d.wanted.starts[d.writtenQName(el)] = target.qname
+		}
+		return append(words, "first", name), nil
 	}
 	words = append(words, keyword)
 	words = append(words, ident...)

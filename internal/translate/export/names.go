@@ -635,6 +635,18 @@ func (e *encoder) checkStarts(starts map[string]string, declared map[string]ast.
 				What: fmt.Sprintf("the initial node %s", fqn),
 				Note: fmt.Sprintf("`first %s` does not name %s in the body it is written in, so the notation cannot state it", nameText(initial.Name()), target),
 			}
+		case *ast.TransitionMember:
+			// A guarded `first a if g then b` of a state body reads back as a
+			// transition whose source the `first` names.
+			if initial.Source != nil {
+				if _, reached, ok := e.linked(e.res.EndSymbol(initial.Source)); ok && reached == target {
+					continue
+				}
+			}
+			return &UnsupportedError{
+				What: fmt.Sprintf("the initial node %s", fqn),
+				Note: fmt.Sprintf("`first %s` does not name %s in the body it is written in, so the notation cannot state it", qualifiedText(initial.Source), target),
+			}
 		case *ast.Usage:
 			if initial.Kind == ast.UsageSuccession && len(initial.ConnectorEnds) == 2 {
 				if source, ok := initial.ConnectorEnds[0].Target.(*ast.QualifiedName); ok {
