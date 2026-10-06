@@ -99,6 +99,10 @@ service SysMLService {
   // Render a named document to Markdown, as the CLI's -render-document does.
   // Reported as the "render_document" capability.
   rpc RenderDocument(RenderDocumentRequest) returns (RenderDocumentResponse);
+
+  // Render a named view or targeted pseudo-view as machine-readable diagram
+  // data. Reported as the "render_view" capability.
+  rpc RenderView(RenderViewRequest) returns (RenderViewResponse);
 }
 
 // FailureReason says what kind of failure an `error` reports, so a client acts
@@ -805,6 +809,9 @@ message ExecuteStateRequest {
   // connects to it reaches the run; one exhibiting it under several usages is
   // an error. Empty runs the machine outside any object.
   string performer_symbol_id = 5;
+  // Ask for the run's trace in ExecuteStateResponse.trace. Advertised as the
+  // "state_trace" capability; a service withholding it refuses true with UNIMPLEMENTED.
+  bool trace = 6;
 }
 
 // ExecuteStateResponse contains state machine execution trace
@@ -823,6 +830,11 @@ message ExecuteStateResponse {
   // it started at: the clock advances through every time-triggered transition
   // the machine took. Populated under the "final_time" capability.
   double final_time = 7;
+  // The run's trace in the order the run made it, when the request asked for it:
+  // also on a run that failed, up to the failure. Empty under an explore schedule.
+  repeated DocumentEvent trace = 8;
+  // How many of the oldest records the service's held-events bound discarded.
+  int32 trace_dropped = 9;
 }
 
 // ConvertRequest asks for a model in another representation. A model_hash
@@ -856,6 +868,13 @@ message ConvertRequest {
   // Empty is "qualified"; any other value, or one given for another direction,
   // is INVALID_ARGUMENT.
   string id_form = 7;
+  // For a model_hash, the documents whose elements are written, named as the
+  // parse named them; the model's other documents are read for the references
+  // into them, which keep the ids those elements are written under when their
+  // own documents are converted. Empty writes every document. A name the model
+  // does not hold, or documents for a file_path or content, is
+  // INVALID_ARGUMENT. Reported as the "convert_documents" capability.
+  repeated string documents = 8;
 }
 
 // ConvertResponse contains the converted model.
@@ -1822,6 +1841,8 @@ message ServerInfoResponse {
   //                  and answers with typed rows.
   //   "render_document" - the RenderDocument RPC renders a named document to
   //                  Markdown.
+  //   "render_view" - the RenderView RPC renders a declared view or targeted
+  //                  pseudo-view as machine-readable diagram data.
   //   "diagnostic_codes" - Diagnostic.code is populated, so an empty code is a
   //                  finding none was assigned; without it every code is empty.
   //   "schedule"     - ExecuteActionRequest, ExecuteStateRequest and
@@ -1841,6 +1862,9 @@ message ServerInfoResponse {
   //   "final_time"   - ExecuteActionResponse and ExecuteStateResponse report
   //                  final_time, the run's simulation clock when it ended;
   //                  without it the field is 0 whatever the run waited on.
+  //   "state_trace"  - ExecuteStateRequest can ask for the run's typed trace in
+  //                  ExecuteStateResponse.trace, including records before a failure.
+  //                  Traces are unavailable under an explore schedule.
   //   "engines"      - the ListEngines RPC lists the analysis engines; the
   //                  verification and sweep requests take an `engine`, the
   //                  engine the question is put to, unset meaning "auto"; and
@@ -2240,4 +2264,124 @@ message RenderDocumentRequest {
 message RenderDocumentResponse {
   string markdown = 1;
   string html = 2;
+}
+
+// RenderViewRequest names a declared view or targeted pseudo-view to render.
+message RenderViewRequest {
+  string model_hash = 1;
+  // A qualified view name or "#<kind>:<qualified name>" pseudo-view.
+  string view = 2;
+  // "" or "minimal" (the default), or "full", as view.ParsePorts reads it.
+  string ports = 3;
+}
+
+// RenderViewResponse carries all machine-readable fields of the rendering.
+message RenderViewResponse {
+  string view = 1;
+  string kind = 2;
+  string stated = 3;
+  // Nodes are flattened with parents before children.
+  repeated RenderNode nodes = 4;
+  repeated RenderEdge edges = 5;
+  repeated string columns = 6;
+  repeated RenderRow rows = 7;
+  // Unset when the view states no canvas.
+  RenderCanvas canvas = 8;
+  repeated RenderNote notes = 9;
+  repeated string notices = 10;
+}
+
+// RenderNode is one flattened node of the rendering.
+message RenderNode {
+  string id = 1;
+  string kind = 2;
+  string name = 3;
+  bool name_synthesized = 4;
+  string type = 5;
+  string detail = 6;
+  string text = 7;
+  bool stand_in = 8;
+  string parent = 9;
+  repeated RenderPort ports = 10;
+  Span origin = 11;
+  // Unset when no layout positions the node.
+  RenderGeometry geometry = 12;
+  RenderStyle style = 13;
+}
+
+// RenderPort is a feature drawn on a node's border.
+message RenderPort {
+  string id = 1;
+  string name = 2;
+  string type = 3;
+  string direction = 4;
+}
+
+// RenderEdge joins two rendered nodes and may connect their ports.
+message RenderEdge {
+  string from = 1;
+  string to = 2;
+  string from_port = 3;
+  string to_port = 4;
+  string label = 5;
+  string name = 6;
+  string kind = 7;
+  Span origin = 8;
+  repeated RenderPoint route = 9;
+  RenderStyle style = 10;
+}
+
+// RenderGeometry locates a node on the rendering's canvas.
+message RenderGeometry {
+  double x = 1;
+  double y = 2;
+  double width = 3;
+  double height = 4;
+  bool has_size = 5;
+  bool collapsed = 6;
+}
+
+// RenderCanvas is the rendering's drawing surface.
+message RenderCanvas {
+  string unit = 1;
+  double width = 2;
+  double height = 3;
+  bool has_size = 4;
+}
+
+// RenderStyle is the optional styling of a node or edge.
+message RenderStyle {
+  string fill = 1;
+  string line = 2;
+  string text = 3;
+  string font = 4;
+  double font_size = 5;
+  bool bold = 6;
+  bool italic = 7;
+}
+
+// RenderPoint is a route waypoint on the rendering's canvas.
+message RenderPoint {
+  double x = 1;
+  double y = 2;
+}
+
+// RenderRow is one row of a tabular rendering.
+message RenderRow {
+  repeated string cells = 1;
+  Span origin = 2;
+}
+
+// RenderNote is a note box drawn on the rendering's canvas.
+message RenderNote {
+  string text = 1;
+  string anchor = 2;
+  string edge_from = 3;
+  string edge_to = 4;
+  double x = 5;
+  double y = 6;
+  double width = 7;
+  double height = 8;
+  bool has_size = 9;
+  Span origin = 10;
 }

@@ -54,6 +54,9 @@ public final class Capabilities {
   /** An Integer beyond int64 travels as {@code big_int_value} rather than as an unsupported null. */
   public static final String BIG_INT_VALUES = "big_int_values";
 
+  /** A model converts with only the documents {@code documents} names written, the rest linked by id. */
+  public static final String CONVERT_DOCUMENTS = "convert_documents";
+
   /** A complex number travels as itself rather than as an unsupported null. */
   public static final String COMPLEX_VALUES = "complex_values";
 
@@ -157,6 +160,9 @@ public final class Capabilities {
   /** The {@code RenderDocument} RPC also renders a named document to HTML. */
   public static final String RENDER_DOCUMENT_HTML = "render_document_html";
 
+  /** The service renders named and targeted pseudo-views as diagram data. */
+  public static final String RENDER_VIEW = "render_view";
+
   /** A parse can judge the source as conforming SysML v2. */
   public static final String STRICT_CONFORMANCE = "strict_conformance";
 
@@ -171,6 +177,9 @@ public final class Capabilities {
 
   /** The action and state requests take a {@code performer_symbol_id}, the object the behavior runs on: a declaration or a path from one into its parts. */
   public static final String PERFORMER = "performer";
+
+  /** The {@code trace} field on {@code ExecuteStateRequest}. */
+  public static final String STATE_TRACE = "state_trace";
 
   /** The execution responses report {@code final_time}, the run's simulation clock when it ended, in seconds. */
   public static final String FINAL_TIME = "final_time";

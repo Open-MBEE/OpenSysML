@@ -11,6 +11,7 @@ enter: l1
 transition: idle -> work (event: accept Go)
 do: l1
 stmt action body
+enter action node: state behavior <anonymous>
   stmt assign log
       eval feature log -> "r1(entry) "
       eval literal "a " -> "a "

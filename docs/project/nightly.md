@@ -86,6 +86,16 @@ tar xzf opensysml-linux-amd64.tar.gz
 ./sysml --version
 ```
 
+The [install script](../guide/01-install.md#with-the-install-script) does the same for the
+platform it runs on, into a directory of your choosing:
+
+```bash
+curl -fsSL https://opensysml.org/install.sh | sh -s -- --version nightly --bin-dir ~/opensysml-nightly
+```
+```powershell
+irm https://opensysml.org/install.ps1 | iex   # after: $env:OPENSYSML_VERSION = 'nightly'
+```
+
 Keep a snapshot beside your installed release rather than over it: the version string tells
 the two apart, and the release is the one to go back to when the snapshot breaks.
 
@@ -108,7 +118,7 @@ The `opensysml` Python client does not download a snapshot on its own. It accept
 manifest was signed by the CircleCI release pipeline, and a snapshot is neither. To run it
 against a snapshot, put the snapshot's `sysml-grpc` on your `PATH` (or point
 `OPENSYSML_BINARY` at it); see the
-[client's README](../../client/python/README.md).
+[client's developer guide](../../client/python/DEVELOPING.md).
 
 ## Verifying one
 

@@ -7,6 +7,9 @@ import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.sun.net.httpserver.HttpServer;
+import java.io.OutputStream;
+import java.net.InetSocketAddress;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
@@ -667,6 +670,16 @@ class ApiIntegrationTest {
         model.executeAction(
             "Test::race", Map.of(), ExecutionOptions.defaults().withSchedule("declared"));
     assertEquals(new Value.IntegerValue(3), declared.outputs().get("x"));
+    assertThrows(
+        IllegalArgumentException.class,
+        () ->
+            model.executeAction(
+                "Test::addFive", Map.of(), ExecutionOptions.defaults().withTrace()));
+    assertThrows(
+        IllegalArgumentException.class,
+        () ->
+            model.exploreAction(
+                "Test::race", Map.of(), ExecutionOptions.defaults().withTrace()));
   }
 
   @Test
@@ -718,6 +731,11 @@ class ApiIntegrationTest {
     StateRun run = model.executeState("Test::Machine", List.of());
     assertEquals(List.of("init", "Running", "done"), run.statesVisited());
     assertEquals(Optional.of("done"), run.finalState());
+    assertTrue(run.trace().isEmpty());
+    StateRun traced =
+        model.executeState("Test::Machine", List.of(), ExecutionOptions.defaults().withTrace());
+    assertEquals("entry", traced.trace().get(0).kind());
+    assertEquals(0, traced.traceDropped());
 
     Exploration exploration = model.exploreState("Test::Machine", List.of());
     assertTrue(exploration.complete());
@@ -725,8 +743,73 @@ class ApiIntegrationTest {
     assertEquals(Optional.of("done"), exploration.outcomes().get(0).finalState());
     assertEquals(
         List.of("init", "Running", "done"), exploration.outcomes().get(0).statesVisited());
+    assertThrows(
+        IllegalArgumentException.class,
+        () ->
+            model.exploreState(
+                "Test::Machine", List.of(), ExecutionOptions.defaults().withTrace()));
 
     assertThrows(ModelException.class, () -> model.executeState("Test::NoMachine", List.of()));
+  }
+
+  @Test
+  void aFailedTracedStateRunKeepsItsPartialTraceOnTheModelException() throws Exception {
+    HttpServer server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+    server.createContext(
+        "/",
+        exchange -> {
+          exchange.getRequestBody().readAllBytes();
+          byte[] body;
+          if (exchange.getRequestURI().getPath().endsWith("/GetServerInfo")) {
+            body =
+                org.openmbee.opensysml.proto.ServerInfoResponse.newBuilder()
+                    .setVersion("test")
+                    .addCapabilities(Capabilities.STATE_TRACE)
+                    .build()
+                    .toByteArray();
+          } else {
+            body =
+                org.openmbee.opensysml.proto.ExecuteStateResponse.newBuilder()
+                    .setError("state machine failed")
+                    .addTrace(
+                        org.openmbee.opensysml.proto.DocumentEvent.newBuilder()
+                            .setKind("entry")
+                            .setTime(
+                                org.openmbee.opensysml.proto.DocumentValue.newBuilder()
+                                    .setRealValue(1.5))
+                            .setState("active")
+                            .setText("enter: active"))
+                    .setTraceDropped(2)
+                    .build()
+                    .toByteArray();
+          }
+          exchange.getResponseHeaders().add("Content-Type", "application/proto");
+          exchange.sendResponseHeaders(200, body.length);
+          try (OutputStream output = exchange.getResponseBody()) {
+            output.write(body);
+          }
+        });
+    server.start();
+    try (Connection fake =
+        Connection.open(
+            ConnectionOptions.builder()
+                .service("127.0.0.1", server.getAddress().getPort())
+                .build())) {
+      Model model = new Model(fake, "hash", List.of(), List.of());
+      ModelException failure =
+          assertThrows(
+              ModelException.class,
+              () ->
+                  model.executeState(
+                      "Trace::Machine", List.of(), ExecutionOptions.defaults().withTrace()));
+      assertEquals("state machine failed", failure.getMessage());
+      assertEquals(1, failure.trace().size());
+      assertEquals("entry", failure.trace().get(0).kind());
+      assertEquals("active", failure.trace().get(0).state());
+      assertEquals(2, failure.traceDropped());
+    } finally {
+      server.stop(0);
+    }
   }
 
   private static final String VERIFICATION =
@@ -1291,6 +1374,24 @@ class ApiIntegrationTest {
     assertTrue(rendered.html().contains("<h1"), rendered.html());
     assertTrue(rendered.html().contains("Telescope Mass Report"));
     assertEquals("", rendered.markdown());
+  }
+
+  @Test
+  void renderViewReturnsTypedPortsEdgesAndOrigins() {
+    Model model = connection.load(fixture("views.sysml"));
+    RenderedView rendered = model.renderView("RenderViewDemo::connections");
+    assertEquals("interconnection", rendered.kind());
+    assertEquals(1, rendered.edges().size());
+    assertFalse(rendered.edges().get(0).fromPort().isEmpty());
+    assertFalse(rendered.edges().get(0).toPort().isEmpty());
+    assertTrue(rendered.nodes().stream().allMatch(node -> node.origin().isPresent()));
+    assertTrue(
+        model
+            .renderView("RenderViewDemo::connections", RenderViewPorts.FULL)
+            .nodes()
+            .stream()
+            .flatMap(node -> node.ports().stream())
+            .anyMatch(port -> port.name().equals("spare")));
   }
 
   @Test

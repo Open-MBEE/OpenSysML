@@ -16,6 +16,7 @@ import {
   CAPABILITY_QUERY,
   CAPABILITY_SCHEDULE,
   CAPABILITY_SCHEDULE_EXPLORE,
+  CAPABILITY_STATE_TRACE,
   CAPABILITY_VERIFICATION,
   MissingCapabilityError,
   ServerInfo,
@@ -76,6 +77,25 @@ test("SourceDocument.file and .inline validate their arguments", () => {
   const doc = SourceDocument.inline("top", "package A;", { language: "kerml" });
   assert.equal(doc.language, "kerml");
   assert.equal(doc.toPb().language, "kerml");
+});
+
+test("a state trace is refused before sending without its capability", async () => {
+  let sent = false;
+  const connection = await fakeConnection([], () => {
+    sent = true;
+    return {};
+  });
+  try {
+    await assert.rejects(
+      () => connection.executeState("hash", "Demo::Machine", { trace: true }),
+      (error: unknown) =>
+        error instanceof MissingCapabilityError &&
+        error.capability === CAPABILITY_STATE_TRACE,
+    );
+    assert.equal(sent, false);
+  } finally {
+    await connection.close();
+  }
 });
 
 test("source_documents rejects the forms Python rejects", () => {

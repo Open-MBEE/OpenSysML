@@ -10,8 +10,12 @@ grpc`` and switch on status codes to tell a missing file from a dead service.
 import builtins
 import warnings
 from contextlib import contextmanager
+from typing import TYPE_CHECKING
 
 import grpc
+
+if TYPE_CHECKING:
+    from opensysml.document import DocumentEvent
 
 
 class OpenSysMLError(Exception):
@@ -229,12 +233,22 @@ class ExecutionError(OpenSysMLError, builtins.RuntimeError):
     Attributes:
         message (str): Error description
         diagnostics (list): List of Diagnostic objects (if available)
+        trace (tuple[DocumentEvent, ...]): Partial ExecuteState trace on failure
+        trace_dropped (int): Oldest trace records discarded by the service
     """
 
-    def __init__(self, message, diagnostics=None):
+    def __init__(
+        self,
+        message,
+        diagnostics=None,
+        trace: tuple["DocumentEvent", ...] = (),
+        trace_dropped=0,
+    ):
         super().__init__(message)
         self.message = message
         self.diagnostics = diagnostics or []
+        self.trace = tuple(trace)
+        self.trace_dropped = trace_dropped
 
 
 class WrongKindError(ExecutionError):
@@ -312,6 +326,16 @@ class SymbolNotFoundError(OpenSysMLError, KeyError):
         # KeyError.__str__ reprs its argument, which would quote the whole
         # sentence; the message is already written for a reader.
         return self.args[0]
+
+
+class ViewNotFoundError(SymbolNotFoundError):
+    """Raised when a declared view or pseudo-view target is absent."""
+
+    def __init__(self, view, message, code=None):
+        super().__init__(view)
+        self.args = (message,)
+        self.message = message
+        self.code = code
 
 
 class EditError(OpenSysMLError):
@@ -543,8 +567,9 @@ def from_rpc_error(exc, not_found=ModelNotFoundError, unimplemented=None):
 
     Args:
         exc (grpc.RpcError): The failure as gRPC reported it.
-        not_found (type): Class for a NOT_FOUND whose details name neither a
-            file nor a model — the call site knows which it asked about.
+        not_found (type or callable): Class for a NOT_FOUND whose details name
+            neither a file nor a model, or a callable accepting ``(message,
+            code)`` and returning the operation-specific error.
         unimplemented (callable): Optional function accepting the service
             details and returning a more specific error for this operation.
 
@@ -573,6 +598,8 @@ def from_rpc_error(exc, not_found=ModelNotFoundError, unimplemented=None):
     if cls is SymbolNotFoundError:
         # Its constructor takes the name, which the details end with.
         return SymbolNotFoundError(message.rpartition("symbol not found: ")[2])
+    if code == grpc.StatusCode.NOT_FOUND and not isinstance(cls, type):
+        return cls(message, code)
     if cls is ConnectionError:
         # ConnectionError is also raised for a service that would not start, so
         # a translated one says the service was reached for and was not there.
@@ -590,8 +617,10 @@ def translate_rpc_errors(not_found=ModelNotFoundError, unimplemented=None):
     boundary and callers see this package's hierarchy.
 
     Args:
-        not_found (type): Class for a NOT_FOUND the details do not identify;
-            pass :class:`ModelFileNotFoundError` where the call named a path.
+        not_found (type or callable): Class for a NOT_FOUND the details do not
+            identify, or a callable accepting ``(message, code)`` and returning
+            the operation-specific error; pass :class:`ModelFileNotFoundError`
+            where the call named a path.
         unimplemented (callable): Optional function accepting the service
             details and returning a more specific error for this operation.
     """
@@ -643,6 +672,7 @@ __all__ = [
     "ServiceTimeoutError",
     "StaleServiceError",
     "SymbolNotFoundError",
+    "ViewNotFoundError",
     "TypeMismatchError",
     "UnpinnedReleaseError",
     "UnsignedReleaseError",

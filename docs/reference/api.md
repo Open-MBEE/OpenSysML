@@ -47,6 +47,12 @@ exploration (`Status()` renders it as the `sysml` command does). The two familie
 other's policies with `CodeInvalidArgument`, and exploring requires the `schedule_explore`
 capability alongside `schedule`.
 
+`WithTrace()` makes `ExecuteState` return typed `DocumentEvent` records and the number of
+discarded older records in `StateRun.Trace` and `StateRun.TraceDropped`. It requires the
+`state_trace` capability and cannot be combined with an explore schedule.
+When a traced run fails, the existing `FailureError` carries its partial records in `Trace`
+and the discarded count in `TraceDropped`.
+
 A `Session` (`opensysml.OpenSession(client, model)`) is the interactive counterpart of those
 one-run calls: it keeps its clock, its schedule (`SetSchedule`) and the objects it instantiated
 between calls, so `Instantiate`, `ActiveStates`, `Transitions`, `Accepts`, `Send`, `Advance`,
@@ -1160,7 +1166,7 @@ one:
 
 ---
 
-## Native document queries and rendering over gRPC
+## Native documents and views over gRPC
 
 The native document pipeline — document queries (`calc def` specializing
 `DocumentQueries::Query`) and documents (`part def` specializing
@@ -1171,6 +1177,7 @@ REPL or a script:
 ```proto
 rpc RunDocumentQuery(RunDocumentQueryRequest) returns (RunDocumentQueryResponse);
 rpc RenderDocument(RenderDocumentRequest) returns (RenderDocumentResponse);
+rpc RenderView(RenderViewRequest) returns (RenderViewResponse);
 ```
 
 **Implementation:** `internal/frontend/grpc/docquery.go` (`Service.RunDocumentQuery`,
@@ -1199,6 +1206,15 @@ byte-identical to `-render-document` on the same model. Its `form` field
 instead, answered in `html` and byte-identical to `-doc-form html`; asking for
 HTML needs the `render_document_html` capability, and PDF is not offered, since
 it needs the CLI's converter toolchain.
+
+`RenderView` answers a named view or targeted pseudo-view as ordered nodes,
+edges, table rows, notes, source spans and optional canvas/geometry/style data,
+using the engine renderer's `view.Data` rather than diagram pictures. Its
+`ports` field is empty or `minimal` by default; `full` includes all declared
+ports. It is advertised by `render_view`, and a service without that capability
+refuses the request with `UNIMPLEMENTED`.
+Python exposes this as `model.render_view(view_name, ports="minimal")`, returning
+a typed `RenderedView`.
 
 Both run over the model's runtime and the objects it holds. `Instantiate`
 creates an object for the model named by hash and the service keeps it, under

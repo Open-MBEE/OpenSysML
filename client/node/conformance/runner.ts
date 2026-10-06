@@ -47,6 +47,7 @@ export const COVERED_RPCS = [
   "ParseSources",
   "Query",
   "RenderDocument",
+  "RenderView",
   "RunAnalysis",
   "RunDocumentQuery",
   "RunSweep",
@@ -395,6 +396,7 @@ export class Runner {
     ExecuteState: (call) =>
       this.model(call).executeState(String(call.request["state_machine_symbol_id"]), {
         ...stringOption(call.request, "schedule", "schedule"),
+        ...flagOption(call.request, "trace", "trace"),
       }),
     Convert: ({ request, modelHash }) =>
       this.connection.convert(stringOf(request["to_format"]), convertSource(request, modelHash), {
@@ -435,6 +437,10 @@ export class Runner {
         documentBindings(call.request["bindings"]),
       ),
     RenderDocument: (call) => this.model(call).renderDocument(String(call.request["document_id"])),
+    RenderView: (call) =>
+      this.model(call).renderView(String(call.request["view"]), {
+        ports: call.request["ports"] === "full" ? "full" : "minimal",
+      }),
     RunAnalysis: (call) =>
       this.model(call).runAnalysis(String(call.request["symbol_id"]), {
         ...stringOption(call.request, "subject_symbol_id", "subject"),

@@ -1241,6 +1241,23 @@ Under `"explore"` every run creates the object graph anew, so the machine is exp
 its assembly and each outcome's `outputs` are the object's features as that run left them,
 spelled as the executed `finalContext` spells them.
 
+Set `trace: true` to include the run's documented `accept`, `send`, `transition`, `entry`,
+`exit`, `do`, `choice` and `guard` records in `trace`, in execution order. Each record carries
+its clock instant as `time`, along with fields relevant to its kind; `text` is the line the
+trace prints. This transition record was captured from a traced `ExecuteState` call for
+`Test::Machine` in `conformance/fixtures/behavior.sysml`:
+
+```json
+{"kind":"transition", "time":{"quantity":{"realMagnitude":0, "unit":"s", "unitTerm":{"scaleNum":1, "scaleDen":1, "factors":[{"unitId":"SI::second", "exponent":1}]}}}, "machine":"Machine", "from":"init", "to":"Running", "text":"transition: init -> Running"}
+```
+
+The `state_trace` capability is checked before sending the option; a service that withholds it
+refuses the request with `UNIMPLEMENTED`. Tracing an explore schedule is `INVALID_ARGUMENT`,
+because one trace describes one run, not the outcomes of several runs. A failed run still returns
+the records made before failure. The response retains the newest records up to the service's
+held-event limit and reports discarded older records as `traceDropped`; without the option,
+`trace` and `traceDropped` are omitted.
+
 ### `EvaluateCalc`
 
 `arguments` is a positional list of `Value`s matching the calc's `in` parameters in order.
@@ -1838,6 +1855,15 @@ both declare (`package P` in each), which one graph would merge into one. Ids ar
 when the documents together declare more than one identity scope. The command line does the same
 for several files, to a file or standard output: `sysml a.sysml b.sysml -convert api-json`.
 
+`documents`, under the `convert_documents` capability, writes only some documents of such a model:
+each name is one the parse gave a document, and only the elements those documents declare are
+written, with the root namespace of each in the API element form. The model's other documents
+are still read: a reference into one is an `@id` link to the element as a conversion of its own
+document writes it, and an element one of them declares that a written document also declares is
+refused as above. So a client that holds a model's conversion can convert again only the documents
+an edit changed and replace their elements by `@id`. Empty `documents` writes every document. A name
+the model does not hold, or `documents` for a `filePath` or `content`, is `invalid_argument`.
+
 ```console
 $ … /Convert -d '{"filePath":"Vehicle.sysml","toFormat":"ttl"}'
 {
@@ -1937,12 +1963,98 @@ or mdzip) is migrated; call Convert with the same source`; `toFormat` naming a v
 is not one with what is wrong with it. An unreadable `filePath` or `layoutPath` is `not_found`
 with `file not found:`.
 
+## `RenderView`
+
+`RenderView` returns the machine-readable fields of a named view or targeted pseudo-view. The
+response preserves node and edge order, parent links, ports, source spans, table rows, notes and
+notices; optional canvas, geometry and style messages are absent when the model states none.
+Pictures are not included. An omitted or `minimal` `ports` value includes only ports used by
+rendered connections; `full` includes every declared port. The service advertises this method as
+the `render_view` capability.
+
+This excerpt was captured by calling the gRPC service with
+`RenderViewDemo::connections` from `conformance/fixtures/views.sysml` and marshaling the response
+with protobuf JSON:
+
+```json
+{
+  "view": "RenderViewDemo::connections",
+  "kind": "interconnection",
+  "stated": "render asInterconnectionDiagram",
+  "nodes": [
+    {
+      "id": "n0",
+      "kind": "part def",
+      "name": "RenderViewDemo::Assembly",
+      "origin": {
+        "file": "<content>",
+        "startLine": 21,
+        "startCol": 5,
+        "endLine": 25,
+        "endCol": 6
+      }
+    },
+    {
+      "id": "n1",
+      "kind": "part",
+      "name": "sender",
+      "type": "Sender",
+      "parent": "n0",
+      "ports": [
+        {"id": "n1.0", "name": "api", "type": "API"}
+      ],
+      "origin": {
+        "file": "<content>",
+        "startLine": 22,
+        "startCol": 9,
+        "endLine": 22,
+        "endCol": 30
+      }
+    },
+    {
+      "id": "n2",
+      "kind": "part",
+      "name": "receiver",
+      "type": "Receiver",
+      "parent": "n0",
+      "ports": [
+        {"id": "n2.0", "name": "api", "type": "API"}
+      ],
+      "origin": {
+        "file": "<content>",
+        "startLine": 23,
+        "startCol": 9,
+        "endLine": 23,
+        "endCol": 34
+      }
+    }
+  ],
+  "edges": [
+    {
+      "from": "n1",
+      "to": "n2",
+      "fromPort": "n1.0",
+      "toPort": "n2.0",
+      "label": "link",
+      "kind": "connection",
+      "origin": {
+        "file": "<content>",
+        "startLine": 24,
+        "startCol": 9,
+        "endLine": 24,
+        "endCol": 87
+      }
+    }
+  ]
+}
+```
+
 ## Queries
 
 Two query surfaces exist and answer differently shaped tables. Their semantics — what may be
 selected, filtered and bound — are on the Go API page and are not repeated here:
 [SysML v2 API & Services `Query`](api.md#sysml-v2-api--services-query) and
-[Native document queries and rendering over gRPC](api.md#native-document-queries-and-rendering-over-grpc).
+[Native document queries and rendering over gRPC](api.md#native-documents-and-views-over-grpc).
 Each is its own capability: `Query` needs `query` (and `oslc_query` when the request uses
 `oslcQuery`); `RunDocumentQuery` needs `document_query`; `RenderDocument` needs
 `render_document`, and `render_document_html` too when its `form` is `html`.

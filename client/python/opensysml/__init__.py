@@ -26,6 +26,7 @@ from opensysml.capabilities import (
     CAPABILITY_CONSTRAINT_BODY_AUTHORING,
     CAPABILITY_STATE_ACTION_AUTHORING,
     CAPABILITY_BIG_INT_VALUES,
+    CAPABILITY_CONVERT_DOCUMENTS,
     MissingCapabilityError,
     ServerInfo,
 )
@@ -45,7 +46,9 @@ from opensysml.query import QueryElement, QueryError
 from opensysml.sources import SourceDocument
 from opensysml.document import (
     DocumentEvent, DocumentQueryError, DocumentQueryResult, DocumentRow, DocumentState,
-    DocumentVerdict, ElementRef, INFINITY, ObjectRef,
+    DocumentVerdict, ElementRef, INFINITY, ObjectRef, RenderCanvas, RenderEdge,
+    RenderGeometry, RenderNode, RenderNote, RenderPoint, RenderPort, RenderRow,
+    RenderSpan, RenderStyle, RenderedView,
 )
 from opensysml.conversion import (
     FORMAT_API_JSON, FORMAT_SYSML, FORMAT_TURTLE, Conversion,
@@ -64,6 +67,7 @@ from opensysml.errors import (
     InstanceTypeError, InvalidRequestError, ManifestSignatureError, ModelError,
     ModelFileNotFoundError, ModelNotFoundError, ServiceError,
     ServiceTimeoutError, SigstoreUnavailableError, StaleServiceError, SymbolNotFoundError,
+    ViewNotFoundError,
     TypeMismatchError, UnpinnedReleaseError, UnsignedReleaseError,
     UnsupportedOperationError, UnsupportedValueError, WrongKindError,
 )
@@ -90,6 +94,8 @@ __all__ = [
     "SourceDocument",
     "DocumentEvent", "DocumentQueryError", "DocumentQueryResult", "DocumentRow",
     "DocumentState", "DocumentVerdict", "ElementRef", "INFINITY", "ObjectRef",
+    "RenderCanvas", "RenderEdge", "RenderGeometry", "RenderNode", "RenderNote",
+    "RenderPoint", "RenderPort", "RenderRow", "RenderSpan", "RenderStyle", "RenderedView",
     "OpenSysMLError", "AnalysisRunError", "ChecksumMismatchError", "ConnectionError",
     "ConversionError", "ExecutionError", "FeatureValueError", "MigrationError",
     "EditError", "NoEditsError", "EditTargetError", "InvalidEditError",
@@ -100,10 +106,11 @@ __all__ = [
     "InstanceTypeError", "InvalidRequestError", "ManifestSignatureError",
     "MissingCapabilityError",
     "CAPABILITY_CONSTRAINT_BODY_AUTHORING", "CAPABILITY_STATE_ACTION_AUTHORING",
-    "CAPABILITY_BIG_INT_VALUES",
+    "CAPABILITY_BIG_INT_VALUES", "CAPABILITY_CONVERT_DOCUMENTS",
     "ModelError", "ModelFileNotFoundError", "ModelNotFoundError",
     "ServiceError", "ServiceTimeoutError", "SigstoreUnavailableError", "StaleServiceError",
     "SymbolNotFoundError",
+    "ViewNotFoundError",
     "TypeMismatchError", "UnpinnedReleaseError", "UnsignedReleaseError",
     "UnsupportedOperationError", "UnsupportedValueError",
     "WrongKindError",
@@ -214,7 +221,7 @@ def parse_sources(documents, host='localhost', port=None, strict=False,
 
 def load(file_path, host='localhost', port=None, strict=False,
          strict_conformance=False):
-    """Load a SysML model from file using the default connection.
+    """Load a SysML model from a .sysml, .kerml, or API element-form .json file.
     
     Convenience function that uses a module-level singleton connection.
     

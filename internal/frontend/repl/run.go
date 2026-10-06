@@ -61,7 +61,8 @@ func (s *Session) LoadFile(path string) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	return renderResult(s.submitFiles(files), s.verbosity), nil
+	lines := renderResult(s.submitFiles(files), s.verbosity)
+	return append(lines, conversionWarnings(files, s.verbosity)...), nil
 }
 
 // LoadFileSummary submits the contents of path and returns only what it
@@ -91,6 +92,7 @@ func (s *Session) LoadFilesSummary(paths []string) ([]string, error) {
 		own := res.within(s.fileSpan(f.Name))
 		lines = append(lines, renderSyntax(own, s.verbosity)...)
 		lines = append(lines, byFile[i]...)
+		lines = append(lines, conversionWarnings([]SourceFile{f}, s.verbosity)...)
 		if i == 0 {
 			lines = append(lines, whole...)
 		}

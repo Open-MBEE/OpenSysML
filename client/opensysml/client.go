@@ -75,6 +75,7 @@ type Client interface {
 
 	// ExecuteState runs the named state machine, feeding it the events in
 	// order, and reports the states visited and the context left behind.
+	// A FailureError from a traced run carries its partial trace and dropped count.
 	// WithSchedule selects the scheduling policy, which requires the schedule
 	// capability, checked before anything is sent.
 	ExecuteState(ctx context.Context, model *Model, stateMachineSymbolID string, events []string, opts ...ExecuteOption) (*StateRun, error)
@@ -162,6 +163,11 @@ type Client interface {
 	// RenderDocument renders the named document to Markdown. Requires the
 	// render_document capability.
 	RenderDocument(ctx context.Context, model *Model, documentID string) (string, error)
+
+	// RenderView renders a declared view or targeted pseudo-view as diagram
+	// data. Ports are minimal by default; WithFullPorts requests all ports.
+	// Requires the render_view capability.
+	RenderView(ctx context.Context, model *Model, viewName string, opts ...RenderViewOption) (*RenderedView, error)
 
 	// Convert writes the model in another representation, from the source the
 	// parse read, so WithFromFormat does not apply and is refused. Requires the
@@ -309,6 +315,7 @@ type caller interface {
 	query(ctx context.Context, req *pb.QueryRequest) (*pb.QueryResponse, error)
 	runDocumentQuery(ctx context.Context, req *pb.RunDocumentQueryRequest) (*pb.RunDocumentQueryResponse, error)
 	renderDocument(ctx context.Context, req *pb.RenderDocumentRequest) (*pb.RenderDocumentResponse, error)
+	renderView(ctx context.Context, req *pb.RenderViewRequest) (*pb.RenderViewResponse, error)
 	convert(ctx context.Context, req *pb.ConvertRequest) (*pb.ConvertResponse, error)
 	migrate(ctx context.Context, req *pb.MigrateRequest) (*pb.MigrateResponse, error)
 	applyEdits(ctx context.Context, req *pb.ApplyEditsRequest) (*pb.ApplyEditsResponse, error)

@@ -1119,7 +1119,7 @@ func displayMathHTML(source string) string {
 // writeDiagram writes one diagram as a figure: a table-kind view as a table,
 // every other supported kind as the image drawn for it ahead of the render,
 // or else as its source in the render's diagram form — Mermaid, which a loaded
-// Mermaid script draws, or DOT or PlantUML — shown as text.
+// Mermaid script draws, or DOT, PlantUML or D2 — shown as text.
 func (w *htmlWriter) writeDiagram(node docir.Content, id string) error {
 	return w.writeFigure(id, node.Name(), w.captions.caption(node), node.Rendering(), figureOptions(node, w.forms))
 }

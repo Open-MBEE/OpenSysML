@@ -117,6 +117,8 @@ public interface ServerInfoResponseOrBuilder extends
    * and answers with typed rows.
    * "render_document" - the RenderDocument RPC renders a named document to
    * Markdown.
+   * "render_view" - the RenderView RPC renders a declared view or targeted
+   * pseudo-view as machine-readable diagram data.
    * "diagnostic_codes" - Diagnostic.code is populated, so an empty code is a
    * finding none was assigned; without it every code is empty.
    * "schedule"     - ExecuteActionRequest, ExecuteStateRequest and
@@ -136,6 +138,9 @@ public interface ServerInfoResponseOrBuilder extends
    * "final_time"   - ExecuteActionResponse and ExecuteStateResponse report
    * final_time, the run's simulation clock when it ended;
    * without it the field is 0 whatever the run waited on.
+   * "state_trace"  - ExecuteStateRequest can ask for the run's typed trace in
+   * ExecuteStateResponse.trace, including records before a failure.
+   * Traces are unavailable under an explore schedule.
    * "engines"      - the ListEngines RPC lists the analysis engines; the
    * verification and sweep requests take an `engine`, the
    * engine the question is put to, unset meaning "auto"; and
@@ -239,6 +244,8 @@ public interface ServerInfoResponseOrBuilder extends
    * and answers with typed rows.
    * "render_document" - the RenderDocument RPC renders a named document to
    * Markdown.
+   * "render_view" - the RenderView RPC renders a declared view or targeted
+   * pseudo-view as machine-readable diagram data.
    * "diagnostic_codes" - Diagnostic.code is populated, so an empty code is a
    * finding none was assigned; without it every code is empty.
    * "schedule"     - ExecuteActionRequest, ExecuteStateRequest and
@@ -258,6 +265,9 @@ public interface ServerInfoResponseOrBuilder extends
    * "final_time"   - ExecuteActionResponse and ExecuteStateResponse report
    * final_time, the run's simulation clock when it ended;
    * without it the field is 0 whatever the run waited on.
+   * "state_trace"  - ExecuteStateRequest can ask for the run's typed trace in
+   * ExecuteStateResponse.trace, including records before a failure.
+   * Traces are unavailable under an explore schedule.
    * "engines"      - the ListEngines RPC lists the analysis engines; the
    * verification and sweep requests take an `engine`, the
    * engine the question is put to, unset meaning "auto"; and
@@ -360,6 +370,8 @@ public interface ServerInfoResponseOrBuilder extends
    * and answers with typed rows.
    * "render_document" - the RenderDocument RPC renders a named document to
    * Markdown.
+   * "render_view" - the RenderView RPC renders a declared view or targeted
+   * pseudo-view as machine-readable diagram data.
    * "diagnostic_codes" - Diagnostic.code is populated, so an empty code is a
    * finding none was assigned; without it every code is empty.
    * "schedule"     - ExecuteActionRequest, ExecuteStateRequest and
@@ -379,6 +391,9 @@ public interface ServerInfoResponseOrBuilder extends
    * "final_time"   - ExecuteActionResponse and ExecuteStateResponse report
    * final_time, the run's simulation clock when it ended;
    * without it the field is 0 whatever the run waited on.
+   * "state_trace"  - ExecuteStateRequest can ask for the run's typed trace in
+   * ExecuteStateResponse.trace, including records before a failure.
+   * Traces are unavailable under an explore schedule.
    * "engines"      - the ListEngines RPC lists the analysis engines; the
    * verification and sweep requests take an `engine`, the
    * engine the question is put to, unset meaning "auto"; and
@@ -482,6 +497,8 @@ public interface ServerInfoResponseOrBuilder extends
    * and answers with typed rows.
    * "render_document" - the RenderDocument RPC renders a named document to
    * Markdown.
+   * "render_view" - the RenderView RPC renders a declared view or targeted
+   * pseudo-view as machine-readable diagram data.
    * "diagnostic_codes" - Diagnostic.code is populated, so an empty code is a
    * finding none was assigned; without it every code is empty.
    * "schedule"     - ExecuteActionRequest, ExecuteStateRequest and
@@ -501,6 +518,9 @@ public interface ServerInfoResponseOrBuilder extends
    * "final_time"   - ExecuteActionResponse and ExecuteStateResponse report
    * final_time, the run's simulation clock when it ended;
    * without it the field is 0 whatever the run waited on.
+   * "state_trace"  - ExecuteStateRequest can ask for the run's typed trace in
+   * ExecuteStateResponse.trace, including records before a failure.
+   * Traces are unavailable under an explore schedule.
    * "engines"      - the ListEngines RPC lists the analysis engines; the
    * verification and sweep requests take an `engine`, the
    * engine the question is put to, unset meaning "auto"; and

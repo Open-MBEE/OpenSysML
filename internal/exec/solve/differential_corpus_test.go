@@ -178,10 +178,25 @@ func elementKind(sym *symbols.Symbol) string {
 	switch sym.Kind {
 	case symbols.SymbolConstraintDef, symbols.SymbolConstraintUsage:
 		return "constraint"
-	case symbols.SymbolRequirementDef, symbols.SymbolRequirementUsage:
+	case symbols.SymbolRequirementDef:
+		return "requirement"
+	case symbols.SymbolRequirementUsage:
+		if kind, ok := sym.UsageKind(); ok && kind == ast.UsageObjective {
+			return ""
+		}
 		return "requirement"
 	}
 	return ""
+}
+
+func TestElementKindExcludesObjectiveUsages(t *testing.T) {
+	objective := &symbols.Symbol{
+		Kind: symbols.SymbolRequirementUsage,
+		Decl: &ast.Usage{Kind: ast.UsageObjective},
+	}
+	if got := elementKind(objective); got != "" {
+		t.Errorf("elementKind(objective) = %q, want no solver condition", got)
+	}
 }
 
 // coveredByOwner reports whether an element is a condition of an element the gate

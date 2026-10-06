@@ -2,8 +2,9 @@
 
 Syntax highlighting and language support for `.sysml` and `.kerml` files, backed by
 OpenSysML's `sysml-lsp` server: diagnostics, hover, go-to-definition, document
-symbols, typed completion, a live diagram panel, and Markdown rendering of
-native document definitions.
+symbols, typed completion, signature help, inlay hints, code lenses that run a
+behavior or evaluate a calculation, a live diagram panel, and Markdown rendering
+of native document definitions.
 
 This extension is side-loaded. It is deliberately **not published** to the Visual
 Studio Marketplace or Open VSX.
@@ -101,7 +102,7 @@ own just waits for the server.
 | **Navigation** | Click a node to open the declaration it was built from; moving the cursor in the editor highlights the node whose declaration contains it. A node built from a standard library declaration opens the bundled library file, read-only. |
 | **While typing** | A rendering that fails mid-keystroke leaves the last good diagram on screen, dimmed, with the error in the status line: the panel never blanks. What a rendering could not represent is listed under it. |
 | **Cost** | The panel asks for a diagram only while visible, and only once an editing burst settles. The panel draws its own SVG, and its CSP allows the bundled script alone — nothing is fetched from the network. |
-| **Export** | `SysML: Export Diagram` saves the diagram in a form picked from a list — Mermaid (`.mmd`), with the model's positions as `%% layout:` comments; Graphviz DOT (`.dot`), with the positions as `pos` attributes and a `// layout:` header naming the engine that keeps them; PlantUML (`.puml`) in the Pilot visualizer's style; Markdown (`.md`), comma-separated values (`.csv`) or tab-separated values (`.tsv`) for a table; or the text form (`.txt`) — for the view the document's panel shows; with no panel or several, the document's one drawable view, its model tree when it declares none, or the view picked from a list when it declares several. The list is the one the server advertises (`openSysmlRenderForms`), the pick goes to the server as the request's `form`, and the save dialog opens on that form's extension and filter; a form the drawn kind has no grammar for is refused by the server, and the message names the form the kind uses. |
+| **Export** | `SysML: Export Diagram` saves the diagram in a form picked from a list — Mermaid (`.mmd`), with the model's positions as `%% layout:` comments; Graphviz DOT (`.dot`), with the positions as `pos` attributes and a `// layout:` header naming the engine that keeps them; PlantUML (`.puml`) in the Pilot visualizer's style; D2 (`.d2`) in the same look; Markdown (`.md`), comma-separated values (`.csv`) or tab-separated values (`.tsv`) for a table; or the text form (`.txt`) — for the view the document's panel shows; with no panel or several, the document's one drawable view, its model tree when it declares none, or the view picked from a list when it declares several. The list is the one the server advertises (`openSysmlRenderForms`), the pick goes to the server as the request's `form`, and the save dialog opens on that form's extension and filter; a form the drawn kind has no grammar for is refused by the server, and the message names the form the kind uses. |
 
 ### Editing from the diagram
 
@@ -166,6 +167,19 @@ The command exists only when the server advertises
 `experimental: { openSysmlRenderDocument: true }`. The requests behind it —
 `opensysml/documents` and `opensysml/renderDocument` — are documented in
 [docs/reference/lsp.md](../../docs/reference/lsp.md).
+
+## Running an element from a code lens
+
+Above each executable `action`, `state`, `calc`, `constraint` and `requirement`
+the server offers a *Run* or *Evaluate* lens (and above each definition a
+reference count, which opens the references peek). Clicking *Run* or *Evaluate*
+saves every unsaved model file and runs the matching `sysml` check over the
+workspace folders — `sysml -action Demo::Charge <folder>`, `-state`, `-calc`,
+`-constraint` or `-requirement` — as a task, so the result appears in the task
+terminal and a name another file declares without an import resolves as it does
+in the editor; a file outside every folder runs alone. The `sysml` binary is
+looked for beside the `sysml-lsp` in use, then in an open workspace's `bin/`,
+then on `PATH`; a warning says how to build it when none is found.
 
 ## Settings
 

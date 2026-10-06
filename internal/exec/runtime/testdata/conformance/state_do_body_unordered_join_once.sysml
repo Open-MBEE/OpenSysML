@@ -17,8 +17,8 @@ package test {
 				action b { assign total := total + 10; assign doneB := true; }
 				action c {
 					assign seen := total;
-					assign cRuns := cRuns + 1;
-					assign total := total + 100;
+					then assign cRuns := cRuns + 1;
+					then assign total := total + 100;
 				}
 				succession first a then c;
 				succession first b then c;

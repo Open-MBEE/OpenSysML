@@ -257,6 +257,63 @@ func TestRenderPlantUMLForm(t *testing.T) {
 	}
 }
 
+// The D2 form is asked for by name, writes the same rendering into a .d2
+// file, takes a palette with the DOT form's fills, and is refused for a table
+// with the forms a table has.
+func TestRenderD2Form(t *testing.T) {
+	binary := buildCLI(t)
+
+	got := runStreams(t, binary, renderModel, "-render", "Demo::overview", "-render-form", "d2")
+	if got.status != exitHolds {
+		t.Fatalf("exit status = %d, want %d\n%s", got.status, exitHolds, got.output())
+	}
+	for _, want := range []string{"# Demo::overview — tree rendering\nclasses: {\n", `n0: "«part def»\nVehicle" { class: definition }`, "{ class: usage }\n", "\nn0 -- n1: { class: edge }\n"} {
+		if !strings.Contains(got.stdout, want) {
+			t.Errorf("stdout is missing %q:\n%s", want, got.stdout)
+		}
+	}
+	if strings.Contains(got.stdout, "flowchart") || strings.Contains(got.stdout, "digraph") || strings.Contains(got.stdout, "@startuml") {
+		t.Errorf("the D2 form is another form:\n%s", got.stdout)
+	}
+
+	dir := filepath.Join(t.TempDir(), "rendered")
+	got = runStreams(t, binary, renderAllModel, "-render-all", dir, "-render-form", "d2", "-render-palette", "okabe-ito")
+	if got.status != exitHolds {
+		t.Fatalf("exit status = %d, want %d\n%s", got.status, exitHolds, got.output())
+	}
+	for _, want := range []string{
+		"wrote " + filepath.Join(dir, "Demo.treeView.d2") + " (d2, ",
+		"wrote " + filepath.Join(dir, "Demo.stateView.d2") + " (d2, ",
+		"Demo::tableView: skipped:",
+		"not written as d2; ask for text, markdown, csv or tsv",
+	} {
+		if !strings.Contains(got.stderr, want) {
+			t.Errorf("stderr is missing %q:\n%s", want, got.stderr)
+		}
+	}
+	state, err := os.ReadFile(filepath.Join(dir, "Demo.stateView.d2"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{"# Demo::stateView — state rendering", "n0: \"«state def»", "{ class: initial }\n", "\nn0.n2 -> n0.n1: { class: edge }\n"} {
+		if !strings.Contains(string(state), want) {
+			t.Errorf("state artifact is missing %q:\n%s", want, state)
+		}
+	}
+	tree, err := os.ReadFile(filepath.Join(dir, "Demo.treeView.d2"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(tree), `style: { fill: "#E69F00"; stroke: "#`) {
+		t.Errorf("-render-all did not fill from the palette:\n%s", tree)
+	}
+
+	table := runStreams(t, binary, renderModel, "-render", "Demo::parts", "-render-form", "d2")
+	if table.status != exitUnevaluable || !strings.Contains(table.stderr, "table rendering is not written as d2; ask for text, markdown, csv or tsv") {
+		t.Errorf("D2 of a table = %d\n%s", table.status, table.output())
+	}
+}
+
 // -render-palette fills the DOT and Mermaid forms' nodes from a named palette,
 // and is refused with the palettes there are when it names none of them.
 func TestRenderPalette(t *testing.T) {
@@ -289,7 +346,7 @@ func TestRenderPalette(t *testing.T) {
 	}
 
 	alone := runStreams(t, binary, renderModel, "-render-palette", "okabe-ito")
-	if alone.status != 2 || !strings.Contains(alone.stderr, "-render-palette is the palette -render or -render-all fills DOT, Mermaid or PlantUML with") {
+	if alone.status != 2 || !strings.Contains(alone.stderr, "-render-palette is the palette -render or -render-all fills DOT, Mermaid, PlantUML or D2 with") {
 		t.Errorf("a palette without a view = %d\n%s", alone.status, alone.output())
 	}
 

@@ -45,7 +45,9 @@ export Connection, Model, Diagnostic, Instance, InstanceRef, Quantity,
        VERDICT_MAPPED, VERDICT_APPROXIMATED, VERDICT_UNMAPPED, VERDICT_SKIPPED,
        ElementRef, ObjectRef, DocumentVerdict, DocumentState, DocumentEvent,
        DocumentRow, DocumentQueryResult, build_document_bindings,
-       run_document_query, render_document, Editor, Body, operations, applied, AppliedEdit,
+       run_document_query, render_document, RenderedView, RenderNode, RenderPort, RenderEdge,
+       RenderGeometry, RenderCanvas, RenderStyle, RenderPoint, RenderRow, RenderNote, RenderSpan,
+       render_view, Editor, Body, operations, applied, AppliedEdit,
        EditedDocument, EditResult, edit, apply, apply_edits,
        ActionOutputs, StateRun,
        decode_value, encode_value, resolve_binary, ensure_binary, download_binary,
@@ -53,6 +55,7 @@ export Connection, Model, Diagnostic, Instance, InstanceRef, Quantity,
        as_str, as_quantity, as_enum_literal, as_object, as_typed, feature_value,
        optional_feature_value, list_feature_value, generate_source, generate_main
 
+include("document_types.jl")
 include("errors.jl")
 include("binary.jl")
 include("values.jl")
@@ -114,8 +117,10 @@ for capability in (
     :CAPABILITY_TENSOR_VALUES, :CAPABILITY_METAOBJECT_VALUES,
     :CAPABILITY_VERIFICATION_VERDICTS, :CAPABILITY_INFINITY_VALUE,
     :CAPABILITY_DIAGNOSTIC_CODES, :CAPABILITY_SCHEDULE, :CAPABILITY_CASE_EVALUATIONS,
-    :CAPABILITY_SCHEDULE_EXPLORE, :CAPABILITY_PERFORMER, :CAPABILITY_FINAL_TIME,
-    :CAPABILITY_ENGINES, :CAPABILITY_UNDETERMINED_VALUE, :CAPABILITY_BIG_INT_VALUES
+    :CAPABILITY_SCHEDULE_EXPLORE, :CAPABILITY_PERFORMER, :CAPABILITY_STATE_TRACE,
+    :CAPABILITY_FINAL_TIME,
+    :CAPABILITY_ENGINES, :CAPABILITY_UNDETERMINED_VALUE, :CAPABILITY_BIG_INT_VALUES,
+    :CAPABILITY_CONVERT_DOCUMENTS
 )
     @eval export $capability
 end

@@ -49,6 +49,7 @@ var factRenderers = map[string]func(*symbols.LibraryFacts) string{
 			f.Unit.ScaleNum, f.Unit.ScaleDen, f.Unit.Irreducible, factors)
 	},
 	"Abstract": func(f *symbols.LibraryFacts) string { return fmt.Sprint(f.Abstract) },
+	"Portion":  func(f *symbols.LibraryFacts) string { return fmt.Sprint(f.Portion) },
 	"Dimension": func(f *symbols.LibraryFacts) string {
 		if f.Dimension == nil {
 			return "none"

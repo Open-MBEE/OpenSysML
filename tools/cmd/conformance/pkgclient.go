@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"maps"
+	"math"
 	"math/big"
 	"slices"
 
@@ -95,6 +96,8 @@ func (c *pkgClient) dispatch(ctx context.Context, method string, request protore
 		return c.runDocumentQuery(ctx, request)
 	case "RenderDocument":
 		return c.renderDocument(ctx, request)
+	case "RenderView":
+		return c.renderView(ctx, request)
 	case "Convert":
 		return c.convert(ctx, request)
 	case "Migrate":
@@ -328,23 +331,81 @@ func (c *pkgClient) executeState(ctx context.Context, request protoreflect.Messa
 	if err := retype(request, req); err != nil {
 		return nil, err
 	}
-	run, err := c.api.ExecuteState(ctx, c.model(req.ModelHash), req.StateMachineSymbolId, req.Events,
-		opensysml.WithSchedule(req.Schedule))
+	options := []opensysml.ExecuteOption{opensysml.WithSchedule(req.Schedule)}
+	if req.Trace {
+		options = append(options, opensysml.WithTrace())
+	}
+	run, err := c.api.ExecuteState(ctx, c.model(req.ModelHash), req.StateMachineSymbolId, req.Events, options...)
 	var failure *opensysml.FailureError
 	if errors.As(err, &failure) {
-		return &pb.ExecuteStateResponse{
-			Error:       failure.Message,
-			Diagnostics: diagnosticsToProto(failure.Diagnostics),
-		}, nil
+		response := &pb.ExecuteStateResponse{
+			Error:        failure.Message,
+			Diagnostics:  diagnosticsToProto(failure.Diagnostics),
+			TraceDropped: traceDroppedCountToInt32(failure.TraceDropped),
+		}
+		for _, event := range failure.Trace {
+			record, err := documentEventToProto(event)
+			if err != nil {
+				return nil, err
+			}
+			response.Trace = append(response.Trace, record)
+		}
+		return response, nil
 	}
 	if err != nil {
 		return nil, apiError(err)
 	}
-	return &pb.ExecuteStateResponse{
+	response := &pb.ExecuteStateResponse{
 		StatesVisited: run.Visited,
 		FinalContext:  valuesToProto(run.Context),
 		Diagnostics:   diagnosticsToProto(run.Diagnostics),
-	}, nil
+		TraceDropped:  traceDroppedCountToInt32(run.TraceDropped),
+	}
+	for _, event := range run.Trace {
+		record, err := documentEventToProto(event)
+		if err != nil {
+			return nil, err
+		}
+		response.Trace = append(response.Trace, record)
+	}
+	return response, nil
+}
+
+func traceDroppedCountToInt32(dropped int) int32 {
+	if dropped < 0 {
+		return 0
+	}
+	if dropped > math.MaxInt32 {
+		return math.MaxInt32
+	}
+	return int32(dropped)
+}
+
+func documentEventToProto(event opensysml.DocumentEvent) (*pb.DocumentEvent, error) {
+	time := cellToProto(event.Time)
+	if time == nil {
+		return nil, fmt.Errorf("unsupported state trace time value %T", event.Time)
+	}
+	record := &pb.DocumentEvent{
+		Kind:         event.Kind,
+		Time:         time,
+		Machine:      event.Machine,
+		State:        event.State,
+		From:         event.From,
+		To:           event.To,
+		Event:        event.Event,
+		Payload:      append([]string(nil), event.Payload...),
+		Alternatives: append([]string(nil), event.Alternatives...),
+		Taken:        event.Taken,
+		Text:         event.Text,
+	}
+	if event.Object != nil {
+		record.Object = documentObjectToProto(*event.Object)
+	}
+	if event.Target != nil {
+		record.Target = documentObjectToProto(*event.Target)
+	}
+	return record, nil
 }
 
 func (c *pkgClient) verifyConstraint(ctx context.Context, request protoreflect.Message) (proto.Message, error) {
@@ -643,6 +704,116 @@ func (c *pkgClient) renderDocument(ctx context.Context, request protoreflect.Mes
 		return nil, apiError(err)
 	}
 	return &pb.RenderDocumentResponse{Markdown: markdown}, nil
+}
+
+func (c *pkgClient) renderView(ctx context.Context, request protoreflect.Message) (proto.Message, error) {
+	req := &pb.RenderViewRequest{}
+	if err := retype(request, req); err != nil {
+		return nil, err
+	}
+	var options []opensysml.RenderViewOption
+	if req.Ports == "full" {
+		options = append(options, opensysml.WithFullPorts())
+	}
+	rendered, err := c.api.RenderView(ctx, c.model(req.ModelHash), req.View, options...)
+	if err != nil {
+		return nil, apiError(err)
+	}
+	response := &pb.RenderViewResponse{
+		View: rendered.View, Kind: rendered.Kind, Stated: rendered.Stated,
+		Columns: rendered.Columns, Notices: rendered.Notices,
+	}
+	if rendered.Canvas != nil {
+		response.Canvas = &pb.RenderCanvas{
+			Unit: rendered.Canvas.Unit, Width: rendered.Canvas.Width, Height: rendered.Canvas.Height,
+			HasSize: rendered.Canvas.HasSize,
+		}
+	}
+	for _, node := range rendered.Nodes {
+		origin, err := renderSpanToProto(node.Origin)
+		if err != nil {
+			return nil, fmt.Errorf("convert RenderView node %q origin: %w", node.Name, err)
+		}
+		converted := &pb.RenderNode{
+			Id: node.ID, Kind: node.Kind, Name: node.Name, NameSynthesized: node.NameSynthesized,
+			Type: node.Type, Detail: node.Detail, Text: node.Text, StandIn: node.StandIn, Parent: node.Parent,
+			Origin: origin,
+		}
+		for _, port := range node.Ports {
+			converted.Ports = append(converted.Ports, &pb.RenderPort{
+				Id: port.ID, Name: port.Name, Type: port.Type, Direction: port.Direction,
+			})
+		}
+		if node.Geometry != nil {
+			converted.Geometry = &pb.RenderGeometry{
+				X: node.Geometry.X, Y: node.Geometry.Y, Width: node.Geometry.Width, Height: node.Geometry.Height,
+				HasSize: node.Geometry.HasSize, Collapsed: node.Geometry.Collapsed,
+			}
+		}
+		converted.Style = renderStyleToProto(node.Style)
+		response.Nodes = append(response.Nodes, converted)
+	}
+	for _, edge := range rendered.Edges {
+		origin, err := renderSpanToProto(edge.Origin)
+		if err != nil {
+			return nil, fmt.Errorf("convert RenderView edge %q origin: %w", edge.Name, err)
+		}
+		converted := &pb.RenderEdge{
+			From: edge.From, To: edge.To, FromPort: edge.FromPort, ToPort: edge.ToPort,
+			Label: edge.Label, Name: edge.Name, Kind: edge.Kind, Origin: origin,
+			Style: renderStyleToProto(edge.Style),
+		}
+		for _, point := range edge.Route {
+			converted.Route = append(converted.Route, &pb.RenderPoint{X: point.X, Y: point.Y})
+		}
+		response.Edges = append(response.Edges, converted)
+	}
+	for _, row := range rendered.Rows {
+		origin, err := renderSpanToProto(row.Origin)
+		if err != nil {
+			return nil, fmt.Errorf("convert RenderView row origin: %w", err)
+		}
+		response.Rows = append(response.Rows, &pb.RenderRow{
+			Cells: row.Cells, Origin: origin,
+		})
+	}
+	for _, note := range rendered.Notes {
+		origin, err := renderSpanToProto(note.Origin)
+		if err != nil {
+			return nil, fmt.Errorf("convert RenderView note origin: %w", err)
+		}
+		response.Notes = append(response.Notes, &pb.RenderNote{
+			Text: note.Text, Anchor: note.Anchor, EdgeFrom: note.EdgeFrom, EdgeTo: note.EdgeTo,
+			X: note.X, Y: note.Y, Width: note.Width, Height: note.Height, HasSize: note.HasSize,
+			Origin: origin,
+		})
+	}
+	return response, nil
+}
+
+func renderSpanToProto(span *opensysml.Span) (*pb.Span, error) {
+	if span == nil {
+		return nil, nil
+	}
+	coordinates := [4]int{span.StartLine, span.StartCol, span.EndLine, span.EndCol}
+	converted := [4]int32{}
+	for i, coordinate := range coordinates {
+		if coordinate < math.MinInt32 || coordinate > math.MaxInt32 {
+			return nil, fmt.Errorf("span coordinate %d is outside the int32 range", coordinate)
+		}
+		converted[i] = int32(coordinate)
+	}
+	return &pb.Span{File: span.File, StartLine: converted[0], StartCol: converted[1], EndLine: converted[2], EndCol: converted[3]}, nil
+}
+
+func renderStyleToProto(style *opensysml.RenderStyle) *pb.RenderStyle {
+	if style == nil {
+		return nil
+	}
+	return &pb.RenderStyle{
+		Fill: style.Fill, Line: style.Line, Text: style.Text, Font: style.Font, FontSize: style.FontSize,
+		Bold: style.Bold, Italic: style.Italic,
+	}
 }
 
 func (c *pkgClient) migrate(ctx context.Context, request protoreflect.Message) (proto.Message, error) {

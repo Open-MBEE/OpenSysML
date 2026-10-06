@@ -13,13 +13,13 @@ package Test {
 
 		entry; then idle;
 		state idle {
-			entry { assign log := log + "e1;"; terminate; assign log := log + "e9;"; }
-			do    { assign log := log + "d1;"; terminate; assign log := log + "d9;"; }
-			exit  { assign log := log + "x1;"; terminate; assign log := log + "x9;"; }
+			entry { assign log := log + "e1;"; then terminate; then assign log := log + "e9;"; }
+			do    { assign log := log + "d1;"; then terminate; then assign log := log + "d9;"; }
+			exit  { assign log := log + "x1;"; then terminate; then assign log := log + "x9;"; }
 		}
 		state done;
 		transition first idle accept Next
-			do { assign log := log + "n1;"; terminate; assign log := log + "n9;"; }
+			do { assign log := log + "n1;"; then terminate; then assign log := log + "n9;"; }
 			then done;
 	}
 

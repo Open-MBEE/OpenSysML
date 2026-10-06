@@ -9,6 +9,80 @@ include(joinpath(@__DIR__, "..", "conformance", "compare.jl"))
 
 const FIXTURES = normpath(joinpath(@__DIR__, "..", "..", "..", "..", "conformance", "fixtures"))
 
+@testset "rendered view decoder preserves typed fields and message presence" begin
+    raw = Dict{String,Any}(
+        "view" => "Demo::view", "kind" => "interconnection", "stated" => "rendered",
+        "nodes" => [Dict{String,Any}(
+            "id" => "n0", "kind" => "part", "name" => "root", "nameSynthesized" => true,
+            "type" => "Demo::Part", "detail" => "detail", "text" => "text", "standIn" => true,
+            "ports" => [Dict("id" => "n0.0", "name" => "api", "type" => "Demo::API", "direction" => "inout")],
+            "origin" => Dict("file" => "views.sysml", "startLine" => 4),
+            "geometry" => Dict("x" => 1, "y" => 2, "width" => 3, "height" => 4, "hasSize" => true, "collapsed" => true),
+            "style" => Dict("fill" => "#fff", "fontSize" => 12, "bold" => true, "italic" => true),
+        )],
+        "edges" => [Dict("from" => "n0", "to" => "n1", "fromPort" => "n0.0",
+            "toPort" => "n1.0", "label" => "wire", "name" => "wire", "kind" => "connection",
+            "route" => [Dict("x" => 2, "y" => 3)], "style" => Dict("line" => "#222"))],
+        "columns" => ["a"],
+        "rows" => [Dict("cells" => ["x"], "origin" => Dict("file" => "views.sysml"))],
+        "canvas" => Dict("unit" => "px", "width" => 800, "height" => 400, "hasSize" => true),
+        "notes" => [Dict("text" => "note", "anchor" => "n0", "edgeFrom" => "n0",
+            "edgeTo" => "n1", "x" => 1, "y" => 2, "width" => 3, "height" => 4, "hasSize" => true)],
+        "notices" => ["notice"],
+    )
+    rendered = OpenSysML.rendered_view_result(raw)
+    @test rendered.view == "Demo::view"
+    @test rendered.nodes[1].name_synthesized
+    @test rendered.nodes[1].ports[1].direction == "inout"
+    @test rendered.nodes[1].origin.start_line == 4
+    @test rendered.nodes[1].geometry.collapsed
+    @test rendered.nodes[1].style.font_size == 12
+    @test rendered.edges[1].from_port == "n0.0"
+    @test rendered.edges[1].route[1].x == 2
+    @test rendered.rows[1].cells == ["x"]
+    @test rendered.canvas.has_size
+    @test rendered.notes[1].edge_to == "n1"
+    @test rendered.notices == ["notice"]
+    @test OpenSysML.rendered_view_result(Dict{String,Any}()).canvas === nothing
+    sparse = OpenSysML.rendered_view_result(Dict{String,Any}(
+        "nodes" => [Dict{String,Any}()], "edges" => [Dict{String,Any}()],
+        "rows" => [Dict{String,Any}()], "notes" => [Dict{String,Any}()]))
+    @test isnothing(sparse.nodes[1].origin)
+    @test isnothing(sparse.nodes[1].geometry)
+    @test isnothing(sparse.nodes[1].style)
+    @test isnothing(sparse.edges[1].origin)
+    @test isnothing(sparse.edges[1].style)
+    @test isnothing(sparse.rows[1].origin)
+    @test isnothing(sparse.notes[1].origin)
+end
+
+@testset "RenderView preserves service not-found messages" begin
+    factory = (text, _) -> SymbolNotFoundError("Demo::missing"; service_message=text)
+    for (view, message) in (("Demo::missing", "no view named Demo::missing"),
+                            ("#interconnection:Nope",
+                             "#interconnection:Nope: Nope names nothing in this model"))
+        err = try
+            OpenSysML._translate(; not_found=(text, _) ->
+                SymbolNotFoundError(view; service_message=text)) do
+                throw(OpenSysML.ConnectError("not_found", message, 404))
+            end
+        catch caught
+            caught
+        end
+        @test err isa SymbolNotFoundError
+        @test err.name == view
+        @test sprint(showerror, err) == message
+    end
+    model_error = try
+        OpenSysML._translate(; not_found=factory) do
+            throw(OpenSysML.ConnectError("not_found", "model not found: abc", 404))
+        end
+    catch caught
+        caught
+    end
+    @test model_error isa ModelNotFoundError
+end
+
 @testset "decode_value: the twenty-two arms" begin
     @test decode_value(nothing) === missing
     @test decode_value(JSON.parse("""{"intValue":"9007199254740993"}""")) === Int64(9007199254740993)
@@ -254,7 +328,9 @@ end
     port = getsockname(listener)[2]
     close(listener)
     canned = Ref{String}("{}")
+    requested = Ref("")
     server = HTTP.serve!(ip"127.0.0.1", port) do req
+        requested[] = String(req.body)
         HTTP.Response(200, ["Content-Type" => "application/json"], canned[])
     end
     conn = OpenSysML.external("127.0.0.1:$(port)")
@@ -280,6 +356,31 @@ end
         @test empty_state.states_visited == String[]
         @test empty_state.final_context == Dict{String,Any}()
         @test empty_state.final_time == 0.0
+
+        conn.info = ServerInfo("", [CAPABILITY_STATE_TRACE], true, conn.origin)
+        canned[] = """{"trace":[{"kind":"transition","time":{"realValue":2.5},"text":"transition: idle -> active on Go","machine":"Demo::Machine","from":"idle","to":"active","event":"Go"}],"traceDropped":2}"""
+        traced = execute_state(model, "S"; trace=true)
+        @test traced.trace isa Vector{DocumentEvent}
+        @test traced.trace[1].kind == "transition"
+        @test traced.trace[1].from_state == "idle"
+        @test traced.trace_dropped == 2
+        @test occursin("\"trace\":true", requested[])
+
+        canned[] = """{"error":"state machine failed","trace":[{"kind":"entry","time":{"realValue":1.5},"state":"active","text":"enter: active"}],"traceDropped":2}"""
+        failure = try
+            execute_state(model, "S"; trace=true)
+            nothing
+        catch err
+            err
+        end
+        @test failure isa ExecutionFailure
+        @test length(failure.trace) == 1
+        @test failure.trace[1].kind == "entry"
+        @test failure.trace[1].state == "active"
+        @test failure.trace_dropped == 2
+
+        conn.info = ServerInfo("", String[], true, conn.origin)
+        @test_throws MissingCapabilityError execute_state(model, "S"; trace=true)
     finally
         close(server)
     end
@@ -329,6 +430,9 @@ const GRPC_BINARY = get(ENV, "OPENSYSML_GRPC_BINARY",
             @test states.states_visited == ["init", "Running", "done"]
             @test states.final_context == Dict{String,Any}()
             @test states.final_time == 0.0
+            traced_states = execute_state(bmodel, "Test::Machine"; trace=true)
+            @test !isempty(traced_states.trace)
+            @test first(traced_states.trace) isa DocumentEvent
 
             strict_failure = try
                 parse_source(conn, "package Broken { part def"; strict=true)

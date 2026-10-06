@@ -20,9 +20,11 @@ import {
   CAPABILITY_MIGRATE,
   CAPABILITY_PARSE_SOURCES,
   CAPABILITY_PERFORMER,
+  CAPABILITY_STATE_TRACE,
   CAPABILITY_QUERY,
   CAPABILITY_RENDER_DOCUMENT,
   CAPABILITY_RENDER_DOCUMENT_HTML,
+  CAPABILITY_RENDER_VIEW,
   CAPABILITY_SCHEDULE,
   CAPABILITY_SCHEDULE_EXPLORE,
   CAPABILITY_STRICT_CONFORMANCE,
@@ -54,6 +56,7 @@ import {
   ParseSourcesRequestSchema,
   QueryRequestSchema,
   RenderDocumentRequestSchema,
+  RenderViewRequestSchema,
   RunAnalysisRequestSchema,
   RunDocumentQueryRequestSchema,
   RunSweepRequestSchema,
@@ -73,6 +76,7 @@ import {
   type Outcome as PbOutcome,
   type Query,
   type RunAnalysisResponse,
+  type RenderViewResponse,
   type Verdict as PbVerdict,
   type VerificationVerdict as PbVerificationVerdict,
 } from "../generated/sysml_pb.js";
@@ -104,10 +108,13 @@ import {
 import {
   bindingHoldsBigInt,
   buildBindings,
+  documentEventOf,
   documentResult,
+  DocumentEvent,
   type BindingValues,
   type DocumentQueryResult,
 } from "./document.js";
+import { renderedViewOf, type RenderedView } from "./render-view.js";
 import {
   engineInfoOf,
   standingOf,
@@ -649,6 +656,35 @@ export class Connection {
     return form === "html" ? response.html : response.markdown;
   }
 
+  /** Renders a named view or targeted pseudo-view as diagram data. */
+  async renderView(
+    modelHash: string,
+    viewName: string,
+    options: { ports?: "minimal" | "full" } = {},
+  ): Promise<RenderedView> {
+    const ports: string = options.ports ?? "minimal";
+    if (ports !== "minimal" && ports !== "full") {
+      throw new RangeError("ports must be 'minimal' or 'full'");
+    }
+    const capabilities = [CAPABILITY_RENDER_VIEW];
+    for (const capability of capabilities) {
+      requireCapability(this.info, capability, upgradeRemedy(capability));
+    }
+    const response: RenderViewResponse = await callRpc(
+      this.rpc.renderView(
+        create(RenderViewRequestSchema, {
+          modelHash,
+          view: viewName,
+          ports: ports === "minimal" ? "" : ports,
+        }),
+        this.callOptions(),
+      ),
+      "model",
+      capabilityRefusal(this.info, capabilities),
+    );
+    return renderedViewOf(response);
+  }
+
   /** Executes an action definition. */
   async executeAction(
     modelHash: string,
@@ -735,7 +771,7 @@ export class Connection {
     return response;
   }
 
-  /** Executes a state machine. */
+  /** Executes a state machine; a failed traced run carries its partial trace on ExecutionError. */
   async executeState(
     modelHash: string,
     stateMachineSymbolId: string,
@@ -743,11 +779,14 @@ export class Connection {
       events?: readonly string[];
       schedule?: string;
       performer?: string;
+      trace?: boolean;
     } = {},
   ): Promise<{
     statesVisited: string[];
     finalContext: ReadonlyMap<string, SysMLValue | UnsupportedValueError>;
     finalTime: number;
+    trace: DocumentEvent[];
+    traceDropped: number;
   }> {
     refuseExploring(options.schedule, "exploreState");
     const response = await this.sendExecuteState(
@@ -760,12 +799,16 @@ export class Connection {
         response.error,
         "unspecified",
         response.diagnostics.map(decodeDiagnostic),
+        response.trace.map(documentEventOf),
+        response.traceDropped,
       );
     }
     return {
       statesVisited: [...response.statesVisited],
       finalContext: valuesMap(Object.entries(response.finalContext)),
       finalTime: response.finalTime,
+      trace: response.trace.map(documentEventOf),
+      traceDropped: response.traceDropped,
     };
   }
 
@@ -798,11 +841,13 @@ export class Connection {
       events?: readonly string[];
       schedule?: string;
       performer?: string;
+      trace?: boolean;
     },
   ): Promise<ExecuteStateResponse> {
     const capabilities = this.runCapabilities(
       options.schedule,
       options.performer,
+      options.trace,
     );
     const response = await callRpc(
       this.rpc.executeState(
@@ -812,6 +857,7 @@ export class Connection {
           events: [...(options.events ?? [])],
           schedule: options.schedule ?? "",
           performerSymbolId: options.performer ?? "",
+          trace: options.trace ?? false,
         }),
         this.callOptions(),
       ),
@@ -1304,10 +1350,14 @@ export class Connection {
   private runCapabilities(
     schedule: string | undefined,
     performer: string | undefined,
+    trace = false,
   ): string[] {
     const capabilities = scheduleCapabilities(schedule);
     if (performer !== undefined && performer !== "") {
       capabilities.push(CAPABILITY_PERFORMER);
+    }
+    if (trace) {
+      capabilities.push(CAPABILITY_STATE_TRACE);
     }
     for (const capability of capabilities) {
       requireCapability(this.info, capability, upgradeRemedy(capability));

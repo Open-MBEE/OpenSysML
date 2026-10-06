@@ -250,11 +250,38 @@ func nodeScopeOf(graph *ActionGraph, node ast.Node) *symbols.Scope {
 }
 
 type footprintBuilder struct {
-	graph     *ActionGraph
-	node      ast.Node
-	scope     *symbols.Scope
-	declared  map[ast.Node]bool
-	footprint Footprint
+	graph             *ActionGraph
+	node              ast.Node
+	scope             *symbols.Scope
+	declared          map[ast.Node]bool
+	localDeclarations bool
+	footprint         Footprint
+	// expanding holds the calc usages whose bindings are being read, so a cyclic binding stops.
+	expanding map[*ast.Usage]bool
+}
+
+// ConstraintBodyFootprint projects the reads and writes of one constraint
+// performance, marking declarations in its body-local scopes as local.
+func ConstraintBodyFootprint(scope *symbols.Scope, stmts []Statement) Footprint {
+	declared := make(map[ast.Node]bool)
+	var collect func(*symbols.Scope)
+	collect = func(current *symbols.Scope) {
+		if current == nil || !current.BodyLocal() {
+			return
+		}
+		for _, member := range current.AllMembers() {
+			if member != nil && member.Decl != nil {
+				declared[member.Decl] = true
+			}
+		}
+		for _, child := range current.Children() {
+			collect(child)
+		}
+	}
+	collect(scope)
+	builder := &footprintBuilder{scope: scope, declared: declared, localDeclarations: true}
+	builder.statements(stmts)
+	return builder.footprint
 }
 
 func (b *footprintBuilder) read(p Place) {
@@ -295,6 +322,35 @@ func (b *footprintBuilder) place(scope *symbols.Scope, segments []string, each f
 			if redefined != name {
 				each(Place{Sym: sym, Name: redefined, Local: local})
 			}
+		}
+		b.calcUsage(sym, usage)
+	}
+}
+
+// calcUsage adds what reading a calc usage evaluates: the values its members
+// bind, and its body, which reads beyond them.
+func (b *footprintBuilder) calcUsage(sym *symbols.Symbol, usage *ast.Usage) {
+	switch usage.Kind {
+	case ast.UsageCalc, ast.UsageAnalysisCase, ast.UsageVerificationCase:
+	default:
+		return
+	}
+	b.footprint.Dynamic = true
+	if b.expanding[usage] {
+		return
+	}
+	if b.expanding == nil {
+		b.expanding = make(map[*ast.Usage]bool)
+	}
+	b.expanding[usage] = true
+	defer delete(b.expanding, usage)
+	scope := sym.Scope
+	if scope == nil {
+		scope = b.scope
+	}
+	for _, member := range usage.Members {
+		if u, ok := unwrapMembership(member).(*ast.Usage); ok {
+			b.reads(scope, u.Value)
 		}
 	}
 }
@@ -468,6 +524,13 @@ func (b *footprintBuilder) statement(stmt Statement) {
 		b.footprint.Sends = append(b.footprint.Sends, Channel{Port: viaPortOf(s)})
 	case Declare:
 		b.reads(s.Scope, s.Value)
+		if b.localDeclarations {
+			if sym, _ := resolve.FeatureSymbolInScope(s.Scope, []string{s.Name}); sym != nil && sym.Decl != nil {
+				b.declared[sym.Decl] = true
+			}
+			b.place(s.Scope, []string{s.Name}, b.write)
+			return
+		}
 		b.write(Place{Name: s.Name})
 	case DeclareUsage:
 		b.footprint.Dynamic = true
@@ -489,13 +552,17 @@ func (b *footprintBuilder) statement(stmt Statement) {
 		}
 	case Return:
 		b.reads(s.Scope, s.Value)
-		if b.graph == nil {
-			return
-		}
-		for _, f := range b.graph.Features[b.node] {
-			if f.IsResult || f.Direction == ast.DirOut {
-				b.write(Place{Sym: featureSymbol(b.scope, f), Name: f.Name, Local: true})
+		wrote := false
+		if b.graph != nil {
+			for _, f := range b.graph.Features[b.node] {
+				if f.IsResult || f.Direction == ast.DirOut {
+					b.write(Place{Sym: featureSymbol(b.scope, f), Name: f.Name, Local: true})
+					wrote = true
+				}
 			}
+		}
+		if !wrote {
+			b.write(Place{Name: "result"})
 		}
 	case Assert:
 		b.assertion(s)

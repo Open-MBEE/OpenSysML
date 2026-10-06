@@ -42,6 +42,7 @@ const (
 	SysMLService_Query_FullMethodName              = "/sysml.SysMLService/Query"
 	SysMLService_RunDocumentQuery_FullMethodName   = "/sysml.SysMLService/RunDocumentQuery"
 	SysMLService_RenderDocument_FullMethodName     = "/sysml.SysMLService/RenderDocument"
+	SysMLService_RenderView_FullMethodName         = "/sysml.SysMLService/RenderView"
 )
 
 // SysMLServiceClient is the client API for SysMLService service.
@@ -127,6 +128,9 @@ type SysMLServiceClient interface {
 	// Render a named document to Markdown, as the CLI's -render-document does.
 	// Reported as the "render_document" capability.
 	RenderDocument(ctx context.Context, in *RenderDocumentRequest, opts ...grpc.CallOption) (*RenderDocumentResponse, error)
+	// Render a named view or targeted pseudo-view as machine-readable diagram
+	// data. Reported as the "render_view" capability.
+	RenderView(ctx context.Context, in *RenderViewRequest, opts ...grpc.CallOption) (*RenderViewResponse, error)
 }
 
 type sysMLServiceClient struct {
@@ -344,6 +348,15 @@ func (c *sysMLServiceClient) RenderDocument(ctx context.Context, in *RenderDocum
 	return out, nil
 }
 
+func (c *sysMLServiceClient) RenderView(ctx context.Context, in *RenderViewRequest, opts ...grpc.CallOption) (*RenderViewResponse, error) {
+	out := new(RenderViewResponse)
+	err := c.cc.Invoke(ctx, SysMLService_RenderView_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // SysMLServiceServer is the server API for SysMLService service.
 // All implementations must embed UnimplementedSysMLServiceServer
 // for forward compatibility
@@ -427,6 +440,9 @@ type SysMLServiceServer interface {
 	// Render a named document to Markdown, as the CLI's -render-document does.
 	// Reported as the "render_document" capability.
 	RenderDocument(context.Context, *RenderDocumentRequest) (*RenderDocumentResponse, error)
+	// Render a named view or targeted pseudo-view as machine-readable diagram
+	// data. Reported as the "render_view" capability.
+	RenderView(context.Context, *RenderViewRequest) (*RenderViewResponse, error)
 	mustEmbedUnimplementedSysMLServiceServer()
 }
 
@@ -502,6 +518,9 @@ func (UnimplementedSysMLServiceServer) RunDocumentQuery(context.Context, *RunDoc
 }
 func (UnimplementedSysMLServiceServer) RenderDocument(context.Context, *RenderDocumentRequest) (*RenderDocumentResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method RenderDocument not implemented")
+}
+func (UnimplementedSysMLServiceServer) RenderView(context.Context, *RenderViewRequest) (*RenderViewResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method RenderView not implemented")
 }
 func (UnimplementedSysMLServiceServer) mustEmbedUnimplementedSysMLServiceServer() {}
 
@@ -930,6 +949,24 @@ func _SysMLService_RenderDocument_Handler(srv interface{}, ctx context.Context, 
 	return interceptor(ctx, in, info, handler)
 }
 
+func _SysMLService_RenderView_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RenderViewRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SysMLServiceServer).RenderView(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: SysMLService_RenderView_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SysMLServiceServer).RenderView(ctx, req.(*RenderViewRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // SysMLService_ServiceDesc is the grpc.ServiceDesc for SysMLService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -1028,6 +1065,10 @@ var SysMLService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "RenderDocument",
 			Handler:    _SysMLService_RenderDocument_Handler,
+		},
+		{
+			MethodName: "RenderView",
+			Handler:    _SysMLService_RenderView_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

@@ -1,0 +1,6 @@
+{
+	"type": "action",
+	"libraries": true,
+	"schedule": "declared",
+	"outputs": {"r": {"type": "Integer", "value": 12}}
+}

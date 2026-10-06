@@ -33,6 +33,7 @@ type CachedDocument struct {
 	// document's: the parse's errors and warnings as the passes present them,
 	// and the passes' own findings when the model parsed clean and was analyzed.
 	Diagnostics []diag.Diagnostic
+	Warnings    []string
 }
 
 // CachedModel holds parsed model data with semantic analysis results

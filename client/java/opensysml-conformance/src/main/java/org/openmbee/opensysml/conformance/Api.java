@@ -31,6 +31,8 @@ import org.openmbee.opensysml.ParseOptions;
 import org.openmbee.opensysml.Query;
 import org.openmbee.opensysml.QueryElement;
 import org.openmbee.opensysml.RenderedDocument;
+import org.openmbee.opensysml.RenderedView;
+import org.openmbee.opensysml.RenderViewPorts;
 import org.openmbee.opensysml.Satisfaction;
 import org.openmbee.opensysml.ServiceException;
 import org.openmbee.opensysml.SourceDocument;
@@ -76,6 +78,8 @@ import org.openmbee.opensysml.proto.QueryRequest;
 import org.openmbee.opensysml.proto.QueryResponse;
 import org.openmbee.opensysml.proto.RenderDocumentRequest;
 import org.openmbee.opensysml.proto.RenderDocumentResponse;
+import org.openmbee.opensysml.proto.RenderViewRequest;
+import org.openmbee.opensysml.proto.RenderViewResponse;
 import org.openmbee.opensysml.proto.RunAnalysisRequest;
 import org.openmbee.opensysml.proto.RunAnalysisResponse;
 import org.openmbee.opensysml.proto.RunDocumentQueryRequest;
@@ -129,6 +133,7 @@ final class Api {
   private static final String RPC_RUN_SWEEP = "RunSweep";
   private static final String RPC_RUN_DOCUMENT_QUERY = "RunDocumentQuery";
   private static final String RPC_RENDER_DOCUMENT = "RenderDocument";
+  private static final String RPC_RENDER_VIEW = "RenderView";
   private static final String RPC_VALIDATE_INSTANCE = "ValidateInstance";
   private static final String RPC_VERIFY_CONSTRAINT = "VerifyConstraint";
   private static final String RPC_VERIFY_REQUIREMENT = "VerifyRequirement";
@@ -159,7 +164,8 @@ final class Api {
           RPC_APPLY_EDITS,
           RPC_RUN_SWEEP,
           RPC_RUN_DOCUMENT_QUERY,
-          RPC_RENDER_DOCUMENT);
+          RPC_RENDER_DOCUMENT,
+          RPC_RENDER_VIEW);
 
   private final Connection connection;
 
@@ -210,6 +216,7 @@ final class Api {
       case RPC_RUN_SWEEP -> RunSweepRequest.newBuilder();
       case RPC_RUN_DOCUMENT_QUERY -> RunDocumentQueryRequest.newBuilder();
       case RPC_RENDER_DOCUMENT -> RenderDocumentRequest.newBuilder();
+      case RPC_RENDER_VIEW -> RenderViewRequest.newBuilder();
       default -> throw new IllegalArgumentException("no request type for " + method);
     };
   }
@@ -266,6 +273,7 @@ final class Api {
             case RPC_RUN_DOCUMENT_QUERY ->
                 runDocumentQuery((RunDocumentQueryRequest) request);
             case RPC_RENDER_DOCUMENT -> renderDocument((RenderDocumentRequest) request);
+            case RPC_RENDER_VIEW -> renderView((RenderViewRequest) request);
             default -> throw new IllegalStateException(method);
           });
     } catch (Unsupported e) {
@@ -420,6 +428,9 @@ final class Api {
   private ExecuteStateResponse executeState(ExecuteStateRequest request) {
     Model model = connection.model(request.getModelHash());
     ExecutionOptions options = execution(request.getSchedule(), request.getPerformerSymbolId());
+    if (request.getTrace()) {
+      options = options.withTrace();
+    }
     try {
       if (options.explores()) {
         Exploration exploration =
@@ -438,11 +449,17 @@ final class Api {
               .putAllFinalContext(Rendering.values(run.finalContext()))
               .addAllDiagnostics(Rendering.diagnostics(run.diagnostics()));
       run.finalTime().ifPresent(response::setFinalTime);
+      run.trace().stream()
+          .map(event -> Protos.proto(event).getEvent())
+          .forEach(response::addTrace);
+      response.setTraceDropped(run.traceDropped());
       return response.build();
     } catch (ModelException e) {
       return ExecuteStateResponse.newBuilder()
           .setError(e.getMessage())
           .addAllDiagnostics(Rendering.diagnostics(e.diagnostics()))
+          .addAllTrace(e.trace().stream().map(event -> Protos.proto(event).getEvent()).toList())
+          .setTraceDropped(e.traceDropped())
           .build();
     }
   }
@@ -1029,6 +1046,14 @@ final class Api {
       response.setMarkdown(rendered.content());
     }
     return response.build();
+  }
+
+  private RenderViewResponse renderView(RenderViewRequest request) {
+    Model model = connection.model(request.getModelHash());
+    RenderViewPorts ports =
+        request.getPorts().equals("full") ? RenderViewPorts.FULL : RenderViewPorts.MINIMAL;
+    RenderedView rendered = model.renderView(request.getView(), ports);
+    return Rendering.renderedView(rendered);
   }
 
   private QueryResponse query(QueryRequest request) {

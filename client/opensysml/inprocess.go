@@ -191,6 +191,13 @@ func (p *inprocess) renderDocument(
 	return answer(ctx, req, p.svc.RenderDocument)
 }
 
+func (p *inprocess) renderView(
+	ctx context.Context,
+	req *pb.RenderViewRequest,
+) (*pb.RenderViewResponse, error) {
+	return answer(ctx, req, p.svc.RenderView)
+}
+
 func (p *inprocess) convert(ctx context.Context, req *pb.ConvertRequest) (*pb.ConvertResponse, error) {
 	return answer(ctx, req, p.svc.Convert)
 }
