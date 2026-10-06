@@ -61,8 +61,8 @@
         "name": "examples",
         "dir": "examples",
         "origin": "ours",
-        "files": 48,
-        "digest": "sha256:76fc1234263ad8f3ac825b1eedf82237bdb91c9a8cb3eb966b01d5073e4bc408"
+        "files": 49,
+        "digest": "sha256:a5a8e70af0ae93c18969d5525d96e709c6d267bf1278f913b6a697a38c9972a2"
       },
       {
         "name": "probes",
@@ -82,7 +82,7 @@
     "recorded": "2026-10-06"
   },
   "totals": {
-    "files": 386,
+    "files": 387,
     "filesFullyAgreeing": 357,
     "agreement": 45,
     "severityMismatch": 1,
@@ -931,7 +931,7 @@
       "name": "examples",
       "dir": "examples",
       "totals": {
-        "files": 48,
+        "files": 49,
         "filesFullyAgreeing": 43,
         "agreement": 0,
         "severityMismatch": 0,
@@ -1777,7 +1777,7 @@
       }
     ],
     "totals": {
-      "files": 386,
+      "files": 387,
       "filesFullyAgreeing": 358,
       "agreement": 45,
       "severityMismatch": 1,
