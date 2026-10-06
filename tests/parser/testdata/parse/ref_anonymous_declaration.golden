@@ -1,0 +1,30 @@
+(RootNamespace
+  (Membership visibility="default"
+    (Package name="P" library=false standard=false
+      (Membership visibility="default"
+        (Usage kind="attribute" name="s" ref=true direction="none" composite=false derived=false ordered=false nonunique=false
+          (Membership visibility="default"
+            (Usage kind="attribute" name="" ref=true direction="none" composite=false derived=false ordered=false nonunique=false
+              (Multiplicity range=false
+                (LiteralInteger value="1"))
+              (FeatureReference name="x")))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="" ref=true direction="none" composite=false derived=false ordered=false nonunique=false
+              (FeatureReference name="x")))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="" ref=true direction="none" composite=false derived=false ordered=false nonunique=false
+              (Multiplicity range=false
+                (LiteralInteger value="1"))))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="" ref=true direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="subsets" target=x
+                (*ast.QualifiedName))
+              (Multiplicity range=false
+                (LiteralInteger value="1"))))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="" ref=true direction="none" composite=false derived=false ordered=false nonunique=false))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="" ref=true direction="none" composite=false derived=true ordered=false nonunique=false
+              (FeatureReference name="x")))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="" ref=true direction="none" composite=false derived=true ordered=false nonunique=false)))))))

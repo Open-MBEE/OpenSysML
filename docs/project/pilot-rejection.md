@@ -60,7 +60,7 @@ systematically from four sources, one subdirectory each:
    multiplicity on a definition, `g07`/`g08` state members in a part def body), a token from a
    sibling production (`g15` a keyword as a name, `k02` a SysML keyword in KerML), and unterminated
    bodies and comments (`g01`, `g12`, `k05`).
-2. **`extensions/` — the notation we invented** (10 cases). Every state-machine construct our
+2. **`extensions/` — the notation we invented** (11 cases). Every state-machine construct our
    `examples/` tree uses that no pinned production admits: `initial`, `choice`, `junction`,
    `history`, `region`, the since-removed `defer` member, and the `transition <src> to <tgt>` shorthand, plus `require`
    outside a requirement body (`x08`, since made a parse error), `expose` in a view def body (`x09`), which our grammar admits as an extension, and KerML's `connector` declared in a `.sysml` file (`x10`), which the default mode keeps parsed as a `kerml-notation` warning and strict mode refuses. The pinned grammar
@@ -116,7 +116,7 @@ systematically from four sources, one subdirectory each:
    pilot's grammar rejects before its validator would), and a constructed payload whose `new`
    names a package rather than a type (`send-constructor-non-type`).
 
-What this corpus cannot see: it tests the invalid models we thought to write. **We authored all 312
+What this corpus cannot see: it tests the invalid models we thought to write. **We authored all 313
 cases ourselves**, so the denominator measures our coverage of the rejection surface, not our
 conformance: it is a **sample, not a proof** — a clean bucket here does not mean OpenSysML rejects
 everything the reference rejects, and no official conformance suite exists to make that claim
@@ -164,13 +164,13 @@ measured at their own round and are not the current baseline.
 Under the default `-conformance auto`:
 
 ```
-312 case(s): 303 both reject, 0 only the pilot rejects, 9 only we reject, 0 both accept
+313 case(s): 304 both reject, 0 only the pilot rejects, 9 only we reject, 0 both accept
   of which 3 agree only because we were asked strictly (the default mode accepts them, by design)
 ```
 
 | Source | Cases | Both reject | Pilot only | Ours only | Both accept |
 | --- | --- | --- | --- | --- | --- |
-| extensions | 10 | 10 | 0 | 0 | 0 |
+| extensions | 11 | 11 | 0 | 0 | 0 |
 | grammar | 108 | 108 | 0 | 0 | 0 |
 | semantic | 159 | 150 | 0 | 9 | 0 |
 | xpect | 35 | 35 | 0 | 0 | 0 |
@@ -235,7 +235,7 @@ The action-body parameter prefix-order cases `g80`–`g81` then raised the corpu
 (a package-level allocation whose ends name a definition's owned features by qualified name,
 `allocate ToastBread::applyHeat to Toaster::heating`; a connector with no featuring type reaches
 only features that have none, so both validators reject each end under
-`validateConnectorTypeFeaturing`) to 311, and `x10` (KerML's `connector` declared in a `.sysml` file, which the pinned SysML grammar has no production for — `no viable alternative at input 'c'` — and which we warn as `kerml-notation` by default and reject under strict) to 312.
+`validateConnectorTypeFeaturing`) to 311, and `x10` (KerML's `connector` declared in a `.sysml` file, which the pinned SysML grammar has no production for — `no viable alternative at input 'c'` — and which we warn as `kerml-notation` by default and reject under strict) to 312, and `x11` (an indexed connector end, `connect s.y#(1) to k.u`, which the pinned grammar has no production for — `mismatched input '#' expecting 'to'` — and which we report as `nonstandard-notation` by default and reject under strict) to 313.
 The KerML constraints in that
 source reopened 14 gaps — all of them semantic rules the pilot enforces and we did not; the
 named-argument validation that landed alongside closed one of them (`k33`), the constructor
@@ -263,24 +263,24 @@ rules closed eleven `xpect/` gaps (`p08`, `p17`, `p20`,
 `p21`, `p22`, `p25`, `p26`, `p27`, `p28`, `p32`, `p33`). No case in the corpus is
 accepted by both implementations.
 
-The two strict-only agreements are `x06` and `x09`: OpenSysML notation
+The four strict-only agreements are `x06`, `x09`, `x10` and `x11`: OpenSysML notation
 extensions that the default mode reports as `nonstandard-notation` warnings on purpose and strict
 mode reports as errors. `x01` (the
 initial state marker), `x04` (`region r { … }`), `x05` (the `defer <event>;` state member),
 `x07` (`transition <src> to <tgt>`) and `x08` (`require` outside a requirement body) left that
 list when that notation was removed: each is now a parse error in either mode, so both
 implementations reject it by default. Judged in
-the default mode the same corpus gives 300 agreements and 2 gaps, which is what `-conformance
-default` prints. `-conformance strict` gives 302 and 0. Reserved keywords recovered as declared
+the default mode the same corpus gives 300 agreements and 4 gaps, which is what `-conformance
+default` prints. `-conformance strict` gives 304 and 0. Reserved keywords recovered as declared
 names and SysML declaration keywords recovered in KerML are now errors in either mode; the parser
 still preserves their trees for editors and later analysis. Of the 14 gaps this document carried
 when it was first written, six were closed by the validation work itself — `p01`, `p02`, `p03`,
-`p04`, `p05` and `p06` — and only the two `extensions/` cases belong to strict mode.
+`p04`, `p05` and `p06` — and only the four `extensions/` cases belong to strict mode.
 
-Read those two as agreement *when asked strictly*, not as gaps that disappeared. An opt-in
+Read those four as agreement *when asked strictly*, not as gaps that disappeared. An opt-in
 check is weaker evidence than a default one: it says the strict question has an answer we agree on,
 not that the pipeline a user gets by default rejects the notation — by design it does not. And
-because we authored all 312 cases ourselves, a small gap count means we ran out of questions we
+because we authored all 313 cases ourselves, a small gap count means we ran out of questions we
 thought to ask, not that we stopped being permissive: the denominator measures our coverage of the
 rejection surface, not our conformance.
 

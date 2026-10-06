@@ -633,6 +633,10 @@ type ConnectorEndAttachment struct {
 	Name string
 	// Attachment is the expression naming the connected feature (`a.p`).
 	Attachment ast.Node
+	// Index is the expression an indexed end selects one element of Attachment's
+	// value with (`a.p#(1)`, an OpenSysML extension), nil for an end attaching the
+	// whole feature; Selection is then the whole `a.p#(1)` an evaluation reads.
+	Index, Selection ast.Node
 	// End is the syntax of the end itself, which carries its source location.
 	End *ast.ConnectorEnd
 	// EndFeature is the end feature Name comes from, when a declaration in the
@@ -674,7 +678,7 @@ func (m *Model) ConnectorEndAttachments(sym *symbols.Symbol) []ConnectorEndAttac
 	ends := make([]connectorEndInput, 0, len(usage.ConnectorEnds))
 	for _, end := range usage.ConnectorEnds {
 		if end != nil {
-			ends = append(ends, connectorEndInput{attachment: end.AttachedTarget(), end: end})
+			ends = append(ends, connectorEndInput{attachment: end.AttachedTarget(), selection: end.AttachedSelection(), end: end})
 		}
 	}
 	return m.connectorEndAttachments(sym, ends)
@@ -693,13 +697,13 @@ func (m *Model) ConnectorObjectEnds(sym *symbols.Symbol) []ConnectorEndAttachmen
 		ends = make([]connectorEndInput, 0, len(usage.ConnectorEnds))
 		for _, end := range usage.ConnectorEnds {
 			if end != nil {
-				ends = append(ends, connectorEndInput{attachment: end.AttachedTarget(), end: end})
+				ends = append(ends, connectorEndInput{attachment: end.AttachedTarget(), selection: end.AttachedSelection(), end: end})
 			}
 		}
 	case usage.Kind == ast.UsageFlow:
 		ends = []connectorEndInput{
-			{attachment: usage.FlowEnds.From},
-			{attachment: usage.FlowEnds.To},
+			{attachment: ast.EndTarget(usage.FlowEnds.From), selection: usage.FlowEnds.From},
+			{attachment: ast.EndTarget(usage.FlowEnds.To), selection: usage.FlowEnds.To},
 		}
 	}
 	return m.connectorEndAttachments(sym, ends)
@@ -786,7 +790,10 @@ func chainPath(node ast.Node, resolve func(ast.Node) (*symbols.Symbol, bool)) []
 
 type connectorEndInput struct {
 	attachment ast.Node
-	end        *ast.ConnectorEnd
+	// selection is the end's target as written, attachment with its index when
+	// the end is indexed.
+	selection ast.Node
+	end       *ast.ConnectorEnd
 }
 
 func (m *Model) connectorEndAttachments(sym *symbols.Symbol, ends []connectorEndInput) []ConnectorEndAttachment {
@@ -794,6 +801,9 @@ func (m *Model) connectorEndAttachments(sym *symbols.Symbol, ends []connectorEnd
 	out := make([]ConnectorEndAttachment, 0, len(ends))
 	for i, end := range ends {
 		att := ConnectorEndAttachment{Attachment: end.attachment, End: end.end}
+		if _, index := ast.EndSelection(end.selection); index != nil {
+			att.Index, att.Selection = index, end.selection
+		}
 		general := m.generalEndAt(sym, i)
 		switch {
 		// An end named by its own declaration names the attachment; one that
@@ -810,9 +820,11 @@ func (m *Model) connectorEndAttachments(sym *symbols.Symbol, ends []connectorEnd
 	return out
 }
 
-// FlowEndAttachment is one declared from/to target of a flow usage.
+// FlowEndAttachment is one declared from/to target of a flow usage: the feature
+// it names, and the index selecting one element of it when the end is indexed.
 type FlowEndAttachment struct {
 	Attachment ast.Node
+	Index      ast.Node
 }
 
 // FlowEndAttachments returns the declared from/to targets of a flow usage.
@@ -826,7 +838,8 @@ func (m *Model) FlowEndAttachments(sym *symbols.Symbol) []FlowEndAttachment {
 		if target == nil {
 			continue
 		}
-		out = append(out, FlowEndAttachment{Attachment: target})
+		feature, index := ast.EndSelection(target)
+		out = append(out, FlowEndAttachment{Attachment: feature, Index: index})
 	}
 	return out
 }
