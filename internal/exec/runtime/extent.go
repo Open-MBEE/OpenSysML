@@ -102,7 +102,7 @@ func (ctx *Context) objectsOf(roots []*Instance, target *symbols.Symbol) (Value,
 	seen := make(map[int64]bool)
 	path := make(map[*symbols.Symbol]int)
 	through := func(inst *Instance, of ObjectFeature) (*FeatureValue, error) {
-		if !ctx.mayHold(of.Feature.Symbol, target, make(map[*symbols.Symbol]bool)) {
+		if !ctx.extentHeldMember(of.Feature.Symbol) || !ctx.mayHold(of.Feature.Symbol, target, make(map[*symbols.Symbol]bool)) {
 			return nil, nil
 		}
 		// A value whose every possible type is on the path is not read; any other read tells by what it made.
@@ -144,7 +144,7 @@ func (ctx *Context) objectsOf(roots []*Instance, target *symbols.Symbol) (Value,
 				path[decl]--
 			}
 		}()
-		children, err := ctx.heldObjectsOf(inst, through, true)
+		children, err := ctx.heldObjectsOf(inst, through, true, extentHoldsObjects)
 		if err != nil {
 			return fmt.Errorf("object of %s: %w", symbolText(inst.Type), err)
 		}
@@ -205,7 +205,7 @@ func (ctx *Context) mayReach(inst *Instance, target *symbols.Symbol) bool {
 		return true
 	}
 	for _, of := range ctx.FeaturesOfObject(inst) {
-		if of.Name != "" && holdsObjects(of.Feature) && ctx.mayHold(of.Feature.Symbol, target, make(map[*symbols.Symbol]bool)) {
+		if of.Name != "" && ctx.extentHeldMember(of.Feature.Symbol) && ctx.mayHold(of.Feature.Symbol, target, make(map[*symbols.Symbol]bool)) {
 			return true
 		}
 	}
@@ -507,11 +507,44 @@ func (ctx *Context) mayHold(typ, target *symbols.Symbol, visited map[*symbols.Sy
 		}
 	}
 	for _, member := range ctx.model.semantics.MembersOf(typ) {
-		if objectFeature(member) && ctx.mayHold(member, target, visited) {
+		if ctx.extentHeldMember(member) && ctx.mayHold(member, target, visited) {
 			return true
 		}
 	}
 	return false
+}
+
+// extentHeldMember is extentHeldFeature for a member of a type under the walk:
+// a performance member of a library type does not make its holder a candidate —
+// the library objects a run keeps are not the extent's.
+func (ctx *Context) extentHeldMember(sym *symbols.Symbol) bool {
+	return extentHeldFeature(sym) && (objectFeature(sym) || !ctx.libraryDeclared(sym))
+}
+
+// extentHeldFeature reports whether an extent's descent reads a feature's held
+// objects: the object features objectFeature admits, and the occurrences an
+// object performs — actions, states, connections, interfaces, allocations and
+// flows — which `all T` reaches though reading them may start their behaviors.
+func extentHeldFeature(sym *symbols.Symbol) bool {
+	if objectFeature(sym) {
+		return true
+	}
+	usage, ok := sym.Decl.(*ast.Usage)
+	if !ok {
+		return false
+	}
+	switch usage.Kind {
+	case ast.UsageAction, ast.UsageState, ast.UsageConnection, ast.UsageInterface,
+		ast.UsageAllocation, ast.UsageFlow:
+		return true
+	}
+	return false
+}
+
+// extentHoldsObjects is holdsObjects for the extent walk: the features whose
+// held objects `all T` enumerates, performances included.
+func extentHoldsObjects(feat *EffectiveFeature) bool {
+	return extentHeldFeature(feat.Symbol)
 }
 
 // isOf reports whether a type inst is of, or was classified by, conforms to target.

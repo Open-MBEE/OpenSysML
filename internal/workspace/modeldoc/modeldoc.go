@@ -66,10 +66,13 @@ func RenderDocumentMarkdown(ws *model.Workspace, fqn string, opts docrender.Mark
 			if opts.Files, err = DocumentFiles(model.DocumentNames(idx, sem), ".md"); err != nil {
 				return
 			}
+			lineIndexes := r.LineIndexes()
 			var document *docir.Document
 			document, err = docir.EvaluateLinked(plan,
 				model.SiblingDocumentPlans(idx, sem, resolver, sym),
-				queryexec.Context{Index: idx, Resolver: resolver, Model: sem},
+				queryexec.Context{Index: idx, Resolver: resolver, Model: sem, LineIndex: func(doc string) *source.LineIndex {
+					return lineIndexes[doc]
+				}},
 				queryexec.Options{}, r.SourceText())
 			if err != nil {
 				return

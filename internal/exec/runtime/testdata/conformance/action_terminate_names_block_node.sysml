@@ -16,7 +16,7 @@ package test {
 					action forked {
 						fork split;
 						action waiter accept sig : Integer;
-						action quit { assign inner := 1; terminate outer; }
+						action quit { assign inner := 1; then terminate outer; }
 						first start;
 						succession first start then split;
 						succession first split then waiter;

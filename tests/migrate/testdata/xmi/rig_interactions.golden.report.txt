@@ -1,5 +1,5 @@
 # SysML v1 to v2 migration report: rig_interactions.xmi
-# migrated 87 element(s): 75 mapped, 6 approximated, 6 unmapped (1 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)
+# migrated 87 element(s): 76 mapped, 5 approximated, 6 unmapped (1 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)
 
 ## unmapped (6)
 Interaction	Rig::Astray	_astray	(the lifeline 'o' stands for 'motor' of Other, which no part of Rig reaches)
@@ -9,15 +9,14 @@ MessageOccurrenceSpecification	Rig::Spinup::<CombinedFragment>::<InteractionOper
 Message	Rig::Spinup::new	_mNew	(the message creates drive.motor, a part that exists for as long as its owner does; the steps after it address it as it is)
 Interaction	Twin::Twinned	_twinned	(the lifeline 'm' stands for 'motor', which Twin reaches as both left.motor and right.motor)
 
-## approximated (6)
+## approximated (5)
 Parameter	Motor::Spin::result	_spRes	-> Motor::spin::result	(the return parameter is written as an out parameter)
-AddStructuralFeatureValueAction	Motor::Spinning::set speed	_set	-> 'set speed'	(no edge leads to the node, so it starts with the activity)
 Interaction	Rig::Spinup	_spinup	-> Rig::spinup	(written as an action usage of Rig, which a call on an object performs, so its body runs on the object and reaches its features; written as a scenario of 8 steps, one per message in occurrence order; the lifelines' own behavior is not part of it)
 «TestCase» Interaction	Rig::Spinup Test	_tc	-> Rig::'Spinup Test'	(written as a scenario of 1 step, one per message in occurrence order; the lifelines' own behavior is not part of it; the test case has no return parameter, so the verification case states no verdict and is inconclusive once its steps complete)
 Message	Rig::Spinup::brake	_mBrake	-> brake	(written as a call of Brake on drive.motor; the asynchronous call is performed to completion before the next step: an action performs what it calls)
 Message	Rig::Spinup::spun	_mRet	-> spun	(written as the assignment of the call spin's results to ctrl; the value 30.0 the reply states for result is the operation's own result, which the call computes)
 
-## mapped (75)
+## mapped (76)
 «Block» Class	Controller	_ctrl	-> Controller
 Property	Controller::got	_got	-> Controller::got
 Signal	Done	_done	-> Done
@@ -43,6 +42,7 @@ Parameter	Motor::Spinning::result	_spRes2	-> Motor::spin::result	(stands for the
 ActivityParameterNode	Motor::Spinning::result	_apnRes	-> Motor::spin::result	(the flows to and from the node name the parameter result)
 Parameter	Motor::Spinning::rpm	_spRpm2	-> Motor::spin::rpm	(stands for the operation's parameter rpm at the same position, which is written once)
 ActivityParameterNode	Motor::Spinning::rpm	_apnRpm	-> Motor::spin::rpm	(the flows to and from the node name the parameter rpm)
+AddStructuralFeatureValueAction	Motor::Spinning::set speed	_set	-> 'set speed'	(no edge leads to the node, so it starts with the activity)
 InputPin	Motor::Spinning::set speed::value	_setVal	-> Motor::spin::'set speed'.value
 Parameter	Motor::Spinning::times	_spTimes2	-> Motor::spin::times	(stands for the operation's parameter times at the same position, which is written once)
 Property	Motor::speed	_speed	-> Motor::speed

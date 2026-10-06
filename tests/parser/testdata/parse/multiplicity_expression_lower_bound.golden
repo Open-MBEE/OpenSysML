@@ -17,6 +17,20 @@
                 (*ast.QualifiedName))
               (LiteralInteger value="3")))
           (Membership visibility="default"
+            (Usage kind="attribute" name="scaledBound" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Integer
+                (*ast.QualifiedName))
+              (OperatorExpr operator="*"
+                (FeatureReference name="k")
+                (LiteralInteger value="1000"))))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="arithmeticBound" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Integer
+                (*ast.QualifiedName))
+              (OperatorExpr operator="+"
+                (LiteralInteger value="3")
+                (LiteralInteger value="2"))))
+          (Membership visibility="default"
             (Usage kind="part" name="large" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
               (Relationship kind="typing" target=C
                 (*ast.QualifiedName))
@@ -27,9 +41,7 @@
               (Relationship kind="typing" target=C
                 (*ast.QualifiedName))
               (Multiplicity range=false
-                (OperatorExpr operator="*"
-                  (FeatureReference name="k")
-                  (LiteralInteger value="1000")))))
+                (FeatureReference name="scaledBound"))))
           (Membership visibility="default"
             (Usage kind="part" name="named" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
               (Relationship kind="typing" target=C
@@ -38,13 +50,11 @@
                 (FeatureReference name="k")
                 (LiteralInfinity))))
           (Membership visibility="default"
-            (Usage kind="part" name="arithmetic" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+            (Usage kind="part" name="calculated" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
               (Relationship kind="typing" target=C
                 (*ast.QualifiedName))
               (Multiplicity range=false
-                (OperatorExpr operator="+"
-                  (LiteralInteger value="3")
-                  (LiteralInteger value="2")))))
+                (FeatureReference name="arithmeticBound"))))
           (Membership visibility="default"
             (Usage kind="part" name="unbounded" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
               (Relationship kind="typing" target=C

@@ -5,6 +5,9 @@ models over the `sysml-grpc` service, using the [Connect
 protocol](https://connectrpc.com/docs/protocol) with protobuf bodies. No native
 addon, so an install is a plain registry fetch.
 
+For a task-oriented walkthrough, see the
+[Node client guide](https://opensysml.org/clients/node/).
+
 ```bash
 npm install @openmbee/opensysml
 ```
@@ -167,6 +170,91 @@ Two limits to plan for rather than discover:
 `test/browser.test.ts` runs this entry point against a real service over the same
 `fetch` transport, and asserts the allowed origin is answered on the preflight
 while another origin is not.
+
+## WebAssembly, without a service
+
+`connectWasm()` uses the same `Connection`, `Model`, values and errors over the
+combined `sysml-wasm` module. It serves `ParseFile`, `ParseSources`,
+`GetDiagnostics`, `GetSymbol`, `Evaluate`, `Instantiate`, `ExecuteAction`,
+`ExecuteState` and `GetServerInfo`. Those are the module's complete RPC surface;
+other capability-gated operations fail with `MissingCapabilityError`, and a
+direct unsupported RPC fails with `UNIMPLEMENTED`.
+The adapter uses JSON encoding; requesting protobuf encoding is refused.
+
+In Node, install the optional `@openmbee/opensysml-wasm` package at the same
+version as this client. `connectWasm()` resolves its module and matching Go
+runtime automatically and runs a worker thread by default:
+
+```bash
+npm install @openmbee/opensysml@<version> @openmbee/opensysml-wasm@<version>
+```
+
+```ts
+import { connectWasm } from "@openmbee/opensysml";
+
+await using connection = await connectWasm();
+const model = await connection.loads("package Demo { part def Car; }");
+```
+
+To use a module from another source, pass both the module and its matching Go
+runtime:
+
+```ts
+await using connection = await connectWasm({
+  wasm: "./sysml-wasm.wasm",
+  wasmExec: "/path/to/the/matching/wasm_exec.js",
+});
+const model = await connection.loads("package Demo { part def Car; }");
+```
+
+The WASM module and `wasm_exec.js` must come from compatible Go toolchains.
+The worker remains referenced while the connection is open, so `close()` or
+`await using` ends it. `thread: "inline"` runs Go on the calling thread instead;
+it is useful when a worker is unavailable, but blocks that thread during a call.
+Closing an inline connection disables its client surface; Go has no exit hook to
+stop the running module.
+A worker-mode deadline rejects the waiting call without interrupting Go, so
+later worker calls queue behind work that outlived its deadline. Inline calls
+run synchronously and cannot be interrupted while they block the JavaScript
+thread.
+
+In a browser, omit `worker` to run inline, or provide a module worker serving the
+package's `browser/wasm-worker` entry point:
+
+```ts
+import { connectWasm } from "@openmbee/opensysml/browser";
+
+const worker = new Worker("/assets/opensysml-wasm-worker.js", { type: "module" });
+await using connection = await connectWasm({
+  wasm: new URL("./sysml-wasm.wasm", import.meta.url),
+  wasmExec: new URL("./wasm_exec.js", import.meta.url),
+  worker,
+});
+```
+
+If the page loads `wasm_exec.js` itself, omit `wasmExec` to use the installed Go
+constructor.
+
+The browser worker module can be bundled from
+`@openmbee/opensysml/browser/wasm-worker`. Bundle the module and runtime from
+the npm package with:
+
+```ts
+const wasm = new URL("@openmbee/opensysml-wasm/sysml-wasm.wasm", import.meta.url);
+const wasmExec = new URL("@openmbee/opensysml-wasm/wasm_exec.js", import.meta.url);
+```
+
+Or fetch both from jsDelivr, replacing `<version>` with the matching package
+version:
+
+```text
+https://cdn.jsdelivr.net/npm/@openmbee/opensysml-wasm@<version>/sysml-wasm.wasm
+https://cdn.jsdelivr.net/npm/@openmbee/opensysml-wasm@<version>/wasm_exec.js
+```
+
+Browser callers pass those URLs as `wasm` and `wasmExec`; browser package
+resolution is not automatic. The combined module measures about 7.8 MB gzipped
+and 5.5 MB with Brotli.
 
 ## Protobuf, not JSON
 

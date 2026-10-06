@@ -8,13 +8,16 @@ import type { LayoutGeometry, RenderNode, RenderPoint, RenderResult } from "../p
 import {
   CONTAINER_PAD,
   GAP,
+  glyphSize,
   labelLines,
   labelSize,
   MARGIN,
   PLACEABLE_KINDS,
+  PORT_SIZE,
   shapeOf,
   snap,
   symbolSize,
+  type Side,
 } from "./layout";
 
 export interface AutoLayout {
@@ -22,6 +25,8 @@ export interface AutoLayout {
   nodes: Map<string, LayoutGeometry>;
   /** By edge index: ELK's orthogonal polyline in absolute canvas coordinates, source anchor first, target anchor last. */
   routes: Map<number, RenderPoint[]>;
+  /** ELK's port positions as sides and proportional offsets on their nodes. */
+  ports: Map<string, { side: Side; offset: number }>;
 }
 
 /** Above this many nodes the grid stays: laying out a migrated model must not hang the panel. */
@@ -74,10 +79,51 @@ async function layOut(result: RenderResult): Promise<AutoLayout> {
     return false;
   };
   const options = spacingOptions(result.kind);
+  const edges: ElkExtendedEdge[] = [];
+  const portEndpoints: Array<{ nodeId: string; portId: string }> = [];
+  (result.edges ?? []).forEach((edge, index) => {
+    if (edge.from === edge.to || !inGraph(edge.from) || !inGraph(edge.to)) {
+      return;
+    }
+    const from = byId.get(edge.from)!;
+    const to = byId.get(edge.to)!;
+    const fromPort = from.ports?.some((port) => port.id === edge.fromPort) ? edge.fromPort : undefined;
+    const toPort = to.ports?.some((port) => port.id === edge.toPort) ? edge.toPort : undefined;
+    edges.push({
+      id: `e${index}`,
+      sources: [fromPort ?? edge.from],
+      targets: [toPort ?? edge.to],
+    });
+    if (fromPort !== undefined) {
+      portEndpoints.push({ nodeId: from.id, portId: fromPort });
+    }
+    if (toPort !== undefined) {
+      portEndpoints.push({ nodeId: to.id, portId: toPort });
+    }
+  });
+  const connectedPorts = new Map<string, Set<string>>();
+  for (const { nodeId, portId } of portEndpoints) {
+    const ports = connectedPorts.get(nodeId) ?? new Set<string>();
+    ports.add(portId);
+    connectedPorts.set(nodeId, ports);
+  }
   const elkNode = (node: RenderNode): ElkNode => {
     const size = symbolSize(shapeOf(node.kind)) ?? labelSize(labelLines(node));
     const kids = node.collapsed ? [] : (children.get(node.id) ?? []);
     const out: ElkNode = { id: node.id, width: size.width, height: size.height };
+    const ports = (node.ports ?? []).filter((port) => connectedPorts.get(node.id)?.has(port.id));
+    if (ports.length > 0) {
+      out.ports = ports.map((port) => {
+        const label = glyphSize(port.name);
+        return {
+          id: port.id,
+          width: PORT_SIZE,
+          height: PORT_SIZE,
+          layoutOptions: { "elk.port.borderOffset": String(-PORT_SIZE / 2) },
+          labels: [{ text: port.name, width: label.width, height: label.height }],
+        };
+      });
+    }
     if (kids.length > 0) {
       out.children = kids.map(elkNode);
       // A container's label sits above its children, so the top padding is its height.
@@ -88,15 +134,15 @@ async function layOut(result: RenderResult): Promise<AutoLayout> {
         "elk.nodeSize.minimum": `(${size.width},${size.height})`,
       };
     }
+    if (ports.length > 0) {
+      out.layoutOptions = {
+        ...out.layoutOptions,
+        "elk.portConstraints": "FREE",
+        "elk.portLabels.placement": "OUTSIDE",
+      };
+    }
     return out;
   };
-  const edges: ElkExtendedEdge[] = [];
-  (result.edges ?? []).forEach((edge, index) => {
-    if (edge.from === edge.to || !inGraph(edge.from) || !inGraph(edge.to)) {
-      return;
-    }
-    edges.push({ id: `e${index}`, sources: [edge.from], targets: [edge.to] });
-  });
   const laid = await elk.layout({
     id: "__root__",
     layoutOptions: {
@@ -111,6 +157,7 @@ async function layOut(result: RenderResult): Promise<AutoLayout> {
     edges,
   });
   const placed = new Map<string, LayoutGeometry>();
+  const ports = new Map<string, { side: Side; offset: number }>();
   const walk = (node: ElkNode, ox: number, oy: number): void => {
     for (const child of node.children ?? []) {
       const x = ox + (child.x ?? 0);
@@ -125,6 +172,21 @@ async function layOut(result: RenderResult): Promise<AutoLayout> {
         geometry.collapsed = true;
       }
       placed.set(child.id, geometry);
+      for (const port of child.ports ?? []) {
+        const width = child.width ?? 0;
+        const height = child.height ?? 0;
+        const x = (port.x ?? 0) + (port.width ?? PORT_SIZE) / 2;
+        const y = (port.y ?? 0) + (port.height ?? PORT_SIZE) / 2;
+        const sides: Array<{ side: Side; distance: number; along: number; extent: number }> = [
+          { side: "north", distance: Math.abs(y), along: x, extent: width },
+          { side: "east", distance: Math.abs(width - x), along: y, extent: height },
+          { side: "south", distance: Math.abs(height - y), along: x, extent: width },
+          { side: "west", distance: Math.abs(x), along: y, extent: height },
+        ];
+        const nearest = sides.reduce((best, candidate) => candidate.distance < best.distance ? candidate : best);
+        const offset = nearest.extent > 0 ? Math.max(0, Math.min(1, nearest.along / nearest.extent)) : 0.5;
+        ports.set(port.id, { side: nearest.side, offset });
+      }
       walk(child, x, y);
     }
   };
@@ -144,7 +206,7 @@ async function layOut(result: RenderResult): Promise<AutoLayout> {
     }
   }
   reconcile(result, children, placed, routes);
-  return { nodes: placed, routes };
+  return { nodes: placed, routes, ports };
 }
 
 // reconcile moves each placed node's subtree to the model's place (outermost first), keeps routes
@@ -241,7 +303,7 @@ function reconcile(
     geometry.y = top;
     geometry.width = right - left;
     geometry.height = bottom - top;
-    // The box moved, so routes anchored on its old border are dropped; they are drawn straight.
+    // The box moved, so routes anchored on its old border are dropped; layoutCanvas re-routes them around the boxes.
     for (const [index] of routes) {
       const edge = result.edges![index];
       if (edge.from === node.id || edge.to === node.id) {

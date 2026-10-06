@@ -168,6 +168,40 @@
       }
     },
     {
+      "id": "execute_state/a_requested_trace_reports_transitions",
+      "description": "A state run can return the transition records that explain how its states were reached.",
+      "rpc": "ExecuteState",
+      "requires_capabilities": [
+        "state_trace"
+      ],
+      "model": {
+        "fixture": "behavior.sysml"
+      },
+      "request": {
+        "model_hash": "${model_hash}",
+        "state_machine_symbol_id": "Test::Machine",
+        "trace": true
+      },
+      "expect": {
+        "min_counts": {
+          "trace": 1
+        },
+        "contains_all": {
+          "trace.*.kind": [
+            "transition"
+          ],
+          "trace.*.text": [
+            "transition: init -> Running",
+            "transition: Running -> done"
+          ]
+        }
+      },
+      "expect_without_capability": {
+        "status": "UNIMPLEMENTED",
+        "status_message_contains": "state_trace"
+      }
+    },
+    {
       "id": "execute_state/a_schedule_naming_no_policy_is_invalid",
       "rpc": "ExecuteState",
       "requires_capabilities": [

@@ -438,7 +438,7 @@ every element's verdict and the text `-migration-report` writes, `results` the s
 `-migration-results` writes, and `layout_path`/`layout_content`, `image_base_url` and `strict`
 are the other companion flags. `Convert` refuses a v1 model with the help the command prints.
 How each client exposes the migration is in
-[chapter 9](09-clients.md#writing-a-model-back-out), and the wire fields in
+[the Python client guide](../clients/python/editing-and-saving.md#saving-and-source-fidelity), and the wire fields in
 [reference/wire-contract.md](../reference/wire-contract.md#migration-migrate).
 
 ```python

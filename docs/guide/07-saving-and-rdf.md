@@ -115,6 +115,10 @@ that builds a graph, where an unparsed declaration would be silently dropped.
 `id_form` spells derived element ids when notation is written as a graph, as `-id` does:
 `qualified` (the default) or `uuid`. It is rejected for any other direction, and for any other
 value.
+`documents`, for a `model_hash` that `ParseSources` parsed from several documents, writes only
+the elements the named documents declare; references into the others stay links to the ids
+their own conversion writes. A client that edits one document of a large model converts that
+document again instead of the whole model. The service reports it as `convert_documents`.
 
 A response whose conversion used the RDF mapping sets `experimental` and `experimental_notice`,
 whether it succeeded or refused, so a client can learn the status from the response rather than
@@ -137,7 +141,7 @@ opensysml.convert("sysml", file_path="model.ttl")  # and back
 ```
 
 The client API is documented in [reference/python-api.md](../reference/python-api.md), and
-[chapter 9](09-clients.md#from-python) shows how to use it.
+[the Python client guide](../clients/python/editing-and-saving.md) shows how to use it.
 
 ## Round-tripping
 

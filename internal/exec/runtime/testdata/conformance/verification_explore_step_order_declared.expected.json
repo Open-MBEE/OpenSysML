@@ -1,0 +1,10 @@
+{
+  "libraries": true,
+  "type": "verification",
+  "evaluate": "test::OrderCheck",
+  "schedule": "declared",
+  "verdict": "pass",
+  "verdicts": {
+    "order": "satisfied"
+  }
+}

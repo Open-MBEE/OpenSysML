@@ -1,0 +1,1 @@
+- **Rerouted wires no longer take bends shorter than one grid square** where a straighter route is free, in the VS Code diagram panel and on the landing page.

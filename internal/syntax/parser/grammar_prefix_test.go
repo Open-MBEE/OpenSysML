@@ -164,8 +164,7 @@ func TestNegativePrefixAlternatives(t *testing.T) {
 	}
 }
 
-// TestPrefixAlternativesStillAccepted keeps the single-keyword forms and the
-// arithmetic multiplicity-bound extension parsing clean.
+// TestPrefixAlternativesStillAccepted keeps the single-keyword forms parsing clean.
 func TestPrefixAlternativesStillAccepted(t *testing.T) {
 	tests := []struct {
 		name string
@@ -192,7 +191,6 @@ func TestPrefixAlternativesStillAccepted(t *testing.T) {
 		{"prefix_metadata_quoted_keyword", "a.sysml", "package P { metadata def 'part'; #'part' part def D; }"},
 		{"prefix_metadata_global_name", "a.sysml", "package P { metadata def M; #$::P::M part def D; }"},
 		{"multiplicity_feature_bound", "a.sysml", "package P { attribute n : Integer; part def D; part many [n] : D; }"},
-		{"multiplicity_arithmetic_bound", "a.sysml", "package P { attribute n : Integer; part def D; part many [n+1] : D; }"},
 		{"multiplicity_range", "a.sysml", "package P { part def D; part many [0..*] : D; }"},
 		// A constraint body is a CalculationBody, so it reads the transition extension a calc body does.
 		{"transition_in_constraint_def", "a.sysml", "package P { constraint def C { action a; action b; transition first a then b; } }"},

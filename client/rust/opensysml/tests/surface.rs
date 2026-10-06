@@ -218,6 +218,49 @@ fn a_model_converts_to_notation_and_turtle() {
 }
 
 #[test]
+fn a_model_of_several_documents_converts_only_the_named_ones() {
+    let Some(connection) = service_or_skip() else {
+        return;
+    };
+    if !connection.capabilities().has("convert_documents") {
+        return;
+    }
+    let model = connection
+        .parse_sources(
+            &[
+                SourceDocument::inline("lib.sysml", "package Lib { part def Engine; }"),
+                SourceDocument::inline(
+                    "app.sysml",
+                    "package App { private import Lib::*; part engine : Engine; }",
+                ),
+            ],
+            &Default::default(),
+        )
+        .unwrap();
+    let app = connection
+        .convert(
+            "api-json",
+            &ConvertSource::Model(model.hash().to_owned()),
+            &ConvertOptions {
+                documents: vec!["app.sysml".to_owned()],
+                ..Default::default()
+            },
+        )
+        .unwrap();
+    let elements: Vec<serde_json::Value> = serde_json::from_str(&app.content).unwrap();
+    let written: Vec<&str> = elements
+        .iter()
+        .filter_map(|element| element["@id"].as_str())
+        .collect();
+    assert!(written.contains(&"App__engine"), "{written:?}");
+    assert!(!written.contains(&"Lib__Engine"), "{written:?}");
+    let typed = elements.iter().any(|element| {
+        element["@type"] == "FeatureTyping" && element["type"]["@id"] == "Lib__Engine"
+    });
+    assert!(typed, "App::engine is not typed by Lib__Engine");
+}
+
+#[test]
 fn a_v1_model_is_migrated_and_refused_by_convert() {
     let Some(connection) = service_or_skip() else {
         return;
@@ -428,6 +471,23 @@ fn an_action_runs_explores_and_a_state_machine_steps() {
         "{refused:?}"
     );
 
+    let trace_for_action = RunOptions {
+        trace: true,
+        ..Default::default()
+    };
+    assert!(matches!(
+        model.execute_action("Demo::addFive", &BTreeMap::new(), &trace_for_action),
+        Err(Error::InvalidRequest(message)) if message.contains("state run")
+    ));
+    assert!(matches!(
+        model.explore_action("Demo::race", &BTreeMap::new(), &trace_for_action),
+        Err(Error::InvalidRequest(message)) if message.contains("state run")
+    ));
+    assert!(matches!(
+        model.explore_state::<&str>("Demo::Machine", &[], &trace_for_action),
+        Err(Error::InvalidRequest(message)) if message.contains("one run")
+    ));
+
     let state = model
         .execute_state::<&str>("Demo::Machine", &[], &RunOptions::default())
         .unwrap();
@@ -436,6 +496,22 @@ fn an_action_runs_explores_and_a_state_machine_steps() {
         "{:?}",
         state.states_visited
     );
+    assert!(state.trace.is_empty());
+    let traced = model
+        .execute_state::<&str>(
+            "Demo::Machine",
+            &[],
+            &RunOptions {
+                trace: true,
+                ..Default::default()
+            },
+        )
+        .unwrap();
+    assert_eq!(
+        traced.trace.first().map(|event| event.kind.as_str()),
+        Some("entry")
+    );
+    assert_eq!(traced.trace_dropped, 0);
 }
 
 #[test]

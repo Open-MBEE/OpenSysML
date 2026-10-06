@@ -1241,6 +1241,23 @@ Under `"explore"` every run creates the object graph anew, so the machine is exp
 its assembly and each outcome's `outputs` are the object's features as that run left them,
 spelled as the executed `finalContext` spells them.
 
+Set `trace: true` to include the run's documented `accept`, `send`, `transition`, `entry`,
+`exit`, `do`, `choice` and `guard` records in `trace`, in execution order. Each record carries
+its clock instant as `time`, along with fields relevant to its kind; `text` is the line the
+trace prints. This transition record was captured from a traced `ExecuteState` call for
+`Test::Machine` in `conformance/fixtures/behavior.sysml`:
+
+```json
+{"kind":"transition", "time":{"quantity":{"realMagnitude":0, "unit":"s", "unitTerm":{"scaleNum":1, "scaleDen":1, "factors":[{"unitId":"SI::second", "exponent":1}]}}}, "machine":"Machine", "from":"init", "to":"Running", "text":"transition: init -> Running"}
+```
+
+The `state_trace` capability is checked before sending the option; a service that withholds it
+refuses the request with `UNIMPLEMENTED`. Tracing an explore schedule is `INVALID_ARGUMENT`,
+because one trace describes one run, not the outcomes of several runs. A failed run still returns
+the records made before failure. The response retains the newest records up to the service's
+held-event limit and reports discarded older records as `traceDropped`; without the option,
+`trace` and `traceDropped` are omitted.
+
 ### `EvaluateCalc`
 
 `arguments` is a positional list of `Value`s matching the calc's `in` parameters in order.
@@ -1837,6 +1854,15 @@ reported in `error` and `diagnostics`, as a single document is, and so is an ele
 both declare (`package P` in each), which one graph would merge into one. Ids are scope-qualified
 when the documents together declare more than one identity scope. The command line does the same
 for several files, to a file or standard output: `sysml a.sysml b.sysml -convert api-json`.
+
+`documents`, under the `convert_documents` capability, writes only some documents of such a model:
+each name is one the parse gave a document, and only the elements those documents declare are
+written, with the root namespace of each in the API element form. The model's other documents
+are still read: a reference into one is an `@id` link to the element as a conversion of its own
+document writes it, and an element one of them declares that a written document also declares is
+refused as above. So a client that holds a model's conversion can convert again only the documents
+an edit changed and replace their elements by `@id`. Empty `documents` writes every document. A name
+the model does not hold, or `documents` for a `filePath` or `content`, is `invalid_argument`.
 
 ```console
 $ … /Convert -d '{"filePath":"Vehicle.sysml","toFormat":"ttl"}'

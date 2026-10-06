@@ -1,0 +1,9 @@
+{
+	"type": "action",
+	"evaluate": "test::DecisionGuard",
+	"outcomes": [
+		{"outputs": {"r": {"type": "Integer", "value": 1}}},
+		{"outputs": {"r": {"type": "Integer", "value": 2}}}
+	],
+	"admissible": "Direct statements of one body no succession orders: each is performed, in which order is open"
+}

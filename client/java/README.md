@@ -4,15 +4,18 @@ Java client for OpenSysML: parse, inspect and evaluate SysML v2 models over the
 `sysml-grpc` service, from inside a JVM host application it does not own — an
 Eclipse-based tool, a Cameo plugin, a web service.
 
+For a task-oriented walkthrough, see the
+[Java client guide](https://opensysml.org/clients/java/).
+
 ```xml
 <dependency>
   <groupId>org.openmbee</groupId>
   <artifactId>opensysml</artifactId>
-  <version>0.9.1</version>
+  <version>0.9.2</version>
 </dependency>
 ```
 
-The client version follows the core release (`0.9.1`), but the artifact is not on Maven Central.
+The client version follows the core release (`0.9.2`), but the artifact is not on Maven Central.
 Build and install it into the local repository from a checkout:
 
 ```bash

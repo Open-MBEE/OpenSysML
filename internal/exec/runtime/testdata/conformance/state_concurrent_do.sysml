@@ -14,8 +14,8 @@ package Test {
             state lwork {
                 do {
                     assign seq := seq * 10 + 1;
-                    assign seq := seq * 10 + 2;
-                    assign seq := seq * 10 + 3;
+                    then assign seq := seq * 10 + 2;
+                    then assign seq := seq * 10 + 3;
                 }
             }
             state ldone;
@@ -30,8 +30,8 @@ package Test {
             state rwork {
                 do {
                     assign seq := seq * 10 + 4;
-                    assign seq := seq * 10 + 5;
-                    assign seq := seq * 10 + 6;
+                    then assign seq := seq * 10 + 5;
+                    then assign seq := seq * 10 + 6;
                 }
             }
             state rdone;
