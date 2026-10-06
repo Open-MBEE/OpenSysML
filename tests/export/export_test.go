@@ -4193,3 +4193,29 @@ func TestChainMembersAreQualifiedOnlyWhereTheirNameReadsAsAnother(t *testing.T) 
 		}
 	}
 }
+
+// An accept node from a graph that states the metamodel alone, its payload
+// named by sysml:payloadParameter and flagged by no sysml:isAccept, comes
+// back as the same accept the flag gives.
+func TestAcceptNodeComesBackFromItsPayloadParameter(t *testing.T) {
+	src := "package P {\n    item def Order;\n    action def A {\n        action receive accept order : Order;\n        accept Order;\n    }\n}\n"
+	turtle, err := convert.Convert("m.sysml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
+	if err != nil {
+		t.Fatalf("to turtle: %v", err)
+	}
+	graph := withoutTriples(t, turtle, "sysx:sourceText")
+	flagged, err := convert.Convert("m.ttl", graph, convert.FormatTurtle, convert.FormatSysML)
+	if err != nil {
+		t.Fatalf("back to notation: %v", err)
+	}
+	unflagged, err := convert.Convert("m.ttl", withoutTriples(t, graph, "sysml:isAccept"), convert.FormatTurtle, convert.FormatSysML)
+	if err != nil {
+		t.Fatalf("back to notation without sysml:isAccept: %v", err)
+	}
+	if string(unflagged) != string(flagged) {
+		t.Errorf("without sysml:isAccept the accept nodes come back as\n%s\nnot as\n%s", unflagged, flagged)
+	}
+	if !strings.Contains(string(flagged), "action receive accept order : Order;") {
+		t.Errorf("the accept node did not come back:\n%s", flagged)
+	}
+}
