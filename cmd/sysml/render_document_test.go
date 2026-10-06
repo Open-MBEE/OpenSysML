@@ -93,6 +93,7 @@ func TestRenderDocumentDiagramForm(t *testing.T) {
 		"mermaid":  "telescope_report.golden.md",
 		"dot":      "telescope_report.dot.golden.md",
 		"plantuml": "telescope_report.plantuml.golden.md",
+		"d2":       "telescope_report.d2.golden.md",
 	}
 	for form, name := range goldens {
 		golden, err := os.ReadFile(filepath.Join("..", "..", "internal", "doc", "docrender", "testdata", name))
@@ -118,6 +119,11 @@ func TestRenderDocumentDiagramForm(t *testing.T) {
 	} else if !strings.Contains(string(puml), "```plantuml\n@startuml\n") || strings.Contains(string(puml), "```mermaid") || !strings.Contains(string(puml), "| name | mass |") {
 		t.Errorf("plantuml rendering does not write PlantUML diagrams next to pipe tables:\n%s", puml)
 	}
+	if d2, err := exec.Command(binary, fixture, "-render-document", "Observatory::MassReport", "-diagram-form", "d2").Output(); err != nil {
+		t.Fatal(err)
+	} else if !strings.Contains(string(d2), "```d2\n# Observatory::interconnectView") || strings.Contains(string(d2), "```mermaid") || !strings.Contains(string(d2), "| name | mass |") {
+		t.Errorf("d2 rendering does not write D2 diagrams next to pipe tables:\n%s", d2)
+	}
 
 	wantReport(t, check(t, binary, documentModel, "-render-document", "Reports::MassReport", "-diagram-form", "svg"),
 		2, `unknown diagram form "svg"`, "-diagram-form takes mermaid, dot, plantuml")
@@ -127,6 +133,21 @@ func TestRenderDocumentDiagramForm(t *testing.T) {
 		2, "-diagram-form", "apply to -render-document and -render-documents")
 	wantReport(t, check(t, binary, documentModel, "-render", "SomeView", "-render-form", "dot"),
 		2, "SomeView")
+}
+
+func TestRenderDocumentDiagramSourceLinks(t *testing.T) {
+	binary := buildCLI(t)
+	fixture := filepath.Join("..", "..", "internal", "doc", "docrender", "testdata", "telescope_report.sysml")
+	template := "https://example.test/src/{file}#L{line}"
+	cmd := exec.Command(binary, fixture, "-render-document", "Observatory::MassReport", "-diagram-form", "plantuml", "-render-link", template)
+	out, err := cmd.Output()
+	if err != nil {
+		t.Fatalf("render linked document: %v", err)
+	}
+	want := "https://example.test/src/" + filepath.ToSlash(fixture) + "#L"
+	if !strings.Contains(string(out), want) || !strings.Contains(string(out), "[[") {
+		t.Errorf("document diagrams lack source links to %q:\n%s", want, out)
+	}
 }
 
 // TestRenderDocumentCommittedFixture renders the renderer's committed fixture

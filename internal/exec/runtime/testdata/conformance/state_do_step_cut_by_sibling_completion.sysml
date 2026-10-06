@@ -12,7 +12,7 @@ package Test {
 			state left {
 				entry; then l1;
 				state l1 {
-					do { assign log := log + "a "; assign log := log + "b "; }
+					do { assign log := log + "a "; then assign log := log + "b "; }
 				}
 			}
 			state right {

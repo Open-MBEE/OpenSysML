@@ -503,3 +503,34 @@ func TestAnalyzeRefusesANestedFlowBeforeLookingInside(t *testing.T) {
 		})
 	}
 }
+
+// TestAnalyzeRefusesBodyInterleaving: another fork branch may run between a body's
+// start shot and its assignment, which the encoding cannot express, so it refuses the
+// flow as not encoded; a body of one assignment runs as one move and is encoded.
+func TestAnalyzeRefusesStatementOrder(t *testing.T) {
+	_, err := Analyze(conformanceAction(t, "action_explore_statement_order_dependent.sysml", "test::Order"), nil, 10)
+	var unsupported *UnsupportedError
+	if !errors.As(err, &unsupported) || !errors.Is(err, ErrNotEncoded) {
+		t.Fatalf("Analyze: got %v, want an UnsupportedError", err)
+	}
+	if unsupported.Construct != "statement order" || unsupported.Node != "s" {
+		t.Errorf("refusal names %q/%q, want node s, construct statement order", unsupported.Node, unsupported.Construct)
+	}
+	if _, err := Analyze(conformanceAction(t, "action_explore_statement_order_independent.sysml", "test::Independent"), nil, 10); errors.As(err, &unsupported) && unsupported.Construct == "statement order" {
+		t.Errorf("Analyze refused a body whose statements commute: %v", err)
+	}
+}
+
+func TestAnalyzeRefusesBodyInterleaving(t *testing.T) {
+	_, err := Analyze(conformanceAction(t, "action_explore_body_fork_lost_update.sysml", "test::ForkPlain"), nil, 10)
+	var unsupported *UnsupportedError
+	if !errors.As(err, &unsupported) || !errors.Is(err, ErrNotEncoded) {
+		t.Fatalf("Analyze: got %v, want an UnsupportedError", err)
+	}
+	if unsupported.Construct != "body interleaving" || (unsupported.Node != "a" && unsupported.Node != "b") {
+		t.Errorf("refusal names %q/%q, want node a or b, construct body interleaving", unsupported.Node, unsupported.Construct)
+	}
+	if _, err := Analyze(conformanceAction(t, "action_join_waits_for_slowest_branch.sysml", "test::gather"), nil, 10); errors.As(err, &unsupported) && unsupported.Construct == "body interleaving" {
+		t.Errorf("Analyze refused a flow whose bodies are one move each: %v", err)
+	}
+}

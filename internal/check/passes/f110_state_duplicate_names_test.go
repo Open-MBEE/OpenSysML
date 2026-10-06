@@ -34,7 +34,9 @@ func TestDuplicateSimpleStateNames(t *testing.T) {
 		{"states in state def", "package P { state def S { state red; state red; } }", 2},
 		{"states in state usage", "package P { state s { state red; state red; } }", 2},
 		{"states in part def", "package P { part def C { state red; state red; } }", 2},
-		{"state against attribute", "package P { state def S { attribute red; state red; } }", 2},
+		// AttributeUsage and StateUsage conform to neither other, so the two
+		// members are distinguishable by metaclass (KerML 8.3.2.4.3).
+		{"state against attribute", "package P { state def S { attribute red; state red; } }", 0},
 		{"state in nested state", "package P { state def S { state r { state x; state x; } } }", 2},
 		{"distinct states", "package P { state def S { state red; state green; } }", 0},
 		{"same name in sibling states",

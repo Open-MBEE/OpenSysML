@@ -428,13 +428,11 @@ selection, a caller-specified selection, or all of them:
 Choosing the gripper forced the radio uplink and the heavier wheels: of the eight
 builds the three variation points spell, five are consistent.
 
-`%optimize` improves an analysis case's objectives, lexicographically when it
-states several:
+`%optimize` improves an analysis case's objective:
 
 ```
 %optimize RobotSolver::BestRun
 %optimize RobotSolver::LightestRobot
-%optimize RobotSolver::FarthestThenTool
 ```
 
 ```
@@ -445,15 +443,11 @@ states several:
   RobotSolver::BestRun::toolEnergy = 700
 ✓ Analysis LightestRobot is optimized (z3, 6ms)
   minimize lightest = `mass`: 300000.0 [gram]
-✓ Analysis FarthestThenTool is optimized (z3, 8ms)
-  maximize farthest = `standoff`: 120
-  maximize mostToolTime = `toolEnergy`: 420
 ```
 
 The best call-out drives the least the plan allows and spends the rest on tool
-time; the two-objective case keeps the longest standoff first, and takes the most
-tool time among the plans that keep it. `LightestRobot`'s optimum is a quantity,
-and is reported in grams, the unit the runtime normalizes mass to.
+time. `LightestRobot`'s optimum is a quantity, and is reported in grams, the unit
+the runtime normalizes mass to.
 
 ### Views
 
@@ -514,7 +508,7 @@ system and the computer.
 
 [`robot_demo.py`](robot_demo.py) asks the same questions through the `opensysml`
 client, which talks to the `sysml-grpc` service
-([guide chapter 9](../../docs/guide/09-clients.md#from-python) covers installing both):
+(the [Python client guide](../../docs/clients/python/index.md) covers installing both):
 
 ```bash
 pip install opensysml

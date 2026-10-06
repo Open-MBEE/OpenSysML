@@ -27,9 +27,20 @@ executable cache without release metadata is preserved.
 
 The digest pinned in the Python package is authoritative when one is
 available; a signed checksum manifest that disagrees with that pin is an
-integrity failure. For a release newer than the package's digest table, the
-client verifies the release manifest's signature and uses its digest. A
-server-provided `.sha256` sidecar alone is not a trust anchor. If the release
+integrity failure. A release of `opensysml` pins its own core release: the
+release pipeline builds the five `sysml-grpc-*` binaries first, hashes them and
+stamps their digests under the release tag into the `release-digests.json` the
+wheel and sdist package, before building them (`pin_release_checksums.py
+--from-binaries`; the job fails if the built wheel lacks any of the five). So
+`pip install opensysml==X.Y.Z` followed by `opensysml.connect()` verifies the
+service it downloads against a digest inside the wheel, with no environment
+variable and no `sigstore` at run time. For another release, or one newer than
+the package's digest table, the client verifies the release manifest's
+signature with `sigstore` and uses its digest. If `sigstore` (or a package it
+depends on) is not installed, the download is refused rather than taken
+unverified, and the `SigstoreUnavailableError` names the missing package and
+its install, `python -m pip install 'sigstore>=4.5.0,<5'`. A server-provided
+`.sha256` sidecar alone is not a trust anchor. If the release
 or platform asset is unavailable, a working cache remains in use; otherwise
 an executable on `$PATH` may be used with a warning. If none is available,
 `ConnectionError` names the release tags tried and suggests building the
@@ -52,10 +63,11 @@ the requested one. The cache decision and replacement use a shared file lock;
 the executable is started through a digest-named link created while that lock
 is held, so another client cannot replace it between resolution and startup.
 
-At release time, the repository's pinning script hashes service assets and
-checks that any release `.sha256` sidecar agrees. The signed checksum manifest
-is verified independently. `--check` re-hashes each pinned release so a
-republished asset that differs from its pin is detected.
+After a release, the same pinning script (`--write`) downloads the published
+service assets, hashes them, checks that any release `.sha256` sidecar agrees
+and back-fills the committed table, so later releases pin that one too. The
+signed checksum manifest is verified independently. `--check` re-hashes each
+pinned release so a republished asset that differs from its pin is detected.
 
 A binary supplied through `$OPENSYSML_BINARY` or `$PATH` is started as found:
 it is not copied into the shared cache and is not checked against pinned

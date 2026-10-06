@@ -162,6 +162,9 @@ func TestRenderViewSnapshotHoldsEveryDocumentAsRendered(t *testing.T) {
 	if err != nil {
 		t.Fatalf("render: %v", err)
 	}
+	if snapshot.Sites() != nil {
+		t.Error("plain RenderView returned source sites")
+	}
 	if snapshot.Rendered != ws.Document("views.sysml") {
 		t.Error("Rendered is not the document the rendering was asked of")
 	}
@@ -191,6 +194,95 @@ func TestRenderViewSnapshotHoldsEveryDocumentAsRendered(t *testing.T) {
 	}
 	if got := string(rendered.Content[rotor.Origin.Span.Offset : rotor.Origin.Span.Offset+rotor.Origin.Span.Len]); !strings.HasPrefix(got, "part rotor;") {
 		t.Errorf("rotor's span in the snapshot's text spells %q, want the declaration", got)
+	}
+}
+
+func TestRenderViewLinkedFreezesNodePortAndEdgeSites(t *testing.T) {
+	const model = `package Plant {
+	port def FluidPort;
+	item def Water;
+	part def Pump {
+		port outlet : FluidPort;
+		out item waterOut : Water;
+	}
+	part def Tank {
+		port inlet : FluidPort;
+		in item waterIn : Water;
+	}
+	part def Loop {
+		part pump : Pump;
+		part tank : Tank;
+		connection supply : Connection connect pump.outlet to tank.inlet;
+		flow of Water from pump.waterOut to tank.waterIn;
+	}
+	connection def Connection;
+}
+package PlantViews {
+	private import Views::*;
+	view loopView {
+		expose Plant::Loop;
+		render asInterconnectionDiagram;
+	}
+}
+`
+	ws := openDoc(t, "linked.sysml", model)
+	if _, plain, err := ws.RenderView("linked.sysml", "PlantViews::loopView"); err != nil {
+		t.Fatalf("plain render: %v", err)
+	} else if plain.Sites() != nil {
+		t.Fatal("plain RenderView returned source sites")
+	}
+
+	rendering, snapshot, err := ws.RenderViewLinked("linked.sysml", "PlantViews::loopView")
+	if err != nil {
+		t.Fatalf("linked render: %v", err)
+	}
+	sites := snapshot.Sites()
+	if sites == nil {
+		t.Fatal("RenderViewLinked returned no source sites")
+	}
+
+	want := map[view.Origin]view.Site{}
+	counts := map[string]int{}
+	check := func(origin view.Origin, kind string) {
+		if !origin.Located() || origin.Doc != "linked.sysml" {
+			return
+		}
+		site, ok := sites(origin)
+		if !ok {
+			t.Errorf("%s origin %+v has no frozen site", kind, origin)
+			return
+		}
+		if site.File != "linked.sysml" || site.Line < 1 || site.Col < 1 {
+			t.Errorf("%s site = %+v, want a file and source position", kind, site)
+		}
+		want[origin] = site
+		counts[kind]++
+	}
+	var visit func([]*view.Node)
+	visit = func(nodes []*view.Node) {
+		for _, node := range nodes {
+			check(node.Origin, "node")
+			for _, port := range node.Ports {
+				check(port.Origin, "port")
+			}
+			visit(node.Children)
+		}
+	}
+	visit(rendering.Roots)
+	for _, edge := range rendering.Edges {
+		check(edge.Origin, "edge")
+	}
+	for _, kind := range []string{"node", "port", "edge"} {
+		if counts[kind] == 0 {
+			t.Errorf("rendering had no located %s origins", kind)
+		}
+	}
+
+	ws.Update("linked.sysml", []byte("// newer workspace generation\n"+model), 2)
+	for origin, wantSite := range want {
+		if got, ok := sites(origin); !ok || got != wantSite {
+			t.Errorf("frozen site for %+v = %+v, %t; want %+v, true", origin, got, ok, wantSite)
+		}
 	}
 }
 

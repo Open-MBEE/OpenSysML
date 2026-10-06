@@ -1,0 +1,13 @@
+{
+  "include": [
+    "metamodel_usage.py",
+    "../../opensysml/metamodel"
+  ],
+  "extraPaths": [
+    "../.."
+  ],
+  "pythonVersion": "3.10",
+  "typeCheckingMode": "strict",
+  "reportUnnecessaryTypeIgnoreComment": true,
+  "enableTypeIgnoreComments": false
+}

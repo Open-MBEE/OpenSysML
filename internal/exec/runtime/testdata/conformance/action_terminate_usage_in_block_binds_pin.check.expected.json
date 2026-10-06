@@ -1,0 +1,5 @@
+{
+	"verdict": "violation",
+	"agreed": {"result": "42", "y": "0", "z": "3"},
+	"failures": ["assignment to result: multiplicity violation: 0 value(s) bound to a feature with multiplicity lower bound 1"]
+}

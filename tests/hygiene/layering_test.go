@@ -125,6 +125,7 @@ var packageLayer = map[string]string{
 	"internal/frontend/grpc":        "frontend",
 	"internal/frontend/engine":      "frontend",
 	"internal/frontend/core":        "frontend",
+	"internal/frontend/combined":    "frontend",
 	"internal/frontend/jsonrpc":     "frontend",
 	"internal/frontend/symbolfacts": "frontend",
 	"internal/frontend/syntax":      "frontend",
@@ -136,6 +137,7 @@ var packageLayer = map[string]string{
 	"cmd/sysml-engine":              "frontend",
 	"cmd/sysml-syntax":              "frontend",
 	"cmd/sysml-core":                "frontend",
+	"cmd/sysml-wasm":                "frontend",
 
 	"internal/frontend/repl/replext":               "frontend",
 	"internal/frontend/repl/replext/all":           "frontend",

@@ -276,8 +276,9 @@ func TestActionStepMultiplicityPassAdmitsFalseGuardIntoSinglePerformance(t *test
 func TestActionStepMultiplicityPassReportsUnaddressableBoundAsUnsupported(t *testing.T) {
 	got := actionStepMultiplicityDiags(t, `package test {
 		action def A {
+			attribute big = 2**70;
 			first start then a;
-			action a[2**70];
+			action a[big];
 			then done;
 		}
 	}`)
@@ -295,7 +296,8 @@ func TestActionStepMultiplicityPassReportsUnaddressableBoundAsUnsupported(t *tes
 
 func TestActionStepMultiplicityPassReportsUnaddressableConcurrentStartAsUnsupported(t *testing.T) {
 	got := actionStepMultiplicityDiags(t, `action def A {
-		action a[2**70];
+		attribute big = 2**70;
+		action a[big];
 	}`)
 	if len(got) != 1 {
 		t.Fatalf("diagnostics = %+v, want one action-step warning", got)

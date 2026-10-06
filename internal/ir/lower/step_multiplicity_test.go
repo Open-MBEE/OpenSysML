@@ -61,8 +61,9 @@ func TestActionGraphRejectsUnaddressableStepAndSuccessionBounds(t *testing.T) {
 		{
 			name: "single bound",
 			model: `action def A {
+				attribute n = 2**70;
 				first start then a;
-				action a[2**70];
+				action a[n];
 				then done;
 			}`,
 			step: "a",
@@ -70,8 +71,9 @@ func TestActionGraphRejectsUnaddressableStepAndSuccessionBounds(t *testing.T) {
 		{
 			name: "equal range",
 			model: `action def A {
+				attribute n = 2**70;
 				first start then a;
-				action a[2**70..2**70];
+				action a[n..n];
 				then done;
 			}`,
 			step: "a",
@@ -79,8 +81,9 @@ func TestActionGraphRejectsUnaddressableStepAndSuccessionBounds(t *testing.T) {
 		{
 			name: "upper range bound",
 			model: `action def A {
+				attribute n = 2**70;
 				first start then a;
-				action a[1..2**70];
+				action a[1..n];
 				then done;
 			}`,
 			step: "a",
@@ -98,9 +101,10 @@ func TestActionGraphRejectsUnaddressableStepAndSuccessionBounds(t *testing.T) {
 		{
 			name: "succession end",
 			model: `action def A {
+				attribute n = 2**70;
 				action p;
 				action a[3];
-				succession first [1] p then [2**70] a;
+				succession first [1] p then [n] a;
 			}`,
 			step:            "a",
 			successionBound: true,

@@ -522,6 +522,64 @@ func TestFirstThenWithDisagreeingEndsIsRefused(t *testing.T) {
 	}
 }
 
+// A `first a then b` end with no ReferenceSubsetting or sysml:references
+// target is refused, with or without its source text: the notation would
+// invent the end's target from sysml:sourceFeature/targetFeature.
+func TestFirstThenWithAnUntargetedEndIsRefused(t *testing.T) {
+	src := "package P {\n    action def Step;\n    action def A {\n        action a : Step;\n        action b : Step;\n" +
+		"        first a then b;\n    }\n}\n"
+	turtle, err := convert.Convert("m.sysml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
+	if err != nil {
+		t.Fatalf("to turtle: %v", err)
+	}
+	const subsetting = "P__A___402_pend1_prs"
+	// untarget drops the second end's ReferenceSubsetting and every triple naming it.
+	untarget := func(graph string) string {
+		var blocks []string
+		for _, block := range strings.Split(graph, "\n\n") {
+			if strings.HasPrefix(block, "expr:"+subsetting+"\n") {
+				continue
+			}
+			var kept []string
+			for _, line := range strings.Split(block, "\n") {
+				if !strings.Contains(line, subsetting) {
+					kept = append(kept, line)
+				}
+			}
+			for i := len(kept) - 1; i >= 0; i-- {
+				if trimmed := strings.TrimRight(kept[i], "\n"); strings.HasSuffix(trimmed, " ;") {
+					kept[i] = strings.TrimSuffix(trimmed, " ;") + " ."
+					break
+				} else if strings.HasSuffix(trimmed, " .") {
+					break
+				}
+			}
+			blocks = append(blocks, strings.Join(kept, "\n"))
+		}
+		edited := strings.Join(blocks, "\n\n")
+		if edited == graph {
+			t.Fatalf("nothing was untargeted:\n%s", graph)
+		}
+		return edited
+	}
+	for _, graph := range []struct {
+		name   string
+		turtle string
+	}{
+		{"with source text", string(turtle)},
+		{"graph only", string(withoutTriples(t, turtle, "sysx:sourceText"))},
+	} {
+		t.Run(graph.name, func(t *testing.T) {
+			_, err := convert.Convert("m.ttl", []byte(untarget(graph.turtle)), convert.FormatTurtle, convert.FormatSysML)
+			var unsupported *export.UnsupportedError
+			const want = "has no ReferenceSubsetting or sysml:references target"
+			if !errors.As(err, &unsupported) || !strings.Contains(err.Error(), want) {
+				t.Errorf("expected the untargeted end to be refused with %q, got %v", want, err)
+			}
+		})
+	}
+}
+
 // A `first a then b` end declaring a name, or bounds on its source end, is
 // refused, with or without its source text: the notation writes each end as
 // the bare feature it names and bounds only on the target (`first a then

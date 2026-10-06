@@ -15,10 +15,8 @@ package test {
 
 		action receiver accept msg : Integer;
 
-		action processor {
-			if msg > 5 { assign total := msg * 2; }
-			while total < 20 { assign total := total + msg; }
-		}
+		action processor if msg > 5 { assign total := msg * 2; }
+		then while total < 20 { assign total := total + msg; }
 
 		done;
 

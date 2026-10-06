@@ -48,6 +48,10 @@ connecting to models.
     options:
       heading_level: 3
 
+::: opensysml.read_json
+    options:
+      heading_level: 3
+
 ::: opensysml.parse_sources
     options:
       heading_level: 3
@@ -80,6 +84,59 @@ connecting to models.
     options:
       heading_level: 3
 
+## Metamodel classes and the JSON reader
+
+`opensysml.generate` creates classes for definitions in a user's SysML model. The separate
+`opensysml.metamodel` package contains generated classes for the SysML metamodel itself. Use
+`opensysml.read_json` to wrap an exported JSON document without starting a service:
+
+```python
+import opensysml
+from opensysml.metamodel import PartDefinition, PartUsage
+
+graph = opensysml.read_json("vehicle.json")
+vehicle = next(
+    definition for definition in graph.all(PartDefinition)
+    if definition.declared_name == "Vehicle"
+)
+print([feature.declared_name for feature in vehicle.owned_feature])
+for part in graph.all(PartUsage):
+    print(part.declared_name)
+```
+
+Elements use the metaclass inheritance hierarchy, so `isinstance(part, Feature)` works. Property
+names use `snake_case` primarily (`owned_feature`) and expose their SysML `camelCase` spelling as
+an alias (`ownedFeature`) to the same descriptor. `PartUsage.from_json_key("partDefinition")`
+returns the primary Python name, and `PartUsage.json_key("part_definition")` returns the JSON key.
+Strings passed to `read_json` are file paths, not JSON text; bytes, mappings, and sequences of
+element mappings are also accepted. The reader understands DataVersion and Commit envelopes.
+Reference targets are checked against their declared metaclass ranges by default; pass
+`check_ranges=False` to return out-of-range targets as written.
+
+Missing keys raise `NotSupplied`, including absent multi-valued properties. Dangling `@id` and
+unresolved `@ref` values raise `UnresolvedReference` when accessed. Invalid document structure
+raises `MalformedDocument`, and a value outside its declared type raises `MalformedValue`.
+These exceptions share `MetamodelError`, a subclass of `opensysml.errors.OpenSysMLError`:
+
+| Error | Raised when |
+| --- | --- |
+| `NotSupplied` | A declared JSON key is absent; `.derived` identifies computed properties. |
+| `UnresolvedReference` | A reference's `@id` is absent from the graph or its `@ref` cannot be resolved. |
+| `MalformedValue` | A property value has the wrong primitive, enum, array, or reference shape, or (when range checks are enabled) a reference targets the wrong metaclass. |
+| `MalformedDocument` | The input is not an element object/array, or has missing/duplicate IDs or types. |
+| `UnknownJSONKey` | A JSON key is not declared for the selected metaclass. |
+
+OpenSysML's `api-json` export carries the owned properties it writes plus some derived ones
+(`ownedFeature`, `owner`, `qualifiedName`, `ownedMember`, ...). It carries no `feature`,
+`inheritedFeature` or `definition`, and `type` only on some usages, so those reads raise
+`NotSupplied` with `derived=True` until the engine serves derived properties. The export also
+writes no `null` and no `[]`: an unset owned property, such as an unnamed element's
+`declaredName`, is absent and raises `NotSupplied` too. sysml-toolkit `full-json` carries derived
+properties as well. A reference to an element the document does not include, such as a
+standard-library element, raises `UnresolvedReference` when read.
+Providing engine-computed derived properties, implementing metamodel operations, and loading JSON
+into the OpenSysML engine are separate follow-up work.
+
 ## opensysml.connection
 
 Connections own or reach a service, and resolve their address and release.
@@ -99,6 +156,14 @@ A parsed model is the entry point for symbol lookup, evaluation and execution.
 ::: opensysml.Model
     options:
       heading_level: 3
+
+`Model.execute_state(..., trace=True)` returns typed `DocumentEvent` records in
+the result's `trace` list and the discarded-record count in `trace_dropped`.
+The option is capability-gated by `state_trace` and cannot be combined with an
+explore schedule; the same option and result fields are available on
+`Connection.execute_state`.
+A failed traced run raises the existing `ExecutionError`, with its partial
+records on `trace` and discarded count on `trace_dropped`.
 
 ## opensysml.symbol
 
@@ -441,6 +506,10 @@ The public exception hierarchy for client, service, model and edit failures.
       heading_level: 3
 
 ::: opensysml.UnsignedReleaseError
+    options:
+      heading_level: 3
+
+::: opensysml.SigstoreUnavailableError
     options:
       heading_level: 3
 

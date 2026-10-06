@@ -12,6 +12,7 @@ service error came from an RPC, the original `grpc.RpcError` is available as
 | `ChecksumMismatchError` | downloaded bytes contradict a pinned digest |
 | `ManifestSignatureError` | the release checksum manifest's signature is invalid |
 | `UnpinnedReleaseError` | no digest is pinned for the requested release |
+| `SigstoreUnavailableError` | the `sigstore` package (or one it depends on) is missing, so a signed manifest cannot be checked; names the install |
 | `StaleServiceError` | an explicitly reached service reports another release |
 | `ModelError` | strict loading found error diagnostics |
 | `SymbolNotFoundError` | a requested symbol is absent |

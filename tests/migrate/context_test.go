@@ -120,6 +120,71 @@ func TestUnownedActivityAcceptsViaThePortsOfTheBlocksRunningIt(t *testing.T) {
 	}
 }
 
+// A call from a block holding one part of the callee's context type binds that
+// part — through the block's def in an action, through the machine's context in a state.
+func TestCalleeContextBindsTheCallersOnePartOfItsType(t *testing.T) {
+	model := strings.Replace(hostedWait, `<ownedConnector xmi:type="uml:Connector" xmi:id="_link">`, `<ownedAttribute xmi:type="uml:Property" xmi:id="_got" name="got">
+        <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Integer"/>
+        <defaultValue xmi:type="uml:LiteralInteger" xmi:id="_got0" value="0"/>
+      </ownedAttribute>
+      <ownedBehavior xmi:type="uml:Activity" xmi:id="_drive" name="Drive">
+        <node xmi:type="uml:InitialNode" xmi:id="_di"/>
+        <node xmi:type="uml:CallBehaviorAction" xmi:id="_driveAwait" name="await" behavior="_await"/>
+        <node xmi:type="uml:ValueSpecificationAction" xmi:id="_dOne" name="one">
+          <value xmi:type="uml:LiteralInteger" xmi:id="_dOneV" value="1"/>
+          <result xmi:type="uml:OutputPin" xmi:id="_dOneOut" name="result"/>
+        </node>
+        <node xmi:type="uml:AddStructuralFeatureValueAction" xmi:id="_dSet" name="set got" structuralFeature="_got" isReplaceAll="true">
+          <value xmi:type="uml:InputPin" xmi:id="_dSetVal" name="value"/>
+        </node>
+        <node xmi:type="uml:ActivityFinalNode" xmi:id="_df"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_de1" source="_di" target="_driveAwait"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_de2" source="_driveAwait" target="_dOne"/>
+        <edge xmi:type="uml:ObjectFlow" xmi:id="_dof" source="_dOneOut" target="_dSetVal"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_de3" source="_dSet" target="_df"/>
+      </ownedBehavior>
+      <ownedBehavior xmi:type="uml:StateMachine" xmi:id="_rigLife" name="RigLife">
+        <region xmi:type="uml:Region" xmi:id="_rlr">
+          <subvertex xmi:type="uml:Pseudostate" xmi:id="_rlinit"/>
+          <subvertex xmi:type="uml:State" xmi:id="_rlWaiting" name="listening" doActivity="_await"/>
+          <subvertex xmi:type="uml:State" xmi:id="_rlDone" name="heard"/>
+          <transition xmi:type="uml:Transition" xmi:id="_rlt0" source="_rlinit" target="_rlWaiting"/>
+          <transition xmi:type="uml:Transition" xmi:id="_rlt1" source="_rlWaiting" target="_rlDone"/>
+        </region>
+      </ownedBehavior>
+      <ownedConnector xmi:type="uml:Connector" xmi:id="_link">`, 1)
+	r := migrateDocument(t, model, hostedWaitApplications)
+	for _, line := range []string{
+		"action await : Await { in ref :>> context = Rig::h; }",
+		"do action : Await { in ref :>> context = RigLife::context.h; }",
+	} {
+		wantLine(t, r.Notation, line)
+	}
+	wantNoLine(t, r.Notation, "this.h")
+	wantNote(t, r, "_driveAwait", migrate.Approximated, "the behavior acts on a Host through its parameter context, which is bound to Rig::h, the caller's one part that is one")
+	wantClean(t, "t.sysml", r)
+
+	s := session(t, r)
+	meta(t, s, "%instantiate Rig")
+	meta(t, s, "%action Sender::fire #1.s")
+	meta(t, s, "%continue")
+	meta(t, s, "%action Rig::drive #1")
+	meta(t, s, "%continue")
+	if out := meta(t, s, "%eval in #1 : got"); !strings.Contains(out, "= 1") {
+		t.Errorf("the call did not take the signal sent to the caller's part: %s", out)
+	}
+
+	s = session(t, r)
+	meta(t, s, "%instantiate Rig")
+	meta(t, s, "%state Rig::RigLife #1")
+	meta(t, s, "%action Sender::fire #1.s")
+	meta(t, s, "%continue")
+	meta(t, s, "%advance 0")
+	if out := meta(t, s, "%current"); !strings.Contains(out, "Current state: heard") {
+		t.Errorf("the do activity did not take the signal sent to the caller's part:\n%s", out)
+	}
+}
+
 func TestRelativeAcceptEventReadsOwnerFeature(t *testing.T) {
 	r := migrateDocument(t, `
     <packagedElement xmi:type="uml:Class" xmi:id="_host" name="Host">

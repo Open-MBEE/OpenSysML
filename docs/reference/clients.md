@@ -1,15 +1,16 @@
 # Client libraries
 
 OpenSysML can be reached from a program in seven ways: the Go API, which runs in the calling
-process, and six clients of the `sysml-grpc` service. This page describes how to choose between
-them, what each covers and what each intentionally leaves out. Each client has an API reference of
-its own, and the [client guides](../clients.md) walk through a task with each one.
+process, and six clients of the `sysml-grpc` service. The Node client can also run the combined
+`sysml-wasm` module directly. This page describes how to choose between them, what each covers
+and what each intentionally leaves out. Each client has an API reference of its own, and the
+[client guides](../clients.md) walk through a task with each one.
 
 | Surface | Reaches the engine by | Published | Full reference |
 |---|---|---|---|
 | **Go**, `client/opensysml` | in process; or Connect, to a service someone else runs | with the core (`v*` tags) | [Go packages](api.md) |
 | **Python**, `opensysml` | gRPC, to a private child service or a named service | PyPI, on the core `v*` tags, at the core's version | [Python API](python-api.md) |
-| **Node/TypeScript**, `@openmbee/opensysml` | Connect, to a private child service, a named service, or one a browser page addresses | npm, on core `v*` tags, with per-platform binary packages | [Node API](node-api.md) |
+| **Node/TypeScript**, `@openmbee/opensysml` | Connect to a service, or directly to the combined `sysml-wasm` module | npm, on core `v*` tags, with per-platform binary packages | [Node API](node-api.md) |
 | **Java**, `org.openmbee:opensysml` | Connect, over the JDK's own HTTP client | not on Maven Central; build from a checkout | [Java API](java-api.md) |
 | **Rust**, `opensysml` | Connect, blocking, no async runtime | crates.io, on core `v*` tags, at the core version | [Rust API](rust-api.md) |
 | **Julia**, `OpenSysML` | Connect-JSON, over `HTTP.jl` | not in General; develop from a checkout | [Julia API](julia-api.md) |
@@ -28,7 +29,8 @@ The protocols and what the service serves on a single port are described in
 - **In a notebook: Python.** `opensysml` adds generated typed classes, Jupyter display hooks and
   DataFrame integration to the full RPC surface.
 - **In a browser or a Node service: `@openmbee/opensysml`.** No native addon, and the browser entry
-  point needs only `fetch` against a service that allows the page's origin.
+  point needs only `fetch` against a service that allows the page's origin. Node and browser
+  callers can also use the combined `sysml-wasm` module without a service.
 - **In a JVM host application the caller does not control (an Eclipse-based tool, a Cameo plugin,
   a web application): Java.** Its transport is `java.net.http.HttpClient`, so no gRPC, Netty or
   `tcnative` dependency reaches the host application.
@@ -42,11 +44,13 @@ The protocols and what the service serves on a single port are described in
 
 The Go, Java, Julia and MATLAB clients each reach every RPC the service has — the Julia
 and MATLAB ones through `call`/`callRaw` under the wrapped functions, so nothing on the wire is
-out of reach — and so do the Python, Node and Rust clients.
+out of reach — and so do the Python, Node's Connect transport and Rust clients.
 
 ## What the newer surfaces cover
 
-The Node client covers everything the Python one does, the whole service surface included.
+The Node client's Connect transport covers everything the Python one does, the whole service
+surface included. Its `connectWasm()` adapter instead exposes the combined module's supported
+subset without a service.
 
 The Java client covers the whole service surface, as typed immutable results:
 
