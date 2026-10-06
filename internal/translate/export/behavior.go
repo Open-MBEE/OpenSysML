@@ -176,8 +176,11 @@ func (e *encoder) encodeBehavior(node ast.Node, head func(rdf.Term), subject rdf
 		return true, e.encodeSuccessionEdge(n, head, subject, fqn, owner)
 
 	case *ast.ControlFlowEdge:
-		// A guarded branch of a decision, or the `else` branch taken when no
-		// guarded one is. Which keyword introduced it decides how it is written.
+		if qualifiedText(n.Target) != "" {
+			return true, e.encodeGuardedTarget(n, head, subject, fqn, owner)
+		}
+		// A branch whose target is bound by position rather than named keeps
+		// the succession form, whose ends can state a member.
 		head(rdf.SysMLTerm(mSuccession))
 		e.graph.Add(subject, e.sysx(xDeclaredKeyword), rdf.String(firstWord(e.text(n))))
 		if err := e.expression(subject, e.sysx(xGuard), xGuard, owner, n.Guard); err != nil {
@@ -528,6 +531,48 @@ func (e *encoder) encodeTransition(n *ast.TransitionMember, head func(rdf.Term),
 	e.graph.Add(subject, e.sysml(pTarget), e.edgeReference(n.Target))
 	return nil
 }
+
+// encodeGuardedTarget emits a branch of a decision, `if g then b;` or
+// `else b;`, as the TransitionUsage the grammar builds (SysML.xtext
+// GuardedTargetSuccession, DefaultTargetSuccession): its guard owned through a
+// TransitionFeatureMembership of kind guard, and the `then` succession it owns
+// to its target. Its source is the decision ahead of it, by position, which the
+// transition states as sysml:source.
+func (e *encoder) encodeGuardedTarget(n *ast.ControlFlowEdge, head func(rdf.Term), subject rdf.Term, fqn, owner string) error {
+	head(rdf.SysMLTerm(mTransition))
+	e.graph.Add(subject, e.sysx(xTransitionSyntax), rdf.String(targetTransitionSyntax))
+	if n.IsElse {
+		e.graph.Add(subject, e.sysx(xIsElse), rdf.Bool(true))
+	}
+	if err := e.expressionAs(subject, e.sysx(xGuard), xGuard, owner, n.Guard, mTransitionFeatureMembership); err != nil {
+		return err
+	}
+	succession, membership, err := e.transitionSuccession(subject, &ast.TransitionMember{Target: n.Target}, owner)
+	if err != nil {
+		return err
+	}
+	e.graph.Add(subject, e.sysml(pOwnedRelationship), membership)
+	e.graph.Add(subject, e.sysml(pOwnedMembership), membership)
+	e.emitMembershipCore(membership, succession, subject, mOwningMembership, true)
+	switch stands := e.preceding[n]; {
+	case qualifiedText(n.Source) == "":
+		if fqn, ok := e.fqn[n.SourceMember]; ok {
+			e.graph.Add(subject, e.sysml(pSource), e.ids.subjectForNode(n.SourceMember, fqn))
+		}
+	case impliedSource(n, n.Source) && answersToFeature(stands):
+		if fqn, ok := e.fqn[stands]; ok {
+			e.graph.Add(subject, e.sysml(pSource), e.ids.subjectForNode(stands, fqn))
+		}
+	default:
+		e.graph.Add(subject, e.sysml(pSource), e.edgeReference(n.Source))
+	}
+	e.graph.Add(subject, e.sysml(pTarget), e.edgeReference(n.Target))
+	return nil
+}
+
+// targetTransitionSyntax is the sysx:transitionSyntax of a decision's branch,
+// which states neither a source nor a trigger: only its guard and target.
+const targetTransitionSyntax = "target"
 
 // transitionSuccession emits the SuccessionAsUsage a transition owns for its
 // `then` clause (SysML.xtext TransitionSuccessionMember, whose
@@ -1936,6 +1981,13 @@ func (d *decoder) transitionText(el *element, annotations []string, depth int) (
 	if err != nil {
 		return "", "", err
 	}
+	if syntax == targetTransitionSyntax && d.boolOf(el, rdf.OpenSysML+xIsElse) {
+		// `else b;` is the branch taken when no guarded one is, and states no guard.
+		if guard != "" {
+			return "", "", &UnsupportedError{What: fmt.Sprintf("the transition <%s>", el.iri), Note: "it is the `else` branch of a decision yet states a guard, and `else` writes none"}
+		}
+		return "else " + target, "", nil
+	}
 	if guard != "" {
 		words = append(words, "if", guard)
 	}
@@ -2041,7 +2093,7 @@ func (d *decoder) transitionBody(body []*element, hasBody bool, annotations []st
 // transitionHead writes the words before a transition's trigger: nothing for the
 // `accept` syntax of a state body's trigger alone, else keyword, name and source.
 func (d *decoder) transitionHead(el *element, syntax string) ([]string, error) {
-	if syntax == "accept" {
+	if syntax == "accept" || syntax == targetTransitionSyntax {
 		return nil, nil
 	}
 	source, err := d.transitionReferenceText(el, pSource, pSourceFeature)
