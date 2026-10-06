@@ -4,6 +4,7 @@ stmt while
       eval feature count -> 0
       eval literal 6 -> 6
     eval operator < -> true
+enter action node: loop body of action node accumulate
     stmt assign count
         eval feature count -> 0
         eval literal 1 -> 1
@@ -16,10 +17,12 @@ stmt while
           eval feature total -> 0
           eval literal 1 -> 1
         eval operator + -> 1
+leave action node: loop body of action node accumulate
   iteration 2
       eval feature count -> 1
       eval literal 6 -> 6
     eval operator < -> true
+enter action node: loop body of action node accumulate
     stmt assign count
         eval feature count -> 1
         eval literal 1 -> 1
@@ -32,10 +35,12 @@ stmt while
           eval feature total -> 1
           eval literal 1 -> 1
         eval operator + -> 2
+leave action node: loop body of action node accumulate
   iteration 3
       eval feature count -> 2
       eval literal 6 -> 6
     eval operator < -> true
+enter action node: loop body of action node accumulate
     stmt assign count
         eval feature count -> 2
         eval literal 1 -> 1
@@ -91,10 +96,12 @@ stmt while
             eval feature inner -> 3
             eval literal 3 -> 3
           eval operator < -> false
+leave action node: loop body of action node accumulate
   iteration 4
       eval feature count -> 3
       eval literal 6 -> 6
     eval operator < -> true
+enter action node: loop body of action node accumulate
     stmt assign count
         eval feature count -> 3
         eval literal 1 -> 1
@@ -107,10 +114,12 @@ stmt while
           eval feature total -> 5
           eval literal 1 -> 1
         eval operator + -> 6
+leave action node: loop body of action node accumulate
   iteration 5
       eval feature count -> 4
       eval literal 6 -> 6
     eval operator < -> true
+enter action node: loop body of action node accumulate
     stmt assign count
         eval feature count -> 4
         eval literal 1 -> 1
@@ -123,10 +132,12 @@ stmt while
           eval feature total -> 6
           eval literal 1 -> 1
         eval operator + -> 7
+leave action node: loop body of action node accumulate
   iteration 6
       eval feature count -> 5
       eval literal 6 -> 6
     eval operator < -> true
+enter action node: loop body of action node accumulate
     stmt assign count
         eval feature count -> 5
         eval literal 1 -> 1
@@ -139,6 +150,7 @@ stmt while
           eval feature total -> 7
           eval literal 1 -> 1
         eval operator + -> 8
+leave action node: loop body of action node accumulate
   iteration 7
       eval feature count -> 6
       eval literal 6 -> 6

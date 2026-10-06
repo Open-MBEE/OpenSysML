@@ -1,0 +1,10 @@
+{
+	"type": "action",
+	"libraries": true,
+	"trace": true,
+	"outcomes": [
+		{"outputs": {"x": {"type": "Integer", "value": 0}, "z": {"type": "Integer", "value": 3}}},
+		{"outputs": {"x": {"type": "Integer", "value": 1}, "z": {"type": "Integer", "value": 3}}}
+	],
+	"admissible": "Direct statements of one body no succession orders: each is performed, in which order is open"
+}

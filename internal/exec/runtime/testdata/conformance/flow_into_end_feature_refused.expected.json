@@ -1,0 +1,6 @@
+{
+	"type": "action",
+	"evaluate": "test::pipe",
+	"error": "flow from v to level: feature is read-only: level is constant as an end feature",
+	"libraries": true
+}

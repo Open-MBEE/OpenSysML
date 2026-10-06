@@ -1,0 +1,9 @@
+{
+	"type": "action",
+	"evaluate": "test::Use",
+	"outcomes": [
+		{"outputs": {"r": {"type": "Integer", "value": 12}}},
+		{"outputs": {"r": {"type": "Integer", "value": 30}}}
+	],
+	"admissible": "Direct statements of one body no succession orders: each is performed, in which order is open"
+}

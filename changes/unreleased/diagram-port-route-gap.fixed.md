@@ -1,0 +1,2 @@
+- **Wires laid out automatically meet their port squares.** They stopped half a port short of the square in the VS Code diagram panel and on the landing page.
+- **Landing diagram boxes leave room for every shared wire lane, and rerouted wires stay inside the hero.**

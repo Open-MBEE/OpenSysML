@@ -1,0 +1,25 @@
+# PlantViews::loopView — interconnection rendering (render asInterconnectionDiagram)
+classes: {
+  definition: { style: { fill: white; stroke: "#181818"; stroke-width: 1; font-color: black; font-size: 14 } }
+  usage: { style: { fill: white; stroke: "#181818"; stroke-width: 1; font-color: black; font-size: 14; border-radius: 8 } }
+  pin: { style: { fill: white; stroke: "#181818"; stroke-width: 1; font-color: black; font-size: 10 } }
+  connection: { style: { stroke: "#181818"; font-size: 13; font-color: black; stroke-width: 3 } }
+  flow: { style: { stroke: "#181818"; font-size: 13; font-color: black; stroke-width: 1; stroke-dash: 3 } }
+}
+n0: "«part def»\nLoop" {
+  class: definition
+  link: "https://example.test/src/interconnection.sysml#L16"
+  n1: "«part»\npump : Pump" {
+    class: usage
+    link: "https://example.test/src/interconnection.sysml#L17"
+    "n1.0": "outlet" { class: pin }
+  }
+  n2: "«part»\ntank : Tank" {
+    class: usage
+    link: "https://example.test/src/interconnection.sysml#L18"
+    "n2.0": "inlet" { class: pin }
+  }
+  n3: "«part»\nsensor : Pump" { class: usage; link: "https://example.test/src/interconnection.sysml#L22" }
+}
+n0.n1."n1.0" -- n0.n2."n2.0": "supply" { class: connection; link: "https://example.test/src/interconnection.sysml#L19" }
+n0.n1 -> n0.n2: "of Water" { class: flow; link: "https://example.test/src/interconnection.sysml#L20" }

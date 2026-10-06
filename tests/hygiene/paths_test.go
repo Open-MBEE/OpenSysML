@@ -2,6 +2,7 @@ package hygiene
 
 import (
 	"os/exec"
+	"sort"
 	"strings"
 	"testing"
 )
@@ -62,4 +63,34 @@ func windowsPathProblem(path string) string {
 		}
 	}
 	return ""
+}
+
+// TestTrackedPathsAreCaseDistinct lists every pair of tracked paths that differ
+// only in case: a checkout on a case-insensitive file system (the macOS and
+// Windows defaults) keeps one of them and leaves the working tree dirty.
+func TestTrackedPathsAreCaseDistinct(t *testing.T) {
+	cmd := exec.Command("git", "ls-files", "-z")
+	cmd.Dir = "../.."
+	out, err := cmd.Output()
+	if err != nil {
+		t.Fatalf("git ls-files: %v", err)
+	}
+
+	byFolded := map[string][]string{}
+	for _, path := range strings.Split(strings.TrimRight(string(out), "\x00"), "\x00") {
+		folded := strings.ToLower(path)
+		byFolded[folded] = append(byFolded[folded], path)
+	}
+	folded := make([]string, 0, len(byFolded))
+	for key, paths := range byFolded {
+		if len(paths) > 1 {
+			folded = append(folded, key)
+		}
+	}
+	sort.Strings(folded)
+	for _, key := range folded {
+		paths := byFolded[key]
+		sort.Strings(paths)
+		t.Errorf("tracked paths differ only in case: %s", strings.Join(paths, ", "))
+	}
 }

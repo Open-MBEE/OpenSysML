@@ -718,11 +718,13 @@ the inventory in `tests/export/testdata/ontology-known-violations.txt`. The `typ
 `function` and `targetFeature` keys stay listed for the fixtures' unresolvable names and body
 parameters above; the parameters go when D1/D2 make expression bodies elements of the graph.
 
-The abstract-metaclass half is not mechanizable from the ontology: `SysML.owl` records no ecore
-abstractness (see D8), so every metaclass the encoder writes (`kinds.go` and the constants in
-`rdf_out.go`/`rdf_expr.go`) was checked by hand against the abstract classes of the pilot's
-`SysML.ecore` and `kerml.ecore` — `ConnectorAsUsage`, `ControlNode`, `Element`, `Expose`,
-`Import`, `InstantiationExpression`, `LoopActionUsage`, `Relationship`. Two were written:
+The abstract-metaclass half was checked by hand while the table came from `SysML.owl`, which
+records no ecore abstractness: every metaclass the encoder writes (`kinds.go` and the constants in
+`rdf_out.go`/`rdf_expr.go`) against the abstract classes of the pilot's `SysML.ecore` and
+`kerml.ecore` — `ConnectorAsUsage`, `ControlNode`, `Element`, `Expose`, `Import`,
+`InstantiationExpression`, `LoopActionUsage`, `Relationship`. Generated from the ecore (D8), the
+table now records them, and the same gate reports a subject typed by one as `abstract-class`; no
+golden graph has one. Two were written:
 `Import`, now `NamespaceImport` / `MembershipImport` and, for an `expose`, `NamespaceExpose` /
 `MembershipExpose` in place of an `sysx:isExpose` flag, and `ConnectorAsUsage` for a KerML
 `connector`, now `Connector`. The decoder still accepts both abstract classes from older graphs.
@@ -733,7 +735,9 @@ still delivers every `type`, `referent` and `targetFeature` of its fixture.
 
 [`Open-MBEE/sysmlv2-rdf-ontology`](https://github.com/Open-MBEE/sysmlv2-rdf-ontology) renders the
 OMG metamodel (version 202407, from `SysML.ecore`) as OML and OWL: `SysML.owl`, 172 classes, 348
-object properties, 63 datatype properties, with `rdfs:domain`/`rdfs:range` on each. It uses the
+object properties, 63 datatype properties, with `rdfs:domain`/`rdfs:range` on each, and has not
+been regenerated since. The current metamodel, version 20250201 as the pinned pilot's `SysML.ecore`
+declares it, has 175 classes, 351 object properties and 64 datatype properties. It uses the
 *same* namespace we do and its class IRIs are the plain metaclass names we already emit; the
 difference is the properties, each qualified by the metaclass that defines it
 (`sysml:Element_declaredName`, `sysml:Element_owner` with range `OwningMembership`), and a
@@ -747,9 +751,12 @@ structural decisions (`internal/translate/export/rdf_out.go`), so the profile is
 layer: property name → defining metaclass.
 
 **Done:** the table and the gate. `internal/translate/rdf/ontology` holds the term table generated
-from `SysML.owl` by `tools/gen/ontology` from a local checkout (version `202407`,
-upstream commit in the generated header): 411 properties spanning only **336 distinct unqualified
-names — 59 names are declared by more than one metaclass** (`type`, `value`, `source`, `target`,
+by `tools/gen/ontology` from the pilot's `SysML.ecore` at the release `scripts/pilot-pin.sh` pins
+(version `20250201`, pilot tag and commit in the generated header), naming each property by the
+OWL rendering's `<DefiningClass>_<name>` IRI and recording its multiplicity, ordering, derivation,
+redefinitions, subsettings and opposite; `make ontology-table-check` keeps it equal to the pin in
+CI. It holds 415 properties spanning only **342 distinct unqualified
+names — 58 names are declared by more than one metaclass** (`type`, `value`, `source`, `target`,
 …), so the unqualified convention is genuinely lossy in the other direction and a profile encoder
 has to pick by the subject's metaclass (`LookupProperty` returns every declaration;
 `AmbiguousNames` reports the set). The gate is `TestGoldenGraphsMatchOntology`, whose inventory is
@@ -757,8 +764,8 @@ also the profile's work list, sorted into five causes: properties the metamodel 
 relationship or membership element that we collapse into the element (`value` → `FeatureValue`,
 the multiplicity bounds → `MultiplicityRange`, `isNegated` → `Invariant`, a transition's ends →
 `Connector`) — the same collapse D3.3 undid for ownership and D1/D2 will undo for expressions and
-ends; names as literals (D7); metaclass names the 202407 rendering does not have (`FlowUsage`,
-which it calls `FlowConnectionUsage`, and `TerminateActionUsage`); the metaclasses of our own
+ends; names as literals (D7); metaclass names the metamodel does not have (`ClassUsage`,
+`IndividualDefinition`, `IndividualUsage`); the metaclasses of our own
 `sysx:` namespace; and the properties we write into the SysML namespace that no metaclass
 declares, each either a relationship the metamodel reifies as an element (`specializes`,
 `subsets`, `redefines`, `references`, `aliasedElement`, `via`) or a notation flag with no
@@ -2425,8 +2432,8 @@ showing it unset. Small; after B2, and it belongs with Q1's page that says which
 
 A view's rendering is a `view.Rendering` — typed nodes (`part def`, `state`, `fork`,
 `decision`, a lifeline), edges with labels, notices for what was not represented — and a
-**form** is only a writer over it: `text`, `markdown`, `mermaid` and, since W1 and W2 landed,
-`dot` and `plantuml`, chosen by `-render-form`, `%render <name> <form>`, the `opensysml/render` request the VS Code
+**form** is only a writer over it: `text`, `markdown`, `mermaid` and, since W1, W2 and W4 landed,
+`dot`, `plantuml` and `d2`, chosen by `-render-form`, `%render <name> <form>`, the `opensysml/render` request the VS Code
 panel makes, and the document renderer, which embeds the Mermaid form in HTML and rasterizes it
 through `mmdc` for PDF. The tree, interconnection, state, action and sequence kinds all render — the
 state rendering from the lowered `StateGraph` (regions, entry transitions, triggers, guards,
@@ -2493,7 +2500,7 @@ writer has a stable URL for an `Origin`.
 
 ## W3 — the forms where renderings surface
 
-`dot` and `plantuml` join `text`, `markdown` and `mermaid` everywhere a form is chosen:
+`dot`, `plantuml` and `d2` join `text`, `markdown` and `mermaid` everywhere a form is chosen:
 `-render-form`, `%render`, the `opensysml/render` request (the VS Code panel keeps Mermaid, which
 it can draw in-process, and offers the others as *save as*), and the document renderer. **Landed**
 — for `dot` with W1, for `plantuml` with W2, and the PDF rasterization and the panel's export in
@@ -2522,11 +2529,38 @@ kinds drawn as their notation and labels fitted to a stated box (#560, `v0.9.0`)
 kept off compartment rows (#589) and Cameo behaviour notation for action and state views in the
 DOT writer (#623), both `v0.9.1`, as [view-rendering-forms.md](view-rendering-forms.md) records
 row by row. Open against `develop`: #757, a part's typed ports drawn on the interconnection view
-with connectors ended at them. Nothing else is open in the track.
+with connectors ended at them. The `d2` form of [W4](#w4--a-d2-form) took the same route the day
+it landed: `-render-form d2` (`-render-all` writes `.d2`), `%render <name> d2 [palette]`,
+`"form": "d2"`, `-diagram-form d2` (` ```d2 ` fences, `<pre class="d2">`), the PDF backend
+drawing a block through the `d2` executable `OPENSYSML_D2` names and keeping the source under a
+notice without one, the toolchain script provisioning a pinned release, and the panel's export
+saving `.d2`. Nothing else is open in the track.
+
+## W4 — a `d2` form
+
+**Landed** — see [view rendering forms](view-rendering-forms.md#d2). A D2 writer over
+`Rendering` (`internal/ir/view/d2.go`) for [D2](https://d2lang.com), the declarative diagram
+language whose containers nest to any depth: a tree is flat nodes joined by containment lines (as
+every other form draws it), an interconnection nested containers with a drawn port a small node
+inside the part that owns it and connectors between the ports' full paths, a state or action
+rendering nested containers with its control nodes as pseudostate glyphs — a filled dot, a
+double-bordered dot, a bar, a diamond, an `H` circle — and a sequence D2's own
+`shape: sequence_diagram`, so every kind the PlantUML form writes, D2 writes too. The Pilot's B&W
+look is one `classes` block each node and edge names; the named palettes fill nodes with the same
+hex per node as DOT; every direction is drawn (`direction: down|right|up|left`), where PlantUML
+reverses none; DiagramLayout geometry is kept as `#` comments through the helpers the Mermaid and
+PlantUML forms share, D2 laying the diagram out itself. Goldens beside every `*.mermaid.golden`
+are walked by an in-test D2 syntax check; a `d2` executable is never needed — one found through
+`OPENSYSML_D2` or `PATH` turns on an extra compile of every golden.
+
+Writing D2 in-process was considered — D2 is a Go library — and not taken: the layout engines and
+font bundles it brings would weigh on every binary for the PDF backend's sake alone, so the PDF
+backend runs the `d2` executable as it runs Graphviz and the PlantUML jar, an optional tool
+located by environment variable.
 
 W1 landed first, being the smaller grammar and the one Graphviz-based pipelines want; W2 followed
-over the same node kinds and the sequence; W3 landed with each. Independent of every other track:
-nothing here touched the rendering model, only writers over it.
+over the same node kinds and the sequence; W4 over the same again; W3 landed with each.
+Independent of every other track: nothing here touched the rendering model, only writers over it.
 
 ---
 

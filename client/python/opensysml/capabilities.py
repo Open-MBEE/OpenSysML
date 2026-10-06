@@ -228,6 +228,7 @@ CAPABILITY_SCHEDULE_EXPLORE = "schedule_explore"
 #: call — and anew for each explored run. Without it the service would run the
 #: behavior outside any object, so the client refuses to send a performer.
 CAPABILITY_PERFORMER = "performer"
+CAPABILITY_STATE_TRACE = "state_trace"
 
 #: ``final_time`` populated on an action or state run's response: the run's
 #: simulation clock when it ended, in seconds, read as the ``final_time`` of
@@ -250,6 +251,10 @@ CAPABILITY_UNDETERMINED_VALUE = "undetermined_value"
 #: An Integer beyond int64 as ``Value.big_int_value``, ``Quantity.big_int_magnitude`` and
 #: ``DocumentValue.big_int_value``; a service without it reads one sent to it as null.
 CAPABILITY_BIG_INT_VALUES = "big_int_values"
+
+#: ``ConvertRequest.documents``: a model converted with only the named documents written, the
+#: references into the others linked by id.
+CAPABILITY_CONVERT_DOCUMENTS = "convert_documents"
 
 
 @dataclass(frozen=True)

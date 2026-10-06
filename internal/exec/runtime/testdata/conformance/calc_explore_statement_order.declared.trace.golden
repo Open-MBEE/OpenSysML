@@ -1,0 +1,17 @@
+stmt assign r
+    enter calc test::Ord
+      stmt declare y
+        eval literal 1 -> 1
+      stmt assign y
+          eval feature y -> 1
+          eval literal 10 -> 10
+        eval operator * -> 10
+      stmt assign y
+          eval feature y -> 10
+          eval literal 2 -> 2
+        eval operator + -> 12
+      stmt return
+        eval feature y -> 12
+    exit calc test::Ord -> 12
+  eval invoke Ord -> 12
+step 1: no active tokens

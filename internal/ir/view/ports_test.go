@@ -115,6 +115,45 @@ func TestTheMinimalDisplayDrawsTheConnectedPortsAlone(t *testing.T) {
 	}
 }
 
+func TestDataForFiltersPortsByDisplay(t *testing.T) {
+	rendering := render(t, "interconnection-ports.sysml", "ToasterViews::dualView")
+	byName := func(data Data) map[string]NodeData {
+		nodes := make(map[string]NodeData, len(data.Nodes))
+		for _, node := range data.Nodes {
+			nodes[node.Name] = node
+		}
+		return nodes
+	}
+	minimal := byName(rendering.DataFor(PortsMinimal))
+	full := byName(rendering.DataFor(PortsFull))
+	if got := minimal["primary"].Ports; len(got) != 0 {
+		t.Errorf("minimal primary ports = %+v, want no unconnected port", got)
+	}
+	if got := minimal["backup"].Ports; len(got) != 1 || got[0].Name != "durationOut" {
+		t.Errorf("minimal backup ports = %+v, want its connected durationOut", got)
+	}
+	if got := full["primary"].Ports; len(got) != 1 || got[0].Name != "durationOut" {
+		t.Errorf("full primary ports = %+v, want its durationOut", got)
+	}
+	var unfilteredPrimary []Port
+	for _, node := range rendering.Data().Nodes {
+		if node.Name == "primary" {
+			unfilteredPrimary = node.Ports
+			break
+		}
+	}
+	if len(unfilteredPrimary) != 1 || unfilteredPrimary[0].Name != "durationOut" {
+		t.Errorf("Data() primary ports = %+v, want the unfiltered port", unfilteredPrimary)
+	}
+
+	tree := &Rendering{Kind: KindTree, Roots: []*Node{{
+		ID: "n0", Name: "root", Ports: []Port{{ID: "n0.0", Name: "first"}, {ID: "n0.1", Name: "second"}},
+	}}}
+	if got := tree.DataFor(PortsMinimal).Nodes[0].Ports; len(got) != 2 {
+		t.Errorf("tree ports = %+v, want all ports for a non-interconnection kind", got)
+	}
+}
+
 // A view mixing a connector at ports with one between the parts themselves
 // draws the pins the former ends at and leaves the latter at the parts, in
 // every form, and a part whose only port no connector reaches draws plain.

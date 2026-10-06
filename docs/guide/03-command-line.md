@@ -63,7 +63,7 @@ package MyModel {
 }
 ```
 
-Each flag may be repeated. `-instantiate` always runs first, whatever order the flags are
+Flags may be combined. `-instantiate` always runs first, whatever order the flags are
 written in, so the verdicts that follow apply to the object it created. The object is created
 whole — the parts nested in it whose types exhibit or perform behaviors are created and run
 with it — so an `-e` expression naming the usage or a feature under it (`-e "ctx.recv.got"`)
@@ -86,6 +86,11 @@ $ sysml -satisfy checks.sysml
   Required condition evaluated to false: sensor.reading <= sensor.threshold
   standing: violated (witnessed: 1 run under reverse)
 ```
+
+`-self-check` applies the 41 constraints in OpenSysML's `SysMLValidation` library to every
+reflectively classified element in the workspace. A clean run reports the number of checked
+elements and applications; constraints whose reflective features are not derived are counted
+as unevaluated rather than treated as violations. See the [validation-constraint census page](../project/validation-constraints.md).
 
 The `standing:` line under each verdict says what the verdict rests on: the claim, the strength
 of the evidence and what earned it. One run under the default schedule is *observed* evidence
@@ -182,6 +187,9 @@ sysml: bad.sysml did not analyse cleanly; no check was made
 exit=2
 ```
 
+An explicitly named API element-form `.json` file is converted before validation. Diagnostic
+positions refer to the converted SysML notation, not to positions in the JSON document.
+
 A single `-` stands for standard input wherever a file name is accepted, so you can pipe a model
 in; its diagnostics are reported against `<stdin>`. To read a file that is actually named `-`,
 write `./-`. `-convert` needs `-from` for piped input, because a stream has no file
@@ -257,7 +265,7 @@ it off otherwise. Each finding names the standard notation to use instead, and
 each extension is measured against. The same setting is available as `%strict` at the prompt
 ([4. The REPL](04-repl.md)), as the `sysml.strictConformance` editor setting
 ([8. Editors](08-editors.md)) and as `strict_conformance=True` from Python
-([9. From your own program](09-clients.md#from-python)).
+([Python client](../clients/python/index.md)).
 
 ## Lints
 

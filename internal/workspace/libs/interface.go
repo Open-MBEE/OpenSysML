@@ -19,7 +19,7 @@ import (
 // interfaceFormatVersion is the on-disk format version of an interface record.
 // Bump it whenever InterfaceRecord, symbols.DocumentRecord or
 // symbols.LibraryFacts changes shape or meaning.
-const interfaceFormatVersion = 13
+const interfaceFormatVersion = 16
 
 // ErrUnrecordable reports a document whose interface cannot be written without
 // its tree: a fact a reader needs has no name to restore it by. The document is
@@ -163,6 +163,9 @@ func (w *interfaceWriter) facts(sym *symbols.Symbol) symbols.LibraryFacts {
 		Redefines: w.refs(sym, m.RedefinedFeatures(sym), "redefined feature"),
 		About:     w.refs(sym, m.AnnotatedElementsOf(sym), "annotated element"),
 	}
+	if related, ok := m.ReflectiveElements(sym, "relatedFeature"); ok {
+		facts.RelatedFeatures = w.refs(sym, related, "related feature")
+	}
 	if facts.Supers == nil {
 		facts.Supers = []symbols.ElementRef{}
 	}
@@ -180,6 +183,11 @@ func (w *interfaceWriter) facts(sym *symbols.Symbol) symbols.LibraryFacts {
 	facts.Multiplicity = m.MultiplicityFactsOf(sym)
 	facts.Annotations = m.DeclaredAnnotationFactsOf(sym)
 	facts.Annotation = m.AboutAnnotationFactsOf(sym)
+	if _, ok := sym.Decl.(*ast.PrefixMetadata); ok {
+		if types, supported := m.ReflectiveElements(sym, "type"); supported && len(types) == 1 {
+			facts.MetadataType = w.ref(sym, types[0], "metadata type")
+		}
+	}
 	for _, a := range facts.Annotations {
 		w.checkAnnotation(sym, a)
 	}
@@ -201,7 +209,13 @@ func (w *interfaceWriter) facts(sym *symbols.Symbol) symbols.LibraryFacts {
 		facts.Default = values
 	}
 	facts.Direction, facts.Modifiers = declaredTraits(sym.Decl)
+	if usage, ok := sym.Decl.(*ast.Usage); ok {
+		facts.Portion = usage.Portion
+	}
 	facts.Modifiers |= w.r.DeclarationTraits(sym)
+	if m.UsageMayTimeVary(sym) {
+		facts.Modifiers |= symbols.ModMayTimeVary
+	}
 	facts.Node = symbols.NodeKindOf(sym.Decl)
 	facts.Keyword = sym.Keyword()
 	facts.Notation = sym.Notation()
@@ -283,8 +297,16 @@ func declaredTraits(decl ast.Node) (ast.FeatureDirection, symbols.Modifiers) {
 		set(d.IsEvent, symbols.ModEvent)
 		return d.Direction, mods
 	case *ast.CrossFeatureMember:
+		set(d.IsDerived, symbols.ModDerived)
 		set(true, symbols.ModEnd)
-		return ast.DirNone, mods
+		set(d.IsReference, symbols.ModReference)
+		set(d.IsComposite, symbols.ModComposite)
+		set(d.IsPortion, symbols.ModPortion)
+		set(d.IsConstant, symbols.ModConstant)
+		set(d.IsVariable, symbols.ModVariable)
+		set(d.IsOrdered, symbols.ModOrdered)
+		set(d.IsNonunique, symbols.ModNonunique)
+		return d.Direction, mods
 	case *ast.ConnectorEnd:
 		set(true, symbols.ModEnd)
 		return ast.DirNone, mods

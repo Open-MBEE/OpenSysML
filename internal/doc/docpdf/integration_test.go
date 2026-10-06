@@ -609,6 +609,54 @@ func TestRenderDiagramsWithInstalledPlantUML(t *testing.T) {
 	}
 }
 
+// TestRenderDiagramsWithInstalledD2 draws the report's D2 diagrams through a
+// real d2: every form of the report compiles, a block d2 rejects is the typed
+// failure with what it said, and the PDF carries the figures, not the source.
+func TestRenderDiagramsWithInstalledD2(t *testing.T) {
+	if _, err := d2Tool.locate(""); err != nil {
+		skipWithout(t, "d2", err)
+	}
+	dir := t.TempDir()
+	diagrams, err := docrender.Diagrams(telescopeDocument(t), docrender.DiagramOptions{Form: view.FormD2})
+	if err != nil {
+		t.Fatal(err)
+	}
+	images, err := drawDiagrams(dir, diagrams)
+	if err != nil {
+		t.Fatalf("drawDiagrams: %v", err)
+	}
+	if len(images) != 2 || images[0] != "diagram-1.svg" || images[1] != "diagram-2.svg" {
+		t.Fatalf("images = %q", images)
+	}
+	for i, image := range images {
+		if err := checkSVG(filepath.Join(dir, image)); err != nil {
+			t.Fatalf("diagram %d: %v", i+1, err)
+		}
+	}
+	svg, err := os.ReadFile(filepath.Join(dir, "diagram-1.svg"))
+	if err != nil || !strings.Contains(string(svg), "camera") {
+		t.Fatalf("d2 SVG lacks the interconnection's parts: %v\n%s", err, svg)
+	}
+	if !strings.Contains(string(svg), "<defs><mask ") || strings.Count(string(svg), "<mask ") != strings.Count(string(svg), "<defs><mask ") {
+		t.Fatalf("d2's connection-label mask must be under <defs> for WeasyPrint:\n%s", svg)
+	}
+
+	rejected := []docrender.Diagram{{Name: "bad", Form: view.FormD2, Source: "a -> \n{"}}
+	_, err = drawDiagrams(t.TempDir(), rejected)
+	var docErr *Error
+	if !errors.As(err, &docErr) || docErr.Kind != ErrorToolFailed || docErr.Tool != "d2" || docErr.Detail == "" {
+		t.Fatalf("rejected diagram: got %v, want ErrorToolFailed with d2's message", err)
+	}
+
+	_, text := renderInstalled(t, telescopeDocument(t), "", Options{DiagramForm: view.FormD2})
+	if strings.Contains(text, "classes: {") || strings.Contains(text, d2Notice[:40]) {
+		t.Fatalf("D2 source or its notice reached the PDF:\n%s", text)
+	}
+	if !strings.Contains(text, "Imaging chain interconnection") {
+		t.Fatalf("diagram caption missing:\n%s", text)
+	}
+}
+
 // TestRenderWideTableLandscapeWithInstalledEngines renders a captioned,
 // grouped seven-column table under its section heading through each installed
 // converter and reads back a landscape page between two portrait ones.

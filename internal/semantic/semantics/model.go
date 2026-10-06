@@ -576,6 +576,16 @@ func (m *Model) recordedElements(sym *symbols.Symbol, refs []symbols.ElementRef)
 	return out
 }
 
+func (m *Model) recordedSequence(refs []symbols.ElementRef) []*symbols.Symbol {
+	var out []*symbols.Symbol
+	for _, ref := range refs {
+		if target := m.recordedElement(ref); target != nil {
+			out = append(out, target)
+		}
+	}
+	return out
+}
+
 // recordedElement restores the element a fact names, or nil when the name no
 // longer declares one.
 func (m *Model) recordedElement(ref symbols.ElementRef) *symbols.Symbol {
@@ -1055,6 +1065,14 @@ func IsElementType(sym *symbols.Symbol) bool {
 func IsAnything(sym *symbols.Symbol) bool {
 	return sym != nil && (sym.Name == "Base::Anything" ||
 		(sym.Name == "Anything" && sym.OwnerScope != nil && sym.OwnerScope.Owner() != nil &&
+			sym.OwnerScope.Owner().Name == "Base"))
+}
+
+// IsDataValue reports whether sym is the library's Base::DataValue, the result
+// every DataFunctions operator declares and so the type of nothing in particular.
+func IsDataValue(sym *symbols.Symbol) bool {
+	return sym != nil && (sym.Name == "Base::DataValue" ||
+		(sym.Name == "DataValue" && sym.OwnerScope != nil && sym.OwnerScope.Owner() != nil &&
 			sym.OwnerScope.Owner().Name == "Base"))
 }
 

@@ -4,19 +4,19 @@ use std::collections::{BTreeMap, HashMap};
 
 use crate::capabilities::{
     upgrade_remedy, CAPABILITY_BIG_INT_VALUES, CAPABILITY_COMPLEX_VALUES, CAPABILITY_CONVERT,
-    CAPABILITY_DOCUMENT_QUERY, CAPABILITY_ENGINES, CAPABILITY_ENUM_VALUES,
-    CAPABILITY_FUNCTION_VALUES, CAPABILITY_INFINITY_VALUE, CAPABILITY_INLINE_LANGUAGE,
-    CAPABILITY_MEASUREMENT_REFS, CAPABILITY_METAOBJECT_VALUES, CAPABILITY_MIGRATE,
-    CAPABILITY_OSLC_QUERY, CAPABILITY_PARSE_SOURCES, CAPABILITY_PERFORMER, CAPABILITY_QUERY,
-    CAPABILITY_RENDER_DOCUMENT, CAPABILITY_RENDER_DOCUMENT_HTML, CAPABILITY_SCHEDULE,
-    CAPABILITY_SCHEDULE_EXPLORE, CAPABILITY_SET_VALUES, CAPABILITY_STRICT_CONFORMANCE,
-    CAPABILITY_STRUCTURED_VALUES, CAPABILITY_TENSOR_VALUES, CAPABILITY_VERIFICATION,
-    CAPABILITY_VERIFICATION_QUESTIONS,
+    CAPABILITY_CONVERT_DOCUMENTS, CAPABILITY_DOCUMENT_QUERY, CAPABILITY_ENGINES,
+    CAPABILITY_ENUM_VALUES, CAPABILITY_FUNCTION_VALUES, CAPABILITY_INFINITY_VALUE,
+    CAPABILITY_INLINE_LANGUAGE, CAPABILITY_MEASUREMENT_REFS, CAPABILITY_METAOBJECT_VALUES,
+    CAPABILITY_MIGRATE, CAPABILITY_OSLC_QUERY, CAPABILITY_PARSE_SOURCES, CAPABILITY_PERFORMER,
+    CAPABILITY_QUERY, CAPABILITY_RENDER_DOCUMENT, CAPABILITY_RENDER_DOCUMENT_HTML,
+    CAPABILITY_SCHEDULE, CAPABILITY_SCHEDULE_EXPLORE, CAPABILITY_SET_VALUES,
+    CAPABILITY_STATE_TRACE, CAPABILITY_STRICT_CONFORMANCE, CAPABILITY_STRUCTURED_VALUES,
+    CAPABILITY_TENSOR_VALUES, CAPABILITY_VERIFICATION, CAPABILITY_VERIFICATION_QUESTIONS,
 };
 use crate::conversion::{conversion_of, request_of, Conversion, ConvertOptions, ConvertSource};
 use crate::document::{
-    binding_holds_big_int, bindings_to_wire, result_of, DocumentForm, DocumentQueryResult,
-    DocumentValue,
+    binding_holds_big_int, bindings_to_wire, document_event_from_wire, result_of, DocumentForm,
+    DocumentQueryResult, DocumentValue,
 };
 use crate::domain::{Model, Value};
 use crate::encode::value_to_wire;
@@ -71,6 +71,8 @@ pub struct RunOptions {
     pub schedule: Option<String>,
     /// Qualified name of the part performing the behavior, whose attributes it reads and writes.
     pub performer: Option<String>,
+    /// Return a state's documented execution records.
+    pub trace: bool,
 }
 
 /// What to ask a verification and of whom.
@@ -277,12 +279,13 @@ impl Connection {
                 "{name} {MIGRATED_NOT_CONVERTED}; call migrate with the same source"
             )));
         }
-        self.require_all(&[CAPABILITY_CONVERT])?;
-        let response = self.gated_rpc(
-            "Convert",
-            request_of(to_format, source, options),
-            &[CAPABILITY_CONVERT],
-        )?;
+        let mut required = vec![CAPABILITY_CONVERT];
+        if !options.documents.is_empty() {
+            required.push(CAPABILITY_CONVERT_DOCUMENTS);
+        }
+        self.require_all(&required)?;
+        let response =
+            self.gated_rpc("Convert", request_of(to_format, source, options), &required)?;
         conversion_of(response)
     }
 
@@ -461,8 +464,12 @@ impl Connection {
         events: &[S],
         schedule: Option<&str>,
         performer: Option<&str>,
+        trace: bool,
     ) -> Result<wire::ExecuteStateResponse, Error> {
-        let capabilities = self.run_capabilities(schedule, performer)?;
+        let mut capabilities = self.run_capabilities(schedule, performer)?;
+        if trace {
+            capabilities.push(CAPABILITY_STATE_TRACE);
+        }
         self.gated_rpc(
             "ExecuteState",
             wire::ExecuteStateRequest {
@@ -471,6 +478,7 @@ impl Connection {
                 events: events.iter().map(|e| e.as_ref().to_owned()).collect(),
                 schedule: schedule.unwrap_or_default().to_owned(),
                 performer_symbol_id: performer.unwrap_or_default().to_owned(),
+                trace,
             },
             &capabilities,
         )
@@ -484,6 +492,7 @@ impl Connection {
         inputs: &BTreeMap<String, Value>,
         options: &RunOptions,
     ) -> Result<ActionRun, Error> {
+        Self::refuse_action_trace(options)?;
         refuse_exploring(options.schedule.as_deref(), "explore_action")?;
         let response = self.run_action(
             model_hash,
@@ -499,6 +508,8 @@ impl Connection {
                 message: response.error,
                 reason: FailureReason::Unspecified,
                 diagnostics,
+                trace: Vec::new(),
+                trace_dropped: 0,
             });
         }
         Ok(ActionRun {
@@ -519,6 +530,7 @@ impl Connection {
         inputs: &BTreeMap<String, Value>,
         options: &RunOptions,
     ) -> Result<Exploration, Error> {
+        Self::refuse_action_trace(options)?;
         let schedule = options.schedule.as_deref().unwrap_or(SCHEDULE_EXPLORE);
         require_exploring(schedule)?;
         let response = self.run_action(
@@ -529,6 +541,15 @@ impl Connection {
             options.performer.as_deref(),
         )?;
         exploration_of(ExploredResponse::Action(Box::new(response)))
+    }
+
+    fn refuse_action_trace(options: &RunOptions) -> Result<(), Error> {
+        if options.trace {
+            return Err(Error::InvalidRequest(
+                "a state trace is only valid for a state run".to_owned(),
+            ));
+        }
+        Ok(())
     }
 
     /// Run a state machine once, dispatching `events` in order.
@@ -546,20 +567,23 @@ impl Connection {
             events,
             options.schedule.as_deref(),
             options.performer.as_deref(),
+            options.trace,
         )?;
         let wire = response.clone();
         let diagnostics = diagnostics_of(&response.diagnostics);
         if !response.error.is_empty() {
-            return Err(Error::Execution {
-                message: response.error,
-                reason: FailureReason::Unspecified,
-                diagnostics,
-            });
+            return Err(state_failure(response, diagnostics)?);
         }
         Ok(StateRun {
             states_visited: response.states_visited,
             final_context: value_map(&response.final_context)?,
             final_time: response.final_time,
+            trace: response
+                .trace
+                .into_iter()
+                .map(document_event_from_wire)
+                .collect::<Result<_, _>>()?,
+            trace_dropped: response.trace_dropped,
             diagnostics,
             wire,
         })
@@ -575,12 +599,18 @@ impl Connection {
     ) -> Result<Exploration, Error> {
         let schedule = options.schedule.as_deref().unwrap_or(SCHEDULE_EXPLORE);
         require_exploring(schedule)?;
+        if options.trace {
+            return Err(Error::InvalidRequest(
+                "a trace describes one run, not an exploration".to_owned(),
+            ));
+        }
         let response = self.run_state(
             model_hash,
             machine_id,
             events,
             Some(schedule),
             options.performer.as_deref(),
+            false,
         )?;
         exploration_of(ExploredResponse::State(Box::new(response)))
     }
@@ -850,6 +880,24 @@ fn with_values(mut capabilities: Vec<&'static str>) -> Vec<&'static str> {
     capabilities
 }
 
+fn state_failure(
+    response: wire::ExecuteStateResponse,
+    diagnostics: Vec<crate::domain::Diagnostic>,
+) -> Result<Error, Error> {
+    let trace = response
+        .trace
+        .into_iter()
+        .map(document_event_from_wire)
+        .collect::<Result<_, _>>()?;
+    Ok(Error::Execution {
+        message: response.error,
+        reason: FailureReason::Unspecified,
+        diagnostics,
+        trace,
+        trace_dropped: response.trace_dropped,
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -879,5 +927,39 @@ mod tests {
             schedule_capabilities(Some("explore")),
             [CAPABILITY_SCHEDULE, CAPABILITY_SCHEDULE_EXPLORE]
         );
+    }
+
+    #[test]
+    fn failed_state_run_keeps_its_partial_trace() {
+        let response = wire::ExecuteStateResponse {
+            error: "state machine failed".to_owned(),
+            trace: vec![wire::DocumentEvent {
+                kind: "entry".to_owned(),
+                time: Some(Box::new(wire::DocumentValue {
+                    element_type: String::new(),
+                    kind: Some(wire::document_value::Kind::RealValue(1.5)),
+                })),
+                state: "active".to_owned(),
+                text: "enter: active".to_owned(),
+                ..Default::default()
+            }],
+            trace_dropped: 2,
+            ..Default::default()
+        };
+
+        let Error::Execution {
+            message,
+            trace,
+            trace_dropped,
+            ..
+        } = state_failure(response, Vec::new()).unwrap()
+        else {
+            panic!("failed state run did not retain its execution error");
+        };
+        assert_eq!(message, "state machine failed");
+        assert_eq!(trace.len(), 1);
+        assert_eq!(trace[0].kind, "entry");
+        assert_eq!(trace[0].state, "active");
+        assert_eq!(trace_dropped, 2);
     }
 }

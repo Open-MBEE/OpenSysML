@@ -4,9 +4,12 @@ OpenSysML is Go, and Go compiles it for two WebAssembly targets. This page says 
 for, how to build and run them, what works in them, and what a WebAssembly host cannot do —
 with the message each limitation answers with, so a refusal is never mistaken for a defect.
 
-No WebAssembly artifact ships in a release: releases are native binaries for Linux, macOS and
-Windows. The WebAssembly builds are built from source, for a host that runs modules rather than
-executables.
+Stable releases ship `sysml-wasm.wasm` with its matching `wasm_exec.js`, list
+both in the signed `SHA256SUMS.txt`, and cover them with SLSA provenance.
+Nightly snapshots list the same assets in their cosign-signed checksum
+manifest; like every nightly asset, they have no SLSA provenance. The npm
+package `@openmbee/opensysml-wasm` carries both assets. Other WebAssembly builds
+remain available from source for hosts that run modules rather than executables.
 
 ## Building
 
@@ -16,12 +19,12 @@ make build-wasm-wasip1   # or one
 make build-wasm-js
 ```
 
-The output is one directory per target, six commands each, stamped with the same version
+The output is one directory per target, seven commands each, stamped with the same version
 information a native build carries:
 
 ```
-bin/wasm/wasip1/{sysml,sysml-lsp,sysml-grpc,sysml-engine,sysml-syntax,sysml-core}.wasm
-bin/wasm/js/{sysml,sysml-lsp,sysml-grpc,sysml-engine,sysml-syntax,sysml-core}.wasm
+bin/wasm/wasip1/{sysml,sysml-lsp,sysml-grpc,sysml-engine,sysml-syntax,sysml-core,sysml-wasm}.wasm
+bin/wasm/js/{sysml,sysml-lsp,sysml-grpc,sysml-engine,sysml-syntax,sysml-core,sysml-wasm}.wasm
 bin/wasm/js/wasm_exec.js      # the runtime a browser page includes
 ```
 
@@ -31,10 +34,11 @@ beside it.
 
 `make build` is unchanged and stays native; a WebAssembly build is always asked for.
 
-`make build-engine`, `make build-core` and `make build-syntax` build `sysml-engine`,
-`sysml-core` and `sysml-syntax` natively into `bin/`, where each serves its JSON-RPC
-over standard input and output as its WASI build does. They are opt-in as well:
-`make build` and `make install` leave them out, and no release ships them.
+`make build-engine`, `make build-core`, `make build-syntax` and `make build-sysml-wasm`
+build the JSON commands natively into `bin/`, where each serves its JSON-RPC over standard
+input and output as its WASI build does. They are opt-in as well: `make build` and
+`make install` leave them out of the native executables; the combined JavaScript
+WebAssembly module is published separately.
 
 `make build-wasm-prod` builds a smaller `sysml-prod.wasm` for each target with `-tags sysml_prod`
 (`make build-prod` is the native counterpart). It leaves out SysML v1 migration, repository sync,
@@ -124,6 +128,29 @@ framework or a held-object store, which is what keeps a WebAssembly build small 
 embed in a page. A model parsed through it hashes to the same `modelHash` the service
 returns, and a request a service client encodes decodes identically here.
 
+It also serves `RenderView`, an engine-only call that returns the drawing data for a
+declared view or a targeted pseudo-view. It is not an RPC of `sysml-grpc`. A request names
+the cached model and a declared view's qualified name or the target of a pseudo-view:
+
+```json
+{
+  "modelHash": "…",
+  "view": "#interconnection:OpenSysMLStack::stack",
+  "ports": "minimal"
+}
+```
+
+`ports` is optional: empty or `minimal` includes only ports an interconnection edge ends at,
+and `full` includes every port. Each node's optional `ports` array has `id`, `name`, optional
+`type` and optional `direction`; undirected ports omit the direction. An edge's optional
+`fromPort` and `toPort` identify the endpoint ports by those IDs. The response also carries
+the view kind, stated rendering, notices, canvas, nodes, edges, and, for tables, columns and
+rows; its node and edge fields use the same JSON names as `opensysml/render`.
+
+The engine has no current-document context, so a pseudo-view must name an element, for
+example `#tree:OpenSysMLStack::stack`. An untargeted `#tree` or `#interconnection` is refused
+with InvalidArgument and the supported pseudo-view spellings.
+
 The `js` build installs a host surface instead of reading a pipe: load it through
 `wasm_exec.js` with no arguments and `globalThis.sysmlEngine` appears with
 
@@ -208,6 +235,40 @@ paths readable; the standard library itself is embedded.
 
 Measured on a `go1.25` `js/wasm` build: 20,601,256 raw bytes, 5,444,030 bytes with gzip
 `-9`, and 3,843,951 bytes with Brotli.
+
+## The combined module
+
+The Node and browser client adapter is documented in
+[WebAssembly, without a service](../../client/node/README.md#webassembly-without-a-service).
+Stable and nightly releases include the module and matching runtime; the npm
+package is `@openmbee/opensysml-wasm`.
+
+`sysml-wasm` combines the parsing, validation and execution methods of `sysml-core` and
+`sysml-engine` in one WebAssembly module. It serves `ParseSources`, `ParseFile`,
+`GetDiagnostics`, `GetSymbol`, `Evaluate`, `Instantiate`, `ExecuteAction`, `ExecuteState`
+and `GetServerInfo`. Parsing and symbol facts route through the core; evaluation and
+execution route through the engine. `ParseSources` and `ParseFile` check that both frontends
+produce the same model hash and return the core response, including roots and diagnostics.
+It does not dispatch the engine-only `RenderView` call.
+
+A hash from either parse method is shared by every method that takes a `modelHash`, including
+`GetDiagnostics`, `GetSymbol`, `Evaluate`, `Instantiate`, `ExecuteAction` and `ExecuteState`.
+The module retains the 16 most recently used models; an evicted hash is evicted for every method.
+`GetServerInfo` returns the build version and these capabilities, in order:
+`type_facts`, `enum_values`, `evaluate_subject`, `symbol_attributes`, `unset_value`,
+`feature_values`, `inline_language`, `strict_conformance`, `parse_sources`, `complex_values`,
+`structured_values`, `measurement_refs`, `function_values`, `set_values`, `tensor_values`,
+`infinity_value`, `diagnostic_codes`, `schedule`, `final_time`, `metaobject_values`,
+`undetermined_value`, `performer`, `big_int_values`.
+
+The `js` build installs one synchronous host surface, `globalThis.sysmlWasm`, with
+`version` and `call(method, paramsJSON)`. The call returns a JSON-RPC envelope string.
+Passing `-stdio` selects the sequential, `Content-Length`-framed JSON-RPC pipe instead;
+native and `wasip1` builds always use that pipe. Every other method answers Unimplemented
+with `<Method> is not served by sysml-wasm: it is served by sysml-grpc`.
+
+Measured on a `go1.25.11` `js/wasm` build with `-s -w -trimpath`: 31,526,528 raw bytes,
+7,790,873 bytes gzipped with gzip `-9`, and 5,479,244 bytes with Brotli `-q 11`.
 
 ## What works
 

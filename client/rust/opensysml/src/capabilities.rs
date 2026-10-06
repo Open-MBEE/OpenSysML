@@ -105,6 +105,8 @@ pub const CAPABILITY_CASE_EVALUATIONS: &str = "case_evaluations";
 pub const CAPABILITY_SCHEDULE_EXPLORE: &str = "schedule_explore";
 /// `performer_symbol_id` on the action and state requests.
 pub const CAPABILITY_PERFORMER: &str = "performer";
+/// The `trace` field of an `ExecuteStateRequest`.
+pub const CAPABILITY_STATE_TRACE: &str = "state_trace";
 /// `final_time` populated on an action or state run's response.
 pub const CAPABILITY_FINAL_TIME: &str = "final_time";
 /// `ListEngines`, the `engine` selection and the standing reported on responses.
@@ -116,6 +118,9 @@ pub const CAPABILITY_UNDETERMINED_VALUE: &str = "undetermined_value";
 /// An Integer beyond int64 as `Value.big_int_value`, `Quantity.big_int_magnitude` and
 /// `DocumentValue.big_int_value`; a service without it reads one sent to it as null.
 pub const CAPABILITY_BIG_INT_VALUES: &str = "big_int_values";
+/// `ConvertRequest.documents`: a model converted with only the named documents written, the
+/// references into the others linked by id.
+pub const CAPABILITY_CONVERT_DOCUMENTS: &str = "convert_documents";
 
 /// The remedy for a service lacking `capability`, naming both routes to one that has it.
 pub fn upgrade_remedy(capability: &str) -> String {

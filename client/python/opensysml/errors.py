@@ -10,8 +10,12 @@ grpc`` and switch on status codes to tell a missing file from a dead service.
 import builtins
 import warnings
 from contextlib import contextmanager
+from typing import TYPE_CHECKING
 
 import grpc
+
+if TYPE_CHECKING:
+    from opensysml.document import DocumentEvent
 
 
 class OpenSysMLError(Exception):
@@ -76,6 +80,26 @@ class UnsignedReleaseError(UnpinnedReleaseError):
     ``sigstore`` dependency: no signature was checked, so the release is one
     this opensysml cannot vouch for, exactly as an unpinned one is.
     """
+
+
+class SigstoreUnavailableError(UnsignedReleaseError):
+    """Raised when the ``sigstore`` package the manifest is verified with is absent.
+
+    Or a package it depends on; the message names which. The release may well
+    be signed; this install cannot check. An
+    :class:`UnsignedReleaseError`, since nothing was verified either way, but its
+    own class so the remedy can name the package to install rather than the
+    release. A release of opensysml ships the digests of its own core release, so
+    this only arises for another release, or for an opensysml older than the
+    release it is asked for.
+
+    Attributes:
+        install_command (str): The ``pip install`` that provides the package
+    """
+
+    #: The dependency opensysml declares, which brings its own dependencies
+    #: with it; a complete install already has them all.
+    install_command = "python -m pip install 'sigstore>=4.5.0,<5'"
 
 
 class ManifestSignatureError(ChecksumMismatchError):
@@ -209,12 +233,22 @@ class ExecutionError(OpenSysMLError, builtins.RuntimeError):
     Attributes:
         message (str): Error description
         diagnostics (list): List of Diagnostic objects (if available)
+        trace (tuple[DocumentEvent, ...]): Partial ExecuteState trace on failure
+        trace_dropped (int): Oldest trace records discarded by the service
     """
 
-    def __init__(self, message, diagnostics=None):
+    def __init__(
+        self,
+        message,
+        diagnostics=None,
+        trace: tuple["DocumentEvent", ...] = (),
+        trace_dropped=0,
+    ):
         super().__init__(message)
         self.message = message
         self.diagnostics = diagnostics or []
+        self.trace = tuple(trace)
+        self.trace_dropped = trace_dropped
 
 
 class WrongKindError(ExecutionError):
