@@ -1332,6 +1332,7 @@ elmt:R90__Run___403_succession
     sysml:connectorEnd expr:R90__Run___403_succession_pend0, expr:R90__Run___403_succession_pend1 ;
     sysml:ownedRelationship expr:R90__Run___403_succession_pend0_om, expr:R90__Run___403_succession_pend1_om ;
     sysml:ownedMembership expr:R90__Run___403_succession_pend0_om, expr:R90__Run___403_succession_pend1_om ;
+    sysml:ownedMember expr:R90__Run___403_succession_pend0, expr:R90__Run___403_succession_pend1 ;
     sysml:ownedFeatureMembership expr:R90__Run___403_succession_pend0_om, expr:R90__Run___403_succession_pend1_om ;
     sysml:ownedFeature expr:R90__Run___403_succession_pend0, expr:R90__Run___403_succession_pend1 ;
     sysml:ownedEndFeature expr:R90__Run___403_succession_pend0, expr:R90__Run___403_succession_pend1 ;
@@ -1341,6 +1342,7 @@ elmt:R90__Run___403_succession
     json:connectorEnd "[{\"@id\":\"R90__Run___403_succession_pend0\"},{\"@id\":\"R90__Run___403_succession_pend1\"}]" ;
     json:ownedRelationship "[{\"@id\":\"R90__Run___403_succession_pend0_om\"},{\"@id\":\"R90__Run___403_succession_pend1_om\"}]" ;
     json:ownedMembership "[{\"@id\":\"R90__Run___403_succession_pend0_om\"},{\"@id\":\"R90__Run___403_succession_pend1_om\"}]" ;
+    json:ownedMember "[{\"@id\":\"R90__Run___403_succession_pend0\"},{\"@id\":\"R90__Run___403_succession_pend1\"}]" ;
     json:ownedFeatureMembership "[{\"@id\":\"R90__Run___403_succession_pend0_om\"},{\"@id\":\"R90__Run___403_succession_pend1_om\"}]" ;
     json:ownedFeature "[{\"@id\":\"R90__Run___403_succession_pend0\"},{\"@id\":\"R90__Run___403_succession_pend1\"}]" ;
     json:ownedEndFeature "[{\"@id\":\"R90__Run___403_succession_pend0\"},{\"@id\":\"R90__Run___403_succession_pend1\"}]" .

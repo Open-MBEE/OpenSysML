@@ -139,7 +139,10 @@ type Index struct {
 	// changes accumulates what writes changed since TakeChanges, once tracked,
 	// and reads is told what each read is about (see changes.go).
 	changes *Changes
-	reads   ReadRecorder
+	// changesBefore is how each name changes records was registered before
+	// its first write since the last TakeChanges (noteBefore).
+	changesBefore map[string]registration
+	reads         ReadRecorder
 }
 
 // reexportClaim is one document's claim on a re-export: whether its imports
@@ -757,6 +760,7 @@ func (idx *Index) register(fqn string, sym *Symbol) {
 // are kept in declaration order; the library itself keeps the order its
 // snapshot pins.
 func (idx *Index) link(fqn string, sym *Symbol) {
+	idx.noteBefore(fqn)
 	if idx.base != nil {
 		insertSymbol(idx.fqn, fqn, sym)
 	} else {
@@ -829,6 +833,7 @@ func (idx *Index) unregisterSegment(fqn string) {
 // entirely once it names nothing. It leaves declaredAt alone: only the symbol's
 // own declaration owns that entry.
 func (idx *Index) deregister(fqn string, sym *Symbol) {
+	idx.noteBefore(fqn)
 	idx.changedName(fqn)
 	syms := writableSlice(idx.fqn, fqn)
 	for i, s := range syms {
@@ -1387,6 +1392,7 @@ func (idx *Index) dropClaim(key reexportKey, doc string) {
 // purgeReexport drops a re-export outright, along with every document's claim
 // on it.
 func (idx *Index) purgeReexport(key reexportKey) {
+	idx.noteBefore(key.fqn)
 	for doc := range idx.reexportDocs.at(key) {
 		claimed := writableMap(idx.docReexports, doc)
 		delete(claimed, key)
@@ -1402,6 +1408,7 @@ func (idx *Index) purgeReexport(key reexportKey) {
 // the frozen base recorded is copied with them: recording a route on it would
 // otherwise change what every index over that base re-exports.
 func (idx *Index) writableClaims(key reexportKey) map[string]*reexportClaim {
+	idx.noteBefore(key.fqn)
 	if docs, owned := idx.reexportDocs.own[key]; owned {
 		idx.reexportDocs.gen.bump()
 		return docs
@@ -1421,6 +1428,7 @@ func (idx *Index) writableClaims(key reexportKey) map[string]*reexportClaim {
 // the claims on key: a claimed name is re-exported, and hidden while every
 // document that surfaced it did so with a private import (KerML 8.2.3.3).
 func (idx *Index) applyReexportMarks(key reexportKey, docs map[string]*reexportClaim) {
+	idx.noteBefore(key.fqn)
 	if len(docs) == 0 {
 		clearMark(idx.reexported, key.fqn, key.sym)
 		clearMark(idx.hidden, key.fqn, key.sym)

@@ -19,7 +19,7 @@ import (
 // interfaceFormatVersion is the on-disk format version of an interface record.
 // Bump it whenever InterfaceRecord, symbols.DocumentRecord or
 // symbols.LibraryFacts changes shape or meaning.
-const interfaceFormatVersion = 17
+const interfaceFormatVersion = 18
 
 // ErrUnrecordable reports a document whose interface cannot be written without
 // its tree: a fact a reader needs has no name to restore it by. The document is
@@ -166,6 +166,14 @@ func (w *interfaceWriter) facts(sym *symbols.Symbol) symbols.LibraryFacts {
 	if related, ok := m.ReflectiveElements(sym, "relatedFeature"); ok {
 		facts.RelatedFeatures = w.refs(sym, related, "related feature")
 	}
+	if paths := m.ConnectorEndFeaturePaths(sym); len(paths) > 0 {
+		facts.EndPaths = make([][]symbols.ElementRef, len(paths))
+		for i, path := range paths {
+			if len(path) > 0 {
+				facts.EndPaths[i] = w.refs(sym, path, "connector end path")
+			}
+		}
+	}
 	if facts.Supers == nil {
 		facts.Supers = []symbols.ElementRef{}
 	}
@@ -197,7 +205,8 @@ func (w *interfaceWriter) facts(sym *symbols.Symbol) symbols.LibraryFacts {
 	if ends, ok := m.OwnedConnectorEnds(sym); ok {
 		facts.Ends = make([]symbols.ElementRef, len(ends))
 		for i, end := range ends {
-			if end != nil {
+			// An end with no name of its own has no reference a record can carry.
+			if end != nil && end.Name != "" {
 				facts.Ends[i] = w.ref(sym, end, "connector end")
 			}
 		}
@@ -250,7 +259,24 @@ func (w *interfaceWriter) facts(sym *symbols.Symbol) symbols.LibraryFacts {
 		if target := m.RelationshipTarget(sym, rel); target != nil {
 			rf.Target = w.ref(sym, target, rel.Kind.String()+" target")
 		}
+		if path := m.ChainTargetPath(sym, rel.Kind, rel.Target); len(path) > 0 {
+			rf.Path = w.refs(sym, path, rel.Kind.String()+" chain")
+		}
 		facts.Relationships = append(facts.Relationships, rf)
+	}
+	// A connector end's attachment is a reference subsetting it writes without a
+	// clause, held after its written relationships as its reflection orders it.
+	if end, ok := sym.Decl.(*ast.ConnectorEnd); ok {
+		if target := semantics.ImpliedEndReference(end); target != nil {
+			rf := symbols.RelationshipFacts{Kind: ast.RelReferences, Chain: ast.IsFeatureChain(target)}
+			if referenced := m.ReferencedFeature(sym); referenced != nil {
+				rf.Target = w.ref(sym, referenced, "connector end attachment")
+			}
+			if path := m.ChainTargetPath(sym, ast.RelReferences, target); len(path) > 0 {
+				rf.Path = w.refs(sym, path, "connector end attachment chain")
+			}
+			facts.Relationships = append(facts.Relationships, rf)
+		}
 	}
 	if subsetted := m.SubsettedMultiplicity(sym); subsetted != nil {
 		facts.Relationships = append(facts.Relationships, symbols.RelationshipFacts{
