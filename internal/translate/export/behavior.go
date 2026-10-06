@@ -2051,9 +2051,11 @@ func (d *decoder) transitionHead(el *element, syntax string) ([]string, error) {
 	keyword := "transition"
 	if written, ok := d.stringOf(el, rdf.OpenSysML+xDeclaredKeyword); ok {
 		keyword = written
-	} else if d.inActionBody(el) {
-		// An action body admits a transition only as a GuardedSuccession,
-		// whose `succession` is optional unless it declares a name.
+	} else if guard, err := d.transitionGuard(el); err == nil && guard != "" && d.inActionBody(el) {
+		// An action body admits a transition as a GuardedSuccession, whose
+		// `succession` is optional unless it declares a name. One without a
+		// guard is no GuardedSuccession: written so, it would read back as a
+		// succession, so it keeps `transition`.
 		keyword = ""
 		if len(ident) > 0 {
 			keyword = "succession"

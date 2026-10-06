@@ -3012,11 +3012,12 @@ func TestUnreadableNotationRefusesToSpellReferences(t *testing.T) {
 // inside the bodies that allow them.
 func TestBehavioralHeadsComeBackFromTheGraphAlone(t *testing.T) {
 	bodies := map[string]string{
-		"transition":               "state def M {\n        state s1;\n        state s2;\n        transition first s1 accept e then s2;\n    }",
-		"accept":                   "action def A {\n        accept x : Bus;\n    }",
-		"send":                     "action def A {\n        send x to y;\n    }",
-		"guarded first":            "action def A {\n        action a;\n        action b;\n        first a if true then b;\n    }",
-		"guarded succession first": "action def A {\n        action a;\n        action b;\n        succession first a if true then b;\n    }",
+		"transition":                  "state def M {\n        state s1;\n        state s2;\n        transition first s1 accept e then s2;\n    }",
+		"accept":                      "action def A {\n        accept x : Bus;\n    }",
+		"send":                        "action def A {\n        send x to y;\n    }",
+		"guarded first":               "action def A {\n        action a;\n        action b;\n        first a if true then b;\n    }",
+		"guarded succession first":    "action def A {\n        action a;\n        action b;\n        succession first a if true then b;\n    }",
+		"unguarded action transition": "action def A {\n        action a;\n        action b;\n        transition first a then b;\n    }",
 	}
 	for name, body := range bodies {
 		t.Run(name, func(t *testing.T) {
