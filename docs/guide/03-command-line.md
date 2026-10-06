@@ -92,6 +92,14 @@ reflectively classified element in the workspace. A clean run reports the number
 elements and applications; constraints whose reflective features are not derived are counted
 as unevaluated rather than treated as violations. See the [validation-constraint census page](../project/validation-constraints.md).
 
+`-self-check-package <QualifiedName>` adds the `constraint def`s of a package the loaded
+files declare — nested packages included — to the same walk; it implies `-self-check` and
+is repeatable. A rule is a `constraint def` whose first `in` parameter is typed by a
+`SysML::…` or `KerML::…` metaclass, and it applies to every element that metaclass conforms
+to; its verdicts carry the constraint's qualified name. See
+[Writing self-check rules](../reference/cli.md#writing-self-check-rules) and the worked
+example in `examples/self-check-rules/`.
+
 The `standing:` line under each verdict says what the verdict rests on: the claim, the strength
 of the evidence and what earned it. One run under the default schedule is *observed* evidence
 that a condition holds, and a run that shows it false is a *witnessed* violation. Every check is

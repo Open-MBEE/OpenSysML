@@ -282,6 +282,7 @@ written in, so the verdicts are about that object:
 | `-validate=<object>` | Every assertion about an object `-instantiate` created and the objects it holds, as `%validate` does: each `assert constraint` the carrier's type declares or inherits, each requirement usage it carries and each `satisfy` assertion whose subject is in the tree, one verdict per assertion per object, root first and then each held object as the walk reaches it (`Fleet::car.wheels[2]`), then one verdict about the object as a whole — valid only when every assertion holds and every held object was reached, so an assertion that could not be evaluated or a walk cut short by an object graph without end leaves it undecided rather than valid, as does an object no assertion is about (`states no assertion to validate`, exit status 2). The object is named as `%validate` names it: the usage's name, a feature path to a part it holds (`Fleet::car.engine`), or the id the report prints (`#2`). A constraint declared without `assert` is not swept; name it with `-constraint`. Repeatable; `-validate=false` asks for nothing and withdraws a bare `-validate` written before it, as `-satisfy=false` does |
 | `-constraint <name>` | One constraint, as `%constraint` does |
 | `-self-check` | Applies the 50 constraints in the OpenSysML `SysMLValidation` library to each reflectively classified element in the workspace. A false result or evaluation error fails; a reflective feature not derived is counted as unevaluated, not as a failure. Runs only after the model analyses cleanly |
+| `-self-check-package <QualifiedName>` | Applies the `constraint def`s of the named package — nested packages included — together with the `SysMLValidation` ones in the same element walk; implies `-self-check`. Repeatable. See [Writing self-check rules](#writing-self-check-rules) |
 | `-requirement <name>` | One requirement, as `%requirement` does, with [the verdict of every verification case](#verification-case-verdicts) verifying it beside its own |
 | `-satisfy` | Every satisfaction assertion the model states, with [the verdict of every verification case](#verification-case-verdicts) verifying the requirement beside each |
 | `-satisfy=<name>` | Only the assertions the named element states (`-satisfy=false` asks for none) |
@@ -364,6 +365,50 @@ $ sysml -instantiate T::SA model.sysml
 ✓ package T
 sysml: unresolved reference: T::SA — did you mean T::'SA-506'? Names containing '-' must be quoted.
 ```
+
+### Writing self-check rules
+
+`-self-check-package` applies the `constraint def`s of any package the loaded files
+declare — a library package included — in the same element walk as the bundled
+`SysMLValidation` package. A rule file is an ordinary input named beside the model:
+
+```bash
+$ sysml -self-check-package Acme::ModelingRules model.sysml rules.sysml
+```
+
+A rule is a `constraint def` whose first `in` parameter is typed by a `SysML::…` or
+`KerML::…` metaclass; it applies to every element whose metaclass conforms, and its
+body is a Boolean expression over the element's reflective features (`name`,
+`qualifiedName`, `documentation`, `ownedMember`, `direction`, `isComposite`, …). A
+metaclass feature is read by the name of its most specific redefinition, since a
+redefinition hides the name it redefines (KerML §7.4.7, §8.3.3.3): on a
+`SysML::PortUsage` that is `portDefinition`, not `type`. Import
+`SequenceFunctions::*` for `->isEmpty()` and friends:
+
+```sysml
+package Acme {
+	package ModelingRules {
+		private import SequenceFunctions::*;
+		constraint def partDefinitionHasDocumentation {
+			in pd : SysML::PartDefinition;
+			not pd.documentation->isEmpty();
+		}
+	}
+}
+```
+
+Every verdict a rule produces carries the constraint's qualified name —
+`Acme::ModelingRules::partDefinitionHasDocumentation fails for M::P`. Reflective
+features the model does not derive count as unevaluated, not violations; a rule
+whose `in` parameter is not metaclass-typed is skipped with a warning, as is a
+named package that yields no applicable constraint, and the run goes on. A name
+nothing declares is refused before anything is evaluated (exit 2). The elements
+of a rule package are checked by nothing at any depth. The exit codes are
+unchanged: 1 on a violation, 2 when a check could not be made, 0 when the only
+non-holding outcomes are unevaluated. The bundled
+`SysMLValidation.sysml` (`internal/workspace/libs/stdlib/OpenSysML Libraries/`)
+is written the same way and is the reference; `examples/self-check-rules/` is a
+worked example.
 
 ### Verification case verdicts
 
