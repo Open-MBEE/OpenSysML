@@ -1115,6 +1115,14 @@ func (p *Parser) parseMoreFeatureModifiers(m *featureMods) {
 			}
 			return
 		}
+		// `composite` or `portion` closes the feature prefix in SysML, where
+		// `readonly` is reserved; in KerML the word is a valid feature name.
+		if m.isComposite && p.src.Kind() != source.KindKerML &&
+			t.Kind == lexer.Identifier && p.src.Text(t.Span) == "readonly" {
+			p.error(t.Span, "'readonly' cannot follow '"+compositeOrPortionWord(m.isPortion)+
+				"': a prefix says "+compositeOrPortionPair+", not both")
+			return
+		}
 		if t.Kind == lexer.Identifier && p.src.Text(t.Span) == varPrefixWord {
 			next := p.peekN(1)
 			// KerML FeaturePrefix puts prefix metadata after `var`: `var #M feature f`.
@@ -1132,6 +1140,21 @@ func (p *Parser) parseMoreFeatureModifiers(m *featureMods) {
 		}
 		if t.Kind != lexer.Keyword {
 			return
+		}
+		// `composite`/`portion` closes the prefix to all but `ordered`, `nonunique` and
+		// KerML `const`; in KerML a trailing `ordered` is the feature's name.
+		kerml := p.src.Kind() == source.KindKerML
+		if m.isComposite && kerml &&
+			(t.KeywordID == "ordered" || t.KeywordID == "nonunique") &&
+			p.peekN(1).Kind == lexer.Identifier {
+			p.error(p.peekN(1).Span, fmt.Sprintf("'%s' cannot follow '%s'",
+				p.src.Text(p.peekN(1).Span), t.KeywordID))
+		}
+		if m.isComposite && featureModifierKeywords[t.KeywordID] &&
+			t.KeywordID != "ordered" && t.KeywordID != "nonunique" &&
+			t.KeywordID != "end" && t.KeywordID != "composite" && t.KeywordID != "portion" &&
+			!(kerml && t.KeywordID == "const") {
+			p.prefixConflict(t, compositeOrPortionWord(m.isPortion), compositeOrPortionPair)
 		}
 		switch t.KeywordID {
 		case "abstract":
@@ -3176,8 +3199,16 @@ func (p *Parser) parseBodyMember() ast.Node {
 		hasNameAndMult := p.atName() && p.peekN(1).Kind == lexer.LBracket // name with multiplicity (e.g., ref payload [0..*])
 		// `end [1] : A;` — an unnamed feature declaring only its type.
 		hasTypeOnly := p.at(lexer.Colon)
+		// A nameless declaration (`ref [1] = x;`, `ref;`): the multiplicity form stands
+		// alone; the others need a feature-level modifier, and `end` admits none.
+		nameless := p.at(lexer.LBracket)
+		if p.at(lexer.LBrace) || p.at(lexer.Semicolon) || p.valueOperatorAt(0) {
+			nameless = nameless || mods.isReference || mods.isReadonly || mods.isPortion ||
+				(mods.isComposite && !p.at(lexer.LBrace))
+		}
+		hasNamelessDecl := nameless && !mods.isEnd
 
-		if hasNameAndType || hasTypeOnly || hasRelationship || hasNameAndRelationship || hasNameOnly || hasNameAndBody || hasNameAndMult {
+		if hasNameAndType || hasTypeOnly || hasRelationship || hasNameAndRelationship || hasNameOnly || hasNameAndBody || hasNameAndMult || hasNamelessDecl {
 			var id ast.Identification
 
 			// Parse optional name
