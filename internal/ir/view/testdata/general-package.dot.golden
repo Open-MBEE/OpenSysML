@@ -1,0 +1,19 @@
+// view: GeneralViews::packageView
+// kind: package
+// stated: view def GeneralView, filter @Package
+// layout: dot
+digraph "GeneralViews::packageView" {
+  graph [fontname="Helvetica"];
+  node [shape=box, style=filled, fillcolor=white, color="#181818", fontname="Helvetica", fontsize=14, penwidth=0.5];
+  edge [color="#181818", fontname="Helvetica", fontsize=13, penwidth=1];
+  "n0" [style="rounded,filled", label=<<font point-size="10"><i>«package»</i></font><br/><b>VehicleStructure</b>>];
+  "n1" [style="rounded,filled", label=<<font point-size="10"><i>«package»</i></font><br/><b>Powertrain</b>>];
+  "n2" [style="rounded,filled", label=<<font point-size="10"><i>«package»</i></font><br/><b>VehicleRequirements</b>>];
+  "n3" [style="rounded,filled", label=<<font point-size="10"><i>«package»</i></font><br/><b>VehicleVerification</b>>];
+  "n4" [style="rounded,filled", label=<<font point-size="10"><i>«package»</i></font><br/><b>GeneralViews</b>>];
+  "n0" -> "n1" [dir=back, arrowtail=odot];
+  "n2" -> "n0" [label="private import ::*", arrowhead=vee, style=dashed];
+  "n3" -> "n0" [label="private import ::*", arrowhead=vee, style=dashed];
+  "n3" -> "n1" [label="private import ::*", arrowhead=vee, style=dashed];
+  "n3" -> "n2" [label="private import ::*", arrowhead=vee, style=dashed];
+}

@@ -18,7 +18,9 @@ func (r *Rendering) D2() (string, error) {
 // forms draw: a tree as flat nodes joined by containment lines, an
 // interconnection as nested containers whose drawn ports are pins inside
 // them, a state or action graph as nested containers with its control nodes
-// as pseudostate glyphs, and a sequence as D2's sequence diagram. Direction,
+// as pseudostate glyphs, a requirement, definition or package graph as nodes
+// joined in the class-diagram notation, and a sequence as D2's sequence
+// diagram. Direction,
 // Palette, Ports and Unplaced apply; a Style does not, D2 drawing in one
 // look, and asking for one is noticed. Positions and routes are kept as
 // comments, D2 laying the diagram out itself.
@@ -56,7 +58,7 @@ func (r *Rendering) D2With(options Options) (string, error) {
 	switch r.Kind {
 	case KindTree:
 		w.writeTree(r)
-	case KindInterconnection, KindState, KindAction:
+	case KindInterconnection, KindState, KindAction, KindRequirement, KindDefinition, KindPackage:
 		w.writeGraph(r)
 	case KindSequence:
 		w.writeSequence(r)
@@ -190,6 +192,12 @@ var d2Classes = []struct{ name, body string }{
 	{"edge", "style: { " + d2Arrow + "; stroke-width: 1 }"},
 	{"connection", "style: { " + d2Arrow + "; stroke-width: 3 }"},
 	{"flow", "style: { " + d2Arrow + "; stroke-width: 1; stroke-dash: 3 }"},
+	{"specialization", "target-arrowhead: { shape: triangle; style: { filled: false } }; style: { " + d2Arrow + "; stroke-width: 1 }"},
+	{"typing", "target-arrowhead: { shape: triangle; style: { filled: false } }; style: { " + d2Arrow + "; stroke-width: 1; stroke-dash: 3 }"},
+	{"composition", "source-arrowhead: { shape: diamond; style: { filled: true } }; style: { " + d2Arrow + "; stroke-width: 1 }"},
+	{"reference", "source-arrowhead: { shape: diamond; style: { filled: false } }; style: { " + d2Arrow + "; stroke-width: 1 }"},
+	{"containment", "source-arrowhead: { shape: circle; style: { filled: false } }; style: { " + d2Arrow + "; stroke-width: 1 }"},
+	{"dependency", "style: { " + d2Arrow + "; stroke-width: 1; stroke-dash: 3 }"},
 }
 
 // writeClasses declares the classes the body uses, so the file stands alone.
@@ -474,8 +482,9 @@ func d2Color(color string) string {
 }
 
 // writeEdge writes one edge as its kind's connector: a connection the
-// Pilot's heavy undirected line, a binding a plain one, a flow dashed, every
-// other edge an arrow; in a sequence diagram every message is an arrow.
+// Pilot's heavy undirected line, a binding a plain one, a flow dashed, a
+// general graph's relationships in the class-diagram notation, every other
+// edge an arrow; in a sequence diagram every message is an arrow.
 func (w *d2Writer) writeEdge(indent string, edge Edge) {
 	arrow, class := "->", "edge"
 	switch edge.Kind {
@@ -485,6 +494,13 @@ func (w *d2Writer) writeEdge(indent string, edge Edge) {
 		arrow = "--"
 	case EdgeFlow:
 		class = "flow"
+	case EdgeSpecialization, EdgeTyping:
+		class = edge.Kind.String()
+	case EdgeComposition, EdgeReference, EdgeContainment:
+		// D2 draws a source arrowhead only where the connection has a head there.
+		arrow, class = "<-", edge.Kind.String()
+	case EdgeImport, EdgeSatisfy, EdgeVerify, EdgeDerive, EdgeRefine, EdgeAllocate:
+		class = "dependency"
 	}
 	w.writeArrow(indent, w.end(edge.From, edge.FromPort), w.end(edge.To, edge.ToPort), arrow, edge.Label, class, edge.Style, edge.Origin)
 }

@@ -1,0 +1,8 @@
+RobustViews::importCycle - package rendering (view def GeneralView, filter @Package)
+
+package Loops
+package Cycles
+
+relationships:
+  Loops ..> Cycles: private import ::*
+  Cycles ..> Loops: private import ::*

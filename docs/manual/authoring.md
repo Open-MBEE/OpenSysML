@@ -519,9 +519,10 @@ part structure : Diagram {
   sequence diagram is a typed error.
 - `palette` — `"okabe-ito"`, `"tol-bright"`, `"tol-muted"`, `"tol-light"`,
   `"brewer-set2"`, `"brewer-dark2"`, `"viridis"` or `"cividis"` — is accepted
-  for graph-shaped kinds (tree, interconnection, state, action, sequence, case,
-  mixed). Mermaid, DOT and PlantUML fill applicable nodes by keyword family from
-  that colourblind-safe palette, a `part def` and its `part` usages sharing a hue,
+  for graph-shaped kinds (tree, interconnection, state, action, case, mixed,
+  sequence).
+  Mermaid, DOT, PlantUML and D2 fill applicable nodes by keyword family from that
+  colourblind-safe palette, a `part def` and its `part` usages sharing a hue,
   with black text kept legible on every fill
   ([the palettes](../project/view-rendering-forms.md#palettes)). Mermaid
   sequence diagrams note that individual participants cannot be filled; HTML
@@ -536,6 +537,10 @@ part structure : Diagram {
   part's border named beside it; `"full"` draws every port a part has,
   labelled `name : Type`. Any other name, or `ports` on another kind, is a
   typed error.
+  `overlay` — `"verdicts"` — is accepted by a requirement diagram alone: it
+  runs the verification cases verifying each requirement drawn and labels
+  and colours the requirement by their verdicts. Any other name, or
+  `overlay` on another kind, is a typed error.
 
 A diagram block states *what* is drawn, not the notation it is written in:
 that is a choice made when the document is rendered. By default most kinds
