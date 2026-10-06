@@ -94,6 +94,15 @@ and changes nothing. Changing it republishes the diagnostics of every open docum
 corresponds to the CLI's `-disable-lint` and the REPL's `%lint`. Strict conformance leaves a
 lint a warning.
 
+The opt-in lints, off until switched on, are named by a second list setting, `enabledLints`,
+read the same way and corresponding to the CLI's `-enable-lint`:
+
+```json
+{ "sysml": { "enabledLints": ["rounded-real-literal"] } }
+```
+
+A lint named by both settings is off.
+
 ## Interface records
 
 A document the server holds but no editor has open — one it read from the disk

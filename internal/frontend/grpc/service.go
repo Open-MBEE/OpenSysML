@@ -848,6 +848,7 @@ func (s *Service) parseModel(inputs []sourceInput, mode diag.ConformanceMode) (s
 		for i, doc := range documents {
 			doc.Diagnostics, _ = passes.AnalyzeInBatch(inputs[i].name, inputs[i].kind, doc.Root,
 				doc.Diagnostics, idx, passes.Options{Conformance: mode}, batch)
+			doc.Diagnostics = passes.WithoutLints(doc.Diagnostics, nil, nil)
 		}
 	}
 

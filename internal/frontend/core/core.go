@@ -277,6 +277,7 @@ func (c *Core) parseModel(inputs []sourceInput, mode diag.ConformanceMode) (stri
 		for i, document := range documents {
 			document.diagnostics, _ = passes.AnalyzeInBatch(inputs[i].name, inputs[i].kind,
 				document.root, document.diagnostics, index, passes.Options{Conformance: mode}, batch)
+			document.diagnostics = passes.WithoutLints(document.diagnostics, nil, nil)
 		}
 	}
 

@@ -43,8 +43,12 @@ is an error, not a warning; a SysML v1 migration writes none of it
 .TP
 .BR \-disable\-lint " \fIcode\fP"
 Leave this lint out of the model's diagnostics: undeclared\-signal,
-port\-type\-mismatch or deferred\-keeper\-unmarked, comma\-separated or
-repeated
+port\-type\-mismatch, deferred\-keeper\-unmarked or rounded\-real\-literal,
+comma\-separated or repeated
+.TP
+.BR \-enable\-lint " \fIcode\fP"
+Report this opt\-in lint, off by default, in the model's diagnostics:
+rounded\-real\-literal, comma\-separated or repeated; \-disable\-lint wins
 .TP
 .B \-no\-record\-cache
 Parse every file loaded and hold it loaded, reading no interface record from

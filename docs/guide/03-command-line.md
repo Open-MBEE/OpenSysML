@@ -269,13 +269,16 @@ each extension is measured against. The same setting is available as `%strict` a
 
 ## Lints
 
-Three further warnings, `undeclared-signal`, `port-type-mismatch` and
-`deferred-keeper-unmarked`, are *lints*: the model is valid SysML v2, but a `when <name>` that
-no declaration or `send` accounts for, a connection between ports whose definitions are
-unrelated, or a deferred signal's accept loop written without the `DeferredKeeper` marker that
-names it as the keeper, is almost always a slip. `-strict` leaves them warnings, since they are not about notation.
+Four further warnings, `undeclared-signal`, `port-type-mismatch`,
+`deferred-keeper-unmarked` and `rounded-real-literal`, are *lints*: the model is valid SysML v2,
+but a `when <name>` that no declaration or `send` accounts for, a connection between ports whose
+definitions are unrelated, a deferred signal's accept loop written without the `DeferredKeeper`
+marker that names it as the keeper, or a decimal literal such as `0.1` that a `Real` feature can
+only hold rounded, is almost always a slip or a surprise. `-strict` leaves them warnings, since they are not about notation.
 `-disable-lint <code>` switches one off (`%lint <code> off` at the prompt,
-`disabledLints` in an editor); [the diagnostics reference](../reference/diagnostics.md)
+`disabledLints` in an editor). `rounded-real-literal` is opt-in, since most decimals written
+to a `Real` round: `-enable-lint rounded-real-literal` switches it on (`%lint
+rounded-real-literal on`, `enabledLints`). [The diagnostics reference](../reference/diagnostics.md)
 states exactly what each reports.
 
 ## Running behavior

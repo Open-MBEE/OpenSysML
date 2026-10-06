@@ -140,9 +140,13 @@ func (ec *exprChecker) checkBoundValue(valueScope, declScope *symbols.Scope, d f
 	// The elements the lattice typed are its to judge; the rest are judged by
 	// their static result types.
 	latticeTyped := make(map[ast.Node]bool)
+	real := ec.holdsReal(declScope, d, want)
 	// A collection literal binds elementwise, so each element is checked
 	// against the feature's type rather than the sequence as a whole.
 	for _, element := range valueElements(value) {
+		if real {
+			ec.lintRoundedReal(element)
+		}
 		// A collection value binds the elements its body or collection produces. Inferring
 		// the value checks and reports on them; their types are then read silently.
 		if elements, collection := ec.model.CollectionElements(valueScope, element); collection {
