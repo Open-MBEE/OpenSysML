@@ -271,6 +271,35 @@ func TestGridViewMatrixSelectorKeywords(t *testing.T) {
 	}
 }
 
+func TestIndexedConnectorEndMatrixUsesBaseFeature(t *testing.T) {
+	r, idx := loadSources(t, []string{"indexed-connector-matrix.sysml"}, [][]byte{[]byte(`private import StandardViewDefinitions::*;
+package IndexedConnectorMatrix {
+	port def P;
+	part s { port y : P[2]; }
+	part t { port x : P; }
+	connection def C { end source[1] : P; end target[1] : P; }
+	connection c : C connect s.y#(1) to t.x;
+	view indexedConnections : GridView {
+		filter @SysML::ConnectionUsage;
+		expose IndexedConnectorMatrix::**;
+	}
+}`)})
+	rendering, err := r.Render(lookup(t, idx, "IndexedConnectorMatrix::indexedConnections"))
+	if err != nil {
+		t.Fatalf("Render: %v", err)
+	}
+	if !slices.Equal(rendering.Columns, []string{"Source / Target", "IndexedConnectorMatrix::t::x"}) {
+		t.Fatalf("matrix columns = %v, want base feature t.x", rendering.Columns)
+	}
+	if len(rendering.Rows) != 1 ||
+		!slices.Equal(rendering.Rows[0], []string{"IndexedConnectorMatrix::s::y", "connect"}) {
+		t.Fatalf("matrix rows = %v, want s.y connect cell", rendering.Rows)
+	}
+	if len(rendering.Notices) != 0 {
+		t.Fatalf("matrix notices = %v, want no unknown-end notice", rendering.Notices)
+	}
+}
+
 func TestMatrixRowsRetainSourceOrigins(t *testing.T) {
 	rendering := render(t, "matrix.sysml", "MatrixViews::allRelations")
 	if len(rendering.Rows) == 0 {
