@@ -63,6 +63,9 @@ public final class Capabilities {
   /** A model converts with only the documents {@code documents} names written, the rest linked by id. */
   public static final String CONVERT_DOCUMENTS = "convert_documents";
 
+  /** A parse names the documents whose results may differ from those of {@code base_model_hash}. */
+  public static final String PARSE_SOURCES_AFFECTED = "parse_sources_affected";
+
   /** A complex number travels as itself rather than as an unsupported null. */
   public static final String COMPLEX_VALUES = "complex_values";
 

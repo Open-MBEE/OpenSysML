@@ -2794,8 +2794,12 @@ type ParseSourcesRequest struct {
 	Documents []*SourceDocument      `protobuf:"bytes,1,rep,name=documents,proto3" json:"documents,omitempty"`
 	// Judge every document as conforming SysML v2, as ParseFileRequest does.
 	StrictConformance bool `protobuf:"varint,2,opt,name=strict_conformance,json=strictConformance,proto3" json:"strict_conformance,omitempty"`
-	unknownFields     protoimpl.UnknownFields
-	sizeCache         protoimpl.SizeCache
+	// The model_hash of a model of these documents the client holds results of,
+	// typically the one its previous ParseSources returned. The answer's affected
+	// is relative to it. Reported as the "parse_sources_affected" capability.
+	BaseModelHash string `protobuf:"bytes,3,opt,name=base_model_hash,json=baseModelHash,proto3" json:"base_model_hash,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *ParseSourcesRequest) Reset() {
@@ -2842,6 +2846,13 @@ func (x *ParseSourcesRequest) GetStrictConformance() bool {
 	return false
 }
 
+func (x *ParseSourcesRequest) GetBaseModelHash() string {
+	if x != nil {
+		return x.BaseModelHash
+	}
+	return ""
+}
+
 // ParseSourcesResponse contains the parsed model, whose documents are one model
 // for every later request: a model_hash names all of them together.
 type ParseSourcesResponse struct {
@@ -2850,8 +2861,18 @@ type ParseSourcesResponse struct {
 	// Root namespace per document, in the order the request named them.
 	Roots []*SymbolInfo `protobuf:"bytes,2,rep,name=roots,proto3" json:"roots,omitempty"`
 	// Diagnostics of every document, each naming the document it came from.
-	Diagnostics   []*Diagnostic `protobuf:"bytes,3,rep,name=diagnostics,proto3" json:"diagnostics,omitempty"`
-	Error         string        `protobuf:"bytes,4,opt,name=error,proto3" json:"error,omitempty"`
+	Diagnostics []*Diagnostic `protobuf:"bytes,3,rep,name=diagnostics,proto3" json:"diagnostics,omitempty"`
+	Error       string        `protobuf:"bytes,4,opt,name=error,proto3" json:"error,omitempty"`
+	// The documents, by name and in the request's order, whose analysis, and so
+	// whose diagnostics and conversion, may differ from base_model_hash's model:
+	// those whose text changed, those whose analysis read something an edit
+	// changed, and those base_model_hash's model did not hold. Every other
+	// document's results are the base's, so a client may reuse them. Answered
+	// only when base_model_hash is given; every document when the service
+	// cannot relate it to this model (no longer cached, not of the same
+	// documents, or a model whose documents may declare an identity scope).
+	// Reported as the "parse_sources_affected" capability.
+	Affected      []string `protobuf:"bytes,5,rep,name=affected,proto3" json:"affected,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -2912,6 +2933,13 @@ func (x *ParseSourcesResponse) GetError() string {
 		return x.Error
 	}
 	return ""
+}
+
+func (x *ParseSourcesResponse) GetAffected() []string {
+	if x != nil {
+		return x.Affected
+	}
+	return nil
 }
 
 // ParseFileResponse contains parsed model info
@@ -12607,16 +12635,18 @@ const file_sysml_proto_rawDesc = "" +
 	"\acontent\x18\x02 \x01(\tH\x00R\acontent\x12\x1a\n" +
 	"\blanguage\x18\x03 \x01(\tR\blanguage\x12\x12\n" +
 	"\x04name\x18\x04 \x01(\tR\x04nameB\b\n" +
-	"\x06source\"y\n" +
+	"\x06source\"\xa1\x01\n" +
 	"\x13ParseSourcesRequest\x123\n" +
 	"\tdocuments\x18\x01 \x03(\v2\x15.sysml.SourceDocumentR\tdocuments\x12-\n" +
-	"\x12strict_conformance\x18\x02 \x01(\bR\x11strictConformance\"\xa9\x01\n" +
+	"\x12strict_conformance\x18\x02 \x01(\bR\x11strictConformance\x12&\n" +
+	"\x0fbase_model_hash\x18\x03 \x01(\tR\rbaseModelHash\"\xc5\x01\n" +
 	"\x14ParseSourcesResponse\x12\x1d\n" +
 	"\n" +
 	"model_hash\x18\x01 \x01(\tR\tmodelHash\x12'\n" +
 	"\x05roots\x18\x02 \x03(\v2\x11.sysml.SymbolInfoR\x05roots\x123\n" +
 	"\vdiagnostics\x18\x03 \x03(\v2\x11.sysml.DiagnosticR\vdiagnostics\x12\x14\n" +
-	"\x05error\x18\x04 \x01(\tR\x05error\"\xa4\x01\n" +
+	"\x05error\x18\x04 \x01(\tR\x05error\x12\x1a\n" +
+	"\baffected\x18\x05 \x03(\tR\baffected\"\xa4\x01\n" +
 	"\x11ParseFileResponse\x12\x1d\n" +
 	"\n" +
 	"model_hash\x18\x01 \x01(\tR\tmodelHash\x12%\n" +

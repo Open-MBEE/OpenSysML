@@ -280,6 +280,7 @@ type DiagramRef struct {
 	direction view.Direction
 	palette   view.Palette
 	ports     view.Ports
+	overlay   view.Overlay
 	origin    symbols.Origin
 }
 
@@ -303,6 +304,9 @@ func (d *DiagramRef) Palette() view.Palette { return d.palette }
 
 // Ports returns the stated port display, empty for the default, minimal.
 func (d *DiagramRef) Ports() view.Ports { return d.ports }
+
+// Overlay returns the stated overlay, empty for a purely structural drawing.
+func (d *DiagramRef) Overlay() view.Overlay { return d.overlay }
 
 // Origin returns the source declaration behind the reference.
 func (d *DiagramRef) Origin() symbols.Origin { return d.origin }

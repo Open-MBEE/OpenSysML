@@ -48,6 +48,10 @@ connecting to models.
     options:
       heading_level: 3
 
+::: opensysml.CAPABILITY_PARSE_SOURCES_AFFECTED
+    options:
+      heading_level: 3
+
 ::: opensysml.load
     options:
       heading_level: 3

@@ -263,6 +263,10 @@ CAPABILITY_RATIONAL_VALUES = "rational_values"
 #: references into the others linked by id.
 CAPABILITY_CONVERT_DOCUMENTS = "convert_documents"
 
+#: ``ParseSourcesRequest.base_model_hash`` and ``ParseSourcesResponse.affected``: the documents
+#: whose results may differ from the base model's, so a client re-reads only those after an edit.
+CAPABILITY_PARSE_SOURCES_AFFECTED = "parse_sources_affected"
+
 
 @dataclass(frozen=True)
 class ServerInfo:

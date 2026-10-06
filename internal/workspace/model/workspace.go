@@ -43,6 +43,11 @@ type Workspace struct {
 	libCatalog *identity.Catalog
 	libOnce    sync.Once
 	diagCache  map[string][]diag.Diagnostic
+	// stamps numbers each document's latest fresh analysis: a document re-analyzed
+	// because an edit dropped what its analysis read gets a new number, and one
+	// whose cached analysis still holds keeps its own (see AnalysisStamp).
+	stamps   map[string]uint64
+	analyses uint64
 	// refs is the reverse reference index, built per document on demand and
 	// dropped per document on a change (see refindex.go).
 	refs *refIndex
@@ -168,6 +173,7 @@ func NewWorkspaceWithIndex(idx *symbols.Index, opts ...Option) *Workspace {
 		libraryRoots: map[string]bool{},
 		libBase:      idx.Base(),
 		diagCache:    map[string][]diag.Diagnostic{},
+		stamps:       map[string]uint64{},
 		libDocs:      map[string]*Document{},
 		standIns:     map[string]string{},
 		displaced:    map[string]symbols.LibraryDocument{},
@@ -634,7 +640,29 @@ func (w *Workspace) diagnosticsLocked(name string, doc *Document) []diag.Diagnos
 	}
 	diags, _ := w.analyze(name, doc, nil)
 	w.diagCache[name] = diags
+	w.stampLocked(name)
 	return diags
+}
+
+// stampLocked gives name's fresh analysis a number of its own. Caller holds the write lock.
+func (w *Workspace) stampLocked(name string) {
+	w.analyses++
+	w.stamps[name] = w.analyses
+}
+
+// AnalysisStamp numbers name's current analysis: it changes exactly when the
+// document is analyzed afresh, which happens only after an edit dropped what
+// the previous analysis read (the document's own text, a name it resolved, a
+// gather it took part in). Two reads of one stamp therefore saw one analysis,
+// over the same inputs. Zero for a document not analyzed since it was opened
+// or last changed.
+func (w *Workspace) AnalysisStamp(name string) uint64 {
+	w.mu.RLock()
+	defer w.mu.RUnlock()
+	if _, analyzed := w.diagCache[name]; !analyzed {
+		return 0
+	}
+	return w.stamps[name]
 }
 
 // analyze runs the passes over doc: in the workspace's shared context without a

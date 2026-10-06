@@ -178,6 +178,11 @@ const CapabilityParseSources = "parse_sources"
 // the named documents of a model and links the rest by id.
 const CapabilityConvertDocuments = "convert_documents"
 
+// CapabilityParseSourcesAffected names ParseSourcesRequest.base_model_hash and
+// ParseSourcesResponse.affected: the documents whose results may differ from
+// the base model's, so a client re-reads only those after an edit.
+const CapabilityParseSourcesAffected = "parse_sources_affected"
+
 // CapabilityComplexValues names the capability of carrying a complex number as
 // Value.complex, rather than reporting it as an unsupported null.
 const CapabilityComplexValues = "complex_values"
@@ -309,6 +314,7 @@ var capabilities = []string{
 	CapabilityStateTrace,
 	CapabilityRenderView,
 	CapabilityConvertDocuments,
+	CapabilityParseSourcesAffected,
 }
 
 type capabilityAvailability struct {
@@ -380,6 +386,9 @@ type Service struct {
 	version string
 	// capabilities decides both what this service reports and what it supplies.
 	capabilities capabilityAvailability
+	// lineages are the incremental workspaces of the document sets parsed more
+	// than once (lineage.go).
+	lineages *lineages
 }
 
 // Option adjusts how NewService builds a service.
@@ -461,6 +470,7 @@ func newService(cacheSize int, version string, opts []Option) (*Service, error) 
 	return &Service{
 		cache:          cache,
 		libIndexes:     newLibraryBase(buildLibraryIndex),
+		lineages:       newLineages(maxLineages),
 		prewarm:        prewarm > 0,
 		budgets:        budgets,
 		jobs:           jobs,
@@ -667,7 +677,7 @@ func (s *Service) ParseFile(ctx context.Context, req *pb.ParseFileRequest) (*pb.
 	}
 
 	mode := diag.ConformanceModeOf(req.StrictConformance)
-	modelHash, model := s.parseModel([]sourceInput{input}, mode)
+	modelHash, model := s.parseModel([]sourceInput{input}, mode, false)
 	return s.buildParseResponse(modelHash, model), nil
 }
 
@@ -684,6 +694,11 @@ func (s *Service) ParseSources(ctx context.Context, req *pb.ParseSourcesRequest)
 	}
 	if len(req.Documents) == 0 {
 		return nil, statusError(connect.CodeInvalidArgument, "documents must name at least one document")
+	}
+	if req.BaseModelHash != "" {
+		if err := s.requireCapability(CapabilityParseSourcesAffected); err != nil {
+			return nil, err
+		}
 	}
 
 	inputs := make([]sourceInput, 0, len(req.Documents))
@@ -702,16 +717,24 @@ func (s *Service) ParseSources(ctx context.Context, req *pb.ParseSourcesRequest)
 		inputs = append(inputs, input)
 	}
 
-	modelHash, model := s.parseModel(inputs, diag.ConformanceModeOf(req.StrictConformance))
+	modelHash, model := s.parseModel(inputs, diag.ConformanceModeOf(req.StrictConformance), true)
 	roots := make([]*pb.SymbolInfo, 0, len(model.Documents))
 	for _, doc := range model.Documents {
 		roots = append(roots, s.rootSymbol(model, doc))
 	}
-	return &pb.ParseSourcesResponse{
+	var base *CachedModel
+	if req.BaseModelHash != "" {
+		base, _ = s.cache.Get(req.BaseModelHash)
+	}
+	resp := &pb.ParseSourcesResponse{
 		ModelHash:   modelHash,
 		Roots:       roots,
 		Diagnostics: s.modelDiagnostics(model),
-	}, nil
+	}
+	if req.BaseModelHash != "" {
+		resp.Affected = affectedDocuments(base, model)
+	}
+	return resp, nil
 }
 
 // documentInput reads one document of a ParseSources request. position names an
@@ -785,7 +808,11 @@ func fileInput(path string) (sourceInput, error) {
 // gating in AGENTS.md §4: a document that failed to parse contributes no symbols,
 // so analyzing its siblings would report names as unresolved that the model
 // declares.
-func (s *Service) parseModel(inputs []sourceInput, mode diag.ConformanceMode) (string, *CachedModel) {
+//
+// With incremental, a document set parsed before is answered from its lineage
+// (lineage.go): ParseSources, whose model of many documents is reparsed after
+// each edit. ParseFile's one document is cheap to parse whole.
+func (s *Service) parseModel(inputs []sourceInput, mode diag.ConformanceMode, incremental bool) (string, *CachedModel) {
 	// Keyed by what was read, not by the hash a request carried: a hash
 	// disagreeing with its content would serve another model. Each document's
 	// name is part of the key, since its diagnostics name the document they came
@@ -809,6 +836,14 @@ func (s *Service) parseModel(inputs []sourceInput, mode diag.ConformanceMode) (s
 	modelHash := computeHash(key.String())
 	if cached, ok := s.cache.Get(modelHash); ok {
 		return modelHash, cached
+	}
+
+	// A document set parsed before is answered from its lineage: only what
+	// changed is parsed and analyzed again (lineage.go).
+	if incremental {
+		if model, ok := s.parseFromLineage(inputs, mode); ok {
+			return modelHash, s.cache.Add(modelHash, model)
+		}
 	}
 
 	// Take an index carrying the standard library, which type resolution needs:
