@@ -39,7 +39,7 @@ package Plant {
             render Views::asTreeDiagram;
         }
         calc def 'Pump Requirement Map Rows' :> DocumentQueries::Query {
-            in candidates : KerML::Root::Element [0..*] ordered = DocumentQueries::RelatedElements(
+            in candidates : KerML::Root::Element[0..*] ordered = DocumentQueries::RelatedElements(
                 source = DocumentQueries::Named(qualifiedName = ("Plant::Structure::Pump")),
                 relationshipKind = "satisfaction",
                 direction = "outgoing",
@@ -293,7 +293,7 @@ package Plant {
             render Views::asElementTable;
         }
         calc def 'Satisfaction Matrix Rows' :> DocumentQueries::Query {
-            in candidates : KerML::Root::Element [0..*] ordered = DocumentQueries::Descendants(
+            in candidates : KerML::Root::Element[0..*] ordered = DocumentQueries::Descendants(
                 source = DocumentQueries::Named(qualifiedName = ("Plant::Structure")));
             DocumentQueries::Project(
                 source = DocumentQueries::WhereType(

@@ -81,7 +81,7 @@ package Shop {
         render Views::asTreeDiagram;
     }
     calc def 'Catalog Map Rows' :> DocumentQueries::Query {
-        in candidates : KerML::Root::Element [0..*] ordered = DocumentQueries::RelatedElements(
+        in candidates : KerML::Root::Element[0..*] ordered = DocumentQueries::RelatedElements(
             source = DocumentQueries::Named(qualifiedName = ("Shop::Catalog")),
             relationshipKind = "specialization",
             direction = "incoming",

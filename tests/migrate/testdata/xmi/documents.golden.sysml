@@ -362,7 +362,7 @@ package 'Fleet Documents' {
         /* not migrated: «Conform» Generalization (_gen_notes) — the viewpoint is not in the document; applied stereotypes «Conform» */
     }
     calc def 'Fleet Handbook Fleet Parts Rows' :> DocumentQueries::Query {
-        in candidates : KerML::Root::Element [0..*] ordered = DocumentQueries::Descendants(
+        in candidates : KerML::Root::Element[0..*] ordered = DocumentQueries::Descendants(
             source = DocumentQueries::Named(qualifiedName = ("Fleet::Structure")),
             maxDepth = 1);
         DocumentQueries::Project(

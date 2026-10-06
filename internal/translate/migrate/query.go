@@ -166,6 +166,7 @@ func (m *migration) queryPrefix(host *sysmlv1.Element) string {
 	return "DocumentQueries::"
 }
 
+// queryElementType is how KerML::Root::Element is named from inside host.
 func (m *migration) queryElementType(host *sysmlv1.Element) string {
 	if m.hidden("KerML") || m.shadowsLibrary("KerML", host) {
 		return "$::KerML::Root::Element"
@@ -178,7 +179,7 @@ func (m *migration) writeQueryDef(name string, prefix string, host *sysmlv1.Elem
 	m.w.block("calc def "+writeName(name)+" :> "+prefix+"Query", func() {
 		for _, parameter := range parameters {
 			lines := parameter.value.lines(prefix)
-			lines[0] = "in " + parameter.name + " : " + m.queryElementType(host) + " [0..*] ordered = " + lines[0]
+			lines[0] = "in " + parameter.name + " : " + m.queryElementType(host) + "[0..*] ordered = " + lines[0]
 			lines[len(lines)-1] += ";"
 			m.w.lines(lines)
 		}

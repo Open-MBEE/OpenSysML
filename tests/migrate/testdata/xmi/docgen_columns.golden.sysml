@@ -224,7 +224,7 @@ package Observatory {
             expose Observatory::Assemblies::'Optical Bench';
         }
         calc def 'Interface Control Document Interface Totals Rows' :> DocumentQueries::Query {
-            in candidates : KerML::Root::Element [0..*] ordered = DocumentQueries::Descendants(
+            in candidates : KerML::Root::Element[0..*] ordered = DocumentQueries::Descendants(
                 source = DocumentQueries::Named(qualifiedName = ("Observatory::Interface Types")),
                 maxDepth = 1);
             DocumentQueries::Project(
@@ -243,7 +243,7 @@ package Observatory {
                     DocumentQueries::Column(name = "Number of Interfaces", cell = { in row : KerML::Core::Type; DocumentQueries::RelatedElements(source = row, relationshipKind = "typing", direction = "incoming", maxDepth = 1)->SequenceFunctions::size() })))
         }
         calc def 'Interface Control Document Per Type Rows' :> DocumentQueries::Query {
-            in candidates : KerML::Root::Element [0..*] ordered = DocumentQueries::Descendants(
+            in candidates : KerML::Root::Element[0..*] ordered = DocumentQueries::Descendants(
                 source = DocumentQueries::Named(qualifiedName = ("Observatory::Interface Types")),
                 maxDepth = 1);
             DocumentQueries::Project(

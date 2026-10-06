@@ -17,7 +17,7 @@ package Plant {
             render Views::asTreeDiagram;
         }
         calc def 'Valve Requirement Map Rows' :> DocumentQueries::Query {
-            in candidates : KerML::Root::Element [0..*] ordered = DocumentQueries::RelatedElements(
+            in candidates : KerML::Root::Element[0..*] ordered = DocumentQueries::RelatedElements(
                 source = DocumentQueries::Named(qualifiedName = ("Plant::Structure::Valve")),
                 relationshipKind = "satisfaction",
                 direction = "outgoing",
@@ -56,7 +56,7 @@ package Plant {
             render Views::asElementTable;
         }
         calc def 'Exact Satisfaction Matrix Rows' :> DocumentQueries::Query {
-            in candidates : KerML::Root::Element [0..*] ordered = DocumentQueries::Descendants(
+            in candidates : KerML::Root::Element[0..*] ordered = DocumentQueries::Descendants(
                 source = DocumentQueries::Named(qualifiedName = ("Plant::Structure")));
             DocumentQueries::Project(
                 source = DocumentQueries::WhereType(
@@ -93,7 +93,7 @@ package Plant {
             render Views::asElementTable;
         }
         calc def 'Wide Satisfaction Matrix Rows' :> DocumentQueries::Query {
-            in candidates : KerML::Root::Element [0..*] ordered = DocumentQueries::Descendants(
+            in candidates : KerML::Root::Element[0..*] ordered = DocumentQueries::Descendants(
                 source = DocumentQueries::Named(qualifiedName = ("Plant")));
             DocumentQueries::Project(
                 source = DocumentQueries::WhereType(
@@ -138,7 +138,7 @@ package Plant {
             render Views::asTreeDiagram;
         }
         calc def 'Seal Derivation Map Rows' :> DocumentQueries::Query {
-            in candidates : KerML::Root::Element [0..*] ordered = DocumentQueries::RelatedElements(
+            in candidates : KerML::Root::Element[0..*] ordered = DocumentQueries::RelatedElements(
                 source = DocumentQueries::Named(qualifiedName = ("Plant::Requirements::SealRequirement")),
                 relationshipKind = "derivation",
                 direction = "incoming",
