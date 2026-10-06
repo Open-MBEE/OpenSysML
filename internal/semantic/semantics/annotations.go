@@ -957,6 +957,11 @@ func (m *Model) metaclassOf(sym *symbols.Symbol) *symbols.Symbol {
 	if sym == nil {
 		return nil
 	}
+	// The feature a relationship's chain target denotes is a KerML Feature in
+	// either language.
+	if sym.Chain != nil {
+		return m.kermlMetaclass("Feature")
+	}
 	// A relationship written as notation is classified by the metaclass its
 	// kind and owner's classification select.
 	if sym.Implicit != nil {
@@ -1460,21 +1465,28 @@ func (m *Model) ReflectiveElements(sym *symbols.Symbol, feature string) ([]*symb
 			return nil, false
 		}
 		return m.conformingTypes(sym, "Metaclass"), true
-	case "endFeature", "ownedEndFeature":
-		if !m.reflectiveMetaclassConforms(sym, "Type") {
+	case "endFeature", "ownedEndFeature", "connectorEnd":
+		// Connector::connectorEnd redefines Type::endFeature.
+		metaclass := "Type"
+		if feature == "connectorEnd" {
+			metaclass = "Connector"
+		}
+		if !m.reflectiveMetaclassConforms(sym, metaclass) {
 			return nil, false
 		}
-		ends := m.EndFeatures(sym)
-		if feature == "endFeature" {
-			return ends, true
-		}
-		owned := make([]*symbols.Symbol, 0, len(ends))
-		for _, end := range ends {
-			if end != nil && m.ownerOf(end) == sym {
-				owned = append(owned, end)
+		// An end with no symbol of its own holds its position as a nil entry.
+		var ends []*symbols.Symbol
+		for _, end := range m.EndFeatures(sym) {
+			if end != nil && (feature != "ownedEndFeature" || m.ownerOf(end) == sym) {
+				ends = append(ends, end)
 			}
 		}
-		return owned, true
+		return ends, true
+	case "chainingFeature":
+		if !m.reflectiveMetaclassConforms(sym, "Feature") {
+			return nil, false
+		}
+		return m.chainingFeaturesOf(sym), true
 	case "unioningType":
 		if !m.reflectiveMetaclassConforms(sym, "Type") {
 			return nil, false
@@ -1742,7 +1754,7 @@ func (m *Model) dependencyEnds(sym *symbols.Symbol, names []*ast.QualifiedName) 
 
 // ownedElementsOf is Element::ownedElement: the members sym's body declares,
 // the named ones in declaration order and then those declared without a
-// name, and its documentation.
+// name, its documentation, and the chaining features its relationships own.
 func (m *Model) ownedElementsOf(sym *symbols.Symbol) []*symbols.Symbol {
 	members := ownedMembersOf(sym)
 	seen := make(map[*symbols.Symbol]bool, len(members))
@@ -1762,6 +1774,14 @@ func (m *Model) ownedElementsOf(sym *symbols.Symbol) []*symbols.Symbol {
 		if !seen[doc] {
 			seen[doc] = true
 			members = append(members, doc)
+		}
+	}
+	// A relationship's chain target is an element the declaration owns through
+	// the relationship (`::> a.b`), KerML 8.3.2.1.
+	for _, rel := range m.ImplicitRelationships(sym) {
+		if chain := m.chainTargetFeature(rel); chain != nil && !seen[chain] {
+			seen[chain] = true
+			members = append(members, chain)
 		}
 	}
 	return members

@@ -1,6 +1,7 @@
 package view
 
 import (
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
@@ -92,8 +93,60 @@ func (r *Renderer) draws(kind Kind, sym *symbols.Symbol) (node, edge bool) {
 		return stateLike(sym), isTransition(sym) || sym.Kind == symbols.SymbolSuccessionUsage
 	case KindAction:
 		return actionLike(sym), sym.Kind == symbols.SymbolSuccessionUsage || isFlowUsage(sym)
+	case KindCase:
+		if caseFamily(sym) {
+			return !isReferencedIncludedCase(sym), isIncludedCase(sym) || hasCaseOwner(sym)
+		}
+		role := semantics.IsActorUsage(sym) || semantics.IsSubjectUsage(sym) || semantics.IsObjectiveUsage(sym)
+		return role, role
+	case KindMixed:
+		caseRole := semantics.IsActorUsage(sym) || semantics.IsSubjectUsage(sym) || semantics.IsObjectiveUsage(sym)
+		return featureLike(sym) || stateLike(sym) || actionLike(sym) ||
+				(caseFamily(sym) && !isReferencedIncludedCase(sym)) || caseRole || r.contentKind(sym),
+			r.drawsConnector(sym) || isTransition(sym) || sym.Kind == symbols.SymbolSuccessionUsage || isFlowUsage(sym) ||
+				isIncludedCase(sym) || (caseFamily(sym) && hasCaseOwner(sym)) || caseRole || r.mixedReferenceEdge(sym)
 	}
 	return false, false
+}
+
+// hasCaseOwner reports whether sym is nested beneath a case-family symbol.
+func hasCaseOwner(sym *symbols.Symbol) bool {
+	for owner := sym.Owner(); owner != nil; owner = owner.Owner() {
+		if caseFamily(owner) {
+			return true
+		}
+	}
+	return false
+}
+
+// mixedReferenceEdge reports whether sym contributes a reference between drawn nodes.
+func (r *Renderer) mixedReferenceEdge(sym *symbols.Symbol) bool {
+	if sym.Kind.IsFeature() {
+		for _, target := range r.model.DeclaredTypes(sym) {
+			if target.Kind.IsDefinition() {
+				return true
+			}
+		}
+	}
+	for _, rel := range viewRelationshipsOf(sym) {
+		if rel != nil && rel.Kind == ast.RelSpecializes && r.model.RelationshipTarget(sym, rel) != nil {
+			return true
+		}
+	}
+	if usage := caseUsage(sym); usage != nil && (usage.IsPerformedAction() || usage.IsExhibitedState()) {
+		if r.model.ReferencedFeature(sym) != nil {
+			return true
+		}
+		for _, rel := range viewRelationshipsOf(sym) {
+			if rel == nil || rel.Kind != ast.RelTyping && rel.Kind != ast.RelReferences {
+				continue
+			}
+			if r.model.RelationshipTarget(sym, rel) != nil {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // DrawsAnywhere reports whether some rendering kind draws sym as a node and

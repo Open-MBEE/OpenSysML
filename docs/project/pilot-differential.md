@@ -134,7 +134,7 @@ repeated runs are byte-identical.
 own `.kerml` fixtures out of the comparison (see the known limitation below).
 
 Beside the roots, every batch hands the reference the OpenSysML libraries
-(`internal/workspace/libs/stdlib/OpenSysML Libraries`, 14 files), loaded like the standard
+(`internal/workspace/libs/stdlib/OpenSysML Libraries`, 15 files), loaded like the standard
 library: resolved against, never validated. They are not a compared root — library files report
 nothing — but they are part of what a run measured, so the baseline's provenance records them as
 the `opensysml-libraries` input, and a changed library is a movement to adjudicate like a changed
@@ -241,7 +241,7 @@ nor double-counted as two independent disagreements.
 
 ---
 
-## Results (pilot `2026-08`, 384 files)
+## Results (pilot `2026-08`, 386 files)
 
 | Root | Files | Fully agreeing | Ours | Pilot | Agreed | Severity-only | Only ours | Only pilot |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
@@ -250,9 +250,9 @@ nor double-counted as two independent disagreements.
 | `examples/pilot-corpora/sysml-validation` | 56 | 56 | 0 | 0 | 0 | 0 | 0 | 0 |
 | `examples/pilot-corpora/kerml-examples` | 58 | 56 | 9 | 0 | 0 | 0 | 9 | 0 |
 | `tests/testdata` | 21 | 11 | 55 | 77 | 45 | 1 | 9 | 31 |
-| `examples` | 46 | 41 | 7 | 54 | 0 | 0 | 7 | 54 |
+| `examples` | 48 | 43 | 7 | 54 | 0 | 0 | 7 | 54 |
 | `tools/referee/diff/testdata` (probes) | 4 | 1 | 6 | 0 | 0 | 0 | 6 | 0 |
-| **Total** | **384** | **355** | **90** | **131** | **45** | **1** | **44** | **85** |
+| **Total** | **386** | **357** | **90** | **131** | **45** | **1** | **44** | **85** |
 
 **Read the `only ours` total by root, never as one number.** Step 2 removes nine resolver false
 positives from the reference's **own** corpora: `pilot-examples` 16 → **7** and
@@ -342,7 +342,7 @@ warnings read in the round below, nothing else.
 The reference validators are now handed the OpenSysML libraries beside the standard library on
 every batch: both bridges take `--extension-library DIR`, which loads a directory the way
 `sysml.library` is loaded — resolved against, never validated — and the harness passes
-`internal/workspace/libs/stdlib/OpenSysML Libraries` (14 files, the copy this implementation
+`internal/workspace/libs/stdlib/OpenSysML Libraries` (15 files, the copy this implementation
 compiles against) through it. The directory is not an option of the harness: it is the
 `OpenSysML Libraries` directory of the standard-library root this implementation itself loads
 (the bundled tree, or `OPENSYSML_LIBRARY_PATH` when set), so both validators always resolve the
@@ -1184,7 +1184,7 @@ page's history.
 
 | Count | Now |
 |---|---:|
-| overall: fully agreeing / only ours / our diagnostics | **355 / 44 / 90** |
+| overall: fully agreeing / only ours / our diagnostics | **357 / 44 / 90** |
 | only pilot | **85** |
 | pilot diagnostics | **131** |
 | severity-only | **1** |

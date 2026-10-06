@@ -592,6 +592,7 @@ elmt:StateMachine__VehicleStates__active___401_succession
     sysml:connectorEnd expr:StateMachine__VehicleStates__active___401_succession_pend0, expr:StateMachine__VehicleStates__active___401_succession_pend1 ;
     sysml:ownedRelationship expr:StateMachine__VehicleStates__active___401_succession_pend0_om, expr:StateMachine__VehicleStates__active___401_succession_pend1_om ;
     sysml:ownedMembership expr:StateMachine__VehicleStates__active___401_succession_pend0_om, expr:StateMachine__VehicleStates__active___401_succession_pend1_om ;
+    sysml:ownedMember expr:StateMachine__VehicleStates__active___401_succession_pend0, expr:StateMachine__VehicleStates__active___401_succession_pend1 ;
     sysml:ownedFeatureMembership expr:StateMachine__VehicleStates__active___401_succession_pend0_om, expr:StateMachine__VehicleStates__active___401_succession_pend1_om ;
     sysml:ownedFeature expr:StateMachine__VehicleStates__active___401_succession_pend0, expr:StateMachine__VehicleStates__active___401_succession_pend1 ;
     sysml:ownedEndFeature expr:StateMachine__VehicleStates__active___401_succession_pend0, expr:StateMachine__VehicleStates__active___401_succession_pend1 ;
@@ -601,6 +602,7 @@ elmt:StateMachine__VehicleStates__active___401_succession
     json:connectorEnd "[{\"@id\":\"StateMachine__VehicleStates__active___401_succession_pend0\"},{\"@id\":\"StateMachine__VehicleStates__active___401_succession_pend1\"}]" ;
     json:ownedRelationship "[{\"@id\":\"StateMachine__VehicleStates__active___401_succession_pend0_om\"},{\"@id\":\"StateMachine__VehicleStates__active___401_succession_pend1_om\"}]" ;
     json:ownedMembership "[{\"@id\":\"StateMachine__VehicleStates__active___401_succession_pend0_om\"},{\"@id\":\"StateMachine__VehicleStates__active___401_succession_pend1_om\"}]" ;
+    json:ownedMember "[{\"@id\":\"StateMachine__VehicleStates__active___401_succession_pend0\"},{\"@id\":\"StateMachine__VehicleStates__active___401_succession_pend1\"}]" ;
     json:ownedFeatureMembership "[{\"@id\":\"StateMachine__VehicleStates__active___401_succession_pend0_om\"},{\"@id\":\"StateMachine__VehicleStates__active___401_succession_pend1_om\"}]" ;
     json:ownedFeature "[{\"@id\":\"StateMachine__VehicleStates__active___401_succession_pend0\"},{\"@id\":\"StateMachine__VehicleStates__active___401_succession_pend1\"}]" ;
     json:ownedEndFeature "[{\"@id\":\"StateMachine__VehicleStates__active___401_succession_pend0\"},{\"@id\":\"StateMachine__VehicleStates__active___401_succession_pend1\"}]" .
@@ -841,6 +843,7 @@ elmt:StateMachine__VehicleStates__off_5fto_5fstart_succession
     sysml:connectorEnd expr:StateMachine__VehicleStates__off_5fto_5fstart_succession_pend0, expr:StateMachine__VehicleStates__off_5fto_5fstart_succession_pend1 ;
     sysml:ownedRelationship expr:StateMachine__VehicleStates__off_5fto_5fstart_succession_pend0_om, expr:StateMachine__VehicleStates__off_5fto_5fstart_succession_pend1_om ;
     sysml:ownedMembership expr:StateMachine__VehicleStates__off_5fto_5fstart_succession_pend0_om, expr:StateMachine__VehicleStates__off_5fto_5fstart_succession_pend1_om ;
+    sysml:ownedMember expr:StateMachine__VehicleStates__off_5fto_5fstart_succession_pend0, expr:StateMachine__VehicleStates__off_5fto_5fstart_succession_pend1 ;
     sysml:ownedFeatureMembership expr:StateMachine__VehicleStates__off_5fto_5fstart_succession_pend0_om, expr:StateMachine__VehicleStates__off_5fto_5fstart_succession_pend1_om ;
     sysml:ownedFeature expr:StateMachine__VehicleStates__off_5fto_5fstart_succession_pend0, expr:StateMachine__VehicleStates__off_5fto_5fstart_succession_pend1 ;
     sysml:ownedEndFeature expr:StateMachine__VehicleStates__off_5fto_5fstart_succession_pend0, expr:StateMachine__VehicleStates__off_5fto_5fstart_succession_pend1 ;
@@ -850,6 +853,7 @@ elmt:StateMachine__VehicleStates__off_5fto_5fstart_succession
     json:connectorEnd "[{\"@id\":\"StateMachine__VehicleStates__off_5fto_5fstart_succession_pend0\"},{\"@id\":\"StateMachine__VehicleStates__off_5fto_5fstart_succession_pend1\"}]" ;
     json:ownedRelationship "[{\"@id\":\"StateMachine__VehicleStates__off_5fto_5fstart_succession_pend0_om\"},{\"@id\":\"StateMachine__VehicleStates__off_5fto_5fstart_succession_pend1_om\"}]" ;
     json:ownedMembership "[{\"@id\":\"StateMachine__VehicleStates__off_5fto_5fstart_succession_pend0_om\"},{\"@id\":\"StateMachine__VehicleStates__off_5fto_5fstart_succession_pend1_om\"}]" ;
+    json:ownedMember "[{\"@id\":\"StateMachine__VehicleStates__off_5fto_5fstart_succession_pend0\"},{\"@id\":\"StateMachine__VehicleStates__off_5fto_5fstart_succession_pend1\"}]" ;
     json:ownedFeatureMembership "[{\"@id\":\"StateMachine__VehicleStates__off_5fto_5fstart_succession_pend0_om\"},{\"@id\":\"StateMachine__VehicleStates__off_5fto_5fstart_succession_pend1_om\"}]" ;
     json:ownedFeature "[{\"@id\":\"StateMachine__VehicleStates__off_5fto_5fstart_succession_pend0\"},{\"@id\":\"StateMachine__VehicleStates__off_5fto_5fstart_succession_pend1\"}]" ;
     json:ownedEndFeature "[{\"@id\":\"StateMachine__VehicleStates__off_5fto_5fstart_succession_pend0\"},{\"@id\":\"StateMachine__VehicleStates__off_5fto_5fstart_succession_pend1\"}]" .
@@ -1069,6 +1073,7 @@ elmt:StateMachine__VehicleStates___405_succession
     sysml:connectorEnd expr:StateMachine__VehicleStates___405_succession_pend0, expr:StateMachine__VehicleStates___405_succession_pend1 ;
     sysml:ownedRelationship expr:StateMachine__VehicleStates___405_succession_pend0_om, expr:StateMachine__VehicleStates___405_succession_pend1_om ;
     sysml:ownedMembership expr:StateMachine__VehicleStates___405_succession_pend0_om, expr:StateMachine__VehicleStates___405_succession_pend1_om ;
+    sysml:ownedMember expr:StateMachine__VehicleStates___405_succession_pend0, expr:StateMachine__VehicleStates___405_succession_pend1 ;
     sysml:ownedFeatureMembership expr:StateMachine__VehicleStates___405_succession_pend0_om, expr:StateMachine__VehicleStates___405_succession_pend1_om ;
     sysml:ownedFeature expr:StateMachine__VehicleStates___405_succession_pend0, expr:StateMachine__VehicleStates___405_succession_pend1 ;
     sysml:ownedEndFeature expr:StateMachine__VehicleStates___405_succession_pend0, expr:StateMachine__VehicleStates___405_succession_pend1 ;
@@ -1078,6 +1083,7 @@ elmt:StateMachine__VehicleStates___405_succession
     json:connectorEnd "[{\"@id\":\"StateMachine__VehicleStates___405_succession_pend0\"},{\"@id\":\"StateMachine__VehicleStates___405_succession_pend1\"}]" ;
     json:ownedRelationship "[{\"@id\":\"StateMachine__VehicleStates___405_succession_pend0_om\"},{\"@id\":\"StateMachine__VehicleStates___405_succession_pend1_om\"}]" ;
     json:ownedMembership "[{\"@id\":\"StateMachine__VehicleStates___405_succession_pend0_om\"},{\"@id\":\"StateMachine__VehicleStates___405_succession_pend1_om\"}]" ;
+    json:ownedMember "[{\"@id\":\"StateMachine__VehicleStates___405_succession_pend0\"},{\"@id\":\"StateMachine__VehicleStates___405_succession_pend1\"}]" ;
     json:ownedFeatureMembership "[{\"@id\":\"StateMachine__VehicleStates___405_succession_pend0_om\"},{\"@id\":\"StateMachine__VehicleStates___405_succession_pend1_om\"}]" ;
     json:ownedFeature "[{\"@id\":\"StateMachine__VehicleStates___405_succession_pend0\"},{\"@id\":\"StateMachine__VehicleStates___405_succession_pend1\"}]" ;
     json:ownedEndFeature "[{\"@id\":\"StateMachine__VehicleStates___405_succession_pend0\"},{\"@id\":\"StateMachine__VehicleStates___405_succession_pend1\"}]" .
@@ -1302,6 +1308,7 @@ elmt:StateMachine__VehicleStates__active_5fto_5foff_succession
     sysml:connectorEnd expr:StateMachine__VehicleStates__active_5fto_5foff_succession_pend0, expr:StateMachine__VehicleStates__active_5fto_5foff_succession_pend1 ;
     sysml:ownedRelationship expr:StateMachine__VehicleStates__active_5fto_5foff_succession_pend0_om, expr:StateMachine__VehicleStates__active_5fto_5foff_succession_pend1_om ;
     sysml:ownedMembership expr:StateMachine__VehicleStates__active_5fto_5foff_succession_pend0_om, expr:StateMachine__VehicleStates__active_5fto_5foff_succession_pend1_om ;
+    sysml:ownedMember expr:StateMachine__VehicleStates__active_5fto_5foff_succession_pend0, expr:StateMachine__VehicleStates__active_5fto_5foff_succession_pend1 ;
     sysml:ownedFeatureMembership expr:StateMachine__VehicleStates__active_5fto_5foff_succession_pend0_om, expr:StateMachine__VehicleStates__active_5fto_5foff_succession_pend1_om ;
     sysml:ownedFeature expr:StateMachine__VehicleStates__active_5fto_5foff_succession_pend0, expr:StateMachine__VehicleStates__active_5fto_5foff_succession_pend1 ;
     sysml:ownedEndFeature expr:StateMachine__VehicleStates__active_5fto_5foff_succession_pend0, expr:StateMachine__VehicleStates__active_5fto_5foff_succession_pend1 ;
@@ -1311,6 +1318,7 @@ elmt:StateMachine__VehicleStates__active_5fto_5foff_succession
     json:connectorEnd "[{\"@id\":\"StateMachine__VehicleStates__active_5fto_5foff_succession_pend0\"},{\"@id\":\"StateMachine__VehicleStates__active_5fto_5foff_succession_pend1\"}]" ;
     json:ownedRelationship "[{\"@id\":\"StateMachine__VehicleStates__active_5fto_5foff_succession_pend0_om\"},{\"@id\":\"StateMachine__VehicleStates__active_5fto_5foff_succession_pend1_om\"}]" ;
     json:ownedMembership "[{\"@id\":\"StateMachine__VehicleStates__active_5fto_5foff_succession_pend0_om\"},{\"@id\":\"StateMachine__VehicleStates__active_5fto_5foff_succession_pend1_om\"}]" ;
+    json:ownedMember "[{\"@id\":\"StateMachine__VehicleStates__active_5fto_5foff_succession_pend0\"},{\"@id\":\"StateMachine__VehicleStates__active_5fto_5foff_succession_pend1\"}]" ;
     json:ownedFeatureMembership "[{\"@id\":\"StateMachine__VehicleStates__active_5fto_5foff_succession_pend0_om\"},{\"@id\":\"StateMachine__VehicleStates__active_5fto_5foff_succession_pend1_om\"}]" ;
     json:ownedFeature "[{\"@id\":\"StateMachine__VehicleStates__active_5fto_5foff_succession_pend0\"},{\"@id\":\"StateMachine__VehicleStates__active_5fto_5foff_succession_pend1\"}]" ;
     json:ownedEndFeature "[{\"@id\":\"StateMachine__VehicleStates__active_5fto_5foff_succession_pend0\"},{\"@id\":\"StateMachine__VehicleStates__active_5fto_5foff_succession_pend1\"}]" .

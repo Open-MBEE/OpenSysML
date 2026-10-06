@@ -1,0 +1,58 @@
+MixedExamples::mixedDiagram - mixed rendering (render asMixedDiagram)
+
+package MixedExamples
+  port def MixedExamples::FluidPort
+  part def MixedExamples::BaseUnit
+  part def MixedExamples::Pump
+    port outlet : FluidPort
+  part def MixedExamples::Tank
+    port inlet : FluidPort
+  part def MixedExamples::Plant
+    part pump : Pump
+      port outlet
+    part tank : Tank
+      port inlet
+  connection def MixedExamples::Connection
+    part a
+    part b
+  state def MixedExamples::Ready (declares no states)
+  state def MixedExamples::Modes
+    start
+    state ready : Ready (initial)
+  action def MixedExamples::Operate
+    initial start
+    action 'step'
+    final done
+  use case def Inspection
+  actor operator : Person
+  subject plant : Plant
+  objective (Inspect the plant and report its operating state.)
+  perform action MixedExamples::Inspection::run : Operate (declares no nodes)
+  exhibit state MixedExamples::Inspection::mode : Modes
+    start
+    state ready : Ready (initial)
+  part def MixedExamples::Person
+  view mixedDiagram
+  view mixedLayout
+
+relationships:
+  start of MixedExamples::Modes -> ready
+  start -> 'step'
+  'step' -> done
+  operator -- Inspection
+  Inspection -- plant: «subject»
+  Inspection .. objective n12
+  start of MixedExamples::Inspection::mode -> ready
+  pump.outlet -- tank.inlet: supply
+  ready ..> MixedExamples::Ready
+  operator ..> MixedExamples::Person
+  plant ..> MixedExamples::Plant
+  MixedExamples::Inspection::run ..> MixedExamples::Operate: «perform»
+  MixedExamples::Inspection::mode ..> MixedExamples::Modes: «exhibit»
+  MixedExamples::Pump --|> MixedExamples::BaseUnit: «specializes»
+  outlet ..> MixedExamples::FluidPort
+  MixedExamples::Tank --|> MixedExamples::BaseUnit: «specializes»
+  inlet ..> MixedExamples::FluidPort
+  MixedExamples::Plant --|> MixedExamples::BaseUnit: «specializes»
+  pump ..> MixedExamples::Pump
+  tank ..> MixedExamples::Tank

@@ -2671,7 +2671,7 @@ func TestEndBindingBodiesComeBackFromTheGraphAlone(t *testing.T) {
 		"elmt:R89__Ctx__seam__coupling\n    a sysml:AttributeUsage ;",
 		"sysml:declaredName \"coupling\" ;",
 		"sysx:memberIndex \"0\"^^xsd:integer ;\n    sysml:owningNamespace elmt:R89__Ctx__seam ;",
-		"sysml:ownedMember elmt:R89__Ctx__seam__coupling ;",
+		"sysml:ownedMember expr:R89__Ctx__seam_pend0, expr:R89__Ctx__seam_pend1, elmt:R89__Ctx__seam__coupling ;",
 		"sysml:ownedFeature expr:R89__Ctx__seam_pend0, expr:R89__Ctx__seam_pend1, elmt:R89__Ctx__seam__coupling ;",
 		"sysml:ownedMembership ",
 		"elmt:R89__Ctx__seam__coupling_om",

@@ -143,9 +143,10 @@ pseudo-view:
 }
 ```
 
-`ports` is optional: empty or `minimal` includes only ports an interconnection edge ends at,
-and `full` includes every port. Each node's optional `ports` array has `id`, `name`, optional
-`type` and optional `direction`; undirected ports omit the direction. An edge's optional
+`ports` is optional: empty or `minimal` includes only ports an interconnection edge ends at in
+an interconnection or mixed view, and `full` includes every port. Each node's optional `ports`
+array has `id`, `name`, optional `type` and optional `direction`; undirected ports omit the
+direction. An edge's optional
 `fromPort` and `toPort` identify the endpoint ports by those IDs. The response also carries
 the view kind, stated rendering, notices, canvas, nodes, edges, and, for tables, columns and
 rows; its node and edge fields use the same JSON names as `opensysml/render`.

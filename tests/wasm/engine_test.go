@@ -22,10 +22,84 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-// engineGzipBudget bounds the gzipped js build of sysml-engine: serving JSON
-// rather than protobuf is what keeps it small, so exceeding the budget means
-// the engine pulled in a dependency it must not have.
-const engineGzipBudget = 7650000
+// engineGzipBudget bounds growth of the gzipped js build of sysml-engine;
+// TestEngineDependencies, not this budget, catches a forbidden dependency.
+const engineGzipBudget = 7700000
+
+func TestEngineDependencies(t *testing.T) {
+	const module = "github.com/Open-MBEE/OpenSysML"
+	required := []string{
+		module + "/internal/frontend/engine",
+		module + "/internal/frontend/jsonrpc",
+		module + "/internal/exec/runtime",
+		module + "/internal/check/passes",
+		module + "/internal/workspace/libs",
+	}
+	checkWasmDependencies(t, "./cmd/sysml-engine", required, func(dependency string) bool {
+		return forbiddenEngineDependency(module, dependency)
+	})
+}
+
+func forbiddenEngineDependency(module, dependency string) bool {
+	// The engine serves JSON, not protobuf wire formats.
+	for _, prefix := range []string{
+		module + "/api",
+		"google.golang.org/protobuf",
+		"google.golang.org/grpc",
+		"connectrpc.com",
+	} {
+		if hasDependencyPrefix(dependency, prefix) {
+			return true
+		}
+	}
+	// The engine does not host these transports or servers.
+	for _, prefix := range []string{
+		module + "/internal/frontend/grpc",
+		module + "/internal/frontend/protoconv",
+		module + "/internal/frontend/stdiorpc",
+		module + "/internal/frontend/combined",
+		module + "/internal/frontend/lsp",
+		module + "/internal/frontend/repl",
+	} {
+		if hasDependencyPrefix(dependency, prefix) {
+			return true
+		}
+	}
+	// The engine does not include analysis frameworks or engines.
+	for _, prefix := range []string{
+		module + "/internal/exec/analysis",
+		module + "/internal/exec/engines",
+		module + "/internal/exec/smt",
+		module + "/internal/exec/solve",
+		module + "/internal/exec/fmi",
+	} {
+		if hasDependencyPrefix(dependency, prefix) {
+			return true
+		}
+	}
+	// ExecuteState's trace events come from queryexec; the document IR and backends stay out.
+	if hasDependencyPrefix(dependency, module+"/internal/doc") && dependency != module+"/internal/doc/queryexec" {
+		return true
+	}
+	// The workspace pipeline belongs to the LSP and REPL.
+	for _, prefix := range []string{
+		module + "/internal/workspace/model",
+		module + "/internal/workspace/modeldoc",
+		module + "/internal/workspace/modelrt",
+	} {
+		if hasDependencyPrefix(dependency, prefix) {
+			return true
+		}
+	}
+	// RDF is the only converter shared with the engine.
+	translate := module + "/internal/translate"
+	return hasDependencyPrefix(dependency, translate) && dependency != translate+"/rdf"
+}
+
+func hasDependencyPrefix(dependency, prefix string) bool {
+	prefix = strings.TrimSuffix(prefix, "/")
+	return dependency == prefix || strings.HasPrefix(dependency, prefix+"/")
+}
 
 // engineSubtests runs the sysml-engine half of the run gate on bins, linked
 // into bins["sysml-engine"] with the other commands so it is not built twice:
@@ -84,8 +158,10 @@ func engineSubtests(t *testing.T, target wasmTarget, r runner, bins map[string]s
 		}
 		if size := compressed.Len(); size > engineGzipBudget {
 			t.Errorf("gzipped sysml-engine.wasm is %d bytes, over the %d-byte budget: "+
-				"the engine pulled in a dependency it must not have (protobuf, the gRPC "+
-				"service, the analysis framework)", size, engineGzipBudget)
+				"the engine grew past its size bound (forbidden dependencies are caught by TestEngineDependencies)",
+				size, engineGzipBudget)
+		} else {
+			t.Logf("gzipped sysml-engine.wasm is %d bytes, under the %d-byte budget", size, engineGzipBudget)
 		}
 	})
 }
