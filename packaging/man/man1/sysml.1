@@ -57,6 +57,10 @@ Evaluate this constraint and exit (repeatable)
 Apply the SysMLValidation constraints to every reflectively classified model
 element and exit
 .TP
+.BR \-self\-check\-package " \fIpackage\fP"
+Apply this package's constraint defs with the SysMLValidation ones, as
+\-self\-check\-package Acme::ModelingRules; implies \-self\-check (repeatable)
+.TP
 .BR \-requirement " \fIname\fP"
 Evaluate this requirement, and every verification case verifying it, and exit
 (repeatable)
@@ -493,8 +497,10 @@ sysml \-instantiate p \-constraint C model.sysml
 sysml \-validate model.sysml
 # \&...asking whether it is conforming SysML v2
 sysml \-validate \-strict model.sysml
-# Apply the 13 SysML validation constraints
+# Apply the SysMLValidation constraints
 sysml \-self\-check model.sysml
+# \&...plus a rule package's constraints
+sysml \-self\-check\-package Acme::Rules m.sysml
 # Check every assertion about an object
 sysml \-instantiate car \-validate=car m.sysml
 # Invoke a calculation
@@ -525,6 +531,10 @@ an object \-instantiate created and the objects it holds: an object named,
 #<id>, or a path such as car.engine. \-self\-check applies the OpenSysML
 SysMLValidation constraints to each reflectively classified element; underived
 reflective features are reported as unevaluated, not as violations.
+\-self\-check\-package adds the constraint defs of a package the loaded files
+declare to the same walk, as \-self\-check\-package Acme::ModelingRules: a
+rule is a constraint def whose first in parameter is typed by a SysML or KerML
+metaclass, and it applies to every element that metaclass conforms to.
 \-requirement and \-satisfy report beside each verdict the verdict of every
 verification case verifying the requirement. \-analysis takes arguments for
 the case's inputs and an object as its subject, as \-analysis "Pkg::Case(3.0)

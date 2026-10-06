@@ -28,6 +28,17 @@ func (r ElementRef) Clone() ElementRef {
 }
 
 // cloneRefs returns a copy of refs sharing no slice with it; nil for nil.
+func clonePaths(paths [][]ElementRef) [][]ElementRef {
+	if paths == nil {
+		return nil
+	}
+	out := make([][]ElementRef, len(paths))
+	for i, p := range paths {
+		out[i] = cloneRefs(p)
+	}
+	return out
+}
+
 func cloneRefs(refs []ElementRef) []ElementRef {
 	if refs == nil {
 		return nil

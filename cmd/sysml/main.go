@@ -379,6 +379,18 @@ func runCLI() int {
 		return 2
 	}
 
+	// A rule package named empty asks for no package, which checks nothing; one
+	// named asks for the self-check it is applied under.
+	for _, name := range modelChecks.selfCheckPackages {
+		if strings.TrimSpace(name) == "" {
+			fmt.Fprintln(os.Stderr, "sysml: -self-check-package needs a package name; write `sysml model.sysml -self-check-package Acme::ModelingRules`")
+			return 2
+		}
+	}
+	if len(modelChecks.selfCheckPackages) > 0 {
+		modelChecks.selfCheck = true
+	}
+
 	// Get positional arguments (files to load)
 	args := flag.Args()
 

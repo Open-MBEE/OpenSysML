@@ -262,6 +262,8 @@ stable	runtime-showcase/mass-rollup.sysml
 stable	runtime-showcase/mission-sequence.sysml
 stable	runtime-showcase/reliability.sysml
 stable	runtime-showcase/spacecraft-comms.sysml
+stable	self-check-rules/rover.sysml
+stable	self-check-rules/rules.sysml
 stable	self-model/behavior.sysml
 stable	self-model/document.sysml
 stable	self-model/execution.sysml

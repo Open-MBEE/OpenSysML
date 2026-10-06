@@ -53,6 +53,9 @@ type Model struct {
 	typingArgs map[*ast.InvocationExpr]bool
 	composed   map[composedKey][]*symbols.Symbol
 	ends       map[*symbols.Symbol][]connectorEnd
+	// chainTargets memoizes the feature each relationship object's chain
+	// target denotes.
+	chainTargets map[*symbols.Symbol]*symbols.Symbol
 	// subtracting memoizes whether a type reaches a difference (see cast.go).
 	subtracting map[*symbols.Symbol]bool
 	// referential memoizes a parameter's referentiality (see shape.go).
@@ -170,6 +173,7 @@ func NewModel(resolver *resolve.Resolver) *Model {
 		typingArgs:          make(map[*ast.InvocationExpr]bool),
 		composed:            make(map[composedKey][]*symbols.Symbol),
 		ends:                make(map[*symbols.Symbol][]connectorEnd),
+		chainTargets:        make(map[*symbols.Symbol]*symbols.Symbol),
 		subtracting:         make(map[*symbols.Symbol]bool),
 		referential:         make(map[*symbols.Symbol]bool),
 		implicitBase:        make(map[*symbols.Symbol][]*symbols.Symbol),
