@@ -1,0 +1,8 @@
+{
+  "type": "instance",
+  "instantiate": "test::rig",
+  "slots": {
+    "gauge": {"type": "Real", "value": 2.5},
+    "last": {"type": "Real", "value": 3.5}
+  }
+}

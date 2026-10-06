@@ -789,7 +789,7 @@ func (ctx *Context) bindingEndpointValue(endpoint bindingEndpoint, owner *Instan
 			if errors.Is(err, ErrUninitializedFeatureValue) {
 				return Value{}, false, nil
 			}
-			return Value{}, false, fmt.Errorf("%w: expression %s: %v",
+			return Value{}, false, fmt.Errorf("%w: expression %s: %w",
 				ErrBindingEnd, ctx.bindingExprText(endpoint.expr, endpoint.scope), err)
 		}
 		if value.Kind == ValInvalid {
