@@ -12,6 +12,11 @@ For a task-oriented walkthrough, see the
 npm install @openmbee/opensysml
 ```
 
+A development snapshot is published every night under the `nightly` dist-tag
+(`npm install @openmbee/opensysml@nightly`), with its platform packages carrying
+that night's `sysml-grpc`; `latest` stays the stable release. See [Nightly
+snapshots](https://opensysml.org/project/nightly/).
+
 ```ts
 import { loads, connect } from "@openmbee/opensysml";
 
