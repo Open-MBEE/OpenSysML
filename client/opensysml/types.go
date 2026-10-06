@@ -66,6 +66,7 @@ const (
 	CapabilityEngines                        = sysmlgrpc.CapabilityEngines
 	CapabilityUndeterminedValue              = sysmlgrpc.CapabilityUndeterminedValue
 	CapabilityBigIntValues                   = sysmlgrpc.CapabilityBigIntValues
+	CapabilityRationalValues                 = sysmlgrpc.CapabilityRationalValues
 	CapabilityConvertDocuments               = sysmlgrpc.CapabilityConvertDocuments
 	CapabilityParseSourcesAffected           = sysmlgrpc.CapabilityParseSourcesAffected
 )

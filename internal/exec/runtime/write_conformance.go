@@ -235,10 +235,59 @@ func (ctx *Context) checkWriteType(scope *symbols.Scope, what func() string, dec
 }
 
 // holdForDeclared shapes an admitted value as the declared type holds it: quantities in
-// its preferred unit, scalars an enumeration admits as the enumerated value they equal.
+// its preferred unit, a Rational a Real feature holds as its nearest binary64, scalars
+// an enumeration admits as the enumerated value they equal.
 func (ctx *Context) holdForDeclared(value *Value, declared *symbols.Symbol) error {
 	ctx.spellForDeclared(value, declared)
+	if err := ctx.holdAsReal(value, declared); err != nil {
+		return err
+	}
 	return ctx.holdAsEnumerated(value, declared)
+}
+
+// holdAsReal rounds each exact Rational a feature typed by Real holds to the nearest
+// binary64 once; an Integer keeps its kind, and a magnitude no Real holds is refused.
+func (ctx *Context) holdAsReal(value *Value, declared *symbols.Symbol) error {
+	if declared == nil || ctx.model.semantics == nil {
+		return nil
+	}
+	switch value.Kind {
+	case ValConst:
+		if value.Const.Kind != semantics.ValRational || ctx.model.semantics.PrimTypeOf(declared) != semantics.PrimReal {
+			return nil
+		}
+		real, err := semantics.RealOf(value.Const)
+		if err != nil {
+			return fmt.Errorf("%s as a Real: %w", FormatValue(*value), err)
+		}
+		*value = Value{Kind: ValConst, Const: real}
+	case ValSequence, ValSet:
+		elements := elementsOf(*value)
+		var held []Value
+		for i := range elements {
+			if elements[i].Kind != ValConst || elements[i].Const.Kind != semantics.ValRational {
+				continue
+			}
+			if held == nil {
+				if ctx.model.semantics.PrimTypeOf(declared) != semantics.PrimReal {
+					return nil
+				}
+				held = append([]Value(nil), elements...)
+			}
+			if err := ctx.holdAsReal(&held[i], declared); err != nil {
+				return err
+			}
+		}
+		if held == nil {
+			return nil
+		}
+		if value.Kind == ValSequence {
+			*value = sequenceOf(held)
+			return nil
+		}
+		*value = ctx.setOf(held)
+	}
+	return nil
 }
 
 // holdAsEnumerated stores a scalar admitted by an enumeration-typed feature as the

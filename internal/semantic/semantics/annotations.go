@@ -916,12 +916,37 @@ func (m *Model) constantFeatureValues(member *symbols.Symbol, seen map[*symbols.
 			}
 			values = append(values, m.declaredValue(member.OwnerScope, element))
 		}
-		return values, true, nil
+		return m.heldAsDeclared(member, values), true, nil
 	}
 	if _, empty := usage.Value.(*ast.NullExpr); empty {
 		return nil, true, nil
 	}
-	return []symbols.FilterValue{m.declaredValue(member.OwnerScope, usage.Value)}, true, nil
+	return m.heldAsDeclared(member, []symbols.FilterValue{m.declaredValue(member.OwnerScope, usage.Value)}), true, nil
+}
+
+// heldAsDeclared holds each exact Rational a Real-typed feature declares as its nearest
+// binary64; one no binary64 holds stays undetermined, for evaluation to refuse.
+func (m *Model) heldAsDeclared(member *symbols.Symbol, values []symbols.FilterValue) []symbols.FilterValue {
+	isReal := false
+	for _, typ := range m.FeatureTypes(member) {
+		isReal = isReal || m.PrimTypeOf(typ) == PrimReal
+	}
+	if !isReal {
+		return values
+	}
+	for i, value := range values {
+		if value.Kind != symbols.FilterValueRational {
+			continue
+		}
+		number, _ := FilterNumber(value)
+		held, err := RealOf(number)
+		if err != nil {
+			values[i] = symbols.FilterValue{}
+			continue
+		}
+		values[i] = symbols.FilterValue{Kind: symbols.FilterValueReal, Real: held.Real}
+	}
+	return values
 }
 
 // declaredValue is annotationValue for a feature's own value, where a reference

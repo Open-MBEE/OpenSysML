@@ -907,7 +907,7 @@ func TestSweepOverAQuantityParameterConvertsToTheFirstEndpointsUnit(t *testing.T
 	}
 	for i, m := range want {
 		q := table.Rows[i].Bindings[0].Value.Quantity()
-		if q == nil || q.Num.Kind != semantics.ValReal || q.Num.Real != m || q.Unit.Text != "SI::km" {
+		if q == nil || q.Num.Kind != semantics.ValReal || q.Num.AsReal() != m || q.Unit.Text != "SI::km" {
 			t.Errorf("row %d bound %s; want the Real %v [SI::km]", i, FormatValue(table.Rows[i].Bindings[0].Value), m)
 		}
 		if table.Rows[i].Err != nil {
@@ -1341,7 +1341,7 @@ func TestSweepRealRangeStopsAtItsEnd(t *testing.T) {
 			len(table.Rows), len(want))
 	}
 	for i, value := range want {
-		if got := table.Rows[i].Bindings[0].Value.Const.Real; got != value {
+		if got := table.Rows[i].Bindings[0].Value.Const.AsReal(); got != value {
 			t.Errorf("row %d ran a = %v; want %v", i, got, value)
 		}
 	}
@@ -1359,7 +1359,7 @@ func TestSamplesOverTheWidestRealRangeStayInIt(t *testing.T) {
 		Sampled: true, Samples: 32, Seed: 5,
 	})
 	for i := range table.Rows {
-		drawn := table.Rows[i].Bindings[0].Value.Const.Real
+		drawn := table.Rows[i].Bindings[0].Value.Const.AsReal()
 		if math.IsNaN(drawn) || math.IsInf(drawn, 0) {
 			t.Fatalf("row %d drew %v; want a finite value", i, drawn)
 		}
@@ -1424,7 +1424,7 @@ func TestSweepRunsToTheOutermostRealEndpoints(t *testing.T) {
 				t.Fatalf("the range took %d run(s); want %d", len(table.Rows), len(tc.want))
 			}
 			for i, value := range tc.want {
-				if got := table.Rows[i].Bindings[0].Value.Const.Real; got != value {
+				if got := table.Rows[i].Bindings[0].Value.Const.AsReal(); got != value {
 					t.Errorf("row %d ran a = %v; want %v", i, got, value)
 				}
 			}

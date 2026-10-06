@@ -39,6 +39,14 @@ var compiledCases = []compiledCase{
 	{"Neg", []string{"5"}}, {"Neg", []string{"-9223372036854775808"}},
 	{"Logic", []string{"false", "true", "0"}}, {"Logic", []string{"false", "false", "0"}},
 	{"Logic", []string{"true", "true", "0"}}, {"Logic", []string{"true", "true", "5"}},
+	{"ExactRational", []string{"6", "0.1"}}, {"ExactRational", []string{"5", "0.0"}}, {"ExactRational", []string{"7", "0.09"}},
+	{"ExactRational", []string{"-6", "-1e308"}}, {"ExactRational", []string{"6", "0.1000000000000001"}},
+	{"RealAgainstNearest", []string{"0.1"}}, {"RealAgainstNearest", []string{"0.1000000000000001"}}, {"RealAgainstNearest", []string{"0.09999999999999999"}}, {"RealAgainstNearest", []string{"-0.1"}}, {"RealAgainstNearest", []string{"1e308"}}, {"RealAgainstNearest", []string{"-1e308"}}, {"RealAgainstNearest", []string{"0.0"}},
+	{"ExactWide", []string{"3"}}, {"ExactWide", []string{"-3"}}, {"ExactWide", []string{"0"}},
+	{"NegativePower", []string{"3"}}, {"NegativePower", []string{"-2"}}, {"NegativePower", []string{"0"}},
+	{"NegativePowerTiny", []string{"10"}}, {"NegativePowerTiny", []string{"1"}},
+	{"ExactHeldInteger", []string{"3"}}, {"ExactHeldInteger", []string{"3.0"}}, {"ExactHeldInteger", []string{"0.5"}},
+	{"ExactHeldCompare", []string{"3"}}, {"ExactHeldCompare", []string{"0.3"}}, {"ExactHeldCompare", []string{"2.5"}},
 	{"Compare", []string{"2.0", "2"}}, {"Compare", []string{"2.5", "2"}}, {"Compare", []string{"0.1", "1"}},
 	{"Sign", []string{"-9"}}, {"Sign", []string{"0"}}, {"Sign", []string{"3"}},
 	{"FirstAbove", []string{"50"}}, {"FirstAbove", []string{"0"}},
@@ -175,6 +183,7 @@ var compiledCases = []compiledCase{
 	{"Rec::ClosureOther", []string{"1.5"}},
 	{"Rec::Defaulted", []string{"1.5"}},
 	{"Rec::Overridden", []string{"1.5"}},
+	{"Rec::DefaultedTenth", []string{"1.5"}},
 	{"Rec::SeqFeature", []string{"1.5"}},
 	{"Rec::SeqEmpty", []string{"1.5"}},
 	{"Rec::InSeq", []string{"1.5"}},
@@ -508,12 +517,28 @@ func beyondInt64(args []string) bool {
 	return false
 }
 
+// heldIntegerRefusals is the run-time refusal of a Go program whose Real
+// parameter, given an Integer, meets an exact Rational binary64 does not hold.
+var heldIntegerRefusals = map[string]string{
+	"ExactHeldInteger": "unsupported: exact Rational arithmetic '*' over a value binary64 does not hold exactly",
+	"ExactHeldCompare": "unsupported: '<' of an exact Rational binary64 does not hold exactly",
+}
+
+// heldIntegerRefused reports whether c is a run its Go program refuses as
+// heldIntegerRefusals records, where the interpreter succeeds or later runs out
+// of steps.
+func heldIntegerRefused(target codegen.Target, p *codegen.Program, c compiledCase, gotFailure, wantFailure string) bool {
+	want, ok := heldIntegerRefusals[c.calc]
+	return ok && target == codegen.TargetGo && integerForReal(p, c.args) && strings.HasPrefix(gotFailure, want) &&
+		(wantFailure == "" || strings.HasPrefix(wantFailure, "evaluation step limit exceeded"))
+}
+
 // integerForReal reports whether an argument in Integer notation is given for
 // a Real-typed parameter of p, which a compiled C program refuses as input: the
 // interpreter keeps that argument an Integer, and a C Real holds only binary64.
 func integerForReal(p *codegen.Program, args []string) bool {
 	for i, param := range p.Entry.Params {
-		if i >= len(args) || param.Type.Elem() != codegen.TypeReal {
+		if i >= len(args) || (param.Type.Elem() != codegen.TypeReal && param.Type.Elem() != codegen.TypeNum) {
 			continue
 		}
 		for _, tok := range strings.FieldsFunc(args[i], func(r rune) bool { return r == '(' || r == ')' || r == ',' }) {
@@ -609,6 +634,9 @@ func TestCompiledCalcsAgreeWithInterpreter(t *testing.T) {
 				}
 				wantValue, wantFailure := interpreted(t, s, c)
 				gotValue, gotFailure := compiledRun(t, exe, c)
+				if heldIntegerRefused(target, programs[c.calc], c, gotFailure, wantFailure) {
+					continue
+				}
 				if gotFailure == wantFailure && gotValue != wantValue && target == codegen.TargetC && transcendental[c.calc] && withinUlps(gotValue, wantValue, 2) {
 					continue
 				}
@@ -944,6 +972,9 @@ func TestCompiledStepBudgetMatchesInterpreter(t *testing.T) {
 						continue
 					}
 					gotValue, gotFailure := compiledRun(t, exe, c)
+					if heldIntegerRefused(target, programs[c.calc], c, gotFailure, wantFailure) {
+						continue
+					}
 					if gotFailure == wantFailure && gotValue != wantValue && target == codegen.TargetC && transcendental[c.calc] && withinUlps(gotValue, wantValue, 2) {
 						continue
 					}
@@ -1025,6 +1056,12 @@ func TestCompileRefusesWhatItCannotCompile(t *testing.T) {
 		{"DynamicIntPow", "non-literal Integer exponent"},
 		{"Narrowed", "a Real bound to x, which is Integer"},
 		{"RecordParam", "parameter p takes a Refused::Point, a record, which a program cannot take on its command line"},
+		{"RationalParam", "type ScalarValues::Rational is not Integer, Real, Boolean, String or an enumeration"},
+		{"ExactProduct", "exact Rational arithmetic '*' over a value binary64 does not hold exactly"},
+		{"ExactPower", "'**' of an exact Rational by an Integer exponent"},
+		{"ExactCompare", "'<' of an exact Rational binary64 does not hold exactly"},
+		{"NegativePowerExact", "exact Rational arithmetic '*' over a value binary64 does not hold exactly"},
+		{"BeyondCompare", "literal 1e400 is outside the Real range"},
 		{"Extent", "operator 'all'"},
 		{"SelectNonBoolean", "select whose body yields Integer, not a Boolean"},
 		{"CollectNull", "collect whose body yields null"},

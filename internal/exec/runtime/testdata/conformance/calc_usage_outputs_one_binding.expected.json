@@ -1,5 +1,5 @@
 {
   "type": "calc",
   "evaluate": "test::Interleaved",
-  "result": {"type": "Real", "value": 1010.0}
+  "result": {"type": "Rational", "value": "1010.0"}
 }

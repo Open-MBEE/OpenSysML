@@ -7,9 +7,9 @@ import (
 	"testing"
 )
 
-// The half-ulp quotient (2^53 + 1) / 2 is not representable in float64: the
-// evaluator answers the nearest double, the exact encoding holds the exact
-// ratio. The replay confirms the witness under the evaluator's arithmetic.
+// The half-ulp quotient (2^53 + 1) / 2 is not representable in float64, and
+// both the evaluator and the encoding hold it as the exact Rational. The replay
+// confirms the witness under the evaluator's arithmetic.
 func TestSolvedHalfUlpQuotientAgreesWithEvaluator(t *testing.T) {
 	solver := requireSolver(t)
 	wantQ, wantR := evaluatedDivision(t, 9007199254740993, 2)
@@ -30,10 +30,8 @@ func TestSolvedHalfUlpQuotientAgreesWithEvaluator(t *testing.T) {
 			values["test::C::q"], values["test::C::r"], wantQ, wantR)
 	}
 
-	// Both spellings of the quotient satisfy the evaluator, which rounds each
-	// to the same float64; only the exact ratio satisfies the exact encoding.
-	// The exact-real unsat is not presented as an evaluator verdict: the query
-	// is marked rounded, which the REPL reports as undecided, not unsat.
+	// Only the exact ratio satisfies the evaluator and the encoding alike, so
+	// the query is not marked rounded: its unsat is the evaluator's verdict.
 	for _, tc := range []struct {
 		quotient string
 		want     Status
@@ -50,8 +48,8 @@ func TestSolvedHalfUlpQuotientAgreesWithEvaluator(t *testing.T) {
 					assert constraint { a / 2 == %s }
 				}
 			}`, tc.quotient), "test::C")
-		if !cond.Rounded() {
-			t.Errorf("a half-ulp quotient query is not marked rounded")
+		if cond.Rounded() {
+			t.Errorf("an exact Integer quotient query is marked rounded")
 		}
 		solved(t, solver, cond, tc.want)
 	}
@@ -65,13 +63,12 @@ func TestSolvedWitnessRejectedByEvaluatorIsUndecided(t *testing.T) {
 		// Exactly x = 1/10 solves this, but float64 0.1 * 3.0 is not float64 0.3.
 		"product": `in x : Real;
 			assert constraint { x * 3.0 == 0.3 }`,
-		// Exactly 1/10 + 2/10 == 3/10, but float64 0.1 + 0.2 is not float64 0.3.
+		// Exactly 1/10 + 2/10 == 3/10, but Reals hold binary64 values, and no
+		// float64 is one tenth.
 		"sum": `in x : Real; in y : Real;
 			assert constraint { x == 0.1 }
 			assert constraint { y == 0.2 }
 			assert constraint { x + y == 0.3 }`,
-		// No variables at all: the empty witness is still replayed.
-		"constants": `assert constraint { 0.1 + 0.2 == 0.3 }`,
 	}
 	for name, body := range cases {
 		t.Run(name, func(t *testing.T) {
@@ -105,6 +102,35 @@ func TestSolvedWitnessConfirmedByEvaluatorStaysSat(t *testing.T) {
 	solved(t, solver, q, StatusSat)
 }
 
+// Rational arithmetic is exact in the evaluator (KerML 9.3.2.2.8), so the exact
+// encoding's witness is confirmed and the query makes no rounded claim.
+func TestSolvedExactRationalWitnessStaysSat(t *testing.T) {
+	solver := requireSolver(t)
+	cases := map[string]string{
+		"sum": `in x : Rational; in y : Rational;
+			assert constraint { x == 0.1 }
+			assert constraint { y == 0.2 }
+			assert constraint { x + y == 0.3 }`,
+		"product": `in x : Rational;
+			assert constraint { x * 3.0 == 0.3 }`,
+		// No variables at all: the empty witness is still replayed.
+		"constants": `assert constraint { 0.1 + 0.2 == 0.3 }`,
+	}
+	for name, body := range cases {
+		t.Run(name, func(t *testing.T) {
+			q := constraintQuery(t, fmt.Sprintf(`
+				package test {
+					private import ScalarValues::Rational;
+					constraint def C { %s }
+				}`, body), "test::C")
+			if q.Rounded() {
+				t.Error("an exact Rational query is marked rounded")
+			}
+			solved(t, solver, q, StatusSat)
+		})
+	}
+}
+
 // Rounded marks exactly the queries whose conditions the evaluator computes in
 // float64; a query over integers alone makes no rounded claim.
 func TestRoundedMarksFloatComputingQueries(t *testing.T) {
@@ -130,10 +156,17 @@ func TestRoundedMarksFloatComputingQueries(t *testing.T) {
 	if exact.Rounded() {
 		t.Error("an integer-only query is marked rounded")
 	}
+	x := &Var{Name: "x", Sort: Real, Binary64: true}
 	objective := &Query{Objectives: []Objective{{
-		Term: Binary(OpAdd, Real, RealTerm(big.NewRat(1, 10)), RealTerm(big.NewRat(1, 5))),
+		Term: Binary(OpAdd, Real, VarTerm(x), RealTerm(big.NewRat(1, 5))),
 	}}}
 	if !objective.Rounded() {
 		t.Error("a query optimizing a real sum is not marked rounded")
+	}
+	rational := &Query{Objectives: []Objective{{
+		Term: Binary(OpAdd, Real, RealTerm(big.NewRat(1, 10)), RealTerm(big.NewRat(1, 5))),
+	}}}
+	if rational.Rounded() {
+		t.Error("a query optimizing an exact Rational sum is marked rounded")
 	}
 }

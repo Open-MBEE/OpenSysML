@@ -83,7 +83,7 @@ end
     @test model_error isa ModelNotFoundError
 end
 
-@testset "decode_value: the twenty-two arms" begin
+@testset "decode_value: the twenty-three arms" begin
     @test decode_value(nothing) === missing
     @test decode_value(JSON.parse("""{"intValue":"9007199254740993"}""")) === Int64(9007199254740993)
     @test decode_value(JSON.parse("""{"intValue":"-9223372036854775808"}""")) === typemin(Int64)
@@ -94,6 +94,32 @@ end
     end
     @test decode_value(JSON.parse("""{"quantity":{"bigIntMagnitude":"9223372036854775808","unit":"kg"}}""")).magnitude == big(2)^63
     @test encode_value(big(2)^70) == Dict("bigIntValue" => "1180591620717411303424")
+    third = decode_value(JSON.parse("""{"rationalValue":{"numerator":"-1","denominator":"3"}}"""))
+    @test third isa Rational{BigInt} && third == -1//3
+    @test encode_value(third) == Dict("rationalValue" => Dict("numerator" => "-1", "denominator" => "3"))
+    @test encode_value(1//4) == Dict("rationalValue" => Dict("numerator" => "1", "denominator" => "4"))
+    @test OpenSysML.rationals_as_reals!(encode_value(1//4)) == Dict("realValue" => 0.25)
+    @test same_value(third, -1/3) && same_value(-1/3, third) && !same_value(third, -0.3333)
+    @test !same_value(1//3, 6004799503160661//18014398509481984)
+    @test same_value(0//1, -0.0) && same_value(-0.0, 0//1) && !same_value(1//3, NaN)
+    @test OpenSysML.rationals_as_reals!(encode_value(Any[1//3, 1//2])) ==
+          Dict("sequence" => Dict("elements" => Any[
+              Dict("rationalValue" => Dict("numerator" => "1", "denominator" => "3")),
+              Dict("realValue" => 0.5)]))
+    @test encode_value(big(10)^400 // 1)["rationalValue"]["denominator"] == "1"
+    for (n, d) in (("2", "6"), ("1", "-3"), ("1", "0"), ("1", "2"), ("3", "1"), ("0", "1"),
+                   ("-0", "3"), ("01", "3"), ("+1", "3"), ("1.5", "7"), ("", "3"))
+        @test_throws ErrorException decode_value(Dict("rationalValue" => Dict("numerator" => n, "denominator" => d)))
+    end
+    km = decode_value(JSON.parse("""{"quantity":{"rationalMagnitude":{"numerator":"1","denominator":"3"},"unit":"km","unitTerm":{"scaleNum":1000,"scaleDen":1,"factors":[{"unitId":"SI::m","exponent":1}]}}}"""))
+    @test km.magnitude == 1//3
+    m = Quantity(1000//3, "m", Dict("scaleNum" => 1, "scaleDen" => 1, "factors" => Any[Dict("unitId" => "SI::m", "exponent" => 1)]))
+    @test same_value(km, m)
+    @test encode_value(km)["quantity"]["rationalMagnitude"] == Dict("numerator" => "1", "denominator" => "3")
+    for value in (1//3, Any[Any[1//10]], Set([1//3]), km, VectorQuantity([km]))
+        @test CAPABILITY_RATIONAL_VALUES in value_capabilities(value)
+    end
+    @test !(CAPABILITY_RATIONAL_VALUES in value_capabilities(1//2))
     @test encode_value(big(7)) == Dict("intValue" => "7")
     @test encode_value(Quantity(big(2)^63, "kg", nothing)) == Dict("quantity" => Dict("bigIntMagnitude" => "9223372036854775808", "unit" => "kg"))
     wide = Quantity(big(2)^63, "kg", nothing)
