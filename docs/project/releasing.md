@@ -31,14 +31,19 @@ own: it is part of this module, so the core's `v*` tag is what a Go program pins
 
 Between releases, `.github/workflows/nightly.yml` builds the newest green `develop`
 commit every night with `scripts/build-release-artifacts.sh` — the same targets,
-platforms and layout as `build-release` below, minus the Python distribution, which
-only a release publishes — and publishes it as the moving
-prerelease `nightly`, never marked latest and signed by the workflow's own GitHub
-identity rather than the CircleCI one the clients pin. It touches nothing described on
-this page: the `nightly` tag matches neither the `v*` filter of the `release` workflow
-nor the Windows signing workflow, and `releases/latest` keeps resolving to the stable
-line. [Nightly snapshots](nightly.md) documents it for a user; when `build-release`
-changes what it produces, change the script so the two stay the same.
+platforms and layout as `build-release` below — together with the Python wheel and the
+seven npm packages, and publishes it as the prerelease `nightly-<yyyymmdd>-<commit>`,
+kept for 14 days, with the moving alias `nightly` at the newest night; both are never
+marked latest and are signed by the workflow's own GitHub identity rather than the
+CircleCI one the clients pin. The clients go to PyPI and npm as development versions
+(`<next>.dev<yyyymmdd>`; `<next>-nightly.<yyyymmdd>.g<commit>` under the `nightly`
+dist-tag) through trusted publishing, so no default install and no `latest` moves. It
+touches nothing described on this page: the `nightly*` tags match neither the `v*` filter
+of the `release` workflow nor the Windows signing workflow, `releases/latest` keeps
+resolving to the stable line, and the stable client publication below stays with
+CircleCI and its tokens. [Nightly snapshots](nightly.md) documents it for a user, with the
+one-time trusted-publisher setup; when `build-release` or the client packaging changes
+what it produces, change the nightly workflow so the two stay the same.
 
 ## Before tagging
 
