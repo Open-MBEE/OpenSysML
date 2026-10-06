@@ -6,12 +6,36 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.openmbee.opensysml.ServiceStartException;
+import java.io.IOException;
+import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.TreeSet;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
 
 /** Which asset a platform downloads, what the shipped pins say, and what a manifest lists. */
 class ReleaseAssetsTest {
+
+  /** The repository the jar's own release-digests.json pins. */
+  private static final String SHIPPED_REPO = "Open-MBEE/OpenSysML";
+
+  /** The assets every release publishes, which a complete pin names all of. */
+  private static final List<String> SERVICE_ASSETS =
+      List.of(
+          "sysml-grpc-darwin-amd64",
+          "sysml-grpc-darwin-arm64",
+          "sysml-grpc-linux-amd64",
+          "sysml-grpc-linux-arm64",
+          "sysml-grpc-windows-amd64.exe");
+
+  /**
+   * The release job stamps the resource it packages and names the tag here, so the suite proves
+   * the jar about to ship pins its own release.
+   */
+  private static final String EXPECT_PINNED_RELEASE_ENV = "OPENSYSML_EXPECT_PINNED_RELEASE";
 
   @Test
   void mapsPlatformsOntoTheAssetsReleasesPublish() {
@@ -52,6 +76,57 @@ class ReleaseAssetsTest {
         shipped.pin("Open-MBEE/OpenSysML", "v0.3.0", "sysml-grpc-linux-amd64");
     assertTrue(pinned.isPresent(), "v0.3.0 must be pinned");
     assertTrue(pinned.get().matches("[0-9a-f]{64}"), pinned.get());
+  }
+
+  @Test
+  void pinsEveryServiceAssetOfEveryReleaseItShips() throws IOException {
+    Map<?, ?> releases = shippedReleases();
+    assertFalse(releases.isEmpty(), "the resource pins no release of " + SHIPPED_REPO);
+    ReleaseDigests shipped = ReleaseDigests.shipped();
+    for (Map.Entry<?, ?> release : releases.entrySet()) {
+      String version = (String) release.getKey();
+      assertTrue(
+          version.matches("v\\d+\\.\\d+\\.\\d+(-[0-9A-Za-z.]+)?"),
+          version + " is not a release tag");
+      assertTrue(release.getValue() instanceof Map<?, ?>, version + " pins no assets");
+      Map<?, ?> assets = (Map<?, ?>) release.getValue();
+      assertEquals(
+          new TreeSet<>(SERVICE_ASSETS),
+          new TreeSet<Object>(assets.keySet()),
+          version + " does not pin exactly the five service assets");
+      for (String asset : SERVICE_ASSETS) {
+        Optional<String> pinned = shipped.pin(SHIPPED_REPO, version, asset);
+        assertEquals(Optional.of(assets.get(asset)), pinned, asset + " of " + version);
+        assertTrue(pinned.get().matches("[0-9a-f]{64}"), pinned.get());
+      }
+    }
+  }
+
+  @Test
+  @EnabledIfEnvironmentVariable(named = EXPECT_PINNED_RELEASE_ENV, matches = ".+")
+  void pinsTheReleaseBeingPublished() {
+    String tag = System.getenv(EXPECT_PINNED_RELEASE_ENV);
+    assertTrue(
+        tag.matches("v\\d+\\.\\d+\\.\\d+(-[0-9A-Za-z.]+)?"),
+        "$" + EXPECT_PINNED_RELEASE_ENV + "=" + tag + " is not a tag");
+    ReleaseDigests shipped = ReleaseDigests.shipped();
+    for (String asset : SERVICE_ASSETS) {
+      Optional<String> pinned = shipped.pin(SHIPPED_REPO, tag, asset);
+      assertTrue(pinned.isPresent(), "the jar does not pin " + asset + " of " + tag);
+      assertTrue(pinned.get().matches("[0-9a-f]{64}"), pinned.get());
+    }
+  }
+
+  /** The releases of {@link #SHIPPED_REPO} the resource on the classpath lists, as parsed JSON. */
+  private static Map<?, ?> shippedReleases() throws IOException {
+    try (InputStream in = ReleaseDigests.class.getResourceAsStream(ReleaseDigests.RESOURCE)) {
+      assertTrue(in != null, ReleaseDigests.RESOURCE + " must be on the classpath");
+      Object table = Json.parse(new String(in.readAllBytes(), StandardCharsets.UTF_8));
+      assertTrue(table instanceof Map<?, ?>, "the resource is not a JSON object");
+      Object releases = ((Map<?, ?>) table).get(SHIPPED_REPO);
+      assertTrue(releases instanceof Map<?, ?>, "the resource pins nothing for " + SHIPPED_REPO);
+      return (Map<?, ?>) releases;
+    }
   }
 
   @Test

@@ -1377,6 +1377,24 @@ class ApiIntegrationTest {
   }
 
   @Test
+  void renderViewReturnsTypedPortsEdgesAndOrigins() {
+    Model model = connection.load(fixture("views.sysml"));
+    RenderedView rendered = model.renderView("RenderViewDemo::connections");
+    assertEquals("interconnection", rendered.kind());
+    assertEquals(1, rendered.edges().size());
+    assertFalse(rendered.edges().get(0).fromPort().isEmpty());
+    assertFalse(rendered.edges().get(0).toPort().isEmpty());
+    assertTrue(rendered.nodes().stream().allMatch(node -> node.origin().isPresent()));
+    assertTrue(
+        model
+            .renderView("RenderViewDemo::connections", RenderViewPorts.FULL)
+            .nodes()
+            .stream()
+            .flatMap(node -> node.ports().stream())
+            .anyMatch(port -> port.name().equals("spare")));
+  }
+
+  @Test
   void convertSpellsDerivedIdsInTheFormAskedFor() {
     String source = "package P { part def A; part a : A; }\n";
     ConversionOptions options = ConversionOptions.defaults().withFromFormat("sysml");

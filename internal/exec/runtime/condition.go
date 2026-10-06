@@ -1292,6 +1292,9 @@ func conditionLabel(cond Condition) string {
 	return text
 }
 
+// ConditionText is the text a NoValueError names the expression n by.
+func ConditionText(n ast.Node) string { return conditionText(n) }
+
 // conditionText renders a condition compactly, so a violation names the
 // condition that failed rather than only the element that states it.
 func conditionText(n ast.Node) string {

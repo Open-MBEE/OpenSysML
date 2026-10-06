@@ -4223,7 +4223,9 @@ Read-only printer of the session buffer or one element:
 
 `%view Demo::report` prints `exposes` then `viewpoint conformance` with
 `satisfy structure (from Demo::StructureView): violated` and one line per concern
-(`conforms` / `violated (framed by the viewpoint but not by the view)` / `unevaluable` + reason).
+(`conforms` / `violated` naming the exposed element and condition / `unevaluable` + reason); the
+view frames nothing itself — every concern the viewpoint frames is evaluated against what it exposes,
+and a `frame` written in a view body draws a `nonstandard-notation` warning.
 A satisfy target that is a `requirementUsage` is diagnosed at load *and* reported as
 `unevaluable (satisfy target spec is a requirementUsage, not a viewpoint)` — never a silent pass.
 `%view` registers no object: `%instances` afterwards says none created, a repeat is identical, and a
