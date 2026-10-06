@@ -403,7 +403,11 @@ func TestImplicitRelationshipOrdering(t *testing.T) {
 	}
 }
 
-func TestImplicitChainTargetUnsupported(t *testing.T) {
+// A chain target (`:> a.x`) is reflected as the chaining feature the chain
+// denotes as a whole (KerML 8.3.3.3.9): a Feature the relationship targets and
+// owns, whose chainingFeature are the chain's features in order, the same for a
+// declaration and for its record.
+func TestImplicitChainTargetIsChainingFeature(t *testing.T) {
 	src := `package P {
     part def D {
         part a {
@@ -414,6 +418,8 @@ func TestImplicitChainTargetUnsupported(t *testing.T) {
 }`
 	for _, fixture := range reflectiveFixtures(t, "implicit-chain.sysml", source.KindSysML, src) {
 		model := fixture.model
+		a := relFixtureSymbol(t, fixture, "a")
+		x := relFixtureSymbol(t, fixture, "x")
 		b := relFixtureSymbol(t, fixture, "b")
 		rels := model.ImplicitRelationships(b)
 		if len(rels) != 1 {
@@ -421,10 +427,32 @@ func TestImplicitChainTargetUnsupported(t *testing.T) {
 		}
 		rel := rels[0]
 		assertRelFeature(t, model, rel, "subsettingFeature", b)
-		assertRelUnsupported(t, model, rel, "subsettedFeature")
-		assertRelUnsupported(t, model, rel, "target")
-		assertRelUnsupported(t, model, rel, "general")
-		assertRelUnsupported(t, model, rel, "relatedElement")
+		targets, ok := model.ReflectiveElements(rel, "target")
+		if !ok || len(targets) != 1 {
+			t.Fatalf("target on %s = %v, %t; want one chaining feature", relMetaName(model, rel), targets, ok)
+		}
+		chain := targets[0]
+		if chain.Chain == nil || chain.Chain.Relationship != rel {
+			t.Fatalf("target of %s is %s, want the feature its chain denotes", relMetaName(model, rel), model.fqnOf(chain))
+		}
+		if got := model.fqnOf(model.MetaclassOf(chain)); got != "KerML::Core::Feature" {
+			t.Errorf("chain target metaclass = %s, want KerML::Core::Feature", got)
+		}
+		assertRelFeature(t, model, rel, "subsettedFeature", chain)
+		assertRelFeature(t, model, rel, "general", chain)
+		assertRelFeature(t, model, rel, "relatedElement", b, chain)
+		assertRelFeature(t, model, rel, "ownedRelatedElement", chain)
+		assertRelFeature(t, model, chain, "chainingFeature", a, x)
+		assertRelFeature(t, model, chain, "owner", b)
+		assertRelFeature(t, model, b, "ownedElement", chain)
+		if again, _ := model.ReflectiveElements(rel, "target"); len(again) != 1 || again[0] != chain {
+			t.Errorf("target of %s changed between reads", relMetaName(model, rel))
+		}
+		for _, other := range []*symbols.Symbol{rel, b} {
+			if symbols.KeyOf(chain) == symbols.KeyOf(other) || symbols.SameElement(chain, other) {
+				t.Errorf("KeyOf(chain target) collides with %s", model.fqnOf(other))
+			}
+		}
 	}
 }
 
