@@ -4221,9 +4221,10 @@ func TestAcceptNodeComesBackFromItsPayloadParameter(t *testing.T) {
 }
 
 // A payload a graph names only by sysml:payloadParameter that owns members of
-// its own is not folded into the accept head, which writes the payload's
-// declaration alone: its members are written, not dropped.
-func TestUnflaggedPayloadKeepsItsMembers(t *testing.T) {
+// its own has no notation: the accept head writes the payload's declaration
+// alone. It is refused, rather than written as an accept without those
+// members or as an ordinary action without the accept.
+func TestPayloadWithMembersIsRefused(t *testing.T) {
 	src := "package P {\n    item def Order;\n    action def A {\n        action receive accept order : Order {\n            attribute n;\n        }\n    }\n}\n"
 	turtle, err := convert.Convert("m.sysml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
 	if err != nil {
@@ -4242,10 +4243,8 @@ func TestUnflaggedPayloadKeepsItsMembers(t *testing.T) {
 		graph = graph[:at] + reowned + graph[at+end:]
 	}
 	back, err := convert.Convert("m.ttl", []byte(graph), convert.FormatTurtle, convert.FormatSysML)
-	if err != nil {
-		t.Fatalf("back to notation: %v", err)
-	}
-	if !strings.Contains(string(back), "attribute n;") {
-		t.Errorf("the payload's member was dropped:\n%s", back)
+	var unsupported *export.UnsupportedError
+	if !errors.As(err, &unsupported) {
+		t.Errorf("converted to\n%s\nwant it refused, got error %v", back, err)
 	}
 }
