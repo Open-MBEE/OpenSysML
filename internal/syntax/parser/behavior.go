@@ -551,6 +551,17 @@ func (p *Parser) parseActionMember() ast.Node {
 		return p.parseSuccessionAsUsage(start)
 	}
 
+	// `first a if g then b;` is a GuardedSuccession, a TransitionUsage whose
+	// `succession` keyword is optional (SysML.xtext GuardedSuccession), so it is
+	// read as `succession first a if g then b;` is.
+	if len(prefixes) == 0 && p.atKeyword("first") && p.atGuardedSuccession() {
+		node := p.parseTransitionMember(start)
+		if tm, ok := node.(*ast.TransitionMember); ok {
+			tm.IsSuccession = true
+		}
+		return node
+	}
+
 	// Try general declaration first (nested actions, features, etc.)
 	if node := p.tryParseDeclaration(); node != nil {
 		return node

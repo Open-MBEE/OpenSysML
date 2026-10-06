@@ -2537,6 +2537,15 @@ func (d *decoder) usageHead(el *element, kind ast.UsageKind) (string, error) {
 	// The accept shorthand writes its parameter into the head, ahead of the
 	// `via` clause the parent's relationships supply.
 	if accept := d.acceptParam(el); accept != nil {
+		// The head writes the payload's declaration alone (SysML.xtext
+		// PayloadParameter has no body), so members of its own cannot be
+		// written there, and dropping them would change the model.
+		if len(d.bodyChildren(accept)) > 0 {
+			return "", &UnsupportedError{
+				What: fmt.Sprintf("the accept action <%s>", el.iri),
+				Note: fmt.Sprintf("its payload <%s> owns members, and the accept notation writes a payload's declaration alone", accept.iri),
+			}
+		}
 		acceptWords, err := d.payloadWords(accept)
 		if err != nil {
 			return "", err
@@ -2792,11 +2801,24 @@ func (d *decoder) isTrailingCondition(el *element) bool {
 }
 
 // acceptParam returns the synthetic parameter of an accept shorthand, whose
-// notation belongs in its parent's declaration head.
+// notation belongs in its parent's declaration head: the parameter flagged
+// sysml:isAccept, else the one an AcceptActionUsage names as its
+// sysml:payloadParameter, which is how a graph stating the metamodel alone
+// marks it.
 func (d *decoder) acceptParam(el *element) *element {
 	for _, child := range el.children {
 		if d.boolOf(child, rdf.SysML+"isAccept") {
 			return child
+		}
+	}
+	if el.metaclass != mAcceptAction {
+		return nil
+	}
+	for _, stated := range d.graph.Objects(rdf.IRI(el.iri), rdf.SysML+pPayloadParameter) {
+		for _, child := range el.children {
+			if child.iri == stated.Value {
+				return child
+			}
 		}
 	}
 	return nil

@@ -216,7 +216,7 @@ func (w *caseWalk) roleNode(owner *symbols.Symbol, caseNode *Node, sym *symbols.
 
 // objectiveNode adds an objective, its documentation and anchor edge.
 func (w *caseWalk) objectiveNode(owner *symbols.Symbol, caseNode *Node, sym *symbols.Symbol) {
-	detail := strings.Join(w.r.objectiveDocumentation(sym), "\n")
+	detail := strings.Join(w.r.documentation(sym), "\n")
 	node := &Node{ID: w.ids.take(), Kind: "objective", Name: localName(sym), NameSynthesized: w.r.model.NameSynthesized(sym),
 		Type: declType(sym), Detail: detail, Typings: w.r.declTypings(sym), Origin: symbolOrigin(sym),
 		Geometry: w.r.geometryOf(w.view, sym, w.out)}
@@ -256,6 +256,12 @@ func (w *caseWalk) edgeIDs(sym *symbols.Symbol, from, to string, kind EdgeKind, 
 	if w.out.drawn != nil {
 		w.out.drawn.note(sym, true)
 	}
+}
+
+// caseNotation reports whether a rendering of kind draws its typing, reference
+// and composition edges in the case diagram's notation rather than a graph's.
+func caseNotation(kind Kind) bool {
+	return kind == KindCase || kind == KindMixed
 }
 
 // caseFamily reports whether sym belongs to the case definition and usage families.
@@ -312,8 +318,8 @@ func viewRelationshipsOf(sym *symbols.Symbol) []*ast.Relationship {
 	return semantics.RelationshipsOf(&member)
 }
 
-// objectiveDocumentation reads doc bodies through this renderer's source lookup.
-func (r *Renderer) objectiveDocumentation(sym *symbols.Symbol) []string {
+// documentation reads doc bodies through this renderer's source lookup.
+func (r *Renderer) documentation(sym *symbols.Symbol) []string {
 	if sym == nil || sym.Scope == nil || r.text == nil {
 		return nil
 	}

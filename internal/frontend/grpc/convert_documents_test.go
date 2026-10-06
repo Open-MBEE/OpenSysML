@@ -3,6 +3,7 @@ package grpc
 import (
 	"context"
 	"encoding/json"
+	"slices"
 	"testing"
 
 	"connectrpc.com/connect"
@@ -84,10 +85,10 @@ func TestConvertDocumentsWritesTheNamedOnes(t *testing.T) {
 	}
 }
 
-// The capability is the newest, appended after every one before it.
+// The capability is advertised.
 func TestConvertDocumentsCapabilityIsAdvertised(t *testing.T) {
-	if all := Capabilities(); all[len(all)-1] != CapabilityConvertDocuments {
-		t.Errorf("capabilities %v do not end with %q, the newest", all, CapabilityConvertDocuments)
+	if !slices.Contains(Capabilities(), CapabilityConvertDocuments) {
+		t.Errorf("capabilities %v do not include %q", Capabilities(), CapabilityConvertDocuments)
 	}
 }
 

@@ -47,6 +47,10 @@ type CachedModel struct {
 	// Mode is the conformance strictness the parse request asked for; an edit's
 	// notation is judged at the same strictness.
 	Mode diag.ConformanceMode
+	// analysis is what a model answered from a lineage records of its
+	// documents' analyses, for ParseSourcesResponse.affected; nil for a model
+	// parsed fresh (lineage.go).
+	analysis *analysisSnapshot
 
 	symCtxOnce     sync.Once
 	symCtx         *symbolfacts.Context

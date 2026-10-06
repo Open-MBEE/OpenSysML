@@ -2047,22 +2047,46 @@ func (d *decoder) transitionHead(el *element, syntax string) ([]string, error) {
 	if source == "" {
 		return nil, d.missing(el, sysmlPrefix+pSourceFeature, "a transition written with `transition` names the state it leaves")
 	}
+	ident := d.identWords(el)
 	keyword := "transition"
 	if written, ok := d.stringOf(el, rdf.OpenSysML+xDeclaredKeyword); ok {
 		keyword = written
+	} else if guard, err := d.transitionGuard(el); err == nil && guard != "" && d.inActionBody(el) {
+		// An action body admits a transition as a GuardedSuccession, whose
+		// `succession` is optional unless it declares a name. One without a
+		// guard is no GuardedSuccession: written so, it would read back as a
+		// succession, so it keeps `transition`.
+		keyword = ""
+		if len(ident) > 0 {
+			keyword = "succession"
+		}
 	}
-	ident := d.identWords(el)
 	var words []string
 	if visibility := d.visibility(el); visibility != "" {
 		words = append(words, visibility)
 	}
-	words = append(words, keyword)
+	if keyword != "" {
+		words = append(words, keyword)
+	}
 	words = append(words, ident...)
 	// The grammar admits a bare source only on a nameless `transition`.
 	if syntax == "first" || len(ident) > 0 || keyword == "succession" {
 		words = append(words, "first")
 	}
 	return append(words, source), nil
+}
+
+// inActionBody reports whether el is a member of an action's body rather than
+// of a state's, whose transitions take the `transition` keyword.
+func (d *decoder) inActionBody(el *element) bool {
+	if el.owner == nil {
+		return false
+	}
+	owner := el.owner.metaclass
+	if ontology.IsAncestorOrSelf(owner, mStateUsage) || ontology.IsAncestorOrSelf(owner, "StateDefinition") {
+		return false
+	}
+	return ontology.IsAncestorOrSelf(owner, "ActionUsage") || ontology.IsAncestorOrSelf(owner, "ActionDefinition")
 }
 
 // triggerWords writes a transition's trigger and the port it arrives via.
