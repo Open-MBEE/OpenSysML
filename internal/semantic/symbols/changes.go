@@ -109,18 +109,28 @@ func registrationOf(idx *Index, fqn string) registration {
 	return out
 }
 
-// spelling is the simple name a registration is filed under, as a suggestion
-// table files it (suggest.simpleName): the declared name of the first symbol
-// registered under fqn as its own, else fqn's last segment; "" when nothing is
-// registered there.
+// spelling is the simple name a registration is filed under (SpelledName), ""
+// when nothing is registered there.
 func (r registration) spelling(fqn string) string {
 	if len(r) == 0 {
 		return ""
 	}
-	for _, entry := range r {
-		if entry.sym != nil && HasFQN(entry.sym, fqn) {
-			if entry.sym.Name != "" {
-				return entry.sym.Name
+	syms := make([]*Symbol, len(r))
+	for i, entry := range r {
+		syms[i] = entry.sym
+	}
+	return SpelledName(fqn, syms)
+}
+
+// SpelledName is the name fqn registers a declaration under, which a
+// suggestion table files it by: the declared name of the first of syms
+// registered under fqn as its own, which may hold `::` of its own, else
+// fqn's last segment (as a short name is).
+func SpelledName(fqn string, syms []*Symbol) string {
+	for _, sym := range syms {
+		if sym != nil && HasFQN(sym, fqn) {
+			if sym.Name != "" {
+				return sym.Name
 			}
 			break
 		}
