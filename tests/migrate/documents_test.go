@@ -191,6 +191,59 @@ func TestMigratedTablesExecute(t *testing.T) {
 		"Plant::Requirements::SealRequirement")
 }
 
+func TestExcludingTypeFilterBindsItsSourceOnce(t *testing.T) {
+	notation := string(migrateFixtureFile(t, "documents").Notation)
+	start := strings.Index(notation, "calc def 'Fleet Handbook Fleet Parts Rows'")
+	if start < 0 {
+		t.Fatal("Fleet Handbook Fleet Parts Rows query is missing")
+	}
+	query := notation[start:]
+	if end := strings.Index(query, "\n        }"); end >= 0 {
+		query = query[:end]
+	} else {
+		t.Fatal("Fleet Handbook Fleet Parts Rows query is unterminated")
+	}
+
+	inParameter := false
+	parameterCount, sourceDefaults, sourceInBody, sourceInDefault := 0, 0, 0, 0
+	for _, line := range strings.Split(query, "\n") {
+		trimmed := strings.TrimSpace(line)
+		if strings.HasPrefix(trimmed, "in candidates") {
+			inParameter = true
+			parameterCount++
+			sourceInDefault = 0
+			if !strings.Contains(trimmed, " : KerML::Root::Element [0..*] ordered = ") {
+				t.Errorf("bound parameter has the wrong type or multiplicity: %s", trimmed)
+			}
+		}
+		if strings.Contains(line, `qualifiedName = ("Fleet::Structure")`) {
+			if inParameter {
+				sourceInDefault++
+			} else {
+				sourceInBody++
+			}
+		}
+		if inParameter && strings.HasSuffix(trimmed, ";") {
+			if sourceInDefault > 0 {
+				if sourceInDefault != 1 {
+					t.Errorf("excluding source appears %d times in one parameter default", sourceInDefault)
+				}
+				sourceDefaults++
+			}
+			inParameter = false
+		}
+	}
+	if parameterCount == 0 || sourceDefaults == 0 {
+		t.Fatalf("query has no defaulted candidate parameter for the excluding source:\n%s", query)
+	}
+	if sourceInBody != 0 {
+		t.Errorf("excluding source is still evaluated in the query body %d times:\n%s", sourceInBody, query)
+	}
+	if uses := strings.Count(query, "source = candidates"); uses < 3 {
+		t.Errorf("query body uses the bound source %d times, want the occurrence-aware type filter's repeated references:\n%s", uses, query)
+	}
+}
+
 // A generic table over a broad UML metaclass lists what that metaclass holds
 // in the source model: the packageable elements of a package but not the
 // features they own, and the «View» and «Viewpoint» classes among the types.
@@ -461,6 +514,42 @@ func TestMigratedDocumentsRender(t *testing.T) {
 	}
 	if strings.Contains(brief, "showCaptions is false") {
 		t.Fatalf("a caption DocGen hides is rendered:\n%s", brief)
+	}
+}
+
+func TestPerRowExcludingFilterDoesNotLeakBoundParameter(t *testing.T) {
+	data, err := os.ReadFile("testdata/xmi/docgen_columns.xmi")
+	if err != nil {
+		t.Fatal(err)
+	}
+	before := []byte(`<Document_Profile_:FilterByMetaclasses xmi:id="_st_ifc_desc_ports" base_CallBehaviorAction="_ifc_desc_ports" include="true">
+    <metaclasses href="http://www.omg.org/spec/UML/20131001/UML.xmi#Port"/>
+  </Document_Profile_:FilterByMetaclasses>`)
+	after := []byte(`<Document_Profile_:FilterByMetaclasses xmi:id="_st_ifc_desc_ports" base_CallBehaviorAction="_ifc_desc_ports" include="false">
+    <metaclasses href="http://www.omg.org/spec/UML/20131001/UML.xmi#Class"/>
+  </Document_Profile_:FilterByMetaclasses>`)
+	if count := bytes.Count(data, before); count != 1 {
+		t.Fatalf("column-chain filter occurs %d times, want 1", count)
+	}
+	data = bytes.Replace(data, before, after, 1)
+	r, err := migrate.Migrate("docgen_columns.xmi", data)
+	if err != nil {
+		t.Fatalf("Migrate: %v", err)
+	}
+	var cell string
+	for _, line := range strings.Split(string(r.Notation), "\n") {
+		if strings.Contains(line, `Column(name = "Description", cell =`) &&
+			strings.Contains(line, "DocumentQueries::Except(") &&
+			strings.Contains(line, "Descendants(source = row") {
+			cell = line
+			break
+		}
+	}
+	if cell == "" {
+		t.Fatal("the per-row excluding filter did not reach its column cell")
+	}
+	if strings.Contains(cell, "candidates") {
+		t.Fatalf("the inline column cell references an unwritten parameter:\n%s", cell)
 	}
 }
 

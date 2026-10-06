@@ -224,25 +224,16 @@ package Observatory {
             expose Observatory::Assemblies::'Optical Bench';
         }
         calc def 'Interface Control Document Interface Totals Rows' :> DocumentQueries::Query {
+            in candidates : KerML::Root::Element [0..*] ordered = DocumentQueries::Descendants(
+                source = DocumentQueries::Named(qualifiedName = ("Observatory::Interface Types")),
+                maxDepth = 1);
             DocumentQueries::Project(
                 source = DocumentQueries::OrderBy(
                     source = DocumentQueries::Except(
-                        source = DocumentQueries::WhereType(
-                            source = DocumentQueries::Descendants(
-                                source = DocumentQueries::Named(qualifiedName = ("Observatory::Interface Types")),
-                                maxDepth = 1),
-                            type = ("PartDefinition", "RequirementDefinition", "ConstraintDefinition", "PortDefinition", "VerificationCaseDefinition", "ActionDefinition", "StateDefinition", "CalculationDefinition", "ViewUsage", "ViewpointUsage", "OccurrenceDefinition")),
+                        source = DocumentQueries::WhereType(source = candidates, type = ("PartDefinition", "RequirementDefinition", "ConstraintDefinition", "PortDefinition", "VerificationCaseDefinition", "ActionDefinition", "StateDefinition", "CalculationDefinition", "ViewUsage", "ViewpointUsage", "OccurrenceDefinition")),
                         exclude = DocumentQueries::Except(
-                            source = DocumentQueries::WhereType(
-                                source = DocumentQueries::Descendants(
-                                    source = DocumentQueries::Named(qualifiedName = ("Observatory::Interface Types")),
-                                    maxDepth = 1),
-                                type = ("ItemDefinition")),
-                            exclude = DocumentQueries::WhereType(
-                                source = DocumentQueries::Descendants(
-                                    source = DocumentQueries::Named(qualifiedName = ("Observatory::Interface Types")),
-                                    maxDepth = 1),
-                                type = ("PartDefinition", "RequirementDefinition", "ConstraintDefinition", "PortDefinition", "VerificationCaseDefinition", "ActionDefinition", "StateDefinition", "CalculationDefinition", "ViewUsage", "ViewpointUsage")))),
+                            source = DocumentQueries::WhereType(source = candidates, type = ("ItemDefinition")),
+                            exclude = DocumentQueries::WhereType(source = candidates, type = ("PartDefinition", "RequirementDefinition", "ConstraintDefinition", "PortDefinition", "VerificationCaseDefinition", "ActionDefinition", "StateDefinition", "CalculationDefinition", "ViewUsage", "ViewpointUsage")))),
                     property = "name",
                     direction = "ascending",
                     missing = "last",
@@ -252,25 +243,16 @@ package Observatory {
                     DocumentQueries::Column(name = "Number of Interfaces", cell = { in row : KerML::Core::Type; DocumentQueries::RelatedElements(source = row, relationshipKind = "typing", direction = "incoming", maxDepth = 1)->SequenceFunctions::size() })))
         }
         calc def 'Interface Control Document Per Type Rows' :> DocumentQueries::Query {
+            in candidates : KerML::Root::Element [0..*] ordered = DocumentQueries::Descendants(
+                source = DocumentQueries::Named(qualifiedName = ("Observatory::Interface Types")),
+                maxDepth = 1);
             DocumentQueries::Project(
                 source = DocumentQueries::OrderBy(
                     source = DocumentQueries::Except(
-                        source = DocumentQueries::WhereType(
-                            source = DocumentQueries::Descendants(
-                                source = DocumentQueries::Named(qualifiedName = ("Observatory::Interface Types")),
-                                maxDepth = 1),
-                            type = ("PartDefinition", "RequirementDefinition", "ConstraintDefinition", "PortDefinition", "VerificationCaseDefinition", "ActionDefinition", "StateDefinition", "CalculationDefinition", "ViewUsage", "ViewpointUsage", "OccurrenceDefinition")),
+                        source = DocumentQueries::WhereType(source = candidates, type = ("PartDefinition", "RequirementDefinition", "ConstraintDefinition", "PortDefinition", "VerificationCaseDefinition", "ActionDefinition", "StateDefinition", "CalculationDefinition", "ViewUsage", "ViewpointUsage", "OccurrenceDefinition")),
                         exclude = DocumentQueries::Except(
-                            source = DocumentQueries::WhereType(
-                                source = DocumentQueries::Descendants(
-                                    source = DocumentQueries::Named(qualifiedName = ("Observatory::Interface Types")),
-                                    maxDepth = 1),
-                                type = ("ItemDefinition")),
-                            exclude = DocumentQueries::WhereType(
-                                source = DocumentQueries::Descendants(
-                                    source = DocumentQueries::Named(qualifiedName = ("Observatory::Interface Types")),
-                                    maxDepth = 1),
-                                type = ("PartDefinition", "RequirementDefinition", "ConstraintDefinition", "PortDefinition", "VerificationCaseDefinition", "ActionDefinition", "StateDefinition", "CalculationDefinition", "ViewUsage", "ViewpointUsage")))),
+                            source = DocumentQueries::WhereType(source = candidates, type = ("ItemDefinition")),
+                            exclude = DocumentQueries::WhereType(source = candidates, type = ("PartDefinition", "RequirementDefinition", "ConstraintDefinition", "PortDefinition", "VerificationCaseDefinition", "ActionDefinition", "StateDefinition", "CalculationDefinition", "ViewUsage", "ViewpointUsage")))),
                     property = "name",
                     direction = "ascending",
                     missing = "last",

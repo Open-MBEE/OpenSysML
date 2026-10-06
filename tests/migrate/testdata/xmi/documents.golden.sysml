@@ -362,25 +362,16 @@ package 'Fleet Documents' {
         /* not migrated: «Conform» Generalization (_gen_notes) — the viewpoint is not in the document; applied stereotypes «Conform» */
     }
     calc def 'Fleet Handbook Fleet Parts Rows' :> DocumentQueries::Query {
+        in candidates : KerML::Root::Element [0..*] ordered = DocumentQueries::Descendants(
+            source = DocumentQueries::Named(qualifiedName = ("Fleet::Structure")),
+            maxDepth = 1);
         DocumentQueries::Project(
             source = DocumentQueries::OrderBy(
                 source = DocumentQueries::Except(
-                    source = DocumentQueries::WhereType(
-                        source = DocumentQueries::Descendants(
-                            source = DocumentQueries::Named(qualifiedName = ("Fleet::Structure")),
-                            maxDepth = 1),
-                        type = ("PartDefinition", "RequirementDefinition", "ConstraintDefinition", "PortDefinition", "VerificationCaseDefinition", "ActionDefinition", "StateDefinition", "CalculationDefinition", "ViewUsage", "ViewpointUsage", "OccurrenceDefinition")),
+                    source = DocumentQueries::WhereType(source = candidates, type = ("PartDefinition", "RequirementDefinition", "ConstraintDefinition", "PortDefinition", "VerificationCaseDefinition", "ActionDefinition", "StateDefinition", "CalculationDefinition", "ViewUsage", "ViewpointUsage", "OccurrenceDefinition")),
                     exclude = DocumentQueries::Except(
-                        source = DocumentQueries::WhereType(
-                            source = DocumentQueries::Descendants(
-                                source = DocumentQueries::Named(qualifiedName = ("Fleet::Structure")),
-                                maxDepth = 1),
-                            type = ("ItemDefinition")),
-                        exclude = DocumentQueries::WhereType(
-                            source = DocumentQueries::Descendants(
-                                source = DocumentQueries::Named(qualifiedName = ("Fleet::Structure")),
-                                maxDepth = 1),
-                            type = ("PartDefinition", "RequirementDefinition", "ConstraintDefinition", "PortDefinition", "VerificationCaseDefinition", "ActionDefinition", "StateDefinition", "CalculationDefinition", "ViewUsage", "ViewpointUsage")))),
+                        source = DocumentQueries::WhereType(source = candidates, type = ("ItemDefinition")),
+                        exclude = DocumentQueries::WhereType(source = candidates, type = ("PartDefinition", "RequirementDefinition", "ConstraintDefinition", "PortDefinition", "VerificationCaseDefinition", "ActionDefinition", "StateDefinition", "CalculationDefinition", "ViewUsage", "ViewpointUsage")))),
                 property = "name",
                 direction = "ascending",
                 missing = "last",

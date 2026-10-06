@@ -166,9 +166,22 @@ func (m *migration) queryPrefix(host *sysmlv1.Element) string {
 	return "DocumentQueries::"
 }
 
+func (m *migration) queryElementType(host *sysmlv1.Element) string {
+	if m.hidden("KerML") || m.shadowsLibrary("KerML", host) {
+		return "$::KerML::Root::Element"
+	}
+	return "KerML::Root::Element"
+}
+
 // writeQueryDef writes a query definition returning the expression.
-func (m *migration) writeQueryDef(name string, prefix string, body qx) {
+func (m *migration) writeQueryDef(name string, prefix string, host *sysmlv1.Element, parameters []boundParameter, body qx) {
 	m.w.block("calc def "+writeName(name)+" :> "+prefix+"Query", func() {
+		for _, parameter := range parameters {
+			lines := parameter.value.lines(prefix)
+			lines[0] = "in " + parameter.name + " : " + m.queryElementType(host) + " [0..*] ordered = " + lines[0]
+			lines[len(lines)-1] += ";"
+			m.w.lines(lines)
+		}
 		m.w.lines(body.lines(prefix))
 	})
 }
