@@ -12,7 +12,7 @@ reader who only wants the verdicts can ignore them.
 
 ## OpenSysML self-model validation
 
-The `SysMLValidation` standard-library package states 41 validation constraints as SysML
+The `SysMLValidation` standard-library package states 50 validation constraints as SysML
 constraint definitions over reflective KerML and SysML metaclasses. `sysml -self-check`
 applies each constraint to every reflectively classified element in the non-library workspace.
 The library currently states:
@@ -58,6 +58,55 @@ The library currently states:
 - `validateTypeDifferencingTypesNotSelf`
 - `validateAssociationEndTypes`
 - `validateMetadataFeatureMetaclassNotAbstract`
+- `validateSpecializationSpecificNotConjugated`
+- `validateBehaviorSpecialization`
+- `validateStructureSpecialization`
+- `validateClassSpecialization`
+- `validateDataTypeSpecialization`
+- `validateFeatureOwnedReferenceSubsetting`
+- `validateFeatureOwnedCrossSubsetting`
+- `validateUsageVariationSpecialization`
+- `validateDefinitionVariationSpecialization`
+
+### Reflective relationship objects
+
+The constraints that read relationship-valued features evaluate over *reflective relationship
+objects*: a relationship written as notation on an element (`:`, `:>`, `:>>`, `::>`, `=>`,
+`~`, `conjugates`, `subsets`, `redefines`, `references`, `crosses`, typed/defined by) is
+reflected as an element of its own — a `Subclassification`, `FeatureTyping`, `Subsetting`,
+`Redefinition`, `ReferenceSubsetting`, `CrossSubsetting`, `Conjugation`, `Specialization` or
+`ConjugatedPortTyping` — and reached from its owner through `ownedSpecialization`,
+`ownedSubclassification`, `ownedTyping`, `ownedSubsetting`, `ownedRedefinition`,
+`ownedReferenceSubsetting`, `ownedCrossSubsetting` and `ownedConjugator`. Only written
+relationships are reflected: relationships implied by implicit supertypes are not
+synthesized; the `includes` the parser echoes for `include use case uc : UC` (the full
+IncludeUseCaseUsage form declares no ReferenceSubsetting, so the echo is no relationship
+object, though it keeps its ordinal); and a feature-chain target (`:> a.b`, `::> a.b`,
+`crosses a.b`) derives no target-side feature, so an application that needs it is reported
+unevaluated. The membership family (`OwningMembership`, `FeatureMembership`,
+`ownedRelationship`, `membership`, `ownedMembership`, `ownedImport`) is not yet reflected and
+stays unsupported. An extended definition (`#service def X`) classifies as Definition, so
+the constraints that apply to that metaclass reach it.
+
+Three further constraints are excluded because their applications on a relationship with a
+feature-chain target cannot be evaluated yet: `validateSubsettingUniquenessConformance`,
+`validateSubsettingConstantConformance` and `validateRedefinitionEndConformance`. Each reads
+the subsetted or redefined feature, which for a chain target (`subsets a.b`, `redefines a.b`,
+`crosses a.b`) is the implicit chaining Feature of KerML 8.3.3.3 — an element OpenSysML does
+not yet reflect — so every such application would report unevaluated. They become evaluable
+once chaining features are reflected.
+
+`validateClassSpecialization` likewise deviates from its published OCL, whose precedence
+makes the DataType conjunct vacuous (`(A and not Assoc) implies B`); the library states the
+strong form the spec prose and `internal/check/passes/w11a_kerml_specialization.go` read.
+
+`validateUsageVariationSpecialization` and `validateDefinitionVariationSpecialization` follow
+the pilot's and the handwritten validator's reading, not the published OCL's: as written, each
+reads `ownedSpecialization.specific` — which is always the element itself — so the spec text
+rejects every variation with any written specialization (a corpus probe reported 43 such
+failures, including `7b-Variant Configurations.sysml` and `Variation Definitions.sysml`).
+The library states the bodies over the specialization's *general*, as
+`internal/check/passes/w8d_variability.go` `checkSpecializations` and the pilot do.
 
 Constraints whose OCL reads reflective features the current model does not derive are omitted
 from the library. If an included constraint cannot be evaluated because a reflective feature is
