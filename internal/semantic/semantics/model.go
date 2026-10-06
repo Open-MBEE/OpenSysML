@@ -53,6 +53,9 @@ type Model struct {
 	typingArgs map[*ast.InvocationExpr]bool
 	composed   map[composedKey][]*symbols.Symbol
 	ends       map[*symbols.Symbol][]connectorEnd
+	// chainTargets memoizes the feature each relationship object's chain
+	// target denotes.
+	chainTargets map[*symbols.Symbol]*symbols.Symbol
 	// subtracting memoizes whether a type reaches a difference (see cast.go).
 	subtracting map[*symbols.Symbol]bool
 	// referential memoizes a parameter's referentiality (see shape.go).
@@ -170,6 +173,7 @@ func NewModel(resolver *resolve.Resolver) *Model {
 		typingArgs:          make(map[*ast.InvocationExpr]bool),
 		composed:            make(map[composedKey][]*symbols.Symbol),
 		ends:                make(map[*symbols.Symbol][]connectorEnd),
+		chainTargets:        make(map[*symbols.Symbol]*symbols.Symbol),
 		subtracting:         make(map[*symbols.Symbol]bool),
 		referential:         make(map[*symbols.Symbol]bool),
 		implicitBase:        make(map[*symbols.Symbol][]*symbols.Symbol),
@@ -239,10 +243,14 @@ func GeneralizationKind(k ast.RelationshipKind) bool {
 // RelationshipsOf returns the declared relationships of a symbol's def/usage
 // declaration, or nil for symbols that are not def/usage.
 func RelationshipsOf(sym *symbols.Symbol) []*ast.Relationship {
-	if oc, ok := ast.OwnedConstraintOf(sym.Decl); ok {
+	if sym == nil {
+		return nil
+	}
+	decl := sym.Decl
+	if oc, ok := ast.OwnedConstraintOf(decl); ok {
 		return oc.Relationships
 	}
-	switch d := sym.Decl.(type) {
+	switch d := decl.(type) {
 	case *ast.Definition:
 		return d.Relationships
 	case *ast.Usage:

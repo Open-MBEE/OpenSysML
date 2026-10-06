@@ -85,11 +85,16 @@ func (a *activity) writesInput(pin *sysmlv1.Element) bool {
 	}
 	switch n.Type {
 	case "CallOperationAction":
-		return firstOwned(n, "target") != pin && a.hasParameter(n, pin)
+		if firstOwned(n, "target") == pin {
+			return a.targetBound(n, pin)
+		}
+		return a.hasParameter(n, pin)
 	case "CallBehaviorAction":
 		return a.hasParameter(n, pin)
 	case "OpaqueAction", "AddStructuralFeatureValueAction", "SendSignalAction":
 		return true
+	case "SendObjectAction":
+		return firstOwned(n, "request") != nil
 	case "ReadStructuralFeatureAction":
 		if !a.readWritten(n) {
 			return false

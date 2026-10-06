@@ -16,9 +16,14 @@ import (
 // renderModel declares a view stating no rendering, one exposing nothing, and a
 // part def to ask for by mistake.
 const renderModel = `package Demo {
+    private import OpenSysMLRenderings::*;
     part def Vehicle { part wheel : Wheel; }
     part def Wheel;
+    part def Person;
+    use case def Mission { actor pilot : Person; }
     view overview { expose Demo::Vehicle; }
+    view cases { expose Demo::Mission; render asCaseDiagram; }
+    view mixed { expose Demo; render asMixedDiagram; }
     view parts { expose Demo::Vehicle; render Views::asElementTable; }
     view empty;
 }
@@ -43,6 +48,29 @@ func TestRenderWritesTheArtifactOnStdout(t *testing.T) {
 	}
 	if !strings.Contains(got.stderr, "package Demo") {
 		t.Errorf("stderr does not say what the load declared:\n%s", got.stderr)
+	}
+}
+
+func TestRenderCaseAndMixedViewsAndPseudoViews(t *testing.T) {
+	binary := buildCLI(t)
+	cases := []struct {
+		view string
+		flow string
+	}{
+		{"Demo::cases", "flowchart LR"},
+		{"#case", "flowchart LR"},
+		{"#case:Demo::Mission", "flowchart LR"},
+		{"#mixed", "flowchart TD"},
+		{"#mixed:Demo::Mission", "flowchart TD"},
+	}
+	for _, tc := range cases {
+		got := runStreams(t, binary, renderModel, "-render", tc.view)
+		if got.status != exitHolds {
+			t.Fatalf("-render %s: exit status = %d\n%s", tc.view, got.status, got.output())
+		}
+		if !strings.Contains(got.stdout, tc.flow) {
+			t.Errorf("-render %s lacks %q:\n%s", tc.view, tc.flow, got.stdout)
+		}
 	}
 }
 
@@ -311,6 +339,43 @@ func TestRenderD2Form(t *testing.T) {
 	table := runStreams(t, binary, renderModel, "-render", "Demo::parts", "-render-form", "d2")
 	if table.status != exitUnevaluable || !strings.Contains(table.stderr, "table rendering is not written as d2; ask for text, markdown, csv or tsv") {
 		t.Errorf("D2 of a table = %d\n%s", table.status, table.output())
+	}
+	for _, tc := range []struct {
+		name, message string
+	}{
+		{"Demo::cases", "case rendering is not written as d2; ask for text, mermaid, dot or plantuml"},
+		{"Demo::mixed", "mixed rendering is not written as d2; ask for text, mermaid, dot or plantuml"},
+	} {
+		got := runStreams(t, binary, renderModel, "-render", tc.name, "-render-form", "d2")
+		if got.status != exitUnevaluable || got.stdout != "" || !strings.Contains(got.stderr, tc.message) {
+			t.Errorf("D2 of %s = %d\n%s", tc.name, got.status, got.output())
+		}
+	}
+
+	dir = filepath.Join(t.TempDir(), "case-mixed")
+	got = runStreams(t, binary, renderModel, "-render-all", dir, "-render-form", "d2")
+	if got.status != exitHolds {
+		t.Fatalf("-render-all as d2: exit status = %d\n%s", got.status, got.output())
+	}
+	files, err := os.ReadDir(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	wantFiles := []string{"Demo.empty.d2", "Demo.overview.d2"}
+	if len(files) != len(wantFiles) {
+		t.Errorf("-render-all as d2 wrote %v, want %v", files, wantFiles)
+	} else {
+		for i, name := range wantFiles {
+			if files[i].Name() != name {
+				t.Errorf("-render-all as d2 wrote %v, want %v", files, wantFiles)
+				break
+			}
+		}
+	}
+	for _, name := range []string{"Demo::cases", "Demo::mixed"} {
+		if !strings.Contains(got.stderr, name+": skipped:") || !strings.Contains(got.stderr, "not written as d2") {
+			t.Errorf("-render-all did not refuse %s as d2:\n%s", name, got.stderr)
+		}
 	}
 }
 
@@ -1049,7 +1114,7 @@ const portedModel = `package Demo {
 }
 `
 
-// -render-ports chooses how much of a part's ports an interconnection draws:
+// -render-ports chooses how much of a part's ports an interconnection or mixed rendering draws:
 // minimal, the default, the ports a connector ends at, named alone; full, every
 // port, typed. A name that is neither is refused with the two there are, and
 // the flag without something to render likewise.

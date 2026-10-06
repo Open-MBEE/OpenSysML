@@ -429,10 +429,6 @@ func parseSourcesParams(t *testing.T, name, content string) string {
 }
 
 func TestCoreDependencies(t *testing.T) {
-	root, err := filepath.Abs(filepath.Join("..", ".."))
-	if err != nil {
-		t.Fatalf("resolving repository root: %v", err)
-	}
 	const module = "github.com/Open-MBEE/OpenSysML"
 	required := []string{
 		module + "/internal/check/passes",
@@ -440,16 +436,27 @@ func TestCoreDependencies(t *testing.T) {
 		module + "/internal/frontend/jsonrpc",
 		module + "/internal/frontend/syntax",
 	}
+	checkWasmDependencies(t, "./cmd/sysml-core", required, func(dependency string) bool {
+		return forbiddenCoreDependency(module, dependency)
+	})
+}
+
+func checkWasmDependencies(t *testing.T, command string, required []string, forbidden func(dependency string) bool) {
+	t.Helper()
+	root, err := filepath.Abs(filepath.Join("..", ".."))
+	if err != nil {
+		t.Fatalf("resolving repository root: %v", err)
+	}
 	for _, target := range []wasmTarget{{name: "js", goos: "js"}, {name: "wasip1", goos: "wasip1"}} {
 		t.Run(target.name, func(t *testing.T) {
-			cmd := exec.Command("go", "list", "-deps", "./cmd/sysml-core")
+			cmd := exec.Command("go", "list", "-deps", command)
 			cmd.Dir = root
 			cmd.Env = append(os.Environ(), "GOOS="+target.goos, "GOARCH=wasm")
 			output, err := cmd.CombinedOutput()
 			if err != nil {
-				t.Fatalf("go list -deps for %s: %v\n%s", target.name, err, output)
+				t.Fatalf("go list -deps for %s: %v\n%s", command, err, output)
 			}
-			t.Logf("%s deps of ./cmd/sysml-core:\n%s", target.name, output)
+			t.Logf("%s deps of %s:\n%s", target.name, command, output)
 			deps := make(map[string]bool)
 			for _, dependency := range strings.Fields(string(output)) {
 				deps[dependency] = true
@@ -460,7 +467,7 @@ func TestCoreDependencies(t *testing.T) {
 				}
 			}
 			for dependency := range deps {
-				if forbiddenCoreDependency(module, dependency) {
+				if forbidden(dependency) {
 					t.Errorf("forbidden dependency in %s build: %s", target.name, dependency)
 				}
 			}

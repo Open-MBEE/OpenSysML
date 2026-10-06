@@ -1,7 +1,7 @@
 # Views and rendering demo
 
-[`views-demo.sysml`](views-demo.sysml) is a lander and the views that present it,
-one view per rendering kind, so that `%view` and `%render` each have something to
+[`views-demo.sysml`](views-demo.sysml) is a lander and views that present it, one
+per demonstrated rendering kind, so that `%view` and `%render` each have something to
 show. A rendering is tool-defined output — SysML v2 §10.2 leaves rendering to the
 tool — so what comes out is OpenSysML's own notation rather than a standard
 interchange form.
@@ -33,7 +33,7 @@ The view satisfies a viewpoint that frames a mass concern, so that concern is
 checked against each exposed lander: `descender` is within the budget,
 `heavyDescender` is over it and named as the violation.
 
-## `%render` — the five kinds
+## `%render` — the rendering kinds
 
 A view states its rendering with a `render` member, or inherits it from the
 standard view definition it specializes, or states none and renders as a
@@ -46,6 +46,14 @@ containment tree.
 | `%render LanderViews::partsTable` | table | `render asElementTable` |
 | `%render LanderViews::descentStates` | state | `: StateTransitionView` |
 | `%render LanderViews::descentFlow` | action | `: ActionFlowView` |
+| `%render LanderViews::useCases` | case | `render asCaseDiagram` |
+| `%render LanderViews::mixedOverview` | mixed | `render asMixedDiagram` |
+
+`CaseView` and `MixedView` from `OpenSysMLRenderings` provide the same selections by view-definition
+specialization. Case diagrams show use, analysis and verification cases with their actors, subjects
+and documented objectives. Mixed diagrams combine package structure, interconnections, states,
+actions and cases on one canvas; `#case` and `#mixed` render loaded model content without a
+declared view.
 
 The tree renders the exposed elements and each nested view as a subtree of its
 own:
