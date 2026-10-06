@@ -245,7 +245,8 @@ Beside the model reads above, the client covers every RPC the service offers:
   `save(migration, path)` writes beside the notation; a v2 `fromFormat` is refused
   with a pointer at `convert`;
 - **`model.query`** (OSLC or structured), **`model.runDocumentQuery`** with
-  `ElementRef`/`ObjectRef` bindings, **`model.renderDocument`** to Markdown or HTML;
+  `ElementRef`/`ObjectRef` bindings, **`model.renderDocument`** to Markdown or
+  HTML, and **`model.renderView`** for typed view data with minimal or full ports;
 - **`model.executeAction`/`executeState`** for runs and
   **`exploreAction`/`exploreState`/`exploreAnalysis`** for explorations of every
   schedule — the two families refuse each other's `schedule`, as the wire does.

@@ -150,6 +150,15 @@ static sysml_real sysml_quot(sysml_int a, sysml_int b) {
 	return negative ? -r : r;
 }
 
+static inline sysml_int sysml_at_least_at(sysml_int v, sysml_int lo, const char *type, const char *where) {
+	if (__builtin_expect(v < lo, 0)) {
+		static char msg[512];
+		snprintf(msg, sizeof msg, "%s: type mismatch: cannot write %lld (an Integer) to a feature typed by %s", where, (long long)v, type);
+		sysml_fail(msg);
+	}
+	return v;
+}
+
 static inline sysml_int sysml_at_least(sysml_int v, sysml_int lo, const char *type) {
 	if (__builtin_expect(v < lo, 0)) {
 		static char msg[128];
@@ -521,6 +530,7 @@ func EmitC(w io.Writer, p *Program, withMain bool) error {
 	}
 	e := &cEmitter{w: w}
 	e.collections = p.Collections
+	e.records = len(p.Records) > 0
 	e.raw(cBudgetDefines())
 	e.raw(cPrelude)
 	e.raw(cEnumRuntime(p))
@@ -530,6 +540,7 @@ func EmitC(w io.Writer, p *Program, withMain bool) error {
 		e.raw(cSeqRuntime())
 		e.raw(cEnumSeqRuntime(p))
 		e.raw(cFnSeqRuntime(p))
+		e.raw(cRecSeqRuntime(p))
 	}
 	for _, fn := range p.Funcs {
 		e.linef("static %s %s(%s);", cType(fn.Result), fn.Ident, cParams(fn))
@@ -552,6 +563,8 @@ type cEmitter struct {
 	temps       int
 	// collections brackets every statement with the element budget's release.
 	collections bool
+	// records frees the previous run's records when a run begins.
+	records bool
 }
 
 // pure is an operand whose evaluation cannot fail, so its order is immaterial.
@@ -588,9 +601,13 @@ func (e *cEmitter) sequenced(operands []Expr, body func(names []string) string) 
 }
 
 // narrowed checks v against the range of the feature it is written to.
-func cNarrowed(v string, r Range) string {
-	if r == RangeAny {
+// An unset value is checked only where strict.
+func cNarrowed(v string, t Type, r Range, strict bool) string {
+	switch {
+	case r == RangeAny:
 		return v
+	case t.MayUnset():
+		return fmt.Sprintf("sysml_narrow_opt(%s, %d, \"%s\", NULL, %t)", v, r.Lower(), r, strict)
 	}
 	return fmt.Sprintf("sysml_at_least(%s, %d, \"%s\")", v, r.Lower(), r)
 }
@@ -607,9 +624,15 @@ func (e *cEmitter) linef(format string, args ...any) {
 }
 
 func cType(t Type) string {
-	if t.IsEnum() || t.IsFn() {
+	if t.MayUnset() {
+		return "sysml_opt_" + cCapField(t.Concrete())
+	}
+	if t.IsEnum() || t.IsFn() || t.IsRec() {
 		if t.Many() {
 			return "sysml_seq_" + cSeqSuffix(t)
+		}
+		if t.IsRec() {
+			return "sysml_rec *"
 		}
 		if t.IsFn() {
 			return "sysml_fn"
@@ -671,7 +694,7 @@ func (e *cEmitter) function(fn *Func) {
 				e.linef(cAssign, cLocal(p.Name), v)
 			}
 		case p.Range != RangeAny:
-			e.linef(cAssign, cLocal(p.Name), cNarrowed(cLocal(p.Name), p.Range))
+			e.linef(cAssign, cLocal(p.Name), cNarrowed(cLocal(p.Name), p.Type, p.Range, true))
 		}
 	}
 	e.result = cType(fn.Result)
@@ -799,9 +822,9 @@ func escapingSeqs(s Stmt) []Var {
 func (e *cEmitter) stmt(s Stmt) {
 	switch s := s.(type) {
 	case Declare:
-		e.linef("%s %s = %s;", cType(s.T), cLocal(s.Name), cNarrowed(e.declInit(s), s.Range))
+		e.linef("%s %s = %s;", cType(s.T), cLocal(s.Name), cNarrowed(e.declInit(s), s.T, s.Range, false))
 	case Assign:
-		e.linef(cAssign, cLocal(s.Name), cNarrowed(e.expr(s.Value), s.Range))
+		e.linef(cAssign, cLocal(s.Name), cNarrowed(e.expr(s.Value), s.Value.Type(), s.Range, true))
 	case If:
 		e.linef("if (%s) {", e.expr(s.Cond))
 		e.indent++
@@ -843,7 +866,7 @@ func (e *cEmitter) stmt(s Stmt) {
 	case Sample:
 		e.linef("%s", e.sample(s))
 	case Return:
-		e.linef("{ %s sysml_r = %s; sysml_leave(); return sysml_r; }", e.result, cNarrowed(e.expr(s.Value), e.resultRange))
+		e.linef("{ %s sysml_r = %s; sysml_leave(); return sysml_r; }", e.result, cNarrowed(e.expr(s.Value), s.Value.Type(), e.resultRange, true))
 	default:
 		e.err = fmt.Errorf("codegen: C emitter has no case for %T", s)
 	}
@@ -859,6 +882,8 @@ func (e *cEmitter) declInit(d Declare) string {
 
 func cZero(t Type) string {
 	switch {
+	case t.MayUnset():
+		return fmt.Sprintf("((%s){0})", cType(t))
 	case t == TypeBool:
 		return "false"
 	case t.Many():
@@ -1132,6 +1157,9 @@ func (e *cEmitter) entry(fn *Func, withMain bool) {
 	if e.collections {
 		e.linef("sysml_run_begin();")
 	}
+	if e.records {
+		e.linef("sysml_recs_release();")
+	}
 	e.linef("if (setjmp(sysml_escape)) return 1;")
 	args := make([]string, len(fn.Params))
 	for i, p := range fn.Params {
@@ -1187,23 +1215,28 @@ func (e *cEmitter) entry(fn *Func, withMain bool) {
 	e.linef("}")
 	e.indent--
 	e.linef("}")
+	result, res := "result", fn.Result
+	if res.MayUnset() {
+		e.linef("if (result.u) { puts(\"%s\"); return 0; }", runtime.UnsetText)
+		result, res = "result.v", res.Concrete()
+	}
 	switch {
-	case fn.Result.IsEnum() && !fn.Result.Many():
-		e.linef("sysml_print_enum(result);")
-	case fn.Result.IsFn() && !fn.Result.Many():
-		e.linef("sysml_print_fn(result);")
-	case fn.Result == TypeInt:
-		e.linef("printf(\"%%\" PRId64 \"\\n\", result);")
-	case fn.Result == TypeReal:
-		e.linef("sysml_print_real(result);")
-	case fn.Result == TypeBool:
-		e.linef("puts(result ? \"true\" : \"false\");")
-	case fn.Result == TypeNum:
-		e.linef("sysml_print_num(result);")
-	case fn.Result == TypeString:
-		e.linef("sysml_print_str(result);")
+	case res.IsEnum() && !res.Many():
+		e.linef("sysml_print_enum(%s);", result)
+	case res.IsFn() && !res.Many():
+		e.linef("sysml_print_fn(%s);", result)
+	case res == TypeInt:
+		e.linef("printf(\"%%\" PRId64 \"\\n\", %s);", result)
+	case res == TypeReal:
+		e.linef("sysml_print_real(%s);", result)
+	case res == TypeBool:
+		e.linef("puts(%s ? \"true\" : \"false\");", result)
+	case res == TypeNum:
+		e.linef("sysml_print_num(%s);", result)
+	case res == TypeString:
+		e.linef("sysml_print_str(%s);", result)
 	default:
-		e.linef("sysml_print_seq_%s(result);", cSeqSuffix(fn.Result))
+		e.linef("sysml_print_seq_%s(%s);", cSeqSuffix(res), result)
 	}
 	e.linef("return 0;")
 	e.indent--
