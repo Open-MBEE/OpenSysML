@@ -763,6 +763,57 @@ func stepsTaken(t *testing.T, s *Session, c compiledCase, limit int64) (int64, b
 	return hi, true
 }
 
+// A step budget at the int64 limit still binds a compiled program: a range too
+// wide for it fails with the step-limit error, and the C counter, built with
+// the signed-overflow sanitizer, never overflows on the way.
+func TestCompiledStepBudgetAtTheInt64Limit(t *testing.T) {
+	limit := strconv.FormatInt(math.MaxInt64, 10)
+	want := "evaluation step limit exceeded (" + limit + " steps; raise OPENSYSML_MAX_STEPS to allow more)"
+	for _, target := range codegen.Targets() {
+		t.Run(string(target), func(t *testing.T) {
+			s := loadCompileFixture(t)
+			program, err := s.CompileCalc("Compiled::Seq::Sequence", target)
+			if err != nil {
+				t.Fatal(err)
+			}
+			exe := filepath.Join(t.TempDir(), "Sequence")
+			if target == codegen.TargetC {
+				buildSanitizedC(t, program, exe)
+			} else if err := codegen.Build(program, target, exe); err != nil {
+				t.Fatal(err)
+			}
+			cmd := exec.Command(exe, "--repeat", "2", limit)
+			cmd.Env = append(os.Environ(), runtime.MaxStepsEnvVar+"="+limit, runtime.MaxElementsEnvVar+"="+limit)
+			out, err := cmd.CombinedOutput()
+			var exit *exec.ExitError
+			if !errors.As(err, &exit) || exit.ExitCode() != 1 || !strings.Contains(string(out), want) || strings.Contains(string(out), "runtime error") {
+				t.Errorf("Seq::Sequence(%s) under a budget of %s: %v\n%s", limit, limit, err, out)
+			}
+		})
+	}
+}
+
+// buildSanitizedC builds program's C source into exe with the compiler's flags
+// and a sanitizer that aborts on signed overflow, skipping where cc lacks one.
+func buildSanitizedC(t *testing.T, program *codegen.Program, exe string) {
+	t.Helper()
+	if _, err := exec.LookPath("cc"); err != nil {
+		t.Skip("no C compiler on PATH")
+	}
+	src, err := codegen.Source(program, codegen.TargetC)
+	if err != nil {
+		t.Fatal(err)
+	}
+	path := exe + ".c"
+	if err := os.WriteFile(path, src, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	args := append(append([]string{}, codegen.CFlags...), "-fsanitize=signed-integer-overflow", "-fno-sanitize-recover=all", "-o", exe, path, "-lm")
+	if out, err := exec.Command("cc", args...).CombinedOutput(); err != nil {
+		t.Skipf("no signed-overflow sanitizer here: %v\n%s", err, out)
+	}
+}
+
 // A compiled program spends the interpreter's steps: with OPENSYSML_MAX_STEPS
 // at the least budget the interpreter needs it answers as the interpreter
 // does, and one step fewer it fails with the interpreter's step-limit error.

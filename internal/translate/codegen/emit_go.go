@@ -54,14 +54,19 @@ var (
 
 // sysmlStep spends n evaluation steps of the run's budget.
 func sysmlStep(n int64) struct{} {
-	if sysmlSteps += n; sysmlSteps > sysmlMaxSteps {
+	if n > sysmlMaxSteps-sysmlSteps {
 		sysmlStepFail()
 	}
+	sysmlSteps += n
 	return struct{}{}
 }
 
+// sysmlStepFail leaves the counter one past the limit, saturating at the int64 maximum.
 func sysmlStepFail() {
-	sysmlSteps = sysmlMaxSteps + 1
+	sysmlSteps = sysmlMaxSteps
+	if sysmlSteps < math.MaxInt64 {
+		sysmlSteps++
+	}
 	sysmlFailf("evaluation step limit exceeded (%d steps; raise OPENSYSML_MAX_STEPS to allow more)", sysmlMaxSteps)
 }
 
