@@ -264,7 +264,7 @@ func (r *Renderer) messages(flows []*symbols.Symbol, lifelines map[*symbols.Symb
 		var ends []*symbols.Symbol
 		var nodes []*Node
 		for _, end := range []ast.Node{usage.FlowEnds.From, usage.FlowEnds.To} {
-			occurrence, node := r.messageEnd(flow, end, lifelines)
+			occurrence, node := r.messageEnd(flow, ast.EndTarget(end), lifelines)
 			if node == nil {
 				out.Notices = append(out.Notices, fmt.Sprintf(
 					"%s attaches to %s, which is on no lifeline the rendering shows; no message is drawn",

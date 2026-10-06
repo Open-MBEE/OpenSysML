@@ -3650,6 +3650,7 @@ func (p *Parser) atBindingEnds() bool {
 // parseBindingEnds parses the two ends of a binding, `end '=' end`, recording a
 // diagnostic and stopping where an end or the `=` is missing.
 func (p *Parser) parseBindingEnds(u *ast.Usage) {
+	defer p.admitIndexedEnds(true)()
 	first := p.parseBindingEnd()
 	if first == nil {
 		return
@@ -4133,6 +4134,7 @@ func (p *Parser) parseRelationshipClauseTarget(kind ast.RelationshipKind) *ast.R
 // declaration head: connector ends (connection/interface/allocation) and flow
 // ends + payload (flow). Other kinds contribute nothing.
 func (p *Parser) parseTierBEnds(u *ast.Usage, kind ast.UsageKind) {
+	defer p.admitIndexedEnds(admitsIndexedEnd(kind, u.Keyword))()
 	switch kind {
 	case ast.UsageConnection, ast.UsageInterface:
 		// `connection c connect a to b` states its ends after `connect`; `connect a
@@ -4349,10 +4351,67 @@ func (p *Parser) parseFeatureEnd() (*ast.ConnectorEnd, bool) {
 	defer p.release()
 	end := p.parseNamedEnd()
 	if end != nil && p.atExpressionOperator() {
+		if len(end.Relationships) == 0 {
+			if target, ok := p.parseEndIndex(end.Target); ok {
+				end.Target = target
+				end.NodeSpan = p.spanFrom(end.NodeSpan.Offset)
+				return end, true
+			}
+		}
 		p.restore(cp)
 		return nil, false
 	}
 	return end, true
+}
+
+// admitsIndexedEnd reports whether a usage of the kind states the ends an
+// indexed end may be written as: the connectors that attach to features. A
+// succession's or a transition's ends name occurrences, never an element of
+// one, and a message's name the events it relates.
+func admitsIndexedEnd(kind ast.UsageKind, keyword string) bool {
+	if keyword == "message" {
+		return false
+	}
+	switch kind {
+	case ast.UsageConnection, ast.UsageInterface, ast.UsageConnector, ast.UsageAllocation,
+		ast.UsageBinding, ast.UsageFlow:
+		return true
+	}
+	return false
+}
+
+// admitIndexedEnds sets whether the ends parsed next admit an index and returns
+// the restore of the setting in force before.
+func (p *Parser) admitIndexedEnds(admit bool) func() {
+	previous := p.indexedEnds
+	p.indexedEnds = admit
+	return func() { p.indexedEnds = previous }
+}
+
+// parseEndIndex parses the `#( index )` an indexed end selects one element of
+// the feature it names with — `connect s.y#(1) to k.u`, an OpenSysML extension
+// over the feature chain a ConnectorEnd is (SysML v2 8.2.2.13.1) — and returns
+// the IndexExpr over feature. It parses nothing and reports false where the
+// ends admit no index, where the index is not the whole of the end (`#(1 to`,
+// `#(1).v`, `#(1) + 1`) or where anything else than `#(` follows the feature,
+// leaving the expression for the caller to report once.
+func (p *Parser) parseEndIndex(feature ast.Node) (ast.Node, bool) {
+	if !p.indexedEnds || feature == nil || !p.at(lexer.Hash) || p.peekN(1).Kind != lexer.LParen {
+		return nil, false
+	}
+	cp := p.checkpoint()
+	defer p.release()
+	p.advance() // '#'
+	p.advance() // '('
+	index := p.parseSequenceExpr()
+	whole := index != nil && p.accept2(lexer.RParen) && len(p.Diagnostics) == cp.diagnosticLen
+	if !whole || p.atExpressionOperator() || p.at(lexer.Dot) {
+		p.restore(cp)
+		return nil, false
+	}
+	ix := &ast.IndexExpr{Operand: feature, Index: index}
+	ix.NodeSpan = p.spanFrom(feature.Span().Offset)
+	return ix, true
 }
 
 // parseNamedEnd parses `[mult]? chain` with the end's explicit relationships,
@@ -4702,6 +4761,9 @@ func (p *Parser) parseFlowEnd() ast.Node {
 	end := p.parseRelationshipTarget()
 	if end == nil || !p.atExpressionOperator() {
 		return end
+	}
+	if indexed, ok := p.parseEndIndex(end); ok {
+		return indexed
 	}
 	p.restore(cp)
 	return p.parseExpressionEndTarget(msgFlowEndExpression)
