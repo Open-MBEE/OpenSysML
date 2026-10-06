@@ -72,6 +72,36 @@ func TestParseSourcesFromALineageEqualsAFreshParse(t *testing.T) {
 	}
 }
 
+// A document versioning a bundled library file is answered as a fresh parse
+// answers it: the workspace would index it under the library's tier, which
+// silences what the passes say about a user document declaring a library package.
+func TestParseSourcesFromALineageTreatsALibraryVersionAsAFreshParseDoes(t *testing.T) {
+	version := func(text string) []*pb.SourceDocument {
+		return []*pb.SourceDocument{{
+			Source: &pb.SourceDocument_Content{Content: "standard library package ScalarValues {\n" + text + "}\n"},
+			Name:   "ScalarValues.kerml", Language: "kerml",
+		}}
+	}
+	incremental := mustNewService(t, 10)
+	defer incremental.Close()
+	for step, text := range []string{"", "\tdatatype Extra;\n", "\tdatatype Other;\n", ""} {
+		request := &pb.ParseSourcesRequest{Documents: version(text)}
+		got, err := incremental.ParseSources(context.Background(), request)
+		if err != nil {
+			t.Fatalf("step %d: %v", step, err)
+		}
+		fresh := mustNewService(t, 10)
+		want, err := fresh.ParseSources(context.Background(), request)
+		fresh.Close()
+		if err != nil {
+			t.Fatalf("step %d: fresh: %v", step, err)
+		}
+		if fmt.Sprint(got.Diagnostics) != fmt.Sprint(want.Diagnostics) {
+			t.Errorf("step %d: diagnostics %v, fresh %v", step, got.Diagnostics, want.Diagnostics)
+		}
+	}
+}
+
 // The first parse of a document set builds no workspace: a one-off parse pays
 // for nothing it will not reuse. The second builds one, and later ones reuse it.
 func TestParseSourcesBuildsALineageOnlyForASetParsedAgain(t *testing.T) {

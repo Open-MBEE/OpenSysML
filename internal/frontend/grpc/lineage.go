@@ -29,7 +29,11 @@ import (
 // (lineage_test.go). A model whose documents do not all parse clean is never
 // answered from a lineage: the fresh path does not analyze it at all.
 type lineage struct {
-	mu       sync.Mutex
+	mu sync.Mutex
+	// fresh is set for a document set the fresh path must answer: one holding a
+	// version of a bundled library file, which the workspace marks with the
+	// library's tier and a fresh parse does not (see parseFromLineage).
+	fresh    bool
 	ws       *model.Workspace  // nil until the document set is parsed a second time
 	library  libs.Source       // the files the workspace's library was built from
 	held     map[string]string // document name to the content the workspace holds
@@ -110,6 +114,8 @@ func (s *Service) parseFromLineage(inputs []sourceInput, mode diag.ConformanceMo
 	defer l.mu.Unlock()
 
 	switch {
+	case l.fresh:
+		return nil, false
 	case l.ws == nil && len(l.held) == 0:
 		// First seen: noted, answered fresh.
 		for _, input := range inputs {
@@ -141,6 +147,14 @@ func (s *Service) parseFromLineage(inputs []sourceInput, mode diag.ConformanceMo
 	names := make([]string, len(inputs))
 	for i, input := range inputs {
 		names[i] = input.name
+		// A document that versions a bundled library file is indexed by the
+		// workspace under the library's tier, which changes what the passes
+		// report about it; a fresh parse indexes it as the request's own. The
+		// set is answered fresh from now on, so the two never disagree.
+		if l.ws.StandsIn(input.name) {
+			l.fresh, l.ws, l.held = true, nil, nil
+			return nil, false
+		}
 		if doc := l.ws.Document(input.name); doc == nil || len(doc.ParseDiagnostics) > 0 {
 			return nil, false
 		}
