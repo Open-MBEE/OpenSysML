@@ -651,6 +651,14 @@ type encoder struct {
 
 func (e *encoder) indexTriggerMembers() {
 	for node, fqn := range e.fqn {
+		// A named send or assignment node is the statement it is written as,
+		// so a name the statement writes is written from the node.
+		if usage, ok := node.(*ast.Usage); ok {
+			if statement := nodeStatement(usage); statement != nil {
+				e.triggerMembers[statement] = fqn
+			}
+			continue
+		}
 		transition, ok := node.(*ast.TransitionMember)
 		if !ok || transition.Trigger == nil {
 			continue
@@ -1632,6 +1640,12 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 			if err := e.encodeMember(h, fqn); err != nil {
 				return err
 			}
+		}
+		if statement := nodeStatement(n); statement != nil {
+			// The node is the statement it is written as: its parts are the
+			// node's own, not a member's.
+			_, err := e.encodeBehavior(statement, func(rdf.Term) {}, subject, fqn, within, 0)
+			return err
 		}
 		e.graph.Add(subject, e.sysx(xHasBody), rdf.Bool(n.HasBody))
 		if !local && (inBody || n.Kind == ast.UsageMetadata) {

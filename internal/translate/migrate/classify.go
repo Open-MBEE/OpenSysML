@@ -508,7 +508,7 @@ func (m *migration) classify(e *sysmlv1.Element) (category, string) {
 		return catAttributeDef, ""
 	case "Enumeration":
 		return catEnumDef, ""
-	case "Signal":
+	case "Signal", "InformationItem":
 		return catItemDef, ""
 	case "Interface":
 		return catPortDef, "a UML interface is written as a port def"

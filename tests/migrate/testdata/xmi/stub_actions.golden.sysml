@@ -49,5 +49,14 @@ part def Rig {
         metadata MigrationMetadata::StandIn about 'fork', 'join';
     }
 }
-dependency Rig::sampling::measure to Rig::probe;
-dependency Rig::sampling::record to Rig::logger;
+allocation def 'measure to probe' {
+    end :>> source : Rig;
+    end :>> target : Rig;
+    allocate source.sampling.measure to target.probe;
+}
+allocation def 'record to logger' {
+    end :>> source : Rig;
+    end :>> target : Rig;
+    allocate source.sampling.record to target.logger;
+}
+metadata MigrationMetadata::SynthesizedName about 'measure to probe', 'record to logger';
