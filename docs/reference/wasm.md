@@ -153,8 +153,8 @@ the view kind, stated rendering, notices, canvas, nodes, edges, and, for tabular
 `opensysml/render`.
 
 The engine has no current-document context, so a pseudo-view must name an element, for
-example `#tree:OpenSysMLStack::stack`. An untargeted `#tree` or `#interconnection` is refused
-with InvalidArgument and the supported pseudo-view spellings.
+example `#tree:OpenSysMLStack::stack`. An untargeted `#tree`, `#interconnection` or `#matrix` is
+refused with InvalidArgument and the supported pseudo-view spellings.
 
 The `js` build installs a host surface instead of reading a pipe: load it through
 `wasm_exec.js` with no arguments and `globalThis.sysmlEngine` appears with

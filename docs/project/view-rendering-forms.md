@@ -94,11 +94,13 @@ use the table's qualified element names, and each row retains its source origin.
 An exposed top-level member whose subtree contributes no displayed edge is named in a notice, in
 exposure order; the notice names the selected relationship kinds in the fixed cell-keyword order.
 An empty matrix distinguishes a view that exposed nothing from one whose exposed members have no
-relationships. `#matrix` renders all loaded content as a matrix, and
-`#matrix:<target>` renders one declared element directly; neither changes exposure for ordinary
-tables or any other rendering kind. Like a table, a matrix is written in `text`, `markdown`, `csv`
-and `tsv`. Mermaid, DOT, PlantUML and D2 have no table grammar, so requesting one of those forms
-is a typed wrong-form error naming `matrix`.
+relationships. On the CLI and in the REPL, `#matrix` renders all loaded content; in a workspace
+render request such as LSP, it renders the current document's top-level declarations. The engine
+and gRPC `RenderView` surfaces have no current-document context, so their pseudo-views require a
+target such as `#matrix:<target>`, which renders one declared element directly. Pseudo-views do not
+change exposure for ordinary tables or any other rendering kind. Like a table, a matrix is written
+in `text`, `markdown`, `csv` and `tsv`. Mermaid, DOT, PlantUML and D2 have no table grammar, so
+requesting one of those forms is a typed wrong-form error naming `matrix`.
 
 ## Standard views first
 
@@ -1315,7 +1317,9 @@ and did not change. A view-render RPC added later would take the form as a strin
   walk; a Graphviz installation is used only by hand to look at them.
 - A GeneralView graph is selected only by the filter shapes [its section](#generalview-graphs)
   lists; a conjunction or a user metadata filter keeps the tree even where it would admit only
-  requirements. No requirements table is drawn: a `GridView` is the table.
+  requirements. GeneralView does not also draw a requirements table: a `GridView` without a
+  qualifying relationship filter renders as an element table, while a `GridView` with a positive,
+  resolved relationship selector renders as a relationship matrix.
 - The verdicts overlay runs every verification case verifying a drawn requirement each time it is
   drawn; a workspace (the LSP) runs them over the declared model, without the runtime a REPL
   session or document keeps.
