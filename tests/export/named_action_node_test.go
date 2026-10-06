@@ -2,6 +2,7 @@ package export_test
 
 import (
 	"encoding/json"
+	"strings"
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/translate/convert"
@@ -63,5 +64,26 @@ func TestNamedActionNodeIsTheStatement(t *testing.T) {
 	}
 	if sends != 2 {
 		t.Errorf("%d SendActionUsages, want one per send", sends)
+	}
+}
+
+// A node whose declaration says more than its visibility and name keeps the
+// action it is declared as, whose head writes those clauses back: the typing
+// of `action a : Act assign …` and the prefix of `#Tag action s send …`
+// survive a hop through the graph alone.
+func TestRicherActionNodeKeepsItsDeclaration(t *testing.T) {
+	src := "package P {\n    part x;\n    part y;\n    action def Act;\n    metadata def Tag;\n    action def A {\n        attribute v = 0;\n        action a : Act assign v := 1;\n        #Tag action s send x to y;\n    }\n}\n"
+	turtle, err := convert.Convert("m.sysml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
+	if err != nil {
+		t.Fatalf("to turtle: %v", err)
+	}
+	back, err := convert.Convert("m.ttl", withoutTriples(t, turtle, "sysx:sourceText"), convert.FormatTurtle, convert.FormatSysML)
+	if err != nil {
+		t.Fatalf("back to notation: %v", err)
+	}
+	for _, head := range []string{"action a : Act", "#Tag action s"} {
+		if !strings.Contains(string(back), head) {
+			t.Errorf("the head %q did not come back:\n%s", head, back)
+		}
 	}
 }
