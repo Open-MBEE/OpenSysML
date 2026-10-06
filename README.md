@@ -418,7 +418,7 @@ github.com/Open-MBEE/OpenSysML
 - **Parser:** hand-written recursive descent (no framework overhead, full error recovery, sub-millisecond parses)
 - **Grammar source:** OMG pilot Xtext grammars (`SysML.xtext` and `KerMLExpressions`)
 - **Spec compliance:** [OMG SysML v2.1 Beta 1 / KerML 1.1](https://www.omg.org/spec/SysML/2.0) (2026-08 release)
-- **Standard library:** 94 files from [SysML v2 Pilot Implementation 2026-08](https://github.com/Systems-Modeling/SysML-v2-Pilot-Implementation/releases/tag/2026-08), byte-identical, plus the eleven non-normative `OpenSysML Libraries/` extensions (`OpenSysMLMathFunctions`, `DocumentQueries`, `IdentityMetadata`, `DiagramLayout`, [`OOSEM`](docs/project/oosem-library.md), [`MOSA`](docs/project/mosa-library.md), `StateSpaceIntegration`, `Stochastic`, `RandomFunctions`, `Simulation` and `MigrationMetadata`)
+- **Standard library:** 94 files from [SysML v2 Pilot Implementation 2026-08](https://github.com/Systems-Modeling/SysML-v2-Pilot-Implementation/releases/tag/2026-08), byte-identical, plus the sixteen non-normative `OpenSysML Libraries/` extensions (`OpenSysMLMathFunctions`, `DocumentQueries`, `IdentityMetadata`, `DiagramLayout`, [`OOSEM`](docs/project/oosem-library.md), [`MOSA`](docs/project/mosa-library.md), `StateSpaceIntegration`, `Stochastic`, `RandomFunctions`, `Simulation`, `MigrationMetadata`, `AnalysisRecords`, `OpenSysMLRenderings`, [`StateMachines`](docs/project/statemachines-library.md), [`SysMLValidation`](docs/project/validation-constraints.md) and `StateActivity`)
 - **CI/CD:** GitHub Actions checks pull requests; CircleCI builds and tests `main` and `develop` and publishes releases from tags
 
 ## Releases
