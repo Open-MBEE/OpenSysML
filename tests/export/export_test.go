@@ -2,6 +2,7 @@ package export_test
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
@@ -3014,6 +3015,7 @@ func TestBehavioralHeadsComeBackFromTheGraphAlone(t *testing.T) {
 	bodies := map[string]string{
 		"transition":                  "state def M {\n        state s1;\n        state s2;\n        transition first s1 accept e then s2;\n    }",
 		"accept":                      "action def A {\n        accept x : Bus;\n    }",
+		"accept via":                  "action def A {\n        port p : Bus;\n        accept x : Bus via p;\n    }",
 		"send":                        "action def A {\n        send x to y;\n    }",
 		"guarded first":               "action def A {\n        action a;\n        action b;\n        first a if true then b;\n    }",
 		"guarded succession first":    "action def A {\n        action a;\n        action b;\n        succession first a if true then b;\n    }",
@@ -4251,5 +4253,43 @@ func TestPayloadWithMembersIsRefused(t *testing.T) {
 	var unsupported *export.UnsupportedError
 	if !errors.As(err, &unsupported) {
 		t.Errorf("converted to\n%s\nwant it refused, got error %v", back, err)
+	}
+}
+
+// An accept node's `via p` is the receiver parameter its AcceptActionUsage
+// names as receiverArgument, after the payload, as a transition's trigger has
+// it: no sysml:via, which the metamodel does not have.
+func TestAcceptNodeViaIsItsReceiverArgument(t *testing.T) {
+	src := "package P {\n    port def Bus;\n    action def A {\n        port p : Bus;\n        accept x : Bus via p;\n    }\n}\n"
+	out, err := convert.Convert("m.sysml", []byte(src), convert.FormatSysML, convert.FormatAPIJSON)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var elements []map[string]any
+	if err := json.Unmarshal(out, &elements); err != nil {
+		t.Fatal(err)
+	}
+	byID := map[string]map[string]any{}
+	for _, el := range elements {
+		byID[el["@id"].(string)] = el
+	}
+	accept := byID["P__A___401"]
+	if accept == nil || accept["@type"] != "AcceptActionUsage" {
+		t.Fatalf("no AcceptActionUsage P__A___401: %v", accept)
+	}
+	if _, stated := accept["via"]; stated {
+		t.Errorf("the accept states via: %v", accept["via"])
+	}
+	params, _ := accept["parameter"].([]any)
+	receiver, _ := accept["receiverArgument"].(map[string]any)
+	if len(params) != 2 || receiver == nil {
+		t.Fatalf("parameters %v, receiverArgument %v; want the payload and a receiver", params, receiver)
+	}
+	second := byID[params[1].(map[string]any)["@id"].(string)]
+	if value, _ := second["value"].(map[string]any); value == nil || value["@id"] != receiver["@id"] {
+		t.Errorf("the second parameter's value %v is not the receiverArgument %v", second["value"], receiver)
+	}
+	if expression := byID[receiver["@id"].(string)]; expression["@type"] != "FeatureReferenceExpression" {
+		t.Errorf("the receiverArgument is a %v, want a FeatureReferenceExpression", expression["@type"])
 	}
 }

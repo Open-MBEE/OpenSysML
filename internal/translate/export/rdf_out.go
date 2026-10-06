@@ -1594,7 +1594,7 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 		}
 		if n.IsEnd {
 			relationships := make([]*ast.Relationship, 0, len(n.Relationships))
-			for _, rel := range inclusionRelationships(n) {
+			for _, rel := range nodeRelationships(n, metaclass) {
 				if rel != nil && rel.Kind == ast.RelReferences && rel.Target != nil {
 					if err := e.endReferences(subject, rel.Target); err != nil {
 						return err
@@ -1605,7 +1605,7 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 			}
 			e.relationships(subject, owner, relationships)
 		} else {
-			e.relationships(subject, owner, inclusionRelationships(n))
+			e.relationships(subject, owner, nodeRelationships(n, metaclass))
 		}
 		if err := e.multiplicity(subject, within, n.Multiplicity); err != nil {
 			return err
@@ -1653,7 +1653,15 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 		if !local && (inBody || n.Kind == ast.UsageMetadata) {
 			e.metadataBodies[fqn] = true
 		}
-		return members(bodyMembers(n))
+		if err := members(bodyMembers(n)); err != nil {
+			return err
+		}
+		if metaclass == mAcceptAction {
+			// After the payload: the receiver is the action's second parameter
+			// (AcceptActionUsage::receiverArgument).
+			return e.acceptReceiver(n, subject, fqn)
+		}
+		return nil
 
 	case *ast.Import:
 		if n.FilterExpr != nil {
@@ -3319,6 +3327,49 @@ func prefixCarriedByGraph(n *ast.Usage) bool {
 		return n.Kind == ast.UsageUseCase
 	}
 	return false
+}
+
+// nodeRelationships is a usage's head relationships as the graph states them:
+// an accept node's `via` is its receiver parameter (acceptReceiver), not a
+// relationship of its own, and an inclusion is as inclusionRelationships has it.
+func nodeRelationships(n *ast.Usage, metaclass string) []*ast.Relationship {
+	rels := inclusionRelationships(n)
+	if metaclass != mAcceptAction {
+		return rels
+	}
+	return slices.DeleteFunc(slices.Clone(rels), func(rel *ast.Relationship) bool {
+		return rel != nil && rel.Kind == ast.RelVia
+	})
+}
+
+// acceptReceiver emits an accept node's `via p` as a transition's trigger has it
+// (encodeTrigger): a receiver parameter whose value is the FeatureReferenceExpression
+// to p, owned after the node's members, which the AcceptActionUsage names as its
+// receiverArgument (SysML.xtext AcceptNodeDeclaration, AcceptParameterPart).
+func (e *encoder) acceptReceiver(n *ast.Usage, subject rdf.Term, fqn string) error {
+	var via *ast.QualifiedName
+	for _, rel := range n.Relationships {
+		if rel != nil && rel.Kind == ast.RelVia {
+			via, _ = rel.Target.(*ast.QualifiedName)
+		}
+	}
+	if via == nil {
+		return nil
+	}
+	ref := &ast.FeatureReference{Name: via}
+	ref.NodeSpan = via.Span()
+	receiver := &ast.Usage{Kind: ast.UsageAttribute, IsReference: true, Direction: ast.DirIn, Value: ref}
+	receiver.NodeSpan = via.Span()
+	e.triggerParams[receiver] = ""
+	index := len(e.kept(n.Members))
+	if err := e.encodeInlineAt([]ast.Node{receiver}, index, fqn, subject); err != nil {
+		return err
+	}
+	param := e.ids.subjectFor(qualify(fqn, "", index))
+	if value, ok := e.graph.Object(param, rdf.SysML+pValue); ok {
+		e.graph.Add(subject, e.sysml(pReceiverArgument), value)
+	}
+	return nil
 }
 
 // inclusionRelationships is a usage's head relationships as the metamodel
