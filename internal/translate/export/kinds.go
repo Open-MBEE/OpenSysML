@@ -206,6 +206,8 @@ func usageMetaclassOf(n *ast.Usage, inMetadataBody bool) (string, bool) {
 		return mExhibitStateUsage, true
 	case n.IsIncludedUseCase():
 		return mIncludeUseCaseUsage, true
+	case acceptPayload(n) != nil:
+		return mAcceptAction, true
 	}
 	if n.Keyword == "" && (n.Kind == ast.UsageAttribute || inMetadataBody && n.Kind == ast.UsageEnumeration || n.Ident.Name == "" && n.Kind < ast.UsageConnection) {
 		// A kindless usage is a DefaultReferenceUsage; an unnamed one is too,
@@ -215,6 +217,23 @@ func usageMetaclassOf(n *ast.Usage, inMetadataBody bool) (string, bool) {
 	}
 	m, ok := usageMetaclass[n.Kind]
 	return m, ok
+}
+
+// acceptPayload is the payload parameter of an accept node
+// (`action a accept p : T;`, `accept T;`), whose action is an
+// AcceptActionUsage (SysML.xtext AcceptNode), or nil for any other usage.
+func acceptPayload(n *ast.Usage) *ast.Usage {
+	if n.Kind != ast.UsageAction || len(n.Members) == 0 {
+		return nil
+	}
+	member := n.Members[0]
+	if m, ok := member.(*ast.Membership); ok {
+		member = m.Member
+	}
+	if payload, ok := member.(*ast.Usage); ok && payload.IsAccept {
+		return payload
+	}
+	return nil
 }
 
 // eventOccurrence reports an occurrence declared with `event`, whether as its
@@ -255,6 +274,7 @@ var metaclassKeywordUsage = map[string]ast.UsageKind{
 	mAssertConstraintUsage: ast.UsageConstraint,
 	mTerminate:             ast.UsageAction,
 	mPerform:               ast.UsageAction,
+	mAcceptAction:          ast.UsageAction, // an accept node, its payload the accept parameter
 	mExhibitStateUsage:     ast.UsageState,
 	mIncludeUseCaseUsage:   ast.UsageUseCase,
 	// PartUsage types actor and stakeholder members too, RequirementUsage an

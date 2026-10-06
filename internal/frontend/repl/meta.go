@@ -29,7 +29,7 @@ import (
 
 // renderUsage is how %render is written: a view, the form to write it in, text
 // when none is named, then a palette, style and port display the form draws.
-const renderUsage = "usage: %render <name> [text|mermaid|markdown|dot|plantuml|d2|csv|tsv [palette] [pilot|cameo] [minimal|full] [link=<template>]]"
+const renderUsage = "usage: %render <name> [text|mermaid|markdown|dot|plantuml|d2|csv|tsv [palette] [pilot|cameo] [minimal|full] [verdicts] [link=<template>]]"
 
 // isMeta reports whether a trimmed input line is a meta command.
 func isMeta(line string) bool {
@@ -501,8 +501,16 @@ func (s *Session) metaRender(args []string) ([]string, bool, error) {
 		}
 	}
 	var opts view.Options
+	var overlay view.Overlay
 	linkSet := false
 	for _, word := range args[min(2, len(args)):] {
+		if o, ok := view.ParseOverlay(word); ok && o != "" {
+			if overlay != "" {
+				return []string{renderUsage}, false, nil
+			}
+			overlay = o
+			continue
+		}
 		if strings.HasPrefix(word, "link=") {
 			if linkSet {
 				return []string{renderUsage}, false, nil
@@ -540,7 +548,7 @@ func (s *Session) metaRender(args []string) ([]string, bool, error) {
 		}
 		opts.Palette = palette
 	}
-	return s.doRender(args[0], form, opts)
+	return s.doRender(args[0], form, opts, overlay)
 }
 
 // metaModelCommand runs a model-level command, reporting whether the line

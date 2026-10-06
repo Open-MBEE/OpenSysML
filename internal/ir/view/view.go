@@ -24,8 +24,9 @@ import (
 )
 
 // Kind is a rendering a view can state. The kinds this package produces are
-// tree, interconnection, state, action, case, mixed, table and sequence; the
-// rest are recognized so that a view stating one is told it is unsupported
+// tree, interconnection, state, action, case, mixed, table, sequence and the
+// requirement, definition and package graphs a filtered GeneralView presents;
+// the rest are recognized so that a view stating one is told it is unsupported
 // rather than rendered as something else. A rendering the standard library
 // does not declare is carried as the name the model gives it, so an error about
 // it names what the view asked for.
@@ -58,17 +59,30 @@ const (
 	KindSequence Kind = "sequence"
 	// KindGeometry is StandardViewDefinitions::GeometryView.
 	KindGeometry Kind = "geometry"
+	// KindRequirement renders exposed requirements as nodes and the
+	// relationships between them and what satisfies, verifies, derives, refines
+	// or is allocated to them as edges: a GeneralView filtered to requirements.
+	KindRequirement Kind = "requirement"
+	// KindDefinition renders exposed definitions and usages as nodes and their
+	// specialization, typing, composition and reference as edges: a GeneralView
+	// filtered to definitions and usages.
+	KindDefinition Kind = "definition"
+	// KindPackage renders exposed packages as nodes and their containment and
+	// imports as edges: a GeneralView filtered to packages.
+	KindPackage Kind = "package"
 )
 
 // Kinds returns every rendering kind this package recognizes, supported or not.
 func Kinds() []Kind {
-	return []Kind{KindTree, KindInterconnection, KindState, KindAction, KindCase, KindMixed, KindTextual, KindTable, KindSequence, KindGeometry}
+	return []Kind{KindTree, KindInterconnection, KindState, KindAction, KindCase, KindMixed, KindTextual, KindTable, KindSequence, KindGeometry,
+		KindRequirement, KindDefinition, KindPackage}
 }
 
 // Supported reports whether this package produces a rendering of the kind.
 func (k Kind) Supported() bool {
 	switch k {
-	case KindTree, KindInterconnection, KindState, KindAction, KindCase, KindMixed, KindTable, KindSequence:
+	case KindTree, KindInterconnection, KindState, KindAction, KindCase, KindMixed, KindTable, KindSequence,
+		KindRequirement, KindDefinition, KindPackage:
 		return true
 	}
 	return false
@@ -132,6 +146,9 @@ type Renderer struct {
 	text     SourceText
 	// treeDepthBound overrides the containment depth bound when set; tests only.
 	treeDepthBound int
+	// verdicts overlays verification verdicts on a requirement rendering; nil
+	// draws it structurally.
+	verdicts Verdicts
 }
 
 // NewRenderer returns a renderer over the model and resolver of a loaded
@@ -154,20 +171,37 @@ const (
 	EdgeFlow
 	// EdgeBinding is a binding equating two features.
 	EdgeBinding
-	// EdgeComposition contains a case in another case.
+	// EdgeSpecialization is a specialization, subsetting or redefinition, from
+	// the specific element to the general one.
+	EdgeSpecialization
+	// EdgeTyping is a feature typing, from a usage to its definition.
+	EdgeTyping
+	// EdgeComposition is a composite usage, from its owner to it; in a case
+	// diagram, a case contained in another.
 	EdgeComposition
+	// EdgeReference is a referential usage, from its owner to it; in a case or
+	// mixed diagram, a performing or exhibiting usage to its target.
+	EdgeReference
+	// EdgeContainment is a package owning another, from the owner.
+	EdgeContainment
+	// EdgeImport is a package's import, from the importing package.
+	EdgeImport
+	// EdgeSatisfy is a satisfy relationship, from the satisfying element.
+	EdgeSatisfy
+	// EdgeVerify is a verification case verifying a requirement.
+	EdgeVerify
+	// EdgeDerive is a requirement derivation, from the derived requirement.
+	EdgeDerive
+	// EdgeRefine is a refinement dependency, from the refining element.
+	EdgeRefine
+	// EdgeAllocate is an allocation, from the allocated element.
+	EdgeAllocate
 	// EdgeAssociation connects an actor or subject to a case.
 	EdgeAssociation
 	// EdgeInclude includes one case in another.
 	EdgeInclude
 	// EdgeAnchor attaches an objective to a case.
 	EdgeAnchor
-	// EdgeTyping connects a usage to its type.
-	EdgeTyping
-	// EdgeSpecialization connects a type to its supertype.
-	EdgeSpecialization
-	// EdgeReference connects a performing or exhibiting usage to its target.
-	EdgeReference
 )
 
 // String names an edge kind the way the notation speaks of it.
@@ -183,20 +217,34 @@ func (k EdgeKind) String() string {
 		return "flow"
 	case EdgeBinding:
 		return "binding"
+	case EdgeSpecialization:
+		return "specialization"
+	case EdgeTyping:
+		return "typing"
 	case EdgeComposition:
 		return "composition"
+	case EdgeReference:
+		return "reference"
+	case EdgeContainment:
+		return "containment"
+	case EdgeImport:
+		return "import"
+	case EdgeSatisfy:
+		return "satisfy"
+	case EdgeVerify:
+		return "verify"
+	case EdgeDerive:
+		return "derive"
+	case EdgeRefine:
+		return "refine"
+	case EdgeAllocate:
+		return "allocate"
 	case EdgeAssociation:
 		return "association"
 	case EdgeInclude:
 		return "include"
 	case EdgeAnchor:
 		return "anchor"
-	case EdgeTyping:
-		return "typing"
-	case EdgeSpecialization:
-		return "specialization"
-	case EdgeReference:
-		return "reference"
 	}
 	return "edge"
 }
@@ -248,8 +296,14 @@ type Node struct {
 	// positions it in this view; nil leaves the placement to the writer.
 	Geometry *Geometry
 	// Style is how the element is drawn, from the Style annotation colouring it
-	// in this view; nil leaves the look to the drawing style.
+	// in this view, or from its verdict; nil leaves the look to the drawing style.
 	Style *Style
+	// Verdict is the worst verdict of the verification cases verifying a
+	// requirement, when the rendering overlays them: pass, inconclusive, fail or
+	// error. Empty when none is overlaid.
+	Verdict string
+	// verdictStyled marks a Style taken from the Verdict, not from the model.
+	verdictStyled bool
 }
 
 // Port is a feature drawn on a node's border: an input or output pin of an
@@ -428,12 +482,14 @@ func (r *Renderer) render(view *symbols.Symbol, drawn *Drawn) (*Rendering, error
 		r.renderTable(view, exposed, out)
 	case KindSequence:
 		r.renderSequence(exposed, out)
+	case KindRequirement, KindDefinition, KindPackage:
+		r.renderGeneral(view, exposed, out)
 	default:
 		// Unreachable: KindOf refuses an unsupported kind.
 		return nil, &UnsupportedKindError{Kind: kind, View: r.notationName(view), Stated: stated}
 	}
 	switch kind {
-	case KindTree, KindInterconnection, KindState, KindAction, KindCase, KindMixed:
+	case KindTree, KindInterconnection, KindState, KindAction, KindCase, KindMixed, KindRequirement, KindDefinition, KindPackage:
 		// The graph-shaped kinds are drawn on a canvas; a table or sequence is not.
 		out.Canvas = r.canvasOf(view, out)
 		r.notesOf(view, view, "", out)
@@ -468,6 +524,8 @@ func (r *Renderer) RenderExposed(exposed []*symbols.Symbol, kind Kind, stated st
 		r.renderTable(nil, exposed, out)
 	case KindSequence:
 		r.renderSequence(exposed, out)
+	case KindRequirement, KindDefinition, KindPackage:
+		r.renderGeneral(nil, exposed, out)
 	default:
 		return nil, &UnsupportedKindError{Kind: kind, Stated: stated, Remedy: remedyFor(kind)}
 	}
@@ -509,6 +567,9 @@ func (r *Renderer) KindOf(view *symbols.Symbol) (Kind, string, error) {
 		return kind, stated, nil
 	}
 	if definitionKind != "" {
+		if general, filter, ok := r.generalSpecialization(view); ok {
+			return general, fmt.Sprintf("%s, filter %s", definitionStated, filter), nil
+		}
 		if !definitionKind.Supported() {
 			return "", "", &UnsupportedKindError{
 				Kind: definitionKind, View: r.notationName(view), Stated: definitionStated, Remedy: remedyFor(definitionKind),

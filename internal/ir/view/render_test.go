@@ -128,6 +128,17 @@ func TestGoldenRenderings(t *testing.T) {
 		{"sequence-order", "sequence-order.sysml", "OrderingViews::relayView", KindSequence},
 		{"sequence-cycle", "sequence-order.sysml", "OrderingViews::deadlockView", KindSequence},
 		{"sequence-empty", "errors.sysml", "ErrorViews::emptySequenceView", KindSequence},
+		{"general-requirement", "general.sysml", "GeneralViews::requirementView", KindRequirement},
+		{"general-definition", "general.sysml", "GeneralViews::definitionView", KindDefinition},
+		{"general-package", "general.sysml", "GeneralViews::packageView", KindPackage},
+		{"general-plain", "general.sysml", "GeneralViews::plainView", KindTree},
+		{"general-unrecognized", "general-robust.sysml", "RobustViews::unrecognized", KindTree},
+		{"general-cycle-definition", "general-robust.sysml", "RobustViews::loopDefinitions", KindDefinition},
+		{"general-cycle-requirement", "general-robust.sysml", "RobustViews::loopRequirements", KindRequirement},
+		{"general-import-cycle", "general-robust.sysml", "RobustViews::importCycle", KindPackage},
+		{"general-empty", "general-robust.sysml", "RobustViews::noRequirements", KindRequirement},
+		{"general-case", "general-case.sysml", "UseCaseViews::useCaseView", KindCase},
+		{"general-case-definitions", "general-case.sysml", "UseCaseViews::caseDefinitionView", KindCase},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
