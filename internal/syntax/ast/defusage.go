@@ -733,7 +733,24 @@ func (c *ConnectorEnd) ReferencedTarget() Node {
 // AttachedTarget returns the node naming the feature this end attaches to: what
 // it reference-subsets when it declares a name of its own (`connect bead
 // references t.bead`), and the target it names otherwise (`connect a.p to b.q`).
+// An indexed end (`connect s.y#(1) to k.u`) attaches to the feature it indexes,
+// `s.y`; AttachedIndex is the index and AttachedSelection the end as written.
 func (c *ConnectorEnd) AttachedTarget() Node {
+	feature, _ := EndSelection(c.AttachedSelection())
+	return feature
+}
+
+// AttachedIndex returns the index expression an indexed end selects one element
+// of its feature with — the `1` of `connect s.y#(1) to k.u`, an OpenSysML
+// extension — or nil for an end attaching to the feature as a whole.
+func (c *ConnectorEnd) AttachedIndex() Node {
+	_, index := EndSelection(c.AttachedSelection())
+	return index
+}
+
+// AttachedSelection returns the node the end attaches as it was written: the
+// IndexExpr of an indexed end, otherwise the same node as AttachedTarget.
+func (c *ConnectorEnd) AttachedSelection() Node {
 	if c == nil {
 		return nil
 	}
@@ -744,6 +761,23 @@ func (c *ConnectorEnd) AttachedTarget() Node {
 		return c.Target
 	}
 	return c.Reference
+}
+
+// EndSelection splits an end's target into the feature it names and the index
+// an indexed end selects one element of that feature with (`s.y#(1)`: the chain
+// `s.y` and the expression `1`). A plain end is its own feature with a nil index.
+func EndSelection(target Node) (feature, index Node) {
+	if ix, ok := target.(*IndexExpr); ok && ix != nil && !ix.Bracket {
+		return ix.Operand, ix.Index
+	}
+	return target, nil
+}
+
+// EndTarget is the feature a connector end's target names: the operand of an
+// indexed end (`s.y` of `s.y#(1)`), else the target itself.
+func EndTarget(target Node) Node {
+	feature, _ := EndSelection(target)
+	return feature
 }
 
 // SplitRedefinitions partitions rels into the redefinitions and the rest,

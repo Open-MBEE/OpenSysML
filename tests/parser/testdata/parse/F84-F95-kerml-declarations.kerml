@@ -54,6 +54,8 @@ package KerMLDeclarations {
 
 		// F84: prefixed features.
 		composite var identifier[0..1];
+		composite readonly;
+		composite const c : Real;
 		const q : Real;
 	}
 
