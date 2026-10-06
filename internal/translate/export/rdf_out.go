@@ -548,6 +548,7 @@ func newEncoderOver(file *source.SourceFile, root *ast.RootNamespace, form IDFor
 		performed:          map[ast.Node]bool{},
 		effects:            map[ast.Node]bool{},
 		triggerParams:      map[ast.Node]string{},
+		acceptPayloads:     map[ast.Node]rdf.Term{},
 		triggerMembers:     map[ast.Node]string{},
 		payloads:           map[*ast.Usage]*ast.Usage{},
 		payloadFeatures:    map[*ast.Usage]bool{},
@@ -603,7 +604,10 @@ type encoder struct {
 	effects map[ast.Node]bool
 	// triggerParams holds the parameters of a transition's trigger action: each
 	// maps to the AcceptActionUsage property that names it, if any.
-	triggerParams  map[ast.Node]string
+	triggerParams map[ast.Node]string
+	// acceptPayloads holds the payload parameter of each accept node, mapped
+	// to the AcceptActionUsage that owns it as its payloadParameter.
+	acceptPayloads map[ast.Node]rdf.Term
 	triggerMembers map[ast.Node]string
 	// payloads holds the PayloadFeature each flow's `of` clause declares, keyed
 	// by the flow: the declared feature of `of p : T`, or one made up for
@@ -1328,6 +1332,16 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 			e.graph.Add(ownerTerm, e.sysml(pEffectAction), subject)
 		}
 	}
+	if accepter, ok := e.acceptPayloads[node]; ok {
+		// An accept node's payload is its payloadParameter, owned as a
+		// parameter (SysML.xtext AcceptNodeDeclaration, PayloadParameterMember).
+		h.membershipClass = mParameterMembership
+		h.membershipExtra = func(membership rdf.Term) {
+			e.graph.Add(membership, e.sysml(pOwnedMemberParameter), subject)
+			e.graph.Add(accepter, e.sysml(pParameter), subject)
+			e.graph.Add(accepter, e.sysml(pPayloadParameter), subject)
+		}
+	}
 	if property, ok := e.triggerParams[node]; ok {
 		h.membershipClass = mParameterMembership
 		h.membershipExtra = func(membership rdf.Term) {
@@ -1416,6 +1430,9 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 		metaclass, ok := usageMetaclassOf(n, inBody)
 		if e.performed[n] {
 			metaclass = mPerform
+		}
+		if metaclass == mAcceptAction {
+			e.acceptPayloads[acceptPayload(n)] = subject
 		}
 		payload := e.payloadFeatures[n]
 		if payload {
@@ -1567,7 +1584,7 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 		}
 		if n.IsEnd {
 			relationships := make([]*ast.Relationship, 0, len(n.Relationships))
-			for _, rel := range n.Relationships {
+			for _, rel := range inclusionRelationships(n) {
 				if rel != nil && rel.Kind == ast.RelReferences && rel.Target != nil {
 					if err := e.endReferences(subject, rel.Target); err != nil {
 						return err
@@ -1578,7 +1595,7 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 			}
 			e.relationships(subject, owner, relationships)
 		} else {
-			e.relationships(subject, owner, n.Relationships)
+			e.relationships(subject, owner, inclusionRelationships(n))
 		}
 		if err := e.multiplicity(subject, within, n.Multiplicity); err != nil {
 			return err
@@ -3267,19 +3284,44 @@ func referencesFeature(n *ast.Usage) bool {
 
 // prefixCarriedByGraph reports a prefix the graph already states structurally:
 // a state's `entry`/`do`/`exit` by the subaction membership that owns the
-// action, an `include` by the inclusion relationship.
+// action, an `include` by the IncludeUseCaseUsage metaclass.
 func prefixCarriedByGraph(n *ast.Usage) bool {
 	switch n.PrefixKeyword {
 	case "entry", "do", "exit":
 		return n.Kind == ast.UsageAction
 	case "include":
-		for _, rel := range n.Relationships {
-			if rel.Kind == ast.RelIncludes {
-				return true
-			}
-		}
+		return n.Kind == ast.UsageUseCase
 	}
 	return false
+}
+
+// inclusionRelationships is a usage's head relationships as the metamodel
+// states an inclusion (SysML.xtext IncludeUseCaseUsage): `include <ref>;`
+// names the use case it includes through an OwnedReferenceSubsetting, and
+// `include use case u : T` includes itself, which its metaclass says, so the
+// inclusion the parser records alongside its typing is no relationship of
+// its own. Every other usage's are returned as they are.
+func inclusionRelationships(n *ast.Usage) []*ast.Relationship {
+	if n.Kind != ast.UsageUseCase || !slices.ContainsFunc(n.Relationships, func(rel *ast.Relationship) bool {
+		return rel != nil && rel.Kind == ast.RelIncludes
+	}) {
+		return n.Relationships
+	}
+	declared := n.PrefixKeyword == "include"
+	out := make([]*ast.Relationship, 0, len(n.Relationships))
+	for _, rel := range n.Relationships {
+		if rel == nil || rel.Kind != ast.RelIncludes {
+			out = append(out, rel)
+			continue
+		}
+		if declared {
+			continue
+		}
+		referenced := *rel
+		referenced.Kind = ast.RelReferences
+		out = append(out, &referenced)
+	}
+	return out
 }
 
 // declaredPrefixes is the `#M` annotations written ahead of a declaration.

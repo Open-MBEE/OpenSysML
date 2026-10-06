@@ -86,7 +86,7 @@ unknown-property ReferenceUsage redefines                    # redefinition is a
 unknown-property OccurrenceUsage redefines                   # redefinition is a Redefinition element, not a property
 unknown-property PerformActionUsage redefines                # redefinition is a Redefinition element, not a property
 unknown-property ExhibitStateUsage redefines                 # redefinition is a Redefinition element, not a property
-unknown-property IncludeUseCaseUsage includes                # the use case an `include` names, standardly its includedUseCase through a ReferenceSubsetting
+unknown-property IncludeUseCaseUsage references             # the use case an `include` names, referenced the same way (its ReferenceSubsetting is written too)
 unknown-property PerformActionUsage references               # a referenced element is a ReferenceUsage or Membership, not a property
 unknown-property PartUsage references                        # a reference subsetting is a ReferenceSubsetting element, not a property
 unknown-property ReferenceUsage references                   # a `ref x ::> y` usage, written the same way
@@ -96,7 +96,7 @@ unknown-property AssertConstraintUsage references            # the constraint an
 unknown-property ConstraintUsage references                  # a reference subsetting is a ReferenceSubsetting element, not a property
 unknown-property RenderingUsage references                   # the rendering a `render r` names, standardly its referencedRendering through a ReferenceSubsetting
 unknown-property SatisfyRequirementUsage subject             # the feature `by` names, standardly the satisfyingFeature through a SubjectMembership
-unknown-property ActionUsage via                             # the port an accept trigger listens on, which the metamodel reaches through the accept action's parameters
+unknown-property AcceptActionUsage via                       # the port an accept trigger listens on, which the metamodel reaches through the accept action's parameters
 unknown-property ReferenceUsage isAccept                     # notation flag for an accept parameter, no metamodel property
 unknown-property ReferenceUsage isResult                     # notation flag for a result parameter, no metamodel property
 unknown-property PartUsage isChain                           # notation flag for a feature chain, no metamodel property

@@ -103,3 +103,45 @@ func TestReadRecorderHearsWhatIsRead(t *testing.T) {
 		t.Fatalf("reads reported after the recorder was removed: %v", rec.names)
 	}
 }
+
+// A document replaced by one declaring the same names re-registers every name
+// its wildcard imports surface; those still name the same symbols, surfaced the
+// same way, so none is a change. Its own declarations are new symbols, and are.
+func TestTakeChangesLeavesOutWhatIsRegisteredAgainAsItWas(t *testing.T) {
+	idx := buildIndex(t, map[string]string{
+		"lib.sysml": "package L { part def A; part def B; }",
+		"app.sysml": "package P { public import L::*; part def X; }",
+	})
+	idx.ExpandWildcardImports()
+	idx.TrackChanges()
+	replace := func(name, src string) {
+		addDoc(t, idx, name, src)
+		idx.ExpandWildcardImports()
+	}
+	replace("app.sysml", "package P { public import L::*; part def X; } // edited")
+	ch := idx.TakeChanges()
+	if ch.Names["P::A"] || ch.Names["P::B"] {
+		t.Errorf("re-exports registered again as they were are changes: %v", keys(ch.Names))
+	}
+	if !ch.Names["P::X"] || !ch.Docs["app.sysml"] {
+		t.Errorf("the replacement's own declaration is not a change: names %v, docs %v", keys(ch.Names), keys(ch.Docs))
+	}
+
+	// Surfaced privately instead, the same symbols read differently.
+	replace("app.sysml", "package P { private import L::*; part def X; }")
+	if ch := idx.TakeChanges(); !ch.Names["P::A"] || !ch.Names["P::B"] {
+		t.Errorf("re-exports hidden by a private import are not changes: %v", keys(ch.Names))
+	}
+	// No longer imported, they are gone.
+	replace("app.sysml", "package P { part def X; }")
+	if ch := idx.TakeChanges(); !ch.Names["P::A"] || !ch.Names["P::B"] {
+		t.Errorf("re-exports dropped with their import are not changes: %v", keys(ch.Names))
+	}
+	// Imported again from a library parsed again, they name new symbols.
+	replace("app.sysml", "package P { public import L::*; part def X; }")
+	idx.TakeChanges()
+	replace("lib.sysml", "package L { part def A; part def B; } // edited")
+	if ch := idx.TakeChanges(); !ch.Names["L::A"] || !ch.Names["P::A"] {
+		t.Errorf("a library parsed again leaves its declarations and their re-exports unchanged: %v", keys(ch.Names))
+	}
+}

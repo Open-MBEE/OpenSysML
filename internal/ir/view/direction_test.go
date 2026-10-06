@@ -20,7 +20,7 @@ func TestParseDirection(t *testing.T) {
 }
 
 func TestSupportsDirection(t *testing.T) {
-	for _, kind := range []Kind{KindTree, KindInterconnection, KindState, KindAction} {
+	for _, kind := range []Kind{KindTree, KindInterconnection, KindState, KindAction, KindCase, KindMixed} {
 		if !kind.SupportsDirection() {
 			t.Errorf("%s should support direction", kind)
 		}

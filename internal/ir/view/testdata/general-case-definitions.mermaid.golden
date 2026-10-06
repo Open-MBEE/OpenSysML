@@ -1,0 +1,41 @@
+---
+config:
+  fontFamily: "Helvetica, Arial, sans-serif"
+  theme: base
+  themeCSS: ".edgeLabel rect { opacity: 1 !important; } .cluster-label .nodeLabel { text-align: center; }"
+  themeVariables:
+    fontFamily: "Helvetica, Arial, sans-serif"
+    fontSize: "14px"
+    primaryColor: "#FFFFFF"
+    secondaryColor: "#FFFFFF"
+    tertiaryColor: "#FFFFFF"
+    background: "#FFFFFF"
+    primaryBorderColor: "#181818"
+    primaryTextColor: "#000000"
+    lineColor: "#181818"
+    textColor: "#000000"
+    noteBkgColor: "#FEFFDD"
+    noteBorderColor: "#181818"
+    noteTextColor: "#000000"
+    clusterBkg: "#FFFFFF"
+    clusterBorder: "#181818"
+    edgeLabelBackground: "#FFFFFF"
+---
+%% UseCaseViews::caseDefinitionView — case rendering (view def GeneralView, filter @CaseDefinition)
+flowchart LR
+  n0(["`*«use case def»*
+**VehicleUseCases::'Add Fuel'**`"])
+  n1["`*«subject»*
+**vehicle : Vehicle**`"]
+  n2["`*«actor»*
+**fueler : Person**`"]
+  n3(["`*«use case def»*
+**VehicleUseCases::'Enter Vehicle'**`"])
+  n4["`*«subject»*
+**vehicle : Vehicle**`"]
+  n5["`*«actor»*
+**driver : Person**`"]
+  n0 ---|"«subject»"| n1
+  n2 --- n0
+  n3 ---|"«subject»"| n4
+  n5 --- n3

@@ -26,6 +26,8 @@ var plantumlGoldenCases = []struct {
 	{"state", "state.sysml", "MachineViews::vehicleStates", KindState},
 	{"state-entry", "state-entry.sysml", "MachineViews::thermostat", KindState},
 	{"action", "action.sysml", "FlowViews::driveView", KindAction},
+	{"case", "case.sysml", "CaseExamples::caseDiagram", KindCase},
+	{"mixed", "mixed.sysml", "MixedExamples::mixedDiagram", KindMixed},
 	{"typed-action", "typed-behavior.sysml", "TypedViews::cycleView", KindAction},
 	{"typed-state", "typed-behavior.sysml", "TypedViews::boilerView", KindState},
 	{"filters", "filters.sysml", "FilteredViews::safetyView", KindTree},
@@ -35,6 +37,9 @@ var plantumlGoldenCases = []struct {
 	{"sequence-order", "sequence-order.sysml", "OrderingViews::relayView", KindSequence},
 	{"sequence-cycle", "sequence-order.sysml", "OrderingViews::deadlockView", KindSequence},
 	{"sequence-empty", "errors.sysml", "ErrorViews::emptySequenceView", KindSequence},
+	{"general-requirement", "general.sysml", "GeneralViews::requirementView", KindRequirement},
+	{"general-definition", "general.sysml", "GeneralViews::definitionView", KindDefinition},
+	{"general-package", "general.sysml", "GeneralViews::packageView", KindPackage},
 }
 
 // TestGoldenPlantUML locks the PlantUML of every kind that has one, from the
@@ -68,7 +73,9 @@ func TestGoldenPlantUML(t *testing.T) {
 					t.Errorf("PlantUML lacks %q:\n%s", want, puml)
 				}
 			}
-			if strings.Contains(puml, " direction\n") {
+			if tc.kind == KindCase && !strings.Contains(puml, "left to right direction") {
+				t.Errorf("case PlantUML does not use its LR default:\n%s", puml)
+			} else if tc.kind != KindCase && strings.Contains(puml, " direction\n") {
 				t.Errorf("PlantUML states a direction with none asked for:\n%s", puml)
 			}
 		})
@@ -120,6 +127,35 @@ func TestPlantUMLDrawsEveryNodeAndEdge(t *testing.T) {
 				t.Errorf("PlantUML draws %d arrows, the rendering has %d edges:\n%s", arrows, want, puml)
 			}
 		})
+	}
+}
+
+func TestMixedPlantUMLNoticesUnnestedCaseAndActorChildren(t *testing.T) {
+	rendering := &Rendering{Kind: KindMixed, Roots: []*Node{
+		{ID: "n0", Kind: "use case def", Name: "Inspection", Children: []*Node{
+			{ID: "n1", Kind: "actor", Name: "operator"},
+			{ID: "n2", Kind: "case def", Name: "NestedCase"},
+		}},
+		{ID: "n3", Kind: "actor", Name: "operator", Children: []*Node{
+			{ID: "n4", Kind: "part def", Name: "equipment"},
+		}},
+	}}
+	puml, err := rendering.PlantUML()
+	if err != nil {
+		t.Fatalf("PlantUML: %v", err)
+	}
+	for _, want := range []string{
+		"' not represented: non-case children of use case def Inspection are drawn flat; PlantUML usecase elements cannot contain nodes",
+		"' not represented: non-case children of actor operator are drawn flat; PlantUML actor elements cannot contain nodes",
+	} {
+		if !strings.Contains(puml, want) {
+			t.Errorf("PlantUML lacks %q:\n%s", want, puml)
+		}
+	}
+	for _, want := range []string{"as n1", "as n2", "as n4"} {
+		if !strings.Contains(puml, want) {
+			t.Errorf("PlantUML omits child declaration %q:\n%s", want, puml)
+		}
 	}
 }
 
@@ -255,7 +291,9 @@ func TestPlantUMLSequenceDiagram(t *testing.T) {
 // a textual and a geometry rendering have none, and asking is a typed error.
 func TestPlantUMLFormSupport(t *testing.T) {
 	for _, kind := range Kinds() {
-		want := kind == KindTree || kind == KindInterconnection || kind == KindState || kind == KindAction || kind == KindSequence
+		want := kind == KindTree || kind == KindInterconnection || kind == KindState || kind == KindAction ||
+			kind == KindCase || kind == KindMixed || kind == KindSequence ||
+			kind == KindRequirement || kind == KindDefinition || kind == KindPackage
 		if got := kind.SupportsForm(FormPlantUML); got != want {
 			t.Errorf("%s.SupportsForm(plantuml) = %v, want %v", kind, got, want)
 		}
@@ -559,9 +597,9 @@ func TestPlantUMLHeaderAndGeometryComments(t *testing.T) {
 var (
 	// plantumlArrowLine matches an arrow statement between two aliases, a
 	// port's being its node's dotted with its index.
-	plantumlArrowLine = regexp.MustCompile(`^\s*(\[\*\]|[\w.]+) (-\[[a-z=0-9]+\]->?|-->|->|--) ([\w.]+)( : .*)?$`)
+	plantumlArrowLine = regexp.MustCompile(`^\s*(\[\*\]|[\w.]+) (-\[[a-z=0-9]+\]->?|-->|->|--\|>|\.\.\|>|\.\.>|\*--|o--|\+--|--|\.\.) ([\w.]+)( : .*)?$`)
 	// plantumlDeclarationLine matches an element declaration with its alias.
-	plantumlDeclarationLine = regexp.MustCompile(`^\s*(class|rectangle|state|participant|port) ".*" as ([\w.]+)( <<[^>]+>>)*( #[0-9A-F]{6}(;line:[0-9A-F]{6})?)?( \{)?$`)
+	plantumlDeclarationLine = regexp.MustCompile(`^\s*(class|rectangle|state|participant|port|usecase|actor|note|circle|package) ".*" as ([\w.]+)( <<[^>]+>>)*( #[0-9A-F]{6}(;line:[0-9A-F]{6})?)?( \{)?$`)
 	// dotFillLine and plantumlFillLine pick the fill a node is given in each form.
 	dotFillLine      = regexp.MustCompile(`^\s*"([^"]+)" \[.*fillcolor="(#[0-9A-F]{6})"`)
 	plantumlFillLine = regexp.MustCompile(`" as (\w+)(?: <<[^>]+>>)* (#[0-9A-F]{6})`)

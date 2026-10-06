@@ -129,6 +129,7 @@ var (
 	renderUnplaced   string
 	renderStyle      string
 	renderPorts      string
+	renderOverlay    string
 	renderDoc        string
 	renderDocsDir    string
 	docForm          string
@@ -401,12 +402,16 @@ func runCLI() int {
 		fmt.Fprintln(os.Stderr, "sysml: -render-palette is the palette -render or -render-all fills DOT, Mermaid, PlantUML or D2 with; name the view to render with -render or a directory with -render-all")
 		return 2
 	}
+	if renderOverlay != "" && renderView == "" && renderAllDir == "" {
+		fmt.Fprintln(os.Stderr, "sysml: -render-overlay is what -render or -render-all draws over a requirement rendering's structure; name the view to render with -render or a directory with -render-all")
+		return 2
+	}
 	if renderLink != "" && renderView == "" && renderAllDir == "" && renderDoc == "" && renderDocsDir == "" {
 		fmt.Fprintln(os.Stderr, "sysml: -render-link links rendered elements to their source; name what to render with -render, -render-all, -render-document or -render-documents")
 		return 2
 	}
 	if renderPorts != "" && renderView == "" && renderAllDir == "" {
-		fmt.Fprintln(os.Stderr, "sysml: -render-ports is how much of a part's ports -render or -render-all draws on an interconnection; name the view to render with -render or a directory with -render-all")
+		fmt.Fprintln(os.Stderr, "sysml: -render-ports is how much of a part's ports -render or -render-all draws on an interconnection or mixed rendering; name the view to render with -render or a directory with -render-all")
 		return 2
 	}
 	if renderUnplaced != "" && renderView == "" && renderAllDir == "" && renderDoc == "" && renderDocsDir == "" {

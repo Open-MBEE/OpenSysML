@@ -922,7 +922,7 @@ expr:ActionNodes__Drive___4014_preceiver_om
     sysml:membershipOwningNamespace elmt:ActionNodes__Drive___4014 .
 
 elmt:ActionNodes__Drive___4015
-    a sysml:ActionUsage ;
+    a sysml:AcceptActionUsage ;
     sysml:qualifiedName "ActionNodes::Drive::@15" ;
     sysx:sourceLine "21"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
@@ -936,6 +936,8 @@ elmt:ActionNodes__Drive___4015
     sysml:owningMembership elmt:ActionNodes__Drive___4015_om ;
     sysx:declaredKeyword "accept" ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:parameter elmt:ActionNodes__Drive___4015___400 ;
+    sysml:payloadParameter elmt:ActionNodes__Drive___4015___400 ;
     sysml:ownedMember elmt:ActionNodes__Drive___4015___400 ;
     sysml:ownedMembership elmt:ActionNodes__Drive___4015___400_om ;
     sysml:ownedRelationship elmt:ActionNodes__Drive___4015___400_om ;
@@ -978,7 +980,7 @@ elmt:ActionNodes__Drive___4015___400
     sysx:hasBody "false"^^xsd:boolean .
 
 elmt:ActionNodes__Drive___4015___400_om
-    a sysml:FeatureMembership ;
+    a sysml:ParameterMembership ;
     sysml:elementId "ActionNodes__Drive___4015___400_om" ;
     sysml:owner elmt:ActionNodes__Drive___4015 ;
     sysml:memberElement elmt:ActionNodes__Drive___4015___400 ;
@@ -986,6 +988,7 @@ elmt:ActionNodes__Drive___4015___400_om
     sysml:ownedRelatedElement elmt:ActionNodes__Drive___4015___400 ;
     sysml:owningRelatedElement elmt:ActionNodes__Drive___4015 ;
     sysml:membershipOwningNamespace elmt:ActionNodes__Drive___4015 ;
+    sysml:ownedMemberParameter elmt:ActionNodes__Drive___4015___400 ;
     sysml:ownedMemberFeature elmt:ActionNodes__Drive___4015___400 ;
     sysml:owningType elmt:ActionNodes__Drive___4015 .
 
