@@ -194,6 +194,5 @@ package OpenSysMLViews {
         view pipelineSubview :> pipelineStructure;
 
         satisfy maintainerPerspective;
-        frame concern latency : OpenSysMLInvariants::KeystrokeLatency;
     }
 }

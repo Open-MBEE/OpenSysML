@@ -636,6 +636,7 @@ impl Runner {
             from_format: request.from_format,
             tolerate_syntax_errors: request.tolerate_syntax_errors,
             id_form,
+            documents: request.documents,
         };
         match self
             .connection

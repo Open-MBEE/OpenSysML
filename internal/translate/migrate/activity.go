@@ -835,6 +835,11 @@ func (a *activity) checkInitialSuccessions() {
 	}
 }
 
+func optionalPin(pin *sysmlv1.Element) bool {
+	lv := firstOwned(pin, "lowerValue")
+	return lv != nil && boundValue(lv) == "0"
+}
+
 // starvedPin returns an input pin of n that must hold a value for n to fire but
 // that nothing fills: no object flow feeds it, its flows trace to no producer, or
 // only parameters taking no value do, and it is no value pin; nil when all are served.
@@ -848,7 +853,7 @@ func (a *activity) starvedPin(n *sysmlv1.Element) *sysmlv1.Element {
 		case len(a.sources[pin]) > 0 && !a.unvaluedSources(pin):
 			continue
 		}
-		if lv := firstOwned(pin, "lowerValue"); lv != nil && boundValue(lv) == "0" {
+		if optionalPin(pin) {
 			continue
 		}
 		return pin
@@ -1625,6 +1630,10 @@ func (a *activity) placeholder(n *sysmlv1.Element, name, note string, v Verdict)
 func inputPins(n *sysmlv1.Element) []*sysmlv1.Element {
 	ins := append(n.Owned("argument"), n.Owned("inputValue")...)
 	ins = append(ins, n.Owned("object")...)
+	if n.Type == "ReplyAction" {
+		ins = append(ins, n.Owned("returnInformation")...)
+		ins = append(ins, n.Owned("replyValue")...)
+	}
 	for _, v := range n.Owned("value") {
 		if v.Type == "InputPin" || v.Type == "ValuePin" || v.Type == "ActionInputPin" {
 			ins = append(ins, v)
@@ -1639,7 +1648,11 @@ func inputPins(n *sysmlv1.Element) []*sysmlv1.Element {
 
 // outputPins lists the output pins of an action, results first.
 func outputPins(n *sysmlv1.Element) []*sysmlv1.Element {
-	return append(n.Owned("result"), n.Owned("outputValue")...)
+	outs := append(n.Owned("result"), n.Owned("outputValue")...)
+	if n.Type == "AcceptCallAction" {
+		outs = append(outs, n.Owned("returnInformation")...)
+	}
+	return outs
 }
 
 // pins declares an untyped action usage's pins as its parameters and records how a
@@ -1650,6 +1663,11 @@ func (a *activity) pins(n, callee *sysmlv1.Element) {
 
 // declarePins declares the given input and output pins of n; see pins.
 func (a *activity) declarePins(n *sysmlv1.Element, ins, outs []*sysmlv1.Element, callee *sysmlv1.Element) {
+	a.declarePinsWithValues(n, ins, outs, callee, nil)
+}
+
+// declarePinsWithValues is declarePins binding each pin in values to its expression.
+func (a *activity) declarePinsWithValues(n *sysmlv1.Element, ins, outs []*sysmlv1.Element, callee *sysmlv1.Element, values map[*sysmlv1.Element]string) {
 	typed := callee != nil
 	var params, inParams, outParams []*sysmlv1.Element
 	if typed {
@@ -1689,6 +1707,9 @@ func (a *activity) declarePins(n *sysmlv1.Element, ins, outs []*sysmlv1.Element,
 		mult, mnote := a.m.multiplicity(pin)
 		note = joinNotes(note, mnote)
 		decl += shaped(mult, pin, dir != "", false)
+		if expr := values[pin]; expr != "" {
+			decl += " = " + expr
+		}
 		if v := firstOwned(pin, "value"); v != nil && pin.Type == "ValuePin" {
 			expr, ok, vnote := a.m.typedBehaviorValue(v, pin, n)
 			if ok {
@@ -2992,9 +3013,22 @@ func (a *activity) sendSignal(n *sysmlv1.Element, name string) {
 		a.placeholder(n, name, "the signal sent has no v2 declaration", Unmapped)
 		return
 	}
+	target := firstOwned(n, "target")
+	selfTarget := target != nil && a.selfFed[target]
+	var pinValues map[*sysmlv1.Element]string
+	if selfTarget {
+		a.markSelf()
+		pinValues = map[*sysmlv1.Element]string{
+			target: a.m.respellThis(a.self(), a.act),
+		}
+	}
 	var note string
 	a.m.w.block(actionKw+name, func() {
-		a.pins(n, nil)
+		if selfTarget {
+			a.declarePinsWithValues(n, inputPins(n), outputPins(n), nil, pinValues)
+		} else {
+			a.pins(n, nil)
+		}
 		args, anote := a.signalArguments(n, sig)
 		note = anote
 		line := "send new " + a.m.ref(sig, a.def) + "(" + strings.Join(args, ", ") + ")"
@@ -3008,16 +3042,21 @@ func (a *activity) sendSignal(n *sysmlv1.Element, name string) {
 			default:
 				note = joinNotes(note, "the port "+qualifiedName(port)+" is no port of the object the sender acts on; the signal is sent to the sender")
 			}
-		} else if t := firstOwned(n, "target"); t != nil {
+		} else if t := target; t != nil {
 			obj, _, ok := a.objectOf(t)
 			switch {
-			case ok && obj == a.self():
+			case ok && obj == a.self() && a.selfFed[t]:
+				line += " to " + writeName(a.names[t])
 			case ok:
 				line += " to " + a.m.respellThis(obj, a.act)
 			case len(a.sources[t]) > 0:
 				line += " to " + a.m.respellThis(writeName(a.names[t]), a.act)
 			default:
-				note = joinNotes(note, "the target pin holds nothing a flow names; the signal is sent to the sender")
+				if pin := writeName(a.names[t]); pin != "" && !optionalPin(t) {
+					line += " to " + pin
+				} else {
+					note = joinNotes(note, "the target pin holds nothing a flow names; the signal is sent to the sender")
+				}
 			}
 		}
 		a.m.w.line(line + ";")

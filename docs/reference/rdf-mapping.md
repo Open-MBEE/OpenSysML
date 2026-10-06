@@ -2074,7 +2074,10 @@ document's top-level packages (the head of any `.kermlx`). The element form
 writes the same: an unnamed `sysml:Namespace` first in the array, one
 `OwningMembership` per top-level element, and each top-level element's
 `owningRelationship`, `owningMembership`, `owningNamespace` and `owner`
-pointing back at them. The ids are derived, never declared, so they are the
+pointing back at them. A model converted from several documents is several
+texts, each a `RootNamespace` of its own in the grammar, so it gets one such
+namespace per document (by `sysx:sourceDocument`), all first in the array, in
+the order the documents were given. The ids are derived, never declared, so they are the
 same on every run: in the `qualified` form the namespace is the first
 top-level element's id with `_ns` appended and each membership the member's
 id with `_om`, the suffix every other owning membership uses; in the `uuid`

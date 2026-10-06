@@ -156,5 +156,66 @@ public interface ConvertRequestOrBuilder extends
   com.google.protobuf.ByteString
       getIdFormBytes();
 
+  /**
+   * <pre>
+   * For a model_hash, the documents whose elements are written, named as the
+   * parse named them; the model's other documents are read for the references
+   * into them, which keep the ids those elements are written under when their
+   * own documents are converted. Empty writes every document. A name the model
+   * does not hold, or documents for a file_path or content, is
+   * INVALID_ARGUMENT. Reported as the "convert_documents" capability.
+   * </pre>
+   *
+   * <code>repeated string documents = 8 [json_name = "documents"];</code>
+   * @return A list containing the documents.
+   */
+  java.util.List<java.lang.String>
+      getDocumentsList();
+  /**
+   * <pre>
+   * For a model_hash, the documents whose elements are written, named as the
+   * parse named them; the model's other documents are read for the references
+   * into them, which keep the ids those elements are written under when their
+   * own documents are converted. Empty writes every document. A name the model
+   * does not hold, or documents for a file_path or content, is
+   * INVALID_ARGUMENT. Reported as the "convert_documents" capability.
+   * </pre>
+   *
+   * <code>repeated string documents = 8 [json_name = "documents"];</code>
+   * @return The count of documents.
+   */
+  int getDocumentsCount();
+  /**
+   * <pre>
+   * For a model_hash, the documents whose elements are written, named as the
+   * parse named them; the model's other documents are read for the references
+   * into them, which keep the ids those elements are written under when their
+   * own documents are converted. Empty writes every document. A name the model
+   * does not hold, or documents for a file_path or content, is
+   * INVALID_ARGUMENT. Reported as the "convert_documents" capability.
+   * </pre>
+   *
+   * <code>repeated string documents = 8 [json_name = "documents"];</code>
+   * @param index The index of the element to return.
+   * @return The documents at the given index.
+   */
+  java.lang.String getDocuments(int index);
+  /**
+   * <pre>
+   * For a model_hash, the documents whose elements are written, named as the
+   * parse named them; the model's other documents are read for the references
+   * into them, which keep the ids those elements are written under when their
+   * own documents are converted. Empty writes every document. A name the model
+   * does not hold, or documents for a file_path or content, is
+   * INVALID_ARGUMENT. Reported as the "convert_documents" capability.
+   * </pre>
+   *
+   * <code>repeated string documents = 8 [json_name = "documents"];</code>
+   * @param index The index of the value to return.
+   * @return The bytes of the documents at the given index.
+   */
+  com.google.protobuf.ByteString
+      getDocumentsBytes(int index);
+
   org.openmbee.opensysml.proto.ConvertRequest.SourceCase getSourceCase();
 }
