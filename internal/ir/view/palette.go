@@ -289,6 +289,7 @@ var familyWords = map[string]string{
 	"interface": "interface", "case": "case", "allocation": "allocation", "allocate": "allocation",
 	"analysis": "analysis", "verification": "verification", "enum": "enum", "occurrence": "occurrence",
 	"flow": "flow", "message": "flow", "perform": "action",
+	"actor": "use case", "subject": "case", "objective": "requirement",
 }
 
 // paletteFamily is the keyword family of a node kind: `part def` and `part`

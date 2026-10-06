@@ -40,13 +40,17 @@ func (r *Rendering) PlantUMLWith(options Options) (string, error) {
 		return r.runTimelinePlantUML(options), nil
 	}
 	r = r.settleUnplaced(options.Unplaced, FormPlantUML)
-	w := &plantumlWriter{borders: r.Kind.paletteBorders(), fills: familyFills{palette: options.Palette, tree: r.Kind == KindTree},
-		labels: labelsOf(r.Roots, false, nil), ports: r.portView(options.Ports), links: options.Links}
+	w := &plantumlWriter{kind: r.Kind, borders: r.Kind.paletteBorders(), fills: familyFills{palette: options.Palette, tree: r.Kind == KindTree},
+		labels: labelsOf(r.Roots, false, nil), ports: r.portView(options.Ports), links: options.Links,
+		writtenPorts: make(map[string]struct{})}
 	for _, root := range r.Roots {
 		w.fills.collect(root)
 	}
 	var notices []string
 	direction, reversed := plantumlDirection(options.Direction)
+	if options.Direction == "" && r.Kind == KindCase {
+		direction, reversed = plantumlDirection(DirectionLeftRight)
+	}
 	if !r.Kind.SupportsDirection() {
 		direction = ""
 	} else if reversed {
@@ -58,6 +62,9 @@ func (r *Rendering) PlantUMLWith(options Options) (string, error) {
 	}
 	if options.Style != "" && options.Style != StylePilot {
 		notices = append(notices, styleNotice(options.Style))
+	}
+	if r.Kind == KindMixed {
+		notices = append(notices, w.mixedContainmentNotices(r.Roots)...)
 	}
 	if r.Kind == KindAction {
 		if pins := r.undrawnPins(func(*Node, Port) bool { return false }); len(pins) > 0 {
@@ -92,6 +99,8 @@ func (r *Rendering) PlantUMLWith(options Options) (string, error) {
 		w.writeClassDiagram(r)
 	case KindInterconnection:
 		w.writeRectangleDiagram(r)
+	case KindCase, KindMixed:
+		w.writeCaseMixedDiagram(r, r.Kind == KindMixed)
 	case KindState, KindAction:
 		w.writeStateDiagram(r)
 	case KindSequence:
@@ -103,12 +112,14 @@ func (r *Rendering) PlantUMLWith(options Options) (string, error) {
 
 // plantumlWriter holds what one rendering's PlantUML form needs across nodes and edges.
 type plantumlWriter struct {
-	b       strings.Builder
-	borders bool        // whether a filled node's border takes the family colour; a participant's cannot
-	fills   familyFills // the palette fills, by keyword family
-	labels  labeller    // the node labels, headed relative to the roots' namespace
-	ports   portView    // the ports drawn of each node, and how they are named
-	links   Links
+	b            strings.Builder
+	kind         Kind
+	borders      bool        // whether a filled node's border takes the family colour; a participant's cannot
+	fills        familyFills // the palette fills, by keyword family
+	labels       labeller    // the node labels, headed relative to the roots' namespace
+	ports        portView    // the ports drawn of each node, and how they are named
+	links        Links
+	writtenPorts map[string]struct{}
 }
 
 // countGeometry counts the nodes a Geometry positions and the edges with a route.
@@ -275,6 +286,119 @@ func (w *plantumlWriter) writeRectangleNode(node *Node, depth int) {
 	fmt.Fprintf(&w.b, "%s}\n", indent)
 }
 
+// writeCaseMixedDiagram writes roots and relationships in the rectangle dialect.
+func (w *plantumlWriter) writeCaseMixedDiagram(r *Rendering, mixed bool) {
+	if r.blank() {
+		fmt.Fprintf(&w.b, "rectangle %s as empty\n", plantumlQuote(r.blankReason(FormPlantUML)))
+		return
+	}
+	for _, root := range r.Roots {
+		w.writeCaseMixedNode(root, 0, mixed)
+	}
+	for _, edge := range r.Edges {
+		w.writeEdge(edge)
+	}
+}
+
+// mixedContainmentNotices reports case and actor children PlantUML cannot nest.
+func (w *plantumlWriter) mixedContainmentNotices(roots []*Node) []string {
+	var notices []string
+	var walk func(*Node)
+	walk = func(node *Node) {
+		if caseNodeKind(node.Kind) || node.Kind == "actor" {
+			for _, child := range node.Children {
+				if caseNodeKind(child.Kind) {
+					continue
+				}
+				element := "usecase"
+				if node.Kind == "actor" {
+					element = "actor"
+				}
+				name := strings.TrimSpace(node.Kind + " " + w.labels.name(node))
+				notices = append(notices, fmt.Sprintf(
+					"non-case children of %s are drawn flat; PlantUML %s elements cannot contain nodes", name, element))
+				break
+			}
+		}
+		for _, child := range node.Children {
+			walk(child)
+		}
+	}
+	for _, root := range roots {
+		walk(root)
+	}
+	return notices
+}
+
+// writeCaseMixedContainer writes a mixed rectangle and its ports and children.
+func (w *plantumlWriter) writeCaseMixedContainer(node *Node, depth int, mixed bool) {
+	indent := strings.Repeat("  ", depth)
+	fmt.Fprintf(&w.b, "%srectangle %s as %s%s {\n", indent, plantumlQuote(w.plantumlLabel(node)), node.ID, w.decoration(node))
+	for _, port := range w.ports.of(node) {
+		w.writtenPorts[port.ID] = struct{}{}
+		fmt.Fprintf(&w.b, "%s  port %s as %s\n", indent, plantumlQuote(plantumlText(w.ports.pinLabel(port))), port.ID)
+	}
+	for _, child := range node.Children {
+		w.writeCaseMixedNode(child, depth+1, mixed)
+	}
+	fmt.Fprintf(&w.b, "%s}\n", indent)
+}
+
+// writeCaseMixedNode writes one case/mixed node using native PlantUML elements.
+func (w *plantumlWriter) writeCaseMixedNode(node *Node, depth int, mixed bool) {
+	indent := strings.Repeat("  ", depth)
+	label := plantumlQuote(w.plantumlLabel(node))
+	switch {
+	case slices.Contains(strings.Fields(node.Kind), "package"):
+		fmt.Fprintf(&w.b, "%spackage %s as %s%s {\n", indent, label, node.ID, w.decoration(node))
+		for _, child := range node.Children {
+			w.writeCaseMixedNode(child, depth+1, mixed)
+		}
+		fmt.Fprintf(&w.b, "%s}\n", indent)
+	case caseNodeKind(node.Kind):
+		fmt.Fprintf(&w.b, "%susecase %s as %s%s\n", indent, label, node.ID, w.decoration(node))
+		for _, child := range node.Children {
+			w.writeCaseMixedNode(child, depth+1, mixed)
+		}
+	case node.Kind == "actor":
+		fmt.Fprintf(&w.b, "%sactor %s as %s%s\n", indent, label, node.ID, w.decoration(node))
+		for _, child := range node.Children {
+			w.writeCaseMixedNode(child, depth+1, mixed)
+		}
+	case mixed && (len(node.Children) > 0 || len(w.ports.of(node)) > 0 && !controlKinds[node.Kind]):
+		w.writeCaseMixedContainer(node, depth, mixed)
+	case node.Kind == "subject":
+		fmt.Fprintf(&w.b, "%srectangle %s as %s%s\n", indent, label, node.ID, w.decoration(node))
+	case node.Kind == "objective":
+		if url, ok := w.links.URL(node.Origin); ok {
+			note := strings.ReplaceAll(w.plantumlLabel(node), `\n`, "\n")
+			fmt.Fprintf(&w.b, "%snote as %s%s\n", indent, node.ID, w.noteDecoration(node))
+			for _, line := range strings.Split(note, "\n") {
+				if line == "" {
+					fmt.Fprintf(&w.b, "%s  \n", indent)
+					continue
+				}
+				if strings.HasPrefix(line, "**") && strings.HasSuffix(line, "**") && len(line) > 4 {
+					line = "**[[" + url + " " + plantumlNoteLinkText(line[2:len(line)-2]) + "]]**"
+				} else {
+					line = "[[" + url + " " + plantumlNoteLinkText(line) + "]]"
+				}
+				fmt.Fprintf(&w.b, "%s  %s\n", indent, line)
+			}
+			fmt.Fprintf(&w.b, "%send note\n", indent)
+			return
+		}
+		fmt.Fprintf(&w.b, "%snote %s as %s%s\n", indent, label, node.ID, w.noteDecoration(node))
+	case mixed && controlKinds[node.Kind]:
+		fmt.Fprintf(&w.b, "%scircle %s as %s%s\n", indent, label, node.ID, w.decoration(node))
+	default:
+		fmt.Fprintf(&w.b, "%srectangle %s as %s%s\n", indent, label, node.ID, w.decoration(node))
+		for _, child := range node.Children {
+			w.writeCaseMixedNode(child, depth+1, mixed)
+		}
+	}
+}
+
 // writeStateDiagram writes a state or action rendering as a state diagram:
 // bodies are composite states, entry transitions leave the `[*]` marker of
 // their body, and every other edge is a transition. An action graph takes the
@@ -353,7 +477,16 @@ func (w *plantumlWriter) writeSequenceDiagram(r *Rendering) {
 
 // writeEdge writes one edge as its kind's arrow, with its label when it carries one.
 func (w *plantumlWriter) writeEdge(edge Edge) {
-	w.writeArrowEdge(edge, edge.From, edge.To, false)
+	from, to := edge.From, edge.To
+	if w.kind == KindMixed {
+		if _, written := w.writtenPorts[edge.FromPort]; written {
+			from = edge.FromPort
+		}
+		if _, written := w.writtenPorts[edge.ToPort]; written {
+			to = edge.ToPort
+		}
+	}
+	w.writeArrowEdge(edge, from, to, false)
 }
 
 // writeArrow writes one arrow statement between two aliases.
@@ -370,11 +503,12 @@ func (w *plantumlWriter) writeArrow(indent, from, to, arrow, label string, origi
 		fmt.Fprintf(&w.b, "%s%s %s %s%s\n", indent, from, arrow, to, link)
 		return
 	}
+	edgeText := plantumlEdgeText(w.kind, label)
 	if sequence && link != "" {
-		fmt.Fprintf(&w.b, "%s%s %s %s :%s %s\n", indent, from, arrow, to, link, plantumlText(label))
+		fmt.Fprintf(&w.b, "%s%s %s %s :%s %s\n", indent, from, arrow, to, link, edgeText)
 		return
 	}
-	fmt.Fprintf(&w.b, "%s%s %s %s : %s%s\n", indent, from, arrow, to, plantumlText(label), link)
+	fmt.Fprintf(&w.b, "%s%s %s %s : %s%s\n", indent, from, arrow, to, edgeText, link)
 }
 
 func (w *plantumlWriter) writeArrowEdge(edge Edge, from, to string, sequence bool) {
@@ -383,6 +517,15 @@ func (w *plantumlWriter) writeArrowEdge(edge Edge, from, to string, sequence boo
 		arrow = "->"
 	}
 	w.writeArrow("", from, to, arrow, edge.Label, edge.Origin, sequence)
+}
+
+// plantumlEdgeText preserves case and mixed relationship guillemets in labels.
+func plantumlEdgeText(kind Kind, text string) string {
+	text = plantumlText(text)
+	if kind == KindCase || kind == KindMixed {
+		text = strings.NewReplacer("«", "<U+00AB>", "»", "<U+00BB>").Replace(text)
+	}
+	return text
 }
 
 // plantumlStyleColor is a Style's colours as PlantUML's inline colour,
@@ -409,6 +552,18 @@ func plantumlArrow(kind EdgeKind) string {
 		return "--"
 	case EdgeFlow:
 		return "-[dashed]->"
+	case EdgeComposition:
+		return "*--"
+	case EdgeAssociation:
+		return "--"
+	case EdgeInclude:
+		return "..>"
+	case EdgeAnchor:
+		return ".."
+	case EdgeTyping, EdgeReference:
+		return "..>"
+	case EdgeSpecialization:
+		return "--|>"
 	}
 	return "-->"
 }
@@ -421,7 +576,7 @@ func (w *plantumlWriter) decoration(node *Node) string {
 	if pseudostate := plantumlPseudostates[node.Kind]; pseudostate != "" {
 		// PlantUML draws a pseudostate only when its stereotype stands alone.
 		fmt.Fprintf(&out, " <<%s>>", pseudostate)
-		if _, unlinked := plantumlUnlinkedPseudostates[pseudostate]; !unlinked {
+		if _, unlinked := plantumlUnlinkedPseudostates[pseudostate]; !unlinked || (w.kind != KindState && w.kind != KindAction) {
 			if url, ok := w.links.URL(node.Origin); ok {
 				fmt.Fprintf(&out, " [[%s]]", url)
 			}
@@ -437,6 +592,24 @@ func (w *plantumlWriter) decoration(node *Node) string {
 	if url, ok := w.links.URL(node.Origin); ok {
 		fmt.Fprintf(&out, " [[%s]]", url)
 	}
+	switch {
+	case w.fills.filled(node):
+		out.WriteString(" " + w.fills.fill(node))
+		if w.borders {
+			out.WriteString(";line:" + strings.TrimPrefix(w.fills.color(node), "#"))
+		}
+		if node.Style != nil && node.Style.Text != "" {
+			out.WriteString(";text:" + strings.TrimPrefix(node.Style.Text, "#"))
+		}
+	case node.Style != nil && (node.Style.Fill != "" || node.Style.Line != "" || node.Style.Text != ""):
+		out.WriteString(" " + plantumlStyleColor(node.Style))
+	}
+	return out.String()
+}
+
+// noteDecoration styles a note node using the rendering's palette and annotation.
+func (w *plantumlWriter) noteDecoration(node *Node) string {
+	var out strings.Builder
 	switch {
 	case w.fills.filled(node):
 		out.WriteString(" " + w.fills.fill(node))
@@ -494,15 +667,17 @@ func (w *plantumlWriter) plantumlLabel(node *Node) string {
 	return strings.Join(parts, `\n`)
 }
 
+func plantumlNoteLinkText(text string) string {
+	return strings.ReplaceAll(text, "]", "~]")
+}
+
 // plantumlQuote wraps text in double quotes for a PlantUML display name.
 func plantumlQuote(text string) string {
 	return `"` + text + `"`
 }
 
-// plantumlText writes text so PlantUML shows it as it is. A quote, a backslash,
-// a hash, an angle bracket and the creole escape `~` become `<U+XXXX>` escapes, as does
-// each of a run of the characters creole reads doubled (`**`, `//`, `__`, `--`,
-// `[[`, `]]`); a newline becomes `\n`.
+// plantumlText escapes characters PlantUML could reinterpret as Creole syntax.
+// Guillemets in case and mixed relationship labels are escaped separately.
 func plantumlText(text string) string {
 	runes := []rune(text)
 	var out strings.Builder

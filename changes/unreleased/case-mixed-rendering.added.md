@@ -1,0 +1,1 @@
+- **Add case and mixed diagrams.** Case views show use, analysis and verification cases with their actors, subjects, objectives and inclusion relationships; mixed views combine structure, state, action and case content on one canvas.
