@@ -756,6 +756,14 @@ func (m *Model) attachmentPath(scope *symbols.Scope, node ast.Node) []*symbols.S
 	if m == nil || m.resolver == nil || node == nil {
 		return nil
 	}
+	return chainPath(node, func(prefix ast.Node) (*symbols.Symbol, bool) {
+		return m.resolver.ResolveTarget(scope, prefix)
+	})
+}
+
+// chainPath resolves each prefix of a feature chain with resolve, outermost
+// first; nil as soon as one resolves to nothing.
+func chainPath(node ast.Node, resolve func(ast.Node) (*symbols.Symbol, bool)) []*symbols.Symbol {
 	var prefixes []ast.Node
 	for n := node; n != nil; {
 		prefixes = append(prefixes, n)
@@ -767,7 +775,7 @@ func (m *Model) attachmentPath(scope *symbols.Scope, node ast.Node) []*symbols.S
 	}
 	path := make([]*symbols.Symbol, 0, len(prefixes))
 	for i := len(prefixes) - 1; i >= 0; i-- {
-		target, ok := m.resolver.ResolveTarget(scope, prefixes[i])
+		target, ok := resolve(prefixes[i])
 		if !ok || target == nil {
 			return nil
 		}

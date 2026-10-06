@@ -149,6 +149,13 @@ func TestReflectivePlainUsagesOwnTheirRelationships(t *testing.T) {
 			ref attribute r ::> y;
 			attribute deep :>> sub.w;
 		}
+		part def Shadow :> Base {
+			attribute sub : Real;
+			attribute deep :>> sub.w;
+		}
+		part def Dangling {
+			part b :> missing.x;
+		}
 	}`
 	for _, fixture := range reflectiveFixtures(t, "plain-relationships.sysml", source.KindSysML, src) {
 		model := fixture.model
@@ -191,6 +198,28 @@ func TestReflectivePlainUsagesOwnTheirRelationships(t *testing.T) {
 		deep := nestedSym(t, fixture.root, "P::Derived::deep")
 		_, target = singleRelationship(t, model, deep, "ownedRedefinition", "KerML::Core::Redefinition")
 		assertReflectiveElements(t, model, target, "chainingFeature", "P::Base::sub", "P::Base::sub::w")
+
+		// A redefinition's chain starts at the inherited `sub`, not at the
+		// attribute of the same name the redefining type declares.
+		shadowed := nestedSym(t, fixture.root, "P::Shadow::deep")
+		_, target = singleRelationship(t, model, shadowed, "ownedRedefinition", "KerML::Core::Redefinition")
+		assertReflectiveElements(t, model, target, "chainingFeature", "P::Base::sub", "P::Base::sub::w")
+
+		// A chain that resolves to nothing denotes no feature: the target side
+		// stays underived and the relationship owns no related element.
+		dangling := nestedSym(t, fixture.root, "P::Dangling::b")
+		rels := reflectiveElementsOf(t, model, dangling, "ownedSubsetting")
+		if len(rels) != 1 {
+			t.Fatalf("b.ownedSubsetting has %d relationships, want 1", len(rels))
+		}
+		for _, property := range []string{"target", "subsettedFeature"} {
+			if got, ok := model.ReflectiveElements(rels[0], property); ok {
+				t.Errorf("b subsetting %s = %v, want underived for an unresolved chain", property, fqns(got))
+			}
+		}
+		if got := reflectiveElementsOf(t, model, rels[0], "ownedRelatedElement"); len(got) != 0 {
+			t.Errorf("b subsetting ownedRelatedElement = %v, want none", fqns(got))
+		}
 
 		derived := nestedSym(t, fixture.root, "P::Derived")
 		_, target = singleRelationship(t, model, derived, "ownedSubclassification", "KerML::Core::Subclassification")
