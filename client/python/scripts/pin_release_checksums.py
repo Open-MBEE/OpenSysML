@@ -595,7 +595,7 @@ def main(argv=None):
                 print(f"{asset} {digest}", file=sys.stderr)
             changed = stamp(digests, args.version, args.repo, args.table)
             action = "stamped" if changed else "already has"
-            print(f"{action} {args.version} of {args.repo} in {args.table}")
+            print(f"{action} {args.version} of {args.repo} in {args.table or DIGESTS_FILE}")
             return 0
 
         table = pinned_table()

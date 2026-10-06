@@ -398,6 +398,10 @@ func (in interner) facts(f *LibraryFacts) {
 	for i := range f.Relationships {
 		in.ref(&f.Relationships[i].Target)
 	}
+	if f.Relationship != nil {
+		in.ref(&f.Relationship.Source)
+		in.ref(&f.Relationship.Target)
+	}
 	for i := range f.Annotations {
 		in.annotation(&f.Annotations[i])
 	}
