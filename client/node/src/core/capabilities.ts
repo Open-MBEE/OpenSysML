@@ -115,6 +115,8 @@ export const CAPABILITY_ENGINES = "engines";
 export const CAPABILITY_UNDETERMINED_VALUE = "undetermined_value";
 /** An Integer beyond int64 as `Value.bigIntValue`, `Quantity.bigIntMagnitude` and `DocumentValue.bigIntValue`; a service without it reads one sent to it as null. */
 export const CAPABILITY_BIG_INT_VALUES = "big_int_values";
+/** `ConvertRequest.documents`: a model converted with only the named documents written, the references into the others linked by id. */
+export const CAPABILITY_CONVERT_DOCUMENTS = "convert_documents";
 
 /**
  * Orders capability names by code unit, the order the service reports them in.

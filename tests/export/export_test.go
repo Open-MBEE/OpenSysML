@@ -2990,7 +2990,12 @@ func TestUnreadableNotationRefusesToSpellReferences(t *testing.T) {
 		t.Fatalf("the guard is not the one the test rewrites:\n%s", turtle)
 	}
 	// A guard kept as text is written as it is, and this one cannot be read.
+	// The guard's TransitionFeatureMembership goes too, so the text is all
+	// that states it.
 	graph := strings.Replace(string(turtle), guard, `sysx:guard "(" ;`, 1)
+	for _, predicate := range []string{"sysml:guardExpression", "sysml:kind", "sysml:transitionFeature"} {
+		graph = string(withoutTriples(t, []byte(graph), predicate))
+	}
 	graph = string(withoutTriples(t, []byte(graph), "sysx:sourceText"))
 	graph = string(withoutTriples(t, []byte(graph), "sysx:sourceTail"))
 	var unsupported *export.UnsupportedError

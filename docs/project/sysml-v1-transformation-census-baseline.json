@@ -22,7 +22,7 @@
       },
       {
         "name": "fixtures",
-        "files": 94
+        "files": 95
       }
     ],
     "counts": {
@@ -96,7 +96,7 @@
       },
       "uml:AcceptCallAction": {
         "pssm": 0,
-        "fixtures": 0
+        "fixtures": 1
       },
       "uml:AddStructuralFeatureValueAction": {
         "pssm": 525,
@@ -112,7 +112,7 @@
       },
       "uml:BroadcastSignalAction": {
         "pssm": 0,
-        "fixtures": 0
+        "fixtures": 1
       },
       "uml:CallBehaviorAction": {
         "pssm": 1170,
@@ -120,7 +120,7 @@
       },
       "uml:CallEvent": {
         "pssm": 8,
-        "fixtures": 0
+        "fixtures": 1
       },
       "uml:CallOperationAction": {
         "pssm": 944,
@@ -136,7 +136,7 @@
       },
       "uml:Class": {
         "pssm": 311,
-        "fixtures": 470
+        "fixtures": 472
       },
       "uml:ClearAssociationAction": {
         "pssm": 0,
@@ -216,7 +216,7 @@
       },
       "uml:ObjectFlow": {
         "pssm": 11312,
-        "fixtures": 77
+        "fixtures": 78
       },
       "uml:ObjectFlow[weight]": {
         "pssm": 2065,
@@ -240,11 +240,11 @@
       },
       "uml:Parameter[direction=return]": {
         "pssm": 1383,
-        "fixtures": 14
+        "fixtures": 15
       },
       "uml:Property": {
         "pssm": 25,
-        "fixtures": 459
+        "fixtures": 460
       },
       "uml:Property[qualifier]": {
         "pssm": 0,
@@ -312,7 +312,7 @@
       },
       "uml:ReplyAction": {
         "pssm": 0,
-        "fixtures": 0
+        "fixtures": 1
       },
       "uml:SendObjectAction": {
         "pssm": 0,
@@ -344,7 +344,7 @@
       },
       "uml:UnmarshallAction": {
         "pssm": 0,
-        "fixtures": 0
+        "fixtures": 1
       },
       "uml:UseCase": {
         "pssm": 0,
@@ -6477,10 +6477,15 @@
       ],
       "operations": [],
       "ocl": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "status": "not-implemented",
-      "implementation": [],
-      "tests": [],
-      "reason": "a AcceptCallAction is not migrated: it is written as a placeholder action that keeps its pins and position in the flow and is reported unmapped",
+      "status": "deliberate",
+      "implementation": [
+        "internal/translate/migrate/activity.go:declareKind",
+        "internal/translate/migrate/activity.go:placeholder"
+      ],
+      "tests": [
+        "tests/migrate/no_v2_actions_test.go:TestActionsWithNoV2FormKeepTheirPinsAndPlaceInTheFlow"
+      ],
+      "reason": "written as an empty action usage that keeps the action's pins as its parameters and its place in the flow, as the mapping's note describes, not the AcceptActionUsage its target names: a CallEvent has no v2 trigger, and an accept with no payload type would take any message, which v1 does not; the element is reported unmapped (PSSM: none); candidate erratum: the mapping specializes AcceptEventAction_Mapping, whose AcceptActionUsage needs a trigger v2 cannot write for a CallEvent, while its note says the action is mapped to an empty action usage to keep its connections; the empty action usage is written",
       "scope": [
         "uml:AcceptCallAction"
       ]
@@ -6522,10 +6527,15 @@
       ],
       "operations": [],
       "ocl": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "status": "not-implemented",
-      "implementation": [],
-      "tests": [],
-      "reason": "a ReplyAction is not migrated: it is written as a placeholder action that keeps its pins and position in the flow and is reported unmapped",
+      "status": "faithful",
+      "implementation": [
+        "internal/translate/migrate/activity.go:declareKind",
+        "internal/translate/migrate/activity.go:placeholder"
+      ],
+      "tests": [
+        "tests/migrate/no_v2_actions_test.go:TestActionsWithNoV2FormKeepTheirPinsAndPlaceInTheFlow"
+      ],
+      "reason": "written as an empty action usage that keeps the action's pins as its parameters and its place in the flow, as the mapping writes it (its note: with no mapping of AcceptCallAction there is none of ReplyAction); the action's behavior is not carried, so the element is reported unmapped (PSSM: none)",
       "scope": [
         "uml:ReplyAction"
       ]
@@ -6542,10 +6552,15 @@
       ],
       "operations": [],
       "ocl": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "status": "not-implemented",
-      "implementation": [],
-      "tests": [],
-      "reason": "a UnmarshallAction is not migrated: it is written as a placeholder action that keeps its pins and position in the flow and is reported unmapped",
+      "status": "faithful",
+      "implementation": [
+        "internal/translate/migrate/activity.go:declareKind",
+        "internal/translate/migrate/activity.go:placeholder"
+      ],
+      "tests": [
+        "tests/migrate/no_v2_actions_test.go:TestActionsWithNoV2FormKeepTheirPinsAndPlaceInTheFlow"
+      ],
+      "reason": "written as an empty action usage that keeps the action's pins as its parameters and its place in the flow, as the mapping writes it (its note: the mapping of UnmarshallAction is not specified yet); the action's behavior is not carried, so the element is reported unmapped (PSSM: none)",
       "scope": [
         "uml:UnmarshallAction"
       ]
@@ -6772,10 +6787,15 @@
       ],
       "operations": [],
       "ocl": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "status": "not-implemented",
-      "implementation": [],
-      "tests": [],
-      "reason": "a BroadcastSignalAction is not migrated: it is written as a placeholder action that keeps its pins and position in the flow and is reported unmapped",
+      "status": "faithful",
+      "implementation": [
+        "internal/translate/migrate/activity.go:declareKind",
+        "internal/translate/migrate/activity.go:placeholder"
+      ],
+      "tests": [
+        "tests/migrate/no_v2_actions_test.go:TestActionsWithNoV2FormKeepTheirPinsAndPlaceInTheFlow"
+      ],
+      "reason": "written as an empty action usage that keeps the action's pins as its parameters and its place in the flow, as the mapping writes it (its note: the details of the mapping are not defined yet); the action's behavior is not carried, so the element is reported unmapped (PSSM: none)",
       "scope": [
         "uml:BroadcastSignalAction"
       ]
@@ -7403,15 +7423,22 @@
         "ownedMemberFeature"
       ],
       "ocl": "sha256:706e9f4eb1ee733449f38295726d23afa068f67d1e0a25417cb70195d2ab545e",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
-        "internal/translate/migrate/activity.go:sendSignal"
+        "internal/translate/migrate/activity.go:sendSignal",
+        "internal/translate/migrate/activity.go:signalArguments",
+        "internal/translate/migrate/arguments.go:sendRefusal"
       ],
       "tests": [
         "tests/migrate/behavior_test.go:TestActivityWithSendAcceptAndOperationCalls",
-        "tests/migrate/arguments_test.go:TestSendsOmittingRequiredSignalAttributesAreReported"
+        "tests/migrate/send_target_test.go:TestSendTargetFedByParameterReachesTheObjectItHolds",
+        "tests/migrate/send_target_test.go:TestSendTargetFedByReadSelfIsBoundToTheSender",
+        "tests/migrate/send_target_test.go:TestSendTargetNothingFillsIsStillTheReceiver",
+        "tests/migrate/arguments_test.go:TestSendsOmittingRequiredSignalAttributesAreReported",
+        "tests/migrate/arguments_test.go:TestSendsPassingMisfitPinsForRequiredSignalAttributesAreReported",
+        "tests/corpus/pssm_migration_test.go:TestPSSMSuiteMigration"
       ],
-      "reason": "`send new Signal(…) via port` or `to target`; a send whose target is not a resolvable port or feature is approximated (PSSM: 176 of 254)",
+      "reason": "written as `action n { in target : T[1]; send new S(…) to target; }`: an ActionUsage that keeps the action's pins as its parameters and owns the SendActionUsage, as the mapping writes it; a send whose signal has no v2 declaration, or that passes no value for an attribute the signal requires, is deliberately kept as a commented placeholder, since `new S()` would leave that attribute without the value its multiplicity requires (PSSM: 254 sends, 230 to the object a structural read yields, 20 to a pin that nothing fills, inside expansion regions, which never run, 3 to the sending object through a read-self action, 1 to a call's result; none kept as a placeholder)",
       "scope": [
         "uml:SendSignalAction"
       ]
@@ -7431,15 +7458,22 @@
         "ownedMemberParameter"
       ],
       "ocl": "sha256:4bf324a06aed2c96df66b8bb4cc32ca216fdb998979dfd850c983502238987a5",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
-        "internal/translate/migrate/activity.go:sendSignal"
+        "internal/translate/migrate/activity.go:sendSignal",
+        "internal/translate/migrate/activity.go:signalArguments",
+        "internal/translate/migrate/arguments.go:sendRefusal"
       ],
       "tests": [
         "tests/migrate/behavior_test.go:TestActivityWithSendAcceptAndOperationCalls",
-        "tests/migrate/arguments_test.go:TestSendsOmittingRequiredSignalAttributesAreReported"
+        "tests/migrate/send_target_test.go:TestSendTargetFedByParameterReachesTheObjectItHolds",
+        "tests/migrate/send_target_test.go:TestSendTargetFedByReadSelfIsBoundToTheSender",
+        "tests/migrate/send_target_test.go:TestSendTargetNothingFillsIsStillTheReceiver",
+        "tests/migrate/arguments_test.go:TestSendsOmittingRequiredSignalAttributesAreReported",
+        "tests/migrate/arguments_test.go:TestSendsPassingMisfitPinsForRequiredSignalAttributesAreReported",
+        "tests/corpus/pssm_migration_test.go:TestPSSMSuiteMigration"
       ],
-      "reason": "`send new Signal(…) via port` or `to target`; a send whose target is not a resolvable port or feature is approximated (PSSM: 176 of 254)",
+      "reason": "the payload is the send's first `in` parameter, valued by a new instance of the signal (`send new S(a, b) to target`) whose argument pins are bound to the signal's attributes in order, and typed by the signal that instantiation names, as in the mapping's own example `send SysMLv1Signal() to target`; an argument pin the signal has no attribute for, or whose type the attribute cannot take, is not sent and is reported (PSSM: 254 sends, 230 to the object a structural read yields, 20 to a pin that nothing fills, inside expansion regions, which never run, 3 to the sending object through a read-self action, 1 to a call's result; none kept as a placeholder)",
       "scope": [
         "uml:SendSignalAction"
       ]
@@ -7459,15 +7493,22 @@
         "type"
       ],
       "ocl": "sha256:44df298ee608406f6822f897f21879417cbd0ddebad4488de9dfb463a9da2495",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
-        "internal/translate/migrate/activity.go:sendSignal"
+        "internal/translate/migrate/activity.go:sendSignal",
+        "internal/translate/migrate/activity.go:signalArguments",
+        "internal/translate/migrate/arguments.go:sendRefusal"
       ],
       "tests": [
         "tests/migrate/behavior_test.go:TestActivityWithSendAcceptAndOperationCalls",
-        "tests/migrate/arguments_test.go:TestSendsOmittingRequiredSignalAttributesAreReported"
+        "tests/migrate/send_target_test.go:TestSendTargetFedByParameterReachesTheObjectItHolds",
+        "tests/migrate/send_target_test.go:TestSendTargetFedByReadSelfIsBoundToTheSender",
+        "tests/migrate/send_target_test.go:TestSendTargetNothingFillsIsStillTheReceiver",
+        "tests/migrate/arguments_test.go:TestSendsOmittingRequiredSignalAttributesAreReported",
+        "tests/migrate/arguments_test.go:TestSendsPassingMisfitPinsForRequiredSignalAttributesAreReported",
+        "tests/corpus/pssm_migration_test.go:TestPSSMSuiteMigration"
       ],
-      "reason": "`send new Signal(…) via port` or `to target`; a send whose target is not a resolvable port or feature is approximated (PSSM: 176 of 254)",
+      "reason": "the payload is the send's first `in` parameter, valued by a new instance of the signal (`send new S(a, b) to target`) whose argument pins are bound to the signal's attributes in order, and typed by the signal that instantiation names, as in the mapping's own example `send SysMLv1Signal() to target`; an argument pin the signal has no attribute for, or whose type the attribute cannot take, is not sent and is reported (PSSM: 254 sends, 230 to the object a structural read yields, 20 to a pin that nothing fills, inside expansion regions, which never run, 3 to the sending object through a read-self action, 1 to a call's result; none kept as a placeholder)",
       "scope": [
         "uml:SendSignalAction"
       ]
@@ -7487,15 +7528,22 @@
         "value"
       ],
       "ocl": "sha256:714c3937b16c5fe882a6fd2fe50b337862482d64ad05e6c2cafe2982edfb72e1",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
-        "internal/translate/migrate/activity.go:sendSignal"
+        "internal/translate/migrate/activity.go:sendSignal",
+        "internal/translate/migrate/activity.go:signalArguments",
+        "internal/translate/migrate/arguments.go:sendRefusal"
       ],
       "tests": [
         "tests/migrate/behavior_test.go:TestActivityWithSendAcceptAndOperationCalls",
-        "tests/migrate/arguments_test.go:TestSendsOmittingRequiredSignalAttributesAreReported"
+        "tests/migrate/send_target_test.go:TestSendTargetFedByParameterReachesTheObjectItHolds",
+        "tests/migrate/send_target_test.go:TestSendTargetFedByReadSelfIsBoundToTheSender",
+        "tests/migrate/send_target_test.go:TestSendTargetNothingFillsIsStillTheReceiver",
+        "tests/migrate/arguments_test.go:TestSendsOmittingRequiredSignalAttributesAreReported",
+        "tests/migrate/arguments_test.go:TestSendsPassingMisfitPinsForRequiredSignalAttributesAreReported",
+        "tests/corpus/pssm_migration_test.go:TestPSSMSuiteMigration"
       ],
-      "reason": "`send new Signal(…) via port` or `to target`; a send whose target is not a resolvable port or feature is approximated (PSSM: 176 of 254)",
+      "reason": "the payload is the send's first `in` parameter, valued by a new instance of the signal (`send new S(a, b) to target`) whose argument pins are bound to the signal's attributes in order, and typed by the signal that instantiation names, as in the mapping's own example `send SysMLv1Signal() to target`; an argument pin the signal has no attribute for, or whose type the attribute cannot take, is not sent and is reported (PSSM: 254 sends, 230 to the object a structural read yields, 20 to a pin that nothing fills, inside expansion regions, which never run, 3 to the sending object through a read-self action, 1 to a call's result; none kept as a placeholder)",
       "scope": [
         "uml:SendSignalAction"
       ]
@@ -7515,15 +7563,22 @@
         "ownedRelationship"
       ],
       "ocl": "sha256:ad07583d731d4859beaab81041b5c474ec410dcb4f435f9163ed231f61d04c5a",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
-        "internal/translate/migrate/activity.go:sendSignal"
+        "internal/translate/migrate/activity.go:sendSignal",
+        "internal/translate/migrate/activity.go:signalArguments",
+        "internal/translate/migrate/arguments.go:sendRefusal"
       ],
       "tests": [
         "tests/migrate/behavior_test.go:TestActivityWithSendAcceptAndOperationCalls",
-        "tests/migrate/arguments_test.go:TestSendsOmittingRequiredSignalAttributesAreReported"
+        "tests/migrate/send_target_test.go:TestSendTargetFedByParameterReachesTheObjectItHolds",
+        "tests/migrate/send_target_test.go:TestSendTargetFedByReadSelfIsBoundToTheSender",
+        "tests/migrate/send_target_test.go:TestSendTargetNothingFillsIsStillTheReceiver",
+        "tests/migrate/arguments_test.go:TestSendsOmittingRequiredSignalAttributesAreReported",
+        "tests/migrate/arguments_test.go:TestSendsPassingMisfitPinsForRequiredSignalAttributesAreReported",
+        "tests/corpus/pssm_migration_test.go:TestPSSMSuiteMigration"
       ],
-      "reason": "`send new Signal(…) via port` or `to target`; a send whose target is not a resolvable port or feature is approximated (PSSM: 176 of 254)",
+      "reason": "the payload is the send's first `in` parameter, valued by a new instance of the signal (`send new S(a, b) to target`) whose argument pins are bound to the signal's attributes in order, and typed by the signal that instantiation names, as in the mapping's own example `send SysMLv1Signal() to target`; an argument pin the signal has no attribute for, or whose type the attribute cannot take, is not sent and is reported (PSSM: 254 sends, 230 to the object a structural read yields, 20 to a pin that nothing fills, inside expansion regions, which never run, 3 to the sending object through a read-self action, 1 to a call's result; none kept as a placeholder); candidate erratum: the mapping values the payload with an InvocationExpression typed by the signal, an item definition, which validation refuses (`Must invoke a behavior or a behavioral feature`, by our validator and the pilot's alike), and passes none of the action's arguments; a ConstructorExpression (`new S(…)`) is the valid form for an instance of an item definition, and carries the arguments",
       "scope": [
         "uml:SendSignalAction"
       ]
@@ -7544,15 +7599,22 @@
         "direction"
       ],
       "ocl": "sha256:6daa7087240d331f8c350b363a3fe85f9128da60d185a0b5aa737c395ed678de",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
-        "internal/translate/migrate/activity.go:sendSignal"
+        "internal/translate/migrate/activity.go:sendSignal",
+        "internal/translate/migrate/activity.go:signalArguments",
+        "internal/translate/migrate/arguments.go:sendRefusal"
       ],
       "tests": [
         "tests/migrate/behavior_test.go:TestActivityWithSendAcceptAndOperationCalls",
-        "tests/migrate/arguments_test.go:TestSendsOmittingRequiredSignalAttributesAreReported"
+        "tests/migrate/send_target_test.go:TestSendTargetFedByParameterReachesTheObjectItHolds",
+        "tests/migrate/send_target_test.go:TestSendTargetFedByReadSelfIsBoundToTheSender",
+        "tests/migrate/send_target_test.go:TestSendTargetNothingFillsIsStillTheReceiver",
+        "tests/migrate/arguments_test.go:TestSendsOmittingRequiredSignalAttributesAreReported",
+        "tests/migrate/arguments_test.go:TestSendsPassingMisfitPinsForRequiredSignalAttributesAreReported",
+        "tests/corpus/pssm_migration_test.go:TestPSSMSuiteMigration"
       ],
-      "reason": "`send new Signal(…) via port` or `to target`; a send whose target is not a resolvable port or feature is approximated (PSSM: 176 of 254)",
+      "reason": "the payload is the send's first `in` parameter, valued by a new instance of the signal (`send new S(a, b) to target`) whose argument pins are bound to the signal's attributes in order, and typed by the signal that instantiation names, as in the mapping's own example `send SysMLv1Signal() to target`; an argument pin the signal has no attribute for, or whose type the attribute cannot take, is not sent and is reported (PSSM: 254 sends, 230 to the object a structural read yields, 20 to a pin that nothing fills, inside expansion regions, which never run, 3 to the sending object through a read-self action, 1 to a call's result; none kept as a placeholder)",
       "scope": [
         "uml:SendSignalAction"
       ]
@@ -7572,15 +7634,22 @@
         "ownedMemberParameter"
       ],
       "ocl": "sha256:e80379d60179abba02e9061aae3be43f8f3293ad93bf765a00c255fad390ad6f",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
-        "internal/translate/migrate/activity.go:sendSignal"
+        "internal/translate/migrate/activity.go:sendSignal",
+        "internal/translate/migrate/activity.go:signalArguments",
+        "internal/translate/migrate/arguments.go:sendRefusal"
       ],
       "tests": [
         "tests/migrate/behavior_test.go:TestActivityWithSendAcceptAndOperationCalls",
-        "tests/migrate/arguments_test.go:TestSendsOmittingRequiredSignalAttributesAreReported"
+        "tests/migrate/send_target_test.go:TestSendTargetFedByParameterReachesTheObjectItHolds",
+        "tests/migrate/send_target_test.go:TestSendTargetFedByReadSelfIsBoundToTheSender",
+        "tests/migrate/send_target_test.go:TestSendTargetNothingFillsIsStillTheReceiver",
+        "tests/migrate/arguments_test.go:TestSendsOmittingRequiredSignalAttributesAreReported",
+        "tests/migrate/arguments_test.go:TestSendsPassingMisfitPinsForRequiredSignalAttributesAreReported",
+        "tests/corpus/pssm_migration_test.go:TestPSSMSuiteMigration"
       ],
-      "reason": "`send new Signal(…) via port` or `to target`; a send whose target is not a resolvable port or feature is approximated (PSSM: 176 of 254)",
+      "reason": "the sender is the send's second `in` parameter, which the mapping leaves without a value, so it is the object performing the action (`send … to target`); a send through a port binds it to that port (`send … via this.p`) (PSSM: 254 sends, 230 to the object a structural read yields, 20 to a pin that nothing fills, inside expansion regions, which never run, 3 to the sending object through a read-self action, 1 to a call's result; none kept as a placeholder)",
       "scope": [
         "uml:SendSignalAction"
       ]
@@ -7600,15 +7669,22 @@
         "direction"
       ],
       "ocl": "sha256:8b6b1231daa518d0fa49b9feb40f94ab257c3ff4ef0eb362c897b4a4398adaad",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
-        "internal/translate/migrate/activity.go:sendSignal"
+        "internal/translate/migrate/activity.go:sendSignal",
+        "internal/translate/migrate/activity.go:signalArguments",
+        "internal/translate/migrate/arguments.go:sendRefusal"
       ],
       "tests": [
         "tests/migrate/behavior_test.go:TestActivityWithSendAcceptAndOperationCalls",
-        "tests/migrate/arguments_test.go:TestSendsOmittingRequiredSignalAttributesAreReported"
+        "tests/migrate/send_target_test.go:TestSendTargetFedByParameterReachesTheObjectItHolds",
+        "tests/migrate/send_target_test.go:TestSendTargetFedByReadSelfIsBoundToTheSender",
+        "tests/migrate/send_target_test.go:TestSendTargetNothingFillsIsStillTheReceiver",
+        "tests/migrate/arguments_test.go:TestSendsOmittingRequiredSignalAttributesAreReported",
+        "tests/migrate/arguments_test.go:TestSendsPassingMisfitPinsForRequiredSignalAttributesAreReported",
+        "tests/corpus/pssm_migration_test.go:TestPSSMSuiteMigration"
       ],
-      "reason": "`send new Signal(…) via port` or `to target`; a send whose target is not a resolvable port or feature is approximated (PSSM: 176 of 254)",
+      "reason": "the sender is the send's second `in` parameter, which the mapping leaves without a value, so it is the object performing the action (`send … to target`); a send through a port binds it to that port (`send … via this.p`) (PSSM: 254 sends, 230 to the object a structural read yields, 20 to a pin that nothing fills, inside expansion regions, which never run, 3 to the sending object through a read-self action, 1 to a call's result; none kept as a placeholder); candidate erratum: the mapping drops the action's onPort, so a send through a port becomes a send from the object to the target; `via` the port, which binds the sender, is the v2 form for sending through it, and is written",
       "scope": [
         "uml:SendSignalAction"
       ]
@@ -7628,15 +7704,22 @@
         "ownedRelationship"
       ],
       "ocl": "sha256:54d97e5afac2e99098e3cb028abd0c6ab301cccabd0e6a0754d2c07b47d7bd96",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
-        "internal/translate/migrate/activity.go:sendSignal"
+        "internal/translate/migrate/activity.go:sendSignal",
+        "internal/translate/migrate/activity.go:signalArguments",
+        "internal/translate/migrate/arguments.go:sendRefusal"
       ],
       "tests": [
         "tests/migrate/behavior_test.go:TestActivityWithSendAcceptAndOperationCalls",
-        "tests/migrate/arguments_test.go:TestSendsOmittingRequiredSignalAttributesAreReported"
+        "tests/migrate/send_target_test.go:TestSendTargetFedByParameterReachesTheObjectItHolds",
+        "tests/migrate/send_target_test.go:TestSendTargetFedByReadSelfIsBoundToTheSender",
+        "tests/migrate/send_target_test.go:TestSendTargetNothingFillsIsStillTheReceiver",
+        "tests/migrate/arguments_test.go:TestSendsOmittingRequiredSignalAttributesAreReported",
+        "tests/migrate/arguments_test.go:TestSendsPassingMisfitPinsForRequiredSignalAttributesAreReported",
+        "tests/corpus/pssm_migration_test.go:TestPSSMSuiteMigration"
       ],
-      "reason": "`send new Signal(…) via port` or `to target`; a send whose target is not a resolvable port or feature is approximated (PSSM: 176 of 254)",
+      "reason": "written as `action n { in target : T[1]; send new S(…) to target; }`: an ActionUsage that keeps the action's pins as its parameters and owns the SendActionUsage, as the mapping writes it; a send whose signal has no v2 declaration, or that passes no value for an attribute the signal requires, is deliberately kept as a commented placeholder, since `new S()` would leave that attribute without the value its multiplicity requires (PSSM: 254 sends, 230 to the object a structural read yields, 20 to a pin that nothing fills, inside expansion regions, which never run, 3 to the sending object through a read-self action, 1 to a call's result; none kept as a placeholder)",
       "scope": [
         "uml:SendSignalAction"
       ]
@@ -7656,15 +7739,22 @@
         "ownedMemberParameter"
       ],
       "ocl": "sha256:6a21899c00e95d8126f2c931dfe89139fe29bb2a1f9a1922e1928cd84a7c1d9d",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
-        "internal/translate/migrate/activity.go:sendSignal"
+        "internal/translate/migrate/activity.go:sendSignal",
+        "internal/translate/migrate/activity.go:signalArguments",
+        "internal/translate/migrate/arguments.go:sendRefusal"
       ],
       "tests": [
         "tests/migrate/behavior_test.go:TestActivityWithSendAcceptAndOperationCalls",
-        "tests/migrate/arguments_test.go:TestSendsOmittingRequiredSignalAttributesAreReported"
+        "tests/migrate/send_target_test.go:TestSendTargetFedByParameterReachesTheObjectItHolds",
+        "tests/migrate/send_target_test.go:TestSendTargetFedByReadSelfIsBoundToTheSender",
+        "tests/migrate/send_target_test.go:TestSendTargetNothingFillsIsStillTheReceiver",
+        "tests/migrate/arguments_test.go:TestSendsOmittingRequiredSignalAttributesAreReported",
+        "tests/migrate/arguments_test.go:TestSendsPassingMisfitPinsForRequiredSignalAttributesAreReported",
+        "tests/corpus/pssm_migration_test.go:TestPSSMSuiteMigration"
       ],
-      "reason": "`send new Signal(…) via port` or `to target`; a send whose target is not a resolvable port or feature is approximated (PSSM: 176 of 254)",
+      "reason": "the receiver is the send's third `in` parameter, valued by a reference to the target pin (`to target`), which the flow into it binds, bound to `this` where a read-self action feeds it; where a structural read alone feeds the pin, the object read is named directly (`to this.p`), the same object the flow carries; a send with no target pin, which v1 requires, has nothing to reference and is written with no receiver, which the runtime delivers to the sending object, and a send through a port is written `via` it (PSSM: 254 sends, 230 to the object a structural read yields, 20 to a pin that nothing fills, inside expansion regions, which never run, 3 to the sending object through a read-self action, 1 to a call's result; none kept as a placeholder). An optional target pin (lower bound 0) that nothing fills lets the action fire with no receiving object, so it keeps the receiver-less send, which reaches the sender; `to target` would address an empty pin (0 in PSSM and TMT).",
       "scope": [
         "uml:SendSignalAction"
       ]
@@ -7684,15 +7774,22 @@
         "ownedRelationship"
       ],
       "ocl": "sha256:f92d868727a2d2fd775a1a40353252aa31121b89ca3c372ac6192948d6cf451d",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
-        "internal/translate/migrate/activity.go:sendSignal"
+        "internal/translate/migrate/activity.go:sendSignal",
+        "internal/translate/migrate/activity.go:signalArguments",
+        "internal/translate/migrate/arguments.go:sendRefusal"
       ],
       "tests": [
         "tests/migrate/behavior_test.go:TestActivityWithSendAcceptAndOperationCalls",
-        "tests/migrate/arguments_test.go:TestSendsOmittingRequiredSignalAttributesAreReported"
+        "tests/migrate/send_target_test.go:TestSendTargetFedByParameterReachesTheObjectItHolds",
+        "tests/migrate/send_target_test.go:TestSendTargetFedByReadSelfIsBoundToTheSender",
+        "tests/migrate/send_target_test.go:TestSendTargetNothingFillsIsStillTheReceiver",
+        "tests/migrate/arguments_test.go:TestSendsOmittingRequiredSignalAttributesAreReported",
+        "tests/migrate/arguments_test.go:TestSendsPassingMisfitPinsForRequiredSignalAttributesAreReported",
+        "tests/corpus/pssm_migration_test.go:TestPSSMSuiteMigration"
       ],
-      "reason": "`send new Signal(…) via port` or `to target`; a send whose target is not a resolvable port or feature is approximated (PSSM: 176 of 254)",
+      "reason": "the receiver is the send's third `in` parameter, valued by a reference to the target pin (`to target`), which the flow into it binds, bound to `this` where a read-self action feeds it; where a structural read alone feeds the pin, the object read is named directly (`to this.p`), the same object the flow carries; a send with no target pin, which v1 requires, has nothing to reference and is written with no receiver, which the runtime delivers to the sending object, and a send through a port is written `via` it (PSSM: 254 sends, 230 to the object a structural read yields, 20 to a pin that nothing fills, inside expansion regions, which never run, 3 to the sending object through a read-self action, 1 to a call's result; none kept as a placeholder). An optional target pin (lower bound 0) that nothing fills lets the action fire with no receiving object, so it keeps the receiver-less send, which reaches the sender; `to target` would address an empty pin (0 in PSSM and TMT).",
       "scope": [
         "uml:SendSignalAction"
       ]
@@ -7712,15 +7809,22 @@
         "memberElement"
       ],
       "ocl": "sha256:798bfcfe6b0abc86afb484dcfdc71a872db093486f6ab7b2608e1b2fb9bd64f5",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
-        "internal/translate/migrate/activity.go:sendSignal"
+        "internal/translate/migrate/activity.go:sendSignal",
+        "internal/translate/migrate/activity.go:signalArguments",
+        "internal/translate/migrate/arguments.go:sendRefusal"
       ],
       "tests": [
         "tests/migrate/behavior_test.go:TestActivityWithSendAcceptAndOperationCalls",
-        "tests/migrate/arguments_test.go:TestSendsOmittingRequiredSignalAttributesAreReported"
+        "tests/migrate/send_target_test.go:TestSendTargetFedByParameterReachesTheObjectItHolds",
+        "tests/migrate/send_target_test.go:TestSendTargetFedByReadSelfIsBoundToTheSender",
+        "tests/migrate/send_target_test.go:TestSendTargetNothingFillsIsStillTheReceiver",
+        "tests/migrate/arguments_test.go:TestSendsOmittingRequiredSignalAttributesAreReported",
+        "tests/migrate/arguments_test.go:TestSendsPassingMisfitPinsForRequiredSignalAttributesAreReported",
+        "tests/corpus/pssm_migration_test.go:TestPSSMSuiteMigration"
       ],
-      "reason": "`send new Signal(…) via port` or `to target`; a send whose target is not a resolvable port or feature is approximated (PSSM: 176 of 254)",
+      "reason": "the receiver is the send's third `in` parameter, valued by a reference to the target pin (`to target`), which the flow into it binds, bound to `this` where a read-self action feeds it; where a structural read alone feeds the pin, the object read is named directly (`to this.p`), the same object the flow carries; a send with no target pin, which v1 requires, has nothing to reference and is written with no receiver, which the runtime delivers to the sending object, and a send through a port is written `via` it (PSSM: 254 sends, 230 to the object a structural read yields, 20 to a pin that nothing fills, inside expansion regions, which never run, 3 to the sending object through a read-self action, 1 to a call's result; none kept as a placeholder). An optional target pin (lower bound 0) that nothing fills lets the action fire with no receiving object, so it keeps the receiver-less send, which reaches the sender; `to target` would address an empty pin (0 in PSSM and TMT).",
       "scope": [
         "uml:SendSignalAction"
       ]
@@ -7740,15 +7844,22 @@
         "value"
       ],
       "ocl": "sha256:ea28b63c9686f4f983699a32c7937948d511667c458cd4e08370e2085f145cdc",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
-        "internal/translate/migrate/activity.go:sendSignal"
+        "internal/translate/migrate/activity.go:sendSignal",
+        "internal/translate/migrate/activity.go:signalArguments",
+        "internal/translate/migrate/arguments.go:sendRefusal"
       ],
       "tests": [
         "tests/migrate/behavior_test.go:TestActivityWithSendAcceptAndOperationCalls",
-        "tests/migrate/arguments_test.go:TestSendsOmittingRequiredSignalAttributesAreReported"
+        "tests/migrate/send_target_test.go:TestSendTargetFedByParameterReachesTheObjectItHolds",
+        "tests/migrate/send_target_test.go:TestSendTargetFedByReadSelfIsBoundToTheSender",
+        "tests/migrate/send_target_test.go:TestSendTargetNothingFillsIsStillTheReceiver",
+        "tests/migrate/arguments_test.go:TestSendsOmittingRequiredSignalAttributesAreReported",
+        "tests/migrate/arguments_test.go:TestSendsPassingMisfitPinsForRequiredSignalAttributesAreReported",
+        "tests/corpus/pssm_migration_test.go:TestPSSMSuiteMigration"
       ],
-      "reason": "`send new Signal(…) via port` or `to target`; a send whose target is not a resolvable port or feature is approximated (PSSM: 176 of 254)",
+      "reason": "the receiver is the send's third `in` parameter, valued by a reference to the target pin (`to target`), which the flow into it binds, bound to `this` where a read-self action feeds it; where a structural read alone feeds the pin, the object read is named directly (`to this.p`), the same object the flow carries; a send with no target pin, which v1 requires, has nothing to reference and is written with no receiver, which the runtime delivers to the sending object, and a send through a port is written `via` it (PSSM: 254 sends, 230 to the object a structural read yields, 20 to a pin that nothing fills, inside expansion regions, which never run, 3 to the sending object through a read-self action, 1 to a call's result; none kept as a placeholder). An optional target pin (lower bound 0) that nothing fills lets the action fire with no receiving object, so it keeps the receiver-less send, which reaches the sender; `to target` would address an empty pin (0 in PSSM and TMT).",
       "scope": [
         "uml:SendSignalAction"
       ]
@@ -7769,15 +7880,22 @@
         "ownedRelationship"
       ],
       "ocl": "sha256:4ef2900d89ff0a09905e72389fae1bb8587b16c5c4ed7ba47b1349af2d7eda9c",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
-        "internal/translate/migrate/activity.go:sendSignal"
+        "internal/translate/migrate/activity.go:sendSignal",
+        "internal/translate/migrate/activity.go:signalArguments",
+        "internal/translate/migrate/arguments.go:sendRefusal"
       ],
       "tests": [
         "tests/migrate/behavior_test.go:TestActivityWithSendAcceptAndOperationCalls",
-        "tests/migrate/arguments_test.go:TestSendsOmittingRequiredSignalAttributesAreReported"
+        "tests/migrate/send_target_test.go:TestSendTargetFedByParameterReachesTheObjectItHolds",
+        "tests/migrate/send_target_test.go:TestSendTargetFedByReadSelfIsBoundToTheSender",
+        "tests/migrate/send_target_test.go:TestSendTargetNothingFillsIsStillTheReceiver",
+        "tests/migrate/arguments_test.go:TestSendsOmittingRequiredSignalAttributesAreReported",
+        "tests/migrate/arguments_test.go:TestSendsPassingMisfitPinsForRequiredSignalAttributesAreReported",
+        "tests/corpus/pssm_migration_test.go:TestPSSMSuiteMigration"
       ],
-      "reason": "`send new Signal(…) via port` or `to target`; a send whose target is not a resolvable port or feature is approximated (PSSM: 176 of 254)",
+      "reason": "the receiver is the send's third `in` parameter, valued by a reference to the target pin (`to target`), which the flow into it binds, bound to `this` where a read-self action feeds it; where a structural read alone feeds the pin, the object read is named directly (`to this.p`), the same object the flow carries; a send with no target pin, which v1 requires, has nothing to reference and is written with no receiver, which the runtime delivers to the sending object, and a send through a port is written `via` it (PSSM: 254 sends, 230 to the object a structural read yields, 20 to a pin that nothing fills, inside expansion regions, which never run, 3 to the sending object through a read-self action, 1 to a call's result; none kept as a placeholder). An optional target pin (lower bound 0) that nothing fills lets the action fire with no receiving object, so it keeps the receiver-less send, which reaches the sender; `to target` would address an empty pin (0 in PSSM and TMT).",
       "scope": [
         "uml:SendSignalAction"
       ]
@@ -7816,15 +7934,15 @@
         "ownedRelationship"
       ],
       "ocl": "sha256:c5274bf1a43f598abdbd3a0dfe8c9f222dee9cf0300cc9c7a3725935662fda2f",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
-        "internal/translate/migrate/activity.go:sendSignal"
+        "internal/translate/migrate/activity.go:declareKind",
+        "internal/translate/migrate/activity.go:placeholder"
       ],
       "tests": [
-        "tests/migrate/behavior_test.go:TestActivityWithSendAcceptAndOperationCalls",
-        "tests/migrate/arguments_test.go:TestSendsOmittingRequiredSignalAttributesAreReported"
+        "tests/migrate/no_v2_actions_test.go:TestActionsWithNoV2FormKeepTheirPinsAndPlaceInTheFlow"
       ],
-      "reason": "`send new Signal(…) via port` or `to target`; a send whose target is not a resolvable port or feature is approximated (PSSM: 176 of 254)",
+      "reason": "written as `action n { in target : T[1]; send new S(…) to target; }`: an ActionUsage that keeps the action's pins as its parameters and owns the SendActionUsage, as the mapping writes it; a send whose signal has no v2 declaration, or that passes no value for an attribute the signal requires, is deliberately kept as a commented placeholder, since `new S()` would leave that attribute without the value its multiplicity requires (PSSM: 254 sends, 230 to the object a structural read yields, 20 to a pin that nothing fills, inside expansion regions, which never run, 3 to the sending object through a read-self action, 1 to a call's result; none kept as a placeholder)",
       "scope": [
         "uml:SendSignalAction"
       ]
