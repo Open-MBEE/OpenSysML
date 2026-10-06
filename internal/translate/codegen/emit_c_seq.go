@@ -555,7 +555,6 @@ func cSeqSuffix(t Type) string {
 func cSeqRuntime() string {
 	var b strings.Builder
 	b.WriteString(cSeqPrelude)
-	b.WriteString(cUnprintable())
 	b.WriteString(cStrRuntime)
 	// Element printers precede the template; the Real printer is the scalar one.
 	b.WriteString("\nstatic void sysml_print_int(sysml_int v);\nstatic void sysml_print_bool(sysml_bool v);\nstatic void sysml_print_real_value(sysml_real r);\n")

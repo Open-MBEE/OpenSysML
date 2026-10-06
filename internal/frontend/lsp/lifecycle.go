@@ -75,7 +75,7 @@ func (s *Server) Initialize(ctx context.Context, params *protocol.InitializePara
 		},
 		ServerInfo: &protocol.ServerInfo{
 			Name:    "sysml-lsp",
-			Version: "0.1.0",
+			Version: s.version,
 		},
 	}, nil
 }

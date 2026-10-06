@@ -1124,3 +1124,49 @@ def test_a_nested_cache_lock_does_not_release_the_outer_one(cache):
         with cache_lock():
             pass
         assert not _lock_is_free(lock_path())
+
+
+def test_a_snapshot_is_built_against_the_nightly_release_it_pins(monkeypatch):
+    monkeypatch.setattr('opensysml.binary.VERSION', '0.9.3.dev20261006')
+    monkeypatch.setattr('opensysml.binary.PINNED_SHA256', {
+        'Open-MBEE/OpenSysML': {
+            'nightly-20261005-0ff1ce0': {},
+            'nightly-20261006-abc1234': {},
+            'v0.9.2': {},
+        },
+    })
+    assert built_against_releases() == ('nightly-20261006-abc1234',)
+
+
+def test_a_snapshot_pinning_no_release_of_its_night_falls_back_to_the_moving_alias(monkeypatch):
+    monkeypatch.setattr('opensysml.binary.VERSION', '0.9.3.dev20261006')
+    monkeypatch.setattr('opensysml.binary.PINNED_SHA256', {
+        'Open-MBEE/OpenSysML': {'nightly-20261005-0ff1ce0': {}, 'v0.9.2': {}},
+    })
+    assert built_against_releases() == ('nightly',)
+
+
+def test_a_snapshot_of_a_pre_release_is_still_a_snapshot(monkeypatch):
+    monkeypatch.setattr('opensysml.binary.VERSION', '0.10.0rc1.dev20261006')
+    monkeypatch.setattr('opensysml.binary.PINNED_SHA256', {
+        'Open-MBEE/OpenSysML': {'nightly-20261006-abc1234': {}},
+    })
+    assert built_against_releases() == ('nightly-20261006-abc1234',)
+
+
+def test_an_implicit_snapshot_download_asks_for_its_pinned_night(cache, monkeypatch):
+    monkeypatch.setattr('opensysml.binary.VERSION', '0.9.3.dev20261006')
+    monkeypatch.setattr('opensysml.binary.PINNED_SHA256', {
+        'Open-MBEE/OpenSysML': {'nightly-20261006-abc1234': {}},
+    })
+    content = b'snapshot binary'
+
+    def install(version, github_repo=None):
+        assert version == 'nightly-20261006-abc1234'
+        return cache(content, version=version)
+
+    with patch('opensysml.binary.download_binary', side_effect=install) as download:
+        assert ensure_binary() == linked(content)
+
+    download.assert_called_once()
+    assert cached_release() == 'nightly-20261006-abc1234'
