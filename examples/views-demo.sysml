@@ -171,8 +171,7 @@ package LanderViews {
         view interfaceSubview :> interfaces;
 
         // What `%view` checks the exposed landers against: the concern the
-        // viewpoint frames, framed by this view too.
+        // viewpoint frames.
         satisfy massPerspective;
-        frame concern mass : Lander::MassBudget;
     }
 }

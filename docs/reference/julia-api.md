@@ -147,7 +147,9 @@ stable parameter order.
 `build_query(; scope, select, where)` constructs an OSLC query;
 `query(model, payload; scope, select, where)` runs it. Document APIs are
 `build_document_bindings`, `run_document_query(model, query; bindings,
-options)`, and `render_document(model, query; bindings, format)`.
+options)`, `render_document(model, query; bindings, format)`, and
+`render_view(model, name; ports="minimal")`, returning typed query and view
+data. `ports="full"` includes all declared ports.
 
 Conversion is available through `convert_file(conn, path, to_format; ...)`,
 `convert_source(conn, content, to_format; from_format, ...)`,
