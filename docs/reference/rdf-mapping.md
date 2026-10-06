@@ -2074,7 +2074,10 @@ document's top-level packages (the head of any `.kermlx`). The element form
 writes the same: an unnamed `sysml:Namespace` first in the array, one
 `OwningMembership` per top-level element, and each top-level element's
 `owningRelationship`, `owningMembership`, `owningNamespace` and `owner`
-pointing back at them. The ids are derived, never declared, so they are the
+pointing back at them. A model converted from several documents is several
+texts, each a `RootNamespace` of its own in the grammar, so it gets one such
+namespace per document (by `sysx:sourceDocument`), all first in the array, in
+the order the documents were given. The ids are derived, never declared, so they are the
 same on every run: in the `qualified` form the namespace is the first
 top-level element's id with `_ns` appended and each membership the member's
 id with `_om`, the suffix every other owning membership uses; in the `uuid`
@@ -2148,6 +2151,12 @@ owns through a `FeatureMembership`; and a connector end written as a chain
 (`connect lv.payload to cm.dock`), whose end feature subsets the unnamed
 `Feature` owning the `FeatureChaining`s (KerML 1.0 § 8.3.3.3.5
 `FeatureChaining`), so the toolkit prints `end ref ::> <id>` instead of the chain.
+Two shapes this mapping writes are sparser than the toolkit's lifter needs:
+`entry;` is the `StateSubactionMembership` alone, with no empty `ActionUsage`
+under it, and a `then` succession carries its positional source as
+`sysx:sourceMember` rather than as an end feature with an implied
+`ReferenceSubsetting`, so the toolkit prints the state without its `entry;`
+and the succession without a source.
 
 The toolkit's own JSON — `convert --to compact-json` or `--to full-json` —
 reads into the same graph through `ReadAPIJSON` and converts to notation like
@@ -2171,6 +2180,13 @@ any graph this mapping holds:
   full document uses for the same target (`unresolved:`-derived, recoverable
   from the reference's `x-sysmlv2-unresolved-reference` textual annotation)
   reads as the same name.
+- **A succession from a nameless member is written by position.** The
+  toolkit resolves the source end of `entry; then idle;` to the empty
+  `ActionUsage` the `entry` membership owns, which no `first` clause could
+  name; a source that is the member written before the succession — or the
+  action a nameless `entry;`/`do;`/`exit;` membership owns — comes back as
+  `then idle;` beside it (SysML v2 1.0 § 7.17.4), the way a source the
+  toolkit leaves unresolved already does.
 - **Ends the notation alone cannot place are refused.** Where a member's two
   collapsed ends disagree, or an element names no owner it can sit under,
   `-convert sysml` fails rather than guesses a position.

@@ -53,10 +53,9 @@ type Model struct {
 	typingArgs map[*ast.InvocationExpr]bool
 	composed   map[composedKey][]*symbols.Symbol
 	ends       map[*symbols.Symbol][]connectorEnd
-	// ownedRelationships memoizes the symbols standing for the relationships a
-	// declaration owns, and relationshipInfo what each of them stands for.
-	ownedRelationships map[*symbols.Symbol][]*symbols.Symbol
-	relationshipInfo   map[*symbols.Symbol]ownedRelationship
+	// chainTargets memoizes the feature each relationship object's chain
+	// target denotes.
+	chainTargets map[*symbols.Symbol]*symbols.Symbol
 	// subtracting memoizes whether a type reaches a difference (see cast.go).
 	subtracting map[*symbols.Symbol]bool
 	// referential memoizes a parameter's referentiality (see shape.go).
@@ -144,6 +143,9 @@ type Model struct {
 	// assumedSupers holds the supertypes a reducer's first parameter is judged under
 	// while its reducer's result is typed (see bodyparam.go).
 	assumedSupers map[*symbols.Symbol]assumedSupertypes
+	// implicitRels memoizes each element's reflected relationship objects
+	// (see reflective_relationships.go).
+	implicitRels map[*symbols.Symbol][]*symbols.Symbol
 }
 
 // NewModel creates a semantic model backed by the given name resolver. The
@@ -171,8 +173,7 @@ func NewModel(resolver *resolve.Resolver) *Model {
 		typingArgs:          make(map[*ast.InvocationExpr]bool),
 		composed:            make(map[composedKey][]*symbols.Symbol),
 		ends:                make(map[*symbols.Symbol][]connectorEnd),
-		ownedRelationships:  make(map[*symbols.Symbol][]*symbols.Symbol),
-		relationshipInfo:    make(map[*symbols.Symbol]ownedRelationship),
+		chainTargets:        make(map[*symbols.Symbol]*symbols.Symbol),
 		subtracting:         make(map[*symbols.Symbol]bool),
 		referential:         make(map[*symbols.Symbol]bool),
 		implicitBase:        make(map[*symbols.Symbol][]*symbols.Symbol),
@@ -213,6 +214,7 @@ func NewModel(resolver *resolve.Resolver) *Model {
 		bodyApplications:      make(map[*ast.BodyExpr]bodyApplication),
 		bodyIndexed:           make(map[*symbols.Scope]bool),
 		assumedSupers:         make(map[*symbols.Symbol]assumedSupertypes),
+		implicitRels:          make(map[*symbols.Symbol][]*symbols.Symbol),
 	}
 	if resolver != nil {
 		resolver.SetModel(m)
@@ -1071,6 +1073,14 @@ func IsElementType(sym *symbols.Symbol) bool {
 func IsAnything(sym *symbols.Symbol) bool {
 	return sym != nil && (sym.Name == "Base::Anything" ||
 		(sym.Name == "Anything" && sym.OwnerScope != nil && sym.OwnerScope.Owner() != nil &&
+			sym.OwnerScope.Owner().Name == "Base"))
+}
+
+// IsDataValue reports whether sym is the library's Base::DataValue, the result
+// every DataFunctions operator declares and so the type of nothing in particular.
+func IsDataValue(sym *symbols.Symbol) bool {
+	return sym != nil && (sym.Name == "Base::DataValue" ||
+		(sym.Name == "DataValue" && sym.OwnerScope != nil && sym.OwnerScope.Owner() != nil &&
 			sym.OwnerScope.Owner().Name == "Base"))
 }
 

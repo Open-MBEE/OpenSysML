@@ -1,288 +1,135 @@
 package semantics
 
 import (
-	"slices"
-
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
 
-// ownedRelationship is a relationship a declaration owns — `: T`, `:> s`,
-// `:>> x`, `::> a.b`, or the attachment of a connector end — as its reflective
-// metaobject reads it (KerML 8.3.4.8.15). A symbol stands for the relationship
-// so a metaobject can denote it: the owning declaration is its source and the
-// element it names its target.
-type ownedRelationship struct {
-	owner      *symbols.Symbol
-	kind       ast.RelationshipKind
-	conjugated bool
-	// rel is the clause the owner's declaration writes, or the clause an end's
-	// attachment implies; nil for a recorded owner.
-	rel *ast.Relationship
-	// ref is the target a recorded owner's record carries.
-	ref symbols.ElementRef
-	// chain is the feature a chain target (`s.y`) denotes as a whole, which the
-	// relationship owns and targets; nil when the target is a name.
-	chain *symbols.Symbol
-}
-
-// ownedRelationshipProperty is a reflective property holding the relationships
-// an element owns: the metaclass deriving it and the one its values conform to.
-type ownedRelationshipProperty struct {
-	owner, relationship string
-}
-
-// ownedRelationshipProperties are the properties of Type and its subclasses that
-// hold the specializations and featurings an element's declaration owns.
-var ownedRelationshipProperties = map[string]ownedRelationshipProperty{
-	"ownedSpecialization":      {"Type", "Specialization"},
-	"ownedSubclassification":   {"Classifier", "Subclassification"},
-	"ownedTyping":              {"Feature", "FeatureTyping"},
-	"ownedSubsetting":          {"Feature", "Subsetting"},
-	"ownedRedefinition":        {"Feature", "Redefinition"},
-	"ownedReferenceSubsetting": {"Feature", "ReferenceSubsetting"},
-	"ownedCrossSubsetting":     {"Feature", "CrossSubsetting"},
-	"ownedFeatureInverting":    {"Feature", "FeatureInverting"},
-	"ownedTypeFeaturing":       {"Feature", "TypeFeaturing"},
-	"ownedDisjoining":          {"Type", "Disjoining"},
-}
-
-// OwnedRelationshipSymbols returns the symbols standing for the relationships
-// sym's declaration owns, in declaration order, with the reference subsetting a
-// connector end's attachment implies first. Memoized.
-func (m *Model) OwnedRelationshipSymbols(sym *symbols.Symbol) []*symbols.Symbol {
-	if m == nil || sym == nil || m.resolver == nil {
+// ImpliedEndReference is the feature a connector end attaches to without a
+// `references` clause of its own saying so (`connect s.y to k.u`), which it
+// reference-subsets all the same (SysML v2 8.2.2.13.1); nil when a clause does.
+func ImpliedEndReference(end *ast.ConnectorEnd) ast.Node {
+	target := end.AttachedTarget()
+	if target == nil {
 		return nil
 	}
-	defer m.own(sym).LeaveDoc()
-	if cached, ok := m.ownedRelationships[sym]; ok {
-		return cached
-	}
-	ownerScope := sym.Scope
-	if ownerScope == nil {
-		// A recorded leaf has no scope of its own; its relationships still
-		// need one to be owned through.
-		ownerScope = symbols.NewScope(sym.OwnerScope, nil)
-		ownerScope.SetOwner(sym)
-	}
-	var out []*symbols.Symbol
-	for _, info := range m.ownedRelationshipsOf(sym) {
-		if rel := m.newOwnedRelationship(info, ownerScope); rel != nil {
-			out = append(out, rel)
-		}
-	}
-	journal(m, m.ownedRelationships, sym, sym.Decl)
-	m.ownedRelationships[sym] = out
-	return out
-}
-
-// ownedRelationshipsOf lists the relationships sym's declaration or record owns.
-func (m *Model) ownedRelationshipsOf(sym *symbols.Symbol) []ownedRelationship {
-	var out []ownedRelationship
-	if sym.Recorded() {
-		if sym.Facts.Node == symbols.NodeConnectorEnd && !sym.Facts.References.IsZero() &&
-			!recordsReference(sym.Facts.Relationships, sym.Facts.References) {
-			out = append(out, ownedRelationship{owner: sym, kind: ast.RelReferences, ref: sym.Facts.References})
-		}
-		for _, rel := range sym.Facts.Relationships {
-			out = append(out, ownedRelationship{owner: sym, kind: rel.Kind, conjugated: rel.Conjugated, ref: rel.Target})
-		}
-		return out
-	}
-	// A connector end reference-subsets the feature it attaches to (SysML v2
-	// 8.2.2.13.1), whether or not a clause of its own says so.
-	if end, ok := sym.Decl.(*ast.ConnectorEnd); ok {
-		if target := end.AttachedTarget(); target != nil && !referencesTarget(end.Relationships, target) {
-			rel := &ast.Relationship{Kind: ast.RelReferences, Target: target}
-			rel.NodeSpan = target.Span()
-			out = append(out, ownedRelationship{owner: sym, kind: ast.RelReferences, rel: rel})
-		}
-	}
-	for _, rel := range RelationshipsOf(sym) {
-		if rel != nil {
-			out = append(out, ownedRelationship{owner: sym, kind: rel.Kind, conjugated: rel.Conjugated, rel: rel})
-		}
-	}
-	return out
-}
-
-// recordsReference reports whether a reference subsetting among rels targets ref.
-func recordsReference(rels []symbols.RelationshipFacts, ref symbols.ElementRef) bool {
-	for _, rel := range rels {
-		if rel.Kind.ReferenceSubsets() && rel.Target.FQN == ref.FQN && rel.Target.Doc == ref.Doc &&
-			slices.Equal(rel.Target.Path, ref.Path) {
-			return true
-		}
-	}
-	return false
-}
-
-// referencesTarget reports whether a reference subsetting among rels names target.
-func referencesTarget(rels []*ast.Relationship, target ast.Node) bool {
-	for _, rel := range rels {
+	for _, rel := range end.Relationships {
 		if rel != nil && rel.Kind == ast.RelReferences && rel.Target == target {
-			return true
+			return nil
 		}
 	}
-	return false
+	return target
 }
 
-// newOwnedRelationship is the symbol standing for info, owned through
-// ownerScope, or nil for a relationship no library metaclass classifies.
-func (m *Model) newOwnedRelationship(info ownedRelationship, ownerScope *symbols.Scope) *symbols.Symbol {
-	if m.ownedRelationshipMetaclass(info) == nil {
-		return nil
-	}
-	decl := info.rel
-	if decl == nil {
-		decl = &ast.Relationship{Kind: info.kind, Conjugated: info.conjugated}
-	}
-	rel := &symbols.Symbol{
-		Kind:       symbols.SymbolRelationship,
-		Decl:       decl,
-		DeclSpan:   decl.Span(),
-		Visibility: ast.VisibilityDefault,
-		OwnerScope: ownerScope,
-	}
-	if chain := chainTargetNode(info.rel); chain != nil {
-		scope := symbols.NewScope(ownerScope, decl)
-		scope.SetOwner(rel)
-		rel.Scope = scope
-		info.chain = &symbols.Symbol{
-			Kind:       symbols.SymbolReferenceUsage,
-			Decl:       chain,
-			DeclSpan:   chain.Span(),
-			Visibility: ast.VisibilityDefault,
-			OwnerScope: scope,
-		}
-		scope.DefineAnonymous(info.chain)
-	}
-	journal(m, m.relationshipInfo, rel, info.owner.Decl)
-	m.relationshipInfo[rel] = info
+// connectorEndAttachment is the reference subsetting an end's attachment
+// states, as the written edge the relationship object it reflects spans.
+func connectorEndAttachment(target ast.Node) *ast.Relationship {
+	rel := &ast.Relationship{Kind: ast.RelReferences, Target: target}
+	rel.NodeSpan = target.Span()
 	return rel
 }
 
-// chainTargetNode is the feature chain a relationship targets (`:>> a.b`), or
-// nil when it targets a name.
-func chainTargetNode(rel *ast.Relationship) *ast.FeatureChainExpr {
-	if rel == nil {
-		return nil
+// chainNode is the feature chain a relationship target is written as (`a.b`),
+// or nil when it is a name.
+func chainNode(target ast.Node) *ast.FeatureChainExpr {
+	if fr, ok := target.(*ast.FeatureReference); ok {
+		target = fr.Name
 	}
-	node := rel.Target
-	if fr, ok := node.(*ast.FeatureReference); ok {
-		node = fr.Name
-	}
-	chain, _ := node.(*ast.FeatureChainExpr)
+	chain, _ := target.(*ast.FeatureChainExpr)
 	return chain
 }
 
-// ownedRelationshipMetaclass is the KerML metaclass classifying info, by its
-// kind and the kind of element owning it (KerML 7.3.3, 7.3.4).
-func (m *Model) ownedRelationshipMetaclass(info ownedRelationship) *symbols.Symbol {
-	switch {
-	case info.kind == ast.RelTyping && info.conjugated:
-		if meta := m.sysmlMetaclass("ConjugatedPortTyping"); meta != nil {
-			return meta
-		}
-		return m.kermlMetaclass("FeatureTyping")
-	case info.kind == ast.RelSpecializes:
-		if m.reflectiveMetaclassConforms(info.owner, "Feature") {
-			return m.kermlMetaclass("Subsetting")
-		}
-		if m.reflectiveMetaclassConforms(info.owner, "Classifier") {
-			return m.kermlMetaclass("Subclassification")
-		}
-		return m.kermlMetaclass("Specialization")
-	case info.kind.ReferenceSubsets():
-		return m.kermlMetaclass("ReferenceSubsetting")
-	case info.kind == ast.RelCrosses:
-		return m.kermlMetaclass("CrossSubsetting")
+// recordedRelationship is the recorded fact behind the relationship object
+// rel, when its owner is a record that carries one at rel's ordinal.
+func recordedRelationship(rel *symbols.Symbol) (symbols.RelationshipFacts, bool) {
+	owner := rel.Implicit.Owner
+	if !owner.Recorded() || rel.Implicit.Ordinal >= len(owner.Facts.Relationships) {
+		return symbols.RelationshipFacts{}, false
 	}
-	return m.kermlMetaclass(relationshipMetaclassNames[info.kind])
+	return owner.Facts.Relationships[rel.Implicit.Ordinal], true
 }
 
-// ownedRelationshipTarget is Relationship::target of the relationship rel
-// stands for: the feature its chain target denotes as a whole, else the element
-// its target names.
-func (m *Model) ownedRelationshipTarget(rel *symbols.Symbol) *symbols.Symbol {
-	info, ok := m.relationshipInfo[rel]
-	if !ok {
+// chainTargetFeature is the feature the chain target of the relationship object
+// rel denotes as a whole: the implicit chaining feature of KerML 8.3.3.3.9,
+// which the relationship targets and owns, and whose chainingFeature are the
+// features the chain is written as. Synthesized once per relationship and
+// owned by the element the relationship is written on; nil for a relationship
+// targeting a name.
+func (m *Model) chainTargetFeature(rel *symbols.Symbol) *symbols.Symbol {
+	if m == nil || rel == nil || rel.Implicit == nil {
 		return nil
 	}
-	if info.chain != nil {
-		return info.chain
+	var node *ast.FeatureChainExpr
+	if rel.Implicit.Node != nil {
+		node = chainNode(rel.Implicit.Node.Target)
 	}
-	if info.rel == nil || info.rel.Target == nil {
-		if info.ref.IsZero() {
+	if node == nil {
+		if facts, ok := recordedRelationship(rel); !ok || !facts.Chain {
 			return nil
 		}
-		return m.recordedElement(info.ref)
 	}
-	if _, isEnd := info.owner.Decl.(*ast.ConnectorEnd); isEnd && info.kind.ReferenceSubsets() {
-		return m.ReferencedFeature(info.owner)
+	owner := rel.Implicit.Owner
+	defer m.own(owner).LeaveDoc()
+	if cached, ok := m.chainTargets[rel]; ok {
+		return cached
 	}
-	return m.relationshipTarget(info.owner, info.rel)
+	scope := owner.Scope
+	if scope == nil {
+		// A leaf declares no scope of its own; its chain feature still needs
+		// one to be owned through.
+		scope = symbols.NewScope(owner.OwnerScope, nil)
+		scope.SetOwner(owner)
+	}
+	feature := &symbols.Symbol{
+		Kind:       symbols.SymbolReferenceUsage,
+		DocName:    owner.DocName,
+		DeclSpan:   rel.DeclSpan,
+		Visibility: ast.VisibilityDefault,
+		OwnerScope: scope,
+		Chain:      &symbols.ChainingFeature{Relationship: rel, Node: node},
+	}
+	if node != nil {
+		feature.Decl = node
+		feature.DeclSpan = node.Span()
+	}
+	journal(m, m.chainTargets, rel, owner.Decl)
+	m.chainTargets[rel] = feature
+	return feature
 }
 
-// ownedRelationshipElements is a Relationship property of the relationship rel
-// stands for; ok is false for any other symbol.
-func (m *Model) ownedRelationshipElements(rel *symbols.Symbol, property string) ([]*symbols.Symbol, bool) {
-	info, ok := m.relationshipInfo[rel]
-	if !ok {
-		return nil, false
+// ChainTargetPath is the features a relationship's chain target is written as,
+// outermost first, as resolved for a relationship of kind owned by sym: an end's
+// attachment resolves where its connector is declared, any other target where
+// sym is. Nil when target is a name or a feature of the chain resolves to nothing.
+func (m *Model) ChainTargetPath(sym *symbols.Symbol, kind ast.RelationshipKind, target ast.Node) []*symbols.Symbol {
+	chain := chainNode(target)
+	if chain == nil {
+		return nil
 	}
-	var target []*symbols.Symbol
-	if t := m.ownedRelationshipTarget(rel); t != nil {
-		target = []*symbols.Symbol{t}
+	scope := sym.OwnerScope
+	if _, isEnd := sym.Decl.(*ast.ConnectorEnd); isEnd && kind.ReferenceSubsets() {
+		scope = referenceScope(sym)
 	}
-	switch property {
-	case "source", "owningRelatedElement":
-		return []*symbols.Symbol{info.owner}, true
-	case "target":
-		return target, true
-	case "relatedElement":
-		return append([]*symbols.Symbol{info.owner}, target...), true
-	case "ownedRelatedElement":
-		if info.chain == nil {
-			return nil, true
-		}
-		return []*symbols.Symbol{info.chain}, true
-	case "owningType":
-		if !m.reflectiveMetaclassConforms(info.owner, "Type") {
-			return nil, true
-		}
-		return []*symbols.Symbol{info.owner}, true
-	}
-	return nil, false
-}
-
-// ownedRelationshipsConforming is the relationships sym owns whose metaclass
-// conforms to metaclass.
-func (m *Model) ownedRelationshipsConforming(sym *symbols.Symbol, metaclass string) []*symbols.Symbol {
-	var out []*symbols.Symbol
-	for _, rel := range m.OwnedRelationshipSymbols(sym) {
-		if m.reflectiveMetaclassConforms(rel, metaclass) {
-			out = append(out, rel)
-		}
-	}
-	return out
+	return m.attachmentPath(scope, chain)
 }
 
 // chainingFeaturesOf is Feature::chainingFeature of sym: for the feature a
 // relationship's chain target (`s.y`) denotes as a whole, the features the
 // chain is written as, in order; empty for any other feature.
 func (m *Model) chainingFeaturesOf(sym *symbols.Symbol) []*symbols.Symbol {
-	chain, ok := sym.Decl.(*ast.FeatureChainExpr)
-	if !ok || sym.OwnerScope == nil {
+	if sym.Chain == nil {
 		return nil
 	}
-	info, ok := m.relationshipInfo[sym.OwnerScope.Owner()]
-	if !ok {
+	rel := sym.Chain.Relationship
+	if sym.Chain.Node == nil {
+		facts, ok := recordedRelationship(rel)
+		if !ok {
+			return nil
+		}
+		if resolved := m.recordedSequence(facts.Path); len(resolved) == len(facts.Path) {
+			return resolved
+		}
 		return nil
 	}
-	scope := info.owner.OwnerScope
-	if _, isEnd := info.owner.Decl.(*ast.ConnectorEnd); isEnd && info.kind.ReferenceSubsets() {
-		scope = referenceScope(info.owner)
-	}
-	return m.attachmentPath(scope, chain)
+	return m.ChainTargetPath(rel.Implicit.Owner, rel.Implicit.Kind, sym.Chain.Node)
 }

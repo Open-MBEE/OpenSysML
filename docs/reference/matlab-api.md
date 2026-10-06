@@ -76,11 +76,14 @@ there are any, and `raiseForErrors()` raises with the diagnostics and model in t
 
 `get(fqn)` resolves a qualified id. `find(name)` accepts a short name and returns an empty value
 when it finds no result. `walk(depth)` traverses child symbols to the requested depth; its default
-is unlimited. `opensysml.symbol(model, id)` returns a `Symbol`, which exposes `id`, `name`,
-`kind`, `typeFacts`, `multiplicity`, `specializations`, and the decoded `record`. Its methods
-include `children()`, `attributes()`, `parts()`, `getAttr(name)`, `facts()`, and
-`attributeFacts()`. Symbol collections use cells. `opensysml.diagnostics(model)` returns
-diagnostic records with severity, message, file, line, column and code.
+is unlimited. `opensysml.getSymbol(model, id)` returns the `GetSymbol` answer as a plain record;
+`model.symbol(id)` wraps it in a `Symbol`, which exposes `id`, `name`, `kind`, `typeFacts`,
+`multiplicity`, `specializations`, and the decoded `record`. Its methods include `children()`,
+`attributes()`, `parts()`, `getAttr(name)`, `facts()`, and `attributeFacts()`. Symbol collections
+use cells. The function is `getSymbol`, not `symbol`: MATLAB names a class file after the class,
+so a `symbol.m` beside `Symbol.m` cannot coexist on a case-insensitive file system.
+`opensysml.diagnostics(model)` returns diagnostic records with severity, message, file, line,
+column and code.
 
 `opensysml.call(conn, method, request)` sends a decoded request to
 `/sysml.SysMLService/<method>`; `opensysml.callRaw(conn, method, requestJsonText)` returns
@@ -218,6 +221,10 @@ returns a `DocumentQueryResult` with `columns` and `rows`; both are cell collect
 `elementRef(id)`, and `objectRef(id, path)` are supported. `model.renderDocument(documentId,
 'form', 'markdown')` returns Markdown; `'html'` requests HTML and requires both
 `render_document` and `render_document_html`.
+`model.renderView(viewName, 'ports', 'minimal')` returns a typed
+`opensysml.RenderedView` with ordered nodes, edges, ports, rows, notes and
+origins; geometry, style and canvas are empty when absent. Use `'full'` to
+include every declared port. The call requires `render_view`.
 
 ## Edit builder
 

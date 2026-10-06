@@ -19,7 +19,7 @@ import (
 // interfaceFormatVersion is the on-disk format version of an interface record.
 // Bump it whenever InterfaceRecord, symbols.DocumentRecord or
 // symbols.LibraryFacts changes shape or meaning.
-const interfaceFormatVersion = 17
+const interfaceFormatVersion = 18
 
 // ErrUnrecordable reports a document whose interface cannot be written without
 // its tree: a fact a reader needs has no name to restore it by. The document is
@@ -231,17 +231,52 @@ func (w *interfaceWriter) facts(sym *symbols.Symbol) symbols.LibraryFacts {
 	facts.UsageKind, _ = sym.UsageKind()
 	facts.DefKind, _ = sym.DefinitionKind()
 	if rel, ok := sym.RelationshipDecl(); ok {
+		if member, memberOK := sym.Decl.(*ast.RelationshipMember); memberOK {
+			scope := sym.OwnerScope
+			if scope == nil {
+				scope = sym.Scope
+			}
+			// A chain target names no element a record can restore: leave it zero.
+			if src, resolved := w.r.ResolveTarget(scope, member.Source); resolved && src != nil {
+				rel.Source = w.ref(sym, src, "relationship source")
+			}
+			if !ast.IsFeatureChain(member.Target) {
+				if tgt, resolved := w.r.ResolveTarget(scope, member.Target); resolved && tgt != nil {
+					rel.Target = w.ref(sym, tgt, "relationship target")
+				}
+			}
+		}
 		facts.Relationship = &rel
 	}
-	for _, rel := range semantics.RelationshipsOf(sym) {
+	rels := semantics.RelationshipsOf(sym)
+	for i, rel := range rels {
 		if rel == nil {
 			continue
 		}
 		rf := symbols.RelationshipFacts{Kind: rel.Kind, Conjugated: rel.Conjugated}
+		rf.Echo = semantics.IncludeUseCaseEcho(rels, i)
+		rf.Chain = ast.IsFeatureChain(rel.Target)
 		if target := m.RelationshipTarget(sym, rel); target != nil {
 			rf.Target = w.ref(sym, target, rel.Kind.String()+" target")
 		}
+		if path := m.ChainTargetPath(sym, rel.Kind, rel.Target); len(path) > 0 {
+			rf.Path = w.refs(sym, path, rel.Kind.String()+" chain")
+		}
 		facts.Relationships = append(facts.Relationships, rf)
+	}
+	// A connector end's attachment is a reference subsetting it writes without a
+	// clause, held after its written relationships as its reflection orders it.
+	if end, ok := sym.Decl.(*ast.ConnectorEnd); ok {
+		if target := semantics.ImpliedEndReference(end); target != nil {
+			rf := symbols.RelationshipFacts{Kind: ast.RelReferences, Chain: ast.IsFeatureChain(target)}
+			if referenced := m.ReferencedFeature(sym); referenced != nil {
+				rf.Target = w.ref(sym, referenced, "connector end attachment")
+			}
+			if path := m.ChainTargetPath(sym, ast.RelReferences, target); len(path) > 0 {
+				rf.Path = w.refs(sym, path, "connector end attachment chain")
+			}
+			facts.Relationships = append(facts.Relationships, rf)
+		}
 	}
 	if subsetted := m.SubsettedMultiplicity(sym); subsetted != nil {
 		facts.Relationships = append(facts.Relationships, symbols.RelationshipFacts{

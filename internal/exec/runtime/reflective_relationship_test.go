@@ -73,10 +73,10 @@ func TestReflectiveConnectorEndsAreOwned(t *testing.T) {
 	}
 	const first = c1 + ".ownedEndFeature#(1).ownedReferenceSubsetting"
 	for property, want := range map[string]string{
-		"referencedFeature":                 "meta(test::Asm::c1::<unnamed>::<unnamed>::<unnamed> : KerML::Core::Feature)",
-		"subsettedFeature":                  "meta(test::Asm::c1::<unnamed>::<unnamed>::<unnamed> : KerML::Core::Feature)",
-		"target":                            "[meta(test::Asm::c1::<unnamed>::<unnamed>::<unnamed> : KerML::Core::Feature)]",
-		"ownedRelatedElement":               "[meta(test::Asm::c1::<unnamed>::<unnamed>::<unnamed> : KerML::Core::Feature)]",
+		"referencedFeature":                 "meta(test::Asm::c1::<unnamed>::<unnamed> : KerML::Core::Feature)",
+		"subsettedFeature":                  "meta(test::Asm::c1::<unnamed>::<unnamed> : KerML::Core::Feature)",
+		"target":                            "[meta(test::Asm::c1::<unnamed>::<unnamed> : KerML::Core::Feature)]",
+		"ownedRelatedElement":               "[meta(test::Asm::c1::<unnamed>::<unnamed> : KerML::Core::Feature)]",
 		"referencingFeature":                "meta(test::Asm::c1::<unnamed> : SysML::Systems::ReferenceUsage)",
 		"subsettingFeature":                 "meta(test::Asm::c1::<unnamed> : SysML::Systems::ReferenceUsage)",
 		"source":                            "[meta(test::Asm::c1::<unnamed> : SysML::Systems::ReferenceUsage)]",
@@ -123,9 +123,9 @@ func TestReflectivePlainUsageRelationships(t *testing.T) {
 		"(test::Derived::r meta SysML::AttributeUsage).ownedReferenceSubsetting.referencingFeature":           "[meta(test::Derived::r : SysML::Systems::AttributeUsage)]",
 		"(test::Derived::r meta SysML::AttributeUsage).ownedSubsetting.subsettedFeature":                      "[meta(test::Base::y : SysML::Systems::AttributeUsage)]",
 		"(test::Derived::deep meta SysML::AttributeUsage).ownedRedefinition.redefinedFeature.chainingFeature": "[meta(test::Base::sub : SysML::Systems::PartUsage), meta(test::Base::sub::w : SysML::Systems::AttributeUsage)]",
-		"(test::Derived::deep meta SysML::AttributeUsage).ownedRedefinition.relatedElement":                   "[meta(test::Derived::deep : SysML::Systems::AttributeUsage), meta(test::Derived::deep::<unnamed>::<unnamed> : KerML::Core::Feature)]",
-		"(test::Derived::deep meta SysML::AttributeUsage).ownedElement":                                       "[meta(test::Derived::deep::<unnamed>::<unnamed> : KerML::Core::Feature)]",
-		"(test::Derived::deep meta SysML::AttributeUsage).ownedRedefinition.ownedRelatedElement":              "[meta(test::Derived::deep::<unnamed>::<unnamed> : KerML::Core::Feature)]",
+		"(test::Derived::deep meta SysML::AttributeUsage).ownedRedefinition.relatedElement":                   "[meta(test::Derived::deep : SysML::Systems::AttributeUsage), meta(test::Derived::deep::<unnamed> : KerML::Core::Feature)]",
+		"(test::Derived::deep meta SysML::AttributeUsage).ownedElement":                                       "[meta(test::Derived::deep::<unnamed> : KerML::Core::Feature)]",
+		"(test::Derived::deep meta SysML::AttributeUsage).ownedRedefinition.ownedRelatedElement":              "[meta(test::Derived::deep::<unnamed> : KerML::Core::Feature)]",
 		"(test::Derived::deep meta SysML::AttributeUsage).ownedRedefinition.ownedElement":                     "[]",
 		"(test::Derived::deep meta SysML::AttributeUsage).ownedRedefinition.redefinedFeature.owner":           "[meta(test::Derived::deep : SysML::Systems::AttributeUsage)]",
 		"(test::Derived::x meta SysML::AttributeUsage).ownedElement":                                          "[]",

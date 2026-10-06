@@ -166,3 +166,8 @@ func (a *ConnectAdapter) RunDocumentQuery(ctx context.Context, req *connect.Requ
 func (a *ConnectAdapter) RenderDocument(ctx context.Context, req *connect.Request[pb.RenderDocumentRequest]) (*connect.Response[pb.RenderDocumentResponse], error) {
 	return connectCall(ctx, req, a.svc.RenderDocument)
 }
+
+// RenderView renders a named view or targeted pseudo-view as diagram data.
+func (a *ConnectAdapter) RenderView(ctx context.Context, req *connect.Request[pb.RenderViewRequest]) (*connect.Response[pb.RenderViewResponse], error) {
+	return connectCall(ctx, req, a.svc.RenderView)
+}

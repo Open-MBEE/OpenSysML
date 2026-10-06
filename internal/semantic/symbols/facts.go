@@ -204,6 +204,7 @@ func (f LibraryFacts) Clone() LibraryFacts {
 	f.Relationships = slices.Clone(f.Relationships)
 	for i := range f.Relationships {
 		f.Relationships[i].Target = f.Relationships[i].Target.Clone()
+		f.Relationships[i].Path = cloneRefs(f.Relationships[i].Path)
 	}
 	f.Annotations = slices.Clone(f.Annotations)
 	for i := range f.Annotations {
@@ -230,6 +231,8 @@ func (f LibraryFacts) Clone() LibraryFacts {
 	f.Default = slices.Clone(f.Default)
 	if f.Relationship != nil {
 		r := *f.Relationship
+		r.Source = r.Source.Clone()
+		r.Target = r.Target.Clone()
 		f.Relationship = &r
 	}
 	return f
@@ -250,13 +253,26 @@ type RelationshipFacts struct {
 	Kind       ast.RelationshipKind
 	Target     ElementRef
 	Conjugated bool
+	// Chain marks a target written as a feature chain (`subsets a.b`), whose
+	// recorded reference reaches only the chain's final feature.
+	Chain bool
+	// Echo marks the `includes` the parser repeats of a use case's typing
+	// target (`include use case uc : UC`), which declares no relationship.
+	Echo bool
+	// Path is the features a chain target is written as, outermost first;
+	// empty when a feature of the chain resolves to nothing.
+	Path []ElementRef
 }
 
 // RelationshipDecl is the relationship a keyword-first member declares, which
 // conjugation writes as a form of its own (`conjugation C conjugate A ~ B;`).
+// Source and Target are the ends the member names, zero when one resolved to
+// nothing; a record carries them only.
 type RelationshipDecl struct {
 	Kind       ast.RelationshipKind
 	Conjugated bool
+	Source     ElementRef
+	Target     ElementRef
 }
 
 // RelationshipDecl is the relationship the symbol's keyword-first member

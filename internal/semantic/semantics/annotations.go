@@ -121,14 +121,10 @@ func (m *Model) DeclaredAnnotationFactsOf(sym *symbols.Symbol) []symbols.Annotat
 // clause states on the elements it names — its type and bound values — as an
 // interface record keeps it; nil for any other symbol.
 func (m *Model) AboutAnnotationFactsOf(sym *symbols.Symbol) *symbols.AnnotationFacts {
-	if sym == nil || sym.Kind != symbols.SymbolMetadataUsage {
+	if sym == nil || sym.Kind != symbols.SymbolMetadataUsage || !annotatesOthers(sym.Decl) {
 		return nil
 	}
-	usage, ok := sym.Decl.(*ast.Usage)
-	if !ok || !annotatesOthers(usage) {
-		return nil
-	}
-	a, ok := m.usageAnnotation(sym.OwnerScope, usage)
+	a, ok := m.metadataAnnotation(sym.OwnerScope, sym.Decl)
 	if !ok {
 		return nil
 	}
@@ -142,11 +138,10 @@ func (m *Model) AboutAnnotationFactsOf(sym *symbols.Symbol) *symbols.AnnotationF
 // AnnotatedElementsOf returns the elements a metadata usage annotates through
 // its `about` clause, resolved; nil for any other symbol.
 func (m *Model) AnnotatedElementsOf(sym *symbols.Symbol) []*symbols.Symbol {
-	usage, ok := sym.Decl.(*ast.Usage)
-	if !ok || sym.Kind != symbols.SymbolMetadataUsage || !annotatesOthers(usage) {
+	if sym.Kind != symbols.SymbolMetadataUsage || !annotatesOthers(sym.Decl) {
 		return nil
 	}
-	targets := m.annotatedElements(sym.OwnerScope, usage)
+	targets := m.annotatedElements(sym.OwnerScope, sym.Decl)
 	out := make([]*symbols.Symbol, len(targets))
 	for i, target := range targets {
 		out[i] = target.sym
@@ -407,20 +402,14 @@ func (m *Model) declaredAnnotations(sym *symbols.Symbol) []annotation {
 		if mem, ok := member.(*ast.Membership); ok {
 			member = mem.Member
 		}
-		switch decl := member.(type) {
-		case *ast.PrefixMetadata:
-			// `part seatBelt {@Safety{isMandatory = true;}}`: prefix metadata
-			// written as a member annotates the element owning the body.
-			if a, ok := m.prefixAnnotation(memberScope(sym, scope), decl); ok {
-				out = append(out, a)
-			}
-		case *ast.Usage:
-			if decl.Kind != ast.UsageMetadata || annotatesOthers(decl) {
-				continue
-			}
-			if a, ok := m.usageAnnotation(memberScope(sym, scope), decl); ok {
-				out = append(out, a)
-			}
+		// `part seatBelt {@Safety{isMandatory = true;}}`: a metadata usage written
+		// as a member annotates the element owning the body, unless it states
+		// what it annotates with an `about` clause.
+		if !isMetadataUsage(member) || annotatesOthers(member) {
+			continue
+		}
+		if a, ok := m.metadataAnnotation(memberScope(sym, scope), member); ok {
+			out = append(out, a)
 		}
 	}
 	return out
@@ -433,6 +422,32 @@ func memberScope(sym *symbols.Symbol, outer *symbols.Scope) *symbols.Scope {
 		return sym.Scope
 	}
 	return outer
+}
+
+// isMetadataUsage reports whether node declares a metadata usage, in either
+// spelling: `@M ...;` or `metadata m : M ...;`.
+func isMetadataUsage(node ast.Node) bool {
+	switch n := node.(type) {
+	case *ast.PrefixMetadata:
+		return true
+	case *ast.Usage:
+		return n.Kind == ast.UsageMetadata
+	default:
+		return false
+	}
+}
+
+// metadataAnnotation reads the annotation a metadata usage states, in either
+// spelling, its names resolved in scope.
+func (m *Model) metadataAnnotation(scope *symbols.Scope, decl ast.Node) (annotation, bool) {
+	switch d := decl.(type) {
+	case *ast.PrefixMetadata:
+		return m.prefixAnnotation(scope, d)
+	case *ast.Usage:
+		return m.usageAnnotation(scope, d)
+	default:
+		return annotation{}, false
+	}
 }
 
 // prefixAnnotation reads one prefix-metadata annotation.
@@ -660,16 +675,15 @@ func (m *Model) indexAboutUsage(sym *symbols.Symbol) {
 		m.indexRecordedAboutUsage(sym)
 		return
 	}
-	usage, ok := sym.Decl.(*ast.Usage)
-	if !ok || !annotatesOthers(usage) {
+	if !annotatesOthers(sym.Decl) {
 		return
 	}
-	a, ok := m.usageAnnotation(sym.OwnerScope, usage)
+	a, ok := m.metadataAnnotation(sym.OwnerScope, sym.Decl)
 	if !ok {
 		return
 	}
 	a.about = true
-	m.indexAbout(a, m.annotatedElements(sym.OwnerScope, usage))
+	m.indexAbout(a, m.annotatedElements(sym.OwnerScope, sym.Decl))
 }
 
 // indexRecordedAboutUsage indexes an `about` metadata usage a record carries:
@@ -714,16 +728,9 @@ type aboutTarget struct {
 
 // annotatedElements resolves the elements a metadata usage's `about` clause
 // names.
-func (m *Model) annotatedElements(scope *symbols.Scope, u *ast.Usage) []aboutTarget {
+func (m *Model) annotatedElements(scope *symbols.Scope, decl ast.Node) []aboutTarget {
 	var out []aboutTarget
-	for _, rel := range u.Relationships {
-		if rel == nil || rel.Kind != ast.RelAnnotates {
-			continue
-		}
-		qn, ok := rel.Target.(*ast.QualifiedName)
-		if !ok {
-			continue
-		}
+	for _, qn := range symbols.MetadataAboutRefs(decl) {
 		target, ok := m.resolver.ResolveQualified(scope, qn)
 		if !ok || target == nil {
 			continue
@@ -738,8 +745,8 @@ func (m *Model) annotatedElements(scope *symbols.Scope, u *ast.Usage) []aboutTar
 }
 
 // annotatesOthers reports whether a metadata usage states what it annotates
-// (`metadata m about p;`), rather than annotating the element owning it.
-func annotatesOthers(u *ast.Usage) bool { return symbols.UsageAnnotatesOthers(u) }
+// (`metadata m about p;`, `@M about p;`), rather than annotating the element owning it.
+func annotatesOthers(decl ast.Node) bool { return symbols.AnnotatesOthers(decl) }
 
 // annotationValues reads the feature values an annotation body binds, as in
 // `@Safety{isMandatory = true;}`. A binding whose value is not a constant or an
@@ -950,13 +957,15 @@ func (m *Model) metaclassOf(sym *symbols.Symbol) *symbols.Symbol {
 	if sym == nil {
 		return nil
 	}
-	// A relationship a declaration owns, and the feature its chain target
-	// denotes, are KerML elements in either language.
-	if info, ok := m.relationshipInfo[sym]; ok {
-		return m.ownedRelationshipMetaclass(info)
-	}
-	if _, ok := sym.Decl.(*ast.FeatureChainExpr); ok {
+	// The feature a relationship's chain target denotes is a KerML Feature in
+	// either language.
+	if sym.Chain != nil {
 		return m.kermlMetaclass("Feature")
+	}
+	// A relationship written as notation is classified by the metaclass its
+	// kind and owner's classification select.
+	if sym.Implicit != nil {
+		return m.implicitRelationshipMetaclass(sym)
 	}
 	// A relationship written keyword-first is classified by its own kind in
 	// either language, since no symbol kind distinguishes its forms.
@@ -988,6 +997,13 @@ func (m *Model) metaclassOf(sym *symbols.Symbol) *symbols.Symbol {
 	}
 	if meta := m.kermlMetaclass(kermlMetaclassName(sym, m.isKerMLDoc(sym))); meta != nil {
 		return meta
+	}
+	// An extended definition (`#service def X`) is a SysML Definition however
+	// its extension keywords name it (SysML.xtext).
+	if sym.Kind == symbols.SymbolKerMLType && !m.isKerMLDoc(sym) && extendedDefinition(sym) {
+		if meta := m.sysmlMetaclass("Definition"); meta != nil {
+			return meta
+		}
 	}
 	return m.sysmlMetaclass(sysmlMetaclassName(sym))
 }
@@ -1040,6 +1056,18 @@ func sysmlMetaclassName(sym *symbols.Symbol) string {
 		}
 	}
 	return metaclassName(sym.Kind)
+}
+
+// extendedDefinition reports whether sym is an extended definition: a
+// `#kw def X` declaration, parsed as a def-keyworded Definition with no kind
+// keyword (SysML.xtext ExtendedDefinition).
+func extendedDefinition(sym *symbols.Symbol) bool {
+	if sym.Recorded() {
+		return sym.Facts.Node == symbols.NodeDefinition &&
+			sym.Facts.Keyword == "" && sym.Facts.DefKind == ast.DefClass
+	}
+	d, ok := sym.Decl.(*ast.Definition)
+	return ok && d.Keyword == "" && d.HasDefKeyword
 }
 
 // ConnectorEndMetaclassName is the SysML metaclass of a connector end: a
@@ -1286,6 +1314,19 @@ func (m *Model) ReflectiveElements(sym *symbols.Symbol, feature string) ([]*symb
 	if m == nil || sym == nil {
 		return nil, false
 	}
+	// A reflected relationship object answers only the features its metaclass
+	// owns; no generic Element path applies to a synthetic symbol.
+	if sym.Implicit != nil {
+		return m.implicitRelationshipElements(sym, feature)
+	}
+	if rel, ok := sym.RelationshipDecl(); ok {
+		if elems, derived := m.relationshipMemberElements(sym, rel, feature); derived {
+			return elems, true
+		}
+	}
+	if elems, ok := m.implicitOwnerElements(sym, feature); ok {
+		return elems, true
+	}
 	switch feature {
 	case "owningNamespace":
 		if !m.reflectiveMetaclassConforms(sym, "Element") {
@@ -1297,9 +1338,6 @@ func (m *Model) ReflectiveElements(sym *symbols.Symbol, feature string) ([]*symb
 		}
 		return []*symbols.Symbol{owner}, true
 	case "owningType":
-		if _, isRelationship := m.relationshipInfo[sym]; isRelationship {
-			return m.ownedRelationshipElements(sym, feature)
-		}
 		if !m.reflectiveMetaclassConforms(sym, "Feature") {
 			return nil, false
 		}
@@ -1449,8 +1487,6 @@ func (m *Model) ReflectiveElements(sym *symbols.Symbol, feature string) ([]*symb
 			return nil, false
 		}
 		return m.chainingFeaturesOf(sym), true
-	case "source", "target", "relatedElement", "ownedRelatedElement", "owningRelatedElement":
-		return m.ownedRelationshipElements(sym, feature)
 	case "unioningType":
 		if !m.reflectiveMetaclassConforms(sym, "Type") {
 			return nil, false
@@ -1467,22 +1503,14 @@ func (m *Model) ReflectiveElements(sym *symbols.Symbol, feature string) ([]*symb
 		}
 		return m.DifferencingTypes(sym), true
 	case "owner":
-		if owner := m.reflectiveOwner(sym); owner != nil {
-			return []*symbols.Symbol{owner}, true
+		if sym.OwnerScope == nil || sym.OwnerScope.Owner() == nil {
+			return nil, true
 		}
-		return nil, true
+		return []*symbols.Symbol{sym.OwnerScope.Owner()}, true
 	case "ownedMember":
 		return ownedMembersOf(sym), true
 	case "ownedElement":
 		return m.ownedElementsOf(sym), true
-	case "ownedSpecialization", "ownedSubclassification", "ownedTyping", "ownedSubsetting",
-		"ownedRedefinition", "ownedReferenceSubsetting", "ownedCrossSubsetting",
-		"ownedFeatureInverting", "ownedTypeFeaturing", "ownedDisjoining":
-		property := ownedRelationshipProperties[feature]
-		if !m.reflectiveMetaclassConforms(sym, property.owner) {
-			return nil, false
-		}
-		return m.ownedRelationshipsConforming(sym, property.relationship), true
 	case "member":
 		return m.membersIncludingAnonymous(sym), true
 	case "feature":
@@ -1726,28 +1754,8 @@ func (m *Model) dependencyEnds(sym *symbols.Symbol, names []*ast.QualifiedName) 
 
 // ownedElementsOf is Element::ownedElement: the members sym's body declares,
 // the named ones in declaration order and then those declared without a
-// name, and its documentation.
-// reflectiveOwner is Element::owner of sym: the owner of its scope, or, for
-// the chain feature a relationship owns, the element owning that relationship
-// (KerML 8.3.2.1: owningRelationship.owningRelatedElement).
-func (m *Model) reflectiveOwner(sym *symbols.Symbol) *symbols.Symbol {
-	if sym.OwnerScope == nil {
-		return nil
-	}
-	owner := sym.OwnerScope.Owner()
-	if info, isRelationship := m.relationshipInfo[owner]; isRelationship {
-		return info.owner
-	}
-	return owner
-}
-
-// ownedElementsOf is Element::ownedElement of sym: the elements its owned
-// relationships own (KerML 8.3.2.1), so a relationship, which owns its chain
-// feature directly rather than through a relationship of its own, owns none.
+// name, its documentation, and the chaining features its relationships own.
 func (m *Model) ownedElementsOf(sym *symbols.Symbol) []*symbols.Symbol {
-	if _, isRelationship := m.relationshipInfo[sym]; isRelationship {
-		return nil
-	}
 	members := ownedMembersOf(sym)
 	seen := make(map[*symbols.Symbol]bool, len(members))
 	for _, member := range members {
@@ -1769,14 +1777,11 @@ func (m *Model) ownedElementsOf(sym *symbols.Symbol) []*symbols.Symbol {
 		}
 	}
 	// A relationship's chain target is an element the declaration owns through
-	// the relationship (`::> a.b`).
-	for _, rel := range m.OwnedRelationshipSymbols(sym) {
-		owned, _ := m.ownedRelationshipElements(rel, "ownedRelatedElement")
-		for _, elem := range owned {
-			if !seen[elem] {
-				seen[elem] = true
-				members = append(members, elem)
-			}
+	// the relationship (`::> a.b`), KerML 8.3.2.1.
+	for _, rel := range m.ImplicitRelationships(sym) {
+		if chain := m.chainTargetFeature(rel); chain != nil && !seen[chain] {
+			seen[chain] = true
+			members = append(members, chain)
 		}
 	}
 	return members
@@ -1987,6 +1992,9 @@ func (m *Model) ReflectiveFeatureValues(sym *symbols.Symbol, feature string) ([]
 	if m == nil || sym == nil {
 		return nil, false
 	}
+	if sym.Implicit != nil {
+		return m.implicitRelationshipValues(sym, feature)
+	}
 	if feature == "documentation" {
 		bodies := m.DocumentationOf(sym)
 		values := make([]symbols.FilterValue, 0, len(bodies))
@@ -2018,7 +2026,19 @@ func (m *Model) ReflectiveFeatureValues(sym *symbols.Symbol, feature string) ([]
 // metaclass feature of it, and whether that feature is derived here at all
 // (KerML 1.1 §8.2.4); an underived one is unevaluable, not false.
 func (m *Model) reflectiveFeatureValue(sym *symbols.Symbol, feature string) (symbols.FilterValue, bool) {
+	if sym.Implicit != nil {
+		return m.implicitRelationshipValue(sym, feature)
+	}
 	switch feature {
+	case "isImplied":
+		if _, ok := sym.RelationshipDecl(); ok {
+			return boolValue(false), true
+		}
+	case "isConjugated":
+		if !m.reflectiveMetaclassConforms(sym, "Type") {
+			return symbols.FilterValue{}, false
+		}
+		return boolValue(len(m.ownedImplicitRelationships(sym, conjugationMetaclass)) > 0), true
 	case "name", "declaredName":
 		return stringOrEmpty(simpleSymbolName(sym)), true
 	case "shortName":
@@ -2031,12 +2051,6 @@ func (m *Model) reflectiveFeatureValue(sym *symbols.Symbol, feature string) (sym
 			return emptyValue(), true
 		}
 		return stringOrEmpty(m.fqnOf(sym)), true
-	case "isImplied":
-		// A relationship a declaration owns is written, not implied.
-		if _, ok := m.relationshipInfo[sym]; !ok {
-			return symbols.FilterValue{}, false
-		}
-		return boolValue(false), true
 	case "direction":
 		direction, ok := ReflectiveDirection(sym)
 		if !ok {
@@ -2071,7 +2085,8 @@ func (m *Model) reflectiveFeatureValue(sym *symbols.Symbol, feature string) (sym
 	switch feature {
 	case "isVariation":
 		isDefinition := sym.Kind.IsDefinition() &&
-			sym.Kind != symbols.SymbolMetaclass && sym.Kind != symbols.SymbolKerMLType &&
+			sym.Kind != symbols.SymbolMetaclass &&
+			(sym.Kind != symbols.SymbolKerMLType || extendedDefinition(sym)) &&
 			!m.isKerMLDoc(sym)
 		if !isDefinition &&
 			!m.reflectiveMetaclassConforms(sym, "Usage") {

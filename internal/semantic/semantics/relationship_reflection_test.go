@@ -101,13 +101,6 @@ func TestReflectiveConnectorEndsAreOwnedMembers(t *testing.T) {
 				if typings := reflectiveElementsOf(t, fixture.model, end, "ownedTyping"); len(typings) != 0 {
 					t.Errorf("%s end %d ownedTyping = %v, want none", name, i, fqns(typings))
 				}
-				if connector.Recorded() {
-					// A record keeps the feature the chain resolves to.
-					if fixture.model.fqnOf(target) != wantTips[i] {
-						t.Errorf("recorded %s end %d references %s, want %s", name, i, fixture.model.fqnOf(target), wantTips[i])
-					}
-					continue
-				}
 				if meta := fixture.model.metaclassOf(target); fixture.model.fqnOf(meta) != "KerML::Core::Feature" {
 					t.Errorf("%s end %d references a %s, want the chain as a Feature", name, i, fixture.model.fqnOf(meta))
 				}
@@ -197,13 +190,7 @@ func TestReflectivePlainUsagesOwnTheirRelationships(t *testing.T) {
 
 		deep := nestedSym(t, fixture.root, "P::Derived::deep")
 		_, target = singleRelationship(t, model, deep, "ownedRedefinition", "KerML::Core::Redefinition")
-		if deep.Recorded() {
-			if model.fqnOf(target) != "P::Base::sub::w" {
-				t.Errorf("recorded deep redefines %s, want P::Base::sub::w", model.fqnOf(target))
-			}
-		} else {
-			assertReflectiveElements(t, model, target, "chainingFeature", "P::Base::sub", "P::Base::sub::w")
-		}
+		assertReflectiveElements(t, model, target, "chainingFeature", "P::Base::sub", "P::Base::sub::w")
 
 		derived := nestedSym(t, fixture.root, "P::Derived")
 		_, target = singleRelationship(t, model, derived, "ownedSubclassification", "KerML::Core::Subclassification")

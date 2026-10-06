@@ -471,8 +471,9 @@ func (e *encoder) encodeTransition(n *ast.TransitionMember, head func(rdf.Term),
 	if n.Via != nil && !structural {
 		e.graph.Add(subject, e.sysml(relationshipProperty[ast.RelVia]), e.reference(n.Via))
 	}
-	// The guard reads the parameters the trigger declares, in the transition's scope.
-	if err := e.expression(subject, e.sysx(xGuard), xGuard, fqn, n.Guard); err != nil {
+	// The guard reads the parameters the trigger declares, in the transition's
+	// scope, and is owned through a TransitionFeatureMembership of kind guard.
+	if err := e.expressionAs(subject, e.sysx(xGuard), xGuard, fqn, n.Guard, mTransitionFeatureMembership); err != nil {
 		return err
 	}
 	if n.HasEffect {
@@ -1252,6 +1253,12 @@ func (d *decoder) initialEndsAgree(el *element) error {
 		if err != nil {
 			return err
 		}
+		if !ok {
+			return &UnsupportedError{
+				What: fmt.Sprintf("the succession <%s>", el.iri),
+				Note: fmt.Sprintf("its connector end <%s> has no ReferenceSubsetting or sysml:references target, so `first a then b` would invent one from its sysml:%s", ends[i].Value, []string{pSourceFeature, pTargetFeature}[i]),
+			}
+		}
 		// `first a then b` writes each end as the bare feature it names; a
 		// name or bounds the end declares have no place there.
 		name, err := d.standardEndName(ends[i], el)
@@ -1270,7 +1277,7 @@ func (d *decoder) initialEndsAgree(el *element) error {
 		}
 		// A literal names a feature the graph does not link, so it is no
 		// identity to compare with.
-		if ok && got != want && !got.IsLiteral() && !want.IsLiteral() {
+		if got != want && !got.IsLiteral() && !want.IsLiteral() {
 			property := []string{pSourceFeature, pTargetFeature}[i]
 			return &UnsupportedError{
 				What: fmt.Sprintf("the succession <%s>", el.iri),

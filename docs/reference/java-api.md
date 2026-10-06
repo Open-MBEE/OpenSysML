@@ -11,7 +11,7 @@ dependency footprint, service ownership and release verification are in
 <dependency>
   <groupId>org.openmbee</groupId>
   <artifactId>opensysml</artifactId>
-  <version>0.9.1</version>
+  <version>0.9.2</version>
 </dependency>
 ```
 
@@ -363,6 +363,12 @@ page.markdown();             // the rendered notation
 RenderedDocument html = model.renderDocument("Observatory::MassReport", DocumentForm.HTML);
 html.html();                 // the same document as HTML
 ```
+
+`model.renderView("Demo::Overview")` returns a typed `RenderedView` with
+ordered nodes, edges, ports, source spans, table data and notes. Optional
+geometry, style and canvas remain `Optional` when the view does not state them.
+Use `RenderViewPorts.FULL` to include every declared port; the default is
+`MINIMAL`. This call requires the `render_view` capability.
 
 `DocumentValue` is sealed over `ElementRef`, `ObjectRef` (an `Instance` plus its
 element ids), `Verdict`, `State`, `Event`, `LiteralValue` (wrapping a `Value`),
