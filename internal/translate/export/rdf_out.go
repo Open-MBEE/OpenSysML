@@ -550,6 +550,7 @@ func newEncoderOver(file *source.SourceFile, root *ast.RootNamespace, form IDFor
 		performed:          map[ast.Node]bool{},
 		effects:            map[ast.Node]bool{},
 		triggerParams:      map[ast.Node]string{},
+		acceptPayloads:     map[ast.Node]rdf.Term{},
 		triggerMembers:     map[ast.Node]string{},
 		payloads:           map[*ast.Usage]*ast.Usage{},
 		payloadFeatures:    map[*ast.Usage]bool{},
@@ -605,7 +606,10 @@ type encoder struct {
 	effects map[ast.Node]bool
 	// triggerParams holds the parameters of a transition's trigger action: each
 	// maps to the AcceptActionUsage property that names it, if any.
-	triggerParams  map[ast.Node]string
+	triggerParams map[ast.Node]string
+	// acceptPayloads holds the payload parameter of each accept node, mapped
+	// to the AcceptActionUsage that owns it as its payloadParameter.
+	acceptPayloads map[ast.Node]rdf.Term
 	triggerMembers map[ast.Node]string
 	// payloads holds the PayloadFeature each flow's `of` clause declares, keyed
 	// by the flow: the declared feature of `of p : T`, or one made up for
@@ -1330,6 +1334,16 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 			e.graph.Add(ownerTerm, e.sysml(pEffectAction), subject)
 		}
 	}
+	if accepter, ok := e.acceptPayloads[node]; ok {
+		// An accept node's payload is its payloadParameter, owned as a
+		// parameter (SysML.xtext AcceptNodeDeclaration, PayloadParameterMember).
+		h.membershipClass = mParameterMembership
+		h.membershipExtra = func(membership rdf.Term) {
+			e.graph.Add(membership, e.sysml(pOwnedMemberParameter), subject)
+			e.graph.Add(accepter, e.sysml(pParameter), subject)
+			e.graph.Add(accepter, e.sysml(pPayloadParameter), subject)
+		}
+	}
 	if property, ok := e.triggerParams[node]; ok {
 		h.membershipClass = mParameterMembership
 		h.membershipExtra = func(membership rdf.Term) {
@@ -1418,6 +1432,9 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 		metaclass, ok := usageMetaclassOf(n, inBody)
 		if e.performed[n] {
 			metaclass = mPerform
+		}
+		if metaclass == mAcceptAction {
+			e.acceptPayloads[acceptPayload(n)] = subject
 		}
 		payload := e.payloadFeatures[n]
 		if payload {

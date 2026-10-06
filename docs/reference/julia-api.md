@@ -107,7 +107,10 @@ classification, with partial records on `trace` and the discarded count on
 
 `decode_value` decodes the service's value oneof and `encode_value` creates
 request values. The mapping retains exact `Int64` values and `BigInt` ones
-beyond `Int64`, decodes sequences and sets recursively, and exposes
+beyond `Int64`, decodes an exact Rational no `Float64` holds (`rationalValue`, a quantity's
+`rationalMagnitude`) as `Rational{BigInt}`, sends every `Rational` (`1//4` included) as
+`rationalValue` to a service with the `rational_values` capability and, to one without it, one a
+`Float64` holds as that `realValue` while refusing any other (a `Float64` sent is always a Real), decodes sequences and sets recursively, and exposes
 structured values through `Quantity`, `EnumLiteral`, `ArrayValue`,
 `VectorValue`, `VectorQuantity`, `TensorQuantity`, `MeasurementRef`,
 `FunctionRef`, `Metaobject`, `Undetermined`, `Unset`, and `Infinity`.

@@ -78,8 +78,8 @@ func TestBodyLocalCalcUsageInLoopBindsPerIteration(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Propagate(%d): %v", want.n, err)
 		}
-		if got.Const.Real != want.value {
-			t.Errorf("Propagate(%d) = %v, want %v", want.n, got.Const.Real, want.value)
+		if got.Const.AsReal() != want.value {
+			t.Errorf("Propagate(%d) = %v, want %v", want.n, got.Const.AsReal(), want.value)
 		}
 	}
 }
@@ -97,8 +97,8 @@ func TestBodyLocalCalcUsageInBranch(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Branch(3): %v", err)
 	}
-	if taken.Const.Real != 3.0 {
-		t.Errorf("Branch(3) = %v, want 3", taken.Const.Real)
+	if taken.Const.AsReal() != 3.0 {
+		t.Errorf("Branch(3) = %v, want 3", taken.Const.AsReal())
 	}
 
 	// k = -2: the else branch's usage binds pv = 1, so dx = 1.
@@ -106,8 +106,8 @@ func TestBodyLocalCalcUsageInBranch(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Branch(-2): %v", err)
 	}
-	if other.Const.Real != 1.0 {
-		t.Errorf("Branch(-2) = %v, want 1", other.Const.Real)
+	if other.Const.AsReal() != 1.0 {
+		t.Errorf("Branch(-2) = %v, want 1", other.Const.AsReal())
 	}
 }
 
@@ -123,8 +123,8 @@ func TestBodyLocalCalcUsageInNestedBodies(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NestedBodies(3): %v", err)
 	}
-	if got.Const.Real != 2.0 {
-		t.Errorf("NestedBodies(3) = %v, want 2", got.Const.Real)
+	if got.Const.AsReal() != 2.0 {
+		t.Errorf("NestedBodies(3) = %v, want 2", got.Const.AsReal())
 	}
 }
 

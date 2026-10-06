@@ -104,7 +104,8 @@ package Demo {
 }
 `)
 	cases := []struct{ fqn, prim string }{
-		{"Demo::Vehicle::mass", "Real"},
+		// A LiteralRational's value is classified in Rational (KerML 8.4.4.9.2).
+		{"Demo::Vehicle::mass", "Rational"},
 		{"Demo::Vehicle::doors", "Integer"},
 		{"Demo::Vehicle::electric", "Boolean"},
 		{"Demo::Vehicle::name", "String"},

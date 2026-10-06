@@ -8,11 +8,12 @@ import (
 	"testing"
 )
 
-// realVars are named Real-sorted variables for building queries by hand.
+// realVars are named variables declared Real, held in binary64, for building
+// queries by hand.
 func realVars(names ...string) []*Var {
 	vars := make([]*Var, len(names))
 	for i, name := range names {
-		vars[i] = &Var{Name: name, Sort: Real}
+		vars[i] = &Var{Name: name, Sort: Real, Binary64: true}
 	}
 	return vars
 }
@@ -86,54 +87,61 @@ func TestRoundingSoundSharedSites(t *testing.T) {
 	}
 }
 
-// TestRoundingSoundRatioIsOneSite: a whole-number quotient is the exact ratio
-// rounded once, so its integer operands' widenings are not separate sites.
-func TestRoundingSoundRatioIsOneSite(t *testing.T) {
+// TestRoundingSoundRatioIsExact: a whole-number quotient is the exact Rational,
+// so it is no site at all.
+func TestRoundingSoundRatioIsExact(t *testing.T) {
 	a := &Var{Name: "a", Sort: Int}
 	b := &Var{Name: "b", Sort: Int}
 	q := &Query{Kind: "constraint", Element: "C", Vars: []*Var{a, b}, Assertions: []Assertion{
 		{Term: Binary(OpGt, Bool, RatioDiv(VarTerm(a), VarTerm(b)), RealTerm(big.NewRat(1, 1))), From: Provenance{Role: RoleRequired}},
 	}}
 	sound := q.RoundingSound()
-	if n := len(siteVars(sound)); n != 1 {
-		t.Fatalf("declared %d site variables, want the quotient's one: %v", n, sound.Vars)
+	if n := len(siteVars(sound)); n != 0 {
+		t.Fatalf("declared %d site variables, want none: %v", n, sound.Vars)
 	}
-	if got := writeTerm(sound.Assertions[0].Term); got != "(> |rounded!!0| 1.0)" {
+	if got := writeTerm(sound.Assertions[0].Term); got != "(> (/ (to_real a) (to_real b)) 1.0)" {
 		t.Errorf("rewritten assertion is %s", got)
 	}
 }
 
 // TestRoundingSoundNegationIsExact: negation is not a site — the float64
-// negation is exact — while a widened integer is one, rounding beyond 2^53.
+// negation is exact — while an Integer operand of Real arithmetic is one,
+// rounding beyond 2^53, as is the sum.
 func TestRoundingSoundNegationIsExact(t *testing.T) {
 	vars := realVars("x")
 	i := &Var{Name: "i", Sort: Int}
 	q := &Query{Kind: "constraint", Element: "C", Vars: append(vars, i), Assertions: []Assertion{
-		{Term: Binary(OpGt, Bool, Unary(OpNeg, Real, VarTerm(vars[0])), ToReal(VarTerm(i))), From: Provenance{Role: RoleRequired}},
+		{Term: Binary(OpGt, Bool, Binary(OpAdd, Real, Unary(OpNeg, Real, VarTerm(vars[0])), ToReal(VarTerm(i))), RealTerm(new(big.Rat))), From: Provenance{Role: RoleRequired}},
 	}}
 	sound := q.RoundingSound()
 	sites := siteVars(sound)
-	if len(sites) != 1 {
-		t.Fatalf("declared %d site variables, want only the widened integer's", len(sites))
+	if len(sites) != 2 {
+		t.Fatalf("declared %d site variables, want the widened integer's and the sum's", len(sites))
 	}
-	if got := writeTerm(sound.Assertions[0].Term); got != "(> (- x) |rounded!!0|)" {
+	if got := writeTerm(sound.Assertions[0].Term); got != "(> |rounded!!1| 0.0)" {
 		t.Errorf("rewritten assertion is %s", got)
 	}
 }
 
-// TestRoundingSoundLiteralIsTheFloat64: a real literal is the exact rational of
-// the float64 the evaluator parses — 0.1 is not the real 1/10.
+// TestRoundingSoundLiteralIsTheFloat64: an exact literal binary64 arithmetic
+// meets is the exact rational of its nearest float64 — 0.1 + x rounds 1/10.
 func TestRoundingSoundLiteralIsTheFloat64(t *testing.T) {
 	vars := realVars("x")
 	tenth, _ := new(big.Rat).SetString("0.1")
 	q := &Query{Kind: "constraint", Element: "C", Vars: vars, Assertions: []Assertion{
-		{Term: Binary(OpGt, Bool, VarTerm(vars[0]), RealTerm(tenth)), From: Provenance{Role: RoleRequired}},
+		{Term: Binary(OpGt, Bool, Binary(OpAdd, Real, VarTerm(vars[0]), RealTerm(tenth)), RealTerm(new(big.Rat))), From: Provenance{Role: RoleRequired}},
 	}}
 	sound := q.RoundingSound()
-	comparison := sound.Assertions[0].Term
-	lit := comparison.Args[1]
-	if lit.Op != OpReal {
-		t.Fatalf("rewritten literal is %s", writeTerm(comparison))
+	var lit *Term
+	for _, a := range axioms(sound) {
+		walkTerms(a.Term, func(t *Term) {
+			if t.Op == OpAdd && t.Args[1].Op == OpReal {
+				lit = t.Args[1]
+			}
+		})
+	}
+	if lit == nil {
+		t.Fatalf("no rewritten sum in:\n%s", Script(sound))
 	}
 	f, _ := tenth.Float64()
 	exact := new(big.Rat).SetFloat64(f)
@@ -147,8 +155,8 @@ func TestRoundingSoundLiteralIsTheFloat64(t *testing.T) {
 // the assertion order, and the operands deciding an `and`, `or`, `implies` or
 // `ite` within a term.
 func TestRoundingSoundEvaluationGuards(t *testing.T) {
-	x := &Var{Name: "x", Sort: Real}
-	y := &Var{Name: "y", Sort: Real}
+	x := &Var{Name: "x", Sort: Real, Binary64: true}
+	y := &Var{Name: "y", Sort: Real, Binary64: true}
 	b := &Var{Name: "b", Sort: Bool}
 	site0 := Binary(OpAdd, Real, VarTerm(x), RealTerm(big.NewRat(1, 1)))
 	site1 := Binary(OpMul, Real, VarTerm(y), RealTerm(big.NewRat(2, 1)))
@@ -346,8 +354,8 @@ func TestRoundingSoundDivergenceNotProved(t *testing.T) {
 // evaluation condition is unconditional, and no term in the rewritten query
 // carries a nil argument.
 func TestRoundingSoundSharedSiteOnTheOpenPath(t *testing.T) {
-	x := &Var{Name: "x", Sort: Real}
-	y := &Var{Name: "y", Sort: Real}
+	x := &Var{Name: "x", Sort: Real, Binary64: true}
+	y := &Var{Name: "y", Sort: Real, Binary64: true}
 	sum := Binary(OpAdd, Real, VarTerm(x), VarTerm(y))
 	rw := &roundingRewrite{sites: map[string]*roundingSite{}}
 	term := rw.rewrite(Or(
@@ -405,5 +413,13 @@ func TestRoundingSoundSharedTautologyProves(t *testing.T) {
 	}
 	if result.Status != StatusUnsat || !result.RoundingProved {
 		t.Fatalf("result is %s proved=%v, want unsat proved", result.Status, result.RoundingProved)
+	}
+}
+
+// walkTerms visits a term and every term beneath it.
+func walkTerms(t *Term, visit func(*Term)) {
+	visit(t)
+	for _, arg := range t.Args {
+		walkTerms(arg, visit)
 	}
 }

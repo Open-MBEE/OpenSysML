@@ -526,6 +526,9 @@ func TestLiteralValuesAreSpelledAsTokens(t *testing.T) {
 		{rational, `sysml:value "3."^^xsd:decimal ;`, "x * 3.0", ""},
 		{rational, `sysml:value "3.E2"^^xsd:double ;`, "x * 3.0E2", ""},
 		{rational, `sysml:value ".5"^^xsd:decimal ;`, "x * .5", ""},
+		{rational, `sysml:value "0.1"^^xsd:double ;`, "x * 0.1000000000000000055511151231257827021181583404541015625", ""},
+		{rational, `sysml:value "0.1"^^xsd:float ;`, "x * 0.100000001490116119384765625", ""},
+		{rational, `sysml:value "0.5"^^xsd:float ;`, "x * 0.5", ""},
 		{boolean, `sysml:value "1"^^xsd:boolean .`, "in expr always {\n            true\n        }", ""},
 		{boolean, `sysml:value "0"^^xsd:boolean .`, "in expr always {\n            false\n        }", ""},
 		{integer, `sysml:value "-2"^^xsd:integer ;`, "", `the expression <urn:opensysml:expr:Results__Double___401_pa1>: the notation spells an integer literal as digits alone, not "-2"`},
@@ -554,6 +557,40 @@ func TestLiteralValuesAreSpelledAsTokens(t *testing.T) {
 		if _, err := convert.Convert("m.sysml", back, convert.FormatSysML, convert.FormatTurtle); err != nil {
 			t.Errorf("the notation rebuilt with %s should parse: %v", tc.to, err)
 		}
+	}
+}
+
+// A rational literal's sysml:value denotes exactly the Rational its token does:
+// an exponent token no double holds is written as the xsd:decimal it denotes.
+func TestRationalLiteralValuesAreExact(t *testing.T) {
+	src := "package P {\n    attribute a : Real = 1E-1;\n    attribute b : Real = 1.5E3;\n    attribute c : Real = 0.1;\n    attribute d : Real = 25E-3;\n}\n"
+	turtle, err := convert.Convert("m.sysml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{
+		`sysml:value "0.1"^^xsd:decimal`,
+		`sysml:value "1.5E3"^^xsd:double`,
+		`sysml:value "0.025"^^xsd:decimal`,
+	} {
+		if !strings.Contains(string(turtle), want) {
+			t.Errorf("the graph lacks %q:\n%s", want, turtle)
+		}
+	}
+	if strings.Contains(string(turtle), `"1E-1"^^xsd:double`) || strings.Contains(string(turtle), `"25E-3"^^xsd:double`) {
+		t.Errorf("an exponent token no double holds is not an xsd:double:\n%s", turtle)
+	}
+	stripped := withoutTriples(t, turtle, "sysx:sourceText")
+	back, err := convert.Convert("m.ttl", stripped, convert.FormatTurtle, convert.FormatSysML)
+	if err != nil {
+		t.Fatal(err)
+	}
+	again, err := convert.Convert("m.sysml", back, convert.FormatSysML, convert.FormatTurtle)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(withoutTriples(t, again, "sysx:sourceText")) != string(stripped) {
+		t.Errorf("the exact literals should round-trip unchanged:\n%s\nthen\n%s", stripped, again)
 	}
 }
 

@@ -491,18 +491,22 @@ func (ec *EvalContext) evalLiteralInteger(n *ast.LiteralInteger) (Value, error) 
 	return Value{Kind: ValConst, Const: val}, nil
 }
 
-// evalLiteralReal evaluates a real literal, reporting one outside the Real
-// range rather than carrying it as an infinity.
+// evalLiteralReal evaluates a decimal literal to the exact Rational it denotes
+// (KerML 1.0 §8.4.4.9.2), refusing one beyond the size budget.
 func (ec *EvalContext) evalLiteralReal(n *ast.LiteralReal) (Value, error) {
 	val, ok := ec.ctx.model.realLiterals[n]
 	if !ok {
 		var err error
-		if val, err = semantics.ParseReal(n.Value); err != nil {
-			return Value{}, fmt.Errorf("%w: literal %s is outside the Real range", err, n.Value)
+		if val, err = semantics.ParseRational(n.Value, ec.ctx.maxIntegerBits); err != nil {
+			return Value{}, fmt.Errorf("literal %s: %w", n.Value, integerSizeHint(err))
 		}
 		ec.ctx.model.realLiterals[n] = val
 	}
-	return Value{Kind: ValConst, Const: semantics.Value{Kind: semantics.ValReal, Real: val}}, nil
+	if bits := val.RatBitLen(); bits > ec.ctx.maxIntegerBits {
+		return Value{}, fmt.Errorf("literal %s: %w", n.Value,
+			integerSizeHint(semantics.RationalSizeExceeded(bits, ec.ctx.maxIntegerBits)))
+	}
+	return Value{Kind: ValConst, Const: val}, nil
 }
 
 // evalLiteralBool evaluates a boolean literal.
@@ -1666,6 +1670,9 @@ func (ec *EvalContext) enumLiteralValue(sym *symbols.Symbol) (Value, error) {
 	if err != nil {
 		return Value{}, fmt.Errorf("enumeration literal %s: %w", sym.Name, err)
 	}
+	if err := ec.ctx.holdAsReal(&val, semantics.EnumerationOwning(sym)); err != nil {
+		return Value{}, fmt.Errorf("enumeration literal %s: %w", sym.Name, err)
+	}
 	return val.ofLiteral(sym), nil
 }
 
@@ -1897,7 +1904,7 @@ func (ctx *Context) directValueType(scope *symbols.Scope, value Value) (*symbols
 	switch value.Kind {
 	case ValConst:
 		switch value.Const.Kind {
-		case semantics.ValInt, semantics.ValReal, semantics.ValBool:
+		case semantics.ValInt, semantics.ValRational, semantics.ValReal, semantics.ValBool:
 			return ctx.scalarValueType(scope, value)
 		case semantics.ValInfinity:
 			// `*` is the natural number exceeding every other (KerML 8.4.4.6).
@@ -2339,17 +2346,10 @@ func constArithmetic(op ast.OperatorKind, left, right semantics.Value, maxBits i
 		return res, integerSizeHint(err)
 	}
 
-	// Integer arithmetic is exact, in int64 while the result fits it.
-	if left.Kind == semantics.ValInt && right.Kind == semantics.ValInt {
+	// Integer arithmetic is exact, in int64 while the result fits it; an
+	// Integer quotient is the exact Rational IntegerFunctions::'/' declares.
+	if left.Kind == semantics.ValInt && right.Kind == semantics.ValInt && op != ast.OpDiv {
 		switch op {
-		case ast.OpDiv:
-			// A quotient is a Rational: the exact ratio, rounded once to float64
-			// so operands beyond 2^53 are not rounded before dividing.
-			q, ok := semantics.IntQuotient(left, right)
-			if !ok {
-				return semantics.Value{}, ErrDivisionByZero
-			}
-			return semantics.RealResult(q)
 		case ast.OpMod:
 			r, ok := semantics.IntRem(left, right)
 			if !ok {
@@ -2360,8 +2360,12 @@ func constArithmetic(op ast.OperatorKind, left, right semantics.Value, maxBits i
 		res, err := semantics.IntArith(op, left, right, maxBits)
 		return res, integerSizeHint(err)
 	}
+	if left.IsExact() && right.IsExact() {
+		res, err := semantics.RatArith(op, left, right, maxBits)
+		return res, integerSizeHint(err)
+	}
 
-	// Real arithmetic (coerce int to real if needed)
+	// Real arithmetic, an exact operand rounded once to the nearest binary64
 	leftReal := toReal(left)
 	rightReal := toReal(right)
 	var result float64
@@ -2623,13 +2627,17 @@ func constComparison(op ast.OperatorKind, left, right semantics.Value) (bool, er
 		return res, nil
 	}
 
-	// An Integer orders against a Real exactly, neither rounded to the other.
-	if left.Kind == semantics.ValInt && right.Kind == semantics.ValReal && !math.IsNaN(right.Real) {
-		res, _ := semantics.OrderSatisfies(op, semantics.CompareIntReal(left, right.Real))
+	if left.IsExact() && right.IsExact() {
+		res, _ := semantics.OrderSatisfies(op, semantics.CompareRat(left, right))
 		return res, nil
 	}
-	if left.Kind == semantics.ValReal && right.Kind == semantics.ValInt && !math.IsNaN(left.Real) {
-		res, _ := semantics.OrderSatisfies(op, -semantics.CompareIntReal(right, left.Real))
+	// A Rational meets a Real at Real precision, an Integer exactly.
+	if left.IsExact() && right.Kind == semantics.ValReal && !math.IsNaN(right.Real) {
+		res, _ := semantics.OrderSatisfies(op, semantics.CompareReal(left, right.Real))
+		return res, nil
+	}
+	if left.Kind == semantics.ValReal && right.IsExact() && !math.IsNaN(left.Real) {
+		res, _ := semantics.OrderSatisfies(op, -semantics.CompareReal(right, left.Real))
 		return res, nil
 	}
 

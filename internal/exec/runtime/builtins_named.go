@@ -186,7 +186,7 @@ func (ctx *Context) aggregateWithIdentity(op, param string, args []Value, operat
 	if len(elementsOf(args[0])) == 0 {
 		return identity, nil
 	}
-	return ctx.aggregate(op, args[:1], operator, false)
+	return ctx.aggregate(op, args[:1], operator, aggregateNumber)
 }
 
 // isIdentityElement reports whether val is the additive (0) or multiplicative

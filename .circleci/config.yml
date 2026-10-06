@@ -467,11 +467,13 @@ jobs:
             OPENSYSML_REQUIRE_REFERENCE_FMUS: "1"
 
   # A second, race-free pass, because the profile the scan reads is written
-  # with -coverpkg, which is too slow to instrument under -race.
+  # with -coverpkg, which is too slow to instrument under -race. Serially the
+  # instrumented suite overran the 60-minute job limit even on large, so it runs
+  # as the race test's four package shards, and go-coverage-merge joins them.
   go-coverage:
     executor: go-executor
-    # 4 vCPU: the instrumented suite takes ~39 min on medium.
     resource_class: large
+    parallelism: 4
     steps:
       - checkout
       - go/load-cache
@@ -483,8 +485,14 @@ jobs:
       - install-fmpy
 
       - run:
-          name: Write the coverage profile the scan reads
-          command: make coverage
+          name: Write this shard's coverage profile
+          command: |
+            shards=(runtime model export rest)
+            if [ "$CIRCLE_NODE_TOTAL" != "${#shards[@]}" ]; then
+              echo "error: parallelism is $CIRCLE_NODE_TOTAL, but scripts/race-shard.sh has ${#shards[@]} shards" >&2
+              exit 1
+            fi
+            make coverage-shard SHARD="${shards[$CIRCLE_NODE_INDEX]}"
           no_output_timeout: 30m
           environment:
             OPENSYSML_REQUIRE_TRAINING_CORPUS: "1"
@@ -499,6 +507,27 @@ jobs:
             OPENSYSML_REQUIRE_WASM: "1"
             # Same for the Reference-FMUs and fmpy (tests/fmi).
             OPENSYSML_REQUIRE_REFERENCE_FMUS: "1"
+
+      - persist_to_workspace:
+          root: .
+          paths:
+            # coverage-<shard>.txt, one per node.
+            - coverage-*.txt
+
+  # Joins the shards' profiles into the one the scan reads.
+  go-coverage-merge:
+    executor: go-executor
+    steps:
+      - checkout
+      - go/load-cache
+      - go/mod-download
+
+      - attach_workspace:
+          at: .
+
+      - run:
+          name: Write the coverage profile the scan reads
+          command: make coverage-merge
 
       - persist_to_workspace:
           root: .
@@ -710,13 +739,14 @@ jobs:
 
       # The other half of the solver contract: with discovery pointed at an
       # executable that does not exist, solver-dependent tests skip and the
-      # absent-solver paths must still report one.
+      # absent-solver paths must still report one. The whole of internal/frontend/repl
+      # runs here, and it needs more than go test's default ten-minute budget.
       - run:
           name: Run solver-absent gate
           command: |
             set -o pipefail
             env -u OPENSYSML_REQUIRE_SMT OPENSYSML_SMT=/nonexistent/no-such-solver \
-              go test -count=1 -v ./internal/exec/solve ./internal/frontend/repl | tee no-solver-gate.log
+              go test -count=1 -v -timeout 30m ./internal/exec/solve ./internal/frontend/repl | tee no-solver-gate.log
             for name in TestCheckReportsAnAbsentSolver TestExplainReportsAnAbsentSolver \
               TestSolveReportsAnAbsentSolver TestConfigureReportsAnAbsentSolver \
               TestOptimizeReportsAnAbsentSolver; do
@@ -1030,6 +1060,8 @@ jobs:
             make python-install
             # Pinned and wheel-only, as in .github/workflows/pr.yml.
             pip install --only-binary :all: pytest==9.0.3 pytest-mock==3.15.1 psutil==7.2.2 pytest-cov==7.0.0 fmpy==0.3.32 mypy==2.4.0 types-protobuf==7.35.1.20260906 'pyright[nodejs]==1.1.414'
+            # make scripts-coverage runs the MkDocs hooks' tests, which build a site.
+            pip install --only-binary :all: -r docs-requirements.txt
       
       # The integration tests connect to a service on the standard port with
       # auto_start=False, which is the explicit opt-in to one the client does not
@@ -3089,7 +3121,12 @@ workflows:
           name: Go race tests
           filters: *integration-branches
       - go-coverage:
+          name: Go coverage shards
+          filters: *integration-branches
+      - go-coverage-merge:
           name: Go coverage profile
+          requires:
+            - Go coverage shards
           filters: *integration-branches
       - go-gates:
           name: Go gates and binaries
@@ -3159,7 +3196,12 @@ workflows:
           name: Go race tests
           filters: *release-tags
       - go-coverage:
+          name: Go coverage shards
+          filters: *release-tags
+      - go-coverage-merge:
           name: Go coverage profile
+          requires:
+            - Go coverage shards
           filters: *release-tags
       - go-gates:
           name: Go gates and binaries
@@ -3314,7 +3356,12 @@ workflows:
           name: Go race tests
           filters: *pysysml-tags
       - go-coverage:
+          name: Go coverage shards
+          filters: *pysysml-tags
+      - go-coverage-merge:
           name: Go coverage profile
+          requires:
+            - Go coverage shards
           filters: *pysysml-tags
       - go-gates:
           name: Go gates and binaries

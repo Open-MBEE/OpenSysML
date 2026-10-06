@@ -7,6 +7,7 @@ import (
 	"sync"
 
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
+	"github.com/Open-MBEE/OpenSysML/internal/frontend/protoconv"
 )
 
 // Client answers SysML v2 questions: parse, look up, evaluate, instantiate.
@@ -735,6 +736,29 @@ func isBigInt(n Number) bool {
 }
 
 func quantityIsBigInt(q Quantity) bool { return isBigInt(q.Magnitude) }
+
+// fitRationals sends each exact Rational as rational_value to a service reading
+// rational_values; to one without, a Rational a double holds crosses as that Real,
+// and any other is refused rather than read as null.
+func (c *client) fitRationals(ctx context.Context, values ...*pb.Value) error {
+	if !slices.ContainsFunc(values, protoconv.ValueCarriesRational) {
+		return nil
+	}
+	info, err := c.serverInfo(ctx)
+	if err != nil {
+		return err
+	}
+	if info.Has(CapabilityRationalValues) {
+		return nil
+	}
+	for _, value := range values {
+		protoconv.RationalsAsReals(value)
+	}
+	if slices.ContainsFunc(values, protoconv.ValueCarriesRational) {
+		return c.requireCapabilities(ctx, CapabilityRationalValues)
+	}
+	return nil
+}
 
 // nestedValues are the values a value holds: a sequence's or a set's elements,
 // an array's.
