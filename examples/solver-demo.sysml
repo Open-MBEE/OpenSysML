@@ -152,37 +152,4 @@ package SolverDemo {
             in calc :>> eval { mass }
         }
     }
-
-    // Two objectives, improved lexicographically in the order declared: the least
-    // mass first, and among the platforms achieving it the most science power.
-    analysis def MassThenScience {
-        attribute mass : Integer;
-        attribute sciencePower : Integer;
-
-        assert constraint {
-            mass >= 780
-        }
-
-        assert constraint {
-            mass <= 950
-        }
-
-        assert constraint {
-            sciencePower >= 40
-        }
-
-        assert constraint {
-            sciencePower <= mass / 4
-        }
-
-        objective lightest : MinimizeObjective {
-            subject :>> selectedAlternative;
-            in calc :>> eval { mass }
-        }
-
-        objective mostScience : MaximizeObjective {
-            subject :>> selectedAlternative;
-            in calc :>> eval { sciencePower }
-        }
-    }
 }
