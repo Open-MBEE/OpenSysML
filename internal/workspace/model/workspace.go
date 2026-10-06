@@ -770,7 +770,9 @@ func (w *Workspace) memberSymbolsLocked(resolver *resolve.Resolver, sem *semanti
 		children := w.index.LookupDirectChildrenFrom(fqn, from)
 		members = append(members, resolver.AdmittedChildrenOf(scope, fqn, children)...)
 	}
-	return members
+	// A feature `featured by` a type sym conforms to, visible in scope through an
+	// import (StateActivity::isActive), is read as sym's member, so it is offered.
+	return append(members, resolver.FeaturedMembersOf(scope, sym)...)
 }
 
 // semanticsLocked is the workspace's resolver with its model and argument typer, made
