@@ -67,6 +67,7 @@ const (
 	CapabilityUndeterminedValue              = sysmlgrpc.CapabilityUndeterminedValue
 	CapabilityBigIntValues                   = sysmlgrpc.CapabilityBigIntValues
 	CapabilityConvertDocuments               = sysmlgrpc.CapabilityConvertDocuments
+	CapabilityParseSourcesAffected           = sysmlgrpc.CapabilityParseSourcesAffected
 )
 
 // ServerInfo describes the implementation answering a Client's calls.

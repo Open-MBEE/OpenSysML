@@ -57,6 +57,9 @@ type NodeData struct {
 	Geometry *Geometry
 	// Style is how the node is drawn, nil when no Style colours it.
 	Style *Style
+	// Verdict is the worst verification verdict overlaid on a requirement, ""
+	// when none is.
+	Verdict string `json:",omitempty"`
 }
 
 // EdgeData is one edge of a rendering, joining two node IDs.
@@ -138,6 +141,7 @@ func appendNodeData(out []NodeData, node *Node, parent string, ports *portView) 
 	out = append(out, NodeData{
 		ID: node.ID, Kind: node.Kind, Name: node.Name, NameSynthesized: node.NameSynthesized, Type: node.Type, Detail: node.Detail,
 		Text: node.Text, StandIn: node.StandIn, Ports: nodePorts, Parent: parent, Origin: node.Origin, Geometry: node.Geometry, Style: node.Style,
+		Verdict: node.Verdict,
 	})
 	for _, child := range node.Children {
 		out = appendNodeData(out, child, node.ID, ports)

@@ -1483,6 +1483,10 @@ func (c *compiler) compileDiagram(member *symbols.Symbol) (Content, error) {
 	if err != nil {
 		return Content{}, err
 	}
+	overlayText, overlayStated, err := c.optionalText(member, "overlay")
+	if err != nil {
+		return Content{}, err
+	}
 	source, err := c.diagramSource(member)
 	if err != nil {
 		return Content{}, err
@@ -1609,6 +1613,29 @@ func (c *compiler) compileDiagram(member *symbols.Symbol) (Content, error) {
 			}
 		}
 		reference.ports = ports
+	}
+	if overlayStated {
+		overlay, ok := view.ParseOverlay(overlayText)
+		if !ok || overlayText == "" {
+			return Content{}, &Error{
+				Kind:     ErrorInvalidOverlay,
+				Document: c.document,
+				Content:  symbols.FQNOf(member),
+				Actual:   overlayText,
+				Origin:   member.Origin(),
+			}
+		}
+		if !reference.kind.SupportsOverlay(overlay) {
+			return Content{}, &Error{
+				Kind:     ErrorUnsupportedOverlay,
+				Document: c.document,
+				Content:  symbols.FQNOf(member),
+				Expected: string(reference.kind),
+				Actual:   overlayText,
+				Origin:   member.Origin(),
+			}
+		}
+		reference.overlay = overlay
 	}
 	if err := c.rejectQuery(member); err != nil {
 		return Content{}, err

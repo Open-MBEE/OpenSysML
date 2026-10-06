@@ -280,6 +280,10 @@ func TestLinkedDiagramGoldens(t *testing.T) {
 		{"state", "state.sysml", "MachineViews::vehicleStates", []Form{FormMermaid, FormDot, FormPlantUML, FormD2}},
 		{"action", "action.sysml", "FlowViews::driveView", []Form{FormMermaid, FormDot, FormPlantUML, FormD2}},
 		{"sequence", "sequence.sysml", "SequenceViews::pubSubView", []Form{FormMermaid, FormPlantUML, FormD2}},
+		{"general-requirement", "general.sysml", "GeneralViews::requirementView", []Form{FormMermaid, FormDot, FormPlantUML, FormD2}},
+		{"general-definition", "general.sysml", "GeneralViews::definitionView", []Form{FormMermaid, FormDot, FormPlantUML, FormD2}},
+		{"general-package", "general.sysml", "GeneralViews::packageView", []Form{FormMermaid, FormDot, FormPlantUML, FormD2}},
+		{"general-case", "general-case.sysml", "UseCaseViews::useCaseView", []Form{FormMermaid, FormDot, FormPlantUML}},
 		{"case", "case.sysml", "CaseExamples::caseDiagram", []Form{FormMermaid, FormDot, FormPlantUML}},
 		{"mixed", "mixed.sysml", "MixedExamples::mixedDiagram", []Form{FormMermaid, FormDot, FormPlantUML}},
 	}

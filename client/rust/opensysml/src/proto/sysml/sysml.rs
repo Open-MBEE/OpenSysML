@@ -703,6 +703,11 @@ pub struct ParseSourcesRequest {
     /// Judge every document as conforming SysML v2, as ParseFileRequest does.
     #[prost(bool, tag="2")]
     pub strict_conformance: bool,
+    /// The model_hash of a model of these documents the client holds results of,
+    /// typically the one its previous ParseSources returned. The answer's affected
+    /// is relative to it. Reported as the "parse_sources_affected" capability.
+    #[prost(string, tag="3")]
+    pub base_model_hash: ::prost::alloc::string::String,
 }
 /// ParseSourcesResponse contains the parsed model, whose documents are one model
 /// for every later request: a model_hash names all of them together.
@@ -718,6 +723,17 @@ pub struct ParseSourcesResponse {
     pub diagnostics: ::prost::alloc::vec::Vec<Diagnostic>,
     #[prost(string, tag="4")]
     pub error: ::prost::alloc::string::String,
+    /// The documents, by name and in the request's order, whose analysis, and so
+    /// whose diagnostics and conversion, may differ from base_model_hash's model:
+    /// those whose text changed, those whose analysis read something an edit
+    /// changed, and those base_model_hash's model did not hold. Every other
+    /// document's results are the base's, so a client may reuse them. Answered
+    /// only when base_model_hash is given; every document when the service
+    /// cannot relate it to this model (no longer cached, not of the same
+    /// documents, or a model whose documents may declare an identity scope).
+    /// Reported as the "parse_sources_affected" capability.
+    #[prost(string, repeated, tag="5")]
+    pub affected: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
 }
 /// ParseFileResponse contains parsed model info
 #[derive(Clone, PartialEq, ::prost::Message)]

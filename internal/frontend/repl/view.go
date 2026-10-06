@@ -84,8 +84,8 @@ func (s *Session) view(name string) ([]string, error) {
 // doRender renders a view, reporting a name the session cannot find, an element
 // that is no view, a rendering kind not produced, or a form the kind is not
 // written in, as a line.
-func (s *Session) doRender(name string, form view.Form, opts view.Options) ([]string, bool, error) {
-	lines, err := s.renderLines(name, form, opts)
+func (s *Session) doRender(name string, form view.Form, opts view.Options, overlay view.Overlay) ([]string, bool, error) {
+	lines, err := s.renderLines(name, form, opts, overlay)
 	if err != nil {
 		return []string{"error: " + err.Error()}, false, nil
 	}
@@ -101,10 +101,10 @@ func renderForms() []string {
 	return out
 }
 
-// renderPalettes are the palette, style and port display values %render accepts
-// after a form.
+// renderPalettes are the palette, style, port display and overlay values
+// %render accepts after a form.
 func renderPalettes() []string {
-	out := make([]string, 0, len(view.Palettes())+len(view.DrawingStyles())+len(view.PortsChoices()))
+	out := make([]string, 0, len(view.Palettes())+len(view.DrawingStyles())+len(view.PortsChoices())+len(view.Overlays()))
 	for _, palette := range view.Palettes() {
 		out = append(out, string(palette))
 	}
@@ -114,14 +114,17 @@ func renderPalettes() []string {
 	for _, ports := range view.PortsChoices() {
 		out = append(out, string(ports))
 	}
+	for _, overlay := range view.Overlays() {
+		out = append(out, string(overlay))
+	}
 	return out
 }
 
 // renderLines renders a view in the kind its `render` member states and the form
-// asked for, filled from the palette and drawn in the style when they are named,
-// one line per line of the artifact.
-func (s *Session) renderLines(name string, form view.Form, opts view.Options) ([]string, error) {
-	rendering, err := s.viewRendering(name)
+// asked for, filled from the palette, drawn in the style and overlaid when they
+// are named, one line per line of the artifact.
+func (s *Session) renderLines(name string, form view.Form, opts view.Options, overlay view.Overlay) ([]string, error) {
+	rendering, err := s.viewRendering(name, overlay)
 	if err != nil {
 		return nil, err
 	}
@@ -207,19 +210,28 @@ func (s *Session) SetRenderWidth(width int) {
 // debugging session in progress.
 func (s *Session) ViewRendering(name string) (*view.Rendering, error) {
 	defer s.enter()()
-	return s.viewRendering(name)
+	return s.viewRendering(name, "")
+}
+
+// OverlaidViewRendering is ViewRendering with an overlay drawn over the view's
+// structure. The verdict overlay runs the verification cases verifying each
+// requirement drawn in a runtime of its own, so the session's runtime, its
+// objects and any debugging session in progress stay untouched.
+func (s *Session) OverlaidViewRendering(name string, overlay view.Overlay) (*view.Rendering, error) {
+	defer s.enter()()
+	return s.viewRendering(name, overlay)
 }
 
 // viewRendering renders a view with the session already held.
-func (s *Session) viewRendering(name string) (*view.Rendering, error) {
+func (s *Session) viewRendering(name string, overlay view.Overlay) (*view.Rendering, error) {
 	if strings.HasPrefix(name, view.PseudoViewPrefix) {
-		return s.renderPseudoView(name)
+		return s.renderPseudoView(name, overlay)
 	}
 	sym, fqn, err := s.lookupSymbol(name)
 	if err != nil {
 		return nil, err
 	}
-	renderer, err := s.viewRenderer()
+	renderer, err := s.overlaidRenderer(overlay)
 	if err != nil {
 		return nil, err
 	}
@@ -230,15 +242,38 @@ func (s *Session) viewRendering(name string) (*view.Rendering, error) {
 		}
 		return nil, err
 	}
+	return overlaid(rendering, overlay)
+}
+
+// overlaid is rendering, or why its kind does not draw overlay.
+func overlaid(rendering *view.Rendering, overlay view.Overlay) (*view.Rendering, error) {
+	if !rendering.Kind.SupportsOverlay(overlay) {
+		return nil, fmt.Errorf("%s: a %s rendering draws no %s overlay; %s is drawn on a requirement rendering", rendering.View, rendering.Kind, overlay, overlay)
+	}
 	return rendering, nil
 }
 
-func (s *Session) renderPseudoView(spec string) (*view.Rendering, error) {
+// overlaidRenderer is viewRenderer drawing overlay, the verdicts answered by a
+// fresh runtime over the session's declarations.
+func (s *Session) overlaidRenderer(overlay view.Overlay) (*view.Renderer, error) {
+	renderer, err := s.viewRenderer()
+	if err != nil || overlay != view.OverlayVerdicts {
+		return renderer, err
+	}
+	ctx, err := s.newRuntime()
+	if err != nil {
+		return nil, err
+	}
+	renderer.SetVerdicts(runtime.RequirementVerdicts(ctx, s.docScopes()))
+	return renderer, nil
+}
+
+func (s *Session) renderPseudoView(spec string, overlay view.Overlay) (*view.Rendering, error) {
 	kind, target, ok := view.ParsePseudoView(spec)
 	if !ok {
 		return nil, fmt.Errorf("%s is no pseudo-view: write %s", spec, strings.Join(view.PseudoViewSpecs(), ", "))
 	}
-	renderer, err := s.viewRenderer()
+	renderer, err := s.overlaidRenderer(overlay)
 	if err != nil {
 		return nil, err
 	}
@@ -254,7 +289,11 @@ func (s *Session) renderPseudoView(spec string) (*view.Rendering, error) {
 	} else {
 		exposed = s.symbolsInLoadOrder(model.TopLevelDeclarations)
 	}
-	return renderer.RenderExposed(exposed, kind, stated)
+	rendering, err := renderer.RenderExposed(exposed, kind, stated)
+	if err != nil {
+		return nil, err
+	}
+	return overlaid(rendering, overlay)
 }
 
 // Views lists every view the session declares, in document then declaration
@@ -310,6 +349,7 @@ func (s *Session) viewRenderer() (*view.Renderer, error) {
 	}
 	resolver := resolve.New(idx)
 	model := semantics.NewModel(resolver)
+	model.SetSourceText(s.sessionSourceText())
 	model.SetSourceFile(s.sessionSourceFile)
 	resolver.SetModel(model)
 	return view.NewRenderer(model, resolver, s.sessionSourceText()), nil

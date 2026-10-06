@@ -687,7 +687,7 @@ func (r *Rendering) writeFlowchart(b *strings.Builder, direction Direction, labe
 		from, to := r.edgeEnds(edge, portEnds)
 		from = flowchartEndpoint(from, w.clusterAnchors)
 		to = flowchartEndpoint(to, w.clusterAnchors)
-		w.edge(from, mermaidArrow(edge.Kind), mermaidEdgeLabel(r.Kind, edge), to, edge.Style, edge.Kind)
+		w.edge(from, mermaidArrow(r.Kind, edge.Kind), mermaidEdgeLabel(r.Kind, edge), to, edge.Style, edge.Kind)
 	}
 	flowchart.writeFlowchartNoteEdges(w, noteOwners, used)
 	r.writeMermaidStyles(b, fills, options, false)
@@ -1869,41 +1869,56 @@ func (l labeller) mermaid(node *Node) string {
 }
 
 // mermaidArrow is how an edge of each kind is drawn in a flowchart.
-func mermaidArrow(kind EdgeKind) string {
-	switch kind {
+func mermaidArrow(kind Kind, edge EdgeKind) string {
+	if caseNotation(kind) && edge == EdgeReference {
+		return "-.->"
+	}
+	switch edge {
 	case EdgeConnection, EdgeBinding:
 		return "==="
-	case EdgeFlow:
+	case EdgeFlow, EdgeTyping, EdgeImport, EdgeSatisfy, EdgeVerify, EdgeDerive, EdgeRefine, EdgeAllocate:
 		return "-.->"
+	case EdgeComposition, EdgeReference, EdgeContainment:
+		return "---"
 	case EdgeAssociation:
 		return "---"
 	case EdgeAnchor:
 		return "-.-"
-	case EdgeInclude, EdgeTyping, EdgeReference:
+	case EdgeInclude:
 		return "-.->"
-	case EdgeSpecialization:
-		return "-->"
-	case EdgeComposition:
-		return "---"
 	}
 	return "-->"
 }
 
-// mermaidEdgeLabel returns an explicit label or a case/mixed edge-kind label.
+// mermaidEdgeLabel is an edge's flowchart label: its own, or for an edge whose
+// arrow a flowchart draws like another kind's, its kind. A flowchart has no
+// diamond head, so a graph's composition and reference lead with a filled or
+// hollow one; a case or mixed diagram names composition and specialization.
 func mermaidEdgeLabel(kind Kind, edge Edge) string {
-	if edge.Label != "" {
-		return edge.Label
-	}
-	if kind != KindCase && kind != KindMixed {
+	if caseNotation(kind) {
+		if edge.Label != "" {
+			return edge.Label
+		}
+		switch edge.Kind {
+		case EdgeComposition:
+			return "«composition»"
+		case EdgeSpecialization:
+			return "«specializes»"
+		}
 		return ""
 	}
-	switch edge.Kind {
-	case EdgeComposition:
-		return "«composition»"
-	case EdgeSpecialization:
-		return "«specializes»"
+	if kind != KindRequirement && kind != KindDefinition && kind != KindPackage {
+		return edge.Label
 	}
-	return ""
+	switch {
+	case edge.Kind == EdgeComposition:
+		return strings.TrimSpace("◆ " + edge.Label)
+	case edge.Kind == EdgeReference:
+		return strings.TrimSpace("◇ " + edge.Label)
+	case edge.Label == "" && (edge.Kind == EdgeSpecialization || edge.Kind == EdgeTyping):
+		return edge.Kind.String()
+	}
+	return edge.Label
 }
 
 // mermaidText escapes what a Mermaid label may not carry literally. A semicolon

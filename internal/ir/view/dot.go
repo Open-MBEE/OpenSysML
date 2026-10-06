@@ -1834,20 +1834,33 @@ func (w *dotWriter) dotEdgeAttributes(edge Edge) []string {
 		attrs = append(attrs, dotStyleDashed)
 	case EdgeBinding:
 		attrs = append(attrs, dotArrowheadNone)
+	case EdgeSpecialization:
+		attrs = append(attrs, "arrowhead=empty")
 	case EdgeComposition:
-		attrs = append(attrs, "arrowtail=diamond", "dir=back")
+		if caseNotation(w.kind) {
+			attrs = append(attrs, "arrowtail=diamond", dotDirBack)
+		} else {
+			attrs = append(attrs, dotDirBack, "arrowtail=diamond")
+		}
+	case EdgeTyping, EdgeReference:
+		switch {
+		case caseNotation(w.kind):
+			attrs = append(attrs, dotStyleDashed, "arrowhead=open")
+		case edge.Kind == EdgeTyping:
+			attrs = append(attrs, "arrowhead=empty", dotStyleDashed)
+		default:
+			attrs = append(attrs, dotDirBack, "arrowtail=odiamond")
+		}
+	case EdgeContainment:
+		attrs = append(attrs, dotDirBack, "arrowtail=odot")
+	case EdgeImport, EdgeSatisfy, EdgeVerify, EdgeDerive, EdgeRefine, EdgeAllocate:
+		attrs = append(attrs, "arrowhead=vee", dotStyleDashed)
 	case EdgeAssociation:
 		attrs = append(attrs, "dir=none")
 	case EdgeInclude:
 		attrs = append(attrs, dotStyleDashed)
 	case EdgeAnchor:
 		attrs = append(attrs, "dir=none", dotStyleDashed)
-	case EdgeTyping:
-		attrs = append(attrs, dotStyleDashed, "arrowhead=open")
-	case EdgeSpecialization:
-		attrs = append(attrs, "arrowhead=empty")
-	case EdgeReference:
-		attrs = append(attrs, dotStyleDashed, "arrowhead=open")
 	}
 	attrs = append(attrs, dotStyleAttributes(edge.Style, false)...)
 	if len(edge.Route) > 1 {

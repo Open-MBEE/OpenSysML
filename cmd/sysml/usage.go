@@ -682,6 +682,7 @@ func registerFlags(fs *flag.FlagSet) {
 	fs.StringVar(&renderLink, "render-link", "", "Source link template for -render, -render-all, -render-document, -render-documents and -render-run. Placeholders: {file}, {line}, {col}, {qname}, {id}; {file} is the path as loaded (use absolute paths for vscode:// or file:// links)")
 	fs.StringVar(&renderStyle, "render-style", "", "Drawing style of the dot or mermaid form: pilot (default), the Pilot visualizer's black and white, or cameo, the look of Cameo Systems Modeler; applies to -render, -render-all and document diagrams")
 	fs.StringVar(&renderPorts, "render-ports", "", "How much of a part's ports -render or -render-all draws on an interconnection or mixed rendering: minimal (default), the ports its interconnection edges end at, each a small square on the part's border named beside it, or full, every port, labelled name : Type")
+	fs.StringVar(&renderOverlay, "render-overlay", "", "What -render or -render-all draws over a requirement rendering's structure: verdicts runs the verification cases verifying each requirement and colours and labels it by their verdicts; default none, a purely structural drawing")
 	fs.StringVar(&renderUnplaced, "render-unplaced", "", "Where a graph form of a view some Layout positions puts the nodes none does: omit (default) leaves them undrawn in every form, strip draws them, in rows below the dot drawing; applies to -render, -render-all and document diagrams")
 
 	fs.StringVar(&renderDoc, "render-document", "", "Compile this document definition, run its queries and write the rendered document")
@@ -811,6 +812,7 @@ func optionGroups() []usage.OptionGroup {
 			usage.Opt("render-unplaced", "<placement>"),
 			usage.Opt("render-style", "<style>"),
 			usage.Opt("render-ports", "<display>"),
+			usage.Opt("render-overlay", "<overlay>"),
 		},
 	}, {
 		Title: "Rendering documents",

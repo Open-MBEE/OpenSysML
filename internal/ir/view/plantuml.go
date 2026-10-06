@@ -95,7 +95,7 @@ func (r *Rendering) PlantUMLWith(options Options) (string, error) {
 	}
 	r.writeGeometryComments(b, "'")
 	switch r.Kind {
-	case KindTree:
+	case KindTree, KindRequirement, KindDefinition, KindPackage:
 		w.writeClassDiagram(r)
 	case KindInterconnection:
 		w.writeRectangleDiagram(r)
@@ -448,7 +448,7 @@ func (w *plantumlWriter) writeStateNode(node *Node, depth int, starts map[string
 	}
 	for _, child := range node.Children {
 		for _, edge := range starts[child.ID] {
-			w.writeArrow(indent+"  ", "[*]", edge.To, plantumlArrow(edge.Kind), edge.Label, Origin{}, false)
+			w.writeArrow(indent+"  ", "[*]", edge.To, plantumlArrow(w.kind, edge.Kind), edge.Label, Origin{}, false)
 		}
 	}
 	fmt.Fprintf(&w.b, "%s}\n", indent)
@@ -512,7 +512,7 @@ func (w *plantumlWriter) writeArrow(indent, from, to, arrow, label string, origi
 }
 
 func (w *plantumlWriter) writeArrowEdge(edge Edge, from, to string, sequence bool) {
-	arrow := plantumlArrow(edge.Kind)
+	arrow := plantumlArrow(w.kind, edge.Kind)
 	if sequence {
 		arrow = "->"
 	}
@@ -543,27 +543,37 @@ func plantumlStyleColor(style *Style) string {
 
 // plantumlArrow is how an edge of each kind is drawn: a connection as the
 // Pilot's heavy undirected connector, a binding a plain undirected line, a flow
-// dashed, every other edge a plain arrow.
-func plantumlArrow(kind EdgeKind) string {
-	switch kind {
+// dashed, a general graph's relationships in the class-diagram notation, every
+// other edge a plain arrow.
+func plantumlArrow(kind Kind, edge EdgeKind) string {
+	if caseNotation(kind) && (edge == EdgeTyping || edge == EdgeReference) {
+		return "..>"
+	}
+	switch edge {
 	case EdgeConnection:
 		return "-[thickness=3]-"
 	case EdgeBinding:
 		return "--"
 	case EdgeFlow:
 		return "-[dashed]->"
+	case EdgeSpecialization:
+		return "--|>"
+	case EdgeTyping:
+		return "..|>"
 	case EdgeComposition:
 		return "*--"
+	case EdgeReference:
+		return "o--"
+	case EdgeContainment:
+		return "+--"
+	case EdgeImport, EdgeSatisfy, EdgeVerify, EdgeDerive, EdgeRefine, EdgeAllocate:
+		return "..>"
 	case EdgeAssociation:
 		return "--"
 	case EdgeInclude:
 		return "..>"
 	case EdgeAnchor:
 		return ".."
-	case EdgeTyping, EdgeReference:
-		return "..>"
-	case EdgeSpecialization:
-		return "--|>"
 	}
 	return "-->"
 }
