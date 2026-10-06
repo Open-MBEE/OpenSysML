@@ -362,6 +362,10 @@ type Symbol struct {
 	// Implicit is the written relationship this symbol reflects, or nil for
 	// every ordinary symbol (see ImplicitRelationship).
 	Implicit *ImplicitRelationship
+
+	// Chain is the chain target this symbol denotes as a feature, or nil for
+	// every ordinary symbol (see ChainingFeature).
+	Chain *ChainingFeature
 }
 
 // Naming tells where a symbol's Name comes from.

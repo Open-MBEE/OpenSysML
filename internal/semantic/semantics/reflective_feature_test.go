@@ -992,6 +992,13 @@ func reflectiveRecordedFacts(model *Model, idx *symbols.Index, sym *symbols.Symb
 			}
 		}
 	}
+	if ref := model.ReferencedFeature(sym); ref != nil {
+		if r, found := idx.RefTo(ref); found {
+			facts.References = r
+		} else {
+			facts.References = symbols.ElementRef{FQN: model.fqnOf(ref)}
+		}
+	}
 	if _, ok := sym.Decl.(*ast.PrefixMetadata); ok {
 		if types, supported := model.ReflectiveElements(sym, "type"); supported && len(types) == 1 {
 			if ref, found := idx.RefTo(types[0]); found {
@@ -1079,7 +1086,22 @@ func reflectiveRecordedFacts(model *Model, idx *symbols.Index, sym *symbols.Symb
 		if target := model.RelationshipTarget(sym, rel); target != nil {
 			rf.Target = refOf(target)
 		}
+		for _, feature := range model.ChainTargetPath(sym, rel.Kind, rel.Target) {
+			rf.Path = append(rf.Path, refOf(feature))
+		}
 		facts.Relationships = append(facts.Relationships, rf)
+	}
+	if end, ok := sym.Decl.(*ast.ConnectorEnd); ok {
+		if target := ImpliedEndReference(end); target != nil {
+			rf := symbols.RelationshipFacts{Kind: ast.RelReferences, Chain: ast.IsFeatureChain(target)}
+			if referenced := model.ReferencedFeature(sym); referenced != nil {
+				rf.Target = refOf(referenced)
+			}
+			for _, feature := range model.ChainTargetPath(sym, ast.RelReferences, target) {
+				rf.Path = append(rf.Path, refOf(feature))
+			}
+			facts.Relationships = append(facts.Relationships, rf)
+		}
 	}
 	if subsetted := model.SubsettedMultiplicity(sym); subsetted != nil {
 		facts.Relationships = append(facts.Relationships, symbols.RelationshipFacts{

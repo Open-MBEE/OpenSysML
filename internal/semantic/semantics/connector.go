@@ -44,10 +44,9 @@ func (m *Model) isConnectorLike(sym *symbols.Symbol) bool {
 
 // ownedEnds returns the end features sym owns, one entry per end in
 // declaration order: first the ends of its `connect` clause, then the `end`
-// features of its body. An end that declares no name of its own — `connect a
-// to b` — still occupies its position, as does one whose symbol is not
-// registered; both are reported as a nil entry. A recorded connector reads
-// its ends from its record.
+// features of its body. An end whose symbol is not registered still occupies
+// its position, reported as a nil entry. A recorded connector reads its ends
+// from its record, which carries no entry for an end with no name of its own.
 func (m *Model) ownedEnds(sym *symbols.Symbol) []*symbols.Symbol {
 	if sym == nil || sym.Scope == nil {
 		return nil
@@ -65,10 +64,6 @@ func (m *Model) ownedEnds(sym *symbols.Symbol) []*symbols.Symbol {
 	if u, ok := sym.Decl.(*ast.Usage); ok {
 		for _, end := range u.ConnectorEnds {
 			if end == nil {
-				continue
-			}
-			if _, declares := end.DeclaredName(); !declares {
-				out = append(out, nil)
 				continue
 			}
 			out = append(out, memberSymbol(sym.Scope, end))
@@ -213,7 +208,8 @@ func (m *Model) redefinedByEnds(owned []*symbols.Symbol) map[*symbols.Symbol]boo
 }
 
 // endRedefined reports whether an owned end redefines the general end at position i;
-// an end without a symbol on either side is matched by position alone.
+// an end without a symbol on either side, or one a `connect` clause declares
+// without a name, is matched by position alone (SysML v2 8.2.2.13.1).
 func endRedefined(end *symbols.Symbol, i int, owned []*symbols.Symbol, redefined map[*symbols.Symbol]bool) bool {
 	if end == nil {
 		return i < len(owned)
@@ -221,7 +217,7 @@ func endRedefined(end *symbols.Symbol, i int, owned []*symbols.Symbol, redefined
 	if redefined[end] {
 		return true
 	}
-	return i < len(owned) && owned[i] == nil
+	return i < len(owned) && (owned[i] == nil || owned[i].Name == "")
 }
 
 // namedEnds returns the ends of general that end's `:>>` clauses name, matched
@@ -370,8 +366,7 @@ func declaresEnd(sym *symbols.Symbol) bool {
 	}
 	switch d := sym.Decl.(type) {
 	case *ast.ConnectorEnd:
-		_, declares := d.DeclaredName()
-		return declares
+		return true
 	case *ast.Usage:
 		return d.IsEnd
 	}
@@ -402,7 +397,9 @@ func (m *Model) UnmatchedConnectorEnds(sym *symbols.Symbol) (*symbols.Symbol, []
 		}
 		var unmatched []*symbols.Symbol
 		for i, end := range owned {
-			if end == nil || i < len(supEnds) || len(namedEnds(end, supEnds)) > 0 {
+			// An end with no name of its own matches by position alone; one
+			// beyond the general's arity is an excess end, not an unmatched one.
+			if end == nil || end.Name == "" || i < len(supEnds) || len(namedEnds(end, supEnds)) > 0 {
 				continue
 			}
 			unmatched = append(unmatched, end)
@@ -728,12 +725,45 @@ func (m *Model) ConnectorEndPaths(sym *symbols.Symbol) []ConnectorEndPath {
 	return paths
 }
 
+// ConnectorEndFeaturePaths is the features each end of the connector object
+// usage sym names, outermost first, in end order: resolved from its
+// declaration, or read from its record. An end that resolves to nothing has
+// a nil path.
+func (m *Model) ConnectorEndFeaturePaths(sym *symbols.Symbol) [][]*symbols.Symbol {
+	if sym == nil {
+		return nil
+	}
+	if sym.Recorded() {
+		out := make([][]*symbols.Symbol, len(sym.Facts.EndPaths))
+		for i, path := range sym.Facts.EndPaths {
+			if resolved := m.recordedSequence(path); len(resolved) == len(path) {
+				out[i] = resolved
+			}
+		}
+		return out
+	}
+	paths := m.reflectiveConnectorEndPaths(sym)
+	out := make([][]*symbols.Symbol, len(paths))
+	for i, path := range paths {
+		out[i] = path.Features
+	}
+	return out
+}
+
 // attachmentPath resolves an end attachment and each of its chain prefixes,
 // outermost first; nil where any prefix resolves to nothing.
 func (m *Model) attachmentPath(scope *symbols.Scope, node ast.Node) []*symbols.Symbol {
 	if m == nil || m.resolver == nil || node == nil {
 		return nil
 	}
+	return chainPath(node, func(prefix ast.Node) (*symbols.Symbol, bool) {
+		return m.resolver.ResolveTarget(scope, prefix)
+	})
+}
+
+// chainPath resolves each prefix of a feature chain with resolve, outermost
+// first; nil as soon as one resolves to nothing.
+func chainPath(node ast.Node, resolve func(ast.Node) (*symbols.Symbol, bool)) []*symbols.Symbol {
 	var prefixes []ast.Node
 	for n := node; n != nil; {
 		prefixes = append(prefixes, n)
@@ -745,7 +775,7 @@ func (m *Model) attachmentPath(scope *symbols.Scope, node ast.Node) []*symbols.S
 	}
 	path := make([]*symbols.Symbol, 0, len(prefixes))
 	for i := len(prefixes) - 1; i >= 0; i-- {
-		target, ok := m.resolver.ResolveTarget(scope, prefixes[i])
+		target, ok := resolve(prefixes[i])
 		if !ok || target == nil {
 			return nil
 		}
@@ -766,7 +796,9 @@ func (m *Model) connectorEndAttachments(sym *symbols.Symbol, ends []connectorEnd
 		att := ConnectorEndAttachment{Attachment: end.attachment, End: end.end}
 		general := m.generalEndAt(sym, i)
 		switch {
-		case i < len(owned) && owned[i] != nil:
+		// An end named by its own declaration names the attachment; one that
+		// only names what it attaches to takes the name of the end it redefines.
+		case i < len(owned) && owned[i] != nil && owned[i].Name != "":
 			att.Name, att.EndFeature = leafName(owned[i].Name), owned[i]
 		case general != nil:
 			att.Name, att.EndFeature = leafName(general.Name), general

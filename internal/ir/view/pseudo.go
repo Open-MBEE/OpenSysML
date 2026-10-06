@@ -47,5 +47,7 @@ func pseudoViewKinds() map[string]Kind {
 	}
 	add(standardRenderings)
 	add(standardViewDefinitions)
+	add(toolRenderings)
+	add(toolViewDefinitions)
 	return out
 }

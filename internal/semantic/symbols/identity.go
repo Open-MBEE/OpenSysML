@@ -13,7 +13,8 @@ type ElementKey struct {
 	doc     string
 	span    source.Span
 	sym     *Symbol
-	ordinal int // which written relationship of the owner, 0 for the element itself
+	ordinal int  // which written relationship of the owner, 0 for the element itself
+	chain   bool // the feature that relationship's chain target denotes
 }
 
 // KeyOf is the identity of the element sym declares. A relationship written
@@ -26,6 +27,10 @@ func KeyOf(sym *Symbol) ElementKey {
 	case sym.Implicit != nil:
 		key := KeyOf(sym.Implicit.Owner)
 		key.ordinal = sym.Implicit.Ordinal + 1
+		return key
+	case sym.Chain != nil:
+		key := KeyOf(sym.Chain.Relationship)
+		key.chain = true
 		return key
 	case sym.DocName == "":
 		return ElementKey{sym: sym}
@@ -42,7 +47,10 @@ func (k ElementKey) String() string {
 		base = fmt.Sprintf("%s\x00%d\x00%d", k.doc, k.span.Offset, k.span.Len)
 	}
 	if k.ordinal != 0 {
-		return fmt.Sprintf("%s\x00%d", base, k.ordinal)
+		base = fmt.Sprintf("%s\x00%d", base, k.ordinal)
+	}
+	if k.chain {
+		return base + "\x00chain"
 	}
 	return base
 }

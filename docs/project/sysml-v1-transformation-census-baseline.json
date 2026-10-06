@@ -6854,15 +6854,21 @@
         "memberElement"
       ],
       "ocl": "sha256:c40dc909488db9d1c9e6e8444ee853d179b045b613e724dc05f6dfabbc24555e",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
-        "internal/translate/migrate/activity.go:callOperation"
+        "internal/translate/migrate/activity.go:callOperation",
+        "internal/translate/migrate/activity.go:receiverOf",
+        "internal/translate/migrate/call_target.go:callOnTarget",
+        "internal/translate/migrate/call_target.go:targetPin",
+        "internal/translate/migrate/call_target.go:targetNote"
       ],
       "tests": [
-        "tests/migrate/behavior_test.go:TestActivityWithSendAcceptAndOperationCalls",
-        "tests/migrate/call_port_test.go:TestCallOperationOverPortsReachesTheConnectedPart"
+        "tests/migrate/call_target_test.go:TestCallOperationRunsOnTheObjectItsTargetPinHolds",
+        "tests/migrate/call_target_test.go:TestCallOperationOnACreatedObjectActsOnAnEmptyPin",
+        "tests/migrate/call_port_test.go:TestCallOperationOverPortsReachesTheConnectedPart",
+        "tests/migrate/behavior_test.go:TestActivityWithSendAcceptAndOperationCalls"
       ],
-      "reason": "a call is written `perform target.op` when its target resolves to a feature that has the operation, otherwise as an action typed by the operation's action def (PSSM: 914 of 932 approximated)",
+      "reason": "an output pin is the operation's `out` parameter, which the typed call redefines or the performed usage carries, and the flows out of it name it (`n.p`) (PSSM: 434 of 434 call result pins mapped); candidate erratum: COAOutputPinFeatureChainExpression_Mapping values the output pin's parameter with the feature chain `target.op` (and COAOutputPinFeatureReferenceExpression_Mapping with `target`), which evaluates to the operation's performance (or the target object), not the operation's result; the valid form reads the operation's own `out` parameter, `target.op.p`, or redefines it in the call",
       "scope": [
         "uml:CallOperationAction"
       ]
@@ -6882,15 +6888,21 @@
         "ownedRelationship"
       ],
       "ocl": "sha256:5730129c7039d40d53320a5b84db21381691670f72274ddaeafaec9627b19231",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
-        "internal/translate/migrate/activity.go:callOperation"
+        "internal/translate/migrate/activity.go:callOperation",
+        "internal/translate/migrate/activity.go:receiverOf",
+        "internal/translate/migrate/call_target.go:callOnTarget",
+        "internal/translate/migrate/call_target.go:targetPin",
+        "internal/translate/migrate/call_target.go:targetNote"
       ],
       "tests": [
-        "tests/migrate/behavior_test.go:TestActivityWithSendAcceptAndOperationCalls",
-        "tests/migrate/call_port_test.go:TestCallOperationOverPortsReachesTheConnectedPart"
+        "tests/migrate/call_target_test.go:TestCallOperationRunsOnTheObjectItsTargetPinHolds",
+        "tests/migrate/call_target_test.go:TestCallOperationOnACreatedObjectActsOnAnEmptyPin",
+        "tests/migrate/call_port_test.go:TestCallOperationOverPortsReachesTheConnectedPart",
+        "tests/migrate/behavior_test.go:TestActivityWithSendAcceptAndOperationCalls"
       ],
-      "reason": "a call is written `perform target.op` when its target resolves to a feature that has the operation, otherwise as an action typed by the operation's action def (PSSM: 914 of 932 approximated)",
+      "reason": "an output pin is the operation's `out` parameter, which the typed call redefines or the performed usage carries, and the flows out of it name it (`n.p`) (PSSM: 434 of 434 call result pins mapped); candidate erratum: COAOutputPinFeatureChainExpression_Mapping values the output pin's parameter with the feature chain `target.op` (and COAOutputPinFeatureReferenceExpression_Mapping with `target`), which evaluates to the operation's performance (or the target object), not the operation's result; the valid form reads the operation's own `out` parameter, `target.op.p`, or redefines it in the call",
       "scope": [
         "uml:CallOperationAction"
       ]
@@ -6910,15 +6922,21 @@
         "ownedMemberFeature"
       ],
       "ocl": "sha256:04aab4f9c59e5252946ab37aea533b584375c05233d1e550ba78271f42d007e8",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
-        "internal/translate/migrate/activity.go:callOperation"
+        "internal/translate/migrate/activity.go:callOperation",
+        "internal/translate/migrate/activity.go:receiverOf",
+        "internal/translate/migrate/call_target.go:callOnTarget",
+        "internal/translate/migrate/call_target.go:targetPin",
+        "internal/translate/migrate/call_target.go:targetNote"
       ],
       "tests": [
-        "tests/migrate/behavior_test.go:TestActivityWithSendAcceptAndOperationCalls",
-        "tests/migrate/call_port_test.go:TestCallOperationOverPortsReachesTheConnectedPart"
+        "tests/migrate/call_target_test.go:TestCallOperationRunsOnTheObjectItsTargetPinHolds",
+        "tests/migrate/call_target_test.go:TestCallOperationOnACreatedObjectActsOnAnEmptyPin",
+        "tests/migrate/call_port_test.go:TestCallOperationOverPortsReachesTheConnectedPart",
+        "tests/migrate/behavior_test.go:TestActivityWithSendAcceptAndOperationCalls"
       ],
-      "reason": "a call is written `perform target.op` when its target resolves to a feature that has the operation, otherwise as an action typed by the operation's action def (PSSM: 914 of 932 approximated)",
+      "reason": "an output pin is the operation's `out` parameter, which the typed call redefines or the performed usage carries, and the flows out of it name it (`n.p`) (PSSM: 434 of 434 call result pins mapped); candidate erratum: COAOutputPinFeatureChainExpression_Mapping values the output pin's parameter with the feature chain `target.op` (and COAOutputPinFeatureReferenceExpression_Mapping with `target`), which evaluates to the operation's performance (or the target object), not the operation's result; the valid form reads the operation's own `out` parameter, `target.op.p`, or redefines it in the call",
       "scope": [
         "uml:CallOperationAction"
       ]
@@ -6938,15 +6956,21 @@
         "value"
       ],
       "ocl": "sha256:2b437a2d177326e947cc6a39c2429cc7db180bc753d040e3c2446eab1375d36e",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
-        "internal/translate/migrate/activity.go:callOperation"
+        "internal/translate/migrate/activity.go:callOperation",
+        "internal/translate/migrate/activity.go:receiverOf",
+        "internal/translate/migrate/call_target.go:callOnTarget",
+        "internal/translate/migrate/call_target.go:targetPin",
+        "internal/translate/migrate/call_target.go:targetNote"
       ],
       "tests": [
-        "tests/migrate/behavior_test.go:TestActivityWithSendAcceptAndOperationCalls",
-        "tests/migrate/call_port_test.go:TestCallOperationOverPortsReachesTheConnectedPart"
+        "tests/migrate/call_target_test.go:TestCallOperationRunsOnTheObjectItsTargetPinHolds",
+        "tests/migrate/call_target_test.go:TestCallOperationOnACreatedObjectActsOnAnEmptyPin",
+        "tests/migrate/call_port_test.go:TestCallOperationOverPortsReachesTheConnectedPart",
+        "tests/migrate/behavior_test.go:TestActivityWithSendAcceptAndOperationCalls"
       ],
-      "reason": "a call is written `perform target.op` when its target resolves to a feature that has the operation, otherwise as an action typed by the operation's action def (PSSM: 914 of 932 approximated)",
+      "reason": "an output pin is the operation's `out` parameter, which the typed call redefines or the performed usage carries, and the flows out of it name it (`n.p`) (PSSM: 434 of 434 call result pins mapped); candidate erratum: COAOutputPinFeatureChainExpression_Mapping values the output pin's parameter with the feature chain `target.op` (and COAOutputPinFeatureReferenceExpression_Mapping with `target`), which evaluates to the operation's performance (or the target object), not the operation's result; the valid form reads the operation's own `out` parameter, `target.op.p`, or redefines it in the call",
       "scope": [
         "uml:CallOperationAction"
       ]
@@ -6964,15 +6988,21 @@
       ],
       "operations": [],
       "ocl": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
-        "internal/translate/migrate/activity.go:callOperation"
+        "internal/translate/migrate/activity.go:callOperation",
+        "internal/translate/migrate/activity.go:receiverOf",
+        "internal/translate/migrate/call_target.go:callOnTarget",
+        "internal/translate/migrate/call_target.go:targetPin",
+        "internal/translate/migrate/call_target.go:targetNote"
       ],
       "tests": [
-        "tests/migrate/behavior_test.go:TestActivityWithSendAcceptAndOperationCalls",
-        "tests/migrate/call_port_test.go:TestCallOperationOverPortsReachesTheConnectedPart"
+        "tests/migrate/call_target_test.go:TestCallOperationRunsOnTheObjectItsTargetPinHolds",
+        "tests/migrate/call_target_test.go:TestCallOperationOnACreatedObjectActsOnAnEmptyPin",
+        "tests/migrate/call_port_test.go:TestCallOperationOverPortsReachesTheConnectedPart",
+        "tests/migrate/behavior_test.go:TestActivityWithSendAcceptAndOperationCalls"
       ],
-      "reason": "a call is written `perform target.op` when its target resolves to a feature that has the operation, otherwise as an action typed by the operation's action def (PSSM: 914 of 932 approximated)",
+      "reason": "an output pin is the operation's `out` parameter, which the typed call redefines or the performed usage carries, and the flows out of it name it (`n.p`) (PSSM: 434 of 434 call result pins mapped); candidate erratum: COAOutputPinFeatureChainExpression_Mapping values the output pin's parameter with the feature chain `target.op` (and COAOutputPinFeatureReferenceExpression_Mapping with `target`), which evaluates to the operation's performance (or the target object), not the operation's result; the valid form reads the operation's own `out` parameter, `target.op.p`, or redefines it in the call",
       "scope": [
         "uml:CallOperationAction"
       ]
@@ -6992,15 +7022,21 @@
         "ownedMemberFeature"
       ],
       "ocl": "sha256:31910c279f192ca80e4f6b35939da323bccb731c3249b9da5b88fd767d1b8038",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
-        "internal/translate/migrate/activity.go:callOperation"
+        "internal/translate/migrate/activity.go:callOperation",
+        "internal/translate/migrate/activity.go:receiverOf",
+        "internal/translate/migrate/call_target.go:callOnTarget",
+        "internal/translate/migrate/call_target.go:targetPin",
+        "internal/translate/migrate/call_target.go:targetNote"
       ],
       "tests": [
-        "tests/migrate/behavior_test.go:TestActivityWithSendAcceptAndOperationCalls",
-        "tests/migrate/call_port_test.go:TestCallOperationOverPortsReachesTheConnectedPart"
+        "tests/migrate/call_target_test.go:TestCallOperationRunsOnTheObjectItsTargetPinHolds",
+        "tests/migrate/call_target_test.go:TestCallOperationOnACreatedObjectActsOnAnEmptyPin",
+        "tests/migrate/call_port_test.go:TestCallOperationOverPortsReachesTheConnectedPart",
+        "tests/migrate/behavior_test.go:TestActivityWithSendAcceptAndOperationCalls"
       ],
-      "reason": "a call is written `perform target.op` when its target resolves to a feature that has the operation, otherwise as an action typed by the operation's action def (PSSM: 914 of 932 approximated)",
+      "reason": "an output pin is the operation's `out` parameter, which the typed call redefines or the performed usage carries, and the flows out of it name it (`n.p`) (PSSM: 434 of 434 call result pins mapped); candidate erratum: COAOutputPinFeatureChainExpression_Mapping values the output pin's parameter with the feature chain `target.op` (and COAOutputPinFeatureReferenceExpression_Mapping with `target`), which evaluates to the operation's performance (or the target object), not the operation's result; the valid form reads the operation's own `out` parameter, `target.op.p`, or redefines it in the call",
       "scope": [
         "uml:CallOperationAction"
       ]
@@ -7020,15 +7056,21 @@
         "memberElement"
       ],
       "ocl": "sha256:044d4954b176925e04a9cb1245e615953caef6c5b739585bee73d8e1e9cfe957",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
-        "internal/translate/migrate/activity.go:callOperation"
+        "internal/translate/migrate/activity.go:callOperation",
+        "internal/translate/migrate/activity.go:receiverOf",
+        "internal/translate/migrate/call_target.go:callOnTarget",
+        "internal/translate/migrate/call_target.go:targetPin",
+        "internal/translate/migrate/call_target.go:targetNote"
       ],
       "tests": [
-        "tests/migrate/behavior_test.go:TestActivityWithSendAcceptAndOperationCalls",
-        "tests/migrate/call_port_test.go:TestCallOperationOverPortsReachesTheConnectedPart"
+        "tests/migrate/call_target_test.go:TestCallOperationRunsOnTheObjectItsTargetPinHolds",
+        "tests/migrate/call_target_test.go:TestCallOperationOnACreatedObjectActsOnAnEmptyPin",
+        "tests/migrate/call_port_test.go:TestCallOperationOverPortsReachesTheConnectedPart",
+        "tests/migrate/behavior_test.go:TestActivityWithSendAcceptAndOperationCalls"
       ],
-      "reason": "a call is written `perform target.op` when its target resolves to a feature that has the operation, otherwise as an action typed by the operation's action def (PSSM: 914 of 932 approximated)",
+      "reason": "an output pin is the operation's `out` parameter, which the typed call redefines or the performed usage carries, and the flows out of it name it (`n.p`) (PSSM: 434 of 434 call result pins mapped); candidate erratum: COAOutputPinFeatureChainExpression_Mapping values the output pin's parameter with the feature chain `target.op` (and COAOutputPinFeatureReferenceExpression_Mapping with `target`), which evaluates to the operation's performance (or the target object), not the operation's result; the valid form reads the operation's own `out` parameter, `target.op.p`, or redefines it in the call",
       "scope": [
         "uml:CallOperationAction"
       ]
@@ -7048,15 +7090,21 @@
         "ownedRelationship"
       ],
       "ocl": "sha256:3ea5eae48086f1688d1dff25cf1d36a19cf47bb096d709a2714b49dc4d16f804",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
-        "internal/translate/migrate/activity.go:callOperation"
+        "internal/translate/migrate/activity.go:callOperation",
+        "internal/translate/migrate/activity.go:receiverOf",
+        "internal/translate/migrate/call_target.go:callOnTarget",
+        "internal/translate/migrate/call_target.go:targetPin",
+        "internal/translate/migrate/call_target.go:targetNote"
       ],
       "tests": [
-        "tests/migrate/behavior_test.go:TestActivityWithSendAcceptAndOperationCalls",
-        "tests/migrate/call_port_test.go:TestCallOperationOverPortsReachesTheConnectedPart"
+        "tests/migrate/call_target_test.go:TestCallOperationRunsOnTheObjectItsTargetPinHolds",
+        "tests/migrate/call_target_test.go:TestCallOperationOnACreatedObjectActsOnAnEmptyPin",
+        "tests/migrate/call_port_test.go:TestCallOperationOverPortsReachesTheConnectedPart",
+        "tests/migrate/behavior_test.go:TestActivityWithSendAcceptAndOperationCalls"
       ],
-      "reason": "a call is written `perform target.op` when its target resolves to a feature that has the operation, otherwise as an action typed by the operation's action def (PSSM: 914 of 932 approximated)",
+      "reason": "an output pin is the operation's `out` parameter, which the typed call redefines or the performed usage carries, and the flows out of it name it (`n.p`) (PSSM: 434 of 434 call result pins mapped); candidate erratum: COAOutputPinFeatureChainExpression_Mapping values the output pin's parameter with the feature chain `target.op` (and COAOutputPinFeatureReferenceExpression_Mapping with `target`), which evaluates to the operation's performance (or the target object), not the operation's result; the valid form reads the operation's own `out` parameter, `target.op.p`, or redefines it in the call",
       "scope": [
         "uml:CallOperationAction"
       ]
@@ -7077,15 +7125,21 @@
         "ownedRelationship"
       ],
       "ocl": "sha256:6e7dae2eb59002fc828eb3f806c55110aad3b87b188f8ef9bb9abeadd035bda9",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
-        "internal/translate/migrate/activity.go:callOperation"
+        "internal/translate/migrate/activity.go:callOperation",
+        "internal/translate/migrate/activity.go:receiverOf",
+        "internal/translate/migrate/call_target.go:callOnTarget",
+        "internal/translate/migrate/call_target.go:targetPin",
+        "internal/translate/migrate/call_target.go:targetNote"
       ],
       "tests": [
-        "tests/migrate/behavior_test.go:TestActivityWithSendAcceptAndOperationCalls",
-        "tests/migrate/call_port_test.go:TestCallOperationOverPortsReachesTheConnectedPart"
+        "tests/migrate/call_target_test.go:TestCallOperationRunsOnTheObjectItsTargetPinHolds",
+        "tests/migrate/call_target_test.go:TestCallOperationOnACreatedObjectActsOnAnEmptyPin",
+        "tests/migrate/call_port_test.go:TestCallOperationOverPortsReachesTheConnectedPart",
+        "tests/migrate/behavior_test.go:TestActivityWithSendAcceptAndOperationCalls"
       ],
-      "reason": "a call is written `perform target.op` when its target resolves to a feature that has the operation, otherwise as an action typed by the operation's action def (PSSM: 914 of 932 approximated)",
+      "reason": "an output pin is the operation's `out` parameter, which the typed call redefines or the performed usage carries, and the flows out of it name it (`n.p`) (PSSM: 434 of 434 call result pins mapped); candidate erratum: COAOutputPinFeatureChainExpression_Mapping values the output pin's parameter with the feature chain `target.op` (and COAOutputPinFeatureReferenceExpression_Mapping with `target`), which evaluates to the operation's performance (or the target object), not the operation's result; the valid form reads the operation's own `out` parameter, `target.op.p`, or redefines it in the call",
       "scope": [
         "uml:CallOperationAction"
       ]
@@ -7106,15 +7160,21 @@
         "ownedMemberParameter"
       ],
       "ocl": "sha256:b996c45609bfbd4e385a5e1b1fcf460a9848d60ba0e1bbee2aeee33d4c0bccfe",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
-        "internal/translate/migrate/activity.go:callOperation"
+        "internal/translate/migrate/activity.go:callOperation",
+        "internal/translate/migrate/activity.go:receiverOf",
+        "internal/translate/migrate/call_target.go:callOnTarget",
+        "internal/translate/migrate/call_target.go:targetPin",
+        "internal/translate/migrate/call_target.go:targetNote"
       ],
       "tests": [
-        "tests/migrate/behavior_test.go:TestActivityWithSendAcceptAndOperationCalls",
-        "tests/migrate/call_port_test.go:TestCallOperationOverPortsReachesTheConnectedPart"
+        "tests/migrate/call_target_test.go:TestCallOperationRunsOnTheObjectItsTargetPinHolds",
+        "tests/migrate/call_target_test.go:TestCallOperationOnACreatedObjectActsOnAnEmptyPin",
+        "tests/migrate/call_port_test.go:TestCallOperationOverPortsReachesTheConnectedPart",
+        "tests/migrate/behavior_test.go:TestActivityWithSendAcceptAndOperationCalls"
       ],
-      "reason": "a call is written `perform target.op` when its target resolves to a feature that has the operation, otherwise as an action typed by the operation's action def (PSSM: 914 of 932 approximated)",
+      "reason": "an output pin is the operation's `out` parameter, which the typed call redefines or the performed usage carries, and the flows out of it name it (`n.p`) (PSSM: 434 of 434 call result pins mapped); candidate erratum: COAOutputPinFeatureChainExpression_Mapping values the output pin's parameter with the feature chain `target.op` (and COAOutputPinFeatureReferenceExpression_Mapping with `target`), which evaluates to the operation's performance (or the target object), not the operation's result; the valid form reads the operation's own `out` parameter, `target.op.p`, or redefines it in the call",
       "scope": [
         "uml:CallOperationAction"
       ]
@@ -7134,15 +7194,21 @@
         "value"
       ],
       "ocl": "sha256:db1bba594418fe7ffa626bee98f9f39e22aa7e77005f739982a48b0afe0adcb2",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
-        "internal/translate/migrate/activity.go:callOperation"
+        "internal/translate/migrate/activity.go:callOperation",
+        "internal/translate/migrate/activity.go:receiverOf",
+        "internal/translate/migrate/call_target.go:callOnTarget",
+        "internal/translate/migrate/call_target.go:targetPin",
+        "internal/translate/migrate/call_target.go:targetNote"
       ],
       "tests": [
-        "tests/migrate/behavior_test.go:TestActivityWithSendAcceptAndOperationCalls",
-        "tests/migrate/call_port_test.go:TestCallOperationOverPortsReachesTheConnectedPart"
+        "tests/migrate/call_target_test.go:TestCallOperationRunsOnTheObjectItsTargetPinHolds",
+        "tests/migrate/call_target_test.go:TestCallOperationOnACreatedObjectActsOnAnEmptyPin",
+        "tests/migrate/call_port_test.go:TestCallOperationOverPortsReachesTheConnectedPart",
+        "tests/migrate/behavior_test.go:TestActivityWithSendAcceptAndOperationCalls"
       ],
-      "reason": "a call is written `perform target.op` when its target resolves to a feature that has the operation, otherwise as an action typed by the operation's action def (PSSM: 914 of 932 approximated)",
+      "reason": "an output pin is the operation's `out` parameter, which the typed call redefines or the performed usage carries, and the flows out of it name it (`n.p`) (PSSM: 434 of 434 call result pins mapped); candidate erratum: COAOutputPinFeatureChainExpression_Mapping values the output pin's parameter with the feature chain `target.op` (and COAOutputPinFeatureReferenceExpression_Mapping with `target`), which evaluates to the operation's performance (or the target object), not the operation's result; the valid form reads the operation's own `out` parameter, `target.op.p`, or redefines it in the call",
       "scope": [
         "uml:CallOperationAction"
       ]
@@ -7162,15 +7228,21 @@
         "ownedRelationship"
       ],
       "ocl": "sha256:58b342e6e7d647bb1937f6681bf735b206251dfd96832f231e1457acc9b163ab",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
-        "internal/translate/migrate/activity.go:callOperation"
+        "internal/translate/migrate/activity.go:callOperation",
+        "internal/translate/migrate/activity.go:receiverOf",
+        "internal/translate/migrate/call_target.go:callOnTarget",
+        "internal/translate/migrate/call_target.go:targetPin",
+        "internal/translate/migrate/call_target.go:targetNote"
       ],
       "tests": [
-        "tests/migrate/behavior_test.go:TestActivityWithSendAcceptAndOperationCalls",
-        "tests/migrate/call_port_test.go:TestCallOperationOverPortsReachesTheConnectedPart"
+        "tests/migrate/call_target_test.go:TestCallOperationRunsOnTheObjectItsTargetPinHolds",
+        "tests/migrate/call_target_test.go:TestCallOperationOnACreatedObjectActsOnAnEmptyPin",
+        "tests/migrate/call_port_test.go:TestCallOperationOverPortsReachesTheConnectedPart",
+        "tests/migrate/behavior_test.go:TestActivityWithSendAcceptAndOperationCalls"
       ],
-      "reason": "a call is written `perform target.op` when its target resolves to a feature that has the operation, otherwise as an action typed by the operation's action def (PSSM: 914 of 932 approximated)",
+      "reason": "an output pin is the operation's `out` parameter, which the typed call redefines or the performed usage carries, and the flows out of it name it (`n.p`) (PSSM: 434 of 434 call result pins mapped); candidate erratum: COAOutputPinFeatureChainExpression_Mapping values the output pin's parameter with the feature chain `target.op` (and COAOutputPinFeatureReferenceExpression_Mapping with `target`), which evaluates to the operation's performance (or the target object), not the operation's result; the valid form reads the operation's own `out` parameter, `target.op.p`, or redefines it in the call",
       "scope": [
         "uml:CallOperationAction"
       ]
@@ -7190,15 +7262,21 @@
         "chainingFeature"
       ],
       "ocl": "sha256:1a83592b33d73935e7153892e0c87b6d5a2619072fde6a8c57e52a9f639fca35",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
-        "internal/translate/migrate/activity.go:callOperation"
+        "internal/translate/migrate/activity.go:callOperation",
+        "internal/translate/migrate/activity.go:receiverOf",
+        "internal/translate/migrate/call_target.go:callOnTarget",
+        "internal/translate/migrate/call_target.go:targetPin",
+        "internal/translate/migrate/call_target.go:targetNote"
       ],
       "tests": [
-        "tests/migrate/behavior_test.go:TestActivityWithSendAcceptAndOperationCalls",
-        "tests/migrate/call_port_test.go:TestCallOperationOverPortsReachesTheConnectedPart"
+        "tests/migrate/call_target_test.go:TestCallOperationRunsOnTheObjectItsTargetPinHolds",
+        "tests/migrate/call_target_test.go:TestCallOperationOnACreatedObjectActsOnAnEmptyPin",
+        "tests/migrate/call_port_test.go:TestCallOperationOverPortsReachesTheConnectedPart",
+        "tests/migrate/behavior_test.go:TestActivityWithSendAcceptAndOperationCalls"
       ],
-      "reason": "a call is written `perform target.op` when its target resolves to a feature that has the operation, otherwise as an action typed by the operation's action def (PSSM: 914 of 932 approximated)",
+      "reason": "a call is written `perform action n ::> target.op;` when its target pin holds `this` or a feature of it whose type has the operation, or a port a connector joins to a part owning it; a call whose target pin a flow feeds with another object (an activity parameter, a fork, another action's output) declares the pin as a parameter typed by the class owning the operation and binds the operation's `context` to it, `action n : Owner::Op { in ref :>> context = target; in target : Owner[1]; }`, the valid v2 form of OMG's `in target : Owner;` with `perform target.op` for an operation written as a def, which no feature chain reaches (an operation is written as a usage only where every call of it names its target as a feature of `this`, so every call on a handed-in object meets the def form); a run performs the operation on the object the pin holds; calls whose target is an object a CreateObjectAction creates act on an empty pin, because CreateObjectAction is not migrated, and the ledger says so; the per-call residual stays in the ledger under its own reason: a call on `this` where v1 types `this` as an Alf body activity lacking the operation runs in the caller's context, which would need a context the v1 model does not give (PSSM: 873 mapped, 59 approximated of 932; of the approximated, 31 calls on such a `this`, 18 calls on a created object reached through a join, 3 with edge notes only, 7 renamed beside a sibling of the same name)",
       "scope": [
         "uml:CallOperationAction"
       ]
@@ -7218,15 +7296,21 @@
         "chainingFeature"
       ],
       "ocl": "sha256:0d17365ded4629af53fde60b8a1976a3d70c6b0d86478abbec21faae7b53500f",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
-        "internal/translate/migrate/activity.go:callOperation"
+        "internal/translate/migrate/activity.go:callOperation",
+        "internal/translate/migrate/activity.go:receiverOf",
+        "internal/translate/migrate/call_target.go:callOnTarget",
+        "internal/translate/migrate/call_target.go:targetPin",
+        "internal/translate/migrate/call_target.go:targetNote"
       ],
       "tests": [
-        "tests/migrate/behavior_test.go:TestActivityWithSendAcceptAndOperationCalls",
-        "tests/migrate/call_port_test.go:TestCallOperationOverPortsReachesTheConnectedPart"
+        "tests/migrate/call_target_test.go:TestCallOperationRunsOnTheObjectItsTargetPinHolds",
+        "tests/migrate/call_target_test.go:TestCallOperationOnACreatedObjectActsOnAnEmptyPin",
+        "tests/migrate/call_port_test.go:TestCallOperationOverPortsReachesTheConnectedPart",
+        "tests/migrate/behavior_test.go:TestActivityWithSendAcceptAndOperationCalls"
       ],
-      "reason": "a call is written `perform target.op` when its target resolves to a feature that has the operation, otherwise as an action typed by the operation's action def (PSSM: 914 of 932 approximated)",
+      "reason": "a call is written `perform action n ::> target.op;` when its target pin holds `this` or a feature of it whose type has the operation, or a port a connector joins to a part owning it; a call whose target pin a flow feeds with another object (an activity parameter, a fork, another action's output) declares the pin as a parameter typed by the class owning the operation and binds the operation's `context` to it, `action n : Owner::Op { in ref :>> context = target; in target : Owner[1]; }`, the valid v2 form of OMG's `in target : Owner;` with `perform target.op` for an operation written as a def, which no feature chain reaches (an operation is written as a usage only where every call of it names its target as a feature of `this`, so every call on a handed-in object meets the def form); a run performs the operation on the object the pin holds; calls whose target is an object a CreateObjectAction creates act on an empty pin, because CreateObjectAction is not migrated, and the ledger says so; the per-call residual stays in the ledger under its own reason: a call on `this` where v1 types `this` as an Alf body activity lacking the operation runs in the caller's context, which would need a context the v1 model does not give (PSSM: 873 mapped, 59 approximated of 932; of the approximated, 31 calls on such a `this`, 18 calls on a created object reached through a join, 3 with edge notes only, 7 renamed beside a sibling of the same name)",
       "scope": [
         "uml:CallOperationAction"
       ]
@@ -7246,15 +7330,21 @@
         "ownedMemberFeature"
       ],
       "ocl": "sha256:b99d2abd21c0043ca159dfdc0472d6980f56ba1fee8c1befd943e7caec49dbb8",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
-        "internal/translate/migrate/activity.go:callOperation"
+        "internal/translate/migrate/activity.go:callOperation",
+        "internal/translate/migrate/activity.go:receiverOf",
+        "internal/translate/migrate/call_target.go:callOnTarget",
+        "internal/translate/migrate/call_target.go:targetPin",
+        "internal/translate/migrate/call_target.go:targetNote"
       ],
       "tests": [
-        "tests/migrate/behavior_test.go:TestActivityWithSendAcceptAndOperationCalls",
-        "tests/migrate/call_port_test.go:TestCallOperationOverPortsReachesTheConnectedPart"
+        "tests/migrate/call_target_test.go:TestCallOperationRunsOnTheObjectItsTargetPinHolds",
+        "tests/migrate/call_target_test.go:TestCallOperationOnACreatedObjectActsOnAnEmptyPin",
+        "tests/migrate/call_port_test.go:TestCallOperationOverPortsReachesTheConnectedPart",
+        "tests/migrate/behavior_test.go:TestActivityWithSendAcceptAndOperationCalls"
       ],
-      "reason": "a call is written `perform target.op` when its target resolves to a feature that has the operation, otherwise as an action typed by the operation's action def (PSSM: 914 of 932 approximated)",
+      "reason": "a call is written `perform action n ::> target.op;` when its target pin holds `this` or a feature of it whose type has the operation, or a port a connector joins to a part owning it; a call whose target pin a flow feeds with another object (an activity parameter, a fork, another action's output) declares the pin as a parameter typed by the class owning the operation and binds the operation's `context` to it, `action n : Owner::Op { in ref :>> context = target; in target : Owner[1]; }`, the valid v2 form of OMG's `in target : Owner;` with `perform target.op` for an operation written as a def, which no feature chain reaches (an operation is written as a usage only where every call of it names its target as a feature of `this`, so every call on a handed-in object meets the def form); a run performs the operation on the object the pin holds; calls whose target is an object a CreateObjectAction creates act on an empty pin, because CreateObjectAction is not migrated, and the ledger says so; the per-call residual stays in the ledger under its own reason: a call on `this` where v1 types `this` as an Alf body activity lacking the operation runs in the caller's context, which would need a context the v1 model does not give (PSSM: 873 mapped, 59 approximated of 932; of the approximated, 31 calls on such a `this`, 18 calls on a created object reached through a join, 3 with edge notes only, 7 renamed beside a sibling of the same name)",
       "scope": [
         "uml:CallOperationAction"
       ]
@@ -7274,15 +7364,21 @@
         "ownedRelationship"
       ],
       "ocl": "sha256:2680b37a7bd9961f3edb6287dffe0e064719dfb089d410e69795a20815384b80",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
-        "internal/translate/migrate/activity.go:callOperation"
+        "internal/translate/migrate/activity.go:callOperation",
+        "internal/translate/migrate/activity.go:receiverOf",
+        "internal/translate/migrate/call_target.go:callOnTarget",
+        "internal/translate/migrate/call_target.go:targetPin",
+        "internal/translate/migrate/call_target.go:targetNote"
       ],
       "tests": [
-        "tests/migrate/behavior_test.go:TestActivityWithSendAcceptAndOperationCalls",
-        "tests/migrate/call_port_test.go:TestCallOperationOverPortsReachesTheConnectedPart"
+        "tests/migrate/call_target_test.go:TestCallOperationRunsOnTheObjectItsTargetPinHolds",
+        "tests/migrate/call_target_test.go:TestCallOperationOnACreatedObjectActsOnAnEmptyPin",
+        "tests/migrate/call_port_test.go:TestCallOperationOverPortsReachesTheConnectedPart",
+        "tests/migrate/behavior_test.go:TestActivityWithSendAcceptAndOperationCalls"
       ],
-      "reason": "a call is written `perform target.op` when its target resolves to a feature that has the operation, otherwise as an action typed by the operation's action def (PSSM: 914 of 932 approximated)",
+      "reason": "a call is written `perform action n ::> target.op;` when its target pin holds `this` or a feature of it whose type has the operation, or a port a connector joins to a part owning it; a call whose target pin a flow feeds with another object (an activity parameter, a fork, another action's output) declares the pin as a parameter typed by the class owning the operation and binds the operation's `context` to it, `action n : Owner::Op { in ref :>> context = target; in target : Owner[1]; }`, the valid v2 form of OMG's `in target : Owner;` with `perform target.op` for an operation written as a def, which no feature chain reaches (an operation is written as a usage only where every call of it names its target as a feature of `this`, so every call on a handed-in object meets the def form); a run performs the operation on the object the pin holds; calls whose target is an object a CreateObjectAction creates act on an empty pin, because CreateObjectAction is not migrated, and the ledger says so; the per-call residual stays in the ledger under its own reason: a call on `this` where v1 types `this` as an Alf body activity lacking the operation runs in the caller's context, which would need a context the v1 model does not give (PSSM: 873 mapped, 59 approximated of 932; of the approximated, 31 calls on such a `this`, 18 calls on a created object reached through a join, 3 with edge notes only, 7 renamed beside a sibling of the same name)",
       "scope": [
         "uml:CallOperationAction"
       ]
@@ -7302,15 +7398,21 @@
         "ownedRelatedElement"
       ],
       "ocl": "sha256:d869b6876289e09ebfd4edf7aef41f957dccbba8f01521e91225843cb90400fc",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
-        "internal/translate/migrate/activity.go:callOperation"
+        "internal/translate/migrate/activity.go:callOperation",
+        "internal/translate/migrate/activity.go:receiverOf",
+        "internal/translate/migrate/call_target.go:callOnTarget",
+        "internal/translate/migrate/call_target.go:targetPin",
+        "internal/translate/migrate/call_target.go:targetNote"
       ],
       "tests": [
-        "tests/migrate/behavior_test.go:TestActivityWithSendAcceptAndOperationCalls",
-        "tests/migrate/call_port_test.go:TestCallOperationOverPortsReachesTheConnectedPart"
+        "tests/migrate/call_target_test.go:TestCallOperationRunsOnTheObjectItsTargetPinHolds",
+        "tests/migrate/call_target_test.go:TestCallOperationOnACreatedObjectActsOnAnEmptyPin",
+        "tests/migrate/call_port_test.go:TestCallOperationOverPortsReachesTheConnectedPart",
+        "tests/migrate/behavior_test.go:TestActivityWithSendAcceptAndOperationCalls"
       ],
-      "reason": "a call is written `perform target.op` when its target resolves to a feature that has the operation, otherwise as an action typed by the operation's action def (PSSM: 914 of 932 approximated)",
+      "reason": "a call is written `perform action n ::> target.op;` when its target pin holds `this` or a feature of it whose type has the operation, or a port a connector joins to a part owning it; a call whose target pin a flow feeds with another object (an activity parameter, a fork, another action's output) declares the pin as a parameter typed by the class owning the operation and binds the operation's `context` to it, `action n : Owner::Op { in ref :>> context = target; in target : Owner[1]; }`, the valid v2 form of OMG's `in target : Owner;` with `perform target.op` for an operation written as a def, which no feature chain reaches (an operation is written as a usage only where every call of it names its target as a feature of `this`, so every call on a handed-in object meets the def form); a run performs the operation on the object the pin holds; calls whose target is an object a CreateObjectAction creates act on an empty pin, because CreateObjectAction is not migrated, and the ledger says so; the per-call residual stays in the ledger under its own reason: a call on `this` where v1 types `this` as an Alf body activity lacking the operation runs in the caller's context, which would need a context the v1 model does not give (PSSM: 873 mapped, 59 approximated of 932; of the approximated, 31 calls on such a `this`, 18 calls on a created object reached through a join, 3 with edge notes only, 7 renamed beside a sibling of the same name)",
       "scope": [
         "uml:CallOperationAction"
       ]
@@ -7330,15 +7432,21 @@
         "ownedRelationship"
       ],
       "ocl": "sha256:dd7041acbb29c370aa1dfe4af33f4f0c77f1764c1f2f8827cb9290ba0d90ab57",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
-        "internal/translate/migrate/activity.go:callOperation"
+        "internal/translate/migrate/activity.go:callOperation",
+        "internal/translate/migrate/activity.go:receiverOf",
+        "internal/translate/migrate/call_target.go:callOnTarget",
+        "internal/translate/migrate/call_target.go:targetPin",
+        "internal/translate/migrate/call_target.go:targetNote"
       ],
       "tests": [
-        "tests/migrate/behavior_test.go:TestActivityWithSendAcceptAndOperationCalls",
-        "tests/migrate/call_port_test.go:TestCallOperationOverPortsReachesTheConnectedPart"
+        "tests/migrate/call_target_test.go:TestCallOperationRunsOnTheObjectItsTargetPinHolds",
+        "tests/migrate/call_target_test.go:TestCallOperationOnACreatedObjectActsOnAnEmptyPin",
+        "tests/migrate/call_port_test.go:TestCallOperationOverPortsReachesTheConnectedPart",
+        "tests/migrate/behavior_test.go:TestActivityWithSendAcceptAndOperationCalls"
       ],
-      "reason": "a call is written `perform target.op` when its target resolves to a feature that has the operation, otherwise as an action typed by the operation's action def (PSSM: 914 of 932 approximated)",
+      "reason": "a call is written `perform action n ::> target.op;` when its target pin holds `this` or a feature of it whose type has the operation, or a port a connector joins to a part owning it; a call whose target pin a flow feeds with another object (an activity parameter, a fork, another action's output) declares the pin as a parameter typed by the class owning the operation and binds the operation's `context` to it, `action n : Owner::Op { in ref :>> context = target; in target : Owner[1]; }`, the valid v2 form of OMG's `in target : Owner;` with `perform target.op` for an operation written as a def, which no feature chain reaches (an operation is written as a usage only where every call of it names its target as a feature of `this`, so every call on a handed-in object meets the def form); a run performs the operation on the object the pin holds; calls whose target is an object a CreateObjectAction creates act on an empty pin, because CreateObjectAction is not migrated, and the ledger says so; the per-call residual stays in the ledger under its own reason: a call on `this` where v1 types `this` as an Alf body activity lacking the operation runs in the caller's context, which would need a context the v1 model does not give (PSSM: 873 mapped, 59 approximated of 932; of the approximated, 31 calls on such a `this`, 18 calls on a created object reached through a join, 3 with edge notes only, 7 renamed beside a sibling of the same name)",
       "scope": [
         "uml:CallOperationAction"
       ]
@@ -7395,15 +7503,21 @@
         "ownedRelationship"
       ],
       "ocl": "sha256:0056db7dcfc848cea76010012cb999edfd24cc29a64d0c071c72a942fced5d99",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
-        "internal/translate/migrate/activity.go:callOperation"
+        "internal/translate/migrate/activity.go:callOperation",
+        "internal/translate/migrate/activity.go:receiverOf",
+        "internal/translate/migrate/call_target.go:callOnTarget",
+        "internal/translate/migrate/call_target.go:targetPin",
+        "internal/translate/migrate/call_target.go:targetNote"
       ],
       "tests": [
-        "tests/migrate/behavior_test.go:TestActivityWithSendAcceptAndOperationCalls",
-        "tests/migrate/call_port_test.go:TestCallOperationOverPortsReachesTheConnectedPart"
+        "tests/migrate/call_target_test.go:TestCallOperationRunsOnTheObjectItsTargetPinHolds",
+        "tests/migrate/call_target_test.go:TestCallOperationOnACreatedObjectActsOnAnEmptyPin",
+        "tests/migrate/call_port_test.go:TestCallOperationOverPortsReachesTheConnectedPart",
+        "tests/migrate/behavior_test.go:TestActivityWithSendAcceptAndOperationCalls"
       ],
-      "reason": "a call is written `perform target.op` when its target resolves to a feature that has the operation, otherwise as an action typed by the operation's action def (PSSM: 914 of 932 approximated)",
+      "reason": "a call is written `perform action n ::> target.op;` when its target pin holds `this` or a feature of it whose type has the operation, or a port a connector joins to a part owning it; a call whose target pin a flow feeds with another object (an activity parameter, a fork, another action's output) declares the pin as a parameter typed by the class owning the operation and binds the operation's `context` to it, `action n : Owner::Op { in ref :>> context = target; in target : Owner[1]; }`, the valid v2 form of OMG's `in target : Owner;` with `perform target.op` for an operation written as a def, which no feature chain reaches (an operation is written as a usage only where every call of it names its target as a feature of `this`, so every call on a handed-in object meets the def form); a run performs the operation on the object the pin holds; calls whose target is an object a CreateObjectAction creates act on an empty pin, because CreateObjectAction is not migrated, and the ledger says so; the per-call residual stays in the ledger under its own reason: a call on `this` where v1 types `this` as an Alf body activity lacking the operation runs in the caller's context, which would need a context the v1 model does not give (PSSM: 873 mapped, 59 approximated of 932; of the approximated, 31 calls on such a `this`, 18 calls on a created object reached through a join, 3 with edge notes only, 7 renamed beside a sibling of the same name)",
       "scope": [
         "uml:CallOperationAction"
       ]
@@ -7912,10 +8026,16 @@
       ],
       "operations": [],
       "ocl": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "status": "not-implemented",
-      "implementation": [],
-      "tests": [],
-      "reason": "a SendObjectAction is not migrated: it is written as a placeholder action that keeps its pins and position in the flow and is reported unmapped",
+      "status": "faithful",
+      "implementation": [
+        "internal/translate/migrate/activity.go:sendObject",
+        "internal/translate/migrate/activity.go:sendDestination"
+      ],
+      "tests": [
+        "tests/migrate/send_object_test.go:TestSendObjectDeliversTheRequestToItsTarget",
+        "tests/migrate/send_object_test.go:TestSendObjectWithoutRequestIsAPlaceholder"
+      ],
+      "reason": "`send request to target;` (`via` its port when `onPort` is set): the object the request pin holds, sent to the object the target pin holds, which a run delivers; an action with no request pin has nothing to send and stays a placeholder (PSSM, TMT and fixtures: 0); candidate erratum: SSAItemReferenceUsageFeatureTyping_Mapping, which SendObjectAction_Mapping inherits through SendSignalAction_Mapping, types the sent item by `from.request`, an InputPin, which is no Type, so the FeatureTyping is ill-formed; the valid form sends the pin's value, `send request to target`",
       "scope": [
         "uml:SendObjectAction"
       ]
@@ -7959,10 +8079,14 @@
       ],
       "operations": [],
       "ocl": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "status": "not-implemented",
-      "implementation": [],
-      "tests": [],
-      "reason": "a StartClassifierBehaviorAction is not migrated: it is written as a placeholder action that keeps its pins and position in the flow and is reported unmapped",
+      "status": "deliberate",
+      "implementation": [
+        "internal/translate/migrate/activity.go:startBehavior"
+      ],
+      "tests": [
+        "tests/migrate/call_target_test.go:TestStartBehaviorActionsArePlaceholdersKeepingTheirPins"
+      ],
+      "reason": "a StartClassifierBehaviorAction is written as a placeholder action keeping its pins and its place in the flow, as OMG's mapping does (an empty action usage keeping the activity's connections), and the ledger reports it unmapped: v2 has no action that starts an object's behavior later, since an object's exhibited states and performed actions start when the object does, so the behavior of starting it is not carried (PSSM, TMT and fixtures: 0)",
       "scope": [
         "uml:StartClassifierBehaviorAction"
       ]
@@ -7979,10 +8103,14 @@
       ],
       "operations": [],
       "ocl": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "status": "not-implemented",
-      "implementation": [],
-      "tests": [],
-      "reason": "a StartObjectBehaviorAction is not migrated: it is written as a placeholder action that keeps its pins and position in the flow and is reported unmapped",
+      "status": "deliberate",
+      "implementation": [
+        "internal/translate/migrate/activity.go:startBehavior"
+      ],
+      "tests": [
+        "tests/migrate/call_target_test.go:TestStartBehaviorActionsArePlaceholdersKeepingTheirPins"
+      ],
+      "reason": "a StartObjectBehaviorAction is written as a placeholder action keeping its pins and its place in the flow, as OMG's mapping does (an empty action usage keeping the activity's connections), and the ledger reports it unmapped: v2 has no action that starts an object's behavior later, since an object's exhibited states and performed actions start when the object does, so the behavior of starting it is not carried (PSSM: 832 placeholders; TMT: 0)",
       "scope": [
         "uml:StartObjectBehaviorAction"
       ]

@@ -35,9 +35,9 @@ func (r *Rendering) Mermaid() string {
 // as a `direction` statement. The empty direction keeps each kind's default,
 // and a kind no direction applies to ignores it. A palette fills nodes by
 // keyword family, and a Cameo style draws its representable colours. An
-// interconnection draws the ports its selected display returns. A rendering
-// some Layout positions draws the nodes the DOT form draws: the placed ones,
-// and the unplaced ones too under UnplacedStrip.
+// interconnection or mixed rendering draws the ports its selected display
+// returns. A rendering positioned by Layout draws the nodes the DOT form draws:
+// the placed ones, and the unplaced ones too under UnplacedStrip.
 func (r *Rendering) MermaidWith(options Options) string {
 	r = r.settleUnplaced(options.Unplaced, FormMermaid)
 	direction := options.Direction
@@ -107,9 +107,11 @@ func (r *Rendering) mermaidNotices(options Options) []string {
 		notices = append(notices, fmt.Sprintf("%d fork/join name(s) (%s); Mermaid's fork bar draws no label",
 			len(names), strings.Join(names, ", ")))
 	}
-	if r.Kind == KindAction {
+	if r.Kind == KindAction || r.Kind == KindMixed {
 		used := r.usedPorts(r.portView(options.Ports))
-		if pins := r.undrawnPins(func(node *Node, port Port) bool { return used[node.ID][port.ID] }); len(pins) > 0 {
+		if pins := r.undrawnPins(func(node *Node, port Port) bool {
+			return r.Kind == KindMixed && port.Direction == PortUndirected || used[node.ID][port.ID]
+		}); len(pins) > 0 {
 			notices = append(notices, fmt.Sprintf("%d pin(s) not drawn (%s); a flowchart draws the pins an edge ends at",
 				len(pins), strings.Join(pins, ", ")))
 		}
@@ -568,16 +570,24 @@ func clusterTitleExtraLines(node *Node, ports portView, labels labeller) int {
 	return extra
 }
 
-// flowchartCluster reports whether a node holds flowchart nodes, or is an
-// interconnection part with displayed ports.
+// flowchartCluster reports whether a node holds flowchart nodes, or a part with displayed ports.
 func flowchartCluster(node *Node, ports portView) bool {
-	return len(node.Children) > 0 || (ports.interconnection && len(ports.of(node)) > 0)
+	if len(node.Children) > 0 {
+		return true
+	}
+	for _, port := range ports.of(node) {
+		if ports.interconnectionPort(port) {
+			return true
+		}
+	}
+	return false
 }
 
-// writeFlowchart writes the tree, interconnection and action renderings as a
-// Mermaid flowchart: a node with children is a subgraph, containment in a tree
-// is an edge, and every other edge is the one the rendering holds. An
-// interconnection draws its selected ports as nodes inside their parts.
+// writeFlowchart writes the tree, interconnection, action and mixed renderings
+// as a Mermaid flowchart: a node with children is a subgraph, containment in a
+// tree is an edge, and every other edge is the one the rendering holds. An
+// interconnection or mixed rendering draws its selected ports as nodes inside
+// their parts.
 type mermaidFlowWriter struct {
 	b              *strings.Builder
 	links          int
@@ -625,6 +635,7 @@ func (w *mermaidFlowWriter) edge(from, arrow, label, to string, style *Style, ki
 
 // flowchartContext is what every node of a flowchart is written with.
 type flowchartContext struct {
+	kind       Kind
 	flow       string
 	labels     labeller
 	options    Options
@@ -638,7 +649,7 @@ func (r *Rendering) writeFlowchart(b *strings.Builder, direction Direction, labe
 	flowchart := *r
 	flowchart.Notes = r.flowchartNotesWithDrawnEdges()
 	flow := "TD"
-	if r.Kind == KindInterconnection {
+	if r.Kind == KindInterconnection || r.Kind == KindCase {
 		flow = "LR"
 	}
 	if direction != "" {
@@ -652,7 +663,7 @@ func (r *Rendering) writeFlowchart(b *strings.Builder, direction Direction, labe
 	if r.blank() && len(r.Pictures) == 0 && len(flowchart.Notes) == 0 {
 		fmt.Fprintf(b, "  empty[\"%s\"]\n", mermaidText(r.blankReason(FormMermaid)))
 	} else {
-		ctx := flowchartContext{flow: flow, labels: labels, options: options, ports: portDisplay, used: used, noteOwners: noteOwners}
+		ctx := flowchartContext{kind: r.Kind, flow: flow, labels: labels, options: options, ports: portDisplay, used: used, noteOwners: noteOwners}
 		for _, root := range r.Roots {
 			if r.Kind == KindTree {
 				r.writeTreeNode(w, root, 1, labels, options)
@@ -667,7 +678,7 @@ func (r *Rendering) writeFlowchart(b *strings.Builder, direction Direction, labe
 		from, to := r.edgeEnds(edge, portEnds)
 		from = flowchartEndpoint(from, w.clusterAnchors)
 		to = flowchartEndpoint(to, w.clusterAnchors)
-		w.edge(from, mermaidArrow(edge.Kind), edge.Label, to, edge.Style, edge.Kind)
+		w.edge(from, mermaidArrow(edge.Kind), mermaidEdgeLabel(r.Kind, edge), to, edge.Style, edge.Kind)
 	}
 	flowchart.writeFlowchartNoteEdges(w, noteOwners, used)
 	r.writeMermaidStyles(b, fills, options, false)
@@ -761,7 +772,7 @@ func (r *Rendering) flowchartNotesWithDrawnEdges() []Note {
 
 func (r *Rendering) writeTreeNode(w *mermaidFlowWriter, node *Node, depth int, labels labeller, options Options) {
 	indent := strings.Repeat("  ", depth)
-	fmt.Fprintf(w.b, "%s%s%s\n", indent, node.ID, mermaidNodeShape(node, labels, options))
+	fmt.Fprintf(w.b, "%s%s%s\n", indent, node.ID, mermaidNodeShape(KindTree, node, labels, options))
 	for _, child := range node.Children {
 		r.writeTreeNode(w, child, depth+1, labels, options)
 		w.edge(node.ID, "---", "", child.ID, nil, EdgeBinding)
@@ -1105,7 +1116,7 @@ func mermaidFontFamily(font string) bool {
 func (r *Rendering) writeFlowchartNode(w *mermaidFlowWriter, node *Node, depth int, ctx flowchartContext) {
 	indent := strings.Repeat("  ", depth)
 	if !r.flowchartSubgraph(node, ctx.used) {
-		fmt.Fprintf(w.b, "%s%s%s\n", indent, node.ID, mermaidNodeShape(node, ctx.labels, ctx.options))
+		fmt.Fprintf(w.b, "%s%s%s\n", indent, node.ID, mermaidNodeShape(ctx.kind, node, ctx.labels, ctx.options))
 		return
 	}
 	fmt.Fprintf(w.b, "%ssubgraph %s [%s]\n", indent, node.ID, mermaidNodeLabel(node, ctx.labels, ctx.options))
@@ -1125,10 +1136,9 @@ func (r *Rendering) writeFlowchartNode(w *mermaidFlowWriter, node *Node, depth i
 	fmt.Fprintf(w.b, "%send\n", indent)
 }
 
-// flowchartPinID is the node a port is drawn as: the port itself on an
-// interconnection view, else a pin numbered by its position on the node.
+// flowchartPinID is the node a part port or action pin is drawn as.
 func flowchartPinID(node *Node, port Port, ports portView) string {
-	if !ports.interconnection {
+	if !ports.interconnectionPort(port) {
 		for j, candidate := range node.Ports {
 			if candidate.ID == port.ID {
 				return fmt.Sprintf("%s_p%d", node.ID, j)
@@ -1138,7 +1148,18 @@ func flowchartPinID(node *Node, port Port, ports portView) string {
 	return port.ID
 }
 
-func mermaidNodeShape(node *Node, labels labeller, options Options) string {
+func mermaidNodeShape(kind Kind, node *Node, labels labeller, options Options) string {
+	if kind == KindCase || kind == KindMixed {
+		if caseNodeKind(node.Kind) {
+			return "([" + mermaidNodeLabel(node, labels, options) + "])"
+		}
+		switch node.Kind {
+		case "actor", "subject":
+			return "[" + mermaidNodeLabel(node, labels, options) + "]"
+		case "objective":
+			return "@{ shape: notch-rect, label: \"" + labels.mermaid(node) + "\" }"
+		}
+	}
 	switch node.Kind {
 	case startKind, "initial":
 		return `@{ shape: f-circ, label: "" }`
@@ -1252,7 +1273,7 @@ func runeAt(text string, index, direction int) rune {
 
 func (r *Rendering) usedPorts(ports portView) map[string]map[string]bool {
 	used := map[string]map[string]bool{}
-	if r.Kind != KindAction && r.Kind != KindInterconnection {
+	if r.Kind != KindAction && r.Kind != KindInterconnection && r.Kind != KindMixed {
 		return used
 	}
 	mark := func(owner, port string) {
@@ -1261,11 +1282,13 @@ func (r *Rendering) usedPorts(ports portView) map[string]map[string]bool {
 		}
 		used[owner][port] = true
 	}
-	if r.Kind == KindInterconnection {
+	if r.Kind == KindInterconnection || r.Kind == KindMixed {
 		var walk func(*Node)
 		walk = func(node *Node) {
 			for _, port := range ports.of(node) {
-				mark(node.ID, port.ID)
+				if r.Kind == KindInterconnection || ports.interconnectionPort(port) {
+					mark(node.ID, port.ID)
+				}
 			}
 			for _, child := range node.Children {
 				walk(child)
@@ -1274,7 +1297,9 @@ func (r *Rendering) usedPorts(ports portView) map[string]map[string]bool {
 		for _, root := range r.Roots {
 			walk(root)
 		}
-		return used
+		if r.Kind == KindInterconnection {
+			return used
+		}
 	}
 	for _, edge := range r.Edges {
 		for _, endpoint := range []struct{ owner, port string }{
@@ -1302,7 +1327,7 @@ func (r *Rendering) portEnds(used map[string]map[string]bool) map[string]string 
 		for i, port := range node.Ports {
 			if used[node.ID][port.ID] {
 				end := port.ID
-				if r.Kind == KindAction {
+				if r.Kind == KindAction || r.Kind == KindMixed && port.Direction != PortUndirected {
 					end = fmt.Sprintf("%s_p%d", node.ID, i)
 				}
 				ends[port.ID] = end
@@ -1436,7 +1461,7 @@ func mermaidPictureSource(picture Picture) (string, string, bool) {
 // mermaidPinLabel is a pin node's label: the port's stereotype over `name : Type`
 // under the full display, the name alone under the minimal.
 func mermaidPinLabel(ports portView, port Port) string {
-	if !ports.interconnection {
+	if !ports.interconnectionPort(port) {
 		return mermaidText(port.Name)
 	}
 	label := mermaidText(ports.pinLabel(port))
@@ -1837,8 +1862,35 @@ func mermaidArrow(kind EdgeKind) string {
 		return "==="
 	case EdgeFlow:
 		return "-.->"
+	case EdgeAssociation:
+		return "---"
+	case EdgeAnchor:
+		return "-.-"
+	case EdgeInclude, EdgeTyping, EdgeReference:
+		return "-.->"
+	case EdgeSpecialization:
+		return "-->"
+	case EdgeComposition:
+		return "---"
 	}
 	return "-->"
+}
+
+// mermaidEdgeLabel returns an explicit label or a case/mixed edge-kind label.
+func mermaidEdgeLabel(kind Kind, edge Edge) string {
+	if edge.Label != "" {
+		return edge.Label
+	}
+	if kind != KindCase && kind != KindMixed {
+		return ""
+	}
+	switch edge.Kind {
+	case EdgeComposition:
+		return "«composition»"
+	case EdgeSpecialization:
+		return "«specializes»"
+	}
+	return ""
 }
 
 // mermaidText escapes what a Mermaid label may not carry literally. A semicolon

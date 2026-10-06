@@ -106,6 +106,28 @@ func TestCompileDiagramWithElementAndKind(t *testing.T) {
 	}
 }
 
+func TestCompileDiagramWithCaseAndMixedPseudoKinds(t *testing.T) {
+	for _, kind := range []view.Kind{view.KindCase, view.KindMixed} {
+		t.Run(string(kind), func(t *testing.T) {
+			fixture := loadPlanningFixture(t, diagramDocument(`
+				part selected : Diagram {
+					attribute redefines kind = "`+string(kind)+`";
+					ref redefines source = imagingChain;
+				}
+			`))
+			plan := fixture.mustCompile(t, "Report")
+			reference := plan.Content()[0].Diagram()
+			target, ok := reference.Target()
+			if !ok || target == nil {
+				t.Fatal("reference names no target element")
+			}
+			if reference.Kind() != kind {
+				t.Fatalf("kind = %q, want %q", reference.Kind(), kind)
+			}
+		})
+	}
+}
+
 func TestCompileDiagramWithoutSource(t *testing.T) {
 	fixture := loadPlanningFixture(t, diagramDocument(`
 		part imaging : Diagram {

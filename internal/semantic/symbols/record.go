@@ -391,12 +391,16 @@ func (in interner) facts(f *LibraryFacts) {
 	in.refs(f.About)
 	in.refs(f.Ends)
 	in.refs(f.RelatedFeatures)
+	for _, path := range f.EndPaths {
+		in.refs(path)
+	}
 	in.ref(&f.Alias)
 	in.ref(&f.References)
 	in.ref(&f.BaseType)
 	in.ref(&f.MetadataType)
 	for i := range f.Relationships {
 		in.ref(&f.Relationships[i].Target)
+		in.refs(f.Relationships[i].Path)
 	}
 	if f.Relationship != nil {
 		in.ref(&f.Relationship.Source)
