@@ -209,6 +209,12 @@ func usageMetaclassOf(n *ast.Usage, inMetadataBody bool) (string, bool) {
 	case acceptPayload(n) != nil:
 		return mAcceptAction, true
 	}
+	switch nodeStatement(n).(type) {
+	case *ast.SendStatement:
+		return mSend, true
+	case *ast.AssignmentActionNode:
+		return mAssignment, true
+	}
 	if n.Keyword == "" && (n.Kind == ast.UsageAttribute || inMetadataBody && n.Kind == ast.UsageEnumeration || n.Ident.Name == "" && n.Kind < ast.UsageConnection) {
 		// A kindless usage is a DefaultReferenceUsage; an unnamed one is too,
 		// the name it would take being what a reference lacks (SysML.xtext
@@ -232,6 +238,30 @@ func acceptPayload(n *ast.Usage) *ast.Usage {
 	}
 	if payload, ok := member.(*ast.Usage); ok && payload.IsAccept {
 		return payload
+	}
+	return nil
+}
+
+// nodeStatement is the statement an action node is written as, which the node
+// is (`action s send x to r;` is one SendActionUsage named s, SysML.xtext
+// SendNode; `action a assign x := y;` one AssignmentActionUsage,
+// AssignmentNode), or nil for any other usage, a node chaining further
+// statements with `then` among them.
+func nodeStatement(n *ast.Usage) ast.Node {
+	if n.Kind != ast.UsageAction || !n.IsActionNode || len(n.Members) != 1 {
+		return nil
+	}
+	statement := n.Members[0]
+	if m, ok := statement.(*ast.Membership); ok {
+		statement = m.Member
+	}
+	switch s := statement.(type) {
+	case *ast.SendStatement:
+		if !s.HasBody {
+			return s
+		}
+	case *ast.AssignmentActionNode:
+		return s
 	}
 	return nil
 }

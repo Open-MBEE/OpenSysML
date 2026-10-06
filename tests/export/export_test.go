@@ -3018,6 +3018,8 @@ func TestBehavioralHeadsComeBackFromTheGraphAlone(t *testing.T) {
 		"guarded first":               "action def A {\n        action a;\n        action b;\n        first a if true then b;\n    }",
 		"guarded succession first":    "action def A {\n        action a;\n        action b;\n        succession first a if true then b;\n    }",
 		"unguarded action transition": "action def A {\n        action a;\n        action b;\n        transition first a then b;\n    }",
+		"named send":                  "action def A {\n        private action s send x to y;\n    }",
+		"named assign":                "action def A {\n        attribute v = 0;\n        action a assign v := 1;\n    }",
 	}
 	for name, body := range bodies {
 		t.Run(name, func(t *testing.T) {
