@@ -674,6 +674,34 @@ func sysmlParseString(s, name string) string {
 	return b.String()
 }
 
+// sysmlQuote writes t as the String literal that reads back to it: only the
+// quote, the backslash and \b \t \n \f \r are escaped.
+func sysmlQuote(t string) string {
+	var b strings.Builder
+	b.WriteByte('"')
+	for i := 0; i < len(t); i++ {
+		switch c := t[i]; c {
+		case '"', '\\':
+			b.WriteByte('\\')
+			b.WriteByte(c)
+		case '\b':
+			b.WriteString("\\b")
+		case '\t':
+			b.WriteString("\\t")
+		case '\n':
+			b.WriteString("\\n")
+		case '\f':
+			b.WriteString("\\f")
+		case '\r':
+			b.WriteString("\\r")
+		default:
+			b.WriteByte(c)
+		}
+	}
+	b.WriteByte('"')
+	return b.String()
+}
+
 func sysmlFormat(v any) string {
 	if o, ok := v.(sysmlHolder); ok {
 		held, unset := o.held()
@@ -683,7 +711,7 @@ func sysmlFormat(v any) string {
 		v = held
 	}
 	if t, ok := v.(string); ok {
-		return strconv.Quote(t)
+		return sysmlQuote(t)
 	}
 	if l, ok := v.(sysmlEnum); ok {
 		return sysmlLiterals[l]

@@ -12,6 +12,8 @@ import (
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/lexer"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/codegen"
 )
 
@@ -371,6 +373,7 @@ var compiledCases = []compiledCase{
 	{"Str::Build", []string{`"xy"`, "0"}}, {"Str::Build", []string{`"é,"`, "600"}},
 	{"Str::Names", []string{"3"}}, {"Str::Names", []string{"200"}}, {"Str::ForS", []string{`("a", "b,c")`}}, {"Str::ForS", []string{"null"}},
 	{"Str::Ctrl", []string{"\"\u00a0\u00ad\u200b\U0001F600\""}},
+	{"Str::Ctrl", []string{"\"\a\v\x01\x1b\x7f\u0085\u2028\ufeff\""}},
 	{"Str::Seq", []string{`"` + strings.Repeat("long ", 30) + `"`}},
 	{"Str::Joined", []string{`("a", "b", "c")`}}, {"Str::Joined", []string{"()"}},
 	{"E::Id", []string{"Compiled::E::Color::green"}}, {"E::Id", []string{"Compiled::E::Color::blue"}}, {"E::Red", nil},
@@ -641,6 +644,78 @@ func TestCompiledCalcsAgreeWithInterpreter(t *testing.T) {
 			}
 			if out, err := exec.Command(exes["Hypot"], "--repeat", "3", "3.0", "4.0").Output(); err != nil || strings.TrimSpace(string(out)) != "5.0" {
 				t.Errorf("--repeat 3: got %q, %v", out, err)
+			}
+		})
+	}
+}
+
+// A String printed by the interpreter or a compiled program is a String literal
+// that reads back to the same String, so a result can be given as an argument.
+func TestCompiledStringResultsRoundTrip(t *testing.T) {
+	texts := []string{"\u200b", "\a\v\x01\x1b\x7f", "\u0085\u00a0\u00ad\u2028\u2029\ufeff", "\U0001F600\U000E0001", "\b\t\n\f\r\"'\\"}
+	for _, target := range codegen.Targets() {
+		t.Run(string(target), func(t *testing.T) {
+			t.Parallel()
+			if target == codegen.TargetC {
+				if _, err := exec.LookPath("cc"); err != nil {
+					t.Skip("no C compiler on PATH")
+				}
+			}
+			s := loadCompileFixture(t)
+			exe := filepath.Join(t.TempDir(), "StrStr")
+			buildCalc(t, s, "Str::StrStr", target, exe)
+			for _, text := range texts {
+				c := compiledCase{"Str::StrStr", []string{source.StringText(text)}}
+				printed, failure := interpreted(t, s, c)
+				if failure != "" {
+					t.Fatalf("%q: interpreter failed: %s", text, failure)
+				}
+				if got := source.StringValue(printed); got != text || len(lexer.InvalidEscapes(source.Span{}, printed)) > 0 {
+					t.Errorf("%q printed as %s, which reads back as %q", text, printed, got)
+				}
+				again := compiledCase{"Str::StrStr", []string{printed}}
+				for _, run := range []struct {
+					name   string
+					answer func() (string, string)
+				}{
+					{"compiled", func() (string, string) { return compiledRun(t, exe, c) }},
+					{"compiled, given the printed result", func() (string, string) { return compiledRun(t, exe, again) }},
+					{"interpreted, given the printed result", func() (string, string) { return interpreted(t, s, again) }},
+				} {
+					if value, failure := run.answer(); value != printed || failure != "" {
+						t.Errorf("%q %s = (%q, %q), want %s", text, run.name, value, failure, printed)
+					}
+				}
+			}
+		})
+	}
+}
+
+// A String holding a NUL, which only a literal in the model can, prints whole
+// on both targets, as the interpreter prints it.
+func TestCompiledStringResultHoldsNul(t *testing.T) {
+	model := "package Compiled { private import ScalarValues::*; calc def Nul { in a : String; return : String = \"x\x00\" + a + \"\x00y\"; } }"
+	c := compiledCase{"Nul", []string{"\"\u200b\""}}
+	for _, target := range codegen.Targets() {
+		t.Run(string(target), func(t *testing.T) {
+			t.Parallel()
+			if target == codegen.TargetC {
+				if _, err := exec.LookPath("cc"); err != nil {
+					t.Skip("no C compiler on PATH")
+				}
+			}
+			s := NewSession()
+			if errs := errorDiagnostics(s.Submit(model).Diagnostics); len(errs) > 0 {
+				t.Fatalf("model has errors: %v", errs)
+			}
+			want, failure := interpreted(t, s, c)
+			if failure != "" || want != "\"x\x00\u200b\x00y\"" {
+				t.Fatalf("interpreted = (%q, %q)", want, failure)
+			}
+			exe := filepath.Join(t.TempDir(), "Nul")
+			buildCalc(t, s, "Nul", target, exe)
+			if got, failure := compiledRun(t, exe, c); got != want || failure != "" {
+				t.Errorf("compiled = (%q, %q), want %q", got, failure, want)
 			}
 		})
 	}
