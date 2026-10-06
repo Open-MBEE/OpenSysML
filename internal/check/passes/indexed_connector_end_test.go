@@ -140,3 +140,29 @@ func TestIndexedConnectorEndIndexIsTyped(t *testing.T) {
 		}
 	}
 }
+
+// The bound an index is checked against is the multiplicity governing the feature it
+// selects from: one inherited by redefinition without being restated counts.
+func TestIndexedConnectorEndIndexIsBoundByTheGoverningMultiplicity(t *testing.T) {
+	model := func(member string) string {
+		return `package Inherited {
+	private import ScalarValues::*;
+	port def P { attribute value : Real default 0.0; }
+	part def Base { port y : P[2]; }
+	part def Derived :> Base { port :>> y; }
+	part def Sink { port u : P; }
+	part def Asm {
+		part d : Derived;
+		part k : Sink;
+		` + member + `
+	}
+}`
+	}
+	if got := indexedEndErrors(t, model("connect d.y#(2) to k.u;")); len(got) != 0 {
+		t.Errorf("d.y#(2) over an inherited [2]: got %+v, want a clean analysis", got)
+	}
+	got := indexedEndErrors(t, model("connect d.y#(3) to k.u;"))
+	if len(got) != 1 || !strings.Contains(got[0].Message, "index 3 is outside the multiplicity [2]") {
+		t.Errorf("d.y#(3) over an inherited [2]: got %+v, want one error naming the inherited bound", got)
+	}
+}

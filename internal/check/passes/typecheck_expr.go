@@ -1877,7 +1877,7 @@ func (ec *exprChecker) checkEndIndex(scope *symbols.Scope, feature, index ast.No
 	if !ok || sym == nil {
 		return
 	}
-	bound := ec.model.EffectiveMultiplicityOf(sym)
+	bound := ec.model.GoverningMultiplicityOf(sym)
 	if bound.Upper.Known && !bound.Upper.Infinite && n > bound.Upper.Value {
 		ec.errorf(index.Span(), "connector end index %d is outside the multiplicity %s of the feature it selects from", n, bound.Text())
 	}
