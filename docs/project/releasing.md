@@ -191,7 +191,9 @@ branch that moves the integration state onto `main`:
 
 4. Tag `main` as [Tagging](#tagging) describes.
 
-5. Merge `main` back into `develop` — a plain merge, no rebase — so the folded
+5. Merge the `chore/pin-vx.y.z` pull request the tag's pipeline opens against
+   `develop` (see [Pinned release digests](#pinned-release-digests)), then merge
+   `main` back into `develop` — a plain merge, no rebase — so the folded
    changelog, and any hotfix that landed on `main` in the meantime, flow down:
 
    ```bash
@@ -427,7 +429,17 @@ one alongside it).
    cargo add opensysml@=0.0.5 && cargo fetch
    ```
 
-5. **Let the Homebrew tap pick the release up.** The tap repository
+5. **Verify the pin pull request landed.** `pin-release-digests`, the last job
+   of the tag's workflow, stamps the release into `client/release-digests.json`
+   from the manifest, syncs every client copy, and opens
+   `chore/pin-vx.y.z` against `develop`. Merge it (step 5 of
+   [The release branch](#the-release-branch) does so before the back-merge). A
+   missing pull request means the job failed — read its log; the token is the
+   usual cause, see [Pinned release digests](#pinned-release-digests) — and
+   until the pin lands, `tests/hygiene` fails the next release branch rather
+   than this one.
+
+6. **Let the Homebrew tap pick the release up.** The tap repository
    `Open-MBEE/homebrew-tap` updates itself: a scheduled workflow there resolves
    the latest `Open-MBEE/OpenSysML` release, renders `Formula/opensysml.rb` from
    this repository's `scripts/render-homebrew-formula.sh` and formula template at
@@ -446,7 +458,7 @@ one alongside it).
 
    See [packaging/homebrew/README.md](../../packaging/homebrew/README.md).
 
-6. **Say what is not signed.** macOS binaries are not Developer ID signed or
+7. **Say what is not signed.** macOS binaries are not Developer ID signed or
    notarized, so a browser download trips Gatekeeper. Point release notes at
    [MACOS_DISTRIBUTION.md](macos-distribution.md), which gives the workarounds
    and what signing would take. Windows binaries are Authenticode signed through
@@ -454,13 +466,13 @@ one alongside it).
    for a release whose signing request nobody approved, only the unsigned
    Windows assets exist and SmartScreen warns — say so in the notes.
 
-7. **Approve the Windows signing request.** When SignPath is configured, the
+8. **Approve the Windows signing request.** When SignPath is configured, the
    tag also runs [`release-windows.yml`](../../.github/workflows/release-windows.yml),
    which parks a signing request in SignPath until an Approver approves it
    (see [Windows Authenticode signing](#windows-authenticode-signing)). No
    approval, no `*-signed*` assets on the release.
 
-8. **Check the Windows installer landed.** The same workflow builds the MSI
+9. **Check the Windows installer landed.** The same workflow builds the MSI
    (see [The Windows installer](#the-windows-installer)) once CircleCI has
    published the release: `opensysml-<x.y.z>-windows-amd64.msi` with
    `SHA256SUMS-windows-msi.txt` when SignPath is not configured, or
@@ -470,19 +482,19 @@ one alongside it).
    request); re-run it after fixing the cause — see the recovery path in
    [The Windows installer](#the-windows-installer).
 
-9. **Render the Windows package-manager manifests** when a maintainer wants
-   to (re)submit them externally. Nothing here submits anything:
+10. **Render the Windows package-manager manifests** when a maintainer wants
+    to (re)submit them externally. Nothing here submits anything:
 
-   ```bash
-   scripts/render-scoop-manifest.sh v0.0.5 > opensysml.json
-   scripts/render-winget-manifests.sh v0.0.5 out/
-   scripts/render-msys2-pkgbuild.sh v0.0.5 > PKGBUILD
-   ```
+    ```bash
+    scripts/render-scoop-manifest.sh v0.0.5 > opensysml.json
+    scripts/render-winget-manifests.sh v0.0.5 out/
+    scripts/render-msys2-pkgbuild.sh v0.0.5 > PKGBUILD
+    ```
 
-   The procedure for each external repository is in
-   [packaging/scoop](../../packaging/scoop/README.md),
-   [packaging/winget](../../packaging/winget/README.md) and
-   [packaging/msys2](../../packaging/msys2/README.md).
+    The procedure for each external repository is in
+    [packaging/scoop](../../packaging/scoop/README.md),
+    [packaging/winget](../../packaging/winget/README.md) and
+    [packaging/msys2](../../packaging/msys2/README.md).
 
 ### The signed checksum manifest
 
@@ -753,10 +765,9 @@ version: it changes what every installer ships.
 The committed copies of `client/release-digests.json` stay in sync and still
 cover releases published before signing existed. A pin remains an override:
 where a client has a pin, it wins, and clients that verify signed manifests
-refuse a disagreement rather than downgrade. **Per release there is now nothing
-to do** — pinning a release signed by the pipeline is optional. Pinning still
-works, and is worth doing for a release clients on an older `opensysml` should
-be able to install:
+refuse a disagreement rather than downgrade. **Per release there is nothing to
+do by hand**: the tag's pipeline opens the pull request that pins it (below).
+Pinning by hand still works, for a release the table lacks:
 
 ```bash
 export GITHUB_TOKEN=...   # must be able to read this repository's releases
@@ -778,14 +789,66 @@ the synced client tables. `build-python-package` runs it with
 `build-release-binaries` built, before `SHA256SUMS.txt` exists — against the
 copy of the table the wheel and sdist package, so `pip install opensysml==X.Y.Z`
 verifies the service it downloads against a digest inside the wheel, with no
-environment variable and no `sigstore` at run time. `publish-crates` stamps the
-crate the same way with `--from-manifest dist/SHA256SUMS.txt`, once the signed
-manifest exists. Both jobs then fail unless the packaged table pins all five
-`sysml-grpc-*` assets for the tag, and `build-release` fails before signing
-unless the wheel's pins are the digests the manifest lists. The signed manifest
-is therefore what an `opensysml` reaches for only for another release, or when it
-is older than the release it is asked for; `--write` back-fills the committed
-tables after a release as before, for those clients.
+environment variable and no `sigstore` at run time. `publish-npm` and
+`publish-maven` run the same `--from-binaries dist/grpc` stamp against
+`client/node/release-digests.json` and
+`client/java/opensysml-client/src/main/resources/release-digests.json`, the
+copies the npm tarball and the jar package, so `npm install
+@openmbee/opensysml@X.Y.Z` and `org.openmbee:opensysml:X.Y.Z` download their own
+release on a pin, with the optional sigstore dependencies absent. `publish-crates`
+stamps the crate the same way with `--from-manifest dist/SHA256SUMS.txt`, once
+the signed manifest exists. Every one of these jobs then fails unless the
+packaged table pins all five `sysml-grpc-*` assets for the tag — opening the
+wheel and sdist, the packed tarball, the jar and the `.crate` to read the table
+they carry — and `build-release` fails before signing unless the wheel's pins
+are the digests the manifest lists. The signed manifest is therefore what a
+client reaches for only for another release, or when it is older than the
+release it is asked for.
+
+Stamping with an explicit `--table` touches that one file in the job's working
+copy and nothing else: the shared `client/release-digests.json` is not written,
+no copy is synced, and nothing is committed, so the `sync-release-digests.py
+--check` step elsewhere in the same pipeline, which reads the committed tree,
+is unaffected. `tests/hygiene/release_config_test.go` holds all four publishing
+jobs to this order — stamp, package, assert — and the Node and Java suites
+assert the table they load pins the tag `$OPENSYSML_EXPECT_PINNED_RELEASE`
+names, which only those two jobs set, after stamping.
+
+The committed table is brought up to date by the release itself. After
+`publish-github-release`, the `pin-release-digests` job checks out `develop`,
+runs `pin_release_checksums.py --from-manifest dist/SHA256SUMS.txt` against the
+default table — the shared `client/release-digests.json`, so every client copy
+is synced in the same stamp — confirms `sync-release-digests.py --check`, and
+opens `chore/pin-vX.Y.Z` against `develop`. A client *built from the next
+revision* — a checkout, or a package of a later release asked for this one —
+then pins it too rather than reaching for the signed manifest. The job is
+idempotent: when `develop` already pins the tag it ends with nothing to open,
+the branch is rebuilt from `develop` on every run (a run repeated after a
+failure replaces the earlier branch), and an open pull request for the branch
+is reused rather than duplicated. A pin already on `develop` that disagrees with
+the manifest fails the job, as the script refuses to replace a pin.
+
+The job pushes and opens the pull request with the token
+`publish-github-release` publishes the release with — `GITHUB_TOKEN`, else
+`GH_TOKEN`, else `CIRCLE_TOKEN`, a project environment variable rather than a
+context. Publishing a release needs that token to write this repository's
+contents, and pushing the branch needs no more; opening the pull request also
+needs it to write pull requests. A classic token's `repo` scope covers both; a
+fine-grained token needs `Contents: read and write` and `Pull requests: read
+and write` on this repository. A token lacking the latter fails the job at the
+pull request with HTTP 403 or 404 after the branch is pushed; grant the scope
+and re-run the job, which reuses the branch.
+
+`tests/hygiene` holds the table to this: every release `CHANGELOG.md` records
+is pinned for all five `sysml-grpc-*` assets, except the release the tree
+itself declares in `_version.py` until its tag exists (its digests are built by
+that tag), and the releases listed in the test as unpinnable — `v0.0.4`, which
+predates the service binaries, and `v0.0.9`, `v0.1.1` and `v0.1.2`, which
+predate signing and have no bundle to verify a manifest with. The changelog,
+not git tags, is the list of releases, since a shallow clone has none; so a
+release branch that bumps the version fails this test until the previous
+release's pin pull request has landed. The committed table covers every signed
+release through `v0.9.2`.
 
 ## The SonarCloud scan
 
@@ -1250,17 +1313,26 @@ Everything below is already in place; it is recorded so it can be re-created.
 1. Resolves the version: fails if the tag is not `v<version>` matching
    `client/node/package.json`, picks the `latest`/`next` dist-tag from the
    version, and lists the workspace binaries it will package.
-2. Requires `NPM_TOKEN` from the `npm` context.
-3. Refuses to run if any of the seven packages is already on the registry at this
+2. Stamps the five `sysml-grpc-*` digests of `dist/grpc` for `CIRCLE_TAG` into
+   `client/node/release-digests.json` with
+   `pin_release_checksums.py --from-binaries dist/grpc --table …`, exactly as
+   `build-python-package` does for the wheel. Only that file in the working
+   copy changes; see [Pinned release digests](#pinned-release-digests).
+3. Requires `NPM_TOKEN` from the `npm` context.
+4. Refuses to run if any of the seven packages is already on the registry at this
    version (a publish cannot be repeated).
-4. Builds and tests the client against the release's linux binary (`npm ci`,
-   build, typecheck, lint, tests).
-5. Builds the five platform packages from `dist/grpc` and the WASM package
+5. Builds and tests the client against the release's linux binary (`npm ci`,
+   build, typecheck, lint, tests), with `$OPENSYSML_EXPECT_PINNED_RELEASE` set
+   to the tag so the suite asserts the stamped table pins it.
+6. Builds the five platform packages from `dist/grpc` and the WASM package
    from `dist/wasm`, checking every asset against its `.sha256` sidecar.
-6. Authenticates to npm and runs `npm whoami`, so an expired token fails before
+7. Packs the client into `dist/npm/` with `npm pack` and opens the tarball:
+   its `release-digests.json` must pin all five service assets for the tag,
+   with the digests of the binaries in `dist/grpc`, or the job fails.
+8. Authenticates to npm and runs `npm whoami`, so an expired token fails before
    the first publish.
-7. Publishes the WASM and five platform packages, then the client, on the
-   resolved dist-tag.
+9. Publishes the WASM and five platform packages, then the client — the
+   tarball verified in step 7, not a fresh pack — on the resolved dist-tag.
 
 ### If a publish goes wrong
 
@@ -1436,20 +1508,34 @@ before `0.9.0`. Consumers get it only by naming it.
 `publish-maven` runs after `publish-github-release`, beside `publish-pypi` and
 `publish-npm`:
 
-1. Resolves the version: fails if the tag is not `v<version>` matching
-   `client/java/pom.xml`, or the version is a `-SNAPSHOT`.
-2. Requires all four credential environment variables, naming only the missing
+1. Attaches the release workspace, so `dist/grpc` holds the binaries
+   `build-release-binaries` built, and resolves the version: fails if the tag
+   is not `v<version>` matching `client/java/pom.xml`, or the version is a
+   `-SNAPSHOT`.
+2. Stamps the five `sysml-grpc-*` digests of `dist/grpc` for `CIRCLE_TAG` into
+   `client/java/opensysml-client/src/main/resources/release-digests.json` with
+   `pin_release_checksums.py --from-binaries dist/grpc --table …`, exactly as
+   `build-python-package` does for the wheel. Only that file in the working
+   copy changes; see [Pinned release digests](#pinned-release-digests).
+3. Requires all four credential environment variables, naming only the missing
    one.
-3. Refuses to run if `org.openmbee:opensysml-parent` or `opensysml` is
+4. Refuses to run if `org.openmbee:opensysml-parent` or `opensysml` is
    already on Central at this version (a publish cannot be repeated).
-4. Imports `GPG_PRIVATE_KEY` and test-signs with `GPG_PASSPHRASE`, so an expired
+5. Runs `mvn clean package -pl :opensysml -am -Dtest=ReleaseAssetsTest` with
+   `$OPENSYSML_EXPECT_PINNED_RELEASE` set to the tag — `java-test` ran the
+   whole suite on this revision; only the test that reads the stamped resource
+   runs again, now asserting it pins the tag — and opens the packaged jar: its
+   `release-digests.json` must pin all five service assets for the tag, with
+   the digests of the binaries in `dist/grpc`, or the job fails.
+6. Imports `GPG_PRIVATE_KEY` and test-signs with `GPG_PASSPHRASE`, so an expired
    key or wrong passphrase fails before the upload.
-5. Writes `~/.m2/settings.xml` naming the `central` server, reading the portal
+7. Writes `~/.m2/settings.xml` naming the `central` server, reading the portal
    token from the environment so it never lands on disk.
-6. Runs `mvn -Prelease deploy -pl :opensysml -am -DskipTests` — `java-test`
-   ran the suite on this revision; `-am` carries the parent pom the client's
-   pom names. The plugin uploads, Central validates, `autoPublish` releases the
-   deployment, and the build waits until it is published.
+8. Runs `mvn -Prelease deploy -pl :opensysml -am -DskipTests` — `-am` carries
+   the parent pom the client's pom names. The jar is rebuilt from the tree
+   whose stamped resource step 5 verified. The plugin uploads, Central
+   validates, `autoPublish` releases the deployment, and the build waits until
+   it is published.
 
 ### If a publish goes wrong
 
