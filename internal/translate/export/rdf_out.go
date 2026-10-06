@@ -3361,7 +3361,14 @@ func (e *encoder) acceptReceiver(n *ast.Usage, subject rdf.Term, fqn string) err
 	receiver := &ast.Usage{Kind: ast.UsageAttribute, IsReference: true, Direction: ast.DirIn, Value: ref}
 	receiver.NodeSpan = via.Span()
 	e.triggerParams[receiver] = ""
+	// After the node's members and the prefix metadata its head writes, which
+	// take the indexes following them (prefixes).
 	index := len(e.kept(n.Members))
+	for _, prefix := range n.Prefixes {
+		if prefix != nil && !e.ids.skip(prefix) {
+			index++
+		}
+	}
 	if err := e.encodeInlineAt([]ast.Node{receiver}, index, fqn, subject); err != nil {
 		return err
 	}

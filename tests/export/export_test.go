@@ -4293,3 +4293,42 @@ func TestAcceptNodeViaIsItsReceiverArgument(t *testing.T) {
 		t.Errorf("the receiverArgument is a %v, want a FeatureReferenceExpression", expression["@type"])
 	}
 }
+
+// An accept with prefix metadata and `via` converts: the receiver parameter
+// follows the prefixes, which take the indexes after the node's members.
+func TestPrefixedAcceptWithViaConverts(t *testing.T) {
+	src := "package P {\n    port def Bus;\n    metadata def Tag;\n    action def A {\n        port p : Bus;\n        #Tag accept x : Bus via p;\n    }\n}\n"
+	turtle, err := convert.Convert("m.sysml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
+	if err != nil {
+		t.Fatalf("to turtle: %v", err)
+	}
+	back, err := convert.Convert("m.ttl", withoutTriples(t, turtle, "sysx:sourceText"), convert.FormatTurtle, convert.FormatSysML)
+	if err != nil {
+		t.Fatalf("back to notation: %v", err)
+	}
+	if !strings.Contains(string(back), "#Tag accept x : Bus via p;") {
+		t.Errorf("the prefixed accept did not come back:\n%s", back)
+	}
+}
+
+// A graph stating both a receiver parameter and a sysml:via naming another
+// port is refused, rather than one of the two dropped.
+func TestAcceptWithDisagreeingViaIsRefused(t *testing.T) {
+	src := "package P {\n    port def Bus;\n    action def A {\n        port p : Bus;\n        port q : Bus;\n        accept x : Bus via p;\n    }\n}\n"
+	turtle, err := convert.Convert("m.sysml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
+	if err != nil {
+		t.Fatalf("to turtle: %v", err)
+	}
+	graph := string(withoutTriples(t, turtle, "sysx:sourceText"))
+	accept := "elmt:P__A___402\n"
+	at := strings.Index(graph, accept)
+	if at < 0 {
+		t.Fatalf("no accept block in\n%s", graph)
+	}
+	graph = graph[:at+len(accept)] + "    sysml:via elmt:P__A__q ;\n" + graph[at+len(accept):]
+	back, err := convert.Convert("m.ttl", []byte(graph), convert.FormatTurtle, convert.FormatSysML)
+	var unsupported *export.UnsupportedError
+	if !errors.As(err, &unsupported) {
+		t.Errorf("converted to\n%s\nwant it refused, got error %v", back, err)
+	}
+}

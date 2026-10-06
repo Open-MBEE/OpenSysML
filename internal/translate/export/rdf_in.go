@@ -2564,6 +2564,21 @@ func (d *decoder) usageHead(el *element, kind ast.UsageKind) (string, error) {
 			if err != nil {
 				return "", err
 			}
+			// A sysml:via stated beside the receiver parameter must name the
+			// same port, as for a trigger, or the graph is refused rather
+			// than one of them dropped.
+			if d.graph.HasProperty(rdf.IRI(el.iri), rdf.SysML+relationshipProperty[ast.RelVia]) {
+				stated, err := d.referenceText(el, rdf.SysML+relationshipProperty[ast.RelVia])
+				if err != nil {
+					return "", err
+				}
+				if !d.sameNames(el, []string{stated}, []string{via}) {
+					return "", &UnsupportedError{
+						What: fmt.Sprintf("the accept action <%s>", el.iri),
+						Note: fmt.Sprintf("its sysml:via states %q while its receiver parameter states %q, and writing one would drop the other", stated, via),
+					}
+				}
+			}
 			if via != "" {
 				words = append(words, "via", via)
 				skip = append(skip, ast.RelVia)
