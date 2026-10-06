@@ -124,3 +124,26 @@ func TestUntypedUsageWithOtherValuesGainsNoMembers(t *testing.T) {
 		t.Fatalf("diagnostics = %q, want %q", got, want)
 	}
 }
+
+// The result of a call is that of the declaration the call applies: a chain call
+// `holder.make()` reads the members of the calc's result, and a calc without a
+// result parameter yields only Anything, so its own parameters are not members
+// of the feature it values.
+func TestUntypedUsageWithChainCallOrResultlessCalcValue(t *testing.T) {
+	got := resolvedWithModel(t, `package P {
+	private import ScalarValues::*;
+	part def Car { attribute wheels : Integer; }
+	part def Holder { calc make { return : Car; } }
+	part holder : Holder;
+	attribute viaChainCall = holder.make();
+	attribute w1 = viaChainCall.wheels;
+	attribute w2 = viaChainCall.nope;
+	calc def noResult { in a : Integer; }
+	attribute viaResultless = noResult(1);
+	attribute w3 = viaResultless.a;
+}`)
+	want := []string{"unresolved member: a", "unresolved member: nope"}
+	if strings.Join(got, "\n") != strings.Join(want, "\n") {
+		t.Fatalf("diagnostics = %q, want %q", got, want)
+	}
+}

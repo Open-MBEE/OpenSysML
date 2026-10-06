@@ -544,17 +544,20 @@ elmt:Shadows__Governor___404
     sysx:transitionSyntax "source" ;
     sysml:ownedRelationship expr:Shadows__Governor___404_psourcemember, elmt:Shadows__Governor___404_linkparam_om, expr:Shadows__Governor___404_pguard_om, elmt:Shadows__Governor___404_succession_om ;
     sysml:ownedMembership expr:Shadows__Governor___404_psourcemember, elmt:Shadows__Governor___404_linkparam_om, expr:Shadows__Governor___404_pguard_om, elmt:Shadows__Governor___404_succession_om ;
-    sysml:ownedFeatureMembership elmt:Shadows__Governor___404_linkparam_om ;
-    sysml:ownedFeature elmt:Shadows__Governor___404_linkparam ;
+    sysml:ownedFeatureMembership elmt:Shadows__Governor___404_linkparam_om, expr:Shadows__Governor___404_pguard_om ;
+    sysml:ownedFeature elmt:Shadows__Governor___404_linkparam, expr:Shadows__Governor___404_pguard ;
     sysml:succession elmt:Shadows__Governor___404_succession ;
     sysx:trigger "setSpeed(value)" ;
     sysx:triggerKeyword "accept" ;
     sysx:guard expr:Shadows__Governor___404_pguard ;
+    sysml:guardExpression expr:Shadows__Governor___404_pguard ;
     sysml:source elmt:Shadows__Governor__idle ;
     sysml:target elmt:Shadows__Governor__fast ;
     sysx:sourceText "        transition idle then fast accept setSpeed(value) if value > 0;\n" ;
     json:ownedRelationship "[{\"@id\":\"Shadows__Governor___404_psourcemember\"},{\"@id\":\"Shadows__Governor___404_linkparam_om\"},{\"@id\":\"Shadows__Governor___404_pguard_om\"},{\"@id\":\"Shadows__Governor___404_succession_om\"}]" ;
-    json:ownedMembership "[{\"@id\":\"Shadows__Governor___404_psourcemember\"},{\"@id\":\"Shadows__Governor___404_linkparam_om\"},{\"@id\":\"Shadows__Governor___404_pguard_om\"},{\"@id\":\"Shadows__Governor___404_succession_om\"}]" .
+    json:ownedMembership "[{\"@id\":\"Shadows__Governor___404_psourcemember\"},{\"@id\":\"Shadows__Governor___404_linkparam_om\"},{\"@id\":\"Shadows__Governor___404_pguard_om\"},{\"@id\":\"Shadows__Governor___404_succession_om\"}]" ;
+    json:ownedFeatureMembership "[{\"@id\":\"Shadows__Governor___404_linkparam_om\"},{\"@id\":\"Shadows__Governor___404_pguard_om\"}]" ;
+    json:ownedFeature "[{\"@id\":\"Shadows__Governor___404_linkparam\"},{\"@id\":\"Shadows__Governor___404_pguard\"}]" .
 
 elmt:Shadows__Governor___404_om
     a sysml:FeatureMembership ;
@@ -831,14 +834,18 @@ expr:Shadows__Governor___404_pguard_pout_om
     sysml:ownedMemberParameter expr:Shadows__Governor___404_pguard_pout .
 
 expr:Shadows__Governor___404_pguard_om
-    a sysml:OwningMembership ;
+    a sysml:TransitionFeatureMembership ;
     sysml:elementId "Shadows__Governor___404_pguard_om" ;
     sysml:owner elmt:Shadows__Governor___404 ;
     sysml:memberElement expr:Shadows__Governor___404_pguard ;
     sysml:ownedMemberElement expr:Shadows__Governor___404_pguard ;
     sysml:ownedRelatedElement expr:Shadows__Governor___404_pguard ;
     sysml:owningRelatedElement elmt:Shadows__Governor___404 ;
-    sysml:membershipOwningNamespace elmt:Shadows__Governor___404 .
+    sysml:membershipOwningNamespace elmt:Shadows__Governor___404 ;
+    sysml:ownedMemberFeature expr:Shadows__Governor___404_pguard ;
+    sysml:owningType elmt:Shadows__Governor___404 ;
+    sysml:kind "guard" ;
+    sysml:transitionFeature expr:Shadows__Governor___404_pguard .
 
 elmt:Shadows__Governor___404_succession_om
     a sysml:OwningMembership ;
@@ -866,19 +873,20 @@ elmt:Shadows__Governor___405
     sysx:transitionSyntax "source" ;
     sysml:ownedRelationship expr:Shadows__Governor___405_psourcemember, elmt:Shadows__Governor___405_linkparam_om, elmt:Shadows__Governor___405_triggerparam_om, elmt:Shadows__Governor___405___40trigger_om, expr:Shadows__Governor___405_pguard_om, elmt:Shadows__Governor___405_succession_om ;
     sysml:ownedMembership expr:Shadows__Governor___405_psourcemember, elmt:Shadows__Governor___405_linkparam_om, elmt:Shadows__Governor___405_triggerparam_om, elmt:Shadows__Governor___405___40trigger_om, expr:Shadows__Governor___405_pguard_om, elmt:Shadows__Governor___405_succession_om ;
-    sysml:ownedFeatureMembership elmt:Shadows__Governor___405_linkparam_om, elmt:Shadows__Governor___405_triggerparam_om, elmt:Shadows__Governor___405___40trigger_om ;
-    sysml:ownedFeature elmt:Shadows__Governor___405_linkparam, elmt:Shadows__Governor___405_triggerparam, elmt:Shadows__Governor___405___40trigger ;
+    sysml:ownedFeatureMembership elmt:Shadows__Governor___405_linkparam_om, elmt:Shadows__Governor___405_triggerparam_om, elmt:Shadows__Governor___405___40trigger_om, expr:Shadows__Governor___405_pguard_om ;
+    sysml:ownedFeature elmt:Shadows__Governor___405_linkparam, elmt:Shadows__Governor___405_triggerparam, elmt:Shadows__Governor___405___40trigger, expr:Shadows__Governor___405_pguard ;
     sysml:succession elmt:Shadows__Governor___405_succession ;
     sysml:triggerAction elmt:Shadows__Governor___405___40trigger ;
     sysml:ownedMember elmt:Shadows__Governor___405___40trigger ;
     sysx:guard expr:Shadows__Governor___405_pguard ;
+    sysml:guardExpression expr:Shadows__Governor___405_pguard ;
     sysml:source elmt:Shadows__Governor__fast ;
     sysml:target elmt:Shadows__Governor__idle ;
     sysx:sourceText "        transition fast then idle accept w : Speed if w > 0;\n" ;
     json:ownedRelationship "[{\"@id\":\"Shadows__Governor___405_psourcemember\"},{\"@id\":\"Shadows__Governor___405_linkparam_om\"},{\"@id\":\"Shadows__Governor___405_triggerparam_om\"},{\"@id\":\"Shadows__Governor___405___40trigger_om\"},{\"@id\":\"Shadows__Governor___405_pguard_om\"},{\"@id\":\"Shadows__Governor___405_succession_om\"}]" ;
     json:ownedMembership "[{\"@id\":\"Shadows__Governor___405_psourcemember\"},{\"@id\":\"Shadows__Governor___405_linkparam_om\"},{\"@id\":\"Shadows__Governor___405_triggerparam_om\"},{\"@id\":\"Shadows__Governor___405___40trigger_om\"},{\"@id\":\"Shadows__Governor___405_pguard_om\"},{\"@id\":\"Shadows__Governor___405_succession_om\"}]" ;
-    json:ownedFeatureMembership "[{\"@id\":\"Shadows__Governor___405_linkparam_om\"},{\"@id\":\"Shadows__Governor___405_triggerparam_om\"},{\"@id\":\"Shadows__Governor___405___40trigger_om\"}]" ;
-    json:ownedFeature "[{\"@id\":\"Shadows__Governor___405_linkparam\"},{\"@id\":\"Shadows__Governor___405_triggerparam\"},{\"@id\":\"Shadows__Governor___405___40trigger\"}]" .
+    json:ownedFeatureMembership "[{\"@id\":\"Shadows__Governor___405_linkparam_om\"},{\"@id\":\"Shadows__Governor___405_triggerparam_om\"},{\"@id\":\"Shadows__Governor___405___40trigger_om\"},{\"@id\":\"Shadows__Governor___405_pguard_om\"}]" ;
+    json:ownedFeature "[{\"@id\":\"Shadows__Governor___405_linkparam\"},{\"@id\":\"Shadows__Governor___405_triggerparam\"},{\"@id\":\"Shadows__Governor___405___40trigger\"},{\"@id\":\"Shadows__Governor___405_pguard\"}]" .
 
 elmt:Shadows__Governor___405_om
     a sysml:FeatureMembership ;
@@ -1247,14 +1255,18 @@ expr:Shadows__Governor___405_pguard_pout_om
     sysml:ownedMemberParameter expr:Shadows__Governor___405_pguard_pout .
 
 expr:Shadows__Governor___405_pguard_om
-    a sysml:OwningMembership ;
+    a sysml:TransitionFeatureMembership ;
     sysml:elementId "Shadows__Governor___405_pguard_om" ;
     sysml:owner elmt:Shadows__Governor___405 ;
     sysml:memberElement expr:Shadows__Governor___405_pguard ;
     sysml:ownedMemberElement expr:Shadows__Governor___405_pguard ;
     sysml:ownedRelatedElement expr:Shadows__Governor___405_pguard ;
     sysml:owningRelatedElement elmt:Shadows__Governor___405 ;
-    sysml:membershipOwningNamespace elmt:Shadows__Governor___405 .
+    sysml:membershipOwningNamespace elmt:Shadows__Governor___405 ;
+    sysml:ownedMemberFeature expr:Shadows__Governor___405_pguard ;
+    sysml:owningType elmt:Shadows__Governor___405 ;
+    sysml:kind "guard" ;
+    sysml:transitionFeature expr:Shadows__Governor___405_pguard .
 
 elmt:Shadows__Governor___405_succession_om
     a sysml:OwningMembership ;
