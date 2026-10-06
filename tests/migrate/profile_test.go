@@ -81,8 +81,8 @@ func TestInheritedStereotypeSemanticsFollowEveryGeneral(t *testing.T) {
 	wantLine(t, r.Notation, "@Tailoring::'Detailed By';")
 	wantLine(t, r.Notation, "connection def 'Derive Speed Requirement' :> RequirementDerivation::Derivation {")
 	wantLine(t, r.Notation, "allocation def 'Spin to Shaft' {")
-	wantLine(t, r.Notation, "end spin : Spin;")
-	wantLine(t, r.Notation, "end shaft : Shaft;")
+	wantLine(t, r.Notation, "end :>> source : Spin;")
+	wantLine(t, r.Notation, "end :>> target : Shaft;")
 	wantLine(t, r.Notation, "@Tailoring::'Assigned To';")
 	wantNoLine(t, r.Notation, "applied stereotype")
 	for _, id := range []string{"_gear", "_torque", "_req_torque", "_verify", "_refine", "_derive", "_alloc"} {
