@@ -486,3 +486,48 @@ func TestJavaJarIsStampedWithItsReleaseDigests(t *testing.T) {
 	release := config.workflow(t, "release")
 	requireAll(t, "Publish opensysml to Maven Central", requiresOf(t, release, "Publish opensysml to Maven Central"), "Publish GitHub release")
 }
+
+// TestSharedTableIsPinnedAfterTheRelease holds the release workflow to the
+// pull request that brings the committed table up to date: opened against
+// develop once the GitHub release exists, stamping the shared table (so every
+// client copy is synced) from the manifest the release signed.
+func TestSharedTableIsPinnedAfterTheRelease(t *testing.T) {
+	config := loadCircleConfig(t)
+	job, ok := config.Jobs["pin-release-digests"]
+	if !ok {
+		t.Fatal("no pin-release-digests job")
+	}
+	if !stepHasBareStep(job.Steps, "attach_workspace") {
+		t.Error("pin-release-digests does not attach the workspace carrying dist/SHA256SUMS.txt")
+	}
+	steps := runSteps(t, job.Steps)
+	stamp := stepIndex(steps,
+		"client/python/scripts/pin_release_checksums.py",
+		"--from-manifest dist/SHA256SUMS.txt",
+	)
+	if stamp < 0 {
+		t.Fatal("pin-release-digests does not stamp the release from the manifest")
+	}
+	if strings.Contains(steps[stamp].Command, "--table") {
+		t.Error("the stamp names a package-local table; the shared table, and every copy synced from it, is the target")
+	}
+	for _, want := range []string{"origin/develop", "scripts/sync-release-digests.py --check"} {
+		if !strings.Contains(steps[stamp].Command, want) {
+			t.Errorf("the stamp step does not use %q", want)
+		}
+	}
+	if stepIndex(steps, "chore/pin-") < 0 {
+		t.Error("pin-release-digests does not name its branch chore/pin-<tag>")
+	}
+	open := stepIndex(steps, "push --force", "refs/heads/", "/pulls", `"base": "develop"`)
+	switch {
+	case open < 0:
+		t.Error("pin-release-digests does not push the branch and open a pull request against develop")
+	case open < stamp:
+		t.Errorf("the pull request (step %d) is opened before the stamp (step %d)", open, stamp)
+	}
+
+	release := config.workflow(t, "release")
+	const name = "Pin the release in the shared digest table"
+	requireAll(t, name, requiresOf(t, release, name), "Publish GitHub release")
+}
