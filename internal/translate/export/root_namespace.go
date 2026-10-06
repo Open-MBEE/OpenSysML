@@ -119,6 +119,10 @@ func withRootNamespace(graph *rdf.Graph) (*rdf.Graph, error) {
 		}
 	}
 	out := rdf.NewGraphOf(triples, graph.Prefixes)
+	// The wrappers annotate their collections from the members they add, in order.
+	if graph.CollectionsSettled() {
+		out.MarkCollectionsSettled()
+	}
 	return out, nil
 }
 
@@ -131,7 +135,8 @@ type rootWrapper struct {
 }
 
 // rootWrappers groups the roots by the document each names, in the order the
-// documents' first roots come, and mints each group's namespace and memberships.
+// documents' first roots come, and mints each group's namespace and memberships
+// from one minter, so no document's ids repeat another's.
 func rootWrappers(graph *rdf.Graph, roots []rdf.Term) []rootWrapper {
 	var order []string
 	byDocument := map[string][]rdf.Term{}
@@ -143,9 +148,10 @@ func rootWrappers(graph *rdf.Graph, roots []rdf.Term) []rootWrapper {
 		byDocument[document] = append(byDocument[document], root)
 	}
 	wrappers := make([]rootWrapper, 0, len(order))
+	mint := &subjectMinter{graph: graph, taken: map[string]bool{}}
 	for _, document := range order {
 		group := byDocument[document]
-		namespace, memberships := rootNamespaceIDs(graph, group)
+		namespace, memberships := rootNamespaceIDs(mint, group)
 		wrappers = append(wrappers, rootWrapper{namespace: namespace, roots: group, memberships: memberships})
 	}
 	return wrappers
@@ -317,12 +323,13 @@ func hasOwner(graph *rdf.Graph, subject rdf.Term) bool {
 // rootNamespaceIDs mints the root Namespace and its memberships the way the
 // graph's own ids are spelled: suffixes on the qualified-name ids, or uuid5
 // under the first root's namespace when the ids are uuids (see IDUUID).
-// A suffix repeats until it names a subject the graph does not already hold,
-// since a top-level name may itself end in `_ns` or `_om`.
-func rootNamespaceIDs(graph *rdf.Graph, roots []rdf.Term) (rdf.Term, []rdf.Term) {
+// A suffix repeats until it names an id neither the graph holds nor the minter
+// has handed out, since a top-level name may itself end in `_ns` or `_om`, and
+// another document's wrapper may have taken the candidate already.
+func rootNamespaceIDs(mint *subjectMinter, roots []rdf.Term) (rdf.Term, []rdf.Term) {
+	graph := mint.graph
 	memberships := make([]rdf.Term, len(roots))
 	first := roots[0]
-	mint := &subjectMinter{graph: graph, taken: map[string]bool{}}
 	if !uuidForm(graph, first) {
 		namespace := mint.free(func(suffix string) rdf.Term { return rdf.IRI(first.Value + suffix) }, RootNamespaceSuffix)
 		for i, root := range roots {
