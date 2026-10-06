@@ -1,5 +1,11 @@
 package symbols
 
+import (
+	"fmt"
+	"sort"
+	"strings"
+)
+
 // Changes is what a run of writes to an index changed, at the granularity a ReadRecorder
 // records reads at: names, namespaces and documents. Reads meeting none saw nothing move.
 type Changes struct {
@@ -31,14 +37,72 @@ func (idx *Index) TrackChanges() {
 	}
 }
 
-// TakeChanges returns what changed since the last call and starts over.
+// TakeChanges returns what changed since the last call and starts over. A
+// name registered again exactly as it was (the same symbols, re-exported and
+// hidden alike, claimed by the same documents on the same routes) is left
+// out: a document replaced by one declaring the same names re-registers every
+// re-export its wildcard imports surface, and none of them reads differently.
 func (idx *Index) TakeChanges() Changes {
 	if idx.changes == nil {
 		return Changes{}
 	}
 	out := *idx.changes
+	for fqn, before := range idx.changesBefore {
+		if out.Names[fqn] && registrationOf(idx, fqn) == before {
+			delete(out.Names, fqn)
+		}
+	}
 	idx.changes = newChanges()
+	idx.changesBefore = nil
 	return out
+}
+
+// noteBefore keeps how fqn was registered before the first write to it since
+// the last TakeChanges, for TakeChanges to tell a name that changed from one
+// registered again as it was. Callers note before they write.
+func (idx *Index) noteBefore(fqn string) {
+	if idx.changes == nil {
+		return
+	}
+	if _, noted := idx.changesBefore[fqn]; noted {
+		return
+	}
+	if idx.changesBefore == nil {
+		idx.changesBefore = map[string]string{}
+	}
+	idx.changesBefore[fqn] = registrationOf(idx, fqn)
+}
+
+// registrationOf spells everything a lookup of fqn reads from the index's
+// tables: the symbols registered under it, in order, each with its re-export
+// and hidden marks and the claims and routes that surfaced it. Symbols compare
+// by identity, so a declaration parsed again is a change.
+func registrationOf(idx *Index, fqn string) string {
+	var b strings.Builder
+	for _, sym := range idx.fqn.at(fqn) {
+		reexported, _ := idx.reexported.get(fqn)
+		hidden, _ := idx.hidden.get(fqn)
+		fmt.Fprintf(&b, "%p %t %t;", sym, reexported.has(sym), hidden.has(sym))
+		claims := idx.reexportDocs.at(reexportKey{fqn: fqn, sym: sym})
+		docs := make([]string, 0, len(claims))
+		for doc := range claims {
+			docs = append(docs, doc)
+		}
+		sort.Strings(docs)
+		for _, doc := range docs {
+			claim := claims[doc]
+			fmt.Fprintf(&b, "%q %t", doc, claim.public)
+			for _, route := range claim.routes {
+				fmt.Fprintf(&b, " %t", route.private)
+				for _, filter := range route.filters {
+					fmt.Fprintf(&b, " %p %p", filter.Expr, filter.Scope)
+				}
+			}
+			b.WriteByte(';')
+		}
+		b.WriteByte('|')
+	}
+	return b.String()
 }
 
 func (idx *Index) changedName(fqn string) {
