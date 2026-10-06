@@ -30,8 +30,10 @@ func TestNegative(t *testing.T) {
 		{"invalid_keyword_combo", "def usage MyPart;"},
 		{"incomplete_connection", "connector c connect a"},
 		// A connector end is a feature chain (SysML BNF 8.2.2.13.1), never an
-		// expression: `#(…)`, `[…]` and `->` continue it into one.
-		{"connect_end_element_selection", "part def A { part s; part k; connect [1] s.y#(1) to [1] k.u; }"},
+		// expression: `[…]` and `->` continue it into one, as does a `#(…)`
+		// anywhere but whole at the end of the chain (the indexed-end extension).
+		{"connect_end_element_selection_chain", "part def A { part s; part k; connect [1] s.y#(1).v to [1] k.u; }"},
+		{"connect_end_empty_element_selection", "part def A { part s; part k; connect [1] s.y#() to [1] k.u; }"},
 		{"connect_end_index", "part def A { part s; part k; connect [1] s.y[1] to [1] k.u; }"},
 		{"connect_end_invocation", "part def A { part s; part k; connect [1] s.y->first to [1] k.u; }"},
 		{"unterminated_string", `part p { doc /* comment `},
