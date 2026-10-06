@@ -121,4 +121,73 @@ public interface ParseSourcesResponseOrBuilder extends
    */
   com.google.protobuf.ByteString
       getErrorBytes();
+
+  /**
+   * <pre>
+   * The documents, by name and in the request's order, whose analysis, and so
+   * whose diagnostics and conversion, may differ from base_model_hash's model:
+   * those whose text changed, those whose analysis read something an edit
+   * changed, and those base_model_hash's model did not hold. Every other
+   * document's results are the base's, so a client may reuse them. Every
+   * document when no base_model_hash was given or the service cannot relate
+   * it to this model (no longer cached, or not of the same documents).
+   * Reported as the "parse_sources_affected" capability.
+   * </pre>
+   *
+   * <code>repeated string affected = 5 [json_name = "affected"];</code>
+   * @return A list containing the affected.
+   */
+  java.util.List<java.lang.String>
+      getAffectedList();
+  /**
+   * <pre>
+   * The documents, by name and in the request's order, whose analysis, and so
+   * whose diagnostics and conversion, may differ from base_model_hash's model:
+   * those whose text changed, those whose analysis read something an edit
+   * changed, and those base_model_hash's model did not hold. Every other
+   * document's results are the base's, so a client may reuse them. Every
+   * document when no base_model_hash was given or the service cannot relate
+   * it to this model (no longer cached, or not of the same documents).
+   * Reported as the "parse_sources_affected" capability.
+   * </pre>
+   *
+   * <code>repeated string affected = 5 [json_name = "affected"];</code>
+   * @return The count of affected.
+   */
+  int getAffectedCount();
+  /**
+   * <pre>
+   * The documents, by name and in the request's order, whose analysis, and so
+   * whose diagnostics and conversion, may differ from base_model_hash's model:
+   * those whose text changed, those whose analysis read something an edit
+   * changed, and those base_model_hash's model did not hold. Every other
+   * document's results are the base's, so a client may reuse them. Every
+   * document when no base_model_hash was given or the service cannot relate
+   * it to this model (no longer cached, or not of the same documents).
+   * Reported as the "parse_sources_affected" capability.
+   * </pre>
+   *
+   * <code>repeated string affected = 5 [json_name = "affected"];</code>
+   * @param index The index of the element to return.
+   * @return The affected at the given index.
+   */
+  java.lang.String getAffected(int index);
+  /**
+   * <pre>
+   * The documents, by name and in the request's order, whose analysis, and so
+   * whose diagnostics and conversion, may differ from base_model_hash's model:
+   * those whose text changed, those whose analysis read something an edit
+   * changed, and those base_model_hash's model did not hold. Every other
+   * document's results are the base's, so a client may reuse them. Every
+   * document when no base_model_hash was given or the service cannot relate
+   * it to this model (no longer cached, or not of the same documents).
+   * Reported as the "parse_sources_affected" capability.
+   * </pre>
+   *
+   * <code>repeated string affected = 5 [json_name = "affected"];</code>
+   * @param index The index of the value to return.
+   * @return The bytes of the affected at the given index.
+   */
+  com.google.protobuf.ByteString
+      getAffectedBytes(int index);
 }

@@ -185,5 +185,46 @@ func (s *Service) parseFromLineage(inputs []sourceInput, mode diag.ConformanceMo
 			Warnings:    append([]string(nil), input.warnings...),
 		}
 	}
-	return &CachedModel{Documents: documents, Index: detached.Index(), Library: l.library, Mode: mode}, true
+	stamps := make(map[string]uint64, len(names))
+	for _, name := range names {
+		stamps[name] = l.ws.AnalysisStamp(name)
+	}
+	return &CachedModel{
+		Documents: documents, Index: detached.Index(), Library: l.library, Mode: mode,
+		analysis: &analysisSnapshot{workspace: l.ws, stamps: stamps},
+	}, true
+}
+
+// analysisSnapshot is which analysis of each document a model was answered
+// with, as the lineage's workspace numbers them (model.Workspace.AnalysisStamp).
+// A stamp changes exactly when the document is analyzed afresh, which happens
+// only after an edit dropped something its analysis read; so a document with
+// one stamp in two models of one workspace has one analysis in both, over the
+// same text and the same resolution.
+type analysisSnapshot struct {
+	workspace *model.Workspace
+	stamps    map[string]uint64
+}
+
+// affectedDocuments names, in model's document order, the documents whose
+// analysis may differ between base and model: every one, unless both were
+// answered from one lineage's workspace, and then those whose stamp differs,
+// is zero, or base did not hold.
+func affectedDocuments(base, model *CachedModel) []string {
+	names := make([]string, len(model.Documents))
+	for i, doc := range model.Documents {
+		names[i] = doc.Source.Name()
+	}
+	if base == nil || base.analysis == nil || model.analysis == nil || base.analysis.workspace != model.analysis.workspace {
+		return names
+	}
+	affected := make([]string, 0, len(names))
+	for _, name := range names {
+		was, held := base.analysis.stamps[name]
+		now := model.analysis.stamps[name]
+		if !held || was == 0 || now == 0 || was != now {
+			affected = append(affected, name)
+		}
+	}
+	return affected
 }

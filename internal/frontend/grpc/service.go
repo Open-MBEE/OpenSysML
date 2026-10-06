@@ -178,6 +178,11 @@ const CapabilityParseSources = "parse_sources"
 // the named documents of a model and links the rest by id.
 const CapabilityConvertDocuments = "convert_documents"
 
+// CapabilityParseSourcesAffected names ParseSourcesRequest.base_model_hash and
+// ParseSourcesResponse.affected: the documents whose results may differ from
+// the base model's, so a client re-reads only those after an edit.
+const CapabilityParseSourcesAffected = "parse_sources_affected"
+
 // CapabilityComplexValues names the capability of carrying a complex number as
 // Value.complex, rather than reporting it as an unsupported null.
 const CapabilityComplexValues = "complex_values"
@@ -302,6 +307,7 @@ var capabilities = []string{
 	CapabilityStateTrace,
 	CapabilityRenderView,
 	CapabilityConvertDocuments,
+	CapabilityParseSourcesAffected,
 }
 
 type capabilityAvailability struct {
@@ -677,6 +683,11 @@ func (s *Service) ParseSources(ctx context.Context, req *pb.ParseSourcesRequest)
 	if len(req.Documents) == 0 {
 		return nil, statusError(connect.CodeInvalidArgument, "documents must name at least one document")
 	}
+	if req.BaseModelHash != "" {
+		if err := s.requireCapability(CapabilityParseSourcesAffected); err != nil {
+			return nil, err
+		}
+	}
 
 	inputs := make([]sourceInput, 0, len(req.Documents))
 	named := make(map[string]int, len(req.Documents))
@@ -699,11 +710,19 @@ func (s *Service) ParseSources(ctx context.Context, req *pb.ParseSourcesRequest)
 	for _, doc := range model.Documents {
 		roots = append(roots, s.rootSymbol(model, doc))
 	}
-	return &pb.ParseSourcesResponse{
+	var base *CachedModel
+	if req.BaseModelHash != "" {
+		base, _ = s.cache.Get(req.BaseModelHash)
+	}
+	resp := &pb.ParseSourcesResponse{
 		ModelHash:   modelHash,
 		Roots:       roots,
 		Diagnostics: s.modelDiagnostics(model),
-	}, nil
+	}
+	if s.capabilities.has(CapabilityParseSourcesAffected) {
+		resp.Affected = affectedDocuments(base, model)
+	}
+	return resp, nil
 }
 
 // documentInput reads one document of a ParseSources request. position names an
