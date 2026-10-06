@@ -221,7 +221,11 @@ func compareSymbols(a, b *symbols.Symbol) int {
 	if c := strings.Compare(a.DocName, b.DocName); c != 0 {
 		return c
 	}
-	return cmp.Compare(a.DeclSpan.Offset, b.DeclSpan.Offset)
+	if c := cmp.Compare(a.DeclSpan.Offset, b.DeclSpan.Offset); c != 0 {
+		return c
+	}
+	// Two reflected relationships of one owner share its declaration span.
+	return cmp.Compare(a.ImplicitOrdinal(), b.ImplicitOrdinal())
 }
 
 func compareBool(a, b bool) int {

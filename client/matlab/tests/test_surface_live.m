@@ -147,6 +147,24 @@ function test_surface_live()
         'Markdown document rendering');
     assert_equal(~isempty(strfind(html, '<!DOCTYPE html>')), true, ...
         'HTML Model.renderDocument');
+    viewModel = opensysml.parseSource(conn, fileread(fullfile(fixtures, 'views.sysml')), ...
+        'name', 'views.sysml');
+    renderedView = opensysml.renderView(viewModel, 'RenderViewDemo::connections');
+    renderedViewMethod = viewModel.renderView('RenderViewDemo::connections');
+    assert_equal(strcmp(renderedView.kind, 'interconnection'), true, 'RenderView kind');
+    assert_equal(numel(renderedView.edges), 1, 'RenderView edges');
+    assert_equal(~isempty(renderedView.edges(1).fromPort), true, 'RenderView from port');
+    assert_equal(~isempty(renderedView.edges(1).toPort), true, 'RenderView to port');
+    assert_equal(all(arrayfun(@(node) ~isempty(node.origin), renderedView.nodes)), ...
+        true, 'RenderView origins');
+    assert_equal(numel(renderedViewMethod.edges), numel(renderedView.edges), ...
+        'Model.renderView');
+    fullView = opensysml.renderView(viewModel, 'RenderViewDemo::connections', 'ports', 'full');
+    allPortNames = {};
+    for n = 1:numel(fullView.nodes)
+        allPortNames = [allPortNames, {fullView.nodes(n).ports.name}];
+    end
+    assert_equal(any(strcmp(allPortNames, 'spare')), true, 'RenderView full ports');
 
     behavior = opensysml.parseSource(conn, fileread(fullfile(fixtures, 'behavior.sysml')), ...
         'name', 'behavior.sysml');

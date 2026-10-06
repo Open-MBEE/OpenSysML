@@ -22,6 +22,8 @@ import org.openmbee.opensysml.proto.QueryRequest;
 import org.openmbee.opensysml.proto.QueryResponse;
 import org.openmbee.opensysml.proto.RenderDocumentRequest;
 import org.openmbee.opensysml.proto.RenderDocumentResponse;
+import org.openmbee.opensysml.proto.RenderViewRequest;
+import org.openmbee.opensysml.proto.RenderViewResponse;
 import org.openmbee.opensysml.proto.RunAnalysisRequest;
 import org.openmbee.opensysml.proto.RunAnalysisResponse;
 import org.openmbee.opensysml.proto.RunDocumentQueryRequest;
@@ -1628,6 +1630,35 @@ public final class Model {
             RenderDocumentResponse.getDefaultInstance());
     return new RenderedDocument(
         form, form == DocumentForm.HTML ? response.getHtml() : response.getMarkdown());
+  }
+
+  /**
+   * Renders a named or targeted pseudo-view as machine-readable diagram data.
+   *
+   * @param viewName qualified view name or {@code #<kind>:<qualified name>} pseudo-view
+   * @return every field the view renderer produced
+   * @throws CapabilityException if the service does not advertise {@code render_view}
+   * @throws ServiceException if the view cannot be selected or rendered
+   */
+  public RenderedView renderView(String viewName) {
+    return renderView(viewName, RenderViewPorts.MINIMAL);
+  }
+
+  /** Renders a view with an explicit port selection. */
+  public RenderedView renderView(String viewName, RenderViewPorts ports) {
+    Objects.requireNonNull(viewName, "viewName");
+    Objects.requireNonNull(ports, "ports");
+    connection.capabilities().require(Capabilities.RENDER_VIEW);
+    RenderViewResponse response =
+        connection.call(
+            "RenderView",
+            RenderViewRequest.newBuilder()
+                .setModelHash(hash)
+                .setView(viewName)
+                .setPorts(ports.wireName())
+                .build(),
+            RenderViewResponse.getDefaultInstance());
+    return RenderedView.from(response);
   }
 
   private String schedule(ExecutionOptions options, boolean explore) {
