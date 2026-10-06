@@ -296,7 +296,7 @@ func (e *Engine) Call(ctx context.Context, method string, params []byte) (result
 		}
 		return e.executeState(ctx, &req)
 	case "RenderView":
-		// RenderView is served by sysml-engine, not sysml-grpc.
+		// RenderView is served by both sysml-engine and sysml-grpc.
 		var req JRenderViewRequest
 		if err := decode(params, &req); err != nil {
 			return nil, err
@@ -321,37 +321,15 @@ func (e *Engine) renderView(req *JRenderViewRequest) ([]byte, error) {
 		return nil, statusError(codeInvalidArgument, (&view.UnknownPortsError{Name: req.Ports}).Error())
 	}
 
-	sem := cached.typedModel()
-	renderer := view.NewRenderer(sem, cached.resolver, cached.sourceText())
-	var rendering *view.Rendering
-	var err error
-	if strings.HasPrefix(req.View, view.PseudoViewPrefix) {
-		kind, target, valid := view.ParsePseudoView(req.View)
-		if !valid {
-			return nil, statusErrorf(codeInvalidArgument, "%s is no pseudo-view: write %s",
-				req.View, strings.Join(view.PseudoViewSpecs(), ", "))
-		}
-		if target == "" {
-			return nil, statusErrorf(codeInvalidArgument, "%s is untargeted; name an element as #<kind>:<qualified name> (supported: %s)",
-				req.View, strings.Join(view.PseudoViewSpecs(), ", "))
-		}
-		syms := lookupNamed(cached.Index, target)
-		if len(syms) == 0 {
-			return nil, statusErrorf(codeNotFound, "%s: %s names nothing in this model", req.View, target)
-		}
-		stated := fmt.Sprintf("no view declared; rendering %s directly", target)
-		rendering, err = renderer.RenderExposed([]*symbols.Symbol{syms[0]}, kind, stated)
-	} else {
-		syms := lookupNamed(cached.Index, req.View)
-		if len(syms) == 0 {
-			return nil, statusErrorf(codeNotFound, "no view named %s", req.View)
-		}
-		rendering, err = renderer.Render(syms[0])
-		if errors.Is(err, semantics.ErrNotAView) {
-			return nil, statusError(codeInvalidArgument, err.Error())
-		}
-	}
+	renderer := view.NewRenderer(cached.typedModel(), cached.resolver, cached.sourceText())
+	rendering, err := view.RenderNamed(renderer, req.View, func(name string) []*symbols.Symbol {
+		return lookupNamed(cached.Index, name)
+	})
 	if err != nil {
+		var selectionErr *view.SelectionError
+		if errors.As(err, &selectionErr) && selectionErr.Kind == view.SelectionNotFound {
+			return nil, statusError(codeNotFound, err.Error())
+		}
 		return nil, statusError(codeInvalidArgument, err.Error())
 	}
 	return marshalRenderView(rendering.DataFor(ports))
