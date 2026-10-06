@@ -94,8 +94,8 @@ func TestIntegerToReal(t *testing.T) {
 func TestIntegerQuotientAndModulo(t *testing.T) {
 	p70, _ := IntPow(intVal(2), intVal(70), DefaultMaxIntegerBits)
 	p69, _ := IntPow(intVal(2), intVal(69), DefaultMaxIntegerBits)
-	if q, ok := IntQuotient(p70, p69); !ok || q != 2 {
-		t.Errorf("2**70 / 2**69 = %v", q)
+	if q, err := RatArith(ast.OpDiv, p70, p69, DefaultMaxIntegerBits); err != nil || CompareRat(q, intVal(2)) != 0 || q.Kind != ValRational {
+		t.Errorf("2**70 / 2**69 = %s, %v, want the Rational 2", q.FormatRational(), err)
 	}
 	if r, ok := IntRem(p70, intVal(7)); !ok || r != intVal(2) {
 		t.Errorf("2**70 mod 7 = %+v", r)

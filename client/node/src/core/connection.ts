@@ -12,6 +12,7 @@ import { create } from "@bufbuild/protobuf";
 import {
   CAPABILITY_APPLY_EDITS,
   CAPABILITY_BIG_INT_VALUES,
+  CAPABILITY_RATIONAL_VALUES,
   CAPABILITY_CONVERT,
   CAPABILITY_DOCUMENT_QUERY,
   CAPABILITY_ENGINES,
@@ -107,6 +108,8 @@ import {
 } from "./query.js";
 import {
   bindingHoldsBigInt,
+  bindingHoldsRational,
+  bindingRationalsAsReals,
   buildBindings,
   documentEventOf,
   documentResult,
@@ -565,6 +568,12 @@ export class Connection {
     const wire = buildBindings(bindings);
     if (wire.some(bindingHoldsBigInt)) {
       requireCapability(this.info, CAPABILITY_BIG_INT_VALUES, upgradeRemedy(CAPABILITY_BIG_INT_VALUES));
+    }
+    if (!this.info.has(CAPABILITY_RATIONAL_VALUES)) {
+      wire.forEach(bindingRationalsAsReals);
+    }
+    if (wire.some(bindingHoldsRational)) {
+      requireCapability(this.info, CAPABILITY_RATIONAL_VALUES, upgradeRemedy(CAPABILITY_RATIONAL_VALUES));
     }
     const response = await callRpc(
       this.rpc.runDocumentQuery(

@@ -94,11 +94,12 @@ func TestCheckLeavesRoundedUnsatUndecided(t *testing.T) {
 	requireSolver(t)
 	s := checkSession(t, `
 		package Check {
-			private import ScalarValues::Integer;
+			private import ScalarValues::Real;
 			constraint def HalfUlp {
-				in a : Integer;
-				assert constraint { a == 9007199254740993 }
-				assert constraint { a / 2 == 4503599627370496.0 }
+				in a : Real;
+				in b : Real;
+				in c : Real;
+				assert constraint { (a + b) + c != a + (b + c) }
 			}
 		}`)
 	got := run(t, s, "%check HalfUlp")
@@ -107,6 +108,28 @@ func TestCheckLeavesRoundedUnsatUndecided(t *testing.T) {
 
 	if reports := s.CheckSolve("HalfUlp"); reports[0].Status != SolveUnknown {
 		t.Errorf("status is %s, want unknown", reports[0].Status)
+	}
+}
+
+// An Integer quotient is an exact Rational, so an exact-real unsat about it is
+// the evaluator's own verdict.
+func TestCheckReportsExactQuotientUnsat(t *testing.T) {
+	requireSolver(t)
+	s := checkSession(t, `
+		package Check {
+			private import ScalarValues::Integer;
+			constraint def HalfUlp {
+				in a : Integer;
+				assert constraint { a == 9007199254740993 }
+				assert constraint { a / 2 == 4503599627370496.0 }
+			}
+		}`)
+	got := run(t, s, "%check HalfUlp")
+	wants(t, got, "✗ Constraint HalfUlp is unsatisfiable")
+	rejects(t, got, "rounds these conditions in floating point")
+
+	if reports := s.CheckSolve("HalfUlp"); reports[0].Status != SolveUnsat {
+		t.Errorf("status is %s, want unsat", reports[0].Status)
 	}
 }
 
