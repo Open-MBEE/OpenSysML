@@ -16,6 +16,12 @@ pip install opensysml
 The runtime dependencies are `grpcio>=1.83.0`, `protobuf>=7.35.1` and
 `sigstore>=4.5.0,<5`.
 
+A development snapshot of the client is published every night as
+`opensysml==<next release>.dev<yyyymmdd>`, which `pip install opensysml` never
+picks up; install one by exact version. It starts the `sysml-grpc` of the same
+night's snapshot, whose digests it pins. See [Nightly
+snapshots](https://opensysml.org/project/nightly/).
+
 ## Quickstart
 
 ```python

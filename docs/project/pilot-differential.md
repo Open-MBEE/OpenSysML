@@ -250,9 +250,9 @@ nor double-counted as two independent disagreements.
 | `examples/pilot-corpora/sysml-validation` | 56 | 56 | 0 | 0 | 0 | 0 | 0 | 0 |
 | `examples/pilot-corpora/kerml-examples` | 58 | 56 | 9 | 0 | 0 | 0 | 9 | 0 |
 | `tests/testdata` | 21 | 11 | 55 | 77 | 45 | 1 | 9 | 31 |
-| `examples` | 47 | 38 | 7 | 62 | 0 | 0 | 7 | 62 |
+| `examples` | 47 | 42 | 7 | 54 | 0 | 0 | 7 | 54 |
 | `tools/referee/diff/testdata` (probes) | 4 | 1 | 6 | 0 | 0 | 0 | 6 | 0 |
-| **Total** | **385** | **352** | **90** | **139** | **45** | **1** | **44** | **93** |
+| **Total** | **385** | **356** | **90** | **131** | **45** | **1** | **44** | **85** |
 
 **Read the `only ours` total by root, never as one number.** Step 2 removes nine resolver false
 positives from the reference's **own** corpora: `pilot-examples` 16 → **7** and
@@ -294,7 +294,48 @@ Per category, the only-ours totals are: `training` 1 `multiplicity`; `pilot-exam
 `unmapped`, 2 `units`, 5 `kind-mismatch`, 1 `multiplicity`; `kerml-examples` 9 `unmapped`;
 `testdata` 8 `unmapped`, 1 `multiplicity`; `examples` 4 `unmapped`, 1 `kind-mismatch`, 2
 `multiplicity`; `probes` 6 `unmapped`. Only-pilot: `testdata` 12 `kind-mismatch`, 14 `unmapped`,
-3 `syntax`, 2 `unresolved-reference`; `examples` 6 `syntax`, 19 `unmapped`, 37 `kind-mismatch`.
+3 `syntax`, 2 `unresolved-reference`; `examples` 17 `unmapped`, 37 `kind-mismatch`.
+
+### View concern framing round
+
+`%view` used to demand that a view restate, in its own body, every concern the viewpoints it
+`satisfy`s frame — a concern framed by the viewpoint but not by the view was `violated (framed by
+the viewpoint but not by the view)` — so `views-demo.sysml`, `disposal-robot-demo/robot.sysml` and
+`self-model/views.sysml` each wrote `frame concern …;` inside a `view def` or `view` body. SysML v2
+admits `frame` (FramedConcernMember, §8.3.20/§8.3.26) only in a requirement, concern or viewpoint
+body, and the reference failed to parse each of those lines (`mismatched input 'frame' expecting
+'}'`, then `extraneous input '}' expecting EOF`): two `syntax` rows per demo. The evaluator now
+checks every concern a viewpoint frames directly against what the view exposes, the three demos drop
+the view-body framings with their `%view` output unchanged, and a `frame` left in a view body draws
+the `nonstandard-notation` warning that `-strict` escalates to an error, as the reference rejects it.
+The six `syntax` rows go, the three demos become fully agreeing, and `examples` keeps only the 37
+`DocumentQueries` binding warnings and the 17 duplicate-inherited-name warnings on the pilot side.
+
+| Count | Before | Now |
+|---|---:|---:|
+| overall: fully agreeing | 352 | **355** |
+| only pilot | 91 | **85** |
+| pilot diagnostics | 137 | **131** |
+| `examples`: fully agreeing / only pilot | 38 / 60 | **41 / 54** |
+
+### Single-objective round
+
+Two demos stated a second objective in one analysis case for a lexicographic `%optimize` —
+`MassThenScience` in `solver-demo.sysml` and `FarthestThenTool` in
+`disposal-robot-demo/robot.sysml` — which SysML v2 forbids (`validateCaseDefinitionOnlyOneObjective`)
+and the reference reported as `Only one objective is allowed.` on each. Both cases are dropped from
+the demos, with the walkthrough passages that ran them; the lexicographic semantics themselves stay
+implemented and tested (`spec-compliance.md`). The two `unmapped` rows go with them, `solver-demo.sysml`
+becomes fully agreeing, and the only-pilot column on `examples` now holds the six `frame concern`
+`syntax` rows, the 37 `DocumentQueries` binding warnings and the 17 duplicate-inherited-name
+warnings read in the round below, nothing else.
+
+| Count | Before | Now |
+|---|---:|---:|
+| overall: fully agreeing | 351 | **352** |
+| only pilot | 93 | **91** |
+| pilot diagnostics | 139 | **137** |
+| `examples`: fully agreeing / only pilot | 37 / 62 | **38 / 60** |
 
 ### Supplied-libraries round
 
@@ -918,8 +959,8 @@ cascades through the rest of the file. The movement is entirely one file,
 
 | Count | Before the initializer rewrite | Now |
 |---|---:|---:|
-| only pilot | 82 | **93** |
-| pilot diagnostics | 123 | **139** |
+| only pilot | 82 | **85** |
+| pilot diagnostics | 123 | **131** |
 | severity-only | 9 | **1** |
 
 The rewrite itself took only-pilot to 61 and pilot diagnostics to 101; the `Now` column states
@@ -932,7 +973,8 @@ agreeing files, only-ours and every OMG root were unmoved by the rewrite, so not
 conformance change: it is our own demo written in a spelling the reference accepts. The rewrite itself
 left only-pilot at 61 and pilot diagnostics at 101; the `Now` column tracks the current baseline, so it
 also carries the interface-flow pairing round, the library-inherited-name round, the end-to-end
-demo round and the package-keyword round that followed, and the Results table above states every figure as it is now.
+demo round, the package-keyword round and the later rounds up to the view concern framing round that
+followed, and the Results table above states every figure as it is now.
 
 ### End-to-end demo round
 
@@ -1142,14 +1184,14 @@ page's history.
 
 | Count | Now |
 |---|---:|
-| overall: fully agreeing / only ours / our diagnostics | **352 / 44 / 90** |
-| only pilot | **93** |
-| pilot diagnostics | **139** |
+| overall: fully agreeing / only ours / our diagnostics | **356 / 44 / 90** |
+| only pilot | **85** |
+| pilot diagnostics | **131** |
 | severity-only | **1** |
 | unmapped, our side | **46** |
 | kerml-examples: only ours | **9** |
 | pilot-examples: only ours | **12** |
-| examples: only pilot | **62** |
+| examples: only pilot | **54** |
 
 The KerML root is now the *cleanest* of the three OMG roots in proportion: **9** only-ours against 6
 only-pilot, with 56 of 58 files fully agreeing (439 / 6 and 10 / 58 when the root was added, and

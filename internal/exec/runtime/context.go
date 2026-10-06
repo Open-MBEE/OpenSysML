@@ -3,6 +3,7 @@ package runtime
 import (
 	"errors"
 	"fmt"
+	"math"
 	"slices"
 	"strings"
 
@@ -1028,11 +1029,15 @@ func (ctx *Context) endActivation(activation int64) {
 
 // incrementStep increments the step counter and returns ErrStepLimitExceeded if limit reached.
 // The error names the effective budget and the variable that raises it.
+// The counter saturates at the int64 maximum rather than overflow.
 func (ctx *Context) incrementStep() error {
-	ctx.run.steps++
-	if ctx.run.steps > ctx.maxSteps {
+	if ctx.run.steps >= ctx.maxSteps {
+		if ctx.run.steps < math.MaxInt64 {
+			ctx.run.steps++
+		}
 		return ctx.stepLimitExceeded()
 	}
+	ctx.run.steps++
 	return nil
 }
 

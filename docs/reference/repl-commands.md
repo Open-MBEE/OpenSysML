@@ -395,8 +395,6 @@ sysml> package Demo {
   ...>     viewpoint structure : StructurePerspective;
   ...>     view def StructureView {
   ...>         satisfy structure;
-  ...>         frame concern budget : MassBudget;
-  ...>         frame concern modularity : Modularity;
   ...>     }
   ...>     view report : StructureView {
   ...>         expose vehicle;

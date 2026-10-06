@@ -132,6 +132,7 @@ var packageLayer = map[string]string{
 	"internal/frontend/syntax":      "frontend",
 	"internal/frontend/stdiorpc":    "frontend",
 	"internal/frontend/usage":       "frontend",
+	"internal/frontend/buildinfo":   "frontend",
 	"cmd/sysml":                     "frontend",
 	"cmd/sysml-grpc":                "frontend",
 	"cmd/sysml-lsp":                 "frontend",

@@ -1,0 +1,1 @@
+- **Expose machine-readable view rendering through gRPC and every client.** `RenderView` returns ordered nodes, edges, ports, source spans, optional layout data, table rows and notes without requiring diagram pictures.

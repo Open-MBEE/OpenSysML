@@ -471,8 +471,9 @@ func (e *encoder) encodeTransition(n *ast.TransitionMember, head func(rdf.Term),
 	if n.Via != nil && !structural {
 		e.graph.Add(subject, e.sysml(relationshipProperty[ast.RelVia]), e.reference(n.Via))
 	}
-	// The guard reads the parameters the trigger declares, in the transition's scope.
-	if err := e.expression(subject, e.sysx(xGuard), xGuard, fqn, n.Guard); err != nil {
+	// The guard reads the parameters the trigger declares, in the transition's
+	// scope, and is owned through a TransitionFeatureMembership of kind guard.
+	if err := e.expressionAs(subject, e.sysx(xGuard), xGuard, fqn, n.Guard, mTransitionFeatureMembership); err != nil {
 		return err
 	}
 	if n.HasEffect {

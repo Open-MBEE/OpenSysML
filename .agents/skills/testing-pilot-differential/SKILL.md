@@ -21,11 +21,12 @@ GNU-format diagnostics **relative to `--root`**. Consequences for testing:
 - The pin `tools/referee/diff` reports comes from `build/pilot-sysml-validator/pilot-pin.txt`
   (written by the new script), not from the DeciSym `pom.xml`.
 - `-validator /nonexistent` now says `run ./scripts/download-pilot-sysml-validator.sh`.
-- Measured at the `2026-08` pin after bare parameters took their effective range `[0..*]`, removing
-  the adjudicated `Behaviors.kerml:14` multiplicity warning (the `[1]` `RocketEquation` inputs keep
-  its warning at `delta-v-budget.sysml:93`): `385 file(s), 352 fully agreeing; 45 agreed, 44 only
-  ours, 93 only the pilot's`, JSON totals `openSysMLDiagnostics 90 / pilotDiagnostics 139 /
-  severityMismatch 1`; the two new only-ours rows are the expected `action-step-multiplicity-not-fixed`
+- Measured at the `2026-08` pin after the view concern framing round retired the six view-body
+  `frame` `syntax` rows (bare parameters already at their effective range `[0..*]`, so the
+  adjudicated `Behaviors.kerml:14` multiplicity warning is gone while the `[1]` `RocketEquation`
+  inputs keep its warning at `delta-v-budget.sysml:93`): `385 file(s), 356 fully agreeing; 45 agreed,
+  44 only ours, 85 only the pilot's`, JSON totals `openSysMLDiagnostics 90 / pilotDiagnostics 131 /
+  severityMismatch 1`; the two only-ours rows the multiplicity rule added are the expected `action-step-multiplicity-not-fixed`
   warnings on `training/18. Action Performance/Action Performance Example.sysml:10` and
   `pilot-examples/Camera Example/Camera.sysml:4`. ~2 min wall, byte-identical across runs *and* after a from-scratch rebuild of
   `build/pilot-validator`. The six `kerml-examples` pilot-only rows the `2026-07` run carried (`The
@@ -146,8 +147,9 @@ parameters took their effective range `[0..*]` and removed the adjudicated `Beha
 warning (the `[1]` `RocketEquation` inputs still produce the warning at
 `delta-v-budget.sysml:93`), is current: the action-step multiplicity rule adds the two expected
 `action-step-multiplicity-not-fixed` warnings on `takePhoto[*]` in the training corpus and
-`takePicture[*]` in `Camera Example/Camera.sysml`; a live run gives `385 file(s), 352 fully
-agreeing; 45 agreed, 44 only ours, 93 only the pilot's`, byte-identical to the committed baseline, and
+`takePicture[*]` in `Camera Example/Camera.sysml`, and the view concern framing round retired the
+six view-body `frame` `syntax` rows on `examples`; a live run gives `385 file(s), 356 fully
+agreeing; 45 agreed, 44 only ours, 85 only the pilot's`, byte-identical to the committed baseline, and
 `docs/project/pilot-differential.md`'s "Results" table matches. The prior rebaseline, when the
 Legend of the Red Dragon example left for its own repository, gave
 <!-- doc-count:historical -->`380 file(s), 344 fully agreeing; 38 agreed, 42 only ours, 1614 only the pilot's`.
@@ -255,8 +257,8 @@ load-bearing:
 
 - `OPENSYSML_LIBRARY_PATH` pointed at a copy of the stdlib tree inside the repository (under
   `build/`) whose `OpenSysML Libraries` holds one trivial `.sysml`, with `-out` elsewhere → the
-  headline moves on *both* sides: `45 agreed, 44 only ours, 93 only the pilot's` becomes
-  `728 agreed, 36 only ours, 952 only the pilot's`, the two validators now agreeing on the
+  headline moves on *both* sides: `45 agreed, 44 only ours, 85 only the pilot's` becomes
+  `728 agreed, 36 only ours, 944 only the pilot's`, the two validators now agreeing on the
   unresolved `DocumentQueries`/`OOSEM`/`MOSA` references (`self-model/document.sysml` alone
   carries ~347 `unresolved-reference`/`kind-mismatch` rows), the report's `libraries` field names
   the override, and `-check` then fails on `inputs[opensysml-libraries].digest`.

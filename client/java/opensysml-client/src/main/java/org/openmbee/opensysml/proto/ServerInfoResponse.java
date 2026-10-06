@@ -188,6 +188,8 @@ private static final long serialVersionUID = 0L;
    * and answers with typed rows.
    * "render_document" - the RenderDocument RPC renders a named document to
    * Markdown.
+   * "render_view" - the RenderView RPC renders a declared view or targeted
+   * pseudo-view as machine-readable diagram data.
    * "diagnostic_codes" - Diagnostic.code is populated, so an empty code is a
    * finding none was assigned; without it every code is empty.
    * "schedule"     - ExecuteActionRequest, ExecuteStateRequest and
@@ -315,6 +317,8 @@ private static final long serialVersionUID = 0L;
    * and answers with typed rows.
    * "render_document" - the RenderDocument RPC renders a named document to
    * Markdown.
+   * "render_view" - the RenderView RPC renders a declared view or targeted
+   * pseudo-view as machine-readable diagram data.
    * "diagnostic_codes" - Diagnostic.code is populated, so an empty code is a
    * finding none was assigned; without it every code is empty.
    * "schedule"     - ExecuteActionRequest, ExecuteStateRequest and
@@ -441,6 +445,8 @@ private static final long serialVersionUID = 0L;
    * and answers with typed rows.
    * "render_document" - the RenderDocument RPC renders a named document to
    * Markdown.
+   * "render_view" - the RenderView RPC renders a declared view or targeted
+   * pseudo-view as machine-readable diagram data.
    * "diagnostic_codes" - Diagnostic.code is populated, so an empty code is a
    * finding none was assigned; without it every code is empty.
    * "schedule"     - ExecuteActionRequest, ExecuteStateRequest and
@@ -568,6 +574,8 @@ private static final long serialVersionUID = 0L;
    * and answers with typed rows.
    * "render_document" - the RenderDocument RPC renders a named document to
    * Markdown.
+   * "render_view" - the RenderView RPC renders a declared view or targeted
+   * pseudo-view as machine-readable diagram data.
    * "diagnostic_codes" - Diagnostic.code is populated, so an empty code is a
    * finding none was assigned; without it every code is empty.
    * "schedule"     - ExecuteActionRequest, ExecuteStateRequest and
@@ -1144,6 +1152,8 @@ private static final long serialVersionUID = 0L;
      * and answers with typed rows.
      * "render_document" - the RenderDocument RPC renders a named document to
      * Markdown.
+     * "render_view" - the RenderView RPC renders a declared view or targeted
+     * pseudo-view as machine-readable diagram data.
      * "diagnostic_codes" - Diagnostic.code is populated, so an empty code is a
      * finding none was assigned; without it every code is empty.
      * "schedule"     - ExecuteActionRequest, ExecuteStateRequest and
@@ -1272,6 +1282,8 @@ private static final long serialVersionUID = 0L;
      * and answers with typed rows.
      * "render_document" - the RenderDocument RPC renders a named document to
      * Markdown.
+     * "render_view" - the RenderView RPC renders a declared view or targeted
+     * pseudo-view as machine-readable diagram data.
      * "diagnostic_codes" - Diagnostic.code is populated, so an empty code is a
      * finding none was assigned; without it every code is empty.
      * "schedule"     - ExecuteActionRequest, ExecuteStateRequest and
@@ -1398,6 +1410,8 @@ private static final long serialVersionUID = 0L;
      * and answers with typed rows.
      * "render_document" - the RenderDocument RPC renders a named document to
      * Markdown.
+     * "render_view" - the RenderView RPC renders a declared view or targeted
+     * pseudo-view as machine-readable diagram data.
      * "diagnostic_codes" - Diagnostic.code is populated, so an empty code is a
      * finding none was assigned; without it every code is empty.
      * "schedule"     - ExecuteActionRequest, ExecuteStateRequest and
@@ -1525,6 +1539,8 @@ private static final long serialVersionUID = 0L;
      * and answers with typed rows.
      * "render_document" - the RenderDocument RPC renders a named document to
      * Markdown.
+     * "render_view" - the RenderView RPC renders a declared view or targeted
+     * pseudo-view as machine-readable diagram data.
      * "diagnostic_codes" - Diagnostic.code is populated, so an empty code is a
      * finding none was assigned; without it every code is empty.
      * "schedule"     - ExecuteActionRequest, ExecuteStateRequest and
@@ -1653,6 +1669,8 @@ private static final long serialVersionUID = 0L;
      * and answers with typed rows.
      * "render_document" - the RenderDocument RPC renders a named document to
      * Markdown.
+     * "render_view" - the RenderView RPC renders a declared view or targeted
+     * pseudo-view as machine-readable diagram data.
      * "diagnostic_codes" - Diagnostic.code is populated, so an empty code is a
      * finding none was assigned; without it every code is empty.
      * "schedule"     - ExecuteActionRequest, ExecuteStateRequest and
@@ -1787,6 +1805,8 @@ private static final long serialVersionUID = 0L;
      * and answers with typed rows.
      * "render_document" - the RenderDocument RPC renders a named document to
      * Markdown.
+     * "render_view" - the RenderView RPC renders a declared view or targeted
+     * pseudo-view as machine-readable diagram data.
      * "diagnostic_codes" - Diagnostic.code is populated, so an empty code is a
      * finding none was assigned; without it every code is empty.
      * "schedule"     - ExecuteActionRequest, ExecuteStateRequest and
@@ -1920,6 +1940,8 @@ private static final long serialVersionUID = 0L;
      * and answers with typed rows.
      * "render_document" - the RenderDocument RPC renders a named document to
      * Markdown.
+     * "render_view" - the RenderView RPC renders a declared view or targeted
+     * pseudo-view as machine-readable diagram data.
      * "diagnostic_codes" - Diagnostic.code is populated, so an empty code is a
      * finding none was assigned; without it every code is empty.
      * "schedule"     - ExecuteActionRequest, ExecuteStateRequest and
@@ -2053,6 +2075,8 @@ private static final long serialVersionUID = 0L;
      * and answers with typed rows.
      * "render_document" - the RenderDocument RPC renders a named document to
      * Markdown.
+     * "render_view" - the RenderView RPC renders a declared view or targeted
+     * pseudo-view as machine-readable diagram data.
      * "diagnostic_codes" - Diagnostic.code is populated, so an empty code is a
      * finding none was assigned; without it every code is empty.
      * "schedule"     - ExecuteActionRequest, ExecuteStateRequest and
@@ -2183,6 +2207,8 @@ private static final long serialVersionUID = 0L;
      * and answers with typed rows.
      * "render_document" - the RenderDocument RPC renders a named document to
      * Markdown.
+     * "render_view" - the RenderView RPC renders a declared view or targeted
+     * pseudo-view as machine-readable diagram data.
      * "diagnostic_codes" - Diagnostic.code is populated, so an empty code is a
      * finding none was assigned; without it every code is empty.
      * "schedule"     - ExecuteActionRequest, ExecuteStateRequest and

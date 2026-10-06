@@ -101,6 +101,10 @@ pub struct ConvertOptions {
     pub tolerate_syntax_errors: bool,
     /// How derived ids are spelled; only notation written as Turtle or API JSON takes one.
     pub id_form: Option<IdForm>,
+    /// For a model of several documents, the documents whose elements are written, by the
+    /// names the parse gave them; references into the others link their ids. Empty writes
+    /// every document. Needs the `convert_documents` capability.
+    pub documents: Vec<String>,
 }
 
 /// A converted model.
@@ -154,6 +158,7 @@ pub(crate) fn request_of(
             .id_form
             .map(|form| form.as_str().to_owned())
             .unwrap_or_default(),
+        documents: options.documents.clone(),
         source: Some(match source {
             ConvertSource::File(path) => Source::FilePath(path.to_string_lossy().into_owned()),
             ConvertSource::Content(content) => Source::Content(content.clone()),

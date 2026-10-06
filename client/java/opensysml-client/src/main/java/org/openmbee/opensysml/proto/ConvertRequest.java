@@ -37,6 +37,8 @@ private static final long serialVersionUID = 0L;
     fromFormat_ = "";
     toFormat_ = "";
     idForm_ = "";
+    documents_ =
+        com.google.protobuf.LazyStringArrayList.emptyList();
   }
 
   public static final com.google.protobuf.Descriptors.Descriptor
@@ -433,6 +435,79 @@ private static final long serialVersionUID = 0L;
     }
   }
 
+  public static final int DOCUMENTS_FIELD_NUMBER = 8;
+  @SuppressWarnings("serial")
+  private com.google.protobuf.LazyStringArrayList documents_ =
+      com.google.protobuf.LazyStringArrayList.emptyList();
+  /**
+   * <pre>
+   * For a model_hash, the documents whose elements are written, named as the
+   * parse named them; the model's other documents are read for the references
+   * into them, which keep the ids those elements are written under when their
+   * own documents are converted. Empty writes every document. A name the model
+   * does not hold, or documents for a file_path or content, is
+   * INVALID_ARGUMENT. Reported as the "convert_documents" capability.
+   * </pre>
+   *
+   * <code>repeated string documents = 8 [json_name = "documents"];</code>
+   * @return A list containing the documents.
+   */
+  public com.google.protobuf.ProtocolStringList
+      getDocumentsList() {
+    return documents_;
+  }
+  /**
+   * <pre>
+   * For a model_hash, the documents whose elements are written, named as the
+   * parse named them; the model's other documents are read for the references
+   * into them, which keep the ids those elements are written under when their
+   * own documents are converted. Empty writes every document. A name the model
+   * does not hold, or documents for a file_path or content, is
+   * INVALID_ARGUMENT. Reported as the "convert_documents" capability.
+   * </pre>
+   *
+   * <code>repeated string documents = 8 [json_name = "documents"];</code>
+   * @return The count of documents.
+   */
+  public int getDocumentsCount() {
+    return documents_.size();
+  }
+  /**
+   * <pre>
+   * For a model_hash, the documents whose elements are written, named as the
+   * parse named them; the model's other documents are read for the references
+   * into them, which keep the ids those elements are written under when their
+   * own documents are converted. Empty writes every document. A name the model
+   * does not hold, or documents for a file_path or content, is
+   * INVALID_ARGUMENT. Reported as the "convert_documents" capability.
+   * </pre>
+   *
+   * <code>repeated string documents = 8 [json_name = "documents"];</code>
+   * @param index The index of the element to return.
+   * @return The documents at the given index.
+   */
+  public java.lang.String getDocuments(int index) {
+    return documents_.get(index);
+  }
+  /**
+   * <pre>
+   * For a model_hash, the documents whose elements are written, named as the
+   * parse named them; the model's other documents are read for the references
+   * into them, which keep the ids those elements are written under when their
+   * own documents are converted. Empty writes every document. A name the model
+   * does not hold, or documents for a file_path or content, is
+   * INVALID_ARGUMENT. Reported as the "convert_documents" capability.
+   * </pre>
+   *
+   * <code>repeated string documents = 8 [json_name = "documents"];</code>
+   * @param index The index of the value to return.
+   * @return The bytes of the documents at the given index.
+   */
+  public com.google.protobuf.ByteString
+      getDocumentsBytes(int index) {
+    return documents_.getByteString(index);
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -468,6 +543,9 @@ private static final long serialVersionUID = 0L;
     if (!com.google.protobuf.GeneratedMessage.isStringEmpty(idForm_)) {
       com.google.protobuf.GeneratedMessage.writeString(output, 7, idForm_);
     }
+    for (int i = 0; i < documents_.size(); i++) {
+      com.google.protobuf.GeneratedMessage.writeString(output, 8, documents_.getRaw(i));
+    }
     getUnknownFields().writeTo(output);
   }
 
@@ -499,6 +577,14 @@ private static final long serialVersionUID = 0L;
     if (!com.google.protobuf.GeneratedMessage.isStringEmpty(idForm_)) {
       size += com.google.protobuf.GeneratedMessage.computeStringSize(7, idForm_);
     }
+    {
+      int dataSize = 0;
+      for (int i = 0; i < documents_.size(); i++) {
+        dataSize += computeStringSizeNoTag(documents_.getRaw(i));
+      }
+      size += dataSize;
+      size += 1 * getDocumentsList().size();
+    }
     size += getUnknownFields().getSerializedSize();
     memoizedSize = size;
     return size;
@@ -522,6 +608,8 @@ private static final long serialVersionUID = 0L;
         != other.getTolerateSyntaxErrors()) return false;
     if (!getIdForm()
         .equals(other.getIdForm())) return false;
+    if (!getDocumentsList()
+        .equals(other.getDocumentsList())) return false;
     if (!getSourceCase().equals(other.getSourceCase())) return false;
     switch (sourceCase_) {
       case 1:
@@ -559,6 +647,10 @@ private static final long serialVersionUID = 0L;
         getTolerateSyntaxErrors());
     hash = (37 * hash) + ID_FORM_FIELD_NUMBER;
     hash = (53 * hash) + getIdForm().hashCode();
+    if (getDocumentsCount() > 0) {
+      hash = (37 * hash) + DOCUMENTS_FIELD_NUMBER;
+      hash = (53 * hash) + getDocumentsList().hashCode();
+    }
     switch (sourceCase_) {
       case 1:
         hash = (37 * hash) + FILE_PATH_FIELD_NUMBER;
@@ -716,6 +808,8 @@ private static final long serialVersionUID = 0L;
       toFormat_ = "";
       tolerateSyntaxErrors_ = false;
       idForm_ = "";
+      documents_ =
+          com.google.protobuf.LazyStringArrayList.emptyList();
       sourceCase_ = 0;
       source_ = null;
       return this;
@@ -764,6 +858,10 @@ private static final long serialVersionUID = 0L;
       if (((from_bitField0_ & 0x00000040) != 0)) {
         result.idForm_ = idForm_;
       }
+      if (((from_bitField0_ & 0x00000080) != 0)) {
+        documents_.makeImmutable();
+        result.documents_ = documents_;
+      }
     }
 
     private void buildPartialOneofs(org.openmbee.opensysml.proto.ConvertRequest result) {
@@ -799,6 +897,16 @@ private static final long serialVersionUID = 0L;
       if (!other.getIdForm().isEmpty()) {
         idForm_ = other.idForm_;
         bitField0_ |= 0x00000040;
+        onChanged();
+      }
+      if (!other.documents_.isEmpty()) {
+        if (documents_.isEmpty()) {
+          documents_ = other.documents_;
+          bitField0_ |= 0x00000080;
+        } else {
+          ensureDocumentsIsMutable();
+          documents_.addAll(other.documents_);
+        }
         onChanged();
       }
       switch (other.getSourceCase()) {
@@ -888,6 +996,12 @@ private static final long serialVersionUID = 0L;
               bitField0_ |= 0x00000040;
               break;
             } // case 58
+            case 66: {
+              java.lang.String s = input.readStringRequireUtf8();
+              ensureDocumentsIsMutable();
+              documents_.add(s);
+              break;
+            } // case 66
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -1579,6 +1693,198 @@ private static final long serialVersionUID = 0L;
       checkByteStringIsUtf8(value);
       idForm_ = value;
       bitField0_ |= 0x00000040;
+      onChanged();
+      return this;
+    }
+
+    private com.google.protobuf.LazyStringArrayList documents_ =
+        com.google.protobuf.LazyStringArrayList.emptyList();
+    private void ensureDocumentsIsMutable() {
+      if (!documents_.isModifiable()) {
+        documents_ = new com.google.protobuf.LazyStringArrayList(documents_);
+      }
+      bitField0_ |= 0x00000080;
+    }
+    /**
+     * <pre>
+     * For a model_hash, the documents whose elements are written, named as the
+     * parse named them; the model's other documents are read for the references
+     * into them, which keep the ids those elements are written under when their
+     * own documents are converted. Empty writes every document. A name the model
+     * does not hold, or documents for a file_path or content, is
+     * INVALID_ARGUMENT. Reported as the "convert_documents" capability.
+     * </pre>
+     *
+     * <code>repeated string documents = 8 [json_name = "documents"];</code>
+     * @return A list containing the documents.
+     */
+    public com.google.protobuf.ProtocolStringList
+        getDocumentsList() {
+      documents_.makeImmutable();
+      return documents_;
+    }
+    /**
+     * <pre>
+     * For a model_hash, the documents whose elements are written, named as the
+     * parse named them; the model's other documents are read for the references
+     * into them, which keep the ids those elements are written under when their
+     * own documents are converted. Empty writes every document. A name the model
+     * does not hold, or documents for a file_path or content, is
+     * INVALID_ARGUMENT. Reported as the "convert_documents" capability.
+     * </pre>
+     *
+     * <code>repeated string documents = 8 [json_name = "documents"];</code>
+     * @return The count of documents.
+     */
+    public int getDocumentsCount() {
+      return documents_.size();
+    }
+    /**
+     * <pre>
+     * For a model_hash, the documents whose elements are written, named as the
+     * parse named them; the model's other documents are read for the references
+     * into them, which keep the ids those elements are written under when their
+     * own documents are converted. Empty writes every document. A name the model
+     * does not hold, or documents for a file_path or content, is
+     * INVALID_ARGUMENT. Reported as the "convert_documents" capability.
+     * </pre>
+     *
+     * <code>repeated string documents = 8 [json_name = "documents"];</code>
+     * @param index The index of the element to return.
+     * @return The documents at the given index.
+     */
+    public java.lang.String getDocuments(int index) {
+      return documents_.get(index);
+    }
+    /**
+     * <pre>
+     * For a model_hash, the documents whose elements are written, named as the
+     * parse named them; the model's other documents are read for the references
+     * into them, which keep the ids those elements are written under when their
+     * own documents are converted. Empty writes every document. A name the model
+     * does not hold, or documents for a file_path or content, is
+     * INVALID_ARGUMENT. Reported as the "convert_documents" capability.
+     * </pre>
+     *
+     * <code>repeated string documents = 8 [json_name = "documents"];</code>
+     * @param index The index of the value to return.
+     * @return The bytes of the documents at the given index.
+     */
+    public com.google.protobuf.ByteString
+        getDocumentsBytes(int index) {
+      return documents_.getByteString(index);
+    }
+    /**
+     * <pre>
+     * For a model_hash, the documents whose elements are written, named as the
+     * parse named them; the model's other documents are read for the references
+     * into them, which keep the ids those elements are written under when their
+     * own documents are converted. Empty writes every document. A name the model
+     * does not hold, or documents for a file_path or content, is
+     * INVALID_ARGUMENT. Reported as the "convert_documents" capability.
+     * </pre>
+     *
+     * <code>repeated string documents = 8 [json_name = "documents"];</code>
+     * @param index The index to set the value at.
+     * @param value The documents to set.
+     * @return This builder for chaining.
+     */
+    public Builder setDocuments(
+        int index, java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      ensureDocumentsIsMutable();
+      documents_.set(index, value);
+      bitField0_ |= 0x00000080;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * For a model_hash, the documents whose elements are written, named as the
+     * parse named them; the model's other documents are read for the references
+     * into them, which keep the ids those elements are written under when their
+     * own documents are converted. Empty writes every document. A name the model
+     * does not hold, or documents for a file_path or content, is
+     * INVALID_ARGUMENT. Reported as the "convert_documents" capability.
+     * </pre>
+     *
+     * <code>repeated string documents = 8 [json_name = "documents"];</code>
+     * @param value The documents to add.
+     * @return This builder for chaining.
+     */
+    public Builder addDocuments(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      ensureDocumentsIsMutable();
+      documents_.add(value);
+      bitField0_ |= 0x00000080;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * For a model_hash, the documents whose elements are written, named as the
+     * parse named them; the model's other documents are read for the references
+     * into them, which keep the ids those elements are written under when their
+     * own documents are converted. Empty writes every document. A name the model
+     * does not hold, or documents for a file_path or content, is
+     * INVALID_ARGUMENT. Reported as the "convert_documents" capability.
+     * </pre>
+     *
+     * <code>repeated string documents = 8 [json_name = "documents"];</code>
+     * @param values The documents to add.
+     * @return This builder for chaining.
+     */
+    public Builder addAllDocuments(
+        java.lang.Iterable<java.lang.String> values) {
+      ensureDocumentsIsMutable();
+      com.google.protobuf.AbstractMessageLite.Builder.addAll(
+          values, documents_);
+      bitField0_ |= 0x00000080;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * For a model_hash, the documents whose elements are written, named as the
+     * parse named them; the model's other documents are read for the references
+     * into them, which keep the ids those elements are written under when their
+     * own documents are converted. Empty writes every document. A name the model
+     * does not hold, or documents for a file_path or content, is
+     * INVALID_ARGUMENT. Reported as the "convert_documents" capability.
+     * </pre>
+     *
+     * <code>repeated string documents = 8 [json_name = "documents"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearDocuments() {
+      documents_ =
+        com.google.protobuf.LazyStringArrayList.emptyList();
+      bitField0_ = (bitField0_ & ~0x00000080);;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * For a model_hash, the documents whose elements are written, named as the
+     * parse named them; the model's other documents are read for the references
+     * into them, which keep the ids those elements are written under when their
+     * own documents are converted. Empty writes every document. A name the model
+     * does not hold, or documents for a file_path or content, is
+     * INVALID_ARGUMENT. Reported as the "convert_documents" capability.
+     * </pre>
+     *
+     * <code>repeated string documents = 8 [json_name = "documents"];</code>
+     * @param value The bytes of the documents to add.
+     * @return This builder for chaining.
+     */
+    public Builder addDocumentsBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkByteStringIsUtf8(value);
+      ensureDocumentsIsMutable();
+      documents_.add(value);
+      bitField0_ |= 0x00000080;
       onChanged();
       return this;
     }
