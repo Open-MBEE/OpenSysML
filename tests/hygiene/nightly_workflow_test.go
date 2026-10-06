@@ -147,8 +147,11 @@ func TestNightlyReleasesAreAlwaysPrereleasesNeverLatest(t *testing.T) {
 	}
 	uploaded, released := -1, -1
 	for i, step := range publish.Steps {
-		if strings.HasPrefix(step.Uses, "actions/upload-artifact@") && uploaded < i {
+		if strings.HasPrefix(step.Uses, "actions/upload-artifact@") {
 			uploaded = i
+			if step.With["overwrite"] != "true" {
+				t.Errorf("step %q does not overwrite the artifact a re-run of the job already uploaded, so the re-run fails on it", step.Name)
+			}
 		}
 		if strings.Contains(step.Run, `gh release create "$VERSION"`) {
 			released = i

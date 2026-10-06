@@ -441,18 +441,16 @@ jobs:
           } > notes.md
           cat notes.md
 
-      # The per-night release is the one the clients pin, so it is created first and
-      # kept; the alias is then recreated at the same commit with the same assets, so
-      # no asset of a previous night survives under it. `gh release delete` leaves a
-      # tag behind; the alias tag is moved by hand.
       # The distributions go up before the release does: a night whose release is published
       # is never rebuilt, so the registry jobs must be able to re-run from what this run kept.
+      # A re-run of this job replaces what its earlier attempt kept, so it never trips over it.
       - name: Keep the Python distribution for the PyPI job
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: python-dist
           path: client/python/dist/
           if-no-files-found: error
+          overwrite: true
           retention-days: 7
 
       - name: Keep the npm tarballs for the npm job
@@ -461,8 +459,10 @@ jobs:
           name: npm-dist
           path: dist/npm/*.tgz
           if-no-files-found: error
+          overwrite: true
           retention-days: 7
 
+      # The per-night release is the one the clients pin, so it is created here and kept.
       - name: Publish the per-night prerelease
         env:
           GH_TOKEN: ${{ github.token }}
@@ -513,7 +513,9 @@ jobs:
           gh release view "$VERSION" --json url,assets --jq '.url, (.assets[].name)'
 
   # Its own job, so that re-running the failed jobs of a run finishes a night whose release
-  # is published without rebuilding it: the alias is recreated from the night's own assets.
+  # is published without rebuilding it: the alias is recreated from the night's own assets,
+  # so no asset of a previous night survives under it. `gh release delete` leaves a tag
+  # behind; the alias tag is moved by hand.
   alias:
     name: Move the alias and prune old nights
     needs: [select, publish]
