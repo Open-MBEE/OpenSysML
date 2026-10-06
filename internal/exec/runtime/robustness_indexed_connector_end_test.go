@@ -146,3 +146,60 @@ func TestRuntimeRobustnessIndexedConnectorEnd(t *testing.T) {
 		}
 	})
 }
+
+// A binding between two selected elements constrains them without determining either
+// feature: equal elements pass, unequal ones are a binding conflict found from either
+// side, and neither feature takes the other's value through an index.
+func TestRuntimeRobustnessIndexedBindingBetweenSelectedElements(t *testing.T) {
+	read := func(t *testing.T, members, name string) (Value, error) {
+		t.Helper()
+		inst, ctx := instantiatePart(t, "Asm", indexedEndAssembly(`
+			attribute ys : Real[2] = (2.5, 4.5);`+members))
+		v, err := inst.GetFeatureValue(ctx, name)
+		if err != nil {
+			return Value{}, err
+		}
+		return v.HeldValue(), nil
+	}
+
+	t.Run("equal_selected_elements_leave_both_features_their_own_values", func(t *testing.T) {
+		for name, want := range map[string][]float64{"xs": {1.5, 2.5}, "ys": {2.5, 4.5}} {
+			got, err := read(t, `bind xs#(2) = ys#(1);`, name)
+			if err != nil {
+				t.Fatalf("%s: %v", name, err)
+			}
+			elements := elementsOf(got)
+			if len(elements) != 2 || elements[0].Const.Real != want[0] || elements[1].Const.Real != want[1] {
+				t.Errorf("%s = %v, want %v", name, got, want)
+			}
+		}
+	})
+
+	t.Run("unequal_selected_elements_are_a_binding_conflict_from_either_side", func(t *testing.T) {
+		for _, name := range []string{"xs", "ys"} {
+			_, err := read(t, `bind xs#(1) = ys#(1);`, name)
+			if !errors.Is(err, ErrBindingConflict) {
+				t.Errorf("%s = %v, want a binding conflict: xs#(1) is 1.5 and ys#(1) is 2.5", name, err)
+			}
+		}
+	})
+
+	t.Run("selected_element_out_of_range_is_a_binding_end_error_from_either_side", func(t *testing.T) {
+		for _, name := range []string{"xs", "ys"} {
+			_, err := read(t, `bind xs#(third) = ys#(1);`, name)
+			if !errors.Is(err, ErrBindingEnd) || !errors.Is(err, ErrIndexOutOfRange) {
+				t.Errorf("%s = %v, want a binding end error wrapping ErrIndexOutOfRange", name, err)
+			}
+		}
+	})
+
+	t.Run("a_feature_holding_no_value_takes_nothing_through_an_index", func(t *testing.T) {
+		got, err := read(t, `bind unset#(1) = ys#(1);`, "unset")
+		if err != nil {
+			t.Fatalf("unset: %v", err)
+		}
+		if got.Kind != ValInvalid && len(elementsOf(got)) != 0 {
+			t.Errorf("unset = %v, want no value: a binding assigns nothing through an index", got)
+		}
+	})
+}
