@@ -4,12 +4,12 @@ import (
 	"fmt"
 	"math"
 	"sort"
-	"strconv"
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
 // ValueKind distinguishes runtime value types.
@@ -58,7 +58,7 @@ func FormatValue(v Value) string {
 	case ValNull:
 		return "null"
 	case ValString:
-		return strconv.Quote(v.Str())
+		return source.StringText(v.Str())
 	case ValInstance:
 		return fmt.Sprintf("instance(%d)", v.Instance)
 	case ValSequence:
