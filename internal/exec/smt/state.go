@@ -268,6 +268,7 @@ func (s *State) value(base *solve.Var) *solve.Var {
 		Sort:      base.Sort,
 		Symbol:    base.Symbol,
 		Dimension: base.Dimension,
+		Binary64:  base.Binary64,
 		Unit:      base.Unit,
 		File:      base.File,
 		Span:      base.Span,
@@ -332,7 +333,7 @@ func (s *State) vars(features []*solve.Var, flagged map[string]bool) []*solve.Va
 }
 
 func intVar(name string) *solve.Var  { return &solve.Var{Name: name, Sort: solve.Int} }
-func realVar(name string) *solve.Var { return &solve.Var{Name: name, Sort: solve.Real} }
+func realVar(name string) *solve.Var { return &solve.Var{Name: name, Sort: solve.Real, Binary64: true} }
 func boolVar(name string) *solve.Var { return &solve.Var{Name: name, Sort: solve.Bool} }
 func sortedVar(name string, sort solve.Sort) *solve.Var {
 	return &solve.Var{Name: name, Sort: sort}

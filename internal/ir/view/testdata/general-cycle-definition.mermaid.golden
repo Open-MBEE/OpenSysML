@@ -1,0 +1,36 @@
+---
+config:
+  fontFamily: "Helvetica, Arial, sans-serif"
+  theme: base
+  themeCSS: ".edgeLabel rect { opacity: 1 !important; } .cluster-label .nodeLabel { text-align: center; }"
+  themeVariables:
+    fontFamily: "Helvetica, Arial, sans-serif"
+    fontSize: "14px"
+    primaryColor: "#FFFFFF"
+    secondaryColor: "#FFFFFF"
+    tertiaryColor: "#FFFFFF"
+    background: "#FFFFFF"
+    primaryBorderColor: "#181818"
+    primaryTextColor: "#000000"
+    lineColor: "#181818"
+    textColor: "#000000"
+    noteBkgColor: "#FEFFDD"
+    noteBorderColor: "#181818"
+    noteTextColor: "#000000"
+    clusterBkg: "#FFFFFF"
+    clusterBorder: "#181818"
+    edgeLabelBackground: "#FFFFFF"
+---
+%% RobustViews::loopDefinitions — definition rendering (view def GeneralView, filter @Definition)
+%% not represented: 4 exposed standard library element(s) not drawn; a definition rendering draws the model's own elements
+flowchart TD
+  n0["`*«part def»*
+**Loops::A**`"]
+  n1["`*«part def»*
+**Loops::B**`"]
+  n2["`*«requirement def»*
+**Loops::Looped**`"]
+  n3["`*«part def»*
+**Cycles::C**`"]
+  n0 ---|"◆ b"| n1
+  n1 ---|"◆ a"| n0

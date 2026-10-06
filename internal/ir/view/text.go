@@ -59,7 +59,7 @@ func (r *Rendering) textWith(options Options) string {
 	if len(r.Edges) > 0 {
 		fmt.Fprintf(&b, "\n%s:\n", edgeSectionName(r.Kind))
 		for _, edge := range r.Edges {
-			line := fmt.Sprintf("  %s %s %s", endLabel(labels, edge.From, edge.FromPort), edgeArrow(edge.Kind), endLabel(labels, edge.To, edge.ToPort))
+			line := fmt.Sprintf("  %s %s %s", endLabel(labels, edge.From, edge.FromPort), edgeArrow(r.Kind, edge.Kind), endLabel(labels, edge.To, edge.ToPort))
 			if label := textEdgeLabel(edge, ports); label != "" {
 				line += ": " + label
 			}
@@ -392,35 +392,42 @@ func edgeSectionName(kind Kind) string {
 		return "flow"
 	case KindSequence:
 		return "messages"
-	case KindCase, KindMixed:
+	case KindCase, KindMixed, KindRequirement, KindDefinition, KindPackage:
 		return "relationships"
 	}
 	return "connections"
 }
 
 // edgeArrow is how an edge of each kind is drawn in text.
-func edgeArrow(kind EdgeKind) string {
-	switch kind {
+func edgeArrow(kind Kind, edge EdgeKind) string {
+	if caseNotation(kind) && (edge == EdgeTyping || edge == EdgeReference) {
+		return "..>"
+	}
+	switch edge {
 	case EdgeConnection:
 		return "--"
 	case EdgeBinding:
 		return "=="
 	case EdgeFlow:
 		return "=>"
+	case EdgeSpecialization:
+		return "--|>"
+	case EdgeTyping:
+		return "..|>"
 	case EdgeComposition:
 		return "*--"
+	case EdgeReference:
+		return "o--"
+	case EdgeContainment:
+		return "+--"
+	case EdgeImport, EdgeSatisfy, EdgeVerify, EdgeDerive, EdgeRefine, EdgeAllocate:
+		return "..>"
 	case EdgeAssociation:
 		return "--"
 	case EdgeInclude:
 		return "..>"
 	case EdgeAnchor:
 		return ".."
-	case EdgeTyping:
-		return "..>"
-	case EdgeSpecialization:
-		return "--|>"
-	case EdgeReference:
-		return "..>"
 	}
 	return "->"
 }

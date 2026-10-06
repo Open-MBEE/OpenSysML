@@ -63,6 +63,33 @@ package Compiled {
 		return : Boolean = (p and 10 / n > 1) or (q implies 10 % n == 0) or not p;
 	}
 
+	// Exact Rationals compile where binary64 gives the interpreter's exact answer.
+	calc def ExactRational {
+		in a : Integer;
+		in x : Real;
+		return : Boolean = 0.1 + 0.2 == 0.3 and 1 / 3 * 3 == 1 and a / 3 >= 2 and a * 1.0 + a == 2 * a and x < 0.1;
+	}
+	// A Real meets a Rational literal at Real precision, the literal rounded once.
+	calc def RealAgainstNearest {
+		in x : Real;
+		attribute r : Integer = 0;
+		if x < 0.1 { assign r := r + 1; }
+		if x <= 0.1 { assign r := r + 2; }
+		if x > 0.1 { assign r := r + 4; }
+		if x >= 0.1 { assign r := r + 8; }
+		if x == 0.1 { assign r := r + 16; }
+		if x != 0.1 { assign r := r + 32; }
+		if -0.1 < x { assign r := r + 64; }
+		if -0.1 >= x { assign r := r + 128; }
+		return : Integer = r;
+	}
+	calc def ExactWide { in a : Integer; return : Real = a * 2.0 + 0.5; }
+	calc def NegativePower { in a : Integer; return : Real = a ** -2; }
+	calc def NegativePowerTiny { in a : Integer; return : Real = a ** -400; }
+	// A Real parameter given an Integer meets an exact Rational at run time.
+	calc def ExactHeldInteger { in x : Real; return : Real = x * 0.1; }
+	calc def ExactHeldCompare { in x : Real; return : Boolean = x / 3 < 0.1 or x != 2.5; }
+
 	calc def Compare {
 		in a : Real;
 		in b : Integer;
@@ -143,7 +170,8 @@ package Compiled {
 
 	calc def Big {
 		in a : Integer;
-		return : Real = a * 1.0e300 * 1.0e10;
+		attribute big : Real = 1.0e300;
+		return : Real = a * big * 1.0e10;
 	}
 
 	// Both operands can fail; the left one must be reported, as the interpreter does.
@@ -701,7 +729,7 @@ package Compiled {
 		attribute def Point { attribute x : Real; attribute y : Real; }
 		attribute def Scaled { attribute k : Real; calc scale { in v : Real; return : Real = v * k; } calc twice { in v : Real; return : Real = scale(scale(v)); } }
 		attribute def Seg { attribute a : Point; attribute b : Point; }
-		attribute def Def { attribute x : Real; attribute y : Real default 3.0; }
+		attribute def Def { attribute x : Real; attribute y : Real default 3.0; attribute z : Real default 0.1; }
 		attribute def Many { attribute xs : Real[0..*] nonunique; }
 		attribute def Counted { attribute n : Natural; }
 		calc def Apply { in calc f { in v : Real; return : Real; } in a : Real; return : Real = f(a); }
@@ -724,6 +752,7 @@ package Compiled {
 		calc def ClosureOther { in a : Real; attribute s : Scaled = new Scaled(a); return : Boolean = s.scale == new Scaled(a).scale; }
 		calc def Defaulted { in a : Real; return : Real = new Def(a).y; }
 		calc def Overridden { in a : Real; return : Real = new Def(a, 1.0).y; }
+		calc def DefaultedTenth { in a : Real; return : Real = new Def(a).z; }
 		calc def SeqFeature { in a : Real; return : Real[0..*] = new Many((a, a, 1.0)).xs; }
 		calc def SeqEmpty { in a : Real; return : Integer = size(new Many().xs); }
 		calc def InSeq { in a : Real; attribute p : Point = new Point(a, 1.0); attribute ps : Point[0..*] = (p, new Point(2.0, a), p); return : Boolean = ps#(1) == ps#(3) and ps#(1) != ps#(2); }
@@ -816,6 +845,13 @@ package Refused {
 	enum def Color { red; green; }
 	calc def Extent { return : Natural = size(all Color); }
 	calc def RecordParam { in p : Point; return : Real = p.x + p.y; }
+	// Compiled code holds Rationals as binary64, so exact Rationals it cannot round once are refused.
+	calc def RationalParam { in x : Rational; return : Real = x; }
+	calc def ExactProduct { in a : Integer; return : Real = a * 0.1; }
+	calc def ExactPower { in a : Integer; return : Real = (a * 0.5) ** 2; }
+	calc def ExactCompare { in a : Integer; return : Boolean = a / 3 < 0.1; }
+	calc def NegativePowerExact { in a : Integer; return : Real = a ** -1 * 3; }
+	calc def BeyondCompare { in x : Real; return : Boolean = x < 1e400; }
 	calc def SelectNonBoolean { in x : Integer[0..*]; return : Integer[0..*] = x->select {in v; v}; }
 	calc def CollectNull { in x : Integer[0..*]; return : Integer[0..*] = x->collect {in v; null}; }
 

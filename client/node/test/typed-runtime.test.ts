@@ -10,6 +10,7 @@ import { connect } from "../src/node/index.js";
 import { generateSource } from "../src/node/generate.js";
 import { packageRoot, useServiceBinary } from "./support/service.js";
 import type { Instance } from "../src/core/model.js";
+import type { RationalValue } from "../src/core/values.js";
 
 const MODEL = `package Demo {
 	part def Engine {
@@ -27,8 +28,8 @@ const MODEL = `package Demo {
 
 interface GeneratedModule {
   Vehicle: new (instance: Instance, resolve?: (id: bigint) => Instance | undefined) => {
-    mass: number;
-    engine: { power: number };
+    mass: RationalValue;
+    engine: { power: RationalValue };
   };
 }
 
@@ -78,6 +79,6 @@ test("a generated module compiles and reads an instantiated model", async () => 
 
   const tree = await model.instantiate("vehicle");
   const vehicle = new generated.Vehicle(tree.root, (id) => tree.byId(id));
-  assert.equal(vehicle.mass, 1500.0);
-  assert.equal(vehicle.engine.power, 300.0);
+  assert.deepEqual(vehicle.mass, { numerator: 1500n, denominator: 1n });
+  assert.deepEqual(vehicle.engine.power, { numerator: 300n, denominator: 1n });
 });

@@ -882,7 +882,7 @@
         "filter"
       ],
       "ocl": "sha256:aea48d6a191c430fb87a4e0e8207ea02291705e0b515ec458284d54167fb6ab0",
-      "status": "approximate",
+      "status": "deliberate",
       "implementation": [
         "internal/translate/migrate/activity.go:probabilities"
       ],
@@ -890,7 +890,7 @@
         "tests/migrate/behavior_test.go:TestProbabilitiesAreWrittenOnlyWhenTheyAreSound",
         "tests/migrate/behavior_test.go:TestWeightedDecisionReadsOnlyTheSysMLProfilesProbability"
       ],
-      "reason": "written as @Stochastic::Probability { p = … } on the succession out of the decision, from the bundled library, not the SysML v1 library metadata the mapping types; a probability not provably in [0,1] is not written",
+      "reason": "«Probability» is written as `@Stochastic::Probability { p = … }`, the metadata the runtime reads to weight a decision (TMT: 42 valued decision branches), not as `@SysMLv1Library::ProbabilityData { probability = … }`: OMG names SysMLv1Library but does not publish it",
       "scope": [
         "sysml:Probability"
       ]
@@ -911,7 +911,7 @@
         "filter"
       ],
       "ocl": "sha256:8b010ec34bd3c101c7a0185c9e0537a038f974cf31396c4463c742a0e6b4f10b",
-      "status": "approximate",
+      "status": "deliberate",
       "implementation": [
         "internal/translate/migrate/activity.go:probabilities"
       ],
@@ -919,7 +919,7 @@
         "tests/migrate/behavior_test.go:TestProbabilitiesAreWrittenOnlyWhenTheyAreSound",
         "tests/migrate/behavior_test.go:TestWeightedDecisionReadsOnlyTheSysMLProfilesProbability"
       ],
-      "reason": "written as @Stochastic::Probability { p = … } on the succession out of the decision, from the bundled library, not the SysML v1 library metadata the mapping types; a probability not provably in [0,1] is not written",
+      "reason": "«Probability» is written as `@Stochastic::Probability { p = … }`, the metadata the runtime reads to weight a decision (TMT: 42 valued decision branches), not as `@SysMLv1Library::ProbabilityData { probability = … }`: OMG names SysMLv1Library but does not publish it",
       "scope": [
         "sysml:Probability"
       ]
@@ -940,7 +940,7 @@
         "filter"
       ],
       "ocl": "sha256:24869715759d901696a346c4b54d56883f087d49fc2393fde8517ace220c572a",
-      "status": "approximate",
+      "status": "deliberate",
       "implementation": [
         "internal/translate/migrate/activity.go:probabilities"
       ],
@@ -948,7 +948,7 @@
         "tests/migrate/behavior_test.go:TestProbabilitiesAreWrittenOnlyWhenTheyAreSound",
         "tests/migrate/behavior_test.go:TestWeightedDecisionReadsOnlyTheSysMLProfilesProbability"
       ],
-      "reason": "written as @Stochastic::Probability { p = … } on the succession out of the decision, from the bundled library, not the SysML v1 library metadata the mapping types; a probability not provably in [0,1] is not written",
+      "reason": "«Probability» is written as `@Stochastic::Probability { p = … }`, the metadata the runtime reads to weight a decision (TMT: 42 valued decision branches), not as `@SysMLv1Library::ProbabilityData { probability = … }`: OMG names SysMLv1Library but does not publish it",
       "scope": [
         "sysml:Probability"
       ]
@@ -969,7 +969,7 @@
         "filter"
       ],
       "ocl": "sha256:6bd631b737d16aa7046a819f6a2211dc7d0ee26e3139224e16d5e5922802cb1b",
-      "status": "approximate",
+      "status": "deliberate",
       "implementation": [
         "internal/translate/migrate/activity.go:probabilities"
       ],
@@ -977,7 +977,7 @@
         "tests/migrate/behavior_test.go:TestProbabilitiesAreWrittenOnlyWhenTheyAreSound",
         "tests/migrate/behavior_test.go:TestWeightedDecisionReadsOnlyTheSysMLProfilesProbability"
       ],
-      "reason": "written as @Stochastic::Probability { p = … } on the succession out of the decision, from the bundled library, not the SysML v1 library metadata the mapping types; a probability not provably in [0,1] is not written",
+      "reason": "«Probability» is written as `@Stochastic::Probability { p = … }`, the metadata the runtime reads to weight a decision (TMT: 42 valued decision branches), not as `@SysMLv1Library::ProbabilityData { probability = … }`: OMG names SysMLv1Library but does not publish it",
       "scope": [
         "sysml:Probability"
       ]
@@ -998,7 +998,7 @@
         "filter"
       ],
       "ocl": "sha256:7425ae8aba8d12fc078a3fe0492183c598bff797f1d30ddd9b3caa0b039e046f",
-      "status": "approximate",
+      "status": "deliberate",
       "implementation": [
         "internal/translate/migrate/activity.go:probabilities"
       ],
@@ -1006,7 +1006,7 @@
         "tests/migrate/behavior_test.go:TestProbabilitiesAreWrittenOnlyWhenTheyAreSound",
         "tests/migrate/behavior_test.go:TestWeightedDecisionReadsOnlyTheSysMLProfilesProbability"
       ],
-      "reason": "written as @Stochastic::Probability { p = … } on the succession out of the decision, from the bundled library, not the SysML v1 library metadata the mapping types; a probability not provably in [0,1] is not written",
+      "reason": "«Probability» is written as `@Stochastic::Probability { p = … }`, the metadata the runtime reads to weight a decision (TMT: 42 valued decision branches), not as `@SysMLv1Library::ProbabilityData { probability = … }`: OMG names SysMLv1Library but does not publish it",
       "scope": [
         "sysml:Probability"
       ]
@@ -1027,7 +1027,7 @@
         "filter"
       ],
       "ocl": "sha256:443e11e89952041130d83d97e2e4703926de512037f7c5142983f24e3a1365b8",
-      "status": "approximate",
+      "status": "deliberate",
       "implementation": [
         "internal/translate/migrate/activity.go:probabilities"
       ],
@@ -1035,7 +1035,7 @@
         "tests/migrate/behavior_test.go:TestProbabilitiesAreWrittenOnlyWhenTheyAreSound",
         "tests/migrate/behavior_test.go:TestWeightedDecisionReadsOnlyTheSysMLProfilesProbability"
       ],
-      "reason": "written as @Stochastic::Probability { p = … } on the succession out of the decision, from the bundled library, not the SysML v1 library metadata the mapping types; a probability not provably in [0,1] is not written",
+      "reason": "«Probability» is written as `@Stochastic::Probability { p = … }`, the metadata the runtime reads to weight a decision (TMT: 42 valued decision branches), not as `@SysMLv1Library::ProbabilityData { probability = … }`: OMG names SysMLv1Library but does not publish it",
       "scope": [
         "sysml:Probability"
       ]
@@ -1056,7 +1056,7 @@
         "filter"
       ],
       "ocl": "sha256:9d9f6053f004224284af26f0d806ab75a2dd4c66783b3d61def56d33e086854e",
-      "status": "approximate",
+      "status": "deliberate",
       "implementation": [
         "internal/translate/migrate/activity.go:probabilities"
       ],
@@ -1064,7 +1064,7 @@
         "tests/migrate/behavior_test.go:TestProbabilitiesAreWrittenOnlyWhenTheyAreSound",
         "tests/migrate/behavior_test.go:TestWeightedDecisionReadsOnlyTheSysMLProfilesProbability"
       ],
-      "reason": "written as @Stochastic::Probability { p = … } on the succession out of the decision, from the bundled library, not the SysML v1 library metadata the mapping types; a probability not provably in [0,1] is not written",
+      "reason": "«Probability» is written as `@Stochastic::Probability { p = … }`, the metadata the runtime reads to weight a decision (TMT: 42 valued decision branches), not as `@SysMLv1Library::ProbabilityData { probability = … }`: OMG names SysMLv1Library but does not publish it",
       "scope": [
         "sysml:Probability"
       ]
@@ -1085,10 +1085,10 @@
         "filter"
       ],
       "ocl": "sha256:afb0d8f3bc8f467814040335373b6caf5eec3d652ac77681acbdacf8ee64f9f2",
-      "status": "not-implemented",
+      "status": "deliberate",
       "implementation": [],
       "tests": [],
-      "reason": "«Rate», «Continuous» and «Discrete» are not read by the migrator (no code refers to them): the flow is written without rate semantics or rate metadata",
+      "reason": "«Rate», «Continuous» and «Discrete» would be written as `@SysMLv1Library::RateData` metadata: OMG names SysMLv1Library but does not publish it, so the flow is written without rate metadata",
       "scope": [
         "sysml:Rate",
         "sysml:Continuous",
@@ -1111,10 +1111,10 @@
         "filter"
       ],
       "ocl": "sha256:d78fea89f84600bc1e529e61295b4855fb72f4c64e2cfe4b6eeec36a27c2c4d8",
-      "status": "not-implemented",
+      "status": "deliberate",
       "implementation": [],
       "tests": [],
-      "reason": "«Rate», «Continuous» and «Discrete» are not read by the migrator (no code refers to them): the flow is written without rate semantics or rate metadata",
+      "reason": "«Rate», «Continuous» and «Discrete» would be written as `@SysMLv1Library::RateData` metadata: OMG names SysMLv1Library but does not publish it, so the flow is written without rate metadata",
       "scope": [
         "sysml:Rate",
         "sysml:Continuous",
@@ -1137,10 +1137,10 @@
         "filter"
       ],
       "ocl": "sha256:37d46f9ad55fbbd8dea7e5e5b0d3616f239f76983670e847c84841699cc9d041",
-      "status": "not-implemented",
+      "status": "deliberate",
       "implementation": [],
       "tests": [],
-      "reason": "«Rate», «Continuous» and «Discrete» are not read by the migrator (no code refers to them): the flow is written without rate semantics or rate metadata",
+      "reason": "«Rate», «Continuous» and «Discrete» would be written as `@SysMLv1Library::RateData` metadata: OMG names SysMLv1Library but does not publish it, so the flow is written without rate metadata",
       "scope": [
         "sysml:Rate",
         "sysml:Continuous",
@@ -1163,10 +1163,10 @@
         "filter"
       ],
       "ocl": "sha256:5faeb3b916ff0e8887a7ad56d4e03fea1a5be33a1583c4c2aa64552072c38f4c",
-      "status": "not-implemented",
+      "status": "deliberate",
       "implementation": [],
       "tests": [],
-      "reason": "«Rate», «Continuous» and «Discrete» are not read by the migrator (no code refers to them): the flow is written without rate semantics or rate metadata",
+      "reason": "«Rate», «Continuous» and «Discrete» would be written as `@SysMLv1Library::RateData` metadata: OMG names SysMLv1Library but does not publish it, so the flow is written without rate metadata",
       "scope": [
         "sysml:Rate",
         "sysml:Continuous",
@@ -1189,10 +1189,10 @@
         "filter"
       ],
       "ocl": "sha256:6a40e9df403f7fd4e4b0af34342201b48aa0a7a163bec93e28d5d95d5788ab10",
-      "status": "not-implemented",
+      "status": "deliberate",
       "implementation": [],
       "tests": [],
-      "reason": "«Rate», «Continuous» and «Discrete» are not read by the migrator (no code refers to them): the flow is written without rate semantics or rate metadata",
+      "reason": "«Rate», «Continuous» and «Discrete» would be written as `@SysMLv1Library::RateData` metadata: OMG names SysMLv1Library but does not publish it, so the flow is written without rate metadata",
       "scope": [
         "sysml:Rate",
         "sysml:Continuous",
@@ -1215,10 +1215,10 @@
         "filter"
       ],
       "ocl": "sha256:0e5fea22dfe977cc5e412fa5bf2e48fe67e0782c5479355975c4172c1b565d76",
-      "status": "not-implemented",
+      "status": "deliberate",
       "implementation": [],
       "tests": [],
-      "reason": "«Rate», «Continuous» and «Discrete» are not read by the migrator (no code refers to them): the flow is written without rate semantics or rate metadata",
+      "reason": "«Rate», «Continuous» and «Discrete» would be written as `@SysMLv1Library::RateData` metadata: OMG names SysMLv1Library but does not publish it, so the flow is written without rate metadata",
       "scope": [
         "sysml:Rate",
         "sysml:Continuous",
@@ -1241,10 +1241,10 @@
         "filter"
       ],
       "ocl": "sha256:cdbbb2ea1bee7e28b220048a83f2eb2593fcaf13f9b48f807042b7eb5e6a9e3d",
-      "status": "not-implemented",
+      "status": "deliberate",
       "implementation": [],
       "tests": [],
-      "reason": "«Rate», «Continuous» and «Discrete» are not read by the migrator (no code refers to them): the flow is written without rate semantics or rate metadata",
+      "reason": "«Rate», «Continuous» and «Discrete» would be written as `@SysMLv1Library::RateData` metadata: OMG names SysMLv1Library but does not publish it, so the flow is written without rate metadata",
       "scope": [
         "sysml:Rate",
         "sysml:Continuous",
@@ -1267,10 +1267,10 @@
         "filter"
       ],
       "ocl": "sha256:60d8207a8f6ebfa88a9b4cbc9477eee5e41bab88fc711cecf57f2e4b53459374",
-      "status": "not-implemented",
+      "status": "deliberate",
       "implementation": [],
       "tests": [],
-      "reason": "«Rate», «Continuous» and «Discrete» are not read by the migrator (no code refers to them): the flow is written without rate semantics or rate metadata",
+      "reason": "«Rate», «Continuous» and «Discrete» would be written as `@SysMLv1Library::RateData` metadata: OMG names SysMLv1Library but does not publish it, so the flow is written without rate metadata",
       "scope": [
         "sysml:Rate",
         "sysml:Continuous",
@@ -1293,10 +1293,10 @@
         "filter"
       ],
       "ocl": "sha256:8eb815c542fed7e21b55ab78e717982136a1053e4fcce38ff7b1b805293795fe",
-      "status": "not-implemented",
+      "status": "deliberate",
       "implementation": [],
       "tests": [],
-      "reason": "«Rate», «Continuous» and «Discrete» are not read by the migrator (no code refers to them): the flow is written without rate semantics or rate metadata",
+      "reason": "«Rate», «Continuous» and «Discrete» would be written as `@SysMLv1Library::RateData` metadata: OMG names SysMLv1Library but does not publish it, so the flow is written without rate metadata",
       "scope": [
         "sysml:Rate",
         "sysml:Continuous",
@@ -1319,10 +1319,10 @@
         "filter"
       ],
       "ocl": "sha256:d8babc038734f57eafaa1d2d4c60e2c21f64af081301f261ac8fe6f985441ee2",
-      "status": "not-implemented",
+      "status": "deliberate",
       "implementation": [],
       "tests": [],
-      "reason": "«Rate», «Continuous» and «Discrete» are not read by the migrator (no code refers to them): the flow is written without rate semantics or rate metadata",
+      "reason": "«Rate», «Continuous» and «Discrete» would be written as `@SysMLv1Library::RateData` metadata: OMG names SysMLv1Library but does not publish it, so the flow is written without rate metadata",
       "scope": [
         "sysml:Rate",
         "sysml:Continuous",
@@ -1344,14 +1344,20 @@
         "type"
       ],
       "ocl": "sha256:a81726148e57289dad705e575f7f8a8ac74de864d37ef4210283d58e422b918a",
-      "status": "approximate",
+      "status": "deliberate",
       "implementation": [
-        "internal/translate/migrate/migrate.go:allocationDef"
+        "internal/translate/migrate/migrate.go:dependencyPair",
+        "internal/translate/migrate/migrate.go:allocationDef",
+        "internal/translate/migrate/usage.go:placeAllocation"
       ],
       "tests": [
-        "tests/migrate/migrate_test.go:TestGoldenNotation"
+        "tests/migrate/stereotype_metadata_test.go:TestAllocateFromActionToPartIsAnAllocationDef",
+        "tests/migrate/stereotype_metadata_test.go:TestAllocateFromDefinitionToFeatureKeepsTheFeature",
+        "tests/migrate/stereotype_metadata_test.go:TestAllocateBetweenDefinitionsRedefinesSourceAndTarget",
+        "tests/migrate/stereotype_metadata_test.go:TestAllocateInOneBodyStaysInPlace",
+        "tests/migrate/stereotype_metadata_test.go:TestAllocateFromPackageFeatureStaysADependency"
       ],
-      "reason": "an `allocation def` is written only for an «Allocate» between two definitions; any other «Allocate» becomes an allocation usage or a dependency, not also a definition",
+      "reason": "an «Allocate» is written as an `allocation def` whose ends redefine `source` and `target`, with `allocate source.x to target.y` in it when an end is a feature (TMT: 97 of 97), except when both ends are features of one definition body or one package: there it is written in place as `allocate a to b`, which allocates the features of every instance of that body, while a definition allocates nothing until something uses it; an end that is a feature of a package, which no allocation end can be typed by, keeps a plain dependency",
       "scope": [
         "sysml:Allocate"
       ]
@@ -1371,14 +1377,20 @@
         "ownedMemberFeature"
       ],
       "ocl": "sha256:fbb3f36f16bb71f4013e6fc5f783c54058565e58e5227d193a0be234d2c65283",
-      "status": "approximate",
+      "status": "deliberate",
       "implementation": [
-        "internal/translate/migrate/migrate.go:allocationDef"
+        "internal/translate/migrate/migrate.go:dependencyPair",
+        "internal/translate/migrate/migrate.go:allocationDef",
+        "internal/translate/migrate/usage.go:placeAllocation"
       ],
       "tests": [
-        "tests/migrate/migrate_test.go:TestGoldenNotation"
+        "tests/migrate/stereotype_metadata_test.go:TestAllocateFromActionToPartIsAnAllocationDef",
+        "tests/migrate/stereotype_metadata_test.go:TestAllocateFromDefinitionToFeatureKeepsTheFeature",
+        "tests/migrate/stereotype_metadata_test.go:TestAllocateBetweenDefinitionsRedefinesSourceAndTarget",
+        "tests/migrate/stereotype_metadata_test.go:TestAllocateInOneBodyStaysInPlace",
+        "tests/migrate/stereotype_metadata_test.go:TestAllocateFromPackageFeatureStaysADependency"
       ],
-      "reason": "an `allocation def` is written only for an «Allocate» between two definitions; any other «Allocate» becomes an allocation usage or a dependency, not also a definition",
+      "reason": "an «Allocate» is written as an `allocation def` whose ends redefine `source` and `target`, with `allocate source.x to target.y` in it when an end is a feature (TMT: 97 of 97), except when both ends are features of one definition body or one package: there it is written in place as `allocate a to b`, which allocates the features of every instance of that body, while a definition allocates nothing until something uses it; an end that is a feature of a package, which no allocation end can be typed by, keeps a plain dependency",
       "scope": [
         "sysml:Allocate"
       ]
@@ -1397,14 +1409,20 @@
         "redefinedFeature"
       ],
       "ocl": "sha256:995bdaea73e76c33568321ff01fbbcc9471e4188ed6c60bf7ad669114847f061",
-      "status": "approximate",
+      "status": "deliberate",
       "implementation": [
-        "internal/translate/migrate/migrate.go:allocationDef"
+        "internal/translate/migrate/migrate.go:dependencyPair",
+        "internal/translate/migrate/migrate.go:allocationDef",
+        "internal/translate/migrate/usage.go:placeAllocation"
       ],
       "tests": [
-        "tests/migrate/migrate_test.go:TestGoldenNotation"
+        "tests/migrate/stereotype_metadata_test.go:TestAllocateFromActionToPartIsAnAllocationDef",
+        "tests/migrate/stereotype_metadata_test.go:TestAllocateFromDefinitionToFeatureKeepsTheFeature",
+        "tests/migrate/stereotype_metadata_test.go:TestAllocateBetweenDefinitionsRedefinesSourceAndTarget",
+        "tests/migrate/stereotype_metadata_test.go:TestAllocateInOneBodyStaysInPlace",
+        "tests/migrate/stereotype_metadata_test.go:TestAllocateFromPackageFeatureStaysADependency"
       ],
-      "reason": "an `allocation def` is written only for an «Allocate» between two definitions; any other «Allocate» becomes an allocation usage or a dependency, not also a definition",
+      "reason": "an «Allocate» is written as an `allocation def` whose ends redefine `source` and `target`, with `allocate source.x to target.y` in it when an end is a feature (TMT: 97 of 97), except when both ends are features of one definition body or one package: there it is written in place as `allocate a to b`, which allocates the features of every instance of that body, while a definition allocates nothing until something uses it; an end that is a feature of a package, which no allocation end can be typed by, keeps a plain dependency",
       "scope": [
         "sysml:Allocate"
       ]
@@ -1425,14 +1443,20 @@
         "isEnd"
       ],
       "ocl": "sha256:bc49321314b4b7960b6b16dd9d95db4721f216e62cadf84370e222b1569afcc2",
-      "status": "approximate",
+      "status": "deliberate",
       "implementation": [
-        "internal/translate/migrate/migrate.go:allocationDef"
+        "internal/translate/migrate/migrate.go:dependencyPair",
+        "internal/translate/migrate/migrate.go:allocationDef",
+        "internal/translate/migrate/usage.go:placeAllocation"
       ],
       "tests": [
-        "tests/migrate/migrate_test.go:TestGoldenNotation"
+        "tests/migrate/stereotype_metadata_test.go:TestAllocateFromActionToPartIsAnAllocationDef",
+        "tests/migrate/stereotype_metadata_test.go:TestAllocateFromDefinitionToFeatureKeepsTheFeature",
+        "tests/migrate/stereotype_metadata_test.go:TestAllocateBetweenDefinitionsRedefinesSourceAndTarget",
+        "tests/migrate/stereotype_metadata_test.go:TestAllocateInOneBodyStaysInPlace",
+        "tests/migrate/stereotype_metadata_test.go:TestAllocateFromPackageFeatureStaysADependency"
       ],
-      "reason": "an `allocation def` is written only for an «Allocate» between two definitions; any other «Allocate» becomes an allocation usage or a dependency, not also a definition",
+      "reason": "an «Allocate» is written as an `allocation def` whose ends redefine `source` and `target`, with `allocate source.x to target.y` in it when an end is a feature (TMT: 97 of 97), except when both ends are features of one definition body or one package: there it is written in place as `allocate a to b`, which allocates the features of every instance of that body, while a definition allocates nothing until something uses it; an end that is a feature of a package, which no allocation end can be typed by, keeps a plain dependency",
       "scope": [
         "sysml:Allocate"
       ]
@@ -1451,14 +1475,20 @@
         "ownedMemberFeature"
       ],
       "ocl": "sha256:080819cc5c7af8817f4961f6f2c5b1433d6964160c4abad159a6d5a1332843bc",
-      "status": "approximate",
+      "status": "deliberate",
       "implementation": [
-        "internal/translate/migrate/migrate.go:allocationDef"
+        "internal/translate/migrate/migrate.go:dependencyPair",
+        "internal/translate/migrate/migrate.go:allocationDef",
+        "internal/translate/migrate/usage.go:placeAllocation"
       ],
       "tests": [
-        "tests/migrate/migrate_test.go:TestGoldenNotation"
+        "tests/migrate/stereotype_metadata_test.go:TestAllocateFromActionToPartIsAnAllocationDef",
+        "tests/migrate/stereotype_metadata_test.go:TestAllocateFromDefinitionToFeatureKeepsTheFeature",
+        "tests/migrate/stereotype_metadata_test.go:TestAllocateBetweenDefinitionsRedefinesSourceAndTarget",
+        "tests/migrate/stereotype_metadata_test.go:TestAllocateInOneBodyStaysInPlace",
+        "tests/migrate/stereotype_metadata_test.go:TestAllocateFromPackageFeatureStaysADependency"
       ],
-      "reason": "an `allocation def` is written only for an «Allocate» between two definitions; any other «Allocate» becomes an allocation usage or a dependency, not also a definition",
+      "reason": "an «Allocate» is written as an `allocation def` whose ends redefine `source` and `target`, with `allocate source.x to target.y` in it when an end is a feature (TMT: 97 of 97), except when both ends are features of one definition body or one package: there it is written in place as `allocate a to b`, which allocates the features of every instance of that body, while a definition allocates nothing until something uses it; an end that is a feature of a package, which no allocation end can be typed by, keeps a plain dependency",
       "scope": [
         "sysml:Allocate"
       ]
@@ -1477,14 +1507,20 @@
         "redefinedFeature"
       ],
       "ocl": "sha256:cb711040a42f89ca7542efc248f420180687760434fead363cd419eada365ad8",
-      "status": "approximate",
+      "status": "deliberate",
       "implementation": [
-        "internal/translate/migrate/migrate.go:allocationDef"
+        "internal/translate/migrate/migrate.go:dependencyPair",
+        "internal/translate/migrate/migrate.go:allocationDef",
+        "internal/translate/migrate/usage.go:placeAllocation"
       ],
       "tests": [
-        "tests/migrate/migrate_test.go:TestGoldenNotation"
+        "tests/migrate/stereotype_metadata_test.go:TestAllocateFromActionToPartIsAnAllocationDef",
+        "tests/migrate/stereotype_metadata_test.go:TestAllocateFromDefinitionToFeatureKeepsTheFeature",
+        "tests/migrate/stereotype_metadata_test.go:TestAllocateBetweenDefinitionsRedefinesSourceAndTarget",
+        "tests/migrate/stereotype_metadata_test.go:TestAllocateInOneBodyStaysInPlace",
+        "tests/migrate/stereotype_metadata_test.go:TestAllocateFromPackageFeatureStaysADependency"
       ],
-      "reason": "an `allocation def` is written only for an «Allocate» between two definitions; any other «Allocate» becomes an allocation usage or a dependency, not also a definition",
+      "reason": "an «Allocate» is written as an `allocation def` whose ends redefine `source` and `target`, with `allocate source.x to target.y` in it when an end is a feature (TMT: 97 of 97), except when both ends are features of one definition body or one package: there it is written in place as `allocate a to b`, which allocates the features of every instance of that body, while a definition allocates nothing until something uses it; an end that is a feature of a package, which no allocation end can be typed by, keeps a plain dependency",
       "scope": [
         "sysml:Allocate"
       ]
@@ -1505,14 +1541,20 @@
         "isEnd"
       ],
       "ocl": "sha256:f7fe0be22ccf1fbf8571e602cfec22acdc1f63d55320b8ecb023eadf63153e5f",
-      "status": "approximate",
+      "status": "deliberate",
       "implementation": [
-        "internal/translate/migrate/migrate.go:allocationDef"
+        "internal/translate/migrate/migrate.go:dependencyPair",
+        "internal/translate/migrate/migrate.go:allocationDef",
+        "internal/translate/migrate/usage.go:placeAllocation"
       ],
       "tests": [
-        "tests/migrate/migrate_test.go:TestGoldenNotation"
+        "tests/migrate/stereotype_metadata_test.go:TestAllocateFromActionToPartIsAnAllocationDef",
+        "tests/migrate/stereotype_metadata_test.go:TestAllocateFromDefinitionToFeatureKeepsTheFeature",
+        "tests/migrate/stereotype_metadata_test.go:TestAllocateBetweenDefinitionsRedefinesSourceAndTarget",
+        "tests/migrate/stereotype_metadata_test.go:TestAllocateInOneBodyStaysInPlace",
+        "tests/migrate/stereotype_metadata_test.go:TestAllocateFromPackageFeatureStaysADependency"
       ],
-      "reason": "an `allocation def` is written only for an «Allocate» between two definitions; any other «Allocate» becomes an allocation usage or a dependency, not also a definition",
+      "reason": "an «Allocate» is written as an `allocation def` whose ends redefine `source` and `target`, with `allocate source.x to target.y` in it when an end is a feature (TMT: 97 of 97), except when both ends are features of one definition body or one package: there it is written in place as `allocate a to b`, which allocates the features of every instance of that body, while a definition allocates nothing until something uses it; an end that is a feature of a package, which no allocation end can be typed by, keeps a plain dependency",
       "scope": [
         "sysml:Allocate"
       ]
@@ -1532,16 +1574,20 @@
         "chainingFeature"
       ],
       "ocl": "sha256:859f491d5aaad14c111278a9407d4e095bdf89119493e644fb4cc16c106f1228",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
-        "internal/translate/migrate/usage.go:placeAllocation",
-        "internal/translate/migrate/migrate.go:dependency"
+        "internal/translate/migrate/migrate.go:dependencyPair",
+        "internal/translate/migrate/migrate.go:allocationDef",
+        "internal/translate/migrate/usage.go:placeAllocation"
       ],
       "tests": [
-        "tests/migrate/migrate_test.go:TestGoldenNotation",
-        "tests/migrate/stub_actions_test.go:TestStubActionsInMethodsKeepTheirPinsAndAllocation"
+        "tests/migrate/stereotype_metadata_test.go:TestAllocateFromActionToPartIsAnAllocationDef",
+        "tests/migrate/stereotype_metadata_test.go:TestAllocateFromDefinitionToFeatureKeepsTheFeature",
+        "tests/migrate/stereotype_metadata_test.go:TestAllocateBetweenDefinitionsRedefinesSourceAndTarget",
+        "tests/migrate/stereotype_metadata_test.go:TestAllocateInOneBodyStaysInPlace",
+        "tests/migrate/stereotype_metadata_test.go:TestAllocateFromPackageFeatureStaysADependency"
       ],
-      "reason": "`allocate a to b` where both ends are features of one body; between a definition and a usage, or with an end no allocate reaches, it is written as a dependency",
+      "reason": "",
       "scope": [
         "sysml:Allocate"
       ]
@@ -1561,16 +1607,20 @@
         "ownedMemberFeature"
       ],
       "ocl": "sha256:027e7dbff3730ef3a4f23c72e759e01469e6c38fe150258b5e43aeb2f8468070",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
-        "internal/translate/migrate/usage.go:placeAllocation",
-        "internal/translate/migrate/migrate.go:dependency"
+        "internal/translate/migrate/migrate.go:dependencyPair",
+        "internal/translate/migrate/migrate.go:allocationDef",
+        "internal/translate/migrate/usage.go:placeAllocation"
       ],
       "tests": [
-        "tests/migrate/migrate_test.go:TestGoldenNotation",
-        "tests/migrate/stub_actions_test.go:TestStubActionsInMethodsKeepTheirPinsAndAllocation"
+        "tests/migrate/stereotype_metadata_test.go:TestAllocateFromActionToPartIsAnAllocationDef",
+        "tests/migrate/stereotype_metadata_test.go:TestAllocateFromDefinitionToFeatureKeepsTheFeature",
+        "tests/migrate/stereotype_metadata_test.go:TestAllocateBetweenDefinitionsRedefinesSourceAndTarget",
+        "tests/migrate/stereotype_metadata_test.go:TestAllocateInOneBodyStaysInPlace",
+        "tests/migrate/stereotype_metadata_test.go:TestAllocateFromPackageFeatureStaysADependency"
       ],
-      "reason": "`allocate a to b` where both ends are features of one body; between a definition and a usage, or with an end no allocate reaches, it is written as a dependency",
+      "reason": "",
       "scope": [
         "sysml:Allocate"
       ]
@@ -1590,16 +1640,20 @@
         "ownedMemberFeature"
       ],
       "ocl": "sha256:311bcb286a0ef5214b46bde6aafe521cfa63e09149f978f48c94748dbb144d75",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
-        "internal/translate/migrate/usage.go:placeAllocation",
-        "internal/translate/migrate/migrate.go:dependency"
+        "internal/translate/migrate/migrate.go:dependencyPair",
+        "internal/translate/migrate/migrate.go:allocationDef",
+        "internal/translate/migrate/usage.go:placeAllocation"
       ],
       "tests": [
-        "tests/migrate/migrate_test.go:TestGoldenNotation",
-        "tests/migrate/stub_actions_test.go:TestStubActionsInMethodsKeepTheirPinsAndAllocation"
+        "tests/migrate/stereotype_metadata_test.go:TestAllocateFromActionToPartIsAnAllocationDef",
+        "tests/migrate/stereotype_metadata_test.go:TestAllocateFromDefinitionToFeatureKeepsTheFeature",
+        "tests/migrate/stereotype_metadata_test.go:TestAllocateBetweenDefinitionsRedefinesSourceAndTarget",
+        "tests/migrate/stereotype_metadata_test.go:TestAllocateInOneBodyStaysInPlace",
+        "tests/migrate/stereotype_metadata_test.go:TestAllocateFromPackageFeatureStaysADependency"
       ],
-      "reason": "`allocate a to b` where both ends are features of one body; between a definition and a usage, or with an end no allocate reaches, it is written as a dependency",
+      "reason": "",
       "scope": [
         "sysml:Allocate"
       ]
@@ -1619,16 +1673,20 @@
         "chainingFeature"
       ],
       "ocl": "sha256:e74b0cf74c9bdab6f5ba9267be675c93fc0ea3277041d6df130c9643b711ec73",
-      "status": "approximate",
+      "status": "deliberate",
       "implementation": [
-        "internal/translate/migrate/usage.go:placeAllocation",
-        "internal/translate/migrate/migrate.go:dependency"
+        "internal/translate/migrate/migrate.go:dependencyPair",
+        "internal/translate/migrate/migrate.go:allocationDef",
+        "internal/translate/migrate/usage.go:placeAllocation"
       ],
       "tests": [
-        "tests/migrate/migrate_test.go:TestGoldenNotation",
-        "tests/migrate/stub_actions_test.go:TestStubActionsInMethodsKeepTheirPinsAndAllocation"
+        "tests/migrate/stereotype_metadata_test.go:TestAllocateFromActionToPartIsAnAllocationDef",
+        "tests/migrate/stereotype_metadata_test.go:TestAllocateFromDefinitionToFeatureKeepsTheFeature",
+        "tests/migrate/stereotype_metadata_test.go:TestAllocateBetweenDefinitionsRedefinesSourceAndTarget",
+        "tests/migrate/stereotype_metadata_test.go:TestAllocateInOneBodyStaysInPlace",
+        "tests/migrate/stereotype_metadata_test.go:TestAllocateFromPackageFeatureStaysADependency"
       ],
-      "reason": "`allocate a to b` where both ends are features of one body; between a definition and a usage, or with an end no allocate reaches, it is written as a dependency",
+      "reason": "an «Allocate» is written as an `allocation def` whose ends redefine `source` and `target`, with `allocate source.x to target.y` in it when an end is a feature (TMT: 97 of 97), except when both ends are features of one definition body or one package: there it is written in place as `allocate a to b`, which allocates the features of every instance of that body, while a definition allocates nothing until something uses it; an end that is a feature of a package, which no allocation end can be typed by, keeps a plain dependency",
       "scope": [
         "sysml:Allocate"
       ]
@@ -1648,16 +1706,20 @@
         "ownedRelationship"
       ],
       "ocl": "sha256:7206be80424195edad53320aa5542ab915e1f14bdddd03eb39554e006e6ea9ea",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
-        "internal/translate/migrate/usage.go:placeAllocation",
-        "internal/translate/migrate/migrate.go:dependency"
+        "internal/translate/migrate/migrate.go:dependencyPair",
+        "internal/translate/migrate/migrate.go:allocationDef",
+        "internal/translate/migrate/usage.go:placeAllocation"
       ],
       "tests": [
-        "tests/migrate/migrate_test.go:TestGoldenNotation",
-        "tests/migrate/stub_actions_test.go:TestStubActionsInMethodsKeepTheirPinsAndAllocation"
+        "tests/migrate/stereotype_metadata_test.go:TestAllocateFromActionToPartIsAnAllocationDef",
+        "tests/migrate/stereotype_metadata_test.go:TestAllocateFromDefinitionToFeatureKeepsTheFeature",
+        "tests/migrate/stereotype_metadata_test.go:TestAllocateBetweenDefinitionsRedefinesSourceAndTarget",
+        "tests/migrate/stereotype_metadata_test.go:TestAllocateInOneBodyStaysInPlace",
+        "tests/migrate/stereotype_metadata_test.go:TestAllocateFromPackageFeatureStaysADependency"
       ],
-      "reason": "`allocate a to b` where both ends are features of one body; between a definition and a usage, or with an end no allocate reaches, it is written as a dependency",
+      "reason": "",
       "scope": [
         "sysml:Allocate"
       ]
@@ -1677,16 +1739,20 @@
         "ownedRelatedElement"
       ],
       "ocl": "sha256:143e58a7955fca23b3910d6fd6c35231b48ea178bdcf3eab3ed965e5f962dd71",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
-        "internal/translate/migrate/usage.go:placeAllocation",
-        "internal/translate/migrate/migrate.go:dependency"
+        "internal/translate/migrate/migrate.go:dependencyPair",
+        "internal/translate/migrate/migrate.go:allocationDef",
+        "internal/translate/migrate/usage.go:placeAllocation"
       ],
       "tests": [
-        "tests/migrate/migrate_test.go:TestGoldenNotation",
-        "tests/migrate/stub_actions_test.go:TestStubActionsInMethodsKeepTheirPinsAndAllocation"
+        "tests/migrate/stereotype_metadata_test.go:TestAllocateFromActionToPartIsAnAllocationDef",
+        "tests/migrate/stereotype_metadata_test.go:TestAllocateFromDefinitionToFeatureKeepsTheFeature",
+        "tests/migrate/stereotype_metadata_test.go:TestAllocateBetweenDefinitionsRedefinesSourceAndTarget",
+        "tests/migrate/stereotype_metadata_test.go:TestAllocateInOneBodyStaysInPlace",
+        "tests/migrate/stereotype_metadata_test.go:TestAllocateFromPackageFeatureStaysADependency"
       ],
-      "reason": "`allocate a to b` where both ends are features of one body; between a definition and a usage, or with an end no allocate reaches, it is written as a dependency",
+      "reason": "",
       "scope": [
         "sysml:Allocate"
       ]
@@ -1706,16 +1772,20 @@
         "ownedRelationship"
       ],
       "ocl": "sha256:5617abda3f9102682bcddddbee38b4f6c944a9c0ce1cc06facf6f28fa467d174",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
-        "internal/translate/migrate/usage.go:placeAllocation",
-        "internal/translate/migrate/migrate.go:dependency"
+        "internal/translate/migrate/migrate.go:dependencyPair",
+        "internal/translate/migrate/migrate.go:allocationDef",
+        "internal/translate/migrate/usage.go:placeAllocation"
       ],
       "tests": [
-        "tests/migrate/migrate_test.go:TestGoldenNotation",
-        "tests/migrate/stub_actions_test.go:TestStubActionsInMethodsKeepTheirPinsAndAllocation"
+        "tests/migrate/stereotype_metadata_test.go:TestAllocateFromActionToPartIsAnAllocationDef",
+        "tests/migrate/stereotype_metadata_test.go:TestAllocateFromDefinitionToFeatureKeepsTheFeature",
+        "tests/migrate/stereotype_metadata_test.go:TestAllocateBetweenDefinitionsRedefinesSourceAndTarget",
+        "tests/migrate/stereotype_metadata_test.go:TestAllocateInOneBodyStaysInPlace",
+        "tests/migrate/stereotype_metadata_test.go:TestAllocateFromPackageFeatureStaysADependency"
       ],
-      "reason": "`allocate a to b` where both ends are features of one body; between a definition and a usage, or with an end no allocate reaches, it is written as a dependency",
+      "reason": "",
       "scope": [
         "sysml:Allocate"
       ]
@@ -1734,16 +1804,20 @@
         "ownedMemberFeature"
       ],
       "ocl": "sha256:d2182ea08c6b13a1a0820f8822e60c15ac1114292883318e6b59181b40627c12",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
-        "internal/translate/migrate/usage.go:placeAllocation",
-        "internal/translate/migrate/migrate.go:dependency"
+        "internal/translate/migrate/migrate.go:dependencyPair",
+        "internal/translate/migrate/migrate.go:allocationDef",
+        "internal/translate/migrate/usage.go:placeAllocation"
       ],
       "tests": [
-        "tests/migrate/migrate_test.go:TestGoldenNotation",
-        "tests/migrate/stub_actions_test.go:TestStubActionsInMethodsKeepTheirPinsAndAllocation"
+        "tests/migrate/stereotype_metadata_test.go:TestAllocateFromActionToPartIsAnAllocationDef",
+        "tests/migrate/stereotype_metadata_test.go:TestAllocateFromDefinitionToFeatureKeepsTheFeature",
+        "tests/migrate/stereotype_metadata_test.go:TestAllocateBetweenDefinitionsRedefinesSourceAndTarget",
+        "tests/migrate/stereotype_metadata_test.go:TestAllocateInOneBodyStaysInPlace",
+        "tests/migrate/stereotype_metadata_test.go:TestAllocateFromPackageFeatureStaysADependency"
       ],
-      "reason": "`allocate a to b` where both ends are features of one body; between a definition and a usage, or with an end no allocate reaches, it is written as a dependency",
+      "reason": "",
       "scope": [
         "sysml:Allocate"
       ]
@@ -1762,16 +1836,20 @@
         "chainingFeature"
       ],
       "ocl": "sha256:ee3dfe2cd57e9bdef2b4c91312e17cdf792db9e20afa28e717b30f417a49495c",
-      "status": "approximate",
+      "status": "deliberate",
       "implementation": [
-        "internal/translate/migrate/usage.go:placeAllocation",
-        "internal/translate/migrate/migrate.go:dependency"
+        "internal/translate/migrate/migrate.go:dependencyPair",
+        "internal/translate/migrate/migrate.go:allocationDef",
+        "internal/translate/migrate/usage.go:placeAllocation"
       ],
       "tests": [
-        "tests/migrate/migrate_test.go:TestGoldenNotation",
-        "tests/migrate/stub_actions_test.go:TestStubActionsInMethodsKeepTheirPinsAndAllocation"
+        "tests/migrate/stereotype_metadata_test.go:TestAllocateFromActionToPartIsAnAllocationDef",
+        "tests/migrate/stereotype_metadata_test.go:TestAllocateFromDefinitionToFeatureKeepsTheFeature",
+        "tests/migrate/stereotype_metadata_test.go:TestAllocateBetweenDefinitionsRedefinesSourceAndTarget",
+        "tests/migrate/stereotype_metadata_test.go:TestAllocateInOneBodyStaysInPlace",
+        "tests/migrate/stereotype_metadata_test.go:TestAllocateFromPackageFeatureStaysADependency"
       ],
-      "reason": "`allocate a to b` where both ends are features of one body; between a definition and a usage, or with an end no allocate reaches, it is written as a dependency",
+      "reason": "an «Allocate» is written as an `allocation def` whose ends redefine `source` and `target`, with `allocate source.x to target.y` in it when an end is a feature (TMT: 97 of 97), except when both ends are features of one definition body or one package: there it is written in place as `allocate a to b`, which allocates the features of every instance of that body, while a definition allocates nothing until something uses it; an end that is a feature of a package, which no allocation end can be typed by, keeps a plain dependency",
       "scope": [
         "sysml:Allocate"
       ]
@@ -1790,16 +1868,20 @@
         "ownedRelationship"
       ],
       "ocl": "sha256:bc5fb3c191a042616939835389a18b5fd39821042705a3292fac039bd554b0ed",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
-        "internal/translate/migrate/usage.go:placeAllocation",
-        "internal/translate/migrate/migrate.go:dependency"
+        "internal/translate/migrate/migrate.go:dependencyPair",
+        "internal/translate/migrate/migrate.go:allocationDef",
+        "internal/translate/migrate/usage.go:placeAllocation"
       ],
       "tests": [
-        "tests/migrate/migrate_test.go:TestGoldenNotation",
-        "tests/migrate/stub_actions_test.go:TestStubActionsInMethodsKeepTheirPinsAndAllocation"
+        "tests/migrate/stereotype_metadata_test.go:TestAllocateFromActionToPartIsAnAllocationDef",
+        "tests/migrate/stereotype_metadata_test.go:TestAllocateFromDefinitionToFeatureKeepsTheFeature",
+        "tests/migrate/stereotype_metadata_test.go:TestAllocateBetweenDefinitionsRedefinesSourceAndTarget",
+        "tests/migrate/stereotype_metadata_test.go:TestAllocateInOneBodyStaysInPlace",
+        "tests/migrate/stereotype_metadata_test.go:TestAllocateFromPackageFeatureStaysADependency"
       ],
-      "reason": "`allocate a to b` where both ends are features of one body; between a definition and a usage, or with an end no allocate reaches, it is written as a dependency",
+      "reason": "",
       "scope": [
         "sysml:Allocate"
       ]
@@ -1818,16 +1900,20 @@
         "ownedRelatedElement"
       ],
       "ocl": "sha256:fc9d899340c0e807558b6d577b936a0b9226829c01a99c3f6662353c7f3a2086",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
-        "internal/translate/migrate/usage.go:placeAllocation",
-        "internal/translate/migrate/migrate.go:dependency"
+        "internal/translate/migrate/migrate.go:dependencyPair",
+        "internal/translate/migrate/migrate.go:allocationDef",
+        "internal/translate/migrate/usage.go:placeAllocation"
       ],
       "tests": [
-        "tests/migrate/migrate_test.go:TestGoldenNotation",
-        "tests/migrate/stub_actions_test.go:TestStubActionsInMethodsKeepTheirPinsAndAllocation"
+        "tests/migrate/stereotype_metadata_test.go:TestAllocateFromActionToPartIsAnAllocationDef",
+        "tests/migrate/stereotype_metadata_test.go:TestAllocateFromDefinitionToFeatureKeepsTheFeature",
+        "tests/migrate/stereotype_metadata_test.go:TestAllocateBetweenDefinitionsRedefinesSourceAndTarget",
+        "tests/migrate/stereotype_metadata_test.go:TestAllocateInOneBodyStaysInPlace",
+        "tests/migrate/stereotype_metadata_test.go:TestAllocateFromPackageFeatureStaysADependency"
       ],
-      "reason": "`allocate a to b` where both ends are features of one body; between a definition and a usage, or with an end no allocate reaches, it is written as a dependency",
+      "reason": "",
       "scope": [
         "sysml:Allocate"
       ]
@@ -1846,16 +1932,20 @@
         "ownedRelationship"
       ],
       "ocl": "sha256:0b6c06404dc83732791a55b8671af8fe9eeb7728956af0760c7936c2ad90217f",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
-        "internal/translate/migrate/usage.go:placeAllocation",
-        "internal/translate/migrate/migrate.go:dependency"
+        "internal/translate/migrate/migrate.go:dependencyPair",
+        "internal/translate/migrate/migrate.go:allocationDef",
+        "internal/translate/migrate/usage.go:placeAllocation"
       ],
       "tests": [
-        "tests/migrate/migrate_test.go:TestGoldenNotation",
-        "tests/migrate/stub_actions_test.go:TestStubActionsInMethodsKeepTheirPinsAndAllocation"
+        "tests/migrate/stereotype_metadata_test.go:TestAllocateFromActionToPartIsAnAllocationDef",
+        "tests/migrate/stereotype_metadata_test.go:TestAllocateFromDefinitionToFeatureKeepsTheFeature",
+        "tests/migrate/stereotype_metadata_test.go:TestAllocateBetweenDefinitionsRedefinesSourceAndTarget",
+        "tests/migrate/stereotype_metadata_test.go:TestAllocateInOneBodyStaysInPlace",
+        "tests/migrate/stereotype_metadata_test.go:TestAllocateFromPackageFeatureStaysADependency"
       ],
-      "reason": "`allocate a to b` where both ends are features of one body; between a definition and a usage, or with an end no allocate reaches, it is written as a dependency",
+      "reason": "",
       "scope": [
         "sysml:Allocate"
       ]
@@ -1875,16 +1965,20 @@
         "ownedRelationship"
       ],
       "ocl": "sha256:aed64f1f2a131acb812bcc9e43a7ee7d10489ebd4936ad766624e295200f2fb2",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
-        "internal/translate/migrate/usage.go:placeAllocation",
-        "internal/translate/migrate/migrate.go:dependency"
+        "internal/translate/migrate/migrate.go:dependencyPair",
+        "internal/translate/migrate/migrate.go:allocationDef",
+        "internal/translate/migrate/usage.go:placeAllocation"
       ],
       "tests": [
-        "tests/migrate/migrate_test.go:TestGoldenNotation",
-        "tests/migrate/stub_actions_test.go:TestStubActionsInMethodsKeepTheirPinsAndAllocation"
+        "tests/migrate/stereotype_metadata_test.go:TestAllocateFromActionToPartIsAnAllocationDef",
+        "tests/migrate/stereotype_metadata_test.go:TestAllocateFromDefinitionToFeatureKeepsTheFeature",
+        "tests/migrate/stereotype_metadata_test.go:TestAllocateBetweenDefinitionsRedefinesSourceAndTarget",
+        "tests/migrate/stereotype_metadata_test.go:TestAllocateInOneBodyStaysInPlace",
+        "tests/migrate/stereotype_metadata_test.go:TestAllocateFromPackageFeatureStaysADependency"
       ],
-      "reason": "`allocate a to b` where both ends are features of one body; between a definition and a usage, or with an end no allocate reaches, it is written as a dependency",
+      "reason": "",
       "scope": [
         "sysml:Allocate"
       ]
@@ -1904,14 +1998,20 @@
         "filter"
       ],
       "ocl": "sha256:7320a97e77445f6b4bcf5b9ea6a954c08abfb5096b093acb4f4a5a3a5c704bfc",
-      "status": "approximate",
+      "status": "deliberate",
       "implementation": [
-        "internal/translate/migrate/migrate.go:allocationDef"
+        "internal/translate/migrate/migrate.go:dependencyPair",
+        "internal/translate/migrate/migrate.go:allocationDef",
+        "internal/translate/migrate/usage.go:placeAllocation"
       ],
       "tests": [
-        "tests/migrate/migrate_test.go:TestGoldenNotation"
+        "tests/migrate/stereotype_metadata_test.go:TestAllocateFromActionToPartIsAnAllocationDef",
+        "tests/migrate/stereotype_metadata_test.go:TestAllocateFromDefinitionToFeatureKeepsTheFeature",
+        "tests/migrate/stereotype_metadata_test.go:TestAllocateBetweenDefinitionsRedefinesSourceAndTarget",
+        "tests/migrate/stereotype_metadata_test.go:TestAllocateInOneBodyStaysInPlace",
+        "tests/migrate/stereotype_metadata_test.go:TestAllocateFromPackageFeatureStaysADependency"
       ],
-      "reason": "an `allocation def` is written only for an «Allocate» between two definitions; any other «Allocate» becomes an allocation usage or a dependency, not also a definition",
+      "reason": "an «Allocate» is written as an `allocation def` whose ends redefine `source` and `target`, with `allocate source.x to target.y` in it when an end is a feature (TMT: 97 of 97), except when both ends are features of one definition body or one package: there it is written in place as `allocate a to b`, which allocates the features of every instance of that body, while a definition allocates nothing until something uses it; an end that is a feature of a package, which no allocation end can be typed by, keeps a plain dependency",
       "scope": [
         "sysml:Allocate"
       ]
@@ -2005,14 +2105,14 @@
         "ownedMemberFeature"
       ],
       "ocl": "sha256:116859f569d6616acd5f008c2c9890c69cc98da2cf9305cc7506957881bc0e51",
-      "status": "approximate",
+      "status": "deliberate",
       "implementation": [
         "internal/translate/migrate/migrate.go:classifierBody"
       ],
       "tests": [
         "tests/migrate/classify_test.go:TestBlockEncapsulationIsKeptAndReported"
       ],
-      "reason": "isEncapsulated = true is kept as a comment and reported as having no v2 form, not written as metadata on the part def",
+      "reason": "`isEncapsulated` would be written as `@SysMLv1Library::BlockData { isEncapsulated = true; }`: OMG names SysMLv1Library but does not publish it, so it is kept as a comment on the part def",
       "scope": [
         "sysml:Block[isEncapsulated=true]"
       ]
@@ -2032,14 +2132,14 @@
         "type"
       ],
       "ocl": "sha256:5cabe3f2f6f7e948dab6b24d197e9b07b8543ccc94412770c58f2e4359f365de",
-      "status": "approximate",
+      "status": "deliberate",
       "implementation": [
         "internal/translate/migrate/migrate.go:classifierBody"
       ],
       "tests": [
         "tests/migrate/classify_test.go:TestBlockEncapsulationIsKeptAndReported"
       ],
-      "reason": "isEncapsulated = true is kept as a comment and reported as having no v2 form, not written as metadata on the part def",
+      "reason": "`isEncapsulated` would be written as `@SysMLv1Library::BlockData { isEncapsulated = true; }`: OMG names SysMLv1Library but does not publish it, so it is kept as a comment on the part def",
       "scope": [
         "sysml:Block[isEncapsulated=true]"
       ]
@@ -2059,14 +2159,14 @@
         "value"
       ],
       "ocl": "sha256:374d6139041fea74e9bbabacb7fb542caa2e2ea6efdcdc9adbdc1325926872fa",
-      "status": "approximate",
+      "status": "deliberate",
       "implementation": [
         "internal/translate/migrate/migrate.go:classifierBody"
       ],
       "tests": [
         "tests/migrate/classify_test.go:TestBlockEncapsulationIsKeptAndReported"
       ],
-      "reason": "isEncapsulated = true is kept as a comment and reported as having no v2 form, not written as metadata on the part def",
+      "reason": "`isEncapsulated` would be written as `@SysMLv1Library::BlockData { isEncapsulated = true; }`: OMG names SysMLv1Library but does not publish it, so it is kept as a comment on the part def",
       "scope": [
         "sysml:Block[isEncapsulated=true]"
       ]
@@ -2086,14 +2186,14 @@
         "ownedMemberElement"
       ],
       "ocl": "sha256:0f7cfd00e9df65303e7604cac3eab696a4d20a538b4358dbb8eb21cd89953e59",
-      "status": "approximate",
+      "status": "deliberate",
       "implementation": [
         "internal/translate/migrate/migrate.go:classifierBody"
       ],
       "tests": [
         "tests/migrate/classify_test.go:TestBlockEncapsulationIsKeptAndReported"
       ],
-      "reason": "isEncapsulated = true is kept as a comment and reported as having no v2 form, not written as metadata on the part def",
+      "reason": "`isEncapsulated` would be written as `@SysMLv1Library::BlockData { isEncapsulated = true; }`: OMG names SysMLv1Library but does not publish it, so it is kept as a comment on the part def",
       "scope": [
         "sysml:Block[isEncapsulated=true]"
       ]
@@ -2113,14 +2213,14 @@
         "redefinedFeature"
       ],
       "ocl": "sha256:a727c51f15a9c623d23149fa61ec4c387c973c50b61fd7c709fff2bfbb39763f",
-      "status": "approximate",
+      "status": "deliberate",
       "implementation": [
         "internal/translate/migrate/migrate.go:classifierBody"
       ],
       "tests": [
         "tests/migrate/classify_test.go:TestBlockEncapsulationIsKeptAndReported"
       ],
-      "reason": "isEncapsulated = true is kept as a comment and reported as having no v2 form, not written as metadata on the part def",
+      "reason": "`isEncapsulated` would be written as `@SysMLv1Library::BlockData { isEncapsulated = true; }`: OMG names SysMLv1Library but does not publish it, so it is kept as a comment on the part def",
       "scope": [
         "sysml:Block[isEncapsulated=true]"
       ]
@@ -2140,14 +2240,14 @@
         "ownedRelationship"
       ],
       "ocl": "sha256:59dc186a9e87d05ded31f885a26b655d80b07605c3271959febccd8bc4a55c65",
-      "status": "approximate",
+      "status": "deliberate",
       "implementation": [
         "internal/translate/migrate/migrate.go:classifierBody"
       ],
       "tests": [
         "tests/migrate/classify_test.go:TestBlockEncapsulationIsKeptAndReported"
       ],
-      "reason": "isEncapsulated = true is kept as a comment and reported as having no v2 form, not written as metadata on the part def",
+      "reason": "`isEncapsulated` would be written as `@SysMLv1Library::BlockData { isEncapsulated = true; }`: OMG names SysMLv1Library but does not publish it, so it is kept as a comment on the part def",
       "scope": [
         "sysml:Block[isEncapsulated=true]"
       ]
@@ -2167,14 +2267,14 @@
         "ownedRelationship"
       ],
       "ocl": "sha256:95d8bdde43681205203cf266c6d91ba3717ff1ef236c1559492907adf58b96d3",
-      "status": "approximate",
+      "status": "deliberate",
       "implementation": [
         "internal/translate/migrate/migrate.go:classifierBody"
       ],
       "tests": [
         "tests/migrate/classify_test.go:TestBlockEncapsulationIsKeptAndReported"
       ],
-      "reason": "isEncapsulated = true is kept as a comment and reported as having no v2 form, not written as metadata on the part def",
+      "reason": "`isEncapsulated` would be written as `@SysMLv1Library::BlockData { isEncapsulated = true; }`: OMG names SysMLv1Library but does not publish it, so it is kept as a comment on the part def",
       "scope": [
         "sysml:Block[isEncapsulated=true]"
       ]
@@ -2194,14 +2294,14 @@
         "ownedRelationship"
       ],
       "ocl": "sha256:d5256f709b903007d906b553d30c2bf41047d3d9461bacfdf6337c0ac1618aab",
-      "status": "approximate",
+      "status": "deliberate",
       "implementation": [
         "internal/translate/migrate/migrate.go:classifierBody"
       ],
       "tests": [
         "tests/migrate/classify_test.go:TestBlockEncapsulationIsKeptAndReported"
       ],
-      "reason": "isEncapsulated = true is kept as a comment and reported as having no v2 form, not written as metadata on the part def",
+      "reason": "`isEncapsulated` would be written as `@SysMLv1Library::BlockData { isEncapsulated = true; }`: OMG names SysMLv1Library but does not publish it, so it is kept as a comment on the part def",
       "scope": [
         "sysml:Block[isEncapsulated=true]"
       ]
@@ -4127,10 +4227,17 @@
         "filter"
       ],
       "ocl": "sha256:9d95fb565bed30b8e31cab9ad495e54988eab322b9c8807d0e3bfd1e2339cfad",
-      "status": "not-implemented",
-      "implementation": [],
-      "tests": [],
-      "reason": "an AcceptChangeStructuralFeatureEventAction is not migrated: activity.go writes it as an unmapped placeholder action",
+      "status": "deliberate",
+      "implementation": [
+        "internal/translate/migrate/activity.go:acceptEvent",
+        "internal/translate/migrate/activity.go:trigger",
+        "internal/translate/migrate/activity.go:acceptClause"
+      ],
+      "tests": [
+        "tests/migrate/behavior_test.go:TestActivityWithSendAcceptAndOperationCalls",
+        "tests/migrate/behavior_more_test.go:TestStateMachineWithOrthogonalRegionsAndGuards"
+      ],
+      "reason": "OMG's note leaves the mapping undefined beyond an AcceptActionUsage; a v2 change trigger (`accept when`) waits for a Boolean condition to become true, but a change-structural-feature event fires on any change to a feature's value, which no v2 condition states; the action goes through the ordinary accept-event path, which writes its change trigger, having no change expression, as `accept when true` (PSSM 0, fixtures 0, TMT 0)",
       "scope": [
         "sysml:AcceptChangeStructuralFeatureEventAction"
       ]
@@ -4149,14 +4256,14 @@
         "ownedRelationship"
       ],
       "ocl": "sha256:b465c55cf297a4baa61eacd329b8b5b3d890f0f31f65795bc2dab9dcc2de16d5",
-      "status": "approximate",
+      "status": "deliberate",
       "implementation": [
         "internal/translate/migrate/migrate.go:portPayload"
       ],
       "tests": [
         "tests/migrate/migrate_test.go:TestGoldenNotation"
       ],
-      "reason": "a «FullPort» is written as a `port` typed by its block (like a proxy port), not as a part usage carrying full-port metadata",
+      "reason": "a «FullPort» would be written as a part usage carrying `@SysMLv1Library::PortData { isFullPort = true; }`: OMG names SysMLv1Library but does not publish it, and a part without that metadata no longer says it is a port, so it is written as a `port` (TMT: 9, all untyped)",
       "scope": [
         "sysml:FullPort"
       ]
@@ -4279,14 +4386,14 @@
         "ownedMemberFeature"
       ],
       "ocl": "sha256:211f83191ba2c3193b85f56167eb21bfa5f67d2d9fdfb4d1a92b7bfc4514f573",
-      "status": "approximate",
+      "status": "deliberate",
       "implementation": [
         "internal/translate/migrate/migrate.go:portPayload"
       ],
       "tests": [
         "tests/migrate/migrate_test.go:TestGoldenNotation"
       ],
-      "reason": "a «FullPort» is written as a `port` typed by its block (like a proxy port), not as a part usage carrying full-port metadata",
+      "reason": "a «FullPort» would be written as a part usage carrying `@SysMLv1Library::PortData { isFullPort = true; }`: OMG names SysMLv1Library but does not publish it, and a part without that metadata no longer says it is a port, so it is written as a `port` (TMT: 9, all untyped)",
       "scope": [
         "sysml:FullPort"
       ]
@@ -4306,14 +4413,14 @@
         "type"
       ],
       "ocl": "sha256:1acb448e87bb08fd93028c2f768461c735a0c5cf750076e5208c1a81356c9985",
-      "status": "approximate",
+      "status": "deliberate",
       "implementation": [
         "internal/translate/migrate/migrate.go:portPayload"
       ],
       "tests": [
         "tests/migrate/migrate_test.go:TestGoldenNotation"
       ],
-      "reason": "a «FullPort» is written as a `port` typed by its block (like a proxy port), not as a part usage carrying full-port metadata",
+      "reason": "a «FullPort» would be written as a part usage carrying `@SysMLv1Library::PortData { isFullPort = true; }`: OMG names SysMLv1Library but does not publish it, and a part without that metadata no longer says it is a port, so it is written as a `port` (TMT: 9, all untyped)",
       "scope": [
         "sysml:FullPort"
       ]
@@ -4333,14 +4440,14 @@
         "ownedMemberElement"
       ],
       "ocl": "sha256:54332d5253168f9a8c898285e49fa23638b3d6e1a15c3fa43bb677405e6a1757",
-      "status": "approximate",
+      "status": "deliberate",
       "implementation": [
         "internal/translate/migrate/migrate.go:portPayload"
       ],
       "tests": [
         "tests/migrate/migrate_test.go:TestGoldenNotation"
       ],
-      "reason": "a «FullPort» is written as a `port` typed by its block (like a proxy port), not as a part usage carrying full-port metadata",
+      "reason": "a «FullPort» would be written as a part usage carrying `@SysMLv1Library::PortData { isFullPort = true; }`: OMG names SysMLv1Library but does not publish it, and a part without that metadata no longer says it is a port, so it is written as a `port` (TMT: 9, all untyped)",
       "scope": [
         "sysml:FullPort"
       ]
@@ -4360,14 +4467,14 @@
         "value"
       ],
       "ocl": "sha256:374d6139041fea74e9bbabacb7fb542caa2e2ea6efdcdc9adbdc1325926872fa",
-      "status": "approximate",
+      "status": "deliberate",
       "implementation": [
         "internal/translate/migrate/migrate.go:portPayload"
       ],
       "tests": [
         "tests/migrate/migrate_test.go:TestGoldenNotation"
       ],
-      "reason": "a «FullPort» is written as a `port` typed by its block (like a proxy port), not as a part usage carrying full-port metadata",
+      "reason": "a «FullPort» would be written as a part usage carrying `@SysMLv1Library::PortData { isFullPort = true; }`: OMG names SysMLv1Library but does not publish it, and a part without that metadata no longer says it is a port, so it is written as a `port` (TMT: 9, all untyped)",
       "scope": [
         "sysml:FullPort"
       ]
@@ -4387,14 +4494,14 @@
         "redefinedFeature"
       ],
       "ocl": "sha256:9666ef7d4e8bdba32cabc0b2f50fa1f0a103ba26620db6c8a03d416f737cd330",
-      "status": "approximate",
+      "status": "deliberate",
       "implementation": [
         "internal/translate/migrate/migrate.go:portPayload"
       ],
       "tests": [
         "tests/migrate/migrate_test.go:TestGoldenNotation"
       ],
-      "reason": "a «FullPort» is written as a `port` typed by its block (like a proxy port), not as a part usage carrying full-port metadata",
+      "reason": "a «FullPort» would be written as a part usage carrying `@SysMLv1Library::PortData { isFullPort = true; }`: OMG names SysMLv1Library but does not publish it, and a part without that metadata no longer says it is a port, so it is written as a `port` (TMT: 9, all untyped)",
       "scope": [
         "sysml:FullPort"
       ]
@@ -4414,14 +4521,14 @@
         "ownedRelationship"
       ],
       "ocl": "sha256:297c46d498a751489381be7d40f7b8e170d82366645142b997be396e8d319d05",
-      "status": "approximate",
+      "status": "deliberate",
       "implementation": [
         "internal/translate/migrate/migrate.go:portPayload"
       ],
       "tests": [
         "tests/migrate/migrate_test.go:TestGoldenNotation"
       ],
-      "reason": "a «FullPort» is written as a `port` typed by its block (like a proxy port), not as a part usage carrying full-port metadata",
+      "reason": "a «FullPort» would be written as a part usage carrying `@SysMLv1Library::PortData { isFullPort = true; }`: OMG names SysMLv1Library but does not publish it, and a part without that metadata no longer says it is a port, so it is written as a `port` (TMT: 9, all untyped)",
       "scope": [
         "sysml:FullPort"
       ]
@@ -4441,14 +4548,14 @@
         "ownedRelationship"
       ],
       "ocl": "sha256:63f63b4e1fa718d90de1936d2af927e1a3d94d900d961ddf92b475919ef05f32",
-      "status": "approximate",
+      "status": "deliberate",
       "implementation": [
         "internal/translate/migrate/migrate.go:portPayload"
       ],
       "tests": [
         "tests/migrate/migrate_test.go:TestGoldenNotation"
       ],
-      "reason": "a «FullPort» is written as a `port` typed by its block (like a proxy port), not as a part usage carrying full-port metadata",
+      "reason": "a «FullPort» would be written as a part usage carrying `@SysMLv1Library::PortData { isFullPort = true; }`: OMG names SysMLv1Library but does not publish it, and a part without that metadata no longer says it is a port, so it is written as a `port` (TMT: 9, all untyped)",
       "scope": [
         "sysml:FullPort"
       ]
@@ -4468,14 +4575,14 @@
         "filter"
       ],
       "ocl": "sha256:af98da1c0042eb0204cfc0edaa1b2fbeaa4e6c733294ebed90ad7ee00aacba3a",
-      "status": "approximate",
+      "status": "deliberate",
       "implementation": [
         "internal/translate/migrate/migrate.go:portPayload"
       ],
       "tests": [
         "tests/migrate/migrate_test.go:TestGoldenNotation"
       ],
-      "reason": "a «FullPort» is written as a `port` typed by its block (like a proxy port), not as a part usage carrying full-port metadata",
+      "reason": "a «FullPort» would be written as a part usage carrying `@SysMLv1Library::PortData { isFullPort = true; }`: OMG names SysMLv1Library but does not publish it, and a part without that metadata no longer says it is a port, so it is written as a `port` (TMT: 9, all untyped)",
       "scope": [
         "sysml:FullPort"
       ]
@@ -4495,14 +4602,14 @@
         "filter"
       ],
       "ocl": "sha256:1ed1c6cc821cb410ebb3d146d7f52f41aa61b58d64615e13c3b3111c072efab6",
-      "status": "approximate",
+      "status": "deliberate",
       "implementation": [
         "internal/translate/migrate/migrate.go:portPayload"
       ],
       "tests": [
         "tests/migrate/migrate_test.go:TestGoldenNotation"
       ],
-      "reason": "a «FullPort» is written as a `port` typed by its block (like a proxy port), not as a part usage carrying full-port metadata",
+      "reason": "a «FullPort» would be written as a part usage carrying `@SysMLv1Library::PortData { isFullPort = true; }`: OMG names SysMLv1Library but does not publish it, and a part without that metadata no longer says it is a port, so it is written as a `port` (TMT: 9, all untyped)",
       "scope": [
         "sysml:FullPort"
       ]
@@ -4599,10 +4706,14 @@
         "direction"
       ],
       "ocl": "sha256:92c127a59acf35e27766fc08a3e82a33cc895c2291d450ac418e309438f0db2f",
-      "status": "not-implemented",
-      "implementation": [],
-      "tests": [],
-      "reason": "«DirectedFeature» on operations is not read; the operation is written without a direction",
+      "status": "faithful",
+      "implementation": [
+        "internal/translate/migrate/behavior.go:operationFeature"
+      ],
+      "tests": [
+        "tests/migrate/stereotype_metadata_test.go:TestDirectedOperationKeepsItsDirection"
+      ],
+      "reason": "",
       "scope": [
         "sysml:DirectedFeature"
       ]
@@ -16615,16 +16726,16 @@
         "ownedMemberFeature"
       ],
       "ocl": "sha256:160128c18567dee7affda8b9fc60d84eeea5514b71c679bd37976edb70e64d2a",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
         "internal/translate/migrate/migrate.go:informationFlow",
         "internal/translate/migrate/migrate.go:itemFlow"
       ],
       "tests": [
         "tests/migrate/relations_test.go:TestItemFlowFollowsSourceAndTargetNotEndOrder",
-        "tests/migrate/migrate_test.go:TestGoldenNotation"
+        "tests/migrate/stereotype_metadata_test.go:TestItemFlowConveysItsItem"
       ],
-      "reason": "an information flow realized by a connector is written as a flow usage `flow of Item from a to b` on that connector, not as a flow def (see candidate errata)",
+      "reason": "an information flow realized by a connector is written as a flow usage `flow of Item from a to b` on that connector, not as a flow def (see candidate errata); an information flow realized only by an association is not migrated (PSSM 0, fixtures 0, TMT 0)",
       "scope": [
         "uml:InformationFlow"
       ]
@@ -16644,16 +16755,16 @@
         "ownedMemberFeature"
       ],
       "ocl": "sha256:07de534ce7bfdf24642d103b33644b63819912f0dca9f32d590462815af04e63",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
         "internal/translate/migrate/migrate.go:informationFlow",
         "internal/translate/migrate/migrate.go:itemFlow"
       ],
       "tests": [
         "tests/migrate/relations_test.go:TestItemFlowFollowsSourceAndTargetNotEndOrder",
-        "tests/migrate/migrate_test.go:TestGoldenNotation"
+        "tests/migrate/stereotype_metadata_test.go:TestItemFlowConveysItsItem"
       ],
-      "reason": "an information flow realized by a connector is written as a flow usage `flow of Item from a to b` on that connector, not as a flow def (see candidate errata)",
+      "reason": "an information flow realized by a connector is written as a flow usage `flow of Item from a to b` on that connector, not as a flow def (see candidate errata); an information flow realized only by an association is not migrated (PSSM 0, fixtures 0, TMT 0)",
       "scope": [
         "uml:InformationFlow"
       ]
@@ -16674,16 +16785,16 @@
         "isEnd"
       ],
       "ocl": "sha256:e979db7d7a679a1de76154a76102f7244fa99395ddcf52ad5416564bfb10726b",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
         "internal/translate/migrate/migrate.go:informationFlow",
         "internal/translate/migrate/migrate.go:itemFlow"
       ],
       "tests": [
         "tests/migrate/relations_test.go:TestItemFlowFollowsSourceAndTargetNotEndOrder",
-        "tests/migrate/migrate_test.go:TestGoldenNotation"
+        "tests/migrate/stereotype_metadata_test.go:TestItemFlowConveysItsItem"
       ],
-      "reason": "an information flow realized by a connector is written as a flow usage `flow of Item from a to b` on that connector, not as a flow def (see candidate errata)",
+      "reason": "an information flow realized by a connector is written as a flow usage `flow of Item from a to b` on that connector, not as a flow def (see candidate errata); an information flow realized only by an association is not migrated (PSSM 0, fixtures 0, TMT 0)",
       "scope": [
         "uml:InformationFlow"
       ]
@@ -16703,16 +16814,16 @@
         "type"
       ],
       "ocl": "sha256:d11947c9b8056d859c716eda039fa384238013a6cc21f013c020daca80fa4628",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
         "internal/translate/migrate/migrate.go:informationFlow",
         "internal/translate/migrate/migrate.go:itemFlow"
       ],
       "tests": [
         "tests/migrate/relations_test.go:TestItemFlowFollowsSourceAndTargetNotEndOrder",
-        "tests/migrate/migrate_test.go:TestGoldenNotation"
+        "tests/migrate/stereotype_metadata_test.go:TestItemFlowConveysItsItem"
       ],
-      "reason": "an information flow realized by a connector is written as a flow usage `flow of Item from a to b` on that connector, not as a flow def (see candidate errata)",
+      "reason": "an information flow realized by a connector is written as a flow usage `flow of Item from a to b` on that connector, not as a flow def (see candidate errata); an information flow realized only by an association is not migrated (PSSM 0, fixtures 0, TMT 0)",
       "scope": [
         "uml:InformationFlow"
       ]
@@ -16733,16 +16844,15 @@
         "subclassifier"
       ],
       "ocl": "sha256:b743d735d5c3c1116b879e4fab57f8198b4df96ce6645e5270b61cc481cb1cde",
-      "status": "approximate",
+      "status": "deliberate",
       "implementation": [
         "internal/translate/migrate/migrate.go:informationFlow",
         "internal/translate/migrate/migrate.go:itemFlow"
       ],
       "tests": [
-        "tests/migrate/relations_test.go:TestItemFlowFollowsSourceAndTargetNotEndOrder",
-        "tests/migrate/migrate_test.go:TestGoldenNotation"
+        "tests/migrate/stereotype_metadata_test.go:TestItemFlowConveysItsItem"
       ],
-      "reason": "an information flow realized by a connector is written as a flow usage `flow of Item from a to b` on that connector, not as a flow def (see candidate errata)",
+      "reason": "a flow usage, not a flow def, is written (see the InformationFlow_Mapping erratum), and a usage does not subclassify the realizing association",
       "scope": [
         "uml:InformationFlow"
       ]
@@ -16763,16 +16873,16 @@
         "filter"
       ],
       "ocl": "sha256:e7a68fcf4048a864f41348374cb836a02d67bea8d24358890e7dec88d9757769",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
         "internal/translate/migrate/migrate.go:informationFlow",
         "internal/translate/migrate/migrate.go:itemFlow"
       ],
       "tests": [
         "tests/migrate/relations_test.go:TestItemFlowFollowsSourceAndTargetNotEndOrder",
-        "tests/migrate/migrate_test.go:TestGoldenNotation"
+        "tests/migrate/stereotype_metadata_test.go:TestItemFlowConveysItsItem"
       ],
-      "reason": "an information flow realized by a connector is written as a flow usage `flow of Item from a to b` on that connector, not as a flow def (see candidate errata); candidate erratum: the mapping creates a FlowDefinition for a v1 information flow between specific sources and targets; a definition has no ends bound to those features, which a FlowUsage would have",
+      "reason": "an information flow realized by a connector is written as a flow usage `flow of Item from a to b` on that connector, not as a flow def (see candidate errata); candidate erratum: the mapping creates a FlowDefinition for a v1 information flow between specific sources and targets; a definition has no ends bound to those features, which a FlowUsage would have; an information flow realized only by an association is not migrated (PSSM 0, fixtures 0, TMT 0)",
       "scope": [
         "uml:InformationFlow"
       ]
@@ -16792,10 +16902,14 @@
         "type"
       ],
       "ocl": "sha256:fd4db7dfc78dee71d4bc4970759862d56ea79c07c151e06000220b4d06f1da98",
-      "status": "not-implemented",
-      "implementation": [],
-      "tests": [],
-      "reason": "no migrator code writes an InformationItem as an item def (it is only recognised as a classifier when resolving names)",
+      "status": "faithful",
+      "implementation": [
+        "internal/translate/migrate/migrate.go:itemFlow"
+      ],
+      "tests": [
+        "tests/migrate/stereotype_metadata_test.go:TestItemFlowConveysItsItem"
+      ],
+      "reason": "",
       "scope": [
         "uml:InformationItem"
       ]
@@ -16815,10 +16929,14 @@
         "ownedRelationship"
       ],
       "ocl": "sha256:b5cb0d17a1bcc8f82a531b8bf22d5e273f48e9815ce9f83f3a99fb50f4439f2d",
-      "status": "not-implemented",
-      "implementation": [],
-      "tests": [],
-      "reason": "no migrator code writes an InformationItem as an item def (it is only recognised as a classifier when resolving names)",
+      "status": "faithful",
+      "implementation": [
+        "internal/translate/migrate/migrate.go:itemFlow"
+      ],
+      "tests": [
+        "tests/migrate/stereotype_metadata_test.go:TestItemFlowConveysItsItem"
+      ],
+      "reason": "",
       "scope": [
         "uml:InformationItem"
       ]
@@ -16835,10 +16953,14 @@
       ],
       "operations": [],
       "ocl": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "status": "not-implemented",
-      "implementation": [],
-      "tests": [],
-      "reason": "no migrator code writes an InformationItem as an item def (it is only recognised as a classifier when resolving names)",
+      "status": "faithful",
+      "implementation": [
+        "internal/translate/migrate/classify.go:classify"
+      ],
+      "tests": [
+        "tests/migrate/stereotype_metadata_test.go:TestInformationItemIsAnItemDef"
+      ],
+      "reason": "",
       "scope": [
         "uml:InformationItem"
       ]
@@ -17348,10 +17470,16 @@
         "importedMemberName"
       ],
       "ocl": "sha256:c1e28a7aba9499a40634f9e93d7cd1f65d52ad64a013ad8b06389e63b251d3ce",
-      "status": "not-implemented",
-      "implementation": [],
-      "tests": [],
-      "reason": "element imports are not written: names are resolved and written qualified instead",
+      "status": "faithful",
+      "implementation": [
+        "internal/translate/migrate/migrate.go:imports",
+        "internal/translate/migrate/migrate.go:elementImport"
+      ],
+      "tests": [
+        "tests/migrate/stereotype_metadata_test.go:TestElementImportIsWritten",
+        "tests/migrate/stereotype_metadata_test.go:TestElementImportReservesAliasNames"
+      ],
+      "reason": "candidate erratum: the mapping sets `importedMemberName` to the alias, which a MembershipImport does not have; an aliased element import is written as an alias membership `alias A for P::X`",
       "scope": [
         "uml:ElementImport"
       ]
@@ -17623,10 +17751,14 @@
         "ownedMemberFeature"
       ],
       "ocl": "sha256:18b54b2468fc71dd6df96d09b84b12cf99ae6f360b9b5ae468fb1ddcb7cce3d0",
-      "status": "not-implemented",
-      "implementation": [],
-      "tests": [],
-      "reason": "a package's URI is not written as metadata",
+      "status": "deliberate",
+      "implementation": [
+        "internal/translate/migrate/migrate.go:classifierBody"
+      ],
+      "tests": [
+        "tests/migrate/stereotype_metadata_test.go:TestPackageURIIsNotWritten"
+      ],
+      "reason": "a package's URI would be written as `SysMLv1Library::PackageData` metadata: OMG names SysMLv1Library but does not publish it, so the URI is not written",
       "scope": [
         "uml:Package[URI]"
       ]
@@ -17646,10 +17778,14 @@
         "type"
       ],
       "ocl": "sha256:f96e8ded5d0ad6b5b10aa9a7ce9ebfe5362afc9ab58dce79487f7858a4b4d4c8",
-      "status": "not-implemented",
-      "implementation": [],
-      "tests": [],
-      "reason": "a package's URI is not written as metadata",
+      "status": "deliberate",
+      "implementation": [
+        "internal/translate/migrate/migrate.go:classifierBody"
+      ],
+      "tests": [
+        "tests/migrate/stereotype_metadata_test.go:TestPackageURIIsNotWritten"
+      ],
+      "reason": "a package's URI would be written as `SysMLv1Library::PackageData` metadata: OMG names SysMLv1Library but does not publish it, so the URI is not written; candidate erratum: the mapping types the URI metadata usage by `PackageData`, an attribute definition, but a metadata usage must be typed by a metadata definition",
       "scope": [
         "uml:Package[URI]"
       ]
@@ -17670,10 +17806,14 @@
         "featureWithValue"
       ],
       "ocl": "sha256:7241f10a23437f342c0d343501d3b5d7f01d6ed2494175a8382d0bbdee5ac096",
-      "status": "not-implemented",
-      "implementation": [],
-      "tests": [],
-      "reason": "a package's URI is not written as metadata",
+      "status": "deliberate",
+      "implementation": [
+        "internal/translate/migrate/migrate.go:classifierBody"
+      ],
+      "tests": [
+        "tests/migrate/stereotype_metadata_test.go:TestPackageURIIsNotWritten"
+      ],
+      "reason": "a package's URI would be written as `SysMLv1Library::PackageData` metadata: OMG names SysMLv1Library but does not publish it, so the URI is not written",
       "scope": [
         "uml:Package[URI]"
       ]
@@ -17693,10 +17833,14 @@
         "ownedMemberElement"
       ],
       "ocl": "sha256:9ff1ac424a309467eee0f69dfcfd0fd37c6023f6e4e600de457ac8d2eade2982",
-      "status": "not-implemented",
-      "implementation": [],
-      "tests": [],
-      "reason": "a package's URI is not written as metadata",
+      "status": "deliberate",
+      "implementation": [
+        "internal/translate/migrate/migrate.go:classifierBody"
+      ],
+      "tests": [
+        "tests/migrate/stereotype_metadata_test.go:TestPackageURIIsNotWritten"
+      ],
+      "reason": "a package's URI would be written as `SysMLv1Library::PackageData` metadata: OMG names SysMLv1Library but does not publish it, so the URI is not written",
       "scope": [
         "uml:Package[URI]"
       ]
@@ -17716,10 +17860,14 @@
         "ownedRelationship"
       ],
       "ocl": "sha256:d3200c0f24f1816828efb8cd20fe2390bcd7c8d65e329f8c75b9c5a6a1614fbf",
-      "status": "not-implemented",
-      "implementation": [],
-      "tests": [],
-      "reason": "a package's URI is not written as metadata",
+      "status": "deliberate",
+      "implementation": [
+        "internal/translate/migrate/migrate.go:classifierBody"
+      ],
+      "tests": [
+        "tests/migrate/stereotype_metadata_test.go:TestPackageURIIsNotWritten"
+      ],
+      "reason": "a package's URI would be written as `SysMLv1Library::PackageData` metadata: OMG names SysMLv1Library but does not publish it, so the URI is not written",
       "scope": [
         "uml:Package[URI]"
       ]
@@ -17740,10 +17888,14 @@
         "declaredName"
       ],
       "ocl": "sha256:c58f4969ab9aab5c1812edecefd34276986bdae56048f5268c84b59f9945090c",
-      "status": "not-implemented",
-      "implementation": [],
-      "tests": [],
-      "reason": "a package's URI is not written as metadata",
+      "status": "deliberate",
+      "implementation": [
+        "internal/translate/migrate/migrate.go:classifierBody"
+      ],
+      "tests": [
+        "tests/migrate/stereotype_metadata_test.go:TestPackageURIIsNotWritten"
+      ],
+      "reason": "a package's URI would be written as `SysMLv1Library::PackageData` metadata: OMG names SysMLv1Library but does not publish it, so the URI is not written",
       "scope": [
         "uml:Package[URI]"
       ]
@@ -17763,10 +17915,14 @@
         "redefinedFeature"
       ],
       "ocl": "sha256:32634373a84f17cea542497e2902839cc24b0dd8db23f30aba2c3503467cab34",
-      "status": "not-implemented",
-      "implementation": [],
-      "tests": [],
-      "reason": "a package's URI is not written as metadata",
+      "status": "deliberate",
+      "implementation": [
+        "internal/translate/migrate/migrate.go:classifierBody"
+      ],
+      "tests": [
+        "tests/migrate/stereotype_metadata_test.go:TestPackageURIIsNotWritten"
+      ],
+      "reason": "a package's URI would be written as `SysMLv1Library::PackageData` metadata: OMG names SysMLv1Library but does not publish it, so the URI is not written",
       "scope": [
         "uml:Package[URI]"
       ]
@@ -17786,10 +17942,14 @@
         "value"
       ],
       "ocl": "sha256:708bf2c86d8709dd152d7e11416ce36f2e217989409402c060364d013ef2d510",
-      "status": "not-implemented",
-      "implementation": [],
-      "tests": [],
-      "reason": "a package's URI is not written as metadata",
+      "status": "deliberate",
+      "implementation": [
+        "internal/translate/migrate/migrate.go:classifierBody"
+      ],
+      "tests": [
+        "tests/migrate/stereotype_metadata_test.go:TestPackageURIIsNotWritten"
+      ],
+      "reason": "a package's URI would be written as `SysMLv1Library::PackageData` metadata: OMG names SysMLv1Library but does not publish it, so the URI is not written",
       "scope": [
         "uml:Package[URI]"
       ]
@@ -17958,14 +18118,14 @@
         "type"
       ],
       "ocl": "sha256:88b4964fbdbd7aeacb26a21f92b54fdf2225085bd9394961c47b8f3a0c1ee4ff",
-      "status": "approximate",
+      "status": "deliberate",
       "implementation": [
         "internal/translate/migrate/metadata.go:metadataBody"
       ],
       "tests": [
         "tests/migrate/profile_test.go:TestUserProfilesBecomeMetadataDefs"
       ],
-      "reason": "the base_* attributes and uml:Extensions binding a stereotype to its metaclass are skipped, so the metadata def restricts no annotated element; v2 metadata applies to any element and the migrated model applies it where v1 did",
+      "reason": "the mapping types the usage by `StereotypeOccurenceDefinition_Mapping`, which the transformation model does not contain, and no mapping includes `StereotypeOccurenceUsageMembership_Mapping`, so the usage has no defined type or owner; a stereotype is written as a metadata def and each application as a metadata usage",
       "scope": [
         "uml:Stereotype"
       ]
@@ -17987,14 +18147,14 @@
         "ownedRelatedElement"
       ],
       "ocl": "sha256:2b636f206f26960eed2f376d5d6d53af1bc262049cfb1e60e5c6c23ca26c82dd",
-      "status": "approximate",
+      "status": "deliberate",
       "implementation": [
         "internal/translate/migrate/metadata.go:metadataBody"
       ],
       "tests": [
         "tests/migrate/profile_test.go:TestUserProfilesBecomeMetadataDefs"
       ],
-      "reason": "the base_* attributes and uml:Extensions binding a stereotype to its metaclass are skipped, so the metadata def restricts no annotated element; v2 metadata applies to any element and the migrated model applies it where v1 did",
+      "reason": "the mapping types the usage by `StereotypeOccurenceDefinition_Mapping`, which the transformation model does not contain, and no mapping includes `StereotypeOccurenceUsageMembership_Mapping`, so the usage has no defined type or owner; a stereotype is written as a metadata def and each application as a metadata usage",
       "scope": [
         "uml:Stereotype"
       ]
@@ -18014,14 +18174,14 @@
         "direction"
       ],
       "ocl": "sha256:b6d490cbce231bd310af2a76c0c3a19d03e9d61a6af886a12505ea7970889f55",
-      "status": "approximate",
+      "status": "deliberate",
       "implementation": [
         "internal/translate/migrate/metadata.go:metadataBody"
       ],
       "tests": [
         "tests/migrate/profile_test.go:TestUserProfilesBecomeMetadataDefs"
       ],
-      "reason": "the base_* attributes and uml:Extensions binding a stereotype to its metaclass are skipped, so the metadata def restricts no annotated element; v2 metadata applies to any element and the migrated model applies it where v1 did",
+      "reason": "the mapping types the usage by `StereotypeOccurenceDefinition_Mapping`, which the transformation model does not contain, and no mapping includes `StereotypeOccurenceUsageMembership_Mapping`, so the usage has no defined type or owner; a stereotype is written as a metadata def and each application as a metadata usage",
       "scope": [
         "uml:Stereotype"
       ]
@@ -18041,14 +18201,14 @@
         "memberElement"
       ],
       "ocl": "sha256:d4e46f04e1c5f130dafc8465396771b9605ca81dede8bcb02ae42d73a04813ba",
-      "status": "approximate",
+      "status": "deliberate",
       "implementation": [
         "internal/translate/migrate/metadata.go:metadataBody"
       ],
       "tests": [
         "tests/migrate/profile_test.go:TestUserProfilesBecomeMetadataDefs"
       ],
-      "reason": "the base_* attributes and uml:Extensions binding a stereotype to its metaclass are skipped, so the metadata def restricts no annotated element; v2 metadata applies to any element and the migrated model applies it where v1 did",
+      "reason": "the mapping types the usage by `StereotypeOccurenceDefinition_Mapping`, which the transformation model does not contain, and no mapping includes `StereotypeOccurenceUsageMembership_Mapping`, so the usage has no defined type or owner; a stereotype is written as a metadata def and each application as a metadata usage",
       "scope": [
         "uml:Stereotype"
       ]
@@ -18069,14 +18229,14 @@
         "memberElement"
       ],
       "ocl": "sha256:1db6ed673fb8b6e7537ec5d423322111fb30b3c02ca818121fd30b37617c9fe6",
-      "status": "approximate",
+      "status": "deliberate",
       "implementation": [
         "internal/translate/migrate/metadata.go:metadataBody"
       ],
       "tests": [
         "tests/migrate/profile_test.go:TestUserProfilesBecomeMetadataDefs"
       ],
-      "reason": "the base_* attributes and uml:Extensions binding a stereotype to its metaclass are skipped, so the metadata def restricts no annotated element; v2 metadata applies to any element and the migrated model applies it where v1 did",
+      "reason": "the mapping types the usage by `StereotypeOccurenceDefinition_Mapping`, which the transformation model does not contain, and no mapping includes `StereotypeOccurenceUsageMembership_Mapping`, so the usage has no defined type or owner; a stereotype is written as a metadata def and each application as a metadata usage",
       "scope": [
         "uml:Stereotype"
       ]
@@ -18096,14 +18256,14 @@
         "ownedRelationship"
       ],
       "ocl": "sha256:b1f4253e715035a0c173c8a65190d550e15fbc3912344dec06389506127f5279",
-      "status": "approximate",
+      "status": "deliberate",
       "implementation": [
         "internal/translate/migrate/metadata.go:metadataBody"
       ],
       "tests": [
         "tests/migrate/profile_test.go:TestUserProfilesBecomeMetadataDefs"
       ],
-      "reason": "the base_* attributes and uml:Extensions binding a stereotype to its metaclass are skipped, so the metadata def restricts no annotated element; v2 metadata applies to any element and the migrated model applies it where v1 did",
+      "reason": "the mapping types the usage by `StereotypeOccurenceDefinition_Mapping`, which the transformation model does not contain, and no mapping includes `StereotypeOccurenceUsageMembership_Mapping`, so the usage has no defined type or owner; a stereotype is written as a metadata def and each application as a metadata usage",
       "scope": [
         "uml:Stereotype"
       ]
@@ -18124,14 +18284,14 @@
         "memberElement"
       ],
       "ocl": "sha256:3e0641aae9abb21738efa2c3b96064917a3e8f7722e2c53e20f12648b939c770",
-      "status": "approximate",
+      "status": "deliberate",
       "implementation": [
         "internal/translate/migrate/metadata.go:metadataBody"
       ],
       "tests": [
         "tests/migrate/profile_test.go:TestUserProfilesBecomeMetadataDefs"
       ],
-      "reason": "the base_* attributes and uml:Extensions binding a stereotype to its metaclass are skipped, so the metadata def restricts no annotated element; v2 metadata applies to any element and the migrated model applies it where v1 did",
+      "reason": "the mapping types the usage by `StereotypeOccurenceDefinition_Mapping`, which the transformation model does not contain, and no mapping includes `StereotypeOccurenceUsageMembership_Mapping`, so the usage has no defined type or owner; a stereotype is written as a metadata def and each application as a metadata usage",
       "scope": [
         "uml:Stereotype"
       ]
@@ -18151,14 +18311,14 @@
         "ownedRelationship"
       ],
       "ocl": "sha256:90bceedc16ef4a0862d68f9b3593249b15037416100b96e3f69150860f781ae4",
-      "status": "approximate",
+      "status": "deliberate",
       "implementation": [
         "internal/translate/migrate/metadata.go:metadataBody"
       ],
       "tests": [
         "tests/migrate/profile_test.go:TestUserProfilesBecomeMetadataDefs"
       ],
-      "reason": "the base_* attributes and uml:Extensions binding a stereotype to its metaclass are skipped, so the metadata def restricts no annotated element; v2 metadata applies to any element and the migrated model applies it where v1 did",
+      "reason": "the mapping types the usage by `StereotypeOccurenceDefinition_Mapping`, which the transformation model does not contain, and no mapping includes `StereotypeOccurenceUsageMembership_Mapping`, so the usage has no defined type or owner; a stereotype is written as a metadata def and each application as a metadata usage",
       "scope": [
         "uml:Stereotype"
       ]
@@ -18178,14 +18338,14 @@
         "ownedRelationship"
       ],
       "ocl": "sha256:30d85e6e5000d2d1cbec86bf70d831331b411e5d54db56fe5a2af7bb1761b44b",
-      "status": "approximate",
+      "status": "deliberate",
       "implementation": [
         "internal/translate/migrate/metadata.go:metadataBody"
       ],
       "tests": [
         "tests/migrate/profile_test.go:TestUserProfilesBecomeMetadataDefs"
       ],
-      "reason": "the base_* attributes and uml:Extensions binding a stereotype to its metaclass are skipped, so the metadata def restricts no annotated element; v2 metadata applies to any element and the migrated model applies it where v1 did",
+      "reason": "the mapping types the usage by `StereotypeOccurenceDefinition_Mapping`, which the transformation model does not contain, and no mapping includes `StereotypeOccurenceUsageMembership_Mapping`, so the usage has no defined type or owner; a stereotype is written as a metadata def and each application as a metadata usage; candidate erratum: the occurrence usage is typed through a mapping class the model does not define and is owned by no mapping",
       "scope": [
         "uml:Stereotype"
       ]

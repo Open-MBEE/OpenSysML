@@ -1420,6 +1420,27 @@ func (g *StateGraph) vertex(scope *symbols.Scope, target ast.Node) (ast.Node, er
 	return node, nil
 }
 
+// StateNamed is the state a name or feature chain written in scope (nil: the
+// machine's own) names, as a transition endpoint would name it.
+func (g *StateGraph) StateNamed(scope *symbols.Scope, target ast.Node) (*ast.StateNode, bool) {
+	if g == nil || g.endpoints == nil || isNilEndpoint(target) {
+		return nil, false
+	}
+	if scope == nil {
+		scope = g.Scope
+	}
+	decl, ok := g.endpoints.Endpoint(scope, target)
+	if !ok {
+		return nil, false
+	}
+	node, ok := g.vertexFor(scope, target, decl)
+	if !ok {
+		return nil, false
+	}
+	state, ok := node.(*ast.StateNode)
+	return state, ok && state != nil
+}
+
 // isNilEndpoint reports an endpoint that is no node at all, a typed nil included.
 func isNilEndpoint(target ast.Node) bool {
 	switch t := target.(type) {

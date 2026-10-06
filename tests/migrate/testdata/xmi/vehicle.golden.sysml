@@ -45,7 +45,7 @@ package 'Vehicle Design' {
         }
         port diag;
         binding 'fuel line' bind fuelIn = engine.fuelPort;
-        flow fuelIn.fuel to engine.fuelPort.fuel;
+        flow of 'Vehicle Design'::Interfaces::Fuel from fuelIn.fuel to engine.fuelPort.fuel;
         bind mass = massLimit.m;
         bind speedOut = engine.piston.p;
         abstract action def start {
@@ -125,12 +125,12 @@ package RequirementsModel {
     }
     dependency 'Speed Requirement' to 'Vehicle Design'::Engine; /* «Trace» */
     allocation def 'Drive to Engine' {
-        end drive : 'Vehicle Design'::Drive;
-        end engine : 'Vehicle Design'::Engine;
+        end :>> source : 'Vehicle Design'::Drive;
+        end :>> target : 'Vehicle Design'::Engine;
     }
     allocation def 'Motor to Engine' {
-        end motor : 'Vehicle Design'::Motor;
-        end engine : 'Vehicle Design'::Engine;
+        end :>> source : 'Vehicle Design'::Motor;
+        end :>> target : 'Vehicle Design'::Engine;
     }
     dependency 'Vehicle Design'::Wheel to 'Vehicle Design'::Engine;
     verification def 'Mass Test' {

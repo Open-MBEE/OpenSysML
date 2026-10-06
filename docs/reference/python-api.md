@@ -40,7 +40,15 @@ connecting to models.
     options:
       heading_level: 3
 
+::: opensysml.CAPABILITY_RATIONAL_VALUES
+    options:
+      heading_level: 3
+
 ::: opensysml.CAPABILITY_CONVERT_DOCUMENTS
+    options:
+      heading_level: 3
+
+::: opensysml.CAPABILITY_PARSE_SOURCES_AFFECTED
     options:
       heading_level: 3
 

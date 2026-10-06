@@ -59,3 +59,36 @@ func TestStrictModeLeavesLintsWarnings(t *testing.T) {
 		t.Fatalf("strict mode changed the lint: %v", s.Diagnostics())
 	}
 }
+
+// An opt-in lint lists as off and reports nothing until %lint switches it on.
+func TestLintMetaCommandSwitchesAnOptInLint(t *testing.T) {
+	s := NewSession()
+	s.Submit("private import ScalarValues::*; attribute x : Real = 0.1;")
+	rounded := func() int {
+		n := 0
+		for _, d := range s.Diagnostics() {
+			if d.Code == passes.CodeRoundedRealLiteral {
+				n++
+			}
+		}
+		return n
+	}
+	if rounded() != 0 {
+		t.Fatalf("want the opt-in lint off by default: %v", s.Diagnostics())
+	}
+	if out := strings.Join(meta(t, s, "%lint"), "\n"); !strings.Contains(out, "lint rounded-real-literal: off") ||
+		!strings.Contains(out, "lint undeclared-signal: on") {
+		t.Fatalf("%%lint = %q", out)
+	}
+	out := strings.Join(meta(t, s, "%lint rounded-real-literal on"), "\n")
+	if rounded() != 1 || !strings.Contains(out, "lint rounded-real-literal: on") {
+		t.Fatalf("%%lint on = %q, diagnostics %v", out, s.Diagnostics())
+	}
+	if got := s.EnabledLints(); len(got) != 1 || got[0] != passes.CodeRoundedRealLiteral {
+		t.Fatalf("EnabledLints = %v", got)
+	}
+	meta(t, s, "%lint rounded-real-literal off")
+	if rounded() != 0 || len(s.EnabledLints()) != 0 || len(s.DisabledLints()) != 0 {
+		t.Fatalf("%%lint off left enabled %v, disabled %v, diagnostics %v", s.EnabledLints(), s.DisabledLints(), s.Diagnostics())
+	}
+}
