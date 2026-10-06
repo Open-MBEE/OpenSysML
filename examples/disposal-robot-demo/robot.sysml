@@ -532,40 +532,6 @@ package RobotSolver {
             in calc :>> eval { mass }
         }
     }
-
-    // Two objectives, improved lexicographically: the longest standoff first, then
-    // the most tool time among the plans keeping it.
-    analysis def FarthestThenTool {
-        attribute standoff : Integer;
-        attribute toolEnergy : Integer;
-
-        objective farthest : MaximizeObjective {
-            subject :>> selectedAlternative;
-            require constraint {
-                standoff >= 20
-            }
-
-            require constraint {
-                standoff <= 120
-            }
-
-            // Every metre driven costs energy the tool then cannot have.
-            require constraint {
-                toolEnergy <= 900 - 4 * standoff
-            }
-
-            require constraint {
-                toolEnergy >= 150
-            }
-
-            in calc :>> eval { standoff }
-        }
-
-        objective mostToolTime : MaximizeObjective {
-            subject :>> selectedAlternative;
-            in calc :>> eval { toolEnergy }
-        }
-    }
 }
 
 // How the model is presented: one view per rendering kind, a viewpoint the robots
