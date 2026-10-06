@@ -4193,3 +4193,58 @@ func TestChainMembersAreQualifiedOnlyWhereTheirNameReadsAsAnother(t *testing.T) 
 		}
 	}
 }
+
+// An accept node from a graph that states the metamodel alone, its payload
+// named by sysml:payloadParameter and flagged by no sysml:isAccept, comes
+// back as the same accept the flag gives.
+func TestAcceptNodeComesBackFromItsPayloadParameter(t *testing.T) {
+	src := "package P {\n    item def Order;\n    action def A {\n        action receive accept order : Order;\n        accept Order;\n    }\n}\n"
+	turtle, err := convert.Convert("m.sysml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
+	if err != nil {
+		t.Fatalf("to turtle: %v", err)
+	}
+	graph := withoutTriples(t, turtle, "sysx:sourceText")
+	flagged, err := convert.Convert("m.ttl", graph, convert.FormatTurtle, convert.FormatSysML)
+	if err != nil {
+		t.Fatalf("back to notation: %v", err)
+	}
+	unflagged, err := convert.Convert("m.ttl", withoutTriples(t, graph, "sysml:isAccept"), convert.FormatTurtle, convert.FormatSysML)
+	if err != nil {
+		t.Fatalf("back to notation without sysml:isAccept: %v", err)
+	}
+	if string(unflagged) != string(flagged) {
+		t.Errorf("without sysml:isAccept the accept nodes come back as\n%s\nnot as\n%s", unflagged, flagged)
+	}
+	if !strings.Contains(string(flagged), "action receive accept order : Order;") {
+		t.Errorf("the accept node did not come back:\n%s", flagged)
+	}
+}
+
+// A payload a graph names only by sysml:payloadParameter that owns members of
+// its own has no notation: the accept head writes the payload's declaration
+// alone. It is refused, rather than written as an accept without those
+// members or as an ordinary action without the accept.
+func TestPayloadWithMembersIsRefused(t *testing.T) {
+	src := "package P {\n    item def Order;\n    action def A {\n        action receive accept order : Order {\n            attribute n;\n        }\n    }\n}\n"
+	turtle, err := convert.Convert("m.sysml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
+	if err != nil {
+		t.Fatalf("to turtle: %v", err)
+	}
+	graph := string(withoutTriples(t, withoutTriples(t, turtle, "sysx:sourceText"), "sysml:isAccept"))
+	// Another writer's graph: `n` owned by the payload rather than the node.
+	for _, subject := range []string{"elmt:P__A__receive__n\n", "elmt:P__A__receive__n_om\n"} {
+		at := strings.Index(graph, subject)
+		end := strings.Index(graph[at:], "\n\n")
+		if at < 0 || end < 0 {
+			t.Fatalf("no block for %q in\n%s", subject, graph)
+		}
+		block := graph[at : at+end]
+		reowned := strings.NewReplacer("elmt:P__A__receive ;", "elmt:P__A__receive__order ;", "elmt:P__A__receive .", "elmt:P__A__receive__order .").Replace(block)
+		graph = graph[:at] + reowned + graph[at+end:]
+	}
+	back, err := convert.Convert("m.ttl", []byte(graph), convert.FormatTurtle, convert.FormatSysML)
+	var unsupported *export.UnsupportedError
+	if !errors.As(err, &unsupported) {
+		t.Errorf("converted to\n%s\nwant it refused, got error %v", back, err)
+	}
+}
