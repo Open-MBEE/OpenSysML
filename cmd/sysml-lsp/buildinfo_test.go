@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Open-MBEE/OpenSysML/internal/workspace/buildinfo"
+	"github.com/Open-MBEE/OpenSysML/internal/frontend/buildinfo"
 	"github.com/Open-MBEE/OpenSysML/tests/testutil/gobuild"
 )
 

@@ -11,8 +11,8 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/Open-MBEE/OpenSysML/internal/frontend/buildinfo"
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/core"
-	"github.com/Open-MBEE/OpenSysML/internal/workspace/buildinfo"
 )
 
 var (

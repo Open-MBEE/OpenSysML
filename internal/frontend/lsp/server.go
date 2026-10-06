@@ -12,7 +12,7 @@ import (
 	"go.lsp.dev/protocol"
 	"go.uber.org/zap"
 
-	"github.com/Open-MBEE/OpenSysML/internal/workspace/buildinfo"
+	"github.com/Open-MBEE/OpenSysML/internal/frontend/buildinfo"
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/model"
 )
 

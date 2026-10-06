@@ -18,9 +18,9 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/Open-MBEE/OpenSysML/internal/frontend/buildinfo"
 	sysmlgrpc "github.com/Open-MBEE/OpenSysML/internal/frontend/grpc"
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/usage"
-	"github.com/Open-MBEE/OpenSysML/internal/workspace/buildinfo"
 )
 
 // Build metadata, set by the linker: the names match the -X flags the Makefile

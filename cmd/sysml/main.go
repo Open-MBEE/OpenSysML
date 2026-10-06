@@ -14,13 +14,13 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/exec/analysis"
 	engineset "github.com/Open-MBEE/OpenSysML/internal/exec/engines"
 	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
+	"github.com/Open-MBEE/OpenSysML/internal/frontend/buildinfo"
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/repl"
 	_ "github.com/Open-MBEE/OpenSysML/internal/frontend/repl/replext/notation"   // registers the notation REPL commands
 	_ "github.com/Open-MBEE/OpenSysML/internal/frontend/repl/replext/positional" // registers the positional REPL commands
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/usage"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/convert"
-	"github.com/Open-MBEE/OpenSysML/internal/workspace/buildinfo"
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/libs"
 )
 

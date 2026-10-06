@@ -16,8 +16,8 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/Open-MBEE/OpenSysML/internal/frontend/buildinfo"
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/engine"
-	"github.com/Open-MBEE/OpenSysML/internal/workspace/buildinfo"
 )
 
 // Build metadata, set by the linker: the names match the -X flags the Makefile

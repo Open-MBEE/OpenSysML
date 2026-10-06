@@ -10,10 +10,10 @@ import (
 	"net"
 	"os"
 
+	"github.com/Open-MBEE/OpenSysML/internal/frontend/buildinfo"
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/lsp"
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/usage"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
-	"github.com/Open-MBEE/OpenSysML/internal/workspace/buildinfo"
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/libs"
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/model"
 )

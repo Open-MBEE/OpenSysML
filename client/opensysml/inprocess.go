@@ -8,8 +8,8 @@ import (
 
 	"connectrpc.com/connect"
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
+	"github.com/Open-MBEE/OpenSysML/internal/frontend/buildinfo"
 	sysmlgrpc "github.com/Open-MBEE/OpenSysML/internal/frontend/grpc"
-	"github.com/Open-MBEE/OpenSysML/internal/workspace/buildinfo"
 )
 
 // defaultCacheSize matches the sysml-grpc default, so the two implementations
