@@ -155,6 +155,7 @@ func FromModelOptions(name string, model *sysmlv1.Model, opts Options) *Result {
 		endNames:          map[*sysmlv1.Element]string{},
 		associationEnds:   map[*sysmlv1.Element]*sysmlv1.Element{},
 		realizes:          map[*sysmlv1.Element]*sysmlv1.Element{},
+		shadowedParams:    map[*sysmlv1.Element]bool{},
 		opUsage:           map[*sysmlv1.Element]string{},
 		deciding:          map[*sysmlv1.Element]bool{},
 		bounded:           map[*sysmlv1.Element][]*sysmlv1.Element{},
@@ -380,6 +381,9 @@ type migration struct {
 	associationEnds map[*sysmlv1.Element]*sysmlv1.Element
 	// realizes maps a method's parameter to the operation's it stands for.
 	realizes map[*sysmlv1.Element]*sysmlv1.Element
+	// shadowedParams lists the method parameters an operation's parameter of
+	// the same name already covers, which are written nowhere themselves.
+	shadowedParams map[*sysmlv1.Element]bool
 	// opUsage names, for each operation, the action usage of its owner that performs it.
 	opUsage map[*sysmlv1.Element]string
 	// asides, when set, collects the notes a declaration's writer emits, so it
@@ -3275,7 +3279,7 @@ func (m *migration) rule(r *sysmlv1.Element) {
 		m.unmappedExpr(r, spec, note)
 		return
 	}
-	decl := "constraint"
+	decl := "assert constraint"
 	if m.nameOf(r) != "" {
 		decl += " " + writeName(m.nameOf(r))
 	}
