@@ -234,6 +234,7 @@ impl Connection {
             wire::ParseSourcesRequest {
                 documents: encoded,
                 strict_conformance: options.strict_conformance,
+                base_model_hash: String::new(),
             },
             &capabilities,
         )?;

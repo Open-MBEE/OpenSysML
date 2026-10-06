@@ -142,7 +142,7 @@ func TestParseModelSharesOneEntry(t *testing.T) {
 			defer wg.Done()
 			_, models[i] = srv.parseModel([]sourceInput{{
 				name: "lot.sysml", language: "sysml", content: "package Lot { part def Cone; part cone : Cone; }", kind: source.KindSysML,
-			}}, diag.ConformanceModeOf(false))
+			}}, diag.ConformanceModeOf(false), false)
 		}(i)
 	}
 	wg.Wait()
