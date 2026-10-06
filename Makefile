@@ -454,7 +454,7 @@ scripts-coverage: ## Run the repository scripts and their tests under coverage a
 	$(SCRIPTS_COVERAGE) scripts/check-doc-ids.py
 	$(SCRIPTS_COVERAGE) scripts/check-doc-figures.py
 	$(SCRIPTS_COVERAGE) scripts/sync-release-digests.py --check
-	$(SCRIPTS_COVERAGE) -m pytest -q $(PYTHON_DIR)/tests/test_check_version.py $(PYTHON_DIR)/tests/test_pin_release_checksums.py
+	$(SCRIPTS_COVERAGE) -m pytest -q $(PYTHON_DIR)/tests/test_check_version.py $(PYTHON_DIR)/tests/test_pin_release_checksums.py $(PYTHON_DIR)/tests/test_snapshot_version.py
 	$(PYTHON) -m coverage xml --rcfile=scripts/coverage-scripts.ini
 	$(PYTHON) -m coverage report --rcfile=scripts/coverage-scripts.ini
 	@echo "✓ Wrote coverage-scripts.xml"
