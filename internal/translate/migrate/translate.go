@@ -234,11 +234,16 @@ func (s *bodyScope) scopeAnchor(path []string, write bool) featureAnchor {
 		return featureAnchor{refusal: &refusal{kind: refusedName, token: name,
 			why:     joinNotes("nothing visible from "+qualifiedName(s.scope)+" is called "+name, s.clash),
 			unknown: s.clash == "" && !m.laneKnows(s.lane, name)}}
-	case f.Type != "Property" && f.Type != "Port" && f.Type != "Parameter":
+	case f.Role != "variable" && f.Type != "Property" && f.Type != "Port" && f.Type != "Parameter":
 		return featureAnchor{refusal: &refusal{kind: refusedName, token: name,
 			why: "it is " + kindOf(f) + " " + qualifiedName(f) + ", not a feature a body reads"}}
 	}
 	expr := writeName(m.nameOf(f))
+	if f.Role == "variable" {
+		if n, ok := m.nodeNames[f]; ok {
+			expr = writeName(n)
+		}
+	}
 	if s.probe {
 		return featureAnchor{expr: expr, f: f}
 	}
