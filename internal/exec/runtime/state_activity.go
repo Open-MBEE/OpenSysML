@@ -20,18 +20,35 @@ func (ec *EvalContext) stateActivity(n *ast.FeatureChainExpr, base ast.Node, par
 		return Value{}, false, nil
 	}
 	operand := ec.ctx.model.activityOperand(n)
-	for _, machine := range ec.activityMachines(base, parts[:len(parts)-1]) {
-		if machine == nil {
-			continue
+	if machine, ok := ec.enclosingMachine(); ok {
+		if val, ok := ec.activityOf(machine, operand); ok {
+			return val, true, nil
 		}
-		if state, ok := ec.activityState(machine, operand); ok {
-			return boolValue(machine.Activity(state)), true, nil
-		}
-		if operandSym, ok := ec.ctx.resolveTarget(ec.scope, operand); ok && machine.performs(operandSym) {
-			return boolValue(machine.State() == StateRunning || machine.State() == StateWaiting), true, nil
+	}
+	for _, inst := range ec.activityObjects(base, parts[:len(parts)-1]) {
+		for _, b := range inst.ExhibitedStates() {
+			if b.State == nil {
+				continue
+			}
+			if val, ok := ec.activityOf(b.State, operand); ok {
+				return val, true, nil
+			}
 		}
 	}
 	return boolValue(false), true, nil
+}
+
+// activityOf is the activity of the state operand names within machine, or of
+// the machine itself when operand names the usage it runs as; false when
+// machine holds neither.
+func (ec *EvalContext) activityOf(machine *StateExecutor, operand ast.Node) (Value, bool) {
+	if state, ok := ec.activityState(machine, operand); ok {
+		return boolValue(machine.Activity(state)), true
+	}
+	if usage, ok := ec.ctx.resolveTarget(ec.scope, operand); ok && machine.performs(usage) {
+		return boolValue(machine.State() == StateRunning || machine.State() == StateWaiting), true
+	}
+	return Value{}, false
 }
 
 // activityState is the state of machine the operand of a read names: a vertex
@@ -131,25 +148,6 @@ func (m *Model) activityOperand(n *ast.FeatureChainExpr) ast.Node {
 	return operand
 }
 
-// activityMachines are the machines a read of a state's activity may be of, in
-// the order they are consulted: the machine the read is performed within, those
-// the object the read is made on exhibits, and those exhibited by the object the
-// chain's operand denotes.
-func (ec *EvalContext) activityMachines(base ast.Node, statePath []ast.NameSegment) []*StateExecutor {
-	var machines []*StateExecutor
-	if machine, ok := ec.enclosingMachine(); ok {
-		machines = append(machines, machine)
-	}
-	for _, inst := range ec.activityObjects(base, statePath) {
-		for _, b := range inst.ExhibitedStates() {
-			if b.State != nil {
-				machines = append(machines, b.State)
-			}
-		}
-	}
-	return machines
-}
-
 // enclosingMachine is the state machine whose data frame the context reads
 // within, directly or around the action performance it evaluates in.
 func (ec *EvalContext) enclosingMachine() (*StateExecutor, bool) {
@@ -181,10 +179,15 @@ func (ec *EvalContext) activityObjects(base ast.Node, statePath []ast.NameSegmen
 			objects = append(objects, inst)
 		}
 	}
-	if sym, ok := ec.chainBaseSymbol(base); ok && sym != nil {
+	sym, named := ec.chainBaseSymbol(base)
+	if named && sym != nil {
 		if inst := ec.ctx.denotedInstance(sym); inst != nil && !slices.Contains(objects, inst) {
 			objects = append(objects, inst)
 		}
+	}
+	if named && isStateSymbol(sym) {
+		// The chain opens on a state, so it is a state path, not an object path.
+		return objects
 	}
 	for i := len(statePath) - 1; i >= 0; i-- {
 		val, err := ec.evalChainPrefix(base, statePath[:i])
