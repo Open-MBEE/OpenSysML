@@ -245,7 +245,7 @@ func (w *Workspace) DiagnosticsAll(names []string) [][]diag.Diagnostic {
 		if doc := w.docs[name]; out[i] == nil && doc != nil && !doc.Recorded() {
 			out[i] = w.diagCache[name]
 		}
-		out[i] = passes.WithoutLints(out[i], w.disabledLints)
+		out[i] = passes.WithoutLints(out[i], w.disabledLints, w.enabledLints)
 	}
 	return out
 }

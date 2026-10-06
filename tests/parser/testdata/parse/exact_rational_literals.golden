@@ -1,0 +1,62 @@
+(RootNamespace
+  (Membership visibility="default"
+    (Package name="P" library=false standard=false
+      (Import visibility="private" all=false kind=namespace recursive=false imported="ScalarValues" filtered=false)
+      (Membership visibility="default"
+        (Definition kind="calc" abstract=false variation=false name="ExactRationals"
+          (Membership visibility="default"
+            (Usage kind="attribute" name="tenthsSum" ref=false direction="out" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Rational
+                (*ast.QualifiedName))
+              (OperatorExpr operator="+"
+                (LiteralReal value="0.1")
+                (LiteralReal value="0.2"))))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="third" ref=false direction="out" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Rational
+                (*ast.QualifiedName))
+              (OperatorExpr operator="/"
+                (LiteralInteger value="1")
+                (LiteralInteger value="3"))))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="exponent" ref=false direction="out" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Rational
+                (*ast.QualifiedName))
+              (LiteralReal value="1.5e3")))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="small" ref=false direction="out" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Rational
+                (*ast.QualifiedName))
+              (LiteralReal value="25E-3")))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="leadingPoint" ref=false direction="out" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Rational
+                (*ast.QualifiedName))
+              (LiteralReal value=".5")))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="power" ref=false direction="out" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Rational
+                (*ast.QualifiedName))
+              (OperatorExpr operator="**"
+                (OperatorExpr operator="/"
+                  (LiteralInteger value="2")
+                  (LiteralInteger value="3"))
+                (OperatorExpr operator="-"
+                  (LiteralInteger value="2")))))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="terms" ref=false direction="out" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Integer
+                (*ast.QualifiedName))
+              (InvocationExpr type="RationalFunctions::numer"
+                (InvocationExpr type="RationalFunctions::rat"
+                  (LiteralInteger value="6")
+                  (LiteralInteger value="4")))))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="root" ref=false direction="out" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Real
+                (*ast.QualifiedName))
+              (InvocationExpr type="RealFunctions::sqrt"
+                (LiteralReal value="0.25"))))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="unbounded" ref=false direction="out" composite=false derived=false ordered=false nonunique=false
+              (LiteralInfinity))))))))

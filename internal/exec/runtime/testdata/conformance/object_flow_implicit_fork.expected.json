@@ -1,5 +1,6 @@
 {
 	"type": "action",
+	"libraries": true,
 	"evaluate": "test::fan",
 	"trace": true,
 	"outputs": {

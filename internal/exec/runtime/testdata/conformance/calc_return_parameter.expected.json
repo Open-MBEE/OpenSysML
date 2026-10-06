@@ -1,5 +1,5 @@
 {
   "type": "calc",
   "inputs": [],
-  "result": {"type": "Real", "value": 0.25}
+  "result": {"type": "Rational", "value": "0.25"}
 }

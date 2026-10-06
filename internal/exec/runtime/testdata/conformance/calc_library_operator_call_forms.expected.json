@@ -9,9 +9,9 @@
     "realSum": {"type": "Real", "value": 3.0},
     "realNegated": {"type": "Real", "value": -5.0},
     "realProduct": {"type": "Real", "value": 1.2089258196146292e24},
-    "rationalSum": {"type": "Integer", "value": 3},
+    "rationalSum": {"type": "Rational", "value": "3.0"},
     "product": {"type": "Integer", "value": 12},
-    "quotient": {"type": "Real", "value": 0.25},
+    "quotient": {"type": "Rational", "value": "0.25"},
     "naturalQuotient": {"type": "Integer", "value": 2},
     "remainder": {"type": "Integer", "value": 1},
     "power": {"type": "Integer", "value": 1024},
@@ -46,7 +46,7 @@
       {"type": "Integer", "value": 3}
     ]},
     "sameElements": {"type": "Boolean", "value": true},
-    "largest": {"type": "Real", "value": 7.5},
+    "largest": {"type": "Rational", "value": "7.5"},
     "smallest": {"type": "String", "value": "apple"}
   }
 }
