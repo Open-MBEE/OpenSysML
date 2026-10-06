@@ -2441,8 +2441,18 @@ func (d *decoder) usageHead(el *element, kind ast.UsageKind) (string, error) {
 	// An unnamed inclusion may arrive as a reference subsetting instead (the
 	// collapsed form an API element document spells); it is the same use case.
 	includeByReference := false
-	if len(included) == 0 && el.metaclass == mIncludeUseCaseUsage && len(identWords) == 0 {
+	if el.metaclass == mIncludeUseCaseUsage && len(identWords) == 0 && len(references) > 0 {
+		// `include <ref>;` owns a ReferenceSubsetting to the use case it includes
+		// (SysML.xtext IncludeUseCaseUsage); an includes beside it names the same one.
+		if len(included) > 0 && !slices.Equal(included, references) {
+			return "", &UnsupportedError{What: fmt.Sprintf("the inclusion of <%s>", el.iri), Note: fmt.Sprintf("sysml:includes names %s but its ReferenceSubsetting names %s", strings.Join(included, ", "), strings.Join(references, ", "))}
+		}
 		included, includeByReference = references, true
+	}
+	if useCases, err := d.referenceList(el, rdf.SysML+pUseCaseIncluded); err != nil {
+		return "", err
+	} else if len(useCases) > 0 && !slices.Equal(useCases, included) {
+		return "", &UnsupportedError{What: fmt.Sprintf("the inclusion of <%s>", el.iri), Note: fmt.Sprintf("sysml:useCaseIncluded names %s but the inclusion names %s", strings.Join(useCases, ", "), strings.Join(included, ", "))}
 	}
 	if len(included) > 0 {
 		skip = append(skip, ast.RelIncludes)

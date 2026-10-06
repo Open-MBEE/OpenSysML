@@ -943,7 +943,13 @@ elmt:Q__ctx___408
     sysml:owningMembership elmt:Q__ctx___408_om ;
     sysx:isKindImplicit "true"^^xsd:boolean ;
     sysml:includes elmt:Q__Ctx__u1 ;
+    sysml:references elmt:Q__Ctx__u1 ;
+    sysml:useCaseIncluded elmt:Q__Ctx__u1 ;
     sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedReferenceSubsetting elmt:Q__ctx___408_rs ;
+    sysml:ownedSubsetting elmt:Q__ctx___408_rs ;
+    sysml:ownedSpecialization elmt:Q__ctx___408_rs ;
+    sysml:ownedRelationship elmt:Q__ctx___408_rs ;
     sysx:sourceText "        include u1;\n" .
 
 elmt:Q__ctx___408_om
@@ -1405,6 +1411,23 @@ elmt:Q__ctx__iu_ft0
     sysml:owner elmt:Q__ctx__iu ;
     sysml:relatedElement elmt:Q__ctx__iu, elmt:Q__U ;
     json:relatedElement "[{\"@id\":\"Q__ctx__iu\"},{\"@id\":\"Q__U\"}]" .
+
+elmt:Q__ctx___408_rs
+    a sysml:ReferenceSubsetting ;
+    sysml:elementId "Q__ctx___408_rs" ;
+    sysml:referencingFeature elmt:Q__ctx___408 ;
+    sysml:subsettingFeature elmt:Q__ctx___408 ;
+    sysml:owningFeature elmt:Q__ctx___408 ;
+    sysml:specific elmt:Q__ctx___408 ;
+    sysml:source elmt:Q__ctx___408 ;
+    sysml:owningRelatedElement elmt:Q__ctx___408 ;
+    sysml:referencedFeature elmt:Q__Ctx__u1 ;
+    sysml:subsettedFeature elmt:Q__Ctx__u1 ;
+    sysml:general elmt:Q__Ctx__u1 ;
+    sysml:target elmt:Q__Ctx__u1 ;
+    sysml:owner elmt:Q__ctx___408 ;
+    sysml:relatedElement elmt:Q__ctx___408, elmt:Q__Ctx__u1 ;
+    json:relatedElement "[{\"@id\":\"Q__ctx___408\"},{\"@id\":\"Q__Ctx__u1\"}]" .
 
 elmt:Q__ctx__sr_ft0
     a sysml:FeatureTyping ;

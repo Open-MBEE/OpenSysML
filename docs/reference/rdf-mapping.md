@@ -673,9 +673,14 @@ keyword the grammar qualified it with (SysML.xtext `PerformActionUsage`,
 | `sysml:SatisfyRequirementUsage` | `satisfy requirement sr : R` | `satisfy r1;` |
 | `sysml:ReferenceUsage` (a variant's) | `variant part vp : P` (the usage it declares) | `variant e1;`, `variant P::e2;`, `variant q.k;` |
 
-An unnamed one reads its target from `sysml:references` (or `includes`/`subsets`
-where another writer collapses it there) — a chain target comes back as the
-`a.b` text its chain feature states. An unnamed `assert` that owns members or a
+An unnamed one owns a `sysml:ReferenceSubsetting` to its target (SysML.xtext
+`OwnedReferenceSubsetting`: `ownedReferenceSubsetting`, `referencedFeature`),
+collapsed as `sysml:references`, and reads its target from either (or from
+`includes`/`subsets` where another writer collapses it there) — a chain target
+comes back as the `a.b` text its chain feature states. `include u1;` also
+states the derived `sysml:useCaseIncluded`; an `includes` or `useCaseIncluded`
+that names another use case than the `ReferenceSubsetting` is refused. The
+declared `include use case iu : U` owns no `ReferenceSubsetting`. An unnamed `assert` that owns members or a
 `not` stays the anonymous declaration `assert constraint references c1`, which
 the reference form cannot say. A `sysx:declaredKeyword`/`sysx:declaredPrefix`
 that contradicts the metaclass (`perform` on a plain `sysml:ActionUsage`) is

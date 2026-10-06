@@ -72,6 +72,7 @@ const (
 	pIsUnique                  = "isUnique"
 	pName                      = "name"
 	pReferences                = "references"
+	pUseCaseIncluded           = "useCaseIncluded"
 	pConnectorEnd              = "connectorEnd"
 	pRelatedFeature            = "relatedFeature"
 	pChainingFeature           = "chainingFeature"
@@ -1579,6 +1580,15 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 			e.relationships(subject, owner, relationships)
 		} else {
 			e.relationships(subject, owner, n.Relationships)
+		}
+		// `include pay;` owns a ReferenceSubsetting to the use case it includes
+		// (SysML.xtext IncludeUseCaseUsage: OwnedReferenceSubsetting), from which
+		// useCaseIncluded derives; `include use case u : U` declares one and owns none.
+		if rel := includedUseCaseReference(n); rel != nil {
+			e.relationships(subject, owner, []*ast.Relationship{{Kind: ast.RelReferences, Target: rel.Target}})
+			for _, included := range e.graph.Objects(subject, rdf.SysML+pReferences) {
+				e.graph.Add(subject, e.sysml(pUseCaseIncluded), included)
+			}
 		}
 		if err := e.multiplicity(subject, within, n.Multiplicity); err != nil {
 			return err
@@ -3380,4 +3390,20 @@ func qualifiedText(name *ast.QualifiedName) string {
 		return "$::" + out
 	}
 	return out
+}
+
+// includedUseCaseReference returns the `includes` of an `include <ref>;`, the
+// reference form of IncludeUseCaseUsage that subsets the use case it names.
+// The declared form `include use case u : U` echoes its typing as an includes
+// and owns no ReferenceSubsetting (SysML.xtext IncludeUseCaseUsage), so it is nil.
+func includedUseCaseReference(n *ast.Usage) *ast.Relationship {
+	if n.Kind != ast.UsageUseCase || n.PrefixKeyword == "include" {
+		return nil
+	}
+	for _, rel := range n.Relationships {
+		if rel != nil && rel.Kind == ast.RelIncludes && rel.Target != nil {
+			return rel
+		}
+	}
+	return nil
 }
