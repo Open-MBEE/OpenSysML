@@ -328,18 +328,18 @@ elmt:Payloads__Ctx___402
     sysml:connectorEnd expr:Payloads__Ctx___402_pend0, expr:Payloads__Ctx___402_pend1 ;
     sysml:ownedRelationship expr:Payloads__Ctx___402_pend0_om, expr:Payloads__Ctx___402_pend1_om, elmt:Payloads__Ctx___402__fuel_om, elmt:Payloads__Ctx___402__w_om ;
     sysml:ownedMembership expr:Payloads__Ctx___402_pend0_om, expr:Payloads__Ctx___402_pend1_om, elmt:Payloads__Ctx___402__fuel_om, elmt:Payloads__Ctx___402__w_om ;
+    sysml:ownedMember expr:Payloads__Ctx___402_pend0, expr:Payloads__Ctx___402_pend1, elmt:Payloads__Ctx___402__fuel, elmt:Payloads__Ctx___402__w ;
     sysml:ownedFeatureMembership expr:Payloads__Ctx___402_pend0_om, expr:Payloads__Ctx___402_pend1_om, elmt:Payloads__Ctx___402__fuel_om, elmt:Payloads__Ctx___402__w_om ;
     sysml:ownedFeature expr:Payloads__Ctx___402_pend0, expr:Payloads__Ctx___402_pend1, elmt:Payloads__Ctx___402__fuel, elmt:Payloads__Ctx___402__w ;
     sysml:ownedEndFeature expr:Payloads__Ctx___402_pend0, expr:Payloads__Ctx___402_pend1 ;
-    sysml:ownedMember elmt:Payloads__Ctx___402__fuel, elmt:Payloads__Ctx___402__w ;
     sysx:hasBody "true"^^xsd:boolean ;
     json:connectorEnd "[{\"@id\":\"Payloads__Ctx___402_pend0\"},{\"@id\":\"Payloads__Ctx___402_pend1\"}]" ;
     json:ownedRelationship "[{\"@id\":\"Payloads__Ctx___402_pend0_om\"},{\"@id\":\"Payloads__Ctx___402_pend1_om\"},{\"@id\":\"Payloads__Ctx___402__fuel_om\"},{\"@id\":\"Payloads__Ctx___402__w_om\"}]" ;
     json:ownedMembership "[{\"@id\":\"Payloads__Ctx___402_pend0_om\"},{\"@id\":\"Payloads__Ctx___402_pend1_om\"},{\"@id\":\"Payloads__Ctx___402__fuel_om\"},{\"@id\":\"Payloads__Ctx___402__w_om\"}]" ;
+    json:ownedMember "[{\"@id\":\"Payloads__Ctx___402_pend0\"},{\"@id\":\"Payloads__Ctx___402_pend1\"},{\"@id\":\"Payloads__Ctx___402__fuel\"},{\"@id\":\"Payloads__Ctx___402__w\"}]" ;
     json:ownedFeatureMembership "[{\"@id\":\"Payloads__Ctx___402_pend0_om\"},{\"@id\":\"Payloads__Ctx___402_pend1_om\"},{\"@id\":\"Payloads__Ctx___402__fuel_om\"},{\"@id\":\"Payloads__Ctx___402__w_om\"}]" ;
     json:ownedFeature "[{\"@id\":\"Payloads__Ctx___402_pend0\"},{\"@id\":\"Payloads__Ctx___402_pend1\"},{\"@id\":\"Payloads__Ctx___402__fuel\"},{\"@id\":\"Payloads__Ctx___402__w\"}]" ;
-    json:ownedEndFeature "[{\"@id\":\"Payloads__Ctx___402_pend0\"},{\"@id\":\"Payloads__Ctx___402_pend1\"}]" ;
-    json:ownedMember "[{\"@id\":\"Payloads__Ctx___402__fuel\"},{\"@id\":\"Payloads__Ctx___402__w\"}]" .
+    json:ownedEndFeature "[{\"@id\":\"Payloads__Ctx___402_pend0\"},{\"@id\":\"Payloads__Ctx___402_pend1\"}]" .
 
 elmt:Payloads__Ctx___402_om
     a sysml:FeatureMembership ;

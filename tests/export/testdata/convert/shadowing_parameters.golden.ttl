@@ -605,6 +605,7 @@ elmt:Shadows__Governor___404_succession
     sysml:connectorEnd expr:Shadows__Governor___404_succession_pend0, expr:Shadows__Governor___404_succession_pend1 ;
     sysml:ownedRelationship expr:Shadows__Governor___404_succession_pend0_om, expr:Shadows__Governor___404_succession_pend1_om ;
     sysml:ownedMembership expr:Shadows__Governor___404_succession_pend0_om, expr:Shadows__Governor___404_succession_pend1_om ;
+    sysml:ownedMember expr:Shadows__Governor___404_succession_pend0, expr:Shadows__Governor___404_succession_pend1 ;
     sysml:ownedFeatureMembership expr:Shadows__Governor___404_succession_pend0_om, expr:Shadows__Governor___404_succession_pend1_om ;
     sysml:ownedFeature expr:Shadows__Governor___404_succession_pend0, expr:Shadows__Governor___404_succession_pend1 ;
     sysml:ownedEndFeature expr:Shadows__Governor___404_succession_pend0, expr:Shadows__Governor___404_succession_pend1 ;
@@ -614,6 +615,7 @@ elmt:Shadows__Governor___404_succession
     json:connectorEnd "[{\"@id\":\"Shadows__Governor___404_succession_pend0\"},{\"@id\":\"Shadows__Governor___404_succession_pend1\"}]" ;
     json:ownedRelationship "[{\"@id\":\"Shadows__Governor___404_succession_pend0_om\"},{\"@id\":\"Shadows__Governor___404_succession_pend1_om\"}]" ;
     json:ownedMembership "[{\"@id\":\"Shadows__Governor___404_succession_pend0_om\"},{\"@id\":\"Shadows__Governor___404_succession_pend1_om\"}]" ;
+    json:ownedMember "[{\"@id\":\"Shadows__Governor___404_succession_pend0\"},{\"@id\":\"Shadows__Governor___404_succession_pend1\"}]" ;
     json:ownedFeatureMembership "[{\"@id\":\"Shadows__Governor___404_succession_pend0_om\"},{\"@id\":\"Shadows__Governor___404_succession_pend1_om\"}]" ;
     json:ownedFeature "[{\"@id\":\"Shadows__Governor___404_succession_pend0\"},{\"@id\":\"Shadows__Governor___404_succession_pend1\"}]" ;
     json:ownedEndFeature "[{\"@id\":\"Shadows__Governor___404_succession_pend0\"},{\"@id\":\"Shadows__Governor___404_succession_pend1\"}]" .
@@ -954,6 +956,7 @@ elmt:Shadows__Governor___405_succession
     sysml:connectorEnd expr:Shadows__Governor___405_succession_pend0, expr:Shadows__Governor___405_succession_pend1 ;
     sysml:ownedRelationship expr:Shadows__Governor___405_succession_pend0_om, expr:Shadows__Governor___405_succession_pend1_om ;
     sysml:ownedMembership expr:Shadows__Governor___405_succession_pend0_om, expr:Shadows__Governor___405_succession_pend1_om ;
+    sysml:ownedMember expr:Shadows__Governor___405_succession_pend0, expr:Shadows__Governor___405_succession_pend1 ;
     sysml:ownedFeatureMembership expr:Shadows__Governor___405_succession_pend0_om, expr:Shadows__Governor___405_succession_pend1_om ;
     sysml:ownedFeature expr:Shadows__Governor___405_succession_pend0, expr:Shadows__Governor___405_succession_pend1 ;
     sysml:ownedEndFeature expr:Shadows__Governor___405_succession_pend0, expr:Shadows__Governor___405_succession_pend1 ;
@@ -963,6 +966,7 @@ elmt:Shadows__Governor___405_succession
     json:connectorEnd "[{\"@id\":\"Shadows__Governor___405_succession_pend0\"},{\"@id\":\"Shadows__Governor___405_succession_pend1\"}]" ;
     json:ownedRelationship "[{\"@id\":\"Shadows__Governor___405_succession_pend0_om\"},{\"@id\":\"Shadows__Governor___405_succession_pend1_om\"}]" ;
     json:ownedMembership "[{\"@id\":\"Shadows__Governor___405_succession_pend0_om\"},{\"@id\":\"Shadows__Governor___405_succession_pend1_om\"}]" ;
+    json:ownedMember "[{\"@id\":\"Shadows__Governor___405_succession_pend0\"},{\"@id\":\"Shadows__Governor___405_succession_pend1\"}]" ;
     json:ownedFeatureMembership "[{\"@id\":\"Shadows__Governor___405_succession_pend0_om\"},{\"@id\":\"Shadows__Governor___405_succession_pend1_om\"}]" ;
     json:ownedFeature "[{\"@id\":\"Shadows__Governor___405_succession_pend0\"},{\"@id\":\"Shadows__Governor___405_succession_pend1\"}]" ;
     json:ownedEndFeature "[{\"@id\":\"Shadows__Governor___405_succession_pend0\"},{\"@id\":\"Shadows__Governor___405_succession_pend1\"}]" .

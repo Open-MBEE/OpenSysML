@@ -1,6 +1,8 @@
 package main
 
 import (
+	"bytes"
+	"errors"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -432,5 +434,31 @@ func TestManualTraceabilityLadderQueries(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+// TestSelfCheckRulesExample runs the self-check-rules worked example as its
+// README does, so the transcript the README quotes keeps being what the binary
+// prints.
+func TestSelfCheckRulesExample(t *testing.T) {
+	binary := buildCLI(t)
+	examples := filepath.Join("..", "..", "examples", "self-check-rules")
+	cmd := exec.Command(binary,
+		filepath.Join(examples, "rover.sysml"),
+		filepath.Join(examples, "rules.sysml"),
+		"-self-check-package", "Acme::ModelingRules")
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout, cmd.Stderr = &stdout, &stderr
+	err := cmd.Run()
+	var exit *exec.ExitError
+	if err == nil || !errors.As(err, &exit) || exit.ExitCode() != 1 {
+		t.Fatalf("self-check-rules example exit = %v, want 1:\n%s%s", err, stdout.String(), stderr.String())
+	}
+	out := stdout.String() + stderr.String()
+	if !strings.Contains(out, "Acme::ModelingRules::partDefinitionHasDocumentation fails for Rover::SensorBus") {
+		t.Errorf("missing the documentation-rule violation:\n%s", out)
+	}
+	if strings.Contains(out, "portUsageDeclaresDirection fails") {
+		t.Errorf("a port rule failed although every port declares a direction:\n%s", out)
 	}
 }

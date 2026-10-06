@@ -609,6 +609,7 @@ elmt:Shadowing__Bus__link
     sysml:connectorEnd expr:Shadowing__Bus__link_pend0, expr:Shadowing__Bus__link_pend1 ;
     sysml:ownedRelationship expr:Shadowing__Bus__link_pend0_om, expr:Shadowing__Bus__link_pend1_om ;
     sysml:ownedMembership expr:Shadowing__Bus__link_pend0_om, expr:Shadowing__Bus__link_pend1_om ;
+    sysml:ownedMember expr:Shadowing__Bus__link_pend0, expr:Shadowing__Bus__link_pend1 ;
     sysml:ownedFeatureMembership expr:Shadowing__Bus__link_pend0_om, expr:Shadowing__Bus__link_pend1_om ;
     sysml:ownedFeature expr:Shadowing__Bus__link_pend0, expr:Shadowing__Bus__link_pend1 ;
     sysml:ownedEndFeature expr:Shadowing__Bus__link_pend0, expr:Shadowing__Bus__link_pend1 ;
@@ -621,6 +622,7 @@ elmt:Shadowing__Bus__link
     json:connectorEnd "[{\"@id\":\"Shadowing__Bus__link_pend0\"},{\"@id\":\"Shadowing__Bus__link_pend1\"}]" ;
     json:ownedRelationship "[{\"@id\":\"Shadowing__Bus__link_pend0_om\"},{\"@id\":\"Shadowing__Bus__link_pend1_om\"}]" ;
     json:ownedMembership "[{\"@id\":\"Shadowing__Bus__link_pend0_om\"},{\"@id\":\"Shadowing__Bus__link_pend1_om\"}]" ;
+    json:ownedMember "[{\"@id\":\"Shadowing__Bus__link_pend0\"},{\"@id\":\"Shadowing__Bus__link_pend1\"}]" ;
     json:ownedFeatureMembership "[{\"@id\":\"Shadowing__Bus__link_pend0_om\"},{\"@id\":\"Shadowing__Bus__link_pend1_om\"}]" ;
     json:ownedFeature "[{\"@id\":\"Shadowing__Bus__link_pend0\"},{\"@id\":\"Shadowing__Bus__link_pend1\"}]" ;
     json:ownedEndFeature "[{\"@id\":\"Shadowing__Bus__link_pend0\"},{\"@id\":\"Shadowing__Bus__link_pend1\"}]" .

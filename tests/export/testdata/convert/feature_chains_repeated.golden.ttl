@@ -478,6 +478,7 @@ elmt:P__c
     sysml:connectorEnd expr:P__c_pend0, expr:P__c_pend1 ;
     sysml:ownedRelationship expr:P__c_pend0_om, expr:P__c_pend1_om ;
     sysml:ownedMembership expr:P__c_pend0_om, expr:P__c_pend1_om ;
+    sysml:ownedMember expr:P__c_pend0, expr:P__c_pend1 ;
     sysml:ownedFeatureMembership expr:P__c_pend0_om, expr:P__c_pend1_om ;
     sysml:ownedFeature expr:P__c_pend0, expr:P__c_pend1 ;
     sysml:ownedEndFeature expr:P__c_pend0, expr:P__c_pend1 ;
@@ -488,6 +489,7 @@ elmt:P__c
     json:connectorEnd "[{\"@id\":\"P__c_pend0\"},{\"@id\":\"P__c_pend1\"}]" ;
     json:ownedRelationship "[{\"@id\":\"P__c_pend0_om\"},{\"@id\":\"P__c_pend1_om\"}]" ;
     json:ownedMembership "[{\"@id\":\"P__c_pend0_om\"},{\"@id\":\"P__c_pend1_om\"}]" ;
+    json:ownedMember "[{\"@id\":\"P__c_pend0\"},{\"@id\":\"P__c_pend1\"}]" ;
     json:ownedFeatureMembership "[{\"@id\":\"P__c_pend0_om\"},{\"@id\":\"P__c_pend1_om\"}]" ;
     json:ownedFeature "[{\"@id\":\"P__c_pend0\"},{\"@id\":\"P__c_pend1\"}]" ;
     json:ownedEndFeature "[{\"@id\":\"P__c_pend0\"},{\"@id\":\"P__c_pend1\"}]" .

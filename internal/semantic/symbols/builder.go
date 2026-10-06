@@ -452,19 +452,19 @@ func ConstraintBodyScope(parent *Scope, decl ast.Node) *Scope {
 	return parent
 }
 
-// buildConnectorEnds registers a symbol for every end of a connector usage that
-// declares a name (`connect bead references t.bead`). Such an end is an end
-// feature of the connector itself (SysML v2 §7.13.2), so it is a member of the
-// connector's own scope, never of the scope the connector is declared in.
+// buildConnectorEnds registers a symbol for every end of a connector usage's
+// connect clause. Each end is an end feature of the connector itself (SysML v2
+// §7.13.2), owned through an EndFeatureMembership, so it is a member of the
+// connector's own scope, never of the scope the connector is declared in. An
+// end that declares a name (`connect bead references t.bead`) is a named
+// member; one that only names what it attaches to (`connect a to b`) is an
+// anonymous one.
 func buildConnectorEnds(scope *Scope, u *ast.Usage) {
 	for _, end := range u.ConnectorEnds {
 		if end == nil {
 			continue
 		}
-		id, ok := end.DeclaredName()
-		if !ok {
-			continue
-		}
+		id, _ := end.DeclaredName()
 		child := NewScope(scope, end)
 		sym := newSymbol(id, SymbolConnectorEnd, end, ast.VisibilityDefault, child, scope, nil)
 		defineIdent(scope, id, sym)
