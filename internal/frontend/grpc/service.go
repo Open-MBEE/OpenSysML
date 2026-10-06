@@ -70,6 +70,10 @@ const CapabilityRenderDocument = "render_document"
 // form field, which asks RenderDocument for HTML instead of Markdown.
 const CapabilityRenderDocumentHTML = "render_document_html"
 
+// CapabilityRenderView names the capability of the RenderView RPC, which
+// renders a declared or targeted pseudo-view as machine-readable diagram data.
+const CapabilityRenderView = "render_view"
+
 // CapabilityOSLCQuery names the capability of evaluating OSLC Query text.
 const CapabilityOSLCQuery = "oslc_query"
 
@@ -169,6 +173,10 @@ const CapabilityFeatureValues = "feature_values"
 // CapabilityParseSources names the ParseSources RPC, which parses several
 // documents as one model so a name one declares resolves in another.
 const CapabilityParseSources = "parse_sources"
+
+// CapabilityConvertDocuments names ConvertRequest.documents, which writes only
+// the named documents of a model and links the rest by id.
+const CapabilityConvertDocuments = "convert_documents"
 
 // CapabilityComplexValues names the capability of carrying a complex number as
 // Value.complex, rather than reporting it as an unsupported null.
@@ -292,6 +300,8 @@ var capabilities = []string{
 	CapabilityMigrate,
 	CapabilityBigIntValues,
 	CapabilityStateTrace,
+	CapabilityRenderView,
+	CapabilityConvertDocuments,
 }
 
 type capabilityAvailability struct {
