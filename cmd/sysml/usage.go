@@ -58,7 +58,8 @@ func doc() usage.Doc {
 				usage.Ex("sysml -instantiate p -constraint C model.sysml", "Check C against an object of p"),
 				usage.Ex("sysml -validate model.sysml", "Report diagnostics only"),
 				usage.Ex("sysml -validate -strict model.sysml", "...asking whether it is conforming SysML v2"),
-				usage.Ex("sysml -self-check model.sysml", "Apply the 13 SysML validation constraints"),
+				usage.Ex("sysml -self-check model.sysml", "Apply the SysMLValidation constraints"),
+				usage.Ex("sysml -self-check-package Acme::Rules m.sysml", "...plus a rule package's constraints"),
 				usage.Ex("sysml -instantiate car -validate=car m.sysml", "Check every assertion about an object"),
 				usage.Ex(`sysml -calc "Fall(3, 4)" model.sysml`, "Invoke a calculation"),
 				usage.Ex("sysml -analysis shipCost model.sysml", "Run an analysis case"),
@@ -78,6 +79,11 @@ func doc() usage.Doc {
 					"-self-check applies the OpenSysML SysMLValidation constraints to " +
 					"each reflectively classified element; underived reflective features " +
 					"are reported as unevaluated, not as violations. " +
+					"-self-check-package adds the constraint defs of a package the loaded " +
+					"files declare to the same walk, as -self-check-package " +
+					"Acme::ModelingRules: a rule is a constraint def whose first in " +
+					"parameter is typed by a SysML or KerML metaclass, and it applies to " +
+					"every element that metaclass conforms to. " +
 					"-requirement and -satisfy report beside each verdict the verdict of " +
 					"every verification case verifying the requirement. -analysis takes " +
 					"arguments for the case's inputs and an object as its subject, as " +
@@ -613,6 +619,7 @@ func registerFlags(fs *flag.FlagSet) {
 	fs.BoolVar(&strictMode, "strict", false, "Judge the model as conforming SysML v2: notation no pinned production admits is an error, not a warning; a SysML v1 migration writes none of it")
 	fs.Var(&modelChecks.constraints, "constraint", "Evaluate this constraint and exit (repeatable)")
 	fs.BoolVar(&modelChecks.selfCheck, "self-check", false, "Apply the SysMLValidation constraints to every reflectively classified model element and exit")
+	fs.Var(&modelChecks.selfCheckPackages, "self-check-package", "Apply this package's constraint defs with the SysMLValidation ones, as -self-check-package Acme::ModelingRules; implies -self-check (repeatable)")
 	fs.Var(&modelChecks.requirements, "requirement", "Evaluate this requirement, and every verification case verifying it, and exit (repeatable)")
 	fs.Var(&modelChecks.satisfy, "satisfy", "Evaluate every satisfaction assertion, or with -satisfy=<name> those the named element states, and exit (repeatable)")
 	fs.Var(&modelChecks.calcs, "calc", "Invoke this calculation and report its result, as -calc \"Fall(3, 4)\" (repeatable)")
@@ -715,6 +722,7 @@ func optionGroups() []usage.OptionGroup {
 			usage.Opt("no-record-cache", ""),
 			usage.Opt("constraint", nameArg),
 			usage.Opt("self-check", ""),
+			usage.Opt("self-check-package", "<package>"),
 			usage.Opt("requirement", nameArg),
 			usage.Opt("satisfy", "[=<name>]"),
 			usage.Opt("calc", callArg),

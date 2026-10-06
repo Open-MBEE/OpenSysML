@@ -50,6 +50,13 @@ func (m *Model) implicitRelationshipsOf(owner *symbols.Symbol) []*symbols.Symbol
 		}
 		ordinal++
 	}
+	// A connector end reference-subsets the feature it attaches to whether or
+	// not a clause of its own says so (SysML v2 8.2.2.13.1).
+	if end, ok := owner.Decl.(*ast.ConnectorEnd); ok {
+		if target := ImpliedEndReference(end); target != nil {
+			out = append(out, implicitRelationshipSymbol(owner, ordinal, ast.RelReferences, false, connectorEndAttachment(target)))
+		}
+	}
 	// A multiplicity member's `subsets` is its one written relationship, held on
 	// the declaration rather than in a Relationships list.
 	if decl, ok := owner.Decl.(*ast.MultiplicityDecl); ok && decl.Subsets != nil {
@@ -208,18 +215,22 @@ func relationshipEndFeature(meta, feature string) (sourceSide, targetSide bool) 
 }
 
 // implicitRelationshipEnds resolves the ends of the relationship object sym
-// reflects: its owning element as source, and the named target, whose
-// resolution is reported separately since an unresolved or chained target
-// leaves every target-side feature underived.
+// reflects: its owning element as source, and the target named or, for a
+// chain, denoted (chainTargetFeature); resolution is reported separately
+// since an unresolved target leaves every target-side feature underived.
 func (m *Model) implicitRelationshipEnds(sym *symbols.Symbol) (src, tgt *symbols.Symbol, tgtOK bool) {
 	rel := sym.Implicit
 	src = rel.Owner
 	if rel.Node != nil {
-		// A chain target's real general is an implicit chaining feature the
-		// model has no element for (KerML 8.3.3.3.9), so no feature of the
-		// relationship may answer the chain's final feature.
+		// A chain target's general is the implicit chaining feature the chain
+		// denotes as a whole (KerML 8.3.3.3.9), never the chain's final feature.
 		if ast.IsFeatureChain(rel.Node.Target) {
-			return src, nil, false
+			tgt = m.chainTargetFeature(sym)
+			return src, tgt, tgt != nil
+		}
+		if _, isEnd := rel.Owner.Decl.(*ast.ConnectorEnd); isEnd && rel.Kind.ReferenceSubsets() {
+			tgt = m.ReferencedFeature(rel.Owner)
+			return src, tgt, tgt != nil
 		}
 		tgt = m.RelationshipTarget(rel.Owner, rel.Node)
 		return src, tgt, tgt != nil
@@ -227,7 +238,11 @@ func (m *Model) implicitRelationshipEnds(sym *symbols.Symbol) (src, tgt *symbols
 	if rel.Owner.Recorded() {
 		if rel.Ordinal < len(rel.Owner.Facts.Relationships) {
 			facts := rel.Owner.Facts.Relationships[rel.Ordinal]
-			if facts.Chain || facts.Target.IsZero() {
+			if facts.Chain {
+				tgt = m.chainTargetFeature(sym)
+				return src, tgt, tgt != nil
+			}
+			if facts.Target.IsZero() {
 				return src, nil, false
 			}
 			tgt = m.recordedElement(facts.Target)
@@ -295,7 +310,14 @@ func (m *Model) implicitRelationshipElements(sym *symbols.Symbol, feature string
 		return nil, false
 	case "owningRelatedElement", "owner":
 		return source, true
-	case "ownedRelatedElement", "ownedElement", "ownedRelationship",
+	case "ownedRelatedElement":
+		// The chaining feature a chain target denotes is owned through the
+		// relationship that targets it (KerML 8.3.3.3.9).
+		if chain := m.chainTargetFeature(sym); chain != nil {
+			return []*symbols.Symbol{chain}, true
+		}
+		return empty, true
+	case "ownedElement", "ownedRelationship",
 		"owningRelationship", "owningMembership", "owningNamespace", "documentation":
 		return empty, true
 	}
