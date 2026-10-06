@@ -119,6 +119,10 @@ func withRootNamespace(graph *rdf.Graph) (*rdf.Graph, error) {
 		}
 	}
 	out := rdf.NewGraphOf(triples, graph.Prefixes)
+	// The wrappers annotate their collections from the members they add, in order.
+	if graph.CollectionsSettled() {
+		out.MarkCollectionsSettled()
+	}
 	return out, nil
 }
 
