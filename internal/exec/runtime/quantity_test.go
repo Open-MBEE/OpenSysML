@@ -74,20 +74,24 @@ func TestQuantityEvaluation(t *testing.T) {
 	}
 }
 
-// TestQuantityArithmeticReportsOverflow: a magnitude no Real holds is reported
-// for a quantity as it is for a bare Real, rather than carried as an infinity.
+// TestQuantityArithmeticReportsOverflow: a Real magnitude no Real holds is reported
+// for a quantity as it is for a bare Real, rather than carried as an infinity,
+// while exact magnitudes stay exact. 1.0 ** 0.5 is the Real 1.0.
 func TestQuantityArithmeticReportsOverflow(t *testing.T) {
 	ctx, scope := quantityContext(t)
 
-	for _, src := range []string{
-		"1e308 [m] + 1e308 [m]",
-		"1e200 [m] * 1e200 [s]",
-		"1e308 [m] / 1e-308 [s]",
-		"1e308 [m] / 1e-308 [m]",
+	for src, exact := range map[string]string{
+		"1e308 [m] + 1e308 [m]":  "2e+308 [m]",
+		"1e200 [m] * 1e200 [s]":  "1e+400 [m*s]",
+		"1e308 [m] / 1e-308 [m]": "1e+616",
 	} {
 		got, err := evalIn(t, ctx, scope, src)
-		if !errors.Is(err, semantics.ErrArithmeticOverflow) {
-			t.Errorf("%s = %+v, %v; want ErrArithmeticOverflow", src, got, err)
+		if err != nil || FormatValue(got) != exact {
+			t.Errorf("%s = %s, %v; want %s", src, FormatValue(got), err, exact)
+		}
+		real := "(1.0 ** 0.5) * " + src
+		if got, err := evalIn(t, ctx, scope, real); !errors.Is(err, semantics.ErrArithmeticOverflow) {
+			t.Errorf("%s = %+v, %v; want ErrArithmeticOverflow", real, got, err)
 		}
 	}
 }
@@ -209,9 +213,9 @@ func TestQuantityExponentiation(t *testing.T) {
 		wantKind semantics.ValueKind
 	}{
 		{"(2 [m]) ** 3", "8 [SI::'m³']", semantics.ValInt},
-		{"(2.0 [m]) ** 3", "8.0 [SI::'m³']", semantics.ValReal},
+		{"(2.0 [m]) ** 3", "8.0 [SI::'m³']", semantics.ValRational},
 		{"(3.0 [m/s]) ** 2.0", "9.0 [SI::'m²⋅s⁻²']", semantics.ValReal},
-		{"(2.0 [m]) ** -1", "0.5 [SI::'m⁻¹']", semantics.ValReal},
+		{"(2.0 [m]) ** -1", "0.5 [SI::'m⁻¹']", semantics.ValRational},
 	}
 	for _, tc := range cases {
 		t.Run(tc.src, func(t *testing.T) {
@@ -305,7 +309,7 @@ func TestComposedUnitCanonical(t *testing.T) {
 		{"1 [N] * 2 [m]", "2 [SI::'kg⋅m²⋅s⁻²']"},
 		{"2 [N*m]", "2 [N*m]"},
 		{"1 [N*m] * 2 [m]", "2 [kg*m**3/s**2]"},
-		{"36 [km/h] / 2 [h]", "0.001388888888888889 [SI::'m⋅s⁻²']"},
+		{"36 [km/h] / 2 [h]", "1/720 [SI::'m⋅s⁻²']"},
 		{"1 [m/s] * 1 [kg/s]", "1 [SI::N]"},
 		{"1 [m/s] / 1 [kg/s]", "1.0 [m/kg]"},
 		{"6 [m] / 2 [s] / 3 [kg]", "1.0 [m/(kg*s)]"},
@@ -439,8 +443,8 @@ func TestSequenceIndexIsNotAQuantity(t *testing.T) {
 	if err != nil {
 		t.Fatalf("speeds#(2): %v", err)
 	}
-	if got.Kind != ValConst || got.Const.Kind != semantics.ValReal || got.Const.Real != 2.0 {
-		t.Errorf("speeds#(2) = %v, want the real 2.0", got)
+	if got.Kind != ValConst || got.Const.Kind != semantics.ValRational || got.Const.FormatRational() != "2.0" {
+		t.Errorf("speeds#(2) = %v, want the Rational 2.0", got)
 	}
 
 	if _, err := evalIn(t, ctx, scope, "speeds#(4)"); !errors.Is(err, ErrIndexOutOfRange) {

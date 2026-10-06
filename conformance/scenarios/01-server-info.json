@@ -40,7 +40,8 @@
             "schedule",
             "performer",
             "engines",
-            "big_int_values"
+            "big_int_values",
+            "rational_values"
           ]
         }
       }

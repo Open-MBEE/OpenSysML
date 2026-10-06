@@ -531,6 +531,13 @@ func encodeValue(v runtime.ToolValue) (json.RawMessage, error) {
 			return nil, fmt.Errorf("%v is not a JSON number", v.Value.Real)
 		}
 		return json.RawMessage(strconv.FormatFloat(v.Value.Real, 'g', -1, 64)), nil
+	case semantics.ValRational:
+		// A JSON number is decimal, so it carries a terminating Rational exactly and no other.
+		text := v.Value.FormatRational()
+		if strings.Contains(text, "/") {
+			return nil, fmt.Errorf("%s has no exact JSON number", text)
+		}
+		return json.RawMessage(text), nil
 	case semantics.ValBool:
 		return json.RawMessage(strconv.FormatBool(v.Value.Bool)), nil
 	case semantics.ValInvalid:

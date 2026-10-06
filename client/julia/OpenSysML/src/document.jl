@@ -172,6 +172,7 @@ function _document_value(raw)
     haskey(raw, "stringValue") && return String(raw["stringValue"])
     haskey(raw, "intValue") && return parse(Int64, string(raw["intValue"]))
     haskey(raw, "bigIntValue") && return parse_big_integer(string(raw["bigIntValue"]))
+    haskey(raw, "rationalValue") && return parse_rational(raw["rationalValue"])
     haskey(raw, "realValue") && return asreal(raw["realValue"])
     haskey(raw, "boolValue") && return Bool(raw["boolValue"])
     haskey(raw, "infinity") && return Infinity()
@@ -261,6 +262,8 @@ function build_document_bindings(bindings=Dict())
                 Dict{String,Any}("stringValue" => String(value))
             elseif value isa Integer
                 Dict{String,Any}(integer_arm(value, "intValue", "bigIntValue"))
+            elseif value isa Rational
+                Dict{String,Any}(rational_arm(value, "rationalValue"))
             elseif value isa AbstractFloat
                 Dict{String,Any}("realValue" => Float64(value))
             elseif value isa Quantity
@@ -282,6 +285,12 @@ function build_document_bindings(bindings=Dict())
     result
 end
 
+# Whether a wire binding sends an exact Rational, which needs rational_values.
+_binding_holds_rational(binding) = any(binding["values"]) do value
+    haskey(value, "rationalValue") ||
+        (haskey(value, "quantity") && haskey(value["quantity"], "rationalMagnitude"))
+end
+
 # Whether a wire binding sends an Integer beyond int64, which needs big_int_values.
 _binding_holds_big_int(binding) = any(binding["values"]) do value
     haskey(value, "bigIntValue") ||
@@ -294,6 +303,8 @@ function run_document_query(model::Model, query_id::AbstractString; bindings=Dic
     require_capability(conn, CAPABILITY_DOCUMENT_QUERY)
     wire = build_document_bindings(bindings)
     any(_binding_holds_big_int, wire) && require_capability(conn, CAPABILITY_BIG_INT_VALUES)
+    has_capability(conn, CAPABILITY_RATIONAL_VALUES) || rationals_as_reals!(wire)
+    any(_binding_holds_rational, wire) && require_capability(conn, CAPABILITY_RATIONAL_VALUES)
     request = Dict{String,Any}("modelHash" => model.hash, "queryId" => String(query_id),
         "bindings" => wire)
     answer = _translate(; not_found=SymbolNotFoundError,

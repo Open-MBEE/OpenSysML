@@ -120,6 +120,9 @@ pub const CAPABILITY_UNDETERMINED_VALUE: &str = "undetermined_value";
 /// An Integer beyond int64 as `Value.big_int_value`, `Quantity.big_int_magnitude` and
 /// `DocumentValue.big_int_value`; a service without it reads one sent to it as null.
 pub const CAPABILITY_BIG_INT_VALUES: &str = "big_int_values";
+/// An exact Rational no f64 holds as `Value.rational_value`, `Quantity.rational_magnitude` and
+/// `DocumentValue.rational_value`; a service without it reads one sent to it as null.
+pub const CAPABILITY_RATIONAL_VALUES: &str = "rational_values";
 /// `ConvertRequest.documents`: a model converted with only the named documents written, the
 /// references into the others linked by id.
 pub const CAPABILITY_CONVERT_DOCUMENTS: &str = "convert_documents";

@@ -224,36 +224,36 @@
       "type": "Sequence",
       "elements": [
         {
-          "type": "Real",
-          "value": 1.0
+          "type": "Rational",
+          "value": "1.0"
         },
         {
-          "type": "Real",
-          "value": 2.0
+          "type": "Rational",
+          "value": "2.0"
         },
         {
-          "type": "Real",
-          "value": 3.0
+          "type": "Rational",
+          "value": "3.0"
         },
         {
-          "type": "Real",
-          "value": 4.0
+          "type": "Rational",
+          "value": "4.0"
         },
         {
-          "type": "Real",
-          "value": 5.0
+          "type": "Rational",
+          "value": "5.0"
         },
         {
-          "type": "Real",
-          "value": 6.0
+          "type": "Rational",
+          "value": "6.0"
         },
         {
-          "type": "Real",
-          "value": 7.0
+          "type": "Rational",
+          "value": "7.0"
         },
         {
-          "type": "Real",
-          "value": 8.0
+          "type": "Rational",
+          "value": "8.0"
         }
       ]
     },

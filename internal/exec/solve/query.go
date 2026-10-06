@@ -73,6 +73,10 @@ type Var struct {
 	// Sort is the sort of its values.
 	Sort Sort
 
+	// Binary64 marks a variable whose feature is declared Real, whose values the
+	// evaluator holds as binary64; Integer and Rational values are exact.
+	Binary64 bool
+
 	// Symbol is the feature declaration it stands for.
 	Symbol *symbols.Symbol
 
