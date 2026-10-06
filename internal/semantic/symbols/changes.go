@@ -1,11 +1,5 @@
 package symbols
 
-import (
-	"fmt"
-	"sort"
-	"strings"
-)
-
 // Changes is what a run of writes to an index changed, at the granularity a ReadRecorder
 // records reads at: names, namespaces and documents. Reads meeting none saw nothing move.
 type Changes struct {
@@ -48,7 +42,7 @@ func (idx *Index) TakeChanges() Changes {
 	}
 	out := *idx.changes
 	for fqn, before := range idx.changesBefore {
-		if out.Names[fqn] && registrationOf(idx, fqn) == before {
+		if out.Names[fqn] && before.same(registrationOf(idx, fqn)) {
 			delete(out.Names, fqn)
 		}
 	}
@@ -68,41 +62,76 @@ func (idx *Index) noteBefore(fqn string) {
 		return
 	}
 	if idx.changesBefore == nil {
-		idx.changesBefore = map[string]string{}
+		idx.changesBefore = map[string]registration{}
 	}
 	idx.changesBefore[fqn] = registrationOf(idx, fqn)
 }
 
-// registrationOf spells everything a lookup of fqn reads from the index's
+// registration is everything a lookup of a name reads from the index's
 // tables: the symbols registered under it, in order, each with its re-export
-// and hidden marks and the claims and routes that surfaced it. Symbols compare
-// by identity, so a declaration parsed again is a change.
-func registrationOf(idx *Index, fqn string) string {
-	var b strings.Builder
-	for _, sym := range idx.fqn.at(fqn) {
-		reexported, _ := idx.reexported.get(fqn)
-		hidden, _ := idx.hidden.get(fqn)
-		fmt.Fprintf(&b, "%p %t %t;", sym, reexported.has(sym), hidden.has(sym))
-		claims := idx.reexportDocs.at(reexportKey{fqn: fqn, sym: sym})
-		docs := make([]string, 0, len(claims))
-		for doc := range claims {
-			docs = append(docs, doc)
+// and hidden marks and the claims and routes that surfaced it. It holds the
+// symbols themselves, so one dropped since cannot have its address reused by
+// a new symbol that would then compare equal to it.
+type registration []registeredSymbol
+
+type registeredSymbol struct {
+	sym                *Symbol
+	reexported, hidden bool
+	claims             map[string]reexportClaim
+}
+
+func registrationOf(idx *Index, fqn string) registration {
+	syms := idx.fqn.at(fqn)
+	if len(syms) == 0 {
+		return nil
+	}
+	reexported, _ := idx.reexported.get(fqn)
+	hidden, _ := idx.hidden.get(fqn)
+	out := make(registration, len(syms))
+	for i, sym := range syms {
+		out[i] = registeredSymbol{sym: sym, reexported: reexported.has(sym), hidden: hidden.has(sym)}
+		if claims := idx.reexportDocs.at(reexportKey{fqn: fqn, sym: sym}); len(claims) > 0 {
+			out[i].claims = make(map[string]reexportClaim, len(claims))
+			for doc, claim := range claims {
+				out[i].claims[doc] = reexportClaim{public: claim.public, routes: append([]gateRoute(nil), claim.routes...)}
+			}
 		}
-		sort.Strings(docs)
-		for _, doc := range docs {
-			claim := claims[doc]
-			fmt.Fprintf(&b, "%q %t", doc, claim.public)
-			for _, route := range claim.routes {
-				fmt.Fprintf(&b, " %t", route.private)
-				for _, filter := range route.filters {
-					fmt.Fprintf(&b, " %p %p", filter.Expr, filter.Scope)
+	}
+	return out
+}
+
+// same reports whether two registrations read alike: the same symbols, by
+// identity, so a declaration parsed again is a change, with the same marks,
+// claims and routes, a route's filters compared by the expression and scope
+// they were written with.
+func (r registration) same(other registration) bool {
+	if len(r) != len(other) {
+		return false
+	}
+	for i, a := range r {
+		b := other[i]
+		if a.sym != b.sym || a.reexported != b.reexported || a.hidden != b.hidden || len(a.claims) != len(b.claims) {
+			return false
+		}
+		for doc, claim := range a.claims {
+			them, ok := b.claims[doc]
+			if !ok || claim.public != them.public || len(claim.routes) != len(them.routes) {
+				return false
+			}
+			for k, route := range claim.routes {
+				theirs := them.routes[k]
+				if route.private != theirs.private || len(route.filters) != len(theirs.filters) {
+					return false
+				}
+				for f, filter := range route.filters {
+					if filter.Expr != theirs.filters[f].Expr || filter.Scope != theirs.filters[f].Scope {
+						return false
+					}
 				}
 			}
-			b.WriteByte(';')
 		}
-		b.WriteByte('|')
 	}
-	return b.String()
+	return true
 }
 
 func (idx *Index) changedName(fqn string) {

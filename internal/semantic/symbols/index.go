@@ -141,7 +141,7 @@ type Index struct {
 	changes *Changes
 	// changesBefore is how each name changes records was registered before
 	// its first write since the last TakeChanges (noteBefore).
-	changesBefore map[string]string
+	changesBefore map[string]registration
 	reads         ReadRecorder
 }
 
