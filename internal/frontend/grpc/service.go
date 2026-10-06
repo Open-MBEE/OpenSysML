@@ -719,7 +719,7 @@ func (s *Service) ParseSources(ctx context.Context, req *pb.ParseSourcesRequest)
 		Roots:       roots,
 		Diagnostics: s.modelDiagnostics(model),
 	}
-	if s.capabilities.has(CapabilityParseSourcesAffected) {
+	if req.BaseModelHash != "" {
 		resp.Affected = affectedDocuments(base, model)
 	}
 	return resp, nil

@@ -6,6 +6,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/identity"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/libs"
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/model"
@@ -33,7 +34,10 @@ type lineage struct {
 	// fresh is set for a document set the fresh path must answer: one holding a
 	// version of a bundled library file, which the workspace marks with the
 	// library's tier and a fresh parse does not (see parseFromLineage).
+	// standIns holds those documents' contents: once one changes, the set is
+	// noted afresh, so it can be answered from a workspace again.
 	fresh    bool
+	standIns map[string]string
 	ws       *model.Workspace  // nil until the document set is parsed a second time
 	library  libs.Source       // the files the workspace's library was built from
 	held     map[string]string // document name to the content the workspace holds
@@ -115,6 +119,17 @@ func (s *Service) parseFromLineage(inputs []sourceInput, mode diag.ConformanceMo
 
 	switch {
 	case l.fresh:
+		for _, input := range inputs {
+			if content, stood := l.standIns[input.name]; stood && content != input.content {
+				// A library version changed: noted as if first seen, so the
+				// next parse builds a workspace and checks it again.
+				l.fresh, l.standIns, l.held = false, nil, map[string]string{}
+				for _, input := range inputs {
+					l.held[input.name] = input.content
+				}
+				break
+			}
+		}
 		return nil, false
 	case l.ws == nil && len(l.held) == 0:
 		// First seen: noted, answered fresh.
@@ -144,17 +159,24 @@ func (s *Service) parseFromLineage(inputs []sourceInput, mode diag.ConformanceMo
 		}
 	}
 
+	// A document that versions a bundled library file is indexed by the
+	// workspace under the library's tier, which changes what the passes report
+	// about it; a fresh parse indexes it as the request's own. The set is
+	// answered fresh while those documents stay as they are, so the two never
+	// disagree.
+	standIns := map[string]string{}
+	for _, input := range inputs {
+		if l.ws.StandsIn(input.name) {
+			standIns[input.name] = input.content
+		}
+	}
+	if len(standIns) > 0 {
+		l.fresh, l.standIns, l.ws, l.held = true, standIns, nil, nil
+		return nil, false
+	}
 	names := make([]string, len(inputs))
 	for i, input := range inputs {
 		names[i] = input.name
-		// A document that versions a bundled library file is indexed by the
-		// workspace under the library's tier, which changes what the passes
-		// report about it; a fresh parse indexes it as the request's own. The
-		// set is answered fresh from now on, so the two never disagree.
-		if l.ws.StandsIn(input.name) {
-			l.fresh, l.ws, l.held = true, nil, nil
-			return nil, false
-		}
 		if doc := l.ws.Document(input.name); doc == nil || len(doc.ParseDiagnostics) > 0 {
 			return nil, false
 		}
@@ -191,7 +213,7 @@ func (s *Service) parseFromLineage(inputs []sourceInput, mode diag.ConformanceMo
 	}
 	return &CachedModel{
 		Documents: documents, Index: detached.Index(), Library: l.library, Mode: mode,
-		analysis: &analysisSnapshot{workspace: l.ws, stamps: stamps},
+		analysis: &analysisSnapshot{workspace: l.ws, stamps: stamps, scoped: declaresIdentityScope(inputs)},
 	}, true
 }
 
@@ -201,21 +223,49 @@ func (s *Service) parseFromLineage(inputs []sourceInput, mode diag.ConformanceMo
 // only after an edit dropped something its analysis read; so a document with
 // one stamp in two models of one workspace has one analysis in both, over the
 // same text and the same resolution.
+//
+// scoped records that a document may declare an identity scope: whether the
+// model's ids are qualified depends on how many scopes all of its documents
+// declare (identity.ProjectRefFQN), so an edit to one can change what every
+// document converts to without changing its analysis.
 type analysisSnapshot struct {
 	workspace *model.Workspace
 	stamps    map[string]uint64
+	scoped    bool
+}
+
+// declaresIdentityScope reports whether a document may declare an identity
+// scope: one does so only through the ProjectRef metadata, which a document
+// can apply, or alias, only by writing its name.
+func declaresIdentityScope(inputs []sourceInput) bool {
+	_, name := splitLastSegment(identity.ProjectRefFQN)
+	for _, input := range inputs {
+		if strings.Contains(input.content, name) {
+			return true
+		}
+	}
+	return false
+}
+
+// splitLastSegment splits a qualified name at its last `::`.
+func splitLastSegment(fqn string) (string, string) {
+	if i := strings.LastIndex(fqn, "::"); i >= 0 {
+		return fqn[:i], fqn[i+2:]
+	}
+	return "", fqn
 }
 
 // affectedDocuments names, in model's document order, the documents whose
 // analysis may differ between base and model: every one, unless both were
-// answered from one lineage's workspace, and then those whose stamp differs,
-// is zero, or base did not hold.
+// answered from one lineage's workspace and neither may declare an identity
+// scope, and then those whose stamp differs, is zero, or base did not hold.
 func affectedDocuments(base, model *CachedModel) []string {
 	names := make([]string, len(model.Documents))
 	for i, doc := range model.Documents {
 		names[i] = doc.Source.Name()
 	}
-	if base == nil || base.analysis == nil || model.analysis == nil || base.analysis.workspace != model.analysis.workspace {
+	if base == nil || base.analysis == nil || model.analysis == nil || base.analysis.workspace != model.analysis.workspace ||
+		base.analysis.scoped || model.analysis.scoped {
 		return names
 	}
 	affected := make([]string, 0, len(names))

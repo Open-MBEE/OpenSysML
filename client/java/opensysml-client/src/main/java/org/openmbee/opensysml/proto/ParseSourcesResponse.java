@@ -264,9 +264,10 @@ private static final long serialVersionUID = 0L;
    * whose diagnostics and conversion, may differ from base_model_hash's model:
    * those whose text changed, those whose analysis read something an edit
    * changed, and those base_model_hash's model did not hold. Every other
-   * document's results are the base's, so a client may reuse them. Every
-   * document when no base_model_hash was given or the service cannot relate
-   * it to this model (no longer cached, or not of the same documents).
+   * document's results are the base's, so a client may reuse them. Answered
+   * only when base_model_hash is given; every document when the service
+   * cannot relate it to this model (no longer cached, not of the same
+   * documents, or a model whose documents may declare an identity scope).
    * Reported as the "parse_sources_affected" capability.
    * </pre>
    *
@@ -283,9 +284,10 @@ private static final long serialVersionUID = 0L;
    * whose diagnostics and conversion, may differ from base_model_hash's model:
    * those whose text changed, those whose analysis read something an edit
    * changed, and those base_model_hash's model did not hold. Every other
-   * document's results are the base's, so a client may reuse them. Every
-   * document when no base_model_hash was given or the service cannot relate
-   * it to this model (no longer cached, or not of the same documents).
+   * document's results are the base's, so a client may reuse them. Answered
+   * only when base_model_hash is given; every document when the service
+   * cannot relate it to this model (no longer cached, not of the same
+   * documents, or a model whose documents may declare an identity scope).
    * Reported as the "parse_sources_affected" capability.
    * </pre>
    *
@@ -301,9 +303,10 @@ private static final long serialVersionUID = 0L;
    * whose diagnostics and conversion, may differ from base_model_hash's model:
    * those whose text changed, those whose analysis read something an edit
    * changed, and those base_model_hash's model did not hold. Every other
-   * document's results are the base's, so a client may reuse them. Every
-   * document when no base_model_hash was given or the service cannot relate
-   * it to this model (no longer cached, or not of the same documents).
+   * document's results are the base's, so a client may reuse them. Answered
+   * only when base_model_hash is given; every document when the service
+   * cannot relate it to this model (no longer cached, not of the same
+   * documents, or a model whose documents may declare an identity scope).
    * Reported as the "parse_sources_affected" capability.
    * </pre>
    *
@@ -320,9 +323,10 @@ private static final long serialVersionUID = 0L;
    * whose diagnostics and conversion, may differ from base_model_hash's model:
    * those whose text changed, those whose analysis read something an edit
    * changed, and those base_model_hash's model did not hold. Every other
-   * document's results are the base's, so a client may reuse them. Every
-   * document when no base_model_hash was given or the service cannot relate
-   * it to this model (no longer cached, or not of the same documents).
+   * document's results are the base's, so a client may reuse them. Answered
+   * only when base_model_hash is given; every document when the service
+   * cannot relate it to this model (no longer cached, not of the same
+   * documents, or a model whose documents may declare an identity scope).
    * Reported as the "parse_sources_affected" capability.
    * </pre>
    *
@@ -1619,9 +1623,10 @@ private static final long serialVersionUID = 0L;
      * whose diagnostics and conversion, may differ from base_model_hash's model:
      * those whose text changed, those whose analysis read something an edit
      * changed, and those base_model_hash's model did not hold. Every other
-     * document's results are the base's, so a client may reuse them. Every
-     * document when no base_model_hash was given or the service cannot relate
-     * it to this model (no longer cached, or not of the same documents).
+     * document's results are the base's, so a client may reuse them. Answered
+     * only when base_model_hash is given; every document when the service
+     * cannot relate it to this model (no longer cached, not of the same
+     * documents, or a model whose documents may declare an identity scope).
      * Reported as the "parse_sources_affected" capability.
      * </pre>
      *
@@ -1639,9 +1644,10 @@ private static final long serialVersionUID = 0L;
      * whose diagnostics and conversion, may differ from base_model_hash's model:
      * those whose text changed, those whose analysis read something an edit
      * changed, and those base_model_hash's model did not hold. Every other
-     * document's results are the base's, so a client may reuse them. Every
-     * document when no base_model_hash was given or the service cannot relate
-     * it to this model (no longer cached, or not of the same documents).
+     * document's results are the base's, so a client may reuse them. Answered
+     * only when base_model_hash is given; every document when the service
+     * cannot relate it to this model (no longer cached, not of the same
+     * documents, or a model whose documents may declare an identity scope).
      * Reported as the "parse_sources_affected" capability.
      * </pre>
      *
@@ -1657,9 +1663,10 @@ private static final long serialVersionUID = 0L;
      * whose diagnostics and conversion, may differ from base_model_hash's model:
      * those whose text changed, those whose analysis read something an edit
      * changed, and those base_model_hash's model did not hold. Every other
-     * document's results are the base's, so a client may reuse them. Every
-     * document when no base_model_hash was given or the service cannot relate
-     * it to this model (no longer cached, or not of the same documents).
+     * document's results are the base's, so a client may reuse them. Answered
+     * only when base_model_hash is given; every document when the service
+     * cannot relate it to this model (no longer cached, not of the same
+     * documents, or a model whose documents may declare an identity scope).
      * Reported as the "parse_sources_affected" capability.
      * </pre>
      *
@@ -1676,9 +1683,10 @@ private static final long serialVersionUID = 0L;
      * whose diagnostics and conversion, may differ from base_model_hash's model:
      * those whose text changed, those whose analysis read something an edit
      * changed, and those base_model_hash's model did not hold. Every other
-     * document's results are the base's, so a client may reuse them. Every
-     * document when no base_model_hash was given or the service cannot relate
-     * it to this model (no longer cached, or not of the same documents).
+     * document's results are the base's, so a client may reuse them. Answered
+     * only when base_model_hash is given; every document when the service
+     * cannot relate it to this model (no longer cached, not of the same
+     * documents, or a model whose documents may declare an identity scope).
      * Reported as the "parse_sources_affected" capability.
      * </pre>
      *
@@ -1696,9 +1704,10 @@ private static final long serialVersionUID = 0L;
      * whose diagnostics and conversion, may differ from base_model_hash's model:
      * those whose text changed, those whose analysis read something an edit
      * changed, and those base_model_hash's model did not hold. Every other
-     * document's results are the base's, so a client may reuse them. Every
-     * document when no base_model_hash was given or the service cannot relate
-     * it to this model (no longer cached, or not of the same documents).
+     * document's results are the base's, so a client may reuse them. Answered
+     * only when base_model_hash is given; every document when the service
+     * cannot relate it to this model (no longer cached, not of the same
+     * documents, or a model whose documents may declare an identity scope).
      * Reported as the "parse_sources_affected" capability.
      * </pre>
      *
@@ -1722,9 +1731,10 @@ private static final long serialVersionUID = 0L;
      * whose diagnostics and conversion, may differ from base_model_hash's model:
      * those whose text changed, those whose analysis read something an edit
      * changed, and those base_model_hash's model did not hold. Every other
-     * document's results are the base's, so a client may reuse them. Every
-     * document when no base_model_hash was given or the service cannot relate
-     * it to this model (no longer cached, or not of the same documents).
+     * document's results are the base's, so a client may reuse them. Answered
+     * only when base_model_hash is given; every document when the service
+     * cannot relate it to this model (no longer cached, not of the same
+     * documents, or a model whose documents may declare an identity scope).
      * Reported as the "parse_sources_affected" capability.
      * </pre>
      *
@@ -1747,9 +1757,10 @@ private static final long serialVersionUID = 0L;
      * whose diagnostics and conversion, may differ from base_model_hash's model:
      * those whose text changed, those whose analysis read something an edit
      * changed, and those base_model_hash's model did not hold. Every other
-     * document's results are the base's, so a client may reuse them. Every
-     * document when no base_model_hash was given or the service cannot relate
-     * it to this model (no longer cached, or not of the same documents).
+     * document's results are the base's, so a client may reuse them. Answered
+     * only when base_model_hash is given; every document when the service
+     * cannot relate it to this model (no longer cached, not of the same
+     * documents, or a model whose documents may declare an identity scope).
      * Reported as the "parse_sources_affected" capability.
      * </pre>
      *
@@ -1772,9 +1783,10 @@ private static final long serialVersionUID = 0L;
      * whose diagnostics and conversion, may differ from base_model_hash's model:
      * those whose text changed, those whose analysis read something an edit
      * changed, and those base_model_hash's model did not hold. Every other
-     * document's results are the base's, so a client may reuse them. Every
-     * document when no base_model_hash was given or the service cannot relate
-     * it to this model (no longer cached, or not of the same documents).
+     * document's results are the base's, so a client may reuse them. Answered
+     * only when base_model_hash is given; every document when the service
+     * cannot relate it to this model (no longer cached, not of the same
+     * documents, or a model whose documents may declare an identity scope).
      * Reported as the "parse_sources_affected" capability.
      * </pre>
      *
@@ -1794,9 +1806,10 @@ private static final long serialVersionUID = 0L;
      * whose diagnostics and conversion, may differ from base_model_hash's model:
      * those whose text changed, those whose analysis read something an edit
      * changed, and those base_model_hash's model did not hold. Every other
-     * document's results are the base's, so a client may reuse them. Every
-     * document when no base_model_hash was given or the service cannot relate
-     * it to this model (no longer cached, or not of the same documents).
+     * document's results are the base's, so a client may reuse them. Answered
+     * only when base_model_hash is given; every document when the service
+     * cannot relate it to this model (no longer cached, not of the same
+     * documents, or a model whose documents may declare an identity scope).
      * Reported as the "parse_sources_affected" capability.
      * </pre>
      *

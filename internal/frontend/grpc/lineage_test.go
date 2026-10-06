@@ -189,3 +189,43 @@ func TestParseSourcesFromALineageUnderConcurrentRequests(t *testing.T) {
 	}
 	wg.Wait()
 }
+
+// A set answered fresh because it held a library version is noted afresh once
+// that document changes, so it is answered from a workspace again.
+func TestALibraryVersionSetRegainsItsLineage(t *testing.T) {
+	srv := mustNewService(t, 10)
+	defer srv.Close()
+	parse := func(library, top string) {
+		t.Helper()
+		documents := []*pb.SourceDocument{
+			{Source: &pb.SourceDocument_Content{Content: library}, Name: "ScalarValues.kerml", Language: "kerml"},
+			{Source: &pb.SourceDocument_Content{Content: top}, Name: "top.sysml"},
+		}
+		if _, err := srv.ParseSources(context.Background(), &pb.ParseSourcesRequest{Documents: documents}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	version := "standard library package ScalarValues {\n\tdatatype Extra;\n}\n"
+	held := func() *lineage {
+		key := lineageKey([]sourceInput{{name: "ScalarValues.kerml", language: "kerml"}, {name: "top.sysml"}}, 0)
+		el, ok := srv.lineages.byKey[key]
+		if !ok {
+			return nil
+		}
+		return el.Value.(*lineageEntry).l
+	}
+	parse(version, sourcesTop)
+	parse(version, sourcesTop+"// edited\n")
+	if l := held(); l == nil || !l.fresh {
+		t.Fatalf("a set holding a library version is answered fresh: %+v", l)
+	}
+	parse(version, sourcesTop+"// edited again\n")
+	if !held().fresh {
+		t.Fatal("the set left the fresh path while its library version was unchanged")
+	}
+	parse("package Scalars;\n", sourcesTop)
+	parse("package Scalars;\n", sourcesTop+"// edited\n")
+	if l := held(); l.fresh || l.ws == nil {
+		t.Errorf("once the library version changed, the set was not answered from a workspace again: %+v", l)
+	}
+}

@@ -93,8 +93,9 @@ func TestParseSourcesAffectedLeavesOutOnlyWhatConvertsAsBefore(t *testing.T) {
 	}
 }
 
-// Without a base the service can compare against, every document is affected:
-// no base, one it no longer holds, one answered fresh, or one of another set.
+// A request without a base gets no affected documents; with a base the service
+// cannot compare against, every document is affected: one it no longer holds,
+// one answered fresh, or one of another set.
 func TestParseSourcesAffectedIsEveryDocumentWithoutAComparableBase(t *testing.T) {
 	srv := mustNewService(t, 32)
 	defer srv.Close()
@@ -111,8 +112,8 @@ func TestParseSourcesAffectedIsEveryDocumentWithoutAComparableBase(t *testing.T)
 		return resp
 	}
 	first := parse("", affectedLibrary)
-	if !slices.Equal(first.Affected, all) {
-		t.Errorf("no base: affected %v, want %v", first.Affected, all)
+	if len(first.Affected) != 0 {
+		t.Errorf("no base: affected %v, want none", first.Affected)
 	}
 	// The first parse of a set is answered fresh, so the next has nothing to compare with.
 	second := parse(first.ModelHash, affectedLibrary+"// one\n")
@@ -149,5 +150,29 @@ func TestParseSourcesAffectedNeedsTheCapability(t *testing.T) {
 func TestParseSourcesAffectedCapabilityIsTheNewest(t *testing.T) {
 	if all := Capabilities(); all[len(all)-1] != CapabilityParseSourcesAffected {
 		t.Errorf("capabilities %v do not end with %q, the newest", all, CapabilityParseSourcesAffected)
+	}
+}
+
+// Whether a model's ids are qualified depends on how many identity scopes its
+// documents declare together, so an edit to one document can change every
+// document's conversion without changing its analysis: a model naming
+// ProjectRef has every document affected.
+func TestParseSourcesAffectedIsEveryDocumentWhereAnIdentityScopeMayChange(t *testing.T) {
+	srv := mustNewService(t, 32)
+	defer srv.Close()
+	scoped := "package Other {\n\tprivate import IdentityMetadata::*;\n\t@ProjectRef { projectId = \"p\"; }\n\tpart def Wheel;\n}\n"
+	base := ""
+	for i, other := range []string{affectedOther, affectedOther + "// one\n", scoped} {
+		resp, err := srv.ParseSources(context.Background(), &pb.ParseSourcesRequest{
+			Documents:     inlineDocuments("lib.sysml", affectedLibrary, "top.sysml", affectedTop, "other.sysml", other),
+			BaseModelHash: base,
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if i == 2 && len(resp.Affected) != 3 {
+			t.Errorf("a document now declaring a scope: affected %v, want every document", resp.Affected)
+		}
+		base = resp.ModelHash
 	}
 }

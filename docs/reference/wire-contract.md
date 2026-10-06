@@ -200,11 +200,14 @@ names, in the request's document order, every document whose results may differ 
 model's. A document left out was answered from the very analysis the base was, so its
 diagnostics are the base's and `Convert` with `documents` naming it writes exactly what it wrote
 for the base: a client that keeps each document's conversion re-converts only the affected ones.
-The list errs towards naming too many. Every document is named when the service holds no
-base of that hash, when the base was answered fresh rather than from the set's workspace (the
-first parse of a set, a document that did not parse clean), or when the base is another document
-set's; and a document is named whenever the workspace analyzed it again, which can be for a name
-it read being declared again unchanged. A base hash sent to a service without the capability is
+A request without `base_model_hash` gets no `affected`. The list errs towards naming too
+many. Every document is named when the service holds no base of that hash, when the base was
+answered fresh rather than from the set's workspace (the first parse of a set, a document that
+did not parse clean), when the base is another document set's, or when a document of either
+model names `ProjectRef`: how many identity scopes a model declares decides whether its ids are
+qualified, which can change every document's conversion without changing its analysis. A
+document is named whenever the workspace analyzed it again, which can be for a name it read being
+declared again unchanged. A base hash sent to a service without the capability is
 refused with `UNIMPLEMENTED`.
 
 A **stale or unknown hash** is therefore always HTTP 404 with `"code":"not_found"`, on every
