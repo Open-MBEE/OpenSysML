@@ -269,7 +269,33 @@ func TestNightlyPrunesPerNightReleasesByAge(t *testing.T) {
 		t.Error("the publish job does not delete per-night releases, tag and all, older than $RETENTION_DAYS by their tag form")
 	case prune < release:
 		t.Error("old releases are pruned before this night's is published, so a failed publish leaves fewer nights than promised")
-	case !containsAll(steps[prune].Command, `"$tag" == "$VERSION"`, `"$tag_sha" == "$alias_sha"`):
-		t.Error("pruning does not spare this night's release and the one the alias stands at")
+	case !containsAll(steps[prune].Command, `"$tag" == "$VERSION"`):
+		t.Error("pruning does not spare this night's release, which the alias was just recreated at")
+	case strings.Contains(steps[prune].Command, "alias_sha"):
+		t.Error("pruning spares nights by the alias's commit, which keeps every expired night forced from that commit")
+	}
+}
+
+func TestNightlyNeverRebuildsAPublishedNight(t *testing.T) {
+	workflow, _ := loadNightlyWorkflow(t)
+	pick := nightlyJob(t, workflow, "select").runSteps()
+	if stepIndex(pick, `gh release view "$night"`, "isDraft", "publish=false") < 0 {
+		t.Error("the select job does not skip a night already published; the packages on PyPI and npm pin binaries a rebuild would not reproduce")
+	}
+	steps := nightlyJob(t, workflow, "publish").runSteps()
+	version := stepIndex(steps, `"$SNAPSHOT_SCRIPT"`, "--stamp")
+	if version < 0 || !containsAll(steps[version].Command, `"$SNAPSHOT_DATE"`, `tag=$NIGHT`) {
+		t.Error("the version step does not derive the night the select job found unpublished, by its date and name")
+	}
+	release := stepIndex(steps, "gh release create")
+	if release < 0 {
+		t.Fatal("no step creates the releases")
+	}
+	command := steps[release].Command
+	if strings.Contains(command, `gh release delete "$VERSION" --cleanup-tag`) {
+		t.Error("the release step deletes a published night, tag and all, orphaning the packages that pin it")
+	}
+	if !containsAll(command, `gh release view "$VERSION" --json isDraft`, "already published", "exit 1") {
+		t.Error("the release step does not refuse to replace a published night")
 	}
 }

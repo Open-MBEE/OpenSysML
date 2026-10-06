@@ -208,9 +208,14 @@ re-published under its name.
 ## How it is produced
 
 [`.github/workflows/nightly.yml`](../../.github/workflows/nightly.yml)
-runs at 03:23 UTC and on demand (`workflow_dispatch`, with a `force` input that republishes
-the same commit — for instance after the workflow itself changed). It picks the commit as
-described above and, in one job, derives the versions with the commit's own
+runs at 03:23 UTC and on demand (`workflow_dispatch`, with a `force` input that publishes
+the same commit again as a new night, under today's date — for instance after the workflow
+itself changed). A night already published, the same commit under the same date, is never
+rebuilt, forced or not: the packages on PyPI and npm pin the digests of its binaries, which
+a rebuild would not reproduce byte for byte, so the run publishes nothing. To retry a
+night's PyPI or npm publication, re-run the failed jobs of the run that published it; they
+republish the distributions that run kept. The workflow picks the commit as described
+above and, in one job, derives the versions with the commit's own
 [`client/python/scripts/snapshot_version.py`](../../client/python/scripts/snapshot_version.py)
 and stamps them into the checkout's `_version.py` and `package.json` (nothing is
 committed); builds the assets with

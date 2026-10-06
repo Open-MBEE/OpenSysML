@@ -11,7 +11,7 @@ on:
   workflow_dispatch:
     inputs:
       force:
-        description: Rebuild and republish even when the newest green develop commit is already the published snapshot
+        description: Publish the newest green develop commit as tonight's snapshot even when it is already the published one (a night already published is never rebuilt)
         type: boolean
         default: false
 
@@ -40,6 +40,8 @@ jobs:
     timeout-minutes: 10
     outputs:
       sha: ${{ steps.pick.outputs.sha }}
+      date: ${{ steps.pick.outputs.date }}
+      night: ${{ steps.pick.outputs.night }}
       publish: ${{ steps.pick.outputs.publish }}
     steps:
       - name: Check out develop
@@ -96,15 +98,29 @@ jobs:
             echo "::error::No commit among the newest 100 on $BRANCH has a green CircleCI status; nothing to publish."
             exit 1
           fi
-          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+          date=$(date -u +%Y%m%d)
+          night="$TAG-$date-$(git rev-parse --short "$sha")"
+          {
+            echo "sha=$sha"
+            echo "date=$date"
+            echo "night=$night"
+          } >> "$GITHUB_OUTPUT"
 
           if [ "$published" = "$sha" ] && [ -n "$released" ] && [ "$FORCE" != true ]; then
             echo "::notice::$TAG already points at $sha, the newest green commit on $BRANCH, with its release; nothing to rebuild."
             echo "publish=false" >> "$GITHUB_OUTPUT"
-          else
-            echo "Publishing $sha as $TAG (previously ${published:-unpublished})."
-            echo "publish=true" >> "$GITHUB_OUTPUT"
+            exit 0
           fi
+          # A published night is immutable, forced or not: the packages already on PyPI and npm
+          # pin the digests of its binaries, and a rebuild would not reproduce them byte for byte.
+          # A draft is what an interrupted upload leaves behind; it pins nothing and is replaced.
+          if draft=$(gh release view "$night" --json isDraft --jq .isDraft 2>/dev/null) && [ "$draft" != true ]; then
+            echo "::notice::$night is already published and is never rebuilt; to retry its PyPI or npm publication, re-run the failed jobs of the run that published it."
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "Publishing $sha as $night and $TAG (previously ${published:-unpublished})."
+          echo "publish=true" >> "$GITHUB_OUTPUT"
 
   publish:
     name: Build and publish the snapshot
@@ -161,13 +177,21 @@ jobs:
       # manifests of this checkout. Every binary reports the release tag.
       - name: Derive the snapshot versions
         id: version
+        env:
+          SNAPSHOT_DATE: ${{ needs.select.outputs.date }}
+          NIGHT: ${{ needs.select.outputs.night }}
         run: |
           commit=$(git rev-parse --short HEAD)
-          versions=$(python "$SNAPSHOT_SCRIPT" --date "$(date -u +%Y%m%d)" --commit "$commit" --stamp)
+          versions=$(python "$SNAPSHOT_SCRIPT" --date "$SNAPSHOT_DATE" --commit "$commit" --stamp)
           echo "$versions"
+          # The select job found no release under this name; the script must derive the same one.
+          if [[ "$versions" != *"tag=$NIGHT"* ]]; then
+            echo "::error::The snapshot is named $(grep '^tag=' <<<"$versions"), not the $NIGHT the select job checked for."
+            exit 1
+          fi
           {
             echo "$versions"
-            echo "date=$(date -u +%Y-%m-%d)"
+            echo "date=$(date -u -d "$SNAPSHOT_DATE" +%Y-%m-%d)"
             echo "base=$(git describe --tags --abbrev=0 --match 'v[0-9]*' HEAD)"
           } >> "$GITHUB_OUTPUT"
           git diff --stat -- client/python/opensysml/_version.py client/node/package.json
@@ -452,9 +476,14 @@ jobs:
               exit 1
             fi
           done
-          # A forced rebuild of the same commit on the same day replaces its own release.
-          if gh release view "$VERSION" --json tagName >/dev/null 2>&1; then
-            gh release delete "$VERSION" --cleanup-tag --yes
+          # A published night is never replaced: the packages on PyPI and npm pin its binaries.
+          # Only a draft, left by an interrupted upload, gives way; nothing pins a draft.
+          if draft=$(gh release view "$VERSION" --json isDraft --jq .isDraft 2>/dev/null); then
+            if [[ "$draft" != true ]]; then
+              echo "::error::$VERSION is already published; a night's release is never replaced."
+              exit 1
+            fi
+            gh release delete "$VERSION" --yes
           fi
           gh release create "$VERSION" \
             --target "$sha" \
@@ -480,8 +509,11 @@ jobs:
           gh release view "$TAG" --json url --jq .url
 
       # Only per-night releases are candidates: the stable `v*` releases and the alias
-      # match neither the tag form nor the age test, and the night the alias stands at
-      # is kept however old, so the alias never outlives the release it names.
+      # match neither the tag form nor the age test. The previous step recreated the alias
+      # at this night, so sparing this night by its exact tag spares the alias's night; a
+      # night at the same commit under an earlier date is a different night and ages out.
+      # Nothing is deleted on a night that publishes nothing, so the alias never outlives
+      # the release it names.
       - name: Delete per-night releases older than the retention period
         env:
           GH_TOKEN: ${{ github.token }}
@@ -489,18 +521,12 @@ jobs:
           VERSION: ${{ steps.version.outputs.tag }}
         run: |
           cutoff=$(date -u -d "$RETENTION_DAYS days ago" +%Y-%m-%dT%H:%M:%SZ)
-          alias_sha=$(gh api "repos/$GH_REPO/git/ref/tags/$TAG" --jq .object.sha)
-          echo "Deleting per-night releases published before $cutoff, except the one at ${alias_sha:0:7}."
+          echo "Deleting per-night releases published before $cutoff, except $VERSION, which $TAG names."
           gh api --paginate "repos/$GH_REPO/releases?per_page=100" \
             --jq '.[] | select(.tag_name | test("^nightly-[0-9]{8}-[0-9a-f]+$")) | [.tag_name, (.published_at // .created_at)] | @tsv' |
           while IFS=$'\t' read -r tag published; do
             if [[ "$tag" == "$VERSION" || ! "$published" < "$cutoff" ]]; then
               echo "keep   $tag ($published)"
-              continue
-            fi
-            tag_sha=$(gh api "repos/$GH_REPO/git/ref/tags/$tag" --jq .object.sha 2>/dev/null || true)
-            if [[ -n "$alias_sha" && "$tag_sha" == "$alias_sha" ]]; then
-              echo "keep   $tag ($published): the $TAG alias stands at it"
               continue
             fi
             echo "delete $tag ($published)"
