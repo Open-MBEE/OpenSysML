@@ -219,11 +219,12 @@ export function readModel(engine: EngineClient, source: string): ModelRead {
   };
 }
 
-export function journey(engine: EngineClient, model: LandingModel): string[] {
+export function journey(engine: EngineClient, model: LandingModel, seed?: number): string[] {
   const result = rpc<ExecuteStateResult>(engine, "ExecuteState", {
     modelHash: model.hash,
     stateMachineSymbolId: JOURNEY_SYMBOL,
     events: JOURNEY_EVENTS,
+    ...(seed === undefined ? {} : { schedule: `seed:${seed}` }),
   });
   const idsByFeature = new Map([...model.parts.values()].map((part) => [part.feature, part.id]));
   return (result.statesVisited ?? []).flatMap((state) => {

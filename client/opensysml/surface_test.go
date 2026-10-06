@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"slices"
 	"strings"
 	"testing"
 
@@ -680,6 +681,43 @@ func TestRenderDocumentAnswersMarkdown(t *testing.T) {
 	}
 	if !strings.Contains(markdown, "mount") {
 		t.Errorf("rendered document does not carry its table rows:\n%s", markdown)
+	}
+}
+
+func TestRenderViewAgainstService(t *testing.T) {
+	client := newClient(t)
+	source, err := os.ReadFile(filepath.Join("..", "..", "conformance", "fixtures", "views.sysml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	model := parse(t, client, string(source))
+	rendered, err := client.RenderView(context.Background(), model, "RenderViewDemo::connections")
+	if err != nil {
+		t.Fatalf("RenderView: %v", err)
+	}
+	if rendered.Kind != "interconnection" || len(rendered.Edges) != 1 {
+		t.Fatalf("rendered view kind/edges = %q/%d", rendered.Kind, len(rendered.Edges))
+	}
+	if rendered.Edges[0].FromPort == "" || rendered.Edges[0].ToPort == "" {
+		t.Errorf("edge ports = %q -> %q, want both endpoints", rendered.Edges[0].FromPort, rendered.Edges[0].ToPort)
+	}
+	for _, node := range rendered.Nodes {
+		if node.Origin == nil || node.Origin.StartLine == 0 {
+			t.Errorf("node %q has no source origin", node.Name)
+		}
+	}
+	full, err := client.RenderView(context.Background(), model, "RenderViewDemo::connections", opensysml.WithFullPorts())
+	if err != nil {
+		t.Fatalf("RenderView with full ports: %v", err)
+	}
+	var names []string
+	for _, node := range full.Nodes {
+		for _, port := range node.Ports {
+			names = append(names, port.Name)
+		}
+	}
+	if !slices.Contains(names, "spare") {
+		t.Errorf("full ports = %v, want spare", names)
 	}
 }
 

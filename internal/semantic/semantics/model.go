@@ -140,6 +140,9 @@ type Model struct {
 	// assumedSupers holds the supertypes a reducer's first parameter is judged under
 	// while its reducer's result is typed (see bodyparam.go).
 	assumedSupers map[*symbols.Symbol]assumedSupertypes
+	// implicitRels memoizes each element's reflected relationship objects
+	// (see reflective_relationships.go).
+	implicitRels map[*symbols.Symbol][]*symbols.Symbol
 }
 
 // NewModel creates a semantic model backed by the given name resolver. The
@@ -207,6 +210,7 @@ func NewModel(resolver *resolve.Resolver) *Model {
 		bodyApplications:      make(map[*ast.BodyExpr]bodyApplication),
 		bodyIndexed:           make(map[*symbols.Scope]bool),
 		assumedSupers:         make(map[*symbols.Symbol]assumedSupertypes),
+		implicitRels:          make(map[*symbols.Symbol][]*symbols.Symbol),
 	}
 	if resolver != nil {
 		resolver.SetModel(m)
