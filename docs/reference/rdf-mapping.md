@@ -1298,7 +1298,7 @@ the node, that name is used; the rest are `sysx:` terms, marked below.
 | `action a;`, `action a { x + 1 }` | `sysx:ActionExecutionNode` | `sysml:references` or `sysx:expression` |
 | `perform a;` | `sysml:PerformActionUsage` | `sysx:expression` (the action performed) |
 | `assign x := 1;` | `sysml:AssignmentActionUsage` | `sysx:target`, `sysml:value`, `sysx:assignmentOperator` when it is not `:=` |
-| `send M(x) to p;`, `… via p;` | `sysml:SendActionUsage` | `sysx:payload`, `sysx:receiver`, `sysx:isVia` |
+| `send M(x) to p;`, `… via p;`, `action s send M(x) to p;` | `sysml:SendActionUsage` (SysML.xtext `SendNode`), named or not | `sysx:payload`, `sysx:receiver`, `sysx:isVia`; the named form `action s send … to p;` is one `SendActionUsage` declaring `s`, not an `ActionUsage` owning a nameless send, and reads back with its `action s` head from its name alone |
 | `terminate;`, `terminate x;` | `sysml:TerminateActionUsage` | `sysx:expression` |
 | `action stop terminate;` (a declared terminate action usage) | `sysml:TerminateActionUsage` | the usage's own properties, `sysx:hasBody` among them — which is what tells a declaration from the statement above, since a statement never states it |
 | `accept sig : Signal;`, `accept when c;` | the usage's own metaclass | `sysml:isAccept`, and `sysx:declaredKeyword "accept"` where the optional `action` was not written; an `after`, `at` or `when` event is the payload's value, a `sysml:TriggerInvocationExpression` whose `sysml:kind` is the keyword |

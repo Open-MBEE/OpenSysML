@@ -603,7 +603,10 @@ type encoder struct {
 	effects map[ast.Node]bool
 	// triggerParams holds the parameters of a transition's trigger action: each
 	// maps to the AcceptActionUsage property that names it, if any.
-	triggerParams  map[ast.Node]string
+	triggerParams map[ast.Node]string
+	// triggerMembers maps a node written in another member's head — a
+	// transition's trigger and its payload, a send node's statement — to the
+	// member its references are written from.
 	triggerMembers map[ast.Node]string
 	// payloads holds the PayloadFeature each flow's `of` clause declares, keyed
 	// by the flow: the declared feature of `of p : T`, or one made up for
@@ -647,6 +650,12 @@ type encoder struct {
 
 func (e *encoder) indexTriggerMembers() {
 	for node, fqn := range e.fqn {
+		if u, ok := node.(*ast.Usage); ok {
+			if send := sendNodeStatement(u); send != nil {
+				e.triggerMembers[send] = fqn
+			}
+			continue
+		}
 		transition, ok := node.(*ast.TransitionMember)
 		if !ok || transition.Trigger == nil {
 			continue
@@ -1417,6 +1426,10 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 		if e.performed[n] {
 			metaclass = mPerform
 		}
+		send := sendNodeStatement(n)
+		if send != nil {
+			metaclass = mSend
+		}
 		payload := e.payloadFeatures[n]
 		if payload {
 			// A flow owns its payload through a FeatureMembership
@@ -1615,6 +1628,14 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 			if err := e.encodeMember(h, fqn); err != nil {
 				return err
 			}
+		}
+		if send != nil {
+			// The node's one statement is its head; it owns no send of its own.
+			if err := e.sendStatement(subject, within, send); err != nil {
+				return err
+			}
+			e.graph.Add(subject, e.sysx(xHasBody), rdf.Bool(false))
+			return nil
 		}
 		e.graph.Add(subject, e.sysx(xHasBody), rdf.Bool(n.HasBody))
 		if !local && (inBody || n.Kind == ast.UsageMetadata) {

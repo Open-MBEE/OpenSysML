@@ -103,6 +103,40 @@ func (e *encoder) libraryReference(name *ast.QualifiedName) rdf.Term {
 	return rdf.String(qualifiedText(name))
 }
 
+// sendStatement states what a send sends and where (SysML.xtext SendNode:
+// its payload, and the receiver or the port it is routed through).
+func (e *encoder) sendStatement(subject rdf.Term, owner string, n *ast.SendStatement) error {
+	if err := e.expression(subject, e.sysx(xPayload), xPayload, owner, n.Message); err != nil {
+		return err
+	}
+	if err := e.expression(subject, e.sysx(xReceiver), xReceiver, owner, n.Target); err != nil {
+		return err
+	}
+	if n.IsVia {
+		e.graph.Add(subject, e.sysx(xIsVia), rdf.Bool(true))
+	}
+	return nil
+}
+
+// sendNodeStatement is the send an `action n send p to r;` node writes in its
+// head: the one statement of its unbraced body. The node is one SendActionUsage
+// (SysML.xtext SendNode: ActionNodeUsageDeclaration? 'send' …), not an action
+// owning a send, so it is nil for a braced body or any other member.
+func sendNodeStatement(n *ast.Usage) *ast.SendStatement {
+	if n.Kind != ast.UsageAction || !n.IsActionNode || len(n.Members) != 1 {
+		return nil
+	}
+	member := n.Members[0]
+	if m, ok := member.(*ast.Membership); ok {
+		member = m.Member
+	}
+	send, ok := member.(*ast.SendStatement)
+	if !ok || send.HasBody || len(send.Members) > 0 {
+		return nil
+	}
+	return send
+}
+
 // encodeBehavior emits the triples of a behavioral node, reporting whether the
 // node was one. head writes the properties every member carries.
 func (e *encoder) encodeBehavior(node ast.Node, head func(rdf.Term), subject rdf.Term, fqn, owner string, index int) (bool, error) {
@@ -157,16 +191,7 @@ func (e *encoder) encodeBehavior(node ast.Node, head func(rdf.Term), subject rdf
 
 	case *ast.SendStatement:
 		head(rdf.SysMLTerm(mSend))
-		if err := e.expression(subject, e.sysx(xPayload), xPayload, owner, n.Message); err != nil {
-			return true, err
-		}
-		if err := e.expression(subject, e.sysx(xReceiver), xReceiver, owner, n.Target); err != nil {
-			return true, err
-		}
-		if n.IsVia {
-			e.graph.Add(subject, e.sysx(xIsVia), rdf.Bool(true))
-		}
-		return true, nil
+		return true, e.sendStatement(subject, owner, n)
 
 	case *ast.TerminateStatement:
 		head(rdf.SysMLTerm(mTerminate))
@@ -1113,7 +1138,15 @@ func (d *decoder) behaviorHead(el *element) (string, bool, error) {
 		if d.boolOf(el, rdf.OpenSysML+xIsVia) {
 			keyword = "via"
 		}
-		return strings.Join([]string{"send", payload, keyword, receiver}, " "), true, nil
+		var words []string
+		// A named send is the node `action n send …` declares (SysML.xtext
+		// SendNode: ActionNodeUsageDeclaration).
+		if ident := d.identWords(el); len(ident) > 0 {
+			words = append(words, "action")
+			words = append(words, ident...)
+		}
+		words = append(words, "send", payload, keyword, receiver)
+		return strings.Join(words, " "), true, nil
 
 	case mTerminate:
 		// A declared `action a terminate;` is a usage head, not a statement; it keeps its
