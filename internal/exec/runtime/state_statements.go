@@ -145,7 +145,7 @@ func (e *StateExecutor) firingOf(t *lower.Transition) *firing {
 // name — `Track::context` inside a behavior of a state of Track's — finds its value
 // here.
 func (h *stateStmtHost) dataFrame() frame {
-	return frame{vars: h.exec.stateData, performed: h.exec.stateMachine, firing: h.firing}
+	return frame{vars: h.exec.stateData, performed: h.exec.stateMachine, firing: h.firing, machine: h.exec}
 }
 
 // run executes the behavior's statements; a do behavior's pause where they wait

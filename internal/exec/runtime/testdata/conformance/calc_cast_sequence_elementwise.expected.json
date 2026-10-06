@@ -9,9 +9,9 @@
     ]},
     "rationalsOfMixed": {"type": "Sequence", "elements": [
       {"type": "Integer", "value": 1},
-      {"type": "Real", "value": 2.5},
+      {"type": "Rational", "value": "2.5"},
       {"type": "Integer", "value": 3},
-      {"type": "Real", "value": 4.0}
+      {"type": "Rational", "value": "4.0"}
     ]},
     "noneConform": {"type": "Sequence", "elements": []},
     "emptyStaysEmpty": {"type": "Sequence", "elements": []}

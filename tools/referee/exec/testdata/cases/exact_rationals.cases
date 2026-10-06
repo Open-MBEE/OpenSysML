@@ -1,0 +1,16 @@
+model: tools/referee/exec/testdata/models/exact_rationals.sysml
+
+# The binary64 probes of docs/project/exact-rational-evaluation.md. The pinned
+# pilot holds a LiteralRational as a Java double; a Rational is a rational
+# number, so every comparison below is exact here and rounded there.
+by-design: KerML 1.0 §9.3.2.2.8 Rational is the rational numbers; §8.4.4.9.2 a LiteralRational's result is a Rational
+tenths-sum ::  :: 0.1 + 0.2
+tenths-sum-equals ::  :: 0.1 + 0.2 == 0.3
+tenths-sum-at-most ::  :: 0.1 + 0.2 <= 0.3
+tenths-sum-exceeds ::  :: 0.3 < 0.1 + 0.2
+tenths-residue ::  :: 0.1 + 0.2 - 0.3
+forty-ninths-equal ::  :: (1.0 / 49.0) * 49.0 == 1.0
+thirds-equal ::  :: (1.0 / 3.0) * 3.0 == 1.0
+tenfold-tenth-equals ::  :: ExactRationals::tenfold == 1.0
+rational-third ::  :: 1.0 / 3.0
+integer-third ::  :: 1 / 3

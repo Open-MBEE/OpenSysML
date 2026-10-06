@@ -54,12 +54,12 @@ func TestCalcUsageOutputsShareOneInputBinding(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Snapshotted: %v", err)
 	}
-	if got.Const.Real != want.Const.Real {
+	if got.Const.AsReal() != want.Const.AsReal() {
 		t.Errorf("Interleaved = %v, Snapshotted = %v; reading order must not be observable",
-			got.Const.Real, want.Const.Real)
+			got.Const.AsReal(), want.Const.AsReal())
 	}
-	if want.Const.Real != 1010.0 {
-		t.Errorf("Snapshotted = %v, want 1010 (both outputs from k = 1.0)", want.Const.Real)
+	if want.Const.AsReal() != 1010.0 {
+		t.Errorf("Snapshotted = %v, want 1010 (both outputs from k = 1.0)", want.Const.AsReal())
 	}
 }
 
@@ -110,8 +110,8 @@ func TestCalcUsageOutputsInAssignmentLoop(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Step(1): %v", err)
 	}
-	if one.Const.Real != 1000000.0-5000.0+100.0+1.0 {
-		t.Errorf("Step(1) = %v, want %v", one.Const.Real, 1000000.0-5000.0+100.0+1.0)
+	if one.Const.AsReal() != 1000000.0-5000.0+100.0+1.0 {
+		t.Errorf("Step(1) = %v, want %v", one.Const.AsReal(), 1000000.0-5000.0+100.0+1.0)
 	}
 
 	// Two iterations: the second reads x = 1, v = -0.5 — the values the first
@@ -121,8 +121,8 @@ func TestCalcUsageOutputsInAssignmentLoop(t *testing.T) {
 		t.Fatalf("Step(2): %v", err)
 	}
 	want := 0.75*1000000.0 + -1.0*10000.0 + 1.5*100.0 + 2.0
-	if two.Const.Real != want {
-		t.Errorf("Step(2) = %v, want %v (each iteration binds its own state)", two.Const.Real, want)
+	if two.Const.AsReal() != want {
+		t.Errorf("Step(2) = %v, want %v (each iteration binds its own state)", two.Const.AsReal(), want)
 	}
 }
 
@@ -158,8 +158,8 @@ func TestCalcUsageMemoDistinguishesEnclosingArguments(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Both: %v", err)
 	}
-	if got.Const.Real != 6010.0 {
-		t.Errorf("Both = %v, want 6010 (Outer(3) = 6, Outer(5) = 10)", got.Const.Real)
+	if got.Const.AsReal() != 6010.0 {
+		t.Errorf("Both = %v, want 6010 (Outer(3) = 6, Outer(5) = 10)", got.Const.AsReal())
 	}
 }
 

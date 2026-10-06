@@ -861,6 +861,9 @@ func (e *evaluator) executionValue(value docplan.BindingValue) queryexec.Value {
 	if integer, ok := value.IntegerConst(); ok {
 		return queryexec.IntegerOf(integer)
 	}
+	if rational, ok := value.Rational(); ok {
+		return queryexec.RationalOf(rational)
+	}
 	if realVal, ok := value.Real(); ok {
 		return queryexec.RealValue(realVal)
 	}
@@ -913,6 +916,9 @@ func (e *evaluator) valueText(value queryexec.Value) string {
 	}
 	if integer, ok := value.IntegerConst(); ok {
 		return integer.FormatInt()
+	}
+	if rational, ok := value.Rational(); ok {
+		return queryexec.RationalText(rational)
 	}
 	if realVal, ok := value.Real(); ok {
 		return strconv.FormatFloat(realVal, 'g', -1, 64)

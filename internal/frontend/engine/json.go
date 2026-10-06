@@ -119,6 +119,13 @@ type JValue struct {
 	TensorQuantity *JTensorQuantity `json:"tensorQuantity,omitempty"`
 	Metaobject     *JMetaobject     `json:"metaobject,omitempty"`
 	Undetermined   *JUndetermined   `json:"undetermined,omitempty"`
+	RationalValue  *JRational       `json:"rationalValue,omitempty"`
+}
+
+// JRational is the Rational message: an exact rational in lowest terms.
+type JRational struct {
+	Numerator   string `json:"numerator,omitempty"`
+	Denominator string `json:"denominator,omitempty"`
 }
 
 // UnmarshalJSON rejects a value setting two arms of the oneof, as protojson
@@ -132,8 +139,9 @@ func (v *JValue) UnmarshalJSON(data []byte) error {
 	*v = JValue(a)
 	return oneofArms("value", map[string]bool{
 		"intValue": v.IntValue != nil, "bigIntValue": v.BigIntValue != nil,
-		"realValue": v.RealValue != nil,
-		"boolValue": v.BoolValue != nil, "stringValue": v.StringValue != nil,
+		"rationalValue": v.RationalValue != nil,
+		"realValue":     v.RealValue != nil,
+		"boolValue":     v.BoolValue != nil, "stringValue": v.StringValue != nil,
 		"instanceId": v.InstanceId != nil, "sequence": v.Sequence != nil,
 		"null": v.Null != nil, "quantity": v.Quantity != nil,
 		"enumLiteral": v.EnumLiteral != nil, "unset": v.Unset != nil,
@@ -177,6 +185,8 @@ type JQuantity struct {
 	Unit            string     `json:"unit,omitempty"`
 	UnitTerm        *JUnitTerm `json:"unitTerm,omitempty"`
 	BigIntMagnitude *string    `json:"bigIntMagnitude,omitempty"`
+
+	RationalMagnitude *JRational `json:"rationalMagnitude,omitempty"`
 }
 
 // UnmarshalJSON rejects a quantity setting both magnitude arms of its oneof.
@@ -189,7 +199,7 @@ func (q *JQuantity) UnmarshalJSON(data []byte) error {
 	*q = JQuantity(a)
 	return oneofArms("quantity", map[string]bool{
 		"intMagnitude": q.IntMagnitude != nil, "realMagnitude": q.RealMagnitude != nil,
-		"bigIntMagnitude": q.BigIntMagnitude != nil,
+		"bigIntMagnitude": q.BigIntMagnitude != nil, "rationalMagnitude": q.RationalMagnitude != nil,
 	})
 }
 

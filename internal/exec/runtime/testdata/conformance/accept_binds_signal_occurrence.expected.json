@@ -12,7 +12,7 @@
       "finalState": "acknowledged",
       "stateVisits": ["standingBy", "logged", "acknowledged"],
       "slots": {
-        "frames": {"type": "Real", "value": 3.0},
+        "frames": {"type": "Rational", "value": "3.0"},
         "pinged": {"type": "Integer", "value": 1}
       }
     }

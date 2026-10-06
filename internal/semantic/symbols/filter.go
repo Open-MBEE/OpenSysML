@@ -143,6 +143,8 @@ const (
 	// FilterValueQuantity is a magnitude in a measurement unit (`5 [kg]`),
 	// carried in Quantity.
 	FilterValueQuantity
+	// FilterValueRational is an exact Rational, carried in Rat.
+	FilterValueRational
 )
 
 // FilterValue is a constant a filter predicate yields or compares: a literal, or
@@ -151,9 +153,11 @@ type FilterValue struct {
 	Kind FilterValueKind
 	Bool bool
 	// Int is a FilterValueInt within int64; BigInt holds one beyond it, with Int zero.
-	Int      int64
-	BigInt   *big.Int
-	Real     float64
+	Int    int64
+	BigInt *big.Int
+	Real   float64
+	// Rat is a FilterValueRational in lowest terms; it is not modified.
+	Rat      *big.Rat
 	Str      string
 	RefFQN   string
 	Quantity QuantityValue

@@ -1,0 +1,14 @@
+exit: fill (exit action)
+stmt assign activeInExit
+  eval chain isActive -> true
+stmt assign activeInEffect
+  eval chain isActive -> false
+enter: fill (entry action)
+stmt action body
+  stmt assign entries
+      eval feature entries -> 1
+      eval literal 1 -> 1
+    eval operator + -> 2
+  stmt assign activeInEntry
+    eval chain isActive -> true
+transition: fill -> fill (event: accept Again)

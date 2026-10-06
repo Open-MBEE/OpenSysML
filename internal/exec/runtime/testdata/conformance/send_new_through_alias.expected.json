@@ -12,7 +12,7 @@
       "finalState": "confirmed",
       "stateVisits": ["standingBy", "logged", "confirmed"],
       "slots": {
-        "frames": {"type": "Real", "value": 7.0}
+        "frames": {"type": "Rational", "value": "7.0"}
       }
     }
   ]

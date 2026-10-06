@@ -2,6 +2,6 @@
 	"type": "action",
 	"evaluate": "test::write",
 	"outputs": {
-		"seen": {"type": "Real", "value": 6.5}
+		"seen": {"type": "Rational", "value": "6.5"}
 	}
 }

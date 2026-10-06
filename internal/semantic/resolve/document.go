@@ -1596,7 +1596,7 @@ func (r *Resolver) resolveConstructor(scope *symbols.Scope, v *ast.ConstructorEx
 		case len(na.Name.Parts) > 1:
 			r.ResolveQualified(scope, na.Name)
 		case typ != nil:
-			r.resolveMemberChain(typ, na.Name, nil)
+			r.resolveMemberChain(scope, typ, na.Name, nil)
 		}
 		r.resolveExpr(scope, na.Value)
 	}
@@ -1696,7 +1696,7 @@ func (r *Resolver) chainFrom(scope *symbols.Scope, fc *ast.FeatureChainExpr, ope
 	// The outward reading is probed, so that a chain the walk below reads instead
 	// keeps its own diagnostics and per-segment symbols (see probe).
 	if len(fc.Member.Parts) > 1 {
-		if _, ok := r.chainMember(operandSym, fc.Member.Parts[0].Text, fc); !ok {
+		if _, ok := r.chainMember(scope, operandSym, fc.Member.Parts[0].Text, fc); !ok {
 			var outwardSym *symbols.Symbol
 			outward := r.probe(fc.Member, func() bool {
 				var ok bool
@@ -1709,7 +1709,7 @@ func (r *Resolver) chainFrom(scope *symbols.Scope, fc *ast.FeatureChainExpr, ope
 		}
 	}
 
-	memberSym := r.resolveMemberChain(operandSym, fc.Member, fc)
+	memberSym := r.resolveMemberChain(scope, operandSym, fc.Member, fc)
 	return resolution{sym: memberSym, ok: memberSym != nil}
 }
 
@@ -1729,8 +1729,11 @@ func (r *Resolver) chainedFrom(scope *symbols.Scope, operand *symbols.Symbol) *s
 
 // chainMember looks a chain segment up as a member of sym itself — flattened over
 // its generalizations when a model is attached — else of its type or its value.
-func (r *Resolver) chainMember(sym *symbols.Symbol, name string, chain ast.Node) (*symbols.Symbol, bool) {
-	return r.chainMemberOf(sym, name, chain, nil)
+func (r *Resolver) chainMember(scope *symbols.Scope, sym *symbols.Symbol, name string, chain ast.Node) (*symbols.Symbol, bool) {
+	if found, ok := r.chainMemberOf(sym, name, chain, nil); ok {
+		return found, true
+	}
+	return r.featuredMember(scope, sym, name, chain)
 }
 
 func (r *Resolver) chainMemberOf(sym *symbols.Symbol, name string, chain ast.Node, seen map[*symbols.Symbol]bool) (*symbols.Symbol, bool) {
@@ -1774,12 +1777,12 @@ func namedByChain(sym *symbols.Symbol, chain ast.Node) bool {
 
 // resolveMemberChain walks a qualified name member-by-member in the given scope,
 // assigning each part's symbol explicitly (for feature chain member access).
-func (r *Resolver) resolveMemberChain(parentSym *symbols.Symbol, qn *ast.QualifiedName, chain ast.Node) *symbols.Symbol {
+func (r *Resolver) resolveMemberChain(scope *symbols.Scope, parentSym *symbols.Symbol, qn *ast.QualifiedName, chain ast.Node) *symbols.Symbol {
 	if qn == nil || len(qn.Parts) == 0 {
 		return nil
 	}
 	r.Enter()
-	cur, ok := r.walkMemberChain(parentSym, qn, chain)
+	cur, ok := r.walkMemberChain(scope, parentSym, qn, chain)
 	if r.Leave() && ok {
 		r.memoize(qn, resolution{cur, true})
 	}
@@ -1788,11 +1791,11 @@ func (r *Resolver) resolveMemberChain(parentSym *symbols.Symbol, qn *ast.Qualifi
 
 // walkMemberChain reads the members qn names, one per part, from parentSym,
 // reporting the first part that names none.
-func (r *Resolver) walkMemberChain(parentSym *symbols.Symbol, qn *ast.QualifiedName, chain ast.Node) (*symbols.Symbol, bool) {
+func (r *Resolver) walkMemberChain(scope *symbols.Scope, parentSym *symbols.Symbol, qn *ast.QualifiedName, chain ast.Node) (*symbols.Symbol, bool) {
 	// Resolve first part using model.LookupMember if available, else
 	// scope.LookupLocal. A chained feature names a member of what precedes it,
 	// so it reaches only the visible ones (KerML 8.2.3.5).
-	cur, ok := r.chainMember(parentSym, qn.Parts[0].Text, chain)
+	cur, ok := r.chainMember(scope, parentSym, qn.Parts[0].Text, chain)
 
 	if !ok {
 		msg := "unresolved member: " + qn.Parts[0].Text
@@ -1806,7 +1809,7 @@ func (r *Resolver) walkMemberChain(parentSym *symbols.Symbol, qn *ast.QualifiedN
 
 	// Walk remaining parts via member lookup
 	for i := 1; i < len(qn.Parts); i++ {
-		next, found := r.chainMember(cur, qn.Parts[i].Text, chain)
+		next, found := r.chainMember(scope, cur, qn.Parts[i].Text, chain)
 		if !found && r.memberless(cur) {
 			r.Diagnostics = append(r.Diagnostics, Diagnostic{
 				Span:    qn.Parts[i].Span,

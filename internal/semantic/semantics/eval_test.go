@@ -71,8 +71,8 @@ func TestParseReal(t *testing.T) {
 			t.Errorf("ParseReal(%q) = (%v, %v), want %v", text, got, err, ErrArithmeticOverflow)
 		}
 	}
-	if v, ok := evalExpr(t, "1e-400"); ok {
-		t.Errorf("1e-400 folded to %+v, want not evaluable", v)
+	if v, ok := evalExpr(t, "1e-400"); !ok || v.Kind != ValRational || v.FormatRational() != "1e-400" {
+		t.Errorf("1e-400 folded to %+v ok=%v, want the exact Rational", v, ok)
 	}
 }
 
@@ -90,19 +90,20 @@ func TestParseRealRejectsNonDecimalNotation(t *testing.T) {
 	}
 }
 
+// An Integer quotient is the exact Rational IntegerFunctions::'/' declares.
 func TestEvalRealArithmetic(t *testing.T) {
 	v, ok := evalExpr(t, "10 / 4")
-	if !ok || v.Kind != ValReal || v.Real != 2.5 {
-		t.Fatalf("10/4 = %+v ok=%v, want real 2.5", v, ok)
+	if !ok || v.Kind != ValRational || v.FormatRational() != "2.5" {
+		t.Fatalf("10/4 = %+v ok=%v, want the Rational 5/2", v, ok)
 	}
 }
 
-// A quotient of operands beyond 2^53 folds as the exact ratio rounded once,
-// the same answer the runtime computes.
+// A quotient of operands beyond 2^53 folds exactly, a whole one staying a
+// Rational, the same answer the runtime computes.
 func TestEvalFoldsExactQuotientBeyondFloatRange(t *testing.T) {
 	v, ok := evalExpr(t, "9007199254740993 / 3")
-	if !ok || v.Kind != ValReal || v.Real != 3002399751580331 {
-		t.Fatalf("9007199254740993/3 = %+v ok=%v, want real 3002399751580331", v, ok)
+	if !ok || v.Kind != ValRational || v.FormatRational() != "3002399751580331.0" {
+		t.Fatalf("9007199254740993/3 = %+v ok=%v, want the Rational 3002399751580331", v, ok)
 	}
 }
 

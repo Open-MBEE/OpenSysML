@@ -6,8 +6,8 @@
       "finalState": "settled",
       "stateVisits": ["go", "settled"],
       "slots": {
-        "s.reading": {"type": "Real", "value": 3.5},
-        "s.peak": {"type": "Real", "value": 9.5}
+        "s.reading": {"type": "Rational", "value": "3.5"},
+        "s.peak": {"type": "Rational", "value": "9.5"}
       }
     }
   ]
