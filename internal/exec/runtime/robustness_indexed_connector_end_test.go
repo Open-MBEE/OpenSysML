@@ -110,7 +110,7 @@ func TestRuntimeRobustnessIndexedConnectorEnd(t *testing.T) {
 		if err != nil {
 			t.Fatalf("k.v: %v", err)
 		}
-		if got := v.HeldValue(); got.Kind != ValConst || got.Const.Real != 2.5 {
+		if got := v.HeldValue(); got.Kind != ValConst || got.Const.AsReal() != 2.5 {
 			t.Errorf("k.v = %v, want 2.5, the second element of xs", got)
 		}
 	})
@@ -170,7 +170,7 @@ func TestRuntimeRobustnessIndexedBindingBetweenSelectedElements(t *testing.T) {
 				t.Fatalf("%s: %v", name, err)
 			}
 			elements := elementsOf(got)
-			if len(elements) != 2 || elements[0].Const.Real != want[0] || elements[1].Const.Real != want[1] {
+			if len(elements) != 2 || elements[0].Const.AsReal() != want[0] || elements[1].Const.AsReal() != want[1] {
 				t.Errorf("%s = %v, want %v", name, got, want)
 			}
 		}
