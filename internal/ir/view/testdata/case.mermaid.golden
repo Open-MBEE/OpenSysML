@@ -1,0 +1,77 @@
+---
+config:
+  fontFamily: "Helvetica, Arial, sans-serif"
+  theme: base
+  themeCSS: ".edgeLabel rect { opacity: 1 !important; } .cluster-label .nodeLabel { text-align: center; }"
+  themeVariables:
+    fontFamily: "Helvetica, Arial, sans-serif"
+    fontSize: "14px"
+    primaryColor: "#FFFFFF"
+    secondaryColor: "#FFFFFF"
+    tertiaryColor: "#FFFFFF"
+    background: "#FFFFFF"
+    primaryBorderColor: "#181818"
+    primaryTextColor: "#000000"
+    lineColor: "#181818"
+    textColor: "#000000"
+    noteBkgColor: "#FEFFDD"
+    noteBorderColor: "#181818"
+    noteTextColor: "#000000"
+    clusterBkg: "#FFFFFF"
+    clusterBorder: "#181818"
+    edgeLabelBackground: "#FFFFFF"
+---
+%% CaseExamples::caseDiagram — case rendering (render asCaseDiagram)
+%% not represented: part def CaseExamples::Tool holds no case; a case rendering does not show it
+flowchart LR
+  n0(["`*«use case»*
+**CaseExamples::'Provide Transportation' : 'Enter Vehicle'**`"])
+  n1["`*«subject»*
+**vehicle : Vehicle**`"]
+  n2["`*«actor»*
+**driver : Person**`"]
+  n3@{ shape: notch-rect, label: "objective<br>Transport the vehicle and its passengers safely." }
+  n4(["`*«use case def»*
+**CaseExamples::'Add Fuel'**`"])
+  n5["`*«subject»*
+**vehicle : Vehicle**`"]
+  n6["`*«actor»*
+**fueler : Person**`"]
+  n7(["`*«include use case»*
+**'enter vehicle' : 'Enter Vehicle'**`"])
+  n8["`*«subject»*
+**vehicle**`"]
+  n9["`*«actor»*
+**driver**`"]
+  n10(["`*«use case»*
+**'Drive Vehicle'**`"])
+  n11["`*«subject»*
+**vehicle**`"]
+  n12["`*«actor»*
+**driver**`"]
+  n13(["`*«analysis def»*
+**CaseExamples::FuelAnalysis**`"])
+  n14["`*«subject»*
+**vehicle : Vehicle**`"]
+  n15@{ shape: notch-rect, label: "objective<br>Estimate the fuel remaining after a journey." }
+  n16(["`*«verification def»*
+**CaseExamples::FuelVerification**`"])
+  n17["`*«subject»*
+**vehicle : Vehicle**`"]
+  n18@{ shape: notch-rect, label: "objective" }
+  n0 ---|"«subject»"| n1
+  n2 --- n0
+  n0 -.- n3
+  n4 ---|"«subject»"| n5
+  n6 --- n4
+  n0 -.->|"«include»"| n4
+  n0 -.->|"«include»"| n7
+  n7 ---|"«subject»"| n8
+  n9 --- n7
+  n0 ---|"«composition»"| n10
+  n10 ---|"«subject»"| n11
+  n12 --- n10
+  n13 ---|"«subject»"| n14
+  n13 -.- n15
+  n16 ---|"«subject»"| n17
+  n16 -.- n18
