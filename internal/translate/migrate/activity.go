@@ -2685,7 +2685,7 @@ func (a *activity) writeObjectFeature(n, f *sysmlv1.Element) (feature, result, n
 		}
 	}
 	feature = a.m.respellThis(target+"."+writeName(a.m.nameOf(f)), a.act)
-	if obj == nil || target == a.self() {
+	if obj == nil || !fromPin && target == a.self() {
 		result = a.m.respellThis(target, a.act)
 	} else {
 		result = writeName(a.names[obj])

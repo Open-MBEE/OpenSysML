@@ -172,6 +172,30 @@ func TestFlowFedObjectWritesBindAndChainResults(t *testing.T) {
 	wantClean(t, "object_write_flow.sysml", r)
 }
 
+func TestFlowFedObjectWriteDoesNotDeclareContext(t *testing.T) {
+	params := `<ownedParameter xmi:type="uml:Parameter" xmi:id="_source" name="source" type="_box" direction="in"/>`
+	nodes := `<node xmi:type="uml:ActivityParameterNode" xmi:id="_sourceNode" name="source" parameter="_source"/>` +
+		objectWriteAdd("_write", "write", "_single", `isReplaceAll="true"`,
+			objectWritePin("object", "_object", "object", "_box"),
+			objectWriteLiteralPin("value", "_value", "value", "http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Integer", "LiteralInteger", "1"), "", "")
+	activity := objectWriteActivity(params, nodes, objectWriteFlow("_sourceToObject", "_sourceNode", "_object"), "_write")
+	caller := `<packagedElement xmi:type="uml:Class" xmi:id="_caller" name="Caller">
+      <ownedBehavior xmi:type="uml:Activity" xmi:id="_callerRun" name="CallTarget">
+        <node xmi:type="uml:InitialNode" xmi:id="_callerInit"/>
+        <node xmi:type="uml:CallBehaviorAction" xmi:id="_call" name="call" behavior="_run"/>
+        <node xmi:type="uml:ActivityFinalNode" xmi:id="_callerFinal"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_callerStart" source="_callerInit" target="_call"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_callerFinish" source="_call" target="_callerFinal"/>
+      </ownedBehavior>
+    </packagedElement>`
+	r := objectWriteModel(t, activity, caller, `<sysml:Block xmi:id="_callerBlock" base_Class="_caller"/>`)
+	wantLine(t, r.Notation, "action def Run {")
+	wantNoLine(t, r.Notation, "in ref context : Box[1];")
+	wantLine(t, r.Notation, "assign object.single := value;")
+	wantLine(t, r.Notation, "action call : Box::Run;")
+	wantClean(t, "object_write_context.sysml", r)
+}
+
 // A fed pin with no resolved source is not mistaken for the activity context.
 func TestFedObjectPinWithoutResolvedSourceIsWriteTarget(t *testing.T) {
 	nodes := `<node xmi:type="uml:ForkNode" xmi:id="_fork"/>` +
