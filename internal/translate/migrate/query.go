@@ -30,6 +30,8 @@ func qint(n int) qx    { return qlit(strconv.Itoa(n)) }
 func qcall(op string, args ...qarg) qx {
 	return qx{op: op, args: args}
 }
+
+// qshared marks an expression for query-scope hoisting.
 func qshared(src qx) qx {
 	if !src.isCall() {
 		return src
@@ -191,11 +193,13 @@ func (m *migration) queryElementType(host *sysmlv1.Element) string {
 	return "KerML::Root::Element"
 }
 
+// queryParameter is an expression hoisted into a query definition.
 type queryParameter struct {
 	name  string
 	value qx
 }
 
+// hoistShared rewrites marked subexpressions as query parameters.
 func hoistShared(body qx, prefix string) (qx, []queryParameter) {
 	var parameters []queryParameter
 	names := map[string]string{}

@@ -984,7 +984,7 @@ func (c *chain) keepDiagrams(s *sysmlv1.DocGenStep, keep func(*sysmlv1.Diagram) 
 }
 
 // empty reports whether the chain has no elements to work on.
-func (c *chain) empty() bool { return c.ctx.op == "" && c.ctx.lit == "" }
+func (c *chain) empty() bool { return !c.ctx.isCall() && c.ctx.lit == "" }
 
 // idle reports whether a query step has nothing at all to transform.
 func (c *chain) idle() bool {
