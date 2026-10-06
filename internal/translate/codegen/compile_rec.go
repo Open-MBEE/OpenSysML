@@ -283,6 +283,9 @@ func (fc *funcCompiler) compileChain(n *ast.FeatureChainExpr) (Expr, error) {
 	if n.Member == nil || len(n.Member.Parts) == 0 {
 		return nil, fc.unsupported("a feature chain naming no feature")
 	}
+	if sym, ok := fc.c.resolver.ResolveTarget(fc.scope, n); ok && semantics.IsStateActivity(sym) {
+		return nil, fc.unsupported(fmt.Sprintf("%s: a read of a state's activity (StateActivity::isActive), which only the state machine running the state answers", chainText(n)))
+	}
 	x, err := fc.compileExpr(n.Operand)
 	if err != nil {
 		return nil, err
