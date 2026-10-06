@@ -2792,7 +2792,7 @@ func (d *decoder) isTrailingCondition(el *element) bool {
 // notation belongs in its parent's declaration head: the parameter flagged
 // sysml:isAccept, else the one an AcceptActionUsage names as its
 // sysml:payloadParameter, which is how a graph stating the metamodel alone
-// marks it.
+// marks it, when it owns no members the head could not write.
 func (d *decoder) acceptParam(el *element) *element {
 	for _, child := range el.children {
 		if d.boolOf(child, rdf.SysML+"isAccept") {
@@ -2804,7 +2804,9 @@ func (d *decoder) acceptParam(el *element) *element {
 	}
 	for _, stated := range d.graph.Objects(rdf.IRI(el.iri), rdf.SysML+pPayloadParameter) {
 		for _, child := range el.children {
-			if child.iri == stated.Value {
+			// The head writes the payload's declaration alone, so a payload
+			// with members of its own stays a member, which writes them.
+			if child.iri == stated.Value && len(d.bodyChildren(child)) == 0 {
 				return child
 			}
 		}
