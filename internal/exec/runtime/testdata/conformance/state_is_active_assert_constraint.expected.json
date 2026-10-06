@@ -1,0 +1,16 @@
+{
+  "type": "instance",
+  "libraries": true,
+  "instantiate": "test::Controller",
+  "objects": [
+    {
+      "finalState": "ready",
+      "stateVisits": ["armed", "ready"]
+    }
+  ],
+  "constraints": {
+    "readyIsActive": true,
+    "armedIsNotActive": true,
+    "readyIsActiveWrong": false
+  }
+}

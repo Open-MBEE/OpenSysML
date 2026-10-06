@@ -84,7 +84,14 @@ type Model struct {
 
 	// constraintSteps memoizes the step each member of a constraint body lowers
 	// to, one lowering per member node however often a check reads the body.
-	constraintSteps  map[ast.Node]lower.Statement
+	constraintSteps map[ast.Node]lower.Statement
+	// activityOperands memoizes, per read of a state's activity (`fill.sub.isActive`),
+	// the node naming the state the read is of (`fill.sub`), so a chain spelled in
+	// one qualified name is resolved as an endpoint once rather than per evaluation.
+	activityOperands map[*ast.FeatureChainExpr]ast.Node
+	// activitySplits memoizes, per such read, the operand split at one of its
+	// members into the prefix naming a machine usage and the state path within it.
+	activitySplits   map[activitySplitKey]activitySplit
 	constraintBodies sync.Map
 
 	// predicateShapes memoizes the invocation interfaces of constraints and
@@ -222,6 +229,8 @@ func NewModel(sem *semantics.Model, resolver *resolve.Resolver) *Model {
 		calcShapes:          make(map[*symbols.Symbol]*calcShape),
 		predicateShapes:     make(map[*symbols.Symbol]*calcShape),
 		constraintSteps:     make(map[ast.Node]lower.Statement),
+		activityOperands:    make(map[*ast.FeatureChainExpr]ast.Node),
+		activitySplits:      make(map[activitySplitKey]activitySplit),
 		librarySymbols:      make(map[string]*symbols.Symbol),
 		verificationCases:   make(map[*symbols.Scope][]*symbols.Symbol),
 		libraryPerformances: make(map[*symbols.Symbol]*libraryPerformance),

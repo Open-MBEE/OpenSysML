@@ -1344,6 +1344,12 @@ func (ec *EvalContext) evalFeatureChain(n *ast.FeatureChainExpr) (Value, error) 
 	}
 	base, parts := chainBase(n)
 
+	// A state's activity, `fill.isActive`, is read from the active configuration
+	// of the machine holding the state, not from a feature value.
+	if val, ok, err := ec.stateActivity(n, base, parts); ok {
+		return val, err
+	}
+
 	// A node of an action performance on the stack carries its pins in its own
 	// performance, which `p.v` reads.
 	if name := simpleEndName(base); name != "" {
