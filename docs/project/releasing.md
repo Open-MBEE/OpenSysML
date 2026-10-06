@@ -773,14 +773,39 @@ the synced client tables. `build-python-package` runs it with
 `build-release-binaries` built, before `SHA256SUMS.txt` exists — against the
 copy of the table the wheel and sdist package, so `pip install opensysml==X.Y.Z`
 verifies the service it downloads against a digest inside the wheel, with no
-environment variable and no `sigstore` at run time. `publish-crates` stamps the
-crate the same way with `--from-manifest dist/SHA256SUMS.txt`, once the signed
-manifest exists. Both jobs then fail unless the packaged table pins all five
-`sysml-grpc-*` assets for the tag, and `build-release` fails before signing
-unless the wheel's pins are the digests the manifest lists. The signed manifest
-is therefore what an `opensysml` reaches for only for another release, or when it
-is older than the release it is asked for; `--write` back-fills the committed
-tables after a release as before, for those clients.
+environment variable and no `sigstore` at run time. `publish-npm` and
+`publish-maven` run the same `--from-binaries dist/grpc` stamp against
+`client/node/release-digests.json` and
+`client/java/opensysml-client/src/main/resources/release-digests.json`, the
+copies the npm tarball and the jar package, so `npm install
+@openmbee/opensysml@X.Y.Z` and `org.openmbee:opensysml:X.Y.Z` download their own
+release on a pin, with the optional sigstore dependencies absent. `publish-crates`
+stamps the crate the same way with `--from-manifest dist/SHA256SUMS.txt`, once
+the signed manifest exists. Every one of these jobs then fails unless the
+packaged table pins all five `sysml-grpc-*` assets for the tag — opening the
+wheel and sdist, the packed tarball, the jar and the `.crate` to read the table
+they carry — and `build-release` fails before signing unless the wheel's pins
+are the digests the manifest lists. The signed manifest is therefore what a
+client reaches for only for another release, or when it is older than the
+release it is asked for.
+
+Stamping with an explicit `--table` touches that one file in the job's working
+copy and nothing else: the shared `client/release-digests.json` is not written,
+no copy is synced, and nothing is committed, so the `sync-release-digests.py
+--check` step elsewhere in the same pipeline, which reads the committed tree,
+is unaffected. `tests/hygiene/release_config_test.go` holds all four publishing
+jobs to this order — stamp, package, assert — and the Node and Java suites
+assert the table they load pins the tag `$OPENSYSML_EXPECT_PINNED_RELEASE`
+names, which only those two jobs set, after stamping.
+
+The committed table is still worth bringing up to date after a release:
+`--write` (or `--from-manifest` over the release's verified `SHA256SUMS.txt`
+against the default table) adds the release to `client/release-digests.json`
+and syncs every client copy, so a client *built from the next revision* — a
+checkout, or a package of a later release asked for this one — pins it too
+rather than reaching for the signed manifest. The committed table covers every
+signed release through `v0.9.2`; `v0.0.9`, `v0.1.1` and `v0.1.2` predate
+signing and have no bundle to verify a manifest with, so they are not pinned.
 
 ## The SonarCloud scan
 
@@ -1245,17 +1270,26 @@ Everything below is already in place; it is recorded so it can be re-created.
 1. Resolves the version: fails if the tag is not `v<version>` matching
    `client/node/package.json`, picks the `latest`/`next` dist-tag from the
    version, and lists the workspace binaries it will package.
-2. Requires `NPM_TOKEN` from the `npm` context.
-3. Refuses to run if any of the seven packages is already on the registry at this
+2. Stamps the five `sysml-grpc-*` digests of `dist/grpc` for `CIRCLE_TAG` into
+   `client/node/release-digests.json` with
+   `pin_release_checksums.py --from-binaries dist/grpc --table …`, exactly as
+   `build-python-package` does for the wheel. Only that file in the working
+   copy changes; see [Pinned release digests](#pinned-release-digests).
+3. Requires `NPM_TOKEN` from the `npm` context.
+4. Refuses to run if any of the seven packages is already on the registry at this
    version (a publish cannot be repeated).
-4. Builds and tests the client against the release's linux binary (`npm ci`,
-   build, typecheck, lint, tests).
-5. Builds the five platform packages from `dist/grpc` and the WASM package
+5. Builds and tests the client against the release's linux binary (`npm ci`,
+   build, typecheck, lint, tests), with `$OPENSYSML_EXPECT_PINNED_RELEASE` set
+   to the tag so the suite asserts the stamped table pins it.
+6. Builds the five platform packages from `dist/grpc` and the WASM package
    from `dist/wasm`, checking every asset against its `.sha256` sidecar.
-6. Authenticates to npm and runs `npm whoami`, so an expired token fails before
+7. Packs the client into `dist/npm/` with `npm pack` and opens the tarball:
+   its `release-digests.json` must pin all five service assets for the tag,
+   with the digests of the binaries in `dist/grpc`, or the job fails.
+8. Authenticates to npm and runs `npm whoami`, so an expired token fails before
    the first publish.
-7. Publishes the WASM and five platform packages, then the client, on the
-   resolved dist-tag.
+9. Publishes the WASM and five platform packages, then the client — the
+   tarball verified in step 7, not a fresh pack — on the resolved dist-tag.
 
 ### If a publish goes wrong
 
@@ -1431,20 +1465,34 @@ before `0.9.0`. Consumers get it only by naming it.
 `publish-maven` runs after `publish-github-release`, beside `publish-pypi` and
 `publish-npm`:
 
-1. Resolves the version: fails if the tag is not `v<version>` matching
-   `client/java/pom.xml`, or the version is a `-SNAPSHOT`.
-2. Requires all four credential environment variables, naming only the missing
+1. Attaches the release workspace, so `dist/grpc` holds the binaries
+   `build-release-binaries` built, and resolves the version: fails if the tag
+   is not `v<version>` matching `client/java/pom.xml`, or the version is a
+   `-SNAPSHOT`.
+2. Stamps the five `sysml-grpc-*` digests of `dist/grpc` for `CIRCLE_TAG` into
+   `client/java/opensysml-client/src/main/resources/release-digests.json` with
+   `pin_release_checksums.py --from-binaries dist/grpc --table …`, exactly as
+   `build-python-package` does for the wheel. Only that file in the working
+   copy changes; see [Pinned release digests](#pinned-release-digests).
+3. Requires all four credential environment variables, naming only the missing
    one.
-3. Refuses to run if `org.openmbee:opensysml-parent` or `opensysml` is
+4. Refuses to run if `org.openmbee:opensysml-parent` or `opensysml` is
    already on Central at this version (a publish cannot be repeated).
-4. Imports `GPG_PRIVATE_KEY` and test-signs with `GPG_PASSPHRASE`, so an expired
+5. Runs `mvn clean package -pl :opensysml -am -Dtest=ReleaseAssetsTest` with
+   `$OPENSYSML_EXPECT_PINNED_RELEASE` set to the tag — `java-test` ran the
+   whole suite on this revision; only the test that reads the stamped resource
+   runs again, now asserting it pins the tag — and opens the packaged jar: its
+   `release-digests.json` must pin all five service assets for the tag, with
+   the digests of the binaries in `dist/grpc`, or the job fails.
+6. Imports `GPG_PRIVATE_KEY` and test-signs with `GPG_PASSPHRASE`, so an expired
    key or wrong passphrase fails before the upload.
-5. Writes `~/.m2/settings.xml` naming the `central` server, reading the portal
+7. Writes `~/.m2/settings.xml` naming the `central` server, reading the portal
    token from the environment so it never lands on disk.
-6. Runs `mvn -Prelease deploy -pl :opensysml -am -DskipTests` — `java-test`
-   ran the suite on this revision; `-am` carries the parent pom the client's
-   pom names. The plugin uploads, Central validates, `autoPublish` releases the
-   deployment, and the build waits until it is published.
+8. Runs `mvn -Prelease deploy -pl :opensysml -am -DskipTests` — `-am` carries
+   the parent pom the client's pom names. The jar is rebuilt from the tree
+   whose stamped resource step 5 verified. The plugin uploads, Central
+   validates, `autoPublish` releases the deployment, and the build waits until
+   it is published.
 
 ### If a publish goes wrong
 

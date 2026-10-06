@@ -415,8 +415,10 @@ In order, and each step refuses rather than falling back to the next:
 1. **A shipped pin.** `release-digests.json`, synced from
    `client/release-digests.json` by `python3 scripts/sync-release-digests.py`
    and published in the tarball, pins the SHA-256 of every asset of a release.
-   Where it pins one, that is what the bytes must hash to, and a served
-   `.sha256` that disagrees is tampering: the download fails.
+   The release job stamps the release it publishes into the tarball's copy
+   before packing it, so a published package pins its own release. Where the
+   table pins one, that is what the bytes must hash to, and a served `.sha256`
+   that disagrees is tampering: the download fails.
 2. **The release's signed manifest.** With no pin, the client downloads
    `SHA256SUMS.txt` and its sigstore bundle `SHA256SUMS.txt.bundle`, verifies
    the bundle against the release pipeline's certificate identity (the CircleCI

@@ -2297,6 +2297,23 @@ jobs:
             ls -l dist/wasm/sysml-wasm.wasm dist/wasm/wasm_exec.js \
               dist/wasm/sysml-wasm.wasm.sha256 dist/wasm/wasm_exec.js.sha256
 
+      # The package's own copy of the table is the only pin the published
+      # client carries; stamping it here, from build-release's binaries, is
+      # what lets @openmbee/opensysml download this release without sigstore.
+      # The shared client/release-digests.json is not touched, so the
+      # sync check elsewhere in this pipeline is unaffected.
+      - run:
+          name: Stamp this release's service digests into the package
+          command: |
+            if ! command -v python3 >/dev/null; then
+              sudo apt-get update -q && sudo apt-get install -yq python3
+            fi
+            python3 client/python/scripts/pin_release_checksums.py \
+              --version "${CIRCLE_TAG}" \
+              --from-binaries dist/grpc \
+              --table client/node/release-digests.json
+            git diff --stat
+
       - run:
           name: Require the publishing token
           command: |
@@ -2343,6 +2360,8 @@ jobs:
           command: |
             chmod +x dist/grpc/sysml-grpc-linux-amd64
             export OPENSYSML_BINARY="$(pwd)/dist/grpc/sysml-grpc-linux-amd64"
+            # Makes the suite assert that the table just stamped pins this tag.
+            export OPENSYSML_EXPECT_PINNED_RELEASE="${CIRCLE_TAG}"
             cd client/node
             npm ci
             npm run build
@@ -2357,6 +2376,64 @@ jobs:
             # against its .sha256 sidecar before packaging it.
             cd client/node
             npm run platform-packages -- --binaries ../../dist/grpc --wasm ../../dist/wasm
+
+      - run:
+          name: Pack the client and verify its pins
+          command: |
+            # The tarball packed here is the one published below, so what is
+            # verified is what ships. Its table must pin this tag for every
+            # service asset, with the digests of the binaries in dist/grpc.
+            rm -rf dist/npm && mkdir -p dist/npm
+            (cd client/node && npm pack --pack-destination ../../dist/npm)
+            tarballs=$(ls dist/npm/openmbee-opensysml-*.tgz)
+            if [ "$(echo "$tarballs" | wc -l)" -ne 1 ]; then
+              echo "Error: expected exactly one client tarball in dist/npm:"
+              echo "$tarballs"
+              exit 1
+            fi
+            echo "export NPM_TARBALL=$(pwd)/${tarballs}" >> "$BASH_ENV"
+            python3 - "${tarballs}" "${CIRCLE_TAG}" dist/grpc \<<'PY'
+            import hashlib
+            import json
+            import os
+            import sys
+            import tarfile
+
+            tarball_path, tag, binaries = sys.argv[1:]
+            required = {
+                "sysml-grpc-darwin-amd64",
+                "sysml-grpc-darwin-arm64",
+                "sysml-grpc-linux-amd64",
+                "sysml-grpc-linux-arm64",
+                "sysml-grpc-windows-amd64.exe",
+            }
+            with tarfile.open(tarball_path, "r:gz") as tarball:
+                try:
+                    member = tarball.extractfile("package/release-digests.json")
+                except KeyError:
+                    member = None
+                if member is None:
+                    raise SystemExit("Error: packed tarball has no release-digests.json.")
+                with member:
+                    table = json.load(member)
+
+            digests = table.get("Open-MBEE/OpenSysML", {}).get(tag, {})
+            missing = sorted(required - digests.keys())
+            if missing:
+                raise SystemExit(
+                    f"Error: packed tarball has no complete digest pin for {tag}: "
+                    f"{', '.join(missing)}"
+                )
+            for asset in sorted(required):
+                with open(os.path.join(binaries, asset), "rb") as binary:
+                    actual = hashlib.sha256(binary.read()).hexdigest()
+                if digests[asset] != actual:
+                    raise SystemExit(
+                        f"Error: packed tarball pins {digests[asset]} for {asset} of {tag}, "
+                        f"but the release binary is {actual}"
+                    )
+            print(f"Verified the packed tarball embeds all five service digests for {tag}.")
+            PY
 
       - run:
           name: Authenticate to npm
@@ -2381,19 +2458,19 @@ jobs:
             - run:
                 name: Publish @openmbee/opensysml
                 command: |
-                  cd client/node
-                  npm publish --access public --tag "$NPM_DIST_TAG"
+                  # The tarball verified above, not a fresh pack of the directory.
+                  npm publish "$NPM_TARBALL" --access public --tag "$NPM_DIST_TAG"
       - when:
           condition: << pipeline.parameters.release_rehearsal >>
           steps:
             - run:
                 name: "REHEARSAL: pack every package"
                 command: |
+                  # The client itself was packed and verified above.
                   npm pack client/node/packages/sysml-wasm --dry-run
                   for directory in client/node/packages/sysml-grpc-*; do
                     npm pack "$directory" --dry-run
                   done
-                  (cd client/node && npm pack --dry-run)
       - rehearsal-skip:
           what: "npm publish"
 
@@ -2409,6 +2486,10 @@ jobs:
     steps:
       - checkout
       - rehearsal-tag
+
+      # build-release's dist/grpc: the binaries whose digests the jar pins.
+      - attach_workspace:
+          at: .
 
       - restore_cache:
           keys:
@@ -2442,6 +2523,25 @@ jobs:
             esac
             echo "export JAVA_VERSION=${version}" >> "$BASH_ENV"
             echo "Publishing org.openmbee:opensysml:${version}"
+            # Proves the workspace carries the release binaries.
+            ls -l dist/grpc/sysml-grpc-*
+
+      # The jar's own copy of the table is the only pin the published client
+      # carries; stamping it here, from build-release's binaries, is what lets
+      # org.openmbee:opensysml download this release without sigstore. The
+      # shared client/release-digests.json is not touched, so the sync check
+      # elsewhere in this pipeline is unaffected.
+      - run:
+          name: Stamp this release's service digests into the jar's resources
+          command: |
+            if ! command -v python3 >/dev/null; then
+              sudo apt-get update -q && sudo apt-get install -yq python3
+            fi
+            python3 client/python/scripts/pin_release_checksums.py \
+              --version "${CIRCLE_TAG}" \
+              --from-binaries dist/grpc \
+              --table client/java/opensysml-client/src/main/resources/release-digests.json
+            git diff --stat
 
       - run:
           name: Require the publishing credentials
@@ -2472,6 +2572,59 @@ jobs:
                   exit 1 ;;
               esac
             done
+
+      - run:
+          name: Package the jar and verify its pins
+          command: |
+            # java-test ran the whole suite on this revision; only the test that
+            # reads the stamped resource runs again, now asserting it pins this
+            # tag. The jar packaged here is then opened and checked directly.
+            OPENSYSML_EXPECT_PINNED_RELEASE="${CIRCLE_TAG}" mvn -B -f client/java/pom.xml \
+              clean package -pl :opensysml -am \
+              -Dtest=ReleaseAssetsTest -Dsurefire.failIfNoSpecifiedTests=false
+            jar="client/java/opensysml-client/target/opensysml-${JAVA_VERSION}.jar"
+            if [ ! -f "${jar}" ]; then
+              echo "Error: mvn package did not create ${jar}."
+              exit 1
+            fi
+            python3 - "${jar}" "${CIRCLE_TAG}" dist/grpc \<<'PY'
+            import hashlib
+            import json
+            import os
+            import sys
+            import zipfile
+
+            jar_path, tag, binaries = sys.argv[1:]
+            required = {
+                "sysml-grpc-darwin-amd64",
+                "sysml-grpc-darwin-arm64",
+                "sysml-grpc-linux-amd64",
+                "sysml-grpc-linux-arm64",
+                "sysml-grpc-windows-amd64.exe",
+            }
+            with zipfile.ZipFile(jar_path) as jar:
+                if "release-digests.json" not in jar.namelist():
+                    raise SystemExit("Error: packaged jar has no release-digests.json.")
+                with jar.open("release-digests.json") as member:
+                    table = json.load(member)
+
+            digests = table.get("Open-MBEE/OpenSysML", {}).get(tag, {})
+            missing = sorted(required - digests.keys())
+            if missing:
+                raise SystemExit(
+                    f"Error: packaged jar has no complete digest pin for {tag}: "
+                    f"{', '.join(missing)}"
+                )
+            for asset in sorted(required):
+                with open(os.path.join(binaries, asset), "rb") as binary:
+                    actual = hashlib.sha256(binary.read()).hexdigest()
+                if digests[asset] != actual:
+                    raise SystemExit(
+                        f"Error: packaged jar pins {digests[asset]} for {asset} of {tag}, "
+                        f"but the release binary is {actual}"
+                    )
+            print(f"Verified the packaged jar embeds all five service digests for {tag}.")
+            PY
 
       - run:
           name: Import the signing key
@@ -2516,7 +2669,8 @@ jobs:
           steps:
             # java-test ran the suite on this revision in this workflow, so tests are
             # skipped; -am brings the parent pom the client's pom names, which Central
-            # must hold too; opensysml-conformance is not published.
+            # must hold too; opensysml-conformance is not published. The jar is
+            # rebuilt from the tree whose stamped resource was verified above.
             # Never run this step with -X/debug output; the settings interpolation would print the token.
             - run:
                 name: Sign, upload and publish
