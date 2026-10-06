@@ -1,6 +1,7 @@
 """Connection class for communicating with sysml-grpc service."""
 
 import atexit
+from fractions import Fraction
 import grpc
 import os
 import queue
@@ -44,6 +45,7 @@ from opensysml.capabilities import (
     CAPABILITY_FUNCTION_VALUES,
     CAPABILITY_IMPLICIT_PARAMETERS,
     CAPABILITY_BIG_INT_VALUES,
+    CAPABILITY_RATIONAL_VALUES,
     CAPABILITY_INFINITY_VALUE,
     CAPABILITY_MEASUREMENT_REFS,
     CAPABILITY_METAOBJECT_VALUES,
@@ -80,6 +82,8 @@ from opensysml.conversion import (
 from opensysml.diagnostic import Diagnostic
 from opensysml.document import (
     binding_holds_big_int,
+    binding_holds_rational,
+    binding_rationals_as_reals,
     build_bindings,
     document_event_of,
     render_view_result,
@@ -122,6 +126,9 @@ from opensysml.values import (
     _Infinity,
     integer_to_pb,
     pb_holds_big_int,
+    pb_holds_rational,
+    rational_value_to_pb,
+    rationals_as_reals,
     value_to_python,
 )
 
@@ -1777,6 +1784,17 @@ class Connection:
                 CAPABILITY_BIG_INT_VALUES,
                 upgrade_remedy(CAPABILITY_BIG_INT_VALUES),
             )
+        if any(binding_holds_rational(binding) for binding in request.bindings) and not self.server_info().has(
+            CAPABILITY_RATIONAL_VALUES
+        ):
+            for binding in request.bindings:
+                binding_rationals_as_reals(binding)
+        if any(binding_holds_rational(binding) for binding in request.bindings):
+            require(
+                self.server_info(),
+                CAPABILITY_RATIONAL_VALUES,
+                upgrade_remedy(CAPABILITY_RATIONAL_VALUES),
+            )
         with translate_rpc_errors(
             not_found=SymbolNotFoundError,
             unimplemented=self._capability_refusal((CAPABILITY_DOCUMENT_QUERY,)),
@@ -2975,6 +2993,23 @@ class Connection:
             )
         return value
 
+    def _require_exact_values(self, value):
+        """Refuse to send a big Integer or exact Rational a service without its capability would read as null.
+
+        Every exact Rational travels as ``rational_value``; to a service without
+        ``rational_values`` one a double holds exactly travels as that double.
+        """
+        self._require_big_int_values(value)
+        if pb_holds_rational(value) and not self.server_info().has(CAPABILITY_RATIONAL_VALUES):
+            rationals_as_reals(value)
+        if pb_holds_rational(value):
+            require(
+                self.server_info(),
+                CAPABILITY_RATIONAL_VALUES,
+                upgrade_remedy(CAPABILITY_RATIONAL_VALUES),
+            )
+        return value
+
     def _require_schedule(self, schedule):
         """Refuse to send a schedule a service without ``schedule`` would run under the default."""
         for capability in self._schedule_capabilities(schedule):
@@ -3048,6 +3083,8 @@ class Connection:
             return sysml_pb2.Value(instance_id=py_value.id)
         elif isinstance(py_value, int):
             return self._require_big_int_values(integer_to_pb(py_value))
+        elif isinstance(py_value, Fraction):
+            return self._require_exact_values(rational_value_to_pb(py_value))
         elif isinstance(py_value, float):
             return sysml_pb2.Value(real_value=py_value)
         elif isinstance(py_value, complex):
@@ -3062,7 +3099,7 @@ class Connection:
         elif isinstance(py_value, Instance):
             return sysml_pb2.Value(instance_id=py_value.id)
         elif isinstance(py_value, Quantity):
-            return self._require_big_int_values(sysml_pb2.Value(quantity=py_value.to_pb()))
+            return self._require_exact_values(sysml_pb2.Value(quantity=py_value.to_pb()))
         elif isinstance(py_value, _Infinity):
             self._require_infinity_value()
             return sysml_pb2.Value(infinity=True)
@@ -3080,16 +3117,16 @@ class Connection:
             return sysml_pb2.Value(array=py_value.to_pb(self._python_to_value))
         elif isinstance(py_value, Vector):
             self._require_structured_values()
-            return self._require_big_int_values(sysml_pb2.Value(vector=py_value.to_pb()))
+            return self._require_exact_values(sysml_pb2.Value(vector=py_value.to_pb()))
         elif isinstance(py_value, VectorQuantity):
             self._require_structured_values()
-            return self._require_big_int_values(sysml_pb2.Value(vector_quantity=py_value.to_pb()))
+            return self._require_exact_values(sysml_pb2.Value(vector_quantity=py_value.to_pb()))
         elif isinstance(py_value, (SetValue, set, frozenset)):
             self._require_set_values()
             return sysml_pb2.Value(set=SetValue(py_value).to_pb(self._python_to_value))
         elif isinstance(py_value, TensorQuantity):
             self._require_tensor_values()
-            return self._require_big_int_values(sysml_pb2.Value(tensor_quantity=py_value.to_pb()))
+            return self._require_exact_values(sysml_pb2.Value(tensor_quantity=py_value.to_pb()))
         elif isinstance(py_value, EnumLiteral):
             literal = sysml_pb2.EnumLiteral(
                 literal_id=py_value.literal_id,

@@ -926,3 +926,31 @@ func TestParseStateBody_Complete(t *testing.T) {
 		t.Errorf("node 5: expected *ast.TransitionMember, got %T", nodes[5])
 	}
 }
+
+// `first a if g then b;` is the GuardedSuccession `succession first a if g
+// then b;` is, its `succession` being optional (SysML.xtext GuardedSuccession):
+// both are the one transition an action body admits.
+func TestParseAction_KeywordlessGuardedSuccession(t *testing.T) {
+	nodes := parseActionTest(t, `{
+		action focus;
+		action shoot;
+		first focus if true then shoot;
+		succession first focus if true then shoot;
+		first focus then shoot;
+	}`)
+	if len(nodes) != 5 {
+		t.Fatalf("expected 5 nodes, got %d", len(nodes))
+	}
+	for _, i := range []int{2, 3} {
+		tm, ok := unwrapMember(t, nodes[i]).(*ast.TransitionMember)
+		if !ok {
+			t.Fatalf("node %d: expected *ast.TransitionMember, got %T", i, unwrapMember(t, nodes[i]))
+		}
+		if !tm.IsSuccession || tm.Guard == nil || tm.Source == nil || tm.Target == nil {
+			t.Errorf("node %d: expected a guarded succession from focus to shoot, got %+v", i, tm)
+		}
+	}
+	if _, ok := unwrapMember(t, nodes[4]).(*ast.TransitionMember); ok {
+		t.Error("node 4: an unguarded `first a then b;` is no transition")
+	}
+}

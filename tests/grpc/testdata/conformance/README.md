@@ -52,9 +52,10 @@ A feature value's `error` is a substring its `FeatureValue.error` must contain; 
 error must carry none.
 
 A value is `{"kind": <oneof field of pb.Value>, "value": <literal>}`, where `kind` is one of
-`int_value`, `real_value`, `bool_value`, `string_value`, `instance_id`, `quantity`, `null` or
-`unset` — the last being a materialized feature value holding no value, as a valueless feature of a
-value type does. The assertion checks the oneof arm as well as the payload, so a value returned
+`int_value`, `real_value`, `rational_value`, `bool_value`, `string_value`, `instance_id`,
+`quantity`, `null` or `unset` — the last being a materialized feature value holding no value, as a valueless feature of a
+value type does. A `rational_value`'s literal is the string `"<numerator>/<denominator>"`, sent
+as written and answered in lowest terms. The assertion checks the oneof arm as well as the payload, so a value returned
 with the wrong type fails; `instance_id`, `null` and `unset` assert the arm only, since instance
 ids are assigned at runtime.
 

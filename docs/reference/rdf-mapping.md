@@ -1119,9 +1119,15 @@ The rules the tree follows:
 - **A literal's `sysml:value` is a typed literal** whose lexical form is the
   token the notation spells it with: `"2"^^xsd:integer`, `"1.5"^^xsd:decimal`,
   `"1.5E3"^^xsd:double` (an exponent is outside `xsd:decimal`'s lexical space),
-  `"true"^^xsd:boolean`, and a string with its escapes resolved. Read back, a
+  `"true"^^xsd:boolean`, and a string with its escapes resolved. The literal
+  denotes exactly the Rational the token does: an exponent token no double holds
+  is written as the `xsd:decimal` it denotes (`1E-1` is `"0.1"^^xsd:decimal`),
+  and a JSON number in the API JSON form is read the same way. Read back, a
   value is spelled as that token again: a rational with no fractional digits
-  (`"3"^^xsd:decimal`) gains them (`3.0`), a boolean is `true` or `false`, a
+  (`"3"^^xsd:decimal`) gains them (`3.0`), an `xsd:double` or `xsd:float` whose
+  binary value differs from its lexical form is spelled as the exact decimal of
+  that binary value (`"0.1"^^xsd:float` is `0.100000001490116119384765625`), a
+  boolean is `true` or `false`, a
   string is quoted and escaped; a value no token spells — a signed number, `INF`,
   `NaN` — is reported as unsupported, naming the node, since the notation states
   a sign as an operator applied to a literal.
@@ -1298,7 +1304,7 @@ the node, that name is used; the rest are `sysx:` terms, marked below.
 | written | metaclass | carries |
 |---|---|---|
 | `first x;` in an action body | `sysml:Membership` with `sysx:declaredKeyword "first"` | `sysml:memberElement` and `sysml:sourceFeature` (the member the flow starts at — a reference, not a name it declares), `sysx:hasBody` and the members of its body. Read, a `sysx:InitialNode` from an older graph is the same member |
-| `first x then y { … }` in an action body (the succession x → y, which marks no start) | `sysml:SuccessionAsUsage` with `sysx:declaredKeyword "first"` | its two ends, each a `ReferenceUsage` under an `EndFeatureMembership` whose `ReferenceSubsetting` references x or y (SysML-textual-bnf `SuccessionAsUsage`, `ConnectorEndMember`), listed by `sysml:connectorEnd`; `sysml:sourceFeature` (x, a reference) and `sysml:targetFeature` (y), which the ends derive; `sysx:guard`, `sysx:hasBody` and the members of its body. A guarded `first x if g then y` is a transition and owns no ends of its own. Reading back, an end whose referenced feature differs from `sysml:sourceFeature` or `sysml:targetFeature`, or that declares a name or bounds, is refused, since the notation states each end once, as the bare feature it names |
+| `first x then y { … }` in an action body (the succession x → y, which marks no start) | `sysml:SuccessionAsUsage` with `sysx:declaredKeyword "first"` | its two ends, each a `ReferenceUsage` under an `EndFeatureMembership` whose `ReferenceSubsetting` references x or y (SysML-textual-bnf `SuccessionAsUsage`, `ConnectorEndMember`), listed by `sysml:connectorEnd`; `sysml:sourceFeature` (x, a reference) and `sysml:targetFeature` (y), which the ends derive; `sysx:guard`, `sysx:hasBody` and the members of its body. A guarded `first x if g then y` is a transition and owns no ends of its own: a `sysml:TransitionUsage`, as `succession first x if g then y` is (SysML.xtext `GuardedSuccession`, whose `succession` is optional). A transition in an action body is written back in that keyword-less spelling, unless the graph states `sysx:declaredKeyword "succession"` or the transition declares a name, which needs the keyword; `transition`, which an action body does not admit, is written only in a state body. Reading back, an end whose referenced feature differs from `sysml:sourceFeature` or `sysml:targetFeature`, or that declares a name or bounds, is refused, since the notation states each end once, as the bare feature it names |
 | `done;` written on its own | `sysml:Membership` with `sysx:declaredKeyword "done"` | `sysml:memberElement`, the library's `Actions::Action::done`. Read, a `sysx:FinalNode` from an older graph is the same member |
 | `then done;`, `[m] then done;`, `then [m] done;` | `sysml:SuccessionAsUsage` with `sysx:endForm "then"` | its target end's `ReferenceSubsetting` reaches the library's `Actions::Action::done` — `sysml:targetFeature` states the same — and no member is declared for the node. A source-end multiplicity (`[m] then`) is carried on the empty source connector end; a target-end crossing multiplicity (`then [m] done`) on the target connector end, as `succession first a then [m] done;` carries it. Read, an older graph's `done` Membership targeted through `sysx:targetMember` writes back as `then done;` |
 | `action a;`, `action a { x + 1 }` | `sysx:ActionExecutionNode` | `sysml:references` or `sysx:expression` |

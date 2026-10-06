@@ -135,6 +135,7 @@ func (DocumentEvent) isCell()   { /* marker: closed Cell set */ }
 func (String) isCell()          { /* marker: closed Cell set */ }
 func (Int) isCell()             { /* marker: closed Cell set */ }
 func (BigInt) isCell()          { /* marker: closed Cell set */ }
+func (Rational) isCell()        { /* marker: closed Cell set */ }
 func (Real) isCell()            { /* marker: closed Cell set */ }
 func (Bool) isCell()            { /* marker: closed Cell set */ }
 func (Quantity) isCell()        { /* marker: closed Cell set */ }
@@ -226,6 +227,32 @@ func bindingHoldsBigInt(binding *pb.DocumentQueryBinding) bool {
 	return slices.ContainsFunc(binding.GetValues(), protoconv.DocumentValueHoldsBigInt)
 }
 
+// bindingHoldsRational reports whether a binding sends an exact Rational,
+// which only a service offering rational_values reads.
+func bindingHoldsRational(binding *pb.DocumentQueryBinding) bool {
+	return slices.ContainsFunc(binding.GetValues(), protoconv.DocumentValueHoldsRational)
+}
+
+// fitDocumentRationals is fitRationals for query bindings.
+func (c *client) fitDocumentRationals(ctx context.Context, bindings []*pb.DocumentQueryBinding) error {
+	info, err := c.serverInfo(ctx)
+	if err != nil {
+		return err
+	}
+	if info.Has(CapabilityRationalValues) {
+		return nil
+	}
+	for _, binding := range bindings {
+		for _, value := range binding.GetValues() {
+			protoconv.DocumentRationalAsReal(value)
+		}
+	}
+	if slices.ContainsFunc(bindings, bindingHoldsRational) {
+		return c.requireCapabilities(ctx, CapabilityRationalValues)
+	}
+	return nil
+}
+
 func (c *client) RunDocumentQuery(
 	ctx context.Context,
 	model *Model,
@@ -250,6 +277,11 @@ func (c *client) RunDocumentQuery(
 	}
 	if slices.ContainsFunc(req.Bindings, bindingHoldsBigInt) {
 		if err := c.requireCapabilities(ctx, CapabilityBigIntValues); err != nil {
+			return nil, err
+		}
+	}
+	if slices.ContainsFunc(req.Bindings, bindingHoldsRational) {
+		if err := c.fitDocumentRationals(ctx, req.Bindings); err != nil {
 			return nil, err
 		}
 	}
@@ -331,6 +363,8 @@ func cellToProto(cell Cell) (*pb.DocumentValue, error) {
 			return &pb.DocumentValue{Kind: &pb.DocumentValue_IntValue{IntValue: n.Int64()}}, nil
 		}
 		return &pb.DocumentValue{Kind: &pb.DocumentValue_BigIntValue{BigIntValue: value.String()}}, nil
+	case Rational:
+		return &pb.DocumentValue{Kind: &pb.DocumentValue_RationalValue{RationalValue: rationalToProto(value)}}, nil
 	case Real:
 		return &pb.DocumentValue{Kind: &pb.DocumentValue_RealValue{RealValue: float64(value)}}, nil
 	case Bool:
@@ -383,6 +417,12 @@ func cellFromProto(value *pb.DocumentValue) Cell {
 			return Int(n.Int64())
 		}
 		return BigInt{n: n}
+	case *pb.DocumentValue_RationalValue:
+		rational, ok := rationalFromProto(kind.RationalValue)
+		if !ok {
+			return nil
+		}
+		return rational
 	case *pb.DocumentValue_RealValue:
 		return Real(kind.RealValue)
 	case *pb.DocumentValue_BoolValue:
@@ -490,6 +530,8 @@ func CellText(cell Cell) string {
 	case Int:
 		return strconv.FormatInt(int64(value), 10)
 	case BigInt:
+		return value.String()
+	case Rational:
 		return value.String()
 	case Real:
 		return strconv.FormatFloat(float64(value), 'g', -1, 64)

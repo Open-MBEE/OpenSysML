@@ -2396,7 +2396,7 @@ func testActionSendCallsLibraryTypedFeature(t *testing.T, decls string) {
 	if err != nil {
 		t.Fatalf("execute action: %v", err)
 	}
-	if got := outputs["got"]; got.Const.Kind != semantics.ValReal || got.Const.Real != 4 {
+	if got := outputs["got"]; got.Const.Kind != semantics.ValReal || got.Const.AsReal() != 4 {
 		t.Errorf("got = %+v, want 4.0", got)
 	}
 	if pending := ctx.PendingMessages(); len(pending) != 0 {

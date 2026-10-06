@@ -571,8 +571,8 @@ calc def Totals :> Query {
 		children []string
 		count    int64
 	}{
-		"depot":    {"124 [kg]", []string{"10 [kg]", "10 [kg]"}, 2},
-		"Stack":    {"12 [kg]", []string{"1 [kg]", "1 [kg]"}, 2},
+		"depot":    {"124.0 [kg]", []string{"10 [kg]", "10 [kg]"}, 2},
+		"Stack":    {"12.0 [kg]", []string{"1 [kg]", "1 [kg]"}, 2},
 		"Assembly": {"1 [kg]", nil, 0},
 	} {
 		result := quantityRows(t, fixture, "Totals", root)
