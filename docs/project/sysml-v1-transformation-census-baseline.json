@@ -22,7 +22,7 @@
       },
       {
         "name": "fixtures",
-        "files": 97
+        "files": 98
       }
     ],
     "counts": {
@@ -136,7 +136,7 @@
       },
       "uml:Class": {
         "pssm": 311,
-        "fixtures": 483
+        "fixtures": 484
       },
       "uml:ClearAssociationAction": {
         "pssm": 0,
@@ -152,7 +152,7 @@
       },
       "uml:Constraint": {
         "pssm": 59,
-        "fixtures": 24
+        "fixtures": 25
       },
       "uml:ControlFlow[weight]": {
         "pssm": 0,
@@ -189,6 +189,10 @@
       "uml:Expression": {
         "pssm": 4,
         "fixtures": 41
+      },
+      "uml:Expression[symbol=else]": {
+        "pssm": 4,
+        "fixtures": 0
       },
       "uml:InformationFlow": {
         "pssm": 0,
@@ -232,7 +236,7 @@
       },
       "uml:ParameterSet": {
         "pssm": 0,
-        "fixtures": 0
+        "fixtures": 5
       },
       "uml:Parameter[direction=return]": {
         "pssm": 1383,
@@ -13945,10 +13949,17 @@
         "ownedMemberFeature"
       ],
       "ocl": "sha256:f9455e5332b925ba1fa6a544c48f4b7975938b8cfa5d65b825f2fc1f4fcb4318",
-      "status": "not-implemented",
-      "implementation": [],
-      "tests": [],
-      "reason": "parameter sets are not read by the migrator (no code refers to ParameterSet): the parameters are written, the set grouping them is not",
+      "status": "faithful",
+      "implementation": [
+        "internal/translate/migrate/behavior.go:parameterSets",
+        "internal/translate/migrate/behavior.go:parameterSet"
+      ],
+      "tests": [
+        "tests/migrate/parameter_set_test.go:TestParameterSets",
+        "tests/migrate/parameter_set_test.go:TestParameterSetOfAnUnwrittenParameter",
+        "tests/migrate/migrate_test.go:TestGoldenConstructFixtures"
+      ],
+      "reason": "a parameter set is written `ref set { ref [m] = p; ... }` in its behavior's def, one unnamed reference usage per parameter bound to it with its multiplicity; a condition has no target and is reported unmapped (PSSM and TMT hold no parameter set; the parameter_sets fixture holds 5)",
       "scope": [
         "uml:ParameterSet"
       ]
@@ -13968,10 +13979,17 @@
         "ownedMemberFeature"
       ],
       "ocl": "sha256:01d8e5099215c91beeb3a7dd2ea7e384a3be409e5a362f5f11030764b5258e74",
-      "status": "not-implemented",
-      "implementation": [],
-      "tests": [],
-      "reason": "parameter sets are not read by the migrator (no code refers to ParameterSet): the parameters are written, the set grouping them is not",
+      "status": "faithful",
+      "implementation": [
+        "internal/translate/migrate/behavior.go:parameterSets",
+        "internal/translate/migrate/behavior.go:parameterSet"
+      ],
+      "tests": [
+        "tests/migrate/parameter_set_test.go:TestParameterSets",
+        "tests/migrate/parameter_set_test.go:TestParameterSetOfAnUnwrittenParameter",
+        "tests/migrate/migrate_test.go:TestGoldenConstructFixtures"
+      ],
+      "reason": "a parameter set is written `ref set { ref [m] = p; ... }` in its behavior's def, one unnamed reference usage per parameter bound to it with its multiplicity; a condition has no target and is reported unmapped (PSSM and TMT hold no parameter set; the parameter_sets fixture holds 5)",
       "scope": [
         "uml:ParameterSet"
       ]
@@ -13991,10 +14009,17 @@
         "ownedRelationship"
       ],
       "ocl": "sha256:6d34ada9a754a349725d12026372ea18160af4f10fe37b2cc537f333146f431d",
-      "status": "not-implemented",
-      "implementation": [],
-      "tests": [],
-      "reason": "parameter sets are not read by the migrator (no code refers to ParameterSet): the parameters are written, the set grouping them is not",
+      "status": "faithful",
+      "implementation": [
+        "internal/translate/migrate/behavior.go:parameterSets",
+        "internal/translate/migrate/behavior.go:parameterSet"
+      ],
+      "tests": [
+        "tests/migrate/parameter_set_test.go:TestParameterSets",
+        "tests/migrate/parameter_set_test.go:TestParameterSetOfAnUnwrittenParameter",
+        "tests/migrate/migrate_test.go:TestGoldenConstructFixtures"
+      ],
+      "reason": "a parameter set is written `ref set { ref [m] = p; ... }` in its behavior's def, one unnamed reference usage per parameter bound to it with its multiplicity; a condition has no target and is reported unmapped (PSSM and TMT hold no parameter set; the parameter_sets fixture holds 5)",
       "scope": [
         "uml:ParameterSet"
       ]
@@ -14014,10 +14039,17 @@
         "value"
       ],
       "ocl": "sha256:38943b7242be37b59b5e44fade252d44ed961a437e61984daba1a632bd64d0ba",
-      "status": "not-implemented",
-      "implementation": [],
-      "tests": [],
-      "reason": "parameter sets are not read by the migrator (no code refers to ParameterSet): the parameters are written, the set grouping them is not",
+      "status": "faithful",
+      "implementation": [
+        "internal/translate/migrate/behavior.go:parameterSets",
+        "internal/translate/migrate/behavior.go:parameterSet"
+      ],
+      "tests": [
+        "tests/migrate/parameter_set_test.go:TestParameterSets",
+        "tests/migrate/parameter_set_test.go:TestParameterSetOfAnUnwrittenParameter",
+        "tests/migrate/migrate_test.go:TestGoldenConstructFixtures"
+      ],
+      "reason": "a parameter set is written `ref set { ref [m] = p; ... }` in its behavior's def, one unnamed reference usage per parameter bound to it with its multiplicity; a condition has no target and is reported unmapped (PSSM and TMT hold no parameter set; the parameter_sets fixture holds 5)",
       "scope": [
         "uml:ParameterSet"
       ]
@@ -14037,10 +14069,17 @@
         "memberElement"
       ],
       "ocl": "sha256:1d0a4a0704942910d9a609a680cfb362e207b0c2d417050eae1668562ac79dfc",
-      "status": "not-implemented",
-      "implementation": [],
-      "tests": [],
-      "reason": "parameter sets are not read by the migrator (no code refers to ParameterSet): the parameters are written, the set grouping them is not",
+      "status": "faithful",
+      "implementation": [
+        "internal/translate/migrate/behavior.go:parameterSets",
+        "internal/translate/migrate/behavior.go:parameterSet"
+      ],
+      "tests": [
+        "tests/migrate/parameter_set_test.go:TestParameterSets",
+        "tests/migrate/parameter_set_test.go:TestParameterSetOfAnUnwrittenParameter",
+        "tests/migrate/migrate_test.go:TestGoldenConstructFixtures"
+      ],
+      "reason": "a parameter set is written `ref set { ref [m] = p; ... }` in its behavior's def, one unnamed reference usage per parameter bound to it with its multiplicity; a condition has no target and is reported unmapped (PSSM and TMT hold no parameter set; the parameter_sets fixture holds 5)",
       "scope": [
         "uml:ParameterSet"
       ]
@@ -14060,10 +14099,17 @@
         "ownedRelationship"
       ],
       "ocl": "sha256:9dffea3450f060ef94a0621c05942e600fba86af6056b3e0f688a977af20e459",
-      "status": "not-implemented",
-      "implementation": [],
-      "tests": [],
-      "reason": "parameter sets are not read by the migrator (no code refers to ParameterSet): the parameters are written, the set grouping them is not",
+      "status": "faithful",
+      "implementation": [
+        "internal/translate/migrate/behavior.go:parameterSets",
+        "internal/translate/migrate/behavior.go:parameterSet"
+      ],
+      "tests": [
+        "tests/migrate/parameter_set_test.go:TestParameterSets",
+        "tests/migrate/parameter_set_test.go:TestParameterSetOfAnUnwrittenParameter",
+        "tests/migrate/migrate_test.go:TestGoldenConstructFixtures"
+      ],
+      "reason": "a parameter set is written `ref set { ref [m] = p; ... }` in its behavior's def, one unnamed reference usage per parameter bound to it with its multiplicity; a condition has no target and is reported unmapped (PSSM and TMT hold no parameter set; the parameter_sets fixture holds 5)",
       "scope": [
         "uml:ParameterSet"
       ]
@@ -14084,10 +14130,17 @@
         "ownedRelationship"
       ],
       "ocl": "sha256:4a4550c36e588ef53b2f0636b332093be56078bb675fd49f3359bd5bd60f54c1",
-      "status": "not-implemented",
-      "implementation": [],
-      "tests": [],
-      "reason": "parameter sets are not read by the migrator (no code refers to ParameterSet): the parameters are written, the set grouping them is not",
+      "status": "faithful",
+      "implementation": [
+        "internal/translate/migrate/behavior.go:parameterSets",
+        "internal/translate/migrate/behavior.go:parameterSet"
+      ],
+      "tests": [
+        "tests/migrate/parameter_set_test.go:TestParameterSets",
+        "tests/migrate/parameter_set_test.go:TestParameterSetOfAnUnwrittenParameter",
+        "tests/migrate/migrate_test.go:TestGoldenConstructFixtures"
+      ],
+      "reason": "a parameter set is written `ref set { ref [m] = p; ... }` in its behavior's def, one unnamed reference usage per parameter bound to it with its multiplicity; a condition has no target and is reported unmapped (PSSM and TMT hold no parameter set; the parameter_sets fixture holds 5)",
       "scope": [
         "uml:ParameterSet"
       ]
@@ -16241,15 +16294,16 @@
         "ownedMemberFeature"
       ],
       "ocl": "sha256:7726b130b0be57088502bd3fe54e900ca36fe5ccb74c2ed4c9f7a80e3720ede0",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
-        "internal/translate/migrate/migrate.go:constraintRule"
+        "internal/translate/migrate/migrate.go:rule"
       ],
       "tests": [
+        "tests/migrate/constraint_rule_test.go:TestOwnedRuleIsAsserted",
         "tests/migrate/migrate_test.go:TestGoldenNotation",
         "tests/migrate/values_test.go:TestNonBooleanConstraintSpecificationIsNotWritten"
       ],
-      "reason": "an owned rule is written as a constraint usage `constraint name { expr }` in its context, not as a constraint def plus an asserted constraint usage; a specification yielding no Boolean is a comment (unmapped)",
+      "reason": "the owned rule is written `assert constraint N { expr }` in its context, keeping the rule's name rather than OMG's `assert_N`, since no def is written for it to be distinguished from; a non-Boolean spec stays unmapped",
       "scope": [
         "uml:Constraint"
       ]
@@ -16269,15 +16323,16 @@
         "type"
       ],
       "ocl": "sha256:fd4db7dfc78dee71d4bc4970759862d56ea79c07c151e06000220b4d06f1da98",
-      "status": "approximate",
+      "status": "deliberate",
       "implementation": [
-        "internal/translate/migrate/migrate.go:constraintRule"
+        "internal/translate/migrate/migrate.go:rule"
       ],
       "tests": [
+        "tests/migrate/constraint_rule_test.go:TestOwnedRuleIsAsserted",
         "tests/migrate/migrate_test.go:TestGoldenNotation",
         "tests/migrate/values_test.go:TestNonBooleanConstraintSpecificationIsNotWritten"
       ],
-      "reason": "an owned rule is written as a constraint usage `constraint name { expr }` in its context, not as a constraint def plus an asserted constraint usage; a specification yielding no Boolean is a comment (unmapped)",
+      "reason": "no constraint def is written: a def used by exactly one asserted usage adds nothing, so the expression is written in the usage itself",
       "scope": [
         "uml:Constraint"
       ]
@@ -16298,15 +16353,16 @@
         "ownedRelationship"
       ],
       "ocl": "sha256:ffb52e84aa7547cd83b8e7ecbc25891bea6462826baffc697e1fff4cce00a888",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
-        "internal/translate/migrate/migrate.go:constraintRule"
+        "internal/translate/migrate/migrate.go:rule"
       ],
       "tests": [
+        "tests/migrate/constraint_rule_test.go:TestOwnedRuleIsAsserted",
         "tests/migrate/migrate_test.go:TestGoldenNotation",
         "tests/migrate/values_test.go:TestNonBooleanConstraintSpecificationIsNotWritten"
       ],
-      "reason": "an owned rule is written as a constraint usage `constraint name { expr }` in its context, not as a constraint def plus an asserted constraint usage; a specification yielding no Boolean is a comment (unmapped)",
+      "reason": "the owned rule is written `assert constraint N { expr }` in its context, keeping the rule's name rather than OMG's `assert_N`, since no def is written for it to be distinguished from; a non-Boolean spec stays unmapped",
       "scope": [
         "uml:Constraint"
       ]
@@ -16326,15 +16382,16 @@
         "ownedRelationship"
       ],
       "ocl": "sha256:9ccda0864213c15e8892700538b1eb3ac90b7e02a960e6340bb40b3923964e95",
-      "status": "approximate",
+      "status": "deliberate",
       "implementation": [
-        "internal/translate/migrate/migrate.go:constraintRule"
+        "internal/translate/migrate/migrate.go:rule"
       ],
       "tests": [
+        "tests/migrate/constraint_rule_test.go:TestOwnedRuleIsAsserted",
         "tests/migrate/migrate_test.go:TestGoldenNotation",
         "tests/migrate/values_test.go:TestNonBooleanConstraintSpecificationIsNotWritten"
       ],
-      "reason": "an owned rule is written as a constraint usage `constraint name { expr }` in its context, not as a constraint def plus an asserted constraint usage; a specification yielding no Boolean is a comment (unmapped)",
+      "reason": "no constraint def is written: a def used by exactly one asserted usage adds nothing, so the expression is written in the usage itself; candidate erratum: the mapping puts the specification in an owned calc feature with a return parameter (ElementFeatureMembership + CommonReturnParameterReferenceUsageMembership) rather than as the def's result expression, so a def written literally would not test the specification",
       "scope": [
         "uml:Constraint"
       ]
@@ -20975,17 +21032,12 @@
         "value"
       ],
       "ocl": "sha256:6bea6d38e41c5d85619bd374c9bde53c732876d185be96d11d23a50dafc22862",
-      "status": "approximate",
-      "implementation": [
-        "internal/translate/migrate/values.go:valueExpr",
-        "internal/translate/migrate/expression.go:expressionTree"
-      ],
-      "tests": [
-        "tests/migrate/migrate_test.go:TestGoldenNotation"
-      ],
-      "reason": "an Expression is written as the v2 operator expression its symbol names when the symbol is one v2 has; other operators are not written",
+      "status": "not-implemented",
+      "implementation": [],
+      "tests": [],
+      "reason": "these are used only by TIAOperatorExpression_Mapping, as the private first/second operands of a TestIdentityAction's `==`, not by Expression trees; they are written with TestIdentityAction, which is not migrated (PSSM: 14)",
       "scope": [
-        "uml:Expression"
+        "uml:TestIdentityAction"
       ]
     },
     {
@@ -21003,17 +21055,12 @@
         "ownedRelationship"
       ],
       "ocl": "sha256:ab6476a50cd5e5b90b7550bbd0f351852f29a72a151335c78c9f7b2229fc2c9e",
-      "status": "approximate",
-      "implementation": [
-        "internal/translate/migrate/values.go:valueExpr",
-        "internal/translate/migrate/expression.go:expressionTree"
-      ],
-      "tests": [
-        "tests/migrate/migrate_test.go:TestGoldenNotation"
-      ],
-      "reason": "an Expression is written as the v2 operator expression its symbol names when the symbol is one v2 has; other operators are not written",
+      "status": "not-implemented",
+      "implementation": [],
+      "tests": [],
+      "reason": "these are used only by TIAOperatorExpression_Mapping, as the private first/second operands of a TestIdentityAction's `==`, not by Expression trees; they are written with TestIdentityAction, which is not migrated (PSSM: 14)",
       "scope": [
-        "uml:Expression"
+        "uml:TestIdentityAction"
       ]
     },
     {
@@ -21032,17 +21079,12 @@
         "ownedMemberParameter"
       ],
       "ocl": "sha256:7a1dd3b97b08ed5e1bf4e252c7af3a0501b00c8be703d7995226efb29339cfb8",
-      "status": "approximate",
-      "implementation": [
-        "internal/translate/migrate/values.go:valueExpr",
-        "internal/translate/migrate/expression.go:expressionTree"
-      ],
-      "tests": [
-        "tests/migrate/migrate_test.go:TestGoldenNotation"
-      ],
-      "reason": "an Expression is written as the v2 operator expression its symbol names when the symbol is one v2 has; other operators are not written",
+      "status": "not-implemented",
+      "implementation": [],
+      "tests": [],
+      "reason": "these are used only by TIAOperatorExpression_Mapping, as the private first/second operands of a TestIdentityAction's `==`, not by Expression trees; they are written with TestIdentityAction, which is not migrated (PSSM: 14)",
       "scope": [
-        "uml:Expression"
+        "uml:TestIdentityAction"
       ]
     },
     {
@@ -21060,17 +21102,19 @@
         "ownedMemberElement"
       ],
       "ocl": "sha256:b139994abd533018d0ab985dab02209ef0b46bda7b6fcb338f865ff6844435ee",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
-        "internal/translate/migrate/values.go:valueExpr",
-        "internal/translate/migrate/expression.go:expressionTree"
+        "internal/translate/migrate/states.go:isElseGuard",
+        "internal/translate/migrate/activity.go:isElse"
       ],
       "tests": [
-        "tests/migrate/migrate_test.go:TestGoldenNotation"
+        "tests/migrate/else_expression_test.go:TestElseExpressionGuardOnAChoice",
+        "tests/migrate/else_expression_test.go:TestElseExpressionGuardOnADecision",
+        "tests/corpus/pssm_migration_test.go:TestPSSMSuiteMigration"
       ],
-      "reason": "an Expression is written as the v2 operator expression its symbol names when the symbol is one v2 has; other operators are not written",
+      "reason": "an Expression with symbol `else` and no operands is an else guard, written as the `else` succession of a decision or the unguarded branch of a choice (PSSM: 4)",
       "scope": [
-        "uml:Expression"
+        "uml:Expression[symbol=else]"
       ]
     },
     {
@@ -21089,17 +21133,19 @@
         "body"
       ],
       "ocl": "sha256:a15fd3d68c32d21d8b7d07da61232148d51b8aa6dda42641751c097a9fa1abe1",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
-        "internal/translate/migrate/values.go:valueExpr",
-        "internal/translate/migrate/expression.go:expressionTree"
+        "internal/translate/migrate/states.go:isElseGuard",
+        "internal/translate/migrate/activity.go:isElse"
       ],
       "tests": [
-        "tests/migrate/migrate_test.go:TestGoldenNotation"
+        "tests/migrate/else_expression_test.go:TestElseExpressionGuardOnAChoice",
+        "tests/migrate/else_expression_test.go:TestElseExpressionGuardOnADecision",
+        "tests/corpus/pssm_migration_test.go:TestPSSMSuiteMigration"
       ],
-      "reason": "an Expression is written as the v2 operator expression its symbol names when the symbol is one v2 has; other operators are not written",
+      "reason": "an Expression with symbol `else` and no operands is an else guard, written as the `else` succession of a decision or the unguarded branch of a choice (PSSM: 4)",
       "scope": [
-        "uml:Expression"
+        "uml:Expression[symbol=else]"
       ]
     },
     {
@@ -21117,17 +21163,19 @@
         "ownedRelationship"
       ],
       "ocl": "sha256:b5fc2edbfee259286b15363ad4813b2f8a9da52dd8e6138e4576c7970681bfc8",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
-        "internal/translate/migrate/values.go:valueExpr",
-        "internal/translate/migrate/expression.go:expressionTree"
+        "internal/translate/migrate/states.go:isElseGuard",
+        "internal/translate/migrate/activity.go:isElse"
       ],
       "tests": [
-        "tests/migrate/migrate_test.go:TestGoldenNotation"
+        "tests/migrate/else_expression_test.go:TestElseExpressionGuardOnAChoice",
+        "tests/migrate/else_expression_test.go:TestElseExpressionGuardOnADecision",
+        "tests/corpus/pssm_migration_test.go:TestPSSMSuiteMigration"
       ],
-      "reason": "an Expression is written as the v2 operator expression its symbol names when the symbol is one v2 has; other operators are not written",
+      "reason": "an Expression with symbol `else` and no operands is an else guard: the succession `else` of a decision, or the unguarded branch of a choice taken when no guarded one holds (PSSM: 4); candidate erratum: the mapping writes an OperatorExpression with operator `else` (a SysMLv1 textual representation), and no library function is named else, so the expression is ill-formed; v2 writes an else guard as the `else` succession of a decision or the unguarded branch of a choice",
       "scope": [
-        "uml:Expression"
+        "uml:Expression[symbol=else]"
       ]
     },
     {
@@ -21145,15 +21193,16 @@
         "operator"
       ],
       "ocl": "sha256:9aed5334feec9a6c28d92d8bbecbeb129aa3a71a26adb2db2c54266d3ddb78a8",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
         "internal/translate/migrate/values.go:valueExpr",
         "internal/translate/migrate/expression.go:expressionTree"
       ],
       "tests": [
+        "internal/translate/migrate/expression_internal_test.go:TestExpressionTreeLowering",
         "tests/migrate/migrate_test.go:TestGoldenNotation"
       ],
-      "reason": "an Expression is written as the v2 operator expression its symbol names when the symbol is one v2 has; other operators are not written",
+      "reason": "an Expression is written as the v2 operator expression its symbol names (arithmetic, comparison, Boolean including xor and implies, function calls), a symbol-less node with one operand as a grouping; a tree spelling nothing, with no symbol anywhere and every leaf an instance value naming no instance (notation-only, as tools write presentation constraints), is left out, since OMG would write an operator expression with no operator; ill-typed operands are refused (PSSM: 4 Expressions, all `else` guards of ExpressionElse_Mapping)",
       "scope": [
         "uml:Expression"
       ]

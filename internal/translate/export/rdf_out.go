@@ -136,8 +136,10 @@ const (
 	xEndRole              = "endRole"
 	xEndName              = "endName"
 	// The ReferencesKeyword a named end spells, when it is not `::>`.
-	xEndReferencesKeyword         = "endReferencesKeyword"
-	xEndForm                      = "endForm"
+	xEndReferencesKeyword = "endReferencesKeyword"
+	xEndForm              = "endForm"
+	// The expression node an indexed end (`s.y#(1)`) selects one element of its feature with.
+	xEndElement                   = "endElement"
 	xSourceMultiplicityBeforeThen = "sourceMultiplicityBeforeThen"
 	xConjugatedTyping             = "conjugatedTyping"
 	xEndVerb                      = "endVerb"
@@ -651,6 +653,14 @@ type encoder struct {
 
 func (e *encoder) indexTriggerMembers() {
 	for node, fqn := range e.fqn {
+		// A named send or assignment node is the statement it is written as,
+		// so a name the statement writes is written from the node.
+		if usage, ok := node.(*ast.Usage); ok {
+			if statement := nodeStatement(usage); statement != nil {
+				e.triggerMembers[statement] = fqn
+			}
+			continue
+		}
 		transition, ok := node.(*ast.TransitionMember)
 		if !ok || transition.Trigger == nil {
 			continue
@@ -1633,6 +1643,12 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 				return err
 			}
 		}
+		if statement := nodeStatement(n); statement != nil {
+			// The node is the statement it is written as: its parts are the
+			// node's own, not a member's.
+			_, err := e.encodeBehavior(statement, func(rdf.Term) {}, subject, fqn, within, 0)
+			return err
+		}
 		e.graph.Add(subject, e.sysx(xHasBody), rdf.Bool(n.HasBody))
 		if !local && (inBody || n.Kind == ast.UsageMetadata) {
 			e.metadataBodies[fqn] = true
@@ -2275,7 +2291,7 @@ func (e *encoder) bindingEnds(subject rdf.Term, owner string, n *ast.Usage) erro
 			name = declared.Name
 			keyword = e.referencesKeyword(end)
 		}
-		if err := e.connectorEnd(subject, connectorEndSpec{owner: owner, slot: slot, index: i, ends: endCount, target: end.AttachedTarget(), mult: end.Multiplicity, name: name, keyword: keyword, port: n.Kind == ast.UsageInterface}); err != nil {
+		if err := e.connectorEnd(subject, connectorEndSpec{owner: owner, slot: slot, index: i, ends: endCount, target: end.AttachedTarget(), element: end.AttachedIndex(), mult: end.Multiplicity, name: name, keyword: keyword, port: n.Kind == ast.UsageInterface}); err != nil {
 			return err
 		}
 	}
@@ -2296,7 +2312,8 @@ func (e *encoder) bindingEnds(subject rdf.Term, owner string, n *ast.Usage) erro
 			}
 			continue
 		}
-		if err := e.connectorEnd(subject, connectorEndSpec{owner: owner, slot: fmt.Sprintf("end%d", i), index: i, ends: 2, target: target, flow: true}); err != nil {
+		feature, element := ast.EndSelection(target)
+		if err := e.connectorEnd(subject, connectorEndSpec{owner: owner, slot: fmt.Sprintf("end%d", i), index: i, ends: 2, target: feature, element: element, flow: true}); err != nil {
 			return err
 		}
 	}
@@ -2343,7 +2360,9 @@ type connectorEndSpec struct {
 	target      ast.Node
 	// targetTerm is a resolved member IRI the end references, for an end
 	// whose target the notation reaches by position rather than by name.
-	targetTerm    rdf.Term
+	targetTerm rdf.Term
+	// element is the expression an indexed end selects one element of target with.
+	element       ast.Node
 	mult          *ast.Multiplicity
 	name, keyword string
 	// port types the end a PortUsage rather than a ReferenceUsage: an
@@ -2396,7 +2415,14 @@ func (e *encoder) connectorEnd(subject rdf.Term, end connectorEndSpec) error {
 	}
 	e.emitMembershipCore(membership, feature, subject, mEndFeatureMembership, true)
 	if end.target != nil {
-		e.graph.Add(feature, e.sysx(xSourceText), rdf.String(e.text(end.target)))
+		written := e.text(end.target)
+		if end.element != nil {
+			written += "#(" + e.text(end.element) + ")"
+			if err := e.expressionAs(feature, e.sysx(xEndElement), "element", end.owner, end.element, mOwningMembership); err != nil {
+				return err
+			}
+		}
+		e.graph.Add(feature, e.sysx(xSourceText), rdf.String(written))
 	}
 	if end.name != "" {
 		e.graph.Add(feature, e.sysml(pDeclaredName), rdf.String(end.name))

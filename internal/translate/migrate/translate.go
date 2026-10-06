@@ -518,6 +518,21 @@ func (m *migration) translateIn(body, lang string, sc featureResolver, want want
 	if err != nil {
 		return "", err
 	}
+	return checkedExpr(body, want, t)
+}
+
+// translateTreeIn is translateIn for a lowered Expression tree's script text,
+// the only body read admitting the KerML connectives xor and implies.
+func (m *migration) translateTreeIn(body string, sc featureResolver, want wanted) (string, *refusal) {
+	t, err := translateTreeExpr(body, sc, want)
+	if err != nil {
+		return "", err
+	}
+	return checkedExpr(body, want, t)
+}
+
+// checkedExpr spells t for want's scalar and checks the v2 text parses.
+func checkedExpr(body string, want wanted, t translated) (string, *refusal) {
 	expr := spellFor(want.scalar, t)
 	if _, ok := parseExpr(expr); !ok {
 		return "", &refusal{kind: refusedSyntax, token: body, why: "its translation " + strconv.Quote(expr) + " is not v2 expression syntax"}

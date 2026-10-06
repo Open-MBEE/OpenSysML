@@ -254,7 +254,8 @@ func (r *Renderer) connectorEnds(connector *symbols.Symbol) ([]connectorEnd, Edg
 			if end == nil {
 				continue
 			}
-			out = append(out, connectorEnd{attachment: end, path: lower.FeaturePath(end)})
+			feature := ast.EndTarget(end)
+			out = append(out, connectorEnd{attachment: feature, path: lower.FeaturePath(feature)})
 		}
 		return out, EdgeFlow
 	}

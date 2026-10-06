@@ -391,6 +391,7 @@ var constructFixtures = []string{
 	"calc_context",
 	"interaction_context",
 	"viewpoint_concerns",
+	"parameter_sets",
 }
 
 // migrateFixtureFile migrates testdata/xmi/<name>.xmi.

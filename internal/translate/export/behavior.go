@@ -1092,9 +1092,12 @@ func (d *decoder) behaviorHead(el *element) (string, bool, error) {
 		if !hasTarget || !hasValue {
 			return "", true, d.missing(el, "sysx:"+xTarget+" and sysml:"+pValue, "an assignment states what it assigns to what")
 		}
-		var words []string
+		words := nodeDeclaration(d, el)
 		if keyword, ok := d.stringOf(el, rdf.OpenSysML+xDeclaredKeyword); ok {
 			words = append(words, keyword)
+		} else if len(words) > 0 {
+			// A named node spells the keyword the bare statement may leave out.
+			words = append(words, "assign")
 		}
 		operator := ":="
 		if written, ok := d.stringOf(el, rdf.OpenSysML+xAssignOperator); ok {
@@ -1113,7 +1116,8 @@ func (d *decoder) behaviorHead(el *element) (string, bool, error) {
 		if d.boolOf(el, rdf.OpenSysML+xIsVia) {
 			keyword = "via"
 		}
-		return strings.Join([]string{"send", payload, keyword, receiver}, " "), true, nil
+		words := append(nodeDeclaration(d, el), "send", payload, keyword, receiver)
+		return strings.Join(words, " "), true, nil
 
 	case mTerminate:
 		// A declared `action a terminate;` is a usage head, not a statement; it keeps its
@@ -2426,6 +2430,21 @@ func (d *decoder) transitionFeatureKind(el *element) string {
 	}
 	kind, _ := d.graph.Lexical(rdf.IRI(m.iri), rdf.SysML+pKind)
 	return kind
+}
+
+// nodeDeclaration is the `action <name>`, after its visibility, a named send or
+// assignment node is declared with (SysML.xtext ActionNodeUsageDeclaration), or nothing for one
+// written as the bare statement.
+func nodeDeclaration(d *decoder, el *element) []string {
+	ident := d.identWords(el)
+	if len(ident) == 0 {
+		return nil
+	}
+	var words []string
+	if keyword := d.visibility(el); keyword != "" {
+		words = append(words, keyword)
+	}
+	return append(append(words, "action"), ident...)
 }
 
 // triggerPayload is the payload parameter of a trigger action: the one
