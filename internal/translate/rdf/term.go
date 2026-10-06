@@ -110,6 +110,12 @@ type Graph struct {
 	subjectOrder  []Term
 	subjectSet    map[string]struct{}
 	subjectsReady bool
+
+	// settled vouches that every collection the graph annotates is stated by
+	// its typed triples, in the annotation's order: what ReconcileCollections
+	// would check. The encoder's own graph is settled when it is written; a
+	// triple added afterwards withdraws the claim (see MarkCollectionsSettled).
+	settled bool
 }
 
 // GraphBuilder collects triples without building the graph's lookup indexes.
@@ -223,6 +229,15 @@ func tripleHash(triple Triple, seed maphash.Seed) uint64 {
 // triples must be distinct: the set that drops duplicates is built only when a
 // triple is added or looked up, so a graph assembled from a known-distinct list
 // and then only read never builds it.
+// MarkCollectionsSettled records that every annotated collection of the graph is
+// stated by its typed triples in the annotation's order, so ReconcileCollections
+// has nothing to check or rewrite. Only a writer that produced the annotations
+// from the triples may say so; adding a triple afterwards withdraws it.
+func (g *Graph) MarkCollectionsSettled() { g.settled = true }
+
+// CollectionsSettled reports whether MarkCollectionsSettled holds for the graph.
+func (g *Graph) CollectionsSettled() bool { return g.settled }
+
 func NewGraphOf(triples []Triple, prefixes map[string]string) *Graph {
 	g := &Graph{triples: triples, Prefixes: make(map[string]string, len(prefixes))}
 	for prefix, ns := range prefixes {
@@ -249,6 +264,7 @@ func (g *Graph) Add(subject, predicate, object Term) {
 
 // AddTriple appends t unless the graph already contains it.
 func (g *Graph) AddTriple(t Triple) {
+	g.settled = false
 	if g.seen != nil {
 		if g.seen[t] {
 			return

@@ -354,7 +354,6 @@ func modelToRDF(documents []ModelDocument, form IDForm) (*rdf.Graph, *resolve.Re
 			e.ids.qualified = true
 		}
 	}
-	out := rdf.NewGraph()
 	// declaredIn is the document and declaration each subject was minted for:
 	// two documents declaring one subject would merge two elements into one.
 	declaredIn := map[string]mintedSubject{}
@@ -379,20 +378,62 @@ func modelToRDF(documents []ModelDocument, form IDForm) (*rdf.Graph, *resolve.Re
 		for _, minted := range minted {
 			declaredIn[minted.iri] = minted
 		}
+	}
+	out := mergeDocumentGraphs(encoders, documents)
+	// Each document's encoder annotated its collections from its own triples,
+	// in their order, and no two documents declare one subject (refused above).
+	out.MarkCollectionsSettled()
+	return out, res, encoders, nil
+}
+
+// mergeDocumentGraphs is the written documents' graphs as one (a Referenced
+// document's are left out), in document order, each triple once, with each
+// document's roots naming it (sysx:sourceDocument).
+//
+// It is the graph adding every triple in turn would build, without testing every
+// triple against a set of all the others: a document's own graph holds each of
+// its triples once, so a triple can repeat only across documents, and then only
+// about a subject more than one document states (a library element several
+// reference). Only those subjects' triples are tested.
+func mergeDocumentGraphs(encoders []*encoder, documents []ModelDocument) *rdf.Graph {
+	stated := map[rdf.Term]int{} // subject to the number of documents stating it
+	total := 0
+	for i, e := range encoders {
+		if documents[i].Referenced {
+			continue
+		}
+		for _, subject := range e.graph.Subjects() {
+			stated[subject]++
+		}
+		total += e.graph.Len()
+	}
+	prefixes := map[string]string{}
+	triples := make([]rdf.Triple, 0, total+len(encoders))
+	seen := map[rdf.Triple]bool{} // the triples of subjects more than one document states
+	add := func(t rdf.Triple) {
+		if stated[t.Subject] > 1 {
+			if seen[t] {
+				return
+			}
+			seen[t] = true
+		}
+		triples = append(triples, t)
+	}
+	for i, e := range encoders {
 		if documents[i].Referenced {
 			continue
 		}
 		for prefix, ns := range e.graph.Prefixes {
-			out.Prefixes[prefix] = ns
+			prefixes[prefix] = ns
 		}
 		for _, triple := range e.graph.Triples() {
-			out.AddTriple(triple)
+			add(triple)
 			if triple.Predicate.Value == rdf.OpenSysML+xSourceLanguage {
-				out.Add(triple.Subject, rdf.OpenSysMLTerm(xSourceDocument), rdf.String(documents[i].File.Name()))
+				add(rdf.Triple{Subject: triple.Subject, Predicate: rdf.OpenSysMLTerm(xSourceDocument), Object: rdf.String(documents[i].File.Name())})
 			}
 		}
 	}
-	return out, res, encoders, nil
+	return rdf.NewGraphOf(triples, prefixes)
 }
 
 // declaredSubjects are the subjects the document mints for its named
