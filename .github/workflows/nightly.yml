@@ -445,7 +445,25 @@ jobs:
       # kept; the alias is then recreated at the same commit with the same assets, so
       # no asset of a previous night survives under it. `gh release delete` leaves a
       # tag behind; the alias tag is moved by hand.
-      - name: Publish the per-night prerelease and move the alias to it
+      # The distributions go up before the release does: a night whose release is published
+      # is never rebuilt, so the registry jobs must be able to re-run from what this run kept.
+      - name: Keep the Python distribution for the PyPI job
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: python-dist
+          path: client/python/dist/
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Keep the npm tarballs for the npm job
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: npm-dist
+          path: dist/npm/*.tgz
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Publish the per-night prerelease
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
@@ -494,6 +512,38 @@ jobs:
             "${assets[@]}"
           gh release view "$VERSION" --json url,assets --jq '.url, (.assets[].name)'
 
+  # Its own job, so that re-running the failed jobs of a run finishes a night whose release
+  # is published without rebuilding it: the alias is recreated from the night's own assets.
+  alias:
+    name: Move the alias and prune old nights
+    needs: [select, publish]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    steps:
+      - name: Check out the selected commit
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          ref: ${{ needs.select.outputs.sha }}
+
+      - name: Recreate the alias at this night, with its assets, title and notes
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          VERSION: ${{ needs.publish.outputs.tag }}
+        run: |
+          sha=$(git rev-parse HEAD)
+          expected=$(gh release view "$VERSION" --json assets --jq '.assets | length')
+          gh release download "$VERSION" --dir assets
+          assets=(assets/*)
+          if [[ "$expected" -eq 0 || "${#assets[@]}" -ne "$expected" ]]; then
+            echo "::error::$VERSION has $expected assets; downloaded ${#assets[@]}."
+            exit 1
+          fi
+          title=$(gh release view "$VERSION" --json name --jq .name)
+          gh release view "$VERSION" --json body --jq .body > notes.md
+
           if gh release view "$TAG" --json tagName >/dev/null 2>&1; then
             gh release delete "$TAG" --yes
           fi
@@ -501,7 +551,7 @@ jobs:
           git push --force origin "refs/tags/$TAG"
           gh release create "$TAG" \
             --target "$sha" \
-            --title "Nightly snapshot $DATE ($VERSION)" \
+            --title "$title" \
             --notes-file notes.md \
             --prerelease \
             --latest=false \
@@ -518,7 +568,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
-          VERSION: ${{ steps.version.outputs.tag }}
+          VERSION: ${{ needs.publish.outputs.tag }}
         run: |
           cutoff=$(date -u -d "$RETENTION_DAYS days ago" +%Y-%m-%dT%H:%M:%SZ)
           echo "Deleting per-night releases published before $cutoff, except $VERSION, which $TAG names."
@@ -532,22 +582,6 @@ jobs:
             echo "delete $tag ($published)"
             gh release delete "$tag" --cleanup-tag --yes
           done
-
-      - name: Keep the Python distribution for the PyPI job
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: python-dist
-          path: client/python/dist/
-          if-no-files-found: error
-          retention-days: 7
-
-      - name: Keep the npm tarballs for the npm job
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: npm-dist
-          path: dist/npm/*.tgz
-          if-no-files-found: error
-          retention-days: 7
 
   # Trusted publishing: PyPI accepts this workflow's OIDC token for the `opensysml`
   # project once a maintainer registers it as a trusted publisher (repository

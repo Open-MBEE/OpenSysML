@@ -2,6 +2,7 @@ package hygiene
 
 import (
 	"os"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
@@ -105,37 +106,56 @@ func TestNightlyReleasesAreAlwaysPrereleasesNeverLatest(t *testing.T) {
 	if publish.Permissions["contents"] != "write" {
 		t.Errorf("the publish job's contents permission is %q; it creates releases", publish.Permissions["contents"])
 	}
-	release := stepIndex(publish.runSteps(), "gh release create", "--prerelease", "--latest=false")
-	if release < 0 {
-		t.Fatal("no step creates the releases as prereleases that are not latest")
+	alias := nightlyJob(t, workflow, "alias")
+	if alias.Permissions["contents"] != "write" {
+		t.Errorf("the alias job's contents permission is %q; it moves a tag and creates a release", alias.Permissions["contents"])
 	}
-	command := publish.runSteps()[release].Command
-	creates := strings.Count(command, "gh release create")
-	if creates != 2 {
-		t.Errorf("the release step creates %d releases; the per-night release and the alias make 2", creates)
-	}
-	for _, step := range publish.runSteps() {
-		if step.Command != command && strings.Contains(step.Command, "gh release create") {
-			t.Errorf("step %q also creates a release, outside the step that marks them prereleases", step.Name)
+	creates := 0
+	for _, job := range workflow.Jobs {
+		for _, step := range job.runSteps() {
+			for _, line := range strings.Split(step.Command, "\n") {
+				if strings.HasPrefix(strings.TrimSpace(line), "gh release create") {
+					creates++
+				}
+			}
 		}
 	}
-	if n := strings.Count(command, "--latest=false"); n != creates {
-		t.Errorf("%d of the %d release creations pass --latest=false", n, creates)
-	}
-	if n := strings.Count(command, "--prerelease"); n != creates {
-		t.Errorf("%d of the %d release creations pass --prerelease", n, creates)
+	if creates != 2 {
+		t.Errorf("nightly.yml creates releases %d times; the per-night release and the alias make 2", creates)
 	}
 	if strings.Contains(raw, "gh release edit") {
 		t.Error("nightly.yml edits a release, which could mark one latest after creation")
 	}
-	if !containsAll(command, `gh release create "$VERSION"`, `gh release create "$TAG"`) {
-		t.Error("the release step does not create both the per-night release and the alias")
+	// Each release is created in its own job, so a failure after the per-night release is
+	// published is finished by re-running the failed jobs rather than by rebuilding it.
+	night := stepIndex(publish.runSteps(), `gh release create "$VERSION"`, "--prerelease", "--latest=false")
+	moved := stepIndex(alias.runSteps(), `gh release create "$TAG"`, "--prerelease", "--latest=false")
+	if night < 0 {
+		t.Fatal("the publish job does not create the per-night release as a prerelease that is not latest")
 	}
-	if strings.Index(command, `gh release create "$VERSION"`) > strings.Index(command, `gh release create "$TAG"`) {
-		t.Error("the alias is created before the per-night release the clients pin")
+	if moved < 0 {
+		t.Fatal("the alias job does not create the alias as a prerelease that is not latest")
 	}
-	if !containsAll(command, "dist/*.whl") {
-		t.Error("the releases do not carry the Python wheel beside the binaries")
+	if !containsAll(publish.runSteps()[night].Command, "dist/*.whl") {
+		t.Error("the per-night release does not carry the Python wheel beside the binaries")
+	}
+	if !containsAll(alias.runSteps()[moved].Command, `gh release download "$VERSION"`, `"${#assets[@]}" -ne "$expected"`) {
+		t.Error("the alias is not recreated from the per-night release's own assets, checked complete")
+	}
+	if needs := alias.needs(); !slices.Contains(needs, "publish") {
+		t.Errorf("the alias job needs %v, not the publish job whose release it copies", needs)
+	}
+	uploaded, released := -1, -1
+	for i, step := range publish.Steps {
+		if strings.HasPrefix(step.Uses, "actions/upload-artifact@") && uploaded < i {
+			uploaded = i
+		}
+		if strings.Contains(step.Run, `gh release create "$VERSION"`) {
+			released = i
+		}
+	}
+	if uploaded < 0 || released < uploaded {
+		t.Error("the per-night release is published before the distributions are kept, so a failed upload leaves a night the registries cannot be re-run for")
 	}
 }
 
@@ -261,14 +281,14 @@ func TestNightlyPrunesPerNightReleasesByAge(t *testing.T) {
 	if err != nil || days != 14 {
 		t.Errorf("RETENTION_DAYS is %q; the snapshot page promises 14 days", workflow.Env["RETENTION_DAYS"])
 	}
-	steps := nightlyJob(t, workflow, "publish").runSteps()
-	release := stepIndex(steps, "gh release create")
+	steps := nightlyJob(t, workflow, "alias").runSteps()
+	release := stepIndex(steps, `gh release create "$TAG"`)
 	prune := stepIndex(steps, "gh release delete", "--cleanup-tag", `"$RETENTION_DAYS days ago"`, "^nightly-[0-9]{8}-[0-9a-f]+$")
 	switch {
 	case prune < 0:
-		t.Error("the publish job does not delete per-night releases, tag and all, older than $RETENTION_DAYS by their tag form")
+		t.Error("the alias job does not delete per-night releases, tag and all, older than $RETENTION_DAYS by their tag form")
 	case prune < release:
-		t.Error("old releases are pruned before this night's is published, so a failed publish leaves fewer nights than promised")
+		t.Error("old releases are pruned before the alias moves to this night, so a failed move leaves fewer nights than promised")
 	case !containsAll(steps[prune].Command, `"$tag" == "$VERSION"`):
 		t.Error("pruning does not spare this night's release, which the alias was just recreated at")
 	case strings.Contains(steps[prune].Command, "alias_sha"):
@@ -287,9 +307,9 @@ func TestNightlyNeverRebuildsAPublishedNight(t *testing.T) {
 	if version < 0 || !containsAll(steps[version].Command, `"$SNAPSHOT_DATE"`, `tag=$NIGHT`) {
 		t.Error("the version step does not derive the night the select job found unpublished, by its date and name")
 	}
-	release := stepIndex(steps, "gh release create")
+	release := stepIndex(steps, `gh release create "$VERSION"`)
 	if release < 0 {
-		t.Fatal("no step creates the releases")
+		t.Fatal("no step creates the per-night release")
 	}
 	command := steps[release].Command
 	if strings.Contains(command, `gh release delete "$VERSION" --cleanup-tag`) {

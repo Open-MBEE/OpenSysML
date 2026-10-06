@@ -230,9 +230,10 @@ installed wheel reports the snapshot version, names the night's release as the o
 built against and pins all five digests, as the release pipeline checks a release's wheel;
 builds the platform and WASM packages from the same binaries and packs all seven npm
 tarballs; signs the manifest, which now lists the wheel, with its own GitHub OIDC
-identity; and publishes with the repository's own `GITHUB_TOKEN`: the per-night release
-first, then the alias recreated at the same commit, then the deletion of per-night releases
-published more than 14 days ago. Two further jobs, each in the `nightly` GitHub
+identity; keeps the wheel, sdist and tarballs as workflow artifacts; and publishes the
+per-night release with the repository's own `GITHUB_TOKEN`. A second job recreates the
+alias at the same commit from the night's own assets, title and notes, then deletes the
+per-night releases published more than 14 days ago. Two further jobs, each in the `nightly` GitHub
 environment, publish the wheel and sdist to PyPI with
 [`pypa/gh-action-pypi-publish`](https://github.com/pypa/gh-action-pypi-publish) and the
 seven tarballs to npm under the `nightly` dist-tag — platform and WASM packages first, the
