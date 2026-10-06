@@ -209,6 +209,12 @@ func usageMetaclassOf(n *ast.Usage, inMetadataBody bool) (string, bool) {
 	case acceptPayload(n) != nil:
 		return mAcceptAction, true
 	}
+	switch nodeStatement(n).(type) {
+	case *ast.SendStatement:
+		return mSend, true
+	case *ast.AssignmentActionNode:
+		return mAssignment, true
+	}
 	if n.Keyword == "" && (n.Kind == ast.UsageAttribute || inMetadataBody && n.Kind == ast.UsageEnumeration || n.Ident.Name == "" && n.Kind < ast.UsageConnection) {
 		// A kindless usage is a DefaultReferenceUsage; an unnamed one is too,
 		// the name it would take being what a reference lacks (SysML.xtext
@@ -234,6 +240,43 @@ func acceptPayload(n *ast.Usage) *ast.Usage {
 		return payload
 	}
 	return nil
+}
+
+// nodeStatement is the statement an action node is written as, which the node
+// is (`action s send x to r;` is one SendActionUsage named s, SysML.xtext
+// SendNode; `action a assign x := y;` one AssignmentActionUsage,
+// AssignmentNode), or nil for any other usage: a node chaining further
+// statements with `then`, or one whose declaration says more than its
+// visibility and name (`#M action a : A assign …`), which the statement's
+// notation cannot write back and so keeps the action it is declared as.
+func nodeStatement(n *ast.Usage) ast.Node {
+	if n.Kind != ast.UsageAction || !n.IsActionNode || len(n.Members) != 1 || !plainNodeHead(n) {
+		return nil
+	}
+	statement := n.Members[0]
+	if m, ok := statement.(*ast.Membership); ok {
+		statement = m.Member
+	}
+	switch s := statement.(type) {
+	case *ast.SendStatement:
+		if !s.HasBody {
+			return s
+		}
+	case *ast.AssignmentActionNode:
+		return s
+	}
+	return nil
+}
+
+// plainNodeHead reports whether an action node declares nothing but its
+// visibility and name: no prefix, modifier, specialization, multiplicity or
+// value.
+func plainNodeHead(n *ast.Usage) bool {
+	return len(n.Prefixes) == 0 && n.PrefixKeyword == "" && len(n.Relationships) == 0 &&
+		n.Multiplicity == nil && n.CrossFeature == nil && n.Value == nil &&
+		!n.IsAbstract && !n.IsVariation && !n.IsVariant && !n.IsReference && !n.IsVariable &&
+		!n.IsIndividual && n.Portion == ast.PortionNone && !n.IsPortion && n.Direction == ast.DirNone &&
+		!n.IsEnd && !n.IsConstant && !n.IsDerived && !n.IsOrdered && !n.IsNonunique && !n.IsParallel
 }
 
 // eventOccurrence reports an occurrence declared with `event`, whether as its
