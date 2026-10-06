@@ -62,7 +62,7 @@
         "dir": "examples",
         "origin": "ours",
         "files": 48,
-        "digest": "sha256:52372722b8abcdf92dfe02a4df5dd44bff8e0e2c54ccdba1a6360ae2146a096a"
+        "digest": "sha256:b74aec38b6d38bab83dc398205accd1a555e432b2c6cb2fbaa0607d9f222d140"
       },
       {
         "name": "probes",
@@ -76,20 +76,20 @@
         "dir": "internal/workspace/libs/stdlib/OpenSysML Libraries",
         "origin": "ours",
         "files": 15,
-        "digest": "sha256:d09c983f79b0cb9a82bbfa4c5213106c62c987e59c881b3d104679dd1b4d378c"
+        "digest": "sha256:0ce873b4022e69bd3da69b5dcf69955cb9c7358ecdc21d1f07336c6cd8583650"
       }
     ],
-    "recorded": "2026-10-05"
+    "recorded": "2026-10-06"
   },
   "totals": {
     "files": 386,
-    "filesFullyAgreeing": 353,
+    "filesFullyAgreeing": 357,
     "agreement": 45,
     "severityMismatch": 1,
     "openSysMLOnly": 44,
-    "pilotOnly": 93,
+    "pilotOnly": 85,
     "openSysMLDiagnostics": 90,
-    "pilotDiagnostics": 139
+    "pilotDiagnostics": 131
   },
   "roots": [
     {
@@ -932,13 +932,13 @@
       "dir": "examples",
       "totals": {
         "files": 48,
-        "filesFullyAgreeing": 39,
+        "filesFullyAgreeing": 43,
         "agreement": 0,
         "severityMismatch": 0,
         "openSysMLOnly": 7,
-        "pilotOnly": 62,
+        "pilotOnly": 54,
         "openSysMLDiagnostics": 7,
-        "pilotDiagnostics": 62
+        "pilotDiagnostics": 54
       },
       "files": [
         {
@@ -951,32 +951,6 @@
               "line": 542,
               "severity": "warning",
               "category": "kind-mismatch",
-              "count": 1
-            }
-          ]
-        },
-        {
-          "path": "disposal-robot-demo/robot.sysml",
-          "agreement": [],
-          "severityMismatch": [],
-          "openSysMLOnly": [],
-          "pilotOnly": [
-            {
-              "line": 564,
-              "severity": "error",
-              "category": "unmapped",
-              "count": 1
-            },
-            {
-              "line": 625,
-              "severity": "error",
-              "category": "syntax",
-              "count": 1
-            },
-            {
-              "line": 627,
-              "severity": "error",
-              "category": "syntax",
               "count": 1
             }
           ]
@@ -1253,40 +1227,6 @@
           ]
         },
         {
-          "path": "self-model/views.sysml",
-          "agreement": [],
-          "severityMismatch": [],
-          "openSysMLOnly": [],
-          "pilotOnly": [
-            {
-              "line": 197,
-              "severity": "error",
-              "category": "syntax",
-              "count": 1
-            },
-            {
-              "line": 199,
-              "severity": "error",
-              "category": "syntax",
-              "count": 1
-            }
-          ]
-        },
-        {
-          "path": "solver-demo.sysml",
-          "agreement": [],
-          "severityMismatch": [],
-          "openSysMLOnly": [],
-          "pilotOnly": [
-            {
-              "line": 183,
-              "severity": "error",
-              "category": "unmapped",
-              "count": 1
-            }
-          ]
-        },
-        {
           "path": "verdicts-demo/rover.sysml",
           "agreement": [],
           "severityMismatch": [],
@@ -1308,26 +1248,6 @@
               "line": 152,
               "severity": "warning",
               "category": "kind-mismatch",
-              "count": 1
-            }
-          ]
-        },
-        {
-          "path": "views-demo.sysml",
-          "agreement": [],
-          "severityMismatch": [],
-          "openSysMLOnly": [],
-          "pilotOnly": [
-            {
-              "line": 197,
-              "severity": "error",
-              "category": "syntax",
-              "count": 1
-            },
-            {
-              "line": 199,
-              "severity": "error",
-              "category": "syntax",
               "count": 1
             }
           ]
@@ -1460,11 +1380,6 @@
     {
       "side": "pilot",
       "message": "Duplicate of owned member name",
-      "count": 2
-    },
-    {
-      "side": "pilot",
-      "message": "Only one objective is allowed.",
       "count": 2
     },
     {
@@ -1813,13 +1728,13 @@
     ],
     "totals": {
       "files": 386,
-      "filesFullyAgreeing": 354,
+      "filesFullyAgreeing": 358,
       "agreement": 45,
       "severityMismatch": 1,
       "openSysMLOnly": 43,
-      "pilotOnly": 93,
+      "pilotOnly": 85,
       "openSysMLDiagnostics": 89,
-      "pilotDiagnostics": 139
+      "pilotDiagnostics": 131
     },
     "findings": [
       {

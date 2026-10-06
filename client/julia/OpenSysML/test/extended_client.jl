@@ -636,6 +636,30 @@ end
                 @test length(rows) == 4
                 @test !isempty(render_document(document_model, "Observatory::MassReport"))
                 @test !isempty(render_document(document_model, "Observatory::MassReport"; form="html"))
+                views_model = parse_file(conn, joinpath(FIXTURES, "views.sysml"))
+                rendered_view = render_view(views_model, "RenderViewDemo::connections")
+                @test rendered_view.kind == "interconnection"
+                @test length(rendered_view.edges) == 1
+                @test !isempty(rendered_view.edges[1].from_port)
+                @test !isempty(rendered_view.edges[1].to_port)
+                @test all(node -> node.origin !== nothing, rendered_view.nodes)
+                full_view = render_view(views_model, "RenderViewDemo::connections"; ports="full")
+                @test any(port.name == "spare" for node in full_view.nodes for port in node.ports)
+                for (view, message) in (
+                    ("RenderViewDemo::Missing", "no view named RenderViewDemo::Missing"),
+                    ("#interconnection:Nope",
+                     "#interconnection:Nope: Nope names nothing in this model"),
+                )
+                    missing_view = try
+                        render_view(views_model, view)
+                        nothing
+                    catch error
+                        error
+                    end
+                    @test missing_view isa SymbolNotFoundError
+                    @test missing_view.name == view
+                    @test sprint(showerror, missing_view) == message
+                end
                 @test !isempty(convert_model(document_model, "sysml").content)
                 @test !isempty(to_turtle(document_model).content)
                 @test !isempty(to_api_json(document_model).content)

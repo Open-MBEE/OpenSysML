@@ -128,9 +128,12 @@ framework or a held-object store, which is what keeps a WebAssembly build small 
 embed in a page. A model parsed through it hashes to the same `modelHash` the service
 returns, and a request a service client encodes decodes identically here.
 
-It also serves `RenderView`, an engine-only call that returns the drawing data for a
-declared view or a targeted pseudo-view. It is not an RPC of `sysml-grpc`. A request names
-the cached model and a declared view's qualified name or the target of a pseudo-view:
+It also serves `RenderView`, returning drawing data for a declared view or a targeted
+pseudo-view. [`sysml-grpc` serves `RenderView` as an RPC](wire-contract.md#renderview),
+but the engine reply uses the drawing shape described here (flattened `fill`/`border`
+and optional `x`/`y`/`width`/`height`), not the protojson `RenderViewResponse`. A
+request names the cached model and a declared view's qualified name or the target of a
+pseudo-view:
 
 ```json
 {
@@ -250,7 +253,7 @@ package is `@openmbee/opensysml-wasm`.
 and `GetServerInfo`. Parsing and symbol facts route through the core; evaluation and
 execution route through the engine. `ParseSources` and `ParseFile` check that both frontends
 produce the same model hash and return the core response, including roots and diagnostics.
-It does not dispatch the engine-only `RenderView` call.
+It does not dispatch the engine's `RenderView` call.
 
 A hash from either parse method is shared by every method that takes a `modelHash`, including
 `GetDiagnostics`, `GetSymbol`, `Evaluate`, `Instantiate`, `ExecuteAction` and `ExecuteState`.

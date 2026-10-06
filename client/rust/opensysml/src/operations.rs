@@ -4,19 +4,19 @@ use std::collections::{BTreeMap, HashMap};
 
 use crate::capabilities::{
     upgrade_remedy, CAPABILITY_BIG_INT_VALUES, CAPABILITY_COMPLEX_VALUES, CAPABILITY_CONVERT,
-    CAPABILITY_DOCUMENT_QUERY, CAPABILITY_ENGINES, CAPABILITY_ENUM_VALUES,
-    CAPABILITY_FUNCTION_VALUES, CAPABILITY_INFINITY_VALUE, CAPABILITY_INLINE_LANGUAGE,
-    CAPABILITY_MEASUREMENT_REFS, CAPABILITY_METAOBJECT_VALUES, CAPABILITY_MIGRATE,
-    CAPABILITY_OSLC_QUERY, CAPABILITY_PARSE_SOURCES, CAPABILITY_PERFORMER, CAPABILITY_QUERY,
-    CAPABILITY_RENDER_DOCUMENT, CAPABILITY_RENDER_DOCUMENT_HTML, CAPABILITY_SCHEDULE,
-    CAPABILITY_SCHEDULE_EXPLORE, CAPABILITY_SET_VALUES, CAPABILITY_STATE_TRACE,
-    CAPABILITY_STRICT_CONFORMANCE, CAPABILITY_STRUCTURED_VALUES, CAPABILITY_TENSOR_VALUES,
-    CAPABILITY_VERIFICATION, CAPABILITY_VERIFICATION_QUESTIONS,
+    CAPABILITY_CONVERT_DOCUMENTS, CAPABILITY_DOCUMENT_QUERY, CAPABILITY_ENGINES,
+    CAPABILITY_ENUM_VALUES, CAPABILITY_FUNCTION_VALUES, CAPABILITY_INFINITY_VALUE,
+    CAPABILITY_INLINE_LANGUAGE, CAPABILITY_MEASUREMENT_REFS, CAPABILITY_METAOBJECT_VALUES,
+    CAPABILITY_MIGRATE, CAPABILITY_OSLC_QUERY, CAPABILITY_PARSE_SOURCES, CAPABILITY_PERFORMER,
+    CAPABILITY_QUERY, CAPABILITY_RENDER_DOCUMENT, CAPABILITY_RENDER_DOCUMENT_HTML,
+    CAPABILITY_SCHEDULE, CAPABILITY_SCHEDULE_EXPLORE, CAPABILITY_SET_VALUES,
+    CAPABILITY_STATE_TRACE, CAPABILITY_STRICT_CONFORMANCE, CAPABILITY_STRUCTURED_VALUES,
+    CAPABILITY_TENSOR_VALUES, CAPABILITY_VERIFICATION, CAPABILITY_VERIFICATION_QUESTIONS,
 };
 use crate::conversion::{conversion_of, request_of, Conversion, ConvertOptions, ConvertSource};
 use crate::document::{
-    binding_holds_big_int, bindings_to_wire, document_event_from_wire, result_of, DocumentForm,
-    DocumentQueryResult, DocumentValue,
+    binding_holds_big_int, bindings_to_wire, document_event_from_wire, rendered_view_of, result_of,
+    DocumentForm, DocumentQueryResult, DocumentValue, RenderViewPorts, RenderedView,
 };
 use crate::domain::{Model, Value};
 use crate::encode::value_to_wire;
@@ -279,12 +279,13 @@ impl Connection {
                 "{name} {MIGRATED_NOT_CONVERTED}; call migrate with the same source"
             )));
         }
-        self.require_all(&[CAPABILITY_CONVERT])?;
-        let response = self.gated_rpc(
-            "Convert",
-            request_of(to_format, source, options),
-            &[CAPABILITY_CONVERT],
-        )?;
+        let mut required = vec![CAPABILITY_CONVERT];
+        if !options.documents.is_empty() {
+            required.push(CAPABILITY_CONVERT_DOCUMENTS);
+        }
+        self.require_all(&required)?;
+        let response =
+            self.gated_rpc("Convert", request_of(to_format, source, options), &required)?;
         conversion_of(response)
     }
 
@@ -418,6 +419,34 @@ impl Connection {
             DocumentForm::Markdown => response.markdown,
             DocumentForm::Html => response.html,
         })
+    }
+
+    /// Render a named view with minimal ports.
+    pub fn render_view(&self, model_hash: &str, view_name: &str) -> Result<RenderedView, Error> {
+        self.render_view_with_ports(model_hash, view_name, RenderViewPorts::Minimal)
+    }
+
+    /// Render a named view with the requested port selection.
+    pub fn render_view_with_ports(
+        &self,
+        model_hash: &str,
+        view_name: &str,
+        ports: RenderViewPorts,
+    ) -> Result<RenderedView, Error> {
+        self.require_all(&[crate::capabilities::CAPABILITY_RENDER_VIEW])?;
+        let response = self.gated_rpc(
+            "RenderView",
+            wire::RenderViewRequest {
+                model_hash: model_hash.to_owned(),
+                view: view_name.to_owned(),
+                ports: match ports {
+                    RenderViewPorts::Minimal => String::new(),
+                    RenderViewPorts::Full => "full".to_owned(),
+                },
+            },
+            &[crate::capabilities::CAPABILITY_RENDER_VIEW],
+        )?;
+        Ok(rendered_view_of(response))
     }
 
     fn run_capabilities(
