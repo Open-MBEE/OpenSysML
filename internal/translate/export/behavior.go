@@ -570,6 +570,55 @@ func (e *encoder) encodeGuardedTarget(n *ast.ControlFlowEdge, head func(rdf.Term
 	return nil
 }
 
+// targetTransitionText writes a decision's branch, `if g then b;` or `else b;`.
+// That notation states no source, which the branch reads from the member
+// before it, and no effect or body; a branch the graph gives another source,
+// an effect or a body, or neither a guard nor `else`, which would read back as
+// a succession, is refused rather than written as a different branch.
+func (d *decoder) targetTransitionText(el *element, guard, target string) (string, string, error) {
+	refuse := func(note string) error {
+		return &UnsupportedError{What: fmt.Sprintf("the transition <%s>", el.iri), Note: note}
+	}
+	if stated := d.graph.Objects(rdf.IRI(el.iri), rdf.SysML+pSource); len(stated) > 0 {
+		before := d.precedingSource(el)
+		if before == nil || stated[0].Value != before.iri {
+			return "", "", refuse(fmt.Sprintf("its sysml:source <%s> is not the member before it, which `if … then` and `else` take their source from", stated[0].Value))
+		}
+	}
+	effect, body, hasEffect, hasBody, err := d.transitionMembers(el)
+	if err != nil {
+		return "", "", err
+	}
+	if hasEffect || hasBody || len(effect) > 0 || len(body) > 0 {
+		return "", "", refuse("it owns an effect or a body, which a decision's branch has no notation for")
+	}
+	if d.boolOf(el, rdf.OpenSysML+xIsElse) {
+		if guard != "" {
+			return "", "", refuse("it is the `else` branch of a decision yet states a guard, and `else` writes none")
+		}
+		return "else " + target, "", nil
+	}
+	if guard == "" {
+		return "", "", refuse("it states no guard and is no `else` branch, and `then` alone writes a succession")
+	}
+	return "if " + guard + " then " + target, "", nil
+}
+
+// precedingSource is the member before el that a positional end is read from:
+// the nearest one the notation sequences from (isSuccessionSource).
+func (d *decoder) precedingSource(el *element) *element {
+	if el.owner == nil {
+		return nil
+	}
+	members := d.bodyChildren(el.owner)
+	for i := slices.Index(members, el) - 1; i >= 0; i-- {
+		if isSuccessionSource(members[i]) {
+			return members[i]
+		}
+	}
+	return nil
+}
+
 // targetTransitionSyntax is the sysx:transitionSyntax of a decision's branch,
 // which states neither a source nor a trigger: only its guard and target.
 const targetTransitionSyntax = "target"
@@ -1981,12 +2030,8 @@ func (d *decoder) transitionText(el *element, annotations []string, depth int) (
 	if err != nil {
 		return "", "", err
 	}
-	if syntax == targetTransitionSyntax && d.boolOf(el, rdf.OpenSysML+xIsElse) {
-		// `else b;` is the branch taken when no guarded one is, and states no guard.
-		if guard != "" {
-			return "", "", &UnsupportedError{What: fmt.Sprintf("the transition <%s>", el.iri), Note: "it is the `else` branch of a decision yet states a guard, and `else` writes none"}
-		}
-		return "else " + target, "", nil
+	if syntax == targetTransitionSyntax {
+		return d.targetTransitionText(el, guard, target)
 	}
 	if guard != "" {
 		words = append(words, "if", guard)
