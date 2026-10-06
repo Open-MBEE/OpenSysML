@@ -2455,7 +2455,7 @@ func (m *migration) written(e *sysmlv1.Element) bool {
 	if e.Parent == nil && e.Type == "Model" {
 		return false
 	}
-	if p := e.Parent; p != nil && isBehavior(p) && !behaviorWritesMember(p, e) {
+	if p := e.Parent; p != nil && isBehavior(p) && !m.behaviorWritesMember(p, e) {
 		return false
 	}
 	if m.isBuried(e) {
@@ -2494,6 +2494,18 @@ func (m *migration) memberWritten(e *sysmlv1.Element) (written, decided bool) {
 		// An anonymous association is a connection def only when it owns every
 		// end and is not written as an actor of a use case instead.
 		return e.Name != "" || m.actors[e] == nil && ownsEveryEnd(e, m.model.Refs(e, "memberEnd")), true
+	case "Variable":
+		// Written when the owner's body declares it: a structured node inside a
+		// written graph, else an activity or hosted behavior itself written.
+		p := e.Parent
+		if e.Role != "variable" || p == nil || !m.declaresVariable(p) {
+			return false, true
+		}
+		if isStructured(p) {
+			act, _ := m.nodeGraph(p)
+			return act != nil && m.reaches(act), true
+		}
+		return m.written(p), true
 	case "Connector":
 		return m.connectorWritten(e), true
 	}

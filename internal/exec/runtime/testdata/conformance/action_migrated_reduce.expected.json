@@ -1,0 +1,8 @@
+{
+	"libraries": true,
+	"type": "action",
+	"evaluate": "test::Reducing",
+	"outputs": {
+		"reduce.result": {"type": "Integer", "value": 6}
+	}
+}

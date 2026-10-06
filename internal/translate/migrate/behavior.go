@@ -74,7 +74,7 @@ func isBehavior(e *sysmlv1.Element) bool {
 
 // behaviorWritesMember reports whether the body of behavior b declares its member c: what the
 // owner writes for any behavior, else an activity's or a state machine's nested members and graph.
-func behaviorWritesMember(b, c *sysmlv1.Element) bool {
+func (m *migration) behaviorWritesMember(b, c *sysmlv1.Element) bool {
 	if ownerWritten(c.Role) {
 		return true
 	}
@@ -85,10 +85,29 @@ func behaviorWritesMember(b, c *sysmlv1.Element) bool {
 		return true
 	case "node", "edge", "group":
 		return b.Type == "Activity"
+	case "variable":
+		return m.declaresVariable(b)
 	case "ownedOperation", "connectionPoint":
 		return b.Type == "StateMachine"
 	}
 	return false
+}
+
+// declaresVariable reports whether b's v2 body declares its variable children
+// as private features — the condition declareVariables writes them under: a
+// structured node's inner action, an activity whose graph an operation's body
+// hosts, or an activity written as an action or state def.
+func (m *migration) declaresVariable(b *sysmlv1.Element) bool {
+	switch {
+	case isStructured(b):
+		return true
+	case b.Type != "Activity":
+		return false
+	case m.methodOf[b] != nil:
+		return true
+	}
+	cat, _ := m.classify(b)
+	return cat == catActionDef || cat == catStateDef
 }
 
 // unwrittenMembers reports the members of behavior b that its body neither declares nor
@@ -104,7 +123,7 @@ func (m *migration) unwrittenMembers(b *sysmlv1.Element, accounted ...string) {
 		body = "parameters and states"
 	}
 	for _, c := range b.Children {
-		if behaviorWritesMember(b, c) || slices.Contains(accounted, c.Role) {
+		if m.behaviorWritesMember(b, c) || slices.Contains(accounted, c.Role) {
 			continue
 		}
 		m.unmapped(c, "owned by a "+b.Type+", whose v2 body is its "+body+", not a place for a "+kindOf(c))
