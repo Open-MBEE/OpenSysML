@@ -1,0 +1,47 @@
+package migrate_test
+
+import (
+	"testing"
+
+	"github.com/Open-MBEE/OpenSysML/internal/translate/migrate"
+)
+
+// testdata/xmi/variables.xmi, activities Reducing and Raising: a reduce folds
+// its collection by the reducer's v2 function; a raise exception ends the
+// activity as an activity final does.
+func TestReduceRaiseFixture(t *testing.T) {
+	r := migrateFixtureFile(t, "variables")
+	wantClean(t, "variables.xmi", r)
+
+	// A library primitive binary function and a model calc of two in
+	// parameters and one return both reduce; an activity does not.
+	wantLine(t, r.Notation, "out result : ScalarValues::Integer[1] = collection->ControlFunctions::reduce {in x; in y; IntegerFunctions::'+'(x, y)};")
+	wantNote(t, r, "_reduce", migrate.Mapped, "")
+	wantLine(t, r.Notation, "out result : ScalarValues::Integer[1] = collection->ControlFunctions::reduce {in x; in y; Sum(x, y)};")
+	wantNote(t, r, "_reduceModel", migrate.Mapped, "")
+	wantNote(t, r, "_reduceNone", migrate.Unmapped, "not a calc or function def, so it has no v2 function")
+
+	// An input and a result pin named alike settle distinct names, and the
+	// flow names the settled result.
+	wantLine(t, r.Notation, "in result : ScalarValues::Integer[0..*];")
+	wantLine(t, r.Notation, "out result2 : ScalarValues::Integer[1] = result->ControlFunctions::reduce {in x; in y; IntegerFunctions::'+'(x, y)};")
+	wantLine(t, r.Notation, "bind 'out' = reduceClash.result2;")
+	wantNote(t, r, "_reduceClash", migrate.Mapped, "starts with the activity")
+	wantNote(t, r, "_reduceClashOut", migrate.Mapped, "")
+
+	// A reduce with no result pin comments the fold and still maps; one with no
+	// collection pin has nothing to fold and is a placeholder.
+	wantLine(t, r.Notation, "/* reduces collection, which flows nowhere */")
+	wantNote(t, r, "_reduceNoOut", migrate.Mapped, "")
+	wantNote(t, r, "_reduceNoIn", migrate.Unmapped, "the action has no collection pin")
+
+	// A raise exception writes a sibling terminate after it; its own outgoing
+	// edge carries no token.
+	wantNote(t, r, "_raise", migrate.Approximated, "v2 has no exceptions: raising one ends the enclosing activity, as an activity final does; the exception value is not passed to a caller")
+	wantLine(t, r.Notation, "action 'terminate' terminate;")
+	wantLine(t, r.Notation, "first raise then 'terminate';")
+	wantNote(t, r, "_ra2", migrate.Unmapped, "the action raises an exception, so no token leaves it")
+
+	// A raise inside a structured node ends only that node's performance.
+	wantNote(t, r, "_raiseNested", migrate.Approximated, "inside a structured node, the terminate ends only that node")
+}

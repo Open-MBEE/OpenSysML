@@ -22,7 +22,7 @@
       },
       {
         "name": "fixtures",
-        "files": 94
+        "files": 95
       }
     ],
     "counts": {
@@ -104,7 +104,7 @@
       },
       "uml:AddVariableValueAction": {
         "pssm": 0,
-        "fixtures": 0
+        "fixtures": 6
       },
       "uml:Association": {
         "pssm": 4,
@@ -128,7 +128,7 @@
       },
       "uml:CentralBufferNode": {
         "pssm": 0,
-        "fixtures": 0
+        "fixtures": 2
       },
       "uml:ChangeEvent": {
         "pssm": 0,
@@ -136,7 +136,7 @@
       },
       "uml:Class": {
         "pssm": 311,
-        "fixtures": 471
+        "fixtures": 472
       },
       "uml:ClearAssociationAction": {
         "pssm": 0,
@@ -148,7 +148,7 @@
       },
       "uml:ClearVariableAction": {
         "pssm": 0,
-        "fixtures": 0
+        "fixtures": 1
       },
       "uml:Constraint": {
         "pssm": 59,
@@ -172,7 +172,7 @@
       },
       "uml:DataStoreNode": {
         "pssm": 0,
-        "fixtures": 0
+        "fixtures": 1
       },
       "uml:DestroyLinkAction": {
         "pssm": 0,
@@ -212,7 +212,7 @@
       },
       "uml:ObjectFlow": {
         "pssm": 11312,
-        "fixtures": 78
+        "fixtures": 100
       },
       "uml:ObjectFlow[weight]": {
         "pssm": 2065,
@@ -220,11 +220,11 @@
       },
       "uml:OpaqueAction": {
         "pssm": 0,
-        "fixtures": 131
+        "fixtures": 134
       },
       "uml:OpaqueBehavior": {
         "pssm": 0,
-        "fixtures": 47
+        "fixtures": 49
       },
       "uml:Package[URI]": {
         "pssm": 0,
@@ -236,7 +236,7 @@
       },
       "uml:Parameter[direction=return]": {
         "pssm": 1383,
-        "fixtures": 15
+        "fixtures": 16
       },
       "uml:Property": {
         "pssm": 25,
@@ -252,7 +252,7 @@
       },
       "uml:RaiseExceptionAction": {
         "pssm": 0,
-        "fixtures": 0
+        "fixtures": 2
       },
       "uml:ReadExtentAction": {
         "pssm": 0,
@@ -284,7 +284,7 @@
       },
       "uml:ReadVariableAction": {
         "pssm": 0,
-        "fixtures": 0
+        "fixtures": 6
       },
       "uml:ReclassifyObjectAction": {
         "pssm": 0,
@@ -292,7 +292,7 @@
       },
       "uml:ReduceAction": {
         "pssm": 0,
-        "fixtures": 0
+        "fixtures": 6
       },
       "uml:Region": {
         "pssm": 248,
@@ -304,7 +304,7 @@
       },
       "uml:RemoveVariableValueAction": {
         "pssm": 0,
-        "fixtures": 0
+        "fixtures": 3
       },
       "uml:ReplyAction": {
         "pssm": 0,
@@ -352,7 +352,7 @@
       },
       "uml:Variable": {
         "pssm": 0,
-        "fixtures": 0
+        "fixtures": 8
       }
     }
   },
@@ -9163,10 +9163,16 @@
       ],
       "operations": [],
       "ocl": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "status": "not-implemented",
-      "implementation": [],
-      "tests": [],
-      "reason": "a RaiseExceptionAction is not migrated: it is written as a placeholder action that keeps its pins and position in the flow and is reported unmapped",
+      "status": "faithful",
+      "implementation": [
+        "internal/translate/migrate/activity.go:raiseException",
+        "internal/translate/migrate/activity.go:successions"
+      ],
+      "tests": [
+        "tests/migrate/reduce_raise_test.go:TestReduceRaiseFixture",
+        "internal/exec/runtime/conformance_test.go:TestExecutionConformance"
+      ],
+      "reason": "candidate erratum: the mapping gives only an ActionUsage, and SysML v2 has no exceptions or handlers; with no handler a raised exception ends the activity, so the action is followed by a terminate action",
       "scope": [
         "uml:RaiseExceptionAction"
       ]
@@ -9183,10 +9189,16 @@
       ],
       "operations": [],
       "ocl": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "status": "not-implemented",
-      "implementation": [],
-      "tests": [],
-      "reason": "a ReduceAction is not migrated: it is written as a placeholder action that keeps its pins and position in the flow and is reported unmapped",
+      "status": "faithful",
+      "implementation": [
+        "internal/translate/migrate/activity.go:reduceAction",
+        "internal/translate/migrate/activity.go:reducerFunc"
+      ],
+      "tests": [
+        "tests/migrate/reduce_raise_test.go:TestReduceRaiseFixture",
+        "internal/exec/runtime/conformance_test.go:TestExecutionConformance"
+      ],
+      "reason": "candidate erratum: the mapping gives only an ActionUsage with no defined content, which drops the reduction; the result is written as `collection->reduce {in x; in y; F(x, y)}` over the reducer's v2 function (KerML ControlFunctions::reduce)",
       "scope": [
         "uml:ReduceAction"
       ]
@@ -10289,10 +10301,14 @@
         "type"
       ],
       "ocl": "sha256:a8eb96ac81ed2fed40bafe00553639a22c0c3b9e3dd1724582a90e23115bc1f6",
-      "status": "not-implemented",
-      "implementation": [],
-      "tests": [],
-      "reason": "a AddVariableValueAction is not migrated: it is written as a placeholder action that keeps its pins and position in the flow and is reported unmapped",
+      "status": "deliberate",
+      "implementation": [
+        "internal/translate/migrate/activity.go:addVariable"
+      ],
+      "tests": [
+        "tests/migrate/variable_actions_test.go:TestVariablesFixture"
+      ],
+      "reason": "the mapping types or redefines against SysMLv1Library::AddValueAction, a library no published SysML v2 library provides, so the names would not resolve; the variable is written as the assignment's target instead (`assign v := …`)",
       "scope": [
         "uml:AddVariableValueAction"
       ]
@@ -10312,10 +10328,14 @@
         "value"
       ],
       "ocl": "sha256:b2c913147169889fbb87320ce72b5e5f27f290dc97017809f8d7d78033542877",
-      "status": "not-implemented",
-      "implementation": [],
-      "tests": [],
-      "reason": "a AddVariableValueAction is not migrated: it is written as a placeholder action that keeps its pins and position in the flow and is reported unmapped",
+      "status": "faithful",
+      "implementation": [
+        "internal/translate/migrate/activity.go:addVariable"
+      ],
+      "tests": [
+        "tests/migrate/variable_actions_test.go:TestVariablesFixture"
+      ],
+      "reason": "",
       "scope": [
         "uml:AddVariableValueAction"
       ]
@@ -10335,10 +10355,14 @@
         "ownedMemberFeature"
       ],
       "ocl": "sha256:26a09a0291a9a660868d253c230d9091490921aede95ae99dd05f05ec259d763",
-      "status": "not-implemented",
-      "implementation": [],
-      "tests": [],
-      "reason": "a AddVariableValueAction is not migrated: it is written as a placeholder action that keeps its pins and position in the flow and is reported unmapped",
+      "status": "faithful",
+      "implementation": [
+        "internal/translate/migrate/activity.go:addVariable"
+      ],
+      "tests": [
+        "tests/migrate/variable_actions_test.go:TestVariablesFixture"
+      ],
+      "reason": "",
       "scope": [
         "uml:AddVariableValueAction"
       ]
@@ -10358,10 +10382,14 @@
         "redefinedFeature"
       ],
       "ocl": "sha256:5823d5403665871e82ef93310da297197fe46c5d75d0543ae61323885cd099c1",
-      "status": "not-implemented",
-      "implementation": [],
-      "tests": [],
-      "reason": "a AddVariableValueAction is not migrated: it is written as a placeholder action that keeps its pins and position in the flow and is reported unmapped",
+      "status": "deliberate",
+      "implementation": [
+        "internal/translate/migrate/activity.go:addVariable"
+      ],
+      "tests": [
+        "tests/migrate/variable_actions_test.go:TestVariablesFixture"
+      ],
+      "reason": "the mapping types or redefines against SysMLv1Library::AddValueAction, a library no published SysML v2 library provides, so the names would not resolve; the variable is written as the assignment's target instead (`assign v := …`)",
       "scope": [
         "uml:AddVariableValueAction"
       ]
@@ -10381,10 +10409,14 @@
         "value"
       ],
       "ocl": "sha256:9e392765bb2d10e3b3cdd2a23ab968ab484a8dfe0881c77f370d8204a2faa270",
-      "status": "not-implemented",
-      "implementation": [],
-      "tests": [],
-      "reason": "a AddVariableValueAction is not migrated: it is written as a placeholder action that keeps its pins and position in the flow and is reported unmapped",
+      "status": "faithful",
+      "implementation": [
+        "internal/translate/migrate/activity.go:addVariable"
+      ],
+      "tests": [
+        "tests/migrate/variable_actions_test.go:TestVariablesFixture"
+      ],
+      "reason": "",
       "scope": [
         "uml:AddVariableValueAction"
       ]
@@ -10404,10 +10436,14 @@
         "ownedRelationship"
       ],
       "ocl": "sha256:f66a0210291044627228b41223b6853f611d2ef796788b56943a5ef5b2ff48ab",
-      "status": "not-implemented",
-      "implementation": [],
-      "tests": [],
-      "reason": "a AddVariableValueAction is not migrated: it is written as a placeholder action that keeps its pins and position in the flow and is reported unmapped",
+      "status": "faithful",
+      "implementation": [
+        "internal/translate/migrate/activity.go:addVariable"
+      ],
+      "tests": [
+        "tests/migrate/variable_actions_test.go:TestVariablesFixture"
+      ],
+      "reason": "",
       "scope": [
         "uml:AddVariableValueAction"
       ]
@@ -10427,10 +10463,14 @@
         "memberElement"
       ],
       "ocl": "sha256:f4e43a4a793cd736b3956b1c1f4ea80e1bc10aa167106fa850b25eed76c2c79a",
-      "status": "not-implemented",
-      "implementation": [],
-      "tests": [],
-      "reason": "a AddVariableValueAction is not migrated: it is written as a placeholder action that keeps its pins and position in the flow and is reported unmapped",
+      "status": "faithful",
+      "implementation": [
+        "internal/translate/migrate/activity.go:addVariable"
+      ],
+      "tests": [
+        "tests/migrate/variable_actions_test.go:TestVariablesFixture"
+      ],
+      "reason": "",
       "scope": [
         "uml:AddVariableValueAction"
       ]
@@ -10450,10 +10490,14 @@
         "ownedRelationship"
       ],
       "ocl": "sha256:251dbd17f0fa2fcd37435a1483e1ea14310f0f6e67f2840c80ea931836e0bc48",
-      "status": "not-implemented",
-      "implementation": [],
-      "tests": [],
-      "reason": "a AddVariableValueAction is not migrated: it is written as a placeholder action that keeps its pins and position in the flow and is reported unmapped",
+      "status": "faithful",
+      "implementation": [
+        "internal/translate/migrate/activity.go:addVariable"
+      ],
+      "tests": [
+        "tests/migrate/variable_actions_test.go:TestVariablesFixture"
+      ],
+      "reason": "",
       "scope": [
         "uml:AddVariableValueAction"
       ]
@@ -10473,10 +10517,14 @@
         "ownedMemberFeature"
       ],
       "ocl": "sha256:24762d4b6489a938a781564a69e55aa105a3b121ea6ff7d5801dcd687b114638",
-      "status": "not-implemented",
-      "implementation": [],
-      "tests": [],
-      "reason": "a AddVariableValueAction is not migrated: it is written as a placeholder action that keeps its pins and position in the flow and is reported unmapped",
+      "status": "faithful",
+      "implementation": [
+        "internal/translate/migrate/activity.go:addVariable"
+      ],
+      "tests": [
+        "tests/migrate/variable_actions_test.go:TestVariablesFixture"
+      ],
+      "reason": "",
       "scope": [
         "uml:AddVariableValueAction"
       ]
@@ -10496,10 +10544,14 @@
         "redefinedFeature"
       ],
       "ocl": "sha256:1132b460bfd53d07f6444954ab85c562c82b1eab1c9c646182c85db29ecabd2a",
-      "status": "not-implemented",
-      "implementation": [],
-      "tests": [],
-      "reason": "a AddVariableValueAction is not migrated: it is written as a placeholder action that keeps its pins and position in the flow and is reported unmapped",
+      "status": "deliberate",
+      "implementation": [
+        "internal/translate/migrate/activity.go:addVariable"
+      ],
+      "tests": [
+        "tests/migrate/variable_actions_test.go:TestVariablesFixture"
+      ],
+      "reason": "the mapping types or redefines against SysMLv1Library::AddValueAction, a library no published SysML v2 library provides, so the names would not resolve; the variable is written as the assignment's target instead (`assign v := …`)",
       "scope": [
         "uml:AddVariableValueAction"
       ]
@@ -10519,10 +10571,14 @@
         "ownedRelationship"
       ],
       "ocl": "sha256:48f0ab4f82c93af13266298bb78ffb4b7c8cc91f421647c3095245213ad33f0c",
-      "status": "not-implemented",
-      "implementation": [],
-      "tests": [],
-      "reason": "a AddVariableValueAction is not migrated: it is written as a placeholder action that keeps its pins and position in the flow and is reported unmapped",
+      "status": "faithful",
+      "implementation": [
+        "internal/translate/migrate/activity.go:addVariable"
+      ],
+      "tests": [
+        "tests/migrate/variable_actions_test.go:TestVariablesFixture"
+      ],
+      "reason": "",
       "scope": [
         "uml:AddVariableValueAction"
       ]
@@ -10541,10 +10597,15 @@
         "ownedRelationship"
       ],
       "ocl": "sha256:ef7fa3d8f660779ea957757951e33530ea2c5b96e9f7b9edaa2f969479fb6002",
-      "status": "not-implemented",
-      "implementation": [],
-      "tests": [],
-      "reason": "a AddVariableValueAction is not migrated: it is written as a placeholder action that keeps its pins and position in the flow and is reported unmapped",
+      "status": "faithful",
+      "implementation": [
+        "internal/translate/migrate/activity.go:addVariable"
+      ],
+      "tests": [
+        "tests/migrate/variable_actions_test.go:TestVariablesFixture",
+        "internal/exec/runtime/conformance_test.go:TestExecutionConformance"
+      ],
+      "reason": "candidate erratum: the mapping's ownedRelationship omits Helper.actionOwnedRelationship (which ClearVariableAction_Mapping and RemoveVariableValueAction_Mapping include), so the action's value and insertAt pins — the value added — are not written; the action is written with its pins and an assignment to the variable (`assign v := SequenceFunctions::including(v, value);`, `includingAt` with insertAt, `:= value` when replacing all)",
       "scope": [
         "uml:AddVariableValueAction"
       ]
@@ -10564,10 +10625,14 @@
         "ownedMemberFeature"
       ],
       "ocl": "sha256:eec7c8f2f5ba19f6f1c1398db82d3f59a70919be5ad8a71f5f52fe62e00cfa2b",
-      "status": "not-implemented",
-      "implementation": [],
-      "tests": [],
-      "reason": "a ClearVariableAction is not migrated: it is written as a placeholder action that keeps its pins and position in the flow and is reported unmapped",
+      "status": "faithful",
+      "implementation": [
+        "internal/translate/migrate/activity.go:clearVariable"
+      ],
+      "tests": [
+        "tests/migrate/variable_actions_test.go:TestVariablesFixture"
+      ],
+      "reason": "",
       "scope": [
         "uml:ClearVariableAction"
       ]
@@ -10587,10 +10652,14 @@
         "value"
       ],
       "ocl": "sha256:c37353f4be5ebb2ec9049a56c061a9f23c8e97370a76099e58f111ed519eeed7",
-      "status": "not-implemented",
-      "implementation": [],
-      "tests": [],
-      "reason": "a ClearVariableAction is not migrated: it is written as a placeholder action that keeps its pins and position in the flow and is reported unmapped",
+      "status": "faithful",
+      "implementation": [
+        "internal/translate/migrate/activity.go:clearVariable"
+      ],
+      "tests": [
+        "tests/migrate/variable_actions_test.go:TestVariablesFixture"
+      ],
+      "reason": "",
       "scope": [
         "uml:ClearVariableAction"
       ]
@@ -10611,10 +10680,14 @@
         "declaredName"
       ],
       "ocl": "sha256:ea0afc199342de020cd6f00a94ddd643e04a4707a6140d61eb294c752be32d05",
-      "status": "not-implemented",
-      "implementation": [],
-      "tests": [],
-      "reason": "a ClearVariableAction is not migrated: it is written as a placeholder action that keeps its pins and position in the flow and is reported unmapped",
+      "status": "faithful",
+      "implementation": [
+        "internal/translate/migrate/activity.go:clearVariable"
+      ],
+      "tests": [
+        "tests/migrate/variable_actions_test.go:TestVariablesFixture"
+      ],
+      "reason": "",
       "scope": [
         "uml:ClearVariableAction"
       ]
@@ -10633,10 +10706,14 @@
         "ownedRelationship"
       ],
       "ocl": "sha256:18acde97a93fe9372e4390b54a48a9fe8626e2d2624371c63111335bdecb4329",
-      "status": "not-implemented",
-      "implementation": [],
-      "tests": [],
-      "reason": "a ClearVariableAction is not migrated: it is written as a placeholder action that keeps its pins and position in the flow and is reported unmapped",
+      "status": "faithful",
+      "implementation": [
+        "internal/translate/migrate/activity.go:clearVariable"
+      ],
+      "tests": [
+        "tests/migrate/variable_actions_test.go:TestVariablesFixture"
+      ],
+      "reason": "",
       "scope": [
         "uml:ClearVariableAction"
       ]
@@ -10656,10 +10733,14 @@
         "ownedMemberFeature"
       ],
       "ocl": "sha256:b88635aad73c428696cae6606b079fd1a5805361e419899d13230b3a24a3b6a6",
-      "status": "not-implemented",
-      "implementation": [],
-      "tests": [],
-      "reason": "a ReadVariableAction is not migrated: it is written as a placeholder action that keeps its pins and position in the flow and is reported unmapped",
+      "status": "faithful",
+      "implementation": [
+        "internal/translate/migrate/activity.go:readVariable"
+      ],
+      "tests": [
+        "tests/migrate/variable_actions_test.go:TestVariablesFixture"
+      ],
+      "reason": "",
       "scope": [
         "uml:ReadVariableAction"
       ]
@@ -10679,10 +10760,14 @@
         "memberElement"
       ],
       "ocl": "sha256:8d76ac8ae12dd9ba4d5aff5c54c6cc48fcc40884decd3aeb3e46d47f7073c578",
-      "status": "not-implemented",
-      "implementation": [],
-      "tests": [],
-      "reason": "a ReadVariableAction is not migrated: it is written as a placeholder action that keeps its pins and position in the flow and is reported unmapped",
+      "status": "faithful",
+      "implementation": [
+        "internal/translate/migrate/activity.go:readVariable"
+      ],
+      "tests": [
+        "tests/migrate/variable_actions_test.go:TestVariablesFixture"
+      ],
+      "reason": "",
       "scope": [
         "uml:ReadVariableAction"
       ]
@@ -10702,10 +10787,14 @@
         "ownedRelationship"
       ],
       "ocl": "sha256:f446fdc109d8588055b01c13ceda9283d86d593c9594463f210d7b681f9ddbbe",
-      "status": "not-implemented",
-      "implementation": [],
-      "tests": [],
-      "reason": "a ReadVariableAction is not migrated: it is written as a placeholder action that keeps its pins and position in the flow and is reported unmapped",
+      "status": "faithful",
+      "implementation": [
+        "internal/translate/migrate/activity.go:readVariable"
+      ],
+      "tests": [
+        "tests/migrate/variable_actions_test.go:TestVariablesFixture"
+      ],
+      "reason": "",
       "scope": [
         "uml:ReadVariableAction"
       ]
@@ -10722,10 +10811,14 @@
       ],
       "operations": [],
       "ocl": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "status": "not-implemented",
-      "implementation": [],
-      "tests": [],
-      "reason": "a ReadVariableAction is not migrated: it is written as a placeholder action that keeps its pins and position in the flow and is reported unmapped",
+      "status": "faithful",
+      "implementation": [
+        "internal/translate/migrate/activity.go:readVariable"
+      ],
+      "tests": [
+        "tests/migrate/variable_actions_test.go:TestVariablesFixture"
+      ],
+      "reason": "",
       "scope": [
         "uml:ReadVariableAction"
       ]
@@ -10745,10 +10838,14 @@
         "value"
       ],
       "ocl": "sha256:e92833efb51c7eca9f190d546379b4533c080b6416d59f121110cc54d73a342a",
-      "status": "not-implemented",
-      "implementation": [],
-      "tests": [],
-      "reason": "a ReadVariableAction is not migrated: it is written as a placeholder action that keeps its pins and position in the flow and is reported unmapped",
+      "status": "faithful",
+      "implementation": [
+        "internal/translate/migrate/activity.go:readVariable"
+      ],
+      "tests": [
+        "tests/migrate/variable_actions_test.go:TestVariablesFixture"
+      ],
+      "reason": "",
       "scope": [
         "uml:ReadVariableAction"
       ]
@@ -10768,10 +10865,14 @@
         "ownedRelationship"
       ],
       "ocl": "sha256:482ac2047bf88568b2306a1918e67c4efcf334862fa6137a598541de37a0b22c",
-      "status": "not-implemented",
-      "implementation": [],
-      "tests": [],
-      "reason": "a ReadVariableAction is not migrated: it is written as a placeholder action that keeps its pins and position in the flow and is reported unmapped",
+      "status": "faithful",
+      "implementation": [
+        "internal/translate/migrate/activity.go:readVariable"
+      ],
+      "tests": [
+        "tests/migrate/variable_actions_test.go:TestVariablesFixture"
+      ],
+      "reason": "",
       "scope": [
         "uml:ReadVariableAction"
       ]
@@ -10791,10 +10892,14 @@
         "type"
       ],
       "ocl": "sha256:3ff7a5bfb2ffaa6245eb8ff290aa75e5472ba801deb6d546d675d25ea297a18d",
-      "status": "not-implemented",
-      "implementation": [],
-      "tests": [],
-      "reason": "a RemoveVariableValueAction is not migrated: it is written as a placeholder action that keeps its pins and position in the flow and is reported unmapped",
+      "status": "deliberate",
+      "implementation": [
+        "internal/translate/migrate/activity.go:removeVariable"
+      ],
+      "tests": [
+        "tests/migrate/variable_actions_test.go:TestVariablesFixture"
+      ],
+      "reason": "the mapping types or redefines against SysMLv1Library::RemoveVariableValueAction, a library no published SysML v2 library provides, so the names would not resolve; the variable is written as the assignment's target instead (`assign v := …`)",
       "scope": [
         "uml:RemoveVariableValueAction"
       ]
@@ -10814,10 +10919,14 @@
         "memberElement"
       ],
       "ocl": "sha256:f4e43a4a793cd736b3956b1c1f4ea80e1bc10aa167106fa850b25eed76c2c79a",
-      "status": "not-implemented",
-      "implementation": [],
-      "tests": [],
-      "reason": "a RemoveVariableValueAction is not migrated: it is written as a placeholder action that keeps its pins and position in the flow and is reported unmapped",
+      "status": "faithful",
+      "implementation": [
+        "internal/translate/migrate/activity.go:removeVariable"
+      ],
+      "tests": [
+        "tests/migrate/variable_actions_test.go:TestVariablesFixture"
+      ],
+      "reason": "",
       "scope": [
         "uml:RemoveVariableValueAction"
       ]
@@ -10837,10 +10946,14 @@
         "ownedMemberFeature"
       ],
       "ocl": "sha256:f6d73c79a322a9d2a9b5fa41d90e80b5aee275e561c3663292c24d33a69882b0",
-      "status": "not-implemented",
-      "implementation": [],
-      "tests": [],
-      "reason": "a RemoveVariableValueAction is not migrated: it is written as a placeholder action that keeps its pins and position in the flow and is reported unmapped",
+      "status": "faithful",
+      "implementation": [
+        "internal/translate/migrate/activity.go:removeVariable"
+      ],
+      "tests": [
+        "tests/migrate/variable_actions_test.go:TestVariablesFixture"
+      ],
+      "reason": "",
       "scope": [
         "uml:RemoveVariableValueAction"
       ]
@@ -10860,10 +10973,14 @@
         "ownedRelationship"
       ],
       "ocl": "sha256:b1a6f0c5367564b815a34b5995490d1caf82d6bc74d449d217d19ee204260e48",
-      "status": "not-implemented",
-      "implementation": [],
-      "tests": [],
-      "reason": "a RemoveVariableValueAction is not migrated: it is written as a placeholder action that keeps its pins and position in the flow and is reported unmapped",
+      "status": "faithful",
+      "implementation": [
+        "internal/translate/migrate/activity.go:removeVariable"
+      ],
+      "tests": [
+        "tests/migrate/variable_actions_test.go:TestVariablesFixture"
+      ],
+      "reason": "",
       "scope": [
         "uml:RemoveVariableValueAction"
       ]
@@ -10883,10 +11000,14 @@
         "value"
       ],
       "ocl": "sha256:2a2850eef42685f39e1ef0048329dd6aca1efe6b3b4afc873348a701284bc3bd",
-      "status": "not-implemented",
-      "implementation": [],
-      "tests": [],
-      "reason": "a RemoveVariableValueAction is not migrated: it is written as a placeholder action that keeps its pins and position in the flow and is reported unmapped",
+      "status": "faithful",
+      "implementation": [
+        "internal/translate/migrate/activity.go:removeVariable"
+      ],
+      "tests": [
+        "tests/migrate/variable_actions_test.go:TestVariablesFixture"
+      ],
+      "reason": "",
       "scope": [
         "uml:RemoveVariableValueAction"
       ]
@@ -10906,10 +11027,14 @@
         "redefinedFeature"
       ],
       "ocl": "sha256:63ef724bd2846b0d306a39eb977eccaa3026c731386deb590dffcbb87a511d39",
-      "status": "not-implemented",
-      "implementation": [],
-      "tests": [],
-      "reason": "a RemoveVariableValueAction is not migrated: it is written as a placeholder action that keeps its pins and position in the flow and is reported unmapped",
+      "status": "deliberate",
+      "implementation": [
+        "internal/translate/migrate/activity.go:removeVariable"
+      ],
+      "tests": [
+        "tests/migrate/variable_actions_test.go:TestVariablesFixture"
+      ],
+      "reason": "the mapping types or redefines against SysMLv1Library::RemoveVariableValueAction, a library no published SysML v2 library provides, so the names would not resolve; the variable is written as the assignment's target instead (`assign v := …`)",
       "scope": [
         "uml:RemoveVariableValueAction"
       ]
@@ -10929,10 +11054,14 @@
         "ownedRelationship"
       ],
       "ocl": "sha256:4d5e51a43aeeb19dd231fde487cc4ac1d7a9ed97b91a1d4dfd35e0bd34135b6a",
-      "status": "not-implemented",
-      "implementation": [],
-      "tests": [],
-      "reason": "a RemoveVariableValueAction is not migrated: it is written as a placeholder action that keeps its pins and position in the flow and is reported unmapped",
+      "status": "faithful",
+      "implementation": [
+        "internal/translate/migrate/activity.go:removeVariable"
+      ],
+      "tests": [
+        "tests/migrate/variable_actions_test.go:TestVariablesFixture"
+      ],
+      "reason": "",
       "scope": [
         "uml:RemoveVariableValueAction"
       ]
@@ -10951,10 +11080,14 @@
         "ownedRelationship"
       ],
       "ocl": "sha256:d3957cc823dfdcc181bf8cda7b2848681cbc2ddfc01f6e31161dfa5f5bbbe741",
-      "status": "not-implemented",
-      "implementation": [],
-      "tests": [],
-      "reason": "a ReadVariableAction is not migrated: it is written as a placeholder action that keeps its pins and position in the flow and is reported unmapped",
+      "status": "faithful",
+      "implementation": [
+        "internal/translate/migrate/activity.go:readVariable"
+      ],
+      "tests": [
+        "tests/migrate/variable_actions_test.go:TestVariablesFixture"
+      ],
+      "reason": "",
       "scope": [
         "uml:ReadVariableAction"
       ]
@@ -10973,10 +11106,14 @@
         "ownedRelationship"
       ],
       "ocl": "sha256:fad1044d448d39c315383e22f6774703f78f1abbf7004054b2d4924456c12ffb",
-      "status": "not-implemented",
-      "implementation": [],
-      "tests": [],
-      "reason": "a RemoveVariableValueAction is not migrated: it is written as a placeholder action that keeps its pins and position in the flow and is reported unmapped",
+      "status": "faithful",
+      "implementation": [
+        "internal/translate/migrate/activity.go:removeVariable"
+      ],
+      "tests": [
+        "tests/migrate/variable_actions_test.go:TestVariablesFixture"
+      ],
+      "reason": "",
       "scope": [
         "uml:RemoveVariableValueAction"
       ]
@@ -11423,15 +11560,16 @@
       ],
       "operations": [],
       "ocl": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
         "internal/translate/migrate/activity.go:declareKind"
       ],
       "tests": [
         "tests/migrate/migrate_test.go:TestGoldenNotation",
+        "tests/migrate/buffers_test.go:TestBuffersFixture",
         "tests/corpus/pssm_migration_test.go:TestPSSMSuiteMigration"
       ],
-      "reason": "an object node is written as an action that holds no tokens: the flows through it are written from its sources to its targets",
+      "reason": "a buffer routing its tokens to one target is the flows through it: the flows written from its sources to its targets behave as it does",
       "scope": [
         "uml:CentralBufferNode",
         "uml:DataStoreNode"
@@ -11480,10 +11618,15 @@
         "ownedRelationship"
       ],
       "ocl": "sha256:bf997873c6f011ed636260dea0453b964daa46cfe6f2ac2268aaad1382454acb",
-      "status": "not-implemented",
-      "implementation": [],
-      "tests": [],
-      "reason": "activity variables are not migrated: the variable actions that read or write them are placeholders",
+      "status": "faithful",
+      "implementation": [
+        "internal/translate/migrate/activity.go:declareVariables"
+      ],
+      "tests": [
+        "tests/migrate/variable_actions_test.go:TestVariablesFixture",
+        "tests/corpus/pssm_migration_test.go:TestPSSMSuiteMigration"
+      ],
+      "reason": "",
       "scope": [
         "uml:Variable"
       ]
@@ -11838,15 +11981,15 @@
       ],
       "operations": [],
       "ocl": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "status": "approximate",
+      "status": "deliberate",
       "implementation": [
         "internal/translate/migrate/activity.go:declareKind"
       ],
       "tests": [
-        "tests/migrate/migrate_test.go:TestGoldenNotation",
+        "tests/migrate/buffers_test.go:TestBuffersFixture",
         "tests/corpus/pssm_migration_test.go:TestPSSMSuiteMigration"
       ],
-      "reason": "an object node is written as an action that holds no tokens: the flows through it are written from its sources to its targets",
+      "reason": "a data store keeps every value and gives each reader a copy — non-destructive reads a v2 flow cannot hold, so the flows through it are written from its sources to its targets, which reads each value once (PSSM: 0 of them; the migration fixtures hold 1)",
       "scope": [
         "uml:CentralBufferNode",
         "uml:DataStoreNode"
@@ -12828,10 +12971,14 @@
         "filter"
       ],
       "ocl": "sha256:804444dbe502947376691b2ba406596172873cfba2c116efef822ae4b619cb87",
-      "status": "not-implemented",
-      "implementation": [],
-      "tests": [],
-      "reason": "activity variables are not migrated: the variable actions that read or write them are placeholders",
+      "status": "faithful",
+      "implementation": [
+        "internal/translate/migrate/activity.go:declareVariable"
+      ],
+      "tests": [
+        "tests/migrate/variable_actions_test.go:TestVariablesFixture"
+      ],
+      "reason": "",
       "scope": [
         "uml:Variable"
       ]
@@ -12848,10 +12995,14 @@
       ],
       "operations": [],
       "ocl": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "status": "not-implemented",
-      "implementation": [],
-      "tests": [],
-      "reason": "activity variables are not migrated: the variable actions that read or write them are placeholders",
+      "status": "faithful",
+      "implementation": [
+        "internal/translate/migrate/activity.go:declareVariable"
+      ],
+      "tests": [
+        "tests/migrate/variable_actions_test.go:TestVariablesFixture"
+      ],
+      "reason": "",
       "scope": [
         "uml:Variable"
       ]
@@ -12871,10 +13022,14 @@
         "filter"
       ],
       "ocl": "sha256:39f682f244b1d374ead8d66f7342147311247c8082c271b9006d3e60d672a380",
-      "status": "not-implemented",
-      "implementation": [],
-      "tests": [],
-      "reason": "activity variables are not migrated: the variable actions that read or write them are placeholders",
+      "status": "faithful",
+      "implementation": [
+        "internal/translate/migrate/activity.go:declareVariable"
+      ],
+      "tests": [
+        "tests/migrate/variable_actions_test.go:TestVariablesFixture"
+      ],
+      "reason": "",
       "scope": [
         "uml:Variable"
       ]
@@ -12893,10 +13048,15 @@
         "visibility"
       ],
       "ocl": "sha256:940495404846dc71bda511c418522f6e64fce40522b7ebb95366276b208a36b1",
-      "status": "not-implemented",
-      "implementation": [],
-      "tests": [],
-      "reason": "activity variables are not migrated: the variable actions that read or write them are placeholders",
+      "status": "faithful",
+      "implementation": [
+        "internal/translate/migrate/activity.go:declareVariables"
+      ],
+      "tests": [
+        "tests/migrate/variable_actions_test.go:TestVariablesFixture",
+        "tests/corpus/pssm_migration_test.go:TestPSSMSuiteMigration"
+      ],
+      "reason": "",
       "scope": [
         "uml:Variable"
       ]
