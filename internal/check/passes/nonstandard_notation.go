@@ -184,6 +184,7 @@ func (w *notationWalker) walk(members []ast.Node) {
 			w.sysmlDeclaration(n, n.Keyword)
 			w.keywordAsName(n.Ident)
 			w.framedConcern(n)
+			w.indexedEnds(n)
 			w.walkDeclaration(n.Members, n)
 			w.leaveKerMLDeclaration(reported)
 		case *ast.Import:
@@ -855,4 +856,28 @@ func keywordSpan(n ast.Node, keyword string) source.Span {
 		sp.Len = len(keyword)
 	}
 	return sp
+}
+
+// indexedEnds reports each end of a connector, binding or flow that selects one
+// element of its feature with `#( index )`. A ConnectorEnd is a feature chain
+// (SysML.xtext ConnectorEndMember, KerML.xtext ConnectorEndMember) and `#(` an
+// expression operator (KerML.xtext IndexExpression), so neither grammar admits it.
+func (w *notationWalker) indexedEnds(n *ast.Usage) {
+	for _, end := range n.ConnectorEnds {
+		if end != nil {
+			w.indexedEnd(end.AttachedSelection())
+		}
+	}
+	if n.FlowEnds != nil {
+		w.indexedEnd(n.FlowEnds.From)
+		w.indexedEnd(n.FlowEnds.To)
+	}
+}
+
+func (w *notationWalker) indexedEnd(target ast.Node) {
+	if _, index := ast.EndSelection(target); index == nil {
+		return
+	}
+	w.extension(target.Span(), "an indexed connector end (`#( index )` selecting one element of the feature)",
+		"a connector end is a feature chain, so the standard connects the whole feature; declare a feature holding the element and connect that")
 }
