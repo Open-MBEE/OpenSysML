@@ -611,15 +611,24 @@ func (ctx *Context) attemptBinding(owner, targetInst *Instance, target *FeatureV
 	}
 
 	// A binding found through the feature an end selects from checks the selected element
-	// against the other end and determines nothing: no value is assigned through an index.
+	// against the other end and the stated link counts, and determines nothing: no value is
+	// assigned through an index. Ends holding nothing are left to the unmet-binding check.
 	if (leftCarries && left.selects()) || (rightCarries && right.selects()) {
 		if leftSet && rightSet && !ctx.equalValues(leftValue, rightValue) {
 			attempt.err = &BindingConflictError{
 				Left: ctx.bindingEndpointText(binding, 0), Right: ctx.bindingEndpointText(binding, 1),
 				LeftValue: leftValue, RightValue: rightValue,
 			}
+			return attempt
 		}
-		attempt.settled = false
+		if leftSet || rightSet {
+			identified := leftValue
+			if !leftSet {
+				identified = rightValue
+			}
+			attempt.err = ctx.wholeBindingCounts(binding, identified)
+			attempt.settled = false
+		}
 		return attempt
 	}
 

@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"errors"
+	"strings"
 	"testing"
 )
 
@@ -189,6 +190,18 @@ func TestRuntimeRobustnessIndexedBindingBetweenSelectedElements(t *testing.T) {
 			_, err := read(t, `bind xs#(third) = ys#(1);`, name)
 			if !errors.Is(err, ErrBindingEnd) || !errors.Is(err, ErrIndexOutOfRange) {
 				t.Errorf("%s = %v, want a binding end error wrapping ErrIndexOutOfRange", name, err)
+			}
+		}
+	})
+
+	t.Run("stated_link_counts_are_checked_against_the_one_selected_value", func(t *testing.T) {
+		for _, name := range []string{"xs", "ys"} {
+			_, err := read(t, `binding [2] bind xs#(2) = ys#(1);`, name)
+			if !errors.Is(err, ErrMultiplicityViolation) || !strings.Contains(err.Error(), "binding [2]") {
+				t.Errorf("%s = %v, want a multiplicity violation naming `binding [2]`: the ends select one value", name, err)
+			}
+			if _, err := read(t, `binding [1] bind [1] xs#(2) = [1] ys#(1);`, name); err != nil {
+				t.Errorf("%s: %v, want the stated one link of one value to pass", name, err)
 			}
 		}
 	})
