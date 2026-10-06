@@ -368,6 +368,9 @@ func (g *Graph) Compact() {
 // RewriteTriples rewrites the graph in order, removing triples the callback
 // declines. Graph lookups during the rewrite see the original statements.
 func (g *Graph) RewriteTriples(rewrite func(*Triple) bool) {
+	// A rewrite may change or drop a collection's triples, so the graph no
+	// longer vouches for them (see MarkCollectionsSettled).
+	g.settled = false
 	if g.index == nil {
 		g.subjects()
 	}
