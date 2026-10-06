@@ -16,8 +16,8 @@ func (r *Rendering) Text() string { return r.TextWidth(WidthUnbounded) }
 // TextWidth is the human-readable form of a rendering: a header saying what was
 // rendered and how, the nodes as an indented tree, the edges beneath it, and
 // what the rendering could not represent. It is what the REPL prints. A table's
-// columns are written to fit width, wrapping their cells; WidthUnbounded writes
-// each column as wide as its widest cell.
+// tabular columns are written to fit width, wrapping their cells; WidthUnbounded
+// writes each column as wide as its widest cell.
 func (r *Rendering) TextWidth(width int) string { return r.textWith(Options{Width: width}) }
 
 // textWith is the text form written to options' width, listing under each part
@@ -43,7 +43,7 @@ func (r *Rendering) textWith(options Options) string {
 		return b.String()
 	}
 	b.WriteString("\n")
-	if r.Kind == KindTable {
+	if r.Kind.Tabular() {
 		writeTableText(&b, r.Columns, r.Rows, width)
 		writeNotices(&b, r.Notices)
 		return b.String()
@@ -122,6 +122,9 @@ func noteText(note Note, labels map[string]string) string {
 // view whose exposed elements this kind of rendering cannot show, which the
 // notices then account for one by one.
 func (r *Rendering) EmptyReason() string {
+	if r.emptyReason != "" {
+		return r.emptyReason
+	}
 	if len(r.Notices) > 0 {
 		return fmt.Sprintf("the rendering is empty: nothing the view exposes is shown by %s %s rendering",
 			r.Kind.article(), r.Kind)

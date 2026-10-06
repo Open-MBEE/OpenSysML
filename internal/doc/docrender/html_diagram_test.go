@@ -186,12 +186,36 @@ func TestHTMLDiagramTableKind(t *testing.T) {
 			t.Errorf("table figure lacks %q:\n%s", want, got)
 		}
 	}
-	if dot := renderedFigureForm(t, "Masses", &view.Rendering{Kind: view.KindTable, Columns: []string{"name"}, Rows: [][]string{{"optics"}}}, "", view.FormDot); !strings.Contains(dot, `<table class="sysml-table"`) || strings.Contains(dot, "<pre") {
-		t.Errorf("a table is not a table in the dot form:\n%s", dot)
+	for _, form := range []view.Form{view.FormDot, view.FormD2} {
+		if got := renderedFigureForm(t, "Masses", &view.Rendering{Kind: view.KindTable, Columns: []string{"name"}, Rows: [][]string{{"optics"}}}, "", form); !strings.Contains(got, `<table class="sysml-table"`) || strings.Contains(got, "<pre") {
+			t.Errorf("a table is not a table in the %s form:\n%s", form, got)
+		}
 	}
 	empty := renderedFigure(t, "", &view.Rendering{Kind: view.KindTable}, "")
 	if !strings.Contains(empty, "the view exposes nothing; the rendering is empty") {
 		t.Errorf("empty table unexplained: %s", empty)
+	}
+}
+
+func TestHTMLDiagramMatrixKindIsATable(t *testing.T) {
+	for _, form := range []view.Form{view.FormDot, view.FormD2} {
+		got := renderedFigureForm(t, "Relationships", &view.Rendering{
+			Kind:    view.KindMatrix,
+			Columns: []string{"Source / Target", "Observatory::target"},
+			Rows:    [][]string{{"Observatory::source", "satisfy"}},
+		}, "", form)
+		for _, want := range []string{
+			`<table class="sysml-table" data-content="matrix">`,
+			`<th scope="col" data-column="Source / Target">Source / Target</th>`,
+			`<td class="sysml-cell" data-column="Observatory::target">satisfy</td>`,
+		} {
+			if !strings.Contains(got, want) {
+				t.Errorf("matrix figure in %s lacks %q:\n%s", form, want, got)
+			}
+		}
+		if strings.Contains(got, "<pre") {
+			t.Errorf("matrix was written as a graph in %s:\n%s", form, got)
+		}
 	}
 }
 

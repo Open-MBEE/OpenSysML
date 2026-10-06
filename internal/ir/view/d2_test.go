@@ -349,16 +349,15 @@ func TestD2GeneralGraphNotation(t *testing.T) {
 	}
 }
 
-// The D2 form is offered for the graph-shaped kinds and the sequence, after
-// PlantUML, the GeneralView graphs included; a table, a case and a mixed
-// rendering have no D2.
+// The D2 form is offered for graph-shaped kinds and the sequence, including
+// GeneralView graphs, but not for tables, matrices, cases or mixed renderings.
 func TestD2FormSupport(t *testing.T) {
 	for _, kind := range []Kind{KindTree, KindInterconnection, KindState, KindAction, KindSequence, KindRequirement, KindDefinition, KindPackage} {
 		if !kind.SupportsForm(FormD2) {
 			t.Errorf("%s does not support d2", kind)
 		}
 	}
-	for _, kind := range []Kind{KindCase, KindMixed, KindTable, KindTextual, KindGeometry} {
+	for _, kind := range []Kind{KindCase, KindMixed, KindTable, KindMatrix, KindTextual, KindGeometry} {
 		if kind.SupportsForm(FormD2) {
 			t.Errorf("%s supports d2", kind)
 		}

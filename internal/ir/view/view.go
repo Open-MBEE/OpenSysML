@@ -5,10 +5,10 @@
 // carries it out to the tool, so everything this package produces — the text
 // form and the Mermaid form alike — is tool-defined output rather than a
 // notation the specification defines. What is read from the model is not:
-// the exposed set comes from semantics.Model.ExposedElements, connections from
-// the model's own connector information, and states and actions from the
-// lowered graphs in internal/ir/lower, never from the source text of a
-// declaration.
+// ordinary renderings use semantics.Model.ExposedElements, while a matrix opts
+// into semantics.Model.ExposedMembers; connections come from the model's own
+// connector information, and states and actions from the lowered graphs in
+// internal/ir/lower, never from the source text of a declaration.
 package view
 
 import (
@@ -24,12 +24,12 @@ import (
 )
 
 // Kind is a rendering a view can state. The kinds this package produces are
-// tree, interconnection, state, action, case, mixed, table, sequence and the
-// requirement, definition and package graphs a filtered GeneralView presents;
-// the rest are recognized so that a view stating one is told it is unsupported
-// rather than rendered as something else. A rendering the standard library
-// does not declare is carried as the name the model gives it, so an error about
-// it names what the view asked for.
+// tree, interconnection, state, action, case, mixed, table, matrix, sequence
+// and the requirement, definition and package graphs a filtered GeneralView
+// presents; the rest are recognized so that a view stating one is told it is
+// unsupported rather than rendered as something else. A rendering the standard
+// library does not declare is carried as the name the model gives it, so an
+// error about it names what the view asked for.
 type Kind string
 
 const (
@@ -51,8 +51,10 @@ const (
 	// notation: `sysml -convert sysml` does that, so no rendering is produced.
 	KindTextual Kind = "textual"
 	// KindTable renders the exposed elements as rows of a table, which is
-	// Views::asElementTable and StandardViewDefinitions::GridView.
+	// Views::asElementTable and an unfiltered StandardViewDefinitions::GridView.
 	KindTable Kind = "table"
+	// KindMatrix renders the relationships selected by a filtered GridView.
+	KindMatrix Kind = "matrix"
 	// KindSequence renders exposed occurrences as lifelines and the flows
 	// between them as ordered messages, which is
 	// StandardViewDefinitions::SequenceView.
@@ -74,19 +76,22 @@ const (
 
 // Kinds returns every rendering kind this package recognizes, supported or not.
 func Kinds() []Kind {
-	return []Kind{KindTree, KindInterconnection, KindState, KindAction, KindCase, KindMixed, KindTextual, KindTable, KindSequence, KindGeometry,
+	return []Kind{KindTree, KindInterconnection, KindState, KindAction, KindCase, KindMixed, KindTextual, KindTable, KindMatrix, KindSequence, KindGeometry,
 		KindRequirement, KindDefinition, KindPackage}
 }
 
 // Supported reports whether this package produces a rendering of the kind.
 func (k Kind) Supported() bool {
 	switch k {
-	case KindTree, KindInterconnection, KindState, KindAction, KindCase, KindMixed, KindTable, KindSequence,
+	case KindTree, KindInterconnection, KindState, KindAction, KindCase, KindMixed, KindTable, KindMatrix, KindSequence,
 		KindRequirement, KindDefinition, KindPackage:
 		return true
 	}
 	return false
 }
+
+// Tabular reports whether k is rendered as rows and columns.
+func (k Kind) Tabular() bool { return k == KindTable || k == KindMatrix }
 
 // article is the indefinite article the kind reads with, so a message says "an
 // action rendering" rather than "a action rendering".
@@ -429,6 +434,7 @@ type Rendering struct {
 	// lower.
 	Notices []string
 
+	emptyReason string
 	// drawn collects the elements drawn while rendering, nil when no one asked.
 	drawn *Drawn
 }
@@ -460,7 +466,12 @@ func (r *Renderer) render(view *symbols.Symbol, drawn *Drawn) (*Rendering, error
 	if err != nil {
 		return nil, err
 	}
-	exposed, err := r.model.ExposedElements(view)
+	var exposed []*symbols.Symbol
+	if kind == KindMatrix {
+		exposed, err = r.model.ExposedMembers(view)
+	} else {
+		exposed, err = r.model.ExposedElements(view)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -480,6 +491,8 @@ func (r *Renderer) render(view *symbols.Symbol, drawn *Drawn) (*Rendering, error
 		r.renderMixed(view, exposed, out)
 	case KindTable:
 		r.renderTable(view, exposed, out)
+	case KindMatrix:
+		r.renderMatrix(exposed, r.matrixShownKinds(view), false, out)
 	case KindSequence:
 		r.renderSequence(exposed, out)
 	case KindRequirement, KindDefinition, KindPackage:
@@ -494,7 +507,7 @@ func (r *Renderer) render(view *symbols.Symbol, drawn *Drawn) (*Rendering, error
 		out.Canvas = r.canvasOf(view, out)
 		r.notesOf(view, view, "", out)
 		r.picturesOf(view, out)
-	case KindTable, KindSequence:
+	case KindTable, KindMatrix, KindSequence:
 		r.undrawnPicturesOf(view, out)
 	}
 	return out, nil
@@ -522,6 +535,8 @@ func (r *Renderer) RenderExposed(exposed []*symbols.Symbol, kind Kind, stated st
 		r.renderMixed(nil, exposed, out)
 	case KindTable:
 		r.renderTable(nil, exposed, out)
+	case KindMatrix:
+		r.renderMatrix(exposed, allMatrixKinds(), true, out)
 	case KindSequence:
 		r.renderSequence(exposed, out)
 	case KindRequirement, KindDefinition, KindPackage:
@@ -544,7 +559,7 @@ func (r *Renderer) KindOf(view *symbols.Symbol) (Kind, string, error) {
 	if err != nil {
 		return "", "", err
 	}
-	definitionKind, definitionStated := r.viewDefinitionKind(view)
+	definitionKind, definitionStated, definition := r.viewDefinitionKind(view)
 	for _, rendering := range renderings {
 		kind, ok := r.renderingKind(rendering)
 		if !ok {
@@ -567,6 +582,11 @@ func (r *Renderer) KindOf(view *symbols.Symbol) (Kind, string, error) {
 		return kind, stated, nil
 	}
 	if definitionKind != "" {
+		if definition != nil && r.fqn(definition) == viewDefinitionsPackage+"GridView" {
+			if shown := r.matrixShownKinds(view); len(shown) != 0 {
+				return KindMatrix, definitionStated, nil
+			}
+		}
 		if general, filter, ok := r.generalSpecialization(view); ok {
 			return general, fmt.Sprintf("%s, filter %s", definitionStated, filter), nil
 		}
@@ -682,16 +702,16 @@ func (r *Renderer) renderingKind(rendering semantics.ViewRendering) (Kind, bool)
 // specializes presents, and how it says so. The nearest supertype decides, so a
 // StateTransitionView is a state rendering and not the interconnection view it
 // in turn specializes.
-func (r *Renderer) viewDefinitionKind(view *symbols.Symbol) (Kind, string) {
+func (r *Renderer) viewDefinitionKind(view *symbols.Symbol) (Kind, string, *symbols.Symbol) {
 	for _, sym := range append([]*symbols.Symbol{view}, r.model.AllSupertypes(view)...) {
 		if kind, ok := standardKind(toolViewDefinitions, toolRenderingsPackage, r.fqn(sym)); ok {
-			return kind, "view def " + sym.Name
+			return kind, "view def " + sym.Name, sym
 		}
 		if kind, ok := standardKind(standardViewDefinitions, viewDefinitionsPackage, r.fqn(sym)); ok {
-			return kind, "view def " + sym.Name
+			return kind, "view def " + sym.Name, sym
 		}
 	}
-	return "", ""
+	return "", "", nil
 }
 
 // nodeIDs hands out the identities a rendering's nodes are named by, which the

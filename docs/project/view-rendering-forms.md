@@ -13,8 +13,9 @@ PlantUML and D2 compare, and what the writers emit — the
 ## The rendering and its forms
 
 A view renders into a `view.Rendering` (`internal/ir/view/view.go`): the kind (`tree`,
-`interconnection`, `state`, `action`, `case`, `mixed`, `sequence`, `table`, and the [GeneralView graphs](#generalview-graphs)
-`requirement`, `definition` and `package`), typed nodes with an identifier, a
+`interconnection`, `state`, `action`, `case`, `mixed`, `sequence`, `table`, `matrix`, and the
+[GeneralView graphs](#generalview-graphs) `requirement`, `definition` and `package`), typed nodes
+with an identifier, a
 kind, a name, the declared type of a typed usage, an optional detail holding the notes (`initial`,
 `already shown`, `own flow`) and their children, edges with a label and an `EdgeKind`
 (connection, binding, transition, succession, flow, composition, association, include, anchor,
@@ -44,22 +45,62 @@ A **form** is a writer over that tree (`internal/ir/view/form.go`):
 | Form | Writer | Kinds | Role |
 | --- | --- | --- | --- |
 | `text` | `text.go` | every kind | What a person reads at a terminal |
-| `markdown` | `markdown.go` | `table` | The machine-readable form of a table |
-| `csv`, `tsv` | `delimited.go` | `table` | A table as comma- or tab-separated values, for spreadsheets and scripts |
+| `markdown` | `markdown.go` | `table`, `matrix` | The machine-readable form of a table or relationship matrix |
+| `csv`, `tsv` | `delimited.go` | `table`, `matrix` | A table or relationship matrix as comma- or tab-separated values, for spreadsheets and scripts |
 | `mermaid` | `mermaid.go` | `tree`, `interconnection`, `state`, `action`, `case`, `mixed`, `sequence`, `requirement`, `definition`, `package` | The default machine-readable form of the graph-shaped kinds |
 | `dot` | `dot.go` | `tree`, `interconnection`, `state`, `action`, `case`, `mixed`, `requirement`, `definition`, `package` | Graphviz DOT, the alternative to Mermaid |
 | `plantuml` | `plantuml.go` | `tree`, `interconnection`, `state`, `action`, `case`, `mixed`, `sequence`, `requirement`, `definition`, `package` | PlantUML in the Pilot visualizer's B&W style, for PlantUML toolchains |
 | `d2` | `d2.go` | `tree`, `interconnection`, `state`, `action`, `sequence`, `requirement`, `definition`, `package` | [D2](https://d2lang.com) in the same look, for D2 toolchains; nested containers and D2's own sequence diagram |
 
-D2 does not yet write case or mixed renderings and refuses them with the typed
-`WrongFormError`.
-
-`Kind.MachineForm` chooses the form a tool gets when none is asked for — `markdown` for a table,
+`Kind.MachineForm` chooses the form a tool gets when none is asked for — `markdown` for a table or matrix,
 `mermaid` for everything else — and `Kind.SupportsForm` decides whether a kind can be written in
 a form at all. Asking for a form the kind is not written in is one typed `WrongFormError`, naming
-the kind, the form asked and the form the kind uses, on every surface: the CLI stops with status 2
-(`-render-all` skips the view and says so), the REPL prints the usage, the LSP refuses the request,
-and a document's `Diagram` block is refused at planning time.
+the kind, the form asked and the form the kind uses, on the CLI (`-render-all` skips the view and
+says so), in the REPL and in an LSP render request. A document `Diagram` block renders table and
+matrix kinds as tables in every diagram form; other incompatible forms are refused at planning
+time.
+D2 does not write case, mixed, table or matrix renderings and refuses them with the typed
+`WrongFormError`.
+
+## Relationship matrices
+
+`matrix` is a tabular rendering for a standard `GridView`. It is selected only when a positive,
+resolved `@T` selector in the view's own or inherited filters, or in the filters of its own or
+inherited exposes, names a relationship kind below. A selector nested under logical `not` does
+not activate it. SysML metaclass selectors match by identity; the two metadata selectors match
+their specializations as well. An explicit `render asElementTable;` remains an ordinary table,
+and an unknown or unrelated selector leaves the view's existing table behavior unchanged.
+
+| Selector | Relationship kinds |
+| --- | --- |
+| `SysML::SatisfyRequirementUsage` | `satisfy` |
+| `SysML::VerificationCaseUsage`, `SysML::VerificationCaseDefinition` | `verify` |
+| `SysML::AllocationUsage` | `allocate` |
+| `SysML::ConnectionUsage` | `connect`, `allocate`, `derive` |
+| `SysML::InterfaceUsage` | `connect` |
+| `SysML::Dependency` | `dependency`, `refine` |
+| `ModelingMetadata::Refinement` | `refine` |
+| `RequirementDerivation::DerivationMetadata` | `derive` |
+
+The matrix's rows are relationship sources and its columns are targets. It admits unnamed members
+through the matrix-only `ExposedMembers` path, then walks named and unnamed owned members to the
+tree depth limit, without descending into nested views. Ordinary tables and other renderings keep
+their existing named-member exposure and do not gain unnamed rows. A source and target occupy
+their first-seen
+positions; repeated edges between a pair collapse into one cell, whose comma-separated keywords
+are ordered `satisfy`, `verify`, `allocate`, `connect`, `derive`, `refine`, `dependency`. Labels
+use the table's qualified element names, and each row retains its source origin.
+
+An exposed top-level member whose subtree contributes no displayed edge is named in a notice, in
+exposure order; the notice names the selected relationship kinds in the fixed cell-keyword order.
+An empty matrix distinguishes a view that exposed nothing from one whose exposed members have no
+relationships. On the CLI and in the REPL, `#matrix` renders all loaded content; in a workspace
+render request such as LSP, it renders the current document's top-level declarations. The engine
+and gRPC `RenderView` surfaces have no current-document context, so their pseudo-views require a
+target such as `#matrix:<target>`, which renders one declared element directly. Pseudo-views do not
+change exposure for ordinary tables or any other rendering kind. Like a table, a matrix is written
+in `text`, `markdown`, `csv` and `tsv`. Mermaid, DOT, PlantUML and D2 have no table grammar, so
+requesting one of those forms is a typed wrong-form error naming `matrix`.
 
 ## Standard views first
 
@@ -73,7 +114,7 @@ results from runs, and layout.
 | --- | --- | --- |
 | Use case diagram | `GeneralView` with a case-family filter (`filter @SysML::UseCaseUsage;`); `CaseView` or `render asCaseDiagram;` from `OpenSysMLRenderings` is the shorter form | standard |
 | Requirement, definition and package graphs | `GeneralView` with a requirement, definition/usage or package filter ([GeneralView graphs](#generalview-graphs)) | standard |
-| Relationship matrix | `GridView` with a relationship filter | standard |
+| Relationship matrix | `GridView` with a positive, resolved relationship filter ([selector rules](#relationship-matrices)) | standard |
 | Mixed diagram | `MixedView` or `render asMixedDiagram;` from `OpenSysMLRenderings` | extension |
 | Run timeline and run sequence | `-render-run` on the CLI, `%render-run` in the REPL; no view declares them | CLI and REPL only |
 | Verdicts overlay | `Diagram::overlay = "verdicts"` from `DocumentQueries` in a document; `-render-overlay verdicts`, `%render … verdicts` and the LSP `overlay` option elsewhere ([The verdicts overlay](#the-verdicts-overlay)) | extension |
@@ -362,7 +403,7 @@ form is chosen **per diagram** (`docrender.DiagramOptions.formFor`):
    in the PDF whichever engine — never silently.
 
 A document mixing positioned and unpositioned views therefore gets a Graphviz figure for each of
-the former and a Mermaid graph for each of the latter, and a table-kind view is a table in every
+the former and a Mermaid graph for each of the latter, and a table or matrix view is a table in every
 case. The rule lives in `docrender` so the CLI, the REPL, the LSP and the PDF backend agree.
 
 ## What the DOT writer emits
@@ -1081,7 +1122,7 @@ refuse D2:
 | CLI, REPL, LSP, documents | `-render-style pilot\|cameo` beside `-render-palette`, on `-render`, `-render-all` and the document renderers; `%render <view> dot [palette] [pilot\|cameo]` and `%render-document <name> dot [style]`; `"style": "cameo"` on `opensysml/render`, the styles listed by the `openSysmlRenderStyles` capability; `docrender.MarkdownOptions.Style`/`HTMLOptions.Style` and `docpdf.Options.Style`. A form that draws no style writes a `not represented: style …` notice; an unknown name is a typed `*view.UnknownDrawingStyleError` naming the styles there are | [`docs/reference/cli.md`](../reference/cli.md#rendering-a-view), [`docs/reference/repl-commands.md`](../reference/repl-commands.md#rendering-a-view), [`docs/reference/lsp.md`](../reference/lsp.md) |
 | CLI, REPL, LSP, documents | `-render-ports minimal\|full` on `-render` and `-render-all`; `%render <view> <form> [minimal\|full]` in any order with the palette and style; `"ports": "full"` on `opensysml/render`, the displays listed by the `openSysmlRenderPorts` capability; `Diagram::ports` in a document, carried as `view.Options.Ports` (`invalid-ports`, `unsupported-ports` errors) | [`docs/reference/cli.md`](../reference/cli.md#rendering-a-view), [`docs/reference/repl-commands.md`](../reference/repl-commands.md#rendering-a-view), [`docs/reference/lsp.md`](../reference/lsp.md), [`docs/manual/authoring.md`](../manual/authoring.md#diagrams) |
 | VS Code | The diagram panel's **Style** list and `opensysml.diagram.style`: `pilot` draws the panel's SVG under this section's B&W rules, `cameo` asks the server for the [Cameo look](#the-cameo-style), a palette name fills its nodes from the `fill` and `border` the server returns | [`editors/vscode/README.md`](../../editors/vscode/README.md#the-diagram-panel) |
-| CLI, REPL, LSP, VS Code | A table view takes `csv` or `tsv` as well: `-render <view> -render-form csv\|tsv` (`-render-all` writes `.csv` or `.tsv` for each table and skips every other view), `%render <view> csv\|tsv`, `"form": "csv"` or `"tsv"` on `opensysml/render`. Either is a header record of the columns, then a record per row, fields quoted as RFC 4180 quotes them; a notice is never inside the records: the CLI writes it to standard error, LSP returns it in the response, and `%render` lists it after a blank line | [`docs/reference/cli.md`](../reference/cli.md#rendering-a-view), [`docs/reference/repl-commands.md`](../reference/repl-commands.md#rendering-a-view), [`docs/reference/lsp.md`](../reference/lsp.md) |
+| CLI, REPL, LSP, VS Code | A table or matrix view takes `csv` or `tsv` as well: `-render <view> -render-form csv\|tsv` (`-render-all` writes `.csv` or `.tsv` for each tabular view and skips every other view), `%render <view> csv\|tsv`, `"form": "csv"` or `"tsv"` on `opensysml/render`. Either is a header record of the columns, then a record per row, fields quoted as RFC 4180 quotes them; a notice is never inside the records: the CLI writes it to standard error, LSP returns it in the response, and `%render` lists it after a blank line | [`docs/reference/cli.md`](../reference/cli.md#rendering-a-view), [`docs/reference/repl-commands.md`](../reference/repl-commands.md#rendering-a-view), [`docs/reference/lsp.md`](../reference/lsp.md) |
 | Documents | `-render-document`/`-render-documents … -diagram-form mermaid\|dot\|plantuml\|d2`, `%render-document <name> mermaid\|dot\|plantuml\|d2`, `"diagramForm"` on `opensysml/renderDocument`: graph-shaped blocks use Mermaid, DOT, PlantUML or D2 source; HTML carries `data-palette` and `data-style`, and local Mermaid pictures are inlined before source is collected. PDF draws with the selected tool; absent optional DOT/PlantUML/D2 tools leave readable source under a notice, while a missing Mermaid CLI is an error. A `Diagram` block states what is drawn, not the notation; its palette and style apply where the selected form supports them | [`docs/manual/authoring.md`](../manual/authoring.md#diagrams), [`docs/manual/outputs.md`](../manual/outputs.md), [`docs/reference/environment.md`](../reference/environment.md) |
 | CLI, REPL, LSP, documents | `-render-overlay verdicts` on `-render` and `-render-all`; `%render <view> <form> [...] verdicts`; `"overlay": "verdicts"` on `opensysml/render`, the overlays listed by the `openSysmlRenderOverlays` capability and each node's `verdict` in the reply; `Diagram::overlay` in a document (`invalid-overlay`, `unsupported-overlay` errors) | [`docs/reference/cli.md`](../reference/cli.md#rendering-a-view), [`docs/reference/repl-commands.md`](../reference/repl-commands.md#rendering-a-view), [`docs/reference/lsp.md`](../reference/lsp.md), [`docs/manual/authoring.md`](../manual/authoring.md#diagrams) |
 
@@ -1189,15 +1230,15 @@ and did not change. A view-render RPC added later would take the form as a strin
   keyword-leading line; the same `<br>`-joined label in the flowchart, state and sequence
   Mermaid grammars; the escaping of `<`, `>`, `"` and `#` in a Mermaid label.
 - `cmd/sysml/render_test.go`, `internal/frontend/repl/view_render_test.go`, `internal/frontend/lsp/render_test.go`:
-  each form on each surface — DOT refused for a table or sequence, PlantUML and D2 for a table and
-  written for a sequence; `-render-all` writing `.dot`, `.puml` and `.d2`; palettes accepted by Mermaid
+  each form on each surface — DOT refused for a table, matrix or sequence; PlantUML and D2 refused for a
+  table or matrix and written for a sequence; `-render-all` writing `.dot`, `.puml` and `.d2`; palettes accepted by Mermaid
   and refused by name with the palettes there are.
 - `internal/ir/docplan`, `docir`, `docrender`: the `Diagram` block's `palette` accepted,
   refused when unknown (`invalid-palette`) or stated on a kind with no graphical form
   (`unsupported-palette`), carried into the document IR and onto the HTML figures.
 - `internal/doc/docrender`, `docpdf`, `cmd/sysml`, `internal/frontend/repl`, `internal/frontend/lsp`: the
   render-time diagram form defaulting to Mermaid, written as a `dot`, `plantuml` or `d2` fence and a
-  `<pre class="dot">`, `<pre class="plantuml">` or `<pre class="d2">` for every graph-shaped block with tables left
+  `<pre class="dot">`, `<pre class="plantuml">` or `<pre class="d2">` for every graph-shaped block with tabular views left
   as tables, refused for an unknown form and for a kind with no DOT form.
 - `internal/doc/docpdf/diagrams_test.go`, `cmd/sysml/render_document_pdf_test.go`: with fake tools, a DOT block drawn by the `dot` that
   `OPENSYSML_DOT` names, a PlantUML block by `java -jar <jar> -tsvg -pipe` fed on stdin and a D2
@@ -1276,7 +1317,9 @@ and did not change. A view-render RPC added later would take the form as a strin
   walk; a Graphviz installation is used only by hand to look at them.
 - A GeneralView graph is selected only by the filter shapes [its section](#generalview-graphs)
   lists; a conjunction or a user metadata filter keeps the tree even where it would admit only
-  requirements. No requirements table is drawn: a `GridView` is the table.
+  requirements. GeneralView does not also draw a requirements table: a `GridView` without a
+  qualifying relationship filter renders as an element table, while a `GridView` with a positive,
+  resolved relationship selector renders as a relationship matrix.
 - The verdicts overlay runs every verification case verifying a drawn requirement each time it is
   drawn; a workspace (the LSP) runs them over the declared model, without the runtime a REPL
   session or document keeps.
