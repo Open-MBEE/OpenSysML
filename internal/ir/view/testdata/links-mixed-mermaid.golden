@@ -1,0 +1,164 @@
+---
+config:
+  fontFamily: "Helvetica, Arial, sans-serif"
+  theme: base
+  themeCSS: ".edgeLabel rect { opacity: 1 !important; } .cluster-label .nodeLabel { text-align: center; }"
+  themeVariables:
+    fontFamily: "Helvetica, Arial, sans-serif"
+    fontSize: "14px"
+    primaryColor: "#FFFFFF"
+    secondaryColor: "#FFFFFF"
+    tertiaryColor: "#FFFFFF"
+    background: "#FFFFFF"
+    primaryBorderColor: "#181818"
+    primaryTextColor: "#000000"
+    lineColor: "#181818"
+    textColor: "#000000"
+    noteBkgColor: "#FEFFDD"
+    noteBorderColor: "#181818"
+    noteTextColor: "#000000"
+    clusterBkg: "#FFFFFF"
+    clusterBorder: "#181818"
+    edgeLabelBackground: "#FFFFFF"
+  flowchart:
+    subGraphTitleMargin:
+      bottom: 24
+---
+%% MixedExamples::mixedDiagram — mixed rendering (render asMixedDiagram)
+flowchart TD
+  subgraph n0 ["`*«package»*
+**MixedExamples**`"]
+    direction TD
+    n19["`*«port def»*
+**FluidPort**`"]
+    n20["`*«part def»*
+**BaseUnit**`"]
+    subgraph n21 ["`*«part def»*
+**Pump**`"]
+      direction TD
+      n21_anchor[" "]
+      n22("`*«port»*
+**outlet : FluidPort**`")
+    end
+    subgraph n23 ["`*«part def»*
+**Tank**`"]
+      direction TD
+      n23_anchor[" "]
+      n24("`*«port»*
+**inlet : FluidPort**`")
+    end
+    subgraph n25 ["`*«part def»*
+**Plant**`"]
+      direction TD
+      n25_anchor[" "]
+      subgraph n26 ["`*«part»*
+**pump : Pump**`"]
+        direction TD
+        n26_anchor[" "]
+        n26.0["outlet"]
+      end
+      subgraph n27 ["`*«part»*
+**tank : Tank**`"]
+        direction TD
+        n27_anchor[" "]
+        n27.0["inlet"]
+      end
+    end
+    subgraph n28 ["`*«connection def»*
+**Connection**`"]
+      direction TD
+      n29("`*«part»*
+**a**`")
+      n30("`*«part»*
+**b**`")
+    end
+    n1["`*«state def»*
+**Ready**
+declares no states`"]
+    subgraph n2 ["`*«state def»*
+**Modes**`"]
+      direction TD
+      n2_anchor[" "]
+      n4@{ shape: f-circ, label: "" }
+      n3("`*«state»*
+**ready : Ready**
+initial`")
+    end
+    subgraph n5 ["`*«action def»*
+**Operate**`"]
+      direction TD
+      n5_anchor[" "]
+      n6@{ shape: f-circ, label: "" }
+      n7("`*«action»*
+**'step'**`")
+      n8@{ shape: fr-circ, label: "" }
+    end
+    n9(["`*«use case def»*
+**Inspection**`"])
+    n10["`*«actor»*
+**operator : Person**`"]
+    n11["`*«subject»*
+**plant : Plant**`"]
+    n12@{ shape: notch-rect, label: "objective<br>Inspect the plant and report its operating state." }
+    n13("`*«perform action»*
+**run : Operate**
+declares no nodes`")
+    subgraph n14 ["`*«exhibit state»*
+**mode : Modes**`"]
+      direction TD
+      n14_anchor[" "]
+      n16@{ shape: f-circ, label: "" }
+      n15("`*«state»*
+**ready : Ready**
+initial`")
+    end
+    n31["`*«part def»*
+**Person**`"]
+    n17("`*«view»*
+**mixedDiagram**`")
+    n18("`*«view»*
+**mixedLayout**`")
+  end
+  n4 --> n3
+  n6 --> n7
+  n7 --> n8
+  n10 --- n9
+  n9 ---|"«subject»"| n11
+  n9 -.- n12
+  n16 --> n15
+  n26.0 ===|"supply"| n27.0
+  n3 -.-> n1
+  n10 -.-> n31
+  n11 -.-> n25_anchor
+  n13 -.->|"«perform»"| n5_anchor
+  n14_anchor -.->|"«exhibit»"| n2_anchor
+  n21_anchor -->|"«specializes»"| n20
+  n22 -.-> n19
+  n23_anchor -->|"«specializes»"| n20
+  n24 -.-> n19
+  n25_anchor -->|"«specializes»"| n20
+  n26_anchor -.-> n21_anchor
+  n27_anchor -.-> n23_anchor
+  classDef anchor fill:none,stroke:none
+  class n14_anchor,n21_anchor,n23_anchor,n25_anchor,n26_anchor,n27_anchor,n2_anchor,n5_anchor anchor
+  linkStyle 7 stroke-width:3px
+  click n19 href "https://example.test/src/mixed.sysml#L5"
+  click n20 href "https://example.test/src/mixed.sysml#L6"
+  click n22 href "https://example.test/src/mixed.sysml#L9"
+  click n24 href "https://example.test/src/mixed.sysml#L13"
+  click n29 href "https://example.test/src/mixed.sysml#L23"
+  click n30 href "https://example.test/src/mixed.sysml#L24"
+  click n1 href "https://example.test/src/mixed.sysml#L27"
+  click n3 href "https://example.test/src/mixed.sysml#L31"
+  click n6 href "https://example.test/src/mixed.sysml#L35"
+  click n7 href "https://example.test/src/mixed.sysml#L36"
+  click n8 href "https://example.test/src/mixed.sysml#L37"
+  click n9 href "https://example.test/src/mixed.sysml#L42"
+  click n10 href "https://example.test/src/mixed.sysml#L43"
+  click n11 href "https://example.test/src/mixed.sysml#L44"
+  click n12 href "https://example.test/src/mixed.sysml#L45"
+  click n13 href "https://example.test/src/mixed.sysml#L48"
+  click n15 href "https://example.test/src/mixed.sysml#L31"
+  click n31 href "https://example.test/src/mixed.sysml#L52"
+  click n17 href "https://example.test/src/mixed.sysml#L54"
+  click n18 href "https://example.test/src/mixed.sysml#L59"

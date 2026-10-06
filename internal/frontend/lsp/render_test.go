@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
+	"path/filepath"
 	"reflect"
 	"regexp"
 	"slices"
@@ -31,6 +33,10 @@ const renderModel = `package Kit {
 		connect cog to gear;
 	}
 	part def Cog;
+	part def Person;
+	use case def Inspection {
+		actor operator : Person;
+	}
 
 	state def WidgetStates {
 		entry; then off;
@@ -49,6 +55,7 @@ const renderModel = `package Kit {
 package KitViews {
 	private import Views::*;
 	private import StandardViewDefinitions::*;
+	private import OpenSysMLRenderings::*;
 
 	view widgetTree {
 		expose Kit::Widget;
@@ -72,6 +79,16 @@ package KitViews {
 
 	view widgetSequence : SequenceView {
 		expose Kit::Widget;
+	}
+
+	view widgetCases {
+		expose Kit::Inspection;
+		render asCaseDiagram;
+	}
+
+	view widgetMixed {
+		expose Kit;
+		render asMixedDiagram;
 	}
 
 	view widgetGeometry : GeometryView {
@@ -238,6 +255,8 @@ func TestRenderServesEverySupportedKind(t *testing.T) {
 		{"KitViews::widgetActions", view.KindAction, view.FormMermaid},
 		{"KitViews::widgetTable", view.KindTable, view.FormMarkdown},
 		{"KitViews::widgetSequence", view.KindSequence, view.FormMermaid},
+		{"KitViews::widgetCases", view.KindCase, view.FormMermaid},
+		{"KitViews::widgetMixed", view.KindMixed, view.FormMermaid},
 	}
 	for _, tc := range cases {
 		t.Run(string(tc.kind), func(t *testing.T) {
@@ -280,6 +299,23 @@ func TestRenderServesEverySupportedKind(t *testing.T) {
 				t.Errorf("no node of the %s rendering is located in the source", tc.kind)
 			}
 		})
+	}
+	for _, tc := range []struct {
+		spec string
+		kind view.Kind
+	}{
+		{"#case", view.KindCase},
+		{"#mixed", view.KindMixed},
+		{"#case:Kit::Inspection", view.KindCase},
+		{"#mixed:Kit::WidgetStates", view.KindMixed},
+	} {
+		out := render(t, s, docURI, tc.spec)
+		if out.Kind != string(tc.kind) || out.Form != string(view.FormMermaid) {
+			t.Errorf("%s rendering = kind %q form %q", tc.spec, out.Kind, out.Form)
+		}
+		if strings.TrimSpace(out.Artifact) == "" || len(out.Nodes) == 0 {
+			t.Errorf("%s rendering is empty: %+v", tc.spec, out)
+		}
 	}
 }
 
@@ -460,8 +496,8 @@ func TestRenderAndViewsReportAnUnsupportedKind(t *testing.T) {
 	if !slices.Contains(listing.PseudoViews, "#sequence") {
 		t.Errorf("pseudoViews = %v, want it to contain #sequence", listing.PseudoViews)
 	}
-	if len(listing.Views) != 7 {
-		t.Fatalf("listed %d views, want 7: %+v", len(listing.Views), listing.Views)
+	if len(listing.Views) != 9 {
+		t.Fatalf("listed %d views, want 9: %+v", len(listing.Views), listing.Views)
 	}
 	kinds := map[string]viewInfo{}
 	for _, info := range listing.Views {
@@ -612,6 +648,25 @@ func TestRenderAnswersEveryAdvertisedForm(t *testing.T) {
 		}
 		if out.Artifact == "" {
 			t.Errorf("%s as %s: empty artifact", name, form)
+		}
+	}
+}
+
+func TestRenderRefusesD2ForCaseAndMixed(t *testing.T) {
+	s, docURI := renderServer(t, "kit.sysml", renderModel)
+	for _, tc := range []struct {
+		name, kind string
+	}{
+		{"KitViews::widgetCases", "case"},
+		{"KitViews::widgetMixed", "mixed"},
+	} {
+		_, err := call(t, s, MethodRender, &renderParams{
+			TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
+			View:         tc.name,
+			Form:         string(view.FormD2),
+		})
+		if err == nil || !strings.Contains(err.Error(), tc.kind+" rendering is not written as d2; ask for text, mermaid, dot or plantuml") {
+			t.Errorf("%s as d2: err = %v, want the form refused", tc.name, err)
 		}
 	}
 }
@@ -1210,10 +1265,10 @@ package StyledViews {
 	}
 }
 
-// A request's `ports` chooses how much of a part's ports an interconnection
-// draws — minimal, the default, the ports a connector ends at, named alone, or
-// full, every port typed — the displays listed under the capability; a name
-// that is neither is refused with the two there are.
+// A request's `ports` chooses how much of a part's ports an interconnection or
+// mixed view draws — minimal, the default, the ports a connector ends at, named
+// alone, or full, every port typed — the displays listed under the capability;
+// a name that is neither is refused with the two there are.
 func TestRenderTakesAPortDisplay(t *testing.T) {
 	const ported = `package Demo {
     port def Signal;
@@ -1235,6 +1290,9 @@ func TestRenderTakesAPortDisplay(t *testing.T) {
 	experimental := res.Capabilities.Experimental.(map[string]any)
 	if advertised, _ := experimental[RenderPortsCapability].([]string); !slices.Equal(advertised, []string{"minimal", "full"}) {
 		t.Fatalf("%s = %#v, want minimal then full", RenderPortsCapability, experimental[RenderPortsCapability])
+	}
+	if advertised, _ := experimental[RenderOverlaysCapability].([]string); !slices.Equal(advertised, []string{"verdicts"}) {
+		t.Fatalf("%s = %#v, want verdicts", RenderOverlaysCapability, experimental[RenderOverlaysCapability])
 	}
 	render := func(t *testing.T, ports string) *renderResult {
 		t.Helper()
@@ -1307,6 +1365,184 @@ func TestRenderTakesAPortDisplay(t *testing.T) {
 	want := `unknown port display "all"; the displays are minimal, full`
 	if err == nil || !strings.Contains(err.Error(), want) {
 		t.Errorf("err = %v, want it to refuse the port display by name", err)
+	}
+}
+
+// A GeneralView filtered on a case metaclass is answered as a case rendering.
+func TestRenderGeneralViewCaseRoute(t *testing.T) {
+	src, err := os.ReadFile(filepath.Join("..", "..", "..", "examples", "general-views-demo", "use-cases.sysml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	s, docURI := renderServer(t, "use-cases.sysml", string(src))
+	got := render(t, s, docURI, "UseCaseViews::useCaseView")
+	if got.Kind != string(view.KindCase) {
+		t.Fatalf("kind = %q, want %q", got.Kind, view.KindCase)
+	}
+	names := map[string]bool{}
+	for _, node := range got.Nodes {
+		names[node.Name] = true
+	}
+	for _, want := range []string{"VehicleUseCases::'Provide Transportation'", "addFuel", "driver"} {
+		if !names[want] {
+			t.Errorf("no node %q among %v", want, got.Nodes)
+		}
+	}
+	if _, err := call(t, s, MethodRender, &renderParams{TextDocument: protocol.TextDocumentIdentifier{URI: docURI}, View: "UseCaseViews::useCaseView", Overlay: "verdicts"}); err == nil || !strings.Contains(err.Error(), "a case rendering draws no verdicts overlay") {
+		t.Errorf("verdicts over a case rendering: err = %v", err)
+	}
+}
+
+// A render request's `overlay` draws a requirement rendering's verdicts, each
+// node carrying its worst; it is refused when unknown or on another kind.
+func TestRenderDrawsVerdictsWhenAsked(t *testing.T) {
+	src, err := os.ReadFile(filepath.Join("..", "..", "..", "examples", "general-views-demo", "vehicle.sysml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	s, docURI := renderServer(t, "vehicle.sysml", string(src))
+	if plain := render(t, s, docURI, "GeneralViews::requirementView"); plain.Kind != string(view.KindRequirement) {
+		t.Fatalf("kind = %q, want %q", plain.Kind, view.KindRequirement)
+	} else {
+		for _, node := range plain.Nodes {
+			if node.Verdict != "" {
+				t.Errorf("%s has verdict %q with no overlay asked for", node.Name, node.Verdict)
+			}
+		}
+	}
+	raw, err := call(t, s, MethodRender, &renderParams{TextDocument: protocol.TextDocumentIdentifier{URI: docURI}, View: "GeneralViews::requirementView", Overlay: "verdicts"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var out renderResult
+	if err := json.Unmarshal(raw, &out); err != nil {
+		t.Fatal(err)
+	}
+	verdicts := map[string]string{}
+	for _, node := range out.Nodes {
+		if node.Verdict != "" {
+			verdicts[node.Name] = node.Verdict
+		}
+	}
+	want := map[string]string{"VehicleRequirements::vehicleMass": "fail", "VehicleRequirements::emergencyStop": "inconclusive"}
+	if !reflect.DeepEqual(verdicts, want) {
+		t.Errorf("verdicts = %v, want %v", verdicts, want)
+	}
+	raw, err = call(t, s, MethodRender, &renderParams{
+		TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
+		View:         "GeneralViews::requirementView",
+		Overlay:      "verdicts",
+		LinkTemplate: "https://example.test/src/{file}#L{line}",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var linked renderResult
+	if err := json.Unmarshal(raw, &linked); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(linked.Artifact, "https://example.test/src/") || !strings.Contains(linked.Artifact, "fail") {
+		t.Errorf("a linked verdict rendering has no source link or verdict:\n%s", linked.Artifact)
+	}
+	if _, err := call(t, s, MethodRender, &renderParams{TextDocument: protocol.TextDocumentIdentifier{URI: docURI}, View: "GeneralViews::definitionView", Overlay: "verdicts"}); err == nil || !strings.Contains(err.Error(), "draws no verdicts overlay") {
+		t.Errorf("verdicts over a definition rendering = %v", err)
+	}
+	if _, err := call(t, s, MethodRender, &renderParams{TextDocument: protocol.TextDocumentIdentifier{URI: docURI}, View: "GeneralViews::requirementView", Overlay: "colours"}); err == nil || !strings.Contains(err.Error(), `unknown overlay "colours"`) {
+		t.Errorf("an unknown overlay = %v", err)
+	}
+}
+
+func TestRenderMixedCarriesConnectorPortData(t *testing.T) {
+	const mixed = `package Demo {
+    private import OpenSysMLRenderings::*;
+    port def Signal;
+    part def Sender { port out1 : Signal; }
+    part def Receiver { port in1 : Signal; port spare : Signal; }
+    part def Plant {
+        part sender : Sender;
+        part receiver : Receiver;
+        connection wire : Connection connect sender.out1 to receiver.in1;
+    }
+    connection def Connection {
+        end part a;
+        end part b;
+    }
+    part def Person;
+    use case def Review {
+        actor reviewer : Person;
+        objective { doc /* Review the plant. */ }
+    }
+    view link { expose Demo::Plant; render asMixedDiagram; }
+    view caseView { expose Demo::Review; render asCaseDiagram; }
+}
+`
+	s, docURI := renderServer(t, "mixed-ports.sysml", mixed)
+	renderWithPorts := func(t *testing.T, ports string) *renderResult {
+		t.Helper()
+		raw, err := call(t, s, MethodRender, &renderParams{
+			TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
+			View:         "Demo::link", Ports: ports,
+		})
+		if err != nil {
+			t.Fatalf("render mixed view with ports=%q: %v", ports, err)
+		}
+		var out renderResult
+		if err := json.Unmarshal(raw, &out); err != nil {
+			t.Fatalf("decode mixed render result: %v", err)
+		}
+		return &out
+	}
+	for _, display := range []struct {
+		name string
+		want int
+	}{
+		{name: "", want: 2},
+		{name: "full", want: 3},
+	} {
+		t.Run(map[string]string{"": "minimal", "full": "full"}[display.name], func(t *testing.T) {
+			out := renderWithPorts(t, display.name)
+			portsByNode := map[string]map[string]string{}
+			portNames := map[string]string{}
+			for _, node := range out.Nodes {
+				for _, port := range node.Ports {
+					if portsByNode[node.ID] == nil {
+						portsByNode[node.ID] = map[string]string{}
+					}
+					portsByNode[node.ID][port.ID] = port.Name
+					portNames[port.Name] = port.ID
+				}
+			}
+			if len(portNames) != display.want {
+				t.Fatalf("mixed node ports = %v, want %d pins", portNames, display.want)
+			}
+			if display.name == "" && portNames["spare"] != "" {
+				t.Errorf("minimal mixed ports include unconnected spare pin: %v", portNames)
+			}
+			if len(out.Edges) != 1 {
+				t.Fatalf("mixed edges = %+v, want one connector", out.Edges)
+			}
+			edge := out.Edges[0]
+			if edge.FromPort == "" || portsByNode[edge.From][edge.FromPort] != "out1" ||
+				edge.ToPort == "" || portsByNode[edge.To][edge.ToPort] != "in1" {
+				t.Errorf("mixed edge ports do not resolve in endpoint node arrays: edge=%+v ports=%v", edge, portsByNode)
+			}
+			if !strings.Contains(out.Artifact, edge.FromPort) || !strings.Contains(out.Artifact, edge.ToPort) {
+				t.Errorf("mixed artifact does not draw connector pins %s and %s:\n%s", edge.FromPort, edge.ToPort, out.Artifact)
+			}
+			assertEngineRenderMatchesLSP(t, mixed, out, display.name)
+		})
+	}
+
+	caseView := render(t, s, docURI, "Demo::caseView")
+	for _, node := range caseView.Nodes {
+		if len(node.Ports) != 0 {
+			t.Errorf("case node %s unexpectedly has ports: %+v", node.ID, node.Ports)
+		}
+	}
+	for _, edge := range caseView.Edges {
+		if edge.FromPort != "" || edge.ToPort != "" {
+			t.Errorf("case edge unexpectedly refers to ports: %+v", edge)
+		}
 	}
 }
 

@@ -1569,7 +1569,7 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 		}
 		if n.IsEnd {
 			relationships := make([]*ast.Relationship, 0, len(n.Relationships))
-			for _, rel := range n.Relationships {
+			for _, rel := range inclusionRelationships(n) {
 				if rel != nil && rel.Kind == ast.RelReferences && rel.Target != nil {
 					if err := e.endReferences(subject, rel.Target); err != nil {
 						return err
@@ -1580,7 +1580,7 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 			}
 			e.relationships(subject, owner, relationships)
 		} else {
-			e.relationships(subject, owner, n.Relationships)
+			e.relationships(subject, owner, inclusionRelationships(n))
 		}
 		if err := e.multiplicity(subject, within, n.Multiplicity); err != nil {
 			return err
@@ -3279,19 +3279,44 @@ func referencesFeature(n *ast.Usage) bool {
 
 // prefixCarriedByGraph reports a prefix the graph already states structurally:
 // a state's `entry`/`do`/`exit` by the subaction membership that owns the
-// action, an `include` by the inclusion relationship.
+// action, an `include` by the IncludeUseCaseUsage metaclass.
 func prefixCarriedByGraph(n *ast.Usage) bool {
 	switch n.PrefixKeyword {
 	case "entry", "do", "exit":
 		return n.Kind == ast.UsageAction
 	case "include":
-		for _, rel := range n.Relationships {
-			if rel.Kind == ast.RelIncludes {
-				return true
-			}
-		}
+		return n.Kind == ast.UsageUseCase
 	}
 	return false
+}
+
+// inclusionRelationships is a usage's head relationships as the metamodel
+// states an inclusion (SysML.xtext IncludeUseCaseUsage): `include <ref>;`
+// names the use case it includes through an OwnedReferenceSubsetting, and
+// `include use case u : T` includes itself, which its metaclass says, so the
+// inclusion the parser records alongside its typing is no relationship of
+// its own. Every other usage's are returned as they are.
+func inclusionRelationships(n *ast.Usage) []*ast.Relationship {
+	if n.Kind != ast.UsageUseCase || !slices.ContainsFunc(n.Relationships, func(rel *ast.Relationship) bool {
+		return rel != nil && rel.Kind == ast.RelIncludes
+	}) {
+		return n.Relationships
+	}
+	declared := n.PrefixKeyword == "include"
+	out := make([]*ast.Relationship, 0, len(n.Relationships))
+	for _, rel := range n.Relationships {
+		if rel == nil || rel.Kind != ast.RelIncludes {
+			out = append(out, rel)
+			continue
+		}
+		if declared {
+			continue
+		}
+		referenced := *rel
+		referenced.Kind = ast.RelReferences
+		out = append(out, &referenced)
+	}
+	return out
 }
 
 // declaredPrefixes is the `#M` annotations written ahead of a declaration.

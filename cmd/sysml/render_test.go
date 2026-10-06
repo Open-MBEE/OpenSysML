@@ -16,9 +16,14 @@ import (
 // renderModel declares a view stating no rendering, one exposing nothing, and a
 // part def to ask for by mistake.
 const renderModel = `package Demo {
+    private import OpenSysMLRenderings::*;
     part def Vehicle { part wheel : Wheel; }
     part def Wheel;
+    part def Person;
+    use case def Mission { actor pilot : Person; }
     view overview { expose Demo::Vehicle; }
+    view cases { expose Demo::Mission; render asCaseDiagram; }
+    view mixed { expose Demo; render asMixedDiagram; }
     view parts { expose Demo::Vehicle; render Views::asElementTable; }
     view empty;
 }
@@ -43,6 +48,29 @@ func TestRenderWritesTheArtifactOnStdout(t *testing.T) {
 	}
 	if !strings.Contains(got.stderr, "package Demo") {
 		t.Errorf("stderr does not say what the load declared:\n%s", got.stderr)
+	}
+}
+
+func TestRenderCaseAndMixedViewsAndPseudoViews(t *testing.T) {
+	binary := buildCLI(t)
+	cases := []struct {
+		view string
+		flow string
+	}{
+		{"Demo::cases", "flowchart LR"},
+		{"#case", "flowchart LR"},
+		{"#case:Demo::Mission", "flowchart LR"},
+		{"#mixed", "flowchart TD"},
+		{"#mixed:Demo::Mission", "flowchart TD"},
+	}
+	for _, tc := range cases {
+		got := runStreams(t, binary, renderModel, "-render", tc.view)
+		if got.status != exitHolds {
+			t.Fatalf("-render %s: exit status = %d\n%s", tc.view, got.status, got.output())
+		}
+		if !strings.Contains(got.stdout, tc.flow) {
+			t.Errorf("-render %s lacks %q:\n%s", tc.view, tc.flow, got.stdout)
+		}
 	}
 }
 
@@ -311,6 +339,43 @@ func TestRenderD2Form(t *testing.T) {
 	table := runStreams(t, binary, renderModel, "-render", "Demo::parts", "-render-form", "d2")
 	if table.status != exitUnevaluable || !strings.Contains(table.stderr, "table rendering is not written as d2; ask for text, markdown, csv or tsv") {
 		t.Errorf("D2 of a table = %d\n%s", table.status, table.output())
+	}
+	for _, tc := range []struct {
+		name, message string
+	}{
+		{"Demo::cases", "case rendering is not written as d2; ask for text, mermaid, dot or plantuml"},
+		{"Demo::mixed", "mixed rendering is not written as d2; ask for text, mermaid, dot or plantuml"},
+	} {
+		got := runStreams(t, binary, renderModel, "-render", tc.name, "-render-form", "d2")
+		if got.status != exitUnevaluable || got.stdout != "" || !strings.Contains(got.stderr, tc.message) {
+			t.Errorf("D2 of %s = %d\n%s", tc.name, got.status, got.output())
+		}
+	}
+
+	dir = filepath.Join(t.TempDir(), "case-mixed")
+	got = runStreams(t, binary, renderModel, "-render-all", dir, "-render-form", "d2")
+	if got.status != exitHolds {
+		t.Fatalf("-render-all as d2: exit status = %d\n%s", got.status, got.output())
+	}
+	files, err := os.ReadDir(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	wantFiles := []string{"Demo.empty.d2", "Demo.overview.d2"}
+	if len(files) != len(wantFiles) {
+		t.Errorf("-render-all as d2 wrote %v, want %v", files, wantFiles)
+	} else {
+		for i, name := range wantFiles {
+			if files[i].Name() != name {
+				t.Errorf("-render-all as d2 wrote %v, want %v", files, wantFiles)
+				break
+			}
+		}
+	}
+	for _, name := range []string{"Demo::cases", "Demo::mixed"} {
+		if !strings.Contains(got.stderr, name+": skipped:") || !strings.Contains(got.stderr, "not written as d2") {
+			t.Errorf("-render-all did not refuse %s as d2:\n%s", name, got.stderr)
+		}
 	}
 }
 
@@ -1049,7 +1114,7 @@ const portedModel = `package Demo {
 }
 `
 
-// -render-ports chooses how much of a part's ports an interconnection draws:
+// -render-ports chooses how much of a part's ports an interconnection or mixed rendering draws:
 // minimal, the default, the ports a connector ends at, named alone; full, every
 // port, typed. A name that is neither is refused with the two there are, and
 // the flag without something to render likewise.
@@ -1087,5 +1152,67 @@ func TestRenderPorts(t *testing.T) {
 	alone := runStreams(t, binary, portedModel, "-render-ports", "full")
 	if alone.status != 2 || !strings.Contains(alone.stderr, "-render-ports is how much of a part's ports -render or -render-all draws") {
 		t.Errorf("-render-ports alone = %d\n%s", alone.status, alone.output())
+	}
+}
+
+// A GeneralView filtered on a case metaclass renders as the case diagram, with
+// the standard library alone, and takes no verdicts overlay.
+func TestRenderGeneralViewCaseRoute(t *testing.T) {
+	binary := buildCLI(t)
+	src, err := os.ReadFile(filepath.Join("..", "..", "examples", "general-views-demo", "use-cases.sysml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := runStreams(t, binary, string(src), "-render", "UseCaseViews::useCaseView", "-render-form", "plantuml")
+	if got.status != exitHolds {
+		t.Fatalf("exit status = %d, want %d\n%s", got.status, exitHolds, got.output())
+	}
+	for _, want := range []string{"case rendering (view def GeneralView, filter @UseCaseUsage)", "usecase", "<U+00AB>include<U+00BB>"} {
+		if !strings.Contains(got.stdout, want) {
+			t.Errorf("stdout is missing %q:\n%s", want, got.stdout)
+		}
+	}
+	overlaid := runStreams(t, binary, string(src), "-render", "UseCaseViews::useCaseView", "-render-overlay", "verdicts")
+	if overlaid.status == exitHolds || !strings.Contains(overlaid.stderr, "a case rendering draws no verdicts overlay") {
+		t.Errorf("verdicts over a case rendering = %d\n%s", overlaid.status, overlaid.output())
+	}
+}
+
+// -render-overlay verdicts runs the verification cases verifying each drawn
+// requirement and labels it by their verdicts; it is refused on a rendering of
+// another kind, by name when unknown, and without something to render.
+func TestRenderOverlay(t *testing.T) {
+	binary := buildCLI(t)
+	src, err := os.ReadFile(filepath.Join("..", "..", "examples", "general-views-demo", "vehicle.sysml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	model := string(src)
+
+	plain := runStreams(t, binary, model, "-render", "GeneralViews::requirementView", "-render-form", "text")
+	if plain.status != exitHolds || strings.Contains(plain.stdout, "verdict") {
+		t.Errorf("the structural rendering = %d\n%s", plain.status, plain.output())
+	}
+	overlaid := runStreams(t, binary, model, "-render", "GeneralViews::requirementView", "-render-form", "mermaid", "-render-overlay", "verdicts")
+	if overlaid.status != exitHolds {
+		t.Fatalf("exit status = %d, want %d\n%s", overlaid.status, exitHolds, overlaid.output())
+	}
+	for _, want := range []string{"verdict pass by VehicleVerification::lightMassTest, fail by VehicleVerification::heavyMassTest", "verdict inconclusive by VehicleVerification::stopTest", "stroke:#D55E00", "stroke:#F0E442"} {
+		if !strings.Contains(overlaid.stdout, want) {
+			t.Errorf("stdout is missing %q:\n%s", want, overlaid.stdout)
+		}
+	}
+
+	other := runStreams(t, binary, model, "-render", "GeneralViews::definitionView", "-render-overlay", "verdicts")
+	if other.status == exitHolds || !strings.Contains(other.stderr, "a definition rendering draws no verdicts overlay") || other.stdout != "" {
+		t.Errorf("verdicts over a definition rendering = %d\n%s", other.status, other.output())
+	}
+	unknown := runStreams(t, binary, model, "-render", "GeneralViews::requirementView", "-render-overlay", "colours")
+	if unknown.status != exitUnevaluable || !strings.Contains(unknown.stderr, `-render-overlay: unknown overlay "colours"; -render-overlay takes verdicts`) {
+		t.Errorf("an unknown overlay = %d\n%s", unknown.status, unknown.output())
+	}
+	alone := runStreams(t, binary, model, "-render-overlay", "verdicts")
+	if alone.status != 2 || !strings.Contains(alone.stderr, "-render-overlay is what -render or -render-all draws") {
+		t.Errorf("-render-overlay alone = %d\n%s", alone.status, alone.output())
 	}
 }

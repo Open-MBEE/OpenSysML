@@ -11,15 +11,29 @@ import (
 	"testing"
 )
 
-// d2GoldenCases are the models behind every PlantUML golden: each has a
-// `.d2.golden` beside its `.plantuml.golden`.
-var d2GoldenCases = plantumlGoldenCases
+// d2GoldenCases are the PlantUML golden models for kinds with a D2 form.
+type d2GoldenCase struct {
+	name string
+	file string
+	view string
+	kind Kind
+}
+
+func d2GoldenCases() []d2GoldenCase {
+	var cases []d2GoldenCase
+	for _, tc := range plantumlGoldenCases {
+		if tc.kind.SupportsForm(FormD2) {
+			cases = append(cases, d2GoldenCase{name: tc.name, file: tc.file, view: tc.view, kind: tc.kind})
+		}
+	}
+	return cases
+}
 
 // TestGoldenD2 locks the D2 of every kind that has one, and checks each is
 // well-formed D2 with the header, the classes it uses and no direction
 // statement unasked for.
 func TestGoldenD2(t *testing.T) {
-	for _, tc := range d2GoldenCases {
+	for _, tc := range d2GoldenCases() {
 		t.Run(tc.name, func(t *testing.T) {
 			rendering := render(t, tc.file, tc.view)
 			if rendering.Kind != tc.kind {
@@ -57,7 +71,7 @@ func TestGoldenD2(t *testing.T) {
 // Every node of the rendering is declared in the D2, a body's start included
 // as its initial dot, and every edge is a connection between two paths.
 func TestD2DrawsEveryNodeAndEdge(t *testing.T) {
-	for _, tc := range d2GoldenCases {
+	for _, tc := range d2GoldenCases() {
 		t.Run(tc.name, func(t *testing.T) {
 			rendering := render(t, tc.file, tc.view)
 			d2, err := rendering.D2()
@@ -297,15 +311,54 @@ func TestD2SequenceDiagram(t *testing.T) {
 	checkD2Renders(t, empty)
 }
 
+// A GeneralView graph draws its relationships in the class-diagram notation:
+// specialization and typing a hollow triangle, composition, reference and
+// containment a diamond or circle at the owner, the rest a dashed dependency.
+func TestD2GeneralGraphNotation(t *testing.T) {
+	definitions, err := render(t, "general.sysml", "GeneralViews::definitionView").D2()
+	if err != nil {
+		t.Fatalf("D2: %v", err)
+	}
+	packages, err := render(t, "general.sysml", "GeneralViews::packageView").D2()
+	if err != nil {
+		t.Fatalf("D2: %v", err)
+	}
+	requirements, err := render(t, "general.sysml", "GeneralViews::requirementView").D2()
+	if err != nil {
+		t.Fatalf("D2: %v", err)
+	}
+	for _, c := range []struct{ d2, want string }{
+		{definitions, "\n  specialization: { target-arrowhead: { shape: triangle; style: { filled: false } }; "},
+		{definitions, "\n  typing: { target-arrowhead: { shape: triangle; style: { filled: false } }; style: { stroke: \"#181818\"; font-size: 13; font-color: black; stroke-width: 1; stroke-dash: 3 } }\n"},
+		{definitions, "\n  composition: { source-arrowhead: { shape: diamond; style: { filled: true } }; "},
+		{definitions, "\n  reference: { source-arrowhead: { shape: diamond; style: { filled: false } }; "},
+		{definitions, "\nn2 -> n1: { class: specialization }\n"},
+		{definitions, "\nn0 <- n9: { class: composition }\n"},
+		{packages, "\n  containment: { source-arrowhead: { shape: circle; style: { filled: false } }; "},
+		{packages, " <- "},
+		{packages, ": \"private import ::*\" { class: dependency }\n"},
+		{requirements, ": \"satisfy\" { class: dependency }\n"},
+		{requirements, ": \"verify\" { class: dependency }\n"},
+	} {
+		if !strings.Contains(c.d2, c.want) {
+			t.Errorf("general D2 lacks %q:\n%s", c.want, c.d2)
+		}
+	}
+	if _, err := render(t, "case.sysml", "CaseExamples::caseDiagram").D2(); err == nil {
+		t.Errorf("a case rendering is written as D2")
+	}
+}
+
 // The D2 form is offered for the graph-shaped kinds and the sequence, after
-// PlantUML; a table has no D2 and says so.
+// PlantUML, the GeneralView graphs included; a table, a case and a mixed
+// rendering have no D2.
 func TestD2FormSupport(t *testing.T) {
-	for _, kind := range []Kind{KindTree, KindInterconnection, KindState, KindAction, KindSequence} {
+	for _, kind := range []Kind{KindTree, KindInterconnection, KindState, KindAction, KindSequence, KindRequirement, KindDefinition, KindPackage} {
 		if !kind.SupportsForm(FormD2) {
 			t.Errorf("%s does not support d2", kind)
 		}
 	}
-	for _, kind := range []Kind{KindTable, KindTextual, KindGeometry} {
+	for _, kind := range []Kind{KindCase, KindMixed, KindTable, KindTextual, KindGeometry} {
 		if kind.SupportsForm(FormD2) {
 			t.Errorf("%s supports d2", kind)
 		}
@@ -327,6 +380,26 @@ func TestD2FormSupport(t *testing.T) {
 	}
 	if _, err := table.Write(FormD2); !errors.As(err, &wrong) {
 		t.Errorf("Write(FormD2) of a table: %v", err)
+	}
+	for _, tc := range []struct {
+		name, file, view string
+		kind             Kind
+	}{
+		{"case", "case.sysml", "CaseExamples::caseDiagram", KindCase},
+		{"mixed", "mixed.sysml", "MixedExamples::mixedDiagram", KindMixed},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			rendering := render(t, tc.file, tc.view)
+			_, err := rendering.Write(FormD2)
+			if !errors.As(err, &wrong) || wrong.Form != FormD2 || wrong.Kind != tc.kind ||
+				wrong.View != tc.view || !errors.Is(err, ErrWrongForm) {
+				t.Fatalf("Write(FormD2) of %s: %v", tc.name, err)
+			}
+			want := fmt.Sprintf("a %s rendering is not written as d2; ask for text, mermaid, dot or plantuml", tc.kind)
+			if !strings.Contains(err.Error(), want) {
+				t.Errorf("wrong form error = %q, want it to name %q", err, want)
+			}
+		})
 	}
 }
 
@@ -378,7 +451,7 @@ func TestD2Direction(t *testing.T) {
 // A palette fills the nodes a DOT palette fills, with the same fill per node,
 // on every golden model and every palette; the border takes the family colour.
 func TestD2PaletteParityWithDOT(t *testing.T) {
-	for _, tc := range d2GoldenCases {
+	for _, tc := range d2GoldenCases() {
 		if tc.kind == KindSequence {
 			continue
 		}
@@ -588,7 +661,7 @@ var (
 	// an inline attribute block or an opening brace.
 	d2DeclarationLine = regexp.MustCompile(`^(\s*)(` + d2KeyPattern + `): ("(?:[^"\\]|\\.)*")( \{ .* \}| \{)$`)
 	// d2ArrowLine matches a connection between two paths with its attributes.
-	d2ArrowLine = regexp.MustCompile(`^(\s*)(` + d2KeyPattern + `(?:\.` + d2KeyPattern + `)*) (->|--) (` + d2KeyPattern + `(?:\.` + d2KeyPattern + `)*): (?:"(?:[^"\\]|\\.)*" )?\{ .* \}$`)
+	d2ArrowLine = regexp.MustCompile(`^(\s*)(` + d2KeyPattern + `(?:\.` + d2KeyPattern + `)*) (<-|->|--) (` + d2KeyPattern + `(?:\.` + d2KeyPattern + `)*): (?:"(?:[^"\\]|\\.)*" )?\{ .* \}$`)
 	// d2EmptyLine matches the one node a blank rendering shows.
 	d2EmptyLine = regexp.MustCompile(`^\s*empty: "(?:[^"\\]|\\.)*"$`)
 	// d2ContainerFillLine matches the style line a filled container takes.

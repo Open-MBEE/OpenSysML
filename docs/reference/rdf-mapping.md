@@ -430,7 +430,7 @@ triples come); a set of classes with no such member is refused, naming the subje
   resolves to nothing the model declares: `sysml:type`
   (the `:` clause), `specializes`, `subsets`, `redefines`, `references`,
   `crosses`, `disjointFrom`, `intersects`, `inverseOf`, `unions`, `chains`,
-  `includes`, `via`, `subject`, `annotatedElement` for an `about` clause, and
+  `via`, `subject`, `annotatedElement` for an `about` clause, and
   what an import names: `importedNamespace` on a `NamespaceImport`, and on a
   `MembershipImport` `importedMembership`, which links the imported element's
   **owning membership** (the metamodel's range), a library member's by its
@@ -445,7 +445,7 @@ triples come); a set of classes with no such member is refused, naming the subje
   properties are written in one canonical order whatever order the clauses were
   spelled in — `type`, `specializes`, `subsets`, `redefines`, `references`,
   `crosses`, `disjointFrom`, `intersects`, `differences`, `inverseOf`, `unions`,
-  `chains`, `includes`, `via`, `annotatedElement`, `subject`, `featuringType`
+  `chains`, `via`, `annotatedElement`, `subject`, `featuringType`
   (`internal/translate/export/kinds.go` `relationshipOrder`, the same order the
   clauses are written back in) — with the targets of one property in the order
   they were written; so `attribute :>> num : Real;` and `attribute : Real
@@ -673,6 +673,12 @@ keyword the grammar qualified it with (SysML.xtext `PerformActionUsage`,
 | `sysml:AssertConstraintUsage` | `assert constraint ac : C` | `assert c1;` |
 | `sysml:SatisfyRequirementUsage` | `satisfy requirement sr : R` | `satisfy r1;` |
 | `sysml:ReferenceUsage` (a variant's) | `variant part vp : P` (the usage it declares) | `variant e1;`, `variant P::e2;`, `variant q.k;` |
+
+An inclusion is written as the metamodel states it (SysML.xtext
+`IncludeUseCaseUsage`): `include u1;` owns a `sysml:ReferenceSubsetting` to the
+use case it includes, and `include use case iu : U` includes itself, which its
+metaclass says, so it owns no inclusion relationship beyond its typing. The
+`sysml:includes` earlier releases wrote is still read.
 
 An unnamed one reads its target from `sysml:references` (or `includes`/`subsets`
 where another writer collapses it there) — a chain target comes back as the
