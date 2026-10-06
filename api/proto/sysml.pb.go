@@ -4026,7 +4026,14 @@ type ConvertRequest struct {
 	// package, the library convention). Declared and normative ids are unchanged.
 	// Empty is "qualified"; any other value, or one given for another direction,
 	// is INVALID_ARGUMENT.
-	IdForm        string `protobuf:"bytes,7,opt,name=id_form,json=idForm,proto3" json:"id_form,omitempty"`
+	IdForm string `protobuf:"bytes,7,opt,name=id_form,json=idForm,proto3" json:"id_form,omitempty"`
+	// For a model_hash, the documents whose elements are written, named as the
+	// parse named them; the model's other documents are read for the references
+	// into them, which keep the ids those elements are written under when their
+	// own documents are converted. Empty writes every document. A name the model
+	// does not hold, or documents for a file_path or content, is
+	// INVALID_ARGUMENT. Reported as the "convert_documents" capability.
+	Documents     []string `protobuf:"bytes,8,rep,name=documents,proto3" json:"documents,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -4121,6 +4128,13 @@ func (x *ConvertRequest) GetIdForm() string {
 		return x.IdForm
 	}
 	return ""
+}
+
+func (x *ConvertRequest) GetDocuments() []string {
+	if x != nil {
+		return x.Documents
+	}
+	return nil
 }
 
 type isConvertRequest_Source interface {
@@ -12594,7 +12608,7 @@ const file_sysml_proto_rawDesc = "" +
 	"\rtrace_dropped\x18\t \x01(\x05R\ftraceDropped\x1aM\n" +
 	"\x11FinalContextEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\"\n" +
-	"\x05value\x18\x02 \x01(\v2\f.sysml.ValueR\x05value:\x028\x01\"\x83\x02\n" +
+	"\x05value\x18\x02 \x01(\v2\f.sysml.ValueR\x05value:\x028\x01\"\xa1\x02\n" +
 	"\x0eConvertRequest\x12\x1d\n" +
 	"\tfile_path\x18\x01 \x01(\tH\x00R\bfilePath\x12\x1a\n" +
 	"\acontent\x18\x02 \x01(\tH\x00R\acontent\x12\x1f\n" +
@@ -12604,7 +12618,8 @@ const file_sysml_proto_rawDesc = "" +
 	"fromFormat\x12\x1b\n" +
 	"\tto_format\x18\x04 \x01(\tR\btoFormat\x124\n" +
 	"\x16tolerate_syntax_errors\x18\x05 \x01(\bR\x14tolerateSyntaxErrors\x12\x17\n" +
-	"\aid_form\x18\a \x01(\tR\x06idFormB\b\n" +
+	"\aid_form\x18\a \x01(\tR\x06idForm\x12\x1c\n" +
+	"\tdocuments\x18\b \x03(\tR\tdocumentsB\b\n" +
 	"\x06source\"\x89\x02\n" +
 	"\x0fConvertResponse\x12\x18\n" +
 	"\acontent\x18\x01 \x01(\tR\acontent\x12\x1f\n" +

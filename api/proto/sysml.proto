@@ -868,6 +868,13 @@ message ConvertRequest {
   // Empty is "qualified"; any other value, or one given for another direction,
   // is INVALID_ARGUMENT.
   string id_form = 7;
+  // For a model_hash, the documents whose elements are written, named as the
+  // parse named them; the model's other documents are read for the references
+  // into them, which keep the ids those elements are written under when their
+  // own documents are converted. Empty writes every document. A name the model
+  // does not hold, or documents for a file_path or content, is
+  // INVALID_ARGUMENT. Reported as the "convert_documents" capability.
+  repeated string documents = 8;
 }
 
 // ConvertResponse contains the converted model.

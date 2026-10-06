@@ -255,6 +255,10 @@ CAPABILITY_UNDETERMINED_VALUE = "undetermined_value"
 #: ``DocumentValue.big_int_value``; a service without it reads one sent to it as null.
 CAPABILITY_BIG_INT_VALUES = "big_int_values"
 
+#: ``ConvertRequest.documents``: a model converted with only the named documents written, the
+#: references into the others linked by id.
+CAPABILITY_CONVERT_DOCUMENTS = "convert_documents"
+
 
 @dataclass(frozen=True)
 class ServerInfo:

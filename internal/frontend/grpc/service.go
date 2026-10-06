@@ -174,6 +174,10 @@ const CapabilityFeatureValues = "feature_values"
 // documents as one model so a name one declares resolves in another.
 const CapabilityParseSources = "parse_sources"
 
+// CapabilityConvertDocuments names ConvertRequest.documents, which writes only
+// the named documents of a model and links the rest by id.
+const CapabilityConvertDocuments = "convert_documents"
+
 // CapabilityComplexValues names the capability of carrying a complex number as
 // Value.complex, rather than reporting it as an unsupported null.
 const CapabilityComplexValues = "complex_values"
@@ -297,6 +301,7 @@ var capabilities = []string{
 	CapabilityBigIntValues,
 	CapabilityStateTrace,
 	CapabilityRenderView,
+	CapabilityConvertDocuments,
 }
 
 type capabilityAvailability struct {

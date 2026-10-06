@@ -999,6 +999,14 @@ pub struct ConvertRequest {
     /// is INVALID_ARGUMENT.
     #[prost(string, tag="7")]
     pub id_form: ::prost::alloc::string::String,
+    /// For a model_hash, the documents whose elements are written, named as the
+    /// parse named them; the model's other documents are read for the references
+    /// into them, which keep the ids those elements are written under when their
+    /// own documents are converted. Empty writes every document. A name the model
+    /// does not hold, or documents for a file_path or content, is
+    /// INVALID_ARGUMENT. Reported as the "convert_documents" capability.
+    #[prost(string, repeated, tag="8")]
+    pub documents: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
     #[prost(oneof="convert_request::Source", tags="1, 2, 6")]
     pub source: ::core::option::Option<convert_request::Source>,
 }
