@@ -1,4 +1,4 @@
-.PHONY: all build build-sysml build-prod build-wasm-prod build-lsp build-grpc build-engine build-core build-syntax build-sysml-wasm build-release-wasm build-wasm build-wasm-wasip1 build-wasm-js wasm-check static-check windows-versioninfo-check man man-check install-tree pgo-profile conformance conformance-pkg conformance-rust conformance-julia conformance-matlab test test-shard coverage lint clean install help ontology-table ontology-table-check python-metamodel python-metamodel-check fuml-expected python-test python-coverage scripts-coverage node-coverage python-install proto proto-buf python-proto proto-ts proto-rust proto-lint proto-breaking vscode-grammar vscode-build vscode-package docs docs-install docs-serve docs-engine-assets docs-landing-assets docs-counts docs-check changelog-check changelog-render self-model
+.PHONY: all build build-sysml build-prod build-wasm-prod build-lsp build-grpc build-engine build-core build-syntax build-sysml-wasm build-release-wasm build-wasm build-wasm-wasip1 build-wasm-js wasm-check static-check windows-versioninfo-check man man-check install-tree pgo-profile conformance conformance-pkg conformance-rust conformance-julia conformance-matlab test test-shard coverage coverage-shard coverage-merge lint clean install help ontology-table ontology-table-check python-metamodel python-metamodel-check fuml-expected python-test python-coverage scripts-coverage node-coverage python-install proto proto-buf python-proto proto-ts proto-rust proto-lint proto-breaking vscode-grammar vscode-build vscode-package docs docs-install docs-serve docs-engine-assets docs-landing-assets docs-counts docs-check changelog-check changelog-render self-model
 
 # Version information
 # Only release tags describe a build; the moving `nightly` tag is not a version.
@@ -67,6 +67,11 @@ LIBS_DIR := internal/workspace/libs
 # The development tools are a nested module; go's ./... at the root stops at
 # its go.mod, so every whole-tree target runs go a second time in it.
 TOOLS_DIR := tools
+# make coverage's scope; coverage-shard narrows it to one CI shard.
+COVERAGE_PACKAGES ?= ./...
+COVERAGE_TOOLS ?= ./...
+COVERAGE_PROFILE ?= coverage.txt
+COVERAGE_SHARDS := runtime model export rest
 
 # The commands whose manual pages are generated and shipped, in section 1.
 COMMANDS := sysml sysml-lsp sysml-grpc
@@ -288,14 +293,28 @@ coverage: ## Write the coverage profile the SonarCloud scan reads
 	@# it at this directory; go test folds in only its own binary's counters.
 	rm -rf $(GO_COUNTER_DIR)
 	mkdir -p $(GO_COUNTER_DIR)
-	OPENSYSML_GOCOVERDIR=$(GO_COUNTER_DIR) go test -count=1 -pgo=off -timeout 30m -coverpkg=./... -coverprofile=coverage.txt -covermode=atomic ./...
+	OPENSYSML_GOCOVERDIR=$(GO_COUNTER_DIR) go test -count=1 -pgo=off -timeout 30m -coverpkg=./... -coverprofile=$(COVERAGE_PROFILE) -covermode=atomic $(COVERAGE_PACKAGES)
 	go tool covdata textfmt -i=$(GO_COUNTER_DIR) -o $(GO_COUNTER_DIR)/profile.txt
-	tail -n +2 $(GO_COUNTER_DIR)/profile.txt >> coverage.txt
+	tail -n +2 $(GO_COUNTER_DIR)/profile.txt >> $(COVERAGE_PROFILE)
 	@# The tools' tests exercise product packages too; their profile credits those.
-	go test -C $(TOOLS_DIR) -count=1 -pgo=off -timeout 30m -coverpkg=github.com/Open-MBEE/OpenSysML/... -coverprofile=../coverage-tools.txt -covermode=atomic ./...
-	tail -n +2 coverage-tools.txt >> coverage.txt
-	rm coverage-tools.txt
+	if [ -n "$(COVERAGE_TOOLS)" ]; then \
+		go test -C $(TOOLS_DIR) -count=1 -pgo=off -timeout 30m -coverpkg=github.com/Open-MBEE/OpenSysML/... -coverprofile=../coverage-tools.txt -covermode=atomic $(COVERAGE_TOOLS) && \
+		tail -n +2 coverage-tools.txt >> $(COVERAGE_PROFILE) && \
+		rm coverage-tools.txt; \
+	fi
 	@# -coverpkg repeats every block once per test binary; see the script's header.
+	python3 scripts/dedupe-coverage.py $(COVERAGE_PROFILE)
+	@go tool cover -func=$(COVERAGE_PROFILE) | tail -n 1
+
+coverage-shard: ## Write one CI shard's coverage profile, coverage-$(SHARD).txt (SHARD=runtime|model|export|rest)
+	@# The race shards' packages; tests/wasm and the tools, which no race shard runs, go with runtime.
+	pkgs=$$(scripts/race-shard.sh $(SHARD)) && \
+	$(MAKE) --no-print-directory coverage COVERAGE_PROFILE=coverage-$(SHARD).txt \
+		COVERAGE_PACKAGES="$$(echo $$pkgs) $(if $(filter runtime,$(SHARD)),./tests/wasm)" \
+		COVERAGE_TOOLS="$(if $(filter runtime,$(SHARD)),./...)"
+
+coverage-merge: ## Merge the shard profiles coverage-runtime/model/export/rest.txt into coverage.txt
+	{ echo "mode: atomic"; for shard in $(COVERAGE_SHARDS); do tail -n +2 coverage-$$shard.txt || exit 1; done; } > coverage.txt
 	python3 scripts/dedupe-coverage.py coverage.txt
 	@go tool cover -func=coverage.txt | tail -n 1
 

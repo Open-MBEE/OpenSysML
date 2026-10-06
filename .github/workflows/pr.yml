@@ -632,7 +632,7 @@ jobs:
         run: |
           set -o pipefail
           env -u OPENSYSML_REQUIRE_SMT OPENSYSML_SMT=/nonexistent/no-such-solver \
-            go test -count=1 -v ./internal/exec/solve ./internal/frontend/repl | tee no-solver-gate.log
+            go test -count=1 -v -timeout 30m ./internal/exec/solve ./internal/frontend/repl | tee no-solver-gate.log
           for name in TestCheckReportsAnAbsentSolver TestExplainReportsAnAbsentSolver \
             TestSolveReportsAnAbsentSolver TestConfigureReportsAnAbsentSolver \
             TestOptimizeReportsAnAbsentSolver; do
