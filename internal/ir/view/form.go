@@ -72,10 +72,10 @@ func (k Kind) MachineForm() Form {
 }
 
 // SupportsForm reports whether renderings of the kind are written in form:
-// every kind has the text form and its machine form, the kinds drawn as a
-// graph of nodes and edges have the DOT, PlantUML and D2 forms as well, a
-// sequence has PlantUML's and D2's sequence grammars, and tabular kinds have
-// CSV and TSV.
+// every kind has the text form and its machine form; tree, interconnection,
+// state, action, case and mixed have DOT and PlantUML, tree, interconnection,
+// state and action also have D2, sequence has PlantUML and D2, and tabular
+// kinds (table and matrix) have CSV and TSV.
 func (k Kind) SupportsForm(form Form) bool {
 	switch form {
 	case FormText:
@@ -86,10 +86,15 @@ func (k Kind) SupportsForm(form Form) bool {
 		return k.Tabular()
 	case FormDot:
 		switch k {
-		case KindTree, KindInterconnection, KindState, KindAction:
+		case KindTree, KindInterconnection, KindState, KindAction, KindCase, KindMixed:
 			return true
 		}
-	case FormPlantUML, FormD2:
+	case FormPlantUML:
+		switch k {
+		case KindTree, KindInterconnection, KindState, KindAction, KindCase, KindMixed, KindSequence:
+			return true
+		}
+	case FormD2:
 		switch k {
 		case KindTree, KindInterconnection, KindState, KindAction, KindSequence:
 			return true
@@ -149,7 +154,7 @@ func (e *WrongFormError) Unwrap() error { return ErrWrongForm }
 // Options are what a rendering is written with beside its form. Each form
 // takes the ones that apply to it: the text form its Width, Mermaid, DOT,
 // PlantUML and D2 their Direction, Palette, Style and Unplaced, and the
-// interconnection forms their Ports display. A form ignores the rest.
+// interconnection and mixed forms their Ports display. A form ignores the rest.
 type Options struct {
 	// Links is the source link each node and edge is written with; zero writes none.
 	Links Links
@@ -159,8 +164,8 @@ type Options struct {
 	// Palette is the palette the DOT, Mermaid, PlantUML and D2 forms fill nodes
 	// from, by keyword family; empty draws in black and white.
 	Palette Palette
-	// Ports is how much of a part's ports an interconnection draws; empty
-	// draws the connected ones, as PortsMinimal does.
+	// Ports is how much of a part's ports an interconnection or mixed rendering
+	// draws; empty draws the connected ones, as PortsMinimal does.
 	Ports Ports
 	// Style is the look the DOT and Mermaid forms draw in; empty is the Pilot's, StylePilot.
 	Style DrawingStyle

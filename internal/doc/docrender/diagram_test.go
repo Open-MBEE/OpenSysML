@@ -194,6 +194,12 @@ func TestDiagramFormErrors(t *testing.T) {
 	if _, err := (&markdownWriter{opts: DiagramOptions{Form: view.FormPlantUML}}).diagramFigure("d", "", graphRendering(view.KindSequence), view.Options{}); err != nil {
 		t.Fatalf("sequence as plantuml: %v", err)
 	}
+	for _, kind := range []view.Kind{view.KindCase, view.KindMixed} {
+		_, err := (&markdownWriter{opts: DiagramOptions{Form: view.FormD2}}).diagramFigure("d", "", graphRendering(kind), view.Options{})
+		if !errors.As(err, &typed) || typed.Kind != ErrorUnrenderableForm || typed.Actual != string(kind) || typed.DiagramForm != view.FormD2 {
+			t.Errorf("%s as d2: error = %v", kind, err)
+		}
+	}
 	table := &view.Rendering{Kind: view.KindTable, Columns: []string{"a"}, Rows: [][]string{{"x"}}}
 	for _, form := range []view.Form{view.FormDot, view.FormPlantUML} {
 		if got := renderedDiagramForm(t, "", table, "", form); !strings.Contains(got, "| a |") || !strings.Contains(got, "| x |") {

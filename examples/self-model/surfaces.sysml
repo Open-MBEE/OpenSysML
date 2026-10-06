@@ -282,8 +282,8 @@ package OpenSysMLSurfaces {
     // Every rendering kind the implementation recognizes is modelled here.
     part def ViewEngine :> CodeUnit {
         attribute :>> goPackage = "internal/ir/view";
-        attribute recognizedKinds : Integer = 9;
-        attribute supportedKinds : Integer = 7;
+        attribute recognizedKinds : Integer = 11;
+        attribute supportedKinds : Integer = 9;
         part tree : RenderingKind { attribute :>> kind = "tree"; }
         part interconnection : RenderingKind { attribute :>> kind = "interconnection"; }
         part stateDiagram : RenderingKind { attribute :>> kind = "state"; }
@@ -295,6 +295,8 @@ package OpenSysMLSurfaces {
         part table : RenderingKind { attribute :>> kind = "table"; }
         part matrix : RenderingKind { attribute :>> kind = "matrix"; }
         part sequence : RenderingKind { attribute :>> kind = "sequence"; }
+        part caseDiagram : RenderingKind { attribute :>> kind = "case"; }
+        part mixedDiagram : RenderingKind { attribute :>> kind = "mixed"; }
         part geometry : RenderingKind {
             attribute :>> kind = "geometry";
             attribute :>> supported = false;
@@ -692,7 +694,7 @@ package OpenSysMLSurfaces {
              * say so instead of being drawn as something else. */
         subject views : ViewEngine;
         require constraint {
-            views.recognizedKinds == 9 and views.supportedKinds == 7
+            views.recognizedKinds == 11 and views.supportedKinds == 9
                 and not views.textual.supported and not views.geometry.supported
                 and views.sequence.supported and views.matrix.supported
         }

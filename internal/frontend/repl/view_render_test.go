@@ -342,7 +342,9 @@ func TestRenderOfAnUnknownNameReports(t *testing.T) {
 func TestPseudoViewsRenderThroughTheSession(t *testing.T) {
 	s := NewSession()
 	res := s.Submit(`package Direct {
+    private import OpenSysMLRenderings::*;
     port def Port;
+    part def Person;
     part def Network {
         port left : Port;
         port right : Port;
@@ -356,6 +358,13 @@ func TestPseudoViewsRenderThroughTheSession(t *testing.T) {
         first start;
         action finish;
         succession first start then finish;
+    }
+    use case def Mission {
+        actor operator : Person;
+    }
+    view missionView {
+        expose Direct::Mission;
+        render asCaseDiagram;
     }
 }`)
 	for _, d := range res.Diagnostics {
@@ -373,6 +382,10 @@ func TestPseudoViewsRenderThroughTheSession(t *testing.T) {
 		{"#state:Direct::Machine", view.KindState, view.FormMermaid, "stateDiagram-v2"},
 		{"#action:Flow", view.KindAction, view.FormMermaid, "flowchart TD"},
 		{"#interconnection:Direct::Network", view.KindInterconnection, view.FormMermaid, "flowchart LR"},
+		{"#case", view.KindCase, view.FormMermaid, "flowchart LR"},
+		{"#case:Direct::Mission", view.KindCase, view.FormMermaid, "flowchart LR"},
+		{"#mixed", view.KindMixed, view.FormMermaid, "flowchart TD"},
+		{"#mixed:Direct::Machine", view.KindMixed, view.FormMermaid, "flowchart TD"},
 		{"#table:Direct::Network", view.KindTable, view.FormMarkdown, "| Element | Kind | Type | Declared in |"},
 	}
 	for _, tc := range cases {
@@ -399,6 +412,25 @@ func TestPseudoViewsRenderThroughTheSession(t *testing.T) {
 	}
 	if text := run(t, s, "%render #tree"); !strings.HasPrefix(text, "tree rendering") {
 		t.Errorf("%%render did not accept #tree:\n%s", text)
+	}
+	if text := run(t, s, "%render #case"); !strings.HasPrefix(text, "case rendering") {
+		t.Errorf("%%render did not accept #case:\n%s", text)
+	}
+	if text := run(t, s, "%render #mixed:Direct::Machine"); !strings.HasPrefix(text, "mixed rendering") {
+		t.Errorf("%%render did not accept a targeted #mixed pseudo-view:\n%s", text)
+	}
+	for _, spec := range []struct{ view, kind string }{
+		{"#case", "case"},
+		{"#mixed:Direct::Machine", "mixed"},
+	} {
+		got := run(t, s, "%render "+spec.view+" d2")
+		if !strings.Contains(got, spec.kind+" rendering is not written as d2; ask for text, mermaid, dot or plantuml") {
+			t.Errorf("%%render %s d2 = %q, want the form refused", spec.view, got)
+		}
+	}
+	declared, err := s.ViewRendering("Direct::missionView")
+	if err != nil || declared.Kind != view.KindCase {
+		t.Errorf("declared case rendering = %+v, %v", declared, err)
 	}
 }
 
@@ -657,9 +689,9 @@ func TestRenderDotTakesAStyle(t *testing.T) {
 	}
 }
 
-// A word after the form names the port display an interconnection's parts are
-// drawn with — minimal, the default, or full — one of them at most; it
-// completes beside the palettes and styles, and a name none has is refused
+// A word after the form names the port display an interconnection or mixed
+// view's parts are drawn with — minimal, the default, or full — one of them at
+// most; it completes beside the palettes and styles, and a name none has is refused
 // with the two there are.
 func TestRenderDotTakesAPortDisplay(t *testing.T) {
 	s := viewSession(t)

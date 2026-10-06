@@ -7,7 +7,7 @@ import (
 
 func TestPseudoViewsIncludeEverySupportedKnownKind(t *testing.T) {
 	known := map[Kind]bool{}
-	for _, kinds := range []map[string]Kind{standardRenderings, standardViewDefinitions} {
+	for _, kinds := range []map[string]Kind{standardRenderings, standardViewDefinitions, toolRenderings, toolViewDefinitions} {
 		for _, kind := range kinds {
 			if kind != "" {
 				known[kind] = true
@@ -28,7 +28,7 @@ func TestPseudoViewsIncludeEverySupportedKnownKind(t *testing.T) {
 
 func TestPseudoViewsOmitUnsupportedKinds(t *testing.T) {
 	tested := false
-	for _, kinds := range []map[string]Kind{standardRenderings, standardViewDefinitions} {
+	for _, kinds := range []map[string]Kind{standardRenderings, standardViewDefinitions, toolRenderings, toolViewDefinitions} {
 		for _, kind := range kinds {
 			if kind == "" || kind.Supported() {
 				continue
@@ -51,6 +51,20 @@ func TestParsePseudoViewAndSortedSpecs(t *testing.T) {
 	kind, target, ok := ParsePseudoView("#state:Machines::Vehicle")
 	if !ok || kind != KindState || target != "Machines::Vehicle" {
 		t.Errorf("ParsePseudoView = %q, %q, %t", kind, target, ok)
+	}
+	for spec, want := range map[string]Kind{"#case": KindCase, "#mixed": KindMixed} {
+		got, target, ok := ParsePseudoView(spec)
+		if !ok || got != want || target != "" {
+			t.Errorf("ParsePseudoView(%q) = %q, %q, %t", spec, got, target, ok)
+		}
+	}
+	for spec, want := range map[string]Kind{
+		"#case:Machines::Vehicle":  KindCase,
+		"#mixed:Machines::Vehicle": KindMixed,
+	} {
+		if got, target, ok := ParsePseudoView(spec); !ok || got != want || target != "Machines::Vehicle" {
+			t.Errorf("ParsePseudoView(%q) = %q, %q, %t", spec, got, target, ok)
+		}
 	}
 	specs := PseudoViewSpecs()
 	if !slices.IsSorted(specs) {

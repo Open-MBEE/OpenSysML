@@ -24,11 +24,11 @@ import (
 )
 
 // Kind is a rendering a view can state. The kinds this package produces are
-// tree, interconnection, state, action, table, matrix and sequence; the rest are
-// recognized so that a view stating one is told it is unsupported rather than
-// rendered as something else. A rendering the standard library does not declare is carried
-// as the name the model gives it, so an error about it names what the view
-// asked for.
+// tree, interconnection, state, action, case, mixed, table, matrix and
+// sequence; the rest are recognized so that a view stating one is told it is
+// unsupported rather than rendered as something else. A rendering the standard
+// library does not declare is carried as the name the model gives it, so an
+// error about it names what the view asked for.
 type Kind string
 
 const (
@@ -41,6 +41,11 @@ const (
 	KindState Kind = "state"
 	// KindAction renders the nodes and successions of exposed behaviors.
 	KindAction Kind = "action"
+	// KindCase names SysML's CaseDefinition/CaseUsage family; "usecase" would
+	// mislabel analysis and verification cases.
+	KindCase Kind = "case"
+	// KindMixed combines behavioral, case, structural, and tree content on one canvas.
+	KindMixed Kind = "mixed"
 	// KindTextual is Views::asTextualNotation, which writes the model back as
 	// notation: `sysml -convert sysml` does that, so no rendering is produced.
 	KindTextual Kind = "textual"
@@ -59,13 +64,13 @@ const (
 
 // Kinds returns every rendering kind this package recognizes, supported or not.
 func Kinds() []Kind {
-	return []Kind{KindTree, KindInterconnection, KindState, KindAction, KindTextual, KindTable, KindMatrix, KindSequence, KindGeometry}
+	return []Kind{KindTree, KindInterconnection, KindState, KindAction, KindCase, KindMixed, KindTextual, KindTable, KindMatrix, KindSequence, KindGeometry}
 }
 
 // Supported reports whether this package produces a rendering of the kind.
 func (k Kind) Supported() bool {
 	switch k {
-	case KindTree, KindInterconnection, KindState, KindAction, KindTable, KindMatrix, KindSequence:
+	case KindTree, KindInterconnection, KindState, KindAction, KindCase, KindMixed, KindTable, KindMatrix, KindSequence:
 		return true
 	}
 	return false
@@ -154,6 +159,20 @@ const (
 	EdgeFlow
 	// EdgeBinding is a binding equating two features.
 	EdgeBinding
+	// EdgeComposition contains a case in another case.
+	EdgeComposition
+	// EdgeAssociation connects an actor or subject to a case.
+	EdgeAssociation
+	// EdgeInclude includes one case in another.
+	EdgeInclude
+	// EdgeAnchor attaches an objective to a case.
+	EdgeAnchor
+	// EdgeTyping connects a usage to its type.
+	EdgeTyping
+	// EdgeSpecialization connects a type to its supertype.
+	EdgeSpecialization
+	// EdgeReference connects a performing or exhibiting usage to its target.
+	EdgeReference
 )
 
 // String names an edge kind the way the notation speaks of it.
@@ -169,6 +188,20 @@ func (k EdgeKind) String() string {
 		return "flow"
 	case EdgeBinding:
 		return "binding"
+	case EdgeComposition:
+		return "composition"
+	case EdgeAssociation:
+		return "association"
+	case EdgeInclude:
+		return "include"
+	case EdgeAnchor:
+		return "anchor"
+	case EdgeTyping:
+		return "typing"
+	case EdgeSpecialization:
+		return "specialization"
+	case EdgeReference:
+		return "reference"
 	}
 	return "edge"
 }
@@ -398,6 +431,10 @@ func (r *Renderer) render(view *symbols.Symbol, drawn *Drawn) (*Rendering, error
 		r.renderStates(view, exposed, out)
 	case KindAction:
 		r.renderActions(view, exposed, out)
+	case KindCase:
+		r.renderCase(view, exposed, out)
+	case KindMixed:
+		r.renderMixed(view, exposed, out)
 	case KindTable:
 		r.renderTable(view, exposed, out)
 	case KindMatrix:
@@ -409,7 +446,7 @@ func (r *Renderer) render(view *symbols.Symbol, drawn *Drawn) (*Rendering, error
 		return nil, &UnsupportedKindError{Kind: kind, View: r.notationName(view), Stated: stated}
 	}
 	switch kind {
-	case KindTree, KindInterconnection, KindState, KindAction:
+	case KindTree, KindInterconnection, KindState, KindAction, KindCase, KindMixed:
 		// The graph-shaped kinds are drawn on a canvas; a table or sequence is not.
 		out.Canvas = r.canvasOf(view, out)
 		r.notesOf(view, view, "", out)
@@ -436,6 +473,10 @@ func (r *Renderer) RenderExposed(exposed []*symbols.Symbol, kind Kind, stated st
 		r.renderStates(nil, exposed, out)
 	case KindAction:
 		r.renderActions(nil, exposed, out)
+	case KindCase:
+		r.renderCase(nil, exposed, out)
+	case KindMixed:
+		r.renderMixed(nil, exposed, out)
 	case KindTable:
 		r.renderTable(nil, exposed, out)
 	case KindMatrix:
@@ -514,7 +555,18 @@ func remedyFor(kind Kind) string {
 const (
 	renderingsPackage      = "Views::"
 	viewDefinitionsPackage = "StandardViewDefinitions::"
+	toolRenderingsPackage  = "OpenSysMLRenderings::"
 )
+
+var toolRenderings = map[string]Kind{
+	"asCaseDiagram":  KindCase,
+	"asMixedDiagram": KindMixed,
+}
+
+var toolViewDefinitions = map[string]Kind{
+	"CaseView":  KindCase,
+	"MixedView": KindMixed,
+}
 
 // standardRenderings maps the renderings Views declares, and the rendering
 // definitions they are typed by, to the kind each asks for. An abstract base
@@ -570,6 +622,9 @@ func (r *Renderer) renderingKind(rendering semantics.ViewRendering) (Kind, bool)
 		return Kind(rendering.Ref), true
 	}
 	for _, sym := range append([]*symbols.Symbol{rendering.Rendering}, r.model.AllSupertypes(rendering.Rendering)...) {
+		if kind, known := standardKind(toolRenderings, toolRenderingsPackage, r.fqn(sym)); known {
+			return kind, true
+		}
 		kind, known := standardKind(standardRenderings, renderingsPackage, r.fqn(sym))
 		if !known {
 			continue
@@ -588,6 +643,9 @@ func (r *Renderer) renderingKind(rendering semantics.ViewRendering) (Kind, bool)
 // in turn specializes.
 func (r *Renderer) viewDefinitionKind(view *symbols.Symbol) (Kind, string, *symbols.Symbol) {
 	for _, sym := range append([]*symbols.Symbol{view}, r.model.AllSupertypes(view)...) {
+		if kind, ok := standardKind(toolViewDefinitions, toolRenderingsPackage, r.fqn(sym)); ok {
+			return kind, "view def " + sym.Name, sym
+		}
 		if kind, ok := standardKind(standardViewDefinitions, viewDefinitionsPackage, r.fqn(sym)); ok {
 			return kind, "view def " + sym.Name, sym
 		}
@@ -656,7 +714,7 @@ func declKind(sym *symbols.Symbol) string {
 // `part engine : Engine`, "~Port" of `port p : ~Port`, "A, B" of
 // `feature f typed by A, B`), empty for a declaration stating none.
 func declType(sym *symbols.Symbol) string {
-	return typingOf(semantics.RelationshipsOf(sym))
+	return typingOf(viewRelationshipsOf(sym))
 }
 
 // declTypings are the qualified names, as the notation writes them, of the

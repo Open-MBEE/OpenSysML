@@ -62,7 +62,7 @@
         "dir": "examples",
         "origin": "ours",
         "files": 49,
-        "digest": "sha256:a5a8e70af0ae93c18969d5525d96e709c6d267bf1278f913b6a697a38c9972a2"
+        "digest": "sha256:6e1f941cb5e71656336c231c561998c129d670f66859ec6a96dce58440e15c23"
       },
       {
         "name": "probes",
@@ -75,8 +75,8 @@
         "name": "opensysml-libraries",
         "dir": "internal/workspace/libs/stdlib/OpenSysML Libraries",
         "origin": "ours",
-        "files": 14,
-        "digest": "sha256:d84385f8e361e9fc58e3896e697413d5f4bd3d86c18d7858c86b4b61f915536e"
+        "files": 15,
+        "digest": "sha256:cfa4ce639ac0808be3cf88a9e01fe6b0843964bc20b8187474bb737ed9adec50"
       }
     ],
     "recorded": "2026-10-06"
