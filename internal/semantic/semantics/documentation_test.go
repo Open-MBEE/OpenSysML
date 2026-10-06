@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
@@ -73,6 +74,15 @@ alias LM for Lander;`)
 	want := []string{"Descends to the surface."}
 	if got := docs("LM"); !slices.Equal(got, want) {
 		t.Fatalf("DocumentationOf(alias) = %q, want %q", got, want)
+	}
+}
+
+func TestRelationshipsOfDoesNotUnwrapMembership(t *testing.T) {
+	sym := &symbols.Symbol{Decl: &ast.Membership{
+		Member: &ast.Usage{Relationships: []*ast.Relationship{{}}},
+	}}
+	if got := RelationshipsOf(sym); len(got) != 0 {
+		t.Fatalf("RelationshipsOf(membership) = %v, want none", got)
 	}
 }
 

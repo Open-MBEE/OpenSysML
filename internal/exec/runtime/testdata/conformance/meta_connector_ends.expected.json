@@ -1,0 +1,32 @@
+{
+  "type": "instance",
+  "instantiate": "test::Report",
+  "libraries": true,
+  "slots": {
+    "ownedMembers": {"type": "Integer", "value": 2},
+    "ownedElements": {"type": "Integer", "value": 2},
+    "ownedFeatures": {"type": "Integer", "value": 2},
+    "ends": {"type": "Sequence", "elements": [{"type": "Metaobject", "value": "meta(test::Asm::c1::<unnamed> : SysML::Systems::ReferenceUsage)"}, {"type": "Metaobject", "value": "meta(test::Asm::c1::<unnamed> : SysML::Systems::ReferenceUsage)"}]},
+    "endFeatures": {"type": "Sequence", "elements": [{"type": "Metaobject", "value": "meta(test::Asm::c1::<unnamed> : SysML::Systems::ReferenceUsage)"}, {"type": "Metaobject", "value": "meta(test::Asm::c1::<unnamed> : SysML::Systems::ReferenceUsage)"}]},
+    "endsAreMembers": {"type": "Boolean", "value": true},
+    "endOwner": {"type": "Sequence", "elements": [{"type": "Metaobject", "value": "meta(test::Asm::c1 : SysML::Systems::ConnectionUsage)"}]},
+    "endReferences": {"type": "Sequence", "elements": [{"type": "Metaobject", "value": "meta(test::Asm::c1::<unnamed>::<unnamed> : KerML::Core::ReferenceSubsetting)"}, {"type": "Metaobject", "value": "meta(test::Asm::c1::<unnamed>::<unnamed> : KerML::Core::ReferenceSubsetting)"}]},
+    "endSubsettings": {"type": "Sequence", "elements": [{"type": "Metaobject", "value": "meta(test::Asm::c1::<unnamed>::<unnamed> : KerML::Core::ReferenceSubsetting)"}, {"type": "Metaobject", "value": "meta(test::Asm::c1::<unnamed>::<unnamed> : KerML::Core::ReferenceSubsetting)"}]},
+    "firstChain": {"type": "Sequence", "elements": [{"type": "Metaobject", "value": "meta(test::Asm::s : SysML::Systems::PartUsage)"}, {"type": "Metaobject", "value": "meta(test::Source::y : SysML::Systems::PortUsage)"}]},
+    "secondChain": {"type": "Sequence", "elements": [{"type": "Metaobject", "value": "meta(test::Asm::k : SysML::Systems::PartUsage)"}, {"type": "Metaobject", "value": "meta(test::Sink::u : SysML::Systems::PortUsage)"}]},
+    "referenceSource": {"type": "Sequence", "elements": [{"type": "Metaobject", "value": "meta(test::Asm::c1::<unnamed> : SysML::Systems::ReferenceUsage)"}]},
+    "referenceTargetOwner": {"type": "Sequence", "elements": [{"type": "Metaobject", "value": "meta(test::Asm::c1::<unnamed> : SysML::Systems::ReferenceUsage)"}]},
+    "connectorSubsettings": {"type": "Sequence", "elements": []},
+    "redefinitions": {"type": "Sequence", "elements": [{"type": "Metaobject", "value": "meta(test::Derived::x::<unnamed> : KerML::Core::Redefinition)"}]},
+    "redefined": {"type": "Sequence", "elements": [{"type": "Metaobject", "value": "meta(test::Base::x : SysML::Systems::AttributeUsage)"}]},
+    "redefining": {"type": "Sequence", "elements": [{"type": "Metaobject", "value": "meta(test::Derived::x : SysML::Systems::AttributeUsage)"}]},
+    "redefinitionIsSubsetting": {"type": "Boolean", "value": true},
+    "subsetted": {"type": "Sequence", "elements": [{"type": "Metaobject", "value": "meta(test::Base::y : SysML::Systems::AttributeUsage)"}]},
+    "subsetting": {"type": "Sequence", "elements": [{"type": "Metaobject", "value": "meta(test::Derived::z : SysML::Systems::AttributeUsage)"}]},
+    "noRedefinition": {"type": "Sequence", "elements": []},
+    "referenced": {"type": "Sequence", "elements": [{"type": "Metaobject", "value": "meta(test::Base::y : SysML::Systems::AttributeUsage)"}]},
+    "referencing": {"type": "Sequence", "elements": [{"type": "Metaobject", "value": "meta(test::Derived::r : SysML::Systems::AttributeUsage)"}]},
+    "typed": {"type": "Sequence", "elements": [{"type": "Metaobject", "value": "meta(ScalarValues::Real : KerML::Kernel::DataType)"}]},
+    "implied": {"type": "Sequence", "elements": [{"type": "Boolean", "value": false}]}
+  }
+}

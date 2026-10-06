@@ -66,7 +66,7 @@ func (m *Model) ReferencedFeature(sym *symbols.Symbol) *symbols.Symbol {
 func referenceSubsettingTarget(sym *symbols.Symbol) ast.Node {
 	switch decl := sym.Decl.(type) {
 	case *ast.ConnectorEnd:
-		return decl.ReferencedTarget()
+		return decl.AttachedTarget()
 	case *ast.Usage:
 		if rel := decl.ReferenceSubsetting(); rel != nil {
 			return rel.Target

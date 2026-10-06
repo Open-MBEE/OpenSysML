@@ -1182,7 +1182,10 @@ func (d *decoder) checkReferences() error {
 			continue
 		}
 		if ownershipPredicates[triple.Predicate.Value] &&
-			(d.isExpressionNode(triple.Subject) || d.nodeMembership[triple.Subject.Value]) {
+			(d.isExpressionNode(triple.Subject) || d.nodeMembership[triple.Subject.Value] ||
+				d.isExpressionIRI(triple.Object)) {
+			// An ownership edge to a minted node — a connector end — owns an
+			// artifact the writer spelled, not a name to write back.
 			continue
 		}
 		// Only a Membership written as a member — an alias, a `first` — names

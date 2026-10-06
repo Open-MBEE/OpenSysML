@@ -378,6 +378,18 @@ func runCLI() int {
 		return 2
 	}
 
+	// A rule package named empty asks for no package, which checks nothing; one
+	// named asks for the self-check it is applied under.
+	for _, name := range modelChecks.selfCheckPackages {
+		if strings.TrimSpace(name) == "" {
+			fmt.Fprintln(os.Stderr, "sysml: -self-check-package needs a package name; write `sysml model.sysml -self-check-package Acme::ModelingRules`")
+			return 2
+		}
+	}
+	if len(modelChecks.selfCheckPackages) > 0 {
+		modelChecks.selfCheck = true
+	}
+
 	// Get positional arguments (files to load)
 	args := flag.Args()
 
@@ -394,7 +406,7 @@ func runCLI() int {
 		return 2
 	}
 	if renderPorts != "" && renderView == "" && renderAllDir == "" {
-		fmt.Fprintln(os.Stderr, "sysml: -render-ports is how much of a part's ports -render or -render-all draws on an interconnection; name the view to render with -render or a directory with -render-all")
+		fmt.Fprintln(os.Stderr, "sysml: -render-ports is how much of a part's ports -render or -render-all draws on an interconnection or mixed rendering; name the view to render with -render or a directory with -render-all")
 		return 2
 	}
 	if renderUnplaced != "" && renderView == "" && renderAllDir == "" && renderDoc == "" && renderDocsDir == "" {

@@ -1620,6 +1620,10 @@ func (a *activity) declareKind(n *sysmlv1.Element, name string) {
 		a.writeFeature(n, name)
 	case "SendSignalAction":
 		a.sendSignal(n, name)
+	case "SendObjectAction":
+		a.sendObject(n, name)
+	case "StartObjectBehaviorAction", "StartClassifierBehaviorAction":
+		a.startBehavior(n, name)
 	case "AcceptEventAction":
 		a.acceptEvent(n, name)
 	case "StructuredActivityNode", "ExpansionRegion", "LoopNode", "ConditionalNode", "SequenceNode":
@@ -1648,6 +1652,12 @@ func (a *activity) linkAction(n *sysmlv1.Element, name, verb string) {
 	a.m.add(n, Approximated, name, "SysML v2 has no link action: the "+n.Type+" is written as an action with its pins and does not "+verb+" the link")
 }
 
+// startBehavior writes a start of an object's behavior as a placeholder: a v2 object's
+// exhibited states and performed actions start with it, and no action starts them later.
+func (a *activity) startBehavior(n *sysmlv1.Element, name string) {
+	a.placeholder(n, name, noV2UML+n.Type+": a v2 object's exhibited states and performed actions start when the object does, and no v2 action starts them later", Unmapped)
+}
+
 // inputPins lists the input pins of an action, arguments first; a value action's
 // value is a specification, not a pin, and is left out.
 func inputPins(n *sysmlv1.Element) []*sysmlv1.Element {
@@ -1662,6 +1672,7 @@ func inputPins(n *sysmlv1.Element) []*sysmlv1.Element {
 			ins = append(ins, v)
 		}
 	}
+	ins = append(ins, n.Owned("request")...)
 	ins = append(ins, n.Owned("target")...)
 	ins = append(ins, n.Owned("insertAt")...)
 	ins = append(ins, n.Owned("removeAt")...)
@@ -2362,6 +2373,7 @@ func (a *activity) callOperation(n *sysmlv1.Element, name string) {
 		note = ""
 	case a.m.asUsage[op] && t == nil:
 		note = joinNotes(note, a.performUsage(name, op))
+	case a.targetBound(n, t) && a.callOnTargetLine(n, t, op, name, &note):
 	case a.m.asUsage[op]:
 		a.m.w.line(actionKw + name + ";")
 		note = joinNotes(note, a.m.nameOf(op)+" is an action of "+qualifiedName(op.Parent)+", performed on an object of it, and the target pin names none read from this, so an empty step stands for the call")
@@ -3067,36 +3079,77 @@ func (a *activity) sendSignal(n *sysmlv1.Element, name string) {
 		}
 		args, anote := a.signalArguments(n, sig)
 		note = anote
-		line := "send new " + a.m.ref(sig, a.def) + "(" + strings.Join(args, ", ") + ")"
-		if port := a.m.model.Ref(n, "onPort"); port != nil {
-			path, hasPath := a.portPath(port)
-			switch {
-			case !a.m.written(port):
-				note = joinNotes(note, "the port "+qualifiedName(port)+" has no v2 declaration; the signal is sent to the sender")
-			case hasPath:
-				line += " via " + a.m.respellThis(a.self()+"."+path, a.act)
-			default:
-				note = joinNotes(note, "the port "+qualifiedName(port)+" is no port of the object the sender acts on; the signal is sent to the sender")
-			}
-		} else if t := target; t != nil {
-			obj, _, ok := a.objectOf(t)
-			switch {
-			case ok && obj == a.self() && a.selfFed[t]:
-				line += " to " + writeName(a.names[t])
-			case ok:
-				line += " to " + a.m.respellThis(obj, a.act)
-			case len(a.sources[t]) > 0:
-				line += " to " + a.m.respellThis(writeName(a.names[t]), a.act)
-			default:
-				if pin := writeName(a.names[t]); pin != "" && !optionalPin(t) {
-					line += " to " + pin
-				} else {
-					note = joinNotes(note, "the target pin holds nothing a flow names; the signal is sent to the sender")
-				}
-			}
-		}
-		a.m.w.line(line + ";")
+		dest, dnote := a.sendDestination(n, "signal")
+		a.m.w.line("send new " + a.m.ref(sig, a.def) + "(" + strings.Join(args, ", ") + ")" + dest + ";")
+		note = joinNotes(note, dnote)
 		a.m.senders.sent[sig] = true
+	})
+	a.m.add(n, verdictFor(note), name, note)
+}
+
+// sendDestination writes where a send action's what goes: via its port, to the
+// object its target pin holds, or, with neither, to the sender.
+func (a *activity) sendDestination(n *sysmlv1.Element, what string) (string, string) {
+	if port := a.m.model.Ref(n, "onPort"); port != nil {
+		path, hasPath := a.portPath(port)
+		switch {
+		case !a.m.written(port):
+			return "", "the port " + qualifiedName(port) + " has no v2 declaration; the " + what + " is sent to the sender"
+		case hasPath:
+			return " via " + a.m.respellThis(a.self()+"."+path, a.act), ""
+		default:
+			return "", "the port " + qualifiedName(port) + " is no port of the object the sender acts on; the " + what + " is sent to the sender"
+		}
+	}
+	t := firstOwned(n, "target")
+	if t == nil {
+		return "", ""
+	}
+	obj, _, ok := a.objectOf(t)
+	switch {
+	case ok && obj == a.self() && a.selfFed[t]:
+		return " to " + writeName(a.names[t]), ""
+	case ok:
+		return " to " + a.m.respellThis(obj, a.act), ""
+	case len(a.sources[t]) > 0:
+		return " to " + a.m.respellThis(writeName(a.names[t]), a.act), ""
+	case writeName(a.names[t]) != "" && !optionalPin(t):
+		return " to " + writeName(a.names[t]), ""
+	default:
+		return "", "the target pin holds nothing a flow names; the " + what + " is sent to the sender"
+	}
+}
+
+// sendObject writes a send object action: a send of the object its request pin
+// holds, to the object its target pin holds.
+func (a *activity) sendObject(n *sysmlv1.Element, name string) {
+	if why, v, refused := a.refusal(n); refused {
+		a.placeholder(n, name, why, v)
+		return
+	}
+	req := firstOwned(n, "request")
+	if req == nil {
+		a.placeholder(n, name, "the action has no request pin, so it has nothing to send", Unmapped)
+		return
+	}
+	target := firstOwned(n, "target")
+	selfTarget := target != nil && a.selfFed[target]
+	if selfTarget {
+		a.markSelf()
+	}
+	var note string
+	a.m.w.block(actionKw+name, func() {
+		if selfTarget {
+			a.declarePinsWithValues(n, inputPins(n), outputPins(n), nil, map[*sysmlv1.Element]string{target: a.m.respellThis(a.self(), a.act)})
+		} else {
+			a.pins(n, nil)
+		}
+		dest, dnote := a.sendDestination(n, "object")
+		a.m.w.line("send " + writeName(a.names[req]) + dest + ";")
+		note = dnote
+		if sig := a.pinClassifier(req); sig != nil && sig.Type == "Signal" {
+			a.m.senders.sent[sig] = true
+		}
 	})
 	a.m.add(n, verdictFor(note), name, note)
 }

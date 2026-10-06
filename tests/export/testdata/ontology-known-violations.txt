@@ -86,7 +86,7 @@ unknown-property ReferenceUsage redefines                    # redefinition is a
 unknown-property OccurrenceUsage redefines                   # redefinition is a Redefinition element, not a property
 unknown-property PerformActionUsage redefines                # redefinition is a Redefinition element, not a property
 unknown-property ExhibitStateUsage redefines                 # redefinition is a Redefinition element, not a property
-unknown-property IncludeUseCaseUsage includes                # the use case an `include` names, standardly its includedUseCase through a ReferenceSubsetting
+unknown-property IncludeUseCaseUsage references             # the use case an `include` names, referenced the same way (its ReferenceSubsetting is written too)
 unknown-property PerformActionUsage references               # a referenced element is a ReferenceUsage or Membership, not a property
 unknown-property PartUsage references                        # a reference subsetting is a ReferenceSubsetting element, not a property
 unknown-property ReferenceUsage references                   # a `ref x ::> y` usage, written the same way

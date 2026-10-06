@@ -1420,6 +1420,7 @@ elmt:ActionNodes__Drive___4019
     sysml:connectorEnd expr:ActionNodes__Drive___4019_pend0, expr:ActionNodes__Drive___4019_pend1 ;
     sysml:ownedRelationship expr:ActionNodes__Drive___4019_pend0_om, expr:ActionNodes__Drive___4019_pend1_om ;
     sysml:ownedMembership expr:ActionNodes__Drive___4019_pend0_om, expr:ActionNodes__Drive___4019_pend1_om ;
+    sysml:ownedMember expr:ActionNodes__Drive___4019_pend0, expr:ActionNodes__Drive___4019_pend1 ;
     sysml:ownedFeatureMembership expr:ActionNodes__Drive___4019_pend0_om, expr:ActionNodes__Drive___4019_pend1_om ;
     sysml:ownedFeature expr:ActionNodes__Drive___4019_pend0, expr:ActionNodes__Drive___4019_pend1 ;
     sysml:ownedEndFeature expr:ActionNodes__Drive___4019_pend0, expr:ActionNodes__Drive___4019_pend1 ;
@@ -1433,6 +1434,7 @@ elmt:ActionNodes__Drive___4019
     json:connectorEnd "[{\"@id\":\"ActionNodes__Drive___4019_pend0\"},{\"@id\":\"ActionNodes__Drive___4019_pend1\"}]" ;
     json:ownedRelationship "[{\"@id\":\"ActionNodes__Drive___4019_pend0_om\"},{\"@id\":\"ActionNodes__Drive___4019_pend1_om\"}]" ;
     json:ownedMembership "[{\"@id\":\"ActionNodes__Drive___4019_pend0_om\"},{\"@id\":\"ActionNodes__Drive___4019_pend1_om\"}]" ;
+    json:ownedMember "[{\"@id\":\"ActionNodes__Drive___4019_pend0\"},{\"@id\":\"ActionNodes__Drive___4019_pend1\"}]" ;
     json:ownedFeatureMembership "[{\"@id\":\"ActionNodes__Drive___4019_pend0_om\"},{\"@id\":\"ActionNodes__Drive___4019_pend1_om\"}]" ;
     json:ownedFeature "[{\"@id\":\"ActionNodes__Drive___4019_pend0\"},{\"@id\":\"ActionNodes__Drive___4019_pend1\"}]" ;
     json:ownedEndFeature "[{\"@id\":\"ActionNodes__Drive___4019_pend0\"},{\"@id\":\"ActionNodes__Drive___4019_pend1\"}]" ;
@@ -1548,6 +1550,7 @@ elmt:ActionNodes__Drive___4020
     sysml:connectorEnd expr:ActionNodes__Drive___4020_pend0, expr:ActionNodes__Drive___4020_pend1 ;
     sysml:ownedRelationship expr:ActionNodes__Drive___4020_pend0_om, expr:ActionNodes__Drive___4020_pend1_om ;
     sysml:ownedMembership expr:ActionNodes__Drive___4020_pend0_om, expr:ActionNodes__Drive___4020_pend1_om ;
+    sysml:ownedMember expr:ActionNodes__Drive___4020_pend0, expr:ActionNodes__Drive___4020_pend1 ;
     sysml:ownedFeatureMembership expr:ActionNodes__Drive___4020_pend0_om, expr:ActionNodes__Drive___4020_pend1_om ;
     sysml:ownedFeature expr:ActionNodes__Drive___4020_pend0, expr:ActionNodes__Drive___4020_pend1 ;
     sysml:ownedEndFeature expr:ActionNodes__Drive___4020_pend0, expr:ActionNodes__Drive___4020_pend1 ;
@@ -1561,6 +1564,7 @@ elmt:ActionNodes__Drive___4020
     json:connectorEnd "[{\"@id\":\"ActionNodes__Drive___4020_pend0\"},{\"@id\":\"ActionNodes__Drive___4020_pend1\"}]" ;
     json:ownedRelationship "[{\"@id\":\"ActionNodes__Drive___4020_pend0_om\"},{\"@id\":\"ActionNodes__Drive___4020_pend1_om\"}]" ;
     json:ownedMembership "[{\"@id\":\"ActionNodes__Drive___4020_pend0_om\"},{\"@id\":\"ActionNodes__Drive___4020_pend1_om\"}]" ;
+    json:ownedMember "[{\"@id\":\"ActionNodes__Drive___4020_pend0\"},{\"@id\":\"ActionNodes__Drive___4020_pend1\"}]" ;
     json:ownedFeatureMembership "[{\"@id\":\"ActionNodes__Drive___4020_pend0_om\"},{\"@id\":\"ActionNodes__Drive___4020_pend1_om\"}]" ;
     json:ownedFeature "[{\"@id\":\"ActionNodes__Drive___4020_pend0\"},{\"@id\":\"ActionNodes__Drive___4020_pend1\"}]" ;
     json:ownedEndFeature "[{\"@id\":\"ActionNodes__Drive___4020_pend0\"},{\"@id\":\"ActionNodes__Drive___4020_pend1\"}]" ;

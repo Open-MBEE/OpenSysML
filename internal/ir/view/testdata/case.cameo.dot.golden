@@ -1,0 +1,54 @@
+// view: CaseExamples::caseDiagram
+// kind: case
+// stated: render asCaseDiagram
+// not represented: part def CaseExamples::Tool holds no case; a case rendering does not show it
+// layout: dot
+digraph "CaseExamples::caseDiagram" {
+  graph [fontname="Arial", fontcolor="#424242", rankdir=LR];
+  node [shape=box, style=filled, fillcolor="#FFCC99:#FFFAD4", gradientangle=0, color="#99795C", fontname="Arial", fontsize=11, fontcolor="#424242", penwidth=1];
+  edge [color="#424242", fontname="Arial", fontsize=9, fontcolor="#424242", penwidth=1, arrowhead=open];
+  subgraph "cluster_frame" {
+    label=<<b>uc</b> [Use Case] &#39;Provide Transportation&#39; [ caseDiagram ]>;
+    labeljust=l;
+    labelloc=t;
+    fontsize=11;
+    color="#5B5B59";
+    penwidth=1;
+    margin=8;
+    "n0" [shape=ellipse, label=<<font point-size="9">«use case»</font><br/><b>Provide Transportation : Enter Vehicle</b>>];
+    "n1" [shape=box, label=<<font point-size="9">«subject»</font><br/><b>vehicle : Vehicle</b>>];
+    "n2" [shape=box, label=<<font point-size="9">«actor»</font><br/><b>driver : Person</b>>];
+    "n3" [shape=note, label=<<table border="0" cellborder="0" cellspacing="0" cellpadding="2"><tr><td><b>objective</b></td></tr><hr/><tr><td align="left">Transport the vehicle and its passengers safely.</td></tr></table>>];
+    "n4" [shape=ellipse, label=<<font point-size="9">«use case def»</font><br/><b>Add Fuel</b>>];
+    "n5" [shape=box, label=<<font point-size="9">«subject»</font><br/><b>vehicle : Vehicle</b>>];
+    "n6" [shape=box, label=<<font point-size="9">«actor»</font><br/><b>fueler : Person</b>>];
+    "n7" [shape=ellipse, label=<<font point-size="9">«include use case»</font><br/><b>enter vehicle : Enter Vehicle</b>>];
+    "n8" [shape=box, label=<<font point-size="9">«subject»</font><br/><b>vehicle</b>>];
+    "n9" [shape=box, label=<<font point-size="9">«actor»</font><br/><b>driver</b>>];
+    "n10" [shape=ellipse, label=<<font point-size="9">«use case»</font><br/><b>Drive Vehicle</b>>];
+    "n11" [shape=box, label=<<font point-size="9">«subject»</font><br/><b>vehicle</b>>];
+    "n12" [shape=box, label=<<font point-size="9">«actor»</font><br/><b>driver</b>>];
+    "n13" [shape=ellipse, label=<<font point-size="9">«analysis def»</font><br/><b>FuelAnalysis</b>>];
+    "n14" [shape=box, label=<<font point-size="9">«subject»</font><br/><b>vehicle : Vehicle</b>>];
+    "n15" [shape=note, label=<<table border="0" cellborder="0" cellspacing="0" cellpadding="2"><tr><td><b>objective</b></td></tr><hr/><tr><td align="left">Estimate the fuel remaining after a journey.</td></tr></table>>];
+    "n16" [shape=ellipse, label=<<font point-size="9">«verification def»</font><br/><b>FuelVerification</b>>];
+    "n17" [shape=box, label=<<font point-size="9">«subject»</font><br/><b>vehicle : Vehicle</b>>];
+    "n18" [shape=note, label=<<b>objective</b>>];
+  }
+  "n0" -> "n1" [label="«subject»", dir=none];
+  "n2" -> "n0" [dir=none];
+  "n0" -> "n3" [dir=none, style=dashed];
+  "n4" -> "n5" [label="«subject»", dir=none];
+  "n6" -> "n4" [dir=none];
+  "n0" -> "n4" [label="«include»", style=dashed];
+  "n0" -> "n7" [label="«include»", style=dashed];
+  "n7" -> "n8" [label="«subject»", dir=none];
+  "n9" -> "n7" [dir=none];
+  "n0" -> "n10" [arrowtail=diamond, dir=back];
+  "n10" -> "n11" [label="«subject»", dir=none];
+  "n12" -> "n10" [dir=none];
+  "n13" -> "n14" [label="«subject»", dir=none];
+  "n13" -> "n15" [dir=none, style=dashed];
+  "n16" -> "n17" [label="«subject»", dir=none];
+  "n16" -> "n18" [dir=none, style=dashed];
+}

@@ -115,6 +115,8 @@ func TestGoldenRenderings(t *testing.T) {
 		{"state-entry", "state-entry.sysml", "MachineViews::thermostat", KindState},
 		{"state-pseudostates", "cameo-behavior.sysml", "NotationViews::alignmentView", KindState},
 		{"action", "action.sysml", "FlowViews::driveView", KindAction},
+		{"case", "case.sysml", "CaseExamples::caseDiagram", KindCase},
+		{"mixed", "mixed.sysml", "MixedExamples::mixedDiagram", KindMixed},
 		{"typed-action", "typed-behavior.sysml", "TypedViews::cycleView", KindAction},
 		{"typed-state", "typed-behavior.sysml", "TypedViews::boilerView", KindState},
 		{"filters", "filters.sysml", "FilteredViews::safetyView", KindTree},
@@ -132,6 +134,9 @@ func TestGoldenRenderings(t *testing.T) {
 			rendering := render(t, tc.file, tc.view)
 			if rendering.Kind != tc.kind {
 				t.Errorf("kind = %q, want %q", rendering.Kind, tc.kind)
+			}
+			if tc.kind == KindCase || tc.kind == KindMixed {
+				assertRenderingEdgeEndpoints(t, rendering)
 			}
 			checkGolden(t, filepath.Join("testdata", tc.name+".text.golden"), rendering.Text())
 			form := tc.kind.MachineForm()
@@ -830,6 +835,8 @@ func TestMermaidSizeCountsEdges(t *testing.T) {
 		{"state-entry.sysml", "MachineViews::thermostat"},
 		{"action.sysml", "FlowViews::driveView"},
 		{"sequence-vehicle.sysml", "VehicleSequenceViews::startVehicleView"},
+		{"case.sysml", "CaseExamples::caseDiagram"},
+		{"mixed.sysml", "MixedExamples::mixedDiagram"},
 	} {
 		rendering := render(t, tc.file, tc.view)
 		drawn := len(rendering.Edges)

@@ -47,6 +47,33 @@ func TestExamplesAnalyseCleanly(t *testing.T) {
 	}
 }
 
+func TestViewsDemoResolvesCaseRenderingsWithSelfModelLoaded(t *testing.T) {
+	ws := NewWorkspace()
+	rel := "views-demo.sysml"
+	content, err := os.ReadFile(filepath.Join(examplesDir, rel))
+	if err != nil {
+		t.Fatalf("read %s: %v", rel, err)
+	}
+	ws.Open(rel, content, 1)
+	for _, sibling := range siblings(t, "self-model/views.sysml") {
+		content, err := os.ReadFile(filepath.Join(examplesDir, sibling))
+		if err != nil {
+			t.Fatalf("read %s: %v", sibling, err)
+		}
+		ws.Open(sibling, content, 1)
+	}
+
+	var errs []string
+	for _, d := range ws.Diagnostics(rel) {
+		if d.Severity == diag.SeverityError {
+			errs = append(errs, d.Message)
+		}
+	}
+	if len(errs) > 0 {
+		t.Errorf("%d error(s): %s", len(errs), strings.Join(errs, "; "))
+	}
+}
+
 // siblings returns the files analysed together with one example: the other
 // models in its directory, or the file alone when it sits at the top level.
 func siblings(t *testing.T, rel string) []string {
