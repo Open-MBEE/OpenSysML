@@ -1,14 +1,14 @@
 // Copyright 2025 Open‐MBEE Foundation. All rights reserved.
 // Use of this source code is governed by the LICENSE file.
 
-// Package engine is an in-process engine over SysML text: it serves the
+// Package engine is an in-process engine over SysML text. It serves the
 // execution RPCs of SysMLService — ParseSources, Evaluate, Instantiate,
-// ExecuteAction and ExecuteState — plus the engine-only RenderView call, with
-// the same answers as default-capabilities sysml-grpc for those RPCs, but shaped
-// and marshalled as the proto3 JSON (protojson) of the api/proto messages rather
-// than as protobuf. WebAssembly clients decode the
-// results with the generated types they already hold, and no protobuf runtime
-// is linked in, which is what keeps the js/wasm build small.
+// ExecuteAction and ExecuteState — with the same proto3 JSON answers as
+// default-capabilities sysml-grpc, and also serves RenderView. The engine's
+// RenderView JSON keeps its drawing shape (flattened fill/border and optional
+// x/y/width/height), not the protojson of RenderViewResponse. WebAssembly
+// clients decode the execution results with generated types they already hold,
+// and no protobuf runtime is linked in, which keeps the js/wasm build small.
 package engine
 
 import (
