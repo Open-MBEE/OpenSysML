@@ -360,3 +360,174 @@ func TestReleaseJobsPersistDisjointWorkspaceLayers(t *testing.T) {
 		"dist/opensysml-[0-9]*.tar.gz",
 	)
 }
+
+// TestNodePackageIsStampedWithItsReleaseDigests holds publish-npm to the same
+// contract as the Python wheel: the digests of the binaries in dist/grpc are
+// stamped into the package's table before it is packed, the packed tarball is
+// asserted to pin all five assets for the tag, and that verified tarball is
+// what is published.
+func TestNodePackageIsStampedWithItsReleaseDigests(t *testing.T) {
+	config := loadCircleConfig(t)
+	npm, ok := config.Jobs["publish-npm"]
+	if !ok {
+		t.Fatal("no publish-npm job")
+	}
+	if !stepHasBareStep(npm.Steps, "attach_workspace") {
+		t.Error("publish-npm does not attach the workspace that carries dist/grpc")
+	}
+	steps := runSteps(t, npm.Steps)
+	stamp := stepIndex(steps,
+		"client/python/scripts/pin_release_checksums.py",
+		`--version "${CIRCLE_TAG}"`,
+		"--from-binaries dist/grpc",
+		"--table client/node/release-digests.json",
+	)
+	test := stepIndex(steps, "npm test")
+	pack := stepIndex(steps, "npm pack --pack-destination")
+	assert := stepIndex(steps, "package/release-digests.json", "tarfile", "hashlib")
+	publish := stepIndex(steps, "npm publish", "--access public", "NPM_TARBALL")
+	switch {
+	case stamp < 0:
+		t.Error("publish-npm does not stamp the release's digests from dist/grpc into the package's table")
+	case test < 0:
+		t.Error("publish-npm does not run the Node suite")
+	case stamp > test:
+		t.Errorf("the digest stamp (step %d) runs after npm test (step %d), so the suite cannot check it", stamp, test)
+	case pack < 0:
+		t.Error("publish-npm does not pack the client into a tarball")
+	case stamp > pack:
+		t.Errorf("the digest stamp (step %d) runs after npm pack (step %d), so the tarball ships without it", stamp, pack)
+	}
+	if test >= 0 && !strings.Contains(steps[test].Command, `OPENSYSML_EXPECT_PINNED_RELEASE="${CIRCLE_TAG}"`) {
+		t.Error("publish-npm runs the Node suite without OPENSYSML_EXPECT_PINNED_RELEASE, so the suite does not assert the stamped pin")
+	}
+	switch {
+	case assert < 0:
+		t.Fatal("publish-npm does not assert the packed tarball pins the release's service digests")
+	case assert != pack:
+		t.Errorf("the tarball assertion (step %d) must run in the step that packs it (step %d)", assert, pack)
+	}
+	for _, asset := range serviceAssets {
+		if !strings.Contains(steps[assert].Command, asset) {
+			t.Errorf("the tarball assertion does not require %s", asset)
+		}
+	}
+	switch {
+	case publish < 0:
+		t.Error("publish-npm does not publish the verified tarball; publishing the directory would pack it again unverified")
+	case publish < assert:
+		t.Errorf("npm publish (step %d) runs before the tarball is verified (step %d)", publish, assert)
+	}
+	if stepIndex(steps, "cd client/node", "npm pack --dry-run") >= 0 {
+		t.Error("publish-npm packs the client a second time instead of using the verified tarball")
+	}
+
+	release := config.workflow(t, "release")
+	requireAll(t, "Publish opensysml to npm", requiresOf(t, release, "Publish opensysml to npm"), "Publish GitHub release")
+}
+
+// TestJavaJarIsStampedWithItsReleaseDigests holds publish-maven to the same
+// contract: attach the workspace that carries dist/grpc, stamp the digests
+// into the jar's resource before mvn package, assert the packaged jar pins all
+// five assets for the tag, and only then deploy.
+func TestJavaJarIsStampedWithItsReleaseDigests(t *testing.T) {
+	config := loadCircleConfig(t)
+	maven, ok := config.Jobs["publish-maven"]
+	if !ok {
+		t.Fatal("no publish-maven job")
+	}
+	if !stepHasBareStep(maven.Steps, "attach_workspace") {
+		t.Error("publish-maven does not attach the workspace that carries dist/grpc")
+	}
+	steps := runSteps(t, maven.Steps)
+	stamp := stepIndex(steps,
+		"client/python/scripts/pin_release_checksums.py",
+		`--version "${CIRCLE_TAG}"`,
+		"--from-binaries dist/grpc",
+		"--table client/java/opensysml-client/src/main/resources/release-digests.json",
+	)
+	pack := stepIndex(steps, "mvn -B -f client/java/pom.xml", "package -pl :opensysml -am")
+	assert := stepIndex(steps, "release-digests.json", "zipfile", "hashlib")
+	deploy := stepIndex(steps, "mvn -B -f client/java/pom.xml", "deploy -pl :opensysml -am")
+	switch {
+	case stamp < 0:
+		t.Error("publish-maven does not stamp the release's digests from dist/grpc into the jar's resource")
+	case pack < 0:
+		t.Error("publish-maven does not run mvn package before deploying")
+	case stamp > pack:
+		t.Errorf("the digest stamp (step %d) runs after mvn package (step %d), so the jar ships without it", stamp, pack)
+	}
+	if pack >= 0 {
+		if !strings.Contains(steps[pack].Command, `OPENSYSML_EXPECT_PINNED_RELEASE="${CIRCLE_TAG}"`) {
+			t.Error("publish-maven packages without OPENSYSML_EXPECT_PINNED_RELEASE, so ReleaseAssetsTest does not assert the stamped pin")
+		}
+		if !strings.Contains(steps[pack].Command, "-Dtest=ReleaseAssetsTest") {
+			t.Error("publish-maven packages without re-running ReleaseAssetsTest over the stamped resource")
+		}
+	}
+	switch {
+	case assert < 0:
+		t.Fatal("publish-maven does not assert the packaged jar pins the release's service digests")
+	case assert != pack:
+		t.Errorf("the jar assertion (step %d) must run in the step that packages it (step %d)", assert, pack)
+	}
+	for _, asset := range serviceAssets {
+		if !strings.Contains(steps[assert].Command, asset) {
+			t.Errorf("the jar assertion does not require %s", asset)
+		}
+	}
+	switch {
+	case deploy < 0:
+		t.Error("publish-maven does not deploy")
+	case deploy < assert:
+		t.Errorf("mvn deploy (step %d) runs before the jar is verified (step %d)", deploy, assert)
+	}
+
+	release := config.workflow(t, "release")
+	requireAll(t, "Publish opensysml to Maven Central", requiresOf(t, release, "Publish opensysml to Maven Central"), "Publish GitHub release")
+}
+
+// TestSharedTableIsPinnedAfterTheRelease holds the release workflow to the
+// pull request that brings the committed table up to date: opened against
+// develop once the GitHub release exists, stamping the shared table (so every
+// client copy is synced) from the manifest the release signed.
+func TestSharedTableIsPinnedAfterTheRelease(t *testing.T) {
+	config := loadCircleConfig(t)
+	job, ok := config.Jobs["pin-release-digests"]
+	if !ok {
+		t.Fatal("no pin-release-digests job")
+	}
+	if !stepHasBareStep(job.Steps, "attach_workspace") {
+		t.Error("pin-release-digests does not attach the workspace carrying dist/SHA256SUMS.txt")
+	}
+	steps := runSteps(t, job.Steps)
+	stamp := stepIndex(steps,
+		"client/python/scripts/pin_release_checksums.py",
+		"--from-manifest dist/SHA256SUMS.txt",
+	)
+	if stamp < 0 {
+		t.Fatal("pin-release-digests does not stamp the release from the manifest")
+	}
+	if strings.Contains(steps[stamp].Command, "--table") {
+		t.Error("the stamp names a package-local table; the shared table, and every copy synced from it, is the target")
+	}
+	for _, want := range []string{"origin/develop", "scripts/sync-release-digests.py --check"} {
+		if !strings.Contains(steps[stamp].Command, want) {
+			t.Errorf("the stamp step does not use %q", want)
+		}
+	}
+	if stepIndex(steps, "chore/pin-") < 0 {
+		t.Error("pin-release-digests does not name its branch chore/pin-<tag>")
+	}
+	open := stepIndex(steps, "push --force", "refs/heads/", "/pulls", `"base": "develop"`)
+	switch {
+	case open < 0:
+		t.Error("pin-release-digests does not push the branch and open a pull request against develop")
+	case open < stamp:
+		t.Errorf("the pull request (step %d) is opened before the stamp (step %d)", open, stamp)
+	}
+
+	release := config.workflow(t, "release")
+	const name = "Pin the release in the shared digest table"
+	requireAll(t, name, requiresOf(t, release, name), "Publish GitHub release")
+}

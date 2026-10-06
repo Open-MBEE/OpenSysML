@@ -1105,7 +1105,18 @@ func (a *activity) selfType() *sysmlv1.Element {
 	if a.ctx != nil {
 		return a.ctx.classifier
 	}
-	return classifierOf(a.act)
+	if !isStructured(a.act) {
+		return classifierOf(a.act)
+	}
+	act := enclosingActivity(a.act)
+	if act == nil {
+		return nil
+	}
+	if c := classifierOf(act); c != nil {
+		return c
+	}
+	// An activity with no context acts on its own execution.
+	return act
 }
 
 // hasPort reports whether port is a port of the object the activity acts on.

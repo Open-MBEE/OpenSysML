@@ -1971,22 +1971,42 @@ func (r *Resolver) valueType(scope *symbols.Scope, usage *ast.Usage) *symbols.Sy
 	return sym
 }
 
-// invocationResult returns the feature the result of `T(…)` specializes: the
-// result parameter of the function T, else the behavior T itself.
+// invocationResult returns the feature the result of a call specializes: the result
+// parameter of the function it calls, nothing a function without one has beyond
+// Anything, else the behavior itself (KerML checkInvocationExpressionBehaviorResultSpecialization).
 func (r *Resolver) invocationResult(scope *symbols.Scope, inv *ast.InvocationExpr) *symbols.Symbol {
-	if inv.Type == nil {
+	callee := r.invocationCallee(scope, inv)
+	if callee == nil {
 		return nil
 	}
-	callee, ok := r.ResolveInvocationName(scope, inv.Type)
-	if !ok || callee == nil {
-		return nil
+	model, ok := r.model.(invocationResultProvider)
+	if !ok {
+		return callee
 	}
-	if model, ok := r.model.(resultParameterProvider); ok {
-		if result := model.ResultParameterOf(callee); result != nil {
-			return result
-		}
+	if result := model.ResultParameterOf(callee); result != nil {
+		return result
+	}
+	if model.Evaluates(callee) {
+		return nil
 	}
 	return callee
+}
+
+// invocationCallee resolves what a call applies: the type `T(…)` names, or the
+// feature chain of `x.f(…)` (KerMLExpressions InstantiatedTypeMember → OwnedFeatureChain).
+func (r *Resolver) invocationCallee(scope *symbols.Scope, inv *ast.InvocationExpr) *symbols.Symbol {
+	if inv.Type != nil {
+		if callee, ok := r.ResolveInvocationName(scope, inv.Type); ok {
+			return callee
+		}
+		return nil
+	}
+	if chain, ok := inv.Operand.(*ast.FeatureChainExpr); ok {
+		if callee, ok := r.ResolveTarget(scope, chain); ok {
+			return callee
+		}
+	}
+	return nil
 }
 
 // specializationKind reports whether a declared relationship is a

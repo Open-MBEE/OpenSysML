@@ -179,7 +179,7 @@ func (s *Session) selfCheckRun(pkg string, includeWorkspacePackages bool, rulePa
 			value := runtime.NewMetaobject(element.symbol, element.metaclass)
 			holds, invokeErr := ctx.InvokePredicate(constraint.symbol, []runtime.Value{value}, constraint.symbol.OwnerScope)
 			location := selfCheckLocation(element.symbol, sources)
-			elementName := selfCheckName(element.symbol)
+			elementName := selfCheckElementName(element)
 			subject := constraintName + " for " + elementName
 			switch {
 			case invokeErr == nil && holds:
@@ -378,6 +378,11 @@ func selfCheckElements(idx *symbols.Index, sem *semantics.Model, exclude []selfC
 					if meta := sem.MetaclassOf(sym); meta != nil {
 						out = append(out, selfCheckElement{symbol: sym, metaclass: meta})
 					}
+					for _, rel := range sem.ImplicitRelationships(sym) {
+						if meta := sem.MetaclassOf(rel); meta != nil {
+							out = append(out, selfCheckElement{symbol: rel, metaclass: meta})
+						}
+					}
 				}
 				walk(sym.Scope)
 				continue
@@ -404,6 +409,19 @@ func selfCheckName(sym *symbols.Symbol) string {
 		return fqn
 	}
 	return "<anonymous>"
+}
+
+// selfCheckElementName names a reflected relationship object by its metaclass
+// and owning element, since the object itself is anonymous.
+func selfCheckElementName(element selfCheckElement) string {
+	if element.symbol.Implicit == nil {
+		return selfCheckName(element.symbol)
+	}
+	meta := "relationship"
+	if element.metaclass != nil && element.metaclass.Name != "" {
+		meta = element.metaclass.Name
+	}
+	return fmt.Sprintf("%s of '%s'", meta, selfCheckName(element.symbol.Implicit.Owner))
 }
 
 func selfCheckLocation(sym *symbols.Symbol, sources map[string]*source.SourceFile) string {

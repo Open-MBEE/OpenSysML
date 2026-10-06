@@ -272,6 +272,9 @@ type mintedSubject struct{ iri, fqn, at string }
 type ModelDocument struct {
 	File *source.SourceFile
 	Root *ast.RootNamespace
+	// Referenced is a document analyzed with the model but not written: a
+	// reference into it links the id its element is written under on its own.
+	Referenced bool
 }
 
 // modelEncoders are the encoders of one model's documents, over one analysis.
@@ -315,7 +318,8 @@ func (m *modelEncoders) declaringEncoder(node ast.Node) *encoder {
 // document to an element another declares links the subject that document
 // writes for it, as a reference within one document does. Each document's
 // root elements name it (sysx:sourceDocument), since one graph no longer keeps
-// the documents apart.
+// the documents apart. A Referenced document's elements are left out; its
+// declarations' ids are still checked against those the written documents mint.
 func ModelToRDFWith(documents []ModelDocument, form IDForm) (*rdf.Graph, error) {
 	out, _, _, err := modelToRDF(documents, form)
 	return out, err
@@ -350,15 +354,20 @@ func modelToRDF(documents []ModelDocument, form IDForm) (*rdf.Graph, *resolve.Re
 			e.ids.qualified = true
 		}
 	}
-	out := rdf.NewGraph()
 	// declaredIn is the document and declaration each subject was minted for:
 	// two documents declaring one subject would merge two elements into one.
 	declaredIn := map[string]mintedSubject{}
 	for i, e := range encoders {
-		if err := e.encodeDocument(documents[i].Root); err != nil {
-			return nil, nil, nil, fmt.Errorf("%s: %w", documents[i].File.Name(), err)
+		var minted []mintedSubject
+		if documents[i].Referenced {
+			minted = e.declaredSubjects()
+		} else {
+			if err := e.encodeDocument(documents[i].Root); err != nil {
+				return nil, nil, nil, fmt.Errorf("%s: %w", documents[i].File.Name(), err)
+			}
+			minted = e.minted
 		}
-		for _, minted := range e.minted {
+		for _, minted := range minted {
 			if prior, taken := declaredIn[minted.iri]; taken {
 				return nil, nil, nil, &UnsupportedError{
 					What: fmt.Sprintf("the declaration of %s at %s", minted.fqn, minted.at),
@@ -366,20 +375,87 @@ func modelToRDF(documents []ModelDocument, form IDForm) (*rdf.Graph, *resolve.Re
 				}
 			}
 		}
-		for _, minted := range e.minted {
+		for _, minted := range minted {
 			declaredIn[minted.iri] = minted
 		}
+	}
+	out := mergeDocumentGraphs(encoders, documents)
+	// Each document's encoder annotated its collections from its own triples,
+	// in their order, and no two documents declare one subject (refused above).
+	out.MarkCollectionsSettled()
+	return out, res, encoders, nil
+}
+
+// mergeDocumentGraphs is the written documents' graphs as one (a Referenced
+// document's are left out), in document order, each triple once, with each
+// document's roots naming it (sysx:sourceDocument).
+//
+// It is the graph adding every triple in turn would build, without testing every
+// triple against a set of all the others: a document's own graph holds each of
+// its triples once, so a triple can repeat only across documents, and then only
+// about a subject more than one document states (a library element several
+// reference). Only those subjects' triples are tested.
+func mergeDocumentGraphs(encoders []*encoder, documents []ModelDocument) *rdf.Graph {
+	stated := map[rdf.Term]int{} // subject to the number of documents stating it
+	total := 0
+	for i, e := range encoders {
+		if documents[i].Referenced {
+			continue
+		}
+		for _, subject := range e.graph.Subjects() {
+			stated[subject]++
+		}
+		total += e.graph.Len()
+	}
+	prefixes := map[string]string{}
+	triples := make([]rdf.Triple, 0, total+len(encoders))
+	seen := map[rdf.Triple]bool{} // the triples of subjects more than one document states
+	add := func(t rdf.Triple) {
+		if stated[t.Subject] > 1 {
+			if seen[t] {
+				return
+			}
+			seen[t] = true
+		}
+		triples = append(triples, t)
+	}
+	for i, e := range encoders {
+		if documents[i].Referenced {
+			continue
+		}
 		for prefix, ns := range e.graph.Prefixes {
-			out.Prefixes[prefix] = ns
+			prefixes[prefix] = ns
 		}
 		for _, triple := range e.graph.Triples() {
-			out.AddTriple(triple)
+			add(triple)
 			if triple.Predicate.Value == rdf.OpenSysML+xSourceLanguage {
-				out.Add(triple.Subject, rdf.OpenSysMLTerm(xSourceDocument), rdf.String(documents[i].File.Name()))
+				add(rdf.Triple{Subject: triple.Subject, Predicate: rdf.OpenSysMLTerm(xSourceDocument), Object: rdf.String(documents[i].File.Name())})
 			}
 		}
 	}
-	return out, res, encoders, nil
+	return rdf.NewGraphOf(triples, prefixes)
+}
+
+// declaredSubjects are the subjects the document mints for its named
+// declarations and those carrying an id of their own, read from what collect
+// fixed, in source order, without encoding it. Every other subject is derived
+// under a named owner's, so another document reaches it only by also declaring
+// that owner.
+func (e *encoder) declaredSubjects() []mintedSubject {
+	nodes := make([]ast.Node, 0, len(e.fqn))
+	for node := range e.fqn {
+		el, identified := e.ids.byNode[node]
+		if name, _ := declaredNameAndMembers(node); name != "" || identified && el.source != identity.SourceDerived {
+			nodes = append(nodes, node)
+		}
+	}
+	slices.SortFunc(nodes, func(a, b ast.Node) int { return a.Span().Offset - b.Span().Offset })
+	out := make([]mintedSubject, 0, len(nodes))
+	for _, node := range nodes {
+		fqn := e.fqn[node]
+		out = append(out, mintedSubject{iri: e.ids.subjectForNode(node, fqn).Value, fqn: fqn, at: e.where(node)})
+	}
+	return out
 }
 
 // encodeDocument converts a parsed document, returning the encoder that holds

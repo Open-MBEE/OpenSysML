@@ -8,6 +8,7 @@ from opensysml.conversion import (
     FORMAT_API_JSON, FORMAT_SYSML, FORMAT_TURTLE, format_of_path,
 )
 from opensysml.diagnostic import Diagnostic
+from opensysml.document import RenderedView
 from opensysml.edit import Editor
 from opensysml.errors import ModelError, ServiceError, SymbolNotFoundError
 from opensysml.proto import sysml_pb2
@@ -380,6 +381,26 @@ class Model:
             True
         """
         return self.connection.render_document(self._hash, document_id, form=form)
+
+    def render_view(self, view_name, ports="minimal") -> RenderedView:
+        """Render one named view as typed diagram data.
+
+        Args:
+            view_name (str): Qualified view name or targeted pseudo-view
+            ports (str): ``"minimal"`` (the default) or ``"full"``
+
+        Returns:
+            RenderedView: Ordered nodes, edges, table data and optional layout
+
+        Raises:
+            ValueError: If ``ports`` is neither ``"minimal"`` nor ``"full"``
+            MissingCapabilityError: If the service cannot render views
+            InvalidRequestError: If the view is malformed or does not render
+            ViewNotFoundError: If the view or pseudo-view target is missing;
+                also a SymbolNotFoundError and KeyError
+            ModelNotFoundError: If the service no longer holds this model
+        """
+        return self.connection.render_view(self._hash, view_name, ports=ports)
 
     def find(self, name):
         """Find symbol by short name or fully-qualified name.

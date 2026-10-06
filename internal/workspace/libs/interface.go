@@ -19,7 +19,7 @@ import (
 // interfaceFormatVersion is the on-disk format version of an interface record.
 // Bump it whenever InterfaceRecord, symbols.DocumentRecord or
 // symbols.LibraryFacts changes shape or meaning.
-const interfaceFormatVersion = 16
+const interfaceFormatVersion = 17
 
 // ErrUnrecordable reports a document whose interface cannot be written without
 // its tree: a fact a reader needs has no name to restore it by. The document is
@@ -222,13 +222,31 @@ func (w *interfaceWriter) facts(sym *symbols.Symbol) symbols.LibraryFacts {
 	facts.UsageKind, _ = sym.UsageKind()
 	facts.DefKind, _ = sym.DefinitionKind()
 	if rel, ok := sym.RelationshipDecl(); ok {
+		if member, memberOK := sym.Decl.(*ast.RelationshipMember); memberOK {
+			scope := sym.OwnerScope
+			if scope == nil {
+				scope = sym.Scope
+			}
+			// A chain target names no element a record can restore: leave it zero.
+			if src, resolved := w.r.ResolveTarget(scope, member.Source); resolved && src != nil {
+				rel.Source = w.ref(sym, src, "relationship source")
+			}
+			if !ast.IsFeatureChain(member.Target) {
+				if tgt, resolved := w.r.ResolveTarget(scope, member.Target); resolved && tgt != nil {
+					rel.Target = w.ref(sym, tgt, "relationship target")
+				}
+			}
+		}
 		facts.Relationship = &rel
 	}
-	for _, rel := range semantics.RelationshipsOf(sym) {
+	rels := semantics.RelationshipsOf(sym)
+	for i, rel := range rels {
 		if rel == nil {
 			continue
 		}
 		rf := symbols.RelationshipFacts{Kind: rel.Kind, Conjugated: rel.Conjugated}
+		rf.Echo = semantics.IncludeUseCaseEcho(rels, i)
+		rf.Chain = ast.IsFeatureChain(rel.Target)
 		if target := m.RelationshipTarget(sym, rel); target != nil {
 			rf.Target = w.ref(sym, target, rel.Kind.String()+" target")
 		}
