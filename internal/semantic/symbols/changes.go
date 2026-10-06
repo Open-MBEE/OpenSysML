@@ -6,6 +6,10 @@ type Changes struct {
 	Names      map[string]bool
 	Namespaces map[string]bool
 	Docs       map[string]bool
+	// Spellings reports that the set of names the index registers changed: a
+	// name came or went, or is spelled otherwise. A name registered again under
+	// the same spelling leaves it unset, whatever symbol it now names.
+	Spellings bool
 }
 
 // Empty reports whether nothing changed.
@@ -41,8 +45,13 @@ func (idx *Index) TakeChanges() Changes {
 		return Changes{}
 	}
 	out := *idx.changes
-	for fqn, before := range idx.changesBefore {
-		if out.Names[fqn] && before.same(registrationOf(idx, fqn)) {
+	for fqn := range out.Names {
+		before, noted := idx.changesBefore[fqn]
+		now := registrationOf(idx, fqn)
+		if !noted || before.spelling(fqn) != now.spelling(fqn) {
+			out.Spellings = true
+		}
+		if noted && before.same(now) {
 			delete(out.Names, fqn)
 		}
 	}
@@ -98,6 +107,25 @@ func registrationOf(idx *Index, fqn string) registration {
 		}
 	}
 	return out
+}
+
+// spelling is the simple name a registration is filed under, as a suggestion
+// table files it (suggest.simpleName): the declared name of the first symbol
+// registered under fqn as its own, else fqn's last segment; "" when nothing is
+// registered there.
+func (r registration) spelling(fqn string) string {
+	if len(r) == 0 {
+		return ""
+	}
+	for _, entry := range r {
+		if entry.sym != nil && HasFQN(entry.sym, fqn) {
+			if entry.sym.Name != "" {
+				return entry.sym.Name
+			}
+			break
+		}
+	}
+	return LastSegment(fqn)
 }
 
 // same reports whether two registrations read alike: the same symbols, by
