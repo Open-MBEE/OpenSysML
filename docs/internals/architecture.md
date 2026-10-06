@@ -677,8 +677,8 @@ New grammar features require a **four-layer test contract** to ensure correctnes
 #### 1. Conformance Gate
 - **Purpose:** Ensure stdlib continues to parse cleanly
 - **Location:** `internal/workspace/libs/stdlib_conformance_test.go`
-- **Test:** `TestStdlibConformance` loads all 106 bundled library files
-- **Acceptance:** 106/106 files parse without errors
+- **Test:** `TestStdlibConformance` loads all 109 bundled library files
+- **Acceptance:** 109/109 files parse without errors
 - **Allowlist:** `testdata/stdlib_known_failures.txt` (currently empty)
 - **Failure mode:** Regression breaks previously-working stdlib files
 
