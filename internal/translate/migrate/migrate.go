@@ -154,6 +154,7 @@ func FromModelOptions(name string, model *sysmlv1.Model, opts Options) *Result {
 		methodOf:          map[*sysmlv1.Element]*sysmlv1.Element{},
 		endNames:          map[*sysmlv1.Element]string{},
 		realizes:          map[*sysmlv1.Element]*sysmlv1.Element{},
+		shadowedParams:    map[*sysmlv1.Element]bool{},
 		opUsage:           map[*sysmlv1.Element]string{},
 		deciding:          map[*sysmlv1.Element]bool{},
 		bounded:           map[*sysmlv1.Element][]*sysmlv1.Element{},
@@ -378,6 +379,9 @@ type migration struct {
 	endNames map[*sysmlv1.Element]string
 	// realizes maps a method's parameter to the operation's it stands for.
 	realizes map[*sysmlv1.Element]*sysmlv1.Element
+	// shadowedParams lists the method parameters an operation's parameter of
+	// the same name already covers, which are written nowhere themselves.
+	shadowedParams map[*sysmlv1.Element]bool
 	// opUsage names, for each operation, the action usage of its owner that performs it.
 	opUsage map[*sysmlv1.Element]string
 	// asides, when set, collects the notes a declaration's writer emits, so it
@@ -629,6 +633,7 @@ func weaker(a, b Verdict) bool {
 // types the run configurations' result snapshots, and then exposes the
 // features the connectors and slots that will be written reach.
 func (m *migration) prepare() {
+	m.reserveElementImportAliases()
 	m.planEdges()
 	var reachers, configs, laned, associations, behaviors []*sysmlv1.Element
 	var links []*actorLink
@@ -1136,11 +1141,14 @@ func (m *migration) member(e *sysmlv1.Element) {
 	m.classifier(e)
 }
 
-// imports writes a package import; profile applications and element imports
-// have no v2 counterpart worth writing.
+// imports writes package and element imports; profile applications and package merges have no v2 form.
 func (m *migration) imports(e *sysmlv1.Element) {
+	if e.Type == "ElementImport" {
+		m.elementImport(e)
+		return
+	}
 	if e.Type != "PackageImport" {
-		m.add(e, Skipped, "", "profile applications and element imports are not written")
+		m.add(e, Skipped, "", "profile applications and package merges are not written")
 		return
 	}
 	target := m.model.Ref(e, "importedPackage")
@@ -1155,6 +1163,103 @@ func (m *migration) imports(e *sysmlv1.Element) {
 	}
 	m.w.line(vis + "import " + m.ref(target, m.scope) + "::*;")
 	m.add(e, Mapped, m.v2Name(target), "")
+}
+
+// reserveElementImportAliases takes each element import's alias in its namespace before names are planned.
+func (m *migration) reserveElementImportAliases() {
+	var walk func(*sysmlv1.Element)
+	walk = func(e *sysmlv1.Element) {
+		if e.Role == "elementImport" && e.Attrs["alias"] != "" {
+			owner := e.Parent
+			if owner != nil && owner.Type == "Model" && owner.Parent == nil {
+				owner = nil
+			}
+			m.take(owner, e.Attrs["alias"])
+		}
+		for _, child := range e.Children {
+			walk(child)
+		}
+	}
+	for _, root := range m.model.Roots {
+		walk(root)
+	}
+}
+
+// elementImport writes an element import as an import, or an alias when it names one.
+func (m *migration) elementImport(e *sysmlv1.Element) {
+	target := m.model.Ref(e, "importedElement")
+	if target == nil || target.IsProxy() || m.isLibrary(target) {
+		m.add(e, Skipped, "", "import of a proxy, profile or library element")
+		return
+	}
+	if !m.written(target) {
+		m.add(e, Skipped, "", "the imported element is not written")
+		return
+	}
+	if m.writtenName(target) == "" {
+		m.add(e, Skipped, "", "the imported element is written without a name, so no import or alias can name it")
+		return
+	}
+	name := e.Attrs["alias"]
+	if name == "" {
+		name = m.writtenName(target)
+	}
+	if clash, anotherImport := m.elementImportClash(e, name); clash != nil {
+		note := "the imported name " + writeName(name) + " clashes with namespace member " + qualifiedName(clash)
+		if anotherImport {
+			note = "the imported name " + writeName(name) + " clashes with another import of " + writeName(name)
+		}
+		m.add(e, Skipped, "", note)
+		return
+	}
+	prefix := ""
+	if e.Attrs["visibility"] == "private" {
+		prefix = privatePrefix
+	}
+	targetRef := m.memberRef(target, m.scope)
+	if e.Attrs["alias"] != "" {
+		decl := "alias " + writeName(name) + " for " + targetRef + ";"
+		if prefix != "" {
+			decl = prefix + decl
+		}
+		m.w.line(decl)
+	} else {
+		if prefix == "" {
+			prefix = "public "
+		}
+		m.w.line(prefix + "import " + targetRef + ";")
+	}
+	m.add(e, Mapped, m.v2Name(target), "")
+}
+
+// elementImportClash finds the member or other import of e's namespace that already holds name.
+func (m *migration) elementImportClash(e *sysmlv1.Element, name string) (*sysmlv1.Element, bool) {
+	if e.Parent == nil {
+		return nil, false
+	}
+	for _, member := range e.Parent.Children {
+		if member == e {
+			continue
+		}
+		if member.Role == "elementImport" {
+			target := m.model.Ref(member, "importedElement")
+			if target == nil || target.IsProxy() || m.isLibrary(target) || !m.written(target) {
+				continue
+			}
+			memberName := member.Attrs["alias"]
+			if memberName == "" {
+				memberName = m.writtenName(target)
+			}
+			if memberName == name {
+				return member, true
+			}
+			continue
+		}
+		if m.nameOf(member) == name {
+			return member, false
+		}
+	}
+	return nil, false
 }
 
 // classifier writes a package, classifier or other packaged element.
@@ -2961,7 +3066,7 @@ func (m *migration) itemFlow(f *sysmlv1.Element, ends []*sysmlv1.Element, paths 
 			m.w.lines(commentLines("item flow of " + item.Name + fromKeyword + from + " to " + to + " not migrated: " + notes[len(notes)-1]))
 			continue
 		}
-		m.w.line("flow " + from + "." + writeName(m.nameOf(sp)) + " to " + to + "." + writeName(m.nameOf(dp)) + ";")
+		m.w.line("flow of " + m.ref(item, m.scope) + " from " + from + "." + writeName(m.nameOf(sp)) + " to " + to + "." + writeName(m.nameOf(dp)) + ";")
 		written = append(written, item.Name)
 	}
 	m.flowDone(f, written, notes)
@@ -3078,7 +3183,7 @@ func (m *migration) rule(r *sysmlv1.Element) {
 		m.unmappedExpr(r, spec, note)
 		return
 	}
-	decl := "constraint"
+	decl := "assert constraint"
 	if m.nameOf(r) != "" {
 		decl += " " + writeName(m.nameOf(r))
 	}
@@ -3325,8 +3430,15 @@ func (m *migration) dependencyPair(d *sysmlv1.Element, pl *placement, name strin
 		}
 	}
 	from, to := m.ref(client, m.scope), m.ref(supplier, m.scope)
-	if has(d, "Allocate") && m.definitionEnd(client) && m.definitionEnd(supplier) {
-		return m.allocationDef(d, name, client, supplier), true, ""
+	allocationNote := ""
+	if has(d, "Allocate") {
+		if target, ok := m.allocationDef(d, name, client, supplier); ok {
+			if len(nodes) > 0 {
+				pl.nodePairs = append(pl.nodePairs, nodePair{nodes, target})
+			}
+			return target, true, ""
+		}
+		allocationNote = m.allocationFallbackNote(client, supplier)
 	}
 	if name == "" {
 		if base := m.edgeName(d, spoken(from)+" to "+spoken(to)); base != "" {
@@ -3358,12 +3470,9 @@ func (m *migration) dependencyPair(d *sysmlv1.Element, pl *placement, name strin
 			m.metadataUsages(d)
 		})
 		return target, true, ""
-	case has(d, "Allocate") && (m.definitionEnd(client) || m.definitionEnd(supplier)):
+	case has(d, "Allocate") && allocationNote != "":
 		m.w.block(decl, func() { m.metadataUsages(d) })
-		return target, true, "an allocation's ends are usages; between a definition and a usage none can be written, so a plain dependency stands for it"
-	case has(d, "Allocate") && !(m.packageFeature(client) && m.packageFeature(supplier)):
-		m.w.block(decl, func() { m.metadataUsages(d) })
-		return target, true, "an allocation written in a package relates features of no definition, and one written in a definition relates its features; the ends are neither, so a plain dependency stands for it"
+		return target, true, allocationNote
 	case has(d, "Allocate"):
 		alloc := "allocate " + from + " to " + to
 		if name != "" {
@@ -3502,32 +3611,91 @@ func (m *migration) definitionEnd(e *sysmlv1.Element) bool {
 	return m.isDefinition(e)
 }
 
-// allocationDef writes an allocation between two definitions as an allocation def
-// whose ends are typed by them, since an allocate takes only usages as ends;
-// it returns the v2 name written.
-func (m *migration) allocationDef(d *sysmlv1.Element, name string, client, supplier *sysmlv1.Element) string {
+// allocationFallbackNote explains which feature cannot type an allocation end.
+func (m *migration) allocationFallbackNote(client, supplier *sysmlv1.Element) string {
+	if m.packageFeature(client) && m.packageFeature(supplier) {
+		return ""
+	}
+	var notes []string
+	for _, e := range []*sysmlv1.Element{client, supplier} {
+		owner, _, _, ok := m.allocationEnd(e)
+		if ok {
+			continue
+		}
+		if m.packageFeature(e) {
+			notes = append(notes, "its end "+qualifiedName(e)+" is a feature of a package, which no allocation end can be typed by, so a plain dependency stands for it")
+		} else if owner != nil {
+			notes = append(notes, "its end "+qualifiedName(e)+" has no feature path relative to its enclosing written definition, so a plain dependency stands for it")
+		} else {
+			notes = append(notes, "its end "+qualifiedName(e)+" has no enclosing written definition to type an allocation end, so a plain dependency stands for it")
+		}
+	}
+	return strings.Join(notes, "; ")
+}
+
+// allocationEnd returns the written definition that types an allocation end,
+// its feature chain from that definition, and whether e is the definition.
+func (m *migration) allocationEnd(e *sysmlv1.Element) (owner *sysmlv1.Element, chain string, definition, ok bool) {
+	if m.definitionEnd(e) {
+		return e, "", true, true
+	}
+	for p := e.Parent; p != nil; p = p.Parent {
+		if m.definitionEnd(p) && m.written(p) {
+			segments, owner := m.segments(e), m.segments(p)
+			if len(segments) <= len(owner) || !slices.Equal(segments[:len(owner)], owner) {
+				return p, "", false, false
+			}
+			chain := make([]string, len(segments)-len(owner))
+			for i, name := range segments[len(owner):] {
+				chain[i] = writeName(name)
+			}
+			return p, strings.Join(chain, "."), false, true
+		}
+	}
+	return nil, "", false, false
+}
+
+// allocationDef writes an allocation between definitions and their features,
+// returning its qualified name and whether both ends can be typed.
+func (m *migration) allocationDef(d *sysmlv1.Element, name string, client, supplier *sysmlv1.Element) (string, bool) {
+	clientType, clientPath, clientDefinition, clientOK := m.allocationEnd(client)
+	supplierType, supplierPath, supplierDefinition, supplierOK := m.allocationEnd(supplier)
+	if !clientOK || !supplierOK {
+		return "", false
+	}
 	from, to := m.ref(client, m.scope), m.ref(supplier, m.scope)
 	if name == "" {
-		name = m.freshName(m.scope, spoken(from)+" to "+spoken(to))
+		base := spoken(from) + " to " + spoken(to)
+		if edge := m.edgeName(d, base); edge != "" {
+			base = edge
+		}
+		name = m.freshName(m.scope, base)
 		m.synthesized[d] = true
 	} else {
 		m.take(m.scope, name)
 	}
 	m.wroteEdgeAlso(d, m.scope, "allocation def", nil, name)
 	m.madeUp(d, writeName(name))
-	used := map[string]bool{}
-	source := freshIn(used, lowerFirst(spoken(from)))
-	target := freshIn(used, lowerFirst(spoken(to)))
 	m.w.block("allocation def "+writeName(name), func() {
-		m.w.line("end " + writeName(source) + " : " + m.ref(client, d) + ";")
-		m.w.line("end " + writeName(target) + " : " + m.ref(supplier, d) + ";")
+		m.w.line("end :>> source : " + m.ref(clientType, m.scope) + ";")
+		m.w.line("end :>> target : " + m.ref(supplierType, m.scope) + ";")
+		if !clientDefinition || !supplierDefinition {
+			fromEnd, toEnd := "source", "target"
+			if !clientDefinition {
+				fromEnd += "." + clientPath
+			}
+			if !supplierDefinition {
+				toEnd += "." + supplierPath
+			}
+			m.w.line("allocate " + fromEnd + " to " + toEnd + ";")
+		}
 		m.metadataUsages(d)
 	})
 	segs := append(m.segments(m.scope), name)
 	if m.scope == nil {
 		segs = []string{name}
 	}
-	return m.qualified(segs)
+	return m.qualified(segs), true
 }
 
 // derive writes a requirement derivation as a connection def specializing the

@@ -1,6 +1,7 @@
 package migrate
 
 import (
+	"fmt"
 	"math"
 	"regexp"
 	"slices"
@@ -80,6 +81,8 @@ func (m *migration) behaviorWritesMember(b, c *sysmlv1.Element) bool {
 	switch c.Role {
 	case "ownedBehavior", "nestedClassifier", "ownedAttribute", "ownedRule":
 		return b.Type == "Activity" || b.Type == "StateMachine"
+	case "ownedParameterSet":
+		return true
 	case "node", "edge", "group":
 		return b.Type == "Activity"
 	case "variable":
@@ -235,7 +238,18 @@ func (m *migration) operationFeature(op *sysmlv1.Element) {
 	if cat, _ := m.classify(op.Parent); cat == catPortDef {
 		kw = "ref " + actionKw
 	}
-	m.w.line(kw + writeName(usage) + " : " + m.ref(op, op.Parent) + ";")
+	direction := ""
+	if directed := stereo(op, "DirectedFeature"); directed != nil {
+		switch directed.Tag("featureDirection") {
+		case "provided":
+			direction = "out "
+		case "required":
+			direction = "in "
+		case "providedRequired":
+			direction = "inout "
+		}
+	}
+	m.w.line(direction + kw + writeName(usage) + " : " + m.ref(op, op.Parent) + ";")
 	m.add(op, Mapped, "", "its owner's usage "+usage+" performs it, as a call on an object does")
 }
 
@@ -255,6 +269,63 @@ func (m *migration) parameters(e, scope *sysmlv1.Element) {
 	for _, p := range e.Owned("ownedParameter") {
 		m.parameter(p, scope, nil)
 	}
+	m.parameterSets(e)
+}
+
+// parameterSets writes the parameter sets of a behavior or operation after its
+// parameters (ParameterSet_Mapping): `ref set { ref [m] = p; ... }`, one
+// unnamed reference usage per parameter bound to the set, in the set's order.
+func (m *migration) parameterSets(e *sysmlv1.Element) {
+	for _, set := range e.Owned("ownedParameterSet") {
+		m.parameterSet(set)
+	}
+}
+
+// parameterSet writes one parameter set. A member parameter that was not
+// written is left out with a note, which approximates the set; a set with no
+// written member is unmapped. A set's condition has no target and is reported
+// unmapped rather than dropped.
+func (m *migration) parameterSet(set *sysmlv1.Element) {
+	name := m.nameOf(set)
+	decl := "ref"
+	if name != "" {
+		decl += " " + writeName(name)
+	}
+	var members []string
+	var note string
+	if n := len(m.model.Unresolved(set, "parameter")); n > 0 {
+		note = joinNotes(note, fmt.Sprintf("%d parameter(s) of the set are not in the document and are not written", n))
+	}
+	for _, p := range m.model.Refs(set, "parameter") {
+		if !m.written(p) {
+			note = joinNotes(note, "the parameter "+describe(p)+" of the set is not written")
+			continue
+		}
+		if m.shadowedParams[p] {
+			note = joinNotes(note, "the parameter "+describe(p)+" shares its name with the operation's parameter and is not written separately")
+			continue
+		}
+		// The feature the member binds is the operation's parameter a method
+		// parameter realizes, so its name and shape come from there.
+		bound := p
+		if op := m.realizes[p]; op != nil {
+			bound = op
+		}
+		pname := m.nameOf(bound)
+		if pname == "" {
+			pname = m.nameFor(bound)
+		}
+		members = append(members, "ref "+m.parameterShape(bound)+" = "+writeName(pname)+";")
+	}
+	for _, c := range set.Owned("ownedRule") {
+		m.unmapped(c, "a parameter set's condition has no target in the transformation")
+	}
+	if len(members) == 0 {
+		m.unmapped(set, joinNotes("the set binds no parameter that is written", note))
+		return
+	}
+	m.w.block(decl, func() { m.w.lines(members) })
+	m.add(set, verdictFor(note), m.v2Name(set), note)
 }
 
 // contextLeads reports whether e's definition declares `in ref context` before its own parameters.
@@ -295,6 +366,7 @@ func (m *migration) parameter(p, scope *sysmlv1.Element, declared map[string]boo
 	dir, note := parameterDirection(p)
 	if declared != nil {
 		if declared[name] {
+			m.shadowedParams[p] = true
 			m.add(p, Mapped, m.v2Name(p), "shares the name of the operation's parameter, which is written once")
 			return
 		}
@@ -976,6 +1048,10 @@ func (m *migration) operationBody(op *sysmlv1.Element) {
 		for _, p := range method.Owned("ownedParameter") {
 			m.parameter(p, op, declared)
 		}
+	}
+	m.parameterSets(op)
+	if method != nil && method.Parent == op.Parent {
+		m.parameterSets(method)
 	}
 	m.operationConditions(op)
 	switch {

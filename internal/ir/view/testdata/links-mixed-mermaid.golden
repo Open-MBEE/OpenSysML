@@ -20,52 +20,42 @@ config:
     clusterBkg: "#FFFFFF"
     clusterBorder: "#181818"
     edgeLabelBackground: "#FFFFFF"
-  flowchart:
-    subGraphTitleMargin:
-      bottom: 24
 ---
 %% MixedExamples::mixedDiagram — mixed rendering (render asMixedDiagram)
 flowchart TD
-  subgraph n0 ["`*«package»*
-**MixedExamples**`"]
+  subgraph n0 ["`*«package»* **MixedExamples**`"]
     direction TD
     n19["`*«port def»*
 **FluidPort**`"]
     n20["`*«part def»*
 **BaseUnit**`"]
-    subgraph n21 ["`*«part def»*
-**Pump**`"]
+    subgraph n21 ["`*«part def»* **Pump**`"]
       direction TD
       n21_anchor[" "]
       n22("`*«port»*
 **outlet : FluidPort**`")
     end
-    subgraph n23 ["`*«part def»*
-**Tank**`"]
+    subgraph n23 ["`*«part def»* **Tank**`"]
       direction TD
       n23_anchor[" "]
       n24("`*«port»*
 **inlet : FluidPort**`")
     end
-    subgraph n25 ["`*«part def»*
-**Plant**`"]
+    subgraph n25 ["`*«part def»* **Plant**`"]
       direction TD
       n25_anchor[" "]
-      subgraph n26 ["`*«part»*
-**pump : Pump**`"]
+      subgraph n26 ["`*«part»* **pump : Pump**`"]
         direction TD
         n26_anchor[" "]
         n26.0["outlet"]
       end
-      subgraph n27 ["`*«part»*
-**tank : Tank**`"]
+      subgraph n27 ["`*«part»* **tank : Tank**`"]
         direction TD
         n27_anchor[" "]
         n27.0["inlet"]
       end
     end
-    subgraph n28 ["`*«connection def»*
-**Connection**`"]
+    subgraph n28 ["`*«connection def»* **Connection**`"]
       direction TD
       n29("`*«part»*
 **a**`")
@@ -75,8 +65,7 @@ flowchart TD
     n1["`*«state def»*
 **Ready**
 declares no states`"]
-    subgraph n2 ["`*«state def»*
-**Modes**`"]
+    subgraph n2 ["`*«state def»* **Modes**`"]
       direction TD
       n2_anchor[" "]
       n4@{ shape: f-circ, label: "" }
@@ -84,8 +73,7 @@ declares no states`"]
 **ready : Ready**
 initial`")
     end
-    subgraph n5 ["`*«action def»*
-**Operate**`"]
+    subgraph n5 ["`*«action def»* **Operate**`"]
       direction TD
       n5_anchor[" "]
       n6@{ shape: f-circ, label: "" }
@@ -103,8 +91,7 @@ initial`")
     n13("`*«perform action»*
 **run : Operate**
 declares no nodes`")
-    subgraph n14 ["`*«exhibit state»*
-**mode : Modes**`"]
+    subgraph n14 ["`*«exhibit state»* **mode : Modes**`"]
       direction TD
       n14_anchor[" "]
       n16@{ shape: f-circ, label: "" }

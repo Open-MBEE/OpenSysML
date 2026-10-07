@@ -2,6 +2,7 @@ package grpc
 
 import (
 	"context"
+	"fmt"
 	"slices"
 	"testing"
 
@@ -174,5 +175,50 @@ func TestParseSourcesAffectedIsEveryDocumentWhereAnIdentityScopeMayChange(t *tes
 			t.Errorf("a document now declaring a scope: affected %v, want every document", resp.Affected)
 		}
 		base = resp.ModelHash
+	}
+}
+
+// A document holding an unresolved name reads every name the model spells,
+// for the suggestions its diagnostic offers. An edit that registers the same
+// names again leaves those suggestions as they were, so it does not reach that
+// document; one adding a name it could suggest does, and its diagnostic is
+// then the one a fresh parse gives.
+func TestParseSourcesAffectedReachesASuggestionOnlyWhenTheSpellingsChange(t *testing.T) {
+	srv := mustNewService(t, 32)
+	defer srv.Close()
+	broken := "package Broken {\n\tpart car : Enginee;\n}\n"
+	other := "package Other {\n\tpart def Wheel;\n}\n"
+	base := ""
+	parse := func(other string) *pb.ParseSourcesResponse {
+		t.Helper()
+		request := &pb.ParseSourcesRequest{
+			Documents:     inlineDocuments("broken.sysml", broken, "lib.sysml", sourcesLibrary, "other.sysml", other),
+			BaseModelHash: base,
+		}
+		resp, err := srv.ParseSources(context.Background(), request)
+		if err != nil {
+			t.Fatal(err)
+		}
+		fresh := mustNewService(t, 4)
+		defer fresh.Close()
+		request.BaseModelHash = ""
+		want, err := fresh.ParseSources(context.Background(), request)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if fmt.Sprint(resp.Diagnostics) != fmt.Sprint(want.Diagnostics) {
+			t.Errorf("diagnostics %v, a fresh parse's %v", resp.Diagnostics, want.Diagnostics)
+		}
+		base = resp.ModelHash
+		return resp
+	}
+	parse(other + "// first\n")
+	parse(other)
+	if got := parse(other + "// a comment\n").Affected; slices.Contains(got, "broken.sysml") {
+		t.Errorf("a comment elsewhere reached the document whose suggestions read every name: affected %v", got)
+	}
+	got := parse("package Other {\n\tpart def Wheel;\n\tpart def Enginee;\n}\n")
+	if !slices.Contains(got.Affected, "broken.sysml") {
+		t.Errorf("a name the unresolved one could mean was added, yet its document is not affected: %v", got.Affected)
 	}
 }

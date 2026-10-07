@@ -168,6 +168,10 @@ type StateExecutor struct {
 	enteringMachine bool
 	// activeAtEntry records states active before the current entry unit.
 	activeAtEntry map[*ast.StateNode]bool
+	// performing counts the entry and exit behaviors of each state under way, so
+	// the state reads as active to them before the configuration holds it
+	// (entry) and after the configuration dropped it (exit).
+	performing map[*ast.StateNode]int
 
 	// changeRearmed collects, while a poll runs, the watches a state entry armed
 	// for a new activation, so the poll's earlier observation does not latch them.
@@ -377,7 +381,7 @@ func (e *StateExecutor) bindContextDefault(attr lower.Attribute) bool {
 // dataFrame is the machine's data as a run frame of the machine, so `Ctl::context`
 // written in a member the machine owns reads the binding the running machine gave it.
 func (e *StateExecutor) dataFrame() frame {
-	return frame{vars: e.stateData, performed: e.stateMachine}
+	return frame{vars: e.stateData, performed: e.stateMachine, machine: e}
 }
 
 // initializeStateAttributes gives every state that owns attributes its own
@@ -5249,10 +5253,38 @@ func (e *StateExecutor) performEntry(state *ast.StateNode) error {
 	}
 
 	// Execute entry actions
-	if err := e.executeBehaviors(e.behaviorsOf(state).Entry); err != nil {
+	if err := e.performingBehaviors(state, e.behaviorsOf(state).Entry); err != nil {
 		return fmt.Errorf("entry action: %w", err)
 	}
 	return nil
+}
+
+// performingBehaviors runs behaviors of state with the state counted as performing
+// them, so a read of its activity from within answers true.
+func (e *StateExecutor) performingBehaviors(state *ast.StateNode, behaviors []lower.StateBehavior) error {
+	if len(behaviors) == 0 {
+		return nil
+	}
+	if e.performing == nil {
+		e.performing = make(map[*ast.StateNode]int)
+	}
+	e.performing[state]++
+	defer func() {
+		if e.performing[state]--; e.performing[state] == 0 {
+			delete(e.performing, state)
+		}
+	}()
+	return e.executeBehaviors(behaviors)
+}
+
+// Activity reports whether state is active as StateActivity::isActive reads it:
+// in the active configuration (itself or an ancestor of an active state) or
+// performing its own entry or exit behavior; an ended machine has none.
+func (e *StateExecutor) Activity(state *ast.StateNode) bool {
+	if e == nil || state == nil || e.state.Ended() {
+		return false
+	}
+	return e.performing[state] > 0 || e.inActiveConfiguration(state)
 }
 
 // exitState executes exit behaviors when leaving a state.
@@ -5350,7 +5382,7 @@ func (e *StateExecutor) exitState(state *ast.StateNode) error {
 	}
 
 	// Execute exit actions
-	if err := e.executeBehaviors(e.behaviorsOf(state).Exit); err != nil {
+	if err := e.performingBehaviors(state, e.behaviorsOf(state).Exit); err != nil {
 		return fmt.Errorf("exit action: %w", err)
 	}
 

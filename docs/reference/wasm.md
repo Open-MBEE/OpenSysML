@@ -148,12 +148,13 @@ an interconnection or mixed view, and `full` includes every port. Each node's op
 array has `id`, `name`, optional `type` and optional `direction`; undirected ports omit the
 direction. An edge's optional
 `fromPort` and `toPort` identify the endpoint ports by those IDs. The response also carries
-the view kind, stated rendering, notices, canvas, nodes, edges, and, for tables, columns and
-rows; its node and edge fields use the same JSON names as `opensysml/render`.
+the view kind, stated rendering, notices, canvas, nodes, edges, and, for tabular renderings
+(tables and matrices), columns and rows; its node and edge fields use the same JSON names as
+`opensysml/render`.
 
 The engine has no current-document context, so a pseudo-view must name an element, for
-example `#tree:OpenSysMLStack::stack`. An untargeted `#tree` or `#interconnection` is refused
-with InvalidArgument and the supported pseudo-view spellings.
+example `#tree:OpenSysMLStack::stack`. An untargeted `#tree`, `#interconnection` or `#matrix` is
+refused with InvalidArgument and the supported pseudo-view spellings.
 
 The `js` build installs a host surface instead of reading a pipe: load it through
 `wasm_exec.js` with no arguments and `globalThis.sysmlEngine` appears with

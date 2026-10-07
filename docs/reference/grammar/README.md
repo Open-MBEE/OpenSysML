@@ -18,6 +18,8 @@ These files are licensed under the Eclipse Public License 2.0 (EPL-2.0), so they
 
 ## Conformance Audit
 
+The OpenSysML extensions outside state machines are the indexed connector end (`connect s.y#(1) to k.u`, one element of a collection-valued feature as an end — see the audit's extension table and [spec-compliance.md](../../project/spec-compliance.md#structural-interface-and-analysis-notation-sysml-v2-712-ports-82214-interfaces-82219-analysis-cases-83911-occurrences)) and the view-body `frame` and `expose` members.
+
 [conformance-audit.md](conformance-audit.md) goes through every keyword and construct OpenSysML accepts and sorts it into one of three groups: standard notation (accepted silently), OpenSysML extensions (accepted with a `nonstandard-notation` warning), and KerML notation used in a `.sysml` file (accepted with a `kerml-notation` warning). Each entry cites the `file:line` in the pinned OMG grammar that justifies it.
 
 ## State Machine Notation Beyond the OMG Grammar
@@ -123,7 +125,7 @@ Notes:
 
 Grammar conformance is validated by parsing **OMG's own files**:
 
-1. **Stdlib conformance gate** - all 107 bundled library files (94 OMG standard library files and 13 OpenSysML extensions) must parse with zero diagnostics
+1. **Stdlib conformance gate** - all 110 bundled library files (94 OMG standard library files and 16 OpenSysML extensions) must parse with zero diagnostics
    - See: `internal/workspace/libs/stdlib_conformance_test.go`
    - These files are the **source of truth** for correct parsing
 

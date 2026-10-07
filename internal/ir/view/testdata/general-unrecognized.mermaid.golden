@@ -49,3 +49,5 @@ flowchart TD
     n9("`*«assert constraint»*
 **originalImpliesDerived**`")
   n5 --- n9
+  n0 ---|"◆ b"| n2
+  n2 ---|"◆ a"| n0

@@ -1859,8 +1859,8 @@ func (m *Model) reflectiveConnectorEndPaths(sym *symbols.Symbol) []ConnectorEndP
 	if usage, ok := sym.Decl.(*ast.Usage); ok &&
 		usage.Kind == ast.UsageFlow && usage.Keyword == "message" && usage.FlowEnds != nil {
 		return []ConnectorEndPath{
-			{Name: "source", Features: m.attachmentPath(sym.OwnerScope, usage.FlowEnds.From)},
-			{Name: "target", Features: m.attachmentPath(sym.OwnerScope, usage.FlowEnds.To)},
+			{Name: "source", Features: m.attachmentPath(sym.OwnerScope, ast.EndTarget(usage.FlowEnds.From))},
+			{Name: "target", Features: m.attachmentPath(sym.OwnerScope, ast.EndTarget(usage.FlowEnds.To))},
 		}
 	}
 	return m.ConnectorEndPaths(sym)

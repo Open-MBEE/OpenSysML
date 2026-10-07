@@ -34,6 +34,9 @@ func (s *Server) Hover(ctx context.Context, params *protocol.HoverParams) (*prot
 			if target.Name != "" {
 				signature += " " + source.NameText(target.Name)
 			}
+			if t := declaredTypeText(target); t != "" {
+				signature += " : " + t
+			}
 			rng := spanToRange(content, span)
 			return &protocol.Hover{
 				Contents: s.hoverContents(signature, s.symbolDocComments(target), s.identityLine(target.DocName, target)),

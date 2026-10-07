@@ -303,16 +303,17 @@ With \-compile, write the generated source to \-o instead of building it
 Render this view of the model instead of running it, in the form its render
 member states; #<kind> renders every file loaded and #<kind>:<element> one
 element, kind being tree, interconnection, state, action, case, mixed,
-sequence or table, without a declared view
+sequence, table or matrix, without a declared view
 .TP
 .BR \-render\-all " \fIdir\fP"
 Render every declared view into this directory
 .TP
 .BR \-render\-form " \fIform\fP"
 Form \-render or \-render\-all writes: text, mermaid, markdown, dot, plantuml,
-d2, csv or tsv (csv and tsv for a table); D2 writes tree, interconnection,
-state, action and sequence renderings, not case or mixed; default from the
-destination for \-render, each kind's machine form for \-render\-all
+d2, csv or tsv (csv and tsv for a table or matrix); D2 writes tree,
+interconnection, state, action, sequence, requirement, definition and package
+renderings, not case or mixed; default from the destination for \-render, each
+kind's machine form for \-render\-all
 .TP
 .BR \-render\-palette " \fIpalette\fP"
 Palette the dot, mermaid, plantuml or d2 form fills nodes from, by keyword
@@ -362,9 +363,10 @@ drives an external converter
 .TP
 .BR \-diagram\-form " \fIform\fP"
 Form the documents' graph\-shaped diagrams are written in: mermaid, dot,
-plantuml or d2; D2 writes tree, interconnection, state, action and sequence
-renderings, not case or mixed; unset, a positioned view is dot and any other
-mermaid; a table\-kind view is a table either way
+plantuml or d2; D2 writes tree, interconnection, state, action, sequence,
+requirement, definition and package renderings, not case or mixed; unset, a
+positioned view is dot and any other mermaid; a table or matrix view is a
+table either way
 .TP
 .B \-doc\-title\-page
 Put the document title on a page of its own (html or pdf)
@@ -947,19 +949,21 @@ and \-render\-all writes each kind's machine form, one file per view named by
 its qualified name with :: as . and every byte unsafe in a filename (/, \e, :,
 \&., %, control characters, what Windows reserves) as %XX; a name past 255 bytes
 is cut and tagged ~ and a hash of the whole. A graph\-shaped rendering
-defaults to Mermaid. DOT writes tree, interconnection, state and action
-renderings, plus case and mixed; PlantUML writes those kinds and sequence. D2
-writes tree, interconnection, state, action and sequence renderings, while
-case and mixed renderings refuse D2 with a typed error. Neither Graphviz,
-PlantUML nor D2 is needed to write them. A table is written as a Markdown
-table by default, and as comma\- or tab\-separated values with \-render\-form
-csv or tsv: a header record of the columns, then a record per row, quoted as
-RFC 4180 quotes a field. Graph forms are drawn in the black\-and\-white style
-of the SysML v2 Pilot visualizer; \-render\-palette fills the DOT, Mermaid,
-PlantUML and D2 nodes by keyword family from a colourblind\-safe palette
-(okabe\-ito, tol\-bright, tol\-muted, tol\-light, brewer\-set2, brewer\-dark2,
-viridis or cividis), keeping black text legible on every fill. \-render\-style
-names the look the DOT and Mermaid forms draw in: pilot (default), the Pilot
+defaults to Mermaid. DOT writes tree, interconnection, state, action, case,
+mixed, requirement, definition and package renderings; PlantUML writes those
+kinds and sequence. D2 writes tree, interconnection, state, action, sequence,
+requirement, definition and package renderings; case and mixed renderings
+refuse D2 with a typed error. Table and matrix renderings refuse graph forms
+with a typed error. Neither Graphviz, PlantUML nor D2 is needed to write graph
+forms. A table or matrix is written as a Markdown table by default, and as
+comma\- or tab\-separated values with \-render\-form csv or tsv: a header
+record of the columns, then a record per row, quoted as RFC 4180 quotes a
+field. Graph forms are drawn in the black\-and\-white style of the SysML v2
+Pilot visualizer; \-render\-palette fills the DOT, Mermaid, PlantUML and D2
+nodes by keyword family from a colourblind\-safe palette (okabe\-ito,
+tol\-bright, tol\-muted, tol\-light, brewer\-set2, brewer\-dark2, viridis or
+cividis), keeping black text legible on every fill. \-render\-style names the
+look the DOT and Mermaid forms draw in: pilot (default), the Pilot
 visualizer's, or cameo, the look of Cameo Systems Modeler \(em a diagram frame
 with a header tab, Arial text, gradient fills, compartments and the UML
 pseudo\-state symbols \(em for a diagram migrated from Cameo to keep its look.
@@ -1024,11 +1028,11 @@ view some DiagramLayout::Layout or Route positions is drawn by Graphviz where
 it states, as inline SVG when dot is installed and as a dot fence otherwise,
 and every other graph\-shaped view is Mermaid source; with Graphviz absent a
 positioned view falls back to Mermaid under a notice saying so.
-\-diagram\-form mermaid, dot, plantuml or d2 writes each graph\-shaped diagram
-in that form where the kind supports it, in Markdown and HTML alike; D2 writes
-tree, interconnection, state, action and sequence, and case or mixed diagrams
-are refused. A table\-kind view stays a table. Neither Graphviz, PlantUML nor
-D2 is needed to write a fence.
+\-diagram\-form mermaid, dot, plantuml or d2 writes every graph\-shaped one in
+that form instead, in Markdown and HTML alike, while a table or matrix view
+stays a table. D2 writes tree, interconnection, state, action, sequence,
+requirement, definition and package renderings, and refuses case and mixed
+diagrams. Neither Graphviz, PlantUML nor D2 is needed to write a fence.
 .PP
 \-doc\-form html writes semantic HTML instead, carrying each element's
 identity and kind, styled by a stylesheet in a cascade layer your own CSS

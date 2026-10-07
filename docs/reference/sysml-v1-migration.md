@@ -176,8 +176,8 @@ ties each of its mapping classes to the code that carries it out (or records why
 | «Satisfy» | `satisfy requirement … by …` in the satisfying usage's owner | mapped |
 | «Verify» from a test case | `verify` in the verification def | mapped |
 | «DeriveReqt» | `connection … :> RequirementDerivation::Derivation` | mapped |
-| «Allocate» | `allocate a to b`, or `allocation name allocate a to b` when named, in the body whose features both ends are: a package's, or a `part def`'s, whose `allocate` reaches its attributes, ports and parts and the actions of its `perform action` (`allocate sampling.measure to probe;`), a nested one by dot notation; between two definitions (a block and an activity, neither a usage) an allocation has no feature to end on, so it is written as `allocation def 'A to B' { end a : A; end b : B; }`, its ends typed by the two | mapped |
-| «Allocate» between a definition and a usage, or with an end no `allocate` reaches — a node of an `action def` (`Ctl::Run::measure`), or of a composite `action` usage of a part, which is a constant feature where the part's `allocate` is a variable one | `dependency a to b` (`dependency name from a to b` when named) in the package, an «Allocate» being an `allocation` in the report | approximated — the note says why no `allocate` could be written |
+| «Allocate» | between different bodies, an `allocation def 'A to B'` whose ends redefine `source` and `target`, typed by the definitions that own the endpoints; a feature endpoint is chained in `allocate source.x to target.y`, and a definition endpoint is just `source` or `target`. When both endpoints are features of one definition body, or both are package features, it stays `allocate a to b` in that body. A feature owned by a package cannot type an allocation end and keeps a noted dependency | mapped, except for an endpoint owned by a package that needs the noted dependency fallback |
+| «Allocate» whose feature endpoint has no enclosing written definition, such as a package-owned feature paired with an endpoint from another body | `dependency a to b`, with a note naming the endpoint the allocation ends cannot type | approximated |
 | «Allocate», or another dependency, whose end is an activity node written only as a placeholder (a call that is not migrated) | the relationship is written to the placeholder; the pair ending there counts as failed when its end is not migrated, so the note gives the final tally of pairs written and names the end | approximated when another pair is written, **unmapped** when none is |
 | «Refine» | `dependency` carrying `@ModelingMetadata::Refinement` | mapped |
 | «Trace», «Copy», other stereotyped dependencies | plain `dependency` with the stereotype as a comment; named relationships keep their name | approximated |
@@ -433,7 +433,13 @@ is a `:>` clause or a port's conjugation, a Composition, Aggregation or Associat
 is the `part`/`ref` end usage, a constraint or information flow edge nothing realizes is not
 written, and a decision's `else` branch is a clause of the node it leaves, not a member. Their
 placements on a diagram expose the ends as before; their routes are reported (below), not
-attached to a member that is not an edge. A region's initial transition is the bare entry
+attached to a member that is not an edge. The rendered view still draws them: a tree draws a
+specialization from each exposed element to the general it specializes, and a composition
+(filled diamond, labelled with the end usage's name and multiplicity) or reference (hollow
+diamond) from each to the definition typing a part or `ref` it owns, wherever both ends are
+drawn, so a migrated block definition diagram shows its generalization and association lines
+between the blocks it exposes; the lines are laid out by the drawing, since nothing in the
+model routes them. A region's initial transition is the bare entry
 `entry; then s;` until a diagram draws it; then it is a member of its own, `transition 'start
 then s' first start then s;` (under its v1 name when it has one, else that made-up name), so the
 view can route it from the region's `start` symbol, and its row names the member.

@@ -24,8 +24,8 @@ GNU-format diagnostics **relative to `--root`**. Consequences for testing:
 - Measured at the `2026-08` pin after the view concern framing round retired the six view-body
   `frame` `syntax` rows (bare parameters already at their effective range `[0..*]`, so the
   adjudicated `Behaviors.kerml:14` multiplicity warning is gone while the `[1]` `RocketEquation`
-  inputs keep its warning at `delta-v-budget.sysml:93`): `389 file(s), 360 fully agreeing; 45 agreed,
-  44 only ours, 85 only the pilot's`, JSON totals `openSysMLDiagnostics 90 / pilotDiagnostics 131 /
+  inputs keep its warning at `delta-v-budget.sysml:93`): `390 file(s), 360 fully agreeing; 45 agreed,
+  44 only ours, 92 only the pilot's`, JSON totals `openSysMLDiagnostics 90 / pilotDiagnostics 138 /
   severityMismatch 1`; the two only-ours rows the multiplicity rule added are the expected `action-step-multiplicity-not-fixed`
   warnings on `training/18. Action Performance/Action Performance Example.sysml:10` and
   `pilot-examples/Camera Example/Camera.sysml:4`. ~2 min wall, byte-identical across runs *and* after a from-scratch rebuild of
@@ -148,8 +148,8 @@ warning (the `[1]` `RocketEquation` inputs still produce the warning at
 `delta-v-budget.sysml:93`), is current: the action-step multiplicity rule adds the two expected
 `action-step-multiplicity-not-fixed` warnings on `takePhoto[*]` in the training corpus and
 `takePicture[*]` in `Camera Example/Camera.sysml`, and the view concern framing round retired the
-six view-body `frame` `syntax` rows on `examples`; a live run gives `389 file(s), 360 fully
-agreeing; 45 agreed, 44 only ours, 85 only the pilot's`, byte-identical to the committed baseline, and
+six view-body `frame` `syntax` rows on `examples`; a live run gives `390 file(s), 360 fully
+agreeing; 45 agreed, 44 only ours, 92 only the pilot's`, byte-identical to the committed baseline, and
 `docs/project/pilot-differential.md`'s "Results" table matches. The prior rebaseline, when the
 Legend of the Red Dragon example left for its own repository, gave
 <!-- doc-count:historical -->`380 file(s), 344 fully agreeing; 38 agreed, 42 only ours, 1614 only the pilot's`.

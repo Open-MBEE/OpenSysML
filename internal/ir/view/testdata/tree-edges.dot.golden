@@ -1,0 +1,53 @@
+// view: FleetViews::structure
+// kind: tree
+// layout: dot
+digraph "FleetViews::structure" {
+  graph [fontname="Helvetica"];
+  node [shape=box, style=filled, fillcolor=white, color="#181818", fontname="Helvetica", fontsize=14, penwidth=0.5];
+  edge [color="#181818", fontname="Helvetica", fontsize=13, penwidth=1];
+  "n0" [label=<<font point-size="10"><i>«part def»</i></font><br/><b>Vehicle</b>>];
+  "n1" [style="rounded,filled", label=<<font point-size="10"><i>«part»</i></font><br/><b>chassis : Chassis</b>>];
+  "n0" -> "n1" [arrowhead=none];
+  "n2" [style="rounded,filled", label=<<font point-size="10"><i>«part»</i></font><br/><b>wheels : Wheel</b>>];
+  "n0" -> "n2" [arrowhead=none];
+  "n3" [style="rounded,filled", label=<<font point-size="10"><i>«part»</i></font><br/><b>driver : Driver</b>>];
+  "n0" -> "n3" [arrowhead=none];
+  "n4" [style="rounded,filled", label=<<font point-size="10"><i>«attribute»</i></font><br/><b>total : Mass</b>>];
+  "n0" -> "n4" [arrowhead=none];
+  "n5" [label=<<font point-size="10"><i>«part def»</i></font><br/><b>Cabin</b>>];
+  "n0" -> "n5" [arrowhead=none];
+  "n6" [style="rounded,filled", label=<<font point-size="10"><i>«part»</i></font><br/><b>cabin : Cabin</b>>];
+  "n0" -> "n6" [arrowhead=none];
+  "n7" [style="rounded,filled", label=<<font point-size="10"><i>«part»</i></font><br/><b>radio : Radio</b>>];
+  "n0" -> "n7" [arrowhead=none];
+  "n8" [style="rounded,filled", label=<<font point-size="10"><i>«part»</i></font><br/><b>trailer : Trailer</b>>];
+  "n0" -> "n8" [arrowhead=none];
+  "n9" [label=<<font point-size="10"><i>«part def»</i></font><br/><b>SportsCar</b>>];
+  "n10" [style="rounded,filled", label=<<font point-size="10"><i>«part»</i></font><br/><b>chassis : LightChassis</b>>];
+  "n9" -> "n10" [arrowhead=none];
+  "n11" [style="rounded,filled", label=<<font point-size="10"><i>«part»</i></font><br/><b>spare : Wheel</b>>];
+  "n9" -> "n11" [arrowhead=none];
+  "n12" [label=<<font point-size="10"><i>«part def»</i></font><br/><b>Chassis</b>>];
+  "n13" [style="rounded,filled", label=<<font point-size="10"><i>«attribute»</i></font><br/><b>mass : Mass</b>>];
+  "n12" -> "n13" [arrowhead=none];
+  "n14" [label=<<font point-size="10"><i>«part def»</i></font><br/><b>LightChassis</b>>];
+  "n15" [style="rounded,filled", label=<<font point-size="10"><i>«attribute»</i></font><br/><b>mass</b>>];
+  "n14" -> "n15" [arrowhead=none];
+  "n16" [label=<<font point-size="10"><i>«part def»</i></font><br/><b>Wheel</b>>];
+  "n17" [label=<<font point-size="10"><i>«part def»</i></font><br/><b>Driver</b>>];
+  "n18" [label=<<font point-size="10"><i>«attribute def»</i></font><br/><b>Mass</b>>];
+  "n19" [style="rounded,filled", label=<<font point-size="10"><i>«part»</i></font><br/><b>fleetCar : Vehicle</b>>];
+  "n0" -> "n12" [label="chassis", dir=back, arrowtail=diamond];
+  "n0" -> "n16" [label="wheels[4]", dir=back, arrowtail=diamond];
+  "n0" -> "n17" [label="driver[0..1]", dir=back, arrowtail=odiamond];
+  "n0" -> "n18" [label="total", dir=back, arrowtail=odiamond];
+  "n9" -> "n0" [arrowhead=empty];
+  "n9" -> "n14" [label="chassis", dir=back, arrowtail=diamond];
+  "n9" -> "n16" [label="spare", dir=back, arrowtail=diamond];
+  "n10" -> "n1" [label="redefines", arrowhead=empty];
+  "n11" -> "n2" [label="subsets", arrowhead=empty];
+  "n12" -> "n18" [label="mass", dir=back, arrowtail=odiamond];
+  "n14" -> "n12" [arrowhead=empty];
+  "n15" -> "n13" [label="redefines", arrowhead=empty];
+  "n19" -> "n0" [arrowhead=empty, style=dashed];
+}

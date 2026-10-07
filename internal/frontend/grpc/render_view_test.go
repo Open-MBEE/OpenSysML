@@ -66,6 +66,57 @@ func TestRenderViewRendersInterconnectionAndPorts(t *testing.T) {
 	}
 }
 
+func TestRenderViewRendersRelationshipMatrices(t *testing.T) {
+	srv := mustNewService(t, 10)
+	t.Cleanup(srv.Close)
+	content, err := os.ReadFile(filepath.Join("..", "..", "..", "tests", "wasm", "testdata", "render-view.sysml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	parsed, _ := parseContent(t, srv, string(content))
+	if len(parsed.Diagnostics) != 0 {
+		t.Fatalf("ParseFile diagnostics = %+v, want none", parsed.Diagnostics)
+	}
+
+	const source = "RenderDemo::Sender::out1"
+	const target = "RenderDemo::Receiver::in1"
+	for _, viewName := range []string{"RenderViews::relationshipMatrix", "#matrix:RenderDemo::Link"} {
+		t.Run(viewName, func(t *testing.T) {
+			rendered, err := srv.RenderView(context.Background(), &pb.RenderViewRequest{
+				ModelHash: parsed.ModelHash, View: viewName,
+			})
+			if err != nil {
+				t.Fatalf("RenderView(%q): %v", viewName, err)
+			}
+			if rendered.Kind != "matrix" {
+				t.Fatalf("RenderView(%q) kind = %q, want matrix", viewName, rendered.Kind)
+			}
+			if len(rendered.Columns) == 0 || rendered.Columns[0] != "Source / Target" {
+				t.Fatalf("RenderView(%q) columns = %v, want Source / Target first", viewName, rendered.Columns)
+			}
+			targetColumn := -1
+			for i, column := range rendered.Columns {
+				if column == target {
+					targetColumn = i
+					break
+				}
+			}
+			if targetColumn < 0 {
+				t.Fatalf("RenderView(%q) columns = %v, want target %q", viewName, rendered.Columns, target)
+			}
+			for _, row := range rendered.Rows {
+				if len(row.Cells) > 0 && row.Cells[0] == source {
+					if targetColumn >= len(row.Cells) || row.Cells[targetColumn] != "connect" {
+						t.Fatalf("RenderView(%q) source row = %v, want connect at target %q", viewName, row.Cells, target)
+					}
+					return
+				}
+			}
+			t.Fatalf("RenderView(%q) rows = %+v, want source %q", viewName, rendered.Rows, source)
+		})
+	}
+}
+
 func TestRenderViewRendersCaseAndMixed(t *testing.T) {
 	srv := mustNewService(t, 10)
 	t.Cleanup(srv.Close)
