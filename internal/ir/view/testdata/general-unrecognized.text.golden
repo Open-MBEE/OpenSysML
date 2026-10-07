@@ -10,3 +10,7 @@ connection def DerivationConnections::Derivation
   requirement derivedRequirements
   assert constraint originalNotDerived
   assert constraint originalImpliesDerived
+
+relationships:
+  Loops::A *-- Loops::B: b
+  Loops::B *-- Loops::A: a

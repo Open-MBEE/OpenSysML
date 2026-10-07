@@ -51,8 +51,14 @@ package Fleet {
     }
 }
 package 'Fleet Viewpoints' {
-    viewpoint 'Parts Viewpoint' {
-        doc /* List the parts of the fleet. */
+    view def 'Parts Viewpoint' {
+        viewpoint 'parts Viewpoint' {
+            subject;
+            require constraint {
+                doc /* List the parts of the fleet. */
+            }
+        }
+        satisfy 'parts Viewpoint';
         action def 'Parts Method' {
             view 'Parts Method Flow' : StandardViewDefinitions::ActionFlowView {
                 expose 'Parts Method';
@@ -90,11 +96,19 @@ package 'Fleet Viewpoints' {
             metadata MigrationMetadata::SynthesizedName about final;
         }
         perform action 'parts Method' : 'Parts Method';
+        metadata MigrationMetadata::SynthesizedName about 'parts Viewpoint';
     }
-    viewpoint 'Requirements Viewpoint' {
-        doc /* List the requirements.
-         * method: Fleet Viewpoints::Requirements Viewpoint::Requirements Method
-         */
+    view def 'Requirements Viewpoint' {
+        viewpoint 'requirements Viewpoint' {
+            subject;
+            require constraint {
+                doc /* List the requirements. */
+            }
+        }
+        satisfy 'requirements Viewpoint';
+        rendering {
+            action : 'Requirements Method';
+        }
         action def 'Requirements Method' {
             first start then 'Collect Owned Elements';
             action 'Collect Owned Elements';
@@ -112,9 +126,16 @@ package 'Fleet Viewpoints' {
             action final terminate;
             metadata MigrationMetadata::SynthesizedName about final;
         }
+        metadata MigrationMetadata::SynthesizedName about 'requirements Viewpoint';
     }
-    viewpoint 'Safety Viewpoint' {
-        doc /* List the safety requirements. */
+    view def 'Safety Viewpoint' {
+        viewpoint 'safety Viewpoint' {
+            subject;
+            require constraint {
+                doc /* List the safety requirements. */
+            }
+        }
+        satisfy 'safety Viewpoint';
         abstract action def View;
         action 'view' : View;
         action def 'Safety Method' {
@@ -139,8 +160,13 @@ package 'Fleet Viewpoints' {
             action final terminate;
             metadata MigrationMetadata::SynthesizedName about final;
         }
+        metadata MigrationMetadata::SynthesizedName about 'safety Viewpoint';
     }
-    viewpoint 'Figures Viewpoint' {
+    view def 'Figures Viewpoint' {
+        viewpoint 'figures Viewpoint' {
+            subject;
+        }
+        satisfy 'figures Viewpoint';
         action def 'Figures Method' {
             first start then Image;
             action Image;
@@ -149,8 +175,13 @@ package 'Fleet Viewpoints' {
             metadata MigrationMetadata::SynthesizedName about final;
         }
         perform action 'figures Method' : 'Figures Method';
+        metadata MigrationMetadata::SynthesizedName about 'figures Viewpoint';
     }
-    viewpoint 'Gallery Viewpoint' {
+    view def 'Gallery Viewpoint' {
+        viewpoint 'gallery Viewpoint' {
+            subject;
+        }
+        satisfy 'gallery Viewpoint';
         action def 'Gallery Method' {
             first start then Image;
             action Image;
@@ -159,8 +190,13 @@ package 'Fleet Viewpoints' {
             metadata MigrationMetadata::SynthesizedName about final;
         }
         perform action 'gallery Method' : 'Gallery Method';
+        metadata MigrationMetadata::SynthesizedName about 'gallery Viewpoint';
     }
-    viewpoint 'Selected Figures Viewpoint' {
+    view def 'Selected Figures Viewpoint' {
+        viewpoint 'selected Figures Viewpoint' {
+            subject;
+        }
+        satisfy 'selected Figures Viewpoint';
         action def 'Selected Figures Method' {
             first start then 'Truck Diagrams';
             action 'Truck Diagrams';
@@ -173,8 +209,13 @@ package 'Fleet Viewpoints' {
             metadata MigrationMetadata::SynthesizedName about final;
         }
         perform action 'selected Figures Method' : 'Selected Figures Method';
+        metadata MigrationMetadata::SynthesizedName about 'selected Figures Viewpoint';
     }
-    viewpoint 'Other Figures Viewpoint' {
+    view def 'Other Figures Viewpoint' {
+        viewpoint 'other Figures Viewpoint' {
+            subject;
+        }
+        satisfy 'other Figures Viewpoint';
         action def 'Other Figures Method' {
             first start then 'Not Truck Diagrams';
             action 'Not Truck Diagrams';
@@ -185,8 +226,13 @@ package 'Fleet Viewpoints' {
             metadata MigrationMetadata::SynthesizedName about final;
         }
         perform action 'other Figures Method' : 'Other Figures Method';
+        metadata MigrationMetadata::SynthesizedName about 'other Figures Viewpoint';
     }
-    viewpoint 'Figure Owners Viewpoint' {
+    view def 'Figure Owners Viewpoint' {
+        viewpoint 'figure Owners Viewpoint' {
+            subject;
+        }
+        satisfy 'figure Owners Viewpoint';
         action def 'Figure Owners Method' {
             first start then 'Collect Owners';
             action 'Collect Owners';
@@ -199,8 +245,13 @@ package 'Fleet Viewpoints' {
             metadata MigrationMetadata::SynthesizedName about final;
         }
         perform action 'figure Owners Method' : 'Figure Owners Method';
+        metadata MigrationMetadata::SynthesizedName about 'figure Owners Viewpoint';
     }
-    viewpoint 'No Figures Viewpoint' {
+    view def 'No Figures Viewpoint' {
+        viewpoint 'no Figures Viewpoint' {
+            subject;
+        }
+        satisfy 'no Figures Viewpoint';
         action def 'No Figures Method' {
             first start then 'Packages Only';
             action 'Packages Only';
@@ -211,8 +262,13 @@ package 'Fleet Viewpoints' {
             metadata MigrationMetadata::SynthesizedName about final;
         }
         perform action 'no Figures Method' : 'No Figures Method';
+        metadata MigrationMetadata::SynthesizedName about 'no Figures Viewpoint';
     }
-    viewpoint 'Traceability Viewpoint' {
+    view def 'Traceability Viewpoint' {
+        viewpoint 'traceability Viewpoint' {
+            subject;
+        }
+        satisfy 'traceability Viewpoint';
         action def 'Traceability Method' {
             first start then 'fork';
             fork 'fork';
@@ -230,8 +286,13 @@ package 'Fleet Viewpoints' {
             metadata MigrationMetadata::SynthesizedName about 'fork', 'merge', final;
         }
         perform action 'traceability Method' : 'Traceability Method';
+        metadata MigrationMetadata::SynthesizedName about 'traceability Viewpoint';
     }
-    viewpoint 'Oddities Viewpoint' {
+    view def 'Oddities Viewpoint' {
+        viewpoint 'oddities Viewpoint' {
+            subject;
+        }
+        satisfy 'oddities Viewpoint';
         action def 'Oddities Method' {
             first start then 'Evaluated Paragraph';
             action 'Evaluated Paragraph';
@@ -267,8 +328,13 @@ package 'Fleet Viewpoints' {
             /* applied stereotype «Dynamic_View»: loop = true; title = Per Truck */
         }
         perform action 'oddities Method' : 'Oddities Method';
+        metadata MigrationMetadata::SynthesizedName about 'oddities Viewpoint';
     }
-    viewpoint 'Broken Viewpoint' {
+    view def 'Broken Viewpoint' {
+        viewpoint 'broken Viewpoint' {
+            subject;
+        }
+        satisfy 'broken Viewpoint';
         action def 'Broken Method' {
             first start then Paragraph;
             action Paragraph;
@@ -277,16 +343,27 @@ package 'Fleet Viewpoints' {
             metadata MigrationMetadata::SynthesizedName about final;
         }
         perform action 'broken Method' : 'Broken Method';
+        metadata MigrationMetadata::SynthesizedName about 'broken Viewpoint';
     }
-    viewpoint 'Severed Viewpoint' {
+    view def 'Severed Viewpoint' {
+        viewpoint 'severed Viewpoint' {
+            subject;
+        }
+        satisfy 'severed Viewpoint';
         action def 'Severed Method' {
             first start then Paragraph;
             action Paragraph;
         }
         perform action 'severed Method' : 'Severed Method';
+        metadata MigrationMetadata::SynthesizedName about 'severed Viewpoint';
     }
-    viewpoint 'Headless Viewpoint' {
-        doc /* method: _act_vanished */
+    view def 'Headless Viewpoint' {
+        viewpoint 'headless Viewpoint' {
+            subject;
+            doc /* method: _act_vanished */
+        }
+        satisfy 'headless Viewpoint';
+        metadata MigrationMetadata::SynthesizedName about 'headless Viewpoint';
     }
 }
 package 'Fleet Documents' {
@@ -314,46 +391,36 @@ package 'Fleet Documents' {
         view safety :> Safety;
         /* applied stereotype «Document» */
     }
-    view Introduction {
+    view Introduction : 'Fleet Viewpoints'::'Parts Viewpoint' {
         doc /* The fleet, in brief. */
-        satisfy 'Fleet Viewpoints'::'Parts Viewpoint';
         expose Fleet::Structure::**;
     }
-    view Requirements {
-        satisfy 'Fleet Viewpoints'::'Requirements Viewpoint';
+    view Requirements : 'Fleet Viewpoints'::'Requirements Viewpoint' {
         view safety :> Safety;
         expose Fleet::Requirements::**;
         expose Fleet::Requirements::**;
     }
-    view Safety {
+    view Safety : 'Fleet Viewpoints'::'Safety Viewpoint' {
         doc /* Safety comes first. */
-        satisfy 'Fleet Viewpoints'::'Safety Viewpoint';
         public import Fleet::*;
         /* applied stereotype «view» */
     }
-    view Figures {
-        satisfy 'Fleet Viewpoints'::'Figures Viewpoint';
+    view Figures : 'Fleet Viewpoints'::'Figures Viewpoint' {
         expose Fleet::Structure::'Truck Structure';
     }
-    view Traceability {
-        satisfy 'Fleet Viewpoints'::'Traceability Viewpoint';
+    view Traceability : 'Fleet Viewpoints'::'Traceability Viewpoint' {
         expose Fleet::Requirements::'Load Limit';
     }
-    view Oddities {
-        satisfy 'Fleet Viewpoints'::'Oddities Viewpoint';
+    view Oddities : 'Fleet Viewpoints'::'Oddities Viewpoint' {
         expose Fleet::Structure::Truck;
     }
-    view Broken {
-        satisfy 'Fleet Viewpoints'::'Broken Viewpoint';
+    view Broken : 'Fleet Viewpoints'::'Broken Viewpoint' {
         expose Fleet::**;
     }
-    view Severed {
-        satisfy 'Fleet Viewpoints'::'Severed Viewpoint';
+    view Severed : 'Fleet Viewpoints'::'Severed Viewpoint' {
         expose Fleet::**;
     }
-    view Headless {
-        satisfy 'Fleet Viewpoints'::'Headless Viewpoint';
-    }
+    view Headless : 'Fleet Viewpoints'::'Headless Viewpoint';
     view Notes {
         doc /* Second note. */
         comment /* First note. */
@@ -655,8 +722,7 @@ package 'Fleet Documents' {
     }
 }
 package 'Fleet Views' {
-    view Fleet {
-        satisfy 'Fleet Viewpoints'::'Figures Viewpoint';
+    view Fleet : 'Fleet Viewpoints'::'Figures Viewpoint' {
         expose $::Fleet::Structure::'Truck Structure';
         expose 'Fleet Viewpoints'::'Parts Viewpoint'::'Parts Method'::'Parts Method Flow';
         expose $::Fleet::Structure::Truck::'Truck Internals';
@@ -667,32 +733,27 @@ package 'Fleet Views' {
             render Views::asTreeDiagram;
         }
     }
-    view Gallery {
-        satisfy 'Fleet Viewpoints'::'Gallery Viewpoint';
+    view Gallery : 'Fleet Viewpoints'::'Gallery Viewpoint' {
         expose $::Fleet::Structure::Truck::'Truck Internals';
     }
-    view 'Truck Figures' {
-        satisfy 'Fleet Viewpoints'::'Selected Figures Viewpoint';
+    view 'Truck Figures' : 'Fleet Viewpoints'::'Selected Figures Viewpoint' {
         expose $::Fleet::Structure::'Truck Structure';
         expose 'Fleet Viewpoints'::'Parts Viewpoint'::'Parts Method'::'Parts Method Flow';
         expose $::Fleet::Structure::Truck::'Truck Internals';
         expose Fleet::'Fleet Overview';
         expose $::Fleet::Structure::'Truck Structure';
     }
-    view 'Other Figures' {
-        satisfy 'Fleet Viewpoints'::'Other Figures Viewpoint';
+    view 'Other Figures' : 'Fleet Viewpoints'::'Other Figures Viewpoint' {
         expose $::Fleet::Structure::'Truck Structure';
         expose 'Fleet Viewpoints'::'Parts Viewpoint'::'Parts Method'::'Parts Method Flow';
         expose $::Fleet::Structure::Truck::'Truck Internals';
         expose Fleet::'Fleet Overview';
     }
-    view 'Figure Owners' {
-        satisfy 'Fleet Viewpoints'::'Figure Owners Viewpoint';
+    view 'Figure Owners' : 'Fleet Viewpoints'::'Figure Owners Viewpoint' {
         expose $::Fleet::Structure::Truck::'Truck Internals';
         expose $::Fleet::Structure::'Truck Structure';
     }
-    view 'No Figures' {
-        satisfy 'Fleet Viewpoints'::'No Figures Viewpoint';
+    view 'No Figures' : 'Fleet Viewpoints'::'No Figures Viewpoint' {
         expose $::Fleet::Structure::'Truck Structure';
     }
 }

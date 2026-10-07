@@ -303,7 +303,7 @@ func (m *migration) isUsage(e *sysmlv1.Element) bool {
 		return true
 	}
 	cat, _ := m.classify(e)
-	return cat == catView || cat == catViewpoint
+	return cat == catView
 }
 
 // scopeChain lists scope and its ancestors, innermost first, stopping at the

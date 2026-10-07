@@ -77,6 +77,13 @@ package KitViews {
 		expose Kit::Widget;
 	}
 
+	view def WidgetRelationshipMatrix :> GridView {
+		filter @SysML::ConnectionUsage;
+	}
+	view widgetMatrix : WidgetRelationshipMatrix {
+		expose Kit::Widget::**;
+	}
+
 	view widgetSequence : SequenceView {
 		expose Kit::Widget;
 	}
@@ -254,6 +261,7 @@ func TestRenderServesEverySupportedKind(t *testing.T) {
 		{"KitViews::widgetStates", view.KindState, view.FormMermaid},
 		{"KitViews::widgetActions", view.KindAction, view.FormMermaid},
 		{"KitViews::widgetTable", view.KindTable, view.FormMarkdown},
+		{"KitViews::widgetMatrix", view.KindMatrix, view.FormMarkdown},
 		{"KitViews::widgetSequence", view.KindSequence, view.FormMermaid},
 		{"KitViews::widgetCases", view.KindCase, view.FormMermaid},
 		{"KitViews::widgetMixed", view.KindMixed, view.FormMermaid},
@@ -276,9 +284,9 @@ func TestRenderServesEverySupportedKind(t *testing.T) {
 			if out.Version != 1 {
 				t.Errorf("version = %d, want the version the document was opened at", out.Version)
 			}
-			if tc.kind == view.KindTable {
+			if tc.kind.Tabular() {
 				if len(out.Rows) == 0 {
-					t.Error("a table rendering carries no rows")
+					t.Errorf("a %s rendering carries no rows", tc.kind)
 				}
 				return
 			}
@@ -319,6 +327,25 @@ func TestRenderServesEverySupportedKind(t *testing.T) {
 	}
 }
 
+func TestRenderMatrixPseudoView(t *testing.T) {
+	s, docURI := renderServer(t, "kit.sysml", renderModel)
+	raw, err := call(t, s, MethodRender, &renderParams{
+		TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
+		View:         "#matrix:Kit::Widget",
+	})
+	if err != nil {
+		t.Fatalf("render matrix pseudo-view: %v", err)
+	}
+	var out renderResult
+	if err := json.Unmarshal(raw, &out); err != nil {
+		t.Fatalf("decode render result: %v", err)
+	}
+	if out.Kind != string(view.KindMatrix) || out.Form != string(view.FormMarkdown) ||
+		!strings.Contains(out.Artifact, "| Source / Target |") {
+		t.Errorf("matrix pseudo-view = kind %q, form %q, artifact:\n%s", out.Kind, out.Form, out.Artifact)
+	}
+}
+
 // A node's origin is the range of the declaration it was built from, so clicking
 // it lands on that declaration.
 func TestRenderOriginsLocateTheDeclaration(t *testing.T) {
@@ -348,6 +375,49 @@ func TestRenderOriginsLocateTheDeclaration(t *testing.T) {
 		return
 	}
 	t.Fatalf("the #tree rendering has no node for cog: %+v", out.Nodes)
+}
+
+// A tree carries the relationship edges between its nodes — a specialization
+// and a composition here — each joining node IDs of the same response. The
+// composition stands for the part usage, so it is identified by that usage's
+// FQN and a Route about the usage steers it; the specialization is a clause of
+// the specializing definition, no member of its own, so it carries neither an
+// FQN nor a declaration range, and the client routes it itself.
+func TestRenderTreeCarriesRelationshipEdges(t *testing.T) {
+	src := "package Kit {\n\tpart def Widget {\n\t\tpart cogs[2] : Cog;\n\t}\n\tpart def Cog;\n\tpart def Gear :> Cog;\n}\n"
+	s, docURI := renderServer(t, "kit.sysml", src)
+	out := render(t, s, docURI, "#tree")
+	ids := map[string]string{}
+	for _, node := range out.Nodes {
+		ids[node.ID] = node.Name
+	}
+	type edge struct{ from, to, kind, label, fqn string }
+	var got []edge
+	for _, e := range out.Edges {
+		if _, ok := ids[e.From]; !ok {
+			t.Errorf("edge %s->%s leaves a node the response lacks", e.From, e.To)
+		}
+		if _, ok := ids[e.To]; !ok {
+			t.Errorf("edge %s->%s reaches a node the response lacks", e.From, e.To)
+		}
+		got = append(got, edge{ids[e.From], ids[e.To], e.Kind, e.Label, e.FQN})
+		if e.Origin == nil || e.Origin.Range.Start.Line == 0 {
+			t.Errorf("edge %s->%s carries no origin to navigate to: %+v", e.From, e.To, e.Origin)
+		}
+		if e.Kind == "specialization" && e.Declaration != nil {
+			t.Errorf("the specialization carries a declaration range %+v; it is no member a route can target", *e.Declaration)
+		}
+		if len(e.Route) != 0 {
+			t.Errorf("edge %s->%s is routed %v with no Route annotation", e.From, e.To, e.Route)
+		}
+	}
+	want := []edge{
+		{"Kit::Widget", "Kit::Cog", "composition", "cogs[2]", "Kit::Widget::cogs"},
+		{"Kit::Gear", "Kit::Cog", "specialization", "", ""},
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("edges = %+v, want %+v", got, want)
+	}
 }
 
 // A node carries its declared type as a field of its own, so a client never
@@ -496,20 +566,25 @@ func TestRenderAndViewsReportAnUnsupportedKind(t *testing.T) {
 	if !slices.Contains(listing.PseudoViews, "#sequence") {
 		t.Errorf("pseudoViews = %v, want it to contain #sequence", listing.PseudoViews)
 	}
-	if len(listing.Views) != 9 {
-		t.Fatalf("listed %d views, want 9: %+v", len(listing.Views), listing.Views)
+	if !slices.Contains(listing.PseudoViews, "#matrix") {
+		t.Errorf("pseudoViews = %v, want it to contain #matrix", listing.PseudoViews)
+	}
+	if len(listing.Views) != 11 {
+		t.Fatalf("listed %d views, want 11: %+v", len(listing.Views), listing.Views)
 	}
 	kinds := map[string]viewInfo{}
 	for _, info := range listing.Views {
 		kinds[info.Name] = info
 	}
 	for name, kind := range map[string]view.Kind{
-		"KitViews::widgetTree":     view.KindTree,
-		"KitViews::widgetParts":    view.KindInterconnection,
-		"KitViews::widgetStates":   view.KindState,
-		"KitViews::widgetActions":  view.KindAction,
-		"KitViews::widgetTable":    view.KindTable,
-		"KitViews::widgetSequence": view.KindSequence,
+		"KitViews::WidgetRelationshipMatrix": view.KindMatrix,
+		"KitViews::widgetTree":               view.KindTree,
+		"KitViews::widgetParts":              view.KindInterconnection,
+		"KitViews::widgetStates":             view.KindState,
+		"KitViews::widgetActions":            view.KindAction,
+		"KitViews::widgetTable":              view.KindTable,
+		"KitViews::widgetMatrix":             view.KindMatrix,
+		"KitViews::widgetSequence":           view.KindSequence,
 	} {
 		info, ok := kinds[name]
 		if !ok {
@@ -559,7 +634,7 @@ func TestViewsLocateEachDeclaration(t *testing.T) {
 			t.Errorf("%s: selectionRange covers %q, want %q", info.Name, got, short)
 		}
 		decl := text(*info.Range)
-		if !strings.HasPrefix(decl, "view "+short) || !strings.HasSuffix(decl, "}") {
+		if !(strings.HasPrefix(decl, "view "+short) || strings.HasPrefix(decl, "view def "+short)) || !strings.HasSuffix(decl, "}") {
 			t.Errorf("%s: range covers %q, want the whole view declaration", info.Name, decl)
 		}
 	}
@@ -601,6 +676,13 @@ func TestRenderHonorsTheFormAsked(t *testing.T) {
 		Form:         "png",
 	}); err == nil || !strings.Contains(err.Error(), "no rendering form") || !strings.Contains(err.Error(), `"dot"`) || !strings.Contains(err.Error(), `"plantuml"`) || !strings.Contains(err.Error(), `"d2"`) {
 		t.Errorf("err = %v, want it to refuse the form and offer dot, plantuml and d2", err)
+	}
+	if _, err := call(t, s, MethodRender, &renderParams{
+		TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
+		View:         "KitViews::widgetMatrix",
+		Form:         string(view.FormD2),
+	}); err == nil || !strings.Contains(err.Error(), "matrix rendering is not written as d2") {
+		t.Errorf("D2 of a matrix = %v, want a matrix wrong-form error", err)
 	}
 }
 
@@ -700,7 +782,7 @@ func TestRenderWritesDotWhenAskedFor(t *testing.T) {
 			t.Errorf("%s: the DOT result carries no nodes", name)
 		}
 	}
-	for _, name := range []string{"KitViews::widgetTable", "KitViews::widgetSequence"} {
+	for _, name := range []string{"KitViews::widgetTable", "KitViews::widgetMatrix", "KitViews::widgetSequence"} {
 		_, err := call(t, s, MethodRender, &renderParams{
 			TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
 			View:         name,

@@ -21,6 +21,7 @@ func TestGoldenDOT(t *testing.T) {
 		kind Kind
 	}{
 		{"tree", "tree.sysml", "VehicleViews::vehicleView", KindTree},
+		{"tree-edges", "tree-edges.sysml", "FleetViews::structure", KindTree},
 		{"interconnection", "interconnection.sysml", "PlantViews::loopView", KindInterconnection},
 		{"interconnection-ports", "interconnection-ports.sysml", "ToasterViews::toasterView", KindInterconnection},
 		{"state", "state.sysml", "MachineViews::vehicleStates", KindState},
@@ -87,6 +88,9 @@ func TestDOTFormSupport(t *testing.T) {
 	}
 	if got := KindTable.SupportedForms(); fmt.Sprint(got) != "[text markdown csv tsv]" {
 		t.Errorf("table forms = %v", got)
+	}
+	if got := KindMatrix.SupportedForms(); fmt.Sprint(got) != "[text markdown csv tsv]" {
+		t.Errorf("matrix forms = %v", got)
 	}
 	unsupported := []struct {
 		file, view string

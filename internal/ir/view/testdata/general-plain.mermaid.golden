@@ -81,3 +81,22 @@ flowchart TD
 **ScalarValues::ScalarValue**`"]
   n25["`*«datatype»*
 **ScalarValues::String**`"]
+  n0 ---|"◇ mass"| n23
+  n0 ---|"◆ chassis"| n4
+  n0 ---|"◇ driver"| n6
+  n5 -->|"specialization"| n4
+  n8 -.->|"typing"| n0
+  n9 -->|"redefines"| n1
+  n10 -.->|"typing"| n0
+  n11 -->|"redefines"| n1
+  n12 -.->|"typing"| n7
+  n15 -->|"specialization"| n24
+  n16 -->|"specialization"| n19
+  n17 -->|"specialization"| n22
+  n18 -->|"specialization"| n17
+  n19 -->|"specialization"| n20
+  n20 -->|"specialization"| n24
+  n21 -->|"specialization"| n18
+  n22 -->|"specialization"| n23
+  n23 -->|"specialization"| n16
+  n25 -->|"specialization"| n24

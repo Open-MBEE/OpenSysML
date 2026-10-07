@@ -2024,7 +2024,7 @@ with `file not found:`.
 ## `RenderView`
 
 `RenderView` returns the machine-readable fields of a named view or targeted pseudo-view. The
-response preserves node and edge order, parent links, ports, source spans, table rows, notes and
+response preserves node and edge order, parent links, ports, source spans, table and matrix rows, notes and
 notices; optional canvas, geometry and style messages are absent when the model states none.
 Pictures are not included. An omitted or `minimal` `ports` value includes only ports used by
 rendered connections; `full` includes every declared port. The service advertises this method as

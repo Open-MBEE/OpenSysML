@@ -22,7 +22,7 @@ const elementColumn = "element"
 // are options of this backend, never document-model attributes.
 type MarkdownOptions struct {
 	// DiagramForm is the source every graph-shaped diagram is written as; a
-	// table-kind view is a pipe table whichever it is. Empty picks per diagram:
+	// tabular view is a pipe table whichever it is. Empty picks per diagram:
 	// DOT for a rendering a Layout or Route positions, Mermaid otherwise.
 	DiagramForm view.Form
 
@@ -63,7 +63,7 @@ type MarkdownOptions struct {
 	OutputDir string
 
 	// NumberFigures captions figures (drawn diagrams, images) "Figure N. …" and
-	// tables (query tables, table-kind diagrams) "Table N. …" in document order.
+	// tables (query tables, tabular diagrams) "Table N. …" in document order.
 	NumberFigures bool
 
 	// TableColumns is the most columns one pipe table is written with: a table
@@ -90,7 +90,7 @@ func (o MarkdownOptions) diagramOptions() DiagramOptions {
 // with projected column headers, bullet or numbered lists, definitions as one
 // "**term** — description" paragraph per entry, formulas as $$-fenced
 // display math with inline math in $…$, and diagrams as fenced blocks of
-// their source in the chosen diagram form (table-kind views as pipe tables).
+// their source in the chosen diagram form (tabular views as pipe tables).
 // Metacharacters in content are escaped so no value can corrupt the document
 // structure; LaTeX is written verbatim, since math is not prose.
 func Markdown(document *docir.Document, opts MarkdownOptions) (string, error) {
@@ -282,7 +282,7 @@ func nestingMarker(depth int64) string {
 	return strings.Repeat("&nbsp;&nbsp;&nbsp;&nbsp;", int(depth)-1) + "↳ "
 }
 
-// diagramFigure is the blocks of one diagram: its caption, then a table-kind
+// diagramFigure is the blocks of one diagram: its caption, then a tabular
 // view's pipe table, or the fallback notice when the automatic choice did not
 // draw the view as stated and the SVG drawn for it or its source fenced.
 func (w *markdownWriter) diagramFigure(name, caption string, rendering *view.Rendering, options view.Options) ([]string, error) {
@@ -290,7 +290,7 @@ func (w *markdownWriter) diagramFigure(name, caption string, rendering *view.Ren
 		return nil, &Error{Kind: ErrorMissingRendering, Content: name}
 	}
 	blocks := captionBlock(caption)
-	if rendering.Kind == view.KindTable {
+	if rendering.Kind.Tabular() {
 		return append(blocks, strings.TrimRight(rendering.MarkdownCells(tableCell), "\n")), nil
 	}
 	if !rendering.Kind.Supported() {

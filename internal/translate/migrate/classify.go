@@ -33,10 +33,9 @@ const (
 	catStateDef
 	// catUseCaseDef is a UML use case, whatever incidental stereotype it carries.
 	catUseCaseDef
-	// catView is a v1 «View», written as a view usage: only a usage exposes
-	// elements and satisfies a viewpoint in standard v2.
+	// catView is a v1 «View», written as a view usage typed by its viewpoints.
 	catView
-	// catViewpoint is a v1 «Viewpoint», written as a viewpoint usage a view satisfies.
+	// catViewpoint is a v1 «Viewpoint», written as a view definition.
 	catViewpoint
 	// catSimConfig is a simulation tool's run configuration: an action def
 	// that instantiates its execution target and performs its behavior.
@@ -91,7 +90,7 @@ func (c category) keyword() string {
 	case catView:
 		return "view"
 	case catViewpoint:
-		return "viewpoint"
+		return "view def"
 	case catSimConfig:
 		return "action def"
 	case catValue:
@@ -665,7 +664,7 @@ func (m *migration) instanceClassifiers(e *sysmlv1.Element) (occurrences, values
 			notes = append(notes, classifierSubject+qualifiedName(c)+" is not migrated")
 		case cc == catAttributeDef, cc == catEnumDef:
 			values = append(values, c)
-		case cc == catView, cc == catViewpoint:
+		case cc == catView:
 			notes = append(notes, classifierSubject+qualifiedName(c)+" is written as a "+cc.keyword()+" usage, which an individual cannot specialize")
 		default:
 			occurrences = append(occurrences, c)

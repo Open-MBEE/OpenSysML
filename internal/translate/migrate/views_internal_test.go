@@ -37,11 +37,19 @@ func TestViewForms(t *testing.T) {
 	}{
 		{"a viewpoint carries its purpose and stakeholders",
 			``, ``,
-			[]string{"viewpoint Ops {\n    doc /* Run the pump. */\n    subject;\n    stakeholder operator : Operator;\n    metadata MigrationMetadata::SynthesizedName about operator;\n}"}, "_vp", Mapped},
+			[]string{"view def Ops {\n    viewpoint ops {\n        subject;\n        stakeholder operator : Operator;\n        require constraint {\n            doc /* Run the pump. */\n        }\n        metadata MigrationMetadata::SynthesizedName about operator;\n    }\n    satisfy ops;"}, "_vp", Mapped},
 		{"a concern tag frames a concern",
 			`<packagedElement xmi:type="uml:Class" xmi:id="_vp2" name="Safety"/>`,
 			`<sysml:Viewpoint xmi:id="_sv2" base_Class="_vp2" concern="Is it safe?"/>`,
-			[]string{"viewpoint Safety {\n    frame concern {\n        doc /* Is it safe? */\n    }\n}"}, "_vp2", Mapped},
+			[]string{"view def Safety {\n    viewpoint safety {\n        subject;\n        frame concern {\n            doc /* Is it safe? */\n        }\n    }\n    satisfy safety;"}, "_vp2", Mapped},
+		{"a plain occurrence definition can own a concern",
+			`<packagedElement xmi:type="uml:Class" xmi:id="_owner" name="Plain">
+			   <ownedComment xmi:type="uml:Comment" xmi:id="_concern"><body>Plain concern</body></ownedComment>
+			 </packagedElement>
+			 <packagedElement xmi:type="uml:Class" xmi:id="_vp2" name="Safety"/>`,
+			`<sysml:Viewpoint xmi:id="_sv2" base_Class="_vp2" concernList="_concern"/>`,
+			[]string{"occurrence def Plain {\n    concern 'concern' {\n        doc /* Plain concern */\n        subject;\n    }", "view def Safety {\n    viewpoint safety {\n        subject;\n        frame Plain::'concern';"},
+			"_concern", Mapped},
 		{"a view exposes a package with its contents and an element by itself",
 			`<packagedElement xmi:type="uml:Class" xmi:id="_v" name="Overview"/>
 			 <packagedElement xmi:type="uml:Dependency" xmi:id="_d" client="_v" supplier="_sys _pump"/>`,
@@ -52,12 +60,12 @@ func TestViewForms(t *testing.T) {
 			   <generalization xmi:type="uml:Generalization" xmi:id="_g" general="_vp"/>
 			 </packagedElement>`,
 			`<sysml:View xmi:id="_s1" base_Class="_v"/><sysml:Conform xmi:id="_s2" base_Generalization="_g"/>`,
-			[]string{"view Overview {\n    satisfy Ops;\n}"}, "_g", Mapped},
+			[]string{"view Overview : Ops;"}, "_g", Mapped},
 		{"a view conforms to a viewpoint by dependency and by tag, once",
 			`<packagedElement xmi:type="uml:Class" xmi:id="_v" name="Overview"/>
 			 <packagedElement xmi:type="uml:Dependency" xmi:id="_d" client="_v" supplier="_vp"/>`,
 			`<sysml:View xmi:id="_s1" base_Class="_v" viewpoint="_vp"/><sysml:Conform xmi:id="_s2" base_Dependency="_d"/>`,
-			[]string{"view Overview {\n    satisfy Ops;\n}"}, "_d", Mapped},
+			[]string{"view Overview : Ops;"}, "_d", Mapped},
 		{"a view whose tag names an absent viewpoint is approximated",
 			`<packagedElement xmi:type="uml:Class" xmi:id="_v" name="Overview"/>`,
 			`<sysml:View xmi:id="_s1" base_Class="_v" viewpoint="_gone"/>`,
@@ -79,7 +87,7 @@ func TestViewForms(t *testing.T) {
 			 </packagedElement>`,
 			`<sysml:View xmi:id="_s1" base_Class="_v"/><sysml:View xmi:id="_s2" base_Class="_v2"/><sysml:Block xmi:id="_s3" base_Class="_b"/>`,
 			[]string{"view Overview {\n    view detail;\n}", "view own :> Detail;"}, "_p", Approximated},
-		{"a viewpoint nested in a block cannot be satisfied from outside it",
+		{"a viewpoint nested in a block is typed by its qualified name",
 			`<packagedElement xmi:type="uml:Class" xmi:id="_v" name="Overview">
 			   <generalization xmi:type="uml:Generalization" xmi:id="_g" general="_vp2"/>
 			 </packagedElement>
@@ -87,7 +95,7 @@ func TestViewForms(t *testing.T) {
 			   <nestedClassifier xmi:type="uml:Class" xmi:id="_vp2" name="Inner"/>
 			 </packagedElement>`,
 			`<sysml:View xmi:id="_s1" base_Class="_v"/><sysml:Viewpoint xmi:id="_s2" base_Class="_vp2"/><sysml:Block xmi:id="_s3" base_Class="_b"/><sysml:Conform xmi:id="_s4" base_Generalization="_g"/>`,
-			[]string{"the viewpoint Book::Inner is a feature of the part def Book, which only its members can name"}, "_g", Unmapped},
+			[]string{"view Overview : Book::Inner;"}, "_g", Mapped},
 		{"a view nested in a package-level view is reached by a feature chain",
 			`<packagedElement xmi:type="uml:Class" xmi:id="_v" name="Overview">
 			   <ownedAttribute xmi:type="uml:Property" xmi:id="_p" name="detail" type="_v3" aggregation="composite"/>
@@ -141,20 +149,20 @@ func TestViewForms(t *testing.T) {
 			   <packagedElement xmi:type="uml:Class" xmi:id="_ch" name="Chapter"/>
 			 </packagedElement>`,
 			`<sysml:View xmi:id="_s1" base_Package="_v" viewpoint="_vp"/>`,
-			[]string{"view Handbook {\n    satisfy Ops;\n    occurrence def Chapter;\n}"}, "_v", Approximated},
+			[]string{"view Handbook : Ops {\n    occurrence def Chapter;\n}"}, "_v", Approximated},
 		{"a concernList naming a block frames nothing and leaves the block mapped",
 			`<packagedElement xmi:type="uml:Class" xmi:id="_vp2" name="Safety"/>`,
 			`<sysml:Viewpoint xmi:id="_sv2" base_Class="_vp2" concernList="_pump"/>`,
-			[]string{"part def Pump;", "viewpoint Safety;"}, "_pump", Mapped},
+			[]string{"part def Pump;", "view def Safety {\n    viewpoint safety {\n        subject;\n    }\n    satisfy safety;\n    metadata MigrationMetadata::SynthesizedName about safety;\n}"}, "_pump", Mapped},
 		{"a concernList naming a block is reported on the viewpoint",
 			`<packagedElement xmi:type="uml:Class" xmi:id="_vp2" name="Safety"/>`,
 			`<sysml:Viewpoint xmi:id="_sv2" base_Class="_vp2" concernList="_pump"/>`,
-			[]string{"viewpoint Safety;"}, "_vp2", Approximated},
-		{"an instance of a view or viewpoint has no definition to specialize",
+			[]string{"view def Safety {\n    viewpoint safety {\n        subject;\n    }\n    satisfy safety;\n    metadata MigrationMetadata::SynthesizedName about safety;\n}"}, "_vp2", Approximated},
+		{"an instance of a view is approximated while a viewpoint is a definition",
 			`<packagedElement xmi:type="uml:Class" xmi:id="_v" name="Overview"/>
 			 <packagedElement xmi:type="uml:InstanceSpecification" xmi:id="_i" name="snapshot" classifier="_v _vp"/>`,
 			`<sysml:View xmi:id="_s1" base_Class="_v"/>`,
-			[]string{"the instance's classifier Overview is written as a view usage, which an individual cannot specialize; the instance's classifier Ops is written as a viewpoint usage, which an individual cannot specialize"}, "_i", Unmapped},
+			[]string{"individual view def 'snapshot' :> Ops;"}, "_i", Approximated},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			r, err := Migrate("views.xmi", []byte(viewModel(tc.members, tc.stereotypes)))
@@ -183,8 +191,8 @@ func TestViewForms(t *testing.T) {
 			if !found {
 				t.Errorf("%s is missing from the report", tc.id)
 			}
-			if strings.Contains(got, "individual view") || strings.Contains(got, "individual viewpoint") {
-				t.Errorf("an individual specializes a usage:\n%s", got)
+			if strings.Contains(got, "individual view 'snapshot'") {
+				t.Errorf("an individual specializes the view usage:\n%s", got)
 			}
 		})
 	}

@@ -24,9 +24,12 @@ func (r *Renderer) treeDepth() int {
 // renderTree renders the exposed elements as a containment tree: each element
 // with its kind and name, the elements declared in it beneath it, and each view
 // nested in the rendered view as a subtree of its own. Each node is placed by
-// the Layout that positions its element in the view it is shown under.
+// the Layout that positions its element in the view it is shown under. The
+// relationships between the drawn elements — specialization, composition and
+// typing — are drawn as edges once every node is (treeEdges).
 func (r *Renderer) renderTree(view *symbols.Symbol, exposed []*symbols.Symbol, out *Rendering) {
 	ids := &nodeIDs{}
+	out.sites = map[*Node]treeSite{}
 	descendants := r.exposedDescendants(exposed, r.containedMembers)
 	for _, elem := range exposed {
 		if descendants[symbols.KeyOf(elem)] {
@@ -35,6 +38,7 @@ func (r *Renderer) renderTree(view *symbols.Symbol, exposed []*symbols.Symbol, o
 		out.Roots = append(out.Roots, r.treeNode(view, elem, ids, map[*symbols.Symbol]bool{}, 0, true, out))
 	}
 	out.Roots = append(out.Roots, r.nestedViewNodes(view, ids, map[*symbols.Symbol]bool{view: true}, out)...)
+	r.treeEdges(out)
 }
 
 // exposedDescendants is the key of each exposed element a surviving root's
@@ -153,6 +157,7 @@ func (r *Renderer) treeNodeWithMembers(view, sym *symbols.Symbol, ids *nodeIDs, 
 	node := &Node{ID: ids.take(), Kind: declKind(sym), Name: name, NameSynthesized: r.model.NameSynthesized(sym),
 		Type: declType(sym), Typings: r.declTypings(sym), Origin: symbolOrigin(sym), Geometry: r.geometryOf(view, sym, out),
 		Style: r.styleOf(view, sym, out)}
+	out.noteTreeSite(node, view, sym)
 	if seen[sym] {
 		node.Detail = detailWith(node.Detail, "already shown")
 		return node

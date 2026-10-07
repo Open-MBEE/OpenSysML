@@ -14,6 +14,7 @@ func TestPseudoViewsIncludeEverySupportedKnownKind(t *testing.T) {
 			}
 		}
 	}
+	known[KindMatrix] = true
 	for kind := range known {
 		got, ok := PseudoViewKind(string(kind))
 		if ok != kind.Supported() {

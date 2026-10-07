@@ -392,6 +392,7 @@ var constructFixtures = []string{
 	"decision_else",
 	"calc_context",
 	"interaction_context",
+	"viewpoint_concerns",
 	"parameter_sets",
 }
 
