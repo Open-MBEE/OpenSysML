@@ -372,7 +372,7 @@ table records what each rendering feature writes:
 | Styles and palettes | `classDef`/`class` fill applicable nodes by keyword family; palettes override Cameo fills. `Style` CSS covers Mermaid's supported node and edge fields; unsupported fields are listed in notices. Sequence palettes are accepted but cannot fill individual participants. Cluster anchors do not receive palette fills or count as model nodes. |
 | Notes | Flowchart notes are grouped as `notch-rect` nodes with dashed anchors and declared inside the innermost subgraph containing all their drawn anchors. Free notes and notes spanning roots stay at top level. State notes anchor to declared states; sequence notes anchor to participants or messages. Unsupported anchors and free sequence/state notes receive precise notices. |
 | Ports | Any node with a used port is a subgraph containing connected ports in declaration order, before its children; edge endpoints route through those port nodes. |
-| Pictures | Flowcharts write `img` shapes and geometry comments. Local images are embedded as data URLs by document backends; unreadable, unsupported and over-limit images are omitted with notices. State and sequence diagrams do not draw pictures. |
+| Pictures | Flowcharts write `img` shapes and geometry comments. Document backends inline safe local images as data URLs; a data URL's declared media type must match its recognized image bytes case-insensitively, and nested `data:image/svg+xml` hrefs are checked through four nested SVG levels. Active-content SVGs, malformed or over-deep nested SVGs and locations with non-`data:` URL schemes are omitted with reasoned notices, as are unreadable, unsupported and over-limit images. State and sequence diagrams do not draw pictures; refused pictures name their reason, while drawable ones receive the generic no-picture notice. |
 
 The expanded shapes `fr-circ`, `f-circ`, `fork`, `notch-rect` and `img` require Mermaid 11.3 or later; classic shapes are used where available. Mermaid cannot draw fork/join names, Cameo gradients as anything but flat fills, or the Cameo diagram frame and header tab. Sequence diagrams cannot fill individual participants; state diagrams cannot place free or edge-anchored notes; Mermaid's picture layout comments preserve geometry but do not control placement or z-order.
 
@@ -1010,6 +1010,10 @@ origins and bundled library declarations — is not linked.
 | D2 | Nodes, containers, pseudostate glyphs, edges and sequence lifelines and messages carry `link: "url"` after their `class`, which D2 draws as an SVG anchor for every one of them. Pins are not linked: a port's link is its owner's. |
 | Mermaid state diagram | Simple states are linked; composite states are not. |
 | Mermaid sequence diagram | Participants receive `link` statements; messages are not linked. Mermaid CLI 11.16.0 drops participant URL fragments in SVG. |
+| Run timeline, PlantUML | A lane links to its state-machine declaration; a span links only when it represents one state. Parallel spans with several active states are unlinked. |
+| Run timeline, Mermaid gantt | No links: `click`/`href` directives do not produce anchors in Mermaid CLI's SVG output. |
+| Run sequence, Mermaid and PlantUML | Object participants link to the declaration of their instance type. The environment participant and messages are unlinked because trace records have no message source site. |
+| Run text | No links; labels remain the recorded paths and states. |
 
 The writers emit no link syntax when links are disabled or no site is available.
 
@@ -1115,10 +1119,11 @@ tint, same contrast lightening, same hex per node — and a container's fill is 
 way, so an interconnection's outer part is tinted as its DOT cluster is. A `DiagramLayout::Style`
 writes its colours as `fill`, `stroke` and `font-color`, its size as `font-size` and bold and
 italic as `bold`/`italic`; a font family is noticed, D2 setting fonts per theme. A `cameo` style is
-noticed as not represented, as it is in PlantUML; notes and pictures are noticed, the `dot` form
-drawing them; positions and routes are kept as `# canvas:`, `# layout:` and `# route:` comments
-through the geometry-comment helpers the Mermaid and PlantUML forms share, D2 laying the diagram
-out itself. A `-render-link` template writes each located node's and edge's URL as `link: "…"`
+noticed as not represented, as it is in PlantUML; notes and drawable pictures are noticed, the
+`dot` form drawing them, while refused pictures receive reasoned notices; positions and routes are
+kept as `# canvas:`, `# layout:` and `# route:` comments through the geometry-comment helpers the
+Mermaid and PlantUML forms share, D2 laying the diagram out itself. A `-render-link` template writes
+each located node's and edge's URL as `link: "…"`
 beside its `class` — see [Source links](#source-links).
 
 ## Surfaces
@@ -1131,6 +1136,8 @@ refuse D2:
 | --- | --- | --- |
 | CLI | `-render <view> -render-form mermaid\|dot\|plantuml\|d2`; `-render-all <dir>` writes `.mmd`, `.dot`, `.puml` or `.d2`; `-render-palette <name>` fills nodes in each form where applicable | [`docs/reference/cli.md`](../reference/cli.md#rendering-a-view) |
 | REPL | `%render <view> mermaid\|dot\|plantuml\|d2 [palette] [pilot\|cameo]`; `%help` names the options; form, palette and style complete where accepted | [`docs/reference/repl-commands.md`](../reference/repl-commands.md#rendering-a-view) |
+| CLI run output | `-render-run timeline=<path>` or `sequence=<path>` writes text, Mermaid or PlantUML; `-render-link` links PlantUML timeline lanes and single-state spans and sequence participants; DOT is refused | [`docs/reference/cli.md`](../reference/cli.md#rendering-a-run) |
+| REPL run output | `%render-run timeline\|sequence [text\|mermaid\|plantuml\|dot] [link=<template>]` renders the recorded run without changing the session; links follow the CLI run-rendering rules | [`docs/reference/repl-commands.md`](../reference/repl-commands.md#rendering-a-run) |
 | LSP | `"form": "mermaid"`, `"dot"`, `"plantuml"` or `"d2"` and `"palette": "<name>"` on `opensysml/render`; `Rendering.Fills` carries each node's fill and border for clients drawing their own SVG | [`docs/reference/lsp.md`](../reference/lsp.md) |
 | VS Code | `SysML: Export Diagram` picks among the forms the server lists under its `openSysmlRenderForms` capability (the documented six for a server without it, which predates `csv` and `tsv`), sends the pick as `form`, and saves `.dot`, `.puml` or `.d2` (`.mmd`, `.md`, `.csv`, `.tsv`, `.txt` for the others) | [`docs/guide/08-editors.md`](../guide/08-editors.md#exporting-a-diagram) |
 | CLI, REPL, LSP, documents | `-render-style pilot\|cameo` beside `-render-palette`; `%render <view> mermaid [palette] [pilot\|cameo]`; `"style": "cameo"` on `opensysml/render` and the `openSysmlRenderStyles` capability; `docrender.MarkdownOptions.Style`/`HTMLOptions.Style` and `docpdf.Options.Style`. Unsupported style details receive a `not represented: style …` notice; an unknown name is a typed `*view.UnknownDrawingStyleError` | [`docs/reference/cli.md`](../reference/cli.md#rendering-a-view), [`docs/reference/repl-commands.md`](../reference/repl-commands.md#rendering-a-view), [`docs/reference/lsp.md`](../reference/lsp.md) |
@@ -1146,8 +1153,53 @@ render-form field — `RenderDocument` alone, to Markdown — so the wire contra
 and did not change. A view-render RPC added later would take the form as a string, as
 `-render-form` does.
 
+## Run renderings
+
+Run renderings describe a recorded execution, not a model view. A timeline is a new
+`view.KindTimeline`: no existing kind carries occupancy over time, and `KindState` is a graph of
+declared states rather than the states an object held during one run. A run sequence reuses
+`KindSequence` and its existing writers because both are lifelines with ordered messages.
+
+The timeline forms are text, Mermaid and PlantUML. Mermaid uses a compact Gantt chart with a
+shared time axis; Mermaid's `timeline` grammar groups categorical periods and has neither
+durations nor a shared time axis. PlantUML uses `concise` lifelines because parallel state
+configurations are free text rather than a fixed ordered state axis that `robust` requires. DOT
+is refused for both run kinds: it has no time axis, and the existing sequence writer also refuses
+DOT. With source links enabled, PlantUML timeline lanes link to machine declarations and spans
+link only when exactly one state is active; Mermaid gantt remains byte-identical because its
+`click` directives do not create anchors in Mermaid CLI SVGs. Run sequence links belong to object
+participants' type declarations, not messages or the environment participant.
+
+Each rendering is capped at 200 spans or messages for readability and to keep renderer input
+within practical text-size limits. Timelines select spans in stable time order, with lane order
+breaking ties, and retain only a prefix of each lane; a lane's last retained span ends no later than
+its first dropped span's start, preserving any earlier end across an inactive gap. Later state
+changes and messages are reported in a `not represented:` notice.
+Parallel-region state identity includes both the state path and region path, so same-named states in
+sibling regions remain separate leaves; colliding leaf names are disambiguated by the shortest
+trailing part of their paths, falling back to region paths when necessary. A termination record
+closes the lane's occupancy at that instant and adds a `terminate` mark without changing the
+legacy printed trace line.
+
+Sequence renderings pair nonzero message serials exactly. Serial-zero records retain the legacy
+FIFO pairing by event and target, using only serial-zero sends. When a recorder itself dropped
+earlier events, the rendering starts from the first kept state entry and reports that senders or
+acceptors of earlier messages may be missing.
+
+Run renderings are not embedded in documents. Document backends do not run behaviors:
+`-render-document` refuses `-state` and `-advance`, and a document `Diagram` kind selects a model
+rendering. Use `-render-run` or `%render-run` after executing the behavior instead. The LSP has
+no live run and therefore does not offer run rendering.
+
 ## Test contract
 
+- `internal/exec/runtrace`: text, Mermaid and PlantUML goldens for both run kinds; empty, capped,
+  truncated, guard, unmatched and broadcast-message cases; choice marks, self-transitions and
+  DOT refusal. `internal/ir/view/run_timeline_test.go` checks that timeline form support does not
+  make it a model view kind or a pseudo-view.
+- `cmd/sysml/render_run_test.go` and `internal/frontend/repl/run_render_test.go`: CLI artifact
+  output and incompatible modes, source links and invalid templates, and REPL output,
+  missing-trace handling, form refusal, link parsing and completion.
 - `internal/ir/view/general_test.go`: which filter shapes select which graph and which keep the
   tree (`@`/`@@`, `or`, the library's own lists, precedence, inherited filters, a filtered
   `expose`, relationships alone, `and`, `not`, user metadata, a mixture); an unresolved
@@ -1202,8 +1254,9 @@ and did not change. A view-render RPC added later would take the form as a strin
   and linkStyle indices including containment and note anchors; declared flowchart link endpoints
   for every golden model, palette and style; plain tree containment; anchored non-tree subgraphs;
   notes in all grammars; used-port subgraphs with children; empty decision symbols and quoted
-  note/fork strings; grammar-scoped theme variables; picture inlining and missing/unsupported-image
-  notices; and edge counting.
+  note/fork strings; grammar-scoped theme variables; safe picture inlining, active-SVG and remote
+  scheme refusals, nested-SVG validation and declared data-URL type checks, and
+  missing/unsupported-image notices; and edge counting.
   `TestMermaidRendersWithInstalledMMDC` is opt-in through `OPENSYSML_MMDC` and checks every
   Mermaid golden plus palette and Cameo variants with HTML labels both on and off.
 - `internal/ir/view/dot_style_test.go`, `palette_test.go`: the B&W defaults; a definition
@@ -1304,9 +1357,10 @@ and did not change. A view-render RPC added later would take the form as a strin
   turns on.
 - The D2 form cannot pin a position or a route either: DiagramLayout geometry is written as `#`
   comments and a notice counts it. D2 draws in one look — a `cameo` style is noticed — and sets
-  fonts per theme, so a `DiagramLayout::Style` font family is noticed; notes and pictures are
-  noticed, the `dot` form drawing them. A fork or join bar draws no label, and the pins no edge
-  ends at are counted in a notice, as in Mermaid. A `-render-link` template is written as `link:`
+  fonts per theme, so a `DiagramLayout::Style` font family is noticed; notes and drawable pictures
+  are noticed, the `dot` form drawing them, while refused pictures receive reasoned notices. A fork
+  or join bar draws no label, and the pins no edge ends at are counted in a notice, as in Mermaid.
+  A `-render-link` template is written as `link:`
   on every located node and edge, the lifelines and messages of a sequence included, and D2
   keeps each as an SVG anchor; pins carry none (`links-*-d2.golden`, and
   `TestLinkedFormsRenderAsSVG` compiles the linked form through a `d2` on the machine).
@@ -1322,8 +1376,12 @@ and did not change. A view-render RPC added later would take the form as a strin
   reports unsupported font families and state/sequence edge fields in a notice. Flowchart, state
   and sequence notes are drawn only when their anchors fit
   those grammars; free state/sequence notes and state notes on pseudostates are reported.
-- Mermaid flowcharts draw pictures as image nodes and document backends inline local image data.
-  Picture positions and z-order survive only as comments; state and sequence pictures are not drawn.
+- Mermaid flowcharts draw safe pictures as image nodes and document backends inline safe local
+  image data. A data URL's declared media type must match its recognized image bytes, and nested
+  `data:image/svg+xml` hrefs are checked through four nested SVG levels. Active-content SVGs,
+  malformed or over-deep nested SVGs and locations with non-`data:` URL schemes are refused with
+  notices; picture positions and z-order survive only as comments, and state and sequence
+  pictures are not drawn.
 - Binding connectors are not drawn at the Pilot's thickness 5: the interconnection rendering
   has no edge kind for them.
 - A palette fills nodes by keyword family only; colouring by a data attribute or query result is

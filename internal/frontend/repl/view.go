@@ -92,6 +92,41 @@ func (s *Session) doRender(name string, form view.Form, opts view.Options, overl
 	return lines, false, nil
 }
 
+// Rendered is what %render wrote: the lines of the artifact, and the form they
+// are in.
+type Rendered struct {
+	Form  view.Form
+	Lines []string
+}
+
+// UsageError is a %render or %render-document invocation the prompt would
+// answer with its usage rather than run: the lines it prints, for a front end
+// to show as the command's failure.
+type UsageError struct{ Lines []string }
+
+func (e *UsageError) Error() string {
+	if len(e.Lines) == 0 {
+		return "usage"
+	}
+	return strings.TrimPrefix(e.Lines[0], errPrefix)
+}
+
+// Render runs %render with its arguments and answers what it wrote, with the
+// form the lines are in. A usage problem is a *UsageError holding what the
+// prompt prints; a view that could not be rendered is an error.
+func (s *Session) Render(args []string) (Rendered, error) {
+	defer s.enter()()
+	name, form, opts, overlay, usage := parseRenderArgs(args)
+	if usage != nil {
+		return Rendered{}, &UsageError{Lines: usage}
+	}
+	lines, err := s.renderLines(name, form, opts, overlay)
+	if err != nil {
+		return Rendered{}, err
+	}
+	return Rendered{Form: form, Lines: lines}, nil
+}
+
 // renderForms are the forms %render writes, as its second argument spells them.
 func renderForms() []string {
 	out := make([]string, 0, len(view.Forms()))
@@ -538,6 +573,7 @@ func (r *reportRuntime) runtime() (*runtime.Context, error) {
 	if err := ctx.SetBudgets(r.session.budgets); err != nil {
 		return nil, err
 	}
+	ctx.SetInterrupt(r.session.interrupt)
 	// Recorded like the session's own evaluation, so a trace does not depend on
 	// which objects the report had to materialize.
 	ctx.SetTrace(r.session.trace)

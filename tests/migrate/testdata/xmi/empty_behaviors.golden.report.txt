@@ -4,7 +4,7 @@
 ## unmapped (6)
 CreateObjectAction	Gate::Cycle::main::<Transition>::effect::new log	_effGoCoolNew	-> 'new log'	(no edge leads to the node, so it starts with the activity; no v2 form for a UML CreateObjectAction)
 CreateObjectAction	Gate::Cycle::main::<Transition>::effect::new log	_effColdOffNew	-> 'new log'	(no edge leads to the node, so it starts with the activity; no v2 form for a UML CreateObjectAction)
-DestroyObjectAction	Gate::Cycle::main::Busy::open::drop log	_busyOpenOld	-> 'drop log'	(no edge leads to the node, so it starts with the activity; no v2 form for a UML DestroyObjectAction)
+DestroyObjectAction	Gate::Cycle::main::Busy::open::drop log	_busyOpenOld	-> 'drop log'	(no edge leads to the node, so it starts with the activity; the action has no target pin)
 CreateObjectAction	Gate::Cycle::main::Busy::open::new log	_busyOpenNew	-> 'new log'	(no edge leads to the node, so it starts with the activity; no v2 form for a UML CreateObjectAction)
 CreateObjectAction	Gate::Cycle::main::Cool::seal::new log	_coolSealNew	-> 'new log'	(no edge leads to the node, so it starts with the activity; no v2 form for a UML CreateObjectAction)
 CreateObjectAction	Gate::Cycle::main::Idle::spin::new log	_idleSpinNew	-> 'new log'	(no edge leads to the node, so it starts with the activity; no v2 form for a UML CreateObjectAction)

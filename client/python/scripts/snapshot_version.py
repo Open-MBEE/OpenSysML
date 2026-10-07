@@ -16,8 +16,10 @@ Both package versions rank below the release and its pre-releases. pip skips a
 development release unless asked for it by exact version or with ``--pre``, and
 npm publishes a snapshot under the ``nightly`` dist-tag, so neither registry's
 default install moves. With ``--stamp`` the versions are written into
-client/python/opensysml/_version.py and client/node/package.json of the checkout
-being built, which is never committed.
+client/python/opensysml/_version.py, client/node/package.json and
+client/jupyter-kernel/jupyter_opensysml_kernel/_version.py of the checkout
+being built, which is never committed; jupyter-opensysml-kernel is published
+at the PyPI version too.
 
 Usage:
     python client/python/scripts/snapshot_version.py --date 20261006 --commit abc1234 [--stamp]
@@ -51,6 +53,7 @@ check_version = _load_check_version()
 VersionError = check_version.VersionError
 VERSION_FILE = check_version.VERSION_FILE
 NODE_PACKAGE = check_version.NODE_PACKAGE
+KERNEL_VERSION_FILE = check_version.KERNEL_VERSION_FILE
 REPO_ROOT = check_version.REPO_ROOT
 TAG_PREFIX = check_version.TAG_PREFIX
 
@@ -132,7 +135,7 @@ def release_tag(date, commit):
     return f"{CHANNEL}-{date}-{commit}"
 
 
-def snapshot_versions(date, commit, declared=None, node=None, released=None):
+def snapshot_versions(date, commit, declared=None, node=None, released=None, kernel=None):
     """Every version a snapshot built on a date from a commit is published under.
 
     Args:
@@ -140,6 +143,8 @@ def snapshot_versions(date, commit, declared=None, node=None, released=None):
         commit (str): The abbreviated commit, lower-case hex
         declared (str, optional): Version _version.py declares; read when omitted
         node (str, optional): Version client/node/package.json declares; read when omitted
+        kernel (str, optional): Version jupyter_opensysml_kernel/_version.py
+            declares; read when omitted
         released (callable, optional): Whether a release tag exists, given the
             tag; the checkout's tags are listed when omitted
 
@@ -162,8 +167,10 @@ def snapshot_versions(date, commit, declared=None, node=None, released=None):
         )
     declared = check_version.declared_version() if declared is None else declared
     node = check_version.node_declared_version() if node is None else node
-    # The two clients are published at one version, so stamping starts from one too.
+    kernel = check_version.declared_version(KERNEL_VERSION_FILE) if kernel is None else kernel
+    # The packages are published at one version, so stamping starts from one too.
     check_version.node_version(declared=declared, node=node)
+    check_version.kernel_version(declared=declared, kernel=kernel)
     core = snapshot_core(declared, release_is_tagged if released is None else released)
     return {
         "core": core,
@@ -223,10 +230,16 @@ def stamp_node_manifest(version, package_json=NODE_PACKAGE):
         f.write(json.dumps(manifest, indent=2) + "\n")
 
 
-def stamp(versions, version_file=VERSION_FILE, package_json=NODE_PACKAGE):
-    """Write a snapshot's versions into both client manifests."""
+def stamp(
+    versions,
+    version_file=VERSION_FILE,
+    package_json=NODE_PACKAGE,
+    kernel_version_file=KERNEL_VERSION_FILE,
+):
+    """Write a snapshot's versions into every manifest the night publishes from."""
     stamp_version_file(versions["pypi"], version_file)
     stamp_node_manifest(versions["npm"], package_json)
+    stamp_version_file(versions["pypi"], kernel_version_file)
 
 
 def main(argv=None):
@@ -236,7 +249,7 @@ def main(argv=None):
     parser.add_argument(
         "--stamp",
         action="store_true",
-        help="write the versions into _version.py and client/node/package.json",
+        help="write the versions into both _version.py files and client/node/package.json",
     )
     args = parser.parse_args(argv)
     try:

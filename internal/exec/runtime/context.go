@@ -6,6 +6,7 @@ import (
 	"math"
 	"slices"
 	"strings"
+	"sync/atomic"
 
 	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
@@ -29,6 +30,9 @@ type Context struct {
 	took      *idMark
 	maxSteps  int64
 	instances map[int64]*Instance
+	// interrupt, when set, stops every run at its next step once raised: a
+	// shared flag, so a driver stops runs under way without holding them.
+	interrupt *atomic.Bool
 	// flowShares caches, by graph, whether two moves of its flow may touch what another does.
 	flowShares map[*lower.ActionGraph]bool
 	created    []int64
@@ -276,7 +280,8 @@ type Context struct {
 
 	// messages are the signals in flight, oldest first. The bus is context-wide,
 	// so a message one behavior sends can be accepted in another.
-	messages []Message
+	messages      []Message
+	messageSerial uint64
 	// bus counts what changed the messages in flight; writes counts the feature
 	// values written or restored. A machine's poll of the bus is memoized on them.
 	bus    busSerials
@@ -1030,6 +1035,9 @@ func (ctx *Context) endActivation(activation int64) {
 // The error names the effective budget and the variable that raises it.
 // The counter saturates at the int64 maximum rather than overflow.
 func (ctx *Context) incrementStep() error {
+	if ctx.interrupted() {
+		return ErrInterrupted
+	}
 	if ctx.run.steps >= ctx.maxSteps {
 		if ctx.run.steps < math.MaxInt64 {
 			ctx.run.steps++
@@ -1038,6 +1046,16 @@ func (ctx *Context) incrementStep() error {
 	}
 	ctx.run.steps++
 	return nil
+}
+
+// SetInterrupt installs the flag that stops this context's runs: once it is
+// raised, the next evaluation step, action step or state machine unit fails
+// with ErrInterrupted. The flag is shared, and the driver lowers it again.
+func (ctx *Context) SetInterrupt(flag *atomic.Bool) { ctx.interrupt = flag }
+
+// interrupted reports whether the interrupt flag is raised.
+func (ctx *Context) interrupted() bool {
+	return ctx.interrupt != nil && ctx.interrupt.Load()
 }
 
 // stepLimitExceeded reports the step budget spent, naming the variable that raises

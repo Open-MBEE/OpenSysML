@@ -57,6 +57,39 @@ func TestHTMLDiagramMermaidInlinesLocalPictures(t *testing.T) {
 	}
 }
 
+func TestHTMLDiagramMermaidRefusesUnsafePictures(t *testing.T) {
+	dir := t.TempDir()
+	active := filepath.Join(dir, "script.svg")
+	if err := os.WriteFile(active, []byte(`<svg xmlns="http://www.w3.org/2000/svg"><script/></svg>`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	rendering := &view.Rendering{
+		Kind:  view.KindInterconnection,
+		Roots: []*view.Node{{ID: "n", Kind: "part", Name: "pictured"}},
+		Pictures: []view.Picture{
+			{Location: active, X: 1, Y: 2, Width: 20, Height: 30},
+			{Location: "https://example.org/a.png", X: 3, Y: 4, Width: 40, Height: 50},
+		},
+	}
+	got := renderedFigure(t, "", rendering, "")
+	for _, unwanted := range []string{"data:image/svg+xml", "<script", `img: &#34;https://example.org/a.png`} {
+		if strings.Contains(got, unwanted) {
+			t.Errorf("HTML contains refused picture content %q:\n%s", unwanted, got)
+		}
+	}
+	if count := strings.Count(got, "&lt;script"); count != 1 {
+		t.Errorf("HTML has %d escaped script construct(s), want only the notice: %s", count, got)
+	}
+	for _, want := range []string{
+		"the SVG has active content (&lt;script&gt;)",
+		"remote pictures are not drawn",
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("HTML lacks escaped picture notice %q:\n%s", want, got)
+		}
+	}
+}
+
 // TestHTMLDiagramMermaidKinds checks every graph-shaped kind is Mermaid source
 // in a figure, drawn in the diagram's direction.
 func TestHTMLDiagramMermaidKinds(t *testing.T) {

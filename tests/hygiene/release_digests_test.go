@@ -67,6 +67,14 @@ func TestSharedDigestTablePinsEveryRecordedRelease(t *testing.T) {
 					t.Errorf("%s pins no digest for %s", tag, asset)
 				}
 			}
+			// Releases from the one that introduced the kernel pin it whole.
+			if pinsAny(pins, kernelAssets) {
+				for _, asset := range kernelAssets {
+					if pins[asset] == "" {
+						t.Errorf("%s pins some kernel binaries but no digest for %s", tag, asset)
+					}
+				}
+			}
 			continue
 		}
 		if _, listed := unpinnableReleases[tag]; listed {
@@ -79,6 +87,15 @@ func TestSharedDigestTablePinsEveryRecordedRelease(t *testing.T) {
 			"merge the chore/pin-%s pull request the tag's pipeline opened against develop, or run\n"+
 			"python3 client/python/scripts/pin_release_checksums.py --version %s --write", tag, tag, tag)
 	}
+}
+
+func pinsAny(pins map[string]string, assets []string) bool {
+	for _, asset := range assets {
+		if pins[asset] != "" {
+			return true
+		}
+	}
+	return false
 }
 
 // sharedPins is the shared table's pins for this repository, by release tag.

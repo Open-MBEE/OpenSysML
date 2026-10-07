@@ -816,9 +816,9 @@ func (e *StateExecutor) recordAccept(event Event, mark int, at float64) {
 	origin := TraceOrigin{At: at, Object: e.self, Behavior: e.stateMachine}
 	switch payload := event.Payload.(type) {
 	case Message:
-		tr.RecordAcceptAt(mark, origin, acceptedEventName(payload), payload.Payload)
+		tr.RecordAcceptAt(mark, origin, payload.Serial, acceptedEventName(payload), payload.Payload)
 	case Call:
-		tr.RecordAcceptAt(mark, origin, payload.Operation, payload.Args)
+		tr.RecordAcceptAt(mark, origin, 0, payload.Operation, payload.Args)
 	}
 }
 
@@ -2394,7 +2394,7 @@ func (e *StateExecutor) terminateMachine(fromName string, trigger ast.Node, stop
 	}
 	abandoned := e.abandonMachine()
 	if e.trace() != nil {
-		e.trace().RecordStateTerminate(name, abandoned)
+		e.trace().RecordStateTerminate(e.traceOrigin(), name, abandoned)
 	}
 	e.state = StateTerminated
 	e.ctx.endPerformanceLife(e.occurrence)
@@ -3683,6 +3683,9 @@ func (e *StateExecutor) counting(progress *dueProgress) func() {
 
 // countDoStep counts one token move of a do behavior against the run's do-step budget.
 func (e *StateExecutor) countDoStep() error {
+	if e.ctx.interrupted() {
+		return ErrInterrupted
+	}
 	e.progress.doSteps++
 	if e.progress.doSteps >= e.ctx.maxDoSteps {
 		return budgetExceeded(ErrDoStepLimitExceeded,
@@ -3885,6 +3888,9 @@ func doStepLabel(states []string) string {
 // dispatchOne is runStep's dispatch phase: a risen change condition fires, else
 // the next due event is dispatched; false when neither is there.
 func (e *StateExecutor) dispatchOne(progress *dueProgress) (bool, error) {
+	if e.ctx.interrupted() {
+		return false, ErrInterrupted
+	}
 	maxStateEvents := e.ctx.maxStateEvents
 	fired, err := e.pollChangeEvents()
 	if err != nil {
@@ -4103,7 +4109,7 @@ func (e *StateExecutor) stepDoAction(act *doAction, goOn func(*doRun) (*doRun, e
 
 	e.moved = true
 	if e.trace() != nil {
-		e.trace().RecordDoStep(e.traceOrigin(), act.state.Name)
+		e.trace().RecordDoStep(e.traceOrigin(), act.state.Name, e.StatePath(act.state), e.RegionPath(act.state))
 	}
 	if run == nil {
 		act.pending = act.pending[1:]
@@ -5244,8 +5250,11 @@ func (e *StateExecutor) performEntry(state *ast.StateNode) error {
 		e.stateVisits = append(e.stateVisits, state.Name)
 
 		// Record trace
-		if e.trace() != nil {
-			e.trace().RecordStateEntry(e.traceOrigin(), state.Name, len(e.behaviorsOf(state).Entry) > 0)
+		if trace := e.trace(); trace != nil {
+			trace.RecordStateEntryWithSource(
+				e.traceOrigin(), state.Name, e.StatePath(state), e.RegionPath(state),
+				len(e.behaviorsOf(state).Entry) > 0, e.stateSourceOrigin(state),
+			)
 		}
 	}
 
@@ -5372,7 +5381,10 @@ func (e *StateExecutor) exitState(state *ast.StateNode) error {
 
 	// Record trace
 	if !e.graph.HiddenStates[state] && e.trace() != nil {
-		e.trace().RecordStateExit(e.traceOrigin(), state.Name, len(e.behaviorsOf(state).Exit) > 0)
+		e.trace().RecordStateExitWithSource(
+			e.traceOrigin(), state.Name, e.StatePath(state), e.RegionPath(state),
+			len(e.behaviorsOf(state).Exit) > 0, e.stateSourceOrigin(state),
+		)
 	}
 
 	// Execute exit actions
@@ -5593,6 +5605,50 @@ func (e *StateExecutor) StatePath(state *ast.StateNode) string {
 		parts = append(parts, s.Name)
 	}
 	return strings.Join(append(parts, state.Name), ".")
+}
+
+func (e *StateExecutor) stateSourceOrigin(state *ast.StateNode) symbols.Origin {
+	doc := e.graph.DocOf(state)
+	if doc == "" && e.stateMachine != nil {
+		doc = e.stateMachine.DocName
+	}
+	return symbols.NodeOrigin(doc, state)
+}
+
+// RegionOf returns the innermost orthogonal region a state stands in, or nil
+// when the state is outside every region.
+func (e *StateExecutor) RegionOf(state *ast.StateNode) *ast.StateRegion {
+	for current := state; current != nil; current = e.graph.ParentState[current] {
+		if region := e.graph.RegionOf[current]; region != nil {
+			return region
+		}
+		if region := e.graph.HiddenRegionOf[current]; region != nil {
+			return region
+		}
+	}
+	return nil
+}
+
+// RegionPath qualifies the innermost region by the written states enclosing it.
+func (e *StateExecutor) RegionPath(state *ast.StateNode) string {
+	region := e.RegionOf(state)
+	if region == nil {
+		return ""
+	}
+	owner := e.graph.RegionOwner[region]
+	parts := make([]string, 0)
+	if owner != nil {
+		for _, enclosing := range e.EnclosingStates(owner) {
+			parts = append(parts, enclosing.Name)
+		}
+		if !e.graph.HiddenStates[owner] && owner.Name != "" {
+			parts = append(parts, owner.Name)
+		}
+	}
+	if region.Name != "" {
+		parts = append(parts, region.Name)
+	}
+	return strings.Join(parts, ".")
 }
 
 // trace returns the recorder this executor's context is attached to, so turning

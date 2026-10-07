@@ -25,27 +25,36 @@ func (r *Rendering) TextWidth(width int) string { return r.textWith(Options{Widt
 // draws.
 func (r *Rendering) textWith(options Options) string {
 	width := options.Width
+	pictureNotices := refusedPictureNotices(r.Pictures, r.pictureRefusals())
 	var b strings.Builder
-	if r.View == "" {
+	if r.Run {
+		fmt.Fprintf(&b, "run - %s rendering", r.Kind)
+	} else if r.View == "" {
 		fmt.Fprintf(&b, "%s rendering", r.Kind)
 	} else {
 		fmt.Fprintf(&b, "%s - %s rendering", r.View, r.Kind)
 	}
 	if r.Stated != "" {
 		fmt.Fprintf(&b, " (%s)", r.Stated)
-	} else {
+	} else if !r.Run {
 		b.WriteString(" (the view states no rendering; a tree is the default)")
 	}
 	b.WriteString("\n")
+	if r.Run && r.Kind == KindTimeline {
+		b.WriteString("\n")
+		writeRunTimelineText(&b, r)
+		writeNotices(&b, r.Notices)
+		return b.String()
+	}
 	if r.Empty() {
 		b.WriteString("\n" + r.EmptyReason() + "\n")
-		writeNotices(&b, r.Notices)
+		writeNotices(&b, slices.Concat(r.Notices, pictureNotices))
 		return b.String()
 	}
 	b.WriteString("\n")
 	if r.Kind.Tabular() {
 		writeTableText(&b, r.Columns, r.Rows, width)
-		writeNotices(&b, r.Notices)
+		writeNotices(&b, slices.Concat(r.Notices, pictureNotices))
 		return b.String()
 	}
 	if c := r.Canvas; c != nil {
@@ -84,7 +93,7 @@ func (r *Rendering) textWith(options Options) string {
 			b.WriteString(pictureText(picture) + "\n")
 		}
 	}
-	writeNotices(&b, slices.Concat(r.Notices, r.visualNotices(noStyleInText, false)))
+	writeNotices(&b, slices.Concat(r.Notices, pictureNotices, r.visualNotices(noStyleInText, false)))
 	return b.String()
 }
 
@@ -122,6 +131,14 @@ func noteText(note Note, labels map[string]string) string {
 // view whose exposed elements this kind of rendering cannot show, which the
 // notices then account for one by one.
 func (r *Rendering) EmptyReason() string {
+	if r.Run {
+		switch r.Kind {
+		case KindTimeline:
+			return "the run recorded no state; the rendering is empty"
+		case KindSequence:
+			return "the run recorded no message; the rendering is empty"
+		}
+	}
 	if r.emptyReason != "" {
 		return r.emptyReason
 	}
@@ -135,7 +152,7 @@ func (r *Rendering) EmptyReason() string {
 // blank reports whether a form that draws no picture shows nothing of the
 // rendering: it has no node, edge or row, whether or not it has pictures.
 func (r *Rendering) blank() bool {
-	return len(r.Roots) == 0 && len(r.Edges) == 0 && len(r.Rows) == 0
+	return len(r.Roots) == 0 && len(r.Edges) == 0 && len(r.Rows) == 0 && len(r.Lanes) == 0
 }
 
 // blankReason is EmptyReason or, for a rendering of pictures alone, that

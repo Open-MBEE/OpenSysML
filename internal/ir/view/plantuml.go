@@ -24,8 +24,8 @@ func (r *Rendering) PlantUML() (string, error) {
 // UnplacedStrip. Placement itself is written as comments, PlantUML having no
 // absolute positions; for pinned positions use the DOT form.
 func (r *Rendering) PlantUMLWith(options Options) (string, error) {
-	if !r.Kind.SupportsForm(FormPlantUML) {
-		return "", &WrongFormError{Form: FormPlantUML, Kind: r.Kind, View: r.View}
+	if !r.supportsForm(FormPlantUML) {
+		return "", r.wrongFormError(FormPlantUML)
 	}
 	if err := options.Palette.check(); err != nil {
 		return "", err
@@ -35,6 +35,9 @@ func (r *Rendering) PlantUMLWith(options Options) (string, error) {
 	}
 	if err := options.Ports.check(); err != nil {
 		return "", err
+	}
+	if r.Run && r.Kind == KindTimeline {
+		return r.runTimelinePlantUML(options), nil
 	}
 	r = r.settleUnplaced(options.Unplaced, FormPlantUML)
 	w := &plantumlWriter{kind: r.Kind, borders: r.Kind.paletteBorders(), fills: familyFills{palette: options.Palette, tree: r.Kind == KindTree},
@@ -72,7 +75,9 @@ func (r *Rendering) PlantUMLWith(options Options) (string, error) {
 	notices = append(notices, r.visualNotices(noFontOrEdgeStyle, true)...)
 	b := &w.b
 	b.WriteString("@startuml\n")
-	if r.View == "" {
+	if r.Run {
+		fmt.Fprintf(b, "' run — %s rendering", r.Kind)
+	} else if r.View == "" {
 		fmt.Fprintf(b, "' %s rendering", r.Kind)
 	} else {
 		fmt.Fprintf(b, "' %s — %s rendering", r.View, r.Kind)
@@ -459,7 +464,11 @@ func (w *plantumlWriter) writeSequenceDiagram(r *Rendering) {
 		return
 	}
 	for _, node := range r.Roots {
-		fmt.Fprintf(b, "participant %s as %s%s\n", plantumlQuote(w.plantumlLabel(node)), node.ID, w.decoration(node))
+		label := w.plantumlLabel(node)
+		if r.Run {
+			label = plantumlText(runParticipantLabel(node))
+		}
+		fmt.Fprintf(b, "participant %s as %s%s\n", plantumlQuote(label), node.ID, w.decoration(node))
 	}
 	for _, edge := range r.Edges {
 		w.writeArrowEdge(edge, edge.From, edge.To, true)
@@ -686,7 +695,7 @@ func plantumlText(text string) string {
 		switch {
 		case c == '\n':
 			out.WriteString(`\n`)
-		case strings.ContainsRune(`"\<>~`, c),
+		case strings.ContainsRune(`"#\<>~`, c),
 			strings.ContainsRune("*/_-[]", c) && (i > 0 && runes[i-1] == c || i+1 < len(runes) && runes[i+1] == c):
 			fmt.Fprintf(&out, "<U+%04X>", c)
 		default:

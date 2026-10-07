@@ -105,6 +105,9 @@ type ActionExecutor struct {
 // chargeActionStep spends one step of the action's token-flow budget
 // (MaxActionStepsEnvVar), which the tokens of every flow of the run share.
 func (e *ActionExecutor) chargeActionStep() error {
+	if e.ctx.interrupted() {
+		return ErrInterrupted
+	}
 	if e.stepsSpent+e.steps >= e.ctx.maxActionSteps {
 		return budgetExceeded(ErrActionStepLimitExceeded,
 			fmt.Sprintf("execution exceeded max steps (%d steps; raise %s to allow more), possible infinite loop",
@@ -2662,7 +2665,7 @@ func (e *ActionExecutor) awaitSignal(token *Token, accept lower.Accept, usage *a
 	token.Wait = nil
 	if tr := e.trace(); tr != nil {
 		tr.RecordAccept(TraceOrigin{At: e.ctx.clock.now, Object: e.self, Behavior: e.action},
-			acceptedEventName(msg), msg.Payload)
+			msg.Serial, acceptedEventName(msg), msg.Payload)
 	}
 	if accept.ParamName == "" {
 		return nil, true, nil

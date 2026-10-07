@@ -15,6 +15,29 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
+func TestMermaidStateAndSequencePictureNotices(t *testing.T) {
+	for _, kind := range []Kind{KindState, KindSequence} {
+		t.Run(string(kind), func(t *testing.T) {
+			rendering, _, _ := hardeningPictureRendering(t)
+			rendering.Kind = kind
+			rendering.Pictures = []Picture{rendering.Pictures[0], rendering.Pictures[2]}
+			want := []string{
+				pictureNotice([]Picture{rendering.Pictures[0]}, "the SVG has active content (<script>)"),
+				pictureNotice([]Picture{rendering.Pictures[1]}, fmt.Sprintf("a %s diagram draws no picture", kind)),
+			}
+			got := rendering.mermaidPictureNotices()
+			if len(got) != len(want) {
+				t.Fatalf("mermaidPictureNotices() = %v, want %v", got, want)
+			}
+			for i := range want {
+				if got[i] != want[i] {
+					t.Errorf("notice %d = %q, want %q", i, got[i], want[i])
+				}
+			}
+		})
+	}
+}
+
 func TestMermaidFlowchartShapes(t *testing.T) {
 	labels := labeller{}
 	cases := []struct {

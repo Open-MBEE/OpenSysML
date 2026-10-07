@@ -106,6 +106,7 @@ var (
 	debugMode        bool
 	quietMode        bool
 	traceMode        bool
+	renderRuns       stringSlice
 	schedule         schedulePolicy
 	listEngines      bool
 	probeEngines     bool
@@ -395,7 +396,18 @@ func runCLI() int {
 	// Get positional arguments (files to load)
 	args := flag.Args()
 
-	if renderForm != "" && renderView == "" && renderAllDir == "" {
+	if flagGiven("render-run") {
+		if message := runRenderModeMisuse(); message != "" {
+			fmt.Fprintln(os.Stderr, errPrefix, message)
+			return 2
+		}
+		if _, err := runRenderTargetsFromFlags(); err != nil {
+			fmt.Fprintln(os.Stderr, errPrefix, err)
+			return 2
+		}
+	}
+
+	if renderForm != "" && renderView == "" && renderAllDir == "" && len(renderRuns) == 0 {
 		fmt.Fprintln(os.Stderr, "sysml: -render-form is the form -render or -render-all writes; name the view to render with -render or a directory with -render-all")
 		return 2
 	}
@@ -407,8 +419,8 @@ func runCLI() int {
 		fmt.Fprintln(os.Stderr, "sysml: -render-overlay is what -render or -render-all draws over a requirement rendering's structure; name the view to render with -render or a directory with -render-all")
 		return 2
 	}
-	if renderLink != "" && renderView == "" && renderAllDir == "" && renderDoc == "" && renderDocsDir == "" {
-		fmt.Fprintln(os.Stderr, "sysml: -render-link links rendered elements to their source; name what to render with -render, -render-all, -render-document or -render-documents")
+	if renderLink != "" && renderView == "" && renderAllDir == "" && renderDoc == "" && renderDocsDir == "" && len(renderRuns) == 0 {
+		fmt.Fprintln(os.Stderr, "sysml: -render-link links rendered elements to their source; name what to render with -render, -render-all, -render-document, -render-documents or -render-run")
 		return 2
 	}
 	if renderPorts != "" && renderView == "" && renderAllDir == "" {

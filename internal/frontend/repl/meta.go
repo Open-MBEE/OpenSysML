@@ -29,7 +29,10 @@ import (
 
 // renderUsage is how %render is written: a view, the form to write it in, text
 // when none is named, then a palette, style and port display the form draws.
-const renderUsage = "usage: %render <name> [text|mermaid|markdown|dot|plantuml|d2|csv|tsv [palette] [pilot|cameo] [minimal|full] [verdicts] [link=<template>]]"
+const (
+	renderUsage    = "usage: %render <name> [text|mermaid|markdown|dot|plantuml|d2|csv|tsv [palette] [pilot|cameo] [minimal|full] [verdicts] [link=<template>]]"
+	renderRunUsage = "usage: %render-run <timeline|sequence> [text|mermaid|plantuml|dot] [link=<template>]"
+)
 
 // isMeta reports whether a trimmed input line is a meta command.
 func isMeta(line string) bool {
@@ -231,6 +234,7 @@ var metaCommandTable = []metaCommand{
 	{name: cmdSamples, group: groupBehavioral, args: "<n> <seed> <name>[(<args>)] [<object>] <p>=<from>..<to>...", desc: "run an analysis case or calc over <n> values drawn uniformly from each range with the given seed, and print the table"},
 	{name: cmdRuns, group: groupBehavioral, args: "<n> [<seed>] <action> [<observable>...]", desc: "run an action <n> times, each run's modeled randomness seeded from the given seed — left out under %draws min, max or average — and print the table of the observables with each one's distribution"},
 	{name: cmdRunQuery, group: groupBehavioral, args: "<name> [<p>=<expr>...]", desc: "execute a document query and print its rows, with each binding written as <parameter>=<expression>"},
+	{name: "%render-run", group: groupBehavioral, args: "<timeline|sequence> [form] [link=<template>]", desc: "render the recorded run as a state timeline or message sequence, optionally linking declarations to their source"},
 	{name: cmdRenderDocument, group: groupBehavioral, args: "<name> [mermaid|dot|plantuml|d2 [pilot|cameo]]", desc: "compile a document definition, run its queries and print the rendered Markdown, its graph-shaped diagrams as Mermaid, Graphviz DOT, PlantUML or D2"},
 	{name: "%constraint", group: groupBehavioral, args: argName, desc: "evaluate a constraint definition"},
 	{name: "%requirement", group: groupBehavioral, args: argName, desc: "evaluate a requirement definition"},
@@ -442,6 +446,8 @@ func (s *Session) metaSessionCommand(fields []string, line string) (metaResult, 
 		return metaOut(s.doView(fields[1])), true
 	case "%render":
 		return metaOut(s.metaRender(fields[1:])), true
+	case "%render-run":
+		return metaOut(s.metaRenderRun(fields[1:])), true
 	case "%quit", "%exit":
 		return metaOut([]string{"goodbye"}, true, nil), true
 	}
@@ -490,65 +496,78 @@ func (s *Session) doTrace(args []string) []string {
 // metaRender reads the %render name, form and optional rendering settings,
 // including a source-link template, then renders the view they name.
 func (s *Session) metaRender(args []string) ([]string, bool, error) {
-	if len(args) < 1 || len(args) > 6 {
-		return []string{renderUsage}, false, nil
+	name, form, opts, overlay, usage := parseRenderArgs(args)
+	if usage != nil {
+		return usage, false, nil
 	}
-	form := view.FormText
+	return s.doRender(name, form, opts, overlay)
+}
+
+// renderUsageOf is what parseRenderArgs answers when the arguments do not read.
+func renderUsageOf(line string) (string, view.Form, view.Options, view.Overlay, []string) {
+	return "", "", view.Options{}, "", []string{line}
+}
+
+// parseRenderArgs reads %render's arguments: the view, the form and the options
+// after it; usage is what to print instead when they do not read.
+func parseRenderArgs(args []string) (name string, form view.Form, opts view.Options, overlay view.Overlay, usage []string) {
+	if len(args) < 1 || len(args) > 6 {
+		return renderUsageOf(renderUsage)
+	}
+	form = view.FormText
 	if len(args) >= 2 {
 		form = view.Form(args[1])
 		if !slices.Contains(view.Forms(), form) {
-			return []string{fmt.Sprintf("unknown form %q; %s", args[1], renderUsage)}, false, nil
+			return renderUsageOf(fmt.Sprintf("unknown form %q; %s", args[1], renderUsage))
 		}
 	}
-	var opts view.Options
-	var overlay view.Overlay
 	linkSet := false
 	for _, word := range args[min(2, len(args)):] {
 		if o, ok := view.ParseOverlay(word); ok && o != "" {
 			if overlay != "" {
-				return []string{renderUsage}, false, nil
+				return renderUsageOf(renderUsage)
 			}
 			overlay = o
 			continue
 		}
 		if strings.HasPrefix(word, "link=") {
 			if linkSet {
-				return []string{renderUsage}, false, nil
+				return renderUsageOf(renderUsage)
 			}
 			opts.Links.Template = strings.TrimPrefix(word, "link=")
 			if err := view.ParseLinkTemplate(opts.Links.Template); err != nil {
-				return []string{err.Error() + "; " + renderUsage}, false, nil
+				return renderUsageOf(err.Error() + "; " + renderUsage)
 			}
 			linkSet = true
 			continue
 		}
 		if style, ok := view.ParseDrawingStyle(word); ok {
 			if opts.Style != "" {
-				return []string{renderUsage}, false, nil
+				return renderUsageOf(renderUsage)
 			}
 			opts.Style = style
 			continue
 		}
 		if ports, ok := view.ParsePorts(word); ok {
 			if opts.Ports != "" {
-				return []string{renderUsage}, false, nil
+				return renderUsageOf(renderUsage)
 			}
 			opts.Ports = ports
 			continue
 		}
 		if !form.TakesPalette() {
-			return []string{fmt.Sprintf("a palette fills the mermaid, dot, plantuml and d2 forms only, not %s; %s", form, renderUsage)}, false, nil
+			return renderUsageOf(fmt.Sprintf("a palette fills the mermaid, dot, plantuml and d2 forms only, not %s; %s", form, renderUsage))
 		}
 		palette, ok := view.ParsePalette(word)
 		if !ok {
-			return []string{(&view.UnknownPaletteError{Name: word}).Error() + "; " + renderUsage}, false, nil
+			return renderUsageOf((&view.UnknownPaletteError{Name: word}).Error() + "; " + renderUsage)
 		}
 		if opts.Palette != "" {
-			return []string{renderUsage}, false, nil
+			return renderUsageOf(renderUsage)
 		}
 		opts.Palette = palette
 	}
-	return s.doRender(args[0], form, opts, overlay)
+	return args[0], form, opts, overlay, nil
 }
 
 // metaModelCommand runs a model-level command, reporting whether the line
