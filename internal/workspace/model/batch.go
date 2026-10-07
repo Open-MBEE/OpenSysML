@@ -76,16 +76,20 @@ func (w *Workspace) SetOnDiskAll(inputs []Input) {
 }
 
 // recordOnDisk records each input's content as its file's, and returns the
-// inputs whose name has no open buffer: those the files' content is held for.
+// inputs whose name has no open buffer, each of the kind of the document it replaces.
 func (w *Workspace) recordOnDisk(inputs []Input) []Input {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	closed := make([]Input, 0, len(inputs))
 	for _, in := range inputs {
 		w.onDisk[in.Name] = bytes.Clone(in.Content)
-		if !w.open[in.Name] {
-			closed = append(closed, in)
+		if w.open[in.Name] {
+			continue
 		}
+		if held := w.docs[in.Name]; held != nil && in.Kind == source.KindUnknown {
+			in.Kind = held.Kind()
+		}
+		closed = append(closed, in)
 	}
 	return closed
 }
@@ -97,13 +101,13 @@ func (w *Workspace) installBatch(inputs []Input, open bool) {
 		return
 	}
 	was := w.reserveBatch(inputs)
-	recs := w.cachedRecords(inputs)
+	recs, keys := w.cachedRecords(inputs)
 	docs := make([]batchDoc, len(inputs))
 	ParallelFor(w.Workers(), len(inputs), func(i int) {
 		in := inputs[i]
 		if rec := recs[i]; rec != nil {
 			if scope, err := symbols.BuildRecorded(rec.Scope, rec.Name); err == nil {
-				docs[i] = batchDoc{rec: rec, scope: scope, content: bytes.Clone(in.Content), version: in.Version}
+				docs[i] = batchDoc{rec: rec, key: keys[i], scope: scope, content: bytes.Clone(in.Content), version: in.Version}
 				return
 			}
 		}
@@ -112,10 +116,12 @@ func (w *Workspace) installBatch(inputs []Input, open bool) {
 	w.commitBatch(was, docs, open)
 }
 
-// batchDoc is one document a batch installs: parsed, or built from its record.
+// batchDoc is one document a batch installs: parsed, or built from its record,
+// with the key the record was found under.
 type batchDoc struct {
 	doc     *Document
 	rec     *libs.InterfaceRecord
+	key     string
 	scope   *symbols.Scope
 	content []byte
 	version int
@@ -128,16 +134,16 @@ func (d batchDoc) name() string {
 	return d.rec.Name
 }
 
-// cachedRecords is the record cache's record of each input's content, nil where
-// there is none, no cache, or the record answers another question.
-func (w *Workspace) cachedRecords(inputs []Input) []*libs.InterfaceRecord {
+// cachedRecords is the record cache's record of each input's content and the
+// key it was found under; nil where there is none or the record answers another question.
+func (w *Workspace) cachedRecords(inputs []Input) ([]*libs.InterfaceRecord, []string) {
 	recs := make([]*libs.InterfaceRecord, len(inputs))
+	keys := make([]string, len(inputs))
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	if w.records == nil {
-		return recs
+		return recs, keys
 	}
-	keys := make([]string, len(inputs))
 	for i, in := range inputs {
 		if !in.Transient {
 			keys[i], _ = w.recordKeyLocked(in.Name, in.Content)
@@ -153,7 +159,7 @@ func (w *Workspace) cachedRecords(inputs []Input) []*libs.InterfaceRecord {
 			}
 		}
 	})
-	return recs
+	return recs, keys
 }
 
 func inputKind(in Input) source.Kind {
@@ -178,8 +184,7 @@ func (w *Workspace) reserveBatch(inputs []Input) map[string]uint64 {
 
 // commitBatch installs the parsed and recorded documents whose name is as the
 // batch reserved it; a name changed since keeps its newer state. A record whose
-// provenance does not hold among the documents installed is parsed in its place.
-// The parsed documents are marked open when open says so.
+// provenance or key does not hold once the batch is in is parsed in its place.
 func (w *Workspace) commitBatch(was map[string]uint64, docs []batchDoc, open bool) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
@@ -218,7 +223,12 @@ func (w *Workspace) commitBatch(was map[string]uint64, docs []batchDoc, open boo
 	}
 	var stale []string
 	for _, name := range recorded {
-		if doc := w.docs[name]; doc.Recorded() && !byName[name].rec.Provenance.Valid(src) {
+		doc := w.docs[name]
+		if !doc.Recorded() {
+			continue
+		}
+		// A library version among the documents moves the identity the key names.
+		if key, ok := w.recordKeyLocked(name, doc.Content); !ok || key != byName[name].key || !byName[name].rec.Provenance.Valid(src) {
 			stale = append(stale, name)
 		}
 	}
