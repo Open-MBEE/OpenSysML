@@ -188,6 +188,7 @@ elmt:Branches__Charge___403
     sysml:connectorEnd expr:Branches__Charge___403_pend0, expr:Branches__Charge___403_pend1 ;
     sysml:ownedRelationship expr:Branches__Charge___403_pend0_om, expr:Branches__Charge___403_pend1_om ;
     sysml:ownedMembership expr:Branches__Charge___403_pend0_om, expr:Branches__Charge___403_pend1_om ;
+    sysml:ownedMember expr:Branches__Charge___403_pend0, expr:Branches__Charge___403_pend1 ;
     sysml:ownedFeatureMembership expr:Branches__Charge___403_pend0_om, expr:Branches__Charge___403_pend1_om ;
     sysml:ownedFeature expr:Branches__Charge___403_pend0, expr:Branches__Charge___403_pend1 ;
     sysml:ownedEndFeature expr:Branches__Charge___403_pend0, expr:Branches__Charge___403_pend1 ;
@@ -197,6 +198,7 @@ elmt:Branches__Charge___403
     json:connectorEnd "[{\"@id\":\"Branches__Charge___403_pend0\"},{\"@id\":\"Branches__Charge___403_pend1\"}]" ;
     json:ownedRelationship "[{\"@id\":\"Branches__Charge___403_pend0_om\"},{\"@id\":\"Branches__Charge___403_pend1_om\"}]" ;
     json:ownedMembership "[{\"@id\":\"Branches__Charge___403_pend0_om\"},{\"@id\":\"Branches__Charge___403_pend1_om\"}]" ;
+    json:ownedMember "[{\"@id\":\"Branches__Charge___403_pend0\"},{\"@id\":\"Branches__Charge___403_pend1\"}]" ;
     json:ownedFeatureMembership "[{\"@id\":\"Branches__Charge___403_pend0_om\"},{\"@id\":\"Branches__Charge___403_pend1_om\"}]" ;
     json:ownedFeature "[{\"@id\":\"Branches__Charge___403_pend0\"},{\"@id\":\"Branches__Charge___403_pend1\"}]" ;
     json:ownedEndFeature "[{\"@id\":\"Branches__Charge___403_pend0\"},{\"@id\":\"Branches__Charge___403_pend1\"}]" .
@@ -487,6 +489,7 @@ elmt:Branches__Charge___404_succession
     sysml:connectorEnd expr:Branches__Charge___404_succession_pend0, expr:Branches__Charge___404_succession_pend1 ;
     sysml:ownedRelationship expr:Branches__Charge___404_succession_pend0_om, expr:Branches__Charge___404_succession_pend1_om ;
     sysml:ownedMembership expr:Branches__Charge___404_succession_pend0_om, expr:Branches__Charge___404_succession_pend1_om ;
+    sysml:ownedMember expr:Branches__Charge___404_succession_pend0, expr:Branches__Charge___404_succession_pend1 ;
     sysml:ownedFeatureMembership expr:Branches__Charge___404_succession_pend0_om, expr:Branches__Charge___404_succession_pend1_om ;
     sysml:ownedFeature expr:Branches__Charge___404_succession_pend0, expr:Branches__Charge___404_succession_pend1 ;
     sysml:ownedEndFeature expr:Branches__Charge___404_succession_pend0, expr:Branches__Charge___404_succession_pend1 ;
@@ -496,6 +499,7 @@ elmt:Branches__Charge___404_succession
     json:connectorEnd "[{\"@id\":\"Branches__Charge___404_succession_pend0\"},{\"@id\":\"Branches__Charge___404_succession_pend1\"}]" ;
     json:ownedRelationship "[{\"@id\":\"Branches__Charge___404_succession_pend0_om\"},{\"@id\":\"Branches__Charge___404_succession_pend1_om\"}]" ;
     json:ownedMembership "[{\"@id\":\"Branches__Charge___404_succession_pend0_om\"},{\"@id\":\"Branches__Charge___404_succession_pend1_om\"}]" ;
+    json:ownedMember "[{\"@id\":\"Branches__Charge___404_succession_pend0\"},{\"@id\":\"Branches__Charge___404_succession_pend1\"}]" ;
     json:ownedFeatureMembership "[{\"@id\":\"Branches__Charge___404_succession_pend0_om\"},{\"@id\":\"Branches__Charge___404_succession_pend1_om\"}]" ;
     json:ownedFeature "[{\"@id\":\"Branches__Charge___404_succession_pend0\"},{\"@id\":\"Branches__Charge___404_succession_pend1\"}]" ;
     json:ownedEndFeature "[{\"@id\":\"Branches__Charge___404_succession_pend0\"},{\"@id\":\"Branches__Charge___404_succession_pend1\"}]" .
@@ -784,6 +788,7 @@ elmt:Branches__Charge___405_succession
     sysml:connectorEnd expr:Branches__Charge___405_succession_pend0, expr:Branches__Charge___405_succession_pend1 ;
     sysml:ownedRelationship expr:Branches__Charge___405_succession_pend0_om, expr:Branches__Charge___405_succession_pend1_om ;
     sysml:ownedMembership expr:Branches__Charge___405_succession_pend0_om, expr:Branches__Charge___405_succession_pend1_om ;
+    sysml:ownedMember expr:Branches__Charge___405_succession_pend0, expr:Branches__Charge___405_succession_pend1 ;
     sysml:ownedFeatureMembership expr:Branches__Charge___405_succession_pend0_om, expr:Branches__Charge___405_succession_pend1_om ;
     sysml:ownedFeature expr:Branches__Charge___405_succession_pend0, expr:Branches__Charge___405_succession_pend1 ;
     sysml:ownedEndFeature expr:Branches__Charge___405_succession_pend0, expr:Branches__Charge___405_succession_pend1 ;
@@ -793,6 +798,7 @@ elmt:Branches__Charge___405_succession
     json:connectorEnd "[{\"@id\":\"Branches__Charge___405_succession_pend0\"},{\"@id\":\"Branches__Charge___405_succession_pend1\"}]" ;
     json:ownedRelationship "[{\"@id\":\"Branches__Charge___405_succession_pend0_om\"},{\"@id\":\"Branches__Charge___405_succession_pend1_om\"}]" ;
     json:ownedMembership "[{\"@id\":\"Branches__Charge___405_succession_pend0_om\"},{\"@id\":\"Branches__Charge___405_succession_pend1_om\"}]" ;
+    json:ownedMember "[{\"@id\":\"Branches__Charge___405_succession_pend0\"},{\"@id\":\"Branches__Charge___405_succession_pend1\"}]" ;
     json:ownedFeatureMembership "[{\"@id\":\"Branches__Charge___405_succession_pend0_om\"},{\"@id\":\"Branches__Charge___405_succession_pend1_om\"}]" ;
     json:ownedFeature "[{\"@id\":\"Branches__Charge___405_succession_pend0\"},{\"@id\":\"Branches__Charge___405_succession_pend1\"}]" ;
     json:ownedEndFeature "[{\"@id\":\"Branches__Charge___405_succession_pend0\"},{\"@id\":\"Branches__Charge___405_succession_pend1\"}]" .
@@ -1167,6 +1173,7 @@ elmt:Branches__Charge___409_succession
     sysml:connectorEnd expr:Branches__Charge___409_succession_pend0, expr:Branches__Charge___409_succession_pend1 ;
     sysml:ownedRelationship expr:Branches__Charge___409_succession_pend0_om, expr:Branches__Charge___409_succession_pend1_om ;
     sysml:ownedMembership expr:Branches__Charge___409_succession_pend0_om, expr:Branches__Charge___409_succession_pend1_om ;
+    sysml:ownedMember expr:Branches__Charge___409_succession_pend0, expr:Branches__Charge___409_succession_pend1 ;
     sysml:ownedFeatureMembership expr:Branches__Charge___409_succession_pend0_om, expr:Branches__Charge___409_succession_pend1_om ;
     sysml:ownedFeature expr:Branches__Charge___409_succession_pend0, expr:Branches__Charge___409_succession_pend1 ;
     sysml:ownedEndFeature expr:Branches__Charge___409_succession_pend0, expr:Branches__Charge___409_succession_pend1 ;
@@ -1176,6 +1183,7 @@ elmt:Branches__Charge___409_succession
     json:connectorEnd "[{\"@id\":\"Branches__Charge___409_succession_pend0\"},{\"@id\":\"Branches__Charge___409_succession_pend1\"}]" ;
     json:ownedRelationship "[{\"@id\":\"Branches__Charge___409_succession_pend0_om\"},{\"@id\":\"Branches__Charge___409_succession_pend1_om\"}]" ;
     json:ownedMembership "[{\"@id\":\"Branches__Charge___409_succession_pend0_om\"},{\"@id\":\"Branches__Charge___409_succession_pend1_om\"}]" ;
+    json:ownedMember "[{\"@id\":\"Branches__Charge___409_succession_pend0\"},{\"@id\":\"Branches__Charge___409_succession_pend1\"}]" ;
     json:ownedFeatureMembership "[{\"@id\":\"Branches__Charge___409_succession_pend0_om\"},{\"@id\":\"Branches__Charge___409_succession_pend1_om\"}]" ;
     json:ownedFeature "[{\"@id\":\"Branches__Charge___409_succession_pend0\"},{\"@id\":\"Branches__Charge___409_succession_pend1\"}]" ;
     json:ownedEndFeature "[{\"@id\":\"Branches__Charge___409_succession_pend0\"},{\"@id\":\"Branches__Charge___409_succession_pend1\"}]" .
@@ -1288,6 +1296,7 @@ elmt:Branches__Charge___4010_succession
     sysml:connectorEnd expr:Branches__Charge___4010_succession_pend0, expr:Branches__Charge___4010_succession_pend1 ;
     sysml:ownedRelationship expr:Branches__Charge___4010_succession_pend0_om, expr:Branches__Charge___4010_succession_pend1_om ;
     sysml:ownedMembership expr:Branches__Charge___4010_succession_pend0_om, expr:Branches__Charge___4010_succession_pend1_om ;
+    sysml:ownedMember expr:Branches__Charge___4010_succession_pend0, expr:Branches__Charge___4010_succession_pend1 ;
     sysml:ownedFeatureMembership expr:Branches__Charge___4010_succession_pend0_om, expr:Branches__Charge___4010_succession_pend1_om ;
     sysml:ownedFeature expr:Branches__Charge___4010_succession_pend0, expr:Branches__Charge___4010_succession_pend1 ;
     sysml:ownedEndFeature expr:Branches__Charge___4010_succession_pend0, expr:Branches__Charge___4010_succession_pend1 ;
@@ -1297,6 +1306,7 @@ elmt:Branches__Charge___4010_succession
     json:connectorEnd "[{\"@id\":\"Branches__Charge___4010_succession_pend0\"},{\"@id\":\"Branches__Charge___4010_succession_pend1\"}]" ;
     json:ownedRelationship "[{\"@id\":\"Branches__Charge___4010_succession_pend0_om\"},{\"@id\":\"Branches__Charge___4010_succession_pend1_om\"}]" ;
     json:ownedMembership "[{\"@id\":\"Branches__Charge___4010_succession_pend0_om\"},{\"@id\":\"Branches__Charge___4010_succession_pend1_om\"}]" ;
+    json:ownedMember "[{\"@id\":\"Branches__Charge___4010_succession_pend0\"},{\"@id\":\"Branches__Charge___4010_succession_pend1\"}]" ;
     json:ownedFeatureMembership "[{\"@id\":\"Branches__Charge___4010_succession_pend0_om\"},{\"@id\":\"Branches__Charge___4010_succession_pend1_om\"}]" ;
     json:ownedFeature "[{\"@id\":\"Branches__Charge___4010_succession_pend0\"},{\"@id\":\"Branches__Charge___4010_succession_pend1\"}]" ;
     json:ownedEndFeature "[{\"@id\":\"Branches__Charge___4010_succession_pend0\"},{\"@id\":\"Branches__Charge___4010_succession_pend1\"}]" .
