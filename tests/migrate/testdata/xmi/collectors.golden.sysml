@@ -91,7 +91,11 @@ package Drafts {
     metadata MigrationMetadata::SynthesizedName about unnamed;
 }
 package 'Yard Viewpoints' {
-    viewpoint 'Block Diagrams Viewpoint' {
+    view def 'Block Diagrams Viewpoint' {
+        viewpoint 'block Diagrams Viewpoint' {
+            subject;
+        }
+        satisfy 'block Diagrams Viewpoint';
         action def 'Block Diagrams Method' {
             first start then 'Filter By Diagram Type';
             action 'Filter By Diagram Type';
@@ -102,8 +106,13 @@ package 'Yard Viewpoints' {
             metadata MigrationMetadata::SynthesizedName about final;
         }
         perform action 'block Diagrams Method' : 'Block Diagrams Method';
+        metadata MigrationMetadata::SynthesizedName about 'block Diagrams Viewpoint';
     }
-    viewpoint 'All Diagrams Viewpoint' {
+    view def 'All Diagrams Viewpoint' {
+        viewpoint 'all Diagrams Viewpoint' {
+            subject;
+        }
+        satisfy 'all Diagrams Viewpoint';
         action def 'All Diagrams Method' {
             first start then 'Filter By Diagram Type';
             action 'Filter By Diagram Type';
@@ -114,8 +123,13 @@ package 'Yard Viewpoints' {
             metadata MigrationMetadata::SynthesizedName about final;
         }
         perform action 'all Diagrams Method' : 'All Diagrams Method';
+        metadata MigrationMetadata::SynthesizedName about 'all Diagrams Viewpoint';
     }
-    viewpoint 'No Diagrams Viewpoint' {
+    view def 'No Diagrams Viewpoint' {
+        viewpoint 'no Diagrams Viewpoint' {
+            subject;
+        }
+        satisfy 'no Diagrams Viewpoint';
         action def 'No Diagrams Method' {
             first start then 'Filter By Diagram Type';
             action 'Filter By Diagram Type';
@@ -126,8 +140,13 @@ package 'Yard Viewpoints' {
             metadata MigrationMetadata::SynthesizedName about final;
         }
         perform action 'no Diagrams Method' : 'No Diagrams Method';
+        metadata MigrationMetadata::SynthesizedName about 'no Diagrams Viewpoint';
     }
-    viewpoint 'Sketched Diagrams Viewpoint' {
+    view def 'Sketched Diagrams Viewpoint' {
+        viewpoint 'sketched Diagrams Viewpoint' {
+            subject;
+        }
+        satisfy 'sketched Diagrams Viewpoint';
         action def 'Sketched Diagrams Method' {
             first start then 'fork';
             fork 'fork';
@@ -145,8 +164,13 @@ package 'Yard Viewpoints' {
             metadata MigrationMetadata::SynthesizedName about 'fork', 'merge', final;
         }
         perform action 'sketched Diagrams Method' : 'Sketched Diagrams Method';
+        metadata MigrationMetadata::SynthesizedName about 'sketched Diagrams Viewpoint';
     }
-    viewpoint 'Retargeted Diagrams Viewpoint' {
+    view def 'Retargeted Diagrams Viewpoint' {
+        viewpoint 'retargeted Diagrams Viewpoint' {
+            subject;
+        }
+        satisfy 'retargeted Diagrams Viewpoint';
         action def 'Retargeted Diagrams Method' {
             first start then 'Filter By Diagram Type';
             action 'Filter By Diagram Type';
@@ -166,8 +190,13 @@ package 'Yard Viewpoints' {
             metadata MigrationMetadata::SynthesizedName about 'fork', 'merge', final;
         }
         perform action 'retargeted Diagrams Method' : 'Retargeted Diagrams Method';
+        metadata MigrationMetadata::SynthesizedName about 'retargeted Diagrams Viewpoint';
     }
-    viewpoint 'Kin Diagrams Viewpoint' {
+    view def 'Kin Diagrams Viewpoint' {
+        viewpoint 'kin Diagrams Viewpoint' {
+            subject;
+        }
+        satisfy 'kin Diagrams Viewpoint';
         action def 'Kin Diagrams Method' {
             first start then 'Collect Owners';
             action 'Collect Owners';
@@ -180,8 +209,13 @@ package 'Yard Viewpoints' {
             metadata MigrationMetadata::SynthesizedName about final;
         }
         perform action 'kin Diagrams Method' : 'Kin Diagrams Method';
+        metadata MigrationMetadata::SynthesizedName about 'kin Diagrams Viewpoint';
     }
-    viewpoint 'Other Diagrams Viewpoint' {
+    view def 'Other Diagrams Viewpoint' {
+        viewpoint 'other Diagrams Viewpoint' {
+            subject;
+        }
+        satisfy 'other Diagrams Viewpoint';
         action def 'Other Diagrams Method' {
             first start then 'Filter By Diagram Type';
             action 'Filter By Diagram Type';
@@ -192,8 +226,13 @@ package 'Yard Viewpoints' {
             metadata MigrationMetadata::SynthesizedName about final;
         }
         perform action 'other Diagrams Method' : 'Other Diagrams Method';
+        metadata MigrationMetadata::SynthesizedName about 'other Diagrams Viewpoint';
     }
-    viewpoint 'Internal Diagrams Viewpoint' {
+    view def 'Internal Diagrams Viewpoint' {
+        viewpoint 'internal Diagrams Viewpoint' {
+            subject;
+        }
+        satisfy 'internal Diagrams Viewpoint';
         action def 'Internal Diagrams Method' {
             first start then 'Collect Owned Elements';
             action 'Collect Owned Elements';
@@ -206,8 +245,13 @@ package 'Yard Viewpoints' {
             metadata MigrationMetadata::SynthesizedName about final;
         }
         perform action 'internal Diagrams Method' : 'Internal Diagrams Method';
+        metadata MigrationMetadata::SynthesizedName about 'internal Diagrams Viewpoint';
     }
-    viewpoint 'Parametric Diagrams Viewpoint' {
+    view def 'Parametric Diagrams Viewpoint' {
+        viewpoint 'parametric Diagrams Viewpoint' {
+            subject;
+        }
+        satisfy 'parametric Diagrams Viewpoint';
         action def 'Parametric Diagrams Method' {
             first start then 'Filter By Diagram Type';
             action 'Filter By Diagram Type';
@@ -218,8 +262,13 @@ package 'Yard Viewpoints' {
             metadata MigrationMetadata::SynthesizedName about final;
         }
         perform action 'parametric Diagrams Method' : 'Parametric Diagrams Method';
+        metadata MigrationMetadata::SynthesizedName about 'parametric Diagrams Viewpoint';
     }
-    viewpoint 'Shown Viewpoint' {
+    view def 'Shown Viewpoint' {
+        viewpoint 'shown Viewpoint' {
+            subject;
+        }
+        satisfy 'shown Viewpoint';
         action def 'Shown Method' {
             first start then 'Collect Things On Diagram';
             action 'Collect Things On Diagram';
@@ -237,8 +286,13 @@ package 'Yard Viewpoints' {
             metadata MigrationMetadata::SynthesizedName about final;
         }
         perform action 'shown Method' : 'Shown Method';
+        metadata MigrationMetadata::SynthesizedName about 'shown Viewpoint';
     }
-    viewpoint 'Shown Everywhere Viewpoint' {
+    view def 'Shown Everywhere Viewpoint' {
+        viewpoint 'shown Everywhere Viewpoint' {
+            subject;
+        }
+        satisfy 'shown Everywhere Viewpoint';
         action def 'Shown Everywhere Method' {
             first start then 'Collect Things On Diagram';
             action 'Collect Things On Diagram';
@@ -252,8 +306,13 @@ package 'Yard Viewpoints' {
             metadata MigrationMetadata::SynthesizedName about final;
         }
         perform action 'shown Everywhere Method' : 'Shown Everywhere Method';
+        metadata MigrationMetadata::SynthesizedName about 'shown Everywhere Viewpoint';
     }
-    viewpoint 'Drive Parts Viewpoint' {
+    view def 'Drive Parts Viewpoint' {
+        viewpoint 'drive Parts Viewpoint' {
+            subject;
+        }
+        satisfy 'drive Parts Viewpoint';
         action def 'Drive Parts Method' {
             first start then 'Collect By Association';
             action 'Collect By Association';
@@ -264,8 +323,13 @@ package 'Yard Viewpoints' {
             metadata MigrationMetadata::SynthesizedName about final;
         }
         perform action 'drive Parts Method' : 'Drive Parts Method';
+        metadata MigrationMetadata::SynthesizedName about 'drive Parts Viewpoint';
     }
-    viewpoint 'Parts Viewpoint' {
+    view def 'Parts Viewpoint' {
+        viewpoint 'parts Viewpoint' {
+            subject;
+        }
+        satisfy 'parts Viewpoint';
         action def 'Parts Method' {
             first start then 'Collect By Association';
             action 'Collect By Association';
@@ -276,8 +340,13 @@ package 'Yard Viewpoints' {
             metadata MigrationMetadata::SynthesizedName about final;
         }
         perform action 'parts Method' : 'Parts Method';
+        metadata MigrationMetadata::SynthesizedName about 'parts Viewpoint';
     }
-    viewpoint 'Direct Parts Viewpoint' {
+    view def 'Direct Parts Viewpoint' {
+        viewpoint 'direct Parts Viewpoint' {
+            subject;
+        }
+        satisfy 'direct Parts Viewpoint';
         action def 'Direct Parts Method' {
             first start then 'Collect By Association';
             action 'Collect By Association';
@@ -288,8 +357,13 @@ package 'Yard Viewpoints' {
             metadata MigrationMetadata::SynthesizedName about final;
         }
         perform action 'direct Parts Method' : 'Direct Parts Method';
+        metadata MigrationMetadata::SynthesizedName about 'direct Parts Viewpoint';
     }
-    viewpoint 'Shared Parts Viewpoint' {
+    view def 'Shared Parts Viewpoint' {
+        viewpoint 'shared Parts Viewpoint' {
+            subject;
+        }
+        satisfy 'shared Parts Viewpoint';
         action def 'Shared Parts Method' {
             first start then 'Collect By Association';
             action 'Collect By Association';
@@ -300,8 +374,13 @@ package 'Yard Viewpoints' {
             metadata MigrationMetadata::SynthesizedName about final;
         }
         perform action 'shared Parts Method' : 'Shared Parts Method';
+        metadata MigrationMetadata::SynthesizedName about 'shared Parts Viewpoint';
     }
-    viewpoint 'To Do Viewpoint' {
+    view def 'To Do Viewpoint' {
+        viewpoint 'to Do Viewpoint' {
+            subject;
+        }
+        satisfy 'to Do Viewpoint';
         action def 'To Do Method' {
             first start then 'Collect Owned Elements';
             action 'Collect Owned Elements';
@@ -317,8 +396,13 @@ package 'Yard Viewpoints' {
             metadata MigrationMetadata::SynthesizedName about final;
         }
         perform action 'to Do Method' : 'To Do Method';
+        metadata MigrationMetadata::SynthesizedName about 'to Do Viewpoint';
     }
-    viewpoint 'Documented Diagrams Viewpoint' {
+    view def 'Documented Diagrams Viewpoint' {
+        viewpoint 'documented Diagrams Viewpoint' {
+            subject;
+        }
+        satisfy 'documented Diagrams Viewpoint';
         action def 'Documented Diagrams Method' {
             first start then 'Sort By Documentation';
             action 'Sort By Documentation';
@@ -333,8 +417,13 @@ package 'Yard Viewpoints' {
             metadata MigrationMetadata::SynthesizedName about final;
         }
         perform action 'documented Diagrams Method' : 'Documented Diagrams Method';
+        metadata MigrationMetadata::SynthesizedName about 'documented Diagrams Viewpoint';
     }
-    viewpoint 'Reverse Documented Diagrams Viewpoint' {
+    view def 'Reverse Documented Diagrams Viewpoint' {
+        viewpoint 'reverse Documented Diagrams Viewpoint' {
+            subject;
+        }
+        satisfy 'reverse Documented Diagrams Viewpoint';
         action def 'Reverse Documented Diagrams Method' {
             first start then 'Sort By Documentation';
             action 'Sort By Documentation';
@@ -347,8 +436,13 @@ package 'Yard Viewpoints' {
             metadata MigrationMetadata::SynthesizedName about final;
         }
         perform action 'reverse Documented Diagrams Method' : 'Reverse Documented Diagrams Method';
+        metadata MigrationMetadata::SynthesizedName about 'reverse Documented Diagrams Viewpoint';
     }
-    viewpoint 'Diagrams By Documentation Viewpoint' {
+    view def 'Diagrams By Documentation Viewpoint' {
+        viewpoint 'diagrams By Documentation Viewpoint' {
+            subject;
+        }
+        satisfy 'diagrams By Documentation Viewpoint';
         action def 'Diagrams By Documentation Method' {
             first start then 'Sort By Documentation';
             action 'Sort By Documentation';
@@ -359,8 +453,13 @@ package 'Yard Viewpoints' {
             metadata MigrationMetadata::SynthesizedName about final;
         }
         perform action 'diagrams By Documentation Method' : 'Diagrams By Documentation Method';
+        metadata MigrationMetadata::SynthesizedName about 'diagrams By Documentation Viewpoint';
     }
-    viewpoint 'Unnamed Drafts Viewpoint' {
+    view def 'Unnamed Drafts Viewpoint' {
+        viewpoint 'unnamed Drafts Viewpoint' {
+            subject;
+        }
+        satisfy 'unnamed Drafts Viewpoint';
         action def 'Unnamed Drafts Method' {
             first start then 'Collect Owned Elements';
             action 'Collect Owned Elements';
@@ -377,8 +476,13 @@ package 'Yard Viewpoints' {
             metadata MigrationMetadata::SynthesizedName about final;
         }
         perform action 'unnamed Drafts Method' : 'Unnamed Drafts Method';
+        metadata MigrationMetadata::SynthesizedName about 'unnamed Drafts Viewpoint';
     }
-    viewpoint 'Optional Drafts Viewpoint' {
+    view def 'Optional Drafts Viewpoint' {
+        viewpoint 'optional Drafts Viewpoint' {
+            subject;
+        }
+        satisfy 'optional Drafts Viewpoint';
         action def 'Optional Drafts Method' {
             first start then 'Collect Owned Elements';
             action 'Collect Owned Elements';
@@ -395,8 +499,13 @@ package 'Yard Viewpoints' {
             metadata MigrationMetadata::SynthesizedName about final;
         }
         perform action 'optional Drafts Method' : 'Optional Drafts Method';
+        metadata MigrationMetadata::SynthesizedName about 'optional Drafts Viewpoint';
     }
-    viewpoint 'Owner Sorted Diagrams Viewpoint' {
+    view def 'Owner Sorted Diagrams Viewpoint' {
+        viewpoint 'owner Sorted Diagrams Viewpoint' {
+            subject;
+        }
+        satisfy 'owner Sorted Diagrams Viewpoint';
         action def 'Owner Sorted Diagrams Method' {
             first start then 'Sort By Owner';
             action 'Sort By Owner';
@@ -407,8 +516,13 @@ package 'Yard Viewpoints' {
             metadata MigrationMetadata::SynthesizedName about final;
         }
         perform action 'owner Sorted Diagrams Method' : 'Owner Sorted Diagrams Method';
+        metadata MigrationMetadata::SynthesizedName about 'owner Sorted Diagrams Viewpoint';
     }
-    viewpoint 'Specification Viewpoint' {
+    view def 'Specification Viewpoint' {
+        viewpoint 'specification Viewpoint' {
+            subject;
+        }
+        satisfy 'specification Viewpoint';
         action def 'Specification Method' {
             first start then 'Collect Owned Elements';
             action 'Collect Owned Elements';
@@ -428,6 +542,7 @@ package 'Yard Viewpoints' {
             metadata MigrationMetadata::SynthesizedName about final;
         }
         perform action 'specification Method' : 'Specification Method';
+        metadata MigrationMetadata::SynthesizedName about 'specification Viewpoint';
     }
 }
 package 'Yard Handbook' {
@@ -458,118 +573,94 @@ package 'Yard Handbook' {
         view optionalDrafts :> 'Optional Drafts';
         /* applied stereotype «Document» */
     }
-    view 'Block Diagrams' {
-        satisfy 'Yard Viewpoints'::'Block Diagrams Viewpoint';
+    view 'Block Diagrams' : 'Yard Viewpoints'::'Block Diagrams Viewpoint' {
         expose Structure::'Crane Structure';
         expose Structure::Crane::'Crane Internals';
         expose Needs::'Yard Requirements';
     }
-    view 'Sketched Diagrams' {
-        satisfy 'Yard Viewpoints'::'Sketched Diagrams Viewpoint';
+    view 'Sketched Diagrams' : 'Yard Viewpoints'::'Sketched Diagrams Viewpoint' {
         expose Structure::'Crane Structure';
         expose Structure::Crane::'Crane Internals';
         expose Sketches::Sketch;
     }
-    view 'Retargeted Diagrams' {
-        satisfy 'Yard Viewpoints'::'Retargeted Diagrams Viewpoint';
+    view 'Retargeted Diagrams' : 'Yard Viewpoints'::'Retargeted Diagrams Viewpoint' {
         expose Structure::'Crane Structure';
         expose Sketches::Sketch;
     }
-    view 'All Diagrams' {
-        satisfy 'Yard Viewpoints'::'All Diagrams Viewpoint';
+    view 'All Diagrams' : 'Yard Viewpoints'::'All Diagrams Viewpoint' {
         expose Structure::'Crane Structure';
         expose Sketches::Sketch;
     }
-    view 'No Diagrams' {
-        satisfy 'Yard Viewpoints'::'No Diagrams Viewpoint';
+    view 'No Diagrams' : 'Yard Viewpoints'::'No Diagrams Viewpoint' {
         expose Structure::'Crane Structure';
         expose Sketches::Sketch;
     }
-    view 'Kin Diagrams' {
-        satisfy 'Yard Viewpoints'::'Kin Diagrams Viewpoint';
+    view 'Kin Diagrams' : 'Yard Viewpoints'::'Kin Diagrams Viewpoint' {
         expose Needs::Sway::'Sway Limits';
     }
-    view 'Other Diagrams' {
-        satisfy 'Yard Viewpoints'::'Other Diagrams Viewpoint';
+    view 'Other Diagrams' : 'Yard Viewpoints'::'Other Diagrams Viewpoint' {
         expose Structure::'Crane Structure';
         expose Structure::Crane::'Crane Internals';
         expose Needs::'Yard Requirements';
     }
-    view 'Internal Diagrams' {
-        satisfy 'Yard Viewpoints'::'Internal Diagrams Viewpoint';
+    view 'Internal Diagrams' : 'Yard Viewpoints'::'Internal Diagrams Viewpoint' {
         expose Structure::**;
     }
-    view 'Parametric Diagrams' {
-        satisfy 'Yard Viewpoints'::'Parametric Diagrams Viewpoint';
+    view 'Parametric Diagrams' : 'Yard Viewpoints'::'Parametric Diagrams Viewpoint' {
         expose Structure::'Crane Structure';
     }
-    view 'Shown On The Structure Diagram' {
-        satisfy 'Yard Viewpoints'::'Shown Viewpoint';
+    view 'Shown On The Structure Diagram' : 'Yard Viewpoints'::'Shown Viewpoint' {
         expose Structure::'Crane Structure';
     }
-    view 'Shown On Both Diagrams' {
-        satisfy 'Yard Viewpoints'::'Shown Everywhere Viewpoint';
+    view 'Shown On Both Diagrams' : 'Yard Viewpoints'::'Shown Everywhere Viewpoint' {
         expose Structure::'Crane Structure';
         expose Sketches::Sketch;
     }
-    view 'Drive Parts' {
-        satisfy 'Yard Viewpoints'::'Drive Parts Viewpoint';
+    view 'Drive Parts' : 'Yard Viewpoints'::'Drive Parts Viewpoint' {
         expose Structure::Gantry;
         expose Structure::Winch;
     }
-    view 'Crane Parts' {
-        satisfy 'Yard Viewpoints'::'Parts Viewpoint';
+    view 'Crane Parts' : 'Yard Viewpoints'::'Parts Viewpoint' {
         expose Structure::Crane;
     }
-    view 'Direct Crane Parts' {
-        satisfy 'Yard Viewpoints'::'Direct Parts Viewpoint';
+    view 'Direct Crane Parts' : 'Yard Viewpoints'::'Direct Parts Viewpoint' {
         expose Structure::Crane;
     }
-    view 'Shared Crane Parts' {
-        satisfy 'Yard Viewpoints'::'Shared Parts Viewpoint';
+    view 'Shared Crane Parts' : 'Yard Viewpoints'::'Shared Parts Viewpoint' {
         expose Structure::Crane;
     }
-    view 'Cable Parts' {
-        satisfy 'Yard Viewpoints'::'Parts Viewpoint';
+    view 'Cable Parts' : 'Yard Viewpoints'::'Parts Viewpoint' {
         expose Structure::Cable;
     }
-    view 'To Do' {
-        satisfy 'Yard Viewpoints'::'To Do Viewpoint';
+    view 'To Do' : 'Yard Viewpoints'::'To Do Viewpoint' {
         expose Structure::**;
     }
-    view Specification {
-        satisfy 'Yard Viewpoints'::'Specification Viewpoint';
+    view Specification : 'Yard Viewpoints'::'Specification Viewpoint' {
         expose Needs::**;
     }
-    view 'Documented Diagrams' {
-        satisfy 'Yard Viewpoints'::'Documented Diagrams Viewpoint';
+    view 'Documented Diagrams' : 'Yard Viewpoints'::'Documented Diagrams Viewpoint' {
         expose Structure::Gantry;
         expose Needs::**;
         expose Structure::Crane;
         expose Needs::Sway;
     }
-    view 'Reverse Documented Diagrams' {
-        satisfy 'Yard Viewpoints'::'Reverse Documented Diagrams Viewpoint';
+    view 'Reverse Documented Diagrams' : 'Yard Viewpoints'::'Reverse Documented Diagrams Viewpoint' {
         expose Structure::Gantry;
         expose Structure::Crane;
         expose Needs::**;
         expose Needs::Sway;
     }
-    view 'Diagrams By Documentation' {
-        satisfy 'Yard Viewpoints'::'Diagrams By Documentation Viewpoint';
+    view 'Diagrams By Documentation' : 'Yard Viewpoints'::'Diagrams By Documentation Viewpoint' {
         expose Structure::'Crane Structure';
         expose Structure::Gantry::'Gantry Drive';
     }
-    view 'Owner Sorted Diagrams' {
-        satisfy 'Yard Viewpoints'::'Owner Sorted Diagrams Viewpoint';
+    view 'Owner Sorted Diagrams' : 'Yard Viewpoints'::'Owner Sorted Diagrams Viewpoint' {
         expose Structure::'Crane Structure';
     }
-    view 'Unnamed Drafts' {
-        satisfy 'Yard Viewpoints'::'Unnamed Drafts Viewpoint';
+    view 'Unnamed Drafts' : 'Yard Viewpoints'::'Unnamed Drafts Viewpoint' {
         expose Drafts::**;
     }
-    view 'Optional Drafts' {
-        satisfy 'Yard Viewpoints'::'Optional Drafts Viewpoint';
+    view 'Optional Drafts' : 'Yard Viewpoints'::'Optional Drafts Viewpoint' {
         expose Drafts::**;
     }
     calc def 'Yard Handbook Shown Blocks Rows' :> DocumentQueries::Query {
