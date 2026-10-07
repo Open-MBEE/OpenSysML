@@ -32,7 +32,19 @@ kind, by the one member walk the kinds share (`contentKind` in `tree.go`): a
 whether a prefix `@Layout` or a `metadata Layout about …` member, wherever it is owned — and the
 `render` members a view holds (`render asTreeDiagram;`, `render rendering r : AsTree;`). Both say
 how a picture is drawn, not what the model is, so a tree over a package of migrated views draws
-those views without the `metadata` and `render` nodes their annotations would add. The
+those views without the `metadata` and `render` nodes their annotations would add. Once a tree's
+nodes are built, `treeEdges` (`tree_edges.go`) draws the relationships between them that the
+general view's definition graph draws: a `specialization` from an element to each general it
+specializes, subsets or redefines; a `composition` or `reference` from an element to the definition
+typing each part, item, port, attribute, occurrence, enumeration or `ref` usage it owns, labelled
+with the usage's name and multiplicity; and the `typing` of a usage whose owner is not drawn. Both
+ends must be nodes of the same rendering, and so must the usage a composition stands for — one the
+depth bound leaves undrawn draws no edge — an element drawn twice draws from its first node, and no
+edge joins a node to one nested in it, since the nesting is that membership. A usage's `Style`
+dresses its composition edge as it does its node; its `Note` stays anchored to the node. A composition's
+origin is the usage it stands for, so a `Route` about the usage routes it and `DrawnIn` reports the
+usage drawn as an edge; a specialization's or typing's origin is the name its clause relates to,
+no member of its own, so it carries no route and a client lays it out itself. The
 `MigrationMetadata::SynthesizedName` and `MigrationMetadata::StandIn` markers a migration leaves
 in a body are left out the same way: they record what the migration did, not what the model
 holds. Every other metadata usage — a user's `metadata Approved about errorCBE { by = "review"; }`,
@@ -340,7 +352,8 @@ Mermaid is the default machine-readable form for graph-shaped views. Trees, inte
 actions use `flowchart`; state renderings use `stateDiagram-v2`; sequence renderings use
 `sequenceDiagram`. One YAML frontmatter block sets the Pilot black-and-white theme for every
 grammar, with only the theme variables for that grammar; Cameo changes its font and supported
-colour variables. Trees remain plain node-and-containment-edge structures. Action and
+colour variables. Trees draw containment as edges between nested nodes and their relationship
+edges — specialization, typing, composition and reference — as the definition graph does. Action and
 interconnection subgraphs use hidden anchors for links that touch their cluster boundaries. The
 table records what each rendering feature writes:
 

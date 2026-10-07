@@ -377,6 +377,49 @@ func TestRenderOriginsLocateTheDeclaration(t *testing.T) {
 	t.Fatalf("the #tree rendering has no node for cog: %+v", out.Nodes)
 }
 
+// A tree carries the relationship edges between its nodes — a specialization
+// and a composition here — each joining node IDs of the same response. The
+// composition stands for the part usage, so it is identified by that usage's
+// FQN and a Route about the usage steers it; the specialization is a clause of
+// the specializing definition, no member of its own, so it carries neither an
+// FQN nor a declaration range, and the client routes it itself.
+func TestRenderTreeCarriesRelationshipEdges(t *testing.T) {
+	src := "package Kit {\n\tpart def Widget {\n\t\tpart cogs[2] : Cog;\n\t}\n\tpart def Cog;\n\tpart def Gear :> Cog;\n}\n"
+	s, docURI := renderServer(t, "kit.sysml", src)
+	out := render(t, s, docURI, "#tree")
+	ids := map[string]string{}
+	for _, node := range out.Nodes {
+		ids[node.ID] = node.Name
+	}
+	type edge struct{ from, to, kind, label, fqn string }
+	var got []edge
+	for _, e := range out.Edges {
+		if _, ok := ids[e.From]; !ok {
+			t.Errorf("edge %s->%s leaves a node the response lacks", e.From, e.To)
+		}
+		if _, ok := ids[e.To]; !ok {
+			t.Errorf("edge %s->%s reaches a node the response lacks", e.From, e.To)
+		}
+		got = append(got, edge{ids[e.From], ids[e.To], e.Kind, e.Label, e.FQN})
+		if e.Origin == nil || e.Origin.Range.Start.Line == 0 {
+			t.Errorf("edge %s->%s carries no origin to navigate to: %+v", e.From, e.To, e.Origin)
+		}
+		if e.Kind == "specialization" && e.Declaration != nil {
+			t.Errorf("the specialization carries a declaration range %+v; it is no member a route can target", *e.Declaration)
+		}
+		if len(e.Route) != 0 {
+			t.Errorf("edge %s->%s is routed %v with no Route annotation", e.From, e.To, e.Route)
+		}
+	}
+	want := []edge{
+		{"Kit::Widget", "Kit::Cog", "composition", "cogs[2]", "Kit::Widget::cogs"},
+		{"Kit::Gear", "Kit::Cog", "specialization", "", ""},
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("edges = %+v, want %+v", got, want)
+	}
+}
+
 // A node carries its declared type as a field of its own, so a client never
 // parses the detail — which holds only the notes — to recover it.
 func TestRenderNodesCarryTheTypeApartFromTheDetail(t *testing.T) {

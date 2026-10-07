@@ -1,0 +1,90 @@
+@startuml
+' FleetViews::structure — tree rendering
+<style>
+root {
+  BackGroundColor white
+  FontName SansSerif
+  FontSize 14
+  FontColor black
+  LineColor #181818
+  HorizontalAlignment left
+}
+element {
+  BackGroundColor white
+  LineColor #181818
+  LineThickness 0.5
+  RoundCorner 0
+  Shadowing 0.0
+}
+start, end, activityBar {
+  BackGroundColor black
+}
+arrow {
+  LineColor #181818
+  LineThickness 1
+  FontSize 13
+}
+note {
+  BackGroundColor #FEFFDD
+  FontSize 13
+}
+.usage {
+  RoundCorner 20
+}
+.package {
+  LineThickness 1.5
+}
+.region {
+  LineStyle 4
+}
+</style>
+skinparam wrapWidth 300
+hide stereotype
+hide circle
+hide empty members
+class "<size:10>//«part def»//</size>\n**Vehicle**" as n0 <<part def>>
+class "<size:10>//«part»//</size>\n**chassis : Chassis**" as n1 <<part>> <<usage>>
+n0 -- n1
+class "<size:10>//«part»//</size>\n**wheels : Wheel**" as n2 <<part>> <<usage>>
+n0 -- n2
+class "<size:10>//«part»//</size>\n**driver : Driver**" as n3 <<part>> <<usage>>
+n0 -- n3
+class "<size:10>//«attribute»//</size>\n**total : Mass**" as n4 <<attribute>> <<usage>>
+n0 -- n4
+class "<size:10>//«part def»//</size>\n**Cabin**" as n5 <<part def>>
+n0 -- n5
+class "<size:10>//«part»//</size>\n**cabin : Cabin**" as n6 <<part>> <<usage>>
+n0 -- n6
+class "<size:10>//«part»//</size>\n**radio : Radio**" as n7 <<part>> <<usage>>
+n0 -- n7
+class "<size:10>//«part»//</size>\n**trailer : Trailer**" as n8 <<part>> <<usage>>
+n0 -- n8
+class "<size:10>//«part def»//</size>\n**SportsCar**" as n9 <<part def>>
+class "<size:10>//«part»//</size>\n**chassis : LightChassis**" as n10 <<part>> <<usage>>
+n9 -- n10
+class "<size:10>//«part»//</size>\n**spare : Wheel**" as n11 <<part>> <<usage>>
+n9 -- n11
+class "<size:10>//«part def»//</size>\n**Chassis**" as n12 <<part def>>
+class "<size:10>//«attribute»//</size>\n**mass : Mass**" as n13 <<attribute>> <<usage>>
+n12 -- n13
+class "<size:10>//«part def»//</size>\n**LightChassis**" as n14 <<part def>>
+class "<size:10>//«attribute»//</size>\n**mass**" as n15 <<attribute>> <<usage>>
+n14 -- n15
+class "<size:10>//«part def»//</size>\n**Wheel**" as n16 <<part def>>
+class "<size:10>//«part def»//</size>\n**Driver**" as n17 <<part def>>
+class "<size:10>//«attribute def»//</size>\n**Mass**" as n18 <<attribute def>>
+class "<size:10>//«part»//</size>\n**fleetCar : Vehicle**" as n19 <<part>> <<usage>>
+n0 *-- n12 : chassis
+n0 *-- n16 : wheels[4]
+n0 o-- n17 : driver[0..1]
+n0 o-- n18 : total
+n9 --|> n0
+n9 *-- n14 : chassis
+n9 *-- n16 : spare
+n10 --|> n1 : redefines
+n11 --|> n2 : subsets
+n12 o-- n18 : mass
+n14 --|> n12
+n15 --|> n13 : redefines
+n19 ..|> n0
+@enduml

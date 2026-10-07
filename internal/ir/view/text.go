@@ -395,7 +395,7 @@ func edgeSectionName(kind Kind) string {
 		return "flow"
 	case KindSequence:
 		return "messages"
-	case KindCase, KindMixed, KindRequirement, KindDefinition, KindPackage:
+	case KindTree, KindCase, KindMixed, KindRequirement, KindDefinition, KindPackage:
 		return "relationships"
 	}
 	return "connections"

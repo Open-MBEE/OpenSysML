@@ -437,6 +437,9 @@ type Rendering struct {
 	emptyReason string
 	// drawn collects the elements drawn while rendering, nil when no one asked.
 	drawn *Drawn
+	// sites records, while a tree renders, what each of its nodes draws; nil
+	// once its edges are drawn and for every other kind.
+	sites map[*Node]treeSite
 }
 
 // Empty reports whether the rendering has nothing to show: no node, edge,
