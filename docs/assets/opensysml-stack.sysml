@@ -34,21 +34,53 @@ package OpenSysMLStack {
             :>> lang = "Go";
             :>> role = "the runtime";
             :>> repo = "https://github.com/Open-MBEE/OpenSysML";
-            part engine : Component {
-                :>> label = "Execution runtime";
-                :>> role = "parts, actions, states, constraints";
+            part parser : Component {
+                :>> label = "Parser and formatter";
+                :>> role = "lexer, parser, formatter";
+            }
+            part validation : Component {
+                :>> label = "Validation";
+                :>> role = "syntax, names, types, constraints";
+            }
+            part stdlib : Component {
+                :>> label = "Standard library";
+                :>> role = "bundled KerML and SysML libraries";
             }
             part lsp : Component {
                 :>> label = "Language server";
                 :>> role = "sysml-lsp";
             }
+            part editors : Component {
+                :>> label = "Editor integrations";
+                :>> role = "VS Code, Cameo MDK, SysON";
+            }
             part repl : Component {
                 :>> label = "REPL";
                 :>> role = "sysml";
             }
+            part jupyter : Component {
+                :>> label = "Jupyter kernel";
+                :>> role = "sysml-jupyter-kernel";
+            }
+            part engine : Component {
+                :>> label = "Execution runtime";
+                :>> role = "parts, actions, states";
+            }
+            part solver : Component {
+                :>> label = "Constraint solver";
+                :>> role = "SMT via Z3, model checking";
+            }
+            part analyzers : Component {
+                :>> label = "Analysis engines";
+                :>> role = "explore, check, FMI co-simulation";
+            }
             part service : Component {
                 :>> label = "gRPC service";
-                :>> role = "sysml-grpc + client libraries";
+                :>> role = "sysml-grpc";
+            }
+            part clients : Component {
+                :>> label = "Clients and bindings";
+                :>> role = "Python, Node, Java, Rust, Julia, MATLAB, WebAssembly";
             }
             part docgen : Component {
                 :>> label = "Document generation";
@@ -73,6 +105,34 @@ package OpenSysMLStack {
             :>> lang = "Rust";
             :>> role = "toolchain + LSP";
             :>> repo = "https://github.com/Open-MBEE/sysml-toolkit";
+            part parser : Component {
+                :>> label = "Parser and formatter";
+                :>> role = "span-preserving syntax tree";
+            }
+            part linter : Component {
+                :>> label = "Linter";
+                :>> role = "style and model checks";
+            }
+            part interchange : Component {
+                :>> label = "Interchange";
+                :>> role = "JSON, CBOR";
+            }
+            part solver : Component {
+                :>> label = "Constraint solver";
+                :>> role = "constraint satisfaction";
+            }
+            part transform : Component {
+                :>> label = "Model transformation";
+                :>> role = "span-preserving rewrites";
+            }
+            part lsp : Component {
+                :>> label = "Language server";
+                :>> role = "editor integration";
+            }
+            part bindings : Component {
+                :>> label = "Bindings";
+                :>> role = "Python, WebAssembly";
+            }
         }
         part pilot : Project {
             :>> label = "SysML v2 Pilot Implementation";
@@ -80,6 +140,38 @@ package OpenSysMLStack {
             :>> lang = "Java";
             :>> role = "OMG reference";
             :>> repo = "https://github.com/Systems-Modeling/SysML-v2-Pilot-Implementation";
+            part grammars : Component {
+                :>> label = "Xtext parsers";
+                :>> role = "KerML and SysML grammars";
+            }
+            part validation : Component {
+                :>> label = "Validation";
+                :>> role = "batch KerML and SysML validators";
+            }
+            part evaluator : Component {
+                :>> label = "Expression evaluator";
+                :>> role = "headless execution";
+            }
+            part stdlib : Component {
+                :>> label = "Standard library";
+                :>> role = "KerML and SysML libraries";
+            }
+            part editors : Component {
+                :>> label = "Xtext editors";
+                :>> role = "Eclipse";
+            }
+            part plantuml : Component {
+                :>> label = "PlantUML visualization";
+                :>> role = "diagrams from text";
+            }
+            part jupyter : Component {
+                :>> label = "Jupyter kernel";
+                :>> role = "notebooks";
+            }
+            part xmi : Component {
+                :>> label = "Interchange";
+                :>> role = "XMI";
+            }
         }
         part flexo : Project {
             :>> label = "Flexo MMS";
@@ -87,6 +179,22 @@ package OpenSysMLStack {
             :>> lang = "Kotlin";
             :>> role = "the versioned store";
             :>> repo = "https://github.com/Open-MBEE/flexo-mms.openmbee.org";
+            part layer1 : Component {
+                :>> label = "Layer 1 service";
+                :>> role = "orgs, repos, branches, commits";
+            }
+            part sysmlv2 : Component {
+                :>> label = "SysML v2 API service";
+                :>> role = "flexo-mms-sysmlv2";
+            }
+            part quadstore : Component {
+                :>> label = "Quadstore";
+                :>> role = "SPARQL 1.1";
+            }
+            part auth : Component {
+                :>> label = "Auth";
+                :>> role = "JSON Web Tokens";
+            }
         }
 
         interface opensysml_flexo : Interchange connect

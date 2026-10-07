@@ -27,11 +27,22 @@ const fixture = JSON.parse(readFileSync("src/landing/stack.json", "utf8")) as La
 const fixtureRender = fixture.render as RenderResult;
 
 const PROJECTS = ["flexo", "opensysml", "pilot", "toolkit"];
-const COMPONENTS = ["docgen", "engine", "interchange", "lsp", "migration", "oslc", "repl", "service"];
+const COMPONENTS: Record<string, string[]> = {
+  opensysml: [
+    "analyzers", "clients", "docgen", "editors", "engine", "interchange", "jupyter", "lsp", "migration", "oslc",
+    "parser", "repl", "service", "solver", "stdlib", "validation",
+  ],
+  toolkit: ["bindings", "interchange", "linter", "lsp", "parser", "solver", "transform"],
+  pilot: ["editors", "evaluator", "grammars", "jupyter", "plantuml", "stdlib", "validation", "xmi"],
+  flexo: ["auth", "layer1", "quadstore", "sysmlv2"],
+};
+const COMPONENT_PATHS = Object.entries(COMPONENTS).flatMap(([project, features]) =>
+  features.map((feature) => `${project}.${feature}`),
+);
 
 test("landingModel keeps the four ported project parts and their interface edges", () => {
   const model = landingModel(fixture.hash, fixtureRender, fixture.instances);
-  assert.deepEqual([...model.parts.keys()].sort(), [...COMPONENTS, ...PROJECTS].sort());
+  assert.deepEqual([...model.parts.keys()].sort(), [...COMPONENT_PATHS, ...PROJECTS].sort());
   assert.ok(model.render.nodes.every((node) => node.kind !== "attribute"));
   const nodeOf = (feature: string) => model.render.nodes.find(({ id }) => id === model.parts.get(feature)?.id)!;
   for (const feature of PROJECTS) {
@@ -55,19 +66,27 @@ test("landingModel keeps the four ported project parts and their interface edges
   assert.equal(model.parts.get("opensysml")?.attrs.label, "OpenSysML Runtime Environment and Development Kit");
 });
 
-test("landingModel keeps a project's components inside it, with their own attributes", () => {
+test("landingModel keeps each project's components inside it, with their own attributes", () => {
   const model = landingModel(fixture.hash, fixtureRender, fixture.instances);
-  const opensysml = model.parts.get("opensysml")!;
-  for (const feature of COMPONENTS) {
-    const part = model.parts.get(feature)!;
-    const node = model.render.nodes.find(({ id }) => id === part.id)!;
-    assert.equal(node.parent, opensysml.id, `${feature} should stay inside opensysml`);
-    assert.equal(part.symbol, `OpenSysMLStack::stack::opensysml::${feature}`);
-    assert.equal(part.attrs.kind, "component");
-    assert.ok(part.attrs.role, `${feature} should state its role`);
+  for (const [project, features] of Object.entries(COMPONENTS)) {
+    const owner = model.parts.get(project)!;
+    for (const feature of features) {
+      const part = model.parts.get(`${project}.${feature}`)!;
+      const node = model.render.nodes.find(({ id }) => id === part.id)!;
+      assert.equal(node.parent, owner.id, `${feature} should stay inside ${project}`);
+      assert.equal(part.feature, feature);
+      assert.equal(part.owner, project);
+      assert.equal(part.symbol, `OpenSysMLStack::stack::${project}::${feature}`);
+      assert.equal(part.attrs.kind, "component");
+      assert.ok(part.attrs.role, `${project}.${feature} should state its role`);
+    }
   }
-  assert.equal(model.parts.get("oslc")?.attrs.label, "OSLC query");
-  assert.equal(model.parts.get("docgen")?.attrs.label, "Document generation");
+  // The same feature name in two projects names two parts.
+  assert.equal(model.parts.get("opensysml.interchange")?.attrs.label, "Interchange");
+  assert.equal(model.parts.get("toolkit.interchange")?.attrs.role, "JSON, CBOR");
+  assert.equal(model.parts.get("opensysml.oslc")?.attrs.label, "OSLC query");
+  assert.equal(model.parts.get("opensysml.docgen")?.attrs.label, "Document generation");
+  assert.equal(model.parts.get("flexo.layer1")?.attrs.label, "Layer 1 service");
 });
 
 test("readModel returns parse diagnostics without requesting a rendering", () => {

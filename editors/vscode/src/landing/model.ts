@@ -17,6 +17,8 @@ export interface LandingPart {
   feature: string;
   symbol: string;
   attrs: Record<string, string>;
+  /** The features from the stack down to this part, dotted: `toolkit.lsp`. Keys `LandingModel.parts`. */
+  path: string;
   /** The feature of the part this one is nested in; absent for a project. */
   owner?: string;
 }
@@ -172,6 +174,10 @@ export function landingModel(hash: string, render: RenderResult, instances: Engi
     const instanceId = owner?.featureValues?.[node.name]?.value?.instanceId;
     return instanceId === undefined ? undefined : instancesById.get(instanceId);
   };
+  const pathOf = (node: RenderNode): string => {
+    const parent = node.parent === undefined ? undefined : nodesById.get(node.parent);
+    return parent === undefined ? node.name : `${pathOf(parent)}.${node.name}`;
+  };
   const parts = new Map<string, LandingPart>();
   for (const node of nodes) {
     if (node.kind !== "part") {
@@ -189,6 +195,7 @@ export function landingModel(hash: string, render: RenderResult, instances: Engi
     const part: LandingPart = {
       id: node.id,
       feature: node.name,
+      path: pathOf(node),
       symbol: instance?.typeSymbolId ?? node.type,
       attrs,
     };
@@ -196,7 +203,7 @@ export function landingModel(hash: string, render: RenderResult, instances: Engi
     if (owner !== undefined) {
       part.owner = owner;
     }
-    parts.set(part.feature, part);
+    parts.set(part.path, part);
   }
   return { hash, render: normalized, parts };
 }
@@ -239,9 +246,8 @@ export function journey(engine: EngineClient, model: LandingModel, seed?: number
     events: JOURNEY_EVENTS,
     ...(seed === undefined ? {} : { schedule: `seed:${seed}` }),
   });
-  const idsByFeature = new Map([...model.parts.values()].map((part) => [part.feature, part.id]));
   return (result.statesVisited ?? []).flatMap((state) => {
-    const id = idsByFeature.get(state);
+    const id = model.parts.get(state)?.id;
     return id === undefined ? [] : [id];
   });
 }

@@ -1862,18 +1862,13 @@ test("landing drag keeps right-angled routes at the captured Pilot obstruction",
   const auto = await autoLayout(result);
   assert.ok(auto, "ELK should lay out the saved landing render");
 
-  const bounds: Box = {
-    x: -213.082559,
-    y: -413.648204,
-    width: 1098.165089,
-    height: 907.244513,
-  };
-  // Pilot's port faces Flexo's across sysml-toolkit, which sits between them.
+  const bounds: Box = { x: -600, y: -900, width: 3000, height: 1800 };
+  // Pilot's port faces Flexo across sysml-toolkit, which sits between them.
   const positions: Record<string, RenderPoint> = {
-    opensysml: { x: 100, y: -180 },
-    toolkit: { x: 330, y: 160 },
-    pilot: { x: 40, y: 140 },
-    flexo: { x: 650, y: 120 },
+    opensysml: { x: 100, y: -700 },
+    toolkit: { x: 500, y: 200 },
+    pilot: { x: -240, y: 80 },
+    flexo: { x: 1331, y: 180 },
   };
   const idOf = (feature: string): string => model.parts.get(feature)!.id;
   const layoutAt = (pilotX: number): CanvasLayout => {
