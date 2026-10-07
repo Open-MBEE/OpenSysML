@@ -22,6 +22,16 @@ const (
 	neverAssigns = " never assigns "
 )
 
+var linkActionVerbs = map[string]string{
+	"ClearAssociationAction":           "clear",
+	"CreateLinkAction":                 "create",
+	"CreateLinkObjectAction":           "create",
+	"DestroyLinkAction":                "destroy",
+	"ReadLinkAction":                   "read",
+	"ReadLinkObjectEndAction":          "read",
+	"ReadLinkObjectEndQualifierAction": "read",
+}
+
 func (m *migration) activityBody(act, def *sysmlv1.Element) {
 	keeping := m.keeping
 	m.keeping = ""
@@ -102,7 +112,7 @@ type activity struct {
 	edgeSources map[*sysmlv1.Element][]*sysmlv1.Element
 	edgeSelf    map[*sysmlv1.Element]bool
 	selfSources map[*sysmlv1.Element][]*sysmlv1.Element
-	// inert marks the nodes written as placeholders, whose output pins no value reaches.
+	// inert marks nodes whose output pins produce no value.
 	inert map[*sysmlv1.Element]bool
 	// computed is the v2 expression an output pin is declared with, when a library primitive gives its value.
 	computed map[*sysmlv1.Element]string
@@ -1550,6 +1560,11 @@ func (a *activity) declareNode(n *sysmlv1.Element, name string) {
 
 // declareKind writes the declaration of n by its kind.
 func (a *activity) declareKind(n *sysmlv1.Element, name string) {
+	if verb, ok := linkActionVerbs[n.Type]; ok {
+		a.linkAction(n, name, verb)
+		a.m.writeComments(n, false)
+		return
+	}
 	switch n.Type {
 	case "ActivityFinalNode":
 		a.m.w.line(actionKw + name + " terminate;")
@@ -1643,6 +1658,12 @@ func (a *activity) placeholderBody(n *sysmlv1.Element, name, note string, v Verd
 	a.m.placeholders[n] = true
 	a.m.w.lines(commentLines("not migrated: " + kindOf(n) + " " + describe(n) + " — " + note))
 	a.m.add(n, v, name, note)
+}
+
+func (a *activity) linkAction(n *sysmlv1.Element, name, verb string) {
+	a.inert[n] = true
+	a.m.w.block(actionKw+name, func() { a.pins(n, nil) })
+	a.m.add(n, Approximated, name, "SysML v2 has no link action: the "+n.Type+" is written as an action with its pins and does not "+verb+" the link")
 }
 
 // startBehavior writes a start of an object's behavior as a placeholder: a v2 object's

@@ -129,7 +129,9 @@ ties each of its mapping classes to the code that carries it out (or records why
 | SysML v1 | SysML v2 | Verdict |
 |---|---|---|
 | Model, Package | `package` | mapped |
-| «Block», plain Class, Actor | `part def` | mapped (Actor and plain Class: approximated) |
+| «Block» Class | `part def` | mapped |
+| Plain UML Class | `occurrence def` | mapped |
+| Actor | `part def` | approximated |
 | «InterfaceBlock» | `port def` | mapped |
 | «ValueType» DataType, PrimitiveType | `attribute def` (`Real`/`Integer`/`Boolean`/`String` for the SysML primitives) | mapped |
 | Signal | `item def`; properties typed by it are `item` / `ref item` | mapped |
@@ -198,6 +200,7 @@ ties each of its mapping classes to the code that carries it out (or records why
 | UML Expression, StringExpression (a constraint's specification, a default, a slot value) | the operator tree lowered to a v2 expression: arithmetic (`+ - * / %`, unary minus), comparison, `and`/`or`/`not` — each spelled as its sign or its name in any case (`Plus`, `Equal`, `Not`) — a literal, an enumeration literal or instance the scope can name, a feature reference (a bare symbol, or an ElementValue naming a feature the scope reads under that name), and a call whose symbol is in the [opaque-language subset](#the-opaque-language-subset)'s function table (`max` → `RealFunctions::max`, `Power` → `**`); a JavaScript or Java opaque operand is read through the same subset in its own language | mapped |
 | UML Expression with an operator outside that set (`xor`, string concatenation, a call not in the table, an operand in a language the subset does not read, an ElementValue naming nothing or an element the scope does not read under its name) | comment naming the tree and the construct refused | **unmapped** |
 | UML Interface | `port def` | mapped |
+| InterfaceRealization from a plain class | the `occurrence def` specializes the interface's `port def` | mapped |
 | InterfaceRealization from a block | a `port` of the `part def` typed by the interface's `port def` — reused when the block already owns one so typed, otherwise added under the interface's name; a `part def` cannot specialize a `port def` | approximated |
 | InterfaceRealization from an «InterfaceBlock» | `port def :> <Interface>` | mapped |
 | InterfaceRealization whose interface is not written (outside the document, library content) or whose client becomes neither a part def nor a port def | comment naming why | **unmapped** |
@@ -948,7 +951,7 @@ two things:
   Requirement' { Rationale = "…"; }` in the same body, so nothing is written twice and nothing
   is lost. Diamonds and multiple generals all apply; a cycle is walked once. A same-named
   stereotype with no standard general («Requirement» in `Legacy`) means nothing standard: the
-  class is a `part def` with a `@Legacy::Requirement { Text = "…"; }` usage.
+  class is an `occurrence def` with a `@Legacy::Requirement { Text = "…"; }` usage.
 - **What a metadata def specializes.** A user stereotype specializing another user stereotype
   in the document writes `metadata def B :> A`; one with no user general writes no `:>`, since
   every `metadata def` specializes `Metadata::MetadataItem` implicitly; a standard general is

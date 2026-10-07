@@ -105,7 +105,7 @@ func (g *treeGraph) edgesOf(node *Node, site treeSite) {
 		if !resolved {
 			continue
 		}
-		if to := g.node(target); to != nil && to != node {
+		if to := g.node(target); to != nil && to != node && !g.nested(node, to) {
 			g.add(Edge{From: node.ID, To: to.ID, Kind: kind, Label: label, Origin: nodeOrigin(sym.DocName, rel)}, nil)
 		}
 	}

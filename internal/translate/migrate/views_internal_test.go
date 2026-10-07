@@ -42,6 +42,14 @@ func TestViewForms(t *testing.T) {
 			`<packagedElement xmi:type="uml:Class" xmi:id="_vp2" name="Safety"/>`,
 			`<sysml:Viewpoint xmi:id="_sv2" base_Class="_vp2" concern="Is it safe?"/>`,
 			[]string{"view def Safety {\n    viewpoint safety {\n        subject;\n        frame concern {\n            doc /* Is it safe? */\n        }\n    }\n    satisfy safety;"}, "_vp2", Mapped},
+		{"a plain occurrence definition can own a concern",
+			`<packagedElement xmi:type="uml:Class" xmi:id="_owner" name="Plain">
+			   <ownedComment xmi:type="uml:Comment" xmi:id="_concern"><body>Plain concern</body></ownedComment>
+			 </packagedElement>
+			 <packagedElement xmi:type="uml:Class" xmi:id="_vp2" name="Safety"/>`,
+			`<sysml:Viewpoint xmi:id="_sv2" base_Class="_vp2" concernList="_concern"/>`,
+			[]string{"occurrence def Plain {\n    concern 'concern' {\n        doc /* Plain concern */\n        subject;\n    }", "view def Safety {\n    viewpoint safety {\n        subject;\n        frame Plain::'concern';"},
+			"_concern", Mapped},
 		{"a view exposes a package with its contents and an element by itself",
 			`<packagedElement xmi:type="uml:Class" xmi:id="_v" name="Overview"/>
 			 <packagedElement xmi:type="uml:Dependency" xmi:id="_d" client="_v" supplier="_sys _pump"/>`,
@@ -135,13 +143,13 @@ func TestViewForms(t *testing.T) {
 			   <packagedElement xmi:type="uml:Class" xmi:id="_ch" name="Chapter"/>
 			 </packagedElement>`,
 			`<sysml:View xmi:id="_s1" base_Package="_v"/>`,
-			[]string{"view Handbook {\n    part def Chapter;\n}"}, "_v", Approximated},
+			[]string{"view Handbook {\n    occurrence def Chapter;\n}"}, "_v", Approximated},
 		{"a nested view model holds its members and satisfies its viewpoint",
 			`<packagedElement xmi:type="uml:Model" xmi:id="_v" name="Handbook">
 			   <packagedElement xmi:type="uml:Class" xmi:id="_ch" name="Chapter"/>
 			 </packagedElement>`,
 			`<sysml:View xmi:id="_s1" base_Package="_v" viewpoint="_vp"/>`,
-			[]string{"view Handbook : Ops {\n    part def Chapter;\n}"}, "_v", Approximated},
+			[]string{"view Handbook : Ops {\n    occurrence def Chapter;\n}"}, "_v", Approximated},
 		{"a concernList naming a block frames nothing and leaves the block mapped",
 			`<packagedElement xmi:type="uml:Class" xmi:id="_vp2" name="Safety"/>`,
 			`<sysml:Viewpoint xmi:id="_sv2" base_Class="_vp2" concernList="_pump"/>`,

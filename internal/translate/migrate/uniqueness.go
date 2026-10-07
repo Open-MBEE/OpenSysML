@@ -17,6 +17,7 @@ var usageKinds = map[string]ast.UsageKind{
 	"attribute":   ast.UsageAttribute,
 	"ref":         ast.UsageAttribute,
 	"part":        ast.UsagePart,
+	"occurrence":  ast.UsageOccurrence,
 	"item":        ast.UsageItem,
 	"port":        ast.UsagePort,
 	"action":      ast.UsageAction,
@@ -34,6 +35,7 @@ var usageKinds = map[string]ast.UsageKind{
 // take are written as.
 var nestedOwners = map[category]semantics.NestedOwner{
 	catPartDef:         {Def: ast.DefPart, IsDef: true},
+	catOccurrenceDef:   {Def: ast.DefOccurrence, IsDef: true},
 	catPortDef:         {Def: ast.DefPort, IsDef: true},
 	catAttributeDef:    {Def: ast.DefAttribute, IsDef: true},
 	catEnumDef:         {Def: ast.DefEnumeration, IsDef: true},

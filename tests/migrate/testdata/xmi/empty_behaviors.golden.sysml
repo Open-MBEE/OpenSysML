@@ -1,7 +1,7 @@
 item def Go;
 item def Stop;
-part def Log;
-part def Gate {
+occurrence def Log;
+occurrence def Gate {
     attribute count : ScalarValues::Integer default = 0;
     action def Reset;
     state def Blink {

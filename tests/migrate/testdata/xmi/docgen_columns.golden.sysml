@@ -224,14 +224,14 @@ package Observatory {
         }
     }
     package Documents {
-        part def 'Interface Control Document' {
+        occurrence def 'Interface Control Document' {
             view totals :> 'Interface Totals';
             view connections :> Connections;
             view interfaces :> Interfaces;
             view perPart :> 'Per Part';
             /* applied stereotype «Document» */
         }
-        part def 'Interface Summary' {
+        occurrence def 'Interface Summary' {
             view interfaces :> Interfaces;
             /* applied stereotype «Document» */
         }
@@ -248,13 +248,16 @@ package Observatory {
             expose Observatory::Assemblies::'Optical Bench';
         }
         calc def 'Interface Control Document Interface Totals Rows' :> DocumentQueries::Query {
+            in candidates : KerML::Root::Element[0..*] ordered = DocumentQueries::Descendants(
+                source = DocumentQueries::Named(qualifiedName = ("Observatory::Interface Types")),
+                maxDepth = 1);
             DocumentQueries::Project(
                 source = DocumentQueries::OrderBy(
-                    source = DocumentQueries::WhereType(
-                        source = DocumentQueries::Descendants(
-                            source = DocumentQueries::Named(qualifiedName = ("Observatory::Interface Types")),
-                            maxDepth = 1),
-                        type = ("PartDefinition", "RequirementDefinition", "ConstraintDefinition", "PortDefinition", "VerificationCaseDefinition", "ActionDefinition", "StateDefinition", "CalculationDefinition", "ViewUsage", "ViewpointUsage")),
+                    source = DocumentQueries::Except(
+                        source = DocumentQueries::WhereType(source = candidates, type = ("PartDefinition", "RequirementDefinition", "ConstraintDefinition", "PortDefinition", "VerificationCaseDefinition", "ActionDefinition", "StateDefinition", "CalculationDefinition", "ViewUsage", "ViewpointUsage", "OccurrenceDefinition")),
+                        exclude = DocumentQueries::Except(
+                            source = DocumentQueries::WhereType(source = candidates, type = ("ItemDefinition")),
+                            exclude = DocumentQueries::WhereType(source = candidates, type = ("PartDefinition", "RequirementDefinition", "ConstraintDefinition", "PortDefinition", "VerificationCaseDefinition", "ActionDefinition", "StateDefinition", "CalculationDefinition", "ViewUsage", "ViewpointUsage")))),
                     property = "name",
                     direction = "ascending",
                     missing = "last",
@@ -264,13 +267,16 @@ package Observatory {
                     DocumentQueries::Column(name = "Number of Interfaces", cell = { in row : KerML::Core::Type; DocumentQueries::RelatedElements(source = row, relationshipKind = "typing", direction = "incoming", maxDepth = 1)->SequenceFunctions::size() })))
         }
         calc def 'Interface Control Document Per Type Rows' :> DocumentQueries::Query {
+            in candidates : KerML::Root::Element[0..*] ordered = DocumentQueries::Descendants(
+                source = DocumentQueries::Named(qualifiedName = ("Observatory::Interface Types")),
+                maxDepth = 1);
             DocumentQueries::Project(
                 source = DocumentQueries::OrderBy(
-                    source = DocumentQueries::WhereType(
-                        source = DocumentQueries::Descendants(
-                            source = DocumentQueries::Named(qualifiedName = ("Observatory::Interface Types")),
-                            maxDepth = 1),
-                        type = ("PartDefinition", "RequirementDefinition", "ConstraintDefinition", "PortDefinition", "VerificationCaseDefinition", "ActionDefinition", "StateDefinition", "CalculationDefinition", "ViewUsage", "ViewpointUsage")),
+                    source = DocumentQueries::Except(
+                        source = DocumentQueries::WhereType(source = candidates, type = ("PartDefinition", "RequirementDefinition", "ConstraintDefinition", "PortDefinition", "VerificationCaseDefinition", "ActionDefinition", "StateDefinition", "CalculationDefinition", "ViewUsage", "ViewpointUsage", "OccurrenceDefinition")),
+                        exclude = DocumentQueries::Except(
+                            source = DocumentQueries::WhereType(source = candidates, type = ("ItemDefinition")),
+                            exclude = DocumentQueries::WhereType(source = candidates, type = ("PartDefinition", "RequirementDefinition", "ConstraintDefinition", "PortDefinition", "VerificationCaseDefinition", "ActionDefinition", "StateDefinition", "CalculationDefinition", "ViewUsage", "ViewpointUsage")))),
                     property = "name",
                     direction = "ascending",
                     missing = "last",

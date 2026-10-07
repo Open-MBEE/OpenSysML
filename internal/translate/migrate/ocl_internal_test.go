@@ -34,7 +34,7 @@ func TestLowerOCL(t *testing.T) {
 			"row.connectorEnd->ControlFunctions::collect {in e : KerML::Core::Feature; e.chainingFeature->SequenceFunctions::last()}.type.member->ControlFunctions::select {in y : KerML::Core::Feature; y.direction->SequenceFunctions::notEmpty()}.direction->Distinct()",
 			"KerML::Kernel::Connector"},
 		{"block test", "ownedElement->select(p | p.appliedStereotypeInstance.classifier->exists(s | s.name = 'Block'))->size()", "Package",
-			`row.ownedElement->ControlFunctions::select {in p : KerML::Root::Element; WhereType(source = p, type = ("PartDefinition"))->SequenceFunctions::notEmpty()}->SequenceFunctions::size()`,
+			`row.ownedElement->ControlFunctions::select {in p : KerML::Root::Element; WhereType(source = p, type = ("PartDefinition", "OccurrenceDefinition"))->SequenceFunctions::notEmpty()}->SequenceFunctions::size()`,
 			"KerML::Root::Element"},
 		{"booleans", "not (name = 'a' or name <> 'b') and ownedElement->isEmpty()", "",
 			`not (row.name == "a" or row.name != "b") and row.ownedElement->SequenceFunctions::isEmpty()`, "KerML::Root::Element"},

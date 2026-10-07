@@ -1,4 +1,4 @@
-part def Controller {
+occurrence def Controller {
     state def Modes {
         view Modes : StandardViewDefinitions::StateTransitionView {
             expose Controller::Modes;
