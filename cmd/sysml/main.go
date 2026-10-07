@@ -369,6 +369,10 @@ func runCLI() int {
 		fmt.Fprintln(os.Stderr, `sysml: -query is empty; give it OSLC Query text, as -query 'sysml:name="battery"'`)
 		return 2
 	}
+	if flagGiven("graphs") && graphsSubject == "" {
+		fmt.Fprintln(os.Stderr, "sysml: -graphs is empty; name the action or state machine to export, as -graphs Pipeline::terrain")
+		return 2
+	}
 	if flagGiven("html-theme") && htmlTheme == "" {
 		fmt.Fprintln(os.Stderr, "sysml: -html-theme is empty; name one of the themes: "+strings.Join(docrender.Themes(), ", "))
 		return 2
@@ -446,7 +450,7 @@ func runCLI() int {
 			return 2
 		case renderDoc != "" || renderDocsDir != "" || renderView != "" || renderAllDir != "" ||
 			convertFormat != "" || migrateFormat != "" || flagGiven("sync-diff") || flagGiven("sync-apply") ||
-			queryText != "" || len(evalExprs) > 0 || modelChecks.requested():
+			queryText != "" || graphsSubject != "" || len(evalExprs) > 0 || modelChecks.requested():
 			fmt.Fprintln(os.Stderr, "sysml: -html-default-css writes the default stylesheet and nothing else; ask for it in its own run")
 			return 2
 		case docForm != "" || diagramForm != "" || pdfEngine != "" || pdfTitlePage || pdfTOC || pdfNumbering || docNumberFigures || htmlPageFlagsGiven():
@@ -536,15 +540,15 @@ func runCLI() int {
 		fmt.Fprintln(os.Stderr, "sysml: -compare-results is empty; name the JSON file -migration-results wrote")
 		return 2
 	}
-	if modelChecks.compare != "" && (convertFormat != "" || migrateFormat != "" || renderView != "" || renderAllDir != "" || renderDoc != "" || renderDocsDir != "" || queryText != "" || len(evalExprs) > 0 || compileCalc != "" || syncDiffWith != "" || syncApplyTo != "") {
-		fmt.Fprintln(os.Stderr, "sysml: -compare-results runs the migrated model against the tool's results; it cannot be combined with -convert, -migrate, -render, -render-all, -render-document, -render-documents, -query, -eval, -compile, -sync-diff or -sync-apply")
+	if modelChecks.compare != "" && (convertFormat != "" || migrateFormat != "" || renderView != "" || renderAllDir != "" || renderDoc != "" || renderDocsDir != "" || queryText != "" || graphsSubject != "" || len(evalExprs) > 0 || compileCalc != "" || syncDiffWith != "" || syncApplyTo != "") {
+		fmt.Fprintln(os.Stderr, "sysml: -compare-results runs the migrated model against the tool's results; it cannot be combined with -convert, -migrate, -render, -render-all, -render-document, -render-documents, -query, -graphs, -eval, -compile, -sync-diff or -sync-apply")
 		return 2
 	}
 
 	if compileCalc != "" {
 		switch {
-		case convertFormat != "" || migrateFormat != "" || renderView != "" || renderAllDir != "" || renderDoc != "" || renderDocsDir != "" || queryText != "" || len(evalExprs) > 0 || fromFormat != "" || syncDiffWith != "" || syncApplyTo != "":
-			fmt.Fprintln(os.Stderr, "sysml: -compile builds an executable; it cannot be combined with -convert, -migrate, -render, -render-all, -render-document, -render-documents, -query, -eval, -from, -sync-diff or -sync-apply")
+		case convertFormat != "" || migrateFormat != "" || renderView != "" || renderAllDir != "" || renderDoc != "" || renderDocsDir != "" || queryText != "" || graphsSubject != "" || len(evalExprs) > 0 || fromFormat != "" || syncDiffWith != "" || syncApplyTo != "":
+			fmt.Fprintln(os.Stderr, "sysml: -compile builds an executable; it cannot be combined with -convert, -migrate, -render, -render-all, -render-document, -render-documents, -query, -graphs, -eval, -from, -sync-diff or -sync-apply")
 			return 2
 		case syncBase != "" || syncState != "" || syncConfirmDeletes || syncMintIDs || syncAnnotate != "":
 			fmt.Fprintln(os.Stderr, "sysml: -sync-base, -sync-state, -sync-confirm-deletes, -sync-mint-ids and -sync-annotate apply to -sync-diff or -sync-apply, not to -compile")
@@ -575,8 +579,8 @@ func runCLI() int {
 			mode = "-sync-apply"
 		}
 		switch {
-		case convertFormat != "" || migrateFormat != "" || renderView != "" || renderDoc != "" || renderAllDir != "" || renderDocsDir != "" || queryText != "" || len(evalExprs) > 0:
-			fmt.Fprintf(os.Stderr, "sysml: %s syncs a change set; it cannot be combined with -convert, -migrate, -render, -render-all, -render-document, -render-documents, -query or -eval\n", mode)
+		case convertFormat != "" || migrateFormat != "" || renderView != "" || renderDoc != "" || renderAllDir != "" || renderDocsDir != "" || queryText != "" || graphsSubject != "" || len(evalExprs) > 0:
+			fmt.Fprintf(os.Stderr, "sysml: %s syncs a change set; it cannot be combined with -convert, -migrate, -render, -render-all, -render-document, -render-documents, -query, -graphs or -eval\n", mode)
 			return 2
 		case outputPath != "" || fromFormat != "" || renderForm != "" || renderPalette != "" || renderLink != "" || renderUnplaced != "" || renderStyle != "" || renderPorts != "" || docForm != "" || diagramForm != "" || pdfEngine != "" || pdfTitlePage || pdfTOC || pdfNumbering || docNumberFigures:
 			fmt.Fprintf(os.Stderr, "sysml: %s reads SysML or Turtle inputs and reports the change set; -output, -from and the render options do not apply\n", mode)

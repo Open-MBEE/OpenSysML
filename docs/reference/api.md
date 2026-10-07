@@ -1228,7 +1228,10 @@ lowering the runtime executes, so a tool that drives work from a model — a
 workflow generator reading its steps, flows and successions — reads the
 executed form rather than the notation. The subject may be an action or state
 machine, definition or usage, by qualified name; one no element is named by is
-`NOT_FOUND`, one that is no behavior is `INVALID_ARGUMENT`.
+`NOT_FOUND` (`symbol not found: <subject>`), one that is no behavior is
+`INVALID_ARGUMENT`, as is one the model declares more than once — a declaration
+of the model's shadows the library's of the same name, but two of the model's
+denote nothing.
 It is advertised by `export_graphs`. Python exposes this as
 `model.export_graphs(subject)`, returning a typed `Graphs`.
 

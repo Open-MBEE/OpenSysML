@@ -81,7 +81,7 @@ func TestExportGraphsRefusals(t *testing.T) {
 	}{
 		{"unknown model", &pb.ExportGraphsRequest{ModelHash: "nope", Subject: "Test::race"}, connect.CodeNotFound, "nope"},
 		{"no subject", &pb.ExportGraphsRequest{ModelHash: hash}, connect.CodeInvalidArgument, "subject is required"},
-		{"unknown subject", &pb.ExportGraphsRequest{ModelHash: hash, Subject: "Test::Missing"}, connect.CodeNotFound, "Test::Missing"},
+		{"unknown subject", &pb.ExportGraphsRequest{ModelHash: hash, Subject: "Test::Missing"}, connect.CodeNotFound, "symbol not found: Test::Missing"},
 		{"not a behavior", &pb.ExportGraphsRequest{ModelHash: hash, Subject: "Test"}, connect.CodeInvalidArgument, "no lowered graph"},
 	}
 	for _, test := range tests {
@@ -94,5 +94,29 @@ func TestExportGraphsRefusals(t *testing.T) {
 				t.Errorf("error %v does not mention %q", err, test.message)
 			}
 		})
+	}
+}
+
+// A name the model declares twice denotes no one behavior, so neither graph
+// is exported for it; a name of the model's shadows the library's.
+func TestExportGraphsRefusesAnAmbiguousSubject(t *testing.T) {
+	srv := mustNewService(t, 10)
+	t.Cleanup(srv.Close)
+	parsed, _ := parseContent(t, srv, `package P {
+    action Run { action a; }
+    action Run { action b; }
+    action Base { action c; }
+}
+`)
+	_, err := srv.ExportGraphs(context.Background(), &pb.ExportGraphsRequest{ModelHash: parsed.ModelHash, Subject: "P::Run"})
+	if connect.CodeOf(err) != connect.CodeInvalidArgument || !strings.Contains(err.Error(), "P::Run is ambiguous") {
+		t.Fatalf("ambiguous subject: status %s: %v", connect.CodeOf(err), err)
+	}
+	resp, err := srv.ExportGraphs(context.Background(), &pb.ExportGraphsRequest{ModelHash: parsed.ModelHash, Subject: "P::Base"})
+	if err != nil {
+		t.Fatalf("P::Base: %v", err)
+	}
+	if resp.Subject != "P::Base" {
+		t.Errorf("subject = %q", resp.Subject)
 	}
 }

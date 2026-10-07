@@ -9,6 +9,7 @@ import (
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
 	"github.com/Open-MBEE/OpenSysML/internal/exec/analysis/modelform"
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/symbolfacts"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 )
 
 // ExportGraphs exports the lowered graph of an action or state machine, and of
@@ -26,14 +27,14 @@ func (s *Service) ExportGraphs(ctx context.Context, req *pb.ExportGraphsRequest)
 	if req.Subject == "" {
 		return nil, statusError(connect.CodeInvalidArgument, "subject is required")
 	}
-	found := symbolfacts.LookupNamed(cached.Index, req.Subject)
-	if len(found) == 0 {
-		return nil, statusErrorf(connect.CodeNotFound, "no element named %s", req.Subject)
+	subject, err := graphsSubject(cached.Index, req.Subject)
+	if err != nil {
+		return nil, err
 	}
 
 	worker, release := cached.worker()
 	defer release()
-	graphs, err := modelform.GraphsOf(worker.Model, found[0])
+	graphs, err := modelform.GraphsOf(worker.Model, subject)
 	if err != nil {
 		if errors.Is(err, modelform.ErrGraphsSubject) {
 			return nil, statusErrorf(connect.CodeInvalidArgument, "%s: %s", req.Subject, err)
@@ -49,4 +50,26 @@ func (s *Service) ExportGraphs(ctx context.Context, req *pb.ExportGraphsRequest)
 		Version: int32(graphs.Version), // #nosec G115 -- the form version is a small constant
 		Subject: graphs.Subject,
 	}, nil
+}
+
+// graphsSubject is the one declaration a qualified name denotes. A declaration
+// of the model's shadows the library's of the same name, as every RPC reads a
+// name; a name the model declares more than once denotes none of them.
+func graphsSubject(idx *symbols.Index, name string) (*symbols.Symbol, error) {
+	found := symbolfacts.LookupNamed(idx, name)
+	if len(found) == 0 {
+		return nil, statusErrorf(connect.CodeNotFound, "symbol not found: %s", name)
+	}
+	// LookupNamed puts the model's declarations before the library's.
+	declared := 0
+	for declared < len(found) && !idx.Library(found[declared]) {
+		declared++
+	}
+	switch {
+	case declared == 1, declared == 0 && len(found) == 1:
+		return found[0], nil
+	case declared == 0:
+		return nil, statusErrorf(connect.CodeInvalidArgument, "%s is ambiguous: the library declares %d elements under that name", name, len(found))
+	}
+	return nil, statusErrorf(connect.CodeInvalidArgument, "%s is ambiguous: the model declares %d elements under that name", name, declared)
 }

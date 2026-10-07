@@ -12,6 +12,7 @@ import {
   DocumentVerdict,
   ElementRef,
   ObjectRef,
+  SymbolNotFoundError,
   connect,
 } from "../src/node/index.js";
 import { repoRoot, useServiceBinary } from "./support/service.js";
@@ -225,6 +226,11 @@ test("exportGraphs returns the canonical graphs form of a behavior", async () =>
   assert.equal(form.version, 1);
   assert.equal(form.subject, "Test::race");
   assert.equal(form.actions.length, 1);
-  await assert.rejects(model.exportGraphs("Test::Missing"), /Test::Missing/);
+  const missing = await model.exportGraphs("Test::Missing").then(
+    () => undefined,
+    (reason: unknown) => reason,
+  );
+  assert.ok(missing instanceof SymbolNotFoundError);
+  assert.equal(missing.symbolName, "Test::Missing");
   await assert.rejects(model.exportGraphs("Test"), /no lowered graph/);
 });

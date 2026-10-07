@@ -110,6 +110,12 @@ func TestGraphsRefusals(t *testing.T) {
 		{"with migrate", []string{"-graphs", "Pipeline::terrain", "-migrate", "sysml"}, 2, "mutually exclusive"},
 		{"with query", []string{"-graphs", "Pipeline::terrain", "-query", "Pipeline"}, 2, "-graphs"},
 		{"with check", []string{"-graphs", "Pipeline::terrain", "-self-check"}, 2, "decides nothing about the model"},
+		{"empty subject", []string{"-graphs="}, 2, "-graphs is empty"},
+		{"with compile", []string{"-graphs", "Pipeline::terrain", "-compile", "Pipeline::terrain", "-o", filepath.Join(t.TempDir(), "out")}, 2, "-graphs"},
+		{"with sync-diff", []string{"-graphs", "Pipeline::terrain", "-sync-diff", "http://127.0.0.1:1/x"}, 2, "-graphs"},
+		{"with sync-apply", []string{"-graphs", "Pipeline::terrain", "-sync-apply", "http://127.0.0.1:1/x"}, 2, "-graphs"},
+		{"with compare-results", []string{"-graphs", "Pipeline::terrain", "-compare-results", "results.json"}, 2, "-graphs"},
+		{"with import-dry-run", []string{"-graphs", "Pipeline::terrain", "-import", "data.csv", "-import-dry-run"}, 2, "export graphs"},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
