@@ -717,6 +717,7 @@ func (c *pkgClient) exportGraphs(ctx context.Context, request protoreflect.Messa
 	if err != nil {
 		return nil, apiError(err)
 	}
+	// #nosec G115 -- the version came off the wire as int32.
 	return &pb.ExportGraphsResponse{
 		Content: graphs.Content, Version: int32(graphs.Version), Subject: graphs.Subject,
 	}, nil
