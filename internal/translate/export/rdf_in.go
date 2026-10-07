@@ -1704,7 +1704,12 @@ func (d *decoder) printElement(b *strings.Builder, el *element, depth int) error
 func (d *decoder) bodyMembers(el *element) ([]*element, error) {
 	children := d.bodyChildren(el)
 	if accept := d.acceptParam(el); accept != nil {
-		children = slices.DeleteFunc(children, func(child *element) bool { return child == accept })
+		receivers := []*element{accept}
+		if el.metaclass == mAcceptAction {
+			// The receiver parameter is the head's `via`, written there.
+			receivers = append(receivers, d.receiverParams(el, accept)...)
+		}
+		children = slices.DeleteFunc(children, func(child *element) bool { return slices.Contains(receivers, child) })
 	}
 	return d.positionalSuccessions(children)
 }
@@ -2552,6 +2557,33 @@ func (d *decoder) usageHead(el *element, kind ast.UsageKind) (string, error) {
 		}
 		words = append(words, "accept")
 		words = append(words, acceptWords...)
+		// `via p` is the receiver parameter an AcceptActionUsage names as its
+		// receiverArgument, or the sysml:via an earlier mapping wrote.
+		if el.metaclass == mAcceptAction {
+			via, err := d.triggerReceiver(el, el, accept)
+			if err != nil {
+				return "", err
+			}
+			// A sysml:via stated beside the receiver parameter must name the
+			// same port, as for a trigger, or the graph is refused rather
+			// than one of them dropped.
+			if d.graph.HasProperty(rdf.IRI(el.iri), rdf.SysML+relationshipProperty[ast.RelVia]) {
+				stated, err := d.referenceText(el, rdf.SysML+relationshipProperty[ast.RelVia])
+				if err != nil {
+					return "", err
+				}
+				if !d.sameNames(el, []string{stated}, []string{via}) {
+					return "", &UnsupportedError{
+						What: fmt.Sprintf("the accept action <%s>", el.iri),
+						Note: fmt.Sprintf("its sysml:via states %q while its receiver parameter states %q, and writing one would drop the other", stated, via),
+					}
+				}
+			}
+			if via != "" {
+				words = append(words, "via", via)
+				skip = append(skip, ast.RelVia)
+			}
+		}
 	}
 	// `metadata M about x;` writes its typing bare (SysML.xtext MetadataUsageDeclaration).
 	if kind == ast.UsageMetadata && len(identWords) == 0 && len(typed) == 1 {
@@ -3532,6 +3564,12 @@ func (d *decoder) writtenQName(el *element) string {
 		d.transitionFeatureKind(el.owner) == "trigger" &&
 		el.owner.owner != nil && el.owner.owner.metaclass == mTransition {
 		return d.writtenQName(el.owner.owner)
+	}
+	// An accept node's receiver parameter is the `via` its head writes, so a
+	// name its value spells is written from the node.
+	if el.owner != nil && el.owner.metaclass == mAcceptAction && d.transitionFeatureKind(el.owner) != "trigger" &&
+		slices.Contains(d.receiverParams(el.owner, d.acceptParam(el.owner)), el) {
+		return d.writtenQName(el.owner)
 	}
 	q := el.qname
 	i := strings.LastIndex(q, "::")
