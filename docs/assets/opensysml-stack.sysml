@@ -15,6 +15,13 @@ package OpenSysMLStack {
 
     port def ModelPort;
 
+    // A subsystem a project ships, drawn inside the project's box.
+    part def Component {
+        attribute label : String;
+        attribute kind : String = "component";
+        attribute role : String;
+    }
+
     interface def Interchange {
         end client : ModelPort;
         end store : ~ModelPort;
@@ -22,11 +29,43 @@ package OpenSysMLStack {
 
     part stack {
         part opensysml : Project {
-            :>> label = "OpenSysML Runtime Environment";
+            :>> label = "OpenSysML Runtime Environment and Development Kit";
             :>> kind = "runtime";
             :>> lang = "Go";
-            :>> role = "runtime + LSP";
+            :>> role = "the runtime";
             :>> repo = "https://github.com/Open-MBEE/OpenSysML";
+            part engine : Component {
+                :>> label = "Execution runtime";
+                :>> role = "parts, actions, states, constraints";
+            }
+            part lsp : Component {
+                :>> label = "Language server";
+                :>> role = "sysml-lsp";
+            }
+            part repl : Component {
+                :>> label = "REPL";
+                :>> role = "sysml";
+            }
+            part service : Component {
+                :>> label = "gRPC service";
+                :>> role = "sysml-grpc + client libraries";
+            }
+            part docgen : Component {
+                :>> label = "Document generation";
+                :>> role = "Markdown, HTML, PDF";
+            }
+            part interchange : Component {
+                :>> label = "Interchange";
+                :>> role = "RDF, XMI, notation";
+            }
+            part migration : Component {
+                :>> label = "SysML v1 migration";
+                :>> role = "XMI to v2 notation";
+            }
+            part oslc : Component {
+                :>> label = "OSLC query";
+                :>> role = "REPL and service";
+            }
         }
         part toolkit : Project {
             :>> label = "sysml-toolkit";

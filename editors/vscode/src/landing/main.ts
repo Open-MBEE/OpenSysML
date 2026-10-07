@@ -32,6 +32,7 @@ import {
   type LandingModel,
   type LandingPart,
 } from "./model";
+import { carried } from "./carry";
 import { presented } from "./present";
 import stack from "./stack.json";
 
@@ -182,6 +183,8 @@ function mount(root: HTMLElement): Mounted {
 
   const partOf = (id: string): LandingPart | undefined => [...model.parts.values()].find((part) => part.id === id);
   const idOf = (feature: string): string | undefined => model.parts.get(feature)?.id;
+  // projects is the parts drawn at the top level, which are the ones a visitor can move.
+  const projects = (): LandingPart[] => [...model.parts.values()].filter((part) => part.owner === undefined);
 
   function status(text: string, error = false): void {
     statusEl.textContent = text;
@@ -196,7 +199,7 @@ function mount(root: HTMLElement): Mounted {
         nodes.set(id, { x: at.x, y: at.y });
       }
     }
-    return { nodes, bounds: bounds() };
+    return { nodes: carried(result.nodes, auto, nodes), bounds: bounds() };
   }
 
   // fit centres the unmoved diagram in the stage, scaled to the stage's width up to MAX_SCALE.
@@ -258,7 +261,7 @@ function mount(root: HTMLElement): Mounted {
         settled.set(entry.node.id, entry);
       }
     }
-    for (const part of model.parts.values()) {
+    for (const part of projects()) {
       const entry = layout.nodes.get(part.id);
       if (!entry || entry.hidden) {
         continue;
@@ -313,7 +316,8 @@ function mount(root: HTMLElement): Mounted {
   function decorate(): void {
     for (const group of content.querySelectorAll<SVGGElement>("g.opensysml-node")) {
       const part = partOf(group.dataset.opensysmlId ?? "");
-      if (!part) {
+      // A nested part moves with its project, whose group encloses it.
+      if (!part || part.owner !== undefined) {
         continue;
       }
       group.classList.add("osml-part");

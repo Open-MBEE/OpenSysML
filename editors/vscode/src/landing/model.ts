@@ -1,5 +1,5 @@
 import { normalizeRender } from "../protocol";
-import type { RenderResult } from "../protocol";
+import type { RenderNode, RenderResult } from "../protocol";
 
 export interface EngineClient {
   call(method: string, params: string): string;
@@ -17,6 +17,8 @@ export interface LandingPart {
   feature: string;
   symbol: string;
   attrs: Record<string, string>;
+  /** The feature of the part this one is nested in; absent for a project. */
+  owner?: string;
 }
 
 export interface LandingModel {
@@ -149,7 +151,7 @@ export function landingModel(hash: string, render: RenderResult, instances: Engi
   );
   const nodes = render.nodes
     .filter((node) => node.id !== root.id && node.kind !== "attribute")
-    .map((node) => {
+    .map((node): RenderNode => {
       if (node.parent !== root.id) {
         return node;
       }
@@ -162,13 +164,20 @@ export function landingModel(hash: string, render: RenderResult, instances: Engi
     nodes,
     edges: render.edges.filter((edge) => retained.has(edge.from) && retained.has(edge.to)),
   });
+  const nodesById = new Map(nodes.map((node) => [node.id, node]));
+  // instanceOf follows feature values down from the stack's instance to a node's.
+  const instanceOf = (node: RenderNode): EngineInstance | undefined => {
+    const parent = node.parent === undefined ? undefined : nodesById.get(node.parent);
+    const owner = parent === undefined ? rootInstance : instanceOf(parent);
+    const instanceId = owner?.featureValues?.[node.name]?.value?.instanceId;
+    return instanceId === undefined ? undefined : instancesById.get(instanceId);
+  };
   const parts = new Map<string, LandingPart>();
   for (const node of nodes) {
     if (node.kind !== "part") {
       continue;
     }
-    const instanceId = rootInstance?.featureValues?.[node.name]?.value?.instanceId;
-    const instance = instanceId === undefined ? undefined : instancesById.get(instanceId);
+    const instance = instanceOf(node);
     const attrs: Record<string, string> = {};
     for (const [name, featureValue] of Object.entries(instance?.featureValues ?? {})) {
       const value = featureValue.value?.stringValue;
@@ -183,6 +192,10 @@ export function landingModel(hash: string, render: RenderResult, instances: Engi
       symbol: instance?.typeSymbolId ?? node.type,
       attrs,
     };
+    const owner = node.parent === undefined ? undefined : nodesById.get(node.parent)?.name;
+    if (owner !== undefined) {
+      part.owner = owner;
+    }
     parts.set(part.feature, part);
   }
   return { hash, render: normalized, parts };

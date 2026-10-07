@@ -6,6 +6,7 @@ import { test } from "node:test";
 import type { LayoutGeometry, RenderEdge, RenderNode, RenderPoint, RenderResult } from "../protocol";
 import type { EngineInstance } from "../landing/model";
 import { landingModel } from "../landing/model";
+import { carried } from "../landing/carry";
 import { presented } from "../landing/present";
 import { autoLayout, type AutoLayout } from "./autolayout";
 import {
@@ -1867,31 +1868,32 @@ test("landing drag keeps right-angled routes at the captured Pilot obstruction",
     width: 1098.165089,
     height: 907.244513,
   };
+  // Pilot's port faces Flexo's across sysml-toolkit, which sits between them.
   const positions: Record<string, RenderPoint> = {
-    n1: { x: 301.3853, y: 116.4220 },
-    n7: { x: 282.2569, y: 218.4220 },
-    n13: { x: 12.8074, y: 95.7248 },
-    n19: { x: 628.9174, y: 255.5811 },
+    opensysml: { x: 100, y: -180 },
+    toolkit: { x: 330, y: 160 },
+    pilot: { x: 40, y: 140 },
+    flexo: { x: 650, y: 120 },
   };
+  const idOf = (feature: string): string => model.parts.get(feature)!.id;
   const layoutAt = (pilotX: number): CanvasLayout => {
     const nodes = new Map<string, LayoutGeometry>();
-    for (const entry of result.nodes) {
-      const geometry = auto.nodes.get(entry.id);
-      const position = positions[entry.id];
-      assert.ok(geometry && position, `ELK should place landing box ${entry.id}`);
-      nodes.set(entry.id, { ...geometry, x: entry.id === "n13" ? pilotX : position.x, y: position.y });
+    for (const [feature, position] of Object.entries(positions)) {
+      const geometry = auto.nodes.get(idOf(feature));
+      assert.ok(geometry, `ELK should place landing box ${feature}`);
+      nodes.set(idOf(feature), { ...geometry, x: feature === "pilot" ? pilotX : position.x, y: position.y });
     }
-    return layoutCanvas(result, { nodes, bounds }, auto);
+    return layoutCanvas(result, { nodes: carried(result.nodes, auto, nodes), bounds }, auto);
   };
-  const next = layoutAt(positions.n13.x);
-  const pilotEdge = next.edges.find(({ edge }) => edge.from === "n13" && edge.to === "n19");
+  const next = layoutAt(positions.pilot.x);
+  const pilotEdge = next.edges.find(({ edge }) => edge.from === idOf("pilot") && edge.to === idOf("flexo"));
   assert.ok(pilotEdge);
   assert.ok(
     !orthogonal(pilotEdge.points),
     "the captured Pilot position should reproduce its diagonal route",
   );
 
-  const previous = layoutAt(positions.n13.x - 40);
+  const previous = layoutAt(positions.pilot.x - 40);
   for (const edge of previous.edges) {
     assert.ok(
       orthogonal(edge.points),

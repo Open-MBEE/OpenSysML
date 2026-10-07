@@ -54,6 +54,32 @@ function orthogonal(points: RenderPoint[]): boolean {
   return points.every((point, i) => i === 0 || point.x === points[i - 1].x || point.y === points[i - 1].y);
 }
 
+test("autoLayout packs children no edge reaches into rows inside their container, whose ports stay free", async () => {
+  const kids = ["k1", "k2", "k3", "k4", "k5", "k6"].map((id) => node(id, id, { parent: "box" }));
+  const box = node("box", "box", { ports: [{ id: "box.p", name: "p" }] });
+  const result = rendering(
+    [box, ...kids, node("far", "far")],
+    [edge("box", "far", { fromPort: "box.p" })],
+    { kind: "interconnection" },
+  );
+  const laid = await autoLayout(result);
+  assert.ok(laid);
+  const container = boxOf(laid, "box");
+  const boxes = kids.map((kid) => boxOf(laid, kid.id));
+  assert.ok(new Set(boxes.map((b) => b.y)).size > 1, "children should take more than one row");
+  assert.ok(new Set(boxes.map((b) => b.x)).size > 1, "children should take more than one column");
+  for (const [i, a] of boxes.entries()) {
+    assert.ok(a.x >= container.x && a.x + a.width <= container.x + container.width, `${kids[i].id} inside across`);
+    assert.ok(a.y > container.y && a.y + a.height <= container.y + container.height, `${kids[i].id} inside down`);
+    for (const b of boxes.slice(i + 1)) {
+      assert.ok(disjoint(a, b));
+    }
+  }
+  assert.ok(disjoint(container, boxOf(laid, "far")));
+  assert.ok(laid.ports.get("box.p"), "the container's port should be placed by the layered pass");
+  assert.ok(orthogonal(laid.routes.get(0) ?? []));
+});
+
 test("autoLayout lays a chain out in layers downward and routes its edges orthogonally", async () => {
   const result = rendering([node("a", "a"), node("b", "b"), node("c", "c")], [edge("a", "b"), edge("b", "c")]);
   const laid = await autoLayout(result);

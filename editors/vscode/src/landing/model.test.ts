@@ -26,18 +26,21 @@ interface LandingFixture {
 const fixture = JSON.parse(readFileSync("src/landing/stack.json", "utf8")) as LandingFixture;
 const fixtureRender = fixture.render as RenderResult;
 
+const PROJECTS = ["flexo", "opensysml", "pilot", "toolkit"];
+const COMPONENTS = ["docgen", "engine", "interchange", "lsp", "migration", "oslc", "repl", "service"];
+
 test("landingModel keeps the four ported project parts and their interface edges", () => {
   const model = landingModel(fixture.hash, fixtureRender, fixture.instances);
-  assert.equal(model.parts.size, 4);
-  assert.deepEqual(
-    [...model.parts.keys()].sort(),
-    ["flexo", "opensysml", "pilot", "toolkit"],
-  );
+  assert.deepEqual([...model.parts.keys()].sort(), [...COMPONENTS, ...PROJECTS].sort());
   assert.ok(model.render.nodes.every((node) => node.kind !== "attribute"));
-  assert.ok(model.render.nodes.every((node) => node.parent === undefined));
+  const nodeOf = (feature: string) => model.render.nodes.find(({ id }) => id === model.parts.get(feature)?.id)!;
+  for (const feature of PROJECTS) {
+    assert.equal(nodeOf(feature).parent, undefined, `${feature} should be lifted to the top level`);
+  }
 
   const ports = new Map<string, string>();
-  for (const part of model.parts.values()) {
+  for (const feature of PROJECTS) {
+    const part = model.parts.get(feature)!;
     const node = model.render.nodes.find(({ id }) => id === part.id)!;
     const api = node.ports?.find(({ name }) => name === "api");
     assert.ok(api, `${part.feature} should keep its api port`);
@@ -49,7 +52,22 @@ test("landingModel keeps the four ported project parts and their interface edges
     model.render.edges.map((edge) => edge.label).sort(),
     ["opensysml_flexo", "pilot_flexo", "toolkit_flexo"],
   );
-  assert.equal(model.parts.get("opensysml")?.attrs.label, "OpenSysML Runtime Environment");
+  assert.equal(model.parts.get("opensysml")?.attrs.label, "OpenSysML Runtime Environment and Development Kit");
+});
+
+test("landingModel keeps a project's components inside it, with their own attributes", () => {
+  const model = landingModel(fixture.hash, fixtureRender, fixture.instances);
+  const opensysml = model.parts.get("opensysml")!;
+  for (const feature of COMPONENTS) {
+    const part = model.parts.get(feature)!;
+    const node = model.render.nodes.find(({ id }) => id === part.id)!;
+    assert.equal(node.parent, opensysml.id, `${feature} should stay inside opensysml`);
+    assert.equal(part.symbol, `OpenSysMLStack::stack::opensysml::${feature}`);
+    assert.equal(part.attrs.kind, "component");
+    assert.ok(part.attrs.role, `${feature} should state its role`);
+  }
+  assert.equal(model.parts.get("oslc")?.attrs.label, "OSLC query");
+  assert.equal(model.parts.get("docgen")?.attrs.label, "Document generation");
 });
 
 test("readModel returns parse diagnostics without requesting a rendering", () => {

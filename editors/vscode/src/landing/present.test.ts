@@ -36,8 +36,8 @@ test("presented uses fixture attributes and preserves edge and port data", () =>
   const flexoNode = result.nodes.find(({ id }) => id === flexo.id);
   assert.ok(flexoNode);
 
-  assert.equal(flexo.id, "n19");
-  assert.equal(flexoNode.ports?.[0]?.id, "n19.0");
+  assert.equal(flexo.id, "n43");
+  assert.equal(flexoNode.ports?.[0]?.id, "n43.0");
   assert.deepEqual(
     {
       name: flexoNode.name,

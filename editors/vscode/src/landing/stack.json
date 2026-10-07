@@ -1,5 +1,5 @@
 {
-  "hash": "894be0a2ec435392d6bc76ad5becb8c2ddc21c963e191932b711c405fb13c1f7",
+  "hash": "705089652daddd484d8fc9be4c52e7bf6ce0867d9f9704912eb5e8de4eb11248",
   "render": {
     "view": "",
     "kind": "interconnection",
@@ -71,17 +71,10 @@
       {
         "id": "n7",
         "kind": "part",
-        "name": "toolkit",
-        "type": "Project",
+        "name": "engine",
+        "type": "Component",
         "detail": "",
-        "parent": "n0",
-        "ports": [
-          {
-            "id": "n7.0",
-            "name": "api",
-            "type": "ModelPort"
-          }
-        ]
+        "parent": "n1"
       },
       {
         "id": "n8",
@@ -94,49 +87,42 @@
       {
         "id": "n9",
         "kind": "attribute",
-        "name": "kind",
-        "type": "",
-        "detail": "",
-        "parent": "n7"
-      },
-      {
-        "id": "n10",
-        "kind": "attribute",
-        "name": "lang",
-        "type": "",
-        "detail": "",
-        "parent": "n7"
-      },
-      {
-        "id": "n11",
-        "kind": "attribute",
         "name": "role",
         "type": "",
         "detail": "",
         "parent": "n7"
       },
       {
-        "id": "n12",
+        "id": "n10",
+        "kind": "part",
+        "name": "lsp",
+        "type": "Component",
+        "detail": "",
+        "parent": "n1"
+      },
+      {
+        "id": "n11",
         "kind": "attribute",
-        "name": "repo",
+        "name": "label",
         "type": "",
         "detail": "",
-        "parent": "n7"
+        "parent": "n10"
+      },
+      {
+        "id": "n12",
+        "kind": "attribute",
+        "name": "role",
+        "type": "",
+        "detail": "",
+        "parent": "n10"
       },
       {
         "id": "n13",
         "kind": "part",
-        "name": "pilot",
-        "type": "Project",
+        "name": "repl",
+        "type": "Component",
         "detail": "",
-        "parent": "n0",
-        "ports": [
-          {
-            "id": "n13.0",
-            "name": "api",
-            "type": "ModelPort"
-          }
-        ]
+        "parent": "n1"
       },
       {
         "id": "n14",
@@ -149,49 +135,42 @@
       {
         "id": "n15",
         "kind": "attribute",
-        "name": "kind",
-        "type": "",
-        "detail": "",
-        "parent": "n13"
-      },
-      {
-        "id": "n16",
-        "kind": "attribute",
-        "name": "lang",
-        "type": "",
-        "detail": "",
-        "parent": "n13"
-      },
-      {
-        "id": "n17",
-        "kind": "attribute",
         "name": "role",
         "type": "",
         "detail": "",
         "parent": "n13"
       },
       {
-        "id": "n18",
+        "id": "n16",
+        "kind": "part",
+        "name": "service",
+        "type": "Component",
+        "detail": "",
+        "parent": "n1"
+      },
+      {
+        "id": "n17",
         "kind": "attribute",
-        "name": "repo",
+        "name": "label",
         "type": "",
         "detail": "",
-        "parent": "n13"
+        "parent": "n16"
+      },
+      {
+        "id": "n18",
+        "kind": "attribute",
+        "name": "role",
+        "type": "",
+        "detail": "",
+        "parent": "n16"
       },
       {
         "id": "n19",
         "kind": "part",
-        "name": "flexo",
-        "type": "Project",
+        "name": "docgen",
+        "type": "Component",
         "detail": "",
-        "parent": "n0",
-        "ports": [
-          {
-            "id": "n19.0",
-            "name": "api",
-            "type": "ModelPort"
-          }
-        ]
+        "parent": "n1"
       },
       {
         "id": "n20",
@@ -204,58 +183,271 @@
       {
         "id": "n21",
         "kind": "attribute",
-        "name": "kind",
-        "type": "",
-        "detail": "",
-        "parent": "n19"
-      },
-      {
-        "id": "n22",
-        "kind": "attribute",
-        "name": "lang",
-        "type": "",
-        "detail": "",
-        "parent": "n19"
-      },
-      {
-        "id": "n23",
-        "kind": "attribute",
         "name": "role",
         "type": "",
         "detail": "",
         "parent": "n19"
       },
       {
+        "id": "n22",
+        "kind": "part",
+        "name": "interchange",
+        "type": "Component",
+        "detail": "",
+        "parent": "n1"
+      },
+      {
+        "id": "n23",
+        "kind": "attribute",
+        "name": "label",
+        "type": "",
+        "detail": "",
+        "parent": "n22"
+      },
+      {
         "id": "n24",
+        "kind": "attribute",
+        "name": "role",
+        "type": "",
+        "detail": "",
+        "parent": "n22"
+      },
+      {
+        "id": "n25",
+        "kind": "part",
+        "name": "migration",
+        "type": "Component",
+        "detail": "",
+        "parent": "n1"
+      },
+      {
+        "id": "n26",
+        "kind": "attribute",
+        "name": "label",
+        "type": "",
+        "detail": "",
+        "parent": "n25"
+      },
+      {
+        "id": "n27",
+        "kind": "attribute",
+        "name": "role",
+        "type": "",
+        "detail": "",
+        "parent": "n25"
+      },
+      {
+        "id": "n28",
+        "kind": "part",
+        "name": "oslc",
+        "type": "Component",
+        "detail": "",
+        "parent": "n1"
+      },
+      {
+        "id": "n29",
+        "kind": "attribute",
+        "name": "label",
+        "type": "",
+        "detail": "",
+        "parent": "n28"
+      },
+      {
+        "id": "n30",
+        "kind": "attribute",
+        "name": "role",
+        "type": "",
+        "detail": "",
+        "parent": "n28"
+      },
+      {
+        "id": "n31",
+        "kind": "part",
+        "name": "toolkit",
+        "type": "Project",
+        "detail": "",
+        "parent": "n0",
+        "ports": [
+          {
+            "id": "n31.0",
+            "name": "api",
+            "type": "ModelPort"
+          }
+        ]
+      },
+      {
+        "id": "n32",
+        "kind": "attribute",
+        "name": "label",
+        "type": "",
+        "detail": "",
+        "parent": "n31"
+      },
+      {
+        "id": "n33",
+        "kind": "attribute",
+        "name": "kind",
+        "type": "",
+        "detail": "",
+        "parent": "n31"
+      },
+      {
+        "id": "n34",
+        "kind": "attribute",
+        "name": "lang",
+        "type": "",
+        "detail": "",
+        "parent": "n31"
+      },
+      {
+        "id": "n35",
+        "kind": "attribute",
+        "name": "role",
+        "type": "",
+        "detail": "",
+        "parent": "n31"
+      },
+      {
+        "id": "n36",
         "kind": "attribute",
         "name": "repo",
         "type": "",
         "detail": "",
-        "parent": "n19"
+        "parent": "n31"
+      },
+      {
+        "id": "n37",
+        "kind": "part",
+        "name": "pilot",
+        "type": "Project",
+        "detail": "",
+        "parent": "n0",
+        "ports": [
+          {
+            "id": "n37.0",
+            "name": "api",
+            "type": "ModelPort"
+          }
+        ]
+      },
+      {
+        "id": "n38",
+        "kind": "attribute",
+        "name": "label",
+        "type": "",
+        "detail": "",
+        "parent": "n37"
+      },
+      {
+        "id": "n39",
+        "kind": "attribute",
+        "name": "kind",
+        "type": "",
+        "detail": "",
+        "parent": "n37"
+      },
+      {
+        "id": "n40",
+        "kind": "attribute",
+        "name": "lang",
+        "type": "",
+        "detail": "",
+        "parent": "n37"
+      },
+      {
+        "id": "n41",
+        "kind": "attribute",
+        "name": "role",
+        "type": "",
+        "detail": "",
+        "parent": "n37"
+      },
+      {
+        "id": "n42",
+        "kind": "attribute",
+        "name": "repo",
+        "type": "",
+        "detail": "",
+        "parent": "n37"
+      },
+      {
+        "id": "n43",
+        "kind": "part",
+        "name": "flexo",
+        "type": "Project",
+        "detail": "",
+        "parent": "n0",
+        "ports": [
+          {
+            "id": "n43.0",
+            "name": "api",
+            "type": "ModelPort"
+          }
+        ]
+      },
+      {
+        "id": "n44",
+        "kind": "attribute",
+        "name": "label",
+        "type": "",
+        "detail": "",
+        "parent": "n43"
+      },
+      {
+        "id": "n45",
+        "kind": "attribute",
+        "name": "kind",
+        "type": "",
+        "detail": "",
+        "parent": "n43"
+      },
+      {
+        "id": "n46",
+        "kind": "attribute",
+        "name": "lang",
+        "type": "",
+        "detail": "",
+        "parent": "n43"
+      },
+      {
+        "id": "n47",
+        "kind": "attribute",
+        "name": "role",
+        "type": "",
+        "detail": "",
+        "parent": "n43"
+      },
+      {
+        "id": "n48",
+        "kind": "attribute",
+        "name": "repo",
+        "type": "",
+        "detail": "",
+        "parent": "n43"
       }
     ],
     "edges": [
       {
         "from": "n1",
-        "to": "n19",
+        "to": "n43",
         "fromPort": "n1.0",
-        "toPort": "n19.0",
+        "toPort": "n43.0",
         "label": "opensysml_flexo",
         "kind": "connection"
       },
       {
-        "from": "n7",
-        "to": "n19",
-        "fromPort": "n7.0",
-        "toPort": "n19.0",
+        "from": "n31",
+        "to": "n43",
+        "fromPort": "n31.0",
+        "toPort": "n43.0",
         "label": "toolkit_flexo",
         "kind": "connection"
       },
       {
-        "from": "n13",
-        "to": "n19",
-        "fromPort": "n13.0",
-        "toPort": "n19.0",
+        "from": "n37",
+        "to": "n43",
+        "fromPort": "n37.0",
+        "toPort": "n43.0",
         "label": "pilot_flexo",
         "kind": "connection"
       }
@@ -560,12 +752,33 @@
           "featureName": "checkedConstraints",
           "materialized": true
         },
+        "docgen": {
+          "featureName": "docgen",
+          "value": {
+            "instanceId": "13"
+          },
+          "materialized": true
+        },
+        "engine": {
+          "featureName": "engine",
+          "value": {
+            "instanceId": "14"
+          },
+          "materialized": true
+        },
         "envelopingShapes": {
           "featureName": "envelopingShapes",
           "materialized": true
         },
         "exhibitedStates": {
           "featureName": "exhibitedStates"
+        },
+        "interchange": {
+          "featureName": "interchange",
+          "value": {
+            "instanceId": "15"
+          },
+          "materialized": true
         },
         "isSolid": {
           "featureName": "isSolid",
@@ -584,7 +797,7 @@
         "label": {
           "featureName": "label",
           "value": {
-            "stringValue": "OpenSysML Runtime Environment"
+            "stringValue": "OpenSysML Runtime Environment and Development Kit"
           },
           "materialized": true
         },
@@ -592,6 +805,27 @@
           "featureName": "lang",
           "value": {
             "stringValue": "Go"
+          },
+          "materialized": true
+        },
+        "lsp": {
+          "featureName": "lsp",
+          "value": {
+            "instanceId": "16"
+          },
+          "materialized": true
+        },
+        "migration": {
+          "featureName": "migration",
+          "value": {
+            "instanceId": "17"
+          },
+          "materialized": true
+        },
+        "oslc": {
+          "featureName": "oslc",
+          "value": {
+            "instanceId": "18"
           },
           "materialized": true
         },
@@ -615,6 +849,13 @@
         "performedActions": {
           "featureName": "performedActions"
         },
+        "repl": {
+          "featureName": "repl",
+          "value": {
+            "instanceId": "19"
+          },
+          "materialized": true
+        },
         "repo": {
           "featureName": "repo",
           "value": {
@@ -625,7 +866,162 @@
         "role": {
           "featureName": "role",
           "value": {
-            "stringValue": "runtime + LSP"
+            "stringValue": "the runtime"
+          },
+          "materialized": true
+        },
+        "service": {
+          "featureName": "service",
+          "value": {
+            "instanceId": "20"
+          },
+          "materialized": true
+        },
+        "shape": {
+          "featureName": "shape",
+          "value": {
+            "unset": true
+          },
+          "materialized": true
+        },
+        "subitems": {
+          "featureName": "subitems",
+          "values": [
+            {
+              "instanceId": "14"
+            },
+            {
+              "instanceId": "16"
+            },
+            {
+              "instanceId": "19"
+            },
+            {
+              "instanceId": "20"
+            },
+            {
+              "instanceId": "13"
+            },
+            {
+              "instanceId": "15"
+            },
+            {
+              "instanceId": "17"
+            },
+            {
+              "instanceId": "18"
+            }
+          ],
+          "materialized": true
+        },
+        "subparts": {
+          "featureName": "subparts",
+          "values": [
+            {
+              "instanceId": "14"
+            },
+            {
+              "instanceId": "16"
+            },
+            {
+              "instanceId": "19"
+            },
+            {
+              "instanceId": "20"
+            },
+            {
+              "instanceId": "13"
+            },
+            {
+              "instanceId": "15"
+            },
+            {
+              "instanceId": "17"
+            },
+            {
+              "instanceId": "18"
+            }
+          ],
+          "materialized": true
+        },
+        "voids": {
+          "featureName": "voids",
+          "materialized": true
+        }
+      }
+    },
+    {
+      "id": "5",
+      "typeSymbolId": "OpenSysMLStack::ModelPort",
+      "featureValues": {
+        "interfacingPorts": {
+          "featureName": "interfacingPorts"
+        },
+        "subports": {
+          "featureName": "subports",
+          "materialized": true
+        }
+      }
+    },
+    {
+      "id": "13",
+      "typeSymbolId": "OpenSysMLStack::stack::opensysml::docgen",
+      "featureValues": {
+        "boundingShapes": {
+          "featureName": "boundingShapes",
+          "materialized": true
+        },
+        "checkedConstraints": {
+          "featureName": "checkedConstraints",
+          "materialized": true
+        },
+        "envelopingShapes": {
+          "featureName": "envelopingShapes",
+          "materialized": true
+        },
+        "exhibitedStates": {
+          "featureName": "exhibitedStates"
+        },
+        "isSolid": {
+          "featureName": "isSolid",
+          "value": {
+            "boolValue": true
+          },
+          "materialized": true
+        },
+        "kind": {
+          "featureName": "kind",
+          "value": {
+            "stringValue": "component"
+          },
+          "materialized": true
+        },
+        "label": {
+          "featureName": "label",
+          "value": {
+            "stringValue": "Document generation"
+          },
+          "materialized": true
+        },
+        "ownedActions": {
+          "featureName": "ownedActions",
+          "materialized": true
+        },
+        "ownedPorts": {
+          "featureName": "ownedPorts",
+          "materialized": true
+        },
+        "ownedStates": {
+          "featureName": "ownedStates",
+          "materialized": true
+        },
+        "performedActions": {
+          "featureName": "performedActions"
+        },
+        "role": {
+          "featureName": "role",
+          "value": {
+            "stringValue": "Markdown, HTML, PDF"
           },
           "materialized": true
         },
@@ -651,14 +1047,582 @@
       }
     },
     {
-      "id": "5",
-      "typeSymbolId": "OpenSysMLStack::ModelPort",
+      "id": "14",
+      "typeSymbolId": "OpenSysMLStack::stack::opensysml::engine",
       "featureValues": {
-        "interfacingPorts": {
-          "featureName": "interfacingPorts"
+        "boundingShapes": {
+          "featureName": "boundingShapes",
+          "materialized": true
         },
-        "subports": {
-          "featureName": "subports",
+        "checkedConstraints": {
+          "featureName": "checkedConstraints",
+          "materialized": true
+        },
+        "envelopingShapes": {
+          "featureName": "envelopingShapes",
+          "materialized": true
+        },
+        "exhibitedStates": {
+          "featureName": "exhibitedStates"
+        },
+        "isSolid": {
+          "featureName": "isSolid",
+          "value": {
+            "boolValue": true
+          },
+          "materialized": true
+        },
+        "kind": {
+          "featureName": "kind",
+          "value": {
+            "stringValue": "component"
+          },
+          "materialized": true
+        },
+        "label": {
+          "featureName": "label",
+          "value": {
+            "stringValue": "Execution runtime"
+          },
+          "materialized": true
+        },
+        "ownedActions": {
+          "featureName": "ownedActions",
+          "materialized": true
+        },
+        "ownedPorts": {
+          "featureName": "ownedPorts",
+          "materialized": true
+        },
+        "ownedStates": {
+          "featureName": "ownedStates",
+          "materialized": true
+        },
+        "performedActions": {
+          "featureName": "performedActions"
+        },
+        "role": {
+          "featureName": "role",
+          "value": {
+            "stringValue": "parts, actions, states, constraints"
+          },
+          "materialized": true
+        },
+        "shape": {
+          "featureName": "shape",
+          "value": {
+            "unset": true
+          },
+          "materialized": true
+        },
+        "subitems": {
+          "featureName": "subitems",
+          "materialized": true
+        },
+        "subparts": {
+          "featureName": "subparts",
+          "materialized": true
+        },
+        "voids": {
+          "featureName": "voids",
+          "materialized": true
+        }
+      }
+    },
+    {
+      "id": "15",
+      "typeSymbolId": "OpenSysMLStack::stack::opensysml::interchange",
+      "featureValues": {
+        "boundingShapes": {
+          "featureName": "boundingShapes",
+          "materialized": true
+        },
+        "checkedConstraints": {
+          "featureName": "checkedConstraints",
+          "materialized": true
+        },
+        "envelopingShapes": {
+          "featureName": "envelopingShapes",
+          "materialized": true
+        },
+        "exhibitedStates": {
+          "featureName": "exhibitedStates"
+        },
+        "isSolid": {
+          "featureName": "isSolid",
+          "value": {
+            "boolValue": true
+          },
+          "materialized": true
+        },
+        "kind": {
+          "featureName": "kind",
+          "value": {
+            "stringValue": "component"
+          },
+          "materialized": true
+        },
+        "label": {
+          "featureName": "label",
+          "value": {
+            "stringValue": "Interchange"
+          },
+          "materialized": true
+        },
+        "ownedActions": {
+          "featureName": "ownedActions",
+          "materialized": true
+        },
+        "ownedPorts": {
+          "featureName": "ownedPorts",
+          "materialized": true
+        },
+        "ownedStates": {
+          "featureName": "ownedStates",
+          "materialized": true
+        },
+        "performedActions": {
+          "featureName": "performedActions"
+        },
+        "role": {
+          "featureName": "role",
+          "value": {
+            "stringValue": "RDF, XMI, notation"
+          },
+          "materialized": true
+        },
+        "shape": {
+          "featureName": "shape",
+          "value": {
+            "unset": true
+          },
+          "materialized": true
+        },
+        "subitems": {
+          "featureName": "subitems",
+          "materialized": true
+        },
+        "subparts": {
+          "featureName": "subparts",
+          "materialized": true
+        },
+        "voids": {
+          "featureName": "voids",
+          "materialized": true
+        }
+      }
+    },
+    {
+      "id": "16",
+      "typeSymbolId": "OpenSysMLStack::stack::opensysml::lsp",
+      "featureValues": {
+        "boundingShapes": {
+          "featureName": "boundingShapes",
+          "materialized": true
+        },
+        "checkedConstraints": {
+          "featureName": "checkedConstraints",
+          "materialized": true
+        },
+        "envelopingShapes": {
+          "featureName": "envelopingShapes",
+          "materialized": true
+        },
+        "exhibitedStates": {
+          "featureName": "exhibitedStates"
+        },
+        "isSolid": {
+          "featureName": "isSolid",
+          "value": {
+            "boolValue": true
+          },
+          "materialized": true
+        },
+        "kind": {
+          "featureName": "kind",
+          "value": {
+            "stringValue": "component"
+          },
+          "materialized": true
+        },
+        "label": {
+          "featureName": "label",
+          "value": {
+            "stringValue": "Language server"
+          },
+          "materialized": true
+        },
+        "ownedActions": {
+          "featureName": "ownedActions",
+          "materialized": true
+        },
+        "ownedPorts": {
+          "featureName": "ownedPorts",
+          "materialized": true
+        },
+        "ownedStates": {
+          "featureName": "ownedStates",
+          "materialized": true
+        },
+        "performedActions": {
+          "featureName": "performedActions"
+        },
+        "role": {
+          "featureName": "role",
+          "value": {
+            "stringValue": "sysml-lsp"
+          },
+          "materialized": true
+        },
+        "shape": {
+          "featureName": "shape",
+          "value": {
+            "unset": true
+          },
+          "materialized": true
+        },
+        "subitems": {
+          "featureName": "subitems",
+          "materialized": true
+        },
+        "subparts": {
+          "featureName": "subparts",
+          "materialized": true
+        },
+        "voids": {
+          "featureName": "voids",
+          "materialized": true
+        }
+      }
+    },
+    {
+      "id": "17",
+      "typeSymbolId": "OpenSysMLStack::stack::opensysml::migration",
+      "featureValues": {
+        "boundingShapes": {
+          "featureName": "boundingShapes",
+          "materialized": true
+        },
+        "checkedConstraints": {
+          "featureName": "checkedConstraints",
+          "materialized": true
+        },
+        "envelopingShapes": {
+          "featureName": "envelopingShapes",
+          "materialized": true
+        },
+        "exhibitedStates": {
+          "featureName": "exhibitedStates"
+        },
+        "isSolid": {
+          "featureName": "isSolid",
+          "value": {
+            "boolValue": true
+          },
+          "materialized": true
+        },
+        "kind": {
+          "featureName": "kind",
+          "value": {
+            "stringValue": "component"
+          },
+          "materialized": true
+        },
+        "label": {
+          "featureName": "label",
+          "value": {
+            "stringValue": "SysML v1 migration"
+          },
+          "materialized": true
+        },
+        "ownedActions": {
+          "featureName": "ownedActions",
+          "materialized": true
+        },
+        "ownedPorts": {
+          "featureName": "ownedPorts",
+          "materialized": true
+        },
+        "ownedStates": {
+          "featureName": "ownedStates",
+          "materialized": true
+        },
+        "performedActions": {
+          "featureName": "performedActions"
+        },
+        "role": {
+          "featureName": "role",
+          "value": {
+            "stringValue": "XMI to v2 notation"
+          },
+          "materialized": true
+        },
+        "shape": {
+          "featureName": "shape",
+          "value": {
+            "unset": true
+          },
+          "materialized": true
+        },
+        "subitems": {
+          "featureName": "subitems",
+          "materialized": true
+        },
+        "subparts": {
+          "featureName": "subparts",
+          "materialized": true
+        },
+        "voids": {
+          "featureName": "voids",
+          "materialized": true
+        }
+      }
+    },
+    {
+      "id": "18",
+      "typeSymbolId": "OpenSysMLStack::stack::opensysml::oslc",
+      "featureValues": {
+        "boundingShapes": {
+          "featureName": "boundingShapes",
+          "materialized": true
+        },
+        "checkedConstraints": {
+          "featureName": "checkedConstraints",
+          "materialized": true
+        },
+        "envelopingShapes": {
+          "featureName": "envelopingShapes",
+          "materialized": true
+        },
+        "exhibitedStates": {
+          "featureName": "exhibitedStates"
+        },
+        "isSolid": {
+          "featureName": "isSolid",
+          "value": {
+            "boolValue": true
+          },
+          "materialized": true
+        },
+        "kind": {
+          "featureName": "kind",
+          "value": {
+            "stringValue": "component"
+          },
+          "materialized": true
+        },
+        "label": {
+          "featureName": "label",
+          "value": {
+            "stringValue": "OSLC query"
+          },
+          "materialized": true
+        },
+        "ownedActions": {
+          "featureName": "ownedActions",
+          "materialized": true
+        },
+        "ownedPorts": {
+          "featureName": "ownedPorts",
+          "materialized": true
+        },
+        "ownedStates": {
+          "featureName": "ownedStates",
+          "materialized": true
+        },
+        "performedActions": {
+          "featureName": "performedActions"
+        },
+        "role": {
+          "featureName": "role",
+          "value": {
+            "stringValue": "REPL and service"
+          },
+          "materialized": true
+        },
+        "shape": {
+          "featureName": "shape",
+          "value": {
+            "unset": true
+          },
+          "materialized": true
+        },
+        "subitems": {
+          "featureName": "subitems",
+          "materialized": true
+        },
+        "subparts": {
+          "featureName": "subparts",
+          "materialized": true
+        },
+        "voids": {
+          "featureName": "voids",
+          "materialized": true
+        }
+      }
+    },
+    {
+      "id": "19",
+      "typeSymbolId": "OpenSysMLStack::stack::opensysml::repl",
+      "featureValues": {
+        "boundingShapes": {
+          "featureName": "boundingShapes",
+          "materialized": true
+        },
+        "checkedConstraints": {
+          "featureName": "checkedConstraints",
+          "materialized": true
+        },
+        "envelopingShapes": {
+          "featureName": "envelopingShapes",
+          "materialized": true
+        },
+        "exhibitedStates": {
+          "featureName": "exhibitedStates"
+        },
+        "isSolid": {
+          "featureName": "isSolid",
+          "value": {
+            "boolValue": true
+          },
+          "materialized": true
+        },
+        "kind": {
+          "featureName": "kind",
+          "value": {
+            "stringValue": "component"
+          },
+          "materialized": true
+        },
+        "label": {
+          "featureName": "label",
+          "value": {
+            "stringValue": "REPL"
+          },
+          "materialized": true
+        },
+        "ownedActions": {
+          "featureName": "ownedActions",
+          "materialized": true
+        },
+        "ownedPorts": {
+          "featureName": "ownedPorts",
+          "materialized": true
+        },
+        "ownedStates": {
+          "featureName": "ownedStates",
+          "materialized": true
+        },
+        "performedActions": {
+          "featureName": "performedActions"
+        },
+        "role": {
+          "featureName": "role",
+          "value": {
+            "stringValue": "sysml"
+          },
+          "materialized": true
+        },
+        "shape": {
+          "featureName": "shape",
+          "value": {
+            "unset": true
+          },
+          "materialized": true
+        },
+        "subitems": {
+          "featureName": "subitems",
+          "materialized": true
+        },
+        "subparts": {
+          "featureName": "subparts",
+          "materialized": true
+        },
+        "voids": {
+          "featureName": "voids",
+          "materialized": true
+        }
+      }
+    },
+    {
+      "id": "20",
+      "typeSymbolId": "OpenSysMLStack::stack::opensysml::service",
+      "featureValues": {
+        "boundingShapes": {
+          "featureName": "boundingShapes",
+          "materialized": true
+        },
+        "checkedConstraints": {
+          "featureName": "checkedConstraints",
+          "materialized": true
+        },
+        "envelopingShapes": {
+          "featureName": "envelopingShapes",
+          "materialized": true
+        },
+        "exhibitedStates": {
+          "featureName": "exhibitedStates"
+        },
+        "isSolid": {
+          "featureName": "isSolid",
+          "value": {
+            "boolValue": true
+          },
+          "materialized": true
+        },
+        "kind": {
+          "featureName": "kind",
+          "value": {
+            "stringValue": "component"
+          },
+          "materialized": true
+        },
+        "label": {
+          "featureName": "label",
+          "value": {
+            "stringValue": "gRPC service"
+          },
+          "materialized": true
+        },
+        "ownedActions": {
+          "featureName": "ownedActions",
+          "materialized": true
+        },
+        "ownedPorts": {
+          "featureName": "ownedPorts",
+          "materialized": true
+        },
+        "ownedStates": {
+          "featureName": "ownedStates",
+          "materialized": true
+        },
+        "performedActions": {
+          "featureName": "performedActions"
+        },
+        "role": {
+          "featureName": "role",
+          "value": {
+            "stringValue": "sysml-grpc + client libraries"
+          },
+          "materialized": true
+        },
+        "shape": {
+          "featureName": "shape",
+          "value": {
+            "unset": true
+          },
+          "materialized": true
+        },
+        "subitems": {
+          "featureName": "subitems",
+          "materialized": true
+        },
+        "subparts": {
+          "featureName": "subparts",
+          "materialized": true
+        },
+        "voids": {
+          "featureName": "voids",
           "materialized": true
         }
       }
