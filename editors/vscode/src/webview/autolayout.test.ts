@@ -123,6 +123,23 @@ test("autoLayout holds a container's children inside it and reports absolute edg
   }
 });
 
+test("autoLayout keeps siblings in a layer in declaration order", async () => {
+  const laidOut = async (order: string[]) => {
+    const result = rendering(
+      [...order.map((id) => node(id, id)), node("hub", "hub")],
+      order.map((id) => edge(id, "hub")),
+      { kind: "interconnection" },
+    );
+    const laid = await autoLayout(result);
+    assert.ok(laid);
+    return order.map((id) => boxOf(laid, id).y);
+  };
+  const forward = await laidOut(["a", "b", "c"]);
+  assert.ok(forward[0] < forward[1] && forward[1] < forward[2], `a, b, c top to bottom: ${forward}`);
+  const backward = await laidOut(["c", "b", "a"]);
+  assert.ok(backward[0] < backward[1] && backward[1] < backward[2], `c, b, a top to bottom: ${backward}`);
+});
+
 test("autoLayout leaves a routed edge and a self-loop alone", async () => {
   const route = [{ x: 40, y: 40 }];
   const result = rendering(

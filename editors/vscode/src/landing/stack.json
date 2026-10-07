@@ -1,5 +1,5 @@
 {
-  "hash": "1add3b7d11c85562d58919dfe7162212ac82615a061134506be06795ae45882b",
+  "hash": "85cc71c1743a9a59e12673df13d9807c8926a40e9d41c2a9c03c30578281e7d3",
   "render": {
     "view": "",
     "kind": "interconnection",
@@ -455,7 +455,7 @@
       {
         "id": "n55",
         "kind": "part",
-        "name": "toolkit",
+        "name": "pilot",
         "type": "Project",
         "detail": "",
         "parent": "n0",
@@ -510,7 +510,7 @@
       {
         "id": "n61",
         "kind": "part",
-        "name": "parser",
+        "name": "grammars",
         "type": "Component",
         "detail": "",
         "parent": "n55"
@@ -534,7 +534,7 @@
       {
         "id": "n64",
         "kind": "part",
-        "name": "linter",
+        "name": "validation",
         "type": "Component",
         "detail": "",
         "parent": "n55"
@@ -558,7 +558,7 @@
       {
         "id": "n67",
         "kind": "part",
-        "name": "interchange",
+        "name": "evaluator",
         "type": "Component",
         "detail": "",
         "parent": "n55"
@@ -582,7 +582,7 @@
       {
         "id": "n70",
         "kind": "part",
-        "name": "solver",
+        "name": "stdlib",
         "type": "Component",
         "detail": "",
         "parent": "n55"
@@ -606,7 +606,7 @@
       {
         "id": "n73",
         "kind": "part",
-        "name": "transform",
+        "name": "editors",
         "type": "Component",
         "detail": "",
         "parent": "n55"
@@ -630,7 +630,7 @@
       {
         "id": "n76",
         "kind": "part",
-        "name": "lsp",
+        "name": "plantuml",
         "type": "Component",
         "detail": "",
         "parent": "n55"
@@ -654,7 +654,7 @@
       {
         "id": "n79",
         "kind": "part",
-        "name": "bindings",
+        "name": "jupyter",
         "type": "Component",
         "detail": "",
         "parent": "n55"
@@ -678,17 +678,10 @@
       {
         "id": "n82",
         "kind": "part",
-        "name": "pilot",
-        "type": "Project",
+        "name": "xmi",
+        "type": "Component",
         "detail": "",
-        "parent": "n0",
-        "ports": [
-          {
-            "id": "n82.0",
-            "name": "api",
-            "type": "ModelPort"
-          }
-        ]
+        "parent": "n55"
       },
       {
         "id": "n83",
@@ -701,66 +694,73 @@
       {
         "id": "n84",
         "kind": "attribute",
-        "name": "kind",
+        "name": "role",
         "type": "",
         "detail": "",
         "parent": "n82"
       },
       {
         "id": "n85",
-        "kind": "attribute",
-        "name": "lang",
-        "type": "",
+        "kind": "part",
+        "name": "toolkit",
+        "type": "Project",
         "detail": "",
-        "parent": "n82"
+        "parent": "n0",
+        "ports": [
+          {
+            "id": "n85.0",
+            "name": "api",
+            "type": "ModelPort"
+          }
+        ]
       },
       {
         "id": "n86",
         "kind": "attribute",
-        "name": "role",
+        "name": "label",
         "type": "",
         "detail": "",
-        "parent": "n82"
+        "parent": "n85"
       },
       {
         "id": "n87",
         "kind": "attribute",
-        "name": "repo",
+        "name": "kind",
         "type": "",
         "detail": "",
-        "parent": "n82"
+        "parent": "n85"
       },
       {
         "id": "n88",
-        "kind": "part",
-        "name": "grammars",
-        "type": "Component",
+        "kind": "attribute",
+        "name": "lang",
+        "type": "",
         "detail": "",
-        "parent": "n82"
+        "parent": "n85"
       },
       {
         "id": "n89",
         "kind": "attribute",
-        "name": "label",
+        "name": "role",
         "type": "",
         "detail": "",
-        "parent": "n88"
+        "parent": "n85"
       },
       {
         "id": "n90",
         "kind": "attribute",
-        "name": "role",
+        "name": "repo",
         "type": "",
         "detail": "",
-        "parent": "n88"
+        "parent": "n85"
       },
       {
         "id": "n91",
         "kind": "part",
-        "name": "validation",
+        "name": "parser",
         "type": "Component",
         "detail": "",
-        "parent": "n82"
+        "parent": "n85"
       },
       {
         "id": "n92",
@@ -781,10 +781,10 @@
       {
         "id": "n94",
         "kind": "part",
-        "name": "evaluator",
+        "name": "linter",
         "type": "Component",
         "detail": "",
-        "parent": "n82"
+        "parent": "n85"
       },
       {
         "id": "n95",
@@ -805,10 +805,10 @@
       {
         "id": "n97",
         "kind": "part",
-        "name": "stdlib",
+        "name": "interchange",
         "type": "Component",
         "detail": "",
-        "parent": "n82"
+        "parent": "n85"
       },
       {
         "id": "n98",
@@ -829,10 +829,10 @@
       {
         "id": "n100",
         "kind": "part",
-        "name": "editors",
+        "name": "solver",
         "type": "Component",
         "detail": "",
-        "parent": "n82"
+        "parent": "n85"
       },
       {
         "id": "n101",
@@ -853,10 +853,10 @@
       {
         "id": "n103",
         "kind": "part",
-        "name": "plantuml",
+        "name": "transform",
         "type": "Component",
         "detail": "",
-        "parent": "n82"
+        "parent": "n85"
       },
       {
         "id": "n104",
@@ -877,10 +877,10 @@
       {
         "id": "n106",
         "kind": "part",
-        "name": "jupyter",
+        "name": "lsp",
         "type": "Component",
         "detail": "",
-        "parent": "n82"
+        "parent": "n85"
       },
       {
         "id": "n107",
@@ -901,10 +901,10 @@
       {
         "id": "n109",
         "kind": "part",
-        "name": "xmi",
+        "name": "bindings",
         "type": "Component",
         "detail": "",
-        "parent": "n82"
+        "parent": "n85"
       },
       {
         "id": "n110",
@@ -1088,15 +1088,15 @@
         "to": "n112",
         "fromPort": "n55.0",
         "toPort": "n112.0",
-        "label": "toolkit_flexo",
+        "label": "pilot_flexo",
         "kind": "connection"
       },
       {
-        "from": "n82",
+        "from": "n85",
         "to": "n112",
-        "fromPort": "n82.0",
+        "fromPort": "n85.0",
         "toPort": "n112.0",
-        "label": "pilot_flexo",
+        "label": "toolkit_flexo",
         "kind": "connection"
       }
     ]
@@ -1192,10 +1192,10 @@
               "instanceId": "3"
             },
             {
-              "instanceId": "10"
+              "instanceId": "7"
             },
             {
-              "instanceId": "7"
+              "instanceId": "10"
             },
             {
               "instanceId": "2"
@@ -1204,10 +1204,10 @@
               "instanceId": "4"
             },
             {
-              "instanceId": "11"
+              "instanceId": "8"
             },
             {
-              "instanceId": "8"
+              "instanceId": "11"
             }
           ],
           "materialized": true
@@ -1219,10 +1219,10 @@
               "instanceId": "3"
             },
             {
-              "instanceId": "10"
+              "instanceId": "7"
             },
             {
-              "instanceId": "7"
+              "instanceId": "10"
             },
             {
               "instanceId": "2"
@@ -1231,10 +1231,10 @@
               "instanceId": "4"
             },
             {
-              "instanceId": "11"
+              "instanceId": "8"
             },
             {
-              "instanceId": "8"
+              "instanceId": "11"
             }
           ],
           "materialized": true

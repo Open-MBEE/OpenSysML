@@ -36,6 +36,7 @@ const elk = new ELK();
 
 // PACK_ASPECT_RATIO is the width to height a container packs its unwired children toward.
 const PACK_ASPECT_RATIO = 2.5;
+const ORDER_STEP = 100000;
 
 /**
  * autoLayout lays the rendering out with ELK, or returns undefined when the kind
@@ -124,9 +125,13 @@ async function layOut(result: RenderResult): Promise<AutoLayout> {
     const size = symbolSize(shapeOf(node.kind)) ?? labelSize(labelLines(node));
     const kids = node.collapsed ? [] : (children.get(node.id) ?? []);
     const alone = packed.get(node.id);
+    const order = (children.get(node.parent) ?? []).indexOf(node);
     const out: ElkNode = alone
       ? { id: node.id, width: alone.width, height: alone.height }
       : { id: node.id, width: size.width, height: size.height };
+    // Interactive crossing minimization sorts siblings by the centers of their input
+    // positions, so the seeds stand far enough apart that no node's size can reorder them.
+    out.x = out.y = order * ORDER_STEP;
     const ports = (node.ports ?? []).filter((port) => connectedPorts.get(node.id)?.has(port.id));
     if (ports.length > 0) {
       out.ports = ports.map((port) => {
@@ -348,6 +353,9 @@ function spacingOptions(kind: string): Record<string, string> {
   return {
     "elk.edgeRouting": "ORTHOGONAL",
     "elk.direction": kind === "tree" || kind === "action" ? "DOWN" : "RIGHT",
+    // Siblings in a layer keep the model's declaration order (seeded through the input positions)
+    // rather than whatever crossing minimization settles on, so a diagram reads as the model is written.
+    "elk.layered.crossingMinimization.strategy": "INTERACTIVE",
     "elk.spacing.nodeNode": `${GAP}`,
     "elk.layered.spacing.nodeNodeBetweenLayers": `${GAP * 2}`,
     "elk.spacing.edgeNode": `${GAP / 2}`,
