@@ -68,6 +68,7 @@ func installKernelspec(opts *options, spec kernelspec) int {
 		return 2
 	}
 	target := filepath.Join(dir, opts.name)
+	// #nosec G301 G306 -- a kernelspec under --prefix or --system is read by every user's Jupyter.
 	if err := os.MkdirAll(target, 0o755); err != nil {
 		fmt.Fprintln(os.Stderr, errPrefix, err)
 		return 1
@@ -77,6 +78,7 @@ func installKernelspec(opts *options, spec kernelspec) int {
 		fmt.Fprintln(os.Stderr, errPrefix, err)
 		return 1
 	}
+	// #nosec G306 -- see above.
 	if err := os.WriteFile(filepath.Join(target, "kernel.json"), append(raw, '\n'), 0o644); err != nil {
 		fmt.Fprintln(os.Stderr, errPrefix, err)
 		return 1

@@ -27,6 +27,7 @@ type ConnectionInfo struct {
 
 // ReadConnectionFile reads the connection file a front end wrote for the kernel.
 func ReadConnectionFile(path string) (ConnectionInfo, error) {
+	// #nosec G304 -- the front end names the connection file on the command line.
 	raw, err := os.ReadFile(path)
 	if err != nil {
 		return ConnectionInfo{}, fmt.Errorf("read connection file: %w", err)

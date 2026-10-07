@@ -94,7 +94,7 @@ func (k *Kernel) Run(ctx context.Context) (restart bool, err error) {
 	}
 	defer func() {
 		for _, s := range sockets {
-			s.sock.Close()
+			_ = s.sock.Close()
 		}
 	}()
 	for _, s := range sockets {
@@ -116,7 +116,7 @@ func (k *Kernel) Run(ctx context.Context) (restart bool, err error) {
 	<-ctx.Done()
 	// Closing the sockets unblocks the receives; the loops then see ctx done.
 	for _, s := range sockets {
-		s.sock.Close()
+		_ = s.sock.Close()
 	}
 	wg.Wait()
 	k.stopMu.Lock()
