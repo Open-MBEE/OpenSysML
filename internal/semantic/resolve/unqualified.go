@@ -319,6 +319,7 @@ func simpleName(sym *symbols.Symbol) string {
 // lookupImports checks every import declared directly in scope for a member
 // matching name.
 func (r *Resolver) lookupImports(scope *symbols.Scope, name string) (*symbols.Symbol, bool) {
+	var matches []*symbols.Symbol
 	for _, imp := range r.scopeImports(scope) {
 		if r.resolvingImports[imp] {
 			continue
@@ -326,19 +327,40 @@ func (r *Resolver) lookupImports(scope *symbols.Scope, name string) (*symbols.Sy
 		if !r.importPrefixAvailable(scope, imp, name) {
 			continue
 		}
-		if sym, ok := r.matchImport(scope, imp, name); ok {
-			return sym, true
+		for _, sym := range r.importMatchesAll(scope, imp, name) {
+			matches = appendSymbol(matches, sym)
 		}
 	}
-	return nil, false
+	return r.uniqueImport(matches)
+}
+
+// KerML 7.2.5.4 hides clashing imported memberships. Repeated paths to the
+// same element do not introduce a second member. Never choose by import order.
+func (r *Resolver) uniqueImport(matches []*symbols.Symbol) (*symbols.Symbol, bool) {
+	var found, element *symbols.Symbol
+	for _, sym := range matches {
+		target, ok := r.ResolveAliasTarget(sym)
+		if !ok || target == nil {
+			continue
+		}
+		if found != nil && !symbols.SameElement(element, target) {
+			return nil, false
+		}
+		found, element = sym, target
+	}
+	return found, found != nil
 }
 
 // lookupImportedMember resolves a segment surfaced by the namespace being
 // traversed, including a public membership import.
 func (r *Resolver) lookupImportedMember(target *symbols.Symbol, targetScope, from *symbols.Scope, name string) (*symbols.Symbol, bool) {
+	return r.uniqueImport(r.importedMemberCandidates(target, targetScope, from, name))
+}
+
+func (r *Resolver) importedMemberCandidates(target *symbols.Symbol, targetScope, from *symbols.Scope, name string) []*symbols.Symbol {
 	visit := importVisit{target: targetScope, from: from, name: name}
 	if r.importVisits[visit] {
-		return nil, false
+		return nil
 	}
 	r.importVisits[visit] = true
 	r.importDepth++
@@ -348,6 +370,7 @@ func (r *Resolver) lookupImportedMember(target *symbols.Symbol, targetScope, fro
 			clear(r.importVisits)
 		}
 	}()
+	var matches []*symbols.Symbol
 	for _, imp := range r.scopeImports(targetScope) {
 		if r.importStack[imp] {
 			continue
@@ -364,13 +387,12 @@ func (r *Resolver) lookupImportedMember(target *symbols.Symbol, targetScope, fro
 			into = from
 		}
 		r.importStack[imp] = true
-		if sym, ok := r.matchImportInto(into, targetScope, imp, name); ok {
-			delete(r.importStack, imp)
-			return sym, true
+		for _, sym := range r.importMatchesAllInto(into, targetScope, imp, name) {
+			matches = appendSymbol(matches, sym)
 		}
 		delete(r.importStack, imp)
 	}
-	return nil, false
+	return matches
 }
 
 func (r *Resolver) importVisibleFrom(target *symbols.Symbol, from *symbols.Scope, imp *ast.Import) bool {
@@ -461,12 +483,7 @@ func (r *Resolver) matchImport(scope *symbols.Scope, imp *ast.Import, name strin
 // matchImportInto is matchImport for an import inherited into the namespace
 // owning into, whose conditions an inherited expose has to satisfy as well.
 func (r *Resolver) matchImportInto(into, scope *symbols.Scope, imp *ast.Import, name string) (*symbols.Symbol, bool) {
-	var found *symbols.Symbol
-	r.eachImportMatch(into, scope, imp, name, func(sym *symbols.Symbol) bool {
-		found = sym
-		return false
-	})
-	return found, found != nil
+	return r.uniqueImport(r.importMatchesAllInto(into, scope, imp, name))
 }
 
 // importMatchesAll is matchImport collecting every element the import surfaces
@@ -543,10 +560,24 @@ func (r *Resolver) eachImportMatch(into, scope *symbols.Scope, imp *ast.Import, 
 	// Namespace import: visible members of the target's scope are surfaced.
 	// Check scope first if available
 	if target.Scope != nil {
-		for _, sym := range symbols.PreferDeclared(target.Scope.LookupLocalAll(name)) {
+		locals := symbols.PreferDeclared(target.Scope.LookupLocalAll(name))
+		owned := false
+		for _, sym := range locals {
+			if !r.BindsName(sym) {
+				continue
+			}
+			owned = true
 			if visibleThroughImport(imp, sym) && admit(sym) && !yield(sym) {
 				return
 			}
+		}
+		if owned {
+			// Owned names hide this namespace's imports. Do not re-enter via
+			// its index aliases (or acquire dependencies on unrelated scopes).
+			if imp.IsRecursive {
+				r.eachSubtreeMatch(scope, target, name, imp, admit, yield)
+			}
+			return
 		}
 		if sym, ok := r.lookupImportedMember(target, target.Scope, scope, name); ok && symbols.VisibleOutside(sym.Visibility) && admit(sym) {
 			if !yield(sym) {

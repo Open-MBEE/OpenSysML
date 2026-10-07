@@ -25,6 +25,13 @@ func (r *Resolver) walkQualified(scope *symbols.Scope, qn *ast.QualifiedName, hi
 	// Fall back to normal qualified lookup if scope is nil.
 	if len(qn.Parts) == 1 && !qn.Global && scope != nil {
 		res := r.walkUnqualifiedHiding(scope, qn.Parts[0].Text, hide)
+		// Keep the existing invocation overload protocol separate from ordinary
+		// name lookup. Its candidate selection is not changed by this patch.
+		if r.invocationNames[qn] {
+			if candidates := r.unqualifiedCandidates(scope, qn.Parts[0].Text); len(candidates) > 0 {
+				res = resolution{sym: candidates[0], ok: true}
+			}
+		}
 		if res.ok {
 			res.sym = r.resolvedPart(qn, 0, res.sym)
 		}
@@ -92,6 +99,9 @@ func (r *Resolver) walkQualifiedTail(scope *symbols.Scope, qn *ast.QualifiedName
 // lookup order, or reports the name unresolved when the segment reaches none.
 func (r *Resolver) qualifiedSegment(scope *symbols.Scope, qn *ast.QualifiedName, cur *symbols.Symbol, i int, hide *refFilter) ([]*symbols.Symbol, bool) {
 	all := r.membersNamed(scope, cur, qn.Parts[i].Text, qn.Global, hide)
+	if len(all) == 0 && i == len(qn.Parts)-1 && r.invocationNames[qn] {
+		all = hide.without(r.surfacedMembers(cur, scope, qn.Parts[i].Text))
+	}
 	if len(all) == 0 {
 		r.unresolvedMember(scope, qn, cur, i)
 		return nil, false
@@ -124,7 +134,13 @@ func (r *Resolver) membersNamed(scope *symbols.Scope, cur *symbols.Symbol, name 
 	}
 
 	if len(all) == 0 && cur.Scope != nil {
-		if sym, ok := r.lookupImportedMember(cur, cur.Scope, scope, name); ok &&
+		imported := r.importedMemberCandidates(cur, cur.Scope, scope, name)
+		if len(imported) > 1 {
+			if _, ok := r.uniqueImport(imported); !ok {
+				return nil // hidden imports cannot re-enter through the FQN index
+			}
+		}
+		if sym, ok := r.uniqueImport(imported); ok &&
 			r.namedThroughNamespace(sym) && !hide.hides(sym) {
 			all = []*symbols.Symbol{sym}
 		}
