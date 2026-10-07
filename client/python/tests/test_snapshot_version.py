@@ -91,7 +91,7 @@ def test_the_declared_versions_must_agree():
 
 def test_the_node_manifest_may_spell_a_pre_release_its_own_way():
     versions = snapshot_version.snapshot_versions(
-        DATE, COMMIT, declared="0.10.0rc1", node="0.10.0-rc.1", released=released()
+        DATE, COMMIT, declared="0.10.0rc1", node="0.10.0-rc.1", kernel="0.10.0rc1", released=released()
     )
     assert versions["pypi"] == "0.10.0.dev20261006"
     assert versions["npm"] == "0.10.0-nightly.20261006.gabc1234"
@@ -139,28 +139,33 @@ def manifests(tmp_path):
     version_file.write_text(pathlib.Path(snapshot_version.VERSION_FILE).read_text(encoding="utf-8"), encoding="utf-8")
     package_json = tmp_path / "package.json"
     package_json.write_text(pathlib.Path(snapshot_version.NODE_PACKAGE).read_text(encoding="utf-8"), encoding="utf-8")
-    return version_file, package_json
+    kernel_file = tmp_path / "kernel_version.py"
+    kernel_file.write_text(pathlib.Path(snapshot_version.KERNEL_VERSION_FILE).read_text(encoding="utf-8"), encoding="utf-8")
+    return version_file, package_json, kernel_file
 
 
 def test_stamping_the_declared_versions_changes_nothing(manifests):
     """So a stamp rewrites only the versions, in the layout the files already have."""
-    version_file, package_json = manifests
-    before = version_file.read_text(encoding="utf-8"), package_json.read_text(encoding="utf-8")
+    version_file, package_json, kernel_file = manifests
+    before = tuple(path.read_text(encoding="utf-8") for path in manifests)
     declared = snapshot_version.check_version.declared_version()
     node = snapshot_version.check_version.node_declared_version()
-    snapshot_version.stamp({"pypi": declared, "npm": node}, str(version_file), str(package_json))
-    assert (version_file.read_text(encoding="utf-8"), package_json.read_text(encoding="utf-8")) == before
+    snapshot_version.stamp({"pypi": declared, "npm": node}, str(version_file), str(package_json), str(kernel_file))
+    assert tuple(path.read_text(encoding="utf-8") for path in manifests) == before
 
 
 def test_stamping_writes_the_snapshot_into_both_manifests(manifests):
-    version_file, package_json = manifests
+    version_file, package_json, kernel_file = manifests
     versions = snapshot_version.snapshot_versions(
-        DATE, COMMIT, declared="0.9.2", node="0.9.2", released=released("v0.9.2")
+        DATE, COMMIT, declared="0.9.2", node="0.9.2", kernel="0.9.2", released=released("v0.9.2")
     )
-    snapshot_version.stamp(versions, str(version_file), str(package_json))
+    snapshot_version.stamp(versions, str(version_file), str(package_json), str(kernel_file))
 
     assert snapshot_version.check_version.declared_version(str(version_file)) == "0.9.3.dev20261006"
     assert "The one place the opensysml version is written" in version_file.read_text(encoding="utf-8")
+    # The kernel package is published at the same PyPI version, from its own file.
+    assert snapshot_version.check_version.declared_version(str(kernel_file)) == "0.9.3.dev20261006"
+    assert "jupyter-opensysml-kernel version" in kernel_file.read_text(encoding="utf-8")
     manifest = json.loads(package_json.read_text(encoding="utf-8"))
     npm = "0.9.3-nightly.20261006.gabc1234"
     assert manifest["version"] == npm
@@ -209,3 +214,10 @@ def test_the_command_reports_a_bad_date_and_stamps_nothing(capsys, tmp_path, mon
     assert captured.out == ""
     assert "Error: Date '2026' is not of the form YYYYMMDD." in captured.err
     assert not (tmp_path / "absent.py").exists()
+
+
+def test_the_kernel_package_must_declare_the_same_version():
+    with pytest.raises(snapshot_version.VersionError, match="jupyter_opensysml_kernel/_version.py"):
+        snapshot_version.snapshot_versions(
+            DATE, COMMIT, declared="0.9.2", node="0.9.2", kernel="0.9.1", released=released()
+        )

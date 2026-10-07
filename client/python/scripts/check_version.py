@@ -17,7 +17,9 @@ the same way and printed instead — all three clients are published from the
 same tag, at the SemVer spelling of the same version. `--editors` runs the
 same check over every manifest an editor takes its version from: nothing
 publishes the editors, but their versions follow the core's, so a release
-still fails early when one disagrees.
+still fails early when one disagrees. `--jupyter-kernel` checks the version
+client/jupyter-kernel/jupyter_opensysml_kernel/_version.py declares, which
+is PEP 440 like the Python client's and must equal it.
 
 The core tags are SemVer and the package version is PEP 440, so the tag is
 translated before the comparison: `v0.9.0-rc1` names `0.9.0rc1`. Only the SemVer
@@ -57,6 +59,9 @@ REPO_ROOT = os.path.dirname(
 NODE_PACKAGE = os.path.join(REPO_ROOT, "client", "node", "package.json")
 JAVA_POM = os.path.join(REPO_ROOT, "client", "java", "pom.xml")
 RUST_CARGO = os.path.join(REPO_ROOT, "client", "rust", "opensysml", "Cargo.toml")
+KERNEL_VERSION_FILE = os.path.join(
+    REPO_ROOT, "client", "jupyter-kernel", "jupyter_opensysml_kernel", "_version.py"
+)
 
 # Every manifest an editor takes its version from, as (repo-relative path,
 # reader kind). The editors carry the core version even though nothing
@@ -355,6 +360,37 @@ def rust_version(declared=None, rust=None, tag=None):
     )
 
 
+def kernel_version(declared=None, kernel=None, tag=None):
+    """jupyter-opensysml-kernel's version, checked against _version.py and, when given, the tag.
+
+    Args:
+        declared (str, optional): Version opensysml/_version.py declares; read
+            when omitted
+        kernel (str, optional): Version jupyter_opensysml_kernel/_version.py
+            declares; read when omitted
+        tag (str, optional): Core release tag the PyPI publish runs from
+
+    Returns:
+        str: The PyPI version to publish, as the kernel package declares
+
+    Raises:
+        VersionError: If the two version files disagree, or the tag names
+            another version
+    """
+    declared = declared_version() if declared is None else declared
+    kernel = declared_version(KERNEL_VERSION_FILE) if kernel is None else kernel
+    if kernel != declared:
+        raise VersionError(
+            f"client/jupyter-kernel/jupyter_opensysml_kernel/_version.py declares "
+            f"{kernel!r}, but client/python/opensysml/_version.py declares {declared!r}. "
+            "jupyter-opensysml-kernel is released in lockstep with the core and the "
+            f"Python client: declare VERSION = {declared!r} in both."
+        )
+    if tag:
+        version_from_tag(tag, version=kernel)
+    return kernel
+
+
 def lock_declared_version(lock_path):
     """The version a package-lock.json's root package declares.
 
@@ -555,6 +591,11 @@ def main(argv=None):
         action="store_true",
         help="check every editor manifest's version and print it instead",
     )
+    clients.add_argument(
+        "--jupyter-kernel",
+        action="store_true",
+        help="check and print client/jupyter-kernel's version instead",
+    )
     parser.add_argument(
         "--pre-release",
         action="store_true",
@@ -572,6 +613,8 @@ def main(argv=None):
             version = rust_version(declared=version, tag=args.tag)
         elif args.editors:
             version = editors_version(declared=version, tag=args.tag)
+        elif args.jupyter_kernel:
+            version = kernel_version(declared=version, tag=args.tag)
         pre_release = is_pre_release(version)
     except VersionError as e:
         print(f"error: {e}", file=sys.stderr)

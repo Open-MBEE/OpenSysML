@@ -1,0 +1,71 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "jupyter-opensysml-kernel"
+dynamic = ["version"]
+description = "Jupyter kernel for SysML v2, backed by the OpenSysML REPL"
+readme = "README.md"
+requires-python = ">=3.10"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+authors = [{ name = "Open-MBEE" }]
+keywords = ["jupyter", "kernel", "sysml", "sysmlv2", "kerml", "mbse", "systems-engineering"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Framework :: Jupyter",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "Operating System :: MacOS",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering",
+]
+dependencies = [
+    # Installs the kernelspec where every Jupyter front end looks for one.
+    "jupyter_client>=7.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "mypy>=1.8.0",
+]
+
+[project.scripts]
+jupyter-opensysml-kernel = "jupyter_opensysml_kernel.__main__:main"
+
+[project.urls]
+Homepage = "https://github.com/Open-MBEE/OpenSysML"
+Repository = "https://github.com/Open-MBEE/OpenSysML"
+Documentation = "https://opensysml.org/guide/12-jupyter/"
+Changelog = "https://github.com/Open-MBEE/OpenSysML/blob/main/CHANGELOG.md"
+Issues = "https://github.com/Open-MBEE/OpenSysML/issues"
+
+[tool.setuptools.dynamic]
+version = { attr = "jupyter_opensysml_kernel._version.VERSION" }
+
+[tool.setuptools.packages.find]
+include = ["jupyter_opensysml_kernel*"]
+
+[tool.setuptools.package-data]
+jupyter_opensysml_kernel = ["release-digests.json", "py.typed"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.mypy]
+python_version = "3.10"
+strict = true
+
+# jupyter_client ships type information only from 8.x; the install calls are
+# its one use, so the missing stubs of an older release are tolerated there.
+[[tool.mypy.overrides]]
+module = ["jupyter_opensysml_kernel.kernelspec"]
+disable_error_code = ["import-untyped"]

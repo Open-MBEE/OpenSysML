@@ -216,6 +216,69 @@ func TestNightlyPythonSnapshotIsStampedBeforeItIsBuiltAndCheckedAfter(t *testing
 	}
 }
 
+// TestNightlyJupyterKernelSnapshotIsStampedBeforeItIsBuiltAndCheckedAfter
+// holds the kernel's distribution to the same order as the client's: stamped
+// from the kernels the build script wrote, built, checked against every
+// kernel asset, listed in the manifest, and published to its own PyPI project.
+func TestNightlyJupyterKernelSnapshotIsStampedBeforeItIsBuiltAndCheckedAfter(t *testing.T) {
+	workflow, _ := loadNightlyWorkflow(t)
+	steps := nightlyJob(t, workflow, "publish").runSteps()
+
+	version := stepIndex(steps, `"$SNAPSHOT_SCRIPT"`, "--stamp", "jupyter_opensysml_kernel/_version.py")
+	binaries := stepIndex(steps, `"$BUILD_SCRIPT" dist`)
+	stamp := stepIndex(steps,
+		"client/python/scripts/pin_release_checksums.py",
+		`--version "$VERSION"`,
+		"--from-binaries dist/jupyter",
+		"--table client/jupyter-kernel/jupyter_opensysml_kernel/release-digests.json",
+	)
+	build := stepIndex(steps, "python -m build", "client/jupyter-kernel/")
+	verify := stepIndex(steps, "jupyter_opensysml_kernel/release-digests.json", "zipfile", "tarfile", "pinned_digest", "built_against_releases")
+	manifest := stepIndex(steps, "sha256sum jupyter_opensysml_kernel-*.whl")
+	sign := stepIndex(steps, "cosign sign-blob SHA256SUMS.txt")
+	release := stepIndex(steps, "gh release create", "dist/jupyter/sysml-jupyter-kernel-*")
+	for name, index := range map[string]int{
+		"version stamp": version, "binary build": binaries, "digest stamp": stamp,
+		"python -m build": build, "distribution check": verify, "manifest entry": manifest,
+		"manifest signing": sign, "kernel assets in the release": release,
+	} {
+		if index < 0 {
+			t.Errorf("the publish job has no %s step for the kernel", name)
+		}
+	}
+	if t.Failed() {
+		return
+	}
+	orders := []struct {
+		what   string
+		before int
+		after  int
+	}{
+		{"the versions are stamped after the binaries are built", version, binaries},
+		{"the kernel digests are stamped before the binaries exist", binaries, stamp},
+		{"the kernel digests are stamped after python -m build, so the wheel ships without them", stamp, build},
+		{"the kernel distribution is checked before it is built", build, verify},
+		{"the kernel wheel is listed in the manifest before it is checked", verify, manifest},
+		{"the manifest is signed before the kernel wheel is listed in it", manifest, sign},
+	}
+	for _, order := range orders {
+		if order.before > order.after {
+			t.Error(order.what)
+		}
+	}
+	for _, asset := range kernelAssets {
+		if !strings.Contains(steps[verify].Command, asset) {
+			t.Errorf("the kernel distribution check does not require %s", asset)
+		}
+	}
+
+	pypi := nightlyJob(t, workflow, "pypi")
+	pypiSteps := pypi.runSteps()
+	if stepIndex(pypiSteps, "${KERNEL_PYPI_PROJECT}", "pypi.org") < 0 {
+		t.Error("the pypi job does not check PyPI for the kernel's version before publishing it")
+	}
+}
+
 func TestNightlyClientsReachTheRegistriesThroughTrustedPublishing(t *testing.T) {
 	workflow, raw := loadNightlyWorkflow(t)
 	for _, forbidden := range []string{"secrets.", "TWINE_PASSWORD", "NODE_AUTH_TOKEN", "NPM_TOKEN", "PYPI_API_TOKEN"} {
