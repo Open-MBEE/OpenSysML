@@ -3683,6 +3683,9 @@ func (e *StateExecutor) counting(progress *dueProgress) func() {
 
 // countDoStep counts one token move of a do behavior against the run's do-step budget.
 func (e *StateExecutor) countDoStep() error {
+	if e.ctx.interrupted() {
+		return ErrInterrupted
+	}
 	e.progress.doSteps++
 	if e.progress.doSteps >= e.ctx.maxDoSteps {
 		return budgetExceeded(ErrDoStepLimitExceeded,
@@ -3885,6 +3888,9 @@ func doStepLabel(states []string) string {
 // dispatchOne is runStep's dispatch phase: a risen change condition fires, else
 // the next due event is dispatched; false when neither is there.
 func (e *StateExecutor) dispatchOne(progress *dueProgress) (bool, error) {
+	if e.ctx.interrupted() {
+		return false, ErrInterrupted
+	}
 	maxStateEvents := e.ctx.maxStateEvents
 	fired, err := e.pollChangeEvents()
 	if err != nil {
