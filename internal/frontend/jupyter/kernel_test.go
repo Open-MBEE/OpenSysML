@@ -555,6 +555,31 @@ func TestShutdownEndsRunAndReportsTheRestart(t *testing.T) {
 	}
 }
 
+func TestShutdownStopsTheCellRunningAndEndsRun(t *testing.T) {
+	engine := newFakeEngine()
+	c, _, done := startKernel(t, engine)
+	blocked := c.send(c.shell, "execute_request", map[string]any{"code": "block"})
+	deadline := time.After(10 * time.Second)
+	for started := false; !started; {
+		select {
+		case m := <-c.pub:
+			started = m.ParentHeader.MsgID == blocked && m.Header.MsgType == "stream"
+		case <-deadline:
+			t.Fatal("the blocking cell never started")
+		}
+	}
+	id := c.send(c.control, "shutdown_request", map[string]any{"restart": false})
+	if reply := c.reply(c.control, id); reply.Header.MsgType != "shutdown_reply" {
+		t.Errorf("reply = %s %v", reply.Header.MsgType, reply.Content)
+	}
+	select {
+	case r := <-done:
+		done <- r
+	case <-time.After(10 * time.Second):
+		t.Fatal("Run did not return while a cell was running: the shutdown must stop it")
+	}
+}
+
 func TestKernelInterruptReachesTheEngine(t *testing.T) {
 	engine := newFakeEngine()
 	kernel := New(Info{}, ConnectionInfo{}, engine, nil)

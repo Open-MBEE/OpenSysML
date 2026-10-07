@@ -273,9 +273,9 @@ Platforms: linux/amd64, linux/arm64, darwin/amd64, darwin/arm64,
 windows/amd64.
 
 The two jobs share one workspace: `build-release-binaries` persists the whole
-`dist/` tree, and `build-release` persists only what it added to it — the
-manifest, its signature and provenance bundles, the `.sha256` sidecars and the
-Python distribution. Workspace layers are additive, and a path persisted by two
+`dist/` tree, the binaries' `.sha256` sidecars included, and `build-release`
+persists only what it added to it — the manifest, its signature and provenance
+bundles, the WebAssembly sidecars and the Python distributions. Workspace layers are additive, and a path persisted by two
 upstream jobs fails the attach in every job downstream of both, which is every
 publish job.
 
@@ -1310,9 +1310,10 @@ See `client/node/README.md`.
 ### Where the binaries come from
 
 The five binaries are `build-release-binaries`' `dist/grpc` output, with the
-`.sha256` sidecars `build-release` writes beside them — the same bytes as the
-GitHub release and the signed `SHA256SUMS.txt`, persisted to the workspace the
-npm job attaches. `npm run platform-packages` refuses to package a binary
+`.sha256` sidecars it writes beside them — the same bytes as the GitHub
+release and the signed `SHA256SUMS.txt`, which `build-release` folds the
+sidecars into after checking them — persisted to the workspace the npm job
+attaches. `npm run platform-packages` refuses to package a binary
 whose bytes disagree with its `.sha256` sidecar, or that has none, so the
 packages can only carry what the release built. The WASM package is built from
 `dist/wasm` in the same workspace with both assets checked against their

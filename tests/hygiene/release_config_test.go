@@ -295,6 +295,9 @@ func TestJupyterKernelDistributionIsStampedWithItsReleaseDigests(t *testing.T) {
 	if stepIndex(binarySteps, "--version", "dist/jupyter/sysml-jupyter-kernel-linux-amd64", "dist/jupyter/sysml-jupyter-kernel-*") < 0 {
 		t.Error("build-release-binaries does not verify the kernel binaries report the tag")
 	}
+	if stepIndex(binarySteps, `cd dist/jupyter && for f in sysml-jupyter-kernel-*; do sha256sum "$f" > "$f.sha256"; done`) < 0 {
+		t.Error("build-release-binaries does not write the kernel binaries' .sha256 sidecars, which the kernel distribution build checks the binaries it bundles against")
+	}
 
 	python, ok := config.Jobs["build-python-package"]
 	if !ok {
@@ -355,7 +358,7 @@ func TestJupyterKernelDistributionIsStampedWithItsReleaseDigests(t *testing.T) {
 		t.Fatal("no build-release job")
 	}
 	releaseSteps := runSteps(t, releaseJob.Steps)
-	manifest := stepIndex(releaseSteps, "> SHA256SUMS.txt", "jupyter_opensysml_kernel-*.whl", "cd jupyter && sha256sum sysml-jupyter-kernel-*")
+	manifest := stepIndex(releaseSteps, "> SHA256SUMS.txt", "jupyter_opensysml_kernel-*.whl", "cd jupyter && sha256sum --check --strict sysml-jupyter-kernel-*.sha256")
 	check := stepIndex(releaseSteps, "SHA256SUMS.txt", "jupyter_opensysml_kernel/release-digests.json", "zipfile", "nothing was signed", "jupyter_opensysml_kernel-*-py3-none-*.whl")
 	sign := stepIndex(releaseSteps, "cosign sign-blob SHA256SUMS.txt")
 	switch {
@@ -501,7 +504,8 @@ func TestReleaseJobsPersistDisjointWorkspaceLayers(t *testing.T) {
 	requireAll(t, "build-release-binaries persists", upstream, "dist")
 
 	// Everything build-release writes into dist: the manifest and what signs
-	// it, the sidecars the packages read, and the Python distributions it copies in.
+	// it, the wasm sidecars, and the Python distributions it copies in. The
+	// binaries' sidecars are written beside them by build-release-binaries.
 	own := func(path string) bool {
 		if !strings.HasPrefix(path, "dist/") {
 			return false
@@ -527,8 +531,7 @@ func TestReleaseJobsPersistDisjointWorkspaceLayers(t *testing.T) {
 		"dist/SHA256SUMS.txt",
 		"dist/SHA256SUMS.txt.bundle",
 		"dist/provenance.intoto.json.bundle",
-		"dist/grpc/*.sha256",
-		"dist/jupyter/*.sha256",
+		"dist/wasm/*.sha256",
 		"dist/opensysml-*-py3-none-any.whl",
 		"dist/opensysml-[0-9]*.tar.gz",
 		"dist/jupyter_opensysml_kernel-*-py3-none-*.whl",

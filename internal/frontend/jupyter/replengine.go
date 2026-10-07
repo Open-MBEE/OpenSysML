@@ -62,6 +62,17 @@ func (e *REPLEngine) execute(stmt repl.Statement, out Output) error {
 	return nil
 }
 
+// renderError is a %render or %render-document that did not run: a usage
+// problem, shown as the prompt prints it, or a view or document that could not
+// be rendered.
+func renderError(err error) error {
+	var usage *repl.UsageError
+	if errors.As(err, &usage) {
+		return execError("UsageError", usage.Error(), usage.Lines)
+	}
+	return execError("RenderError", err.Error(), []string{errPrefix + err.Error()})
+}
+
 // meta runs a `%` command. The ones whose output has a richer form than text
 // are rendered through the session's typed surface; the rest print as the
 // prompt prints them.
@@ -75,7 +86,7 @@ func (e *REPLEngine) meta(line string, out Output) error {
 	case "%render":
 		rendered, err := e.session.Render(args)
 		if err != nil {
-			return execError("RenderError", err.Error(), []string{errPrefix + err.Error()})
+			return renderError(err)
 		}
 		out.Display(formBundle(rendered.Form, rendered.Lines), nil)
 		return nil
@@ -88,7 +99,7 @@ func (e *REPLEngine) meta(line string, out Output) error {
 		}
 		lines, rendered, err := e.session.RenderDocument(strings.Join(args, " "), html)
 		if err != nil {
-			return execError("RenderError", err.Error(), []string{errPrefix + err.Error()})
+			return renderError(err)
 		}
 		switch {
 		case !rendered:

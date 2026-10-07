@@ -267,14 +267,14 @@ func parseRenderDocumentArgs(invocation string) (name string, opts docrender.Mar
 
 // RenderDocument runs %render-document with its arguments for a front end
 // showing rich output: the Markdown the prompt prints, as lines, or with html
-// the same document as an HTML fragment for a host page. A usage problem is
-// answered as the prompt prints it, with rendered false; a document that could
-// not be rendered is an error.
+// the same document as an HTML fragment for a host page. A usage problem is a
+// *UsageError holding what the prompt prints; a document that could not be
+// rendered is an error.
 func (s *Session) RenderDocument(invocation string, html bool) (lines []string, rendered bool, err error) {
 	defer s.enter()()
 	name, opts, usage := parseRenderDocumentArgs(invocation)
 	if usage != nil {
-		return usage, false, nil
+		return nil, false, &UsageError{Lines: usage}
 	}
 	var text string
 	if html {

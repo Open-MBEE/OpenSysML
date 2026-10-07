@@ -110,7 +110,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         else:
             json.dump(kernelspec.kernel_json(binary_name()), sys.stdout, indent=2, sort_keys=True)
             print()
-    except KernelBinaryError as e:
+    except (KernelBinaryError, kernelspec.InvalidKernelNameError) as e:
         print(f"error: {e}", file=sys.stderr)
         return 1
     return 0

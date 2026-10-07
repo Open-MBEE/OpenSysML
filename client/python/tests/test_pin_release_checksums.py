@@ -632,14 +632,21 @@ def test_the_kernel_family_covers_the_platforms_the_service_does():
     assert "sysml-jupyter-kernel-windows-amd64.exe" in pin.KERNEL_ASSETS
 
 
-def test_kernel_binaries_alone_are_refused(tmp_path):
-    """Every release carries the service, so a directory of kernels alone is a broken build."""
-    binaries, _ = _built_kernels(tmp_path)
+def test_kernel_binaries_alone_are_stamped(tmp_path):
+    """The kernel package job is handed dist/jupyter alone, so the kernel family stamps by itself."""
+    binaries, kernels = _built_kernels(tmp_path)
     table_path = _temporary_table(tmp_path)
 
-    with pytest.raises(pin.PinError, match="missing assets: sysml-grpc-darwin-amd64"):
-        pin.stamp_from_binaries(binaries, STAMPED_TAG, table_path=table_path)
-    assert STAMPED_TAG not in pin.pinned_table(str(table_path))[pin.DEFAULT_REPO]
+    assert pin.stamp_from_binaries(binaries, STAMPED_TAG, table_path=table_path)
+
+    assert pin.pinned_table(str(table_path))[pin.DEFAULT_REPO][STAMPED_TAG] == kernels
+
+
+def test_a_directory_holding_no_family_is_refused(tmp_path):
+    (tmp_path / "jupyter").mkdir()
+    (tmp_path / "jupyter" / "README").write_text("nothing built\n", encoding="utf-8")
+    with pytest.raises(pin.PinError, match="no sysml-grpc-\\* or sysml-jupyter-kernel-\\* binaries"):
+        pin.binary_service_digests(tmp_path / "jupyter")
 
 
 def test_a_kernel_family_missing_a_platform_is_refused(tmp_path):

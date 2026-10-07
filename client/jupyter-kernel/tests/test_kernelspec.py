@@ -131,3 +131,14 @@ def test_sys_prefix_installs_into_the_running_environment(release, tmp_path, mon
     monkeypatch.setattr(sys, "prefix", str(tmp_path / "env"), raising=False)
     assert cli.main(["install", "--sys-prefix"]) == 0
     assert (tmp_path / "env" / "share" / "jupyter" / "kernels" / "sysml" / "kernel.json").is_file()
+
+
+@pytest.mark.parametrize("name", ["", ".", "..", "../escape", "a/b", "a\\b", ".hidden"])
+def test_a_name_that_is_not_one_directory_name_is_refused(release, isolated_jupyter, name, capsys):
+    """A path, or a name beginning with a dot, would reach outside the kernels directory."""
+    with pytest.raises(kernelspec.InvalidKernelNameError):
+        kernelspec.install(user=True, name=name)
+    with pytest.raises(kernelspec.InvalidKernelNameError):
+        kernelspec.uninstall(name)
+    assert cli.main(["install", "--user", "--name", name]) == 1
+    assert "kernelspec name" in capsys.readouterr().err

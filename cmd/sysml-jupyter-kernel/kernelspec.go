@@ -5,8 +5,13 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"runtime"
 )
+
+// kernelNamePattern is what a kernelspec's -name may be: one directory name,
+// which rules out a path and a name beginning with a dot, `..` above all.
+var kernelNamePattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]*$`)
 
 // The kernelspec's defaults: the directory notebooks bind to by name, and what
 // front ends list the kernel under.
@@ -26,8 +31,8 @@ type kernelspec struct {
 
 // kernelspecOf is the kernelspec that starts this binary, as the options name it.
 func kernelspecOf(opts *options) (kernelspec, error) {
-	if opts.name == "" || opts.name != filepath.Base(opts.name) {
-		return kernelspec{}, fmt.Errorf("-name %q must be a directory name", opts.name)
+	if !kernelNamePattern.MatchString(opts.name) {
+		return kernelspec{}, fmt.Errorf("-name %q must be a directory name: letters, digits, '.', '_' or '-', beginning with a letter or digit", opts.name)
 	}
 	self, err := os.Executable()
 	if err != nil {

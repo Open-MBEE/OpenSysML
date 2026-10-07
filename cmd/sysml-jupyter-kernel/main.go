@@ -90,6 +90,9 @@ func serve(opts *options, info buildinfo.Info) int {
 		fmt.Fprintln(os.Stderr, errPrefix, err)
 		return 2
 	}
+	if conn.Key == "" {
+		fmt.Fprintf(os.Stderr, "%s the connection file has no key; requests on %s are accepted unsigned\n", errPrefix, conn.IP)
+	}
 	sess, err := newSession(info)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, errPrefix, err)

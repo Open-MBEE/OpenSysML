@@ -2296,6 +2296,13 @@ jobs:
             GOOS=windows GOARCH=amd64 make build-jupyter-kernel VERSION="$VERSION" COMMIT="$COMMIT" BUILD_TIME="$BUILD_TIME" GO_VERSION="$GO_VERSION"
             mv bin/sysml-jupyter-kernel dist/jupyter/sysml-jupyter-kernel-windows-amd64.exe
 
+            # A .sha256 sidecar beside each raw binary: the one checksum the
+            # packages that download it read. The package jobs check the binaries
+            # they bundle against these, and build-release checks them again
+            # before folding them into the signed manifest.
+            (cd dist/grpc && for f in sysml-grpc-*; do sha256sum "$f" > "$f.sha256"; done)
+            (cd dist/jupyter && for f in sysml-jupyter-kernel-*; do sha256sum "$f" > "$f.sha256"; done)
+
             # The Node client ships this combined WebAssembly module and matching Go runtime.
             mkdir -p dist/wasm
             make build-release-wasm VERSION="$VERSION" COMMIT="$COMMIT" BUILD_TIME="$BUILD_TIME" GO_VERSION="$GO_VERSION"
@@ -2423,13 +2430,12 @@ jobs:
             # (or a careful user) can verify a download.
             sha256sum ./*.tar.gz ./*.zip ./*.whl | sed 's|\./||' > SHA256SUMS.txt
             
-            # Same for the raw gRPC binaries, plus a per-file sidecar, which is
-            # the only checksum opensysml reads.
-            (cd grpc && sha256sum sysml-grpc-* >> ../SHA256SUMS.txt)
-            (cd grpc && for f in sysml-grpc-*; do sha256sum "$f" > "$f.sha256"; done)
+            # Same for the raw gRPC binaries, through the per-file sidecars
+            # written beside them when they were built, the only checksum
+            # opensysml reads: checked against the bytes here, then folded in.
+            (cd grpc && sha256sum --check --strict sysml-grpc-*.sha256 && cat sysml-grpc-*.sha256 >> ../SHA256SUMS.txt)
             # And the raw kernel binaries, the only checksum jupyter-opensysml-kernel reads.
-            (cd jupyter && sha256sum sysml-jupyter-kernel-* >> ../SHA256SUMS.txt)
-            (cd jupyter && for f in sysml-jupyter-kernel-*; do sha256sum "$f" > "$f.sha256"; done)
+            (cd jupyter && sha256sum --check --strict sysml-jupyter-kernel-*.sha256 && cat sysml-jupyter-kernel-*.sha256 >> ../SHA256SUMS.txt)
             (cd wasm && sha256sum sysml-wasm.wasm wasm_exec.js >> ../SHA256SUMS.txt)
             (cd wasm && for f in sysml-wasm.wasm wasm_exec.js; do sha256sum "$f" > "$f.sha256"; done)
             cat SHA256SUMS.txt
@@ -2633,8 +2639,6 @@ jobs:
           root: .
           paths:
             - dist/SHA256SUMS.txt
-            - dist/grpc/*.sha256
-            - dist/jupyter/*.sha256
             - dist/wasm/*.sha256
             - dist/opensysml-*-py3-none-any.whl
             - dist/opensysml-[0-9]*.tar.gz

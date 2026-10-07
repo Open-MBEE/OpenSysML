@@ -104,6 +104,8 @@ func TestFailuresAreNamedByWhatFailed(t *testing.T) {
 		"%nosuchcommand":                     "UnknownCommand",
 		"%print Nope":                        "CommandError",
 		"%render nothing":                    "RenderError",
+		"%render":                            "UsageError",
+		"%render-document":                   "UsageError",
 		"1 +":                                "SubmissionError",
 	}
 	for code, want := range cases {

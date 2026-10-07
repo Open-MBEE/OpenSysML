@@ -28,7 +28,9 @@ Two families of binaries are pinned: the `sysml-grpc-*` service the clients
 start, and the `sysml-jupyter-kernel-*` kernel jupyter-opensysml-kernel
 installs. A published release carries the service family and, from the release
 that introduced the kernel, the kernel family too; a family is pinned whole or
-not at all, so a release missing one platform of either is refused.
+not at all, so a release missing one platform of either is refused. A directory
+of binaries is stamped by the families it holds: the service job is handed
+dist/grpc, the kernel job dist/jupyter.
 
 A release job can stamp the table a package ships without a GitHub token or
 network access, from what the release has already produced. The Rust job
@@ -307,7 +309,7 @@ def manifest_service_digests(manifest_path):
             raise PinError(f"duplicate asset {asset} in {manifest_path}")
         digests[asset] = digest
 
-    _require_whole_families(digests, f"checksum manifest {manifest_path}")
+    _require_whole_families(digests, f"checksum manifest {manifest_path}", required=(SERVICE_PREFIX,))
     return digests
 
 
@@ -322,6 +324,9 @@ def binary_service_digests(binaries_dir):
     Args:
         binaries_dir (str): Directory holding the sysml-grpc-* or
             sysml-jupyter-kernel-* binaries
+
+    The service job is handed dist/grpc and the kernel job dist/jupyter, so the
+    directory is stamped by the families it holds, each whole.
 
     Returns:
         dict: asset name -> SHA-256 hex digest, every platform of each family found
@@ -350,6 +355,10 @@ def binary_service_digests(binaries_dir):
                 f"{asset} in {binaries_dir} hashes to {digests[asset]}, but its "
                 f".sha256 says {sidecar}; the build is inconsistent and was not pinned"
             )
+    if not digests:
+        raise PinError(
+            f"no {' or '.join(prefix + '*' for prefix in ASSET_PREFIXES)} binaries in {binaries_dir}"
+        )
     _require_whole_families(digests, f"binaries in {binaries_dir}")
     return digests
 
@@ -400,8 +409,8 @@ def _sidecar_digest(path):
     return fields[0]
 
 
-def _require_whole_families(digests, source):
-    """Fail unless the service family is complete, and so is any other family found.
+def _require_whole_families(digests, source, required=()):
+    """Fail unless every family found is complete, and every family required is found.
 
     A package verifies the one platform it runs on, so a family pinned for
     some platforms would install on those and refuse the rest for the same
@@ -410,6 +419,7 @@ def _require_whole_families(digests, source):
     Args:
         digests (dict): asset name -> digest
         source (str): Where the digests came from, for the message
+        required (tuple): Asset prefixes of the families the source must hold
 
     Raises:
         PinError: Naming the assets that are absent
@@ -417,7 +427,7 @@ def _require_whole_families(digests, source):
     missing = []
     for prefix, family in ASSET_FAMILIES.items():
         found = {asset for asset in digests if asset.startswith(prefix)}
-        if found or prefix == SERVICE_PREFIX:
+        if found or prefix in required:
             missing.extend(sorted(family - found))
     if missing:
         raise PinError(f"{source} is missing assets: {', '.join(missing)}")

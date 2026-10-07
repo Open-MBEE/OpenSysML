@@ -99,14 +99,26 @@ type Rendered struct {
 	Lines []string
 }
 
+// UsageError is a %render or %render-document invocation the prompt would
+// answer with its usage rather than run: the lines it prints, for a front end
+// to show as the command's failure.
+type UsageError struct{ Lines []string }
+
+func (e *UsageError) Error() string {
+	if len(e.Lines) == 0 {
+		return "usage"
+	}
+	return strings.TrimPrefix(e.Lines[0], errPrefix)
+}
+
 // Render runs %render with its arguments and answers what it wrote, with the
-// form the lines are in. A usage problem is answered as the prompt prints it,
-// in the text form; a view that could not be rendered is an error.
+// form the lines are in. A usage problem is a *UsageError holding what the
+// prompt prints; a view that could not be rendered is an error.
 func (s *Session) Render(args []string) (Rendered, error) {
 	defer s.enter()()
 	name, form, opts, overlay, usage := parseRenderArgs(args)
 	if usage != nil {
-		return Rendered{Form: view.FormText, Lines: usage}, nil
+		return Rendered{}, &UsageError{Lines: usage}
 	}
 	lines, err := s.renderLines(name, form, opts, overlay)
 	if err != nil {

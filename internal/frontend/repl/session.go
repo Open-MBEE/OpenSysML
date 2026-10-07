@@ -86,7 +86,8 @@ type Session struct {
 
 	// interrupt is raised by Interrupt to stop the command under way; every
 	// runtime context the session builds watches it. command holds the context
-	// that command's plans run under, cancelled by Interrupt too.
+	// that command's plans run under, cancelled by Interrupt too, and raises
+	// and lowers the flag with the command.
 	interrupt *atomic.Bool
 	command   commandContext
 
@@ -323,6 +324,7 @@ func newSession(converter SourceConverter) *Session {
 		now:             time.Now,
 		interrupt:       new(atomic.Bool),
 	}
+	s.command.flag = s.interrupt
 	s.setJobs(analysis.DefaultJobs())
 	return s
 }
@@ -340,9 +342,9 @@ func (s *Session) Text() string {
 
 // enter takes the session for one command; the function returned leaves it.
 func (s *Session) enter() func() {
+	s.command.request()
 	s.mu.Lock()
 	s.state.Lock()
-	s.interrupt.Store(false)
 	end := s.command.begin()
 	return func() {
 		end()

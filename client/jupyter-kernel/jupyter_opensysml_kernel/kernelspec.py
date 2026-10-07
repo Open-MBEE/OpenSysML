@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 from importlib import resources
 import shutil
 import stat
@@ -32,6 +33,28 @@ IMPLEMENTATION = "sysml-jupyter-kernel"
 PACKAGE = "jupyter-opensysml-kernel"
 SPEC_FILE = "kernel.json"
 LOGO_FILES = ("logo-32x32.png", "logo-64x64.png")
+
+# One directory name under the kernels directory: no path, and no name beginning
+# with a dot, `..` above all, which jupyter_client's own check lets through.
+KERNEL_NAME_PATTERN = re.compile(r"[a-z0-9][a-z0-9._-]*", re.IGNORECASE)
+
+
+class InvalidKernelNameError(ValueError):
+    """A kernelspec name that is not one directory name."""
+
+
+def validate_name(name: str) -> str:
+    """The kernelspec name, if it is one that stays inside the kernels directory.
+
+    Raises:
+        InvalidKernelNameError: For a path, an empty name, or one beginning with a dot
+    """
+    if KERNEL_NAME_PATTERN.fullmatch(name) is None:
+        raise InvalidKernelNameError(
+            f"kernelspec name {name!r} must be letters, digits, '.', '_' or '-', "
+            "beginning with a letter or digit"
+        )
+    return name
 
 
 def _spec(argv: list[str], display_name: str) -> dict[str, Any]:
@@ -139,9 +162,11 @@ def install(
 
     Raises:
         KernelBinaryError: If no verified binary could be obtained
+        InvalidKernelNameError: If name is not one directory name
     """
     from jupyter_client.kernelspec import KernelSpecManager
 
+    validate_name(name)
     if binary is not None and version is not None:
         raise KernelBinaryError("--binary names the kernel to install; --version chooses one to download")
     if binary is None and version is None:
@@ -171,9 +196,11 @@ def uninstall(name: str = KERNEL_NAME) -> str:
 
     Raises:
         KernelBinaryError: If no kernelspec of that name is installed
+        InvalidKernelNameError: If name is not one directory name
     """
     from jupyter_client.kernelspec import KernelSpecManager, NoSuchKernel
 
+    validate_name(name)
     manager = KernelSpecManager()
     try:
         removed: str = manager.remove_kernel_spec(name)

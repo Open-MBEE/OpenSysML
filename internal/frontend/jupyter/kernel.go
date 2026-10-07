@@ -114,6 +114,9 @@ func (k *Kernel) Run(ctx context.Context) (restart bool, err error) {
 	go func() { defer wg.Done(); k.serve(ctx, control, k.handleControl) }()
 	go func() { defer wg.Done(); k.serve(ctx, shell, k.handleShell) }()
 	<-ctx.Done()
+	// A cell under way is stopped first: closing the sockets cannot reach the
+	// goroutine busy in Execute, and Run waits for it below.
+	k.engine.Interrupt()
 	// Closing the sockets unblocks the receives; the loops then see ctx done.
 	for _, s := range sockets {
 		_ = s.sock.Close()
