@@ -334,8 +334,8 @@ func (r *Resolver) lookupImports(scope *symbols.Scope, name string) (*symbols.Sy
 	return r.uniqueImport(matches)
 }
 
-// KerML 7.2.5.4 hides clashing imported memberships. Repeated paths to the
-// same element do not introduce a second member. Never choose by import order.
+// KerML 7.2.5.4 hides clashing imported memberships; repeated paths to one
+// element are not a conflict. Never choose by import order.
 func (r *Resolver) uniqueImport(matches []*symbols.Symbol) (*symbols.Symbol, bool) {
 	var found, element *symbols.Symbol
 	for _, sym := range matches {

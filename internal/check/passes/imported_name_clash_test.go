@@ -2,8 +2,8 @@ package passes
 
 import "testing"
 
-// KerML 7.2.5.4 hides conflicting imported memberships, retaining repeated
-// imports of the same element and ordinary owned/outer-scope lookup.
+// KerML 7.2.5.4 hides conflicting imports, retaining repeated imports of one
+// element and ordinary owned/outer-scope lookup.
 func TestImportedNameClashVisibility(t *testing.T) {
 	for _, tc := range []struct {
 		name, source string
