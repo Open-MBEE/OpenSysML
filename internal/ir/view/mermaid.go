@@ -1218,13 +1218,12 @@ func mermaidLabel(node *Node, labels labeller, lines []string, title bool) strin
 	markdown := make([]string, 0, len(lines))
 	head := labels.headLines(node)
 	if title {
+		first := "**" + head[0] + "**"
 		if keyword := labels.keyword(node); keyword != "" {
-			markdown = append(markdown, "*"+keyword+"* **"+head[0]+"**")
-			head = head[1:]
-		} else {
-			markdown = append(markdown, "**"+head[0]+"**")
-			head = head[1:]
+			first = "*" + keyword + "* " + first
 		}
+		markdown = append(markdown, first)
+		head = head[1:]
 	} else if keyword := labels.keyword(node); keyword != "" {
 		markdown = append(markdown, "*"+keyword+"*")
 	}
@@ -1867,17 +1866,16 @@ func InlineMermaidImages(source, base string) string {
 // mermaid is a node's label ready to embed: its lines escaped and joined with
 // `<br>`, which flowcharts, state diagrams and sequence diagrams all break at.
 func (l labeller) mermaid(node *Node) string {
-	lines := l.lines(node)
-	for i, line := range lines {
-		lines[i] = mermaidText(line)
-	}
-	return strings.Join(lines, "<br>")
+	return l.mermaidLines(l.lines(node))
 }
 
 func (l labeller) mermaidTitle(node *Node) string {
-	lines := l.titleLines(node)
+	return l.mermaidLines(l.titleLines(node))
+}
+
+func (l labeller) mermaidLines(lines []string) string {
 	for i, line := range lines {
-		lines[i] = strings.ReplaceAll(mermaidText(line), "&", "&amp;")
+		lines[i] = mermaidText(line)
 	}
 	return strings.Join(lines, "<br>")
 }

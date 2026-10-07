@@ -252,23 +252,22 @@ not size holds what it is headed with; a box a Layout sizes has its label fitted
 
 Safe flowchart labels use Markdown newlines; unsafe flowchart labels, leaf state labels, remaining
 composite-state title lines and sequence participants use `<br>` for line breaks. The pinned
-`mermaid-cli` breaks at `<br>` whether
-`htmlLabels` is on (the text becomes HTML, `<br>` a line break) or off (the label is split into
-`<tspan>` rows); no `<br>` survives as text in the drawing. The tree, interconnection and action
-Kinds draw the same flowchart labels. The first line of a subgraph or composite-state title puts
-the keyword and name together (`*«part def»* **Toolchain**`), since Mermaid reserves one line for
-it. Only a flowchart subgraph title that still spans several lines — a name with an escaped line
-break, or notes — emits `flowchart.subGraphTitleMargin.bottom` in the frontmatter, at 24px per
-extra line.
-The flowchart theme CSS that centres multi-line titles remains (`writeFlowchartFrontmatter`).
-Mermaid applies that margin after layout to every cluster alike, so a nested cluster can still
-crowd its parent's title and stacked sibling clusters can touch in such a chart; the model's
-content is preserved and the diagram carries no notice. Every `subgraph` opens on a `direction`
-statement restating the flowchart's own (`TD`, `LR` for an interconnection, or the one asked
-for), since Mermaid lays out a subgraph that states none without regard to the flowchart's;
-a tree draws containment as edges, not subgraphs, so it states none. Flowchart labels use Markdown
-when every line is safe, with the italic keyword first, then bold head lines and plain details,
-separated by real newlines; unsafe labels fall back to the escaped `<br>` form. DOT writes an
+`mermaid-cli` breaks at `<br>` whether `htmlLabels` is on (the text becomes HTML, `<br>` a line
+break) or off (the label is split into `<tspan>` rows); no `<br>` survives as text in the drawing.
+The tree, interconnection and action kinds draw the same flowchart labels. The first line of a
+subgraph or composite-state title puts the keyword and name together (`*«part def»* **Toolchain**`),
+since Mermaid reserves one line for it. Only a flowchart subgraph title that still spans several
+lines — a name with an escaped line break, or notes — emits `flowchart.subGraphTitleMargin.bottom`
+in the frontmatter, at 24px per extra line. The flowchart theme CSS that centres multi-line titles
+remains (`writeFlowchartFrontmatter`). Mermaid applies that margin after layout to every cluster
+alike, so a nested cluster can still crowd its parent's title and stacked sibling clusters can
+touch in such a chart; the model's content is preserved and the diagram carries no notice. Every
+`subgraph` opens on a `direction` statement restating the flowchart's own (`TD`, `LR` for an
+interconnection, or the one asked for), since Mermaid lays out a subgraph that states none without
+regard to the flowchart's; a tree draws containment as edges, not subgraphs, so it states none.
+Flowchart labels use Markdown when every line is safe, with the italic keyword first, then bold
+head lines and plain details, separated by real newlines; unsafe labels fall back to the escaped
+`<br>` form. DOT writes an
 HTML-like label, `label=<<font point-size="10">«part»</font><br/><b>pump : Pump</b>>`, the keyword
 line at 10pt over the name in bold at the 14pt Graphviz draws the rest in; `&`, `<`, `>` and `"` in a name become entities so no name
 reads as markup. A cluster's label is the same string. The text form keeps the notation's

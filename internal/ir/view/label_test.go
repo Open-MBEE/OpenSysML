@@ -340,7 +340,7 @@ func TestMermaidContainerTitleShape(t *testing.T) {
 	fallback := (&Rendering{Kind: KindInterconnection, Roots: []*Node{{
 		ID: "n0", Kind: "part", Name: "a&b", Detail: "note", Children: []*Node{{ID: "n1", Kind: "part", Name: "child"}},
 	}}}).Mermaid()
-	if !strings.Contains(fallback, `subgraph n0 ["«part» a&amp;b<br>note"]`) {
+	if !strings.Contains(fallback, `subgraph n0 ["«part» a&b<br>note"]`) {
 		t.Errorf("unsafe container title lacks its escaped one-line fallback:\n%s", fallback)
 	}
 }
