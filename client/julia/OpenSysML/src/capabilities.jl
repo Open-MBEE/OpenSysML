@@ -58,6 +58,7 @@ const CAPABILITY_UNDETERMINED_VALUE = "undetermined_value"
 const CAPABILITY_BIG_INT_VALUES = "big_int_values"
 const CAPABILITY_RATIONAL_VALUES = "rational_values"
 const CAPABILITY_CONVERT_DOCUMENTS = "convert_documents"
+const CAPABILITY_CONVERT_COMPACT = "convert_compact"
 const CAPABILITY_PARSE_SOURCES_AFFECTED = "parse_sources_affected"
 
 """The version and advertised capabilities reported by a sysml-grpc service."""

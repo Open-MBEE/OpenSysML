@@ -63,6 +63,9 @@ public final class Capabilities {
   /** A model converts with only the documents {@code documents} names written, the rest linked by id. */
   public static final String CONVERT_DOCUMENTS = "convert_documents";
 
+  /** api-json converts as the compact document, optionally without derived properties. */
+  public static final String CONVERT_COMPACT = "convert_compact";
+
   /** A parse names the documents whose results may differ from those of {@code base_model_hash}. */
   public static final String PARSE_SOURCES_AFFECTED = "parse_sources_affected";
 

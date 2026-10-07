@@ -1023,6 +1023,24 @@ pub struct ConvertRequest {
     /// INVALID_ARGUMENT. Reported as the "convert_documents" capability.
     #[prost(string, repeated, tag="8")]
     pub documents: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// For api-json from notation: write the compact document
+    /// (api-json-compact/1) in place of the standard element array. It is one
+    /// object holding a table of element ids, written once, and the elements with
+    /// every reference spelled as an index into it, without indentation; see
+    /// docs/reference/wire-contract.md for the shape. Refused for any other
+    /// target. Reported as the "convert_compact" capability.
+    #[prost(bool, tag="9")]
+    pub compact: bool,
+    /// With compact: leave out every derived property of the metamodel (the
+    /// ones the owned properties already state), except those named in
+    /// keep_derived. Refused without compact.
+    #[prost(bool, tag="10")]
+    pub omit_derived: bool,
+    /// With omit_derived: the derived properties still written, named as in the
+    /// element form ("owner", "qualifiedName"). A name that is not a derived
+    /// property of the metamodel is INVALID_ARGUMENT. Refused without omit_derived.
+    #[prost(string, repeated, tag="11")]
+    pub keep_derived: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
     #[prost(oneof="convert_request::Source", tags="1, 2, 6")]
     pub source: ::core::option::Option<convert_request::Source>,
 }

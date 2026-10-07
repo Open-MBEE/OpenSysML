@@ -21,22 +21,9 @@ import (
 // are owned by the unnamed root Namespace the pilot's documents carry, which
 // the Turtle form leaves out (see docs/reference/rdf-mapping.md).
 func WriteAPIJSON(graph *rdf.Graph) ([]byte, error) {
-	wrapped, err := withRootNamespace(graph)
+	elements, err := apiJSONElements(graph)
 	if err != nil {
 		return nil, err
-	}
-	settled, err := rdf.ReconcileCollections(wrapped)
-	if err != nil {
-		return nil, err
-	}
-	subjects := settled.Subjects()
-	elements := make([]apiJSONObject, 0, len(subjects))
-	for _, subject := range subjects {
-		element, err := apiJSONElement(settled, subject)
-		if err != nil {
-			return nil, err
-		}
-		elements = append(elements, element)
 	}
 	// Written compact in one pass and indented once. Encoding the array through
 	// each object's MarshalJSON had the encoder parse and re-indent every
@@ -60,6 +47,29 @@ func WriteAPIJSON(graph *rdf.Graph) ([]byte, error) {
 	}
 	out.WriteByte('\n')
 	return out.Bytes(), nil
+}
+
+// apiJSONElements builds the element object of every subject of the graph,
+// once its collections are settled and the root Namespace wraps it.
+func apiJSONElements(graph *rdf.Graph) ([]apiJSONObject, error) {
+	wrapped, err := withRootNamespace(graph)
+	if err != nil {
+		return nil, err
+	}
+	settled, err := rdf.ReconcileCollections(wrapped)
+	if err != nil {
+		return nil, err
+	}
+	subjects := settled.Subjects()
+	elements := make([]apiJSONObject, 0, len(subjects))
+	for _, subject := range subjects {
+		element, err := apiJSONElement(settled, subject)
+		if err != nil {
+			return nil, err
+		}
+		elements = append(elements, element)
+	}
+	return elements, nil
 }
 
 // apiJSONWriter writes element objects compact into one buffer. Strings keep
