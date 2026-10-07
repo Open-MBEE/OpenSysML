@@ -38,6 +38,19 @@ conformance. The independent reference-validator comparison remains separate.
 
 ## Verification
 
+Runtime fixtures that import both a unit and a function named `min` or `rad`
+must qualify the unit (or declare a local alias). Those models previously relied
+on import order. The extent-adoption test now uses imports in genuinely nested
+scopes for its shadowing case and separately rejects same-scope import clashes.
+The filtered-import control likewise checks both the ambiguous metadata name
+and a qualified, non-conflicting form; only the unmarked element is rejected in
+the latter.
+
+The bundled SI file also reaches two distinct `MagneticDipoleMomentUnit`
+declarations through `ISQ`. Its original name-resolution errors are asserted
+before an in-memory qualification enables the independent dimensional checks;
+see [the documented library issues](omg-issues.md).
+
 ```sh
 go test ./internal/semantic/resolve ./internal/semantic/semantics ./internal/check/passes
 OPENSYSML_REQUIRE_PILOT_CORPORA=1 go test ./tests/corpus -run 'TestPilotCorporaDiagnostics|TestPilotImportedNameClashQualification' -count=1

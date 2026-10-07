@@ -145,6 +145,7 @@ func quantityCalculationsContext(t *testing.T) (*Context, *symbols.Scope) {
 			public import SI::*;
 			public import QuantityCalculations::*;
 			public import TrigFunctions::*;
+			private alias rad for SI::rad;
 			attribute side : LengthValue = 3 [m];
 			attribute area : AreaValue = side * side;
 			attribute none : LengthValue[0..*] = ();

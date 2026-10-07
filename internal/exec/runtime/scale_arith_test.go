@@ -50,7 +50,7 @@ func TestPointArithmetic(t *testing.T) {
 		{"5.0 [Time::UTC] + 3.0 [s]", "8.0 [UTC]"},
 		{"5.0 [Time::UTC] - 3.0 [s]", "2.0 [UTC]"},
 		{"5.0 [Time::UTC] - 3.0 [Time::UTC]", "2.0 [s]"},
-		{"5.0 [Time::UTC] + 3.0 [min]", "185.0 [UTC]"},
+		{"5.0 [Time::UTC] + 3.0 [SI::min]", "185.0 [UTC]"},
 	}
 	ctx, scope := scaleContext(t)
 	for _, tc := range cases {

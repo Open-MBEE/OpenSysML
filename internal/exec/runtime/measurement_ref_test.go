@@ -31,9 +31,9 @@ func measurementRefContext(t *testing.T) (*Context, *symbols.Scope) {
 			attribute wrongDimension : AreaUnit = m * s;
 			attribute notAUnit : LengthValue = m;
 			attribute notAnArea : AreaValue = m * m;
-			attribute notAScale : Time::TimeScale = h * s / min;
-			attribute notAnInterval : IntervalScale = h * s / min;
-			attribute aDuration : DurationUnit = h * s / min;
+			attribute notAScale : Time::TimeScale = h * s / SI::min;
+			attribute notAnInterval : IntervalScale = h * s / SI::min;
+			attribute aDuration : DurationUnit = h * s / SI::min;
 			attribute epoch : Time::TimeScale = Time::UTC;
 			attribute exponent : Real = 2.0;
 			attribute powered : AreaUnit = m ** exponent;

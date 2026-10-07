@@ -1855,6 +1855,7 @@ func testCoordinateFrameFailureModes(t *testing.T) {
 			attribute shifted : IntervalScale { :>> unit = m; :>> transformation : CoordinateFramePlacement { :>> source = m; :>> origin = 10.0 [m]; :>> basisDirections = 1000.0 [mm]; } }`,
 			"LengthValue", "ConvertQuantity(3.0 [shifted], m)", nil, ""},
 		{"scale whose basis direction scales the axis in another unit", `
+			private alias min for SI::min;
 			attribute shifted : IntervalScale { :>> unit = s; :>> transformation : CoordinateFramePlacement { :>> source = s; :>> origin = 10.0 [s]; :>> basisDirections = 1.0 [min]; } }`,
 			"DurationValue", "ConvertQuantity(3.0 [shifted], s)", ErrUnevaluableLibraryFunction, "the basisDirection 1.0 [min] of its transformation transformation is not the identity 1 [s]"},
 		{"scale placed on a frame of two axes", `

@@ -56,8 +56,9 @@ func TestPackagesImportingEachOtherInACycleAnalysePromptly(t *testing.T) {
 // not be cut short by the visit set of the enclosing search (KerML 8.2.4).
 func TestFilteredImportOverMembershipImportsRejectsUnmarked(t *testing.T) {
 	for _, tc := range []struct {
-		name string
-		src  string
+		name      string
+		src       string
+		ambiguous bool
 	}{
 		{
 			name: "filter names another member",
@@ -82,7 +83,8 @@ package P {
 `,
 		},
 		{
-			name: "filter names the resolved name",
+			name:      "filter and imported type have conflicting names",
+			ambiguous: true,
 			src: `package M { metadata def Good; }
 package S {
 	#M::Good part def Good;
@@ -112,6 +114,22 @@ package P {
 			}()
 			select {
 			case diags := <-done:
+				if tc.ambiguous {
+					if len(diags) != 2 {
+						t.Fatalf("filter and consumer must both reject Good: %v", diags)
+					}
+					for _, d := range diags {
+						if d.Code != "unresolved" || !strings.HasPrefix(d.Message, "unresolved reference: Good") {
+							t.Fatalf("unexpected diagnostic: %v", d)
+						}
+					}
+					// Qualify the metadata type and remove its competing wildcard import.
+					qualified := strings.Replace(tc.src, "R::*[@Good]", "R::*[@M::Good]", 1)
+					qualified = strings.Replace(qualified, "\n\tpublic import M::*;", "", 1)
+					ws := model.NewWorkspace()
+					ws.Open("qualified.sysml", []byte(qualified), 1)
+					diags = ws.Diagnostics("qualified.sysml")
+				}
 				if len(diags) != 1 {
 					t.Fatalf("only `Bad` is unresolved; got %d diagnostics: %v", len(diags), diags)
 				}
