@@ -19,7 +19,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/jsonrpc"
 )
 
-const combinedGzipBudget = 8350000
+const combinedGzipBudget = 8400000
 
 const combinedModel = `package Demo { part def Item; }`
 

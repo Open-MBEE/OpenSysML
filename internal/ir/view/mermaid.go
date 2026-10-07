@@ -1880,7 +1880,8 @@ func mermaidArrow(kind Kind, edge EdgeKind) string {
 // mermaidEdgeLabel is an edge's flowchart label: its own, or for an edge whose
 // arrow a flowchart draws like another kind's, its kind. A flowchart has no
 // diamond head, so a graph's composition and reference lead with a filled or
-// hollow one; a case or mixed diagram names composition and specialization.
+// hollow one, in a tree as in a graph; a case or mixed diagram names
+// composition and specialization.
 func mermaidEdgeLabel(kind Kind, edge Edge) string {
 	if caseNotation(kind) {
 		if edge.Label != "" {
@@ -1894,7 +1895,7 @@ func mermaidEdgeLabel(kind Kind, edge Edge) string {
 		}
 		return ""
 	}
-	if kind != KindRequirement && kind != KindDefinition && kind != KindPackage {
+	if kind != KindTree && kind != KindRequirement && kind != KindDefinition && kind != KindPackage {
 		return edge.Label
 	}
 	switch {

@@ -839,8 +839,8 @@ func TestCaseShapesAndEdgeLabelsAreKindScoped(t *testing.T) {
 			}
 		}
 	}
-	if got := mermaidEdgeLabel(KindTree, Edge{Kind: EdgeComposition}); got != "" {
-		t.Errorf("tree composition label = %q, want empty", got)
+	if got := mermaidEdgeLabel(KindTree, Edge{Kind: EdgeComposition, Label: "b"}); got != "◆ b" {
+		t.Errorf("tree composition label = %q, want the diamond a graph leads with", got)
 	}
 	if got := mermaidEdgeLabel(KindCase, Edge{Kind: EdgeComposition}); got != "«composition»" {
 		t.Errorf("case composition label = %q", got)

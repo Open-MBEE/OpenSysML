@@ -433,7 +433,13 @@ is a `:>` clause or a port's conjugation, a Composition, Aggregation or Associat
 is the `part`/`ref` end usage, a constraint or information flow edge nothing realizes is not
 written, and a decision's `else` branch is a clause of the node it leaves, not a member. Their
 placements on a diagram expose the ends as before; their routes are reported (below), not
-attached to a member that is not an edge. A region's initial transition is the bare entry
+attached to a member that is not an edge. The rendered view still draws them: a tree draws a
+specialization from each exposed element to the general it specializes, and a composition
+(filled diamond, labelled with the end usage's name and multiplicity) or reference (hollow
+diamond) from each to the definition typing a part or `ref` it owns, wherever both ends are
+drawn, so a migrated block definition diagram shows its generalization and association lines
+between the blocks it exposes; the lines are laid out by the drawing, since nothing in the
+model routes them. A region's initial transition is the bare entry
 `entry; then s;` until a diagram draws it; then it is a member of its own, `transition 'start
 then s' first start then s;` (under its v1 name when it has one, else that made-up name), so the
 view can route it from the region's `start` symbol, and its row names the member.

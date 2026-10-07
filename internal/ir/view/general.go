@@ -375,6 +375,29 @@ func (r *Renderer) resolveEnd(scope *symbols.Scope, target ast.Node) (*symbols.S
 	return sym, true
 }
 
+// generalizationTarget is the element a specialization, subsetting,
+// redefinition or typing relationship of sym names: a redefinition is resolved
+// among the inherited features, a same-named subsetting reaches the inherited
+// feature it subsets. False when the target does not resolve.
+func (r *Renderer) generalizationTarget(sym *symbols.Symbol, rel *ast.Relationship) (*symbols.Symbol, bool) {
+	var target *symbols.Symbol
+	var resolved bool
+	if rel.Kind == ast.RelRedefines {
+		target, resolved = r.resolver.ResolveRedefinitionTarget(sym.OwnerScope, sym.Decl, rel.Target)
+	} else {
+		target, resolved = r.resolveEnd(sym.OwnerScope, rel.Target)
+	}
+	if !resolved || target == nil {
+		return nil, false
+	}
+	if rel.Kind == ast.RelSubsets {
+		if inherited := r.model.GeneralizationTargetOf(sym, rel); inherited != nil {
+			target = inherited
+		}
+	}
+	return target, true
+}
+
 // unresolved reports a relationship end that names nothing.
 func (g *generalGraph) unresolved(relationship string, of *symbols.Symbol, target ast.Node) {
 	g.out.Notices = append(g.out.Notices, fmt.Sprintf("the %s of %s names %s, which does not resolve; not drawn",
@@ -408,21 +431,10 @@ func (g *generalGraph) structuralEdges(sym *symbols.Symbol) {
 		if !ok {
 			continue
 		}
-		var target *symbols.Symbol
-		var resolved bool
-		if rel.Kind == ast.RelRedefines {
-			target, resolved = g.r.resolver.ResolveRedefinitionTarget(sym.OwnerScope, sym.Decl, rel.Target)
-		} else {
-			target, resolved = g.r.resolveEnd(sym.OwnerScope, rel.Target)
-		}
-		if !resolved || target == nil {
+		target, resolved := g.r.generalizationTarget(sym, rel)
+		if !resolved {
 			g.unresolved(rel.Kind.String()+" relationship", sym, rel.Target)
 			continue
-		}
-		if rel.Kind == ast.RelSubsets {
-			if inherited := g.r.model.GeneralizationTargetOf(sym, rel); inherited != nil {
-				target = inherited
-			}
 		}
 		if to := g.drawn(target); to != nil && to != from {
 			g.add(Edge{From: from.ID, To: to.ID, Kind: kind, Label: label, Origin: symbolOrigin(sym)})

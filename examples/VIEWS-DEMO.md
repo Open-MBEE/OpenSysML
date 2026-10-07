@@ -56,7 +56,10 @@ actions and cases on one canvas; `#case` and `#mixed` render loaded model conten
 declared view.
 
 The tree renders the exposed elements and each nested view as a subtree of its
-own:
+own, then lists the relationships between the elements it drew — here the typing
+of each descender by the `Descender` definition the nested view shows, and the
+redefinition of `mass` each states — as the lines a block definition diagram
+draws between its boxes:
 
 ```
 LanderViews::overview - tree rendering (the view states no rendering; a tree is the default)
@@ -68,7 +71,19 @@ part Lander::heavyDescender : Descender
 view LanderViews::overview::interfaceSubview
   part def Lander::Descender
     …
+
+relationships:
+  Lander::descender ..|> Lander::Descender
+  mass --|> mass: redefines
+  Lander::heavyDescender ..|> Lander::Descender
+  mass --|> mass: redefines
 ```
+
+A composition from a definition to the definition typing a part it owns is drawn
+the same way (`Lander::Descender *-- Lander::Tank: tank`) when both are exposed,
+with a filled diamond at the owner in the diagram forms; a `ref` or an attribute
+draws a hollow one. A usage's typing is left to that composition, or to the
+nesting when the typing definition is drawn inside the owner.
 
 The interconnection rendering shows exposed features as nodes and the
 connections and flows between them as edges:
