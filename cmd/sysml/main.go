@@ -123,6 +123,7 @@ var (
 	layoutPath       string
 	imageBaseURL     string
 	renderView       string
+	graphsSubject    string
 	renderAllDir     string
 	renderForm       string
 	renderPalette    string
@@ -661,6 +662,10 @@ func runCLI() int {
 			fmt.Fprintln(os.Stderr, "sysml: -migrate and -query are mutually exclusive")
 			return 2
 		}
+		if graphsSubject != "" {
+			fmt.Fprintln(os.Stderr, "sysml: -migrate and -graphs are mutually exclusive")
+			return 2
+		}
 		if modelChecks.requested() {
 			return refuse(modelChecks,
 				"-migrate writes the migrated model out and decides nothing about it; check the migrated model in its own run")
@@ -673,6 +678,10 @@ func runCLI() int {
 	}
 
 	if convertFormat != "" {
+		if graphsSubject != "" {
+			fmt.Fprintln(os.Stderr, "sysml: -convert writes the model in another format and -graphs one behavior's lowered graph; ask for one per run")
+			return 2
+		}
 		if queryText != "" {
 			fmt.Fprintln(os.Stderr, "sysml: -convert and -query are mutually exclusive")
 			return 2
@@ -709,14 +718,32 @@ func runCLI() int {
 	}
 
 	if queryText != "" {
-		if modelChecks.requested() || renderView != "" || renderDoc != "" || len(evalExprs) > 0 || outputPath != "" || fromFormat != "" {
-			fmt.Fprintln(os.Stderr, "sysml: -query cannot be combined with checks, -eval, -render, -render-document, -output or -from")
+		if modelChecks.requested() || renderView != "" || renderDoc != "" || graphsSubject != "" || len(evalExprs) > 0 || outputPath != "" || fromFormat != "" {
+			fmt.Fprintln(os.Stderr, "sysml: -query cannot be combined with checks, -eval, -render, -render-document, -graphs, -output or -from")
 			return 2
 		}
 		if status := resolveRunBounds(); status != 0 {
 			return status
 		}
 		return runQuery(args, queryText)
+	}
+
+	if graphsSubject != "" {
+		if modelChecks.requested() {
+			return refuse(modelChecks,
+				"-graphs writes a behavior's lowered graph out and decides nothing about the model; check it in its own run")
+		}
+		if renderView != "" || renderAllDir != "" || renderDoc != "" || renderDocsDir != "" || convertFormat != "" || migrateFormat != "" || len(evalExprs) > 0 || fromFormat != "" {
+			fmt.Fprintln(os.Stderr, "sysml: -graphs writes one behavior's lowered graph out; it cannot be combined with -render, -render-all, -render-document, -render-documents, -convert, -migrate, -eval or -from")
+			return 2
+		}
+		if status := resolveRunBounds(); status != 0 {
+			return status
+		}
+		if err := runGraphs(args); err != nil {
+			return fail(err)
+		}
+		return exitHolds
 	}
 
 	if renderView != "" {

@@ -48,7 +48,7 @@ from opensysml.query import QueryElement, QueryError
 from opensysml.sources import SourceDocument
 from opensysml.document import (
     DocumentEvent, DocumentQueryError, DocumentQueryResult, DocumentRow, DocumentState,
-    DocumentVerdict, ElementRef, INFINITY, ObjectRef, RenderCanvas, RenderEdge,
+    DocumentVerdict, ElementRef, Graphs, INFINITY, ObjectRef, RenderCanvas, RenderEdge,
     RenderGeometry, RenderNode, RenderNote, RenderPoint, RenderPort, RenderRow,
     RenderSpan, RenderStyle, RenderedView,
 )
@@ -98,6 +98,7 @@ __all__ = [
     "DocumentState", "DocumentVerdict", "ElementRef", "INFINITY", "ObjectRef",
     "RenderCanvas", "RenderEdge", "RenderGeometry", "RenderNode", "RenderNote",
     "RenderPoint", "RenderPort", "RenderRow", "RenderSpan", "RenderStyle", "RenderedView",
+    "Graphs",
     "OpenSysMLError", "AnalysisRunError", "ChecksumMismatchError", "ConnectionError",
     "ConversionError", "ExecutionError", "FeatureValueError", "MigrationError",
     "EditError", "NoEditsError", "EditTargetError", "InvalidEditError",

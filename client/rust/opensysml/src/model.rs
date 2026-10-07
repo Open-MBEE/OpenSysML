@@ -116,6 +116,11 @@ impl Model {
             .render_view_with_ports(self.hash(), view_name, ports)
     }
 
+    /// Export the lowered graph of an action or state machine as `graphs:1` JSON.
+    pub fn export_graphs(&self, subject: &str) -> Result<crate::Graphs, Error> {
+        self.connection.export_graphs(self.hash(), subject)
+    }
+
     /// The symbol a qualified or short name names; `None` when the model declares none.
     ///
     /// A short name finds the shallowest declaration of it.

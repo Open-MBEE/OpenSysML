@@ -2323,6 +2323,8 @@ pub struct ServerInfoResponse {
     ///                   Markdown.
     ///    "render_view" - the RenderView RPC renders a declared view or targeted
     ///                   pseudo-view as machine-readable diagram data.
+    ///    "export_graphs" - the ExportGraphs RPC exports the lowered graph of an
+    ///                   action or state machine as canonical graphs:1 JSON.
     ///    "diagnostic_codes" - Diagnostic.code is populated, so an empty code is a
     ///                   finding none was assigned; without it every code is empty.
     ///    "schedule"     - ExecuteActionRequest, ExecuteStateRequest and
@@ -3056,6 +3058,30 @@ pub struct RenderNote {
     pub has_size: bool,
     #[prost(message, optional, tag="10")]
     pub origin: ::core::option::Option<Span>,
+}
+/// ExportGraphsRequest names the behavior whose lowered graph is exported.
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct ExportGraphsRequest {
+    #[prost(string, tag="1")]
+    pub model_hash: ::prost::alloc::string::String,
+    /// Qualified name of an action or state machine, definition or usage.
+    #[prost(string, tag="2")]
+    pub subject: ::prost::alloc::string::String,
+}
+/// ExportGraphsResponse carries the `graphs:<version>` form: the lowered
+/// ActionGraph/StateGraph IR of the subject and of every behavior it performs,
+/// as canonical JSON — the same bytes an external engine is sent.
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct ExportGraphsResponse {
+    /// The form, as canonical JSON with one trailing newline.
+    #[prost(string, tag="1")]
+    pub content: ::prost::alloc::string::String,
+    /// The version of the form, the `version` field of the JSON.
+    #[prost(int32, tag="2")]
+    pub version: i32,
+    /// The subject's qualified name as resolved.
+    #[prost(string, tag="3")]
+    pub subject: ::prost::alloc::string::String,
 }
 /// FailureReason says what kind of failure an `error` reports, so a client acts
 /// on the kind rather than on the message text.

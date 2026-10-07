@@ -751,6 +751,16 @@ public final class Sysml extends com.google.protobuf.GeneratedFile {
   static final 
     com.google.protobuf.GeneratedMessage.FieldAccessorTable
       internal_static_sysml_RenderNote_fieldAccessorTable;
+  static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_sysml_ExportGraphsRequest_descriptor;
+  static final 
+    com.google.protobuf.GeneratedMessage.FieldAccessorTable
+      internal_static_sysml_ExportGraphsRequest_fieldAccessorTable;
+  static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_sysml_ExportGraphsResponse_descriptor;
+  static final 
+    com.google.protobuf.GeneratedMessage.FieldAccessorTable
+      internal_static_sysml_ExportGraphsResponse_fieldAccessorTable;
 
   public static com.google.protobuf.Descriptors.FileDescriptor
       getDescriptor() {
@@ -1426,80 +1436,86 @@ public final class Sysml extends com.google.protobuf.GeneratedFile {
       "\014\n\001x\030\005 \001(\001R\001x\022\014\n\001y\030\006 \001(\001R\001y\022\024\n\005width\030\007 \001" +
       "(\001R\005width\022\026\n\006height\030\010 \001(\001R\006height\022\031\n\010has" +
       "_size\030\t \001(\010R\007hasSize\022#\n\006origin\030\n \001(\0132\013.s" +
-      "ysml.SpanR\006origin*\261\001\n\rFailureReason\022\036\n\032F" +
-      "AILURE_REASON_UNSPECIFIED\020\000\022\035\n\031FAILURE_R" +
-      "EASON_EVALUATION\020\001\022\035\n\031FAILURE_REASON_WRO" +
-      "NG_KIND\020\002\022$\n FAILURE_REASON_AMBIGUOUS_SU" +
-      "BJECT\020\003\022\034\n\030FAILURE_REASON_UNDECIDED\020\004*\214\005" +
-      "\n\013EditFailure\022\034\n\030EDIT_FAILURE_UNSPECIFIE" +
-      "D\020\000\022\036\n\032EDIT_FAILURE_NO_OPERATIONS\020\001\022\037\n\033E" +
-      "DIT_FAILURE_UNKNOWN_TARGET\020\002\022!\n\035EDIT_FAI" +
-      "LURE_AMBIGUOUS_TARGET\020\003\022\033\n\027EDIT_FAILURE_" +
-      "NOT_VALUED\020\004\022\036\n\032EDIT_FAILURE_INVALID_VAL" +
-      "UE\020\005\022\035\n\031EDIT_FAILURE_INVALID_NAME\020\006\022\032\n\026E" +
-      "DIT_FAILURE_NOT_NAMED\020\007\022\"\n\036EDIT_FAILURE_" +
-      "RENAME_REFERENCED\020\010\022\"\n\036EDIT_FAILURE_OVER" +
-      "LAPPING_EDITS\020\t\022\037\n\033EDIT_FAILURE_RESULT_I" +
-      "NVALID\020\n\022\036\n\032EDIT_FAILURE_OWNER_UNKNOWN\020\013" +
-      "\022$\n EDIT_FAILURE_OWNER_NOT_NAMESPACE\020\014\022\035" +
-      "\n\031EDIT_FAILURE_ILLEGAL_KIND\020\r\022\"\n\036EDIT_FA" +
-      "ILURE_MEMBER_NAME_TAKEN\020\016\022\"\n\036EDIT_FAILUR" +
-      "E_DELETE_REFERENCED\020\017\022$\n EDIT_FAILURE_OW" +
-      "NER_INSIDE_TARGET\020\020\022 \n\034EDIT_FAILURE_MOVE" +
-      "_REFERENCED\020\021\022%\n!EDIT_FAILURE_REFERENCED" +
-      "_ELSEWHERE\020\022*\222\001\n\021PrimitiveOperator\022\"\n\036PR" +
-      "IMITIVE_OPERATOR_UNSPECIFIED\020\000\022\034\n\030PRIMIT" +
-      "IVE_OPERATOR_EQUAL\020\001\022\036\n\032PRIMITIVE_OPERAT" +
-      "OR_GREATER\020\002\022\033\n\027PRIMITIVE_OPERATOR_LESS\020" +
-      "\003*n\n\021CompositeOperator\022\"\n\036COMPOSITE_OPER" +
-      "ATOR_UNSPECIFIED\020\000\022\032\n\026COMPOSITE_OPERATOR" +
-      "_AND\020\001\022\031\n\025COMPOSITE_OPERATOR_OR\020\0022\274\r\n\014Sy" +
-      "sMLService\022D\n\rGetServerInfo\022\030.sysml.Serv" +
-      "erInfoRequest\032\031.sysml.ServerInfoResponse" +
-      "\022>\n\tParseFile\022\027.sysml.ParseFileRequest\032\030" +
-      ".sysml.ParseFileResponse\022G\n\014ParseSources" +
-      "\022\032.sysml.ParseSourcesRequest\032\033.sysml.Par" +
-      "seSourcesResponse\022;\n\tGetSymbol\022\027.sysml.G" +
-      "etSymbolRequest\032\025.sysml.SymbolResponse\022G" +
-      "\n\016GetDiagnostics\022\031.sysml.DiagnosticsRequ" +
-      "est\032\032.sysml.DiagnosticsResponse\022;\n\010Evalu" +
-      "ate\022\026.sysml.EvaluateRequest\032\027.sysml.Eval" +
-      "uateResponse\022D\n\013Instantiate\022\031.sysml.Inst" +
-      "antiateRequest\032\032.sysml.InstantiateRespon" +
-      "se\022J\n\rExecuteAction\022\033.sysml.ExecuteActio" +
-      "nRequest\032\034.sysml.ExecuteActionResponse\022G" +
-      "\n\014ExecuteState\022\032.sysml.ExecuteStateReque" +
-      "st\032\033.sysml.ExecuteStateResponse\0228\n\007Conve" +
-      "rt\022\025.sysml.ConvertRequest\032\026.sysml.Conver" +
-      "tResponse\0228\n\007Migrate\022\025.sysml.MigrateRequ" +
-      "est\032\026.sysml.MigrateResponse\022A\n\nApplyEdit" +
-      "s\022\030.sysml.ApplyEditsRequest\032\031.sysml.Appl" +
-      "yEditsResponse\022S\n\020VerifyConstraint\022\036.sys" +
-      "ml.VerifyConstraintRequest\032\037.sysml.Verif" +
-      "yConstraintResponse\022V\n\021VerifyRequirement" +
-      "\022\037.sysml.VerifyRequirementRequest\032 .sysm" +
-      "l.VerifyRequirementResponse\022Y\n\022VerifySat" +
-      "isfaction\022 .sysml.VerifySatisfactionRequ" +
-      "est\032!.sysml.VerifySatisfactionResponse\022S" +
-      "\n\020ValidateInstance\022\036.sysml.ValidateInsta" +
-      "nceRequest\032\037.sysml.ValidateInstanceRespo" +
-      "nse\022G\n\014EvaluateCalc\022\032.sysml.EvaluateCalc" +
-      "Request\032\033.sysml.EvaluateCalcResponse\022D\n\013" +
-      "RunAnalysis\022\031.sysml.RunAnalysisRequest\032\032" +
-      ".sysml.RunAnalysisResponse\022;\n\010RunSweep\022\026" +
-      ".sysml.RunSweepRequest\032\027.sysml.RunSweepR" +
-      "esponse\022D\n\013ListEngines\022\031.sysml.ListEngin" +
-      "esRequest\032\032.sysml.ListEnginesResponse\0222\n" +
-      "\005Query\022\023.sysml.QueryRequest\032\024.sysml.Quer" +
-      "yResponse\022S\n\020RunDocumentQuery\022\036.sysml.Ru" +
-      "nDocumentQueryRequest\032\037.sysml.RunDocumen" +
-      "tQueryResponse\022M\n\016RenderDocument\022\034.sysml" +
-      ".RenderDocumentRequest\032\035.sysml.RenderDoc" +
-      "umentResponse\022A\n\nRenderView\022\030.sysml.Rend" +
-      "erViewRequest\032\031.sysml.RenderViewResponse" +
-      "BJ\n\034org.openmbee.opensysml.protoP\001Z(gith" +
-      "ub.com/Open-MBEE/OpenSysML/api/protob\006pr" +
-      "oto3"
+      "ysml.SpanR\006origin\"N\n\023ExportGraphsRequest" +
+      "\022\035\n\nmodel_hash\030\001 \001(\tR\tmodelHash\022\030\n\007subje" +
+      "ct\030\002 \001(\tR\007subject\"d\n\024ExportGraphsRespons" +
+      "e\022\030\n\007content\030\001 \001(\tR\007content\022\030\n\007version\030\002" +
+      " \001(\005R\007version\022\030\n\007subject\030\003 \001(\tR\007subject*" +
+      "\261\001\n\rFailureReason\022\036\n\032FAILURE_REASON_UNSP" +
+      "ECIFIED\020\000\022\035\n\031FAILURE_REASON_EVALUATION\020\001" +
+      "\022\035\n\031FAILURE_REASON_WRONG_KIND\020\002\022$\n FAILU" +
+      "RE_REASON_AMBIGUOUS_SUBJECT\020\003\022\034\n\030FAILURE" +
+      "_REASON_UNDECIDED\020\004*\214\005\n\013EditFailure\022\034\n\030E" +
+      "DIT_FAILURE_UNSPECIFIED\020\000\022\036\n\032EDIT_FAILUR" +
+      "E_NO_OPERATIONS\020\001\022\037\n\033EDIT_FAILURE_UNKNOW" +
+      "N_TARGET\020\002\022!\n\035EDIT_FAILURE_AMBIGUOUS_TAR" +
+      "GET\020\003\022\033\n\027EDIT_FAILURE_NOT_VALUED\020\004\022\036\n\032ED" +
+      "IT_FAILURE_INVALID_VALUE\020\005\022\035\n\031EDIT_FAILU" +
+      "RE_INVALID_NAME\020\006\022\032\n\026EDIT_FAILURE_NOT_NA" +
+      "MED\020\007\022\"\n\036EDIT_FAILURE_RENAME_REFERENCED\020" +
+      "\010\022\"\n\036EDIT_FAILURE_OVERLAPPING_EDITS\020\t\022\037\n" +
+      "\033EDIT_FAILURE_RESULT_INVALID\020\n\022\036\n\032EDIT_F" +
+      "AILURE_OWNER_UNKNOWN\020\013\022$\n EDIT_FAILURE_O" +
+      "WNER_NOT_NAMESPACE\020\014\022\035\n\031EDIT_FAILURE_ILL" +
+      "EGAL_KIND\020\r\022\"\n\036EDIT_FAILURE_MEMBER_NAME_" +
+      "TAKEN\020\016\022\"\n\036EDIT_FAILURE_DELETE_REFERENCE" +
+      "D\020\017\022$\n EDIT_FAILURE_OWNER_INSIDE_TARGET\020" +
+      "\020\022 \n\034EDIT_FAILURE_MOVE_REFERENCED\020\021\022%\n!E" +
+      "DIT_FAILURE_REFERENCED_ELSEWHERE\020\022*\222\001\n\021P" +
+      "rimitiveOperator\022\"\n\036PRIMITIVE_OPERATOR_U" +
+      "NSPECIFIED\020\000\022\034\n\030PRIMITIVE_OPERATOR_EQUAL" +
+      "\020\001\022\036\n\032PRIMITIVE_OPERATOR_GREATER\020\002\022\033\n\027PR" +
+      "IMITIVE_OPERATOR_LESS\020\003*n\n\021CompositeOper" +
+      "ator\022\"\n\036COMPOSITE_OPERATOR_UNSPECIFIED\020\000" +
+      "\022\032\n\026COMPOSITE_OPERATOR_AND\020\001\022\031\n\025COMPOSIT" +
+      "E_OPERATOR_OR\020\0022\205\016\n\014SysMLService\022D\n\rGetS" +
+      "erverInfo\022\030.sysml.ServerInfoRequest\032\031.sy" +
+      "sml.ServerInfoResponse\022>\n\tParseFile\022\027.sy" +
+      "sml.ParseFileRequest\032\030.sysml.ParseFileRe" +
+      "sponse\022G\n\014ParseSources\022\032.sysml.ParseSour" +
+      "cesRequest\032\033.sysml.ParseSourcesResponse\022" +
+      ";\n\tGetSymbol\022\027.sysml.GetSymbolRequest\032\025." +
+      "sysml.SymbolResponse\022G\n\016GetDiagnostics\022\031" +
+      ".sysml.DiagnosticsRequest\032\032.sysml.Diagno" +
+      "sticsResponse\022;\n\010Evaluate\022\026.sysml.Evalua" +
+      "teRequest\032\027.sysml.EvaluateResponse\022D\n\013In" +
+      "stantiate\022\031.sysml.InstantiateRequest\032\032.s" +
+      "ysml.InstantiateResponse\022J\n\rExecuteActio" +
+      "n\022\033.sysml.ExecuteActionRequest\032\034.sysml.E" +
+      "xecuteActionResponse\022G\n\014ExecuteState\022\032.s" +
+      "ysml.ExecuteStateRequest\032\033.sysml.Execute" +
+      "StateResponse\0228\n\007Convert\022\025.sysml.Convert" +
+      "Request\032\026.sysml.ConvertResponse\0228\n\007Migra" +
+      "te\022\025.sysml.MigrateRequest\032\026.sysml.Migrat" +
+      "eResponse\022A\n\nApplyEdits\022\030.sysml.ApplyEdi" +
+      "tsRequest\032\031.sysml.ApplyEditsResponse\022S\n\020" +
+      "VerifyConstraint\022\036.sysml.VerifyConstrain" +
+      "tRequest\032\037.sysml.VerifyConstraintRespons" +
+      "e\022V\n\021VerifyRequirement\022\037.sysml.VerifyReq" +
+      "uirementRequest\032 .sysml.VerifyRequiremen" +
+      "tResponse\022Y\n\022VerifySatisfaction\022 .sysml." +
+      "VerifySatisfactionRequest\032!.sysml.Verify" +
+      "SatisfactionResponse\022S\n\020ValidateInstance" +
+      "\022\036.sysml.ValidateInstanceRequest\032\037.sysml" +
+      ".ValidateInstanceResponse\022G\n\014EvaluateCal" +
+      "c\022\032.sysml.EvaluateCalcRequest\032\033.sysml.Ev" +
+      "aluateCalcResponse\022D\n\013RunAnalysis\022\031.sysm" +
+      "l.RunAnalysisRequest\032\032.sysml.RunAnalysis" +
+      "Response\022;\n\010RunSweep\022\026.sysml.RunSweepReq" +
+      "uest\032\027.sysml.RunSweepResponse\022D\n\013ListEng" +
+      "ines\022\031.sysml.ListEnginesRequest\032\032.sysml." +
+      "ListEnginesResponse\0222\n\005Query\022\023.sysml.Que" +
+      "ryRequest\032\024.sysml.QueryResponse\022S\n\020RunDo" +
+      "cumentQuery\022\036.sysml.RunDocumentQueryRequ" +
+      "est\032\037.sysml.RunDocumentQueryResponse\022M\n\016" +
+      "RenderDocument\022\034.sysml.RenderDocumentReq" +
+      "uest\032\035.sysml.RenderDocumentResponse\022A\n\nR" +
+      "enderView\022\030.sysml.RenderViewRequest\032\031.sy" +
+      "sml.RenderViewResponse\022G\n\014ExportGraphs\022\032" +
+      ".sysml.ExportGraphsRequest\032\033.sysml.Expor" +
+      "tGraphsResponseBJ\n\034org.openmbee.opensysm" +
+      "l.protoP\001Z(github.com/Open-MBEE/OpenSysM" +
+      "L/api/protob\006proto3"
     };
     descriptor = com.google.protobuf.Descriptors.FileDescriptor
       .internalBuildGeneratedFileFrom(descriptorData,
@@ -2375,6 +2391,18 @@ public final class Sysml extends com.google.protobuf.GeneratedFile {
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_sysml_RenderNote_descriptor,
         new java.lang.String[] { "Text", "Anchor", "EdgeFrom", "EdgeTo", "X", "Y", "Width", "Height", "HasSize", "Origin", });
+    internal_static_sysml_ExportGraphsRequest_descriptor =
+      getDescriptor().getMessageType(135);
+    internal_static_sysml_ExportGraphsRequest_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
+        internal_static_sysml_ExportGraphsRequest_descriptor,
+        new java.lang.String[] { "ModelHash", "Subject", });
+    internal_static_sysml_ExportGraphsResponse_descriptor =
+      getDescriptor().getMessageType(136);
+    internal_static_sysml_ExportGraphsResponse_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
+        internal_static_sysml_ExportGraphsResponse_descriptor,
+        new java.lang.String[] { "Content", "Version", "Subject", });
     descriptor.resolveAllFeaturesImmutable();
   }
 

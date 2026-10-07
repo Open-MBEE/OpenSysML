@@ -421,6 +421,7 @@ impl Runner {
             "RunDocumentQuery" => self.run_document_query(request),
             "RenderDocument" => self.render_document(request),
             "RenderView" => self.render_view(request),
+            "ExportGraphs" => self.export_graphs(request),
             "ExecuteAction" => self.execute_action(request),
             "ExecuteState" => self.execute_state(request),
             "ListEngines" => self.list_engines(),
@@ -856,6 +857,22 @@ impl Runner {
         {
             Ok(rendered) => {
                 Answer::Response(self.wire_json("sysml.RenderViewResponse", rendered.wire()))
+            }
+            Err(error) => classify_error(error),
+        }
+    }
+
+    fn export_graphs(&self, request: &DynamicMessage) -> Answer {
+        let request: wire::ExportGraphsRequest = match decode(request) {
+            Ok(request) => request,
+            Err(answer) => return answer,
+        };
+        match self
+            .connection
+            .export_graphs(&request.model_hash, &request.subject)
+        {
+            Ok(graphs) => {
+                Answer::Response(self.wire_json("sysml.ExportGraphsResponse", &graphs.wire()))
             }
             Err(error) => classify_error(error),
         }

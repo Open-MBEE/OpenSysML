@@ -6,6 +6,7 @@ gates. Against the real ``sysml-grpc`` binary, the answers themselves — the
 typed rows and the rendered Markdown.
 """
 
+import json
 import os
 import subprocess
 import time
@@ -19,6 +20,7 @@ from opensysml.capabilities import (
     CAPABILITY_RENDER_DOCUMENT,
     CAPABILITY_RENDER_DOCUMENT_HTML,
     CAPABILITY_RENDER_VIEW,
+    CAPABILITY_EXPORT_GRAPHS,
     MissingCapabilityError,
 )
 from opensysml.connection import Connection
@@ -32,6 +34,7 @@ from opensysml.document import (
     DocumentVerdict,
     ElementRef,
     ObjectRef,
+    Graphs,
     RenderedView,
     build_bindings,
     render_view_result,
@@ -57,6 +60,7 @@ GRPC_BINARIES = (
 FIXTURE = os.path.join(
     REPO_ROOT, "internal", "doc", "docrender", "testdata", "telescope_report.sysml"
 )
+BEHAVIOR_FIXTURE = os.path.join(REPO_ROOT, "conformance", "fixtures", "behavior.sysml")
 GOLDEN = os.path.join(
     REPO_ROOT, "internal", "doc", "docrender", "testdata", "telescope_report.golden.md"
 )
@@ -308,6 +312,36 @@ def test_render_view_requires_the_capability(fake_service):
             model.render_view("Demo::View")
     assert excinfo.value.capability == CAPABILITY_RENDER_VIEW
     assert service.requests == []
+
+
+def test_export_graphs_requires_the_capability(fake_service):
+    port, service = fake_service(capabilities=())
+    with Connection(port=port, auto_start=False) as conn:
+        model = conn.load_from_content("package Demo;")
+        with pytest.raises(MissingCapabilityError) as excinfo:
+            model.export_graphs("Demo::pipeline")
+    assert excinfo.value.capability == CAPABILITY_EXPORT_GRAPHS
+    assert service.requests == []
+
+
+def test_export_graphs_answers_the_canonical_form_of_a_behavior(real_service):
+    with open(BEHAVIOR_FIXTURE, encoding="utf-8") as f:
+        source = f.read()
+    with Connection(port=real_service, auto_start=False) as conn:
+        model = conn.load_from_content(source)
+        graphs = model.export_graphs("Test::race")
+        assert isinstance(graphs, Graphs)
+        assert (graphs.version, graphs.subject) == (1, "Test::race")
+        assert graphs.content.endswith("}\n")
+        form = json.loads(graphs.content)
+        assert (form["version"], form["subject"]) == (1, "Test::race")
+        assert len(form["actions"]) == 1
+        assert str(graphs) == graphs.content
+        with pytest.raises(SymbolNotFoundError) as missing:
+            model.export_graphs("Test::Missing")
+        assert missing.value.name == "Test::Missing"
+        with pytest.raises(InvalidRequestError, match="no lowered graph"):
+            model.export_graphs("Test")
 
 
 def test_render_view_decodes_all_fields_and_optional_messages():

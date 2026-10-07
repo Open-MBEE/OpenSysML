@@ -70,6 +70,7 @@ export type {
   RenderStyle,
   RenderedView,
 } from "./render-view.js";
+export type { Graphs } from "./graphs.js";
 export {
   ENGINE_ALL,
   ENGINE_AUTO,

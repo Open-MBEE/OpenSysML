@@ -2044,3 +2044,21 @@ class RenderNote(_message.Message):
     has_size: bool
     origin: Span
     def __init__(self, text: _Optional[str] = ..., anchor: _Optional[str] = ..., edge_from: _Optional[str] = ..., edge_to: _Optional[str] = ..., x: _Optional[float] = ..., y: _Optional[float] = ..., width: _Optional[float] = ..., height: _Optional[float] = ..., has_size: _Optional[bool] = ..., origin: _Optional[_Union[Span, _Mapping]] = ...) -> None: ...
+
+class ExportGraphsRequest(_message.Message):
+    __slots__ = ("model_hash", "subject")
+    MODEL_HASH_FIELD_NUMBER: _ClassVar[int]
+    SUBJECT_FIELD_NUMBER: _ClassVar[int]
+    model_hash: str
+    subject: str
+    def __init__(self, model_hash: _Optional[str] = ..., subject: _Optional[str] = ...) -> None: ...
+
+class ExportGraphsResponse(_message.Message):
+    __slots__ = ("content", "version", "subject")
+    CONTENT_FIELD_NUMBER: _ClassVar[int]
+    VERSION_FIELD_NUMBER: _ClassVar[int]
+    SUBJECT_FIELD_NUMBER: _ClassVar[int]
+    content: str
+    version: int
+    subject: str
+    def __init__(self, content: _Optional[str] = ..., version: _Optional[int] = ..., subject: _Optional[str] = ...) -> None: ...

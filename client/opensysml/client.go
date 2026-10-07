@@ -170,6 +170,11 @@ type Client interface {
 	// Requires the render_view capability.
 	RenderView(ctx context.Context, model *Model, viewName string, opts ...RenderViewOption) (*RenderedView, error)
 
+	// ExportGraphs exports the lowered graph of an action or state machine,
+	// and of every behavior it performs, as the canonical graphs:1 JSON an
+	// external analysis engine is sent. Requires the export_graphs capability.
+	ExportGraphs(ctx context.Context, model *Model, subject string) (*Graphs, error)
+
 	// Convert writes the model in another representation, from the source the
 	// parse read, so WithFromFormat does not apply and is refused. Requires the
 	// convert capability, and a model of one document. ConvertFile converts a
@@ -317,6 +322,7 @@ type caller interface {
 	runDocumentQuery(ctx context.Context, req *pb.RunDocumentQueryRequest) (*pb.RunDocumentQueryResponse, error)
 	renderDocument(ctx context.Context, req *pb.RenderDocumentRequest) (*pb.RenderDocumentResponse, error)
 	renderView(ctx context.Context, req *pb.RenderViewRequest) (*pb.RenderViewResponse, error)
+	exportGraphs(ctx context.Context, req *pb.ExportGraphsRequest) (*pb.ExportGraphsResponse, error)
 	convert(ctx context.Context, req *pb.ConvertRequest) (*pb.ConvertResponse, error)
 	migrate(ctx context.Context, req *pb.MigrateRequest) (*pb.MigrateResponse, error)
 	applyEdits(ctx context.Context, req *pb.ApplyEditsRequest) (*pb.ApplyEditsResponse, error)

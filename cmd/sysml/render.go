@@ -240,6 +240,13 @@ func unplacedOption() (view.Unplaced, error) {
 // loadRenderingModel loads and reports a model whose stdout is reserved for
 // rendering artifacts.
 func loadRenderingModel(files []string) (*repl.Session, error) {
+	return loadArtifactModel(files, "nothing was rendered")
+}
+
+// loadArtifactModel loads and reports a model whose stdout is reserved for an
+// artifact, `nothing` saying what a model that does not analyse cleanly
+// leaves unwritten.
+func loadArtifactModel(files []string, nothing string) (*repl.Session, error) {
 	sess := newSession()
 	report, err := sess.LoadPathsReport(files)
 	if err != nil {
@@ -249,7 +256,7 @@ func loadRenderingModel(files []string) (*repl.Session, error) {
 	writeLines(os.Stderr, report.Found)
 	writeLines(os.Stderr, report.Declared)
 	if report.Errors {
-		return nil, fmt.Errorf("%s did not analyse cleanly; nothing was rendered", strings.Join(files, ", "))
+		return nil, fmt.Errorf("%s did not analyse cleanly; %s", strings.Join(files, ", "), nothing)
 	}
 	// The objects -instantiate names are created first, so a document's queries
 	// run over what the session holds under those names.
@@ -273,7 +280,7 @@ func loadRenderingModel(files []string) (*repl.Session, error) {
 		verdict := modelChecks.record(sess, invocation)
 		writeLines(os.Stderr, verdict.Lines)
 		if verdict.Status != repl.VerdictHolds {
-			return nil, fmt.Errorf("%s: the run was not recorded; nothing was rendered", invocation)
+			return nil, fmt.Errorf("%s: the run was not recorded; %s", invocation, nothing)
 		}
 	}
 	return sess, nil
@@ -396,15 +403,20 @@ func writeArtifact(artifact string, form view.Form) error {
 }
 
 func writeArtifactFile(path, artifact string, form view.Form) error {
-	out := []byte(strings.TrimRight(artifact, "\n") + "\n")
+	return writeOutputFile(path, []byte(strings.TrimRight(artifact, "\n")+"\n"), string(form))
+}
+
+// writeOutputFile writes an artifact to path and reports it on stderr, `what`
+// naming its form.
+func writeOutputFile(path string, out []byte, what string) error {
 	replaced, err := export.WriteFile(path, out)
 	if err != nil {
 		return err
 	}
-	what := ""
+	suffix := ""
 	if replaced {
-		what = ", replaced the existing file"
+		suffix = ", replaced the existing file"
 	}
-	fmt.Fprintf(os.Stderr, "wrote %s (%s, %d bytes%s)\n", path, form, len(out), what)
+	fmt.Fprintf(os.Stderr, "wrote %s (%s, %d bytes%s)\n", path, what, len(out), suffix)
 	return nil
 }

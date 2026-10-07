@@ -155,6 +155,15 @@ function test_surface_live()
     assert_equal(numel(renderedView.edges), 1, 'RenderView edges');
     assert_equal(~isempty(renderedView.edges(1).fromPort), true, 'RenderView from port');
     assert_equal(~isempty(renderedView.edges(1).toPort), true, 'RenderView to port');
+
+    behaviorModel = opensysml.parseSource(conn, fileread(fullfile(fixtures, 'behavior.sysml')), ...
+        'name', 'behavior.sysml');
+    graphs = opensysml.exportGraphs(behaviorModel, 'Test::race');
+    graphsMethod = behaviorModel.exportGraphs('Test::race');
+    assert_equal(graphs.version, 1, 'ExportGraphs version');
+    assert_equal(graphs.subject, 'Test::race', 'ExportGraphs subject');
+    assert_equal(strncmp(graphs.content, '{"version":1,"subject":"Test::race"', 35), true, 'ExportGraphs content');
+    assert_equal(strcmp(graphs.content, graphsMethod.content), true, 'ExportGraphs method');
     assert_equal(all(arrayfun(@(node) ~isempty(node.origin), renderedView.nodes)), ...
         true, 'RenderView origins');
     assert_equal(numel(renderedViewMethod.edges), numel(renderedView.edges), ...

@@ -286,6 +286,10 @@ func TestCapabilityGatedRequestsAreRefused(t *testing.T) {
 			_, err := s.ExecuteState(ctx, &pb.ExecuteStateRequest{PerformerSymbolId: "Wire::pair.craft"})
 			return err
 		}},
+		{"export graphs", CapabilityExportGraphs, func(s *Service) error {
+			_, err := s.ExportGraphs(ctx, &pb.ExportGraphsRequest{ModelHash: "any", Subject: "Any"})
+			return err
+		}},
 		{"render document html", CapabilityRenderDocumentHTML, func(s *Service) error {
 			_, err := s.RenderDocument(ctx, &pb.RenderDocumentRequest{
 				ModelHash: "any", DocumentId: "Any", Form: "html",
