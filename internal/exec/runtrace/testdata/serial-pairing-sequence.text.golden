@@ -1,0 +1,9 @@
+run - sequence rendering (the trace of a run to t = 2)
+
+object SerialPairing::mission.alpha : alpha
+object SerialPairing::mission.receiver : Receiver
+object SerialPairing::mission.beta : beta
+
+messages:
+  SerialPairing::mission.alpha => SerialPairing::mission.receiver: t=0 Ping (seq = 1) (not accepted)
+  SerialPairing::mission.beta => SerialPairing::mission.receiver: t=1 Ping (seq = 2)

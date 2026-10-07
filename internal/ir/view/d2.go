@@ -25,8 +25,8 @@ func (r *Rendering) D2() (string, error) {
 // look, and asking for one is noticed. Positions and routes are kept as
 // comments, D2 laying the diagram out itself.
 func (r *Rendering) D2With(options Options) (string, error) {
-	if !r.Kind.SupportsForm(FormD2) {
-		return "", &WrongFormError{Form: FormD2, Kind: r.Kind, View: r.View}
+	if !r.supportsForm(FormD2) {
+		return "", r.wrongFormError(FormD2)
 	}
 	if err := options.Palette.check(); err != nil {
 		return "", err

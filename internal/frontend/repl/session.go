@@ -135,7 +135,8 @@ type Session struct {
 	notedBlocker blockerNote
 
 	// trace records execution steps while tracing is on, nil otherwise.
-	trace *runtime.TraceRecorder
+	trace       *runtime.TraceRecorder
+	traceSilent bool
 
 	// budgets bounds every runtime context this session creates.
 	budgets runtime.Budgets

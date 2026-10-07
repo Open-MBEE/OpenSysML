@@ -100,8 +100,8 @@ type DocumentState struct {
 // DocumentEvent is a row an `Events` query answered: one record of a session's
 // trace. It is answered, never bound.
 type DocumentEvent struct {
-	// Kind is "accept", "send", "transition", "entry", "exit", "do", "choice"
-	// or "guard".
+	// Kind is "accept", "send", "transition", "entry", "exit", "do", "choice",
+	// "guard" or "terminate".
 	Kind string
 	// Time is the run's clock when the record was made: a Quantity when the
 	// clock carries a unit, a Real otherwise.

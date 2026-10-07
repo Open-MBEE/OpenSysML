@@ -159,7 +159,7 @@ class DocumentEvent:
 
     Attributes:
         kind: ``"accept"``, ``"send"``, ``"transition"``, ``"entry"``,
-            ``"exit"``, ``"do"``, ``"choice"`` or ``"guard"``
+            ``"exit"``, ``"do"``, ``"choice"``, ``"guard"`` or ``"terminate"``
         time: The instant the record was written at, in the runtime clock's
             unit — a :class:`~opensysml.values.Quantity` when the clock carries
             one, a plain number otherwise

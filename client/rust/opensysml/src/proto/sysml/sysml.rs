@@ -2759,7 +2759,7 @@ pub struct DocumentState {
 /// session's trace, in the order the run made it.
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct DocumentEvent {
-    /// "accept", "send", "transition", "entry", "exit", "do", "choice" or "guard".
+    /// "accept", "send", "transition", "entry", "exit", "do", "choice", "guard" or "terminate".
     #[prost(string, tag="1")]
     pub kind: ::prost::alloc::string::String,
     /// The clock's instant when the record was made: a quantity in the clock's

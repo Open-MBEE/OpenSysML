@@ -1935,9 +1935,10 @@ the inverse — the held objects whose machine is in the named state, by leaf, b
 by dotted path — over the same population `all T` and `Objects` read (X5, Q2). `Events(source,
 kind, since, before)` answers **event rows**: the trace in the order the run made it — accepts,
 sends, transitions, state entry, exit and do steps, `choice` draws with their alternatives and the
-one taken (region order and due order among them), unevaluable guards — each with its instant on
-`Context.Clock()` (A5), its object and machine, the states it touches, its payload and the line
-`-trace` prints; `kind` keeps one or several kinds and `[since, before)` is inclusive at the start,
+one taken (region order and due order among them), unevaluable guards and state-machine
+termination — each with its instant on `Context.Clock()` (A5), its object and machine, the states it
+touches, its payload and the line `-trace` prints; `kind` keeps one or several kinds and
+`[since, before)` is inclusive at the start,
 exclusive at the end, in the clock's unit or as a duration. The representation queried is the one
 the runtime records: `runtime.TraceRecorder` keeps a typed `TraceRecord` per event and the printer
 writes `-trace`'s lines from those records, so the two cannot disagree and the printed trace is

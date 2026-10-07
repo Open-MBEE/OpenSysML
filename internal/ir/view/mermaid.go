@@ -39,6 +39,9 @@ func (r *Rendering) Mermaid() string {
 // returns. A rendering positioned by Layout draws the nodes the DOT form draws:
 // the placed ones, and the unplaced ones too under UnplacedStrip.
 func (r *Rendering) MermaidWith(options Options) string {
+	if r.Run && r.Kind == KindTimeline {
+		return r.runTimelineMermaid(options)
+	}
 	r = r.settleUnplaced(options.Unplaced, FormMermaid)
 	direction := options.Direction
 	var b strings.Builder
@@ -46,7 +49,9 @@ func (r *Rendering) MermaidWith(options Options) string {
 	labels.skin = skinOf(options.Style)
 	ports := r.portView(options.Ports)
 	r.writeMermaidFrontmatter(&b, labels, options, ports)
-	if r.View == "" {
+	if r.Run {
+		fmt.Fprintf(&b, "%%%% run — %s rendering", r.Kind)
+	} else if r.View == "" {
 		fmt.Fprintf(&b, "%%%% %s rendering", r.Kind)
 	} else {
 		fmt.Fprintf(&b, "%%%% %s — %s rendering", r.View, r.Kind)
@@ -489,6 +494,10 @@ func (r *Rendering) writeMermaidFrontmatter(b *strings.Builder, labels labeller,
 	if r.Kind != KindState && r.Kind != KindSequence {
 		fmt.Fprintf(b, "  themeCSS: %q\n",
 			".edgeLabel rect { opacity: 1 !important; } "+mermaidTitleCSS)
+	}
+	if r.Run && r.Kind == KindTimeline {
+		b.WriteString("  gantt:\n    displayMode: compact\n")
+		fmt.Fprintf(b, "    leftPadding: %d\n", runTimelineMermaidLeftPadding(r.Lanes))
 	}
 	b.WriteString("  themeVariables:\n")
 	variables := []themeVariable{
@@ -1644,7 +1653,11 @@ func (r *Rendering) writeSequenceDiagram(b *strings.Builder, labels labeller, op
 		return
 	}
 	for _, node := range r.Roots {
-		fmt.Fprintf(b, "  participant %s as %s\n", node.ID, labels.mermaid(node))
+		label := labels.mermaid(node)
+		if r.Run {
+			label = mermaidText(runParticipantLabel(node))
+		}
+		fmt.Fprintf(b, "  participant %s as %s\n", node.ID, label)
 		if url, ok := options.Links.URL(node.Origin); ok {
 			fmt.Fprintf(b, "  link %s: Source @ %s\n", node.ID, url)
 		}

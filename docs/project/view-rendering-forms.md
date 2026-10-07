@@ -1010,6 +1010,10 @@ origins and bundled library declarations — is not linked.
 | D2 | Nodes, containers, pseudostate glyphs, edges and sequence lifelines and messages carry `link: "url"` after their `class`, which D2 draws as an SVG anchor for every one of them. Pins are not linked: a port's link is its owner's. |
 | Mermaid state diagram | Simple states are linked; composite states are not. |
 | Mermaid sequence diagram | Participants receive `link` statements; messages are not linked. Mermaid CLI 11.16.0 drops participant URL fragments in SVG. |
+| Run timeline, PlantUML | A lane links to its state-machine declaration; a span links only when it represents one state. Parallel spans with several active states are unlinked. |
+| Run timeline, Mermaid gantt | No links: `click`/`href` directives do not produce anchors in Mermaid CLI's SVG output. |
+| Run sequence, Mermaid and PlantUML | Object participants link to the declaration of their instance type. The environment participant and messages are unlinked because trace records have no message source site. |
+| Run text | No links; labels remain the recorded paths and states. |
 
 The writers emit no link syntax when links are disabled or no site is available.
 
@@ -1131,6 +1135,8 @@ refuse D2:
 | --- | --- | --- |
 | CLI | `-render <view> -render-form mermaid\|dot\|plantuml\|d2`; `-render-all <dir>` writes `.mmd`, `.dot`, `.puml` or `.d2`; `-render-palette <name>` fills nodes in each form where applicable | [`docs/reference/cli.md`](../reference/cli.md#rendering-a-view) |
 | REPL | `%render <view> mermaid\|dot\|plantuml\|d2 [palette] [pilot\|cameo]`; `%help` names the options; form, palette and style complete where accepted | [`docs/reference/repl-commands.md`](../reference/repl-commands.md#rendering-a-view) |
+| CLI run output | `-render-run timeline=<path>` or `sequence=<path>` writes text, Mermaid or PlantUML; `-render-link` links PlantUML timeline lanes and single-state spans and sequence participants; DOT is refused | [`docs/reference/cli.md`](../reference/cli.md#rendering-a-run) |
+| REPL run output | `%render-run timeline\|sequence [text\|mermaid\|plantuml\|dot] [link=<template>]` renders the recorded run without changing the session; links follow the CLI run-rendering rules | [`docs/reference/repl-commands.md`](../reference/repl-commands.md#rendering-a-run) |
 | LSP | `"form": "mermaid"`, `"dot"`, `"plantuml"` or `"d2"` and `"palette": "<name>"` on `opensysml/render`; `Rendering.Fills` carries each node's fill and border for clients drawing their own SVG | [`docs/reference/lsp.md`](../reference/lsp.md) |
 | VS Code | `SysML: Export Diagram` picks among the forms the server lists under its `openSysmlRenderForms` capability (the documented six for a server without it, which predates `csv` and `tsv`), sends the pick as `form`, and saves `.dot`, `.puml` or `.d2` (`.mmd`, `.md`, `.csv`, `.tsv`, `.txt` for the others) | [`docs/guide/08-editors.md`](../guide/08-editors.md#exporting-a-diagram) |
 | CLI, REPL, LSP, documents | `-render-style pilot\|cameo` beside `-render-palette`; `%render <view> mermaid [palette] [pilot\|cameo]`; `"style": "cameo"` on `opensysml/render` and the `openSysmlRenderStyles` capability; `docrender.MarkdownOptions.Style`/`HTMLOptions.Style` and `docpdf.Options.Style`. Unsupported style details receive a `not represented: style …` notice; an unknown name is a typed `*view.UnknownDrawingStyleError` | [`docs/reference/cli.md`](../reference/cli.md#rendering-a-view), [`docs/reference/repl-commands.md`](../reference/repl-commands.md#rendering-a-view), [`docs/reference/lsp.md`](../reference/lsp.md) |
@@ -1146,8 +1152,53 @@ render-form field — `RenderDocument` alone, to Markdown — so the wire contra
 and did not change. A view-render RPC added later would take the form as a string, as
 `-render-form` does.
 
+## Run renderings
+
+Run renderings describe a recorded execution, not a model view. A timeline is a new
+`view.KindTimeline`: no existing kind carries occupancy over time, and `KindState` is a graph of
+declared states rather than the states an object held during one run. A run sequence reuses
+`KindSequence` and its existing writers because both are lifelines with ordered messages.
+
+The timeline forms are text, Mermaid and PlantUML. Mermaid uses a compact Gantt chart with a
+shared time axis; Mermaid's `timeline` grammar groups categorical periods and has neither
+durations nor a shared time axis. PlantUML uses `concise` lifelines because parallel state
+configurations are free text rather than a fixed ordered state axis that `robust` requires. DOT
+is refused for both run kinds: it has no time axis, and the existing sequence writer also refuses
+DOT. With source links enabled, PlantUML timeline lanes link to machine declarations and spans
+link only when exactly one state is active; Mermaid gantt remains byte-identical because its
+`click` directives do not create anchors in Mermaid CLI SVGs. Run sequence links belong to object
+participants' type declarations, not messages or the environment participant.
+
+Each rendering is capped at 200 spans or messages for readability and to keep renderer input
+within practical text-size limits. Timelines select spans in stable time order, with lane order
+breaking ties, and retain only a prefix of each lane; a lane's last retained span ends no later than
+its first dropped span's start, preserving any earlier end across an inactive gap. Later state
+changes and messages are reported in a `not represented:` notice.
+Parallel-region state identity includes both the state path and region path, so same-named states in
+sibling regions remain separate leaves; colliding leaf names are disambiguated by the shortest
+trailing part of their paths, falling back to region paths when necessary. A termination record
+closes the lane's occupancy at that instant and adds a `terminate` mark without changing the
+legacy printed trace line.
+
+Sequence renderings pair nonzero message serials exactly. Serial-zero records retain the legacy
+FIFO pairing by event and target, using only serial-zero sends. When a recorder itself dropped
+earlier events, the rendering starts from the first kept state entry and reports that senders or
+acceptors of earlier messages may be missing.
+
+Run renderings are not embedded in documents. Document backends do not run behaviors:
+`-render-document` refuses `-state` and `-advance`, and a document `Diagram` kind selects a model
+rendering. Use `-render-run` or `%render-run` after executing the behavior instead. The LSP has
+no live run and therefore does not offer run rendering.
+
 ## Test contract
 
+- `internal/exec/runtrace`: text, Mermaid and PlantUML goldens for both run kinds; empty, capped,
+  truncated, guard, unmatched and broadcast-message cases; choice marks, self-transitions and
+  DOT refusal. `internal/ir/view/run_timeline_test.go` checks that timeline form support does not
+  make it a model view kind or a pseudo-view.
+- `cmd/sysml/render_run_test.go` and `internal/frontend/repl/run_render_test.go`: CLI artifact
+  output and incompatible modes, source links and invalid templates, and REPL output,
+  missing-trace handling, form refusal, link parsing and completion.
 - `internal/ir/view/general_test.go`: which filter shapes select which graph and which keep the
   tree (`@`/`@@`, `or`, the library's own lists, precedence, inherited filters, a filtered
   `expose`, relationships alone, `and`, `not`, user metadata, a mixture); an unresolved

@@ -236,6 +236,7 @@ the same member-path parser as `Project` and `OrderBy`.
 | `--enable-lint <code>` | | Report the named opt-in [lint](diagnostics.md), off by default, in the diagnostics: `rounded-real-literal`; comma-separated or repeated. `--disable-lint` wins over it, and an unknown code is a usage error |
 | `--no-record-cache` | | Parse every file loaded and hold it loaded, reading no interface record from the record cache and writing none: what a run does where `OPENSYSML_RECORD_CACHE=0`. By default a file whose bytes, library, conformance mode and record format match a record in the cache is held as that record — its scopes and symbols without its tree, and the diagnostics its analysis found — and a file analyzed by `-validate`, `-satisfy` or another load writes its record for the next run; see [Interface records](../internals/interface-records.md) |
 | `--trace` | | Report each execution step: expression evaluation, calc invocation, action tokens, state transitions, each `choice` the executor made among alternatives the library leaves unordered, naming the alternatives and the one taken, and each `unevaluable guard` it read only to report one and could not evaluate ([Choice points](../guide/06-behavior.md)). Under `-schedule explore` the table is printed first, then the trace of one witness run per distinct outcome, each under a `trace of outcome <n>'s witness (run <r>):` heading ([Exploring every linearization](#exploring-every-linearization)) |
+| `--render-run <kind>=<path>` | | Repeatable; write a recorded run's `timeline` or `sequence` as text, Mermaid or PlantUML. The extension `.txt`, `.mmd`/`.mermaid` or `.puml`/`.plantuml` selects a form; use `-render-form` for another extension. `-render-link` links PlantUML timeline lanes and single-state spans and sequence object participants; Mermaid gantt and messages remain unlinked. DOT is refused. Requires `-state`, `-action` or `-advance` and cannot be combined with model/document rendering or schedule exploration |
 | `--convert <format>` | | Convert the model instead of running it: `sysml`, `kerml`, `ttl`, `turtle`, `rdf`, `api-json` or `json`. `ttl` writes the RDF graph in Turtle, `api-json` the same graph as the API's JSON element objects; both are [experimental](rdf-mapping.md#status-experimental) and every run that converts either says so on stderr (see [the RDF mapping](rdf-mapping.md)). The model argument may be a Flexo MMS project branch URL — `http(s)://host[:port][/base]/projects/{project}/branches/{branch}` or `flexo://{project}/{branch}` — both naming the endpoint `FLEXO_SYSMLV2_URL` configures — which is read as its head commit's RDF graph; see [Reading and pushing a repository branch](#reading-and-pushing-a-repository-branch) |
 | `--migrate <format>` | | Migrate a SysML v1 model — UML XMI, an Eclipse UML2 `.uml` file or a MagicDraw/Cameo `.mdzip` archive — to SysML v2 instead of running it, writing `sysml`, `kerml`, `ttl`, `turtle` or `rdf`. A migration is ledgered, not lossless: every v1 element is **mapped**, **approximated**, **unmapped** or **skipped**, and the run says so in a one-line summary, or element by element with `-migration-report`. The input is named by its `.xmi`, `.uml` or `.mdzip` extension or by `--from`; v2 input is refused with a pointer at `--convert`, and `--convert` on a v1 model is refused with a pointer here, since a migration is not a conversion (experimental; see [SysML v1 migration](sysml-v1-migration.md)) |
 | `--from <format>` | | Input format for `--convert` or `--migrate`: the `--convert` formats, `xmi`/`uml`/`mdzip` for a SysML v1 model to `--migrate`, or `fmu` for a Functional Mock-up Unit to import as a `calc def` evaluated through the `tool:fmi` engine (experimental; default: from the input's extension; `.xmi`, `.uml`, `.mdzip` and `.fmu` are recognized) — see [SysML v1 migration](sysml-v1-migration.md) and [FMI models (FMUs)](fmi.md) |
@@ -246,7 +247,7 @@ the same member-path parser as `Project` and `OrderBy`.
 | `--render-all <dir>` | | Render every declared view into the directory, one artifact per view |
 | `--render-form <form>` | | Form `--render` or `--render-all` writes: `text`, `mermaid`, `markdown`, `dot`, `plantuml`, `d2`, `csv` or `tsv` (default: destination-dependent for `--render`, each kind's machine-readable form for `--render-all`). D2 writes `tree`, `interconnection`, `state`, `action`, `sequence`, `requirement`, `definition` and `package` renderings; case and mixed views refuse it with a typed error |
 | `--render-palette <name>` | | Palette the `dot`, `mermaid`, `plantuml` or `d2` form of `--render` or `--render-all` fills nodes with, by keyword family: `okabe-ito`, `tol-bright`, `tol-muted`, `tol-light`, `brewer-set2`, `brewer-dark2`, `viridis` or `cividis`; black and white when absent. Mermaid sequence diagrams cannot fill individual participants; text and Markdown ignore palettes. An unknown name is refused with the names there are (see [Rendering a view](#rendering-a-view)) |
-| `--render-link <template>` | | Link nodes and edges back to their source in rendered diagrams. Templates accept `{file}`, `{line}`, `{col}`, `{qname}` and `{id}`; `{file}` is the path as loaded, so pass absolute paths for `vscode://` or `file://` links. Applies to `--render`, `--render-all` and document diagrams; without one of those render targets it is refused |
+| `--render-link <template>` | | Link nodes and edges back to their source in rendered diagrams. Templates accept `{file}`, `{line}`, `{col}`, `{qname}` and `{id}`; `{file}` is the path as loaded, so pass absolute paths for `vscode://` or `file://` links. Applies to `--render`, `--render-all`, document diagrams and `--render-run`; without one of those render targets it is refused |
 | `--render-style <style>` | | Drawing style the `dot` or `mermaid` form of `--render`, `--render-all`, `--render-document` and `--render-documents` draws in: `pilot` (the default), the Pilot visualizer's Standard B&W, or `cameo`, the look of Cameo Systems Modeler — a diagram frame with a header tab, 11 pt Arial, gradient fills in Cameo's colours, a state's `do / Activity` compartment and the UML pseudo-state symbols. Mermaid draws supported Cameo details but flattens gradients and omits the frame and header tab; unsupported details are noted. PlantUML and D2 note the style as not represented; text and Markdown ignore it. An unknown name is refused with the two there are; without something to render it is refused likewise (see [Rendering a view](#rendering-a-view)) |
 | `--render-ports <display>` | | How much of a part's ports an interconnection or mixed rendering of `--render` or `--render-all` draws: `minimal` (the default), the ports its interconnection edges or mixed connectors end at, each a small square on the part's border named beside it, or `full`, every port a part has, labelled `name : Type`. An unknown name is refused with the two there are |
 | `--render-overlay <overlay>` | | What `--render` or `--render-all` draws over a requirement rendering: `verdicts` runs the verification cases verifying each requirement and labels and colours it by their verdicts. Refused on another kind, by name when unknown, and without something to render (see [Rendering a view](#rendering-a-view)) |
@@ -509,6 +510,31 @@ sysml -e "x" -e "y" file.sysml
 # Multiple files
 sysml -e "result" file1.sysml file2.sysml
 ```
+
+## Rendering a run
+
+`-render-run <kind>=<path>` writes the trace of a behavior run as a timeline or message sequence.
+Run it with `-state`, `-action` or `-advance`; the trace is recorded silently unless `-trace`
+also asks to print it. Repeat the flag for both renderings:
+
+```bash
+sysml examples/run-timeline/run-timeline.sysml \
+  -instantiate RunTimeline::mission \
+  -state "RunTimeline::Controller::modes RunTimeline::mission.controller" \
+  -state "RunTimeline::Instrument::modes RunTimeline::mission.instrument" \
+  -advance 6 \
+  -render-run timeline=timeline.mmd \
+  -render-run sequence=sequence.puml
+```
+
+The output extension selects text (`.txt`), Mermaid (`.mmd`, `.mermaid`) or PlantUML
+(`.puml`, `.plantuml`); `-render-form` can select a form for another extension. DOT is not
+available for run output. A run rendering cannot be combined with a model or document rendering,
+query, schedule exploration or multi-run analysis. Run output cannot be written to standard output
+with `-json`; name a file for each rendering instead. `-render-run` cannot be combined with
+`-compare-results`. `-render-link` links sequence object participants to their type declarations,
+and PlantUML timeline lanes and single-state spans to their declarations. Mermaid gantt and run
+messages are not linked.
 
 ## Rendering a view
 
@@ -802,7 +828,8 @@ cannot fill individual participants. Text and Markdown ignore palettes. A name t
 status 2 and the names there are; `-render-palette` without `-render` or `-render-all` is refused
 likewise.
 
-`-render-link <template>` gives linkable diagram nodes and edges URLs to their source. A template
+`-render-link <template>` gives linkable diagram nodes and edges URLs to their source, and also
+links run sequence object participants and PlantUML timeline lanes and single-state spans. A template
 may contain `{file}`, `{line}`, `{col}`, `{qname}` and `{id}`. Substituted values are UTF-8
 percent-encoded; URL delimiters written literally in the template remain literal. `{file}` is the
 path as loaded, not a path resolved against the rendering's output directory: use absolute input

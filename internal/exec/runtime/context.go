@@ -276,7 +276,8 @@ type Context struct {
 
 	// messages are the signals in flight, oldest first. The bus is context-wide,
 	// so a message one behavior sends can be accepted in another.
-	messages []Message
+	messages      []Message
+	messageSerial uint64
 	// bus counts what changed the messages in flight; writes counts the feature
 	// values written or restored. A machine's poll of the bus is memoized on them.
 	bus    busSerials

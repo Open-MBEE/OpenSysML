@@ -497,6 +497,7 @@ func TestPlantUMLSequencePaletteFillsParticipants(t *testing.T) {
 func TestPlantUMLEscapesLabels(t *testing.T) {
 	cases := map[string]string{
 		`say "hi"`:               `say <U+0022>hi<U+0022>`,
+		`#<id>`:                  `<U+0023><U+003C>id<U+003E>`,
 		`a\b`:                    `a<U+005C>b`,
 		"x<b>y":                  "x<U+003C>b<U+003E>y",
 		"a**b //c d__e f--g":     "a<U+002A><U+002A>b <U+002F><U+002F>c d<U+005F><U+005F>e f<U+002D><U+002D>g",

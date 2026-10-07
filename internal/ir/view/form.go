@@ -65,6 +65,9 @@ const (
 
 // MachineForm is the machine-readable form of renderings of this kind.
 func (k Kind) MachineForm() Form {
+	if k == KindTimeline {
+		return FormMermaid
+	}
 	if k.Tabular() {
 		return FormMarkdown
 	}
@@ -92,7 +95,7 @@ func (k Kind) SupportsForm(form Form) bool {
 		}
 	case FormPlantUML:
 		switch k {
-		case KindTree, KindInterconnection, KindState, KindAction, KindCase, KindMixed, KindSequence, KindRequirement, KindDefinition, KindPackage:
+		case KindTree, KindInterconnection, KindState, KindAction, KindCase, KindMixed, KindSequence, KindRequirement, KindDefinition, KindPackage, KindTimeline:
 			return true
 		}
 	case FormD2:
@@ -130,11 +133,22 @@ type WrongFormError struct {
 	Form Form
 	Kind Kind
 	View string
+	run  bool
 }
 
 func (e *WrongFormError) Error() string {
+	forms := e.Kind.SupportedForms()
+	if e.run {
+		runForms := make([]Form, 0, len(forms))
+		for _, form := range forms {
+			if form != FormD2 {
+				runForms = append(runForms, form)
+			}
+		}
+		forms = runForms
+	}
 	msg := fmt.Sprintf("%s %s rendering is not written as %s; ask for %s",
-		e.Kind.article(), e.Kind, e.Form, joinForms(e.Kind.SupportedForms(), "or"))
+		e.Kind.article(), e.Kind, e.Form, joinForms(forms, "or"))
 	if e.View == "" {
 		return msg
 	}
@@ -151,6 +165,17 @@ func joinForms(forms []Form, conjunction string) string {
 }
 
 func (e *WrongFormError) Unwrap() error { return ErrWrongForm }
+
+func (r *Rendering) supportsForm(form Form) bool {
+	if r.Run && form == FormD2 {
+		return false
+	}
+	return r.Kind.SupportsForm(form)
+}
+
+func (r *Rendering) wrongFormError(form Form) *WrongFormError {
+	return &WrongFormError{Form: form, Kind: r.Kind, View: r.View, run: r.Run}
+}
 
 // Options are what a rendering is written with beside its form. Each form
 // takes the ones that apply to it: the text form its Width, Mermaid, DOT,
@@ -202,8 +227,8 @@ func (r *Rendering) WriteWith(form Form, options Options) (string, error) {
 	case FormText:
 		return r.textWith(options), nil
 	case FormMermaid, FormMarkdown, FormDot, FormPlantUML, FormD2, FormCSV, FormTSV:
-		if !r.Kind.SupportsForm(form) {
-			return "", &WrongFormError{Form: form, Kind: r.Kind, View: r.View}
+		if !r.supportsForm(form) {
+			return "", r.wrongFormError(form)
 		}
 		switch form {
 		case FormMarkdown:
