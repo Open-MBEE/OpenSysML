@@ -490,65 +490,78 @@ func (s *Session) doTrace(args []string) []string {
 // metaRender reads the %render name, form and optional rendering settings,
 // including a source-link template, then renders the view they name.
 func (s *Session) metaRender(args []string) ([]string, bool, error) {
-	if len(args) < 1 || len(args) > 6 {
-		return []string{renderUsage}, false, nil
+	name, form, opts, overlay, usage := parseRenderArgs(args)
+	if usage != nil {
+		return usage, false, nil
 	}
-	form := view.FormText
+	return s.doRender(name, form, opts, overlay)
+}
+
+// renderUsageOf is what parseRenderArgs answers when the arguments do not read.
+func renderUsageOf(line string) (string, view.Form, view.Options, view.Overlay, []string) {
+	return "", "", view.Options{}, "", []string{line}
+}
+
+// parseRenderArgs reads %render's arguments: the view, the form and the options
+// after it; usage is what to print instead when they do not read.
+func parseRenderArgs(args []string) (name string, form view.Form, opts view.Options, overlay view.Overlay, usage []string) {
+	if len(args) < 1 || len(args) > 6 {
+		return renderUsageOf(renderUsage)
+	}
+	form = view.FormText
 	if len(args) >= 2 {
 		form = view.Form(args[1])
 		if !slices.Contains(view.Forms(), form) {
-			return []string{fmt.Sprintf("unknown form %q; %s", args[1], renderUsage)}, false, nil
+			return renderUsageOf(fmt.Sprintf("unknown form %q; %s", args[1], renderUsage))
 		}
 	}
-	var opts view.Options
-	var overlay view.Overlay
 	linkSet := false
 	for _, word := range args[min(2, len(args)):] {
 		if o, ok := view.ParseOverlay(word); ok && o != "" {
 			if overlay != "" {
-				return []string{renderUsage}, false, nil
+				return renderUsageOf(renderUsage)
 			}
 			overlay = o
 			continue
 		}
 		if strings.HasPrefix(word, "link=") {
 			if linkSet {
-				return []string{renderUsage}, false, nil
+				return renderUsageOf(renderUsage)
 			}
 			opts.Links.Template = strings.TrimPrefix(word, "link=")
 			if err := view.ParseLinkTemplate(opts.Links.Template); err != nil {
-				return []string{err.Error() + "; " + renderUsage}, false, nil
+				return renderUsageOf(err.Error() + "; " + renderUsage)
 			}
 			linkSet = true
 			continue
 		}
 		if style, ok := view.ParseDrawingStyle(word); ok {
 			if opts.Style != "" {
-				return []string{renderUsage}, false, nil
+				return renderUsageOf(renderUsage)
 			}
 			opts.Style = style
 			continue
 		}
 		if ports, ok := view.ParsePorts(word); ok {
 			if opts.Ports != "" {
-				return []string{renderUsage}, false, nil
+				return renderUsageOf(renderUsage)
 			}
 			opts.Ports = ports
 			continue
 		}
 		if !form.TakesPalette() {
-			return []string{fmt.Sprintf("a palette fills the mermaid, dot, plantuml and d2 forms only, not %s; %s", form, renderUsage)}, false, nil
+			return renderUsageOf(fmt.Sprintf("a palette fills the mermaid, dot, plantuml and d2 forms only, not %s; %s", form, renderUsage))
 		}
 		palette, ok := view.ParsePalette(word)
 		if !ok {
-			return []string{(&view.UnknownPaletteError{Name: word}).Error() + "; " + renderUsage}, false, nil
+			return renderUsageOf((&view.UnknownPaletteError{Name: word}).Error() + "; " + renderUsage)
 		}
 		if opts.Palette != "" {
-			return []string{renderUsage}, false, nil
+			return renderUsageOf(renderUsage)
 		}
 		opts.Palette = palette
 	}
-	return s.doRender(args[0], form, opts, overlay)
+	return args[0], form, opts, overlay, nil
 }
 
 // metaModelCommand runs a model-level command, reporting whether the line

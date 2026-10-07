@@ -92,6 +92,29 @@ func (s *Session) doRender(name string, form view.Form, opts view.Options, overl
 	return lines, false, nil
 }
 
+// Rendered is what %render wrote: the lines of the artifact, and the form they
+// are in.
+type Rendered struct {
+	Form  view.Form
+	Lines []string
+}
+
+// Render runs %render with its arguments and answers what it wrote, with the
+// form the lines are in. A usage problem is answered as the prompt prints it,
+// in the text form; a view that could not be rendered is an error.
+func (s *Session) Render(args []string) (Rendered, error) {
+	defer s.enter()()
+	name, form, opts, overlay, usage := parseRenderArgs(args)
+	if usage != nil {
+		return Rendered{Form: view.FormText, Lines: usage}, nil
+	}
+	lines, err := s.renderLines(name, form, opts, overlay)
+	if err != nil {
+		return Rendered{}, err
+	}
+	return Rendered{Form: form, Lines: lines}, nil
+}
+
 // renderForms are the forms %render writes, as its second argument spells them.
 func renderForms() []string {
 	out := make([]string, 0, len(view.Forms()))
@@ -538,6 +561,7 @@ func (r *reportRuntime) runtime() (*runtime.Context, error) {
 	if err := ctx.SetBudgets(r.session.budgets); err != nil {
 		return nil, err
 	}
+	ctx.SetInterrupt(r.session.interrupt)
 	// Recorded like the session's own evaluation, so a trace does not depend on
 	// which objects the report had to materialize.
 	ctx.SetTrace(r.session.trace)
