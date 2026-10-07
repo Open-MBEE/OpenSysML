@@ -5,7 +5,7 @@ without protobuf-generated code. It supports **MATLAB R2019b+** and **GNU
 Octave 7+**.
 
 For a task-oriented walkthrough, see the
-[MATLAB client guide](https://implementation.opensysml.org/clients/matlab/).
+[MATLAB client guide](https://opensysml.opensysml.org/clients/matlab/).
 
 ## Requirements and installation
 

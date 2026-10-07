@@ -5,7 +5,7 @@ Java client for OpenSysML: parse, inspect and evaluate SysML v2 models over the
 Eclipse-based tool, a Cameo plugin, a web service.
 
 For a task-oriented walkthrough, see the
-[Java client guide](https://implementation.opensysml.org/clients/java/).
+[Java client guide](https://opensysml.opensysml.org/clients/java/).
 
 ```xml
 <dependency>

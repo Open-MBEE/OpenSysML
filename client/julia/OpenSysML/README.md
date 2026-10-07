@@ -5,7 +5,7 @@ Connect-JSON over `HTTP.jl`, with `JSON.jl` for the wire format. Install it
 from a checkout:
 
 For a task-oriented walkthrough, see the
-[Julia client guide](https://implementation.opensysml.org/clients/julia/).
+[Julia client guide](https://opensysml.opensysml.org/clients/julia/).
 
 ```julia
 using Pkg
