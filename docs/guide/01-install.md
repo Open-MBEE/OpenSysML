@@ -1,6 +1,6 @@
 # 1. Install
 
-This chapter covers installing `sysml`, `sysml-lsp` and `sysml-grpc` and checking that they
+This chapter covers installing `sysml`, `sysml-lsp`, `sysml-grpc` and `sysml-jupyter-kernel` and checking that they
 work. Nothing else is needed for the rest of this guide.
 
 ## From a release build (recommended)
@@ -43,7 +43,7 @@ environment variable for unattended installs:
 | Choice | `install.sh` | `install.ps1` | Environment |
 |---|---|---|---|
 | Release: a tag, `latest` or `nightly` | `--version v0.9.1` | `-Version v0.9.1` | `OPENSYSML_VERSION` |
-| Tools: `sysml`, `sysml-lsp`, `sysml-grpc` or `all` | `--tools sysml` | `-Tools sysml` | `OPENSYSML_TOOLS` |
+| Tools: `sysml`, `sysml-lsp`, `sysml-grpc`, `sysml-jupyter-kernel` or `all` | `--tools sysml` | `-Tools sysml` | `OPENSYSML_TOOLS` |
 | Where to install | `--prefix ~/opt` or `--bin-dir ~/bin` | `-InstallDir D:\Tools\OpenSysML` | `OPENSYSML_PREFIX`, `OPENSYSML_BIN_DIR`, `OPENSYSML_INSTALL_DIR` |
 | A mirror of the GitHub release tree | `--base-url URL` | `-BaseUrl URL` | `OPENSYSML_DOWNLOAD_BASE` |
 | Show the choice, install nothing | `--dry-run` | `-DryRun` | |
@@ -144,6 +144,12 @@ as a dependency.
 `sysml-grpc-<os>-<arch>` file with a `.sha256` sidecar rather than inside an archive, because
 the `opensysml` Python package downloads and verifies it itself (see [client/python/DEVELOPING.md](../../client/python/DEVELOPING.md)).
 `make build-grpc` builds it from source.
+
+`sysml-jupyter-kernel`, the Jupyter kernel, is published the same way, as a bare
+`sysml-jupyter-kernel-<os>-<arch>` file with a `.sha256` sidecar: `pip install
+jupyter-opensysml-kernel` downloads and verifies it when it registers the kernel (see
+[Jupyter notebooks](12-jupyter.md)). `make build-jupyter-kernel` builds it from source, and
+`sysml-jupyter-kernel -install` registers a binary installed by hand.
 
 **Archive layout:** the `opensysml-<os>-<arch>.tar.gz` bundles contain both binaries under their
 plain names (`sysml`, `sysml-lsp`). The older single-binary `sysml-<os>-<arch>.tar.gz` and

@@ -34,15 +34,18 @@ irm https://opensysml.org/install.ps1 | iex             # Windows
 
 ## Individual tools
 
-Each archive contains only the named tool. The `sysml-grpc` service is a separate download;
-most [client libraries](reference/clients.md) fetch it themselves. Its downloads are raw binaries, each
-with a sidecar SHA-256 file.
+Each archive contains only the named tool. The `sysml-grpc` service and the
+`sysml-jupyter-kernel` Jupyter kernel are separate downloads; most
+[client libraries](reference/clients.md) fetch the service themselves, and
+`pip install jupyter-opensysml-kernel` fetches the kernel (see the
+[Jupyter chapter](guide/12-jupyter.md)). Both are raw binaries, each with a sidecar SHA-256 file.
 
 | Tool | Linux x64 | Linux arm64 | macOS Intel | macOS Apple Silicon | Windows x64 |
 |---|---|---|---|---|---|
 | `sysml` | [tar.gz](https://github.com/Open-MBEE/OpenSysML/releases/latest/download/sysml-linux-amd64.tar.gz) | [tar.gz](https://github.com/Open-MBEE/OpenSysML/releases/latest/download/sysml-linux-arm64.tar.gz) | [tar.gz](https://github.com/Open-MBEE/OpenSysML/releases/latest/download/sysml-darwin-amd64.tar.gz) | [tar.gz](https://github.com/Open-MBEE/OpenSysML/releases/latest/download/sysml-darwin-arm64.tar.gz) | [ZIP](https://github.com/Open-MBEE/OpenSysML/releases/latest/download/sysml-windows-amd64.zip) |
 | `sysml-lsp` | [tar.gz](https://github.com/Open-MBEE/OpenSysML/releases/latest/download/sysml-lsp-linux-amd64.tar.gz) | [tar.gz](https://github.com/Open-MBEE/OpenSysML/releases/latest/download/sysml-lsp-linux-arm64.tar.gz) | [tar.gz](https://github.com/Open-MBEE/OpenSysML/releases/latest/download/sysml-lsp-darwin-amd64.tar.gz) | [tar.gz](https://github.com/Open-MBEE/OpenSysML/releases/latest/download/sysml-lsp-darwin-arm64.tar.gz) | [ZIP](https://github.com/Open-MBEE/OpenSysML/releases/latest/download/sysml-lsp-windows-amd64.zip) |
 | `sysml-grpc` | [binary](https://github.com/Open-MBEE/OpenSysML/releases/latest/download/sysml-grpc-linux-amd64) · [SHA-256](https://github.com/Open-MBEE/OpenSysML/releases/latest/download/sysml-grpc-linux-amd64.sha256) | [binary](https://github.com/Open-MBEE/OpenSysML/releases/latest/download/sysml-grpc-linux-arm64) · [SHA-256](https://github.com/Open-MBEE/OpenSysML/releases/latest/download/sysml-grpc-linux-arm64.sha256) | [binary](https://github.com/Open-MBEE/OpenSysML/releases/latest/download/sysml-grpc-darwin-amd64) · [SHA-256](https://github.com/Open-MBEE/OpenSysML/releases/latest/download/sysml-grpc-darwin-amd64.sha256) | [binary](https://github.com/Open-MBEE/OpenSysML/releases/latest/download/sysml-grpc-darwin-arm64) · [SHA-256](https://github.com/Open-MBEE/OpenSysML/releases/latest/download/sysml-grpc-darwin-arm64.sha256) | [EXE](https://github.com/Open-MBEE/OpenSysML/releases/latest/download/sysml-grpc-windows-amd64.exe) · [SHA-256](https://github.com/Open-MBEE/OpenSysML/releases/latest/download/sysml-grpc-windows-amd64.exe.sha256) |
+| `sysml-jupyter-kernel` | [binary](https://github.com/Open-MBEE/OpenSysML/releases/latest/download/sysml-jupyter-kernel-linux-amd64) · [SHA-256](https://github.com/Open-MBEE/OpenSysML/releases/latest/download/sysml-jupyter-kernel-linux-amd64.sha256) | [binary](https://github.com/Open-MBEE/OpenSysML/releases/latest/download/sysml-jupyter-kernel-linux-arm64) · [SHA-256](https://github.com/Open-MBEE/OpenSysML/releases/latest/download/sysml-jupyter-kernel-linux-arm64.sha256) | [binary](https://github.com/Open-MBEE/OpenSysML/releases/latest/download/sysml-jupyter-kernel-darwin-amd64) · [SHA-256](https://github.com/Open-MBEE/OpenSysML/releases/latest/download/sysml-jupyter-kernel-darwin-amd64.sha256) | [binary](https://github.com/Open-MBEE/OpenSysML/releases/latest/download/sysml-jupyter-kernel-darwin-arm64) · [SHA-256](https://github.com/Open-MBEE/OpenSysML/releases/latest/download/sysml-jupyter-kernel-darwin-arm64.sha256) | [EXE](https://github.com/Open-MBEE/OpenSysML/releases/latest/download/sysml-jupyter-kernel-windows-amd64.exe) · [SHA-256](https://github.com/Open-MBEE/OpenSysML/releases/latest/download/sysml-jupyter-kernel-windows-amd64.exe.sha256) |
 
 ## Verify
 

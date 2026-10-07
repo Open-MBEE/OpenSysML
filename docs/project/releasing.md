@@ -246,14 +246,22 @@ so that `dist/` holds:
 - `sysml-grpc-<os>-<arch>`, published raw with a `.sha256` sidecar rather than
   archived, because that is what `opensysml` downloads and verifies
   (`client/python/opensysml/binary.py`) when it starts the service for a Python caller;
+- `sysml-jupyter-kernel-<os>-<arch>`, the Jupyter kernel, published raw with a
+  `.sha256` sidecar for the same reason: `jupyter-opensysml-kernel` downloads and
+  verifies it (`client/jupyter-kernel/jupyter_opensysml_kernel/binary.py`) when it
+  registers the kernelspec;
 - `wasm/sysml-wasm.wasm` and `wasm/wasm_exec.js`, the combined WebAssembly
   module and matching Go runtime, each with a `.sha256` sidecar;
 - the Python client's distribution, `opensysml-<x.y.z>-py3-none-any.whl` and
   `opensysml-<x.y.z>.tar.gz`, built by `build-python-package` from those
   `sysml-grpc` binaries' digests and the same files `publish-pypi` uploads (see
   [Releasing opensysml to PyPI](#releasing-opensysml-to-pypi));
-- `SHA256SUMS.txt` over every archive, the wheel, every `sysml-grpc` binary and
-  both WebAssembly assets,
+- the Jupyter kernel's distribution, `jupyter_opensysml_kernel-<x.y.z>-py3-none-any.whl`
+  and `jupyter_opensysml_kernel-<x.y.z>.tar.gz`, built by `build-jupyter-kernel-package`
+  from the `sysml-jupyter-kernel` binaries' digests the same way (see
+  [Releasing jupyter-opensysml-kernel to PyPI](#releasing-jupyter-opensysml-kernel-to-pypi));
+- `SHA256SUMS.txt` over every archive, both wheels and sdists, every `sysml-grpc` and
+  `sysml-jupyter-kernel` binary and both WebAssembly assets,
   with its cosign signature `SHA256SUMS.txt.bundle` (see
   [The signed checksum manifest](#the-signed-checksum-manifest));
 - `provenance.intoto.json`, the SLSA provenance statement naming every artifact
@@ -1209,6 +1217,45 @@ A PyPI version cannot be replaced. Yank it
 without breaking a pin that already names it), and cut the next core release —
 the package's version is the core's, so the fix is a patch tag, not a new
 `VERSION` alone. Deleting a release frees nothing: the version number stays used.
+
+## Releasing jupyter-opensysml-kernel to PyPI
+
+The Jupyter kernel package in `client/jupyter-kernel/` is published to PyPI as
+[`jupyter-opensysml-kernel`](https://pypi.org/project/jupyter-opensysml-kernel/) by the
+same `release` workflow, at the core's version and in lockstep with `opensysml`:
+`client/python/scripts/check_version.py --jupyter-kernel` refuses a tag whose version the
+kernel package does not declare, so a release bump stamps both `_version.py` files.
+
+The package ships no binary. It downloads the release's `sysml-jupyter-kernel-<os>-<arch>`
+asset when it registers the kernelspec and verifies it against the digests in its own
+`jupyter_opensysml_kernel/release-digests.json`, so the distribution is built the way the
+Python client's is:
+
+1. `build-release-binaries` cross-compiles `sysml-jupyter-kernel` into `dist/jupyter`
+   beside the service binaries, checks the Linux ones are static and that each reports
+   the tag.
+2. `build-jupyter-kernel-package` stamps the digests of those binaries into the package's
+   table (`pin_release_checksums.py --from-binaries dist/jupyter --table
+   client/jupyter-kernel/jupyter_opensysml_kernel/release-digests.json`), builds the wheel
+   and sdist, and asserts that the built distribution imports at the tag's version, is
+   built against the tag, and pins all five `sysml-jupyter-kernel-*` assets to the digests
+   of the binaries just built.
+3. `build-release` lists the kernel binaries, their `.sha256` sidecars and the kernel
+   distribution in `SHA256SUMS.txt`, checks the wheel's pins against the manifest it is
+   about to sign, and signs it.
+4. `publish-pypi-jupyter-kernel` runs after the GitHub release exists, refuses a version the
+   index already has, and uploads the verified distribution with the same `PyPI` context
+   as `publish-pypi`. The project needs its own trusted-publisher or token entry on PyPI;
+   the token in the context must be allowed to upload to both projects.
+
+`tests/hygiene/release_config_test.go` holds the configuration to this order, and
+`pin_release_checksums.py` to the rule that a release carrying any kernel asset carries all
+five. Nightly snapshots build and publish the kernel package the same way, as a development
+version pinning the night's prerelease.
+
+The conda-forge recipe under `packaging/conda` is rendered from the release's manifest
+with `scripts/render-conda-recipe.sh` after the release exists; see
+[packaging/conda/README.md](../../packaging/conda/README.md).
 
 ## Releasing @openmbee/opensysml to npm
 
