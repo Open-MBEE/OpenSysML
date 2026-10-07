@@ -37,10 +37,13 @@ type treeGraph struct {
 	edges  map[treeEdgeKey]bool
 }
 
-// treeEdgeKey identifies an edge a tree draws once.
+// treeEdgeKey identifies an edge a tree draws once: a relationship between
+// two nodes, or the membership of one usage, which two anonymous usages of one
+// type never share.
 type treeEdgeKey struct {
 	from, to, label string
 	kind            EdgeKind
+	usage           symbols.ElementKey
 }
 
 // treeEdges adds to out the relationship edges between the nodes of its tree,
@@ -81,9 +84,12 @@ func (r *Renderer) treeEdges(out *Rendering) {
 	out.sites = nil
 }
 
-// edgesOf draws what the element of node states of itself and of what it
-// owns. Its typing is drawn from the node itself only when its owner is not
-// drawn: a drawn owner's composition edge, or the nesting, stands for it.
+// edgesOf draws what the element of node states of itself and of the usages
+// drawn beneath it; a member the depth bound hides is not drawn as an edge
+// either. Its typing is drawn from the node itself only when its owner is not
+// drawn: a drawn owner's composition edge, or the nesting, stands for it. A
+// usage's Style dresses the edge standing for it as it does the usage's node;
+// its Notes stay anchored to the node, where the usage is named.
 func (g *treeGraph) edgesOf(node *Node, site treeSite) {
 	sym := site.sym
 	ownerDrawn := g.node(sym.Owner()) != nil && structuralUsage(sym)
@@ -100,10 +106,11 @@ func (g *treeGraph) edgesOf(node *Node, site treeSite) {
 			continue
 		}
 		if to := g.node(target); to != nil && to != node {
-			g.add(Edge{From: node.ID, To: to.ID, Kind: kind, Label: label, Origin: nodeOrigin(sym.DocName, rel)})
+			g.add(Edge{From: node.ID, To: to.ID, Kind: kind, Label: label, Origin: nodeOrigin(sym.DocName, rel)}, nil)
 		}
 	}
-	for _, member := range g.r.containedMembers(sym) {
+	for _, child := range node.Children {
+		member := g.out.sites[child].sym
 		if !structuralUsage(member) {
 			continue
 		}
@@ -116,8 +123,8 @@ func (g *treeGraph) edgesOf(node *Node, site treeSite) {
 			if to == nil || to == node || g.nested(node, to) {
 				continue
 			}
-			g.add(Edge{From: node.ID, To: to.ID, Kind: kind, Label: g.r.usageLabel(member),
-				Origin: symbolOrigin(member), Route: g.r.routeOf(site.view, member, g.out)})
+			g.add(Edge{From: node.ID, To: to.ID, Kind: kind, Label: g.r.usageLabel(member), Origin: symbolOrigin(member),
+				Route: g.r.routeOf(site.view, member, g.out), Style: g.r.styleOf(site.view, member, g.out)}, member)
 		}
 	}
 }
@@ -145,9 +152,10 @@ func (g *treeGraph) encloses(outer, inner string) bool {
 	return false
 }
 
-// add records an edge once.
-func (g *treeGraph) add(edge Edge) {
-	key := treeEdgeKey{from: edge.From, to: edge.To, label: edge.Label, kind: edge.Kind}
+// add records an edge once; usage is the member the edge stands for, nil for
+// a relationship clause.
+func (g *treeGraph) add(edge Edge, usage *symbols.Symbol) {
+	key := treeEdgeKey{from: edge.From, to: edge.To, label: edge.Label, kind: edge.Kind, usage: symbols.KeyOf(usage)}
 	if g.edges[key] {
 		return
 	}
@@ -203,16 +211,115 @@ func (r *Renderer) multiplicityText(doc string, m *ast.Multiplicity) string {
 }
 
 // multiplicityBound spells one bound of a multiplicity: a literal as written,
-// `*` for the unbounded one, a name as the notation refers to it.
+// `*` for the unbounded one, a name as the notation refers to it, an
+// expression over them with its operators.
 func multiplicityBound(node ast.Node) string {
-	switch bound := node.(type) {
-	case *ast.LiteralInteger:
-		return bound.Value
-	case *ast.LiteralInfinity:
-		return "*"
-	}
-	if text := referenceText(node); text != "" {
+	if text := expressionText(node); text != "" {
 		return text
 	}
 	return "?"
+}
+
+// expressionText spells an expression as the notation writes it: a literal, a
+// name or feature chain, and an operator over such operands, grouped where the
+// operators' precedence would otherwise read it back differently. An
+// expression of another form spells as "".
+func expressionText(node ast.Node) string {
+	switch expr := node.(type) {
+	case *ast.LiteralInfinity:
+		return "*"
+	case *ast.FeatureReference, *ast.QualifiedName, *ast.FeatureChainExpr:
+		return referenceText(node)
+	case *ast.OperatorExpr:
+		return operatorExprText(expr)
+	}
+	return literalText(node)
+}
+
+// operatorExprText spells an operator application: a unary operator before
+// its operand, a binary one between its two with a space on each side, a
+// conditional as `if c ? a else b`, a classification or cast with its type.
+func operatorExprText(expr *ast.OperatorExpr) string {
+	operands := make([]string, len(expr.Operands))
+	for i, operand := range expr.Operands {
+		operands[i] = operandText(expr, i, operand)
+		if operands[i] == "" {
+			return ""
+		}
+	}
+	op := expr.Operator.String()
+	switch {
+	case expr.Operator == ast.OpConditional && len(operands) == 3:
+		return "if " + operands[0] + " ? " + operands[1] + " else " + operands[2]
+	case expr.TypeRef != nil && len(operands) == 1:
+		return operands[0] + " " + op + " " + referenceText(expr.TypeRef)
+	case len(operands) == 1 && expr.Operator == ast.OpNot:
+		return op + " " + operands[0]
+	case len(operands) == 1:
+		return op + operands[0]
+	case len(operands) == 2:
+		return operands[0] + " " + op + " " + operands[1]
+	}
+	return ""
+}
+
+// operandText spells the i-th operand of expr, parenthesised when it is an
+// operator application binding no tighter than expr: looser, or as tight on
+// the side the operator does not associate to; under a unary operator, any
+// binary one.
+func operandText(expr *ast.OperatorExpr, i int, operand ast.Node) string {
+	text := expressionText(operand)
+	inner, ok := operand.(*ast.OperatorExpr)
+	if !ok || text == "" {
+		return text
+	}
+	if len(expr.Operands) == 1 {
+		if len(inner.Operands) > 1 {
+			return "(" + text + ")"
+		}
+		return text
+	}
+	if len(expr.Operands) != 2 {
+		return text
+	}
+	outer, in := operatorPrecedence(expr.Operator), operatorPrecedence(inner.Operator)
+	rightAssociative := expr.Operator == ast.OpPow
+	if in < outer || in == outer && (i == 1) != rightAssociative {
+		return "(" + text + ")"
+	}
+	return text
+}
+
+// operatorPrecedence ranks the operators as the KerML expression grammar binds
+// them, loosest first; operators of one rank associate to the left but `**`.
+func operatorPrecedence(op ast.OperatorKind) int {
+	switch op {
+	case ast.OpConditional:
+		return 0
+	case ast.OpNullCoalesce:
+		return 1
+	case ast.OpImplies:
+		return 2
+	case ast.OpOr, ast.OpConditionalOr:
+		return 3
+	case ast.OpXor:
+		return 4
+	case ast.OpAnd, ast.OpConditionalAnd:
+		return 5
+	case ast.OpEq, ast.OpNeq, ast.OpEqEqEq, ast.OpNeqEqEq:
+		return 6
+	case ast.OpHasType, ast.OpIsType, ast.OpAt, ast.OpMetaAt, ast.OpAs, ast.OpMeta:
+		return 7
+	case ast.OpLt, ast.OpGt, ast.OpLe, ast.OpGe:
+		return 8
+	case ast.OpRange:
+		return 9
+	case ast.OpAdd, ast.OpSub:
+		return 10
+	case ast.OpMul, ast.OpDiv, ast.OpMod:
+		return 11
+	case ast.OpPow:
+		return 12
+	}
+	return 13
 }

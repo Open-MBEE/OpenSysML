@@ -5,6 +5,8 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
 
 // treeEdgeLines spells a tree's edges by the names of the nodes they join,
@@ -153,6 +155,139 @@ func TestTreeTextListsRelationships(t *testing.T) {
 	} {
 		if !strings.Contains(text, want) {
 			t.Errorf("text lacks %q:\n%s", want, text)
+		}
+	}
+}
+
+// A usage's Style colours the composition edge standing for it as it does
+// the usage's node; its Note stays anchored to the node alone, not repeated
+// on the edge.
+func TestTreeCompositionEdgeWearsTheUsagesStyle(t *testing.T) {
+	rendering := renderSource(t, "Views::styled", `package Model {
+	part def Wheel;
+	part def Car { part wheels[4] : Wheel; }
+}
+package Views {
+	private import DiagramLayout::*;
+	view styled {
+		expose Model::Car;
+		expose Model::Wheel;
+		metadata Style about Model::Car::wheels { line = "#FF0000"; }
+		metadata Note about Model::Car::wheels { text = "four of them"; x = 10; y = 20; }
+	}
+}`)
+	if len(rendering.Edges) != 1 || rendering.Edges[0].Style == nil || rendering.Edges[0].Style.Line != "#FF0000" {
+		t.Fatalf("edges = %+v, want one composition styled with the wheels' line", rendering.Edges)
+	}
+	wheels := rendering.Roots[0].Children[0]
+	if wheels.Style == nil || wheels.Style.Line != "#FF0000" {
+		t.Errorf("wheels node style = %+v, want the same line", wheels.Style)
+	}
+	if len(rendering.Notes) != 1 || rendering.Notes[0].Anchor != wheels.ID || rendering.Notes[0].EdgeFrom != "" {
+		t.Errorf("notes = %+v, want the one note anchored to the wheels node", rendering.Notes)
+	}
+}
+
+// A multiplicity bound that names a feature is spelled by that name when no
+// source text is at hand to copy, as a literal one is by its value.
+func TestTreeMultiplicityBoundsAreSpelledWithoutSourceText(t *testing.T) {
+	r, idx := loadSources(t, []string{"inline.sysml"}, [][]byte{[]byte(`package Model {
+	part def Wheel;
+	part def Seat;
+	part def Car {
+		attribute axles : ScalarValues::Integer;
+		attribute rows : ScalarValues::Integer;
+		part wheels[axles] : Wheel;
+		part seats[0..rows] : Seat;
+	}
+}
+package Views {
+	view parts { expose Model::*; }
+}`)})
+	r.text = nil
+	rendering, err := r.Render(lookup(t, idx, "Views::parts"))
+	if err != nil {
+		t.Fatalf("render: %v", err)
+	}
+	var labels []string
+	for _, edge := range rendering.Edges {
+		labels = append(labels, edge.Label)
+	}
+	if want := []string{"wheels[axles]", "seats[0..rows]"}; !reflect.DeepEqual(labels, want) {
+		t.Errorf("labels = %q, want %q", labels, want)
+	}
+}
+
+// Two anonymous usages of one type are two memberships, each drawn.
+func TestTreeDrawsEachAnonymousUsage(t *testing.T) {
+	rendering := renderSource(t, "Views::pair", `package Model {
+	part def B;
+	part def A { part : B; part : B; }
+}
+package Views {
+	view pair { expose Model::A; expose Model::B; }
+}`)
+	if got := treeEdgeLines(rendering); !reflect.DeepEqual(got, []string{"Model::A composition Model::B", "Model::A composition Model::B"}) {
+		t.Errorf("edges = %q, want both anonymous compositions", got)
+	}
+}
+
+// A member the depth bound leaves undrawn is drawn as no edge either: the
+// tree says the member is not shown, and shows nothing of it.
+func TestTreeDepthBoundHidesTheEdgesOfUndrawnMembers(t *testing.T) {
+	model := `package Model {
+	part def Body;
+	part def Door;
+	part def Car { part body : Body { part door : Door; } }
+}
+package Views {
+	view doors { expose Model::Car; expose Model::Door; }
+}`
+	if got := treeEdgeLines(renderSource(t, "Views::doors", model)); !reflect.DeepEqual(got, []string{"body composition Model::Door: door"}) {
+		t.Errorf("edges = %q, want the door drawn from the body it is nested in", got)
+	}
+	r, idx := loadSources(t, []string{"inline.sysml"}, [][]byte{[]byte(model)})
+	r.treeDepthBound = 1
+	rendering, err := r.Render(lookup(t, idx, "Views::doors"))
+	if err != nil {
+		t.Fatalf("render: %v", err)
+	}
+	if got := treeEdgeLines(rendering); len(got) != 0 {
+		t.Errorf("edges = %q, want none: the door is not shown", got)
+	}
+}
+
+// A bound written as an expression — which the parser diagnoses but keeps — is
+// spelled with its operators when no source text is at hand, grouped where
+// precedence would otherwise read it back differently, never as `?`.
+func TestMultiplicityExpressionBoundsAreSpelledFromTheTree(t *testing.T) {
+	name := func(text string) ast.Node {
+		qn := &ast.QualifiedName{}
+		qn.SetSingleton(ast.NameSegment{Text: text})
+		return &ast.FeatureReference{Name: qn}
+	}
+	literal := func(value string) ast.Node { return &ast.LiteralInteger{Value: value} }
+	op := func(kind ast.OperatorKind, operands ...ast.Node) ast.Node {
+		return &ast.OperatorExpr{Operator: kind, Operands: operands}
+	}
+	cases := []struct {
+		m    *ast.Multiplicity
+		want string
+	}{
+		{&ast.Multiplicity{Lower: op(ast.OpAdd, name("capacity"), literal("1"))}, "[capacity + 1]"},
+		{&ast.Multiplicity{Lower: literal("0"), Upper: op(ast.OpMul, op(ast.OpAdd, name("rows"), literal("1")), literal("2")), IsRange: true}, "[0..(rows + 1) * 2]"},
+		{&ast.Multiplicity{Lower: op(ast.OpSub, name("n"), op(ast.OpSub, name("m"), literal("1")))}, "[n - (m - 1)]"},
+		{&ast.Multiplicity{Lower: op(ast.OpSub, op(ast.OpSub, name("n"), name("m")), literal("1"))}, "[n - m - 1]"},
+		{&ast.Multiplicity{Lower: op(ast.OpPow, name("n"), op(ast.OpPow, name("m"), literal("2")))}, "[n ** m ** 2]"},
+		{&ast.Multiplicity{Lower: op(ast.OpPow, op(ast.OpPow, name("n"), name("m")), literal("2"))}, "[(n ** m) ** 2]"},
+		{&ast.Multiplicity{Lower: op(ast.OpNeg, name("n"))}, "[-n]"},
+		{&ast.Multiplicity{Lower: op(ast.OpNeg, op(ast.OpAdd, name("n"), literal("1")))}, "[-(n + 1)]"},
+		{&ast.Multiplicity{Lower: literal("1"), Upper: &ast.LiteralInfinity{}, IsRange: true}, "[1..*]"},
+	}
+	r := &Renderer{}
+	for _, c := range cases {
+		if got := r.multiplicityText("", c.m); got != c.want {
+			t.Errorf("multiplicityText = %q, want %q", got, c.want)
 		}
 	}
 }
