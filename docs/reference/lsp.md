@@ -23,7 +23,7 @@ behavior and report where it stands, and `openSysmlRenderPalette` that a
 `palette` named in an `opensysml/render` request colours the result's nodes
 (`fill`, `border`) as well as its Mermaid, DOT, PlantUML or D2 artifact. `openSysmlRenderForms` lists
 the forms `opensysml/render` writes and `openSysmlRenderStyles` the drawing styles its `style`
-draws the DOT form in, the first the default (`openSysmlRenderPorts` lists likewise the port
+draws the DOT or Mermaid form in, the first the default (`openSysmlRenderPorts` lists likewise the port
 displays its `ports` draws an interconnection or mixed rendering's parts with, a server without
 it drawing every port; `openSysmlRenderOverlays` lists the overlays its `overlay` draws, a server
 without it drawing none); a server without the former draws the Pilot look

@@ -20,7 +20,7 @@ import (
 
 // renderDocumentUsage is what %render-document accepts: a document's name,
 // then optionally the form its graph-shaped diagrams are written in and the
-// drawing style the dot form draws them in.
+// drawing style the DOT or Mermaid form draws them in.
 const renderDocumentUsage = "usage: %render-document <name> [mermaid|dot|plantuml|d2 [pilot|cameo]]"
 
 // RenderDocumentMarkdown compiles the named document definition, evaluates its

@@ -262,22 +262,24 @@ qualified name. The DOT writer sizes a box from the same label it emits, so a bo
 not size holds what it is headed with; a box a Layout sizes has its label fitted to it
 ([Geometry](#geometry)).
 
-Mermaid joins the lines with `<br>` in every grammar it writes — a flowchart node label, a
-`state "…" as n` and a `participant n as …` — which the pinned `mermaid-cli` breaks at whether
-`htmlLabels` is on (the text becomes HTML, `<br>` a line break) or off (the label is split into
-`<tspan>` rows); no `<br>` survives as text in the drawing. The tree, interconnection and action
-kinds draw the same flowchart labels. A flowchart reserves one line of height for a `subgraph`
-title and draws the first child over the rest, so a rendering whose cluster title spans several
-lines opens on a YAML frontmatter block, `config: flowchart: subGraphTitleMargin: bottom: <n>`,
-claiming 24px per extra line as the title's bottom margin, with a `themeCSS` rule centring the
-title's lines under one another (`writeFlowchartFrontmatter`); the block rides the text into every
-consumer, and a flowchart without such a cluster, a tree, a state diagram and a sequence diagram
-carry none. Every `subgraph` opens on a `direction`
-statement restating the flowchart's own (`TD`, `LR` for an interconnection, or the one asked
-for), since Mermaid lays out a subgraph that states none without regard to the flowchart's;
-a tree draws containment as edges, not subgraphs, so it states none. Flowchart labels use Markdown
-when every line is safe, with the italic keyword first, then bold head lines and plain details,
-separated by real newlines; unsafe labels fall back to the escaped `<br>` form. DOT writes an
+Safe flowchart labels use Markdown newlines; unsafe flowchart labels, leaf state labels, remaining
+composite-state title lines and sequence participants use `<br>` for line breaks. The pinned
+`mermaid-cli` breaks at `<br>` whether `htmlLabels` is on (the text becomes HTML, `<br>` a line
+break) or off (the label is split into `<tspan>` rows); no `<br>` survives as text in the drawing.
+The tree, interconnection and action kinds draw the same flowchart labels. The first line of a
+subgraph or composite-state title puts the keyword and name together (`*«part def»* **Toolchain**`),
+since Mermaid reserves one line for it. Only a flowchart subgraph title that still spans several
+lines — a name with an escaped line break, or notes — emits `flowchart.subGraphTitleMargin.bottom`
+in the frontmatter, at 24px per extra line. The flowchart theme CSS that centres multi-line titles
+remains (`writeFlowchartFrontmatter`). Mermaid applies that margin after layout to every cluster
+alike, so a nested cluster can still crowd its parent's title and stacked sibling clusters can
+touch in such a chart; the model's content is preserved and the diagram carries no notice. Every
+`subgraph` opens on a `direction` statement restating the flowchart's own (`TD`, `LR` for an
+interconnection, or the one asked for), since Mermaid lays out a subgraph that states none without
+regard to the flowchart's; a tree draws containment as edges, not subgraphs, so it states none.
+Flowchart labels use Markdown when every line is safe, with the italic keyword first, then bold
+head lines and plain details, separated by real newlines; unsafe labels fall back to the escaped
+`<br>` form. DOT writes an
 HTML-like label, `label=<<font point-size="10">«part»</font><br/><b>pump : Pump</b>>`, the keyword
 line at 10pt over the name in bold at the 14pt Graphviz draws the rest in; `&`, `<`, `>` and `"` in a name become entities so no name
 reads as markup. A cluster's label is the same string. The text form keeps the notation's
@@ -365,7 +367,7 @@ table records what each rendering feature writes:
 | Decision, merge, choice and history | Diamonds; empty and synthesized decision names use a blank diamond. Shallow/deep history use `(("H"))` and `(("H*"))`. |
 | State pseudostates and final transitions | Mermaid state stereotypes (`<<fork>>`, `<<join>>`, `<<choice>>`) and `[*]` for initial/final markers. A final in the same state body is implicit; cross-body final transitions retain the explicit final and receive a notice. |
 | Edges | `===` for connections/bindings, `-.->` for flows and typing/references, `-.->|"«include»"|` for includes, `---` for associations and tree containment, `-.-` for anchors, and `-->|"«specializes»"|` for specialization. Links to non-tree clusters use a hidden anchor inside the subgraph. Per-edge styles use `linkStyle` indices spanning containment, rendering edges and note anchors. |
-| Markdown labels | Flowchart node and subgraph titles use bold head lines, an italic keyword line and plain detail lines. Unsafe punctuation, list-like starts, non-multiplicity `*` and non-intraword `_` use the plain escaped label instead. State, sequence and edge labels are unchanged. |
+| Markdown labels | Flowchart node labels use bold head lines, an italic keyword line and plain details. Container titles put the italic keyword and bold name on one line, then any further head lines and details. Unsafe punctuation, list-like starts, non-multiplicity `*` and non-intraword `_` use the plain escaped label instead. Leaf state, sequence and edge labels are unchanged. |
 | Theme variables | Common font, primary/secondary/tertiary, background, line/text and note variables are shared. Flowcharts add cluster and edge-label variables; state diagrams add state, composite and transition variables; sequences add actor, signal, label-box, activation and sequence-number variables. |
 | Styles and palettes | `classDef`/`class` fill applicable nodes by keyword family; palettes override Cameo fills. `Style` CSS covers Mermaid's supported node and edge fields; unsupported fields are listed in notices. Sequence palettes are accepted but cannot fill individual participants. Cluster anchors do not receive palette fills or count as model nodes. |
 | Notes | Flowchart notes are grouped as `notch-rect` nodes with dashed anchors and declared inside the innermost subgraph containing all their drawn anchors. Free notes and notes spanning roots stay at top level. State notes anchor to declared states; sequence notes anchor to participants or messages. Unsupported anchors and free sequence/state notes receive precise notices. |
