@@ -212,7 +212,7 @@ func (p *Parser) actionOpensDeclaration() bool {
 
 // msgActionBodyMultiplicity diagnoses a multiplicity that opens an action body
 // member: only a succession end takes one there (SysML.xtext:1703-1706).
-const msgActionBodyMultiplicity = "a multiplicity in an action body belongs to a succession end: write `[m] then <target>;` for the source end or `then [m] <target>;` for the target end"
+const msgActionBodyMultiplicity = "a multiplicity in an action body belongs to a succession end: write `[m] then <target>;` for the source end, `then [m] <target>;` for the target end, or `first [m] <source> then [n] <target>;` for both"
 
 func (p *Parser) parseSourceMultiplicitySuccession() (ast.Node, bool) {
 	if !p.at(lexer.LBracket) {
@@ -545,9 +545,10 @@ func (p *Parser) parseActionMember() ast.Node {
 		return p.parseFinalNode(p.advance())
 	}
 
-	// A `first` end reached through a feature chain is a SuccessionAsUsage
-	// rather than an initial node, whose member element is a plain name.
-	if p.atChainedFirstSuccession() {
+	// A `first` end reached through a feature chain or carrying a crossing
+	// multiplicity is a SuccessionAsUsage rather than an initial node, whose
+	// member element is a plain name.
+	if p.atChainedFirstSuccession() || p.atMultiplicityFirstSuccession() {
 		return p.parseSuccessionAsUsage(start)
 	}
 
