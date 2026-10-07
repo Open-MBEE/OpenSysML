@@ -20,6 +20,10 @@ import urllib.request
 
 from ._version import VERSION
 
+# Permissions of an installed kernel binary: its owner writes it, everyone
+# runs it, as a system-wide kernelspec needs.
+BINARY_MODE = 0o755
+
 DEFAULT_GITHUB_REPO = "Open-MBEE/OpenSysML"
 GITHUB_REPO_ENV = "OPENSYSML_GITHUB_REPO"
 
@@ -156,7 +160,7 @@ def wheel_platform_tag(goos: str, goarch: str) -> str:
         raise UnsupportedPlatformError(f"no kernel is released for {goos}-{goarch}") from None
 
 
-def built_against_releases(version: str | None = None, github_repo: str | None = None) -> tuple[str, ...]:
+def built_against_releases(version: str | None = None, github_repo: str | None = None) -> list[str]:
     """The release tags a version of this package (by default, this one) was built against.
 
     A release version names its tag; a pre-release both spellings the tag may
@@ -167,19 +171,19 @@ def built_against_releases(version: str | None = None, github_repo: str | None =
         version = VERSION
     match = _VERSION_FORM.fullmatch(version)
     if match is None:
-        return (f"v{version}",)
+        return [f"v{version}"]
     if match["snapshot"] is not None:
         repo = github_repo or default_github_repo()
         prefix = f"{SNAPSHOT_TAG}-{match['snapshot']}-"
-        pinned = tuple(sorted(tag for tag in PINNED_SHA256.get(repo, {}) if tag.startswith(prefix)))
-        return pinned or (SNAPSHOT_TAG,)
+        pinned = sorted(tag for tag in PINNED_SHA256.get(repo, {}) if tag.startswith(prefix))
+        return pinned or [SNAPSHOT_TAG]
     if match["phase"] is None:
-        return (f"v{match['release']}",)
+        return [f"v{match['release']}"]
     suffix = _SEMVER_PHASE[match["phase"]]
-    return (
+    return [
         f"v{match['release']}-{suffix}{match['number']}",
         f"v{match['release']}-{suffix}.{match['number']}",
-    )
+    ]
 
 
 def pinned_digest(version: str, asset: str, github_repo: str | None = None) -> str | None:
@@ -301,7 +305,7 @@ def write_binary(data: bytes, path: str) -> str:
     try:
         with os.fdopen(fd, "wb") as f:
             f.write(data)
-        os.chmod(tmp, 0o755)
+        os.chmod(tmp, BINARY_MODE)
         os.replace(tmp, path)
     except BaseException:
         try:

@@ -24,7 +24,7 @@ import tempfile
 from typing import Any
 
 from ._version import VERSION
-from .binary import KernelBinaryError, binary_name, bundled_binary, download_binary
+from .binary import BINARY_MODE, KernelBinaryError, binary_name, bundled_binary, download_binary
 
 KERNEL_NAME = "sysml"
 DISPLAY_NAME = "SysML v2 (OpenSysML)"
@@ -32,6 +32,8 @@ LANGUAGE = "sysml"
 IMPLEMENTATION = "sysml-jupyter-kernel"
 PACKAGE = "jupyter-opensysml-kernel"
 SPEC_FILE = "kernel.json"
+# Permissions of kernel.json and the logos: owner writes, everyone reads.
+SPEC_MODE = 0o644
 LOGO_FILES = ("logo-32x32.png", "logo-64x64.png")
 
 # One directory name under the kernels directory: no path, and no name beginning
@@ -90,7 +92,7 @@ def stage_binary(binary: str, staging_dir: str) -> str:
         raise KernelBinaryError(f"{binary} is not executable")
     dest = os.path.join(staging_dir, binary_name())
     shutil.copyfile(binary, dest)
-    os.chmod(dest, os.stat(dest).st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
+    os.chmod(dest, BINARY_MODE)
     return dest
 
 
@@ -99,6 +101,7 @@ def _write_json(spec: dict[str, Any], staging_dir: str) -> str:
     with open(path, "w", encoding="utf-8") as f:
         json.dump(spec, f, indent=2, sort_keys=True)
         f.write("\n")
+    os.chmod(path, SPEC_MODE)
     return path
 
 

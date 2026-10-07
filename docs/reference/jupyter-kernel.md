@@ -145,8 +145,11 @@ and installs the kernelspec as shared data at `<prefix>/share/jupyter/kernels/sy
 for the Python environment it runs in. That `kernel.json` starts
 `python -m jupyter_opensysml_kernel -connection-file {connection_file}`; given the kernel's
 own single-dash flags, the module replaces itself with the bundled binary (`execv`; a child
-process on Windows), so the kernel runs with no second step and no network. The sdist, which
-`pip` builds where no wheel applies, bundles nothing and registers nothing.
+process on Windows), so the kernel runs with no second step and no network. It passes on
+only `-connection-file FILE` (the file must exist), `-verbose`, `-version`, `-man` and
+`-print-kernelspec`, and refuses any other argument; the native `-install` flags have no
+place there, as the `install` subcommand below is the package's way to the same end. The
+sdist, which `pip` builds where no wheel applies, bundles nothing and registers nothing.
 
 ```bash
 python -m jupyter_opensysml_kernel install [--user | --sys-prefix | --prefix DIR | --system]
