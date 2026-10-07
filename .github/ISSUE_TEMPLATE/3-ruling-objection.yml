@@ -9,7 +9,7 @@ body:
         divergence, or a design decision — and the argument is about whether it should be that way.
         The rulings live in
         [spec-compliance](https://implementation.opensysml.org/project/spec-compliance/),
-        [OMG materials defects](https://implementation.opensysml.org/project/omg-issues/) and the
+        [OMG materials defects](https://github.com/Open-MBEE/OpenSysML/blob/develop/docs/project/omg-issues.md) and the
         decision records under [project/](https://implementation.opensysml.org/project/).
 
   - type: input

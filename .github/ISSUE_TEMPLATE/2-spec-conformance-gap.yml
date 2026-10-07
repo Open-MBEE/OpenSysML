@@ -6,7 +6,7 @@ body:
     attributes:
       value: |
         Please check [the compliance record](https://implementation.opensysml.org/project/spec-compliance/)
-        and [the OMG-materials defect list](https://implementation.opensysml.org/project/omg-issues/)
+        and [the OMG-materials defect list](https://github.com/Open-MBEE/OpenSysML/blob/develop/docs/project/omg-issues.md)
         first — a known divergence is usually already a row there, with the reasoning behind it.
 
   - type: textarea
