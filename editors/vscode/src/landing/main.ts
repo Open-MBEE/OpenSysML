@@ -316,8 +316,12 @@ function mount(root: HTMLElement): Mounted {
   function decorate(): void {
     for (const group of content.querySelectorAll<SVGGElement>("g.opensysml-node")) {
       const part = partOf(group.dataset.opensysmlId ?? "");
-      // A nested part moves with its project, whose group encloses it.
-      if (!part || part.owner !== undefined) {
+      if (!part) {
+        continue;
+      }
+      // A nested part is drawn beside its project's group, not inside it, so it takes the pointer itself.
+      if (part.owner !== undefined) {
+        group.classList.add("osml-nested");
         continue;
       }
       group.classList.add("osml-part");
@@ -686,9 +690,25 @@ function mount(root: HTMLElement): Mounted {
     }
   }
 
+  // partGroup is the project at target: the part there, or the one a nested part there is drawn in.
   function partGroup(target: EventTarget | null): SVGGElement | undefined {
-    const group = (target as Element | null)?.closest?.<SVGGElement>("g.opensysml-node.osml-part");
-    return group && content.contains(group) ? group : undefined;
+    const group = (target as Element | null)?.closest?.<SVGGElement>("g.opensysml-node");
+    if (!group || !content.contains(group)) {
+      return undefined;
+    }
+    let id = group.dataset.opensysmlId ?? "";
+    for (let node = result.nodes.find((n) => n.id === id); node?.parent !== undefined; ) {
+      id = node.parent;
+      node = result.nodes.find((n) => n.id === id);
+    }
+    const project = groupOf(id);
+    return project?.classList.contains("osml-part") ? project : undefined;
+  }
+
+  // cardGroup is the innermost part at target, nested or not: a card shows any part's model.
+  function cardGroup(target: EventTarget | null): SVGGElement | undefined {
+    const group = (target as Element | null)?.closest?.<SVGGElement>("g.opensysml-node");
+    return group && content.contains(group) && partOf(group.dataset.opensysmlId ?? "") ? group : undefined;
   }
 
   function endGesture(cancelled: boolean): void {
@@ -779,7 +799,7 @@ function mount(root: HTMLElement): Mounted {
     }
   });
   on(svg, "contextmenu", (event) => {
-    const group = partGroup(event.target);
+    const group = cardGroup(event.target);
     if (!group) {
       return;
     }
