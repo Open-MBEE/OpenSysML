@@ -1,0 +1,1 @@
+- **The landing page's stack diagram now labels the Go project "OpenSysML Runtime Environment".** The box's label in `docs/assets/opensysml-stack.sysml`, and so the diagram the in-browser engine draws from it, names the project's role rather than repeating the site's own name.

@@ -1,5 +1,5 @@
 {
-  "hash": "fec4e28ccd5c8e3dac2a96e737c1354f338f6c98d03fd5886834e369b6ce6ce3",
+  "hash": "894be0a2ec435392d6bc76ad5becb8c2ddc21c963e191932b711c405fb13c1f7",
   "render": {
     "view": "",
     "kind": "interconnection",
@@ -584,7 +584,7 @@
         "label": {
           "featureName": "label",
           "value": {
-            "stringValue": "OpenSysML"
+            "stringValue": "OpenSysML Runtime Environment"
           },
           "materialized": true
         },

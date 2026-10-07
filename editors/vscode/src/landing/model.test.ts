@@ -49,7 +49,7 @@ test("landingModel keeps the four ported project parts and their interface edges
     model.render.edges.map((edge) => edge.label).sort(),
     ["opensysml_flexo", "pilot_flexo", "toolkit_flexo"],
   );
-  assert.equal(model.parts.get("opensysml")?.attrs.label, "OpenSysML");
+  assert.equal(model.parts.get("opensysml")?.attrs.label, "OpenSysML Runtime Environment");
 });
 
 test("readModel returns parse diagnostics without requesting a rendering", () => {

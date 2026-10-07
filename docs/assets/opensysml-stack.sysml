@@ -22,7 +22,7 @@ package OpenSysMLStack {
 
     part stack {
         part opensysml : Project {
-            :>> label = "OpenSysML";
+            :>> label = "OpenSysML Runtime Environment";
             :>> kind = "runtime";
             :>> lang = "Go";
             :>> role = "runtime + LSP";
