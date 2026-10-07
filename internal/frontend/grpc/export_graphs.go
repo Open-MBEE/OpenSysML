@@ -46,7 +46,7 @@ func (s *Service) ExportGraphs(ctx context.Context, req *pb.ExportGraphsRequest)
 	}
 	return &pb.ExportGraphsResponse{
 		Content: string(raw),
-		Version: int32(graphs.Version),
+		Version: int32(graphs.Version), // #nosec G115 -- the form version is a small constant
 		Subject: graphs.Subject,
 	}, nil
 }
