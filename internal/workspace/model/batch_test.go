@@ -422,7 +422,7 @@ func TestOpenAllKeepsAChangeMadeWhileItParsed(t *testing.T) {
 	ws.Remove("d.sysml")
 	ws.Open("e.sysml", []byte("package E { part def Opened; }"), 1)
 	ws.Remove("e.sysml")
-	ws.commitBatch(was, docs)
+	ws.commitBatch(was, docs, true)
 
 	if doc := ws.Document("a.sysml"); doc == nil || doc.Version != 3 {
 		t.Errorf("a.sysml should keep the edit made while the batch parsed, got %+v", doc)
