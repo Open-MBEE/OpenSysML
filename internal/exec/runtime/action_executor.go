@@ -3065,7 +3065,32 @@ func performerSuffix(self *Instance) string {
 // runs the statements lowering recorded for it, then leaves for its successor.
 func (e *ActionExecutor) stepStatementNode(tokenIdx int) error {
 	token := e.tokens[tokenIdx]
-	return e.runBody(tokenIdx, &statementWork{exec: e, token: token.ID, frame: token.frame, node: token.Location})
+	step := e.beginStatementStep(token.frame, token.Location)
+	return e.runBody(tokenIdx, &statementWork{exec: e, token: token.ID, frame: token.frame, node: token.Location, step: step})
+}
+
+// beginStatementStep is a token's step of a statement node in frame: a transparent performance
+// owning what the step's body performs, so a `terminate` there names the step's own.
+func (e *ActionExecutor) beginStatementStep(frame *actionFrame, node ast.Node) *actionFrame {
+	scope := frame.graph.Scopes[node]
+	if scope == nil {
+		scope = frame.scope
+	}
+	return &actionFrame{
+		node:        node,
+		flow:        frame.graph,
+		scope:       scope,
+		parent:      frame,
+		connections: frame.connections,
+		data:        make(map[string]Value),
+		features:    make(map[string]ast.FeatureDirection),
+		subactions:  make(map[ast.Node]*actionFrame),
+		perfs:       &e.performances,
+		run:         frame.run,
+		began:       e.ctx.newActivation(),
+		label:       frame.describe(),
+		body:        true,
+	}
 }
 
 // leaveStatementNode takes the token at tokenIdx on from node, retiring it where
