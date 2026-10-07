@@ -56,7 +56,8 @@ func printKernelspec(spec kernelspec) int {
 	return 0
 }
 
-// installKernelspec writes the kernelspec where Jupyter finds kernels.
+// installKernelspec writes the kernelspec, kernel.json and the logos, where
+// Jupyter finds kernels.
 func installKernelspec(opts *options, spec kernelspec) int {
 	if opts.user && opts.prefix != "" {
 		fmt.Fprintf(os.Stderr, "%s -user and -prefix name different places; give one\n", errPrefix)
@@ -80,6 +81,10 @@ func installKernelspec(opts *options, spec kernelspec) int {
 	}
 	// #nosec G306 -- see above.
 	if err := os.WriteFile(filepath.Join(target, "kernel.json"), append(raw, '\n'), 0o644); err != nil {
+		fmt.Fprintln(os.Stderr, errPrefix, err)
+		return 1
+	}
+	if err := writeLogos(target); err != nil {
 		fmt.Fprintln(os.Stderr, errPrefix, err)
 		return 1
 	}

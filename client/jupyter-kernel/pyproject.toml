@@ -55,7 +55,7 @@ version = { attr = "jupyter_opensysml_kernel._version.VERSION" }
 include = ["jupyter_opensysml_kernel*"]
 
 [tool.setuptools.package-data]
-jupyter_opensysml_kernel = ["release-digests.json", "py.typed"]
+jupyter_opensysml_kernel = ["release-digests.json", "py.typed", "logo-*.png"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

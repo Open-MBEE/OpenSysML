@@ -58,6 +58,9 @@ def test_a_local_binary_is_installed_instead_of_a_download(release, local_binary
     assert release.requests == []
     mode = os.stat(os.path.join(path, binary.binary_name())).st_mode
     assert mode & stat.S_IXUSR
+    for name in kernelspec.LOGO_FILES:
+        with open(os.path.join(path, name), "rb") as f:
+            assert f.read(8) == b"\x89PNG\r\n\x1a\n"
 
 
 def test_a_binary_that_is_not_executable_is_refused(release, tmp_path):

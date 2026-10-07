@@ -25,8 +25,8 @@ jupyter kernelspec list        # lists sysml
 `install` downloads the release's `sysml-jupyter-kernel` binary for your platform (Linux
 x64 and arm64, macOS Intel and Apple Silicon, Windows x64) and checks it against the SHA-256
 digest the package was built with, so a mirror or a tampered download is refused before
-anything is written. The binary is installed inside the kernelspec directory, so
-`jupyter kernelspec remove sysml` removes everything. Inside a virtual environment or a conda
+anything is written. The binary is installed inside the kernelspec directory, with the
+OpenSysML mark as the kernel's icon, so `jupyter kernelspec remove sysml` removes everything. Inside a virtual environment or a conda
 environment the kernelspec belongs to that environment; elsewhere it is installed for your
 user. `--user`, `--sys-prefix` and `--prefix DIR` choose explicitly:
 

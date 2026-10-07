@@ -1,7 +1,7 @@
 """The `sysml` kernelspec, and installing it where Jupyter looks.
 
 A kernelspec is a directory holding a `kernel.json`; this one also holds the
-kernel binary, so `jupyter kernelspec remove sysml` removes everything the
+kernel binary and the logos front ends show for the kernel, so `jupyter kernelspec remove sysml` removes everything the
 install wrote. The command line in `kernel.json` names the binary through the
 `{resource_dir}` placeholder Jupyter substitutes with the directory the spec
 was found in, so the spec can be installed per user, into a prefix, or copied.
@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import json
 import os
+from importlib import resources
 import shutil
 import stat
 import sys
@@ -26,6 +27,7 @@ LANGUAGE = "sysml"
 IMPLEMENTATION = "sysml-jupyter-kernel"
 PACKAGE = "jupyter-opensysml-kernel"
 SPEC_FILE = "kernel.json"
+LOGO_FILES = ("logo-32x32.png", "logo-64x64.png")
 
 
 def kernel_json(binary_file: str, display_name: str = DISPLAY_NAME) -> dict[str, Any]:
@@ -63,6 +65,17 @@ def write_spec(staging_dir: str, binary_path: str, display_name: str = DISPLAY_N
         json.dump(spec, f, indent=2, sort_keys=True)
         f.write("\n")
     return path
+
+
+def write_logos(staging_dir: str) -> list[str]:
+    """Put the OpenSysML mark beside `kernel.json`, at the sizes front ends read."""
+    written = []
+    for name in LOGO_FILES:
+        path = os.path.join(staging_dir, name)
+        with open(path, "wb") as f:
+            f.write(resources.files(__package__).joinpath(name).read_bytes())
+        written.append(path)
+    return written
 
 
 def default_location() -> dict[str, Any]:
@@ -115,6 +128,7 @@ def install(
         else:
             staged = download_binary(staging, version=version, github_repo=github_repo)
         write_spec(staging, staged, display_name)
+        write_logos(staging)
         destination: str = KernelSpecManager().install_kernel_spec(
             staging, kernel_name=name, user=user, prefix=prefix
         )
