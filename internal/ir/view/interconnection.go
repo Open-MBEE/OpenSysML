@@ -55,19 +55,21 @@ func (r *Renderer) renderInterconnectionWithIDs(view *symbols.Symbol, exposed []
 		seen[connector] = true
 		w.connectionEdges(connector)
 	}
+	w.valueBindingEdges()
 	return w.nodes
 }
 
 // featureWalk is one interconnection rendering's walk over the exposed features:
-// the nodes rendered so far, by the feature each draws, and the connectors
-// collected along the way. pins is the ports a feature has from its type
-// without declaring them, drawn on the border of its node, by node and port;
-// parent is the node each nested node is drawn in.
+// the nodes rendered so far, by the feature each draws and in drawing order, and
+// the connectors collected along the way. pins is the ports a feature has from
+// its type without declaring them, drawn on the border of its node, by node and
+// port; parent is the node each nested node is drawn in.
 type featureWalk struct {
 	r          *Renderer
 	view       *symbols.Symbol
 	ids        *nodeIDs
 	nodes      map[*symbols.Symbol]*Node
+	drawn      []*symbols.Symbol
 	pins       map[*Node]map[*symbols.Symbol]string
 	parent     map[*Node]*Node
 	connectors []*symbols.Symbol
@@ -109,6 +111,7 @@ func (w *featureWalk) featureNode(sym *symbols.Symbol, seen map[*symbols.Symbol]
 		return node
 	}
 	w.nodes[sym] = node
+	w.drawn = append(w.drawn, sym)
 	w.pinPorts(node, sym)
 	r.notesOf(w.view, sym, node.ID, w.out)
 	if seen[sym] || depth >= r.treeDepth() {
@@ -216,6 +219,56 @@ func (w *featureWalk) connectionEdges(connector *symbols.Symbol) {
 			})
 		}
 	}
+}
+
+// valueBindingEdges adds an edge for each drawn feature whose value is another
+// feature: `attribute :>> observed = analysed.t` binds the two (a FeatureValue is
+// a binding, KerML 7.4.9), so it is drawn as a binding when the rendering shows
+// the feature the value names — that feature's own node first, else where a
+// connector end naming it would attach. A value nothing drawn stands for, a
+// literal or a statistic of a library case, draws no edge.
+func (w *featureWalk) valueBindingEdges() {
+	r, out := w.r, w.out
+	for _, sym := range w.drawn {
+		value := featureValue(sym)
+		if value == nil {
+			continue
+		}
+		from := w.nodes[sym]
+		target, resolved := r.resolver.ResolveTarget(sym.OwnerScope, value)
+		if !resolved {
+			continue
+		}
+		at := edgeEnd{node: w.nodes[target]}
+		if at.node == nil {
+			at = w.endNode(sym, value)
+		}
+		if at.node == nil || at.node == from {
+			continue
+		}
+		route, style := r.routeOf(w.view, sym, out), r.edgeDress(w.view, sym, from.ID, at.node.ID, out)
+		out.Edges = append(out.Edges, Edge{
+			From: from.ID, To: at.node.ID, ToPort: at.port, Label: bindingKeyword, Kind: EdgeBinding,
+			Origin: symbolOrigin(sym), Route: route, Style: style,
+		})
+	}
+}
+
+// bindingKeyword labels a binding edge no name of its own labels.
+const bindingKeyword = "binding"
+
+// featureValue is the feature a usage's value names — a feature reference or
+// chain — nil for a usage with no value or one computed from an expression.
+func featureValue(sym *symbols.Symbol) ast.Node {
+	usage, ok := sym.Decl.(*ast.Usage)
+	if !ok || usage.Value == nil {
+		return nil
+	}
+	switch usage.Value.(type) {
+	case *ast.FeatureReference, *ast.FeatureChainExpr:
+		return usage.Value
+	}
+	return nil
 }
 
 // connectorEnd is one end of a connection as the rendering reads it: the node
@@ -403,8 +456,9 @@ func isFlowUsage(sym *symbols.Symbol) bool {
 }
 
 // featureLike reports whether an element is a feature an interconnection
-// rendering shows as a node: the structural elements a system is built from.
-// Behaviors, views and namespaces are not, and are reported rather than drawn.
+// rendering shows as a node: the structural elements a system is built from, and
+// the analysis cases bound to their values, which a parametric view draws beside
+// them. Behaviors, views and namespaces are not, and are reported rather than drawn.
 func featureLike(sym *symbols.Symbol) bool {
 	switch sym.Kind {
 	case symbols.SymbolPartDef, symbols.SymbolPartUsage,
@@ -415,6 +469,7 @@ func featureLike(sym *symbols.Symbol) bool {
 		symbols.SymbolAttributeDef, symbols.SymbolAttributeUsage, symbols.SymbolReferenceUsage,
 		symbols.SymbolEnumerationDef, symbols.SymbolEnumerationUsage,
 		symbols.SymbolInterfaceDef, symbols.SymbolConnectionDef, symbols.SymbolAllocationDef,
+		symbols.SymbolAnalysisCaseDef, symbols.SymbolAnalysisCaseUsage,
 		symbols.SymbolKerMLType:
 		return true
 	}
