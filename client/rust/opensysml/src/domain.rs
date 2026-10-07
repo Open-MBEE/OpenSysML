@@ -3,6 +3,7 @@ use std::fmt;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
+use crate::rational::Rational;
 use crate::{error::Error, wire, Connection};
 
 /// Language accepted by the parser.
@@ -172,13 +173,15 @@ impl Diagnostic {
     }
 }
 
-/// An integer or real quantity magnitude.
+/// An integer, rational or real quantity magnitude.
 #[derive(Clone, Debug, PartialEq)]
 pub enum Magnitude {
     /// An exact integer magnitude within `i64`.
     Integer(i64),
     /// An exact integer magnitude beyond `i64`.
     BigInteger(BigInteger),
+    /// An exact rational magnitude no `f64` holds.
+    Rational(Rational),
     /// A floating-point magnitude.
     Real(f64),
 }
@@ -269,6 +272,7 @@ impl fmt::Display for Magnitude {
         match self {
             Self::Integer(n) => n.fmt(f),
             Self::BigInteger(n) => n.fmt(f),
+            Self::Rational(q) => q.fmt(f),
             Self::Real(r) => r.fmt(f),
         }
     }
@@ -655,6 +659,8 @@ pub enum Value {
     Integer(i64),
     /// Integer value beyond `i64`.
     BigInteger(BigInteger),
+    /// Exact Rational value no `f64` holds.
+    Rational(Rational),
     /// Real value.
     Real(f64),
     /// Complex value.
@@ -728,9 +734,14 @@ impl Value {
             return self.is_absent() && other.is_absent();
         }
         match (self, other) {
-            (Value::Integer(_) | Value::BigInteger(_) | Value::Real(_) | Value::Complex(_), _) => {
-                numbers_equal(self, other)
-            }
+            (
+                Value::Integer(_)
+                | Value::BigInteger(_)
+                | Value::Rational(_)
+                | Value::Real(_)
+                | Value::Complex(_),
+                _,
+            ) => numbers_equal(self, other),
             (Value::Sequence(a), Value::Sequence(b)) => sequences_equal(a, b),
             (Value::Quantity(a), Value::Quantity(b)) => quantities_equal(a, b),
             (Value::Array(a), Value::Array(b)) => {
@@ -791,6 +802,7 @@ fn numbers_equal(a: &Value, b: &Value) -> bool {
         Value::Complex(z) if z.imaginary == 0.0 => Some(Magnitude::Real(z.real)),
         Value::Integer(n) => Some(Magnitude::Integer(*n)),
         Value::BigInteger(n) => Some(Magnitude::BigInteger(n.clone())),
+        Value::Rational(q) => Some(Magnitude::Rational(q.clone())),
         Value::Real(r) => Some(Magnitude::Real(*r)),
         _ => None,
     };
@@ -811,6 +823,12 @@ fn magnitudes_equal(a: &Magnitude, b: &Magnitude) -> bool {
         | (Magnitude::Real(r), Magnitude::BigInteger(n)) => n.equals_real(*r),
         (Magnitude::Integer(_), Magnitude::BigInteger(_))
         | (Magnitude::BigInteger(_), Magnitude::Integer(_)) => false,
+        (Magnitude::Rational(x), Magnitude::Rational(y)) => x == y,
+        // A Rational meets a Real at Real precision, as the service compares them.
+        (Magnitude::Rational(q), Magnitude::Real(r))
+        | (Magnitude::Real(r), Magnitude::Rational(q)) => q.to_f64() == *r,
+        // A rational is never whole, so it is no Integer.
+        (Magnitude::Rational(_), _) | (_, Magnitude::Rational(_)) => false,
     }
 }
 
@@ -864,21 +882,24 @@ fn base_magnitude(magnitude: &Magnitude, term: &UnitTerm) -> f64 {
     let m = match magnitude {
         Magnitude::Integer(n) => *n as f64,
         Magnitude::BigInteger(n) => n.to_f64(),
+        Magnitude::Rational(q) => q.to_f64(),
         Magnitude::Real(r) => *r,
     };
     m * term.scale_num / term.scale_den
 }
 
 // The base magnitude as an exact rational (numerator, denominator), while an
-// integer magnitude scales by whole factors that fit.
+// integer or rational magnitude scales by whole factors that fit.
 fn exact_base_magnitude(q: &Quantity) -> Option<ExactRational> {
-    let Magnitude::Integer(n) = q.magnitude else {
-        return None;
+    let (n, d): (i128, i128) = match &q.magnitude {
+        Magnitude::Integer(n) => (i128::from(*n), 1),
+        Magnitude::Rational(r) => (r.numerator().parse().ok()?, r.denominator().parse().ok()?),
+        _ => return None,
     };
     let term = q.unit_term.as_ref()?;
     let num = i128::from(whole(term.scale_num)?);
     let den = i128::from(whole(term.scale_den)?);
-    Some(ExactRational::new(i128::from(n).checked_mul(num)?, den))
+    Some(ExactRational::new(n.checked_mul(num)?, d.checked_mul(den)?))
 }
 
 fn whole(scale: f64) -> Option<i64> {
@@ -930,6 +951,7 @@ pub(crate) fn value_from_wire(value: wire::Value) -> Result<Value, Error> {
     match kind {
         wire::value::Kind::IntValue(v) => Ok(Value::Integer(v)),
         wire::value::Kind::BigIntValue(v) => Ok(Value::BigInteger(BigInteger::parse(&v)?)),
+        wire::value::Kind::RationalValue(v) => Ok(Value::Rational(rational_from_wire(&v)?)),
         wire::value::Kind::RealValue(v) => Ok(Value::Real(v)),
         wire::value::Kind::Complex(v) => Ok(Value::Complex(Complex {
             real: v.real,
@@ -964,6 +986,9 @@ pub(crate) fn value_from_wire(value: wire::Value) -> Result<Value, Error> {
                     Some(wire::value::Kind::IntValue(value)) => Ok(Magnitude::Integer(value)),
                     Some(wire::value::Kind::BigIntValue(value)) => {
                         Ok(Magnitude::BigInteger(BigInteger::parse(&value)?))
+                    }
+                    Some(wire::value::Kind::RationalValue(value)) => {
+                        Ok(Magnitude::Rational(rational_from_wire(&value)?))
                     }
                     Some(wire::value::Kind::RealValue(value)) => Ok(Magnitude::Real(value)),
                     other => Err(Error::Decode(format!(
@@ -1049,6 +1074,7 @@ fn kind_name(kind: &wire::value::Kind) -> &'static str {
     match kind {
         wire::value::Kind::IntValue(_) => "int_value",
         wire::value::Kind::BigIntValue(_) => "big_int_value",
+        wire::value::Kind::RationalValue(_) => "rational_value",
         wire::value::Kind::RealValue(_) => "real_value",
         wire::value::Kind::BoolValue(_) => "bool_value",
         wire::value::Kind::StringValue(_) => "string_value",
@@ -1110,11 +1136,25 @@ fn unit_term_from_wire(term: wire::UnitTerm) -> UnitTerm {
     }
 }
 
+pub(crate) fn rational_from_wire(v: &wire::Rational) -> Result<Rational, Error> {
+    Rational::parse_canonical(&v.numerator, &v.denominator)
+}
+
+pub(crate) fn rational_to_wire(q: &Rational) -> wire::Rational {
+    wire::Rational {
+        numerator: q.numerator().to_owned(),
+        denominator: q.denominator().to_owned(),
+    }
+}
+
 pub(crate) fn quantity_from_wire(v: wire::Quantity) -> Result<Quantity, Error> {
     let magnitude = match v.magnitude {
         Some(wire::quantity::Magnitude::IntMagnitude(value)) => Magnitude::Integer(value),
         Some(wire::quantity::Magnitude::BigIntMagnitude(value)) => {
             Magnitude::BigInteger(BigInteger::parse(&value)?)
+        }
+        Some(wire::quantity::Magnitude::RationalMagnitude(value)) => {
+            Magnitude::Rational(rational_from_wire(&value)?)
         }
         Some(wire::quantity::Magnitude::RealMagnitude(value)) => Magnitude::Real(value),
         None => return Err(Error::Decode("Quantity has no magnitude".to_owned())),
@@ -2202,6 +2242,7 @@ mod tests {
     #[test]
     fn same_value_judges_numbers_by_value() {
         let z = |real, imaginary| Value::Complex(Complex { real, imaginary });
+        let rational = |n, d| Value::Rational(Rational::parse(n, d).unwrap());
         let metre = |magnitude| {
             Value::Quantity(Quantity {
                 magnitude,
@@ -2238,6 +2279,18 @@ mod tests {
             (Value::Integer(2), z(2.0, 0.0), true),
             (Value::Integer(2), z(2.0, 1.0), false),
             (z(2.0, 1.0), z(2.0, 1.0), true),
+            (rational("1", "3"), Value::Real(1.0 / 3.0), true),
+            (rational("1", "3"), Value::Real(0.3333), false),
+            (
+                rational("1", "3"),
+                rational("6004799503160661", "18014398509481984"),
+                false,
+            ),
+            (
+                metre(Magnitude::Rational(Rational::parse("1", "3").unwrap())),
+                metre(Magnitude::Real(1.0 / 3.0)),
+                true,
+            ),
             (Value::Integer(1), Value::Boolean(true), false),
             (Value::Integer(1), Value::Text("1".to_owned()), false),
             (

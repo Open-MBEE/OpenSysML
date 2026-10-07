@@ -100,6 +100,7 @@ than a message with optional fields:
 switch (value.kind) {
   case "int":      value.value;                  // bigint, never lossy, beyond int64 too
   case "real":     value.value;                  // number
+  case "rational": value.numerator; value.denominator;  // bigint terms: exact; answered only when no double holds it, sent as rationalValue always
   case "complex":  value.value.real; value.value.imaginary;  // one value, not two floats
   case "boolean":
   case "string":   value.value;
@@ -245,7 +246,8 @@ Beside the model reads above, the client covers every RPC the service offers:
   `save(migration, path)` writes beside the notation; a v2 `fromFormat` is refused
   with a pointer at `convert`;
 - **`model.query`** (OSLC or structured), **`model.runDocumentQuery`** with
-  `ElementRef`/`ObjectRef` bindings, **`model.renderDocument`** to Markdown or HTML;
+  `ElementRef`/`ObjectRef` bindings, **`model.renderDocument`** to Markdown or
+  HTML, and **`model.renderView`** for typed view data with minimal or full ports;
 - **`model.executeAction`/`executeState`** for runs and
   **`exploreAction`/`exploreState`/`exploreAnalysis`** for explorations of every
   schedule — the two families refuse each other's `schedule`, as the wire does.

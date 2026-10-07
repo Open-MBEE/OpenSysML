@@ -68,6 +68,11 @@ let external = Connection::external("localhost", 50051)?; // a service someone e
 | `apply_edits(hash, document, operations)` | one atomic batch of source-preserving edits |
 | `call(method, request)` | sends any `opensysml::wire` request message, for a field not yet wrapped |
 
+`Model::render_view(name, RenderViewPorts::Minimal)` returns a typed
+`RenderedView`; use `RenderViewPorts::Full` to include every declared port.
+Unset geometry, style and canvas are represented as absent optionals. The RPC
+requires the `render_view` capability.
+
 A private child is started with `-port 0 -health-port 0 -report-address
 -exit-with-parent` and its address read from its first stdout line, so no port is
 chosen or probed. One child serves the process, so its parse cache is shared, and
@@ -156,12 +161,13 @@ the elements that still refer to it.
 match value {
     Value::Integer(v) => (),
     Value::Real(v) => (),
+    Value::Rational(r) => (),          // exact; answered only when no f64 holds it, sent as rational_value always: r.numerator(), r.denominator() as decimal text; r.to_f64() rounds once
     Value::Complex(z) => (),           // z.real, z.imaginary; one value, Display as `1.5 - 2.0i`
     Value::Boolean(v) => (),
     Value::Text(v) => (),
     Value::InstanceRef(id) => (),
     Value::Sequence(values) => (),
-    Value::Quantity(q) => (),          // Magnitude::Integer | ::Real, unit, unit_term
+    Value::Quantity(q) => (),          // Magnitude::Integer | ::BigInteger | ::Rational | ::Real, unit, unit_term
     Value::Array(a) => (),             // a.dimensions(), a.elements() row-major, a.get(&[i, j])
     Value::Vector(v) => (),            // v.components: Vec<Magnitude>, Integer and Real apart
     Value::VectorQuantity(q) => (),    // q.components(): one Quantity per component; q.unit() when shared

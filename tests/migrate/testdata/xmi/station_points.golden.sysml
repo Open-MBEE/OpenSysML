@@ -10,7 +10,7 @@ item def Stop;
 item def Pair;
 item def Split;
 item def Bump;
-part def Station {
+occurrence def Station {
     attribute trace : ScalarValues::Integer default = 0;
     state def Cycle {
         in ref context : Station[1];

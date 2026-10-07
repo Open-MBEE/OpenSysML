@@ -704,7 +704,7 @@ func (c *featureReferenceChecker) checkDeclaredChains(sym *symbols.Symbol, d *as
 		}
 	}
 	for _, end := range w8dConnectorEndTargets(d) {
-		if d.FlowEnds != nil && (end == d.FlowEnds.From || end == d.FlowEnds.To) {
+		if d.FlowEnds != nil && (end == ast.EndTarget(d.FlowEnds.From) || end == ast.EndTarget(d.FlowEnds.To)) {
 			if chain, ok := end.(*ast.FeatureChainExpr); ok {
 				c.checkChainTarget(sym.OwnerScope, chain.Operand)
 			}

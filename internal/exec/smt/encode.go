@@ -362,7 +362,7 @@ func (e *Encoding) collectFlows(node ast.Node) error {
 			continue
 		}
 		p := &solve.Var{Name: "pending(" + target.Name + ")", Sort: target.Sort, Symbol: target.Symbol,
-			Dimension: target.Dimension, Unit: target.Unit}
+			Dimension: target.Dimension, Unit: target.Unit, Binary64: target.Binary64}
 		e.pending[target.Name] = p
 		e.features[p.Name] = p
 		e.flagged[p.Name] = true
@@ -1318,7 +1318,7 @@ func (e *Encoding) begin(x *nodeEffect, node ast.Node, where string) error {
 		}
 		e.fresh++
 		v := &solve.Var{Name: fmt.Sprintf("%s@%s#%d", name, where, e.fresh), Sort: p.v.Sort,
-			Symbol: p.v.Symbol, Dimension: p.v.Dimension, Unit: p.v.Unit}
+			Symbol: p.v.Symbol, Dimension: p.v.Dimension, Unit: p.v.Unit, Binary64: p.v.Binary64}
 		e.declare(v)
 		e.assert(eq(solve.VarTerm(v), value), "start of "+name)
 		x.env.values[name] = solve.VarTerm(v)
@@ -1584,7 +1584,7 @@ func (e *Encoding) write(x *nodeEffect, path *solve.Term, target *solve.Var, val
 	}
 	e.fresh++
 	v := &solve.Var{Name: fmt.Sprintf("%s@%s#%d", target.Name, where, e.fresh), Sort: target.Sort,
-		Symbol: target.Symbol, Dimension: target.Dimension, Unit: target.Unit}
+		Symbol: target.Symbol, Dimension: target.Dimension, Unit: target.Unit, Binary64: target.Binary64}
 	e.declare(v)
 	e.assert(eq(solve.VarTerm(v), value), "write to "+target.Name)
 	x.env.write(target.Name, solve.VarTerm(v))
@@ -1602,7 +1602,8 @@ func (e *Encoding) merge(cond *solve.Term, then, otherwise *env, where string) *
 		}
 		e.fresh++
 		v := &solve.Var{Name: fmt.Sprintf("%s@%s#%d", name, where, e.fresh), Sort: a.Sort,
-			Symbol: e.features[name].Symbol, Dimension: e.features[name].Dimension, Unit: e.features[name].Unit}
+			Symbol: e.features[name].Symbol, Dimension: e.features[name].Dimension, Unit: e.features[name].Unit,
+			Binary64: e.features[name].Binary64}
 		e.declare(v)
 		e.assert(eq(solve.VarTerm(v), ite(cond, a, b)), "merge of "+name)
 		merged.values[name] = solve.VarTerm(v)

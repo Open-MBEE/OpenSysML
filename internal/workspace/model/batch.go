@@ -284,13 +284,14 @@ func (w *Workspace) DiagnosticsAll(names []string) [][]diag.Diagnostic {
 	for i, name := range pending {
 		w.diagCache[name] = analyzed[i]
 		w.batched[name] = reads[i]
+		w.stampLocked(name)
 	}
 	w.writeRecordsLocked(pending, batch)
 	for i, name := range names {
 		if doc := w.docs[name]; out[i] == nil && doc != nil && !doc.Recorded() {
 			out[i] = w.diagCache[name]
 		}
-		out[i] = passes.WithoutLints(out[i], w.disabledLints)
+		out[i] = passes.WithoutLints(out[i], w.disabledLints, w.enabledLints)
 	}
 	return out
 }

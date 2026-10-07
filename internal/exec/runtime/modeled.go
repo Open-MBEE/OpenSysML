@@ -225,8 +225,11 @@ func (d DrawTaken) Describe() string {
 // formatDrawn spells a drawn number so it reads back as the kind it is: a Real
 // always carries a point or an exponent.
 func formatDrawn(v semantics.Value) string {
-	if v.Kind == semantics.ValInt {
+	switch v.Kind {
+	case semantics.ValInt:
 		return v.FormatInt()
+	case semantics.ValRational:
+		return v.FormatRational()
 	}
 	s := strconv.FormatFloat(v.Real, 'g', -1, 64)
 	if !strings.ContainsAny(s, ".eIN") {

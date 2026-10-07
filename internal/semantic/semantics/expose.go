@@ -34,6 +34,22 @@ func (m *Model) ExposedElements(view *symbols.Symbol) ([]*symbols.Symbol, error)
 	return out.elems, nil
 }
 
+// ExposedMembers returns ExposedElements plus the unnamed members its exposes
+// reach, admitting each member through the same view filters.
+func (m *Model) ExposedMembers(view *symbols.Symbol) ([]*symbols.Symbol, error) {
+	if view == nil || !IsView(view) {
+		return nil, ErrNotAView
+	}
+	out := &exposedSet{seen: map[symbols.ElementKey]bool{}}
+	m.addExposedMembers(view, view, out)
+	for _, super := range m.AllSupertypes(view) {
+		if IsView(super) {
+			m.addExposedMembers(view, super, out)
+		}
+	}
+	return out.elems, nil
+}
+
 // NestedViews returns the views declared in view's body, in declaration order,
 // so a caller can walk a view tree.
 func (m *Model) NestedViews(view *symbols.Symbol) ([]*symbols.Symbol, error) {
@@ -60,6 +76,23 @@ func (m *Model) addExposed(into, view *symbols.Symbol, out *exposedSet) {
 			out.add(elem)
 		}
 	}
+}
+
+func (m *Model) addExposedMembers(into, view *symbols.Symbol, out *exposedSet) {
+	for _, imp := range exposesIn(view.Decl) {
+		for _, elem := range m.resolver.ImportedMembersInto(into.Scope, view.Scope, imp) {
+			out.add(elem)
+		}
+	}
+}
+
+// ViewExposureConditions returns every own or inherited element filter that
+// governs the elements a view exposes.
+func (m *Model) ViewExposureConditions(view *symbols.Symbol) []symbols.ElementFilter {
+	if view == nil || !IsView(view) || m.resolver == nil {
+		return nil
+	}
+	return m.resolver.ViewExposureConditions(view)
 }
 
 // IsView reports whether sym is a view usage or a view definition, the two

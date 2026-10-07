@@ -45,7 +45,7 @@ package 'Vehicle Design' {
         }
         port diag;
         binding 'fuel line' bind fuelIn = engine.fuelPort;
-        flow fuelIn.fuel to engine.fuelPort.fuel;
+        flow of 'Vehicle Design'::Interfaces::Fuel from fuelIn.fuel to engine.fuelPort.fuel;
         bind mass = massLimit.m;
         bind speedOut = engine.piston.p;
         abstract action def start {
@@ -56,7 +56,7 @@ package 'Vehicle Design' {
             /* the region has no initial pseudostate: nothing enters it */
             state Off;
         }
-        constraint 'positive mass' { mass > 0 }
+        assert constraint 'positive mass' { mass > 0 }
         part def Chassis {
             attribute mass : 'Vehicle Design'::'Value Types'::Mass;
         }
@@ -86,7 +86,7 @@ package 'Vehicle Design' {
     }
     part def Motor :> Engine;
     part def Driver;
-    part def Helper;
+    occurrence def Helper;
     connection def Drives {
         end driver : Driver[0..1];
         end vehicle : Vehicle;
@@ -125,12 +125,12 @@ package RequirementsModel {
     }
     dependency 'Speed Requirement' to 'Vehicle Design'::Engine; /* «Trace» */
     allocation def 'Drive to Engine' {
-        end drive : 'Vehicle Design'::Drive;
-        end engine : 'Vehicle Design'::Engine;
+        end :>> source : 'Vehicle Design'::Drive;
+        end :>> target : 'Vehicle Design'::Engine;
     }
     allocation def 'Motor to Engine' {
-        end motor : 'Vehicle Design'::Motor;
-        end engine : 'Vehicle Design'::Engine;
+        end :>> source : 'Vehicle Design'::Motor;
+        end :>> target : 'Vehicle Design'::Engine;
     }
     dependency 'Vehicle Design'::Wheel to 'Vehicle Design'::Engine;
     verification def 'Mass Test' {

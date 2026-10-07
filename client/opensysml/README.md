@@ -38,9 +38,13 @@ inst, err := client.Instantiate(ctx, model, "Demo::Vehicle")
 | Check it | `VerifyConstraint`, `VerifyRequirement`, `VerifySatisfaction`, `ValidateInstance` |
 | Choose who answers | `ListEngines`, `WithEngine`, `Engine`, `CalcEngine` |
 | Search it | `Query`, `QueryOSLC` |
-| Report on it | `RunDocumentQuery`, `RenderDocument` |
+| Report on it | `RunDocumentQuery`, `RenderDocument`, `RenderView` |
 | Write it out | `Convert`, `ConvertFile`, `ConvertSource` |
 | Change its source | `ApplyEdits` |
+
+`RenderView` returns ordered, typed node, edge, port and source-origin data.
+Ports used by connections are returned by default; pass `opensysml.WithFullPorts()`
+to include every declared port.
 
 Execution and verification take the same handles the rest of the API takes:
 

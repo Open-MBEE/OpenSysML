@@ -27,8 +27,35 @@ func TestNegative(t *testing.T) {
 		{"empty_expression", "attribute x = ;"},
 		{"numeric_name", "part def 123;"},
 		{"missing_semicolon", "part def Engine"},
+		{"ref_anonymous_unclosed_multiplicity", "package P { ref [1 = x; }"},
+		// Visibility, direction, `abstract`, `variation` and `constant` alone
+		// declare no feature; the multiplicity form is the one exception
+		// (SysML.xtext UsageDeclaration).
+		{"visibility_without_feature", "part def D { private ; }"},
+		{"visibility_body_without_feature", "part def D { private { } }"},
+		{"visibility_value_without_feature", "part def D { private = x; }"},
+		{"derived_value_without_name", "part def D { derived = x; }"},
+		{"composite_body_without_name", "part def D { composite { } }"},
+		{"end_value_without_name", "part def D { end = x; }"},
+		// `composite` or `portion` closes the feature prefix: no other feature
+		// modifier may follow it (SysML.xtext BasicFeaturePrefix).
+		{"composite_ref_decl", "part def D { composite ref; }"},
+		{"composite_ref_body", "part def D { composite ref { } }"},
+		{"portion_ref_body", "part def D { portion ref { } }"},
+		{"composite_readonly", "part def D { composite readonly; }"},
+		{"composite_derived", "part def D { composite derived x; }"},
+		{"composite_visibility", "part def D { composite private x; }"},
+		{"composite_direction", "part def D { composite in x; }"},
+		{"composite_abstract", "part def D { composite abstract x; }"},
 		{"invalid_keyword_combo", "def usage MyPart;"},
 		{"incomplete_connection", "connector c connect a"},
+		// A connector end is a feature chain (SysML BNF 8.2.2.13.1), never an
+		// expression: `[…]` and `->` continue it into one, as does a `#(…)`
+		// anywhere but whole at the end of the chain (the indexed-end extension).
+		{"connect_end_element_selection_chain", "part def A { part s; part k; connect [1] s.y#(1).v to [1] k.u; }"},
+		{"connect_end_empty_element_selection", "part def A { part s; part k; connect [1] s.y#() to [1] k.u; }"},
+		{"connect_end_index", "part def A { part s; part k; connect [1] s.y[1] to [1] k.u; }"},
+		{"connect_end_invocation", "part def A { part s; part k; connect [1] s.y->first to [1] k.u; }"},
 		{"unterminated_string", `part p { doc /* comment `},
 		{"double_colon_only", "attribute ::x;"},
 		// A classifier declaration admits one specialization list.
@@ -571,6 +598,10 @@ func TestNegativeKerML(t *testing.T) {
 		{"featured_by_trailing_comma", "package P { class A; feature f featured by A, ; }"},
 		{"featured_by_no_terminator", "package P { class A; feature f featured by A }"},
 		{"by_without_featured", "package P { class A; feature f by A; }"},
+
+		// In KerML the word `ordered` names the feature after `composite`, so
+		// a name may not follow it.
+		{"composite_ordered_name", "class C { composite ordered x; }"},
 
 		// A parenthesized end list holds at least two ends and closes
 		// (KerML.xtext:842).

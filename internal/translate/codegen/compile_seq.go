@@ -13,6 +13,9 @@ import (
 // checks multiplicity, range and uniqueness. A run-time failure names the site
 // as the interpreter does, by label.
 func (fc *funcCompiler) bind(v Expr, b binding, where, label string) (Expr, error) {
+	if x, ok, err := fc.bindUnset(v, b, where, label); ok {
+		return x, err
+	}
 	switch ve := v.Type().Elem(); {
 	case b.t.Elem() == TypeReal && (ve == TypeInt || ve == TypeNum):
 		// An Integer written to a Real-typed feature stays an Integer.
@@ -123,6 +126,9 @@ func (fc *funcCompiler) pairOperand(v, other Expr, left bool, fail string, bare 
 	}
 	if desc == "" {
 		desc = article(other.Type().Elem())
+		if other.Type().Elem() == TypeReal && fc.exactness(other) != binary64 {
+			desc = "a Rational"
+		}
 	}
 	if left && other.Type().Many() {
 		return ToOne{X: v, Fail: fail, Bare: bare, Other: other, OtherOne: desc}
@@ -151,6 +157,8 @@ func (fc *funcCompiler) scalarOperandOf(v Expr, fqn, param string) (Expr, error)
 // found, bare without its article) and null is outside the subset.
 func (fc *funcCompiler) scalarOperandWith(v Expr, fail string, bare bool, what string) (Expr, error) {
 	switch vt := v.Type(); {
+	case vt.MayUnset():
+		return nil, fc.unsetUnsupported("an operand of " + what)
 	case vt.Scalar():
 		return v, nil
 	case vt.Many():
@@ -170,6 +178,9 @@ func (fc *funcCompiler) compileSequence(n *ast.SequenceExpr) (Expr, error) {
 		v, err := fc.compileExpr(e)
 		if err != nil {
 			return nil, err
+		}
+		if v.Type().MayUnset() {
+			return nil, fc.unsetUnsupported("an element of a sequence")
 		}
 		if t := v.Type(); t != TypeNull {
 			if elem != TypeInvalid && elem.IsFn() && t.IsFn() {
@@ -253,7 +264,8 @@ func (fc *funcCompiler) compileCoalesce(n *ast.OperatorExpr) (Expr, error) {
 	if err != nil {
 		return nil, err
 	}
-	if l.Type().Scalar() {
+	if l.Type().Scalar() || l.Type().MayUnset() {
+		// One value, unset or not, is not null.
 		return l, nil
 	}
 	t := l.Type()
@@ -283,6 +295,16 @@ func (fc *funcCompiler) compileEquality(n *ast.OperatorExpr) (Expr, error) {
 	if err != nil {
 		return nil, err
 	}
+	if l.Type().MayUnset() || r.Type().MayUnset() {
+		neq := n.Operator == ast.OpNeq || n.Operator == ast.OpNeqEqEq
+		return fc.unsetEquality(func(l, r Expr) (Expr, error) { return fc.equality(n, l, r) }, l, r, neq)
+	}
+	return fc.equality(n, l, r)
+}
+
+// equality is compileEquality of the compiled operands l and r.
+func (fc *funcCompiler) equality(n *ast.OperatorExpr, l, r Expr) (Expr, error) {
+	var err error
 	neq := n.Operator == ast.OpNeq || n.Operator == ast.OpNeqEqEq
 	ident := n.Operator == ast.OpEqEqEq || n.Operator == ast.OpNeqEqEq
 	lt, rt := l.Type(), r.Type()
@@ -305,10 +327,13 @@ func (fc *funcCompiler) compileEquality(n *ast.OperatorExpr) (Expr, error) {
 		if neq {
 			op = ast.OpNeq
 		}
-		if lt.IsEnum() || lt.IsFn() {
+		if lt.IsEnum() || lt.IsFn() || lt.IsRec() {
 			// A literal is identified by itself, and a function value by its
 			// function and the run it closes over, so `===` is `==`.
 			return Binary{Op: op, L: l, R: r, T: TypeBool}, nil
+		}
+		if !ident && fc.meetsExact(l, r) {
+			return fc.kindSplit(Binary{Op: op, L: l, R: r, T: TypeBool}, fc.exactCompare), nil
 		}
 		if lt != rt || lt == TypeNum {
 			// Numbers compare by value under `==`, and by kind too under `===`.
@@ -318,7 +343,7 @@ func (fc *funcCompiler) compileEquality(n *ast.OperatorExpr) (Expr, error) {
 				op = n.Operator
 			}
 		}
-		return Binary{Op: op, L: l, R: r, T: TypeBool}, nil
+		return fc.rationalComparison(Binary{Op: op, L: l, R: r, T: TypeBool})
 	}
 	fc.c.collections = true
 	le, re := lt.Elem(), rt.Elem()
@@ -347,6 +372,11 @@ func (fc *funcCompiler) compileEquality(n *ast.OperatorExpr) (Expr, error) {
 	if r, err = fc.coerce(r, re.Seq(), "the right operand of '"+n.Operator.String()+"'"); err != nil {
 		return nil, err
 	}
+	if fc.exactness(l) == exactRational || fc.exactness(r) == exactRational {
+		if err := fc.exactOperands(fmt.Sprintf("'%s'", n.Operator), l, r); err != nil {
+			return nil, err
+		}
+	}
 	return SeqEq{L: l, R: r, Neq: neq, Ident: ident}, nil
 }
 
@@ -360,6 +390,8 @@ func identityKind(t Type) int {
 		return 2
 	case t.IsFn():
 		return 3
+	case t.IsRec():
+		return 4
 	}
 	return 0
 }
@@ -404,6 +436,25 @@ func (fc *funcCompiler) compileSeqCall(n *ast.InvocationExpr, op SeqOp, realAgg 
 func (fc *funcCompiler) seqCall(op SeqOp, realAgg bool, args []Expr) (Expr, error) {
 	fc.c.collections = true
 	spec := op.spec()
+	for _, a := range args {
+		if !a.Type().MayUnset() {
+			continue
+		}
+		// An unset value is one value: neither null nor empty.
+		var counted Expr
+		switch op {
+		case SeqSize:
+			counted = IntLit{Value: 1}
+		case SeqIsEmpty:
+			counted = BoolLit{Value: false}
+		case SeqNotEmpty:
+			counted = BoolLit{Value: true}
+		default:
+			return nil, fc.unsetUnsupported("an argument of " + op.Name())
+		}
+		_, lets := fc.hoist(a, nil)
+		return wrapLets(lets, counted), nil
+	}
 	elem := TypeInvalid
 	for i, a := range args {
 		if spec.params[i] != paramSeq || a.Type() == TypeNull {
@@ -437,6 +488,11 @@ func (fc *funcCompiler) seqCall(op SeqOp, realAgg bool, args []Expr) (Expr, erro
 			continue
 		}
 		if args[i], err = fc.coerce(a, elem.Seq(), what); err != nil {
+			return nil, err
+		}
+	}
+	if !realAgg {
+		if err := fc.exactOperands(op.Name(), args...); err != nil {
 			return nil, err
 		}
 	}
@@ -526,6 +582,9 @@ func (fc *funcCompiler) compileBodyOp(op SeqOp, operand ast.Node, body ast.Node)
 		t = rt
 	default:
 		return nil, fc.unsupported(op.Name() + " with a body")
+	}
+	if err := fc.exactOperands(op.Name(), seq); err != nil {
+		return nil, err
 	}
 	// The body is a value of its own, evaluated after the operand.
 	return Fold{Op: op, Seq: seq, Steps: 1, Body: lambda, T: t}, nil

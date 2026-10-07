@@ -1,0 +1,428 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xmi:XMI xmi:version="2.5.1" xmlns:xmi="http://www.omg.org/spec/XMI/20131001"
+         xmlns:uml="http://www.omg.org/spec/UML/20161101"
+         xmlns:sysml="http://www.omg.org/spec/SysML/20181001/SysML">
+  <uml:Model xmi:type="uml:Model" xmi:id="_m" name="Model">
+    <packagedElement xmi:type="uml:Package" xmi:id="_pkg" name="Loops">
+      <packagedElement xmi:type="uml:Activity" xmi:id="_loopAct" name="Looping">
+        <node xmi:type="uml:InitialNode" xmi:id="_init"/>
+        <node xmi:type="uml:LoopNode" xmi:id="_loop" name="loop" isTestedFirst="true" decider="_leR">
+          <loopVariable xmi:type="uml:OutputPin" xmi:id="_lvI" name="i">
+            <type href="http://www.omg.org/spec/SysML/20181001/SysML.xmi#SysML_dataType.Integer"/>
+          </loopVariable>
+          <loopVariable xmi:type="uml:OutputPin" xmi:id="_lvS" name="s">
+            <type href="http://www.omg.org/spec/SysML/20181001/SysML.xmi#SysML_dataType.Integer"/>
+          </loopVariable>
+          <loopVariableInput xmi:type="uml:InputPin" xmi:id="_lvIi" name="iIn">
+            <type href="http://www.omg.org/spec/SysML/20181001/SysML.xmi#SysML_dataType.Integer"/>
+          </loopVariableInput>
+          <loopVariableInput xmi:type="uml:InputPin" xmi:id="_lvSi" name="sIn">
+            <type href="http://www.omg.org/spec/SysML/20181001/SysML.xmi#SysML_dataType.Integer"/>
+          </loopVariableInput>
+          <result xmi:type="uml:OutputPin" xmi:id="_resI" name="iOut">
+            <type href="http://www.omg.org/spec/SysML/20181001/SysML.xmi#SysML_dataType.Integer"/>
+          </result>
+          <result xmi:type="uml:OutputPin" xmi:id="_resS" name="sOut">
+            <type href="http://www.omg.org/spec/SysML/20181001/SysML.xmi#SysML_dataType.Integer"/>
+          </result>
+          <bodyOutput xmi:idref="_incR"/>
+          <bodyOutput xmi:idref="_plusR"/>
+          <setupPart xmi:idref="_zero"/>
+          <test xmi:idref="_le"/>
+          <bodyPart xmi:idref="_plus"/>
+          <bodyPart xmi:idref="_inc"/>
+          <node xmi:type="uml:OpaqueAction" xmi:id="_zero" name="zero">
+            <result xmi:type="uml:OutputPin" xmi:id="_zeroR" name="r">
+              <type href="http://www.omg.org/spec/SysML/20181001/SysML.xmi#SysML_dataType.Integer"/>
+            </result>
+            <language>JavaScript</language>
+            <body>r = 0;</body>
+          </node>
+          <node xmi:type="uml:OpaqueAction" xmi:id="_le" name="le">
+            <inputValue xmi:type="uml:InputPin" xmi:id="_leX" name="x">
+              <type href="http://www.omg.org/spec/SysML/20181001/SysML.xmi#SysML_dataType.Integer"/>
+            </inputValue>
+            <inputValue xmi:type="uml:InputPin" xmi:id="_leY" name="y">
+              <type href="http://www.omg.org/spec/SysML/20181001/SysML.xmi#SysML_dataType.Integer"/>
+            </inputValue>
+            <inputValue xmi:type="uml:InputPin" xmi:id="_leZ" name="z">
+              <type href="http://www.omg.org/spec/SysML/20181001/SysML.xmi#SysML_dataType.Integer"/>
+            </inputValue>
+            <result xmi:type="uml:OutputPin" xmi:id="_leR" name="r">
+              <type href="http://www.omg.org/spec/SysML/20181001/SysML.xmi#SysML_dataType.Boolean"/>
+            </result>
+            <result xmi:type="uml:OutputPin" xmi:id="_leK" name="k">
+              <type href="http://www.omg.org/spec/SysML/20181001/SysML.xmi#SysML_dataType.Integer"/>
+            </result>
+            <language>JavaScript</language>
+            <body>r = x &lt;= y; k = 10 * x;</body>
+          </node>
+          <node xmi:type="uml:OpaqueAction" xmi:id="_plus" name="plus">
+            <inputValue xmi:type="uml:InputPin" xmi:id="_plusX" name="x">
+              <type href="http://www.omg.org/spec/SysML/20181001/SysML.xmi#SysML_dataType.Integer"/>
+            </inputValue>
+            <inputValue xmi:type="uml:InputPin" xmi:id="_plusY" name="y">
+              <type href="http://www.omg.org/spec/SysML/20181001/SysML.xmi#SysML_dataType.Integer"/>
+            </inputValue>
+            <result xmi:type="uml:OutputPin" xmi:id="_plusR" name="r">
+              <type href="http://www.omg.org/spec/SysML/20181001/SysML.xmi#SysML_dataType.Integer"/>
+            </result>
+            <language>JavaScript</language>
+            <body>r = x + y;</body>
+          </node>
+          <node xmi:type="uml:OpaqueAction" xmi:id="_inc" name="inc">
+            <inputValue xmi:type="uml:InputPin" xmi:id="_incX" name="x">
+              <type href="http://www.omg.org/spec/SysML/20181001/SysML.xmi#SysML_dataType.Integer"/>
+            </inputValue>
+            <result xmi:type="uml:OutputPin" xmi:id="_incR" name="r">
+              <type href="http://www.omg.org/spec/SysML/20181001/SysML.xmi#SysML_dataType.Integer"/>
+            </result>
+            <language>JavaScript</language>
+            <body>r = x + 1;</body>
+          </node>
+          <node xmi:type="uml:ForkNode" xmi:id="_fork"/>
+          <node xmi:type="uml:OpaqueAction" xmi:id="_last" name="last">
+            <inputValue xmi:type="uml:InputPin" xmi:id="_lastV" name="v">
+              <type href="http://www.omg.org/spec/SysML/20181001/SysML.xmi#SysML_dataType.Integer"/>
+            </inputValue>
+            <language>JavaScript</language>
+            <body>x = v;</body>
+          </node>
+          <edge xmi:type="uml:ObjectFlow" xmi:id="_ze1" source="_zeroR" target="_lvS"/>
+          <edge xmi:type="uml:ObjectFlow" xmi:id="_ze2" source="_zeroR" target="_leZ"/>
+          <edge xmi:type="uml:ObjectFlow" xmi:id="_ordX" source="_leK" target="_lastV"/>
+          <edge xmi:type="uml:ObjectFlow" xmi:id="_ordY" source="_plusR" target="_lastV"/>
+          <edge xmi:type="uml:ObjectFlow" xmi:id="_lfe1" source="_lvI" target="_fork"/>
+          <edge xmi:type="uml:ObjectFlow" xmi:id="_lfe2" source="_fork" target="_leX"/>
+          <edge xmi:type="uml:ObjectFlow" xmi:id="_lfe3" source="_fork" target="_incX"/>
+          <edge xmi:type="uml:ObjectFlow" xmi:id="_lfe4" source="_lvS" target="_leY"/>
+          <edge xmi:type="uml:ObjectFlow" xmi:id="_lfe5" source="_lvS" target="_plusX"/>
+          <edge xmi:type="uml:ObjectFlow" xmi:id="_lfe6" source="_leK" target="_plusY"/>
+          <edge xmi:type="uml:ObjectFlow" xmi:id="_back" source="_plusR" target="_leX"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_bc1" source="_plus" target="_inc"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_bc2" source="_inc" target="_last"/>
+          <bodyPart xmi:idref="_last"/>
+        </node>
+        <node xmi:type="uml:ActivityParameterNode" xmi:id="_feed" name="feed">
+          <parameter xmi:idref="_feedP"/>
+        </node>
+        <node xmi:type="uml:ActivityParameterNode" xmi:id="_out" name="out">
+          <parameter xmi:idref="_outP"/>
+        </node>
+        <node xmi:type="uml:ActivityFinalNode" xmi:id="_final"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_e1" source="_init" target="_loop"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_e2" source="_loop" target="_final"/>
+        <edge xmi:type="uml:ObjectFlow" xmi:id="_f1" source="_feed" target="_lvIi"/>
+        <edge xmi:type="uml:ObjectFlow" xmi:id="_f2" source="_feed" target="_lvSi"/>
+        <edge xmi:type="uml:ObjectFlow" xmi:id="_f3" source="_resS" target="_out"/>
+        <ownedParameter xmi:type="uml:Parameter" xmi:id="_feedP" name="feed" direction="in">
+          <type href="http://www.omg.org/spec/SysML/20181001/SysML.xmi#SysML_dataType.Integer"/>
+        </ownedParameter>
+        <ownedParameter xmi:type="uml:Parameter" xmi:id="_outP" name="out" direction="out">
+          <type href="http://www.omg.org/spec/SysML/20181001/SysML.xmi#SysML_dataType.Integer"/>
+        </ownedParameter>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Activity" xmi:id="_postAct" name="PostLoop">
+        <node xmi:type="uml:InitialNode" xmi:id="_pinit"/>
+        <node xmi:type="uml:LoopNode" xmi:id="_post" name="post" isTestedFirst="false" decider="_ltR">
+          <loopVariable xmi:type="uml:OutputPin" xmi:id="_lvX" name="x" isUnique="false">
+            <lowerValue xmi:type="uml:LiteralInteger" xmi:id="_lvXL" value="0"/>
+            <upperValue xmi:type="uml:LiteralUnlimitedNatural" xmi:id="_lvXU" value="*"/>
+          </loopVariable>
+          <loopVariableInput xmi:type="uml:InputPin" xmi:id="_lvXi" name="xIn" isUnique="false">
+            <lowerValue xmi:type="uml:LiteralInteger" xmi:id="_lvXiL" value="0"/>
+            <upperValue xmi:type="uml:LiteralUnlimitedNatural" xmi:id="_lvXiU" value="*"/>
+          </loopVariableInput>
+          <result xmi:type="uml:OutputPin" xmi:id="_resX" name="xOut" isUnique="false">
+            <lowerValue xmi:type="uml:LiteralInteger" xmi:id="_resXL" value="0"/>
+            <upperValue xmi:type="uml:LiteralUnlimitedNatural" xmi:id="_resXU" value="*"/>
+          </result>
+          <bodyOutput xmi:idref="_growR"/>
+          <test xmi:idref="_lt"/>
+          <bodyPart xmi:idref="_grow"/>
+          <node xmi:type="uml:OpaqueAction" xmi:id="_lt" name="lt">
+            <inputValue xmi:type="uml:InputPin" xmi:id="_ltV" name="v" isUnique="false">
+              <lowerValue xmi:type="uml:LiteralInteger" xmi:id="_ltVL" value="0"/>
+              <upperValue xmi:type="uml:LiteralUnlimitedNatural" xmi:id="_ltVU" value="*"/>
+            </inputValue>
+            <result xmi:type="uml:OutputPin" xmi:id="_ltR" name="r">
+              <type href="http://www.omg.org/spec/SysML/20181001/SysML.xmi#SysML_dataType.Boolean"/>
+            </result>
+            <language>JavaScript</language>
+            <body>r = v.size() &lt; 3;</body>
+          </node>
+          <node xmi:type="uml:OpaqueAction" xmi:id="_grow" name="grow">
+            <inputValue xmi:type="uml:InputPin" xmi:id="_growV" name="v" isUnique="false">
+              <lowerValue xmi:type="uml:LiteralInteger" xmi:id="_growVL" value="0"/>
+              <upperValue xmi:type="uml:LiteralUnlimitedNatural" xmi:id="_growVU" value="*"/>
+            </inputValue>
+            <result xmi:type="uml:OutputPin" xmi:id="_growR" name="r" isUnique="false">
+              <lowerValue xmi:type="uml:LiteralInteger" xmi:id="_growRL" value="0"/>
+              <upperValue xmi:type="uml:LiteralUnlimitedNatural" xmi:id="_growRU" value="*"/>
+            </result>
+            <language>JavaScript</language>
+            <body>r = v.including(7);</body>
+          </node>
+          <edge xmi:type="uml:ObjectFlow" xmi:id="_pf1" source="_lvX" target="_growV"/>
+          <edge xmi:type="uml:ObjectFlow" xmi:id="_pf2" source="_lvX" target="_ltV"/>
+        </node>
+        <node xmi:type="uml:ActivityFinalNode" xmi:id="_pfinal"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_pe1" source="_pinit" target="_post"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_pe2" source="_post" target="_pfinal"/>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Activity" xmi:id="_varAct" name="VarLoop">
+        <node xmi:type="uml:InitialNode" xmi:id="_vinit"/>
+        <node xmi:type="uml:LoopNode" xmi:id="_vloop" name="acc" isTestedFirst="true" decider="_vleR">
+          <variable xmi:type="uml:Variable" xmi:id="_vTotal" name="total">
+            <type href="http://www.omg.org/spec/SysML/20181001/SysML.xmi#SysML_dataType.Integer"/>
+          </variable>
+          <loopVariable xmi:type="uml:OutputPin" xmi:id="_vI" name="i">
+            <type href="http://www.omg.org/spec/SysML/20181001/SysML.xmi#SysML_dataType.Integer"/>
+          </loopVariable>
+          <loopVariableInput xmi:type="uml:InputPin" xmi:id="_vIi" name="iIn">
+            <type href="http://www.omg.org/spec/SysML/20181001/SysML.xmi#SysML_dataType.Integer"/>
+          </loopVariableInput>
+          <result xmi:type="uml:OutputPin" xmi:id="_vResI" name="iOut">
+            <type href="http://www.omg.org/spec/SysML/20181001/SysML.xmi#SysML_dataType.Integer"/>
+          </result>
+          <bodyOutput xmi:idref="_vaccR"/>
+          <setupPart xmi:idref="_vzero"/>
+          <test xmi:idref="_vread"/>
+          <test xmi:idref="_vle"/>
+          <bodyPart xmi:idref="_vacc"/>
+          <node xmi:type="uml:OpaqueAction" xmi:id="_vzero" name="init">
+            <language>JavaScript</language>
+            <body>total = 0;</body>
+          </node>
+          <node xmi:type="uml:ReadVariableAction" xmi:id="_vread" name="readTotal" variable="_vTotal">
+            <result xmi:type="uml:OutputPin" xmi:id="_vreadR" name="r">
+              <type href="http://www.omg.org/spec/SysML/20181001/SysML.xmi#SysML_dataType.Integer"/>
+            </result>
+          </node>
+          <node xmi:type="uml:OpaqueAction" xmi:id="_vle" name="le">
+            <inputValue xmi:type="uml:InputPin" xmi:id="_vleX" name="x">
+              <type href="http://www.omg.org/spec/SysML/20181001/SysML.xmi#SysML_dataType.Integer"/>
+            </inputValue>
+            <result xmi:type="uml:OutputPin" xmi:id="_vleR" name="r">
+              <type href="http://www.omg.org/spec/SysML/20181001/SysML.xmi#SysML_dataType.Boolean"/>
+            </result>
+            <language>JavaScript</language>
+            <body>r = x &lt; 6;</body>
+          </node>
+          <node xmi:type="uml:OpaqueAction" xmi:id="_vacc" name="add">
+            <inputValue xmi:type="uml:InputPin" xmi:id="_vaccX" name="x">
+              <type href="http://www.omg.org/spec/SysML/20181001/SysML.xmi#SysML_dataType.Integer"/>
+            </inputValue>
+            <result xmi:type="uml:OutputPin" xmi:id="_vaccR" name="r">
+              <type href="http://www.omg.org/spec/SysML/20181001/SysML.xmi#SysML_dataType.Integer"/>
+            </result>
+            <language>JavaScript</language>
+            <body>total = total + x; r = x + 1;</body>
+          </node>
+          <edge xmi:type="uml:ObjectFlow" xmi:id="_voe1" source="_vreadR" target="_vleX"/>
+          <edge xmi:type="uml:ObjectFlow" xmi:id="_voe2" source="_vI" target="_vaccX"/>
+        </node>
+        <node xmi:type="uml:ActivityFinalNode" xmi:id="_vfinal"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_ve1" source="_vinit" target="_vloop"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_ve2" source="_vloop" target="_vfinal"/>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Activity" xmi:id="_plainAct" name="PlainLoop">
+        <node xmi:type="uml:InitialNode" xmi:id="_qinit"/>
+        <node xmi:type="uml:LoopNode" xmi:id="_plain" name="plain" isTestedFirst="true">
+          <setupPart xmi:idref="_qset"/>
+          <test xmi:idref="_qtest"/>
+          <bodyPart xmi:idref="_qbody"/>
+          <node xmi:type="uml:OpaqueAction" xmi:id="_qset" name="qset">
+            <language>JavaScript</language>
+            <body>x = 0;</body>
+          </node>
+          <node xmi:type="uml:OpaqueAction" xmi:id="_qtest" name="qtest">
+            <language>JavaScript</language>
+            <body>x = 1;</body>
+          </node>
+          <node xmi:type="uml:OpaqueAction" xmi:id="_qbody" name="qbody">
+            <language>JavaScript</language>
+            <body>x = 2;</body>
+          </node>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_qc1" source="_qset" target="_qbody"/>
+        </node>
+        <node xmi:type="uml:ActivityFinalNode" xmi:id="_qfinal"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_qe1" source="_qinit" target="_plain"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_qe2" source="_plain" target="_qfinal"/>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Activity" xmi:id="_badAct" name="BadLoops">
+        <node xmi:type="uml:InitialNode" xmi:id="_binit"/>
+        <node xmi:type="uml:LoopNode" xmi:id="_deep" name="deep" isTestedFirst="true" decider="_deepR">
+          <test xmi:idref="_dtest"/>
+          <bodyPart xmi:idref="_dbody"/>
+          <node xmi:type="uml:StructuredActivityNode" xmi:id="_dtest" name="dtest">
+            <node xmi:type="uml:OpaqueAction" xmi:id="_dinner" name="dinner">
+              <result xmi:type="uml:OutputPin" xmi:id="_deepR" name="r">
+                <type href="http://www.omg.org/spec/SysML/20181001/SysML.xmi#SysML_dataType.Boolean"/>
+              </result>
+              <language>JavaScript</language>
+              <body>r = true;</body>
+            </node>
+          </node>
+          <node xmi:type="uml:OpaqueAction" xmi:id="_dbody" name="dbody">
+            <language>JavaScript</language>
+            <body>x = 1;</body>
+          </node>
+        </node>
+        <node xmi:type="uml:LoopNode" xmi:id="_mismatch" name="mismatch" isTestedFirst="true" decider="_mmR">
+          <loopVariable xmi:type="uml:OutputPin" xmi:id="_lvM" name="m">
+            <type href="http://www.omg.org/spec/SysML/20181001/SysML.xmi#SysML_dataType.Integer"/>
+          </loopVariable>
+          <loopVariableInput xmi:type="uml:InputPin" xmi:id="_lvMi" name="mIn">
+            <type href="http://www.omg.org/spec/SysML/20181001/SysML.xmi#SysML_dataType.Integer"/>
+          </loopVariableInput>
+          <result xmi:type="uml:OutputPin" xmi:id="_resM1" name="mOut1">
+            <type href="http://www.omg.org/spec/SysML/20181001/SysML.xmi#SysML_dataType.Integer"/>
+          </result>
+          <result xmi:type="uml:OutputPin" xmi:id="_resM2" name="mOut2">
+            <type href="http://www.omg.org/spec/SysML/20181001/SysML.xmi#SysML_dataType.Integer"/>
+          </result>
+          <bodyOutput xmi:idref="_mbR"/>
+          <test xmi:idref="_mmTest"/>
+          <bodyPart xmi:idref="_mb"/>
+          <node xmi:type="uml:OpaqueAction" xmi:id="_mmTest" name="mmTest">
+            <result xmi:type="uml:OutputPin" xmi:id="_mmR" name="r">
+              <type href="http://www.omg.org/spec/SysML/20181001/SysML.xmi#SysML_dataType.Boolean"/>
+            </result>
+            <language>JavaScript</language>
+            <body>r = true;</body>
+          </node>
+          <node xmi:type="uml:OpaqueAction" xmi:id="_mb" name="mb">
+            <result xmi:type="uml:OutputPin" xmi:id="_mbR" name="r">
+              <type href="http://www.omg.org/spec/SysML/20181001/SysML.xmi#SysML_dataType.Integer"/>
+            </result>
+            <language>JavaScript</language>
+            <body>r = 1;</body>
+          </node>
+        </node>
+        <node xmi:type="uml:LoopNode" xmi:id="_decide" name="decide" isTestedFirst="true" decider="_ddR">
+          <loopVariable xmi:type="uml:OutputPin" xmi:id="_dlI" name="i">
+            <type href="http://www.omg.org/spec/SysML/20181001/SysML.xmi#SysML_dataType.Integer"/>
+          </loopVariable>
+          <loopVariableInput xmi:type="uml:InputPin" xmi:id="_dlIi" name="iIn">
+            <type href="http://www.omg.org/spec/SysML/20181001/SysML.xmi#SysML_dataType.Integer"/>
+          </loopVariableInput>
+          <result xmi:type="uml:OutputPin" xmi:id="_dres" name="iOut">
+            <type href="http://www.omg.org/spec/SysML/20181001/SysML.xmi#SysML_dataType.Integer"/>
+          </result>
+          <bodyOutput xmi:idref="_ddB"/>
+          <test xmi:idref="_ddT"/>
+          <bodyPart xmi:idref="_ddN"/>
+          <node xmi:type="uml:OpaqueAction" xmi:id="_ddT" name="dle">
+            <result xmi:type="uml:OutputPin" xmi:id="_ddR" name="r">
+              <type href="http://www.omg.org/spec/SysML/20181001/SysML.xmi#SysML_dataType.Boolean"/>
+            </result>
+            <language>JavaScript</language>
+            <body>r = true;</body>
+          </node>
+          <node xmi:type="uml:OpaqueAction" xmi:id="_ddN" name="db">
+            <inputValue xmi:type="uml:InputPin" xmi:id="_ddX" name="x">
+              <type href="http://www.omg.org/spec/SysML/20181001/SysML.xmi#SysML_dataType.Integer"/>
+            </inputValue>
+            <result xmi:type="uml:OutputPin" xmi:id="_ddB" name="r">
+              <type href="http://www.omg.org/spec/SysML/20181001/SysML.xmi#SysML_dataType.Integer"/>
+            </result>
+            <language>JavaScript</language>
+            <body>r = x;</body>
+          </node>
+          <node xmi:type="uml:DecisionNode" xmi:id="_ddec" name="choose"/>
+          <edge xmi:type="uml:ObjectFlow" xmi:id="_dde1" source="_dlI" target="_ddec"/>
+          <edge xmi:type="uml:ObjectFlow" xmi:id="_dde2" source="_ddec" target="_ddX"/>
+        </node>
+        <node xmi:type="uml:LoopNode" xmi:id="_twofork" name="twofork" isTestedFirst="true" decider="_tfR">
+          <loopVariable xmi:type="uml:OutputPin" xmi:id="_tfI" name="i">
+            <type href="http://www.omg.org/spec/SysML/20181001/SysML.xmi#SysML_dataType.Integer"/>
+          </loopVariable>
+          <loopVariable xmi:type="uml:OutputPin" xmi:id="_tfS" name="s">
+            <type href="http://www.omg.org/spec/SysML/20181001/SysML.xmi#SysML_dataType.Integer"/>
+          </loopVariable>
+          <loopVariableInput xmi:type="uml:InputPin" xmi:id="_tfIi" name="iIn">
+            <type href="http://www.omg.org/spec/SysML/20181001/SysML.xmi#SysML_dataType.Integer"/>
+          </loopVariableInput>
+          <loopVariableInput xmi:type="uml:InputPin" xmi:id="_tfSi" name="sIn">
+            <type href="http://www.omg.org/spec/SysML/20181001/SysML.xmi#SysML_dataType.Integer"/>
+          </loopVariableInput>
+          <result xmi:type="uml:OutputPin" xmi:id="_tfRes1" name="iOut">
+            <type href="http://www.omg.org/spec/SysML/20181001/SysML.xmi#SysML_dataType.Integer"/>
+          </result>
+          <result xmi:type="uml:OutputPin" xmi:id="_tfRes2" name="sOut">
+            <type href="http://www.omg.org/spec/SysML/20181001/SysML.xmi#SysML_dataType.Integer"/>
+          </result>
+          <bodyOutput xmi:idref="_tfI"/>
+          <bodyOutput xmi:idref="_tfS"/>
+          <test xmi:idref="_tfT"/>
+          <bodyPart xmi:idref="_tfB"/>
+          <node xmi:type="uml:OpaqueAction" xmi:id="_tfT" name="tle">
+            <result xmi:type="uml:OutputPin" xmi:id="_tfR" name="r">
+              <type href="http://www.omg.org/spec/SysML/20181001/SysML.xmi#SysML_dataType.Boolean"/>
+            </result>
+            <language>JavaScript</language>
+            <body>r = true;</body>
+          </node>
+          <node xmi:type="uml:OpaqueAction" xmi:id="_tfB" name="tb">
+            <inputValue xmi:type="uml:InputPin" xmi:id="_tfX" name="x">
+              <type href="http://www.omg.org/spec/SysML/20181001/SysML.xmi#SysML_dataType.Integer"/>
+            </inputValue>
+            <language>JavaScript</language>
+            <body>x = 1;</body>
+          </node>
+          <node xmi:type="uml:ForkNode" xmi:id="_tfF" name="joiner"/>
+          <edge xmi:type="uml:ObjectFlow" xmi:id="_tfe1" source="_tfI" target="_tfF"/>
+          <edge xmi:type="uml:ObjectFlow" xmi:id="_tfe2" source="_tfS" target="_tfF"/>
+          <edge xmi:type="uml:ObjectFlow" xmi:id="_tfe3" source="_tfF" target="_tfX"/>
+        </node>
+        <node xmi:type="uml:LoopNode" xmi:id="_names" name="names" isTestedFirst="true" decider="_nmR">
+          <inputValue xmi:type="uml:InputPin" xmi:id="_npIn" name="p">
+            <type href="http://www.omg.org/spec/SysML/20181001/SysML.xmi#SysML_dataType.Integer"/>
+          </inputValue>
+          <loopVariable xmi:type="uml:OutputPin" xmi:id="_nlP" name="p">
+            <type href="http://www.omg.org/spec/SysML/20181001/SysML.xmi#SysML_dataType.Integer"/>
+          </loopVariable>
+          <loopVariableInput xmi:type="uml:InputPin" xmi:id="_nlPi" name="test">
+            <type href="http://www.omg.org/spec/SysML/20181001/SysML.xmi#SysML_dataType.Integer"/>
+          </loopVariableInput>
+          <result xmi:type="uml:OutputPin" xmi:id="_nres" name="ended">
+            <type href="http://www.omg.org/spec/SysML/20181001/SysML.xmi#SysML_dataType.Integer"/>
+          </result>
+          <bodyOutput xmi:idref="_nmbR"/>
+          <test xmi:idref="_nmT"/>
+          <bodyPart xmi:idref="_nmB"/>
+          <node xmi:type="uml:OpaqueAction" xmi:id="_nmT" name="nle">
+            <result xmi:type="uml:OutputPin" xmi:id="_nmR" name="r">
+              <type href="http://www.omg.org/spec/SysML/20181001/SysML.xmi#SysML_dataType.Boolean"/>
+            </result>
+            <language>JavaScript</language>
+            <body>r = true;</body>
+          </node>
+          <node xmi:type="uml:OpaqueAction" xmi:id="_nmB" name="nb">
+            <inputValue xmi:type="uml:InputPin" xmi:id="_nmbV" name="v">
+              <type href="http://www.omg.org/spec/SysML/20181001/SysML.xmi#SysML_dataType.Integer"/>
+            </inputValue>
+            <result xmi:type="uml:OutputPin" xmi:id="_nmbR" name="r">
+              <type href="http://www.omg.org/spec/SysML/20181001/SysML.xmi#SysML_dataType.Integer"/>
+            </result>
+            <language>JavaScript</language>
+            <body>r = v;</body>
+          </node>
+          <edge xmi:type="uml:ObjectFlow" xmi:id="_nme1" source="_nlP" target="_nmbV"/>
+        </node>
+        <node xmi:type="uml:ActivityFinalNode" xmi:id="_bfinal"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_be1" source="_binit" target="_deep"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_be2" source="_binit" target="_mismatch"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_be3" source="_deep" target="_bfinal"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_be4" source="_mismatch" target="_bfinal"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_be5" source="_binit" target="_decide"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_be6" source="_binit" target="_twofork"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_be7" source="_binit" target="_names"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_be8" source="_decide" target="_bfinal"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_be9" source="_twofork" target="_bfinal"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_be10" source="_names" target="_bfinal"/>
+      </packagedElement>
+    </packagedElement>
+  </uml:Model>
+</xmi:XMI>

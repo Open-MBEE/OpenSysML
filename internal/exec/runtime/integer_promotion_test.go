@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
 
 // sumModel and productModel are calcs over parameters, so their arithmetic
@@ -108,15 +109,22 @@ func TestLiteralBeyondInt64IsRead(t *testing.T) {
 		}
 		wantInteger(t, src, got, src)
 	}
-	for _, src := range []string{
-		"1e400",
-		"1e400 + 1.0",
-		"1e308 + 1e308",
-		"1e200 * 1e200",
+	for src, want := range map[string]string{
+		"1e400":         "1e400",
+		"1e400 + 1.0":   "1e400",
+		"1e308 + 1e308": "2e308",
+		"1e200 * 1e200": "1e400",
 	} {
 		got, err := evalLiteral(t, ctx, src)
-		if !errors.Is(err, semantics.ErrArithmeticOverflow) {
-			t.Fatalf("%s = %+v, %v; want ErrArithmeticOverflow", src, got, err)
+		if err != nil {
+			t.Fatalf("%s: %v", src, err)
+		}
+		exact, _ := semantics.ParseRationalText(want, semantics.DefaultMaxIntegerBits)
+		if src == "1e400 + 1.0" {
+			exact, _ = semantics.RatArith(ast.OpAdd, exact, semantics.IntValue(1), semantics.DefaultMaxIntegerBits)
+		}
+		if got.Const.Kind != semantics.ValRational || semantics.CompareRat(got.Const, exact) != 0 {
+			t.Fatalf("%s = %s, want the exact Rational", src, FormatValue(got))
 		}
 	}
 }
@@ -136,8 +144,8 @@ func TestLeastInt64LiteralIsRead(t *testing.T) {
 }
 
 // TestNegatingTheLeastInt64: the negation of the least int64 is 2^63, an
-// Integer beyond int64. Dividing it by -1 is a quotient, a Rational, so it
-// answers the Real 2^63.
+// Integer beyond int64. Dividing it by -1 is a quotient, so it answers the
+// Rational 2^63.
 func TestNegatingTheLeastInt64(t *testing.T) {
 	model, resolver, root := parseAndBuildModel(t, sumModel)
 	ctx := NewContext(typedModel(model, resolver), 1000)
@@ -153,8 +161,8 @@ func TestNegatingTheLeastInt64(t *testing.T) {
 	if err != nil {
 		t.Fatalf("-9223372036854775808 / -1: %v", err)
 	}
-	if got.Const.Kind != semantics.ValReal || got.Const.Real != -float64(math.MinInt64) {
-		t.Errorf("-9223372036854775808 / -1 = %+v, want the Real %v", got.Const, -float64(math.MinInt64))
+	if got.Const.Kind != semantics.ValRational || got.Const.FormatRational() != "9223372036854775808.0" {
+		t.Errorf("-9223372036854775808 / -1 = %s, want the Rational 2^63", FormatValue(got))
 	}
 
 	args := []Value{constInt(math.MinInt64), constInt(0)}

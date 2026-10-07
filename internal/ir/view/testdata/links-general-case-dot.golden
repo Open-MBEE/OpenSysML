@@ -1,0 +1,30 @@
+// view: UseCaseViews::useCaseView
+// kind: case
+// stated: view def GeneralView, filter @UseCaseUsage
+// layout: dot
+digraph "UseCaseViews::useCaseView" {
+  graph [fontname="Helvetica", rankdir=LR];
+  node [shape=box, style=filled, fillcolor=white, color="#181818", fontname="Helvetica", fontsize=14, penwidth=0.5];
+  edge [color="#181818", fontname="Helvetica", fontsize=13, penwidth=1];
+  "n0" [shape=ellipse, label=<<font point-size="10"><i>«use case»</i></font><br/><b>VehicleUseCases::&#39;Provide Transportation&#39;</b>>, URL="https://example.test/src/general-case.sysml#L13", tooltip="VehicleUseCases::'Provide Transportation'"];
+  "n1" [shape=box, label=<<font point-size="10"><i>«subject»</i></font><br/><b>vehicle : Vehicle</b>>, URL="https://example.test/src/general-case.sysml#L14", tooltip="VehicleUseCases::'Provide Transportation'::vehicle"];
+  "n2" [shape=box, label=<<font point-size="10"><i>«actor»</i></font><br/><b>driver : Person</b>>, URL="https://example.test/src/general-case.sysml#L15", tooltip="VehicleUseCases::'Provide Transportation'::driver"];
+  "n3" [shape=box, label=<<font point-size="10"><i>«actor»</i></font><br/><b>passengers : Person</b>>, URL="https://example.test/src/general-case.sysml#L16", tooltip="VehicleUseCases::'Provide Transportation'::passengers"];
+  "n4" [shape=note, label=<<b>objective</b><br/>Deliver the driver and passengers to their destination.>, URL="https://example.test/src/general-case.sysml#L17", tooltip="general-case.sysml:17:3"];
+  "n5" [shape=ellipse, label=<<font point-size="10"><i>«include use case»</i></font><br/><b>addFuel : &#39;Add Fuel&#39;</b>>, URL="https://example.test/src/general-case.sysml#L20", tooltip="VehicleUseCases::'Provide Transportation'::addFuel"];
+  "n6" [shape=box, label=<<font point-size="10"><i>«subject»</i></font><br/><b>vehicle</b>>, URL="https://example.test/src/general-case.sysml#L21", tooltip="VehicleUseCases::'Provide Transportation'::addFuel::vehicle"];
+  "n7" [shape=box, label=<<font point-size="10"><i>«actor»</i></font><br/><b>fueler</b>>, URL="https://example.test/src/general-case.sysml#L22", tooltip="VehicleUseCases::'Provide Transportation'::addFuel::fueler"];
+  "n8" [shape=ellipse, label=<<font point-size="10"><i>«include use case»</i></font><br/><b>&#39;enter vehicle&#39; : &#39;Enter Vehicle&#39;</b>>, URL="https://example.test/src/general-case.sysml#L24", tooltip="VehicleUseCases::'Provide Transportation'::'enter vehicle'"];
+  "n9" [shape=box, label=<<font point-size="10"><i>«subject»</i></font><br/><b>vehicle</b>>, URL="https://example.test/src/general-case.sysml#L25", tooltip="VehicleUseCases::'Provide Transportation'::'enter vehicle'::vehicle"];
+  "n10" [shape=box, label=<<font point-size="10"><i>«actor»</i></font><br/><b>driver</b>>, URL="https://example.test/src/general-case.sysml#L26", tooltip="VehicleUseCases::'Provide Transportation'::'enter vehicle'::driver"];
+  "n0" -> "n1" [label="«subject»", dir=none, URL="https://example.test/src/general-case.sysml#L14", tooltip="VehicleUseCases::'Provide Transportation'::vehicle"];
+  "n2" -> "n0" [dir=none, URL="https://example.test/src/general-case.sysml#L15", tooltip="VehicleUseCases::'Provide Transportation'::driver"];
+  "n3" -> "n0" [dir=none, URL="https://example.test/src/general-case.sysml#L16", tooltip="VehicleUseCases::'Provide Transportation'::passengers"];
+  "n0" -> "n4" [dir=none, style=dashed, URL="https://example.test/src/general-case.sysml#L17", tooltip="general-case.sysml:17:3"];
+  "n0" -> "n5" [label="«include»", style=dashed, URL="https://example.test/src/general-case.sysml#L20", tooltip="VehicleUseCases::'Provide Transportation'::addFuel"];
+  "n5" -> "n6" [label="«subject»", dir=none, URL="https://example.test/src/general-case.sysml#L21", tooltip="VehicleUseCases::'Provide Transportation'::addFuel::vehicle"];
+  "n7" -> "n5" [dir=none, URL="https://example.test/src/general-case.sysml#L22", tooltip="VehicleUseCases::'Provide Transportation'::addFuel::fueler"];
+  "n0" -> "n8" [label="«include»", style=dashed, URL="https://example.test/src/general-case.sysml#L24", tooltip="VehicleUseCases::'Provide Transportation'::'enter vehicle'"];
+  "n8" -> "n9" [label="«subject»", dir=none, URL="https://example.test/src/general-case.sysml#L25", tooltip="VehicleUseCases::'Provide Transportation'::'enter vehicle'::vehicle"];
+  "n10" -> "n8" [dir=none, URL="https://example.test/src/general-case.sysml#L26", tooltip="VehicleUseCases::'Provide Transportation'::'enter vehicle'::driver"];
+}

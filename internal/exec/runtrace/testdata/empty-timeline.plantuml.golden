@@ -1,0 +1,4 @@
+@startuml
+' run — timeline rendering (the trace of a run to t = 0)
+' the run recorded no state; the rendering is empty
+@enduml

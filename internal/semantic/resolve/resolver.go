@@ -27,11 +27,12 @@ type supertypeProvider interface {
 	DirectSupertypes(sym *symbols.Symbol) []*symbols.Symbol
 }
 
-// resultParameterProvider is the part of the semantic model that reports the
-// result parameter of a function or expression, inherited ones included.
-// *semantics.Model implements it.
-type resultParameterProvider interface {
+// invocationResultProvider is the part of the semantic model that reports the
+// result parameter of a function or expression, inherited ones included, and
+// whether calling a declaration evaluates one. *semantics.Model implements it.
+type invocationResultProvider interface {
 	ResultParameterOf(sym *symbols.Symbol) *symbols.Symbol
+	Evaluates(sym *symbols.Symbol) bool
 }
 
 // metaclassProvider is the part of the semantic model that classifies an
@@ -109,6 +110,9 @@ type Resolver struct {
 	// resolving holds the depth (see enter) of each lookup on the stack, so a
 	// re-entrant query of the same name fails instead of recursing.
 	resolving map[ast.Node]int
+	// featuring holds the depth of each featured-member lookup (featuredMember)
+	// on the stack, whose scope walk may resolve the very chain that began it.
+	featuring map[featuredKey]int
 	// redefining holds the depth of each redefinition target being resolved,
 	// whose generals are found by resolving the targets of other redefinitions.
 	redefining map[*ast.QualifiedName]int
