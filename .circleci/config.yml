@@ -297,6 +297,13 @@ jobs:
           name: Check documentation links
           command: python3 scripts/check-doc-links.py
 
+      # python-test runs the same link check under coverage (make scripts-coverage)
+      # on an executor without Node, so it reads the bundle built here instead.
+      - persist_to_workspace:
+          root: .
+          paths:
+            - docs/assets/landing
+
       # The shipped pages are generated from each command's description, so a
       # flag added without regenerating them would ship a page for a command
       # that no longer exists.
@@ -741,6 +748,8 @@ jobs:
       # executable that does not exist, solver-dependent tests skip and the
       # absent-solver paths must still report one. The whole of internal/frontend/repl
       # runs here, and it needs more than go test's default ten-minute budget.
+      # no_output_timeout: go test prints a package's -v output only once it finishes,
+      # and internal/frontend/repl alone takes eight to ten minutes, past CircleCI's 10m default.
       - run:
           name: Run solver-absent gate
           command: |
@@ -755,6 +764,7 @@ jobs:
                 exit 1
               }
             done
+          no_output_timeout: 30m
 
       # The WebAssembly gate: both wasm targets compiled and vetted, the commands
       # linked and then run. Node is on the executor, so the require variable makes
