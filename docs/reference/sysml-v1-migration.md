@@ -1897,21 +1897,24 @@ rebind (a general's `Deviation` beside its own `N`, say). A snapshot's four stat
 become a recorded `analysis` of that def in the snapshot's individual, with the snapshot as its
 subject and the statistics as its outputs.
 
-The block's parametric diagram shows the pattern as a constraint-property symbol per statistic
-(`Mean`, `Deviation`, …), the value's symbol and the binding lines between them. Its view, hosted
-in the part def and rendered `Views::asInterconnectionDiagram`, is written from the elements
+The block's parametric diagram shows the pattern as a symbol per statistic it binds (`Mean`,
+`Deviation`, …), the value's symbol and the binding lines between them. Its view, hosted in
+the part def and rendered `Views::asInterconnectionDiagram`, is written from the elements
 above rather than from a constraint and binding the model does not have: it exposes the
 analysis def in place of the `Mean` symbol, positioned by a `DiagramLayout::Layout` where that
 symbol was, and the def's `return`/`out` statistic in place of a `Deviation`, `N` or `OutOfSpec`
-symbol, positioned likewise; the analysed value is exposed as the ordinary value property it is.
-The `Mean` binding is the def's `observed`, whose value `analysed.t` binds it to the analysed
-value, so the rendering draws it as a binding edge from `observed`, inside the analysis def's
-box, to the value's node, steered by a `DiagramLayout::Route` along the symbol's line; the
-report counts that connector as routed. A `Deviation`, `N` or `OutOfSpec` binding is a return
-bound to a statistic of the library case (`= deviation`), which the rendering draws no edge for,
-so the report counts its route as not drawn, and the statistic's symbol as positioned. In
-general an interconnection rendering draws every exposed analysis def as a node and every drawn
-feature whose value names another drawn feature as a binding between them.
+symbol; the analysed value is exposed as the ordinary value property it is. The rendering draws
+the analysis def as one box with its subject, statistics and `observed` as pins on its border
+— the graphical notation's parameters of a case, not boxes inside it — so the def keeps the
+symbol's size. The `Mean` binding is the def's `observed`, whose value `analysed.t` binds it to
+the analysed value, so the rendering draws it as a binding edge from the `observed` pin to the
+value's node, steered by a `DiagramLayout::Route` along the symbol's line; the report counts
+that connector as routed. A `Deviation`, `N` or `OutOfSpec` binding is a return bound to a
+statistic of the library case (`= deviation`), which the rendering draws no edge for, so the
+report counts its route as not drawn, and the statistic's symbol as positioned, though the pin
+sits on the def's border rather than at the Layout written for it. In general an interconnection
+rendering draws every exposed analysis def as such a node and every drawn feature — node or
+pin — whose value names another drawn feature as a binding between them.
 
 ```sysml
 part def 'Timer Analysis' :> Timer {

@@ -52,41 +52,50 @@ func nodeByName(r *Rendering, name string) *Node {
 	return nil
 }
 
-// An exposed analysis def is a node of an interconnection rendering, and a feature
-// whose value names a drawn feature is a binding edge between the two, steered by
-// the Route about the feature. A value of a feature the rendering does not draw
-// binds to the nearest node drawn, the subject; a literal draws no edge.
+// An exposed analysis def is a node of an interconnection rendering with its
+// subject, parameters and attributes as pins on its border, not nodes inside it;
+// a pin whose value names a drawn feature is a binding edge from the pin to the
+// feature, steered by the Route about the pin's feature. A pin bound to another
+// of the same node (mean = observed, hidden = analysed.y) is the node's own
+// wiring and draws no edge; nor does a literal.
 func TestFeatureValuesAreBindingEdges(t *testing.T) {
 	r := renderSource(t, "Model::both", valueBindingModel)
 	if len(r.Notices) != 0 {
 		t.Errorf("notices = %v, want none", r.Notices)
 	}
-	analysis := nodeByName(r, "Model::'Sensor Monte Carlo'")
-	x, observed, hidden, analysed, mean := nodeByName(r, "Model::Sensor::x"), nodeByName(r, "observed"), nodeByName(r, "hidden"), nodeByName(r, "analysed"), nodeByName(r, "mean")
-	if analysis == nil || x == nil || observed == nil || hidden == nil || analysed == nil || mean == nil {
-		t.Fatalf("nodes = %v, want the analysis def, x and the analysis members", nodeNames(r.Roots))
+	analysis, x := nodeByName(r, "Model::'Sensor Monte Carlo'"), nodeByName(r, "Model::Sensor::x")
+	if analysis == nil || x == nil {
+		t.Fatalf("nodes = %v, want the analysis def and x", nodeNames(r.Roots))
+	}
+	if len(nodeNames(r.Roots)) != 2 || len(analysis.Children) != 0 {
+		t.Errorf("nodes = %v with %d nested in the analysis def, want the two alone", nodeNames(r.Roots), len(analysis.Children))
 	}
 	if analysis.Kind != "analysis def" || analysis.Geometry == nil || analysis.Geometry.X != 70 || analysis.Geometry.Width != 81 {
 		t.Errorf("analysis node = %s %+v, want an analysis def at its Layout", analysis.Kind, analysis.Geometry)
 	}
+	wantPins := map[string]PortDirection{"analysed": PortUndirected, "observed": PortUndirected, "hidden": PortUndirected, "spec": PortUndirected, "mean": PortOut}
+	if len(analysis.Ports) != len(wantPins) {
+		t.Errorf("analysis pins = %+v, want %v", analysis.Ports, wantPins)
+	}
+	for name, direction := range wantPins {
+		if pin := pinNamed(analysis, name); pin == nil || pin.Direction != direction || pin.Type != "ScalarValues::Real" && name != "analysed" {
+			t.Errorf("pin %s = %+v, want direction %v typed ScalarValues::Real", name, pin, direction)
+		}
+	}
+	observed := pinNamed(analysis, "observed")
 	edges := bindingEdges(r)
-	if len(edges) != 3 {
-		t.Fatalf("binding edges = %+v, want observed = analysed.x, hidden = analysed.y and mean = observed", edges)
+	if len(edges) != 1 {
+		t.Fatalf("binding edges = %+v, want observed = analysed.x alone", edges)
 	}
-	want := map[[2]string]bool{{observed.ID, x.ID}: true, {hidden.ID, analysed.ID}: true, {mean.ID, observed.ID}: true}
-	for _, e := range edges {
-		if !want[[2]string{e.From, e.To}] {
-			t.Errorf("edge %s -> %s is none of the bindings wanted", e.From, e.To)
-		}
-		if e.Label != "binding" {
-			t.Errorf("edge %s -> %s labelled %q, want binding", e.From, e.To, e.Label)
-		}
-		if e.From == observed.ID && e.To == x.ID && (len(e.Route) != 2 || e.Route[0].X != 105 || e.Route[1].Y != 98) {
-			t.Errorf("observed binding route = %v, want the Route stated", e.Route)
-		}
+	e := edges[0]
+	if e.From != analysis.ID || e.FromPort != observed.ID || e.To != x.ID || e.ToPort != "" || e.Label != "binding" {
+		t.Errorf("edge = %+v, want a binding from pin %s of %s to %s", e, observed.ID, analysis.ID, x.ID)
 	}
-	if text := r.Text(); strings.Count(text, "==") != 3 {
-		t.Errorf("text draws %d bindings, want three:\n%s", strings.Count(text, "=="), text)
+	if len(e.Route) != 2 || e.Route[0].X != 105 || e.Route[1].Y != 98 {
+		t.Errorf("observed binding route = %v, want the Route stated", e.Route)
+	}
+	if text := r.Text(); strings.Count(text, "==") != 1 {
+		t.Errorf("text draws %d bindings, want one:\n%s", strings.Count(text, "=="), text)
 	}
 	dot, err := r.DOT()
 	if err != nil {
@@ -97,21 +106,19 @@ func TestFeatureValuesAreBindingEdges(t *testing.T) {
 	}
 }
 
-// With the analysed value not exposed, the binding of observed ends at the subject
-// node, the nearest the rendering draws of what the value names.
-func TestFeatureValueBindsToTheNearestDrawnNode(t *testing.T) {
+// With the analysed value not exposed, observed's value names a feature of the
+// subject, a pin of the analysis node itself, so no edge is drawn: the analysis
+// def is one node with its pins and nothing else.
+func TestFeatureValueToTheNodesOwnPinDrawsNoEdge(t *testing.T) {
 	r := renderSource(t, "Model::analysisOnly", valueBindingModel)
-	observed, analysed := nodeByName(r, "observed"), nodeByName(r, "analysed")
-	if observed == nil || analysed == nil {
-		t.Fatalf("nodes = %v, want observed and analysed", nodeNames(r.Roots))
+	analysis := nodeByName(r, "Model::'Sensor Monte Carlo'")
+	if analysis == nil || len(nodeNames(r.Roots)) != 1 {
+		t.Fatalf("nodes = %v, want the analysis def alone", nodeNames(r.Roots))
 	}
-	var found bool
-	for _, e := range bindingEdges(r) {
-		if e.From == observed.ID && e.To == analysed.ID {
-			found = true
-		}
+	if pinNamed(analysis, "observed") == nil || pinNamed(analysis, "analysed") == nil {
+		t.Errorf("pins = %+v, want observed and analysed", analysis.Ports)
 	}
-	if !found {
-		t.Errorf("edges = %+v, want observed bound to analysed", r.Edges)
+	if len(r.Edges) != 0 {
+		t.Errorf("edges = %+v, want none", r.Edges)
 	}
 }

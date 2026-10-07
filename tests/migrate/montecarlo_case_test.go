@@ -323,8 +323,9 @@ func TestMonteCarloParametricViewExposesTheAnalysis(t *testing.T) {
 		}
 	}
 
-	// The rendering draws the analysis def where the Mean symbol was, and the binding
-	// from its observed value to the analysed value along the symbol's route.
+	// The rendering draws the analysis def where the Mean symbol was, its observed
+	// value a pin on its border, and the binding from that pin to the analysed
+	// value along the symbol's route.
 	s := session(t, r)
 	rendering, err := s.ViewRendering("'Settling Analysis'::'Settling Parametrics'")
 	if err != nil {
@@ -337,19 +338,27 @@ func TestMonteCarloParametricViewExposesTheAnalysis(t *testing.T) {
 			nodes[child.Name] = child
 		}
 	}
-	analysis, settleTime, observed := nodes["'Settling Analysis Monte Carlo'"], nodes["Sensor::settleTime"], nodes["observed"]
-	if analysis == nil || settleTime == nil || observed == nil {
-		t.Fatalf("rendering lacks the analysis def, settleTime or observed among %v", slices.Sorted(maps.Keys(nodes)))
+	analysis, settleTime := nodes["'Settling Analysis Monte Carlo'"], nodes["Sensor::settleTime"]
+	if analysis == nil || settleTime == nil || nodes["Sensor::misses"] == nil || len(nodes) != 3 {
+		t.Fatalf("rendering draws %v, want the analysis def, settleTime and misses alone", slices.Sorted(maps.Keys(nodes)))
 	}
 	if analysis.Kind != "analysis def" || analysis.Geometry == nil || *analysis.Geometry != (view.Geometry{X: 70, Y: 56, Width: 81, Height: 26, HasSize: true}) {
 		t.Errorf("analysis def node = %s %+v, want the Mean symbol's geometry", analysis.Kind, analysis.Geometry)
+	}
+	pins := map[string]view.Port{}
+	for _, pin := range analysis.Ports {
+		pins[pin.Name] = pin
+	}
+	observed, ok := pins["observed"]
+	if !ok || pins["Mean"].Direction != view.PortOut || pins["Deviation"].Direction != view.PortOut || pins["analysed"].Direction != view.PortUndirected {
+		t.Fatalf("analysis def pins = %+v, want analysed, observed and the out statistics Mean and Deviation", analysis.Ports)
 	}
 	if len(rendering.Edges) != 1 {
 		t.Fatalf("edges = %+v, want the one binding", rendering.Edges)
 	}
 	edge := rendering.Edges[0]
-	if edge.From != observed.ID || edge.To != settleTime.ID || edge.Kind != view.EdgeBinding || edge.Label != "binding" {
-		t.Errorf("edge = %+v, want a binding from %s to %s", edge, observed.ID, settleTime.ID)
+	if edge.From != analysis.ID || edge.FromPort != observed.ID || edge.To != settleTime.ID || edge.ToPort != "" || edge.Kind != view.EdgeBinding || edge.Label != "binding" {
+		t.Errorf("edge = %+v, want a binding from pin %s of %s to %s", edge, observed.ID, analysis.ID, settleTime.ID)
 	}
 	if !reflect.DeepEqual(edge.Route, []view.Point{{X: 105, Y: 82}, {X: 105, Y: 98}}) {
 		t.Errorf("edge route = %v, want the symbol's (105,82) (105,98)", edge.Route)
