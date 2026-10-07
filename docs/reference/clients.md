@@ -27,7 +27,9 @@ The protocols and what the service serves on a single port are described in
   that starts a service to talk to itself is paying for a child process whose only job is to run
   code the program already links.
 - **In a notebook: Python.** `opensysml` adds generated typed classes, Jupyter display hooks and
-  DataFrame integration to the full RPC surface.
+  DataFrame integration to the full RPC surface. To write SysML itself in the cells, install the
+  [Jupyter kernel](jupyter-kernel.md) (`pip install jupyter-opensysml-kernel`) instead: it runs the
+  REPL's session in the notebook, and is not a client of the service.
 - **In a browser or a Node service: `@openmbee/opensysml`.** No native addon, and the browser entry
   point needs only `fetch` against a service that allows the page's origin. Node and browser
   callers can also use the combined `sysml-wasm` module without a service.

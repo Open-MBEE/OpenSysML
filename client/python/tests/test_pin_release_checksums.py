@@ -454,12 +454,12 @@ def test_binaries_for_every_service_platform_are_required(tmp_path):
     """A platform the job did not build fails the stamp, as for a crate."""
     binaries, _ = _built_binaries(tmp_path, assets=RUST_SERVICE_ASSETS[:-1])
     table_path = _temporary_table(tmp_path)
-    with pytest.raises(pin.PinError, match="missing service assets: sysml-grpc-windows-amd64.exe"):
+    with pytest.raises(pin.PinError, match="missing assets: sysml-grpc-windows-amd64.exe"):
         pin.stamp_from_binaries(binaries, STAMPED_TAG, table_path=table_path)
 
 
 def test_a_directory_without_binaries_is_an_error(tmp_path):
-    with pytest.raises(pin.PinError, match="cannot read the service binaries"):
+    with pytest.raises(pin.PinError, match="cannot read the binaries"):
         pin.binary_service_digests(tmp_path / "absent")
 
 
@@ -606,3 +606,97 @@ class TestGitHubToken:
         monkeypatch.delenv("GITHUB_TOKEN")
         assert pin.main(["--version", "v9.9.9"]) == 1
         assert "$GITHUB_TOKEN" in capsys.readouterr().err
+
+
+# The Jupyter kernel binaries are a second family, pinned whole like the service.
+KERNEL_ASSETS = tuple(sorted(pin.KERNEL_ASSETS))
+
+
+def _built_kernels(tmp_path, assets=KERNEL_ASSETS, into="jupyter"):
+    """The dist/jupyter directory the release job hands the kernel package job."""
+    binaries = tmp_path / into
+    binaries.mkdir(parents=True, exist_ok=True)
+    digests = {}
+    for index, asset in enumerate(assets):
+        content = f"sysml-jupyter-kernel build {index}".encode()
+        (binaries / asset).write_bytes(content)
+        digests[asset] = hashlib.sha256(content).hexdigest()
+        (binaries / f"{asset}.sha256").write_text(f"{digests[asset]}  {asset}\n", encoding="utf-8")
+    return binaries, digests
+
+
+def test_the_kernel_family_covers_the_platforms_the_service_does():
+    assert {asset[len(pin.KERNEL_PREFIX):] for asset in pin.KERNEL_ASSETS} == {
+        asset[len(pin.SERVICE_PREFIX):] for asset in pin.SERVICE_ASSETS
+    }
+    assert "sysml-jupyter-kernel-windows-amd64.exe" in pin.KERNEL_ASSETS
+
+
+def test_kernel_binaries_alone_are_stamped(tmp_path):
+    """The kernel package job is handed dist/jupyter alone, so the kernel family stamps by itself."""
+    binaries, kernels = _built_kernels(tmp_path)
+    table_path = _temporary_table(tmp_path)
+
+    assert pin.stamp_from_binaries(binaries, STAMPED_TAG, table_path=table_path)
+
+    assert pin.pinned_table(str(table_path))[pin.DEFAULT_REPO][STAMPED_TAG] == kernels
+
+
+def test_a_directory_holding_no_family_is_refused(tmp_path):
+    (tmp_path / "jupyter").mkdir()
+    (tmp_path / "jupyter" / "README").write_text("nothing built\n", encoding="utf-8")
+    with pytest.raises(pin.PinError, match="no sysml-grpc-\\* or sysml-jupyter-kernel-\\* binaries"):
+        pin.binary_service_digests(tmp_path / "jupyter")
+
+
+def test_a_kernel_family_missing_a_platform_is_refused(tmp_path):
+    binaries, _ = _built_kernels(tmp_path, assets=KERNEL_ASSETS[:-1])
+    table_path = _temporary_table(tmp_path)
+
+    with pytest.raises(pin.PinError, match=KERNEL_ASSETS[-1].replace(".", "\\.")):
+        pin.stamp_from_binaries(binaries, STAMPED_TAG, table_path=table_path)
+    assert STAMPED_TAG not in pin.pinned_table(str(table_path))[pin.DEFAULT_REPO]
+
+
+def test_both_families_in_one_directory_are_stamped_together(tmp_path):
+    binaries, service = _built_binaries(tmp_path)
+    _, kernels = _built_kernels(tmp_path, into="grpc")
+    table_path = _temporary_table(tmp_path)
+
+    assert pin.stamp_from_binaries(binaries, STAMPED_TAG, table_path=table_path)
+
+    assert pin.pinned_table(str(table_path))[pin.DEFAULT_REPO][STAMPED_TAG] == {**service, **kernels}
+
+
+def test_a_manifest_listing_both_families_pins_both(tmp_path):
+    """The signed manifest lists every binary, so the shared table pins the kernels too."""
+    manifest, digests = _release_manifest(tmp_path, assets=RUST_SERVICE_ASSETS + KERNEL_ASSETS)
+    assert pin.manifest_service_digests(str(manifest)) == digests
+
+
+def test_a_manifest_listing_a_partial_kernel_family_is_refused(tmp_path):
+    manifest, _ = _release_manifest(tmp_path, assets=RUST_SERVICE_ASSETS + KERNEL_ASSETS[1:])
+    with pytest.raises(pin.PinError, match="missing assets: " + KERNEL_ASSETS[0]):
+        pin.manifest_service_digests(str(manifest))
+
+
+def test_a_manifest_without_the_kernel_family_is_still_complete(tmp_path):
+    """Releases before the kernel existed list the service alone, and stay pinnable."""
+    manifest, digests = _release_manifest(tmp_path)
+    assert pin.manifest_service_digests(str(manifest)) == digests
+
+
+def test_kernel_assets_of_a_release_are_read_beside_the_service(monkeypatch):
+    body = (
+        '{"assets": ['
+        '{"name": "sysml-grpc-linux-amd64", "browser_download_url": "u1"},'
+        '{"name": "sysml-jupyter-kernel-linux-amd64", "browser_download_url": "u2"},'
+        '{"name": "sysml-jupyter-kernel-linux-amd64.sha256", "browser_download_url": "u3"},'
+        '{"name": "jupyter_opensysml_kernel-0.9.3-py3-none-any.whl", "browser_download_url": "u4"}]}'
+    )
+    monkeypatch.setattr(pin.urllib.request, "urlopen", _fake_urlopen(body))
+
+    assert pin.release_assets("Open-MBEE/OpenSysML", "v9.9.9") == {
+        "sysml-grpc-linux-amd64": "u1",
+        "sysml-jupyter-kernel-linux-amd64": "u2",
+    }
