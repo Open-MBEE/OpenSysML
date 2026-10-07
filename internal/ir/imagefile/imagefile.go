@@ -4,10 +4,12 @@ package imagefile
 
 import (
 	"bytes"
+	"encoding/base64"
 	"encoding/xml"
 	"errors"
 	"fmt"
 	"io"
+	"net/url"
 	"path"
 	"slices"
 	"strings"
@@ -29,6 +31,25 @@ func ContentType(data []byte) string {
 	return ""
 }
 
+// DecodeDataURL decodes a data URL and reports its declared media type, if any.
+func DecodeDataURL(u string) (mediaType string, data []byte, err error) {
+	if len(u) < len("data:") || !strings.EqualFold(u[:len("data:")], "data:") {
+		return "", nil, errors.New("not a data URL")
+	}
+	metadata, payload, hasPayload := strings.Cut(u[len("data:"):], ",")
+	mediaType, _, _ = strings.Cut(metadata, ";")
+	mediaType = strings.ToLower(strings.TrimSpace(mediaType))
+	if !hasPayload {
+		return mediaType, nil, errors.New("missing data URL payload")
+	}
+	if strings.HasSuffix(strings.ToLower(metadata), ";base64") {
+		data, err = base64.StdEncoding.DecodeString(payload)
+		return mediaType, data, err
+	}
+	decoded, err := url.PathUnescape(payload)
+	return mediaType, []byte(decoded), err
+}
+
 func signedContentType(data []byte) string {
 	switch {
 	case bytes.HasPrefix(data, []byte("\x89PNG\r\n\x1a\n")):
@@ -48,7 +69,7 @@ func signedContentType(data []byte) string {
 
 // CheckSVG is nil when data is one well-formed SVG document — a single root
 // element svg in the SVG namespace and no text outside it — else why it is not.
-func CheckSVG(data []byte) error { return checkSVG(data, false) }
+func CheckSVG(data []byte) error { return checkSVG(data, false, 0) }
 
 // ActiveContentError is an SVG construct that can load or execute active content.
 type ActiveContentError struct {
@@ -61,9 +82,9 @@ func (e *ActiveContentError) Error() string {
 
 // CheckStaticSVG is nil when data is one well-formed SVG document without active
 // content that can execute or load external resources.
-func CheckStaticSVG(data []byte) error { return checkSVG(data, true) }
+func CheckStaticSVG(data []byte) error { return checkSVG(data, true, 0) }
 
-func checkSVG(data []byte, static bool) error {
+func checkSVG(data []byte, static bool, dataSVGDepth int) error {
 	dec := xml.NewDecoder(bytes.NewReader(data))
 	dec.Entity = xml.HTMLEntity
 	depth, roots := 0, 0
@@ -98,7 +119,7 @@ func checkSVG(data []byte, static bool) error {
 			if static && active == nil {
 				active = svgElementConstruct(node.Name.Local)
 				if active == nil {
-					active = svgAttributeConstruct(node)
+					active = svgAttributeConstruct(node, dataSVGDepth)
 				}
 				if active == nil && strings.EqualFold(node.Name.Local, "style") {
 					styleDepth = depth + 1
@@ -142,7 +163,12 @@ func svgElementConstruct(name string) error {
 	return nil
 }
 
-func svgAttributeConstruct(element xml.StartElement) error {
+var svgPresentationURLAttributes = map[string]struct{}{
+	"fill": {}, "stroke": {}, "filter": {}, "clip-path": {}, "mask": {},
+	"marker": {}, "marker-start": {}, "marker-mid": {}, "marker-end": {}, "cursor": {},
+}
+
+func svgAttributeConstruct(element xml.StartElement, dataSVGDepth int) error {
 	isAnimation := false
 	switch strings.ToLower(element.Name.Local) {
 	case "set", "animate", "animatetransform", "animatemotion", "animatecolor":
@@ -158,7 +184,28 @@ func svgAttributeConstruct(element xml.StartElement) error {
 			return &ActiveContentError{Construct: "an " + attr.Name.Local + " attribute on <" + element.Name.Local + ">"}
 		case local == "href":
 			value := strings.TrimSpace(attr.Value)
-			if !strings.HasPrefix(value, "#") && !strings.HasPrefix(strings.ToLower(value), "data:image/") {
+			lowerValue := strings.ToLower(value)
+			if strings.HasPrefix(lowerValue, "data:image/") {
+				mediaType, data, err := DecodeDataURL(value)
+				if mediaType == "image/svg+xml" {
+					if dataSVGDepth >= 4 {
+						return &ActiveContentError{Construct: "data: SVG hrefs nested too deeply"}
+					}
+					if err != nil {
+						return &ActiveContentError{Construct: "an undecodable data: href on <" + element.Name.Local + ">"}
+					}
+					if err := checkSVG(data, true, dataSVGDepth+1); err != nil {
+						var inner *ActiveContentError
+						if errors.As(err, &inner) {
+							if inner.Construct == "data: SVG hrefs nested too deeply" {
+								return inner
+							}
+							return &ActiveContentError{Construct: "a data: SVG href on <" + element.Name.Local + "> with " + inner.Construct}
+						}
+						return &ActiveContentError{Construct: "a malformed data: SVG href on <" + element.Name.Local + ">"}
+					}
+				}
+			} else if !strings.HasPrefix(value, "#") {
 				name := "an external href on <" + element.Name.Local + ">"
 				if attr.Name.Space != "" {
 					name = "an external xlink:href on <" + element.Name.Local + ">"
@@ -177,12 +224,14 @@ func svgAttributeConstruct(element xml.StartElement) error {
 				return &ActiveContentError{Construct: "<" + element.Name.Local + "> animating " + attr.Value}
 			}
 		}
-		if attr.Name.Local == "style" || strings.EqualFold(attr.Name.Local, "style") {
+		if local == "style" {
 			if construct := cssReference(attr.Value); construct != "" {
 				return &ActiveContentError{Construct: construct + " in a style attribute on <" + element.Name.Local + ">"}
 			}
-		} else if construct := cssReference(attr.Value); construct == "url()" {
-			return &ActiveContentError{Construct: "url() in the " + attr.Name.Local + " attribute on <" + element.Name.Local + ">"}
+		} else if _, ok := svgPresentationURLAttributes[local]; ok {
+			if construct := cssReference(attr.Value); construct != "" {
+				return &ActiveContentError{Construct: construct + " in the " + attr.Name.Local + " attribute on <" + element.Name.Local + ">"}
+			}
 		}
 	}
 	return nil

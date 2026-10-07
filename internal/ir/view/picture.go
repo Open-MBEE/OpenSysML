@@ -1,10 +1,8 @@
 package view
 
 import (
-	"encoding/base64"
 	"errors"
 	"fmt"
-	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -50,14 +48,21 @@ func CheckPicture(location string, data []byte) error {
 		return ErrRemotePicture
 	}
 	if strings.HasPrefix(strings.ToLower(location), "data:") {
-		var err error
-		data, err = decodeDataPicture(location)
+		mediaType, decoded, err := imagefile.DecodeDataURL(location)
 		if err != nil {
 			return errors.New("the data: URL does not decode")
 		}
-		if imagefile.ContentType(data) == "" {
+		contentType := imagefile.ContentType(decoded)
+		if contentType == "" {
 			return errors.New("the data: URL is not a supported image")
 		}
+		if mediaType != contentType {
+			if mediaType == "" {
+				mediaType = "no media type"
+			}
+			return fmt.Errorf("the data: URL declares %s but holds %s", mediaType, contentType)
+		}
+		data = decoded
 	}
 	if data == nil {
 		return nil
@@ -72,25 +77,6 @@ func CheckPicture(location string, data []byte) error {
 		}
 	}
 	return nil
-}
-
-func decodeDataPicture(location string) ([]byte, error) {
-	metadata, payload, ok := strings.Cut(location[len("data:"):], ",")
-	if !ok {
-		return nil, errors.New("missing data URL payload")
-	}
-	if strings.HasSuffix(strings.ToLower(metadata), ";base64") {
-		data, err := base64.StdEncoding.DecodeString(payload)
-		if err != nil {
-			return nil, err
-		}
-		return data, nil
-	}
-	data, err := url.PathUnescape(payload)
-	if err != nil {
-		return nil, err
-	}
-	return []byte(data), nil
 }
 
 func pictureRefusal(p Picture) error {

@@ -357,7 +357,7 @@ table records what each rendering feature writes:
 | Styles and palettes | `classDef`/`class` fill applicable nodes by keyword family; palettes override Cameo fills. `Style` CSS covers Mermaid's supported node and edge fields; unsupported fields are listed in notices. Sequence palettes are accepted but cannot fill individual participants. Cluster anchors do not receive palette fills or count as model nodes. |
 | Notes | Flowchart notes are grouped as `notch-rect` nodes with dashed anchors and declared inside the innermost subgraph containing all their drawn anchors. Free notes and notes spanning roots stay at top level. State notes anchor to declared states; sequence notes anchor to participants or messages. Unsupported anchors and free sequence/state notes receive precise notices. |
 | Ports | Any node with a used port is a subgraph containing connected ports in declaration order, before its children; edge endpoints route through those port nodes. |
-| Pictures | Flowcharts write `img` shapes and geometry comments. Document backends inline safe local images as data URLs; active-content SVGs and locations with non-`data:` URL schemes are omitted with reasoned notices, as are unreadable, unsupported and over-limit images. State and sequence diagrams do not draw pictures. |
+| Pictures | Flowcharts write `img` shapes and geometry comments. Document backends inline safe local images as data URLs; a data URL's declared media type must match its recognized image bytes case-insensitively, and nested `data:image/svg+xml` hrefs are checked through four nested SVG levels. Active-content SVGs, malformed or over-deep nested SVGs and locations with non-`data:` URL schemes are omitted with reasoned notices, as are unreadable, unsupported and over-limit images. State and sequence diagrams do not draw pictures; refused pictures name their reason, while drawable ones receive the generic no-picture notice. |
 
 The expanded shapes `fr-circ`, `f-circ`, `fork`, `notch-rect` and `img` require Mermaid 11.3 or later; classic shapes are used where available. Mermaid cannot draw fork/join names, Cameo gradients as anything but flat fills, or the Cameo diagram frame and header tab. Sequence diagrams cannot fill individual participants; state diagrams cannot place free or edge-anchored notes; Mermaid's picture layout comments preserve geometry but do not control placement or z-order.
 
@@ -1189,7 +1189,8 @@ and did not change. A view-render RPC added later would take the form as a strin
   for every golden model, palette and style; plain tree containment; anchored non-tree subgraphs;
   notes in all grammars; used-port subgraphs with children; empty decision symbols and quoted
   note/fork strings; grammar-scoped theme variables; safe picture inlining, active-SVG and remote
-  scheme refusals, and missing/unsupported-image notices; and edge counting.
+  scheme refusals, nested-SVG validation and declared data-URL type checks, and
+  missing/unsupported-image notices; and edge counting.
   `TestMermaidRendersWithInstalledMMDC` is opt-in through `OPENSYSML_MMDC` and checks every
   Mermaid golden plus palette and Cameo variants with HTML labels both on and off.
 - `internal/ir/view/dot_style_test.go`, `palette_test.go`: the B&W defaults; a definition
@@ -1310,7 +1311,9 @@ and did not change. A view-render RPC added later would take the form as a strin
   and sequence notes are drawn only when their anchors fit
   those grammars; free state/sequence notes and state notes on pseudostates are reported.
 - Mermaid flowcharts draw safe pictures as image nodes and document backends inline safe local
-  image data. Active-content SVGs and locations with non-`data:` URL schemes are refused with
+  image data. A data URL's declared media type must match its recognized image bytes, and nested
+  `data:image/svg+xml` hrefs are checked through four nested SVG levels. Active-content SVGs,
+  malformed or over-deep nested SVGs and locations with non-`data:` URL schemes are refused with
   notices; picture positions and z-order survive only as comments, and state and sequence
   pictures are not drawn.
 - Binding connectors are not drawn at the Pilot's thickness 5: the interconnection rendering

@@ -143,8 +143,11 @@ func DrawSVG(diagrams []docrender.Diagram) ([]string, error) {
 	return svgs, nil
 }
 
-// svgImageRef matches an SVG <image> element and its href, as Graphviz writes it.
-var svgImageRef = regexp.MustCompile(`(<image\b[^>]*?\s(?:xlink:)?href=")([^"]*)("[^>]*?(?:/>|>\s*</image>))`)
+var (
+	svgImageStartTag = regexp.MustCompile(`<image\b[^>]*>`)
+	svgImageEndTag   = regexp.MustCompile(`^\s*</image\s*>`)
+	svgImageHref     = regexp.MustCompile(`\s(?:xlink:)?href\s*=\s*(?:"([^"]*)"|'([^']*)')`)
+)
 
 // embedImages inlines each safe local image an SVG refers to; refused images
 // become comments, while valid data URIs and unread or unsupported files stay as written.
@@ -153,23 +156,52 @@ func embedImages(path, base string) error {
 	if err != nil {
 		return nil
 	}
-	if !svgImageRef.Match(svg) {
+	matches := svgImageStartTag.FindAllIndex(svg, -1)
+	if len(matches) == 0 {
 		return nil
 	}
-	out := svgImageRef.ReplaceAllFunc(svg, func(ref []byte) []byte {
-		parts := svgImageRef.FindSubmatch(ref)
-		location := html.UnescapeString(string(parts[2]))
+	var out []byte
+	at := 0
+	for _, match := range matches {
+		start, tagEnd := match[0], match[1]
+		if start < at {
+			continue
+		}
+		end := tagEnd
+		if closing := svgImageEndTag.FindIndex(svg[tagEnd:]); closing != nil {
+			end += closing[1]
+		}
+		out = append(out, svg[at:start]...)
+		tag := svg[start:tagEnd]
+		href := svgImageHref.FindSubmatchIndex(tag)
+		if href == nil {
+			out = append(out, svg[start:end]...)
+			at = end
+			continue
+		}
+		valueStart, valueEnd := href[2], href[3]
+		if valueStart < 0 {
+			valueStart, valueEnd = href[4], href[5]
+		}
+		location := html.UnescapeString(string(tag[valueStart:valueEnd]))
 		if location == "" {
-			return ref
+			out = append(out, svg[start:end]...)
+			at = end
+			continue
 		}
 		if view.RemotePictureLocation(location) {
-			return refusedImageComment(location, view.ErrRemotePicture.Error())
+			out = append(out, refusedImageComment(location, view.ErrRemotePicture.Error())...)
+			at = end
+			continue
 		}
 		if strings.HasPrefix(strings.ToLower(strings.TrimSpace(location)), "data:") {
 			if err := view.CheckPicture(location, nil); err != nil {
-				return refusedImageComment(location, err.Error())
+				out = append(out, refusedImageComment(location, err.Error())...)
+			} else {
+				out = append(out, svg[start:end]...)
 			}
-			return ref
+			at = end
+			continue
 		}
 		file := filepath.FromSlash(location)
 		if !filepath.IsAbs(file) {
@@ -177,18 +209,29 @@ func embedImages(path, base string) error {
 		}
 		data, err := os.ReadFile(file) // #nosec G304 -- the path is one the drawn view states
 		if err != nil {
-			return ref
+			out = append(out, svg[start:end]...)
+			at = end
+			continue
 		}
 		if err := view.CheckPicture(location, data); err != nil {
-			return refusedImageComment(location, err.Error())
+			out = append(out, refusedImageComment(location, err.Error())...)
+			at = end
+			continue
 		}
 		ct := imagefile.ContentType(data)
 		if ct == "" {
-			return ref
+			out = append(out, svg[start:end]...)
+			at = end
+			continue
 		}
 		uri := "data:" + ct + ";base64," + base64.StdEncoding.EncodeToString(data)
-		return append(append(append([]byte(nil), parts[1]...), uri...), parts[3]...)
-	})
+		out = append(out, tag[:valueStart]...)
+		out = append(out, uri...)
+		out = append(out, tag[valueEnd:]...)
+		out = append(out, svg[tagEnd:end]...)
+		at = end
+	}
+	out = append(out, svg[at:]...)
 	return os.WriteFile(path, out, 0o600)
 }
 

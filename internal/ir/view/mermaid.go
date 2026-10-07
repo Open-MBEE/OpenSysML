@@ -236,13 +236,20 @@ func (r *Rendering) mermaidFlowchartNoteNotices() []string {
 // mermaidPictureNotices reports the pictures the Mermaid form cannot draw,
 // grouped by the reason.
 func (r *Rendering) mermaidPictureNotices() []string {
-	if r.Kind == KindState || r.Kind == KindSequence {
-		if len(r.Pictures) > 0 {
-			return []string{pictureNotice(r.Pictures, fmt.Sprintf("a %s diagram draws no picture", r.Kind))}
-		}
-		return nil
-	}
 	refusals := r.pictureRefusals()
+	if r.Kind == KindState || r.Kind == KindSequence {
+		var drawable []Picture
+		for i, picture := range r.Pictures {
+			if refusals[i] == nil {
+				drawable = append(drawable, picture)
+			}
+		}
+		notices := refusedPictureNotices(r.Pictures, refusals)
+		if len(drawable) > 0 {
+			notices = append(notices, pictureNotice(drawable, fmt.Sprintf("a %s diagram draws no picture", r.Kind)))
+		}
+		return notices
+	}
 	var reasons []string
 	undrawn := map[string][]Picture{}
 	for i, picture := range r.Pictures {

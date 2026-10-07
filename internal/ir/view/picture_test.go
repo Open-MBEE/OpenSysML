@@ -73,6 +73,25 @@ func TestCheckPicture(t *testing.T) {
 	if err := CheckPicture("clean.png", pngData.Bytes()); err != nil {
 		t.Errorf("clean PNG: %v", err)
 	}
+	pngURI := base64.StdEncoding.EncodeToString(pngData.Bytes())
+	for _, tc := range []struct {
+		location, want string
+	}{
+		{"data:text/plain;base64," + pngURI, "the data: URL declares text/plain but holds image/png"},
+		{"data:,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%2F%3E", "the data: URL declares no media type but holds image/svg+xml"},
+	} {
+		if err := CheckPicture(tc.location, nil); err == nil || err.Error() != tc.want {
+			t.Errorf("CheckPicture(%q) = %v, want %q", tc.location, err, tc.want)
+		}
+	}
+	for _, location := range []string{
+		"data:image/png;base64," + pngURI,
+		"data:IMAGE/PNG;base64," + pngURI,
+	} {
+		if err := CheckPicture(location, nil); err != nil {
+			t.Errorf("CheckPicture(%q) = %v, want valid PNG data URL accepted", location, err)
+		}
+	}
 }
 
 func hardeningPictureRendering(t *testing.T) (*Rendering, []string, []byte) {
@@ -472,6 +491,15 @@ func TestPictureAtURLIsRefusedNotDrawn(t *testing.T) {
 	}
 	if !strings.Contains(dot, "// not represented: "+notice) {
 		t.Errorf("DOT drops the picture silently:\n%s", dot)
+	}
+}
+
+func TestTextRenderingReportsPictureRefusals(t *testing.T) {
+	rendering, _, _ := hardeningPictureRendering(t)
+	rendering.Pictures = rendering.Pictures[:1]
+	want := pictureNotice(rendering.Pictures, "the SVG has active content (<script>)")
+	if text := rendering.Text(); !strings.Contains(text, want) {
+		t.Errorf("text rendering lacks refused-picture notice %q:\n%s", want, text)
 	}
 }
 

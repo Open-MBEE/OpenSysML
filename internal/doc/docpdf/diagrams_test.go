@@ -361,6 +361,7 @@ func TestEmbedImagesInlinesThePicturesAnSVGRefers(t *testing.T) {
 		t.Fatal(err)
 	}
 	pngURI := "data:image/png;base64," + base64.StdEncoding.EncodeToString(pngData)
+	mismatchedURI := "data:image/svg+xml;base64," + base64.StdEncoding.EncodeToString(pngData)
 	scriptURI := "data:image/svg+xml;base64," + base64.StdEncoding.EncodeToString([]byte(script))
 	svg := `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">` +
 		`<image xlink:href="images/a&amp;b.png" width="1px" height="1px"/>` +
@@ -370,6 +371,7 @@ func TestEmbedImagesInlinesThePicturesAnSVGRefers(t *testing.T) {
 		`<image xlink:href="https://example.org/a.png"/>` +
 		`<image xlink:href="data:image/png;base64,AAAA"/>` +
 		`<image xlink:href="` + pngURI + `"/>` +
+		`<image xlink:href="` + mismatchedURI + `"/>` +
 		`<image xlink:href="` + active + `"/>` +
 		`<image xlink:href="` + malformed + `"/>` +
 		`<image xlink:href="` + scriptURI + `"/>` +
@@ -393,6 +395,7 @@ func TestEmbedImagesInlinesThePicturesAnSVGRefers(t *testing.T) {
 		`<!-- not represented: picture https://example.org/a.png not drawn; remote pictures are not drawn -->` +
 		`<!-- not represented: picture data:image/png;base64,AAAA not drawn; the data: URL is not a supported image -->` +
 		`<image xlink:href="` + pngURI + `"/>` +
+		`<!-- not represented: picture ` + mismatchedURI + ` not drawn; the data: URL declares image/svg+xml but holds image/png -->` +
 		`<!-- not represented: picture ` + strings.ReplaceAll(active, "-", "&#45;") + ` not drawn; the SVG has active content (<script>) -->` +
 		`<!-- not represented: picture ` + strings.ReplaceAll(malformed, "-", "&#45;") + ` not drawn; the SVG is not well&#45;formed (XML syntax error on line 1: unexpected EOF) -->` +
 		`<!-- not represented: picture ` + scriptURI + ` not drawn; the SVG has active content (<script>) -->` +
@@ -402,6 +405,48 @@ func TestEmbedImagesInlinesThePicturesAnSVGRefers(t *testing.T) {
 	}
 	if bytes.Contains(out, []byte(`href="data:image/svg+xml`)) || bytes.Contains(out, []byte("<script/>")) {
 		t.Errorf("embedded SVG contains active picture data:\n%s", out)
+	}
+}
+
+func TestEmbedImagesMatchesImageElementsAndHrefSyntax(t *testing.T) {
+	cases := []struct {
+		name, element, location string
+		unchanged               bool
+	}{
+		{"single quoted href", `<image href='https://example.org/a.png'/>`, "https://example.org/a.png", false},
+		{"non-self-closing xlink href", `<image xlink:href = "https://example.org/b.png" width="1"></image>`, "https://example.org/b.png", false},
+		{"spaces around equals", `<image href = "https://example.org/c.png"/>`, "https://example.org/c.png", false},
+		{"href before other attributes", `<image href="https://example.org/d.png" width="1" height="1"/>`, "https://example.org/d.png", false},
+		{"no href", `<image width="1"></image>`, "", true},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			path := filepath.Join(t.TempDir(), "diagram.svg")
+			source := `<svg xmlns="http://www.w3.org/2000/svg">` + tc.element + `</svg>`
+			if err := os.WriteFile(path, []byte(source), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			if err := embedImages(path, t.TempDir()); err != nil {
+				t.Fatalf("embedImages: %v", err)
+			}
+			out, err := os.ReadFile(path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if tc.unchanged {
+				if string(out) != source {
+					t.Errorf("element without href changed: %s", out)
+				}
+				return
+			}
+			if strings.Contains(string(out), "<image") {
+				t.Errorf("refused image element remains in output: %s", out)
+			}
+			comment := `<!-- not represented: picture ` + tc.location + ` not drawn; remote pictures are not drawn -->`
+			if !strings.Contains(string(out), comment) {
+				t.Errorf("output lacks refusal comment %q: %s", comment, out)
+			}
+		})
 	}
 }
 
