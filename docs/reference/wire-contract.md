@@ -2116,8 +2116,8 @@ with protobuf JSON:
 form](external-engines.md#the-graphs1-model-form)). `content` is that JSON with one trailing
 newline, byte for byte what `sysml -graphs <subject>` writes; `version` is its `version` field and
 `subject` the qualified name as resolved. The subject names an action or state machine, definition
-or usage: a name no element has is `NOT_FOUND`, one that is no behavior (`Test: graphs: subject has
-no lowered graph: Test is a package`) or that several elements share is `INVALID_ARGUMENT`. The
+or usage, by qualified name: a name no element has is `NOT_FOUND`, one that is no behavior
+(`Test: graphs: subject has no lowered graph: Test is a package`) is `INVALID_ARGUMENT`. The
 service advertises this method as the `export_graphs` capability.
 
 This excerpt was captured by calling the gRPC service with `Test::race` from

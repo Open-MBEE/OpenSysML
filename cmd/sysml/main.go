@@ -607,8 +607,8 @@ func runCLI() int {
 		case renderDoc != "":
 			fmt.Fprintln(os.Stderr, "sysml: -render-documents renders every document; -render-document renders one; ask for one per run")
 			return 2
-		case renderView != "" || renderAllDir != "" || convertFormat != "" || migrateFormat != "":
-			fmt.Fprintln(os.Stderr, "sysml: -render-documents, -render, -render-all, -convert and -migrate each write documents out; ask for one per run")
+		case renderView != "" || renderAllDir != "" || convertFormat != "" || migrateFormat != "" || graphsSubject != "":
+			fmt.Fprintln(os.Stderr, "sysml: -render-documents, -render, -render-all, -convert, -migrate and -graphs each write documents out; ask for one per run")
 			return 2
 		case outputPath != "":
 			fmt.Fprintln(os.Stderr, "sysml: -render-documents writes into its directory and cannot be combined with -output")
@@ -638,8 +638,8 @@ func runCLI() int {
 		case outputPath != "":
 			fmt.Fprintln(os.Stderr, "sysml: -render-all writes into its directory and cannot be combined with -output")
 			return 2
-		case convertFormat != "" || migrateFormat != "":
-			fmt.Fprintln(os.Stderr, "sysml: -render-all, -convert and -migrate each write documents out; ask for one per run")
+		case convertFormat != "" || migrateFormat != "" || graphsSubject != "":
+			fmt.Fprintln(os.Stderr, "sysml: -render-all, -convert, -migrate and -graphs each write documents out; ask for one per run")
 			return 2
 		case queryText != "" || len(evalExprs) > 0 || fromFormat != "" || renderDoc != "":
 			fmt.Fprintln(os.Stderr, "sysml: -render-all cannot be combined with -query, -eval, -from or -render-document")

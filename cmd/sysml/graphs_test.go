@@ -104,6 +104,8 @@ func TestGraphsRefusals(t *testing.T) {
 		{"not a behavior", []string{"-graphs", "Pipeline::Product"}, exitUnevaluable, "no lowered graph"},
 		{"unknown subject", []string{"-graphs", "Pipeline::Missing"}, exitUnevaluable, "Pipeline::Missing"},
 		{"with render", []string{"-graphs", "Pipeline::terrain", "-render", "Pipeline::terrain"}, 2, "cannot be combined"},
+		{"with render-all", []string{"-graphs", "Pipeline::terrain", "-render-all", t.TempDir()}, 2, "one per run"},
+		{"with render-documents", []string{"-graphs", "Pipeline::terrain", "-render-documents", t.TempDir()}, 2, "one per run"},
 		{"with convert", []string{"-graphs", "Pipeline::terrain", "-convert", "ttl"}, 2, "one per run"},
 		{"with migrate", []string{"-graphs", "Pipeline::terrain", "-migrate", "sysml"}, 2, "mutually exclusive"},
 		{"with query", []string{"-graphs", "Pipeline::terrain", "-query", "Pipeline"}, 2, "-graphs"},

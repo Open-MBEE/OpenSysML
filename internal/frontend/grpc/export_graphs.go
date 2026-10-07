@@ -27,12 +27,8 @@ func (s *Service) ExportGraphs(ctx context.Context, req *pb.ExportGraphsRequest)
 		return nil, statusError(connect.CodeInvalidArgument, "subject is required")
 	}
 	found := symbolfacts.LookupNamed(cached.Index, req.Subject)
-	switch len(found) {
-	case 0:
+	if len(found) == 0 {
 		return nil, statusErrorf(connect.CodeNotFound, "no element named %s", req.Subject)
-	case 1:
-	default:
-		return nil, statusErrorf(connect.CodeInvalidArgument, "%s names %d elements; write the qualified name", req.Subject, len(found))
 	}
 
 	worker, release := cached.worker()

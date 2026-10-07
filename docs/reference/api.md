@@ -1227,8 +1227,8 @@ and `%graphs <name>` write, produced by `modelform.GraphsOf` from the same
 lowering the runtime executes, so a tool that drives work from a model — a
 workflow generator reading its steps, flows and successions — reads the
 executed form rather than the notation. The subject may be an action or state
-machine, definition or usage; one no element is named by is `NOT_FOUND`, one
-that is no behavior, or a name several elements share, is `INVALID_ARGUMENT`.
+machine, definition or usage, by qualified name; one no element is named by is
+`NOT_FOUND`, one that is no behavior is `INVALID_ARGUMENT`.
 It is advertised by `export_graphs`. Python exposes this as
 `model.export_graphs(subject)`, returning a typed `Graphs`.
 
