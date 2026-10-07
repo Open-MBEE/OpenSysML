@@ -9243,122 +9243,123 @@ type ServerInfoResponse struct {
 	// require. Capabilities are only ever added, never renamed or removed with
 	// their behaviour intact, so requiring one is stable across releases.
 	// Currently defined:
-	//   "type_facts" - SymbolInfo carries type_info, multiplicity and
-	//                  specializations, which typed code generation needs.
-	//   "convert"    - the Convert RPC writes a model back out as SysML notation
-	//                  or RDF Turtle.
-	//   "verification" - the VerifyConstraint, VerifyRequirement,
-	//                  VerifySatisfaction and EvaluateCalc RPCs answer the
-	//                  questions the REPL's %constraint, %requirement, %satisfy
-	//                  and %calc answer.
-	//   "query"      - the Query RPC evaluates a SysML v2 API & Services Query.
-	//   "oslc_query" - the Query RPC evaluates OSLC Query text.
-	//   "enum_values" - a Value carries an enumeration literal as enum_literal,
-	//                  rather than reporting it as an unsupported null.
-	//   "unset_value" - a valueless feature of a value type is reported as
-	//                  Value.unset, rather than as the empty object it
-	//                  materializes.
-	//   "verification_verdicts" - the VerifyRequirement, VerifySatisfaction and
-	//                  RunAnalysis RPCs report what the body of a verification
-	//                  case answered as verification_verdicts, and RunAnalysis
-	//                  accepts a verification case.
-	//   "complex_values" - a Value carries a complex number as complex, rather
-	//                  than reporting it as an unsupported null, and a complex
-	//                  action input or calc argument is accepted; without it,
-	//                  one is refused with UNIMPLEMENTED rather than read as
-	//                  another value.
-	//   "structured_values" - a Value carries a Collections::Array, a numerical
-	//                  vector and a vector quantity as array, vector and
-	//                  vector_quantity, shape and units intact, rather than
-	//                  reporting them as unsupported nulls, and one is accepted
-	//                  as an action input or calc argument; without it, one is
-	//                  refused with UNIMPLEMENTED rather than read as another
-	//                  value.
-	//   "measurement_refs" - a Value carries a bare measurement reference (a
-	//                  unit by itself, `SI::m` or `m / s`) as measurement_ref,
-	//                  unit text, reduction and declaration intact, rather than
-	//                  reporting it as an unsupported null, and one is accepted
-	//                  as an action input or calc argument; without it, one is
-	//                  refused with UNIMPLEMENTED rather than read as another
-	//                  value. Separate from structured_values, which a client
-	//                  built before this arm existed may already claim.
-	//   "function_values" - a Value carries a calc held as a value as function,
-	//                  named by its declaration, rather than reporting it as an
-	//                  unsupported null, and one is accepted as an action input
-	//                  or calc argument; without it, one is refused with
-	//                  UNIMPLEMENTED rather than read as another value.
-	//   "set_values" - a Value carries a unique, unordered collection (a
-	//                  Collections::Set's elements) as set, each element once in
-	//                  canonical order, rather than reporting it as an
-	//                  unsupported null, and one is accepted as an action input
-	//                  or calc argument in any order; without it, one is refused
-	//                  with UNIMPLEMENTED rather than read as a sequence.
-	//   "tensor_values" - a Value carries a tensor quantity of any rank as
-	//                  tensor_quantity, its dimensions and one Quantity per
-	//                  row-major component, rather than reporting it as an
-	//                  unsupported null, and one is accepted as an action input
-	//                  or calc argument; without it, one is refused with
-	//                  UNIMPLEMENTED rather than read as another value.
-	//   "metaobject_values" - a Value carries an element reflected on as an
-	//                  instance of its metaclass (`x meta T`, the last element
-	//                  of `x.metadata`) as metaobject, named by the element and
-	//                  its metaclass, rather than reporting it as an unsupported
-	//                  null, and one is accepted as an action input or calc
-	//                  argument; without it, one is refused with UNIMPLEMENTED
-	//                  rather than read as another value.
-	//   "apply_edits" - the ApplyEdits RPC edits a parsed model's own source,
-	//                  preserving everything the edit did not touch.
-	//   "edit_documents" - ApplyEdits edits a model of several documents as one
-	//                  batch for a request setting accept_documents, targets the
-	//                  document the request names, and answers each edited
-	//                  document by name in `documents`, each referrer of a refusal
-	//                  with its document in `referrers`, and each applied edit's
-	//                  `document`. Without it those fields are empty, a model of
-	//                  several documents is refused with FAILED_PRECONDITION, and
-	//                  a request naming a document is refused with UNIMPLEMENTED.
-	//   "document_query" - the RunDocumentQuery RPC runs a named document query
-	//                  and answers with typed rows.
-	//   "render_document" - the RenderDocument RPC renders a named document to
-	//                  Markdown.
-	//   "render_view" - the RenderView RPC renders a declared view or targeted
-	//                  pseudo-view as machine-readable diagram data.
-	//   "export_graphs" - the ExportGraphs RPC exports the lowered graph of an
-	//                  action or state machine as canonical graphs:1 JSON.
-	//   "diagnostic_codes" - Diagnostic.code is populated, so an empty code is a
-	//                  finding none was assigned; without it every code is empty.
-	//   "schedule"     - ExecuteActionRequest, ExecuteStateRequest and
-	//                  RunAnalysisRequest take a schedule, the scheduling policy
-	//                  the run resolves its choice points under; without it a
-	//                  service drops the field and runs under the default, so a
-	//                  client must not send one.
-	//   "case_evaluations" - RunAnalysis and each RunSweep row report each
-	//                  application the run made of one of the case's calcs as a
-	//                  function value — a trade study's evaluation of each
-	//                  alternative — as evaluations, and keep the outputs and
-	//                  evaluations a failed run made beside its error.
-	//   "schedule_explore" - the schedule "explore[:runs=<n>,depth=<d>]" is
-	//                  accepted, and the response carries every distinct outcome
-	//                  as `outcomes` with an `exploration` status; without it the
-	//                  spelling is INVALID_ARGUMENT.
-	//   "final_time"   - ExecuteActionResponse and ExecuteStateResponse report
-	//                  final_time, the run's simulation clock when it ended;
-	//                  without it the field is 0 whatever the run waited on.
-	//   "state_trace"  - ExecuteStateRequest can ask for the run's typed trace in
-	//                  ExecuteStateResponse.trace, including records before a failure.
-	//                  Traces are unavailable under an explore schedule.
-	//   "engines"      - the ListEngines RPC lists the analysis engines; the
-	//                  verification and sweep requests take an `engine`, the
-	//                  engine the question is put to, unset meaning "auto"; and
-	//                  their responses and every Verdict report the `engine` that
-	//                  answered with the `strength` of its evidence and the
-	//                  `bounds` it ran under. Without it a service drops the
-	//                  request field and answers under "auto", so a client must
-	//                  not send one.
-	//   "engines_external" - the service was started with -serve-external-engines
-	//                  and runs the OPENSYSML_ENGINES manifest engines it names;
-	//                  ListEngines reports which with `served`. Without it every
-	//                  manifest engine is listed but a request naming one is
-	//                  refused with FAILED_PRECONDITION.
+	//
+	//	"type_facts" - SymbolInfo carries type_info, multiplicity and
+	//	               specializations, which typed code generation needs.
+	//	"convert"    - the Convert RPC writes a model back out as SysML notation
+	//	               or RDF Turtle.
+	//	"verification" - the VerifyConstraint, VerifyRequirement,
+	//	               VerifySatisfaction and EvaluateCalc RPCs answer the
+	//	               questions the REPL's %constraint, %requirement, %satisfy
+	//	               and %calc answer.
+	//	"query"      - the Query RPC evaluates a SysML v2 API & Services Query.
+	//	"oslc_query" - the Query RPC evaluates OSLC Query text.
+	//	"enum_values" - a Value carries an enumeration literal as enum_literal,
+	//	               rather than reporting it as an unsupported null.
+	//	"unset_value" - a valueless feature of a value type is reported as
+	//	               Value.unset, rather than as the empty object it
+	//	               materializes.
+	//	"verification_verdicts" - the VerifyRequirement, VerifySatisfaction and
+	//	               RunAnalysis RPCs report what the body of a verification
+	//	               case answered as verification_verdicts, and RunAnalysis
+	//	               accepts a verification case.
+	//	"complex_values" - a Value carries a complex number as complex, rather
+	//	               than reporting it as an unsupported null, and a complex
+	//	               action input or calc argument is accepted; without it,
+	//	               one is refused with UNIMPLEMENTED rather than read as
+	//	               another value.
+	//	"structured_values" - a Value carries a Collections::Array, a numerical
+	//	               vector and a vector quantity as array, vector and
+	//	               vector_quantity, shape and units intact, rather than
+	//	               reporting them as unsupported nulls, and one is accepted
+	//	               as an action input or calc argument; without it, one is
+	//	               refused with UNIMPLEMENTED rather than read as another
+	//	               value.
+	//	"measurement_refs" - a Value carries a bare measurement reference (a
+	//	               unit by itself, `SI::m` or `m / s`) as measurement_ref,
+	//	               unit text, reduction and declaration intact, rather than
+	//	               reporting it as an unsupported null, and one is accepted
+	//	               as an action input or calc argument; without it, one is
+	//	               refused with UNIMPLEMENTED rather than read as another
+	//	               value. Separate from structured_values, which a client
+	//	               built before this arm existed may already claim.
+	//	"function_values" - a Value carries a calc held as a value as function,
+	//	               named by its declaration, rather than reporting it as an
+	//	               unsupported null, and one is accepted as an action input
+	//	               or calc argument; without it, one is refused with
+	//	               UNIMPLEMENTED rather than read as another value.
+	//	"set_values" - a Value carries a unique, unordered collection (a
+	//	               Collections::Set's elements) as set, each element once in
+	//	               canonical order, rather than reporting it as an
+	//	               unsupported null, and one is accepted as an action input
+	//	               or calc argument in any order; without it, one is refused
+	//	               with UNIMPLEMENTED rather than read as a sequence.
+	//	"tensor_values" - a Value carries a tensor quantity of any rank as
+	//	               tensor_quantity, its dimensions and one Quantity per
+	//	               row-major component, rather than reporting it as an
+	//	               unsupported null, and one is accepted as an action input
+	//	               or calc argument; without it, one is refused with
+	//	               UNIMPLEMENTED rather than read as another value.
+	//	"metaobject_values" - a Value carries an element reflected on as an
+	//	               instance of its metaclass (`x meta T`, the last element
+	//	               of `x.metadata`) as metaobject, named by the element and
+	//	               its metaclass, rather than reporting it as an unsupported
+	//	               null, and one is accepted as an action input or calc
+	//	               argument; without it, one is refused with UNIMPLEMENTED
+	//	               rather than read as another value.
+	//	"apply_edits" - the ApplyEdits RPC edits a parsed model's own source,
+	//	               preserving everything the edit did not touch.
+	//	"edit_documents" - ApplyEdits edits a model of several documents as one
+	//	               batch for a request setting accept_documents, targets the
+	//	               document the request names, and answers each edited
+	//	               document by name in `documents`, each referrer of a refusal
+	//	               with its document in `referrers`, and each applied edit's
+	//	               `document`. Without it those fields are empty, a model of
+	//	               several documents is refused with FAILED_PRECONDITION, and
+	//	               a request naming a document is refused with UNIMPLEMENTED.
+	//	"document_query" - the RunDocumentQuery RPC runs a named document query
+	//	               and answers with typed rows.
+	//	"render_document" - the RenderDocument RPC renders a named document to
+	//	               Markdown.
+	//	"render_view" - the RenderView RPC renders a declared view or targeted
+	//	               pseudo-view as machine-readable diagram data.
+	//	"export_graphs" - the ExportGraphs RPC exports the lowered graph of an
+	//	               action or state machine as canonical graphs:1 JSON.
+	//	"diagnostic_codes" - Diagnostic.code is populated, so an empty code is a
+	//	               finding none was assigned; without it every code is empty.
+	//	"schedule"     - ExecuteActionRequest, ExecuteStateRequest and
+	//	               RunAnalysisRequest take a schedule, the scheduling policy
+	//	               the run resolves its choice points under; without it a
+	//	               service drops the field and runs under the default, so a
+	//	               client must not send one.
+	//	"case_evaluations" - RunAnalysis and each RunSweep row report each
+	//	               application the run made of one of the case's calcs as a
+	//	               function value — a trade study's evaluation of each
+	//	               alternative — as evaluations, and keep the outputs and
+	//	               evaluations a failed run made beside its error.
+	//	"schedule_explore" - the schedule "explore[:runs=<n>,depth=<d>]" is
+	//	               accepted, and the response carries every distinct outcome
+	//	               as `outcomes` with an `exploration` status; without it the
+	//	               spelling is INVALID_ARGUMENT.
+	//	"final_time"   - ExecuteActionResponse and ExecuteStateResponse report
+	//	               final_time, the run's simulation clock when it ended;
+	//	               without it the field is 0 whatever the run waited on.
+	//	"state_trace"  - ExecuteStateRequest can ask for the run's typed trace in
+	//	               ExecuteStateResponse.trace, including records before a failure.
+	//	               Traces are unavailable under an explore schedule.
+	//	"engines"      - the ListEngines RPC lists the analysis engines; the
+	//	               verification and sweep requests take an `engine`, the
+	//	               engine the question is put to, unset meaning "auto"; and
+	//	               their responses and every Verdict report the `engine` that
+	//	               answered with the `strength` of its evidence and the
+	//	               `bounds` it ran under. Without it a service drops the
+	//	               request field and answers under "auto", so a client must
+	//	               not send one.
+	//	"engines_external" - the service was started with -serve-external-engines
+	//	               and runs the OPENSYSML_ENGINES manifest engines it names;
+	//	               ListEngines reports which with `served`. Without it every
+	//	               manifest engine is listed but a request naming one is
+	//	               refused with FAILED_PRECONDITION.
 	Capabilities  []string `protobuf:"bytes,2,rep,name=capabilities,proto3" json:"capabilities,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
