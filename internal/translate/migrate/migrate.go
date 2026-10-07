@@ -2332,7 +2332,7 @@ func (m *migration) featureVisibility(p *sysmlv1.Element, param bool, note strin
 	case param:
 		// A parameter is bound from outside the constraint, so it must stay visible.
 		return "", joinNotes(note, vis+" visibility is not written on a constraint parameter")
-	case m.exposed[p] != "":
+	case !m.writtenHidden(p):
 		// v2 neither inherits a private feature nor lets a path reach one.
 		return "", joinNotes(note, vis+" visibility is not written: "+m.exposed[p])
 	case vis == "protected":
@@ -2342,6 +2342,11 @@ func (m *migration) featureVisibility(p *sysmlv1.Element, param bool, note strin
 	default:
 		return privatePrefix, note
 	}
+}
+
+func (m *migration) writtenHidden(p *sysmlv1.Element) bool {
+	vis := p.Attrs["visibility"]
+	return m.exposed[p] == "" && (vis == "private" || vis == "protected" || vis == "package")
 }
 
 // portPayload is the feature kind a port typed by other than a port def holds
