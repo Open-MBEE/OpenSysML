@@ -143,12 +143,11 @@ func DrawSVG(diagrams []docrender.Diagram) ([]string, error) {
 	return svgs, nil
 }
 
-// svgImageRef matches the file reference of an SVG <image> element, the
-// href with or without the xlink prefix, as Graphviz writes it.
-var svgImageRef = regexp.MustCompile(`(<image\b[^>]*?\s(?:xlink:)?href=")([^"]*)(")`)
+// svgImageRef matches an SVG <image> element and its href, as Graphviz writes it.
+var svgImageRef = regexp.MustCompile(`(<image\b[^>]*?\s(?:xlink:)?href=")([^"]*)("[^>]*?(?:/>|>\s*</image>))`)
 
-// embedImages inlines each file an SVG's <image> refers to (relative to base) as
-// a data URI, so the drawing is self-contained; URLs, data URIs and unread files stay as written.
+// embedImages inlines each safe local image an SVG refers to; refused images
+// become comments, while valid data URIs and unread or unsupported files stay as written.
 func embedImages(path, base string) error {
 	svg, err := os.ReadFile(path) // #nosec G304 -- the path is within the render directory
 	if err != nil {
@@ -160,7 +159,16 @@ func embedImages(path, base string) error {
 	out := svgImageRef.ReplaceAllFunc(svg, func(ref []byte) []byte {
 		parts := svgImageRef.FindSubmatch(ref)
 		location := html.UnescapeString(string(parts[2]))
-		if location == "" || strings.HasPrefix(location, "data:") || strings.Contains(location, "://") {
+		if location == "" {
+			return ref
+		}
+		if view.RemotePictureLocation(location) {
+			return refusedImageComment(location, view.ErrRemotePicture.Error())
+		}
+		if strings.HasPrefix(strings.ToLower(strings.TrimSpace(location)), "data:") {
+			if err := view.CheckPicture(location, nil); err != nil {
+				return refusedImageComment(location, err.Error())
+			}
 			return ref
 		}
 		file := filepath.FromSlash(location)
@@ -171,6 +179,9 @@ func embedImages(path, base string) error {
 		if err != nil {
 			return ref
 		}
+		if err := view.CheckPicture(location, data); err != nil {
+			return refusedImageComment(location, err.Error())
+		}
 		ct := imagefile.ContentType(data)
 		if ct == "" {
 			return ref
@@ -179,6 +190,12 @@ func embedImages(path, base string) error {
 		return append(append(append([]byte(nil), parts[1]...), uri...), parts[3]...)
 	})
 	return os.WriteFile(path, out, 0o600)
+}
+
+func refusedImageComment(location, reason string) []byte {
+	location = strings.ReplaceAll(location, "-", "&#45;")
+	reason = strings.ReplaceAll(reason, "-", "&#45;")
+	return []byte("<!-- not represented: picture " + location + " not drawn; " + reason + " -->")
 }
 
 // checkSVG requires the file a tool wrote to be one well-formed SVG document.

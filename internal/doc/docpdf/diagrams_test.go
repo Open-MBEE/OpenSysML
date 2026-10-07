@@ -9,6 +9,7 @@ import (
 	"image"
 	"image/png"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -132,6 +133,47 @@ func TestMermaidDrawInlinesLocalPicturesBeforeSizing(t *testing.T) {
 	}
 	if want := configFor(strings.TrimSuffix(string(inlined), "\n")); got != want {
 		t.Errorf("configuration sized the pre-inlined source: got %+v, want %+v", got, want)
+	}
+}
+
+func TestMermaidDrawOmitsUnsafePicturesBeforeSizing(t *testing.T) {
+	dir := t.TempDir()
+	active := filepath.Join(dir, "script.svg")
+	if err := os.WriteFile(active, []byte(`<svg xmlns="http://www.w3.org/2000/svg"><script/></svg>`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	fakeSVGTool(t, dir, "mmdc", MermaidEnv)
+	rendering := &view.Rendering{
+		Kind:  view.KindInterconnection,
+		Roots: []*view.Node{{ID: "n", Kind: "part", Name: "pictured"}},
+		Pictures: []view.Picture{
+			{Location: active, X: 1, Y: 2, Width: 20, Height: 30},
+			{Location: "https://example.org/a.png", X: 3, Y: 4, Width: 40, Height: 50},
+		},
+	}
+	rasterizer := &mermaidRasterizer{mmdc: filepath.Join(dir, "mmdc")}
+	if err := rasterizer.draw(dir, rendering.Mermaid(), "diagram.svg"); err != nil {
+		t.Fatalf("draw: %v", err)
+	}
+	inlined, err := os.ReadFile(filepath.Join(dir, "diagram.mmd"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, unwanted := range []string{"data:image/svg+xml", `img: "https://example.org/a.png"`} {
+		if bytes.Contains(inlined, []byte(unwanted)) {
+			t.Errorf("Mermaid source contains refused picture content %q:\n%s", unwanted, inlined)
+		}
+	}
+	if count := bytes.Count(inlined, []byte("<script")); count != 1 {
+		t.Errorf("Mermaid source has %d script construct(s), want only the notice:\n%s", count, inlined)
+	}
+	for _, want := range []string{
+		"the SVG has active content (<script>)",
+		"remote pictures are not drawn",
+	} {
+		if !bytes.Contains(inlined, []byte(want)) {
+			t.Errorf("Mermaid source lacks picture notice %q:\n%s", want, inlined)
+		}
 	}
 }
 
@@ -290,21 +332,36 @@ func imagePathArg(t *testing.T) string {
 	return "-Gimagepath=" + cwd
 }
 
-// File references become data URIs, relative to the given directory; URLs, data URIs,
-// missing files and files that are no image (never copied into the document) stay as written.
+// File references become data URIs, while refused images become comments and
+// missing or unsupported files stay as written.
 func TestEmbedImagesInlinesThePicturesAnSVGRefers(t *testing.T) {
 	base := t.TempDir()
-	png := []byte("\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR")
+	var pngBuffer bytes.Buffer
+	if err := png.Encode(&pngBuffer, image.NewRGBA(image.Rect(0, 0, 2, 2))); err != nil {
+		t.Fatal(err)
+	}
+	pngData := pngBuffer.Bytes()
 	if err := os.MkdirAll(filepath.Join(base, "images"), 0o750); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(base, "images", "a&b.png"), png, 0o600); err != nil {
+	if err := os.WriteFile(filepath.Join(base, "images", "a&b.png"), pngData, 0o600); err != nil {
 		t.Fatal(err)
 	}
 	if err := os.WriteFile(filepath.Join(base, "notes.txt"), []byte("secret=1\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	abs := filepath.Join(base, "images", "a&b.png")
+	active := filepath.Join(base, "images", "script-active.svg")
+	script := `<svg xmlns="http://www.w3.org/2000/svg"><script/></svg>`
+	if err := os.WriteFile(active, []byte(script), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	malformed := filepath.Join(base, "images", "malformed.svg")
+	if err := os.WriteFile(malformed, []byte("<svg"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	pngURI := "data:image/png;base64," + base64.StdEncoding.EncodeToString(pngData)
+	scriptURI := "data:image/svg+xml;base64," + base64.StdEncoding.EncodeToString([]byte(script))
 	svg := `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">` +
 		`<image xlink:href="images/a&amp;b.png" width="1px" height="1px"/>` +
 		`<image width="1px" href="` + abs + `"/>` +
@@ -312,6 +369,10 @@ func TestEmbedImagesInlinesThePicturesAnSVGRefers(t *testing.T) {
 		`<image xlink:href="notes.txt"/>` +
 		`<image xlink:href="https://example.org/a.png"/>` +
 		`<image xlink:href="data:image/png;base64,AAAA"/>` +
+		`<image xlink:href="` + pngURI + `"/>` +
+		`<image xlink:href="` + active + `"/>` +
+		`<image xlink:href="` + malformed + `"/>` +
+		`<image xlink:href="` + scriptURI + `"/>` +
 		`</svg>`
 	path := filepath.Join(t.TempDir(), "diagram-1.svg")
 	if err := os.WriteFile(path, []byte(svg), 0o600); err != nil {
@@ -324,17 +385,65 @@ func TestEmbedImagesInlinesThePicturesAnSVGRefers(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	uri := "data:image/png;base64," + base64.StdEncoding.EncodeToString(png)
 	want := `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">` +
-		`<image xlink:href="` + uri + `" width="1px" height="1px"/>` +
-		`<image width="1px" href="` + uri + `"/>` +
+		`<image xlink:href="` + pngURI + `" width="1px" height="1px"/>` +
+		`<image width="1px" href="` + pngURI + `"/>` +
 		`<image xlink:href="images/missing.png"/>` +
 		`<image xlink:href="notes.txt"/>` +
-		`<image xlink:href="https://example.org/a.png"/>` +
-		`<image xlink:href="data:image/png;base64,AAAA"/>` +
+		`<!-- not represented: picture https://example.org/a.png not drawn; remote pictures are not drawn -->` +
+		`<!-- not represented: picture data:image/png;base64,AAAA not drawn; the data: URL is not a supported image -->` +
+		`<image xlink:href="` + pngURI + `"/>` +
+		`<!-- not represented: picture ` + strings.ReplaceAll(active, "-", "&#45;") + ` not drawn; the SVG has active content (<script>) -->` +
+		`<!-- not represented: picture ` + strings.ReplaceAll(malformed, "-", "&#45;") + ` not drawn; the SVG is not well&#45;formed (XML syntax error on line 1: unexpected EOF) -->` +
+		`<!-- not represented: picture ` + scriptURI + ` not drawn; the SVG has active content (<script>) -->` +
 		`</svg>`
 	if string(out) != want {
 		t.Errorf("embedded SVG:\n%s\nwant:\n%s", out, want)
+	}
+	if bytes.Contains(out, []byte(`href="data:image/svg+xml`)) || bytes.Contains(out, []byte("<script/>")) {
+		t.Errorf("embedded SVG contains active picture data:\n%s", out)
+	}
+}
+
+func TestGraphvizDrawRefusesActivePictureFiles(t *testing.T) {
+	dot, err := exec.LookPath("dot")
+	if err != nil {
+		t.Skip("dot is not installed")
+	}
+	t.Setenv(DotEnv, dot)
+	dir := t.TempDir()
+	clean := filepath.Join(dir, "clean.svg")
+	cleanSVG := []byte(`<svg xmlns="http://www.w3.org/2000/svg" width="2" height="2" viewBox="0 0 2 2"><rect width="2" height="2"/></svg>`)
+	if err := os.WriteFile(clean, cleanSVG, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	draw := func(image string) string {
+		t.Helper()
+		source := fmt.Sprintf("graph G { picture [shape=none, label=\"\", image=%q, imagescale=both, fixedsize=true, width=1, height=1]; }", image)
+		svgs, err := DrawSVG([]docrender.Diagram{{Form: view.FormDot, Source: source}})
+		if err != nil {
+			t.Fatalf("DrawSVG: %v", err)
+		}
+		if len(svgs) != 1 {
+			t.Fatalf("DrawSVG returned %d SVGs, want 1", len(svgs))
+		}
+		return svgs[0]
+	}
+	if cleanOutput := draw(clean); !strings.Contains(cleanOutput, "<image ") {
+		t.Skip("Graphviz did not emit an SVG image reference")
+	}
+	active := filepath.Join(dir, "script-active.svg")
+	if err := os.WriteFile(active, []byte(`<svg xmlns="http://www.w3.org/2000/svg" width="2" height="2" viewBox="0 0 2 2"><rect width="2" height="2" onload="run()"/></svg>`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	output := draw(active)
+	if strings.Contains(output, "data:image/svg+xml") || strings.Contains(output, `onload="run()"`) {
+		t.Errorf("Graphviz output contains active picture content:\n%s", output)
+	}
+	want := `<!-- not represented: picture ` + strings.ReplaceAll(active, "-", "&#45;") +
+		` not drawn; the SVG has active content (an onload attribute on <rect>) -->`
+	if !strings.Contains(output, want) {
+		t.Errorf("Graphviz output lacks refused-picture comment %q:\n%s", want, output)
 	}
 }
 

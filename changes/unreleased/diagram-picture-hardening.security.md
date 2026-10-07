@@ -1,0 +1,1 @@
+- **Refuse active SVG content and non-data URL schemes in diagram pictures.** Unsafe pictures are omitted without sanitizing their bytes, with a notice naming the refusal reason; document images, links and stylesheets remain unchanged.

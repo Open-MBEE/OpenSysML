@@ -127,7 +127,17 @@ func (r *Rendering) d2Notices(options Options, w *d2Writer) []string {
 		notices = append(notices, fmt.Sprintf("%d note(s); the dot form draws notes", len(r.Notes)))
 	}
 	if len(r.Pictures) > 0 {
-		notices = append(notices, pictureNotice(r.Pictures, "the dot form draws pictures"))
+		refusals := r.pictureRefusals()
+		notices = append(notices, refusedPictureNotices(r.Pictures, refusals)...)
+		drawable := make([]Picture, 0, len(r.Pictures))
+		for i, picture := range r.Pictures {
+			if refusals[i] == nil {
+				drawable = append(drawable, picture)
+			}
+		}
+		if len(drawable) > 0 {
+			notices = append(notices, pictureNotice(drawable, "the dot form draws pictures"))
+		}
 	}
 	return notices
 }
