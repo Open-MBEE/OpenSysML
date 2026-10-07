@@ -91,8 +91,8 @@ type ActionExecutor struct {
 	stepsSpent int64
 	// inRun is set while RunToCompletion drives the steps, whose budget they share.
 	inRun bool
-	// held marks a run paused on this action's waits by the body performing it,
-	// which resumes the run; the clock leaves a held action to its holder.
+	// held marks a run paused on this action's waits or at its start by the body
+	// performing it, which resumes the run; the clock leaves a held action to its holder.
 	held bool
 	// moved is set once a token acted — a failed step included — or the body wrote a
 	// feature, and cleared when the start that attached the execution to its object settles.
@@ -677,6 +677,11 @@ func (e *ActionExecutor) RunToCompletion() error {
 // run is the RunToCompletion loop, holding the clock where it is when
 // atCurrentTime is set.
 func (e *ActionExecutor) run(atCurrentTime bool) error {
+	return e.runSteps(atCurrentTime, false)
+}
+
+// runSteps is run, stopping after one step where single is set.
+func (e *ActionExecutor) runSteps(atCurrentTime, single bool) error {
 	defer e.ctx.beginExecutorRun(&e.driven)()
 
 	if e.released {
@@ -738,6 +743,14 @@ func (e *ActionExecutor) run(atCurrentTime bool) error {
 		if err := e.pauseAfterMove(); err != nil {
 			e.held = true
 			return err
+		}
+		if single {
+			break
+		}
+		if !atCurrentTime {
+			if err := e.ctx.yieldTurn(e, &progress); err != nil {
+				return err
+			}
 		}
 	}
 	if e.state == StateWaiting && !atCurrentTime {
@@ -3009,9 +3022,18 @@ func (e *ActionExecutor) watchesChangeIn(perf *actionFrame, seen map[waitTarget]
 // runDue runs the action to quiescence at the current instant; the steps it takes
 // count against the drive's budget together with those already taken.
 func (e *ActionExecutor) runDue(progress *dueProgress) (bool, error) {
+	return e.runDueSteps(progress, false)
+}
+
+// runMove is runDue stopping after one step.
+func (e *ActionExecutor) runMove(progress *dueProgress) (bool, error) {
+	return e.runDueSteps(progress, true)
+}
+
+func (e *ActionExecutor) runDueSteps(progress *dueProgress, single bool) (bool, error) {
 	before, positions, taken := e.stepCount, e.tokenPositions(), e.dynamicsSteps()
 	e.stepsSpent = progress.steps
-	err := e.run(true)
+	err := e.runSteps(true, single)
 	e.stepsSpent = 0
 	progress.steps += int64(e.stepCount - before)
 	return e.state != StateWaiting || !maps.Equal(positions, e.tokenPositions()) || e.dynamicsSteps() != taken, err

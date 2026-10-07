@@ -459,7 +459,7 @@ func TestRunForExploresAnActionOnANestedObject(t *testing.T) {
 	if v.Status != VerdictHolds {
 		t.Fatalf("status = %v, want holds:\n%s", v.Status, strings.Join(v.Lines, "\n"))
 	}
-	wantsInOrder(t, strings.Join(v.Lines, "\n"), "✓ explored Comms::Craft::ack: 2 outcomes", "seen = 1", "seen = 2", "complete (")
+	wantsInOrder(t, strings.Join(v.Lines, "\n"), "✓ explored Comms::Craft::ack: 3 outcomes", "seen = 1", "seen = 1", "seen = 2", "complete (")
 
 	// The craft instantiated on its own is never pinged, so it sends nothing.
 	v = s.RunAction("Comms::Craft::ack", "Comms::Pair::craft")
@@ -501,7 +501,7 @@ func TestRunForExploresSiblingsOnOneRoot(t *testing.T) {
 	wantsInOrder(t, out, "✓ explored Comms::Ground::listen Comms::pair.ground, Comms::Craft::modes Comms::pair.craft: 2 outcomes",
 		"Comms::Craft::modes Comms::pair.craft.emitted = 4", "Comms::Ground::listen Comms::pair.ground.received = 1",
 		"Comms::Craft::modes Comms::pair.craft.emitted = 4", "Comms::Ground::listen Comms::pair.ground.received = 2",
-		"complete (4 runs)")
+		"complete (5 runs)")
 	if len(verdicts[0].Outcomes) != 2 {
 		t.Errorf("outcomes = %+v, want two", verdicts[0].Outcomes)
 	}
@@ -835,7 +835,7 @@ func TestRunForExploresEveryDueOrder(t *testing.T) {
 		`Shared::Lamp::glow finalState = "on"; Shared::Lamp::glow visits = "off, on"; Shared::Lamp::peek.saw = false; this.isSolid = true; this.lit = true`,
 		`Shared::Lamp::glow finalState = "on"; Shared::Lamp::glow visits = "off, on"; Shared::Lamp::peek.saw = true; this.isSolid = true; this.lit = true`,
 		"possible",
-		"complete (2 runs)")
+		"complete (3 runs)")
 
 	// One behavior explored with a duration is its own outcome, as RunStateMachine tables it.
 	verdicts = s.RunFor(nil, []Behavior{glow}, 3)
