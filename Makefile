@@ -74,7 +74,7 @@ COVERAGE_PROFILE ?= coverage.txt
 COVERAGE_SHARDS := runtime model export rest
 
 # The commands whose manual pages are generated and shipped, in section 1.
-COMMANDS := sysml sysml-lsp sysml-grpc
+COMMANDS := sysml sysml-lsp sysml-grpc sysml-jupyter-kernel
 # sysml-engine, sysml-syntax, sysml-core and sysml-wasm serve JSON RPC surfaces
 # without protobuf. Natively they are built only on request and stay out of
 # `build`, `install`, the release and the manual pages.
@@ -94,7 +94,7 @@ INSTALL ?= install
 
 all: build test python-test ## Build and test everything
 
-build: build-sysml build-lsp build-grpc ## Build all binaries
+build: build-sysml build-lsp build-grpc build-jupyter-kernel ## Build all binaries
 
 build-sysml: ## Build sysml binary
 	@echo "Building sysml..."
@@ -125,6 +125,13 @@ build-grpc: ## Build sysml-grpc binary
 	$(call winres,sysml-grpc)
 	$(GO_BUILD) -o $(BIN_DIR)/sysml-grpc ./cmd/sysml-grpc
 	@echo "✓ Built $(BIN_DIR)/sysml-grpc ($(VERSION))"
+
+build-jupyter-kernel: ## Build sysml-jupyter-kernel binary
+	@echo "Building sysml-jupyter-kernel..."
+	@mkdir -p $(BIN_DIR)
+	$(call winres,sysml-jupyter-kernel)
+	$(GO_BUILD) -o $(BIN_DIR)/sysml-jupyter-kernel ./cmd/sysml-jupyter-kernel
+	@echo "✓ Built $(BIN_DIR)/sysml-jupyter-kernel ($(VERSION))"
 
 # The JSON commands, natively: each serves its JSON-RPC over stdio. Opt-in:
 # nothing builds, installs or releases them.
@@ -210,7 +217,7 @@ man: ## Regenerate the shipped manual pages from each command's description
 
 man-check: ## Verify the shipped pages are current and formatter-clean
 	@echo "Checking the manual pages..."
-	go test -count=1 -run 'TestTheShippedManualPage|TestTheManualPage' ./cmd/sysml ./cmd/sysml-lsp ./cmd/sysml-grpc
+	go test -count=1 -run 'TestTheShippedManualPage|TestTheManualPage' ./cmd/sysml ./cmd/sysml-lsp ./cmd/sysml-grpc ./cmd/sysml-jupyter-kernel
 	@# mandoc is the strictest reader; groff is the one always at hand.
 	@if command -v mandoc >/dev/null 2>&1; then \
 		mandoc -T lint -W warning $(MAN_PAGES) || exit 1; \
@@ -368,7 +375,7 @@ clean: ## Remove build artifacts
 	rm -rf $(BIN_DIR)
 	rm -f coverage.txt coverage-python.xml coverage-scripts.xml .coverage-scripts coverage-node.lcov
 	rm -rf $(GO_COUNTER_DIR)
-	rm -f sysml sysml-lsp sysml-grpc
+	rm -f sysml sysml-lsp sysml-grpc sysml-jupyter-kernel
 	rm -f cmd/*/rsrc_windows_*.syso
 	rm -rf $(SITE_DIR)
 	@# Only the default destination; an overridden SELF_MODEL_OUT is the caller's.
@@ -380,6 +387,7 @@ install: build ## Install binaries to $GOPATH/bin
 	$(GO_INSTALL) ./cmd/sysml
 	$(GO_INSTALL) ./cmd/sysml-lsp
 	$(GO_INSTALL) ./cmd/sysml-grpc
+	$(GO_INSTALL) ./cmd/sysml-jupyter-kernel
 	@echo "✓ Installed"
 
 # What a distribution's package build calls: staged under DESTDIR, into the
