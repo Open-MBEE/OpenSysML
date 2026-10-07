@@ -241,15 +241,31 @@ func (r *Rendering) mermaidFlowchartNoteNotices() []string {
 // mermaidPictureNotices reports the pictures the Mermaid form cannot draw,
 // grouped by the reason.
 func (r *Rendering) mermaidPictureNotices() []string {
+	refusals := r.pictureRefusals()
 	if r.Kind == KindState || r.Kind == KindSequence {
-		if len(r.Pictures) > 0 {
-			return []string{pictureNotice(r.Pictures, fmt.Sprintf("a %s diagram draws no picture", r.Kind))}
+		var drawable []Picture
+		for i, picture := range r.Pictures {
+			if refusals[i] == nil {
+				drawable = append(drawable, picture)
+			}
 		}
-		return nil
+		notices := refusedPictureNotices(r.Pictures, refusals)
+		if len(drawable) > 0 {
+			notices = append(notices, pictureNotice(drawable, fmt.Sprintf("a %s diagram draws no picture", r.Kind)))
+		}
+		return notices
 	}
 	var reasons []string
 	undrawn := map[string][]Picture{}
-	for _, picture := range r.Pictures {
+	for i, picture := range r.Pictures {
+		if refusals[i] != nil {
+			reason := refusals[i].Error()
+			if _, seen := undrawn[reason]; !seen {
+				reasons = append(reasons, reason)
+			}
+			undrawn[reason] = append(undrawn[reason], picture)
+			continue
+		}
 		if _, reason, ok := mermaidPictureSource(picture); !ok {
 			if _, seen := undrawn[reason]; !seen {
 				reasons = append(reasons, reason)
@@ -1457,7 +1473,10 @@ func (r *Rendering) writePictures(b *strings.Builder) {
 
 func mermaidPictureSource(picture Picture) (string, string, bool) {
 	src := picture.Location
-	if strings.Contains(src, "://") || strings.HasPrefix(src, "data:") {
+	if RemotePictureLocation(src) || strings.HasPrefix(strings.ToLower(strings.TrimSpace(src)), "data:") {
+		if err := CheckPicture(src, nil); err != nil {
+			return "", err.Error(), false
+		}
 		if strings.ContainsAny(src, "\"\r\n") {
 			return "", "the source cannot be represented", false
 		}
@@ -1481,6 +1500,9 @@ func mermaidPictureSource(picture Picture) (string, string, bool) {
 	}
 	if imagefile.ContentType(data) == "" {
 		return "", "the image type is not supported", false
+	}
+	if err := CheckPicture(picture.Location, data); err != nil {
+		return "", err.Error(), false
 	}
 	return src, "", true
 }
@@ -1824,7 +1846,14 @@ func InlineMermaidImages(source, base string) string {
 			continue
 		}
 		location := line[match[2]:match[3]]
-		if strings.Contains(location, "://") || strings.HasPrefix(location, "data:") {
+		if RemotePictureLocation(location) {
+			drop(i, location, ErrRemotePicture.Error())
+			continue
+		}
+		if strings.HasPrefix(strings.ToLower(strings.TrimSpace(location)), "data:") {
+			if err := CheckPicture(location, nil); err != nil {
+				drop(i, location, err.Error())
+			}
 			continue
 		}
 		path := location
@@ -1839,6 +1868,10 @@ func InlineMermaidImages(source, base string) string {
 		contentType := imagefile.ContentType(data)
 		if contentType == "" {
 			drop(i, location, "the file is not a supported image")
+			continue
+		}
+		if err := CheckPicture(location, data); err != nil {
+			drop(i, location, err.Error())
 			continue
 		}
 		uri := "data:" + contentType + ";base64," + base64.StdEncoding.EncodeToString(data)

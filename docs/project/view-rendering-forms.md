@@ -372,7 +372,7 @@ table records what each rendering feature writes:
 | Styles and palettes | `classDef`/`class` fill applicable nodes by keyword family; palettes override Cameo fills. `Style` CSS covers Mermaid's supported node and edge fields; unsupported fields are listed in notices. Sequence palettes are accepted but cannot fill individual participants. Cluster anchors do not receive palette fills or count as model nodes. |
 | Notes | Flowchart notes are grouped as `notch-rect` nodes with dashed anchors and declared inside the innermost subgraph containing all their drawn anchors. Free notes and notes spanning roots stay at top level. State notes anchor to declared states; sequence notes anchor to participants or messages. Unsupported anchors and free sequence/state notes receive precise notices. |
 | Ports | Any node with a used port is a subgraph containing connected ports in declaration order, before its children; edge endpoints route through those port nodes. |
-| Pictures | Flowcharts write `img` shapes and geometry comments. Local images are embedded as data URLs by document backends; unreadable, unsupported and over-limit images are omitted with notices. State and sequence diagrams do not draw pictures. |
+| Pictures | Flowcharts write `img` shapes and geometry comments. Document backends inline safe local images as data URLs; a data URL's declared media type must match its recognized image bytes case-insensitively, and nested `data:image/svg+xml` hrefs are checked through four nested SVG levels. Active-content SVGs, malformed or over-deep nested SVGs and locations with non-`data:` URL schemes are omitted with reasoned notices, as are unreadable, unsupported and over-limit images. State and sequence diagrams do not draw pictures; refused pictures name their reason, while drawable ones receive the generic no-picture notice. |
 
 The expanded shapes `fr-circ`, `f-circ`, `fork`, `notch-rect` and `img` require Mermaid 11.3 or later; classic shapes are used where available. Mermaid cannot draw fork/join names, Cameo gradients as anything but flat fills, or the Cameo diagram frame and header tab. Sequence diagrams cannot fill individual participants; state diagrams cannot place free or edge-anchored notes; Mermaid's picture layout comments preserve geometry but do not control placement or z-order.
 
@@ -1119,10 +1119,11 @@ tint, same contrast lightening, same hex per node — and a container's fill is 
 way, so an interconnection's outer part is tinted as its DOT cluster is. A `DiagramLayout::Style`
 writes its colours as `fill`, `stroke` and `font-color`, its size as `font-size` and bold and
 italic as `bold`/`italic`; a font family is noticed, D2 setting fonts per theme. A `cameo` style is
-noticed as not represented, as it is in PlantUML; notes and pictures are noticed, the `dot` form
-drawing them; positions and routes are kept as `# canvas:`, `# layout:` and `# route:` comments
-through the geometry-comment helpers the Mermaid and PlantUML forms share, D2 laying the diagram
-out itself. A `-render-link` template writes each located node's and edge's URL as `link: "…"`
+noticed as not represented, as it is in PlantUML; notes and drawable pictures are noticed, the
+`dot` form drawing them, while refused pictures receive reasoned notices; positions and routes are
+kept as `# canvas:`, `# layout:` and `# route:` comments through the geometry-comment helpers the
+Mermaid and PlantUML forms share, D2 laying the diagram out itself. A `-render-link` template writes
+each located node's and edge's URL as `link: "…"`
 beside its `class` — see [Source links](#source-links).
 
 ## Surfaces
@@ -1253,8 +1254,9 @@ no live run and therefore does not offer run rendering.
   and linkStyle indices including containment and note anchors; declared flowchart link endpoints
   for every golden model, palette and style; plain tree containment; anchored non-tree subgraphs;
   notes in all grammars; used-port subgraphs with children; empty decision symbols and quoted
-  note/fork strings; grammar-scoped theme variables; picture inlining and missing/unsupported-image
-  notices; and edge counting.
+  note/fork strings; grammar-scoped theme variables; safe picture inlining, active-SVG and remote
+  scheme refusals, nested-SVG validation and declared data-URL type checks, and
+  missing/unsupported-image notices; and edge counting.
   `TestMermaidRendersWithInstalledMMDC` is opt-in through `OPENSYSML_MMDC` and checks every
   Mermaid golden plus palette and Cameo variants with HTML labels both on and off.
 - `internal/ir/view/dot_style_test.go`, `palette_test.go`: the B&W defaults; a definition
@@ -1355,9 +1357,10 @@ no live run and therefore does not offer run rendering.
   turns on.
 - The D2 form cannot pin a position or a route either: DiagramLayout geometry is written as `#`
   comments and a notice counts it. D2 draws in one look — a `cameo` style is noticed — and sets
-  fonts per theme, so a `DiagramLayout::Style` font family is noticed; notes and pictures are
-  noticed, the `dot` form drawing them. A fork or join bar draws no label, and the pins no edge
-  ends at are counted in a notice, as in Mermaid. A `-render-link` template is written as `link:`
+  fonts per theme, so a `DiagramLayout::Style` font family is noticed; notes and drawable pictures
+  are noticed, the `dot` form drawing them, while refused pictures receive reasoned notices. A fork
+  or join bar draws no label, and the pins no edge ends at are counted in a notice, as in Mermaid.
+  A `-render-link` template is written as `link:`
   on every located node and edge, the lifelines and messages of a sequence included, and D2
   keeps each as an SVG anchor; pins carry none (`links-*-d2.golden`, and
   `TestLinkedFormsRenderAsSVG` compiles the linked form through a `d2` on the machine).
@@ -1373,8 +1376,12 @@ no live run and therefore does not offer run rendering.
   reports unsupported font families and state/sequence edge fields in a notice. Flowchart, state
   and sequence notes are drawn only when their anchors fit
   those grammars; free state/sequence notes and state notes on pseudostates are reported.
-- Mermaid flowcharts draw pictures as image nodes and document backends inline local image data.
-  Picture positions and z-order survive only as comments; state and sequence pictures are not drawn.
+- Mermaid flowcharts draw safe pictures as image nodes and document backends inline safe local
+  image data. A data URL's declared media type must match its recognized image bytes, and nested
+  `data:image/svg+xml` hrefs are checked through four nested SVG levels. Active-content SVGs,
+  malformed or over-deep nested SVGs and locations with non-`data:` URL schemes are refused with
+  notices; picture positions and z-order survive only as comments, and state and sequence
+  pictures are not drawn.
 - Binding connectors are not drawn at the Pilot's thickness 5: the interconnection rendering
   has no edge kind for them.
 - A palette fills nodes by keyword family only; colouring by a data attribute or query result is

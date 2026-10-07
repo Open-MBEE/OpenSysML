@@ -112,6 +112,9 @@ func (r *Rendering) data(ports *portView) Data {
 		Notes:    r.Notes,
 		Notices:  r.Notices,
 	}
+	if refusals := refusedPictureNotices(r.Pictures, r.pictureRefusals()); len(refusals) > 0 {
+		out.Notices = append(append([]string(nil), r.Notices...), refusals...)
+	}
 	for _, root := range r.Roots {
 		out.Nodes = appendNodeData(out.Nodes, root, "", ports)
 	}
