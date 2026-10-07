@@ -172,6 +172,9 @@ public final class Capabilities {
   /** The service renders named and targeted pseudo-views as diagram data. */
   public static final String RENDER_VIEW = "render_view";
 
+  /** The {@code ExportGraphs} RPC exports a behavior's lowered graph as {@code graphs:1} JSON. */
+  public static final String EXPORT_GRAPHS = "export_graphs";
+
   /** A parse can judge the source as conforming SysML v2. */
   public static final String STRICT_CONFORMANCE = "strict_conformance";
 

@@ -458,6 +458,31 @@ fn a_rendered_view_keeps_ports_edges_and_origins() {
 }
 
 #[test]
+fn exported_graphs_are_the_canonical_form_of_a_behavior() {
+    let Some(connection) = service_or_skip() else {
+        return;
+    };
+    let model = parsed(
+        &connection,
+        include_str!("../../../../conformance/fixtures/behavior.sysml"),
+    );
+    let graphs = model.export_graphs("Test::race").unwrap();
+    assert_eq!(graphs.version, 1);
+    assert_eq!(graphs.subject, "Test::race");
+    assert!(
+        graphs
+            .content
+            .starts_with("{\"version\":1,\"subject\":\"Test::race\""),
+        "{}",
+        graphs.content
+    );
+    assert!(graphs.content.ends_with("}\n"));
+    assert!(graphs.content.contains("\"actions\""));
+    assert!(model.export_graphs("Test::Missing").is_err());
+    assert!(model.export_graphs("Test").is_err());
+}
+
+#[test]
 fn an_action_runs_explores_and_a_state_machine_steps() {
     let Some(model) = demo() else {
         return;

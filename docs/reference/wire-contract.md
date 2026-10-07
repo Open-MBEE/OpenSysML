@@ -2108,6 +2108,94 @@ with protobuf JSON:
 }
 ```
 
+## `ExportGraphs`
+
+`ExportGraphs` returns the lowered graph of an action or state machine — the subject's
+`ActionGraph`/`StateGraph` IR and that of every behavior it performs — as the canonical
+`graphs:1` JSON an external analysis engine is sent ([the `graphs:1` model
+form](external-engines.md#the-graphs1-model-form)). `content` is that JSON with one trailing
+newline, byte for byte what `sysml -graphs <subject>` writes; `version` is its `version` field and
+`subject` the qualified name as resolved. The subject names an action or state machine, definition
+or usage, by qualified name: a name no element has is `NOT_FOUND` (`symbol not found:
+Test::Missing`), one that is no behavior (`Test: graphs: subject has no lowered graph: Test is a
+package`) is `INVALID_ARGUMENT`, and so is a name the model declares more than once (`P::Run is
+ambiguous: the model declares 2 elements under that name`); a declaration of the model's shadows
+the library's of the same name. The service advertises this method as the `export_graphs`
+capability.
+
+This excerpt was captured by calling the gRPC service with `Test::race` from
+`conformance/fixtures/behavior.sysml` and marshaling the response with protobuf JSON; the
+`content` string is shown pretty-printed and cut after the first two nodes:
+
+```json
+{
+  "content": "{\"version\":1,\"subject\":\"Test::race\",\"actions\":[{\"name\":\"Test::race\",\"kind\":\"actionUsage\", …}]}\n",
+  "version": 1,
+  "subject": "Test::race"
+}
+```
+
+```json
+{
+  "version": 1,
+  "subject": "Test::race",
+  "actions": [
+    {
+      "name": "Test::race",
+      "kind": "actionUsage",
+      "scope": "Test::race",
+      "attributes": [
+        {
+          "name": "winner",
+          "types": ["ScalarValues::Integer"],
+          "value": {"text": "0", "span": {"document": "<content>", "offset": 401, "len": 1}},
+          "span": {"document": "<content>", "offset": 372, "len": 31}
+        }
+      ],
+      "nodes": [
+        {
+          "id": 0,
+          "kind": "start",
+          "name": "start",
+          "span": {"document": "<content>", "offset": 406, "len": 12},
+          "footprint": {}
+        },
+        {
+          "id": 2,
+          "kind": "action usage",
+          "name": "left",
+          "span": {"document": "<content>", "offset": 435, "len": 40},
+          "scope": "Test::race::left",
+          "body": [
+            {
+              "kind": "assign",
+              "span": {"document": "<content>", "offset": 452, "len": 19},
+              "scope": "Test::race::left",
+              "name": "winner",
+              "value": {"text": "1", "span": {"document": "<content>", "offset": 469, "len": 1}}
+            }
+          ],
+          "footprint": {
+            "writes": [{"symbol": "Test::race::winner", "name": "winner"}],
+            "control": [4]
+          }
+        }
+      ],
+      "initial": 0,
+      "finals": [5],
+      "edges": [{"source": 0, "target": 1, "decl": {"document": "<content>", "offset": 543, "len": 34}}]
+    }
+  ]
+}
+```
+
+A node's `kind`, `name`, `scope` and `span` identify the step; `body` carries its statements as the
+runtime executes them; `footprint` records what it reads and writes and the nodes it hands control
+to. `edges` are successions by node id, `flows` item flows between pins, `parameters` the subject's
+own pins; a state machine's graph lists `states`, `transitions` with their guards, triggers and
+effects, and pseudostates in the same way. A behavior a node `performs` is exported after the
+subject under its own name, so the form is closed over everything the subject runs.
+
 ## Queries
 
 Two query surfaces exist and answer differently shaped tables. Their semantics — what may be

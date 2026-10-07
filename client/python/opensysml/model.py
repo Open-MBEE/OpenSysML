@@ -8,7 +8,7 @@ from opensysml.conversion import (
     FORMAT_API_JSON, FORMAT_SYSML, FORMAT_TURTLE, format_of_path,
 )
 from opensysml.diagnostic import Diagnostic
-from opensysml.document import RenderedView
+from opensysml.document import Graphs, RenderedView
 from opensysml.edit import Editor
 from opensysml.errors import ModelError, ServiceError, SymbolNotFoundError
 from opensysml.proto import sysml_pb2
@@ -401,6 +401,31 @@ class Model:
             ModelNotFoundError: If the service no longer holds this model
         """
         return self.connection.render_view(self._hash, view_name, ports=ports)
+
+
+    def export_graphs(self, subject) -> Graphs:
+        """Export the lowered graph of an action or state machine.
+
+        The graph is the subject's and that of every behavior it performs, in
+        the canonical ``graphs:1`` JSON an external analysis engine is sent:
+        nodes, edges, flows, parameters, guards, triggers and effects, with
+        source spans.
+
+        Args:
+            subject (str): Qualified name of an action or state machine,
+                definition or usage
+
+        Returns:
+            Graphs: The JSON, its version and the subject as resolved
+
+        Raises:
+            MissingCapabilityError: If the service cannot export graphs
+            SymbolNotFoundError: If the model declares no such element
+            InvalidRequestError: If the element is no action or state machine,
+                or the name is shared by several elements
+            ModelNotFoundError: If the service no longer holds this model
+        """
+        return self.connection.export_graphs(self._hash, subject)
 
     def find(self, name):
         """Find symbol by short name or fully-qualified name.

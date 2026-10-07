@@ -245,6 +245,14 @@ func (r *remote) renderView(ctx context.Context, req *pb.RenderViewRequest) (*pb
 	return resp.Msg, nil
 }
 
+func (r *remote) exportGraphs(ctx context.Context, req *pb.ExportGraphsRequest) (*pb.ExportGraphsResponse, error) {
+	resp, err := r.rpc.ExportGraphs(ctx, connect.NewRequest(req))
+	if err != nil {
+		return nil, connectToError(err)
+	}
+	return resp.Msg, nil
+}
+
 func (r *remote) convert(ctx context.Context, req *pb.ConvertRequest) (*pb.ConvertResponse, error) {
 	resp, err := r.rpc.Convert(ctx, connect.NewRequest(req))
 	if err != nil {

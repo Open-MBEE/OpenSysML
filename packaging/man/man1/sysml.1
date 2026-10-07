@@ -308,6 +308,11 @@ sequence, table or matrix, without a declared view
 .BR \-render\-all " \fIdir\fP"
 Render every declared view into this directory
 .TP
+.BR \-graphs " \fIname\fP"
+Write the lowered graph of this action or state machine, and of every behavior
+it performs, as the canonical graphs:1 JSON an external analysis engine is
+sent, to stdout or \-output
+.TP
 .BR \-render\-form " \fIform\fP"
 Form \-render or \-render\-all writes: text, mermaid, markdown, dot, plantuml,
 d2, csv or tsv (csv and tsv for a table or matrix); D2 writes tree,

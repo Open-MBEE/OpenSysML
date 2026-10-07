@@ -69,6 +69,7 @@ The Java client covers the whole service surface, as typed immutable results:
 - the edit API (`applyEdits`, with the `Edit` kinds sealed over set-value, rename, add-member,
   delete and move);
 - `Query` and OSLC query, and the native document calls (`runDocumentQuery`, `renderDocument`).
+- `ExportGraphs`, the lowered graph of an action or state machine as `graphs:1` JSON (`exportGraphs`).
 
 It leaves out only the generated model-ergonomics types; [the Java
 API](java-api.md#what-the-client-does-not-do) says why.
