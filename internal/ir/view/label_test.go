@@ -224,8 +224,8 @@ func TestTextLabelShape(t *testing.T) {
 	}
 }
 
-// Flowchart labels use Markdown when safe; state and sequence labels keep the
-// lines joined with `<br>`, whether or not the renderer draws HTML labels.
+// Flowchart labels use Markdown when safe; leaf state and sequence labels keep
+// `<br>`, while a composite-state title joins its keyword and name.
 func TestMermaidLabelShapePerForm(t *testing.T) {
 	roots := []*Node{
 		{ID: "n0", Kind: "state def", Name: "Machines::Lamp", Children: []*Node{
@@ -240,11 +240,11 @@ func TestMermaidLabelShapePerForm(t *testing.T) {
 		want []string
 	}{
 		{KindInterconnection, []string{
-			"subgraph n0 [\"`*«state def»*\n**Machines::Lamp**`\"]",
+			"subgraph n0 [\"`*«state def»* **Machines::Lamp**`\"]",
 			"n3(\"`*«part»*\n**pump : Pump**`\")",
 		}},
 		{KindState, []string{
-			`state "«state def»<br>Machines::Lamp" as n0 {`,
+			`state "«state def» Machines::Lamp" as n0 {`,
 			`state "«state»<br>off<br>initial" as n1`,
 			`state "«part»<br>pump : Pump" as n3`,
 			`n1 --> n2 : switch`,
@@ -285,8 +285,9 @@ func TestMermaidFrontmatterReservesClusterTitleHeight(t *testing.T) {
 		roots  []*Node
 		margin int
 	}{
-		{"two-line cluster title", KindInterconnection, cluster(leaf), 24},
-		{"nested three-line title", KindAction, cluster(leaf, noted), 48},
+		{"one-line cluster title", KindInterconnection, cluster(leaf), 0},
+		{"nested title with detail", KindAction, cluster(leaf, noted), 24},
+		{"line-break cluster title", KindInterconnection, []*Node{{ID: "n0", Kind: "part", Name: `'two\nlines'`, Children: []*Node{leaf}}}, 24},
 		{"anonymous cluster", KindInterconnection, []*Node{{ID: "n0", Kind: "connect", Children: []*Node{leaf}}}, 0},
 		{"no cluster", KindInterconnection, []*Node{leaf}, 0},
 		{"tree without subgraphs", KindTree, cluster(leaf), 0},
@@ -310,5 +311,36 @@ func TestMermaidFrontmatterReservesClusterTitleHeight(t *testing.T) {
 		if tc.margin == 0 && strings.Contains(mermaid, "subGraphTitleMargin") {
 			t.Errorf("%s: Mermaid reserves unneeded cluster-title height:\n%s", tc.name, mermaid)
 		}
+	}
+}
+
+func TestMermaidContainerTitleShape(t *testing.T) {
+	state := (&Rendering{Kind: KindState, Roots: []*Node{{
+		ID: "n0", Kind: "state def", Name: "PEAS", Children: []*Node{
+			{ID: "n1", Kind: "state", Name: "off", Detail: "initial"},
+		},
+	}}}).Mermaid()
+	for _, want := range []string{
+		`state "«state def» PEAS" as n0 {`,
+		`state "«state»<br>off<br>initial" as n1`,
+	} {
+		if !strings.Contains(state, want) {
+			t.Errorf("composite-state Mermaid lacks %q:\n%s", want, state)
+		}
+	}
+
+	named := (&Rendering{Kind: KindInterconnection, Roots: []*Node{{
+		ID: "n0", Kind: "part", Name: `'two\nlines'`, Children: []*Node{{ID: "n1", Kind: "part", Name: "child"}},
+	}}}).Mermaid()
+	if !strings.Contains(named, "subgraph n0 [\"`*«part»* **'two**\n**lines'**`\"]") ||
+		!strings.Contains(named, "subGraphTitleMargin:\n      bottom: 24\n") {
+		t.Errorf("line-break container title lacks its lines or margin:\n%s", named)
+	}
+
+	fallback := (&Rendering{Kind: KindInterconnection, Roots: []*Node{{
+		ID: "n0", Kind: "part", Name: "a&b", Detail: "note", Children: []*Node{{ID: "n1", Kind: "part", Name: "child"}},
+	}}}).Mermaid()
+	if !strings.Contains(fallback, `subgraph n0 ["«part» a&amp;b<br>note"]`) {
+		t.Errorf("unsafe container title lacks its escaped one-line fallback:\n%s", fallback)
 	}
 }

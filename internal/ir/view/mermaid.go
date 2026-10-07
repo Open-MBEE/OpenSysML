@@ -563,7 +563,7 @@ func clusterTitleExtraLines(node *Node, ports portView, labels labeller) int {
 	if !flowchartCluster(node, ports) {
 		return 0
 	}
-	extra := len(labels.lines(node)) - 1
+	extra := len(labels.titleLines(node)) - 1
 	for _, child := range node.Children {
 		extra = max(extra, clusterTitleExtraLines(child, ports, labels))
 	}
@@ -1119,7 +1119,7 @@ func (r *Rendering) writeFlowchartNode(w *mermaidFlowWriter, node *Node, depth i
 		fmt.Fprintf(w.b, "%s%s%s\n", indent, node.ID, mermaidNodeShape(ctx.kind, node, ctx.labels, ctx.options))
 		return
 	}
-	fmt.Fprintf(w.b, "%ssubgraph %s [%s]\n", indent, node.ID, mermaidNodeLabel(node, ctx.labels, ctx.options))
+	fmt.Fprintf(w.b, "%ssubgraph %s [%s]\n", indent, node.ID, mermaidTitleLabel(node, ctx.labels, ctx.options))
 	fmt.Fprintf(w.b, "%s  direction %s\n", indent, ctx.flow)
 	if anchor := w.clusterAnchors[node.ID]; anchor != "" {
 		fmt.Fprintf(w.b, "%s  %s[\" \"]\n", indent, anchor)
@@ -1199,17 +1199,36 @@ func mermaidNodeShape(kind Kind, node *Node, labels labeller, options Options) s
 }
 
 func mermaidNodeLabel(node *Node, labels labeller, options Options) string {
-	lines := labels.lines(node)
+	return mermaidLabel(node, labels, labels.lines(node), false)
+}
+
+func mermaidTitleLabel(node *Node, labels labeller, options Options) string {
+	return mermaidLabel(node, labels, labels.titleLines(node), true)
+}
+
+func mermaidLabel(node *Node, labels labeller, lines []string, title bool) string {
 	for _, line := range lines {
 		if !mermaidMarkdownSafe(line) {
+			if title {
+				return `"` + labels.mermaidTitle(node) + `"`
+			}
 			return `"` + labels.mermaid(node) + `"`
 		}
 	}
 	markdown := make([]string, 0, len(lines))
-	if keyword := labels.keyword(node); keyword != "" {
+	head := labels.headLines(node)
+	if title {
+		if keyword := labels.keyword(node); keyword != "" {
+			markdown = append(markdown, "*"+keyword+"* **"+head[0]+"**")
+			head = head[1:]
+		} else {
+			markdown = append(markdown, "**"+head[0]+"**")
+			head = head[1:]
+		}
+	} else if keyword := labels.keyword(node); keyword != "" {
 		markdown = append(markdown, "*"+keyword+"*")
 	}
-	for _, line := range labels.headLines(node) {
+	for _, line := range head {
 		markdown = append(markdown, "**"+line+"**")
 	}
 	markdown = append(markdown, labels.details(node)...)
@@ -1668,7 +1687,7 @@ func (r *Rendering) writeStateNode(b *strings.Builder, node *Node, depth int, ch
 		r.writeStateNotes(b, node.ID, depth)
 		return
 	}
-	fmt.Fprintf(b, "%sstate \"%s\" as %s {\n", indent, labels.mermaid(node), node.ID)
+	fmt.Fprintf(b, "%sstate \"%s\" as %s {\n", indent, labels.mermaidTitle(node), node.ID)
 	for _, child := range node.Children {
 		if child.Kind != startKind && !chart.convertedFinals[child.ID] {
 			r.writeStateNode(b, child, depth+1, chart, labels)
@@ -1851,6 +1870,14 @@ func (l labeller) mermaid(node *Node) string {
 	lines := l.lines(node)
 	for i, line := range lines {
 		lines[i] = mermaidText(line)
+	}
+	return strings.Join(lines, "<br>")
+}
+
+func (l labeller) mermaidTitle(node *Node) string {
+	lines := l.titleLines(node)
+	for i, line := range lines {
+		lines[i] = strings.ReplaceAll(mermaidText(line), "&", "&amp;")
 	}
 	return strings.Join(lines, "<br>")
 }

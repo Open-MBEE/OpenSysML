@@ -1,0 +1,1 @@
+- **Mermaid container titles now place the keyword and first name line together when safe.** This avoids unnecessary cluster-title margin while retaining it for titles with remaining lines; the REPL help and rendering documentation now describe palette and drawing-style options accurately.

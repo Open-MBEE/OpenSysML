@@ -700,30 +700,29 @@ Every `subgraph` of a Mermaid flowchart opens on a `direction` statement restati
 flowchart's, because Mermaid lays out a subgraph that states none without regard to the
 flowchart's; a tree draws containment as edges, not subgraphs, so it carries none.
 
-A Mermaid flowchart reserves the height of one line for a `subgraph` title, so a flowchart
-whose cluster title spans more — an interconnection or action rendering with a container —
-opens on a YAML frontmatter block that claims the rest as the title's bottom margin, 24px per
-extra line:
+The first line of a subgraph or composite-state title puts the keyword and name together, since
+Mermaid reserves one title line in layout. Only a flowchart subgraph title that still spans
+multiple lines — a name with a line break or additional notes — adds
+`flowchart.subGraphTitleMargin.bottom` to the frontmatter, at 24px per extra line. The flowchart
+theme CSS that centres multi-line titles remains:
 
 ```
 ---
 config:
   themeCSS: ".cluster-label .nodeLabel { text-align: center; }"
-  flowchart:
-    subGraphTitleMargin:
-      bottom: 24
 ---
 %% Plant::loopView — interconnection rendering (render asInterconnectionDiagram)
 flowchart LR
-  subgraph n0 ["«part def»<br>Loop"]
+  subgraph n0 ["`*«part def»* **Loop**`"]
     direction LR
   …
 ```
 
-The block travels with the text into every consumer (`-render`, `-render-all`, `%render`,
-`opensysml/render`, the Mermaid fences of a document in Markdown, HTML and PDF), and Mermaid
-10.5 and later reads it. A flowchart with no such cluster, a `tree` rendering (its containment
-is edges), a `state` and a `sequence` diagram have no frontmatter.
+The generated title-margin setting travels with the text into every consumer (`-render`,
+`-render-all`, `%render`, `opensysml/render`, and the Mermaid fences of a document in Markdown,
+HTML and PDF), and Mermaid 10.5 and later reads it. A flowchart with no multi-line container
+title has no `subGraphTitleMargin`; a `tree` rendering (its containment is edges), a `state`
+and a `sequence` diagram do not use that flowchart setting.
 
 `dot` writes a `digraph` with one `// view:`, `// kind:` and `// layout:` header comment line and
 one `// not represented:` line per notice, the same header Mermaid writes as `%%` comments.

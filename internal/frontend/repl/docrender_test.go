@@ -215,7 +215,7 @@ func TestRenderDocumentMarkdownAPI(t *testing.T) {
 
 func TestRenderDocumentListedInHelpAndCompletion(t *testing.T) {
 	s := docRenderSession(t)
-	wants(t, run(t, s, "%help"), "%render-document <name> [mermaid|dot|plantuml|d2]", "Graphviz DOT", "PlantUML")
+	wants(t, run(t, s, "%help"), "%render-document <name> [mermaid|dot|plantuml|d2 [pilot|cameo]]", "Graphviz DOT", "PlantUML")
 	comp := s.Complete("%render-doc", len("%render-doc"))
 	found := false
 	for _, cand := range comp.Candidates {

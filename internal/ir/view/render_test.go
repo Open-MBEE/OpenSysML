@@ -374,12 +374,13 @@ func TestActionRenderingLabelsWeightedSuccessions(t *testing.T) {
 func TestBehaviorRenderingsCarryTheDeclaredType(t *testing.T) {
 	cases := []struct {
 		view, name, label, kind, typ, detail string
+		container                            bool
 	}{
-		{"TypedViews::cycleView", "Typed::run", "run", "action", "Cycle", ""},
-		{"TypedViews::cycleView", "warm", "warm", "action", "Warm", ""},
-		{"TypedViews::cycleView", "start", "start", "initial", "", ""},
-		{"TypedViews::boilerView", "heating", "heating", "state", "Heating", ""},
-		{"TypedViews::boilerView", "idle", "idle", "state", "", "initial"},
+		{view: "TypedViews::cycleView", name: "Typed::run", label: "run", kind: "action", typ: "Cycle", container: true},
+		{view: "TypedViews::cycleView", name: "warm", label: "warm", kind: "action", typ: "Warm"},
+		{view: "TypedViews::cycleView", name: "start", label: "start", kind: "initial"},
+		{view: "TypedViews::boilerView", name: "heating", label: "heating", kind: "state", typ: "Heating"},
+		{view: "TypedViews::boilerView", name: "idle", label: "idle", kind: "state", detail: "initial"},
 	}
 	for _, tc := range cases {
 		rendering := render(t, "typed-behavior.sysml", tc.view)
@@ -397,8 +398,13 @@ func TestBehaviorRenderingsCarryTheDeclaredType(t *testing.T) {
 		head := tc.label + " : " + tc.typ
 		mermaid := rendering.Mermaid()
 		label := "*«" + tc.kind + "»*\n**" + head + "**"
-		if rendering.Kind == KindState || rendering.Kind == KindSequence {
+		switch {
+		case rendering.Kind == KindState && tc.container:
+			label = "«" + tc.kind + "» " + head
+		case rendering.Kind == KindState || rendering.Kind == KindSequence:
 			label = "«" + tc.kind + "»<br>" + head
+		case tc.container:
+			label = "*«" + tc.kind + "»* **" + head + "**"
 		}
 		if !strings.Contains(mermaid, label) {
 			t.Errorf("%s: Mermaid lacks the label for %q:\n%s", tc.view, head, mermaid)
