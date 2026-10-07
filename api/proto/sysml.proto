@@ -894,6 +894,21 @@ message ConvertRequest {
   // does not hold, or documents for a file_path or content, is
   // INVALID_ARGUMENT. Reported as the "convert_documents" capability.
   repeated string documents = 8;
+  // For api-json from notation: write the compact document
+  // (api-json-compact/1) in place of the standard element array. It is one
+  // object holding a table of element ids, written once, and the elements with
+  // every reference spelled as an index into it, without indentation; see
+  // docs/reference/wire-contract.md for the shape. Refused for any other
+  // target. Reported as the "convert_compact" capability.
+  bool compact = 9;
+  // With compact: leave out every derived property of the metamodel (the
+  // ones the owned properties already state), except those named in
+  // keep_derived. Refused without compact.
+  bool omit_derived = 10;
+  // With omit_derived: the derived properties still written, named as in the
+  // element form ("owner", "qualifiedName"). A name that is not a derived
+  // property of the metamodel is INVALID_ARGUMENT. Refused without omit_derived.
+  repeated string keep_derived = 11;
 }
 
 // ConvertResponse contains the converted model.

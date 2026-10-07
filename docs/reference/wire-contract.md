@@ -1922,6 +1922,11 @@ refused as above. So a client that holds a model's conversion can convert again 
 an edit changed and replace their elements by `@id`. Empty `documents` writes every document. A name
 the model does not hold, or `documents` for a `filePath` or `content`, is `invalid_argument`.
 
+`compact`, under the `convert_compact` capability, writes `api-json` from notation as one smaller
+object in place of the element array; `omit_derived` and `keep_derived` leave out the metamodel's
+derived properties. Expanded, it is the element array. The format is defined in
+[Compact API JSON](api-json-compact.md).
+
 ```console
 $ … /Convert -d '{"filePath":"Vehicle.sysml","toFormat":"ttl"}'
 {

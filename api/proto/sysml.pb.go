@@ -4061,7 +4061,22 @@ type ConvertRequest struct {
 	// own documents are converted. Empty writes every document. A name the model
 	// does not hold, or documents for a file_path or content, is
 	// INVALID_ARGUMENT. Reported as the "convert_documents" capability.
-	Documents     []string `protobuf:"bytes,8,rep,name=documents,proto3" json:"documents,omitempty"`
+	Documents []string `protobuf:"bytes,8,rep,name=documents,proto3" json:"documents,omitempty"`
+	// For api-json from notation: write the compact document
+	// (api-json-compact/1) in place of the standard element array. It is one
+	// object holding a table of element ids, written once, and the elements with
+	// every reference spelled as an index into it, without indentation; see
+	// docs/reference/wire-contract.md for the shape. Refused for any other
+	// target. Reported as the "convert_compact" capability.
+	Compact bool `protobuf:"varint,9,opt,name=compact,proto3" json:"compact,omitempty"`
+	// With compact: leave out every derived property of the metamodel (the
+	// ones the owned properties already state), except those named in
+	// keep_derived. Refused without compact.
+	OmitDerived bool `protobuf:"varint,10,opt,name=omit_derived,json=omitDerived,proto3" json:"omit_derived,omitempty"`
+	// With omit_derived: the derived properties still written, named as in the
+	// element form ("owner", "qualifiedName"). A name that is not a derived
+	// property of the metamodel is INVALID_ARGUMENT. Refused without omit_derived.
+	KeepDerived   []string `protobuf:"bytes,11,rep,name=keep_derived,json=keepDerived,proto3" json:"keep_derived,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -4161,6 +4176,27 @@ func (x *ConvertRequest) GetIdForm() string {
 func (x *ConvertRequest) GetDocuments() []string {
 	if x != nil {
 		return x.Documents
+	}
+	return nil
+}
+
+func (x *ConvertRequest) GetCompact() bool {
+	if x != nil {
+		return x.Compact
+	}
+	return false
+}
+
+func (x *ConvertRequest) GetOmitDerived() bool {
+	if x != nil {
+		return x.OmitDerived
+	}
+	return false
+}
+
+func (x *ConvertRequest) GetKeepDerived() []string {
+	if x != nil {
+		return x.KeepDerived
 	}
 	return nil
 }
@@ -12868,7 +12904,7 @@ const file_sysml_proto_rawDesc = "" +
 	"\rtrace_dropped\x18\t \x01(\x05R\ftraceDropped\x1aM\n" +
 	"\x11FinalContextEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\"\n" +
-	"\x05value\x18\x02 \x01(\v2\f.sysml.ValueR\x05value:\x028\x01\"\xa1\x02\n" +
+	"\x05value\x18\x02 \x01(\v2\f.sysml.ValueR\x05value:\x028\x01\"\x81\x03\n" +
 	"\x0eConvertRequest\x12\x1d\n" +
 	"\tfile_path\x18\x01 \x01(\tH\x00R\bfilePath\x12\x1a\n" +
 	"\acontent\x18\x02 \x01(\tH\x00R\acontent\x12\x1f\n" +
@@ -12879,7 +12915,11 @@ const file_sysml_proto_rawDesc = "" +
 	"\tto_format\x18\x04 \x01(\tR\btoFormat\x124\n" +
 	"\x16tolerate_syntax_errors\x18\x05 \x01(\bR\x14tolerateSyntaxErrors\x12\x17\n" +
 	"\aid_form\x18\a \x01(\tR\x06idForm\x12\x1c\n" +
-	"\tdocuments\x18\b \x03(\tR\tdocumentsB\b\n" +
+	"\tdocuments\x18\b \x03(\tR\tdocuments\x12\x18\n" +
+	"\acompact\x18\t \x01(\bR\acompact\x12!\n" +
+	"\fomit_derived\x18\n" +
+	" \x01(\bR\vomitDerived\x12!\n" +
+	"\fkeep_derived\x18\v \x03(\tR\vkeepDerivedB\b\n" +
 	"\x06source\"\x89\x02\n" +
 	"\x0fConvertResponse\x12\x18\n" +
 	"\acontent\x18\x01 \x01(\tR\acontent\x12\x1f\n" +

@@ -182,6 +182,11 @@ const CapabilityParseSources = "parse_sources"
 // the named documents of a model and links the rest by id.
 const CapabilityConvertDocuments = "convert_documents"
 
+// CapabilityConvertCompact names ConvertRequest.compact, omit_derived and
+// keep_derived: api-json written as the compact document, with an id table and
+// handles, and optionally without the metamodel's derived properties.
+const CapabilityConvertCompact = "convert_compact"
+
 // CapabilityParseSourcesAffected names ParseSourcesRequest.base_model_hash and
 // ParseSourcesResponse.affected: the documents whose results may differ from
 // the base model's, so a client re-reads only those after an edit.
@@ -319,6 +324,7 @@ var capabilities = []string{
 	CapabilityRenderView,
 	CapabilityExportGraphs,
 	CapabilityConvertDocuments,
+	CapabilityConvertCompact,
 	CapabilityParseSourcesAffected,
 }
 
