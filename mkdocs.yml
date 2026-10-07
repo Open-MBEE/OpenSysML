@@ -73,7 +73,7 @@ plugins:
   - redirects:
       redirect_maps:
         guide/09-python.md: clients/python/index.md
-        ecosystem.md: README.md
+        ecosystem.md: https://opensysml.org/
   - mkdocstrings:
       handlers:
         python:

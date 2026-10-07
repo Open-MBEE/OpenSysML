@@ -6,7 +6,7 @@ protocol](https://connectrpc.com/docs/protocol) with protobuf bodies. No native
 addon, so an install is a plain registry fetch.
 
 For a task-oriented walkthrough, see the
-[Node client guide](https://opensysml.org/clients/node/).
+[Node client guide](https://implementation.opensysml.org/clients/node/).
 
 ```bash
 npm install @openmbee/opensysml
@@ -15,7 +15,7 @@ npm install @openmbee/opensysml
 A development snapshot is published every night under the `nightly` dist-tag
 (`npm install @openmbee/opensysml@nightly`), with its platform packages carrying
 that night's `sysml-grpc`; `latest` stays the stable release. See [Nightly
-snapshots](https://opensysml.org/project/nightly/).
+snapshots](https://implementation.opensysml.org/project/nightly/).
 
 ```ts
 import { loads, connect } from "@openmbee/opensysml";

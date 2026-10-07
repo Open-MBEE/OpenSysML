@@ -609,8 +609,8 @@ print(instance.slots["mass"])
 - automatic service lifecycle management
 - full runtime API access (evaluation, instantiation, action and state execution)
 
-See the [Python client guide](https://opensysml.org/clients/python/) for
-installation and usage, the [Python API reference](https://opensysml.org/reference/python-api/),
+See the [Python client guide](https://implementation.opensysml.org/clients/python/) for
+installation and usage, the [Python API reference](https://implementation.opensysml.org/reference/python-api/),
 and [client development instructions](client/python/DEVELOPING.md).
 
 ### Node/TypeScript

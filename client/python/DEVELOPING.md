@@ -82,7 +82,7 @@ pip install "client/python/[fmi]"
 It is the reference runner for the `tool:fmi` engine, which uses the fmi/1
 protocol to simulate co-simulation and model-exchange FMUs. Set
 `OPENSYSML_FMI_RUNNER` to its executable when needed. See the
-[FMI reference](https://opensysml.org/reference/fmi/).
+[FMI reference](https://implementation.opensysml.org/reference/fmi/).
 
 ## Version and package layout
 
