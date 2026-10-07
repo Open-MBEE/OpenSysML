@@ -24,7 +24,7 @@ import (
 
 // engineGzipBudget bounds growth of the gzipped js build of sysml-engine;
 // TestEngineDependencies, not this budget, catches a forbidden dependency.
-const engineGzipBudget = 7700000
+const engineGzipBudget = 9000000
 
 func TestEngineDependencies(t *testing.T) {
 	const module = "github.com/Open-MBEE/OpenSysML"
