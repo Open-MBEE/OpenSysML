@@ -698,6 +698,10 @@ Typed query rows, document values, and document and view render results.
     options:
       heading_level: 3
 
+::: opensysml.Graphs
+    options:
+      heading_level: 3
+
 ::: opensysml.DocumentRow
     options:
       heading_level: 3
