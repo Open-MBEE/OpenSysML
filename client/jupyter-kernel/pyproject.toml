@@ -27,6 +27,12 @@ classifiers = [
     "Programming Language :: Python :: 3.13",
     "Topic :: Scientific/Engineering",
 ]
+# No lock file is kept beside this file, on purpose: the package is a library
+# that others install into their own environments, so it declares the ranges it
+# works with and leaves pinning to the environment that installs it, as
+# client/python does. The versions CI tests against are pinned where CI
+# installs them (.circleci/config.yml), and the one binary the package depends
+# on is pinned by digest in release-digests.json.
 dependencies = [
     # Installs the kernelspec where every Jupyter front end looks for one.
     "jupyter_client>=7.0",

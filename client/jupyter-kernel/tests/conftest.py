@@ -3,6 +3,7 @@
 import hashlib
 import os
 import stat
+import sys
 
 import pytest
 
@@ -15,10 +16,13 @@ KERNEL_BYTES = b"#!/bin/sh\necho sysml-jupyter-kernel test build\n"
 
 @pytest.fixture(autouse=True)
 def isolated_jupyter(tmp_path, monkeypatch):
-    """Every kernelspec write goes under the test's directory, never the user's."""
+    """Every kernelspec write goes under the test's directory: neither the user's
+    nor the Python environment the tests run in, which the default location is."""
     data_dir = tmp_path / "jupyter-data"
     monkeypatch.setenv("JUPYTER_DATA_DIR", str(data_dir))
     monkeypatch.setenv("JUPYTER_PATH", str(data_dir))
+    monkeypatch.setattr(sys, "prefix", str(tmp_path / "env"))
+    monkeypatch.setattr(sys, "base_prefix", str(tmp_path / "base"))
     monkeypatch.delenv("CONDA_PREFIX", raising=False)
     monkeypatch.delenv(binary.GITHUB_REPO_ENV, raising=False)
     return data_dir
