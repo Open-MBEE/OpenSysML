@@ -121,6 +121,67 @@ func TestRenderOfATabularView(t *testing.T) {
 	}
 }
 
+const matrixModel = `package Example {
+    private import StandardViewDefinitions::*;
+    requirement def Requirement;
+    requirement r : Requirement;
+    part def Vehicle;
+    part vehicle : Vehicle {
+        satisfy r;
+    }
+    view def RelationshipMatrixView :> GridView {
+        filter @SysML::SatisfyRequirementUsage;
+    }
+    view relationshipMatrix : RelationshipMatrixView {
+        expose vehicle::**;
+    }
+}
+`
+
+func TestRenderOfAGridViewRelationshipMatrix(t *testing.T) {
+	binary := buildCLI(t)
+
+	for _, tc := range []struct {
+		form string
+		want string
+	}{
+		{"text", "Example::relationshipMatrix - matrix rendering"},
+		{"markdown", "| Source / Target | Example::r |"},
+		{"csv", "Source / Target,Example::r\nExample::vehicle,satisfy\n"},
+		{"tsv", "Source / Target\tExample::r\nExample::vehicle\tsatisfy\n"},
+	} {
+		t.Run(tc.form, func(t *testing.T) {
+			got := runStreams(t, binary, matrixModel, "-render", "Example::relationshipMatrix", "-render-form", tc.form)
+			if got.status != exitHolds {
+				t.Fatalf("exit status = %d, want %d\n%s", got.status, exitHolds, got.output())
+			}
+			if !strings.Contains(got.stdout, tc.want) {
+				t.Errorf("stdout is missing %q:\n%s", tc.want, got.stdout)
+			}
+		})
+	}
+
+	for _, form := range []string{"mermaid", "dot", "plantuml", "d2"} {
+		got := runStreams(t, binary, matrixModel, "-render", "Example::relationshipMatrix", "-render-form", form)
+		if got.status != exitUnevaluable || !strings.Contains(got.stderr, "matrix rendering is not written as "+form) {
+			t.Errorf("matrix as %s = %d\n%s", form, got.status, got.output())
+		}
+	}
+
+	dir := filepath.Join(t.TempDir(), "matrix")
+	all := runStreams(t, binary, matrixModel, "-render-all", dir)
+	if all.status != exitHolds {
+		t.Fatalf("-render-all exit status = %d, want %d\n%s", all.status, exitHolds, all.output())
+	}
+	written, err := os.ReadFile(filepath.Join(dir, "Example.relationshipMatrix.md")) // #nosec G304 -- the test wrote this path.
+	if err != nil {
+		t.Fatalf("read -render-all matrix: %v", err)
+	}
+	if !strings.Contains(string(written), "| Source / Target | Example::r |") {
+		t.Errorf("-render-all matrix is missing its table:\n%s", written)
+	}
+}
+
 // A table is written as CSV or TSV when asked, on stdout or into a file, and a
 // graph-shaped view is refused either form.
 func TestRenderOfATableAsDelimitedValues(t *testing.T) {
@@ -613,6 +674,8 @@ func TestDefaultRenderFormFollowsTheDestination(t *testing.T) {
 		{"a table at a terminal", view.KindTable, "", true, view.FormText},
 		{"a table into a pipe", view.KindTable, "", false, view.FormMarkdown},
 		{"a table into a file", view.KindTable, "table.md", true, view.FormMarkdown},
+		{"a matrix into a pipe", view.KindMatrix, "", false, view.FormMarkdown},
+		{"a matrix into a file", view.KindMatrix, "matrix.md", true, view.FormMarkdown},
 		{"a tree at a terminal", view.KindTree, "", true, view.FormText},
 		{"a tree into a pipe", view.KindTree, "", false, view.FormMermaid},
 	}

@@ -22,7 +22,7 @@
       },
       {
         "name": "fixtures",
-        "files": 97
+        "files": 98
       }
     ],
     "counts": {
@@ -40,7 +40,7 @@
       },
       "sysml:Concern": {
         "pssm": 0,
-        "fixtures": 0
+        "fixtures": 5
       },
       "sysml:Continuous": {
         "pssm": 0,
@@ -80,7 +80,7 @@
       },
       "sysml:Stakeholder": {
         "pssm": 0,
-        "fixtures": 2
+        "fixtures": 3
       },
       "sysml:TestCase": {
         "pssm": 0,
@@ -92,7 +92,7 @@
       },
       "sysml:Viewpoint": {
         "pssm": 0,
-        "fixtures": 62
+        "fixtures": 64
       },
       "uml:AcceptCallAction": {
         "pssm": 0,
@@ -136,7 +136,7 @@
       },
       "uml:Class": {
         "pssm": 311,
-        "fixtures": 473
+        "fixtures": 484
       },
       "uml:ClearAssociationAction": {
         "pssm": 0,
@@ -204,7 +204,7 @@
       },
       "uml:InstanceSpecification": {
         "pssm": 0,
-        "fixtures": 54
+        "fixtures": 55
       },
       "uml:InterfaceRealization": {
         "pssm": 0,
@@ -2450,14 +2450,14 @@
         "body"
       ],
       "ocl": "sha256:2b8b390080f316e295646a3f22cf7b957e72387512a1d5cdb60aa2f1b8c3715e",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
-        "internal/translate/migrate/views.go:frameConcern"
+        "internal/translate/migrate/migrate.go:writeConcern"
       ],
       "tests": [
-        "tests/migrate/migrate_test.go:TestGoldenNotation"
+        "tests/migrate/viewpoint_concerns_test.go:TestViewpointConcernMigration"
       ],
-      "reason": "a viewpoint's concern is written as an anonymous `frame concern` documented by the concern text; a «Concern» comment outside a viewpoint is a plain comment",
+      "reason": "A homed «Concern» comment is written as a named concern usage with a subject and stakeholder parameters; a non-homed concern remains an anonymous frame. A v2 concern annotates nothing, so annotations on a concern comment are reported as approximated.",
       "scope": [
         "sysml:Concern"
       ]
@@ -2477,14 +2477,14 @@
         "ownedMemberElement"
       ],
       "ocl": "sha256:70df8df7dfcbae949a1577cee9c31ab577d8542c7c529e4c4776d631bf7516ca",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
-        "internal/translate/migrate/views.go:frameConcern"
+        "internal/translate/migrate/migrate.go:writeConcern"
       ],
       "tests": [
-        "tests/migrate/migrate_test.go:TestGoldenNotation"
+        "tests/migrate/viewpoint_concerns_test.go:TestViewpointConcernMigration"
       ],
-      "reason": "a viewpoint's concern is written as an anonymous `frame concern` documented by the concern text; a «Concern» comment outside a viewpoint is a plain comment",
+      "reason": "A homed «Concern» comment is written as a named concern usage with a subject and stakeholder parameters; a non-homed concern remains an anonymous frame. A v2 concern annotates nothing, so annotations on a concern comment are reported as approximated.",
       "scope": [
         "sysml:Concern"
       ]
@@ -2504,14 +2504,14 @@
         "ownedMemberParameter"
       ],
       "ocl": "sha256:68f3c19393c3cc26a85f801cf438c32526a8354f49895a2ef96c4931c02d7963",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
-        "internal/translate/migrate/views.go:frameConcern"
+        "internal/translate/migrate/migrate.go:writeConcern"
       ],
       "tests": [
-        "tests/migrate/migrate_test.go:TestGoldenNotation"
+        "tests/migrate/viewpoint_concerns_test.go:TestViewpointConcernMigration"
       ],
-      "reason": "a viewpoint's concern is written as an anonymous `frame concern` documented by the concern text; a «Concern» comment outside a viewpoint is a plain comment",
+      "reason": "A homed «Concern» comment is written as a named concern usage with a subject and stakeholder parameters; a non-homed concern remains an anonymous frame. A v2 concern annotates nothing, so annotations on a concern comment are reported as approximated.",
       "scope": [
         "sysml:Concern"
       ]
@@ -2531,14 +2531,14 @@
         "type"
       ],
       "ocl": "sha256:fd4db7dfc78dee71d4bc4970759862d56ea79c07c151e06000220b4d06f1da98",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
-        "internal/translate/migrate/views.go:frameConcern"
+        "internal/translate/migrate/migrate.go:writeConcern"
       ],
       "tests": [
-        "tests/migrate/migrate_test.go:TestGoldenNotation"
+        "tests/migrate/viewpoint_concerns_test.go:TestViewpointConcernMigration"
       ],
-      "reason": "a viewpoint's concern is written as an anonymous `frame concern` documented by the concern text; a «Concern» comment outside a viewpoint is a plain comment",
+      "reason": "A homed «Concern» comment is written as a named concern usage with a subject and stakeholder parameters; a non-homed concern remains an anonymous frame. A v2 concern annotates nothing, so annotations on a concern comment are reported as approximated.",
       "scope": [
         "sysml:Concern"
       ]
@@ -2556,14 +2556,14 @@
       ],
       "operations": [],
       "ocl": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
-        "internal/translate/migrate/views.go:frameConcern"
+        "internal/translate/migrate/migrate.go:writeConcern"
       ],
       "tests": [
-        "tests/migrate/migrate_test.go:TestGoldenNotation"
+        "tests/migrate/viewpoint_concerns_test.go:TestViewpointConcernMigration"
       ],
-      "reason": "a viewpoint's concern is written as an anonymous `frame concern` documented by the concern text; a «Concern» comment outside a viewpoint is a plain comment",
+      "reason": "A homed «Concern» comment is written as a named concern usage with a subject and stakeholder parameters; a non-homed concern remains an anonymous frame. A v2 concern annotates nothing, so annotations on a concern comment are reported as approximated.",
       "scope": [
         "sysml:Concern"
       ]
@@ -2583,14 +2583,14 @@
         "ownedMemberElement"
       ],
       "ocl": "sha256:290fb532c06319b1fa3b2706acd5fee0b6d33e7a970f064ebf1bf10407a24364",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
-        "internal/translate/migrate/views.go:frameConcern"
+        "internal/translate/migrate/migrate.go:writeConcern"
       ],
       "tests": [
-        "tests/migrate/migrate_test.go:TestGoldenNotation"
+        "tests/migrate/viewpoint_concerns_test.go:TestViewpointConcernMigration"
       ],
-      "reason": "a viewpoint's concern is written as an anonymous `frame concern` documented by the concern text; a «Concern» comment outside a viewpoint is a plain comment",
+      "reason": "A homed «Concern» comment is written as a named concern usage with a subject and stakeholder parameters; a non-homed concern remains an anonymous frame. A v2 concern annotates nothing, so annotations on a concern comment are reported as approximated.",
       "scope": [
         "sysml:Concern"
       ]
@@ -2610,14 +2610,14 @@
         "ownedRelationship"
       ],
       "ocl": "sha256:e655ff7f1357712fc6e3e8647d22096a5fc9c3038fa8dfd25bb9804e8d706ad1",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
-        "internal/translate/migrate/views.go:frameConcern"
+        "internal/translate/migrate/migrate.go:writeConcern"
       ],
       "tests": [
-        "tests/migrate/migrate_test.go:TestGoldenNotation"
+        "tests/migrate/viewpoint_concerns_test.go:TestViewpointConcernMigration"
       ],
-      "reason": "a viewpoint's concern is written as an anonymous `frame concern` documented by the concern text; a «Concern» comment outside a viewpoint is a plain comment",
+      "reason": "A homed «Concern» comment is written as a named concern usage with a subject and stakeholder parameters; a non-homed concern remains an anonymous frame. A v2 concern annotates nothing, so annotations on a concern comment are reported as approximated.",
       "scope": [
         "sysml:Concern"
       ]
@@ -2637,14 +2637,14 @@
         "ownedRelationship"
       ],
       "ocl": "sha256:4a53e80be4aa263a7b142c2a10a30e5c245be64b5f9b63f2654313c6e4f89d5e",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
-        "internal/translate/migrate/views.go:frameConcern"
+        "internal/translate/migrate/migrate.go:writeConcern"
       ],
       "tests": [
-        "tests/migrate/migrate_test.go:TestGoldenNotation"
+        "tests/migrate/viewpoint_concerns_test.go:TestViewpointConcernMigration"
       ],
-      "reason": "a viewpoint's concern is written as an anonymous `frame concern` documented by the concern text; a «Concern» comment outside a viewpoint is a plain comment",
+      "reason": "A homed «Concern» comment is written as a named concern usage with a subject and stakeholder parameters; a non-homed concern remains an anonymous frame. A v2 concern annotates nothing, so annotations on a concern comment are reported as approximated.",
       "scope": [
         "sysml:Concern"
       ]
@@ -3073,15 +3073,15 @@
         "ownedMemberFeature"
       ],
       "ocl": "sha256:3eb0fb879490467d0716a0830da7bd81ba0d9d625aeca96ccb0343e78f891997",
-      "status": "approximate",
+      "status": "deliberate",
       "implementation": [
         "internal/translate/migrate/classify.go:classifyClass",
         "internal/translate/migrate/views.go:stakeholder"
       ],
       "tests": [
-        "tests/migrate/migrate_test.go:TestGoldenNotation"
+        "tests/migrate/viewpoint_concerns_test.go:TestViewpointConcernMigration"
       ],
-      "reason": "a «Stakeholder» class is written as a part def, which a viewpoint's `stakeholder` usage can type; its concern tag stays a comment (see candidate errata for the item def the mapping writes)",
+      "reason": "SysMLv1Library::StakeholderData is not published with the transformation model and is not bundled; a Stakeholder is written as a part def that types viewpoint and concern stakeholder parameters.",
       "scope": [
         "sysml:Stakeholder"
       ]
@@ -3101,15 +3101,15 @@
         "type"
       ],
       "ocl": "sha256:d075ebf8573c1667f7453e27aec86b34d015148656923cb0010903d952dcb162",
-      "status": "approximate",
+      "status": "deliberate",
       "implementation": [
         "internal/translate/migrate/classify.go:classifyClass",
         "internal/translate/migrate/views.go:stakeholder"
       ],
       "tests": [
-        "tests/migrate/migrate_test.go:TestGoldenNotation"
+        "tests/migrate/viewpoint_concerns_test.go:TestViewpointConcernMigration"
       ],
-      "reason": "a «Stakeholder» class is written as a part def, which a viewpoint's `stakeholder` usage can type; its concern tag stays a comment (see candidate errata for the item def the mapping writes)",
+      "reason": "SysMLv1Library::StakeholderData is not published with the transformation model and is not bundled; a Stakeholder is written as a part def that types viewpoint and concern stakeholder parameters.",
       "scope": [
         "sysml:Stakeholder"
       ]
@@ -3129,15 +3129,15 @@
         "ownedMemberElement"
       ],
       "ocl": "sha256:2def2c267ebd6e2834cb9e1bb2e623bd65caee83ad0fc78dc13aa80770e716ab",
-      "status": "approximate",
+      "status": "deliberate",
       "implementation": [
         "internal/translate/migrate/classify.go:classifyClass",
         "internal/translate/migrate/views.go:stakeholder"
       ],
       "tests": [
-        "tests/migrate/migrate_test.go:TestGoldenNotation"
+        "tests/migrate/viewpoint_concerns_test.go:TestViewpointConcernMigration"
       ],
-      "reason": "a «Stakeholder» class is written as a part def, which a viewpoint's `stakeholder` usage can type; its concern tag stays a comment (see candidate errata for the item def the mapping writes)",
+      "reason": "SysMLv1Library::StakeholderData is not published with the transformation model and is not bundled; a Stakeholder is written as a part def that types viewpoint and concern stakeholder parameters.",
       "scope": [
         "sysml:Stakeholder"
       ]
@@ -3157,15 +3157,15 @@
         "value"
       ],
       "ocl": "sha256:374d6139041fea74e9bbabacb7fb542caa2e2ea6efdcdc9adbdc1325926872fa",
-      "status": "approximate",
+      "status": "deliberate",
       "implementation": [
         "internal/translate/migrate/classify.go:classifyClass",
         "internal/translate/migrate/views.go:stakeholder"
       ],
       "tests": [
-        "tests/migrate/migrate_test.go:TestGoldenNotation"
+        "tests/migrate/viewpoint_concerns_test.go:TestViewpointConcernMigration"
       ],
-      "reason": "a «Stakeholder» class is written as a part def, which a viewpoint's `stakeholder` usage can type; its concern tag stays a comment (see candidate errata for the item def the mapping writes)",
+      "reason": "SysMLv1Library::StakeholderData is not published with the transformation model and is not bundled; a Stakeholder is written as a part def that types viewpoint and concern stakeholder parameters.",
       "scope": [
         "sysml:Stakeholder"
       ]
@@ -3185,15 +3185,15 @@
         "redefinedFeature"
       ],
       "ocl": "sha256:633eaf09ca8a3a4d33cf5f73199d880813c7b68bac4a3df8676a94cbbd5e5af6",
-      "status": "approximate",
+      "status": "deliberate",
       "implementation": [
         "internal/translate/migrate/classify.go:classifyClass",
         "internal/translate/migrate/views.go:stakeholder"
       ],
       "tests": [
-        "tests/migrate/migrate_test.go:TestGoldenNotation"
+        "tests/migrate/viewpoint_concerns_test.go:TestViewpointConcernMigration"
       ],
-      "reason": "a «Stakeholder» class is written as a part def, which a viewpoint's `stakeholder` usage can type; its concern tag stays a comment (see candidate errata for the item def the mapping writes)",
+      "reason": "SysMLv1Library::StakeholderData is not published with the transformation model and is not bundled; a Stakeholder is written as a part def that types viewpoint and concern stakeholder parameters.",
       "scope": [
         "sysml:Stakeholder"
       ]
@@ -3213,15 +3213,15 @@
         "ownedRelationship"
       ],
       "ocl": "sha256:1a56218823ab17b361078e1301eed3921a4b6579dcfc176ce65491971437f32b",
-      "status": "approximate",
+      "status": "deliberate",
       "implementation": [
         "internal/translate/migrate/classify.go:classifyClass",
         "internal/translate/migrate/views.go:stakeholder"
       ],
       "tests": [
-        "tests/migrate/migrate_test.go:TestGoldenNotation"
+        "tests/migrate/viewpoint_concerns_test.go:TestViewpointConcernMigration"
       ],
-      "reason": "a «Stakeholder» class is written as a part def, which a viewpoint's `stakeholder` usage can type; its concern tag stays a comment (see candidate errata for the item def the mapping writes)",
+      "reason": "SysMLv1Library::StakeholderData is not published with the transformation model and is not bundled; a Stakeholder is written as a part def that types viewpoint and concern stakeholder parameters.",
       "scope": [
         "sysml:Stakeholder"
       ]
@@ -3241,15 +3241,15 @@
         "ownedRelationship"
       ],
       "ocl": "sha256:ff1071956e2e4f1b90da6241841f503944214502e3745326422fe67776c26c76",
-      "status": "approximate",
+      "status": "deliberate",
       "implementation": [
         "internal/translate/migrate/classify.go:classifyClass",
         "internal/translate/migrate/views.go:stakeholder"
       ],
       "tests": [
-        "tests/migrate/migrate_test.go:TestGoldenNotation"
+        "tests/migrate/viewpoint_concerns_test.go:TestViewpointConcernMigration"
       ],
-      "reason": "a «Stakeholder» class is written as a part def, which a viewpoint's `stakeholder` usage can type; its concern tag stays a comment (see candidate errata for the item def the mapping writes)",
+      "reason": "SysMLv1Library::StakeholderData is not published with the transformation model and is not bundled; a Stakeholder is written as a part def that types viewpoint and concern stakeholder parameters.",
       "scope": [
         "sysml:Stakeholder"
       ]
@@ -3269,15 +3269,16 @@
         "ownedRelationship"
       ],
       "ocl": "sha256:2a60195a6b9292043c14972a5784ff8c29b086e215812e83993017e8e3306fa7",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
         "internal/translate/migrate/classify.go:classifyClass",
-        "internal/translate/migrate/views.go:stakeholder"
+        "internal/translate/migrate/views.go:stakeholder",
+        "internal/translate/migrate/migrate.go:writeConcern"
       ],
       "tests": [
-        "tests/migrate/migrate_test.go:TestGoldenNotation"
+        "tests/migrate/viewpoint_concerns_test.go:TestViewpointConcernMigration"
       ],
-      "reason": "a «Stakeholder» class is written as a part def, which a viewpoint's `stakeholder` usage can type; its concern tag stays a comment (see candidate errata for the item def the mapping writes); candidate erratum: the mapping maps «Stakeholder» to an ItemDefinition, but a v2 stakeholder parameter is a PartUsage (StakeholderMembership::ownedStakeholderParameter), which requires a PartDefinition among its definitions; a PartDefinition is the type that can be used",
+      "reason": "A «Stakeholder» class is written as a part def that types viewpoint stakeholder usages and homed concern stakeholder parameters; the deprecated concern tag remains a comment. candidate erratum: the mapping maps «Stakeholder» to an ItemDefinition, but a v2 stakeholder parameter is a PartUsage (StakeholderMembership::ownedStakeholderParameter), which requires a PartDefinition among its definitions; a PartDefinition is the type that can be used",
       "scope": [
         "sysml:Stakeholder"
       ]
@@ -3297,17 +3298,16 @@
         "referencedFeature"
       ],
       "ocl": "sha256:0b2667a5a689e72eddcc421372d2aabaea012f4622cbdcdb1403ba1181bff12c",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
         "internal/translate/migrate/views.go:viewpointBody",
-        "internal/translate/migrate/views.go:frameConcern",
-        "internal/translate/migrate/views.go:stakeholder"
+        "internal/translate/migrate/views.go:viewpointConformances",
+        "internal/translate/migrate/migrate.go:classifierHeader"
       ],
       "tests": [
-        "tests/migrate/context_test.go:TestViewpointActivityContextSpecializesUsage",
-        "tests/migrate/migrate_test.go:TestGoldenNotation"
+        "tests/migrate/viewpoint_concerns_test.go:TestViewpointConcernMigration"
       ],
-      "reason": "a «Viewpoint» is written as a `viewpoint` usage framing its concerns and stakeholders, not as a view def owning a viewpoint usage; its purpose, languages, method and presentation are kept as documentation rather than metadata usages",
+      "reason": "A «Viewpoint» class is written as a view def owning a named viewpoint usage with a subject, framed concerns and the purpose as a require constraint, satisfied by the view def, with the viewpoint's methods as rendering actions. A view conforming to several viewpoints is typed by the first, and the others are kept as comments (0 in the TMT model and repository fixtures).",
       "scope": [
         "sysml:Viewpoint"
       ]
@@ -3327,17 +3327,16 @@
         "ownedRelationship"
       ],
       "ocl": "sha256:133ba9f06c55368884c411aa11bdb1372d9744ebabdf26b44f88a8c9c8054df7",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
         "internal/translate/migrate/views.go:viewpointBody",
-        "internal/translate/migrate/views.go:frameConcern",
-        "internal/translate/migrate/views.go:stakeholder"
+        "internal/translate/migrate/views.go:viewpointConformances",
+        "internal/translate/migrate/migrate.go:classifierHeader"
       ],
       "tests": [
-        "tests/migrate/context_test.go:TestViewpointActivityContextSpecializesUsage",
-        "tests/migrate/migrate_test.go:TestGoldenNotation"
+        "tests/migrate/viewpoint_concerns_test.go:TestViewpointConcernMigration"
       ],
-      "reason": "a «Viewpoint» is written as a `viewpoint` usage framing its concerns and stakeholders, not as a view def owning a viewpoint usage; its purpose, languages, method and presentation are kept as documentation rather than metadata usages",
+      "reason": "A «Viewpoint» class is written as a view def owning a named viewpoint usage with a subject, framed concerns and the purpose as a require constraint, satisfied by the view def, with the viewpoint's methods as rendering actions. A view conforming to several viewpoints is typed by the first, and the others are kept as comments (0 in the TMT model and repository fixtures).",
       "scope": [
         "sysml:Viewpoint"
       ]
@@ -3357,17 +3356,16 @@
         "body"
       ],
       "ocl": "sha256:13410fd9b33dc29bc793ad7ae7bc90a30984c305f7ef0c6f7ddaad5b457c02cd",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
         "internal/translate/migrate/views.go:viewpointBody",
-        "internal/translate/migrate/views.go:frameConcern",
-        "internal/translate/migrate/views.go:stakeholder"
+        "internal/translate/migrate/views.go:viewpointConformances",
+        "internal/translate/migrate/migrate.go:classifierHeader"
       ],
       "tests": [
-        "tests/migrate/context_test.go:TestViewpointActivityContextSpecializesUsage",
-        "tests/migrate/migrate_test.go:TestGoldenNotation"
+        "tests/migrate/viewpoint_concerns_test.go:TestViewpointConcernMigration"
       ],
-      "reason": "a «Viewpoint» is written as a `viewpoint` usage framing its concerns and stakeholders, not as a view def owning a viewpoint usage; its purpose, languages, method and presentation are kept as documentation rather than metadata usages",
+      "reason": "A «Viewpoint» class is written as a view def owning a named viewpoint usage with a subject, framed concerns and the purpose as a require constraint, satisfied by the view def, with the viewpoint's methods as rendering actions. A view conforming to several viewpoints is typed by the first, and the others are kept as comments (0 in the TMT model and repository fixtures).",
       "scope": [
         "sysml:Viewpoint"
       ]
@@ -3387,17 +3385,16 @@
         "ownedMemberElement"
       ],
       "ocl": "sha256:7f0ed2bc2c3c12f0b9c07b7ffd40945ba448e23af5628172e9ea0f08abcdd559",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
         "internal/translate/migrate/views.go:viewpointBody",
-        "internal/translate/migrate/views.go:frameConcern",
-        "internal/translate/migrate/views.go:stakeholder"
+        "internal/translate/migrate/views.go:viewpointConformances",
+        "internal/translate/migrate/migrate.go:classifierHeader"
       ],
       "tests": [
-        "tests/migrate/context_test.go:TestViewpointActivityContextSpecializesUsage",
-        "tests/migrate/migrate_test.go:TestGoldenNotation"
+        "tests/migrate/viewpoint_concerns_test.go:TestViewpointConcernMigration"
       ],
-      "reason": "a «Viewpoint» is written as a `viewpoint` usage framing its concerns and stakeholders, not as a view def owning a viewpoint usage; its purpose, languages, method and presentation are kept as documentation rather than metadata usages",
+      "reason": "A «Viewpoint» class is written as a view def owning a named viewpoint usage with a subject, framed concerns and the purpose as a require constraint, satisfied by the view def, with the viewpoint's methods as rendering actions. A view conforming to several viewpoints is typed by the first, and the others are kept as comments (0 in the TMT model and repository fixtures).",
       "scope": [
         "sysml:Viewpoint"
       ]
@@ -3417,17 +3414,16 @@
         "ownedRelationship"
       ],
       "ocl": "sha256:21030c65c730c58e34a390272b981d82b82255651ebd1e1162847f309c0500b4",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
         "internal/translate/migrate/views.go:viewpointBody",
-        "internal/translate/migrate/views.go:frameConcern",
-        "internal/translate/migrate/views.go:stakeholder"
+        "internal/translate/migrate/views.go:viewpointConformances",
+        "internal/translate/migrate/migrate.go:classifierHeader"
       ],
       "tests": [
-        "tests/migrate/context_test.go:TestViewpointActivityContextSpecializesUsage",
-        "tests/migrate/migrate_test.go:TestGoldenNotation"
+        "tests/migrate/viewpoint_concerns_test.go:TestViewpointConcernMigration"
       ],
-      "reason": "a «Viewpoint» is written as a `viewpoint` usage framing its concerns and stakeholders, not as a view def owning a viewpoint usage; its purpose, languages, method and presentation are kept as documentation rather than metadata usages",
+      "reason": "A «Viewpoint» class is written as a view def owning a named viewpoint usage with a subject, framed concerns and the purpose as a require constraint, satisfied by the view def, with the viewpoint's methods as rendering actions. A view conforming to several viewpoints is typed by the first, and the others are kept as comments (0 in the TMT model and repository fixtures).",
       "scope": [
         "sysml:Viewpoint"
       ]
@@ -3447,17 +3443,16 @@
         "ownedMemberFeature"
       ],
       "ocl": "sha256:b77e5eedc8f322813ae9fbf063e197b07457883e259fd873ddacceb96140439f",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
         "internal/translate/migrate/views.go:viewpointBody",
-        "internal/translate/migrate/views.go:frameConcern",
-        "internal/translate/migrate/views.go:stakeholder"
+        "internal/translate/migrate/views.go:viewpointConformances",
+        "internal/translate/migrate/migrate.go:classifierHeader"
       ],
       "tests": [
-        "tests/migrate/context_test.go:TestViewpointActivityContextSpecializesUsage",
-        "tests/migrate/migrate_test.go:TestGoldenNotation"
+        "tests/migrate/viewpoint_concerns_test.go:TestViewpointConcernMigration"
       ],
-      "reason": "a «Viewpoint» is written as a `viewpoint` usage framing its concerns and stakeholders, not as a view def owning a viewpoint usage; its purpose, languages, method and presentation are kept as documentation rather than metadata usages",
+      "reason": "A «Viewpoint» class is written as a view def owning a named viewpoint usage with a subject, framed concerns and the purpose as a require constraint, satisfied by the view def, with the viewpoint's methods as rendering actions. A view conforming to several viewpoints is typed by the first, and the others are kept as comments (0 in the TMT model and repository fixtures).",
       "scope": [
         "sysml:Viewpoint"
       ]
@@ -3477,17 +3472,15 @@
         "ownedMemberFeature"
       ],
       "ocl": "sha256:db4de86dc17c0efea6c8ccc14f69dd7b02d95ef659722f45280468b9e34568ff",
-      "status": "approximate",
+      "status": "deliberate",
       "implementation": [
-        "internal/translate/migrate/views.go:viewpointBody",
-        "internal/translate/migrate/views.go:frameConcern",
-        "internal/translate/migrate/views.go:stakeholder"
+        "internal/translate/migrate/views.go:viewpointDoc",
+        "internal/translate/migrate/views.go:viewpointBody"
       ],
       "tests": [
-        "tests/migrate/context_test.go:TestViewpointActivityContextSpecializesUsage",
-        "tests/migrate/migrate_test.go:TestGoldenNotation"
+        "tests/migrate/viewpoint_concerns_test.go:TestViewpointConcernMigration"
       ],
-      "reason": "a «Viewpoint» is written as a `viewpoint` usage framing its concerns and stakeholders, not as a view def owning a viewpoint usage; its purpose, languages, method and presentation are kept as documentation rather than metadata usages",
+      "reason": "SysMLv1Library::ViewpointData is not published with the transformation model and is not bundled; purpose is written as a require constraint, while languages and presentations are retained in the viewpoint documentation.",
       "scope": [
         "sysml:Viewpoint"
       ]
@@ -3507,17 +3500,15 @@
         "value"
       ],
       "ocl": "sha256:d6aa6b4f80f694fdb1802f342b73d914dcd99e7a340784832a524d8e6339db7f",
-      "status": "approximate",
+      "status": "deliberate",
       "implementation": [
-        "internal/translate/migrate/views.go:viewpointBody",
-        "internal/translate/migrate/views.go:frameConcern",
-        "internal/translate/migrate/views.go:stakeholder"
+        "internal/translate/migrate/views.go:viewpointDoc",
+        "internal/translate/migrate/views.go:viewpointBody"
       ],
       "tests": [
-        "tests/migrate/context_test.go:TestViewpointActivityContextSpecializesUsage",
-        "tests/migrate/migrate_test.go:TestGoldenNotation"
+        "tests/migrate/viewpoint_concerns_test.go:TestViewpointConcernMigration"
       ],
-      "reason": "a «Viewpoint» is written as a `viewpoint` usage framing its concerns and stakeholders, not as a view def owning a viewpoint usage; its purpose, languages, method and presentation are kept as documentation rather than metadata usages",
+      "reason": "SysMLv1Library::ViewpointData is not published with the transformation model and is not bundled; purpose is written as a require constraint, while languages and presentations are retained in the viewpoint documentation.",
       "scope": [
         "sysml:Viewpoint"
       ]
@@ -3538,17 +3529,15 @@
         "ownedRelationship"
       ],
       "ocl": "sha256:2485eb0d6ec612e4684b5be6f6b6a54a2fe31df2e260b5d235ec1e0979949625",
-      "status": "approximate",
+      "status": "deliberate",
       "implementation": [
-        "internal/translate/migrate/views.go:viewpointBody",
-        "internal/translate/migrate/views.go:frameConcern",
-        "internal/translate/migrate/views.go:stakeholder"
+        "internal/translate/migrate/views.go:viewpointDoc",
+        "internal/translate/migrate/views.go:viewpointBody"
       ],
       "tests": [
-        "tests/migrate/context_test.go:TestViewpointActivityContextSpecializesUsage",
-        "tests/migrate/migrate_test.go:TestGoldenNotation"
+        "tests/migrate/viewpoint_concerns_test.go:TestViewpointConcernMigration"
       ],
-      "reason": "a «Viewpoint» is written as a `viewpoint` usage framing its concerns and stakeholders, not as a view def owning a viewpoint usage; its purpose, languages, method and presentation are kept as documentation rather than metadata usages",
+      "reason": "SysMLv1Library::ViewpointData is not published with the transformation model and is not bundled; purpose is written as a require constraint, while languages and presentations are retained in the viewpoint documentation.",
       "scope": [
         "sysml:Viewpoint"
       ]
@@ -3568,17 +3557,15 @@
         "redefinedFeature"
       ],
       "ocl": "sha256:9f4dada7ff77e34951feda71a32292091ace1f68651670bf6e30467475384df4",
-      "status": "approximate",
+      "status": "deliberate",
       "implementation": [
-        "internal/translate/migrate/views.go:viewpointBody",
-        "internal/translate/migrate/views.go:frameConcern",
-        "internal/translate/migrate/views.go:stakeholder"
+        "internal/translate/migrate/views.go:viewpointDoc",
+        "internal/translate/migrate/views.go:viewpointBody"
       ],
       "tests": [
-        "tests/migrate/context_test.go:TestViewpointActivityContextSpecializesUsage",
-        "tests/migrate/migrate_test.go:TestGoldenNotation"
+        "tests/migrate/viewpoint_concerns_test.go:TestViewpointConcernMigration"
       ],
-      "reason": "a «Viewpoint» is written as a `viewpoint` usage framing its concerns and stakeholders, not as a view def owning a viewpoint usage; its purpose, languages, method and presentation are kept as documentation rather than metadata usages",
+      "reason": "SysMLv1Library::ViewpointData is not published with the transformation model and is not bundled; purpose is written as a require constraint, while languages and presentations are retained in the viewpoint documentation.",
       "scope": [
         "sysml:Viewpoint"
       ]
@@ -3598,17 +3585,15 @@
         "ownedRelationship"
       ],
       "ocl": "sha256:bcaed4063801aaf80c36ba3a00f8fdd9ad64fdcbebf1d8223b3554caed484664",
-      "status": "approximate",
+      "status": "deliberate",
       "implementation": [
-        "internal/translate/migrate/views.go:viewpointBody",
-        "internal/translate/migrate/views.go:frameConcern",
-        "internal/translate/migrate/views.go:stakeholder"
+        "internal/translate/migrate/views.go:viewpointDoc",
+        "internal/translate/migrate/views.go:viewpointBody"
       ],
       "tests": [
-        "tests/migrate/context_test.go:TestViewpointActivityContextSpecializesUsage",
-        "tests/migrate/migrate_test.go:TestGoldenNotation"
+        "tests/migrate/viewpoint_concerns_test.go:TestViewpointConcernMigration"
       ],
-      "reason": "a «Viewpoint» is written as a `viewpoint` usage framing its concerns and stakeholders, not as a view def owning a viewpoint usage; its purpose, languages, method and presentation are kept as documentation rather than metadata usages",
+      "reason": "SysMLv1Library::ViewpointData is not published with the transformation model and is not bundled; purpose is written as a require constraint, while languages and presentations are retained in the viewpoint documentation.",
       "scope": [
         "sysml:Viewpoint"
       ]
@@ -3628,17 +3613,15 @@
         "type"
       ],
       "ocl": "sha256:ec0404876d0579d9f03b89bd042dbbdd8a2303ee8fea8b40503dc35a0daeab79",
-      "status": "approximate",
+      "status": "deliberate",
       "implementation": [
-        "internal/translate/migrate/views.go:viewpointBody",
-        "internal/translate/migrate/views.go:frameConcern",
-        "internal/translate/migrate/views.go:stakeholder"
+        "internal/translate/migrate/views.go:viewpointDoc",
+        "internal/translate/migrate/views.go:viewpointBody"
       ],
       "tests": [
-        "tests/migrate/context_test.go:TestViewpointActivityContextSpecializesUsage",
-        "tests/migrate/migrate_test.go:TestGoldenNotation"
+        "tests/migrate/viewpoint_concerns_test.go:TestViewpointConcernMigration"
       ],
-      "reason": "a «Viewpoint» is written as a `viewpoint` usage framing its concerns and stakeholders, not as a view def owning a viewpoint usage; its purpose, languages, method and presentation are kept as documentation rather than metadata usages",
+      "reason": "SysMLv1Library::ViewpointData is not published with the transformation model and is not bundled; purpose is written as a require constraint, while languages and presentations are retained in the viewpoint documentation.",
       "scope": [
         "sysml:Viewpoint"
       ]
@@ -3658,17 +3641,15 @@
         "ownedMemberElement"
       ],
       "ocl": "sha256:77f7efb9e9b4b15abc6f1a1d04b21419d22460c5de826de3bd39ef3848c71121",
-      "status": "approximate",
+      "status": "deliberate",
       "implementation": [
-        "internal/translate/migrate/views.go:viewpointBody",
-        "internal/translate/migrate/views.go:frameConcern",
-        "internal/translate/migrate/views.go:stakeholder"
+        "internal/translate/migrate/views.go:viewpointDoc",
+        "internal/translate/migrate/views.go:viewpointBody"
       ],
       "tests": [
-        "tests/migrate/context_test.go:TestViewpointActivityContextSpecializesUsage",
-        "tests/migrate/migrate_test.go:TestGoldenNotation"
+        "tests/migrate/viewpoint_concerns_test.go:TestViewpointConcernMigration"
       ],
-      "reason": "a «Viewpoint» is written as a `viewpoint` usage framing its concerns and stakeholders, not as a view def owning a viewpoint usage; its purpose, languages, method and presentation are kept as documentation rather than metadata usages",
+      "reason": "SysMLv1Library::ViewpointData is not published with the transformation model and is not bundled; purpose is written as a require constraint, while languages and presentations are retained in the viewpoint documentation.",
       "scope": [
         "sysml:Viewpoint"
       ]
@@ -3688,17 +3669,15 @@
         "ownedRelationship"
       ],
       "ocl": "sha256:bea8d6dd875edc0837343980887f71bfb9b813cd5afae52126646f88760c6931",
-      "status": "approximate",
+      "status": "deliberate",
       "implementation": [
-        "internal/translate/migrate/views.go:viewpointBody",
-        "internal/translate/migrate/views.go:frameConcern",
-        "internal/translate/migrate/views.go:stakeholder"
+        "internal/translate/migrate/views.go:viewpointDoc",
+        "internal/translate/migrate/views.go:viewpointBody"
       ],
       "tests": [
-        "tests/migrate/context_test.go:TestViewpointActivityContextSpecializesUsage",
-        "tests/migrate/migrate_test.go:TestGoldenNotation"
+        "tests/migrate/viewpoint_concerns_test.go:TestViewpointConcernMigration"
       ],
-      "reason": "a «Viewpoint» is written as a `viewpoint` usage framing its concerns and stakeholders, not as a view def owning a viewpoint usage; its purpose, languages, method and presentation are kept as documentation rather than metadata usages",
+      "reason": "SysMLv1Library::ViewpointData is not published with the transformation model and is not bundled; purpose is written as a require constraint, while languages and presentations are retained in the viewpoint documentation.",
       "scope": [
         "sysml:Viewpoint"
       ]
@@ -3718,17 +3697,15 @@
         "ownedMemberFeature"
       ],
       "ocl": "sha256:2101fdc47dbf1b54160bfe979899e3bc25258a214b7034d30becc86dbe26e74e",
-      "status": "approximate",
+      "status": "deliberate",
       "implementation": [
-        "internal/translate/migrate/views.go:viewpointBody",
-        "internal/translate/migrate/views.go:frameConcern",
-        "internal/translate/migrate/views.go:stakeholder"
+        "internal/translate/migrate/views.go:viewpointDoc",
+        "internal/translate/migrate/views.go:viewpointBody"
       ],
       "tests": [
-        "tests/migrate/context_test.go:TestViewpointActivityContextSpecializesUsage",
-        "tests/migrate/migrate_test.go:TestGoldenNotation"
+        "tests/migrate/viewpoint_concerns_test.go:TestViewpointConcernMigration"
       ],
-      "reason": "a «Viewpoint» is written as a `viewpoint` usage framing its concerns and stakeholders, not as a view def owning a viewpoint usage; its purpose, languages, method and presentation are kept as documentation rather than metadata usages",
+      "reason": "SysMLv1Library::ViewpointData is not published with the transformation model and is not bundled; purpose is written as a require constraint, while languages and presentations are retained in the viewpoint documentation.",
       "scope": [
         "sysml:Viewpoint"
       ]
@@ -3748,17 +3725,15 @@
         "value"
       ],
       "ocl": "sha256:e82394e8dfbed8e84bb65dce36a38e0146c0704769c253bf7642b3a1b0eaec3a",
-      "status": "approximate",
+      "status": "deliberate",
       "implementation": [
-        "internal/translate/migrate/views.go:viewpointBody",
-        "internal/translate/migrate/views.go:frameConcern",
-        "internal/translate/migrate/views.go:stakeholder"
+        "internal/translate/migrate/views.go:viewpointDoc",
+        "internal/translate/migrate/views.go:viewpointBody"
       ],
       "tests": [
-        "tests/migrate/context_test.go:TestViewpointActivityContextSpecializesUsage",
-        "tests/migrate/migrate_test.go:TestGoldenNotation"
+        "tests/migrate/viewpoint_concerns_test.go:TestViewpointConcernMigration"
       ],
-      "reason": "a «Viewpoint» is written as a `viewpoint` usage framing its concerns and stakeholders, not as a view def owning a viewpoint usage; its purpose, languages, method and presentation are kept as documentation rather than metadata usages",
+      "reason": "SysMLv1Library::ViewpointData is not published with the transformation model and is not bundled; purpose is written as a require constraint, while languages and presentations are retained in the viewpoint documentation.",
       "scope": [
         "sysml:Viewpoint"
       ]
@@ -3779,17 +3754,15 @@
         "ownedRelationship"
       ],
       "ocl": "sha256:3574d5336123e71323a726f0c14aed0d73e41c638ce75444c9172b4d56a28986",
-      "status": "approximate",
+      "status": "deliberate",
       "implementation": [
-        "internal/translate/migrate/views.go:viewpointBody",
-        "internal/translate/migrate/views.go:frameConcern",
-        "internal/translate/migrate/views.go:stakeholder"
+        "internal/translate/migrate/views.go:viewpointDoc",
+        "internal/translate/migrate/views.go:viewpointBody"
       ],
       "tests": [
-        "tests/migrate/context_test.go:TestViewpointActivityContextSpecializesUsage",
-        "tests/migrate/migrate_test.go:TestGoldenNotation"
+        "tests/migrate/viewpoint_concerns_test.go:TestViewpointConcernMigration"
       ],
-      "reason": "a «Viewpoint» is written as a `viewpoint` usage framing its concerns and stakeholders, not as a view def owning a viewpoint usage; its purpose, languages, method and presentation are kept as documentation rather than metadata usages",
+      "reason": "SysMLv1Library::ViewpointData is not published with the transformation model and is not bundled; purpose is written as a require constraint, while languages and presentations are retained in the viewpoint documentation.",
       "scope": [
         "sysml:Viewpoint"
       ]
@@ -3809,17 +3782,15 @@
         "redefinedFeature"
       ],
       "ocl": "sha256:1ea01cc03d4decc703595aea05b9b58046ead24fb4f8df6837f9b11816eef3cb",
-      "status": "approximate",
+      "status": "deliberate",
       "implementation": [
-        "internal/translate/migrate/views.go:viewpointBody",
-        "internal/translate/migrate/views.go:frameConcern",
-        "internal/translate/migrate/views.go:stakeholder"
+        "internal/translate/migrate/views.go:viewpointDoc",
+        "internal/translate/migrate/views.go:viewpointBody"
       ],
       "tests": [
-        "tests/migrate/context_test.go:TestViewpointActivityContextSpecializesUsage",
-        "tests/migrate/migrate_test.go:TestGoldenNotation"
+        "tests/migrate/viewpoint_concerns_test.go:TestViewpointConcernMigration"
       ],
-      "reason": "a «Viewpoint» is written as a `viewpoint` usage framing its concerns and stakeholders, not as a view def owning a viewpoint usage; its purpose, languages, method and presentation are kept as documentation rather than metadata usages",
+      "reason": "SysMLv1Library::ViewpointData is not published with the transformation model and is not bundled; purpose is written as a require constraint, while languages and presentations are retained in the viewpoint documentation.",
       "scope": [
         "sysml:Viewpoint"
       ]
@@ -3839,17 +3810,15 @@
         "ownedRelationship"
       ],
       "ocl": "sha256:86c8f8f321432ef15528ab4fb8fe26bb751e790b35af6cafd87e1283ce6f86c1",
-      "status": "approximate",
+      "status": "deliberate",
       "implementation": [
-        "internal/translate/migrate/views.go:viewpointBody",
-        "internal/translate/migrate/views.go:frameConcern",
-        "internal/translate/migrate/views.go:stakeholder"
+        "internal/translate/migrate/views.go:viewpointDoc",
+        "internal/translate/migrate/views.go:viewpointBody"
       ],
       "tests": [
-        "tests/migrate/context_test.go:TestViewpointActivityContextSpecializesUsage",
-        "tests/migrate/migrate_test.go:TestGoldenNotation"
+        "tests/migrate/viewpoint_concerns_test.go:TestViewpointConcernMigration"
       ],
-      "reason": "a «Viewpoint» is written as a `viewpoint` usage framing its concerns and stakeholders, not as a view def owning a viewpoint usage; its purpose, languages, method and presentation are kept as documentation rather than metadata usages",
+      "reason": "SysMLv1Library::ViewpointData is not published with the transformation model and is not bundled; purpose is written as a require constraint, while languages and presentations are retained in the viewpoint documentation.",
       "scope": [
         "sysml:Viewpoint"
       ]
@@ -3869,17 +3838,16 @@
         "ownedMemberFeature"
       ],
       "ocl": "sha256:fb70613170717cd158c1d6d3db8a12a1db7601d029aa5701df1040e465c30de7",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
         "internal/translate/migrate/views.go:viewpointBody",
-        "internal/translate/migrate/views.go:frameConcern",
-        "internal/translate/migrate/views.go:stakeholder"
+        "internal/translate/migrate/views.go:viewpointConformances",
+        "internal/translate/migrate/migrate.go:classifierHeader"
       ],
       "tests": [
-        "tests/migrate/context_test.go:TestViewpointActivityContextSpecializesUsage",
-        "tests/migrate/migrate_test.go:TestGoldenNotation"
+        "tests/migrate/viewpoint_concerns_test.go:TestViewpointConcernMigration"
       ],
-      "reason": "a «Viewpoint» is written as a `viewpoint` usage framing its concerns and stakeholders, not as a view def owning a viewpoint usage; its purpose, languages, method and presentation are kept as documentation rather than metadata usages",
+      "reason": "A «Viewpoint» class is written as a view def owning a named viewpoint usage with a subject, framed concerns and the purpose as a require constraint, satisfied by the view def, with the viewpoint's methods as rendering actions. A view conforming to several viewpoints is typed by the first, and the others are kept as comments (0 in the TMT model and repository fixtures).",
       "scope": [
         "sysml:Viewpoint"
       ]
@@ -3899,17 +3867,16 @@
         "ownedMemberFeature"
       ],
       "ocl": "sha256:ccdf07d0aa643b3f1b7a24af5e7d5fd683d53ac00df8edd5290acd0c7dfe2fe9",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
         "internal/translate/migrate/views.go:viewpointBody",
-        "internal/translate/migrate/views.go:frameConcern",
-        "internal/translate/migrate/views.go:stakeholder"
+        "internal/translate/migrate/views.go:viewpointConformances",
+        "internal/translate/migrate/migrate.go:classifierHeader"
       ],
       "tests": [
-        "tests/migrate/context_test.go:TestViewpointActivityContextSpecializesUsage",
-        "tests/migrate/migrate_test.go:TestGoldenNotation"
+        "tests/migrate/viewpoint_concerns_test.go:TestViewpointConcernMigration"
       ],
-      "reason": "a «Viewpoint» is written as a `viewpoint` usage framing its concerns and stakeholders, not as a view def owning a viewpoint usage; its purpose, languages, method and presentation are kept as documentation rather than metadata usages",
+      "reason": "A «Viewpoint» class is written as a view def owning a named viewpoint usage with a subject, framed concerns and the purpose as a require constraint, satisfied by the view def, with the viewpoint's methods as rendering actions. A view conforming to several viewpoints is typed by the first, and the others are kept as comments (0 in the TMT model and repository fixtures).",
       "scope": [
         "sysml:Viewpoint"
       ]
@@ -3927,17 +3894,16 @@
       ],
       "operations": [],
       "ocl": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
         "internal/translate/migrate/views.go:viewpointBody",
-        "internal/translate/migrate/views.go:frameConcern",
-        "internal/translate/migrate/views.go:stakeholder"
+        "internal/translate/migrate/views.go:viewpointConformances",
+        "internal/translate/migrate/migrate.go:classifierHeader"
       ],
       "tests": [
-        "tests/migrate/context_test.go:TestViewpointActivityContextSpecializesUsage",
-        "tests/migrate/migrate_test.go:TestGoldenNotation"
+        "tests/migrate/viewpoint_concerns_test.go:TestViewpointConcernMigration"
       ],
-      "reason": "a «Viewpoint» is written as a `viewpoint` usage framing its concerns and stakeholders, not as a view def owning a viewpoint usage; its purpose, languages, method and presentation are kept as documentation rather than metadata usages",
+      "reason": "A «Viewpoint» class is written as a view def owning a named viewpoint usage with a subject, framed concerns and the purpose as a require constraint, satisfied by the view def, with the viewpoint's methods as rendering actions. A view conforming to several viewpoints is typed by the first, and the others are kept as comments (0 in the TMT model and repository fixtures). candidate erratum: this mapping has no type operation, while ViewpointRenderingUsage_Mapping passes «Create» Operations to mappings whose from is a Class; the migrator types each rendering action by the operation method (or its action def when no method is written) and by the method tag behaviors.",
       "scope": [
         "sysml:Viewpoint"
       ]
@@ -3957,17 +3923,16 @@
         "ownedRelationship"
       ],
       "ocl": "sha256:147e268bf42d278675d41b81303007cb5429d34799a3ac18b2a2fddd17ef5238",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
         "internal/translate/migrate/views.go:viewpointBody",
-        "internal/translate/migrate/views.go:frameConcern",
-        "internal/translate/migrate/views.go:stakeholder"
+        "internal/translate/migrate/views.go:viewpointConformances",
+        "internal/translate/migrate/migrate.go:classifierHeader"
       ],
       "tests": [
-        "tests/migrate/context_test.go:TestViewpointActivityContextSpecializesUsage",
-        "tests/migrate/migrate_test.go:TestGoldenNotation"
+        "tests/migrate/viewpoint_concerns_test.go:TestViewpointConcernMigration"
       ],
-      "reason": "a «Viewpoint» is written as a `viewpoint` usage framing its concerns and stakeholders, not as a view def owning a viewpoint usage; its purpose, languages, method and presentation are kept as documentation rather than metadata usages",
+      "reason": "A «Viewpoint» class is written as a view def owning a named viewpoint usage with a subject, framed concerns and the purpose as a require constraint, satisfied by the view def, with the viewpoint's methods as rendering actions. A view conforming to several viewpoints is typed by the first, and the others are kept as comments (0 in the TMT model and repository fixtures).",
       "scope": [
         "sysml:Viewpoint"
       ]
@@ -3987,17 +3952,16 @@
         "ownedRelationship"
       ],
       "ocl": "sha256:781e891400bc042ffda40818c3419c70e9dea925f839500d7867805d45369d02",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
         "internal/translate/migrate/views.go:viewpointBody",
-        "internal/translate/migrate/views.go:frameConcern",
-        "internal/translate/migrate/views.go:stakeholder"
+        "internal/translate/migrate/views.go:viewpointConformances",
+        "internal/translate/migrate/migrate.go:classifierHeader"
       ],
       "tests": [
-        "tests/migrate/context_test.go:TestViewpointActivityContextSpecializesUsage",
-        "tests/migrate/migrate_test.go:TestGoldenNotation"
+        "tests/migrate/viewpoint_concerns_test.go:TestViewpointConcernMigration"
       ],
-      "reason": "a «Viewpoint» is written as a `viewpoint` usage framing its concerns and stakeholders, not as a view def owning a viewpoint usage; its purpose, languages, method and presentation are kept as documentation rather than metadata usages",
+      "reason": "A «Viewpoint» class is written as a view def owning a named viewpoint usage with a subject, framed concerns and the purpose as a require constraint, satisfied by the view def, with the viewpoint's methods as rendering actions. A view conforming to several viewpoints is typed by the first, and the others are kept as comments (0 in the TMT model and repository fixtures).",
       "scope": [
         "sysml:Viewpoint"
       ]
@@ -4017,17 +3981,16 @@
         "ownedMemberFeature"
       ],
       "ocl": "sha256:4c58f1e0cef4cd2e0bae9ceef151205596d775a789468889578aab123b09d016",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
         "internal/translate/migrate/views.go:viewpointBody",
-        "internal/translate/migrate/views.go:frameConcern",
-        "internal/translate/migrate/views.go:stakeholder"
+        "internal/translate/migrate/views.go:viewpointConformances",
+        "internal/translate/migrate/migrate.go:classifierHeader"
       ],
       "tests": [
-        "tests/migrate/context_test.go:TestViewpointActivityContextSpecializesUsage",
-        "tests/migrate/migrate_test.go:TestGoldenNotation"
+        "tests/migrate/viewpoint_concerns_test.go:TestViewpointConcernMigration"
       ],
-      "reason": "a «Viewpoint» is written as a `viewpoint` usage framing its concerns and stakeholders, not as a view def owning a viewpoint usage; its purpose, languages, method and presentation are kept as documentation rather than metadata usages",
+      "reason": "A «Viewpoint» class is written as a view def owning a named viewpoint usage with a subject, framed concerns and the purpose as a require constraint, satisfied by the view def, with the viewpoint's methods as rendering actions. A view conforming to several viewpoints is typed by the first, and the others are kept as comments (0 in the TMT model and repository fixtures).",
       "scope": [
         "sysml:Viewpoint"
       ]
@@ -4047,17 +4010,16 @@
         "ownedMemberFeature"
       ],
       "ocl": "sha256:bcbaf2ba9670609e0d32e4232a5142898e09d84a4deecebc41ab6616e461df7b",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
         "internal/translate/migrate/views.go:viewpointBody",
-        "internal/translate/migrate/views.go:frameConcern",
-        "internal/translate/migrate/views.go:stakeholder"
+        "internal/translate/migrate/views.go:viewpointConformances",
+        "internal/translate/migrate/migrate.go:classifierHeader"
       ],
       "tests": [
-        "tests/migrate/context_test.go:TestViewpointActivityContextSpecializesUsage",
-        "tests/migrate/migrate_test.go:TestGoldenNotation"
+        "tests/migrate/viewpoint_concerns_test.go:TestViewpointConcernMigration"
       ],
-      "reason": "a «Viewpoint» is written as a `viewpoint` usage framing its concerns and stakeholders, not as a view def owning a viewpoint usage; its purpose, languages, method and presentation are kept as documentation rather than metadata usages",
+      "reason": "A «Viewpoint» class is written as a view def owning a named viewpoint usage with a subject, framed concerns and the purpose as a require constraint, satisfied by the view def, with the viewpoint's methods as rendering actions. A view conforming to several viewpoints is typed by the first, and the others are kept as comments (0 in the TMT model and repository fixtures).",
       "scope": [
         "sysml:Viewpoint"
       ]
@@ -4077,17 +4039,16 @@
         "referencedFeature"
       ],
       "ocl": "sha256:ab90dc2f24cc926015b85cb4de3ce7958b7cc1332ea71bcb77bed1ec561b8990",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
         "internal/translate/migrate/views.go:viewpointBody",
-        "internal/translate/migrate/views.go:frameConcern",
-        "internal/translate/migrate/views.go:stakeholder"
+        "internal/translate/migrate/views.go:viewpointConformances",
+        "internal/translate/migrate/migrate.go:classifierHeader"
       ],
       "tests": [
-        "tests/migrate/context_test.go:TestViewpointActivityContextSpecializesUsage",
-        "tests/migrate/migrate_test.go:TestGoldenNotation"
+        "tests/migrate/viewpoint_concerns_test.go:TestViewpointConcernMigration"
       ],
-      "reason": "a «Viewpoint» is written as a `viewpoint` usage framing its concerns and stakeholders, not as a view def owning a viewpoint usage; its purpose, languages, method and presentation are kept as documentation rather than metadata usages",
+      "reason": "A «Viewpoint» class is written as a view def owning a named viewpoint usage with a subject, framed concerns and the purpose as a require constraint, satisfied by the view def, with the viewpoint's methods as rendering actions. A view conforming to several viewpoints is typed by the first, and the others are kept as comments (0 in the TMT model and repository fixtures).",
       "scope": [
         "sysml:Viewpoint"
       ]
@@ -4107,17 +4068,16 @@
         "ownedRelationship"
       ],
       "ocl": "sha256:99b19f7386a90f14d8a2dd552c7c9e3f6876fbcd19bc492807c4a96660d37e79",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
         "internal/translate/migrate/views.go:viewpointBody",
-        "internal/translate/migrate/views.go:frameConcern",
-        "internal/translate/migrate/views.go:stakeholder"
+        "internal/translate/migrate/views.go:viewpointConformances",
+        "internal/translate/migrate/migrate.go:classifierHeader"
       ],
       "tests": [
-        "tests/migrate/context_test.go:TestViewpointActivityContextSpecializesUsage",
-        "tests/migrate/migrate_test.go:TestGoldenNotation"
+        "tests/migrate/viewpoint_concerns_test.go:TestViewpointConcernMigration"
       ],
-      "reason": "a «Viewpoint» is written as a `viewpoint` usage framing its concerns and stakeholders, not as a view def owning a viewpoint usage; its purpose, languages, method and presentation are kept as documentation rather than metadata usages",
+      "reason": "A «Viewpoint» class is written as a view def owning a named viewpoint usage with a subject, framed concerns and the purpose as a require constraint, satisfied by the view def, with the viewpoint's methods as rendering actions. A view conforming to several viewpoints is typed by the first, and the others are kept as comments (0 in the TMT model and repository fixtures).",
       "scope": [
         "sysml:Viewpoint"
       ]
@@ -4137,17 +4097,16 @@
         "ownedMemberFeature"
       ],
       "ocl": "sha256:61711ad3146d99d52bc8225f32d48fa6c79ca319d2928bc3ad3b7e6e95b4c666",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
         "internal/translate/migrate/views.go:viewpointBody",
-        "internal/translate/migrate/views.go:frameConcern",
-        "internal/translate/migrate/views.go:stakeholder"
+        "internal/translate/migrate/views.go:viewpointConformances",
+        "internal/translate/migrate/migrate.go:classifierHeader"
       ],
       "tests": [
-        "tests/migrate/context_test.go:TestViewpointActivityContextSpecializesUsage",
-        "tests/migrate/migrate_test.go:TestGoldenNotation"
+        "tests/migrate/viewpoint_concerns_test.go:TestViewpointConcernMigration"
       ],
-      "reason": "a «Viewpoint» is written as a `viewpoint` usage framing its concerns and stakeholders, not as a view def owning a viewpoint usage; its purpose, languages, method and presentation are kept as documentation rather than metadata usages",
+      "reason": "A «Viewpoint» class is written as a view def owning a named viewpoint usage with a subject, framed concerns and the purpose as a require constraint, satisfied by the view def, with the viewpoint's methods as rendering actions. A view conforming to several viewpoints is typed by the first, and the others are kept as comments (0 in the TMT model and repository fixtures).",
       "scope": [
         "sysml:Viewpoint"
       ]
@@ -4168,17 +4127,16 @@
         "declaredName"
       ],
       "ocl": "sha256:02ddac14c75c2cea19e77b5df58a187b0d35b072a9b177ee9e80dbd003ea4483",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
         "internal/translate/migrate/views.go:viewpointBody",
-        "internal/translate/migrate/views.go:frameConcern",
-        "internal/translate/migrate/views.go:stakeholder"
+        "internal/translate/migrate/views.go:viewpointConformances",
+        "internal/translate/migrate/migrate.go:classifierHeader"
       ],
       "tests": [
-        "tests/migrate/context_test.go:TestViewpointActivityContextSpecializesUsage",
-        "tests/migrate/migrate_test.go:TestGoldenNotation"
+        "tests/migrate/viewpoint_concerns_test.go:TestViewpointConcernMigration"
       ],
-      "reason": "a «Viewpoint» is written as a `viewpoint` usage framing its concerns and stakeholders, not as a view def owning a viewpoint usage; its purpose, languages, method and presentation are kept as documentation rather than metadata usages",
+      "reason": "A «Viewpoint» class is written as a view def owning a named viewpoint usage with a subject, framed concerns and the purpose as a require constraint, satisfied by the view def, with the viewpoint's methods as rendering actions. A view conforming to several viewpoints is typed by the first, and the others are kept as comments (0 in the TMT model and repository fixtures).",
       "scope": [
         "sysml:Viewpoint"
       ]
@@ -4198,17 +4156,16 @@
         "ownedRelationship"
       ],
       "ocl": "sha256:6c99d3296f7df08235295ad15c14314542bb123c86c318a0e768120def63fd14",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
         "internal/translate/migrate/views.go:viewpointBody",
-        "internal/translate/migrate/views.go:frameConcern",
-        "internal/translate/migrate/views.go:stakeholder"
+        "internal/translate/migrate/views.go:viewpointConformances",
+        "internal/translate/migrate/migrate.go:classifierHeader"
       ],
       "tests": [
-        "tests/migrate/context_test.go:TestViewpointActivityContextSpecializesUsage",
-        "tests/migrate/migrate_test.go:TestGoldenNotation"
+        "tests/migrate/viewpoint_concerns_test.go:TestViewpointConcernMigration"
       ],
-      "reason": "a «Viewpoint» is written as a `viewpoint` usage framing its concerns and stakeholders, not as a view def owning a viewpoint usage; its purpose, languages, method and presentation are kept as documentation rather than metadata usages",
+      "reason": "A «Viewpoint» class is written as a view def owning a named viewpoint usage with a subject, framed concerns and the purpose as a require constraint, satisfied by the view def, with the viewpoint's methods as rendering actions. A view conforming to several viewpoints is typed by the first, and the others are kept as comments (0 in the TMT model and repository fixtures).",
       "scope": [
         "sysml:Viewpoint"
       ]

@@ -50,7 +50,7 @@ var nestedOwners = map[category]semantics.NestedOwner{
 	catUseCaseDef:      {Def: ast.DefUseCase, IsDef: true},
 	catMetadataDef:     {Def: ast.DefMetadata, IsDef: true},
 	catView:            {Usage: ast.UsageView},
-	catViewpoint:       {Usage: ast.UsageViewpoint},
+	catViewpoint:       {Def: ast.DefViewpoint, IsDef: true},
 	catValue:           {Usage: ast.UsageAttribute},
 }
 

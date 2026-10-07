@@ -228,6 +228,22 @@ func TestDiagramTableKind(t *testing.T) {
 	}
 }
 
+func TestDiagramMatrixKindIsATableInEveryDiagramForm(t *testing.T) {
+	rendering := &view.Rendering{
+		Kind:    view.KindMatrix,
+		Columns: []string{"Source / Target", "Observatory::target"},
+		Rows:    [][]string{{"Observatory::source", "satisfy"}},
+	}
+	for _, form := range []view.Form{view.FormMermaid, view.FormDot, view.FormPlantUML, view.FormD2} {
+		got := renderedDiagramForm(t, "Relationships", rendering, "", form)
+		if !strings.Contains(got, "| Source / Target | Observatory::target |") ||
+			!strings.Contains(got, "| Observatory::source | satisfy |") ||
+			strings.Contains(got, "```"+string(form)) {
+			t.Errorf("matrix as %s is not a pipe table:\n%s", form, got)
+		}
+	}
+}
+
 func TestDiagramTableKindEscapesMarkdownPunctuation(t *testing.T) {
 	rendering := &view.Rendering{
 		Kind:    view.KindTable,

@@ -169,6 +169,13 @@ func (p *Provenance) each(src Sources, visit func(key string, docs []string) boo
 			return fail("the name table read as a whole", "")
 		}
 	}
+	// The names spelled are every document's to answer: a record whose
+	// suggestions read them holds while no document changed.
+	if p.Reads.Spellings {
+		if !see("spellings", src.Index.WorkspaceDocuments()) {
+			return fail("the names spelled", "")
+		}
+	}
 	for _, name := range p.Reads.Names {
 		docs, ok := sharedContributors(name, src)
 		if !ok {

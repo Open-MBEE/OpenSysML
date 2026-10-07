@@ -72,8 +72,8 @@ func TestMermaidSubgraphsRestateDirection(t *testing.T) {
 			t.Errorf("%q: no flowchart %s:\n%s", tc.options.Direction, tc.flow, got)
 		}
 		for _, line := range []string{
-			"  subgraph n0 [\"`*«action def»*\n**Drive**`\"]\n    direction " + tc.flow + "\n",
-			"    subgraph n1 [\"`*«action»*\n**monitor**`\"]\n      direction " + tc.flow + "\n",
+			"  subgraph n0 [\"`*«action def»* **Drive**`\"]\n    direction " + tc.flow + "\n",
+			"    subgraph n1 [\"`*«action»* **monitor**`\"]\n      direction " + tc.flow + "\n",
 		} {
 			if !strings.Contains(got, line) {
 				t.Errorf("%q: subgraph lacks %q:\n%s", tc.options.Direction, line, got)
@@ -84,7 +84,7 @@ func TestMermaidSubgraphsRestateDirection(t *testing.T) {
 		}
 	}
 	interconnection := &Rendering{Kind: KindInterconnection, Roots: rendering.Roots}
-	if got := interconnection.Mermaid(); !strings.Contains(got, "flowchart LR\n  subgraph n0 [\"`*«action def»*\n**Drive**`\"]\n    direction LR\n") {
+	if got := interconnection.Mermaid(); !strings.Contains(got, "flowchart LR\n  subgraph n0 [\"`*«action def»* **Drive**`\"]\n    direction LR\n") {
 		t.Errorf("interconnection subgraph does not restate LR:\n%s", got)
 	}
 	tree := &Rendering{Kind: KindTree, Roots: rendering.Roots}

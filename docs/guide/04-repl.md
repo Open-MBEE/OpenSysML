@@ -296,7 +296,8 @@ member before a name nested inside another element.
 ## Rendering a view
 
 `%render <name>` renders the exposed elements in the form the view's `render` member specifies: a
-containment tree with nested views as subtrees, an interconnection diagram of the exposed parts
+containment tree with nested views as subtrees and the relationships between the elements it
+draws, an interconnection diagram of the exposed parts
 and the connections between them, a state machine's states and transitions, an action's nodes and
 successions, a case diagram of cases and their actors, subjects and objectives, a mixed canvas
 combining structure, behavior and cases, or a table of the exposed elements. A view that specifies
@@ -312,7 +313,20 @@ part def Demo::Vehicle
 view Demo::summary::detail
   part def Demo::Wheel
     attribute diameter : Real
+
+relationships:
+  Demo::Vehicle *-- Demo::Wheel: wheel
 ```
+
+The tree draws the lines a block definition diagram shows between its boxes, wherever both
+ends are drawn: a specialization, subsetting or redefinition from an element to its general one
+(a hollow triangle at the general end), a composition (filled diamond at the owner) or reference
+(hollow diamond) from an element to the definition typing a part, item, port, attribute or `ref`
+usage it owns, labelled with the usage's name and multiplicity, and the typing of a usage whose
+owner is not drawn (a dashed line to the definition). A composition is not drawn to a definition
+nested in its owner, since the nesting already shows it, nor is a usage's typing drawn when its
+owner's composition stands for it. A `Route` about the usage steers its composition edge; a
+specialization or typing has no member of its own and is routed by the drawing.
 
 A view that states `render asElementTable;` is rendered as aligned columns instead, listing the
 exposed elements, what they declare, and the views nested inside the rendered view.
