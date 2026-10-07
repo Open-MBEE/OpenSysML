@@ -82,7 +82,7 @@ func nightlyJob(t *testing.T, workflow actionsWorkflow, name string) actionsJob 
 
 func TestNightlyBuildsOnlyCommitsThatCarryItsScripts(t *testing.T) {
 	workflow, _ := loadNightlyWorkflow(t)
-	for _, key := range []string{"BUILD_SCRIPT", "SNAPSHOT_SCRIPT"} {
+	for _, key := range []string{"BUILD_SCRIPT", "KERNEL_DIST_SCRIPT", "SNAPSHOT_SCRIPT"} {
 		script, ok := workflow.Env[key]
 		if !ok {
 			t.Fatalf("nightly.yml declares no %s", key)
@@ -92,8 +92,8 @@ func TestNightlyBuildsOnlyCommitsThatCarryItsScripts(t *testing.T) {
 		}
 	}
 	select_ := nightlyJob(t, workflow, "select")
-	if stepIndex(select_.runSteps(), `"$BUILD_SCRIPT" "$SNAPSHOT_SCRIPT"`, "git cat-file -e") < 0 {
-		t.Error("the select job does not skip a green commit that lacks the build or snapshot-version script, which it could not build")
+	if stepIndex(select_.runSteps(), `"$BUILD_SCRIPT" "$KERNEL_DIST_SCRIPT" "$SNAPSHOT_SCRIPT"`, "git cat-file -e") < 0 {
+		t.Error("the select job does not skip a green commit that lacks the build, kernel-distribution or snapshot-version script, which it could not build")
 	}
 }
 
@@ -232,14 +232,14 @@ func TestNightlyJupyterKernelSnapshotIsStampedBeforeItIsBuiltAndCheckedAfter(t *
 		"--from-binaries dist/jupyter",
 		"--table client/jupyter-kernel/jupyter_opensysml_kernel/release-digests.json",
 	)
-	build := stepIndex(steps, "python -m build", "client/jupyter-kernel/")
-	verify := stepIndex(steps, "jupyter_opensysml_kernel/release-digests.json", "zipfile", "tarfile", "pinned_digest", "built_against_releases")
+	build := stepIndex(steps, `"$KERNEL_DIST_SCRIPT" dist/jupyter client/jupyter-kernel/dist`, "-py3-none-*.whl")
+	verify := stepIndex(steps, "jupyter_opensysml_kernel/release-digests.json", "zipfile", "tarfile", "pinned_digest", "built_against_releases", "bundled_binary", "jupyter_client.kernelspecapp", `"jupyter_opensysml_kernel", "-version"`)
 	manifest := stepIndex(steps, "sha256sum jupyter_opensysml_kernel-*.whl")
 	sign := stepIndex(steps, "cosign sign-blob SHA256SUMS.txt")
 	release := stepIndex(steps, "gh release create", "dist/jupyter/sysml-jupyter-kernel-*")
 	for name, index := range map[string]int{
 		"version stamp": version, "binary build": binaries, "digest stamp": stamp,
-		"python -m build": build, "distribution check": verify, "manifest entry": manifest,
+		"distribution build": build, "distribution check": verify, "manifest entry": manifest,
 		"manifest signing": sign, "kernel assets in the release": release,
 	} {
 		if index < 0 {
@@ -256,7 +256,7 @@ func TestNightlyJupyterKernelSnapshotIsStampedBeforeItIsBuiltAndCheckedAfter(t *
 	}{
 		{"the versions are stamped after the binaries are built", version, binaries},
 		{"the kernel digests are stamped before the binaries exist", binaries, stamp},
-		{"the kernel digests are stamped after python -m build, so the wheel ships without them", stamp, build},
+		{"the kernel digests are stamped after the distributions are built, so they ship without them", stamp, build},
 		{"the kernel distribution is checked before it is built", build, verify},
 		{"the kernel wheel is listed in the manifest before it is checked", verify, manifest},
 		{"the manifest is signed before the kernel wheel is listed in it", manifest, sign},

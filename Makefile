@@ -1,4 +1,4 @@
-.PHONY: all build build-sysml build-prod build-wasm-prod build-lsp build-grpc build-engine build-core build-syntax build-sysml-wasm build-release-wasm build-wasm build-wasm-wasip1 build-wasm-js wasm-check static-check windows-versioninfo-check man man-check install-tree pgo-profile conformance conformance-pkg conformance-rust conformance-julia conformance-matlab test test-shard coverage coverage-shard coverage-merge lint clean install help ontology-table ontology-table-check python-metamodel python-metamodel-check fuml-expected python-test python-coverage scripts-coverage node-coverage python-install proto proto-buf python-proto proto-ts proto-rust proto-lint proto-breaking vscode-grammar vscode-build vscode-package docs docs-install docs-serve docs-engine-assets docs-landing-assets docs-counts docs-check changelog-check changelog-render self-model
+.PHONY: all build build-sysml build-prod build-wasm-prod build-lsp build-grpc build-engine build-core build-syntax build-sysml-wasm build-release-wasm build-wasm build-wasm-wasip1 build-wasm-js wasm-check static-check windows-versioninfo-check man man-check install-tree pgo-profile conformance conformance-pkg conformance-rust conformance-julia conformance-matlab test test-shard coverage coverage-shard coverage-merge lint clean install help ontology-table ontology-table-check python-metamodel python-metamodel-check fuml-expected python-test python-coverage scripts-coverage node-coverage python-install jupyter-kernel-install jupyter-kernel-test proto proto-buf python-proto proto-ts proto-rust proto-lint proto-breaking vscode-grammar vscode-build vscode-package docs docs-install docs-serve docs-engine-assets docs-landing-assets docs-counts docs-check changelog-check changelog-render self-model
 
 # Version information
 # Only release tags describe a build; the moving `nightly` tag is not a version.
@@ -48,6 +48,7 @@ BIN_DIR := bin
 # WebAssembly output, one directory per Go wasm target.
 WASM_DIR := $(BIN_DIR)/wasm
 PYTHON_DIR := client/python
+JUPYTER_KERNEL_DIR := client/jupyter-kernel
 NODE_DIR := client/node
 # The TypeScript protobuf plugin, installed by `npm ci` from the client's lockfile.
 PROTOC_GEN_ES := $(NODE_DIR)/node_modules/.bin/protoc-gen-es
@@ -455,6 +456,17 @@ python-test: ## Run Python client tests
 	@echo "Running Python client tests..."
 	cd $(PYTHON_DIR) && pytest tests/ -v
 	@echo "✓ Python client tests passed"
+
+jupyter-kernel-install: ## Install the jupyter-opensysml-kernel package in editable mode
+	@echo "Installing jupyter-opensysml-kernel..."
+	cd $(JUPYTER_KERNEL_DIR) && pip install -e .
+	@echo "✓ Installed jupyter-opensysml-kernel"
+
+# The wheel tests build with python -m build, so it must be installed too.
+jupyter-kernel-test: ## Run the jupyter-opensysml-kernel package tests and type check
+	@echo "Running jupyter-opensysml-kernel tests..."
+	cd $(JUPYTER_KERNEL_DIR) && pytest tests/ -v && mypy jupyter_opensysml_kernel
+	@echo "✓ jupyter-opensysml-kernel tests passed"
 
 # Run from the repo root so the report records repo-relative paths, which is
 # what the SonarCloud scan resolves against.

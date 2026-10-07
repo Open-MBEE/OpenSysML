@@ -54,8 +54,10 @@ version = { attr = "jupyter_opensysml_kernel._version.VERSION" }
 [tool.setuptools.packages.find]
 include = ["jupyter_opensysml_kernel*"]
 
+# bin/ holds the kernel a platform wheel bundles, staged there by the release
+# pipeline before that wheel is built (setup.py); it is empty in the tree.
 [tool.setuptools.package-data]
-jupyter_opensysml_kernel = ["release-digests.json", "py.typed", "logo-*.png"]
+jupyter_opensysml_kernel = ["release-digests.json", "py.typed", "logo-*.png", "bin/*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

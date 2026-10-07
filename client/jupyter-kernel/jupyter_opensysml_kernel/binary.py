@@ -125,6 +125,37 @@ def release_asset_name(goos: str | None = None, goarch: str | None = None) -> st
     return name + ".exe" if goos == "windows" else name
 
 
+BUNDLED_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "bin")
+
+# The wheel tags a platform's build is published under. The Linux kernels are
+# static, so one wheel serves glibc and musl systems; the macOS floor is Go's.
+WHEEL_PLATFORM_TAGS = {
+    ("linux", "amd64"): "manylinux_2_17_x86_64.manylinux2014_x86_64.musllinux_1_1_x86_64",
+    ("linux", "arm64"): "manylinux_2_17_aarch64.manylinux2014_aarch64.musllinux_1_1_aarch64",
+    ("darwin", "amd64"): "macosx_11_0_x86_64",
+    ("darwin", "arm64"): "macosx_11_0_arm64",
+    ("windows", "amd64"): "win_amd64",
+}
+
+
+def bundled_binary() -> str | None:
+    """The kernel a platform wheel carries, or None in an install from the sdist."""
+    path = os.path.join(BUNDLED_DIR, binary_name())
+    return path if os.path.isfile(path) else None
+
+
+def wheel_platform_tag(goos: str, goarch: str) -> str:
+    """The platform tag of the wheel that bundles the kernel built for (GOOS, GOARCH).
+
+    Raises:
+        UnsupportedPlatformError: If no release is built for the pair
+    """
+    try:
+        return WHEEL_PLATFORM_TAGS[(goos, goarch)]
+    except KeyError:
+        raise UnsupportedPlatformError(f"no kernel is released for {goos}-{goarch}") from None
+
+
 def built_against_releases(version: str | None = None, github_repo: str | None = None) -> tuple[str, ...]:
     """The release tags a version of this package (by default, this one) was built against.
 

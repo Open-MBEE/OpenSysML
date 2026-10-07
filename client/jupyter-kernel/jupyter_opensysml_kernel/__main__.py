@@ -1,36 +1,45 @@
-"""`python -m jupyter_opensysml_kernel`: install or remove the SysML kernel."""
+"""`python -m jupyter_opensysml_kernel`: start the bundled kernel, or install or remove the kernelspec.
+
+Given the kernel's own flags (`-connection-file FILE`, the form the kernelspec a
+platform wheel installs uses), the bundled `sysml-jupyter-kernel` is started
+with them; given a subcommand, the kernelspec is managed.
+"""
 
 from __future__ import annotations
 
 import argparse
 import json
+import os
+import stat
+import subprocess
 import sys
 from collections.abc import Sequence
 
 from . import kernelspec
 from ._version import VERSION
-from .binary import KernelBinaryError, binary_name
+from .binary import KernelBinaryError, binary_name, bundled_binary
 
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="jupyter-opensysml-kernel",
         description="Install the SysML v2 (OpenSysML) Jupyter kernel.",
+        epilog="Kernel flags (-connection-file FILE, -version, ...) start the kernel bundled in this package.",
     )
     parser.add_argument("--version", action="version", version=f"%(prog)s {VERSION}")
     commands = parser.add_subparsers(dest="command", required=True)
 
     install = commands.add_parser(
         "install",
-        help="download the kernel binary of this package's release, verify it, and register the kernelspec",
+        help="register the kernelspec, with the bundled kernel binary or a verified download of the release's",
     )
     where = install.add_mutually_exclusive_group()
     where.add_argument("--user", action="store_true", help="install for the current user")
     where.add_argument("--sys-prefix", action="store_true", help="install into the current Python environment")
     where.add_argument("--prefix", metavar="DIR", help="install under DIR/share/jupyter")
     where.add_argument("--system", action="store_true", help="install system-wide")
-    install.add_argument("--binary", metavar="PATH", help="install this sysml-jupyter-kernel instead of downloading one")
-    install.add_argument("--release", metavar="TAG", help="download the kernel of this release (default: the one this package pins)")
+    install.add_argument("--binary", metavar="PATH", help="install this sysml-jupyter-kernel instead of the bundled or downloaded one")
+    install.add_argument("--release", metavar="TAG", help="download the kernel of this release (default: the bundled kernel, or the release this package pins)")
     install.add_argument("--name", default=kernelspec.KERNEL_NAME, help="kernelspec name (default: %(default)s)")
     install.add_argument("--display-name", default=kernelspec.DISPLAY_NAME, help="name shown by front ends (default: %(default)s)")
 
@@ -41,9 +50,44 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def is_kernel_invocation(argv: Sequence[str]) -> bool:
+    """Whether the arguments are the kernel's (single-dash flags), not a subcommand."""
+    return bool(argv) and argv[0].startswith("-") and not argv[0].startswith("--") and argv[0] != "-h"
+
+
+def launch(argv: Sequence[str]) -> int:
+    """Run the bundled kernel with the given arguments, in this process where the OS allows.
+
+    Raises:
+        KernelBinaryError: If this install bundles no kernel
+    """
+    path = bundled_binary()
+    if path is None:
+        raise KernelBinaryError(
+            f"this install of {kernelspec.PACKAGE} bundles no {binary_name()} (it was not installed "
+            "from a platform wheel); `python -m jupyter_opensysml_kernel install` registers a verified one"
+        )
+    command = [path, *argv]
+    if sys.platform == "win32":
+        process = subprocess.Popen(command)
+        try:
+            return process.wait()
+        except BaseException:
+            process.terminate()
+            raise
+    if not os.access(path, os.X_OK):
+        os.chmod(path, os.stat(path).st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
+    os.execv(path, command)
+    return 0  # pragma: no cover - execv does not return
+
+
 def main(argv: Sequence[str] | None = None) -> int:
-    args = build_parser().parse_args(argv)
+    if argv is None:
+        argv = sys.argv[1:]
     try:
+        if is_kernel_invocation(argv):
+            return launch(argv)
+        args = build_parser().parse_args(argv)
         if args.command == "install":
             prefix = args.prefix
             if args.sys_prefix:

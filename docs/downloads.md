@@ -37,7 +37,7 @@ irm https://opensysml.org/install.ps1 | iex             # Windows
 Each archive contains only the named tool. The `sysml-grpc` service and the
 `sysml-jupyter-kernel` Jupyter kernel are separate downloads; most
 [client libraries](reference/clients.md) fetch the service themselves, and
-`pip install jupyter-opensysml-kernel` fetches the kernel (see the
+`pip install jupyter-opensysml-kernel` bundles the kernel for the platform (see the
 [Jupyter chapter](guide/12-jupyter.md)). Both are raw binaries, each with a sidecar SHA-256 file.
 
 | Tool | Linux x64 | Linux arm64 | macOS Intel | macOS Apple Silicon | Windows x64 |

@@ -7,8 +7,12 @@
   a trailing `html`, as HTML, and `%features … json` as JSON. Tab completion, `Shift-Tab`
   inspection and the console's completeness detection use the REPL's own completer and
   continuation rules; interrupting a cell stops the run at its next step, and later cells
-  run on. `python -m jupyter_opensysml_kernel install` registers the `sysml` kernelspec, carrying
-  the OpenSysML mark as its icon, with the release's kernel binary, downloaded against the digests the package ships; the binary
-  is also a release asset (`sysml-jupyter-kernel-<os>-<arch>`), installable with
-  `install.sh --tools sysml-jupyter-kernel`, and `sysml-jupyter-kernel -install` registers
-  it by hand. A conda-forge recipe is kept under `packaging/conda`.
+  run on. The package is a wheel per platform (Linux x64 and arm64, macOS Intel and Apple
+  Silicon, Windows x64) that bundles the release's kernel binary and registers the `sysml`
+  kernelspec, carrying the OpenSysML mark as its icon, under the environment it is installed
+  into, so `pip install` alone adds the kernel to Jupyter; from the sdist,
+  `python -m jupyter_opensysml_kernel install` downloads the binary against the digests the
+  package ships and registers it. The binary is also a release asset
+  (`sysml-jupyter-kernel-<os>-<arch>`), installable with `install.sh --tools
+  sysml-jupyter-kernel`, and `sysml-jupyter-kernel -install` registers it by hand. A
+  conda-forge recipe is kept under `packaging/conda`.

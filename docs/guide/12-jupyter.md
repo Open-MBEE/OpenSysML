@@ -14,27 +14,35 @@ share a notebook server.
 
 ## Installing
 
-The kernel is a package on PyPI that registers a kernelspec named `sysml`:
+The kernel is a package on PyPI. Its wheel for your platform (Linux x64 and arm64, macOS
+Intel and Apple Silicon, Windows x64) carries the release's `sysml-jupyter-kernel` binary
+and registers it as a kernelspec named `sysml` under the Python environment it is installed
+into, so one command is the whole install:
 
 ```bash
 pip install jupyter-opensysml-kernel
-python -m jupyter_opensysml_kernel install
 jupyter kernelspec list        # lists sysml
 ```
 
-`install` downloads the release's `sysml-jupyter-kernel` binary for your platform (Linux
-x64 and arm64, macOS Intel and Apple Silicon, Windows x64) and checks it against the SHA-256
-digest the package was built with, so a mirror or a tampered download is refused before
-anything is written. The binary is installed inside the kernelspec directory, with the
-OpenSysML mark as the kernel's icon, so `jupyter kernelspec remove sysml` removes everything. Inside a virtual environment or a conda
-environment the kernelspec belongs to that environment; elsewhere it is installed for your
-user. `--user`, `--sys-prefix` and `--prefix DIR` choose explicitly:
+The kernelspec, with the OpenSysML mark as the kernel's icon, lives beside the package
+(`<prefix>/share/jupyter/kernels/sysml`) and starts the bundled binary through
+`python -m jupyter_opensysml_kernel`, so it goes wherever the package goes:
+`pip uninstall` removes both. Run `pip install` with the Python that runs the notebook
+server, or in the environment it runs in, and the server sees the kernel.
+
+On a platform without a wheel, `pip` installs from the sdist, which carries no binary; then
+`install` downloads the release's binary and checks it against the SHA-256 digest the
+package was built with, so a mirror or a tampered download is refused before anything is
+written. The same command registers the kernelspec somewhere other than the package's
+prefix — for your user, or under another prefix — copying the bundled binary into it when
+there is one:
 
 ```bash
+python -m jupyter_opensysml_kernel install                    # this environment, or the user
 python -m jupyter_opensysml_kernel install --sys-prefix       # this environment
 python -m jupyter_opensysml_kernel install --user             # ~/.local/share/jupyter
 python -m jupyter_opensysml_kernel install --prefix /opt/jupyter
-python -m jupyter_opensysml_kernel uninstall
+python -m jupyter_opensysml_kernel uninstall                  # removes what install wrote
 ```
 
 A `sysml-jupyter-kernel` you built yourself (`make build-jupyter-kernel`) or installed with
@@ -47,7 +55,7 @@ sysml-jupyter-kernel -install              # or let the binary write its own ker
 
 With conda, the same package installs from conda-forge once its recipe is accepted there
 (the recipe is kept under `packaging/conda`); until then `pip install` into the conda
-environment registers the kernel under that environment's prefix.
+environment registers the kernel under that environment's prefix the same way.
 
 Then start a notebook server and pick **SysML v2 (OpenSysML)** from the kernel list:
 
@@ -144,9 +152,13 @@ kernel, read when it starts: set them in the environment of the notebook server.
 ## Troubleshooting
 
 - **The kernel is not listed.** `jupyter kernelspec list` shows what the server sees; the
-  spec must be under a path on that list. `python -m jupyter_opensysml_kernel install`
-  installs into the environment of the `python` it runs under, so run it with the Python
-  that runs the notebook server, or pass `--prefix`.
+  spec must be under a path on that list. The wheel registers the kernel under the prefix of
+  the `python` that installed it, so install with the Python that runs the notebook server,
+  or run `python -m jupyter_opensysml_kernel install --user` (or `--prefix`) to register it
+  where the server looks.
+- **`pip install` fetched the sdist.** There is no wheel for the platform, so the package
+  carries no binary: `python -m jupyter_opensysml_kernel install` downloads the release's
+  and registers it, or `--binary` registers one built from source.
 - **The install refuses the download.** The package pins the digests of its own release and
   verifies what it fetched against them; a mismatch is reported and nothing is written.
   Behind a mirror, download the release asset by hand, verify it against the release's

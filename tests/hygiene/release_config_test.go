@@ -252,12 +252,28 @@ func TestPythonDistributionIsStampedWithItsReleaseDigests(t *testing.T) {
 }
 
 // TestJupyterKernelDistributionIsStampedWithItsReleaseDigests holds the
-// kernel's distribution to the Python wheel's contract: the kernel binaries
+// kernel's distributions to the Python wheel's contract: the kernel binaries
 // are built into dist/jupyter beside the service, stamped into the kernel
-// package's own table before `python -m build`, asserted after it, and the
-// manifest build-release signs is checked against the kernel wheel's pins.
+// package's own table before the sdist and the five platform wheels are
+// built from them, asserted after, and the manifest build-release signs is
+// checked against every kernel wheel's pins.
 func TestJupyterKernelDistributionIsStampedWithItsReleaseDigests(t *testing.T) {
 	config := loadCircleConfig(t)
+
+	script, err := os.ReadFile("../../scripts/build-jupyter-kernel-dist.sh")
+	if err != nil {
+		t.Fatalf("the kernel distribution build script is missing: %v", err)
+	}
+	for _, platform := range []string{"linux-amd64", "linux-arm64", "darwin-amd64", "darwin-arm64", "windows-amd64"} {
+		if !strings.Contains(string(script), platform) {
+			t.Errorf("build-jupyter-kernel-dist.sh builds no wheel for %s", platform)
+		}
+	}
+	for _, want := range []string{"JUPYTER_OPENSYSML_KERNEL_PLATFORM", "-m build --sdist", "-m build --wheel", "sha256sum --check"} {
+		if !strings.Contains(string(script), want) {
+			t.Errorf("build-jupyter-kernel-dist.sh does not use %q", want)
+		}
+	}
 
 	binaries, ok := config.Jobs["build-release-binaries"]
 	if !ok {
@@ -303,23 +319,23 @@ func TestJupyterKernelDistributionIsStampedWithItsReleaseDigests(t *testing.T) {
 		"--from-binaries dist/jupyter",
 		"--table client/jupyter-kernel/jupyter_opensysml_kernel/release-digests.json",
 	)
-	wheel := stepIndex(kernelSteps, "python -m build", "client/jupyter-kernel/")
-	assert := stepIndex(kernelSteps, "jupyter_opensysml_kernel/release-digests.json", "zipfile", "tarfile", "pinned_digest")
+	wheel := stepIndex(kernelSteps, "scripts/build-jupyter-kernel-dist.sh dist/jupyter client/jupyter-kernel/dist", "-py3-none-*.whl")
+	assert := stepIndex(kernelSteps, "jupyter_opensysml_kernel/release-digests.json", "zipfile", "tarfile", "pinned_digest", "-py3-none-*.whl")
 	switch {
 	case version < 0:
 		t.Error("build-jupyter-kernel-package does not resolve the version from the tag")
 	case stamp < 0:
 		t.Error("build-jupyter-kernel-package does not stamp the release's digests from dist/jupyter into the distribution's table")
 	case wheel < 0:
-		t.Error("build-jupyter-kernel-package does not run python -m build")
+		t.Error("build-jupyter-kernel-package does not build the sdist and the five platform wheels with scripts/build-jupyter-kernel-dist.sh")
 	case stamp > wheel:
-		t.Errorf("the digest stamp (step %d) runs after python -m build (step %d), so the wheel ships without it", stamp, wheel)
+		t.Errorf("the digest stamp (step %d) runs after the distributions are built (step %d), so they ship without it", stamp, wheel)
 	}
 	switch {
 	case assert < 0:
-		t.Error("build-jupyter-kernel-package does not assert the built wheel and sdist pin the release's kernel digests")
+		t.Error("build-jupyter-kernel-package does not assert every built wheel and the sdist pin the release's kernel digests")
 	case assert < wheel:
-		t.Errorf("the distribution assertion (step %d) runs before python -m build (step %d)", assert, wheel)
+		t.Errorf("the distribution assertion (step %d) runs before the distributions are built (step %d)", assert, wheel)
 	default:
 		for _, asset := range kernelAssets {
 			if !strings.Contains(kernelSteps[assert].Command, asset) {
@@ -330,6 +346,9 @@ func TestJupyterKernelDistributionIsStampedWithItsReleaseDigests(t *testing.T) {
 	if stepIndex(kernelSteps, "python -m jupyter_opensysml_kernel kernelspec") < 0 {
 		t.Error("build-jupyter-kernel-package does not render the kernelspec from the installed wheel")
 	}
+	if stepIndex(kernelSteps, "-py3-none-manylinux*_x86_64*.whl", "jupyter_client.kernelspecapp", `"share", "jupyter", "kernels", "sysml"`, `"jupyter_opensysml_kernel", "-version"`) < 0 {
+		t.Error("build-jupyter-kernel-package does not install this platform's wheel alone and check it registers the sysml kernelspec and starts the bundled kernel")
+	}
 
 	releaseJob, ok := config.Jobs["build-release"]
 	if !ok {
@@ -337,20 +356,23 @@ func TestJupyterKernelDistributionIsStampedWithItsReleaseDigests(t *testing.T) {
 	}
 	releaseSteps := runSteps(t, releaseJob.Steps)
 	manifest := stepIndex(releaseSteps, "> SHA256SUMS.txt", "jupyter_opensysml_kernel-*.whl", "cd jupyter && sha256sum sysml-jupyter-kernel-*")
-	check := stepIndex(releaseSteps, "SHA256SUMS.txt", "jupyter_opensysml_kernel/release-digests.json", "zipfile", "nothing was signed")
+	check := stepIndex(releaseSteps, "SHA256SUMS.txt", "jupyter_opensysml_kernel/release-digests.json", "zipfile", "nothing was signed", "jupyter_opensysml_kernel-*-py3-none-*.whl")
 	sign := stepIndex(releaseSteps, "cosign sign-blob SHA256SUMS.txt")
 	switch {
 	case manifest < 0:
 		t.Error("build-release does not write SHA256SUMS.txt over the kernel distribution and the kernel binaries")
 	case check < 0:
-		t.Error("build-release does not check the kernel wheel's pins against the manifest it signs")
+		t.Error("build-release does not check every kernel wheel's pins against the manifest it signs")
 	case sign < 0:
 		t.Error("build-release does not sign SHA256SUMS.txt")
 	case !(manifest < check && check < sign):
 		t.Errorf("build-release must write the manifest (step %d), check the kernel wheel against it (step %d), then sign it (step %d)", manifest, check, sign)
 	}
-	if stepIndex(releaseSteps, "dist/jupyter_opensysml_kernel-*-py3-none-any.whl", "dist/jupyter_opensysml_kernel-[0-9]*.tar.gz", "Nothing was published") < 0 {
-		t.Error("build-release does not verify the release carries the tag's kernel distribution")
+	if stepIndex(releaseSteps, "dist/jupyter_opensysml_kernel-*-py3-none-*.whl", "dist/jupyter_opensysml_kernel-[0-9]*.tar.gz", "not the five platform wheels", "Nothing was published") < 0 {
+		t.Error("build-release does not verify the release carries the tag's kernel sdist and five platform wheels")
+	}
+	if stepIndex(releaseSteps, "cosign verify-blob-attestation", "jupyter_opensysml_kernel-*-py3-none-*.whl") < 0 {
+		t.Error("build-release does not verify the provenance names the kernel wheels")
 	}
 
 	publish, ok := config.Jobs["publish-pypi-jupyter-kernel"]
@@ -509,7 +531,7 @@ func TestReleaseJobsPersistDisjointWorkspaceLayers(t *testing.T) {
 		"dist/jupyter/*.sha256",
 		"dist/opensysml-*-py3-none-any.whl",
 		"dist/opensysml-[0-9]*.tar.gz",
-		"dist/jupyter_opensysml_kernel-*-py3-none-any.whl",
+		"dist/jupyter_opensysml_kernel-*-py3-none-*.whl",
 		"dist/jupyter_opensysml_kernel-[0-9]*.tar.gz",
 	)
 }

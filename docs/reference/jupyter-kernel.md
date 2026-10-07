@@ -134,6 +134,21 @@ Output with a richer form than plain text is a `display_data` carrying that form
 
 ```bash
 pip install jupyter-opensysml-kernel
+```
+
+The package is published as one wheel per released platform — `manylinux_2_17_x86_64`
+(also tagged `musllinux_1_1`), `manylinux_2_17_aarch64`, `macosx_11_0_x86_64`,
+`macosx_11_0_arm64` and `win_amd64` — plus an sdist. A platform wheel bundles that
+platform's `sysml-jupyter-kernel` as `jupyter_opensysml_kernel/bin/sysml-jupyter-kernel`
+and installs the kernelspec as shared data at `<prefix>/share/jupyter/kernels/sysml`
+(`kernel.json`, `logo-32x32.png`, `logo-64x64.png`), a path every Jupyter front end searches
+for the Python environment it runs in. That `kernel.json` starts
+`python -m jupyter_opensysml_kernel -connection-file {connection_file}`; given the kernel's
+own single-dash flags, the module replaces itself with the bundled binary (`execv`; a child
+process on Windows), so the kernel runs with no second step and no network. The sdist, which
+`pip` builds where no wheel applies, bundles nothing and registers nothing.
+
+```bash
 python -m jupyter_opensysml_kernel install [--user | --sys-prefix | --prefix DIR | --system]
                                            [--binary PATH | --release TAG]
                                            [--name NAME] [--display-name NAME]
@@ -141,19 +156,23 @@ python -m jupyter_opensysml_kernel uninstall [--name NAME]
 python -m jupyter_opensysml_kernel kernelspec
 ```
 
-`install` downloads the kernel binary for the host platform from the GitHub release the
-package was built against and verifies it against the SHA-256 digest the package ships
+`install` writes a kernelspec that holds its own copy of the binary, `kernel.json` naming
+`{resource_dir}/sysml-jupyter-kernel`. From a platform wheel the copy is the bundled kernel.
+From the sdist it is a download: the kernel binary for the host platform from the GitHub
+release the package was built against, verified against the SHA-256 digest the package ships
 (`jupyter_opensysml_kernel/release-digests.json`, stamped by the release pipeline from the
 binaries it built), fetching the release's `.sha256` sidecar as well and requiring it to
 agree; a release the package has no pin for is refused rather than trusted, as is a mismatch,
 and nothing is written until the bytes have been verified. `--binary` registers a binary
-already on disk instead, with no download; `--release` downloads another pinned release. Without a location, an install inside a virtual
-or conda environment goes to that environment's prefix, and elsewhere to the user's Jupyter
-data directory (`JUPYTER_DATA_DIR` when set).
+already on disk instead; `--release` downloads another pinned release, bundled kernel or not.
+Without a location, an install inside a virtual or conda environment goes to that
+environment's prefix, and elsewhere to the user's Jupyter data directory (`JUPYTER_DATA_DIR`
+when set). `uninstall` removes what `install` wrote, not the wheel's shared-data kernelspec,
+which `pip uninstall` removes with the package.
 
-The package's version is the core release's, and it pins only that release:
+The package's version is the core release's, and it bundles and pins only that release:
 `jupyter-opensysml-kernel 0.9.2` installs `sysml-jupyter-kernel` from `v0.9.2`. Nightly
-snapshots are published as development versions pinning the night's prerelease.
+snapshots are published as development versions carrying the night's prerelease.
 `OPENSYSML_GITHUB_REPO` points the download at a fork that publishes the same assets.
 
 ## Installing with conda
@@ -163,12 +182,13 @@ The conda-forge recipe is kept under `packaging/conda` and rendered for a releas
 `sysml-jupyter-kernel` binary and installs the kernelspec under the environment's prefix at
 build time, so nothing is downloaded when it is installed. Until the recipe is on
 conda-forge, `pip install jupyter-opensysml-kernel` inside the conda environment installs the
-same kernel there.
+same kernel there, from the platform wheel.
 
 ## Release assets
 
 Each release publishes `sysml-jupyter-kernel-<os>-<arch>` for `linux-amd64`, `linux-arm64`,
 `darwin-amd64`, `darwin-arm64` and `windows-amd64.exe`, raw with a `.sha256` sidecar and
-listed in the signed `SHA256SUMS.txt`, beside the `jupyter_opensysml_kernel` wheel and sdist
-that pin them. `install.sh --tools sysml-jupyter-kernel` installs the binary and verifies it
-against the manifest; see [downloads](../downloads.md).
+listed in the signed `SHA256SUMS.txt`, beside the five `jupyter_opensysml_kernel` platform
+wheels that bundle them and the sdist that pins them. `install.sh --tools
+sysml-jupyter-kernel` installs the binary and verifies it against the manifest; see
+[downloads](../downloads.md).

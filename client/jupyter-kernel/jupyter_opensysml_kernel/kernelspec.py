@@ -1,10 +1,14 @@
 """The `sysml` kernelspec, and installing it where Jupyter looks.
 
-A kernelspec is a directory holding a `kernel.json`; this one also holds the
-kernel binary and the logos front ends show for the kernel, so `jupyter kernelspec remove sysml` removes everything the
-install wrote. The command line in `kernel.json` names the binary through the
-`{resource_dir}` placeholder Jupyter substitutes with the directory the spec
-was found in, so the spec can be installed per user, into a prefix, or copied.
+A kernelspec is a directory holding a `kernel.json` and, here, the logos front
+ends show for the kernel. A platform wheel installs one under
+`<prefix>/share/jupyter/kernels/sysml` as package data, whose command line is
+`python -m jupyter_opensysml_kernel`, which starts the kernel bundled in the
+wheel; `pip install` alone registers the kernel. `install` writes a kernelspec
+holding the kernel binary itself, named through the `{resource_dir}`
+placeholder Jupyter substitutes with the directory the spec was found in, so
+that spec can be installed per user, into a prefix, or copied, and
+`jupyter kernelspec remove sysml` removes everything it wrote.
 """
 
 from __future__ import annotations
@@ -19,7 +23,7 @@ import tempfile
 from typing import Any
 
 from ._version import VERSION
-from .binary import KernelBinaryError, binary_name, download_binary
+from .binary import KernelBinaryError, binary_name, bundled_binary, download_binary
 
 KERNEL_NAME = "sysml"
 DISPLAY_NAME = "SysML v2 (OpenSysML)"
@@ -30,15 +34,25 @@ SPEC_FILE = "kernel.json"
 LOGO_FILES = ("logo-32x32.png", "logo-64x64.png")
 
 
-def kernel_json(binary_file: str, display_name: str = DISPLAY_NAME) -> dict[str, Any]:
-    """The `kernel.json` for a kernel binary installed beside it."""
+def _spec(argv: list[str], display_name: str) -> dict[str, Any]:
     return {
-        "argv": ["{resource_dir}/" + binary_file, "-connection-file", "{connection_file}"],
+        "argv": argv,
         "display_name": display_name,
         "language": LANGUAGE,
         "interrupt_mode": "message",
         "metadata": {"implementation": IMPLEMENTATION, "package": PACKAGE, "package_version": VERSION},
     }
+
+
+def kernel_json(binary_file: str, display_name: str = DISPLAY_NAME) -> dict[str, Any]:
+    """The `kernel.json` for a kernel binary installed beside it."""
+    return _spec(["{resource_dir}/" + binary_file, "-connection-file", "{connection_file}"], display_name)
+
+
+def launcher_kernel_json(display_name: str = DISPLAY_NAME) -> dict[str, Any]:
+    """The `kernel.json` a platform wheel installs: the kernel it bundles, started
+    through the `python` of the environment Jupyter runs in, as ipykernel's is."""
+    return _spec(["python", "-m", __package__, "-connection-file", "{connection_file}"], display_name)
 
 
 def stage_binary(binary: str, staging_dir: str) -> str:
@@ -57,14 +71,22 @@ def stage_binary(binary: str, staging_dir: str) -> str:
     return dest
 
 
-def write_spec(staging_dir: str, binary_path: str, display_name: str = DISPLAY_NAME) -> str:
-    """Write `kernel.json` beside a staged binary."""
-    spec = kernel_json(os.path.basename(binary_path), display_name)
+def _write_json(spec: dict[str, Any], staging_dir: str) -> str:
     path = os.path.join(staging_dir, SPEC_FILE)
     with open(path, "w", encoding="utf-8") as f:
         json.dump(spec, f, indent=2, sort_keys=True)
         f.write("\n")
     return path
+
+
+def write_spec(staging_dir: str, binary_path: str, display_name: str = DISPLAY_NAME) -> str:
+    """Write `kernel.json` beside a staged binary."""
+    return _write_json(kernel_json(os.path.basename(binary_path), display_name), staging_dir)
+
+
+def write_launcher_spec(staging_dir: str) -> list[str]:
+    """Write the kernelspec a platform wheel ships as data: `kernel.json` and the logos."""
+    return [_write_json(launcher_kernel_json(), staging_dir), *write_logos(staging_dir)]
 
 
 def write_logos(staging_dir: str) -> list[str]:
@@ -99,9 +121,13 @@ def install(
 ) -> str:
     """Install the kernelspec, with the kernel binary inside it.
 
+    The binary is the one bundled in this package when it was installed from a
+    platform wheel; otherwise it is downloaded and verified.
+
     Args:
-        binary: A `sysml-jupyter-kernel` to install instead of downloading one
-        version: The release to download; the package's pinned release when omitted
+        binary: A `sysml-jupyter-kernel` to install instead of the bundled or downloaded one
+        version: The release to download, instead of the bundled kernel; the package's
+            pinned release when omitted
         user: Install for the current user (`~/.local/share/jupyter`, or $JUPYTER_DATA_DIR)
         prefix: Install under `<prefix>/share/jupyter`
         name: The kernelspec's directory name, which notebooks bind to
@@ -118,6 +144,8 @@ def install(
 
     if binary is not None and version is not None:
         raise KernelBinaryError("--binary names the kernel to install; --version chooses one to download")
+    if binary is None and version is None:
+        binary = bundled_binary()
     if not user and prefix is None:
         location = default_location()
         user = bool(location.get("user"))
