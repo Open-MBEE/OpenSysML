@@ -413,7 +413,8 @@ func TestGraphvizDrawRefusesActivePictureFiles(t *testing.T) {
 	t.Setenv(DotEnv, dot)
 	dir := t.TempDir()
 	clean := filepath.Join(dir, "clean.svg")
-	cleanSVG := []byte(`<svg xmlns="http://www.w3.org/2000/svg" width="2" height="2" viewBox="0 0 2 2"><rect width="2" height="2"/></svg>`)
+	cleanSVG := []byte(`<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="2" height="2" viewBox="0 0 2 2"><rect width="2" height="2"/></svg>`)
 	if err := os.WriteFile(clean, cleanSVG, 0o600); err != nil {
 		t.Fatal(err)
 	}
@@ -429,11 +430,17 @@ func TestGraphvizDrawRefusesActivePictureFiles(t *testing.T) {
 		}
 		return svgs[0]
 	}
-	if cleanOutput := draw(clean); !strings.Contains(cleanOutput, "<image ") {
+	cleanOutput := draw(clean)
+	if !strings.Contains(cleanOutput, "<image ") {
 		t.Skip("Graphviz did not emit an SVG image reference")
 	}
+	if !strings.Contains(cleanOutput, "data:image/svg+xml;base64,") {
+		t.Errorf("clean SVG was not embedded as a data URI:\n%s", cleanOutput)
+	}
 	active := filepath.Join(dir, "script-active.svg")
-	if err := os.WriteFile(active, []byte(`<svg xmlns="http://www.w3.org/2000/svg" width="2" height="2" viewBox="0 0 2 2"><rect width="2" height="2" onload="run()"/></svg>`), 0o600); err != nil {
+	activeSVG := []byte(`<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="2" height="2" viewBox="0 0 2 2"><rect width="2" height="2" onload="run()"/></svg>`)
+	if err := os.WriteFile(active, activeSVG, 0o600); err != nil {
 		t.Fatal(err)
 	}
 	output := draw(active)
