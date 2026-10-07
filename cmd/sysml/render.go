@@ -27,12 +27,16 @@ func runRender(files []string) error {
 		return errors.New("no model to render; name the files the view is declared in, as `sysml model.sysml -render MyView`")
 	}
 
+	overlay, err := overlayOption()
+	if err != nil {
+		return err
+	}
 	sess, err := loadRenderingModel(files)
 	if err != nil {
 		return err
 	}
 
-	rendering, err := sess.ViewRendering(renderView)
+	rendering, err := sess.OverlaidViewRendering(renderView, overlay)
 	if err != nil {
 		return err
 	}
@@ -70,6 +74,10 @@ func runRenderAll(files []string) error {
 	if err != nil {
 		return err
 	}
+	overlay, err := overlayOption()
+	if err != nil {
+		return err
+	}
 	sess, err := loadRenderingModel(files)
 	if err != nil {
 		return err
@@ -100,7 +108,12 @@ func runRenderAll(files []string) error {
 			reportRenderSkip(info.Name, info.Reason)
 			continue
 		}
-		rendering, err := sess.ViewRendering(info.Name)
+		kind := info.Kind
+		viewOverlay := overlay
+		if !kind.SupportsOverlay(overlay) {
+			viewOverlay = ""
+		}
+		rendering, err := sess.OverlaidViewRendering(info.Name, viewOverlay)
 		if err != nil {
 			return err
 		}
@@ -198,6 +211,16 @@ func styleOption() (view.DrawingStyle, error) {
 		return "", fmt.Errorf("-render-style: %w", &view.UnknownDrawingStyleError{Name: renderStyle})
 	}
 	return style, nil
+}
+
+// overlayOption is the overlay -render-overlay names, which must be one there
+// is; none named draws the rendering's structure alone.
+func overlayOption() (view.Overlay, error) {
+	overlay, ok := view.ParseOverlay(renderOverlay)
+	if !ok {
+		return "", fmt.Errorf("-render-overlay: unknown overlay %q; -render-overlay takes %s", renderOverlay, view.OverlayNames())
+	}
+	return overlay, nil
 }
 
 // unplacedOption is the placement -render-unplaced names for the nodes a

@@ -1,0 +1,94 @@
+{
+  "scenarios": [
+    {
+      "id": "render_view/interconnection_includes_ports_and_connected_edge_endpoints",
+      "description": "An interconnection view returns its exposed ports and the port endpoints of its connection.",
+      "rpc": "RenderView",
+      "requires_capabilities": [
+        "render_view"
+      ],
+      "expect_without_capability": {
+        "status": "UNIMPLEMENTED",
+        "status_message_contains": "render_view"
+      },
+      "model": {
+        "fixture": "views.sysml"
+      },
+      "request": {
+        "model_hash": "${model_hash}",
+        "view": "RenderViewDemo::connections"
+      },
+      "expect": {
+        "non_empty": [
+          "view",
+          "nodes",
+          "edges"
+        ],
+        "contains_all": {
+          "nodes.1.ports.0.name": [
+            "api"
+          ],
+          "edges.0.from_port": [
+            "n1.0"
+          ],
+          "edges.0.to_port": [
+            "n2.0"
+          ]
+        }
+      }
+    },
+    {
+      "id": "render_view_full_ports_is_accepted",
+      "description": "An interconnection view accepts the explicit full-ports option.",
+      "rpc": "RenderView",
+      "requires_capabilities": [
+        "render_view"
+      ],
+      "expect_without_capability": {
+        "status": "UNIMPLEMENTED",
+        "status_message_contains": "render_view"
+      },
+      "model": {
+        "fixture": "views.sysml"
+      },
+      "request": {
+        "model_hash": "${model_hash}",
+        "view": "RenderViewDemo::connections",
+        "ports": "full"
+      },
+      "expect": {
+        "non_empty": [
+          "nodes"
+        ],
+        "contains_all": {
+          "nodes.1.ports.1.name": [
+            "spare"
+          ]
+        }
+      }
+    },
+    {
+      "id": "render_view_unknown_view_is_not_found",
+      "description": "An unknown view name is reported as not found.",
+      "rpc": "RenderView",
+      "requires_capabilities": [
+        "render_view"
+      ],
+      "expect_without_capability": {
+        "status": "UNIMPLEMENTED",
+        "status_message_contains": "render_view"
+      },
+      "model": {
+        "fixture": "views.sysml"
+      },
+      "request": {
+        "model_hash": "${model_hash}",
+        "view": "RenderViewDemo::Missing"
+      },
+      "expect": {
+        "status": "NOT_FOUND",
+        "status_message_contains": "no view named"
+      }
+    }
+  ]
+}

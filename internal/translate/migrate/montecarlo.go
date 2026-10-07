@@ -227,7 +227,7 @@ func (m *migration) monteCarloCaseOf(block *sysmlv1.Element) *monteCarloCase {
 		return cs
 	}
 	var cs *monteCarloCase
-	if cat, _ := m.classify(block); cat == catPartDef && m.inheritsMonteCarlo(block) {
+	if cat, _ := m.classify(block); (cat == catPartDef || cat == catOccurrenceDef) && m.inheritsMonteCarlo(block) {
 		binds := m.generalizesMonteCarlo(block)
 		for _, c := range block.Owned("ownedConnector") {
 			if stat, _, _ := m.monteCarloEnd(c); stat != "" {

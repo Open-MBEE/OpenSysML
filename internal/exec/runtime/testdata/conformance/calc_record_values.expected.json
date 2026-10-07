@@ -1,0 +1,13 @@
+{
+	"type": "action",
+	"evaluate": "test::records",
+	"libraries": true,
+	"outputs": {
+		"read": {"type": "Real", "value": 3.5},
+		"defaulted": {"type": "Real", "value": 3.0},
+		"seq": {"type": "Integer", "value": 3},
+		"nested": {"type": "Real", "value": 8.0},
+		"identity": {"type": "Boolean", "value": true},
+		"receiver": {"type": "Boolean", "value": true}
+	}
+}

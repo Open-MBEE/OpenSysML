@@ -64,6 +64,7 @@ func (s *Server) Initialize(ctx context.Context, params *protocol.InitializePara
 				RenderFormsCapability:     renderFormNames(),
 				RenderStylesCapability:    renderStyleNames(),
 				RenderPortsCapability:     renderPortsNames(),
+				RenderOverlaysCapability:  renderOverlayNames(),
 			},
 			// Folders added mid-session are only indexed if the client reports them.
 			Workspace: &protocol.ServerCapabilitiesWorkspace{
@@ -75,7 +76,7 @@ func (s *Server) Initialize(ctx context.Context, params *protocol.InitializePara
 		},
 		ServerInfo: &protocol.ServerInfo{
 			Name:    "sysml-lsp",
-			Version: "0.1.0",
+			Version: s.version,
 		},
 	}, nil
 }

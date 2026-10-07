@@ -44,28 +44,25 @@ const methodStubApplications = `
   <sysml:Block xmi:id="_b2" base_Class="_cam"/>
   <sysml:Allocate xmi:id="_s1" base_Dependency="_alloc"/>`
 
-// mixedEndsNote explains an «Allocate» written as a plain dependency because an
-// end is an action of an action def, which no allocate reaches: an allocate in a
-// package relates package-level features and one in a definition its own.
-const mixedEndsNote = "an allocation written in a package relates features of no definition, and one written in a definition relates its features; the ends are neither, so a plain dependency stands for it"
-
 // A pin-bearing call naming no behavior in an operation's method is declared with
 // its pins as parameters, an untyped pin left untyped and a [0..*] pin kept so, and
-// the «Allocate» Dependency names it under the operation the method is the body of,
-// as a plain dependency: an action of an action def is a feature no allocate reaches.
+// the «Allocate» Dependency names it under the operation the method is the body of.
 func TestStubActionsInMethodsKeepTheirPinsAndAllocation(t *testing.T) {
 	r := migrateDocument(t, methodStubs, methodStubApplications)
 	wantNote(t, r, "_sweep", migrate.Approximated, "a step with no behavior and no duration, which passes the token on; its pins are declared as its parameters, but the action computes nothing, so its output 'frames' holds no value; its «Allocate» to Cam::glass says where it runs, not what it does")
 	wantNote(t, r, "_sweepOut", migrate.Approximated, "it is declared admitting no value: the action calls no behavior, so nothing computes it")
 	wantNote(t, r, "_sweepRate", migrate.Mapped, "")
 	wantNote(t, r, "_sweepMode", migrate.Mapped, "")
-	wantNote(t, r, "_alloc", migrate.Approximated, mixedEndsNote)
+	wantNote(t, r, "_alloc", migrate.Mapped, "")
 	for _, line := range []string{
 		"action sweep {",
 		"in rate : ScalarValues::Real[1];",
 		"in mode[1];",
 		"out frames : ScalarValues::Integer[0..*];",
-		"dependency Cam::Scan::sweep to Cam::glass;",
+		"allocation def 'sweep to glass' {",
+		"end :>> source : Cam::Scan;",
+		"end :>> target : Cam;",
+		"allocate source.sweep to target.glass;",
 	} {
 		wantLine(t, r.Notation, line)
 	}
@@ -147,7 +144,14 @@ const earlyAllocationApplications = `
 // the sibling that would otherwise take it, so the allocation names the right node.
 func TestNodeNamedAheadOfItsWriterKeepsSiblingsDistinct(t *testing.T) {
 	r := migrateDocument(t, earlyAllocation, earlyAllocationApplications)
-	wantLine(t, r.Notation, "dependency Rig::Run::call to Rig::probe;")
+	for _, line := range []string{
+		"allocation def 'call to probe' {",
+		"end :>> source : Rig::Run;",
+		"end :>> target : Rig;",
+		"allocate source.call to target.probe;",
+	} {
+		wantLine(t, r.Notation, line)
+	}
 	wantLine(t, r.Notation, "first call2 then call;")
 	wantLine(t, r.Notation, "action call2;")
 	wantLine(t, r.Notation, "action call;")
@@ -195,12 +199,20 @@ const mixedAllocationApplications = `
 func TestPlaceholderEndFailsOnlyItsOwnPair(t *testing.T) {
 	r := migrateDocument(t, mixedAllocation, mixedAllocationApplications)
 	wantNote(t, r, "_make", migrate.Unmapped, "no v2 form for a UML CreateObjectAction")
-	wantNote(t, r, "_alloc", migrate.Approximated, "1 of 2 relationships written; "+mixedEndsNote+"; pair 2 is named wire 2 so the pairs stay distinct; its end Rig::Run::make is written only as a placeholder of a node that is not migrated")
+	wantNote(t, r, "_alloc", migrate.Approximated, "1 of 2 relationships written; pair 2 is named wire 2 so the pairs stay distinct; its end Rig::Run::make is written only as a placeholder of a node that is not migrated")
 	if e := entriesFor(r, "_alloc"); len(e) != 1 || e[0].Target != "wire" {
 		t.Errorf("mixed allocation: got %+v, want target wire", e)
 	}
-	wantLine(t, r.Notation, "dependency wire from Rig::probe to Rig::Run::scan;")
-	wantLine(t, r.Notation, "dependency 'wire 2' from Rig::probe to Rig::Run::make;")
+	for _, line := range []string{
+		"allocation def wire {",
+		"end :>> source : Rig;",
+		"end :>> target : Rig::Run;",
+		"allocate source.probe to target.scan;",
+		"allocation def 'wire 2' {",
+		"allocate source.probe to target.make;",
+	} {
+		wantLine(t, r.Notation, line)
+	}
 	wantClean(t, "t.sysml", r)
 
 	only := strings.Replace(mixedAllocation, `<supplier xmi:idref="_scan"/>`, "", 1)
@@ -222,10 +234,19 @@ func TestIncompletelySerializedCallsAreRefusedNotStubbed(t *testing.T) {
 		"action odd {",
 		"in gain[1];",
 		"out reading[0..1];",
+		"action lost {",
 	} {
 		wantLine(t, r.Notation, line)
 	}
-	wantLine(t, r.Notation, "dependency Ctl::Run::lost to Ctl::eye;")
+	wantNoLine(t, r.Notation, "action def lost")
+	for _, line := range []string{
+		"allocation def 'lost to eye' {",
+		"end :>> source : Ctl::Run;",
+		"end :>> target : Ctl;",
+		"allocate source.lost to target.eye;",
+	} {
+		wantLine(t, r.Notation, line)
+	}
 	wantNoLine(t, r.Notation, "flow odd.reading")
 	if entries := entriesFor(r, "_of1"); len(entries) != 1 || entries[0].Verdict != migrate.Unmapped {
 		t.Errorf("flow to a missing pin: got %+v, want one unmapped entry", entries)
@@ -287,22 +308,27 @@ const ownerUsageAllocationApplications = `
   <sysml:Allocate xmi:id="_s2" base_Dependency="_alloc2"/>
   <Tags:Tracked xmlns:Tags="http://example.com/schemas/Tags.xmi" xmi:id="_a_tr" base_Class="_motor" runs="_run"/>`
 
-// An activity written as an action usage of its block is no definition: an
-// «Allocate» from it, or from a node of it, to a block is a plain dependency,
-// whose ends are qualified names, not an allocation def with an end typed by
-// the usage; and a tag naming it casts it to SysML::ActionUsage, not a definition.
+// An activity written as an action usage of its block is a feature end of an
+// allocation def, and a tag naming it casts it to SysML::ActionUsage, not a definition.
 func TestBehaviorsWrittenAsUsagesAreNoDefinitionEnds(t *testing.T) {
 	r := migrateDocument(t, ownerUsageAllocation, ownerUsageAllocationApplications)
 	for _, line := range []string{
 		"action run {",
-		"dependency Ctl::run to Motor;",
-		"dependency Ctl::run::'set status' to Motor;",
+		"allocation def 'run to Motor' {",
+		"end :>> source : Ctl;",
+		"end :>> target : Motor;",
+		"allocate source.run to target;",
+		"allocation def 'set status to Motor' {",
+		"allocate source.run.'set status' to target;",
 		"runs = Ctl::run meta SysML::ActionUsage;",
 	} {
 		wantLine(t, r.Notation, line)
 	}
-	wantNoLine(t, r.Notation, "allocation def")
+	wantNoLine(t, r.Notation, "end :>> source : Ctl::run;")
 	wantNoLine(t, r.Notation, "meta SysML::ActionDefinition")
+	for _, id := range []string{"_alloc", "_alloc2"} {
+		wantNote(t, r, id, migrate.Mapped, "")
+	}
 	wantClean(t, "t.sysml", r)
 }
 

@@ -636,6 +636,30 @@ end
                 @test length(rows) == 4
                 @test !isempty(render_document(document_model, "Observatory::MassReport"))
                 @test !isempty(render_document(document_model, "Observatory::MassReport"; form="html"))
+                views_model = parse_file(conn, joinpath(FIXTURES, "views.sysml"))
+                rendered_view = render_view(views_model, "RenderViewDemo::connections")
+                @test rendered_view.kind == "interconnection"
+                @test length(rendered_view.edges) == 1
+                @test !isempty(rendered_view.edges[1].from_port)
+                @test !isempty(rendered_view.edges[1].to_port)
+                @test all(node -> node.origin !== nothing, rendered_view.nodes)
+                full_view = render_view(views_model, "RenderViewDemo::connections"; ports="full")
+                @test any(port.name == "spare" for node in full_view.nodes for port in node.ports)
+                for (view, message) in (
+                    ("RenderViewDemo::Missing", "no view named RenderViewDemo::Missing"),
+                    ("#interconnection:Nope",
+                     "#interconnection:Nope: Nope names nothing in this model"),
+                )
+                    missing_view = try
+                        render_view(views_model, view)
+                        nothing
+                    catch error
+                        error
+                    end
+                    @test missing_view isa SymbolNotFoundError
+                    @test missing_view.name == view
+                    @test sprint(showerror, missing_view) == message
+                end
                 @test !isempty(convert_model(document_model, "sysml").content)
                 @test !isempty(to_turtle(document_model).content)
                 @test !isempty(to_api_json(document_model).content)
@@ -648,12 +672,12 @@ end
                 @test occursin("part def Vehicle", migrated.content)
                 @test migrated.from_format == "xmi"
                 @test (migrated.report.mapped, migrated.report.approximated,
-                       migrated.report.unmapped, migrated.report.skipped) == (77, 13, 3, 2)
+                       migrated.report.unmapped, migrated.report.skipped) == (78, 12, 3, 2)
                 @test length(migrated.report.entries) == 95
                 @test length(by_verdict(migrated.report, VERDICT_UNMAPPED)) == 3
                 @test migrated.source_path == abspath(vehicle)
                 inline = migrate_source(conn, read(vehicle), "ttl"; from_format=" XMI ")
-                @test inline.to_format == "ttl" && inline.report.mapped == 77
+                @test inline.to_format == "ttl" && inline.report.mapped == 78
                 @test isempty(inline.report.entries) && inline.source_path === nothing
                 mktempdir() do directory
                     output = joinpath(directory, "Vehicle.sysml")

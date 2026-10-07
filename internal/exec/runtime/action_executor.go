@@ -105,6 +105,9 @@ type ActionExecutor struct {
 // chargeActionStep spends one step of the action's token-flow budget
 // (MaxActionStepsEnvVar), which the tokens of every flow of the run share.
 func (e *ActionExecutor) chargeActionStep() error {
+	if e.ctx.interrupted() {
+		return ErrInterrupted
+	}
 	if e.stepsSpent+e.steps >= e.ctx.maxActionSteps {
 		return budgetExceeded(ErrActionStepLimitExceeded,
 			fmt.Sprintf("execution exceeded max steps (%d steps; raise %s to allow more), possible infinite loop",
@@ -1328,6 +1331,9 @@ func (e *ActionExecutor) initializeAttributes() error {
 		if err != nil {
 			return fmt.Errorf("eval attribute default %s: %w", attr.Name, err)
 		}
+		if err := e.holdAttributeAsReal(attr, &value); err != nil {
+			return fmt.Errorf("eval attribute default %s: %w", attr.Name, err)
+		}
 		if value, err = e.mirrorOccurrence(attr.Name, value); err != nil {
 			return err
 		}
@@ -1338,6 +1344,19 @@ func (e *ActionExecutor) initializeAttributes() error {
 	}
 
 	return nil
+}
+
+// holdAttributeAsReal holds an attribute default as the Real its declaration states.
+func (e *ActionExecutor) holdAttributeAsReal(attr lower.Attribute, value *Value) error {
+	scope := attr.Scope
+	if scope == nil {
+		scope = e.graph.Scope
+	}
+	sym, ok := resolve.FeatureSymbolInScope(scope, []string{attr.Name})
+	if !ok {
+		return nil
+	}
+	return e.ctx.holdAsReal(value, e.ctx.extractType(sym))
 }
 
 // bindContextDefault binds an unbound `in ref` parameter of a behavior started on an
@@ -2659,7 +2678,7 @@ func (e *ActionExecutor) awaitSignal(token *Token, accept lower.Accept, usage *a
 	token.Wait = nil
 	if tr := e.trace(); tr != nil {
 		tr.RecordAccept(TraceOrigin{At: e.ctx.clock.now, Object: e.self, Behavior: e.action},
-			acceptedEventName(msg), msg.Payload)
+			msg.Serial, acceptedEventName(msg), msg.Payload)
 	}
 	if accept.ParamName == "" {
 		return nil, true, nil

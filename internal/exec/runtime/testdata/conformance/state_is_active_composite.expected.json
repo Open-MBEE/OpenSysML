@@ -1,0 +1,37 @@
+{
+  "type": "state",
+  "libraries": true,
+  "events": [
+    {
+      "signal": "Go"
+    }
+  ],
+  "finalState": "later",
+  "stateVisits": [
+    "outer",
+    "inner",
+    "later"
+  ],
+  "outputs": {
+    "parentFromChild": {
+      "type": "Boolean",
+      "value": true
+    },
+    "siblingFromChild": {
+      "type": "Boolean",
+      "value": false
+    },
+    "chainFromChild": {
+      "type": "Boolean",
+      "value": true
+    },
+    "innerAfterLeaving": {
+      "type": "Boolean",
+      "value": false
+    },
+    "outerAfterLeaving": {
+      "type": "Boolean",
+      "value": false
+    }
+  }
+}

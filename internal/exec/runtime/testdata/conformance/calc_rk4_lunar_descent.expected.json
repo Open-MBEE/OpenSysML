@@ -2,5 +2,5 @@
   "type": "calc",
   "evaluate": "test::Propagate",
   "inputs": [{"type": "Integer", "value": 3}],
-  "result": {"type": "Real", "value": 15001.719185373526}
+  "result": {"type": "Rational", "value": "244225428175771200528215026849/16279829342085518803125000"}
 }

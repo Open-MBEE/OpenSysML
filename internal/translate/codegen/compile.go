@@ -50,11 +50,15 @@ type Compiler struct {
 	// numbers of either kind; widened is set when a pass adds one.
 	nums    map[slot]bool
 	widened bool
+	// unsets are the slots some write gives a value that may be unset.
+	unsets map[slot]bool
 	// enums are the enumerations compiled values are literals of, in the
 	// order first met; literalNames is the printed form of every literal.
 	enums        map[*symbols.Symbol]*Enum
 	enumOrder    []*Enum
 	literals     map[*symbols.Symbol]enumLiteral
+	records      map[*symbols.Symbol]*Record
+	recOrder     []*Record
 	literalNames []string
 	// fns are the function values met, kept across passes so their types are
 	// stable; fnSlots are the cases each function-typed slot is widened to.
@@ -74,7 +78,7 @@ type slot struct {
 
 // New returns a Compiler resolving names through resolver and typing through model.
 func New(model *semantics.Model, resolver *resolve.Resolver) *Compiler {
-	return &Compiler{model: model, resolver: resolver, nums: map[slot]bool{}, fnSlots: map[slot]*FnSet{}, literals: map[*symbols.Symbol]enumLiteral{}}
+	return &Compiler{model: model, resolver: resolver, nums: map[slot]bool{}, unsets: map[slot]bool{}, records: map[*symbols.Symbol]*Record{}, fnSlots: map[slot]*FnSet{}, literals: map[*symbols.Symbol]enumLiteral{}}
 }
 
 // Compile compiles entry and every calc it invokes, transitively, for target.
@@ -85,6 +89,7 @@ func (c *Compiler) Compile(entry *symbols.Symbol, target Target) (*Program, erro
 	c.fns = newFnTables()
 	for {
 		c.funcs, c.order, c.keys, c.collections, c.widened = map[specKey]*Func{}, nil, map[*Func]specKey{}, false, false
+		c.recOrder = nil
 		c.pass++
 		fn, err := c.compileCalcWith(entry, nil)
 		if c.widened {
@@ -93,7 +98,15 @@ func (c *Compiler) Compile(entry *symbols.Symbol, target Target) (*Program, erro
 		if err != nil {
 			return nil, err
 		}
-		return &Program{Funcs: c.order, Enums: c.enumOrder, FnCases: c.fns.order, Entry: fn, Collections: c.collections, Target: target}, nil
+		for _, p := range fn.Params {
+			if p.Type.MayUnset() {
+				return nil, &UnsupportedError{Calc: fn.Name, What: fmt.Sprintf("parameter %s: a value that may be %s, which a command-line argument cannot state", p.Name, runtime.UnsetText)}
+			}
+		}
+		if fn.Result.Elem().IsRec() {
+			return nil, &UnsupportedError{Calc: fn.Name, What: fmt.Sprintf("result: a %s, a record, which a program cannot print: the interpreter names a data value by an object number that a compiled run does not reproduce", fn.Result)}
+		}
+		return &Program{Funcs: c.order, Enums: c.enumOrder, Records: c.recOrder, FnCases: c.fns.order, Entry: fn, Collections: c.collections, Target: target}, nil
 	}
 }
 
@@ -131,6 +144,9 @@ func (c *Compiler) slotted(b binding, s slot) binding {
 			}
 			b.fn = &f
 		}
+	}
+	if c.unsets[s] && b.t.Scalar() {
+		b.t = b.t.Unsettable()
 	}
 	return b
 }
@@ -195,6 +211,8 @@ type funcCompiler struct {
 	// result is the return binding once a declaration or a return has fixed it.
 	result binding
 	temps  int
+	// exactTemps is how the interpreter holds each hoisted temporary's value.
+	exactTemps map[string]exactness
 	// outer is the body enclosing a closure; captured are the names the closure
 	// reads from it, captureErr the first it cannot, and selfCalls is set once
 	// the closure calls itself.
@@ -322,6 +340,9 @@ func (c *Compiler) compileFuncWith(fn *Func, key specKey, sym *symbols.Symbol, b
 		if err != nil {
 			return nil, err
 		}
+		if key == c.entry && b.t.Elem().IsRec() {
+			return nil, fc.unsupported(fmt.Sprintf("parameter %s takes a %s, a record, which a program cannot take on its command line", name, b.t))
+		}
 		s := slot{key: key, name: name}
 		if key == c.entry && c.target != TargetC && b.t.Elem() == TypeReal {
 			// A Go program reads a Real argument in either notation, as the interpreter does.
@@ -333,6 +354,11 @@ func (c *Compiler) compileFuncWith(fn *Func, key specKey, sym *symbols.Symbol, b
 	}
 	if nextFn != len(fargs) {
 		return nil, fc.unsupported(fmt.Sprintf("%d function values bound to %d `in calc` parameters", len(fargs), nextFn))
+	}
+	if fn.self != nil {
+		self := binding{t: RecType(fn.self), m: MultOne}
+		fn.Params = append(fn.Params, Param{Name: selfParam, Type: self.t, Mult: MultOne})
+		fc.env.bind(selfParam, self)
 	}
 	if outer != nil {
 		for _, p := range seed {
@@ -359,7 +385,7 @@ func (c *Compiler) compileFuncWith(fn *Func, key specKey, sym *symbols.Symbol, b
 		return nil, err
 	} else if fc.result = declared; declared.t != TypeInvalid {
 		fn.Result = declared.t
-		if declared.t.Scalar() {
+		if declared.t.Concrete().Scalar() {
 			fn.ResultRange = declared.r
 		}
 	}
@@ -651,6 +677,13 @@ func (fc *funcCompiler) valueType(typ *symbols.Symbol) (Type, Range, string) {
 		}
 		return EnumType(e), RangeAny, ""
 	}
+	if typ.Kind == symbols.SymbolAttributeDef && !fc.c.resolver.Index().Library(typ) {
+		r, why := fc.recordOf(typ)
+		if why != "" {
+			return TypeInvalid, RangeAny, why
+		}
+		return RecType(r), RangeAny, ""
+	}
 	t, r, ok := scalarType(fc.c.name(typ))
 	if !ok {
 		return TypeInvalid, RangeAny, fmt.Sprintf("type %s is not Integer, Real, Boolean, String or an enumeration", fc.c.name(typ))
@@ -671,7 +704,7 @@ func scalarType(fqn string) (Type, Range, bool) {
 		return TypeInt, RangeNatural, true
 	case "ScalarValues::Positive":
 		return TypeInt, RangePositive, true
-	case "ScalarValues::Real", "ScalarValues::Rational":
+	case "ScalarValues::Real":
 		return TypeReal, RangeAny, true
 	case "ScalarValues::Boolean":
 		return TypeBool, RangeAny, true
@@ -862,7 +895,7 @@ func (fc *funcCompiler) compileDeclare(s lower.Declare) ([]Stmt, error) {
 		// An attribute holding one function value can be invoked.
 		declared.fn = &funcValue{dyn: declared.t, read: Var{Name: s.Name, T: declared.t}}
 	}
-	if declared.t.Scalar() && !v.Type().Scalar() {
+	if declared.t.Scalar() && !v.Type().Scalar() && !v.Type().MayUnset() {
 		declared.t = declared.t.Seq()
 		fc.c.collections = true
 	}
@@ -969,6 +1002,7 @@ func (fc *funcCompiler) compileBool(n ast.Node, what, fail string) (Expr, error)
 	if err != nil {
 		return nil, err
 	}
+	v = fc.need(v)
 	if v.Type() == TypeSeqBool {
 		v = ToOne{X: v, Fail: fail, Bare: true}
 	}
@@ -1009,12 +1043,24 @@ func (fc *funcCompiler) coerce(v Expr, t Type, what string) (Expr, error) {
 }
 
 // compileExpr compiles n charged the steps the interpreter spends on it.
+// A value that may be unset is Named by the text a failure to find it names.
 func (fc *funcCompiler) compileExpr(n ast.Node) (Expr, error) {
 	x, err := fc.compileNode(n)
 	if err != nil {
 		return nil, err
 	}
-	return fc.stepped(n, x), nil
+	nm, named := x.(Named)
+	if named {
+		x = nm.X
+	}
+	x = fc.stepped(n, x)
+	if !x.Type().MayUnset() {
+		return x, nil
+	}
+	if !named {
+		nm.Feature = runtime.ConditionText(n)
+	}
+	return Named{X: x, Feature: nm.Feature}, nil
 }
 
 func (fc *funcCompiler) compileNode(n ast.Node) (Expr, error) {
@@ -1030,7 +1076,11 @@ func (fc *funcCompiler) compileNode(n ast.Node) (Expr, error) {
 		if err != nil {
 			return nil, fc.unsupported(fmt.Sprintf("literal %s is outside the Real range", n.Value))
 		}
-		return RealLit{Value: v}, nil
+		exact, err := semantics.ParseRational(n.Value, semantics.DefaultMaxIntegerBits)
+		if err != nil {
+			return nil, fc.unsupported(fmt.Sprintf("literal %s: %v", n.Value, err))
+		}
+		return RealLit{Value: v, Rat: exact.Rat()}, nil
 	case *ast.LiteralBool:
 		return BoolLit{Value: n.Value}, nil
 	case *ast.LiteralString:
@@ -1042,6 +1092,10 @@ func (fc *funcCompiler) compileNode(n ast.Node) (Expr, error) {
 		return fc.compileOperator(n)
 	case *ast.InvocationExpr:
 		return fc.compileCall(n)
+	case *ast.ConstructorExpr:
+		return fc.compileConstructor(n)
+	case *ast.FeatureChainExpr:
+		return fc.compileChain(n)
 	case *ast.BodyExpr:
 		// A parenthesized expression parses as a body holding one expression.
 		if len(n.Members) == 1 {
@@ -1081,6 +1135,9 @@ func (fc *funcCompiler) compileName(qn *ast.QualifiedName) (Expr, error) {
 	}
 	if f, ok := fc.boundFunction(qn); ok {
 		return fc.fnRead(*f), nil
+	}
+	if x, ok := fc.selfFeature(qn); ok {
+		return x, nil
 	}
 	// A library constant reads as its value, as the interpreter's feature seam gives it.
 	if qn != nil {
@@ -1145,6 +1202,13 @@ func (fc *funcCompiler) compileOperator(n *ast.OperatorExpr) (Expr, error) {
 		if err != nil {
 			return nil, err
 		}
+		if then.Type().MayUnset() || els.Type().MayUnset() {
+			then, els, t, err := fc.unsetBranches(then, els)
+			if err != nil {
+				return nil, err
+			}
+			return Cond{C: cond, Then: then, Else: els, T: t}, nil
+		}
 		t, err := fc.unify(then, els, "branches of if")
 		if err != nil {
 			return nil, err
@@ -1208,13 +1272,24 @@ func (fc *funcCompiler) compileOperator(n *ast.OperatorExpr) (Expr, error) {
 			switch {
 			case isLit && lit.sign() >= 0:
 			case isLit:
-				t = TypeReal
-				l, r = ToReal{X: l}, ToReal{X: r}
+				k, _ := leading(r)
+				base, lets := fc.hoist(l, nil)
+				var x Expr = restep(k, fc.reciprocalPow(base, lit))
+				for i := len(lets) - 1; i >= 0; i-- {
+					x = Let{Name: lets[i].Name, Value: lets[i].Value, In: x}
+				}
+				return wrap(x), nil
 			default:
 				return nil, fc.unsupported("`**` of an Integer by a non-literal Integer exponent (write the exponent as a literal, or make the base Real)")
 			}
 		}
-		return wrap(Binary{Op: n.Operator, L: l, R: r, T: t}), nil
+		var x Expr = Binary{Op: n.Operator, L: l, R: r, T: t}
+		if t == TypeReal {
+			if x, err = fc.rationalArithmetic(x.(Binary)); err != nil {
+				return nil, err
+			}
+		}
+		return wrap(x), nil
 	case ast.OpLt, ast.OpLe, ast.OpGt, ast.OpGe:
 		l, r, wrap, err := fc.binaryOperands(n)
 		if err != nil {
@@ -1237,10 +1312,17 @@ func (fc *funcCompiler) compileOperator(n *ast.OperatorExpr) (Expr, error) {
 			return nil, err
 		}
 		if t == TypeNum {
+			if fc.meetsExact(l, r) {
+				return wrap(fc.kindSplit(Binary{Op: n.Operator, L: l, R: r, T: TypeBool}, fc.exactCompare)), nil
+			}
 			l, _ = fc.coerce(l, TypeNum, "")
 			r, _ = fc.coerce(r, TypeNum, "")
 		}
-		return wrap(Binary{Op: n.Operator, L: l, R: r, T: TypeBool}), nil
+		x, err := fc.rationalComparison(Binary{Op: n.Operator, L: l, R: r, T: TypeBool})
+		if err != nil {
+			return nil, err
+		}
+		return wrap(x), nil
 	case ast.OpEq, ast.OpNeq, ast.OpEqEqEq, ast.OpNeqEqEq:
 		return fc.compileEquality(n)
 	case ast.OpAnd, ast.OpConditionalAnd, ast.OpOr, ast.OpConditionalOr, ast.OpXor, ast.OpImplies:
@@ -1250,6 +1332,7 @@ func (fc *funcCompiler) compileOperator(n *ast.OperatorExpr) (Expr, error) {
 		if err != nil {
 			return nil, err
 		}
+		l, r = fc.need(l), fc.need(r)
 		if l, err = fc.scalarOperand(l, r, n.Operator, true); err != nil {
 			return nil, err
 		}
@@ -1274,6 +1357,7 @@ func (fc *funcCompiler) compileOperator(n *ast.OperatorExpr) (Expr, error) {
 		if err != nil {
 			return nil, err
 		}
+		x = fc.need(x)
 		if x, err = fc.scalarOperandWith(x, fmt.Sprintf("type mismatch: unary '%s' requires numeric operand, got %%s", n.Operator), true, fmt.Sprintf("'%s'", n.Operator)); err != nil {
 			return nil, err
 		}
@@ -1294,6 +1378,9 @@ func (fc *funcCompiler) compileOperator(n *ast.OperatorExpr) (Expr, error) {
 			}, func(v []Expr) Expr {
 				return ToNum{X: Unary{Op: ast.OpNeg, X: asReal(v[0]), T: TypeReal}}
 			}, TypeNum), nil
+		}
+		if n.Operator == ast.OpNeg && x.Type() == TypeReal {
+			return fc.rationalNeg(x), nil
 		}
 		return Unary{Op: n.Operator, X: x, T: x.Type()}, nil
 	case ast.OpNot:
@@ -1320,6 +1407,7 @@ func (fc *funcCompiler) binaryOperands(n *ast.OperatorExpr) (Expr, Expr, func(Ex
 	if err != nil {
 		return nil, nil, nil, err
 	}
+	l, r = fc.need(l), fc.need(r)
 	wrap := func(x Expr) Expr { return x }
 	if l.Type().Many() || r.Type().Many() && l.Type() == TypeNum {
 		// A right operand whose evaluation only spends steps spends them in place.
@@ -1354,6 +1442,10 @@ func (fc *funcCompiler) hoist(v Expr, lets []Let) (Expr, []Let) {
 	fc.temps++
 	// A NUL cannot occur in a source name, so the temporary shadows nothing.
 	name := fmt.Sprintf("\x00%d", fc.temps)
+	if fc.exactTemps == nil {
+		fc.exactTemps = map[string]exactness{}
+	}
+	fc.exactTemps[name] = fc.classify(v, false)
 	return Var{Name: name, T: v.Type()}, append(lets, Let{Name: name, Value: v})
 }
 
@@ -1417,6 +1509,9 @@ func (fc *funcCompiler) unify(a, b Expr, what string) (Type, error) {
 }
 
 func (fc *funcCompiler) compileCall(n *ast.InvocationExpr) (Expr, error) {
+	if chain := semantics.ChainCallee(n); chain != nil {
+		return fc.compileChainCall(n, chain)
+	}
 	if n.Type == nil {
 		return nil, fc.unsupported("an invocation naming no calc")
 	}
@@ -1452,6 +1547,9 @@ func (fc *funcCompiler) compileCall(n *ast.InvocationExpr) (Expr, error) {
 	}
 	if !isCalc(sym.Decl) {
 		return nil, fc.unsupported(fmt.Sprintf("invocation of %s, which is not a calc", fc.c.name(sym)))
+	}
+	if x, ok, err := fc.callSelfCalc(sym, n); ok {
+		return x, err
 	}
 	if fc.c.resolver.Index().Library(sym) {
 		return fc.compileLibCall(n, fc.c.name(sym))
@@ -1623,6 +1721,13 @@ func (fc *funcCompiler) finishLibCall(fqn string, params []string, args []Arg) (
 func (fc *funcCompiler) libCall(op LibOp, fqn string, params []string, args []Arg) (Expr, error) {
 	args = slices.Clone(args)
 	var err error
+	if op == LibIsZero || op == LibIsUnit {
+		for _, a := range args {
+			if fc.exactness(a.Value) == exactRational {
+				return nil, fc.unsupported(fmt.Sprintf("%s of an exact Rational binary64 does not hold exactly (compiled code holds Rationals as binary64)", fqn))
+			}
+		}
+	}
 	for i, a := range args {
 		if args[i].Value, err = fc.coerce(a.Value, op.Operands()[a.Param], fmt.Sprintf("argument for %s of %s", params[a.Param], fqn)); err != nil {
 			return nil, err

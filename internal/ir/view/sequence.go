@@ -10,6 +10,20 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
 
+func runParticipantLabel(node *Node) string {
+	label := node.Name
+	if node.Type != "" {
+		if label != "" {
+			label += " : "
+		}
+		label += node.Type
+	}
+	if label == "" {
+		return node.Kind
+	}
+	return label
+}
+
 // renderSequence renders the occurrences of an interaction as lifelines and the
 // flows between them as directed messages, ordered as the model states. A
 // lifeline list is flat — a sequence diagram nests nothing — so a message
@@ -264,7 +278,7 @@ func (r *Renderer) messages(flows []*symbols.Symbol, lifelines map[*symbols.Symb
 		var ends []*symbols.Symbol
 		var nodes []*Node
 		for _, end := range []ast.Node{usage.FlowEnds.From, usage.FlowEnds.To} {
-			occurrence, node := r.messageEnd(flow, end, lifelines)
+			occurrence, node := r.messageEnd(flow, ast.EndTarget(end), lifelines)
 			if node == nil {
 				out.Notices = append(out.Notices, fmt.Sprintf(
 					"%s attaches to %s, which is on no lifeline the rendering shows; no message is drawn",

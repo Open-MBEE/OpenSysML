@@ -194,6 +194,12 @@ func TestDiagramFormErrors(t *testing.T) {
 	if _, err := (&markdownWriter{opts: DiagramOptions{Form: view.FormPlantUML}}).diagramFigure("d", "", graphRendering(view.KindSequence), view.Options{}); err != nil {
 		t.Fatalf("sequence as plantuml: %v", err)
 	}
+	for _, kind := range []view.Kind{view.KindCase, view.KindMixed} {
+		_, err := (&markdownWriter{opts: DiagramOptions{Form: view.FormD2}}).diagramFigure("d", "", graphRendering(kind), view.Options{})
+		if !errors.As(err, &typed) || typed.Kind != ErrorUnrenderableForm || typed.Actual != string(kind) || typed.DiagramForm != view.FormD2 {
+			t.Errorf("%s as d2: error = %v", kind, err)
+		}
+	}
 	table := &view.Rendering{Kind: view.KindTable, Columns: []string{"a"}, Rows: [][]string{{"x"}}}
 	for _, form := range []view.Form{view.FormDot, view.FormPlantUML} {
 		if got := renderedDiagramForm(t, "", table, "", form); !strings.Contains(got, "| a |") || !strings.Contains(got, "| x |") {
@@ -219,6 +225,22 @@ func TestDiagramTableKind(t *testing.T) {
 	want := "*Masses*\n\n<!-- table rendering -->\n| name | mass |\n| --- | --- |\n| optics | 8.5 |\n| mount\\|base | 15 |"
 	if got != want {
 		t.Errorf("table = %q, want %q", got, want)
+	}
+}
+
+func TestDiagramMatrixKindIsATableInEveryDiagramForm(t *testing.T) {
+	rendering := &view.Rendering{
+		Kind:    view.KindMatrix,
+		Columns: []string{"Source / Target", "Observatory::target"},
+		Rows:    [][]string{{"Observatory::source", "satisfy"}},
+	}
+	for _, form := range []view.Form{view.FormMermaid, view.FormDot, view.FormPlantUML, view.FormD2} {
+		got := renderedDiagramForm(t, "Relationships", rendering, "", form)
+		if !strings.Contains(got, "| Source / Target | Observatory::target |") ||
+			!strings.Contains(got, "| Observatory::source | satisfy |") ||
+			strings.Contains(got, "```"+string(form)) {
+			t.Errorf("matrix as %s is not a pipe table:\n%s", form, got)
+		}
 	}
 }
 

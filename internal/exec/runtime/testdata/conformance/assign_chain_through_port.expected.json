@@ -5,7 +5,7 @@
     {
       "finalState": "driving",
       "stateVisits": ["driving"],
-      "slots": {"link.level": {"type": "Real", "value": 1.5}}
+      "slots": {"link.level": {"type": "Rational", "value": "1.5"}}
     }
   ]
 }

@@ -127,6 +127,7 @@ func (ec *exprChecker) checkEnumeratedValue(scope *symbols.Scope, enum *symbols.
 	if !ok {
 		return
 	}
+	got = heldBy(ec.model.PrimTypeOf(enum), got)
 	literals := ec.model.EnumeratedValuesOf(enum)
 	if len(literals) == 0 {
 		ec.errorf(value.Span(), "cannot bind %s to a feature typed by %s, which enumerates no values", got.text, enum.Name)
@@ -144,6 +145,7 @@ func (ec *exprChecker) checkEnumeratedValue(scope *symbols.Scope, enum *symbols.
 		if !ok {
 			return
 		}
+		want = heldBy(ec.model.PrimTypeOf(enum), want)
 		if want.equal(got) {
 			return
 		}
@@ -203,7 +205,7 @@ func (ec *exprChecker) checkValueCount(valueScope, declScope *symbols.Scope, d f
 
 // checkValueUniqueness reports a literal writing one const-decidable value twice to
 // a unique, sequence-held feature (KerML 7.3.4.4); other equality is the runtime's.
-func (ec *exprChecker) checkValueUniqueness(valueScope, declScope *symbols.Scope, d featureDecl, value ast.Node) {
+func (ec *exprChecker) checkValueUniqueness(valueScope, declScope *symbols.Scope, d featureDecl, value ast.Node, want semantics.PrimType) {
 	if _, ok := value.(*ast.SequenceExpr); !ok {
 		return
 	}
@@ -217,6 +219,7 @@ func (ec *exprChecker) checkValueUniqueness(valueScope, declScope *symbols.Scope
 		if !ok {
 			continue
 		}
+		el = heldBy(want, el)
 		el.position = i + 1
 		for _, prior := range seen {
 			if prior.equal(el) {
@@ -292,11 +295,28 @@ func (ec *exprChecker) constElement(scope *symbols.Scope, element ast.Node) (con
 	return constElement{}, false
 }
 
+// heldBy is el as a feature of scalar type prim holds it: an exact Rational a
+// Real-typed feature holds is its nearest binary64, as at run time.
+func heldBy(prim semantics.PrimType, el constElement) constElement {
+	if el.scalar.Kind != semantics.ValRational || prim != semantics.PrimReal {
+		return el
+	}
+	real, err := semantics.RealOf(el.scalar)
+	if err != nil {
+		return el
+	}
+	el.scalar = real
+	el.text = semantics.FormatConst(real) + " (" + constKind(real) + ")"
+	return el
+}
+
 // constKind names a constant's kind as the runtime describes one.
 func constKind(v semantics.Value) string {
 	switch v.Kind {
 	case semantics.ValInt:
 		return "an Integer"
+	case semantics.ValRational:
+		return "a Rational"
 	case semantics.ValReal:
 		return "a Real"
 	default:

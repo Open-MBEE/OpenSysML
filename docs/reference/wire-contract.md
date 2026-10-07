@@ -182,6 +182,34 @@ $ … /ParseSources -d '{"documents":[{"name":"a.sysml","content":"package A { a
 {"modelHash":"f90104e75e9172ab29c8648e3529a103e178756d35b4643d03c8c64419eaabae","roots":[{"kind":"RootNamespace","childIds":["A"]}]}
 ```
 
+### Parsing the same documents again after an edit
+
+A client that re-parses one model after each edit (an editor, a build that recompiles) sends the
+same documents by name with some contents changed. From the second parse of a document set, the
+service answers from an incremental workspace it keeps for that set
+(`internal/frontend/grpc/lineage.go`): it re-parses only the documents whose content changed, and
+re-analyzes only those and the documents whose analysis read them. Nothing in the request or the
+answer changes. The model, its hash, its diagnostics and every later call on it are what a first
+parse of the same documents gives; only the time differs. A set is keyed by its documents' names
+and languages and the conformance mode, and the service keeps the four most recently used.
+`ParseFile` parses its one document whole.
+
+Under the `parse_sources_affected` capability a client can also ask which documents an edit
+reached. It sends the hash it was answered last as `base_model_hash`, and the answer's `affected`
+names, in the request's document order, every document whose results may differ from the base
+model's. A document left out was answered from the very analysis the base was, so its
+diagnostics are the base's and `Convert` with `documents` naming it writes exactly what it wrote
+for the base: a client that keeps each document's conversion re-converts only the affected ones.
+A request without `base_model_hash` gets no `affected`. The list errs towards naming too
+many. Every document is named when the service holds no base of that hash, when the base was
+answered fresh rather than from the set's workspace (the first parse of a set, a document that
+did not parse clean), when the base is another document set's, or when a document of either
+model names `ProjectRef`: how many identity scopes a model declares decides whether its ids are
+qualified, which can change every document's conversion without changing its analysis. A
+document is named whenever the workspace analyzed it again, which can be for a name it read being
+declared again unchanged. A base hash sent to a service without the capability is
+refused with `UNIMPLEMENTED`.
+
 A **stale or unknown hash** is therefore always HTTP 404 with `"code":"not_found"`, on every
 method that takes one. The message is `model not found: <hash>` everywhere except `ApplyEdits`
 and `Convert`, which say `model <hash> is no longer cached: parse it again …`. The Python
@@ -192,10 +220,10 @@ Note that `not_found` is also the status for an unknown *symbol* on some methods
 which (`model not found:`, `symbol not found:`, `file not found:`), and a client that recovers
 by re-parsing must read it.
 
-## `Value`: twenty-two arms, exactly one present
+## `Value`: twenty-three arms, exactly one present
 
 Every value the engine returns — an expression result, a feature of an instance, an action
-output, a state-machine context variable — is a `Value`, which is a proto `oneof` of twenty-two
+output, a state-machine context variable — is a `Value`, which is a proto `oneof` of twenty-three
 arms. In JSON that is **an object with exactly one key**, and the key is the discriminator.
 A decoder therefore does not look for a `kind` field: it looks at which key is present. The
 arms, each captured from `Evaluate` against the model at the end of this section:
@@ -204,13 +232,14 @@ arms, each captured from `Evaluate` against the model at the end of this section
 |---|---|---|---|
 | `intValue` | string | `{"result":{"intValue":"4"}}` | Integer within 64 bits; string because `int64` |
 | `bigIntValue` | string | `{"result":{"bigIntValue":"1180591620717411303424"}}` | Integer beyond 64 bits, in decimal; KerML Integers are unbounded |
-| `realValue` | number | `{"result":{"realValue":0.3333333333333333}}` | Real (IEEE-754 double) |
+| `realValue` | number | `{"result":{"realValue":1.4142135623730951}}` | Real (IEEE-754 double), or a Rational a double holds exactly |
+| `rationalValue` | object | `{"result":{"rationalValue":{"numerator":"1","denominator":"3"}}}` | Rational in lowest terms; KerML Rationals are exact. Answered only for one no double holds, accepted for any |
 | `boolValue` | boolean | `{"result":{"boolValue":true}}` | Boolean |
 | `stringValue` | string | `{"result":{"stringValue":"abc"}}` | String |
 | `instanceId` | string | `{"result":{"instanceId":"2"}}` | A reference to a runtime instance, by id |
 | `sequence` | object | `{"result":{"sequence":{"elements":[{"stringValue":"nav"},{"stringValue":"sci"}]}}}` | Ordered collection; `elements` are `Value`s |
 | `null` | string | `{"result":{"null":""}}` | The SysML `null`, or an unsupported value (non-empty string) |
-| `quantity` | object | `{"result":{"quantity":{"realMagnitude":5.4,"unit":"SI::km/SI::h","unitTerm":{…}}}}` | Magnitude with a unit |
+| `quantity` | object | `{"result":{"quantity":{"rationalMagnitude":{"numerator":"27","denominator":"5"},"unit":"SI::km/SI::h","unitTerm":{…}}}}` | Magnitude with a unit |
 | `enumLiteral` | object | `{"result":{"enumLiteral":{"literalId":"Rover::Mode::idle","enumerationId":"Rover::Mode","name":"Mode::idle"}}}` | Enumeration literal; a scalar-valued one (`high = 3`) also carries `value` |
 | `unset` | boolean | `{"result":{"unset":true}}` | A feature that exists and has no value |
 | `complex` | object | `{"result":{"complex":{"real":1.5,"imaginary":-2}}}` | Complex number |
@@ -232,7 +261,7 @@ The `array`, `vector` and `vectorQuantity` rows were captured against
 `conformance/fixtures/set_tensor.sysml` (`T::s.elements`, `T::cube`), `metaobject` against
 `conformance/fixtures/metaobject.sysml` (`(Meta::seatBelt meta KerML::Feature)#(1)`); the rest against the model below, with requests of the form
 `{"modelHash":"59c4…a654","expression":"<expr>","contextSymbolId":"Rover"}` with `rover.count`,
-`1.0 / 3.0`, `rover.armed`, `"abc"`, `rover.wheel`, `rover.tags`, `null`, `rover.speed`,
+`RealFunctions::sqrt(2.0)`, `1.0 / 3.0`, `rover.armed`, `"abc"`, `rover.wheel`, `rover.tags`, `null`, `rover.speed`,
 `Mode::idle`, `rover.serial` and `rover.z`, and the model was:
 
 ```sysml
@@ -276,6 +305,8 @@ decode(v):
   bigIntValue  → parse the decimal string as an arbitrary-precision integer (it is always
                  outside int64); never as a double
   realValue    → the number, as a double
+  rationalValue → numerator / denominator, each a decimal string, as an exact rational;
+                 never as a double
   boolValue    → the boolean
   stringValue  → the string
   instanceId   → an opaque reference; parse as 64-bit integer, keep it a reference
@@ -289,7 +320,7 @@ decode(v):
   array        → shape v.array.dimensions (parse each as int64); elements := map decode over
                  v.array.elements; require len(elements) == product(dimensions), else an error
   vector       → map over v.vector.components: intValue or bigIntValue → integer,
-                 realValue → double,
+                 rationalValue → exact rational, realValue → double,
                  anything else → an error
   vectorQuantity → map the quantity rule over v.vectorQuantity.components; empty → an error
   measurementRef → unit := v.measurementRef.unit, id := v.measurementRef.unitId;
@@ -342,6 +373,32 @@ sends a wide Integer (bare, nested, or as a `bigIntMagnitude`) as an unsupported
 with `UNIMPLEMENTED` naming the capability, since a document value has no unsupported arm, and,
 since such a service would read an unknown arm as `null`, the bundled clients refuse to send one
 to it, document-query bindings included, before the call.
+
+**`rationalValue`.** A KerML `Rational` is a rational number (KerML 1.0 §9.3.2.2.8), held
+exactly: `1 / 3` answers `{"result":{"rationalValue":{"numerator":"1","denominator":"3"}}}` and
+`0.1 + 0.2` answers `{"numerator":"3","denominator":"10"}`. `numerator` and `denominator` are
+canonical decimal strings (no `+`, no leading zero), the fraction is in lowest terms and the
+denominator is positive. The service answers a Rational a double holds exactly (`0.5`,
+`2.0 ** 70`) as `realValue`, so its answers never spell one number two ways; an Integer is never
+answered here, though a whole Rational no double holds is (denominator `1`). A client decoder
+rejects an answered `rationalValue` that is not in lowest terms or that a double holds.
+
+On input the direction of the rule is reversed. The service accepts any `rationalValue` in lowest
+terms, one a double holds included, as that exact Rational: `{"numerator":"1","denominator":"4"}`
+bound to `in x : Rational` evaluates `x + 1/3` to `7/12`. A `realValue` sent to it is always a
+binary64 Real, never a Rational: `0.25` bound to the same parameter evaluates `x + 1/3` to
+`0.5833333333333333`. Evaluation does not depend on which arm carried a value beyond that: once
+read, an exact Rational behaves the same whether it arrived as `rationalValue` or was written in
+the model. So the bundled clients send every exact Rational (`Fraction(1, 4)`, `1//4`,
+`Rational.of(1, 4)`) as `rationalValue` to a service that advertises `rational_values`.
+
+A value declared `Real` is IEEE 754 binary64 and always answers `realValue` (`rover.mass` is
+`{"realValue":20}`). The arm is negotiated by the `rational_values` capability exactly as
+`big_int_values` negotiates `bigIntValue`: a service that does not advertise it sends such a
+Rational (bare, nested, or as a `rationalMagnitude`) as an unsupported `null` naming it, and
+refuses a document query bound to or answering one with `UNIMPLEMENTED` naming the capability.
+To such a service the bundled clients send a Rational a double holds exactly as that `realValue`,
+the only form it reads, and refuse to send any other Rational before the call.
 
 MATLAB's `jsondecode` gives you a `char`
 array, which `int64(str2double(...))` corrupts and `sscanf(s, '%ld')` does not; R needs
@@ -440,12 +497,13 @@ input. A service that does not advertise `undetermined_value` sends the arm as a
 **`quantity`.** A magnitude with a unit:
 
 ```json
-{"quantity":{"realMagnitude":5.4,"unit":"SI::km/SI::h","unitTerm":{"scaleNum":5,"scaleDen":18,"factors":[{"unitId":"SI::metre","exponent":1},{"unitId":"SI::second","exponent":-1}]}}}
+{"quantity":{"rationalMagnitude":{"numerator":"27","denominator":"5"},"unit":"SI::km/SI::h","unitTerm":{"scaleNum":5,"scaleDen":18,"factors":[{"unitId":"SI::metre","exponent":1},{"unitId":"SI::second","exponent":-1}]}}}
 ```
 
 - The magnitude is its own `oneof`: **`intMagnitude`** (a string, same rule as `intValue`),
-  **`bigIntMagnitude`** (a string, same rule as `bigIntValue`) or **`realMagnitude`** (a
-  number). Exactly one is present.
+  **`bigIntMagnitude`** (a string, same rule as `bigIntValue`), **`rationalMagnitude`** (same
+  rule as `rationalValue`) or **`realMagnitude`** (a number). Exactly one is present. The
+  literal `5.4` is the exact Rational 27/5, which no double holds, so it is a `rationalMagnitude`.
 - `unit` is the unit expression as written, by fully qualified name of each unit; it is the
   display form and the identity of the unit *as declared*.
 - `unitTerm` is the same unit reduced to base units: `factors` are `(unitId, exponent)` pairs
@@ -489,7 +547,7 @@ $ … /Evaluate -d '{"modelHash":"42cc…54b0","expression":"S::grid"}'
   the same rule to an array sent to it.
 
 **`vector`.** `components` is a list of `Value`s each of which is an `intValue`, a
-`bigIntValue` or a `realValue` — nothing else — so an Integer and a Real component stay distinct, as they do in
+`bigIntValue`, a `rationalValue` or a `realValue` — nothing else — so an Integer and a Real component stay distinct, as they do in
 a `sequence`. A `vector` is not a `sequence`: `VectorOf((3.0, 4.0))` is one value with a
 dimension, and the engine's vector functions accept it where a sequence of numbers would be
 read element by element. A component of any other arm is an error, on both sides.
@@ -681,8 +739,8 @@ $ … /Evaluate -d '{"modelHash":"07a0…b5ca","expression":"Meta::notADefinitio
 ### What a client must not do
 
 - **Do not compare enum literals by `name`.** Compare `literalId`.
-- **Do not read `intValue` or `bigIntValue` (or `intMagnitude`, `bigIntMagnitude`, `id`,
-  `instanceId`) as a double.** Above 2^53 the
+- **Do not read `intValue`, `bigIntValue` or `rationalValue` (or `intMagnitude`,
+  `bigIntMagnitude`, `rationalMagnitude`, `id`, `instanceId`) as a double.** Above 2^53 the
   digits are gone and nothing tells you.
 - **Do not read `unset` as a boolean.** Its presence is the fact; a missing `result` is a
   different fact (no value), `{"null":""}` a third (the null value), and `undetermined` a
@@ -1855,6 +1913,15 @@ both declare (`package P` in each), which one graph would merge into one. Ids ar
 when the documents together declare more than one identity scope. The command line does the same
 for several files, to a file or standard output: `sysml a.sysml b.sysml -convert api-json`.
 
+`documents`, under the `convert_documents` capability, writes only some documents of such a model:
+each name is one the parse gave a document, and only the elements those documents declare are
+written, with the root namespace of each in the API element form. The model's other documents
+are still read: a reference into one is an `@id` link to the element as a conversion of its own
+document writes it, and an element one of them declares that a written document also declares is
+refused as above. So a client that holds a model's conversion can convert again only the documents
+an edit changed and replace their elements by `@id`. Empty `documents` writes every document. A name
+the model does not hold, or `documents` for a `filePath` or `content`, is `invalid_argument`.
+
 ```console
 $ … /Convert -d '{"filePath":"Vehicle.sysml","toFormat":"ttl"}'
 {
@@ -1910,9 +1977,9 @@ $ … /Migrate -d '{"filePath":"Vehicle.xmi","toFormat":"sysml"}'
   "report": {
     "source": "Vehicle.xmi",
     "exporter": "Example UML Tool",
-    "summary": "migrated 93 element(s): 77 mapped, 13 approximated, 3 unmapped (2 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)",
-    "mapped": 77,
-    "approximated": 13,
+    "summary": "migrated 93 element(s): 78 mapped, 12 approximated, 3 unmapped (2 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)",
+    "mapped": 78,
+    "approximated": 12,
     "unmapped": 3,
     "skipped": 2
   }
@@ -1954,12 +2021,99 @@ or mdzip) is migrated; call Convert with the same source`; `toFormat` naming a v
 is not one with what is wrong with it. An unreadable `filePath` or `layoutPath` is `not_found`
 with `file not found:`.
 
+## `RenderView`
+
+`RenderView` returns the machine-readable fields of a named view or targeted pseudo-view. The
+response preserves node and edge order, parent links, ports, source spans, table and matrix rows, notes and
+notices; optional canvas, geometry and style messages are absent when the model states none.
+Pictures are not included; a refused picture contributes its reason to `notices`. An omitted or
+`minimal` `ports` value includes only ports used by rendered connections; `full` includes every
+declared port. The service advertises this method as
+the `render_view` capability.
+
+This excerpt was captured by calling the gRPC service with
+`RenderViewDemo::connections` from `conformance/fixtures/views.sysml` and marshaling the response
+with protobuf JSON:
+
+```json
+{
+  "view": "RenderViewDemo::connections",
+  "kind": "interconnection",
+  "stated": "render asInterconnectionDiagram",
+  "nodes": [
+    {
+      "id": "n0",
+      "kind": "part def",
+      "name": "RenderViewDemo::Assembly",
+      "origin": {
+        "file": "<content>",
+        "startLine": 21,
+        "startCol": 5,
+        "endLine": 25,
+        "endCol": 6
+      }
+    },
+    {
+      "id": "n1",
+      "kind": "part",
+      "name": "sender",
+      "type": "Sender",
+      "parent": "n0",
+      "ports": [
+        {"id": "n1.0", "name": "api", "type": "API"}
+      ],
+      "origin": {
+        "file": "<content>",
+        "startLine": 22,
+        "startCol": 9,
+        "endLine": 22,
+        "endCol": 30
+      }
+    },
+    {
+      "id": "n2",
+      "kind": "part",
+      "name": "receiver",
+      "type": "Receiver",
+      "parent": "n0",
+      "ports": [
+        {"id": "n2.0", "name": "api", "type": "API"}
+      ],
+      "origin": {
+        "file": "<content>",
+        "startLine": 23,
+        "startCol": 9,
+        "endLine": 23,
+        "endCol": 34
+      }
+    }
+  ],
+  "edges": [
+    {
+      "from": "n1",
+      "to": "n2",
+      "fromPort": "n1.0",
+      "toPort": "n2.0",
+      "label": "link",
+      "kind": "connection",
+      "origin": {
+        "file": "<content>",
+        "startLine": 24,
+        "startCol": 9,
+        "endLine": 24,
+        "endCol": 87
+      }
+    }
+  ]
+}
+```
+
 ## Queries
 
 Two query surfaces exist and answer differently shaped tables. Their semantics — what may be
 selected, filtered and bound — are on the Go API page and are not repeated here:
 [SysML v2 API & Services `Query`](api.md#sysml-v2-api--services-query) and
-[Native document queries and rendering over gRPC](api.md#native-document-queries-and-rendering-over-grpc).
+[Native document queries and rendering over gRPC](api.md#native-documents-and-views-over-grpc).
 Each is its own capability: `Query` needs `query` (and `oslc_query` when the request uses
 `oslcQuery`); `RunDocumentQuery` needs `document_query`; `RenderDocument` needs
 `render_document`, and `render_document_html` too when its `form` is `html`.
@@ -2040,8 +2194,8 @@ a `DocumentValue`, here always `elementId` plus `elementType`) and `cells` **pos
 aligned with `columns`**. A cell holds `values`, a list of `DocumentValue`s (several for a
 multi-valued property, none for a missing one, in which case `values` is absent). A
 `DocumentValue` decodes like a `Value` — one arm present — but its arms are the eight above plus
-the answer-only `verdict` below and `bigIntValue` for an Integer beyond `int64` (same rule as on
-`Value`), and never a nested sequence or enum. `SubsystemTable` projects two columns and shows a
+the answer-only `verdict` below, `bigIntValue` for an Integer beyond `int64` and `rationalValue`
+for a Rational no double holds (same rules as on `Value`), and never a nested sequence or enum. `SubsystemTable` projects two columns and shows a
 `realValue` cell:
 
 ```console

@@ -471,8 +471,9 @@ func (e *encoder) encodeTransition(n *ast.TransitionMember, head func(rdf.Term),
 	if n.Via != nil && !structural {
 		e.graph.Add(subject, e.sysml(relationshipProperty[ast.RelVia]), e.reference(n.Via))
 	}
-	// The guard reads the parameters the trigger declares, in the transition's scope.
-	if err := e.expression(subject, e.sysx(xGuard), xGuard, fqn, n.Guard); err != nil {
+	// The guard reads the parameters the trigger declares, in the transition's
+	// scope, and is owned through a TransitionFeatureMembership of kind guard.
+	if err := e.expressionAs(subject, e.sysx(xGuard), xGuard, fqn, n.Guard, mTransitionFeatureMembership); err != nil {
 		return err
 	}
 	if n.HasEffect {
@@ -1091,9 +1092,12 @@ func (d *decoder) behaviorHead(el *element) (string, bool, error) {
 		if !hasTarget || !hasValue {
 			return "", true, d.missing(el, "sysx:"+xTarget+" and sysml:"+pValue, "an assignment states what it assigns to what")
 		}
-		var words []string
+		words := nodeDeclaration(d, el)
 		if keyword, ok := d.stringOf(el, rdf.OpenSysML+xDeclaredKeyword); ok {
 			words = append(words, keyword)
+		} else if len(words) > 0 {
+			// A named node spells the keyword the bare statement may leave out.
+			words = append(words, "assign")
 		}
 		operator := ":="
 		if written, ok := d.stringOf(el, rdf.OpenSysML+xAssignOperator); ok {
@@ -1112,7 +1116,8 @@ func (d *decoder) behaviorHead(el *element) (string, bool, error) {
 		if d.boolOf(el, rdf.OpenSysML+xIsVia) {
 			keyword = "via"
 		}
-		return strings.Join([]string{"send", payload, keyword, receiver}, " "), true, nil
+		words := append(nodeDeclaration(d, el), "send", payload, keyword, receiver)
+		return strings.Join(words, " "), true, nil
 
 	case mTerminate:
 		// A declared `action a terminate;` is a usage head, not a statement; it keeps its
@@ -2046,22 +2051,46 @@ func (d *decoder) transitionHead(el *element, syntax string) ([]string, error) {
 	if source == "" {
 		return nil, d.missing(el, sysmlPrefix+pSourceFeature, "a transition written with `transition` names the state it leaves")
 	}
+	ident := d.identWords(el)
 	keyword := "transition"
 	if written, ok := d.stringOf(el, rdf.OpenSysML+xDeclaredKeyword); ok {
 		keyword = written
+	} else if guard, err := d.transitionGuard(el); err == nil && guard != "" && d.inActionBody(el) {
+		// An action body admits a transition as a GuardedSuccession, whose
+		// `succession` is optional unless it declares a name. One without a
+		// guard is no GuardedSuccession: written so, it would read back as a
+		// succession, so it keeps `transition`.
+		keyword = ""
+		if len(ident) > 0 {
+			keyword = "succession"
+		}
 	}
-	ident := d.identWords(el)
 	var words []string
 	if visibility := d.visibility(el); visibility != "" {
 		words = append(words, visibility)
 	}
-	words = append(words, keyword)
+	if keyword != "" {
+		words = append(words, keyword)
+	}
 	words = append(words, ident...)
 	// The grammar admits a bare source only on a nameless `transition`.
 	if syntax == "first" || len(ident) > 0 || keyword == "succession" {
 		words = append(words, "first")
 	}
 	return append(words, source), nil
+}
+
+// inActionBody reports whether el is a member of an action's body rather than
+// of a state's, whose transitions take the `transition` keyword.
+func (d *decoder) inActionBody(el *element) bool {
+	if el.owner == nil {
+		return false
+	}
+	owner := el.owner.metaclass
+	if ontology.IsAncestorOrSelf(owner, mStateUsage) || ontology.IsAncestorOrSelf(owner, "StateDefinition") {
+		return false
+	}
+	return ontology.IsAncestorOrSelf(owner, "ActionUsage") || ontology.IsAncestorOrSelf(owner, "ActionDefinition")
 }
 
 // triggerWords writes a transition's trigger and the port it arrives via.
@@ -2401,6 +2430,21 @@ func (d *decoder) transitionFeatureKind(el *element) string {
 	}
 	kind, _ := d.graph.Lexical(rdf.IRI(m.iri), rdf.SysML+pKind)
 	return kind
+}
+
+// nodeDeclaration is the `action <name>`, after its visibility, a named send or
+// assignment node is declared with (SysML.xtext ActionNodeUsageDeclaration), or nothing for one
+// written as the bare statement.
+func nodeDeclaration(d *decoder, el *element) []string {
+	ident := d.identWords(el)
+	if len(ident) == 0 {
+		return nil
+	}
+	var words []string
+	if keyword := d.visibility(el); keyword != "" {
+		words = append(words, keyword)
+	}
+	return append(append(words, "action"), ident...)
 }
 
 // triggerPayload is the payload parameter of a trigger action: the one

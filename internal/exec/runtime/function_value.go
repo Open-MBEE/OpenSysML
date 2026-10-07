@@ -239,6 +239,6 @@ func (ec *EvalContext) invokeFunction(callee string, val Value, args calcArgs) (
 	} else {
 		result, err = ec.ctx.invokeCalcShapeIn(fn.shape, args, fn.scope, fn.self, fn.enclosing)
 	}
-	ec.ctx.evaluations.record(fn, args, result, err)
+	ec.ctx.evaluations.record(ec.ctx, fn, args, result, err)
 	return result, err
 }

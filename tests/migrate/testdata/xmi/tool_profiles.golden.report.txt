@@ -1,17 +1,17 @@
 # SysML v1 to v2 migration report: tool_profiles.xmi
 # exported by Example UML Tool
-# migrated 19 element(s): 14 mapped, 5 approximated, 0 unmapped (8 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)
+# migrated 19 element(s): 15 mapped, 4 approximated, 0 unmapped (8 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)
 
-## approximated (5)
-«Frame» Component	Mockups::Clock	_ui_clock	-> Mockups::Clock	(a plain UML class without «Block» is written as a part def)
+## approximated (4)
 StateMachine	Mockups::Clock::Ticking	_ui_clock_sm	-> Mockups::Clock::Ticking	(the classifier behavior is run by every object of Mockups::Clock as its usage ticking)
 Property	Mockups::Clock::ticks	_ui_clock_ticks	-> Mockups::Clock::ticks	(the untyped property is written as a reference usage)
 «SimulationConfig» Class	Runs::Run pump	_cfg	-> Runs::'Run pump'	(neither System::Pump nor any general of it has a classifier behavior, so the configuration only holds 'Pump')
 Property	System::Pump::mass	_pump_mass	-> System::Pump::mass	(the untyped property is written as a reference usage)
 
-## mapped (14)
+## mapped (15)
 Package	Customizations	_cust	-> Customizations
 Package	Mockups	_ui	-> Mockups
+«Frame» Component	Mockups::Clock	_ui_clock	-> Mockups::Clock
 Region	Mockups::Clock::Ticking::main	_ui_clock_main	(the one region is written as the body of its owner)
 Pseudostate	Mockups::Clock::Ticking::main::<Pseudostate>	_ui_clock_init	(written as the entry of the region)
 Transition	Mockups::Clock::Ticking::main::<Transition>	_ui_clock_t0

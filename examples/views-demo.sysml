@@ -125,11 +125,22 @@ package Lander {
             lander.mass <= maxMass
         }
     }
+
+    part def Pilot;
+
+    use case def CrewOperation {
+        subject lander : Descender;
+        actor pilot : Pilot;
+        objective {
+            doc /* Operate the lander safely through its descent. */
+        }
+    }
 }
 
 package LanderViews {
     private import Views::*;
     private import StandardViewDefinitions::*;
+    private import OpenSysMLRenderings::*;
 
     viewpoint def MassPerspective {
         frame concern mass : Lander::MassBudget;
@@ -157,6 +168,16 @@ package LanderViews {
         expose Lander::Descend;
     }
 
+    view useCases {
+        expose Lander::CrewOperation;
+        render asCaseDiagram;
+    }
+
+    view mixedOverview {
+        expose Lander;
+        render asMixedDiagram;
+    }
+
     // A filtered recursive expose, which reaches only the safety-critical
     // elements of the model.
     view safetyView {
@@ -171,8 +192,7 @@ package LanderViews {
         view interfaceSubview :> interfaces;
 
         // What `%view` checks the exposed landers against: the concern the
-        // viewpoint frames, framed by this view too.
+        // viewpoint frames.
         satisfy massPerspective;
-        frame concern mass : Lander::MassBudget;
     }
 }
