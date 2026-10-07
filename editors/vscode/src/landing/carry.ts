@@ -1,11 +1,8 @@
 import type { LayoutGeometry, RenderNode, RenderPoint } from "../protocol";
 import type { AutoLayout } from "../webview/autolayout";
 
-/**
- * carried is `moved` with every descendant of a moved node placed too, shifted from where the
- * auto layout put it by what its nearest moved ancestor shifted: a box dragged across the
- * diagram carries what is drawn inside it.
- */
+// carried is `moved` plus every descendant of a moved node, shifted as its nearest moved
+// ancestor was: a box dragged across the diagram carries what is drawn inside it.
 export function carried(
   nodes: RenderNode[],
   auto: AutoLayout | undefined,

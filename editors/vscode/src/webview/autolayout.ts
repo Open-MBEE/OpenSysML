@@ -117,9 +117,8 @@ async function layOut(result: RenderResult): Promise<AutoLayout> {
   // unwired reports whether no edge reaches a node or anything inside it.
   const unwired = (node: RenderNode): boolean =>
     !wired.has(node.id) && (children.get(node.id) ?? []).every(unwired);
-  // packed is each container of unwired children laid out alone by rectpacking: the
-  // layered algorithm stacks nodes no edge reaches in one column, and it cannot size
-  // a container running another algorithm while that container's ports have no side.
+  // packed is each container of unwired children laid out alone by rectpacking: layered
+  // stacks them in one column, and cannot size such a container while its ports have no side.
   const packed = new Map<string, ElkNode>();
   const elkNode = (node: RenderNode, packing = false): ElkNode => {
     const size = symbolSize(shapeOf(node.kind)) ?? labelSize(labelLines(node));
