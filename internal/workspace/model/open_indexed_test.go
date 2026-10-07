@@ -129,17 +129,30 @@ func TestSetOnDiskAllKeepsTheHeldKind(t *testing.T) {
 // re-derives the record's key once the version is in: the record was found
 // under the library's identity as the batch started, and an edited version
 // moves it, even where the document reads nothing of the file. A byte-identical
-// version leaves the identity, and the record.
+// version leaves the identity, so the key.
 func TestSetOnDiskAllRecordsFollowTheLibraryVersion(t *testing.T) {
 	user := []byte("package Craft { part def Sat; attribute mass = 1.5; }")
 	cache, err := libs.NewCacheIn(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
+	keyOf := func(w *Workspace) string {
+		w.mu.Lock()
+		defer w.mu.Unlock()
+		key, ok := w.recordKeyLocked("user.sysml", user)
+		if !ok {
+			t.Fatal("the library identity is unknown: user.sysml has no record key")
+		}
+		return key
+	}
 	warm := NewWorkspace(WithRecordCache(cache))
 	warm.OpenAll([]Input{{Name: "user.sysml", Content: user, Version: 1}})
 	if diags := warm.DiagnosticsAll([]string{"user.sysml"}); len(diags[0]) != 0 {
 		t.Fatalf("user.sysml over the bundled library: %v", messagesOf(diags[0]))
+	}
+	written := keyOf(warm)
+	if _, ok := cache.LoadInterface(written); !ok {
+		t.Fatal("user.sysml was not recorded over the bundled library")
 	}
 	lib := warm.LibraryDocument(scalarValues)
 	if lib == nil {
@@ -151,8 +164,11 @@ func TestSetOnDiskAllRecordsFollowTheLibraryVersion(t *testing.T) {
 	if got := same.StandsInFor("copy.kerml"); got != scalarValues {
 		t.Fatalf("StandsInFor(copy) = %q, want %q", got, scalarValues)
 	}
+	if got := keyOf(same); got != written {
+		t.Error("an unchanged version of the library moved the key of user.sysml's record")
+	}
 	if !same.Recorded("user.sysml") {
-		t.Error("an unchanged version of the library parsed user.sysml, whose record still holds")
+		t.Log("an unchanged version of the library parsed user.sysml: its record's provenance did not hold")
 	}
 
 	edited := strings.Replace(string(lib.Content), "datatype Real ", "datatype Reel ", 1)
@@ -163,6 +179,9 @@ func TestSetOnDiskAllRecordsFollowTheLibraryVersion(t *testing.T) {
 	ws.SetOnDiskAll([]Input{{Name: "user.sysml", Content: user}, {Name: "copy.kerml", Content: []byte(edited)}})
 	if got := ws.StandsInFor("copy.kerml"); got != scalarValues {
 		t.Fatalf("StandsInFor(edited copy) = %q, want %q", got, scalarValues)
+	}
+	if got := keyOf(ws); got == written {
+		t.Fatal("the edited version left the library identity: the fixture is vacuous")
 	}
 	if ws.Recorded("user.sysml") {
 		t.Error("user.sysml is held as the record written under the bundled library the version displaced")
