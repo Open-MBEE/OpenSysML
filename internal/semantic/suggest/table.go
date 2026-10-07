@@ -112,18 +112,9 @@ func (t *Table) unfile(fqn string) {
 	}
 }
 
-// simpleName is the name fqn registers a declaration under: the declared name,
-// which may hold `::` of its own, else the last segment (as a short name is).
+// simpleName is the name fqn registers a declaration under (symbols.SpelledName).
 func simpleName(fqn string, syms []*symbols.Symbol) string {
-	for _, sym := range syms {
-		if sym != nil && symbols.HasFQN(sym, fqn) {
-			if sym.Name != "" {
-				return sym.Name
-			}
-			break
-		}
-	}
-	return symbols.LastSegment(fqn)
+	return symbols.SpelledName(fqn, syms)
 }
 
 // Unquoted returns the registered simple names word is the unquoted start of

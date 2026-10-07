@@ -50,7 +50,7 @@ func realOutputs(t *testing.T, out map[string]Value, names ...string) []float64 
 		if v.Kind != ValConst || v.Const.Kind != semantics.ValReal {
 			t.Fatalf("%s = %v, want a Real", name, v)
 		}
-		got[i] = v.Const.Real
+		got[i] = v.Const.AsReal()
 	}
 	return got
 }

@@ -1,0 +1,24 @@
+# SysML v1 to v2 migration report: parameter_sets.xmi
+# exported by Example UML Tool
+# migrated 17 element(s): 16 mapped, 0 approximated, 1 unmapped (0 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)
+
+## unmapped (1)
+Constraint	Sets::Tool::Spin::bounded::positive	_ps_c	(a parameter set's condition has no target in the transformation)
+
+## mapped (16)
+Model	Model	_m	(the root model's members are written at the top level)
+Package	Sets	_pkg	-> Sets
+Activity	Sets::Measure	_act_measure	-> Sets::Measure
+Parameter	Sets::Measure::a	_pm_a	-> Sets::Measure::a
+Parameter	Sets::Measure::b	_pm_b	-> Sets::Measure::b
+ParameterSet	Sets::Measure::inputs	_ps_inputs	-> Sets::Measure::inputs
+Parameter	Sets::Measure::r	_pm_r	-> Sets::Measure::r
+ParameterSet	Sets::Measure::results	_ps_results	-> Sets::Measure::results
+«Block» Class	Sets::Tool	_blk_tool	-> Sets::Tool
+Operation	Sets::Tool::Run	_op_run	-> Sets::Tool::Run	(its owner's usage run performs it, as a call on an object does)
+ParameterSet	Sets::Tool::Run::args	_ps_run	-> Sets::Tool::Run::args
+Parameter	Sets::Tool::Run::x	_po_x	-> Sets::Tool::Run::x
+Activity	Sets::Tool::Spin	_act_spin	-> Sets::Tool::Spin
+ParameterSet	Sets::Tool::Spin::<ParameterSet>	_ps_anon	-> Sets::Tool::Spin::unnamed
+ParameterSet	Sets::Tool::Spin::bounded	_ps_cond	-> Sets::Tool::Spin::bounded
+Parameter	Sets::Tool::Spin::v	_ps_v	-> Sets::Tool::Spin::v

@@ -538,7 +538,7 @@ func (r *Resolver) lookupEndpoint(scope *symbols.Scope, qn *ast.QualifiedName) (
 func (r *Resolver) lookupEndpointChain(scope *symbols.Scope, chain *ast.FeatureChainExpr, owner *symbols.Symbol) (*symbols.Symbol, bool) {
 	var sym *symbols.Symbol
 	var ok bool
-	r.aside(func() { sym, ok = r.memberChain(owner, chain.Member, chain) })
+	r.aside(func() { sym, ok = r.memberChain(scope, owner, chain.Member, chain) })
 	machine := machineScope(scope)
 	if ok && r.endpointIsVertex(scope, chain.Member, sym) && declaredWithin(machine, sym) {
 		return sym, true

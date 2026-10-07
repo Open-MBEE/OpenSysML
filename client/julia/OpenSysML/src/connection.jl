@@ -274,11 +274,19 @@ function _translate(f::Function; not_found=ModelNotFoundError, capabilities=(), 
         elseif e.code == "not_found" && occursin("symbol not found: ", lowercase(e.message))
             name = split(e.message, "symbol not found: "; limit=2)[end]
             throw(SymbolNotFoundError(name))
+        elseif e.code == "not_found" &&
+               (e isa ModelFileNotFoundError ||
+                occursin("model not found", lowercase(e.message)) ||
+                occursin("file not found", lowercase(e.message)) ||
+                occursin("no such file", lowercase(e.message)))
+            rethrow()
         elseif e.code == "not_found" && not_found !== ModelNotFoundError
             not_found === SymbolNotFoundError && begin
                 name = split(e.message, "symbol not found: "; limit=2)[end]
                 throw(SymbolNotFoundError(name))
             end
+            not_found isa Function && applicable(not_found, e.message, e.code) &&
+                throw(not_found(e.message, e.code))
             throw(ConnectError(e.code, e.message, e.http_status; not_found=not_found))
         end
         rethrow()

@@ -12,13 +12,13 @@
       {
         "name": "pilot-sysml-validator",
         "source": "scripts/pilot-sysml-validator/ValidateSysML.java",
-        "sourceDigest": "sha256:fe6dc20d8723bb5022322b5701b98d13d90a560882c0970b90aa7305073f60ad",
+        "sourceDigest": "sha256:50ed14f8a0ca9014ae3aa7453dfe464f16e767a11c52b25d554b48e191aa09fc",
         "release": "2026-08 (jupyter-sysml-kernel 0.62.0)"
       },
       {
         "name": "pilot-kerml-validator",
         "source": "scripts/pilot-kerml-validator/ValidateKerML.java",
-        "sourceDigest": "sha256:e90d0eaddc85b4f6b3e09c7a0ea0448e8a6abec9fa0467b86112013bf0d70ecb",
+        "sourceDigest": "sha256:b89029eea7fcee7459bdc645a52af8ba8370f1bbaa64ff780ceb4bdc578d2de6",
         "release": "2026-08 (jupyter-sysml-kernel 0.62.0)"
       }
     ],
@@ -27,15 +27,15 @@
         "name": "negative-corpus",
         "dir": "tools/referee/reject/testdata/negative",
         "origin": "ours",
-        "files": 312,
-        "digest": "sha256:1ecdd699da76c53d081e958a6c57be668f8f98d10bfe3e809f0189741253533a"
+        "files": 313,
+        "digest": "sha256:4063e6eb535e7b65158b64b17e2afff63af3d3b5caa35d851c797744b9d521c4"
       }
     ],
-    "recorded": "2026-10-04"
+    "recorded": "2026-10-06"
   },
   "totals": {
-    "cases": 312,
-    "bothReject": 303,
+    "cases": 313,
+    "bothReject": 304,
     "pilotOnlyRejects": 0,
     "oursOnlyRejects": 9,
     "bothAccept": 0
@@ -43,13 +43,14 @@
   "strictOnlyAgreements": [
     "extensions/x06-history-member.sysml",
     "extensions/x09-expose-in-view-def-body.sysml",
-    "extensions/x10-connector-in-sysml.sysml"
+    "extensions/x10-connector-in-sysml.sysml",
+    "extensions/x11-indexed-connector-end.sysml"
   ],
   "sources": [
     {
       "source": "extensions",
-      "cases": 10,
-      "bothReject": 10,
+      "cases": 11,
+      "bothReject": 11,
       "pilotOnlyRejects": 0,
       "oursOnlyRejects": 0,
       "bothAccept": 0
@@ -185,6 +186,16 @@
       "bucket": "both-reject",
       "oursErrors": 1,
       "pilotErrors": 3,
+      "defaultBucket": "pilot-only-rejects"
+    },
+    {
+      "path": "extensions/x11-indexed-connector-end.sysml",
+      "source": "extensions",
+      "rule": "a connector end is a feature chain, so `#( index )` after it has no production — the index operator belongs to expressions (SysML.xtext ConnectorEndMember, ConnectorEnd; KerML.xtext IndexExpression).",
+      "mode": "strict",
+      "bucket": "both-reject",
+      "oursErrors": 1,
+      "pilotErrors": 4,
       "defaultBucket": "pilot-only-rejects"
     },
     {
@@ -3037,8 +3048,8 @@
       }
     ],
     "totals": {
-      "cases": 312,
-      "bothReject": 303,
+      "cases": 313,
+      "bothReject": 304,
       "pilotOnlyRejects": 0,
       "oursOnlyRejects": 9,
       "bothAccept": 0

@@ -18,11 +18,16 @@ import (
 // rendering outside any view. An exposed feature another exposed feature draws
 // nested in it is not a second root.
 func (r *Renderer) renderInterconnection(view *symbols.Symbol, exposed []*symbols.Symbol, out *Rendering) {
-	w := &featureWalk{r: r, view: view, ids: &nodeIDs{}, nodes: map[*symbols.Symbol]*Node{},
-		pins: map[*Node]map[*symbols.Symbol]string{}, parent: map[*Node]*Node{}, out: out}
+	r.renderInterconnectionWithIDs(view, exposed, out, &nodeIDs{}, false)
+}
+
+// renderInterconnectionWithIDs walks structural features with shared node IDs.
+func (r *Renderer) renderInterconnectionWithIDs(view *symbols.Symbol, exposed []*symbols.Symbol, out *Rendering, ids *nodeIDs, mixed bool) map[*symbols.Symbol]*Node {
+	w := &featureWalk{r: r, view: view, ids: ids, nodes: map[*symbols.Symbol]*Node{},
+		pins: map[*Node]map[*symbols.Symbol]string{}, parent: map[*Node]*Node{}, out: out, mixed: mixed}
 	var roots []*symbols.Symbol
 	for _, elem := range exposed {
-		if !r.drawsConnector(elem) && featureLike(elem) {
+		if !r.drawsConnector(elem) && w.drawsFeature(elem) {
 			roots = append(roots, elem)
 		}
 	}
@@ -31,7 +36,7 @@ func (r *Renderer) renderInterconnection(view *symbols.Symbol, exposed []*symbol
 		switch {
 		case r.drawsConnector(elem):
 			w.connectors = append(w.connectors, elem)
-		case featureLike(elem):
+		case w.drawsFeature(elem):
 			if descendants[symbols.KeyOf(elem)] {
 				continue
 			}
@@ -50,6 +55,7 @@ func (r *Renderer) renderInterconnection(view *symbols.Symbol, exposed []*symbol
 		seen[connector] = true
 		w.connectionEdges(connector)
 	}
+	return w.nodes
 }
 
 // featureWalk is one interconnection rendering's walk over the exposed features:
@@ -66,6 +72,24 @@ type featureWalk struct {
 	parent     map[*Node]*Node
 	connectors []*symbols.Symbol
 	out        *Rendering
+	mixed      bool
+}
+
+// drawsFeature reports whether the interconnection traversal emits sym as a feature node.
+func (w *featureWalk) drawsFeature(sym *symbols.Symbol) bool {
+	if !featureLike(sym) {
+		return false
+	}
+	if !w.mixed {
+		return true
+	}
+	switch sym.Kind {
+	case symbols.SymbolPartDef, symbols.SymbolPartUsage, symbols.SymbolItemDef, symbols.SymbolItemUsage,
+		symbols.SymbolPortDef, symbols.SymbolPortUsage, symbols.SymbolConnectionDef, symbols.SymbolConnectionUsage,
+		symbols.SymbolInterfaceDef, symbols.SymbolInterfaceUsage, symbols.SymbolAllocationDef, symbols.SymbolAllocationUsage:
+		return true
+	}
+	return false
 }
 
 // featureNode renders one exposed feature and the features nested in it,
@@ -95,7 +119,7 @@ func (w *featureWalk) featureNode(sym *symbols.Symbol, seen map[*symbols.Symbol]
 		switch {
 		case r.drawsConnector(member):
 			w.connectors = append(w.connectors, member)
-		case featureLike(member):
+		case w.drawsFeature(member):
 			child := w.featureNode(member, seen, depth+1, false)
 			w.parent[child] = node
 			node.Children = append(node.Children, child)
@@ -230,7 +254,8 @@ func (r *Renderer) connectorEnds(connector *symbols.Symbol) ([]connectorEnd, Edg
 			if end == nil {
 				continue
 			}
-			out = append(out, connectorEnd{attachment: end, path: lower.FeaturePath(end)})
+			feature := ast.EndTarget(end)
+			out = append(out, connectorEnd{attachment: feature, path: lower.FeaturePath(feature)})
 		}
 		return out, EdgeFlow
 	}
@@ -267,6 +292,11 @@ func (w *featureWalk) endNode(connector *symbols.Symbol, attachment ast.Node) ed
 	}
 	target, resolved := w.r.resolver.ResolveTarget(connector.OwnerScope, attachment)
 	if operand := chainOperand(attachment); operand != nil {
+		if resolved && w.mixed && target.Owner() != nil && !mixedStructural(target.Owner()) {
+			if node := w.nodes[target]; node != nil {
+				return edgeEnd{node: node}
+			}
+		}
 		if base := w.endNode(connector, operand); base.node != nil {
 			if at := w.memberEnd(base.node, target); at.node != nil {
 				return at

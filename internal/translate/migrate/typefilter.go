@@ -14,6 +14,9 @@ type typeFilter struct {
 	classifiers []*sysmlv1.Element
 	// types are the v2 metaclass names a row must conform to one of.
 	types []string
+	// excluding names a set of newly conforming elements that are not in the
+	// original UML metaclass's result set.
+	excluding *typeFilterExclusion
 	// metadata is the written metadata def of a user stereotype rows carry.
 	metadata string
 	// all is set when the type admits every migrated element.
@@ -26,51 +29,59 @@ type typeFilter struct {
 // v2Types lists the v2 metaclasses a family of v1 elements migrates to, and
 // what makes listing by them approximate.
 type v2Types struct {
-	types []string
-	note  string
+	types     []string
+	excluding *typeFilterExclusion
+	note      string
+}
+
+type typeFilterExclusion struct {
+	source []string
+	keep   []string
 }
 
 // The v2 metaclass names the migrator's declarations report as @type.
 const (
-	typePartDef         = "PartDefinition"
-	typeRequirementDef  = "RequirementDefinition"
-	typeConstraintDef   = "ConstraintDefinition"
-	typePortDef         = "PortDefinition"
-	typeAttributeDef    = "AttributeDefinition"
-	typeEnumDef         = "EnumerationDefinition"
-	typeItemDef         = "ItemDefinition"
-	typeConnectionDef   = "ConnectionDefinition"
-	typeActionDef       = "ActionDefinition"
-	typeCalcDef         = "CalculationDefinition"
-	typeStateDef        = "StateDefinition"
-	typeUseCaseDef      = "UseCaseDefinition"
-	typeVerificationDef = "VerificationCaseDefinition"
-	typeOccurrenceDef   = "OccurrenceDefinition"
-	typePartUsage       = "PartUsage"
-	typeAttributeUsage  = "AttributeUsage"
-	typeItemUsage       = "ItemUsage"
-	typeReferenceUsage  = "ReferenceUsage"
-	typePortUsage       = "PortUsage"
-	typeConstraintUsage = "ConstraintUsage"
-	typeRequirementUse  = "RequirementUsage"
-	typeActionUsage     = "ActionUsage"
-	typeStateUsage      = "StateUsage"
-	typeCalcUsage       = "CalculationUsage"
-	typeUseCaseUsage    = "UseCaseUsage"
-	typeViewUsage       = "ViewUsage"
-	typeViewpointUsage  = "ViewpointUsage"
-	typeEnumUsage       = "EnumerationUsage"
-	typeConnectionUsage = "ConnectionUsage"
-	typeBindingUsage    = "BindingConnectorAsUsage"
-	typeInterfaceUsage  = "InterfaceUsage"
-	typeFlowUsage       = "FlowUsage"
-	typeSatisfyUsage    = "SatisfyRequirementUsage"
-	typeAllocationUsage = "AllocationUsage"
-	typeAllocationDef   = "AllocationDefinition"
-	typeDependency      = "Dependency"
-	typeComment         = "Comment"
-	typePackage         = "Package"
-	typeDefinition      = "Definition"
+	typePartDef              = "PartDefinition"
+	typeRequirementDef       = "RequirementDefinition"
+	typeConstraintDef        = "ConstraintDefinition"
+	typePortDef              = "PortDefinition"
+	typeAttributeDef         = "AttributeDefinition"
+	typeEnumDef              = "EnumerationDefinition"
+	typeItemDef              = "ItemDefinition"
+	typeConnectionDef        = "ConnectionDefinition"
+	typeActionDef            = "ActionDefinition"
+	typeCalcDef              = "CalculationDefinition"
+	typeStateDef             = "StateDefinition"
+	typeUseCaseDef           = "UseCaseDefinition"
+	typeVerificationDef      = "VerificationCaseDefinition"
+	typeOccurrenceDef        = "OccurrenceDefinition"
+	typeOccurrenceUsage      = "OccurrenceUsage"
+	typeEventOccurrenceUsage = "EventOccurrenceUsage"
+	typePartUsage            = "PartUsage"
+	typeAttributeUsage       = "AttributeUsage"
+	typeItemUsage            = "ItemUsage"
+	typeReferenceUsage       = "ReferenceUsage"
+	typePortUsage            = "PortUsage"
+	typeConstraintUsage      = "ConstraintUsage"
+	typeRequirementUse       = "RequirementUsage"
+	typeActionUsage          = "ActionUsage"
+	typeStateUsage           = "StateUsage"
+	typeCalcUsage            = "CalculationUsage"
+	typeUseCaseUsage         = "UseCaseUsage"
+	typeViewUsage            = "ViewUsage"
+	typeViewpointUsage       = "ViewpointUsage"
+	typeEnumUsage            = "EnumerationUsage"
+	typeConnectionUsage      = "ConnectionUsage"
+	typeBindingUsage         = "BindingConnectorAsUsage"
+	typeInterfaceUsage       = "InterfaceUsage"
+	typeFlowUsage            = "FlowUsage"
+	typeSatisfyUsage         = "SatisfyRequirementUsage"
+	typeAllocationUsage      = "AllocationUsage"
+	typeAllocationDef        = "AllocationDefinition"
+	typeDependency           = "Dependency"
+	typeComment              = "Comment"
+	typePackage              = "Package"
+	typeDefinition           = "Definition"
 )
 
 // classTypes are the definitions a UML class of any stereotype migrates to.
@@ -81,6 +92,20 @@ var classTypes = []string{typePartDef, typeRequirementDef, typeConstraintDef, ty
 var propertyTypes = []string{typeAttributeUsage, typePartUsage, typeItemUsage, typeReferenceUsage,
 	typePortUsage, typeConstraintUsage, typeRequirementUse, typeActionUsage, typeStateUsage,
 	typeCalcUsage, typeUseCaseUsage}
+
+// PartDefinition filters admit plain occurrence defs because a plain class used to be a part def.
+func occurrenceAwareTypes(types []string, include, exclude, note string) v2Types {
+	keep := append([]string(nil), types...)
+	all := append(append([]string(nil), keep...), include)
+	return v2Types{
+		types: all,
+		excluding: &typeFilterExclusion{
+			source: []string{exclude},
+			keep:   keep,
+		},
+		note: note,
+	}
+}
 
 // behaviorTypes are the definitions a UML behavior migrates to.
 var behaviorTypes = []string{typeActionDef, typeCalcDef, typeStateDef, typeVerificationDef}
@@ -119,9 +144,9 @@ var metaclassTypes = map[string]v2Types{
 	"Model":              {types: []string{typePackage}, note: "a model is a package once migrated"},
 	"Type":               {types: classifierTypes, note: noteClassifierExtra},
 	"Classifier":         {types: classifierTypes, note: noteClassifierExtra},
-	"Class":              {types: classTypes},
-	"Component":          {types: []string{typePartDef}, note: "a component is a part def once migrated, as a block is"},
-	"Actor":              {types: []string{typePartDef}, note: "an actor is a part def once migrated, as a block is"},
+	"Class":              occurrenceAwareTypes(classTypes, typeOccurrenceDef, typeItemDef, ""),
+	"Component":          occurrenceAwareTypes([]string{typePartDef}, typeOccurrenceDef, typeItemDef, "a component is a part def once migrated, as a block is"),
+	"Actor":              occurrenceAwareTypes([]string{typePartDef}, typeOccurrenceDef, typeItemDef, "an actor is a part def once migrated, as a block is"),
 	"Behavior":           {types: behaviorTypes},
 	"Activity":           {types: []string{typeActionDef, typeCalcDef}},
 	"OpaqueBehavior":     {types: []string{typeActionDef, typeCalcDef}},
@@ -140,7 +165,7 @@ var metaclassTypes = map[string]v2Types{
 	"AssociationClass":   {types: []string{typeConnectionDef}},
 	"InstanceSpecification": {types: []string{typeOccurrenceDef},
 		note: "instances of value types are written as attributes, which an OccurrenceDefinition filter leaves out"},
-	"Property":  {types: propertyTypes, note: "properties typed by a view or viewpoint are not listed"},
+	"Property":  occurrenceAwareTypes(propertyTypes, typeOccurrenceUsage, typeEventOccurrenceUsage, "properties typed by a view or viewpoint are not listed"),
 	"Port":      {types: []string{typePortUsage}},
 	"Connector": {types: []string{typeConnectionUsage, typeBindingUsage, typeInterfaceUsage, typeFlowUsage}},
 	"Constraint": {types: []string{typeConstraintUsage},
@@ -167,13 +192,13 @@ var actionMetaclasses = map[string]bool{"ActivityNode": true, "ExecutableNode": 
 // stereotypeTypes maps a SysML profile stereotype to the v2 metaclasses of what
 // it migrates to.
 var stereotypeTypes = map[string]v2Types{
-	"Block":               {types: []string{typePartDef}},
+	"Block":               occurrenceAwareTypes([]string{typePartDef}, typeOccurrenceDef, typeItemDef, ""),
 	"Requirement":         {types: []string{typeRequirementDef}},
 	"AbstractRequirement": {types: []string{typeRequirementDef}},
 	"ConstraintBlock":     {types: []string{typeConstraintDef}},
 	"InterfaceBlock":      {types: []string{typePortDef}},
 	"ValueType":           {types: []string{typeAttributeDef, typeEnumDef}},
-	"Stakeholder":         {types: []string{typePartDef}, note: "a stakeholder is a part def once migrated, as a block is"},
+	"Stakeholder":         occurrenceAwareTypes([]string{typePartDef}, typeOccurrenceDef, typeItemDef, "a stakeholder is a part def once migrated, as a block is"),
 	"View":                {types: []string{typeViewUsage}},
 	"Viewpoint":           {types: []string{typeViewpointUsage}},
 	"TestCase":            {types: []string{typeVerificationDef}},
@@ -329,5 +354,38 @@ func metaclassFilter(name string) typeFilter {
 }
 
 func fromTypes(label string, t v2Types) typeFilter {
-	return typeFilter{label: label, types: t.types, note: t.note}
+	return typeFilter{label: label, types: t.types, excluding: t.excluding, note: t.note}
+}
+
+func (f typeFilter) query(src qx) qx {
+	rows := whereType(src, f.types...)
+	if f.excluding == nil {
+		return rows
+	}
+	outside := qcall("Except",
+		qarg1("source", whereType(src, f.excluding.source...)),
+		qarg1("exclude", whereType(src, f.excluding.keep...)))
+	return qcall("Except",
+		qarg1("source", rows),
+		qarg1("exclude", outside))
+}
+
+func mergeTypeFilters(filters []typeFilter) typeFilter {
+	var types, source, keep uniqueNames
+	var excluding bool
+	for _, f := range filters {
+		types.add(f.types...)
+		if f.excluding != nil {
+			excluding = true
+			source.add(f.excluding.source...)
+			keep.add(f.excluding.keep...)
+		} else {
+			keep.add(f.types...)
+		}
+	}
+	merged := typeFilter{types: types}
+	if excluding {
+		merged.excluding = &typeFilterExclusion{source: source, keep: keep}
+	}
+	return merged
 }

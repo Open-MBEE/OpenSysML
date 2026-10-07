@@ -14,6 +14,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/exec/analysis"
 	engineset "github.com/Open-MBEE/OpenSysML/internal/exec/engines"
 	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
+	"github.com/Open-MBEE/OpenSysML/internal/frontend/buildinfo"
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/repl"
 	_ "github.com/Open-MBEE/OpenSysML/internal/frontend/repl/replext/notation"   // registers the notation REPL commands
 	_ "github.com/Open-MBEE/OpenSysML/internal/frontend/repl/replext/positional" // registers the positional REPL commands
@@ -33,6 +34,12 @@ var (
 	BuildTime = "unknown"
 	GoVersion = "unknown"
 )
+
+// build is what this binary reports about itself: the linker's stamps, or the
+// module version and VCS metadata the toolchain recorded when none were passed.
+func build() buildinfo.Info {
+	return buildinfo.Resolve(buildinfo.Stamps{Version: Version, Commit: Commit, BuildTime: BuildTime, GoVersion: GoVersion})
+}
 
 // sessionCompleter completes prompt input from the session: meta commands,
 // declared and library names, and file paths after %load and %save.
@@ -99,6 +106,7 @@ var (
 	debugMode        bool
 	quietMode        bool
 	traceMode        bool
+	renderRuns       stringSlice
 	schedule         schedulePolicy
 	listEngines      bool
 	probeEngines     bool
@@ -122,6 +130,7 @@ var (
 	renderUnplaced   string
 	renderStyle      string
 	renderPorts      string
+	renderOverlay    string
 	renderDoc        string
 	renderDocsDir    string
 	docForm          string
@@ -140,6 +149,7 @@ var (
 	htmlTheme        string
 	strictMode       bool
 	disabledLints    lintList
+	enabledLints     lintList
 	noRecordCache    bool
 	modelChecks      checks
 	compileCalc      string
@@ -333,10 +343,7 @@ func runCLI() int {
 
 	// Handle version flag
 	if showVersion {
-		fmt.Printf("sysml %s\n", Version)
-		fmt.Printf("  Commit:     %s\n", Commit)
-		fmt.Printf("  Build time: %s\n", BuildTime)
-		fmt.Printf("  Go version: %s\n", GoVersion)
+		fmt.Print(build().Report("sysml"))
 		return 0
 	}
 
@@ -374,10 +381,33 @@ func runCLI() int {
 		return 2
 	}
 
+	// A rule package named empty asks for no package, which checks nothing; one
+	// named asks for the self-check it is applied under.
+	for _, name := range modelChecks.selfCheckPackages {
+		if strings.TrimSpace(name) == "" {
+			fmt.Fprintln(os.Stderr, "sysml: -self-check-package needs a package name; write `sysml model.sysml -self-check-package Acme::ModelingRules`")
+			return 2
+		}
+	}
+	if len(modelChecks.selfCheckPackages) > 0 {
+		modelChecks.selfCheck = true
+	}
+
 	// Get positional arguments (files to load)
 	args := flag.Args()
 
-	if renderForm != "" && renderView == "" && renderAllDir == "" {
+	if flagGiven("render-run") {
+		if message := runRenderModeMisuse(); message != "" {
+			fmt.Fprintln(os.Stderr, errPrefix, message)
+			return 2
+		}
+		if _, err := runRenderTargetsFromFlags(); err != nil {
+			fmt.Fprintln(os.Stderr, errPrefix, err)
+			return 2
+		}
+	}
+
+	if renderForm != "" && renderView == "" && renderAllDir == "" && len(renderRuns) == 0 {
 		fmt.Fprintln(os.Stderr, "sysml: -render-form is the form -render or -render-all writes; name the view to render with -render or a directory with -render-all")
 		return 2
 	}
@@ -385,12 +415,16 @@ func runCLI() int {
 		fmt.Fprintln(os.Stderr, "sysml: -render-palette is the palette -render or -render-all fills DOT, Mermaid, PlantUML or D2 with; name the view to render with -render or a directory with -render-all")
 		return 2
 	}
-	if renderLink != "" && renderView == "" && renderAllDir == "" && renderDoc == "" && renderDocsDir == "" {
-		fmt.Fprintln(os.Stderr, "sysml: -render-link links rendered elements to their source; name what to render with -render, -render-all, -render-document or -render-documents")
+	if renderOverlay != "" && renderView == "" && renderAllDir == "" {
+		fmt.Fprintln(os.Stderr, "sysml: -render-overlay is what -render or -render-all draws over a requirement rendering's structure; name the view to render with -render or a directory with -render-all")
+		return 2
+	}
+	if renderLink != "" && renderView == "" && renderAllDir == "" && renderDoc == "" && renderDocsDir == "" && len(renderRuns) == 0 {
+		fmt.Fprintln(os.Stderr, "sysml: -render-link links rendered elements to their source; name what to render with -render, -render-all, -render-document, -render-documents or -render-run")
 		return 2
 	}
 	if renderPorts != "" && renderView == "" && renderAllDir == "" {
-		fmt.Fprintln(os.Stderr, "sysml: -render-ports is how much of a part's ports -render or -render-all draws on an interconnection; name the view to render with -render or a directory with -render-all")
+		fmt.Fprintln(os.Stderr, "sysml: -render-ports is how much of a part's ports -render or -render-all draws on an interconnection or mixed rendering; name the view to render with -render or a directory with -render-all")
 		return 2
 	}
 	if renderUnplaced != "" && renderView == "" && renderAllDir == "" && renderDoc == "" && renderDocsDir == "" {
@@ -764,7 +798,7 @@ func resolveRunBounds() int {
 // the run bounds resolved at startup.
 func newSession() *repl.Session {
 	sess := repl.NewSessionWithSourceConverter(convert.ModelSource)
-	sess.SetToolVersion("sysml " + Version)
+	sess.SetToolVersion("sysml " + build().Version)
 	if err := sess.SetBudgets(budgets); err != nil {
 		// Unreachable: budgets are validated in main before any session exists.
 		fmt.Fprintln(os.Stderr, errPrefix, err)
@@ -814,6 +848,11 @@ func newSession() *repl.Session {
 		os.Exit(2)
 	}
 	if err := sess.SetDisabledLints(disabledLints); err != nil {
+		// Unreachable: the codes were validated as the flag was parsed.
+		fmt.Fprintln(os.Stderr, errPrefix, err)
+		os.Exit(2)
+	}
+	if err := sess.SetEnabledLints(enabledLints); err != nil {
 		// Unreachable: the codes were validated as the flag was parsed.
 		fmt.Fprintln(os.Stderr, errPrefix, err)
 		os.Exit(2)

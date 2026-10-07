@@ -8,6 +8,7 @@ import (
 
 	"connectrpc.com/connect"
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
+	"github.com/Open-MBEE/OpenSysML/internal/frontend/buildinfo"
 	sysmlgrpc "github.com/Open-MBEE/OpenSysML/internal/frontend/grpc"
 )
 
@@ -57,7 +58,7 @@ const modulePath = "github.com/Open-MBEE/OpenSysML"
 func buildVersion() string {
 	info, ok := debug.ReadBuildInfo()
 	if !ok {
-		return "dev"
+		return buildinfo.Unversioned
 	}
 	if info.Main.Path == modulePath {
 		return released(info.Main.Version)
@@ -67,20 +68,20 @@ func buildVersion() string {
 			continue
 		}
 		if dep.Replace != nil {
-			if version := released(dep.Replace.Version); version != "dev" {
+			if version := released(dep.Replace.Version); version != buildinfo.Unversioned {
 				return version
 			}
 		}
 		return released(dep.Version)
 	}
-	return "dev"
+	return buildinfo.Unversioned
 }
 
 // released reports a module version, or "dev" for one the toolchain leaves
 // unstamped: an unversioned build or a directory replacement.
 func released(version string) string {
-	if version == "" || version == "(devel)" {
-		return "dev"
+	if !buildinfo.Stamped(version) {
+		return buildinfo.Unversioned
 	}
 	return version
 }
@@ -189,6 +190,13 @@ func (p *inprocess) renderDocument(
 	req *pb.RenderDocumentRequest,
 ) (*pb.RenderDocumentResponse, error) {
 	return answer(ctx, req, p.svc.RenderDocument)
+}
+
+func (p *inprocess) renderView(
+	ctx context.Context,
+	req *pb.RenderViewRequest,
+) (*pb.RenderViewResponse, error) {
+	return answer(ctx, req, p.svc.RenderView)
 }
 
 func (p *inprocess) convert(ctx context.Context, req *pb.ConvertRequest) (*pb.ConvertResponse, error) {

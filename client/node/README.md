@@ -12,6 +12,11 @@ For a task-oriented walkthrough, see the
 npm install @openmbee/opensysml
 ```
 
+A development snapshot is published every night under the `nightly` dist-tag
+(`npm install @openmbee/opensysml@nightly`), with its platform packages carrying
+that night's `sysml-grpc`; `latest` stays the stable release. See [Nightly
+snapshots](https://opensysml.org/project/nightly/).
+
 ```ts
 import { loads, connect } from "@openmbee/opensysml";
 
@@ -415,8 +420,10 @@ In order, and each step refuses rather than falling back to the next:
 1. **A shipped pin.** `release-digests.json`, synced from
    `client/release-digests.json` by `python3 scripts/sync-release-digests.py`
    and published in the tarball, pins the SHA-256 of every asset of a release.
-   Where it pins one, that is what the bytes must hash to, and a served
-   `.sha256` that disagrees is tampering: the download fails.
+   The release job stamps the release it publishes into the tarball's copy
+   before packing it, so a published package pins its own release. Where the
+   table pins one, that is what the bytes must hash to, and a served `.sha256`
+   that disagrees is tampering: the download fails.
 2. **The release's signed manifest.** With no pin, the client downloads
    `SHA256SUMS.txt` and its sigstore bundle `SHA256SUMS.txt.bundle`, verifies
    the bundle against the release pipeline's certificate identity (the CircleCI
@@ -511,7 +518,7 @@ verb, and `save` writes what it answers with its image files beside it:
 
 ```ts
 const migration = await connection.migrate("sysml", { path: "Model.mdzip" }, { report: true });
-console.log(migration.report.summary);            // migrated 93 element(s): 77 mapped, …
+console.log(migration.report.summary);            // migrated 93 element(s): 78 mapped, 12 approximated, …
 for (const entry of migration.report.byVerdict("unmapped")) {
   console.log(`${entry.kind} ${entry.name}: ${entry.note}`);
 }

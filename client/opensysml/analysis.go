@@ -2,6 +2,8 @@ package opensysml
 
 import (
 	"context"
+	"maps"
+	"slices"
 
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
 )
@@ -283,6 +285,9 @@ func (c *client) analysisRequest(ctx context.Context, hash, symbolID string, opt
 			}
 			req.NamedArguments[argument.name] = sent
 		}
+	}
+	if err := c.fitRationals(ctx, append(req.Arguments, slices.Collect(maps.Values(req.NamedArguments))...)...); err != nil {
+		return nil, err
 	}
 	return c.caller.runAnalysis(ctx, req)
 }

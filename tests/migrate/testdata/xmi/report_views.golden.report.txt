@@ -13,11 +13,11 @@ Diagram	Pump BDD	_bdd	-> 'Pump System'::'Pump BDD'	(a diagram of unknown kind wr
 Actor	Stakeholders::Maintainer	_maintainer	-> Stakeholders::Maintainer	(a UML actor is written as a part def)
 «Stakeholder» Class	Stakeholders::Operator	_operator	-> Stakeholders::Operator	(a v1 «Stakeholder» is written as a part def; «Stakeholder» concern = Keep the pump running. has no v2 form)
 «Stakeholder» Class	Stakeholders::Safety Inspector	_inspector	-> Stakeholders::'Safety Inspector'	(a v1 «Stakeholder» is written as a part def)
-«Viewpoint» Class	Viewpoints::Operations Viewpoint	_opsVp	-> Viewpoints::'Operations Viewpoint'	(v2 places the subject before the stakeholders, so an anonymous subject is declared; the stakeholder tag names _absentStakeholder, which is not in the document)
+«Viewpoint» Class	Viewpoints::Operations Viewpoint	_opsVp	-> Viewpoints::'Operations Viewpoint'	(the stakeholder tag names _absentStakeholder, which is not in the document; v2 places the subject before the stakeholders, so an anonymous subject is declared)
+«Viewpoint» Class	Viewpoints::Safety Viewpoint	_safetyVp	-> Viewpoints::'Safety Viewpoint'	(v2 places the subject before the stakeholders, so an anonymous subject is declared; SysMLv1Library::ViewpointData is unavailable, so language and presentation are retained as documentation)
 Package	Views	_views	-> ViewsModel	(written as ViewsModel since a root package named Views would be hidden by the standard library's Views)
 «Expose» Dependency	Views::<Dependency>	_exposeReq	(written as 2 relationships, one per client–supplier pair)
 «View» Package	Views::Handbook	_viewPkg	-> ViewsModel::Handbook	(a «View» package is written as a view usage holding its members)
-Class	Views::Handbook::Chapter	_chapter	-> ViewsModel::Handbook::Chapter	(a plain UML class without «Block» is written as a part def)
 «View» Class	Views::Odd View	_oddView	-> ViewsModel::'Odd View'	(generalization of Viewpoints::Plain Block is not written: it becomes a part def, not a view; the viewpoint tag names _missingVp, which is not in the document)
 
 ## mapped (26)
@@ -31,15 +31,15 @@ Property	Pump System::Pump::motor	_motor	-> 'Pump System'::Pump::motor
 Package	Stakeholders	_people	-> Stakeholders
 Package	Viewpoints	_vps	-> Viewpoints
 «Block» Class	Viewpoints::Plain Block	_notAViewpoint	-> Viewpoints::'Plain Block'
-«Viewpoint» Class	Viewpoints::Safety Viewpoint	_safetyVp	-> Viewpoints::'Safety Viewpoint'	(v2 places the subject before the stakeholders, so an anonymous subject is declared)
 Comment	Viewpoints::Safety Viewpoint::<Comment>	_safetyVpDoc
-Comment	Viewpoints::Safety Viewpoint::<Comment>	_hazardConcern
+Comment	Viewpoints::Safety Viewpoint::<Comment>	_hazardConcern	-> Viewpoints::'Safety Viewpoint'::'concern'
 Activity	Viewpoints::Safety Viewpoint::Collect Guards	_collect	-> Viewpoints::'Safety Viewpoint'::'Collect Guards'
 «Expose» Dependency	Views::<Dependency>	_exposeSys	-> ViewsModel::'Safety View'
 «Expose» Dependency	Views::<Dependency>	_exposeDiagram	-> ViewsModel::'Safety View'
 «Expose» Dependency	Views::<Dependency>	_exposeViewpoint	-> ViewsModel::'Operations View'
 «Conform» Dependency	Views::<Dependency>	_conformDep	-> ViewsModel::'Operations View'
 «View» Class	Views::Guard Detail	_detailView	-> ViewsModel::'Guard Detail'
+Class	Views::Handbook::Chapter	_chapter	-> ViewsModel::Handbook::Chapter
 «View» Class	Views::Operations View	_opsView	-> ViewsModel::'Operations View'
 «View» Class	Views::Safety View	_safetyView	-> ViewsModel::'Safety View'
 Comment	Views::Safety View::<Comment>	_safetyViewDoc

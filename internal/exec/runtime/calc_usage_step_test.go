@@ -50,7 +50,7 @@ func TestDecisionGuardReadsCalcUsagePerStep(t *testing.T) {
 	if got := out["i"].Const.Int; got != 3 {
 		t.Errorf("i = %v, want 3", got)
 	}
-	if got := out["log"].Const.Real; got != 12.0 {
+	if got := out["log"].Const.AsReal(); got != 12.0 {
 		t.Errorf("log = %v, want 12 (2 + 4 + 6)", got)
 	}
 }
@@ -125,7 +125,7 @@ func TestPartChainReadBelongsToTheReadingActivation(t *testing.T) {
 	}
 	ctx.SetTrace(nil)
 
-	if got := out["acc"].Const.Real; got != 18.0 {
+	if got := out["acc"].Const.AsReal(); got != 18.0 {
 		t.Errorf("acc = %v, want 18 (three reads of 6)", got)
 	}
 	if got := strings.Count(tr.String(), "enter calc test::lander::mass"); got != 3 {

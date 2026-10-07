@@ -25,7 +25,9 @@ var (
 	pilotUUID = regexp.MustCompile(` \([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\)$`)
 	intText   = regexp.MustCompile(`^-?[0-9]+$`)
 	realText  = regexp.MustCompile(`^-?[0-9]+\.[0-9]+$`)
-	quantity  = regexp.MustCompile(`^(-?[0-9]+(?:\.[0-9]+)?) \[(.+)\]$`)
+	// fraction is a Rational no decimal spells, printed as `numer/denom`.
+	fraction = regexp.MustCompile(`^-?[0-9]+/[0-9]+$`)
+	quantity = regexp.MustCompile(`^(-?[0-9]+(?:\.[0-9]+)?) \[(.+)\]$`)
 )
 
 type normalized struct {
@@ -148,7 +150,7 @@ func parseOurValue(text string) (normalized, bool) {
 	if intText.MatchString(text) {
 		return normalized{Kind: kindInt, Value: text}, true
 	}
-	if realText.MatchString(text) {
+	if realText.MatchString(text) || fraction.MatchString(text) {
 		return normalized{Kind: kindReal, Value: text}, true
 	}
 	return normalized{}, false

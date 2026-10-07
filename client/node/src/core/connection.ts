@@ -12,6 +12,7 @@ import { create } from "@bufbuild/protobuf";
 import {
   CAPABILITY_APPLY_EDITS,
   CAPABILITY_BIG_INT_VALUES,
+  CAPABILITY_RATIONAL_VALUES,
   CAPABILITY_CONVERT,
   CAPABILITY_DOCUMENT_QUERY,
   CAPABILITY_ENGINES,
@@ -24,6 +25,7 @@ import {
   CAPABILITY_QUERY,
   CAPABILITY_RENDER_DOCUMENT,
   CAPABILITY_RENDER_DOCUMENT_HTML,
+  CAPABILITY_RENDER_VIEW,
   CAPABILITY_SCHEDULE,
   CAPABILITY_SCHEDULE_EXPLORE,
   CAPABILITY_STRICT_CONFORMANCE,
@@ -55,6 +57,7 @@ import {
   ParseSourcesRequestSchema,
   QueryRequestSchema,
   RenderDocumentRequestSchema,
+  RenderViewRequestSchema,
   RunAnalysisRequestSchema,
   RunDocumentQueryRequestSchema,
   RunSweepRequestSchema,
@@ -74,6 +77,7 @@ import {
   type Outcome as PbOutcome,
   type Query,
   type RunAnalysisResponse,
+  type RenderViewResponse,
   type Verdict as PbVerdict,
   type VerificationVerdict as PbVerificationVerdict,
 } from "../generated/sysml_pb.js";
@@ -104,6 +108,8 @@ import {
 } from "./query.js";
 import {
   bindingHoldsBigInt,
+  bindingHoldsRational,
+  bindingRationalsAsReals,
   buildBindings,
   documentEventOf,
   documentResult,
@@ -111,6 +117,7 @@ import {
   type BindingValues,
   type DocumentQueryResult,
 } from "./document.js";
+import { renderedViewOf, type RenderedView } from "./render-view.js";
 import {
   engineInfoOf,
   standingOf,
@@ -562,6 +569,12 @@ export class Connection {
     if (wire.some(bindingHoldsBigInt)) {
       requireCapability(this.info, CAPABILITY_BIG_INT_VALUES, upgradeRemedy(CAPABILITY_BIG_INT_VALUES));
     }
+    if (!this.info.has(CAPABILITY_RATIONAL_VALUES)) {
+      wire.forEach(bindingRationalsAsReals);
+    }
+    if (wire.some(bindingHoldsRational)) {
+      requireCapability(this.info, CAPABILITY_RATIONAL_VALUES, upgradeRemedy(CAPABILITY_RATIONAL_VALUES));
+    }
     const response = await callRpc(
       this.rpc.runDocumentQuery(
         create(RunDocumentQueryRequestSchema, {
@@ -650,6 +663,35 @@ export class Connection {
       capabilityRefusal(this.info, capabilities),
     );
     return form === "html" ? response.html : response.markdown;
+  }
+
+  /** Renders a named view or targeted pseudo-view as diagram data. */
+  async renderView(
+    modelHash: string,
+    viewName: string,
+    options: { ports?: "minimal" | "full" } = {},
+  ): Promise<RenderedView> {
+    const ports: string = options.ports ?? "minimal";
+    if (ports !== "minimal" && ports !== "full") {
+      throw new RangeError("ports must be 'minimal' or 'full'");
+    }
+    const capabilities = [CAPABILITY_RENDER_VIEW];
+    for (const capability of capabilities) {
+      requireCapability(this.info, capability, upgradeRemedy(capability));
+    }
+    const response: RenderViewResponse = await callRpc(
+      this.rpc.renderView(
+        create(RenderViewRequestSchema, {
+          modelHash,
+          view: viewName,
+          ports: ports === "minimal" ? "" : ports,
+        }),
+        this.callOptions(),
+      ),
+      "model",
+      capabilityRefusal(this.info, capabilities),
+    );
+    return renderedViewOf(response);
   }
 
   /** Executes an action definition. */

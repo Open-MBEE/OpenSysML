@@ -26,6 +26,9 @@ func (s *Service) Convert(ctx context.Context, req *pb.ConvertRequest) (*pb.Conv
 	if err := s.requireCapability(CapabilityConvert); err != nil {
 		return nil, err
 	}
+	if err := s.checkConvertDocuments(req); err != nil {
+		return nil, err
+	}
 	if out, done, err := s.convertModelOfDocuments(req); done {
 		return out, err
 	}
@@ -389,10 +392,44 @@ func syntaxDiagnostics(syntax *convert.SyntaxError) []*pb.Diagnostic {
 	return diags
 }
 
+// checkConvertDocuments refuses documents the request cannot write: any for a
+// source other than a model_hash, and a name the model does not hold. A model
+// no longer cached is left to the conversion to report.
+func (s *Service) checkConvertDocuments(req *pb.ConvertRequest) error {
+	if len(req.Documents) == 0 {
+		return nil
+	}
+	if err := s.requireCapability(CapabilityConvertDocuments); err != nil {
+		return err
+	}
+	hash, ok := req.Source.(*pb.ConvertRequest_ModelHash)
+	if !ok {
+		return statusError(connect.CodeInvalidArgument,
+			"documents names documents of a model_hash; a file_path or content is one document, converted whole")
+	}
+	cached, found := s.cache.Get(hash.ModelHash)
+	if !found {
+		return nil
+	}
+	held := make([]string, 0, len(cached.Documents))
+	for _, doc := range cached.Documents {
+		held = append(held, doc.Source.Name())
+	}
+	for _, name := range req.Documents {
+		if !slices.Contains(held, name) {
+			return statusErrorf(connect.CodeInvalidArgument,
+				"documents names %q, which model %s does not hold; its documents are %s",
+				name, hash.ModelHash, strings.Join(held, ", "))
+		}
+	}
+	return nil
+}
+
 // convertModelOfDocuments converts a cached model of several documents as one
 // graph, each reference from one document to an element another declares
-// linked to it, to Turtle or the API's JSON element form. done is false for any
-// other request, which converts one document as before.
+// linked to it, to Turtle or the API's JSON element form; when the request
+// names documents, the others are referenced, not written. done is false for
+// any other request, which converts one document as before.
 func (s *Service) convertModelOfDocuments(req *pb.ConvertRequest) (*pb.ConvertResponse, bool, error) {
 	hash, ok := req.Source.(*pb.ConvertRequest_ModelHash)
 	if !ok {
@@ -437,7 +474,8 @@ func (s *Service) convertModelOfDocuments(req *pb.ConvertRequest) (*pb.ConvertRe
 			resp.Diagnostics = append(resp.Diagnostics, syntaxDiagnostics(syntax)...)
 			continue
 		}
-		documents = append(documents, export.ModelDocument{File: doc.Source, Root: doc.Root})
+		referenced := len(req.Documents) > 0 && !slices.Contains(req.Documents, doc.Source.Name())
+		documents = append(documents, export.ModelDocument{File: doc.Source, Root: doc.Root, Referenced: referenced})
 	}
 	if len(refused) > 0 {
 		resp.Diagnostics = s.filterDiagnosticCapabilities(resp.Diagnostics)

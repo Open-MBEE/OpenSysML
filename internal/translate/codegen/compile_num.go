@@ -55,6 +55,9 @@ func asReal(x Expr) Expr {
 // Integer arithmetic when both hold Integers and Real arithmetic when not.
 func (fc *funcCompiler) numArith(op ast.OperatorKind, l, r Expr) (Expr, error) {
 	if l.Type() == TypeReal || r.Type() == TypeReal {
+		if fc.meetsExact(l, r) {
+			return fc.kindSplit(Binary{Op: op, L: l, R: r, T: TypeReal}, fc.exactArith), nil
+		}
 		return Binary{Op: op, L: asReal(l), R: asReal(r), T: TypeReal}, nil
 	}
 	reals := func(v []Expr) Expr { return Binary{Op: op, L: asReal(v[0]), R: asReal(v[1]), T: TypeReal} }
@@ -66,7 +69,9 @@ func (fc *funcCompiler) numArith(op ast.OperatorKind, l, r Expr) (Expr, error) {
 		}, reals, TypeReal), nil
 	case ast.OpPow:
 		if lit, ok := bare(r).(IntLit); ok && lit.sign() < 0 {
-			return Binary{Op: op, L: asReal(l), R: asReal(r), T: TypeReal}, nil
+			return fc.split([]Expr{l, r}, func(v []Expr) Expr {
+				return fc.reciprocalPow(asInt(v[0]), lit)
+			}, reals, TypeReal), nil
 		}
 		// Integer ** Integer is an Integer for a non-negative exponent, a Real otherwise.
 		return fc.split([]Expr{l, r}, func(v []Expr) Expr {
@@ -77,7 +82,7 @@ func (fc *funcCompiler) numArith(op ast.OperatorKind, l, r Expr) (Expr, error) {
 			return Cond{
 				C:    Binary{Op: ast.OpGe, L: asInt(v[1]), R: IntLit{}, T: TypeBool},
 				Then: ints,
-				Else: ToNum{X: reals(v)},
+				Else: fc.refuse(negativePower, TypeNum),
 				T:    TypeNum,
 			}
 		}, func(v []Expr) Expr { return ToNum{X: reals(v)} }, TypeNum), nil

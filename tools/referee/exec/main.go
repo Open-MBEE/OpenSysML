@@ -22,11 +22,16 @@ import (
 // reconciled.
 const bucketKindOnly = "kind-only"
 
+// bucketByDesign is the verdict for a disagreement the case documents as
+// following from a specification clause the pilot departs from.
+const bucketByDesign = "differs-by-design"
+
 var bucketNames = []string{
 	"agree",
 	bucketKindOnly,
 	"order-only",
 	"disagree",
+	bucketByDesign,
 	"pilot-unevaluated",
 	"pilot-silent",
 	"pilot-error",
@@ -46,6 +51,7 @@ type caseReport struct {
 	Pilot         normalized `json:"pilotNormalized"`
 	Ours          normalized `json:"oursNormalized"`
 	Bucket        string     `json:"bucket"`
+	ByDesign      string     `json:"byDesign,omitempty"`
 	RealPrecision string     `json:"realPrecision"`
 }
 
@@ -164,12 +170,15 @@ func execute(repo, launcher string, files []execCaseFile) (*execReport, error) {
 				oursOne[testCase.ID].Error != oursTwo[testCase.ID].Error {
 				bucket = "nondeterministic"
 			}
+			if bucket == "disagree" && testCase.ByDesign != "" {
+				bucket = bucketByDesign
+			}
 			report.Cases = append(report.Cases, caseReport{
 				ID: testCase.ID, Models: modelPaths(file.Models),
 				Target: testCase.Target, Expression: testCase.Expression,
 				RawPilot: pilotRaw, RawOurs: oursRaw.Raw,
 				Pilot: pilot.Value, Ours: ours.Value,
-				Bucket: bucket, RealPrecision: "real values compared after rounding both sides to 2 decimal places",
+				Bucket: bucket, ByDesign: testCase.ByDesign, RealPrecision: "real values compared after rounding both sides to 2 decimal places",
 			})
 			report.Buckets[bucket]++
 		}
@@ -338,6 +347,9 @@ func writeReport(dir string, report *execReport) error {
 	for _, result := range report.Cases {
 		fmt.Fprintf(&text, "%s: %s [%s]\n", result.ID, result.Bucket, strings.Join(result.Models, ", "))
 		fmt.Fprintf(&text, "  target: %s\n  expression: %s\n", result.Target, result.Expression)
+		if result.ByDesign != "" {
+			fmt.Fprintf(&text, "  by design: %s\n", result.ByDesign)
+		}
 		fmt.Fprintf(&text, "  raw pilot:\n%s\n  raw ours:\n%s\n", result.RawPilot, result.RawOurs)
 		fmt.Fprintf(&text, "  pilot normalized: %s\n  ours normalized: %s\n", normalizedText(result.Pilot), normalizedText(result.Ours))
 		fmt.Fprintf(&text, "  real comparison: %s\n\n", result.RealPrecision)

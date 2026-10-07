@@ -1,11 +1,8 @@
 # SysML v1 to v2 migration report: org_profile.xmi
 # exported by Example UML Tool
-# migrated 47 element(s): 46 mapped, 1 approximated, 0 unmapped (14 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)
+# migrated 47 element(s): 47 mapped, 0 approximated, 0 unmapped (14 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)
 
-## approximated (1)
-«Requirement» Class	Pump System::Design Note	_note	-> 'Pump System'::'Design Note'	(a plain UML class without «Block» is written as a part def)
-
-## mapped (46)
+## mapped (47)
 Profile	Legacy	_legacy	-> Legacy
 Stereotype	Legacy::Requirement	_st_legacy_req	-> Legacy::Requirement
 Property	Legacy::Requirement::Text	_st_legacy_text	-> Legacy::Requirement::Text
@@ -34,6 +31,7 @@ Package	Pump System	_system	-> 'Pump System'
 «Org Satisfy» Abstraction	Pump System::<Abstraction>	_sat	-> 'Pump System'::Pump
 «Block» Class	Pump System::Acme	_acme	-> 'Pump System'::Acme
 «Block» Class	Pump System::Controller	_ctrl	-> 'Pump System'::Controller
+«Requirement» Class	Pump System::Design Note	_note	-> 'Pump System'::'Design Note'
 «Org Requirement» Class	Pump System::Flow Requirement	_req_flow	-> 'Pump System'::'Flow Requirement'
 «Org Value» DataType	Pump System::FlowRate	_flow	-> 'Pump System'::FlowRate
 «Block» Class	Pump System::Motor	_motor	-> 'Pump System'::Motor
@@ -64,7 +62,7 @@ Property	Org Profile::Org Block::base_Class	_st_blk_base	(an extension end names
 Property	Org Profile::Org Requirement::base_Class	_st_req_base	(an extension end names the metaclass the stereotype extends; v2 metadata applies to any element)
 Property	Org Profile::Org Satisfy::base_Abstraction	_st_sat_base	(an extension end names the metaclass the stereotype extends; v2 metadata applies to any element)
 Property	Org Profile::Org Value::base_DataType	_st_val_base	(an extension end names the metaclass the stereotype extends; v2 metadata applies to any element)
-ProfileApplication	Pump System::<ProfileApplication>	_pa_org	(profile applications and element imports are not written)
-ProfileApplication	Pump System::<ProfileApplication>	_pa_review	(profile applications and element imports are not written)
+ProfileApplication	Pump System::<ProfileApplication>	_pa_org	(profile applications and package merges are not written)
+ProfileApplication	Pump System::<ProfileApplication>	_pa_review	(profile applications and package merges are not written)
 Extension	Review::<Extension>	_ext_reviewed	(an extension binds a stereotype to the metaclass it extends; v2 metadata applies to any element)
 Property	Review::Reviewed::base_Element	_st_reviewed_base_e	(an extension end names the metaclass the stereotype extends; v2 metadata applies to any element)

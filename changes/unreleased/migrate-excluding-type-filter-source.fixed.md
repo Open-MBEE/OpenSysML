@@ -1,0 +1,1 @@
+- **Evaluate excluding type-filter sources once.** Migrated row queries bind the source expression as a defaulted parameter so repeated type checks do not traverse it again.

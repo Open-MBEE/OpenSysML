@@ -8,8 +8,8 @@ use std::env;
 use opensysml::{
     AnalysisOptions, Connection, Constraint, ConvertOptions, ConvertSource, DocumentForm,
     DocumentValue, ElementRef, Error, FailureReason, IdForm, MemberOptions, MigrateOptions,
-    MigrateSource, Model, Query, RunOptions, SourceDocument, SourcesOptions, SweepOptions,
-    SweepRange, Value, VerifyOptions,
+    MigrateSource, Model, Query, RenderViewPorts, RunOptions, SourceDocument, SourcesOptions,
+    SweepOptions, SweepRange, Value, VerifyOptions,
 };
 
 const DEMO: &str = r#"
@@ -218,6 +218,49 @@ fn a_model_converts_to_notation_and_turtle() {
 }
 
 #[test]
+fn a_model_of_several_documents_converts_only_the_named_ones() {
+    let Some(connection) = service_or_skip() else {
+        return;
+    };
+    if !connection.capabilities().has("convert_documents") {
+        return;
+    }
+    let model = connection
+        .parse_sources(
+            &[
+                SourceDocument::inline("lib.sysml", "package Lib { part def Engine; }"),
+                SourceDocument::inline(
+                    "app.sysml",
+                    "package App { private import Lib::*; part engine : Engine; }",
+                ),
+            ],
+            &Default::default(),
+        )
+        .unwrap();
+    let app = connection
+        .convert(
+            "api-json",
+            &ConvertSource::Model(model.hash().to_owned()),
+            &ConvertOptions {
+                documents: vec!["app.sysml".to_owned()],
+                ..Default::default()
+            },
+        )
+        .unwrap();
+    let elements: Vec<serde_json::Value> = serde_json::from_str(&app.content).unwrap();
+    let written: Vec<&str> = elements
+        .iter()
+        .filter_map(|element| element["@id"].as_str())
+        .collect();
+    assert!(written.contains(&"App__engine"), "{written:?}");
+    assert!(!written.contains(&"Lib__Engine"), "{written:?}");
+    let typed = elements.iter().any(|element| {
+        element["@type"] == "FeatureTyping" && element["type"]["@id"] == "Lib__Engine"
+    });
+    assert!(typed, "App::engine is not typed by Lib__Engine");
+}
+
+#[test]
 fn a_v1_model_is_migrated_and_refused_by_convert() {
     let Some(connection) = service_or_skip() else {
         return;
@@ -249,7 +292,7 @@ fn a_v1_model_is_migrated_and_refused_by_convert() {
             migrated.report.unmapped,
             migrated.report.skipped
         ),
-        (77, 13, 3, 2)
+        (78, 12, 3, 2)
     );
     assert_eq!(migrated.report.entries.len(), 95);
     assert_eq!(migrated.report.by_verdict("unmapped").len(), 3);
@@ -272,7 +315,7 @@ fn a_v1_model_is_migrated_and_refused_by_convert() {
     assert_eq!(inline.to_format, "ttl");
     assert!(inline.source_path.is_none());
     assert!(inline.report.entries.is_empty());
-    assert_eq!(inline.report.mapped, 77);
+    assert_eq!(inline.report.mapped, 78);
 
     let refused = connection.convert(
         "sysml",
@@ -386,6 +429,32 @@ fn a_document_query_answers_typed_rows_and_a_document_renders() {
         .render_document("Observatory::MassReport", DocumentForm::Html)
         .unwrap();
     assert!(html.contains("<"), "{html}");
+}
+
+#[test]
+fn a_rendered_view_keeps_ports_edges_and_origins() {
+    let Some(connection) = service_or_skip() else {
+        return;
+    };
+    let model = parsed(
+        &connection,
+        include_str!("../../../../conformance/fixtures/views.sysml"),
+    );
+    let rendered = model.render_view("RenderViewDemo::connections").unwrap();
+    assert_eq!(rendered.kind, "interconnection");
+    assert_eq!(rendered.edges.len(), 1);
+    assert!(!rendered.edges[0].from_port.is_empty());
+    assert!(!rendered.edges[0].to_port.is_empty());
+    assert!(rendered.nodes.iter().all(|node| node.origin.is_some()));
+
+    let full = model
+        .render_view_with_ports("RenderViewDemo::connections", RenderViewPorts::Full)
+        .unwrap();
+    assert!(full
+        .nodes
+        .iter()
+        .flat_map(|node| &node.ports)
+        .any(|port| port.name == "spare"));
 }
 
 #[test]

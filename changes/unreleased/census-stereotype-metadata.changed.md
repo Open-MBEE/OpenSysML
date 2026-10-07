@@ -1,0 +1,1 @@
+- SysML v1 migration writes cross-body «Allocate» relations as allocation defs with redefined `source` and `target` ends, writes element imports and aliases, maps InformationItems to item defs and item flows to `flow of Item`, and preserves «DirectedFeature» operation direction on action usages.

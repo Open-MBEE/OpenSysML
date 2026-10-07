@@ -1,13 +1,12 @@
 # SysML v1 to v2 migration report: stereotype_filters.xmi
 # exported by Example UML Tool
-# migrated 161 element(s): 121 mapped, 38 approximated, 2 unmapped (4 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)
+# migrated 161 element(s): 122 mapped, 37 approximated, 2 unmapped (4 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)
 
 ## unmapped (2)
 «Image» CallBehaviorAction	Depot Viewpoints::Owned Figures Viewpoint::Owned Figures Method::Image	_st_owned_image	(the diagrams it shows are not known: «FilterByStereotypes» Depot Viewpoints::Owned Figures Viewpoint::Owned Figures Method::Filter By Stereotypes keeps or drops the «Block» Class Spares::Hose, which cannot be told before the query runs)
 «Image» CallBehaviorAction	Depot Viewpoints::Satisfier Layouts Viewpoint::Satisfier Layouts Method::Image	_st_satown_image	(the diagrams it shows are not known: «CollectByDirectedRelationshipStereotypes» Depot Viewpoints::Satisfier Layouts Viewpoint::Satisfier Layouts Method::Collect Satisfiers follows relationships to elements only the query finds)
 
-## approximated (38)
-«Document» Class	Depot Handbook::Depot Handbook	_doc_handbook	-> 'Depot Handbook'::'Depot Handbook'	(a plain UML class without «Block» is written as a part def)
+## approximated (37)
 Activity	Depot Viewpoints::Critical Figures Viewpoint::Critical Figures Method	_act_figures	-> 'Depot Viewpoints'::'Critical Figures Viewpoint'::'Critical Figures Method'	(the classifier behavior is run by every object of Depot Viewpoints::Critical Figures Viewpoint as its usage critical Figures Method)
 «CollectOwnedElements» CallBehaviorAction	Depot Viewpoints::Critical Figures Viewpoint::Critical Figures Method::Collect Owned Elements	_figures_collect	-> 'Collect Owned Elements'	(a step with no behavior and no duration; it passes the token on)
 «FilterByDiagramType» CallBehaviorAction	Depot Viewpoints::Critical Figures Viewpoint::Critical Figures Method::Filter By Diagram Type	_figures_types	-> 'Filter By Diagram Type'	(a step with no behavior and no duration; it passes the token on)
@@ -46,7 +45,7 @@ Activity	Depot Viewpoints::Uncritical Figures Viewpoint::Uncritical Figures Meth
 «FilterByStereotypes» CallBehaviorAction	Depot Viewpoints::Uncritical Figures Viewpoint::Uncritical Figures Method::Filter By Stereotypes	_rest_filter	-> 'Filter By Stereotypes'	(a step with no behavior and no duration; it passes the token on)
 «Image» CallBehaviorAction	Depot Viewpoints::Uncritical Figures Viewpoint::Uncritical Figures Method::Image	_rest_image	-> Image	(a step with no behavior and no duration; it passes the token on)
 
-## mapped (121)
+## mapped (122)
 Profile	Cost Profile	_cost_profile	-> 'Cost Profile'
 Stereotype	Cost Profile::Critical	_st_cost_critical	-> 'Cost Profile'::Critical
 Model	Depot	_m	(the root model's members are written at the top level)
@@ -67,6 +66,7 @@ Package	Depot Handbook	_pkg_doc	-> 'Depot Handbook'
 «Conform» Generalization	Depot Handbook::Critical Items::<Generalization>	_gen_items	-> 'Depot Handbook'::'Critical Items'
 «View» Class	Depot Handbook::Critical Layouts	_view_layouts	-> 'Depot Handbook'::'Critical Layouts'
 «Conform» Generalization	Depot Handbook::Critical Layouts::<Generalization>	_gen_layouts	-> 'Depot Handbook'::'Critical Layouts'
+«Document» Class	Depot Handbook::Depot Handbook	_doc_handbook	-> 'Depot Handbook'::'Depot Handbook'
 «Document» Class	Depot Handbook::Depot Handbook	_st_doc_handbook	-> part def 'Depot Handbook'::'Depot Handbook Document'	(the «Document» is written as a Document definition of 8 section(s))
 Property	Depot Handbook::Depot Handbook::criticalFigures	_hb_figures	-> 'Depot Handbook'::'Depot Handbook'::criticalFigures
 Property	Depot Handbook::Depot Handbook::criticalItems	_hb_items	-> 'Depot Handbook'::'Depot Handbook'::criticalItems
