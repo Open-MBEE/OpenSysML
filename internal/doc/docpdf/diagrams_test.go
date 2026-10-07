@@ -15,6 +15,7 @@ import (
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/doc/docrender"
+	"github.com/Open-MBEE/OpenSysML/internal/ir/imagefile"
 	"github.com/Open-MBEE/OpenSysML/internal/ir/view"
 )
 
@@ -392,7 +393,7 @@ func TestEmbedImagesInlinesThePicturesAnSVGRefers(t *testing.T) {
 		`<image width="1px" href="` + pngURI + `"/>` +
 		`<image xlink:href="images/missing.png"/>` +
 		`<image xlink:href="notes.txt"/>` +
-		`<!-- not represented: picture https://example.org/a.png not drawn; remote pictures are not drawn -->` +
+		`<!-- not represented: picture https&#58;//example.org/a.png not drawn; remote pictures are not drawn -->` +
 		`<!-- not represented: picture data:image/png;base64,AAAA not drawn; the data: URL is not a supported image -->` +
 		`<image xlink:href="` + pngURI + `"/>` +
 		`<!-- not represented: picture ` + mismatchedURI + ` not drawn; the data: URL declares image/svg+xml but holds image/png -->` +
@@ -442,9 +443,82 @@ func TestEmbedImagesMatchesImageElementsAndHrefSyntax(t *testing.T) {
 			if strings.Contains(string(out), "<image") {
 				t.Errorf("refused image element remains in output: %s", out)
 			}
-			comment := `<!-- not represented: picture ` + tc.location + ` not drawn; remote pictures are not drawn -->`
+			comment := `<!-- not represented: picture ` + strings.ReplaceAll(tc.location, ":", "&#58;") + ` not drawn; remote pictures are not drawn -->`
 			if !strings.Contains(string(out), comment) {
 				t.Errorf("output lacks refusal comment %q: %s", comment, out)
+			}
+		})
+	}
+}
+
+func TestEmbedImagesConsumesImageSubtrees(t *testing.T) {
+	base := t.TempDir()
+	var pngBuffer bytes.Buffer
+	if err := png.Encode(&pngBuffer, image.NewRGBA(image.Rect(0, 0, 2, 2))); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(base, "clean.png"), pngBuffer.Bytes(), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	pngURI := "data:image/png;base64," + base64.StdEncoding.EncodeToString(pngBuffer.Bytes())
+	const remote = "https://example.org/a.png"
+	cases := []struct {
+		name, source string
+		check        func(*testing.T, []byte)
+	}{
+		{
+			name:   "refused image with children",
+			source: `<svg xmlns="http://www.w3.org/2000/svg"><image href="` + remote + `"><title>Logo</title><desc>Remote image</desc></image></svg>`,
+			check: func(t *testing.T, out []byte) {
+				for _, unwanted := range []string{remote, `</image>`, `<title>Logo`, `<desc>Remote image`} {
+					if bytes.Contains(out, []byte(unwanted)) {
+						t.Errorf("refused image subtree still contains %q:\n%s", unwanted, out)
+					}
+				}
+			},
+		},
+		{
+			name:   "clean image with children",
+			source: `<svg xmlns="http://www.w3.org/2000/svg"><image href="clean.png" width="1"><title>Clean</title><desc>Local image</desc></image></svg>`,
+			check: func(t *testing.T, out []byte) {
+				want := `<image href="` + pngURI + `" width="1"><title>Clean</title><desc>Local image</desc></image>`
+				if !bytes.Contains(out, []byte(want)) {
+					t.Errorf("clean image subtree was not preserved and inlined:\n%s", out)
+				}
+			},
+		},
+		{
+			name: "consecutive images",
+			source: `<svg xmlns="http://www.w3.org/2000/svg"><image href="` + remote + `"><title>Logo</title><desc>Remote image</desc></image>` +
+				`<image href="clean.png"><title>Clean</title></image></svg>`,
+			check: func(t *testing.T, out []byte) {
+				if bytes.Contains(out, []byte(remote)) || bytes.Contains(out, []byte(`<title>Logo`)) ||
+					bytes.Contains(out, []byte(`<desc>Remote image`)) {
+					t.Errorf("refused image subtree remains:\n%s", out)
+				}
+				want := `<image href="` + pngURI + `"><title>Clean</title></image>`
+				if !bytes.Contains(out, []byte(want)) || bytes.Count(out, []byte(`</image>`)) != 1 {
+					t.Errorf("clean image subtree was not independently inlined and preserved:\n%s", out)
+				}
+			},
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			path := filepath.Join(t.TempDir(), "diagram.svg")
+			if err := os.WriteFile(path, []byte(tc.source), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			if err := embedImages(path, base); err != nil {
+				t.Fatalf("embedImages: %v", err)
+			}
+			out, err := os.ReadFile(path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			tc.check(t, out)
+			if err := imagefile.CheckSVG(out); err != nil {
+				t.Errorf("embedded SVG is not well formed: %v", err)
 			}
 		})
 	}

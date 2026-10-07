@@ -145,7 +145,7 @@ func DrawSVG(diagrams []docrender.Diagram) ([]string, error) {
 
 var (
 	svgImageStartTag = regexp.MustCompile(`<image\b[^>]*>`)
-	svgImageEndTag   = regexp.MustCompile(`^\s*</image\s*>`)
+	svgImageEndTag   = regexp.MustCompile(`</image\s*>`)
 	svgImageHref     = regexp.MustCompile(`\s(?:xlink:)?href\s*=\s*(?:"([^"]*)"|'([^']*)')`)
 )
 
@@ -167,12 +167,14 @@ func embedImages(path, base string) error {
 		if start < at {
 			continue
 		}
+		tag := svg[start:tagEnd]
 		end := tagEnd
-		if closing := svgImageEndTag.FindIndex(svg[tagEnd:]); closing != nil {
-			end += closing[1]
+		if !strings.HasSuffix(string(tag), "/>") {
+			if closing := svgImageEndTag.FindIndex(svg[tagEnd:]); closing != nil {
+				end += closing[1]
+			}
 		}
 		out = append(out, svg[at:start]...)
-		tag := svg[start:tagEnd]
 		href := svgImageHref.FindSubmatchIndex(tag)
 		if href == nil {
 			out = append(out, svg[start:end]...)
@@ -236,6 +238,9 @@ func embedImages(path, base string) error {
 }
 
 func refusedImageComment(location, reason string) []byte {
+	if view.RemotePictureLocation(location) {
+		location = strings.ReplaceAll(location, ":", "&#58;")
+	}
 	location = strings.ReplaceAll(location, "-", "&#45;")
 	reason = strings.ReplaceAll(reason, "-", "&#45;")
 	return []byte("<!-- not represented: picture " + location + " not drawn; " + reason + " -->")
