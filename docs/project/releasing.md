@@ -688,8 +688,8 @@ the team membership current.
 **VERSIONINFO.** SignPath enforces the metadata a signed file carries.
 `packaging/windows/<cmd>.winres.json` holds the static fields (`ProductName`
 `OpenSysML`, `CompanyName`, `FileDescription`, `LegalCopyright`,
-`OriginalFilename`), and the Makefile's `build-sysml`, `build-lsp` and
-`build-grpc` targets run `go-winres` (pinned by `GO_WINRES_VERSION`, a build
+`OriginalFilename`), and the Makefile's `build-sysml`, `build-lsp`,
+`build-grpc` and `build-jupyter-kernel` targets run `go-winres` (pinned by `GO_WINRES_VERSION`, a build
 tool that ends up nowhere in the product) for `GOOS=windows` only, writing
 `cmd/<cmd>/rsrc_windows_<arch>.syso` with `ProductVersion` and `FileVersion`
 set to the same `VERSION` the `-ldflags` carry. The `.syso` files are ignored

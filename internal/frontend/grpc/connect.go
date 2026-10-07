@@ -171,3 +171,8 @@ func (a *ConnectAdapter) RenderDocument(ctx context.Context, req *connect.Reques
 func (a *ConnectAdapter) RenderView(ctx context.Context, req *connect.Request[pb.RenderViewRequest]) (*connect.Response[pb.RenderViewResponse], error) {
 	return connectCall(ctx, req, a.svc.RenderView)
 }
+
+// ExportGraphs exports the lowered graph of an action or state machine as graphs:1 JSON.
+func (a *ConnectAdapter) ExportGraphs(ctx context.Context, req *connect.Request[pb.ExportGraphsRequest]) (*connect.Response[pb.ExportGraphsResponse], error) {
+	return connectCall(ctx, req, a.svc.ExportGraphs)
+}

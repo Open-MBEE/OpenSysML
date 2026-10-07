@@ -4,6 +4,7 @@ import json
 import os
 import stat
 import sys
+from pathlib import Path
 
 import pytest
 
@@ -13,8 +14,15 @@ from jupyter_opensysml_kernel import binary, kernelspec
 from .conftest import KERNEL_BYTES
 
 
-def read_spec(spec_dir):
-    with open(os.path.join(spec_dir, "kernel.json"), encoding="utf-8") as f:
+def installed_file(spec_dir, root, name):
+    """A file of an installed spec, once the spec is shown to lie under root."""
+    path = (Path(spec_dir) / name).resolve()
+    assert path.is_relative_to(Path(root).resolve()), f"{path} escapes {root}"
+    return path
+
+
+def read_spec(spec_dir, root):
+    with installed_file(spec_dir, root, "kernel.json").open(encoding="utf-8") as f:
         return json.load(f)
 
 
@@ -31,12 +39,13 @@ def test_kernel_json_runs_the_binary_from_the_spec_directory():
 def test_a_user_install_downloads_into_the_spec(release, isolated_jupyter):
     path = kernelspec.install(user=True)
     assert path == str(isolated_jupyter / "kernels" / "sysml")
-    spec = read_spec(path)
+    spec = read_spec(path, isolated_jupyter)
     binary_file = spec["argv"][0].replace("{resource_dir}/", "")
-    installed = os.path.join(path, binary_file)
-    with open(installed, "rb") as f:
-        assert f.read() == KERNEL_BYTES
+    installed = installed_file(path, isolated_jupyter, binary_file)
+    assert installed.read_bytes() == KERNEL_BYTES
     assert os.access(installed, os.X_OK)
+    assert stat.S_IMODE(installed.stat().st_mode) == 0o755
+    assert stat.S_IMODE(installed_file(path, isolated_jupyter, "kernel.json").stat().st_mode) == 0o644
     from jupyter_client.kernelspec import KernelSpecManager
 
     found = KernelSpecManager().get_kernel_spec("sysml")
@@ -54,13 +63,12 @@ def test_a_prefix_install_goes_under_share_jupyter(release, tmp_path):
 def test_a_local_binary_is_installed_instead_of_a_download(release, local_binary, isolated_jupyter):
     path = kernelspec.install(binary=local_binary, user=True, name="sysml-dev", display_name="SysML (dev)")
     assert path == str(isolated_jupyter / "kernels" / "sysml-dev")
-    assert read_spec(path)["display_name"] == "SysML (dev)"
+    assert read_spec(path, isolated_jupyter)["display_name"] == "SysML (dev)"
     assert release.requests == []
-    mode = os.stat(os.path.join(path, binary.binary_name())).st_mode
-    assert mode & stat.S_IXUSR
+    mode = installed_file(path, isolated_jupyter, binary.binary_name()).stat().st_mode
+    assert stat.S_IMODE(mode) == 0o755
     for name in kernelspec.LOGO_FILES:
-        with open(os.path.join(path, name), "rb") as f:
-            assert f.read(8) == b"\x89PNG\r\n\x1a\n"
+        assert installed_file(path, isolated_jupyter, name).read_bytes()[:8] == b"\x89PNG\r\n\x1a\n"
 
 
 def test_a_binary_that_is_not_executable_is_refused(release, tmp_path):
@@ -88,7 +96,7 @@ def test_a_refused_download_leaves_no_kernelspec(release, isolated_jupyter):
 def test_reinstalling_replaces_the_spec(release, local_binary, isolated_jupyter):
     kernelspec.install(user=True)
     path = kernelspec.install(binary=local_binary, user=True, display_name="Second")
-    assert read_spec(path)["display_name"] == "Second"
+    assert read_spec(path, isolated_jupyter)["display_name"] == "Second"
 
 
 def test_uninstall_removes_the_spec_and_its_binary(release, isolated_jupyter):

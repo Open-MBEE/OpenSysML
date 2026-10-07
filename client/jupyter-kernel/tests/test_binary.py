@@ -39,14 +39,14 @@ def test_unsupported_platforms_point_at_building_from_source(monkeypatch):
 
 
 def test_the_version_names_the_release_it_was_built_against(monkeypatch):
-    assert binary.built_against_releases("0.9.2") == ("v0.9.2",)
-    assert binary.built_against_releases("1.0.0rc2") == ("v1.0.0-rc2", "v1.0.0-rc.2")
-    assert binary.built_against_releases("1.0.0a1") == ("v1.0.0-alpha1", "v1.0.0-alpha.1")
-    assert binary.built_against_releases("odd") == ("vodd",)
+    assert binary.built_against_releases("0.9.2") == ["v0.9.2"]
+    assert binary.built_against_releases("1.0.0rc2") == ["v1.0.0-rc2", "v1.0.0-rc.2"]
+    assert binary.built_against_releases("1.0.0a1") == ["v1.0.0-alpha1", "v1.0.0-alpha.1"]
+    assert binary.built_against_releases("odd") == ["vodd"]
     table = {REPO: {"nightly-20261006-abc1234": {}, "nightly-20261005-def5678": {}}}
     monkeypatch.setattr(binary, "PINNED_SHA256", table)
-    assert binary.built_against_releases("0.9.3.dev20261006") == ("nightly-20261006-abc1234",)
-    assert binary.built_against_releases("0.9.3.dev20261001") == ("nightly",)
+    assert binary.built_against_releases("0.9.3.dev20261006") == ["nightly-20261006-abc1234"]
+    assert binary.built_against_releases("0.9.3.dev20261001") == ["nightly"]
 
 
 def test_the_shipped_table_pins_the_repository_releases():

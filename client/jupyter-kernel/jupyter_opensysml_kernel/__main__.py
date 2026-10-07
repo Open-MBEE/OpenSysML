@@ -17,7 +17,7 @@ from collections.abc import Sequence
 
 from . import kernelspec
 from ._version import VERSION
-from .binary import KernelBinaryError, binary_name, bundled_binary
+from .binary import BINARY_MODE, KernelBinaryError, binary_name, bundled_binary
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -55,11 +55,54 @@ def is_kernel_invocation(argv: Sequence[str]) -> bool:
     return bool(argv) and argv[0].startswith("-") and not argv[0].startswith("--") and argv[0] != "-h"
 
 
+# The kernel's flags the launcher forwards: the one Jupyter passes, and the
+# ones that only print. Those of the native `-install` are not among them; the
+# `install` subcommand is the package's way to the same end.
+CONNECTION_FILE_FLAG = "-connection-file"
+KERNEL_SWITCHES = frozenset({"-verbose", "-version", "-man", "-print-kernelspec"})
+
+
+class KernelArgumentError(KernelBinaryError):
+    """Arguments that are not the kernel's flags, so are not passed to it."""
+
+
+def kernel_arguments(argv: Sequence[str]) -> list[str]:
+    """The kernel's command line for the arguments, each checked against its flag.
+
+    Raises:
+        KernelArgumentError: If an argument is not a kernel flag, or names no
+            connection file
+    """
+    command: list[str] = []
+    connection_file: str | None = None
+    args = iter(argv)
+    for arg in args:
+        flag, has_value, value = arg.partition("=")
+        if flag == CONNECTION_FILE_FLAG:
+            if not has_value:
+                value = next(args, "")
+            if connection_file is not None:
+                raise KernelArgumentError(f"kernel flag {flag} is given twice")
+            if not value or not os.path.isfile(value):
+                raise KernelArgumentError(f"kernel flag {flag} needs the connection file Jupyter wrote, not {value!r}")
+            connection_file = value
+            command += [flag, value]
+        elif flag in KERNEL_SWITCHES and not has_value:
+            command.append(flag)
+        else:
+            raise KernelArgumentError(
+                f"{arg!r} is not a kernel flag; the kernel takes {CONNECTION_FILE_FLAG} FILE and "
+                + ", ".join(sorted(KERNEL_SWITCHES))
+            )
+    return command
+
+
 def launch(argv: Sequence[str]) -> int:
     """Run the bundled kernel with the given arguments, in this process where the OS allows.
 
     Raises:
-        KernelBinaryError: If this install bundles no kernel
+        KernelBinaryError: If this install bundles no kernel, or the arguments
+            are not its flags
     """
     path = bundled_binary()
     if path is None:
@@ -67,7 +110,7 @@ def launch(argv: Sequence[str]) -> int:
             f"this install of {kernelspec.PACKAGE} bundles no {binary_name()} (it was not installed "
             "from a platform wheel); `python -m jupyter_opensysml_kernel install` registers a verified one"
         )
-    command = [path, *argv]
+    command = [path, *kernel_arguments(argv)]
     if sys.platform == "win32":
         process = subprocess.Popen(command)
         try:
@@ -75,8 +118,13 @@ def launch(argv: Sequence[str]) -> int:
         except BaseException:
             process.terminate()
             raise
-    if not os.access(path, os.X_OK):
-        os.chmod(path, os.stat(path).st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
+    if stat.S_IMODE(os.stat(path).st_mode) != BINARY_MODE:
+        try:
+            os.chmod(path, BINARY_MODE)
+        except OSError:
+            # Another user's, or a read-only, install: not ours to tighten, as long as it runs.
+            if not os.access(path, os.X_OK):
+                raise
     os.execv(path, command)
     return 0  # pragma: no cover - execv does not return
 

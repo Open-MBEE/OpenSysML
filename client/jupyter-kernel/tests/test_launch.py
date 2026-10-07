@@ -1,5 +1,6 @@
 """`python -m jupyter_opensysml_kernel -connection-file ...` starts the bundled kernel."""
 
+import errno
 import os
 import stat
 
@@ -29,8 +30,16 @@ def unbundled(tmp_path, monkeypatch):
     monkeypatch.setattr(binary, "BUNDLED_DIR", str(tmp_path / "no-bin"))
 
 
+@pytest.fixture
+def connection_file(tmp_path):
+    """The connection file Jupyter writes before it starts a kernel."""
+    path = tmp_path / "kernel-1.json"
+    path.write_text('{"transport": "tcp", "ip": "127.0.0.1"}', encoding="utf-8")
+    return str(path)
+
+
 def test_kernel_flags_are_told_from_subcommands():
-    assert cli.is_kernel_invocation(["-connection-file", "/tmp/k.json"])
+    assert cli.is_kernel_invocation(["-connection-file", "k.json"])
     assert cli.is_kernel_invocation(["-version"])
     assert not cli.is_kernel_invocation(["install", "--user"])
     assert not cli.is_kernel_invocation(["--version"])
@@ -39,23 +48,97 @@ def test_kernel_flags_are_told_from_subcommands():
 
 
 @pytest.mark.skipif(os.name == "nt", reason="the kernel replaces the process where exec exists")
-def test_launch_execs_the_bundled_kernel_with_the_flags(bundled, monkeypatch):
+def test_launch_execs_the_bundled_kernel_with_the_flags(bundled, connection_file, monkeypatch):
     calls = []
     monkeypatch.setattr(os, "execv", lambda path, argv: calls.append((path, argv)))
-    assert cli.main(["-connection-file", "/tmp/k.json"]) == 0
-    assert calls == [(bundled, [bundled, "-connection-file", "/tmp/k.json"])]
+    assert cli.main(["-connection-file", connection_file, "-verbose"]) == 0
+    assert calls == [(bundled, [bundled, "-connection-file", connection_file, "-verbose"])]
 
 
 @pytest.mark.skipif(os.name == "nt", reason="the kernel replaces the process where exec exists")
-def test_launch_restores_a_lost_execute_bit(bundled, monkeypatch):
+def test_launch_restores_a_lost_execute_bit(bundled, connection_file, monkeypatch):
     os.chmod(bundled, stat.S_IRUSR | stat.S_IWUSR)
     monkeypatch.setattr(os, "execv", lambda path, argv: None)
-    cli.main(["-connection-file", "/tmp/k.json"])
-    assert os.access(bundled, os.X_OK)
+    cli.main(["-connection-file", connection_file])
+    assert stat.S_IMODE(os.stat(bundled).st_mode) == 0o755
 
 
-def test_launch_without_a_bundled_kernel_says_how_to_install_one(unbundled, capsys):
-    assert cli.main(["-connection-file", "/tmp/k.json"]) == 1
+def read_only_mount(monkeypatch):
+    """A file system that refuses every mode change, as a read-only mount does."""
+
+    def chmod(path, mode, **kwargs):
+        raise OSError(errno.EROFS, os.strerror(errno.EROFS), path)
+
+    monkeypatch.setattr(os, "chmod", chmod)
+
+
+@pytest.mark.skipif(os.name == "nt", reason="the kernel replaces the process where exec exists")
+def test_launch_runs_an_executable_kernel_whose_mode_it_cannot_change(bundled, connection_file, monkeypatch):
+    os.chmod(bundled, 0o555)
+    read_only_mount(monkeypatch)
+    calls = []
+    monkeypatch.setattr(os, "execv", lambda path, argv: calls.append(path))
+    assert cli.main(["-connection-file", connection_file]) == 0
+    assert calls == [bundled]
+    assert stat.S_IMODE(os.stat(bundled).st_mode) == 0o555
+
+
+@pytest.mark.skipif(os.name == "nt", reason="the kernel replaces the process where exec exists")
+def test_launch_reports_a_kernel_that_neither_runs_nor_can_be_made_to(bundled, connection_file, monkeypatch):
+    os.chmod(bundled, 0o444)
+    read_only_mount(monkeypatch)
+    monkeypatch.setattr(os, "execv", lambda path, argv: pytest.fail("a kernel that cannot run was exec'd"))
+    with pytest.raises(OSError) as err:
+        cli.main(["-connection-file", connection_file])
+    assert err.value.errno == errno.EROFS
+
+
+@pytest.mark.skipif(os.name == "nt", reason="the kernel replaces the process where exec exists")
+@pytest.mark.parametrize(
+    "argv",
+    [
+        ["-connection-file"],
+        ["-connection-file", "missing.json"],
+        ["-connection-file=", "-verbose"],
+        ["-verbose", "-install"],
+        ["-verbose", "--help"],
+        ["-verbose", "-prefix", "/usr/local"],
+        ["-version", "extra"],
+        ["-connection-file", "a.json", "-connection-file", "b.json"],
+    ],
+)
+def test_launch_refuses_arguments_that_are_not_the_kernel_flags(bundled, tmp_path, monkeypatch, capsys, argv):
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "a.json").write_text("{}")
+    (tmp_path / "b.json").write_text("{}")
+    monkeypatch.setattr(os, "execv", lambda path, argv: pytest.fail(f"exec'd {argv}"))
+    assert cli.main(argv) == 1
+    assert "kernel flag" in capsys.readouterr().err
+
+
+@pytest.mark.skipif(os.name == "nt", reason="the kernel replaces the process where exec exists")
+def test_launch_accepts_each_kernel_flag(bundled, connection_file, monkeypatch):
+    calls = []
+    monkeypatch.setattr(os, "execv", lambda path, argv: calls.append(argv[1:]))
+    for argv in (
+        [f"-connection-file={connection_file}"],
+        ["-version"],
+        ["-man"],
+        ["-print-kernelspec"],
+        ["-connection-file", connection_file, "-verbose"],
+    ):
+        assert cli.main(argv) == 0
+    assert calls == [
+        ["-connection-file", connection_file],
+        ["-version"],
+        ["-man"],
+        ["-print-kernelspec"],
+        ["-connection-file", connection_file, "-verbose"],
+    ]
+
+
+def test_launch_without_a_bundled_kernel_says_how_to_install_one(unbundled, connection_file, capsys):
+    assert cli.main(["-connection-file", connection_file]) == 1
     err = capsys.readouterr().err
     assert "bundles no sysml-jupyter-kernel" in err
     assert "python -m jupyter_opensysml_kernel install" in err

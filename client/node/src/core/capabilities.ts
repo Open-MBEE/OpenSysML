@@ -59,6 +59,8 @@ export const CAPABILITY_RENDER_DOCUMENT = "render_document";
 export const CAPABILITY_RENDER_DOCUMENT_HTML = "render_document_html";
 /** The `RenderView` RPC, returning typed diagram data. */
 export const CAPABILITY_RENDER_VIEW = "render_view";
+/** The `ExportGraphs` RPC, exporting a behavior's lowered graph as `graphs:1` JSON. */
+export const CAPABILITY_EXPORT_GRAPHS = "export_graphs";
 /** What the body of a verification case answered, as `verification_verdicts`. */
 export const CAPABILITY_VERIFICATION_VERDICTS = "verification_verdicts";
 /** `RunAnalysisResponse.evaluations`: each call the run made to a calc held as a value, such as a trade study's evaluation of every alternative. */
@@ -121,6 +123,8 @@ export const CAPABILITY_BIG_INT_VALUES = "big_int_values";
 export const CAPABILITY_RATIONAL_VALUES = "rational_values";
 /** `ConvertRequest.documents`: a model converted with only the named documents written, the references into the others linked by id. */
 export const CAPABILITY_CONVERT_DOCUMENTS = "convert_documents";
+/** `ConvertRequest.compact`, `omitDerived` and `keepDerived`: api-json written as the compact document (an id table and handles), optionally without derived properties. */
+export const CAPABILITY_CONVERT_COMPACT = "convert_compact";
 /** `ParseSourcesRequest.baseModelHash` and `ParseSourcesResponse.affected`: the documents whose results may differ from the base model's, so a client re-reads only those after an edit. */
 export const CAPABILITY_PARSE_SOURCES_AFFECTED = "parse_sources_affected";
 

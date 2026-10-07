@@ -217,6 +217,7 @@ var metaCommandTable = []metaCommand{
 	{name: "%search", group: groupLibrary, args: "<substring>", desc: "list the declared and library symbols whose qualified name contains <substring>"},
 	{name: "%builtins", group: groupLibrary, desc: "list the library functions this build implements directly"},
 	{name: "%view", group: groupLibrary, args: argName, desc: "show what a view exposes, and the views nested in it"},
+	{name: "%graphs", group: groupLibrary, args: argName, desc: "export the lowered graph of an action or state machine, and of every behavior it performs, as the canonical graphs:1 JSON an external engine is sent"},
 	{name: "%render", group: groupLibrary, args: "<name> [form [palette] [style] [ports] [link=<template>]]", desc: "render a view as the rendering it states — as text, as a Mermaid diagram, a Markdown table or relationship matrix, or as Graphviz DOT, PlantUML or D2, filled from a named palette, drawn in a style (pilot or cameo) and optionally linking elements to their source with a link template"},
 
 	{name: "%instantiate", group: groupRuntime, args: argName, desc: "create an instance of a part def"},
@@ -444,6 +445,11 @@ func (s *Session) metaSessionCommand(fields []string, line string) (metaResult, 
 			return metaOut([]string{"usage: %view <name>"}, false, nil), true
 		}
 		return metaOut(s.doView(fields[1])), true
+	case "%graphs":
+		if len(fields) < 2 {
+			return metaOut([]string{"usage: %graphs <name>"}, false, nil), true
+		}
+		return metaOut(s.doGraphs(fields[1])), true
 	case "%render":
 		return metaOut(s.metaRender(fields[1:])), true
 	case "%render-run":

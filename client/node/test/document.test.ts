@@ -12,6 +12,7 @@ import {
   DocumentVerdict,
   ElementRef,
   ObjectRef,
+  SymbolNotFoundError,
   connect,
 } from "../src/node/index.js";
 import { repoRoot, useServiceBinary } from "./support/service.js";
@@ -38,6 +39,7 @@ const REPORT_HTML = join(
   "internal/doc/docrender/testdata/telescope_report.golden.html",
 );
 const VIEW_FIXTURE = join(repoRoot, "conformance/fixtures/views.sysml");
+const BEHAVIOR_FIXTURE = join(repoRoot, "conformance/fixtures/behavior.sysml");
 
 test("rendered view decoder preserves wire fields and message presence", () => {
   const response = create(RenderViewResponseSchema, {
@@ -212,4 +214,23 @@ test("renderView returns ports, edge endpoints, and origins", async () => {
   assert.ok(rendered.edges[0]?.fromPort);
   assert.ok(rendered.edges[0]?.toPort);
   assert.ok(rendered.nodes.every((node) => node.origin !== undefined));
+});
+
+test("exportGraphs returns the canonical graphs form of a behavior", async () => {
+  await using connection = await connect();
+  const model = await connection.load(BEHAVIOR_FIXTURE);
+  const graphs = await model.exportGraphs("Test::race");
+  assert.equal(graphs.version, 1);
+  assert.equal(graphs.subject, "Test::race");
+  const form = JSON.parse(graphs.content) as { version: number; subject: string; actions: unknown[] };
+  assert.equal(form.version, 1);
+  assert.equal(form.subject, "Test::race");
+  assert.equal(form.actions.length, 1);
+  const missing = await model.exportGraphs("Test::Missing").then(
+    () => undefined,
+    (reason: unknown) => reason,
+  );
+  assert.ok(missing instanceof SymbolNotFoundError);
+  assert.equal(missing.symbolName, "Test::Missing");
+  await assert.rejects(model.exportGraphs("Test"), /no lowered graph/);
 });

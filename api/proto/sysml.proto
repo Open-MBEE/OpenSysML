@@ -103,6 +103,11 @@ service SysMLService {
   // Render a named view or targeted pseudo-view as machine-readable diagram
   // data. Reported as the "render_view" capability.
   rpc RenderView(RenderViewRequest) returns (RenderViewResponse);
+
+  // Export the lowered graph of an action or a state machine — the subject's
+  // and every behavior it performs — as the canonical `graphs:<version>` JSON
+  // external analysis engines read. Reported as the "export_graphs" capability.
+  rpc ExportGraphs(ExportGraphsRequest) returns (ExportGraphsResponse);
 }
 
 // FailureReason says what kind of failure an `error` reports, so a client acts
@@ -889,6 +894,21 @@ message ConvertRequest {
   // does not hold, or documents for a file_path or content, is
   // INVALID_ARGUMENT. Reported as the "convert_documents" capability.
   repeated string documents = 8;
+  // For api-json from notation: write the compact document
+  // (api-json-compact/1) in place of the standard element array. It is one
+  // object holding a table of element ids, written once, and the elements with
+  // every reference spelled as an index into it, without indentation; see
+  // docs/reference/wire-contract.md for the shape. Refused for any other
+  // target. Reported as the "convert_compact" capability.
+  bool compact = 9;
+  // With compact: leave out every derived property of the metamodel (the
+  // ones the owned properties already state), except those named in
+  // keep_derived. Refused without compact.
+  bool omit_derived = 10;
+  // With omit_derived: the derived properties still written, named as in the
+  // element form ("owner", "qualifiedName"). A name that is not a derived
+  // property of the metamodel is INVALID_ARGUMENT. Refused without omit_derived.
+  repeated string keep_derived = 11;
 }
 
 // ConvertResponse contains the converted model.
@@ -1871,6 +1891,8 @@ message ServerInfoResponse {
   //                  Markdown.
   //   "render_view" - the RenderView RPC renders a declared view or targeted
   //                  pseudo-view as machine-readable diagram data.
+  //   "export_graphs" - the ExportGraphs RPC exports the lowered graph of an
+  //                  action or state machine as canonical graphs:1 JSON.
   //   "diagnostic_codes" - Diagnostic.code is populated, so an empty code is a
   //                  finding none was assigned; without it every code is empty.
   //   "schedule"     - ExecuteActionRequest, ExecuteStateRequest and
@@ -2414,4 +2436,23 @@ message RenderNote {
   double height = 8;
   bool has_size = 9;
   Span origin = 10;
+}
+
+// ExportGraphsRequest names the behavior whose lowered graph is exported.
+message ExportGraphsRequest {
+  string model_hash = 1;
+  // Qualified name of an action or state machine, definition or usage.
+  string subject = 2;
+}
+
+// ExportGraphsResponse carries the `graphs:<version>` form: the lowered
+// ActionGraph/StateGraph IR of the subject and of every behavior it performs,
+// as canonical JSON — the same bytes an external engine is sent.
+message ExportGraphsResponse {
+  // The form, as canonical JSON with one trailing newline.
+  string content = 1;
+  // The version of the form, the `version` field of the JSON.
+  int32 version = 2;
+  // The subject's qualified name as resolved.
+  string subject = 3;
 }

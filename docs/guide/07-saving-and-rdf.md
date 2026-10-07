@@ -119,6 +119,11 @@ value.
 the elements the named documents declare; references into the others stay links to the ids
 their own conversion writes. A client that edits one document of a large model converts that
 document again instead of the whole model. The service reports it as `convert_documents`.
+`compact`, for `api-json` from notation, writes one small document in place of the element array:
+a table of the element ids, each written once, and the elements with every reference spelled as an
+index into it; `omit_derived` leaves out the metamodel's derived properties, except those
+`keep_derived` names. The service reports it as `convert_compact`; the shape is in the
+[Compact API JSON](../reference/api-json-compact.md).
 Which documents an edit reached is what `ParseSources` answers as `affected` when it is sent the
 previous model's hash (`parse_sources_affected`).
 

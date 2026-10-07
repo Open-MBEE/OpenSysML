@@ -14,6 +14,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/translate/convert"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/export"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/mtip"
+	"github.com/Open-MBEE/OpenSysML/internal/translate/rdf/ontology"
 )
 
 // msgFileNotFound is the NotFound message for a source path that does not read.
@@ -48,7 +49,7 @@ func (s *Service) Convert(ctx context.Context, req *pb.ConvertRequest) (*pb.Conv
 	if err != nil {
 		return nil, err
 	}
-	opts, err := convertOptions(req.IdForm, from, to)
+	opts, err := s.convertOptions(req, from, to)
 	if err != nil {
 		return nil, err
 	}
@@ -292,21 +293,53 @@ func convertModel(name string, data []byte, from, to convert.Format, tolerant bo
 
 // convertOptions reads id_form as `sysml -id` reads its argument: how derived
 // element ids are spelled when notation is written as a graph. It is refused
-// for any other direction, and for a value that names no id form.
-func convertOptions(idForm string, from, to convert.Format) (convert.Options, error) {
+// for any other direction, and for a value that names no id form. It reads the
+// compact form's fields the same way: only api-json from notation, and
+// omit_derived and keep_derived only where they apply.
+func (s *Service) convertOptions(req *pb.ConvertRequest, from, to convert.Format) (convert.Options, error) {
 	opts := convert.Options{}
-	if idForm == "" {
-		return opts, nil
+	if req.IdForm != "" {
+		if from != convert.FormatSysML || (to != convert.FormatTurtle && to != convert.FormatAPIJSON) {
+			return opts, statusError(connect.CodeInvalidArgument, "id_form applies to notation converted to ttl or api-json")
+		}
+		form, ok := export.ParseIDForm(req.IdForm)
+		if !ok {
+			return opts, statusErrorf(connect.CodeInvalidArgument, "id_form wants qualified or uuid, not %q", req.IdForm)
+		}
+		opts.ID = form
 	}
-	if from != convert.FormatSysML || (to != convert.FormatTurtle && to != convert.FormatAPIJSON) {
-		return opts, statusError(connect.CodeInvalidArgument, "id_form applies to notation converted to ttl or api-json")
+	compact, err := s.compactOptions(req, from, to)
+	if err != nil {
+		return opts, err
 	}
-	form, ok := export.ParseIDForm(idForm)
-	if !ok {
-		return opts, statusErrorf(connect.CodeInvalidArgument, "id_form wants qualified or uuid, not %q", idForm)
-	}
-	opts.ID = form
+	opts.Compact = compact
 	return opts, nil
+}
+
+// compactOptions reads compact, omit_derived and keep_derived: nil when the
+// request asks for none of them.
+func (s *Service) compactOptions(req *pb.ConvertRequest, from, to convert.Format) (*export.CompactAPIJSONOptions, error) {
+	if !req.Compact && !req.OmitDerived && len(req.KeepDerived) == 0 {
+		return nil, nil
+	}
+	if err := s.requireCapability(CapabilityConvertCompact); err != nil {
+		return nil, err
+	}
+	if !req.Compact {
+		return nil, statusError(connect.CodeInvalidArgument, "omit_derived and keep_derived apply to the compact form: set compact")
+	}
+	if from != convert.FormatSysML || to != convert.FormatAPIJSON {
+		return nil, statusError(connect.CodeInvalidArgument, "compact applies to notation converted to api-json")
+	}
+	if len(req.KeepDerived) > 0 && !req.OmitDerived {
+		return nil, statusError(connect.CodeInvalidArgument, "keep_derived names what omit_derived still writes: set omit_derived")
+	}
+	for _, name := range req.KeepDerived {
+		if !slices.ContainsFunc(ontology.LookupProperty(name), func(p ontology.Property) bool { return p.Derived }) {
+			return nil, statusErrorf(connect.CodeInvalidArgument, "keep_derived names %q, which is not a derived property of the metamodel", name)
+		}
+	}
+	return &export.CompactAPIJSONOptions{OmitDerived: req.OmitDerived, KeepDerived: slices.Clone(req.KeepDerived)}, nil
 }
 
 // convertSource reads the model the request names, and the name to report it by.
@@ -450,7 +483,7 @@ func (s *Service) convertModelOfDocuments(req *pb.ConvertRequest) (*pb.ConvertRe
 	}
 	// id_form is judged first, as for one document: one given for a notation
 	// target is INVALID_ARGUMENT, whatever else the model's target refuses.
-	opts, err := convertOptions(req.IdForm, convert.FormatSysML, to)
+	opts, err := s.convertOptions(req, convert.FormatSysML, to)
 	if err != nil {
 		return nil, true, err
 	}
@@ -487,7 +520,7 @@ func (s *Service) convertModelOfDocuments(req *pb.ConvertRequest) (*pb.ConvertRe
 		resp.Error = err.Error()
 		return resp, true, nil
 	}
-	out, err := convert.FromGraph(graph, to)
+	out, err := convert.FromGraphWith(graph, to, opts)
 	if err != nil {
 		resp.Error = err.Error()
 		return resp, true, nil

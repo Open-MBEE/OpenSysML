@@ -70,6 +70,7 @@ export type {
   RenderStyle,
   RenderedView,
 } from "./render-view.js";
+export type { Graphs } from "./graphs.js";
 export {
   ENGINE_ALL,
   ENGINE_AUTO,
@@ -144,6 +145,7 @@ export {
   CAPABILITY_RATIONAL_VALUES,
   CAPABILITY_CONVERT,
   CAPABILITY_CONVERT_DOCUMENTS,
+  CAPABILITY_CONVERT_COMPACT,
   CAPABILITY_PARSE_SOURCES_AFFECTED,
   CAPABILITY_MIGRATE,
   CAPABILITY_DIAGNOSTIC_CODES,

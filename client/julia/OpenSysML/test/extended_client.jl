@@ -645,6 +645,16 @@ end
                 @test all(node -> node.origin !== nothing, rendered_view.nodes)
                 full_view = render_view(views_model, "RenderViewDemo::connections"; ports="full")
                 @test any(port.name == "spare" for node in full_view.nodes for port in node.ports)
+                behavior_model = parse_file(conn, joinpath(FIXTURES, "behavior.sysml"))
+                graphs = export_graphs(behavior_model, "Test::race")
+                @test graphs isa Graphs
+                @test graphs.version == 1
+                @test graphs.subject == "Test::race"
+                @test startswith(graphs.content, "{\"version\":1,\"subject\":\"Test::race\"")
+                @test endswith(graphs.content, "}\n")
+                @test occursin("\"actions\"", graphs.content)
+                @test_throws SymbolNotFoundError export_graphs(behavior_model, "Test::Missing")
+                @test_throws OpenSysMLError export_graphs(behavior_model, "Test")
                 for (view, message) in (
                     ("RenderViewDemo::Missing", "no view named RenderViewDemo::Missing"),
                     ("#interconnection:Nope",

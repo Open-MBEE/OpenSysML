@@ -28,6 +28,7 @@ from opensysml.capabilities import (
     CAPABILITY_BIG_INT_VALUES,
     CAPABILITY_RATIONAL_VALUES,
     CAPABILITY_CONVERT_DOCUMENTS,
+    CAPABILITY_CONVERT_COMPACT,
     CAPABILITY_PARSE_SOURCES_AFFECTED,
     MissingCapabilityError,
     ServerInfo,
@@ -48,7 +49,7 @@ from opensysml.query import QueryElement, QueryError
 from opensysml.sources import SourceDocument
 from opensysml.document import (
     DocumentEvent, DocumentQueryError, DocumentQueryResult, DocumentRow, DocumentState,
-    DocumentVerdict, ElementRef, INFINITY, ObjectRef, RenderCanvas, RenderEdge,
+    DocumentVerdict, ElementRef, Graphs, INFINITY, ObjectRef, RenderCanvas, RenderEdge,
     RenderGeometry, RenderNode, RenderNote, RenderPoint, RenderPort, RenderRow,
     RenderSpan, RenderStyle, RenderedView,
 )
@@ -98,6 +99,7 @@ __all__ = [
     "DocumentState", "DocumentVerdict", "ElementRef", "INFINITY", "ObjectRef",
     "RenderCanvas", "RenderEdge", "RenderGeometry", "RenderNode", "RenderNote",
     "RenderPoint", "RenderPort", "RenderRow", "RenderSpan", "RenderStyle", "RenderedView",
+    "Graphs",
     "OpenSysMLError", "AnalysisRunError", "ChecksumMismatchError", "ConnectionError",
     "ConversionError", "ExecutionError", "FeatureValueError", "MigrationError",
     "EditError", "NoEditsError", "EditTargetError", "InvalidEditError",
@@ -109,7 +111,7 @@ __all__ = [
     "MissingCapabilityError",
     "CAPABILITY_CONSTRAINT_BODY_AUTHORING", "CAPABILITY_STATE_ACTION_AUTHORING",
     "CAPABILITY_BIG_INT_VALUES", "CAPABILITY_RATIONAL_VALUES", "CAPABILITY_CONVERT_DOCUMENTS",
-    "CAPABILITY_PARSE_SOURCES_AFFECTED",
+    "CAPABILITY_CONVERT_COMPACT", "CAPABILITY_PARSE_SOURCES_AFFECTED",
     "ModelError", "ModelFileNotFoundError", "ModelNotFoundError",
     "ServiceError", "ServiceTimeoutError", "SigstoreUnavailableError", "StaleServiceError",
     "SymbolNotFoundError",

@@ -407,3 +407,28 @@ function render_view(model::Model, view_name::AbstractString; ports="minimal")
     end
     rendered_view_result(answer)
 end
+
+"""
+The lowered graph of an action or state machine and of every behavior it
+performs, in the canonical `graphs:<version>` JSON form an external analysis
+engine is sent.
+"""
+struct Graphs
+    content::String
+    version::Int
+    subject::String
+end
+
+"""Export the lowered graph of an action or state machine as `graphs:1` JSON."""
+function export_graphs(model::Model, subject::AbstractString)
+    conn = model.connection
+    require_capability(conn, CAPABILITY_EXPORT_GRAPHS)
+    answer = _translate(; not_found=(message, _) ->
+        SymbolNotFoundError(subject; service_message=message),
+        capabilities=(CAPABILITY_EXPORT_GRAPHS,), connection=conn) do
+        call(conn, "ExportGraphs", Dict{String,Any}("modelHash" => model.hash,
+            "subject" => String(subject)))
+    end
+    Graphs(_render_string(answer, "content"), Int(get(answer, "version", 0)),
+        _render_string(answer, "subject"))
+end

@@ -290,6 +290,7 @@ nav:
       - MATLAB API: reference/matlab-api.md
       - Service transports: reference/service-transports.md
       - Wire contract: reference/wire-contract.md
+      - Compact API JSON: reference/api-json-compact.md
       - RDF mapping: reference/rdf-mapping.md
       - SysML v1 migration: reference/sysml-v1-migration.md
       - FMI models: reference/fmi.md

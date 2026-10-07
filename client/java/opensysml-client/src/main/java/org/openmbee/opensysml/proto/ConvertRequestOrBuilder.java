@@ -217,5 +217,81 @@ public interface ConvertRequestOrBuilder extends
   com.google.protobuf.ByteString
       getDocumentsBytes(int index);
 
+  /**
+   * <pre>
+   * For api-json from notation: write the compact document
+   * (api-json-compact/1) in place of the standard element array. It is one
+   * object holding a table of element ids, written once, and the elements with
+   * every reference spelled as an index into it, without indentation; see
+   * docs/reference/wire-contract.md for the shape. Refused for any other
+   * target. Reported as the "convert_compact" capability.
+   * </pre>
+   *
+   * <code>bool compact = 9 [json_name = "compact"];</code>
+   * @return The compact.
+   */
+  boolean getCompact();
+
+  /**
+   * <pre>
+   * With compact: leave out every derived property of the metamodel (the
+   * ones the owned properties already state), except those named in
+   * keep_derived. Refused without compact.
+   * </pre>
+   *
+   * <code>bool omit_derived = 10 [json_name = "omitDerived"];</code>
+   * @return The omitDerived.
+   */
+  boolean getOmitDerived();
+
+  /**
+   * <pre>
+   * With omit_derived: the derived properties still written, named as in the
+   * element form ("owner", "qualifiedName"). A name that is not a derived
+   * property of the metamodel is INVALID_ARGUMENT. Refused without omit_derived.
+   * </pre>
+   *
+   * <code>repeated string keep_derived = 11 [json_name = "keepDerived"];</code>
+   * @return A list containing the keepDerived.
+   */
+  java.util.List<java.lang.String>
+      getKeepDerivedList();
+  /**
+   * <pre>
+   * With omit_derived: the derived properties still written, named as in the
+   * element form ("owner", "qualifiedName"). A name that is not a derived
+   * property of the metamodel is INVALID_ARGUMENT. Refused without omit_derived.
+   * </pre>
+   *
+   * <code>repeated string keep_derived = 11 [json_name = "keepDerived"];</code>
+   * @return The count of keepDerived.
+   */
+  int getKeepDerivedCount();
+  /**
+   * <pre>
+   * With omit_derived: the derived properties still written, named as in the
+   * element form ("owner", "qualifiedName"). A name that is not a derived
+   * property of the metamodel is INVALID_ARGUMENT. Refused without omit_derived.
+   * </pre>
+   *
+   * <code>repeated string keep_derived = 11 [json_name = "keepDerived"];</code>
+   * @param index The index of the element to return.
+   * @return The keepDerived at the given index.
+   */
+  java.lang.String getKeepDerived(int index);
+  /**
+   * <pre>
+   * With omit_derived: the derived properties still written, named as in the
+   * element form ("owner", "qualifiedName"). A name that is not a derived
+   * property of the metamodel is INVALID_ARGUMENT. Refused without omit_derived.
+   * </pre>
+   *
+   * <code>repeated string keep_derived = 11 [json_name = "keepDerived"];</code>
+   * @param index The index of the value to return.
+   * @return The bytes of the keepDerived at the given index.
+   */
+  com.google.protobuf.ByteString
+      getKeepDerivedBytes(int index);
+
   org.openmbee.opensysml.proto.ConvertRequest.SourceCase getSourceCase();
 }

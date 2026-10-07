@@ -22,6 +22,8 @@ import org.openmbee.opensysml.proto.QueryRequest;
 import org.openmbee.opensysml.proto.QueryResponse;
 import org.openmbee.opensysml.proto.RenderDocumentRequest;
 import org.openmbee.opensysml.proto.RenderDocumentResponse;
+import org.openmbee.opensysml.proto.ExportGraphsRequest;
+import org.openmbee.opensysml.proto.ExportGraphsResponse;
 import org.openmbee.opensysml.proto.RenderViewRequest;
 import org.openmbee.opensysml.proto.RenderViewResponse;
 import org.openmbee.opensysml.proto.RunAnalysisRequest;
@@ -1667,6 +1669,26 @@ public final class Model {
                 .build(),
             RenderViewResponse.getDefaultInstance());
     return RenderedView.from(response);
+  }
+
+  /**
+   * Exports the lowered graph of an action or state machine, and of every behavior it performs, as
+   * the canonical {@code graphs:1} JSON an external analysis engine is sent.
+   *
+   * @param subject qualified name of the action or state machine, definition or usage
+   * @return the form, its version and the subject as resolved
+   * @throws ServiceException if the model declares no such element, or it is no behavior
+   * @throws CapabilityException if the service does not advertise {@code export_graphs}
+   */
+  public Graphs exportGraphs(String subject) {
+    Objects.requireNonNull(subject, "subject");
+    connection.capabilities().require(Capabilities.EXPORT_GRAPHS);
+    ExportGraphsResponse response =
+        connection.call(
+            "ExportGraphs",
+            ExportGraphsRequest.newBuilder().setModelHash(hash).setSubject(subject).build(),
+            ExportGraphsResponse.getDefaultInstance());
+    return new Graphs(response.getContent(), response.getVersion(), response.getSubject());
   }
 
   private String schedule(ExecutionOptions options, boolean explore) {
