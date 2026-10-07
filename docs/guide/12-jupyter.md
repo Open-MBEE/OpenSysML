@@ -59,8 +59,9 @@ jupyter lab
 ## Cells
 
 A cell may hold declarations, `%` commands and expressions, mixed. The kernel splits it as the
-prompt does — a `%` command is one line; a declaration runs to the end of its balanced
-braces — and runs each part in order, stopping at the first that fails.
+prompt does — a `%` command is one line; an expression is answered on its own once its
+brackets close; declarations between them go in as one submission, as a file would — and runs
+each part in order, stopping at the first that fails.
 
 ```sysml
 package Vehicles {
@@ -95,10 +96,16 @@ parse, a command that fails, or an expression that cannot be evaluated is an err
 with the prompt's message, and the cells queued behind it (as when running the whole
 notebook) are skipped, as notebooks expect.
 
+As at the prompt, a failed cell does not roll the session back: what the session accepted
+before the error stays, and a declaration refused for a semantic error is still in the model
+with that error reported. `%clear` (or *Restart Kernel*) starts over.
+
 <kbd>Tab</kbd> completes the way the prompt's completer does: `%` commands, their arguments,
-and qualified names in the model. <kbd>Shift</kbd>+<kbd>Enter</kbd> on an unfinished
-declaration (an unclosed brace) continues the cell rather than running it.
-<kbd>Shift</kbd>+<kbd>Tab</kbd> on a name shows what `%print` would print for it.
+and qualified names in the model. <kbd>Shift</kbd>+<kbd>Tab</kbd> on a name shows what
+`%print` would print for it. A notebook runs a cell on <kbd>Shift</kbd>+<kbd>Enter</kbd>
+whatever it holds; it is `jupyter console` that asks the kernel whether the input is
+complete, and there <kbd>Enter</kbd> on an unfinished declaration (an unclosed brace) reads
+another line rather than running it.
 
 ## Rich output
 

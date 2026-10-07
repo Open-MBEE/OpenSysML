@@ -13,32 +13,52 @@ type Statement struct {
 	Text string
 }
 
-// Statements splits a cell of input into what the prompt would read from it,
-// line by line, as the REPL loop does: a `%` line outside a continuation is a
-// meta command, and everything else accumulates until the next meta command or
-// the end of the cell. Unlike the prompt, a blank line does not end a
-// continuation, so a declaration body may hold one.
+// Statements splits a cell of input into what the prompt would read from it.
+// A `%` line outside a continuation is a meta command; an expression that
+// closes its brackets is answered on its own, as the prompt answers one line;
+// declarations run together into one submission up to the next command or
+// expression, so a cell may hold a whole model as a file does, blank lines
+// included.
 func Statements(cell string) []Statement {
 	var out []Statement
-	var buf strings.Builder
-	flush := func() {
-		if strings.TrimSpace(buf.String()) != "" {
-			out = append(out, Statement{Text: buf.String()})
+	var decls, chunk strings.Builder
+	flush := func(b *strings.Builder) {
+		if strings.TrimSpace(b.String()) != "" {
+			out = append(out, Statement{Text: b.String()})
 		}
-		buf.Reset()
+		b.Reset()
 	}
 	for _, line := range strings.Split(cell, "\n") {
-		if isMeta(line) && (buf.Len() == 0 || !needsContinuation(buf.String())) {
-			flush()
+		if chunk.Len() == 0 && isMeta(line) {
+			flush(&decls)
 			out = append(out, Statement{Meta: true, Text: strings.TrimSpace(line)})
 			continue
 		}
-		if buf.Len() > 0 {
-			buf.WriteByte('\n')
+		if chunk.Len() > 0 {
+			chunk.WriteByte('\n')
 		}
-		buf.WriteString(line)
+		chunk.WriteString(line)
+		if needsContinuation(chunk.String()) {
+			continue
+		}
+		if _, ok := bareExpression(chunk.String()); ok {
+			flush(&decls)
+			flush(&chunk)
+			continue
+		}
+		if decls.Len() > 0 {
+			decls.WriteByte('\n')
+		}
+		decls.WriteString(chunk.String())
+		chunk.Reset()
 	}
-	flush()
+	if chunk.Len() > 0 {
+		if decls.Len() > 0 {
+			decls.WriteByte('\n')
+		}
+		decls.WriteString(chunk.String())
+	}
+	flush(&decls)
 	return out
 }
 

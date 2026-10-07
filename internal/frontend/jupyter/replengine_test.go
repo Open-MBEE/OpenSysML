@@ -68,6 +68,23 @@ func TestCellsAccumulateIntoOneSession(t *testing.T) {
 	}
 }
 
+func TestACellMayMixDeclarationsAndExpressions(t *testing.T) {
+	e := newEngine(t)
+	out := mustRun(t, e, "private import ScalarValues::*;\npackage Demo {\n  part def Wheel { attribute diameter : Real = 16.0; }\n}\n1 + 2\nDemo::Wheel::diameter + 1")
+	if !strings.Contains(out.text(), "✓ package Demo") {
+		t.Errorf("declaration output = %q", out.text())
+	}
+	if len(out.results) != 2 {
+		t.Fatalf("results = %v, want one per expression", out.results)
+	}
+	if first := out.results[0][mimeText].(string); !strings.Contains(first, "= 3") {
+		t.Errorf("first result = %q", first)
+	}
+	if second := out.results[1][mimeText].(string); !strings.Contains(second, "= 17.0") {
+		t.Errorf("second result = %q", second)
+	}
+}
+
 func TestACellRunsItsStatementsInOrderAndStopsAtTheFirstFailure(t *testing.T) {
 	e := newEngine(t)
 	out := &recorder{}

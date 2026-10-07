@@ -24,6 +24,10 @@ func TestStatementsSplitACellAsThePromptReadsIt(t *testing.T) {
 		{"string holding a brace", "attribute s = \"{\";\n%print s", []Statement{{Text: "attribute s = \"{\";"}, {Meta: true, Text: "%print s"}}},
 		{"two declarations are one submission", "part def A;\npart def B;", []Statement{{Text: "part def A;\npart def B;"}}},
 		{"expression", "1 + 2", []Statement{{Text: "1 + 2"}}},
+		{"two expressions are two submissions", "1 + 2\nP::x.mass + 100.0", []Statement{{Text: "1 + 2"}, {Text: "P::x.mass + 100.0"}}},
+		{"declaration then expression", "package P {\n  part def A;\n}\n1 + 2", []Statement{{Text: "package P {\n  part def A;\n}"}, {Text: "1 + 2"}}},
+		{"expression over lines", "(1 +\n 2)", []Statement{{Text: "(1 +\n 2)"}}},
+		{"unfinished declaration is submitted as it stands", "package P {\n  part def A;", []Statement{{Text: "package P {\n  part def A;"}}},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
