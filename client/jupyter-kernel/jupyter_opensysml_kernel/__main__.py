@@ -121,8 +121,8 @@ def launch(argv: Sequence[str]) -> int:
     if stat.S_IMODE(os.stat(path).st_mode) != BINARY_MODE:
         try:
             os.chmod(path, BINARY_MODE)
-        except PermissionError:
-            # Another user's install: it is theirs to tighten, as long as it runs.
+        except OSError:
+            # Another user's, or a read-only, install: not ours to tighten, as long as it runs.
             if not os.access(path, os.X_OK):
                 raise
     os.execv(path, command)

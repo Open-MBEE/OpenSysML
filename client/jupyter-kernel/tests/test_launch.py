@@ -1,5 +1,6 @@
 """`python -m jupyter_opensysml_kernel -connection-file ...` starts the bundled kernel."""
 
+import errno
 import os
 import stat
 
@@ -60,6 +61,36 @@ def test_launch_restores_a_lost_execute_bit(bundled, connection_file, monkeypatc
     monkeypatch.setattr(os, "execv", lambda path, argv: None)
     cli.main(["-connection-file", connection_file])
     assert stat.S_IMODE(os.stat(bundled).st_mode) == 0o755
+
+
+def read_only_mount(monkeypatch):
+    """A file system that refuses every mode change, as a read-only mount does."""
+
+    def chmod(path, mode, **kwargs):
+        raise OSError(errno.EROFS, os.strerror(errno.EROFS), path)
+
+    monkeypatch.setattr(os, "chmod", chmod)
+
+
+@pytest.mark.skipif(os.name == "nt", reason="the kernel replaces the process where exec exists")
+def test_launch_runs_an_executable_kernel_whose_mode_it_cannot_change(bundled, connection_file, monkeypatch):
+    os.chmod(bundled, 0o555)
+    read_only_mount(monkeypatch)
+    calls = []
+    monkeypatch.setattr(os, "execv", lambda path, argv: calls.append(path))
+    assert cli.main(["-connection-file", connection_file]) == 0
+    assert calls == [bundled]
+    assert stat.S_IMODE(os.stat(bundled).st_mode) == 0o555
+
+
+@pytest.mark.skipif(os.name == "nt", reason="the kernel replaces the process where exec exists")
+def test_launch_reports_a_kernel_that_neither_runs_nor_can_be_made_to(bundled, connection_file, monkeypatch):
+    os.chmod(bundled, 0o444)
+    read_only_mount(monkeypatch)
+    monkeypatch.setattr(os, "execv", lambda path, argv: pytest.fail("a kernel that cannot run was exec'd"))
+    with pytest.raises(OSError) as err:
+        cli.main(["-connection-file", connection_file])
+    assert err.value.errno == errno.EROFS
 
 
 @pytest.mark.skipif(os.name == "nt", reason="the kernel replaces the process where exec exists")
