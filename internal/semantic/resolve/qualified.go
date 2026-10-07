@@ -257,13 +257,16 @@ func (r *Resolver) lookupInRoot(scope *symbols.Scope, name string) *symbols.Symb
 // Namespace's own members must be distinguishable, and the global namespace is
 // not one.
 func (r *Resolver) lookupGlobalTop(scope *symbols.Scope, name string) *symbols.Symbol {
-	// A name reached here may be one a filtered import surfaced at a document's
-	// root, so the conditions of the routes registering it decide it here too.
+	// Candidate admission still applies, but root imports are not global declarations.
 	syms := r.globalCandidates(scope, name)
-	if len(syms) == 0 {
-		return nil
+	for _, sym := range syms {
+		// Root imports belong to one document and have already been searched.
+		// Only independent declarations may supply the global fallback.
+		if r.idx.ReexportVisible("", name, sym) {
+			return sym
+		}
 	}
-	return syms[0]
+	return nil
 }
 
 // rootOf returns the topmost ancestor of scope (the document root), or nil.

@@ -1,1 +1,1 @@
-- Hide conflicting imported memberships instead of selecting the first import; preserve repeated imports of one element, owned names and outer-scope fallback.
+- Hide conflicting imported memberships, including root, re-exported and inherited imports, instead of selecting the first import; preserve repeated imports of one element, owned names, outer-scope fallback and invocation overload selection.

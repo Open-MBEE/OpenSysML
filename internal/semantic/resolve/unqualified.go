@@ -351,13 +351,11 @@ func (r *Resolver) uniqueImport(matches []*symbols.Symbol) (*symbols.Symbol, boo
 	return found, found != nil
 }
 
-// lookupImportedMember resolves a segment surfaced by the namespace being
-// traversed, including a public membership import.
-func (r *Resolver) lookupImportedMember(target *symbols.Symbol, targetScope, from *symbols.Scope, name string) (*symbols.Symbol, bool) {
-	return r.uniqueImport(r.importedMemberCandidates(target, targetScope, from, name))
+func (r *Resolver) importedMemberCandidates(target *symbols.Symbol, targetScope, from *symbols.Scope, name string) []*symbols.Symbol {
+	return r.importedMemberCandidatesFor(target, targetScope, from, name, false)
 }
 
-func (r *Resolver) importedMemberCandidates(target *symbols.Symbol, targetScope, from *symbols.Scope, name string) []*symbols.Symbol {
+func (r *Resolver) importedMemberCandidatesFor(target *symbols.Symbol, targetScope, from *symbols.Scope, name string, overloads bool) []*symbols.Symbol {
 	visit := importVisit{target: targetScope, from: from, name: name}
 	if r.importVisits[visit] {
 		return nil
@@ -387,7 +385,7 @@ func (r *Resolver) importedMemberCandidates(target *symbols.Symbol, targetScope,
 			into = from
 		}
 		r.importStack[imp] = true
-		for _, sym := range r.importMatchesAllInto(into, targetScope, imp, name) {
+		for _, sym := range r.importMatchesInto(into, targetScope, imp, name, overloads) {
 			matches = appendSymbol(matches, sym)
 		}
 		delete(r.importStack, imp)
@@ -495,8 +493,14 @@ func (r *Resolver) importMatchesAll(scope *symbols.Scope, imp *ast.Import, name 
 // importMatchesAllInto is importMatchesAll for an import inherited into the
 // namespace owning into (see matchImportInto).
 func (r *Resolver) importMatchesAllInto(into, scope *symbols.Scope, imp *ast.Import, name string) []*symbols.Symbol {
+	return r.importMatchesInto(into, scope, imp, name, false)
+}
+
+// Overload selection keeps all callable candidates across re-exports;
+// ordinary lookup admits only a unique imported element at each namespace.
+func (r *Resolver) importMatchesInto(into, scope *symbols.Scope, imp *ast.Import, name string, overloads bool) []*symbols.Symbol {
 	var out []*symbols.Symbol
-	r.eachImportMatch(into, scope, imp, name, func(sym *symbols.Symbol) bool {
+	r.eachImportMatch(into, scope, imp, name, overloads, func(sym *symbols.Symbol) bool {
 		out = appendSymbol(out, sym)
 		return true
 	})
@@ -505,7 +509,7 @@ func (r *Resolver) importMatchesAllInto(into, scope *symbols.Scope, imp *ast.Imp
 
 // eachImportMatch calls yield with each element imp surfaces under name until
 // yield returns false.
-func (r *Resolver) eachImportMatch(into, scope *symbols.Scope, imp *ast.Import, name string, yield func(*symbols.Symbol) bool) {
+func (r *Resolver) eachImportMatch(into, scope *symbols.Scope, imp *ast.Import, name string, overloads bool, yield func(*symbols.Symbol) bool) {
 	if imp.Imported == nil || len(imp.Imported.Parts) == 0 {
 		return
 	}
@@ -559,6 +563,7 @@ func (r *Resolver) eachImportMatch(into, scope *symbols.Scope, imp *ast.Import, 
 	}
 	// Namespace import: visible members of the target's scope are surfaced.
 	// Check scope first if available
+	hidden := false
 	if target.Scope != nil {
 		locals := symbols.PreferDeclared(target.Scope.LookupLocalAll(name))
 		owned := false
@@ -579,14 +584,24 @@ func (r *Resolver) eachImportMatch(into, scope *symbols.Scope, imp *ast.Import, 
 			}
 			return
 		}
-		if sym, ok := r.lookupImportedMember(target, target.Scope, scope, name); ok && symbols.VisibleOutside(sym.Visibility) && admit(sym) {
+		matches := r.importedMemberCandidatesFor(target, target.Scope, scope, name, overloads)
+		sym, ok := r.uniqueImport(matches)
+		hidden = len(matches) > 1 && !ok && !overloads
+		if overloads {
+			for _, candidate := range matches {
+				if symbols.VisibleOutside(candidate.Visibility) && admit(candidate) && !yield(candidate) {
+					return
+				}
+			}
+		}
+		if ok && symbols.VisibleOutside(sym.Visibility) && admit(sym) {
 			if !yield(sym) {
 				return
 			}
 		}
 	}
 	// Also check FQN index for re-exported symbols (wildcard imports populate index, not scope)
-	if r.idx != nil {
+	if r.idx != nil && !hidden {
 		// A name only a private import surfaced under the target is a member of
 		// it but not a visible one, so a wildcard import does not re-export it
 		// (KerML 8.2.3.3) — unless this is an `import all`, which takes the
