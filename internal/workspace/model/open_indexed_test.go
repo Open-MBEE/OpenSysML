@@ -129,7 +129,8 @@ func TestSetOnDiskAllKeepsTheHeldKind(t *testing.T) {
 // re-derives the record's key once the version is in: the record was found
 // under the library's identity as the batch started, and an edited version
 // moves it, even where the document reads nothing of the file. A byte-identical
-// version leaves the identity, so the key.
+// version leaves the identity, so the key, and the record: the version answers
+// as the library document it stands in for, which no record attributes.
 func TestSetOnDiskAllRecordsFollowTheLibraryVersion(t *testing.T) {
 	user := []byte("package Craft { part def Sat; attribute mass = 1.5; }")
 	cache, err := libs.NewCacheIn(t.TempDir())
@@ -168,7 +169,7 @@ func TestSetOnDiskAllRecordsFollowTheLibraryVersion(t *testing.T) {
 		t.Error("an unchanged version of the library moved the key of user.sysml's record")
 	}
 	if !same.Recorded("user.sysml") {
-		t.Log("an unchanged version of the library parsed user.sysml: its record's provenance did not hold")
+		t.Error("an unchanged version of the library parsed user.sysml, whose record still holds")
 	}
 
 	edited := strings.Replace(string(lib.Content), "datatype Real ", "datatype Reel ", 1)

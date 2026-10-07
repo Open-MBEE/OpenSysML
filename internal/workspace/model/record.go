@@ -114,7 +114,8 @@ func (w *Workspace) sourcesOverLocked(ctx *passes.Context) libs.Sources {
 				return "", false
 			}
 			return doc.digest, true
-		})
+		},
+		func(name string) string { return w.standIns[name] })
 }
 
 // OpenRecorded installs a document from its interface record and the content

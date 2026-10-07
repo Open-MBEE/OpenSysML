@@ -197,7 +197,9 @@ dimensions §3's `symbols.Changes` invalidates a live frame by — and, per read
 the workspace documents that took part in the answer (`Index.Answerers`,
 `NamespaceAnswerers`, `SegmentAnswerers`; for a read of shared audit state,
 `passes.Contributors`) with their content digests. Library documents are left
-out: the key already names the library as a whole. A record installs
+out: the key already names the library as a whole. So is a version of a
+library file standing in for one (`Workspace.StandsInFor`): it answers as the
+document it displaces, and its text is in the key's library identity. A record installs
 (`Provenance.Valid`) only where every read is still answered by the same
 documents with the same content; anywhere else the file is parsed in its
 place (`model.ErrRecordStale` from `OpenRecorded`; `OpenAll` and the on-disk
