@@ -30,6 +30,41 @@ func TestRuntimeRobustnessInheritedActionSteps(t *testing.T) {
 		}
 	})
 
+	t.Run("specialized_body_binding_replaces_inherited_binding", func(t *testing.T) {
+		outputs, err := executeInheritedAction(t, `package test {
+			private import ScalarValues::*;
+			action def Adder {
+				in a : Integer;
+				in b : Integer;
+				out sum : Integer;
+				first step;
+				action step { assign sum := a + b; }
+			}
+			action def Base {
+				attribute x : Integer = 5;
+				out result : Integer = 0;
+				action add : Adder { in b = 2; }
+				bind add.a = x;
+				flow add.sum to fin.n;
+				action fin { in n : Integer; assign result := n; }
+			}
+			action def Redefined :> Base {
+				action add :>> add : Adder { in b = 100; }
+				first start then add;
+				succession add then fin;
+				then done;
+			}
+		}`, "Redefined")
+		if err != nil {
+			t.Fatalf("ExecuteAction(Redefined): %v", err)
+		}
+		assertIntOutput(t, outputs, "add.a", 5)
+		assertIntOutput(t, outputs, "add.b", 100)
+		assertIntOutput(t, outputs, "add.sum", 105)
+		assertIntOutput(t, outputs, "fin.n", 105)
+		assertIntOutput(t, outputs, "result", 105)
+	})
+
 	t.Run("terminate_usage_body_flow_is_inherited", func(t *testing.T) {
 		src := `package test {
 			private import ScalarValues::*;

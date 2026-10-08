@@ -32,6 +32,45 @@ func TestToActionGraphInheritedActionNode(t *testing.T) {
 	}
 }
 
+func TestToActionGraphRedefinedInheritedActionNodeBodyBindings(t *testing.T) {
+	src := `
+		action def Adder {
+			in a : Integer;
+			in b : Integer;
+			out sum : Integer;
+			first step;
+			action step { assign sum := a + b; }
+		}
+		action def Base {
+			attribute x : Integer = 5;
+			action add : Adder { in b = 2; }
+			bind add.a = x;
+		}
+		action def Redefined :> Base {
+			action add :>> add : Adder { in b = 100; }
+			first start then add;
+		}
+	`
+	graph := scopedActionGraph(t, src, "Redefined")
+	add := namedNode(graph, "add")
+	if add == nil {
+		t.Fatal("redefined inherited action node was not collected")
+	}
+	var bFeatures []Feature
+	for _, feature := range graph.Features[add] {
+		if feature.Name == "b" {
+			bFeatures = append(bFeatures, feature)
+		}
+	}
+	if len(bFeatures) != 1 {
+		t.Fatalf("add has %d features named b, want only its specialized binding", len(bFeatures))
+	}
+	binding, ok := bFeatures[0].Value.(*ast.LiteralInteger)
+	if !ok || binding.Value != "100" {
+		t.Fatalf("add.b value = %#v, want specialized binding 100", bFeatures[0].Value)
+	}
+}
+
 func TestToActionGraphInheritsTerminateUsageBodyFlow(t *testing.T) {
 	src := `
 		action def G {

@@ -274,7 +274,20 @@ func effectiveActionMembers(node *ast.Usage, scope *symbols.Scope) ([]effectiveA
 				replaced := false
 				for _, own := range usage.Members {
 					redefinition, ok := unwrapMembership(own).(*ast.Usage)
-					if ok && resolve.RedefinesActionNode(declaringBody, redefinition, member.Decl) {
+					if !ok {
+						continue
+					}
+					if resolve.RedefinesActionNode(declaringBody, redefinition, member.Decl) {
+						replaced = true
+						break
+					}
+					inheritedFeature, ok := member.Decl.(*ast.Usage)
+					if !ok || !DeclaresNodeFeature(redefinition) || !DeclaresNodeFeature(inheritedFeature) {
+						continue
+					}
+					ownName, _ := ast.EffectiveName(redefinition)
+					inheritedName, _ := ast.EffectiveName(inheritedFeature)
+					if ownName != "" && ownName == inheritedName {
 						replaced = true
 						break
 					}
