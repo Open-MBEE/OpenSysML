@@ -25,6 +25,28 @@ func TestReadCaseFile(t *testing.T) {
 	}
 }
 
+// A by-design line marks every case after it with its clause.
+func TestReadCaseFileByDesign(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "sample.cases")
+	content := "plain ::  :: 1\nby-design: KerML 1.0 §9.3.2.2.8\nexact ::  :: 0.1 + 0.2 == 0.3\nalso ::  :: 1 / 3\n"
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	got, err := readCaseFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Cases[0].ByDesign != "" || got.Cases[1].ByDesign != "KerML 1.0 §9.3.2.2.8" || got.Cases[2].ByDesign != got.Cases[1].ByDesign {
+		t.Fatalf("by-design clauses = %+v", got.Cases)
+	}
+	if err := os.WriteFile(path, []byte("by-design:\none ::  :: 1\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := readCaseFile(path); err == nil || !strings.Contains(err.Error(), path+":1: by-design states no clause") {
+		t.Fatalf("readCaseFile() error = %v", err)
+	}
+}
+
 func TestReadCaseFileMalformed(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "bad.cases")
 	if err := os.WriteFile(path, []byte("bad line\n"), 0o644); err != nil {

@@ -103,22 +103,16 @@ config:
     clusterBkg: "#FFFFFF"
     clusterBorder: "#181818"
     edgeLabelBackground: "#FFFFFF"
-  flowchart:
-    subGraphTitleMargin:
-      bottom: 24
 ---
 %% Observatory::interconnectView — interconnection rendering (render asInterconnectionDiagram)
 flowchart LR
-  subgraph n0 ["`*«part»*
-**imagingChain**`"]
+  subgraph n0 ["`*«part»* **imagingChain**`"]
     direction LR
-    subgraph n1 ["`*«part»*
-**camera : Camera**`"]
+    subgraph n1 ["`*«part»* **camera : Camera**`"]
       direction LR
       n1.0["output"]
     end
-    subgraph n2 ["`*«part»*
-**recorder : Recorder**`"]
+    subgraph n2 ["`*«part»* **recorder : Recorder**`"]
       direction LR
       n2.0["input"]
     end
@@ -163,7 +157,7 @@ config:
 %% state rendering (the diagram states kind "state")
 stateDiagram-v2
   direction LR
-  state "«state»<br>operatingStates : ObservatoryStates" as n0 {
+  state "«state» operatingStates : ObservatoryStates" as n0 {
     state "«state»<br>idle<br>initial" as n1
     state "«state»<br>observing" as n2
     [*] --> n1

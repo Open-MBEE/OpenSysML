@@ -1,0 +1,1 @@
+- **An accept node's `via` is its receiver parameter.** `accept s : Signal via p;` in an action body stated the port as `sysml:via`, a property the metamodel does not have; the `AcceptActionUsage` now owns a second parameter whose value is the reference to `p`, named as its `receiverArgument`, as a transition's trigger already did. Graphs stating `sysml:via` still import.

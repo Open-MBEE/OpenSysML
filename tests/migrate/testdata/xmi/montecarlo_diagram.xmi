@@ -1,0 +1,107 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xmi:XMI xmi:version="2.5.1" xmlns:xmi="http://www.omg.org/spec/XMI/20131001"
+         xmlns:uml="http://www.omg.org/spec/UML/20161101"
+         xmlns:sysml="http://www.omg.org/spec/SysML/20181001/SysML"
+         xmlns:diagram="http://www.example.com/tool/diagram">
+  <uml:Model xmi:type="uml:Model" xmi:id="_m" name="Model">
+
+    <!-- A sensor whose settling takes a random time. -->
+    <packagedElement xmi:type="uml:Class" xmi:id="_sensor" name="Sensor" classifierBehavior="_settle">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_time" name="settleTime">
+        <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
+      </ownedAttribute>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_misses" name="misses">
+        <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Integer"/>
+      </ownedAttribute>
+      <ownedBehavior xmi:type="uml:Activity" xmi:id="_settle" name="Settle">
+        <node xmi:type="uml:InitialNode" xmi:id="_init"/>
+        <node xmi:type="uml:OpaqueAction" xmi:id="_stop" name="stop timer">
+          <language>JavaScript</language>
+          <body>settleTime = simtime;</body>
+        </node>
+        <node xmi:type="uml:ActivityFinalNode" xmi:id="_final"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_e1" source="_init" target="_stop"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_e2" source="_stop" target="_final"/>
+      </ownedBehavior>
+    </packagedElement>
+
+    <!-- The pattern: a block generalising the customization module's MonteCarloAnalysis
+         binds settleTime to Mean and Deviation and misses to OutOfSpec, and its parametric
+         diagram shows the three statistics, the two values and the bindings. -->
+    <packagedElement xmi:type="uml:Class" xmi:id="_analysis" name="Settling Analysis">
+      <generalization xmi:type="uml:Generalization" xmi:id="_g1" general="_sensor"/>
+      <generalization xmi:type="uml:Generalization" xmi:id="_g2">
+        <general href="MD_customization_for_SysML.mdzip#_mc">
+          <xmi:Extension extender="MagicDraw UML 2024x">
+            <referenceExtension referentPath="MD Customization for SysML::analysis patterns::MonteCarloAnalysis" referentType="Class"/>
+          </xmi:Extension>
+        </general>
+      </generalization>
+      <ownedConnector xmi:type="uml:Connector" xmi:id="_bindMean">
+        <end xmi:type="uml:ConnectorEnd" xmi:id="_bindMeanStat">
+          <role href="MD_customization_for_SysML.mdzip#_mcMean">
+            <xmi:Extension extender="MagicDraw UML 2024x">
+              <referenceExtension referentPath="MD Customization for SysML::analysis patterns::MonteCarloAnalysis::Mean" referentType="Property"/>
+            </xmi:Extension>
+          </role>
+        </end>
+        <end xmi:type="uml:ConnectorEnd" xmi:id="_bindMeanTime" role="_time"/>
+      </ownedConnector>
+      <ownedConnector xmi:type="uml:Connector" xmi:id="_bindDeviation">
+        <end xmi:type="uml:ConnectorEnd" xmi:id="_bindDeviationStat">
+          <role href="MD_customization_for_SysML.mdzip#_mcDeviation">
+            <xmi:Extension extender="MagicDraw UML 2024x">
+              <referenceExtension referentPath="MD Customization for SysML::analysis patterns::MonteCarloAnalysis::Deviation" referentType="Property"/>
+            </xmi:Extension>
+          </role>
+        </end>
+        <end xmi:type="uml:ConnectorEnd" xmi:id="_bindDeviationTime" role="_time"/>
+      </ownedConnector>
+      <ownedConnector xmi:type="uml:Connector" xmi:id="_bindOutOfSpec">
+        <end xmi:type="uml:ConnectorEnd" xmi:id="_bindOutOfSpecStat">
+          <role href="MD_customization_for_SysML.mdzip#_mcOutOfSpec">
+            <xmi:Extension extender="MagicDraw UML 2024x">
+              <referenceExtension referentPath="MD Customization for SysML::analysis patterns::MonteCarloAnalysis::OutOfSpec" referentType="Property"/>
+            </xmi:Extension>
+          </role>
+        </end>
+        <end xmi:type="uml:ConnectorEnd" xmi:id="_bindOutOfSpecMisses" role="_misses"/>
+      </ownedConnector>
+      <xmi:Extension extender="MagicDraw UML 2024x">
+        <modelExtension>
+          <ownedDiagram xmi:type="uml:Diagram" xmi:id="_diag_par" name="Settling Parametrics" context="_analysis" ownerOfDiagram="_analysis">
+            <xmi:Extension extender="MagicDraw UML 2024x">
+              <diagramRepresentation>
+                <diagram:DiagramRepresentationObject type="SysML Parametric Diagram" umlType="Composite Structure Diagram">
+                  <diagramContents>
+                    <binaryObject streamContentID="BINARY-montecarlo_diagram"/>
+                    <usedElements>_bindMean</usedElements>
+                    <usedElements>_bindDeviation</usedElements>
+                    <usedElements>_bindOutOfSpec</usedElements>
+                    <usedElements>_time</usedElements>
+                    <usedElements>_misses</usedElements>
+                    <usedElements>_mcMean</usedElements>
+                    <usedElements>_mcDeviation</usedElements>
+                    <usedElements>_mcOutOfSpec</usedElements>
+                    <usedElements>_bindMeanStat</usedElements>
+                    <usedElements>_bindMeanTime</usedElements>
+                    <usedElements>_bindDeviationStat</usedElements>
+                    <usedElements>_bindDeviationTime</usedElements>
+                    <usedElements>_bindOutOfSpecStat</usedElements>
+                    <usedElements>_bindOutOfSpecMisses</usedElements>
+                  </diagramContents>
+                </diagram:DiagramRepresentationObject>
+              </diagramRepresentation>
+            </xmi:Extension>
+          </ownedDiagram>
+        </modelExtension>
+      </xmi:Extension>
+    </packagedElement>
+  </uml:Model>
+
+  <sysml:Block xmi:id="_s1" base_Class="_sensor"/>
+  <sysml:Block xmi:id="_s2" base_Class="_analysis"/>
+  <sysml:BindingConnector xmi:id="_s3" base_Connector="_bindMean"/>
+  <sysml:BindingConnector xmi:id="_s4" base_Connector="_bindDeviation"/>
+  <sysml:BindingConnector xmi:id="_s5" base_Connector="_bindOutOfSpec"/>
+</xmi:XMI>

@@ -779,11 +779,20 @@ func admissibleSchemaProblems(expected ExpectedOutcome, oracleTitles map[string]
 		if expected.Admissible != "" {
 			problems = append(problems, "admissible is stated without outcomes to admit")
 		}
-		if expected.ExploreBudget != nil {
+		hasSingleOutcome := expected.Outputs != nil || expected.FinalState != "" || expected.StateVisits != nil || expected.Terminated
+		if expected.ExploreBudget != nil && !hasSingleOutcome {
 			problems = append(problems, "exploreBudget is stated without outcomes to explore")
 		}
 		if expected.SolverBudget != nil {
 			problems = append(problems, "solverBudget is stated without outcomes to referee")
+		}
+		if expected.ExploreBudget != nil && hasSingleOutcome {
+			if expected.Type != "action" && expected.Type != "state" {
+				problems = append(problems, fmt.Sprintf("exploreBudget applies to action and state cases, not %q", expected.Type))
+			}
+			if _, err := ExplorePolicy(expected.ExploreBudget.budget()); err != nil {
+				problems = append(problems, "exploreBudget: "+err.Error())
+			}
 		}
 		return problems
 	}
@@ -2162,6 +2171,17 @@ func expectedInteger(v any) (semantics.Value, bool) {
 	return semantics.Value{}, false
 }
 
+// expectedRational reads a case's Rational, written as the exact text ToString
+// prints (`"0.1"`, `"1/3"`) so no decimal is read through a binary64.
+func expectedRational(v any) (semantics.Value, bool) {
+	s, ok := v.(string)
+	if !ok {
+		return semantics.Value{}, false
+	}
+	r, err := semantics.ParseRationalText(s, semantics.DefaultMaxIntegerBits)
+	return r, err == nil
+}
+
 // expectedToRuntimeValue converts ExpectedValue to runtime Value
 func expectedToRuntimeValue(t *testing.T, ev ExpectedValue) Value {
 	switch ev.Type {
@@ -2176,6 +2196,11 @@ func expectedToRuntimeValue(t *testing.T, ev ExpectedValue) Value {
 			return Value{Kind: ValConst, Const: semantics.Value{Kind: semantics.ValReal, Real: v}}
 		}
 		t.Fatalf("invalid Real value type: %T", ev.Value)
+	case "Rational":
+		if r, ok := expectedRational(ev.Value); ok {
+			return Value{Kind: ValConst, Const: r}
+		}
+		t.Fatalf("invalid Rational value %v (%T)", ev.Value, ev.Value)
 	case "Boolean":
 		if v, ok := ev.Value.(bool); ok {
 			return Value{Kind: ValConst, Const: semantics.Value{Kind: semantics.ValBool, Bool: v}}
@@ -2318,8 +2343,21 @@ func validateValue(t reporter, ctx *Context, name string, expected ExpectedValue
 			return
 		}
 		want := expected.Value.(float64)
-		if actual.Const.Real != want {
-			t.Errorf("%s: value = %f, want %f", name, actual.Const.Real, want)
+		if actual.Const.AsReal() != want {
+			t.Errorf("%s: value = %f, want %f", name, actual.Const.AsReal(), want)
+		}
+	case "Rational":
+		if actual.Kind != ValConst || actual.Const.Kind != semantics.ValRational {
+			t.Errorf("%s: type = %v (Const.Kind=%v), want Rational", name, actual.Kind, actual.Const.Kind)
+			return
+		}
+		want, ok := expectedRational(expected.Value)
+		if !ok {
+			t.Errorf("%s: invalid Rational value %v (%T)", name, expected.Value, expected.Value)
+			return
+		}
+		if semantics.CompareRat(actual.Const, want) != 0 {
+			t.Errorf("%s: value = %s, want %s", name, actual.Const.FormatRational(), want.FormatRational())
 		}
 	case "Boolean":
 		if actual.Kind != ValConst || actual.Const.Kind != semantics.ValBool {
@@ -2397,6 +2435,10 @@ func validateValue(t reporter, ctx *Context, name string, expected ExpectedValue
 		case semantics.ValInt:
 			if float64(got.Int) != want {
 				t.Errorf("%s: magnitude = %d, want %v", name, got.Int, want)
+			}
+		case semantics.ValRational:
+			if f := got.AsReal(); math.Abs(f-want) > 1e-9*math.Max(1, math.Abs(want)) {
+				t.Errorf("%s: magnitude = %s, want %v", name, got.FormatRational(), want)
 			}
 		default:
 			t.Errorf("%s: magnitude kind = %v, want a number", name, got.Kind)
@@ -2493,12 +2535,16 @@ func TestAdmissibleOutcomesSchema(t *testing.T) {
 		{Outputs: map[string]ExpectedValue{"x": two}},
 	}
 	zero, twenty := 0, 20
+	runs := 65536
 	tests := []struct {
 		name     string
 		expected ExpectedOutcome
 		problems int
 	}{
 		{"single outcome", ExpectedOutcome{Type: "action", Outputs: outcomes[0].Outputs}, 0},
+		{"single outcome explore budget", ExpectedOutcome{
+			Type: "action", Outputs: outcomes[0].Outputs, ExploreBudget: &ExpectedExploreBudget{Runs: &runs},
+		}, 0},
 		{"admissible set", ExpectedOutcome{Type: "action", Outcomes: outcomes, Admissible: cited}, 0},
 		{"state admissible set", ExpectedOutcome{Type: "state", Outcomes: []AdmittedOutcome{{FinalState: "A"}, {FinalState: "B"}}, Admissible: cited}, 0},
 		{"outcomes beside outputs", ExpectedOutcome{Type: "action", Outputs: outcomes[0].Outputs, Outcomes: outcomes, Admissible: cited}, 1},

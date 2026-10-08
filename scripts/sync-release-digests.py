@@ -25,6 +25,7 @@ SOURCE = os.path.join(REPO_ROOT, "client", TABLE)
 #: Path, relative to the repository root, of every client's shipped copy.
 COPIES = (
     os.path.join("client", "python", "opensysml", TABLE),
+    os.path.join("client", "jupyter-kernel", "jupyter_opensysml_kernel", TABLE),
     os.path.join("client", "node", TABLE),
     os.path.join("client", "java", "opensysml-client", "src", "main", "resources", TABLE),
     os.path.join("client", "rust", "opensysml", TABLE),

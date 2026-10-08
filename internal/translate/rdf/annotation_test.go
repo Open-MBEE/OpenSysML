@@ -245,3 +245,58 @@ func TestParseCollectionJSON(t *testing.T) {
 		}
 	}
 }
+
+// A settled graph is trusted to state its collections in their annotations'
+// order only until it changes: a rewrite that reorders a collection, or a
+// triple added to one, withdraws the claim, and reconciling then repairs the
+// order or refuses the conflict as it would in any graph.
+func TestSettledGraphIsCheckedAgainOnceChanged(t *testing.T) {
+	settled := func() *Graph {
+		g := NewGraph()
+		p := IRI(Element + "P")
+		g.Add(p, SysMLTerm("ownedMember"), IRI(Element+"P__A"))
+		g.Add(p, SysMLTerm("ownedMember"), IRI(Element+"P__B"))
+		if err := AnnotateCollections(g); err != nil {
+			t.Fatal(err)
+		}
+		g.MarkCollectionsSettled()
+		return g
+	}
+	if out, err := ReconcileCollections(settled()); err != nil || !out.CollectionsSettled() {
+		t.Fatalf("a settled graph is not returned as it is: %v", err)
+	}
+
+	rewritten := settled()
+	// Reverse the collection: the first member's triple becomes the second's and back.
+	rewritten.RewriteTriples(func(triple *Triple) bool {
+		switch triple.Object.Value {
+		case Element + "P__A":
+			triple.Object = IRI(Element + "P__B")
+		case Element + "P__B":
+			triple.Object = IRI(Element + "P__A")
+		}
+		return true
+	})
+	if rewritten.CollectionsSettled() {
+		t.Fatal("a rewritten graph still says its collections are settled")
+	}
+	// Same members in another order: reconciling restates them in the
+	// annotation's order rather than trusting the triples.
+	out, err := ReconcileCollections(rewritten)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := out.Objects(IRI(Element+"P"), SysML+"ownedMember")
+	if len(got) != 2 || got[0] != IRI(Element+"P__A") || got[1] != IRI(Element+"P__B") {
+		t.Errorf("the reordered collection reconciled to %v, want the annotation's order P__A, P__B", got)
+	}
+
+	added := settled()
+	added.Add(IRI(Element+"P"), SysMLTerm("ownedMember"), IRI(Element+"P__C"))
+	if added.CollectionsSettled() {
+		t.Error("a graph with a triple added still says its collections are settled")
+	}
+	if _, err := ReconcileCollections(added); err == nil {
+		t.Error("the grown collection reconciled without a conflict against its annotation")
+	}
+}

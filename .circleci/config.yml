@@ -297,6 +297,13 @@ jobs:
           name: Check documentation links
           command: python3 scripts/check-doc-links.py
 
+      # python-test runs the same link check under coverage (make scripts-coverage)
+      # on an executor without Node, so it reads the bundle built here instead.
+      - persist_to_workspace:
+          root: .
+          paths:
+            - docs/assets/landing
+
       # The shipped pages are generated from each command's description, so a
       # flag added without regenerating them would ship a page for a command
       # that no longer exists.
@@ -467,11 +474,13 @@ jobs:
             OPENSYSML_REQUIRE_REFERENCE_FMUS: "1"
 
   # A second, race-free pass, because the profile the scan reads is written
-  # with -coverpkg, which is too slow to instrument under -race.
+  # with -coverpkg, which is too slow to instrument under -race. Serially the
+  # instrumented suite overran the 60-minute job limit even on large, so it runs
+  # as the race test's four package shards, and go-coverage-merge joins them.
   go-coverage:
     executor: go-executor
-    # 4 vCPU: the instrumented suite takes ~39 min on medium.
     resource_class: large
+    parallelism: 4
     steps:
       - checkout
       - go/load-cache
@@ -483,8 +492,14 @@ jobs:
       - install-fmpy
 
       - run:
-          name: Write the coverage profile the scan reads
-          command: make coverage
+          name: Write this shard's coverage profile
+          command: |
+            shards=(runtime model export rest)
+            if [ "$CIRCLE_NODE_TOTAL" != "${#shards[@]}" ]; then
+              echo "error: parallelism is $CIRCLE_NODE_TOTAL, but scripts/race-shard.sh has ${#shards[@]} shards" >&2
+              exit 1
+            fi
+            make coverage-shard SHARD="${shards[$CIRCLE_NODE_INDEX]}"
           no_output_timeout: 30m
           environment:
             OPENSYSML_REQUIRE_TRAINING_CORPUS: "1"
@@ -499,6 +514,27 @@ jobs:
             OPENSYSML_REQUIRE_WASM: "1"
             # Same for the Reference-FMUs and fmpy (tests/fmi).
             OPENSYSML_REQUIRE_REFERENCE_FMUS: "1"
+
+      - persist_to_workspace:
+          root: .
+          paths:
+            # coverage-<shard>.txt, one per node.
+            - coverage-*.txt
+
+  # Joins the shards' profiles into the one the scan reads.
+  go-coverage-merge:
+    executor: go-executor
+    steps:
+      - checkout
+      - go/load-cache
+      - go/mod-download
+
+      - attach_workspace:
+          at: .
+
+      - run:
+          name: Write the coverage profile the scan reads
+          command: make coverage-merge
 
       - persist_to_workspace:
           root: .
@@ -710,13 +746,16 @@ jobs:
 
       # The other half of the solver contract: with discovery pointed at an
       # executable that does not exist, solver-dependent tests skip and the
-      # absent-solver paths must still report one.
+      # absent-solver paths must still report one. The whole of internal/frontend/repl
+      # runs here, and it needs more than go test's default ten-minute budget.
+      # no_output_timeout: go test prints a package's -v output only once it finishes,
+      # and internal/frontend/repl alone takes eight to ten minutes, past CircleCI's 10m default.
       - run:
           name: Run solver-absent gate
           command: |
             set -o pipefail
             env -u OPENSYSML_REQUIRE_SMT OPENSYSML_SMT=/nonexistent/no-such-solver \
-              go test -count=1 -v ./internal/exec/solve ./internal/frontend/repl | tee no-solver-gate.log
+              go test -count=1 -v -timeout 30m ./internal/exec/solve ./internal/frontend/repl | tee no-solver-gate.log
             for name in TestCheckReportsAnAbsentSolver TestExplainReportsAnAbsentSolver \
               TestSolveReportsAnAbsentSolver TestConfigureReportsAnAbsentSolver \
               TestOptimizeReportsAnAbsentSolver; do
@@ -725,6 +764,7 @@ jobs:
                 exit 1
               }
             done
+          no_output_timeout: 30m
 
       # The WebAssembly gate: both wasm targets compiled and vetted, the commands
       # linked and then run. Node is on the executor, so the require variable makes
@@ -1030,6 +1070,12 @@ jobs:
             make python-install
             # Pinned and wheel-only, as in .github/workflows/pr.yml.
             pip install --only-binary :all: pytest==9.0.3 pytest-mock==3.15.1 psutil==7.2.2 pytest-cov==7.0.0 fmpy==0.3.32 mypy==2.4.0 types-protobuf==7.35.1.20260906 'pyright[nodejs]==1.1.414'
+            # make scripts-coverage runs the MkDocs hooks' tests, which build a site.
+            pip install --only-binary :all: -r docs-requirements.txt
+            # The Jupyter kernel package: its tests drive jupyter_client and build
+            # its wheels with python -m build.
+            pip install --only-binary :all: jupyter_client==8.10.0 build==1.6.1
+            make jupyter-kernel-install
       
       # The integration tests connect to a service on the standard port with
       # auto_start=False, which is the explicit opt-in to one the client does not
@@ -1064,6 +1110,10 @@ jobs:
       - run:
           name: Run Python client tests
           command: OPENSYSML_REQUIRE_SERVICE=1 OPENSYSML_REQUIRE_REFERENCE_FMUS=1 OPENSYSML_REQUIRE_TYPECHECKERS=1 make python-coverage
+
+      - run:
+          name: Run the Jupyter kernel package tests
+          command: make jupyter-kernel-test
 
       # The repository scripts the Go static checks run are Python too; running
       # them and their tests under coverage here credits what those checks execute.
@@ -1492,6 +1542,9 @@ jobs:
             # Nothing publishes the editors, but their manifests carry the same
             # version, so a tag fails here when one disagrees; no export needed.
             python client/python/scripts/check_version.py --editors > /dev/null
+            # jupyter-opensysml-kernel is published from this tag at the same
+            # version; build-jupyter-kernel-package reads it, this only checks.
+            python client/python/scripts/check_version.py --jupyter-kernel > /dev/null
             echo "export OPENSYSML_VERSION=${VERSION}" >> "$BASH_ENV"
             echo "export NPM_VERSION=${NPM_VERSION}" >> "$BASH_ENV"
             echo "export JAVA_VERSION=${JAVA_VERSION}" >> "$BASH_ENV"
@@ -1622,6 +1675,186 @@ jobs:
           root: .
           paths:
             - client/python/dist
+
+  # The Jupyter kernel's Python distributions, built like build-python-package:
+  # stamped from the sysml-jupyter-kernel binaries build-release-binaries
+  # produced, then proven to pin every one of them for the tag. One wheel per
+  # platform bundles that platform's kernel, so `pip install` alone registers
+  # it; the sdist carries none and downloads by the pins.
+  build-jupyter-kernel-package:
+    executor: python-executor
+    steps:
+      - checkout
+      - rehearsal-tag
+      # dist/jupyter from build-release-binaries: the kernel binaries whose
+      # digests the distribution ships.
+      - attach_workspace:
+          at: .
+
+      - run:
+          name: Install build tooling
+          command: python -m pip install --upgrade pip build twine packaging
+
+      - run:
+          name: Resolve the version from the tag
+          command: |
+            # Fails loudly when the tag names a version other than the one the
+            # package would publish, or the kernel package's _version.py
+            # disagrees with the Python client's, before anything is built.
+            VERSION="$(python client/python/scripts/check_version.py --jupyter-kernel)"
+            echo "export KERNEL_VERSION=${VERSION}" >> "$BASH_ENV"
+            echo "Building jupyter-opensysml-kernel ${VERSION}"
+
+      - run:
+          name: Stamp this release's kernel digests into the distribution
+          command: |
+            ls -l dist/jupyter
+            python client/python/scripts/pin_release_checksums.py \
+              --version "${CIRCLE_TAG}" \
+              --from-binaries dist/jupyter \
+              --table client/jupyter-kernel/jupyter_opensysml_kernel/release-digests.json
+            git diff --stat -- client/jupyter-kernel/jupyter_opensysml_kernel/release-digests.json
+
+      - run:
+          name: Build the sdist and the platform wheels
+          command: |
+            # The sdist, then one wheel per platform bundling the kernel from
+            # dist/jupyter; the script opens each and checks what it carries.
+            scripts/build-jupyter-kernel-dist.sh dist/jupyter client/jupyter-kernel/dist
+            # The version is PEP 440 in canonical form and the build tools
+            # normalize the name, so these are the files; the release jobs rely on them.
+            ls client/jupyter-kernel/dist/"jupyter_opensysml_kernel-${KERNEL_VERSION}.tar.gz" > /dev/null
+            set -- client/jupyter-kernel/dist/jupyter_opensysml_kernel-"${KERNEL_VERSION}"-py3-none-*.whl
+            if [ ! -f "$1" ] || [ $# -ne 5 ]; then
+              echo "Error: expected five platform wheels for ${KERNEL_VERSION}, found $#: $*"
+              exit 1
+            fi
+
+      - run:
+          name: Check the metadata (twine check --strict)
+          command: python -m twine check --strict client/jupyter-kernel/dist/*
+
+      # The job runs on Linux x86_64, so that platform's wheel is the one pip
+      # would pick here: installed alone, it must register the `sysml` kernelspec
+      # under the virtualenv and start the bundled kernel from it.
+      - run:
+          name: Install this platform's wheel into a clean virtualenv and run its kernel
+          command: |
+            python -m venv /tmp/verify-kernel-wheel
+            /tmp/verify-kernel-wheel/bin/python -m pip install --upgrade pip
+            /tmp/verify-kernel-wheel/bin/python -m pip install client/jupyter-kernel/dist/jupyter_opensysml_kernel-*-py3-none-manylinux*_x86_64*.whl
+            /tmp/verify-kernel-wheel/bin/python -m pip install jupyter_client
+            /tmp/verify-kernel-wheel/bin/python - \<<'EOF'
+            import json
+            import os
+            import subprocess
+            import sys
+
+            import jupyter_opensysml_kernel
+            from jupyter_opensysml_kernel.binary import bundled_binary
+
+            expected = os.environ["KERNEL_VERSION"]
+            assert jupyter_opensysml_kernel.__version__ == expected, (
+                f"installed wheel reports {jupyter_opensysml_kernel.__version__}, expected {expected}"
+            )
+            if bundled_binary() is None:
+                raise SystemExit("Error: the installed wheel bundles no sysml-jupyter-kernel")
+            specs = json.loads(subprocess.check_output(
+                [sys.executable, "-m", "jupyter_client.kernelspecapp", "list", "--json"], text=True,
+            ))["kernelspecs"]
+            resource_dir = specs.get("sysml", {}).get("resource_dir", "")
+            wanted = os.path.join(sys.prefix, "share", "jupyter", "kernels", "sysml")
+            if os.path.realpath(resource_dir) != os.path.realpath(wanted):
+                raise SystemExit(f"Error: Jupyter lists the sysml kernelspec at {resource_dir!r}, not {wanted}")
+            argv = specs["sysml"]["spec"]["argv"]
+            if argv[:3] != ["python", "-m", "jupyter_opensysml_kernel"]:
+                raise SystemExit(f"Error: the installed kernelspec starts {argv}, not the package launcher")
+            # The launcher execs the bundled kernel, which reports the tag.
+            reported = subprocess.check_output([sys.executable, "-m", "jupyter_opensysml_kernel", "-version"], text=True)
+            if f"version {os.environ['CIRCLE_TAG']}" not in reported:
+                raise SystemExit(f"Error: the bundled kernel reports {reported!r}, not {os.environ['CIRCLE_TAG']}")
+            print(f"jupyter-opensysml-kernel {expected} registered sysml at {resource_dir} and starts {reported.splitlines()[0]!r}")
+            EOF
+            # The kernelspec `install` would write names the binary it copies in.
+            /tmp/verify-kernel-wheel/bin/python -m jupyter_opensysml_kernel kernelspec
+
+      # A distribution whose table lacks any of the five kernel assets for the
+      # tag, or pins a digest other than the one its binary hashes to, fails
+      # the job here: every platform wheel and the sdist. The installed wheel
+      # is asked too, through the lookup `install --release` makes.
+      - run:
+          name: Verify the distributions embed this release's kernel digests
+          command: |
+            /tmp/verify-kernel-wheel/bin/python - "${CIRCLE_TAG}" client/jupyter-kernel/dist/jupyter_opensysml_kernel-[0-9]*.tar.gz client/jupyter-kernel/dist/jupyter_opensysml_kernel-*-py3-none-*.whl \<<'EOF'
+            import hashlib
+            import json
+            import os
+            import sys
+            import tarfile
+            import zipfile
+
+            from jupyter_opensysml_kernel.binary import pinned_digest
+
+            tag, sdist_path, *wheel_paths = sys.argv[1:]
+            if len(wheel_paths) != 5:
+                raise SystemExit(f"Error: expected five platform wheels, got {wheel_paths}")
+            required = {
+                "sysml-jupyter-kernel-darwin-amd64",
+                "sysml-jupyter-kernel-darwin-arm64",
+                "sysml-jupyter-kernel-linux-amd64",
+                "sysml-jupyter-kernel-linux-arm64",
+                "sysml-jupyter-kernel-windows-amd64.exe",
+            }
+            built = {}
+            for asset in sorted(required):
+                with open(os.path.join("dist", "jupyter", asset), "rb") as f:
+                    built[asset] = hashlib.sha256(f.read()).hexdigest()
+
+            def check(what, table):
+                digests = table.get("Open-MBEE/OpenSysML", {}).get(tag, {})
+                missing = sorted(required - digests.keys())
+                if missing:
+                    raise SystemExit(
+                        f"Error: {what} has no complete digest pin for {tag}: "
+                        f"{', '.join(missing)}"
+                    )
+                wrong = sorted(a for a in required if digests[a] != built[a])
+                if wrong:
+                    raise SystemExit(
+                        f"Error: {what} pins a digest for {tag} other than the one "
+                        f"its binary hashes to: {', '.join(wrong)}"
+                    )
+                print(f"Verified {what} embeds all five kernel digests for {tag}.")
+
+            for wheel_path in wheel_paths:
+                with zipfile.ZipFile(wheel_path) as wheel:
+                    with wheel.open("jupyter_opensysml_kernel/release-digests.json") as member:
+                        check(os.path.basename(wheel_path), json.load(member))
+            with tarfile.open(sdist_path, "r:gz") as sdist:
+                name = next(
+                    (n for n in sdist.getnames() if n.endswith("/jupyter_opensysml_kernel/release-digests.json")),
+                    None,
+                )
+                if name is None:
+                    raise SystemExit("Error: the sdist has no jupyter_opensysml_kernel/release-digests.json.")
+                with sdist.extractfile(name) as member:
+                    check("the sdist", json.load(member))
+            unpinned = sorted(a for a in required if pinned_digest(tag, a) != built[a])
+            if unpinned:
+                raise SystemExit(
+                    f"Error: the installed wheel does not pin {tag} for: {', '.join(unpinned)}"
+                )
+            print(f"Verified the installed wheel pins {tag} for every kernel asset.")
+            EOF
+
+      - store_artifacts:
+          path: client/jupyter-kernel/dist
+          destination: jupyter-opensysml-kernel-dist
+
+      - persist_to_workspace:
+          root: .
+          paths:
+            - client/jupyter-kernel/dist
 
   # Runs the built wheel against the release published by the same workflow.
   python-zero-config-smoke:
@@ -1776,6 +2009,110 @@ jobs:
                   # No --skip-existing: a version that appeared since the check above
                   # must fail the job rather than pass silently.
                   python -m twine upload client/python/dist/*
+      - when:
+          condition: << pipeline.parameters.release_rehearsal >>
+          steps:
+            - run:
+                name: "REHEARSAL: no twine upload"
+                command: |
+                  echo "REHEARSAL: PyPI has no read-only token check; the token's presence was checked above."
+      - rehearsal-skip:
+          what: "twine upload"
+
+  # Publishes jupyter-opensysml-kernel from the same core tag, with the same
+  # token, index routing and refusals as publish-pypi; independent of it so
+  # neither project refusing a re-run blocks the other.
+  publish-pypi-jupyter-kernel:
+    executor: python-executor
+    steps:
+      - checkout
+      - rehearsal-tag
+      - attach_workspace:
+          at: .
+
+      - run:
+          name: Install publishing tooling
+          command: python -m pip install --upgrade pip twine packaging
+
+      - run:
+          name: Resolve the version from the tag
+          command: |
+            VERSION="$(python client/python/scripts/check_version.py --jupyter-kernel)"
+            PRE_RELEASE="$(python client/python/scripts/check_version.py --pre-release)"
+            echo "export KERNEL_VERSION=${VERSION}" >> "$BASH_ENV"
+            echo "export OPENSYSML_PRE_RELEASE=${PRE_RELEASE}" >> "$BASH_ENV"
+            echo "Publishing jupyter-opensysml-kernel ${VERSION} (pre-release: ${PRE_RELEASE})"
+            # The distributions must be the ones build-jupyter-kernel-package made for this tag.
+            ls -l client/jupyter-kernel/dist/"jupyter_opensysml_kernel-${VERSION}.tar.gz"
+            set -- client/jupyter-kernel/dist/jupyter_opensysml_kernel-"${VERSION}"-py3-none-*.whl
+            if [ ! -f "$1" ] || [ $# -ne 5 ]; then
+              echo "Error: expected five platform wheels for ${VERSION}, found $#: $*"
+              exit 1
+            fi
+            ls -l "$@"
+
+      - run:
+          name: Require the publishing token
+          command: |
+            if [ "$OPENSYSML_PRE_RELEASE" = "yes" ]; then
+              if [ -z "${TEST_PYPI_API_TOKEN:-}" ]; then
+                echo "Error: TEST_PYPI_API_TOKEN is not set, and ${CIRCLE_TAG} names a"
+                echo "pre-release version, which is published to TestPyPI."
+                echo "Add it to the 'PyPI' context (Organization Settings ->"
+                echo "Contexts) as a TestPyPI API token. See docs/project/releasing.md."
+                exit 1
+              fi
+            elif [ -z "${PYPI_API_TOKEN:-}" ]; then
+              echo "Error: PYPI_API_TOKEN is not set. This job authenticates to PyPI"
+              echo "with an API token, not OIDC, and refuses to run twine without one."
+              echo "The token must be allowed to upload jupyter-opensysml-kernel as"
+              echo "well as opensysml. Add it to the 'PyPI' context (Organization"
+              echo "Settings -> Contexts). See docs/project/releasing.md."
+              exit 1
+            fi
+
+      - run:
+          name: Refuse a version the index already has
+          command: |
+            if [ "$OPENSYSML_PRE_RELEASE" = "yes" ]; then
+              INDEX_HOST="test.pypi.org"
+            else
+              INDEX_HOST="pypi.org"
+            fi
+            STATUS=$(curl -s -o /dev/null -w '%{http_code}' \
+              "https://${INDEX_HOST}/pypi/jupyter-opensysml-kernel/${KERNEL_VERSION}/json")
+            if [ "$STATUS" = "200" ]; then
+              echo "Error: jupyter-opensysml-kernel ${KERNEL_VERSION} is already on ${INDEX_HOST}."
+              echo "A PyPI version is immutable, so this job fails rather than"
+              echo "half-publishing. If this is a re-run of an already published"
+              echo "release, this failure is expected and the package needs no action."
+              echo "If the package itself must change, that is a new core release."
+              exit 1
+            fi
+            echo "${INDEX_HOST} has no jupyter-opensysml-kernel ${KERNEL_VERSION} (HTTP ${STATUS}); continuing"
+
+      - run:
+          name: Check the metadata (twine check --strict)
+          command: python -m twine check --strict client/jupyter-kernel/dist/*
+
+      - unless:
+          condition: << pipeline.parameters.release_rehearsal >>
+          steps:
+            - run:
+                name: Upload to the index
+                command: |
+                  export TWINE_USERNAME=__token__
+                  if [ "$OPENSYSML_PRE_RELEASE" = "yes" ]; then
+                    export TWINE_REPOSITORY_URL=https://test.pypi.org/legacy/
+                    export TWINE_PASSWORD="$TEST_PYPI_API_TOKEN"
+                    echo "Uploading jupyter-opensysml-kernel ${KERNEL_VERSION} to TestPyPI"
+                  else
+                    export TWINE_PASSWORD="$PYPI_API_TOKEN"
+                    echo "Uploading jupyter-opensysml-kernel ${KERNEL_VERSION} to PyPI"
+                  fi
+                  # No --skip-existing: a version that appeared since the check above
+                  # must fail the job rather than pass silently.
+                  python -m twine upload client/jupyter-kernel/dist/*
       - when:
           condition: << pipeline.parameters.release_rehearsal >>
           steps:
@@ -1949,6 +2286,33 @@ jobs:
             GOOS=windows GOARCH=amd64 make build-grpc VERSION="$VERSION" COMMIT="$COMMIT" BUILD_TIME="$BUILD_TIME" GO_VERSION="$GO_VERSION"
             mv bin/sysml-grpc dist/grpc/sysml-grpc-windows-amd64.exe
 
+            # The Jupyter kernel backs jupyter-opensysml-kernel, which downloads
+            # one file per platform and verifies it the same way, so these are
+            # published raw too, from their own subdirectory.
+            mkdir -p dist/jupyter
+            
+            GOOS=linux GOARCH=amd64 make build-jupyter-kernel VERSION="$VERSION" COMMIT="$COMMIT" BUILD_TIME="$BUILD_TIME" GO_VERSION="$GO_VERSION"
+            mv bin/sysml-jupyter-kernel dist/jupyter/sysml-jupyter-kernel-linux-amd64
+            
+            GOOS=linux GOARCH=arm64 make build-jupyter-kernel VERSION="$VERSION" COMMIT="$COMMIT" BUILD_TIME="$BUILD_TIME" GO_VERSION="$GO_VERSION"
+            mv bin/sysml-jupyter-kernel dist/jupyter/sysml-jupyter-kernel-linux-arm64
+            
+            GOOS=darwin GOARCH=amd64 make build-jupyter-kernel VERSION="$VERSION" COMMIT="$COMMIT" BUILD_TIME="$BUILD_TIME" GO_VERSION="$GO_VERSION"
+            mv bin/sysml-jupyter-kernel dist/jupyter/sysml-jupyter-kernel-darwin-amd64
+            
+            GOOS=darwin GOARCH=arm64 make build-jupyter-kernel VERSION="$VERSION" COMMIT="$COMMIT" BUILD_TIME="$BUILD_TIME" GO_VERSION="$GO_VERSION"
+            mv bin/sysml-jupyter-kernel dist/jupyter/sysml-jupyter-kernel-darwin-arm64
+            
+            GOOS=windows GOARCH=amd64 make build-jupyter-kernel VERSION="$VERSION" COMMIT="$COMMIT" BUILD_TIME="$BUILD_TIME" GO_VERSION="$GO_VERSION"
+            mv bin/sysml-jupyter-kernel dist/jupyter/sysml-jupyter-kernel-windows-amd64.exe
+
+            # A .sha256 sidecar beside each raw binary: the one checksum the
+            # packages that download it read. The package jobs check the binaries
+            # they bundle against these, and build-release checks them again
+            # before folding them into the signed manifest.
+            (cd dist/grpc && for f in sysml-grpc-*; do sha256sum "$f" > "$f.sha256"; done)
+            (cd dist/jupyter && for f in sysml-jupyter-kernel-*; do sha256sum "$f" > "$f.sha256"; done)
+
             # The Node client ships this combined WebAssembly module and matching Go runtime.
             mkdir -p dist/wasm
             make build-release-wasm VERSION="$VERSION" COMMIT="$COMMIT" BUILD_TIME="$BUILD_TIME" GO_VERSION="$GO_VERSION"
@@ -1986,8 +2350,8 @@ jobs:
             rm -rf stage
             
             # The checksum manifest and the per-file sidecars are
-            # build-release's, once the Python distribution exists to list.
-            ls -l . grpc
+            # build-release's, once the Python distributions exist to list.
+            ls -l . grpc jupyter
 
       # A Linux binary linked against this executor's glibc would not start on
       # older distributions; the Makefile builds without cgo, and this proves it.
@@ -1997,7 +2361,8 @@ jobs:
             scripts/check-static-binaries.sh \
               dist/sysml-linux-amd64 dist/sysml-linux-arm64 \
               dist/sysml-lsp-linux-amd64 dist/sysml-lsp-linux-arm64 \
-              dist/grpc/sysml-grpc-linux-amd64 dist/grpc/sysml-grpc-linux-arm64
+              dist/grpc/sysml-grpc-linux-amd64 dist/grpc/sysml-grpc-linux-arm64 \
+              dist/jupyter/sysml-jupyter-kernel-linux-amd64 dist/jupyter/sysml-jupyter-kernel-linux-arm64
 
       # A binary whose version disagrees with its tag looks identical on the
       # release page. The host-platform builds are asked what they report; the
@@ -2018,18 +2383,19 @@ jobs:
               status=1
             }
             for binary in dist/sysml-linux-amd64 dist/sysml-lsp-linux-amd64 \
-                          dist/grpc/sysml-grpc-linux-amd64; do
+                          dist/grpc/sysml-grpc-linux-amd64 \
+                          dist/jupyter/sysml-jupyter-kernel-linux-amd64; do
               reported="$("$binary" --version 2>&1 | head -n 1)"
               case " $reported " in
                 *" ${CIRCLE_TAG} "*) echo "ok: $binary reports ${CIRCLE_TAG}" ;;
                 *) fail "$binary" "it reports '${reported}'" ;;
               esac
             done
-            for binary in dist/sysml-* dist/grpc/sysml-grpc-* dist/wasm/sysml-wasm.wasm; do
+            for binary in dist/sysml-* dist/grpc/sysml-grpc-* dist/jupyter/sysml-jupyter-kernel-* dist/wasm/sysml-wasm.wasm; do
               case "$binary" in
                 *.tar.gz|*.zip|*.sha256) continue ;;
                 dist/sysml-linux-amd64|dist/sysml-lsp-linux-amd64) continue ;;
-                dist/grpc/sysml-grpc-linux-amd64) continue ;;
+                dist/grpc/sysml-grpc-linux-amd64|dist/jupyter/sysml-jupyter-kernel-linux-amd64) continue ;;
               esac
               if grep -qa -- "${CIRCLE_TAG}" "$binary"; then
                 echo "ok: $binary carries ${CIRCLE_TAG}"
@@ -2044,8 +2410,8 @@ jobs:
           paths:
             - dist
 
-  # Assembles the release from the binaries and the Python distribution the
-  # upstream jobs built, writes the one checksum manifest covering both, and
+  # Assembles the release from the binaries and the Python distributions the
+  # upstream jobs built, writes the one checksum manifest covering them all, and
   # signs it. Nothing is rebuilt here: the bytes hashed, signed and published
   # are the bytes those jobs verified.
   build-release:
@@ -2064,17 +2430,22 @@ jobs:
           command: |
             cd dist
             
-            # The opensysml wheel and sdist, released with the binaries they drive.
+            # The opensysml wheel and sdist, released with the binaries they drive,
+            # and the jupyter-opensysml-kernel platform wheels and sdist likewise.
             cp ../client/python/dist/opensysml-*.whl ../client/python/dist/opensysml-*.tar.gz .
+            cp ../client/jupyter-kernel/dist/jupyter_opensysml_kernel-*.whl \
+               ../client/jupyter-kernel/dist/jupyter_opensysml_kernel-*.tar.gz .
             
             # Checksums over every published archive, so a Homebrew formula
             # (or a careful user) can verify a download.
             sha256sum ./*.tar.gz ./*.zip ./*.whl | sed 's|\./||' > SHA256SUMS.txt
             
-            # Same for the raw gRPC binaries, plus a per-file sidecar, which is
-            # the only checksum opensysml reads.
-            (cd grpc && sha256sum sysml-grpc-* >> ../SHA256SUMS.txt)
-            (cd grpc && for f in sysml-grpc-*; do sha256sum "$f" > "$f.sha256"; done)
+            # Same for the raw gRPC binaries, through the per-file sidecars
+            # written beside them when they were built, the only checksum
+            # opensysml reads: checked against the bytes here, then folded in.
+            (cd grpc && sha256sum --check --strict sysml-grpc-*.sha256 && cat sysml-grpc-*.sha256 >> ../SHA256SUMS.txt)
+            # And the raw kernel binaries, the only checksum jupyter-opensysml-kernel reads.
+            (cd jupyter && sha256sum --check --strict sysml-jupyter-kernel-*.sha256 && cat sysml-jupyter-kernel-*.sha256 >> ../SHA256SUMS.txt)
             (cd wasm && sha256sum sysml-wasm.wasm wasm_exec.js >> ../SHA256SUMS.txt)
             (cd wasm && for f in sysml-wasm.wasm wasm_exec.js; do sha256sum "$f" > "$f.sha256"; done)
             cat SHA256SUMS.txt
@@ -2109,6 +2480,40 @@ jobs:
                     f"{json.dumps(listed, indent=2, sort_keys=True)}; nothing was signed."
                 )
             print(f"Verified the wheel pins the five service digests the manifest lists for {tag}.")
+            EOF
+
+      # The same proof for every kernel wheel over the kernel binaries.
+      - run:
+          name: Verify the Jupyter kernel wheels pin the kernel digests the manifest lists
+          command: |
+            python3 - "${CIRCLE_TAG}" dist/SHA256SUMS.txt dist/jupyter_opensysml_kernel-*-py3-none-*.whl \<<'EOF'
+            import json
+            import os
+            import sys
+            import zipfile
+
+            tag, manifest_path, *wheel_paths = sys.argv[1:]
+            if len(wheel_paths) != 5:
+                raise SystemExit(f"Error: expected five kernel wheels, got {wheel_paths}; nothing was signed.")
+            listed = {}
+            with open(manifest_path, encoding="utf-8") as manifest:
+                for line in manifest:
+                    fields = line.split()
+                    if len(fields) != 2 or not fields[1].startswith("sysml-jupyter-kernel-"):
+                        continue
+                    if not fields[1].endswith(".sha256"):
+                        listed[fields[1]] = fields[0]
+            for wheel_path in wheel_paths:
+                with zipfile.ZipFile(wheel_path) as wheel:
+                    with wheel.open("jupyter_opensysml_kernel/release-digests.json") as member:
+                        pinned = json.load(member).get("Open-MBEE/OpenSysML", {}).get(tag, {})
+                if len(listed) != 5 or pinned != listed:
+                    raise SystemExit(
+                        f"Error: {os.path.basename(wheel_path)} pins {json.dumps(pinned, indent=2, sort_keys=True)} "
+                        f"for {tag}, but the manifest lists "
+                        f"{json.dumps(listed, indent=2, sort_keys=True)}; nothing was signed."
+                    )
+            print(f"Verified the five kernel wheels pin the five kernel digests the manifest lists for {tag}.")
             EOF
 
       - unless:
@@ -2177,7 +2582,7 @@ jobs:
                 command: |
                   export PATH="$(go env GOPATH)/bin:$PATH"
                   cd dist
-                  for artifact in opensysml-linux-amd64.tar.gz grpc/sysml-grpc-linux-amd64 wasm/sysml-wasm.wasm opensysml-*-py3-none-any.whl; do
+                  for artifact in opensysml-linux-amd64.tar.gz grpc/sysml-grpc-linux-amd64 jupyter/sysml-jupyter-kernel-linux-amd64 wasm/sysml-wasm.wasm opensysml-*-py3-none-any.whl jupyter_opensysml_kernel-*-py3-none-*.whl; do
                     cosign verify-blob-attestation "$artifact" \
                       --bundle provenance.intoto.json.bundle \
                       --type slsaprovenance1 \
@@ -2194,7 +2599,7 @@ jobs:
       - rehearsal-skip:
           what: "cosign keyless signing and attestation (they write to the public Rekor log)"
       - run:
-          name: Verify the release carries the tag's Python distribution
+          name: Verify the release carries the tag's Python distributions
           command: |
             if [ -z "${CIRCLE_TAG}" ]; then
               echo "Error: CIRCLE_TAG is empty; this job only runs on a tag"
@@ -2206,20 +2611,31 @@ jobs:
               echo "being released as: $2. Nothing was published."
               status=1
             }
-            # build-python-package named the Python distribution after the tag's
-            # version (SemVer 'v0.9.0-rc1' is PEP 440 '0.9.0rc1'); one of each is due.
-            # The sdist is the one opensysml-*.tar.gz whose name continues with a digit;
-            # the platform archives (opensysml-linux-amd64.tar.gz, ...) continue with a letter.
-            for pattern in "dist/opensysml-*-py3-none-any.whl" "dist/opensysml-[0-9]*.tar.gz"; do
+            # build-python-package and build-jupyter-kernel-package named the
+            # distributions after the tag's version (SemVer 'v0.9.0-rc1' is PEP 440
+            # '0.9.0rc1'); one of each is due, and five kernel wheels, one per
+            # platform. The sdist is the one opensysml-*.tar.gz whose name continues
+            # with a digit; the platform archives (opensysml-linux-amd64.tar.gz, ...)
+            # continue with a letter.
+            for pattern in "dist/opensysml-*-py3-none-any.whl" "dist/opensysml-[0-9]*.tar.gz" \
+                           "dist/jupyter_opensysml_kernel-[0-9]*.tar.gz"; do
               set -- $pattern
               if [ ! -f "$1" ]; then
-                fail "$pattern" "build-python-package did not produce it"
+                fail "$pattern" "the package job did not produce it"
               elif [ $# -ne 1 ]; then
                 fail "$pattern" "matches $# files, not one"
               else
                 echo "ok: $1 is the distribution for ${CIRCLE_TAG}"
               fi
             done
+            set -- dist/jupyter_opensysml_kernel-*-py3-none-*.whl
+            if [ ! -f "$1" ]; then
+              fail "dist/jupyter_opensysml_kernel-*-py3-none-*.whl" "the package job did not produce them"
+            elif [ $# -ne 5 ]; then
+              fail "dist/jupyter_opensysml_kernel-*-py3-none-*.whl" "matches $# files, not the five platform wheels"
+            else
+              echo "ok: $* are the kernel wheels for ${CIRCLE_TAG}"
+            fi
             exit $status
 
       - store_artifacts:
@@ -2233,10 +2649,11 @@ jobs:
           root: .
           paths:
             - dist/SHA256SUMS.txt
-            - dist/grpc/*.sha256
             - dist/wasm/*.sha256
             - dist/opensysml-*-py3-none-any.whl
             - dist/opensysml-[0-9]*.tar.gz
+            - dist/jupyter_opensysml_kernel-*-py3-none-*.whl
+            - dist/jupyter_opensysml_kernel-[0-9]*.tar.gz
       - unless:
           condition: << pipeline.parameters.release_rehearsal >>
           steps:
@@ -2297,6 +2714,23 @@ jobs:
             ls -l dist/wasm/sysml-wasm.wasm dist/wasm/wasm_exec.js \
               dist/wasm/sysml-wasm.wasm.sha256 dist/wasm/wasm_exec.js.sha256
 
+      # The package's own copy of the table is the only pin the published
+      # client carries; stamping it here, from build-release's binaries, is
+      # what lets @openmbee/opensysml download this release without sigstore.
+      # The shared client/release-digests.json is not touched, so the
+      # sync check elsewhere in this pipeline is unaffected.
+      - run:
+          name: Stamp this release's service digests into the package
+          command: |
+            if ! command -v python3 >/dev/null; then
+              sudo apt-get update -q && sudo apt-get install -yq python3
+            fi
+            python3 client/python/scripts/pin_release_checksums.py \
+              --version "${CIRCLE_TAG}" \
+              --from-binaries dist/grpc \
+              --table client/node/release-digests.json
+            git diff --stat
+
       - run:
           name: Require the publishing token
           command: |
@@ -2343,6 +2777,8 @@ jobs:
           command: |
             chmod +x dist/grpc/sysml-grpc-linux-amd64
             export OPENSYSML_BINARY="$(pwd)/dist/grpc/sysml-grpc-linux-amd64"
+            # Makes the suite assert that the table just stamped pins this tag.
+            export OPENSYSML_EXPECT_PINNED_RELEASE="${CIRCLE_TAG}"
             cd client/node
             npm ci
             npm run build
@@ -2357,6 +2793,64 @@ jobs:
             # against its .sha256 sidecar before packaging it.
             cd client/node
             npm run platform-packages -- --binaries ../../dist/grpc --wasm ../../dist/wasm
+
+      - run:
+          name: Pack the client and verify its pins
+          command: |
+            # The tarball packed here is the one published below, so what is
+            # verified is what ships. Its table must pin this tag for every
+            # service asset, with the digests of the binaries in dist/grpc.
+            rm -rf dist/npm && mkdir -p dist/npm
+            (cd client/node && npm pack --pack-destination ../../dist/npm)
+            tarballs=$(ls dist/npm/openmbee-opensysml-*.tgz)
+            if [ "$(echo "$tarballs" | wc -l)" -ne 1 ]; then
+              echo "Error: expected exactly one client tarball in dist/npm:"
+              echo "$tarballs"
+              exit 1
+            fi
+            echo "export NPM_TARBALL=$(pwd)/${tarballs}" >> "$BASH_ENV"
+            python3 - "${tarballs}" "${CIRCLE_TAG}" dist/grpc \<<'PY'
+            import hashlib
+            import json
+            import os
+            import sys
+            import tarfile
+
+            tarball_path, tag, binaries = sys.argv[1:]
+            required = {
+                "sysml-grpc-darwin-amd64",
+                "sysml-grpc-darwin-arm64",
+                "sysml-grpc-linux-amd64",
+                "sysml-grpc-linux-arm64",
+                "sysml-grpc-windows-amd64.exe",
+            }
+            with tarfile.open(tarball_path, "r:gz") as tarball:
+                try:
+                    member = tarball.extractfile("package/release-digests.json")
+                except KeyError:
+                    member = None
+                if member is None:
+                    raise SystemExit("Error: packed tarball has no release-digests.json.")
+                with member:
+                    table = json.load(member)
+
+            digests = table.get("Open-MBEE/OpenSysML", {}).get(tag, {})
+            missing = sorted(required - digests.keys())
+            if missing:
+                raise SystemExit(
+                    f"Error: packed tarball has no complete digest pin for {tag}: "
+                    f"{', '.join(missing)}"
+                )
+            for asset in sorted(required):
+                with open(os.path.join(binaries, asset), "rb") as binary:
+                    actual = hashlib.sha256(binary.read()).hexdigest()
+                if digests[asset] != actual:
+                    raise SystemExit(
+                        f"Error: packed tarball pins {digests[asset]} for {asset} of {tag}, "
+                        f"but the release binary is {actual}"
+                    )
+            print(f"Verified the packed tarball embeds all five service digests for {tag}.")
+            PY
 
       - run:
           name: Authenticate to npm
@@ -2381,19 +2875,19 @@ jobs:
             - run:
                 name: Publish @openmbee/opensysml
                 command: |
-                  cd client/node
-                  npm publish --access public --tag "$NPM_DIST_TAG"
+                  # The tarball verified above, not a fresh pack of the directory.
+                  npm publish "$NPM_TARBALL" --access public --tag "$NPM_DIST_TAG"
       - when:
           condition: << pipeline.parameters.release_rehearsal >>
           steps:
             - run:
                 name: "REHEARSAL: pack every package"
                 command: |
+                  # The client itself was packed and verified above.
                   npm pack client/node/packages/sysml-wasm --dry-run
                   for directory in client/node/packages/sysml-grpc-*; do
                     npm pack "$directory" --dry-run
                   done
-                  (cd client/node && npm pack --dry-run)
       - rehearsal-skip:
           what: "npm publish"
 
@@ -2409,6 +2903,10 @@ jobs:
     steps:
       - checkout
       - rehearsal-tag
+
+      # build-release's dist/grpc: the binaries whose digests the jar pins.
+      - attach_workspace:
+          at: .
 
       - restore_cache:
           keys:
@@ -2442,6 +2940,25 @@ jobs:
             esac
             echo "export JAVA_VERSION=${version}" >> "$BASH_ENV"
             echo "Publishing org.openmbee:opensysml:${version}"
+            # Proves the workspace carries the release binaries.
+            ls -l dist/grpc/sysml-grpc-*
+
+      # The jar's own copy of the table is the only pin the published client
+      # carries; stamping it here, from build-release's binaries, is what lets
+      # org.openmbee:opensysml download this release without sigstore. The
+      # shared client/release-digests.json is not touched, so the sync check
+      # elsewhere in this pipeline is unaffected.
+      - run:
+          name: Stamp this release's service digests into the jar's resources
+          command: |
+            if ! command -v python3 >/dev/null; then
+              sudo apt-get update -q && sudo apt-get install -yq python3
+            fi
+            python3 client/python/scripts/pin_release_checksums.py \
+              --version "${CIRCLE_TAG}" \
+              --from-binaries dist/grpc \
+              --table client/java/opensysml-client/src/main/resources/release-digests.json
+            git diff --stat
 
       - run:
           name: Require the publishing credentials
@@ -2472,6 +2989,59 @@ jobs:
                   exit 1 ;;
               esac
             done
+
+      - run:
+          name: Package the jar and verify its pins
+          command: |
+            # java-test ran the whole suite on this revision; only the test that
+            # reads the stamped resource runs again, now asserting it pins this
+            # tag. The jar packaged here is then opened and checked directly.
+            OPENSYSML_EXPECT_PINNED_RELEASE="${CIRCLE_TAG}" mvn -B -f client/java/pom.xml \
+              clean package -pl :opensysml -am \
+              -Dtest=ReleaseAssetsTest -Dsurefire.failIfNoSpecifiedTests=false
+            jar="client/java/opensysml-client/target/opensysml-${JAVA_VERSION}.jar"
+            if [ ! -f "${jar}" ]; then
+              echo "Error: mvn package did not create ${jar}."
+              exit 1
+            fi
+            python3 - "${jar}" "${CIRCLE_TAG}" dist/grpc \<<'PY'
+            import hashlib
+            import json
+            import os
+            import sys
+            import zipfile
+
+            jar_path, tag, binaries = sys.argv[1:]
+            required = {
+                "sysml-grpc-darwin-amd64",
+                "sysml-grpc-darwin-arm64",
+                "sysml-grpc-linux-amd64",
+                "sysml-grpc-linux-arm64",
+                "sysml-grpc-windows-amd64.exe",
+            }
+            with zipfile.ZipFile(jar_path) as jar:
+                if "release-digests.json" not in jar.namelist():
+                    raise SystemExit("Error: packaged jar has no release-digests.json.")
+                with jar.open("release-digests.json") as member:
+                    table = json.load(member)
+
+            digests = table.get("Open-MBEE/OpenSysML", {}).get(tag, {})
+            missing = sorted(required - digests.keys())
+            if missing:
+                raise SystemExit(
+                    f"Error: packaged jar has no complete digest pin for {tag}: "
+                    f"{', '.join(missing)}"
+                )
+            for asset in sorted(required):
+                with open(os.path.join(binaries, asset), "rb") as binary:
+                    actual = hashlib.sha256(binary.read()).hexdigest()
+                if digests[asset] != actual:
+                    raise SystemExit(
+                        f"Error: packaged jar pins {digests[asset]} for {asset} of {tag}, "
+                        f"but the release binary is {actual}"
+                    )
+            print(f"Verified the packaged jar embeds all five service digests for {tag}.")
+            PY
 
       - run:
           name: Import the signing key
@@ -2516,7 +3086,8 @@ jobs:
           steps:
             # java-test ran the suite on this revision in this workflow, so tests are
             # skipped; -am brings the parent pom the client's pom names, which Central
-            # must hold too; opensysml-conformance is not published.
+            # must hold too; opensysml-conformance is not published. The jar is
+            # rebuilt from the tree whose stamped resource was verified above.
             # Never run this step with -X/debug output; the settings interpolation would print the token.
             - run:
                 name: Sign, upload and publish
@@ -2720,9 +3291,11 @@ jobs:
                   # Move only tarballs to a release directory
                   mkdir -p dist/release
                   mv dist/*.tar.gz dist/*.zip dist/release/ 2>/dev/null || true
-                  # The opensysml wheel, the same bytes publish-pypi uploads.
+                  # The opensysml and jupyter-opensysml-kernel wheels, the same
+                  # bytes the PyPI jobs upload; their sdists moved with the tarballs.
                   mv dist/*.whl dist/release/
                   mv dist/grpc/* dist/release/
+                  mv dist/jupyter/* dist/release/
                   mv dist/wasm/* dist/release/
                   mv dist/SHA256SUMS.txt dist/release/
                   # The signature over that manifest, which the Python client verifies
@@ -2765,8 +3338,13 @@ jobs:
                     echo "Error: expected exactly one dist/opensysml-*-py3-none-any.whl"
                     exit 1
                   fi
-                  ls dist/grpc/sysml-grpc-* > /dev/null
-                  ls -la dist dist/grpc
+                  set -- dist/jupyter_opensysml_kernel-*-py3-none-*.whl
+                  if [ ! -f "$1" ] || [ $# -ne 5 ]; then
+                    echo "Error: expected the five platform wheels dist/jupyter_opensysml_kernel-*-py3-none-*.whl"
+                    exit 1
+                  fi
+                  ls dist/grpc/sysml-grpc-* dist/jupyter/sysml-jupyter-kernel-* > /dev/null
+                  ls -la dist dist/grpc dist/jupyter
                   TOKEN="${GITHUB_TOKEN:-${GH_TOKEN:-${CIRCLE_TOKEN}}}"
                   if [ -z "$TOKEN" ]; then
                     echo "Error: No GitHub token found. Tried GITHUB_TOKEN, GH_TOKEN, CIRCLE_TOKEN"
@@ -2782,6 +3360,139 @@ jobs:
                   echo "ok: the release assets are present and the token can push releases"
       - rehearsal-skip:
           what: "ghr (the GitHub release)"
+
+  # After the GitHub release exists, brings the committed shared table up to
+  # date with it: stamps the release from the manifest build-release wrote,
+  # syncs every client copy, and opens a pull request against develop with the
+  # result. The packages published beside it already carry their own pins; this
+  # is for a checkout, and for a later release's packages asked for this one,
+  # and it is what the hygiene suite holds the next release branch to.
+  pin-release-digests:
+    executor: python-executor
+    steps:
+      - checkout
+      # build-release's dist/SHA256SUMS.txt: the digests the table records.
+      - attach_workspace:
+          at: .
+      - rehearsal-tag
+
+      - run:
+          name: Resolve the tag
+          command: |
+            if [ -z "${CIRCLE_TAG}" ]; then
+              echo "Error: CIRCLE_TAG is empty; this job only runs on a core v* tag."
+              exit 1
+            fi
+            ls -l dist/SHA256SUMS.txt
+            echo "export PIN_BRANCH=chore/pin-${CIRCLE_TAG}" >> "$BASH_ENV"
+
+      - run:
+          name: Stamp the release into the shared table on a branch from develop
+          command: |
+            # The pull request targets develop, so the stamp is made on develop's
+            # tree, not the tag's: what develop already pins stays as it is.
+            git fetch --no-tags origin develop
+            git checkout -B "${PIN_BRANCH}" origin/develop
+            # The shared table is the target, so the script syncs every client
+            # copy from it. A different pin already there for this tag is a
+            # republished release, and the script refuses it.
+            python3 client/python/scripts/pin_release_checksums.py \
+              --version "${CIRCLE_TAG}" \
+              --from-manifest dist/SHA256SUMS.txt
+            python3 scripts/sync-release-digests.py --check
+            git add client
+            git diff --cached --stat
+            if git diff --cached --quiet; then
+              echo "develop already pins ${CIRCLE_TAG}; there is nothing to open."
+              echo "export PIN_NOTHING_TO_DO=1" >> "$BASH_ENV"
+            fi
+
+      - unless:
+          condition: << pipeline.parameters.release_rehearsal >>
+          steps:
+            - run:
+                name: Push the branch and open the pull request against develop
+                command: |
+                  if [ -n "${PIN_NOTHING_TO_DO:-}" ]; then
+                    echo "Nothing to push."
+                    exit 0
+                  fi
+                  # The same token publish-github-release uses. Pushing a branch
+                  # and opening a pull request need it to write contents and pull
+                  # requests on this repository.
+                  TOKEN="${GITHUB_TOKEN:-${GH_TOKEN:-${CIRCLE_TOKEN}}}"
+                  if [ -z "$TOKEN" ]; then
+                    echo "Error: No GitHub token found. Tried GITHUB_TOKEN, GH_TOKEN, CIRCLE_TOKEN"
+                    exit 1
+                  fi
+                  repo="${CIRCLE_PROJECT_USERNAME}/${CIRCLE_PROJECT_REPONAME}"
+                  git config user.name "OpenSysML release"
+                  git config user.email "opensysml-release@users.noreply.github.com"
+                  git commit -q \
+                    -m "chore(release): pin ${CIRCLE_TAG} in the shared digest table" \
+                    -m "Stamped from the release's SHA256SUMS.txt by the tag's pipeline and synced into every client copy."
+                  # The token travels in a header, never in a URL git would echo.
+                  # The branch is rebuilt from develop on every run, so a run
+                  # repeated after a failure replaces an earlier branch rather
+                  # than failing on it.
+                  auth=$(printf 'x-access-token:%s' "$TOKEN" | base64 | tr -d '\n')
+                  git -c "http.https://github.com/.extraheader=Authorization: Basic ${auth}" \
+                    push --force "https://github.com/${repo}.git" "HEAD:refs/heads/${PIN_BRANCH}"
+                  PIN_TOKEN="$TOKEN" python3 - "$repo" "$PIN_BRANCH" "$CIRCLE_TAG" \<<'PY'
+                  import json
+                  import os
+                  import sys
+                  import urllib.error
+                  import urllib.parse
+                  import urllib.request
+
+                  repo, branch, tag = sys.argv[1:]
+                  api = f"https://api.github.com/repos/{repo}"
+                  headers = {
+                      "Authorization": f"Bearer {os.environ['PIN_TOKEN']}",
+                      "Accept": "application/vnd.github+json",
+                      "User-Agent": "OpenSysML release (https://github.com/Open-MBEE/OpenSysML)",
+                  }
+
+                  def call(method, url, body=None):
+                      data = json.dumps(body).encode() if body is not None else None
+                      request = urllib.request.Request(url, data=data, method=method, headers=headers)
+                      try:
+                          with urllib.request.urlopen(request) as response:
+                              return response.status, json.load(response)
+                      except urllib.error.HTTPError as error:
+                          return error.code, json.load(error) if error.fp else {}
+
+                  owner = repo.split("/")[0]
+                  query = urllib.parse.urlencode({"head": f"{owner}:{branch}", "base": "develop", "state": "open"})
+                  status, open_prs = call("GET", f"{api}/pulls?{query}")
+                  if status != 200:
+                      raise SystemExit(f"Error: could not list pull requests (HTTP {status}): {open_prs.get('message')}")
+                  if open_prs:
+                      print(f"The pull request already exists and now carries the branch: {open_prs[0]['html_url']}")
+                      raise SystemExit(0)
+                  status, created = call("POST", f"{api}/pulls", {
+                      "title": f"chore(release): pin {tag} in the shared digest table",
+                      "head": branch,
+                      "base": "develop",
+                      "body": (
+                          f"Pins the five `sysml-grpc` assets of {tag} in `client/release-digests.json` and every "
+                          f"client copy, from the release's `SHA256SUMS.txt`, so a checkout and the packages of "
+                          f"later releases install {tag} on a pin. Opened by the tag's release pipeline; see "
+                          "docs/project/releasing.md § Pinned release digests."
+                      ),
+                  })
+                  if status != 201:
+                      print(f"Error: could not open the pull request (HTTP {status}): {created.get('message')}")
+                      if status in (403, 404):
+                          print("The GitHub token must be able to write contents and pull requests on this")
+                          print("repository (a classic token needs the 'repo' scope); see")
+                          print("docs/project/releasing.md § Pinned release digests.")
+                      raise SystemExit(1)
+                  print(f"Opened {created['html_url']}")
+                  PY
+      - rehearsal-skip:
+          what: "pushing the pin branch and opening its pull request"
 
 workflows:
   version: 2
@@ -2802,7 +3513,12 @@ workflows:
           name: Go race tests
           filters: *integration-branches
       - go-coverage:
+          name: Go coverage shards
+          filters: *integration-branches
+      - go-coverage-merge:
           name: Go coverage profile
+          requires:
+            - Go coverage shards
           filters: *integration-branches
       - go-gates:
           name: Go gates and binaries
@@ -2872,7 +3588,12 @@ workflows:
           name: Go race tests
           filters: *release-tags
       - go-coverage:
+          name: Go coverage shards
+          filters: *release-tags
+      - go-coverage-merge:
           name: Go coverage profile
+          requires:
+            - Go coverage shards
           filters: *release-tags
       - go-gates:
           name: Go gates and binaries
@@ -2916,12 +3637,20 @@ workflows:
             - Build release binaries
           filters: *release-tags
 
-      # Writes and signs the one manifest over the binaries and the distribution.
+      # Likewise for jupyter-opensysml-kernel, from the kernel binaries.
+      - build-jupyter-kernel-package:
+          name: Build Jupyter kernel distribution
+          requires:
+            - Build release binaries
+          filters: *release-tags
+
+      # Writes and signs the one manifest over the binaries and the distributions.
       - build-release:
           name: Build release artifacts
           requires:
             - Build release binaries
             - Build Python distribution
+            - Build Jupyter kernel distribution
           filters: *release-tags
 
       - publish-github-release:
@@ -2954,6 +3683,18 @@ workflows:
             - Publish GitHub release
             - Python client tests
             - Python zero-config release smoke
+          filters: *release-tags
+
+      - publish-pypi-jupyter-kernel:
+          name: Publish jupyter-opensysml-kernel to PyPI
+          # With publish-pypi, after the GitHub release the package's pinned
+          # digests name; independent of it so neither project refusing a
+          # re-run blocks the other. Same 'PyPI' context, same token.
+          context:
+            - PyPI
+          requires:
+            - Publish GitHub release
+            - Python client tests
           filters: *release-tags
 
       - publish-npm:
@@ -3000,6 +3741,14 @@ workflows:
             - Rust client tests
           filters: *release-tags
 
+      - pin-release-digests:
+          name: Pin the release in the shared digest table
+          # After the release exists: the pull request it opens against
+          # develop records a release a reader can download and verify.
+          requires:
+            - Publish GitHub release
+          filters: *release-tags
+
   # Publishes the final release of the pre-rename PyPI name on a `pysysml-v*`
   # tag. It is its own workflow because the artifact shares no code with the
   # client: the Python suite is what proves it, and the placeholder can be
@@ -3019,7 +3768,12 @@ workflows:
           name: Go race tests
           filters: *pysysml-tags
       - go-coverage:
+          name: Go coverage shards
+          filters: *pysysml-tags
+      - go-coverage-merge:
           name: Go coverage profile
+          requires:
+            - Go coverage shards
           filters: *pysysml-tags
       - go-gates:
           name: Go gates and binaries

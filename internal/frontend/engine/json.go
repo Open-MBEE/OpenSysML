@@ -1,14 +1,14 @@
 // Copyright 2025 Open‐MBEE Foundation. All rights reserved.
 // Use of this source code is governed by the LICENSE file.
 
-// Package engine is an in-process engine over SysML text: it serves the
+// Package engine is an in-process engine over SysML text. It serves the
 // execution RPCs of SysMLService — ParseSources, Evaluate, Instantiate,
-// ExecuteAction and ExecuteState — plus the engine-only RenderView call, with
-// the same answers as default-capabilities sysml-grpc for those RPCs, but shaped
-// and marshalled as the proto3 JSON (protojson) of the api/proto messages rather
-// than as protobuf. WebAssembly clients decode the
-// results with the generated types they already hold, and no protobuf runtime
-// is linked in, which is what keeps the js/wasm build small.
+// ExecuteAction and ExecuteState — with the same proto3 JSON answers as
+// default-capabilities sysml-grpc, and also serves RenderView. The engine's
+// RenderView JSON keeps its drawing shape (flattened fill/border and optional
+// x/y/width/height), not the protojson of RenderViewResponse. WebAssembly
+// clients decode the execution results with generated types they already hold,
+// and no protobuf runtime is linked in, which keeps the js/wasm build small.
 package engine
 
 import (
@@ -119,6 +119,13 @@ type JValue struct {
 	TensorQuantity *JTensorQuantity `json:"tensorQuantity,omitempty"`
 	Metaobject     *JMetaobject     `json:"metaobject,omitempty"`
 	Undetermined   *JUndetermined   `json:"undetermined,omitempty"`
+	RationalValue  *JRational       `json:"rationalValue,omitempty"`
+}
+
+// JRational is the Rational message: an exact rational in lowest terms.
+type JRational struct {
+	Numerator   string `json:"numerator,omitempty"`
+	Denominator string `json:"denominator,omitempty"`
 }
 
 // UnmarshalJSON rejects a value setting two arms of the oneof, as protojson
@@ -132,8 +139,9 @@ func (v *JValue) UnmarshalJSON(data []byte) error {
 	*v = JValue(a)
 	return oneofArms("value", map[string]bool{
 		"intValue": v.IntValue != nil, "bigIntValue": v.BigIntValue != nil,
-		"realValue": v.RealValue != nil,
-		"boolValue": v.BoolValue != nil, "stringValue": v.StringValue != nil,
+		"rationalValue": v.RationalValue != nil,
+		"realValue":     v.RealValue != nil,
+		"boolValue":     v.BoolValue != nil, "stringValue": v.StringValue != nil,
 		"instanceId": v.InstanceId != nil, "sequence": v.Sequence != nil,
 		"null": v.Null != nil, "quantity": v.Quantity != nil,
 		"enumLiteral": v.EnumLiteral != nil, "unset": v.Unset != nil,
@@ -177,6 +185,8 @@ type JQuantity struct {
 	Unit            string     `json:"unit,omitempty"`
 	UnitTerm        *JUnitTerm `json:"unitTerm,omitempty"`
 	BigIntMagnitude *string    `json:"bigIntMagnitude,omitempty"`
+
+	RationalMagnitude *JRational `json:"rationalMagnitude,omitempty"`
 }
 
 // UnmarshalJSON rejects a quantity setting both magnitude arms of its oneof.
@@ -189,7 +199,7 @@ func (q *JQuantity) UnmarshalJSON(data []byte) error {
 	*q = JQuantity(a)
 	return oneofArms("quantity", map[string]bool{
 		"intMagnitude": q.IntMagnitude != nil, "realMagnitude": q.RealMagnitude != nil,
-		"bigIntMagnitude": q.BigIntMagnitude != nil,
+		"bigIntMagnitude": q.BigIntMagnitude != nil, "rationalMagnitude": q.RationalMagnitude != nil,
 	})
 }
 

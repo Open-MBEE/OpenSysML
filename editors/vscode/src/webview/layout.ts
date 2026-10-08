@@ -566,16 +566,19 @@ export function freePlacement(
   return direction ? undefined : clampedAt;
 }
 
-/** Lines a dropped node's port up with a wired port less than MIN_JOG out of line, where that spot is free. */
+/** Lines a dropped node's port up with a wired port less than MIN_JOG out of line, where that spot is free
+ * of `others` (by default every other shown node). */
 export function alignedPlacement(
   node: PlacedNode,
   at: RenderPoint,
   layout: CanvasLayout,
   bounds: Box,
   portExitLeg: number | ((node: PlacedNode, port: PlacedPort) => number),
+  others: PlacedNode[] = [...layout.nodes.values()].filter(
+    (entry) => entry.node.id !== node.node.id && !entry.hidden,
+  ),
 ): RenderPoint {
   const nodeId = node.node.id;
-  const others = [...layout.nodes.values()].filter((entry) => entry.node.id !== nodeId && !entry.hidden);
   const pairs: Array<{
     port: PlacedPort;
     other: PlacedPort;

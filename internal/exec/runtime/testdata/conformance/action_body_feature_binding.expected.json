@@ -1,0 +1,10 @@
+{
+  "type": "action",
+  "evaluate": "test::act",
+  "trace": true,
+  "outputs": {
+    "a": {"type": "Integer", "value": 5},
+    "s": {"type": "Integer", "value": 10},
+    "r": {"type": "Integer", "value": 10}
+  }
+}

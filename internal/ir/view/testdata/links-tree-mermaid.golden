@@ -44,6 +44,7 @@ flowchart TD
 **cylinder : Cylinder**`")
   n5 --- n7
   n4 --- n5
+  n0 ---|"◆ engine"| n5
   click n0 href "https://example.test/src/tree.sysml#L11"
   click n1 href "https://example.test/src/tree.sysml#L12"
   click n2 href "https://example.test/src/tree.sysml#L13"

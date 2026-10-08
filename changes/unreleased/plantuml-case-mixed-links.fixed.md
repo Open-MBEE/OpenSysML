@@ -1,0 +1,1 @@
+- **Make case and mixed PlantUML links clickable in SVG.** Mixed control circles and each non-empty objective-note line retain source hyperlinks.

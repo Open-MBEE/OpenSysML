@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xmi:XMI xmi:version="2.5.1" xmlns:xmi="http://www.omg.org/spec/XMI/20131001"
+         xmlns:uml="http://www.omg.org/spec/UML/20161101">
+  <uml:Model xmi:type="uml:Model" xmi:id="_m" name="Model">
+    <packagedElement xmi:type="uml:Activity" xmi:id="_activity" name="Links">
+      <node xmi:type="uml:ClearAssociationAction" xmi:id="_clear" name="clearAssociation">
+        <object xmi:type="uml:InputPin" xmi:id="_clearIn" name="clearInput"/>
+        <result xmi:type="uml:OutputPin" xmi:id="_clearOut" name="clearResult"/>
+      </node>
+      <node xmi:type="uml:CreateLinkAction" xmi:id="_create" name="createLink">
+        <object xmi:type="uml:InputPin" xmi:id="_createIn" name="createInput"/>
+        <result xmi:type="uml:OutputPin" xmi:id="_createOut" name="createResult"/>
+      </node>
+      <node xmi:type="uml:CreateLinkObjectAction" xmi:id="_createObject" name="createLinkObject">
+        <object xmi:type="uml:InputPin" xmi:id="_createObjectIn" name="createObjectInput"/>
+        <result xmi:type="uml:OutputPin" xmi:id="_createObjectOut" name="createObjectResult"/>
+      </node>
+      <node xmi:type="uml:DestroyLinkAction" xmi:id="_destroy" name="destroyLink">
+        <object xmi:type="uml:InputPin" xmi:id="_destroyIn" name="destroyInput"/>
+        <result xmi:type="uml:OutputPin" xmi:id="_destroyOut" name="destroyResult"/>
+      </node>
+      <node xmi:type="uml:ReadLinkAction" xmi:id="_read" name="readLink">
+        <object xmi:type="uml:InputPin" xmi:id="_readIn" name="readInput"/>
+        <result xmi:type="uml:OutputPin" xmi:id="_readOut" name="readResult"/>
+      </node>
+      <node xmi:type="uml:ReadLinkObjectEndAction" xmi:id="_readEnd" name="readLinkObjectEnd">
+        <object xmi:type="uml:InputPin" xmi:id="_readEndIn" name="readEndInput"/>
+        <result xmi:type="uml:OutputPin" xmi:id="_readEndOut" name="readEndResult"/>
+      </node>
+      <node xmi:type="uml:ReadLinkObjectEndQualifierAction" xmi:id="_readQualifier" name="readLinkObjectEndQualifier">
+        <object xmi:type="uml:InputPin" xmi:id="_readQualifierIn" name="readQualifierInput"/>
+        <result xmi:type="uml:OutputPin" xmi:id="_readQualifierOut" name="readQualifierResult"/>
+      </node>
+    </packagedElement>
+  </uml:Model>
+</xmi:XMI>

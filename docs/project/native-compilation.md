@@ -43,7 +43,7 @@ A calc compiles when everything it reaches is in this subset:
 
 | Construct | Compiled as |
 |---|---|
-| `in` parameters typed `Integer`, `Natural`, `Positive`, `Real`/`Rational`, `Boolean`, `String` or an `enum def`, with no multiplicity or `[1]` | Integer: `int64_t` in C, an `int64` promoted to `math/big` in Go ([Integers](#integers)); a Real-typed value as a number that holds an Integer or a binary64 ([Numbers](#numbers)); `bool`; a String as UTF-8 text; an enumeration literal as its index ([Strings and enumerations](#strings-and-enumerations)) |
+| `in` parameters typed `Integer`, `Natural`, `Positive`, `Real`, `Boolean`, `String` or an `enum def`, with no multiplicity or `[1]` | Integer: `int64_t` in C, an `int64` promoted to `math/big` in Go ([Integers](#integers)); a Real-typed value as a number that holds an Integer or a binary64 ([Numbers](#numbers)); `bool`; a String as UTF-8 text; an enumeration literal as its index ([Strings and enumerations](#strings-and-enumerations)) |
 | The same types with any multiplicity (`[0..*]`, `[2..3]`, `[0..1]`, …), as parameters, results and body-local attributes | a sequence of the element type with its shape (null, one value, many); the bounds are checked where the interpreter checks them, and a sequence bound to a feature not declared `nonunique` is refused where it repeats a value, with the interpreter's `uniqueness violation` reason and positions |
 | Result: the body's trailing expression, or `return : T = <expr>;` | function result |
 | `attribute x : T;` with no value | null, until assigned |
@@ -63,9 +63,10 @@ A calc compiles when everything it reaches is in this subset:
 | A function value — a calc def, a calc usage with an unsupplied input, a compiled library function, or a calc declared in the body being compiled — read where a value is expected: returned, bound to an attribute, assigned, compared with `==`/`===`, chosen by `if`, held in a sequence, passed to an `in calc` parameter from any of these, and invoked (`Apply(g, a)`, `f(a)`) | a function value of the program ([Function values](#function-values)): the calc it denotes and, for a closure, the run that read it and what it captured; invoked by dispatch over the calcs it may denote |
 | Scalar library functions: `RealFunctions`/`RationalFunctions`/`NumericalFunctions` `sqrt floor round abs max min isZero isUnit`, `IntegerFunctions`/`NaturalFunctions` `abs max min`, `TrigFunctions` (`sin cos tan cot arcsin arccos arctan deg rad pi`), `OpenSysMLMathFunctions` (`exp ln log atan2`) | `libm` / Go `math` with the interpreter's domain, overflow and `Natural` errors |
 
-Everything else refuses: a record (an `attribute def` or `item def` with features) as a
-parameter, result or attribute (`type Refused::Point is not Integer, Real, Boolean, String or an
-enumeration`; see [Records](#records)), a `Collections::Set` (or any collection object) and a
+Everything else refuses: a record (an `attribute def` with features) as the program's result or
+as a parameter of the calc being compiled (`a record, which a program cannot print` /
+`which a program cannot take on its command line`), a record type the compiler does not lay out
+(see [Records](#records)), a `Collections::Set` (or any collection object) and a
 `TensorQuantityValue` wherever they appear (a set has no native layout and a tensor's components
 are quantities), an enumeration that specializes another type, has an unnamed literal, inherits a
 literal or gives one a value, parameter defaults, a calc that `:>`/`:>>`/`redefines` another *and*
@@ -74,8 +75,7 @@ yields null, a `select` body that is not Boolean, library functions over quantit
 `Integer ** <non-literal Integer>` (whether the result is an Integer depends on the exponent's sign
 at run time, which a static type cannot express; write the exponent as a literal or make the base
 Real). Of function values: an `in calc` parameter of the calc being compiled itself (`which a
-program cannot take on its command line`), a calc owned by a part or read off an object through a
-feature chain (`whose function value closes over that object`, see [Records](#records)), a
+program cannot take on its command line`), a calc owned by a part, a
 function value invoked with a receiver (`x->f()`), a calc declared in the body of a calc that
 specializes another, a calc declared in one body read from another (`a calc declared in the body
 of …, read from the body of …`), a control operation such as `ControlFunctions::collect` read as a
@@ -144,11 +144,16 @@ program reads a Real parameter only in Real notation and exits with status 2 on 
 argument (`argument a: 3 is an Integer, which a compiled C program reads for a Real parameter only
 in Real notation (as 3.0)`), as it does for an Integer beyond `int64`.
 
-KerML's `Rational` is the exact rationals (§9.3.2.2.8); this tree, like the interpreter, still
-computes a `Rational`-typed value as a Real ([exact-rational-evaluation.md](exact-rational-evaluation.md)),
-and the compiler does the same, no more and no less. When the interpreter computes Rationals
-exactly, the compiler refuses that arithmetic with an `UnsupportedError` until it computes it
-exactly too; it never rounds an exact Rational to binary64.
+KerML's `Rational` is the exact rationals (§9.3.2.2.8), and the interpreter computes them exactly
+([exact-rational-evaluation.md](exact-rational-evaluation.md)). The compiler computes exact
+arithmetic only where binary64 gives the interpreter's answer and refuses the rest with an
+`UnsupportedError` ([Semantics the generated code preserves](#semantics-the-generated-code-preserves)); it never rounds an exact Rational to binary64 where
+the interpreter does not. A Go Real parameter given an Integer meets an exact Rational only at run
+time, so there the refusal is a run-time failure with the same message (`unsupported: exact
+Rational arithmetic '*' over a value binary64 does not hold exactly ...` for `x * 0.1` given `3`),
+and an Integer to a negative literal power is the exact quotient `1 / x ** n`, rounded once where it
+reaches a Real (a nonzero quotient below the least Real is an overflow error, as in the interpreter)
+and refused where exact arithmetic would go on with it (`a ** -1 * 3`).
 
 ## Strings and enumerations
 
@@ -162,7 +167,15 @@ of range` reason outside `1..Length(s)`, and the `ToString` of each numeric libr
 `BooleanFunctions` formats as the interpreter prints. A String compared with `==` to a value of
 another kind is false, as `DataFunctions::'=='` over different data types is in the interpreter.
 A String argument is written in String notation (`"héllo"`, with the interpreter's escapes) and a
-String result prints in it, so output and input round-trip.
+String result prints in it, so output and input round-trip. The notation is KerML's `STRING_VALUE`
+(KerML 1.0 §8.2.2, `KerMLExpressions.xtext`): it admits only the escapes `\b \t \n \f \r \" \'
+\\` and takes every other character as it is. So the interpreter and both targets escape the
+quote, the backslash and the five control characters with a named escape, and write every other
+character, printable or not (`U+200B`, `U+0007`, `U+2028`), unescaped. An escape such as `\u200b`
+would not read back: the parser rejects it, as does a compiled program reading an argument. A
+String can hold a NUL only from a literal in the model (no argument holds one); a C result prints
+it whole, but a C failure message is a NUL-terminated string (`sysml_error`), so a diagnostic
+quoting such a String ends at the NUL.
 
 An enumeration (SysML v2 §8.3.7 EnumerationDefinition: "an AttributeDefinition all of whose
 instances are given by an explicit list of enumerated values") compiles when its literals are
@@ -183,11 +196,54 @@ space", which suggests a value distinguished only by its features; but `DataFunc
 `'=='` is. `BaseFunctions::ToString` is likewise `abstract`. SysML v2 adds nothing here.
 
 The interpreter builds a record (`new Point(a, 2.0)`, an attribute with nested features) as an
-instance with a session-wide identity: two `new Point(1.0, 2.0)` are not `==`, and a record prints
-as `Instance(ID: N)`, where `N` depends on what the session made before. A program cannot reproduce
-`N`, and equality by identity versus by features is a choice the specification leaves open, so
-records stay refused natively until that choice is made; the same holds for a calc read off an
-object (`twice.scale`), whose function value is identified by that object.
+instance with an identity: an object is `==` and `===` to itself and to every alias of it, and two
+`new Point(1.0, 2.0)` are not. A calc read off an object (`s.scale`) is a function value closed
+over that object: two reads are equal when the calc, the object and the run that read them are.
+The compiled program follows the interpreter, which makes record equality ⚠️ tool-defined.
+
+Inside a compiled calc a record is a reference to its feature values:
+
+| Construct | Compiled as |
+|---|---|
+| `new T(…)` of an `attribute def T` that declares its own attributes, positional or by label | the arguments evaluated in source order, bound in `semantics.Model.ConstructibleFeatures` order (a label through `ConstructibleFeatureFor`), each checked against the feature's type, multiplicity, uniqueness and range as the interpreter checks it; a feature no argument binds takes its constant default; one step per construction, as the interpreter charges |
+| `p.x`, `s.a.x`, `new T(…).xs` | the feature value, scalar or sequence, read off the record; a nested chain reads each feature in turn |
+| `p == q`, `p === q`, `!=`, `!==` | the identity of the two records; a record is never equal to a number, String or null |
+| a record held in a local, a sequence, an argument or an internal result | the same reference, so an alias stays the same object |
+| `s.scale` read as a value, `s.scale(v)`, `Apply(s.scale, v)`, and a record's calc calling another of its calcs | a function value carrying the record; equality and the keys of a set operation include the record's identity |
+
+The interpreter prints a record as `Instance(ID: N)`, where `N` counts the objects the session
+made before, which a program cannot reproduce. A record is therefore refused as the program's result
+and as a parameter of the entry calc, with a typed error naming the construct; a feature read off
+one (`p.x`) leaves the program as any value does. A record type is also refused when it
+specializes another definition, declares a feature other than an `attribute` or a calc, holds a
+function value, binds a feature to its value or computes a default when the object is made, or
+holds a unique collection of records (whose uniqueness violation the interpreter reports by object
+number). The C target refuses a record holding a String or a collection, which its arena would
+reclaim at the end of the statement making it (the Go target computes it); a C record and a
+function value carrying one are allocated outside the arena, so neither is reclaimed while held,
+and a run's records are freed when the next run begins, as its arena is.
+
+A construction that binds no argument to a single-valued feature without a default leaves it
+holding one value nothing determines: the feature's multiplicity defaults to `[1..1]`, and KerML
+1.0 §7.3.4.1 constrains its values by it, while `InstantiationExpression::argument` is
+`Expression[0..*]`, so the construction is valid and the value unknown. The interpreter
+materializes it as an `<unset>` value (`runtime.Context.HoldsNoValue`), and the compiled program
+holds the same value, a fresh identity beside the feature's type. Like the interpreter, which
+materializes it when it is first read, the program spends one step on that first read:
+
+| Use of an unset value | Compiled as the interpreter computes it |
+|---|---|
+| read as the result, `p.y`, `s.a.y` | printed `<unset>` |
+| `== null`, `isEmpty`, `notEmpty`, `size` | not null, not empty: `false`, `false`, `true`, `1` |
+| `==`, `===`, `!=`, `!==` | equal only to itself and its aliases, not to another unset value or to any value |
+| `??`, a local, an argument, an `if` branch, an assignment | the same unset value, kept |
+| arithmetic, ordering, `**`, `not`, `and`/`or`, `if` conditions, String concatenation and conversion | the interpreter's `no value for feature …` failure, naming the expression as it does |
+| bound to a `Natural` or `Positive` parameter, result, feature value or assignment | kept when the feature it was unset in has that range or a narrower one, else the interpreter's `type mismatch … typed by …` failure; an attribute declaration keeps it, as the interpreter does |
+
+A feature with a default still takes the default, and a collection-valued one is still empty. Only
+the rendering `<unset>` is the tool's own. Refused with a typed error: an unset value as an element
+of a collection (the interpreter keeps it as one element, which a compiled sequence cannot hold)
+and a feature read off an unset record.
 
 ## Step budget
 
@@ -200,7 +256,10 @@ program carries the same counter, reads `OPENSYSML_MAX_STEPS` at start-up, charg
 node the steps the interpreter spends on its source node (a constant the interpreter folds spends
 one, a function value read by name one, a call its frame and argument reads), at the point the
 interpreter spends them relative to anything that can fail, and fails with the interpreter's
-message and status 1 at the same count. Each `--repeat` run starts from zero.
+message and status 1 at the same count. Each `--repeat` run starts from zero. Both check a charge
+against the steps left before spending it and stop a spent counter one past the limit, saturating
+at the int64 maximum, so a budget of the int64 maximum binds without the counter overflowing; `TestCompiledStepBudgetAtTheInt64Limit`
+builds the C program with the signed-overflow sanitizer to hold it to that.
 `TestCompiledStepBudgetMatchesInterpreter` finds, for every differential case, the least budget
 the interpreter needs and requires the compiled program to succeed with exactly that budget and
 fail with the interpreter's error one step below it.
@@ -213,13 +272,24 @@ arithmetic rather than the host language's:
 - **Integer** is unbounded, as the interpreter's is ([Integers](#integers)): Go computes it
   exactly, C refuses at compile time a calc whose Integer result may leave `int64`. `/` and `%`
   by zero are errors.
-- **Integer `/`** is the exact rational quotient rounded once to binary64, as the interpreter's
-  `IntQuotient` does — `7 / 2` is `3.5`, `1 / 3` is `0.3333333333333333`, and
-  `9007199254740993 / 1` rounds the way the interpreter rounds. C does this with `__int128`
-  remainder refinement; Go uses `math/big.Rat`.
+- **Rational** is exact in the interpreter (`exact-rational-evaluation.md`) and binary64 in
+  generated code, so a calc compiles only where binary64 gives the interpreter's answer. A
+  `Rational` parameter, result or attribute is refused (`type ScalarValues::Rational is not
+  Integer, Real or Boolean`). Exact arithmetic between Rational literals is folded at compile
+  time when the result is a double (`0.1 + 0.2` compiles as `0.3`); one operation over values
+  binary64 holds exactly is one correct rounding, guarded at run time where an Integer operand
+  might not be held; and an Integer `/` whose quotient reaches a `Real` declaration is the
+  exact quotient rounded once there, as the interpreter's Real declaration rounds it (`7 / 2` is
+  `3.5`, `1 / 3` is `0.3333333333333333`; C refines with `__int128`, Go uses `math/big.Rat`).
+  A comparison between a Real and a Rational literal is at Real precision, the literal rounded
+  once to its nearest double as the interpreter rounds it (`x == 0.1` holds for the Real `0.1`);
+  a literal past the binary64 range is refused (`literal 1e400 is outside the Real range`). An
+  Integer quotient against a whole number compares exactly (`a / 3 >= 2`). Anything else is refused, naming the
+  construct: `exact Rational arithmetic '*' over a value binary64 does not hold exactly`,
+  `'**' of an exact Rational by an Integer exponent`, `'<' of an exact Rational binary64 does
+  not hold exactly`.
 - **Real** is binary64 and every result is checked finite; `1.0 / 0.0` and `1e308 * 10.0` are
-  errors, not `inf`. `0.1 + 0.2` prints `0.30000000000000004`, exactly as the interpreter
-  (see `exact-rational-evaluation.md`; no exact arithmetic is introduced here).
+  errors, not `inf`.
 - **Mixed** Integer/Real operands widen the Integer in arithmetic. A comparison between them is
   exact, as the interpreter's `CompareIntReal`: `9007199254740993 > 9007199254740992.0` holds
   although the Integer rounds to that Real.
@@ -513,10 +583,9 @@ eligibility rule.
 Status: the collection half is done — homogeneous sequences of the scalar types with any
 multiplicity, the shape rules, `for`, the sequence and control libraries and the element budget, in
 both backends, under the differential test described above, with Strings, enumerations, Real-typed
-values holding Integers and mixed Integer/Real sequences. Records and record field access are
-still refused (`type X is not Integer, Real, Boolean, String or an enumeration`) pending the
-equality and formatting choice described under [Records](#records); they are the remainder of
-this phase.
+values holding Integers and mixed Integer/Real sequences, and records with feature reads, identity
+and calcs read off a record ([Records](#records)). What remains of this phase is records that
+specialize another definition or compute their defaults, and records as results and arguments.
 
 **Phase 2 — Instances: parts, attributes, ports, connections.**
 IR: `Program` gains `Struct` layouts derived from the flattened shape (redefinitions, subsetting,

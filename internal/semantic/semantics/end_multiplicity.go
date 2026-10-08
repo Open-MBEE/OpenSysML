@@ -27,6 +27,10 @@ func (m *Model) ConnectorEndMultiplicityIsOne(sym *symbols.Symbol, i int) bool {
 	if !ok || i < 0 || i >= len(usage.ConnectorEnds) || usage.ConnectorEnds[i] == nil {
 		return false
 	}
+	// An indexed end (`s.y#(1)`) selects one element, whatever its feature holds.
+	if usage.ConnectorEnds[i].AttachedIndex() != nil {
+		return true
+	}
 	if !m.isKerMLDoc(sym) {
 		return true
 	}
@@ -70,6 +74,9 @@ func (w *multiplicityWalk) symbolIsOne(sym *symbols.Symbol) bool {
 			return ok && isExactlyOne(r)
 		}
 		return w.declIsOne(decl, sym.Scope)
+	}
+	if end, ok := sym.Decl.(*ast.ConnectorEnd); ok && end.AttachedIndex() != nil {
+		return true
 	}
 	if declaresEnd(sym) && !w.m.isKerMLDoc(sym) {
 		return true

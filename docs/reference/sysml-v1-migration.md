@@ -129,7 +129,9 @@ ties each of its mapping classes to the code that carries it out (or records why
 | SysML v1 | SysML v2 | Verdict |
 |---|---|---|
 | Model, Package | `package` | mapped |
-| «Block», plain Class, Actor | `part def` | mapped (Actor and plain Class: approximated) |
+| «Block» Class | `part def` | mapped |
+| Plain UML Class | `occurrence def` | mapped |
+| Actor | `part def` | approximated |
 | «InterfaceBlock» | `port def` | mapped |
 | «ValueType» DataType, PrimitiveType | `attribute def` (`Real`/`Integer`/`Boolean`/`String` for the SysML primitives) | mapped |
 | Signal | `item def`; properties typed by it are `item` / `ref item` | mapped |
@@ -176,8 +178,8 @@ ties each of its mapping classes to the code that carries it out (or records why
 | «Satisfy» | `satisfy requirement … by …` in the satisfying usage's owner | mapped |
 | «Verify» from a test case | `verify` in the verification def | mapped |
 | «DeriveReqt» | `connection … :> RequirementDerivation::Derivation` | mapped |
-| «Allocate» | `allocate a to b`, or `allocation name allocate a to b` when named, in the body whose features both ends are: a package's, or a `part def`'s, whose `allocate` reaches its attributes, ports and parts and the actions of its `perform action` (`allocate sampling.measure to probe;`), a nested one by dot notation; between two definitions (a block and an activity, neither a usage) an allocation has no feature to end on, so it is written as `allocation def 'A to B' { end a : A; end b : B; }`, its ends typed by the two | mapped |
-| «Allocate» between a definition and a usage, or with an end no `allocate` reaches — a node of an `action def` (`Ctl::Run::measure`), or of a composite `action` usage of a part, which is a constant feature where the part's `allocate` is a variable one | `dependency a to b` (`dependency name from a to b` when named) in the package, an «Allocate» being an `allocation` in the report | approximated — the note says why no `allocate` could be written |
+| «Allocate» | between different bodies, an `allocation def 'A to B'` whose ends redefine `source` and `target`, typed by the definitions that own the endpoints; a feature endpoint is chained in `allocate source.x to target.y`, and a definition endpoint is just `source` or `target`. When both endpoints are features of one definition body, or both are package features, it stays `allocate a to b` in that body. A feature owned by a package cannot type an allocation end and keeps a noted dependency | mapped, except for an endpoint owned by a package that needs the noted dependency fallback |
+| «Allocate» whose feature endpoint has no enclosing written definition, such as a package-owned feature paired with an endpoint from another body | `dependency a to b`, with a note naming the endpoint the allocation ends cannot type | approximated |
 | «Allocate», or another dependency, whose end is an activity node written only as a placeholder (a call that is not migrated) | the relationship is written to the placeholder; the pair ending there counts as failed when its end is not migrated, so the note gives the final tally of pairs written and names the end | approximated when another pair is written, **unmapped** when none is |
 | «Refine» | `dependency` carrying `@ModelingMetadata::Refinement` | mapped |
 | «Trace», «Copy», other stereotyped dependencies | plain `dependency` with the stereotype as a comment; named relationships keep their name | approximated |
@@ -198,6 +200,7 @@ ties each of its mapping classes to the code that carries it out (or records why
 | UML Expression, StringExpression (a constraint's specification, a default, a slot value) | the operator tree lowered to a v2 expression: arithmetic (`+ - * / %`, unary minus), comparison, `and`/`or`/`not` — each spelled as its sign or its name in any case (`Plus`, `Equal`, `Not`) — a literal, an enumeration literal or instance the scope can name, a feature reference (a bare symbol, or an ElementValue naming a feature the scope reads under that name), and a call whose symbol is in the [opaque-language subset](#the-opaque-language-subset)'s function table (`max` → `RealFunctions::max`, `Power` → `**`); a JavaScript or Java opaque operand is read through the same subset in its own language | mapped |
 | UML Expression with an operator outside that set (`xor`, string concatenation, a call not in the table, an operand in a language the subset does not read, an ElementValue naming nothing or an element the scope does not read under its name) | comment naming the tree and the construct refused | **unmapped** |
 | UML Interface | `port def` | mapped |
+| InterfaceRealization from a plain class | the `occurrence def` specializes the interface's `port def` | mapped |
 | InterfaceRealization from a block | a `port` of the `part def` typed by the interface's `port def` — reused when the block already owns one so typed, otherwise added under the interface's name; a `part def` cannot specialize a `port def` | approximated |
 | InterfaceRealization from an «InterfaceBlock» | `port def :> <Interface>` | mapped |
 | InterfaceRealization whose interface is not written (outside the document, library content) or whose client becomes neither a part def nor a port def | comment naming why | **unmapped** |
@@ -225,7 +228,7 @@ ties each of its mapping classes to the code that carries it out (or records why
 | CallBehaviorAction naming no behavior, with pins | a declared stub, `action x { in a : T; out r : U[0..1]; }` — its pins its parameters, typed and bounded as the pins are, in the same successions, forks and joins as a bare step; the flows into and out of them are written; each output pin is declared admitting no value, since nothing computes it; the note says the action computes nothing. A call whose `behavior` reference resolves to nothing in the document is not a stub: it stays a placeholder | approximated (unresolved behavior: **unmapped**) |
 | InputPin / OutputPin of a call, past the called behavior's parameters of its direction | the call keeps the parameters its callee declares, so no parameter is added for the pin, which is dropped with the flows through it; the note names the called behavior and its parameters of that direction. Only a stub naming no behavior declares parameters for its pins, having no parameter list of its own | **unmapped** (the pin and its flows; the call itself stays mapped) |
 | CallBehaviorAction of an fUML or Alf library primitive (`fUML_Library.xmi#…`, `Alf-Library.xmi#…`, any date; or MagicDraw's `fUML-Library.mdzip#…` with the bundled copy or `referentPath` under the library's own root package) | the action with its pins, each result pin valued by the v2 library expression over the arguments, `out result : ScalarValues::String = StringFunctions::'+'(x, y);`; see [the table](#calls-to-the-fuml-and-alf-libraries) | mapped / approximated (the note says where v2 differs) / **unmapped** (no v2 equivalent: the note says which) |
-| CallOperationAction | `perform action x ::> target.op;` when the target pin's value is an object whose type owns the operation, or when `onPort` names a port a connector of the caller's block joins to a part that owns it (a port of the target itself names it); otherwise `action x : Owner::Op;`, which runs in the caller's context | mapped / approximated (unresolved target: the reason names it) |
+| CallOperationAction | `perform action x ::> target.op;` when the target pin's value is an object whose type owns the operation, or when `onPort` names a port a connector of the caller's block joins to a part that owns it (a port of the target itself names it); when a flow feeds the target pin with another object — an activity parameter, a fork, another action's output — `action x : Owner::Op { in ref :>> context = target; in target : Owner[1]; }`, the pin a parameter typed by the class owning the operation and the flow into it written, so the call runs on the object the pin holds; a target created by a `CreateObjectAction`, which is not migrated, leaves that pin empty and the note says so; with no flow into the target pin, `action x : Owner::Op;`, which runs in the caller's context | mapped / approximated (unresolved target: the reason names it) |
 | ControlFlow | `first a then b;`, `if <guard>` when the guard parses and resolves as a v2 expression or translates from JavaScript or English (`i >= Retries`, `GS_Found`, `not Found and i < 3`, `TRUE`) through the [subset](#the-opaque-language-subset); otherwise the guard text as a comment and the edge unguarded, the report naming the token refused | mapped / approximated |
 | «Probability» on the edges out of a decision, a number | `first d then x { @Stochastic::Probability { p = <value>; } }`; constants not summing to 1 are scaled by their sum; a value outside `[0, 1]` leaves the decision unweighted | mapped / approximated |
 | «Probability» naming a property (by name or `xmi:id`) visible from the activity — its own, or one of the block whose classifier behavior it is, inherited included — typed by a numeric value type and holding one value | `p = <property>;`, a reference the run reads from the object performing the action when the decision is reached, checking then that it lies in `[0, 1]` and the branches sum to 1 | mapped |
@@ -237,7 +240,7 @@ ties each of its mapping classes to the code that carries it out (or records why
 | «SimulationConfig» `durationSimulationMode` that is none of `min`, `max`, `average`, `random` | kept among the tags in the comment | approximated |
 | Result snapshots of a «SimulationConfig» (the instances under its `resultLocation` packages classified — by name or by their slots — by its target's classifiers, recording no other values of the features the target's slots set) | the individuals above, and one row per snapshot in the JSON `-migration-results` writes, its numeric slots by defining feature; a slot holding no one finite number a float64 spells exactly, and a feature two slots hold numbers for, are counted in the configuration's notes | mapped |
 | Generalization of MagicDraw's `MonteCarloAnalysis` (the analysis pattern of the SysML customization module, recognised by the module's provenance — a user's own block of that name is an ordinary block) | the block's `part def` without that general, and beside it `analysis def '<Block> Monte Carlo' :> Simulation::MonteCarlo` with the part def as `subject`, `perform action run ::> <subject>.<its classifier behavior>` and `attribute :>> observed = <subject>.<the value bound to Mean>` (see [Monte Carlo analyses](#monte-carlo-analyses)) | approximated: the block is split into a part def and an analysis def |
-| «BindingConnector» of a value property to `MonteCarloAnalysis::Mean`, `::Deviation`, `::N` or `::OutOfSpec` (the connector's owner inheriting the pattern) | the analysis def's `observed` (from the `Mean` binding) and one `return`/`out` per statistic — `return Mean : Real = mean;`, `out Deviation : Real[0..1] = deviation;`, `out N : Natural = runs;`, `out OutOfSpec : Natural = outOfSpec;` — `Real` for `Mean` and `Deviation`, the bound value's scalar for `N` and `OutOfSpec`; a note says when that is not the value's own type | mapped / approximated |
+| «BindingConnector» of a value property to `MonteCarloAnalysis::Mean`, `::Deviation`, `::N` or `::OutOfSpec` (the connector's owner inheriting the pattern) | the analysis def's `observed` (from the `Mean` binding) and one `return`/`out` per statistic — `return Mean : Real = mean;`, `out Deviation : Real[0..1] = deviation;`, `out N : Natural = runs;`, `out OutOfSpec : Natural = outOfSpec;` — `Real` for `Mean` and `Deviation`, the bound value's scalar for `N` and `OutOfSpec`; a note says when that is not the value's own type; a parametric diagram showing the connector exposes that member and routes the `Mean` binding along `observed` (see [Monte Carlo analyses](#monte-carlo-analyses)) | mapped / approximated |
 | «BindingConnector» to another statistic of `MonteCarloAnalysis`, to a value of no numeric type, one of several binding the same statistic, one whose owner does not inherit the pattern, or to a statistic other than `Mean` where nothing is bound to `Mean` | comment naming the statistic and the reason | **unmapped** |
 | Slots of `MonteCarloAnalysis::N`, `::Mean`, `::Deviation`, `::OutOfSpec` in a result snapshot | `analysis 'Monte Carlo' : '<Block> Monte Carlo' { subject :>> <subject> : '<the snapshot>'; out :>> runs = …; out :>> mean = …; … }` in the snapshot's individual, and the snapshot's `"statistics"` in the sidecar | mapped |
 | ObjectFlow | `succession flow of T from a.out to b.in;` (T the source pin's type, no `of` when it is untyped), which orders `b` after `a` and delivers the value `a.out` holds when `a` completes; `flow a.out to b.in;` where another edge already orders them or the flow carries its value only, and into a «stream» parameter, which UML streams;, or `bind` to a parameter; each producer-pin pair is written once however many edges carry it; a flow from or to an action that is not migrated, or from an output pin a translated opaque body never assigns, is a comment | mapped / approximated |
@@ -246,6 +249,8 @@ ties each of its mapping classes to the code that carries it out (or records why
 | Edge `weight` | not written: every measured weight is UML's default 1, which a succession already means, and the `SysMLv1Library::ActivityEdgeData` metadata the transformation names is not bundled | — |
 | SendSignalAction | `action x send new Sig(args) to <target>;`, `via <port>` when `onPort` is set; the target is read from the target pin's flow: `this`, `context.part` inside a definition or bare `part` inside a usage, where a structural read feeds the pin, else the pin itself (`in target;` bound to what feeds it, an activity parameter or another node's output), which the runtime evaluates to the object it holds | mapped / approximated |
 | SendSignalAction whose argument pin may hold no value — fed by a parameter or pin declared admitting none, or by the output of a call that may produce none — where the signal's attribute is declared `[1]` | the send as written, the argument passed; the note on the send says the pin admits no value the signal's attribute, declared holding one, cannot, and that a run reaching the send with none stops at it with a multiplicity error — where v1 ran on, since UML enforces no slot's multiplicity on a signal instance — so that the stop names the v1 value the migration could not write (the parameter's or pin's own note says which) | approximated |
+| SendObjectAction | `action x { in request[1]; in target[1]; send request to <target>; }`, `via <port>` when `onPort` is set; the target is read from the target pin's flow as a SendSignalAction's is, and the object the request pin holds is sent; with no request pin, nothing is sent and the action stays a placeholder | mapped / approximated (unresolved target or port: the reason names it) / **unmapped** (no request pin) |
+| StartObjectBehaviorAction, StartClassifierBehaviorAction | a placeholder action keeping its pins and its place in the flow: a v2 object's exhibited states and performed actions start when the object does, and no v2 action starts them later | **unmapped** |
 | AcceptEventAction | `action x accept p : Sig;` (signal trigger), `accept after <d> [SI::s]` (relative TimeEvent), `accept when <cond>` (ChangeEvent) | mapped |
 | AcceptEventAction on an absolute TimeEvent (`when` is an instant, not a duration) | `accept at <instant>`, the instant a `Time::TimeInstantValue` attribute of the `action def` when `when` is a number with a time unit or an expression that resolves; otherwise a comment | approximated (the instant is read on the simulation clock, which starts at 0) / **unmapped** |
 | OpaqueAction, ValueSpecificationAction, ReadStructuralFeatureAction, AddStructuralFeatureValueAction | `assign`/`out result = …` when the body parses as a v2 expression whose names resolve, or is a JavaScript body of the [subset](#the-opaque-language-subset): `i = 1; GS_Found = true;` is a sequence of `assign` statements, `i += 1` an assignment of `i + 1`, `var t = 0` a local `attribute`; names resolve against the action's own pins first, then the swimlane's represented object, then the activity, then the owning block; a `ReadStructuralFeatureAction`'s `result` keeps its pin's multiplicity (`out result[0..*] = object.entries;`), so a feature holding none or several is read as it is declared; otherwise the body as a comment inside `action x { }` naming the language and the token refused | mapped / approximated |
@@ -373,7 +378,7 @@ and `umlType` (`Class Diagram`) together — by the first family below a word of
 | Diagram kind | Rendering |
 |---|---|
 | a table or matrix: Generic, Instance and Requirement Tables, Dependency and Allocation Matrices, any kind named `… Table`/`… Matrix` | `Views::asElementTable` |
-| internal block, parametric, composite structure and interconnection diagrams | `Views::asInterconnectionDiagram` |
+| internal block, parametric, composite structure and interconnection diagrams | `Views::asInterconnectionDiagram`; a parametric diagram of a block of the [Monte Carlo pattern](#monte-carlo-analyses) exposes the block's analysis def in place of the pattern's `Mean` symbol and the def's returns in place of its other statistics, the `Mean` binding routed along the def's `observed` |
 | block definition, class, package, object, component, deployment, profile and other structure diagrams | `Views::asTreeDiagram` |
 | an activity diagram whose owner is written as an `action def`, a state machine (or statechart) diagram whose owner is written as a `state def`, showing a node or edge of its graph | `view : StandardViewDefinitions::ActionFlowView` / `StateTransitionView`, rendered `Views::asInterconnectionDiagram` |
 | other behavior diagrams (sequence, use case, an activity diagram of a package or one showing nothing of its activity's graph), requirement, content and free-form diagrams, a tool's own kinds, a diagram naming no kind | `Views::asTextualNotation` |
@@ -431,7 +436,13 @@ is a `:>` clause or a port's conjugation, a Composition, Aggregation or Associat
 is the `part`/`ref` end usage, a constraint or information flow edge nothing realizes is not
 written, and a decision's `else` branch is a clause of the node it leaves, not a member. Their
 placements on a diagram expose the ends as before; their routes are reported (below), not
-attached to a member that is not an edge. A region's initial transition is the bare entry
+attached to a member that is not an edge. The rendered view still draws them: a tree draws a
+specialization from each exposed element to the general it specializes, and a composition
+(filled diamond, labelled with the end usage's name and multiplicity) or reference (hollow
+diamond) from each to the definition typing a part or `ref` it owns, wherever both ends are
+drawn, so a migrated block definition diagram shows its generalization and association lines
+between the blocks it exposes; the lines are laid out by the drawing, since nothing in the
+model routes them. A region's initial transition is the bare entry
 `entry; then s;` until a diagram draws it; then it is a member of its own, `transition 'start
 then s' first start then s;` (under its v1 name when it has one, else that made-up name), so the
 view can route it from the region's `start` symbol, and its row names the member.
@@ -940,7 +951,7 @@ two things:
   Requirement' { Rationale = "…"; }` in the same body, so nothing is written twice and nothing
   is lost. Diamonds and multiple generals all apply; a cycle is walked once. A same-named
   stereotype with no standard general («Requirement» in `Legacy`) means nothing standard: the
-  class is a `part def` with a `@Legacy::Requirement { Text = "…"; }` usage.
+  class is an `occurrence def` with a `@Legacy::Requirement { Text = "…"; }` usage.
 - **What a metadata def specializes.** A user stereotype specializing another user stereotype
   in the document writes `metadata def B :> A`; one with no user general writes no `:>`, since
   every `metadata def` specializes `Metadata::MetadataItem` implicitly; a standard general is
@@ -1888,6 +1899,39 @@ statistic itself, returning what its own connectors bind and then what it inheri
 rebind (a general's `Deviation` beside its own `N`, say). A snapshot's four statistic slots
 become a recorded `analysis` of that def in the snapshot's individual, with the snapshot as its
 subject and the statistics as its outputs.
+
+The block's parametric diagram shows the pattern as a symbol per statistic it binds (`Mean`,
+`Deviation`, …), the value's symbol and the binding lines between them. Its view, hosted in
+the part def and rendered `Views::asInterconnectionDiagram`, is written from the elements
+above rather than from a constraint and binding the model does not have: it exposes the
+analysis def in place of the `Mean` symbol, positioned by a `DiagramLayout::Layout` where that
+symbol was, and the def's `return`/`out` statistic in place of a `Deviation`, `N` or `OutOfSpec`
+symbol; the analysed value is exposed as the ordinary value property it is. The rendering draws
+the analysis def as one box with its subject, statistics and `observed` as pins on its border
+— the graphical notation's parameters of a case, not boxes inside it — so the def keeps the
+symbol's size. The `Mean` binding is the def's `observed`, whose value `analysed.t` binds it to
+the analysed value, so the rendering draws it as a binding edge from the `observed` pin to the
+value's node, steered by a `DiagramLayout::Route` along the symbol's line; the report counts
+that connector as routed. A `Deviation`, `N` or `OutOfSpec` binding is a return bound to a
+statistic of the library case (`= deviation`), which the rendering draws no edge for, so the
+report counts its route as not drawn, and the statistic's symbol as positioned, though the pin
+sits on the def's border rather than at the Layout written for it. In general an interconnection
+rendering draws every exposed analysis def as such a node and every drawn feature — node or
+pin — whose value names another drawn feature as a binding between them.
+
+```sysml
+part def 'Timer Analysis' :> Timer {
+    view 'Timer Parametrics' {
+        expose 'Timer Analysis Monte Carlo'::observed;
+        expose Timer::t;
+        expose 'Timer Analysis Monte Carlo';
+        metadata DiagramLayout::Layout about 'Timer Analysis Monte Carlo' { x = 70; y = 56; width = 81; height = 26; }
+        metadata DiagramLayout::Layout about Timer::t { x = 35; y = 98; width = 156; height = 26; }
+        metadata DiagramLayout::Route about 'Timer Analysis Monte Carlo'::observed { points = (105, 82, 105, 98); }
+        render Views::asInterconnectionDiagram;
+    }
+}
+```
 
 `sysml out.sysml -analysis "'Timer Analysis Monte Carlo' <object>" -runs 100 -seed 7` then
 runs the case: each run on a fresh subject seeded from the seed and the run number, its

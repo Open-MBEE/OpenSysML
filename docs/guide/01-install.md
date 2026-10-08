@@ -1,6 +1,6 @@
 # 1. Install
 
-This chapter covers installing `sysml`, `sysml-lsp` and `sysml-grpc` and checking that they
+This chapter covers installing `sysml`, `sysml-lsp`, `sysml-grpc` and `sysml-jupyter-kernel` and checking that they
 work. Nothing else is needed for the rest of this guide.
 
 ## From a release build (recommended)
@@ -43,7 +43,7 @@ environment variable for unattended installs:
 | Choice | `install.sh` | `install.ps1` | Environment |
 |---|---|---|---|
 | Release: a tag, `latest` or `nightly` | `--version v0.9.1` | `-Version v0.9.1` | `OPENSYSML_VERSION` |
-| Tools: `sysml`, `sysml-lsp`, `sysml-grpc` or `all` | `--tools sysml` | `-Tools sysml` | `OPENSYSML_TOOLS` |
+| Tools: `sysml`, `sysml-lsp`, `sysml-grpc`, `sysml-jupyter-kernel` or `all` | `--tools sysml` | `-Tools sysml` | `OPENSYSML_TOOLS` |
 | Where to install | `--prefix ~/opt` or `--bin-dir ~/bin` | `-InstallDir D:\Tools\OpenSysML` | `OPENSYSML_PREFIX`, `OPENSYSML_BIN_DIR`, `OPENSYSML_INSTALL_DIR` |
 | A mirror of the GitHub release tree | `--base-url URL` | `-BaseUrl URL` | `OPENSYSML_DOWNLOAD_BASE` |
 | Show the choice, install nothing | `--dry-run` | `-DryRun` | |
@@ -145,6 +145,12 @@ as a dependency.
 the `opensysml` Python package downloads and verifies it itself (see [client/python/DEVELOPING.md](../../client/python/DEVELOPING.md)).
 `make build-grpc` builds it from source.
 
+`sysml-jupyter-kernel`, the Jupyter kernel, is published the same way, as a bare
+`sysml-jupyter-kernel-<os>-<arch>` file with a `.sha256` sidecar: `pip install
+jupyter-opensysml-kernel` downloads and verifies it when it registers the kernel (see
+[Jupyter notebooks](12-jupyter.md)). `make build-jupyter-kernel` builds it from source, and
+`sysml-jupyter-kernel -install` registers a binary installed by hand.
+
 **Archive layout:** the `opensysml-<os>-<arch>.tar.gz` bundles contain both binaries under their
 plain names (`sysml`, `sysml-lsp`). The older single-binary `sysml-<os>-<arch>.tar.gz` and
 `sysml-lsp-<os>-<arch>.tar.gz` archives are still published. The bundles and
@@ -159,9 +165,11 @@ shasum -a 256 -c SHA256SUMS.txt --ignore-missing   # macOS; use sha256sum -c on 
 ```
 
 **Ahead of the next release:** the same archives are built from `develop` every night and
-published as the prerelease `nightly`. It is a development build, replaced nightly and never
-the `latest` release; [Nightly snapshots](../project/nightly.md) says what it contains, how to
-verify one, and what to expect from it.
+published as the prerelease `nightly-<yyyymmdd>-<commit>`, kept for 14 days, with `nightly`
+as the moving alias of the newest; the Python and Node clients go to PyPI and npm as
+development versions. It is a development build, never the `latest` release;
+[Nightly snapshots](../project/nightly.md) says what it contains, how to verify one, and what
+to expect from it.
 
 ## macOS: Gatekeeper
 
@@ -182,6 +190,8 @@ Ways to avoid it, best first:
    go install github.com/Open-MBEE/OpenSysML/cmd/sysml@latest
    go install github.com/Open-MBEE/OpenSysML/cmd/sysml-lsp@latest
    ```
+   `sysml -version` reports the release the binary was built from, or the commit when it was
+   installed from a checkout.
 4. **Clear the attribute** if you already downloaded the archive in a browser. Verify the
    checksum first: clearing the attribute disables a security check, so make sure the file
    really is the published one:

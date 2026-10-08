@@ -37,6 +37,7 @@ export const COVERED_RPCS = [
   "Evaluate",
   "EvaluateCalc",
   "ExecuteAction",
+  "ExportGraphs",
   "ExecuteState",
   "GetDiagnostics",
   "GetServerInfo",
@@ -47,6 +48,7 @@ export const COVERED_RPCS = [
   "ParseSources",
   "Query",
   "RenderDocument",
+  "RenderView",
   "RunAnalysis",
   "RunDocumentQuery",
   "RunSweep",
@@ -436,6 +438,11 @@ export class Runner {
         documentBindings(call.request["bindings"]),
       ),
     RenderDocument: (call) => this.model(call).renderDocument(String(call.request["document_id"])),
+    RenderView: (call) =>
+      this.model(call).renderView(String(call.request["view"]), {
+        ports: call.request["ports"] === "full" ? "full" : "minimal",
+      }),
+    ExportGraphs: (call) => this.model(call).exportGraphs(String(call.request["subject"])),
     RunAnalysis: (call) =>
       this.model(call).runAnalysis(String(call.request["symbol_id"]), {
         ...stringOption(call.request, "subject_symbol_id", "subject"),

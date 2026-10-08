@@ -117,6 +117,9 @@ type StateGraph struct {
 	transitionFootprints map[*Transition]Footprint
 	behaviorFootprints   map[ast.Node]Footprint
 	footprintsOnce       sync.Once
+	// transitionSteps: transition out of a state → its step short of do behaviors.
+	transitionSteps map[*Transition]TransitionStep
+	stepsOnce       sync.Once
 
 	// CompositeStates: state → regions
 	CompositeStates map[*ast.StateNode][]*ast.StateRegion
@@ -474,7 +477,7 @@ func lowerStateAttributes(graph *StateGraph, members []inheritedMember) []Attrib
 			continue
 		}
 		graph.attributeScope[usage] = member.scope
-		attrs = append(attrs, Attribute{Name: name, Direction: usage.Direction, IsResult: usage.IsResult, Type: TypeText(usage), Value: usage.Value, Node: usage, Scope: member.scope})
+		attrs = append(attrs, Attribute{Name: name, Direction: usage.Direction, IsResult: usage.IsResult, Type: TypeText(usage), Value: usage.Value, Binding: valueIsBinding(usage.Value, usage.ValueIsInitial, usage.ValueIsDefault), Node: usage, Scope: member.scope})
 	}
 	return attrs
 }
@@ -1418,6 +1421,27 @@ func (g *StateGraph) vertex(scope *symbols.Scope, target ast.Node) (ast.Node, er
 		return nil, fmt.Errorf(NotAVertexFormat, EndpointText(target), VertexKind(decl))
 	}
 	return node, nil
+}
+
+// StateNamed is the state a name or feature chain written in scope (nil: the
+// machine's own) names, as a transition endpoint would name it.
+func (g *StateGraph) StateNamed(scope *symbols.Scope, target ast.Node) (*ast.StateNode, bool) {
+	if g == nil || g.endpoints == nil || isNilEndpoint(target) {
+		return nil, false
+	}
+	if scope == nil {
+		scope = g.Scope
+	}
+	decl, ok := g.endpoints.Endpoint(scope, target)
+	if !ok {
+		return nil, false
+	}
+	node, ok := g.vertexFor(scope, target, decl)
+	if !ok {
+		return nil, false
+	}
+	state, ok := node.(*ast.StateNode)
+	return state, ok && state != nil
 }
 
 // isNilEndpoint reports an endpoint that is no node at all, a typed nil included.

@@ -53,11 +53,13 @@ type StateExecutor struct {
 	// timer set for later is this machine's wait on the clock.
 	eventQueue *EventQueue
 	stateData  map[string]Value // State machine local variables
+	stateCells *bodyCells
 	// stateAttrs holds the attributes each state owns, one map per state node, so
 	// two usages of one state definition keep separate values.
-	stateAttrs  map[*ast.StateNode]map[string]Value
-	stateVisits []string         // Ordered list of visited state names
-	stateStack  []*ast.StateNode // Active state configuration (for nested states)
+	stateAttrs     map[*ast.StateNode]map[string]Value
+	stateAttrCells map[*ast.StateNode]*bodyCells
+	stateVisits    []string         // Ordered list of visited state names
+	stateStack     []*ast.StateNode // Active state configuration (for nested states)
 
 	// history records, per composite state, the configuration that state had when
 	// it was last exited. A history pseudostate re-enters that configuration
@@ -168,6 +170,10 @@ type StateExecutor struct {
 	enteringMachine bool
 	// activeAtEntry records states active before the current entry unit.
 	activeAtEntry map[*ast.StateNode]bool
+	// performing counts the entry and exit behaviors of each state under way, so
+	// the state reads as active to them before the configuration holds it
+	// (entry) and after the configuration dropped it (exit).
+	performing map[*ast.StateNode]int
 
 	// changeRearmed collects, while a poll runs, the watches a state entry armed
 	// for a new activation, so the poll's earlier observation does not latch them.
@@ -251,6 +257,9 @@ func newStateExecutorForOccurrence(
 	if err := exec.initializeStateAttributes(); err != nil {
 		return nil, err
 	}
+	if err := ctx.deriveBodyCells(exec.stateCells); err != nil {
+		return nil, fmt.Errorf("derive state machine attributes: %w", err)
+	}
 	ctx.clock.attach(exec)
 
 	return exec, nil
@@ -275,6 +284,7 @@ func newStateExecutorOn(
 		eventQueue:         NewEventQueue(),
 		stateData:          make(map[string]Value),
 		stateAttrs:         make(map[*ast.StateNode]map[string]Value),
+		stateAttrCells:     make(map[*ast.StateNode]*bodyCells),
 		stateVisits:        make([]string, 0),
 		stateStack:         make([]*ast.StateNode, 0),
 		history:            make(map[*ast.StateNode]*historyRecord),
@@ -290,6 +300,25 @@ func newStateExecutorOn(
 		entering: make(map[*ast.StateNode]bool),
 	}
 	exec.driven.exec = exec
+	for _, attr := range graph.Attributes {
+		if !attr.Binding || attr.Value == nil {
+			continue
+		}
+		scope := attr.Scope
+		if scope == nil {
+			scope = graph.Scope
+		}
+		var cell *bodyCell
+		onDerived := func(value *Value) error {
+			mirrored, err := exec.mirrorBindingOccurrence(attr.Name, *value, cell)
+			if err != nil {
+				return err
+			}
+			*value = mirrored
+			return nil
+		}
+		cell = ctx.registerBodyBinding(exec.ensureStateCells(), attr.Name, attr.Value, scope, nil, onDerived)
+	}
 	return exec
 }
 
@@ -323,8 +352,18 @@ func (e *StateExecutor) initializeAttributes() error {
 				return fmt.Errorf("%w: read %s of object #%d: %w",
 					ErrStatePerformanceOccurrence, attr.Name, e.occurrence.ID, err)
 			}
-			if value := fv.HeldValue(); value.Kind != ValInvalid {
-				e.stateData[attr.Name] = value
+			if attr.Binding && !fv.Written && !occurrenceHasRedefinedDefault(fv, attr, e.graph.Scope) {
+				_, seeded, err := e.ctx.seedBodyBindingFromFeatureValue(e.stateCells, attr.Name, fv)
+				if err != nil {
+					return fmt.Errorf("derive state machine attribute %s: %w", attr.Name, err)
+				}
+				if seeded {
+					continue
+				}
+			}
+			if value := fv.HeldValue(); value.Kind != ValInvalid &&
+				(!attr.Binding || fv.Written || occurrenceHasRedefinedDefault(fv, attr, e.graph.Scope)) {
+				e.ctx.writeBodyValue(e.stateCells, e.stateData, attr.Name, value)
 				continue
 			}
 		}
@@ -334,6 +373,9 @@ func (e *StateExecutor) initializeAttributes() error {
 			}
 			continue
 		}
+		if attr.Binding {
+			continue
+		}
 		value, err := evalDefaults().evalIn(attr.Scope).Eval(attr.Value)
 		if err != nil {
 			return fmt.Errorf("eval attribute default %s: %w", attr.Name, err)
@@ -341,7 +383,7 @@ func (e *StateExecutor) initializeAttributes() error {
 		if value, err = e.mirrorOccurrence(attr.Name, value); err != nil {
 			return err
 		}
-		e.stateData[attr.Name] = value
+		e.ctx.writeBodyValue(e.stateCells, e.stateData, attr.Name, value)
 	}
 
 	return nil
@@ -370,14 +412,41 @@ func (e *StateExecutor) bindContextDefault(attr lower.Attribute) bool {
 	if err != nil {
 		return false
 	}
-	e.stateData[attr.Name] = value
+	e.ctx.writeBodyValue(e.stateCells, e.stateData, attr.Name, value)
 	return true
 }
 
 // dataFrame is the machine's data as a run frame of the machine, so `Ctl::context`
 // written in a member the machine owns reads the binding the running machine gave it.
 func (e *StateExecutor) dataFrame() frame {
-	return frame{vars: e.stateData, performed: e.stateMachine}
+	return frame{
+		vars: e.stateData, cells: e.stateCells, performed: e.stateMachine, machine: e,
+		ensureCells: e.ensureStateCells,
+	}
+}
+
+// ensureStateCells lazily creates dependency cells for machine data.
+func (e *StateExecutor) ensureStateCells() *bodyCells {
+	if e.stateCells == nil {
+		e.stateCells = newBodyCells(e.stateData, func(scope *symbols.Scope) *EvalContext {
+			ec := NewEvalContextIn(e.ctx, scope, e.self)
+			ec.thisOccurrence = e.materializeOccurrence
+			ec.pushFrame(e.dataFrame())
+			return ec
+		})
+	}
+	return e.stateCells
+}
+
+// stateAttributeContext resolves an attribute in machine data and its state frames.
+func (e *StateExecutor) stateAttributeContext(state *ast.StateNode, scope *symbols.Scope) *EvalContext {
+	ec := NewEvalContextIn(e.ctx, scope, e.self)
+	ec.thisOccurrence = e.materializeOccurrence
+	ec.pushFrame(e.dataFrame())
+	for _, fr := range e.attrFramesFor(state) {
+		ec.pushFrame(fr)
+	}
+	return ec
 }
 
 // initializeStateAttributes gives every state that owns attributes its own
@@ -389,6 +458,22 @@ func (e *StateExecutor) initializeStateAttributes() error {
 		}
 		data := make(map[string]Value, len(attrs))
 		e.stateAttrs[state] = data
+		var cells *bodyCells
+		for _, attr := range attrs {
+			if attr.Binding && attr.Value != nil {
+				if cells == nil {
+					cells = newBodyCells(data, func(scope *symbols.Scope) *EvalContext {
+						return e.stateAttributeContext(state, scope)
+					})
+					e.stateAttrCells[state] = cells
+				}
+				scope := attr.Scope
+				if scope == nil {
+					scope = e.graph.Scope
+				}
+				e.ctx.registerBodyBinding(cells, attr.Name, attr.Value, scope, nil, nil)
+			}
+		}
 		for _, attr := range attrs {
 			if attr.Value == nil {
 				continue
@@ -397,17 +482,25 @@ func (e *StateExecutor) initializeStateAttributes() error {
 			if scope == nil {
 				scope = e.graph.Scope
 			}
-			ec := NewEvalContextIn(e.ctx, scope, e.self)
-			ec.occurrence = e.occurrence
-			ec.thisOccurrence = e.materializeOccurrence
-			ec.pushFrame(e.dataFrame())
-			end := ec.beginStep()
-			value, err := ec.Eval(attr.Value)
-			end()
+			var value Value
+			var err error
+			if attr.Binding {
+				value, err = e.ctx.deriveBodyCell(cells, attr.Name, cells.existingCell(attr.Name))
+			} else {
+				ec := NewEvalContextIn(e.ctx, scope, e.self)
+				ec.occurrence = e.occurrence
+				ec.thisOccurrence = e.materializeOccurrence
+				ec.pushFrame(e.dataFrame())
+				end := ec.beginStep()
+				value, err = ec.Eval(attr.Value)
+				end()
+			}
 			if err != nil {
 				return fmt.Errorf("eval attribute default %s of state %s: %w", attr.Name, state.Name, err)
 			}
-			data[attr.Name] = value
+			if !attr.Binding {
+				e.ctx.writeBodyValue(cells, data, attr.Name, value)
+			}
 		}
 	}
 	return nil
@@ -415,15 +508,15 @@ func (e *StateExecutor) initializeStateAttributes() error {
 
 // attrFramesFor are the attribute values a behavior of state reads, outermost
 // state first so an inner state's attribute shadows an enclosing one's.
-func (e *StateExecutor) attrFramesFor(state *ast.StateNode) []map[string]Value {
+func (e *StateExecutor) attrFramesFor(state *ast.StateNode) []frame {
 	if state == nil || len(e.stateAttrs) == 0 {
 		return nil
 	}
-	var frames []map[string]Value
+	var frames []frame
 	chain := e.getParentChain(state)
 	for i := len(chain) - 1; i >= 0; i-- {
 		if data := e.stateAttrs[chain[i]]; data != nil {
-			frames = append(frames, data)
+			frames = append(frames, frame{vars: data, cells: e.stateAttrCells[chain[i]]})
 		}
 	}
 	return frames
@@ -432,9 +525,9 @@ func (e *StateExecutor) attrFramesFor(state *ast.StateNode) []map[string]Value {
 // stateAttributeValues is the value map of the innermost state at or enclosing
 // state that owns an attribute of this name, with the scope that attribute is
 // declared in, so a write to it answers to its declaration.
-func (e *StateExecutor) stateAttributeValues(state *ast.StateNode, name string) (map[string]Value, *symbols.Scope, bool) {
+func (e *StateExecutor) stateAttributeValues(state *ast.StateNode, name string) (map[string]Value, *symbols.Scope, *bodyCells, bool) {
 	if state == nil {
-		return nil, nil, false
+		return nil, nil, nil, false
 	}
 	for _, ancestor := range e.getParentChain(state) {
 		data, ok := e.stateAttrs[ancestor]
@@ -449,10 +542,10 @@ func (e *StateExecutor) stateAttributeValues(state *ast.StateNode, name string) 
 			if scope == nil {
 				scope = e.graph.Scope
 			}
-			return data, scope, true
+			return data, scope, e.stateAttrCells[ancestor], true
 		}
 	}
-	return nil, nil, false
+	return nil, nil, nil, false
 }
 
 func (e *StateExecutor) declaresAttribute(name string) bool {
@@ -479,15 +572,22 @@ func (e *StateExecutor) materializeOccurrence() (*Instance, error) {
 	if err != nil {
 		return nil, err
 	}
+	e.occurrence = inst
 	for _, attr := range e.graph.Attributes {
 		if value, held := e.stateData[attr.Name]; held {
+			if cell := e.stateCells.existingCell(attr.Name); cell != nil && cell.binding != nil && !cell.fv.Written {
+				if _, err := e.mirrorBindingOccurrence(attr.Name, value, cell); err != nil {
+					return nil, fmt.Errorf("%w: seed %s of object #%d: %w",
+						ErrStatePerformanceOccurrence, attr.Name, inst.ID, err)
+				}
+				continue
+			}
 			if err := inst.BindFeatureValue(e.ctx, attr.Name, value); err != nil {
 				return nil, fmt.Errorf("%w: seed %s of object #%d: %w",
 					ErrStatePerformanceOccurrence, attr.Name, inst.ID, err)
 			}
 		}
 	}
-	e.occurrence = inst
 	e.ctx.beginPerformanceLife(inst, e.ctx.newActivation())
 	return inst, nil
 }
@@ -509,6 +609,19 @@ func (e *StateExecutor) mirrorOccurrence(name string, value Value) (Value, error
 			ErrStatePerformanceOccurrence, name, e.occurrence.ID, err)
 	}
 	return fv.HeldValue(), nil
+}
+
+// mirrorBindingOccurrence exposes a tracked state feature through its occurrence.
+func (e *StateExecutor) mirrorBindingOccurrence(name string, value Value, cell *bodyCell) (Value, error) {
+	if e.occurrence == nil || !e.declaresAttribute(name) {
+		return value, nil
+	}
+	mirrored, err := e.ctx.mirrorBodyCell(e.occurrence, name, cell, value)
+	if err != nil {
+		return value, fmt.Errorf("%w: write %s of object #%d: %w",
+			ErrStatePerformanceOccurrence, name, e.occurrence.ID, err)
+	}
+	return mirrored, nil
 }
 
 func (e *StateExecutor) assignAttribute(name string, value Value) error {
@@ -534,7 +647,7 @@ func (e *StateExecutor) assignAttribute(name string, value Value) error {
 			return err
 		}
 	}
-	e.stateData[name] = value
+	e.ctx.writeBodyValue(e.stateCells, e.stateData, name, value)
 	return nil
 }
 
@@ -573,7 +686,7 @@ func (e *StateExecutor) evalStepWithin(owner ast.Node, f *firing, node ast.Node,
 	ec.pushFrame(data)
 	if state, ok := owner.(*ast.StateNode); ok {
 		for _, frame := range e.attrFramesFor(state) {
-			ec.Push(frame)
+			ec.pushFrame(frame)
 		}
 	}
 	defer ec.beginStep()()
@@ -812,9 +925,9 @@ func (e *StateExecutor) recordAccept(event Event, mark int, at float64) {
 	origin := TraceOrigin{At: at, Object: e.self, Behavior: e.stateMachine}
 	switch payload := event.Payload.(type) {
 	case Message:
-		tr.RecordAcceptAt(mark, origin, acceptedEventName(payload), payload.Payload)
+		tr.RecordAcceptAt(mark, origin, payload.Serial, acceptedEventName(payload), payload.Payload)
 	case Call:
-		tr.RecordAcceptAt(mark, origin, payload.Operation, payload.Args)
+		tr.RecordAcceptAt(mark, origin, 0, payload.Operation, payload.Args)
 	}
 }
 
@@ -2099,17 +2212,20 @@ func orAnonymousSignal(signalType string) string {
 func (e *StateExecutor) restoreSharedData(names []string) func() {
 	saved := make(map[string]Value, len(names))
 	held := make(map[string]bool, len(names))
+	cells := make(map[string]bodyCellState, len(names))
 	for _, name := range names {
 		value, ok := e.stateData[name]
 		saved[name], held[name] = value, ok
+		cells[name] = bodyCellStateOf(e.stateCells, name)
 	}
 	return func() {
 		for name, wasHeld := range held {
 			if wasHeld {
-				e.stateData[name] = saved[name]
+				e.ctx.writeBodyValue(e.stateCells, e.stateData, name, saved[name])
 			} else {
-				delete(e.stateData, name)
+				e.ctx.clearBodyValue(e.stateCells, e.stateData, name)
 			}
+			e.ctx.restoreBodyCellState(e.stateCells, name, cells[name])
 		}
 	}
 }
@@ -2375,6 +2491,9 @@ func (e *StateExecutor) completeMachine() error {
 	if err := e.exitMachine(); err != nil {
 		return err
 	}
+	if err := e.ctx.freezeBodyCells(e.stateCells); err != nil {
+		return err
+	}
 	e.state = StateCompleted
 	e.ctx.endPerformanceLife(e.occurrence)
 	return nil
@@ -2384,13 +2503,16 @@ func (e *StateExecutor) completeMachine() error {
 // transition reached (SysML v2 §7.18.3): no state is exited and no exit behavior
 // runs; the do behaviors under way are abandoned, and no state stays active.
 func (e *StateExecutor) terminateMachine(fromName string, trigger ast.Node, stop *ast.Usage) error {
+	if err := e.ctx.freezeBodyCells(e.stateCells); err != nil {
+		return err
+	}
 	name, _ := ast.EffectiveName(stop)
 	if e.trace() != nil {
 		e.trace().RecordStateTransition(e.traceOrigin(), fromName, name, triggerName(trigger))
 	}
 	abandoned := e.abandonMachine()
 	if e.trace() != nil {
-		e.trace().RecordStateTerminate(name, abandoned)
+		e.trace().RecordStateTerminate(e.traceOrigin(), name, abandoned)
 	}
 	e.state = StateTerminated
 	e.ctx.endPerformanceLife(e.occurrence)
@@ -3479,10 +3601,11 @@ func (e *StateExecutor) RunToQuiescence() error {
 // once nothing is due it advances to the earliest wait, running whatever is due there.
 func (e *StateExecutor) run(atCurrentTime bool) error {
 	var progress dueProgress
-	return e.runCounting(atCurrentTime, &progress)
+	_, err := e.runCounting(atCurrentTime, false, &progress)
+	return err
 }
 
-func (e *StateExecutor) runCounting(atCurrentTime bool, progress *dueProgress) (err error) {
+func (e *StateExecutor) runCounting(atCurrentTime, single bool, progress *dueProgress) (moved bool, err error) {
 	defer e.ctx.beginExecutorRun(&e.driven)()
 	defer e.completedWhole(&err)
 	wasRunning := e.inRun
@@ -3498,18 +3621,27 @@ func (e *StateExecutor) runCounting(atCurrentTime bool, progress *dueProgress) (
 	for e.state == StateRunning {
 		stepped, err := e.runUnit(progress)
 		if err != nil {
-			return err
+			return moved, err
 		}
 		if stepped {
+			moved = true
 			progress.unsettle()
 			if e.callReleased() {
-				return nil
+				return moved, nil
+			}
+			if single {
+				return moved, nil
+			}
+			if !atCurrentTime {
+				if err := e.ctx.yieldTurn(e, progress); err != nil {
+					return moved, err
+				}
 			}
 			continue
 		}
 		if atCurrentTime {
 			e.state = StateSuspended
-			return nil
+			return moved, nil
 		}
 		// Nothing left at this instant: the others due run, then the clock moves to the
 		// earliest wait. Only a machine with a timer of its own running moves the clock.
@@ -3517,7 +3649,7 @@ func (e *StateExecutor) runCounting(atCurrentTime bool, progress *dueProgress) (
 		for {
 			picked, err := e.ctx.runDue(e, progress)
 			if err != nil {
-				return err
+				return moved, err
 			}
 			// Its turn: work is due, or a change condition it watches is to be polled.
 			if picked || e.dueWork() {
@@ -3525,11 +3657,11 @@ func (e *StateExecutor) runCounting(atCurrentTime bool, progress *dueProgress) (
 			}
 			if _, waiting := e.NextWait(); !waiting || !e.ctx.advanceToNextDue(progress) {
 				e.state = StateSuspended
-				return nil
+				return moved, nil
 			}
 		}
 	}
-	return nil
+	return moved, nil
 }
 
 // dueLabel names the machine in a due-order choice.
@@ -3608,8 +3740,20 @@ func (e *StateExecutor) drivable() bool {
 
 // runDue runs the machine to quiescence at the current instant.
 func (e *StateExecutor) runDue(progress *dueProgress) (bool, error) {
+	return e.runDueUnits(progress, false)
+}
+
+// runMove is runDue stopping after one unit of the run.
+func (e *StateExecutor) runMove(progress *dueProgress) (bool, error) {
+	return e.runDueUnits(progress, true)
+}
+
+func (e *StateExecutor) runDueUnits(progress *dueProgress, single bool) (bool, error) {
 	before := *progress
-	err := e.runCounting(true, progress)
+	stepped, err := e.runCounting(true, single, progress)
+	if single {
+		return stepped, err
+	}
 	return progress.events > before.events || progress.doSteps > before.doSteps, err
 }
 
@@ -3679,6 +3823,9 @@ func (e *StateExecutor) counting(progress *dueProgress) func() {
 
 // countDoStep counts one token move of a do behavior against the run's do-step budget.
 func (e *StateExecutor) countDoStep() error {
+	if e.ctx.interrupted() {
+		return ErrInterrupted
+	}
 	e.progress.doSteps++
 	if e.progress.doSteps >= e.ctx.maxDoSteps {
 		return budgetExceeded(ErrDoStepLimitExceeded,
@@ -3881,6 +4028,9 @@ func doStepLabel(states []string) string {
 // dispatchOne is runStep's dispatch phase: a risen change condition fires, else
 // the next due event is dispatched; false when neither is there.
 func (e *StateExecutor) dispatchOne(progress *dueProgress) (bool, error) {
+	if e.ctx.interrupted() {
+		return false, ErrInterrupted
+	}
 	maxStateEvents := e.ctx.maxStateEvents
 	fired, err := e.pollChangeEvents()
 	if err != nil {
@@ -4099,7 +4249,7 @@ func (e *StateExecutor) stepDoAction(act *doAction, goOn func(*doRun) (*doRun, e
 
 	e.moved = true
 	if e.trace() != nil {
-		e.trace().RecordDoStep(e.traceOrigin(), act.state.Name)
+		e.trace().RecordDoStep(e.traceOrigin(), act.state.Name, e.StatePath(act.state), e.RegionPath(act.state))
 	}
 	if run == nil {
 		act.pending = act.pending[1:]
@@ -5216,6 +5366,7 @@ func (e *StateExecutor) resetEntering() {
 
 // performEntry records the entry of state and performs its entry behaviors.
 func (e *StateExecutor) performEntry(state *ast.StateNode) error {
+	e.ctx.restartBodyCells(e.stateAttrCells[state])
 	if !e.activeAtEntry[state] {
 		e.entering[state] = true
 	}
@@ -5240,16 +5391,47 @@ func (e *StateExecutor) performEntry(state *ast.StateNode) error {
 		e.stateVisits = append(e.stateVisits, state.Name)
 
 		// Record trace
-		if e.trace() != nil {
-			e.trace().RecordStateEntry(e.traceOrigin(), state.Name, len(e.behaviorsOf(state).Entry) > 0)
+		if trace := e.trace(); trace != nil {
+			trace.RecordStateEntryWithSource(
+				e.traceOrigin(), state.Name, e.StatePath(state), e.RegionPath(state),
+				len(e.behaviorsOf(state).Entry) > 0, e.stateSourceOrigin(state),
+			)
 		}
 	}
 
 	// Execute entry actions
-	if err := e.executeBehaviors(e.behaviorsOf(state).Entry); err != nil {
+	if err := e.performingBehaviors(state, e.behaviorsOf(state).Entry); err != nil {
 		return fmt.Errorf("entry action: %w", err)
 	}
 	return nil
+}
+
+// performingBehaviors runs behaviors of state with the state counted as performing
+// them, so a read of its activity from within answers true.
+func (e *StateExecutor) performingBehaviors(state *ast.StateNode, behaviors []lower.StateBehavior) error {
+	if len(behaviors) == 0 {
+		return nil
+	}
+	if e.performing == nil {
+		e.performing = make(map[*ast.StateNode]int)
+	}
+	e.performing[state]++
+	defer func() {
+		if e.performing[state]--; e.performing[state] == 0 {
+			delete(e.performing, state)
+		}
+	}()
+	return e.executeBehaviors(behaviors)
+}
+
+// Activity reports whether state is active as StateActivity::isActive reads it:
+// in the active configuration (itself or an ancestor of an active state) or
+// performing its own entry or exit behavior; an ended machine has none.
+func (e *StateExecutor) Activity(state *ast.StateNode) bool {
+	if e == nil || state == nil || e.state.Ended() {
+		return false
+	}
+	return e.performing[state] > 0 || e.inActiveConfiguration(state)
 }
 
 // exitState executes exit behaviors when leaving a state.
@@ -5340,13 +5522,20 @@ func (e *StateExecutor) exitState(state *ast.StateNode) error {
 
 	// Record trace
 	if !e.graph.HiddenStates[state] && e.trace() != nil {
-		e.trace().RecordStateExit(e.traceOrigin(), state.Name, len(e.behaviorsOf(state).Exit) > 0)
+		e.trace().RecordStateExitWithSource(
+			e.traceOrigin(), state.Name, e.StatePath(state), e.RegionPath(state),
+			len(e.behaviorsOf(state).Exit) > 0, e.stateSourceOrigin(state),
+		)
 	}
 
 	// Execute exit actions
-	if err := e.executeBehaviors(e.behaviorsOf(state).Exit); err != nil {
+	if err := e.performingBehaviors(state, e.behaviorsOf(state).Exit); err != nil {
 		return fmt.Errorf("exit action: %w", err)
 	}
+	if err := e.ctx.freezeBodyCells(e.stateAttrCells[state]); err != nil {
+		return fmt.Errorf("freeze state %s attributes: %w", state.Name, err)
+	}
+	e.ctx.exitBodyCells(e.stateAttrCells[state])
 
 	// Clear simple state
 	e.activeConfig.simpleState = nil
@@ -5382,6 +5571,9 @@ func (e *StateExecutor) exitRegionsBelow(owner *ast.StateNode, regions []*ast.St
 // passing state data in through the callee's input parameters and merging its
 // output parameters back into state data.
 func (e *StateExecutor) invokeNested(inv actionInvocation) error {
+	if err := e.ctx.deriveBodyCells(e.stateCells); err != nil {
+		return err
+	}
 	_, outputs, err := invokeAction(e.ctx, e.stateMachine.Scope, inv, e.stateData, e.self)
 	if err != nil {
 		return err
@@ -5402,7 +5594,7 @@ func (e *StateExecutor) writeStateValue(name string, value Value) error {
 	if e.declaresAttribute(name) {
 		return e.assignAttribute(name, value)
 	}
-	e.stateData[name] = value
+	e.ctx.writeBodyValue(e.stateCells, e.stateData, name, value)
 	return nil
 }
 
@@ -5516,17 +5708,46 @@ func (e *StateExecutor) StateStack() []*ast.StateNode {
 // attributes each state owns under that state's path (`nested.hits`), which two
 // usages of one state definition hold separately.
 func (e *StateExecutor) StateData() map[string]Value {
-	data := make(map[string]Value, len(e.stateData))
-	for k, v := range e.stateData {
-		data[k] = v
+	data, _ := e.StateDataWithError()
+	return data
+}
+
+// StateDataWithError returns state data after deriving current tracking cells.
+// A value whose inactive-state reference cannot be read is omitted and reported.
+func (e *StateExecutor) StateDataWithError() (map[string]Value, error) {
+	var deriveErr error
+	if err := e.ctx.deriveBodyCells(e.stateCells); err != nil {
+		deriveErr = err
 	}
+	data := copyStateValues(e.stateData, e.stateCells, "")
 	for state, attrs := range e.stateAttrs {
-		prefix := e.statePath(state) + "."
-		for name, value := range attrs {
-			data[prefix+name] = value
+		cells := e.stateAttrCells[state]
+		if err := e.ctx.deriveBodyCells(cells); err != nil && deriveErr == nil {
+			deriveErr = err
+		}
+		data = copyStateValuesInto(data, attrs, cells, e.statePath(state)+".")
+	}
+	return data, deriveErr
+}
+
+// copyStateValues copies a state's materialized values under its qualified path.
+func copyStateValues(values map[string]Value, cells *bodyCells, prefix string) map[string]Value {
+	return copyStateValuesInto(make(map[string]Value, len(values)), values, cells, prefix)
+}
+
+// copyStateValuesInto adds a state's materialized values to an output map.
+func copyStateValuesInto(target, values map[string]Value, cells *bodyCells, prefix string) map[string]Value {
+	for name, value := range values {
+		target[prefix+name] = value
+	}
+	if cells != nil {
+		for name, cell := range cells.cells {
+			if cell.binding != nil && !cell.fv.Written && !cell.binding.frozen && !cell.fv.Materialized {
+				delete(target, prefix+name)
+			}
 		}
 	}
-	return data
+	return target
 }
 
 // statePath is a state's name qualified by the states enclosing it.
@@ -5561,6 +5782,50 @@ func (e *StateExecutor) StatePath(state *ast.StateNode) string {
 		parts = append(parts, s.Name)
 	}
 	return strings.Join(append(parts, state.Name), ".")
+}
+
+func (e *StateExecutor) stateSourceOrigin(state *ast.StateNode) symbols.Origin {
+	doc := e.graph.DocOf(state)
+	if doc == "" && e.stateMachine != nil {
+		doc = e.stateMachine.DocName
+	}
+	return symbols.NodeOrigin(doc, state)
+}
+
+// RegionOf returns the innermost orthogonal region a state stands in, or nil
+// when the state is outside every region.
+func (e *StateExecutor) RegionOf(state *ast.StateNode) *ast.StateRegion {
+	for current := state; current != nil; current = e.graph.ParentState[current] {
+		if region := e.graph.RegionOf[current]; region != nil {
+			return region
+		}
+		if region := e.graph.HiddenRegionOf[current]; region != nil {
+			return region
+		}
+	}
+	return nil
+}
+
+// RegionPath qualifies the innermost region by the written states enclosing it.
+func (e *StateExecutor) RegionPath(state *ast.StateNode) string {
+	region := e.RegionOf(state)
+	if region == nil {
+		return ""
+	}
+	owner := e.graph.RegionOwner[region]
+	parts := make([]string, 0)
+	if owner != nil {
+		for _, enclosing := range e.EnclosingStates(owner) {
+			parts = append(parts, enclosing.Name)
+		}
+		if !e.graph.HiddenStates[owner] && owner.Name != "" {
+			parts = append(parts, owner.Name)
+		}
+	}
+	if region.Name != "" {
+		parts = append(parts, region.Name)
+	}
+	return strings.Join(parts, ".")
 }
 
 // trace returns the recorder this executor's context is attached to, so turning

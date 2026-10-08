@@ -1,0 +1,53 @@
+---
+config:
+  fontFamily: "Helvetica, Arial, sans-serif"
+  theme: base
+  themeCSS: ".edgeLabel rect { opacity: 1 !important; } .cluster-label .nodeLabel { text-align: center; }"
+  themeVariables:
+    fontFamily: "Helvetica, Arial, sans-serif"
+    fontSize: "14px"
+    primaryColor: "#FFFFFF"
+    secondaryColor: "#FFFFFF"
+    tertiaryColor: "#FFFFFF"
+    background: "#FFFFFF"
+    primaryBorderColor: "#181818"
+    primaryTextColor: "#000000"
+    lineColor: "#181818"
+    textColor: "#000000"
+    noteBkgColor: "#FEFFDD"
+    noteBorderColor: "#181818"
+    noteTextColor: "#000000"
+    clusterBkg: "#FFFFFF"
+    clusterBorder: "#181818"
+    edgeLabelBackground: "#FFFFFF"
+---
+%% RobustViews::unrecognized — tree rendering (view def GeneralView)
+flowchart TD
+  n0["`*«part def»*
+**Loops::A**`"]
+    n1("`*«part»*
+**b : B**`")
+  n0 --- n1
+  n2["`*«part def»*
+**Loops::B**`"]
+    n3("`*«part»*
+**a : A**`")
+  n2 --- n3
+  n4["`*«part def»*
+**Cycles::C**`"]
+  n5["`*«connection def»*
+**DerivationConnections::Derivation**`"]
+    n6("`*«requirement»*
+**originalRequirement**`")
+  n5 --- n6
+    n7("`*«requirement»*
+**derivedRequirements**`")
+  n5 --- n7
+    n8("`*«assert constraint»*
+**originalNotDerived**`")
+  n5 --- n8
+    n9("`*«assert constraint»*
+**originalImpliesDerived**`")
+  n5 --- n9
+  n0 ---|"◆ b"| n2
+  n2 ---|"◆ a"| n0

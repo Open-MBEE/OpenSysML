@@ -63,8 +63,8 @@ func importMisuse() string {
 	case !importDryRun && convertFormat == "":
 		return "-import writes the imported model with -convert sysml -o <file>; preview it with -import-dry-run"
 	case importDryRun && (modelChecks.requested() || renderView != "" || renderAllDir != "" || renderDoc != "" || renderDocsDir != "" ||
-		queryText != "" || len(evalExprs) > 0 || migrateFormat != "" || compileCalc != "" || syncDiffWith != "" || syncApplyTo != "" || outputPath != ""):
-		return "-import-dry-run reports what -import would set and does nothing else; check, render, migrate, compile, sync or write -o output in its own run"
+		queryText != "" || graphsSubject != "" || len(evalExprs) > 0 || migrateFormat != "" || compileCalc != "" || syncDiffWith != "" || syncApplyTo != "" || outputPath != ""):
+		return "-import-dry-run reports what -import would set and does nothing else; check, render, export graphs, migrate, compile, sync or write -o output in its own run"
 	}
 	return ""
 }

@@ -1,11 +1,14 @@
 package migrate_test
 
 import (
+	"maps"
 	"reflect"
+	"slices"
 	"strings"
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/exec/simresults"
+	"github.com/Open-MBEE/OpenSysML/internal/ir/view"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/migrate"
 )
 
@@ -265,4 +268,102 @@ func TestMonteCarloSlotsOfNothingObservedAreRefused(t *testing.T) {
 	wantNote(t, r, "_n", migrate.Mapped, "")
 	wantNote(t, r, "_mean", migrate.Unmapped, "the slot holds the simulation tool's MonteCarloAnalysis::Mean, but 'Timer Analysis' inherits MonteCarloAnalysis but binds its Mean to no value of its own, so its statistics summarise no observable, so the statistic is of nothing")
 	wantClean(t, "unobserved.sysml", r)
+}
+
+// montecarlo_diagram.xmi: the parametric diagram of a block of the pattern shows the
+// symbols of Mean, Deviation and OutOfSpec, the two values and the three bindings. The
+// view exposes the analysis def in place of the Mean symbol and the def's returns in
+// place of the other statistics, positions them where the symbols were, and routes the
+// Mean binding along observed, whose value binds it to the analysed value; a binding to
+// a return, bound to a statistic nothing draws, is positioned but draws no edge.
+func TestMonteCarloParametricViewExposesTheAnalysis(t *testing.T) {
+	r := migrateStreamLaidOut(t, "montecarlo_diagram", false)
+	wantClean(t, "montecarlo_diagram", r)
+	wantBlock(t, r.Notation, "part def 'Settling Analysis' :> Sensor {",
+		"view 'Settling Parametrics' {",
+		"expose 'Settling Analysis Monte Carlo'::observed;",
+		"expose 'Settling Analysis Monte Carlo'::Deviation;",
+		"expose 'Settling Analysis Monte Carlo'::OutOfSpec;",
+		"expose Sensor::settleTime;",
+		"expose Sensor::misses;",
+		"expose 'Settling Analysis Monte Carlo';")
+	wantLine(t, r.Notation, "metadata DiagramLayout::Layout about 'Settling Analysis Monte Carlo' { x = 70; y = 56; width = 81; height = 26; }")
+	wantLine(t, r.Notation, "metadata DiagramLayout::Layout about 'Settling Analysis Monte Carlo'::Deviation { x = 200; y = 56; width = 102; height = 26; }")
+	wantLine(t, r.Notation, "metadata DiagramLayout::Layout about 'Settling Analysis Monte Carlo'::OutOfSpec { x = 340; y = 56; width = 111; height = 26; }")
+	wantLine(t, r.Notation, "metadata DiagramLayout::Layout about Sensor::settleTime { x = 35; y = 98; width = 156; height = 26; }")
+	wantLine(t, r.Notation, "metadata DiagramLayout::Route about 'Settling Analysis Monte Carlo'::observed { points = (105, 82, 105, 98); }")
+	wantLine(t, r.Notation, "render Views::asInterconnectionDiagram;")
+	// The model mapping is unchanged: the bindings are the analysis def's members, no connector.
+	wantNoLine(t, r.Notation, "binding")
+	wantNoLine(t, r.Notation, "bind ")
+	wantBlock(t, r.Notation, "analysis def 'Settling Analysis Monte Carlo' :> Simulation::MonteCarlo {",
+		"subject analysed : 'Settling Analysis';",
+		"perform action run ::> analysed.settle;",
+		"attribute :>> observed : ScalarValues::Real = analysed.settleTime;",
+		"return Mean : ScalarValues::Real[1] = mean;",
+		"out Deviation : ScalarValues::Real[0..1] = deviation;",
+		"out OutOfSpec : ScalarValues::Integer[1] = outOfSpec;",
+		"}")
+
+	wantNote(t, r, "_bindMean", migrate.Approximated, "the binding to the simulation tool's MonteCarloAnalysis::Mean is written in the analysis def 'Settling Analysis Monte Carlo' as the observed value, of which Mean is returned")
+	wantNote(t, r, "_bindDeviation", migrate.Approximated, "the binding to the simulation tool's MonteCarloAnalysis::Deviation is written in the analysis def 'Settling Analysis Monte Carlo' as the returned Deviation, bound to deviation")
+	wantNote(t, r, "_diag_par", migrate.Approximated, "a SysML Parametric Diagram written as a view rendered asInterconnectionDiagram; "+
+		"6 of 14 shown elements are not written and not exposed; laid out from the diagram's own symbol stream: "+
+		"5 of 11 shown elements positioned (6 not exposed), 1 of 3 connectors routed (2 not drawn)")
+	for _, e := range entriesFor(r, "_diag_par") {
+		if strings.Contains(e.Note, "not written)") {
+			t.Errorf("diagram note reports a binding's route as not written: %s", e.Note)
+		}
+	}
+	report := reportText(t, r)
+	for _, want := range []string{"# routes of Connector: 1 written", "# routes of Connector: 2 not drawn",
+		"placements: 5 of 11 written (6 not exposed, 0 resolving to no element); routes: 1 of 3 written (2 not pinned, 0 resolving to no element)"} {
+		if !strings.Contains(report, want) {
+			t.Errorf("report lacks %q:\n%s", want, report)
+		}
+	}
+
+	// The rendering draws the analysis def where the Mean symbol was, its observed
+	// value a pin on its border, and the binding from that pin to the analysed
+	// value along the symbol's route.
+	s := session(t, r)
+	rendering, err := s.ViewRendering("'Settling Analysis'::'Settling Parametrics'")
+	if err != nil {
+		t.Fatalf("render: %v", err)
+	}
+	nodes := map[string]*view.Node{}
+	for _, root := range rendering.Roots {
+		nodes[root.Name] = root
+		for _, child := range root.Children {
+			nodes[child.Name] = child
+		}
+	}
+	analysis, settleTime := nodes["'Settling Analysis Monte Carlo'"], nodes["Sensor::settleTime"]
+	if analysis == nil || settleTime == nil || nodes["Sensor::misses"] == nil || len(nodes) != 3 {
+		t.Fatalf("rendering draws %v, want the analysis def, settleTime and misses alone", slices.Sorted(maps.Keys(nodes)))
+	}
+	if analysis.Kind != "analysis def" || analysis.Geometry == nil || *analysis.Geometry != (view.Geometry{X: 70, Y: 56, Width: 81, Height: 26, HasSize: true}) {
+		t.Errorf("analysis def node = %s %+v, want the Mean symbol's geometry", analysis.Kind, analysis.Geometry)
+	}
+	pins := map[string]view.Port{}
+	for _, pin := range analysis.Ports {
+		pins[pin.Name] = pin
+	}
+	observed, ok := pins["observed"]
+	if !ok || pins["Mean"].Direction != view.PortOut || pins["Deviation"].Direction != view.PortOut || pins["analysed"].Direction != view.PortUndirected {
+		t.Fatalf("analysis def pins = %+v, want analysed, observed and the out statistics Mean and Deviation", analysis.Ports)
+	}
+	if len(rendering.Edges) != 1 {
+		t.Fatalf("edges = %+v, want the one binding", rendering.Edges)
+	}
+	edge := rendering.Edges[0]
+	if edge.From != analysis.ID || edge.FromPort != observed.ID || edge.To != settleTime.ID || edge.ToPort != "" || edge.Kind != view.EdgeBinding || edge.Label != "binding" {
+		t.Errorf("edge = %+v, want a binding from pin %s of %s to %s", edge, observed.ID, analysis.ID, settleTime.ID)
+	}
+	if !reflect.DeepEqual(edge.Route, []view.Point{{X: 105, Y: 82}, {X: 105, Y: 98}}) {
+		t.Errorf("edge route = %v, want the symbol's (105,82) (105,98)", edge.Route)
+	}
+	if len(rendering.Notices) != 0 {
+		t.Errorf("notices = %v, want none", rendering.Notices)
+	}
 }

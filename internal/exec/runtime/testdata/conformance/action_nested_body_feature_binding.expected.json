@@ -1,0 +1,9 @@
+{
+  "type": "action",
+  "evaluate": "test::outer",
+  "outputs": {
+    "result": {"type": "Integer", "value": 12},
+    "child.x": {"type": "Integer", "value": 12},
+    "child.y": {"type": "Integer", "value": 12}
+  }
+}

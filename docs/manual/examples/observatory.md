@@ -79,22 +79,16 @@ config:
     clusterBkg: "#FFFFFF"
     clusterBorder: "#181818"
     edgeLabelBackground: "#FFFFFF"
-  flowchart:
-    subGraphTitleMargin:
-      bottom: 24
 ---
 %% Observatory::interconnectView — interconnection rendering (render asInterconnectionDiagram)
 flowchart LR
-  subgraph n0 ["`*«part»*
-**imagingChain**`"]
+  subgraph n0 ["`*«part»* **imagingChain**`"]
     direction LR
-    subgraph n1 ["`*«part»*
-**camera : Camera**`"]
+    subgraph n1 ["`*«part»* **camera : Camera**`"]
       direction LR
       n1.0["output"]
     end
-    subgraph n2 ["`*«part»*
-**recorder : Recorder**`"]
+    subgraph n2 ["`*«part»* **recorder : Recorder**`"]
       direction LR
       n2.0["input"]
     end

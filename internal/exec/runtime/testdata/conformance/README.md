@@ -128,7 +128,7 @@ one:
 }
 ```
 
-- `outcomes`: at least two complete results. Each entry carries the `outputs` of
+- `outcomes`: one or more complete results. Each entry carries the `outputs` of
   an action case, or the `finalState` / `stateVisits` / `outputs` of a state
   case, with the meaning those keys have above, plus an optional `probability`:
   the exact model-draw probability when every matched explored outcome has an
@@ -177,12 +177,13 @@ a case that hits it fails with a message telling the author to raise it:
 }
 ```
 
-- `exploreBudget`: optional beside `outcomes`; each of `runs` and `depth` defaults
-  to the default budget's when omitted. A budget without `outcomes`, a `runs`
-  below 1 or a `depth` below 0 is a schema error the test reports. Raising a
-  budget is the answer to a model with more linearizations than the default
-  covers, never to an outcome the set is missing: an unlisted outcome is a
-  derivation to add to the oracle or a bug to fix.
+- `exploreBudget`: optional for an action or state case with a single result or
+  `outcomes`; each of `runs` and `depth` defaults to the default budget's when
+  omitted. A budget without a result to check, a `runs` below 1 or a `depth`
+  below 0 is a schema error the test reports. Raising a budget is the answer to
+  a model with more linearizations than the default covers, never to an outcome
+  the set is missing: an unlisted outcome is a derivation to add to the oracle
+  or a bug to fix.
 - `solverBudget`: optional beside `outcomes`, `{"moves": N}` with N at least 1. The
   SMT referee (`TestRefereeCorpus`) encodes the case's action to N moves instead of
   the engine's default 40. State it only for a case whose every run ends well within
@@ -190,8 +191,10 @@ a case that hits it fails with a message telling the author to raise it:
   timeout; the referee's completion query still proves every run ends within N, so a
   budget too low fails the case rather than hiding behavior.
 
-Cases without `outcomes` are not explored by the harness. The default schedule is
-deterministic, so a case with an admissible set still keeps its exact golden trace.
+`TestExecutionConformance` explores cases with `outcomes`; the check corpus can
+also explore a single-result case with a `.check.expected.json` entry. The
+default schedule is deterministic, so a case with an admissible set still keeps
+its exact golden trace.
 
 ### Scheduling Policy
 

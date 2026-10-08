@@ -1,0 +1,9 @@
+{
+  "type": "state",
+  "finalState": "done",
+  "stateVisits": ["active", "done"],
+  "outputs": {
+    "source": {"type": "Integer", "value": 4},
+    "log": {"type": "Integer", "value": 234}
+  }
+}

@@ -574,7 +574,48 @@
       position: relative;
       min-height: 14rem;
     }
-    .osml-schematic--drawn .osml-schematic__stage { min-height: 0; }
+    /* A touch's action is fixed when it starts, so the stage never leaves pinching to the
+       browser: one finger scrolls the page over the fitted view and pans the zoomed one. */
+    .osml-schematic--drawn .osml-schematic__stage {
+      min-height: 0;
+      touch-action: pan-y;
+    }
+    .osml-schematic--drawn .osml-schematic__stage--zoomed {
+      cursor: grab;
+      touch-action: none;
+    }
+    .osml-schematic--drawn .osml-schematic__stage--panning { cursor: grabbing; }
+    /* The zoom buttons sit over the diagram's corner, above the drawing. */
+    .osml-schematic__zoom {
+      position: absolute;
+      top: .4rem;
+      right: .4rem;
+      z-index: 2;
+      display: flex;
+      gap: .25rem;
+    }
+    .osml-schematic__zoom[hidden] { display: none; }
+    .osml-schematic__zoom button {
+      min-width: 1.7rem;
+      height: 1.7rem;
+      padding: 0 .45rem;
+      border: 1px solid rgba(255, 255, 255, .45);
+      border-radius: .2rem;
+      background: rgba(0, 0, 0, .35);
+      color: #fff;
+      font: inherit;
+      font-size: .8rem;
+      line-height: 1;
+      cursor: pointer;
+    }
+    .osml-schematic__zoom button:hover:not(:disabled),
+    .osml-schematic__zoom button:focus-visible {
+      background: var(--md-accent-fg-color);
+    }
+    .osml-schematic__zoom button:disabled {
+      opacity: .4;
+      cursor: default;
+    }
     .osml-diagram {
       position: absolute;
       inset: 0;
@@ -628,6 +669,11 @@
       cursor: grab;
       touch-action: none;
       outline: none;
+    }
+    .osml-diagram g.osml-nested {
+      pointer-events: auto;
+      cursor: grab;
+      touch-action: none;
     }
     .osml-diagram g.osml-part text {
       user-select: none;
@@ -997,13 +1043,19 @@
          data-osml-libavoid="{{ base_url }}/assets/landing/libavoid.wasm"
          data-osml-script="{{ base_url }}/assets/landing/diagram.js">
       <div class="osml-schematic__stage" data-osml-stage>
+        <div class="osml-schematic__zoom" role="group" aria-label="Zoom the diagram" data-osml-zoom hidden>
+          <button type="button" data-osml-zoom-in aria-label="Zoom in" title="Zoom in (Ctrl+scroll or pinch)">+</button>
+          <button type="button" data-osml-zoom-out aria-label="Zoom out" title="Zoom out">&minus;</button>
+          <button type="button" data-osml-zoom-fit aria-label="Fit the whole diagram" title="Fit the whole diagram">Fit</button>
+        </div>
         <noscript><p class="osml-schematic__status">The diagram is drawn in your browser from <a href="{{ 'assets/opensysml-stack.sysml' | url }}">its SysML model</a>; it needs JavaScript.</p></noscript>
       </div>
-      <p class="osml-schematic__caption">One open interchange, three implementations, a version-controlled store. Drag the boxes around — click opens the project, right-click shows its attributes. Edit the model and the engine redraws the diagram as you type.</p>
+      <p class="osml-schematic__caption">One open interchange, three implementations, a version-controlled store. Drag the boxes around — click opens the project, right-click shows its attributes. Zoom with the buttons, <kbd>Ctrl</kbd>+scroll or a pinch, and drag the background to pan. Edit the model and the engine redraws the diagram as you type.</p>
       <div class="osml-schematic__run">
         <button type="button" class="osml-btn osml-btn--primary" data-osml-run>&#9654; Run the model</button>
         <button type="button" class="osml-btn" data-osml-source aria-expanded="false" aria-controls="osml-schematic-edit">Edit the model</button>
         <button type="button" class="osml-btn" data-osml-debug aria-expanded="false" aria-controls="osml-schematic-debug">Debug the run</button>
+        <button type="button" class="osml-btn" data-osml-download title="Save the diagram as drawn, at twice its size">Download PNG</button>
         <p class="osml-schematic__status" data-osml-status aria-live="polite">This diagram is a SysML model. Run it or edit it in your browser on the OpenSysML engine (about 7 MB, downloaded once).</p>
       </div>
       <div class="osml-debug" id="osml-schematic-debug" data-osml-debugger hidden>
@@ -1032,7 +1084,7 @@
           </label>
           <button type="button" data-osml-reseed>New seed</button>
         </div>
-        <p class="osml-debug__hint" id="osml-debug-seed-hint">The start and each <code>Pull</code> out of Flexo are free choices. With no seed the engine takes its default branch; a seed picks each branch at random, the same way every time.</p>
+        <p class="osml-debug__hint" id="osml-debug-seed-hint">The start and each <code>Pull</code> out of Flexo are free choices; a seed picks each branch at random, the same way every time. Run picks a new random seed unless you set one, and shows it here so the debugger can replay that path. With no seed the debugger takes the engine's default branch.</p>
         <p class="osml-debug__now" data-osml-debug-now aria-live="polite"></p>
         <p class="osml-debug__queue">Waiting events: <span data-osml-debug-queue>empty</span></p>
         <ol class="osml-debug__trace" data-osml-debug-trace aria-label="The run's trace"></ol>
