@@ -928,16 +928,6 @@ func (s *Session) contextScope(sym *symbols.Symbol) *symbols.Scope {
 	return nil
 }
 
-// pathArgs is a command's path arguments with any notation quoting removed, so
-// a path holding a space can be written as a quoted name too.
-func pathArgs(args []string) []string {
-	out := make([]string, 0, len(args))
-	for _, arg := range args {
-		out = append(out, nameText(arg))
-	}
-	return out
-}
-
 // nameText is the text a quoted argument names, for a command matching a name
 // rather than resolving one: the quotes are notation, not part of the name.
 func nameText(arg string) string {
