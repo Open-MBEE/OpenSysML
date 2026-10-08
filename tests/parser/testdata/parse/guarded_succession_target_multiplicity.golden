@@ -19,7 +19,7 @@
           (Usage kind="action" name="a" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
             (Multiplicity range=false
               (LiteralInteger value="3")))
-          (InitialNode name="p" successor="b"
+          (TransitionMember source="p" target="b"
             (FeatureReference name="g")
             (Multiplicity range=false
               (LiteralInfinity)))
