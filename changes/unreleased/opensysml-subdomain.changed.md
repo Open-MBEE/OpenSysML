@@ -1,4 +1,4 @@
-- **The documentation site moved to https://opensysml.opensysml.org/.** The opensysml.org
+- **The documentation site moved to https://redk.opensysml.org/.** The opensysml.org
   apex domain now serves the OpenSysML REDK (Runtime Environment and Development Kit) landing page published from
   Open-MBEE/opensysml.github.io, which forwards the old documentation URLs and the
   `install.sh` / `install.ps1` one-liners here; `site_url`, the Pages CNAME and every link to

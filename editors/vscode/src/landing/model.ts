@@ -17,7 +17,7 @@ export interface LandingPart {
   feature: string;
   symbol: string;
   attrs: Record<string, string>;
-  /** The features from the stack down to this part, dotted: `toolkit.lsp`. Keys `LandingModel.parts`. */
+  /** The features from the stack down to this part, dotted: `pilot.editors`. Keys `LandingModel.parts`. */
   path: string;
   /** The feature of the part this one is nested in; absent for a project. */
   owner?: string;

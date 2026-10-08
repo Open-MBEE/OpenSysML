@@ -20,7 +20,7 @@ A development snapshot of the client is published every night as
 `opensysml==<next release>.dev<yyyymmdd>`, which `pip install opensysml` never
 picks up; install one by exact version. It starts the `sysml-grpc` of the same
 night's snapshot, whose digests it pins. See [Nightly
-snapshots](https://opensysml.opensysml.org/project/nightly/).
+snapshots](https://redk.opensysml.org/project/nightly/).
 
 ## Quickstart
 
@@ -76,21 +76,21 @@ To use a service you run yourself, pass its address:
 model = opensysml.connect("localhost:50051").load("model.sysml")
 ```
 
-The [service guide](https://opensysml.opensysml.org/clients/python/service/) covers the
+The [service guide](https://redk.opensysml.org/clients/python/service/) covers the
 cache, offline use, trust configuration and connecting to an external service.
 
 ## Documentation
 
-- [Python client guide](https://opensysml.opensysml.org/clients/python/)
-- [Models and symbols](https://opensysml.opensysml.org/clients/python/models/)
-- [Instances and values](https://opensysml.opensysml.org/clients/python/instances/)
-- [Verification and analysis](https://opensysml.opensysml.org/clients/python/verification/)
-- [Editing and saving](https://opensysml.opensysml.org/clients/python/editing-and-saving/)
-- [Queries and documents](https://opensysml.opensysml.org/clients/python/queries/)
-- [Errors](https://opensysml.opensysml.org/clients/python/errors/)
-- [The service](https://opensysml.opensysml.org/clients/python/service/)
-- [Typed classes](https://opensysml.opensysml.org/clients/python/typed-classes/)
-- [API reference](https://opensysml.opensysml.org/reference/python-api/)
+- [Python client guide](https://redk.opensysml.org/clients/python/)
+- [Models and symbols](https://redk.opensysml.org/clients/python/models/)
+- [Instances and values](https://redk.opensysml.org/clients/python/instances/)
+- [Verification and analysis](https://redk.opensysml.org/clients/python/verification/)
+- [Editing and saving](https://redk.opensysml.org/clients/python/editing-and-saving/)
+- [Queries and documents](https://redk.opensysml.org/clients/python/queries/)
+- [Errors](https://redk.opensysml.org/clients/python/errors/)
+- [The service](https://redk.opensysml.org/clients/python/service/)
+- [Typed classes](https://redk.opensysml.org/clients/python/typed-classes/)
+- [API reference](https://redk.opensysml.org/reference/python-api/)
 
 To install from a checkout, run tests, regenerate protobufs or pin release
 digests, see

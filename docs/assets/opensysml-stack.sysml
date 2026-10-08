@@ -138,41 +138,6 @@ package OpenSysMLStack {
                 :>> role = "XMI";
             }
         }
-        part toolkit : Project {
-            :>> label = "sysml-toolkit";
-            :>> kind = "toolchain";
-            :>> lang = "Rust";
-            :>> role = "toolchain + LSP";
-            :>> repo = "https://github.com/Open-MBEE/sysml-toolkit";
-            part parser : Component {
-                :>> label = "Parser and formatter";
-                :>> role = "span-preserving syntax tree";
-            }
-            part linter : Component {
-                :>> label = "Linter";
-                :>> role = "style and model checks";
-            }
-            part interchange : Component {
-                :>> label = "Interchange";
-                :>> role = "JSON, CBOR";
-            }
-            part solver : Component {
-                :>> label = "Constraint solver";
-                :>> role = "constraint satisfaction";
-            }
-            part transform : Component {
-                :>> label = "Model transformation";
-                :>> role = "span-preserving rewrites";
-            }
-            part lsp : Component {
-                :>> label = "Language server";
-                :>> role = "editor integration";
-            }
-            part bindings : Component {
-                :>> label = "Bindings";
-                :>> role = "Python, WebAssembly";
-            }
-        }
         part flexo : Project {
             :>> label = "Flexo MMS";
             :>> kind = "model store";
@@ -201,8 +166,6 @@ package OpenSysMLStack {
             client ::> opensysml.api to store ::> flexo.api;
         interface pilot_flexo : Interchange connect
             client ::> pilot.api to store ::> flexo.api;
-        interface toolkit_flexo : Interchange connect
-            client ::> toolkit.api to store ::> flexo.api;
     }
 
     // Where one model change travels. Flexo is the hub: every project commits or
@@ -225,13 +188,9 @@ package OpenSysMLStack {
         transition commit_change first opensysml accept Commit then flexo;
 
         state flexo;
-        transition pull_into_toolkit first flexo accept Pull then toolkit;
         transition pull_into_pilot first flexo accept Pull then pilot;
         transition pull_into_opensysml first flexo accept Pull then opensysml;
         transition check_change first flexo accept Check then pilot;
-
-        state toolkit;
-        transition push_change first toolkit accept Push then flexo;
 
         state pilot;
         transition push_verdict first pilot accept Push then flexo;
