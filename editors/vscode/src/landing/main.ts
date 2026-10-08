@@ -32,9 +32,11 @@ import {
   type LandingModel,
   type LandingPart,
 } from "./model";
-import { carried } from "./carry";
+import { carried, obstacles, resettle } from "./carry";
+import { download, exportFrame, exportSvg, rasterSize, rasterize } from "./export";
 import { presented } from "./present";
 import stack from "./stack.json";
+import { ZOOM_STEP, pannedView, pinchedView, refittedView, zoomOf, zoomedView, type View } from "./zoom";
 
 const SVG_NS = "http://www.w3.org/2000/svg";
 /** How far a box stays inside the hero's edges. */
@@ -82,6 +84,8 @@ interface Gesture {
   at: RenderPoint;
   moved: boolean;
   longPressed: boolean;
+  /** The innermost part under the press, whose card a long press opens. */
+  card: string;
   frame?: number;
   timer?: ReturnType<typeof setTimeout>;
 }
@@ -129,6 +133,11 @@ function mount(root: HTMLElement): Mounted {
   const srcEl = root.querySelector<HTMLTextAreaElement>("[data-osml-src]")!;
   const resetBtn = root.querySelector<HTMLButtonElement>("[data-osml-reset]")!;
   const debugBtn = root.querySelector<HTMLButtonElement>("[data-osml-debug]")!;
+  const downloadBtn = root.querySelector<HTMLButtonElement>("[data-osml-download]")!;
+  const zoomBar = stage.querySelector<HTMLElement>("[data-osml-zoom]")!;
+  const zoomInBtn = zoomBar.querySelector<HTMLButtonElement>("[data-osml-zoom-in]")!;
+  const zoomOutBtn = zoomBar.querySelector<HTMLButtonElement>("[data-osml-zoom-out]")!;
+  const zoomFitBtn = zoomBar.querySelector<HTMLButtonElement>("[data-osml-zoom-fit]")!;
   const debugPanel = root.querySelector<HTMLElement>("[data-osml-debugger]")!;
   const sendBtns = [...debugPanel.querySelectorAll<HTMLButtonElement>("[data-osml-send]")];
   const debugResetBtn = debugPanel.querySelector<HTMLButtonElement>("[data-osml-debug-reset]")!;
@@ -154,8 +163,17 @@ function mount(root: HTMLElement): Mounted {
   svg.setAttribute("class", "osml-diagram");
   svg.setAttribute("role", "group");
   svg.setAttribute("aria-label", "The OpenSysML stack, drawn from its SysML model");
+  // Zoomed in, the drawing is clipped to the stage so it does not run over the hero's copy.
+  const clip = document.createElementNS(SVG_NS, "clipPath");
+  clip.id = "osml-stage-clip";
+  const clipRect = document.createElementNS(SVG_NS, "rect");
+  clip.append(clipRect);
+  const defs = document.createElementNS(SVG_NS, "defs");
+  defs.append(clip);
+  const viewport = document.createElementNS(SVG_NS, "g");
   const content = document.createElementNS(SVG_NS, "g");
-  svg.append(content);
+  viewport.append(content);
+  svg.append(defs, viewport);
   hero.append(svg);
 
   let model = landingModel(stack.hash, stack.render as unknown as RenderResult, stack.instances as unknown as EngineInstance[]);
@@ -163,7 +181,10 @@ function mount(root: HTMLElement): Mounted {
   let live = false;
   let goodSource: string | undefined;
   let auto: AutoLayout | undefined;
-  let view = { x: 0, y: 0, scale: 1 };
+  let view: View = { x: 0, y: 0, scale: 1 };
+  // The view that shows the whole diagram, and the stage it fills, in hero pixels; `view` zooms from it.
+  let fitView: View = view;
+  let stageBox: Box = { x: 0, y: 0, width: 0, height: 0 };
   let layout = layoutCanvas(result, { bounds: bounds() });
   let generation = 0;
   let laidOut = false;
@@ -202,7 +223,8 @@ function mount(root: HTMLElement): Mounted {
     return { nodes: carried(result.nodes, auto, nodes), bounds: bounds() };
   }
 
-  // fit centres the unmoved diagram in the stage, scaled to the stage's width up to MAX_SCALE.
+  // fit centres the unmoved diagram in the stage, scaled to the stage's width up to MAX_SCALE,
+  // and keeps the visitor's zoom relative to that.
   function fit(): void {
     const home = layoutCanvas(result, { bounds: bounds() }, auto);
     const heroRect = hero.getBoundingClientRect();
@@ -212,22 +234,79 @@ function mount(root: HTMLElement): Mounted {
     if (stage.style.height !== `${height}px`) {
       stage.style.height = `${height}px`;
     }
-    view = {
+    const sized = stage.getBoundingClientRect();
+    const nextStage = { x: sized.left - heroRect.left, y: sized.top - heroRect.top, width: sized.width, height: sized.height };
+    const nextFit = {
       scale,
-      x: stageRect.left - heroRect.left + (stageRect.width - home.width * scale) / 2 - home.origin.x * scale,
-      y: stage.getBoundingClientRect().top - heroRect.top - home.origin.y * scale,
+      x: nextStage.x + (nextStage.width - home.width * scale) / 2 - home.origin.x * scale,
+      y: nextStage.y - home.origin.y * scale,
+    };
+    view = stageBox.width > 0 ? refittedView(view, fitView, stageBox, nextFit, nextStage) : nextFit;
+    fitView = nextFit;
+    stageBox = nextStage;
+  }
+
+  // bounds is the hero in layout coordinates at the fitted view, inset by HERO_PAD: zooming in
+  // narrows what is shown, not where a box may go.
+  function bounds(): Box {
+    const pad = HERO_PAD / fitView.scale;
+    return {
+      x: -fitView.x / fitView.scale + pad,
+      y: -fitView.y / fitView.scale + pad,
+      width: hero.clientWidth / fitView.scale - 2 * pad,
+      height: hero.clientHeight / fitView.scale - 2 * pad,
     };
   }
 
-  // bounds is the hero in layout coordinates, inset by HERO_PAD.
-  function bounds(): Box {
-    const pad = HERO_PAD / view.scale;
-    return {
-      x: -view.x / view.scale + pad,
-      y: -view.y / view.scale + pad,
-      width: hero.clientWidth / view.scale - 2 * pad,
-      height: hero.clientHeight / view.scale - 2 * pad,
-    };
+  function zoom(): number {
+    return zoomOf(view, fitView);
+  }
+
+  // applyView draws the content at `view`, clipped to the stage once zoomed in.
+  function applyView(): void {
+    content.setAttribute("transform", `translate(${view.x} ${view.y}) scale(${view.scale})`);
+    const zoomed = zoom() > 1 + 1e-6;
+    clipRect.setAttribute("x", String(stageBox.x));
+    clipRect.setAttribute("y", String(stageBox.y));
+    clipRect.setAttribute("width", String(stageBox.width));
+    clipRect.setAttribute("height", String(stageBox.height));
+    if (zoomed) {
+      viewport.setAttribute("clip-path", `url(#${clip.id})`);
+    } else {
+      viewport.removeAttribute("clip-path");
+    }
+    stage.classList.toggle("osml-schematic__stage--zoomed", zoomed);
+    zoomBar.hidden = !laidOut;
+    zoomInBtn.disabled = zoomedView(view, fitView, stageBox, view.scale * ZOOM_STEP, stageCentre()).scale === view.scale;
+    zoomOutBtn.disabled = !zoomed;
+    zoomFitBtn.disabled = !zoomed;
+  }
+
+  function stageCentre(): RenderPoint {
+    return { x: stageBox.x + stageBox.width / 2, y: stageBox.y + stageBox.height / 2 };
+  }
+
+  function setView(next: View): void {
+    if (next.x === view.x && next.y === view.y && next.scale === view.scale) {
+      return;
+    }
+    view = next;
+    applyView();
+    if (cardFor) {
+      placeCard();
+    }
+  }
+
+  // heroPoint is a pointer's position in hero pixels, the space `view` is in.
+  function heroPoint(event: { clientX: number; clientY: number }): RenderPoint {
+    const rect = hero.getBoundingClientRect();
+    return { x: event.clientX - rect.left, y: event.clientY - rect.top };
+  }
+
+  function inStage(at: RenderPoint): boolean {
+    return (
+      at.x >= stageBox.x && at.x <= stageBox.x + stageBox.width && at.y >= stageBox.y && at.y <= stageBox.y + stageBox.height
+    );
   }
 
   function placementBounds(): Box {
@@ -248,9 +327,6 @@ function mount(root: HTMLElement): Mounted {
     return portExitReach(sharing);
   }
 
-  function otherNodes(id: string): PlacedNode[] {
-    return [...layout.nodes.values()].filter((entry) => entry.node.id !== id && !entry.hidden);
-  }
 
   // keepInHero keeps moved boxes clear while re-clamping in model order.
   function keepInHero(): void {
@@ -273,7 +349,7 @@ function mount(root: HTMLElement): Mounted {
           freePlacement(
             entry,
             bounded,
-            [...settled.values()].filter((other) => other.node.id !== entry.node.id),
+            obstacles(settled.values(), entry.node.id),
             placementBounds(),
             exitReach,
           )) ||
@@ -282,7 +358,7 @@ function mount(root: HTMLElement): Mounted {
         placed.set(part.feature, at);
         changed = true;
       }
-      settled.set(entry.node.id, { ...entry, box: { ...entry.box, ...at } });
+      resettle(settled, result.nodes, auto, entry.node.id, at);
     }
     if (changed) {
       layout = layoutCanvas(result, overrides(), auto);
@@ -340,7 +416,7 @@ function mount(root: HTMLElement): Mounted {
     const focusedId = focused && content.contains(focused) ? (focused as SVGGElement).dataset.opensysmlId : undefined;
     const drawn = drawCanvas(shown);
     content.replaceChildren(...Array.from(drawn.childNodes));
-    content.setAttribute("transform", `translate(${view.x} ${view.y}) scale(${view.scale})`);
+    applyView();
     decorate();
     if (token) {
       content.append(token);
@@ -725,9 +801,10 @@ function mount(root: HTMLElement): Mounted {
     hero.classList.remove("osml-hero--dragging");
     if (ended.moved) {
       const entry = layout.nodes.get(ended.id);
-      const at = entry && freePlacement(entry, ended.at, otherNodes(ended.id), placementBounds(), exitReach);
+      const clear = obstacles(layout.nodes.values(), ended.id);
+      const at = entry && freePlacement(entry, ended.at, clear, placementBounds(), exitReach);
       if (entry && at) {
-        moveTo(ended.id, alignedPlacement(entry, at, layout, placementBounds(), exitReach));
+        moveTo(ended.id, alignedPlacement(entry, at, layout, placementBounds(), exitReach, clear));
       }
     } else if (!cancelled && !ended.longPressed) {
       openProject(ended.id);
@@ -749,13 +826,14 @@ function mount(root: HTMLElement): Mounted {
       at: { x: entry.box.x, y: entry.box.y },
       moved: false,
       longPressed: false,
+      card: cardGroup(event.target)?.dataset.opensysmlId ?? id,
     };
     // Touch has no right button: a held, unmoved press opens the same card.
     if (event.pointerType !== "mouse") {
       started.timer = setTimeout(() => {
         if (gesture === started && !started.moved) {
           started.longPressed = true;
-          openCard(id, false);
+          openCard(started.card, false);
         }
       }, LONG_PRESS);
     }
@@ -828,7 +906,7 @@ function mount(root: HTMLElement): Mounted {
       const at = freePlacement(
         entry,
         { x: box.x + direction[0] * step, y: box.y + direction[1] * step },
-        otherNodes(id),
+        obstacles(layout.nodes.values(), id),
         placementBounds(),
         exitReach,
         { x: direction[0], y: direction[1] },
@@ -862,6 +940,98 @@ function mount(root: HTMLElement): Mounted {
   on(document, "keydown", (event) => {
     if (event.key === "Escape" && !card.hidden) {
       closeCard(true);
+    }
+  });
+
+  // ---- zooming and panning ----
+
+  hero.addEventListener(
+    "wheel",
+    (event) => {
+      const at = heroPoint(event);
+      if (!laidOut || !(event.ctrlKey || event.metaKey) || !inStage(at)) {
+        return;
+      }
+      event.preventDefault();
+      const notches = event.deltaMode === WheelEvent.DOM_DELTA_PIXEL ? event.deltaY / 100 : event.deltaY;
+      setView(zoomedView(view, fitView, stageBox, view.scale * Math.pow(ZOOM_STEP, -notches), at));
+    },
+    { signal, passive: false },
+  );
+  on(zoomInBtn, "click", () => setView(zoomedView(view, fitView, stageBox, view.scale * ZOOM_STEP, stageCentre())));
+  on(zoomOutBtn, "click", () => setView(zoomedView(view, fitView, stageBox, view.scale / ZOOM_STEP, stageCentre())));
+  on(zoomFitBtn, "click", () => setView(fitView));
+
+  // A press on the stage's background pans the zoomed view; two fingers pinch it. The boxes
+  // themselves take the pointer, so a press on one is a drag of the box, never a pan.
+  const fingers = new Map<number, RenderPoint>();
+  let pan: { view: View; fingers: Map<number, RenderPoint>; moved: boolean } | undefined;
+  const restartPan = (): void => {
+    pan = fingers.size > 0 ? { view, fingers: new Map(fingers), moved: pan?.moved ?? false } : undefined;
+    stage.classList.toggle("osml-schematic__stage--panning", pan?.moved === true);
+  };
+  on(stage, "pointerdown", (event) => {
+    if (!laidOut || event.button !== 0 || zoomBar.contains(event.target as Node)) {
+      return;
+    }
+    fingers.set(event.pointerId, heroPoint(event));
+    stage.setPointerCapture(event.pointerId);
+    restartPan();
+    if (zoom() > 1 || fingers.size > 1) {
+      event.preventDefault();
+    }
+  });
+  on(stage, "pointermove", (event) => {
+    const from = pan?.fingers.get(event.pointerId);
+    if (!pan || !from) {
+      return;
+    }
+    const to = heroPoint(event);
+    fingers.set(event.pointerId, to);
+    const ids = [...pan.fingers.keys()];
+    if (ids.length >= 2) {
+      const pair = (points: Map<number, RenderPoint>): [RenderPoint, RenderPoint] => [points.get(ids[0])!, points.get(ids[1])!];
+      pan.moved = true;
+      setView(pinchedView(pan.view, fitView, stageBox, pair(pan.fingers), pair(fingers)));
+    } else if (zoom() > 1) {
+      if (!pan.moved && Math.hypot(to.x - from.x, to.y - from.y) < DRAG_SLOP) {
+        return;
+      }
+      pan.moved = true;
+      setView(pannedView(pan.view, fitView, stageBox, to.x - from.x, to.y - from.y));
+    }
+    stage.classList.toggle("osml-schematic__stage--panning", pan.moved);
+  });
+  const liftFinger = (event: PointerEvent): void => {
+    if (fingers.delete(event.pointerId)) {
+      restartPan();
+    }
+  };
+  on(stage, "pointerup", liftFinger);
+  on(stage, "pointercancel", liftFinger);
+
+  // ---- saving the drawing ----
+
+  on(downloadBtn, "click", async () => {
+    if (!laidOut) {
+      return;
+    }
+    downloadBtn.disabled = true;
+    try {
+      const extent = content.getBBox();
+      const frame = exportFrame({ origin: { x: extent.x, y: extent.y }, width: extent.width, height: extent.height });
+      const size = rasterSize(frame);
+      const heroStyle = getComputedStyle(hero);
+      const backdrop = {
+        from: heroStyle.getPropertyValue("--osml-hero-from").trim() || "#1a237e",
+        to: heroStyle.getPropertyValue("--osml-hero-to").trim() || "#303f9f",
+      };
+      const drawing = exportSvg(content, frame, size, backdrop, (element) => element === token);
+      download(await rasterize(drawing), "opensysml-stack.png");
+    } catch (error: unknown) {
+      status(`Could not save the diagram: ${message(error)}.`, true);
+    } finally {
+      downloadBtn.disabled = false;
     }
   });
 
@@ -1370,6 +1540,8 @@ function mount(root: HTMLElement): Mounted {
     clearTimeout(editTimer);
     svg.remove();
     hero.classList.remove("osml-hero--focus", "osml-hero--dragging");
+    stage.classList.remove("osml-schematic__stage--zoomed", "osml-schematic__stage--panning");
+    zoomBar.hidden = true;
     if (window.__osmlDiagram === mounted) {
       window.__osmlDiagram = undefined;
     }
