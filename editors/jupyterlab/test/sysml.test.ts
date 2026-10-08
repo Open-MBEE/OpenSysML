@@ -96,6 +96,18 @@ test('line and block comments, across lines', () => {
   ]);
 });
 
+test('a //* note is a comment until */, however many lines it spans', () => {
+  assert.deepEqual(tokenize(sysml, '//* note\npart def Vehicle;\n*/ part p; //*/ still a note'), [
+    ['//* note', 'comment'],
+    ['part def Vehicle;', 'comment'],
+    ['*/', 'comment'],
+    ['part', 'definitionKeyword'],
+    ['p', 'variableName'],
+    [';', 'punctuation'],
+    ['//*/ still a note', 'comment']
+  ]);
+});
+
 test('doc and comment bodies are documentation, not comments', () => {
   assert.deepEqual(tokenize(sysml, 'doc /* The vehicle. */'), [
     ['doc', 'definitionKeyword'],
@@ -209,6 +221,13 @@ test('kernel meta-commands are the first token of a line', () => {
     ['1', 'number']
   ]);
   assert.deepEqual(tokenize(sysml, '%'), [['%', null]]);
+  assert.deepEqual(tokenize(sysml, '/* note\nend */ %help\n%help'), [
+    ['/* note', 'comment'],
+    ['end */', 'comment'],
+    ['%', null],
+    ['help', 'variableName'],
+    ['%help', 'meta']
+  ]);
 });
 
 test('the parsers define languages whose comment tokens the editor can read', () => {

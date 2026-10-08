@@ -97,6 +97,7 @@ export function parser(kind: Kind): StreamParser<State> {
         state.lineStart = true;
       }
       if (state.block !== null) {
+        state.lineStart = false;
         return readBlock(stream, state);
       }
       if (stream.eatSpace()) {
@@ -106,6 +107,10 @@ export function parser(kind: Kind): StreamParser<State> {
       state.lineStart = false;
       if (lineStart && stream.match(metaCommandPattern)) {
         return 'meta';
+      }
+      if (stream.match('//*')) {
+        state.block = 'comment';
+        return readBlock(stream, state);
       }
       if (stream.match('//')) {
         stream.skipToEnd();

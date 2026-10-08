@@ -244,6 +244,7 @@ func repository(kind source.Kind) (map[string]pattern, error) {
 	repo := map[string]pattern{
 		"comments": {
 			Patterns: []pattern{
+				{Name: "comment.block.note", Begin: `//\*`, End: `\*/`},
 				{Name: "comment.line.double-slash", Match: `//.*$`},
 				{Name: "comment.block", Begin: `/\*`, End: `\*/`},
 			},
