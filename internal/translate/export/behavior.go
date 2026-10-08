@@ -583,14 +583,14 @@ func (d *decoder) targetTransitionText(el *element, triggerWords []string, guard
 	if len(triggerWords) > 0 {
 		return "", "", refuse("it states a trigger, which a decision's branch has no notation for")
 	}
-	stated, hasSource, err := d.transitionObject(el, pSource)
-	if err != nil {
-		return "", "", err
-	}
-	if hasSource {
-		before := d.precedingSource(el)
-		if before == nil || stated.Value != before.iri {
-			return "", "", refuse(fmt.Sprintf("its source <%s> is not the member before it, which `if … then` and `else` take their source from", stated.Value))
+	// Every source the graph states, in either spelling, must be the member
+	// before it: a second one has nowhere to go in the branch's notation.
+	before := d.precedingSource(el)
+	for _, property := range []string{pSource, pSourceFeature} {
+		for _, stated := range d.graph.Objects(rdf.IRI(el.iri), rdf.SysML+property) {
+			if before == nil || stated.Value != before.iri {
+				return "", "", refuse(fmt.Sprintf("its source <%s> is not the member before it, which `if … then` and `else` take their source from", stated.Value))
+			}
 		}
 	}
 	effect, body, hasEffect, hasBody, err := d.transitionMembers(el)
