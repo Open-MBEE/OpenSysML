@@ -50,7 +50,7 @@
     }
     .osml-hero__inner {
       width: 100%;
-      max-width: 61rem;
+      max-width: 96rem;
       margin: 0 auto;
     }
 
@@ -135,9 +135,8 @@
        a white figure, «kind» stereotype over a bold name, hairline edges with arrowheads. */
     .osml-schematic {
       position: relative;
-      max-width: 46rem;
       margin: 0 auto;
-      padding: 1rem 1.2rem .6rem;
+      padding: 1rem 0 .6rem;
     }
     .osml-hero { position: relative; }
     /* The stage reserves the diagram's room in the hero; the drawing itself covers the
@@ -440,7 +439,16 @@
       outline: 1px solid #ffd54f;
     }
     .osml-debug__record.is-current ~ .osml-debug__record { opacity: .35; }
-    .osml-schematic__edit { margin: .7rem 0 0; }
+    /* The diagram spans the hero; the caption and the panes below it keep a readable width. */
+    .osml-schematic__caption,
+    .osml-schematic__run,
+    .osml-debug,
+    .osml-schematic__edit {
+      max-width: 61rem;
+      margin-left: auto;
+      margin-right: auto;
+    }
+    .osml-schematic__edit { margin-top: .7rem; }
     .osml-schematic__edit[hidden] { display: none; }
     .osml-schematic__src {
       display: block;
