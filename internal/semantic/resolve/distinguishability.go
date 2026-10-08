@@ -11,15 +11,185 @@ import (
 )
 
 // checkDistinguishability reports the member names of one namespace that are not
-// distinguishable: an owned name repeating another owned name, and — for a type
-// — an owned name repeating one the type inherits (KerML 7.2.2, SysML 7.6.1).
-// Both are warnings, as in the reference implementation.
+// distinguishable: an owned name repeating another owned name, — for a type —
+// an owned name repeating one the type inherits, and an imported name repeating
+// another imported one (KerML 7.2.2, SysML 7.6.1). All are warnings, as the
+// reference implementation reports the first two.
 func (r *Resolver) checkDistinguishability(scope *symbols.Scope) {
 	if scope == nil {
 		return
 	}
 	r.checkOwnedNames(scope)
 	r.checkInheritedNames(scope)
+	r.checkImportedNames(scope)
+}
+
+// importedMember is one membership an import surfaces into a namespace, with
+// the import that brought it.
+type importedMember struct {
+	sym *symbols.Symbol
+	imp *ast.Import
+}
+
+// ownedName is a name among one namespace's own members. A repeat of it there
+// — two documents declaring the same package and member — is that namespace's
+// duplicate, reported where it is declared, not at every importer.
+type ownedName struct {
+	owner ownerKey
+	name  string
+}
+
+// ownerKey identifies a namespace across documents: by qualified name when
+// every owner is named, since one package declared in two documents is one
+// namespace, and by scope otherwise.
+type ownerKey struct {
+	scope *symbols.Scope
+	fqn   string
+}
+
+func ownerKeyOf(scope *symbols.Scope) ownerKey {
+	for s := scope; s != nil && s.Owner() != nil; s = s.Owner().OwnerScope {
+		if s.Owner().Name == "" {
+			return ownerKey{scope: scope}
+		}
+	}
+	if scope == nil || scope.Owner() == nil {
+		return ownerKey{scope: scope}
+	}
+	return ownerKey{fqn: symbols.FQNOf(scope.Owner())}
+}
+
+// checkImportedNames reports each name two of a namespace's imported memberships
+// share: a namespace's memberships are its owned and its imported ones together,
+// and all of them must be distinguishable (KerML 8.3.2.4.5). A membership two
+// imports both reach is one membership and conflicts with nothing; so are two
+// memberships of one element, an alias and what it names. An imported name an
+// owned member hides takes no part, nor does library content, as the inherited
+// pass leaves library supertypes out. Resolution still takes the first
+// membership, so the warning sits on the import bringing the later one.
+func (r *Resolver) checkImportedNames(scope *symbols.Scope) {
+	imports := r.scopeImports(scope)
+	if len(imports) == 0 || r.idx.DocumentLibraryTier(r.document).Library() {
+		return
+	}
+	hidden := map[string]bool{}
+	owned, aliases := r.DistinguishableMembers(scope)
+	for _, sym := range append(owned, aliases...) {
+		for _, name := range memberNames(sym) {
+			hidden[name] = true
+		}
+	}
+	seen := map[symbols.ElementKey]bool{}
+	owners := map[ownedName]bool{}
+	byName := map[string][]importedMember{}
+	var names []string
+	for _, imp := range imports {
+		target, ok := r.resolveImportTarget(scope, imp)
+		if !ok || target == nil || r.idx.Library(target) {
+			continue
+		}
+		for _, sym := range r.ImportedElementsInto(scope, scope, imp) {
+			if sym.Name == "" || r.idx.Library(sym) || !contributesName(sym) || !r.BindsName(sym) {
+				continue
+			}
+			key := symbols.KeyOf(r.aliasTarget(sym))
+			if seen[key] {
+				continue
+			}
+			seen[key] = true
+			for _, name := range memberNames(sym) {
+				owned := ownedName{owner: ownerKeyOf(sym.OwnerScope), name: name}
+				if hidden[name] || owners[owned] {
+					continue
+				}
+				owners[owned] = true
+				if _, ok := byName[name]; !ok {
+					names = append(names, name)
+				}
+				byName[name] = append(byName[name], importedMember{sym: sym, imp: imp})
+			}
+		}
+	}
+	for _, name := range names {
+		members := byName[name]
+		if len(members) < 2 {
+			continue
+		}
+		// Keep the members some other member is indistinguishable from; the
+		// rest conflict with nothing.
+		var kept []importedMember
+		for i, member := range members {
+			if len(r.duplicatesOf(member.sym, importedSymbolsExcept(members, i))) > 0 {
+				kept = append(kept, member)
+			}
+		}
+		if len(kept) < 2 {
+			continue
+		}
+		r.duplicateImported(name, kept)
+	}
+}
+
+// memberNames are the names a membership binds: the member's name and, when it
+// declares one, its short name (KerML 8.3.2.4.3 compares both).
+func memberNames(sym *symbols.Symbol) []string {
+	names := []string{sym.Name}
+	if sym.ShortName != "" && sym.ShortName != sym.Name {
+		names = append(names, sym.ShortName)
+	}
+	return names
+}
+
+// importedSymbolsExcept is the symbols of members other than the i-th.
+func importedSymbolsExcept(members []importedMember, i int) []*symbols.Symbol {
+	out := make([]*symbols.Symbol, 0, len(members)-1)
+	for j, member := range members {
+		if j != i {
+			out = append(out, member.sym)
+		}
+	}
+	return out
+}
+
+// duplicateImported reports one name several imported memberships share, at the
+// import that brought the last of them, naming every colliding member and the
+// import each came through so a reader can rename one, narrow an import or
+// import the member wanted explicitly.
+func (r *Resolver) duplicateImported(name string, members []importedMember) {
+	parts := make([]string, 0, len(members))
+	for _, member := range members {
+		parts = append(parts, fmt.Sprintf("%s (%s)", source.QualifiedNameOf(symbols.NameChain(member.sym)), importText(member.imp)))
+	}
+	last := members[len(members)-1].imp
+	span := last.Span()
+	if last.Imported != nil {
+		span = last.Imported.Span()
+	}
+	r.reportDuplicate(span, fmt.Sprintf("Duplicate of imported member name '%s': %s", name, strings.Join(parts, ", ")))
+}
+
+// importText spells an import as its declaration does, visibility aside:
+// `import A::*`, `import A::*::**`, `import A::x` or `import A::x::**`.
+func importText(imp *ast.Import) string {
+	text := "import "
+	if imp.IsAll {
+		text += "all "
+	}
+	names := make([]string, 0, len(imp.Imported.Parts))
+	for _, part := range imp.Imported.Parts {
+		names = append(names, part.Text)
+	}
+	if imp.Imported.Global {
+		text += "$::"
+	}
+	text += source.QualifiedNameOf(names)
+	if imp.Kind == ast.ImportNamespace {
+		text += "::*"
+	}
+	if imp.IsRecursive {
+		text += "::**"
+	}
+	return text
 }
 
 // checkOwnedNames reports each name a namespace declares twice. Aliases are a

@@ -30,6 +30,27 @@ source `action-step-multiplicity`; they are not lints and cannot be disabled wit
 | `action-step-order-unsatisfiable` | A succession end forces an endpoint count that it does not admit |
 | `action-step-order-open` | The declared or defaulted succession ends do not force the endpoint counts under both readings of an unwritten end |
 
+## Duplicate member names
+
+The name-resolution tier reports KerML's distinguishability rule (`validateNamespaceDistinguishibility`)
+as warnings with code `name-conflict`; they are not lints and cannot be switched off. Two
+memberships of one namespace are indistinguishable when one's name or short name is the other's
+and their metaclasses are related (a `part def` beside a `part def`, or beside an `item def`
+that it specializes; a `part def` beside an `attribute` is distinguishable whatever the names).
+Resolution is not affected: a reference to the name still takes the first membership, in
+declaration order and then in import order.
+
+| Wording | Reported on |
+|---------|-------------|
+| `Duplicate of other owned member name 'x'` | the later of two owned members of one namespace |
+| `Duplicate of inherited member name 'x' from T` | an owned member of a type whose name an inherited member already has |
+| `Duplicate of imported member name 'x': P::x (import P::*), Q::x (import Q::*)` | the import that brings the later of two imported members, naming each member and the import that brought it |
+
+An imported name hidden by an owned member of the same name, one membership reached through two
+imports (`import P::*` beside `import Q::*` where `Q` publicly re-imports `P`), an alias or a
+membership import of an element beside the membership that owns it, and the standard library's
+own members are not reported.
+
 ## Switching a lint off or on
 
 | Surface | Off | On (opt-in lints) |
