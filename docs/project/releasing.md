@@ -1383,9 +1383,12 @@ Everything below is already in place; it is recorded so it can be re-created.
 3. Requires `NPM_TOKEN` from the `npm` context.
 4. Refuses to run if any of the seven packages is already on the registry at this
    version (a publish cannot be repeated).
-5. Builds and tests the client against the release's linux binary (`npm ci`,
-   build, typecheck, lint, tests), with `$OPENSYSML_EXPECT_PINNED_RELEASE` set
-   to the tag so the suite asserts the stamped table pins it.
+5. Installs Z3, then builds and tests the client against the release's linux
+   binary (`npm ci`, build, typecheck, lint, tests), with
+   `$OPENSYSML_EXPECT_PINNED_RELEASE` set to the tag so the suite asserts the
+   stamped table pins it. The suite's verification tests ask the service
+   solver-backed questions, and the service finds the solver on PATH; without
+   one those questions are undecided and the tests fail.
 6. Builds the five platform packages from `dist/grpc` and the WASM package
    from `dist/wasm`, checking every asset against its `.sha256` sidecar.
 7. Packs the client into `dist/npm/` with `npm pack` and opens the tarball:

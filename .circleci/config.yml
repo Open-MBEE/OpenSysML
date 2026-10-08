@@ -2772,6 +2772,16 @@ jobs:
               fi
             done
 
+      # The suite's verification tests ask the service solver-backed questions;
+      # the solver is an external process the service finds on PATH, so without
+      # it those questions are undecided and the tests fail, as in node-test.
+      - run:
+          name: Install Z3
+          command: |
+            sudo apt-get update
+            sudo apt-get install -y z3
+            z3 --version
+
       - run:
           name: Build and test the package
           command: |
