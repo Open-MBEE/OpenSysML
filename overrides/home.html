@@ -131,6 +131,375 @@
       text-decoration: underline;
     }
 
+    /* The schematic: the stack drawn the way the site's Graphviz DOT renderings look —
+       a white figure, «kind» stereotype over a bold name, hairline edges with arrowheads. */
+    .osml-schematic {
+      position: relative;
+      max-width: 46rem;
+      margin: 0 auto;
+      padding: 1rem 1.2rem .6rem;
+    }
+    .osml-hero { position: relative; }
+    /* The stage reserves the diagram's room in the hero; the drawing itself covers the
+       whole hero, so a box can be dragged anywhere on the blue. */
+    .osml-schematic__stage {
+      position: relative;
+      min-height: 14rem;
+    }
+    /* A touch's action is fixed when it starts, so the stage never leaves pinching to the
+       browser: one finger scrolls the page over the fitted view and pans the zoomed one. */
+    .osml-schematic--drawn .osml-schematic__stage {
+      min-height: 0;
+      touch-action: pan-y;
+    }
+    .osml-schematic--drawn .osml-schematic__stage--zoomed {
+      cursor: grab;
+      touch-action: none;
+    }
+    .osml-schematic--drawn .osml-schematic__stage--panning { cursor: grabbing; }
+    /* The zoom buttons sit over the diagram's corner, above the drawing. */
+    .osml-schematic__zoom {
+      position: absolute;
+      top: .4rem;
+      right: .4rem;
+      z-index: 2;
+      display: flex;
+      gap: .25rem;
+    }
+    .osml-schematic__zoom[hidden] { display: none; }
+    .osml-schematic__zoom button {
+      min-width: 1.7rem;
+      height: 1.7rem;
+      padding: 0 .45rem;
+      border: 1px solid rgba(255, 255, 255, .45);
+      border-radius: .2rem;
+      background: rgba(0, 0, 0, .35);
+      color: #fff;
+      font: inherit;
+      font-size: .8rem;
+      line-height: 1;
+      cursor: pointer;
+    }
+    .osml-schematic__zoom button:hover:not(:disabled),
+    .osml-schematic__zoom button:focus-visible {
+      background: var(--md-accent-fg-color);
+    }
+    .osml-schematic__zoom button:disabled {
+      opacity: .4;
+      cursor: default;
+    }
+    .osml-diagram {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      pointer-events: none;
+      z-index: 1;
+      font-family: Helvetica, Arial, sans-serif;
+    }
+    .osml-diagram .shape,
+    .osml-diagram .port-shape {
+      fill: #fff;
+      stroke: #181818;
+      stroke-width: 1;
+    }
+    .osml-diagram g[data-kind="runtime"] > .shape,
+    .osml-diagram g[data-kind="runtime"] .port-shape { fill: #e3f2fd; stroke: #1565c0; }
+    .osml-diagram g[data-kind="runtime"] .keyword { fill: #1565c0; }
+    .osml-diagram g[data-kind="reference"] > .shape,
+    .osml-diagram g[data-kind="reference"] .port-shape { fill: #f3e5f5; stroke: #6a1b9a; }
+    .osml-diagram g[data-kind="reference"] .keyword { fill: #6a1b9a; }
+    .osml-diagram g[data-kind="model store"] > .shape,
+    .osml-diagram g[data-kind="model store"] .port-shape { fill: #fff3e0; stroke: var(--md-accent-fg-color); stroke-width: 2; }
+    .osml-diagram g[data-kind="model store"] .keyword { fill: var(--md-accent-fg-color); }
+    .osml-diagram .label { fill: #181818; }
+    .osml-diagram .label .head { font-weight: 700; }
+    .osml-diagram .label .keyword { font-style: italic; font-size: .8em; }
+    .osml-diagram .label .detail { font-size: .8em; }
+    .osml-diagram .port-label {
+      fill: rgba(255, 255, 255, .85);
+      font-size: 11px;
+    }
+    .osml-diagram .line {
+      fill: none;
+      stroke: rgba(255, 255, 255, .6);
+      stroke-width: 1.25;
+      stroke-linejoin: round;
+    }
+    .osml-schematic__caption {
+      text-align: center;
+      font-size: .68rem;
+      opacity: .75;
+      margin: .4rem 0 0;
+    }
+    .osml-diagram g.osml-part {
+      pointer-events: auto;
+      cursor: grab;
+      touch-action: none;
+      outline: none;
+    }
+    .osml-diagram g.osml-nested {
+      pointer-events: auto;
+      cursor: grab;
+      touch-action: none;
+    }
+    .osml-diagram g.osml-part text {
+      user-select: none;
+    }
+    .osml-hero--dragging,
+    .osml-hero--dragging .osml-diagram g.osml-part {
+      cursor: grabbing;
+    }
+    .osml-diagram g.osml-part,
+    .osml-diagram g.opensysml-edge {
+      transition: opacity .25s;
+    }
+    /* The hot box and its wires stay lit while the rest of the figure dims back. */
+    .osml-hero--focus .osml-diagram g.osml-part:not(.is-hot),
+    .osml-hero--focus .osml-diagram g.opensysml-edge:not(.is-hot) {
+      opacity: .28;
+    }
+    .osml-diagram g.osml-part.is-hot > .shape,
+    .osml-diagram g.osml-part:focus-visible > .shape {
+      stroke: #fff;
+      stroke-width: 3;
+    }
+    .osml-diagram g.osml-part.is-hot {
+      filter: drop-shadow(0 0 .3rem #fff) drop-shadow(0 0 .9rem rgba(255, 255, 255, .55));
+    }
+    .osml-diagram g.opensysml-edge.is-hot .line {
+      stroke: #fff;
+      stroke-width: 2;
+    }
+    .osml-nodecard {
+      position: absolute;
+      z-index: 2;
+      width: 19rem;
+      max-width: calc(100% - .5rem);
+      padding: .5rem .7rem .65rem;
+      border: 1px solid var(--md-accent-fg-color);
+      border-radius: .35rem;
+      background: var(--md-default-bg-color);
+      box-shadow: 0 .4rem 1.4rem rgba(0, 0, 0, .45);
+      color: var(--md-default-fg-color);
+      font-size: .62rem;
+      line-height: 1.45;
+      text-align: left;
+      overflow: auto;
+    }
+    .osml-nodecard[hidden] { display: none; }
+    .osml-nodecard__stereo {
+      color: var(--md-accent-fg-color);
+      font-weight: 700;
+      font-style: italic;
+      padding-right: 1rem;
+    }
+    .osml-nodecard__name { font-size: .8rem; font-weight: 700; }
+    .osml-nodecard__sub { opacity: .75; }
+    .osml-nodecard__attrs {
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr);
+      gap: .12rem .55rem;
+      margin-top: .45rem;
+    }
+    .osml-nodecard__k { opacity: .55; }
+    .osml-nodecard__v { font-family: monospace; word-break: break-all; }
+    .osml-nodecard__close {
+      position: absolute;
+      top: .25rem;
+      right: .45rem;
+      padding: 0;
+      border: 0;
+      background: none;
+      color: inherit;
+      font-size: .85rem;
+      cursor: pointer;
+      opacity: .6;
+    }
+    .osml-nodecard__close:hover { opacity: 1; }
+    /* A run of the model: the token travels the wires the execution crossed. */
+    .osml-diagram g.osml-part.is-live > .shape {
+      stroke: #ffd54f;
+      stroke-width: 3;
+    }
+    .osml-diagram g.osml-part.is-live {
+      filter: drop-shadow(0 0 .5rem #ffd54f);
+    }
+    .osml-diagram g.opensysml-edge.is-live .line {
+      stroke: #ffd54f;
+      stroke-width: 2;
+    }
+    .osml-token {
+      fill: #ffd54f;
+      stroke: #fff;
+      stroke-width: 1.5;
+      filter: drop-shadow(0 0 .35rem #ffd54f);
+      pointer-events: none;
+    }
+    .osml-schematic__run {
+      display: flex;
+      flex-wrap: wrap;
+      gap: .5rem;
+      align-items: center;
+      justify-content: center;
+      margin-top: .7rem;
+    }
+    .osml-schematic__run button.osml-btn {
+      font-family: inherit;
+      padding: .4rem .9rem;
+      cursor: pointer;
+      background-color: transparent;
+    }
+    .osml-schematic__run button.osml-btn--primary {
+      background-color: #fff;
+    }
+    .osml-schematic__run button.osml-btn:hover,
+    .osml-schematic__run button.osml-btn:focus {
+      background-color: var(--md-accent-fg-color);
+    }
+    .osml-schematic__run button.osml-btn:disabled {
+      opacity: .6;
+      cursor: progress;
+    }
+    .osml-schematic__status {
+      flex-basis: 100%;
+      margin: 0;
+      text-align: center;
+      font-size: .64rem;
+      opacity: .8;
+    }
+    .osml-schematic__status--err {
+      color: #ffcdd2;
+      opacity: 1;
+    }
+    /* The debugger: steps through the trace ExecuteState returns for the sent events. */
+    .osml-debug {
+      margin: .7rem 0 0;
+      padding: .6rem .8rem;
+      border: 1px solid rgba(255, 255, 255, .25);
+      border-radius: .3rem;
+      background: rgba(0, 0, 0, .25);
+      font-size: .64rem;
+      text-align: left;
+    }
+    .osml-debug[hidden] { display: none; }
+    .osml-debug__bar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: .4rem;
+      align-items: center;
+      margin-bottom: .45rem;
+    }
+    .osml-debug__label { font-weight: 700; margin-right: .2rem; }
+    .osml-debug button,
+    .osml-debug select,
+    .osml-debug input {
+      font: inherit;
+      color: inherit;
+      padding: .2rem .55rem;
+      border: 1px solid rgba(255, 255, 255, .45);
+      border-radius: .2rem;
+      background: transparent;
+    }
+    .osml-debug button { cursor: pointer; }
+    .osml-debug button:hover:not(:disabled),
+    .osml-debug button:focus-visible {
+      background-color: var(--md-accent-fg-color);
+      color: var(--osml-hero-from);
+    }
+    .osml-debug button:disabled { opacity: .45; cursor: default; }
+    .osml-debug button[aria-pressed="true"] { background: rgba(255, 213, 79, .25); }
+    .osml-debug select option { color: #181818; }
+    .osml-debug input { width: 5.5em; }
+    .osml-debug label { display: inline-flex; gap: .3rem; align-items: center; }
+    .osml-debug__hint { margin: 0 0 .45rem; opacity: .8; }
+    .osml-debug__now { margin: 0; font-weight: 700; }
+    .osml-debug__queue { margin: .2rem 0 .45rem; opacity: .9; }
+    .osml-debug__trace {
+      max-height: 11rem;
+      overflow-y: auto;
+      position: relative;
+      margin: 0;
+      padding: .3rem .3rem .3rem 2.4rem;
+      border-radius: .2rem;
+      background: rgba(0, 0, 0, .3);
+      font-family: var(--md-code-font-family, monospace);
+      font-size: .58rem;
+      line-height: 1.6;
+    }
+    .osml-debug__trace:empty { display: none; }
+    .osml-debug__record { opacity: .6; }
+    .osml-debug__record--transition,
+    .osml-debug__record--choice { color: #fff59d; }
+    .osml-debug__record.is-ignored { color: #ffcc80; }
+    .osml-debug__record--error { color: #ef9a9a; opacity: 1; }
+    .osml-debug__record.is-current {
+      opacity: 1;
+      background: rgba(255, 213, 79, .22);
+      outline: 1px solid #ffd54f;
+    }
+    .osml-debug__record.is-current ~ .osml-debug__record { opacity: .35; }
+    .osml-schematic__edit { margin: .7rem 0 0; }
+    .osml-schematic__edit[hidden] { display: none; }
+    .osml-schematic__src {
+      display: block;
+      box-sizing: border-box;
+      width: 100%;
+      height: 22rem;
+      resize: vertical;
+      overflow: auto;
+      margin: 0;
+      padding: .7rem .9rem;
+      border: 1px solid rgba(255, 255, 255, .25);
+      border-radius: .3rem;
+      background: rgba(0, 0, 0, .35);
+      color: #e8eaf6;
+      font-family: var(--md-code-font-family, monospace);
+      font-size: .58rem;
+      line-height: 1.5;
+      text-align: left;
+      tab-size: 4;
+      white-space: pre;
+    }
+    .osml-schematic__src:focus { outline: 2px solid var(--md-accent-fg-color); outline-offset: 1px; }
+    .osml-schematic__src[aria-invalid="true"] { border-color: #ef9a9a; }
+    .osml-schematic__hint {
+      margin: .4rem 0 0;
+      font-size: .6rem;
+      opacity: .85;
+      text-align: left;
+    }
+    .osml-schematic__hint code {
+      padding: 0 .2em;
+      background: rgba(0, 0, 0, .3);
+      color: inherit;
+      font-size: .95em;
+    }
+    .osml-schematic__hint button {
+      margin-left: .3rem;
+      padding: .1rem .5rem;
+      border: 1px solid rgba(255, 255, 255, .5);
+      border-radius: .2rem;
+      background: transparent;
+      color: inherit;
+      font: inherit;
+      cursor: pointer;
+    }
+    .osml-schematic__hint button:hover,
+    .osml-schematic__hint button:focus { background-color: var(--md-accent-fg-color); }
+    .osml-nodecard__note {
+      margin-top: .45rem;
+      font-size: .56rem;
+      opacity: .6;
+    }
+    .osml-nodecard__link {
+      display: inline-block;
+      margin-top: .5rem;
+      color: var(--md-accent-fg-color);
+      font-weight: 700;
+    }
+
 
     .osml-grid {
       display: grid;
@@ -478,7 +847,84 @@
         &middot; the runtime of the <a href="https://opensysml.org/">OpenSysML REDK</a>
       </p>
     </div>
+    <div class="osml-schematic" data-osml-schematic
+         data-osml-model="{{ 'assets/opensysml-stack.sysml' | url }}"
+         data-osml-engine="{{ base_url }}/assets/sysml-engine.wasm.gz"
+         data-osml-wasm-exec="{{ base_url }}/assets/wasm_exec.js"
+         data-osml-libavoid="{{ base_url }}/assets/landing/libavoid.wasm"
+         data-osml-script="{{ base_url }}/assets/landing/diagram.js">
+      <div class="osml-schematic__stage" data-osml-stage>
+        <div class="osml-schematic__zoom" role="group" aria-label="Zoom the diagram" data-osml-zoom hidden>
+          <button type="button" data-osml-zoom-in aria-label="Zoom in" title="Zoom in (Ctrl+scroll or pinch)">+</button>
+          <button type="button" data-osml-zoom-out aria-label="Zoom out" title="Zoom out">&minus;</button>
+          <button type="button" data-osml-zoom-fit aria-label="Fit the whole diagram" title="Fit the whole diagram">Fit</button>
+        </div>
+        <noscript><p class="osml-schematic__status">The diagram is drawn in your browser from <a href="{{ 'assets/opensysml-stack.sysml' | url }}">its SysML model</a>; it needs JavaScript.</p></noscript>
+      </div>
+      <p class="osml-schematic__caption">One open interchange, two implementations, a version-controlled store. Drag the boxes around — click opens the project, right-click shows its attributes. Zoom with the buttons, <kbd>Ctrl</kbd>+scroll or a pinch, and drag the background to pan. Edit the model and the engine redraws the diagram as you type.</p>
+      <div class="osml-schematic__run">
+        <button type="button" class="osml-btn osml-btn--primary" data-osml-run>&#9654; Run the model</button>
+        <button type="button" class="osml-btn" data-osml-source aria-expanded="false" aria-controls="osml-schematic-edit">Edit the model</button>
+        <button type="button" class="osml-btn" data-osml-debug aria-expanded="false" aria-controls="osml-schematic-debug">Debug the run</button>
+        <button type="button" class="osml-btn" data-osml-download title="Save the diagram as drawn, at twice its size">Download PNG</button>
+        <p class="osml-schematic__status" data-osml-status aria-live="polite">This diagram is a SysML model. Run it or edit it in your browser on the OpenSysML engine (about 7 MB, downloaded once).</p>
+      </div>
+      <div class="osml-debug" id="osml-schematic-debug" data-osml-debugger hidden>
+        <div class="osml-debug__bar" role="group" aria-label="Send an event to the state machine">
+          <span class="osml-debug__label">Send</span>
+          <button type="button" data-osml-send="Commit">Commit</button>
+          <button type="button" data-osml-send="Pull">Pull</button>
+          <button type="button" data-osml-send="Check">Check</button>
+          <button type="button" data-osml-send="Push">Push</button>
+          <button type="button" data-osml-debug-reset title="Start again with no events">Reset</button>
+        </div>
+        <div class="osml-debug__bar" role="group" aria-label="Step through the run">
+          <button type="button" data-osml-step-back aria-label="Step back">&#9664; Back</button>
+          <button type="button" data-osml-play aria-pressed="false">&#9654; Play</button>
+          <button type="button" data-osml-step aria-label="Step forward">Step &#9654;</button>
+          <label>Speed
+            <select data-osml-speed>
+              <option value="0.5">0.5&times;</option>
+              <option value="1" selected>1&times;</option>
+              <option value="2">2&times;</option>
+              <option value="4">4&times;</option>
+            </select>
+          </label>
+          <label>Seed
+            <input type="number" min="0" step="1" inputmode="numeric" placeholder="none" data-osml-seed aria-describedby="osml-debug-seed-hint">
+          </label>
+          <button type="button" data-osml-reseed>New seed</button>
+        </div>
+        <p class="osml-debug__hint" id="osml-debug-seed-hint">The start and each <code>Pull</code> out of Flexo are free choices; a seed picks each branch at random, the same way every time. Run picks a new random seed unless you set one, and shows it here so the debugger can replay that path. With no seed the debugger takes the engine's default branch.</p>
+        <p class="osml-debug__now" data-osml-debug-now aria-live="polite"></p>
+        <p class="osml-debug__queue">Waiting events: <span data-osml-debug-queue>empty</span></p>
+        <ol class="osml-debug__trace" data-osml-debug-trace aria-label="The run's trace"></ol>
+      </div>
+      <div class="osml-schematic__edit" id="osml-schematic-edit" data-osml-editor hidden>
+        <textarea class="osml-schematic__src" data-osml-src spellcheck="false" autocomplete="off" autocapitalize="off" aria-label="The diagram's SysML model" aria-describedby="osml-schematic-hint"></textarea>
+        <p class="osml-schematic__hint" id="osml-schematic-hint">The engine re-reads the model as you type. Try changing a <code>label</code> or <code>lang</code>, adding a <code>part</code> of type <code>Project</code>, connecting it with another <code>interface</code>, or deleting a <code>;</code> to see a diagnostic. <button type="button" data-osml-reset>Reset</button></p>
+      </div>
+    </div>
+<script>
+(function () {
+  // The diagram is drawn by assets/landing/diagram.js, built from editors/vscode/src/landing.
+  var root = document.querySelector("[data-osml-schematic]");
+  if (!root) return;
+  if (window.osmlMountDiagram) { window.osmlMountDiagram(root); return; }
+  var script = document.createElement("script");
+  script.src = root.dataset.osmlScript;
+  script.onload = function () { if (root.isConnected) window.osmlMountDiagram(root); };
+  script.onerror = function () {
+    var status = root.querySelector("[data-osml-status]");
+    status.textContent = "The diagram's script did not load. Reload the page to try again.";
+    status.classList.add("osml-schematic__status--err");
+  };
+  document.head.appendChild(script);
+})();
+</script>
+
   </div>
+  <div class="osml-nodecard" data-osml-card role="dialog" hidden></div>
 </section>
 
 <section class="osml-referee" id="refereed">
