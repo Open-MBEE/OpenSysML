@@ -410,7 +410,6 @@ func TestPublishingOneRootLeavesTheOthersOnTheBranch(t *testing.T) {
 	if now := api.elementCount("project-0001", "branch-0002"); now <= held {
 		t.Errorf("%d elements after adding Spare to %d", now, held)
 	}
-	held = api.elementCount("project-0001", "branch-0002")
 
 	// A session holding the branch's state and a Vehicles without Car: the
 	// publication deletes Car, inside its root, and leaves Spare alone.
