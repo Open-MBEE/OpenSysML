@@ -152,6 +152,8 @@ func constantText(v semantics.Value) (string, bool) {
 		return v.FormatInt(), true
 	case semantics.ValReal:
 		return semantics.FormatReal(v.Real), true
+	case semantics.ValRational:
+		return v.FormatRational(), true
 	case semantics.ValBool:
 		if v.Bool {
 			return "true", true

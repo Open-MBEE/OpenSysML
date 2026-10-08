@@ -117,8 +117,8 @@ func (h *constraintStmtHost) performNode(engine *stmtEngine, graph *lower.Action
 		}
 		nestedOrder = graph.StatementOrders[node]
 	}
-	engine.env.enter()
-	defer engine.env.leave()
+	engine.env.enter(engine)
+	defer engine.env.leave(engine.ctx, true)
 	defer engine.enterActivation()()
 	for _, feature := range graph.Features[node] {
 		if feature.Value == nil {
@@ -129,7 +129,7 @@ func (h *constraintStmtHost) performNode(engine *stmtEngine, graph *lower.Action
 		if err != nil {
 			return flowNext, fmt.Errorf("eval %s of %s: %w", feature.Name, nodeDescription(node), err)
 		}
-		engine.env.declare(feature.Name, value)
+		engine.env.declare(engine.ctx, feature.Name, value)
 	}
 	if nestedSteps != nil {
 		return engine.runWithOrder(nestedSteps, nestedOrder)
@@ -187,15 +187,16 @@ func (ctx *Context) runConstraintSteps(steps *BodySteps, features map[string]sco
 		enclosing = append(enclosing, bindings)
 	}
 	host := &constraintStmtHost{ctx: ctx, self: self, scope: steps.Scope, steps: steps}
+	var engine *stmtEngine
 	_, err := ctx.runStatements(func() *stmtEngine {
-		engine := newStmtEngineIn(ctx, host, data, enclosing)
+		engine = newStmtEngineIn(ctx, host, data, enclosing)
 		engine.features = features
 		return engine
 	}, steps.Stmts)
 	if err != nil {
 		return frame{}, err
 	}
-	return data, nil
+	return engine.env.constraintResult(ctx)
 }
 
 // statementOrder returns the lowered order when scheduling or precedence needs it.

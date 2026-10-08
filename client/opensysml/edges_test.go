@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"math"
+	"math/big"
 	"strings"
 	"testing"
 
@@ -35,15 +36,46 @@ func TestIntegerArithmeticBeyondInt64IsExact(t *testing.T) {
 	}
 }
 
+// TestRationalArithmeticIsExact: a KerML Rational is a rational number, so a
+// quotient or decimal no binary64 holds arrives as the exact Rational it is,
+// and one a binary64 holds as that Real.
+func TestRationalArithmeticIsExact(t *testing.T) {
+	client := newClient(t)
+	model := parseVehicle(t, client)
+
+	for expression, want := range map[string]string{
+		"1 / 3":        "1/3",
+		"0.1 + 0.2":    "0.3",
+		"(2 / 3) ** 3": "8/27",
+		"1.0e400 / 4":  "2.5e+399",
+	} {
+		value, err := client.Evaluate(context.Background(), model, expression)
+		got, ok := value.(opensysml.Rational)
+		if err != nil || !ok || got.String() != want {
+			t.Errorf("Evaluate(%q) = %#v, %v; want Rational %s", expression, value, err, want)
+		}
+	}
+	if value, err := client.Evaluate(context.Background(), model, "0.25 + 0.25"); err != nil || value != opensysml.Real(0.5) {
+		t.Errorf("Evaluate(0.25 + 0.25) = %#v, %v; want Real 0.5", value, err)
+	}
+	if value, err := client.Evaluate(context.Background(), model, "0.1 + 0.2 == 0.3"); err != nil || value != opensysml.Bool(true) {
+		t.Errorf("Evaluate(0.1 + 0.2 == 0.3) = %#v, %v; want true", value, err)
+	}
+	third := opensysml.NewRational(big.NewRat(1, 3))
+	if third.Float64() != 1.0/3.0 || third.Rat().Cmp(big.NewRat(2, 6)) != 0 {
+		t.Errorf("Rational 1/3 = %v (%v)", third, third.Float64())
+	}
+}
+
 // TestRealOutsideItsRangeIsAFailure: a Real no float64 holds is reported, not
-// read as an infinity.
+// read as an infinity. The literal 1e400 is an exact Rational; ToReal is Real.
 func TestRealOutsideItsRangeIsAFailure(t *testing.T) {
 	client := newClient(t)
 	model := parseVehicle(t, client)
 
-	value, err := client.Evaluate(context.Background(), model, "1e400")
+	value, err := client.Evaluate(context.Background(), model, `RealFunctions::ToReal("1e400")`)
 	if !errors.Is(err, opensysml.ErrFailure) {
-		t.Errorf("Evaluate(1e400) = %#v, %v; want a failure", value, err)
+		t.Errorf("Evaluate(ToReal(1e400)) = %#v, %v; want a failure", value, err)
 	}
 }
 
@@ -53,7 +85,7 @@ func TestRealsInRangeStillEvaluate(t *testing.T) {
 	client := newClient(t)
 	model := parseVehicle(t, client)
 
-	value, err := client.Evaluate(context.Background(), model, "1.5e308 / 2.0")
+	value, err := client.Evaluate(context.Background(), model, `RealFunctions::ToReal("1.5e308") / 2.0`)
 	if err != nil {
 		t.Fatalf("Evaluate: %v", err)
 	}

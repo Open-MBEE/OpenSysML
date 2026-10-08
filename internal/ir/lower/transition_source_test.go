@@ -204,19 +204,23 @@ func TestToStateGraph_EntryTransitionShape(t *testing.T) {
 	}{
 		"trigger": {
 			body: `entry; accept Go then idle; state idle;`,
-			want: fmt.Sprintf(EntryTransitionShapeFormat, "a trigger"),
+			want: EntryTransitionAccepterSourceMessage,
 		},
 		"effect": {
 			body: `entry; if true do action mark then idle; state idle;`,
-			want: fmt.Sprintf(EntryTransitionShapeFormat, "an effect"),
+			want: EntryTransitionShorthandEffectMessage,
 		},
 		"trigger after an unguarded start": {
 			body: `entry; then init; accept Go then active; state init; state active;`,
-			want: fmt.Sprintf(EntryTransitionShapeFormat, "a trigger"),
+			want: EntryTransitionAccepterSourceMessage,
 		},
-		"target is a pseudostate": {
-			body: `entry; then pick; choice pick; transition first pick then idle; state idle;`,
-			want: fmt.Sprintf(EntryTransitionTargetFormat, "the choice pick"),
+		"explicit-source trigger": {
+			body: `entry action boot { } transition boot accept Go then idle; state idle;`,
+			want: EntryTransitionAccepterSourceMessage,
+		},
+		"target is a fork": {
+			body: `entry; then pick; fork pick; state idle;`,
+			want: fmt.Sprintf(EntryTransitionTargetFormat, "the fork pick"),
 		},
 	}
 	for name, tc := range cases {
@@ -235,6 +239,57 @@ func TestToStateGraph_EntryTransitionShape(t *testing.T) {
 				t.Fatalf("message:\n got %q\nwant %q", err.Error(), tc.want)
 			}
 		})
+	}
+}
+
+func TestToStateGraph_EntryTransitionEffectAndRoute(t *testing.T) {
+	graph, err := ToStateGraph(stateUsageIn(t, `
+		package test {
+			state Machine {
+				entry action boot { }
+				transition boot do action mark { } then route;
+				junction route;
+				transition first route then idle;
+				state idle;
+			}
+		}
+	`), nil)
+	if err != nil {
+		t.Fatalf("lower: %v", err)
+	}
+	entries := graph.StartOf(nil)
+	if len(entries) != 1 {
+		t.Fatalf("got %d entry transitions, want one", len(entries))
+	}
+	entry := entries[0]
+	if entry.Target != nil || entry.Via == nil || entry.Via.Name != "route" {
+		t.Fatalf("entry target = (%v, %v), want route pseudostate", entry.Target, entry.Via)
+	}
+	if len(entry.Effect) != 1 {
+		t.Fatalf("entry effect has %d behaviors, want one", len(entry.Effect))
+	}
+	if graph.Initial == nil || graph.Initial.Name != "idle" {
+		t.Fatalf("Initial = %v, want idle after the unguarded junction route", graph.Initial)
+	}
+}
+
+func TestToStateGraph_EntryTransitionCannotTargetAnotherBodiesRoute(t *testing.T) {
+	_, err := ToStateGraph(stateUsageIn(t, `
+		package test {
+			state Machine {
+				entry action boot { }
+				transition boot then inner::route;
+				state inner {
+					junction route;
+					state idle;
+					transition route then idle;
+				}
+			}
+		}
+	`), nil)
+	var targetErr *EntryTransitionTargetError
+	if !errors.As(err, &targetErr) {
+		t.Fatalf("lower error = %v, want an EntryTransitionTargetError", err)
 	}
 }
 

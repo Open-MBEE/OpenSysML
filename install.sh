@@ -46,15 +46,17 @@ usage() {
 usage: install.sh [--version <tag>] [--tools <list>] [--prefix <dir>|--bin-dir <dir>]
                   [--os <os> --arch <arch>] [--base-url <url>] [--verify-signature] [--dry-run]
 
-Installs the OpenSysML command-line tools (sysml, sysml-lsp, sysml-grpc) from a
-GitHub release, checking every download against the release's SHA256SUMS.txt.
+Installs the OpenSysML command-line tools (sysml, sysml-lsp, sysml-grpc,
+sysml-jupyter-kernel) from a GitHub release, checking every download against
+the release's SHA256SUMS.txt.
 
 Options (each has an environment variable, so a piped `sh` can be configured):
 
   --version <tag>      release tag (v0.9.1), `latest` (default) or `nightly`
                        [OPENSYSML_VERSION]
-  --tools <list>       comma-separated subset of sysml,sysml-lsp,sysml-grpc, or
-                       `all`; default `sysml,sysml-lsp`      [OPENSYSML_TOOLS]
+  --tools <list>       comma-separated subset of sysml,sysml-lsp,sysml-grpc,
+                       sysml-jupyter-kernel, or `all`; default `sysml,sysml-lsp`
+                                                             [OPENSYSML_TOOLS]
   --prefix <dir>       install under <dir>/bin and <dir>/share/man/man1; default
                        /usr/local when writable, else ~/.local [OPENSYSML_PREFIX]
   --bin-dir <dir>      install the binaries into <dir> and no manual pages
@@ -146,13 +148,13 @@ v[0-9]*.[0-9]*.[0-9]*) ;;
 *) fail "--version must be a release tag like v0.9.1, 'latest' or 'nightly', not '$version'" ;;
 esac
 
-[ "$tools" != all ] || tools="sysml,sysml-lsp,sysml-grpc"
+[ "$tools" != all ] || tools="sysml,sysml-lsp,sysml-grpc,sysml-jupyter-kernel"
 tool_list=$(printf '%s' "$tools" | tr ',' ' ')
 [ -n "$(printf '%s' "$tool_list" | tr -d ' ')" ] || fail "--tools names nothing to install"
 for tool in $tool_list; do
 	case "$tool" in
-	sysml | sysml-lsp | sysml-grpc) ;;
-	*) fail "unknown tool '$tool'; the released tools are sysml, sysml-lsp and sysml-grpc" ;;
+	sysml | sysml-lsp | sysml-grpc | sysml-jupyter-kernel) ;;
+	*) fail "unknown tool '$tool'; the released tools are sysml, sysml-lsp, sysml-grpc and sysml-jupyter-kernel" ;;
 	esac
 done
 want() { # <tool>: whether it was asked for
@@ -209,6 +211,7 @@ exe=""
 bundle="opensysml-$platform.tar.gz"
 [ "$target_os" != windows ] || bundle="opensysml-$platform.zip"
 grpc_asset="sysml-grpc-$platform$exe"
+kernel_asset="sysml-jupyter-kernel-$platform$exe"
 
 # --- where it goes ----------------------------------------------------------
 
@@ -316,6 +319,7 @@ info "  binaries: $bin_dir"
 [ -z "$man_dir" ] || info "  manuals:  $man_dir"
 info "  from:     $(asset_url "$bundle")"
 ! want sysml-grpc || info "            $(asset_url "$grpc_asset")"
+! want sysml-jupyter-kernel || info "            $(asset_url "$kernel_asset")"
 if [ "$dry_run" = true ]; then
 	info "Dry run: nothing downloaded or installed."
 	exit 0
@@ -351,7 +355,7 @@ fi
 
 verify() { # <asset>: against the manifest
 	expected=$(awk -v name="$1" '{ n = $2; sub(/^\*/, "", n); if (n == name) print $1 }' "$work/SHA256SUMS.txt")
-	[ -n "$expected" ] || fail "SHA256SUMS.txt of $release_name does not list $1; releases before v0.0.4 have no bundle, and sysml-grpc is published from v0.9.0"
+	[ -n "$expected" ] || fail "SHA256SUMS.txt of $release_name does not list $1; releases before v0.0.4 have no bundle, sysml-grpc is published from v0.9.0 and sysml-jupyter-kernel from v0.9.2"
 	actual=$(sha256_of "$work/$1")
 	[ "$actual" = "$expected" ] || fail "$1 does not match SHA256SUMS.txt (expected $expected, got $actual); the download is corrupt or tampered with"
 	info "  $1 verified"
@@ -362,6 +366,10 @@ verify "$bundle"
 if want sysml-grpc; then
 	fetch "$grpc_asset"
 	verify "$grpc_asset"
+fi
+if want sysml-jupyter-kernel; then
+	fetch "$kernel_asset"
+	verify "$kernel_asset"
 fi
 
 # --- install ----------------------------------------------------------------
@@ -391,6 +399,8 @@ installed=""
 for tool in $tool_list; do
 	if [ "$tool" = sysml-grpc ]; then
 		source="$work/$grpc_asset"
+	elif [ "$tool" = sysml-jupyter-kernel ]; then
+		source="$work/$kernel_asset"
 	else
 		source="$work/bundle/$tool$exe"
 		[ -f "$source" ] || fail "$bundle has no $tool$exe"

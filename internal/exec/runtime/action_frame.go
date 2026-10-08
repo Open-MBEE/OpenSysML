@@ -91,7 +91,8 @@ type actionFrame struct {
 	body bool
 	// locals are the block-local bindings entered around node in parent's body,
 	// outermost first: a loop variable the node's declarations read.
-	locals []map[string]Value
+	locals     []map[string]Value
+	localCells []*bodyCells
 	// outer are the frames around a root performance its bodies read but no performance
 	// holds, outermost first: a state machine's data and its states' attributes.
 	outer []frame
@@ -115,7 +116,8 @@ type actionFrame struct {
 	// those of every flow around it, this one's own included.
 	connections []lower.Connection
 	// data holds the values the performance's own features hold.
-	data map[string]Value
+	data  map[string]Value
+	cells *bodyCells
 	// features are the parameters and attributes the performance holds, by name.
 	features map[string]ast.FeatureDirection
 	// aliases map each name a held feature redefines to the feature's own name.
@@ -241,7 +243,37 @@ func (e *ActionExecutor) newRootFrame() *actionFrame {
 		run:         e.ctx.newRun(),
 	}
 	e.declareRootFeatures(root)
+	e.registerRootBindings(root)
 	return root
+}
+
+// registerRootBindings installs tracked cells for the root's declared bindings.
+func (e *ActionExecutor) registerRootBindings(root *actionFrame) {
+	for _, attr := range e.features {
+		if !attr.Binding || attr.Value == nil {
+			continue
+		}
+		scope := attr.Scope
+		if scope == nil {
+			scope = root.graph.Scope
+		}
+		name := root.key(attr.Name)
+		cells := e.performances.bodyCells(root)
+		check := func(value *Value) error {
+			return e.holdAttributeAsReal(attr, value)
+		}
+		var cell *bodyCell
+		context := func(scope *symbols.Scope) *EvalContext {
+			return e.performances.evalBindingContext(root, scope, name, root.began)
+		}
+		onDerived := func(value *Value) error {
+			mirrored, err := e.mirrorBindingOccurrence(attr.Name, *value, cell)
+			*value = mirrored
+			return err
+		}
+		cell = e.ctx.registerBodyBindingInContext(cells, name, attr.Value, scope, check, context, onDerived)
+		cell.binding.masked = attr.Name
+	}
 }
 
 // declareRootFeatures gives root the attributes the graph declares and the
@@ -329,7 +361,7 @@ func (f *actionFrame) key(name string) string {
 // seeding its pins from deliveries, then the arguments it passes its callee, then input bindings,
 // then its own declared defaults.
 func (e *performances) beginPerformance(
-	parent *actionFrame, flow *lower.ActionGraph, node ast.Node, locals []map[string]Value,
+	parent *actionFrame, flow *lower.ActionGraph, node ast.Node, locals []map[string]Value, localCells []*bodyCells,
 ) (*actionFrame, error) {
 	perf := &actionFrame{
 		node:        node,
@@ -337,6 +369,7 @@ func (e *performances) beginPerformance(
 		scope:       flow.Scopes[node],
 		parent:      parent,
 		locals:      locals,
+		localCells:  localCells,
 		connections: parent.connections,
 		data:        make(map[string]Value),
 		features:    make(map[string]ast.FeatureDirection),
@@ -391,14 +424,29 @@ func (e *performances) beginPerformance(
 // seedPerformance seeds perf's pins from deliveries, then the arguments it passes its
 // callee, then input bindings, then its own declared defaults.
 func (e *performances) seedPerformance(parent *actionFrame, flow *lower.ActionGraph, node ast.Node, perf *actionFrame) error {
+	activation, endStep := e.ctx.beginStep()
+	defer endStep()
+	perf.began = activation
+	for _, feature := range flow.Features[node] {
+		if !feature.Binding || feature.Value == nil {
+			continue
+		}
+		check := func(value *Value) error {
+			return e.ctx.checkBodyDeclaration(feature.Scope, perf.describe(), feature.Name, value)
+		}
+		context := func(scope *symbols.Scope) *EvalContext {
+			return e.evalBindingContext(perf, scope, feature.Name, activation)
+		}
+		cell := e.ctx.registerBodyBindingInContext(
+			e.bodyCells(perf), perf.key(feature.Name), feature.Value, feature.Scope, check, context, nil,
+		)
+		cell.binding.masked = feature.Name
+	}
 	if err := e.takeDeliveries(parent, node, perf); err != nil {
 		return err
 	}
 	// The arguments, bindings and defaults are one evaluation: a calc usage two of them
 	// read answers once, and another performance evaluates it anew.
-	activation, endStep := e.ctx.beginStep()
-	defer endStep()
-	perf.began = activation
 	if err := e.bindArguments(perf, activation); err != nil {
 		return err
 	}
@@ -487,14 +535,37 @@ func (e *performances) seedDeclaredValues(perf *actionFrame, features []lower.Fe
 		}
 		ec := e.evalContextFor(perf, feature.Scope)
 		ec.activation = activation
-		value, err := ec.Eval(feature.Value)
+		var value Value
+		var err error
+		if feature.Binding {
+			cells := e.bodyCells(perf)
+			check := func(value *Value) error {
+				return e.ctx.checkBodyDeclaration(feature.Scope, perf.describe(), feature.Name, value)
+			}
+			name := perf.key(feature.Name)
+			cell := cells.existingCell(name)
+			if cell == nil || cell.binding == nil {
+				context := func(scope *symbols.Scope) *EvalContext {
+					return e.evalBindingContext(perf, scope, feature.Name, activation)
+				}
+				cell = e.ctx.registerBodyBindingInContext(
+					cells, name, feature.Value, feature.Scope, check, context, nil,
+				)
+				cell.binding.masked = feature.Name
+			}
+			value, err = e.ctx.deriveBodyCell(cells, name, cell)
+		} else {
+			value, err = ec.Eval(feature.Value)
+			if err == nil {
+				err = e.ctx.checkBodyDeclaration(feature.Scope, perf.describe(), feature.Name, &value)
+			}
+			if err == nil {
+				e.ctx.writeBodyValue(perf.cells, perf.data, perf.key(feature.Name), value)
+			}
+		}
 		if err != nil {
 			return fmt.Errorf("eval %s of %s: %w", feature.Name, nodeDescription(perf.node), err)
 		}
-		if err := e.ctx.checkBodyDeclaration(feature.Scope, perf.describe(), feature.Name, &value); err != nil {
-			return err
-		}
-		perf.data[perf.key(feature.Name)] = value
 		if err := e.streamFrom(perf, perf.key(feature.Name), value); err != nil {
 			return err
 		}
@@ -506,6 +577,9 @@ func (e *performances) seedDeclaredValues(perf *actionFrame, features []lower.Fe
 // return to same-named enclosing features, and the bindings at its output pins
 // carry what it produced to their other ends.
 func (e *performances) endPerformance(perf *actionFrame) error {
+	if err := e.ctx.freezeBodyCells(perf.cells); err != nil {
+		return err
+	}
 	perf.ended = true
 	if err := checkStreamsReceived(perf); err != nil {
 		return err
@@ -690,8 +764,12 @@ func (f *actionFrame) lexicalFrames() []frame {
 	} else {
 		frames = slices.Clone(f.outer)
 	}
-	for _, local := range f.locals {
-		frames = append(frames, mapFrame(local))
+	for i, local := range f.locals {
+		fr := mapFrame(local)
+		if i < len(f.localCells) {
+			fr.cells = f.localCells[i]
+		}
+		frames = append(frames, fr)
 	}
 	return append(frames, performanceFrame(f))
 }
@@ -808,6 +886,13 @@ func (f *actionFrame) unsupportedRepeatedRead(node ast.Node) error {
 // holds none reads as the empty sequence, as its declaration does.
 func (f *actionFrame) pin(name string) (Value, error) {
 	value, ok := f.data[f.key(name)]
+	if f.perfs != nil && f.perfs.ctx != nil {
+		var err error
+		value, ok, err = f.perfs.ctx.readBodyValue(f.cells, f.data, f.key(name))
+		if err != nil {
+			return Value{}, err
+		}
+	}
 	if ok {
 		return value, nil
 	}
@@ -925,7 +1010,7 @@ func (e *performances) takeDeliveries(f *actionFrame, node ast.Node, perf *actio
 	for pin, values := range queues {
 		f.receiveStream(node, pin)
 		f.shiftStaged(node, pin)
-		perf.data[pin] = values[0]
+		e.ctx.writeBodyValue(perf.cells, perf.data, pin, values[0])
 		taken[pin] = values[0]
 		if len(values) == 1 {
 			delete(queues, pin)
@@ -999,7 +1084,7 @@ func (e *performances) setFrameFeature(f *actionFrame, name string, value Value)
 	if err := e.ctx.checkNamedWrite(f.scope, f.describe(), name, &value); err != nil {
 		return err
 	}
-	f.data[f.key(name)] = value
+	e.ctx.writeBodyValue(f.cells, f.data, f.key(name), value)
 	e.noteFrameWrite(f, name, value)
 	return e.streamFrom(f, f.key(name), value)
 }
@@ -1146,26 +1231,36 @@ func enclosingHolder(perf *actionFrame, name string) (local map[string]Value, ho
 
 // lookupEnclosing reads name from the innermost binding around perf that holds
 // a value for it, the frames around the root included.
-func lookupEnclosing(perf *actionFrame, name string) (Value, bool) {
+func (e *performances) lookupEnclosing(perf *actionFrame, name string) (Value, bool, error) {
 	for f := perf; f != nil; f = f.parent {
 		for i := len(f.locals) - 1; i >= 0; i-- {
-			if value, ok := f.locals[i][name]; ok {
-				return value, true
+			var cells *bodyCells
+			if i < len(f.localCells) {
+				cells = f.localCells[i]
+			}
+			if value, ok, err := e.ctx.readBodyValue(cells, f.locals[i], name); err != nil {
+				return Value{}, false, err
+			} else if ok {
+				return value, true, nil
 			}
 		}
 		if f.parent != nil {
-			if value, ok := f.parent.data[f.parent.key(name)]; ok {
-				return value, true
+			if value, ok, err := e.ctx.readBodyValue(f.parent.cells, f.parent.data, f.parent.key(name)); err != nil {
+				return Value{}, false, err
+			} else if ok {
+				return value, true, nil
 			}
 			continue
 		}
 		for i := len(f.outer) - 1; i >= 0; i-- {
-			if value, ok := f.outer[i].lookup(name); ok {
-				return value, true
+			if value, ok, err := f.outer[i].read(e.ctx, name); err != nil {
+				return Value{}, false, err
+			} else if ok {
+				return value, true, nil
 			}
 		}
 	}
-	return Value{}, false
+	return Value{}, false, nil
 }
 
 // evalContextFor returns a context evaluating in scope with the performance and
@@ -1176,6 +1271,27 @@ func (e *performances) evalContextFor(perf *actionFrame, scope *symbols.Scope) *
 	ec.thisOccurrence = e.thisOccurrence
 	for _, f := range perf.lexicalFrames() {
 		ec.pushFrame(f)
+	}
+	return ec
+}
+
+// evalBindingContext resolves a binding in its performance while masking its own name.
+func (e *performances) evalBindingContext(
+	perf *actionFrame, scope *symbols.Scope, name string, activation int64,
+) *EvalContext {
+	ec := e.evalContextFor(perf, scope)
+	ec.activation = activation
+	if perf == nil {
+		return ec
+	}
+	for i := len(ec.frames) - 1; i >= 0; i-- {
+		if ec.frames[i].perf != perf {
+			continue
+		}
+		f := ec.frames[i]
+		f.masked = map[string]bool{perf.key(name): true}
+		ec.frames[i] = f
+		break
 	}
 	return ec
 }
@@ -1194,8 +1310,12 @@ func (e *performances) evalContextAround(perf *actionFrame, scope *symbols.Scope
 			ec.pushFrame(f)
 		}
 	}
-	for _, local := range perf.locals {
-		ec.pushFrame(mapFrame(local))
+	for i, local := range perf.locals {
+		fr := mapFrame(local)
+		if i < len(perf.localCells) {
+			fr.cells = perf.localCells[i]
+		}
+		ec.pushFrame(fr)
 	}
 	return ec
 }
@@ -1253,16 +1373,31 @@ func lexicalValues(perf *actionFrame) map[string]Value {
 
 // collect reports the values the performance and its non-repeated subactions hold,
 // under their paths (`p.v`), the latest performance of each name standing for it.
-func (f *actionFrame) collect(prefix string, into map[string]Value) {
+func (f *actionFrame) collect(prefix string, into map[string]Value) error {
+	var deriveErr error
+	if f.perfs != nil && f.perfs.ctx != nil {
+		deriveErr = f.perfs.ctx.deriveBodyCells(f.cells)
+	}
 	for name, value := range f.data {
+		var cell *bodyCell
+		if f.cells != nil {
+			cell = f.cells.cells[name]
+		}
+		if cell != nil && cell.binding != nil &&
+			!cell.fv.Written && !cell.binding.frozen && !cell.fv.Materialized {
+			continue
+		}
 		into[prefix+name] = value
 	}
 	for name, sub := range f.latestSubactions() {
 		if sub.repetition > 0 {
 			continue
 		}
-		sub.collect(prefix+name+".", into)
+		if err := sub.collect(prefix+name+".", into); deriveErr == nil {
+			deriveErr = err
+		}
 	}
+	return deriveErr
 }
 
 // latestSubactions is the latest performance of each named node under f, by name.
@@ -1405,7 +1540,10 @@ func boundEndError(end boundEnd, err error) error {
 // outputPinValue is the value a pin of direction dir carries to the other end of
 // its binding, carried false when the pin holds nothing the binding moves.
 func (e *performances) outputPinValue(perf *actionFrame, end boundEnd, dir ast.FeatureDirection) (Value, bool, error) {
-	value, ok := perf.data[perf.key(end.Pin)]
+	value, ok, err := e.ctx.readBodyValue(perf.cells, perf.data, perf.key(end.Pin))
+	if err != nil {
+		return Value{}, false, err
+	}
 	switch dir {
 	case ast.DirOut, ast.DirInOut:
 		if !ok {
@@ -1420,7 +1558,9 @@ func (e *performances) outputPinValue(perf *actionFrame, end boundEnd, dir ast.F
 		if !ok {
 			return Value{}, false, nil
 		}
-		if other, held := e.otherEndHeld(perf, end); held && e.ctx.equalValues(other, value) {
+		if other, held, err := e.otherEndHeld(perf, end); err != nil {
+			return Value{}, false, err
+		} else if held && e.ctx.equalValues(other, value) {
 			return Value{}, false, nil
 		}
 		return value, true, nil
@@ -1604,23 +1744,22 @@ func (e *performances) bindingOtherValue(perf *actionFrame, end boundEnd, activa
 
 // otherEndHeld reads what the other end of a binding holds now: a performed node's
 // pin, an enclosing feature named outright, or the feature a chain reaches.
-func (e *performances) otherEndHeld(perf *actionFrame, end boundEnd) (Value, bool) {
+func (e *performances) otherEndHeld(perf *actionFrame, end boundEnd) (Value, bool, error) {
 	if end.OtherNode != nil {
 		other, performed := e.otherPerformance(perf, end)
 		if !performed {
-			return Value{}, false
+			return Value{}, false, nil
 		}
-		value, held := other.data[other.key(end.OtherPin)]
-		return value, held
+		return e.ctx.readBodyValue(other.cells, other.data, other.key(end.OtherPin))
 	}
 	if name := simpleEndName(end.Other); name != "" {
 		return e.bindingEndContext(end).Lookup(name)
 	}
 	if end.OtherChain != nil {
 		value, err := e.bindingEndContext(end).Eval(end.Other)
-		return value, err == nil
+		return value, err == nil, err
 	}
-	return Value{}, false
+	return Value{}, false, nil
 }
 
 // unheldEnd reports whether err, from reading the other end of a binding, says that end
@@ -1634,7 +1773,10 @@ func (e *performances) unheldEnd(end boundEnd, err error) bool {
 	if end.OtherNode != nil || name == "" {
 		return false
 	}
-	_, valued := e.bindingEndContext(end).Lookup(name)
+	_, valued, lookupErr := e.bindingEndContext(end).Lookup(name)
+	if lookupErr != nil {
+		return false
+	}
 	_, _, holds := enclosingHolder(end.at, name)
 	return !valued && holds
 }
@@ -1725,7 +1867,9 @@ func (e *performances) beginInvocation(perf *actionFrame, inv actionInvocation) 
 	in, out := parameterNames(params)
 	inputs := make(map[string]Value, len(in))
 	for _, name := range in {
-		if value, ok := perf.data[perf.key(name)]; ok {
+		if value, ok, err := e.ctx.readBodyValue(perf.cells, perf.data, perf.key(name)); err != nil {
+			return nil, err
+		} else if ok {
 			inputs[name] = value
 		}
 	}
@@ -1737,7 +1881,9 @@ func (e *performances) beginInvocation(perf *actionFrame, inv actionInvocation) 
 			return nil, err
 		}
 	}
-	e.bindPerformerInputs(perf, inv, params, in, inputs, performer)
+	if err := e.bindPerformerInputs(perf, inv, params, in, inputs, performer); err != nil {
+		return nil, err
+	}
 	if err := checkInputsBound(inv, params, inputs); err != nil {
 		return nil, err
 	}
@@ -1757,7 +1903,7 @@ func (e *performances) beginInvocation(perf *actionFrame, inv actionInvocation) 
 // default resolved on it, which bindContextDefault resolves once it runs on
 // that object; a like-named feature of the caller is the argument only for a
 // `ref` input the performer cannot supply.
-func (e *performances) bindPerformerInputs(perf *actionFrame, inv actionInvocation, params []actionParameter, in []string, inputs map[string]Value, performer *Instance) {
+func (e *performances) bindPerformerInputs(perf *actionFrame, inv actionInvocation, params []actionParameter, in []string, inputs map[string]Value, performer *Instance) error {
 	if inv.expr == nil {
 		refInputs := make(map[string]bool)
 		if inv.chain != nil {
@@ -1771,13 +1917,15 @@ func (e *performances) bindPerformerInputs(perf *actionFrame, inv actionInvocati
 			if _, bound := inputs[name]; bound || refInputs[name] {
 				continue
 			}
-			if value, ok := lookupEnclosing(perf, name); ok {
+			if value, ok, err := e.lookupEnclosing(perf, name); err != nil {
+				return err
+			} else if ok {
 				inputs[name] = value
 			}
 		}
 	}
 	if inv.chain == nil {
-		return
+		return nil
 	}
 	for _, param := range params {
 		if param.IsReference {
@@ -1786,6 +1934,7 @@ func (e *performances) bindPerformerInputs(perf *actionFrame, inv actionInvocati
 			}
 		}
 	}
+	return nil
 }
 
 // streamCalleeOutput is what the action a node performs writes its outputs through
@@ -1800,7 +1949,7 @@ func (e *performances) streamCalleeOutput(perf *actionFrame, out []string) func(
 		if !outputs[key] {
 			return nil
 		}
-		perf.data[key] = value
+		e.ctx.writeBodyValue(perf.cells, perf.data, key, value)
 		return e.streamFrom(perf, key, value)
 	}
 }
@@ -1809,7 +1958,7 @@ func (e *performances) streamCalleeOutput(perf *actionFrame, out []string) func(
 // own: its features' values, and its subactions, read as `call.inner.v`.
 func (f *actionFrame) adopt(callee *ActionExecutor) {
 	for name, value := range callee.root.data {
-		f.data[f.key(name)] = value
+		callee.ctx.writeBodyValue(f.cells, f.data, f.key(name), value)
 	}
 	f.performs = callee.graph
 	if len(callee.root.subactions) > 0 && f.subactions == nil {
@@ -1840,8 +1989,9 @@ func checkInputsBound(inv actionInvocation, params []actionParameter, inputs map
 // performanceFrame is the frame an evaluation reads a performance's values
 // through, which also answers for the nodes of its flow.
 func performanceFrame(f *actionFrame) frame {
-	fr := frame{vars: f.data, aliases: f.aliases, perf: f, run: f.run}
+	fr := frame{vars: f.data, aliases: f.aliases, perf: f, run: f.run, cells: f.cells}
 	if f.perfs != nil {
+		fr.ensureCells = func() *bodyCells { return f.perfs.bodyCells(f) }
 		// A qualified write lands on the run's own path: the declaration check,
 		// the performance occurrence, and the flows streaming the written pin.
 		fr.write = func(_ frame, name string, value Value) error {
@@ -1849,6 +1999,16 @@ func performanceFrame(f *actionFrame) frame {
 		}
 	}
 	return fr
+}
+
+// bodyCells lazily gives a performance data map its dependency cells.
+func (e *performances) bodyCells(perf *actionFrame) *bodyCells {
+	if perf.cells == nil {
+		perf.cells = newBodyCells(perf.data, func(scope *symbols.Scope) *EvalContext {
+			return e.evalContextFor(perf, scope)
+		})
+	}
+	return perf.cells
 }
 
 // cloneUnreceived copies the unreceived streams of a frame, queues included.

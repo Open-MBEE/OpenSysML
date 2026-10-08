@@ -1,6 +1,6 @@
 {
 	"type": "action",
 	"outputs": {
-		"total": {"type": "Real", "value": 1.62}
+		"total": {"type": "Rational", "value": "1.62"}
 	}
 }

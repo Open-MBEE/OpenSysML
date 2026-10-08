@@ -37,6 +37,7 @@ type lowered struct {
 	applied []string
 	notes   []string
 	refused string
+	perRow  bool
 }
 
 func (l *lowered) note(s string) {
@@ -173,7 +174,7 @@ func (m *migration) writeTable(td *tableDoc) {
 		m.report.Entries = append(m.report.Entries, *m.tableEntry(t, Unmapped, "", note))
 		return
 	}
-	m.writeQueryDef(td.query, prefix, l.rows)
+	m.writeQueryDef(td.query, prefix, host, l.rows)
 	m.inside(blockNames("Document", columnNames{"rows": true}), func() {
 		m.w.block("part def "+writeName(td.doc)+" :> "+m.queryPrefix(host)+"Document", func() {
 			m.w.line("attribute redefines title = " + stringLiteral(td.title) + ";")
@@ -393,7 +394,9 @@ func (m *migration) typedRows(src qx, types []sysmlv1.ElementRef, subtypes, indi
 	}
 	rows := src
 	if !typesAdmitAll(filters, l) {
-		var types, metadata uniqueNames
+		var metadata uniqueNames
+		var filtersToMerge []typeFilter
+		var qs []qx
 		for _, f := range filters {
 			switch {
 			case f.refused != "" && len(filters) == 1:
@@ -404,21 +407,28 @@ func (m *migration) typedRows(src qx, types []sysmlv1.ElementRef, subtypes, indi
 			case len(f.classifiers) > 0:
 				l.note(f.note)
 				for _, c := range f.classifiers {
-					types.add(m.plainName(c))
+					filtersToMerge = append(filtersToMerge, typeFilter{types: []string{m.plainName(c)}})
 				}
 			case f.metadata != "":
 				metadata.add(f.metadata)
 			default:
 				l.note(f.note)
-				types.add(f.types...)
+				filtersToMerge = append(filtersToMerge, f)
 			}
 		}
-		var qs []qx
-		if len(types) > 0 {
-			qs = append(qs, whereType(src, types...))
+		var merged typeFilter
+		if len(filtersToMerge) > 0 {
+			merged = mergeTypeFilters(filtersToMerge)
+		}
+		source := src
+		if merged.excluding != nil && !l.perRow {
+			source = qshared(src)
+		}
+		if len(filtersToMerge) > 0 {
+			qs = append(qs, merged.query(source))
 		}
 		if len(metadata) > 0 {
-			qs = append(qs, qcall("WhereMetadata", qarg1("source", src), qstrs("'metadata'", metadata...)))
+			qs = append(qs, qcall("WhereMetadata", qarg1("source", source), qstrs("'metadata'", metadata...)))
 		}
 		if len(qs) == 0 {
 			l.refuse("none of the element types has a v2 form rows could be filtered by")

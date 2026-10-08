@@ -8,10 +8,12 @@ import java.util.Optional;
  * A magnitude and the measurement reference it is expressed in.
  *
  * <p>The magnitude keeps {@code Integer} and {@code Real} apart the way {@link Value} does: it is a
- * {@link Long} or, beyond {@code long}, a {@link java.math.BigInteger} for an {@code Integer}, and a
- * {@link Double} for a {@code Real}, never converted on the way in.
+ * {@link Long} or, beyond {@code long}, a {@link java.math.BigInteger} for an {@code Integer}, a
+ * {@link Rational} for an exact {@code Rational} no {@code double} holds, and a {@link Double} for a
+ * {@code Real}, never converted on the way in.
  *
- * @param magnitude the magnitude, a {@link Long}, {@link java.math.BigInteger} or {@link Double}
+ * @param magnitude the magnitude, a {@link Long}, {@link java.math.BigInteger}, {@link Rational} or
+ *     {@link Double}
  * @param unit the unit as written ({@code "km/h"}), or empty for one never written down
  * @param reduction what the unit reduces to, absent when the service sent none
  */
@@ -21,7 +23,7 @@ public record Quantity(Number magnitude, Optional<String> unit, Optional<UnitTer
    * Creates a quantity.
    *
    * @param magnitude the magnitude, a {@link Long}, a {@link java.math.BigInteger} beyond {@code
-   *     long}, or a {@link Double}
+   *     long}, a {@link Rational}, or a {@link Double}
    * @param unit the unit as written, absent when unnamed
    * @param reduction the unit's reduction to base units, absent when the service sent none
    */
@@ -34,9 +36,11 @@ public record Quantity(Number magnitude, Optional<String> unit, Optional<UnitTer
         throw new IllegalArgumentException(
             "a magnitude within long is a Long, not a BigInteger: " + magnitude);
       }
-    } else if (!(magnitude instanceof Long) && !(magnitude instanceof Double)) {
+    } else if (!(magnitude instanceof Long)
+        && !(magnitude instanceof Rational)
+        && !(magnitude instanceof Double)) {
       throw new IllegalArgumentException(
-          "magnitude must be a Long, a BigInteger or a Double: " + magnitude);
+          "magnitude must be a Long, a BigInteger, a Rational or a Double: " + magnitude);
     }
   }
 
@@ -47,6 +51,16 @@ public record Quantity(Number magnitude, Optional<String> unit, Optional<UnitTer
    */
   public boolean isIntegral() {
     return magnitude instanceof Long || magnitude instanceof java.math.BigInteger;
+  }
+
+  /**
+   * Whether the magnitude is exact, an {@code Integer} or a {@code Rational}, rather than a {@code
+   * Real}.
+   *
+   * @return {@code true} for an integral or rational magnitude
+   */
+  public boolean isExact() {
+    return isIntegral() || magnitude instanceof Rational;
   }
 
   /**

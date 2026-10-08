@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xmi:XMI xmi:version="2.5.1" xmlns:xmi="http://www.omg.org/spec/XMI/20131001"
+         xmlns:uml="http://www.omg.org/spec/UML/20161101"
+         xmlns:sysml="http://www.omg.org/spec/SysML/20181001/SysML">
+  <uml:Model xmi:type="uml:Model" xmi:id="_m" name="Model">
+    <packagedElement xmi:type="uml:Class" xmi:id="_payload" name="Payload"/>
+    <packagedElement xmi:type="uml:Signal" xmi:id="_notice" name="Notice">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_noticeValue" name="value" type="_payload"/>
+    </packagedElement>
+    <packagedElement xmi:type="uml:CallEvent" xmi:id="_callEvent" name="Request" operation="_operation"/>
+    <packagedElement xmi:type="uml:Class" xmi:id="_controller" name="Controller">
+      <ownedOperation xmi:type="uml:Operation" xmi:id="_operation" name="request">
+        <ownedParameter xmi:type="uml:Parameter" xmi:id="_requestValue" name="value" direction="in" type="_payload"/>
+        <ownedParameter xmi:type="uml:Parameter" xmi:id="_requestResult" name="result" direction="return" type="_payload"/>
+      </ownedOperation>
+      <ownedBehavior xmi:type="uml:Activity" xmi:id="_activity" name="Process">
+        <node xmi:type="uml:InitialNode" xmi:id="_initial"/>
+        <node xmi:type="uml:AcceptCallAction" xmi:id="_acceptCall" name="acceptCall">
+          <trigger xmi:type="uml:Trigger" xmi:id="_trigger" event="_callEvent"/>
+          <returnInformation xmi:type="uml:OutputPin" xmi:id="_acceptedReturn" name="returnInformation" type="_payload"/>
+          <result xmi:type="uml:OutputPin" xmi:id="_acceptedResult" name="result" type="_payload"/>
+        </node>
+        <node xmi:type="uml:ReplyAction" xmi:id="_reply" name="reply" replyToCall="_trigger">
+          <returnInformation xmi:type="uml:InputPin" xmi:id="_replyReturn" name="returnInformation" type="_payload"/>
+          <replyValue xmi:type="uml:InputPin" xmi:id="_replyValue" name="replyValue" type="_payload">
+            <lowerValue xmi:type="uml:LiteralInteger" xmi:id="_replyValueLower" value="0"/>
+          </replyValue>
+        </node>
+        <node xmi:type="uml:UnmarshallAction" xmi:id="_unmarshall" name="unmarshall" unmarshallType="_payload">
+          <object xmi:type="uml:InputPin" xmi:id="_unmarshallObject" name="object" type="_payload">
+            <lowerValue xmi:type="uml:LiteralInteger" xmi:id="_unmarshallObjectLower" value="0"/>
+          </object>
+          <result xmi:type="uml:OutputPin" xmi:id="_unmarshallResult" name="result" type="_payload"/>
+        </node>
+        <node xmi:type="uml:BroadcastSignalAction" xmi:id="_broadcast" name="broadcast" signal="_notice">
+          <argument xmi:type="uml:InputPin" xmi:id="_broadcastArgument" name="argument" type="_payload">
+            <lowerValue xmi:type="uml:LiteralInteger" xmi:id="_broadcastArgumentLower" value="0"/>
+          </argument>
+        </node>
+        <node xmi:type="uml:ActivityFinalNode" xmi:id="_final"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_e1" source="_initial" target="_acceptCall"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_e2" source="_acceptCall" target="_reply"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_e3" source="_reply" target="_unmarshall"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_e4" source="_unmarshall" target="_broadcast"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_e5" source="_broadcast" target="_final"/>
+        <edge xmi:type="uml:ObjectFlow" xmi:id="_of1" source="_acceptedReturn" target="_replyReturn"/>
+      </ownedBehavior>
+    </packagedElement>
+  </uml:Model>
+  <sysml:Block xmi:id="_s1" base_Class="_controller"/>
+</xmi:XMI>

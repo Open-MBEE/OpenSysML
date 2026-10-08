@@ -134,9 +134,8 @@ func TestEmitTransitionFromOrthogonalRegionUsesScopedPaths(t *testing.T) {
 	}
 }
 
-// TestEmitInitialIntoPseudostate pins the rewrite of an initial transition
-// into a junction: the region starts in a helper state whose completion
-// transition reaches the junction, and the model lowers clean.
+// TestEmitInitialIntoPseudostate pins that an initial junction route leaves
+// the body's named entry action and the model lowers clean.
 func TestEmitInitialIntoPseudostate(t *testing.T) {
 	m, err := emitFixture(t, "", `
           <subvertex xmi:type="uml:State" xmi:id="xS2" name="S2">
@@ -156,9 +155,8 @@ func TestEmitInitialIntoPseudostate(t *testing.T) {
 	}
 	for _, want := range []string{
 		"junction S2_J2;",
-		"state S2_I_start;",
-		"transition first S2_I_start then S2_J2;",
-		"entry; then S2_I_start;",
+		"entry action 'S2.initial';",
+		"transition 'S2.initial' then S2_J2;",
 		"transition first S2_J2 then S2_S2_1;",
 	} {
 		if !strings.Contains(m.Text, want) {
@@ -170,8 +168,8 @@ func TestEmitInitialIntoPseudostate(t *testing.T) {
 	}
 }
 
-// TestEmitInitialWithEffect pins that an initial transition's effect rides a
-// helper state's completion transition, in a single and in a parallel region.
+// TestEmitInitialWithEffect pins that an initial transition's effect leaves
+// the body's named entry action, in a single and in a parallel region.
 func TestEmitInitialWithEffect(t *testing.T) {
 	m, err := emitFixture(t, "", `
           <subvertex xmi:type="uml:State" xmi:id="xS2" name="S2">
@@ -206,16 +204,14 @@ func TestEmitInitialWithEffect(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, want := range []string{
-		"state S2_I_start;",
-		`transition first S2_I_start do {`,
+		"entry action 'S2.initial' {",
+		`transition 'S2.initial' do {`,
 		`"T2.1(effect)"`,
 		"then S2_S2_1;",
-		"transition 'S2.initial' then S2_I_start;",
-		"state S3_I_start;",
-		`transition first S3_I_start do {`,
+		"entry action 'S3/R1.initial';",
+		`transition 'S3/R1.initial' do {`,
 		`"T3.1(effect)"`,
 		"then S3_S3_1;",
-		"entry; then S3_I_start;",
 		"entry; then S3_S3_2;",
 	} {
 		if !strings.Contains(m.Text, want) {
@@ -225,19 +221,17 @@ func TestEmitInitialWithEffect(t *testing.T) {
 	if appends := strings.Count(m.Text, `"T2.1(effect)";`) + strings.Count(m.Text, `"T3.1(effect)";`); appends != 2 {
 		t.Errorf("initial effects are appended %d times, want once each:\n%s", appends, m.Text)
 	}
-	if strings.Contains(m.Text, "entry action 'S3/R1.initial'") {
-		t.Errorf("model folds an initial effect into a region's entry action:\n%s", m.Text)
+	if strings.Contains(m.Text, "state S2_I_start;") || strings.Contains(m.Text, "state S3_I_start;") {
+		t.Errorf("model emits a helper state for an initial effect:\n%s", m.Text)
 	}
 	if problems := Validate(m); len(problems) > 0 {
 		t.Errorf("%s\n%s", strings.Join(problems, "\n"), m.Text)
 	}
 }
 
-// TestEmitInitialHelperNameIsUnique pins that the helper state an initial
-// transition starts in shares the vertex name registry, and that the registry
-// reserves final names: a state spelled like a suffixed name keeps it, and
-// the next collision probes past it.
-func TestEmitInitialHelperNameIsUnique(t *testing.T) {
+// TestEmitInitialEntryActionKeepsItsName pins that an effect-bearing initial
+// transition uses the region's entry-action name without replacing its target.
+func TestEmitInitialEntryActionKeepsItsName(t *testing.T) {
 	m, err := emitFixture(t, "", `
           <subvertex xmi:type="uml:State" xmi:id="xS2" name="S2">
             <region xmi:type="uml:Region" xmi:id="xS2r1" name="R1">
@@ -257,21 +251,24 @@ func TestEmitInitialHelperNameIsUnique(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, want := range []string{
+		"entry action 'S2/R1.initial';",
+		`transition 'S2/R1.initial' do {`,
+		"then S2_I_start;",
 		"state S2_I_start;",
 		"state S2_I_start_2;",
-		"state S2_I_start_3;",
-		"then S2_I_start_3;",
-		"transition first S2_I_start_3 then S2_I_start_2;",
-		"entry; then S2_I_start;",
+		"transition first S2_I_start then S2_I_start_2;",
 	} {
 		if !strings.Contains(m.Text, want) {
 			t.Errorf("model lacks %q:\n%s", want, m.Text)
 		}
 	}
-	for _, decl := range []string{"state S2_I_start;", "state S2_I_start_2;", "state S2_I_start_3;"} {
+	for _, decl := range []string{"state S2_I_start;", "state S2_I_start_2;"} {
 		if n := strings.Count(m.Text, decl); n != 1 {
 			t.Errorf("%q is declared %d times, want once:\n%s", decl, n, m.Text)
 		}
+	}
+	if strings.Contains(m.Text, "state S2_I_start_3;") {
+		t.Errorf("model emits a helper state:\n%s", m.Text)
 	}
 	if problems := Validate(m); len(problems) > 0 {
 		t.Errorf("%s\n%s", strings.Join(problems, "\n"), m.Text)

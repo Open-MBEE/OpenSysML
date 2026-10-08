@@ -68,11 +68,15 @@ func (ec *EvalContext) chainCarrier(target *lower.AssignTarget) (*Instance, erro
 // names: a part names an occurrence rather than a value, and a calc usage names
 // an evaluation, which holds no object a write could reach.
 func (ec *EvalContext) chainRoot(base ast.Node) (Value, error) {
-	if sym, ok := ec.calcUsageOperand(base); ok {
+	if sym, ok, err := ec.calcUsageOperand(base); err != nil {
+		return Value{}, err
+	} else if ok {
 		return Value{}, fmt.Errorf("%w: calc usage %s computes output features and holds no object",
 			ErrTypeMismatch, symbolText(sym))
 	}
-	if sym, ok := ec.occurrenceOperand(base); ok {
+	if sym, ok, err := ec.occurrenceOperand(base); err != nil {
+		return Value{}, err
+	} else if ok {
 		// A collection reads as its objects; the step after it writes on one of them.
 		if ec.ctx.namesObjects(sym) {
 			return ec.ctx.denotedValue(sym)

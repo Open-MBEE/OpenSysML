@@ -1,5 +1,5 @@
 # SysML v1 to v2 migration report: refused_vertex_layout.xmi
-# migrated 13 element(s): 12 mapped, 1 approximated, 0 unmapped (0 skipped as profile, library or notation-only content, 0 as model elements nothing refers to); laid out 1 of 1 diagrams from refused_vertex_layout.layout.xml: 3 elements positioned, 3 connectors routed, 1 styled, 1 notes
+# migrated 13 element(s): 13 mapped, 0 approximated, 0 unmapped (0 skipped as profile, library or notation-only content, 0 as model elements nothing refers to); laid out 1 of 1 diagrams from refused_vertex_layout.layout.xml: 3 elements positioned, 3 connectors routed, 1 styled, 1 notes
 
 ## layout
 # source: refused_vertex_layout.layout.xml (2022x v1.0.0)
@@ -8,10 +8,8 @@
 # styles: 1 of 1 written; notes: 1 written (1 anchored, 0 freed of an anchor the view does not lay out)
 # routes of Transition: 3 written
 
-## approximated (1)
-Class	Controller	_controller	-> Controller	(a plain UML class without «Block» is written as a part def)
-
-## mapped (12)
+## mapped (13)
+Class	Controller	_controller	-> Controller
 StateMachine	Controller::Modes	_modes	-> Controller::Modes
 Region	Controller::Modes::<Region>	_region	(the one region is written as the body of its owner)
 Pseudostate	Controller::Modes::<Region>::<Pseudostate>	_initial	(written as the entry of the region)

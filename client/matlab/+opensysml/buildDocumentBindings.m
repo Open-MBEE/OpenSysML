@@ -60,6 +60,9 @@ function value = boundValue(parameter, item)
     elseif isstruct(item) && isscalar(item) && isfield(item, 'bigInteger')
         wide = opensysml.encodeValue(item);
         value = struct('bigIntValue', wide.bigIntValue);
+    elseif isstruct(item) && isscalar(item) && isfield(item, 'numerator') && isfield(item, 'denominator')
+        exact = opensysml.encodeValue(item);
+        value = struct('rationalValue', exact.rationalValue);
     elseif isstruct(item) && isfield(item, 'magnitude') && isfield(item, 'unit')
         quantity = opensysml.encodeValue(item);
         value = struct('quantity', quantity.quantity);

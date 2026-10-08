@@ -6,8 +6,8 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/check/passes"
 )
 
-// lintList is -disable-lint as written: the codes of the lints left out of the
-// model's diagnostics, comma-separated or repeated.
+// lintList is -disable-lint or -enable-lint as written: the codes of the lints
+// left out of, or kept in, the model's diagnostics, comma-separated or repeated.
 type lintList []string
 
 func (l *lintList) String() string { return strings.Join(*l, ",") }

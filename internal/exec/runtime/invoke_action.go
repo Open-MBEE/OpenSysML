@@ -342,6 +342,7 @@ func (ctx *Context) startShotMove(callee *calleeFrame) error {
 		return nil
 	}
 	if err := ctx.tokenStepBody(callee.exec.graph); err != nil {
+		callee.exec.held = paused(err)
 		return ctx.pausing(callee, err)
 	}
 	return nil

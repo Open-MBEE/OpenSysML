@@ -22,7 +22,7 @@ type stateStmtHost struct {
 	perfs *performances
 	// attrs are the attributes of the state the behavior belongs to and of the
 	// states enclosing it, innermost first.
-	attrs []map[string]Value
+	attrs []frame
 	// firing is the transition the behavior reads as being taken: the one under way
 	// for an entry, exit or effect, the one that entered the state for a do behavior.
 	firing *firing
@@ -164,7 +164,9 @@ func (e *StateExecutor) firingOf(t *lower.Transition) *firing {
 // name — `Track::context` inside a behavior of a state of Track's — finds its value
 // here.
 func (h *stateStmtHost) dataFrame() frame {
-	return frame{vars: h.exec.stateData, performed: h.exec.stateMachine, firing: h.firing}
+	fr := h.exec.dataFrame()
+	fr.firing = h.firing
+	return fr
 }
 
 // run executes the behavior's statements; a do behavior's pause where they wait
@@ -318,7 +320,7 @@ func (run *doRun) visibleArmedWaits() []ClockWait {
 
 // rootFrame is the performance of the behavior itself: it holds no feature of its
 // own, and reads the machine's data and the enclosing states' attributes around it.
-func (h *stateStmtHost) rootFrame(attrs []map[string]Value) *actionFrame {
+func (h *stateStmtHost) rootFrame(attrs []frame) *actionFrame {
 	root := &actionFrame{
 		scope:          h.behavior.Scope,
 		connections:    h.exec.graph.Connections,
@@ -334,9 +336,7 @@ func (h *stateStmtHost) rootFrame(attrs []map[string]Value) *actionFrame {
 	if root.scope == nil {
 		root.scope = h.exec.stateMachine.Scope
 	}
-	for _, attr := range attrs {
-		root.outer = append(root.outer, mapFrame(attr))
-	}
+	root.outer = append(root.outer, attrs...)
 	return root
 }
 
@@ -411,14 +411,15 @@ func (h *stateStmtHost) assignForeign(ec *EvalContext, s lower.Assign, value Val
 // behavior, or by one enclosing it, and reports whether it did. The value
 // answers to the attribute's declaration as every other write does.
 func (h *stateStmtHost) assignStateAttribute(name string, value Value) (bool, error) {
-	data, scope, ok := h.exec.stateAttributeValues(h.behavior.Owner, name)
+	data, scope, cells, ok := h.exec.stateAttributeValues(h.behavior.Owner, name)
 	if !ok {
 		return false, nil
 	}
 	if err := h.exec.ctx.checkNamedWrite(scope, h.describe(), name, &value); err != nil {
 		return true, err
 	}
-	data[name] = value
+	h.exec.ctx.writeBodyValue(cells, data, name, value)
+	h.exec.ctx.noteStateDataWrite()
 	return true, nil
 }
 
@@ -519,6 +520,7 @@ func (h *stateStmtHost) runFlow(block lower.Block) (stmtFlow, error) {
 		root.scope = block.Graph.Scope
 	}
 	h.flow.declareRootFeatures(root)
+	h.flow.registerRootBindings(root)
 	h.flow.declareAcceptPayloads(root)
 	if err := h.flow.initializeAttributes(); err != nil {
 		return flowNext, fmt.Errorf("%s: %w", h.describe(), err)
@@ -533,7 +535,7 @@ func (h *stateStmtHost) setFeature(name string, value Value) error {
 		if err := h.exec.ctx.checkNamedWrite(root.scope, h.describe(), name, &value); err != nil {
 			return err
 		}
-		root.data[root.key(name)] = value
+		h.exec.ctx.writeBodyValue(root.cells, root.data, root.key(name), value)
 		return nil
 	}
 	if written, err := h.assignAround(name, value); written || err != nil {
@@ -552,7 +554,8 @@ func (h *stateStmtHost) assignAround(name string, value Value) (bool, error) {
 		return true, h.exec.assignAttribute(name, value)
 	}
 	if _, ok := h.exec.stateData[name]; ok {
-		h.exec.stateData[name] = value
+		h.exec.ctx.writeBodyValue(h.exec.stateCells, h.exec.stateData, name, value)
+		h.exec.ctx.noteStateDataWrite()
 		return true, nil
 	}
 	return assignPerformerFeature(h.exec.ctx, h.exec.self, h.behavior.Scope, name, value)
@@ -561,7 +564,7 @@ func (h *stateStmtHost) assignAround(name string, value Value) (bool, error) {
 // returnAround writes a returned output as assignAround does and keeps it for the
 // caller when a call event's transition is firing.
 func (h *stateStmtHost) returnAround(name string, value Value) (bool, error) {
-	if _, scope, ok := h.exec.stateAttributeValues(h.behavior.Owner, name); ok {
+	if _, scope, _, ok := h.exec.stateAttributeValues(h.behavior.Owner, name); ok {
 		what := func() string { return fmt.Sprintf("%s: output %s returned", h.describe(), name) }
 		if err := h.exec.ctx.checkMutable(scope, what, name); err != nil {
 			return true, err

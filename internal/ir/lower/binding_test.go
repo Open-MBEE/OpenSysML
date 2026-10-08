@@ -115,3 +115,48 @@ func TestToBindingsKeepsMultipleContributors(t *testing.T) {
 		}
 	}
 }
+
+func TestToBindingsKeepsTheFeatureAnIndexedEndSelectsFrom(t *testing.T) {
+	p := parser.New(source.New("binding-indexed.sysml", []byte(`package P {
+		part def Owner {
+			bind gauge = tank.levels#(2);
+			bind xs#(1) = ys#(i + 1);
+		}
+	}`)))
+	file := p.ParseFile()
+	idx := symbols.NewIndex()
+	idx.AddDocument("binding-indexed.sysml", file)
+	scope := idx.DocumentRoot("binding-indexed.sysml")
+	var bindings []Binding
+	for _, member := range file.Members {
+		if pkg, ok := member.(*ast.Membership).Member.(*ast.Package); ok {
+			for _, nested := range pkg.Members {
+				if owner, ok := nested.(*ast.Membership).Member.(*ast.Definition); ok {
+					bindings = append(bindings, ToBindings(owner, scope)...)
+				}
+			}
+		}
+	}
+	if len(bindings) != 2 {
+		t.Fatalf("lowered %d bindings, want 2", len(bindings))
+	}
+	wants := [][2]struct {
+		path    string
+		indexed bool
+	}{
+		{{"gauge", false}, {"tank.levels", true}},
+		{{"xs", true}, {"ys", true}},
+	}
+	for i, binding := range bindings {
+		for end, want := range wants[i] {
+			got := binding.Ends[end]
+			if got.Path != want.path || (got.Index != nil) != want.indexed {
+				t.Errorf("binding %d end %d = path %q indexed %v, want path %q indexed %v",
+					i, end, got.Path, got.Index != nil, want.path, want.indexed)
+			}
+			if _, isIndex := got.Expr.(*ast.IndexExpr); isIndex != want.indexed {
+				t.Errorf("binding %d end %d expr = %T, want the end as written", i, end, got.Expr)
+			}
+		}
+	}
+}

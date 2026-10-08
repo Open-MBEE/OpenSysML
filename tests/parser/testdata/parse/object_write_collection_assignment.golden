@@ -1,0 +1,30 @@
+(RootNamespace
+  (Membership visibility="default"
+    (Package name="test" library=false standard=false
+      (Import visibility="private" all=false kind=namespace recursive=false imported="ScalarValues" filtered=false)
+      (Import visibility="private" all=false kind=namespace recursive=false imported="SequenceFunctions" filtered=false)
+      (Membership visibility="default"
+        (Definition kind="part" abstract=false variation=false name="Box"
+          (Membership visibility="default"
+            (Usage kind="attribute" name="values" ref=false direction="none" composite=false derived=false ordered=true nonunique=true
+              (Relationship kind="typing" target=Integer
+                (*ast.QualifiedName))
+              (Multiplicity range=true
+                (LiteralInteger value="0")
+                (LiteralInfinity))))))
+      (Membership visibility="default"
+        (Usage kind="action" name="write" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+          (Membership visibility="default"
+            (Usage kind="attribute" name="object" ref=false direction="in" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Box
+                (*ast.QualifiedName))))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="value" ref=false direction="in" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Integer
+                (*ast.QualifiedName))))
+          (*ast.AssignmentActionNode)
+          (Membership visibility="default"
+            (Usage kind="attribute" name="result" ref=false direction="out" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Box
+                (*ast.QualifiedName))
+              (FeatureReference name="object"))))))))

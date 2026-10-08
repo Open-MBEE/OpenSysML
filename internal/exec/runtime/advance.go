@@ -5,6 +5,7 @@ import (
 	"math"
 	"slices"
 
+	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 )
 
@@ -25,6 +26,8 @@ type clockWaiter interface {
 	// runDue runs the executor to quiescence at the current instant, counting
 	// against progress, and reports whether it got anywhere.
 	runDue(progress *dueProgress) (bool, error)
+	// runMove runs one move of the executor's due work, as runDue does.
+	runMove(progress *dueProgress) (bool, error)
 	// finished reports an executor the clock has nothing left to drive; running a
 	// run of it already on the stack, which drives the clock itself.
 	finished() bool
@@ -260,8 +263,146 @@ func (ctx *Context) drawDueOrder(due []clockWaiter) (int, error) {
 	return pick, nil
 }
 
-// runWaiter runs one executor's due work, recording the run when the executor
-// is an object's behavior.
+// contended reports whether a move w may make next depends on a move another
+// executor may make before it at this instant, under a policy interleaving turns.
+func (ctx *Context) contended(w clockWaiter) bool {
+	if !ctx.gateFutures() {
+		return false
+	}
+	next := nextFootprint(w)
+	for _, other := range ctx.rivals(w) {
+		if next.DependentBy(ctx.futures.executorFuture(other), ctx.relation(w, other)) {
+			return true
+		}
+	}
+	return false
+}
+
+// gateFutures readies the futures of this instant's executors under a policy
+// interleaving turns, reporting whether one does.
+func (ctx *Context) gateFutures() bool {
+	if sched := ctx.scheduling(); !sched.interleavesTurns() && !sched.checking() {
+		return false
+	}
+	if ctx.futures == nil {
+		ctx.futures = newFutureFootprints(ctx)
+	}
+	ctx.futures.gate()
+	return true
+}
+
+// endContended reports whether the driver's next move may end its run while
+// another executor may still move at this instant: an end observes every place.
+func (ctx *Context) endContended(driver clockWaiter) bool {
+	return mayEnd(driver) && ctx.gateFutures() && len(ctx.rivals(driver)) > 0
+}
+
+// mayEnd reports whether the executor's next move may end its performance: a
+// token of an action that may, or a machine that can complete or terminate.
+func mayEnd(w clockWaiter) bool {
+	switch exec := w.(type) {
+	case *ActionExecutor:
+		return exec.dynamics != nil || slices.ContainsFunc(exec.tokens, func(t Token) bool { return tokenMayEnd(exec, t) })
+	case *StateExecutor:
+		return len(exec.graph.TopRegions) > 0 || len(exec.graph.Terminates) > 0 || slices.ContainsFunc(exec.graph.States, exec.graph.Completes)
+	}
+	return true
+}
+
+// tokenMayEnd reports whether the token's next move may end the performance: a
+// move out of a nested frame, past no unguarded succession, or reaching beyond its node.
+func tokenMayEnd(exec *ActionExecutor, t Token) bool {
+	if t.frame != nil && t.frame != exec.root || standing(exec, t).Dynamic {
+		return true
+	}
+	edges := tokenGraphOf(exec, t).Edges[t.Location]
+	return len(edges) == 0 || slices.ContainsFunc(edges, func(e lower.ActionEdge) bool { return e.Guard != nil })
+}
+
+// rivals are the executors other than w that may move at this instant before w's
+// next move: those due or on the stack, and those a rival's moves may wake.
+func (ctx *Context) rivals(w clockWaiter) []clockWaiter {
+	var rivals, idle []clockWaiter
+	for _, other := range ctx.clock.waiters {
+		switch {
+		case other == w || other.finished():
+		case other.dueWork() || other.running():
+			rivals = append(rivals, other)
+		default:
+			idle = append(idle, other)
+		}
+	}
+	for woke := true; woke; {
+		woke = false
+		for i, other := range idle {
+			if other != nil && ctx.wokenBy(other, rivals) {
+				rivals = append(rivals, other)
+				idle[i], woke = nil, true
+			}
+		}
+	}
+	return rivals
+}
+
+// wokenBy reports whether a rival's future may not commute with the idle executor's.
+func (ctx *Context) wokenBy(idle clockWaiter, rivals []clockWaiter) bool {
+	future := ctx.futures.executorFuture(idle)
+	for _, rival := range rivals {
+		if ctx.futures.executorFuture(rival).DependentBy(future, ctx.relation(rival, idle)) {
+			return true
+		}
+	}
+	return false
+}
+
+// nextFootprint is what any move the executor may make next touches.
+func nextFootprint(w clockWaiter) lower.Footprint {
+	switch exec := w.(type) {
+	case *ActionExecutor:
+		var fp lower.Footprint
+		for _, t := range exec.tokens {
+			fp = unionFootprints(fp, standing(exec, t))
+		}
+		return fp
+	case *StateExecutor:
+		return machineStanding(exec)
+	}
+	return lower.Footprint{Dynamic: true}
+}
+
+// runTurn runs the executor's due work, holding its turn only through moves
+// independent of every other executor's, so the due order is drawn before each other.
+func (ctx *Context) runTurn(w clockWaiter, progress *dueProgress) (bool, error) {
+	if !ctx.scheduling().interleavesTurns() {
+		return w.runDue(progress)
+	}
+	ran := false
+	for {
+		moved, err := w.runMove(progress)
+		ran = ran || moved
+		if err != nil || !moved || !w.dueWork() || ctx.contended(w) {
+			return ran, err
+		}
+	}
+}
+
+// yieldTurn draws the due order again before a driver's move contended by another
+// executor, running the executors the draw falls on before the driver goes on.
+func (ctx *Context) yieldTurn(driver clockWaiter, progress *dueProgress) error {
+	if ctx.body != nil || !ctx.contended(driver) && !ctx.endContended(driver) {
+		return nil
+	}
+	for _, w := range ctx.clock.waiters {
+		if w != driver && w.running() {
+			return nil
+		}
+	}
+	_, err := ctx.runDue(driver, progress)
+	return err
+}
+
+// runWaiter runs one executor's turn of due work, recording the run when the
+// executor is an object's behavior.
 func (ctx *Context) runWaiter(w clockWaiter, progress *dueProgress) (bool, error) {
 	behavior := ctx.behaviorOf(w)
 	if ctx.trace != nil {
@@ -269,7 +410,7 @@ func (ctx *Context) runWaiter(w clockWaiter, progress *dueProgress) (bool, error
 			ctx.trace.RecordBehaviorRun(behavior.Kind.String(), behavior.Name, behavior.Object.ID)
 		}
 	}
-	moved, err := w.runDue(progress)
+	moved, err := ctx.runTurn(w, progress)
 	return moved, ctx.handleBehaviorRunError(behavior, err)
 }
 

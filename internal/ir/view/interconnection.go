@@ -18,11 +18,16 @@ import (
 // rendering outside any view. An exposed feature another exposed feature draws
 // nested in it is not a second root.
 func (r *Renderer) renderInterconnection(view *symbols.Symbol, exposed []*symbols.Symbol, out *Rendering) {
-	w := &featureWalk{r: r, view: view, ids: &nodeIDs{}, nodes: map[*symbols.Symbol]*Node{},
-		pins: map[*Node]map[*symbols.Symbol]string{}, parent: map[*Node]*Node{}, out: out}
+	r.renderInterconnectionWithIDs(view, exposed, out, &nodeIDs{}, false)
+}
+
+// renderInterconnectionWithIDs walks structural features with shared node IDs.
+func (r *Renderer) renderInterconnectionWithIDs(view *symbols.Symbol, exposed []*symbols.Symbol, out *Rendering, ids *nodeIDs, mixed bool) map[*symbols.Symbol]*Node {
+	w := &featureWalk{r: r, view: view, ids: ids, nodes: map[*symbols.Symbol]*Node{},
+		pins: map[*Node]map[*symbols.Symbol]string{}, parent: map[*Node]*Node{}, out: out, mixed: mixed}
 	var roots []*symbols.Symbol
 	for _, elem := range exposed {
-		if !r.drawsConnector(elem) && featureLike(elem) {
+		if !r.drawsConnector(elem) && w.drawsFeature(elem) {
 			roots = append(roots, elem)
 		}
 	}
@@ -31,7 +36,7 @@ func (r *Renderer) renderInterconnection(view *symbols.Symbol, exposed []*symbol
 		switch {
 		case r.drawsConnector(elem):
 			w.connectors = append(w.connectors, elem)
-		case featureLike(elem):
+		case w.drawsFeature(elem):
 			if descendants[symbols.KeyOf(elem)] {
 				continue
 			}
@@ -50,22 +55,45 @@ func (r *Renderer) renderInterconnection(view *symbols.Symbol, exposed []*symbol
 		seen[connector] = true
 		w.connectionEdges(connector)
 	}
+	w.valueBindingEdges()
+	return w.nodes
 }
 
 // featureWalk is one interconnection rendering's walk over the exposed features:
 // the nodes rendered so far, by the feature each draws, and the connectors
-// collected along the way. pins is the ports a feature has from its type
-// without declaring them, drawn on the border of its node, by node and port;
-// parent is the node each nested node is drawn in.
+// collected along the way. pins is the ports drawn on the border of a node
+// rather than as nodes of their own — the ports a feature has from its type
+// without declaring them, and a case's parameters — by node and port; drawn is
+// every feature drawn, as a node or a pin, in drawing order; parent is the node
+// each nested node is drawn in.
 type featureWalk struct {
 	r          *Renderer
 	view       *symbols.Symbol
 	ids        *nodeIDs
 	nodes      map[*symbols.Symbol]*Node
+	drawn      []*symbols.Symbol
 	pins       map[*Node]map[*symbols.Symbol]string
 	parent     map[*Node]*Node
 	connectors []*symbols.Symbol
 	out        *Rendering
+	mixed      bool
+}
+
+// drawsFeature reports whether the interconnection traversal emits sym as a feature node.
+func (w *featureWalk) drawsFeature(sym *symbols.Symbol) bool {
+	if !featureLike(sym) {
+		return false
+	}
+	if !w.mixed {
+		return true
+	}
+	switch sym.Kind {
+	case symbols.SymbolPartDef, symbols.SymbolPartUsage, symbols.SymbolItemDef, symbols.SymbolItemUsage,
+		symbols.SymbolPortDef, symbols.SymbolPortUsage, symbols.SymbolConnectionDef, symbols.SymbolConnectionUsage,
+		symbols.SymbolInterfaceDef, symbols.SymbolInterfaceUsage, symbols.SymbolAllocationDef, symbols.SymbolAllocationUsage:
+		return true
+	}
+	return false
 }
 
 // featureNode renders one exposed feature and the features nested in it,
@@ -85,6 +113,7 @@ func (w *featureWalk) featureNode(sym *symbols.Symbol, seen map[*symbols.Symbol]
 		return node
 	}
 	w.nodes[sym] = node
+	w.drawn = append(w.drawn, sym)
 	w.pinPorts(node, sym)
 	r.notesOf(w.view, sym, node.ID, w.out)
 	if seen[sym] || depth >= r.treeDepth() {
@@ -95,7 +124,9 @@ func (w *featureWalk) featureNode(sym *symbols.Symbol, seen map[*symbols.Symbol]
 		switch {
 		case r.drawsConnector(member):
 			w.connectors = append(w.connectors, member)
-		case featureLike(member):
+		case casePin(sym, member):
+			w.pin(node, member, pinDirection(member))
+		case w.drawsFeature(member):
 			child := w.featureNode(member, seen, depth+1, false)
 			w.parent[child] = node
 			node.Children = append(node.Children, child)
@@ -110,14 +141,70 @@ func (w *featureWalk) featureNode(sym *symbols.Symbol, seen map[*symbols.Symbol]
 // at `heating.durationIn` ends at that pin.
 func (w *featureWalk) pinPorts(node *Node, sym *symbols.Symbol) {
 	for _, port := range w.r.typedPorts(sym) {
-		id := portID(node.ID, len(node.Ports))
-		node.Ports = append(node.Ports, Port{ID: id, Name: localName(port), Type: declType(port),
-			Direction: PortUndirected, Origin: symbolOrigin(port)})
-		if w.pins[node] == nil {
-			w.pins[node] = map[*symbols.Symbol]string{}
-		}
-		w.pins[node][port] = id
+		w.pin(node, port, PortUndirected)
 	}
+}
+
+// pin draws sym as a port on node's border, with the given direction.
+func (w *featureWalk) pin(node *Node, sym *symbols.Symbol, direction PortDirection) {
+	id := portID(node.ID, len(node.Ports))
+	node.Ports = append(node.Ports, Port{ID: id, Name: localName(sym), Type: declType(sym),
+		Direction: direction, Origin: symbolOrigin(sym)})
+	if w.pins[node] == nil {
+		w.pins[node] = map[*symbols.Symbol]string{}
+	}
+	w.pins[node][sym] = id
+	w.drawn = append(w.drawn, sym)
+}
+
+// siteOf is where a drawn feature is: its own node, or the node it is a pin of
+// and the pin; the zero edgeEnd for one not drawn.
+func (w *featureWalk) siteOf(sym *symbols.Symbol) edgeEnd {
+	if node := w.nodes[sym]; node != nil {
+		return edgeEnd{node: node}
+	}
+	for node, pins := range w.pins {
+		if id, ok := pins[sym]; ok {
+			return edgeEnd{node: node, port: id}
+		}
+	}
+	return edgeEnd{}
+}
+
+// casePin reports whether member, a member of an analysis case drawn as a
+// node, is drawn as a pin on its border rather than a node inside it: the
+// case's subject, parameters and attributes, as the graphical notation draws
+// a case's parameters. Its parts, actions and nested cases are not.
+func casePin(owner, member *symbols.Symbol) bool {
+	switch owner.Kind {
+	case symbols.SymbolAnalysisCaseDef, symbols.SymbolAnalysisCaseUsage:
+	default:
+		return false
+	}
+	switch member.Kind {
+	case symbols.SymbolAttributeUsage, symbols.SymbolReferenceUsage:
+		return true
+	}
+	usage, ok := member.Decl.(*ast.Usage)
+	return ok && usage.Kind == ast.UsageSubject
+}
+
+// pinDirection is the direction a parameter is declared with: `return` and
+// `out` give values out, `in` takes them in; a subject or attribute has none.
+func pinDirection(sym *symbols.Symbol) PortDirection {
+	usage, ok := sym.Decl.(*ast.Usage)
+	if !ok {
+		return PortUndirected
+	}
+	switch {
+	case usage.IsResult, usage.Direction == ast.DirOut:
+		return PortOut
+	case usage.Direction == ast.DirIn:
+		return PortIn
+	case usage.Direction == ast.DirInOut:
+		return PortInOut
+	}
+	return PortUndirected
 }
 
 // typedPorts is the ports a feature has without declaring them: those of the
@@ -194,6 +281,58 @@ func (w *featureWalk) connectionEdges(connector *symbols.Symbol) {
 	}
 }
 
+// valueBindingEdges draws each drawn feature whose value names another feature
+// (`attribute :>> observed = analysed.t`, a binding per KerML 7.4.9) as a binding
+// edge. The value attaches where a connector end naming it would — `second.y` is
+// the y under second's node, not its type's — and only when that is the valued
+// feature's own node (the subject pinned on it) does it reach the feature drawn
+// for itself. A value drawn nowhere, or one wiring two pins of one node, is no edge.
+func (w *featureWalk) valueBindingEdges() {
+	r, out := w.r, w.out
+	for _, sym := range w.drawn {
+		value := featureValue(sym)
+		if value == nil {
+			continue
+		}
+		from := w.siteOf(sym)
+		target, resolved := r.resolver.ResolveTarget(sym.OwnerScope, value)
+		if !resolved {
+			continue
+		}
+		at := w.endNode(sym, value)
+		if at.node == nil || at.node == from.node {
+			at = w.siteOf(target)
+		}
+		if at.node == nil || at.node == from.node {
+			continue
+		}
+		route, style := r.routeOf(w.view, sym, out), r.edgeDress(w.view, sym, from.node.ID, at.node.ID, out)
+		out.Edges = append(out.Edges, Edge{
+			From: from.node.ID, To: at.node.ID, FromPort: from.port, ToPort: at.port, Label: bindingKeyword, Kind: EdgeBinding,
+			Origin: symbolOrigin(sym), Route: route, Style: style,
+		})
+	}
+}
+
+// bindingKeyword labels a binding edge no name of its own labels.
+const bindingKeyword = "binding"
+
+// featureValue is the feature a usage's value names — a feature reference or
+// chain — nil for a usage with no value or one computed from an expression.
+// A `default` value yields to any other and a `:=` value holds only at the
+// start, so neither binds the feature and neither is one.
+func featureValue(sym *symbols.Symbol) ast.Node {
+	usage, ok := sym.Decl.(*ast.Usage)
+	if !ok || usage.Value == nil || usage.ValueIsDefault || usage.ValueIsInitial {
+		return nil
+	}
+	switch usage.Value.(type) {
+	case *ast.FeatureReference, *ast.FeatureChainExpr:
+		return usage.Value
+	}
+	return nil
+}
+
 // connectorEnd is one end of a connection as the rendering reads it: the node
 // naming what it attaches to, and that name as the model wrote it.
 type connectorEnd struct {
@@ -230,7 +369,8 @@ func (r *Renderer) connectorEnds(connector *symbols.Symbol) ([]connectorEnd, Edg
 			if end == nil {
 				continue
 			}
-			out = append(out, connectorEnd{attachment: end, path: lower.FeaturePath(end)})
+			feature := ast.EndTarget(end)
+			out = append(out, connectorEnd{attachment: feature, path: lower.FeaturePath(feature)})
 		}
 		return out, EdgeFlow
 	}
@@ -267,6 +407,11 @@ func (w *featureWalk) endNode(connector *symbols.Symbol, attachment ast.Node) ed
 	}
 	target, resolved := w.r.resolver.ResolveTarget(connector.OwnerScope, attachment)
 	if operand := chainOperand(attachment); operand != nil {
+		if resolved && w.mixed && target.Owner() != nil && !mixedStructural(target.Owner()) {
+			if node := w.nodes[target]; node != nil {
+				return edgeEnd{node: node}
+			}
+		}
 		if base := w.endNode(connector, operand); base.node != nil {
 			if at := w.memberEnd(base.node, target); at.node != nil {
 				return at
@@ -373,8 +518,9 @@ func isFlowUsage(sym *symbols.Symbol) bool {
 }
 
 // featureLike reports whether an element is a feature an interconnection
-// rendering shows as a node: the structural elements a system is built from.
-// Behaviors, views and namespaces are not, and are reported rather than drawn.
+// rendering shows as a node: the structural elements a system is built from, and
+// the analysis cases bound to their values, which a parametric view draws beside
+// them. Behaviors, views and namespaces are not, and are reported rather than drawn.
 func featureLike(sym *symbols.Symbol) bool {
 	switch sym.Kind {
 	case symbols.SymbolPartDef, symbols.SymbolPartUsage,
@@ -385,6 +531,7 @@ func featureLike(sym *symbols.Symbol) bool {
 		symbols.SymbolAttributeDef, symbols.SymbolAttributeUsage, symbols.SymbolReferenceUsage,
 		symbols.SymbolEnumerationDef, symbols.SymbolEnumerationUsage,
 		symbols.SymbolInterfaceDef, symbols.SymbolConnectionDef, symbols.SymbolAllocationDef,
+		symbols.SymbolAnalysisCaseDef, symbols.SymbolAnalysisCaseUsage,
 		symbols.SymbolKerMLType:
 		return true
 	}

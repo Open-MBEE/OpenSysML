@@ -376,6 +376,8 @@ func scalarValueType(value Value) (semantics.PrimType, bool) {
 		return semantics.PrimString, true
 	case ValueInteger:
 		return semantics.PrimInteger, true
+	case ValueRational:
+		return semantics.PrimRational, true
 	case ValueReal:
 		return semantics.PrimReal, true
 	default:

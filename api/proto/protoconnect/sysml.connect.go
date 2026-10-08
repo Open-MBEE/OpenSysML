@@ -94,6 +94,11 @@ const (
 	// SysMLServiceRenderDocumentProcedure is the fully-qualified name of the SysMLService's
 	// RenderDocument RPC.
 	SysMLServiceRenderDocumentProcedure = "/sysml.SysMLService/RenderDocument"
+	// SysMLServiceRenderViewProcedure is the fully-qualified name of the SysMLService's RenderView RPC.
+	SysMLServiceRenderViewProcedure = "/sysml.SysMLService/RenderView"
+	// SysMLServiceExportGraphsProcedure is the fully-qualified name of the SysMLService's ExportGraphs
+	// RPC.
+	SysMLServiceExportGraphsProcedure = "/sysml.SysMLService/ExportGraphs"
 )
 
 // SysMLServiceClient is a client for the sysml.SysMLService service.
@@ -177,6 +182,13 @@ type SysMLServiceClient interface {
 	// Render a named document to Markdown, as the CLI's -render-document does.
 	// Reported as the "render_document" capability.
 	RenderDocument(context.Context, *connect.Request[proto.RenderDocumentRequest]) (*connect.Response[proto.RenderDocumentResponse], error)
+	// Render a named view or targeted pseudo-view as machine-readable diagram
+	// data. Reported as the "render_view" capability.
+	RenderView(context.Context, *connect.Request[proto.RenderViewRequest]) (*connect.Response[proto.RenderViewResponse], error)
+	// Export the lowered graph of an action or a state machine — the subject's
+	// and every behavior it performs — as the canonical `graphs:<version>` JSON
+	// external analysis engines read. Reported as the "export_graphs" capability.
+	ExportGraphs(context.Context, *connect.Request[proto.ExportGraphsRequest]) (*connect.Response[proto.ExportGraphsResponse], error)
 }
 
 // NewSysMLServiceClient constructs a client for the sysml.SysMLService service. By default, it uses
@@ -328,6 +340,18 @@ func NewSysMLServiceClient(httpClient connect.HTTPClient, baseURL string, opts .
 			connect.WithSchema(sysMLServiceMethods.ByName("RenderDocument")),
 			connect.WithClientOptions(opts...),
 		),
+		renderView: connect.NewClient[proto.RenderViewRequest, proto.RenderViewResponse](
+			httpClient,
+			baseURL+SysMLServiceRenderViewProcedure,
+			connect.WithSchema(sysMLServiceMethods.ByName("RenderView")),
+			connect.WithClientOptions(opts...),
+		),
+		exportGraphs: connect.NewClient[proto.ExportGraphsRequest, proto.ExportGraphsResponse](
+			httpClient,
+			baseURL+SysMLServiceExportGraphsProcedure,
+			connect.WithSchema(sysMLServiceMethods.ByName("ExportGraphs")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
@@ -356,6 +380,8 @@ type sysMLServiceClient struct {
 	query              *connect.Client[proto.QueryRequest, proto.QueryResponse]
 	runDocumentQuery   *connect.Client[proto.RunDocumentQueryRequest, proto.RunDocumentQueryResponse]
 	renderDocument     *connect.Client[proto.RenderDocumentRequest, proto.RenderDocumentResponse]
+	renderView         *connect.Client[proto.RenderViewRequest, proto.RenderViewResponse]
+	exportGraphs       *connect.Client[proto.ExportGraphsRequest, proto.ExportGraphsResponse]
 }
 
 // GetServerInfo calls sysml.SysMLService.GetServerInfo.
@@ -473,6 +499,16 @@ func (c *sysMLServiceClient) RenderDocument(ctx context.Context, req *connect.Re
 	return c.renderDocument.CallUnary(ctx, req)
 }
 
+// RenderView calls sysml.SysMLService.RenderView.
+func (c *sysMLServiceClient) RenderView(ctx context.Context, req *connect.Request[proto.RenderViewRequest]) (*connect.Response[proto.RenderViewResponse], error) {
+	return c.renderView.CallUnary(ctx, req)
+}
+
+// ExportGraphs calls sysml.SysMLService.ExportGraphs.
+func (c *sysMLServiceClient) ExportGraphs(ctx context.Context, req *connect.Request[proto.ExportGraphsRequest]) (*connect.Response[proto.ExportGraphsResponse], error) {
+	return c.exportGraphs.CallUnary(ctx, req)
+}
+
 // SysMLServiceHandler is an implementation of the sysml.SysMLService service.
 type SysMLServiceHandler interface {
 	// Report what this build of the service can do, so a client can require a
@@ -554,6 +590,13 @@ type SysMLServiceHandler interface {
 	// Render a named document to Markdown, as the CLI's -render-document does.
 	// Reported as the "render_document" capability.
 	RenderDocument(context.Context, *connect.Request[proto.RenderDocumentRequest]) (*connect.Response[proto.RenderDocumentResponse], error)
+	// Render a named view or targeted pseudo-view as machine-readable diagram
+	// data. Reported as the "render_view" capability.
+	RenderView(context.Context, *connect.Request[proto.RenderViewRequest]) (*connect.Response[proto.RenderViewResponse], error)
+	// Export the lowered graph of an action or a state machine — the subject's
+	// and every behavior it performs — as the canonical `graphs:<version>` JSON
+	// external analysis engines read. Reported as the "export_graphs" capability.
+	ExportGraphs(context.Context, *connect.Request[proto.ExportGraphsRequest]) (*connect.Response[proto.ExportGraphsResponse], error)
 }
 
 // NewSysMLServiceHandler builds an HTTP handler from the service implementation. It returns the
@@ -701,6 +744,18 @@ func NewSysMLServiceHandler(svc SysMLServiceHandler, opts ...connect.HandlerOpti
 		connect.WithSchema(sysMLServiceMethods.ByName("RenderDocument")),
 		connect.WithHandlerOptions(opts...),
 	)
+	sysMLServiceRenderViewHandler := connect.NewUnaryHandler(
+		SysMLServiceRenderViewProcedure,
+		svc.RenderView,
+		connect.WithSchema(sysMLServiceMethods.ByName("RenderView")),
+		connect.WithHandlerOptions(opts...),
+	)
+	sysMLServiceExportGraphsHandler := connect.NewUnaryHandler(
+		SysMLServiceExportGraphsProcedure,
+		svc.ExportGraphs,
+		connect.WithSchema(sysMLServiceMethods.ByName("ExportGraphs")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/sysml.SysMLService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case SysMLServiceGetServerInfoProcedure:
@@ -749,6 +804,10 @@ func NewSysMLServiceHandler(svc SysMLServiceHandler, opts ...connect.HandlerOpti
 			sysMLServiceRunDocumentQueryHandler.ServeHTTP(w, r)
 		case SysMLServiceRenderDocumentProcedure:
 			sysMLServiceRenderDocumentHandler.ServeHTTP(w, r)
+		case SysMLServiceRenderViewProcedure:
+			sysMLServiceRenderViewHandler.ServeHTTP(w, r)
+		case SysMLServiceExportGraphsProcedure:
+			sysMLServiceExportGraphsHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -848,4 +907,12 @@ func (UnimplementedSysMLServiceHandler) RunDocumentQuery(context.Context, *conne
 
 func (UnimplementedSysMLServiceHandler) RenderDocument(context.Context, *connect.Request[proto.RenderDocumentRequest]) (*connect.Response[proto.RenderDocumentResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("sysml.SysMLService.RenderDocument is not implemented"))
+}
+
+func (UnimplementedSysMLServiceHandler) RenderView(context.Context, *connect.Request[proto.RenderViewRequest]) (*connect.Response[proto.RenderViewResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("sysml.SysMLService.RenderView is not implemented"))
+}
+
+func (UnimplementedSysMLServiceHandler) ExportGraphs(context.Context, *connect.Request[proto.ExportGraphsRequest]) (*connect.Response[proto.ExportGraphsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("sysml.SysMLService.ExportGraphs is not implemented"))
 }

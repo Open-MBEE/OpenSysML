@@ -53,8 +53,8 @@ markdown = model.render_document("Observatory::SubsystemReport")
 html = model.render_document("Observatory::SubsystemReport", form="html")
 ```
 
-Bindings may be element references, strings, integers, floats, booleans or
-lists of those values. Other binding types raise `DocumentQueryError` before a
+Bindings may be element references, strings, integers, floats,
+`fractions.Fraction` values, booleans or lists of those values. Other binding types raise `DocumentQueryError` before a
 request is made. Results use those Python types, `ElementRef` for model
 elements, and `opensysml.INFINITY` for unbounded multiplicities.
 

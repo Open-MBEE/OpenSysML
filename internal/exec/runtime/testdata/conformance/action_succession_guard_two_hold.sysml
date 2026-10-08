@@ -1,7 +1,10 @@
 package test {
 	// Two guarded successions out of one ordinary action node whose guards both
-	// hold: which one wins is not stated by the notation, so neither is chosen and
-	// the ambiguity is reported. A model that means a choice writes a decision.
+	// hold. Each guarded succession is its own transition performance whose guard
+	// constrains only its own HappensBefore link (TransitionPerformances.kerml,
+	// NonStateTransitionPerformance, transitionLink : HappensBefore[0..1]), and
+	// only a decision makes its successions exclusive (DecisionPerformance). So
+	// neither link excludes the other: both alert and idle are performed after check.
 	action route {
 		attribute level : Integer = 12;
 		attribute low : Integer = 0;

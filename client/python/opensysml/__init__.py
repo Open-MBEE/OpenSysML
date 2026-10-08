@@ -26,6 +26,10 @@ from opensysml.capabilities import (
     CAPABILITY_CONSTRAINT_BODY_AUTHORING,
     CAPABILITY_STATE_ACTION_AUTHORING,
     CAPABILITY_BIG_INT_VALUES,
+    CAPABILITY_RATIONAL_VALUES,
+    CAPABILITY_CONVERT_DOCUMENTS,
+    CAPABILITY_CONVERT_COMPACT,
+    CAPABILITY_PARSE_SOURCES_AFFECTED,
     MissingCapabilityError,
     ServerInfo,
 )
@@ -45,7 +49,9 @@ from opensysml.query import QueryElement, QueryError
 from opensysml.sources import SourceDocument
 from opensysml.document import (
     DocumentEvent, DocumentQueryError, DocumentQueryResult, DocumentRow, DocumentState,
-    DocumentVerdict, ElementRef, INFINITY, ObjectRef,
+    DocumentVerdict, ElementRef, Graphs, INFINITY, ObjectRef, RenderCanvas, RenderEdge,
+    RenderGeometry, RenderNode, RenderNote, RenderPoint, RenderPort, RenderRow,
+    RenderSpan, RenderStyle, RenderedView,
 )
 from opensysml.conversion import (
     FORMAT_API_JSON, FORMAT_SYSML, FORMAT_TURTLE, Conversion,
@@ -64,6 +70,7 @@ from opensysml.errors import (
     InstanceTypeError, InvalidRequestError, ManifestSignatureError, ModelError,
     ModelFileNotFoundError, ModelNotFoundError, ServiceError,
     ServiceTimeoutError, SigstoreUnavailableError, StaleServiceError, SymbolNotFoundError,
+    ViewNotFoundError,
     TypeMismatchError, UnpinnedReleaseError, UnsignedReleaseError,
     UnsupportedOperationError, UnsupportedValueError, WrongKindError,
 )
@@ -90,6 +97,9 @@ __all__ = [
     "SourceDocument",
     "DocumentEvent", "DocumentQueryError", "DocumentQueryResult", "DocumentRow",
     "DocumentState", "DocumentVerdict", "ElementRef", "INFINITY", "ObjectRef",
+    "RenderCanvas", "RenderEdge", "RenderGeometry", "RenderNode", "RenderNote",
+    "RenderPoint", "RenderPort", "RenderRow", "RenderSpan", "RenderStyle", "RenderedView",
+    "Graphs",
     "OpenSysMLError", "AnalysisRunError", "ChecksumMismatchError", "ConnectionError",
     "ConversionError", "ExecutionError", "FeatureValueError", "MigrationError",
     "EditError", "NoEditsError", "EditTargetError", "InvalidEditError",
@@ -100,10 +110,12 @@ __all__ = [
     "InstanceTypeError", "InvalidRequestError", "ManifestSignatureError",
     "MissingCapabilityError",
     "CAPABILITY_CONSTRAINT_BODY_AUTHORING", "CAPABILITY_STATE_ACTION_AUTHORING",
-    "CAPABILITY_BIG_INT_VALUES",
+    "CAPABILITY_BIG_INT_VALUES", "CAPABILITY_RATIONAL_VALUES", "CAPABILITY_CONVERT_DOCUMENTS",
+    "CAPABILITY_CONVERT_COMPACT", "CAPABILITY_PARSE_SOURCES_AFFECTED",
     "ModelError", "ModelFileNotFoundError", "ModelNotFoundError",
     "ServiceError", "ServiceTimeoutError", "SigstoreUnavailableError", "StaleServiceError",
     "SymbolNotFoundError",
+    "ViewNotFoundError",
     "TypeMismatchError", "UnpinnedReleaseError", "UnsignedReleaseError",
     "UnsupportedOperationError", "UnsupportedValueError",
     "WrongKindError",
@@ -365,7 +377,7 @@ def migrate(to_format, file_path=None, content=None, from_format='', report=Fals
         >>> import opensysml
         >>> migrated = opensysml.migrate("sysml", file_path="Vehicle.mdzip", report=True)
         >>> migrated.report.summary
-        'migrated 93 element(s): 77 mapped, 13 approximated, 3 unmapped (...)'
+        'migrated 93 element(s): 78 mapped, 12 approximated, 3 unmapped (...)'
         >>> migrated.write("Vehicle.sysml")
         'Vehicle.sysml'
     """

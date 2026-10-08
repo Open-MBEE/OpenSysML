@@ -117,6 +117,62 @@ func TestStateExtensionsAreReported(t *testing.T) {
 	}
 }
 
+// A `frame` in a view body is an extension: FramedConcernMember belongs to a
+// requirement, concern or viewpoint body. Both spellings are reported, in a view
+// definition, a view usage and a view nested in another view alike.
+func TestFrameInAViewBodyIsReported(t *testing.T) {
+	const lib = "concern def C; concern c : C; "
+	for _, src := range []string{
+		lib + "view def V { frame concern k : C; }",
+		lib + "view def V { frame c; }",
+		lib + "view v { frame concern k : C; }",
+		lib + "view v { frame c; }",
+		lib + "view v { view inner { frame c; } }",
+		lib + "part def P { view v { frame c; } }",
+	} {
+		wantNotation(t, "a.sysml", src, CodeNonstandardNotation, "`frame` in a view body")
+	}
+}
+
+// A `frame` where the grammar places it stays silent: in a requirement,
+// concern or viewpoint body, including one declared inside a view body.
+func TestFrameOutsideAViewBodyIsSilent(t *testing.T) {
+	const lib = "concern def C; concern c : C; "
+	for _, src := range []string{
+		lib + "viewpoint def VP { frame concern k : C; frame c; }",
+		lib + "viewpoint vp { frame c; }",
+		lib + "requirement def R { frame c; }",
+		lib + "requirement r { frame concern k : C; }",
+		lib + "concern def D { frame c; }",
+		lib + "view def V { viewpoint vp { frame c; } }",
+		lib + "view v { requirement r { frame c; } }",
+	} {
+		wantSilent(t, "a.sysml", src)
+	}
+}
+
+// The `frame` warning points at the keyword, not at the whole member.
+func TestFrameInAViewBodyIsReportedAtItsKeyword(t *testing.T) {
+	src := `concern def C;
+	view def V {
+		frame concern k : C;
+	}`
+	root, pd, idx := analyzeInputs(t, "a.sysml", src)
+	if len(pd) != 0 {
+		t.Fatalf("%s: parse errors %+v", src, pd)
+	}
+	got := (NonstandardNotationPass{}).Run(NewContext("a.sysml", idx, pd), "a.sysml", root)
+	if len(got) != 1 {
+		t.Fatalf("%s: got %d diagnostics %+v, want 1", src, len(got), got)
+	}
+	if line := strings.Count(src[:got[0].Span.Offset], "\n") + 1; line != 3 {
+		t.Errorf("diagnostic is on line %d, want 3", line)
+	}
+	if got[0].Span.Len != len("frame") {
+		t.Errorf("diagnostic spans %d bytes, want the keyword", got[0].Span.Len)
+	}
+}
+
 // A transition stating its ends with `first` and `then` is standard.
 func TestStandardTransitionStaysSilent(t *testing.T) {
 	wantSilent(t, "a.sysml", "state def S { state a; state b; transition first a then b; }")
@@ -438,4 +494,21 @@ func TestSysMLDeclarationTwinsAreSilent(t *testing.T) {
 			t.Errorf("strict: %s: got %+v, want silence", src, got)
 		}
 	}
+}
+
+// An import of the StateActivity extension library is reported at the import,
+// a warning by default and an error under strict conformance.
+func TestStateActivityImportIsReported(t *testing.T) {
+	for _, src := range []string{
+		"package P { private import StateActivity::*; state def S { state a; } }",
+		"package P { private import StateActivity::isActive; state def S { state a; } }",
+		"package P { private import StateActivity; state def S { state a; } }",
+	} {
+		wantNotation(t, "a.sysml", src, CodeNonstandardNotation, "`StateActivity` library is an OpenSysML extension")
+		got := notationDiags(t, "a.sysml", src, diag.ConformanceStrict)
+		if len(got) != 1 || got[0].Severity != diag.SeverityError || got[0].Code != CodeNonstandardNotation {
+			t.Errorf("strict: %s: got %+v, want one nonstandard-notation error", src, got)
+		}
+	}
+	wantSilent(t, "a.sysml", "package P { private import ScalarValues::*; private import States::*; state def S { state a; } }")
 }

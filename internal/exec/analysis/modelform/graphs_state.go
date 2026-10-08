@@ -96,11 +96,13 @@ type TransitionForm struct {
 type EntryTransitionForm struct {
 	// Body is the state or region the transition is written in; absent for the
 	// machine's own body.
-	Body   *int      `json:"body,omitempty"`
-	Guard  *ExprForm `json:"guard,omitempty"`
-	Target int       `json:"target"`
-	Scope  string    `json:"scope,omitempty"`
-	Decl   SpanForm  `json:"decl"`
+	Body   *int           `json:"body,omitempty"`
+	Guard  *ExprForm      `json:"guard,omitempty"`
+	Target *int           `json:"target,omitempty"`
+	Via    *int           `json:"via,omitempty"`
+	Effect []BehaviorForm `json:"effect,omitempty"`
+	Scope  string         `json:"scope,omitempty"`
+	Decl   SpanForm       `json:"decl"`
 }
 
 // BehaviorForm is an entry, do, exit or effect behavior.
@@ -223,15 +225,39 @@ func (x *graphsExporter) stateForm(sym *symbols.Symbol, graph *lower.StateGraph)
 			}
 		}
 		for _, et := range graph.EntryTransitions[node] {
-			ids.add(et.Target)
+			if et.Target != nil {
+				ids.add(et.Target)
+			}
+			if et.Via != nil {
+				ids.add(et.Via)
+			}
+			for _, behavior := range et.Effect {
+				ids.add(behavior.Owner)
+			}
 		}
 	}
 	for _, et := range graph.EntryTransitions[nil] {
-		ids.add(et.Target)
+		if et.Target != nil {
+			ids.add(et.Target)
+		}
+		if et.Via != nil {
+			ids.add(et.Via)
+		}
+		for _, behavior := range et.Effect {
+			ids.add(behavior.Owner)
+		}
 	}
 	for _, r := range regions.order {
 		for _, et := range graph.EntryTransitions[r] {
-			ids.add(et.Target)
+			if et.Target != nil {
+				ids.add(et.Target)
+			}
+			if et.Via != nil {
+				ids.add(et.Via)
+			}
+			for _, behavior := range et.Effect {
+				ids.add(behavior.Owner)
+			}
 		}
 	}
 	vertices := len(ids.order)
@@ -309,7 +335,9 @@ func (x *graphsExporter) stateForm(sym *symbols.Symbol, graph *lower.StateGraph)
 		}
 		form.Regions = append(form.Regions, rf)
 	}
-	x.entryTransitions(form, graph, ids, regions)
+	if err := x.entryTransitions(form, graph, ids, regions); err != nil {
+		return nil, err
+	}
 	if len(ids.order) != vertices {
 		return nil, fmt.Errorf("%w: %s: a vertex is reached only while it is written", ErrGraphsOrder, symbols.FQNOf(sym))
 	}
@@ -319,32 +347,55 @@ func (x *graphsExporter) stateForm(sym *symbols.Symbol, graph *lower.StateGraph)
 
 // entryTransitions writes the entry transitions body by body: the machine's own
 // first, then those of each state vertex, then those of each region.
-func (x *graphsExporter) entryTransitions(form *StateForm, graph *lower.StateGraph, ids, regions *vertexIDs) {
-	write := func(body *int, list []*lower.EntryTransition) {
+func (x *graphsExporter) entryTransitions(form *StateForm, graph *lower.StateGraph, ids, regions *vertexIDs) error {
+	write := func(body *int, list []*lower.EntryTransition) error {
 		for _, et := range list {
 			scope := orScope(et.Scope, graph.Scope)
+			effect, err := x.behaviors(ids, scope, et.Effect)
+			if err != nil {
+				return err
+			}
+			var target, via *int
+			if et.Target != nil {
+				id := ids.add(et.Target)
+				target = &id
+			}
+			if et.Via != nil {
+				id := ids.add(et.Via)
+				via = &id
+			}
 			form.EntryTransitions = append(form.EntryTransitions, EntryTransitionForm{
 				Body:   body,
 				Guard:  x.expr(scope, et.Guard),
-				Target: ids.add(et.Target),
+				Target: target,
+				Via:    via,
+				Effect: effect,
 				Scope:  scopeName(et.Scope),
 				Decl:   x.span(scope, et.Decl),
 			})
 		}
+		return nil
 	}
-	write(nil, graph.EntryTransitions[nil])
+	if err := write(nil, graph.EntryTransitions[nil]); err != nil {
+		return err
+	}
 	for id, node := range ids.order {
 		if list, ok := graph.EntryTransitions[node]; ok {
 			body := id
-			write(&body, list)
+			if err := write(&body, list); err != nil {
+				return err
+			}
 		}
 	}
 	for id, node := range regions.order {
 		if list, ok := graph.EntryTransitions[node]; ok {
 			body := id
-			write(&body, list)
+			if err := write(&body, list); err != nil {
+				return err
+			}
 		}
 	}
+	return nil
 }
 
 // behaviors writes the lowered behaviors of one kind in order.

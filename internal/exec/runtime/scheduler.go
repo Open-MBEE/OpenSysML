@@ -365,6 +365,13 @@ func (s *scheduler) oneMove() bool {
 	return (s.policy.kind == scheduleExplore && s.explore != nil) || s.replay != nil || s.checking()
 }
 
+// interleavesTurns reports whether the due order is drawn again after each move of
+// an executor whose future depends on another's — under explore, a seed and a
+// replay — rather than once per turn the executor runs to quiescence.
+func (s *scheduler) interleavesTurns() bool {
+	return (s.policy.kind == scheduleExplore && s.explore != nil) || s.policy.kind == scheduleSeeded || s.replay != nil
+}
+
 // bodyYields reports how a token's body run pauses between its subperformances:
 // at every boundary where a step is one move, at drawn ones under a seed while
 // other tokens are live, at none under a fixed order.

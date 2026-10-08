@@ -384,6 +384,20 @@ func (s *Session) instanceName(inst *runtime.Instance) string {
 	return ""
 }
 
+// runTraceLabel returns the label used for an object in a run rendering.
+func (s *Session) runTraceLabel(inst *runtime.Instance) string {
+	if inst == nil {
+		return ""
+	}
+	if label, ok := s.heldLabel(inst.ID); ok && label != "" {
+		return label
+	}
+	if label := s.instanceName(inst); label != "" {
+		return label
+	}
+	return fmt.Sprintf("#%d", inst.ID)
+}
+
 // resolveCheckTarget resolves the element a constraint/requirement check names.
 // The second result is non-nil for a check that cannot be made at all.
 func (s *Session) resolveCheckTarget(name string) (checkTarget, *Verdict) {

@@ -107,7 +107,10 @@ classification, with partial records on `trace` and the discarded count on
 
 `decode_value` decodes the service's value oneof and `encode_value` creates
 request values. The mapping retains exact `Int64` values and `BigInt` ones
-beyond `Int64`, decodes sequences and sets recursively, and exposes
+beyond `Int64`, decodes an exact Rational no `Float64` holds (`rationalValue`, a quantity's
+`rationalMagnitude`) as `Rational{BigInt}`, sends every `Rational` (`1//4` included) as
+`rationalValue` to a service with the `rational_values` capability and, to one without it, one a
+`Float64` holds as that `realValue` while refusing any other (a `Float64` sent is always a Real), decodes sequences and sets recursively, and exposes
 structured values through `Quantity`, `EnumLiteral`, `ArrayValue`,
 `VectorValue`, `VectorQuantity`, `TensorQuantity`, `MeasurementRef`,
 `FunctionRef`, `Metaobject`, `Undetermined`, `Unset`, and `Infinity`.
@@ -147,7 +150,9 @@ stable parameter order.
 `build_query(; scope, select, where)` constructs an OSLC query;
 `query(model, payload; scope, select, where)` runs it. Document APIs are
 `build_document_bindings`, `run_document_query(model, query; bindings,
-options)`, and `render_document(model, query; bindings, format)`.
+options)`, `render_document(model, query; bindings, format)`, and
+`render_view(model, name; ports="minimal")`, returning typed query and view
+data. `ports="full"` includes all declared ports.
 
 Conversion is available through `convert_file(conn, path, to_format; ...)`,
 `convert_source(conn, content, to_format; from_format, ...)`,

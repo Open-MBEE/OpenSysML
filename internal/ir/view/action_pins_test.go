@@ -56,7 +56,7 @@ func edgeTexts(r *Rendering, kind EdgeKind) []string {
 		if edge.Kind != kind {
 			continue
 		}
-		texts = append(texts, end(edge.From, edge.FromPort)+" "+edgeArrow(kind)+" "+end(edge.To, edge.ToPort))
+		texts = append(texts, end(edge.From, edge.FromPort)+" "+edgeArrow(r.Kind, kind)+" "+end(edge.To, edge.ToPort))
 	}
 	return texts
 }

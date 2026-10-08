@@ -1118,7 +1118,7 @@ func (ctx *Context) attachClassifierBehavior(inst *Instance, decl classifierBeha
 			return nil, fmt.Errorf("exhibited state machine %s of %s: %w", decl.behavior.Name, symbolText(inst.Type), err)
 		}
 		for name, value := range arguments {
-			exec.stateData[name] = value
+			exec.ctx.writeBodyValue(exec.stateCells, exec.stateData, name, value)
 		}
 		if err := exec.initialize(); err != nil {
 			exec.Release()
@@ -1229,10 +1229,12 @@ func (ctx *Context) performanceOccurrence(
 				sentinel, name, inst.ID, err)
 		}
 		ctx.noteProbeWrite(fv)
+		endWrite := ctx.beginFeatureWrite(fv)
 		before := ctx.beforeWrite(fv)
 		fv.Value = Value{Kind: ValInstance, Instance: occurrence.ID}
 		fv.Materialized = true
 		ctx.afterWrite(fv, before)
+		endWrite()
 		return occurrence, nil
 	}
 	id, ok := fv.HeldValue().Object()
