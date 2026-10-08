@@ -1,0 +1,10 @@
+{
+	"type": "action",
+	"evaluate": "test::accumulate",
+	"trace": true,
+	"outputs": {
+		"tenths": {"type": "Rational", "value": "1.0"},
+		"harmonic": {"type": "Rational", "value": "25/12"},
+		"reachesOne": {"type": "Boolean", "value": true}
+	}
+}

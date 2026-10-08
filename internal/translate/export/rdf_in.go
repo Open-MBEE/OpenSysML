@@ -1182,7 +1182,10 @@ func (d *decoder) checkReferences() error {
 			continue
 		}
 		if ownershipPredicates[triple.Predicate.Value] &&
-			(d.isExpressionNode(triple.Subject) || d.nodeMembership[triple.Subject.Value]) {
+			(d.isExpressionNode(triple.Subject) || d.nodeMembership[triple.Subject.Value] ||
+				d.isExpressionIRI(triple.Object)) {
+			// An ownership edge to a minted node — a connector end — owns an
+			// artifact the writer spelled, not a name to write back.
 			continue
 		}
 		// Only a Membership written as a member — an alias, a `first` — names
@@ -1701,7 +1704,12 @@ func (d *decoder) printElement(b *strings.Builder, el *element, depth int) error
 func (d *decoder) bodyMembers(el *element) ([]*element, error) {
 	children := d.bodyChildren(el)
 	if accept := d.acceptParam(el); accept != nil {
-		children = slices.DeleteFunc(children, func(child *element) bool { return child == accept })
+		receivers := []*element{accept}
+		if el.metaclass == mAcceptAction {
+			// The receiver parameter is the head's `via`, written there.
+			receivers = append(receivers, d.receiverParams(el, accept)...)
+		}
+		children = slices.DeleteFunc(children, func(child *element) bool { return slices.Contains(receivers, child) })
 	}
 	return d.positionalSuccessions(children)
 }
@@ -2223,11 +2231,11 @@ func (d *decoder) usageHead(el *element, kind ast.UsageKind) (string, error) {
 		// An enumerated value is a variant by what it is, not by a keyword
 		// (SysML.xtext EnumerationUsageMember); its isVariant writes nothing back.
 		{"variant", isVariant},
+		{"derived", d.boolOf(el, rdf.SysML+"isDerived")},
 		// `portion` is composite and stands in for `composite`
 		// (KerML.xtext BasicFeaturePrefix `isComposite ?= 'composite' | isPortion ?= 'portion'`).
 		{"portion", isPortion},
 		{"composite", d.boolOf(el, rdf.SysML+"isComposite") && !isPortion},
-		{"derived", d.boolOf(el, rdf.SysML+"isDerived")},
 		{constantKeyword(kerml), d.boolOf(el, rdf.SysML+"isConstant")},
 		{"individual", d.boolOf(el, rdf.SysML+"isIndividual")},
 		{"snapshot", portion == "snapshot"},
@@ -2534,12 +2542,48 @@ func (d *decoder) usageHead(el *element, kind ast.UsageKind) (string, error) {
 	// The accept shorthand writes its parameter into the head, ahead of the
 	// `via` clause the parent's relationships supply.
 	if accept := d.acceptParam(el); accept != nil {
+		// The head writes the payload's declaration alone (SysML.xtext
+		// PayloadParameter has no body), so members of its own cannot be
+		// written there, and dropping them would change the model.
+		if len(d.bodyChildren(accept)) > 0 {
+			return "", &UnsupportedError{
+				What: fmt.Sprintf("the accept action <%s>", el.iri),
+				Note: fmt.Sprintf("its payload <%s> owns members, and the accept notation writes a payload's declaration alone", accept.iri),
+			}
+		}
 		acceptWords, err := d.payloadWords(accept)
 		if err != nil {
 			return "", err
 		}
 		words = append(words, "accept")
 		words = append(words, acceptWords...)
+		// `via p` is the receiver parameter an AcceptActionUsage names as its
+		// receiverArgument, or the sysml:via an earlier mapping wrote.
+		if el.metaclass == mAcceptAction {
+			via, err := d.triggerReceiver(el, el, accept)
+			if err != nil {
+				return "", err
+			}
+			// A sysml:via stated beside the receiver parameter must name the
+			// same port, as for a trigger, or the graph is refused rather
+			// than one of them dropped.
+			if d.graph.HasProperty(rdf.IRI(el.iri), rdf.SysML+relationshipProperty[ast.RelVia]) {
+				stated, err := d.referenceText(el, rdf.SysML+relationshipProperty[ast.RelVia])
+				if err != nil {
+					return "", err
+				}
+				if !d.sameNames(el, []string{stated}, []string{via}) {
+					return "", &UnsupportedError{
+						What: fmt.Sprintf("the accept action <%s>", el.iri),
+						Note: fmt.Sprintf("its sysml:via states %q while its receiver parameter states %q, and writing one would drop the other", stated, via),
+					}
+				}
+			}
+			if via != "" {
+				words = append(words, "via", via)
+				skip = append(skip, ast.RelVia)
+			}
+		}
 	}
 	// `metadata M about x;` writes its typing bare (SysML.xtext MetadataUsageDeclaration).
 	if kind == ast.UsageMetadata && len(identWords) == 0 && len(typed) == 1 {
@@ -2789,11 +2833,24 @@ func (d *decoder) isTrailingCondition(el *element) bool {
 }
 
 // acceptParam returns the synthetic parameter of an accept shorthand, whose
-// notation belongs in its parent's declaration head.
+// notation belongs in its parent's declaration head: the parameter flagged
+// sysml:isAccept, else the one an AcceptActionUsage names as its
+// sysml:payloadParameter, which is how a graph stating the metamodel alone
+// marks it.
 func (d *decoder) acceptParam(el *element) *element {
 	for _, child := range el.children {
 		if d.boolOf(child, rdf.SysML+"isAccept") {
 			return child
+		}
+	}
+	if el.metaclass != mAcceptAction {
+		return nil
+	}
+	for _, stated := range d.graph.Objects(rdf.IRI(el.iri), rdf.SysML+pPayloadParameter) {
+		for _, child := range el.children {
+			if child.iri == stated.Value {
+				return child
+			}
 		}
 	}
 	return nil
@@ -3507,6 +3564,12 @@ func (d *decoder) writtenQName(el *element) string {
 		d.transitionFeatureKind(el.owner) == "trigger" &&
 		el.owner.owner != nil && el.owner.owner.metaclass == mTransition {
 		return d.writtenQName(el.owner.owner)
+	}
+	// An accept node's receiver parameter is the `via` its head writes, so a
+	// name its value spells is written from the node.
+	if el.owner != nil && el.owner.metaclass == mAcceptAction && d.transitionFeatureKind(el.owner) != "trigger" &&
+		slices.Contains(d.receiverParams(el.owner, d.acceptParam(el.owner)), el) {
+		return d.writtenQName(el.owner)
 	}
 	q := el.qname
 	i := strings.LastIndex(q, "::")

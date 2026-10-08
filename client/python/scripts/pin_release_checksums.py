@@ -24,6 +24,14 @@ With `--from-manifest` or `--from-binaries`, stamping the shared table also
 syncs client copies. An explicit `--table` for a package-local table stays
 isolated.
 
+Two families of binaries are pinned: the `sysml-grpc-*` service the clients
+start, and the `sysml-jupyter-kernel-*` kernel jupyter-opensysml-kernel
+installs. A published release carries the service family and, from the release
+that introduced the kernel, the kernel family too; a family is pinned whole or
+not at all, so a release missing one platform of either is refused. A directory
+of binaries is stamped by the families it holds: the service job is handed
+dist/grpc, the kernel job dist/jupyter.
+
 A release job can stamp the table a package ships without a GitHub token or
 network access, from what the release has already produced. The Rust job
 stamps its crate from the checksum manifest:
@@ -32,15 +40,18 @@ stamps its crate from the checksum manifest:
         --from-manifest dist/SHA256SUMS.txt \\
         --table client/rust/opensysml/release-digests.json
 
-The Python job builds the wheel before that manifest exists (the manifest lists
-the wheel), so it stamps from the service binaries themselves, hashed here:
+The Python jobs build their wheels before that manifest exists (the manifest
+lists the wheels), so each stamps from the binaries themselves, hashed here:
 
     python scripts/pin_release_checksums.py --version v0.9.1 \\
         --from-binaries dist/grpc \\
         --table client/python/opensysml/release-digests.json
+    python scripts/pin_release_checksums.py --version v0.9.1 \\
+        --from-binaries dist/jupyter \\
+        --table client/jupyter-kernel/jupyter_opensysml_kernel/release-digests.json
 
-Both require all five service platforms, and a `.sha256` sidecar beside a
-binary must agree with the digest hashed from it.
+Both require every platform of each family they find, and a `.sha256` sidecar
+beside a binary must agree with the digest hashed from it.
 """
 
 import argparse
@@ -59,18 +70,18 @@ REPO_ROOT = os.path.dirname(
 DIGESTS_FILE = os.path.join(REPO_ROOT, "client", "release-digests.json")
 SYNC_SCRIPT = os.path.join(REPO_ROOT, "scripts", "sync-release-digests.py")
 DEFAULT_REPO = "Open-MBEE/OpenSysML"
+#: The platforms every binary family is released for.
+PLATFORMS = ("darwin-amd64", "darwin-arm64", "linux-amd64", "linux-arm64", "windows-amd64.exe")
 #: The service binaries every release publishes; a package pin needs all of them.
-ASSET_PREFIX = "sysml-grpc-"
+SERVICE_PREFIX = "sysml-grpc-"
+#: The Jupyter kernel binaries, published from the release that introduced them.
+KERNEL_PREFIX = "sysml-jupyter-kernel-"
 SIDECAR_SUFFIX = ".sha256"
-SERVICE_ASSETS = frozenset(
-    (
-        "sysml-grpc-darwin-amd64",
-        "sysml-grpc-darwin-arm64",
-        "sysml-grpc-linux-amd64",
-        "sysml-grpc-linux-arm64",
-        "sysml-grpc-windows-amd64.exe",
-    )
-)
+SERVICE_ASSETS = frozenset(SERVICE_PREFIX + platform for platform in PLATFORMS)
+KERNEL_ASSETS = frozenset(KERNEL_PREFIX + platform for platform in PLATFORMS)
+#: Every pinned family, by the prefix its assets share; each is pinned whole.
+ASSET_FAMILIES = {SERVICE_PREFIX: SERVICE_ASSETS, KERNEL_PREFIX: KERNEL_ASSETS}
+ASSET_PREFIXES = tuple(ASSET_FAMILIES)
 SHA256_PATTERN = re.compile(r"[0-9a-f]{64}\Z")
 NETWORK_TIMEOUT = 60
 
@@ -153,7 +164,7 @@ def release_assets(repo, version):
         version (str): Release tag, resolved (never 'latest')
 
     Returns:
-        dict: asset name -> browser download URL, service binaries only
+        dict: asset name -> browser download URL, pinned binaries only
 
     Raises:
         MissingTokenError: If no GitHub token is set in the environment
@@ -171,10 +182,10 @@ def release_assets(repo, version):
     assets = {
         asset["name"]: asset["browser_download_url"]
         for asset in release.get("assets", [])
-        if asset["name"].startswith(ASSET_PREFIX) and not asset["name"].endswith(SIDECAR_SUFFIX)
+        if asset["name"].startswith(ASSET_PREFIXES) and not asset["name"].endswith(SIDECAR_SUFFIX)
     }
     if not assets:
-        raise PinError(f"release {version} of {repo} publishes no {ASSET_PREFIX}* assets")
+        raise PinError(f"release {version} of {repo} publishes no {SERVICE_PREFIX}* assets")
     return assets
 
 
@@ -257,17 +268,17 @@ def render_table(table):
 
 
 def manifest_service_digests(manifest_path):
-    """The service digests a release's checksum manifest lists.
+    """The binary digests a release's checksum manifest lists.
 
     Args:
         manifest_path (str): Path to the release's SHA256SUMS.txt
 
     Returns:
-        dict: asset name -> SHA-256 hex digest, all five service assets
+        dict: asset name -> SHA-256 hex digest, every platform of each family listed
 
     Raises:
         PinError: If the manifest cannot be read, lists a malformed or duplicate
-            service entry, or lacks a service platform
+            entry, lists no binary, or lacks a platform of a family it lists
     """
     digests = {}
     try:
@@ -281,7 +292,7 @@ def manifest_service_digests(manifest_path):
         if not fields:
             continue
         asset = fields[1] if len(fields) > 1 else fields[0]
-        if asset.endswith(SIDECAR_SUFFIX) or not asset.startswith(ASSET_PREFIX):
+        if asset.endswith(SIDECAR_SUFFIX) or not asset.startswith(ASSET_PREFIXES):
             continue
         if len(fields) != 2:
             raise PinError(
@@ -295,39 +306,44 @@ def manifest_service_digests(manifest_path):
                 f"of {manifest_path}"
             )
         if asset in digests:
-            raise PinError(f"duplicate service asset {asset} in {manifest_path}")
+            raise PinError(f"duplicate asset {asset} in {manifest_path}")
         digests[asset] = digest
 
-    _require_every_service_platform(digests, f"checksum manifest {manifest_path}")
+    _require_whole_families(digests, f"checksum manifest {manifest_path}", required=(SERVICE_PREFIX,))
     return digests
 
 
 def binary_service_digests(binaries_dir):
-    """Hash the service binaries a release job has built, before any manifest exists.
+    """Hash the binaries a release job has built, before any manifest exists.
 
-    The manifest that lists them is written after the Python distribution they
-    are stamped into, so the Python job hashes the binaries it was handed. A
+    The manifest that lists them is written after the Python distributions they
+    are stamped into, so a Python job hashes the binaries it was handed. A
     `.sha256` sidecar beside a binary is compared with the digest, never used
     as one, exactly as with a published release.
 
     Args:
-        binaries_dir (str): Directory holding the sysml-grpc-* binaries
+        binaries_dir (str): Directory holding the sysml-grpc-* or
+            sysml-jupyter-kernel-* binaries
+
+    The service job is handed dist/grpc and the kernel job dist/jupyter, so the
+    directory is stamped by the families it holds, each whole.
 
     Returns:
-        dict: asset name -> SHA-256 hex digest, all five service assets
+        dict: asset name -> SHA-256 hex digest, every platform of each family found
 
     Raises:
         PinError: If the directory cannot be read, a binary cannot be hashed, a
-            sidecar disagrees with its binary, or a service platform is absent
+            sidecar disagrees with its binary, no binary is found, or a platform
+            of a family found is absent
     """
     try:
         names = sorted(os.listdir(binaries_dir))
     except OSError as e:
-        raise PinError(f"cannot read the service binaries in {binaries_dir}: {e}")
+        raise PinError(f"cannot read the binaries in {binaries_dir}: {e}")
 
     digests = {}
     for asset in names:
-        if asset.endswith(SIDECAR_SUFFIX) or not asset.startswith(ASSET_PREFIX):
+        if asset.endswith(SIDECAR_SUFFIX) or not asset.startswith(ASSET_PREFIXES):
             continue
         path = os.path.join(binaries_dir, asset)
         if not os.path.isfile(path):
@@ -339,7 +355,11 @@ def binary_service_digests(binaries_dir):
                 f"{asset} in {binaries_dir} hashes to {digests[asset]}, but its "
                 f".sha256 says {sidecar}; the build is inconsistent and was not pinned"
             )
-    _require_every_service_platform(digests, f"service binaries in {binaries_dir}")
+    if not digests:
+        raise PinError(
+            f"no {' or '.join(prefix + '*' for prefix in ASSET_PREFIXES)} binaries in {binaries_dir}"
+        )
+    _require_whole_families(digests, f"binaries in {binaries_dir}")
     return digests
 
 
@@ -389,19 +409,28 @@ def _sidecar_digest(path):
     return fields[0]
 
 
-def _require_every_service_platform(digests, source):
-    """Fail unless a digest was found for each service asset a release publishes.
+def _require_whole_families(digests, source, required=()):
+    """Fail unless every family found is complete, and every family required is found.
+
+    A package verifies the one platform it runs on, so a family pinned for
+    some platforms would install on those and refuse the rest for the same
+    release; a family is pinned whole or not at all.
 
     Args:
         digests (dict): asset name -> digest
         source (str): Where the digests came from, for the message
+        required (tuple): Asset prefixes of the families the source must hold
 
     Raises:
-        PinError: Naming the service assets that are absent
+        PinError: Naming the assets that are absent
     """
-    missing = sorted(SERVICE_ASSETS - digests.keys())
+    missing = []
+    for prefix, family in ASSET_FAMILIES.items():
+        found = {asset for asset in digests if asset.startswith(prefix)}
+        if found or prefix in required:
+            missing.extend(sorted(family - found))
     if missing:
-        raise PinError(f"{source} is missing service assets: {', '.join(missing)}")
+        raise PinError(f"{source} is missing assets: {', '.join(missing)}")
 
 
 def stamp_from_manifest(manifest_path, version, repo=DEFAULT_REPO, table_path=None):
@@ -547,12 +576,12 @@ def main(argv=None):
     parser.add_argument(
         "--from-manifest",
         metavar="PATH",
-        help="stamp service asset digests from an existing checksum manifest",
+        help="stamp the binary digests an existing checksum manifest lists",
     )
     parser.add_argument(
         "--from-binaries",
         metavar="DIR",
-        help="stamp service asset digests hashed from the built binaries in DIR",
+        help="stamp the digests hashed from the built binaries in DIR",
     )
     parser.add_argument(
         "--table",
@@ -595,7 +624,7 @@ def main(argv=None):
                 print(f"{asset} {digest}", file=sys.stderr)
             changed = stamp(digests, args.version, args.repo, args.table)
             action = "stamped" if changed else "already has"
-            print(f"{action} {args.version} of {args.repo} in {args.table}")
+            print(f"{action} {args.version} of {args.repo} in {args.table or DIGESTS_FILE}")
             return 0
 
         table = pinned_table()

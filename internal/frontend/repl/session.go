@@ -8,6 +8,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/Open-MBEE/OpenSysML/internal/check/passes"
@@ -83,6 +84,13 @@ type Session struct {
 	mu    sync.Mutex
 	state sync.Mutex
 
+	// interrupt is raised by Interrupt to stop the command under way; every
+	// runtime context the session builds watches it. command holds the context
+	// that command's plans run under, cancelled by Interrupt too, and raises
+	// and lowers the flag with the command.
+	interrupt *atomic.Bool
+	command   commandContext
+
 	ws              *model.Workspace
 	sourceConverter SourceConverter
 	snippets        []snippet
@@ -135,7 +143,8 @@ type Session struct {
 	notedBlocker blockerNote
 
 	// trace records execution steps while tracing is on, nil otherwise.
-	trace *runtime.TraceRecorder
+	trace       *runtime.TraceRecorder
+	traceSilent bool
 
 	// budgets bounds every runtime context this session creates.
 	budgets runtime.Budgets
@@ -314,7 +323,9 @@ func newSession(converter SourceConverter) *Session {
 		verbosity:       VerbosityNormal,
 		toolVersion:     "sysml dev",
 		now:             time.Now,
+		interrupt:       new(atomic.Bool),
 	}
+	s.command.flag = s.interrupt
 	s.setJobs(analysis.DefaultJobs())
 	return s
 }
@@ -332,9 +343,12 @@ func (s *Session) Text() string {
 
 // enter takes the session for one command; the function returned leaves it.
 func (s *Session) enter() func() {
+	s.command.request()
 	s.mu.Lock()
 	s.state.Lock()
+	end := s.command.begin()
 	return func() {
+		end()
 		s.state.Unlock()
 		s.mu.Unlock()
 	}
@@ -1331,6 +1345,7 @@ func (s *Session) newRuntimeOver(model *runtime.Model) (*runtime.Context, error)
 	if err := ctx.SetSchedule(s.drivenSchedule()); err != nil {
 		return nil, err
 	}
+	ctx.SetInterrupt(s.interrupt)
 	s.applyDraws(ctx)
 	return ctx, nil
 }

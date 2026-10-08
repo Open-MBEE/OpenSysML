@@ -208,6 +208,20 @@ class PublicTypesTest {
   }
 
   @Test
+  void aRationalMeetsARealAtRealPrecision() {
+    Value third = new Value.RationalValue(Rational.of(1, 3));
+    assertTrue(third.sameValue(new Value.RealValue(1.0 / 3.0)));
+    assertTrue(new Value.RealValue(1.0 / 3.0).sameValue(third));
+    assertFalse(third.sameValue(new Value.RealValue(0.3333)));
+    assertFalse(
+        third.sameValue(
+            new Value.RationalValue(Rational.of(6004799503160661L, 18014398509481984L))));
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> new Value.SetValue(List.of(third, new Value.RealValue(1.0 / 3.0))));
+  }
+
+  @Test
   void aNullAndTheEmptyCollectionsAreOneMember() {
     Value one = new Value.IntegerValue(1);
 

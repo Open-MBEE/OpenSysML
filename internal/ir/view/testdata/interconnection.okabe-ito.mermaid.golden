@@ -20,23 +20,17 @@ config:
     clusterBkg: "#FFFFFF"
     clusterBorder: "#181818"
     edgeLabelBackground: "#FFFFFF"
-  flowchart:
-    subGraphTitleMargin:
-      bottom: 24
 ---
 %% PlantViews::loopView — interconnection rendering (render asInterconnectionDiagram)
 flowchart LR
-  subgraph n0 ["`*«part def»*
-**Loop**`"]
+  subgraph n0 ["`*«part def»* **Loop**`"]
     direction LR
-    subgraph n1 ["`*«part»*
-**pump : Pump**`"]
+    subgraph n1 ["`*«part»* **pump : Pump**`"]
       direction LR
       n1_anchor[" "]
       n1.0["outlet"]
     end
-    subgraph n2 ["`*«part»*
-**tank : Tank**`"]
+    subgraph n2 ["`*«part»* **tank : Tank**`"]
       direction LR
       n2_anchor[" "]
       n2.0["inlet"]

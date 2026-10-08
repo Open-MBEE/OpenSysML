@@ -54,14 +54,14 @@ func TestUserProfilesBecomeMetadataDefs(t *testing.T) {
 }
 
 // A user stereotype named like a standard one, without a standard general,
-// carries none of its meaning: the class is a part def with a metadata usage.
+// carries none of its meaning: the class is an occurrence def with a metadata usage.
 func TestSameNamedUserStereotypeWithoutGeneralIsNotStandard(t *testing.T) {
 	r := migrateFixtureFile(t, "org_profile")
-	wantLine(t, r.Notation, "part def 'Design Note' {")
+	wantLine(t, r.Notation, "occurrence def 'Design Note' {")
 	wantLine(t, r.Notation, "@Legacy::Requirement {")
 	wantLine(t, r.Notation, "Text = \"Kept for reference only.\";")
 	wantNoLine(t, r.Notation, "requirement def 'Design Note'")
-	if es := entriesFor(r, "_note"); len(es) != 1 || es[0].Verdict != migrate.Approximated || !strings.Contains(es[0].Note, "without «Block»") {
+	if es := entriesFor(r, "_note"); len(es) != 1 || es[0].Verdict != migrate.Mapped {
 		t.Errorf("_note entries = %+v", es)
 	}
 }
@@ -81,8 +81,8 @@ func TestInheritedStereotypeSemanticsFollowEveryGeneral(t *testing.T) {
 	wantLine(t, r.Notation, "@Tailoring::'Detailed By';")
 	wantLine(t, r.Notation, "connection def 'Derive Speed Requirement' :> RequirementDerivation::Derivation {")
 	wantLine(t, r.Notation, "allocation def 'Spin to Shaft' {")
-	wantLine(t, r.Notation, "end spin : Spin;")
-	wantLine(t, r.Notation, "end shaft : Shaft;")
+	wantLine(t, r.Notation, "end :>> source : Spin;")
+	wantLine(t, r.Notation, "end :>> target : Shaft;")
 	wantLine(t, r.Notation, "@Tailoring::'Assigned To';")
 	wantNoLine(t, r.Notation, "applied stereotype")
 	for _, id := range []string{"_gear", "_torque", "_req_torque", "_verify", "_refine", "_derive", "_alloc"} {
@@ -103,7 +103,7 @@ func TestGeneralizationCyclesAndUnresolvedGeneralsAreReported(t *testing.T) {
 	wantLine(t, r.Notation, "metadata def 'Ring B';")
 	wantLine(t, r.Notation, "metadata def Lost;")
 	wantLine(t, r.Notation, "metadata def Foreign;")
-	wantLine(t, r.Notation, "part def 'Lost Thing' {")
+	wantLine(t, r.Notation, "occurrence def 'Lost Thing' {")
 	wantLine(t, r.Notation, "@Tailoring::Lost;")
 	if es := entriesFor(r, "_st_ring_b"); len(es) != 1 || es[0].Verdict != migrate.Approximated || !strings.Contains(es[0].Note, "closes a cycle") {
 		t.Errorf("_st_ring_b entries = %+v", es)
@@ -128,7 +128,7 @@ func TestToolProfilesAreSkippedByExactPathOnly(t *testing.T) {
 	wantLine(t, r.Notation, "ticket = \"T-42\";")
 	wantLine(t, r.Notation, "package Customizations;")
 	wantLine(t, r.Notation, "package Mockups {")
-	wantLine(t, r.Notation, "part def Clock {")
+	wantLine(t, r.Notation, "occurrence def Clock {")
 	wantLine(t, r.Notation, "exhibit state ticking : Ticking;")
 	wantLine(t, r.Notation, "/* applied stereotype «Frame»: title = Clock */")
 	wantLine(t, r.Notation, "part def Gauge {")

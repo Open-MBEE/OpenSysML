@@ -1377,6 +1377,43 @@ class ApiIntegrationTest {
   }
 
   @Test
+  void renderViewReturnsTypedPortsEdgesAndOrigins() {
+    Model model = connection.load(fixture("views.sysml"));
+    RenderedView rendered = model.renderView("RenderViewDemo::connections");
+    assertEquals("interconnection", rendered.kind());
+    assertEquals(1, rendered.edges().size());
+    assertFalse(rendered.edges().get(0).fromPort().isEmpty());
+    assertFalse(rendered.edges().get(0).toPort().isEmpty());
+    assertTrue(rendered.nodes().stream().allMatch(node -> node.origin().isPresent()));
+    assertTrue(
+        model
+            .renderView("RenderViewDemo::connections", RenderViewPorts.FULL)
+            .nodes()
+            .stream()
+            .flatMap(node -> node.ports().stream())
+            .anyMatch(port -> port.name().equals("spare")));
+  }
+
+  @Test
+  void exportGraphsAnswersTheCanonicalFormOfABehavior() {
+    Model model = connection.load(fixture("behavior.sysml"));
+    Graphs graphs = model.exportGraphs("Test::race");
+    assertEquals(1, graphs.version());
+    assertEquals("Test::race", graphs.subject());
+    assertTrue(
+        graphs.content().startsWith("{\"version\":1,\"subject\":\"Test::race\""),
+        graphs.content());
+    assertTrue(graphs.content().endsWith("}\n"), graphs.content());
+    assertTrue(graphs.content().contains("\"actions\""), graphs.content());
+    ServiceException missing =
+        assertThrows(ServiceException.class, () -> model.exportGraphs("Test::Missing"));
+    assertTrue(missing.getMessage().contains("Test::Missing"), missing.getMessage());
+    ServiceException notABehavior =
+        assertThrows(ServiceException.class, () -> model.exportGraphs("Test"));
+    assertTrue(notABehavior.getMessage().contains("no lowered graph"), notABehavior.getMessage());
+  }
+
+  @Test
   void convertSpellsDerivedIdsInTheFormAskedFor() {
     String source = "package P { part def A; part a : A; }\n";
     ConversionOptions options = ConversionOptions.defaults().withFromFormat("sysml");

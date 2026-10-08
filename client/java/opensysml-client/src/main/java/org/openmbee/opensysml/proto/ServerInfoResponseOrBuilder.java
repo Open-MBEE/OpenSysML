@@ -117,6 +117,10 @@ public interface ServerInfoResponseOrBuilder extends
    * and answers with typed rows.
    * "render_document" - the RenderDocument RPC renders a named document to
    * Markdown.
+   * "render_view" - the RenderView RPC renders a declared view or targeted
+   * pseudo-view as machine-readable diagram data.
+   * "export_graphs" - the ExportGraphs RPC exports the lowered graph of an
+   * action or state machine as canonical graphs:1 JSON.
    * "diagnostic_codes" - Diagnostic.code is populated, so an empty code is a
    * finding none was assigned; without it every code is empty.
    * "schedule"     - ExecuteActionRequest, ExecuteStateRequest and
@@ -242,6 +246,10 @@ public interface ServerInfoResponseOrBuilder extends
    * and answers with typed rows.
    * "render_document" - the RenderDocument RPC renders a named document to
    * Markdown.
+   * "render_view" - the RenderView RPC renders a declared view or targeted
+   * pseudo-view as machine-readable diagram data.
+   * "export_graphs" - the ExportGraphs RPC exports the lowered graph of an
+   * action or state machine as canonical graphs:1 JSON.
    * "diagnostic_codes" - Diagnostic.code is populated, so an empty code is a
    * finding none was assigned; without it every code is empty.
    * "schedule"     - ExecuteActionRequest, ExecuteStateRequest and
@@ -366,6 +374,10 @@ public interface ServerInfoResponseOrBuilder extends
    * and answers with typed rows.
    * "render_document" - the RenderDocument RPC renders a named document to
    * Markdown.
+   * "render_view" - the RenderView RPC renders a declared view or targeted
+   * pseudo-view as machine-readable diagram data.
+   * "export_graphs" - the ExportGraphs RPC exports the lowered graph of an
+   * action or state machine as canonical graphs:1 JSON.
    * "diagnostic_codes" - Diagnostic.code is populated, so an empty code is a
    * finding none was assigned; without it every code is empty.
    * "schedule"     - ExecuteActionRequest, ExecuteStateRequest and
@@ -491,6 +503,10 @@ public interface ServerInfoResponseOrBuilder extends
    * and answers with typed rows.
    * "render_document" - the RenderDocument RPC renders a named document to
    * Markdown.
+   * "render_view" - the RenderView RPC renders a declared view or targeted
+   * pseudo-view as machine-readable diagram data.
+   * "export_graphs" - the ExportGraphs RPC exports the lowered graph of an
+   * action or state machine as canonical graphs:1 JSON.
    * "diagnostic_codes" - Diagnostic.code is populated, so an empty code is a
    * finding none was assigned; without it every code is empty.
    * "schedule"     - ExecuteActionRequest, ExecuteStateRequest and

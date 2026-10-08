@@ -76,8 +76,8 @@ package OpenSysMLSurfaces {
         attribute :>> goPackage = "api/proto";
         attribute schemaFile : String = "api/proto/sysml.proto";
         attribute service : String = "SysMLService";
-        attribute rpcCount : Integer = 23;
-        attribute rpcs : String = "GetServerInfo, ParseFile, ParseSources, GetSymbol, GetDiagnostics, Evaluate, Instantiate, ExecuteAction, ExecuteState, Convert, Migrate, ApplyEdits, VerifyConstraint, VerifyRequirement, VerifySatisfaction, ValidateInstance, EvaluateCalc, RunAnalysis, RunSweep, ListEngines, Query, RunDocumentQuery, RenderDocument";
+        attribute rpcCount : Integer = 25;
+        attribute rpcs : String = "GetServerInfo, ParseFile, ParseSources, GetSymbol, GetDiagnostics, Evaluate, Instantiate, ExecuteAction, ExecuteState, Convert, Migrate, ApplyEdits, VerifyConstraint, VerifyRequirement, VerifySatisfaction, ValidateInstance, EvaluateCalc, RunAnalysis, RunSweep, ListEngines, Query, RunDocumentQuery, RenderDocument, RenderView, ExportGraphs";
         attribute generatedGo : String = "api/proto/sysml.pb.go, api/proto/sysml_grpc.pb.go, api/proto/protoconnect/sysml.connect.go";
         attribute generator : String = "buf";
     }
@@ -279,12 +279,11 @@ package OpenSysMLSurfaces {
         attribute supported : Boolean default = true;
     }
 
-    // Every kind in StandardViewDefinitions is recognized, so a view stating
-    // one that is not produced is told so rather than rendered as another.
+    // Every rendering kind the implementation recognizes is modelled here.
     part def ViewEngine :> CodeUnit {
         attribute :>> goPackage = "internal/ir/view";
-        attribute recognizedKinds : Integer = 8;
-        attribute supportedKinds : Integer = 6;
+        attribute recognizedKinds : Integer = 14;
+        attribute supportedKinds : Integer = 12;
         part tree : RenderingKind { attribute :>> kind = "tree"; }
         part interconnection : RenderingKind { attribute :>> kind = "interconnection"; }
         part stateDiagram : RenderingKind { attribute :>> kind = "state"; }
@@ -294,7 +293,13 @@ package OpenSysMLSurfaces {
             attribute :>> supported = false;
         }
         part table : RenderingKind { attribute :>> kind = "table"; }
+        part matrix : RenderingKind { attribute :>> kind = "matrix"; }
         part sequence : RenderingKind { attribute :>> kind = "sequence"; }
+        part caseDiagram : RenderingKind { attribute :>> kind = "case"; }
+        part mixedDiagram : RenderingKind { attribute :>> kind = "mixed"; }
+        part requirementGraph : RenderingKind { attribute :>> kind = "requirement"; }
+        part definitionGraph : RenderingKind { attribute :>> kind = "definition"; }
+        part packageGraph : RenderingKind { attribute :>> kind = "package"; }
         part geometry : RenderingKind {
             attribute :>> kind = "geometry";
             attribute :>> supported = false;
@@ -688,13 +693,13 @@ package OpenSysMLSurfaces {
     }
 
     requirement def ViewsSayWhatTheyCannotRender {
-        doc /* Every standard rendering kind is recognized, and the ones not
-             * produced say so instead of being drawn as something else. */
+        doc /* Every rendering kind is recognized, and the ones not produced
+             * say so instead of being drawn as something else. */
         subject views : ViewEngine;
         require constraint {
-            views.recognizedKinds == 8 and views.supportedKinds == 6
+            views.recognizedKinds == 14 and views.supportedKinds == 12
                 and not views.textual.supported and not views.geometry.supported
-                and views.sequence.supported
+                and views.sequence.supported and views.matrix.supported
         }
     }
 

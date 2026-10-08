@@ -1,5 +1,5 @@
 {
   "libraries": true,
   "type": "calc",
-  "error": "type mismatch: function VectorFunctions::sum requires a collection of vectors (coll: VectorValue[*]), element 1 is a Real"
+  "error": "type mismatch: function VectorFunctions::sum requires a collection of vectors (coll: VectorValue[*]), element 1 is a Rational"
 }

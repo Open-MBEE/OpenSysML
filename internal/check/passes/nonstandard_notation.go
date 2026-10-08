@@ -6,6 +6,7 @@ import (
 
 	"github.com/Open-MBEE/OpenSysML/internal/check/passes/kit"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
@@ -99,6 +100,9 @@ type notationWalker struct {
 	// inViewDefBody records that the body being walked is a ViewDefinitionBody
 	// (SysML.xtext ViewDefinitionBodyItem), which admits no Expose.
 	inViewDefBody bool
+	// inViewBody records that the body being walked is a view definition's or
+	// view usage's, neither of which admits a FramedConcernMember.
+	inViewBody bool
 	// inKerMLDeclaration counts the enclosing declarations already reported as
 	// KerML notation; their members move with them, so are not reported again.
 	inKerMLDeclaration int
@@ -180,10 +184,13 @@ func (w *notationWalker) walk(members []ast.Node) {
 			}
 			w.sysmlDeclaration(n, n.Keyword)
 			w.keywordAsName(n.Ident)
+			w.framedConcern(n)
+			w.indexedEnds(n)
 			w.walkDeclaration(n.Members, n)
 			w.leaveKerMLDeclaration(reported)
 		case *ast.Import:
 			w.expose(n)
+			w.stateActivityImport(n)
 			w.walk(n.Body)
 		// An alias and a named multiplicity are the remaining members that parse
 		// with a keyword for a name; the rest do not parse at all, so no span reaches here.
@@ -238,13 +245,14 @@ func (w *notationWalker) walk(members []ast.Node) {
 // walkDeclaration walks the body of a declaration under the body kind that
 // declaration opens.
 func (w *notationWalker) walkDeclaration(members []ast.Node, declaration ast.Node) {
-	action, viewDef := w.inActionBody, w.inViewDefBody
+	action, viewDef, view := w.inActionBody, w.inViewDefBody, w.inViewBody
 	w.inActionBody = admitsActionBodyItems(declaration)
 	w.inViewDefBody = isViewDefinition(declaration)
+	w.inViewBody = w.inViewDefBody || isViewUsage(declaration)
 	w.bodies = append(w.bodies, bodyFrame{members: members})
 	w.walk(members)
 	w.bodies = w.bodies[:len(w.bodies)-1]
-	w.inActionBody, w.inViewDefBody = action, viewDef
+	w.inActionBody, w.inViewDefBody, w.inViewBody = action, viewDef, view
 }
 
 // walkPackageMembers walks a namespace or package body, the member lists a fix
@@ -261,15 +269,20 @@ func (w *notationWalker) walkActionBody(members []ast.Node) {
 	if len(members) == 0 {
 		return
 	}
-	action, viewDef := w.inActionBody, w.inViewDefBody
-	w.inActionBody, w.inViewDefBody = true, false
+	action, viewDef, view := w.inActionBody, w.inViewDefBody, w.inViewBody
+	w.inActionBody, w.inViewDefBody, w.inViewBody = true, false, false
 	w.walk(members)
-	w.inActionBody, w.inViewDefBody = action, viewDef
+	w.inActionBody, w.inViewDefBody, w.inViewBody = action, viewDef, view
 }
 
 func isViewDefinition(node ast.Node) bool {
 	def, ok := node.(*ast.Definition)
 	return ok && def.Kind == ast.DefView
+}
+
+func isViewUsage(node ast.Node) bool {
+	usage, ok := node.(*ast.Usage)
+	return ok && usage.Kind == ast.UsageView
 }
 
 // admitsActionBodyItems reports whether the body a declaration opens is an
@@ -392,6 +405,35 @@ func (w *notationWalker) expose(n *ast.Import) {
 	}
 	w.extension(keywordSpan(n, "expose"), "`expose` in a view def body",
 		"only a view usage body admits Expose; a view def body states what it renders and filters")
+}
+
+// stateActivityImport reports an import of the StateActivity extension library:
+// `x.isActive` resolves only by OpenSysML's reading of a feature `featured by`
+// a type as a member of the type's usages, which no production of SysML v2 gives.
+func (w *notationWalker) stateActivityImport(n *ast.Import) {
+	if n.IsExpose || n.Imported == nil || w.root == nil || w.resolver == nil {
+		return
+	}
+	sym, ok := w.resolver.ReadQualified(w.root, n.Imported).Symbol()
+	if !ok || sym == nil || w.resolver.Index().LibraryTier(sym) != symbols.TierOpenSysML {
+		return
+	}
+	fqn := symbols.FQNOf(sym)
+	if fqn != semantics.StateActivityPackage && !strings.HasPrefix(fqn, semantics.StateActivityPackage+"::") {
+		return
+	}
+	w.extension(n.Imported.Span(), "an import of the `StateActivity` library",
+		"neither States.sysml nor StatePerformances.kerml declares `isActive` on a state usage, so a conforming tool leaves `x.isActive` unresolved")
+}
+
+// framedConcern reports a `frame` in a view body: FramedConcernMember belongs to
+// requirement, concern and viewpoint bodies only (SysML v2 §8.3.20, §8.3.26).
+func (w *notationWalker) framedConcern(n *ast.Usage) {
+	if !w.inViewBody || n.Kind != ast.UsageFramedConcern {
+		return
+	}
+	w.extension(w.declarationKeywordSpan(n, "frame"), "`frame` in a view body",
+		"only a requirement, concern or viewpoint body frames a concern; a view is checked against the concerns the viewpoints it satisfies frame")
 }
 
 // transition reports a `transition` in an action body: only `succession … if …`
@@ -835,4 +877,28 @@ func keywordSpan(n ast.Node, keyword string) source.Span {
 		sp.Len = len(keyword)
 	}
 	return sp
+}
+
+// indexedEnds reports each end of a connector, binding or flow that selects one
+// element of its feature with `#( index )`. A ConnectorEnd is a feature chain
+// (SysML.xtext ConnectorEndMember, KerML.xtext ConnectorEndMember) and `#(` an
+// expression operator (KerML.xtext IndexExpression), so neither grammar admits it.
+func (w *notationWalker) indexedEnds(n *ast.Usage) {
+	for _, end := range n.ConnectorEnds {
+		if end != nil {
+			w.indexedEnd(end.AttachedSelection())
+		}
+	}
+	if n.FlowEnds != nil {
+		w.indexedEnd(n.FlowEnds.From)
+		w.indexedEnd(n.FlowEnds.To)
+	}
+}
+
+func (w *notationWalker) indexedEnd(target ast.Node) {
+	if _, index := ast.EndSelection(target); index == nil {
+		return
+	}
+	w.extension(target.Span(), "an indexed connector end (`#( index )` selecting one element of the feature)",
+		"a connector end is a feature chain, so the standard connects the whole feature; declare a feature holding the element and connect that")
 }

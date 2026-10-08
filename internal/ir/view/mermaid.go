@@ -35,10 +35,13 @@ func (r *Rendering) Mermaid() string {
 // as a `direction` statement. The empty direction keeps each kind's default,
 // and a kind no direction applies to ignores it. A palette fills nodes by
 // keyword family, and a Cameo style draws its representable colours. An
-// interconnection draws the ports its selected display returns. A rendering
-// some Layout positions draws the nodes the DOT form draws: the placed ones,
-// and the unplaced ones too under UnplacedStrip.
+// interconnection or mixed rendering draws the ports its selected display
+// returns. A rendering positioned by Layout draws the nodes the DOT form draws:
+// the placed ones, and the unplaced ones too under UnplacedStrip.
 func (r *Rendering) MermaidWith(options Options) string {
+	if r.Run && r.Kind == KindTimeline {
+		return r.runTimelineMermaid(options)
+	}
 	r = r.settleUnplaced(options.Unplaced, FormMermaid)
 	direction := options.Direction
 	var b strings.Builder
@@ -46,7 +49,9 @@ func (r *Rendering) MermaidWith(options Options) string {
 	labels.skin = skinOf(options.Style)
 	ports := r.portView(options.Ports)
 	r.writeMermaidFrontmatter(&b, labels, options, ports)
-	if r.View == "" {
+	if r.Run {
+		fmt.Fprintf(&b, "%%%% run — %s rendering", r.Kind)
+	} else if r.View == "" {
 		fmt.Fprintf(&b, "%%%% %s rendering", r.Kind)
 	} else {
 		fmt.Fprintf(&b, "%%%% %s — %s rendering", r.View, r.Kind)
@@ -107,9 +112,11 @@ func (r *Rendering) mermaidNotices(options Options) []string {
 		notices = append(notices, fmt.Sprintf("%d fork/join name(s) (%s); Mermaid's fork bar draws no label",
 			len(names), strings.Join(names, ", ")))
 	}
-	if r.Kind == KindAction {
+	if r.Kind == KindAction || r.Kind == KindMixed {
 		used := r.usedPorts(r.portView(options.Ports))
-		if pins := r.undrawnPins(func(node *Node, port Port) bool { return used[node.ID][port.ID] }); len(pins) > 0 {
+		if pins := r.undrawnPins(func(node *Node, port Port) bool {
+			return r.Kind == KindMixed && port.Direction == PortUndirected || used[node.ID][port.ID]
+		}); len(pins) > 0 {
 			notices = append(notices, fmt.Sprintf("%d pin(s) not drawn (%s); a flowchart draws the pins an edge ends at",
 				len(pins), strings.Join(pins, ", ")))
 		}
@@ -234,15 +241,31 @@ func (r *Rendering) mermaidFlowchartNoteNotices() []string {
 // mermaidPictureNotices reports the pictures the Mermaid form cannot draw,
 // grouped by the reason.
 func (r *Rendering) mermaidPictureNotices() []string {
+	refusals := r.pictureRefusals()
 	if r.Kind == KindState || r.Kind == KindSequence {
-		if len(r.Pictures) > 0 {
-			return []string{pictureNotice(r.Pictures, fmt.Sprintf("a %s diagram draws no picture", r.Kind))}
+		var drawable []Picture
+		for i, picture := range r.Pictures {
+			if refusals[i] == nil {
+				drawable = append(drawable, picture)
+			}
 		}
-		return nil
+		notices := refusedPictureNotices(r.Pictures, refusals)
+		if len(drawable) > 0 {
+			notices = append(notices, pictureNotice(drawable, fmt.Sprintf("a %s diagram draws no picture", r.Kind)))
+		}
+		return notices
 	}
 	var reasons []string
 	undrawn := map[string][]Picture{}
-	for _, picture := range r.Pictures {
+	for i, picture := range r.Pictures {
+		if refusals[i] != nil {
+			reason := refusals[i].Error()
+			if _, seen := undrawn[reason]; !seen {
+				reasons = append(reasons, reason)
+			}
+			undrawn[reason] = append(undrawn[reason], picture)
+			continue
+		}
 		if _, reason, ok := mermaidPictureSource(picture); !ok {
 			if _, seen := undrawn[reason]; !seen {
 				reasons = append(reasons, reason)
@@ -488,6 +511,10 @@ func (r *Rendering) writeMermaidFrontmatter(b *strings.Builder, labels labeller,
 		fmt.Fprintf(b, "  themeCSS: %q\n",
 			".edgeLabel rect { opacity: 1 !important; } "+mermaidTitleCSS)
 	}
+	if r.Run && r.Kind == KindTimeline {
+		b.WriteString("  gantt:\n    displayMode: compact\n")
+		fmt.Fprintf(b, "    leftPadding: %d\n", runTimelineMermaidLeftPadding(r.Lanes))
+	}
 	b.WriteString("  themeVariables:\n")
 	variables := []themeVariable{
 		{"fontFamily", font},
@@ -561,23 +588,31 @@ func clusterTitleExtraLines(node *Node, ports portView, labels labeller) int {
 	if !flowchartCluster(node, ports) {
 		return 0
 	}
-	extra := len(labels.lines(node)) - 1
+	extra := len(labels.titleLines(node)) - 1
 	for _, child := range node.Children {
 		extra = max(extra, clusterTitleExtraLines(child, ports, labels))
 	}
 	return extra
 }
 
-// flowchartCluster reports whether a node holds flowchart nodes, or is an
-// interconnection part with displayed ports.
+// flowchartCluster reports whether a node holds flowchart nodes, or a part with displayed ports.
 func flowchartCluster(node *Node, ports portView) bool {
-	return len(node.Children) > 0 || (ports.interconnection && len(ports.of(node)) > 0)
+	if len(node.Children) > 0 {
+		return true
+	}
+	for _, port := range ports.of(node) {
+		if ports.interconnectionPort(port) {
+			return true
+		}
+	}
+	return false
 }
 
-// writeFlowchart writes the tree, interconnection and action renderings as a
-// Mermaid flowchart: a node with children is a subgraph, containment in a tree
-// is an edge, and every other edge is the one the rendering holds. An
-// interconnection draws its selected ports as nodes inside their parts.
+// writeFlowchart writes the tree, interconnection, action and mixed renderings
+// as a Mermaid flowchart: a node with children is a subgraph, containment in a
+// tree is an edge, and every other edge is the one the rendering holds. An
+// interconnection or mixed rendering draws its selected ports as nodes inside
+// their parts.
 type mermaidFlowWriter struct {
 	b              *strings.Builder
 	links          int
@@ -625,6 +660,7 @@ func (w *mermaidFlowWriter) edge(from, arrow, label, to string, style *Style, ki
 
 // flowchartContext is what every node of a flowchart is written with.
 type flowchartContext struct {
+	kind       Kind
 	flow       string
 	labels     labeller
 	options    Options
@@ -638,7 +674,7 @@ func (r *Rendering) writeFlowchart(b *strings.Builder, direction Direction, labe
 	flowchart := *r
 	flowchart.Notes = r.flowchartNotesWithDrawnEdges()
 	flow := "TD"
-	if r.Kind == KindInterconnection {
+	if r.Kind == KindInterconnection || r.Kind == KindCase {
 		flow = "LR"
 	}
 	if direction != "" {
@@ -652,7 +688,7 @@ func (r *Rendering) writeFlowchart(b *strings.Builder, direction Direction, labe
 	if r.blank() && len(r.Pictures) == 0 && len(flowchart.Notes) == 0 {
 		fmt.Fprintf(b, "  empty[\"%s\"]\n", mermaidText(r.blankReason(FormMermaid)))
 	} else {
-		ctx := flowchartContext{flow: flow, labels: labels, options: options, ports: portDisplay, used: used, noteOwners: noteOwners}
+		ctx := flowchartContext{kind: r.Kind, flow: flow, labels: labels, options: options, ports: portDisplay, used: used, noteOwners: noteOwners}
 		for _, root := range r.Roots {
 			if r.Kind == KindTree {
 				r.writeTreeNode(w, root, 1, labels, options)
@@ -667,7 +703,7 @@ func (r *Rendering) writeFlowchart(b *strings.Builder, direction Direction, labe
 		from, to := r.edgeEnds(edge, portEnds)
 		from = flowchartEndpoint(from, w.clusterAnchors)
 		to = flowchartEndpoint(to, w.clusterAnchors)
-		w.edge(from, mermaidArrow(edge.Kind), edge.Label, to, edge.Style, edge.Kind)
+		w.edge(from, mermaidArrow(r.Kind, edge.Kind), mermaidEdgeLabel(r.Kind, edge), to, edge.Style, edge.Kind)
 	}
 	flowchart.writeFlowchartNoteEdges(w, noteOwners, used)
 	r.writeMermaidStyles(b, fills, options, false)
@@ -761,7 +797,7 @@ func (r *Rendering) flowchartNotesWithDrawnEdges() []Note {
 
 func (r *Rendering) writeTreeNode(w *mermaidFlowWriter, node *Node, depth int, labels labeller, options Options) {
 	indent := strings.Repeat("  ", depth)
-	fmt.Fprintf(w.b, "%s%s%s\n", indent, node.ID, mermaidNodeShape(node, labels, options))
+	fmt.Fprintf(w.b, "%s%s%s\n", indent, node.ID, mermaidNodeShape(KindTree, node, labels, options))
 	for _, child := range node.Children {
 		r.writeTreeNode(w, child, depth+1, labels, options)
 		w.edge(node.ID, "---", "", child.ID, nil, EdgeBinding)
@@ -1105,10 +1141,10 @@ func mermaidFontFamily(font string) bool {
 func (r *Rendering) writeFlowchartNode(w *mermaidFlowWriter, node *Node, depth int, ctx flowchartContext) {
 	indent := strings.Repeat("  ", depth)
 	if !r.flowchartSubgraph(node, ctx.used) {
-		fmt.Fprintf(w.b, "%s%s%s\n", indent, node.ID, mermaidNodeShape(node, ctx.labels, ctx.options))
+		fmt.Fprintf(w.b, "%s%s%s\n", indent, node.ID, mermaidNodeShape(ctx.kind, node, ctx.labels, ctx.options))
 		return
 	}
-	fmt.Fprintf(w.b, "%ssubgraph %s [%s]\n", indent, node.ID, mermaidNodeLabel(node, ctx.labels, ctx.options))
+	fmt.Fprintf(w.b, "%ssubgraph %s [%s]\n", indent, node.ID, mermaidTitleLabel(node, ctx.labels, ctx.options))
 	fmt.Fprintf(w.b, "%s  direction %s\n", indent, ctx.flow)
 	if anchor := w.clusterAnchors[node.ID]; anchor != "" {
 		fmt.Fprintf(w.b, "%s  %s[\" \"]\n", indent, anchor)
@@ -1125,10 +1161,9 @@ func (r *Rendering) writeFlowchartNode(w *mermaidFlowWriter, node *Node, depth i
 	fmt.Fprintf(w.b, "%send\n", indent)
 }
 
-// flowchartPinID is the node a port is drawn as: the port itself on an
-// interconnection view, else a pin numbered by its position on the node.
+// flowchartPinID is the node a part port or action pin is drawn as.
 func flowchartPinID(node *Node, port Port, ports portView) string {
-	if !ports.interconnection {
+	if !ports.interconnectionPort(port) {
 		for j, candidate := range node.Ports {
 			if candidate.ID == port.ID {
 				return fmt.Sprintf("%s_p%d", node.ID, j)
@@ -1138,7 +1173,18 @@ func flowchartPinID(node *Node, port Port, ports portView) string {
 	return port.ID
 }
 
-func mermaidNodeShape(node *Node, labels labeller, options Options) string {
+func mermaidNodeShape(kind Kind, node *Node, labels labeller, options Options) string {
+	if kind == KindCase || kind == KindMixed {
+		if caseNodeKind(node.Kind) {
+			return "([" + mermaidNodeLabel(node, labels, options) + "])"
+		}
+		switch node.Kind {
+		case "actor", "subject":
+			return "[" + mermaidNodeLabel(node, labels, options) + "]"
+		case "objective":
+			return "@{ shape: notch-rect, label: \"" + labels.mermaid(node) + "\" }"
+		}
+	}
 	switch node.Kind {
 	case startKind, "initial":
 		return `@{ shape: f-circ, label: "" }`
@@ -1178,17 +1224,35 @@ func mermaidNodeShape(node *Node, labels labeller, options Options) string {
 }
 
 func mermaidNodeLabel(node *Node, labels labeller, options Options) string {
-	lines := labels.lines(node)
+	return mermaidLabel(node, labels, labels.lines(node), false)
+}
+
+func mermaidTitleLabel(node *Node, labels labeller, options Options) string {
+	return mermaidLabel(node, labels, labels.titleLines(node), true)
+}
+
+func mermaidLabel(node *Node, labels labeller, lines []string, title bool) string {
 	for _, line := range lines {
 		if !mermaidMarkdownSafe(line) {
+			if title {
+				return `"` + labels.mermaidTitle(node) + `"`
+			}
 			return `"` + labels.mermaid(node) + `"`
 		}
 	}
 	markdown := make([]string, 0, len(lines))
-	if keyword := labels.keyword(node); keyword != "" {
+	head := labels.headLines(node)
+	if title {
+		first := "**" + head[0] + "**"
+		if keyword := labels.keyword(node); keyword != "" {
+			first = "*" + keyword + "* " + first
+		}
+		markdown = append(markdown, first)
+		head = head[1:]
+	} else if keyword := labels.keyword(node); keyword != "" {
 		markdown = append(markdown, "*"+keyword+"*")
 	}
-	for _, line := range labels.headLines(node) {
+	for _, line := range head {
 		markdown = append(markdown, "**"+line+"**")
 	}
 	markdown = append(markdown, labels.details(node)...)
@@ -1252,7 +1316,7 @@ func runeAt(text string, index, direction int) rune {
 
 func (r *Rendering) usedPorts(ports portView) map[string]map[string]bool {
 	used := map[string]map[string]bool{}
-	if r.Kind != KindAction && r.Kind != KindInterconnection {
+	if r.Kind != KindAction && r.Kind != KindInterconnection && r.Kind != KindMixed {
 		return used
 	}
 	mark := func(owner, port string) {
@@ -1261,11 +1325,13 @@ func (r *Rendering) usedPorts(ports portView) map[string]map[string]bool {
 		}
 		used[owner][port] = true
 	}
-	if r.Kind == KindInterconnection {
+	if r.Kind == KindInterconnection || r.Kind == KindMixed {
 		var walk func(*Node)
 		walk = func(node *Node) {
 			for _, port := range ports.of(node) {
-				mark(node.ID, port.ID)
+				if r.Kind == KindInterconnection || ports.interconnectionPort(port) {
+					mark(node.ID, port.ID)
+				}
 			}
 			for _, child := range node.Children {
 				walk(child)
@@ -1274,7 +1340,9 @@ func (r *Rendering) usedPorts(ports portView) map[string]map[string]bool {
 		for _, root := range r.Roots {
 			walk(root)
 		}
-		return used
+		if r.Kind == KindInterconnection {
+			return used
+		}
 	}
 	for _, edge := range r.Edges {
 		for _, endpoint := range []struct{ owner, port string }{
@@ -1302,7 +1370,7 @@ func (r *Rendering) portEnds(used map[string]map[string]bool) map[string]string 
 		for i, port := range node.Ports {
 			if used[node.ID][port.ID] {
 				end := port.ID
-				if r.Kind == KindAction {
+				if r.Kind == KindAction || r.Kind == KindMixed && port.Direction != PortUndirected {
 					end = fmt.Sprintf("%s_p%d", node.ID, i)
 				}
 				ends[port.ID] = end
@@ -1405,7 +1473,10 @@ func (r *Rendering) writePictures(b *strings.Builder) {
 
 func mermaidPictureSource(picture Picture) (string, string, bool) {
 	src := picture.Location
-	if strings.Contains(src, "://") || strings.HasPrefix(src, "data:") {
+	if RemotePictureLocation(src) || strings.HasPrefix(strings.ToLower(strings.TrimSpace(src)), "data:") {
+		if err := CheckPicture(src, nil); err != nil {
+			return "", err.Error(), false
+		}
 		if strings.ContainsAny(src, "\"\r\n") {
 			return "", "the source cannot be represented", false
 		}
@@ -1430,13 +1501,16 @@ func mermaidPictureSource(picture Picture) (string, string, bool) {
 	if imagefile.ContentType(data) == "" {
 		return "", "the image type is not supported", false
 	}
+	if err := CheckPicture(picture.Location, data); err != nil {
+		return "", err.Error(), false
+	}
 	return src, "", true
 }
 
 // mermaidPinLabel is a pin node's label: the port's stereotype over `name : Type`
 // under the full display, the name alone under the minimal.
 func mermaidPinLabel(ports portView, port Port) string {
-	if !ports.interconnection {
+	if !ports.interconnectionPort(port) {
 		return mermaidText(port.Name)
 	}
 	label := mermaidText(ports.pinLabel(port))
@@ -1601,7 +1675,11 @@ func (r *Rendering) writeSequenceDiagram(b *strings.Builder, labels labeller, op
 		return
 	}
 	for _, node := range r.Roots {
-		fmt.Fprintf(b, "  participant %s as %s\n", node.ID, labels.mermaid(node))
+		label := labels.mermaid(node)
+		if r.Run {
+			label = mermaidText(runParticipantLabel(node))
+		}
+		fmt.Fprintf(b, "  participant %s as %s\n", node.ID, label)
 		if url, ok := options.Links.URL(node.Origin); ok {
 			fmt.Fprintf(b, "  link %s: Source @ %s\n", node.ID, url)
 		}
@@ -1643,7 +1721,7 @@ func (r *Rendering) writeStateNode(b *strings.Builder, node *Node, depth int, ch
 		r.writeStateNotes(b, node.ID, depth)
 		return
 	}
-	fmt.Fprintf(b, "%sstate \"%s\" as %s {\n", indent, labels.mermaid(node), node.ID)
+	fmt.Fprintf(b, "%sstate \"%s\" as %s {\n", indent, labels.mermaidTitle(node), node.ID)
 	for _, child := range node.Children {
 		if child.Kind != startKind && !chart.convertedFinals[child.ID] {
 			r.writeStateNode(b, child, depth+1, chart, labels)
@@ -1768,7 +1846,14 @@ func InlineMermaidImages(source, base string) string {
 			continue
 		}
 		location := line[match[2]:match[3]]
-		if strings.Contains(location, "://") || strings.HasPrefix(location, "data:") {
+		if RemotePictureLocation(location) {
+			drop(i, location, ErrRemotePicture.Error())
+			continue
+		}
+		if strings.HasPrefix(strings.ToLower(strings.TrimSpace(location)), "data:") {
+			if err := CheckPicture(location, nil); err != nil {
+				drop(i, location, err.Error())
+			}
 			continue
 		}
 		path := location
@@ -1783,6 +1868,10 @@ func InlineMermaidImages(source, base string) string {
 		contentType := imagefile.ContentType(data)
 		if contentType == "" {
 			drop(i, location, "the file is not a supported image")
+			continue
+		}
+		if err := CheckPicture(location, data); err != nil {
+			drop(i, location, err.Error())
 			continue
 		}
 		uri := "data:" + contentType + ";base64," + base64.StdEncoding.EncodeToString(data)
@@ -1823,7 +1912,14 @@ func InlineMermaidImages(source, base string) string {
 // mermaid is a node's label ready to embed: its lines escaped and joined with
 // `<br>`, which flowcharts, state diagrams and sequence diagrams all break at.
 func (l labeller) mermaid(node *Node) string {
-	lines := l.lines(node)
+	return l.mermaidLines(l.lines(node))
+}
+
+func (l labeller) mermaidTitle(node *Node) string {
+	return l.mermaidLines(l.titleLines(node))
+}
+
+func (l labeller) mermaidLines(lines []string) string {
 	for i, line := range lines {
 		lines[i] = mermaidText(line)
 	}
@@ -1831,14 +1927,57 @@ func (l labeller) mermaid(node *Node) string {
 }
 
 // mermaidArrow is how an edge of each kind is drawn in a flowchart.
-func mermaidArrow(kind EdgeKind) string {
-	switch kind {
+func mermaidArrow(kind Kind, edge EdgeKind) string {
+	if caseNotation(kind) && edge == EdgeReference {
+		return "-.->"
+	}
+	switch edge {
 	case EdgeConnection, EdgeBinding:
 		return "==="
-	case EdgeFlow:
+	case EdgeFlow, EdgeTyping, EdgeImport, EdgeSatisfy, EdgeVerify, EdgeDerive, EdgeRefine, EdgeAllocate:
+		return "-.->"
+	case EdgeComposition, EdgeReference, EdgeContainment:
+		return "---"
+	case EdgeAssociation:
+		return "---"
+	case EdgeAnchor:
+		return "-.-"
+	case EdgeInclude:
 		return "-.->"
 	}
 	return "-->"
+}
+
+// mermaidEdgeLabel is an edge's flowchart label: its own, or for an edge whose
+// arrow a flowchart draws like another kind's, its kind. A flowchart has no
+// diamond head, so a graph's composition and reference lead with a filled or
+// hollow one, in a tree as in a graph; a case or mixed diagram names
+// composition and specialization.
+func mermaidEdgeLabel(kind Kind, edge Edge) string {
+	if caseNotation(kind) {
+		if edge.Label != "" {
+			return edge.Label
+		}
+		switch edge.Kind {
+		case EdgeComposition:
+			return "«composition»"
+		case EdgeSpecialization:
+			return "«specializes»"
+		}
+		return ""
+	}
+	if kind != KindTree && kind != KindRequirement && kind != KindDefinition && kind != KindPackage {
+		return edge.Label
+	}
+	switch {
+	case edge.Kind == EdgeComposition:
+		return strings.TrimSpace("◆ " + edge.Label)
+	case edge.Kind == EdgeReference:
+		return strings.TrimSpace("◇ " + edge.Label)
+	case edge.Label == "" && (edge.Kind == EdgeSpecialization || edge.Kind == EdgeTyping):
+		return edge.Kind.String()
+	}
+	return edge.Label
 }
 
 // mermaidText escapes what a Mermaid label may not carry literally. A semicolon

@@ -2271,6 +2271,16 @@ func getNodeName(node ast.Node) string {
 // is reported rather than dropped.
 func lowerFlow(nodes nodeLookup, flow *ast.Usage) (ast.Node, ObjectFlow, error) {
 	name, _ := ast.EffectiveName(flow)
+	// An indexed end selects one element of a feature of the flow's owner; a
+	// flow between the pins of action nodes moves whole pin values.
+	for _, end := range []ast.Node{flow.FlowEnds.From, flow.FlowEnds.To} {
+		if _, index := ast.EndSelection(end); index != nil {
+			return nil, ObjectFlow{}, fmt.Errorf(
+				"flow %s: end %s selects one element of a pin, which a flow between action nodes does not address; flow the whole pin",
+				orAnonymous(name), flowEndText(end),
+			)
+		}
+	}
 	sourceNode, sourcePin := flowEnd(nodes, flow.FlowEnds.From)
 	targetNode, targetPin := flowEnd(nodes, flow.FlowEnds.To)
 
@@ -2381,6 +2391,8 @@ func flowEndText(end ast.Node) string {
 		return strconv.Quote(base + "." + ast.SimpleName(e.Member))
 	case *ast.FeatureReference:
 		return edgeEndName(e.Name)
+	case *ast.IndexExpr:
+		return strconv.Quote(strings.Trim(flowEndText(e.Operand), `"`) + "#(…)")
 	}
 	return "(nothing)"
 }

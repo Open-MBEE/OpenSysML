@@ -8,3 +8,6 @@ view VehicleViews::vehicleView::engineSubview
   part def Vehicles::Engine
     attribute power
     part cylinder : Cylinder
+
+relationships:
+  Vehicles::Vehicle *-- Vehicles::Engine: engine

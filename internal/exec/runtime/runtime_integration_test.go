@@ -26,7 +26,7 @@ func TestIntegration_ParseAndInstantiate(t *testing.T) {
 		t.Fatalf("GetFeatureValue failed: %v", err)
 	}
 
-	if fv.Value.Const.Real != 0.5 {
-		t.Errorf("expected diameter=0.5, got %v", fv.Value.Const.Real)
+	if fv.Value.Const.AsReal() != 0.5 {
+		t.Errorf("expected diameter=0.5, got %v", fv.Value.Const.AsReal())
 	}
 }

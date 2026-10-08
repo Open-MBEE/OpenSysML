@@ -46,7 +46,7 @@ func TestUseCaseForms(t *testing.T) {
 			 <packagedElement xmi:type="uml:Class" xmi:id="_ov" name="Overview"/>
 			 <packagedElement xmi:type="uml:Class" xmi:id="_sv" name="Safety"/>`,
 			`<sysml:View xmi:id="_st1" base_Class="_ov"/><sysml:Viewpoint xmi:id="_st2" base_Class="_sv"/>`,
-			[]string{"subject overview :> Overview;\n    ref viewpoint safety :> Safety;"}, "_uc", Approximated},
+			[]string{"subject overview :> Overview;\n    ref view safety : Safety;"}, "_uc", Approximated},
 		{"a subject that is a nested definition is named by its qualified name",
 			`<packagedElement xmi:type="uml:UseCase" xmi:id="_uc" name="Review" subject="_sys"/>
 			 <packagedElement xmi:type="uml:Class" xmi:id="_rep" name="Report">

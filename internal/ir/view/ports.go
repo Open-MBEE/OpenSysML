@@ -6,8 +6,8 @@ import (
 	"strings"
 )
 
-// Ports is how much of a part's ports an interconnection draws. The empty
-// Ports is PortsMinimal.
+// Ports is how much of a part's ports an interconnection or mixed rendering
+// draws. The empty Ports is PortsMinimal.
 type Ports string
 
 const (
@@ -72,20 +72,20 @@ func (p Ports) check() error {
 }
 
 // SupportsPorts reports whether a rendering of the kind draws a part's ports,
-// which the Ports display chooses among: the interconnection alone. An
-// action's pins are drawn whole whatever the display.
-func (k Kind) SupportsPorts() bool { return k == KindInterconnection }
+// which the Ports display chooses among: interconnection and mixed renderings.
+func (k Kind) SupportsPorts() bool { return k == KindInterconnection || k == KindMixed }
 
 // portView is the ports a form draws of each node under a Ports display, and
 // how it names them: every port, labelled `name : Type`, under PortsFull and
 // for a kind the display does not apply to — the zero portView — and under
 // PortsMinimal those an edge ends at, named alone.
 type portView struct {
-	// interconnection reports whether the rendering is one, whose ports the
-	// text and Mermaid forms write; action reports an action rendering, whose
-	// pins the text form writes under their nodes.
+	// interconnection reports whether the rendering draws interconnection
+	// ports, which text and Mermaid write; action reports an action rendering,
+	// whose pins text writes under their nodes.
 	interconnection bool
 	action          bool
+	mixed           bool
 	minimal         bool
 	connected       map[string]bool
 }
@@ -98,7 +98,8 @@ func (r *Rendering) portView(display Ports) portView { return r.portViewOver(dis
 // draws edges alone of the rendering's: the minimal display follows those, so
 // no pin stands for a connector the form leaves out.
 func (r *Rendering) portViewOver(display Ports, edges []Edge) portView {
-	v := portView{interconnection: r.Kind == KindInterconnection, action: r.Kind == KindAction, minimal: display != PortsFull && r.Kind.SupportsPorts()}
+	v := portView{interconnection: r.Kind == KindInterconnection || r.Kind == KindMixed, action: r.Kind == KindAction,
+		mixed: r.Kind == KindMixed, minimal: display != PortsFull && r.Kind.SupportsPorts()}
 	if !v.minimal {
 		return v
 	}
@@ -121,15 +122,20 @@ func (v portView) of(node *Node) []Port {
 	}
 	var drawn []Port
 	for _, port := range node.Ports {
-		if v.connected[port.ID] {
+		// Action pins are parameters, not connector ends: minimal mixed views keep them.
+		if v.connected[port.ID] || v.mixed && port.Direction != PortUndirected {
 			drawn = append(drawn, port)
 		}
 	}
 	return drawn
 }
 
-// pinLabel is the text a drawn pin is named by: the whole `name : Type` when
-// every port is drawn, the name alone when the connected ones are.
+func (v portView) interconnectionPort(port Port) bool {
+	return v.interconnection && (!v.mixed || port.Direction == PortUndirected)
+}
+
+// pinLabel is the text a drawn pin is named by: `name : Type` under full and
+// the name alone under minimal.
 func (v portView) pinLabel(port Port) string {
 	if !v.minimal {
 		return port.label()

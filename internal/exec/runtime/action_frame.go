@@ -259,6 +259,9 @@ func (e *ActionExecutor) registerRootBindings(root *actionFrame) {
 		}
 		name := root.key(attr.Name)
 		cells := e.performances.bodyCells(root)
+		check := func(value *Value) error {
+			return e.holdAttributeAsReal(attr, value)
+		}
 		var cell *bodyCell
 		context := func(scope *symbols.Scope) *EvalContext {
 			return e.performances.evalBindingContext(root, scope, name, root.began)
@@ -268,7 +271,7 @@ func (e *ActionExecutor) registerRootBindings(root *actionFrame) {
 			*value = mirrored
 			return err
 		}
-		cell = e.ctx.registerBodyBindingInContext(cells, name, attr.Value, scope, nil, context, onDerived)
+		cell = e.ctx.registerBodyBindingInContext(cells, name, attr.Value, scope, check, context, onDerived)
 		cell.binding.masked = attr.Name
 	}
 }

@@ -34,6 +34,8 @@ import (
 // none. A binding connector makes a boundary port and an inner port one object,
 // so an accept on either port takes a message that reached the other.
 type Message struct {
+	// Serial is the bus's number for the message, unique within a context's run; 0 for none.
+	Serial     uint64
 	SignalType string
 	// Signal is the definition SignalType resolved to when the send was built,
 	// nil where the message's type is known only as a name. An accept matches it
@@ -112,6 +114,8 @@ func (ctx *Context) postFrom(msg Message, from *Instance, behavior *symbols.Symb
 	if msg.Delivery == DeliverAnyone {
 		msg.Delivery = deliveryOf(msg)
 	}
+	ctx.messageSerial++
+	msg.Serial = ctx.messageSerial
 	ctx.messages = append(ctx.messages, msg)
 	ctx.bus.posts++
 	ctx.workChanged()

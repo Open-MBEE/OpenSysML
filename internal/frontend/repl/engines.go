@@ -47,7 +47,7 @@ func (s *Session) setEngine(selection analysis.Selection) error {
 // debuggers step — the runner that puts its tool-computed actions to the engines selected.
 func (s *Session) attachTools(ctx *runtime.Context) {
 	schedule := s.drivenSchedule()
-	ctx.SetToolRunner(s.engines.ToolRunner(s.planContext(), ctx, s.budgetFor(schedule, analysis.Compute), s.engine))
+	ctx.SetToolRunner(s.engines.ToolRunner(s.heldPlanContext(), ctx, s.budgetFor(schedule, analysis.Compute), s.engine))
 }
 
 // SetEngines replaces the registry the session's questions are put to, keeping the

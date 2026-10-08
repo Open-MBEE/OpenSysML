@@ -7,7 +7,7 @@
     }
   ],
   "result": {
-    "type": "Real",
-    "value": 0.5625
+    "type": "Rational",
+    "value": "0.5625"
   }
 }

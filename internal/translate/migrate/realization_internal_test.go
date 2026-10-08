@@ -26,28 +26,33 @@ func TestInterfaceRealizationForms(t *testing.T) {
 		want                      []string
 		verdict                   Verdict
 	}{
-		{"a class realizing a port def carries it as a port",
+		{"a part def realizing a port def carries it as a port",
 			`<packagedElement xmi:type="uml:Class" xmi:id="_c" name="Node">
 			   <interfaceRealization xmi:type="uml:InterfaceRealization" xmi:id="_ir" client="_c" supplier="_link" contract="_link"/>
-			 </packagedElement>`, "",
+			 </packagedElement>`, `<sysml:Block xmi:id="_sb" base_Class="_c"/>`,
 			[]string{"part def Node {\n    port link : Link;\n}"}, Approximated},
-		{"the port name steps aside for a member of the same name",
+		{"a part def's synthesized port name steps aside for a member of the same name",
 			`<packagedElement xmi:type="uml:Class" xmi:id="_c" name="Node">
 			   <ownedAttribute xmi:type="uml:Property" xmi:id="_p" name="link"/>
 			   <interfaceRealization xmi:type="uml:InterfaceRealization" xmi:id="_ir" client="_c" supplier="_link" contract="_link"/>
-			 </packagedElement>`, "",
+			 </packagedElement>`, `<sysml:Block xmi:id="_sb" base_Class="_c"/>`,
 			[]string{"port 'link 2' : Link;"}, Approximated},
 		{"a port already typed by the interface carries the realization",
 			`<packagedElement xmi:type="uml:Class" xmi:id="_c" name="Node">
 			   <ownedAttribute xmi:type="uml:Port" xmi:id="_p" name="up" type="_link"/>
 			   <interfaceRealization xmi:type="uml:InterfaceRealization" xmi:id="_ir" client="_c" supplier="_link" contract="_link"/>
-			 </packagedElement>`, "",
+			 </packagedElement>`, `<sysml:Block xmi:id="_sb" base_Class="_c"/>`,
 			[]string{"part def Node {\n    port up : Link;\n}"}, Approximated},
-		{"the supplier stands in for a missing contract",
+		{"a plain class specializes the interface port def",
 			`<packagedElement xmi:type="uml:Class" xmi:id="_c" name="Node">
 			   <interfaceRealization xmi:type="uml:InterfaceRealization" xmi:id="_ir" client="_c" supplier="_link"/>
 			 </packagedElement>`, "",
-			[]string{"port link : Link;"}, Approximated},
+			[]string{"occurrence def Node :> Link;"}, Mapped},
+		{"an occurrence def specializes its interface port def",
+			`<packagedElement xmi:type="uml:Class" xmi:id="_c" name="Node">
+			   <interfaceRealization xmi:type="uml:InterfaceRealization" xmi:id="_ir" client="_c" supplier="_link" contract="_link"/>
+			 </packagedElement>`, "",
+			[]string{"occurrence def Node :> Link;"}, Mapped},
 		{"an interface realizing an interface specializes it once",
 			`<packagedElement xmi:type="uml:Class" xmi:id="_c" name="FastLink">
 			   <generalization xmi:type="uml:Generalization" xmi:id="_g" general="_link"/>

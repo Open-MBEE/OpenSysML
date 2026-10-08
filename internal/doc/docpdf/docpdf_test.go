@@ -681,6 +681,42 @@ func TestRenderDiagramFormKeepsSourceForOtherForms(t *testing.T) {
 	}
 }
 
+func TestRenderRejectsCaseAndMixedD2BeforeConverterAvailability(t *testing.T) {
+	for _, test := range []struct {
+		kind   view.Kind
+		render string
+	}{
+		{kind: view.KindCase, render: "asCaseDiagram"},
+		{kind: view.KindMixed, render: "asMixedDiagram"},
+	} {
+		t.Run(string(test.kind), func(t *testing.T) {
+			t.Setenv(WeasyPrintEnv, filepath.Join(t.TempDir(), "missing-weasyprint"))
+			document := sourceDocument(t, "unsupported.sysml", `package Unsupported {
+				private import Views::*;
+				private import OpenSysMLRenderings::*;
+				private import DocumentQueries::*;
+				use case def Inspection;
+				view DiagramView {
+					expose Inspection;
+					render `+test.render+`;
+				}
+				part def Report :> Document {
+					attribute redefines title = "Unsupported diagrams";
+					part diagram : Diagram {
+						ref redefines source = DiagramView;
+					}
+				}
+			}`, "Unsupported::Report")
+			_, err := Render(document, "weasyprint", Options{DiagramForm: view.FormD2})
+			var renderErr *docrender.Error
+			if !errors.As(err, &renderErr) || renderErr.Kind != docrender.ErrorUnrenderableForm ||
+				renderErr.Actual != string(test.kind) || renderErr.DiagramForm != view.FormD2 {
+				t.Fatalf("Render: got %v, want typed refusal for %s as d2", err, test.kind)
+			}
+		})
+	}
+}
+
 func TestRenderDiagramToolMissing(t *testing.T) {
 	dir := t.TempDir()
 	fakeTool(t, dir, "weasyprint", WeasyPrintEnv, `printf '%%PDF-1.7 fake' > "$2"`+"\n")

@@ -32,6 +32,7 @@ import {
   type LandingModel,
   type LandingPart,
 } from "./model";
+import { carried } from "./carry";
 import { presented } from "./present";
 import stack from "./stack.json";
 
@@ -182,6 +183,8 @@ function mount(root: HTMLElement): Mounted {
 
   const partOf = (id: string): LandingPart | undefined => [...model.parts.values()].find((part) => part.id === id);
   const idOf = (feature: string): string | undefined => model.parts.get(feature)?.id;
+  // projects is the parts drawn at the top level, which are the ones a visitor can move.
+  const projects = (): LandingPart[] => [...model.parts.values()].filter((part) => part.owner === undefined);
 
   function status(text: string, error = false): void {
     statusEl.textContent = text;
@@ -196,7 +199,7 @@ function mount(root: HTMLElement): Mounted {
         nodes.set(id, { x: at.x, y: at.y });
       }
     }
-    return { nodes, bounds: bounds() };
+    return { nodes: carried(result.nodes, auto, nodes), bounds: bounds() };
   }
 
   // fit centres the unmoved diagram in the stage, scaled to the stage's width up to MAX_SCALE.
@@ -258,7 +261,7 @@ function mount(root: HTMLElement): Mounted {
         settled.set(entry.node.id, entry);
       }
     }
-    for (const part of model.parts.values()) {
+    for (const part of projects()) {
       const entry = layout.nodes.get(part.id);
       if (!entry || entry.hidden) {
         continue;
@@ -314,6 +317,11 @@ function mount(root: HTMLElement): Mounted {
     for (const group of content.querySelectorAll<SVGGElement>("g.opensysml-node")) {
       const part = partOf(group.dataset.opensysmlId ?? "");
       if (!part) {
+        continue;
+      }
+      // A nested part is drawn beside its project's group, not inside it, so it takes the pointer itself.
+      if (part.owner !== undefined) {
+        group.classList.add("osml-nested");
         continue;
       }
       group.classList.add("osml-part");
@@ -682,9 +690,25 @@ function mount(root: HTMLElement): Mounted {
     }
   }
 
+  // partGroup is the project at target: the part there, or the one a nested part there is drawn in.
   function partGroup(target: EventTarget | null): SVGGElement | undefined {
-    const group = (target as Element | null)?.closest?.<SVGGElement>("g.opensysml-node.osml-part");
-    return group && content.contains(group) ? group : undefined;
+    const group = (target as Element | null)?.closest?.<SVGGElement>("g.opensysml-node");
+    if (!group || !content.contains(group)) {
+      return undefined;
+    }
+    let id = group.dataset.opensysmlId ?? "";
+    for (let node = result.nodes.find((n) => n.id === id); node?.parent !== undefined; ) {
+      id = node.parent;
+      node = result.nodes.find((n) => n.id === id);
+    }
+    const project = groupOf(id);
+    return project?.classList.contains("osml-part") ? project : undefined;
+  }
+
+  // cardGroup is the innermost part at target, nested or not: a card shows any part's model.
+  function cardGroup(target: EventTarget | null): SVGGElement | undefined {
+    const group = (target as Element | null)?.closest?.<SVGGElement>("g.opensysml-node");
+    return group && content.contains(group) && partOf(group.dataset.opensysmlId ?? "") ? group : undefined;
   }
 
   function endGesture(cancelled: boolean): void {
@@ -775,7 +799,7 @@ function mount(root: HTMLElement): Mounted {
     }
   });
   on(svg, "contextmenu", (event) => {
-    const group = partGroup(event.target);
+    const group = cardGroup(event.target);
     if (!group) {
       return;
     }
@@ -937,6 +961,13 @@ function mount(root: HTMLElement): Mounted {
     return source === goodSource ? model : read(source, "run");
   }
 
+  let seed: number | undefined;
+  let seedPicked = false;
+  let runSeed: number | undefined;
+  const randomSeed = (): number => 1 + Math.floor(Math.random() * 9999);
+  const sameEvents = (a: readonly string[], b: readonly string[]): boolean =>
+    a.length === b.length && a.every((event, index) => event === b[index]);
+
   on(runBtn, "click", () => {
     if (running) {
       return;
@@ -947,19 +978,30 @@ function mount(root: HTMLElement): Mounted {
     syncDebugControls();
     status("Loading the engine and reading the model…");
     void (async () => {
+      let ran = false;
       try {
         const current = await runnable();
         if (!current) {
           return;
         }
+        const picked = seed === undefined || seedPicked;
+        if (picked) {
+          seed = randomSeed();
+          seedPicked = true;
+          seedEl.value = String(seed);
+        }
+        const used = seed;
         const started = performance.now();
-        const visited = journey(await engine(), current);
+        const visited = journey(await engine(), current, used);
+        ran = true;
         const ms = Math.max(1, Math.round(performance.now() - started));
         if (visited.length === 0) {
           throw new Error("ExecuteState visited none of the diagram's parts");
         }
         const names = visited.map((id) => partOf(id)?.attrs.label ?? id);
-        status(`ExecuteState ran ModelJourney on ${JOURNEY_EVENTS.join(", ")} in ${ms} ms: ${names.join(" → ")}`);
+        status(
+          `ExecuteState ran ModelJourney on ${JOURNEY_EVENTS.join(", ")} under ${picked ? "random seed" : "seed"} ${used} in ${ms} ms: ${names.join(" → ")}`,
+        );
         runBtn.textContent = "▶ Run it again";
         await animate(visited);
       } catch (error) {
@@ -968,7 +1010,17 @@ function mount(root: HTMLElement): Mounted {
         running = false;
         runBtn.disabled = false;
         syncDebugControls();
-        if (!debugPanel.hidden) {
+        const eventsStale = ran && !sameEvents(sent, JOURNEY_EVENTS);
+        if (run !== undefined && (runSeed !== seed || eventsStale)) {
+          if (eventsStale) {
+            sent = [...JOURNEY_EVENTS];
+          }
+          if (debugPanel.hidden) {
+            run = undefined;
+          } else {
+            void rerun(-1);
+          }
+        } else if (!debugPanel.hidden) {
           showStep(cursor, false);
         }
       }
@@ -980,7 +1032,6 @@ function mount(root: HTMLElement): Mounted {
   // sent so far; the panel then steps through that run's trace record by record.
 
   let sent: string[] = [...JOURNEY_EVENTS];
-  let seed: number | undefined;
   let run: JourneyRun | undefined;
   let steps: DebugStep[] = [];
   // The last trace record shown; -1 is before the first.
@@ -1096,6 +1147,7 @@ function mount(root: HTMLElement): Mounted {
       rerunStale = false;
       const started = performance.now();
       run = runJourney(client, current, sent, seed);
+      runSeed = seed;
       steps = debugSteps(run.trace);
       const ms = Math.max(1, Math.round(performance.now() - started));
       const schedule = seed === undefined ? "the default schedule" : `seed ${seed}`;
@@ -1152,6 +1204,7 @@ function mount(root: HTMLElement): Mounted {
 
   function setSeed(next: number | undefined): void {
     seed = next;
+    seedPicked = false;
     seedEl.value = next === undefined ? "" : String(next);
     void rerun(-1);
   }
@@ -1205,7 +1258,7 @@ function mount(root: HTMLElement): Mounted {
     const parsed = Number(value);
     setSeed(value === "" || !Number.isSafeInteger(parsed) || parsed < 0 ? undefined : parsed);
   });
-  on(reseedBtn, "click", () => setSeed(1 + Math.floor(Math.random() * 9999)));
+  on(reseedBtn, "click", () => setSeed(randomSeed()));
 
   // ---- editing the model ----
 

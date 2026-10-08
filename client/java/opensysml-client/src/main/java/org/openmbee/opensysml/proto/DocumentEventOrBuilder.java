@@ -12,7 +12,7 @@ public interface DocumentEventOrBuilder extends
 
   /**
    * <pre>
-   * "accept", "send", "transition", "entry", "exit", "do", "choice" or "guard".
+   * "accept", "send", "transition", "entry", "exit", "do", "choice", "guard" or "terminate".
    * </pre>
    *
    * <code>string kind = 1 [json_name = "kind"];</code>
@@ -21,7 +21,7 @@ public interface DocumentEventOrBuilder extends
   java.lang.String getKind();
   /**
    * <pre>
-   * "accept", "send", "transition", "entry", "exit", "do", "choice" or "guard".
+   * "accept", "send", "transition", "entry", "exit", "do", "choice", "guard" or "terminate".
    * </pre>
    *
    * <code>string kind = 1 [json_name = "kind"];</code>

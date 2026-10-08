@@ -141,7 +141,7 @@ func (m *migration) contextDeclaration(c *sysmlv1.Element) (declared *sysmlv1.El
 	if m.asUsage[c] {
 		return nil, "", ""
 	}
-	if cat, _ := m.classify(c); cat == catView || cat == catViewpoint {
+	if cat, _ := m.classify(c); cat == catView {
 		d := m.featuringDef(c)
 		if d == nil {
 			return c, "", ""
@@ -1139,7 +1139,7 @@ func (m *migration) portPath(c, port *sysmlv1.Element) (string, bool) {
 		return "", false
 	}
 	cat, _ := m.classify(u)
-	if cat != catView && cat != catViewpoint {
+	if cat != catView {
 		return "", false
 	}
 	d := m.featuringDef(u)
@@ -1280,7 +1280,7 @@ func (m *migration) objectOf(c, selfType *sysmlv1.Element, self string) (expr st
 	}
 	if c != nil {
 		cat, _ := m.classify(c)
-		if cat == catView || cat == catViewpoint {
+		if cat == catView {
 			if d := m.featuringDef(c); d != nil && (selfType == d || m.inherits(selfType, d)) {
 				return self + "." + m.usageChain(c, d), nil, ""
 			}

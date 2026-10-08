@@ -6,7 +6,7 @@ import (
 )
 
 // Markdown is the machine-readable form of a tabular rendering: a GitHub-flavored
-// Markdown table, which is what a table is read as where the models are — in
+// Markdown table, which is what a table or matrix is read as where the models are — in
 // documentation and in an editor — since Mermaid has no table grammar. What the
 // rendering could not represent is written as Markdown comments, so no notice is
 // lost.

@@ -11,9 +11,9 @@ package Tanks {
         attribute label : ScalarValues::String {
             /* default value not migrated: (tank-, A) — the UML StringExpression tree has no v2 form: the construct "+" is outside the translated subset: string concatenation has no v2 form in the subset */
         }
-        constraint 'filling below capacity' { mode != Mode::Filling or level < capacity - reserve }
+        assert constraint 'filling below capacity' { mode != Mode::Filling or level < capacity - reserve }
         /* not migrated: Constraint 'unnamed operand' ==(mode, <InstanceValue>) — the UML Expression tree has no v2 form: the construct "<InstanceValue>" is outside the translated subset: the instance value names no instance */
-        /* not migrated: Constraint 'sealed' xor(level, capacity) — the UML Expression tree has no v2 form: the call "xor" is not in the translated function table */
+        /* not migrated: Constraint 'sealed' xor(level, capacity) — the UML Expression tree has no v2 form: the types at "xor" disagree: an operand is a Real, not a Boolean */
     }
     constraint def WithinCapacity {
         in attribute level : ScalarValues::Real[1];

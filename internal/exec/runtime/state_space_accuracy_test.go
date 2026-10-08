@@ -30,6 +30,27 @@ func TestStateSpaceIntegratorsAgainstClosedForm(t *testing.T) {
 	}
 }
 
+func TestStateSpaceRealBindingUsesDeclaredReal(t *testing.T) {
+	const fixture = "state_space_euler_first_order.sysml"
+	src, err := os.ReadFile(filepath.Join("testdata", "conformance", fixture))
+	if err != nil {
+		t.Fatal(err)
+	}
+	idx, _, ctx := buildRuntimeWithLibraries(t, fixture, parseAndBuild(t, string(src)))
+	sym := findSymbolByName(idx.DocumentRoot(fixture), "decay", ast.DefAction)
+	exec, err := ctx.CreateActionExecutor(sym)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := exec.initialize(); err != nil {
+		t.Fatal(err)
+	}
+	rate := exec.root.data[exec.root.key("rate")]
+	if rate.Kind != ValConst || rate.Const.Kind != semantics.ValReal {
+		t.Fatalf("rate = %s, want a declared Real", FormatValue(rate))
+	}
+}
+
 // stateSpaceFinalState runs the conformance fixture's action test::decay to
 // completion and returns the one component of its final state.
 func stateSpaceFinalState(t *testing.T, fixture string) float64 {

@@ -11,6 +11,7 @@ import (
 
 	"github.com/Open-MBEE/OpenSysML/internal/exec/objref"
 	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
+	"github.com/Open-MBEE/OpenSysML/internal/exec/runtrace"
 	"github.com/Open-MBEE/OpenSysML/internal/ir/view"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
@@ -56,6 +57,30 @@ func (s *Session) Complete(line string, pos int) Completion {
 	if command == "%render" && atSecondArgument(head) {
 		word := lastField(head)
 		return completion(word, matchingPrefix(renderForms(), word))
+	}
+	if command == "%render-run" {
+		word := lastField(head)
+		switch index := argumentIndex(head); index {
+		case 1:
+			kinds := make([]string, 0, len(runtrace.Kinds()))
+			for _, kind := range runtrace.Kinds() {
+				kinds = append(kinds, string(kind))
+			}
+			return completion(word, matchingPrefix(kinds, word))
+		case 2:
+			return completion(word, matchingPrefix([]string{"text", "mermaid", "plantuml", "dot", "link="}, word))
+		case 3:
+			args := typedArgs(head)
+			options := []string{"link="}
+			if len(args) > 2 && strings.HasPrefix(args[2], "link=") {
+				options = []string{"text", "mermaid", "plantuml", "dot"}
+			}
+			return completion(word, matchingPrefix(options, word))
+		default:
+			if index > 3 {
+				return completion(word, nil)
+			}
+		}
 	}
 	if command == "%render" && atPaletteArgument(head) {
 		word := lastField(head)

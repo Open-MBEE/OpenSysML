@@ -303,33 +303,43 @@ type bodyCapture struct {
 func (s *executorCaptures) captureBody(run *bodyRun) *bodyCapture {
 	c := &bodyCapture{run: run, saved: *run}
 	c.saved.work, c.saved.cursor, c.saved.resuming = run.work.clone(), nil, nil
+	var captureFrames func([]bodyFrame)
+	captureFrames = func(frames []bodyFrame) {
+		for _, f := range frames {
+			switch f := f.(type) {
+			case *engineFrame:
+				if locals := f.engine.env.locals; locals != nil {
+					c.locals = append(c.locals, captureMap(locals))
+				}
+				if cells := f.engine.env.localCells; cells != nil && !bodyCellsCaptured(c.cells, cells) {
+					c.cells = append(c.cells, captureBodyCells(cells))
+				}
+			case *blockFrame:
+				if f.cells != nil && !bodyCellsCaptured(c.cells, f.cells) {
+					c.cells = append(c.cells, captureBodyCells(f.cells))
+				}
+			case *loopFrame:
+				if f.cells != nil && !bodyCellsCaptured(c.cells, f.cells) {
+					c.cells = append(c.cells, captureBodyCells(f.cells))
+				}
+			case *stmtListFrame:
+				for _, strand := range f.strands {
+					if strand != nil {
+						captureFrames(strand.cursor)
+					}
+				}
+			case *calleeFrame:
+				s.captureAction(f.exec)
+			case *caseStepFrame:
+				if f.run == nil {
+					s.captureAction(f.start.host.flow)
+				}
+			}
+		}
+	}
+	captureFrames(run.cursor)
 	for _, f := range run.cursor {
-		switch f := f.(type) {
-		case *engineFrame:
-			if locals := f.engine.env.locals; locals != nil {
-				c.locals = append(c.locals, captureMap(locals))
-			}
-			if cells := f.engine.env.localCells; cells != nil && !bodyCellsCaptured(c.cells, cells) {
-				c.cells = append(c.cells, captureBodyCells(cells))
-			}
-		case *blockFrame:
-			if f.cells != nil && !bodyCellsCaptured(c.cells, f.cells) {
-				c.cells = append(c.cells, captureBodyCells(f.cells))
-			}
-		case *loopFrame:
-			if f.cells != nil && !bodyCellsCaptured(c.cells, f.cells) {
-				c.cells = append(c.cells, captureBodyCells(f.cells))
-			}
-		}
 		c.frames = append(c.frames, f.clone())
-		switch f := f.(type) {
-		case *calleeFrame:
-			s.captureAction(f.exec)
-		case *caseStepFrame:
-			if f.run == nil {
-				s.captureAction(f.start.host.flow)
-			}
-		}
 	}
 	if held := run.paused.wait.held; held != nil {
 		s.captureAction(held)
@@ -604,6 +614,11 @@ func (e *ActionExecutor) reachableFrames() []*actionFrame {
 	visit(e.root)
 	for _, token := range e.tokens {
 		visit(token.frame)
+		if token.body != nil {
+			if w, ok := token.body.work.(*statementWork); ok {
+				visit(w.step)
+			}
+		}
 		for _, perf := range token.performed() {
 			visit(perf)
 		}

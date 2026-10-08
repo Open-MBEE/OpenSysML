@@ -45,7 +45,7 @@ package ViewsModel {
     }
 }
 package Spares {
-    part def Seal;
+    occurrence def Seal;
 }
 metadata MigrationMetadata::LibraryNameAvoided about ViewsModel { sourceName = "Views"; }
 view Ownerless {

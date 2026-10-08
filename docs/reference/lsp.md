@@ -23,9 +23,10 @@ behavior and report where it stands, and `openSysmlRenderPalette` that a
 `palette` named in an `opensysml/render` request colours the result's nodes
 (`fill`, `border`) as well as its Mermaid, DOT, PlantUML or D2 artifact. `openSysmlRenderForms` lists
 the forms `opensysml/render` writes and `openSysmlRenderStyles` the drawing styles its `style`
-draws the DOT form in, the first the default (`openSysmlRenderPorts` lists likewise the port
-displays its `ports` draws an interconnection's parts with, a server without it drawing every
-port); a server without the former draws the Pilot look
+draws the DOT or Mermaid form in, the first the default (`openSysmlRenderPorts` lists likewise the port
+displays its `ports` draws an interconnection or mixed rendering's parts with, a server without
+it drawing every port; `openSysmlRenderOverlays` lists the overlays its `overlay` draws, a server
+without it drawing none); a server without the former draws the Pilot look
 alone.
 
 A client that does not see that capability must not send these methods. That is
@@ -33,7 +34,7 @@ how a new client and an older server stay compatible.
 
 `openSysmlRenderForms` lists the values `opensysml/render` accepts as `form`, so
 a client offering a *save as* can show what the server it is connected to
-writes rather than a list of its own. A server without it accepts the five named
+writes rather than a list of its own. A server without it accepts the seven named
 on this page.
 
 `openSysmlCrossDocumentLayout` is the one capability both sides advertise, the
@@ -94,6 +95,15 @@ and changes nothing. Changing it republishes the diagnostics of every open docum
 corresponds to the CLI's `-disable-lint` and the REPL's `%lint`. Strict conformance leaves a
 lint a warning.
 
+The opt-in lints, off until switched on, are named by a second list setting, `enabledLints`,
+read the same way and corresponding to the CLI's `-enable-lint`:
+
+```json
+{ "sysml": { "enabledLints": ["rounded-real-literal"] } }
+```
+
+A lint named by both settings is off.
+
 ## Interface records
 
 A document the server holds but no editor has open — one it read from the disk
@@ -123,10 +133,11 @@ Renders one view of a document.
 | --- | --- |
 | `textDocument.uri` | The document to render. It must be one the session holds — an open document, or a workspace file the server read. |
 | `view` | The qualified name of a view the document declares, a pseudo-view (below), or omitted. |
-| `form` | `mermaid`, `text`, `markdown`, `dot`, `plantuml`, `d2`, `csv` or `tsv`. Omitted writes the machine form of the rendering's kind: `markdown` for a table, `mermaid` for every other kind. `dot` writes Graphviz DOT for a `tree`, `interconnection`, `state` or `action` rendering, without needing Graphviz installed; `plantuml` writes PlantUML for those kinds and a `sequence`, without needing a PlantUML jar; `d2` writes a [D2](https://d2lang.com) diagram for the same five kinds, without needing `d2`; `csv` and `tsv` write a `table` rendering as comma- or tab-separated values, a header record of its columns and then one record per row. |
+| `form` | `mermaid`, `text`, `markdown`, `dot`, `plantuml`, `d2`, `csv` or `tsv`. Omitted writes the machine form of the rendering's kind: `markdown` for a table or matrix, `mermaid` otherwise. `dot` writes Graphviz DOT for a `tree`, `interconnection`, `state`, `action`, `case`, `mixed`, `requirement`, `definition` or `package` rendering, without needing Graphviz installed; `plantuml` writes PlantUML for those kinds and a `sequence`, without needing a PlantUML jar; `d2` writes a [D2](https://d2lang.com) diagram for a `tree`, `interconnection`, `state`, `action`, `sequence`, `requirement`, `definition` or `package` rendering, without needing `d2`; case and mixed renderings are refused with a typed `WrongFormError`; `csv` and `tsv` write a `table` or matrix rendering as comma- or tab-separated values, a header record of its columns and then one record per row. |
 | `palette` | Optional. A palette the `dot`, `mermaid`, `plantuml` and `d2` forms fill nodes with by keyword family: `okabe-ito`, `tol-bright`, `tol-muted`, `tol-light`, `brewer-set2`, `brewer-dark2`, `viridis` or `cividis` ([the palettes](../project/view-rendering-forms.md#palettes)). Omitted or empty draws black and white. Mermaid sequence diagrams note that they cannot fill individual participants; `text` and `markdown` ignore palettes. A server advertising `openSysmlRenderPalette` gives each node the palette colours as `fill` and `border`, so a client drawing the nodes itself can use the same colours. |
-| `style` | Optional. The drawing style the `dot` or `mermaid` form draws in: `pilot` (the default, the Pilot visualizer's B&W) or `cameo`, the look of Cameo Systems Modeler — 11 pt Arial, gradient fills in Cameo's colours, compartments and UML pseudo-state symbols ([the measurements](../project/view-rendering-forms.md#the-cameo-style)). Mermaid draws supported Cameo details but flattens gradients and omits the frame and header tab; unsupported details are noted. PlantUML notes a style other than `pilot` as not represented; `text` and `markdown` ignore it. The result's `style` names the style drawn, the default when omitted. |
-| `ports` | Optional. How much of a part's ports an interconnection draws: `minimal` (the default), the ports a connector of the view ends at, each a small square on the part's border named beside it, or `full`, every port a part has, labelled `name : Type`. Other kinds ignore it. |
+| `style` | Optional. The drawing style the `dot` or `mermaid` form draws in: `pilot` (the default, the Pilot visualizer's B&W) or `cameo`, the look of Cameo Systems Modeler — 11 pt Arial, gradient fills in Cameo's colours, compartments and UML pseudo-state symbols ([the measurements](../project/view-rendering-forms.md#the-cameo-style)). Mermaid draws supported Cameo details but flattens gradients and omits the frame and header tab; unsupported details are noted. PlantUML and D2 note a style other than `pilot` as not represented; `text` and `markdown` ignore it. The result's `style` names the style drawn, the default when omitted. |
+| `ports` | Optional. How much of a part's ports an interconnection or mixed rendering draws: `minimal` (the default), the ports an interconnection edge ends at, each a small square on the part's border named beside it, or `full`, every port a part has, labelled `name : Type`. Other kinds ignore it. |
+| `overlay` | Optional. `verdicts` runs the verification cases verifying each requirement of a `requirement` rendering and labels and colours the requirement by their verdicts, each node carrying the worst as `verdict` (`pass`, `inconclusive`, `fail`, `error`). Omitted, nothing runs. Refused on another kind, and when unknown. |
 | `linkTemplate` | Optional. Template for source links on diagram elements, with `{file}`, `{line}`, `{col}`, `{qname}` and `{id}` placeholders. `{file}` is the path as loaded. Only on-disk workspace documents are linked; bundled libraries and non-file documents have no source link. |
 
 The VS Code export sends `<uriScheme>://file/{file}:{line}:{col}`. Those links survive in DOT
@@ -135,17 +146,17 @@ their scheme is not HTTP(S).
 
 Omitting `view` renders the view the document declares. If the document declares
 several, the request is ambiguous and fails, naming them
-(`declares 6 views (KitViews::widgetActions, …); name the one to render`) rather
+(`declares 7 views (KitViews::widgetActions, …); name the one to render`) rather
 than picking one. If it declares none, the request fails and points at the pseudo-views.
 
-A `form` the rendering kind cannot be written in (Mermaid for a table, Markdown for a
-diagram, DOT for a table or a sequence, PlantUML or D2 for a table) is refused, and the reply names
-the form the kind does use. A `form` that is not one of the five is refused, and the reply names
-all five. A
+A `form` the rendering kind cannot be written in (Mermaid for a table or matrix, Markdown for a
+diagram, DOT for a table, matrix or sequence, PlantUML or D2 for a table or matrix, D2 for a case or
+mixed rendering) is refused, and the reply names the form the kind does use. A `form` that is not
+one of the eight is refused, and the reply names all eight. A
 `palette` that names none of the eight is refused, and the reply names them
 (`unknown palette "rainbow"; the palettes are okabe-ito, …, cividis`). A `style` that is neither is refused likewise
 (`unknown drawing style "sketch"; the styles are pilot, cameo`), and a `ports` that is neither
-display (`unknown port display "all"; the displays are minimal, full`).
+display (`unknown port display "all"; the displays are minimal, full`); an `overlay` that is unknown names the overlays there are (`unknown overlay "colours"; the overlays are verdicts`).
 
 **Pseudo-views.** A document that is still being written usually declares no `view`,
 so a rendering can be requested as if one had been declared:
@@ -156,9 +167,15 @@ so a rendering can be requested as if one had been declared:
 | `#interconnection` | …as an interconnection diagram |
 | `#state` | …as a state diagram |
 | `#action` | …as an action flow |
+| `#case` | …as a case diagram |
+| `#mixed` | …as a mixed diagram |
 | `#sequence` | …as a message sequence |
 | `#table` | …as an element table |
+| `#matrix` | …as a relationship matrix |
 | `#state:Kit::WidgetStates` | One element the document declares, here as a state diagram |
+| `#matrix:Kit::System` | One element the document declares, here as a relationship matrix |
+| `#case:Kit::Inspection` | One element the document declares, here as a case diagram |
+| `#mixed:Kit::Inspection` | One element the document declares, here as a mixed diagram |
 
 A pseudo-view adds nothing to the model and nothing to the symbol index: the
 exposed set is passed to the renderer directly, and the result says so in
@@ -207,15 +224,15 @@ The result, for `{"view": "KitViews::widgetTree"}` over a document declaring
 | Field | Meaning |
 | --- | --- |
 | `view` | The view rendered, by qualified name; empty for a pseudo-view. |
-| `kind` | `tree`, `interconnection`, `state`, `action`, `sequence` or `table`. |
+| `kind` | `tree`, `interconnection`, `state`, `action`, `case`, `mixed`, `sequence`, `table`, `matrix`, `requirement`, `definition` or `package`. |
 | `stated` | How the kind was decided — the rendering the view names, the standard view definition it specializes, or that no view was declared. Empty when the view took the default. |
-| `artifact` | What to draw or show: a Mermaid diagram, a Graphviz DOT graph, a PlantUML diagram, a D2 diagram, the text form, or a Markdown table. |
-| `nodes`, `edges` | What the artifact is made of, so a client can map a click on it back to the source. A node's `kind` is the keyword the notation declares it with (`part def`, `state`), its `name` the qualified name of an element the view exposes or the simple name of one nested in it, its `type` the declared type of a typed usage (`Cog` for `part cog : Cog`, empty otherwise), and its `detail` the notes the artifact draws after the name (`initial`, `already shown`); a client never parses the type out of the detail. A node's `parent` is the node containing it, when one does. An edge's `kind` is `connection`, `transition`, `succession` or `flow`. |
-| `ports`, `fromPort`, `toPort` | A node's optional `ports` array contains the port pins drawn on it, each with an `id`, `name`, optional `type` and optional `direction` (`in`, `out`, `inout`; omitted for an undirected port). A request's `ports` display controls which pins appear: `minimal` lists pins reached by an interconnection edge, while `full` lists every pin. An edge's optional `fromPort` and `toPort` are the IDs of its endpoint pins in those arrays. |
-| `rows`, `columns` | A table rendering's cells, in place of nodes and edges. |
+| `artifact` | What to draw or show: a Mermaid diagram, a Graphviz DOT graph, a PlantUML diagram, a D2 diagram, the text form, or a Markdown table or relationship matrix. |
+| `nodes`, `edges` | What the artifact is made of, so a client can map a click on it back to the source. A node's `kind` is the keyword the notation declares it with (`part def`, `state`), its `name` the qualified name of an element the view exposes or the simple name of one nested in it, its `type` the declared type of a typed usage (`Cog` for `part cog : Cog`, empty otherwise), and its `detail` the notes the artifact draws after the name (`initial`, `already shown`); a client never parses the type out of the detail. A node's `parent` is the node containing it, when one does. An edge's `kind` is `connection`, `transition`, `succession`, `flow`, `composition`, `association`, `include`, `anchor`, `typing`, `specialization` or `reference`. |
+| `ports`, `fromPort`, `toPort` | A node's optional `ports` array contains the port pins drawn on it, each with an `id`, `name`, optional `type` and optional `direction` (`in`, `out`, `inout`; omitted for an undirected port). A request's `ports` display controls which pins appear in interconnection and mixed renderings: `minimal` lists pins reached by an interconnection edge, while `full` lists every pin. An edge's optional `fromPort` and `toPort` are the IDs of its endpoint pins in those arrays. |
+| `rows`, `columns` | A table or matrix rendering's cells, in place of nodes and edges. Matrix rows are relationship sources, columns are targets, and each cell carries its ordered relationship keywords. |
 | `origin` | Where the element was declared, as a document URI, the `range` of the whole declaration and, when the declaration names one, the `selectionRange` of the identifier alone. A client highlights the element whose `range` holds the cursor and navigates to its `selectionRange`, as `textDocument/definition` does. `digest` fingerprints the text the ranges are of, the same for the same text whatever its version: a `setLayout` or `setRoute` of an element another document declares hands it back as its `digest`, with the URI as `declaredIn`, so the target is read in the text it was rendered from or answered `stale`. Every `origin` of one rendering is of the text the rendering was made from, read under one lock, whatever a document holds since. Absent for an element with no locatable declaration: a standard library symbol the index served from its cache, or a step a lowering sequenced without a declaration of its own, carries none rather than a bogus range. |
-| `notices` | What the rendering could not represent, as the text form reports it. |
-| `fqn` | On a node: the qualified name `opensysml/applyModelEdit` targets the node's declaration by, each name quoted on its own as the notation spells it, so `'x::y'` (one name) and `x::y` (`y` in `x`) are two targets. A node another document of the workspace declares — a part a view of this document exposes, a state a usage inherits from a definition elsewhere — carries it as any node does when the client advertised `openSysmlCrossDocumentLayout`, and `origin.uri` says which document; a layout on it writes there. To a client that did not, such a node carries its `origin` alone. Absent for a node whose declaration is in no document of the workspace — a library element, a step a lowering sequenced — or is reached only through an unnamed one, so a client offers no edit on it. On an edge: the qualified name of the declaring connection, transition, succession or flow, absent likewise. |
+| `notices` | What the rendering could not represent, as the text form reports it; includes reasoned notices for refused diagram pictures. |
+| `fqn` | On a node: the qualified name `opensysml/applyModelEdit` targets the node's declaration by, each name quoted on its own as the notation spells it, so `'x::y'` (one name) and `x::y` (`y` in `x`) are two targets. A node another document of the workspace declares — a part a view of this document exposes, a state a usage inherits from a definition elsewhere — carries it as any node does when the client advertised `openSysmlCrossDocumentLayout`, and `origin.uri` says which document; a layout on it writes there. To a client that did not, such a node carries its `origin` alone. Absent for a node whose declaration is in no document of the workspace — a library element, a step a lowering sequenced — or is reached only through an unnamed one, so a client offers no edit on it. On an edge: the qualified name of the declaring connection, transition, succession, flow, include, or relationship, absent likewise. |
 | `declaredHere` | On a node with an `fqn`: `true` when the requested document declares the node. Only such a node takes `rename`, `delete`, `move`, or a member or connection written into it; a node another workspace document declares carries its `fqn` for `setLayout` and `setRoute` alone, and a client offers it nothing else. A server that does not advertise `openSysmlCrossDocumentLayout` never sends it, and names no other document's nodes either, so a client reads its every `fqn` as the requested document's own. |
 | `notation` | On a node with an `fqn`: the keyword the declaration was written with (`part def`, `port`, `state`), which is the `memberKind` a `move` asks the new owner to admit. |
 | `declaration` | On a node or edge a workspace document declares but no qualified name reaches — an unnamed transition, a connection inside an unnamed part — the `range` of that declaration, in place of `fqn`; the range is one of the document `origin.uri` names, this one or, for a client advertising `openSysmlCrossDocumentLayout`, another of the workspace. `opensysml/applyModelEdit`'s `setLayout` and `setRoute` take it, with `declaredIn` when it is another document's, as the target of an inline annotation, since a view body has no name to state one about; no other operation reaches such an element. |
@@ -278,7 +295,7 @@ picker.
       "selectionRange": { "start": { "line": 16, "character": 6 }, "end": { "line": 16, "character": 20 } }
     }
   ],
-  "pseudoViews": ["#action", "#interconnection", "#sequence", "#state", "#table", "#tree"]
+  "pseudoViews": ["#action", "#case", "#interconnection", "#matrix", "#mixed", "#sequence", "#state", "#table", "#tree"]
 }
 ```
 
@@ -338,7 +355,7 @@ under `"dot"`, a ` ```plantuml ` fence under `"plantuml"`, a ` ```d2 ` fence und
 diagram as the CLI chooses it: a view some `DiagramLayout::Layout` or `Route` positions is drawn
 by Graphviz where it states (inline SVG when `dot` is installed, a ` ```dot ` fence otherwise, and
 Mermaid under a visible notice naming the missing tool when it is not), every other graph-shaped
-view is a ` ```mermaid ` fence; a table-kind view is a pipe table whichever form. Any other value fails the request with the typed
+view is a ` ```mermaid ` fence; a table- or matrix-kind view is a pipe table whichever form. Any other value fails the request with the typed
 error's message naming the three forms, as does `"dot"` on a document holding a `sequence`
 diagram, which has no DOT form. If the name resolves to nothing, names an element that is not a
 document, or names a document whose planning or query execution fails, the

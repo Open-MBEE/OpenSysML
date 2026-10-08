@@ -629,6 +629,11 @@
       touch-action: none;
       outline: none;
     }
+    .osml-diagram g.osml-nested {
+      pointer-events: auto;
+      cursor: grab;
+      touch-action: none;
+    }
     .osml-diagram g.osml-part text {
       user-select: none;
     }
@@ -1032,7 +1037,7 @@
           </label>
           <button type="button" data-osml-reseed>New seed</button>
         </div>
-        <p class="osml-debug__hint" id="osml-debug-seed-hint">The start and each <code>Pull</code> out of Flexo are free choices. With no seed the engine takes its default branch; a seed picks each branch at random, the same way every time.</p>
+        <p class="osml-debug__hint" id="osml-debug-seed-hint">The start and each <code>Pull</code> out of Flexo are free choices; a seed picks each branch at random, the same way every time. Run picks a new random seed unless you set one, and shows it here so the debugger can replay that path. With no seed the debugger takes the engine's default branch.</p>
         <p class="osml-debug__now" data-osml-debug-now aria-live="polite"></p>
         <p class="osml-debug__queue">Waiting events: <span data-osml-debug-queue>empty</span></p>
         <ol class="osml-debug__trace" data-osml-debug-trace aria-label="The run's trace"></ol>

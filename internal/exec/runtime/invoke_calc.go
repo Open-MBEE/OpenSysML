@@ -1492,6 +1492,8 @@ func isStateSymbol(sym *symbols.Symbol) bool {
 		return d.Kind == ast.DefState
 	case *ast.Usage:
 		return d.Kind == ast.UsageState
+	case *ast.SubstateMember:
+		return true
 	}
 	if sym.Decl != nil {
 		return false
