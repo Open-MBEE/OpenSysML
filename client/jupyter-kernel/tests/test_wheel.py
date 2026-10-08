@@ -101,6 +101,22 @@ def test_the_windows_wheel_bundles_the_exe(source_tree):
         assert "jupyter_opensysml_kernel/bin/sysml-jupyter-kernel.exe" in zf.namelist()
 
 
+def test_a_wheel_built_after_another_platform_carries_only_its_own_kernel(source_tree):
+    """The release builds every platform's wheel from one tree, and setuptools keeps
+    build/lib between them; a kernel staged for an earlier platform must not ride along."""
+    staged = stage(source_tree, "darwin")
+    result = build(source_tree, "wheel", "darwin-arm64")
+    assert result.returncode == 0, result.output
+    staged.unlink()
+    stage(source_tree, "windows")
+    result = build(source_tree, "wheel", "windows-amd64")
+    assert result.returncode == 0, result.output
+    wheel = next(f for f in os.listdir(source_tree / "dist") if f.endswith("-py3-none-win_amd64.whl"))
+    with zipfile.ZipFile(source_tree / "dist" / wheel) as zf:
+        bundled = sorted(n for n in zf.namelist() if n.startswith("jupyter_opensysml_kernel/bin/"))
+    assert bundled == ["jupyter_opensysml_kernel/bin/sysml-jupyter-kernel.exe"]
+
+
 def test_a_pure_wheel_bundles_nothing_and_registers_nothing(source_tree):
     result = build(source_tree, "wheel")
     assert result.returncode == 0, result.output
