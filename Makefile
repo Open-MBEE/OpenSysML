@@ -286,9 +286,13 @@ RACE_SHARD_TOOLS_SKIP := ^(TestSuiteRead|TestSuiteClassification|TestEmitSuite|T
 
 test-shard: ## Run one CI shard of the race suite (SHARD=runtime|model|export|rest)
 	@echo "Running Go race tests, shard $(SHARD)..."
-	@# 55m per package: the runtime shard takes 31-47 minutes under -race; its job's ceiling is 60.
-	pkgs=$$(scripts/race-shard.sh $(SHARD)) && go test -skip '$(RACE_SHARD_SKIP)' -v -race -pgo=off -timeout 55m -coverprofile=coverage.txt -covermode=atomic $$pkgs
-	if [ "$(SHARD)" = rest ]; then go test -C $(TOOLS_DIR) -skip '$(RACE_SHARD_TOOLS_SKIP)' -v -race -pgo=off -timeout 55m ./...; fi
+	@set -e; pkgs=$$(scripts/race-shard.sh $(SHARD)); run='.'; \
+	if [ -n "$(RUNTIME_PART)" ]; then \
+	  [ "$(SHARD)" = runtime ] || { echo 'RUNTIME_PART requires SHARD=runtime' >&2; exit 2; }; \
+	  run=$$(bash scripts/runtime-race-pattern.sh "$(RUNTIME_PART)"); \
+	fi; \
+	go test -run "$$run" -skip '$(RACE_SHARD_SKIP)' -v -race -pgo=off -timeout 45m -coverprofile=coverage.txt -covermode=atomic $$pkgs
+	if [ "$(SHARD)" = rest ]; then go test -C $(TOOLS_DIR) -skip '$(RACE_SHARD_TOOLS_SKIP)' -v -race -pgo=off -timeout 45m ./...; fi
 
 coverage: ## Write the coverage profile the SonarCloud scan reads
 	@echo "Writing coverage.txt..."

@@ -8,6 +8,7 @@ package test {
 	public import SI::*;
 	public import QuantityCalculations::*;
 	public import TrigFunctions::*;
+	private alias rad for SI::rad;
 
 	part def Turn {
 		attribute right : AngularMeasureValue = 90 ['°'];

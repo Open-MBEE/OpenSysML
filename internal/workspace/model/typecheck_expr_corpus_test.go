@@ -37,7 +37,7 @@ func exprTypeDiagnosticLines(ws *Workspace, name string, content []byte) []strin
 }
 
 // publishedStdlibDefects are the findings the expression type checker reports
-// in the standard library as OMG published it: each is a unit the SI or US
+// in the published values after magnetic unit references are qualified: each is a unit the SI or US
 // customary library types by a measurement unit of another dimension. The
 // errata registry (tools/oracle/errata) corrects the ones with an unambiguous
 // reading, so the bundled library the checker loads no longer shows them;
@@ -73,8 +73,8 @@ func TestExprTypeCheckNoStdlibFalsePositives(t *testing.T) {
 }
 
 // TestExprTypeCheckPublishedStdlibDefects pins the checker's verdict on the
-// text as published: every corrected defect is a defect the checker finds
-// there, so a correction is only ever declared for a line the checker rejects.
+// published values, after explicitly disambiguating the two magnetic unit
+// references, so the earlier name-resolution tier cannot silence type checks.
 func TestExprTypeCheckPublishedStdlibDefects(t *testing.T) {
 	t.Parallel()
 	checkStdlibExprTypeFindings(t, libs.EmbeddedSource(), publishedStdlibDefects)
@@ -93,6 +93,28 @@ func checkStdlibExprTypeFindings(t *testing.T, src libs.Source, want []string) {
 			t.Fatalf("read %s: %v", name, err)
 		}
 		ws.Open(name, data, 1)
+		if name == "Domain Libraries/Quantities and Units/SI.sysml" {
+			// Assert the published name clash before making a conditional dimensional check.
+			lines := source.New(name, data).Lines()
+			ambiguous := map[int]bool{233: false, 303: false}
+			for _, d := range ws.Diagnostics(name) {
+				if d.Code == "unresolved" && strings.HasPrefix(d.Message, "unresolved reference: MagneticDipoleMomentUnit") {
+					line := lines.PosAt(d.Span.Offset).Line
+					if _, ok := ambiguous[line]; !ok {
+						t.Fatalf("unexpected magnetic unit reference at line %d", line)
+					}
+					ambiguous[line] = true
+				}
+			}
+			for line, found := range ambiguous {
+				if !found {
+					t.Fatalf("SI:%d: imported magnetic unit clash was not diagnosed", line)
+				}
+			}
+			// Choose the electromagnetic interpretation explicitly; do not edit the bundled text.
+			data = []byte(strings.ReplaceAll(string(data), ": MagneticDipoleMomentUnit", ": ISQElectromagnetism::MagneticDipoleMomentUnit"))
+			ws.Open(name, data, 2)
+		}
 		found = append(found, exprTypeDiagnosticLines(ws, name, data)...)
 		ws.Close(name)
 	}

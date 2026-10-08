@@ -112,7 +112,7 @@ func LibraryEntries() []Entry {
 		Line:        233,
 		AsPublished: "    attribute <'m²⋅A'> 'metre squared ampere' : MagneticDipoleMomentUnit = m^2*A;",
 		Citation:    kermlFeatureValue,
-		Derivation:  "`ISQ::*` re-exports two MagneticDipoleMomentUnits, the electromagnetic one (L^3·M·T^-2·I^-1, IEC 80000-6 item 6-30) and the atomic one (L^2·I, ISO 80000-10 item 10-9.1); `m^2*A` is the atomic unit, the unqualified name resolves to the electromagnetic one, and the ISQ library rather than this line is where the name clash is fixed, so the defect is documented without a correction.",
+		Derivation:  "`ISQ::*` re-exports two MagneticDipoleMomentUnits, the electromagnetic one (L^3·M·T^-2·I^-1, IEC 80000-6 item 6-30) and the atomic one (L^2·I, ISO 80000-10 item 10-9.1). KerML 7.2.5.4 hides the unqualified name. Explicitly choosing the electromagnetic interpretation makes `m^2*A` a dimension mismatch; the atomic interpretation matches. No intended choice is assumed, so the defect remains documented without a correction.",
 	}, {
 		ID:          "SI-239",
 		Heading:     "`'m²⋅s⁻³' : DoseEquivalentUnit = m^2*s^-3` types a dose-equivalent rate as a dose equivalent",

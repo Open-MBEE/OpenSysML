@@ -18,7 +18,7 @@ package test {
 		attribute afterBurn : TimeInstantValue = launch + 3.0 [s];
 		attribute beforeBurn : TimeInstantValue = launch - 3.0 [s];
 		attribute burnFirst : TimeInstantValue = 3.0 [s] + launch;
-		attribute afterMinute : TimeInstantValue = launch + 1.0 [min];
+		attribute afterMinute : TimeInstantValue = launch + 1.0 [SI::min];
 		attribute afterHour : TimeInstantValue = launch + 1 [h];
 		attribute burnTime : DurationValue = afterBurn - launch;
 		attribute countdown : DurationValue = launch - afterBurn;

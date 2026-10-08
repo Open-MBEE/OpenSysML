@@ -670,8 +670,11 @@ attribute <'m²⋅A'> 'metre squared ampere' : MagneticDipoleMomentUnit = m^2*A;
 `ISQ::*` re-exports two `MagneticDipoleMomentUnit`s under one name: the electromagnetic one
 (L^3·M·T^-2·I^-1, IEC 80000-6 item 6-30, unit `Wb⋅m`, in `ISQElectromagnetism`) and the atomic
 one (L^2·I, ISO 80000-10 item 10-9.1, unit `m²⋅A`, in `ISQAtomicNuclear`). `m^2*A` is the atomic
-unit; the unqualified name in `SI` resolves to the electromagnetic one, and the value fails
-**KerML 7.4.9** against it. Qualifying the type on this line would fix the symptom, but the name
+unit; **KerML 7.2.5.4** hides the unqualified name in `SI`. Explicitly choosing the electromagnetic
+interpretation produces a value that fails **KerML 7.4.9**; choosing the atomic interpretation does not.
+The tests assert the name-resolution failures on lines 233 and 303 first, then qualify both references
+in memory with the electromagnetic interpretation to keep the independent dimensional checks active.
+This is a conditional control, not an assertion that the published name denotes that type. The name
 clash lives in the `ISQ` library and every unqualified use of either name shares it, so this row
 is **documented without a correction** pending an upstream decision on the two definitions.
 

@@ -107,20 +107,15 @@ func (r *Resolver) specializationChain(from *symbols.Symbol) []*symbols.Symbol {
 // `part def Sub :> Base` it consults Base's protected imports. A feature typing
 // is a generalization edge (KerML 8.3.4.6), so `part p : Base` reaches them too.
 func (r *Resolver) lookupInheritedImports(scope *symbols.Scope, name string) (*symbols.Symbol, bool) {
-	var found *symbols.Symbol
-	r.eachInheritedImport(scope, name, func(from *symbols.Scope, imp *ast.Import) bool {
-		found, _ = r.matchImportInto(scope, from, imp, name)
-		return found == nil
-	})
-	return found, found != nil
+	return r.uniqueImport(r.inheritedImportCandidates(scope, name, false))
 }
 
 // inheritedImportCandidates is lookupInheritedImports collecting every declaration the
 // inherited imports surface under name, in the order lookupInheritedImports searches.
-func (r *Resolver) inheritedImportCandidates(scope *symbols.Scope, name string) []*symbols.Symbol {
+func (r *Resolver) inheritedImportCandidates(scope *symbols.Scope, name string, overloads bool) []*symbols.Symbol {
 	var out []*symbols.Symbol
 	r.eachInheritedImport(scope, name, func(from *symbols.Scope, imp *ast.Import) bool {
-		for _, sym := range r.importMatchesAllInto(scope, from, imp, name) {
+		for _, sym := range r.importMatchesInto(scope, from, imp, name, overloads) {
 			out = appendSymbol(out, sym)
 		}
 		return true

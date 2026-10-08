@@ -100,6 +100,7 @@ not_in_nav: |
   internals/execution-ir-design.md
   project/README.md
   project/spec-compliance.md
+  project/imported-name-clashes.md
   project/exact-rational-evaluation.md
   project/expansion-regions.md
   project/bitwise-complement.md

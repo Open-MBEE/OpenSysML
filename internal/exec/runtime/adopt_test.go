@@ -2064,9 +2064,9 @@ func TestAdoptRebindsAnExtentWhenAHierarchyChanges(t *testing.T) {
 func TestAdoptRebindsAnExtentWhenItsTypeNameIsShadowed(t *testing.T) {
 	const model = `package Demo {
 	package A { part def Car; }
+	import A::*;
 	package P {
 		import B::*;
-		import A::*;
 		ref part car : A::Car = new A::Car();
 		calc pick { return : A::Car[*] = all Car; }
 		ref part cars : A::Car[*] = pick();
@@ -2100,6 +2100,14 @@ func TestAdoptRebindsAnExtentWhenItsTypeNameIsShadowed(t *testing.T) {
 	}
 	if got := objects(t, ctx, "car"); len(got) != 1 || got[0] != car.ID {
 		t.Errorf("car in the re-analysis = %v, want the carried object %d", got, car.ID)
+	}
+	// Imports in one namespace conflict; they are not a nearer-scope declaration.
+	conflicting := strings.Replace(model, "\timport A::*;\n", "", 1)
+	conflicting = strings.Replace(conflicting, "import B::*;", "import B::*; import A::*;", 1)
+	clash := contextOverDocs(t, [][2]string{{"model.sysml", conflicting}, {"b.sysml", "package B { part def Car; }"}})
+	pkg := lookupOne(t, clash.Resolver().Index(), "Demo::P")
+	if _, err := evalIn(t, clash, pkg.Scope, "cars"); err == nil || !strings.Contains(err.Error(), "unresolved type: Car") {
+		t.Fatalf("conflicting extent type: got %v, want unresolved Car", err)
 	}
 }
 

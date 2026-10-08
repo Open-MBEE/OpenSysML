@@ -435,18 +435,7 @@ func (r *Resolver) lookupMember(sym *symbols.Symbol, name string, hide *refFilte
 	if sym.Scope == nil {
 		return nil, false
 	}
-	for _, imp := range r.scopeImports(sym.Scope) {
-		if r.resolvingImports[imp] {
-			continue
-		}
-		if !r.importPrefixAvailable(sym.Scope, imp, name) {
-			continue
-		}
-		if found, ok := r.matchImport(sym.Scope, imp, name); ok {
-			return found, true
-		}
-	}
-	return nil, false
+	return r.lookupImports(sym.Scope, name)
 }
 
 // lookupContributedMember resolves name as a member sym inherits or

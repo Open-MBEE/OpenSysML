@@ -150,7 +150,7 @@ func (r *Resolver) surfacedMembers(cur *symbols.Symbol, from *symbols.Scope, nam
 			continue
 		}
 		r.importStack[imp] = true
-		for _, found := range r.importMatchesAll(cur.Scope, imp, name) {
+		for _, found := range r.importMatchesInto(cur.Scope, cur.Scope, imp, name, true) {
 			if r.namedThroughNamespace(found) {
 				out = appendSymbol(out, found)
 			}
@@ -185,7 +185,7 @@ func (r *Resolver) unqualifiedCandidates(scope *symbols.Scope, name string) []*s
 		if out, ok := r.visibleMemberCandidates(r.scopeOwner(s), name); ok {
 			return out
 		}
-		if out := r.namingSomething(r.inheritedImportCandidates(s, name)); len(out) > 0 {
+		if out := r.namingSomething(r.inheritedImportCandidates(s, name, true)); len(out) > 0 {
 			return out
 		}
 		for enclosing := s.Parent(); enclosing != nil; enclosing = enclosing.Parent() {
@@ -268,7 +268,7 @@ func (r *Resolver) visibleMemberCandidates(sym *symbols.Symbol, name string) ([]
 		if r.resolvingImports[imp] || !r.importPrefixAvailable(sym.Scope, imp, name) {
 			continue
 		}
-		for _, found := range r.importMatchesAll(sym.Scope, imp, name) {
+		for _, found := range r.importMatchesInto(sym.Scope, sym.Scope, imp, name, true) {
 			if found, ok := admits(found); ok && !r.AliasNamesNothing(found) {
 				out = appendSymbol(out, found)
 			}
@@ -300,7 +300,7 @@ func (r *Resolver) importMatches(scope *symbols.Scope, name string) []*symbols.S
 		if r.resolvingImports[imp] || !r.importPrefixAvailable(scope, imp, name) {
 			continue
 		}
-		for _, sym := range r.importMatchesAll(scope, imp, name) {
+		for _, sym := range r.importMatchesInto(scope, scope, imp, name, true) {
 			if !r.AliasNamesNothing(sym) {
 				out = appendSymbol(out, sym)
 			}

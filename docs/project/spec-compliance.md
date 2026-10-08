@@ -8,6 +8,13 @@
 
 ## Current Implementation Status
 
+### Imported membership visibility
+
+| Rule | Implementation | Evidence | Scope |
+| --- | --- | --- | --- |
+| KerML 1.0 §7.2.5.4: hide imported memberships with the same name for distinct elements; importing one element repeatedly is not a conflict | `resolve/unqualified.go` collects native import candidates and deduplicates alias targets by element identity; `resolve/qualified.go` prevents index fallback from restoring a hidden member; `resolve/visibility.go` and `resolve/document.go` check inherited imports together | `TestImportedNameClashVisibility`, `TestImportedNameClashReview`, `TestRootImportClashPreservesGlobalDeclaration`, `TestHiddenReexportPreservesIndependentImport`, `TestGlobalRootImportClash` and `TestPilotImportedNameClashQualification`; [scope and corpus adjudication](imported-name-clashes.md) | ⚠️ Ordinary name lookup covered by these controls; invocation overload candidate selection retains its separate behavior, so this is not a claim of complete import-rule conformance |
+
+
 Loop and branch bodies that state their own token flow are lowered by
 `lower/block_graph.go:lowerStatedBlock` and run as transparent, per-iteration
 performances by `runtime/action_statements.go:performBlockFlow` through

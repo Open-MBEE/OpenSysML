@@ -80,7 +80,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        shard: [runtime, model, export, rest]
+        shard: [runtime-1, runtime-2, model, export, rest]
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -251,12 +251,16 @@ jobs:
       - name: Download the Reference-FMUs
         run: ./scripts/download-reference-fmus.sh
 
-      # Per-package timeout: under -race the runtime package runs 31-47 minutes on
-      # these runners. Matches `make test-shard`.
+      # The runtime package is partitioned by its complete test list to keep each
+      # runner within the per-package timeout used by `make test-shard`.
       - name: Run Go race tests
         env:
           SHARD: ${{ matrix.shard }}
-        run: make test-shard SHARD="$SHARD"
+        run: |
+          case "$SHARD" in
+            runtime-*) make test-shard SHARD=runtime RUNTIME_PART="${SHARD#runtime-}" ;;
+            *) make test-shard SHARD="$SHARD" ;;
+          esac
 
       - name: Upload coverage artifact
         uses: actions/upload-artifact@v4
@@ -272,7 +276,7 @@ jobs:
     permissions:
       contents: read
     timeout-minutes: 5
-    # The shard package sets are disjoint, so their blocks concatenate under one mode line.
+    # Go's coverage reader sums duplicate blocks from the two runtime partitions.
     steps:
       - name: Download shard profiles
         uses: actions/download-artifact@v4
@@ -285,7 +289,7 @@ jobs:
           set -euo pipefail
           profiles=(shards/coverage-*/coverage.txt)
           # One per race-tests shard.
-          if [ "${#profiles[@]}" -ne 4 ]; then echo "error: expected 4 shard profiles, found ${#profiles[@]}" >&2; exit 1; fi
+          if [ "${#profiles[@]}" -ne 5 ]; then echo "error: expected 5 shard profiles, found ${#profiles[@]}" >&2; exit 1; fi
           for f in "${profiles[@]}"; do
             [ "$(head -n 1 "$f")" = "mode: atomic" ] || { echo "error: $f is not an atomic-mode profile" >&2; exit 1; }
           done

@@ -23,7 +23,7 @@
         "digest": "sha256:1f56aeaf27ab6143cf4c994dced485fb15a061f66a2759a0b8ef2af32358db6c"
       }
     ],
-    "recorded": "2026-10-01"
+    "recorded": "2026-10-08"
   },
   "totals": {
     "files": 429,
@@ -5697,7 +5697,7 @@
         "line": 233,
         "citation": "KerML 7.4.9",
         "corrected": false,
-        "derivation": "`ISQ::*` re-exports two MagneticDipoleMomentUnits, the electromagnetic one (L^3·M·T^-2·I^-1, IEC 80000-6 item 6-30) and the atomic one (L^2·I, ISO 80000-10 item 10-9.1); `m^2*A` is the atomic unit, the unqualified name resolves to the electromagnetic one, and the ISQ library rather than this line is where the name clash is fixed, so the defect is documented without a correction."
+        "derivation": "`ISQ::*` re-exports two MagneticDipoleMomentUnits, the electromagnetic one (L^3·M·T^-2·I^-1, IEC 80000-6 item 6-30) and the atomic one (L^2·I, ISO 80000-10 item 10-9.1). KerML 7.2.5.4 hides the unqualified name. Explicitly choosing the electromagnetic interpretation makes `m^2*A` a dimension mismatch; the atomic interpretation matches. No intended choice is assumed, so the defect remains documented without a correction."
       },
       {
         "id": "SI-239",

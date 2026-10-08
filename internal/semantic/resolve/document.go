@@ -952,15 +952,16 @@ func (r *Resolver) searchFeatureOf(sym *symbols.Symbol, name string, walk featur
 // importedFeatureOf finds name among the memberships sym imports publicly or
 // protectedly, which its specializations inherit like its own (KerML 8.2.3.5).
 func (r *Resolver) importedFeatureOf(sym *symbols.Symbol, name string) (*symbols.Symbol, bool) {
+	var matches []*symbols.Symbol
 	for _, imp := range r.scopeImports(sym.Scope) {
 		if !inheritedThroughSpecialization(imp) || !r.importPrefixAvailable(sym.Scope, imp, name) {
 			continue
 		}
-		if found, ok := r.matchImport(sym.Scope, imp, name); ok {
-			return found, true
+		for _, found := range r.importMatchesAll(sym.Scope, imp, name) {
+			matches = appendSymbol(matches, found)
 		}
 	}
-	return nil, false
+	return r.uniqueImport(matches)
 }
 
 // inheritableMember reports whether a member can be reached through a
