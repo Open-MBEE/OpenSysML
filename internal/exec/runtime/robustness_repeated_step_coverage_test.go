@@ -746,6 +746,79 @@ func TestRuntimeRobustnessRepeatedStepCoverage(t *testing.T) {
 			t.Errorf("earlier-end findings = %d, want one KERML-29 pairing note", findings)
 		}
 	})
+
+	// A redefining step declaring no multiplicity of its own takes the redefined
+	// step's `[n]`: the effective count performs n times, and an external read
+	// sees every performance.
+	t.Run("inherited-step-multiplicity", func(t *testing.T) {
+		src := `package test {
+			private import ScalarValues::*;
+			private import SequenceFunctions::*;
+			private import NumericalFunctions::*;
+			action def Base {
+				action a[3] {
+					out x : Integer;
+				}
+			}
+			action def Reads specializes Base {
+				attribute c : Integer = 0;
+				attribute n : Integer = 0;
+				action :>> a {
+					assign c := c + 1;
+					assign x := c;
+				}
+				first start then a;
+				succession first [*] a then [1] q;
+				action q {
+					assign n := size(a.x);
+				}
+				succession first q then done;
+			}
+		}`
+		file := parseAndBuild(t, src)
+		index, _, ctx := buildRuntimeWithLibraries(t, "<test>", file)
+		for _, d := range checkpasses.Analyze("<test>", file, nil, index) {
+			if strings.Contains(string(d.Code), "action-step-multiplicity") {
+				t.Errorf("check diagnostic = %v, want no action-step-multiplicity finding", d)
+			}
+		}
+		reads := findSymbolByName(index.DocumentRoot("<test>"), "Reads", ast.DefAction)
+		outputs, err := ctx.ExecuteAction(reads)
+		if err != nil {
+			t.Fatalf("ExecuteAction: %v", err)
+		}
+		got, ok := outputs["n"]
+		if !ok || got.Kind != ValConst || got.Const.Kind != semantics.ValInt || got.Const.Int != 3 {
+			t.Fatalf("outputs[n] = %v (present %v), want 3 (every performance of the inherited count)", got, ok)
+		}
+	})
+
+	// An inherited loop body whose steps are ordered with written multiplicities
+	// still performs the repeated step its count per pass.
+	t.Run("inherited-loop-body-ordered-repetition", func(t *testing.T) {
+		outputs, err := executeActionSource(t, "Derived", `package test {
+			private import ScalarValues::*;
+			action def Base {
+				attribute n : Integer = 0;
+				first start then worker;
+				action worker {
+					attribute i : Integer = 0;
+					while i < 2 {
+						first start then tick;
+						action tick[2] { assign n := n + 1; }
+						action bump { assign i := i + 1; }
+						succession first [*] tick then [1] bump;
+					}
+				}
+				then done;
+			}
+			action def Derived :> Base { action :>> worker; }
+		}`)
+		if err != nil {
+			t.Fatalf("executeActionSource: %v", err)
+		}
+		assertIntOutput(t, outputs, "n", 4)
+	})
 }
 
 // assertDistinctRunOccurrences checks a `perform action run[n]`'s part gives

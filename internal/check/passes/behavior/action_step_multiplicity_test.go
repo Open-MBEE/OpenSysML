@@ -501,7 +501,7 @@ func TestActionStepMultiplicityPassUsesInheritedStepMultiplicity(t *testing.T) {
 		t.Fatalf("diagnostics = %+v, want strict plain-then order warning", diags)
 	})
 
-	t.Run("inherited repeated step in a loop body is unsupported", func(t *testing.T) {
+	t.Run("inherited repeated step in an unordered loop body is refused as open order", func(t *testing.T) {
 		diags := actionStepMultiplicityDiags(t, `package test {
 			private import ScalarValues::*;
 			action def Base {
@@ -516,13 +516,34 @@ func TestActionStepMultiplicityPassUsesInheritedStepMultiplicity(t *testing.T) {
 			action def Derived :> Base { action :>> worker; }
 		}`)
 		for _, diagnostic := range diags {
-			if diagnostic.Code == "action-step-multiplicity-unsupported" &&
+			if diagnostic.Code == "action-step-order-open" &&
 				strings.Contains(diagnostic.Message, "tick") &&
 				strings.Contains(diagnostic.Message, "[2]") {
 				return
 			}
 		}
-		t.Fatalf("diagnostics = %+v, want unsupported inherited [2] tick in loop body", diags)
+		t.Fatalf("diagnostics = %+v, want open order on inherited [2] tick in loop body", diags)
+	})
+
+	t.Run("inherited repeated step ordered in a loop body is supported", func(t *testing.T) {
+		diags := actionStepMultiplicityDiags(t, `package test {
+			private import ScalarValues::*;
+			action def Base {
+				action worker {
+					attribute i : Integer = 0;
+					while i < 2 {
+						first start then tick;
+						action tick[2];
+						action bump { assign i := i + 1; }
+						succession first [*] tick then [1] bump;
+					}
+				}
+			}
+			action def Derived :> Base { action :>> worker; }
+		}`)
+		if len(diags) != 0 {
+			t.Fatalf("diagnostics = %+v, want none", diags)
+		}
 	})
 
 	t.Run("fixed repeated step with explicit first edges remains supported", func(t *testing.T) {
