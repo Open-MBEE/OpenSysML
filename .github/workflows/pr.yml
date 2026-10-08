@@ -276,6 +276,9 @@ jobs:
     # The shards' blocks concatenate under one mode line; the two runtime shards instrument
     # the same package, so their duplicate blocks are collapsed as make coverage does.
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
       - name: Download shard profiles
         uses: actions/download-artifact@v4
         with:
