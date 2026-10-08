@@ -1,11 +1,31 @@
 import type { LayoutGeometry, RenderNode, RenderPoint } from "../protocol";
 import type { AutoLayout } from "../webview/autolayout";
-import type { PlacedNode } from "../webview/layout";
+import type { Box, PlacedNode } from "../webview/layout";
 
-// obstacles is what a moving top-level box must stay clear of: the other shown top-level
-// boxes. A nested box is drawn inside its project's, so moving a project carries it along.
+// obstacles is what a moving top-level box must stay clear of: the other shown top-level boxes,
+// and any box of theirs that sticks out past its project. The moving box carries its own.
 export function obstacles(entries: Iterable<PlacedNode>, moving: string): PlacedNode[] {
-  return [...entries].filter((entry) => entry.node.id !== moving && !entry.hidden && entry.node.parent === undefined);
+  const all = [...entries];
+  const byId = new Map(all.map((entry) => [entry.node.id, entry]));
+  const projectOf = (entry: PlacedNode): PlacedNode => {
+    const parent = entry.node.parent === undefined ? undefined : byId.get(entry.node.parent);
+    return parent === undefined ? entry : projectOf(parent);
+  };
+  const within = (inner: Box, outer: Box): boolean =>
+    inner.x >= outer.x &&
+    inner.y >= outer.y &&
+    inner.x + inner.width <= outer.x + outer.width &&
+    inner.y + inner.height <= outer.y + outer.height;
+  return all.filter((entry) => {
+    if (entry.hidden) {
+      return false;
+    }
+    const project = projectOf(entry);
+    if (project.node.id === moving) {
+      return false;
+    }
+    return project === entry || project.hidden || !within(entry.box, project.box);
+  });
 }
 
 // carried is `moved` plus every descendant of a moved node, shifted as its nearest moved

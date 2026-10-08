@@ -2197,3 +2197,34 @@ test("obstacles leaves a moving project clear of the boxes drawn inside it", () 
   const everyOther = [...layout.nodes.values()].filter((entry) => entry.node.id !== "a");
   assert.notDeepEqual(freePlacement(a, { x: 110, y: 100 }, everyOther, bounds, 0), { x: 110, y: 100 });
 });
+
+test("obstacles keeps another project's box that sticks out past its project", () => {
+  const layout = layoutCanvas(
+    rendering([
+      node("a", "a", { x: 100, y: 100, width: 200, height: 100 }),
+      node("b", "b", { x: 500, y: 100, width: 80, height: 40 }),
+      node("inside", "inside", { parent: "b", x: 510, y: 110, width: 20, height: 10 }),
+      node("exposed", "exposed", { parent: "b", x: 560, y: 110, width: 60, height: 10 }),
+    ]),
+  );
+  const ids = obstacles(layout.nodes.values(), "a").map((entry) => entry.node.id);
+  assert.deepEqual(ids, ["b", "exposed"]);
+});
+
+test("alignedPlacement lines up a project whose own boxes are not obstacles", () => {
+  const bounds: Box = { x: 0, y: 0, width: 900, height: 400 };
+  const movingNode = portNode("moving", 80, 100);
+  const inner = node("inner", "inner", { parent: "moving", x: 90, y: 110, width: 20, height: 10 });
+  const targetNode = portNode("target", 500, 105);
+  const layout = layoutWithPorts(
+    [movingNode, inner, targetNode],
+    [connectedEdge("moving", "target")],
+    fixedPorts(["moving.api", "east", 0.5], ["target.api", "west", 0.5]),
+    bounds,
+  );
+  const moving = layout.nodes.get("moving")!;
+  const at = { x: moving.box.x, y: moving.box.y };
+  assert.deepEqual(alignedPlacement(moving, at, layout, bounds, 0), at);
+  const clear = obstacles(layout.nodes.values(), "moving");
+  assert.deepEqual(alignedPlacement(moving, at, layout, bounds, 0, clear), { x: at.x, y: at.y + 5 });
+});

@@ -724,9 +724,10 @@ function mount(root: HTMLElement): Mounted {
     hero.classList.remove("osml-hero--dragging");
     if (ended.moved) {
       const entry = layout.nodes.get(ended.id);
-      const at = entry && freePlacement(entry, ended.at, obstacles(layout.nodes.values(), ended.id), placementBounds(), exitReach);
+      const clear = obstacles(layout.nodes.values(), ended.id);
+      const at = entry && freePlacement(entry, ended.at, clear, placementBounds(), exitReach);
       if (entry && at) {
-        moveTo(ended.id, alignedPlacement(entry, at, layout, placementBounds(), exitReach));
+        moveTo(ended.id, alignedPlacement(entry, at, layout, placementBounds(), exitReach, clear));
       }
     } else if (!cancelled && !ended.longPressed) {
       openProject(ended.id);
