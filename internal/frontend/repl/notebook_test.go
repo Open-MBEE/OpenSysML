@@ -129,6 +129,9 @@ func TestCellsArePickedByPositionOrTag(t *testing.T) {
 	if strings.Contains(out, "skipped cell") {
 		t.Errorf("a cell not picked is not reported skipped:\n%s", out)
 	}
+	if strings.Contains(out, "loaded 3 files:") {
+		t.Errorf("the picked cells of one notebook are not three files:\n%s", out)
+	}
 	if list := strings.Join(NewSession().List(), "\n"); strings.Contains(list, "Untagged") {
 		t.Errorf("cell 4 is not tagged model:\n%s", list)
 	}

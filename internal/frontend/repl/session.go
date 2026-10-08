@@ -56,7 +56,7 @@ type snippet struct {
 	key    string
 	// of is the key of the file this snippet was read from along with others —
 	// a notebook, each of whose cells is a snippet — so that re-reading the
-	// file whole drops every snippet of it; empty for a source read alone.
+	// file whole drops every snippet of it; empty for a source of its own file.
 	of string
 	// gen is the submission that appended this snippet, which is what scopes a
 	// report to the files just loaded rather than the whole buffer.
@@ -894,10 +894,11 @@ type SourceFile struct {
 	Text string
 	Kind source.Kind
 	// Of names the file this source was read from along with others — the
-	// notebook a cell is one of — when the file was read whole, so that
-	// re-reading it drops what an earlier reading declared and this one no
-	// longer does. It is empty for a source read alone or picked from its file.
-	Of       string
+	// notebook a cell is one of — empty for a source that is its own file.
+	Of string
+	// Whole is set when Of was read whole, so that re-reading it drops what an
+	// earlier reading declared and this one no longer holds.
+	Whole    bool
 	Warnings []string
 }
 
@@ -1016,7 +1017,7 @@ func (s *Session) submitEach(files []SourceFile) (res Result, byFile [][]string,
 func (s *Session) dropReadWhole(files []SourceFile) []dropReport {
 	whole := map[string]bool{}
 	for _, f := range files {
-		if f.Of != "" {
+		if f.Whole {
 			whole[fileKeyOf(f.Of)] = true
 		}
 	}

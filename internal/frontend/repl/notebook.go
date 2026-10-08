@@ -99,23 +99,14 @@ func (s *Session) readNotebook(path string, sel notebook.Selection) ([]SourceFil
 			return nil, nil, err
 		}
 		report.declarations += len(declaredNames(parser.New(source.NewWithKind(name, []byte(text), source.KindSysML)).ParseFile()))
-		files = append(files, SourceFile{Name: name, Text: text, Kind: source.KindSysML, Of: wholeOf(path, sel)})
+		files = append(files, SourceFile{Name: name, Text: text, Kind: source.KindSysML, Of: path, Whole: sel.IsZero()})
 	}
 	// A notebook read whole that contributes no cell still replaces what an
 	// earlier reading declared, as a file that now declares nothing does.
 	if len(files) == 0 && sel.IsZero() {
-		files = append(files, SourceFile{Name: path, Kind: source.KindSysML, Of: path})
+		files = append(files, SourceFile{Name: path, Kind: source.KindSysML, Of: path, Whole: true})
 	}
 	return files, report.lines(), nil
-}
-
-// wholeOf is the Of of a source read from path under sel: the path when the
-// whole notebook was read, nothing when sel picked cells from it.
-func wholeOf(path string, sel notebook.Selection) string {
-	if sel.IsZero() {
-		return path
-	}
-	return ""
 }
 
 // declarationsOf is the text of a cell as a load submits it: its declarations
