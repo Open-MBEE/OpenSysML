@@ -128,12 +128,15 @@ def _split_sections(body: str) -> tuple[str, list[tuple[str, str]]]:
     return preamble, sections
 
 
-def _already_folded(body: str, section: str, entry: str) -> bool:
-    """True if `entry` sits whole, on item boundaries, under `section` (a previous render wrote it)."""
+def _already_folded(text: str, section: str, entry: str) -> bool:
+    """True if `entry` sits whole, on item boundaries, under `section` of any version (a previous
+    render wrote it, or a release already carried it)."""
     at_boundaries = re.compile(rf"(?:\A|\n\n){re.escape(entry)}(?:\Z|\n\n)")
-    for name, content in _split_sections(body)[1]:
-        if name == section and at_boundaries.search(content.strip("\n")):
-            return True
+    start, _ = _unreleased_bounds(text)
+    for version_body in VERSION_HEADING.split(text[start:]):
+        for name, content in _split_sections(version_body)[1]:
+            if name == section and at_boundaries.search(content.strip("\n")):
+                return True
     return False
 
 
@@ -171,12 +174,12 @@ def fold(text: str, entries: dict[str, list[str]]) -> str:
 def _folded(paths: list[pathlib.Path]) -> str:
     """CHANGELOG text with every fragment folded into "## Unreleased", written nowhere."""
     text = CHANGELOG.read_text(encoding="utf-8")
-    start, end = _unreleased_bounds(text)
     entries: dict[str, list[str]] = {}
     for p in paths:
         section, body = parse_fragment(p)
-        # Already folded by an interrupted run: only the deletion is outstanding.
-        if _already_folded(text[start:end], section, body):
+        # Already folded by an interrupted run, or carried by a release the fragment
+        # outlived: only the deletion is outstanding.
+        if _already_folded(text, section, body):
             continue
         entries.setdefault(section, []).append(body)
     return fold(text, entries) if entries else text
