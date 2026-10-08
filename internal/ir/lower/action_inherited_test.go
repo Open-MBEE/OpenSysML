@@ -649,6 +649,46 @@ func TestToActionGraphDeduplicatesRestatedUnguardedSuccession(t *testing.T) {
 	}
 }
 
+func TestToActionGraphKeepsMultiplicityInheritedSuccession(t *testing.T) {
+	src := `
+		action def Base {
+			action a[2];
+			action b;
+			succession first [*] a then [1] b;
+		}
+		action def S :> Base {
+			first a then b;
+		}
+	`
+	decl, scope, _ := inheritedActionDecl(t, src, "S")
+	graph, err := ToActionGraph(decl, scope)
+	if err != nil {
+		t.Fatalf("lower S: %v", err)
+	}
+	a, b := namedNode(graph, "a"), namedNode(graph, "b")
+	if a == nil || b == nil {
+		t.Fatal("S graph is missing inherited action nodes a or b")
+	}
+	var edges []ActionEdge
+	for _, edge := range graph.Edges[a] {
+		if edge.Source == a && edge.Target == b {
+			edges = append(edges, edge)
+		}
+	}
+	if len(edges) != 2 {
+		t.Fatalf("a to b edges = %d, want the plain restatement kept beside the end multiplicities", len(edges))
+	}
+	var written int
+	for _, edge := range edges {
+		if edge.SourceMultiplicity != nil && edge.TargetMultiplicity != nil {
+			written++
+		}
+	}
+	if written != 1 {
+		t.Fatalf("a to b edges carry end multiplicities on %d, want the one inherited succession", written)
+	}
+}
+
 func TestToActionGraphResolvesInheritedGateInDeclaringScope(t *testing.T) {
 	src := `
 		private import ScalarValues::*;

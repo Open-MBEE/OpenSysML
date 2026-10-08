@@ -1084,6 +1084,8 @@ func sameUnconditionalActionEdge(existing, edge ActionEdge) bool {
 		existing.Probability == nil && edge.Probability == nil &&
 		existing.Name == "" && edge.Name == "" &&
 		existing.Gate == nil && edge.Gate == nil &&
+		existing.SourceMultiplicity == edge.SourceMultiplicity &&
+		existing.TargetMultiplicity == edge.TargetMultiplicity &&
 		!existing.Carries && !edge.Carries
 }
 
