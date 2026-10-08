@@ -241,6 +241,47 @@ func TestReloadingPickedCellsKeepsTheOthers(t *testing.T) {
 	}
 }
 
+func TestAPickedCellLoadedForNothingReplacesWhatItDeclared(t *testing.T) {
+	for _, tt := range []struct {
+		name string
+		cell notebookCell
+	}{
+		{"an expression now", notebookCell{source: "1 + 2\n"}},
+		{"tagged skip-load now", notebookCell{source: "package P { part def Old; }\n", tags: []string{"skip-load"}}},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			path := filepath.Join(t.TempDir(), "a.ipynb")
+			writeNotebook(t, path, notebookCell{source: "package P { part def Old; }\n"}, notebookCell{source: "package Q { part def Kept; }\n"})
+			s := NewSession()
+			loadMeta(t, s, "%load "+path+" --cells 1")
+			writeNotebook(t, path, tt.cell, notebookCell{source: "package Q { part def Kept; }\n"})
+			loadMeta(t, s, "%load "+path+" --cells 1")
+			list := strings.Join(s.List(), "\n")
+			if strings.Contains(list, "Old") {
+				t.Errorf("a stale declaration survived:\n%s", list)
+			}
+		})
+	}
+}
+
+func TestAPickedCellReloadedByAnotherSpellingReplacesItself(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "real.ipynb")
+	alias := filepath.Join(dir, "alias.ipynb")
+	if err := os.Symlink(path, alias); err != nil {
+		t.Skipf("no symlinks here: %v", err)
+	}
+	writeNotebook(t, path, notebookCell{source: "package P { part def Old; }\n"})
+	s := NewSession()
+	loadMeta(t, s, "%load "+path+" --cells 1")
+	writeNotebook(t, path, notebookCell{source: "package P { part def New; }\n"})
+	loadMeta(t, s, "%load "+alias+" --cells 1")
+	list := strings.Join(s.List(), "\n")
+	if strings.Contains(list, "Old") || !strings.Contains(list, "New") || strings.Count(list, "package P") != 1 {
+		t.Errorf("want the cell replaced once:\n%s", list)
+	}
+}
+
 func TestATypedDeclarationStillReplacesALoadedCell(t *testing.T) {
 	s := NewSession()
 	loadMeta(t, s, "%load "+fixtureNotebook("plain.ipynb"))

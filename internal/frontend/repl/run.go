@@ -96,7 +96,7 @@ func (s *Session) LoadFilesSummary(paths []string) ([]string, error) {
 	for i, f := range files {
 		// The analysis is reported once every file is in, but a file that does not
 		// parse is a finding about that file alone and is reported with it.
-		own := res.within(s.fileSpan(f.Name))
+		own := res.within(s.fileSpan(f.key()))
 		lines = append(lines, renderSyntax(own, s.verbosity)...)
 		lines = append(lines, byFile[i]...)
 		lines = append(lines, conversionWarnings([]SourceFile{f}, s.verbosity)...)

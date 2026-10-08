@@ -451,7 +451,7 @@ func (s *Session) accept(origin, src string) {
 // A loaded file supersedes only itself and what the prompt said about the same
 // names, since several files of one model commonly open the same package.
 func (s *Session) acceptFrom(origin, src string) (declared []string, drops []dropReport) {
-	return s.acceptParsed(origin, "", src, preparse(origin, src), source.KindUnknown)
+	return s.acceptParsed(origin, fileKeyOf(origin), "", src, preparse(origin, src), source.KindUnknown)
 }
 
 // parsed is what a submission's text parses to, taken before it is accepted so
@@ -482,9 +482,10 @@ func sourceForKind(name string, data []byte, kind source.Kind) *source.SourceFil
 	return source.NewWithKind(name, data, kind)
 }
 
-// acceptParsed is acceptFrom over a parse already taken; of is the key of the
-// file origin was read from along with other sources, empty otherwise.
-func (s *Session) acceptParsed(origin, of, src string, pre parsed, kind source.Kind) (declared []string, drops []dropReport) {
+// acceptParsed is acceptFrom over a parse already taken; key identifies origin
+// across its spellings, and of is the key of the file origin was read from along
+// with other sources, empty otherwise.
+func (s *Session) acceptParsed(origin, key, of, src string, pre parsed, kind source.Kind) (declared []string, drops []dropReport) {
 	p, root := pre.p, pre.root
 	names := declaredNames(root)
 	declared = names
@@ -493,7 +494,6 @@ func (s *Session) acceptParsed(origin, of, src string, pre parsed, kind source.K
 	// rather than left to absorb the submissions after it, and declares nothing:
 	// what the parser recovered from it is not what was meant.
 	if !pre.closes {
-		key := fileKeyOf(origin)
 		if key != "" {
 			// Re-reading the file supersedes what it declared before, which it no
 			// longer does.
@@ -525,7 +525,6 @@ func (s *Session) acceptParsed(origin, of, src string, pre parsed, kind source.K
 	)
 	if origin != "" {
 		set := nameSet(names)
-		key := fileKeyOf(origin)
 		top := topLevelMembers(root)
 		kept := s.snippets[:0]
 		for _, sn := range s.snippets {
@@ -900,6 +899,18 @@ type SourceFile struct {
 	// earlier reading declared and this one no longer holds.
 	Whole    bool
 	Warnings []string
+	// Key identifies the source across the spellings of its path where Name is
+	// no file's — a notebook cell's is its notebook's key and its position;
+	// empty for a source whose Name is its path.
+	Key string
+}
+
+// key identifies f across the spellings of its path.
+func (f SourceFile) key() string {
+	if f.Key != "" {
+		return f.Key
+	}
+	return fileKeyOf(f.Name)
 }
 
 // SubmitAll accumulates every src as one submission, from no file in particular.
@@ -969,7 +980,7 @@ func (s *Session) submitEach(files []SourceFile) (res Result, byFile [][]string,
 	})
 	drops = s.dropReadWhole(files)
 	for i, f := range files {
-		names, dropped := s.acceptParsed(f.Name, fileKeyOf(f.Of), f.Text, parses[i], f.Kind)
+		names, dropped := s.acceptParsed(f.Name, f.key(), fileKeyOf(f.Of), f.Text, parses[i], f.Kind)
 		for _, name := range names {
 			if !seen[name] {
 				seen[name] = true
@@ -1060,10 +1071,10 @@ func (s *Session) rebuildOver(drops []dropReport) []string {
 	return whole
 }
 
-// fileSpan is where the current submission's text from the named file sits in the
-// joined buffer, through the newline closing it, where a parse that ran out of text reports.
-func (s *Session) fileSpan(name string) source.Span {
-	key := fileKeyOf(name)
+// fileSpan is where the current submission's text from the file key identifies
+// sits in the joined buffer, through the newline closing it, where a parse that
+// ran out of text reports.
+func (s *Session) fileSpan(key string) source.Span {
 	acc := 0
 	for _, sn := range s.snippets {
 		if sn.gen == s.version && sn.key == key {

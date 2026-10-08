@@ -105,6 +105,8 @@ func TestParseRefusesJSONThatIsNoNotebook(t *testing.T) {
 		{"no cells", `{"nbformat": 4}`, "no cells"},
 		{"cells not a list", `{"nbformat": 4, "cells": 3}`, "not a notebook"},
 		{"source of the wrong type", `{"nbformat": 4, "cells": [{"cell_type": "code", "source": 3}]}`, "a cell's source must be a string or a list of strings"},
+		{"text after the notebook", `{"nbformat": 4, "cells": [{"cell_type": "code", "source": "package P {}"}]} trailing`, "text follows the notebook object"},
+		{"a second notebook after the first", `{"nbformat": 4, "cells": []} {"nbformat": 4, "cells": []}`, "text follows the notebook object"},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			_, err := Parse("x.ipynb", []byte(tt.json))

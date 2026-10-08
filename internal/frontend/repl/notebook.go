@@ -60,6 +60,12 @@ func cellName(path string, index int) string {
 	return fmt.Sprintf("%s cell %d", path, index)
 }
 
+// cellKey identifies a cell across the spellings of its notebook's path, as
+// fileKey does a file, so the cell reloaded by another spelling replaces itself.
+func cellKey(path string, index int) string {
+	return cellName(fileKey(path), index)
+}
+
 // readNotebook reads the code cells of the notebook at path that sel picks into
 // the sources a load submits, one per cell. A cell is loaded for what it
 // declares: its `%` command lines and its expressions are blanked rather than
@@ -83,23 +89,21 @@ func (s *Session) readNotebook(path string, sel notebook.Selection) ([]SourceFil
 	report := notebookReport{name: path, of: len(nb.Cells), selection: sel}
 	var files []SourceFile
 	for _, cell := range picked {
-		if cell.Tagged(notebook.SkipTag) {
-			report.tagged = append(report.tagged, cell.Index)
-			continue
-		}
-		text := declarationsOf(cell.Source, &report)
-		report.cells++
-		// A cell of commands and expressions alone is loaded for nothing; it
-		// is counted, not submitted.
-		if strings.TrimSpace(text) == "" {
-			continue
-		}
 		name := cellName(path, cell.Index)
 		if err := reservedName(name); err != nil {
 			return nil, nil, err
 		}
-		report.declarations += len(declaredNames(parser.New(source.NewWithKind(name, []byte(text), source.KindSysML)).ParseFile()))
-		files = append(files, SourceFile{Name: name, Text: text, Kind: source.KindSysML, Of: path, Whole: sel.IsZero()})
+		file := SourceFile{Name: name, Key: cellKey(path, cell.Index), Kind: source.KindSysML, Of: path, Whole: sel.IsZero()}
+		if cell.Tagged(notebook.SkipTag) {
+			report.tagged = append(report.tagged, cell.Index)
+		} else {
+			file.Text = declarationsOf(cell.Source, &report)
+			report.cells++
+			report.declarations += len(declaredNames(parser.New(source.NewWithKind(name, []byte(file.Text), source.KindSysML)).ParseFile()))
+		}
+		// A cell loaded for nothing — passed over, or commands and expressions
+		// alone — is still submitted, so it replaces what it declared before.
+		files = append(files, file)
 	}
 	// A notebook read whole that contributes no cell still replaces what an
 	// earlier reading declared, as a file that now declares nothing does.

@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -136,6 +137,9 @@ func Parse(name string, data []byte) (*Notebook, error) {
 	dec := json.NewDecoder(bytes.NewReader(data))
 	if err := dec.Decode(&raw); err != nil {
 		return nil, &FormatError{Name: name, Reason: "not a notebook: " + jsonReason(err)}
+	}
+	if err := dec.Decode(new(json.RawMessage)); err != io.EOF {
+		return nil, &FormatError{Name: name, Reason: "not a notebook: text follows the notebook object"}
 	}
 	if raw.NBFormat == nil {
 		return nil, &FormatError{Name: name, Reason: "not a notebook: no nbformat version"}
