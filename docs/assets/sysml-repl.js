@@ -50,11 +50,15 @@
       mkdirs(parent(p));
       nodes[p] = { dir: true, ino: ino++, mtime: Date.now() };
     }
+    // The order Array.prototype.sort gives strings: by code unit, in every locale.
+    function byCodeUnit(a, b) {
+      return a < b ? -1 : a > b ? 1 : 0;
+    }
     function children(p) {
       var pre = p === "/" ? "/" : p + "/";
       return Object.keys(nodes).filter(function (k) {
         return k !== p && k.indexOf(pre) === 0 && k.slice(pre.length).indexOf("/") < 0;
-      }).map(function (k) { return k.slice(pre.length); }).sort(function (a, b) { return a.localeCompare(b); });
+      }).map(function (k) { return k.slice(pre.length); }).sort(byCodeUnit);
     }
     function grow(n, size) {
       if (n.data.length >= size) return;
@@ -92,7 +96,7 @@
       return n && !n.dir ? new TextDecoder().decode(n.data.subarray(0, n.size)) : null;
     };
     self.list = function () {
-      return Object.keys(nodes).filter(function (k) { return !nodes[k].dir; }).sort(function (a, b) { return a.localeCompare(b); });
+      return Object.keys(nodes).filter(function (k) { return !nodes[k].dir; }).sort(byCodeUnit);
     };
     self.send = function (text) {
       if (text) stdin.push(enc.encode(text));

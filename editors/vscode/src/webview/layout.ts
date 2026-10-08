@@ -140,6 +140,11 @@ const SELF_MESSAGE_REACH = 28;
  * is what ELK laid out for the same rendering: it places a node the model does
  * not, without pinning it, and routes an edge whose ends are not placed.
  */
+// The order Array.prototype.sort gives strings: by code unit, in every locale.
+function byCodeUnit(a: string, b: string): number {
+  return a < b ? -1 : a > b ? 1 : 0;
+}
+
 export function layoutCanvas(result: RenderResult, overrides: Overrides = {}, auto?: AutoLayout): CanvasLayout {
   const placed = new Map<string, PlacedNode>();
   const roots: PlacedNode[] = [];
@@ -1180,7 +1185,7 @@ function rerouteAroundBoxes(
         exempt.add(entry.node.id);
       }
     }
-    const key = [...exempt].sort((a, b) => a.localeCompare(b)).join(" ");
+    const key = [...exempt].sort(byCodeUnit).join(" ");
     const group = groups.get(key) ?? [];
     group.push(index);
     groups.set(key, group);
