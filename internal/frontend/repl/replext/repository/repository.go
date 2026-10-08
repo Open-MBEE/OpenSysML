@@ -207,7 +207,11 @@ func (repository) Publish(ctx context.Context, base string, req replext.PublishR
 	case err != nil:
 		return nil, err
 	}
-	branch, err := findBranch(ctx, c, project, req.Branch)
+	want := req.Branch
+	if want == "" && req.State != nil && req.State.ProjectID == project.ID {
+		want = req.State.Branch
+	}
+	branch, err := findBranch(ctx, c, project, want)
 	if err != nil {
 		return nil, err
 	}

@@ -357,3 +357,42 @@ func TestLoadWithCellsReadsANotebookNotAProject(t *testing.T) {
 		t.Errorf("a missing notebook was looked up as a project: %v", err)
 	}
 }
+
+func TestPublishAfterLoadingABranchCommitsOnThatBranch(t *testing.T) {
+	s, api := repoSession(t)
+	s.Submit(vehicles)
+	runMeta(t, s, "%publish Vehicles")
+	review := api.addBranch("project-0001", "review")
+	main := api.projects["project-0001"].branches["branch-0002"]
+	before := main.head
+
+	fresh := NewSession()
+	out := runMeta(t, fresh, "%load Vehicles --branch=review")
+	if !strings.HasPrefix(out[0], "loaded project Vehicles (project-0001) at branch review ("+review.id+")") {
+		t.Fatalf("%%load:\n%s", joined(out))
+	}
+	fresh.Submit("package Vehicles { part def Wheel { attribute radius : ScalarValues::Real; } part def Car { part wheels : Wheel[4]; } part def Van; }")
+	out = runMeta(t, fresh, "%publish Vehicles")
+	if len(out) != 1 || !strings.Contains(out[0], "on branch review ("+review.id+") of Vehicles (project-0001)") {
+		t.Fatalf("publish after loading a branch:\n%s", joined(out))
+	}
+	if main.head != before {
+		t.Errorf("the default branch moved from %s to %s; the loaded branch was review", before, main.head)
+	}
+	if review.head == before || !strings.HasPrefix(out[0], "commit "+review.head+" ") {
+		t.Errorf("review's head is %s, the publish reported %q", review.head, out[0])
+	}
+	if fresh.repoState.Branch != review.id {
+		t.Errorf("the session now tracks branch %s, not review", fresh.repoState.Branch)
+	}
+
+	// --branch still wins over the loaded branch.
+	fresh.Submit("package Vehicles { part def Wheel { attribute radius : ScalarValues::Real; } part def Car { part wheels : Wheel[4]; } part def Van; part def Bus; }")
+	out = runMeta(t, fresh, "%publish --branch=main Vehicles")
+	if len(out) != 1 || !strings.Contains(out[0], "on branch main (branch-0002)") {
+		t.Fatalf("publish --branch after loading another:\n%s", joined(out))
+	}
+	if main.head == before {
+		t.Errorf("--branch=main did not move main")
+	}
+}

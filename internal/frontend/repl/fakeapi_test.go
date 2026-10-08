@@ -70,6 +70,14 @@ func (f *fakeAPI) createProject(name, branch string) *fakeProject {
 	return p
 }
 
+// addBranch gives a project a branch at the head of its default branch.
+func (f *fakeAPI) addBranch(project, name string) *fakeBranch {
+	p := f.projects[project]
+	b := &fakeBranch{id: f.id("branch"), name: name, head: p.branches[p.defaults].head}
+	p.branches[b.id] = b
+	return b
+}
+
 func (f *fakeAPI) projectJSON(p *fakeProject) map[string]any {
 	return map[string]any{"@id": p.id, "@type": "Project", "name": p.name, "defaultBranch": map[string]any{"@id": p.defaults}}
 }
