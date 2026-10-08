@@ -6,7 +6,7 @@ import { test } from "node:test";
 import type { LayoutGeometry, RenderEdge, RenderNode, RenderPoint, RenderResult } from "../protocol";
 import type { EngineInstance } from "../landing/model";
 import { landingModel } from "../landing/model";
-import { carried } from "../landing/carry";
+import { carried, obstacles } from "../landing/carry";
 import { presented } from "../landing/present";
 import { autoLayout, type AutoLayout } from "./autolayout";
 import {
@@ -2179,4 +2179,21 @@ test("liftedEdges recalculates a port anchor from the shifted node box", () => {
   const lifted = liftedEdges(layout, "a", 40, 25)[0];
   const shiftedBox = { ...source.box, x: source.box.x + 40, y: source.box.y + 25 };
   assert.deepEqual(lifted.points[0], portFace(shiftedBox, source.ports[0]));
+});
+
+test("obstacles leaves a moving project clear of the boxes drawn inside it", () => {
+  const layout = layoutCanvas(
+    rendering([
+      node("a", "a", { x: 100, y: 100, width: 200, height: 100 }),
+      node("c", "c", { parent: "a", x: 116, y: 116, width: 60, height: 30 }),
+      node("b", "b", { x: 500, y: 100, width: 80, height: 40 }),
+    ]),
+  );
+  const a = layout.nodes.get("a")!;
+  const bounds = { x: 0, y: 0, width: 1000, height: 600 };
+  const clear = obstacles(layout.nodes.values(), "a");
+  assert.deepEqual(clear.map((entry) => entry.node.id), ["b"]);
+  assert.deepEqual(freePlacement(a, { x: 110, y: 100 }, clear, bounds, 0), { x: 110, y: 100 });
+  const everyOther = [...layout.nodes.values()].filter((entry) => entry.node.id !== "a");
+  assert.notDeepEqual(freePlacement(a, { x: 110, y: 100 }, everyOther, bounds, 0), { x: 110, y: 100 });
 });
