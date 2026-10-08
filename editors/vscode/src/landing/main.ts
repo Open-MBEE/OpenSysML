@@ -32,7 +32,7 @@ import {
   type LandingModel,
   type LandingPart,
 } from "./model";
-import { carried } from "./carry";
+import { carried, obstacles } from "./carry";
 import { presented } from "./present";
 import stack from "./stack.json";
 
@@ -82,6 +82,8 @@ interface Gesture {
   at: RenderPoint;
   moved: boolean;
   longPressed: boolean;
+  /** The innermost part under the press, whose card a long press opens. */
+  card: string;
   frame?: number;
   timer?: ReturnType<typeof setTimeout>;
 }
@@ -248,9 +250,6 @@ function mount(root: HTMLElement): Mounted {
     return portExitReach(sharing);
   }
 
-  function otherNodes(id: string): PlacedNode[] {
-    return [...layout.nodes.values()].filter((entry) => entry.node.id !== id && !entry.hidden);
-  }
 
   // keepInHero keeps moved boxes clear while re-clamping in model order.
   function keepInHero(): void {
@@ -273,7 +272,7 @@ function mount(root: HTMLElement): Mounted {
           freePlacement(
             entry,
             bounded,
-            [...settled.values()].filter((other) => other.node.id !== entry.node.id),
+            obstacles(settled.values(), entry.node.id),
             placementBounds(),
             exitReach,
           )) ||
@@ -725,7 +724,7 @@ function mount(root: HTMLElement): Mounted {
     hero.classList.remove("osml-hero--dragging");
     if (ended.moved) {
       const entry = layout.nodes.get(ended.id);
-      const at = entry && freePlacement(entry, ended.at, otherNodes(ended.id), placementBounds(), exitReach);
+      const at = entry && freePlacement(entry, ended.at, obstacles(layout.nodes.values(), ended.id), placementBounds(), exitReach);
       if (entry && at) {
         moveTo(ended.id, alignedPlacement(entry, at, layout, placementBounds(), exitReach));
       }
@@ -749,13 +748,14 @@ function mount(root: HTMLElement): Mounted {
       at: { x: entry.box.x, y: entry.box.y },
       moved: false,
       longPressed: false,
+      card: cardGroup(event.target)?.dataset.opensysmlId ?? id,
     };
     // Touch has no right button: a held, unmoved press opens the same card.
     if (event.pointerType !== "mouse") {
       started.timer = setTimeout(() => {
         if (gesture === started && !started.moved) {
           started.longPressed = true;
-          openCard(id, false);
+          openCard(started.card, false);
         }
       }, LONG_PRESS);
     }
@@ -828,7 +828,7 @@ function mount(root: HTMLElement): Mounted {
       const at = freePlacement(
         entry,
         { x: box.x + direction[0] * step, y: box.y + direction[1] * step },
-        otherNodes(id),
+        obstacles(layout.nodes.values(), id),
         placementBounds(),
         exitReach,
         { x: direction[0], y: direction[1] },

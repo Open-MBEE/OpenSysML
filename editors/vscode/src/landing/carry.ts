@@ -1,5 +1,12 @@
 import type { LayoutGeometry, RenderNode, RenderPoint } from "../protocol";
 import type { AutoLayout } from "../webview/autolayout";
+import type { PlacedNode } from "../webview/layout";
+
+// obstacles is what a moving top-level box must stay clear of: the other shown top-level
+// boxes. A nested box is drawn inside its project's, so moving a project carries it along.
+export function obstacles(entries: Iterable<PlacedNode>, moving: string): PlacedNode[] {
+  return [...entries].filter((entry) => entry.node.id !== moving && !entry.hidden && entry.node.parent === undefined);
+}
 
 // carried is `moved` plus every descendant of a moved node, shifted as its nearest moved
 // ancestor was: a box dragged across the diagram carries what is drawn inside it.
