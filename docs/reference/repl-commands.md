@@ -44,6 +44,7 @@ into the parts it holds (`car.fl.hub`, `#3.fl`, `car.wheels[2]`).
 | `%list` | List all declarations in current session |
 | `%clear` | Clear session (reset all declarations) |
 | `%load [--cells <sel>] <path>...` | Submit the contents of files, directories or globs. A `.ipynb` notebook loads its code cells in order, each a source named `<notebook> cell <n>`; the cells' `%` command lines and expressions are skipped and counted in the report, a cell tagged `skip-load` is skipped, and `--cells 1,3-5` or `--cells tag:<tag>` picks cells by position among the code cells or by tag ([Reusing another notebook](../guide/12-jupyter.md#reusing-another-notebook)) |
+| `%load [--id=<project id>] [--name=<name>] [--branch=<branch>] [<name>]` | Load a repository project's model into the session: the project named, or given by `--id` or `--name`, at the branch named by `--branch` (name or id) or its default branch. The elements at the branch head are read as SysML v2 API JSON and submitted as notation, so later input refers to the loaded names; the session remembers the project, branch and commit, and a `%publish` of the loaded element commits on that branch. A name two projects share is refused naming both ids. A lone name that is a path on disk — a separator, a `.sysml`/`.kerml`/`.ipynb` extension, a wildcard, or a file that exists — loads the files; a project whose name reads as one is loaded by `--name` ([Working with a repository](#working-with-a-repository)) |
 | `%print [name]` | Print the session model as SysML notation at the prompt, or only the named element and its body (`%print 'My Pkg'::Car`). Comments are kept, since the same writer `%save` writes notation with is used, and what is printed can be typed back in. Notation only: nothing about RDF is reported. Reading the model materializes nothing and leaves a debugging session running |
 | `%save <file>` | Write the session model to a file: `.sysml` notation (comments preserved), `.ttl` RDF or `.json` the API's element form, which are [experimental](rdf-mapping.md#status-experimental) and reported as such on each save |
 | `%import <file> [as values] [map <file>] [format csv\|tsv\|json\|jsonl] [dry-run]` | Set the feature values a CSV, TSV, JSON or JSON Lines file assigns, one row per element: an `element` column names the element and each other column a feature, with a unit as `mass [kg]`. A declared value is replaced and an inherited one redefined; an empty cell leaves a value as it was. The file is checked whole first, and a row, value or unit the model refuses imports nothing. `map` names a JSON mapping file, `format` overrides the extension, and `dry-run` prints the values without changing the model. Same import as the CLI's [`-import`](cli.md#importing-data); see [Importing data into a model](../manual/importing-data.md) |
@@ -118,7 +119,15 @@ into the parts it holds (`car.fl.hub`, `#3.fl`, `car.wheels[2]`).
 | `%advance <time>` | Advance the runtime's simulation clock by `<time>` seconds (`SI::s`), running every state event, action token, change-condition poll and do behavior that comes due, in due order. The clock is the session's, not one debugger's: an `%action` parked at `accept after` and a `%state` machine both move, and the report covers each. A state's do behavior whose action body waits (`do action poll { action wait accept after 3 [SI::s]; then … }`) is parked on the clock too, listed under `Waiting on the clock` and resumed when its instant comes; a transition that leaves the state first ends it, its wait leaving the clock. Two executors due at the same instant run in the order the scheduling policy picks — the one started last first under the default `reverse` — and the pick is a choice point, as is which of two regions' do behaviors due together acts first in a round ([Choice points](../guide/06-behavior.md)). Under `%engine check` there is no run to advance: `%advance` searches the behavior last checked again, up to that instant as its horizon |
 | **Control** | |
 | `%quit` | Exit the REPL |
-| `Tab` | Complete meta commands, symbol names (after `%print`, `%instantiate`, `%features` …; a name that needs quoting is offered in quotes, `Q::'the ra` completing to `Q::'the rack'`), object references where a command takes one (`#` offers the ids there are; `car.` offers the object-holding features of `car` — the same ones a path may pass through — a multi-valued one as `car.wheels[1]`, `car.wheels[2]` …; completing reads and materializes nothing, so a part no command has reached yet is offered by type, and only the elements reading it would hold: those the features subsetting it contribute, then anonymous ones up to its lower bound — so an optional part (`spare : Wheel[0..1]`) or an abstract one, which hold only what subsets them, is offered only once something does), the form after `%render <name>` and the palette after `%render <name> dot`, and file paths after `%load` and `%save` |
+
+**Repository** — the SysML v2 API server the session talks to ([Working with a repository](#working-with-a-repository)):
+
+| Command | Description |
+|---------|-------------|
+| `%repo [<base path>]` | Show or set the base URL of the SysML v2 API server the repository commands address, seeded from `FLEXO_SYSMLV2_URL` (default `http://localhost:8083`). A bearer token, when the server wants one, is read from `FLEXO_INTEROP_TOKEN`; it is never printed, and nothing is persisted. A plaintext `http://` URL off this machine is refused unless `FLEXO_ALLOW_PLAIN_HTTP=1` |
+| `%projects` | List the repository's projects, `<name> (<id>)` one per line, every page of them; `no projects` for an empty repository |
+| `%publish [-d] [--project=<project name>] [--branch=<branch name>] <name>` | Publish the elements rooted in `<name>` — a qualified name resolved in the session — as SysML v2 API JSON: when no project is named after it (or after `--project`) a project is created and its first commit made, otherwise a commit on the branch `--branch` names, or the default branch, holding what differs from the branch head: the commit id and the counts of elements created, updated and deleted are reported, `nothing to publish` when none differ. `-d` sends every derived property the exporter computes; without it the ones the reader recomputes are left out. A project with the same name twice is refused naming both ids |
+| `Tab` | Complete meta commands, symbol names (after `%print`, `%instantiate`, `%features` …; a name that needs quoting is offered in quotes, `Q::'the ra` completing to `Q::'the rack'`), object references where a command takes one (`#` offers the ids there are; `car.` offers the object-holding features of `car` — the same ones a path may pass through — a multi-valued one as `car.wheels[1]`, `car.wheels[2]` …; completing reads and materializes nothing, so a part no command has reached yet is offered by type, and only the elements reading it would hold: those the features subsetting it contribute, then anonymous ones up to its lower bound — so an optional part (`spare : Wheel[0..1]`) or an abstract one, which hold only what subsets them, is offered only once something does), the form after `%render <name>` and the palette after `%render <name> dot`, file paths after `%load` and `%save`, and the flags of `%load` and `%publish` with the repository's project names after `--name=`, `--id=` and `--project=` and after `%load` |
 | `Ctrl-C` | Discard the line being typed, and any continuation buffered before it; at an empty `sysml>` prompt, exit REPL |
 | `Ctrl-D` | Exit REPL |
 
@@ -625,3 +634,28 @@ pins no positions either, so `DiagramLayout` geometry rides along as `#` comment
 ([the D2 form](../project/view-rendering-forms.md#d2)).
 
 To render a view outside the prompt, use [`sysml -render`](cli.md#rendering-a-view).
+
+## Working with a repository
+
+`%repo`, `%projects`, `%load` and `%publish` address a SysML v2 API server — the OMG pilot's
+`SysML-v2-API-Services` or Flexo MMS — through the standard `/projects`, `/branches`, `/commits`
+and `/elements` resources, as the CLI's [`-sync`](cli.md#reading-and-pushing-a-repository-branch)
+does. The server is `FLEXO_SYSMLV2_URL` until `%repo <url>` sets another for the session; a
+bearer token comes from `FLEXO_INTEROP_TOKEN` and is never shown, and Flexo's organization from
+`FLEXO_SYSMLV2_ORG` where a server has one. Nothing is written to disk.
+
+```text
+sysml> %repo http://localhost:9000
+API base path: http://localhost:9000
+sysml> %projects
+Vehicles (9c0e2b3a-…)
+sysml> %load Vehicles
+loaded project Vehicles (9c0e2b3a-…) at branch main (5d1f…), commit 7a2c…: 13 elements
+sysml> part def Truck :> Vehicles::Car;
+sysml> %publish --project=Vehicles Truck
+commit 0b4e… on branch main (5d1f…) of Vehicles (9c0e2b3a-…): 3 created, 0 updated, 0 deleted
+```
+
+A server that cannot be reached, a project or branch that does not exist, and a commit the server
+refuses are reported with the status and the server's message; a syntax or argument problem with
+the command's usage.

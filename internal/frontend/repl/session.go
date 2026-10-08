@@ -4,6 +4,7 @@ package repl
 
 import (
 	"fmt"
+	"github.com/Open-MBEE/OpenSysML/internal/frontend/repl/replext"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -152,6 +153,11 @@ type Session struct {
 
 	// budgets bounds every runtime context this session creates.
 	budgets runtime.Budgets
+
+	// repoURL is the base URL %repo set, empty until it does; repoState is the
+	// branch the model was last loaded from or published to.
+	repoURL   string
+	repoState *replext.ProjectState
 
 	// schedule is the policy runs started from here on resolve choice points under.
 	schedule runtime.SchedulePolicy
@@ -1310,6 +1316,7 @@ func (s *Session) clear() []string {
 	}
 	s.snippets = nil
 	s.version = 0
+	s.repoState = nil
 	s.rtCtx, s.replaced = nil, nil
 	s.dropIndexedDocs()
 	s.instances = make(map[string]*runtime.Instance)

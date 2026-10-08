@@ -138,6 +138,7 @@ const (
 	timeLabel         = "  Time: "
 
 	groupSession    = "Session:"
+	groupRepository = "Repository:"
 	groupSettings   = "Settings:"
 	groupEngines    = "Analysis engines:"
 	groupChecks     = "Checking every schedule:"
@@ -186,12 +187,17 @@ var metaCommandTable = []metaCommand{
 	{name: "%documents", group: groupSession, desc: "list the model's documents by the names %render-document reads"},
 	{name: "%views", group: groupSession, args: "[diagrams] [<kind>...]", desc: "list the model's views and their kinds by the names %render reads; diagrams keeps the graph-shaped ones"},
 	{name: "%clear", group: groupSession, desc: "reset the session"},
-	{name: "%load", group: groupSession, args: "[--cells <sel>] <path>...", desc: "submit the contents of files, directories or globs; a .ipynb notebook's code cells declare, its % commands and expressions skipped, --cells 1,3-5 or tag:<tag> picking cells"},
+	{name: "%load", group: groupSession, args: "[--cells <sel>] <path>... | [--id=<project id>] [--name=<name>] [--branch=<branch>] [<name>]", desc: "submit the contents of files, directories or globs (a .ipynb notebook's code cells declare, --cells 1,3-5 or tag:<tag> picking cells), or load a repository project's model: named, by --id or by --name, at a branch or its default; a name that is a path on disk loads the files",
+		part: repositoryLinked, partArgs: "[--cells <sel>] <path>...", partDesc: "submit the contents of files, directories or globs; a .ipynb notebook's code cells declare, its % commands and expressions skipped, --cells 1,3-5 or tag:<tag> picking cells"},
 	{name: "%print", group: groupSession, args: "[name]", desc: "print the session model as SysML notation, or just the named element", linked: notationLinked},
 	{name: "%save", group: groupSession, args: "<file>", desc: "write the session model to a file (.sysml notation, or .ttl/.json RDF — experimental)", linked: notationLinked},
 	{name: cmdQuery, group: groupSession, args: "<oslc-query>", desc: "identify model elements using OSLC Query text", linked: positionalLinked},
 	{name: "%quit", group: groupSession, desc: "exit the REPL (also %exit)"},
 	{name: "%exit", group: groupSession, desc: "exit the REPL", alias: true},
+
+	{name: "%repo", group: groupRepository, args: "[<base path>]", desc: "show or set the base URL of the SysML v2 API server the repository commands address, seeded from FLEXO_SYSMLV2_URL; a bearer token, when the server wants one, is read from FLEXO_INTEROP_TOKEN", linked: repositoryLinked},
+	{name: "%projects", group: groupRepository, desc: "list the repository's projects, name and id", linked: repositoryLinked},
+	{name: "%publish", group: groupRepository, args: "[-d] [--project=<project name>] [--branch=<branch name>] <name>", desc: "publish the elements rooted in <name> to the repository: a new project named after it (or --project) when none is, else a new commit on the branch holding what changed; -d includes the derived properties", linked: repositoryLinked},
 
 	{name: "%verbosity", group: groupSettings, args: "[level]", desc: "show or set output level: quiet, normal or debug"},
 	{name: "%trace", group: groupSettings, args: "[on|off]", desc: "show or set execution tracing (evaluation, calc, action and state steps)"},
@@ -343,7 +349,7 @@ func (s *Session) runMeta(line string) (out []string, quit bool, err error) {
 		return []string{unknownCommandLine(fields[0])}, false, nil
 	}
 	for _, run := range []func([]string, string) (metaResult, bool){
-		s.metaSessionCommand, s.metaModelCommand, s.metaDebugCommand,
+		s.metaRepositoryCommand, s.metaSessionCommand, s.metaModelCommand, s.metaDebugCommand,
 	} {
 		if res, ok := run(fields, line); ok {
 			return res.out, res.quit, res.err
@@ -391,7 +397,7 @@ func (s *Session) metaSessionCommand(fields []string, line string) (metaResult, 
 			return metaOut(nil, false, perr), true
 		}
 		if len(paths) == 0 {
-			return metaOut([]string{"usage: %load [--cells <n,n-m|tag:<tag>>] <file|dir|glob|notebook>..."}, false, nil), true
+			return metaOut([]string{usageLoadPath}, false, nil), true
 		}
 		lines, lerr := s.loadPaths(paths, opts)
 		if lerr != nil {

@@ -48,6 +48,11 @@ func (s *Session) Complete(line string, pos int) Completion {
 	if word := lastField(head); strings.HasPrefix(word, "%") && word == command {
 		return completion(word, matchingPrefix(metaCommands(), word))
 	}
+	if command == "%load" || command == "%publish" {
+		if candidates, ok := s.repositoryCompletions(command, lastField(head)); ok {
+			return completion(lastField(head), candidates)
+		}
+	}
 	if command == "%load" || command == "%save" {
 		word := lastField(head)
 		return completion(word, pathCompletions(word))

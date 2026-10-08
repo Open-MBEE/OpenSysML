@@ -249,6 +249,47 @@ The bounds the REPL takes from the environment (`OPENSYSML_MAX_STEPS`,
 kernel, read when it starts: set them in the environment of the notebook server. See
 [environment variables](../reference/environment.md).
 
+## Working with a repository
+
+The kernel round-trips models with a SysML v2 API server through the same four commands the
+OMG pilot's kernel has: `%repo` shows or sets the server, `%projects` lists its projects,
+`%load` reads a project's model into the session and `%publish` writes elements back as a new
+project or a commit. Any server speaking the standard API serves: the pilot's
+`SysML-v2-API-Services` wants no token and the default URL is its `http://localhost:9000`
+when `%repo` names it; Flexo MMS wants a bearer token and an organization. Set, in the
+environment of the notebook server:
+
+| Variable | For the pilot API server | For Flexo MMS |
+|---|---|---|
+| `FLEXO_SYSMLV2_URL` | `http://localhost:9000` | the SysML v2 API endpoint, by default `http://localhost:8083` |
+| `FLEXO_INTEROP_TOKEN` | unset | the bearer token; never put it in a cell |
+| `FLEXO_SYSMLV2_ORG` | unset | the organization, by default `sysmlv2` |
+| `FLEXO_ALLOW_PLAIN_HTTP` | unset on this machine | `1` to allow a plaintext `http://` server on another |
+
+Then, as the pilot's notebooks do:
+
+```text
+%repo http://localhost:9000
+%projects
+%load --name=Vehicles --branch=main
+part def Truck :> Vehicles::Car;
+%publish --project=Vehicles Truck
+%publish -d --project="Trucks only" --branch=main Truck
+```
+
+`%load` takes the project by name, by `--id` or by `--name`, the branch by name or id or the
+default when absent, and submits the model as a document, so the cells after it refer to the
+loaded names; the session remembers which project, branch and commit, and a `%publish` of
+what it loaded is a commit on that branch, not a second project. `%publish <name>` names the
+project after the element's own name unless `--project` says otherwise; a project of that name
+receives a commit of what changed against the branch head, reported as the commit id with the
+counts created, updated and deleted, and no project of that name is created. `-d` sends every
+derived property the exporter computes, as the pilot's `-d` does. An argument problem is a
+`UsageError`; a server that cannot be reached, a missing project or branch, or a refused commit a
+`CommandError` with the status and the server's message. A project name two projects share is
+refused naming both ids: use `--id`. The [REPL commands reference](../reference/repl-commands.md#working-with-a-repository)
+has each command's grammar.
+
 ## Troubleshooting
 
 - **The kernel is not listed.** `jupyter kernelspec list` shows what the server sees; the
