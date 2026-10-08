@@ -802,6 +802,7 @@ type stateCapture struct {
 	changeFired        mapState[*lower.Transition, bool]
 	changeObserved     mapState[*lower.Transition, bool]
 	changePending      mapState[*lower.Transition, bool]
+	changeReads        map[*lower.Transition][]*FeatureValue
 	firingChange       *lower.Transition
 	firingNotes        []RunNote
 	changeRearmed      mapState[*lower.Transition, bool]
@@ -863,6 +864,7 @@ func (e *StateExecutor) capture() stateCapture {
 		changeFired:        captureMap(e.changeFired),
 		changeObserved:     captureMap(e.changeObserved),
 		changePending:      captureMap(e.changePending),
+		changeReads:        maps.Clone(e.changeReads),
 		firingChange:       e.firingChange,
 		firingNotes:        slices.Clone(e.firingNotes),
 		changeRearmed:      captureMap(e.changeRearmed),
@@ -937,7 +939,7 @@ func (c stateCapture) restore() {
 	e.changeFired = c.changeFired.restore()
 	e.changeObserved = c.changeObserved.restore()
 	e.changePending = c.changePending.restore()
-	e.changeReads = make(map[*lower.Transition][]*FeatureValue)
+	e.changeReads = maps.Clone(c.changeReads)
 	e.firingChange, e.firingNotes = c.firingChange, slices.Clone(c.firingNotes)
 	e.changeRearmed = c.changeRearmed.restore()
 	e.changeWaits = slices.Clone(c.changeWaits)
