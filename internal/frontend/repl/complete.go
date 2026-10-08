@@ -89,6 +89,9 @@ func (s *Session) Complete(line string, pos int) Completion {
 			}
 		}
 	}
+	if command == "%viz" {
+		return s.completeViz(head)
+	}
 	if command == "%render" && atPaletteArgument(head) {
 		word := lastField(head)
 		return completion(word, matchingPrefix(renderPalettes(), word))
@@ -714,4 +717,74 @@ func nextQualifier(text string, from int) int {
 		}
 	}
 	return -1
+}
+
+// completeViz offers %viz's words: the value of a --view or --style option being
+// typed, in the option's spelling or after it as its own word; the options
+// themselves at a dash; otherwise the names, and the forms until one is typed.
+func (s *Session) completeViz(head string) Completion {
+	word := lastField(head)
+	args := typedArgs(head)
+	previous := ""
+	if argumentIndex(head) >= 2 && len(args) >= 2 && !inUnfinishedName(head) {
+		previous = args[argumentIndex(head)-1]
+	}
+	switch {
+	case strings.HasPrefix(word, "--view="):
+		return completion(word, prefixed("--view=", matchingPrefixFold(vizViews(), strings.TrimPrefix(word, "--view="))))
+	case strings.HasPrefix(word, "--style="):
+		return completion(word, prefixed("--style=", matchingPrefixFold(vizStyles(), strings.TrimPrefix(word, "--style="))))
+	case strings.HasPrefix(word, "-"):
+		return completion(word, matchingPrefix([]string{"--view=", "--style="}, word))
+	case previous == "--view":
+		return completion(word, matchingPrefixFold(vizViews(), word))
+	case previous == "--style":
+		return completion(word, matchingPrefixFold(vizStyles(), word))
+	}
+	name := nameWord(head)
+	if vizFormTyped(args[:min(len(args), argumentIndex(head))]) {
+		return completion(name, s.nameCompletions(name))
+	}
+	// At an empty word the grammar is offered: the forms and the options; a
+	// name is offered once its first character narrows the thousands there are.
+	if name == "" {
+		return completion(name, append(renderForms(), "--view=", "--style="))
+	}
+	return completion(name, append(s.nameCompletions(name), matchingPrefix(renderForms(), name)...))
+}
+
+// vizFormTyped reports whether one of the finished words of a %viz line names
+// the form: a word standing alone, not the value of an option.
+func vizFormTyped(finished []string) bool {
+	for i := 1; i < len(finished); i++ {
+		if finished[i] == "--view" || finished[i] == "--style" {
+			i++
+			continue
+		}
+		if slices.Contains(renderForms(), finished[i]) {
+			return true
+		}
+	}
+	return false
+}
+
+// matchingPrefixFold is matchingPrefix in any letter case, offering the
+// candidates' own spelling.
+func matchingPrefixFold(candidates []string, prefix string) []string {
+	out := make([]string, 0, len(candidates))
+	for _, c := range candidates {
+		if len(c) >= len(prefix) && strings.EqualFold(c[:len(prefix)], prefix) {
+			out = append(out, c)
+		}
+	}
+	return out
+}
+
+// prefixed puts an option's spelling before each of its values.
+func prefixed(option string, values []string) []string {
+	out := make([]string, len(values))
+	for i, value := range values {
+		out[i] = option + value
+	}
+	return out
 }

@@ -221,6 +221,7 @@ var metaCommandTable = []metaCommand{
 	{name: "%view", group: groupLibrary, args: argName, desc: "show what a view exposes, and the views nested in it"},
 	{name: "%graphs", group: groupLibrary, args: argName, desc: "export the lowered graph of an action or state machine, and of every behavior it performs, as the canonical graphs:1 JSON an external engine is sent"},
 	{name: "%render", group: groupLibrary, args: "<name> [form [palette] [style] [ports] [link=<template>]]", desc: "render a view as the rendering it states — as text, as a Mermaid diagram, a Markdown table or relationship matrix, or as Graphviz DOT, PlantUML or D2, filled from a named palette, drawn in a style (pilot or cameo) and optionally linking elements to their source with a link template"},
+	{name: "%viz", group: groupLibrary, args: "[--view=<VIEW>] [--style=<STYLE>...] [form] <name> [<name>...]", desc: "draw the named elements on demand, with no view declared, as the pilot kernel's %viz does: VIEW is DEFAULT, TREE, INTERCONNECTION, STATE, ACTION, SEQUENCE, MIXED or CASE in any letter case, DEFAULT (the view when none is named) choosing the kind from what the names resolve to; each --style is a direction (TB, LR, RL, BT), a drawing style (pilot or cameo), a palette, a port display, or a pilot style that is accepted and noted as not drawn; the form is any %render form, text when none is named"},
 
 	{name: "%instantiate", group: groupRuntime, args: argName, desc: "create an instance of a part def"},
 	{name: "%eval", group: groupRuntime, args: "[in <name>|<path>|#<id> :] <expr>", desc: "evaluate an expression, in the named element or object when one is named"},
@@ -458,6 +459,8 @@ func (s *Session) metaSessionCommand(fields []string, line string) (metaResult, 
 		return metaOut(s.doGraphs(fields[1])), true
 	case "%render":
 		return metaOut(s.metaRender(fields[1:])), true
+	case "%viz":
+		return metaOut(s.metaViz(fields[1:])), true
 	case "%render-run":
 		return metaOut(s.metaRenderRun(fields[1:])), true
 	case "%quit", "%exit":

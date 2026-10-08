@@ -2,6 +2,7 @@ package jupyter
 
 import (
 	"errors"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -105,6 +106,10 @@ func TestFailuresAreNamedByWhatFailed(t *testing.T) {
 		"%print Nope":                        "CommandError",
 		"%render nothing":                    "RenderError",
 		"%render":                            "UsageError",
+		"%viz":                               "UsageError",
+		"%viz --view nope Demo":              "UsageError",
+		"%viz --style nosuch Demo":           "UsageError",
+		"%viz nothing":                       "RenderError",
 		"%render-document":                   "UsageError",
 		"1 +":                                "SubmissionError",
 	}
@@ -346,4 +351,82 @@ func hugeBudgets(t *testing.T, e *REPLEngine) runtime.Budgets {
 	b := e.Session().Budgets()
 	b.MaxActionSteps = 1 << 40
 	return b
+}
+
+const vizKernelModel = `package P {
+  part def Wheel;
+  part def Car { part fl : Wheel; part fr : Wheel; connect fl to fr; }
+  part car : Car { part a : Wheel; part b : Wheel; connect a to b; }
+  state def Lamp { state off; state on; transition off then on; }
+  action def Start { action a; action b; first a then b; }
+}
+`
+
+// %viz with no form shows a diagram: Mermaid, and the DOT the kind is drawn in,
+// as SVG where Graphviz draws it; a form asked for is shown as %render shows it.
+func TestVizShowsADiagram(t *testing.T) {
+	e := newEngine(t)
+	mustRun(t, e, vizKernelModel)
+	cases := []struct {
+		code string
+		mark string
+	}{
+		{"%viz P::Car", "flowchart"},
+		{"%viz P::car", "flowchart LR"},
+		{"%viz --view STATE P::Lamp", "stateDiagram-v2"},
+		{"%viz P::Lamp", "stateDiagram-v2"},
+		{"%viz P::Start", "flowchart"},
+		{"%viz --style LR --style ortholine P::Car P::Lamp", "flowchart LR"},
+	}
+	for _, c := range cases {
+		out := mustRun(t, e, c.code)
+		if len(out.displays) != 1 {
+			t.Fatalf("%s displayed %d bundles, want 1", c.code, len(out.displays))
+		}
+		bundle := out.displays[0]
+		mermaid, ok := bundle[mimeMermaid].(string)
+		if !ok || !strings.Contains(mermaid, c.mark) {
+			t.Errorf("%s: %s = %q, want a diagram holding %q", c.code, mimeMermaid, bundle[mimeMermaid], c.mark)
+		}
+		dot, ok := bundle[mimeDot].(string)
+		if !ok || !strings.Contains(dot, "digraph") {
+			t.Errorf("%s: %s = %q, want the DOT source beside the Mermaid", c.code, mimeDot, bundle[mimeDot])
+		}
+		if text, ok := bundle[mimeText].(string); !ok || text != mermaid {
+			t.Errorf("%s: %s = %q, want the Mermaid source as the plain text", c.code, mimeText, bundle[mimeText])
+		}
+		if svg, ok := bundle[mimeSVG].(string); ok != dotDrawn() || ok && !strings.Contains(svg, "<svg") {
+			t.Errorf("%s: %s present = %t, want %t (Graphviz drawn)", c.code, mimeSVG, ok, dotDrawn())
+		}
+	}
+	out := mustRun(t, e, "%viz --style ortholine P::Car")
+	if mermaid, _ := out.displays[0][mimeMermaid].(string); !strings.Contains(mermaid, "%% not represented: style ORTHOLINE (orthogonal line style) is not drawn") {
+		t.Errorf("a pilot style not drawn was not noted in the diagram:\n%s", mermaid)
+	}
+	out = mustRun(t, e, "%viz --view SEQUENCE P::Car")
+	if bundle := out.displays[0]; bundle[mimeMermaid] == nil || bundle[mimeDot] != nil {
+		t.Errorf("a sequence diagram, which DOT does not draw, was shown as %v", bundle)
+	}
+	out = mustRun(t, e, "%viz text P::Car")
+	if bundle := out.displays[0]; bundle[mimeMermaid] != nil || !strings.Contains(bundle[mimeText].(string), "tree rendering") {
+		t.Errorf("the text form asked for was shown as %v", bundle)
+	}
+	out = mustRun(t, e, "%viz P::Car dot")
+	if bundle := out.displays[0]; bundle[mimeDot] == nil || bundle[mimeMermaid] != nil {
+		t.Errorf("the dot form asked for was shown as %v", bundle)
+	}
+	failure := mustFail(t, e, "%viz --view nope P::Car")
+	if failure.Name != "UsageError" || !strings.Contains(failure.Value, `unknown view "nope"`) || !slices.ContainsFunc(failure.Traceback, func(line string) bool { return strings.HasPrefix(line, "usage: %viz") }) {
+		t.Errorf("a usage problem failed as %+v", failure)
+	}
+	failure = mustFail(t, e, "%viz P::Car P::Nope")
+	if failure.Name != "RenderError" || !strings.Contains(failure.Value, "P::Nope") {
+		t.Errorf("an unresolved name failed as %+v", failure)
+	}
+}
+
+// dotDrawn reports whether the kernel can draw DOT as SVG here.
+func dotDrawn() bool {
+	_, ok := drawDot("digraph { a -> b }")
+	return ok
 }
