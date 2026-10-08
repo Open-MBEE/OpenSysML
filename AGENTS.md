@@ -3,7 +3,7 @@
 > **Prime directive:** If I wanted hacks, I'd write it myself. **Don't ever choose hacky over correct.**
 > Fix root causes upstream, not symptoms. Never weaken, skip, or delete tests to make them pass.
 
-OpenSysML is a production-grade SysML v2 implementation in **Go 1.23+** (module `github.com/Open-MBEE/OpenSysML`).
+The OpenSysML REDK (Runtime Environment and Development Kit) is a production-grade SysML v2 implementation in **Go 1.23+** (module `github.com/Open-MBEE/OpenSysML`).
 It provides a hand-written lexer/parser, semantic engine, execution runtime, LSP server (`sysml-lsp`), and REPL (`sysml`).
 
 ---
