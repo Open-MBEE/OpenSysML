@@ -523,9 +523,9 @@ jobs:
               printf '%s' " The \`sysml-wasm.wasm\` module and matching \`wasm_exec.js\` are available in its assets."
             fi
             printf '%s' " The"
-            printf '%s' " [snapshot page](https://opensysml.opensysml.org/project/nightly/) explains what it is, how"
+            printf '%s' " [snapshot page](https://redk.opensysml.org/project/nightly/) explains what it is, how"
             printf '%s' " to verify it and what to expect from it; the"
-            printf '%s\n' " [install guide](https://opensysml.opensysml.org/guide/01-install/) covers the stable releases."
+            printf '%s\n' " [install guide](https://redk.opensysml.org/guide/01-install/) covers the stable releases."
             echo
             printf '%s' "The Python and Node clients built from the same commit are published as development"
             printf '%s' " versions that no default install picks up: \`pip install opensysml==$PYPI_VERSION\`"
