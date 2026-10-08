@@ -240,7 +240,7 @@ ties each of its mapping classes to the code that carries it out (or records why
 | «SimulationConfig» `durationSimulationMode` that is none of `min`, `max`, `average`, `random` | kept among the tags in the comment | approximated |
 | Result snapshots of a «SimulationConfig» (the instances under its `resultLocation` packages classified — by name or by their slots — by its target's classifiers, recording no other values of the features the target's slots set) | the individuals above, and one row per snapshot in the JSON `-migration-results` writes, its numeric slots by defining feature; a slot holding no one finite number a float64 spells exactly, and a feature two slots hold numbers for, are counted in the configuration's notes | mapped |
 | Generalization of MagicDraw's `MonteCarloAnalysis` (the analysis pattern of the SysML customization module, recognised by the module's provenance — a user's own block of that name is an ordinary block) | the block's `part def` without that general, and beside it `analysis def '<Block> Monte Carlo' :> Simulation::MonteCarlo` with the part def as `subject`, `perform action run ::> <subject>.<its classifier behavior>` and `attribute :>> observed = <subject>.<the value bound to Mean>` (see [Monte Carlo analyses](#monte-carlo-analyses)) | approximated: the block is split into a part def and an analysis def |
-| «BindingConnector» of a value property to `MonteCarloAnalysis::Mean`, `::Deviation`, `::N` or `::OutOfSpec` (the connector's owner inheriting the pattern) | the analysis def's `observed` (from the `Mean` binding) and one `return`/`out` per statistic — `return Mean : Real = mean;`, `out Deviation : Real[0..1] = deviation;`, `out N : Natural = runs;`, `out OutOfSpec : Natural = outOfSpec;` — `Real` for `Mean` and `Deviation`, the bound value's scalar for `N` and `OutOfSpec`; a note says when that is not the value's own type | mapped / approximated |
+| «BindingConnector» of a value property to `MonteCarloAnalysis::Mean`, `::Deviation`, `::N` or `::OutOfSpec` (the connector's owner inheriting the pattern) | the analysis def's `observed` (from the `Mean` binding) and one `return`/`out` per statistic — `return Mean : Real = mean;`, `out Deviation : Real[0..1] = deviation;`, `out N : Natural = runs;`, `out OutOfSpec : Natural = outOfSpec;` — `Real` for `Mean` and `Deviation`, the bound value's scalar for `N` and `OutOfSpec`; a note says when that is not the value's own type; a parametric diagram showing the connector exposes that member and routes the `Mean` binding along `observed` (see [Monte Carlo analyses](#monte-carlo-analyses)) | mapped / approximated |
 | «BindingConnector» to another statistic of `MonteCarloAnalysis`, to a value of no numeric type, one of several binding the same statistic, one whose owner does not inherit the pattern, or to a statistic other than `Mean` where nothing is bound to `Mean` | comment naming the statistic and the reason | **unmapped** |
 | Slots of `MonteCarloAnalysis::N`, `::Mean`, `::Deviation`, `::OutOfSpec` in a result snapshot | `analysis 'Monte Carlo' : '<Block> Monte Carlo' { subject :>> <subject> : '<the snapshot>'; out :>> runs = …; out :>> mean = …; … }` in the snapshot's individual, and the snapshot's `"statistics"` in the sidecar | mapped |
 | ObjectFlow | `succession flow of T from a.out to b.in;` (T the source pin's type, no `of` when it is untyped), which orders `b` after `a` and delivers the value `a.out` holds when `a` completes; `flow a.out to b.in;` where another edge already orders them or the flow carries its value only, and into a «stream» parameter, which UML streams;, or `bind` to a parameter; each producer-pin pair is written once however many edges carry it; a flow from or to an action that is not migrated, or from an output pin a translated opaque body never assigns, is a comment | mapped / approximated |
@@ -378,7 +378,7 @@ and `umlType` (`Class Diagram`) together — by the first family below a word of
 | Diagram kind | Rendering |
 |---|---|
 | a table or matrix: Generic, Instance and Requirement Tables, Dependency and Allocation Matrices, any kind named `… Table`/`… Matrix` | `Views::asElementTable` |
-| internal block, parametric, composite structure and interconnection diagrams | `Views::asInterconnectionDiagram` |
+| internal block, parametric, composite structure and interconnection diagrams | `Views::asInterconnectionDiagram`; a parametric diagram of a block of the [Monte Carlo pattern](#monte-carlo-analyses) exposes the block's analysis def in place of the pattern's `Mean` symbol and the def's returns in place of its other statistics, the `Mean` binding routed along the def's `observed` |
 | block definition, class, package, object, component, deployment, profile and other structure diagrams | `Views::asTreeDiagram` |
 | an activity diagram whose owner is written as an `action def`, a state machine (or statechart) diagram whose owner is written as a `state def`, showing a node or edge of its graph | `view : StandardViewDefinitions::ActionFlowView` / `StateTransitionView`, rendered `Views::asInterconnectionDiagram` |
 | other behavior diagrams (sequence, use case, an activity diagram of a package or one showing nothing of its activity's graph), requirement, content and free-form diagrams, a tool's own kinds, a diagram naming no kind | `Views::asTextualNotation` |
@@ -1899,6 +1899,39 @@ statistic itself, returning what its own connectors bind and then what it inheri
 rebind (a general's `Deviation` beside its own `N`, say). A snapshot's four statistic slots
 become a recorded `analysis` of that def in the snapshot's individual, with the snapshot as its
 subject and the statistics as its outputs.
+
+The block's parametric diagram shows the pattern as a symbol per statistic it binds (`Mean`,
+`Deviation`, …), the value's symbol and the binding lines between them. Its view, hosted in
+the part def and rendered `Views::asInterconnectionDiagram`, is written from the elements
+above rather than from a constraint and binding the model does not have: it exposes the
+analysis def in place of the `Mean` symbol, positioned by a `DiagramLayout::Layout` where that
+symbol was, and the def's `return`/`out` statistic in place of a `Deviation`, `N` or `OutOfSpec`
+symbol; the analysed value is exposed as the ordinary value property it is. The rendering draws
+the analysis def as one box with its subject, statistics and `observed` as pins on its border
+— the graphical notation's parameters of a case, not boxes inside it — so the def keeps the
+symbol's size. The `Mean` binding is the def's `observed`, whose value `analysed.t` binds it to
+the analysed value, so the rendering draws it as a binding edge from the `observed` pin to the
+value's node, steered by a `DiagramLayout::Route` along the symbol's line; the report counts
+that connector as routed. A `Deviation`, `N` or `OutOfSpec` binding is a return bound to a
+statistic of the library case (`= deviation`), which the rendering draws no edge for, so the
+report counts its route as not drawn, and the statistic's symbol as positioned, though the pin
+sits on the def's border rather than at the Layout written for it. In general an interconnection
+rendering draws every exposed analysis def as such a node and every drawn feature — node or
+pin — whose value names another drawn feature as a binding between them.
+
+```sysml
+part def 'Timer Analysis' :> Timer {
+    view 'Timer Parametrics' {
+        expose 'Timer Analysis Monte Carlo'::observed;
+        expose Timer::t;
+        expose 'Timer Analysis Monte Carlo';
+        metadata DiagramLayout::Layout about 'Timer Analysis Monte Carlo' { x = 70; y = 56; width = 81; height = 26; }
+        metadata DiagramLayout::Layout about Timer::t { x = 35; y = 98; width = 156; height = 26; }
+        metadata DiagramLayout::Route about 'Timer Analysis Monte Carlo'::observed { points = (105, 82, 105, 98); }
+        render Views::asInterconnectionDiagram;
+    }
+}
+```
 
 `sysml out.sysml -analysis "'Timer Analysis Monte Carlo' <object>" -runs 100 -seed 7` then
 runs the case: each run on a fresh subject seeded from the seed and the run number, its

@@ -25,8 +25,9 @@ type edgeMember struct {
 // edgePlace is where one member an edge was written as is declared.
 type edgePlace struct {
 	owner *sysmlv1.Element
-	// nest names the anonymous actions the member is declared within, in
-	// owner's body, when it is not a direct member.
+	// nest names the members the member is declared within, in owner's body,
+	// when it is not a direct one: anonymous actions, or the analysis def
+	// written beside a block of the Monte Carlo pattern.
 	nest []string
 	name string
 	// keyword is the usage kind this member is declared as; see edgeMember.keyword.
