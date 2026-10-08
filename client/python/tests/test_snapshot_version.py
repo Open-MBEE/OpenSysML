@@ -51,7 +51,7 @@ def test_a_version_without_three_release_segments_is_refused():
 
 def test_the_versions_name_one_night():
     versions = snapshot_version.snapshot_versions(
-        DATE, COMMIT, declared="0.9.2", node="0.9.2", released=released("v0.9.2")
+        DATE, COMMIT, declared="0.9.2", node="0.9.2", kernel="0.9.2", released=released("v0.9.2")
     )
     assert versions == {
         "core": "0.9.3",
@@ -64,7 +64,7 @@ def test_the_versions_name_one_night():
 def test_the_pypi_version_is_canonical_pep_440_and_ranks_below_the_release():
     """pip names the built files by the canonical form, and skips the snapshot by default."""
     versions = snapshot_version.snapshot_versions(
-        DATE, COMMIT, declared="0.9.2", node="0.9.2", released=released("v0.9.2")
+        DATE, COMMIT, declared="0.9.2", node="0.9.2", kernel="0.9.2", released=released("v0.9.2")
     )
     parsed = Version(versions["pypi"])
     assert str(parsed) == versions["pypi"]
@@ -74,7 +74,7 @@ def test_the_pypi_version_is_canonical_pep_440_and_ranks_below_the_release():
 
 def test_the_npm_version_is_a_semver_pre_release_of_the_core():
     versions = snapshot_version.snapshot_versions(
-        DATE, "0123456", declared="0.9.2", node="0.9.2", released=released("v0.9.2")
+        DATE, "0123456", declared="0.9.2", node="0.9.2", kernel="0.9.2", released=released("v0.9.2")
     )
     # A commit of digits only would be a numeric identifier with a leading zero, which
     # SemVer forbids; the git-describe prefix keeps the identifier alphanumeric.
