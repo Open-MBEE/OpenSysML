@@ -1,7 +1,7 @@
 // A pin-only typed node in a loop of a state's entry body is a performance of
-// the action it names: its input binds from the loop variable and its `out` is
-// read after the node, because a typed node's own statements would be unordered
-// with the callee's steps (see the oracle section).
+// the action it names: its input binds from the loop variable, and `then` orders
+// the read of its `out` after the node. A typed node's own statements would be
+// unordered with the callee's steps (see the oracle section).
 package test {
     private import ScalarValues::*;
 
@@ -28,8 +28,8 @@ package test {
                     action scaled : Scale {
                         in x = i;
                     }
-                    assign total := total + scaled.y;
-                    assign runs := runs + 1;
+                    then assign total := total + scaled.y;
+                    then assign runs := runs + 1;
                 }
                 then if total > 50 {
                     action doubled = Scale(total, 2) {
