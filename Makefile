@@ -275,7 +275,7 @@ conformance-pkg: ## Run the conformance suite through the public Go API (client/
 
 test: ## Run Go tests with race detection and coverage
 	@echo "Running Go race tests..."
-	@# Per-package timeout: under -race the runtime package runs 22-29 minutes on CI runners.
+	@# Per-package timeout: under -race the runtime package runs 31-47 minutes on CI runners.
 	@# -pgo=off: coverage plus cmd/*/default.pgo trips golang/go#80891 (link: fingerprint mismatch).
 	go test -v -race -pgo=off -timeout 45m -coverprofile=coverage.txt -covermode=atomic ./...
 	go test -C $(TOOLS_DIR) -v -race -pgo=off -timeout 45m ./...
@@ -286,8 +286,9 @@ RACE_SHARD_TOOLS_SKIP := ^(TestSuiteRead|TestSuiteClassification|TestEmitSuite|T
 
 test-shard: ## Run one CI shard of the race suite (SHARD=runtime|model|export|rest)
 	@echo "Running Go race tests, shard $(SHARD)..."
-	pkgs=$$(scripts/race-shard.sh $(SHARD)) && go test -skip '$(RACE_SHARD_SKIP)' -v -race -pgo=off -timeout 45m -coverprofile=coverage.txt -covermode=atomic $$pkgs
-	if [ "$(SHARD)" = rest ]; then go test -C $(TOOLS_DIR) -skip '$(RACE_SHARD_TOOLS_SKIP)' -v -race -pgo=off -timeout 45m ./...; fi
+	@# 55m per package: the runtime shard takes 31-47 minutes under -race; its job's ceiling is 60.
+	pkgs=$$(scripts/race-shard.sh $(SHARD)) && go test -skip '$(RACE_SHARD_SKIP)' -v -race -pgo=off -timeout 55m -coverprofile=coverage.txt -covermode=atomic $$pkgs
+	if [ "$(SHARD)" = rest ]; then go test -C $(TOOLS_DIR) -skip '$(RACE_SHARD_TOOLS_SKIP)' -v -race -pgo=off -timeout 55m ./...; fi
 
 coverage: ## Write the coverage profile the SonarCloud scan reads
 	@echo "Writing coverage.txt..."
