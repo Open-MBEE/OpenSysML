@@ -5,7 +5,7 @@
   </picture>
 </p>
 
-# Open Source SysML v2 Implementation
+# OpenSysML REDK — Runtime Environment and Development Kit
 
 [![CircleCI](https://dl.circleci.com/status-badge/img/gh/Open-MBEE/OpenSysML/tree/main.svg?style=shield)](https://dl.circleci.com/status-badge/redirect/gh/Open-MBEE/OpenSysML/tree/main)
 [![Quality gate](https://sonarcloud.io/api/project_badges/measure?project=Open-MBEE_OpenSysML&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=Open-MBEE_OpenSysML)
@@ -21,10 +21,14 @@
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE)
 [![Documentation](https://img.shields.io/badge/docs-opensysml.org-blue)](https://opensysml.org/)
 
-OpenSysML is a SysML v2 and KerML 1.1 implementation in Go. It provides a language server, an
-interactive REPL, an execution runtime, an embeddable Go API, and Python, Node/TypeScript, Java
-and Rust client libraries, covering the lifecycle from authoring through execution with the
-integrated tooling systems engineers expect from a modern language ecosystem.
+The OpenSysML Runtime Environment and Development Kit (OpenSysML REDK) is a SysML v2 and
+KerML 1.1 implementation in Go. It provides a language server, an interactive REPL, an execution
+runtime, an embeddable Go API, and Python, Node/TypeScript, Java and Rust client libraries,
+covering the lifecycle from authoring through execution with the integrated tooling systems
+engineers expect from a modern language ecosystem. It is the runtime of
+[OpenSysML](https://opensysml.org/), the open source SysML v2 suite of the
+[OpenMBEE](https://www.openmbee.org) community; this repository is the REDK, and the pages
+below use "OpenSysML" for it where no confusion with the suite is possible.
 
 **It runs the model.** A validator reads declarations; an expression evaluator computes a value
 from the ones it is handed. OpenSysML materializes the instances a model describes, evaluates
