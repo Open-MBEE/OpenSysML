@@ -251,7 +251,7 @@ jobs:
       - name: Download the Reference-FMUs
         run: ./scripts/download-reference-fmus.sh
 
-      # Per-package timeout: under -race the runtime package runs 22-29 minutes on
+      # Per-package timeout: under -race the runtime package runs 31-47 minutes on
       # these runners. Matches `make test-shard`.
       - name: Run Go race tests
         env:
