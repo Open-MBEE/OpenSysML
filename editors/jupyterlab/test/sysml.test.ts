@@ -144,21 +144,21 @@ test('unrestricted and qualified names', () => {
     ['part', 'definitionKeyword'],
     ["'Front Wheel'", 'variableName'],
     [':', 'punctuation'],
-    ['Wheels', 'namespace'],
+    ['Wheels', 'variableName.special'],
     ['::', 'punctuation'],
     ["'Road Wheel'", 'variableName'],
     [';', 'punctuation']
   ]);
   assert.deepEqual(tokenize(sysml, 'import ISQ::*; import A::B::**;'), [
     ['import', 'keyword'],
-    ['ISQ', 'namespace'],
+    ['ISQ', 'variableName.special'],
     ['::', 'punctuation'],
     ['*', 'operator'],
     [';', 'punctuation'],
     ['import', 'keyword'],
-    ['A', 'namespace'],
+    ['A', 'variableName.special'],
     ['::', 'punctuation'],
-    ['B', 'namespace'],
+    ['B', 'variableName.special'],
     ['::', 'punctuation'],
     ['**', 'operator'],
     [';', 'punctuation']

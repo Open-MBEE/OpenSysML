@@ -80,9 +80,9 @@ function readString(stream: StringStream, quote: string): void {
   }
 }
 
-/** The name's role from what follows it: a namespace segment when `::` comes next. */
+/** A name qualifying what follows `::` takes the special-name tag; themes color it, unlike `namespace`. */
 function nameToken(stream: StringStream): string {
-  return stream.match(qualifierPattern, false) ? 'namespace' : 'variableName';
+  return stream.match(qualifierPattern, false) ? 'variableName.special' : 'variableName';
 }
 
 /** A CodeMirror stream parser for SysML v2 or KerML text. */
