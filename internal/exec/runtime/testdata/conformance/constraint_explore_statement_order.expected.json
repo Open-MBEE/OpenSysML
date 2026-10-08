@@ -1,0 +1,9 @@
+{
+	"type": "action",
+	"libraries": true,
+	"outcomes": [
+		{"outputs": {"r": {"type": "Boolean", "value": false}}},
+		{"outputs": {"r": {"type": "Boolean", "value": true}}}
+	],
+	"admissible": "Direct statements of one body no succession orders: each is performed, in which order is open"
+}

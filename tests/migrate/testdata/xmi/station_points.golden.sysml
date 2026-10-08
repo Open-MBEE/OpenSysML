@@ -10,7 +10,7 @@ item def Stop;
 item def Pair;
 item def Split;
 item def Bump;
-part def Station {
+occurrence def Station {
     attribute trace : ScalarValues::Integer default = 0;
     state def Cycle {
         in ref context : Station[1];
@@ -24,9 +24,9 @@ part def Station {
             exit action {
                 assign context.trace := context.trace * 100 + 12;
             }
-            junction Start;
+            #StateMachines::junction state Start;
             /* not migrated: Pseudostate 'Through' — (_tThrough) leads from the entry point straight to the exit point 'Leave' of the same state, crossing it without settling in it; the runtime would then run neither its entry nor its exit behavior */
-            junction Leave;
+            #StateMachines::junction state Leave;
             state Prep {
                 entry action {
                     assign context.trace := context.trace * 100 + 13;
@@ -40,8 +40,8 @@ part def Station {
                 exit action {
                     assign context.trace := context.trace * 100 + 15;
                 }
-                junction Deep;
-                junction Out;
+                #StateMachines::junction state Deep;
+                #StateMachines::junction state Out;
                 state Slow;
                 state Fast {
                     entry action {
@@ -59,7 +59,7 @@ part def Station {
                     }
                     then Out;
             }
-            history H;
+            #StateMachines::shallowHistory state H;
             transition first Prep accept Next then Run;
             transition first Start
                 do action {
@@ -165,3 +165,4 @@ part def Station {
     }
     exhibit state cycle : Cycle { in ref :>> context = this; }
 }
+private import StateMachines::*;

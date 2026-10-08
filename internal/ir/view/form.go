@@ -7,9 +7,10 @@ import (
 )
 
 // Form is a written form of a rendering: the human-readable text every kind has,
-// the machine-readable form of the kind — a Mermaid diagram for the
-// graph-shaped kinds, a Markdown table for the tabular one — and the Graphviz
-// DOT and PlantUML forms a graph-shaped kind can be asked for instead.
+// the machine-readable form of the kind — a Mermaid diagram for graph-shaped
+// kinds, a Markdown table for tabular kinds — the Graphviz DOT, PlantUML and D2
+// forms a graph-shaped kind can be asked for instead, and the CSV and TSV forms
+// a tabular kind can.
 type Form string
 
 const (
@@ -23,15 +24,23 @@ const (
 	FormDot Form = "dot"
 	// FormPlantUML is a PlantUML diagram of a graph-shaped or sequence rendering.
 	FormPlantUML Form = "plantuml"
+	// FormD2 is a D2 diagram of a graph-shaped or sequence rendering.
+	FormD2 Form = "d2"
+	// FormCSV is comma-separated values of a tabular rendering.
+	FormCSV Form = "csv"
+	// FormTSV is tab-separated values of a tabular rendering.
+	FormTSV Form = "tsv"
 )
 
 // Forms are the forms a rendering can be asked for, in the order they are
 // offered.
-func Forms() []Form { return []Form{FormText, FormMermaid, FormMarkdown, FormDot, FormPlantUML} }
+func Forms() []Form {
+	return []Form{FormText, FormMermaid, FormMarkdown, FormDot, FormPlantUML, FormD2, FormCSV, FormTSV}
+}
 
 // DiagramForms are the forms a document render writes its graph-shaped
-// diagrams as; a table-kind view is written as a table whichever is chosen.
-func DiagramForms() []Form { return []Form{FormMermaid, FormDot, FormPlantUML} }
+// diagrams as; a tabular view is written as a table whichever is chosen.
+func DiagramForms() []Form { return []Form{FormMermaid, FormDot, FormPlantUML, FormD2} }
 
 // FormNames spells the forms as a list, for help and error text.
 func FormNames(forms []Form) string {
@@ -56,30 +65,42 @@ const (
 
 // MachineForm is the machine-readable form of renderings of this kind.
 func (k Kind) MachineForm() Form {
-	if k == KindTable {
+	if k == KindTimeline {
+		return FormMermaid
+	}
+	if k.Tabular() {
 		return FormMarkdown
 	}
 	return FormMermaid
 }
 
 // SupportsForm reports whether renderings of the kind are written in form:
-// every kind has the text form and its machine form, the kinds drawn as a
-// graph of nodes and edges have the DOT and PlantUML forms as well, and a
-// sequence has PlantUML's sequence grammar.
+// every kind has the text form and its machine form; tree, interconnection,
+// state, action, case, mixed, requirement, definition and package have DOT and
+// PlantUML, tree, interconnection, state, action, requirement, definition and
+// package also have D2, sequence has PlantUML and D2, and tabular kinds (table
+// and matrix) have CSV and TSV.
 func (k Kind) SupportsForm(form Form) bool {
 	switch form {
 	case FormText:
 		return true
 	case FormMermaid, FormMarkdown:
 		return k.MachineForm() == form
+	case FormCSV, FormTSV:
+		return k.Tabular()
 	case FormDot:
 		switch k {
-		case KindTree, KindInterconnection, KindState, KindAction:
+		case KindTree, KindInterconnection, KindState, KindAction, KindCase, KindMixed, KindRequirement, KindDefinition, KindPackage:
 			return true
 		}
 	case FormPlantUML:
 		switch k {
-		case KindTree, KindInterconnection, KindState, KindAction, KindSequence:
+		case KindTree, KindInterconnection, KindState, KindAction, KindCase, KindMixed, KindSequence, KindRequirement, KindDefinition, KindPackage, KindTimeline:
+			return true
+		}
+	case FormD2:
+		switch k {
+		case KindTree, KindInterconnection, KindState, KindAction, KindSequence, KindRequirement, KindDefinition, KindPackage:
 			return true
 		}
 	}
@@ -112,11 +133,22 @@ type WrongFormError struct {
 	Form Form
 	Kind Kind
 	View string
+	run  bool
 }
 
 func (e *WrongFormError) Error() string {
+	forms := e.Kind.SupportedForms()
+	if e.run {
+		runForms := make([]Form, 0, len(forms))
+		for _, form := range forms {
+			if form != FormD2 {
+				runForms = append(runForms, form)
+			}
+		}
+		forms = runForms
+	}
 	msg := fmt.Sprintf("%s %s rendering is not written as %s; ask for %s",
-		e.Kind.article(), e.Kind, e.Form, joinForms(e.Kind.SupportedForms(), "or"))
+		e.Kind.article(), e.Kind, e.Form, joinForms(forms, "or"))
 	if e.View == "" {
 		return msg
 	}
@@ -134,19 +166,34 @@ func joinForms(forms []Form, conjunction string) string {
 
 func (e *WrongFormError) Unwrap() error { return ErrWrongForm }
 
+func (r *Rendering) supportsForm(form Form) bool {
+	if r.Run && form == FormD2 {
+		return false
+	}
+	return r.Kind.SupportsForm(form)
+}
+
+func (r *Rendering) wrongFormError(form Form) *WrongFormError {
+	return &WrongFormError{Form: form, Kind: r.Kind, View: r.View, run: r.Run}
+}
+
 // Options are what a rendering is written with beside its form. Each form
-// takes the ones that apply to it: the text form its Width, the Mermaid form
-// its Direction and Unplaced, the DOT and PlantUML forms their Direction,
-// Palette and Unplaced. A form ignores the rest, the Mermaid form saying so
-// of a Palette in a comment.
+// takes the ones that apply to it: the text form its Width, Mermaid, DOT,
+// PlantUML and D2 their Direction, Palette, Style and Unplaced, and the
+// interconnection and mixed forms their Ports display. A form ignores the rest.
 type Options struct {
+	// Links is the source link each node and edge is written with; zero writes none.
+	Links Links
 	// Direction is the flow direction a graph-shaped form is drawn in; empty
 	// leaves each kind's default.
 	Direction Direction
-	// Palette is the palette the DOT and PlantUML forms fill nodes from, by
-	// keyword family; empty draws in black and white.
+	// Palette is the palette the DOT, Mermaid, PlantUML and D2 forms fill nodes
+	// from, by keyword family; empty draws in black and white.
 	Palette Palette
-	// Style is the look the DOT form draws in; empty is the Pilot's, StylePilot.
+	// Ports is how much of a part's ports an interconnection or mixed rendering
+	// draws; empty draws the connected ones, as PortsMinimal does.
+	Ports Ports
+	// Style is the look the DOT and Mermaid forms draw in; empty is the Pilot's, StylePilot.
 	Style DrawingStyle
 	// Unplaced is what a graph-shaped form does with the nodes a positioned
 	// drawing leaves unplaced; empty leaves them undrawn, as UnplacedOmit does.
@@ -163,23 +210,53 @@ func (r *Rendering) Write(form Form) (string, error) {
 }
 
 // WriteWith is the rendering in form, written with options. A form the kind
-// is not written in is a *WrongFormError, and an unknown form names the ones
-// there are.
+// is not written in is a *WrongFormError, an unknown form names the ones
+// there are, a palette outside the registry is an *UnknownPaletteError
+// on every form that fills nodes, and a port display outside it an
+// *UnknownPortsError on every form.
 func (r *Rendering) WriteWith(form Form, options Options) (string, error) {
+	if options.Links.Template != "" {
+		if err := ParseLinkTemplate(options.Links.Template); err != nil {
+			return "", err
+		}
+	}
+	if err := options.Ports.check(); err != nil {
+		return "", err
+	}
 	switch form {
 	case FormText:
-		return r.TextWidth(options.Width), nil
-	case FormMermaid, FormMarkdown, FormDot, FormPlantUML:
-		if !r.Kind.SupportsForm(form) {
-			return "", &WrongFormError{Form: form, Kind: r.Kind, View: r.View}
+		return r.textWith(options), nil
+	case FormMermaid, FormMarkdown, FormDot, FormPlantUML, FormD2, FormCSV, FormTSV:
+		if !r.supportsForm(form) {
+			return "", r.wrongFormError(form)
 		}
 		switch form {
 		case FormMarkdown:
 			return r.Markdown(), nil
+		case FormCSV:
+			return r.CSV()
+		case FormTSV:
+			return r.TSV()
 		case FormDot:
 			return r.DOTWith(options)
 		case FormPlantUML:
 			return r.PlantUMLWith(options)
+		case FormD2:
+			return r.D2With(options)
+		case FormMermaid:
+			if err := options.Palette.check(); err != nil {
+				return "", err
+			}
+			if err := options.Unplaced.check(); err != nil {
+				return "", err
+			}
+			if err := options.Style.check(); err != nil {
+				return "", err
+			}
+			return r.MermaidWith(options), nil
+		}
+		if err := options.Palette.check(); err != nil {
+			return "", err
 		}
 		return r.MermaidWith(options), nil
 	}

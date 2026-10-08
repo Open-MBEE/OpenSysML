@@ -360,18 +360,22 @@ Subsystems at or above 10 kg:
 ```mermaid
 ---
 config:
-  flowchart:
-    subGraphTitleMargin:
-      bottom: 24
+  themeCSS: ".cluster-label .nodeLabel { text-align: center; }"
 ---
 %% Observatory::interconnectView — interconnection rendering (render asInterconnectionDiagram)
 flowchart LR
-  subgraph n0 ["imagingChain<br>«part»"]
+  subgraph n0 ["`*«part»* **imagingChain**`"]
     direction LR
-    n1["camera : Camera<br>«part»"]
-    n2["recorder : Recorder<br>«part»"]
+    subgraph n1 ["`*«part»* **camera : Camera**`"]
+      direction LR
+      n1.0["«port»<br>output : DataPort"]
+    end
+    subgraph n2 ["`*«part»* **recorder : Recorder**`"]
+      direction LR
+      n2.0["«port»<br>input : DataPort"]
+    end
   end
-  n1 ---|"link"| n2
+  n1.0 ---|"link"| n2.0
 ```
 
 *Telescope part tree, left to right*
@@ -379,23 +383,23 @@ flowchart LR
 ```mermaid
 %% tree rendering (the diagram states kind "tree")
 flowchart LR
-  n0["telescope<br>«part»"]
-  n1["optics : Subsystem<br>«part»"]
-  n2["mass<br>«attribute»"]
+  n0["«part»<br>telescope"]
+  n1["«part»<br>optics : Subsystem"]
+  n2["«attribute»<br>mass"]
   n1 --- n2
-  n3["zone<br>«attribute»"]
+  n3["«attribute»<br>zone"]
   n1 --- n3
   n0 --- n1
-  n4["segmentControl : Subsystem<br>«part»"]
-  n5["mass<br>«attribute»"]
+  n4["«part»<br>segmentControl : Subsystem"]
+  n5["«attribute»<br>mass"]
   n4 --- n5
-  n6["zone<br>«attribute»"]
+  n6["«attribute»<br>zone"]
   n4 --- n6
   n0 --- n4
-  n7["mount : Subsystem<br>«part»"]
-  n8["mass<br>«attribute»"]
+  n7["«part»<br>mount : Subsystem"]
+  n8["«attribute»<br>mass"]
   n7 --- n8
-  n9["zone<br>«attribute»"]
+  n9["«attribute»<br>zone"]
   n7 --- n9
   n0 --- n7
 ```

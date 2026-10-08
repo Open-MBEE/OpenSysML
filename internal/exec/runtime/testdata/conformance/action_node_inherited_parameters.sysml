@@ -15,21 +15,17 @@ package test {
     action def Double :> Scale {
         in redefines factor = 2;
         first start;
-        then action go {
-            assign scaled := amount * factor;
-            assign tally := tally + scaled;
-            assign result := scaled;
-        }
+        then action go assign scaled := amount * factor;
+        then assign tally := tally + scaled;
+        then assign result := scaled;
         then done;
     }
 
     action def Triple :> Scale {
         first start;
-        then action go {
-            assign scaled := amount * factor;
-            assign tally := tally + scaled;
-            assign result := scaled + 1;
-        }
+        then action go assign scaled := amount * factor;
+        then assign tally := tally + scaled;
+        then assign result := scaled + 1;
         then done;
     }
 

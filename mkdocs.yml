@@ -1,13 +1,12 @@
 # The site is the docs/ tree unmodified: every page stays a Markdown file read on
-# GitHub, and MkDocs is only the renderer. The exceptions are the landing page, which
-# frames docs/README.md with a hero that only makes sense on a web page, and the header
-# menu, which links the sites GitHub's own header cannot.
-site_name: OpenSysML
-site_description: A SysML v2 and KerML implementation in Go — language server, REPL, execution runtime, and Go, Python, Node, Java and Rust clients
-site_url: https://opensysml.org/
+# GitHub, and MkDocs is only the renderer. The landing page is the exception: it
+# frames docs/README.md with a hero that only makes sense on a web page.
+site_name: OpenSysML REDK
+site_description: The OpenSysML Runtime Environment and Development Kit — a SysML v2 and KerML implementation in Go with a language server, REPL, execution runtime, and Go, Python, Node, Java and Rust clients
+site_url: https://redk.opensysml.org/
 repo_url: https://github.com/Open-MBEE/OpenSysML
 repo_name: Open-MBEE/OpenSysML
-edit_uri: edit/main/docs/
+edit_uri: edit/develop/docs/
 # The affiliation is a span rather than its own line because the footer's copyright is the
 # only place the theme lets a site put text; stylesheets/footer.css moves it to the right.
 copyright: >-
@@ -19,14 +18,19 @@ docs_dir: docs
 
 theme:
   name: material
-  # overrides/ holds the landing page template and the header menu; every documentation
-  # page is otherwise the theme as shipped.
+  # overrides/ holds the landing page template and the sidebar navigation (the
+  # shipped partial minus tab-mode hiding of inactive top-level items); every
+  # documentation page is otherwise the theme as shipped.
   custom_dir: overrides
+  logo: assets/opensysml-mark-white.png
+  favicon: assets/favicon.png
   features:
     - navigation.instant
     - navigation.tracking
     - navigation.top
     - navigation.indexes
+    - navigation.tabs
+    - navigation.tabs.sticky
     - content.code.copy
     - content.action.edit
     - search.highlight
@@ -49,8 +53,18 @@ theme:
         name: Switch to light mode
 
 extra_css:
-  - stylesheets/nav-menu.css
   - stylesheets/footer.css
+  - stylesheets/header.css
+  - stylesheets/ecosystem.css
+
+extra:
+  social:
+    - icon: fontawesome/solid/dragon
+      link: https://lord.opensysml.org/
+      name: Legend of the Red Dragon
+
+extra_javascript:
+  - assets/sysml-engine-loader.js
 
 plugins:
   - search
@@ -58,21 +72,53 @@ plugins:
   # URL, and the pointer file left at the old path answers the links GitHub serves.
   - redirects:
       redirect_maps:
-        guide/09-python.md: guide/09-clients.md
+        guide/09-python.md: clients/python/index.md
+        ecosystem.md: https://opensysml.org/
+  - mkdocstrings:
+      handlers:
+        python:
+          paths: [client/python]
+          options:
+            docstring_style: google
+            docstring_options:
+              warn_missing_types: false
+            extensions: [scripts/griffe_sphinx_roles.py]
+            show_source: false
+            members_order: source
+            filters: ["!^_"]
+            show_root_heading: true
+            show_signature_annotations: true
+            separate_signature: true
 
 not_in_nav: |
   guide/09-python.md
+  internals/README.md
+  internals/architecture.md
+  internals/testing.md
+  internals/performance.md
+  internals/interface-records.md
+  internals/execution-ir-design.md
+  project/README.md
+  project/spec-compliance.md
+  project/exact-rational-evaluation.md
+  project/expansion-regions.md
+  project/bitwise-complement.md
+  project/constraint-body-steps.md
+  project/exception-handlers.md
+  project/pilot-differential.md
+  project/spec-pilot-gap-register.md
+  project/roadmap.md
+  project/nightly.md
 
 # repo_links: links out of docs/ (examples/, Go sources, CONTRIBUTING.md) are correct
 # on GitHub and 404 here, so they are rewritten to the repository at build time.
 # landing: docs/README.md is rendered with the landing page template.
-# header_menu: the header override stays the shipped header plus the menu include.
 hooks:
   - scripts/mkdocs_repo_links.py
   - scripts/mkdocs_landing.py
-  - scripts/mkdocs_header_menu.py
   - scripts/mkdocs_census.py
   - scripts/mkdocs_suite_figures.py
+  - scripts/mkdocs_install_scripts.py
 
 markdown_extensions:
   - admonition
@@ -133,6 +179,7 @@ exclude_docs: |
   project/large-model-scaling-design.md
   project/native-compilation.md
   project/releasing.md
+  project/mdk-parity.md
   project/macos-distribution.md
   project/demo.md
   project/training-examples.md
@@ -146,7 +193,9 @@ exclude_docs: |
   project/fuml-referee.md
   project/behavior-semantic-oracle.md
   project/grammar-coverage.md
+  project/grammar-metaclass-map.md
   project/validation-constraints.md
+  project/sysml-v1-transformation-census.md
   project/element-identity-annotations.md
   project/diagram-layout-annotations.md
   project/html-document-backend.md
@@ -158,9 +207,32 @@ exclude_docs: |
   project/errata-overlay.md
   project/oosem-library.md
   project/mosa-library.md
+  project/statemachines-library.md
 
 nav:
-  - Documentation: README.md
+  - Home: README.md
+  - CLI: cli.md
+  - Documentation: documentation.md
+  - Clients:
+      - clients.md
+      - Python:
+          - clients/python/index.md
+          - Models and symbols: clients/python/models.md
+          - Instances and values: clients/python/instances.md
+          - Verification and analysis: clients/python/verification.md
+          - Editing and saving: clients/python/editing-and-saving.md
+          - Queries and documents: clients/python/queries.md
+          - Errors: clients/python/errors.md
+          - The service: clients/python/service.md
+          - Typed classes: clients/python/typed-classes.md
+          - Metamodel classes and JSON: clients/python/metamodel.md
+      - Node: clients/node.md
+      - Java: clients/java.md
+      - Rust: clients/rust.md
+      - Julia: clients/julia.md
+      - MATLAB: clients/matlab.md
+  - Community: community.md
+  - Downloads: downloads.md
   - Guide:
       - guide/README.md
       - guide/01-install.md
@@ -174,6 +246,7 @@ nav:
       - guide/09-clients.md
       - guide/10-troubleshooting.md
       - guide/11-migrating-from-sysml-v1.md
+      - guide/12-jupyter.md
       - guide/modeling-fleets.md
   - Document generation:
       - manual/README.md
@@ -187,6 +260,7 @@ nav:
       - Worked example: manual/worked-example.md
       - Requirements traceability examples: manual/traceability-examples.md
       - Recording analysis runs: manual/recording-analysis-runs.md
+      - Importing data into a model: manual/importing-data.md
       - Running external programs from a model: manual/running-external-programs.md
       - Limitations and troubleshooting: manual/troubleshooting.md
       - Worked example output: manual/examples/observatory.md
@@ -204,11 +278,11 @@ nav:
       - Environment variables: reference/environment.md
       - External engines: reference/external-engines.md
       - Language server: reference/lsp.md
+      - Jupyter kernel: reference/jupyter-kernel.md
       - Diagnostics (lints): reference/diagnostics.md
       - Client libraries: reference/clients.md
       - Go packages: reference/api.md
       - Python API: reference/python-api.md
-      - Python metamodel classes: reference/python-metamodel.md
       - Node API: reference/node-api.md
       - Java API: reference/java-api.md
       - Rust API: reference/rust-api.md
@@ -216,27 +290,13 @@ nav:
       - MATLAB API: reference/matlab-api.md
       - Service transports: reference/service-transports.md
       - Wire contract: reference/wire-contract.md
+      - Compact API JSON: reference/api-json-compact.md
       - RDF mapping: reference/rdf-mapping.md
       - SysML v1 migration: reference/sysml-v1-migration.md
       - FMI models: reference/fmi.md
       - Grammar: reference/grammar/README.md
       - Grammar conformance audit: reference/grammar/conformance-audit.md
       - WebAssembly builds: reference/wasm.md
-  - Internals:
-      - internals/README.md
-      - Architecture: internals/architecture.md
-      - Testing: internals/testing.md
-      - Performance: internals/performance.md
-      - Interface records: internals/interface-records.md
-      - Execution IR design: internals/execution-ir-design.md
-  - Project:
-      - project/README.md
-      - Spec compliance: project/spec-compliance.md
-      - Exact-rational evaluation: project/exact-rational-evaluation.md
-      - Expansion regions: project/expansion-regions.md
-      - Bitwise complement: project/bitwise-complement.md
-      - Exception handlers: project/exception-handlers.md
-      - Pilot differential: project/pilot-differential.md
-      - Spec-vs-pilot gap register: project/spec-pilot-gap-register.md
-      - Roadmap: project/roadmap.md
-      - Nightly snapshots: project/nightly.md
+      - Third-party notices: project/third-party-notices.md
+  # internals/ and project/ contributor records are kept out of the tab bar; the
+  # public third-party notices are the exception.

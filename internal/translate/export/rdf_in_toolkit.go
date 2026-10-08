@@ -691,7 +691,9 @@ func (n *normalizer) rangeBounds(subject rdf.Term) ([]rdf.Term, int) {
 // deriveSuccessionEnds states the ends of a succession written between
 // members through its unnamed reference features: the member an end targets
 // where the toolkit resolves it, `then` beside the next member where it names
-// nothing.
+// nothing. A source the notation names by position alone — the `entry;`
+// action or another nameless member written right before — is stated as that
+// position, since `first` has no name to spell for it.
 func (n *normalizer) deriveSuccessionEnds() {
 	graph := n.graph
 	for _, subject := range graph.Subjects() {
@@ -704,23 +706,24 @@ func (n *normalizer) deriveSuccessionEnds() {
 			continue
 		}
 		source, target := n.successionEnds(subject)
-		if source.Value != "" {
+		previous, next := n.sequencedNeighbours(owner, subject)
+		named := source.Value != "" && !n.positionalSource(source, previous)
+		if named {
 			graph.Add(subject, rdf.SysMLTerm(pSourceFeature), source)
 			graph.Add(subject, rdf.OpenSysMLTerm(xEndVerb), rdf.String("first"))
 		}
-		previous, next := n.sequencedNeighbours(owner, subject)
-		if source.Value == "" && previous.Value != "" && target.Value != "" {
+		if !named && previous.Value != "" && target.Value != "" {
 			graph.Add(subject, rdf.OpenSysMLTerm(xSourceMember), previous)
 		}
 		switch {
-		case target.Value != "" && target != next:
+		case target.Value != "" && (target != next || source.Value != ""):
 			graph.Add(subject, rdf.SysMLTerm(pTargetFeature), target)
-			if source.Value == "" {
+			if !named {
 				graph.Add(subject, rdf.OpenSysMLTerm(xEndForm), rdf.String(formThen))
 			}
-		case source.Value != "" && graph.HasProperty(subject, rdf.SysML+pTargetFeature):
+		case named && graph.HasProperty(subject, rdf.SysML+pTargetFeature):
 		case next.Value != "":
-			if source.Value == "" {
+			if !named {
 				graph.Add(subject, rdf.OpenSysMLTerm(xEndForm), rdf.String(formThen))
 				graph.Add(subject, rdf.OpenSysMLTerm(xTargetMember), next)
 			} else {
@@ -728,6 +731,16 @@ func (n *normalizer) deriveSuccessionEnds() {
 			}
 		}
 	}
+}
+
+// positionalSource reports a resolved source end that only its position
+// names: a nameless member — or the one a nameless `entry;` membership owns —
+// written right before the succession (SysML v2 1.0 § 7.17.4).
+func (n *normalizer) positionalSource(source, previous rdf.Term) bool {
+	if previous.Value == "" || n.graph.HasProperty(source, rdf.SysML+pDeclaredName) {
+		return false
+	}
+	return source == previous || n.memberOwner[source.Value] == previous
 }
 
 // successionEnds is what a succession's end features refer to, falling back
@@ -745,9 +758,6 @@ func (n *normalizer) successionEnds(subject rdf.Term) (source, target rdf.Term) 
 		if t := firstIRI(graph, last, "featureTarget"); target.Value == "" && t.IsIRI() && t != last {
 			target = t
 		}
-	}
-	if source.Value != "" {
-		graph.Add(subject, rdf.SysMLTerm(pSourceFeature), source)
 	}
 	return source, target
 }
@@ -773,7 +783,7 @@ func (n *normalizer) sequencedNeighbours(owner, subject rdf.Term) (previous, nex
 			m = mMembership
 		}
 		return m != "" && !ontology.IsAncestorOrSelf(m, "Succession") &&
-			(m == mMembership || !relationshipLike(m))
+			(m == mMembership || m == mSubaction || !relationshipLike(m))
 	}
 	members := n.ownerMembers[owner.Value]
 	for i, member := range members {
@@ -1193,64 +1203,85 @@ func (n *normalizer) markImplicitKinds() {
 // structure SysML v2 1.0 § 8.3.18.9 gives it: the source Membership, the trigger
 // AcceptActionUsage, and the SuccessionAsUsage whose second end names the target.
 func deriveTransitionHeads(graph *rdf.Graph, meta func(rdf.Term) string) {
-	chains := chainOwnerIndex(graph, meta)
-	// tail is the feature a chain's last link names; any other term is itself.
-	tail := func(term rdf.Term) rdf.Term {
-		if !term.IsIRI() || meta(term) != mFeature {
-			return term
-		}
-		links, err := chainLinksOf(graph, meta, chains, term)
-		if err != nil || len(links) == 0 {
-			links = graph.Objects(term, rdf.SysML+pChainingFeature)
-		}
-		if len(links) == 0 {
-			return term
-		}
-		return links[len(links)-1]
-	}
+	d := &transitionHeadDeriver{graph: graph, meta: meta, chains: chainOwnerIndex(graph, meta)}
 	for _, subject := range graph.Subjects() {
-		if meta(subject) != mTransition {
+		if meta(subject) == mTransition {
+			d.derive(subject)
+		}
+	}
+}
+
+// transitionHeadDeriver reads the members a transition owns back into its head.
+type transitionHeadDeriver struct {
+	graph  *rdf.Graph
+	meta   func(rdf.Term) string
+	chains map[string][]rdf.Term
+}
+
+// tail is the feature a chain's last link names; any other term is itself.
+func (d *transitionHeadDeriver) tail(term rdf.Term) rdf.Term {
+	if !term.IsIRI() || d.meta(term) != mFeature {
+		return term
+	}
+	links, err := chainLinksOf(d.graph, d.meta, d.chains, term)
+	if err != nil || len(links) == 0 {
+		links = d.graph.Objects(term, rdf.SysML+pChainingFeature)
+	}
+	if len(links) == 0 {
+		return term
+	}
+	return links[len(links)-1]
+}
+
+// stateEnd adds end as the transition's property unless the head, or its
+// feature form, already states one.
+func (d *transitionHeadDeriver) stateEnd(transition rdf.Term, property, featureProperty string, end rdf.Term) {
+	if !d.graph.HasProperty(transition, rdf.SysML+property) && !d.graph.HasProperty(transition, rdf.SysML+featureProperty) {
+		d.graph.Add(transition, rdf.SysMLTerm(property), end)
+	}
+}
+
+// derive states the head of one transition from the members it owns.
+func (d *transitionHeadDeriver) derive(subject rdf.Term) {
+	for i, ms := range d.graph.Objects(subject, rdf.SysML+pOwnedRelationship) {
+		member := firstIRI(d.graph, ms, pMemberElement, pOwnedMemberElement, pOwnedRelatedElement)
+		if member.Value == "" {
 			continue
 		}
-		for i, ms := range graph.Objects(subject, rdf.SysML+pOwnedRelationship) {
-			member := firstIRI(graph, ms, pMemberElement, pOwnedMemberElement, pOwnedRelatedElement)
-			if member.Value == "" {
-				continue
+		// The first member a transition owns may be its FeatureChainMember
+		// owning the chain of `first a.b`: the source is the chain's last
+		// link, and the chain is no body member.
+		if i == 0 && d.meta(ms) == mOwningMembership && d.tail(member) != member {
+			d.stateEnd(subject, pSource, pSourceFeature, d.tail(member))
+			continue
+		}
+		switch d.meta(ms) {
+		case mMembership:
+			d.stateEnd(subject, pSource, pSourceFeature, member)
+		case mTransitionFeatureMembership:
+			// The trigger AcceptActionUsage is read by the decoder itself.
+			if kind, _ := d.graph.Lexical(ms, rdf.SysML+pKind); kind == "effect" {
+				d.graph.Add(subject, rdf.OpenSysMLTerm(xEffectMember), member)
+				d.graph.Add(subject, rdf.OpenSysMLTerm(xHasEffect), rdf.Bool(true))
 			}
-			// The first member a transition owns may be its FeatureChainMember
-			// owning the chain of `first a.b`: the source is the chain's last
-			// link, and the chain is no body member.
-			if i == 0 && meta(ms) == mOwningMembership && tail(member) != member {
-				if !graph.HasProperty(subject, rdf.SysML+pSource) && !graph.HasProperty(subject, rdf.SysML+pSourceFeature) {
-					graph.Add(subject, rdf.SysMLTerm(pSource), tail(member))
-				}
-				continue
-			}
-			switch meta(ms) {
-			case mMembership:
-				if !graph.HasProperty(subject, rdf.SysML+pSource) && !graph.HasProperty(subject, rdf.SysML+pSourceFeature) {
-					graph.Add(subject, rdf.SysMLTerm(pSource), member)
-				}
-			case mTransitionFeatureMembership:
-				// The trigger AcceptActionUsage is read by the decoder itself.
-				if kind, _ := graph.Lexical(ms, rdf.SysML+pKind); kind == "effect" {
-					graph.Add(subject, rdf.OpenSysMLTerm(xEffectMember), member)
-					graph.Add(subject, rdf.OpenSysMLTerm(xHasEffect), rdf.Bool(true))
-				}
-			case mOwningMembership:
-				if meta(member) == mSuccession {
-					ends := successionEndReferents(graph, meta, member)
-					if len(ends) == 2 && ends[1].Value != "" &&
-						!graph.HasProperty(subject, rdf.SysML+pTarget) && !graph.HasProperty(subject, rdf.SysML+pTargetFeature) {
-						graph.Add(subject, rdf.SysMLTerm(pTarget), tail(ends[1]))
-					}
-					continue
-				}
-				graph.Add(subject, rdf.OpenSysMLTerm(xBodyMember), member)
-				graph.Add(subject, rdf.OpenSysMLTerm(xHasBody), rdf.Bool(true))
-			}
+		case mOwningMembership:
+			d.deriveBodyMember(subject, member)
 		}
 	}
+}
+
+// deriveBodyMember reads an owned member as the succession naming the target,
+// or else as a member of the transition's body.
+func (d *transitionHeadDeriver) deriveBodyMember(subject, member rdf.Term) {
+	if d.meta(member) == mSuccession {
+		ends := successionEndReferents(d.graph, d.meta, member)
+		if len(ends) == 2 && ends[1].Value != "" {
+			d.stateEnd(subject, pTarget, pTargetFeature, d.tail(ends[1]))
+		}
+		return
+	}
+	d.graph.Add(subject, rdf.OpenSysMLTerm(xBodyMember), member)
+	d.graph.Add(subject, rdf.OpenSysMLTerm(xHasBody), rdf.Bool(true))
 }
 
 // successionEndReferents is what each end feature a succession owns through

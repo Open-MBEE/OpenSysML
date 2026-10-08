@@ -2,15 +2,236 @@ package view
 
 import (
 	"bytes"
+	"encoding/base64"
+	"errors"
+	"fmt"
 	"image"
 	"image/png"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
+
+	"github.com/Open-MBEE/OpenSysML/internal/ir/imagefile"
 )
+
+func TestRemotePictureLocation(t *testing.T) {
+	for _, location := range []string{
+		"http://x", "https://x", "file:///x", "ftp://x", "scheme://x",
+		"javascript:alert(1)", "FILE:/x", "mailto:a@b",
+	} {
+		if !RemotePictureLocation(location) {
+			t.Errorf("RemotePictureLocation(%q) = false, want true", location)
+		}
+	}
+	for _, location := range []string{
+		"images/a.png", "/abs/a.png", `C:\x.png`, "C:/x.png",
+		"data:image/png;base64,AAAA", "a.png",
+	} {
+		if RemotePictureLocation(location) {
+			t.Errorf("RemotePictureLocation(%q) = true, want false", location)
+		}
+	}
+}
+
+func TestCheckPicture(t *testing.T) {
+	script := `<svg xmlns="http://www.w3.org/2000/svg"><script/></svg>`
+	scriptData := "data:image/svg+xml;base64," + base64.StdEncoding.EncodeToString([]byte(script))
+	encoded := "data:image/svg+xml," + url.PathEscape(script)
+	for _, location := range []string{scriptData, encoded} {
+		err := CheckPicture(location, nil)
+		var active *imagefile.ActiveContentError
+		if !errors.As(err, &active) || active.Construct != "<script>" {
+			t.Errorf("CheckPicture(%q) = %v, want active-content error", location, err)
+		}
+	}
+	for location, want := range map[string]string{
+		"data:text/plain,hi":        "the data: URL is not a supported image",
+		"data:image/png;base64,%%%": "the data: URL does not decode",
+		"script.svg":                "the SVG is not well-formed",
+	} {
+		var data []byte
+		if location == "script.svg" {
+			data = []byte("\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR")
+		}
+		err := CheckPicture(location, data)
+		if err == nil || !strings.Contains(err.Error(), want) {
+			t.Errorf("CheckPicture(%q) = %v, want an error containing %q", location, err, want)
+		}
+	}
+	clean := []byte(`<svg xmlns="http://www.w3.org/2000/svg"><rect fill="url(#g)"/></svg>`)
+	if err := CheckPicture("clean.svg", clean); err != nil {
+		t.Errorf("clean SVG: %v", err)
+	}
+	var pngData bytes.Buffer
+	if err := png.Encode(&pngData, image.NewRGBA(image.Rect(0, 0, 1, 1))); err != nil {
+		t.Fatal(err)
+	}
+	if err := CheckPicture("clean.png", pngData.Bytes()); err != nil {
+		t.Errorf("clean PNG: %v", err)
+	}
+	pngURI := base64.StdEncoding.EncodeToString(pngData.Bytes())
+	for _, tc := range []struct {
+		location, want string
+	}{
+		{"data:text/plain;base64," + pngURI, "the data: URL declares text/plain but holds image/png"},
+		{"data:,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%2F%3E", "the data: URL declares no media type but holds image/svg+xml"},
+	} {
+		if err := CheckPicture(tc.location, nil); err == nil || err.Error() != tc.want {
+			t.Errorf("CheckPicture(%q) = %v, want %q", tc.location, err, tc.want)
+		}
+	}
+	for _, location := range []string{
+		"data:image/png;base64," + pngURI,
+		"data:IMAGE/PNG;base64," + pngURI,
+	} {
+		if err := CheckPicture(location, nil); err != nil {
+			t.Errorf("CheckPicture(%q) = %v, want valid PNG data URL accepted", location, err)
+		}
+	}
+}
+
+func hardeningPictureRendering(t *testing.T) (*Rendering, []string, []byte) {
+	t.Helper()
+	dir := t.TempDir()
+	locations := []string{
+		filepath.Join(dir, "script.svg"),
+		"https://example.org/a.png",
+		filepath.Join(dir, "clean.svg"),
+		filepath.Join(dir, "a.png"),
+	}
+	if err := os.WriteFile(locations[0], []byte(`<svg xmlns="http://www.w3.org/2000/svg"><script/></svg>`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(locations[2], []byte(`<svg xmlns="http://www.w3.org/2000/svg"><rect/></svg>`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	var pngData bytes.Buffer
+	if err := png.Encode(&pngData, image.NewRGBA(image.Rect(0, 0, 2, 2))); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(locations[3], pngData.Bytes(), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	pictures := make([]Picture, len(locations))
+	for i, location := range locations {
+		pictures[i] = Picture{Location: location, X: 1, Y: 2, Width: 30, Height: 40}
+	}
+	return &Rendering{
+		View:     "Pictures",
+		Kind:     KindInterconnection,
+		Roots:    []*Node{{ID: "n", Kind: "part", Name: "part"}},
+		Pictures: pictures,
+	}, locations, pngData.Bytes()
+}
+
+func TestUnsafePicturesAreOmittedInEveryViewForm(t *testing.T) {
+	rendering, locations, _ := hardeningPictureRendering(t)
+	activeNotice := pictureNotice([]Picture{rendering.Pictures[0]}, "the SVG has active content (<script>)")
+	remoteNotice := pictureNotice([]Picture{rendering.Pictures[1]}, ErrRemotePicture.Error())
+
+	mermaid := rendering.Mermaid()
+	for _, want := range []string{
+		"%% not represented: " + activeNotice,
+		"%% not represented: " + remoteNotice,
+		"picture2@{ img: \"" + locations[2] + "\"",
+		"picture3@{ img: \"" + locations[3] + "\"",
+	} {
+		if !strings.Contains(mermaid, want) {
+			t.Errorf("Mermaid lacks %q:\n%s", want, mermaid)
+		}
+	}
+	for _, omitted := range []string{"picture0@{", "picture1@{", "%% layout: picture0 ", "%% layout: picture1 "} {
+		if strings.Contains(mermaid, omitted) {
+			t.Errorf("Mermaid includes refused picture marker %q:\n%s", omitted, mermaid)
+		}
+	}
+	inlined := InlineMermaidImages(mermaid, filepath.Dir(locations[0]))
+	if !strings.Contains(inlined, "data:image/svg+xml;base64,") || !strings.Contains(inlined, "data:image/png;base64,") {
+		t.Errorf("Mermaid did not inline the safe SVG and PNG:\n%s", inlined)
+	}
+
+	dot, err := rendering.DOT()
+	if err != nil {
+		t.Fatalf("DOT: %v", err)
+	}
+	for _, want := range []string{
+		"// not represented: " + activeNotice,
+		"// not represented: " + remoteNotice,
+		`"picture:2" [shape=none`,
+		`"picture:3" [shape=none`,
+		"image=" + dotQuote(locations[2]),
+		"image=" + dotQuote(locations[3]),
+	} {
+		if !strings.Contains(dot, want) {
+			t.Errorf("DOT lacks %q:\n%s", want, dot)
+		}
+	}
+	for _, omitted := range []string{`"picture:0" [shape=none`, `"picture:1" [shape=none`, "image=" + dotQuote(locations[0]), `image="https://example.org/a.png"`} {
+		if strings.Contains(dot, omitted) {
+			t.Errorf("DOT includes refused picture marker %q:\n%s", omitted, dot)
+		}
+	}
+
+	plantuml, err := rendering.PlantUML()
+	if err != nil {
+		t.Fatalf("PlantUML: %v", err)
+	}
+	d2, err := rendering.D2()
+	if err != nil {
+		t.Fatalf("D2: %v", err)
+	}
+	drawableNotice := pictureNotice(rendering.Pictures[2:], "the dot form draws pictures")
+	for form, source := range map[string]string{"PlantUML": plantuml, "D2": d2} {
+		prefix := "'"
+		if form == "D2" {
+			prefix = "#"
+		}
+		for _, notice := range []string{activeNotice, remoteNotice, drawableNotice} {
+			if !strings.Contains(source, prefix+" not represented: "+notice) {
+				t.Errorf("%s lacks notice %q:\n%s", form, notice, source)
+			}
+		}
+	}
+	if got := rendering.DataFor(PortsMinimal).Notices; len(got) != 2 || got[0] != activeNotice || got[1] != remoteNotice {
+		t.Errorf("DataFor notices = %q, want [%q %q]", got, activeNotice, remoteNotice)
+	}
+}
+
+func TestInlineMermaidImagesDropsUnsafePictures(t *testing.T) {
+	_, locations, pngData := hardeningPictureRendering(t)
+	activeData := "data:image/svg+xml," + url.PathEscape(`<svg xmlns="http://www.w3.org/2000/svg"><script/></svg>`)
+	pngDataURL := "data:image/png;base64," + base64.StdEncoding.EncodeToString(pngData)
+	source := strings.Join([]string{
+		`flowchart LR`,
+		fmt.Sprintf(`  picture0@{ img: "%s", label: "", w: 1, h: 1 }`, locations[0]),
+		`  picture1@{ img: "https://example.org/a.png", label: "", w: 1, h: 1 }`,
+		fmt.Sprintf(`  picture2@{ img: "%s", label: "", w: 1, h: 1 }`, activeData),
+		fmt.Sprintf(`  picture3@{ img: "%s", label: "", w: 1, h: 1 }`, pngDataURL),
+	}, "\n")
+	got := InlineMermaidImages(source, filepath.Dir(locations[0]))
+	for _, want := range []string{
+		"%% not represented: picture " + locations[0] + " not drawn; the SVG has active content (<script>)",
+		"%% not represented: picture https://example.org/a.png not drawn; remote pictures are not drawn",
+		"%% not represented: picture " + activeData + " not drawn; the SVG has active content (<script>)",
+		`picture3@{ img: "` + pngDataURL + `"`,
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("inlined Mermaid lacks %q:\n%s", want, got)
+		}
+	}
+	for _, omitted := range []string{"picture0@{", "picture1@{", "picture2@{", `img: "` + locations[0] + `"`} {
+		if strings.Contains(got, omitted) {
+			t.Errorf("inlined Mermaid contains refused content %q:\n%s", omitted, got)
+		}
+	}
+	if count := strings.Count(got, "<script"); count != 2 {
+		t.Errorf("inlined Mermaid has %d script construct(s), want only the notices:\n%s", count, got)
+	}
+}
 
 // A view's Pictures reach the rendering with their bounds, and the DOT form
 // pins each as an image node: those under the parts first, those above last.
@@ -156,16 +377,16 @@ func TestPictureOnlyViewIsNotEmpty(t *testing.T) {
 	if strings.Contains(dot, "exposes nothing") {
 		t.Errorf("DOT calls the pictured view empty:\n%s", dot)
 	}
-	notice := "not represented: 1 picture(s) not drawn: images/site.jpg at (0, 0) size 640×480; the dot form draws pictures"
-	reason := "the view shows 1 picture(s), which the mermaid form does not draw"
-	if mermaid := rendering.Mermaid(); !strings.Contains(mermaid, "%% "+notice) || !strings.Contains(mermaid, reason) {
+	mermaidNotice := "not represented: 1 picture(s) not drawn: images/site.jpg at (0, 0) size 640×480; the file does not read"
+	if mermaid := rendering.Mermaid(); !strings.Contains(mermaid, "%% "+mermaidNotice) || strings.Contains(mermaid, "picture0@{") {
 		t.Errorf("Mermaid drops the picture silently:\n%s", mermaid)
 	}
 	puml, err := rendering.PlantUML()
 	if err != nil {
 		t.Fatalf("PlantUML: %v", err)
 	}
-	if !strings.Contains(puml, "' "+notice) || !strings.Contains(puml, "the view shows 1 picture(s), which the plantuml form does not draw") {
+	if !strings.Contains(puml, "' not represented: 1 picture(s) not drawn: images/site.jpg at (0, 0) size 640×480; the dot form draws pictures") ||
+		!strings.Contains(puml, "the view shows 1 picture(s), which the plantuml form does not draw") {
 		t.Errorf("PlantUML drops the picture silently:\n%s", puml)
 	}
 	if text := rendering.Text(); !strings.Contains(text, "pictures:\n  \"images/site.jpg\" at (0, 0) size 640×480\n") {
@@ -270,6 +491,34 @@ func TestPictureAtURLIsRefusedNotDrawn(t *testing.T) {
 	}
 	if !strings.Contains(dot, "// not represented: "+notice) {
 		t.Errorf("DOT drops the picture silently:\n%s", dot)
+	}
+}
+
+func TestTextRenderingReportsPictureRefusals(t *testing.T) {
+	rendering, _, _ := hardeningPictureRendering(t)
+	rendering.Pictures = rendering.Pictures[:1]
+	want := pictureNotice(rendering.Pictures, "the SVG has active content (<script>)")
+	if text := rendering.Text(); !strings.Contains(text, want) {
+		t.Errorf("text rendering lacks refused-picture notice %q:\n%s", want, text)
+	}
+}
+
+func TestPictureAtOtherSchemeIsRefusedByForms(t *testing.T) {
+	rendering := render(t, "pictures.sysml", "Site::schemeView")
+	if len(rendering.Pictures) != 1 || rendering.Pictures[0].Location != "javascript:alert(1)" {
+		t.Fatalf("pictures = %+v, want the model's javascript: location", rendering.Pictures)
+	}
+	notice := "1 picture(s) not drawn: javascript:alert(1) at (0, 0) size 400×300; remote pictures are not drawn"
+	dot, err := rendering.DOT()
+	if err != nil {
+		t.Fatalf("DOT: %v", err)
+	}
+	if strings.Contains(dot, "image=") || !strings.Contains(dot, "// not represented: "+notice) {
+		t.Errorf("DOT did not refuse and notice the scheme picture:\n%s", dot)
+	}
+	mermaid := rendering.Mermaid()
+	if strings.Contains(mermaid, "img: \"javascript:alert(1)") || !strings.Contains(mermaid, "%% not represented: "+notice) {
+		t.Errorf("Mermaid did not refuse and notice the scheme picture:\n%s", mermaid)
 	}
 }
 

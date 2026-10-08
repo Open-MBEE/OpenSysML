@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
 // wantNotation asserts one warning per want, matched by code and message
@@ -106,14 +107,69 @@ func TestKerMLRelationshipClausesInKerMLAreSilent(t *testing.T) {
 // construct.
 func TestStateExtensionsAreReported(t *testing.T) {
 	for _, tc := range []struct{ src, want string }{
-		{"state def S { choice c; }", "`choice <name>;`"},
-		{"state def S { junction j; }", "`junction <name>;`"},
-		{"state def S { history h; }", "history"},
-		{"state def S { shallow history h; }", "history"},
-		{"state def S { deep history h; }", "history"},
-		{"state def S { state a { defer e; } }", "`defer <event>;`"},
+		{"state def S { choice c; }", "write `#choice state c;`"},
+		{"state def S { junction j; }", "write `#junction state j;`"},
+		{"state def S { history h; }", "write `#shallowHistory state h;`"},
+		{"state def S { shallow history h; }", "write `#shallowHistory state h;`"},
+		{"state def S { deep history h; }", "write `#deepHistory state h;`"},
 	} {
 		wantNotation(t, "a.sysml", tc.src, CodeNonstandardNotation, tc.want)
+	}
+}
+
+// A `frame` in a view body is an extension: FramedConcernMember belongs to a
+// requirement, concern or viewpoint body. Both spellings are reported, in a view
+// definition, a view usage and a view nested in another view alike.
+func TestFrameInAViewBodyIsReported(t *testing.T) {
+	const lib = "concern def C; concern c : C; "
+	for _, src := range []string{
+		lib + "view def V { frame concern k : C; }",
+		lib + "view def V { frame c; }",
+		lib + "view v { frame concern k : C; }",
+		lib + "view v { frame c; }",
+		lib + "view v { view inner { frame c; } }",
+		lib + "part def P { view v { frame c; } }",
+	} {
+		wantNotation(t, "a.sysml", src, CodeNonstandardNotation, "`frame` in a view body")
+	}
+}
+
+// A `frame` where the grammar places it stays silent: in a requirement,
+// concern or viewpoint body, including one declared inside a view body.
+func TestFrameOutsideAViewBodyIsSilent(t *testing.T) {
+	const lib = "concern def C; concern c : C; "
+	for _, src := range []string{
+		lib + "viewpoint def VP { frame concern k : C; frame c; }",
+		lib + "viewpoint vp { frame c; }",
+		lib + "requirement def R { frame c; }",
+		lib + "requirement r { frame concern k : C; }",
+		lib + "concern def D { frame c; }",
+		lib + "view def V { viewpoint vp { frame c; } }",
+		lib + "view v { requirement r { frame c; } }",
+	} {
+		wantSilent(t, "a.sysml", src)
+	}
+}
+
+// The `frame` warning points at the keyword, not at the whole member.
+func TestFrameInAViewBodyIsReportedAtItsKeyword(t *testing.T) {
+	src := `concern def C;
+	view def V {
+		frame concern k : C;
+	}`
+	root, pd, idx := analyzeInputs(t, "a.sysml", src)
+	if len(pd) != 0 {
+		t.Fatalf("%s: parse errors %+v", src, pd)
+	}
+	got := (NonstandardNotationPass{}).Run(NewContext("a.sysml", idx, pd), "a.sysml", root)
+	if len(got) != 1 {
+		t.Fatalf("%s: got %d diagnostics %+v, want 1", src, len(got), got)
+	}
+	if line := strings.Count(src[:got[0].Span.Offset], "\n") + 1; line != 3 {
+		t.Errorf("diagnostic is on line %d, want 3", line)
+	}
+	if got[0].Span.Len != len("frame") {
+		t.Errorf("diagnostic spans %d bytes, want the keyword", got[0].Span.Len)
 	}
 }
 
@@ -226,10 +282,9 @@ func TestFeatureValuedBindingIsSilent(t *testing.T) {
 }
 
 // An InitialNodeMember is reachable from ActionBodyItem alone, so a
-// one-ended `first` is standard in an action body and ours in a part body.
-func TestOneEndedFirstOutsideAnActionBodyIsAnExtension(t *testing.T) {
-	wantNotation(t, "a.sysml", "part def P { part a; first a; }",
-		CodeNonstandardNotation, "one-ended `first <node>;` outside an action body")
+// one-ended `first` is standard in an action body and a parse error anywhere
+// else (see the negative parser tests).
+func TestOneEndedFirstInsideAnActionBodyIsSilent(t *testing.T) {
 	wantSilent(t, "a.sysml", "action def A { action a; first a; }")
 	wantSilent(t, "a.sysml", "action def A { action outer { action a; first a; } }")
 	wantSilent(t, "a.sysml", "part def P { action a { action b; first b; } }")
@@ -268,13 +323,9 @@ func TestTargetSuccessionAfterANonActionMemberIsAnExtension(t *testing.T) {
 	wantSilent(t, "a.kerml", "behavior A { step a; then a; }")
 }
 
-// F107: RequirementConstraintMember belongs to a RequirementBody, which an
-// analysis case body is not.
-func TestRequirementConstraintOutsideARequirementBodyIsAnExtension(t *testing.T) {
-	wantNotation(t, "a.sysml", "analysis def An { attribute size; require constraint { size >= 1 } }",
-		CodeNonstandardNotation, "`require` outside a requirement body")
-	wantNotation(t, "a.sysml", "part def P { attribute size; assume constraint { size >= 1 } }",
-		CodeNonstandardNotation, "`assume` outside a requirement body")
+// RequirementConstraintMember belongs to a RequirementBody; anywhere else the
+// parser rejects `assume`/`require` outright (see the negative parser tests).
+func TestRequirementConstraintInsideARequirementBodyIsSilent(t *testing.T) {
 	wantSilent(t, "a.sysml", "requirement def R { attribute size; require constraint { size >= 1 } }")
 	wantSilent(t, "a.sysml", "analysis def An { attribute size; assert constraint { size >= 1 } }")
 }
@@ -289,4 +340,175 @@ func TestSysMLDeclarationInKerMLIsReported(t *testing.T) {
 	}
 	wantSilent(t, "a.kerml", "package P { struct Wheel; }")
 	wantSilent(t, "a.sysml", "package P { part def Wheel; }")
+}
+
+// kermlDeclarationInventory is one declaration per keyword KerML.xtext spells
+// and SysML.xtext does not, each written so that it parses cleanly in both a
+// .sysml and a .kerml file; alternative is the SysML spelling the message names.
+var kermlDeclarationInventory = []struct {
+	keyword, src, alternative string
+}{
+	{"connector", "package P { part def A; part a1 : A; part b1 : A; connector c from a1 to b1; }", "`connection` or `connect`"},
+	{"class", "package P { class C; }", "`occurrence def`"},
+	{"struct", "package P { struct S; }", "`item def` or `part def`"},
+	{"datatype", "package P { datatype D; }", "`attribute def`"},
+	{"classifier", "package P { classifier K; }", "`part def`"},
+	{"subclassifier", "package P { part def A; part def B; subclassifier A specializes B; }", "`specializes`"},
+	{"feature", "package P { feature f; }", "a usage keyword"},
+	{"step", "package P { step s; }", "`action`"},
+	{"expr", "package P { expr e; }", "`calc`"},
+	{"bool", "package P { bool b; }", "`constraint`"},
+	{"behavior", "package P { behavior B; }", "`action def`"},
+	{"function", "package P { function F; }", "`calc def`"},
+	{"predicate", "package P { predicate Q; }", "`constraint def`"},
+	{"metaclass", "package P { metaclass M; }", "`metadata def`"},
+	{"assoc", "package P { part def X; part def Y; assoc A { end a : X; end b : Y; } }", "`connection def`"},
+	{"assoc struct", "package P { part def X; part def Y; assoc struct A { end a : X; end b : Y; } }", "`connection def`"},
+	{"interaction", "package P { part def X; part def Y; interaction I { end a : X; end b : Y; } }", "move the declaration to a .kerml file"},
+	{"inv", "package P { inv { true } }", "`constraint` or `assert constraint`"},
+	{"multiplicity", "package P { multiplicity m [1]; }", "move the declaration to a .kerml file"},
+}
+
+// A declaration keyword only KerML.xtext spells is KerML notation in a SysML
+// file: the pilot rejects each with `no viable alternative`, so the pass reports
+// it where the parser, which never fails, kept the declaration.
+func TestKerMLDeclarationInSysMLIsReported(t *testing.T) {
+	for _, tc := range kermlDeclarationInventory {
+		wantNotation(t, "a.sysml", tc.src, CodeKerMLNotation,
+			"`"+tc.keyword+"` is KerML notation: the SysML v2 grammar has no "+tc.keyword+" declaration")
+		got := notationDiags(t, "a.sysml", tc.src, diag.ConformanceDefault)
+		if !strings.Contains(got[0].Message, tc.alternative) {
+			t.Errorf("%s: message = %q, want it to name %q", tc.keyword, got[0].Message, tc.alternative)
+		}
+		if len(got[0].Fixes) != 0 {
+			t.Errorf("%s: a keyword swap is no safe fix, got %+v", tc.keyword, got[0].Fixes)
+		}
+	}
+}
+
+// kermlTwin respells the SysML scaffolding of an inventory source — `part def`
+// and `part` — as the KerML `class` and `feature`, leaving the declaration
+// under test as written.
+func kermlTwin(src string) string {
+	return strings.ReplaceAll(strings.ReplaceAll(src, "part def", "class"), "part ", "feature ")
+}
+
+func TestKerMLDeclarationInKerMLIsSilent(t *testing.T) {
+	for _, tc := range kermlDeclarationInventory {
+		wantSilent(t, "a.kerml", kermlTwin(tc.src))
+	}
+}
+
+// The REPL and CLI buffer carry no file kind and read as SysML, so the
+// declaration is reported there as `namespace` is.
+func TestKerMLDeclarationInAnUnnamedDocumentIsReported(t *testing.T) {
+	wantNotation(t, "<repl>", "package P { part def A; part a1 : A; part b1 : A; connector c from a1 to b1; }",
+		CodeKerMLNotation, "`connector` is KerML notation")
+	wantNotation(t, "<repl>", "class C;", CodeKerMLNotation, "`class` is KerML notation")
+}
+
+// The finding points at the kind keyword, past the prefixes that open the
+// declaration, when the run carries the source text; without it the span
+// falls back to the word that opens the declaration.
+func TestKerMLDeclarationIsReportedAtItsKeyword(t *testing.T) {
+	const src = "package P { abstract class C; part def D { in expr e; } }"
+	_, _, got := notationDiagnostics(t, "a.sysml", src)
+	if len(got) != 2 {
+		t.Fatalf("got %d diagnostics %+v, want 2", len(got), got)
+	}
+	class := source.Span{Offset: strings.Index(src, "class"), Len: len("class")}
+	if got[0].Span != class {
+		t.Errorf("`class` span = %+v, want %+v", got[0].Span, class)
+	}
+	expr := source.Span{Offset: strings.Index(src, "expr"), Len: len("expr")}
+	if got[1].Span != expr {
+		t.Errorf("`expr` span = %+v, want %+v", got[1].Span, expr)
+	}
+	without := notationDiags(t, "a.sysml", src, diag.ConformanceDefault)
+	if len(without) != 2 || without[0].Span.Offset != strings.Index(src, "abstract") || without[1].Span.Offset != strings.Index(src, "in expr") {
+		t.Errorf("without source text: got %+v, want the spans of the opening words", without)
+	}
+}
+
+// Prefix metadata may spell the keyword as a name (`#'class' class C;`); the
+// span is the keyword after the prefixes, in either direction and with or
+// without the source text.
+func TestDeclarationKeywordSpanSkipsPrefixMetadata(t *testing.T) {
+	for _, tc := range []struct {
+		file, src, word string
+	}{
+		{"a.sysml", "package P { metadata def 'class'; #'class' class C; }", "class"},
+		{"a.sysml", "package P { metadata def 'step'; #'step' #'step' step s; }", "step"},
+		{"a.kerml", "package P { metaclass 'part'; #'part' part def D; }", "part"},
+		{"a.sysml", "package P { metadata def M; #M::class class C; }", "class"},
+		{"a.kerml", "package P { metaclass M; #M::part part def D; }", "part"},
+	} {
+		_, _, got := notationDiagnostics(t, tc.file, tc.src)
+		if len(got) != 1 {
+			t.Fatalf("%s: got %d diagnostics %+v, want 1", tc.src, len(got), got)
+		}
+		want := source.Span{Offset: strings.LastIndex(tc.src, tc.word), Len: len(tc.word)}
+		if got[0].Span != want {
+			t.Errorf("%s: span = %+v, want %+v", tc.src, got[0].Span, want)
+		}
+		without := notationDiags(t, tc.file, tc.src, diag.ConformanceDefault)
+		if len(without) != 1 || without[0].Span.Offset <= strings.LastIndex(tc.src, "'") || without[0].Span.End() > want.End() {
+			t.Errorf("%s without source text: got %+v, want a span after the prefixes", tc.src, without)
+		}
+	}
+}
+
+// The members of a reported declaration move with it to a .kerml file, so
+// neither their keywords nor their KerML clauses are reported again; a sibling
+// after the declaration still is.
+func TestKerMLDeclarationMembersDoNotCascade(t *testing.T) {
+	wantNotation(t, "a.sysml",
+		"package P { class C { feature f; namespace N; step s featured by C; } step t; }",
+		CodeKerMLNotation, "`class` is KerML notation", "`step` is KerML notation")
+	wantNotation(t, "a.sysml",
+		"package P { part def A; part a1 : A; part b1 : A; connector c from a1 to b1 { feature f; } }",
+		CodeKerMLNotation, "`connector` is KerML notation")
+}
+
+// The SysML twins of the KerML declarations — and the keywords both grammars
+// spell — stay silent, in default and strict mode alike.
+func TestSysMLDeclarationTwinsAreSilent(t *testing.T) {
+	for _, src := range []string{
+		"package P { part def A; part a : A; part b : A; binding a = b; }",
+		"package P { part def A; part a : A; part b : A; bind a = b; }",
+		"package P { action def X { action a; action b; succession a then b; } }",
+		"package P { action def X { action a; action b; first a then b; } }",
+		"package P { part def A; part a : A; part b : A; connection c connect a to b; }",
+		"package P { part def A; part a : A; part b : A; connect a to b; }",
+		"package P { part def A; port def Q; part a : A { port p : Q; } part b : A { port p : Q; } interface i connect a.p to b.p; }",
+		"package P { item def I; part def A { out item x : I; in item y : I; } part a : A; part b : A; flow of I from a.x to b.y; }",
+		"package P { part def A; part def B; part a : A; part b : B; allocate a to b; }",
+		"package P { part def A; part def B; dependency from A to B; }",
+		"package P { metadata def M; part def A; @M; }",
+		"package P { occurrence def O; item def I; attribute def D; action def X; calc def Y; constraint def Z; connection def W; }",
+		"package P { action a; calc c; constraint k { true } assert constraint { true } ref r; attribute x; }",
+		"package P { part def A { part p [1]; } }",
+	} {
+		wantSilent(t, "a.sysml", src)
+		if got := notationDiags(t, "a.sysml", src, diag.ConformanceStrict); len(got) != 0 {
+			t.Errorf("strict: %s: got %+v, want silence", src, got)
+		}
+	}
+}
+
+// An import of the StateActivity extension library is reported at the import,
+// a warning by default and an error under strict conformance.
+func TestStateActivityImportIsReported(t *testing.T) {
+	for _, src := range []string{
+		"package P { private import StateActivity::*; state def S { state a; } }",
+		"package P { private import StateActivity::isActive; state def S { state a; } }",
+		"package P { private import StateActivity; state def S { state a; } }",
+	} {
+		wantNotation(t, "a.sysml", src, CodeNonstandardNotation, "`StateActivity` library is an OpenSysML extension")
+		got := notationDiags(t, "a.sysml", src, diag.ConformanceStrict)
+		if len(got) != 1 || got[0].Severity != diag.SeverityError || got[0].Code != CodeNonstandardNotation {
+			t.Errorf("strict: %s: got %+v, want one nonstandard-notation error", src, got)
+		}
+	}
+	wantSilent(t, "a.sysml", "package P { private import ScalarValues::*; private import States::*; state def S { state a; } }")
 }

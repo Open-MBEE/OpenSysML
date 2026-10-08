@@ -1,0 +1,40 @@
+do: busy
+stmt action body
+enter action node: state behavior buffer
+do: busy
+materialize: Level #1
+  stmt assign deferred
+      enter calc SequenceFunctions::including
+        eval feature deferred -> ()
+        eval chain kept -> instance#1
+        bind seq = () [argument]
+        bind values = instance#1 [argument]
+      exit calc SequenceFunctions::including -> (instance#1)
+    eval invoke SequenceFunctions::including -> (instance#1)
+exit: busy (exit action)
+stmt action body
+enter action node: state behavior flush
+  stmt for kept
+    eval feature deferred -> (instance#1)
+    iteration 1
+      stmt send
+        eval feature kept -> instance#1
+  stmt assign deferred
+    eval null -> null
+leave action node: state behavior flush
+enter: ready
+transition: busy -> ready (event: accept Go)
+  eval chain level -> 8
+  eval literal 5 -> 5
+eval operator > -> true
+  eval chain level -> 8
+  eval literal 5 -> 5
+eval operator > -> true
+exit: ready
+stmt assign chosen
+  eval chain level -> 8
+enter: high
+transition: ready -> high (event: accept Level)
+exit: high
+enter: done
+transition: high -> done

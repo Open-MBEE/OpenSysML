@@ -1,0 +1,47 @@
+exit: idle (exit action)
+stmt action body
+  stmt assign log
+      eval feature log -> ""
+      eval literal "idle(exit);" -> "idle(exit);"
+    eval operator + -> "idle(exit);"
+enter: work
+enter: w1
+transition: idle -> work (event: accept Next)
+exit: w1 (exit action)
+stmt action body
+  stmt assign log
+      eval feature log -> "idle(exit);"
+      eval literal "w1(exit);" -> "w1(exit);"
+    eval operator + -> "idle(exit);w1(exit);"
+exit: work (exit action)
+stmt action body
+  stmt assign log
+      eval feature log -> "idle(exit);w1(exit);"
+      eval literal "work(exit);" -> "work(exit);"
+    eval operator + -> "idle(exit);w1(exit);work(exit);"
+exit: one
+enter: two
+enter: idle
+transition: w1 -> two (event: accept Go)
+exit: idle (exit action)
+stmt action body
+  stmt assign log
+      eval feature log -> ""
+      eval literal "idle(exit);" -> "idle(exit);"
+    eval operator + -> "idle(exit);"
+enter: work
+enter: w1
+transition: idle -> work (event: accept Next)
+exit: w1 (exit action)
+stmt action body
+  stmt assign log
+      eval feature log -> "idle(exit);"
+      eval literal "w1(exit);" -> "w1(exit);"
+    eval operator + -> "idle(exit);w1(exit);"
+stmt action body
+  stmt assign log
+      eval feature log -> "idle(exit);w1(exit);"
+      eval literal "abort(effect);" -> "abort(effect);"
+    eval operator + -> "idle(exit);w1(exit);abort(effect);"
+transition: w1 -> halt (event: accept Abort)
+terminate: halt

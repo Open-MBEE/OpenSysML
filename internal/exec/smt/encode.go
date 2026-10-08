@@ -88,7 +88,7 @@ type pin struct {
 // defaults it declares. A feature held bound by nothing is free in state 0, in
 // the domain its declared type gives it; releases names bound ones to free too.
 func Encode(ctx *runtime.Context, action *symbols.Symbol, graph *lower.ActionGraph, held runtime.Held, releases []string, k, unroll int) (*Encoding, error) {
-	f, err := Analyze(graph, k)
+	f, err := Analyze(graph, ctx.Semantics(), k)
 	if err != nil {
 		return nil, err
 	}
@@ -362,7 +362,7 @@ func (e *Encoding) collectFlows(node ast.Node) error {
 			continue
 		}
 		p := &solve.Var{Name: "pending(" + target.Name + ")", Sort: target.Sort, Symbol: target.Symbol,
-			Dimension: target.Dimension, Unit: target.Unit}
+			Dimension: target.Dimension, Unit: target.Unit, Binary64: target.Binary64}
 		e.pending[target.Name] = p
 		e.features[p.Name] = p
 		e.flagged[p.Name] = true
@@ -708,10 +708,6 @@ func (e *Encoding) initialInputs(env *env) ([]*solve.Term, error) {
 	for _, in := range e.Inputs {
 		v := in.Var
 		if in.Free {
-			if v.Sort.Kind == solve.SortInt {
-				// The interpreter's Integer is int64; beyond it there is no value to replay.
-				e.assert(solve.Int64(env.values[v.Name]), "range of "+in.Name)
-			}
 			if domain := e.domain(v.Name, env.values[v.Name]); domain != nil {
 				e.assert(domain, "domain of "+in.Name)
 			}
@@ -1322,7 +1318,7 @@ func (e *Encoding) begin(x *nodeEffect, node ast.Node, where string) error {
 		}
 		e.fresh++
 		v := &solve.Var{Name: fmt.Sprintf("%s@%s#%d", name, where, e.fresh), Sort: p.v.Sort,
-			Symbol: p.v.Symbol, Dimension: p.v.Dimension, Unit: p.v.Unit}
+			Symbol: p.v.Symbol, Dimension: p.v.Dimension, Unit: p.v.Unit, Binary64: p.v.Binary64}
 		e.declare(v)
 		e.assert(eq(solve.VarTerm(v), value), "start of "+name)
 		x.env.values[name] = solve.VarTerm(v)
@@ -1449,7 +1445,6 @@ func (e *Encoding) settle(x *nodeEffect, cond *solve.Term, target *solve.Var, va
 // flows carries what a completed node produced over its object flows: to a pin queue of a node in
 // a frame of its own, else to the action's feature. An empty source pin is the interpreter's error.
 func (e *Encoding) flows(x *nodeEffect, node ast.Node, where string) error {
-	always := solve.BoolTerm(true)
 	label := e.Flow.label(node)
 	for _, flow := range e.Flow.graphOf(node).DataFlows[node] {
 		source, err := e.flowEnd(node, flow.SourcePin, flowLabel(flow), label)
@@ -1460,10 +1455,10 @@ func (e *Encoding) flows(x *nodeEffect, node ast.Node, where string) error {
 		if err != nil {
 			return err
 		}
+		cond := e.gated(x, node, flow)
 		if has, flagged := x.env.has[source.Name]; flagged {
-			x.fail(always, has)
+			x.fail(cond, has)
 		}
-		cond := always
 		if flow.Kind == lower.FlowStreaming {
 			if streamed, ok := x.env.has[streamedName(source.Name)]; ok {
 				cond = not(streamed)
@@ -1472,6 +1467,21 @@ func (e *Encoding) flows(x *nodeEffect, node ast.Node, where string) error {
 		e.carry(x, cond, flow, source, target, x.env.values[source.Name], where)
 	}
 	return nil
+}
+
+// gated is when node's flow moves its value: always, unless a guarded succession leads
+// to it, when only where that guard is defined and holds after the body.
+func (e *Encoding) gated(x *nodeEffect, node ast.Node, flow lower.ObjectFlow) *solve.Term {
+	if flow.Gate == nil {
+		return solve.BoolTerm(true)
+	}
+	for _, i := range e.Flow.Outgoing[node] {
+		if edge := e.Flow.Edges[i]; edge.Carries && edge.Decl == flow.Decl && edge.Guard != nil {
+			holds, defined := x.guards.evaluate(e.exprs[edge.Guard])
+			return and(defined, holds)
+		}
+	}
+	return solve.BoolTerm(true)
 }
 
 // fail records that the interpreter reports an error where path holds and
@@ -1574,7 +1584,7 @@ func (e *Encoding) write(x *nodeEffect, path *solve.Term, target *solve.Var, val
 	}
 	e.fresh++
 	v := &solve.Var{Name: fmt.Sprintf("%s@%s#%d", target.Name, where, e.fresh), Sort: target.Sort,
-		Symbol: target.Symbol, Dimension: target.Dimension, Unit: target.Unit}
+		Symbol: target.Symbol, Dimension: target.Dimension, Unit: target.Unit, Binary64: target.Binary64}
 	e.declare(v)
 	e.assert(eq(solve.VarTerm(v), value), "write to "+target.Name)
 	x.env.write(target.Name, solve.VarTerm(v))
@@ -1592,7 +1602,8 @@ func (e *Encoding) merge(cond *solve.Term, then, otherwise *env, where string) *
 		}
 		e.fresh++
 		v := &solve.Var{Name: fmt.Sprintf("%s@%s#%d", name, where, e.fresh), Sort: a.Sort,
-			Symbol: e.features[name].Symbol, Dimension: e.features[name].Dimension, Unit: e.features[name].Unit}
+			Symbol: e.features[name].Symbol, Dimension: e.features[name].Dimension, Unit: e.features[name].Unit,
+			Binary64: e.features[name].Binary64}
 		e.declare(v)
 		e.assert(eq(solve.VarTerm(v), ite(cond, a, b)), "merge of "+name)
 		merged.values[name] = solve.VarTerm(v)

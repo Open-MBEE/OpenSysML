@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/doc/queryexec"
+	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/ir/docplan"
 	"github.com/Open-MBEE/OpenSysML/internal/ir/view"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
@@ -617,7 +618,15 @@ func evaluatedRun(run docplan.Run) TextRun {
 		if path := run.RefPath(); len(path) > 0 {
 			anchor = AnchorFor(path)
 		}
-		return TextRun{kind: RunRef, text: run.Text(), target: anchor, document: run.RefDocument(), origin: run.Origin()}
+		return TextRun{
+			kind:      RunRef,
+			text:      run.Text(),
+			target:    anchor,
+			document:  run.RefDocument(),
+			element:   run.RefElement(),
+			defaulted: run.TextDefaulted(),
+			origin:    run.Origin(),
+		}
 	default:
 		return TextRun{kind: styledKind(run.Style()), text: run.Text(), origin: run.Origin()}
 	}
@@ -760,6 +769,10 @@ func (e *evaluator) evaluateDiagram(node docplan.Content) (Content, error) {
 		}
 	}
 	renderer := view.NewRenderer(e.context.Model, e.context.Resolver, e.text)
+	if reference.Overlay() == view.OverlayVerdicts {
+		renderer.SetVerdicts(runtime.RequirementVerdicts(e.context.Verifier(), e.workspaceScopes()))
+	}
+	sites := renderer.Sites(view.FileLocator(e.context.Model, e.context.LineIndex))
 	var rendering *view.Rendering
 	var err error
 	if declared, ok := reference.View(); ok {
@@ -788,10 +801,23 @@ func (e *evaluator) evaluateDiagram(node docplan.Content) (Content, error) {
 		name:      node.Name(),
 		caption:   node.Caption(),
 		rendering: rendering,
+		sites:     sites,
 		direction: reference.Direction(),
 		palette:   reference.Palette(),
+		ports:     reference.Ports(),
 		origin:    node.Origin(),
 	}, nil
+}
+
+// workspaceScopes are the scopes of the workspace's documents, libraries aside.
+func (e *evaluator) workspaceScopes() []*symbols.Scope {
+	var out []*symbols.Scope
+	for _, name := range e.context.Index.WorkspaceDocuments() {
+		if root := e.context.Index.DocumentRoot(name); root != nil {
+			out = append(out, root)
+		}
+	}
+	return out
 }
 
 // executeQuery runs the planned query of a query-backed node.
@@ -832,8 +858,11 @@ func (e *evaluator) executionValue(value docplan.BindingValue) queryexec.Value {
 	if text, ok := value.String(); ok {
 		return queryexec.StringValue(text)
 	}
-	if integer, ok := value.Integer(); ok {
-		return queryexec.IntegerValue(integer)
+	if integer, ok := value.IntegerConst(); ok {
+		return queryexec.IntegerOf(integer)
+	}
+	if rational, ok := value.Rational(); ok {
+		return queryexec.RationalOf(rational)
 	}
 	if realVal, ok := value.Real(); ok {
 		return queryexec.RealValue(realVal)
@@ -870,6 +899,9 @@ func (e *evaluator) valueText(value queryexec.Value) string {
 	if _, label, ok := value.Object(); ok {
 		return label
 	}
+	if _, _, ok := value.ConnectorEnd(); ok {
+		return value.Label()
+	}
 	if verdict, ok := value.Verdict(); ok {
 		return verdict.Summary()
 	}
@@ -882,8 +914,11 @@ func (e *evaluator) valueText(value queryexec.Value) string {
 	if text, ok := value.String(); ok {
 		return text
 	}
-	if integer, ok := value.Integer(); ok {
-		return strconv.FormatInt(integer, 10)
+	if integer, ok := value.IntegerConst(); ok {
+		return integer.FormatInt()
+	}
+	if rational, ok := value.Rational(); ok {
+		return queryexec.RationalText(rational)
 	}
 	if realVal, ok := value.Real(); ok {
 		return strconv.FormatFloat(realVal, 'g', -1, 64)

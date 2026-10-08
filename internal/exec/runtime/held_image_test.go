@@ -12,6 +12,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
 
 // lampBulb materializes a Bulb over lampSource and answers the document root with it.
@@ -76,6 +77,45 @@ func imageInto(t *testing.T, ctx *Context, objects ...*Instance) *Context {
 		t.Fatalf("Materialize: %v", err)
 	}
 	return dst
+}
+
+func TestHeldImageImportRemapsMessageSerialsBeforeAccept(t *testing.T) {
+	_, ctx, bulb := lampBulb(t)
+	ctx.PostMessage(Message{Object: bulb.ID, SignalType: "Ping"})
+	ctx.messages = append(ctx.messages, Message{Object: bulb.ID, SignalType: "Ping"})
+	img, err := ctx.Image(bulb)
+	if err != nil {
+		t.Fatalf("Image: %v", err)
+	}
+
+	trace := NewTraceRecorder()
+	dst := NewContext(ctx.Model(), 10000)
+	dst.SetTrace(trace)
+	dst.PostMessage(Message{SignalType: "Ping"})
+	if records := trace.Records(); len(records) != 1 || records[0].Kind != TraceSend || records[0].Message != 1 {
+		t.Fatalf("destination trace = %+v, want a send of serial 1", records)
+	}
+	if err := img.Materialize(dst); err != nil {
+		t.Fatalf("Materialize: %v", err)
+	}
+
+	messages := dst.PendingMessages()
+	if len(messages) != 3 || messages[0].Serial != 1 || messages[1].Serial != 2 || messages[2].Serial != 0 {
+		t.Fatalf("messages = %+v, want destination serial 1, imported serial 2, and imported serial 0", messages)
+	}
+	accepted, ok := dst.TakeMessage(func(msg Message) bool { return msg.Serial == 2 })
+	if !ok {
+		t.Fatal("could not take the imported message")
+	}
+	trace.RecordAccept(TraceOrigin{}, accepted.Serial, accepted.SignalType, nil)
+	records := trace.Records()
+	if len(records) != 2 || records[0].Message != 1 || records[1].Kind != TraceAccept || records[1].Message != 2 {
+		t.Fatalf("trace records = %+v, want send serial 1 and accept serial 2", records)
+	}
+	dst.PostMessage(Message{SignalType: "Pong"})
+	if got := dst.PendingMessages()[len(dst.PendingMessages())-1].Serial; got != 3 {
+		t.Errorf("next message serial = %d, want 3", got)
+	}
 }
 
 // A held entry survives a portable image: the copy remains at the same entry
@@ -689,6 +729,297 @@ func TestHeldImageCarriesAPausedAction(t *testing.T) {
 	}
 }
 
+func TestHeldImageCarriesRepeatedActionBarrier(t *testing.T) {
+	const source = `package test {
+		private import ScalarValues::*;
+		part def Repeater {
+			attribute c : Integer = 0;
+			perform action run {
+				first start then a;
+				action a[3] {
+					first start then wait;
+					action wait accept g : Integer;
+					then increment;
+					action increment { assign c := c + 1; }
+					then done;
+				}
+				then done;
+			}
+		}
+	}`
+	index, _, src := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, source))
+	repeater, err := src.Instantiate(findSymbolByName(index.DocumentRoot("<test>"), "Repeater", ast.DefPart))
+	if err != nil {
+		t.Fatalf("Instantiate Repeater: %v", err)
+	}
+	behavior, ok := repeater.Behavior("run")
+	if !ok || behavior.Action == nil {
+		t.Fatal("Repeater has no run action")
+	}
+	action := behavior.Action
+	var repeated ast.Node
+	for _, node := range action.Graph().Nodes {
+		if ActionNodeName(node) == "a" {
+			repeated = node
+			break
+		}
+	}
+	if repeated == nil {
+		t.Fatal("run graph has no repeated a step")
+	}
+	for i := 0; i < 20 && action.State() != StateWaiting; i++ {
+		if err := action.Step(); err != nil {
+			t.Fatalf("Step(source): %v", err)
+		}
+	}
+	if action.State() != StateWaiting {
+		t.Fatalf("source action state = %v, want waiting at repeated accepts", action.State())
+	}
+	repetitions := repetitionsForNode(action.root, repeated)
+	if len(repetitions) != 1 {
+		t.Fatalf("source repetition groups = %d, want one", len(repetitions))
+	}
+	repetition := repetitions[0]
+	if repetition == nil || repetition.remaining != 3 || len(repetition.live) != 3 {
+		t.Fatalf("source repetition barrier = %+v, want three live performances", repetition)
+	}
+
+	dst := imageInto(t, src, repeater)
+	copied, ok := dst.Instance(repeater.ID)
+	if !ok {
+		t.Fatal("image has no copied Repeater")
+	}
+	imagedBehavior, ok := copied.Behavior("run")
+	if !ok || imagedBehavior.Action == nil {
+		t.Fatal("copied Repeater has no run action")
+	}
+	imagedRepetitions := repetitionsForNode(imagedBehavior.Action.root, repeated)
+	if len(imagedRepetitions) != 1 {
+		t.Fatalf("imaged repetition groups = %d, want one", len(imagedRepetitions))
+	}
+	imagedRepetition := imagedRepetitions[0]
+	if imagedRepetition == nil || imagedRepetition.remaining != 3 || len(imagedRepetition.live) != 3 {
+		t.Fatalf("imaged repetition barrier = %+v, want three live performances", imagedRepetition)
+	}
+	value := Value{Kind: ValConst, Const: semantics.Value{Kind: semantics.ValInt, Int: 1}}
+	for i := 0; i < 3; i++ {
+		dst.PostMessage(Message{SignalType: "Integer", Object: copied.ID, Value: &value})
+	}
+	if err := imagedBehavior.Action.RunToCompletion(); err != nil {
+		t.Fatalf("RunToCompletion(imaged): %v", err)
+	}
+	if got := featureInt(t, dst, copied, "c"); got != 3 {
+		t.Errorf("imaged c = %d, want 3", got)
+	}
+}
+
+func TestHeldImageCarriesConcurrentRepeatedActionBarriers(t *testing.T) {
+	const source = `package test {
+		private import ScalarValues::*;
+		part def Repeater {
+			attribute c : Integer = 0;
+			perform action run {
+				first start then split;
+				fork split;
+				action left;
+				action right;
+				merge joined;
+				action p;
+				action a[2] {
+					first start then wait;
+					action wait accept g : Integer;
+					then increment;
+					action increment { assign c := c + 1; }
+					then done;
+				}
+				succession first split then left;
+				succession first split then right;
+				succession first left then joined;
+				succession first right then joined;
+				succession first joined then p;
+				succession first [1] p then [2] a;
+				succession first a then done;
+			}
+		}
+	}`
+	index, _, src := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, source))
+	repeater, err := src.Instantiate(findSymbolByName(index.DocumentRoot("<test>"), "Repeater", ast.DefPart))
+	if err != nil {
+		t.Fatalf("Instantiate Repeater: %v", err)
+	}
+	behavior, ok := repeater.Behavior("run")
+	if !ok || behavior.Action == nil {
+		t.Fatal("Repeater has no run action")
+	}
+	action := behavior.Action
+	var repeated ast.Node
+	for _, node := range action.Graph().Nodes {
+		if ActionNodeName(node) == "a" {
+			repeated = node
+			break
+		}
+	}
+	if repeated == nil {
+		t.Fatal("run graph has no repeated a step")
+	}
+	for i := 0; i < 100; i++ {
+		if len(repetitionsForNode(action.root, repeated)) == 2 && action.State() == StateWaiting {
+			break
+		}
+		if err := action.Step(); err != nil {
+			t.Fatalf("Step(source): %v", err)
+		}
+	}
+	repetitions := repetitionsForNode(action.root, repeated)
+	if len(repetitions) != 2 {
+		t.Fatalf("source repetition groups = %d, want two", len(repetitions))
+	}
+	for _, repetition := range repetitions {
+		if repetition.remaining != 2 || len(repetition.live) != 2 {
+			t.Fatalf("source repetition barrier = %+v, want two live performances", repetition)
+		}
+	}
+	if action.State() != StateWaiting {
+		t.Fatalf("source action state = %v, want waiting at repeated accepts", action.State())
+	}
+
+	dst := imageInto(t, src, repeater)
+	copied, ok := dst.Instance(repeater.ID)
+	if !ok {
+		t.Fatal("image has no copied Repeater")
+	}
+	imagedBehavior, ok := copied.Behavior("run")
+	if !ok || imagedBehavior.Action == nil {
+		t.Fatal("copied Repeater has no run action")
+	}
+	imagedRepetitions := repetitionsForNode(imagedBehavior.Action.root, repeated)
+	if len(imagedRepetitions) != 2 {
+		t.Fatalf("imaged repetition groups = %d, want two", len(imagedRepetitions))
+	}
+	for _, repetition := range imagedRepetitions {
+		if repetition.remaining != 2 || len(repetition.live) != 2 {
+			t.Fatalf("imaged repetition barrier = %+v, want two live performances", repetition)
+		}
+	}
+	value := Value{Kind: ValConst, Const: semantics.Value{Kind: semantics.ValInt, Int: 1}}
+	for i := 0; i < 4; i++ {
+		dst.PostMessage(Message{SignalType: "Integer", Object: copied.ID, Value: &value})
+	}
+	if err := imagedBehavior.Action.RunToCompletion(); err != nil {
+		t.Fatalf("RunToCompletion(imaged): %v", err)
+	}
+	if got := featureInt(t, dst, copied, "c"); got != 4 {
+		t.Errorf("imaged c = %d, want 4", got)
+	}
+}
+
+func TestHeldImageCarriesNestedUnorderedRepeatedActionBarriers(t *testing.T) {
+	const source = `package test {
+		private import ScalarValues::*;
+		part def Repeater {
+			attribute c : Integer = 0;
+			perform action run {
+				action a[2] {
+					action x { assign c := c + 1; }
+					action y {
+						first start then wait;
+						action wait accept g : Integer;
+						then increment;
+						action increment { assign c := c + 1; }
+						then done;
+					}
+				}
+			}
+		}
+	}`
+	index, _, src := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, source))
+	repeater, err := src.Instantiate(findSymbolByName(index.DocumentRoot("<test>"), "Repeater", ast.DefPart))
+	if err != nil {
+		t.Fatalf("Instantiate Repeater: %v", err)
+	}
+	behavior, ok := repeater.Behavior("run")
+	if !ok || behavior.Action == nil {
+		t.Fatal("Repeater has no run action")
+	}
+	action := behavior.Action
+	var repeated ast.Node
+	for _, node := range action.Graph().Nodes {
+		if ActionNodeName(node) == "a" {
+			repeated = node
+			break
+		}
+	}
+	if repeated == nil {
+		t.Fatal("run graph has no repeated a step")
+	}
+	for i := 0; i < 100; i++ {
+		repetitions := repetitionsForNode(action.root, repeated)
+		if len(repetitions) == 1 && repetitions[0].remaining == 2 &&
+			len(repetitions[0].live) == 2 && action.State() == StateWaiting {
+			break
+		}
+		if err := action.Step(); err != nil {
+			t.Fatalf("Step(source): %v", err)
+		}
+	}
+	repetitions := repetitionsForNode(action.root, repeated)
+	if len(repetitions) != 1 {
+		t.Fatalf("source repetition groups = %d, want one", len(repetitions))
+	}
+	group := repetitions[0]
+	if group.remaining != 2 || len(group.live) != 2 {
+		t.Fatalf("source repetition barrier = %+v, want two live performances", group)
+	}
+	for _, performance := range group.live {
+		if performance.live != 1 {
+			t.Errorf("source repeated performance has %d nested tokens, want its accept token still live", performance.live)
+		}
+	}
+	if action.State() != StateWaiting {
+		t.Fatalf("source action state = %v, want waiting at nested accepts", action.State())
+	}
+
+	dst := imageInto(t, src, repeater)
+	copied, ok := dst.Instance(repeater.ID)
+	if !ok {
+		t.Fatal("image has no copied Repeater")
+	}
+	imagedBehavior, ok := copied.Behavior("run")
+	if !ok || imagedBehavior.Action == nil {
+		t.Fatal("copied Repeater has no run action")
+	}
+	imagedRepetitions := repetitionsForNode(imagedBehavior.Action.root, repeated)
+	if len(imagedRepetitions) != 1 || imagedRepetitions[0].remaining != 2 ||
+		len(imagedRepetitions[0].live) != 2 {
+		t.Fatalf("imaged repetition barriers = %+v, want one two-performance barrier", imagedRepetitions)
+	}
+	for _, performance := range imagedRepetitions[0].live {
+		if performance.live != 1 {
+			t.Errorf("imaged repeated performance has %d nested tokens, want its accept token still live", performance.live)
+		}
+	}
+	value := Value{Kind: ValConst, Const: semantics.Value{Kind: semantics.ValInt, Int: 1}}
+	for i := 0; i < 2; i++ {
+		dst.PostMessage(Message{SignalType: "Integer", Object: copied.ID, Value: &value})
+	}
+	if err := imagedBehavior.Action.RunToCompletion(); err != nil {
+		t.Fatalf("RunToCompletion(imaged): %v", err)
+	}
+	if got := featureInt(t, dst, copied, "c"); got != 4 {
+		t.Errorf("imaged c = %d, want 4", got)
+	}
+}
+
+func repetitionsForNode(frame *actionFrame, node ast.Node) []*stepRepetition {
+	var found []*stepRepetition
+	for _, state := range frame.repeats {
+		if state.node == node {
+			found = append(found, state)
+		}
+	}
+	return found
+}
+
 // traversalsEqual reports whether a and b record the same successions by the same tokens.
 func traversalsEqual(a, b []Traversal) bool {
 	return slices.EqualFunc(a, b, func(x, y Traversal) bool {
@@ -1213,8 +1544,8 @@ func heldDigest(ctx *Context, held func(id int64) bool) string {
 				for _, state := range exec.ActiveStates() {
 					active = append(active, StateVertexName(state))
 				}
-				fmt.Fprintf(&b, "    state=%v active=%v queue=%d deferred=%d data=%s\n",
-					exec.State(), active, exec.eventQueue.Len(), len(exec.deferred), formatValues(exec.StateData()))
+				fmt.Fprintf(&b, "    state=%v active=%v queue=%d data=%s\n",
+					exec.State(), active, exec.eventQueue.Len(), formatValues(exec.StateData()))
 			}
 		}
 	}

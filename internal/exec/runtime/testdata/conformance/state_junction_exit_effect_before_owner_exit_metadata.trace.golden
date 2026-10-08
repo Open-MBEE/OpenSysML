@@ -1,0 +1,33 @@
+exit: S111 (exit action)
+stmt action body
+  stmt assign log
+      eval feature log -> ""
+      eval literal "S111(exit);" -> "S111(exit);"
+    eval operator + -> "S111(exit);"
+exit: S11 (exit action)
+stmt action body
+  stmt assign log
+      eval feature log -> "S111(exit);"
+      eval literal "S11(exit);" -> "S11(exit);"
+    eval operator + -> "S111(exit);S11(exit);"
+stmt assign log
+    eval feature log -> "S111(exit);S11(exit);"
+    eval literal "T12(effect);" -> "T12(effect);"
+  eval operator + -> "S111(exit);S11(exit);T12(effect);"
+exit: S1 (exit action)
+stmt action body
+  stmt assign log
+      eval feature log -> "S111(exit);S11(exit);T12(effect);"
+      eval literal "S1(exit);" -> "S1(exit);"
+    eval operator + -> "S111(exit);S11(exit);T12(effect);S1(exit);"
+stmt assign log
+    eval feature log -> "S111(exit);S11(exit);T12(effect);S1(exit);"
+    eval literal "T3(effect);" -> "T3(effect);"
+  eval operator + -> "S111(exit);S11(exit);T12(effect);S1(exit);T3(effect);"
+enter: S2 (entry action)
+stmt action body
+  stmt assign log
+      eval feature log -> "S111(exit);S11(exit);T12(effect);S1(exit);T3(effect);"
+      eval literal "S2(entry);" -> "S2(entry);"
+    eval operator + -> "S111(exit);S11(exit);T12(effect);S1(exit);T3(effect);S2(entry);"
+transition: S111 -> S2 (event: accept Go)

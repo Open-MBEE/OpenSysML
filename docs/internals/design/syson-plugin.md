@@ -3,7 +3,7 @@
 **Date:** 2026-09-20
 **Status:** Discovery, design and implementation notes for `editors/syson/`
 **Scope:** a future `editors/syson/`, the Java client under `client/java/opensysml-client`, the wire in `api/proto/sysml.proto`
-**SysON pinned at:** [`v2026.9.0`](https://github.com/eclipse-syson/syson/releases/tag/v2026.9.0) (commit `ede4fbc43a607720350b850a862211660a99652a`); `main` was one commit ahead of the tag when this was written and differs in nothing this document relies on
+**SysON pinned at:** [`v2026.9.2`](https://github.com/eclipse-syson/syson/releases/tag/v2026.9.2) (commit `4632d8999602f4d43da09dd0db12a75adb47dd30`); the discovery below was conducted against `v2026.9.0`, whose `ErrorPayload.message()` accessor is removed in `v2026.9.2`
 
 ---
 
@@ -438,12 +438,10 @@ What the Batmobile run reports after the fork fixes, attributed:
   mismatches (actors and stakeholders are part usages). `'Drive Batmobile'`
   execution stops at the decision guard because `scanEnvironment.status` is
   never given a value.
-- **OpenSysML runtime.** `ActivateRocketBooster :> 'Activate rocket booster'`
-  inherits the `result` return parameter of the use case def it specializes,
-  and `ActionExecutor.checkResultParameters`
-  (`internal/exec/runtime/action_subflow.go`) rejects inherited as well as
-  declared return parameters: `action ActivateRocketBooster declares 'return
-  result'; write 'out result'`. Not fixed here.
+- **OpenSysML runtime.** The inherited `result` is an output parameter, and
+  `ActivateRocketBooster :> 'Activate rocket booster'` runs to completion.
+  Only a `return` declared in a non-function owner is refused, matching the
+  validator.
 
 Verdicts on standard-library constraints (`ShapeItems`, `Geometry`) that
 `validateInstance` reports carry no SysON element: the library is not part of

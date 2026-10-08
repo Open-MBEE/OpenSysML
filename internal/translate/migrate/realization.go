@@ -22,7 +22,7 @@ const (
 
 // realization decides how ir, owned by the classifier that realizes its
 // contract, is written: a definition specializes an interface of its own kind,
-// a part def carries a port def as a port, and any other pairing is refused.
+// an occurrence def specializes a port def, and a part def carries one as a port.
 // target is the interface, or the port that carries the realization.
 func (m *migration) realization(ir *sysmlv1.Element) (form realizationForm, target *sysmlv1.Element, note string) {
 	client := ir.Parent
@@ -54,6 +54,8 @@ func (m *migration) realization(ir *sysmlv1.Element) (form realizationForm, targ
 	switch {
 	case ccat == tcat && specializable(ccat):
 		return realizeSpecialize, contract, ""
+	case ccat == catOccurrenceDef && tcat == catPortDef:
+		return realizeSpecialize, contract, ""
 	case ccat == catPartDef && tcat == catPortDef:
 		if p := m.portTypedBy(client, contract); p != nil {
 			return realizeCarried, p, "the realization is carried by the port " + m.nameOf(p) + ", which is typed by the interface's port def: a part def cannot specialize a port def"
@@ -77,7 +79,7 @@ func (m *migration) portTypedBy(owner, t *sysmlv1.Element) *sysmlv1.Element {
 // another of the same category with `:>`.
 func specializable(cat category) bool {
 	switch cat {
-	case catPartDef, catPortDef, catAttributeDef, catConstraintDef, catRequirementDef, catConnectionDef,
+	case catPartDef, catOccurrenceDef, catPortDef, catAttributeDef, catConstraintDef, catRequirementDef, catConnectionDef,
 		catVerificationDef, catItemDef, catActionDef, catCalcDef, catStateDef:
 		return true
 	}

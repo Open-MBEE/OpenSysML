@@ -34,6 +34,8 @@ import (
 // none. A binding connector makes a boundary port and an inner port one object,
 // so an accept on either port takes a message that reached the other.
 type Message struct {
+	// Serial is the bus's number for the message, unique within a context's run; 0 for none.
+	Serial     uint64
 	SignalType string
 	// Signal is the definition SignalType resolved to when the send was built,
 	// nil where the message's type is known only as a name. An accept matches it
@@ -53,6 +55,12 @@ type Message struct {
 	Object      int64
 	PortID      int64
 	Delivery    DeliveryKind
+	// TypedByAccept marks a message queued by name alone from outside the model
+	// (QueuedEvent.Signal) that names no signal definition where its sender
+	// stands: the accept that takes it, matching it by name, types it by the
+	// definition the accept's own name denotes in the scope the accept is written
+	// in, so that its payload binds as a sent occurrence's does.
+	TypedByAccept bool
 	// Payload binds features of the message's type by name, as the send's arguments did.
 	Payload map[string]Value
 	// Value is the one value a send of an expression carries (`send 7`, `send d`),
@@ -106,6 +114,8 @@ func (ctx *Context) postFrom(msg Message, from *Instance, behavior *symbols.Symb
 	if msg.Delivery == DeliverAnyone {
 		msg.Delivery = deliveryOf(msg)
 	}
+	ctx.messageSerial++
+	msg.Serial = ctx.messageSerial
 	ctx.messages = append(ctx.messages, msg)
 	ctx.bus.posts++
 	ctx.workChanged()
@@ -122,6 +132,12 @@ func acceptedEventName(msg Message) string {
 		return msg.EventName
 	}
 	return msg.SignalType
+}
+
+// addressedTo reports whether the message was sent to the object itself
+// (`send m to obj`), leaving which of the object's behaviors takes it open.
+func (m Message) addressedTo(object int64) bool {
+	return m.Delivery == DeliverObject && object != 0 && m.Object == object
 }
 
 // deliveryOf is what the fields of a message name as its destination, most
@@ -164,13 +180,16 @@ type busSerials struct {
 // pendingMemo is a machine's memoized poll of the bus for a message it takes:
 // the answer, and the marks it holds under. It stands while nothing it depends on
 // moved: the bus, the machine and what runs under it and, where the scan read
-// them, the objects' data (a via path, an event subsetted, a sibling's guard).
+// them, the objects' data (a via path, an event subsetted, a sibling's guard)
+// and the other behaviors' work (where they are parked, which a drop depends on).
 type pendingMemo struct {
 	valid     bool
 	bus       busSerials
 	writes    uint64
+	work      uint64
 	machine   uint64
 	readsData bool
+	readsWork bool
 	// scanned is how many messages the scan examined; a bus that only grew since
 	// needs the rest examined.
 	scanned int
@@ -182,6 +201,14 @@ type pendingMemo struct {
 func (ctx *Context) notePollReadsData() {
 	if ctx.polling != nil {
 		ctx.polling.readsData = true
+	}
+}
+
+// notePollReadsWork records that the poll under way, if any, read where the
+// other behaviors stand.
+func (ctx *Context) notePollReadsWork() {
+	if ctx.polling != nil {
+		ctx.polling.readsWork = true
 	}
 }
 
@@ -930,7 +957,10 @@ func (ec *EvalContext) boundTargetAddresses(send lower.Send) ([]messageAddress, 
 	if root == thisName {
 		return nil, false, nil
 	}
-	value, bound := ec.Lookup(root)
+	value, bound, err := ec.Lookup(root)
+	if err != nil {
+		return nil, false, err
+	}
 	if !bound {
 		return nil, false, nil
 	}
@@ -1380,12 +1410,28 @@ func (ctx *Context) messageMatches(m Message, want *ast.QualifiedName, scope *sy
 	if want == nil || len(want.Parts) == 0 {
 		return true
 	}
-	if m.Signal != nil && ctx.model.semantics != nil {
-		if wantSym := ctx.triggerType(scope, want); wantSym != nil {
-			return ctx.signalConforms(m.Signal, wantSym)
+	if ctx.model.semantics != nil {
+		if signal := ctx.messageSignal(m, scope); signal != nil {
+			if wantSym := ctx.triggerType(scope, want); wantSym != nil {
+				return ctx.signalConforms(signal, wantSym)
+			}
 		}
 	}
 	return m.SignalType == want.Parts[len(want.Parts)-1].Text
+}
+
+// messageSignal is the definition a message's type is known as to an accept
+// written in scope: the one its send resolved, or, for a message left for the
+// accept to type, the signal definition its name denotes in that scope; nil
+// where the type is a name alone.
+func (ctx *Context) messageSignal(m Message, scope *symbols.Scope) *symbols.Symbol {
+	if m.Signal != nil || !m.TypedByAccept {
+		return m.Signal
+	}
+	if sym := ctx.resolveTypeRef(scope, ast.QualifiedNameOf(strings.Split(m.SignalType, "::")...)); IsSignalDefinition(sym) {
+		return sym
+	}
+	return nil
 }
 
 // triggerTypeKey is a type reference as written in one scope; the model fixes what it denotes.
@@ -1545,6 +1591,31 @@ func (ctx *Context) acceptedValue(msg *Message) (Value, error) {
 	return value, nil
 }
 
+// acceptedValueAs is acceptedValue for the accept, typed as want in scope, that
+// took the message: a message left for the accept to type (TypedByAccept) is
+// typed by the definition its own name denotes there — a subtype the accept
+// took by conformance stays that subtype — or, failing that, by the one want
+// denotes, before its value is built; one naming no signal definition even
+// there is bound as it is.
+func (ctx *Context) acceptedValueAs(msg *Message, want *ast.QualifiedName, scope *symbols.Scope) (Value, error) {
+	if msg.TypedByAccept && msg.Signal == nil && msg.Value == nil {
+		sym := ctx.messageSignal(*msg, scope)
+		if sym == nil && want != nil {
+			if w := ctx.triggerType(scope, want); IsSignalDefinition(w) {
+				sym = w
+			}
+		}
+		if sym != nil {
+			typed, err := ctx.SignalMessage(sym, msg.Payload, nil)
+			if err != nil {
+				return Value{}, err
+			}
+			msg.Signal, msg.Payload = typed.Signal, typed.Payload
+		}
+	}
+	return ctx.acceptedValue(msg)
+}
+
 // materializeAccepted builds the occurrence an accept binds a typed message as.
 func (ctx *Context) materializeAccepted(msg Message) (Value, error) {
 	value, err := ctx.materializeMessage(msg)
@@ -1583,7 +1654,7 @@ func (ctx *Context) materializeMessage(msg Message) (Value, error) {
 			}
 			written[fv] = name
 		}
-		if err := inst.SetFeatureValue(ctx, name, msg.Payload[name]); err != nil {
+		if err := inst.BindFeatureValue(ctx, name, msg.Payload[name]); err != nil {
 			ctx.abandonInstancesSince(mark)
 			return Value{}, err
 		}

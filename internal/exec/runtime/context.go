@@ -3,9 +3,12 @@ package runtime
 import (
 	"errors"
 	"fmt"
+	"math"
 	"slices"
 	"strings"
+	"sync/atomic"
 
+	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
@@ -27,7 +30,12 @@ type Context struct {
 	took      *idMark
 	maxSteps  int64
 	instances map[int64]*Instance
-	created   []int64
+	// interrupt, when set, stops every run at its next step once raised: a
+	// shared flag, so a driver stops runs under way without holding them.
+	interrupt *atomic.Bool
+	// flowShares caches, by graph, whether two moves of its flow may touch what another does.
+	flowShares map[*lower.ActionGraph]bool
+	created    []int64
 	// lives holds, per registered object, when it began and ended (lifetimes.go).
 	lives map[int64]life
 	// lifetimes stands for the lives as a `=` value reads them, to derive again when they change.
@@ -74,6 +82,11 @@ type Context struct {
 	// occurrences holds the objects each usage carrying no value of its own denotes, in
 	// declaration order: one for a usage of one occurrence, its lower bound for a collection.
 	occurrences map[*symbols.Symbol][]int64
+	// occurrenceTails holds, per usage whose lower bound is held lazily, the members past the recorded occurrences.
+	occurrenceTails map[*symbols.Symbol]*requiredMembers
+	// required holds the lazily held populations (required.go) by first identity, so an
+	// identity reserved for a member is reached as that member.
+	required []*requiredMembers
 	// namespaceBindings holds the value each namespace-level object usage given a value
 	// denotes, so every read of it reads the one binding rather than evaluating it anew.
 	namespaceBindings map[*symbols.Symbol]Value
@@ -123,6 +136,9 @@ type Context struct {
 	// re-scans its types and must not attach the same member again.
 	attachingBehaviors map[*Instance]map[*symbols.Symbol]bool
 
+	// successionOrderNotes deduplicates succession notes per order and featuring object.
+	successionOrderNotes map[successionOrderNoteKey]bool
+
 	// behaviorRunDepth is the number of classifier-behavior starts under way.
 	behaviorRunDepth int
 
@@ -165,6 +181,9 @@ type Context struct {
 	// maxSweepRuns bounds the runs one parameter sweep or sample asks for.
 	maxSweepRuns int64
 
+	// maxIntegerBits bounds the magnitude, in bits, of one Integer a run computes.
+	maxIntegerBits int64
+
 	// freeInvocationFrames are the frames of returned calc invocations, kept so a
 	// recursion reuses storage rather than allocating per call.
 	freeInvocationFrames []*invocationFrame
@@ -189,6 +208,14 @@ type Context struct {
 
 	// probes is the number of probes under way; see beginProbe.
 	probes int
+	// statementOrderSweep resolves statement-order choices locally while a probe
+	// enumerates the orders it can observe.
+	statementOrderSweep       *statementOrderSweep
+	statementOrderGuard       bool
+	statementOrderGuardLabel  string
+	statementOrderGuardBodies map[string]bool
+	invocationOrderMemo       *invocationOrderMemo
+	orderAnalysis             map[*symbols.Symbol]*bodyOrderAnalysis
 	// journals is the number of probes and transactions under way: while one is,
 	// every change is journaled for it to undo; see beginJournal.
 	journals int
@@ -253,7 +280,8 @@ type Context struct {
 
 	// messages are the signals in flight, oldest first. The bus is context-wide,
 	// so a message one behavior sends can be accepted in another.
-	messages []Message
+	messages      []Message
+	messageSerial uint64
 	// bus counts what changed the messages in flight; writes counts the feature
 	// values written or restored. A machine's poll of the bus is memoized on them.
 	bus    busSerials
@@ -268,6 +296,9 @@ type Context struct {
 	// clockRun the run an advance of it draws its due-order choices from.
 	clock    Clock
 	clockRun executorRun
+	// futures memoizes what each executor on the clock may still touch, for
+	// telling the turns whose moves interleave.
+	futures *futureFootprints
 	// work counts the changes that can leave an attached behavior holding work;
 	// quiescent is the memo a full scan leaves when it finds them all idle.
 	work      uint64
@@ -285,6 +316,16 @@ type Context struct {
 	// readingSubsetted holds the optional features whose subsetted collections are
 	// being read ahead of them, so two subsetting each other do not recurse.
 	readingSubsetted map[featureValueRef]bool
+
+	// resolvingNamespaceClasses holds the namespace binding classes being resolved, so
+	// a member read while one is under way resolves as usual rather than recursing.
+	resolvingNamespaceClasses map[*namespaceClass]bool
+	// namespaceChainReads holds the classes whose chain ends are being evaluated:
+	// such a read of a member of the same class is a cyclic dependency.
+	namespaceChainReads map[*namespaceClass]bool
+	// namespaceCollecting holds the namespace usages whose subsetting usages are
+	// being read, so two subsetting each other are reported as a cycle.
+	namespaceCollecting map[*symbols.Symbol]bool
 }
 
 // featureValueRef identifies one feature value of one instance.
@@ -343,8 +384,10 @@ func NewContext(model *Model, maxSteps int64) *Context {
 		maxElements:    DefaultMaxElements,
 		maxCalcDepth:   DefaultMaxCalcDepth,
 		maxSweepRuns:   DefaultMaxSweepRuns,
+		maxIntegerBits: DefaultMaxIntegerBits,
 
 		occurrences:       make(map[*symbols.Symbol][]int64),
+		occurrenceTails:   make(map[*symbols.Symbol]*requiredMembers),
 		namespaceBindings: make(map[*symbols.Symbol]Value),
 		bindingReads:      make(map[*symbols.Symbol]*bindingReads),
 		metadataObjects:   make(map[metadataAnnotation]int64),
@@ -357,6 +400,11 @@ func NewContext(model *Model, maxSteps int64) *Context {
 		bindingOwners:           make(map[featureValueRef]*ast.Usage),
 		collectingSubsets:       make(map[featureValueRef]bool),
 		readingSubsetted:        make(map[featureValueRef]bool),
+		successionOrderNotes:    make(map[successionOrderNoteKey]bool),
+
+		resolvingNamespaceClasses: make(map[*namespaceClass]bool),
+		namespaceChainReads:       make(map[*namespaceClass]bool),
+		namespaceCollecting:       make(map[*symbols.Symbol]bool),
 
 		shareDefaults:  SharedDefaultsFromEnv(),
 		sharedDefaults: make(map[sharedKey]*sharedDefault),
@@ -630,6 +678,13 @@ func (s *idSequence) release(ctx *Context, id int64) {
 // holdsIdentityFrom reports whether an object, or a connector one set aside,
 // holds an identity at or past id.
 func (ctx *Context) holdsIdentityFrom(id int64) bool {
+	for _, r := range ctx.required {
+		if r.first+r.count > id {
+			if _, live := ctx.requiredOf(r.first); live {
+				return true
+			}
+		}
+	}
 	for held, inst := range ctx.instances {
 		if held >= id {
 			return true
@@ -714,7 +769,7 @@ func (ctx *Context) leaveRun() {
 
 // beginRun starts a run and returns the function that ends it: a top-level run
 // starts on a fresh state, so the budget bounds one run, not a whole session.
-// No body around the run pauses for a wait under it (syncBoundary).
+// An enclosing body does not drive this run; its own token bodies may pause on waits.
 func (ctx *Context) beginRun() func() {
 	leave := ctx.nestRun()
 	restore := ctx.syncBoundary()
@@ -981,12 +1036,29 @@ func (ctx *Context) endActivation(activation int64) {
 
 // incrementStep increments the step counter and returns ErrStepLimitExceeded if limit reached.
 // The error names the effective budget and the variable that raises it.
+// The counter saturates at the int64 maximum rather than overflow.
 func (ctx *Context) incrementStep() error {
-	ctx.run.steps++
-	if ctx.run.steps > ctx.maxSteps {
+	if ctx.interrupted() {
+		return ErrInterrupted
+	}
+	if ctx.run.steps >= ctx.maxSteps {
+		if ctx.run.steps < math.MaxInt64 {
+			ctx.run.steps++
+		}
 		return ctx.stepLimitExceeded()
 	}
+	ctx.run.steps++
 	return nil
+}
+
+// SetInterrupt installs the flag that stops this context's runs: once it is
+// raised, the next evaluation step, action step or state machine unit fails
+// with ErrInterrupted. The flag is shared, and the driver lowers it again.
+func (ctx *Context) SetInterrupt(flag *atomic.Bool) { ctx.interrupt = flag }
+
+// interrupted reports whether the interrupt flag is raised.
+func (ctx *Context) interrupted() bool {
+	return ctx.interrupt != nil && ctx.interrupt.Load()
 }
 
 // stepLimitExceeded reports the step budget spent, naming the variable that raises
@@ -1069,8 +1141,15 @@ func (ctx *Context) instanceRoom() error {
 
 // getInstance retrieves an instance by ID.
 func (ctx *Context) getInstance(id int64) (*Instance, bool) {
-	inst, ok := ctx.instances[id]
-	return inst, ok
+	if inst, ok := ctx.instances[id]; ok {
+		return inst, true
+	}
+	if r, ok := ctx.requiredOf(id); ok {
+		if inst, err := ctx.requiredMember(r, id); err == nil {
+			return inst, true
+		}
+	}
+	return nil, false
 }
 
 // registerInstance stores an instance in the registry.
@@ -1549,7 +1628,7 @@ func (ctx *Context) ExecuteActionPerformedBy(action *symbols.Symbol, self *Insta
 		return nil, err
 	}
 	// Return the values the action's features hold once it completed
-	return exec.Results(), nil
+	return exec.ResultsWithError()
 }
 
 // ActionOutcomePerformedBy runs an action as ExecuteActionPerformedBy does and reports
@@ -1569,7 +1648,11 @@ func (ctx *Context) ExecuteActionReportingPerformer(action *symbols.Symbol, self
 	if err != nil {
 		return nil, nil, err
 	}
-	return exec.Results(), (&Invocation{Actions: []*ActionExecutor{exec}}).PerformerAttributes(), nil
+	outputs, err = exec.ResultsWithError()
+	if err != nil {
+		return nil, nil, err
+	}
+	return outputs, (&Invocation{Actions: []*ActionExecutor{exec}}).PerformerAttributes(), nil
 }
 
 // performAction runs action to completion, performed by self, and returns the
@@ -1603,7 +1686,7 @@ func startActionStep(exec *ActionExecutor) error {
 
 // performActionFrom creates the executor for a performance of performed running
 // action, seeds its inputs, starts it with start, and runs it to completion; the
-// clock drives it no further, and no body around it pauses for its waits.
+// clock drives it no further, and an enclosing body does not drive its waits.
 func (ctx *Context) performActionFrom(performed, action *symbols.Symbol, self *Instance, inputs map[string]Value, start func(*ActionExecutor) error) (*ActionExecutor, error) {
 	top := ctx.runDepth == 0
 	defer ctx.beginRun()()
@@ -1625,7 +1708,8 @@ func (ctx *Context) performActionFrom(performed, action *symbols.Symbol, self *I
 func (ctx *Context) beginPerformed(performed, action *symbols.Symbol, self *Instance, inputs map[string]Value, top bool, listener *outputListener, start func(*ActionExecutor) error) (*ActionExecutor, error) {
 	exec, err := newActionExecutorOf(ctx, performed, action, self, nil)
 	if err != nil {
-		return nil, fmt.Errorf("create action executor: %w", err)
+		err = fmt.Errorf("create action executor: %w", err)
+		return nil, rootActionError(nil, err, top)
 	}
 	exec.beginsRun = top
 	if listener != nil {
@@ -1642,9 +1726,16 @@ func (ctx *Context) beginPerformed(performed, action *symbols.Symbol, self *Inst
 
 	if err := ctx.startAction(exec, start); err != nil {
 		ctx.clock.detach(exec)
-		return nil, err
+		return nil, rootActionError(exec, err, top)
 	}
 	return exec, nil
+}
+
+func rootActionError(exec *ActionExecutor, err error, top bool) error {
+	if !top || exec != nil && exec.tool != nil {
+		return err
+	}
+	return wrapSetupError(err)
 }
 
 // runPerformed runs a performance beginPerformed started to completion, after
@@ -1742,7 +1833,11 @@ func (ctx *Context) ExecuteStatePerformedBy(stateMachine *symbols.Symbol, self *
 		return nil, nil, err
 	}
 	// Return state machine data and the real ordered visit trace
-	return exec.StateData(), exec.GetStateVisits(), nil
+	data, err := exec.StateDataWithError()
+	if err != nil {
+		return nil, nil, err
+	}
+	return data, exec.GetStateVisits(), nil
 }
 
 // StateOutcomeWithEvents runs a state machine as ExecuteStateWithEvents does and
@@ -1756,6 +1851,9 @@ func (ctx *Context) StateOutcomeWithEvents(stateMachine *symbols.Symbol, events 
 func (ctx *Context) StateOutcomePerformedBy(stateMachine *symbols.Symbol, self *Instance, events []string) (Outcome, error) {
 	exec, err := ctx.performState(stateMachine, self, events)
 	if err != nil {
+		return Outcome{}, err
+	}
+	if _, err := exec.StateDataWithError(); err != nil {
 		return Outcome{}, err
 	}
 	return (&Invocation{States: []*StateExecutor{exec}}).Outcome(), nil
@@ -1828,7 +1926,7 @@ func behaviorUsages(behaviors []*ObjectBehavior) []string {
 
 // exhibitedBy is the machine self exhibits under stateMachine's declaration, to
 // run in place of a second performance of it; nil when self exhibits none.
-func exhibitedBy(stateMachine *symbols.Symbol, self *Instance) (*StateExecutor, error) {
+func exhibitedBy(stateMachine *symbols.Symbol, self *Instance) (*ObjectBehavior, error) {
 	if self == nil {
 		return nil, nil
 	}
@@ -1836,10 +1934,48 @@ func exhibitedBy(stateMachine *symbols.Symbol, self *Instance) (*StateExecutor, 
 	case 0:
 		return nil, nil
 	case 1:
-		return exhibited[0].State, nil
+		return exhibited[0], nil
 	default:
 		return nil, fmt.Errorf("%w: the object exhibits %s as %s", ErrAmbiguousMachine, symbolText(stateMachine), strings.Join(behaviorUsages(exhibited), " and "))
 	}
+}
+
+func (ctx *Context) checkStateSuccessionOrder(stateMachine *symbols.Symbol, self *Instance, behavior *ObjectBehavior) error {
+	if self == nil || ctx.declarative {
+		return nil
+	}
+	member := ctx.classifierBehaviorMemberForState(stateMachine, self)
+	if behavior != nil && behavior.member != nil {
+		member = behavior.member
+	}
+	if member == nil {
+		return nil
+	}
+	return ctx.checkSuccessionOrderViolation(self, member)
+}
+
+func (ctx *Context) stateRunFor(stateMachine *symbols.Symbol, self *Instance, top bool) (*StateExecutor, bool, error) {
+	behavior, err := exhibitedBy(stateMachine, self)
+	if err != nil {
+		return nil, false, err
+	}
+	if behavior != nil && behavior.State != nil {
+		return behavior.State, true, nil
+	}
+	if behavior != nil && behavior.deferred != nil {
+		if err := ctx.checkStateSuccessionOrder(stateMachine, self, behavior); err != nil {
+			return nil, true, err
+		}
+		if err := ctx.releaseDeferredBehavior(behavior); err != nil {
+			return behavior.State, true, err
+		}
+		return behavior.State, true, nil
+	}
+	if err := ctx.checkStateSuccessionOrder(stateMachine, self, behavior); err != nil {
+		return nil, false, err
+	}
+	exec, err := ctx.startStateRun(stateMachine, self, top)
+	return exec, false, err
 }
 
 // performState runs a state machine performed by self to completion or
@@ -1849,18 +1985,15 @@ func (ctx *Context) performState(stateMachine *symbols.Symbol, self *Instance, e
 	top := ctx.runDepth == 0
 	defer ctx.beginRun()()
 
-	exec, err := exhibitedBy(stateMachine, self)
+	exec, reused, err := ctx.stateRunFor(stateMachine, self, top)
 	if err != nil {
+		if exec != nil && !reused {
+			ctx.clock.detach(exec)
+		}
 		return nil, err
 	}
-	if exec == nil {
-		if exec, err = newStateExecutor(ctx, stateMachine, self); err != nil {
-			return nil, fmt.Errorf("create state executor: %w", err)
-		}
+	if !reused {
 		defer ctx.clock.detach(exec)
-		if err := exec.initialize(); err != nil {
-			return nil, fmt.Errorf("initialize state machine: %w", err)
-		}
 	}
 
 	// Inject external signal events. Each event name is treated as a signal type
@@ -1874,6 +2007,28 @@ func (ctx *Context) performState(stateMachine *symbols.Symbol, self *Instance, e
 	}
 	if err := ctx.followedWhole(top); err != nil {
 		return nil, err
+	}
+	return exec, nil
+}
+
+func (ctx *Context) startStateRun(stateMachine *symbols.Symbol, self *Instance, top bool) (*StateExecutor, error) {
+	exec, err := newStateExecutor(ctx, stateMachine, self)
+	if err != nil {
+		err = fmt.Errorf("create state executor: %w", err)
+		if top {
+			err = wrapSetupError(err)
+		}
+		return nil, err
+	}
+	if err := exec.checkStart(); err != nil {
+		err = fmt.Errorf("initialize state machine: %w", err)
+		if top {
+			err = wrapSetupError(err)
+		}
+		return exec, err
+	}
+	if err := exec.initialize(); err != nil {
+		return exec, fmt.Errorf("initialize state machine: %w", err)
 	}
 	return exec, nil
 }
@@ -1895,9 +2050,14 @@ func (ctx *Context) CreateActionExecutorFor(action *symbols.Symbol, self *Instan
 // performed by self with its inputs bound ahead of its defaults, without
 // starting execution.
 func (ctx *Context) CreateActionExecutorWithInputs(action *symbols.Symbol, self *Instance, inputs map[string]Value) (*ActionExecutor, error) {
+	if member := ctx.classifierBehaviorMemberForAction(action, self); member != nil {
+		if err := ctx.checkSuccessionOrderViolation(self, member); err != nil {
+			return nil, rootActionError(nil, err, true)
+		}
+	}
 	exec, err := newActionExecutor(ctx, action, self)
 	if err != nil {
-		return nil, fmt.Errorf("create action executor: %w", err)
+		return nil, rootActionError(nil, fmt.Errorf("create action executor: %w", err), true)
 	}
 	exec.beginsRun = true
 	if len(inputs) > 0 {
@@ -1906,7 +2066,7 @@ func (ctx *Context) CreateActionExecutorWithInputs(action *symbols.Symbol, self 
 
 	if err := ctx.startAction(exec, (*ActionExecutor).initialize); err != nil {
 		exec.Release()
-		return nil, err
+		return nil, rootActionError(exec, err, true)
 	}
 
 	return exec, nil
@@ -1921,16 +2081,24 @@ func (ctx *Context) CreateStateExecutor(stateMachine *symbols.Symbol) (*StateExe
 // CreateStateExecutorFor creates a state executor for a machine performed by
 // self, without starting execution.
 func (ctx *Context) CreateStateExecutorFor(stateMachine *symbols.Symbol, self *Instance) (*StateExecutor, error) {
-	exec, err := newStateExecutor(ctx, stateMachine, self)
+	if self != nil {
+		if err := ctx.checkPerformer(self); err != nil {
+			return nil, err
+		}
+	}
+	behavior, err := exhibitedBy(stateMachine, self)
 	if err != nil {
-		return nil, fmt.Errorf("create state executor: %w", err)
+		return nil, err
 	}
-
-	// Initialize (enters initial state, schedules initial events)
-	if err := exec.initialize(); err != nil {
-		exec.Release()
-		return nil, fmt.Errorf("initialize state machine: %w", err)
+	if err := ctx.checkStateSuccessionOrder(stateMachine, self, behavior); err != nil {
+		return nil, err
 	}
-
+	exec, err := ctx.startStateRun(stateMachine, self, true)
+	if err != nil {
+		if exec != nil {
+			exec.Release()
+		}
+		return nil, err
+	}
 	return exec, nil
 }

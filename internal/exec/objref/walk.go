@@ -61,18 +61,25 @@ func (w Walker) Walk(inst *runtime.Instance, label string, segments []Segment) (
 		var val runtime.Value
 		next := label + "." + source.NameText(seg.Name)
 		if fv.Values.Kind != runtime.ValInvalid {
-			elements := CollectionElements(fv.Values)
+			count := int(runtime.ElementCount(fv.Values))
+			if fv.Values.Kind == runtime.ValNull {
+				count = 0
+			}
 			switch {
-			case len(elements) == 0:
+			case count == 0:
 				return nil, "", pathError(label, seg, "%s of %s holds no objects", source.NameText(seg.Name), label)
 			case seg.Index == 0:
 				return nil, "", pathError(label, seg, "%s of %s holds %d %s: pick one by index, %s[1] to %s[%d]",
-					source.NameText(seg.Name), label, len(elements), plural(len(elements), "object", "objects"), source.NameText(seg.Name), source.NameText(seg.Name), len(elements))
-			case seg.Index > len(elements):
+					source.NameText(seg.Name), label, count, plural(count, "object", "objects"), source.NameText(seg.Name), source.NameText(seg.Name), count)
+			case seg.Index > count:
 				return nil, "", pathError(label, seg, "%s of %s holds %d %s, so %s names none (indexes run from 1 to %d)",
-					source.NameText(seg.Name), label, len(elements), plural(len(elements), "object", "objects"), seg.Text, len(elements))
+					source.NameText(seg.Name), label, count, plural(count, "object", "objects"), seg.Text, count)
 			}
-			val = elements[seg.Index-1]
+			if val, err = ctx.ElementAt(fv.Values, seg.Index-1); err != nil {
+				perr := pathError(label, seg, "%s of %s could not be materialized: %v", seg.Text, label, err)
+				perr.Err = err
+				return nil, "", perr
+			}
 			next = fmt.Sprintf("%s[%d]", next, seg.Index)
 		} else {
 			if seg.Index > 0 {
@@ -108,19 +115,20 @@ func (w Walker) format(val runtime.Value) string {
 }
 
 // CollectionElements is what a multi-valued feature holds, in order; its
-// contents are either a sequence or a set.
-func CollectionElements(val runtime.Value) []runtime.Value {
+// contents are either a sequence or a set. Listing more required members than
+// rt's element budget allows is ErrElementLimitExceeded.
+func CollectionElements(rt *runtime.Context, val runtime.Value) ([]runtime.Value, error) {
 	switch val.Kind {
 	case runtime.ValSequence:
 		if val.Sequence() != nil {
-			return val.Sequence().Elements()
+			return rt.HeldElements(val)
 		}
 	case runtime.ValSet:
 		if val.Set() != nil {
-			return val.Set().Elements()
+			return val.Set().Elements(), nil
 		}
 	}
-	return nil
+	return nil, nil
 }
 
 // featureListLimit bounds the features an unknown-feature error lists.

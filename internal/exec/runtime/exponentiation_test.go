@@ -37,10 +37,10 @@ func TestExponentiationRuntimeMatchesFolding(t *testing.T) {
 		{"2 ** 10", []Value{constInt(2), constInt(10)}, semantics.Value{Kind: semantics.ValInt, Int: 1024}},
 		{"2 ^ 3", []Value{constInt(2), constInt(3)}, semantics.Value{Kind: semantics.ValInt, Int: 8}},
 		{"7 ** 0", []Value{constInt(7), constInt(0)}, semantics.Value{Kind: semantics.ValInt, Int: 1}},
-		{"2 ** -1", []Value{constInt(2), constInt(-1)}, semantics.Value{Kind: semantics.ValReal, Real: 0.5}},
+		{"2 ** -1", []Value{constInt(2), constInt(-1)}, constRat("1/2").Const},
 		{"2.0 ** 0.5", []Value{constReal(2), constReal(0.5)}, semantics.Value{Kind: semantics.ValReal, Real: math.Sqrt2}},
 		{"9 ** 0.5", []Value{constInt(9), constReal(0.5)}, semantics.Value{Kind: semantics.ValReal, Real: 3}},
-		{"2.5 ** 2", []Value{constReal(2.5), constInt(2)}, semantics.Value{Kind: semantics.ValReal, Real: 6.25}},
+		{"2.5 ** 2", []Value{constRat("2.5"), constInt(2)}, constRat("25/4").Const},
 	}
 
 	model, resolver, root := parseAndBuildModel(t, powerModel)
@@ -78,7 +78,7 @@ func TestExponentiationErrorsAtEvaluation(t *testing.T) {
 	}{
 		{"zero to a negative power", []Value{constReal(0), constReal(-1)}, semantics.ErrArithmeticDomain},
 		{"negative base, fractional exponent", []Value{constReal(-2), constReal(0.5)}, semantics.ErrArithmeticDomain},
-		{"integer overflow", []Value{constInt(math.MaxInt64), constInt(2)}, semantics.ErrArithmeticOverflow},
+		{"integer beyond the size budget", []Value{constInt(2), constInt(semantics.DefaultMaxIntegerBits)}, semantics.ErrIntegerSizeLimit},
 		{"real overflow", []Value{constReal(1e300), constReal(2)}, semantics.ErrArithmeticOverflow},
 		{"boolean operand", []Value{boolValue(true), constInt(2)}, semantics.ErrArithmeticDomain},
 		{"string operand", []Value{NewStringValue("2"), constInt(2)}, ErrTypeMismatch},

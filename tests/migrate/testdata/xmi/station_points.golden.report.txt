@@ -1,5 +1,5 @@
 # SysML v1 to v2 migration report: station_points.xmi
-# migrated 126 element(s): 96 mapped, 26 approximated, 4 unmapped (0 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)
+# migrated 126 element(s): 97 mapped, 25 approximated, 4 unmapped (0 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)
 
 ## unmapped (4)
 SignalEvent	<SignalEvent>	_skipEv	(every trigger referring to the event is dropped: it belongs to a behavior that is not written, or to an initial transition)
@@ -7,8 +7,7 @@ Transition	Station::Cycle::main::<Transition>	_tSkip	(the target 'Through' has n
 Pseudostate	Station::Cycle::main::Work::Through	_through	((_tThrough) leads from the entry point straight to the exit point 'Leave' of the same state, crossing it without settling in it; the runtime would then run neither its entry nor its exit behavior)
 Transition	Station::Cycle::main::Work::steps::<Transition>	_tThrough	(the source 'Through' has no v2 form: (_tThrough) leads from the entry point straight to the exit point 'Leave' of the same state, crossing it without settling in it; the runtime would then run neither its entry nor its exit behavior)
 
-## approximated (26)
-Class	Station	_station	-> Station	(a plain UML class without «Block» is written as a part def)
+## approximated (25)
 StateMachine	Station::Cycle	_cycle	-> Station::Cycle	(acts on its owner Station, which it takes as its parameter context, since its this is the def's own occurrence; the classifier behavior is run by every object of Station as its usage cycle)
 OpaqueBehavior	Station::Cycle::main::<Transition>::<OpaqueBehavior>	_goEff	-> Station::Cycle::unnamed::unnamed	(the JavaScript body is translated to v2; the JavaScript body is written as v2 assignments)
 OpaqueBehavior	Station::Cycle::main::<Transition>::<OpaqueBehavior>	_diveEff	-> Station::Cycle::unnamed2::unnamed	(the JavaScript body is translated to v2; the JavaScript body is written as v2 assignments)
@@ -35,7 +34,7 @@ OpaqueBehavior	Station::Cycle::main::Work::steps::Run::pace::<Transition>::<Opaq
 OpaqueBehavior	Station::Cycle::main::Work::steps::Run::pace::<Transition>::<OpaqueBehavior>	_backEff	-> Station::Cycle::Work::Run::unnamed2::unnamed	(the JavaScript body is translated to v2; the JavaScript body is written as v2 assignments)
 OpaqueBehavior	Station::Cycle::main::Work::steps::Run::pace::Fast::<OpaqueBehavior>	_fastEntry	-> Station::Cycle::Work::Run::Fast::unnamed	(the JavaScript body is translated to v2; the JavaScript body is written as v2 assignments)
 
-## mapped (96)
+## mapped (97)
 SignalEvent	<SignalEvent>	_backEv	(written where a trigger refers to it, as accept Back)
 SignalEvent	<SignalEvent>	_nextEv	(written where a trigger refers to it, as accept Next)
 SignalEvent	<SignalEvent>	_finishEv	(written where a trigger refers to it, as accept Finish)
@@ -59,6 +58,7 @@ Signal	Pair	_pair	-> Pair
 Signal	Resume	_resume	-> Resume
 Signal	Skip	_skip	-> Skip
 Signal	Split	_split	-> Split
+Class	Station	_station	-> Station
 Region	Station::Cycle::main	_main	(the one region is written as the body of its owner)
 Pseudostate	Station::Cycle::main::<Pseudostate>	_init0	(written as the entry of the region)
 Transition	Station::Cycle::main::<Transition>	_t0
@@ -105,9 +105,9 @@ Trigger	Station::Cycle::main::Sync::b::<Transition>::<Trigger>	_trB
 State	Station::Cycle::main::Sync::b::B0	_b0	-> B0
 State	Station::Cycle::main::Sync::b::B1	_b1	-> B1
 State	Station::Cycle::main::Work	_work	-> Work
-Pseudostate	Station::Cycle::main::Work::Leave	_leave	-> Leave	(written as a junction of its state; a transition leaving through it runs the transition into the junction, the state's exit behavior, then the transition leaving it)
+Pseudostate	Station::Cycle::main::Work::Leave	_leave	-> Leave	(written as a `#StateMachines::junction state` of its state; a transition leaving through it runs the transition into the junction, the state's exit behavior, then the transition leaving it)
 Pseudostate	Station::Cycle::main::Work::Plain	_plain	-> Work	(no transition leaves the entry point, so entering through it enters 'Work' by its default entry; a transition to it is written to the state)
-Pseudostate	Station::Cycle::main::Work::Start	_start	-> Start	(written as a junction of its state; a transition entering through it runs the state's entry behavior, then the transition leaving the junction)
+Pseudostate	Station::Cycle::main::Work::Start	_start	-> Start	(written as a `#StateMachines::junction state` of its state; a transition entering through it runs the state's entry behavior, then the transition leaving the junction)
 Region	Station::Cycle::main::Work::steps	_steps	(the one region is written as the body of its owner)
 Pseudostate	Station::Cycle::main::Work::steps::<Pseudostate>	_initW	(written as the entry of the region)
 Transition	Station::Cycle::main::Work::steps::<Transition>	_tWi
@@ -117,11 +117,11 @@ Transition	Station::Cycle::main::Work::steps::<Transition>	_tFinish	(the target 
 Transition	Station::Cycle::main::Work::steps::<Transition>	_tOut	(the source 'Out' lies in another region and is named by its path Run.Out)
 Trigger	Station::Cycle::main::Work::steps::<Transition>::<Trigger>	_trNext
 Trigger	Station::Cycle::main::Work::steps::<Transition>::<Trigger>	_trFinish
-Pseudostate	Station::Cycle::main::Work::steps::H	_hist	-> H	(written as a shallow history, which re-enters the substate active when its state was last left)
+Pseudostate	Station::Cycle::main::Work::steps::H	_hist	-> H	(written as a `#StateMachines::shallowHistory state` shallow history, which re-enters the substate active when its state was last left)
 State	Station::Cycle::main::Work::steps::Prep	_prep	-> Prep
 State	Station::Cycle::main::Work::steps::Run	_run	-> Run
-Pseudostate	Station::Cycle::main::Work::steps::Run::Deep	_deep	-> Deep	(written as a junction of its state; a transition entering through it runs the state's entry behavior, then the transition leaving the junction)
-Pseudostate	Station::Cycle::main::Work::steps::Run::Out	_out	-> Out	(written as a junction of its state; a transition leaving through it runs the transition into the junction, the state's exit behavior, then the transition leaving it)
+Pseudostate	Station::Cycle::main::Work::steps::Run::Deep	_deep	-> Deep	(written as a `#StateMachines::junction state` of its state; a transition entering through it runs the state's entry behavior, then the transition leaving the junction)
+Pseudostate	Station::Cycle::main::Work::steps::Run::Out	_out	-> Out	(written as a `#StateMachines::junction state` of its state; a transition leaving through it runs the transition into the junction, the state's exit behavior, then the transition leaving it)
 Region	Station::Cycle::main::Work::steps::Run::pace	_pace	(the one region is written as the body of its owner)
 Pseudostate	Station::Cycle::main::Work::steps::Run::pace::<Pseudostate>	_initR	(written as the entry of the region)
 Transition	Station::Cycle::main::Work::steps::Run::pace::<Transition>	_tRi

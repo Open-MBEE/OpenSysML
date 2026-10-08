@@ -1,6 +1,7 @@
 """Connection class for communicating with sysml-grpc service."""
 
 import atexit
+from fractions import Fraction
 import grpc
 import os
 import queue
@@ -36,19 +37,25 @@ from opensysml.capabilities import (
     CAPABILITY_STRICT_CONFORMANCE,
     CAPABILITY_COMPLEX_VALUES,
     CAPABILITY_CONVERT,
+    CAPABILITY_MIGRATE,
     CAPABILITY_DOCUMENT_QUERY,
     CAPABILITY_ENGINES,
     CAPABILITY_EVALUATE_SUBJECT,
     CAPABILITY_FEATURE_VALUES,
     CAPABILITY_FUNCTION_VALUES,
     CAPABILITY_IMPLICIT_PARAMETERS,
+    CAPABILITY_BIG_INT_VALUES,
+    CAPABILITY_RATIONAL_VALUES,
     CAPABILITY_INFINITY_VALUE,
     CAPABILITY_MEASUREMENT_REFS,
     CAPABILITY_METAOBJECT_VALUES,
     CAPABILITY_PERFORMER,
+    CAPABILITY_STATE_TRACE,
     CAPABILITY_QUERY,
     CAPABILITY_RENDER_DOCUMENT,
     CAPABILITY_RENDER_DOCUMENT_HTML,
+    CAPABILITY_RENDER_VIEW,
+    CAPABILITY_EXPORT_GRAPHS,
     CAPABILITY_SCHEDULE,
     CAPABILITY_SCHEDULE_EXPLORE,
     CAPABILITY_SET_VALUES,
@@ -66,10 +73,24 @@ from opensysml.conversion import (
     Conversion,
     EXPERIMENTAL_NOTICE,
     ExperimentalFeatureWarning,
+    MIGRATED_NOT_CONVERTED,
+    Migration,
     is_experimental,
+    is_v1,
+    migration_report_of,
+    path_is_v1,
 )
 from opensysml.diagnostic import Diagnostic
-from opensysml.document import build_bindings, result_of as document_result
+from opensysml.document import (
+    binding_holds_big_int,
+    binding_holds_rational,
+    binding_rationals_as_reals,
+    build_bindings,
+    document_event_of,
+    graphs_result,
+    render_view_result,
+    result_of as document_result,
+)
 from opensysml.edit import error_for_failure, failure_name, referrers_of, result_of
 from opensysml.enumeration import EnumLiteral
 from opensysml.exploration import Exploration, Outcome
@@ -78,12 +99,15 @@ from opensysml.errors import (
     ConnectionError,
     ConversionError,
     ExecutionError,
+    InvalidRequestError,
+    MigrationError,
     ModelError,
     ModelFileNotFoundError,
     ModelNotFoundError,
     StaleServiceError,
     SymbolNotFoundError,
     UnsupportedValueError,
+    ViewNotFoundError,
     WrongKindError,
     from_rpc_error,
     translate_rpc_errors,
@@ -102,6 +126,11 @@ from opensysml.values import (
     Vector,
     VectorQuantity,
     _Infinity,
+    integer_to_pb,
+    pb_holds_big_int,
+    pb_holds_rational,
+    rational_value_to_pb,
+    rationals_as_reals,
     value_to_python,
 )
 
@@ -180,10 +209,15 @@ _UNRESOLVED = object()
 #: Naming one here is the opt-in for a caller who cannot pass host and port.
 SERVICE_ENV = 'OPENSYSML_SERVICE'
 
-#: Options of every channel this client opens: only identity, so no service
-#: compresses a response, which grpcio can hand to the parser still compressed.
+#: Options of every channel this client opens: only identity compression, so
+#: no service compresses a response, which grpcio can hand to the parser still
+#: compressed; and no bound on a message's size, since a migrated project's
+#: notation, report and images run to tens of megabytes where grpcio's default
+#: stops at four.
 CHANNEL_OPTIONS = (
     ('grpc.compression_enabled_algorithms_bitset', 1 << grpc.Compression.NoCompression),
+    ('grpc.max_receive_message_length', -1),
+    ('grpc.max_send_message_length', -1),
 )
 
 #: Seconds a private child is given to report the address it bound.
@@ -1395,8 +1429,7 @@ class Connection:
             model_hash (str, optional): Hash of a loaded model, whose parsed
                 source is converted
             from_format (str, optional): Format to read the source as, one of
-                the to_format names or 'xmi', 'uml' or 'mdzip' for a SysML v1
-                model to migrate; inferred from file_path's extension when
+                the to_format names; inferred from file_path's extension when
                 omitted, notation for a model_hash, and required for inline
                 content
             tolerate_syntax_errors (bool): Write notation back out even when the
@@ -1405,22 +1438,25 @@ class Connection:
                 direction builds a graph, where unreadable declarations would go
                 missing silently.
 
+        A SysML v1 model — ``from_format`` of 'xmi', 'uml' or 'mdzip', or a
+        file_path with that extension — is refused: it is migrated, not
+        converted, and :meth:`migrate` accounts for every element on the way.
+
         Returns:
             Conversion: The converted model, the formats used and any tolerated
                 syntax errors
 
         Warns:
             ExperimentalFeatureWarning: If either format is RDF, whose mapping is
-                experimental (see ``docs/reference/rdf-mapping.md``), or the
-                source is SysML v1, whose migration is experimental too (see
-                ``docs/reference/sysml-v1-migration.md``)
+                experimental (see ``docs/reference/rdf-mapping.md``)
 
         Raises:
             ValueError: If other than one of file_path, content and model_hash
                 is given
+            InvalidRequestError: If the source is a SysML v1 model, with the
+                help that names :meth:`migrate`; also if a format is unknown
             MissingCapabilityError: If the service cannot convert
             ConversionError: If the model could not be written in that format
-            InvalidRequestError: If a format is unknown
             ModelFileNotFoundError: If the named file cannot be read
             ModelNotFoundError: If the model is no longer cached
         """
@@ -1437,6 +1473,13 @@ class Connection:
             raise ValueError(
                 "Provide exactly one of file_path, content or model_hash; got "
                 + (", ".join(given) if given else "none")
+            )
+        if is_v1(from_format) or (
+            file_path is not None and not from_format and path_is_v1(file_path)
+        ):
+            name = file_path if file_path is not None else "the source"
+            raise InvalidRequestError(
+                f"{name} {MIGRATED_NOT_CONVERTED}; call migrate() with the same source"
             )
         require(
             self.server_info(),
@@ -1485,6 +1528,126 @@ class Connection:
             to_format=response.to_format,
             diagnostics=diagnostics,
             experimental=experimental,
+            experimental_notice=notice,
+        )
+
+    def migrate(self, to_format, file_path=None, content=None, from_format='',
+                report=False, results=False, layout_path=None, layout_content=None,
+                image_base_url='', strict=False):
+        """Migrate a SysML v1 model to SysML v2, accounting for every element.
+
+        The source is UML XMI, an Eclipse UML2 ``.uml`` file or a Cameo/MagicDraw
+        ``.mdzip`` archive, named by a path the service opens or carried inline
+        as bytes. Migration is ledgered, not lossless: every element comes back
+        in the :class:`~opensysml.conversion.MigrationReport` as mapped,
+        approximated, unmapped or skipped, and the summary and counts come with
+        every answer. This is what ``sysml Model.mdzip -migrate sysml`` does.
+
+        Args:
+            to_format (str): Format to write: 'sysml', 'kerml', 'text', 'ttl',
+                'turtle', 'rdf', 'api-json' or 'json'
+            file_path (str, optional): Path the service reads the v1 model from
+            content (bytes, optional): The v1 model carried inline — bytes, since
+                an ``.mdzip`` archive is binary
+            from_format (str, optional): 'xmi', 'uml' or 'mdzip'; inferred from
+                file_path's extension when omitted, and required for inline
+                content
+            report (bool): Ask for every element's verdict and the report text
+                ``-migration-report`` writes, not just the summary and counts
+            results (bool): Ask for the JSON index of the result snapshots the
+                v1 tool stored, as ``-migration-results`` writes it
+            layout_path (str, optional): Path to an MTIP export whose diagram
+                layouts the migrated views are laid out from, as ``-layout``
+            layout_content (str, optional): The MTIP export carried inline
+            image_base_url (str): URL the migrated model refers to its image
+                files under, instead of the relative ``images/`` paths
+            strict (bool): Write only standard notation, leaving an element
+                whose only v2 form is an OpenSysML extension unmapped, as
+                ``-strict``
+
+        Returns:
+            Migration: The migrated model, its report, and the results and image
+                files asked for
+
+        Warns:
+            ExperimentalFeatureWarning: Always: the migration is experimental
+                (see ``docs/reference/sysml-v1-migration.md``)
+
+        Raises:
+            ValueError: If other than one of file_path and content is given, or
+                both layout_path and layout_content
+            InvalidRequestError: If the source is not a SysML v1 model — that is
+                converted, not migrated — or a format is unknown, or the layout
+                is not an MTIP export
+            MissingCapabilityError: If the service cannot migrate
+            MigrationError: If the v1 model could not be read
+            ModelFileNotFoundError: If the named file cannot be read
+        """
+        given = [
+            name
+            for name, value in (('file_path', file_path), ('content', content))
+            if value is not None
+        ]
+        if len(given) != 1:
+            raise ValueError(
+                "Provide exactly one of file_path or content; got "
+                + (", ".join(given) if given else "none")
+            )
+        if layout_path is not None and layout_content is not None:
+            raise ValueError("Provide at most one of layout_path and layout_content")
+        if from_format and not is_v1(from_format):
+            name = file_path if file_path is not None else "the source"
+            raise InvalidRequestError(
+                f"{name} is {from_format} input, which is converted, not migrated: "
+                "only a SysML v1 model (xmi, uml or mdzip) is migrated; call "
+                "convert() with the same source"
+            )
+        if content is not None and not from_format:
+            raise ValueError(
+                "from_format is required for inline content: 'xmi', 'uml' or 'mdzip'"
+            )
+        require(
+            self.server_info(),
+            CAPABILITY_MIGRATE,
+            upgrade_remedy(CAPABILITY_MIGRATE),
+        )
+
+        request = sysml_pb2.MigrateRequest(
+            to_format=to_format,
+            from_format=from_format,
+            report=report,
+            results=results,
+            image_base_url=image_base_url,
+            strict=strict,
+        )
+        if file_path is not None:
+            request.file_path = file_path
+        else:
+            request.content = content
+        if layout_path is not None:
+            request.layout_path = layout_path
+        elif layout_content is not None:
+            request.layout_content = layout_content
+
+        with translate_rpc_errors(
+            not_found=ModelFileNotFoundError,
+            unimplemented=self._capability_refusal((CAPABILITY_MIGRATE,)),
+        ):
+            response = self._stub.Migrate(request)
+        notice = response.experimental_notice or EXPERIMENTAL_NOTICE
+        # Warned before the error is raised: a refusal is the mapping's
+        # experimental behavior, not a reason to say nothing about it.
+        warnings.warn(notice, ExperimentalFeatureWarning, stacklevel=2)
+        if response.error:
+            raise MigrationError(response.error)
+        return Migration(
+            content=response.content,
+            from_format=response.from_format,
+            to_format=response.to_format,
+            report=migration_report_of(response.report),
+            results=response.results,
+            files={f.path: bytes(f.content) for f in response.files},
+            experimental=True,
             experimental_notice=notice,
         )
 
@@ -1617,6 +1780,23 @@ class Connection:
             query_id=query_id,
             bindings=build_bindings(bindings),
         )
+        if any(binding_holds_big_int(binding) for binding in request.bindings):
+            require(
+                self.server_info(),
+                CAPABILITY_BIG_INT_VALUES,
+                upgrade_remedy(CAPABILITY_BIG_INT_VALUES),
+            )
+        if any(binding_holds_rational(binding) for binding in request.bindings) and not self.server_info().has(
+            CAPABILITY_RATIONAL_VALUES
+        ):
+            for binding in request.bindings:
+                binding_rationals_as_reals(binding)
+        if any(binding_holds_rational(binding) for binding in request.bindings):
+            require(
+                self.server_info(),
+                CAPABILITY_RATIONAL_VALUES,
+                upgrade_remedy(CAPABILITY_RATIONAL_VALUES),
+            )
         with translate_rpc_errors(
             not_found=SymbolNotFoundError,
             unimplemented=self._capability_refusal((CAPABILITY_DOCUMENT_QUERY,)),
@@ -1666,6 +1846,36 @@ class Connection:
         ):
             response = self._stub.RenderDocument(request)
         return response.html if form == "html" else response.markdown
+
+    def render_view(self, model_hash, view_name, ports="minimal"):
+        """Render a named view with minimal or full ports."""
+        if ports not in ("minimal", "full"):
+            raise ValueError("ports must be 'minimal' or 'full'")
+        require(self.server_info(), CAPABILITY_RENDER_VIEW, upgrade_remedy(CAPABILITY_RENDER_VIEW))
+        request = sysml_pb2.RenderViewRequest(
+            model_hash=model_hash,
+            view=view_name,
+            ports="" if ports == "minimal" else ports,
+        )
+        with translate_rpc_errors(
+            not_found=lambda message, code: ViewNotFoundError(
+                view_name, message, code=code
+            ),
+            unimplemented=self._capability_refusal((CAPABILITY_RENDER_VIEW,)),
+        ):
+            response = self._stub.RenderView(request)
+        return render_view_result(response)
+
+    def export_graphs(self, model_hash, subject):
+        """Export the lowered graph of an action or state machine as graphs:1 JSON."""
+        require(self.server_info(), CAPABILITY_EXPORT_GRAPHS, upgrade_remedy(CAPABILITY_EXPORT_GRAPHS))
+        request = sysml_pb2.ExportGraphsRequest(model_hash=model_hash, subject=subject)
+        with translate_rpc_errors(
+            not_found=lambda message, code: SymbolNotFoundError(subject),
+            unimplemented=self._capability_refusal((CAPABILITY_EXPORT_GRAPHS,)),
+        ):
+            response = self._stub.ExportGraphs(request)
+        return graphs_result(response)
 
     def get_symbol(self, model_hash, symbol_id):
         """Fetch symbol by ID from cached model.
@@ -1894,7 +2104,7 @@ class Connection:
             return self._stub.ExecuteAction(req)
     
     def execute_state(self, state_machine_symbol_id, model_hash, events=None,
-                      schedule=None, performer=None):
+                      schedule=None, performer=None, trace=False):
         """Execute a state machine.
         
         Args:
@@ -1909,9 +2119,12 @@ class Connection:
                 from one into its parts. An object exhibiting the machine runs
                 the machine it exhibits, so its transitions hear what the
                 object's siblings send over their connectors
+            trace (bool): Whether to return the run's typed execution trace;
+                requires the ``state_trace`` capability
             
         Returns:
-            dict: {'states_visited': [...], 'final_context': {...}, 'final_time': float};
+            dict: {'states_visited': [...], 'final_context': {...}, 'final_time': float,
+                'trace': [DocumentEvent, ...], 'trace_dropped': int};
                 a context value the wire format cannot represent is reported as
                 an UnsupportedValueError in its place; ``final_time`` is the
                 run's simulation clock when it ended, in seconds, the instant
@@ -1923,20 +2136,28 @@ class Connection:
             ExecutionError: If execution fails
             ModelNotFoundError: If the service no longer holds the model
             MissingCapabilityError: If a schedule is given and the service
-                predates ``schedule``, or a performer is given and the service
-                predates ``performer``; nothing is sent
+                predates ``schedule``, a performer is given and the service
+                predates ``performer``, or trace is requested and it predates
+                ``state_trace``; nothing is sent
             InvalidRequestError: If the schedule names no policy
         """
         _refuse_exploring(schedule, "explore_state")
-        response = self._execute_state(state_machine_symbol_id, model_hash, events, schedule, performer)
+        response = self._execute_state(state_machine_symbol_id, model_hash, events, schedule, performer, trace)
         if response.error:
             wrapped_diags = [Diagnostic(d) for d in response.diagnostics]
-            raise ExecutionError(response.error, diagnostics=wrapped_diags)
+            raise ExecutionError(
+                response.error,
+                diagnostics=wrapped_diags,
+                trace=tuple(document_event_of(event) for event in response.trace),
+                trace_dropped=response.trace_dropped,
+            )
         
         return {
             'states_visited': list(response.states_visited),
             'final_context': self._values_to_python(response.final_context),
             'final_time': response.final_time,
+            'trace': [document_event_of(event) for event in response.trace],
+            'trace_dropped': response.trace_dropped,
         }
 
     def explore_state(self, state_machine_symbol_id, model_hash, events=None,
@@ -1971,15 +2192,16 @@ class Connection:
         response = self._execute_state(state_machine_symbol_id, model_hash, events, schedule, performer)
         return self._exploration_of(response)
 
-    def _execute_state(self, state_machine_symbol_id, model_hash, events, schedule, performer):
+    def _execute_state(self, state_machine_symbol_id, model_hash, events, schedule, performer, trace=False):
         """Send an ExecuteState request, the schedule's and performer's capabilities checked first."""
-        capabilities = self._run_capabilities(schedule, performer)
+        capabilities = self._run_capabilities(schedule, performer, trace)
         req = sysml_pb2.ExecuteStateRequest(
             model_hash=model_hash,
             state_machine_symbol_id=state_machine_symbol_id,
             events=events or [],
             schedule=schedule or "",
             performer_symbol_id=performer or "",
+            trace=trace,
         )
         with translate_rpc_errors(unimplemented=self._capability_refusal(capabilities)):
             return self._stub.ExecuteState(req)
@@ -1998,17 +2220,25 @@ class Connection:
             runs_budget=status.runs_budget,
             depth_budget=status.depth_budget,
             probabilities_lower_bound=status.probabilities_lower_bound,
+            failed_linearizations=status.failed_linearizations,
         )
 
     def _outcome_of(self, pb):
         """Read one wire outcome, an unsupported value kept as its error."""
+        probability_range = None
+        probability = None
+        if pb.HasField("probability_range"):
+            probability_range = (pb.probability_range.min, pb.probability_range.max)
+            if pb.probability_range.max - pb.probability_range.min <= 1e-12:
+                probability = pb.probability_range.min
         return Outcome(
             self._values_to_python(pb.outputs),
             final_state=pb.final_state,
             states_visited=pb.states_visited,
             error=pb.error,
             linearizations=pb.linearizations,
-            probability=pb.probability,
+            probability=probability,
+            probability_range=probability_range,
             witness=pb.witness,
             diagnostics=[Diagnostic(d) for d in pb.diagnostics],
         )
@@ -2766,16 +2996,45 @@ class Connection:
             upgrade_remedy(CAPABILITY_INFINITY_VALUE),
         )
 
+    def _require_big_int_values(self, value):
+        """Refuse to send an Integer beyond int64 a service without ``big_int_values`` would read as null."""
+        if pb_holds_big_int(value):
+            require(
+                self.server_info(),
+                CAPABILITY_BIG_INT_VALUES,
+                upgrade_remedy(CAPABILITY_BIG_INT_VALUES),
+            )
+        return value
+
+    def _require_exact_values(self, value):
+        """Refuse to send a big Integer or exact Rational a service without its capability would read as null.
+
+        Every exact Rational travels as ``rational_value``; to a service without
+        ``rational_values`` one a double holds exactly travels as that double.
+        """
+        self._require_big_int_values(value)
+        if pb_holds_rational(value) and not self.server_info().has(CAPABILITY_RATIONAL_VALUES):
+            rationals_as_reals(value)
+        if pb_holds_rational(value):
+            require(
+                self.server_info(),
+                CAPABILITY_RATIONAL_VALUES,
+                upgrade_remedy(CAPABILITY_RATIONAL_VALUES),
+            )
+        return value
+
     def _require_schedule(self, schedule):
         """Refuse to send a schedule a service without ``schedule`` would run under the default."""
         for capability in self._schedule_capabilities(schedule):
             require(self.server_info(), capability, upgrade_remedy(capability))
 
-    def _run_capabilities(self, schedule, performer):
+    def _run_capabilities(self, schedule, performer, trace=False):
         """The capabilities a run's schedule and performer need, each required of the service."""
         capabilities = self._schedule_capabilities(schedule)
         if performer:
             capabilities.append(CAPABILITY_PERFORMER)
+        if trace:
+            capabilities.append(CAPABILITY_STATE_TRACE)
         for capability in capabilities:
             require(self.server_info(), capability, upgrade_remedy(capability))
         return capabilities
@@ -2836,7 +3095,9 @@ class Connection:
         elif isinstance(py_value, InstanceRef):
             return sysml_pb2.Value(instance_id=py_value.id)
         elif isinstance(py_value, int):
-            return sysml_pb2.Value(int_value=py_value)
+            return self._require_big_int_values(integer_to_pb(py_value))
+        elif isinstance(py_value, Fraction):
+            return self._require_exact_values(rational_value_to_pb(py_value))
         elif isinstance(py_value, float):
             return sysml_pb2.Value(real_value=py_value)
         elif isinstance(py_value, complex):
@@ -2851,7 +3112,7 @@ class Connection:
         elif isinstance(py_value, Instance):
             return sysml_pb2.Value(instance_id=py_value.id)
         elif isinstance(py_value, Quantity):
-            return sysml_pb2.Value(quantity=py_value.to_pb())
+            return self._require_exact_values(sysml_pb2.Value(quantity=py_value.to_pb()))
         elif isinstance(py_value, _Infinity):
             self._require_infinity_value()
             return sysml_pb2.Value(infinity=True)
@@ -2869,16 +3130,16 @@ class Connection:
             return sysml_pb2.Value(array=py_value.to_pb(self._python_to_value))
         elif isinstance(py_value, Vector):
             self._require_structured_values()
-            return sysml_pb2.Value(vector=py_value.to_pb())
+            return self._require_exact_values(sysml_pb2.Value(vector=py_value.to_pb()))
         elif isinstance(py_value, VectorQuantity):
             self._require_structured_values()
-            return sysml_pb2.Value(vector_quantity=py_value.to_pb())
+            return self._require_exact_values(sysml_pb2.Value(vector_quantity=py_value.to_pb()))
         elif isinstance(py_value, (SetValue, set, frozenset)):
             self._require_set_values()
             return sysml_pb2.Value(set=SetValue(py_value).to_pb(self._python_to_value))
         elif isinstance(py_value, TensorQuantity):
             self._require_tensor_values()
-            return sysml_pb2.Value(tensor_quantity=py_value.to_pb())
+            return self._require_exact_values(sysml_pb2.Value(tensor_quantity=py_value.to_pb()))
         elif isinstance(py_value, EnumLiteral):
             literal = sysml_pb2.EnumLiteral(
                 literal_id=py_value.literal_id,

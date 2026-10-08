@@ -42,9 +42,12 @@ type DiagramOptions struct {
 	// does: left undrawn when empty, or drawn too (a strip below a DOT drawing).
 	Unplaced view.Unplaced
 
-	// Style is the drawing style every DOT diagram is drawn in, the Pilot look
-	// when empty; the other forms draw one look.
+	// Style is the drawing style every DOT or Mermaid diagram is drawn in, the
+	// Pilot look when empty; the other forms draw one look.
 	Style view.DrawingStyle
+
+	// LinkTemplate fills source links for diagram elements.
+	LinkTemplate string
 }
 
 // check rejects a form there is none of and a drawing style there is none of.
@@ -108,7 +111,7 @@ func drawAutomatic(document *docir.Document, opts *DiagramOptions, drawer Diagra
 }
 
 // Diagrams lists the document's graph-shaped diagrams in document order, each
-// with the source the backends write for it as opts says. A table-kind view
+// with the source the backends write for it as opts says. A tabular view
 // is a table, not a diagram, and is left out.
 func Diagrams(document *docir.Document, opts DiagramOptions) ([]Diagram, error) {
 	if document == nil {
@@ -131,7 +134,7 @@ func Diagrams(document *docir.Document, opts DiagramOptions) ([]Diagram, error) 
 			if rendering == nil {
 				return &Error{Kind: ErrorMissingRendering, Content: node.Name()}
 			}
-			if rendering.Kind == view.KindTable {
+			if rendering.Kind.Tabular() {
 				continue
 			}
 			if !rendering.Kind.Supported() {

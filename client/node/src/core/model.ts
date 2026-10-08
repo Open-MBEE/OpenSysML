@@ -9,8 +9,24 @@ import {
   upgradeRemedy,
 } from "./capabilities.js";
 import type { Connection } from "./connection.js";
+import { requireString, requireSourceText } from "./arguments.js";
 import { EvaluationError, OpenSysMLError, ParseError, SymbolNotFoundError } from "./errors.js";
+import { requireLanguage } from "./sources.js";
 import type { ModelDiagnostic } from "./errors.js";
+import type { Conversion } from "./conversion.js";
+import type { QueryForm, QueryElement, QueryPayload } from "./query.js";
+import type { BindingValues, DocumentQueryResult } from "./document.js";
+import type { RenderedView } from "./render-view.js";
+import type { Graphs } from "./graphs.js";
+import type { Editor } from "./edit.js";
+import type { Exploration } from "./exploration.js";
+import type {
+  AnalysisResult,
+  CalcResult,
+  SweepTable,
+  Validation,
+  Verdict,
+} from "./verdict.js";
 import type {
   Diagnostic,
   FeatureValue as PbFeatureValue,
@@ -19,7 +35,7 @@ import type {
   SymbolInfo,
 } from "../generated/sysml_pb.js";
 import { callRpc } from "./status.js";
-import { decodeValue, type SysMLValue } from "./values.js";
+import { decodeValue, type SysMLValue, type ValueInput } from "./values.js";
 
 /** How alike two names must be for one to be suggested for the other. */
 const NEAR_ENOUGH = 0.6;
@@ -57,7 +73,30 @@ export interface ParseOptions {
   /** Language of inline content ("sysml" or "kerml"); requires `inline_language`. */
   language?: string;
   /** Reject the OpenSysML notation extensions; requires `strict_conformance`. */
+  strictConformance?: boolean;
+  /**
+   * @deprecated Use `strictConformance`; `strict` is its alias. Passing both
+   * with different values is refused.
+   */
   strict?: boolean;
+}
+
+/** Resolves `strictConformance` and its `strict` alias; differing values refuse. */
+export function strictConformanceOf(options: {
+  strict?: boolean;
+  strictConformance?: boolean;
+}): boolean | undefined {
+  if (
+    options.strict !== undefined &&
+    options.strictConformance !== undefined &&
+    options.strict !== options.strictConformance
+  ) {
+    throw new RangeError(
+      `strict (${options.strict}) and strictConformance (${options.strictConformance}) disagree; ` +
+        "pass only strictConformance",
+    );
+  }
+  return options.strictConformance ?? options.strict;
 }
 
 /** Where an expression is evaluated. */
@@ -68,6 +107,58 @@ export interface EvalOptions {
   subject?: string;
 }
 
+/** A declared multiplicity range. A bound the service could not evaluate is empty. */
+export interface Multiplicity {
+  readonly lower: string;
+  readonly upper: string;
+  /** Whether the range admits no value; undefined when the lower bound is unknown. */
+  readonly isOptional: boolean | undefined;
+  /** Whether the range admits more than one value; undefined when the upper bound is unknown. */
+  readonly isCollection: boolean | undefined;
+}
+
+/** The integer one bound spells, or undefined when it spells none. */
+function multiplicityBound(bound: string): number | undefined {
+  const trimmed = bound.trim();
+  if (!/^[+-]?\d+$/.test(trimmed)) {
+    return undefined;
+  }
+  return Number.parseInt(trimmed, 10);
+}
+
+/** Builds a Multiplicity whose predicates mirror Python's. */
+function multiplicityOf(lower: string, upper: string): Multiplicity {
+  const lowerBound = lower === "" ? undefined : multiplicityBound(lower);
+  return {
+    lower,
+    upper,
+    isOptional: lowerBound === undefined ? undefined : lowerBound === 0,
+    isCollection: isCollectionUpper(upper),
+  };
+}
+
+/** Whether an upper bound admits more than one: unknown for none, or one that is not a number. */
+function isCollectionUpper(upper: string): boolean | undefined {
+  if (upper === "") {
+    return undefined;
+  }
+  if (upper === "*") {
+    return true;
+  }
+  const bound = multiplicityBound(upper);
+  return bound === undefined ? undefined : bound > 1;
+}
+
+/** The symbols of one level of a model, then those of the levels below it. */
+async function* walkLevels(level: ModelSymbol[]): AsyncGenerator<ModelSymbol> {
+  if (level.length === 0) {
+    return;
+  }
+  yield* level;
+  const children = await Promise.all(level.map((symbol) => symbol.children()));
+  yield* walkLevels(children.flat());
+}
+
 /** A model the service has parsed and holds under its hash. */
 export class Model {
   readonly connection: Connection;
@@ -75,22 +166,28 @@ export class Model {
   readonly hash: string;
   /** Diagnostics the parse reported, in the order the service reported them. */
   readonly diagnostics: readonly ModelDiagnostic[];
+  /** The name of each document this model was parsed from, empty for an adopted model. */
+  readonly documents: readonly string[];
 
-  private readonly rootSymbol: ModelSymbol | undefined;
+  private readonly rootSymbols: readonly ModelSymbol[];
   private readonly ownsConnection: boolean;
 
   private constructor(init: {
     connection: Connection;
     hash: string;
-    root?: ModelSymbol;
+    roots?: readonly ModelSymbol[];
     diagnostics: readonly ModelDiagnostic[];
     ownsConnection: boolean;
+    documents?: readonly string[];
+    sourcePath?: string;
   }) {
     this.connection = init.connection;
     this.hash = init.hash;
-    this.rootSymbol = init.root;
+    this.rootSymbols = init.roots ?? [];
     this.diagnostics = init.diagnostics;
     this.ownsConnection = init.ownsConnection;
+    this.documents = init.documents ?? [];
+    this.sourcePath = init.sourcePath;
   }
 
   /** Adopts a model the service already holds, by the hash it holds it under. */
@@ -98,20 +195,67 @@ export class Model {
     return new Model({ connection, hash, diagnostics: [], ownsConnection: false });
   }
 
+  /** Builds a model of several roots, from a ParseSources response. */
+  static fromRoots(
+    connection: Connection,
+    hash: string,
+    roots: readonly SymbolInfo[],
+    diagnostics: readonly ModelDiagnostic[],
+    options: { ownsConnection?: boolean; documents?: readonly string[] } = {},
+  ): Model {
+    return new Model({
+      connection,
+      hash,
+      roots: roots.map((info) => new ModelSymbol(connection, hash, info)),
+      diagnostics,
+      ownsConnection: options.ownsConnection ?? false,
+      ...(options.documents === undefined ? {} : { documents: options.documents }),
+    });
+  }
+
   /** Whether this model was parsed here, and so knows its root symbol. */
   get parsed(): boolean {
-    return this.rootSymbol !== undefined;
+    return this.rootSymbols.length > 0;
   }
 
   /** The model's root namespace. An adopted model has none: look symbols up by id. */
   get root(): ModelSymbol {
-    if (this.rootSymbol === undefined) {
+    if (this.rootSymbols.length === 0) {
       throw new OpenSysMLError(
         `model ${this.hash} was adopted by hash, not parsed here, so its root is unknown; ` +
           "look a symbol up by its qualified name with symbolById()",
       );
     }
-    return this.rootSymbol;
+    return this.rootSymbols[0];
+  }
+
+  /** One root per document parsed; the one symbol {@link root} names is the first. */
+  get roots(): readonly ModelSymbol[] {
+    return this.rootSymbols;
+  }
+
+  /** The path this model was loaded from, when it was parsed from a file;
+   * inline content and parseSources models have none, whatever they are named. */
+  readonly sourcePath: string | undefined;
+
+  /** The error-severity diagnostics the parse reported. */
+  get errors(): ModelDiagnostic[] {
+    return this.diagnostics.filter((diagnostic) => diagnostic.severity === "error");
+  }
+
+  /** Whether the parse reported no error-severity diagnostic. */
+  get ok(): boolean {
+    return this.errors.length === 0;
+  }
+
+  /** Raises a {@link ParseError} carrying this model when its parse reported errors. */
+  raiseForErrors(): this {
+    if (this.hasErrors) {
+      throw new ParseError(this.errors.map((diagnostic) => diagnostic.message).join("\n"), this.errors, {
+        model: this,
+      });
+    }
+    return this;
   }
 
   /** Parses a source over `connection`. Used by Connection.load / Connection.loads. */
@@ -121,10 +265,15 @@ export class Model {
     options: ParseOptions = {},
     ownsConnection = false,
   ): Promise<Model> {
+    if (source.source.case === "content") {
+      requireSourceText("source", source.source.value);
+    }
     if (options.language !== undefined) {
+      requireLanguage(options.language);
       requireCapability(connection.info, CAPABILITY_INLINE_LANGUAGE, upgradeRemedy(CAPABILITY_INLINE_LANGUAGE));
     }
-    if (options.strict === true) {
+    const strictConformance = strictConformanceOf(options);
+    if (strictConformance === true) {
       requireCapability(
         connection.info,
         CAPABILITY_STRICT_CONFORMANCE,
@@ -136,7 +285,7 @@ export class Model {
         {
           source: source.source,
           ...(options.language === undefined ? {} : { language: options.language }),
-          ...(options.strict === undefined ? {} : { strictConformance: options.strict }),
+          ...(strictConformance === undefined ? {} : { strictConformance }),
         },
         connection.callOptions(),
       ),
@@ -152,9 +301,12 @@ export class Model {
     return new Model({
       connection,
       hash: response.modelHash,
-      root: new ModelSymbol(connection, response.modelHash, response.root),
+      roots: [new ModelSymbol(connection, response.modelHash, response.root)],
       diagnostics,
       ownsConnection,
+      ...(source.source.case === "filePath"
+        ? { documents: [source.source.value], sourcePath: source.source.value }
+        : {}),
     });
   }
 
@@ -165,6 +317,7 @@ export class Model {
 
   /** Evaluates a SysML expression against this model. */
   async eval(expression: string, options: EvalOptions = {}): Promise<SysMLValue> {
+    requireString("expression", expression);
     if (options.subject !== undefined) {
       requireCapability(
         this.connection.info,
@@ -191,23 +344,253 @@ export class Model {
 
   /** Looks a symbol up by short name, FQN or id; throws when the model declares none. */
   async symbol(name: string): Promise<ModelSymbol> {
-    if (this.looksQualified(name)) {
-      return this.symbolById(name);
+    requireString("name", name);
+    // The empty name names the model itself, as Python's model.get("") does.
+    if (name === "") {
+      return this.parsed ? this.root : this.symbolById(name);
     }
-    // A short name is searched for from the root, which an adopted model has not
-    // got; the service resolves a name the model declares at its top level.
-    if (this.rootSymbol === undefined) {
-      return this.symbolById(name);
+    if (this.looksQualified(name) || !this.parsed) {
+      // A qualified name or a name on an adopted model is resolved by the
+      // service; one it cannot resolve is searched for, as Python's find does.
+      try {
+        return await this.symbolById(name);
+      } catch (error) {
+        if (!(error instanceof SymbolNotFoundError)) {
+          throw error;
+        }
+      }
+      const qualified = await this.find(name);
+      if (qualified !== undefined) {
+        return qualified;
+      }
+      throw new SymbolNotFoundError(name, await this.nearNames(name));
     }
     const found = await this.find(name);
     if (found === undefined) {
+      // A short name may still be one the service resolves directly, as an id.
+      try {
+        return await this.symbolById(name);
+      } catch (error) {
+        if (!(error instanceof SymbolNotFoundError)) {
+          throw error;
+        }
+      }
       throw new SymbolNotFoundError(name, await this.nearNames(name));
     }
     return found;
   }
 
+  /** Writes this model out in `toFormat`. */
+  convert(
+    toFormat: string,
+    options: { fromFormat?: string; tolerateSyntaxErrors?: boolean } = {},
+  ): Promise<Conversion> {
+    return this.connection.convert(toFormat, { modelHash: this.hash }, options);
+  }
+
+  /** This model written in SysML notation. */
+  toSysml(): Promise<Conversion> {
+    return this.convert("sysml");
+  }
+
+  /** This model written as RDF Turtle. */
+  toTurtle(): Promise<Conversion> {
+    return this.convert("ttl");
+  }
+
+  /** This model written as API JSON. */
+  toApiJson(): Promise<Conversion> {
+    return this.convert("api-json");
+  }
+
+  /** Runs a SysML v2 API & Services Query over this model. */
+  query(options: { payload?: QueryPayload } & QueryForm = {}): Promise<QueryElement[]> {
+    return this.connection.query(this.hash, options);
+  }
+
+  /** Runs a named document query against this model. */
+  runDocumentQuery(
+    queryId: string,
+    bindings?: Readonly<Record<string, BindingValues>>,
+  ): Promise<DocumentQueryResult> {
+    return this.connection.runDocumentQuery(this.hash, queryId, bindings);
+  }
+
+  /** Renders a named document of this model to Markdown or HTML. */
+  renderDocument(
+    documentId: string,
+    options: { form?: "markdown" | "html" } = {},
+  ): Promise<string> {
+    return this.connection.renderDocument(this.hash, documentId, options);
+  }
+
+  /** Renders a named view or targeted pseudo-view as diagram data. */
+  renderView(
+    viewName: string,
+    options: { ports?: "minimal" | "full" } = {},
+  ): Promise<RenderedView> {
+    return this.connection.renderView(this.hash, viewName, options);
+  }
+
+  /** Exports the lowered graph of an action or state machine of this model as `graphs:1` JSON. */
+  exportGraphs(subject: string): Promise<Graphs> {
+    return this.connection.exportGraphs(this.hash, subject);
+  }
+
+  /** Starts an edit of this model, to be applied in one call. */
+  edit(): Editor {
+    return this.connection.edit(this.hash);
+  }
+
+  /** Executes an action definition of this model. */
+  executeAction(
+    actionSymbolId: string,
+    options: {
+      inputs?: Readonly<Record<string, ValueInput>>;
+      schedule?: string;
+      performer?: string;
+    } = {},
+  ) {
+    return this.connection.executeAction(this.hash, actionSymbolId, options);
+  }
+
+  /** Runs an action once per valid order of its choice points. */
+  exploreAction(
+    actionSymbolId: string,
+    options: {
+      inputs?: Readonly<Record<string, ValueInput>>;
+      schedule?: string;
+      performer?: string;
+    } = {},
+  ): Promise<Exploration> {
+    return this.connection.exploreAction(this.hash, actionSymbolId, options);
+  }
+
+  /** Executes a state machine of this model. */
+  executeState(
+    stateMachineSymbolId: string,
+    options: {
+      events?: readonly string[];
+      schedule?: string;
+      performer?: string;
+      trace?: boolean;
+    } = {},
+  ) {
+    return this.connection.executeState(this.hash, stateMachineSymbolId, options);
+  }
+
+  /** Runs a state machine once per valid order of its choice points. */
+  exploreState(
+    stateMachineSymbolId: string,
+    options: { events?: readonly string[]; schedule?: string; performer?: string } = {},
+  ): Promise<Exploration> {
+    return this.connection.exploreState(this.hash, stateMachineSymbolId, options);
+  }
+
+  /** Asks whether a constraint of this model holds. */
+  verifyConstraint(
+    symbolId: string,
+    options: { subject?: string; engine?: string; question?: string } = {},
+  ): Promise<Verdict> {
+    return this.connection.verifyConstraint(this.hash, symbolId, options);
+  }
+
+  /** Asks whether a requirement of this model is satisfied. */
+  verifyRequirement(
+    symbolId: string,
+    options: { subject?: string; engine?: string; question?: string } = {},
+  ): Promise<Verdict> {
+    return this.connection.verifyRequirement(this.hash, symbolId, options);
+  }
+
+  /** Asks whether this model's satisfaction assertions hold. */
+  verifySatisfaction(
+    options: { symbolId?: string; engine?: string; question?: string } = {},
+  ): Promise<Verdict[]> {
+    return this.connection.verifySatisfaction(this.hash, options);
+  }
+
+  /** Whether every verdict {@link verifySatisfaction} returns holds. */
+  async satisfied(
+    options: { symbolId?: string; engine?: string; question?: string } = {},
+  ): Promise<boolean> {
+    const verdicts = await this.verifySatisfaction(options);
+    return verdicts.every((verdict) => verdict.verdict.kind === "holds");
+  }
+
+  /** Checks every assertion about an object of this model's parts. */
+  validateInstance(symbolId: string, options: { engine?: string } = {}): Promise<Validation> {
+    return this.connection.validateInstance(this.hash, symbolId, options);
+  }
+
+  /** Invokes a calculation of this model. */
+  calc(
+    symbolId: string,
+    options: { arguments?: readonly ValueInput[]; engine?: string } = {},
+  ): Promise<CalcResult> {
+    return this.connection.calc(this.hash, symbolId, options);
+  }
+
+  /** Runs an analysis case of this model. */
+  runAnalysis(
+    symbolId: string,
+    options: {
+      subject?: string;
+      arguments?: readonly ValueInput[];
+      namedArguments?: Readonly<Record<string, ValueInput>>;
+      schedule?: string;
+      engine?: string;
+    } = {},
+  ): Promise<AnalysisResult> {
+    return this.connection.runAnalysis(this.hash, symbolId, options);
+  }
+
+  /** Runs an analysis case once per valid order of its choice points. */
+  exploreAnalysis(
+    symbolId: string,
+    options: {
+      subject?: string;
+      arguments?: readonly ValueInput[];
+      namedArguments?: Readonly<Record<string, ValueInput>>;
+      schedule?: string;
+    } = {},
+  ): Promise<Exploration> {
+    return this.connection.exploreAnalysis(this.hash, symbolId, options);
+  }
+
+  /** Runs an analysis case or calc of this model once per row of a sweep. */
+  runSweep(
+    symbolId: string,
+    ranges: Readonly<
+      Record<string, readonly [ValueInput, ValueInput] | readonly [ValueInput, ValueInput, ValueInput]>
+    >,
+    options: {
+      subject?: string;
+      arguments?: readonly ValueInput[];
+      namedArguments?: Readonly<Record<string, ValueInput>>;
+      samples?: bigint | number;
+      seed?: bigint | number;
+      engine?: string;
+    } = {},
+  ): Promise<SweepTable> {
+    return this.connection.runSweep(this.hash, symbolId, ranges, options);
+  }
+
+  /** The diagnostics the service reports for this model now — for a model of
+   * several documents, or one parsed before later edits changed it. */
+  async refreshDiagnostics(): Promise<ModelDiagnostic[]> {
+    const response = await callRpc(
+      this.connection.rpc.getDiagnostics(
+        { modelHash: this.hash },
+        this.connection.callOptions(),
+      ),
+    );
+    return response.diagnostics.map(decodeDiagnostic);
+  }
+
   /** Looks a symbol up by its qualified name, in one call. */
   async symbolById(id: string): Promise<ModelSymbol> {
+    requireString("id", id);
     const response = await callRpc(
       this.connection.rpc.getSymbol(
         { modelHash: this.hash, symbolId: id },
@@ -215,6 +598,7 @@ export class Model {
       ),
     );
     if (response.symbol === undefined) {
+      // A single call: near names are symbol()'s to compute.
       throw new SymbolNotFoundError(id);
     }
     return new ModelSymbol(this.connection, this.hash, response.symbol);
@@ -222,6 +606,10 @@ export class Model {
 
   /** Looks a symbol up by short name, FQN or id, breadth-first from the root. */
   async find(name: string): Promise<ModelSymbol | undefined> {
+    requireString("name", name);
+    if (name === "") {
+      return this.parsed ? this.root : undefined;
+    }
     for await (const symbol of this.walk()) {
       if (symbol.name === name || symbol.id === name) {
         return symbol;
@@ -232,19 +620,12 @@ export class Model {
 
   /** Every symbol of the model, breadth-first from the root. */
   async *walk(): AsyncGenerator<ModelSymbol> {
-    const queue: ModelSymbol[] = [this.root];
-    while (queue.length > 0) {
-      const current = queue.shift();
-      if (current === undefined) {
-        break;
-      }
-      yield current;
-      queue.push(...(await current.children()));
-    }
+    yield* walkLevels([...this.rootSymbols]);
   }
 
   /** Instantiates a part or usage, by short name, FQN or id. */
   async instantiate(name: string): Promise<InstanceTree> {
+    requireString("name", name);
     const id = this.looksQualified(name) ? name : (await this.symbol(name)).id;
     const response = await callRpc(
       this.connection.rpc.instantiate(
@@ -278,7 +659,7 @@ export class Model {
 
   /** Whether a name is one the service can resolve directly, without a search. */
   private looksQualified(name: string): boolean {
-    return name.includes("::") || name === this.rootSymbol?.id;
+    return name.includes("::") || name === this.rootSymbols[0]?.id;
   }
 
   /** The names of the model closest to one it has not got, best first. */
@@ -290,9 +671,16 @@ export class Model {
       if (symbol.name === "") {
         continue;
       }
-      const score = similarity(name.toLowerCase(), symbol.name.toLowerCase());
-      if (score >= NEAR_ENOUGH) {
-        scored.push({ id: symbol.id, score });
+      // A short name and a qualified one are both candidates, either being
+      // what a mistyped lookup may have meant.
+      for (const candidate of [symbol.name, symbol.id]) {
+        if (candidate === "") {
+          continue;
+        }
+        const score = similarity(name.toLowerCase(), candidate.toLowerCase());
+        if (score >= NEAR_ENOUGH) {
+          scored.push({ id: candidate, score });
+        }
       }
       seen += 1;
       if (seen === NEAR_SEARCH_LIMIT) {
@@ -340,7 +728,7 @@ export class ModelSymbol {
   readonly childIds: readonly string[];
   readonly attributes: readonly AttributeFacts[];
   readonly type: TypeFacts | undefined;
-  readonly multiplicity: { lower: string; upper: string } | undefined;
+  readonly multiplicity: Multiplicity | undefined;
   readonly specializations: readonly SpecializationFacts[];
   /** Library attributes the service did not send, when it withheld any. */
   readonly withheldLibraryAttributes: number;
@@ -377,7 +765,7 @@ export class ModelSymbol {
     this.multiplicity =
       info.multiplicity === undefined
         ? undefined
-        : { lower: info.multiplicity.lower, upper: info.multiplicity.upper };
+        : multiplicityOf(info.multiplicity.lower, info.multiplicity.upper);
     this.specializations = info.specializations.map((specialization) => ({
       kind: specialization.kind,
       declared: specialization.declared,
@@ -389,14 +777,18 @@ export class ModelSymbol {
 
   /** The symbols this one owns, fetched one call each. */
   async children(): Promise<ModelSymbol[]> {
-    const children: ModelSymbol[] = [];
-    for (const id of this.childIds) {
-      const response = await callRpc(
-        this.connection.rpc.getSymbol(
-          { modelHash: this.modelHash, symbolId: id },
-          this.connection.callOptions(),
+    const responses = await Promise.all(
+      this.childIds.map((id) =>
+        callRpc(
+          this.connection.rpc.getSymbol(
+            { modelHash: this.modelHash, symbolId: id },
+            this.connection.callOptions(),
+          ),
         ),
-      );
+      ),
+    );
+    const children: ModelSymbol[] = [];
+    for (const response of responses) {
       if (response.symbol !== undefined) {
         children.push(new ModelSymbol(this.connection, this.modelHash, response.symbol));
       }
@@ -472,7 +864,8 @@ function decodeFeatureValue(value: PbFeatureValue): FeatureValue {
   return { kind: "single", value: decodeValue(value.value), materialized: value.materialized };
 }
 
-function decodeDiagnostic(diagnostic: Diagnostic): ModelDiagnostic {
+/** Reads a wire `Diagnostic` into this client's own {@link ModelDiagnostic}. */
+export function decodeDiagnostic(diagnostic: Diagnostic): ModelDiagnostic {
   const span = diagnostic.span;
   return {
     severity: diagnostic.severity,

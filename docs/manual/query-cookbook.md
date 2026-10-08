@@ -262,7 +262,7 @@ calc def NamedParts :> Query {
 
 ```console
 $ sysml cookbook.sysml -run-query "Cookbook::NamedParts"
-✓ Query Cookbook::NamedParts returned 12 rows
+✓ Query Cookbook::NamedParts returned 9 rows
   Row 1: Cookbook::telescope::primaryMirror
   Row 2: Cookbook::telescope::instrumentCluster
   ...
@@ -849,6 +849,55 @@ left operand's unit (`1 [km] + 500 [m]` is `1.5 [km]`); operands of
 different dimensions — `Stage::mass +
 Stage::length`, or a quantity plus a bare number — are a typed
 `column-incommensurable` error naming the column, the row and both units.
+
+### Row-relative navigation and collection functions
+
+A `cell` may walk the model from the row rather than read a feature of it,
+so a column derives what the row is related to when the query runs. Every
+query operation takes the row as its `source` — `Descendants(source = row,
+maxDepth = 1)`, `WhereType(source = …, type = ("PortUsage"))`,
+`RelatedElements(source = row, relationshipKind = "typing", direction =
+"incoming", maxDepth = 1)` (the features typed by the row) — and a feature
+chain reads on from what they collect: `row.connectorEnd` is a connection's
+ends, an end's `chainingFeature` the feature chain it connects (its last the
+port or part connected, the others the path to it), `.type` the type reached
+and `.type.member` the members of that type. The standard library's
+collection functions apply to any such collection, written qualified since a
+query body imports no library: `->SequenceFunctions::size()`, `->isEmpty()`,
+`->notEmpty()`, `->head()`, `->last()`, `->includes(x)`, `->excludes(x)`,
+`->including(x)`, `->excluding(x)`; `->ControlFunctions::select {in x :
+Feature; …}`, `->reject`, `->collect`, `->exists`, `->forAll`, each body a
+lambda over one element of the kind declared; and `->DocumentQueries::Distinct()`,
+the collection with each element once, in first-seen order (the library has no
+`distinct` of its own). `row.ownedElement` is every element the row's body
+declares, named or not, and its documentation. A cell's `and`, `or` and
+`implies` are conditional, as the language defines them: the first operand
+decides where it can (`false and …`, `true or …`, `false implies …`), and the
+second is then not evaluated, so a navigation that would fail on it does not
+fail the cell; `&` and `|` evaluate both.
+
+```sysml
+calc def ConnectionEnds :> Query {
+	in root : Element;
+	Project(
+		source = WhereType(source = Descendants(source = root), type = ("ConnectionUsage")),
+		properties = ("name"),
+		columns = (
+			Column(name = "Interfaces", cell = { in row : KerML::Kernel::Connector;
+				row.connectorEnd->ControlFunctions::collect {in e : KerML::Core::Feature;
+					e.chainingFeature->SequenceFunctions::last()}.type->DocumentQueries::Distinct() }),
+			Column(name = "Fan-out", cell = { in row : KerML::Kernel::Connector;
+				row.connectorEnd->SequenceFunctions::size() })
+		)
+	)
+}
+```
+
+A cell that collects holds every element collected: the rendered table
+comma-joins the values as it does a `[0..*]` feature, a count is one integer,
+and a collection that is empty leaves the cell empty. The SysML v1 migrator
+writes DocGen's OCL expression columns this way (see the [migration
+reference](../reference/sysml-v1-migration.md#expression-columns)).
 
 ## Query invokes query
 
@@ -1774,7 +1823,8 @@ sysml> %run-query Accepted root=spareDome
 
 `kind` names the records to keep — `accept`, `send`, `transition`, `entry`,
 `exit`, `do`, `choice` (a due order or region order the run drew, with
-`alternatives` and `taken`) or `guard` (one it could not evaluate), several
+`alternatives` and `taken`), `guard` (one it could not evaluate) or `terminate`
+(a state machine's performance ending), several
 separated by commas, `all` by default — and a `source` left out reads every
 object's records. `since` and `before` take a duration or a bare number of
 the clock's seconds; a bound that is not a duration (`1 [m]`), or an interval

@@ -2,7 +2,6 @@ package runtime
 
 import (
 	"errors"
-	"strings"
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
@@ -41,34 +40,31 @@ func TestStringLiteralEscapes(t *testing.T) {
 	}
 }
 
-// TestIntegerArithmeticOverflowIsReported requires an arithmetic result outside
-// the Integer range to be an error, as the Integer functions report it, rather
-// than the wrapped number the int64 arithmetic would give.
-func TestIntegerArithmeticOverflowIsReported(t *testing.T) {
-	for _, expr := range []string{
-		"9223372036854775807 + 1",
-		"-9223372036854775807 - 2",
-		"9223372036854775807 * 2",
+// TestIntegerArithmeticBeyondInt64IsExact requires an arithmetic result past
+// int64 to be the exact Integer, as KerML's unbounded Integers are, rather than
+// the wrapped number the int64 arithmetic would give or an overflow.
+func TestIntegerArithmeticBeyondInt64IsExact(t *testing.T) {
+	for expr, want := range map[string]string{
+		"9223372036854775807 + 1":  "9223372036854775808",
+		"-9223372036854775807 - 2": "-9223372036854775809",
+		"9223372036854775807 * 2":  "18446744073709551614",
 	} {
 		t.Run(expr, func(t *testing.T) {
 			value, err := evalStringExpr(t, expr)
-			if err == nil {
-				t.Fatalf("eval %s = %v, want an overflow error", expr, value)
+			if err != nil {
+				t.Fatalf("eval %s: %v", expr, err)
 			}
-			if !errors.Is(err, semantics.ErrArithmeticOverflow) {
-				t.Fatalf("eval %s: %v, want an overflow error", expr, err)
-			}
-			if !strings.Contains(err.Error(), "Integer range") {
-				t.Errorf("eval %s: %v does not say what range was left", expr, err)
+			if FormatValue(value) != want {
+				t.Fatalf("eval %s = %s, want %s", expr, FormatValue(value), want)
 			}
 		})
 	}
 }
 
 // TestRealArithmeticOverflowIsReported requires an arithmetic result that is no
-// finite Real to be an error rather than an infinity.
+// finite Real to be an error rather than an infinity; 4.0 ** 0.5 is a Real.
 func TestRealArithmeticOverflowIsReported(t *testing.T) {
-	value, err := evalStringExpr(t, "1.0e308 * 10.0")
+	value, err := evalStringExpr(t, "(4.0 ** 0.5) * 1.0e308")
 	if err == nil {
 		t.Fatalf("eval = %v, want an overflow error", value)
 	}

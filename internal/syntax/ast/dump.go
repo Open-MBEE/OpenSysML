@@ -420,6 +420,12 @@ func dumpDeclaration(b *strings.Builder, n Node, depth int) bool {
 		if v.PayloadMultiplicity != nil {
 			kids = append(kids, v.PayloadMultiplicity)
 		}
+		// An indexed end is dumped whole, so the golden locks its feature and index.
+		for _, end := range []Node{v.From, v.To} {
+			if ix, ok := end.(*IndexExpr); ok {
+				kids = append(kids, ix)
+			}
+		}
 		writeChildren(b, depth, kids)
 		return true
 	case *SendStatement:
@@ -682,10 +688,6 @@ func dumpBehavior(b *strings.Builder, n Node, depth int) bool {
 		return true
 	case *PseudostateNode:
 		fmt.Fprintf(b, `(PseudostateNode kind=%q name=%q)`, v.Kind.String(), v.Name)
-		return true
-	case *DeferMember:
-		b.WriteString(`(DeferMember`)
-		writeChildren(b, depth, v.Triggers)
 		return true
 	case *EntryMember:
 		b.WriteString(`(EntryMember`)

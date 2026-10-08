@@ -5,6 +5,7 @@ package docplan
 import (
 	"github.com/Open-MBEE/OpenSysML/internal/ir/queryplan"
 	"github.com/Open-MBEE/OpenSysML/internal/ir/view"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 )
 
@@ -61,7 +62,8 @@ func ValidRunStyle(style RunStyle) bool {
 }
 
 // Run is one planned inline run: a styled span, a link, or a reference to
-// a content block of this or another document, or another document's root.
+// a content block of this or another document, another document's root, or
+// a model element outside every document.
 type Run struct {
 	kind        RunKind
 	text        string
@@ -71,6 +73,8 @@ type Run struct {
 	refRoot     *symbols.Symbol
 	ref         []string
 	refDocument string
+	refElement  string
+	defaultText bool
 	origin      symbols.Origin
 }
 
@@ -95,6 +99,15 @@ func (r Run) RefPath() []string { return append([]string(nil), r.ref...) }
 // RefDocument returns the fully-qualified name of the document a reference
 // run targets, or "" when it targets the document being planned.
 func (r Run) RefDocument() string { return r.refDocument }
+
+// RefElement returns the fully-qualified name of the model element a
+// reference run targets when that is neither a content block nor a document,
+// or "" when it is one.
+func (r Run) RefElement() string { return r.refElement }
+
+// TextDefaulted reports whether a reference run's text is its target's label,
+// the run stating none.
+func (r Run) TextDefaulted() bool { return r.defaultText }
 
 // Origin returns the source declaration behind the run.
 func (r Run) Origin() symbols.Origin { return r.origin }
@@ -155,7 +168,9 @@ const (
 	BindingString  BindingKind = "string"
 	BindingInteger BindingKind = "integer"
 	BindingReal    BindingKind = "real"
-	BindingBoolean BindingKind = "boolean"
+	// BindingRational is an exact decimal literal, `0.1`.
+	BindingRational BindingKind = "rational"
+	BindingBoolean  BindingKind = "boolean"
 )
 
 // BindingValue is one statically planned value for a query parameter.
@@ -163,7 +178,7 @@ type BindingValue struct {
 	kind    BindingKind
 	element *symbols.Symbol
 	text    string
-	integer int64
+	integer semantics.Value
 	real    float64
 	boolean bool
 	origin  symbols.Origin
@@ -180,8 +195,25 @@ func (v BindingValue) Element() (*symbols.Symbol, bool) {
 // String returns the bound text when the value is a string.
 func (v BindingValue) String() (string, bool) { return v.text, v.kind == BindingString }
 
-// Integer returns the bound integer when the value is an integer.
-func (v BindingValue) Integer() (int64, bool) { return v.integer, v.kind == BindingInteger }
+// Integer returns the bound integer when the value is an integer within int64;
+// IntegerConst reads any integer.
+func (v BindingValue) Integer() (int64, bool) {
+	if v.kind != BindingInteger {
+		return 0, false
+	}
+	return v.integer.Int64()
+}
+
+// IntegerConst returns the bound Integer, of any size, when the value is an
+// integer.
+func (v BindingValue) IntegerConst() (semantics.Value, bool) {
+	return v.integer, v.kind == BindingInteger
+}
+
+// Rational returns the bound exact Rational when the value is a rational.
+func (v BindingValue) Rational() (semantics.Value, bool) {
+	return v.integer, v.kind == BindingRational
+}
 
 // Real returns the bound real when the value is a real.
 func (v BindingValue) Real() (float64, bool) { return v.real, v.kind == BindingReal }
@@ -247,6 +279,8 @@ type DiagramRef struct {
 	stated    string
 	direction view.Direction
 	palette   view.Palette
+	ports     view.Ports
+	overlay   view.Overlay
 	origin    symbols.Origin
 }
 
@@ -267,6 +301,12 @@ func (d *DiagramRef) Direction() view.Direction { return d.direction }
 
 // Palette returns the stated palette, empty for black and white.
 func (d *DiagramRef) Palette() view.Palette { return d.palette }
+
+// Ports returns the stated port display, empty for the default, minimal.
+func (d *DiagramRef) Ports() view.Ports { return d.ports }
+
+// Overlay returns the stated overlay, empty for a purely structural drawing.
+func (d *DiagramRef) Overlay() view.Overlay { return d.overlay }
 
 // Origin returns the source declaration behind the reference.
 func (d *DiagramRef) Origin() symbols.Origin { return d.origin }

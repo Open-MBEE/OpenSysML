@@ -1,8 +1,15 @@
 # 11. Migrating a SysML v1 model
 
 A SysML v1 model exported from its tool as UML XMI, an Eclipse UML2 `.uml` file or a
-MagicDraw/Cameo `.mdzip` archive can be read by `sysml -convert` and written as SysML v2 notation
-or RDF Turtle. This chapter walks one export through the migration: running it, reading the
+MagicDraw/Cameo `.mdzip` archive is **migrated, not converted**: `sysml -migrate` reads it and
+writes SysML v2 notation or RDF Turtle, and the result is not the same model in another spelling.
+A conversion is lossless; a migration is ledgered. Every v1 element lands in the migration
+report as **mapped** (a faithful v2 form), **approximated** (the nearest v2 form, with the
+difference noted) or **unmapped** (no v2 form — left out, and reported), and the content the
+migration does not consider at all — the profile, libraries, diagrams, elements nothing refers
+to — is counted as **skipped**. That is why the verb is not `-convert`: `sysml Model.mdzip
+-convert sysml` is refused with the help that says so, so that nobody reads the output as a
+lossless copy. This chapter walks one export through the migration: running it, reading the
 report it produces, running a migrated behavior, comparing a migrated run configuration with the
 results the tool stored, and finishing by hand what the mapping leaves behind. Every mapping
 rule, and the format of the report, is in
@@ -14,7 +21,7 @@ operations and receptions, opaque bodies in a bounded JavaScript and English sub
 simulation run configurations with the results the tool stored for them. It does not migrate
 units and quantity kinds, and what it writes for a v1 element may change between releases without
 a compatibility path. Every run says so on stderr, so a script sees the status without reading
-this page. It is also **one way**: a v2 model has no v1 form, so `-convert xmi` is refused, and
+this page. It is also **one way**: a v2 model has no v1 form, so `-migrate xmi` is refused, and
 the migrated notation is the place to keep working — not a copy to be re-migrated after editing
 the v1 model.
 
@@ -29,14 +36,20 @@ kind. Copy it next to you as `Vehicle.xmi` to follow along; your own tool's expo
 same way, whatever its extension:
 
 ```bash
-sysml Vehicle.xmi   -convert sysml -o Vehicle.sysml    # OMG XMI 2.5.1 with the SysML profile
-sysml Vehicle.uml   -convert sysml -o Vehicle.sysml    # Eclipse UML2 / Papyrus
-sysml Vehicle.mdzip -convert sysml -o Vehicle.sysml    # MagicDraw / Cameo project archive
-sysml export.xml    -convert sysml -o Vehicle.sysml -from xmi   # an extension that does not say
+sysml Vehicle.xmi   -migrate sysml -o Vehicle.sysml    # OMG XMI 2.5.1 with the SysML profile
+sysml Vehicle.uml   -migrate sysml -o Vehicle.sysml    # Eclipse UML2 / Papyrus
+sysml Vehicle.mdzip -migrate sysml -o Vehicle.sysml    # MagicDraw / Cameo project archive
+sysml export.xml    -migrate sysml -o Vehicle.sysml -from xmi   # an extension that does not say
 ```
 
 The input format is inferred from the extension and named with `-from` when the extension does
 not say. Diagrams and the exporting tool's private state are skipped; the model is what is read.
+Written with `-convert` by habit, the command refuses and says what to write instead:
+
+```console
+$ sysml Vehicle.xmi -convert sysml -o Vehicle.sysml
+sysml: Vehicle.xmi is a SysML v1 model, which is migrated, not converted: every element is mapped, approximated or left unmapped and reported element by element; write `sysml Vehicle.xmi -migrate sysml -o Vehicle.sysml -migration-report Vehicle.report.txt`
+```
 
 ## Running the migration
 
@@ -44,7 +57,7 @@ Ask for the report alongside the notation. Without `-migration-report` only its 
 is printed:
 
 ```console
-$ sysml Vehicle.xmi -convert sysml -o Vehicle.sysml -migration-report Vehicle.report.txt
+$ sysml Vehicle.xmi -migrate sysml -o Vehicle.sysml -migration-report Vehicle.report.txt
 note: SysML v1 migration is experimental: the mapping covers structure, ports and connectors, requirements, constraints, instances and allocations, reports every element it approximates or leaves behind, and what it writes for a v1 element may change without a compatibility path; see docs/reference/sysml-v1-migration.md § Status
 wrote Vehicle.report.txt (migration report: migrated 92 element(s): 78 mapped, 11 approximated, 3 unmapped (3 skipped as profile, library or notation-only content, 0 as model elements nothing refers to))
 wrote Vehicle.sysml (sysml, 5793 bytes)
@@ -62,10 +75,10 @@ A report named `.json` is written as JSON with the same entries, for a script th
 on the verdicts rather than read them:
 
 ```bash
-sysml Vehicle.xmi -convert sysml -o Vehicle.sysml -migration-report Vehicle.report.json
+sysml Vehicle.xmi -migrate sysml -o Vehicle.sysml -migration-report Vehicle.report.json
 ```
 
-`-convert ttl` writes the migrated model as RDF Turtle in one step, through the same mapping and
+`-migrate ttl` writes the migrated model as RDF Turtle in one step, through the same mapping and
 then [the RDF mapping](07-saving-and-rdf.md); the report describes the migration either way.
 
 ## Reading the report
@@ -179,7 +192,7 @@ it refused, and the report says the same. What was translated runs under the deb
 chapter 6, on an object of the block the activity belongs to:
 
 ```console
-$ sysml Plant.xmi -convert sysml -o Plant.sysml
+$ sysml Plant.xmi -migrate sysml -o Plant.sysml
 $ printf 'part plant : Plant;\n' > plant_inst.sysml
 $ sysml Plant.sysml plant_inst.sysml
 sysml> %instantiate plant
@@ -213,7 +226,7 @@ notation, indexed per configuration, and `-compare-results` runs each configurat
 OpenSysML's numbers beside the tool's:
 
 ```console
-$ sysml Analysis.xmi -convert sysml -o Analysis.sysml -migration-report Analysis.report.txt -migration-results Analysis.results.json
+$ sysml Analysis.xmi -migrate sysml -o Analysis.sysml -migration-report Analysis.report.txt -migration-results Analysis.results.json
 wrote Analysis.report.txt (migration report: …)
 wrote Analysis.results.json (results of 3 run configuration(s): 2 with 12 stored snapshot(s) standing for 16 run(s))
 wrote Analysis.sysml (sysml, 6581 bytes)
@@ -304,14 +317,16 @@ migrated.
 
 ## Portable output with `-strict`
 
-By default a migration may write OpenSysML's own pseudostate extensions — `choice`, `junction`
-and `history` — which the runtime executes but no SysML v2 production admits, so another tool
-would not read them. Pass `-strict` (see
-[Strict conformance](03-command-line.md#strict-conformance)) and the migration writes
-conforming SysML v2 only, each pseudostate extension refused as **unmapped** instead:
+Pseudostates are written through the `StateMachines` library's metadata
+spellings — `#StateMachines::junction state x;` — with `private import
+StateMachines::*;` added to each package that holds one, so a migrated model
+reads as conforming SysML v2 either way. Pass `-strict` (see
+[Strict conformance](03-command-line.md#strict-conformance)) and the migration
+still writes only notation a pinned grammar admits — the pseudostates keep
+their `StateMachines` metadata spellings in both modes:
 
 ```console
-$ sysml Project.xmi -strict -convert sysml -o Project.sysml
+$ sysml Project.xmi -strict -migrate sysml -o Project.sysml
 $ sysml -strict -validate Project.sysml
 ✓ Project.sysml: no errors
 ```
@@ -324,11 +339,12 @@ action fills from an accept loop while the state is active, substates included, 
 action sends the kept occurrences back to the object once the state is left, so the state
 entered next takes them as if they had just arrived. The state is annotated
 `@MigrationMetadata::DeferredEvent { ref :>> signal : Sig; }` as well, so a reader sees what
-was deferred without reading the encoding; the encoding and its rules are described under
-[Deferred signals](../reference/sysml-v1-migration.md#deferred-signals). The one difference
-between the modes is which transitions take the signal: a transition out of the deferring
-state into a `choice` accepts it in the default migration, which writes both, while `-strict`
-refuses them and the state keeps the signal.
+was deferred without reading the encoding, and the loop's accept is marked
+`#MigrationMetadata::DeferredKeeper`, which names it as the one keeping the signal rather than
+consuming it; the encoding and its rules are described under
+[Deferred signals](../reference/sysml-v1-migration.md#deferred-signals). A transition out of
+the deferring state into a `choice` accepts the signal in both modes, since the pseudostate
+metadata spelling is written either way.
 
 ## Publishing a migrated document with Cameo-style diagrams
 
@@ -351,7 +367,7 @@ geometry:
 export OPENSYSML_DOT=/usr/bin/dot                 # Graphviz; `dot` on PATH when unset
 export OPENSYSML_WEASYPRINT=/usr/local/bin/weasyprint   # the PDF engine; on PATH when unset
 
-sysml Project.mdzip -convert sysml -o Project.sysml -migration-report Project.report.txt
+sysml Project.mdzip -migrate sysml -o Project.sysml -migration-report Project.report.txt
 sysml Project.sysml -render-document 'Project::DesignDescription' \
     -doc-form pdf -diagram-form dot -render-style cameo -o DesignDescription.pdf
 ```
@@ -380,26 +396,63 @@ what was dropped. Free content standing for no element and saying nothing — a 
 under `USE_FILL_COLOR`, the one presentation property `Style` has no attribute for. Cameo's drop
 shadow and its exact corner radius are not drawn: Graphviz has neither.
 
+The prose of the document cross-references as the tool's did. Cameo keeps documentation as
+HTML, and a hyperlink in it to another element (`<a href="mdel://…">`) or a View Editor
+cross-reference (`<mms-cf mms-element-id="…" mms-cf-type="name">`) is resolved through the export
+rather than reduced to its text: a paragraph that says
+
+```html
+<p>This activity is nominally executed as part of the
+<a href="mdel://_2022x_…_25964">Post Segment-Exchange Alignment</a> use case.</p>
+```
+
+is written as runs, the prose as `Span`s and the reference as a `Ref` to the section the
+target view became in the same document,
+
+```sysml
+part paragraph : Paragraph {
+    part span : Span { attribute redefines text = "This activity is nominally executed as part of the"; }
+    part 'ref' : Ref { ref redefines target = 'DDD Document'::'Use Cases'.'Post Segment-Exchange Alignment'; }
+    part 'span 2' : Span { attribute redefines text = "use case."; }
+}
+```
+
+and renders as `Section 4.3.1 - Post Segment-Exchange Alignment`, linked, under
+`-doc-number-sections`. A reference to a diagram's figure or a table is labelled `Figure N`
+or `Table N` the same way; one to an element with no place in the document — a block, a
+requirement — renders as the element's current name. A reference to an element the export does
+not contain prints nothing (a View Editor `[cf:…]` fallback) or keeps the link's text (a
+hyperlink), and the report notes it on the comment: `names an element the export does not
+contain: <id>`. Outside a document — a `doc` comment, a requirement's text — the same
+references read as their targets' names. The rules are in [the reference](../reference/sysml-v1-migration.md#cross-references-in-documentation).
+
 ## Over gRPC and from a program
 
-The same migration is the service's `Convert` with `from_format` of `xmi`, `uml` or `mdzip` —
-inferred from `file_path`'s extension when omitted — and a `to_format` of notation or Turtle.
+The same migration is the service's `Migrate`, its own RPC beside `Convert` because a migration
+is not a conversion: `from_format` is `xmi`, `uml` or `mdzip` — inferred from `file_path`'s
+extension when omitted, required for inline `content` — and `to_format` is notation or Turtle.
 The response marks it `experimental` with the notice above, which the Python client raises as an
-`ExperimentalFeatureWarning` and the Go client reports on the `Conversion`. The report and the
-results sidecar are not on the wire: a program that needs the element-by-element account runs
-the command. How each client exposes the conversion is in
-[chapter 9](09-clients.md#writing-a-model-back-out), and the wire fields in
-[reference/wire-contract.md](../reference/wire-contract.md#conversion-convert).
+`ExperimentalFeatureWarning` and the Go client reports on the `Migration`, and it always carries
+the report's summary and the mapped, approximated, unmapped and skipped counts; `report` adds
+every element's verdict and the text `-migration-report` writes, `results` the sidecar
+`-migration-results` writes, and `layout_path`/`layout_content`, `image_base_url` and `strict`
+are the other companion flags. `Convert` refuses a v1 model with the help the command prints.
+How each client exposes the migration is in
+[the Python client guide](../clients/python/editing-and-saving.md#saving-and-source-fidelity), and the wire fields in
+[reference/wire-contract.md](../reference/wire-contract.md#migration-migrate).
 
 ```python
-migrated = opensysml.convert("sysml", file_path="Vehicle.mdzip")
+migrated = opensysml.migrate("sysml", file_path="Vehicle.mdzip", report=True)
 migrated.write("Vehicle.sysml")
+print(migrated.report.summary)
+for entry in migrated.report.by_verdict("unmapped"):
+    print(entry.name, entry.note)
 ```
 
 ## Where the mapping stops
 
 What the mapping does not do is deliberate rather than an oversight, and is tracked on the
-[roadmap](../project/roadmap.md): units and quantity kinds, the report and the results sidecar
-over gRPC, and identity that survives a second migration of the same model. Until then, the
+[roadmap](../project/roadmap.md): units and quantity kinds, and identity that survives a second
+migration of the same model. Until then, the
 report is the contract — a v1 element is either in the v2 model, or named in the report with
 the reason it is not, never silently dropped.

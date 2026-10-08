@@ -221,12 +221,12 @@ func TestPaletteFillsAreLegible(t *testing.T) {
 // The notice a form that draws no palette writes names the palette and the
 // forms that do; a kind supports a palette when one of those forms writes it.
 func TestPaletteNotice(t *testing.T) {
-	want := fmt.Sprintf("palette %s; only the DOT and PlantUML forms fill nodes by keyword family", PaletteTolMuted)
+	want := fmt.Sprintf("palette %s; only the DOT, Mermaid, PlantUML and D2 forms fill nodes by keyword family", PaletteTolMuted)
 	if got := paletteNotice(PaletteTolMuted); got != want {
 		t.Errorf("paletteNotice = %q, want %q", got, want)
 	}
 	for _, kind := range Kinds() {
-		if want := kind.SupportsForm(FormDot) || kind.SupportsForm(FormPlantUML); kind.SupportsPalette() != want {
+		if want := kind.SupportsForm(FormDot) || kind.SupportsForm(FormMermaid) || kind.SupportsForm(FormPlantUML); kind.SupportsPalette() != want {
 			t.Errorf("%s.SupportsPalette() = %v, want %v", kind, kind.SupportsPalette(), want)
 		}
 	}
@@ -269,7 +269,7 @@ func TestFillsMatchDOT(t *testing.T) {
 // Fills gives every node the fill and border the PlantUML form of the same
 // rendering draws it with: a participant the fill alone, its border uncoloured.
 func TestFillsMatchPlantUML(t *testing.T) {
-	decorated := regexp.MustCompile(`^\s*\w+ ".*" as ([^ ]+)(?: <<[^>]*>>)* (#[0-9A-F]{6})(?:;line:([0-9A-F]{6}))?$`)
+	decorated := regexp.MustCompile(`^\s*\w+ ".*" as ([^ ]+)(?: <<[^>]*>>)* (#[0-9A-F]{6})(?:;line:([0-9A-F]{6}))?(?: \{)?$`)
 	sequences := 0
 	for _, tc := range plantumlGoldenCases {
 		if tc.name == "sequence-empty" {

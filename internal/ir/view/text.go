@@ -16,45 +16,61 @@ func (r *Rendering) Text() string { return r.TextWidth(WidthUnbounded) }
 // TextWidth is the human-readable form of a rendering: a header saying what was
 // rendered and how, the nodes as an indented tree, the edges beneath it, and
 // what the rendering could not represent. It is what the REPL prints. A table's
-// columns are written to fit width, wrapping their cells; WidthUnbounded writes
-// each column as wide as its widest cell.
-func (r *Rendering) TextWidth(width int) string {
+// tabular columns are written to fit width, wrapping their cells; WidthUnbounded
+// writes each column as wide as its widest cell.
+func (r *Rendering) TextWidth(width int) string { return r.textWith(Options{Width: width}) }
+
+// textWith is the text form written to options' width, listing under each part
+// of an interconnection or mixed rendering the ports options' Ports display
+// draws.
+func (r *Rendering) textWith(options Options) string {
+	width := options.Width
+	pictureNotices := refusedPictureNotices(r.Pictures, r.pictureRefusals())
 	var b strings.Builder
-	if r.View == "" {
+	if r.Run {
+		fmt.Fprintf(&b, "run - %s rendering", r.Kind)
+	} else if r.View == "" {
 		fmt.Fprintf(&b, "%s rendering", r.Kind)
 	} else {
 		fmt.Fprintf(&b, "%s - %s rendering", r.View, r.Kind)
 	}
 	if r.Stated != "" {
 		fmt.Fprintf(&b, " (%s)", r.Stated)
-	} else {
+	} else if !r.Run {
 		b.WriteString(" (the view states no rendering; a tree is the default)")
 	}
 	b.WriteString("\n")
-	if r.Empty() {
-		b.WriteString("\n" + r.EmptyReason() + "\n")
+	if r.Run && r.Kind == KindTimeline {
+		b.WriteString("\n")
+		writeRunTimelineText(&b, r)
 		writeNotices(&b, r.Notices)
 		return b.String()
 	}
+	if r.Empty() {
+		b.WriteString("\n" + r.EmptyReason() + "\n")
+		writeNotices(&b, slices.Concat(r.Notices, pictureNotices))
+		return b.String()
+	}
 	b.WriteString("\n")
-	if r.Kind == KindTable {
+	if r.Kind.Tabular() {
 		writeTableText(&b, r.Columns, r.Rows, width)
-		writeNotices(&b, r.Notices)
+		writeNotices(&b, slices.Concat(r.Notices, pictureNotices))
 		return b.String()
 	}
 	if c := r.Canvas; c != nil {
 		b.WriteString(canvasText(c) + "\n\n")
 	}
 	labels := map[string]string{}
+	ports := r.portView(options.Ports)
 	for _, root := range r.Roots {
-		writeNodeText(&b, root, 0, labels)
+		writeNodeText(&b, root, 0, labels, ports)
 	}
 	if len(r.Edges) > 0 {
 		fmt.Fprintf(&b, "\n%s:\n", edgeSectionName(r.Kind))
 		for _, edge := range r.Edges {
-			line := fmt.Sprintf("  %s %s %s", labels[edge.From], edgeArrow(edge.Kind), labels[edge.To])
-			if edge.Label != "" {
-				line += ": " + edge.Label
+			line := fmt.Sprintf("  %s %s %s", endLabel(labels, edge.From, edge.FromPort), edgeArrow(r.Kind, edge.Kind), endLabel(labels, edge.To, edge.ToPort))
+			if label := textEdgeLabel(edge, ports); label != "" {
+				line += ": " + label
 			}
 			if len(edge.Route) > 0 {
 				line += " via"
@@ -77,7 +93,7 @@ func (r *Rendering) TextWidth(width int) string {
 			b.WriteString(pictureText(picture) + "\n")
 		}
 	}
-	writeNotices(&b, slices.Concat(r.Notices, r.visualNotices(noStyleInText, false)))
+	writeNotices(&b, slices.Concat(r.Notices, pictureNotices, r.visualNotices(noStyleInText, false)))
 	return b.String()
 }
 
@@ -115,6 +131,17 @@ func noteText(note Note, labels map[string]string) string {
 // view whose exposed elements this kind of rendering cannot show, which the
 // notices then account for one by one.
 func (r *Rendering) EmptyReason() string {
+	if r.Run {
+		switch r.Kind {
+		case KindTimeline:
+			return "the run recorded no state; the rendering is empty"
+		case KindSequence:
+			return "the run recorded no message; the rendering is empty"
+		}
+	}
+	if r.emptyReason != "" {
+		return r.emptyReason
+	}
 	if len(r.Notices) > 0 {
 		return fmt.Sprintf("the rendering is empty: nothing the view exposes is shown by %s %s rendering",
 			r.Kind.article(), r.Kind)
@@ -125,7 +152,7 @@ func (r *Rendering) EmptyReason() string {
 // blank reports whether a form that draws no picture shows nothing of the
 // rendering: it has no node, edge or row, whether or not it has pictures.
 func (r *Rendering) blank() bool {
-	return len(r.Roots) == 0 && len(r.Edges) == 0 && len(r.Rows) == 0
+	return len(r.Roots) == 0 && len(r.Edges) == 0 && len(r.Rows) == 0 && len(r.Lanes) == 0
 }
 
 // blankReason is EmptyReason or, for a rendering of pictures alone, that
@@ -137,9 +164,22 @@ func (r *Rendering) blankReason(form Form) string {
 	return fmt.Sprintf("the view shows %d picture(s), which the %s form does not draw", len(r.Pictures), form)
 }
 
+// endLabel is the label an edge names its end by: the node's, and the port's
+// under it — `part.port` — where the edge ends at a port the text writes.
+func endLabel(labels map[string]string, node, port string) string {
+	if label, ok := labels[port]; ok && port != "" {
+		return label
+	}
+	return labels[node]
+}
+
 // writeNodeText writes one node and its children, and records the label an edge
-// names the node by. A body's start is named by the body it starts.
-func writeNodeText(b *strings.Builder, node *Node, depth int, labels map[string]string) {
+// names the node by. A body's start is named by the body it starts. In an
+// interconnection or mixed view, the node's ports the display draws are written
+// under it,
+// each a line of its own, and recorded as `node.port`; elsewhere they are left
+// to the edges' labels, which an action's flows name their pins in.
+func writeNodeText(b *strings.Builder, node *Node, depth int, labels map[string]string, ports portView) {
 	labels[node.ID] = nodeLabel(node)
 	line := strings.Repeat("  ", depth) + node.Kind
 	if node.Name != "" {
@@ -161,12 +201,36 @@ func writeNodeText(b *strings.Builder, node *Node, depth int, labels map[string]
 		}
 	}
 	b.WriteString(line + "\n")
+	if ports.interconnection || ports.action {
+		for _, port := range ports.of(node) {
+			labels[port.ID] = labels[node.ID] + "." + port.Name
+			b.WriteString(strings.Repeat("  ", depth+1) + pinLine(port, ports) + "\n")
+		}
+	}
 	for _, child := range node.Children {
-		writeNodeText(b, child, depth+1, labels)
+		writeNodeText(b, child, depth+1, labels, ports)
 		if child.Kind == startKind {
 			labels[child.ID] = "start of " + labels[node.ID]
 		}
 	}
+}
+
+// pinLine is a part port's `port <label>` or an action pin's direction and name.
+func pinLine(port Port, ports portView) string {
+	if ports.interconnectionPort(port) {
+		return "port " + ports.pinLabel(port)
+	}
+	return strings.TrimSpace(port.Direction.String() + " " + port.Name)
+}
+
+// textEdgeLabel is the text after an edge's ends: its label, except that an
+// action edge attached to pins is labelled by its name, since the ends name the
+// pins already.
+func textEdgeLabel(edge Edge, ports portView) string {
+	if ports.action && (edge.FromPort != "" || edge.ToPort != "") {
+		return edge.Name
+	}
+	return edge.Label
 }
 
 // writeTableText writes a tabular rendering as aligned columns, padding each
@@ -348,19 +412,42 @@ func edgeSectionName(kind Kind) string {
 		return "flow"
 	case KindSequence:
 		return "messages"
+	case KindTree, KindCase, KindMixed, KindRequirement, KindDefinition, KindPackage:
+		return "relationships"
 	}
 	return "connections"
 }
 
 // edgeArrow is how an edge of each kind is drawn in text.
-func edgeArrow(kind EdgeKind) string {
-	switch kind {
+func edgeArrow(kind Kind, edge EdgeKind) string {
+	if caseNotation(kind) && (edge == EdgeTyping || edge == EdgeReference) {
+		return "..>"
+	}
+	switch edge {
 	case EdgeConnection:
 		return "--"
 	case EdgeBinding:
 		return "=="
 	case EdgeFlow:
 		return "=>"
+	case EdgeSpecialization:
+		return "--|>"
+	case EdgeTyping:
+		return "..|>"
+	case EdgeComposition:
+		return "*--"
+	case EdgeReference:
+		return "o--"
+	case EdgeContainment:
+		return "+--"
+	case EdgeImport, EdgeSatisfy, EdgeVerify, EdgeDerive, EdgeRefine, EdgeAllocate:
+		return "..>"
+	case EdgeAssociation:
+		return "--"
+	case EdgeInclude:
+		return "..>"
+	case EdgeAnchor:
+		return ".."
 	}
 	return "->"
 }

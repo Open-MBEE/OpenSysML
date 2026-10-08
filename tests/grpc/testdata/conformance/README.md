@@ -45,16 +45,17 @@ empty else blocks are not authorable.
 | `expected_error` | all | substring the RPC's in-band `error` must contain (for `RunDocumentQuery`, the status error the call fails with) |
 
 A case without `expected_error` requires an empty `error` field. A case with `expected_error`
-asserts only the error, and is how failure modes (for example an action with no initial node)
+asserts only the error, and is how failure modes (for example an action whose successions leave no step to start at)
 are pinned.
 
 A feature value's `error` is a substring its `FeatureValue.error` must contain; one without an
 error must carry none.
 
 A value is `{"kind": <oneof field of pb.Value>, "value": <literal>}`, where `kind` is one of
-`int_value`, `real_value`, `bool_value`, `string_value`, `instance_id`, `quantity`, `null` or
-`unset` — the last being a materialized feature value holding no value, as a valueless feature of a
-value type does. The assertion checks the oneof arm as well as the payload, so a value returned
+`int_value`, `real_value`, `rational_value`, `bool_value`, `string_value`, `instance_id`,
+`quantity`, `null` or `unset` — the last being a materialized feature value holding no value, as a valueless feature of a
+value type does. A `rational_value`'s literal is the string `"<numerator>/<denominator>"`, sent
+as written and answered in lowest terms. The assertion checks the oneof arm as well as the payload, so a value returned
 with the wrong type fails; `instance_id`, `null` and `unset` assert the arm only, since instance
 ids are assigned at runtime.
 

@@ -1,13 +1,12 @@
 package repl
 
 import (
-	"errors"
 	"fmt"
 	"strings"
 
+	"github.com/Open-MBEE/OpenSysML/internal/frontend/repl/replext"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
-	"github.com/Open-MBEE/OpenSysML/internal/translate/convert"
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/model"
 )
 
@@ -35,11 +34,7 @@ func (s *Session) printSession() ([]string, bool, error) {
 	if strings.TrimSpace(src) == "" {
 		return []string{"nothing to print: the session is empty"}, false, nil
 	}
-	out, syntax, err := convert.ConvertTolerant(sessionOrigin, []byte(src), convert.FormatSysML, convert.FormatSysML)
-	if err != nil {
-		return []string{errPrefix + err.Error()}, false, nil
-	}
-	return append(printWarnings(syntax), notationLines(out)...), false, nil
+	return replext.Notation().Print(sessionOrigin, []byte(src)), false, nil
 }
 
 // printElement prints one element and its body: the source its declaration
@@ -72,19 +67,8 @@ func (s *Session) printElement(name string) ([]string, bool, error) {
 		// session never read, or was restored from an index cache holding no tree.
 		return []string{fmt.Sprintf("no notation to print for %s: this session declares it nowhere", shown)}, false, nil
 	}
-	file := source.New(doc.Name, doc.Content)
-	out, syntax, err := convert.SysMLElement(file, declarationSpan(sym))
-	if err != nil {
-		if errors.Is(err, convert.ErrNoNotation) {
-			return []string{fmt.Sprintf("no notation to print for %s: its declaration spans no source", shown)}, false, nil
-		}
-		return []string{errPrefix + err.Error()}, false, nil
-	}
-	lines := append(printWarnings(syntax), notationLines(out)...)
-	if len(lines) == 0 {
-		return []string{fmt.Sprintf("no notation to print for %s: its declaration spans no source", shown)}, false, nil
-	}
-	return lines, false, nil
+	file := sourceForKind(doc.Name, doc.Content, doc.Kind())
+	return replext.Notation().PrintElement(file, declarationSpan(sym), shown), false, nil
 }
 
 // declarationSpan is the source one element occupies: its declaration together
@@ -104,24 +88,4 @@ func declarationSpan(sym *symbols.Symbol) source.Span {
 		}
 	}
 	return source.Span{Offset: start, Len: span.End() - start}
-}
-
-// printWarnings reports the syntax errors of a printed buffer, in the wording a
-// save reports them with: the notation is printed as typed either way.
-func printWarnings(syntax *convert.SyntaxError) []string {
-	if syntax == nil {
-		return nil
-	}
-	lines := strings.Split("warning: "+syntax.Error(), "\n")
-	return append(lines, "warning: the model is printed as typed; fix these and print again")
-}
-
-// notationLines splits written notation into prompt lines, dropping the trailing
-// blank line the writer ends a document with.
-func notationLines(out []byte) []string {
-	text := strings.TrimRight(string(out), "\n")
-	if text == "" {
-		return nil
-	}
-	return strings.Split(text, "\n")
 }

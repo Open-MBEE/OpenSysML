@@ -13,8 +13,32 @@ import (
 // checks multiplicity, range and uniqueness. A run-time failure names the site
 // as the interpreter does, by label.
 func (fc *funcCompiler) bind(v Expr, b binding, where, label string) (Expr, error) {
-	if b.t.Elem() == TypeReal && v.Type().Elem() == TypeInt {
+	if x, ok, err := fc.bindUnset(v, b, where, label); ok {
+		return x, err
+	}
+	switch ve := v.Type().Elem(); {
+	case b.t.Elem() == TypeReal && (ve == TypeInt || ve == TypeNum):
+		// An Integer written to a Real-typed feature stays an Integer.
+		if b.slot == nil {
+			return nil, fc.unsupported(fmt.Sprintf("an Integer bound at %s, which holds %s", where, b.t))
+		}
+		fc.c.widen(*b.slot)
 		v = ToReal{X: v}
+	case b.t.Elem() == TypeNum && (ve == TypeInt || ve == TypeReal):
+		v = ToNum{X: v}
+	case b.t.IsFn() && ve.IsFn() && v.Type() != b.t && v.Type() != b.t.Elem():
+		// A write of other functions widens the feature to them too.
+		if !fnSubset(ve, b.t) {
+			if b.slot == nil {
+				return nil, fc.unsupported(fmt.Sprintf("a function value of %s bound at %s, which holds only %s", fc.fnNames(ve), where, fc.fnNames(b.t)))
+			}
+			fc.c.widenFn(*b.slot, fc.c.fnUnion(ve, b.t.Elem()))
+		}
+		t := b.t.Elem()
+		if v.Type().Many() {
+			t = t.Seq()
+		}
+		v = FnWiden{X: v, T: t}
 	}
 	vt := v.Type()
 	if b.t.Scalar() {
@@ -58,6 +82,8 @@ func (fc *funcCompiler) toMany(v Expr, t Type, what string) (Expr, error) {
 // collection type t.
 func (fc *funcCompiler) retype(v Expr, t Type) Expr {
 	switch v := v.(type) {
+	case Steps:
+		return Steps{N: v.N, X: fc.retype(v.X, t)}
 	case NullLit:
 		return NullLit{T: t}
 	case SeqLit:
@@ -92,8 +118,17 @@ func (fc *funcCompiler) scalarOperand(v, other Expr, op ast.OperatorKind, left b
 // other still to be checked has its description filled at run time.
 func (fc *funcCompiler) pairOperand(v, other Expr, left bool, fail string, bare bool, fixed string) Expr {
 	desc := fixed
+	if desc == "" && other.Type() == TypeNum {
+		// A number is described by the kind it holds, which binaryOperands has
+		// evaluated into a Var.
+		kinds := func(d string) Expr { return fc.pairOperand(v, other, left, fail, bare, d) }
+		return NumSplit{Nums: []Var{other.(Var)}, Int: kinds("an Integer"), Real: kinds("a Real"), T: v.Type().Elem()}
+	}
 	if desc == "" {
 		desc = article(other.Type().Elem())
+		if other.Type().Elem() == TypeReal && fc.exactness(other) != binary64 {
+			desc = "a Rational"
+		}
 	}
 	if left && other.Type().Many() {
 		return ToOne{X: v, Fail: fail, Bare: bare, Other: other, OtherOne: desc}
@@ -112,6 +147,9 @@ func failStmtCondition(kw string) string {
 
 // scalarOperandOf is v as the argument for param of the scalar library function fqn.
 func (fc *funcCompiler) scalarOperandOf(v Expr, fqn, param string) (Expr, error) {
+	if kind := stringLibParam(fqn, param); kind != "" {
+		return fc.scalarOperandWith(v, fmt.Sprintf("type mismatch: function %s parameter %q requires %s value, got %%s", fqn, param, kind), false, fqn)
+	}
 	return fc.scalarOperandWith(v, fmt.Sprintf("type mismatch: function %s parameter %q requires a numeric value", fqn, param), false, fqn)
 }
 
@@ -119,6 +157,8 @@ func (fc *funcCompiler) scalarOperandOf(v Expr, fqn, param string) (Expr, error)
 // found, bare without its article) and null is outside the subset.
 func (fc *funcCompiler) scalarOperandWith(v Expr, fail string, bare bool, what string) (Expr, error) {
 	switch vt := v.Type(); {
+	case vt.MayUnset():
+		return nil, fc.unsetUnsupported("an operand of " + what)
 	case vt.Scalar():
 		return v, nil
 	case vt.Many():
@@ -139,16 +179,39 @@ func (fc *funcCompiler) compileSequence(n *ast.SequenceExpr) (Expr, error) {
 		if err != nil {
 			return nil, err
 		}
+		if v.Type().MayUnset() {
+			return nil, fc.unsetUnsupported("an element of a sequence")
+		}
 		if t := v.Type(); t != TypeNull {
-			if elem != TypeInvalid && elem != t.Elem() {
+			if elem != TypeInvalid && elem.IsFn() && t.IsFn() {
+				elem = fc.c.fnUnion(elem, t.Elem())
+				elems[i] = v
+				continue
+			}
+			if elem != TypeInvalid && elem != t.Elem() && (!numeric(elem) || !numeric(t.Elem())) {
 				return nil, fc.unsupported(fmt.Sprintf("a sequence mixing %s and %s elements", elem, t.Elem()))
 			}
-			elem = t.Elem()
+			if elem != TypeInvalid && elem != t.Elem() {
+				elem = TypeNum
+			} else {
+				elem = t.Elem()
+			}
 		}
 		elems[i] = v
 	}
 	if elem == TypeInvalid {
 		return SeqLit{Elems: elems, T: TypeNull}, nil
+	}
+	for i, v := range elems {
+		switch vt := v.Type(); {
+		case vt == TypeNull || vt.Elem() == elem:
+		case elem.IsFn() && vt.Many():
+			elems[i] = FnWiden{X: v, T: elem.Seq()}
+		case elem.IsFn():
+			elems[i] = FnWiden{X: v, T: elem}
+		default:
+			elems[i] = ToNum{X: v}
+		}
 	}
 	return SeqLit{Elems: elems, T: elem.Seq()}, nil
 }
@@ -201,7 +264,8 @@ func (fc *funcCompiler) compileCoalesce(n *ast.OperatorExpr) (Expr, error) {
 	if err != nil {
 		return nil, err
 	}
-	if l.Type().Scalar() {
+	if l.Type().Scalar() || l.Type().MayUnset() {
+		// One value, unset or not, is not null.
 		return l, nil
 	}
 	t := l.Type()
@@ -211,10 +275,13 @@ func (fc *funcCompiler) compileCoalesce(n *ast.OperatorExpr) (Expr, error) {
 	if t == TypeNull {
 		return nil, fc.unsupported("'??' between two nulls")
 	}
-	if l, err = fc.toMany(l, t, "the left operand of '??'"); err != nil {
+	if le, re := t.Elem(), r.Type().Elem(); r.Type() != TypeNull && le != re && numeric(le) && numeric(re) {
+		t = TypeSeqNum
+	}
+	if l, err = fc.coerce(l, t, "the left operand of '??'"); err != nil {
 		return nil, err
 	}
-	if r, err = fc.toMany(r, t, "the right operand of '??'"); err != nil {
+	if r, err = fc.coerce(r, t, "the right operand of '??'"); err != nil {
 		return nil, err
 	}
 	return Coalesce{L: l, R: r, T: t}, nil
@@ -228,9 +295,30 @@ func (fc *funcCompiler) compileEquality(n *ast.OperatorExpr) (Expr, error) {
 	if err != nil {
 		return nil, err
 	}
+	if l.Type().MayUnset() || r.Type().MayUnset() {
+		neq := n.Operator == ast.OpNeq || n.Operator == ast.OpNeqEqEq
+		return fc.unsetEquality(func(l, r Expr) (Expr, error) { return fc.equality(n, l, r) }, l, r, neq)
+	}
+	return fc.equality(n, l, r)
+}
+
+// equality is compileEquality of the compiled operands l and r.
+func (fc *funcCompiler) equality(n *ast.OperatorExpr, l, r Expr) (Expr, error) {
+	var err error
 	neq := n.Operator == ast.OpNeq || n.Operator == ast.OpNeqEqEq
 	ident := n.Operator == ast.OpEqEqEq || n.Operator == ast.OpNeqEqEq
 	lt, rt := l.Type(), r.Type()
+	if lt.Scalar() && rt.Scalar() && identityKind(lt) != identityKind(rt) {
+		// A String or literal equals no value of another kind, whatever its operands hold.
+		var lets []Let
+		_, lets = fc.hoist(l, lets)
+		_, lets = fc.hoist(r, lets)
+		var x Expr = BoolLit{Value: neq}
+		for i := len(lets) - 1; i >= 0; i-- {
+			x = Let{Name: lets[i].Name, Value: lets[i].Value, In: x}
+		}
+		return x, nil
+	}
 	if (lt == TypeBool) != (rt == TypeBool) && lt != TypeNull && rt != TypeNull {
 		return nil, fc.unsupported("equality between a Boolean and a number")
 	}
@@ -239,15 +327,23 @@ func (fc *funcCompiler) compileEquality(n *ast.OperatorExpr) (Expr, error) {
 		if neq {
 			op = ast.OpNeq
 		}
-		if lt != rt {
-			if ident {
-				return nil, fc.unsupported(fmt.Sprintf("'%s' between %s and %s", n.Operator, lt, rt))
-			}
-			t, _ := fc.unify(l, r, "")
-			l, _ = fc.coerce(l, t, "")
-			r, _ = fc.coerce(r, t, "")
+		if lt.IsEnum() || lt.IsFn() || lt.IsRec() {
+			// A literal is identified by itself, and a function value by its
+			// function and the run it closes over, so `===` is `==`.
+			return Binary{Op: op, L: l, R: r, T: TypeBool}, nil
 		}
-		return Binary{Op: op, L: l, R: r, T: TypeBool}, nil
+		if !ident && fc.meetsExact(l, r) {
+			return fc.kindSplit(Binary{Op: op, L: l, R: r, T: TypeBool}, fc.exactCompare), nil
+		}
+		if lt != rt || lt == TypeNum {
+			// Numbers compare by value under `==`, and by kind too under `===`.
+			l, _ = fc.coerce(l, TypeNum, "")
+			r, _ = fc.coerce(r, TypeNum, "")
+			if ident {
+				op = n.Operator
+			}
+		}
+		return fc.rationalComparison(Binary{Op: op, L: l, R: r, T: TypeBool})
 	}
 	fc.c.collections = true
 	le, re := lt.Elem(), rt.Elem()
@@ -259,27 +355,45 @@ func (fc *funcCompiler) compileEquality(n *ast.OperatorExpr) (Expr, error) {
 	case rt == TypeNull:
 		re = le
 	}
-	if le != re {
-		if ident {
+	if le.IsFn() && re.IsFn() {
+		le = fc.c.fnUnion(le, re)
+		re = le
+	}
+	if le != re && !(le.IsEnum() && re.IsEnum()) {
+		if !numeric(le) || !numeric(re) {
 			return nil, fc.unsupported(fmt.Sprintf("'%s' between %s and %s", n.Operator, lt, rt))
 		}
-		le, re = TypeReal, TypeReal
+		// Collections compare their elements as numbers, under `===` too.
+		le, re = TypeNum, TypeNum
 	}
-	if l, err = fc.toMany(l, le.Seq(), "the left operand of '"+n.Operator.String()+"'"); err != nil {
+	if l, err = fc.coerce(l, le.Seq(), "the left operand of '"+n.Operator.String()+"'"); err != nil {
 		return nil, err
 	}
-	if r, err = fc.toMany(r, re.Seq(), "the right operand of '"+n.Operator.String()+"'"); err != nil {
+	if r, err = fc.coerce(r, re.Seq(), "the right operand of '"+n.Operator.String()+"'"); err != nil {
 		return nil, err
+	}
+	if fc.exactness(l) == exactRational || fc.exactness(r) == exactRational {
+		if err := fc.exactOperands(fmt.Sprintf("'%s'", n.Operator), l, r); err != nil {
+			return nil, err
+		}
 	}
 	return SeqEq{L: l, R: r, Neq: neq, Ident: ident}, nil
 }
 
-// widen is v as a collection of Reals.
-func widen(v Expr) Expr {
-	if v.Type() == TypeSeqReal {
-		return v
+// identityKind groups the scalar types whose values may equal one another:
+// numbers and Booleans, Strings, and enumeration literals.
+func identityKind(t Type) int {
+	switch {
+	case t == TypeString:
+		return 1
+	case t.IsEnum():
+		return 2
+	case t.IsFn():
+		return 3
+	case t.IsRec():
+		return 4
 	}
-	return ToReal{X: v}
+	return 0
 }
 
 // compileSeqCall is a call of a collection operation. The receiver of
@@ -322,6 +436,25 @@ func (fc *funcCompiler) compileSeqCall(n *ast.InvocationExpr, op SeqOp, realAgg 
 func (fc *funcCompiler) seqCall(op SeqOp, realAgg bool, args []Expr) (Expr, error) {
 	fc.c.collections = true
 	spec := op.spec()
+	for _, a := range args {
+		if !a.Type().MayUnset() {
+			continue
+		}
+		// An unset value is one value: neither null nor empty.
+		var counted Expr
+		switch op {
+		case SeqSize:
+			counted = IntLit{Value: 1}
+		case SeqIsEmpty:
+			counted = BoolLit{Value: false}
+		case SeqNotEmpty:
+			counted = BoolLit{Value: true}
+		default:
+			return nil, fc.unsetUnsupported("an argument of " + op.Name())
+		}
+		_, lets := fc.hoist(a, nil)
+		return wrapLets(lets, counted), nil
+	}
 	elem := TypeInvalid
 	for i, a := range args {
 		if spec.params[i] != paramSeq || a.Type() == TypeNull {
@@ -330,18 +463,16 @@ func (fc *funcCompiler) seqCall(op SeqOp, realAgg bool, args []Expr) (Expr, erro
 		switch t := a.Type().Elem(); {
 		case elem == TypeInvalid:
 			elem = t
-		case elem != t && (elem == TypeBool || t == TypeBool):
-			return nil, fc.unsupported(fmt.Sprintf("%s over Boolean and numeric collections", op.Name()))
-		case elem != t && !predicateOp(op):
-			return nil, fc.unsupported(fmt.Sprintf("%s over %s and %s collections", op.Name(), elem, t))
+		case elem != t && (!numeric(elem) || !numeric(t)):
+			return nil, fc.unsupported(fmt.Sprintf("%s over collections of %s and %s", op.Name(), elem, t))
 		case elem != t:
-			elem = TypeReal
+			elem = TypeNum
 		}
 	}
 	if elem == TypeInvalid {
 		elem = TypeInt
 	}
-	if realAgg && elem == TypeInt {
+	if realAgg && numeric(elem) {
 		elem = TypeReal
 	}
 	var err error
@@ -356,10 +487,12 @@ func (fc *funcCompiler) seqCall(op SeqOp, realAgg bool, args []Expr) (Expr, erro
 			}
 			continue
 		}
-		if a.Type() != TypeNull && a.Type().Elem() != elem {
-			a = widen(a)
+		if args[i], err = fc.coerce(a, elem.Seq(), what); err != nil {
+			return nil, err
 		}
-		if args[i], err = fc.toMany(a, elem.Seq(), what); err != nil {
+	}
+	if !realAgg {
+		if err := fc.exactOperands(op.Name(), args...); err != nil {
 			return nil, err
 		}
 	}
@@ -368,16 +501,6 @@ func (fc *funcCompiler) seqCall(op SeqOp, realAgg bool, args []Expr) (Expr, erro
 		return nil, err
 	}
 	return SeqCall{Op: op, Args: args, T: t}, nil
-}
-
-// predicateOp reports whether an operation only compares its operands'
-// elements, so Integers and Reals may be compared as numbers.
-func predicateOp(op SeqOp) bool {
-	switch op {
-	case SeqIncludes, SeqIncludesOnly, SeqExcludes, SeqEquals:
-		return true
-	}
-	return false
 }
 
 // seqResult is the type of a value operation over collections of elem.
@@ -393,8 +516,8 @@ func (fc *funcCompiler) seqResult(op SeqOp, elem Type) (Type, error) {
 		}
 		return TypeBool, nil
 	case SeqSum, SeqProduct:
-		if elem == TypeBool {
-			return TypeInvalid, fc.unsupported(fmt.Sprintf("%s over Boolean elements", op.Name()))
+		if !numeric(elem) {
+			return TypeInvalid, fc.unsupported(fmt.Sprintf("%s over %s elements", op.Name(), elem))
 		}
 		return elem, nil
 	}
@@ -453,14 +576,18 @@ func (fc *funcCompiler) compileBodyOp(op SeqOp, operand ast.Node, body ast.Node)
 		}
 		t = elem.Seq()
 	case SeqMinimize, SeqMaximize:
-		if rt != TypeInt && rt != TypeReal {
+		if rt != TypeInt && rt != TypeReal && rt != TypeNum {
 			return nil, fc.unsupported(fmt.Sprintf("%s whose body yields %s, not a number", op.Name(), rt))
 		}
 		t = rt
 	default:
 		return nil, fc.unsupported(op.Name() + " with a body")
 	}
-	return Fold{Op: op, Seq: seq, Body: lambda, T: t}, nil
+	if err := fc.exactOperands(op.Name(), seq); err != nil {
+		return nil, err
+	}
+	// The body is a value of its own, evaluated after the operand.
+	return Fold{Op: op, Seq: seq, Steps: 1, Body: lambda, T: t}, nil
 }
 
 // compileLambda compiles a body `{in a; in b; …; result}` whose parameters
@@ -486,7 +613,7 @@ func (fc *funcCompiler) compileLambda(op SeqOp, b *ast.BodyExpr, paramTypes []Ty
 			if !ok {
 				return Lambda{}, fc.unsupported(fmt.Sprintf("body parameter %s: type %s does not resolve", p.Name, qnText(p.Type)))
 			}
-			if t, _, ok := scalarType(fc.c.name(sym)); !ok || t != paramTypes[i] {
+			if t, _, why := fc.valueType(sym); why != "" || t != paramTypes[i] && !(t == TypeReal && paramTypes[i] == TypeNum) {
 				return Lambda{}, fc.unsupported(fmt.Sprintf("body parameter %s typed other than %s", p.Name, paramTypes[i]))
 			}
 		}

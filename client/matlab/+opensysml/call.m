@@ -1,8 +1,21 @@
-function out = call(conn, method, request)
+function out = call(conn, method, request, capabilities)
 %CALL Post a Connect-JSON request and return the decoded answer. A non-200
-%   Connect body raises 'opensysml:connect'; a non-JSON answer 'opensysml:transport'.
+%   Connect body raises a method-appropriate client error.
 
-    [status, contentType, bodyText] = opensysml.callRaw(conn, method, jsonencode(request));
+    if nargin < 4, capabilities = {}; end
+    if ~strcmp(method, 'GetServerInfo') && ...
+            (~isempty(conn.expectedVersion) || ~isempty(conn.expectedCapabilities))
+        conn.serverInfo();
+    end
+    try
+        [status, contentType, bodyText] = opensysml.callRaw(conn, method, jsonencode(request));
+    catch e
+        if strncmp(e.identifier, 'opensysml:', 10)
+            opensysml.internal.raise(e.identifier, e.message, {}, ...
+                struct('service', serviceOrigin(conn)));
+        end
+        rethrow(e);
+    end
     isJson = ~isempty(strfind(lower(contentType), 'application/json'));
     if status ~= 200
         if isJson
@@ -10,20 +23,31 @@ function out = call(conn, method, request)
             code = 'unknown'; message = '';
             if isfield(out, 'code'), code = out.code; end
             if isfield(out, 'message'), message = out.message; end
-            error('opensysml:connect', 'connect %s (HTTP %d): %s', code, status, message);
+            opensysml.internal.connectError(code, message, status, method, conn, capabilities, request);
         end
-        error('opensysml:transport', '%s answered HTTP %d with a non-JSON body', method, status);
+        opensysml.internal.raise('opensysml:transport', ...
+            sprintf('%s answered HTTP %d with a non-JSON body', method, status), {}, ...
+            struct('httpStatus', status, 'service', serviceOrigin(conn)));
     end
     if ~isJson
-        error('opensysml:transport', '%s answered HTTP 200 with a non-JSON body', method);
+        opensysml.internal.raise('opensysml:transport', ...
+            sprintf('%s answered HTTP 200 with a non-JSON body', method), {}, ...
+            struct('httpStatus', status, 'service', serviceOrigin(conn)));
     end
     out = decode_body(bodyText, method, status);
 end
 
 function out = decode_body(bodyText, method, status)
     try
-        out = jsondecode(bodyText);
+        out = opensysml.internal.decodeJson(bodyText);
     catch
-        error('opensysml:transport', '%s answered HTTP %d with undecodable JSON', method, status);
+        opensysml.internal.raise('opensysml:transport', ...
+            sprintf('%s answered HTTP %d with undecodable JSON', method, status), {}, ...
+            struct('httpStatus', status));
     end
+end
+
+function origin = serviceOrigin(conn)
+    origin = conn.origin;
+    if isempty(origin), origin = conn.base; end
 end

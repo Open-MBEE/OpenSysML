@@ -782,10 +782,9 @@ func (m *Model) readReal(site *LayoutSite, b MetadataBinding, into *float64) boo
 func (m *Model) readRealValue(site *LayoutSite, scope *symbols.Scope, value ast.Node, feature string, into *float64) bool {
 	v := m.annotationValue(scope, value)
 	switch v.Kind {
-	case symbols.FilterValueReal:
-		*into = v.Real
-	case symbols.FilterValueInt:
-		*into = float64(v.Int)
+	case symbols.FilterValueReal, symbols.FilterValueRational, symbols.FilterValueInt:
+		n, _ := FilterNumber(v)
+		*into = n.AsReal()
 	default:
 		site.Problems = append(site.Problems, LayoutProblem{Node: value,
 			Message: fmt.Sprintf("%s of %s is not a constant number", feature, simpleName(site.TypeFQN))})

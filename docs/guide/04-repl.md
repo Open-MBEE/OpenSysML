@@ -117,6 +117,9 @@ it again at the prompt *replaces* it (`note: replaced package …`) rather than 
 loaded file, edit it and load it again. Tab completion completes paths after `%load` and `%save`,
 and meta-commands and symbol names everywhere else.
 
+A specifically named API element-form `.json` file is converted and loaded; directory and glob
+expansion still collects only `.sysml` and `.kerml` files.
+
 A loaded file's imports are followed to its neighbors: when a file imports a root namespace that
 neither the loaded files nor the standard library declare, the `.sysml` and `.kerml` files beside
 and below it are searched for one declaring that name, and each is loaded too, its own imports
@@ -129,6 +132,9 @@ diagnostic pointing at the offending line of the file. None of its contents ente
 session, so the next submission is parsed against the model as it stood before the load. In
 non-interactive use, a load's diagnostics are errors, so a script that loads a malformed
 file fails rather than continuing against an empty session.
+
+An explicitly named API element-form `.json` file is converted to SysML notation before loading;
+diagnostic positions refer to the converted notation, not to positions in the JSON document.
 
 Each loaded file is a document of its own, analysed as the editor and the checker analyse it,
 while everything typed at the prompt forms one transcript document. The transcript is kept
@@ -210,11 +216,11 @@ conforms to the viewpoints it satisfies. Conformance checking is read-only and r
 declaration order. Each `satisfy` gets a verdict of `conforms`, `violated` or `unevaluable`,
 followed by a verdict for each concern the viewpoint frames; a concern whose condition fails
 names the exposed element it failed for and the reason. A `satisfy` inherited from a
-specialized view is marked `(from <view>)`. A concern the viewpoint frames but the view does
-not is reported as `violated`. A concern that states no condition, or names one that does not
-resolve, is reported as `unevaluable` with the reason, not as a pass. These verdicts, and
-the way a nested view's framing is treated, are this implementation's own decisions, because
-SysML v2 leaves verification verdict semantics non-normative.
+specialized view is marked `(from <view>)`. The view restates no framing: every concern the
+viewpoint frames is checked against what the view exposes. A concern that states no condition,
+or names one that does not resolve, is reported as `unevaluable` with the reason, not as a
+pass. These verdicts are this implementation's own decisions, because SysML v2 leaves
+verification verdict semantics non-normative.
 
 ```
 sysml> package Demo {
@@ -250,8 +256,6 @@ sysml> package Demo {
   ...>     viewpoint structure : StructurePerspective;
   ...>     view def StructureView {
   ...>         satisfy structure;
-  ...>         frame concern budget : MassBudget;
-  ...>         frame concern modularity : Modularity;
   ...>     }
   ...>     view report : StructureView {
   ...>         expose vehicle;
@@ -292,10 +296,12 @@ member before a name nested inside another element.
 ## Rendering a view
 
 `%render <name>` renders the exposed elements in the form the view's `render` member specifies: a
-containment tree with nested views as subtrees, an interconnection diagram of the exposed parts
+containment tree with nested views as subtrees and the relationships between the elements it
+draws, an interconnection diagram of the exposed parts
 and the connections between them, a state machine's states and transitions, an action's nodes and
-successions, or a table of the exposed elements. A view that specifies no rendering is drawn
-as a tree:
+successions, a case diagram of cases and their actors, subjects and objectives, a mixed canvas
+combining structure, behavior and cases, or a table of the exposed elements. A view that specifies
+no rendering is drawn as a tree:
 
 ```
 sysml> %render Demo::summary
@@ -307,15 +313,34 @@ part def Demo::Vehicle
 view Demo::summary::detail
   part def Demo::Wheel
     attribute diameter : Real
+
+relationships:
+  Demo::Vehicle *-- Demo::Wheel: wheel
 ```
+
+The tree draws the lines a block definition diagram shows between its boxes, wherever both
+ends are drawn: a specialization, subsetting or redefinition from an element to its general one
+(a hollow triangle at the general end), a composition (filled diamond at the owner) or reference
+(hollow diamond) from an element to the definition typing a part, item, port, attribute or `ref`
+usage it owns, labelled with the usage's name and multiplicity, and the typing of a usage whose
+owner is not drawn (a dashed line to the definition). A composition is not drawn to a definition
+nested in its owner, since the nesting already shows it, nor is a usage's typing drawn when its
+owner's composition stands for it. A `Route` about the usage steers its composition edge; a
+specialization or typing has no member of its own and is routed by the drawing.
 
 A view that states `render asElementTable;` is rendered as aligned columns instead, listing the
 exposed elements, what they declare, and the views nested inside the rendered view.
 
-`%render <name> mermaid` writes a graph-shaped rendering as a Mermaid diagram, and
-`%render <name> markdown` writes a table as a Markdown table. Either can be pasted straight
-into a Markdown document or an editor. A diagram node is labelled the way the graphical notation
-heads a compartment — the name first, `wheel : Wheel`, then the kind in guillemets, `«part»`, on
+The bundled `OpenSysMLRenderings` library selects cases with `render asCaseDiagram;` and mixed content
+with `render asMixedDiagram;`; `CaseView` and `MixedView` provide the same choices by specialization.
+For a model with no declared view, `%render #case` and `%render #mixed` draw the loaded content, and
+`#case:<element>` or `#mixed:<element>` draws one element directly.
+
+`%render <name> mermaid` writes a graph-shaped rendering as a Mermaid diagram, `dot` as Graphviz
+DOT, and `plantuml` as PlantUML. `%render <name> markdown` writes a table as a Markdown table.
+These forms can be pasted straight into a document or an editor. A diagram node is labelled the way
+the graphical notation
+heads a compartment — the kind in guillemets, `«part»`, first, then the name, `wheel : Wheel`, on
 the next line — while the text form above keeps the keyword leading, as the notation declares it.
 If you ask for a form the rendering kind does not support, the REPL tells you which form it does
 support. State and action renderings read the

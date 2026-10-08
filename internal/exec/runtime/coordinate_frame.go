@@ -89,15 +89,15 @@ func NewCoordinateTransformationValue(t *CoordinateTransformation) Value {
 func (f *CoordinateFrame) IsScale() bool { return f != nil && f.Scale != nil }
 
 // FlattenedSize is the number of axes the dimensions shape: their product, 1 for
-// a scalar reference's empty dimensions; false when it does not fit an Integer.
+// a scalar reference's empty dimensions; false when it is beyond int64, more
+// axes than anything can hold.
 func (f *CoordinateFrame) FlattenedSize() (int64, bool) {
 	return flattenedSize(f.Dimensions)
 }
 
-// flattenedSizeError is the typed refusal of dimensions whose product overflows.
+// flattenedSizeError is the typed refusal of dimensions whose product is beyond int64.
 func (f *CoordinateFrame) flattenedSizeError(what string) error {
-	return fmt.Errorf("%w: %s: flattenedSize of dimensions %s exceeds the Integer range",
-		semantics.ErrArithmeticOverflow, what, FormatValue(intSequence(f.Dimensions)))
+	return unaddressableSize(what, f.Dimensions)
 }
 
 // Name is how the frame is referred to in diagnostics: its declared name, else

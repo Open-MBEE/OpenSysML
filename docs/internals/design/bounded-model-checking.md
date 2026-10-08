@@ -245,14 +245,12 @@ At each state the checker enumerates the **enabled moves**:
   an incoming effect enables is a move and one it disables is not. Several enabled is the
   executor's `ChoiceTransition` at `choice <name>` today, the first in declaration order under
   `reverse` and `declared`, a seeded draw under `seed:<n>`, every branch under `explore`. A
-  junction contributes no move: its branch is settled before the transition fires, from the
-  state the dispatch starts in, and is part of the transition's enabledness (a junction with no
-  enabled branch means the transition is not enabled).
-- **Not moves**: deferral is determined by the configuration — a state that defers the
-  occurrence holds it back from every transition not nested in it, and the occurrence is either
-  consumed by a nested transition or deferred (`deferralOutranks`) — and a composite state's
-  completion is a completion event queued at the current instant as a leaf's is, ordered by the
-  same `eventHeap` rule. Both are read from the state, not drawn.
+  junction contributes no separate move: its branch is settled before the transition fires,
+  from the state the dispatch starts in, and is part of the transition's enabledness. A
+  junction with no way through leaves the transition unenabled, so it is not a move.
+- **Not a move**: a composite state's completion is a completion event queued at the current
+  instant as a leaf's is, ordered by the same `eventHeap` rule. It is read from the state, not
+  drawn.
 
 ### The properties
 
@@ -459,7 +457,7 @@ sysml model.sysml -engine check -instantiate Fleet::truck \
 
 | Flag | Meaning |
 |------|---------|
-| `-engine check` with `-action "<name> [object]"`, `-state "<name> [object]"`, `-advance D` | Explore the schedules of the behaviors `-action` and `-state` would run once, on one clock: an action's to completion, a state machine's until nothing more is due — or, with `-advance`, up to that horizon, a wait past it left unreached |
+| `-engine check` with `-action "<name> [object]"`, `-state "<name> [object]"`, `-advance D` | Explore the schedules of the behaviors `-action` and `-state` would run once, on one clock: an action's to completion, a state machine's initial transition only — or, with `-advance`, up to that horizon, a wait past it left unreached |
 | `-check-property <name>` | Evaluate this constraint or requirement at every stable state, on the performing object where there is one; repeatable |
 | `-check-diverge <feature>` | Report divergence of this feature (`x`, `step.out` for a performed node's output, or `this.level` for the performing object's; a name nothing holds is refused; a schedule leaving it unset ends as `<unset>`); repeatable; absent, every attribute of the action and, with a performer, every attribute of the object — with no performer there is no object, so the action's own attributes only |
 | `-check-depth N`, `-check-states N`, `-check-timeout D` | The bounds, onto `Budget.Depth`, `Budget.Runs` and `Budget.Deadline` |
@@ -539,9 +537,9 @@ Each stage leaves `main` green, ships behind its own flag, and is useful on its 
    `Snapshot`/`Restore`/`Release` over the journal capturing the context's objects, lifetimes,
    variants, occurrences, bus, clock, id sequence, activation and run counters, trace, run
    ledgers and scheduler state, the action executor's tokens, frame tree, merge and breakpoint
-   bookkeeping and step counters, and the state executor's configuration, stack, history, state
-   values, event queue, deferred events, timers, change triggers, `do` progress and virtual
-   time — everything layer 2 needs, which the round-trip and restore-twice tests over every
+   bookkeeping and step counters, and the state executor's configuration, stack, history,
+   `joinArrived`, state values, event queue, deferred events, timers, change triggers, `do`
+   progress and virtual time — everything layer 2 needs, which the round-trip and restore-twice tests over every
    conformance case prove. Not captured at this stage: a body coroutine paused mid-statement
    (`ErrSnapshotPausedBody`), which the eight conformance cases whose default run pauses one
    pinned until stage 3 made the wait explicit state. Stages 2 and 3 add no capture for the
@@ -601,8 +599,8 @@ Each stage leaves `main` green, ships behind its own flag, and is useful on its 
    library leaves unordered at one instant, and `ChoiceDueOrder` among the executors due, as the
    clock's `runDue` draws it — the one drawn holding the turn until it has no move at the
    instant. The canonical form spells every executor on the clock in invocation order — an
-   action's tokens and performances, a machine's configuration, history, values, queue in
-   dispatch order, deferred events, timers and do progress — then the bus and the objects by
+   action's tokens and performances, a machine's configuration, history, `joinArrived`, values,
+   queue in dispatch order, deferred events, timers and do progress — then the bus and the objects by
    materialization path; the observable a divergence is asked of gains `finalState` (`<name>
    finalState` in a joint run), and a property is evaluated on the performing object. Reduction
    extends to the new moves over `lower.StateGraph`'s transition and behavior footprints: a
@@ -622,7 +620,7 @@ Each stage leaves `main` green, ships behind its own flag, and is useful on its 
    `-json`'s `outcomes[]` spelling each behavior's observables under its name; `%engine check`
    with `%state`, `%advance` and `RunFor`; an external engine's schedule is replayed over the
    same invocation. Test layers 3–8 for states: the `.check.expected.json` oracles beside every
-   state and clock case that leaves an order open and one decided case each for deferral,
+   state and clock case that leaves an order open and one decided case each for
    composite completion and a junction, the dependence corpus of machines reduced against
    unreduced, the state-count ratchet, the re-arming timer with and without a horizon, corpus-wide
    witness replay, the robustness `state_*` failures as violations and a missing initial state

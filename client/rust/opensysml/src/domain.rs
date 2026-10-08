@@ -1,7 +1,9 @@
 use std::collections::HashMap;
 use std::fmt;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
+use crate::rational::Rational;
 use crate::{error::Error, wire, Connection};
 
 /// Language accepted by the parser.
@@ -155,6 +157,15 @@ impl From<wire::Diagnostic> for Diagnostic {
     }
 }
 
+impl fmt::Display for Diagnostic {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        if let Some(span) = &self.span {
+            write!(f, "{}:{}:{}: ", span.file, span.start_line, span.start_col)?;
+        }
+        write!(f, "{}: {}", self.severity, self.message)
+    }
+}
+
 impl Diagnostic {
     /// The response this was built from; for conformance tooling and debugging.
     pub fn wire(&self) -> &wire::Diagnostic {
@@ -162,13 +173,67 @@ impl Diagnostic {
     }
 }
 
-/// An integer or real quantity magnitude.
-#[derive(Clone, Copy, Debug, PartialEq)]
+/// An integer, rational or real quantity magnitude.
+#[derive(Clone, Debug, PartialEq)]
 pub enum Magnitude {
-    /// An exact integer magnitude.
+    /// An exact integer magnitude within `i64`.
     Integer(i64),
+    /// An exact integer magnitude beyond `i64`.
+    BigInteger(BigInteger),
+    /// An exact rational magnitude no `f64` holds.
+    Rational(Rational),
     /// A floating-point magnitude.
     Real(f64),
+}
+
+/// An integer beyond `i64`, held as its decimal digits. KerML Integers are
+/// unbounded, and an integer within `i64` is always [`Value::Integer`] (or
+/// [`Magnitude::Integer`]), never this, so two integers are equal exactly when
+/// their arms and digits are.
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub struct BigInteger(String);
+
+impl BigInteger {
+    /// The integer `digits` spells: an optional `-`, then decimal digits with
+    /// no leading zero, of a value beyond `i64`.
+    pub fn parse(digits: &str) -> Result<Self, Error> {
+        let magnitude = digits.strip_prefix('-').unwrap_or(digits);
+        if magnitude.is_empty()
+            || !magnitude.bytes().all(|b| b.is_ascii_digit())
+            || magnitude.starts_with('0')
+        {
+            return Err(Error::Decode(format!(
+                "not the decimal digits of an integer: {digits:?}"
+            )));
+        }
+        if digits.parse::<i64>().is_ok() {
+            return Err(Error::Decode(format!(
+                "{digits} is within i64, which int_value carries"
+            )));
+        }
+        Ok(Self(digits.to_owned()))
+    }
+
+    /// The decimal digits, `-` signed.
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+
+    /// The nearest `f64`, ties to even; infinite only beyond the finite range.
+    pub fn to_f64(&self) -> f64 {
+        self.0.parse().unwrap_or(f64::NAN)
+    }
+
+    // Whether `r` is exactly this integer.
+    fn equals_real(&self, r: f64) -> bool {
+        r.is_finite() && r.fract() == 0.0 && format!("{r:.0}") == self.0
+    }
+}
+
+impl fmt::Display for BigInteger {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(&self.0)
+    }
 }
 
 /// A reduced measurement unit.
@@ -202,10 +267,31 @@ pub struct Quantity {
     pub unit_term: Option<UnitTerm>,
 }
 
+impl fmt::Display for Magnitude {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Integer(n) => n.fmt(f),
+            Self::BigInteger(n) => n.fmt(f),
+            Self::Rational(q) => q.fmt(f),
+            Self::Real(r) => r.fmt(f),
+        }
+    }
+}
+
+impl fmt::Display for Quantity {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        if self.unit.is_empty() {
+            self.magnitude.fmt(f)
+        } else {
+            write!(f, "{} [{}]", self.magnitude, self.unit)
+        }
+    }
+}
+
 /// A complex number in rectangular form: one value, never two reals.
 ///
 /// A service advertising `complex_values` sends one as itself; an older one
-/// sends an unsupported [`Value::Null`] in its place.
+/// sends an unsupported null, read as [`Error::UnsupportedValue`], in its place.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Complex {
     /// Real part.
@@ -246,7 +332,7 @@ pub struct EnumLiteral {
 /// A rank-0 array holds exactly one element. An element is any [`Value`], a
 /// nested array or a quantity included. A service advertising
 /// `structured_values` sends one as itself; an older one sends an unsupported
-/// [`Value::Null`] in its place.
+/// null, read as [`Error::UnsupportedValue`], in its place.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Array {
     dimensions: Vec<i64>,
@@ -296,7 +382,7 @@ impl Array {
 /// one value, never a sequence of numbers.
 ///
 /// A service advertising `structured_values` sends one as itself; an older
-/// one sends an unsupported [`Value::Null`] in its place.
+/// one sends an unsupported null, read as [`Error::UnsupportedValue`], in its place.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Vector {
     /// The components, in order.
@@ -315,7 +401,7 @@ impl Vector {
 /// need not.
 ///
 /// A service advertising `structured_values` sends one as itself; an older
-/// one sends an unsupported [`Value::Null`] in its place.
+/// one sends an unsupported null, read as [`Error::UnsupportedValue`], in its place.
 #[derive(Clone, Debug, PartialEq)]
 pub struct VectorQuantity {
     components: Vec<Quantity>,
@@ -358,7 +444,8 @@ impl VectorQuantity {
 /// then strings, and so on), each exactly once; two sets are equal when they
 /// hold the same members whatever the order, judged by
 /// [`Value::same_value`]. A service advertising `set_values` sends one as
-/// itself; an older one sends an unsupported [`Value::Null`] in its place.
+/// itself; an older one sends an unsupported null, read as
+/// [`Error::UnsupportedValue`], in its place.
 #[derive(Clone, Debug)]
 pub struct Set {
     elements: Vec<Value>,
@@ -411,7 +498,7 @@ impl PartialEq for Set {
 ///
 /// A rank-one tensor stays a tensor, distinct from a [`VectorQuantity`]. A
 /// service advertising `tensor_values` sends one as itself; an older one
-/// sends an unsupported [`Value::Null`] in its place.
+/// sends an unsupported null, read as [`Error::UnsupportedValue`], in its place.
 #[derive(Clone, Debug, PartialEq)]
 pub struct TensorQuantity {
     dimensions: Vec<i64>,
@@ -504,7 +591,7 @@ fn row_major(dimensions: &[i64], index: &[i64]) -> Option<usize> {
 /// or `m / s` as an operation composed it.
 ///
 /// A service advertising `measurement_refs` sends one as itself; an older one
-/// sends an unsupported [`Value::Null`] in its place.
+/// sends an unsupported null, read as [`Error::UnsupportedValue`], in its place.
 #[derive(Clone, Debug, PartialEq)]
 pub struct MeasurementRef {
     /// Unit as written by the model (`km`), empty for one never written down.
@@ -522,7 +609,7 @@ pub struct MeasurementRef {
 /// It is the declaration it is a value of, which is its identity: two functions
 /// are equal exactly when both fields are. A function closing over the bindings
 /// of the behavior body it is declared in has no wire form; the service sends
-/// it as an unsupported [`Value::Null`], as does a service without
+/// it as an unsupported null, read as [`Error::UnsupportedValue`], as does a service without
 /// `function_values` for every function.
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Function {
@@ -542,7 +629,7 @@ pub struct Function {
 /// are equal exactly when `element_id` is, whatever type each was cast to. Its
 /// features (`declaredName`, `ownedFeature`, ...) are read in the model, not
 /// carried. A service without `metaobject_values` sends an unsupported
-/// [`Value::Null`] in its place.
+/// null, read as [`Error::UnsupportedValue`], in its place.
 #[derive(Clone, Debug, Eq)]
 pub struct Metaobject {
     /// FQN of the element reflected on (`Vehicle::seatBelt`).
@@ -568,8 +655,12 @@ impl std::hash::Hash for Metaobject {
 /// A runtime value returned by the service.
 #[derive(Clone, Debug, PartialEq)]
 pub enum Value {
-    /// Integer value.
+    /// Integer value within `i64`.
     Integer(i64),
+    /// Integer value beyond `i64`.
+    BigInteger(BigInteger),
+    /// Exact Rational value no `f64` holds.
+    Rational(Rational),
     /// Real value.
     Real(f64),
     /// Complex value.
@@ -643,9 +734,14 @@ impl Value {
             return self.is_absent() && other.is_absent();
         }
         match (self, other) {
-            (Value::Integer(_) | Value::Real(_) | Value::Complex(_), _) => {
-                numbers_equal(self, other)
-            }
+            (
+                Value::Integer(_)
+                | Value::BigInteger(_)
+                | Value::Rational(_)
+                | Value::Real(_)
+                | Value::Complex(_),
+                _,
+            ) => numbers_equal(self, other),
             (Value::Sequence(a), Value::Sequence(b)) => sequences_equal(a, b),
             (Value::Quantity(a), Value::Quantity(b)) => quantities_equal(a, b),
             (Value::Array(a), Value::Array(b)) => {
@@ -656,7 +752,7 @@ impl Value {
                     && a.components
                         .iter()
                         .zip(&b.components)
-                        .all(|(m, n)| magnitudes_equal(*m, *n))
+                        .all(|(m, n)| magnitudes_equal(m, n))
             }
             (Value::VectorQuantity(a), Value::VectorQuantity(b)) => {
                 components_equal(&a.components, &b.components)
@@ -702,24 +798,37 @@ fn same_reduction(a: &UnitTerm, b: &UnitTerm) -> bool {
 }
 
 fn numbers_equal(a: &Value, b: &Value) -> bool {
-    let on_axis = |v: &Value| match *v {
+    let on_axis = |v: &Value| match v {
         Value::Complex(z) if z.imaginary == 0.0 => Some(Magnitude::Real(z.real)),
-        Value::Integer(n) => Some(Magnitude::Integer(n)),
-        Value::Real(r) => Some(Magnitude::Real(r)),
+        Value::Integer(n) => Some(Magnitude::Integer(*n)),
+        Value::BigInteger(n) => Some(Magnitude::BigInteger(n.clone())),
+        Value::Rational(q) => Some(Magnitude::Rational(q.clone())),
+        Value::Real(r) => Some(Magnitude::Real(*r)),
         _ => None,
     };
     match (on_axis(a), on_axis(b)) {
-        (Some(x), Some(y)) => magnitudes_equal(x, y),
+        (Some(x), Some(y)) => magnitudes_equal(&x, &y),
         _ => a == b,
     }
 }
 
-fn magnitudes_equal(a: Magnitude, b: Magnitude) -> bool {
+fn magnitudes_equal(a: &Magnitude, b: &Magnitude) -> bool {
     match (a, b) {
         (Magnitude::Integer(x), Magnitude::Integer(y)) => x == y,
+        (Magnitude::BigInteger(x), Magnitude::BigInteger(y)) => x == y,
         (Magnitude::Real(x), Magnitude::Real(y)) => x == y,
         (Magnitude::Integer(n), Magnitude::Real(r))
-        | (Magnitude::Real(r), Magnitude::Integer(n)) => real_is_int(r, n),
+        | (Magnitude::Real(r), Magnitude::Integer(n)) => real_is_int(*r, *n),
+        (Magnitude::BigInteger(n), Magnitude::Real(r))
+        | (Magnitude::Real(r), Magnitude::BigInteger(n)) => n.equals_real(*r),
+        (Magnitude::Integer(_), Magnitude::BigInteger(_))
+        | (Magnitude::BigInteger(_), Magnitude::Integer(_)) => false,
+        (Magnitude::Rational(x), Magnitude::Rational(y)) => x == y,
+        // A Rational meets a Real at Real precision, as the service compares them.
+        (Magnitude::Rational(q), Magnitude::Real(r))
+        | (Magnitude::Real(r), Magnitude::Rational(q)) => q.to_f64() == *r,
+        // A rational is never whole, so it is no Integer.
+        (Magnitude::Rational(_), _) | (_, Magnitude::Rational(_)) => false,
     }
 }
 
@@ -738,7 +847,7 @@ fn sequences_equal(a: &[Value], b: &[Value]) -> bool {
 // exactly while integer magnitudes scale by whole factors.
 fn quantities_equal(a: &Quantity, b: &Quantity) -> bool {
     let (Some(x), Some(y)) = (&a.unit_term, &b.unit_term) else {
-        return magnitudes_equal(a.magnitude, b.magnitude)
+        return magnitudes_equal(&a.magnitude, &b.magnitude)
             && a.unit == b.unit
             && a.unit_term == b.unit_term;
     };
@@ -748,7 +857,7 @@ fn quantities_equal(a: &Quantity, b: &Quantity) -> bool {
     if let (Some(m), Some(n)) = (exact_base_magnitude(a), exact_base_magnitude(b)) {
         return m == n;
     }
-    base_magnitude(a.magnitude, x) == base_magnitude(b.magnitude, y)
+    base_magnitude(&a.magnitude, x) == base_magnitude(&b.magnitude, y)
 }
 
 // The base unit exponents, repeated units summed and cancelled ones dropped.
@@ -769,24 +878,28 @@ fn zero_scale(term: &UnitTerm) -> bool {
     term.scale_num == 0.0 || term.scale_den == 0.0
 }
 
-fn base_magnitude(magnitude: Magnitude, term: &UnitTerm) -> f64 {
+fn base_magnitude(magnitude: &Magnitude, term: &UnitTerm) -> f64 {
     let m = match magnitude {
-        Magnitude::Integer(n) => n as f64,
-        Magnitude::Real(r) => r,
+        Magnitude::Integer(n) => *n as f64,
+        Magnitude::BigInteger(n) => n.to_f64(),
+        Magnitude::Rational(q) => q.to_f64(),
+        Magnitude::Real(r) => *r,
     };
     m * term.scale_num / term.scale_den
 }
 
 // The base magnitude as an exact rational (numerator, denominator), while an
-// integer magnitude scales by whole factors that fit.
+// integer or rational magnitude scales by whole factors that fit.
 fn exact_base_magnitude(q: &Quantity) -> Option<ExactRational> {
-    let Magnitude::Integer(n) = q.magnitude else {
-        return None;
+    let (n, d): (i128, i128) = match &q.magnitude {
+        Magnitude::Integer(n) => (i128::from(*n), 1),
+        Magnitude::Rational(r) => (r.numerator().parse().ok()?, r.denominator().parse().ok()?),
+        _ => return None,
     };
     let term = q.unit_term.as_ref()?;
     let num = i128::from(whole(term.scale_num)?);
     let den = i128::from(whole(term.scale_den)?);
-    Some(ExactRational::new(i128::from(n).checked_mul(num)?, den))
+    Some(ExactRational::new(n.checked_mul(num)?, d.checked_mul(den)?))
 }
 
 fn whole(scale: f64) -> Option<i64> {
@@ -823,12 +936,22 @@ fn components_equal(a: &[Quantity], b: &[Quantity]) -> bool {
     a.len() == b.len() && a.iter().zip(b).all(|(x, y)| quantities_equal(x, y))
 }
 
+impl TryFrom<wire::Value> for Value {
+    type Error = Error;
+
+    fn try_from(value: wire::Value) -> Result<Self, Error> {
+        value_from_wire(value)
+    }
+}
+
 pub(crate) fn value_from_wire(value: wire::Value) -> Result<Value, Error> {
     let Some(kind) = value.kind else {
         return Err(Error::Decode("Value has no kind".to_owned()));
     };
     match kind {
         wire::value::Kind::IntValue(v) => Ok(Value::Integer(v)),
+        wire::value::Kind::BigIntValue(v) => Ok(Value::BigInteger(BigInteger::parse(&v)?)),
+        wire::value::Kind::RationalValue(v) => Ok(Value::Rational(rational_from_wire(&v)?)),
         wire::value::Kind::RealValue(v) => Ok(Value::Real(v)),
         wire::value::Kind::Complex(v) => Ok(Value::Complex(Complex {
             real: v.real,
@@ -843,6 +966,9 @@ pub(crate) fn value_from_wire(value: wire::Value) -> Result<Value, Error> {
                 .map(value_from_wire)
                 .collect::<Result<_, _>>()?,
         )),
+        wire::value::Kind::Null(reason) if !reason.is_empty() => {
+            Err(Error::UnsupportedValue(reason))
+        }
         wire::value::Kind::Null(_) => Ok(Value::Null),
         wire::value::Kind::Quantity(v) => Ok(Value::Quantity(quantity_from_wire(v)?)),
         wire::value::Kind::Array(v) => Ok(Value::Array(Array::new(
@@ -858,6 +984,12 @@ pub(crate) fn value_from_wire(value: wire::Value) -> Result<Value, Error> {
                 .into_iter()
                 .map(|component| match component.kind {
                     Some(wire::value::Kind::IntValue(value)) => Ok(Magnitude::Integer(value)),
+                    Some(wire::value::Kind::BigIntValue(value)) => {
+                        Ok(Magnitude::BigInteger(BigInteger::parse(&value)?))
+                    }
+                    Some(wire::value::Kind::RationalValue(value)) => {
+                        Ok(Magnitude::Rational(rational_from_wire(&value)?))
+                    }
                     Some(wire::value::Kind::RealValue(value)) => Ok(Magnitude::Real(value)),
                     other => Err(Error::Decode(format!(
                         "vector component is not a number: {}",
@@ -941,6 +1073,8 @@ pub(crate) fn value_from_wire(value: wire::Value) -> Result<Value, Error> {
 fn kind_name(kind: &wire::value::Kind) -> &'static str {
     match kind {
         wire::value::Kind::IntValue(_) => "int_value",
+        wire::value::Kind::BigIntValue(_) => "big_int_value",
+        wire::value::Kind::RationalValue(_) => "rational_value",
         wire::value::Kind::RealValue(_) => "real_value",
         wire::value::Kind::BoolValue(_) => "bool_value",
         wire::value::Kind::StringValue(_) => "string_value",
@@ -1002,9 +1136,26 @@ fn unit_term_from_wire(term: wire::UnitTerm) -> UnitTerm {
     }
 }
 
-fn quantity_from_wire(v: wire::Quantity) -> Result<Quantity, Error> {
+pub(crate) fn rational_from_wire(v: &wire::Rational) -> Result<Rational, Error> {
+    Rational::parse_canonical(&v.numerator, &v.denominator)
+}
+
+pub(crate) fn rational_to_wire(q: &Rational) -> wire::Rational {
+    wire::Rational {
+        numerator: q.numerator().to_owned(),
+        denominator: q.denominator().to_owned(),
+    }
+}
+
+pub(crate) fn quantity_from_wire(v: wire::Quantity) -> Result<Quantity, Error> {
     let magnitude = match v.magnitude {
         Some(wire::quantity::Magnitude::IntMagnitude(value)) => Magnitude::Integer(value),
+        Some(wire::quantity::Magnitude::BigIntMagnitude(value)) => {
+            Magnitude::BigInteger(BigInteger::parse(&value)?)
+        }
+        Some(wire::quantity::Magnitude::RationalMagnitude(value)) => {
+            Magnitude::Rational(rational_from_wire(&value)?)
+        }
         Some(wire::quantity::Magnitude::RealMagnitude(value)) => Magnitude::Real(value),
         None => return Err(Error::Decode("Quantity has no magnitude".to_owned())),
     };
@@ -1052,18 +1203,26 @@ impl Symbol {
     pub fn kind(&self) -> &str {
         &self.wire.kind
     }
-    /// Child symbols, fetched lazily from the service.
+    /// Hash of the model the symbol belongs to.
+    pub fn model_hash(&self) -> &str {
+        &self.model_hash
+    }
+    pub(crate) fn connection(&self) -> Connection {
+        Connection {
+            inner: self.connection.clone(),
+        }
+    }
+    /// Child symbols, fetched lazily from the service; one it cannot resolve is left out.
     pub fn children(&self) -> Result<Vec<Symbol>, Error> {
-        self.wire
-            .child_ids
-            .iter()
-            .map(|id| {
-                Connection {
-                    inner: self.connection.clone(),
-                }
-                .get_symbol(&self.model_hash, id)
-            })
-            .collect()
+        let mut children = Vec::with_capacity(self.wire.child_ids.len());
+        for id in &self.wire.child_ids {
+            match self.connection().get_symbol(&self.model_hash, id) {
+                Ok(child) => children.push(child),
+                Err(Error::Model(_)) => {}
+                Err(error) => return Err(error),
+            }
+        }
+        Ok(children)
     }
 }
 
@@ -1114,21 +1273,35 @@ pub struct FeatureValue {
     wire: wire::FeatureValue,
     value: Option<Value>,
     values: Vec<Value>,
+    unsupported: Option<String>,
 }
 
 impl FeatureValue {
     fn from_wire(wire: wire::FeatureValue) -> Result<Self, Error> {
-        let value = wire.value.clone().map(value_from_wire).transpose()?;
-        let values = wire
-            .values
-            .iter()
-            .cloned()
+        let decoded = wire
+            .value
+            .clone()
             .map(value_from_wire)
-            .collect::<Result<_, _>>()?;
+            .transpose()
+            .and_then(|value| {
+                let values = wire
+                    .values
+                    .iter()
+                    .cloned()
+                    .map(value_from_wire)
+                    .collect::<Result<Vec<_>, _>>()?;
+                Ok((value, values))
+            });
+        let ((value, values), unsupported) = match decoded {
+            Ok(decoded) => (decoded, None),
+            Err(Error::UnsupportedValue(reason)) => ((None, Vec::new()), Some(reason)),
+            Err(error) => return Err(error),
+        };
         Ok(Self {
             wire,
             value,
             values,
+            unsupported,
         })
     }
 
@@ -1152,9 +1325,11 @@ impl FeatureValue {
     pub fn materialized(&self) -> bool {
         self.wire.materialized
     }
-    /// In-band evaluation error for this feature.
+    /// In-band evaluation error for this feature, or why its value could not be sent.
     pub fn error(&self) -> Option<&str> {
-        (!self.wire.error.is_empty()).then_some(self.wire.error.as_str())
+        (!self.wire.error.is_empty())
+            .then_some(self.wire.error.as_str())
+            .or(self.unsupported.as_deref())
     }
 }
 
@@ -1186,64 +1361,166 @@ impl Evaluation {
     }
 }
 
+/// What the service answered a model was parsed with; for conformance tooling and debugging.
+#[derive(Clone, Debug)]
+pub enum ModelResponse {
+    /// A single file or inline content, parsed by `ParseFile`.
+    File(Box<wire::ParseFileResponse>),
+    /// Several documents, parsed by `ParseSources`.
+    Sources(wire::ParseSourcesResponse),
+    /// A handle for a hash obtained elsewhere; nothing was parsed.
+    Hash,
+}
+
 /// A parsed model.
 #[derive(Clone, Debug)]
 pub struct Model {
-    wire: wire::ParseFileResponse,
-    root: Option<Symbol>,
+    response: ModelResponse,
+    hash: String,
+    roots: Vec<Symbol>,
+    documents: Vec<String>,
+    source_path: Option<PathBuf>,
     diagnostics: Vec<Diagnostic>,
-    connection: Connection,
+    pub(crate) connection: Connection,
 }
 
 impl Model {
     pub(crate) fn from_wire(
         wire: wire::ParseFileResponse,
+        source_path: Option<PathBuf>,
         connection: Connection,
     ) -> Result<Self, Error> {
-        let root = wire.root.clone().map(|root_wire| {
-            Symbol::new(root_wire, connection.inner.clone(), wire.model_hash.clone())
-        });
-        let diagnostics = wire
-            .diagnostics
+        let roots = wire
+            .root
+            .clone()
+            .map(|root| Symbol::new(root, connection.inner.clone(), wire.model_hash.clone()))
+            .into_iter()
+            .collect();
+        let documents = source_path
             .iter()
-            .cloned()
-            .map(Diagnostic::from)
+            .map(|path| path.to_string_lossy().into_owned())
             .collect();
         Ok(Self {
-            wire,
-            root,
-            diagnostics,
+            hash: wire.model_hash.clone(),
+            diagnostics: wire
+                .diagnostics
+                .iter()
+                .cloned()
+                .map(Diagnostic::from)
+                .collect(),
+            response: ModelResponse::File(Box::new(wire)),
+            roots,
+            documents,
+            source_path,
             connection,
         })
     }
 
+    pub(crate) fn from_sources(
+        wire: wire::ParseSourcesResponse,
+        documents: Vec<String>,
+        connection: Connection,
+    ) -> Self {
+        let roots = wire
+            .roots
+            .iter()
+            .cloned()
+            .map(|root| Symbol::new(root, connection.inner.clone(), wire.model_hash.clone()))
+            .collect();
+        Self {
+            hash: wire.model_hash.clone(),
+            diagnostics: wire
+                .diagnostics
+                .iter()
+                .cloned()
+                .map(Diagnostic::from)
+                .collect(),
+            response: ModelResponse::Sources(wire),
+            roots,
+            documents,
+            source_path: None,
+            connection,
+        }
+    }
+
     pub(crate) fn from_hash(hash: &str, connection: Connection) -> Self {
         Self {
-            wire: wire::ParseFileResponse {
-                model_hash: hash.to_owned(),
-                ..Default::default()
-            },
-            root: None,
+            response: ModelResponse::Hash,
+            hash: hash.to_owned(),
+            roots: Vec::new(),
+            documents: Vec::new(),
+            source_path: None,
             diagnostics: Vec::new(),
             connection,
         }
     }
 
     /// The response this was built from; for conformance tooling and debugging.
-    pub fn wire(&self) -> &wire::ParseFileResponse {
-        &self.wire
+    pub fn wire(&self) -> &ModelResponse {
+        &self.response
     }
     /// Content hash used by subsequent service requests.
     pub fn hash(&self) -> &str {
-        &self.wire.model_hash
+        &self.hash
+    }
+    /// The connection the model is held by.
+    pub fn connection(&self) -> &Connection {
+        &self.connection
     }
     /// Diagnostics in service order.
     pub fn diagnostics(&self) -> &[Diagnostic] {
         &self.diagnostics
     }
-    /// Root namespace symbol, if this handle includes one.
+    /// The diagnostics of `error` severity.
+    pub fn errors(&self) -> Vec<&Diagnostic> {
+        self.diagnostics
+            .iter()
+            .filter(|d| d.severity.eq_ignore_ascii_case("error"))
+            .collect()
+    }
+    /// Whether the service reported no error for the model.
+    pub fn ok(&self) -> bool {
+        self.errors().is_empty()
+    }
+    /// The model itself when it has no error, else [`Error::ModelErrors`] carrying them.
+    pub fn require_ok(&self) -> Result<&Self, Error> {
+        let errors = self.errors();
+        if errors.is_empty() {
+            return Ok(self);
+        }
+        let mut summary = errors
+            .iter()
+            .take(3)
+            .map(ToString::to_string)
+            .collect::<Vec<_>>()
+            .join("; ");
+        if errors.len() > 3 {
+            summary.push_str(&format!("; ... and {} more", errors.len() - 3));
+        }
+        let place = self
+            .source_path
+            .as_ref()
+            .map_or_else(|| "the model".to_owned(), |p| p.display().to_string());
+        Err(Error::ModelErrors {
+            message: format!("{place} has {} error(s): {summary}", errors.len()),
+            diagnostics: errors.into_iter().cloned().collect(),
+        })
+    }
+    /// The first root namespace symbol, if this handle includes one.
     pub fn root(&self) -> Option<&Symbol> {
-        self.root.as_ref()
+        self.roots.first()
+    }
+    /// One root namespace per document parsed, in document order.
+    pub fn roots(&self) -> &[Symbol] {
+        &self.roots
+    }
+    /// The names of the documents the model was parsed from, in order.
+    pub fn documents(&self) -> &[String] {
+        &self.documents
+    }
+    /// The file the model was parsed from, when it was one file.
+    pub fn source_path(&self) -> Option<&Path> {
+        self.source_path.as_deref()
     }
     /// Evaluate an expression and return its domain value.
     pub fn eval(&self, expr: &str) -> Result<Value, Error> {
@@ -1400,6 +1677,46 @@ mod tests {
     }
 
     #[test]
+    fn a_null_naming_a_reason_is_an_unsupported_value_not_null() {
+        let null = |reason: &str| wire::Value {
+            kind: Some(wire::value::Kind::Null(reason.to_owned())),
+        };
+        assert_eq!(value_from_wire(null("")).ok(), Some(Value::Null));
+        assert!(matches!(
+            value_from_wire(null("coordinate frame datum")),
+            Err(Error::UnsupportedValue(reason)) if reason == "coordinate frame datum"
+        ));
+
+        let feature = |value| wire::FeatureValue {
+            value: Some(value),
+            materialized: true,
+            ..Default::default()
+        };
+        let instance = Instance::from_wire(wire::Instance {
+            id: 1,
+            feature_values: [
+                ("datum".to_owned(), feature(null("coordinate frame datum"))),
+                (
+                    "mass".to_owned(),
+                    feature(wire::Value {
+                        kind: Some(wire::value::Kind::IntValue(3)),
+                    }),
+                ),
+            ]
+            .into(),
+            ..Default::default()
+        })
+        .expect("one unsendable feature leaves the instance readable");
+        let datum = instance.feature("datum").expect("datum is reported");
+        assert_eq!(datum.value(), None);
+        assert_eq!(datum.error(), Some("coordinate frame datum"));
+        assert_eq!(
+            instance.feature("mass").and_then(FeatureValue::value),
+            Some(&Value::Integer(3))
+        );
+    }
+
+    #[test]
     fn only_an_asserted_infinity_arm_is_the_unbounded_value() {
         let arm = |asserted| wire::Value {
             kind: Some(wire::value::Kind::Infinity(asserted)),
@@ -1412,6 +1729,51 @@ mod tests {
             })),
         };
         assert!(matches!(value_from_wire(nested), Err(Error::Decode(_))));
+    }
+
+    #[test]
+    fn an_integer_beyond_i64_decodes_exactly() {
+        let big = |digits: &str| wire::Value {
+            kind: Some(wire::value::Kind::BigIntValue(digits.to_owned())),
+        };
+        let two_to_70 = value_from_wire(big("1180591620717411303424")).expect("2^70");
+        assert_eq!(
+            two_to_70,
+            Value::BigInteger(BigInteger::parse("1180591620717411303424").expect("canonical"))
+        );
+        assert!(two_to_70.same_value(&Value::Real(2f64.powi(70))));
+        assert!(!two_to_70.same_value(&Value::Real(2f64.powi(70) + 262144.0 * 2.0)));
+        assert!(!two_to_70.same_value(&Value::Integer(i64::MAX)));
+        let least = value_from_wire(big("-9223372036854775809")).expect("below i64");
+        assert!(matches!(&least, Value::BigInteger(n) if n.as_str() == "-9223372036854775809"));
+        for wrong in [
+            "",
+            "-",
+            "+5",
+            "007",
+            "12a",
+            "9223372036854775807",
+            "-9223372036854775808",
+        ] {
+            assert!(
+                matches!(value_from_wire(big(wrong)), Err(Error::Decode(_))),
+                "{wrong:?} must not decode as a BigInteger"
+            );
+        }
+        let quantity = quantity_from_wire(wire::Quantity {
+            magnitude: Some(wire::quantity::Magnitude::BigIntMagnitude(
+                "9223372036854775808".to_owned(),
+            )),
+            ..metres(0.0)
+        })
+        .expect("a quantity beyond i64");
+        assert_eq!(
+            quantity.magnitude,
+            Magnitude::BigInteger(BigInteger::parse("9223372036854775808").expect("2^63"))
+        );
+        assert!(Value::Quantity(quantity).same_value(&Value::Quantity(
+            quantity_from_wire(metres(9_223_372_036_854_775_808.0)).expect("metres")
+        )));
     }
 
     #[test]
@@ -1880,6 +2242,7 @@ mod tests {
     #[test]
     fn same_value_judges_numbers_by_value() {
         let z = |real, imaginary| Value::Complex(Complex { real, imaginary });
+        let rational = |n, d| Value::Rational(Rational::parse(n, d).unwrap());
         let metre = |magnitude| {
             Value::Quantity(Quantity {
                 magnitude,
@@ -1916,6 +2279,18 @@ mod tests {
             (Value::Integer(2), z(2.0, 0.0), true),
             (Value::Integer(2), z(2.0, 1.0), false),
             (z(2.0, 1.0), z(2.0, 1.0), true),
+            (rational("1", "3"), Value::Real(1.0 / 3.0), true),
+            (rational("1", "3"), Value::Real(0.3333), false),
+            (
+                rational("1", "3"),
+                rational("6004799503160661", "18014398509481984"),
+                false,
+            ),
+            (
+                metre(Magnitude::Rational(Rational::parse("1", "3").unwrap())),
+                metre(Magnitude::Real(1.0 / 3.0)),
+                true,
+            ),
             (Value::Integer(1), Value::Boolean(true), false),
             (Value::Integer(1), Value::Text("1".to_owned()), false),
             (
@@ -2274,15 +2649,15 @@ mod tests {
         assert_eq!(cube.components().len(), 8);
         assert_eq!(cube.unit(), Some("m"));
         assert_eq!(
-            cube.get(&[1, 0, 1]).map(|q| q.magnitude),
+            cube.get(&[1, 0, 1]).map(|q| q.magnitude.clone()),
             Some(Magnitude::Real(6.0))
         );
         assert_eq!(
-            cube.get(&[0, 0, 0]).map(|q| q.magnitude),
+            cube.get(&[0, 0, 0]).map(|q| q.magnitude.clone()),
             Some(Magnitude::Real(1.0))
         );
         assert_eq!(
-            cube.get(&[1, 1, 1]).map(|q| q.magnitude),
+            cube.get(&[1, 1, 1]).map(|q| q.magnitude.clone()),
             Some(Magnitude::Real(8.0))
         );
         assert_eq!(cube.get(&[1, 1]), None);
@@ -2329,7 +2704,7 @@ mod tests {
         };
         assert_eq!(mixed.unit(), None);
         assert_eq!(
-            mixed.get(&[0, 1]).map(|q| q.magnitude),
+            mixed.get(&[0, 1]).map(|q| q.magnitude.clone()),
             Some(Magnitude::Integer(5))
         );
     }

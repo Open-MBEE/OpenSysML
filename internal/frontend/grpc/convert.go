@@ -5,8 +5,9 @@ import (
 
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
 	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
+	"github.com/Open-MBEE/OpenSysML/internal/frontend/protoconv"
+	"github.com/Open-MBEE/OpenSysML/internal/frontend/symbolfacts"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
-	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/parser"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
@@ -14,44 +15,59 @@ import (
 
 // SymbolToProtoIn converts a Symbol to protobuf SymbolInfo in an existing
 // conversion context.
-func SymbolToProtoIn(sym *symbols.Symbol, sc *SymbolContext) *pb.SymbolInfo {
-	defer sc.Lock()()
+func SymbolToProtoIn(sym *symbols.Symbol, sc *symbolfacts.Context) *pb.SymbolInfo {
+	return infoToProto(symbolfacts.Of(sym, sc), sc.Index)
+}
 
-	idx := sc.Index
-	info := &pb.SymbolInfo{
-		Id:       idx.GetFQN(sym), // Fully qualified name
-		Name:     sym.Name,
-		Kind:     sym.Kind.String(),
-		Metadata: make(map[string]string),
+func infoToProto(info *symbolfacts.Info, idx *symbols.Index) *pb.SymbolInfo {
+	if info == nil {
+		return nil
 	}
-
-	// Extract metadata from AST node
-	extractMetadata(sym, info.Metadata)
-
-	// Add visibility to metadata
-	info.Metadata["visibility"] = visibilityToString(sym.Visibility)
-
-	// Collect child IDs
-	if sym.Scope != nil {
-		var childIDs []string
-		for _, childSym := range sym.Scope.AllMembers() {
-			childIDs = append(childIDs, idx.GetFQN(childSym))
+	out := &pb.SymbolInfo{
+		Id:                        info.Id,
+		Name:                      info.Name,
+		Kind:                      info.Kind,
+		Metadata:                  info.Metadata,
+		ChildIds:                  info.ChildIds,
+		WithheldLibraryAttributes: info.WithheldLibraryAttributes,
+	}
+	if info.Attributes != nil {
+		out.Attributes = make([]*pb.AttributeInfo, 0, len(info.Attributes))
+	}
+	if t := info.TypeInfo; t != nil {
+		out.TypeInfo = &pb.TypeInfo{
+			Declared:        t.Declared,
+			ResolvedId:      t.ResolvedId,
+			ResolvedKind:    t.ResolvedKind,
+			Primitive:       t.Primitive,
+			PrimitiveSource: t.PrimitiveSource,
+			Quantity:        t.Quantity,
+			Unit:            t.Unit,
 		}
-		info.ChildIds = childIDs
 	}
-
-	// Static type facts: the resolved type, the declared multiplicity and every
-	// generalization edge. These are what a client needs to reconstruct the
-	// element's type without re-deriving it from the metadata strings.
-	info.TypeInfo = sc.typeInfoOf(sym)
-	info.Multiplicity = sc.multiplicityOf(sym)
-	info.Specializations = sc.specializationsOf(sym)
-
-	// The attributes the element has, own and inherited, with their resolved
-	// types and constant default values.
-	info.Attributes, info.WithheldLibraryAttributes = sc.attributesOf(sym)
-
-	return info
+	if m := info.Multiplicity; m != nil {
+		out.Multiplicity = &pb.MultiplicityInfo{Lower: m.Lower, Upper: m.Upper}
+	}
+	for _, spec := range info.Specializations {
+		out.Specializations = append(out.Specializations, &pb.Specialization{
+			Kind: spec.Kind, Declared: spec.Declared, TargetId: spec.TargetId, TargetKind: spec.TargetKind,
+		})
+	}
+	for _, attribute := range info.Attributes {
+		a := &pb.AttributeInfo{Name: attribute.Name, Type: attribute.Type, Unit: attribute.Unit}
+		if attribute.Value != nil {
+			switch {
+			case attribute.Value.String != nil:
+				a.Value = &pb.Value{Kind: &pb.Value_StringValue{StringValue: *attribute.Value.String}}
+			case attribute.Value.Const != nil:
+				a.Value = protoconv.ValueToProto(runtime.Value{
+					Kind: runtime.ValConst, Const: *attribute.Value.Const,
+				}, idx)
+			}
+		}
+		out.Attributes = append(out.Attributes, a)
+	}
+	return out
 }
 
 // int32Clamp narrows a line or column number to the proto's int32, saturating
@@ -67,23 +83,29 @@ func int32Clamp(n int) int32 {
 	return int32(n)
 }
 
+func sourceSpanToProto(sf *source.SourceFile, span source.Span) *pb.Span {
+	if sf == nil {
+		return nil
+	}
+	li := sf.Lines()
+	start := li.PosAt(span.Offset)
+	end := li.PosAt(span.End())
+	return &pb.Span{
+		File:      sf.Name(),
+		StartLine: int32Clamp(start.Line),
+		StartCol:  int32Clamp(start.Col),
+		EndLine:   int32Clamp(end.Line),
+		EndCol:    int32Clamp(end.Col),
+	}
+}
+
 // DiagnosticToProto converts a diag.Diagnostic to protobuf.
 func DiagnosticToProto(diag diag.Diagnostic, sf *source.SourceFile) *pb.Diagnostic {
-	li := sf.Lines()
-	start := li.PosAt(diag.Span.Offset)
-	end := li.PosAt(diag.Span.End())
-
 	return &pb.Diagnostic{
 		Severity: diag.Severity.String(),
 		Message:  diag.Message,
 		Code:     diag.Code,
-		Span: &pb.Span{
-			File:      sf.Name(),
-			StartLine: int32Clamp(start.Line),
-			StartCol:  int32Clamp(start.Col),
-			EndLine:   int32Clamp(end.Line),
-			EndCol:    int32Clamp(end.Col),
-		},
+		Span:     sourceSpanToProto(sf, diag.Span),
 	}
 }
 
@@ -107,139 +129,16 @@ func RunNoteDiagnosticsToProto(notes []runtime.RunNote, model *CachedModel) []*p
 	return pbDiags
 }
 
-// SyntaxDiagnosticCode is the code every reporter gives a parser error; the
-// parser itself codes only warnings.
+// SyntaxDiagnosticCode is the code a parser error is reported under when the
+// parser gave it none of its own.
 const SyntaxDiagnosticCode = parser.CodeSyntax
 
 // ParserDiagnosticToProto converts a parser error to protobuf.
 func ParserDiagnosticToProto(diag parser.Diagnostic, sf *source.SourceFile) *pb.Diagnostic {
-	li := sf.Lines()
-	start := li.PosAt(diag.Span.Offset)
-	end := li.PosAt(diag.Span.End())
-
 	return &pb.Diagnostic{
 		Severity: "error", // Parser diagnostics are always errors
 		Message:  diag.Message,
-		Code:     SyntaxDiagnosticCode,
-		Span: &pb.Span{
-			File:      sf.Name(),
-			StartLine: int32Clamp(start.Line),
-			StartCol:  int32Clamp(start.Col),
-			EndLine:   int32Clamp(end.Line),
-			EndCol:    int32Clamp(end.Col),
-		},
-	}
-}
-
-// extractMetadata populates the metadata map from the symbol's AST node.
-// Extracts: multiplicity, type, direction, abstract.
-func extractMetadata(sym *symbols.Symbol, meta map[string]string) {
-	if sym.Decl == nil {
-		return
-	}
-
-	switch decl := sym.Decl.(type) {
-	case *ast.Usage:
-		// Multiplicity
-		if decl.Multiplicity != nil {
-			meta["multiplicity"] = formatMultiplicity(decl.Multiplicity)
-		}
-		// Type (first typing relationship)
-		for _, rel := range decl.Relationships {
-			if rel.Kind == ast.RelTyping {
-				if qn, ok := rel.Target.(*ast.QualifiedName); ok {
-					meta["type"] = formatQualifiedName(qn)
-					break
-				}
-			}
-		}
-		// Direction
-		if decl.Direction != ast.DirNone {
-			meta["direction"] = decl.Direction.String()
-		}
-		// Abstract
-		if decl.IsAbstract {
-			meta["abstract"] = "true"
-		}
-
-	case *ast.Definition:
-		// Abstract
-		if decl.IsAbstract {
-			meta["abstract"] = "true"
-		}
-		// Type (first specializes relationship for definitions)
-		for _, rel := range decl.Relationships {
-			if rel.Kind == ast.RelSpecializes {
-				if qn, ok := rel.Target.(*ast.QualifiedName); ok {
-					meta["specializes"] = formatQualifiedName(qn)
-					break
-				}
-			}
-		}
-	}
-}
-
-// formatMultiplicity renders Multiplicity as "lower..upper" or "value".
-func formatMultiplicity(m *ast.Multiplicity) string {
-	if !m.IsRange {
-		return formatMultiplicityBound(m.Lower)
-	}
-	lower := formatMultiplicityBound(m.Lower)
-	upper := formatMultiplicityBound(m.Upper)
-	return lower + ".." + upper
-}
-
-// formatMultiplicityBound renders a multiplicity bound node as a string.
-func formatMultiplicityBound(n ast.Node) string {
-	if n == nil {
-		return ""
-	}
-	switch v := n.(type) {
-	case *ast.LiteralInteger:
-		return v.Value
-	case *ast.LiteralInfinity:
-		return "*"
-	default:
-		return "?"
-	}
-}
-
-// formatQualifiedName renders QualifiedName as "A::B::C".
-func formatQualifiedName(qn *ast.QualifiedName) string {
-	if qn == nil {
-		return ""
-	}
-	var parts []string
-	for _, seg := range qn.Parts {
-		parts = append(parts, seg.Text)
-	}
-	return joinParts(parts, "::")
-}
-
-// joinParts joins parts with separator.
-func joinParts(parts []string, sep string) string {
-	result := ""
-	for i, part := range parts {
-		if i > 0 {
-			result += sep
-		}
-		result += part
-	}
-	return result
-}
-
-// visibilityToString converts ast.Visibility to string.
-func visibilityToString(v ast.Visibility) string {
-	switch v {
-	case ast.VisibilityPublic:
-		return "public"
-	case ast.VisibilityPrivate:
-		return "private"
-	case ast.VisibilityProtected:
-		return "protected"
-	case ast.VisibilityDefault:
-		return "default"
-	default:
-		return "default"
+		Code:     diag.ErrorCode(),
+		Span:     sourceSpanToProto(sf, diag.Span),
 	}
 }

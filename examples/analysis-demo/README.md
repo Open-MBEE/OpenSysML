@@ -396,18 +396,19 @@ run reaching that outcome made:
 ✓ explored Timing::groundWatch: 2 outcomes
 outcome                          | linearizations | probability | witness
 ---------------------------------+----------------+-------------+----------------------------------------------------------------------------------------------------------------
-armed = true; sawBraking = false | 1              | 0.5         | t=5.0: action GroundWatch first of state machine flightMode of object #1, action GroundWatch
-armed = true; sawBraking = true  | 1              | 0.5         | t=5.0: state machine flightMode of object #1 first of state machine flightMode of object #1, action GroundWatch
+armed = true; sawBraking = false | 1              | possible    | t=5.0: action GroundWatch first of state machine flightMode of object #1, action GroundWatch
+armed = true; sawBraking = true  | 1              | possible    | t=5.0: state machine flightMode of object #1 first of state machine flightMode of object #1, action GroundWatch
 complete (2 runs)
   standing: outcomes (proved over schedules: 2 linearizations, inputs as written)
 ```
 
 `complete (2 runs)` says every order within the run and depth budgets was
 tried, so an outcome not listed cannot be reached by reordering alone, and the
-`standing` line records that the outcomes were proved over every schedule. The
-`probability` column is each outcome's share of the runs when every choice is
-equally likely — here one order of two, so `0.5` each. A one-line answer to
-"does the order matter?" is one outcome or two.
+`standing` line records that the successful outcomes were proved over every
+schedule. The `probability` column says `possible` because the model makes no
+weighted choice: the two scheduler orders are alternatives, not events with
+probabilities. A one-line answer to "does the order matter?" is one outcome or
+two.
 
 **The same thing inside an analysis.** `watchDescent` performs `GroundWatch`
 as a step. The subject binding materializes the scout, whose state machine then
@@ -426,8 +427,8 @@ its body waits on time — no `-advance` is needed:
 ✓ explored Timing::watchDescent: 2 outcomes
 outcome            | linearizations | probability | witness
 -------------------+----------------+-------------+----------------------------------------------------------------------------------------------------------------
-sawBraking = false | 1              | 0.5         | t=5.0: action GroundWatch first of state machine flightMode of object #1, action GroundWatch
-sawBraking = true  | 1              | 0.5         | t=5.0: state machine flightMode of object #1 first of state machine flightMode of object #1, action GroundWatch
+sawBraking = false | 1              | possible    | t=5.0: action GroundWatch first of state machine flightMode of object #1, action GroundWatch
+sawBraking = true  | 1              | possible    | t=5.0: state machine flightMode of object #1 first of state machine flightMode of object #1, action GroundWatch
 complete (2 runs)
   standing: outcomes (proved over schedules: 2 linearizations, inputs as written)
 ```

@@ -113,7 +113,7 @@ func (v ModelValue) Written(variable *Var) (string, error) {
 }
 
 // Literal is the term denoting a decoded value, which is what denies a model in
-// an enumeration. An integer outside int64 has no literal in the term language.
+// an enumeration.
 func (v ModelValue) Literal(sort Sort) (*Term, error) {
 	switch v.Kind {
 	case SortBool:
@@ -123,10 +123,10 @@ func (v ModelValue) Literal(sort Sort) (*Term, error) {
 	case SortDatatype:
 		return ValueTerm(sort, v.Text), nil
 	case SortInt:
-		if !v.Number.Num().IsInt64() {
-			return nil, fmt.Errorf("%s is outside the Integer range", v.Number.Num().String())
+		if !v.Number.IsInt() {
+			return nil, fmt.Errorf("%s is no Integer", v.Number.RatString())
 		}
-		return IntTerm(v.Number.Num().Int64()), nil
+		return BigIntTerm(new(big.Int).Set(v.Number.Num())), nil
 	case SortReal:
 		return RealTerm(v.Number), nil
 	}
@@ -177,7 +177,7 @@ func (v *Var) ValueOf(given runtime.ToolValue) (ModelValue, error) {
 		}
 	case SortInt:
 		if given.Value.Kind == semantics.ValInt {
-			return ModelValue{Kind: kind, Number: new(big.Rat).SetInt64(given.Value.Int)}, nil
+			return ModelValue{Kind: kind, Number: new(big.Rat).SetInt(given.Value.BigInt())}, nil
 		}
 	case SortReal:
 		rat, ok := ratOfConst(given.Value)

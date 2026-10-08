@@ -1,0 +1,117 @@
+---
+config:
+  fontFamily: "Helvetica, Arial, sans-serif"
+  theme: base
+  themeVariables:
+    fontFamily: "Helvetica, Arial, sans-serif"
+    fontSize: "14px"
+    primaryColor: "#FFFFFF"
+    secondaryColor: "#FFFFFF"
+    tertiaryColor: "#FFFFFF"
+    background: "#FFFFFF"
+    primaryBorderColor: "#181818"
+    primaryTextColor: "#000000"
+    lineColor: "#181818"
+    textColor: "#000000"
+    noteBkgColor: "#FEFFDD"
+    noteBorderColor: "#181818"
+    noteTextColor: "#000000"
+    stateBkg: "#FFFFFF"
+    stateBorder: "#181818"
+    stateLabelColor: "#000000"
+    compositeBackground: "#FFFFFF"
+    compositeBorder: "#181818"
+    compositeTitleBackground: "#FFFFFF"
+    compositeTitleBorder: "#181818"
+    transitionColor: "#181818"
+    transitionLabelColor: "#000000"
+    labelBackgroundColor: "#FFFFFF"
+    specialStateColor: "#181818"
+---
+%% NotationViews::alignmentView — state rendering (view def StateTransitionView)
+%% not represented: 2 fork/join name(s) (spread, collect); Mermaid's fork bar draws no label
+%% canvas: w=1000 h=400
+%% layout: n0 x=0 y=0 w=1000 h=400
+%% layout: n18 x=40 y=30 w=15 h=15
+%% layout: n1 x=20 y=100 w=140 h=70
+%% layout: n2 x=260 y=100 w=200 h=110
+%% layout: n3 x=520 y=20 w=460 h=360
+%% layout: n19 x=560 y=60 w=15 h=15
+%% layout: n4 x=540 y=120 w=120 h=60
+%% layout: n5 x=700 y=200 w=120 h=60
+%% layout: n6 x=790 y=270 w=120 h=100
+%% layout: n9 x=810 y=295 w=80 h=30
+%% layout: n10 x=810 y=335 w=80 h=30
+%% layout: n12 x=590 y=220 w=20 h=20
+%% layout: n13 x=592 y=290 w=16 h=16
+%% layout: n14 x=700 y=293 w=60 h=10
+%% layout: n15 x=930 y=250 w=10 h=120
+%% layout: n16 x=860 y=80 w=20 h=20
+%% layout: n17 x=920 y=80 w=20 h=20
+%% layout: n11 x=350 y=320 w=20 h=20
+%% route: n18->n1 47,45 47,100
+%% route: n19->n4 567,75 567,120
+%% route: n1->n2 160,130 260,130
+%% route: n1->n17 160,110 200,110 200,5 930,5 930,80
+%% route: n2->n11 360,210 360,320
+%% route: n2->n1 260,180 90,180 90,170
+%% route: n2->n3 460,130 520,130
+%% route: n2->n16 460,110 490,110 490,10 870,10 870,80
+%% route: n3->n2 520,180 460,180
+%% route: n4->n12 600,180 600,220
+%% route: n9->n15 890,310 930,310
+%% route: n10->n15 890,350 930,350
+%% route: n12->n5 610,230 700,230
+%% route: n12->n13 600,240 600,290
+%% route: n13->n14 608,298 700,298
+%% route: n14->n9 760,298 785,298 785,310 810,310
+%% route: n14->n10 760,298 780,298 780,350 810,350
+%% route: n15->n5 935,250 935,230 820,230
+%% route: n16->n4 860,90 660,90 660,120
+%% route: n17->n5 930,100 930,140 780,140 780,200
+stateDiagram-v2
+  state "«state def» Alignment" as n0 {
+    state "«state»<br>Initializing<br>initial, do / Initialize" as n1
+    state "«state»<br>Aligning<br>entry / prime, do / align, exit / Settle" as n2
+      note right of n2
+        guide on the current star
+      end note
+    state "«state» Phasing<br>entry / Initialize" as n3 {
+      state "«state»<br>Coarse<br>initial, do / Align" as n4
+      state "«state»<br>Fine<br>do / Align" as n5
+      state "«state» Tracking" as n6 {
+        state "«region» Guiding" as n7 {
+          state "«state»<br>guide" as n9
+        }
+        state "«region» Focusing" as n8 {
+          state "«state»<br>focus" as n10
+        }
+      }
+      state n12 <<choice>>
+      state n13 <<choice>>
+      state n14 <<fork>>
+      state n15 <<join>>
+      state "H" as n16
+      state "H*" as n17
+      [*] --> n4
+    }
+    [*] --> n1
+    n2 --> [*] : accept Done [timer #gt; 0]
+  }
+  n1 --> n2 : accept Done
+  n1 --> n17 : accept Recall
+  n2 --> n1 : accept Abort / retry
+  n2 --> n3 : accept Phase
+  n2 --> n16 : accept Resume
+  n3 --> n2 : accept Abort
+  n4 --> n12 : accept Done
+  n9 --> n15
+  n10 --> n15
+  n12 --> n5 : [timer #gt; 0]
+  n12 --> n13
+  n13 --> n14
+  n14 --> n9
+  n14 --> n10
+  n15 --> n5
+  n16 --> n4
+  n17 --> n5

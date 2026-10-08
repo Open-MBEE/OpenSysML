@@ -1,12 +1,12 @@
 name: Pages
 
-# The site is docs/ rendered by MkDocs, republished on every push to main: the
+# The site is docs/ rendered by MkDocs, republished on every push to develop: the
 # test-suite figures are counted from the whole tree as it builds, so any
 # fixture or test landing in a release moves them. --strict: a broken link
 # fails the deployment.
 on:
   push:
-    branches: [main]
+    branches: [develop]
   workflow_dispatch:
 
 # One deployment at a time; cancelling one in flight would leave the site behind.
@@ -26,6 +26,9 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
+        with:
+          # Full history: the in-browser engine is stamped by git describe below.
+          fetch-depth: 0
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -42,11 +45,26 @@ jobs:
           go-version-file: go.mod
           cache: true
 
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: editors/vscode/package-lock.json
+
       - name: Install documentation toolchain
         run: make docs-install
 
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5
+
+      # /cli/ runs the engine in the browser; the same target a local preview uses
+      # compiles it into docs/assets (never vendored) for mkdocs to copy into site/.
+      - name: Build the in-browser engine
+        run: make docs-engine-assets
+
+      - name: Build the landing-page diagram
+        run: make docs-landing-assets
 
       - name: Build documentation site
         run: make docs

@@ -111,7 +111,7 @@ def _load_pinned_digests():
 #: SHA-256 digest expected of each release asset, keyed by repository, release tag
 #: and asset name: independent of the origin serving the download, so a republished
 #: release is refused. Synced from client/release-digests.json; see "Pinned release
-#: digests" in client/python/DEVELOPING.md.
+#: digests" in client/python/README.md.
 PINNED_SHA256 = _load_pinned_digests()
 
 #: Set to the repository whose unpinned downloads may be accepted (`1` for any),
@@ -125,16 +125,27 @@ BINARY_ENV = 'OPENSYSML_BINARY'
 
 
 _BUILT_AGAINST_VERSION = re.compile(
-    r'^(?P<release>\d+\.\d+\.\d+)(?:(?P<phase>a|b|rc)(?P<number>\d+))?$'
+    r'^(?P<release>\d+\.\d+\.\d+)(?:(?P<phase>a|b|rc)(?P<number>\d+))?'
+    r'(?:\.dev(?P<snapshot>\d+))?$'
 )
 _SEMVER_PHASE = {'a': 'alpha', 'b': 'beta', 'rc': 'rc'}
 
+#: The moving release alias of the newest nightly snapshot; per-night releases are
+#: tagged `nightly-<yyyymmdd>-<commit>`, and a snapshot distribution pins its own.
+SNAPSHOT_TAG = 'nightly'
+
 
 def built_against_releases():
-    """The SemVer tags corresponding to this opensysml distribution's version."""
+    """The release tags corresponding to this opensysml distribution's version.
+
+    A snapshot (a `.dev<yyyymmdd>` version, built nightly from develop) was built
+    against the per-night release its digest table pins for that date.
+    """
     match = _BUILT_AGAINST_VERSION.fullmatch(VERSION)
     if match is None:
         return (f'v{VERSION}',)
+    if match['snapshot'] is not None:
+        return snapshot_releases(match['snapshot'])
     phase = match['phase']
     if phase is None:
         return (f"v{match['release']}",)
@@ -142,6 +153,25 @@ def built_against_releases():
     suffix = _SEMVER_PHASE[phase]
     number = match['number']
     return (f'v{release}-{suffix}{number}', f'v{release}-{suffix}.{number}')
+
+
+def snapshot_releases(date, github_repo=None):
+    """The per-night release tags this distribution pins for a build date.
+
+    Falls back to the moving alias when it pins none, which is then refused as an
+    unpinned release unless the download is allowed unpinned.
+
+    Args:
+        date (str): The build date of the snapshot, yyyymmdd
+        github_repo (str, optional): GitHub repository (owner/repo)
+
+    Returns:
+        tuple[str, ...]: The pinned `nightly-<date>-<commit>` tags, else ('nightly',)
+    """
+    repo = github_repo or default_github_repo()
+    prefix = f'{SNAPSHOT_TAG}-{date}-'
+    pinned = tuple(sorted(tag for tag in PINNED_SHA256.get(repo, {}) if tag.startswith(prefix)))
+    return pinned or (SNAPSHOT_TAG,)
 
 
 def default_github_repo():

@@ -8,7 +8,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/Open-MBEE/OpenSysML/internal/translate/imagefile"
+	"github.com/Open-MBEE/OpenSysML/internal/ir/imagefile"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/mtip"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/xmi/sysmlv1"
 )
@@ -176,7 +176,7 @@ func (m *migration) pastedPictures(d *sysmlv1.Diagram) *pictures {
 			p.lost = append(p.lost, named+" has bytes that do not read ("+e.Reason()+")")
 			continue
 		case len(data) > 0 && ct == "":
-			p.lost = append(p.lost, named+" is no image (content type "+imagefile.Described(data)+")")
+			p.lost = append(p.lost, named+" is no image (content type "+describedImageContentType(data)+")")
 			continue
 		case len(data) == 0:
 			var reason string
@@ -526,7 +526,7 @@ func (r *dresser) clauses() []string {
 // notesShown reports whether d's stream draws el, a comment with a body, as a note
 // the view writes: a bounded Note symbol stands for it.
 func (m *migration) notesShown(d *sysmlv1.Diagram, el *sysmlv1.Element) bool {
-	if !d.Drawn || el.Type != "Comment" || commentBody(el) == "" {
+	if !d.Drawn || el.Type != "Comment" || m.commentBody(el) == "" {
 		return false
 	}
 	for _, sym := range d.Symbols {
@@ -563,7 +563,7 @@ func labelsParent(sym *sysmlv1.Symbol) bool {
 // comment, else the text the tool wrote on the symbol itself.
 func noteText(sym *sysmlv1.Symbol, m *migration) string {
 	if el := m.model.Lookup(sym.ElementID); el != nil && el.Type == "Comment" {
-		return commentBody(el)
+		return m.commentBody(el)
 	}
 	return sym.Text
 }

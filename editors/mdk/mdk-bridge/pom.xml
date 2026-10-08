@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0">
+  <modelVersion>4.0.0</modelVersion>
+  <parent>
+    <groupId>org.openmbee</groupId>
+    <artifactId>opensysml-mdk-parent</artifactId>
+    <version>0.10.0</version>
+  </parent>
+  <artifactId>opensysml-mdk-bridge</artifactId>
+  <name>OpenSysML MDK DocGen extension</name>
+  <dependencies>
+    <dependency>
+      <groupId>org.openmbee</groupId>
+      <artifactId>opensysml-mdk-openapi-stubs</artifactId>
+      <version>${project.version}</version>
+      <scope>provided</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.openmbee</groupId>
+      <artifactId>opensysml-mdk-api-stubs</artifactId>
+      <version>${project.version}</version>
+      <scope>provided</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter</artifactId>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+</project>

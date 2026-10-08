@@ -182,7 +182,7 @@ package OpenSysMLPipeline {
     #SemanticEngine part def PassRegistry :> Stage {
         attribute :>> goPackage = "internal/check/passes";
         attribute tierCount : Integer = 4;
-        attribute passCount : Integer = 63;
+        attribute passCount : Integer = 66;
         attribute sortsByLevel : Boolean = true;
         attribute skipsDocumentScopedAboveFailure : Boolean = true;
 
@@ -202,6 +202,8 @@ package OpenSysMLPipeline {
         }
         // A lint: a signal trigger's name no declaration and no send accounts for.
         part undeclaredSignals : NameResolutionCheck { attribute :>> goType = "UndeclaredSignalPass"; }
+        // A lint: a deferred signal's keeping loop written without its marker.
+        part deferredKeepers : NameResolutionCheck { attribute :>> goType = "DeferredKeeperPass"; }
         part typeCheck : TypeCheck { attribute :>> goType = "TypeCheckPass"; }
         part transitionGuards : TypeCheck {
             attribute :>> goType = "TransitionGuardPass";
@@ -298,6 +300,11 @@ package OpenSysMLPipeline {
             attribute :>> goType = "ControlNodeSuccessionPass";
             attribute :>> elementScoped = true;
         }
+        part actionStepMultiplicity : ConstraintCheck {
+            attribute :>> goType = "ActionStepMultiplicityPass";
+            attribute :>> elementScoped = true;
+        }
+        part behaviorOrders : ConstraintCheck { attribute :>> goType = "BehaviorOrderPass"; }
         part oosemMethod : ConstraintCheck { attribute :>> goType = "OOSEMMethodPass"; }
         part mosa : ConstraintCheck { attribute :>> goType = "MOSAPass"; }
         part nestedRedefinitions : ConstraintCheck { attribute :>> goType = "NestedRedefinitionPass"; }
@@ -341,7 +348,7 @@ package OpenSysMLPipeline {
     // snapshot when that matches the files, and parsed from the files otherwise.
     #SemanticEngine part def StandardLibrary :> Stage {
         attribute :>> goPackage = "internal/workspace/libs";
-        attribute bundledFileCount : Integer = 106;
+        attribute bundledFileCount : Integer = 110;
         attribute cached : Boolean = true;
         attribute snapshotFile : String = "internal/workspace/libs/stdlib.snapshot";
         attribute snapshotEmbedded : Boolean = true;
@@ -384,7 +391,6 @@ package OpenSysMLPipeline {
     part def StateExecutor :> CodeUnit {
         attribute :>> goPackage = "internal/exec/runtime";
         attribute runToCompletion : Boolean = true;
-        attribute defersUnhandledEvents : Boolean = true;
         in item graph : StateGraph;
         out item trace : ExecutionTrace;
     }
@@ -446,7 +452,7 @@ package OpenSysMLPipeline {
     #Backend part def Runtime :> Stage {
         attribute :>> goPackage = "internal/exec/runtime";
         attribute stepBudgeted : Boolean = true;
-        attribute budgetCount : Integer = 7;
+        attribute budgetCount : Integer = 8;
         attribute splitsModelFromRun : Boolean = true;
 
         // The instance layer and scheduler are modelled in execution.sysml.
@@ -499,6 +505,12 @@ package OpenSysMLPipeline {
             attribute :>> envVar = "OPENSYSML_MAX_SWEEP_RUNS";
             attribute :>> defaultBound = 1000;
             attribute :>> exhaustion = "sweep run budget exceeded";
+        }
+        part integerBits : Budget {
+            attribute :>> counts = "bits of the magnitude of one Integer result";
+            attribute :>> envVar = "OPENSYSML_MAX_INTEGER_BITS";
+            attribute :>> defaultBound = 1048576;
+            attribute :>> exhaustion = "integer size limit exceeded";
         }
 
         in item actionGraph : ActionGraph;

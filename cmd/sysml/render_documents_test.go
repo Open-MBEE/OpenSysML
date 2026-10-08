@@ -141,6 +141,18 @@ func TestRenderDocumentsDiagramForm(t *testing.T) {
 		t.Errorf("page does not write its diagrams as PlantUML:\n%s", page)
 	}
 
+	d2 := filepath.Join(t.TempDir(), "d2")
+	if got := runCommand(t, exec.Command(binary, fixture, "-render-documents", d2, "-doc-form", "html", "-diagram-form", "d2")); got.status != 0 {
+		t.Fatalf("exit = %d\n%s", got.status, got.output())
+	}
+	page, err = os.ReadFile(filepath.Join(d2, "Observatory-MassReport.html"))
+	if err != nil {
+		t.Fatalf("read page: %v", err)
+	}
+	if !strings.Contains(string(page), `<pre class="d2"># Observatory::interconnectView`) || strings.Contains(string(page), `class="mermaid"`) {
+		t.Errorf("page does not write its diagrams as D2:\n%s", page)
+	}
+
 	wantReport(t, runCommand(t, exec.Command(binary, fixture, "-render-documents", filepath.Join(t.TempDir(), "x"), "-diagram-form", "svg")),
 		2, `unknown diagram form "svg"`)
 }

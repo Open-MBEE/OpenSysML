@@ -1,0 +1,24 @@
+{
+	"type": "state",
+	"libraries": true,
+	"trace": true,
+	"events": [
+		{
+			"signal": "Check"
+		}
+	],
+	"terminated": true,
+	"stateVisits": [
+		"idle"
+	],
+	"outputs": {
+		"x": {
+			"type": "Integer",
+			"value": 2
+		},
+		"log": {
+			"type": "String",
+			"value": "idle(exit);check;bad;"
+		}
+	}
+}

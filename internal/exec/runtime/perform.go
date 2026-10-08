@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"maps"
+	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
@@ -42,15 +43,19 @@ func (e *StateExecutor) Enqueue(event QueuedEvent) error {
 		value := *event.Value
 		e.enqueueSignal(Message{SignalType: event.Signal, Value: &value})
 	case event.Signal != "":
-		e.SendSignal(event.Signal, event.Args)
+		msg, err := e.signalPayload(event.Signal, event.Args)
+		if err != nil {
+			return err
+		}
+		e.enqueueSignal(msg)
 	default:
 		return fmt.Errorf("%w: event declares neither a signal nor a call", ErrMalformedEvent)
 	}
 	return nil
 }
 
-// ErrCallNotReturned reports a call the run left queued or deferred, so a
-// synchronous caller would still be waiting on it.
+// ErrCallNotReturned reports a call the run left queued, so a synchronous
+// caller would still be waiting on it.
 var ErrCallNotReturned = errors.New("call not returned")
 
 // pendingCall is the synchronous call Call is waiting on, the outputs the
@@ -97,8 +102,8 @@ func (e *StateExecutor) Call(operation string, args map[string]Value) (map[strin
 	if err := e.RunToQuiescence(); err != nil {
 		return nil, err
 	}
-	if held := e.eventDisposition(call.id); held != "" {
-		return nil, fmt.Errorf("%w: %s is still %s", ErrCallNotReturned, operation, held)
+	if e.eventQueued(call.id) {
+		return nil, fmt.Errorf("%w: %s is still queued", ErrCallNotReturned, operation)
 	}
 	// A step undone within the run restored the call as it stood when captured.
 	if e.pendingCall != nil {
@@ -121,9 +126,9 @@ func (e *StateExecutor) WriteAttribute(name string, value Value) error {
 }
 
 // callReleased reports whether the pending call's event has been dispatched, so
-// its run-to-completion step is done; a deferred call still holds its caller.
+// its run-to-completion step is done.
 func (e *StateExecutor) callReleased() bool {
-	return e.pendingCall != nil && e.eventDisposition(e.pendingCall.id) == ""
+	return e.pendingCall != nil && !e.eventQueued(e.pendingCall.id)
 }
 
 // callOwner is the type whose members a called operation is looked up among: the
@@ -176,6 +181,21 @@ func (e *StateExecutor) callTriggerOperations(trigger *ast.CallEvent) []*symbols
 	}
 	e.callTriggers[trigger] = named
 	return named
+}
+
+// signalPayload builds the message a queued signal event carries. The name is
+// what it denotes to the part exhibiting the machine, as a `send` written there:
+// an occurrence of that signal definition, which an accept binding its payload
+// (`accept kept : Ping`) has a Ping to bind from and a supertype accept takes by
+// conformance. A name the part sees no signal definition by is matched by name
+// alone, as `accept go` is, and typed by the accept that takes it, where that
+// accept's own scope — a machine's private import, say — declares the signal.
+func (e *StateExecutor) signalPayload(signal string, args map[string]Value) (Message, error) {
+	sym := e.ctx.resolveTypeRef(DeclScope(e.callOwner()), ast.QualifiedNameOf(strings.Split(signal, "::")...))
+	if !IsSignalDefinition(sym) {
+		return Message{SignalType: signal, Payload: args, TypedByAccept: true}, nil
+	}
+	return e.ctx.SignalMessage(sym, args, nil)
 }
 
 // callPayload builds the call event's payload: the operation's declaration as a
@@ -315,20 +335,15 @@ func (e *StateExecutor) recordCallOutput(name string, value Value) {
 	call.outputs[name] = value
 }
 
-// eventDisposition is "queued" or "deferred" for an event the machine still
-// holds, empty once it was dispatched.
-func (e *StateExecutor) eventDisposition(id int64) string {
+// eventQueued reports whether the machine still holds the event in its queue,
+// false once it was dispatched.
+func (e *StateExecutor) eventQueued(id int64) bool {
 	for _, event := range e.eventQueue.Events() {
 		if event.ID == id {
-			return "queued"
+			return true
 		}
 	}
-	for _, event := range e.deferred {
-		if event.ID == id {
-			return "deferred"
-		}
-	}
-	return ""
+	return false
 }
 
 // PerformState drives one performance of a state machine, by self or by no

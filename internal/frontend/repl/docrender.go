@@ -7,20 +7,21 @@ import (
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/doc/docir"
-	"github.com/Open-MBEE/OpenSysML/internal/doc/docpdf"
 	"github.com/Open-MBEE/OpenSysML/internal/doc/docrender"
 	"github.com/Open-MBEE/OpenSysML/internal/doc/queryexec"
+	"github.com/Open-MBEE/OpenSysML/internal/frontend/repl/replext"
 	"github.com/Open-MBEE/OpenSysML/internal/ir/docplan"
 	"github.com/Open-MBEE/OpenSysML/internal/ir/view"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/model"
+	"github.com/Open-MBEE/OpenSysML/internal/workspace/modeldoc"
 )
 
 // renderDocumentUsage is what %render-document accepts: a document's name,
 // then optionally the form its graph-shaped diagrams are written in and the
-// drawing style the dot form draws them in.
-const renderDocumentUsage = "usage: %render-document <name> [mermaid|dot|plantuml [pilot|cameo]]"
+// drawing style the DOT or Mermaid form draws them in.
+const renderDocumentUsage = "usage: %render-document <name> [mermaid|dot|plantuml|d2 [pilot|cameo]]"
 
 // RenderDocumentMarkdown compiles the named document definition, evaluates its
 // queries against the session's model, and renders the result as Markdown. A
@@ -97,7 +98,7 @@ func (s *Session) evaluateDocument(invocation, extension string) (*docir.Documen
 		for _, sibling := range s.documentSymbols(idx, sem) {
 			names = append(names, symbols.FQNOf(sibling))
 		}
-		if files, err = model.DocumentFiles(names, extension); err != nil {
+		if files, err = modeldoc.DocumentFiles(names, extension); err != nil {
 			return nil, nil, err
 		}
 	}
@@ -160,7 +161,7 @@ func (s *Session) renderDocumentSet(
 	for _, sym := range syms {
 		names = append(names, symbols.FQNOf(sym))
 	}
-	files, err := model.DocumentFiles(names, extension)
+	files, err := modeldoc.DocumentFiles(names, extension)
 	if err != nil {
 		return nil, err
 	}
@@ -227,28 +228,79 @@ func (s *Session) documentSymbols(idx *symbols.Index, sem *semantics.Model) []*s
 // word names the form its graph-shaped diagrams are written in, a third the
 // drawing style.
 func (s *Session) doRenderDocument(invocation string) ([]string, bool, error) {
+	name, opts, usage := parseRenderDocumentArgs(invocation)
+	if usage != nil {
+		return usage, false, nil
+	}
+	markdown, err := s.renderDocumentMarkdown(name, opts)
+	if err != nil {
+		return []string{errPrefix + err.Error()}, false, nil
+	}
+	return strings.Split(strings.TrimRight(markdown, "\n"), "\n"), false, nil
+}
+
+// parseRenderDocumentArgs reads %render-document's arguments: the document, the
+// diagram form and the drawing style; usage is what to print instead when they
+// do not read.
+func parseRenderDocumentArgs(invocation string) (name string, opts docrender.MarkdownOptions, usage []string) {
 	fields := splitQueryArgs(strings.TrimSpace(invocation))
 	if len(fields) == 0 || len(fields) > 3 {
-		return []string{renderDocumentUsage}, false, nil
+		return "", opts, []string{renderDocumentUsage}
 	}
-	opts := docrender.MarkdownOptions{Drawer: docpdf.Graphviz{}}
+	opts = docrender.MarkdownOptions{Drawer: replext.Drawer(), WithoutGraphviz: replext.Drawer() == nil}
 	if len(fields) >= 2 {
 		opts.DiagramForm = view.Form(fields[1])
 		if !slices.Contains(view.DiagramForms(), opts.DiagramForm) {
-			return []string{errPrefix + fmt.Sprintf("%q is not a diagram form (%s); a document binds its queries' parameters in the model",
-				fields[1], view.FormNames(view.DiagramForms()))}, false, nil
+			return "", opts, []string{errPrefix + fmt.Sprintf("%q is not a diagram form (%s); a document binds its queries' parameters in the model",
+				fields[1], view.FormNames(view.DiagramForms()))}
 		}
 	}
 	if len(fields) == 3 {
 		style, ok := view.ParseDrawingStyle(fields[2])
 		if !ok {
-			return []string{errPrefix + (&view.UnknownDrawingStyleError{Name: fields[2]}).Error() + "; " + renderDocumentUsage}, false, nil
+			return "", opts, []string{errPrefix + (&view.UnknownDrawingStyleError{Name: fields[2]}).Error() + "; " + renderDocumentUsage}
 		}
 		opts.Style = style
 	}
-	markdown, err := s.renderDocumentMarkdown(fields[0], opts)
-	if err != nil {
-		return []string{errPrefix + err.Error()}, false, nil
+	return fields[0], opts, nil
+}
+
+// RenderDocument runs %render-document with its arguments for a front end
+// showing rich output: the Markdown the prompt prints, as lines, or with html
+// the same document as an HTML fragment for a host page. A usage problem is a
+// *UsageError holding what the prompt prints; a document that could not be
+// rendered is an error.
+func (s *Session) RenderDocument(invocation string, html bool) (lines []string, rendered bool, err error) {
+	defer s.enter()()
+	name, opts, usage := parseRenderDocumentArgs(invocation)
+	if usage != nil {
+		return nil, false, &UsageError{Lines: usage}
 	}
-	return strings.Split(strings.TrimRight(markdown, "\n"), "\n"), false, nil
+	var text string
+	if html {
+		text, err = s.renderDocumentHTMLFragment(name, opts)
+	} else {
+		text, err = s.renderDocumentMarkdown(name, opts)
+	}
+	if err != nil {
+		return nil, false, err
+	}
+	return strings.Split(strings.TrimRight(text, "\n"), "\n"), true, nil
+}
+
+// renderDocumentHTMLFragment renders the named document as an HTML fragment,
+// its diagrams written and drawn as the Markdown options say.
+func (s *Session) renderDocumentHTMLFragment(name string, opts docrender.MarkdownOptions) (string, error) {
+	document, files, err := s.evaluateDocument(name, ".html")
+	if err != nil {
+		return "", err
+	}
+	return docrender.HTML(document, docrender.HTMLOptions{
+		Fragment:        true,
+		DiagramForm:     opts.DiagramForm,
+		WithoutGraphviz: opts.WithoutGraphviz,
+		Style:           opts.Style,
+		Drawer:          opts.Drawer,
+		Files:           files,
+	})
 }

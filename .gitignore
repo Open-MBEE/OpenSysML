@@ -12,6 +12,13 @@
 # Rendered documentation site (make docs)
 /site/
 
+# In-browser engine assets (make docs-engine-assets); built, never vendored
+/docs/assets/sysml-engine.wasm*
+/docs/assets/sysml-repl.wasm*
+/docs/assets/repl-examples/
+/docs/assets/wasm_exec.js
+/docs/assets/landing/
+
 # Julia package environments resolve locally; the pinned deps are in Project.toml.
 client/julia/**/Manifest.toml
 
@@ -51,12 +58,15 @@ coverage-node.lcov
 
 # Maven build output for the Java client and the Cameo plugin
 /client/java/**/target/
-/editors/cameo/**/target/
+/editors/mdk/**/target/
 /editors/syson/**/target/
-!/editors/cameo/dist/
+!/editors/mdk/dist/
 
 # Partial oracle record a failed `make fuml-expected` leaves for diagnosis
 /docs/project/fuml-referee-expected.json.failed
 
 # Windows VERSIONINFO resources, written by go-winres for GOOS=windows builds
 cmd/*/rsrc_windows_*.syso
+
+# The kernel a platform wheel bundles, staged by the release pipeline (setup.py)
+/client/jupyter-kernel/jupyter_opensysml_kernel/bin/

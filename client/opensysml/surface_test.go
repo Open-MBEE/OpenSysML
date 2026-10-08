@@ -2,16 +2,20 @@ package opensysml_test
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"path/filepath"
 	"reflect"
+	"slices"
 	"strings"
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/api/proto/protoconnect"
 	"github.com/Open-MBEE/OpenSysML/client/opensysml"
+	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
 	sysmlgrpc "github.com/Open-MBEE/OpenSysML/internal/frontend/grpc"
 )
 
@@ -36,6 +40,21 @@ const behaviorSource = `package Test {
 		succession first Running then done;
 	}
 }`
+
+const stateTraceFailureSource = `
+package Trace {
+  item def Go;
+  item def Again;
+  state Machine {
+    entry; then idle;
+    state idle;
+    state middle;
+    state done;
+    transition first idle accept Go then middle;
+    transition first middle accept Again then done;
+  }
+}
+`
 
 const verificationSource = `package Demo {
 	part def Vehicle {
@@ -248,6 +267,46 @@ func TestExecuteStateTracesTheStatesVisited(t *testing.T) {
 	if strings.Join(run.Visited, ",") != "init,Running,done" {
 		t.Errorf("visited = %v, want init, Running, done", run.Visited)
 	}
+	if len(run.Trace) != 0 || run.TraceDropped != 0 {
+		t.Fatalf("unrequested trace = %v dropped %d", run.Trace, run.TraceDropped)
+	}
+	traced, err := client.ExecuteState(context.Background(), model, "Test::Machine", nil, opensysml.WithTrace())
+	if err != nil {
+		t.Fatalf("ExecuteState with trace: %v", err)
+	}
+	if len(traced.Trace) == 0 || traced.TraceDropped != 0 || traced.Trace[0].Kind != "entry" {
+		t.Errorf("trace = %v dropped %d, want entry records and no drops", traced.Trace, traced.TraceDropped)
+	}
+}
+
+func TestExecuteStateFailureKeepsItsPartialTrace(t *testing.T) {
+	t.Setenv(runtime.MaxStateEventsEnvVar, "1")
+	client := newClient(t)
+	model := parse(t, client, stateTraceFailureSource)
+
+	_, err := client.ExecuteState(
+		context.Background(),
+		model,
+		"Trace::Machine",
+		[]string{"Go", "Again"},
+		opensysml.WithTrace(),
+	)
+	var failure *opensysml.FailureError
+	if !errors.As(err, &failure) {
+		t.Fatalf("ExecuteState error = %v, want FailureError", err)
+	}
+	if failure.Op != "ExecuteState" || failure.Message == "" {
+		t.Fatalf("failure = %+v, want an ExecuteState failure", failure)
+	}
+	if failure.TraceDropped != 0 {
+		t.Errorf("trace dropped %d records, want none", failure.TraceDropped)
+	}
+	for _, event := range failure.Trace {
+		if event.Kind == "transition" && event.From == "idle" && event.To == "middle" {
+			return
+		}
+	}
+	t.Fatalf("partial trace has no idle-to-middle transition: %v", failure.Trace)
 }
 
 func TestVerifyConstraintAnswersAVerdictAboutTheSubject(t *testing.T) {
@@ -626,6 +685,80 @@ func TestRenderDocumentAnswersMarkdown(t *testing.T) {
 	}
 }
 
+func TestRenderViewAgainstService(t *testing.T) {
+	client := newClient(t)
+	source, err := os.ReadFile(filepath.Join("..", "..", "conformance", "fixtures", "views.sysml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	model := parse(t, client, string(source))
+	rendered, err := client.RenderView(context.Background(), model, "RenderViewDemo::connections")
+	if err != nil {
+		t.Fatalf("RenderView: %v", err)
+	}
+	if rendered.Kind != "interconnection" || len(rendered.Edges) != 1 {
+		t.Fatalf("rendered view kind/edges = %q/%d", rendered.Kind, len(rendered.Edges))
+	}
+	if rendered.Edges[0].FromPort == "" || rendered.Edges[0].ToPort == "" {
+		t.Errorf("edge ports = %q -> %q, want both endpoints", rendered.Edges[0].FromPort, rendered.Edges[0].ToPort)
+	}
+	for _, node := range rendered.Nodes {
+		if node.Origin == nil || node.Origin.StartLine == 0 {
+			t.Errorf("node %q has no source origin", node.Name)
+		}
+	}
+	full, err := client.RenderView(context.Background(), model, "RenderViewDemo::connections", opensysml.WithFullPorts())
+	if err != nil {
+		t.Fatalf("RenderView with full ports: %v", err)
+	}
+	var names []string
+	for _, node := range full.Nodes {
+		for _, port := range node.Ports {
+			names = append(names, port.Name)
+		}
+	}
+	if !slices.Contains(names, "spare") {
+		t.Errorf("full ports = %v, want spare", names)
+	}
+}
+
+func TestExportGraphsAgainstService(t *testing.T) {
+	client := newClient(t)
+	source, err := os.ReadFile(filepath.Join("..", "..", "conformance", "fixtures", "behavior.sysml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	model := parse(t, client, string(source))
+	graphs, err := client.ExportGraphs(context.Background(), model, "Test::race")
+	if err != nil {
+		t.Fatalf("ExportGraphs: %v", err)
+	}
+	if graphs.Version != 1 || graphs.Subject != "Test::race" {
+		t.Errorf("graphs version/subject = %d/%q, want 1/Test::race", graphs.Version, graphs.Subject)
+	}
+	var form struct {
+		Version int    `json:"version"`
+		Subject string `json:"subject"`
+		Actions []any  `json:"actions"`
+	}
+	if err := json.Unmarshal([]byte(graphs.Content), &form); err != nil {
+		t.Fatalf("content is not JSON: %v\n%s", err, graphs.Content)
+	}
+	if form.Version != 1 || form.Subject != "Test::race" || len(form.Actions) != 1 {
+		t.Errorf("content = version %d, subject %q, %d actions", form.Version, form.Subject, len(form.Actions))
+	}
+
+	_, err = client.ExportGraphs(context.Background(), model, "Test::Missing")
+	var status *opensysml.StatusError
+	if !errors.As(err, &status) || status.Code != opensysml.CodeNotFound {
+		t.Errorf("unknown subject: %v, want NOT_FOUND", err)
+	}
+	_, err = client.ExportGraphs(context.Background(), model, "Test")
+	if !errors.As(err, &status) || status.Code != opensysml.CodeInvalidArgument {
+		t.Errorf("a package as subject: %v, want INVALID_ARGUMENT", err)
+	}
+}
+
 func TestConvertRefusesAFromFormatForAParsedModel(t *testing.T) {
 	client := newClient(t)
 	model := parse(t, client, editableSource)
@@ -677,26 +810,160 @@ func TestAFormatAliasIsAnsweredCanonically(t *testing.T) {
 	}
 }
 
-func TestConvertFileMigratesSysMLv1(t *testing.T) {
+// A SysML v1 model is migrated, not converted: ConvertFile and ConvertSource
+// refuse it with the help every surface gives, naming the Migrate method,
+// whether the extension or WithFromFormat names the v1 form.
+func TestConvertRefusesSysMLv1(t *testing.T) {
 	client := newClient(t)
+	ctx := context.Background()
 	xmi := filepath.Join("..", "..", "tests", "migrate", "testdata", "xmi", "vehicle.xmi")
-	conversion, err := client.ConvertFile(context.Background(), xmi, opensysml.FormatSysML)
+	data, err := os.ReadFile(xmi)
 	if err != nil {
-		t.Fatalf("ConvertFile: %v", err)
+		t.Fatal(err)
 	}
-	if conversion.From != opensysml.FormatXMI || conversion.To != opensysml.FormatSysML {
-		t.Errorf("conversion = %s to %s, want xmi to sysml", conversion.From, conversion.To)
+	for name, call := range map[string]func() error{
+		"file by extension": func() error {
+			_, err := client.ConvertFile(ctx, xmi, opensysml.FormatSysML)
+			return err
+		},
+		"file by format": func() error {
+			_, err := client.ConvertFile(ctx, "Model.v1", opensysml.FormatSysML, opensysml.WithFromFormat(opensysml.FormatMDZip))
+			return err
+		},
+		"source": func() error {
+			_, err := client.ConvertSource(ctx, string(data), opensysml.FormatSysML, opensysml.WithFromFormat(opensysml.FormatXMI))
+			return err
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			err := call()
+			if !errors.Is(err, opensysml.CodeInvalidArgument) {
+				t.Fatalf("err = %v, want CodeInvalidArgument", err)
+			}
+			if !strings.Contains(err.Error(), "migrated, not converted") || !strings.Contains(err.Error(), "call Migrate") {
+				t.Errorf("err = %v, want the migrated-not-converted help naming the Migrate method", err)
+			}
+		})
 	}
-	if !strings.Contains(conversion.Content, "part def Vehicle") {
-		t.Errorf("conversion does not carry the migrated model:\n%s", conversion.Content)
+}
+
+// MigrateFile migrates a v1 file whose extension names its form, and
+// MigrateSource the same bytes with WithV1Format naming it; both account for
+// the migration in the Report, with every element's verdict when asked.
+func TestMigrateFileAndSourceMigrateSysMLv1(t *testing.T) {
+	client := newClient(t)
+	ctx := context.Background()
+	xmi := filepath.Join("..", "..", "tests", "migrate", "testdata", "xmi", "vehicle.xmi")
+	data, err := os.ReadFile(xmi)
+	if err != nil {
+		t.Fatal(err)
 	}
-	if !conversion.Experimental || !strings.Contains(conversion.ExperimentalNotice, "SysML v1 migration") {
-		t.Errorf("a migration does not report itself as experimental: %q", conversion.ExperimentalNotice)
+	fromFile, err := client.MigrateFile(ctx, xmi, opensysml.FormatSysML)
+	if err != nil {
+		t.Fatalf("MigrateFile: %v", err)
+	}
+	fromSource, err := client.MigrateSource(ctx, data, opensysml.FormatSysML,
+		opensysml.WithV1Format(opensysml.FormatXMI), opensysml.WithMigrationReport())
+	if err != nil {
+		t.Fatalf("MigrateSource: %v", err)
+	}
+	for name, migration := range map[string]*opensysml.Migration{"file": fromFile, "source": fromSource} {
+		if migration.From != opensysml.FormatXMI || migration.To != opensysml.FormatSysML {
+			t.Errorf("%s: migration = %s to %s, want xmi to sysml", name, migration.From, migration.To)
+		}
+		if !strings.Contains(migration.Content, "part def Vehicle") {
+			t.Errorf("%s: migration does not carry the migrated model:\n%s", name, migration.Content)
+		}
+		if !strings.Contains(migration.ExperimentalNotice, "SysML v1 migration") {
+			t.Errorf("%s: a migration does not report itself as experimental: %q", name, migration.ExperimentalNotice)
+		}
+		if migration.Report == nil || migration.Report.Mapped == 0 || !strings.HasPrefix(migration.Report.Summary, "migrated ") {
+			t.Fatalf("%s: report = %+v, want mapped elements and the summary line", name, migration.Report)
+		}
+		if migration.Results != "" || len(migration.Files) != 0 {
+			t.Errorf("%s: results %q and %d files came back unasked", name, migration.Results, len(migration.Files))
+		}
+	}
+	if fromFile.Content != fromSource.Content {
+		t.Error("the file and its bytes migrate differently")
+	}
+	if len(fromFile.Report.Entries) != 0 || fromFile.Report.Text != "" {
+		t.Errorf("entries came back without WithMigrationReport: %d", len(fromFile.Report.Entries))
+	}
+	report := fromSource.Report
+	if len(report.Entries) == 0 || !strings.HasPrefix(report.Text, "# SysML v1 to v2 migration report") {
+		t.Fatalf("WithMigrationReport: %d entries, text %q", len(report.Entries), report.Text)
+	}
+	verdicts := map[string]int{}
+	for _, entry := range report.Entries {
+		verdicts[entry.Verdict]++
+	}
+	if verdicts["mapped"] != report.Mapped || verdicts["approximated"] != report.Approximated ||
+		verdicts["unmapped"] != report.Unmapped || verdicts["skipped"] != report.Skipped || len(verdicts) > 4 {
+		t.Errorf("verdicts %v do not add up to the counts %d/%d/%d/%d",
+			verdicts, report.Mapped, report.Approximated, report.Unmapped, report.Skipped)
 	}
 
-	_, err = client.ConvertFile(context.Background(), xmi, opensysml.FormatXMI)
+	_, err = client.MigrateFile(ctx, xmi, opensysml.FormatXMI)
 	if !errors.Is(err, opensysml.CodeInvalidArgument) {
 		t.Errorf("writing xmi: err = %v, want CodeInvalidArgument", err)
+	}
+}
+
+// A v2 model is converted, not migrated: MigrateFile and MigrateSource refuse
+// it pointing at the Convert methods.
+func TestMigrateRefusesSysMLv2(t *testing.T) {
+	client := newClient(t)
+	ctx := context.Background()
+	for name, call := range map[string]func() error{
+		"file": func() error {
+			_, err := client.MigrateFile(ctx, "Model.sysml", opensysml.FormatSysML)
+			return err
+		},
+		"source": func() error {
+			_, err := client.MigrateSource(ctx, []byte(editableSource), opensysml.FormatSysML,
+				opensysml.WithV1Format(opensysml.FormatSysML))
+			return err
+		},
+		"source without a format": func() error {
+			_, err := client.MigrateSource(ctx, []byte(editableSource), opensysml.FormatSysML)
+			return err
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			if err := call(); !errors.Is(err, opensysml.CodeInvalidArgument) {
+				t.Errorf("err = %v, want CodeInvalidArgument", err)
+			}
+		})
+	}
+}
+
+// WithLayoutFile and WithLayout lay the migrated views out from an MTIP export,
+// and WithMigrationResults indexes the results the v1 tool stored.
+func TestMigrateOptionsReachTheMigration(t *testing.T) {
+	client := newClient(t)
+	ctx := context.Background()
+	dir := filepath.Join("..", "..", "tests", "migrate", "testdata", "xmi")
+	layoutPath := filepath.Join(dir, "layout.layout.xml")
+	layoutData, err := os.ReadFile(layoutPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for name, opt := range map[string]opensysml.MigrateOption{
+		"file":   opensysml.WithLayoutFile(layoutPath),
+		"inline": opensysml.WithLayout(string(layoutData)),
+	} {
+		migration, err := client.MigrateFile(ctx, filepath.Join(dir, "layout.xmi"), opensysml.FormatSysML,
+			opt, opensysml.WithMigrationResults())
+		if err != nil {
+			t.Fatalf("%s: MigrateFile: %v", name, err)
+		}
+		if !strings.Contains(migration.Report.Summary, "laid out") {
+			t.Errorf("%s: summary %q does not account for the layout", name, migration.Report.Summary)
+		}
+		if !strings.HasPrefix(migration.Results, "{") {
+			t.Errorf("%s: results = %q, want the JSON index", name, migration.Results)
+		}
 	}
 }
 
@@ -1052,6 +1319,14 @@ func TestEveryOperationIsRefusedAfterClose(t *testing.T) {
 		},
 		"QueryOSLC": func() error {
 			_, err := client.QueryOSLC(ctx, model, `name="sedan"`)
+			return err
+		},
+		"MigrateFile": func() error {
+			_, err := client.MigrateFile(ctx, "Model.mdzip", opensysml.FormatSysML)
+			return err
+		},
+		"MigrateSource": func() error {
+			_, err := client.MigrateSource(ctx, nil, opensysml.FormatSysML, opensysml.WithV1Format(opensysml.FormatXMI))
 			return err
 		},
 		"RunDocumentQuery": func() error {

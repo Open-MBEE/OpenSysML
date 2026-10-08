@@ -267,8 +267,8 @@ def test_every_in_repo_reference_names_the_poms_version():
         parent_version = pom.findtext(f"{ns}parent/{ns}version")
         assert parent_version == version, module
 
-    cameo = ET.parse(repo / "editors/cameo/pom.xml").getroot()
-    assert cameo.findtext(f"{ns}properties/{ns}opensysml.client.version") == version
+    mdk = ET.parse(repo / "editors/mdk/pom.xml").getroot()
+    assert mdk.findtext(f"{ns}properties/{ns}opensysml.client.version") == version
 
     syson = ET.parse(repo / "editors/syson/backend/pom.xml").getroot()
     for dep in syson.iter(f"{ns}dependency"):
@@ -376,10 +376,12 @@ def test_main_refuses_rust_and_java_together():
 
 
 _EDITOR_PARENTS = (
-    "editors/cameo/plugin/pom.xml",
-    "editors/cameo/tools/pom.xml",
-    "editors/cameo/openapi-stubs/pom.xml",
-    "editors/cameo/dist/pom.xml",
+    "editors/mdk/plugin/pom.xml",
+    "editors/mdk/tools/pom.xml",
+    "editors/mdk/openapi-stubs/pom.xml",
+    "editors/mdk/mdk-api-stubs/pom.xml",
+    "editors/mdk/mdk-bridge/pom.xml",
+    "editors/mdk/dist/pom.xml",
     "editors/syson/backend/pom.xml",
     "editors/syson/syson-api-stubs/pom.xml",
 )
@@ -398,7 +400,7 @@ def _editor_tree(root, version):
             f'"packages": {{"": {{"version": "{version}"}}}}}}',
             encoding="utf-8",
         )
-    for relpath in ("editors/cameo/pom.xml", "editors/syson/pom.xml"):
+    for relpath in ("editors/mdk/pom.xml", "editors/syson/pom.xml"):
         (root / relpath).parent.mkdir(parents=True, exist_ok=True)
         (root / relpath).write_text(
             f'<project {ns}><version>{version}</version></project>',
@@ -489,3 +491,31 @@ def test_editors_version_rejects_a_tag_that_misspells_the_version(tmp_path):
 def test_main_refuses_editors_and_node_together():
     with pytest.raises(SystemExit):
         check_version.main(["--tag", "v0.9.0", "--editors", "--node"])
+
+
+def test_kernel_version_agrees_with_the_real_tree():
+    """jupyter-opensysml-kernel is released from the same tag, at the same version."""
+    declared = check_version.declared_version()
+    assert check_version.kernel_version() == declared
+    assert check_version.kernel_version(tag=_core_tag(declared)) == declared
+
+
+def test_kernel_version_rejects_a_disagreeing_version_file():
+    with pytest.raises(check_version.VersionError, match="lockstep"):
+        check_version.kernel_version(declared="0.9.2", kernel="0.9.3")
+
+
+def test_kernel_version_rejects_a_tag_that_names_another_version():
+    with pytest.raises(check_version.VersionError, match="v0.9.3"):
+        check_version.kernel_version(declared="0.9.2", kernel="0.9.2", tag="v0.9.3")
+
+
+def test_main_prints_the_kernel_version_the_tag_names(capsys):
+    declared = check_version.declared_version()
+    assert check_version.main(["--tag", _core_tag(declared), "--jupyter-kernel"]) == 0
+    assert capsys.readouterr().out.strip() == declared
+
+
+def test_main_refuses_kernel_and_node_together():
+    with pytest.raises(SystemExit):
+        check_version.main(["--tag", "v0.9.2", "--jupyter-kernel", "--node"])

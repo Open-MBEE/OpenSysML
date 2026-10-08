@@ -95,7 +95,7 @@ package OpenSysMLViews {
     }
 
     view budgetExhaustion : StateTransitionView {
-        doc /* Seven budgets, seven ways a run can end early, each naming itself. */
+        doc /* Eight budgets, eight ways a run can end early, each naming itself. */
         expose OpenSysMLBehavior::BudgetExhaustion;
     }
 
@@ -194,6 +194,5 @@ package OpenSysMLViews {
         view pipelineSubview :> pipelineStructure;
 
         satisfy maintainerPerspective;
-        frame concern latency : OpenSysMLInvariants::KeystrokeLatency;
     }
 }

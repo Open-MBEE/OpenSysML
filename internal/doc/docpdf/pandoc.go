@@ -24,6 +24,7 @@ const artworkFilterName = "artwork.lua"
 const (
 	dotNotice      = "This diagram is written in Graphviz DOT, which the PDF backend did not draw: Graphviz was not found. Install it and point " + DotEnv + " at its dot to have the diagram drawn; its source follows."
 	plantumlNotice = "This diagram is written in PlantUML, which the PDF backend did not draw: the PlantUML jar or java was not found. Point " + PlantUMLJarEnv + " at the jar, and " + JavaEnv + " at a java that is not on PATH, to have the diagram drawn; its source follows."
+	d2Notice       = "This diagram is written in D2, which the PDF backend did not draw: d2 was not found. Install it and point " + D2Env + " at its executable to have the diagram drawn; its source follows."
 )
 
 // writeArtworkFilter writes the filter for a document with diagrams (drawn,
@@ -65,7 +66,7 @@ func writeArtworkFilter(dir string, images []string, math formulas, captions []s
 		b.WriteString(luaString(caption))
 	}
 	b.WriteString("}\n")
-	b.WriteString("local notices = {dot = " + luaString(dotNotice) + ", plantuml = " + luaString(plantumlNotice) + "}\n")
+	b.WriteString("local notices = {dot = " + luaString(dotNotice) + ", plantuml = " + luaString(plantumlNotice) + ", d2 = " + luaString(d2Notice) + "}\n")
 	b.WriteString("local fallbackNotice = " + luaString(docrender.GraphvizFallbackNotice) + "\n")
 	b.WriteString(artworkFilterBody)
 	if err := os.WriteFile(filepath.Join(dir, artworkFilterName), []byte(b.String()), 0o600); err != nil {
@@ -122,7 +123,7 @@ local function isGroupKey(block)
   return block ~= nil and block.t == "Para" and #block.content == 1 and block.content[1].t == "Strong"
 end
 
--- The HTML comment a table-kind diagram's rendering opens with, or one
+-- The HTML comment a tabular diagram's rendering opens with, or one
 -- stating a diagram's fallback form; the Markdown backend writes no other,
 -- since prose escapes "<".
 local function isRenderingComment(block)
@@ -146,7 +147,7 @@ local function isFallbackNotice(block)
 end
 
 -- A caption heads a table (or a grouped table's first group key), a diagram
--- fence (or the fallback notice ahead of one), a table-kind diagram's
+-- fence (or the fallback notice ahead of one), a tabular diagram's
 -- rendering comment, a formula block or an image.
 local function isCaptioned(blocks, i)
   local block = blocks[i]

@@ -1,8 +1,11 @@
 package PseudostatesDemo {
     private import ScalarValues::*;
+    private import StateMachines::*;
     
-    // Pseudostates are OpenSysML extensions: the SysML v2 grammars define no
-    // production for them, so this demo is where that notation lives.
+    // Pseudostates are written as the StateMachines library's metadata: an
+    // ordinary state usage carrying an annotation, so the notation is standard
+    // SysML v2. The deprecated keyword spellings (`choice evaluate;`,
+    // `junction route;`) lower to the same graph.
     
     // Example 1: Choice (Dynamic Branching)
     // Guards evaluated at runtime when choice is entered
@@ -10,7 +13,7 @@ package PseudostatesDemo {
         entry; then ready;
         state ready;
         state idle;
-        choice evaluate;
+        #choice state evaluate;
         state pathA;
         state pathB;
         state pathC;
@@ -28,7 +31,7 @@ package PseudostatesDemo {
         entry; then ready;
         state ready;
         state receiving;
-        junction route;
+        #junction state route;
         state highPriority;
         state normalPriority;
         state lowPriority;

@@ -80,7 +80,7 @@ func (ec *EvalContext) metaCastSubject(n *ast.OperatorExpr) (*symbols.Symbol, er
 	if resolved, aliased := ec.ctx.resolveAliasTarget(sym); aliased {
 		sym = resolved
 	}
-	if sym.Decl == nil {
+	if sym.Decl == nil && sym.Implicit == nil && sym.Chain == nil {
 		return nil, fmt.Errorf("%w: '%s' requires an element, but %s declares none",
 			ErrTypeMismatch, n.Operator, ec.ctx.qualifiedSymbolName(sym))
 	}
@@ -218,9 +218,12 @@ func (ec *EvalContext) valueOfFilterValue(fv symbols.FilterValue) (Value, error)
 	case symbols.FilterValueBool:
 		return boolValue(fv.Bool), nil
 	case symbols.FilterValueInt:
-		return Value{Kind: ValConst, Const: semantics.Value{Kind: semantics.ValInt, Int: fv.Int}}, nil
+		return Value{Kind: ValConst, Const: semantics.FilterInteger(fv)}, nil
 	case symbols.FilterValueReal:
 		return realConst(fv.Real), nil
+	case symbols.FilterValueRational:
+		n, _ := semantics.FilterNumber(fv)
+		return Value{Kind: ValConst, Const: n}, nil
 	case symbols.FilterValueString:
 		return NewStringValue(fv.Str), nil
 	case symbols.FilterValueEmpty:

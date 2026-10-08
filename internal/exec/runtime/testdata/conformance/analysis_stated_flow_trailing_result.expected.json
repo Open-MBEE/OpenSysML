@@ -1,0 +1,7 @@
+{
+  "type": "analysis",
+  "evaluate": "test::top",
+  "outputs": {
+    "r": {"type": "Integer", "value": 7}
+  }
+}

@@ -2,6 +2,8 @@ package lsp
 
 import (
 	"context"
+	"encoding/json"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -498,17 +500,18 @@ const diagramDocumentModel = `package Imaging {
 `
 
 // TestRenderDocumentDiagramForm writes the document's graph-shaped diagrams
-// as Mermaid when diagramForm is absent and as DOT or PlantUML when named; the
-// Mermaid block opens on the frontmatter its two-line cluster title needs.
+// as Mermaid when diagramForm is absent and as DOT, PlantUML or D2 when named; the
+// Mermaid block carries its theme and the cluster-title margin it needs.
 func TestRenderDocumentDiagramForm(t *testing.T) {
 	ws, s, _ := openDocumentModel(t)
 	ws.Open(uri.File("/tmp/imaging.sysml").Filename(), []byte(diagramDocumentModel), 1)
-	mermaidHeader := "---\nconfig:\n  flowchart:\n    subGraphTitleMargin:\n      bottom: 24\n---\n%% Imaging::chainView — interconnection rendering"
+	mermaidHeader := "---\nconfig:\n  fontFamily: \"Helvetica, Arial, sans-serif\"\n  theme: base\n  themeCSS: \".edgeLabel rect { opacity: 1 !important; } .cluster-label .nodeLabel { text-align: center; }\"\n"
 	cases := map[string]struct{ fence, header string }{
 		"":         {"```mermaid\n", mermaidHeader},
 		"mermaid":  {"```mermaid\n", mermaidHeader},
 		"dot":      {"```dot\n", "// view: Imaging::chainView\n// kind: interconnection\n"},
 		"plantuml": {"```plantuml\n", "@startuml\n' Imaging::chainView — interconnection rendering"},
+		"d2":       {"```d2\n", "# Imaging::chainView — interconnection rendering"},
 	}
 	for form, want := range cases {
 		res, err := s.RenderDocument(&renderDocumentParams{Name: "Imaging::ChainReport", DiagramForm: form})
@@ -518,18 +521,24 @@ func TestRenderDocumentDiagramForm(t *testing.T) {
 		if !strings.Contains(res.Markdown, want.fence+want.header) {
 			t.Errorf("diagramForm %q: markdown missing %q:\n%s", form, want.fence+want.header, res.Markdown)
 		}
+		if (form == "" || form == "mermaid") && strings.Contains(res.Markdown, "subGraphTitleMargin") {
+			t.Errorf("diagramForm %q: Mermaid reserves unnecessary cluster-title height:\n%s", form, res.Markdown)
+		}
 		if strings.Count(res.Markdown, "```") != 2 {
 			t.Errorf("diagramForm %q: want exactly one fenced block:\n%s", form, res.Markdown)
 		}
-		if form == "plantuml" && (!strings.Contains(res.Markdown, "n1 -[thickness=3]- n2 : link\n") || !strings.Contains(res.Markdown, "@enduml\n```")) {
+		if form == "plantuml" && (!strings.Contains(res.Markdown, "n1.0 -[thickness=3]- n2.0 : link\n") || !strings.Contains(res.Markdown, "@enduml\n```")) {
 			t.Errorf("diagramForm %q: not a PlantUML interconnection:\n%s", form, res.Markdown)
+		}
+		if form == "d2" && (!strings.Contains(res.Markdown, `n0.n1."n1.0" -- n0.n2."n2.0": "link" { class: connection }`+"\n") || !strings.Contains(res.Markdown, "}\n```")) {
+			t.Errorf("diagramForm %q: not a D2 interconnection:\n%s", form, res.Markdown)
 		}
 	}
 	if _, err := s.RenderDocument(&renderDocumentParams{Name: "Imaging::ChainReport", DiagramForm: "svg"}); err == nil ||
 		!strings.Contains(err.Error(), `no diagram form is named "svg"`) || !strings.Contains(err.Error(), "mermaid, dot, plantuml") {
 		t.Fatalf("err = %v, want an unknown-form error naming the forms", err)
 	}
-	for _, form := range []string{"dot", "plantuml"} {
+	for _, form := range []string{"dot", "plantuml", "d2"} {
 		res, err := s.RenderDocument(&renderDocumentParams{Name: "Observatory::MassReport", DiagramForm: form})
 		if err != nil {
 			t.Fatalf("table-only document as %s: %v", form, err)
@@ -537,6 +546,27 @@ func TestRenderDocumentDiagramForm(t *testing.T) {
 		if !strings.Contains(res.Markdown, "| name | mass |") || strings.Contains(res.Markdown, "```") {
 			t.Errorf("a table is not a table under %s:\n%s", form, res.Markdown)
 		}
+	}
+}
+
+func TestRenderDocumentDiagramSourceLinks(t *testing.T) {
+	ws, s, _ := openDocumentModel(t)
+	name := uri.File("/tmp/imaging.sysml").Filename()
+	ws.Open(name, []byte(diagramDocumentModel), 1)
+	template := "https://example.test/src/{file}#L{line}:{col}"
+	raw, err := call(t, s, MethodRenderDocument, &renderDocumentParams{
+		Name: "Imaging::ChainReport", DiagramForm: "plantuml", LinkTemplate: template,
+	})
+	if err != nil {
+		t.Fatalf("render linked document: %v", err)
+	}
+	var out renderDocumentResult
+	if err := json.Unmarshal(raw, &out); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out.Markdown, "https://example.test/src/"+filepath.ToSlash(name)+"#L") ||
+		!strings.Contains(out.Markdown, "[[") {
+		t.Errorf("document diagram lacks source links:\n%s", out.Markdown)
 	}
 }
 

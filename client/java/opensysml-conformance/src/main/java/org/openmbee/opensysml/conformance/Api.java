@@ -14,6 +14,7 @@ import org.openmbee.opensysml.Conversion;
 import org.openmbee.opensysml.ConversionOptions;
 import org.openmbee.opensysml.DocumentQueryResult;
 import org.openmbee.opensysml.DocumentValue;
+import org.openmbee.opensysml.DocumentForm;
 import org.openmbee.opensysml.Edit;
 import org.openmbee.opensysml.EditException;
 import org.openmbee.opensysml.EditOptions;
@@ -22,12 +23,17 @@ import org.openmbee.opensysml.ExecutionOptions;
 import org.openmbee.opensysml.Exploration;
 import org.openmbee.opensysml.Instantiation;
 import org.openmbee.opensysml.Language;
+import org.openmbee.opensysml.Migration;
+import org.openmbee.opensysml.MigrationOptions;
 import org.openmbee.opensysml.Model;
 import org.openmbee.opensysml.ModelException;
 import org.openmbee.opensysml.ParseOptions;
 import org.openmbee.opensysml.Query;
 import org.openmbee.opensysml.QueryElement;
 import org.openmbee.opensysml.RenderedDocument;
+import org.openmbee.opensysml.RenderedView;
+import org.openmbee.opensysml.Graphs;
+import org.openmbee.opensysml.RenderViewPorts;
 import org.openmbee.opensysml.Satisfaction;
 import org.openmbee.opensysml.ServiceException;
 import org.openmbee.opensysml.SourceDocument;
@@ -61,6 +67,8 @@ import org.openmbee.opensysml.proto.GetSymbolRequest;
 import org.openmbee.opensysml.proto.InstantiateRequest;
 import org.openmbee.opensysml.proto.InstantiateResponse;
 import org.openmbee.opensysml.proto.ListEnginesRequest;
+import org.openmbee.opensysml.proto.MigrateRequest;
+import org.openmbee.opensysml.proto.MigrateResponse;
 import org.openmbee.opensysml.proto.ListEnginesResponse;
 import org.openmbee.opensysml.proto.ParseFileRequest;
 import org.openmbee.opensysml.proto.ParseFileResponse;
@@ -71,6 +79,10 @@ import org.openmbee.opensysml.proto.QueryRequest;
 import org.openmbee.opensysml.proto.QueryResponse;
 import org.openmbee.opensysml.proto.RenderDocumentRequest;
 import org.openmbee.opensysml.proto.RenderDocumentResponse;
+import org.openmbee.opensysml.proto.ExportGraphsRequest;
+import org.openmbee.opensysml.proto.ExportGraphsResponse;
+import org.openmbee.opensysml.proto.RenderViewRequest;
+import org.openmbee.opensysml.proto.RenderViewResponse;
 import org.openmbee.opensysml.proto.RunAnalysisRequest;
 import org.openmbee.opensysml.proto.RunAnalysisResponse;
 import org.openmbee.opensysml.proto.RunDocumentQueryRequest;
@@ -117,12 +129,15 @@ final class Api {
   private static final String RPC_PARSE_FILE = "ParseFile";
   private static final String RPC_PARSE_SOURCES = "ParseSources";
   private static final String RPC_CONVERT = "Convert";
+  private static final String RPC_MIGRATE = "Migrate";
   private static final String RPC_APPLY_EDITS = "ApplyEdits";
   private static final String RPC_QUERY = "Query";
   private static final String RPC_RUN_ANALYSIS = "RunAnalysis";
   private static final String RPC_RUN_SWEEP = "RunSweep";
   private static final String RPC_RUN_DOCUMENT_QUERY = "RunDocumentQuery";
   private static final String RPC_RENDER_DOCUMENT = "RenderDocument";
+  private static final String RPC_EXPORT_GRAPHS = "ExportGraphs";
+  private static final String RPC_RENDER_VIEW = "RenderView";
   private static final String RPC_VALIDATE_INSTANCE = "ValidateInstance";
   private static final String RPC_VERIFY_CONSTRAINT = "VerifyConstraint";
   private static final String RPC_VERIFY_REQUIREMENT = "VerifyRequirement";
@@ -149,10 +164,13 @@ final class Api {
           RPC_QUERY,
           RPC_PARSE_SOURCES,
           RPC_CONVERT,
+          RPC_MIGRATE,
           RPC_APPLY_EDITS,
           RPC_RUN_SWEEP,
           RPC_RUN_DOCUMENT_QUERY,
-          RPC_RENDER_DOCUMENT);
+          RPC_RENDER_DOCUMENT,
+          RPC_RENDER_VIEW,
+          RPC_EXPORT_GRAPHS);
 
   private final Connection connection;
 
@@ -198,10 +216,13 @@ final class Api {
       case RPC_QUERY -> QueryRequest.newBuilder();
       case RPC_PARSE_SOURCES -> ParseSourcesRequest.newBuilder();
       case RPC_CONVERT -> ConvertRequest.newBuilder();
+      case RPC_MIGRATE -> MigrateRequest.newBuilder();
       case RPC_APPLY_EDITS -> ApplyEditsRequest.newBuilder();
       case RPC_RUN_SWEEP -> RunSweepRequest.newBuilder();
       case RPC_RUN_DOCUMENT_QUERY -> RunDocumentQueryRequest.newBuilder();
       case RPC_RENDER_DOCUMENT -> RenderDocumentRequest.newBuilder();
+      case RPC_RENDER_VIEW -> RenderViewRequest.newBuilder();
+      case RPC_EXPORT_GRAPHS -> ExportGraphsRequest.newBuilder();
       default -> throw new IllegalArgumentException("no request type for " + method);
     };
   }
@@ -252,11 +273,14 @@ final class Api {
             case RPC_QUERY -> query((QueryRequest) request);
             case RPC_PARSE_SOURCES -> parseSources((ParseSourcesRequest) request);
             case RPC_CONVERT -> convert((ConvertRequest) request);
+            case RPC_MIGRATE -> migrate((MigrateRequest) request);
             case RPC_APPLY_EDITS -> applyEdits((ApplyEditsRequest) request);
             case RPC_RUN_SWEEP -> runSweep((RunSweepRequest) request);
             case RPC_RUN_DOCUMENT_QUERY ->
                 runDocumentQuery((RunDocumentQueryRequest) request);
             case RPC_RENDER_DOCUMENT -> renderDocument((RenderDocumentRequest) request);
+            case RPC_RENDER_VIEW -> renderView((RenderViewRequest) request);
+            case RPC_EXPORT_GRAPHS -> exportGraphs((ExportGraphsRequest) request);
             default -> throw new IllegalStateException(method);
           });
     } catch (Unsupported e) {
@@ -411,6 +435,9 @@ final class Api {
   private ExecuteStateResponse executeState(ExecuteStateRequest request) {
     Model model = connection.model(request.getModelHash());
     ExecutionOptions options = execution(request.getSchedule(), request.getPerformerSymbolId());
+    if (request.getTrace()) {
+      options = options.withTrace();
+    }
     try {
       if (options.explores()) {
         Exploration exploration =
@@ -429,11 +456,17 @@ final class Api {
               .putAllFinalContext(Rendering.values(run.finalContext()))
               .addAllDiagnostics(Rendering.diagnostics(run.diagnostics()));
       run.finalTime().ifPresent(response::setFinalTime);
+      run.trace().stream()
+          .map(event -> Protos.proto(event).getEvent())
+          .forEach(response::addTrace);
+      response.setTraceDropped(run.traceDropped());
       return response.build();
     } catch (ModelException e) {
       return ExecuteStateResponse.newBuilder()
           .setError(e.getMessage())
           .addAllDiagnostics(Rendering.diagnostics(e.diagnostics()))
+          .addAllTrace(e.trace().stream().map(event -> Protos.proto(event).getEvent()).toList())
+          .setTraceDropped(e.traceDropped())
           .build();
     }
   }
@@ -659,6 +692,9 @@ final class Api {
     if (!request.getFromFormat().isEmpty()) {
       options = options.withFromFormat(request.getFromFormat());
     }
+    if (!request.getIdForm().isEmpty()) {
+      options = options.withIdForm(request.getIdForm());
+    }
     try {
       Conversion conversion =
           switch (request.getSourceCase()) {
@@ -680,6 +716,40 @@ final class Api {
           .setError(e.getMessage())
           .addAllDiagnostics(Rendering.diagnostics(e.diagnostics()))
           .build();
+    }
+  }
+
+  private MigrateResponse migrate(MigrateRequest request) {
+    MigrationOptions options =
+        MigrationOptions.defaults()
+            .withReport(request.getReport())
+            .withResults(request.getResults())
+            .withImageBaseUrl(request.getImageBaseUrl())
+            .withStrict(request.getStrict());
+    if (!request.getFromFormat().isEmpty()) {
+      options = options.withFromFormat(request.getFromFormat());
+    }
+    options =
+        switch (request.getLayoutCase()) {
+          case LAYOUT_PATH -> options.withLayoutFile(Path.of(request.getLayoutPath()));
+          case LAYOUT_CONTENT -> options.withLayoutContent(request.getLayoutContent());
+          case LAYOUT_NOT_SET -> options;
+        };
+    try {
+      MigrationOptions chosen = options;
+      Migration migration =
+          switch (request.getSourceCase()) {
+            case FILE_PATH ->
+                connection.migrateFile(Path.of(request.getFilePath()), request.getToFormat(), chosen);
+            case CONTENT ->
+                connection.migrate(request.getContent().toByteArray(), request.getToFormat(), chosen);
+            case SOURCE_NOT_SET ->
+                throw new Unsupported(
+                    "the public API always names a source, so it cannot send a request naming none");
+          };
+      return Rendering.migration(migration);
+    } catch (ModelException e) {
+      return MigrateResponse.newBuilder().setError(e.getMessage()).build();
     }
   }
 
@@ -974,8 +1044,33 @@ final class Api {
 
   private RenderDocumentResponse renderDocument(RenderDocumentRequest request) {
     Model model = connection.model(request.getModelHash());
-    RenderedDocument rendered = model.renderDocument(request.getDocumentId());
-    return RenderDocumentResponse.newBuilder().setMarkdown(rendered.markdown()).build();
+    RenderedDocument rendered =
+        model.renderDocument(request.getDocumentId(), DocumentForm.fromWireName(request.getForm()));
+    RenderDocumentResponse.Builder response = RenderDocumentResponse.newBuilder();
+    if (rendered.form() == DocumentForm.HTML) {
+      response.setHtml(rendered.content());
+    } else {
+      response.setMarkdown(rendered.content());
+    }
+    return response.build();
+  }
+
+  private RenderViewResponse renderView(RenderViewRequest request) {
+    Model model = connection.model(request.getModelHash());
+    RenderViewPorts ports =
+        request.getPorts().equals("full") ? RenderViewPorts.FULL : RenderViewPorts.MINIMAL;
+    RenderedView rendered = model.renderView(request.getView(), ports);
+    return Rendering.renderedView(rendered);
+  }
+
+  private ExportGraphsResponse exportGraphs(ExportGraphsRequest request) {
+    Model model = connection.model(request.getModelHash());
+    Graphs graphs = model.exportGraphs(request.getSubject());
+    return ExportGraphsResponse.newBuilder()
+        .setContent(graphs.content())
+        .setVersion(graphs.version())
+        .setSubject(graphs.subject())
+        .build();
   }
 
   private QueryResponse query(QueryRequest request) {

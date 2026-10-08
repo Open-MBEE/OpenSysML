@@ -1,4 +1,5 @@
 using Test
+using Base64
 using JSON
 using Sockets
 using HTTP
@@ -8,22 +9,156 @@ include(joinpath(@__DIR__, "..", "conformance", "compare.jl"))
 
 const FIXTURES = normpath(joinpath(@__DIR__, "..", "..", "..", "..", "conformance", "fixtures"))
 
-@testset "decode_value: the nineteen arms" begin
+@testset "rendered view decoder preserves typed fields and message presence" begin
+    raw = Dict{String,Any}(
+        "view" => "Demo::view", "kind" => "interconnection", "stated" => "rendered",
+        "nodes" => [Dict{String,Any}(
+            "id" => "n0", "kind" => "part", "name" => "root", "nameSynthesized" => true,
+            "type" => "Demo::Part", "detail" => "detail", "text" => "text", "standIn" => true,
+            "ports" => [Dict("id" => "n0.0", "name" => "api", "type" => "Demo::API", "direction" => "inout")],
+            "origin" => Dict("file" => "views.sysml", "startLine" => 4),
+            "geometry" => Dict("x" => 1, "y" => 2, "width" => 3, "height" => 4, "hasSize" => true, "collapsed" => true),
+            "style" => Dict("fill" => "#fff", "fontSize" => 12, "bold" => true, "italic" => true),
+        )],
+        "edges" => [Dict("from" => "n0", "to" => "n1", "fromPort" => "n0.0",
+            "toPort" => "n1.0", "label" => "wire", "name" => "wire", "kind" => "connection",
+            "route" => [Dict("x" => 2, "y" => 3)], "style" => Dict("line" => "#222"))],
+        "columns" => ["a"],
+        "rows" => [Dict("cells" => ["x"], "origin" => Dict("file" => "views.sysml"))],
+        "canvas" => Dict("unit" => "px", "width" => 800, "height" => 400, "hasSize" => true),
+        "notes" => [Dict("text" => "note", "anchor" => "n0", "edgeFrom" => "n0",
+            "edgeTo" => "n1", "x" => 1, "y" => 2, "width" => 3, "height" => 4, "hasSize" => true)],
+        "notices" => ["notice"],
+    )
+    rendered = OpenSysML.rendered_view_result(raw)
+    @test rendered.view == "Demo::view"
+    @test rendered.nodes[1].name_synthesized
+    @test rendered.nodes[1].ports[1].direction == "inout"
+    @test rendered.nodes[1].origin.start_line == 4
+    @test rendered.nodes[1].geometry.collapsed
+    @test rendered.nodes[1].style.font_size == 12
+    @test rendered.edges[1].from_port == "n0.0"
+    @test rendered.edges[1].route[1].x == 2
+    @test rendered.rows[1].cells == ["x"]
+    @test rendered.canvas.has_size
+    @test rendered.notes[1].edge_to == "n1"
+    @test rendered.notices == ["notice"]
+    @test OpenSysML.rendered_view_result(Dict{String,Any}()).canvas === nothing
+    sparse = OpenSysML.rendered_view_result(Dict{String,Any}(
+        "nodes" => [Dict{String,Any}()], "edges" => [Dict{String,Any}()],
+        "rows" => [Dict{String,Any}()], "notes" => [Dict{String,Any}()]))
+    @test isnothing(sparse.nodes[1].origin)
+    @test isnothing(sparse.nodes[1].geometry)
+    @test isnothing(sparse.nodes[1].style)
+    @test isnothing(sparse.edges[1].origin)
+    @test isnothing(sparse.edges[1].style)
+    @test isnothing(sparse.rows[1].origin)
+    @test isnothing(sparse.notes[1].origin)
+end
+
+@testset "RenderView preserves service not-found messages" begin
+    factory = (text, _) -> SymbolNotFoundError("Demo::missing"; service_message=text)
+    for (view, message) in (("Demo::missing", "no view named Demo::missing"),
+                            ("#interconnection:Nope",
+                             "#interconnection:Nope: Nope names nothing in this model"))
+        err = try
+            OpenSysML._translate(; not_found=(text, _) ->
+                SymbolNotFoundError(view; service_message=text)) do
+                throw(OpenSysML.ConnectError("not_found", message, 404))
+            end
+        catch caught
+            caught
+        end
+        @test err isa SymbolNotFoundError
+        @test err.name == view
+        @test sprint(showerror, err) == message
+    end
+    model_error = try
+        OpenSysML._translate(; not_found=factory) do
+            throw(OpenSysML.ConnectError("not_found", "model not found: abc", 404))
+        end
+    catch caught
+        caught
+    end
+    @test model_error isa ModelNotFoundError
+end
+
+@testset "decode_value: the twenty-three arms" begin
     @test decode_value(nothing) === missing
     @test decode_value(JSON.parse("""{"intValue":"9007199254740993"}""")) === Int64(9007199254740993)
     @test decode_value(JSON.parse("""{"intValue":"-9223372036854775808"}""")) === typemin(Int64)
+    @test decode_value(JSON.parse("""{"bigIntValue":"1180591620717411303424"}""")) == big(2)^70
+    @test decode_value(JSON.parse("""{"bigIntValue":"-9223372036854775809"}""")) isa BigInt
+    for wrong in ("", "-", "007", "+5", "9223372036854775807")
+        @test_throws ErrorException decode_value(Dict("bigIntValue" => wrong))
+    end
+    @test decode_value(JSON.parse("""{"quantity":{"bigIntMagnitude":"9223372036854775808","unit":"kg"}}""")).magnitude == big(2)^63
+    @test encode_value(big(2)^70) == Dict("bigIntValue" => "1180591620717411303424")
+    third = decode_value(JSON.parse("""{"rationalValue":{"numerator":"-1","denominator":"3"}}"""))
+    @test third isa Rational{BigInt} && third == -1//3
+    @test encode_value(third) == Dict("rationalValue" => Dict("numerator" => "-1", "denominator" => "3"))
+    @test encode_value(1//4) == Dict("rationalValue" => Dict("numerator" => "1", "denominator" => "4"))
+    @test OpenSysML.rationals_as_reals!(encode_value(1//4)) == Dict("realValue" => 0.25)
+    @test same_value(third, -1/3) && same_value(-1/3, third) && !same_value(third, -0.3333)
+    @test !same_value(1//3, 6004799503160661//18014398509481984)
+    @test same_value(0//1, -0.0) && same_value(-0.0, 0//1) && !same_value(1//3, NaN)
+    @test OpenSysML.rationals_as_reals!(encode_value(Any[1//3, 1//2])) ==
+          Dict("sequence" => Dict("elements" => Any[
+              Dict("rationalValue" => Dict("numerator" => "1", "denominator" => "3")),
+              Dict("realValue" => 0.5)]))
+    @test encode_value(big(10)^400 // 1)["rationalValue"]["denominator"] == "1"
+    for (n, d) in (("2", "6"), ("1", "-3"), ("1", "0"), ("1", "2"), ("3", "1"), ("0", "1"),
+                   ("-0", "3"), ("01", "3"), ("+1", "3"), ("1.5", "7"), ("", "3"))
+        @test_throws ErrorException decode_value(Dict("rationalValue" => Dict("numerator" => n, "denominator" => d)))
+    end
+    km = decode_value(JSON.parse("""{"quantity":{"rationalMagnitude":{"numerator":"1","denominator":"3"},"unit":"km","unitTerm":{"scaleNum":1000,"scaleDen":1,"factors":[{"unitId":"SI::m","exponent":1}]}}}"""))
+    @test km.magnitude == 1//3
+    m = Quantity(1000//3, "m", Dict("scaleNum" => 1, "scaleDen" => 1, "factors" => Any[Dict("unitId" => "SI::m", "exponent" => 1)]))
+    @test same_value(km, m)
+    @test encode_value(km)["quantity"]["rationalMagnitude"] == Dict("numerator" => "1", "denominator" => "3")
+    for value in (1//3, Any[Any[1//10]], Set([1//3]), km, VectorQuantity([km]))
+        @test CAPABILITY_RATIONAL_VALUES in value_capabilities(value)
+    end
+    @test !(CAPABILITY_RATIONAL_VALUES in value_capabilities(1//2))
+    @test encode_value(big(7)) == Dict("intValue" => "7")
+    @test encode_value(Quantity(big(2)^63, "kg", nothing)) == Dict("quantity" => Dict("bigIntMagnitude" => "9223372036854775808", "unit" => "kg"))
+    wide = Quantity(big(2)^63, "kg", nothing)
+    for value in (big(2)^70, Any[1, Any[big(2)^70]], Set([big(2)^70]), wide,
+                  VectorQuantity([wide]), TensorQuantity([1], [wide]))
+        @test CAPABILITY_BIG_INT_VALUES in value_capabilities(value)
+    end
+    for value in (typemax(Int64), big(7), Quantity(5, "kg", nothing), true)
+        @test !(CAPABILITY_BIG_INT_VALUES in value_capabilities(value))
+    end
     @test decode_value(JSON.parse("""{"realValue":0.3333333333333333}""")) ≈ 1/3
     @test decode_value(JSON.parse("""{"realValue":20}""")) === 20.0
     @test decode_value(JSON.parse("""{"realValue":"NaN"}""")) |> isnan
     @test decode_value(JSON.parse("""{"realValue":"Infinity"}""")) === Inf
     @test decode_value(JSON.parse("""{"realValue":"-Infinity"}""")) === -Inf
+    negative_zero = decode_value(OpenSysML._parse_json(
+        """{"realValue":-0}""", "ExecuteAction", 200))
+    @test negative_zero == 0.0 && signbit(negative_zero)
+    negative_zero_complex = decode_value(OpenSysML._parse_json(
+        """{"complex":{"real":-0,"imaginary":-0}}""", "Calc", 200))
+    @test signbit(real(negative_zero_complex))
+    @test signbit(imag(negative_zero_complex))
+    negative_zero_quantity = decode_value(OpenSysML._parse_json(
+        """{"quantity":{"realMagnitude":-0,"unit":"m"}}""", "Calc", 200))
+    @test signbit(negative_zero_quantity.magnitude)
     @test decode_value(JSON.parse("""{"boolValue":true}""")) === true
     @test decode_value(JSON.parse("""{"stringValue":"abc"}""")) == "abc"
     @test decode_value(JSON.parse("""{"instanceId":"2"}""")) == InstanceRef(2)
     @test decode_value(JSON.parse("""{"sequence":{"elements":[{"stringValue":"nav"},{"intValue":"1"}]}}""")) == Any["nav", 1]
     @test decode_value(JSON.parse("""{"sequence":{}}""")) == Any[]
     @test decode_value(JSON.parse("""{"null":""}""")) === nothing
-    @test_throws ErrorException decode_value(JSON.parse("""{"null":"unsupported: function F::f closing over a body's bindings"}"""))
+    unsupported = try
+        decode_value(JSON.parse("""{"null":"unsupported: function F::f closing over a body's bindings"}"""))
+        nothing
+    catch error
+        error
+    end
+    @test unsupported isa UnsupportedValueError
+    @test unsupported.message == "unsupported: function F::f closing over a body's bindings"
     @test decode_value(JSON.parse("""{"unset":true}""")) isa Unset
     q = decode_value(JSON.parse("""{"quantity":{"realMagnitude":5.4,"unit":"SI::km/SI::h","unitTerm":{"scaleNum":5,"scaleDen":18,"factors":[{"unitId":"SI::metre","exponent":1}]}}}"""))
     @test q isa Quantity && q.magnitude === 5.4 && q.unit == "SI::km/SI::h" && q.unit_term["scaleNum"] == 5
@@ -37,44 +172,76 @@ const FIXTURES = normpath(joinpath(@__DIR__, "..", "..", "..", "..", "conformanc
     @test decode_value(JSON.parse("""{"complex":{"imaginary":2}}""")) == complex(0.0, 2.0)
     a = decode_value(JSON.parse("""{"array":{"dimensions":["2","3"],"elements":[{"intValue":"1"},{"intValue":"2"},{"intValue":"3"},{"intValue":"4"},{"intValue":"5"},{"intValue":"6"}]}}"""))
     @test a.dimensions == [2, 3] && length(a.elements) == 6
-    @test_throws ErrorException decode_value(JSON.parse("""{"array":{"dimensions":["2","3"],"elements":[{"intValue":"1"}]}}"""))
+    @test_throws UnsupportedValueError decode_value(JSON.parse("""{"array":{"dimensions":["2","3"],"elements":[{"intValue":"1"}]}}"""))
     v = decode_value(JSON.parse("""{"vector":{"components":[{"realValue":3},{"intValue":"4"}]}}"""))
     @test v.components == [3.0, 4]
-    @test_throws ErrorException decode_value(JSON.parse("""{"vector":{"components":[{"stringValue":"x"}]}}"""))
+    @test_throws UnsupportedValueError decode_value(JSON.parse("""{"vector":{"components":[{"stringValue":"x"}]}}"""))
     vq = decode_value(JSON.parse("""{"vectorQuantity":{"components":[{"realMagnitude":3,"unit":"m"},{"realMagnitude":4,"unit":"m"}]}}"""))
     @test length(vq.components) == 2 && vq.components[1] isa Quantity
-    @test_throws ErrorException decode_value(JSON.parse("""{"vectorQuantity":{"components":[]}}"""))
+    @test_throws UnsupportedValueError decode_value(JSON.parse("""{"vectorQuantity":{"components":[]}}"""))
     m = decode_value(JSON.parse("""{"measurementRef":{"unit":"m","unitTerm":{"scaleNum":1,"scaleDen":1},"unitId":"SI::metre"}}"""))
     @test m.unit == "m" && m.unit_id == "SI::metre"
     mc = decode_value(JSON.parse("""{"measurementRef":{"unit":"m/s","unitTerm":{"scaleNum":1,"scaleDen":1}}}"""))
     @test mc.unit_id === nothing
-    @test_throws ErrorException decode_value(JSON.parse("""{"measurementRef":{"unit":"m"}}"""))
-    @test_throws ErrorException decode_value(JSON.parse("""{"measurementRef":{}}"""))
+    @test_throws UnsupportedValueError decode_value(JSON.parse("""{"measurementRef":{"unit":"m"}}"""))
+    @test_throws UnsupportedValueError decode_value(JSON.parse("""{"measurementRef":{}}"""))
     @test decode_value(JSON.parse("""{"infinity":true}""")) isa Infinity
-    @test_throws ErrorException decode_value(JSON.parse("""{"infinity":false}"""))
+    @test_throws UnsupportedValueError decode_value(JSON.parse("""{"infinity":false}"""))
     f = decode_value(JSON.parse("""{"function":{"calcId":"F::Sq"}}"""))
     @test f == FunctionRef("F::Sq", nothing)
     fs = decode_value(JSON.parse("""{"function":{"calcId":"F::Scaler::scale","selfId":"1"}}"""))
     @test fs.self == InstanceRef(1)
-    @test_throws ErrorException decode_value(JSON.parse("""{"function":{"calcId":""}}"""))
+    @test_throws UnsupportedValueError decode_value(JSON.parse("""{"function":{"calcId":""}}"""))
     s = decode_value(JSON.parse("""{"set":{"elements":[{"intValue":"1"},{"intValue":"2"}]}}"""))
     @test s == Set([1, 2])
-    @test_throws ErrorException decode_value(JSON.parse("""{"set":{"elements":[{"intValue":"1"},{"intValue":"1"}]}}"""))
+    @test_throws UnsupportedValueError decode_value(JSON.parse("""{"set":{"elements":[{"intValue":"1"},{"intValue":"1"}]}}"""))
     @test decode_value(JSON.parse("""{"set":{}}""")) == Set()
     t = decode_value(JSON.parse("""{"tensorQuantity":{"dimensions":["2","2"],"components":[{"realMagnitude":1,"unit":"m"},{"realMagnitude":2,"unit":"m"},{"realMagnitude":3,"unit":"m"},{"realMagnitude":4,"unit":"m"}]}}"""))
     @test t.dimensions == [2, 2] && length(t.components) == 4
-    @test_throws ErrorException decode_value(JSON.parse("""{"tensorQuantity":{"dimensions":["2","2"],"components":[{"realMagnitude":1,"unit":"m"}]}}"""))
+    @test_throws UnsupportedValueError decode_value(JSON.parse("""{"tensorQuantity":{"dimensions":["2","2"],"components":[{"realMagnitude":1,"unit":"m"}]}}"""))
     mo = decode_value(JSON.parse("""{"metaobject":{"elementId":"Meta::seatBelt","metaclassId":"SysML::Systems::PartUsage"}}"""))
     @test mo == Metaobject("Meta::seatBelt", "SysML::Systems::PartUsage")
-    @test_throws ErrorException decode_value(JSON.parse("""{"metaobject":{"metaclassId":"X"}}"""))
+    @test_throws UnsupportedValueError decode_value(JSON.parse("""{"metaobject":{"metaclassId":"X"}}"""))
     u = decode_value(JSON.parse("""{"undetermined":{"reason":"P::Q::d has no value in the model","count":{"lower":"1","upper":"*"}}}"""))
     @test u == Undetermined("P::Q::d has no value in the model", "1", "*")
-    @test_throws ErrorException decode_value(JSON.parse("""{"fromTheFuture":1}"""))
+    @test_throws UnsupportedValueError decode_value(JSON.parse("""{"fromTheFuture":1}"""))
+    @test_throws UnsupportedValueError decode_value(Dict{String,Any}())
 end
 
 @testset "encode_value" begin
     @test encode_value(Int64(4)) == Dict("intValue" => "4")
     @test encode_value(5.4) == Dict("realValue" => 5.4)
+    @test encode_value(NaN) == Dict("realValue" => "NaN")
+    @test encode_value(Inf) == Dict("realValue" => "Infinity")
+    @test encode_value(-Inf) == Dict("realValue" => "-Infinity")
+    @test encode_value(Quantity(NaN, "m", nothing)) ==
+          Dict("quantity" => Dict("realMagnitude" => "NaN", "unit" => "m"))
+    @test encode_value(complex(NaN, -Inf)) ==
+          Dict("complex" => Dict("real" => "NaN", "imaginary" => "-Infinity"))
+    @test encode_value(complex(1, 2)) ==
+          Dict("complex" => Dict("real" => 1.0, "imaginary" => 2.0))
+    @test encode_value(complex(NaN, Inf)) ==
+          Dict("complex" => Dict("real" => "NaN", "imaginary" => "Infinity"))
+    nonfinite_unit = Unit("u"; scale_num=Inf, scale_den=-Inf,
+                          factors=[UnitFactor("U::u", NaN)], reduction_given=true)
+    expected_unit_term = Dict("scaleNum" => "Infinity", "scaleDen" => "-Infinity",
+                              "factors" => Any[Dict("unitId" => "U::u", "exponent" => "NaN")])
+    quantity_json = JSON.parse(JSON.json(encode_value(Quantity(1.0, "u", nonfinite_unit))))
+    @test quantity_json == Dict("quantity" => Dict(
+        "realMagnitude" => 1.0, "unit" => "u", "unitTerm" => expected_unit_term))
+    measurement_json = JSON.parse(JSON.json(
+        encode_value(MeasurementRef("u", "U::u", nonfinite_unit))))
+    @test measurement_json == Dict("measurementRef" => Dict(
+        "unit" => "u", "unitId" => "U::u", "unitTerm" => expected_unit_term))
+    decoded_quantity = decode_value(quantity_json)
+    @test decoded_quantity.unit_term.scale_num === Inf &&
+          decoded_quantity.unit_term.scale_den === -Inf &&
+          isnan(decoded_quantity.unit_term.factors[1].exponent)
+    decoded_measurement = decode_value(measurement_json)
+    @test decoded_measurement.unit_id == "U::u" &&
+          decoded_measurement.unit_term.scale_num === Inf &&
+          decoded_measurement.unit_term.scale_den === -Inf &&
+          isnan(decoded_measurement.unit_term.factors[1].exponent)
     @test encode_value(true) == Dict("boolValue" => true)
     @test encode_value("x") == Dict("stringValue" => "x")
     @test encode_value(nothing) == Dict("null" => "")
@@ -84,9 +251,15 @@ end
     @test encode_value(Quantity(Int64(3), "kg", nothing)) == Dict("quantity" => Dict("intMagnitude" => "3", "unit" => "kg"))
     @test encode_value(InstanceRef(7)) == Dict("instanceId" => "7")
     @test encode_value(FunctionRef("F::Sq", nothing)) == Dict("function" => Dict("calcId" => "F::Sq"))
-    @test_throws ErrorException encode_value(FunctionRef("F::Sq", InstanceRef(1)))
-    @test_throws ErrorException encode_value(Undetermined("r", "1", "1"))
-    @test_throws ErrorException encode_value(Unset())
+    @test_throws ArgumentError encode_value(FunctionRef("F::Sq", InstanceRef(1)))
+    @test_throws ArgumentError encode_value(Undetermined("r", "1", "1"))
+    @test_throws ArgumentError encode_value(Unset())
+    @test encode_value(typemin(Int64)) == Dict("intValue" => string(typemin(Int64)))
+    @test encode_value(typemax(Int64)) == Dict("intValue" => string(typemax(Int64)))
+    for value in (BigInt(typemax(Int64)) + 1, BigInt(typemin(Int64)) - 1)
+        @test encode_value(value) == Dict("bigIntValue" => string(value))
+        @test decode_value(encode_value(value)) == value
+    end
     @test encode_value(EnumLiteral("E::a", "E", "a"))["enumLiteral"]["literalId"] == "E::a"
     for x in (Int64(4), 5.4, true, "x", nothing, complex(1.5, -2.0), Any[1, 2])
         @test decode_value(encode_value(x)) == x
@@ -181,7 +354,9 @@ end
     port = getsockname(listener)[2]
     close(listener)
     canned = Ref{String}("{}")
+    requested = Ref("")
     server = HTTP.serve!(ip"127.0.0.1", port) do req
+        requested[] = String(req.body)
         HTTP.Response(200, ["Content-Type" => "application/json"], canned[])
     end
     conn = OpenSysML.external("127.0.0.1:$(port)")
@@ -189,12 +364,49 @@ end
     try
         canned[] = "{broken"
         @test_throws TransportError call(conn, "X", Dict{String,Any}())
-        canned[] = """{"outputs":{"intValue":{"intValue":"7"}}}"""
-        @test execute_action(model, "A")["outputs"]["intValue"] == 7
+        canned[] = """{"outputs":{"intValue":{"intValue":"7"},"bad":{"null":"unsupported: no representation"}},"performerAttributes":{"this.speed":{"realValue":3}}}"""
+        action = execute_action(model, "A")
+        @test action isa ActionOutputs
+        @test length(action) == 2 && haskey(action, "intValue")
+        @test action["intValue"] == 7
+        @test action["bad"] isa UnsupportedValueError
+        @test action.performer == Dict{String,Any}("this.speed" => 3.0)
         canned[] = """{"finalContext":{"intValue":{"intValue":"3"}},"statesVisited":["s"]}"""
-        answer = execute_state(model, "S")
-        @test answer["finalContext"]["intValue"] == 3
-        @test answer["statesVisited"] == ["s"]
+        state_run = execute_state(model, "S")
+        @test state_run isa StateRun
+        @test state_run.final_context["intValue"] == 3
+        @test state_run.states_visited == ["s"]
+        @test state_run.final_time == 0.0
+        canned[] = "{}"
+        empty_state = execute_state(model, "S")
+        @test empty_state.states_visited == String[]
+        @test empty_state.final_context == Dict{String,Any}()
+        @test empty_state.final_time == 0.0
+
+        conn.info = ServerInfo("", [CAPABILITY_STATE_TRACE], true, conn.origin)
+        canned[] = """{"trace":[{"kind":"transition","time":{"realValue":2.5},"text":"transition: idle -> active on Go","machine":"Demo::Machine","from":"idle","to":"active","event":"Go"}],"traceDropped":2}"""
+        traced = execute_state(model, "S"; trace=true)
+        @test traced.trace isa Vector{DocumentEvent}
+        @test traced.trace[1].kind == "transition"
+        @test traced.trace[1].from_state == "idle"
+        @test traced.trace_dropped == 2
+        @test occursin("\"trace\":true", requested[])
+
+        canned[] = """{"error":"state machine failed","trace":[{"kind":"entry","time":{"realValue":1.5},"state":"active","text":"enter: active"}],"traceDropped":2}"""
+        failure = try
+            execute_state(model, "S"; trace=true)
+            nothing
+        catch err
+            err
+        end
+        @test failure isa ExecutionFailure
+        @test length(failure.trace) == 1
+        @test failure.trace[1].kind == "entry"
+        @test failure.trace[1].state == "active"
+        @test failure.trace_dropped == 2
+
+        conn.info = ServerInfo("", String[], true, conn.origin)
+        @test_throws MissingCapabilityError execute_state(model, "S"; trace=true)
     finally
         close(server)
     end
@@ -224,6 +436,10 @@ const GRPC_BINARY = get(ENV, "OPENSYSML_GRPC_BINARY",
                                   name="behavior.sysml")
             qmodel = parse_source(conn, read(joinpath(FIXTURES, "query.sysml"), String);
                                   name="query.sysml")
+            unnamed = parse_source(conn, "package Inline {}")
+            named = parse_source(conn, "package Inline {}", name="inline.sysml")
+            @test documents(unnamed) == String[]
+            @test documents(named) == ["inline.sysml"]
 
             sym = symbol(model, "Test::SimplePart")
             @test get(sym, "id", "") == "Test::SimplePart"
@@ -234,9 +450,25 @@ const GRPC_BINARY = get(ENV, "OPENSYSML_GRPC_BINARY",
             @test !isempty(inst.feature_values)
 
             ran = execute_action(bmodel, "Test::addFive"; inputs=Dict("result" => 10))
-            @test ran["outputs"]["result"] == 15
+            @test ran["result"] == 15
+            @test ran.performer == Dict{String,Any}()
             states = execute_state(bmodel, "Test::Machine")
-            @test states["statesVisited"] == ["init", "Running", "done"]
+            @test states.states_visited == ["init", "Running", "done"]
+            @test states.final_context == Dict{String,Any}()
+            @test states.final_time == 0.0
+            traced_states = execute_state(bmodel, "Test::Machine"; trace=true)
+            @test !isempty(traced_states.trace)
+            @test first(traced_states.trace) isa DocumentEvent
+
+            strict_failure = try
+                parse_source(conn, "package Broken { part def"; strict=true)
+                nothing
+            catch error
+                error
+            end
+            @test strict_failure isa ModelError
+            @test strict_failure.message ==
+                "the model has 2 error(s): <content>:1:23: error: missing ';' at end of declaration; <content>:1:26: error: expected '}'"
 
             rows = query(qmodel, "oslc.where=rdf:type=\"PartUsage\"&oslc.select=sysml:name")
             @test length(get(rows, "elements", Any[])) == 3
@@ -252,3 +484,8 @@ const GRPC_BINARY = get(ENV, "OPENSYSML_GRPC_BINARY",
         end
     end
 end
+
+include("extended_client.jl")
+include("authoring.jl")
+include("binary.jl")
+include("typed_generation.jl")

@@ -2,7 +2,9 @@ package view
 
 import (
 	"errors"
+	"maps"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 )
@@ -41,9 +43,7 @@ func TestDOTStandardDefaults(t *testing.T) {
 	}
 }
 
-// A definition is a square box and a usage a rounded one, by keyword: `… def`
-// and the KerML classifiers are definitions, everything else a usage; a
-// pseudo-state or control node is neither.
+// Definitions are square boxes and usages are rounded by keyword in interconnection views.
 func TestDOTDefinitionsSquareUsagesRounded(t *testing.T) {
 	kinds := map[string]bool{
 		"part def": true, "action def": true, "state def": true, "use case def": true, "class": true, "datatype": true,
@@ -94,9 +94,9 @@ func TestDOTPseudostateRules(t *testing.T) {
 		{"unnamed initial", &Node{ID: "n", Kind: "initial"}, `"n" [shape=circle, fillcolor=black, label="", width=0.2];`},
 		{"unnamed final", &Node{ID: "n", Kind: "final"}, `"n" [shape=doublecircle, fillcolor=black, label="", width=0.2];`},
 		{"named initial", &Node{ID: "n", Kind: "initial", Name: "go"},
-			`"n" [shape=circle, label=<<b>go</b><br/><font point-size="10"><i>«initial»</i></font>>];`},
+			`"n" [shape=circle, label=<<font point-size="10"><i>«initial»</i></font><br/><b>go</b>>];`},
 		{"named final", &Node{ID: "n", Kind: "final", Name: "done"},
-			`"n" [shape=doublecircle, label=<<b>done</b><br/><font point-size="10"><i>«final»</i></font>>];`},
+			`"n" [shape=doublecircle, label=<<font point-size="10"><i>«final»</i></font><br/><b>done</b>>];`},
 		{"start", &Node{ID: "n", Kind: startKind}, `"n" [shape=point, fillcolor=black, label=""];`},
 		{"placed unnamed initial", &Node{ID: "n", Kind: "initial", Geometry: &Geometry{X: 10, Y: 10, HasSize: true, Width: 36, Height: 36}},
 			`"n" [shape=circle, fillcolor=black, label="", pos="28,-28!", pin=true, width=0.5, height=0.5, fixedsize=true];`},
@@ -140,12 +140,12 @@ func TestDOTClusterBorders(t *testing.T) {
 		}
 		checkDOTSyntax(t, dot)
 		for _, want := range []string{
-			"  subgraph \"cluster_n0\" {\n    label=<<b>Pkg</b><br/><font point-size=\"10\"><i>«package»</i></font>>;\n    color=black;\n    penwidth=1.5;\n",
-			"    subgraph \"cluster_n1\" {\n      label=<<b>Def</b><br/><font point-size=\"10\"><i>«part def»</i></font>>;\n      color=black;\n      penwidth=0.5;\n",
-			"      subgraph \"cluster_n2\" {\n        label=<<b>usage</b><br/><font point-size=\"10\"><i>«part»</i></font>>;\n        color=black;\n        penwidth=0.5;\n",
-			"    subgraph \"cluster_n4\" {\n      label=<<b>Lib</b><br/><font point-size=\"10\"><i>«library package»</i></font>>;\n      color=black;\n      penwidth=1.5;\n",
-			"    subgraph \"cluster_n6\" {\n      label=<<b>r</b><br/><font point-size=\"10\"><i>«region»</i></font>>;\n      style=dashed;\n      color=black;\n      penwidth=0.5;\n",
-			"    subgraph \"cluster_n8\" {\n      label=<<b>body</b><br/><font point-size=\"10\"><i>«state»</i></font>>;\n      color=black;\n      penwidth=0.5;\n      bb=",
+			"  subgraph \"cluster_n0\" {\n    label=<<font point-size=\"10\"><i>«package»</i></font><br/><b>Pkg</b>>;\n    color=black;\n    penwidth=1.5;\n",
+			"    subgraph \"cluster_n1\" {\n      label=<<font point-size=\"10\"><i>«part def»</i></font><br/><b>Def</b>>;\n      color=black;\n      penwidth=0.5;\n",
+			"      subgraph \"cluster_n2\" {\n        label=<<font point-size=\"10\"><i>«part»</i></font><br/><b>usage</b>>;\n        color=black;\n        penwidth=0.5;\n",
+			"    subgraph \"cluster_n4\" {\n      label=<<font point-size=\"10\"><i>«library package»</i></font><br/><b>Lib</b>>;\n      color=black;\n      penwidth=1.5;\n",
+			"    subgraph \"cluster_n6\" {\n      label=<<font point-size=\"10\"><i>«region»</i></font><br/><b>r</b>>;\n      style=dashed;\n      color=black;\n      penwidth=0.5;\n",
+			"    subgraph \"cluster_n8\" {\n      label=<<font point-size=\"10\"><i>«state»</i></font><br/><b>body</b>>;\n      color=black;\n      penwidth=0.5;\n      bb=",
 		} {
 			if !strings.Contains(dot, want) {
 				t.Errorf("palette %q: DOT lacks %q:\n%s", palette, want, dot)
@@ -220,13 +220,13 @@ func TestDOTPaletteFills(t *testing.T) {
 	checkDOTSyntax(t, dot)
 	part, port, item, other := paletteColors[PaletteOkabeIto][0], paletteColors[PaletteOkabeIto][2], paletteColors[PaletteOkabeIto][1], paletteColors[PaletteOkabeIto][18%8]
 	for _, want := range []string{
-		`"n1" [style="rounded,filled", fillcolor="` + paletteFill(part, true) + `", color="` + part + `", penwidth=1, label=<<b>p</b><br/><font point-size="10"><i>«part»</i></font>>, margin=0, pos="60,-45!", pin=true, width=1.3888888888888888, height=0.6944444444444444, fixedsize=true];`,
+		`"n1" [style="rounded,filled", fillcolor="` + paletteFill(part, true) + `", color="` + part + `", penwidth=1, label=<<font point-size="10"><i>«part»</i></font><br/><b>p</b>>, margin=0, pos="60,-45!", pin=true, width=1.3888888888888888, height=0.6944444444444444, fixedsize=true];`,
 		`"n2" [style="rounded,filled", fillcolor="` + paletteFill(port, true) + `", color="` + port + `", penwidth=1, label=`,
 		`"n3" [fillcolor="` + item + `", color="` + item + `", penwidth=1, label=`,
 		`"n4" [shape=circle, fillcolor=black, label="", pos=`,
 		`"n5" [shape=point, fillcolor=black, label="", pos=`,
 		`"n6" [style="rounded,filled", fillcolor="` + paletteFill(other, true) + `", color="` + other + `", penwidth=1, label=`,
-		"    label=<<b>Def</b><br/><font point-size=\"10\"><i>«part def»</i></font>>;\n    color=black;\n    penwidth=0.5;\n",
+		"    label=<<font point-size=\"10\"><i>«part def»</i></font><br/><b>Def</b>>;\n    color=black;\n    penwidth=0.5;\n",
 		`"n1" -> "n2" [arrowhead=none, penwidth=3];`,
 	} {
 		if !strings.Contains(dot, want) {
@@ -315,22 +315,29 @@ func TestDOTRefusesAnUnregisteredPalette(t *testing.T) {
 	}
 }
 
-// The Mermaid form notes a palette it cannot draw; the text and Markdown forms
-// take none and say nothing; a palette never changes the DOT header.
+// Mermaid draws a palette with classes; the text and Markdown forms take none
+// and say nothing; a palette never changes the DOT header.
 func TestPaletteOnOtherForms(t *testing.T) {
 	rendering := render(t, "state.sysml", "MachineViews::vehicleStates")
 	mermaid, err := rendering.WriteWith(FormMermaid, Options{Palette: PaletteBrewerSet2})
 	if err != nil {
 		t.Fatalf("mermaid: %v", err)
 	}
-	if !strings.Contains(mermaid, "%% not represented: palette brewer-set2; only the DOT and PlantUML forms fill nodes by keyword family\n") {
-		t.Errorf("Mermaid does not note the palette:\n%s", mermaid)
+	if !strings.Contains(mermaid, "classDef palette0 ") || strings.Contains(mermaid, "not represented: palette") {
+		t.Errorf("Mermaid does not draw the palette:\n%s", mermaid)
 	}
-	if strings.Contains(mermaid, "fill:") || strings.Contains(mermaid, "classDef") || strings.Contains(mermaid, "theme") {
-		t.Errorf("Mermaid is themed by the palette:\n%s", mermaid)
+	if !strings.Contains(mermaid, "fill:") || !strings.Contains(mermaid, "theme: base") {
+		t.Errorf("Mermaid is missing its palette or theme:\n%s", mermaid)
 	}
-	if plain := rendering.Mermaid(); strings.Contains(plain, "palette") {
-		t.Errorf("Mermaid notes a palette none was asked for:\n%s", plain)
+	if plain := rendering.Mermaid(); strings.Contains(plain, "palette") || strings.Contains(plain, "classDef") {
+		t.Errorf("Mermaid notes or draws a palette none was asked for:\n%s", plain)
+	}
+	sequence, err := render(t, "sequence.sysml", "SequenceViews::pubSubView").WriteWith(FormMermaid, Options{Palette: PaletteBrewerSet2})
+	if err != nil {
+		t.Fatalf("sequence mermaid: %v", err)
+	}
+	if !strings.Contains(sequence, "%% not represented: palette brewer-set2; Mermaid's sequence diagram cannot fill individual participants (the PlantUML form fills them)\n") || strings.Contains(sequence, "fill:") {
+		t.Errorf("Mermaid sequence diagram does not note the palette:\n%s", sequence)
 	}
 	text, err := rendering.WriteWith(FormText, Options{Palette: PaletteBrewerSet2})
 	if err != nil || text != rendering.Text() {
@@ -359,13 +366,114 @@ func TestDOTEscapesNamesInStyledLabels(t *testing.T) {
 		t.Fatalf("DOT: %v", err)
 	}
 	checkDOTSyntax(t, dot)
-	want := `label=<<b>a &amp; b &lt;c&gt; &#34;d&#34; &#39;e&#39;<br/>f : T&lt;&#39;x&#39;&gt;</b><br/><font point-size="10"><i>«part»</i></font><br/>g &gt; h<br/>&#39;i&#39;>`
+	want := `label=<<font point-size="10"><i>«part»</i></font><br/><b>a &amp; b &lt;c&gt; &#34;d&#34; &#39;e&#39;<br/>f : T&lt;&#39;x&#39;&gt;</b><br/>g &gt; h<br/>&#39;i&#39;>`
 	if !strings.Contains(dot, want) {
 		t.Errorf("DOT lacks %q:\n%s", want, dot)
 	}
 	if got := dotEscape("'"); got != "&#39;" {
 		t.Errorf("dotEscape(') = %q", got)
 	}
+}
+
+// A palette outside the registry is the same typed error on the Mermaid form
+// as on DOT, with nothing written beside it; MermaidWith, which returns no
+// error, notes it and fills nothing.
+func TestMermaidRefusesAnUnregisteredPalette(t *testing.T) {
+	rendering := &Rendering{View: "V", Kind: KindTree, Roots: []*Node{{ID: "n0", Kind: "part def", Name: "Def"}}}
+	mermaid, err := rendering.WriteWith(FormMermaid, Options{Palette: Palette("rainbow")})
+	var unknown *UnknownPaletteError
+	if !errors.As(err, &unknown) || unknown.Name != "rainbow" || !errors.Is(err, ErrUnknownPalette) {
+		t.Fatalf("WriteWith(mermaid, rainbow) = %q, %v; want an UnknownPaletteError naming rainbow", mermaid, err)
+	}
+	if mermaid != "" {
+		t.Errorf("WriteWith(mermaid, rainbow) wrote %q beside the error", mermaid)
+	}
+	direct := rendering.MermaidWith(Options{Palette: Palette("rainbow")})
+	if !strings.Contains(direct, "%% not represented: unknown palette \"rainbow\"") || strings.Contains(direct, "fill:") {
+		t.Errorf("MermaidWith(rainbow) does not note the palette unfilled:\n%s", direct)
+	}
+}
+
+// Mermaid fills every node the DOT form fills, with the same hex, by a
+// class in flowcharts and state diagrams; a sequence is excepted.
+func TestMermaidPaletteParityWithDOT(t *testing.T) {
+	for _, tc := range plantumlGoldenCases {
+		if tc.kind == KindSequence {
+			continue
+		}
+		rendering := render(t, tc.file, tc.view)
+		for _, palette := range Palettes() {
+			dot, err := rendering.DOTWith(Options{Palette: palette})
+			if err != nil {
+				t.Fatalf("%s %s DOT: %v", tc.name, palette, err)
+			}
+			mermaid := rendering.MermaidWith(Options{Palette: palette})
+			dotFills := map[string]string{}
+			for _, line := range strings.Split(dot, "\n") {
+				if m := dotFillLine.FindStringSubmatch(line); m != nil {
+					dotFills[m[1]] = m[2]
+				}
+			}
+			mermaidFills := mermaidPaletteFills(mermaid)
+			if len(dotFills) == 0 || !maps.Equal(dotFills, mermaidFills) {
+				t.Errorf("%s %s: DOT fills %v, Mermaid %v", tc.name, palette, dotFills, mermaidFills)
+			}
+			if strings.Contains(mermaid, "not represented: palette") {
+				t.Errorf("%s %s: Mermaid notes the palette it draws:\n%s", tc.name, palette, mermaid)
+			}
+		}
+	}
+}
+
+// The Mermaid palette golden: the interconnection in okabe-ito, its
+// black-and-white golden with a `style` statement per filled node.
+func TestGoldenMermaidPalettes(t *testing.T) {
+	rendering := render(t, "interconnection.sysml", "PlantViews::loopView")
+	mermaid := rendering.MermaidWith(Options{Palette: PaletteOkabeIto})
+	checkGolden(t, filepath.Join("testdata", "interconnection.okabe-ito.mermaid.golden"), mermaid)
+	plain := rendering.Mermaid()
+	if withoutMermaidPaletteClasses(mermaid) != plain {
+		t.Errorf("palette Mermaid differs from the black-and-white one beyond its palette classes:\n%s\n%s", mermaid, plain)
+	}
+	if len(mermaidPaletteFills(mermaid)) == 0 {
+		t.Errorf("palette Mermaid fills no node:\n%s", mermaid)
+	}
+}
+
+var mermaidPaletteDefinitionLine = regexp.MustCompile(`^\s*classDef (palette[0-9]+) fill:(#[0-9A-F]{6}),stroke:(#[0-9A-F]{6})$`)
+var mermaidPaletteAssignmentLine = regexp.MustCompile(`^\s*class ([^ ]+) (palette[0-9]+)$`)
+
+func mermaidPaletteFills(source string) map[string]string {
+	definitions := map[string]string{}
+	var assignments []struct{ ids, class string }
+	for _, line := range strings.Split(source, "\n") {
+		if match := mermaidPaletteDefinitionLine.FindStringSubmatch(line); match != nil {
+			definitions[match[1]] = match[2]
+		}
+		if match := mermaidPaletteAssignmentLine.FindStringSubmatch(line); match != nil {
+			assignments = append(assignments, struct{ ids, class string }{match[1], match[2]})
+		}
+	}
+	fills := map[string]string{}
+	for _, assignment := range assignments {
+		if fill, ok := definitions[assignment.class]; ok {
+			for _, id := range strings.Split(assignment.ids, ",") {
+				fills[id] = fill
+			}
+		}
+	}
+	return fills
+}
+
+func withoutMermaidPaletteClasses(source string) string {
+	var lines []string
+	for _, line := range strings.Split(source, "\n") {
+		if mermaidPaletteDefinitionLine.MatchString(line) || mermaidPaletteAssignmentLine.MatchString(line) {
+			continue
+		}
+		lines = append(lines, line)
+	}
+	return strings.Join(lines, "\n")
 }
 
 // The palette goldens: the interconnection and state renderings in okabe-ito,
@@ -377,6 +485,7 @@ func TestGoldenDOTPalettes(t *testing.T) {
 	}{
 		{"interconnection", "interconnection.sysml", "PlantViews::loopView", PaletteOkabeIto},
 		{"state", "state.sysml", "MachineViews::vehicleStates", PaletteOkabeIto},
+		{"mixed", "mixed.sysml", "MixedExamples::mixedDiagram", PaletteOkabeIto},
 		{"tree", "tree.sysml", "VehicleViews::vehicleView", PaletteViridis},
 	}
 	for _, tc := range cases {

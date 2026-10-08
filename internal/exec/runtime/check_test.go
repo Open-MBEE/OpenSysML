@@ -149,6 +149,29 @@ func TestCheckJoinWaitsForSlowestBranch(t *testing.T) {
 	}
 }
 
+func TestCheckConcurrentRepeatedArrivalsCompleteAsOneOutcome(t *testing.T) {
+	src, err := os.ReadFile(filepath.Join("testdata", "conformance", "action_step_multiplicity_concurrent_arrivals.sysml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	m := parseLibraryModel(t, string(src))
+	for _, opts := range []CheckOptions{reduced(), unreduced()} {
+		report := checkModel(t, m, "ConcurrentArrivals", CheckBudget{}, opts)
+		if report.Verdict != CheckExhaustive {
+			t.Fatalf("reduce=%v: verdict %s, violations %v", opts.Reduce, report.Status(), report.Violations)
+		}
+		if len(report.Finals) != 1 {
+			t.Fatalf("reduce=%v: %d finals, want one: %+v", opts.Reduce, len(report.Finals), report.Finals)
+		}
+		if got := report.Finals[0].Values["c"]; got != "4" {
+			t.Fatalf("reduce=%v: c = %q, want 4", opts.Reduce, got)
+		}
+		if strings.HasPrefix(report.Finals[0].Outcome, "error:") {
+			t.Fatalf("reduce=%v: final outcome %q is an error", opts.Reduce, report.Finals[0].Outcome)
+		}
+	}
+}
+
 // The oracle: two branches writing one feature leave it with either value;
 // the flags each branch sets alone do not diverge.
 func TestCheckForkBranchesWriteOneFeatureDiverge(t *testing.T) {
@@ -677,8 +700,8 @@ func TestCheckPropertyOfThePerformerIsWitnessed(t *testing.T) {
 	}
 }
 
-// The failure modes of the robustness tests are violations on the schedule that
-// reaches them, each with its witness, not errors of the search.
+// Runtime failures after the root run starts are violations on the schedule
+// that reaches them, each with its witness.
 func TestCheckReportsFailuresAsViolations(t *testing.T) {
 	cases := []struct {
 		name, action, src string
@@ -688,7 +711,7 @@ func TestCheckReportsFailuresAsViolations(t *testing.T) {
 		{"join starvation", "starve", `package test {
 			action starve {
 				first start;
-				action stranded;
+				ref action stranded;
 				join sync;
 				done;
 				succession first start then sync;
@@ -711,16 +734,6 @@ func TestCheckReportsFailuresAsViolations(t *testing.T) {
 				then done;
 			}
 		}`, ViolationFailure, ErrUnboundParameter},
-		{"dangling succession", "outer", `package test {
-			action outer {
-				first leg;
-				action leg {
-					first a;
-					action a;
-					succession first a then missing;
-				}
-			}
-		}`, ViolationFailure, ErrInvalidActionFlow},
 		{"all guards false", "pick", `package test {
 			private import ScalarValues::*;
 			action pick {
@@ -768,6 +781,24 @@ func TestCheckReportsFailuresAsViolations(t *testing.T) {
 	}
 }
 
+func TestCheckReturnsInvalidSubflowAsSetupFailure(t *testing.T) {
+	m := parseExploreModel(t, `package test {
+		action outer {
+			first leg;
+			action leg {
+				first a;
+				action a;
+				succession first a then missing;
+			}
+		}
+	}`)
+	_, err := Check(context.Background(), m.fresh, starterOf(m.action(t, "outer")), CheckBudget{}, reduced(), nil)
+	var setup *SetupError
+	if !errors.As(err, &setup) || !errors.Is(err, ErrInvalidActionFlow) {
+		t.Fatalf("check error = %v; want SetupError wrapping ErrInvalidActionFlow", err)
+	}
+}
+
 // The check lets go of the executor it started once the search ends, its bodies
 // paused along the way or not. The clock drives it no further and a step of it is
 // the released executor's refusal.
@@ -811,7 +842,7 @@ func TestCheckReleasesItsExecutorHoweverTheSearchEnds(t *testing.T) {
 // the same schedule claiming another failure disagrees.
 func TestCheckReplaysAFailureLeavingNoTrace(t *testing.T) {
 	m := parseExploreModel(t, `package test {
-		action def Bad { action a; action b; }
+		action def Bad { action a; action b; succession first a then b; succession first b then a; }
 		action outer {
 			first start;
 			then action run : Bad;
@@ -1311,7 +1342,7 @@ func TestCheckRejectsAnUnknownDeepDivergePathWhenNoScheduleCompletes(t *testing.
 			attribute x : Integer = 0;
 			first start;
 			action worker : Work;
-			action stranded;
+			ref action stranded;
 			join sync;
 			done;
 			succession first start then worker;
@@ -1465,11 +1496,9 @@ func TestCheckReplaysAPropertyThatFailsToEvaluate(t *testing.T) {
 	}
 }
 
-// TestCheckWeighsMovesByExecutorThenUnit: a move's share is the draw a run makes
-// for it — the executor among those with a move, then the unit among its own —
-// so the masses a check reports are the probabilities explore reports for the
-// same invocation's outcomes.
-func TestCheckWeighsMovesByExecutorThenUnit(t *testing.T) {
+// TestCheckMassIsIndependentOfExploreScheduling: checking retains its mass
+// semantics while exploration treats the same scheduler choices as nondeterministic.
+func TestCheckMassIsIndependentOfExploreScheduling(t *testing.T) {
 	m := parseExploreModel(t, `package test {
 		private import ScalarValues::*;
 		action a {
@@ -1538,21 +1567,18 @@ func TestCheckWeighsMovesByExecutorThenUnit(t *testing.T) {
 	if err != nil || !x.Complete() {
 		t.Fatalf("explore: %v, %v", err, x)
 	}
-	probs := make(map[string]float64)
 	for _, o := range x.Outcomes {
-		if o.Outcome.Err == nil {
-			t.Fatalf("outcome %q failed under no leaf", o.Outcome)
+		if o.Probability != nil {
+			t.Errorf("unweighted explored outcome %q has probability range %+v", o.Outcome, o.Probability)
 		}
-		probs[leafOf(o.Outcome.Err.Error())] += o.Probability
 	}
-
-	want := map[string]float64{"div": 0.25, "ref": 0.25, "third": 0.5}
-	for leaf, w := range want {
-		if math.Abs(probs[leaf]-w) > 1e-9 {
-			t.Errorf("explore's probability of the %s failure is %v, want %v", leaf, probs[leaf], w)
-		}
-		if math.Abs(mass[leaf]-probs[leaf]) > 1e-9 {
-			t.Errorf("check's mass of the %s failure is %v, want explore's %v", leaf, mass[leaf], probs[leaf])
+	if x.Weighted() {
+		t.Error("unweighted exploration reports Weighted() = true")
+	}
+	wantMass := map[string]float64{"div": 0.25, "ref": 0.25, "third": 0.5}
+	for leaf, want := range wantMass {
+		if math.Abs(mass[leaf]-want) > 1e-9 {
+			t.Errorf("check's mass of the %s failure is %v, want %v", leaf, mass[leaf], want)
 		}
 	}
 }

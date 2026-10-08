@@ -1,4 +1,4 @@
-.PHONY: all build build-sysml build-lsp build-grpc build-wasm build-wasm-wasip1 build-wasm-js wasm-check static-check windows-versioninfo-check man man-check install-tree pgo-profile conformance conformance-pkg conformance-rust conformance-julia conformance-matlab test test-shard coverage lint clean install help ontology-table ontology-table-check python-metamodel python-metamodel-check fuml-expected python-test python-coverage scripts-coverage node-coverage python-install proto proto-buf python-proto proto-ts proto-rust proto-lint proto-breaking vscode-grammar vscode-build vscode-package docs docs-install docs-serve docs-counts docs-check changelog-check changelog-render self-model
+.PHONY: all build build-sysml build-prod build-wasm-prod build-lsp build-grpc build-engine build-core build-syntax build-sysml-wasm build-release-wasm build-wasm build-wasm-wasip1 build-wasm-js wasm-check static-check windows-versioninfo-check man man-check install-tree pgo-profile conformance conformance-pkg conformance-rust conformance-julia conformance-matlab test test-shard coverage coverage-shard coverage-merge lint clean install help ontology-table ontology-table-check python-metamodel python-metamodel-check fuml-expected python-test python-coverage scripts-coverage node-coverage python-install jupyter-kernel-install jupyter-kernel-test proto proto-buf python-proto proto-ts proto-rust proto-lint proto-breaking vscode-grammar vscode-build vscode-package docs docs-install docs-serve docs-engine-assets docs-landing-assets docs-counts docs-check changelog-check changelog-render self-model
 
 # Version information
 # Only release tags describe a build; the moving `nightly` tag is not a version.
@@ -48,6 +48,7 @@ BIN_DIR := bin
 # WebAssembly output, one directory per Go wasm target.
 WASM_DIR := $(BIN_DIR)/wasm
 PYTHON_DIR := client/python
+JUPYTER_KERNEL_DIR := client/jupyter-kernel
 NODE_DIR := client/node
 # The TypeScript protobuf plugin, installed by `npm ci` from the client's lockfile.
 PROTOC_GEN_ES := $(NODE_DIR)/node_modules/.bin/protoc-gen-es
@@ -67,9 +68,18 @@ LIBS_DIR := internal/workspace/libs
 # The development tools are a nested module; go's ./... at the root stops at
 # its go.mod, so every whole-tree target runs go a second time in it.
 TOOLS_DIR := tools
+# make coverage's scope; coverage-shard narrows it to one CI shard.
+COVERAGE_PACKAGES ?= ./...
+COVERAGE_TOOLS ?= ./...
+COVERAGE_PROFILE ?= coverage.txt
+COVERAGE_SHARDS := runtime model export rest
 
 # The commands whose manual pages are generated and shipped, in section 1.
-COMMANDS := sysml sysml-lsp sysml-grpc
+COMMANDS := sysml sysml-lsp sysml-grpc sysml-jupyter-kernel
+# sysml-engine, sysml-syntax, sysml-core and sysml-wasm serve JSON RPC surfaces
+# without protobuf. Natively they are built only on request and stay out of
+# `build`, `install`, the release and the manual pages.
+WASM_COMMANDS := $(COMMANDS) sysml-engine sysml-syntax sysml-core sysml-wasm
 MAN_DIR := packaging/man/man1
 MAN_PAGES := $(addprefix $(MAN_DIR)/,$(addsuffix .1,$(COMMANDS)))
 
@@ -85,7 +95,7 @@ INSTALL ?= install
 
 all: build test python-test ## Build and test everything
 
-build: build-sysml build-lsp build-grpc ## Build all binaries
+build: build-sysml build-lsp build-grpc build-jupyter-kernel ## Build all binaries
 
 build-sysml: ## Build sysml binary
 	@echo "Building sysml..."
@@ -93,6 +103,15 @@ build-sysml: ## Build sysml binary
 	$(call winres,sysml)
 	$(GO_BUILD) -o $(BIN_DIR)/sysml ./cmd/sysml
 	@echo "✓ Built $(BIN_DIR)/sysml ($(VERSION))"
+
+# The production sysml leaves out the optional and developer-only feature groups
+# (sysml_prod; see cmd/sysml/features.go). Opt-in: nothing builds it by default.
+build-prod: ## Build bin/sysml-prod, sysml without the optional features (-tags sysml_prod)
+	@echo "Building sysml-prod..."
+	@mkdir -p $(BIN_DIR)
+	$(call winres,sysml)
+	$(GO_BUILD) -tags sysml_prod -o $(BIN_DIR)/sysml-prod ./cmd/sysml
+	@echo "✓ Built $(BIN_DIR)/sysml-prod ($(VERSION))"
 
 build-lsp: ## Build sysml-lsp binary
 	@echo "Building sysml-lsp..."
@@ -108,16 +127,56 @@ build-grpc: ## Build sysml-grpc binary
 	$(GO_BUILD) -o $(BIN_DIR)/sysml-grpc ./cmd/sysml-grpc
 	@echo "✓ Built $(BIN_DIR)/sysml-grpc ($(VERSION))"
 
+build-jupyter-kernel: ## Build sysml-jupyter-kernel binary
+	@echo "Building sysml-jupyter-kernel..."
+	@mkdir -p $(BIN_DIR)
+	$(call winres,sysml-jupyter-kernel)
+	$(GO_BUILD) -o $(BIN_DIR)/sysml-jupyter-kernel ./cmd/sysml-jupyter-kernel
+	@echo "✓ Built $(BIN_DIR)/sysml-jupyter-kernel ($(VERSION))"
+
+# The JSON commands, natively: each serves its JSON-RPC over stdio. Opt-in:
+# nothing builds, installs or releases them.
+build-engine: ## Build bin/sysml-engine natively (opt-in; not released)
+	@echo "Building sysml-engine..."
+	@mkdir -p $(BIN_DIR)
+	$(GO_BUILD) -o $(BIN_DIR)/sysml-engine ./cmd/sysml-engine
+	@echo "✓ Built $(BIN_DIR)/sysml-engine ($(VERSION))"
+
+build-core: ## Build bin/sysml-core natively (opt-in; not released)
+	@echo "Building sysml-core..."
+	@mkdir -p $(BIN_DIR)
+	$(GO_BUILD) -o $(BIN_DIR)/sysml-core ./cmd/sysml-core
+	@echo "✓ Built $(BIN_DIR)/sysml-core ($(VERSION))"
+
+build-sysml-wasm: ## Build bin/sysml-wasm natively (opt-in; not released)
+	@echo "Building sysml-wasm..."
+	@mkdir -p $(BIN_DIR)
+	$(GO_BUILD) -o $(BIN_DIR)/sysml-wasm ./cmd/sysml-wasm
+	@echo "✓ Built $(BIN_DIR)/sysml-wasm ($(VERSION))"
+
+build-release-wasm: ## Build release bin/wasm/release/sysml-wasm.wasm and wasm_exec.js
+	@echo "Building release WebAssembly assets..."
+	@mkdir -p $(WASM_DIR)/release
+	GOOS=js GOARCH=wasm $(GO_BUILD) -trimpath -o $(WASM_DIR)/release/sysml-wasm.wasm ./cmd/sysml-wasm
+	@cp "$(shell go env GOROOT)/lib/wasm/wasm_exec.js" $(WASM_DIR)/release/wasm_exec.js
+	@echo "✓ Built $(WASM_DIR)/release/sysml-wasm.wasm and wasm_exec.js ($(VERSION))"
+
+build-syntax: ## Build bin/sysml-syntax natively (opt-in; not released)
+	@echo "Building sysml-syntax..."
+	@mkdir -p $(BIN_DIR)
+	$(GO_BUILD) -o $(BIN_DIR)/sysml-syntax ./cmd/sysml-syntax
+	@echo "✓ Built $(BIN_DIR)/sysml-syntax ($(VERSION))"
+
 # WebAssembly: GOOS=wasip1 runs under a WASI preview 1 runtime (wasmtime, a Node WASI
 # host), GOOS=js under Node or a browser through the toolchain's wasm_exec.js. The
 # version stamps are the -X flags every other build passes; there is no Windows
 # resource to embed and no libc to link. `build` stays native: these are opt-in.
-build-wasm: build-wasm-wasip1 build-wasm-js ## Build all three commands for both WebAssembly targets
+build-wasm: build-wasm-wasip1 build-wasm-js ## Build all seven commands for both WebAssembly targets
 
 build-wasm-wasip1: ## Build bin/wasm/wasip1/*.wasm, runnable under a WASI preview 1 runtime
 	@echo "Building WebAssembly (wasip1)..."
 	@mkdir -p $(WASM_DIR)/wasip1
-	@for cmd in $(COMMANDS); do \
+	@for cmd in $(WASM_COMMANDS); do \
 		GOOS=wasip1 GOARCH=wasm $(GO_BUILD) -o $(WASM_DIR)/wasip1/$$cmd.wasm ./cmd/$$cmd || exit 1; \
 	done
 	@echo "✓ Built $(WASM_DIR)/wasip1 ($(VERSION))"
@@ -125,11 +184,19 @@ build-wasm-wasip1: ## Build bin/wasm/wasip1/*.wasm, runnable under a WASI previe
 build-wasm-js: ## Build bin/wasm/js/*.wasm plus the wasm_exec.js that runs them
 	@echo "Building WebAssembly (js)..."
 	@mkdir -p $(WASM_DIR)/js
-	@for cmd in $(COMMANDS); do \
+	@for cmd in $(WASM_COMMANDS); do \
 		GOOS=js GOARCH=wasm $(GO_BUILD) -o $(WASM_DIR)/js/$$cmd.wasm ./cmd/$$cmd || exit 1; \
 	done
 	@cp "$(shell go env GOROOT)/lib/wasm/wasm_exec.js" $(WASM_DIR)/js/wasm_exec.js
 	@echo "✓ Built $(WASM_DIR)/js ($(VERSION))"
+
+build-wasm-prod: ## Build bin/wasm/{js,wasip1}/sysml-prod.wasm with -tags sysml_prod
+	@echo "Building WebAssembly sysml-prod..."
+	@mkdir -p $(WASM_DIR)/js $(WASM_DIR)/wasip1
+	GOOS=wasip1 GOARCH=wasm $(GO_BUILD) -tags sysml_prod -o $(WASM_DIR)/wasip1/sysml-prod.wasm ./cmd/sysml
+	GOOS=js GOARCH=wasm $(GO_BUILD) -tags sysml_prod -o $(WASM_DIR)/js/sysml-prod.wasm ./cmd/sysml
+	@cp "$(shell go env GOROOT)/lib/wasm/wasm_exec.js" $(WASM_DIR)/js/wasm_exec.js
+	@echo "✓ Built $(WASM_DIR)/{js,wasip1}/sysml-prod.wasm ($(VERSION))"
 
 wasm-check: ## Run the WebAssembly build-and-run gate (needs Node; fails rather than skipping)
 	OPENSYSML_REQUIRE_WASM=1 go test -count=1 -v ./tests/wasm
@@ -151,7 +218,7 @@ man: ## Regenerate the shipped manual pages from each command's description
 
 man-check: ## Verify the shipped pages are current and formatter-clean
 	@echo "Checking the manual pages..."
-	go test -count=1 -run 'TestTheShippedManualPage|TestTheManualPage' ./cmd/sysml ./cmd/sysml-lsp ./cmd/sysml-grpc
+	go test -count=1 -run 'TestTheShippedManualPage|TestTheManualPage' ./cmd/sysml ./cmd/sysml-lsp ./cmd/sysml-grpc ./cmd/sysml-jupyter-kernel
 	@# mandoc is the strictest reader; groff is the one always at hand.
 	@if command -v mandoc >/dev/null 2>&1; then \
 		mandoc -T lint -W warning $(MAN_PAGES) || exit 1; \
@@ -208,7 +275,7 @@ conformance-pkg: ## Run the conformance suite through the public Go API (client/
 
 test: ## Run Go tests with race detection and coverage
 	@echo "Running Go race tests..."
-	@# Per-package timeout: under -race the runtime package runs 22-29 minutes on CI runners.
+	@# Per-package timeout: under -race the runtime package runs 31-47 minutes on CI runners.
 	@# -pgo=off: coverage plus cmd/*/default.pgo trips golang/go#80891 (link: fingerprint mismatch).
 	go test -v -race -pgo=off -timeout 45m -coverprofile=coverage.txt -covermode=atomic ./...
 	go test -C $(TOOLS_DIR) -v -race -pgo=off -timeout 45m ./...
@@ -219,8 +286,9 @@ RACE_SHARD_TOOLS_SKIP := ^(TestSuiteRead|TestSuiteClassification|TestEmitSuite|T
 
 test-shard: ## Run one CI shard of the race suite (SHARD=runtime|model|export|rest)
 	@echo "Running Go race tests, shard $(SHARD)..."
-	pkgs=$$(scripts/race-shard.sh $(SHARD)) && go test -skip '$(RACE_SHARD_SKIP)' -v -race -pgo=off -timeout 45m -coverprofile=coverage.txt -covermode=atomic $$pkgs
-	if [ "$(SHARD)" = rest ]; then go test -C $(TOOLS_DIR) -skip '$(RACE_SHARD_TOOLS_SKIP)' -v -race -pgo=off -timeout 45m ./...; fi
+	@# 55m per package: the runtime shard takes 31-47 minutes under -race; its job's ceiling is 60.
+	pkgs=$$(scripts/race-shard.sh $(SHARD)) && go test -skip '$(RACE_SHARD_SKIP)' -v -race -pgo=off -timeout 55m -coverprofile=coverage.txt -covermode=atomic $$pkgs
+	if [ "$(SHARD)" = rest ]; then go test -C $(TOOLS_DIR) -skip '$(RACE_SHARD_TOOLS_SKIP)' -v -race -pgo=off -timeout 55m ./...; fi
 
 coverage: ## Write the coverage profile the SonarCloud scan reads
 	@echo "Writing coverage.txt..."
@@ -234,14 +302,28 @@ coverage: ## Write the coverage profile the SonarCloud scan reads
 	@# it at this directory; go test folds in only its own binary's counters.
 	rm -rf $(GO_COUNTER_DIR)
 	mkdir -p $(GO_COUNTER_DIR)
-	OPENSYSML_GOCOVERDIR=$(GO_COUNTER_DIR) go test -count=1 -pgo=off -timeout 30m -coverpkg=./... -coverprofile=coverage.txt -covermode=atomic ./...
+	OPENSYSML_GOCOVERDIR=$(GO_COUNTER_DIR) go test -count=1 -pgo=off -timeout 30m -coverpkg=./... -coverprofile=$(COVERAGE_PROFILE) -covermode=atomic $(COVERAGE_PACKAGES)
 	go tool covdata textfmt -i=$(GO_COUNTER_DIR) -o $(GO_COUNTER_DIR)/profile.txt
-	tail -n +2 $(GO_COUNTER_DIR)/profile.txt >> coverage.txt
+	tail -n +2 $(GO_COUNTER_DIR)/profile.txt >> $(COVERAGE_PROFILE)
 	@# The tools' tests exercise product packages too; their profile credits those.
-	go test -C $(TOOLS_DIR) -count=1 -pgo=off -timeout 30m -coverpkg=github.com/Open-MBEE/OpenSysML/... -coverprofile=../coverage-tools.txt -covermode=atomic ./...
-	tail -n +2 coverage-tools.txt >> coverage.txt
-	rm coverage-tools.txt
+	if [ -n "$(COVERAGE_TOOLS)" ]; then \
+		go test -C $(TOOLS_DIR) -count=1 -pgo=off -timeout 30m -coverpkg=github.com/Open-MBEE/OpenSysML/... -coverprofile=../coverage-tools.txt -covermode=atomic $(COVERAGE_TOOLS) && \
+		tail -n +2 coverage-tools.txt >> $(COVERAGE_PROFILE) && \
+		rm coverage-tools.txt; \
+	fi
 	@# -coverpkg repeats every block once per test binary; see the script's header.
+	python3 scripts/dedupe-coverage.py $(COVERAGE_PROFILE)
+	@go tool cover -func=$(COVERAGE_PROFILE) | tail -n 1
+
+coverage-shard: ## Write one CI shard's coverage profile, coverage-$(SHARD).txt (SHARD=runtime|model|export|rest)
+	@# The race shards' packages; tests/wasm and the tools, which no race shard runs, go with runtime.
+	pkgs=$$(scripts/race-shard.sh $(SHARD)) && \
+	$(MAKE) --no-print-directory coverage COVERAGE_PROFILE=coverage-$(SHARD).txt \
+		COVERAGE_PACKAGES="$$(echo $$pkgs) $(if $(filter runtime,$(SHARD)),./tests/wasm)" \
+		COVERAGE_TOOLS="$(if $(filter runtime,$(SHARD)),./...)"
+
+coverage-merge: ## Merge the shard profiles coverage-runtime/model/export/rest.txt into coverage.txt
+	{ echo "mode: atomic"; for shard in $(COVERAGE_SHARDS); do tail -n +2 coverage-$$shard.txt || exit 1; done; } > coverage.txt
 	python3 scripts/dedupe-coverage.py coverage.txt
 	@go tool cover -func=coverage.txt | tail -n 1
 
@@ -295,7 +377,7 @@ clean: ## Remove build artifacts
 	rm -rf $(BIN_DIR)
 	rm -f coverage.txt coverage-python.xml coverage-scripts.xml .coverage-scripts coverage-node.lcov
 	rm -rf $(GO_COUNTER_DIR)
-	rm -f sysml sysml-lsp sysml-grpc
+	rm -f sysml sysml-lsp sysml-grpc sysml-jupyter-kernel
 	rm -f cmd/*/rsrc_windows_*.syso
 	rm -rf $(SITE_DIR)
 	@# Only the default destination; an overridden SELF_MODEL_OUT is the caller's.
@@ -307,6 +389,7 @@ install: build ## Install binaries to $GOPATH/bin
 	$(GO_INSTALL) ./cmd/sysml
 	$(GO_INSTALL) ./cmd/sysml-lsp
 	$(GO_INSTALL) ./cmd/sysml-grpc
+	$(GO_INSTALL) ./cmd/sysml-jupyter-kernel
 	@echo "✓ Installed"
 
 # What a distribution's package build calls: staged under DESTDIR, into the
@@ -375,6 +458,17 @@ python-test: ## Run Python client tests
 	cd $(PYTHON_DIR) && pytest tests/ -v
 	@echo "✓ Python client tests passed"
 
+jupyter-kernel-install: ## Install the jupyter-opensysml-kernel package in editable mode
+	@echo "Installing jupyter-opensysml-kernel..."
+	cd $(JUPYTER_KERNEL_DIR) && pip install -e .
+	@echo "✓ Installed jupyter-opensysml-kernel"
+
+# The wheel tests build with python -m build, so it must be installed too.
+jupyter-kernel-test: ## Run the jupyter-opensysml-kernel package tests and type check
+	@echo "Running jupyter-opensysml-kernel tests..."
+	cd $(JUPYTER_KERNEL_DIR) && pytest tests/ -v && mypy jupyter_opensysml_kernel
+	@echo "✓ jupyter-opensysml-kernel tests passed"
+
 # Run from the repo root so the report records repo-relative paths, which is
 # what the SonarCloud scan resolves against.
 python-coverage: ## Run Python client tests and write coverage-python.xml
@@ -394,12 +488,13 @@ scripts-coverage: ## Run the repository scripts and their tests under coverage a
 	$(SCRIPTS_COVERAGE) scripts/changelog.py check
 	$(SCRIPTS_COVERAGE) scripts/mkdocs_census-test.py
 	$(SCRIPTS_COVERAGE) scripts/mkdocs_suite_figures-test.py
+	$(SCRIPTS_COVERAGE) scripts/mkdocs_install_scripts-test.py
 	$(SCRIPTS_COVERAGE) scripts/dedupe-coverage-test.py
 	$(SCRIPTS_COVERAGE) scripts/check-doc-links.py
 	$(SCRIPTS_COVERAGE) scripts/check-doc-ids.py
 	$(SCRIPTS_COVERAGE) scripts/check-doc-figures.py
 	$(SCRIPTS_COVERAGE) scripts/sync-release-digests.py --check
-	$(SCRIPTS_COVERAGE) -m pytest -q $(PYTHON_DIR)/tests/test_check_version.py $(PYTHON_DIR)/tests/test_pin_release_checksums.py
+	$(SCRIPTS_COVERAGE) -m pytest -q $(PYTHON_DIR)/tests/test_check_version.py $(PYTHON_DIR)/tests/test_pin_release_checksums.py $(PYTHON_DIR)/tests/test_snapshot_version.py
 	$(PYTHON) -m coverage xml --rcfile=scripts/coverage-scripts.ini
 	$(PYTHON) -m coverage report --rcfile=scripts/coverage-scripts.ini
 	@echo "✓ Wrote coverage-scripts.xml"
@@ -444,7 +539,8 @@ docs-counts: ## Regenerate and verify the committed documentation counts; the te
 	go run -C $(TOOLS_DIR) ./cmd/doc-counts
 	go run -C $(TOOLS_DIR) ./cmd/doc-counts -check
 	go run -C $(TOOLS_DIR) ./cmd/validation-census -check
-	go test -C $(TOOLS_DIR) -count=1 ./census/doccounts ./census/validation ./referee/diff ./referee/reject
+	go run -C $(TOOLS_DIR) ./cmd/transformation-census -check
+	go test -C $(TOOLS_DIR) -count=1 ./census/doccounts ./census/validation ./census/transformation ./referee/diff ./referee/reject
 	@echo "✓ Documentation counts and refereed figures are current"
 
 docs-check: ## Verify documentation links, internal-label hygiene, quoted oracle figures, changelog fragments and the build-time census and test-suite figures
@@ -454,6 +550,8 @@ docs-check: ## Verify documentation links, internal-label hygiene, quoted oracle
 	$(PYTHON) scripts/changelog.py check
 	$(PYTHON) scripts/mkdocs_census-test.py
 	$(PYTHON) scripts/mkdocs_suite_figures-test.py
+	$(PYTHON) scripts/griffe_sphinx_roles-test.py
+	$(PYTHON) scripts/mkdocs_install_scripts-test.py
 
 changelog-check: ## Verify every changelog fragment under changes/unreleased/ and the folding script
 	$(PYTHON) scripts/changelog-test.py
@@ -470,7 +568,26 @@ docs: ## Build the documentation site, failing on a broken link
 	$(PYTHON) -m mkdocs build --strict --site-dir $(SITE_DIR)
 	@echo "✓ Built $(SITE_DIR)/"
 
-docs-serve: ## Serve the documentation site with live reload
+# The cli page's in-browser REPL fetches these assets; they are built, never
+# vendored. The Pages job runs this target before `docs`; a local `make docs` or
+# `docs-serve` preview wants the same target first or the REPL cannot load.
+docs-engine-assets: ## Build the in-browser engine assets into docs/assets
+	@mkdir -p docs/assets
+	GOOS=js GOARCH=wasm $(GO_BUILD) -o docs/assets/sysml-engine.wasm ./cmd/sysml-engine
+	gzip -9f docs/assets/sysml-engine.wasm
+	GOOS=js GOARCH=wasm $(GO_BUILD) -tags sysml_prod -o docs/assets/sysml-repl.wasm ./cmd/sysml
+	gzip -9f docs/assets/sysml-repl.wasm
+	@mkdir -p docs/assets/repl-examples
+	@cp examples/runtime-showcase/*.sysml docs/assets/repl-examples/
+	@cp "$$(go env GOROOT)/lib/wasm/wasm_exec.js" docs/assets/
+	@echo "✓ Built docs/assets/sysml-engine.wasm.gz, sysml-repl.wasm.gz, repl-examples/ + wasm_exec.js"
+
+# The landing page's diagram and router assets are built from the extension's
+# source rather than vendored; Pages and local previews need both bundles.
+docs-landing-assets: ## Build the landing-page diagram assets into docs/assets
+	cd $(VSCODE_DIR) && npm ci && npm run build:landing
+
+docs-serve: docs-install ## Serve docs with live reload (build docs-engine-assets and docs-landing-assets first)
 	$(PYTHON) -m mkdocs serve --strict
 
 help: ## Show this help message

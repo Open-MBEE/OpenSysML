@@ -482,5 +482,70 @@ public interface ValueOrBuilder extends
    */
   org.openmbee.opensysml.proto.UndeterminedOrBuilder getUndeterminedOrBuilder();
 
+  /**
+   * <pre>
+   * An Integer beyond int64, in decimal (`-` signed, no `+`, no leading
+   * zeros). An Integer that fits int64 is always int_value, never this.
+   * </pre>
+   *
+   * <code>string big_int_value = 22 [json_name = "bigIntValue"];</code>
+   * @return Whether the bigIntValue field is set.
+   */
+  boolean hasBigIntValue();
+  /**
+   * <pre>
+   * An Integer beyond int64, in decimal (`-` signed, no `+`, no leading
+   * zeros). An Integer that fits int64 is always int_value, never this.
+   * </pre>
+   *
+   * <code>string big_int_value = 22 [json_name = "bigIntValue"];</code>
+   * @return The bigIntValue.
+   */
+  java.lang.String getBigIntValue();
+  /**
+   * <pre>
+   * An Integer beyond int64, in decimal (`-` signed, no `+`, no leading
+   * zeros). An Integer that fits int64 is always int_value, never this.
+   * </pre>
+   *
+   * <code>string big_int_value = 22 [json_name = "bigIntValue"];</code>
+   * @return The bytes for bigIntValue.
+   */
+  com.google.protobuf.ByteString
+      getBigIntValueBytes();
+
+  /**
+   * <pre>
+   * An exact Rational (KerML 9.3.2.2.8), as `0.1` or `1 / 3` evaluates. The
+   * server answers one a double holds exactly as real_value; a client sends
+   * any exact Rational here, and an inbound real_value is always a Real.
+   * </pre>
+   *
+   * <code>.sysml.Rational rational_value = 23 [json_name = "rationalValue"];</code>
+   * @return Whether the rationalValue field is set.
+   */
+  boolean hasRationalValue();
+  /**
+   * <pre>
+   * An exact Rational (KerML 9.3.2.2.8), as `0.1` or `1 / 3` evaluates. The
+   * server answers one a double holds exactly as real_value; a client sends
+   * any exact Rational here, and an inbound real_value is always a Real.
+   * </pre>
+   *
+   * <code>.sysml.Rational rational_value = 23 [json_name = "rationalValue"];</code>
+   * @return The rationalValue.
+   */
+  org.openmbee.opensysml.proto.Rational getRationalValue();
+  /**
+   * <pre>
+   * An exact Rational (KerML 9.3.2.2.8), as `0.1` or `1 / 3` evaluates. The
+   * server answers one a double holds exactly as real_value; a client sends
+   * any exact Rational here, and an inbound real_value is always a Real.
+   * </pre>
+   *
+   * <code>.sysml.Rational rational_value = 23 [json_name = "rationalValue"];</code>
+   */
+  org.openmbee.opensysml.proto.RationalOrBuilder getRationalValueOrBuilder();
+
   org.openmbee.opensysml.proto.Value.KindCase getKindCase();
 }

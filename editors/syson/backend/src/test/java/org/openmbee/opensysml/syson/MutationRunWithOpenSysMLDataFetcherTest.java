@@ -51,7 +51,7 @@ class MutationRunWithOpenSysMLDataFetcherTest {
 
         IPayload payload = future.get();
         assertThat(payload).isInstanceOf(ErrorPayload.class);
-        assertThat(((ErrorPayload) payload).message()).isEqualTo("duplicate input name: x");
+        assertThat(((ErrorPayload) payload).messages().get(0).body()).isEqualTo("duplicate input name: x");
         verify(dispatcher, never()).dispatchMutation(any(), any());
     }
 }

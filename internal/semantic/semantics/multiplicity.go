@@ -47,12 +47,47 @@ func (m *Model) boundIn(scope *symbols.Scope, n ast.Node) Bound {
 	}
 	switch v.Kind {
 	case ValInt:
-		return Bound{Value: v.Int, Known: true}
+		// A bound beyond int64 bounds no collection that can exist; it is left unknown.
+		n, ok := v.Int64()
+		return Bound{Value: n, Known: ok}
 	case ValInfinity:
 		return Bound{Infinite: true, Known: true}
 	default:
 		return Bound{}
 	}
+}
+
+// UnaddressableBoundIn returns the first bound of mult that evaluates to an Integer beyond int64.
+func (m *Model) UnaddressableBoundIn(scope *symbols.Scope, mult *ast.Multiplicity) (Value, bool) {
+	if m == nil || mult == nil {
+		return Value{}, false
+	}
+	unaddressable := func(n ast.Node) (Value, bool) {
+		if n == nil {
+			return Value{}, false
+		}
+		var v Value
+		var ok bool
+		if scope != nil {
+			v, ok = m.EvalIn(scope, n)
+		} else {
+			v, ok = m.Eval(n)
+		}
+		if !ok || v.Kind != ValInt {
+			return Value{}, false
+		}
+		if _, fits := v.Int64(); fits {
+			return Value{}, false
+		}
+		return v, true
+	}
+	if v, ok := unaddressable(mult.Lower); ok {
+		return v, true
+	}
+	if mult.IsRange {
+		return unaddressable(mult.Upper)
+	}
+	return Value{}, false
 }
 
 // multiplicityRange extracts a Range from a parsed *ast.Multiplicity. ok is
@@ -214,32 +249,81 @@ func UnboundedRange() Range {
 	}
 }
 
-// ImplicitMultiplicityApplies reports whether a usage takes the implicit
-// [1..1] of SysML v2 §7.6.3: written `attribute`, `item`, `part` or `port`,
-// owned by a type, and subsetting or redefining no feature a type owns. The
-// keyword, not the kind: KerML's `feature` parses to an attribute usage and
-// takes no default multiplicity.
+// ImplicitMultiplicityApplies reports whether a SysML usage metaclass takes
+// [1..1] unless a subset, redefinition, reference, or cross-subsetting targets a type-owned feature.
 func (m *Model) ImplicitMultiplicityApplies(sym *symbols.Symbol) bool {
-	if sym == nil || !featureOwnedByType(sym) {
+	if sym == nil || m == nil || m.isKerMLDoc(sym) {
 		return false
 	}
-	switch sym.Keyword() {
-	case "attribute", "item", "part", "port":
-	default:
+	if !featureOwnedByType(sym) || sym.Keyword() == "feature" {
 		return false
 	}
-	for _, rel := range RelationshipsOf(sym) {
-		if rel == nil || rel.Target == nil {
-			continue
+	if sym.Recorded() {
+		if sym.Facts.Node == symbols.NodeSubject {
+			return false
 		}
-		if rel.Kind != ast.RelSubsets && rel.Kind != ast.RelRedefines {
-			continue
-		}
-		if target := m.RelationshipTarget(sym, rel); target != nil && featureOwnedByType(target) {
+		if kind, ok := sym.UsageKind(); ok && (kind == ast.UsageSubject || kind == ast.UsageObjective) {
 			return false
 		}
 	}
+	if IsSubjectUsage(sym) || sym.Keyword() == "subject" || sym.Keyword() == "objective" {
+		return false
+	}
+	if usage, ok := sym.Decl.(*ast.Usage); ok && usage.Kind == ast.UsageObjective {
+		return false
+	}
+	if _, ok := implicitMultiplicityMetaclasses[sysmlMetaclassName(sym)]; !ok {
+		return false
+	}
+	if sym.Decl == nil {
+		for _, kind := range implicitMultiplicityRelationshipKinds {
+			for _, target := range m.RecordedRelationshipTargets(sym, kind) {
+				if withholdsImplicitMultiplicity(target) {
+					return false
+				}
+			}
+		}
+	} else {
+		for _, rel := range RelationshipsOf(sym) {
+			if rel == nil || rel.Target == nil || !isImplicitMultiplicityRelationship(rel.Kind) {
+				continue
+			}
+			if withholdsImplicitMultiplicity(m.RelationshipTarget(sym, rel)) {
+				return false
+			}
+		}
+	}
 	return true
+}
+
+var implicitMultiplicityMetaclasses = map[string]struct{}{
+	"AttributeUsage":   {},
+	"EnumerationUsage": {},
+	"ItemUsage":        {},
+	"PartUsage":        {},
+	"ViewUsage":        {},
+	"RenderingUsage":   {},
+	"PortUsage":        {},
+}
+
+var implicitMultiplicityRelationshipKinds = [...]ast.RelationshipKind{
+	ast.RelSubsets,
+	ast.RelRedefines,
+	ast.RelReferences,
+	ast.RelCrosses,
+}
+
+func isImplicitMultiplicityRelationship(kind ast.RelationshipKind) bool {
+	for _, candidate := range implicitMultiplicityRelationshipKinds {
+		if kind == candidate {
+			return true
+		}
+	}
+	return false
+}
+
+func withholdsImplicitMultiplicity(target *symbols.Symbol) bool {
+	return target != nil && target.Kind != symbols.SymbolMetadataUsage && featureOwnedByType(target)
 }
 
 // featureOwnedByType reports whether a feature is owned by a definition or
@@ -260,8 +344,8 @@ func featureOwnedByType(sym *symbols.Symbol) bool {
 }
 
 // EffectiveParameterRange is the multiplicity a parameter is held to
-// (SysML v2 §7.6.3): what its redefinition chain and the features it
-// subsets declare, the implicit [1..1] where it qualifies, else [0..*].
+// (SysML v2 §7.6.3): what its redefinition chain and related features declare,
+// the implicit [1..1] where it qualifies, else [0..*].
 func (m *Model) EffectiveParameterRange(sym *symbols.Symbol) Range {
 	if sym == nil {
 		return UnboundedRange()
@@ -295,8 +379,8 @@ func (m *Model) EffectiveParameterRangeAlong(chain []*symbols.Symbol) Range {
 	return UnboundedRange()
 }
 
-// rangeWalk intersects the ranges along a redefinition chain and the features
-// each member subsets or redefines, each visited once.
+// rangeWalk intersects ranges along a redefinition chain and its relationships,
+// visiting each feature once.
 type rangeWalk struct {
 	m       *Model
 	next    map[*symbols.Symbol]*symbols.Symbol
@@ -330,16 +414,22 @@ func (w *rangeWalk) rangeOf(p *symbols.Symbol) (Range, bool) {
 	return acc, found
 }
 
-// targets lists the features p's range is read from: those it subsets or
-// redefines, then the next of the chain.
+// targets lists the related features p's range is read from, then the next of
+// the redefinition chain.
 func (w *rangeWalk) targets(p *symbols.Symbol) []*symbols.Symbol {
 	var targets []*symbols.Symbol
-	for _, rel := range RelationshipsOf(p) {
-		if rel == nil || rel.Target == nil || (rel.Kind != ast.RelSubsets && rel.Kind != ast.RelRedefines) {
-			continue
+	if p.Decl == nil {
+		for _, kind := range implicitMultiplicityRelationshipKinds {
+			targets = append(targets, w.m.RecordedRelationshipTargets(p, kind)...)
 		}
-		if target := w.m.RelationshipTarget(p, rel); target != nil {
-			targets = append(targets, target)
+	} else {
+		for _, rel := range RelationshipsOf(p) {
+			if rel == nil || rel.Target == nil || !isImplicitMultiplicityRelationship(rel.Kind) {
+				continue
+			}
+			if target := w.m.RelationshipTarget(p, rel); target != nil {
+				targets = append(targets, target)
+			}
 		}
 	}
 	if n, ok := w.next[p]; ok {

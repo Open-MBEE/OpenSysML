@@ -270,6 +270,7 @@ type scheduler struct {
 // act yet and held ones collapse into another's synchronization.
 type stepTokens struct {
 	owner   *ActionExecutor
+	scope   *actionFrame // nil for the full action flow, non-nil for a subflow.
 	step    int
 	ids     []int64
 	parked  map[int64]bool
@@ -362,6 +363,40 @@ func (ts *tokenSchedule) Choice() (alternatives []string, taken int, ok bool) {
 // giving each token its turn.
 func (s *scheduler) oneMove() bool {
 	return (s.policy.kind == scheduleExplore && s.explore != nil) || s.replay != nil || s.checking()
+}
+
+// interleavesTurns reports whether the due order is drawn again after each move of
+// an executor whose future depends on another's — under explore, a seed and a
+// replay — rather than once per turn the executor runs to quiescence.
+func (s *scheduler) interleavesTurns() bool {
+	return (s.policy.kind == scheduleExplore && s.explore != nil) || s.policy.kind == scheduleSeeded || s.replay != nil
+}
+
+// bodyYields reports how a token's body run pauses between its subperformances:
+// at every boundary where a step is one move, at drawn ones under a seed while
+// other tokens are live, at none under a fixed order.
+func (s *scheduler) bodyYields(contended bool) (yields, draws bool) {
+	if s.oneMove() {
+		return true, false
+	}
+	seeded := s.policy.kind == scheduleSeeded && contended
+	return seeded, seeded
+}
+
+// ordersStatements reports whether the run picks among the statements of a body
+// that may run next: as it picks a step's move, or by its seed; a fixed order keeps
+// declaration order.
+func (s *scheduler) ordersStatements() bool {
+	return s.oneMove() || s.policy.kind == scheduleSeeded
+}
+
+// drawYield draws whether a seeded body run for token yields at its boundary-th
+// boundary: a function of the seed and both, so the run's other draws keep their stream.
+func (s *scheduler) drawYield(token int64, boundary uint64) bool {
+	z := s.policy.seed ^ uint64(token)*0x9e3779b97f4a7c15 ^ boundary*0xbf58476d1ce4e5b9 // #nosec G115 -- the bits are hashed, not used as a count
+	z = (z ^ z>>30) * 0xbf58476d1ce4e5b9
+	z = (z ^ z>>27) * 0x94d049bb133111eb
+	return (z^z>>31)&1 == 0
 }
 
 // checking reports whether the run makes the moves the model checker selects.

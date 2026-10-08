@@ -1,0 +1,58 @@
+exit: S0
+stmt assign log
+    eval feature log -> ""
+    eval literal "T1(effect);" -> "T1(effect);"
+  eval operator + -> "T1(effect);"
+enter: S1 (entry action)
+stmt action body
+  stmt assign log
+      eval feature log -> "T1(effect);"
+      eval literal "S1(entry);" -> "S1(entry);"
+    eval operator + -> "T1(effect);S1(entry);"
+stmt assign log
+    eval feature log -> "T1(effect);S1(entry);"
+    eval literal "EP(effect);" -> "EP(effect);"
+  eval operator + -> "T1(effect);S1(entry);EP(effect);"
+enter: A2 (entry action)
+stmt action body
+  stmt assign log
+      eval feature log -> "T1(effect);S1(entry);EP(effect);"
+      eval literal "A2(entry);" -> "A2(entry);"
+    eval operator + -> "T1(effect);S1(entry);EP(effect);A2(entry);"
+transition: S0 -> A2 (event: accept Go)
+exit: A2 (exit action)
+stmt action body
+  stmt assign log
+      eval feature log -> "T1(effect);S1(entry);EP(effect);A2(entry);"
+      eval literal "A2(exit);" -> "A2(exit);"
+    eval operator + -> "T1(effect);S1(entry);EP(effect);A2(entry);A2(exit);"
+exit: S1 (exit action)
+stmt action body
+  stmt assign log
+      eval feature log -> "T1(effect);S1(entry);EP(effect);A2(entry);A2(exit);"
+      eval literal "S1(exit);" -> "S1(exit);"
+    eval operator + -> "T1(effect);S1(entry);EP(effect);A2(entry);A2(exit);S1(exit);"
+stmt assign log
+    eval feature log -> "T1(effect);S1(entry);EP(effect);A2(entry);A2(exit);S1(exit);"
+    eval literal "T2(effect);" -> "T2(effect);"
+  eval operator + -> "T1(effect);S1(entry);EP(effect);A2(entry);A2(exit);S1(exit);T2(effect);"
+enter: S0
+transition: A2 -> S0 (event: accept Back)
+exit: S0
+stmt assign log
+    eval feature log -> "T1(effect);S1(entry);EP(effect);A2(entry);A2(exit);S1(exit);T2(effect);"
+    eval literal "T3(effect);" -> "T3(effect);"
+  eval operator + -> "T1(effect);S1(entry);EP(effect);A2(entry);A2(exit);S1(exit);T2(effect);T3(effect);"
+enter: S1 (entry action)
+stmt action body
+  stmt assign log
+      eval feature log -> "T1(effect);S1(entry);EP(effect);A2(entry);A2(exit);S1(exit);T2(effect);T3(effect);"
+      eval literal "S1(entry);" -> "S1(entry);"
+    eval operator + -> "T1(effect);S1(entry);EP(effect);A2(entry);A2(exit);S1(exit);T2(effect);T3(effect);S1(entry);"
+enter: A2 (entry action)
+stmt action body
+  stmt assign log
+      eval feature log -> "T1(effect);S1(entry);EP(effect);A2(entry);A2(exit);S1(exit);T2(effect);T3(effect);S1(entry);"
+      eval literal "A2(entry);" -> "A2(entry);"
+    eval operator + -> "T1(effect);S1(entry);EP(effect);A2(entry);A2(exit);S1(exit);T2(effect);T3(effect);S1(entry);A2(entry);"
+transition: S0 -> A2 (event: accept Again)

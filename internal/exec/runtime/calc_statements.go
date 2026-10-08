@@ -71,7 +71,7 @@ func (h *calcStmtHost) attachPerformances(engine *stmtEngine) {
 		subactions: make(map[ast.Node]*actionFrame),
 		nodes:      h.shape.Nodes,
 		label:      h.shape.Label,
-		outer:      append(append([]frame{}, engine.env.enclosing...), engine.env.data),
+		outer:      append(append(append([]frame{}, engine.env.enclosing...), engine.env.data), engine.env.localFrame()),
 		run:        h.ctx.newRun(),
 	}
 	h.flow = &ActionExecutor{
@@ -130,6 +130,13 @@ func (h *calcStmtHost) declaredOutput(name string) bool {
 // assignOuter binds an output this calculation declares, and rejects any other
 // undeclared name: writing that would be an effect outside the calculation.
 func (h *calcStmtHost) assignOuter(env *stmtEnv, name string, value Value, s lower.Assign) error {
+	if env.rootDeclares(name) {
+		if err := h.ctx.checkBodyWrite(h, s, &value); err != nil {
+			return err
+		}
+		env.assignRootLocal(h.ctx, name, value)
+		return h.mirrorOccurrence(name, value)
+	}
 	if !h.declaredOutput(name) {
 		return fmt.Errorf("%w: %s is not declared by the calculation", ErrCalcExternalAssignment, name)
 	}
@@ -174,16 +181,34 @@ func calcFeatureWriter(ctx *Context, shape *calcShape, occ *calcOccurrence) func
 		if _, ok := occ.inst.FeatureValues[name]; !ok {
 			return nil
 		}
-		return occ.inst.SetFeatureValue(ctx, name, value)
+		return occ.inst.BindFeatureValue(ctx, name, value)
 	}
 }
 
 func (h *calcStmtHost) mirrorOccurrence(name string, value Value) error {
 	if h.occ != nil && h.occ.inst != nil {
 		if _, ok := h.occ.inst.FeatureValues[name]; ok {
-			return h.occ.inst.SetFeatureValue(h.ctx, name, value)
+			return h.occ.inst.BindFeatureValue(h.ctx, name, value)
 		}
 	}
+	return nil
+}
+
+// mirrorRootLocal mirrors a calc's root local into its performance occurrence.
+func (h *calcStmtHost) mirrorRootLocal(name string, value Value) error {
+	return h.mirrorOccurrence(name, value)
+}
+
+// mirrorBodyBinding keeps an occurrence feature linked to a calc body binding.
+func (h *calcStmtHost) mirrorBodyBinding(name string, cell *bodyCell, value *Value) error {
+	if h.occ == nil || h.occ.inst == nil {
+		return nil
+	}
+	mirrored, err := h.ctx.mirrorBodyCell(h.occ.inst, name, cell, *value)
+	if err != nil {
+		return err
+	}
+	*value = mirrored
 	return nil
 }
 
@@ -202,6 +227,36 @@ func (h *calcStmtHost) assignForeign(_ *EvalContext, s lower.Assign, _ Value) er
 
 // acceptReturn takes the value a `return` yields, which the result parameter
 // then holds, so it answers to that parameter's declaration.
+func (h *calcStmtHost) statementOrder(stmts []lower.Statement) *lower.StatementOrder {
+	if h.shape.performs() || len(stmts) < 2 {
+		return nil
+	}
+	key := &stmts[0]
+	if order, ok := h.shape.statementOrders.Load(key); ok {
+		order := order.(*lower.StatementOrder)
+		if h.ctx.scheduling().ordersStatements() || order.HasReversePrecedence() || order.HasSkipped() {
+			return order
+		}
+		return nil
+	}
+	order := lower.CalcBodyStatementOrder(h.shape.bodyScope(), nil, stmts)
+	actual, _ := h.shape.statementOrders.LoadOrStore(key, order)
+	order = actual.(*lower.StatementOrder)
+	if h.ctx.scheduling().ordersStatements() || order.HasReversePrecedence() || order.HasSkipped() {
+		return order
+	}
+	return nil
+}
+
+func (h *calcStmtHost) orderStep() int {
+	if h.flow != nil {
+		return h.flow.stepCount + 1
+	}
+	return h.ctx.enclosingExecutorStep()
+}
+
+func (h *calcStmtHost) yieldsBetweenStatements() bool { return false }
+
 func (h *calcStmtHost) acceptReturn(value Value, _ lower.Return) error {
 	if out := h.shape.resultOutput(); out != nil {
 		if err := out.Decl.check(h.ctx, &value, func() string { return "result" }); err != nil {
@@ -241,7 +296,11 @@ func (h *calcStmtHost) effect(_ *stmtEngine, s lower.Effect) error {
 	if !ok {
 		return fmt.Errorf("%s: 'perform' names no action to perform", h.describe())
 	}
-	_, outputs, err := invokeAction(h.ctx, s.Scope, inv, h.env.values(), h.self)
+	values, err := h.env.values(h.ctx)
+	if err != nil {
+		return fmt.Errorf("%s: %w", h.describe(), err)
+	}
+	_, outputs, err := invokeAction(h.ctx, s.Scope, inv, values, h.self)
 	if err != nil {
 		return fmt.Errorf("%s: %w", h.describe(), err)
 	}
@@ -251,8 +310,8 @@ func (h *calcStmtHost) effect(_ *stmtEngine, s lower.Effect) error {
 	}
 	sort.Strings(names)
 	for _, name := range names {
-		if !h.env.assign(name, outputs[name]) {
-			h.env.data.set(name, outputs[name])
+		if !h.env.assign(h.ctx, name, outputs[name]) {
+			h.env.data.setBody(h.ctx, name, outputs[name])
 		}
 	}
 	return nil
@@ -273,12 +332,19 @@ func (h *calcStmtHost) performNode(engine *stmtEngine, graph *lower.ActionGraph,
 		return flowNext, fmt.Errorf("%s: a binding or flow at a pin of %s in a body is not executable",
 			h.describe(), nodeDescription(node))
 	}
+	var nestedSteps []lower.Statement
+	var nestedOrder *lower.StatementOrder
 	if sub, owns := graph.Subflows[node]; owns && sub != nil {
-		return flowNext, fmt.Errorf("%s: the flow %s states of its own in a body is not executable",
-			h.describe(), nodeDescription(node))
+		var simple bool
+		nestedSteps, simple = sub.Graph.StatementList()
+		if !simple {
+			return flowNext, fmt.Errorf("%s: the flow %s states of its own in a body is not executable",
+				h.describe(), nodeDescription(node))
+		}
+		nestedOrder = graph.StatementOrders[node]
 	}
-	engine.env.enter()
-	defer engine.env.leave()
+	engine.env.enter(engine)
+	defer engine.env.leave(engine.ctx, true)
 	defer engine.enterActivation()()
 	for _, feature := range graph.Features[node] {
 		if feature.Value == nil {
@@ -289,7 +355,10 @@ func (h *calcStmtHost) performNode(engine *stmtEngine, graph *lower.ActionGraph,
 		if err != nil {
 			return flowNext, fmt.Errorf("eval %s of %s: %w", feature.Name, nodeDescription(node), err)
 		}
-		engine.env.declare(feature.Name, value)
+		engine.env.declare(engine.ctx, feature.Name, value)
+	}
+	if nestedSteps != nil {
+		return engine.runWithOrder(nestedSteps, nestedOrder)
 	}
 	return engine.run(graph.Bodies[node])
 }
@@ -297,6 +366,11 @@ func (h *calcStmtHost) performNode(engine *stmtEngine, graph *lower.ActionGraph,
 func (h *calcStmtHost) runBlockFlow(engine *stmtEngine, block lower.Block) (stmtFlow, error) {
 	if h.perfs != nil {
 		return h.perfs.performBlockFlow(h.perfs.root, engine, block)
+	}
+	if block.Stated {
+		if steps, ok := block.Graph.StatementList(); ok {
+			return engine.runWithOrder(steps, block.Order)
+		}
 	}
 	return flowNext, fmt.Errorf("%w: %s: the flow a body states in a calculation is not executable",
 		ErrStatementNotExecutable, h.describe())
@@ -314,14 +388,14 @@ func (h *calcStmtHost) setFeature(name string, value Value) error {
 // assignAround writes what a step's performance returns to the same-named value
 // of the body: an output the case declares, or a parameter or local it holds.
 func (h *calcStmtHost) assignAround(name string, value Value) (bool, error) {
-	if h.env.assignLocal(name, value) {
+	if h.env.assignLocal(h.ctx, name, value) {
 		return true, nil
 	}
 	if h.declaredOutput(name) || h.env.data.has(name) {
 		if err := h.ctx.checkNamedWrite(h.shape.bodyScope(), h.describe(), name, &value); err != nil {
 			return true, err
 		}
-		h.env.data.set(name, value)
+		h.env.data.setBody(h.ctx, name, value)
 		return true, h.mirrorOccurrence(name, value)
 	}
 	return false, nil
@@ -329,6 +403,12 @@ func (h *calcStmtHost) assignAround(name string, value Value) (bool, error) {
 
 // returnAround writes a returned output as assignAround does: a case has no caller to keep it for.
 func (h *calcStmtHost) returnAround(name string, value Value) (bool, error) {
+	if h.declaredOutput(name) || h.env.data.has(name) {
+		what := func() string { return fmt.Sprintf("%s: output %s returned", h.describe(), name) }
+		if err := h.ctx.checkMutable(h.shape.bodyScope(), what, name); err != nil {
+			return true, err
+		}
+	}
 	return h.assignAround(name, value)
 }
 
@@ -352,18 +432,13 @@ func (h *calcStmtHost) runFlow(block lower.Block) (stmtFlow, error) {
 		return flowNext, fmt.Errorf("%w: %s: a flow of steps in a body is not executable",
 			ErrStatementNotExecutable, h.describe())
 	}
-	if block.Graph.Initial == nil {
-		reason := "no step starts the flow"
-		if _, err := lower.CaseFlowStart(block.Graph); err != nil {
-			reason = err.Error()
-		}
-		return flowNext, fmt.Errorf("%w: %s: %s", ErrInvalidActionFlow, h.describe(), reason)
+	if err := lower.FlowStartError(block.Graph); err != nil {
+		return flowNext, fmt.Errorf("%w: %s: %w", ErrInvalidActionFlow, h.describe(), err)
 	}
 	root := h.flow.root
 	h.flow.graph = block.Graph
 	root.graph = block.Graph
 	root.connections = block.Graph.Connections
-	root.live = 1
 	if err := h.flow.runSubflow(root); err != nil {
 		return flowNext, err
 	}

@@ -50,11 +50,13 @@ const (
 // TextRun is one piece of paragraph or list-item text with its provenance:
 // static text carries its declaration, query-backed text its query value.
 type TextRun struct {
-	kind     RunKind
-	text     string
-	target   string
-	document string
-	origin   symbols.Origin
+	kind      RunKind
+	text      string
+	target    string
+	document  string
+	element   string
+	defaulted bool
+	origin    symbols.Origin
 }
 
 // Kind returns the classification of the run; the zero value is plain.
@@ -76,6 +78,16 @@ func (r TextRun) Target() string { return r.target }
 // TargetDocument returns the fully-qualified name of the document a
 // reference run targets, or "" when it targets its own document.
 func (r TextRun) TargetDocument() string { return r.document }
+
+// TargetElement returns the fully-qualified name of the model element a
+// reference run targets when that is neither a content block nor a document
+// — a reference no document gives an anchor — or "" when it is one.
+func (r TextRun) TargetElement() string { return r.element }
+
+// TextDefaulted reports whether a reference run's text is its target's label,
+// the run stating none: a renderer numbering its sections or figures may
+// label the target by its number instead.
+func (r TextRun) TextDefaulted() bool { return r.defaulted }
 
 // Origin returns the source declaration or query value behind the run.
 func (r TextRun) Origin() symbols.Origin { return r.origin }
@@ -158,8 +170,10 @@ type Content struct {
 	items       []ListItem
 	definitions []Definition
 	rendering   *view.Rendering
+	sites       view.Sites
 	direction   view.Direction
 	palette     view.Palette
+	ports       view.Ports
 	children    []Content
 	query       string
 	queryOrigin symbols.Origin
@@ -244,6 +258,9 @@ func (c Content) Definitions() []Definition {
 // for every other kind.
 func (c Content) Rendering() *view.Rendering { return c.rendering.Clone() }
 
+// Sites returns the source locations diagrams in this content link to.
+func (c Content) Sites() view.Sites { return c.sites }
+
 // Direction returns the stated flow direction of a diagram, empty for the
 // kind's default.
 func (c Content) Direction() view.Direction { return c.direction }
@@ -251,10 +268,14 @@ func (c Content) Direction() view.Direction { return c.direction }
 // Palette returns the stated palette of a diagram, empty for black and white.
 func (c Content) Palette() view.Palette { return c.palette }
 
+// Ports returns the stated port display of a diagram, empty for the default,
+// minimal.
+func (c Content) Ports() view.Ports { return c.ports }
+
 // Options returns what a diagram's rendering is written with: its stated
 // direction and palette.
 func (c Content) Options() view.Options {
-	return view.Options{Direction: c.direction, Palette: c.palette}
+	return view.Options{Direction: c.direction, Palette: c.palette, Ports: c.ports}
 }
 
 // Children returns the nested content of a section in declaration order.
@@ -291,8 +312,10 @@ func cloneContent(content []Content) []Content {
 			items:       child.Items(),
 			definitions: child.Definitions(),
 			rendering:   child.rendering.Clone(),
+			sites:       child.sites,
 			direction:   child.direction,
 			palette:     child.palette,
+			ports:       child.ports,
 			children:    cloneContent(child.children),
 			query:       child.query,
 			queryOrigin: child.queryOrigin,

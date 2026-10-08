@@ -41,7 +41,8 @@ func replaySchedule(
 	if err := stop.Err(); err != nil {
 		return nil, err
 	}
-	choices := w.Choices
+	runWitness, finalOrders := splitFinalOrderChoices(w)
+	choices := runWitness.Choices
 	if at != ScheduleEnd && (at < 0 || at > len(choices)) {
 		return nil, &ReplayDisagreement{
 			Reason:  fmt.Sprintf("the witness names move %d of a schedule of %d moves", at, len(choices)),
@@ -52,13 +53,13 @@ func replaySchedule(
 	if err != nil {
 		return nil, err
 	}
-	if err := ctx.SetSchedule(ReplayOf(Witness{Objects: w.Objects, Inputs: w.Inputs, DrawPolicy: w.DrawPolicy, ClockStep: w.ClockStep, Draws: w.Draws, Choices: choices})); err != nil {
+	if err := ctx.SetSchedule(ReplayOf(runWitness)); err != nil {
 		return nil, err
 	}
 	if ctx.Trace() == nil {
 		ctx.SetTrace(NewTraceRecorder())
 	}
-	r := &Replayed{Ctx: ctx}
+	r := &Replayed{Ctx: ctx, finalOrders: finalOrders}
 	run, err := beginInvocation(ctx, start)
 	if err != nil {
 		r.Err = err
@@ -135,7 +136,18 @@ func (r *Replayed) Evaluate(p CheckProperty) (bool, error) {
 // Outcome spells the run's outcome as a check reports a final state's.
 func (r *Replayed) Outcome() string {
 	defer r.Ctx.beginProbe()()
-	return r.Inv.Outcome().String()
+	if len(r.finalOrders) == 0 {
+		return r.Inv.Outcome().String()
+	}
+	c := &checker{ctx: r.Ctx, inv: r.Inv}
+	var spelled string
+	if err := r.withFinalStatementOrders(func() error {
+		_, spelled, _, _ = c.spellFinalOnce()
+		return nil
+	}); err != nil {
+		return "error: " + err.Error()
+	}
+	return spelled
 }
 
 // FinalValue spells the feature's value as the run left it, UnsetText for one holding none:
@@ -152,7 +164,13 @@ func (r *Replayed) FinalValue(feature string) (string, error) {
 	if err := c.divergeReached(); err != nil {
 		return "", err
 	}
-	values, _, _ := c.spellFinal()
+	var values map[string]string
+	if err := r.withFinalStatementOrders(func() error {
+		values, _, _, _ = c.spellFinal()
+		return nil
+	}); err != nil {
+		return "", err
+	}
 	value, held := values[c.divergenceKey(feature)]
 	if !held {
 		return "", &UnknownCheckFeatureError{Name: feature, Reason: "the run left no value under it"}

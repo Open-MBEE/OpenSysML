@@ -11,8 +11,8 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/Open-MBEE/OpenSysML/internal/ir/imagefile"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
-	"github.com/Open-MBEE/OpenSysML/internal/translate/imagefile"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/xmi/sysmlv1"
 )
 
@@ -27,6 +27,11 @@ type docPlan struct {
 	anchors []*anchor
 	// notes are the approximations the document as a whole carries.
 	notes []string
+	// refused records the steps ledgered unmapped in this document by id and
+	// note, so a looping node's passes report a step they share once.
+	refused map[string]bool
+	// target is the definition's qualified name, under which its blocks are named.
+	target string
 }
 
 // anchor is a Document's reference usage of a definition, through which a
@@ -123,6 +128,9 @@ type contentPlan struct {
 	source  *view
 	anchor  *anchor
 	section *sectionPlan
+	// runs are a Paragraph's text runs, when a cross-reference in its body
+	// is written as a reference; nil for a Paragraph of text alone.
+	runs []docRun
 	// diagram is the diagram a figure stands for, drawn, left out or refused,
 	// so a paragraph anchored to the figure finds its place.
 	diagram *sysmlv1.Diagram
@@ -187,7 +195,7 @@ func (m *migration) planDocument(d *sysmlv1.DocGenDocument) {
 	if title == "" {
 		title = "Document"
 	}
-	dp := &docPlan{d: d, host: host}
+	dp := &docPlan{d: d, host: host, refused: map[string]bool{}}
 	dp.root = &sectionPlan{v: d.Root, title: title, names: columnNames{}}
 	dp.root.name = m.viewName(host, title+docSuffix)
 	m.planSection(dp, dp.root)
@@ -493,10 +501,10 @@ func (m *migration) viewDocumentation(sec *sectionPlan) {
 		kind:          "Paragraph",
 		node:          c,
 		label:         "Comment",
-		text:          commentBody(c),
 		origin:        "the documentation of the view " + qualifiedName(v.Class),
 		documentation: true,
 	}
+	m.paragraphProse(cp, commentRawBody(c), c)
 	if !m.imageInBody(sec, cp, c, commentRawBody(c)) {
 		cp.name = sec.names.claim("paragraph")
 	}
@@ -525,7 +533,7 @@ func (m *migration) collaboratorParagraph(sec *sectionPlan, p *sysmlv1.DocGenPar
 	if p.Malformed != "" {
 		cp.refused = p.Malformed
 	} else if p.Comment != nil {
-		cp.text = commentBody(p.Comment)
+		m.paragraphProse(cp, commentRawBody(p.Comment), p.Comment)
 	}
 	switch {
 	case cp.refused != "":
@@ -762,7 +770,7 @@ func (m *migration) archivedImage(named, name string, c *sysmlv1.Element) (data 
 	}
 	ct = imagefile.ContentType(data)
 	if ct == "" {
-		return nil, "", "", named + " is not an image (content type " + imagefile.Described(data) + ")"
+		return nil, "", "", named + " is not an image (content type " + describedImageContentType(data) + ")"
 	}
 	return data, entry, ct, ""
 }
@@ -870,6 +878,10 @@ type chain struct {
 	// active are the activities being lowered, outermost first, so a
 	// recursive call is refused rather than followed.
 	active []*sysmlv1.Element
+	// perRow says the chain runs from each row of a table in turn, as a
+	// column's does: the holders are every row's elements together, so a step
+	// that spells its result from them, rather than from ctx, does not apply.
+	perRow bool
 }
 
 func (c *chain) sub() *chain {
@@ -972,7 +984,7 @@ func (c *chain) keepDiagrams(s *sysmlv1.DocGenStep, keep func(*sysmlv1.Diagram) 
 }
 
 // empty reports whether the chain has no elements to work on.
-func (c *chain) empty() bool { return c.ctx.op == "" && c.ctx.lit == "" }
+func (c *chain) empty() bool { return !c.ctx.isCall() && c.ctx.lit == "" }
 
 // idle reports whether a query step has nothing at all to transform.
 func (c *chain) idle() bool {
@@ -1038,6 +1050,8 @@ func (c *chain) step(s *sysmlv1.DocGenStep) {
 		c.collectShown(s)
 	case "CollectByAssociation":
 		c.collectAssociated(s)
+	case "CollectTypes":
+		c.collectTypes(s)
 	case "FilterByMetaclasses":
 		c.filterTypes(s, "metaclasses")
 	case "FilterByStereotypes":
@@ -1098,8 +1112,21 @@ func (c *chain) fail(s *sysmlv1.DocGenStep, why string) {
 			c.broken = "«" + c.kind(s) + "» " + qualifiedName(s.Node) + unmigrated + why
 		}
 		c.ctx = qx{}
-		c.m.report.Entries = append(c.m.report.Entries, *c.m.nodeEntry(s.Node, s.Application, Unmapped, why))
+		c.refusedEntry(s, why)
 	}
+}
+
+// refusedEntry ledgers a step unmapped once per document: the passes of a
+// looping node run the same step, and its refusal is one line however many
+// times the document meets it; another document meeting it has its own line.
+func (c *chain) refusedEntry(s *sysmlv1.DocGenStep, why string) {
+	e := c.m.nodeEntry(s.Node, s.Application, Unmapped, why)
+	key := e.ID + "\x00" + why
+	if c.dp.refused[key] {
+		return
+	}
+	c.dp.refused[key] = true
+	c.m.report.Entries = append(c.m.report.Entries, *e)
 }
 
 // abort fails a step whose effect on the source elements is unknown too.
@@ -1120,7 +1147,7 @@ func (c *chain) kind(s *sysmlv1.DocGenStep) string {
 func (c *chain) refuse(s *sysmlv1.DocGenStep, why string) {
 	cp := &contentPlan{kind: c.kind(s), node: s.Node, label: "«" + c.kind(s) + "» " + s.Node.Type, refused: why}
 	c.sec.content = append(c.sec.content, cp)
-	c.m.report.Entries = append(c.m.report.Entries, *c.m.nodeEntry(s.Node, s.Application, Unmapped, why))
+	c.refusedEntry(s, why)
 }
 
 // ready reports whether a presentation node has elements to show, refusing it
@@ -1420,6 +1447,10 @@ func (c *chain) collectAssociated(s *sysmlv1.DocGenStep) {
 		c.fail(s, "the elements it starts from are known only when the query runs, and no query operation tells a "+kind+" feature from the others")
 		return
 	}
+	if c.perRow {
+		c.fail(s, "it follows the "+kind+" attributes of each row to their types, and no query operation tells a "+kind+" feature from the others")
+		return
+	}
 	holders := c.holders
 	c.holders, c.ctx = nil, qx{}
 	var names []string
@@ -1605,7 +1636,7 @@ func (c *chain) filterTypes(s *sysmlv1.DocGenStep, tag string) {
 	if c.empty() {
 		return
 	}
-	l := &lowered{}
+	l := &lowered{perRow: c.perRow}
 	kept := c.m.typedRows(c.ctx, refs, true, false, l)
 	if l.refused != "" {
 		c.fail(s, l.refused)
@@ -1618,7 +1649,11 @@ func (c *chain) filterTypes(s *sysmlv1.DocGenStep, tag string) {
 		c.note("elements of the stereotypes specializing " + strings.Join(c.labels(refs), ", ") + " are kept too")
 	}
 	if s.Application.Tag("include") == "false" {
-		c.ctx = qcall("Except", qarg1("source", c.ctx), qarg1("exclude", kept))
+		source := c.ctx
+		if !c.perRow {
+			source = qshared(source)
+		}
+		c.ctx = qcall("Except", qarg1("source", source), qarg1("exclude", kept))
 		return
 	}
 	c.ctx = kept
@@ -1794,6 +1829,10 @@ func (c *chain) filterNames(s *sysmlv1.DocGenStep) {
 		return
 	}
 	if len(renamed) > 0 {
+		if c.perRow {
+			c.fail(s, "it keeps or drops elements by their v1 names, which differ from their v2 names, and a column's chain can only match the v2 names of each row's elements")
+			return
+		}
 		c.keepNamed(s, renamed)
 		return
 	}
@@ -2030,7 +2069,16 @@ func (c *chain) group(s *sysmlv1.DocGenStep, flows bool) {
 		return
 	}
 	if s.Application != nil && s.Application.Tag("loop") == "true" {
-		c.note("«" + c.kind(s) + "» " + qualifiedName(s.Node) + " loops over its elements one by one; the query works on them together")
+		switch {
+		case flows:
+			// A collect-and-filter chain works on each element as on all of
+			// them together, so the loop changes nothing it yields.
+		case c.unrolls():
+			c.loop(s, body, steps)
+			return
+		default:
+			c.note("«" + c.kind(s) + "» " + qualifiedName(s.Node) + " loops over its elements one by one, which are known only once the query runs; the query works on them together")
+		}
 	}
 	sub := c.sub()
 	sub.active = append(sub.active, body)
@@ -2043,6 +2091,112 @@ func (c *chain) group(s *sysmlv1.DocGenStep, flows bool) {
 	for _, n := range sub.notes {
 		c.note(n)
 	}
+}
+
+// loop unrolls a StructuredQuery that loops: its body runs once per element
+// the chain holds, that element alone its target, as DocGen does. With
+// createSections each pass is a section of its own, titled by the pass's
+// titles entry, else the element's name.
+func (c *chain) loop(s *sysmlv1.DocGenStep, body *sysmlv1.Element, steps []*sysmlv1.DocGenStep) {
+	passes := c.passes()
+	if len(passes) == 0 {
+		c.m.report.Entries = append(c.m.report.Entries, *c.m.nodeEntry(s.Node, s.Application, Mapped, c.noPasses()))
+		return
+	}
+	role := "«" + c.kind(s) + "» " + qualifiedName(s.Node) + " loops over"
+	sections := s.Application.Tag("createSections") == "true"
+	titles := s.Application.Tags["titles"]
+	for i, pass := range passes {
+		sub := c.sub()
+		sub.active = append(sub.active, body)
+		sub.roots([]sysmlv1.ElementRef{pass.ref}, role)
+		if sections {
+			title := ""
+			if i < len(titles) {
+				title = strings.TrimSpace(titles[i])
+			}
+			if title == "" {
+				title = pass.name
+			}
+			if title == "" {
+				title = c.caption(s, "Section")
+			}
+			sub.sec = c.section(s, "«"+c.kind(s)+"» "+s.Node.Type, c.title(s, title)).section
+		}
+		sub.run(steps)
+	}
+}
+
+// noPasses notes a looping node over no element: DocGen runs its body for
+// none, so nothing of the body is written.
+func (c *chain) noPasses() string {
+	why := c.none
+	if why == "" {
+		why = c.dropped
+	}
+	if why == "" {
+		return "it loops over no element, so its body is not written, as DocGen writes nothing for it"
+	}
+	return "it loops over no element: " + why + "; its body is not written, as DocGen writes nothing for it"
+}
+
+// loopPass is one element a looping node runs its body over: the ref the
+// pass's chain starts from, and the element's name, "" when it has none.
+type loopPass struct {
+	ref  sysmlv1.ElementRef
+	name string
+}
+
+// passes are the elements the chain is known to hold, diagrams first, one
+// pass of a loop each.
+func (c *chain) passes() []loopPass {
+	var ps []loopPass
+	for _, d := range c.diagrams {
+		ps = append(ps, loopPass{ref: sysmlv1.ElementRef{ID: d.ID}, name: strings.TrimSpace(d.Name)})
+	}
+	for _, h := range c.holders {
+		ps = append(ps, loopPass{ref: sysmlv1.ElementRef{ID: h.ID, Element: h}, name: strings.TrimSpace(h.Name)})
+	}
+	return ps
+}
+
+// unrolls reports whether a looping node's passes are known here: the chain's
+// elements are decided, not left to the query.
+func (c *chain) unrolls() bool {
+	return c.vague == "" && c.hazy == "" && c.broken == ""
+}
+
+// section plans a Section titled title under the current one and returns
+// its block, for a step labelled label in the ledger.
+func (c *chain) section(s *sysmlv1.DocGenStep, label, title string) *contentPlan {
+	sec := &sectionPlan{title: title, names: columnNames{}}
+	sec.name = c.sec.names.claim(title)
+	cp := &contentPlan{kind: "Section", node: s.Node, label: label, section: sec, name: sec.name}
+	c.sec.content = append(c.sec.content, cp)
+	return cp
+}
+
+// collectTypes lowers CollectTypes: the types of the current elements, the
+// classifiers the typing relationships of their v2 features lead to.
+func (c *chain) collectTypes(s *sysmlv1.DocGenStep) {
+	if c.idle() {
+		return
+	}
+	// A diagram has no type.
+	c.diagrams, c.dropped, c.none = nil, "", ""
+	if c.vague == "" && c.hazy == "" {
+		var types []*sysmlv1.Element
+		for _, h := range c.holders {
+			if t := c.m.model.Ref(h, "type"); t != nil && !containsElement(types, t) {
+				types = append(types, t)
+			}
+		}
+		c.holders = types
+	}
+	if c.empty() {
+		return
+	}
+	c.ctx = qcall("RelatedElements", qarg1("source", c.ctx), qstrs("relationshipKind", "typing"), qstrs("direction", "outgoing"), qint1("maxDepth", 1))
 }
 
 // caption is a presentation node's title: its titles tag, else its name.
@@ -2079,7 +2233,7 @@ func (c *chain) captionText(s *sysmlv1.DocGenStep, i int) string {
 	if i >= len(captions) {
 		return ""
 	}
-	return commentText(captions[i])
+	return c.m.proseText(captions[i], s.Node)
 }
 
 // captionParagraph plans the Paragraph holding a block's caption, which a
@@ -2100,6 +2254,8 @@ func (c *chain) block(s *sysmlv1.DocGenStep, kind, caption string, rows qx) *con
 }
 
 // table lowers a TableStructure: the current elements projected by columns.
+// Its loop tag changes nothing, as in DocGen, which keeps a table's loop and
+// runs none: the table lists the elements the chain holds together.
 func (c *chain) table(s *sysmlv1.DocGenStep) {
 	if !c.ready(s) {
 		return
@@ -2116,7 +2272,10 @@ func (c *chain) table(s *sysmlv1.DocGenStep) {
 	p := &projection{}
 	var notes []string
 	for _, col := range colSteps {
-		prop, expr, why := c.column(col)
+		prop, expr, colNotes, why := c.column(col)
+		for _, n := range colNotes {
+			notes = append(notes, "the column «"+c.kind(col)+"» "+qualifiedName(col.Node)+" "+n)
+		}
 		switch {
 		case why != "":
 			notes = append(notes, "the column «"+c.kind(col)+"» "+qualifiedName(col.Node)+" is not written: "+why)
@@ -2145,13 +2304,13 @@ func (c *chain) table(s *sysmlv1.DocGenStep) {
 	notes = append(notes, projectNotes...)
 	cp := c.block(s, "Table", c.title(s, c.caption(s, "Table")), project)
 	cp.notes = append(cp.notes, notes...)
-	if s.Application.Tag("loop") == "true" {
-		cp.notes = append(cp.notes, "the table loops over its elements one table each; one table lists them together")
-	}
 	if text := c.captionText(s, 0); text != "" {
 		c.captionParagraph(s, "the paragraph is the Table's caption", text)
 	}
 }
+
+// inRowOpen opens a cell expression that binds the row being rendered.
+const inRowOpen = "{ in row : "
 
 // columnExpr is a Column over a feature of the row's type.
 type columnExpr struct {
@@ -2159,57 +2318,147 @@ type columnExpr struct {
 }
 
 // column lowers one column node: a query property, or a Column reading a
-// feature of the document's classifiers, or why neither.
-func (c *chain) column(col *sysmlv1.DocGenStep) (prop string, expr columnExpr, why string) {
+// feature of the document's classifiers or computing a cell from the row, or
+// why none; notes are what the cell's lowering approximated.
+func (c *chain) column(col *sysmlv1.DocGenStep) (prop string, expr columnExpr, notes []string, why string) {
 	if col.Malformed != "" {
-		return "", expr, col.Malformed
+		return "", expr, nil, col.Malformed
 	}
 	if col.Application == nil {
-		return "", expr, "it carries no DocGen column stereotype"
+		return "", expr, nil, "it carries no DocGen column stereotype"
 	}
 	if steps, _ := c.m.model.DocGenChain(col.Node); len(steps) > 0 {
-		return "", expr, "it collects elements before reading them, which a Column does not"
+		return c.collectedColumn(col, steps)
 	}
 	switch col.Kind {
 	case "TableAttributeColumn":
 		attr, why := c.attribute(col, "desiredAttribute")
-		return attr, expr, why
+		return attr, expr, nil, why
 	case "TablePropertyColumn":
 		refs := c.m.model.TagRefs(col.Application, "desiredProperty")
 		if len(refs) == 0 {
-			return "", expr, "it names no property"
+			return "", expr, nil, "it names no property"
 		}
 		if f := refs[0].Element; f != nil {
 			if prop := requirementProperty(f); prop != "" {
-				return prop, expr, ""
+				return prop, expr, nil, ""
 			}
 		}
 		rs, unknown := c.rows()
 		if unknown != "" && monteCarloFeature(refs[0].Element) != "" {
-			return "", expr, "whether an instance the table lists records the statistic cannot be told: " + unknown
+			return "", expr, nil, "whether an instance the table lists records the statistic cannot be told: " + unknown
 		}
 		s := c.m.columnKey(sysmlv1.Column{Kind: sysmlv1.ColumnFeature, Feature: refs[0], ID: refs[0].ID}, c.dp.host, rs)
 		if s.why != "" {
-			return "", expr, s.why
+			return "", expr, nil, s.why
 		}
 		if s.path {
-			return "", columnExpr{name: c.caption(col, s.caption), argument: "path", expression: s.key}, ""
+			return "", columnExpr{name: c.caption(col, s.caption), argument: "path", expression: s.key}, nil, ""
 		}
 		c.m.expose(s.feature, "a column of a document table reads it")
 		name := c.caption(col, s.key)
 		if s.cell {
-			cell := "{ in row : " + c.m.ref(s.feature.Parent, c.dp.host) + "; row." + writeName(c.m.nameOf(s.feature)) + " ?? \"\" }"
-			return "", columnExpr{name: name, argument: "cell", expression: cell}, ""
+			cell := inRowOpen + c.m.ref(s.feature.Parent, c.dp.host) + "; row." + writeName(c.m.nameOf(s.feature)) + " ?? \"\" }"
+			return "", columnExpr{name: name, argument: "cell", expression: cell}, nil, ""
 		}
-		return "", columnExpr{name: name, argument: "expression", expression: c.m.ref(s.feature, c.dp.host) + " ?? \"\""}, ""
+		return "", columnExpr{name: name, argument: "expression", expression: c.m.ref(s.feature, c.dp.host) + " ?? \"\""}, nil, ""
 	case "TableExpressionColumn":
 		e := strings.TrimSpace(col.Application.Tag("expression"))
 		if p, ok := queryProperties[e]; ok {
-			return p, expr, ""
+			return p, expr, nil, ""
 		}
-		return "", expr, "the expression " + strconv.Quote(e) + " is not a bare query property (name, documentation, qualifiedName, owner, id)"
+		return c.expressionColumn(col, e, oclValue{text: "row", kind: c.rowKind(), single: true, variable: "row"})
 	}
-	return "", expr, "no Column stands for a «" + col.Kind + "»"
+	return "", expr, nil, "no Column stands for a «" + col.Kind + "»"
+}
+
+// expressionColumn lowers a TableExpressionColumn's OCL over self, the row
+// or what the column's chain collects from it, to a Column computing a cell.
+func (c *chain) expressionColumn(col *sysmlv1.DocGenStep, e string, self oclValue) (prop string, expr columnExpr, notes []string, why string) {
+	text, rowType, notes, err := c.m.lowerOCL(e, c.m.queryPrefix(c.dp.host), self)
+	if err != nil {
+		return "", expr, nil, "the expression " + strconv.Quote(e) + " is not lowered: " + err.Error()
+	}
+	cell := inRowOpen + rowType + "; " + text + " }"
+	return "", columnExpr{name: c.caption(col, e), argument: "cell", expression: cell}, notes, ""
+}
+
+// collectedColumn lowers a column whose own chain collects from the row
+// before reading: a Column whose cell runs the chain's query from the row and
+// reads the attribute, or the expression, of every element it yields.
+func (c *chain) collectedColumn(col *sysmlv1.DocGenStep, steps []*sysmlv1.DocGenStep) (prop string, expr columnExpr, notes []string, why string) {
+	sub := c.sub()
+	sub.ctx, sub.diagrams, sub.notes, sub.perRow = qlit("row"), nil, nil, true
+	sub.sec = &sectionPlan{names: columnNames{}}
+	sub.run(steps)
+	if sub.broken != "" {
+		return "", expr, nil, "its chain is not lowered: " + sub.broken
+	}
+	if len(sub.sec.content) > 0 {
+		return "", expr, nil, "its chain holds a «" + sub.sec.content[0].kind + "», which a column's chain does not show"
+	}
+	if sub.empty() {
+		return "", expr, nil, "its chain collects nothing a query lists"
+	}
+	prefix := c.m.queryPrefix(c.dp.host)
+	collected := oclValue{text: sub.ctx.text(prefix), kind: c.commonKind(sub.holders, sub.hazy)}
+	notes = sub.notes
+	switch col.Kind {
+	case "TableAttributeColumn":
+		attr, why := c.attribute(col, "desiredAttribute")
+		if why != "" {
+			return "", expr, nil, why
+		}
+		read := map[string]string{"name": ".name", "documentation": ".documentation"}[attr]
+		cell := inRowOpen + oclMetaclass("") + "; " + collected.text + read + " }"
+		return "", columnExpr{name: c.caption(col, attr), argument: "cell", expression: cell}, notes, ""
+	case "TableExpressionColumn":
+		e := strings.TrimSpace(col.Application.Tag("expression"))
+		prop, expr, exprNotes, why := c.expressionColumn(col, e, collected)
+		return prop, expr, append(notes, exprNotes...), why
+	case "TablePropertyColumn":
+		return "", expr, nil, "it reads a property of the elements its chain collects, which a Column reads of the row alone"
+	}
+	return "", expr, nil, "no Column stands for a «" + col.Kind + "»"
+}
+
+// rowKind is the v1 metaclass every row of the table is, "" when the rows are
+// unknown or of no common metaclass but Element.
+func (c *chain) rowKind() string {
+	rs, unknown := c.rows()
+	return c.commonKind(rs.listed, unknown)
+}
+
+// commonKind is the most specific v1 metaclass all the elements are, "" when
+// they are unknown or share only Element.
+func (c *chain) commonKind(es []*sysmlv1.Element, unknown string) string {
+	if unknown != "" || len(es) == 0 {
+		return ""
+	}
+	kind := es[0].Type
+	for _, e := range es[1:] {
+		kind = commonMetaclass(kind, e.Type)
+	}
+	if kind == "Element" {
+		return ""
+	}
+	return kind
+}
+
+// commonMetaclass is the most specific UML metaclass both a and b are.
+func commonMetaclass(a, b string) string {
+	if a == b {
+		return a
+	}
+	if is, _ := umlIsA(b, a); is {
+		return a
+	}
+	for _, s := range umlSupertypes[a] {
+		if is, _ := umlIsA(b, s); is {
+			return s
+		}
+	}
+	return "Element"
 }
 
 // list lowers a BulletedList: the current elements' names, and documentation
@@ -2263,7 +2512,8 @@ func (c *chain) paragraph(s *sysmlv1.DocGenStep) {
 		return
 	}
 	if raw := a.Tag("body"); raw != "" {
-		cp := &contentPlan{kind: "Paragraph", node: s.Node, label: "«Paragraph» " + s.Node.Type, text: commentText(raw)}
+		cp := &contentPlan{kind: "Paragraph", node: s.Node, label: "«Paragraph» " + s.Node.Type}
+		c.m.paragraphProse(cp, raw, nil)
 		if c.m.imageInBody(c.sec, cp, s.Node, raw) || cp.text != "" {
 			if cp.name == "" {
 				cp.name = c.sec.names.claim("paragraph")
@@ -2434,10 +2684,11 @@ func (m *migration) refuseFigure(sec *sectionPlan, f figureOf, d *sysmlv1.Diagra
 
 // captionParagraph plans the Paragraph holding a figure's caption, which a
 // document prints under the figure; note says whose caption it is.
-func (m *migration) captionParagraph(sec *sectionPlan, f figureOf, note, text string) {
+func (m *migration) captionParagraph(sec *sectionPlan, f figureOf, note, text string) *contentPlan {
 	cp := &contentPlan{kind: "Paragraph", node: f.node, app: f.app, label: f.label, text: text, origin: joinNotes(f.origin, note)}
 	cp.name = sec.names.claim("paragraph")
 	sec.content = append(sec.content, cp)
+	return cp
 }
 
 // noteImage plans a figure's Image block when the empty diagram's note holds
@@ -2462,8 +2713,9 @@ func (m *migration) noteImage(sec *sectionPlan, f figureOf, d *sysmlv1.Diagram) 
 		cp.alt = cp.caption
 	}
 	sec.content = append(sec.content, cp)
-	if text := commentText(d.Documentation); text != "" && !captionCovers(cp.caption, text) {
-		m.captionParagraph(sec, f, "the paragraph is the note the figure's image carries", text)
+	if text, notes := m.proseNoted(d.Documentation); text != "" && !captionCovers(cp.caption, text) {
+		note := m.captionParagraph(sec, f, "the paragraph is the note the figure's image carries", text)
+		note.notes = append(note.notes, notes...)
 	}
 	if f.text != "" {
 		m.captionParagraph(sec, f, "the paragraph is the Diagram's caption", f.text)
@@ -2504,45 +2756,68 @@ func (c *chain) noDiagrams() string {
 }
 
 // dynamicView lowers a Dynamic View node: a Section titled after it, holding
-// what its own chain produces over the current elements.
+// what its own chain produces over the current elements. One that loops is a
+// Section per element, titled by the element's name, as DocGen prints it;
+// when the elements are known only once the query runs, one Section shows
+// them together.
 func (c *chain) dynamicView(s *sysmlv1.DocGenStep) {
 	a := s.Application
 	title := strings.TrimSpace(a.Tag("title"))
 	if title == "" {
 		title = c.caption(s, "Section")
 	}
-	title = a.Tag("titlePrefix") + title + a.Tag("titleSuffix")
-	sec := &sectionPlan{title: title, names: columnNames{}}
-	sec.name = c.sec.names.claim(title)
-	cp := &contentPlan{kind: "Section", node: s.Node, label: "«Dynamic View» " + s.Node.Type, section: sec, name: sec.name}
-	c.sec.content = append(c.sec.content, cp)
+	label := "«Dynamic View» " + s.Node.Type
 	body, why := c.body(s)
+	var steps []*sysmlv1.DocGenStep
 	if why == "" {
-		var steps []*sysmlv1.DocGenStep
 		steps, why = c.m.model.DocGenChain(body)
 		if why != "" {
 			why = "its body " + qualifiedName(body) + unmigrated + why
-		} else {
-			sub := c.sub()
-			sub.sec = sec
-			sub.active = append(sub.active, body)
-			if a.Tag("loop") == "true" {
-				sub.note("the section loops over its elements one section each; one section shows them together")
-			}
-			sub.run(steps)
-			return
 		}
 	}
-	sec.refused = why
-	c.m.report.Entries = append(c.m.report.Entries, *c.m.nodeEntry(s.Node, s.Application, Unmapped, sec.refused))
+	loop := a.Tag("loop") == "true"
+	if why == "" && loop && c.unrolls() {
+		passes := c.passes()
+		if len(passes) == 0 {
+			c.m.report.Entries = append(c.m.report.Entries, *c.m.nodeEntry(s.Node, s.Application, Mapped, c.noPasses()))
+			return
+		}
+		role := "«Dynamic View» " + qualifiedName(s.Node) + " loops over"
+		for _, pass := range passes {
+			name := pass.name
+			if name == "" {
+				name = title
+			}
+			sub := c.sub()
+			sub.sec = c.section(s, label, c.title(s, name)).section
+			sub.active = append(sub.active, body)
+			sub.roots([]sysmlv1.ElementRef{pass.ref}, role)
+			sub.run(steps)
+		}
+		return
+	}
+	cp := c.section(s, label, c.title(s, title))
+	if why != "" {
+		cp.section.refused = why
+		c.m.report.Entries = append(c.m.report.Entries, *c.m.nodeEntry(s.Node, s.Application, Unmapped, why))
+		return
+	}
+	if loop {
+		cp.notes = append(cp.notes, "it loops over its elements one section each, which are known only once the query runs; one section shows them together")
+	}
+	sub := c.sub()
+	sub.sec = cp.section
+	sub.active = append(sub.active, body)
+	sub.run(steps)
 }
 
 // writeDocument writes a planned document: its queries first, then the
 // Document definition holding its sections and blocks.
 func (m *migration) writeDocument(dp *docPlan) {
-	m.writeQueries(dp.root, m.queryPrefix(dp.host))
+	m.writeQueries(dp.root, m.queryPrefix(dp.host), dp.host)
 	var notes []string
 	target := m.qualified(append(m.segments(dp.host), dp.root.name))
+	dp.target = target
 	m.inside(blockNames("Document", dp.root.names), func() {
 		m.w.block("part def "+writeName(dp.root.name)+" :> "+m.queryPrefix(dp.host)+"Document", func() {
 			m.w.line(titleRedefines + stringLiteral(dp.root.title) + ";")
@@ -2552,7 +2827,7 @@ func (m *migration) writeDocument(dp *docPlan) {
 			notes = m.writeSectionBody(dp, dp.root, target)
 		})
 	})
-	notes = append(notes, dp.notes...)
+	notes = uniqueNotes(append(notes, dp.notes...))
 	note := "the «Document» is written as a Document definition of " + strconv.Itoa(len(dp.root.children)) + " section(s)"
 	note = joinNotes(note, strings.Join(notes, "; "))
 	verdict := Mapped
@@ -2568,11 +2843,25 @@ func (m *migration) writeDocument(dp *docPlan) {
 	}
 }
 
+// uniqueNotes keeps the first of each repeated note in order: a looping node
+// writes its body once per element, and each pass repeats the body's notes.
+func uniqueNotes(notes []string) []string {
+	seen := map[string]bool{}
+	out := notes[:0]
+	for _, n := range notes {
+		if !seen[n] {
+			seen[n] = true
+			out = append(out, n)
+		}
+	}
+	return out
+}
+
 // writeQueries writes the row queries of every query-backed block under sec.
-func (m *migration) writeQueries(sec *sectionPlan, prefix string) {
+func (m *migration) writeQueries(sec *sectionPlan, prefix string, host *sysmlv1.Element) {
 	for _, cp := range m.blocks(sec) {
 		if cp.query != "" && cp.refused == "" && cp.table == nil {
-			m.writeQueryDef(cp.query, prefix, cp.rows)
+			m.writeQueryDef(cp.query, prefix, host, cp.rows)
 		}
 	}
 }
@@ -2598,6 +2887,9 @@ var libraryMembers = map[string][]string{
 	"Document":  {"title"},
 	"Section":   {"title"},
 	"Paragraph": {"text", "values"},
+	"Span":      {"text", "style"},
+	"Link":      {"text", "target"},
+	"Ref":       {"text", "target"},
 	"Table":     {"caption", "groupBy", "rows"},
 	"List":      {"style", "items"},
 	"Diagram":   {"caption", "kind", "direction", "palette", "source"},
@@ -2658,12 +2950,15 @@ func (m *migration) writeBlock(dp *docPlan, cp *contentPlan, path string) []stri
 			m.w.line(titleRedefines + stringLiteral(cp.section.title) + ";")
 			notes = m.writeSectionBody(dp, cp.section, cp.target)
 		})
-		return notes
+		return append(notes, cp.notes...)
 	case "Paragraph":
 		m.blockPart(dp.host, cp.name, "Paragraph", nil, func() {
-			if cp.query != "" {
+			switch {
+			case cp.query != "":
 				m.w.line("calc values : " + m.siblingRef(dp.host, cp.query) + ";")
-			} else {
+			case len(cp.runs) > 0:
+				m.writeRuns(dp, cp)
+			default:
 				m.w.line("attribute redefines text = " + stringLiteral(cp.text) + ";")
 			}
 		})
@@ -2782,9 +3077,10 @@ func (m *migration) blockEntry(cp *contentPlan) *Entry {
 }
 
 // reportBlock records a written block. A documentation Paragraph joins the
-// comment's own entry, since the comment is one source element; where the view
-// is placed again, the further paragraph is noted on it. Every other block is a
-// row of its own.
+// comment's own entry, since the comment is one source element — note by
+// note, as the comment's other renderings may have noted the same already;
+// where the view is placed again, the further paragraph is noted on it. Every
+// other block is a row of its own.
 func (m *migration) reportBlock(cp *contentPlan) {
 	e := m.blockEntry(cp)
 	if !cp.documentation {
@@ -2793,8 +3089,12 @@ func (m *migration) reportBlock(cp *contentPlan) {
 	}
 	if i, ok := m.indexed[cp.node.ID]; ok {
 		if t := m.report.Entries[i].Target; t != "" && t != e.Target {
-			e.Note = "also written as " + e.Target
+			m.add(cp.node, e.Verdict, e.Target, "also written as "+e.Target)
+			return
 		}
 	}
-	m.add(cp.node, e.Verdict, e.Target, e.Note)
+	m.add(cp.node, e.Verdict, e.Target, cp.origin)
+	for _, n := range cp.notes {
+		m.annotate(cp.node, n, e.Verdict == Approximated)
+	}
 }

@@ -43,7 +43,7 @@ func TestSameNamedAssociationsDeclareDistinctNames(t *testing.T) {
 		"connection def Feeds {",
 		"connection def 'Feeds 2' {",
 		"expose Sys::'Feeds 2';",
-		"ref part outlet : Valve;",
+		"ref occurrence outlet : Valve;",
 	} {
 		if !strings.Contains(out, want) {
 			t.Errorf("output lacks %q:\n%s", want, out)

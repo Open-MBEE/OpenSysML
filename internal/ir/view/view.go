@@ -5,10 +5,10 @@
 // carries it out to the tool, so everything this package produces — the text
 // form and the Mermaid form alike — is tool-defined output rather than a
 // notation the specification defines. What is read from the model is not:
-// the exposed set comes from semantics.Model.ExposedElements, connections from
-// the model's own connector information, and states and actions from the
-// lowered graphs in internal/ir/lower, never from the source text of a
-// declaration.
+// ordinary renderings use semantics.Model.ExposedElements, while a matrix opts
+// into semantics.Model.ExposedMembers; connections come from the model's own
+// connector information, and states and actions from the lowered graphs in
+// internal/ir/lower, never from the source text of a declaration.
 package view
 
 import (
@@ -24,11 +24,12 @@ import (
 )
 
 // Kind is a rendering a view can state. The kinds this package produces are
-// tree, interconnection, state, action, table and sequence; the rest are
-// recognized so that a view stating one is told it is unsupported rather than
-// rendered as something else. A rendering the standard library does not declare is carried
-// as the name the model gives it, so an error about it names what the view
-// asked for.
+// tree, interconnection, state, action, case, mixed, table, matrix, sequence
+// and the requirement, definition and package graphs a filtered GeneralView
+// presents; the rest are recognized so that a view stating one is told it is
+// unsupported rather than rendered as something else. A rendering the standard
+// library does not declare is carried as the name the model gives it, so an
+// error about it names what the view asked for.
 type Kind string
 
 const (
@@ -41,33 +42,59 @@ const (
 	KindState Kind = "state"
 	// KindAction renders the nodes and successions of exposed behaviors.
 	KindAction Kind = "action"
+	// KindCase names SysML's CaseDefinition/CaseUsage family; "usecase" would
+	// mislabel analysis and verification cases.
+	KindCase Kind = "case"
+	// KindMixed combines behavioral, case, structural, and tree content on one canvas.
+	KindMixed Kind = "mixed"
 	// KindTextual is Views::asTextualNotation, which writes the model back as
 	// notation: `sysml -convert sysml` does that, so no rendering is produced.
 	KindTextual Kind = "textual"
 	// KindTable renders the exposed elements as rows of a table, which is
-	// Views::asElementTable and StandardViewDefinitions::GridView.
+	// Views::asElementTable and an unfiltered StandardViewDefinitions::GridView.
 	KindTable Kind = "table"
+	// KindMatrix renders the relationships selected by a filtered GridView.
+	KindMatrix Kind = "matrix"
 	// KindSequence renders exposed occurrences as lifelines and the flows
 	// between them as ordered messages, which is
 	// StandardViewDefinitions::SequenceView.
 	KindSequence Kind = "sequence"
+	// KindTimeline renders a run's trace as each object machine's states over
+	// clock time; no view states it.
+	KindTimeline Kind = "timeline"
 	// KindGeometry is StandardViewDefinitions::GeometryView.
 	KindGeometry Kind = "geometry"
+	// KindRequirement renders exposed requirements as nodes and the
+	// relationships between them and what satisfies, verifies, derives, refines
+	// or is allocated to them as edges: a GeneralView filtered to requirements.
+	KindRequirement Kind = "requirement"
+	// KindDefinition renders exposed definitions and usages as nodes and their
+	// specialization, typing, composition and reference as edges: a GeneralView
+	// filtered to definitions and usages.
+	KindDefinition Kind = "definition"
+	// KindPackage renders exposed packages as nodes and their containment and
+	// imports as edges: a GeneralView filtered to packages.
+	KindPackage Kind = "package"
 )
 
 // Kinds returns every rendering kind this package recognizes, supported or not.
 func Kinds() []Kind {
-	return []Kind{KindTree, KindInterconnection, KindState, KindAction, KindTextual, KindTable, KindSequence, KindGeometry}
+	return []Kind{KindTree, KindInterconnection, KindState, KindAction, KindCase, KindMixed, KindTextual, KindTable, KindMatrix, KindSequence, KindGeometry,
+		KindRequirement, KindDefinition, KindPackage}
 }
 
 // Supported reports whether this package produces a rendering of the kind.
 func (k Kind) Supported() bool {
 	switch k {
-	case KindTree, KindInterconnection, KindState, KindAction, KindTable, KindSequence:
+	case KindTree, KindInterconnection, KindState, KindAction, KindCase, KindMixed, KindTable, KindMatrix, KindSequence,
+		KindRequirement, KindDefinition, KindPackage:
 		return true
 	}
 	return false
 }
+
+// Tabular reports whether k is rendered as rows and columns.
+func (k Kind) Tabular() bool { return k == KindTable || k == KindMatrix }
 
 // article is the indefinite article the kind reads with, so a message says "an
 // action rendering" rather than "a action rendering".
@@ -127,6 +154,9 @@ type Renderer struct {
 	text     SourceText
 	// treeDepthBound overrides the containment depth bound when set; tests only.
 	treeDepthBound int
+	// verdicts overlays verification verdicts on a requirement rendering; nil
+	// draws it structurally.
+	verdicts Verdicts
 }
 
 // NewRenderer returns a renderer over the model and resolver of a loaded
@@ -149,6 +179,37 @@ const (
 	EdgeFlow
 	// EdgeBinding is a binding equating two features.
 	EdgeBinding
+	// EdgeSpecialization is a specialization, subsetting or redefinition, from
+	// the specific element to the general one.
+	EdgeSpecialization
+	// EdgeTyping is a feature typing, from a usage to its definition.
+	EdgeTyping
+	// EdgeComposition is a composite usage, from its owner to it; in a case
+	// diagram, a case contained in another.
+	EdgeComposition
+	// EdgeReference is a referential usage, from its owner to it; in a case or
+	// mixed diagram, a performing or exhibiting usage to its target.
+	EdgeReference
+	// EdgeContainment is a package owning another, from the owner.
+	EdgeContainment
+	// EdgeImport is a package's import, from the importing package.
+	EdgeImport
+	// EdgeSatisfy is a satisfy relationship, from the satisfying element.
+	EdgeSatisfy
+	// EdgeVerify is a verification case verifying a requirement.
+	EdgeVerify
+	// EdgeDerive is a requirement derivation, from the derived requirement.
+	EdgeDerive
+	// EdgeRefine is a refinement dependency, from the refining element.
+	EdgeRefine
+	// EdgeAllocate is an allocation, from the allocated element.
+	EdgeAllocate
+	// EdgeAssociation connects an actor or subject to a case.
+	EdgeAssociation
+	// EdgeInclude includes one case in another.
+	EdgeInclude
+	// EdgeAnchor attaches an objective to a case.
+	EdgeAnchor
 )
 
 // String names an edge kind the way the notation speaks of it.
@@ -164,6 +225,34 @@ func (k EdgeKind) String() string {
 		return "flow"
 	case EdgeBinding:
 		return "binding"
+	case EdgeSpecialization:
+		return "specialization"
+	case EdgeTyping:
+		return "typing"
+	case EdgeComposition:
+		return "composition"
+	case EdgeReference:
+		return "reference"
+	case EdgeContainment:
+		return "containment"
+	case EdgeImport:
+		return "import"
+	case EdgeSatisfy:
+		return "satisfy"
+	case EdgeVerify:
+		return "verify"
+	case EdgeDerive:
+		return "derive"
+	case EdgeRefine:
+		return "refine"
+	case EdgeAllocate:
+		return "allocate"
+	case EdgeAssociation:
+		return "association"
+	case EdgeInclude:
+		return "include"
+	case EdgeAnchor:
+		return "anchor"
 	}
 	return "edge"
 }
@@ -215,18 +304,29 @@ type Node struct {
 	// positions it in this view; nil leaves the placement to the writer.
 	Geometry *Geometry
 	// Style is how the element is drawn, from the Style annotation colouring it
-	// in this view; nil leaves the look to the drawing style.
+	// in this view, or from its verdict; nil leaves the look to the drawing style.
 	Style *Style
+	// Verdict is the worst verdict of the verification cases verifying a
+	// requirement, when the rendering overlays them: pass, inconclusive, fail or
+	// error. Empty when none is overlaid.
+	Verdict string
+	// verdictStyled marks a Style taken from the Verdict, not from the model.
+	verdictStyled bool
 }
 
 // Port is a feature drawn on a node's border: an input or output pin of an
-// action, which an object flow ends at.
+// action, which an object flow ends at, or a port a part has from its
+// definition, which a connector ends at.
 type Port struct {
 	// ID identifies the port within its rendering, and is what an edge names.
 	ID string
 	// Name is the pin's name, as the notation writes it.
 	Name string
-	// Direction is the pin's direction: `in`, `out` or `inout`.
+	// Type is the port's declared type as the notation writes it, `~T` for a
+	// conjugated one; empty for a pin, whose type the flow's label carries.
+	Type string
+	// Direction is the pin's direction: `in`, `out` or `inout`; PortUndirected
+	// for a part's port, whose features carry the directions.
 	Direction PortDirection
 	// Origin is where the pin was declared, the zero Origin for one with no
 	// locatable declaration.
@@ -243,17 +343,29 @@ const (
 	PortOut
 	// PortInOut does both.
 	PortInOut
+	// PortUndirected has no direction of its own: a part's port.
+	PortUndirected
 )
 
-// String writes a port direction as the notation does.
+// String writes a port direction as the notation does, "" for none.
 func (d PortDirection) String() string {
 	switch d {
 	case PortOut:
 		return "out"
 	case PortInOut:
 		return "inout"
+	case PortUndirected:
+		return ""
 	}
 	return "in"
+}
+
+// label is the text a port is drawn with: its name, and its type where it has one.
+func (p Port) label() string {
+	if p.Type == "" {
+		return p.Name
+	}
+	return p.Name + " : " + p.Type
 }
 
 // Edge joins two nodes of a rendering.
@@ -286,9 +398,8 @@ type Edge struct {
 	openFrom, openTo bool
 }
 
-// Rendering is what a view renders to: the nodes and edges of one artifact,
-// which Text and Mermaid write out. It is a value, not a live view of the
-// model: nothing in it points back into the AST.
+// Rendering is what a view or run renders to. It is a value, not a live view of
+// the model: nothing in it points back into the AST.
 type Rendering struct {
 	// View is the rendered view, by qualified name as the notation writes it.
 	View string
@@ -298,6 +409,10 @@ type Rendering struct {
 	// the standard view definition it specializes, or "" when the view states
 	// nothing and the default was used.
 	Stated string
+	// Run marks a rendering of a run's trace rather than of a view.
+	Run bool
+	// RunUntil is the clock instant through which a run rendering was recorded.
+	RunUntil float64
 	// Roots are the top-level nodes, in the order the view exposes them.
 	Roots []*Node
 	// Edges join nodes, in the order the model and the lowered graphs give them.
@@ -308,6 +423,9 @@ type Rendering struct {
 	// Rows are the rows of a tabular rendering, each holding one cell per
 	// column, in the order the view exposes the elements.
 	Rows [][]string
+	// Lanes are a timeline's object machines, in the order the run first
+	// recorded them.
+	Lanes []Lane
 	// RowOrigins is where each row's element was declared, one entry per row.
 	RowOrigins []Origin
 	// Canvas is the drawing surface the view states, nil for a view stating
@@ -325,14 +443,53 @@ type Rendering struct {
 	// lower.
 	Notices []string
 
+	emptyReason string
 	// drawn collects the elements drawn while rendering, nil when no one asked.
 	drawn *Drawn
+	// sites records, while a tree renders, what each of its nodes draws; nil
+	// once its edges are drawn and for every other kind.
+	sites map[*Node]treeSite
 }
 
-// Empty reports whether the rendering has nothing to show: no node, edge,
-// row or picture.
+// Lane is one object machine in a run timeline.
+type Lane struct {
+	ID   string
+	Name string
+	// Origin is where the lane's state machine was declared.
+	Origin      Origin
+	Spans       []Span
+	Transitions []LaneTransition
+	Marks       []Mark
+}
+
+// Span is a state's occupancy of a lane over clock time.
+type Span struct {
+	State string
+	// Origin is where the one state shown by the span was declared.
+	Origin   Origin
+	From, To float64
+	Triggers []string
+	Through  []string
+	Open     bool
+}
+
+// LaneTransition is a transition recorded at an instant in a lane.
+type LaneTransition struct {
+	At       float64
+	From, To string
+	Event    string
+}
+
+// Mark is a choice or guard record attached to a lane at an instant.
+type Mark struct {
+	At   float64
+	Kind string
+	Text string
+}
+
+// Empty reports whether the rendering has nothing to show.
 func (r *Rendering) Empty() bool {
-	return len(r.Roots) == 0 && len(r.Edges) == 0 && len(r.Rows) == 0 && len(r.Pictures) == 0
+	return len(r.Roots) == 0 && len(r.Edges) == 0 && len(r.Rows) == 0 && len(r.Pictures) == 0 && len(r.Lanes) == 0
 }
 
 // Positioned reports whether a Layout or Route places some node of a
@@ -356,7 +513,12 @@ func (r *Renderer) render(view *symbols.Symbol, drawn *Drawn) (*Rendering, error
 	if err != nil {
 		return nil, err
 	}
-	exposed, err := r.model.ExposedElements(view)
+	var exposed []*symbols.Symbol
+	if kind == KindMatrix {
+		exposed, err = r.model.ExposedMembers(view)
+	} else {
+		exposed, err = r.model.ExposedElements(view)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -370,21 +532,29 @@ func (r *Renderer) render(view *symbols.Symbol, drawn *Drawn) (*Rendering, error
 		r.renderStates(view, exposed, out)
 	case KindAction:
 		r.renderActions(view, exposed, out)
+	case KindCase:
+		r.renderCase(view, exposed, out)
+	case KindMixed:
+		r.renderMixed(view, exposed, out)
 	case KindTable:
 		r.renderTable(view, exposed, out)
+	case KindMatrix:
+		r.renderMatrix(exposed, r.matrixShownKinds(view), false, out)
 	case KindSequence:
 		r.renderSequence(exposed, out)
+	case KindRequirement, KindDefinition, KindPackage:
+		r.renderGeneral(view, exposed, out)
 	default:
 		// Unreachable: KindOf refuses an unsupported kind.
 		return nil, &UnsupportedKindError{Kind: kind, View: r.notationName(view), Stated: stated}
 	}
 	switch kind {
-	case KindTree, KindInterconnection, KindState, KindAction:
+	case KindTree, KindInterconnection, KindState, KindAction, KindCase, KindMixed, KindRequirement, KindDefinition, KindPackage:
 		// The graph-shaped kinds are drawn on a canvas; a table or sequence is not.
 		out.Canvas = r.canvasOf(view, out)
 		r.notesOf(view, view, "", out)
 		r.picturesOf(view, out)
-	case KindTable, KindSequence:
+	case KindTable, KindMatrix, KindSequence:
 		r.undrawnPicturesOf(view, out)
 	}
 	return out, nil
@@ -406,10 +576,18 @@ func (r *Renderer) RenderExposed(exposed []*symbols.Symbol, kind Kind, stated st
 		r.renderStates(nil, exposed, out)
 	case KindAction:
 		r.renderActions(nil, exposed, out)
+	case KindCase:
+		r.renderCase(nil, exposed, out)
+	case KindMixed:
+		r.renderMixed(nil, exposed, out)
 	case KindTable:
 		r.renderTable(nil, exposed, out)
+	case KindMatrix:
+		r.renderMatrix(exposed, allMatrixKinds(), true, out)
 	case KindSequence:
 		r.renderSequence(exposed, out)
+	case KindRequirement, KindDefinition, KindPackage:
+		r.renderGeneral(nil, exposed, out)
 	default:
 		return nil, &UnsupportedKindError{Kind: kind, Stated: stated, Remedy: remedyFor(kind)}
 	}
@@ -428,7 +606,7 @@ func (r *Renderer) KindOf(view *symbols.Symbol) (Kind, string, error) {
 	if err != nil {
 		return "", "", err
 	}
-	definitionKind, definitionStated := r.viewDefinitionKind(view)
+	definitionKind, definitionStated, definition := r.viewDefinitionKind(view)
 	for _, rendering := range renderings {
 		kind, ok := r.renderingKind(rendering)
 		if !ok {
@@ -451,6 +629,14 @@ func (r *Renderer) KindOf(view *symbols.Symbol) (Kind, string, error) {
 		return kind, stated, nil
 	}
 	if definitionKind != "" {
+		if definition != nil && r.fqn(definition) == viewDefinitionsPackage+"GridView" {
+			if shown := r.matrixShownKinds(view); len(shown) != 0 {
+				return KindMatrix, definitionStated, nil
+			}
+		}
+		if general, filter, ok := r.generalSpecialization(view); ok {
+			return general, fmt.Sprintf("%s, filter %s", definitionStated, filter), nil
+		}
 		if !definitionKind.Supported() {
 			return "", "", &UnsupportedKindError{
 				Kind: definitionKind, View: r.notationName(view), Stated: definitionStated, Remedy: remedyFor(definitionKind),
@@ -477,7 +663,18 @@ func remedyFor(kind Kind) string {
 const (
 	renderingsPackage      = "Views::"
 	viewDefinitionsPackage = "StandardViewDefinitions::"
+	toolRenderingsPackage  = "OpenSysMLRenderings::"
 )
+
+var toolRenderings = map[string]Kind{
+	"asCaseDiagram":  KindCase,
+	"asMixedDiagram": KindMixed,
+}
+
+var toolViewDefinitions = map[string]Kind{
+	"CaseView":  KindCase,
+	"MixedView": KindMixed,
+}
 
 // standardRenderings maps the renderings Views declares, and the rendering
 // definitions they are typed by, to the kind each asks for. An abstract base
@@ -533,6 +730,9 @@ func (r *Renderer) renderingKind(rendering semantics.ViewRendering) (Kind, bool)
 		return Kind(rendering.Ref), true
 	}
 	for _, sym := range append([]*symbols.Symbol{rendering.Rendering}, r.model.AllSupertypes(rendering.Rendering)...) {
+		if kind, known := standardKind(toolRenderings, toolRenderingsPackage, r.fqn(sym)); known {
+			return kind, true
+		}
 		kind, known := standardKind(standardRenderings, renderingsPackage, r.fqn(sym))
 		if !known {
 			continue
@@ -549,13 +749,16 @@ func (r *Renderer) renderingKind(rendering semantics.ViewRendering) (Kind, bool)
 // specializes presents, and how it says so. The nearest supertype decides, so a
 // StateTransitionView is a state rendering and not the interconnection view it
 // in turn specializes.
-func (r *Renderer) viewDefinitionKind(view *symbols.Symbol) (Kind, string) {
+func (r *Renderer) viewDefinitionKind(view *symbols.Symbol) (Kind, string, *symbols.Symbol) {
 	for _, sym := range append([]*symbols.Symbol{view}, r.model.AllSupertypes(view)...) {
+		if kind, ok := standardKind(toolViewDefinitions, toolRenderingsPackage, r.fqn(sym)); ok {
+			return kind, "view def " + sym.Name, sym
+		}
 		if kind, ok := standardKind(standardViewDefinitions, viewDefinitionsPackage, r.fqn(sym)); ok {
-			return kind, "view def " + sym.Name
+			return kind, "view def " + sym.Name, sym
 		}
 	}
-	return "", ""
+	return "", "", nil
 }
 
 // nodeIDs hands out the identities a rendering's nodes are named by, which the
@@ -619,7 +822,7 @@ func declKind(sym *symbols.Symbol) string {
 // `part engine : Engine`, "~Port" of `port p : ~Port`, "A, B" of
 // `feature f typed by A, B`), empty for a declaration stating none.
 func declType(sym *symbols.Symbol) string {
-	return typingOf(semantics.RelationshipsOf(sym))
+	return typingOf(viewRelationshipsOf(sym))
 }
 
 // declTypings are the qualified names, as the notation writes them, of the

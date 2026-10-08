@@ -39,7 +39,9 @@
             "render_document",
             "schedule",
             "performer",
-            "engines"
+            "engines",
+            "big_int_values",
+            "rational_values"
           ]
         }
       }

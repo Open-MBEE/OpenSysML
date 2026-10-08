@@ -1,10 +1,42 @@
+---
+config:
+  fontFamily: "Helvetica, Arial, sans-serif"
+  theme: base
+  themeVariables:
+    fontFamily: "Helvetica, Arial, sans-serif"
+    fontSize: "14px"
+    primaryColor: "#FFFFFF"
+    secondaryColor: "#FFFFFF"
+    tertiaryColor: "#FFFFFF"
+    background: "#FFFFFF"
+    primaryBorderColor: "#181818"
+    primaryTextColor: "#000000"
+    lineColor: "#181818"
+    textColor: "#000000"
+    noteBkgColor: "#FEFFDD"
+    noteBorderColor: "#181818"
+    noteTextColor: "#000000"
+    actorBkg: "#FFFFFF"
+    actorBorder: "#181818"
+    actorTextColor: "#000000"
+    actorLineColor: "#181818"
+    signalColor: "#181818"
+    signalTextColor: "#000000"
+    labelBoxBkgColor: "#FFFFFF"
+    labelBoxBorderColor: "#181818"
+    labelTextColor: "#000000"
+    loopTextColor: "#000000"
+    activationBorderColor: "#181818"
+    activationBkgColor: "#FFFFFF"
+    sequenceNumberColor: "#000000"
+---
 %% NoticeViews::handshakeView — sequence rendering (view def SequenceView)
 %% not represented: attribute def Kit::Level has no place in a sequence rendering; it is not shown
 %% not represented: a connect in Talk::Handshake states no direction; a sequence rendering shows directed messages only
 %% not represented: message pending states no source and target; no message is drawn
 %% not represented: message adrift attaches to monitor.tapped, which is on no lifeline the rendering shows; no message is drawn
 sequenceDiagram
-  participant n0 as caller<br>«part»
-  participant n1 as callee<br>«part»
+  participant n0 as «part»<br>caller
+  participant n1 as «part»<br>callee
   n0->>n0: echo
   n0->>n1: of Ping

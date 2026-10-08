@@ -14,6 +14,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/exec/objref"
 	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/protoconv"
+	"github.com/Open-MBEE/OpenSysML/internal/frontend/symbolfacts"
 	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
@@ -90,21 +91,20 @@ const decideFailed = "deciding the signal failed: %v"
 // schedule's due order decides which consumes it.
 type SessionAcceptance struct {
 	// Accepted reports whether a transition of a taking machine is triggered by
-	// the signal, whatever its guard; a deferral alone does not set it.
+	// the signal, whatever its guard.
 	Accepted bool
 	Fires    []SessionTransition
-	Deferred bool
 	Resumes  []string
 }
 
 // Enabled reports whether dispatching the signal would do something with it:
-// fire, defer or resume.
+// fire or resume.
 func (a SessionAcceptance) Enabled() bool {
-	return len(a.Fires) > 0 || a.Deferred || len(a.Resumes) > 0
+	return len(a.Fires) > 0 || len(a.Resumes) > 0
 }
 
 // Taken reports whether a machine of the object would take the signal at all,
-// be it to fire, defer, resume, or drop it because every guard is false.
+// be it to fire, resume, or drop it because every guard is false.
 func (a SessionAcceptance) Taken() bool {
 	return a.Accepted || a.Enabled()
 }
@@ -264,7 +264,11 @@ func (ss *Session) FeatureValue(object int64, feature string) (*pb.FeatureValue,
 		}
 		return out, nil
 	}
-	for _, elem := range objref.CollectionElements(fv.Values) {
+	elements, err := objref.CollectionElements(ss.rt, fv.Values)
+	if err != nil {
+		return nil, err
+	}
+	for _, elem := range elements {
 		out.Values = append(out.Values, ss.svc.valueToProto(ss.rt, elem, ss.cached.Index))
 	}
 	return out, nil
@@ -465,7 +469,6 @@ func (ss *Session) decide(machines []*runtime.StateExecutor, msg runtime.Message
 		for _, trans := range transitions {
 			out.Fires = append(out.Fires, transitionFact(trans))
 		}
-		out.Deferred = out.Deferred || decision.Deferred
 		out.Resumes = append(out.Resumes, decision.Resumes...)
 	}
 	return out, nil
@@ -488,7 +491,7 @@ func (ss *Session) Send(object int64, signalID string, args map[string]*pb.Value
 		return nil, err
 	}
 	if !acceptance.Taken() {
-		return nil, statusErrorf(connect.CodeFailedPrecondition, "no active state accepts or defers %s", signalID)
+		return nil, statusErrorf(connect.CodeFailedPrecondition, "no active state accepts %s", signalID)
 	}
 	if !acceptance.Enabled() {
 		return nil, statusErrorf(connect.CodeFailedPrecondition, "the active states accept %s but no guard on it holds", signalID)
@@ -673,7 +676,7 @@ func (ss *Session) diagnostics(notes []runtime.RunNote) []*pb.Diagnostic {
 
 // declared resolves a symbol id in the session's model.
 func (ss *Session) declared(symbolID string) (*symbols.Symbol, error) {
-	syms := lookupNamed(ss.cached.Index, symbolID)
+	syms := symbolfacts.LookupNamed(ss.cached.Index, symbolID)
 	if len(syms) == 0 {
 		return nil, sessionFailuref("symbol not found: %s", symbolID)
 	}

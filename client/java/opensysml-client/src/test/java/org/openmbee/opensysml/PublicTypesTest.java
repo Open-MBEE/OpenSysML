@@ -208,6 +208,20 @@ class PublicTypesTest {
   }
 
   @Test
+  void aRationalMeetsARealAtRealPrecision() {
+    Value third = new Value.RationalValue(Rational.of(1, 3));
+    assertTrue(third.sameValue(new Value.RealValue(1.0 / 3.0)));
+    assertTrue(new Value.RealValue(1.0 / 3.0).sameValue(third));
+    assertFalse(third.sameValue(new Value.RealValue(0.3333)));
+    assertFalse(
+        third.sameValue(
+            new Value.RationalValue(Rational.of(6004799503160661L, 18014398509481984L))));
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> new Value.SetValue(List.of(third, new Value.RealValue(1.0 / 3.0))));
+  }
+
+  @Test
   void aNullAndTheEmptyCollectionsAreOneMember() {
     Value one = new Value.IntegerValue(1);
 
@@ -585,7 +599,24 @@ class PublicTypesTest {
                 "unresolved",
                 Optional.of(new Diagnostic.Span("model.sysml", 2, 3, 2, 8))),
             new Diagnostic(Diagnostic.Severity.WARNING, "unlocated", "", Optional.empty()));
-    ModelException original = new ModelException("rejected", diagnostics);
+    DocumentValue.DocumentEvent event =
+        new DocumentValue.DocumentEvent(
+            "entry",
+            new DocumentValue.RealValue(1.5),
+            "enter: active",
+            Optional.empty(),
+            "Machine",
+            "active",
+            "",
+            "",
+            Optional.empty(),
+            "",
+            List.of(),
+            List.of(),
+            "");
+    ModelException original =
+        new ModelException(
+            "rejected", FailureReason.UNSPECIFIED, diagnostics, List.of(event), 2);
 
     ByteArrayOutputStream bytes = new ByteArrayOutputStream();
     try (ObjectOutputStream output = new ObjectOutputStream(bytes)) {
@@ -595,6 +626,8 @@ class PublicTypesTest {
         new ObjectInputStream(new ByteArrayInputStream(bytes.toByteArray()))) {
       ModelException restored = (ModelException) input.readObject();
       assertEquals(original.getMessage(), restored.getMessage());
+      assertEquals(List.of(event), restored.trace());
+      assertEquals(2, restored.traceDropped());
       List<Diagnostic> restoredDiagnostics = restored.diagnostics();
       Diagnostic first = diagnostics.get(0);
       assertEquals(diagnostics, restoredDiagnostics);
@@ -877,6 +910,80 @@ class PublicTypesTest {
           assertThrows(CapabilityException.class, () -> model.applyEdits(edits));
       assertEquals(capability, refused.capability());
     }
+  }
+
+  @Test
+  void migrationOptionsCarryTheCompanionFlags() {
+    MigrationOptions defaults = MigrationOptions.defaults();
+    assertTrue(defaults.fromFormat().isEmpty());
+    assertFalse(defaults.report());
+    assertFalse(defaults.results());
+    assertTrue(defaults.layoutFile().isEmpty());
+    assertTrue(defaults.layoutContent().isEmpty());
+    assertEquals("", defaults.imageBaseUrl());
+    assertFalse(defaults.strict());
+
+    MigrationOptions asked =
+        defaults
+            .withFromFormat("mdzip")
+            .withReport(true)
+            .withResults(true)
+            .withLayoutFile(java.nio.file.Path.of("Model_mtip.xml"))
+            .withImageBaseUrl("https://img/")
+            .withStrict(true);
+    assertEquals(java.util.Optional.of("mdzip"), asked.fromFormat());
+    assertTrue(asked.report() && asked.results() && asked.strict());
+    assertEquals(java.util.Optional.of(java.nio.file.Path.of("Model_mtip.xml")), asked.layoutFile());
+    assertEquals("https://img/", asked.imageBaseUrl());
+    // A layout is a file or inline content; naming one drops the other.
+    MigrationOptions inline = asked.withLayoutContent("<mtip/>");
+    assertTrue(inline.layoutFile().isEmpty());
+    assertEquals(java.util.Optional.of("<mtip/>"), inline.layoutContent());
+    java.util.Optional<String> noFormat = java.util.Optional.empty();
+    java.util.Optional<java.nio.file.Path> layoutFile =
+        java.util.Optional.of(java.nio.file.Path.of("l.xml"));
+    java.util.Optional<String> layoutContent = java.util.Optional.of("<mtip/>");
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> new MigrationOptions(noFormat, false, false, layoutFile, layoutContent, "", false));
+  }
+
+  @Test
+  void aMigrationReportAccountsByVerdict() {
+    MigrationEntry mapped = new MigrationEntry("_a", "Class", "P::A", "A", "mapped", "");
+    MigrationEntry unmapped =
+        new MigrationEntry("_u", "«Unit» InstanceSpecification", "P::kg", "", "unmapped", "units");
+    MigrationReport report =
+        new MigrationReport(
+            "Model.xmi",
+            "MagicDraw",
+            "migrated 2 element(s): 1 mapped, 0 approximated, 1 unmapped",
+            1,
+            0,
+            1,
+            0,
+            new java.util.ArrayList<>(List.of(mapped, unmapped)),
+            "");
+    assertEquals(List.of(mapped), report.byVerdict("mapped"));
+    assertEquals(List.of(unmapped), report.byVerdict("unmapped"));
+    assertEquals(List.of(), report.byVerdict("skipped"));
+    List<MigrationEntry> entries = report.entries();
+    assertThrows(UnsupportedOperationException.class, () -> entries.add(mapped));
+
+    byte[] png = {(byte) 0x89, 'P', 'N', 'G'};
+    java.util.Map<String, byte[]> files = new java.util.LinkedHashMap<>();
+    files.put("images/a.png", png);
+    Migration migration =
+        new Migration("part def A;", "xmi", "sysml", "experimental", report, "", files);
+    png[0] = 0;
+    assertEquals((byte) 0x89, migration.files().get("images/a.png")[0], "files are copied");
+    migration.files().get("images/a.png")[0] = 0;
+    assertEquals(
+        (byte) 0x89, migration.files().get("images/a.png")[0], "files are copied on the way out");
+    java.util.Map<String, byte[]> copied = migration.files();
+    byte[] empty = new byte[0];
+    assertThrows(UnsupportedOperationException.class, () -> copied.put("other", empty));
+    assertEquals(report, migration.report());
   }
 
   @Test

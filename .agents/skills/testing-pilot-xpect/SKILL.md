@@ -62,6 +62,13 @@ elsewhere 42` (silence 8), `warnings` `rows 113 | agree 99 | same-line 7 | sever
 `noErrors` falling 254 → 248 is wave 10E's unavoidable cost, not a regression to chase: the six
 visibility fixtures declare file-wide silence and the protected-import errors at once, so no
 implementation satisfies both.
+After the part-definition rule (`validatePartUsagePartDefinition`) and the unresolved-reference
+import hint landed, re-recorded 2026-10-01: `1293 agree (of which 248 wording-only), 33 disagree,
+0 unlocated, 0 not adjudicated`, per-suite kerml 948/20 and sysml 345/13, `noErrors` `262 / 276`;
+the three new `noErrors` rows are `IndividualTest`, `ItemTest` and `validation/valid/PartUsage`
+(`A part must be typed by at least one part definition.`), and 16 kerml wording-only `errors` rows changed only
+their recorded `ours` text (the hint). `pilot-xpect -check` now also runs in `pr.yml`
+(`xpect-oracle`), so a verdict movement fails the pull request rather than the next nightly run.
 Read the live totals from the baseline rather than this paragraph; it is an anchor, not the check.
 
 **`wording-only` is a verdict, not a tolerance.** `tools/referee/xpect/wording.go` admits a row into
@@ -416,8 +423,8 @@ census in `w5c_census_test.go` is live two ways: perturb one pinned triple (e.g.
 ## Regression neighbour
 
 `go run -C tools ./cmd/pilot-diff` (~1m12s) must still print the headline the *committed* baseline holds —
-at the `2026-08` pin that is `380 file(s), 345 fully agreeing; 38 agreed diagnostic(s), 41
-only ours, 1614 only the pilot's`. Read the number out of
+at the `2026-08` pin that is `391 file(s), 353 fully agreeing; 45 agreed diagnostic(s), 282
+only ours, 92 only the pilot's`. Read the number out of
 `docs/project/pilot-differential-baseline.json` rather than trusting this line, since a landing fix
 round moves it. When the baseline is itself stale (it was at `19a3ce03`, holding 273 / 281 / 317), a
 failing `cmp` against it is *not* evidence of an Xpect regression — compare the summary line, and see

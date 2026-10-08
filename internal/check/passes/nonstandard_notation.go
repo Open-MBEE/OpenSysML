@@ -2,10 +2,15 @@ package passes
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/check/passes/kit"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/lexer"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
@@ -46,10 +51,18 @@ func (NonstandardNotationPass) Run(ctx *Context, name string, root *ast.RootName
 	w := &notationWalker{
 		sysml:       ctx.Kind != source.KindKerML,
 		severity:    notationSeverity(ctx.Options.Conformance),
-		parsedClean: !hasParseError(ctx.ParseDiagnostics),
 		keywordName: keywordNameSpans(ctx.ParseDiagnostics),
+		doc:         name,
+		lookup:      ctx.Source,
+		root:        ctx.Index.DocumentRoot(name),
+		resolver:    ctx.Resolver(),
 	}
+	if w.lookup == nil && ctx.Batch != nil {
+		w.lookup = ctx.Batch.Source
+	}
+	w.bodies = append(w.bodies, bodyFrame{members: root.Members, namespaceish: true})
 	w.walk(root.Members)
+	w.bodies = w.bodies[:0]
 	// A comment where no member may start is the parser's own warning, which
 	// strict conformance escalates; the escalated finding replaces the warning.
 	if ctx.Options.Conformance.IsStrict() {
@@ -79,21 +92,41 @@ func notationSeverity(mode diag.ConformanceMode) diag.Severity {
 type notationWalker struct {
 	sysml bool
 	// severity applies to mode-sensitive extension findings.
-	severity          diag.Severity
-	diags             []diag.Diagnostic
-	inRequirementBody bool
+	severity diag.Severity
+	diags    []diag.Diagnostic
 	// inActionBody records that the body being walked admits ActionBodyItem
 	// members (SysML.xtext:1367).
 	inActionBody bool
 	// inViewDefBody records that the body being walked is a ViewDefinitionBody
 	// (SysML.xtext ViewDefinitionBodyItem), which admits no Expose.
 	inViewDefBody bool
-	// parsedClean records that the document parsed without an error, which a
-	// finding needs when recovery can shape the tree it reads (see initialNode).
-	parsedClean bool
+	// inViewBody records that the body being walked is a view definition's or
+	// view usage's, neither of which admits a FramedConcernMember.
+	inViewBody bool
+	// inKerMLDeclaration counts the enclosing declarations already reported as
+	// KerML notation; their members move with them, so are not reported again.
+	inKerMLDeclaration int
 	// keywordName holds the offsets where the parser recovered a keyword written as
 	// a name, the only spans keywordAsName escalates.
 	keywordName map[int]bool
+	// doc names the document being walked; lookup reads its text when the run
+	// carries a source lookup, which an indent-preserving fix needs.
+	doc    string
+	lookup source.Lookup
+	// bodies stacks the member lists enclosing the member being walked, so a
+	// fix can see the imports already written and where a new one belongs.
+	bodies []bodyFrame
+	// root and resolver read whether the name `StateMachines` still reaches the
+	// library package, nil where the run carries no index.
+	root     *symbols.Scope
+	resolver *resolve.Resolver
+}
+
+// bodyFrame is one enclosing member list: the members it declares and whether
+// it is the body of a namespace or package, where a fix places an import.
+type bodyFrame struct {
+	members      []ast.Node
+	namespaceish bool
 }
 
 // keywordNameSpans collects where the parser recovered a keyword written as a name,
@@ -132,26 +165,32 @@ func (w *notationWalker) walk(members []ast.Node) {
 		case *ast.Namespace:
 			w.kermlNamespace(n)
 			w.keywordAsName(n.Ident)
-			w.walk(n.Members)
+			w.walkPackageMembers(n.Members)
 		case *ast.Package:
 			w.keywordAsName(n.Ident)
-			w.walk(n.Members)
+			w.walkPackageMembers(n.Members)
 		case *ast.Definition:
+			reported := w.kermlDeclaration(n, n.Keyword)
 			w.kermlRelationships(n.Relationships)
 			w.sysmlDeclaration(n, n.Keyword)
 			w.keywordAsName(n.Ident)
 			w.walkDeclaration(n.Members, n)
+			w.leaveKerMLDeclaration(reported)
 		case *ast.Usage:
+			reported := w.kermlDeclaration(n, n.Keyword)
 			w.kermlRelationships(n.Relationships)
 			if n.CrossFeature != nil {
 				w.kermlRelationships(n.CrossFeature.Relationships)
 			}
 			w.sysmlDeclaration(n, n.Keyword)
 			w.keywordAsName(n.Ident)
-			w.requirementConstraint(n)
+			w.framedConcern(n)
+			w.indexedEnds(n)
 			w.walkDeclaration(n.Members, n)
+			w.leaveKerMLDeclaration(reported)
 		case *ast.Import:
 			w.expose(n)
+			w.stateActivityImport(n)
 			w.walk(n.Body)
 		// An alias and a named multiplicity are the remaining members that parse
 		// with a keyword for a name; the rest do not parse at all, so no span reaches here.
@@ -159,8 +198,10 @@ func (w *notationWalker) walk(members []ast.Node) {
 			w.keywordAsName(n.Ident)
 			w.walk(n.Body)
 		case *ast.MultiplicityDecl:
+			reported := w.kermlDeclaration(n, "multiplicity")
 			w.keywordAsName(n.Ident)
 			w.walk(n.Members)
+			w.leaveKerMLDeclaration(reported)
 		case *ast.ConstraintMember:
 			w.walk(n.Body)
 		case *ast.AssumeMember:
@@ -171,11 +212,7 @@ func (w *notationWalker) walk(members []ast.Node) {
 			w.stateNode(n)
 		case *ast.PseudostateNode:
 			w.pseudostate(n)
-		case *ast.DeferMember:
-			w.extension(keywordSpan(n, "defer"), "`defer <event>;`",
-				"no notation states a deferred event")
 		case *ast.InitialNode:
-			w.initialNode(n)
 			// `first a then b { … }` ends in the succession's UsageBody (SysML.xtext:1698).
 			w.walkDeclaration(n.Members, n)
 		case *ast.DecisionNode:
@@ -208,12 +245,22 @@ func (w *notationWalker) walk(members []ast.Node) {
 // walkDeclaration walks the body of a declaration under the body kind that
 // declaration opens.
 func (w *notationWalker) walkDeclaration(members []ast.Node, declaration ast.Node) {
-	requirement, action, viewDef := w.inRequirementBody, w.inActionBody, w.inViewDefBody
-	w.inRequirementBody = isRequirementBodyDeclaration(declaration)
+	action, viewDef, view := w.inActionBody, w.inViewDefBody, w.inViewBody
 	w.inActionBody = admitsActionBodyItems(declaration)
 	w.inViewDefBody = isViewDefinition(declaration)
+	w.inViewBody = w.inViewDefBody || isViewUsage(declaration)
+	w.bodies = append(w.bodies, bodyFrame{members: members})
 	w.walk(members)
-	w.inRequirementBody, w.inActionBody, w.inViewDefBody = requirement, action, viewDef
+	w.bodies = w.bodies[:len(w.bodies)-1]
+	w.inActionBody, w.inViewDefBody, w.inViewBody = action, viewDef, view
+}
+
+// walkPackageMembers walks a namespace or package body, the member lists a fix
+// may add an import to.
+func (w *notationWalker) walkPackageMembers(members []ast.Node) {
+	w.bodies = append(w.bodies, bodyFrame{members: members, namespaceish: true})
+	w.walk(members)
+	w.bodies = w.bodies[:len(w.bodies)-1]
 }
 
 // walkActionBody walks the body of an action node, which is an ActionBody
@@ -222,10 +269,10 @@ func (w *notationWalker) walkActionBody(members []ast.Node) {
 	if len(members) == 0 {
 		return
 	}
-	action, viewDef := w.inActionBody, w.inViewDefBody
-	w.inActionBody, w.inViewDefBody = true, false
+	action, viewDef, view := w.inActionBody, w.inViewDefBody, w.inViewBody
+	w.inActionBody, w.inViewDefBody, w.inViewBody = true, false, false
 	w.walk(members)
-	w.inActionBody, w.inViewDefBody = action, viewDef
+	w.inActionBody, w.inViewDefBody, w.inViewBody = action, viewDef, view
 }
 
 func isViewDefinition(node ast.Node) bool {
@@ -233,24 +280,9 @@ func isViewDefinition(node ast.Node) bool {
 	return ok && def.Kind == ast.DefView
 }
 
-func isRequirementBodyDeclaration(node ast.Node) bool {
-	switch n := node.(type) {
-	case *ast.Definition:
-		switch n.Kind {
-		case ast.DefRequirement:
-			return true
-		case ast.DefConcern, ast.DefViewpoint:
-			return true
-		}
-	case *ast.Usage:
-		switch n.Kind {
-		case ast.UsageRequirement, ast.UsageSatisfy:
-			return true
-		case ast.UsageConcern, ast.UsageViewpoint, ast.UsageFramedConcern, ast.UsageObjective:
-			return true
-		}
-	}
-	return false
+func isViewUsage(node ast.Node) bool {
+	usage, ok := node.(*ast.Usage)
+	return ok && usage.Kind == ast.UsageView
 }
 
 // admitsActionBodyItems reports whether the body a declaration opens is an
@@ -276,18 +308,6 @@ func admitsActionBodyItems(node ast.Node) bool {
 		}
 	}
 	return false
-}
-
-// initialNode reports a one-ended `first <node>;` outside an action body:
-// InitialNodeMember is reachable from ActionBodyItem alone (SysML.xtext:1376),
-// never from DefinitionBodyItem (:516).
-func (w *notationWalker) initialNode(n *ast.InitialNode) {
-	// A recovered `first <source> then <target>` reads as a one-ended node, so
-	// only a document that parsed cleanly is judged here.
-	if !w.inActionBody && n.Successor == nil && w.parsedClean {
-		w.extension(keywordSpan(n, "first"), "a one-ended `first <node>;` outside an action body",
-			"only an action body admits it; elsewhere a succession names both ends, `first <source> then <target>`")
-	}
 }
 
 // targetSuccession reports a one-name `then <target>;`, `if <guard> then
@@ -377,23 +397,6 @@ func isBehaviorUsage(kind ast.UsageKind) bool {
 	return false
 }
 
-// requirementConstraint reports an `assume`/`require` member outside a requirement
-// body, where RequirementConstraintMember alone admits it (SysML.xtext:2039).
-func (w *notationWalker) requirementConstraint(n *ast.Usage) {
-	if w.inRequirementBody || n.Kind != ast.UsageConstraint {
-		return
-	}
-	keyword := n.PrefixKeyword
-	if keyword != "assume" && keyword != "require" {
-		keyword = n.Keyword
-	}
-	if keyword != "assume" && keyword != "require" {
-		return
-	}
-	w.extension(keywordSpan(n, keyword), fmt.Sprintf("`%s` outside a requirement body", keyword),
-		"only a requirement, concern, viewpoint or objective body admits it")
-}
-
 // expose reports an `expose` in a view def body: Expose is a ViewBodyItem alone
 // (SysML.xtext), and every other body rejects it in the parser.
 func (w *notationWalker) expose(n *ast.Import) {
@@ -402,6 +405,35 @@ func (w *notationWalker) expose(n *ast.Import) {
 	}
 	w.extension(keywordSpan(n, "expose"), "`expose` in a view def body",
 		"only a view usage body admits Expose; a view def body states what it renders and filters")
+}
+
+// stateActivityImport reports an import of the StateActivity extension library:
+// `x.isActive` resolves only by OpenSysML's reading of a feature `featured by`
+// a type as a member of the type's usages, which no production of SysML v2 gives.
+func (w *notationWalker) stateActivityImport(n *ast.Import) {
+	if n.IsExpose || n.Imported == nil || w.root == nil || w.resolver == nil {
+		return
+	}
+	sym, ok := w.resolver.ReadQualified(w.root, n.Imported).Symbol()
+	if !ok || sym == nil || w.resolver.Index().LibraryTier(sym) != symbols.TierOpenSysML {
+		return
+	}
+	fqn := symbols.FQNOf(sym)
+	if fqn != semantics.StateActivityPackage && !strings.HasPrefix(fqn, semantics.StateActivityPackage+"::") {
+		return
+	}
+	w.extension(n.Imported.Span(), "an import of the `StateActivity` library",
+		"neither States.sysml nor StatePerformances.kerml declares `isActive` on a state usage, so a conforming tool leaves `x.isActive` unresolved")
+}
+
+// framedConcern reports a `frame` in a view body: FramedConcernMember belongs to
+// requirement, concern and viewpoint bodies only (SysML v2 §8.3.20, §8.3.26).
+func (w *notationWalker) framedConcern(n *ast.Usage) {
+	if !w.inViewBody || n.Kind != ast.UsageFramedConcern {
+		return
+	}
+	w.extension(w.declarationKeywordSpan(n, "frame"), "`frame` in a view body",
+		"only a requirement, concern or viewpoint body frames a concern; a view is checked against the concerns the viewpoints it satisfies frame")
 }
 
 // transition reports a `transition` in an action body: only `succession … if …`
@@ -419,7 +451,6 @@ func (w *notationWalker) stateNode(n *ast.StateNode) {
 	w.walkActionBody(n.Entry)
 	w.walkActionBody(n.Do)
 	w.walkActionBody(n.Exit)
-	w.walk(n.Defer)
 	w.walk(n.Substates)
 	for _, region := range n.Regions {
 		w.walk([]ast.Node{region})
@@ -433,14 +464,178 @@ func (w *notationWalker) pseudostate(n *ast.PseudostateNode) {
 	case ast.PseudostateFork, ast.PseudostateJoin:
 		return
 	}
-	w.extension(keywordSpan(n, n.Keyword), fmt.Sprintf("`%s <name>;`", n.Keyword),
-		"the grammars define no pseudostate notation")
+	annotation, ok := pseudostateAnnotations[n.Kind]
+	if !ok {
+		return
+	}
+	name := source.NameText(n.Name)
+	written := fmt.Sprintf("`%s %s;`", n.Keyword, name)
+	replacement := fmt.Sprintf("#%s state %s;", annotation, name)
+	needsImport := true
+	switch {
+	case w.shadowsStateMachines():
+		// A `StateMachines` member hides the library package, so the
+		// metadata is spelled from the root and no import is needed.
+		replacement = fmt.Sprintf("#$::StateMachines::%s state %s;", annotation, name)
+		needsImport = false
+	case n.Name == annotation || w.shadowsAnnotation(annotation):
+		// A member named like the annotation would shadow it, so the
+		// metadata is spelled qualified and no import is needed.
+		replacement = fmt.Sprintf("#StateMachines::%s state %s;", annotation, name)
+		needsImport = false
+	}
+	importNote := ""
+	if needsImport {
+		importNote = " (with `private import StateMachines::*;`)"
+	}
+	w.extensionFix(keywordSpan(n, n.Keyword), fmt.Sprintf(
+		"%s is an OpenSysML extension; write `%s`%s",
+		written, replacement, importNote), annotation+"Metadata", needsImport,
+		diag.Replace(n.Span(), replacement))
+}
+
+// pseudostateAnnotations names the StateMachines metadata definition a
+// keyword-spelled pseudostate rewrites as.
+var pseudostateAnnotations = map[ast.PseudostateKind]string{
+	ast.PseudostateChoice:         "choice",
+	ast.PseudostateJunction:       "junction",
+	ast.PseudostateShallowHistory: "shallowHistory",
+	ast.PseudostateDeepHistory:    "deepHistory",
+}
+
+// shadowsAnnotation reports whether a member of an enclosing body declares
+// keyword as its name, which the written annotation would resolve to first.
+func (w *notationWalker) shadowsAnnotation(keyword string) bool {
+	for _, body := range w.bodies {
+		for _, member := range body.members {
+			if memberDeclaredName(kit.UnwrapMembership(member)) == keyword {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// shadowsStateMachines reports whether a `StateMachines` member hides the
+// library package the annotation spellings name: one declared in an enclosing
+// body, or one the name resolves to that is not it.
+func (w *notationWalker) shadowsStateMachines() bool {
+	if w.shadowsAnnotation("StateMachines") {
+		return true
+	}
+	if w.root == nil || w.resolver == nil {
+		return false
+	}
+	sym, ok := w.resolver.ReadQualified(w.root, ast.QualifiedNameOf("StateMachines")).Symbol()
+	return ok && sym != nil && symbols.FQNOf(sym) != "StateMachines"
+}
+
+// memberDeclaredName is the name a member declares, "" when it declares none.
+func memberDeclaredName(member ast.Node) string {
+	switch n := member.(type) {
+	case *ast.Namespace:
+		return n.Ident.Name
+	case *ast.Package:
+		return n.Ident.Name
+	case *ast.Alias:
+		return n.Ident.Name
+	case *ast.PrefixMetadata:
+		return n.Ident.Name
+	case *ast.MultiplicityDecl:
+		return n.Ident.Name
+	case *ast.SubjectMember:
+		return n.Ident.Name
+	case *ast.CrossFeatureMember:
+		return n.Ident.Name
+	case *ast.AssumeMember:
+		return n.Ident.Name
+	case *ast.RequireMember:
+		return n.Ident.Name
+	case *ast.Definition:
+		return n.Ident.Name
+	case *ast.Usage:
+		name, _ := ast.EffectiveName(n)
+		return name
+	case *ast.PseudostateNode:
+		return n.Name
+	case *ast.InitialNode:
+		return n.Name()
+	case *ast.SubstateMember:
+		return n.Name
+	case *ast.TransitionMember:
+		return n.Name
+	}
+	return ""
+}
+
+// qualifiedNameText spells a qualified name as `A::B::c`, quoting each
+// segment that cannot be written as a basic name.
+func qualifiedNameText(qn *ast.QualifiedName) string {
+	if qn == nil {
+		return ""
+	}
+	parts := make([]string, 0, len(qn.Parts))
+	for _, p := range qn.Parts {
+		parts = append(parts, p.Text)
+	}
+	return source.QualifiedNameOf(parts)
+}
+
+// extensionFix reports one construct as an OpenSysML extension and attaches the
+// fix rewriting it: the member's own replacement plus the library import when
+// needsImport and no enclosing body already makes the metadata visible.
+func (w *notationWalker) extensionFix(span source.Span, message, metadata string, needsImport bool, edits ...diag.Edit) {
+	if needsImport {
+		if edit, ok := w.stateMachinesImport(metadata); ok {
+			edits = append(edits, edit)
+		}
+	}
+	w.diags = append(w.diags, diag.Diagnostic{
+		Severity: w.severity,
+		Span:     span,
+		Message:  message,
+		Code:     CodeNonstandardNotation,
+		Source:   "syntax",
+		Fixes: []diag.Fix{{
+			Title:     "Rewrite as standard `StateMachines` metadata notation",
+			Edits:     edits,
+			Preferred: true,
+		}},
+	})
+}
+
+// stateMachinesImport is the edit that inserts `private import StateMachines::*;`
+// as the first member of the innermost enclosing namespace body, nil when an
+// import already in scope covers the needed metadata definition.
+func (w *notationWalker) stateMachinesImport(metadata string) (diag.Edit, bool) {
+	for _, body := range w.bodies {
+		for _, member := range body.members {
+			imp, ok := kit.UnwrapMembership(member).(*ast.Import)
+			if !ok || imp.IsExpose {
+				continue
+			}
+			target := qualifiedNameText(imp.Imported)
+			if target == "StateMachines" && (imp.Kind == ast.ImportNamespace || imp.IsRecursive) ||
+				target == "StateMachines::"+metadata {
+				return diag.Edit{}, false
+			}
+		}
+	}
+	for i := len(w.bodies) - 1; i >= 0; i-- {
+		body := w.bodies[i]
+		if !body.namespaceish || len(body.members) == 0 {
+			continue
+		}
+		return diag.InsertLine(body.members[0].Span().Offset,
+			"private import StateMachines::*;"), true
+	}
+	return diag.Edit{}, false
 }
 
 // kermlNamespace reports a `namespace` declaration in a SysML file, whose root
 // production admits package members only.
 func (w *notationWalker) kermlNamespace(n *ast.Namespace) {
-	if !w.sysml {
+	if !w.sysml || w.inKerMLDeclaration > 0 {
 		return
 	}
 	w.diags = append(w.diags, diag.Diagnostic{
@@ -456,7 +651,7 @@ func (w *notationWalker) kermlNamespace(n *ast.Namespace) {
 // kermlRelationships reports a `featured by` clause in a SysML file: the
 // featuring relationship is KerML.xtext:569 only, absent from SysML.xtext.
 func (w *notationWalker) kermlRelationships(rels []*ast.Relationship) {
-	if !w.sysml {
+	if !w.sysml || w.inKerMLDeclaration > 0 {
 		return
 	}
 	for _, rel := range rels {
@@ -502,6 +697,70 @@ var kermlRelationshipClauses = map[ast.RelationshipKind]struct {
 	ast.RelInverseOf:   {"inverse of", "inverting"},
 }
 
+// kermlDeclarationAlternatives names the SysML v2 declaration that takes the
+// place of a KerML-only one; a keyword outside the map (`interaction`,
+// `multiplicity`) has no SysML spelling and can only move to a .kerml file.
+var kermlDeclarationAlternatives = map[string]string{
+	"assoc":         "`connection def`",
+	"assoc struct":  "`connection def`",
+	"behavior":      "`action def`",
+	"bool":          "`constraint`",
+	"class":         "`occurrence def`",
+	"classifier":    "a `… def` form such as `part def`",
+	"connector":     "`connection` or `connect` (or `binding` for a binding connector)",
+	"datatype":      "`attribute def`",
+	"expr":          "`calc`",
+	"feature":       "a usage keyword such as `attribute`, `part` or `ref`",
+	"function":      "`calc def`",
+	"inv":           "`constraint` or `assert constraint`",
+	"metaclass":     "`metadata def`",
+	"predicate":     "`constraint def`",
+	"step":          "`action`",
+	"struct":        "`item def` or `part def`",
+	"subclassifier": "`specializes` on the definition itself",
+}
+
+// isKerMLOnlyDeclarationKeyword reports whether a declaration keyword is a
+// literal of the pinned KerML grammar that the pinned SysML grammar does not
+// spell, read from the per-language keyword sets of source. A compound keyword
+// (`assoc struct`) is classified by its leading word.
+func isKerMLOnlyDeclarationKeyword(keyword string) bool {
+	word, _, _ := strings.Cut(keyword, " ")
+	return source.IsKeywordIn(word, source.KindKerML) && !source.IsKeywordIn(word, source.KindSysML)
+}
+
+// kermlDeclaration reports a declaration whose keyword is KerML notation in a
+// SysML file — `connector`, `class`, `feature`, `inv`, … — and reports whether
+// it did, so the walk can withhold the findings its members would repeat. The
+// declaration stays parsed for editor and analysis consumers; no fix rewrites
+// it, since a keyword swap changes the declared kind.
+func (w *notationWalker) kermlDeclaration(n ast.Node, keyword string) bool {
+	if !w.sysml || w.inKerMLDeclaration > 0 || keyword == "" || !isKerMLOnlyDeclarationKeyword(keyword) {
+		return false
+	}
+	remedy := "move the declaration to a .kerml file"
+	if alternative, ok := kermlDeclarationAlternatives[keyword]; ok {
+		remedy = "write " + alternative + " here or " + remedy
+	}
+	w.diags = append(w.diags, diag.Diagnostic{
+		Severity: w.severity,
+		Span:     w.declarationKeywordSpan(n, keyword),
+		Message: fmt.Sprintf("`%s` is KerML notation: the SysML v2 grammar has no %s declaration, so %s",
+			keyword, keyword, remedy),
+		Code:   CodeKerMLNotation,
+		Source: "syntax",
+	})
+	w.inKerMLDeclaration++
+	return true
+}
+
+// leaveKerMLDeclaration closes the scope kermlDeclaration opened when it reported.
+func (w *notationWalker) leaveKerMLDeclaration(reported bool) {
+	if reported {
+		w.inKerMLDeclaration--
+	}
+}
+
 // kermlDeclarationKeywords are the definition and usage keywords the pinned
 // KerML grammar spells; a kind keyword outside the set is SysML-only.
 var kermlDeclarationKeywords = map[string]bool{
@@ -521,7 +780,7 @@ func (w *notationWalker) sysmlDeclaration(n ast.Node, keyword string) {
 	}
 	w.diags = append(w.diags, diag.Diagnostic{
 		Severity: diag.SeverityError,
-		Span:     keywordSpan(n, keyword),
+		Span:     w.declarationKeywordSpan(n, keyword),
 		Message: fmt.Sprintf("`%s` is SysML notation: the KerML grammar has no such declaration keyword, "+
 			"so move the declaration to a .sysml file", keyword),
 		Code:   CodeSysMLNotation,
@@ -560,6 +819,56 @@ func (w *notationWalker) extension(span source.Span, construct, standard string)
 	})
 }
 
+// declarationKeywordSpan spans the kind keyword of a declaration: its first
+// keyword tokens spelling the (possibly compound) keyword outside any prefix
+// metadata, past modifiers (`abstract`, `in`), comments and prefix names that
+// repeat it (`#'class' class C;`, `#M::class class C;`). Without the source
+// text the span falls back to the word after the prefixes the declaration
+// opens with.
+func (w *notationWalker) declarationKeywordSpan(n ast.Node, keyword string) source.Span {
+	sp := n.Span()
+	prefixes, _, _ := ast.DeclaredMetadata(n)
+	if w.lookup != nil {
+		words := strings.Fields(keyword)
+		lx := lexer.New(source.New(w.doc, []byte(w.lookup(w.doc, sp))))
+		var span source.Span
+		matched := 0
+		for tok := lx.Next(); tok.Kind != lexer.EOF; tok = lx.Next() {
+			if tok.IsTrivia() {
+				continue
+			}
+			at := source.Span{Offset: sp.Offset + tok.Span.Offset, Len: tok.Span.Len}
+			if tok.Kind != lexer.Keyword || tok.KeywordID != words[matched] || insidePrefixMetadata(prefixes, at) {
+				matched = 0
+				continue
+			}
+			if matched == 0 {
+				span = at
+			}
+			if matched++; matched == len(words) {
+				span.Len = at.End() - span.Offset
+				return span
+			}
+		}
+	}
+	if len(prefixes) > 0 && prefixes[0].Span().Offset == sp.Offset {
+		if end := prefixes[len(prefixes)-1].Span().End(); end < sp.End() {
+			sp.Len = sp.End() - end
+			sp.Offset = end
+		}
+	}
+	return keywordSpan(&ast.NodeBase{NodeSpan: sp}, keyword)
+}
+
+func insidePrefixMetadata(prefixes []*ast.PrefixMetadata, word source.Span) bool {
+	for _, pm := range prefixes {
+		if pm.Span().Contains(word) {
+			return true
+		}
+	}
+	return false
+}
+
 // keywordSpan spans the notation that opens a node, so the diagnostic points at
 // the word rather than the whole declaration.
 func keywordSpan(n ast.Node, keyword string) source.Span {
@@ -568,4 +877,28 @@ func keywordSpan(n ast.Node, keyword string) source.Span {
 		sp.Len = len(keyword)
 	}
 	return sp
+}
+
+// indexedEnds reports each end of a connector, binding or flow that selects one
+// element of its feature with `#( index )`. A ConnectorEnd is a feature chain
+// (SysML.xtext ConnectorEndMember, KerML.xtext ConnectorEndMember) and `#(` an
+// expression operator (KerML.xtext IndexExpression), so neither grammar admits it.
+func (w *notationWalker) indexedEnds(n *ast.Usage) {
+	for _, end := range n.ConnectorEnds {
+		if end != nil {
+			w.indexedEnd(end.AttachedSelection())
+		}
+	}
+	if n.FlowEnds != nil {
+		w.indexedEnd(n.FlowEnds.From)
+		w.indexedEnd(n.FlowEnds.To)
+	}
+}
+
+func (w *notationWalker) indexedEnd(target ast.Node) {
+	if _, index := ast.EndSelection(target); index == nil {
+		return
+	}
+	w.extension(target.Span(), "an indexed connector end (`#( index )` selecting one element of the feature)",
+		"a connector end is a feature chain, so the standard connects the whole feature; declare a feature holding the element and connect that")
 }

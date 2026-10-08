@@ -1,0 +1,4 @@
+# `a` and `b` start together, unordered against each other; `c` is reached by a
+# succession from each, so it is performed after both.
+assign doneA < assign seen
+assign doneB < assign seen

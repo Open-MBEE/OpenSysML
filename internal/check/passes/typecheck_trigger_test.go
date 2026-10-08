@@ -756,28 +756,6 @@ func TestSuccessionBodyDeclarationScope(t *testing.T) {
 	}
 }
 
-// A deferred event is a trigger like any other: each of its arguments is judged
-// by the rule for its kind, and each is gated on its own lower-tier faults.
-func TestTriggerOnDeferredEvents(t *testing.T) {
-	const after = "an 'after' trigger's delay must be a DurationValue, found Natural"
-	for _, tc := range []struct{ body, code, want string }{
-		{"defer after 5;", "trigger-after-duration", after},
-		{"defer at 5;", "trigger-at-time-instant", "an 'at' trigger's time must be a TimeInstantValue, found Natural"},
-		{"defer when x;", "trigger-when-boolean", "a 'when' trigger's condition must be Boolean, found Integer"},
-		{"defer Sig, after 5, at t;", "trigger-after-duration", after},
-		{"defer after missing, when x;", "trigger-when-boolean", "a 'when' trigger's condition must be Boolean, found Integer"},
-		{"state c { defer after 5; }", "trigger-after-duration", after},
-	} {
-		wantTriggerDiag(t, "attribute def Sig; "+tc.body, tc.code, tc.want)
-	}
-	diags := triggerDiags(t, "defer after 5, at 5, when x;")
-	if len(diags) != 3 {
-		t.Errorf("defer with three bad events: want three diagnostics, got %v", diags)
-	}
-	wantTriggerSilent(t, "attribute def Sig; defer Sig, after 5 [s], at t, when flag, after d + d;")
-	wantTriggerSilent(t, "defer after missing, at missing, when missing;")
-}
-
 // An argument the type tier cannot type — an unresolved name, which the name
 // tier reports — is not reported again here.
 func TestTriggerUnresolvedArgumentIsSilent(t *testing.T) {

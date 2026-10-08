@@ -29,6 +29,7 @@ const (
 	SysMLService_ExecuteAction_FullMethodName      = "/sysml.SysMLService/ExecuteAction"
 	SysMLService_ExecuteState_FullMethodName       = "/sysml.SysMLService/ExecuteState"
 	SysMLService_Convert_FullMethodName            = "/sysml.SysMLService/Convert"
+	SysMLService_Migrate_FullMethodName            = "/sysml.SysMLService/Migrate"
 	SysMLService_ApplyEdits_FullMethodName         = "/sysml.SysMLService/ApplyEdits"
 	SysMLService_VerifyConstraint_FullMethodName   = "/sysml.SysMLService/VerifyConstraint"
 	SysMLService_VerifyRequirement_FullMethodName  = "/sysml.SysMLService/VerifyRequirement"
@@ -41,6 +42,8 @@ const (
 	SysMLService_Query_FullMethodName              = "/sysml.SysMLService/Query"
 	SysMLService_RunDocumentQuery_FullMethodName   = "/sysml.SysMLService/RunDocumentQuery"
 	SysMLService_RenderDocument_FullMethodName     = "/sysml.SysMLService/RenderDocument"
+	SysMLService_RenderView_FullMethodName         = "/sysml.SysMLService/RenderView"
+	SysMLService_ExportGraphs_FullMethodName       = "/sysml.SysMLService/ExportGraphs"
 )
 
 // SysMLServiceClient is the client API for SysMLService service.
@@ -68,8 +71,16 @@ type SysMLServiceClient interface {
 	ExecuteState(ctx context.Context, in *ExecuteStateRequest, opts ...grpc.CallOption) (*ExecuteStateResponse, error)
 	// Convert a model between the representations OpenSysML writes — SysML
 	// textual notation and RDF Turtle — so a client can write a model back out
-	// rather than only read it. Reported as the "convert" capability.
+	// rather than only read it. A SysML v1 model is refused: it is migrated, not
+	// converted (Migrate). Reported as the "convert" capability.
 	Convert(ctx context.Context, in *ConvertRequest, opts ...grpc.CallOption) (*ConvertResponse, error)
+	// Migrate a SysML v1 model — UML XMI with the SysML profile applied, an
+	// Eclipse UML2 .uml file or a Cameo/MagicDraw .mdzip archive — to SysML v2,
+	// written in one of the representations Convert writes. Migration is not a
+	// lossless conversion: every v1 element is mapped, approximated or left
+	// unmapped, and the response's report says which, element by element.
+	// Reported as the "migrate" capability.
+	Migrate(ctx context.Context, in *MigrateRequest, opts ...grpc.CallOption) (*MigrateResponse, error)
 	// Apply edits to a parsed model's own source and return the edited notation,
 	// so a client can change a model and write it back with its comments and
 	// layout intact. Edits are byte ranges the service locates from the parsed
@@ -118,6 +129,13 @@ type SysMLServiceClient interface {
 	// Render a named document to Markdown, as the CLI's -render-document does.
 	// Reported as the "render_document" capability.
 	RenderDocument(ctx context.Context, in *RenderDocumentRequest, opts ...grpc.CallOption) (*RenderDocumentResponse, error)
+	// Render a named view or targeted pseudo-view as machine-readable diagram
+	// data. Reported as the "render_view" capability.
+	RenderView(ctx context.Context, in *RenderViewRequest, opts ...grpc.CallOption) (*RenderViewResponse, error)
+	// Export the lowered graph of an action or a state machine — the subject's
+	// and every behavior it performs — as the canonical `graphs:<version>` JSON
+	// external analysis engines read. Reported as the "export_graphs" capability.
+	ExportGraphs(ctx context.Context, in *ExportGraphsRequest, opts ...grpc.CallOption) (*ExportGraphsResponse, error)
 }
 
 type sysMLServiceClient struct {
@@ -212,6 +230,15 @@ func (c *sysMLServiceClient) ExecuteState(ctx context.Context, in *ExecuteStateR
 func (c *sysMLServiceClient) Convert(ctx context.Context, in *ConvertRequest, opts ...grpc.CallOption) (*ConvertResponse, error) {
 	out := new(ConvertResponse)
 	err := c.cc.Invoke(ctx, SysMLService_Convert_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *sysMLServiceClient) Migrate(ctx context.Context, in *MigrateRequest, opts ...grpc.CallOption) (*MigrateResponse, error) {
+	out := new(MigrateResponse)
+	err := c.cc.Invoke(ctx, SysMLService_Migrate_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -326,6 +353,24 @@ func (c *sysMLServiceClient) RenderDocument(ctx context.Context, in *RenderDocum
 	return out, nil
 }
 
+func (c *sysMLServiceClient) RenderView(ctx context.Context, in *RenderViewRequest, opts ...grpc.CallOption) (*RenderViewResponse, error) {
+	out := new(RenderViewResponse)
+	err := c.cc.Invoke(ctx, SysMLService_RenderView_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *sysMLServiceClient) ExportGraphs(ctx context.Context, in *ExportGraphsRequest, opts ...grpc.CallOption) (*ExportGraphsResponse, error) {
+	out := new(ExportGraphsResponse)
+	err := c.cc.Invoke(ctx, SysMLService_ExportGraphs_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // SysMLServiceServer is the server API for SysMLService service.
 // All implementations must embed UnimplementedSysMLServiceServer
 // for forward compatibility
@@ -351,8 +396,16 @@ type SysMLServiceServer interface {
 	ExecuteState(context.Context, *ExecuteStateRequest) (*ExecuteStateResponse, error)
 	// Convert a model between the representations OpenSysML writes — SysML
 	// textual notation and RDF Turtle — so a client can write a model back out
-	// rather than only read it. Reported as the "convert" capability.
+	// rather than only read it. A SysML v1 model is refused: it is migrated, not
+	// converted (Migrate). Reported as the "convert" capability.
 	Convert(context.Context, *ConvertRequest) (*ConvertResponse, error)
+	// Migrate a SysML v1 model — UML XMI with the SysML profile applied, an
+	// Eclipse UML2 .uml file or a Cameo/MagicDraw .mdzip archive — to SysML v2,
+	// written in one of the representations Convert writes. Migration is not a
+	// lossless conversion: every v1 element is mapped, approximated or left
+	// unmapped, and the response's report says which, element by element.
+	// Reported as the "migrate" capability.
+	Migrate(context.Context, *MigrateRequest) (*MigrateResponse, error)
 	// Apply edits to a parsed model's own source and return the edited notation,
 	// so a client can change a model and write it back with its comments and
 	// layout intact. Edits are byte ranges the service locates from the parsed
@@ -401,6 +454,13 @@ type SysMLServiceServer interface {
 	// Render a named document to Markdown, as the CLI's -render-document does.
 	// Reported as the "render_document" capability.
 	RenderDocument(context.Context, *RenderDocumentRequest) (*RenderDocumentResponse, error)
+	// Render a named view or targeted pseudo-view as machine-readable diagram
+	// data. Reported as the "render_view" capability.
+	RenderView(context.Context, *RenderViewRequest) (*RenderViewResponse, error)
+	// Export the lowered graph of an action or a state machine — the subject's
+	// and every behavior it performs — as the canonical `graphs:<version>` JSON
+	// external analysis engines read. Reported as the "export_graphs" capability.
+	ExportGraphs(context.Context, *ExportGraphsRequest) (*ExportGraphsResponse, error)
 	mustEmbedUnimplementedSysMLServiceServer()
 }
 
@@ -438,6 +498,9 @@ func (UnimplementedSysMLServiceServer) ExecuteState(context.Context, *ExecuteSta
 func (UnimplementedSysMLServiceServer) Convert(context.Context, *ConvertRequest) (*ConvertResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Convert not implemented")
 }
+func (UnimplementedSysMLServiceServer) Migrate(context.Context, *MigrateRequest) (*MigrateResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Migrate not implemented")
+}
 func (UnimplementedSysMLServiceServer) ApplyEdits(context.Context, *ApplyEditsRequest) (*ApplyEditsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ApplyEdits not implemented")
 }
@@ -473,6 +536,12 @@ func (UnimplementedSysMLServiceServer) RunDocumentQuery(context.Context, *RunDoc
 }
 func (UnimplementedSysMLServiceServer) RenderDocument(context.Context, *RenderDocumentRequest) (*RenderDocumentResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method RenderDocument not implemented")
+}
+func (UnimplementedSysMLServiceServer) RenderView(context.Context, *RenderViewRequest) (*RenderViewResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method RenderView not implemented")
+}
+func (UnimplementedSysMLServiceServer) ExportGraphs(context.Context, *ExportGraphsRequest) (*ExportGraphsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ExportGraphs not implemented")
 }
 func (UnimplementedSysMLServiceServer) mustEmbedUnimplementedSysMLServiceServer() {}
 
@@ -663,6 +732,24 @@ func _SysMLService_Convert_Handler(srv interface{}, ctx context.Context, dec fun
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(SysMLServiceServer).Convert(ctx, req.(*ConvertRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SysMLService_Migrate_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(MigrateRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SysMLServiceServer).Migrate(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: SysMLService_Migrate_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SysMLServiceServer).Migrate(ctx, req.(*MigrateRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -883,6 +970,42 @@ func _SysMLService_RenderDocument_Handler(srv interface{}, ctx context.Context, 
 	return interceptor(ctx, in, info, handler)
 }
 
+func _SysMLService_RenderView_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RenderViewRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SysMLServiceServer).RenderView(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: SysMLService_RenderView_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SysMLServiceServer).RenderView(ctx, req.(*RenderViewRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SysMLService_ExportGraphs_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ExportGraphsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SysMLServiceServer).ExportGraphs(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: SysMLService_ExportGraphs_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SysMLServiceServer).ExportGraphs(ctx, req.(*ExportGraphsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // SysMLService_ServiceDesc is the grpc.ServiceDesc for SysMLService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -931,6 +1054,10 @@ var SysMLService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _SysMLService_Convert_Handler,
 		},
 		{
+			MethodName: "Migrate",
+			Handler:    _SysMLService_Migrate_Handler,
+		},
+		{
 			MethodName: "ApplyEdits",
 			Handler:    _SysMLService_ApplyEdits_Handler,
 		},
@@ -977,6 +1104,14 @@ var SysMLService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "RenderDocument",
 			Handler:    _SysMLService_RenderDocument_Handler,
+		},
+		{
+			MethodName: "RenderView",
+			Handler:    _SysMLService_RenderView_Handler,
+		},
+		{
+			MethodName: "ExportGraphs",
+			Handler:    _SysMLService_ExportGraphs_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

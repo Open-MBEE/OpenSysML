@@ -22,7 +22,7 @@ const elementColumn = "element"
 // are options of this backend, never document-model attributes.
 type MarkdownOptions struct {
 	// DiagramForm is the source every graph-shaped diagram is written as; a
-	// table-kind view is a pipe table whichever it is. Empty picks per diagram:
+	// tabular view is a pipe table whichever it is. Empty picks per diagram:
 	// DOT for a rendering a Layout or Route positions, Mermaid otherwise.
 	DiagramForm view.Form
 
@@ -38,6 +38,9 @@ type MarkdownOptions struct {
 	// Style is the drawing style every DOT diagram is drawn in, the Pilot look
 	// when empty; the other forms draw one look.
 	Style view.DrawingStyle
+
+	// LinkTemplate fills source links for diagram elements.
+	LinkTemplate string
 
 	// Files is the file each document of the set this one is rendered in is
 	// written to, by qualified name; a cross-document reference links to the
@@ -60,7 +63,7 @@ type MarkdownOptions struct {
 	OutputDir string
 
 	// NumberFigures captions figures (drawn diagrams, images) "Figure N. …" and
-	// tables (query tables, table-kind diagrams) "Table N. …" in document order.
+	// tables (query tables, tabular diagrams) "Table N. …" in document order.
 	NumberFigures bool
 
 	// TableColumns is the most columns one pipe table is written with: a table
@@ -78,7 +81,7 @@ type MarkdownOptions struct {
 
 // diagramOptions is the part of the options the diagrams are written by.
 func (o MarkdownOptions) diagramOptions() DiagramOptions {
-	return DiagramOptions{Form: o.DiagramForm, WithoutGraphviz: o.WithoutGraphviz, Unplaced: o.Unplaced, Style: o.Style}
+	return DiagramOptions{Form: o.DiagramForm, WithoutGraphviz: o.WithoutGraphviz, Unplaced: o.Unplaced, Style: o.Style, LinkTemplate: o.LinkTemplate}
 }
 
 // Markdown renders an evaluated document as deterministic CommonMark: the
@@ -87,7 +90,7 @@ func (o MarkdownOptions) diagramOptions() DiagramOptions {
 // with projected column headers, bullet or numbered lists, definitions as one
 // "**term** — description" paragraph per entry, formulas as $$-fenced
 // display math with inline math in $…$, and diagrams as fenced blocks of
-// their source in the chosen diagram form (table-kind views as pipe tables).
+// their source in the chosen diagram form (tabular views as pipe tables).
 // Metacharacters in content are escaped so no value can corrupt the document
 // structure; LaTeX is written verbatim, since math is not prose.
 func Markdown(document *docir.Document, opts MarkdownOptions) (string, error) {
@@ -107,7 +110,7 @@ func Markdown(document *docir.Document, opts MarkdownOptions) (string, error) {
 	w := &markdownWriter{
 		opts: diagrams, files: opts.Files, svg: opts.DiagramSVG, outputDir: opts.OutputDir,
 		numbers: captionNumbering{on: opts.NumberFigures}, tableColumns: opts.TableColumns, tableMeasure: opts.TableMeasure,
-		names: document.ElementName,
+		names: document.ElementName, labels: refLabels(document, false, opts.NumberFigures),
 	}
 	var blocks []string
 	blocks = append(blocks, heading(1, document.Title()))
@@ -141,6 +144,7 @@ type markdownWriter struct {
 	diagrams     int
 	outputDir    string
 	numbers      captionNumbering
+	labels       map[string]string
 	tableColumns int
 	tableMeasure int
 	names        namer
@@ -153,6 +157,7 @@ func figureOptions(node docir.Content, opts DiagramOptions) view.Options {
 	options := node.Options()
 	options.Unplaced = opts.Unplaced
 	options.Style = opts.Style
+	options.Links = view.Links{Template: opts.LinkTemplate, Sites: node.Sites()}
 	return options
 }
 
@@ -277,7 +282,7 @@ func nestingMarker(depth int64) string {
 	return strings.Repeat("&nbsp;&nbsp;&nbsp;&nbsp;", int(depth)-1) + "↳ "
 }
 
-// diagramFigure is the blocks of one diagram: its caption, then a table-kind
+// diagramFigure is the blocks of one diagram: its caption, then a tabular
 // view's pipe table, or the fallback notice when the automatic choice did not
 // draw the view as stated and the SVG drawn for it or its source fenced.
 func (w *markdownWriter) diagramFigure(name, caption string, rendering *view.Rendering, options view.Options) ([]string, error) {
@@ -285,7 +290,7 @@ func (w *markdownWriter) diagramFigure(name, caption string, rendering *view.Ren
 		return nil, &Error{Kind: ErrorMissingRendering, Content: name}
 	}
 	blocks := captionBlock(caption)
-	if rendering.Kind == view.KindTable {
+	if rendering.Kind.Tabular() {
 		return append(blocks, strings.TrimRight(rendering.MarkdownCells(tableCell), "\n")), nil
 	}
 	if !rendering.Kind.Supported() {
@@ -352,6 +357,12 @@ func diagramSource(name string, rendering *view.Rendering, options view.Options,
 			return "", err
 		}
 		return strings.TrimRight(puml, "\n"), nil
+	case view.FormD2:
+		d2, err := rendering.D2With(options)
+		if err != nil {
+			return "", err
+		}
+		return strings.TrimRight(d2, "\n"), nil
 	}
 	return "", &Error{Kind: ErrorUnknownForm, DiagramForm: form}
 }
@@ -544,16 +555,16 @@ func (w *markdownWriter) blockText(runs []docir.TextRun) string {
 	return blockStart(w.itemText(runs))
 }
 
-// itemText joins text runs by single spaces, rendering each by its kind:
-// plain runs as escaped prose, styled runs in emphasis or strong delimiters
-// or as code spans, math runs as dollar math, links and references as inline
-// links.
+// itemText joins text runs by single spaces (see joinRuns), rendering each
+// by its kind: plain runs as escaped prose, styled runs in emphasis or strong
+// delimiters or as code spans, math runs as dollar math, links and references
+// as inline links.
 func (w *markdownWriter) itemText(runs []docir.TextRun) string {
 	parts := make([]string, len(runs))
 	for i, run := range runs {
 		parts[i] = w.runText(run)
 	}
-	return strings.Join(parts, " ")
+	return joinRuns(runs, parts)
 }
 
 func (w *markdownWriter) runText(run docir.TextRun) string {
@@ -569,7 +580,11 @@ func (w *markdownWriter) runText(run docir.TextRun) string {
 	case docir.RunLink:
 		return "[" + inline(run.Text()) + "](<" + destination(run.Target()) + ">)"
 	case docir.RunRef:
-		return "[" + inline(run.Text()) + "](" + w.refDestination(run) + ")"
+		// An element outside every document has no destination; its name stands.
+		if run.TargetElement() != "" {
+			return inline(run.Text())
+		}
+		return "[" + inline(refText(run, w.labels)) + "](" + w.refDestination(run) + ")"
 	default:
 		return inline(run.Text())
 	}
@@ -709,8 +724,11 @@ func valueText(names namer, value queryexec.Value) string {
 	if text, ok := value.String(); ok {
 		return text
 	}
-	if integer, ok := value.Integer(); ok {
-		return strconv.FormatInt(integer, 10)
+	if integer, ok := value.IntegerConst(); ok {
+		return integer.FormatInt()
+	}
+	if rational, ok := value.Rational(); ok {
+		return queryexec.RationalText(rational)
 	}
 	if realVal, ok := value.Real(); ok {
 		return strconv.FormatFloat(realVal, 'g', -1, 64)

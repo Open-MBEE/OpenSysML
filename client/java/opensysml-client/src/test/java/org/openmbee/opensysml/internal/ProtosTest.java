@@ -104,6 +104,39 @@ class ProtosTest {
         Protos.value(sequence));
   }
 
+  @Test
+  void anIntegerBeyondLongIsReadAndWrittenExactly() {
+    java.math.BigInteger twoTo70 = java.math.BigInteger.ONE.shiftLeft(70);
+    var wire =
+        org.openmbee.opensysml.proto.Value.newBuilder()
+            .setBigIntValue("1180591620717411303424")
+            .build();
+    Value read = Protos.value(wire).orElseThrow();
+    assertEquals(new Value.BigIntegerValue(twoTo70), read);
+    assertEquals(wire, Protos.proto(read));
+    assertTrue(read.sameValue(new Value.RealValue(0x1p70)));
+    assertFalse(read.sameValue(new Value.RealValue(0x1p71)));
+    assertFalse(read.sameValue(new Value.IntegerValue(Long.MAX_VALUE)));
+    assertEquals(0x1p70, read.asDouble());
+    for (String malformed : List.of("", "-", "007", "+5", "1e3", "9223372036854775807")) {
+      var bad = org.openmbee.opensysml.proto.Value.newBuilder().setBigIntValue(malformed).build();
+      assertThrows(TransportException.class, () -> Protos.value(bad), malformed);
+    }
+    java.math.BigInteger withinLong = java.math.BigInteger.valueOf(Long.MIN_VALUE);
+    assertThrows(IllegalArgumentException.class, () -> new Value.BigIntegerValue(withinLong));
+    var quantity =
+        org.openmbee.opensysml.proto.Quantity.newBuilder()
+            .setBigIntMagnitude("-9223372036854775809")
+            .setUnit("kg")
+            .build();
+    Quantity kilograms = Protos.quantity(quantity);
+    assertEquals(new java.math.BigInteger("-9223372036854775809"), kilograms.magnitude());
+    assertTrue(kilograms.isIntegral());
+    assertEquals(
+        org.openmbee.opensysml.proto.Value.newBuilder().setQuantity(quantity).build(),
+        Protos.proto(new Value.QuantityValue(kilograms)));
+  }
+
   private static org.openmbee.opensysml.proto.Value integer(long value) {
     return org.openmbee.opensysml.proto.Value.newBuilder().setIntValue(value).build();
   }
@@ -787,5 +820,27 @@ class ProtosTest {
             .setSequence(ValueSequence.newBuilder().addElements(denied))
             .build();
     assertThrows(TransportException.class, () -> Protos.value(nested));
+  }
+
+  @Test
+  void anUnsupportedNullKeepsWhatTheServiceCouldNotSendAndIsNotTheModelsNull() {
+    String reason = "unsupported: coordinate frame datum [mm, mm, mm]";
+    org.openmbee.opensysml.proto.Value unsupported =
+        org.openmbee.opensysml.proto.Value.newBuilder().setNull(reason).build();
+    Value read = Protos.value(unsupported).orElseThrow();
+    assertEquals(new Value.NullValue(reason), read);
+    assertTrue(((Value.NullValue) read).isUnsupported());
+    assertNotEquals(new Value.NullValue(), read);
+    assertFalse(read.sameValue(new Value.NullValue()));
+    assertFalse(new Value.Sequence(List.of()).sameValue(read));
+    assertTrue(read.sameValue(new Value.NullValue(reason)));
+    assertEquals(reason, Protos.proto(read).getNull());
+
+    Value plain =
+        Protos.value(org.openmbee.opensysml.proto.Value.newBuilder().setNull("").build())
+            .orElseThrow();
+    assertEquals(new Value.NullValue(), plain);
+    assertFalse(((Value.NullValue) plain).isUnsupported());
+    assertEquals("", Protos.proto(plain).getNull());
   }
 }

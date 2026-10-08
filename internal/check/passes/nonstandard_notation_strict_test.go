@@ -15,14 +15,17 @@ var extensionInventory = []string{
 	"state def S { history h; }",
 	"state def S { shallow history h; }",
 	"state def S { deep history h; }",
-	"state def S { state a { defer e; } }",
-	"part def P { part a; first a; }",
 	"package P { view def V { expose P::*; } }",
+	"package P { concern def C; view def V { frame concern c : C; } }",
+	"package P { concern def C; view v { frame concern c : C; } }",
 	"action def A { action x; action y; transition first x then y; }",
-	"part def P { require constraint { true } }",
 	"action def A { action a; decide d; succession s first d if true then a; else a; }",
 	"action def A { action a; merge m; succession first m then a; then a; }",
 	"action def A { action a; comment /* c */ if true then a; }",
+	"part def A { part s; part k; connect s.y#(1) to k.u; }",
+	"part def A { part s; part k; interface s.y#(1) to k.u; }",
+	"part def A { part s; part k; flow s.y#(1) to k.u; }",
+	"part def A { part s; part k; bind s.y#(1) = k.u; }",
 }
 
 // notationDiags runs the pass over a document in the named mode.
@@ -105,32 +108,6 @@ func TestNotationSeverity(t *testing.T) {
 	}
 }
 
-func TestExtensionFindingsFollowTheMode(t *testing.T) {
-	for _, tc := range []struct {
-		name, file, src, code string
-	}{
-		{"one_ended_first", "a.sysml", "part def P { part a; first a; }", CodeNonstandardNotation},
-		{"requirement_constraint", "a.sysml", "analysis def An { attribute size; require constraint { size >= 1 } }", CodeNonstandardNotation},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			def := notationDiags(t, tc.file, tc.src, diag.ConformanceDefault)
-			strict := notationDiags(t, tc.file, tc.src, diag.ConformanceStrict)
-			if len(def) != 1 || len(strict) != 1 {
-				t.Fatalf("got %d default and %d strict findings, want 1 each: %+v / %+v", len(def), len(strict), def, strict)
-			}
-			if def[0].Code != tc.code || strict[0].Code != tc.code {
-				t.Errorf("codes = %q / %q, want %q", def[0].Code, strict[0].Code, tc.code)
-			}
-			if def[0].Severity != diag.SeverityWarning || strict[0].Severity != diag.SeverityError {
-				t.Errorf("severities = %v / %v, want warning then error", def[0].Severity, strict[0].Severity)
-			}
-			if def[0].Message != strict[0].Message || def[0].Span != strict[0].Span {
-				t.Errorf("strict mode must move only the severity: %+v vs %+v", def[0], strict[0])
-			}
-		})
-	}
-}
-
 func TestRecoveredGrammarViolationsAreErrorsInEitherMode(t *testing.T) {
 	for _, tc := range []struct {
 		name, file, src, code string
@@ -202,6 +179,28 @@ func TestKeywordAsNameLeavesTheNamesTheGrammarAdmits(t *testing.T) {
 	} {
 		if got := notationDiags(t, tc.name, tc.src, diag.ConformanceStrict); len(got) != 0 {
 			t.Errorf("%s: got %+v, want no finding", tc.src, got)
+		}
+	}
+}
+
+// A KerML-only declaration keyword in a SysML file follows the mode the way
+// `namespace` does: a warning by default, an error under strict conformance,
+// and silence in a KerML file either way.
+func TestKerMLDeclarationFollowsTheMode(t *testing.T) {
+	for _, tc := range kermlDeclarationInventory {
+		strict := notationDiags(t, "a.sysml", tc.src, diag.ConformanceStrict)
+		def := notationDiags(t, "a.sysml", tc.src, diag.ConformanceDefault)
+		if len(strict) != 1 || len(def) != 1 {
+			t.Fatalf("%s: strict gave %d finding(s), default %d; want one each", tc.keyword, len(strict), len(def))
+		}
+		if strict[0].Severity != diag.SeverityError || strict[0].Code != CodeKerMLNotation {
+			t.Errorf("%s: strict: got %+v, want a kerml-notation error", tc.keyword, strict[0])
+		}
+		if def[0].Severity != diag.SeverityWarning || def[0].Code != CodeKerMLNotation {
+			t.Errorf("%s: default: got %+v, want a kerml-notation warning", tc.keyword, def[0])
+		}
+		if got := notationDiags(t, "a.kerml", kermlTwin(tc.src), diag.ConformanceStrict); len(got) != 0 {
+			t.Errorf("%s: a KerML file uses KerML notation: got %+v, want silence", tc.keyword, got)
 		}
 	}
 }

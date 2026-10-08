@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"fmt"
+	"math"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
@@ -200,17 +201,20 @@ func naturalDivision(name string, ctx *Context, args []Value) (Value, error) {
 		}
 		return undeterminedResult(args...), nil
 	}
-	x, y := args[0].Const.Int, args[1].Const.Int
-	if y == 0 {
-		return Value{}, fmt.Errorf("%w: function %s: %d / 0", ErrDivisionByZero, name, x)
+	x, y := args[0].Const, args[1].Const
+	rem, ok := semantics.IntRem(x, y)
+	if !ok {
+		return Value{}, fmt.Errorf("%w: function %s: %s / 0", ErrDivisionByZero, name, x.FormatInt())
 	}
-	if x%y != 0 {
+	if rem.IntSign() != 0 {
+		q, _ := semantics.RatArith(ast.OpDiv, x, y, math.MaxInt64)
 		return Value{}, fmt.Errorf(
-			"%w: function %s has no Natural result for %d / %d; the quotient is %s",
-			semantics.ErrArithmeticDomain, name, x, y, semantics.FormatReal(float64(x)/float64(y)),
+			"%w: function %s has no Natural result for %s / %s; the quotient is %s",
+			semantics.ErrArithmeticDomain, name, x.FormatInt(), y.FormatInt(), q.FormatRational(),
 		)
 	}
-	return integerValue(x / y), nil
+	q, _ := semantics.IntDivTrunc(x, y)
+	return Value{Kind: ValConst, Const: q}, nil
 }
 
 // comparisonForm is `'<'`, `'<='`, `'>'` and `'>='` as functions.
@@ -399,11 +403,17 @@ func realOperand(_ *Context, name, param string, val Value) (Value, error) {
 	return Value{}, operandMismatch(name, param, "a Real", val)
 }
 
-// rationalOperand admits an Integer or a Real as a Rational; an Integer keeps
-// its kind, as RationalFunctions::abs/max/min keep it.
+// rationalOperand binds an Integer, a Rational or a finite Real to a Rational
+// parameter as the Rational it equals, so the operator answers the exact
+// Rational RationalFunctions declares.
 func rationalOperand(_ *Context, name, param string, val Value) (Value, error) {
-	if val.Kind == ValConst && val.Const.IsNumeric() {
-		return val, nil
+	if val.Kind == ValConst && val.Const.IsExact() {
+		return Value{Kind: ValConst, Const: semantics.RatOf(val.Const)}, nil
+	}
+	if val.Kind == ValConst && val.Const.Kind == semantics.ValReal {
+		if r, ok := semantics.RationalOfReal(val.Const.Real); ok {
+			return Value{Kind: ValConst, Const: r}, nil
+		}
 	}
 	return Value{}, operandMismatch(name, param, "a Rational", val)
 }
@@ -421,8 +431,8 @@ func naturalOperand(ctx *Context, name, param string, val Value) (Value, error) 
 	if _, err := integerOperand(ctx, name, param, val); err != nil {
 		return Value{}, err
 	}
-	if val.Const.Int < 0 {
-		return Value{}, fmt.Errorf("%w: function %s parameter %q requires a Natural value, got %d", ErrTypeMismatch, name, param, val.Const.Int)
+	if val.Const.IntSign() < 0 {
+		return Value{}, fmt.Errorf("%w: function %s parameter %q requires a Natural value, got %s", ErrTypeMismatch, name, param, val.Const.FormatInt())
 	}
 	return val, nil
 }

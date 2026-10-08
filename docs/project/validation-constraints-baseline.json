@@ -287,7 +287,7 @@
     {
       "name": "validateDefinitionVariationMembership",
       "source": "sysml",
-      "status": "faithful"
+      "status": "approximate"
     },
     {
       "name": "validateDefinitionVariationSpecialization",
@@ -1071,7 +1071,7 @@
     {
       "name": "validateUsageVariationMembership",
       "source": "sysml",
-      "status": "faithful"
+      "status": "approximate"
     },
     {
       "name": "validateUsageVariationSpecialization",

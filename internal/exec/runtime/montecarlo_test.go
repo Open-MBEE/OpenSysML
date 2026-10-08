@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"math/big"
 	"reflect"
 	"strings"
 	"testing"
@@ -204,8 +205,8 @@ func TestDistributeKeepsLargeIntegersExact(t *testing.T) {
 	if whole.Mean != -1.0/3 || whole.Min != drawnInt(math.MinInt64) || whole.Max != drawnInt(math.MaxInt64) {
 		t.Errorf("over the whole Integer range: min %v mean %v max %v, want a mean of -1/3", whole.Min, whole.Mean, whole.Max)
 	}
-	if len(whole.Histogram) != 1 || whole.Histogram[0].Count != 3 {
-		t.Errorf("bins over the whole Integer range: %v", whole.Histogram)
+	if n := len(whole.Histogram); n != HistogramBins || whole.Histogram[0].Count != 1 || whole.Histogram[4].Count != 1 || whole.Histogram[n-1].Count != 1 {
+		t.Errorf("bins over the whole int64 range: %v", whole.Histogram)
 	}
 	extremes := Distribute(ints(math.MaxInt64, math.MinInt64+1))
 	if n := len(extremes.Histogram); n != HistogramBins || extremes.Histogram[0].Lo != drawnInt(math.MinInt64+1) || extremes.Histogram[n-1].Hi != drawnInt(math.MaxInt64) {
@@ -213,6 +214,18 @@ func TestDistributeKeepsLargeIntegersExact(t *testing.T) {
 	}
 	if extremes.Mean != 0 {
 		t.Errorf("mean %v, want 0: the sum is exact before it rounds", extremes.Mean)
+	}
+}
+
+// Integers beyond int64 are sorted, summed and binned as the Integers they are.
+func TestDistributeIntegersBeyondInt64(t *testing.T) {
+	two70 := semantics.BigIntValue(new(big.Int).Lsh(big.NewInt(1), 70))
+	beyond := Distribute([]semantics.Value{two70, semantics.BigIntValue(new(big.Int).Add(two70.BigInt(), big.NewInt(2)))})
+	if !beyond.Min.Equal(two70) || beyond.Max.FormatInt() != "1180591620717411303426" || beyond.Mean != math.Ldexp(1, 70) || beyond.Deviation != math.Sqrt2 {
+		t.Errorf("over Integers beyond int64: min %v max %v mean %v deviation %v", beyond.Min.FormatInt(), beyond.Max.FormatInt(), beyond.Mean, beyond.Deviation)
+	}
+	if n := len(beyond.Histogram); n != 3 || beyond.Histogram[0].Lo.FormatInt() != "1180591620717411303424" || beyond.Histogram[n-1].Count != 1 {
+		t.Errorf("bins over Integers beyond int64: %v", beyond.Histogram)
 	}
 }
 
@@ -247,7 +260,7 @@ func TestMonteCarloSampleTakesQuantitiesInTheFirstRunsUnit(t *testing.T) {
 	if stats.Runs != 3 || stats.Mean != 5.0/3 || stats.Unit == nil || stats.Unit.Text != "SI::km" {
 		t.Errorf("stats = %+v; want 3 runs with mean 5/3 in SI::km", stats)
 	}
-	if got := stats.statistic(stats.Mean).Quantity(); got == nil || got.Num.Real != 5.0/3 || got.Unit.Text != "SI::km" {
+	if got := stats.statistic(stats.Mean).Quantity(); got == nil || got.Num.AsReal() != 5.0/3 || got.Unit.Text != "SI::km" {
 		t.Errorf("Mean = %s; want 1.6666666666666667 [SI::km]", FormatValue(stats.statistic(stats.Mean)))
 	}
 

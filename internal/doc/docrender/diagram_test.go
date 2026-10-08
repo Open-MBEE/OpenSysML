@@ -117,12 +117,39 @@ func TestDiagramPlantUMLForm(t *testing.T) {
 		}
 	}
 	sequence := renderedDiagramForm(t, "", graphRendering(view.KindSequence), "", view.FormPlantUML)
-	if !strings.Contains(sequence, `participant "**a**\n<size:10>//«part»//</size>" as n0`) || !strings.Contains(sequence, "n0 -> n1\n") {
+	if !strings.Contains(sequence, `participant "<size:10>//«part»//</size>\n**a**" as n0`) || !strings.Contains(sequence, "n0 -> n1\n") {
 		t.Errorf("sequence as plantuml:\n%s", sequence)
 	}
 	got := renderedDiagramForm(t, "Chain", graphRendering(view.KindTree), "", view.FormPlantUML)
 	if !strings.HasPrefix(got, "*Chain*\n\n```plantuml\n") {
 		t.Errorf("captioned plantuml: %s", got)
+	}
+}
+
+// A render in the D2 form writes each graph-shaped diagram, the sequence
+// included, as a d2 fence in the diagram's direction.
+func TestDiagramD2Form(t *testing.T) {
+	for _, kind := range []view.Kind{view.KindTree, view.KindInterconnection, view.KindAction, view.KindState} {
+		got := renderedDiagramForm(t, "", graphRendering(kind), view.DirectionLeftRight, view.FormD2)
+		if !strings.HasPrefix(got, "```d2\n# "+string(kind)+" rendering") || !strings.HasSuffix(got, "}\n```") {
+			t.Errorf("%s: not a d2 fence:\n%s", kind, got)
+		}
+		for _, want := range []string{"classes: {\n", "direction: right\n", `"«part»\na" { class: usage }`} {
+			if !strings.Contains(got, want) {
+				t.Errorf("%s: missing %q:\n%s", kind, want, got)
+			}
+		}
+		if strings.Contains(got, "flowchart") || strings.Contains(got, "digraph") || strings.Contains(got, "@startuml") {
+			t.Errorf("%s: another form in a d2 fence:\n%s", kind, got)
+		}
+	}
+	sequence := renderedDiagramForm(t, "", graphRendering(view.KindSequence), "", view.FormD2)
+	if !strings.Contains(sequence, "shape: sequence_diagram\n") || !strings.Contains(sequence, `n0: "«part»\na"`) || !strings.Contains(sequence, "n0 -- n1: { class: connection }\n") {
+		t.Errorf("sequence as d2:\n%s", sequence)
+	}
+	got := renderedDiagramForm(t, "Chain", graphRendering(view.KindTree), "", view.FormD2)
+	if !strings.HasPrefix(got, "*Chain*\n\n```d2\n") {
+		t.Errorf("captioned d2: %s", got)
 	}
 }
 
@@ -167,6 +194,12 @@ func TestDiagramFormErrors(t *testing.T) {
 	if _, err := (&markdownWriter{opts: DiagramOptions{Form: view.FormPlantUML}}).diagramFigure("d", "", graphRendering(view.KindSequence), view.Options{}); err != nil {
 		t.Fatalf("sequence as plantuml: %v", err)
 	}
+	for _, kind := range []view.Kind{view.KindCase, view.KindMixed} {
+		_, err := (&markdownWriter{opts: DiagramOptions{Form: view.FormD2}}).diagramFigure("d", "", graphRendering(kind), view.Options{})
+		if !errors.As(err, &typed) || typed.Kind != ErrorUnrenderableForm || typed.Actual != string(kind) || typed.DiagramForm != view.FormD2 {
+			t.Errorf("%s as d2: error = %v", kind, err)
+		}
+	}
 	table := &view.Rendering{Kind: view.KindTable, Columns: []string{"a"}, Rows: [][]string{{"x"}}}
 	for _, form := range []view.Form{view.FormDot, view.FormPlantUML} {
 		if got := renderedDiagramForm(t, "", table, "", form); !strings.Contains(got, "| a |") || !strings.Contains(got, "| x |") {
@@ -192,6 +225,22 @@ func TestDiagramTableKind(t *testing.T) {
 	want := "*Masses*\n\n<!-- table rendering -->\n| name | mass |\n| --- | --- |\n| optics | 8.5 |\n| mount\\|base | 15 |"
 	if got != want {
 		t.Errorf("table = %q, want %q", got, want)
+	}
+}
+
+func TestDiagramMatrixKindIsATableInEveryDiagramForm(t *testing.T) {
+	rendering := &view.Rendering{
+		Kind:    view.KindMatrix,
+		Columns: []string{"Source / Target", "Observatory::target"},
+		Rows:    [][]string{{"Observatory::source", "satisfy"}},
+	}
+	for _, form := range []view.Form{view.FormMermaid, view.FormDot, view.FormPlantUML, view.FormD2} {
+		got := renderedDiagramForm(t, "Relationships", rendering, "", form)
+		if !strings.Contains(got, "| Source / Target | Observatory::target |") ||
+			!strings.Contains(got, "| Observatory::source | satisfy |") ||
+			strings.Contains(got, "```"+string(form)) {
+			t.Errorf("matrix as %s is not a pipe table:\n%s", form, got)
+		}
 	}
 }
 

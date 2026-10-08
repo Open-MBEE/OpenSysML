@@ -11,8 +11,8 @@ import (
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/doc/docrender"
+	"github.com/Open-MBEE/OpenSysML/internal/ir/imagefile"
 	"github.com/Open-MBEE/OpenSysML/internal/ir/view"
-	"github.com/Open-MBEE/OpenSysML/internal/translate/imagefile"
 )
 
 // rasterizer draws the diagrams of one form to SVG with an external tool.
@@ -26,8 +26,8 @@ type rasterizer interface {
 	name() string
 }
 
-// diagramTool is one form's rasterizer and whether it may be absent: Graphviz
-// and PlantUML are optional, and without them the diagrams stay source.
+// diagramTool is one form's rasterizer and whether it may be absent: Graphviz,
+// PlantUML and D2 are optional, and without them the diagrams stay source.
 type diagramTool struct {
 	draw     rasterizer
 	optional bool
@@ -43,6 +43,8 @@ func diagramToolFor(form view.Form) (diagramTool, bool) {
 		return diagramTool{draw: &graphvizRasterizer{}, optional: true}, true
 	case view.FormPlantUML:
 		return diagramTool{draw: &plantumlRasterizer{}, optional: true}, true
+	case view.FormD2:
+		return diagramTool{draw: &d2Rasterizer{}, optional: true}, true
 	}
 	return diagramTool{}, false
 }
@@ -141,25 +143,67 @@ func DrawSVG(diagrams []docrender.Diagram) ([]string, error) {
 	return svgs, nil
 }
 
-// svgImageRef matches the file reference of an SVG <image> element, the
-// href with or without the xlink prefix, as Graphviz writes it.
-var svgImageRef = regexp.MustCompile(`(<image\b[^>]*?\s(?:xlink:)?href=")([^"]*)(")`)
+var (
+	svgImageStartTag = regexp.MustCompile(`<image\b[^>]*>`)
+	svgImageEndTag   = regexp.MustCompile(`</image\s*>`)
+	svgImageHref     = regexp.MustCompile(`\s(?:xlink:)?href\s*=\s*(?:"([^"]*)"|'([^']*)')`)
+)
 
-// embedImages inlines each file an SVG's <image> refers to (relative to base) as
-// a data URI, so the drawing is self-contained; URLs, data URIs and unread files stay as written.
+// embedImages inlines each safe local image an SVG refers to; refused images
+// become comments, while valid data URIs and unread or unsupported files stay as written.
 func embedImages(path, base string) error {
 	svg, err := os.ReadFile(path) // #nosec G304 -- the path is within the render directory
 	if err != nil {
 		return nil
 	}
-	if !svgImageRef.Match(svg) {
+	matches := svgImageStartTag.FindAllIndex(svg, -1)
+	if len(matches) == 0 {
 		return nil
 	}
-	out := svgImageRef.ReplaceAllFunc(svg, func(ref []byte) []byte {
-		parts := svgImageRef.FindSubmatch(ref)
-		location := html.UnescapeString(string(parts[2]))
-		if location == "" || strings.HasPrefix(location, "data:") || strings.Contains(location, "://") {
-			return ref
+	var out []byte
+	at := 0
+	for _, match := range matches {
+		start, tagEnd := match[0], match[1]
+		if start < at {
+			continue
+		}
+		tag := svg[start:tagEnd]
+		end := tagEnd
+		if !strings.HasSuffix(string(tag), "/>") {
+			if closing := svgImageEndTag.FindIndex(svg[tagEnd:]); closing != nil {
+				end += closing[1]
+			}
+		}
+		out = append(out, svg[at:start]...)
+		href := svgImageHref.FindSubmatchIndex(tag)
+		if href == nil {
+			out = append(out, svg[start:end]...)
+			at = end
+			continue
+		}
+		valueStart, valueEnd := href[2], href[3]
+		if valueStart < 0 {
+			valueStart, valueEnd = href[4], href[5]
+		}
+		location := html.UnescapeString(string(tag[valueStart:valueEnd]))
+		if location == "" {
+			out = append(out, svg[start:end]...)
+			at = end
+			continue
+		}
+		if view.RemotePictureLocation(location) {
+			out = append(out, refusedImageComment(location, view.ErrRemotePicture.Error())...)
+			at = end
+			continue
+		}
+		if strings.HasPrefix(strings.ToLower(strings.TrimSpace(location)), "data:") {
+			if err := view.CheckPicture(location, nil); err != nil {
+				out = append(out, refusedImageComment(location, err.Error())...)
+			} else {
+				out = append(out, svg[start:end]...)
+			}
+			at = end
+			continue
 		}
 		file := filepath.FromSlash(location)
 		if !filepath.IsAbs(file) {
@@ -167,16 +211,39 @@ func embedImages(path, base string) error {
 		}
 		data, err := os.ReadFile(file) // #nosec G304 -- the path is one the drawn view states
 		if err != nil {
-			return ref
+			out = append(out, svg[start:end]...)
+			at = end
+			continue
+		}
+		if err := view.CheckPicture(location, data); err != nil {
+			out = append(out, refusedImageComment(location, err.Error())...)
+			at = end
+			continue
 		}
 		ct := imagefile.ContentType(data)
 		if ct == "" {
-			return ref
+			out = append(out, svg[start:end]...)
+			at = end
+			continue
 		}
 		uri := "data:" + ct + ";base64," + base64.StdEncoding.EncodeToString(data)
-		return append(append(append([]byte(nil), parts[1]...), uri...), parts[3]...)
-	})
+		out = append(out, tag[:valueStart]...)
+		out = append(out, uri...)
+		out = append(out, tag[valueEnd:]...)
+		out = append(out, svg[tagEnd:end]...)
+		at = end
+	}
+	out = append(out, svg[at:]...)
 	return os.WriteFile(path, out, 0o600)
+}
+
+func refusedImageComment(location, reason string) []byte {
+	if view.RemotePictureLocation(location) {
+		location = strings.ReplaceAll(location, ":", "&#58;")
+	}
+	location = strings.ReplaceAll(location, "-", "&#45;")
+	reason = strings.ReplaceAll(reason, "-", "&#45;")
+	return []byte("<!-- not represented: picture " + location + " not drawn; " + reason + " -->")
 }
 
 // checkSVG requires the file a tool wrote to be one well-formed SVG document.

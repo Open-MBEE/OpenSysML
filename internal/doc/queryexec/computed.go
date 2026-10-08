@@ -97,7 +97,9 @@ func (e *executor) evaluateColumnCell(
 	if column.related != nil {
 		return e.evaluateRelatedCell(column, row)
 	}
+	release := e.enterCell(column, row, tracker)
 	values, err := e.evaluateColumnExpression(column.expression, column.name, row, tracker)
+	release()
 	if err != nil {
 		return nil, err
 	}
@@ -124,7 +126,7 @@ func columnMultiplicity(expression queryplan.Expression) queryplan.Multiplicity 
 	one := queryplan.Multiplicity{Lower: 1, Upper: 1, Known: true}
 	switch expression.Operation() {
 	case queryplan.OperationRowProperty, queryplan.OperationRowMember,
-		queryplan.OperationParameter:
+		queryplan.OperationParameter, queryplan.OperationNavigate, queryplan.OperationCollection:
 		return expression.Multiplicity()
 	case queryplan.OperationLiteral:
 		if kind, _ := expression.Literal(); kind == queryplan.LiteralNull {
@@ -182,7 +184,14 @@ func (e *executor) evaluateColumnExpression(
 		return append([]Value(nil), binding.values...), nil
 	case queryplan.OperationColumnOperator:
 		return e.evaluateColumnOperator(expression, column, row, tracker)
-	default:
+	case queryplan.OperationVariable:
+		return e.evaluateVariable(expression, row)
+	case queryplan.OperationNavigate:
+		return e.evaluateNavigate(expression, column, row, tracker)
+	case queryplan.OperationCollection:
+		return e.evaluateCollection(expression, column, row, tracker)
+	case queryplan.OperationLambda, queryplan.OperationColumn, queryplan.OperationRelatedColumn,
+		queryplan.OperationProject, queryplan.OperationTree, queryplan.OperationOrderBy:
 		return nil, &Error{
 			Kind:      ErrorUnsupportedOperation,
 			Query:     e.definition.Name(),
@@ -190,6 +199,14 @@ func (e *executor) evaluateColumnExpression(
 			Property:  column,
 			Origin:    expression.Origin(),
 		}
+	default:
+		// A query operation inside a cell — RelatedElements(source = row, …) —
+		// runs as a query over the cell's variables.
+		result, err := e.evaluate(expression)
+		if err != nil {
+			return nil, err
+		}
+		return result.values, nil
 	}
 }
 
@@ -442,6 +459,11 @@ func (e *executor) reflectiveFeatureValues(
 	property string,
 	sym *symbols.Symbol,
 ) ([]Value, error) {
+	if property != "documentation" {
+		if elements, ok := e.context.Model.ReflectiveElements(sym, property); ok {
+			return reflectiveElementValues(sym, elements), nil
+		}
+	}
 	values, ok := e.context.Model.ReflectiveFeatureValues(sym, property)
 	if !ok {
 		return nil, e.featureError(expression, property, ElementValue(sym))
@@ -455,6 +477,14 @@ func (e *executor) reflectiveFeatureValues(
 		result = append(result, converted)
 	}
 	return result, nil
+}
+
+func reflectiveElementValues(sym *symbols.Symbol, elements []*symbols.Symbol) []Value {
+	values := make([]Value, 0, len(elements))
+	for _, element := range elements {
+		values = append(values, valueAt(ElementValue(element), ElementValue(sym).Origin()))
+	}
+	return values
 }
 
 // objectConformsTo reports whether an object is of a feature's declaring type.
@@ -493,6 +523,9 @@ func (e *executor) evaluateColumnOperator(
 ) ([]Value, error) {
 	_, operator := expression.Literal()
 	operands := expression.Arguments()
+	if values, ok, err := e.evaluateLogicalOperator(expression, column, row, tracker, operator); ok {
+		return values, err
+	}
 	if operator == "??" {
 		left, err := e.evaluateColumnExpression(operands[0].Value, column, row, tracker)
 		if err != nil {
@@ -543,11 +576,17 @@ func (e *executor) applyColumnOperator(
 		// Unary + and - require one numeric operand.
 		switch values[0].Kind() {
 		case ValueInteger:
-			integer, _ := values[0].Integer()
+			integer, _ := values[0].IntegerConst()
 			if operator == "-" {
-				integer = -integer
+				integer = semantics.IntNeg(integer)
 			}
-			return IntegerValue(integer), nil
+			return IntegerOf(integer), nil
+		case ValueRational:
+			rational, _ := values[0].Rational()
+			if operator == "-" {
+				rational = semantics.RatNeg(rational)
+			}
+			return RationalOf(rational), nil
 		case ValueReal:
 			realVal, _ := values[0].Real()
 			if operator == "-" {
@@ -568,21 +607,38 @@ func (e *executor) applyColumnOperator(
 		return Value{}, mismatch()
 	}
 	if left.Kind() == ValueInteger && right.Kind() == ValueInteger {
-		l, _ := left.Integer()
-		r, _ := right.Integer()
+		l, _ := left.IntegerConst()
+		r, _ := right.IntegerConst()
 		switch operator {
-		case "+":
-			return IntegerValue(l + r), nil
-		case "-":
-			return IntegerValue(l - r), nil
-		case "*":
-			return IntegerValue(l * r), nil
+		case "+", "-", "*":
+			op := map[string]ast.OperatorKind{"+": ast.OpAdd, "-": ast.OpSub, "*": ast.OpMul}[operator]
+			result, err := semantics.IntArith(op, l, r, semantics.DefaultMaxIntegerBits)
+			if err != nil {
+				return Value{}, err
+			}
+			return IntegerOf(result), nil
 		case "/":
-			if r == 0 {
+			q, ok := semantics.IntDivTrunc(l, r)
+			if !ok {
 				return Value{}, e.columnError(
 					ErrorColumnDivisionByZero, column, row, expression.Origin(), operator, "")
 			}
-			return IntegerValue(l / r), nil
+			return IntegerOf(q), nil
+		}
+	}
+	if exactKind(left.Kind()) && exactKind(right.Kind()) {
+		op, ok := map[string]ast.OperatorKind{"+": ast.OpAdd, "-": ast.OpSub, "*": ast.OpMul, "/": ast.OpDiv}[operator]
+		if ok {
+			l, r := exactOperand(left), exactOperand(right)
+			if operator == "/" && r.RatSign() == 0 {
+				return Value{}, e.columnError(
+					ErrorColumnDivisionByZero, column, row, expression.Origin(), operator, "")
+			}
+			result, err := semantics.RatArith(op, l, r, semantics.DefaultMaxIntegerBits)
+			if err != nil {
+				return Value{}, err
+			}
+			return numberOf(result), nil
 		}
 	}
 	l := realOperand(left)
@@ -605,7 +661,28 @@ func (e *executor) applyColumnOperator(
 }
 
 func arithmeticKind(kind ValueKind) bool {
-	return kind == ValueInteger || kind == ValueReal
+	return kind == ValueInteger || kind == ValueRational || kind == ValueReal
+}
+
+func exactKind(kind ValueKind) bool {
+	return kind == ValueInteger || kind == ValueRational
+}
+
+// exactOperand is an Integer or Rational operand's exact value.
+func exactOperand(value Value) semantics.Value {
+	if integer, ok := value.IntegerConst(); ok {
+		return integer
+	}
+	rational, _ := value.Rational()
+	return rational
+}
+
+// numberOf is the query value of an exact Integer or Rational result.
+func numberOf(value semantics.Value) Value {
+	if value.Kind == semantics.ValInt {
+		return IntegerOf(value)
+	}
+	return RationalOf(value)
 }
 
 func hasQuantity(values []Value) bool {
@@ -677,8 +754,11 @@ func quantityOperand(value Value) (semantics.Quantity, bool) {
 	case ValueQuantity:
 		return value.Quantity()
 	case ValueInteger:
-		integer, _ := value.Integer()
-		return semantics.Quantity{Num: semantics.Value{Kind: semantics.ValInt, Int: integer}, Unit: semantics.UnitOne()}, true
+		integer, _ := value.IntegerConst()
+		return semantics.Quantity{Num: integer, Unit: semantics.UnitOne()}, true
+	case ValueRational:
+		rational, _ := value.Rational()
+		return semantics.Quantity{Num: rational, Unit: semantics.UnitOne()}, true
 	case ValueReal:
 		realVal, _ := value.Real()
 		return semantics.Quantity{Num: semantics.Value{Kind: semantics.ValReal, Real: realVal}, Unit: semantics.UnitOne()}, true
@@ -707,8 +787,8 @@ func columnOperatorKind(operator string, unary bool) (ast.OperatorKind, bool) {
 }
 
 func realOperand(value Value) float64 {
-	if integer, ok := value.Integer(); ok {
-		return float64(integer)
+	if exactKind(value.Kind()) {
+		return exactOperand(value).AsReal()
 	}
 	realVal, _ := value.Real()
 	return realVal

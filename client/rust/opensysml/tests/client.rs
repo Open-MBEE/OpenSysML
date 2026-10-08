@@ -163,6 +163,60 @@ fn in_band_evaluation_errors_remain_model_errors() {
 }
 
 #[test]
+fn children_leave_out_a_child_the_service_cannot_resolve() {
+    let Some(connection) = service_or_skip() else {
+        return;
+    };
+    let model = connection
+        .parse_content(
+            "package P { calc def Add { in a : Integer; in b : Integer; return : Integer = a + b; } }",
+            &Default::default(),
+        )
+        .unwrap_or_else(|error| panic!("parse failed: {error}"));
+    let add = model
+        .get("P::Add")
+        .unwrap_or_else(|error| panic!("lookup failed: {error}"))
+        .expect("P::Add is declared");
+    let children = add
+        .children()
+        .unwrap_or_else(|error| panic!("children failed: {error}"));
+    let ids: Vec<&str> = children.iter().map(|child| child.id()).collect();
+    assert!(
+        ids.contains(&"P::Add::a") && ids.contains(&"P::Add::b"),
+        "{ids:?}"
+    );
+    assert!(model
+        .find("Nope")
+        .unwrap_or_else(|error| panic!("find failed: {error}"))
+        .is_none());
+}
+
+#[test]
+fn a_value_the_service_cannot_send_is_unsupported_not_null() {
+    let Some(connection) = service_or_skip() else {
+        return;
+    };
+    let model = connection
+        .parse_content(
+            "package P { private import SpatialItems::*; private import SI::*; \
+             part def Car :> SpatialItem { attribute datum :>> coordinateFrame { :>> mRefs = (mm, mm, mm); } } }",
+            &Default::default(),
+        )
+        .unwrap_or_else(|error| panic!("parse failed: {error}"));
+    let options = EvalOptions {
+        context: Some("P::Car".to_owned()),
+        ..EvalOptions::default()
+    };
+    let result = model
+        .evaluate("datum", &options)
+        .map(|evaluation| evaluation.result);
+    assert!(
+        matches!(&result, Err(Error::UnsupportedValue(reason)) if reason.contains("coordinate frame")),
+        "{result:?}"
+    );
+}
+
+#[test]
 fn instantiate_decodes_feature_values() {
     let Some(connection) = service_or_skip() else {
         return;
@@ -297,7 +351,7 @@ fn an_array_a_vector_and_a_vector_quantity_arrive_whole() {
     assert_eq!(
         d.components()
             .iter()
-            .map(|component| component.magnitude)
+            .map(|component| component.magnitude.clone())
             .collect::<Vec<_>>(),
         [Magnitude::Real(3.0), Magnitude::Real(4.0)]
     );
@@ -700,14 +754,14 @@ fn a_set_arrives_once_per_member_and_a_tensor_with_its_rank() {
     assert_eq!(
         cube.components()
             .iter()
-            .map(|component| component.magnitude)
+            .map(|component| component.magnitude.clone())
             .collect::<Vec<_>>(),
         (1..=8)
             .map(|i| Magnitude::Real(f64::from(i)))
             .collect::<Vec<_>>()
     );
     assert_eq!(
-        cube.get(&[1, 0, 1]).map(|q| q.magnitude),
+        cube.get(&[1, 0, 1]).map(|q| q.magnitude.clone()),
         Some(Magnitude::Real(6.0))
     );
 }

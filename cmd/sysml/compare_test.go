@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Open-MBEE/OpenSysML/internal/translate/simresults"
+	"github.com/Open-MBEE/OpenSysML/internal/exec/simresults"
 )
 
 // simconfigXMI is a v1 model with a «SimulationConfig» whose result package holds
@@ -28,7 +28,7 @@ func TestSummarisedMigrationResultsThroughCLI(t *testing.T) {
 	dir := t.TempDir()
 	model, sidecar := filepath.Join(dir, "model.sysml"), filepath.Join(dir, "results.json")
 
-	migrated := runCommand(t, exec.Command(binary, montecarloXMI, "-convert", "sysml", "-o", model, "-migration-results", sidecar))
+	migrated := runCommand(t, exec.Command(binary, montecarloXMI, "-migrate", "sysml", "-o", model, "-migration-results", sidecar))
 	if migrated.status != 0 {
 		t.Fatalf("migrating failed: %s", migrated.output())
 	}
@@ -75,7 +75,7 @@ func TestMigrationResultsThroughCLI(t *testing.T) {
 	dir := t.TempDir()
 	model, sidecar := filepath.Join(dir, "model.sysml"), filepath.Join(dir, "results.json")
 
-	migrated := runCommand(t, exec.Command(binary, simconfigXMI, "-convert", "sysml", "-o", model, "-migration-results", sidecar))
+	migrated := runCommand(t, exec.Command(binary, simconfigXMI, "-migrate", "sysml", "-o", model, "-migration-results", sidecar))
 	if migrated.status != 0 {
 		t.Fatalf("migrating failed: %s", migrated.output())
 	}
@@ -166,13 +166,15 @@ func TestMigrationResultsThroughCLI(t *testing.T) {
 		"missing sidecar":         {[]string{model, "-compare-results", filepath.Join(dir, "none.json")}, "-compare-results: open"},
 		"sidecar not JSON":        {[]string{model, "-compare-results", model}, "the results are not the JSON -migration-results writes"},
 		"with convert":            {[]string{model, "-compare-results", sidecar, "-convert", "ttl"}, "cannot be combined with -convert"},
+		"with migrate":            {[]string{model, "-compare-results", sidecar, "-migrate", "sysml"}, "cannot be combined with -convert, -migrate"},
 		"with record-run":         {[]string{model, "-compare-results", sidecar, "-record-run", "Group 0"}, "the other checks are made in a run of their own"},
-		"results without xmi":     {[]string{model, "-convert", "ttl", "-migration-results", sidecar}, "-migration-results indexes the result snapshots of a SysML v1 migration"},
-		"results without convert": {[]string{model, "-migration-results", sidecar}, "-migration-results accompanies -convert"},
-		"results over the model":  {[]string{simconfigXMI, "-convert", "sysml", "-o", sidecar, "-migration-results", sidecar}, "-migration-results and -o both name"},
-		"results over the report": {[]string{simconfigXMI, "-convert", "sysml", "-migration-report", sidecar, "-migration-results", sidecar}, "-migration-results and -migration-report both name"},
-		"results over the input":  {[]string{simconfigXMI, "-convert", "sysml", "-migration-results", simconfigXMI}, "names the model being migrated"},
-		"empty results path":      {[]string{simconfigXMI, "-convert", "sysml", "-migration-results="}, "-migration-results is empty"},
+		"results with convert":    {[]string{model, "-convert", "ttl", "-migration-results", sidecar}, "-migration-results accompanies -migrate"},
+		"results without migrate": {[]string{model, "-migration-results", sidecar}, "-migration-results accompanies -migrate"},
+		"results of a v2 model":   {[]string{model, "-migrate", "sysml", "-migration-results", sidecar}, "is sysml input, which is converted, not migrated"},
+		"results over the model":  {[]string{simconfigXMI, "-migrate", "sysml", "-o", sidecar, "-migration-results", sidecar}, "-migration-results and -o both name"},
+		"results over the report": {[]string{simconfigXMI, "-migrate", "sysml", "-migration-report", sidecar, "-migration-results", sidecar}, "-migration-results and -migration-report both name"},
+		"results over the input":  {[]string{simconfigXMI, "-migrate", "sysml", "-migration-results", simconfigXMI}, "names the model being migrated"},
+		"empty results path":      {[]string{simconfigXMI, "-migrate", "sysml", "-migration-results="}, "-migration-results is empty"},
 	} {
 		t.Run(name, func(t *testing.T) {
 			got := runCommand(t, exec.Command(binary, tc.args...))

@@ -58,6 +58,12 @@ func fixtureDocumentAt(t *testing.T, path, sourceName, name string) *docir.Docum
 	index.ExpandWildcardImports()
 	resolver := resolve.New(index)
 	model := passes.NewTypedModel(resolver)
+	model.SetSourceFile(func(doc string, _ source.Span) string {
+		if doc == sf.Name() {
+			return sourceName
+		}
+		return ""
+	})
 	model.SetSourceText(func(doc string, span source.Span) string {
 		if doc != sf.Name() {
 			return ""
@@ -72,7 +78,15 @@ func fixtureDocumentAt(t *testing.T, path, sourceName, name string) *docir.Docum
 	if err != nil {
 		t.Fatalf("compile document %s: %v", name, err)
 	}
-	document, err := docir.Evaluate(plan, queryexec.Context{Index: index, Resolver: resolver, Model: model}, queryexec.Options{}, nil)
+	document, err := docir.Evaluate(plan, queryexec.Context{
+		Index: index, Resolver: resolver, Model: model,
+		LineIndex: func(doc string) *source.LineIndex {
+			if doc == sf.Name() {
+				return sf.Lines()
+			}
+			return nil
+		},
+	}, queryexec.Options{}, nil)
 	if err != nil {
 		t.Fatalf("evaluate document %s: %v", name, err)
 	}
@@ -152,6 +166,60 @@ func TestMarkdownTelescopeReportDotGolden(t *testing.T) {
 	}
 	if strip(got) != strip(mermaid) {
 		t.Errorf("the diagram form changed a block that is not a diagram:\n%s", got)
+	}
+}
+
+// TestMarkdownTelescopeReportD2Golden locks the report with D2 diagrams: the
+// fences change, every other block matches the Mermaid golden.
+func TestMarkdownTelescopeReportD2Golden(t *testing.T) {
+	path := filepath.Join("testdata", "telescope_report.sysml")
+	got, err := Markdown(fixtureDocument(t, path, "Observatory::MassReport"),
+		MarkdownOptions{DiagramForm: view.FormD2})
+	if err != nil {
+		t.Fatalf("render document as D2: %v", err)
+	}
+	golden := filepath.Join("testdata", "telescope_report.d2.golden.md")
+	if *update {
+		if err := os.WriteFile(golden, []byte(got), 0o644); err != nil {
+			t.Fatalf("update golden: %v", err)
+		}
+		return
+	}
+	want, err := os.ReadFile(golden)
+	if err != nil {
+		t.Fatalf("read golden (run with -update to create): %v", err)
+	}
+	if got != string(want) {
+		t.Errorf("rendered Markdown differs from %s (run with -update after intentional changes)\ngot:\n%s", golden, got)
+	}
+	for _, want := range []string{
+		"```d2\n# Observatory::interconnectView — interconnection rendering",
+		"```d2\n# state rendering (the diagram states kind \"state\")\n",
+		"direction: right\n",
+		"}\n```\n",
+		"| name | mass |\n| --- | --- |\n",
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("rendering does not contain %q\n%s", want, got)
+		}
+	}
+	if strings.Contains(got, "```mermaid") || strings.Contains(got, "```plantuml") {
+		t.Errorf("a diagram is another form when D2 is asked for:\n%s", got)
+	}
+}
+
+func TestMarkdownDiagramSourceLinks(t *testing.T) {
+	path := filepath.Join("testdata", "telescope_report.sysml")
+	document := fixtureDocument(t, path, "Observatory::MassReport")
+	got, err := Markdown(document, MarkdownOptions{
+		DiagramForm:  view.FormMermaid,
+		LinkTemplate: "https://example.test/src/{file}#L{line}",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(got, `click n1 href "https://example.test/src/telescope_report.sysml#L`) {
+		t.Errorf("Markdown diagram does not link the source node:\n%s", got)
 	}
 }
 
@@ -477,5 +545,37 @@ func TestMarkdownImageReportGolden(t *testing.T) {
 	}
 	if got != string(want) {
 		t.Errorf("rendered Markdown differs from %s (run with -update after intentional changes)\ngot:\n%s", golden, got)
+	}
+}
+
+// TestMarkdownReferencedReportGolden locks how references read in Markdown: a
+// numbered table by its number, a section by its title (Markdown numbers no
+// headings), an element outside every document by its name without a link,
+// and punctuation bound to the reference beside it.
+func TestMarkdownReferencedReportGolden(t *testing.T) {
+	document := fixtureDocument(t, filepath.Join("testdata", "referenced_report.sysml"), "Referenced::ReferencedReport")
+	got, err := Markdown(document, MarkdownOptions{NumberFigures: true})
+	if err != nil {
+		t.Fatalf("render: %v", err)
+	}
+	golden := filepath.Join("testdata", "referenced_report.golden.md")
+	if *update {
+		if err := os.WriteFile(golden, []byte(got), 0o644); err != nil {
+			t.Fatalf("update golden: %v", err)
+		}
+	}
+	want, err := os.ReadFile(golden)
+	if err != nil {
+		t.Fatalf("read golden (run with -update to create): %v", err)
+	}
+	if got != string(want) {
+		t.Errorf("rendered Markdown differs from %s (run with -update after intentional changes)\ngot:\n%s", golden, got)
+	}
+	plain, err := Markdown(document, MarkdownOptions{})
+	if err != nil {
+		t.Fatalf("render unnumbered: %v", err)
+	}
+	if !strings.Contains(plain, "[Parts aligned](#procedures-alignment-parts)") || strings.Contains(plain, "Table 1") {
+		t.Errorf("an unnumbered table is referenced by its caption:\n%s", plain)
 	}
 }

@@ -109,10 +109,15 @@ func TestGoldenRenderings(t *testing.T) {
 		kind Kind
 	}{
 		{"tree", "tree.sysml", "VehicleViews::vehicleView", KindTree},
+		{"tree-edges", "tree-edges.sysml", "FleetViews::structure", KindTree},
 		{"interconnection", "interconnection.sysml", "PlantViews::loopView", KindInterconnection},
+		{"interconnection-ports", "interconnection-ports.sysml", "ToasterViews::toasterView", KindInterconnection},
 		{"state", "state.sysml", "MachineViews::vehicleStates", KindState},
 		{"state-entry", "state-entry.sysml", "MachineViews::thermostat", KindState},
+		{"state-pseudostates", "cameo-behavior.sysml", "NotationViews::alignmentView", KindState},
 		{"action", "action.sysml", "FlowViews::driveView", KindAction},
+		{"case", "case.sysml", "CaseExamples::caseDiagram", KindCase},
+		{"mixed", "mixed.sysml", "MixedExamples::mixedDiagram", KindMixed},
 		{"typed-action", "typed-behavior.sysml", "TypedViews::cycleView", KindAction},
 		{"typed-state", "typed-behavior.sysml", "TypedViews::boilerView", KindState},
 		{"filters", "filters.sysml", "FilteredViews::safetyView", KindTree},
@@ -124,12 +129,26 @@ func TestGoldenRenderings(t *testing.T) {
 		{"sequence-order", "sequence-order.sysml", "OrderingViews::relayView", KindSequence},
 		{"sequence-cycle", "sequence-order.sysml", "OrderingViews::deadlockView", KindSequence},
 		{"sequence-empty", "errors.sysml", "ErrorViews::emptySequenceView", KindSequence},
+		{"general-requirement", "general.sysml", "GeneralViews::requirementView", KindRequirement},
+		{"general-definition", "general.sysml", "GeneralViews::definitionView", KindDefinition},
+		{"general-package", "general.sysml", "GeneralViews::packageView", KindPackage},
+		{"general-plain", "general.sysml", "GeneralViews::plainView", KindTree},
+		{"general-unrecognized", "general-robust.sysml", "RobustViews::unrecognized", KindTree},
+		{"general-cycle-definition", "general-robust.sysml", "RobustViews::loopDefinitions", KindDefinition},
+		{"general-cycle-requirement", "general-robust.sysml", "RobustViews::loopRequirements", KindRequirement},
+		{"general-import-cycle", "general-robust.sysml", "RobustViews::importCycle", KindPackage},
+		{"general-empty", "general-robust.sysml", "RobustViews::noRequirements", KindRequirement},
+		{"general-case", "general-case.sysml", "UseCaseViews::useCaseView", KindCase},
+		{"general-case-definitions", "general-case.sysml", "UseCaseViews::caseDefinitionView", KindCase},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			rendering := render(t, tc.file, tc.view)
 			if rendering.Kind != tc.kind {
 				t.Errorf("kind = %q, want %q", rendering.Kind, tc.kind)
+			}
+			if tc.kind == KindCase || tc.kind == KindMixed {
+				assertRenderingEdgeEndpoints(t, rendering)
 			}
 			checkGolden(t, filepath.Join("testdata", tc.name+".text.golden"), rendering.Text())
 			form := tc.kind.MachineForm()
@@ -356,12 +375,13 @@ func TestActionRenderingLabelsWeightedSuccessions(t *testing.T) {
 func TestBehaviorRenderingsCarryTheDeclaredType(t *testing.T) {
 	cases := []struct {
 		view, name, label, kind, typ, detail string
+		container                            bool
 	}{
-		{"TypedViews::cycleView", "Typed::run", "run", "action", "Cycle", ""},
-		{"TypedViews::cycleView", "warm", "warm", "action", "Warm", ""},
-		{"TypedViews::cycleView", "start", "start", "initial", "", ""},
-		{"TypedViews::boilerView", "heating", "heating", "state", "Heating", ""},
-		{"TypedViews::boilerView", "idle", "idle", "state", "", "initial"},
+		{view: "TypedViews::cycleView", name: "Typed::run", label: "run", kind: "action", typ: "Cycle", container: true},
+		{view: "TypedViews::cycleView", name: "warm", label: "warm", kind: "action", typ: "Warm"},
+		{view: "TypedViews::cycleView", name: "start", label: "start", kind: "initial"},
+		{view: "TypedViews::boilerView", name: "heating", label: "heating", kind: "state", typ: "Heating"},
+		{view: "TypedViews::boilerView", name: "idle", label: "idle", kind: "state", detail: "initial"},
 	}
 	for _, tc := range cases {
 		rendering := render(t, "typed-behavior.sysml", tc.view)
@@ -377,8 +397,18 @@ func TestBehaviorRenderingsCarryTheDeclaredType(t *testing.T) {
 			t.Errorf("%s: text lacks %q:\n%s", tc.view, tc.kind+" "+head, text)
 		}
 		head := tc.label + " : " + tc.typ
-		if mermaid := rendering.Mermaid(); !strings.Contains(mermaid, head+"<br>«"+tc.kind+"»") {
-			t.Errorf("%s: Mermaid lacks %q:\n%s", tc.view, head+"<br>«"+tc.kind+"»", mermaid)
+		mermaid := rendering.Mermaid()
+		label := "*«" + tc.kind + "»*\n**" + head + "**"
+		switch {
+		case rendering.Kind == KindState && tc.container:
+			label = "«" + tc.kind + "» " + head
+		case rendering.Kind == KindState || rendering.Kind == KindSequence:
+			label = "«" + tc.kind + "»<br>" + head
+		case tc.container:
+			label = "*«" + tc.kind + "»* **" + head + "**"
+		}
+		if !strings.Contains(mermaid, label) {
+			t.Errorf("%s: Mermaid lacks the label for %q:\n%s", tc.view, head, mermaid)
 		}
 		dot, err := rendering.Write(FormDot)
 		if err != nil {
@@ -417,10 +447,10 @@ func TestDeclaredTypesAreSpelledAsWritten(t *testing.T) {
 			t.Errorf("text lacks %q:\n%s", want, text)
 		}
 	}
-	mermaid := rendering.Mermaid()
+	mermaid := rendering.MermaidWith(Options{Ports: PortsFull})
 	for _, want := range []string{
-		"[\"Rig<br>«part def»\"]", "[\"plug : ~Link<br>«port»\"]", "[\"base : Mount, Cart<br>«part»\"]",
-		"[\"root : Mount<br>«part»\"]", "[\"mirrored : ~'Frame *rail*'<br>«port»\"]",
+		"`*«part def»*\n**Rig**`", "«port»<br>plug : ~Link", "`*«part»*\n**base : Mount, Cart**`",
+		"`*«part»*\n**root : Mount**`", "«port»<br>mirrored : ~'Frame *rail*'",
 	} {
 		if !strings.Contains(mermaid, want) {
 			t.Errorf("Mermaid lacks %q:\n%s", want, mermaid)
@@ -658,23 +688,37 @@ func TestRenderingReportsWhatItCannotRepresent(t *testing.T) {
 	}
 }
 
-// A Mermaid label carries no character that would break the diagram: the only
-// markup in it is the `<br>` between its lines.
+// Mermaid labels keep Markdown-safe flowchart text in Markdown and escape
+// unsafe text into the plain-label form.
 func TestMermaidLabelsAreEscaped(t *testing.T) {
 	mermaid := render(t, "action.sysml", "FlowViews::driveView").Mermaid()
-	for _, line := range strings.Split(mermaid, "\n") {
-		if strings.HasPrefix(line, "%%") {
+	lines := strings.Split(mermaid, "\n")
+	for i := 0; i < len(lines); i++ {
+		start := strings.Index(lines[i], `["`)
+		end := `"]`
+		if start < 0 {
+			start = strings.Index(lines[i], `("`)
+			end = `")`
+		}
+		if start < 0 {
 			continue
 		}
-		if i := strings.Index(line, "[\""); i >= 0 {
-			label := line[i+2 : strings.LastIndex(line, "\"")]
+		label := lines[i][start+2:]
+		for !strings.Contains(label, end) && i+1 < len(lines) {
+			i++
+			label += "\n" + lines[i]
+		}
+		if closeAt := strings.LastIndex(label, end); closeAt >= 0 {
+			label = label[:closeAt]
 			if strings.ContainsAny(strings.ReplaceAll(label, "<br>", ""), "\"<>") {
-				t.Errorf("unescaped label %q in %q", label, line)
+				t.Errorf("unescaped label %q", label)
 			}
+		} else {
+			t.Errorf("unterminated Mermaid label %q", label)
 		}
 	}
 	node := &Node{Kind: "part", Name: `a<b> "c" #d`, Type: "T<U>", Detail: "x; y"}
-	if got, want := (labeller{}).mermaid(node), "a#lt;b#gt; #quot;c#quot; #35;d : T#lt;U#gt;<br>«part»<br>x#59; y"; got != want {
+	if got, want := (labeller{}).mermaid(node), "«part»<br>a#lt;b#gt; #quot;c#quot; #35;d : T#lt;U#gt;<br>x#59; y"; got != want {
 		t.Errorf("mermaidLabel = %q, want %q", got, want)
 	}
 }
@@ -809,6 +853,8 @@ func TestMermaidSizeCountsEdges(t *testing.T) {
 		{"state-entry.sysml", "MachineViews::thermostat"},
 		{"action.sysml", "FlowViews::driveView"},
 		{"sequence-vehicle.sysml", "VehicleSequenceViews::startVehicleView"},
+		{"case.sysml", "CaseExamples::caseDiagram"},
+		{"mixed.sysml", "MixedExamples::mixedDiagram"},
 	} {
 		rendering := render(t, tc.file, tc.view)
 		drawn := len(rendering.Edges)
@@ -833,4 +879,29 @@ func containmentEdges(node *Node) int {
 		n += containmentEdges(child)
 	}
 	return n
+}
+
+// A guarded succession leading to a succession flow is drawn as the succession it
+// orders, labeled with its guard and located at its own declaration, beside the flow.
+func TestActionRenderingDrawsTheSuccessionGatingAFlow(t *testing.T) {
+	rendering := render(t, "gated-flow.sysml", "GatedViews::passView")
+	sf := fixtureText(t, "gated-flow.sysml")
+	var gated, flows int
+	for _, edge := range rendering.Data().Edges {
+		switch edge.Kind {
+		case EdgeSuccession:
+			if edge.Label != "[go]" {
+				continue
+			}
+			gated++
+			if text := sf.Text(edge.Origin.Span); !strings.HasPrefix(text, "first producer if go then f") {
+				t.Errorf("the gated succession is located at %q, want its own declaration", text)
+			}
+		case EdgeFlow:
+			flows++
+		}
+	}
+	if gated != 1 || flows != 1 {
+		t.Errorf("edges: %d gated successions, %d flows; want one of each:\n%s", gated, flows, rendering.Text())
+	}
 }

@@ -83,29 +83,83 @@ mount segmentControl
 ```mermaid
 ---
 config:
-  flowchart:
-    subGraphTitleMargin:
-      bottom: 24
+  fontFamily: "Helvetica, Arial, sans-serif"
+  theme: base
+  themeCSS: ".edgeLabel rect { opacity: 1 !important; } .cluster-label .nodeLabel { text-align: center; }"
+  themeVariables:
+    fontFamily: "Helvetica, Arial, sans-serif"
+    fontSize: "14px"
+    primaryColor: "#FFFFFF"
+    secondaryColor: "#FFFFFF"
+    tertiaryColor: "#FFFFFF"
+    background: "#FFFFFF"
+    primaryBorderColor: "#181818"
+    primaryTextColor: "#000000"
+    lineColor: "#181818"
+    textColor: "#000000"
+    noteBkgColor: "#FEFFDD"
+    noteBorderColor: "#181818"
+    noteTextColor: "#000000"
+    clusterBkg: "#FFFFFF"
+    clusterBorder: "#181818"
+    edgeLabelBackground: "#FFFFFF"
 ---
 %% Observatory::interconnectView — interconnection rendering (render asInterconnectionDiagram)
 flowchart LR
-  subgraph n0 ["imagingChain<br>«part»"]
+  subgraph n0 ["`*«part»* **imagingChain**`"]
     direction LR
-    n1["camera : Camera<br>«part»"]
-    n2["recorder : Recorder<br>«part»"]
+    subgraph n1 ["`*«part»* **camera : Camera**`"]
+      direction LR
+      n1.0["output"]
+    end
+    subgraph n2 ["`*«part»* **recorder : Recorder**`"]
+      direction LR
+      n2.0["input"]
+    end
   end
-  n1 ---|"link"| n2
+  n1.0 ===|"link"| n2.0
+  linkStyle 0 stroke-width:3px
 ```
 
 *Observatory states, left to right*
 
 ```mermaid
+---
+config:
+  fontFamily: "Helvetica, Arial, sans-serif"
+  theme: base
+  themeVariables:
+    fontFamily: "Helvetica, Arial, sans-serif"
+    fontSize: "14px"
+    primaryColor: "#FFFFFF"
+    secondaryColor: "#FFFFFF"
+    tertiaryColor: "#FFFFFF"
+    background: "#FFFFFF"
+    primaryBorderColor: "#181818"
+    primaryTextColor: "#000000"
+    lineColor: "#181818"
+    textColor: "#000000"
+    noteBkgColor: "#FEFFDD"
+    noteBorderColor: "#181818"
+    noteTextColor: "#000000"
+    stateBkg: "#FFFFFF"
+    stateBorder: "#181818"
+    stateLabelColor: "#000000"
+    compositeBackground: "#FFFFFF"
+    compositeBorder: "#181818"
+    compositeTitleBackground: "#FFFFFF"
+    compositeTitleBorder: "#181818"
+    transitionColor: "#181818"
+    transitionLabelColor: "#000000"
+    labelBackgroundColor: "#FFFFFF"
+    specialStateColor: "#181818"
+---
 %% state rendering (the diagram states kind "state")
 stateDiagram-v2
   direction LR
-  state "operatingStates : ObservatoryStates<br>«state»" as n0 {
-    state "idle<br>«state»<br>initial" as n1
-    state "observing<br>«state»" as n2
+  state "«state» operatingStates : ObservatoryStates" as n0 {
+    state "«state»<br>idle<br>initial" as n1
+    state "«state»<br>observing" as n2
     [*] --> n1
   }
   n1 --> n2

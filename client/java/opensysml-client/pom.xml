@@ -7,7 +7,7 @@
   <parent>
     <groupId>org.openmbee</groupId>
     <artifactId>opensysml-parent</artifactId>
-    <version>0.9.2</version>
+    <version>0.10.0</version>
   </parent>
 
   <artifactId>opensysml</artifactId>
@@ -30,6 +30,11 @@
       <artifactId>protobuf-java-util</artifactId>
       <optional>true</optional>
     </dependency>
+    <dependency>
+      <groupId>com.google.code.gson</groupId>
+      <artifactId>gson</artifactId>
+      <optional>true</optional>
+    </dependency>
     <!-- Verifies the sigstore bundle over a release's SHA256SUMS.txt, which is what lets a
          release newer than this client's pinned digests install. -->
     <dependency>
@@ -43,6 +48,22 @@
   </dependencies>
 
   <build>
+    <resources>
+      <resource>
+        <directory>src/main/resources</directory>
+        <filtering>true</filtering>
+        <includes>
+          <include>opensysml-version.properties</include>
+        </includes>
+      </resource>
+      <resource>
+        <directory>src/main/resources</directory>
+        <filtering>false</filtering>
+        <excludes>
+          <exclude>opensysml-version.properties</exclude>
+        </excludes>
+      </resource>
+    </resources>
     <plugins>
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>

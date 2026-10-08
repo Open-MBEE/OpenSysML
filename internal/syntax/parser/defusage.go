@@ -1115,6 +1115,14 @@ func (p *Parser) parseMoreFeatureModifiers(m *featureMods) {
 			}
 			return
 		}
+		// `composite` or `portion` closes the feature prefix in SysML, where
+		// `readonly` is reserved; in KerML the word is a valid feature name.
+		if m.isComposite && p.src.Kind() != source.KindKerML &&
+			t.Kind == lexer.Identifier && p.src.Text(t.Span) == "readonly" {
+			p.error(t.Span, "'readonly' cannot follow '"+compositeOrPortionWord(m.isPortion)+
+				"': a prefix says "+compositeOrPortionPair+", not both")
+			return
+		}
 		if t.Kind == lexer.Identifier && p.src.Text(t.Span) == varPrefixWord {
 			next := p.peekN(1)
 			// KerML FeaturePrefix puts prefix metadata after `var`: `var #M feature f`.
@@ -1132,6 +1140,21 @@ func (p *Parser) parseMoreFeatureModifiers(m *featureMods) {
 		}
 		if t.Kind != lexer.Keyword {
 			return
+		}
+		// `composite`/`portion` closes the prefix to all but `ordered`, `nonunique` and
+		// KerML `const`; in KerML a trailing `ordered` is the feature's name.
+		kerml := p.src.Kind() == source.KindKerML
+		if m.isComposite && kerml &&
+			(t.KeywordID == "ordered" || t.KeywordID == "nonunique") &&
+			p.peekN(1).Kind == lexer.Identifier {
+			p.error(p.peekN(1).Span, fmt.Sprintf("'%s' cannot follow '%s'",
+				p.src.Text(p.peekN(1).Span), t.KeywordID))
+		}
+		if m.isComposite && featureModifierKeywords[t.KeywordID] &&
+			t.KeywordID != "ordered" && t.KeywordID != "nonunique" &&
+			t.KeywordID != "end" && t.KeywordID != "composite" && t.KeywordID != "portion" &&
+			!(kerml && t.KeywordID == "const") {
+			p.prefixConflict(t, compositeOrPortionWord(m.isPortion), compositeOrPortionPair)
 		}
 		switch t.KeywordID {
 		case "abstract":
@@ -1478,7 +1501,10 @@ func (p *Parser) parseDefUsage(start int) ast.Node {
 
 		// A subject, actor, stakeholder, objective or rendering the body does
 		// not own is parsed as itself and then replaced by an ErrorNode.
-		if !p.bodyAdmitsMember(kw) {
+		// `assume`/`require` are exempt here: they spell a constraint usage
+		// (`require x { }`) as well as prefixing one (`require constraint { }`),
+		// and only the prefix form is body-owned — atKindPrefix reports it.
+		if !p.bodyAdmitsMember(kw) && kw != "assume" && kw != "require" {
 			en := p.misplacedMember(t)
 			applyPrefixes = func(ast.Node) ast.Node {
 				en.NodeSpan = p.spanFrom(start)
@@ -2007,15 +2033,22 @@ type ownedMember struct {
 	bodies []bodyContext
 }
 
+// requirementOrCase names the bodies that offer the members shared by both.
+const requirementOrCase = "requirement or case"
+
 var ownedMembers = map[string]ownedMember{
-	"subject":     {"the subject of a requirement or case", "requirement or case", []bodyContext{bodyRequirement, bodyCase}},
-	"actor":       {"an actor of a requirement or case", "requirement or case", []bodyContext{bodyRequirement, bodyCase}},
+	"subject":     {"the subject of a requirement or case", requirementOrCase, []bodyContext{bodyRequirement, bodyCase}},
+	"actor":       {"an actor of a requirement or case", requirementOrCase, []bodyContext{bodyRequirement, bodyCase}},
 	"stakeholder": {"a stakeholder of a requirement", "requirement", []bodyContext{bodyRequirement}},
 	"objective":   {"the objective of a case", "case", []bodyContext{bodyCase}},
-	"entry":       {"the entry action of a state", "state", []bodyContext{bodyState}},
-	"do":          {"the do action of a state", "state", []bodyContext{bodyState}},
-	"exit":        {"the exit action of a state", "state", []bodyContext{bodyState}},
-	"render":      {"the rendering of a view", "view", []bodyContext{bodyViewDef, bodyView}},
+	// RequirementConstraintMember (SysML.xtext:2039) is a requirement or case
+	// body's production alone, so the `assume`/`require` prefix is body-owned.
+	"assume":  {"a constraint assumption", requirementOrCase, []bodyContext{bodyRequirement, bodyCase}},
+	"require": {"a required constraint", requirementOrCase, []bodyContext{bodyRequirement, bodyCase}},
+	"entry":   {"the entry action of a state", "state", []bodyContext{bodyState}},
+	"do":      {"the do action of a state", "state", []bodyContext{bodyState}},
+	"exit":    {"the exit action of a state", "state", []bodyContext{bodyState}},
+	"render":  {"the rendering of a view", "view", []bodyContext{bodyViewDef, bodyView}},
 	// TransitionUsageMember is a StateBodyItem only (SysML.xtext); a transition between
 	// action nodes is an extension the notation pass reports, so those bodies read it too.
 	"transition": {"a transition between states", "state", []bodyContext{bodyState, bodyAction, bodyCalc, bodyCase}},
@@ -2860,6 +2893,9 @@ func (p *Parser) parseBodyMember() ast.Node {
 		if p.leadingPrefixIsActionNode() {
 			return p.parseActionMember()
 		}
+		if p.atAcceptNodeAt(p.prefixLookahead()) {
+			return p.parseAcceptNode(start, vis, trivia, p.parsePrefixMetadata())
+		}
 		// Delegate to parseDefUsage which handles prefixes; a prefixed
 		// dependency keeps its prefixes the way a namespace member does.
 		var inner ast.Node
@@ -3033,7 +3069,7 @@ func (p *Parser) parseBodyMember() ast.Node {
 	// (`accept when x > 1`) — and is parsed by the one payload parser triggers
 	// also use, so every spelling reaches lowering the same way.
 	if p.atAcceptNode() {
-		return p.parseAcceptNode(start, vis, trivia)
+		return p.parseAcceptNode(start, vis, trivia, nil)
 	}
 
 	// A transition usage stating its ends (SysML.xtext `TransitionUsage`):
@@ -3163,8 +3199,16 @@ func (p *Parser) parseBodyMember() ast.Node {
 		hasNameAndMult := p.atName() && p.peekN(1).Kind == lexer.LBracket // name with multiplicity (e.g., ref payload [0..*])
 		// `end [1] : A;` — an unnamed feature declaring only its type.
 		hasTypeOnly := p.at(lexer.Colon)
+		// A nameless declaration (`ref [1] = x;`, `ref;`): the multiplicity form stands
+		// alone; the others need a feature-level modifier, and `end` admits none.
+		nameless := p.at(lexer.LBracket)
+		if p.at(lexer.LBrace) || p.at(lexer.Semicolon) || p.valueOperatorAt(0) {
+			nameless = nameless || mods.isReference || mods.isReadonly || mods.isPortion ||
+				(mods.isComposite && !p.at(lexer.LBrace))
+		}
+		hasNamelessDecl := nameless && !mods.isEnd
 
-		if hasNameAndType || hasTypeOnly || hasRelationship || hasNameAndRelationship || hasNameOnly || hasNameAndBody || hasNameAndMult {
+		if hasNameAndType || hasTypeOnly || hasRelationship || hasNameAndRelationship || hasNameOnly || hasNameAndBody || hasNameAndMult || hasNamelessDecl {
 			var id ast.Identification
 
 			// Parse optional name
@@ -3341,6 +3385,12 @@ func (p *Parser) parseBodyMember() ast.Node {
 	// parsed below, which reads the name instead of dropping it.
 	if p.atKindPrefix() {
 		prefix := p.kindPrefixWord()
+		// `assume`/`require` prefix a kind keyword the same bodies own that
+		// offer the member itself (SysML.xtext:2039).
+		var misplaced *ast.ErrorNode
+		if !p.bodyAdmitsMember(prefix) {
+			misplaced = p.misplacedMember(p.peek())
+		}
 		p.advance() // consume the prefix keyword
 		inner := p.parseDeclaration(start)
 		if inner == nil {
@@ -3355,6 +3405,11 @@ func (p *Parser) parseBodyMember() ast.Node {
 		}
 		if u, ok := inner.(*ast.Usage); ok && prefix == varPrefixWord {
 			u.IsVariable = true
+		}
+		if misplaced != nil {
+			misplaced.NodeSpan = p.spanFrom(start)
+			misplaced.SetLeadingTrivia(trivia)
+			return misplaced
 		}
 		mem := &ast.Membership{Visibility: vis, Member: inner}
 		mem.NodeSpan = p.spanFrom(start)
@@ -3626,6 +3681,7 @@ func (p *Parser) atBindingEnds() bool {
 // parseBindingEnds parses the two ends of a binding, `end '=' end`, recording a
 // diagnostic and stopping where an end or the `=` is missing.
 func (p *Parser) parseBindingEnds(u *ast.Usage) {
+	defer p.admitIndexedEnds(true)()
 	first := p.parseBindingEnd()
 	if first == nil {
 		return
@@ -3646,14 +3702,7 @@ func (p *Parser) parseBindingEnd() *ast.ConnectorEnd {
 	start := p.peek().Span.Offset
 	global := p.at(lexer.Dollar) && p.peekN(1).Kind == lexer.ColonColon
 	if p.at(lexer.LBracket) || p.atNameOrKeyword() || global {
-		cp := p.checkpoint()
-		end := p.parseConnectorEnd()
-		expression := end != nil && p.atExpressionOperator()
-		if expression {
-			p.restore(cp)
-		}
-		p.release()
-		if !expression {
+		if end, ok := p.parseFeatureEnd(); ok {
 			return end
 		}
 	}
@@ -3667,32 +3716,92 @@ func (p *Parser) parseBindingEnd() *ast.ConnectorEnd {
 		en := &ast.ErrorNode{Message: msg}
 		en.NodeSpan = p.spanFrom(start)
 		end.Target = en
-	} else if expr := p.ParseExpression(); expr != nil {
-		en, failed := expr.(*ast.ErrorNode)
-		if !failed {
-			const msg = "a binding end names a feature, not an expression; " +
-				"declare a feature with the expression as its value and bind to that"
-			p.error(expr.Span(), msg)
-			en = &ast.ErrorNode{Message: msg}
-			en.NodeSpan = expr.Span()
-		}
-		end.Target = en
+	} else {
+		end.Target = p.parseExpressionEndTarget(msgBindingEndExpression)
 	}
 	end.NodeSpan = p.spanFrom(start)
 	return end
 }
 
+// parseExpressionEndTarget parses the expression written where an end should
+// name a feature and reports it once as msg, kept as the end's ErrorNode target.
+// A malformed expression — one that fails to parse, or stops short of an
+// operator (`a ? b`) — is skipped up to the next end delimiter instead, so the
+// one mistake yields the one diagnostic.
+func (p *Parser) parseExpressionEndTarget(msg string) ast.Node {
+	start := p.peek().Span.Offset
+	cp := p.checkpoint()
+	expr := p.ParseExpression()
+	clean := expr != nil && len(p.Diagnostics) == cp.diagnosticLen && !p.atExpressionOperator()
+	if !clean {
+		p.restore(cp)
+	}
+	p.release()
+	if !clean {
+		p.skipToEndDelimiter()
+	}
+	en := &ast.ErrorNode{Message: msg}
+	en.NodeSpan = p.spanFrom(start)
+	p.error(en.NodeSpan, msg)
+	return en
+}
+
+// skipToEndDelimiter skips the rest of a malformed connector end: up to the
+// delimiter after an end (`to`, `then`, `=`, `,` or `)` outside any nesting)
+// or the end of the declaration (`;`, `{`, `}`, EOF). A `to` or `then` inside
+// nesting that never closes (`a#(1 to b;`) is the delimiter after all.
+func (p *Parser) skipToEndDelimiter() {
+	depth := 0
+	var nested *parseCheckpoint
+	defer func() {
+		if nested != nil {
+			if depth > 0 {
+				p.restore(*nested)
+			}
+			p.release()
+		}
+	}()
+	for !p.atEOF() && !p.at(lexer.Semicolon) && !p.at(lexer.LBrace) && !p.at(lexer.RBrace) {
+		switch {
+		case p.atKeyword("to"), p.atKeyword("then"):
+			if depth == 0 {
+				return
+			}
+			if nested == nil {
+				cp := p.checkpoint()
+				nested = &cp
+			}
+		case p.at(lexer.LParen), p.at(lexer.LBracket):
+			depth++
+		case p.at(lexer.RParen), p.at(lexer.RBracket):
+			if depth == 0 {
+				return
+			}
+			depth--
+		case depth == 0 && (p.at(lexer.Comma) || p.at(lexer.Eq)):
+			return
+		}
+		p.advance()
+	}
+}
+
 // atExpressionOperator reports whether the current token continues the name
 // before it into an expression, which a connector end never is.
 func (p *Parser) atExpressionOperator() bool {
-	switch p.peek().Kind {
+	return p.expressionOperatorAt(0)
+}
+
+// expressionOperatorAt reports whether the token at offset off is an operator
+// that continues a name into an expression.
+func (p *Parser) expressionOperatorAt(off int) bool {
+	switch p.peekN(off).Kind {
 	case lexer.Question, lexer.QuestionQ, lexer.Pipe, lexer.Amp, lexer.EqEq, lexer.NotEq,
 		lexer.EqEqEq, lexer.NotEqEq, lexer.Lt, lexer.Gt, lexer.Le, lexer.Ge, lexer.Plus,
 		lexer.Minus, lexer.Star, lexer.Slash, lexer.Percent, lexer.StarStar, lexer.Caret,
-		lexer.LParen, lexer.Arrow, lexer.DotQuestion, lexer.At, lexer.AtAt:
+		lexer.LParen, lexer.LBracket, lexer.Hash, lexer.Arrow, lexer.DotQuestion, lexer.At, lexer.AtAt:
 		return true
 	case lexer.Keyword:
-		switch p.peek().KeywordID {
+		switch p.peekN(off).KeywordID {
 		case "and", "or", "xor", "implies", "as", "istype", "hastype", "meta":
 			return true
 		}
@@ -4056,6 +4165,7 @@ func (p *Parser) parseRelationshipClauseTarget(kind ast.RelationshipKind) *ast.R
 // declaration head: connector ends (connection/interface/allocation) and flow
 // ends + payload (flow). Other kinds contribute nothing.
 func (p *Parser) parseTierBEnds(u *ast.Usage, kind ast.UsageKind) {
+	defer p.admitIndexedEnds(admitsIndexedEnd(kind, u.Keyword))()
 	switch kind {
 	case ast.UsageConnection, ast.UsageInterface:
 		// `connection c connect a to b` states its ends after `connect`; `connect a
@@ -4247,8 +4357,97 @@ func (p *Parser) firstConnectorEnd(kw string) (*ast.ConnectorEnd, bool) {
 	return from, true
 }
 
-// parseConnectorEnd parses one connector end and its optional reference subsetting.
+// parseConnectorEnd parses one connector end and its optional reference
+// subsetting. An expression written as the end is reported once and kept as
+// an ErrorNode target, so the ends after it still parse.
 func (p *Parser) parseConnectorEnd() *ast.ConnectorEnd {
+	start := p.peek().Span.Offset
+	if end, ok := p.parseFeatureEnd(); ok {
+		return end
+	}
+	end := &ast.ConnectorEnd{}
+	if p.at(lexer.LBracket) {
+		end.Multiplicity = p.parseMultiplicity()
+	}
+	end.Target = p.parseExpressionEndTarget(msgConnectorEndExpression)
+	end.NodeSpan = p.spanFrom(start)
+	return end
+}
+
+// parseFeatureEnd parses a connector end that names a feature. When the name
+// continues into an expression it rewinds to the end's start and reports
+// false, leaving the expression for the caller.
+func (p *Parser) parseFeatureEnd() (*ast.ConnectorEnd, bool) {
+	cp := p.checkpoint()
+	defer p.release()
+	end := p.parseNamedEnd()
+	if end != nil && p.atExpressionOperator() {
+		if len(end.Relationships) == 0 {
+			if target, ok := p.parseEndIndex(end.Target); ok {
+				end.Target = target
+				end.NodeSpan = p.spanFrom(end.NodeSpan.Offset)
+				return end, true
+			}
+		}
+		p.restore(cp)
+		return nil, false
+	}
+	return end, true
+}
+
+// admitsIndexedEnd reports whether a usage of the kind states the ends an
+// indexed end may be written as: the connectors that attach to features. A
+// succession's or a transition's ends name occurrences, never an element of
+// one, and a message's name the events it relates.
+func admitsIndexedEnd(kind ast.UsageKind, keyword string) bool {
+	if keyword == "message" {
+		return false
+	}
+	switch kind {
+	case ast.UsageConnection, ast.UsageInterface, ast.UsageConnector, ast.UsageAllocation,
+		ast.UsageBinding, ast.UsageFlow:
+		return true
+	}
+	return false
+}
+
+// admitIndexedEnds sets whether the ends parsed next admit an index and returns
+// the restore of the setting in force before.
+func (p *Parser) admitIndexedEnds(admit bool) func() {
+	previous := p.indexedEnds
+	p.indexedEnds = admit
+	return func() { p.indexedEnds = previous }
+}
+
+// parseEndIndex parses the `#( index )` an indexed end selects one element of
+// the feature it names with — `connect s.y#(1) to k.u`, an OpenSysML extension
+// over the feature chain a ConnectorEnd is (SysML v2 8.2.2.13.1) — and returns
+// the IndexExpr over feature. It parses nothing and reports false where the
+// ends admit no index, where the index is not the whole of the end (`#(1 to`,
+// `#(1).v`, `#(1) + 1`) or where anything else than `#(` follows the feature,
+// leaving the expression for the caller to report once.
+func (p *Parser) parseEndIndex(feature ast.Node) (ast.Node, bool) {
+	if !p.indexedEnds || feature == nil || !p.at(lexer.Hash) || p.peekN(1).Kind != lexer.LParen {
+		return nil, false
+	}
+	cp := p.checkpoint()
+	defer p.release()
+	p.advance() // '#'
+	p.advance() // '('
+	index := p.parseSequenceExpr()
+	whole := index != nil && p.accept2(lexer.RParen) && len(p.Diagnostics) == cp.diagnosticLen
+	if !whole || p.atExpressionOperator() || p.at(lexer.Dot) {
+		p.restore(cp)
+		return nil, false
+	}
+	ix := &ast.IndexExpr{Operand: feature, Index: index}
+	ix.NodeSpan = p.spanFrom(feature.Span().Offset)
+	return ix, true
+}
+
+// parseNamedEnd parses `[mult]? chain` with the end's explicit relationships,
+// or nothing when no name is there.
+func (p *Parser) parseNamedEnd() *ast.ConnectorEnd {
 	start := p.peek().Span.Offset
 	ce := &ast.ConnectorEnd{}
 
@@ -4379,6 +4578,12 @@ func (p *Parser) endThenAt(from int, k lexer.Kind, kw string) bool {
 		default:
 			return false
 		}
+	}
+	// An operator continuing the chain into an expression still marks an end,
+	// ill-formed as it is; `[` and `(` may instead open a declared name's
+	// multiplicity or a named connector's end list.
+	if next := p.peekN(i).Kind; next != lexer.LBracket && next != lexer.LParen && p.expressionOperatorAt(i) {
+		return true
 	}
 	if k == lexer.Keyword {
 		return p.peekIsKeyword(i, kw)
@@ -4555,12 +4760,12 @@ func (p *Parser) parseFlowEnds(u *ast.Usage) {
 		if fe == nil {
 			fe = &ast.FlowEnds{}
 		}
-		fe.From = p.parseRelationshipTarget() // Allow feature chains
+		fe.From = p.parseFlowEnd()
 		p.parseFlowTo(fe)
 	case !hasOf && p.atName():
 		// Shorthand `x to y`.
 		fe = &ast.FlowEnds{}
-		fe.From = p.parseRelationshipTarget() // Allow feature chains
+		fe.From = p.parseFlowEnd()
 		p.parseFlowTo(fe)
 	}
 	if fe != nil {
@@ -4573,10 +4778,26 @@ func (p *Parser) parseFlowEnds(u *ast.Usage) {
 // `to` is absent.
 func (p *Parser) parseFlowTo(fe *ast.FlowEnds) {
 	if p.acceptKeyword("to") {
-		fe.To = p.parseRelationshipTarget() // Allow feature chains
+		fe.To = p.parseFlowEnd()
 		return
 	}
 	p.error(p.peek().Span, "expected 'to' between flow ends")
+}
+
+// parseFlowEnd parses a flow end's feature chain (SysML.xtext FlowEndMember).
+// An expression written there is reported once and kept as an ErrorNode.
+func (p *Parser) parseFlowEnd() ast.Node {
+	cp := p.checkpoint()
+	defer p.release()
+	end := p.parseRelationshipTarget()
+	if end == nil || !p.atExpressionOperator() {
+		return end
+	}
+	if indexed, ok := p.parseEndIndex(end); ok {
+		return indexed
+	}
+	p.restore(cp)
+	return p.parseExpressionEndTarget(msgFlowEndExpression)
 }
 
 // atTransitionEnds reports whether the `transition` at the cursor states its
@@ -4725,8 +4946,34 @@ func (p *Parser) parseMultiplicityBound() ast.Node {
 		p.error(op.Span, fmt.Sprintf("a multiplicity bound cannot start with '%s': "+
 			"a bound is a literal or a feature name (KerML.xtext MultiplicityExpressionMember)",
 			p.src.Text(op.Span)))
+		return p.parseBinary(precAdditive)
 	}
-	return p.parseBinary(precAdditive)
+	var openParen lexer.Token
+	parenthesized := p.at(lexer.LParen)
+	if parenthesized {
+		openParen = p.peek()
+	}
+	bound := p.parseBinary(precAdditive)
+	if bound != nil && (parenthesized || !isMultiplicityBoundForm(bound)) {
+		sp := bound.Span()
+		if parenthesized {
+			sp = p.spanFrom(openParen.Span.Offset)
+		}
+		p.error(sp, "a multiplicity bound must be a literal or a feature name "+
+			"(KerML.xtext MultiplicityExpressionMember)")
+	}
+	return bound
+}
+
+// isMultiplicityBoundForm reports whether a parsed bound is a LiteralExpression
+// or a FeatureReferenceExpression, the two forms MultiplicityExpressionMember admits.
+func isMultiplicityBoundForm(bound ast.Node) bool {
+	switch bound.(type) {
+	case *ast.LiteralInteger, *ast.LiteralReal, *ast.LiteralString, *ast.LiteralBool,
+		*ast.LiteralInfinity, *ast.FeatureReference, *ast.ErrorNode:
+		return true
+	}
+	return false
 }
 
 // atMetadataIdentification reports whether an identification is declared before

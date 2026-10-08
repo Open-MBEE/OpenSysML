@@ -4,7 +4,7 @@
 import { RENDER_FORMS_CAPABILITY, RENDER_STYLES_CAPABILITY, RenderParams, RenderResult } from "./protocol";
 
 /** The forms `opensysml/render` writes, as the wire contract documents them, for a server that lists none itself. */
-export const DOCUMENTED_FORMS: readonly string[] = ["text", "mermaid", "markdown", "dot", "plantuml"];
+export const DOCUMENTED_FORMS: readonly string[] = ["text", "mermaid", "markdown", "dot", "plantuml", "d2"];
 
 /** How an exported form is saved: the file extension and the save dialog's filter name. */
 export interface ExportFile {
@@ -21,7 +21,10 @@ const FORMS: Record<string, FormDescription> = {
   mermaid: { extension: ".mmd", filter: "Mermaid", description: "Mermaid diagram, the model's positions as layout comments" },
   dot: { extension: ".dot", filter: "Graphviz DOT", description: "Graphviz DOT graph; a positioned view names its layout engine" },
   plantuml: { extension: ".puml", filter: "PlantUML", description: "PlantUML diagram in the Pilot visualizer's style" },
+  d2: { extension: ".d2", filter: "D2", description: "D2 diagram, nested containers in the Pilot visualizer's style" },
   markdown: { extension: ".md", filter: "Markdown", description: "Markdown pipe table, for a table view" },
+  csv: { extension: ".csv", filter: "CSV", description: "Comma-separated values, for a table view" },
+  tsv: { extension: ".tsv", filter: "TSV", description: "Tab-separated values, for a table view" },
   text: { extension: ".txt", filter: "Text", description: "Text form, one line per element" },
 };
 
@@ -30,7 +33,7 @@ const UNKNOWN_FORM: ExportFile = { extension: ".txt", filter: "Text" };
 
 /**
  * serverForms lists the forms a server writes: the ones it advertises under
- * `openSysmlRenderForms` in its experimental capabilities, else the documented five.
+ * `openSysmlRenderForms` in its experimental capabilities, else the documented six.
  */
 export function serverForms(experimental: Record<string, unknown> | undefined): string[] {
   const advertised = experimental?.[RENDER_FORMS_CAPABILITY];
@@ -108,6 +111,8 @@ export interface ExportRequest {
   forms: readonly string[];
   /** The drawing style asked of the DOT form, when the panel's style names one the server draws. */
   style?: string;
+  /** Links diagram elements to the declaration in the source document. */
+  linkTemplate?: string;
 }
 
 /**
@@ -125,6 +130,9 @@ export async function exportRendering(host: ExportHost, request: ExportRequest):
     const params: RenderParams = { textDocument: { uri: request.uri }, view: request.view, form };
     if (request.style !== undefined) {
       params.style = request.style;
+    }
+    if (request.linkTemplate !== undefined) {
+      params.linkTemplate = request.linkTemplate;
     }
     result = await host.render(params);
   } catch (err) {

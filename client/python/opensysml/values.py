@@ -9,8 +9,204 @@ from opensysml.enumeration import EnumLiteral
 from opensysml.errors import FeatureValueError, OpenSysMLError, UnsupportedValueError
 from opensysml.proto import sysml_pb2
 
-#: What a quantity's magnitude can be: the service keeps Integer and Real apart.
-Magnitude = Union[int, float]
+#: What a quantity's magnitude can be: the service keeps Integer, Rational and Real apart.
+Magnitude = Union[int, Fraction, float]
+
+_INT64_MIN = -(1 << 63)
+_INT64_MAX = (1 << 63) - 1
+# Decimal digits converted per step, below the interpreter's default
+# int/str conversion limit, so an Integer of any length crosses the wire.
+_DECIMAL_CHUNK = 1000
+_DECIMAL_CHUNK_SCALE = 10 ** _DECIMAL_CHUNK
+
+
+def fits_int64(value: int) -> bool:
+    """Whether an Integer travels as ``int_value``; a larger one travels as ``big_int_value``."""
+    return _INT64_MIN <= value <= _INT64_MAX
+
+
+def pb_holds_big_int(value: "sysml_pb2.Value") -> bool:
+    """Whether a wire value is an Integer beyond int64 or carries one as a quantity magnitude.
+
+    A collection's elements are values of their own, which it leaves to the caller.
+    """
+    kind = value.WhichOneof("kind")
+    if kind == "big_int_value":
+        return True
+    if kind == "quantity":
+        return _quantity_holds_big_int(value.quantity)
+    if kind == "vector":
+        return any(component.WhichOneof("kind") == "big_int_value" for component in value.vector.components)
+    if kind == "vector_quantity":
+        return any(_quantity_holds_big_int(q) for q in value.vector_quantity.components)
+    if kind == "tensor_quantity":
+        return any(_quantity_holds_big_int(q) for q in value.tensor_quantity.components)
+    return False
+
+
+def _quantity_holds_big_int(quantity: "sysml_pb2.Quantity") -> bool:
+    return quantity.WhichOneof("magnitude") == "big_int_magnitude"
+
+
+def integer_to_decimal(value: int) -> str:
+    """The full decimal of an Integer, however many digits it has."""
+    if value < 0:
+        return "-" + integer_to_decimal(-value)
+    if value < _DECIMAL_CHUNK_SCALE:
+        return str(value)
+    chunks: List[str] = []
+    while value >= _DECIMAL_CHUNK_SCALE:
+        value, chunk = divmod(value, _DECIMAL_CHUNK_SCALE)
+        chunks.append(str(chunk).zfill(_DECIMAL_CHUNK))
+    chunks.append(str(value))
+    return "".join(reversed(chunks))
+
+
+def integer_from_decimal(text: str) -> int:
+    """The Integer a ``big_int_value`` decimal spells.
+
+    Raises:
+        UnsupportedValueError: If the text is not an optionally signed run of digits.
+    """
+    digits = text[1:] if text.startswith("-") else text
+    if not digits or not digits.isascii() or not digits.isdigit():
+        raise UnsupportedValueError(f"big Integer {text!r} is not decimal")
+    value = 0
+    for start in range(0, len(digits), _DECIMAL_CHUNK):
+        chunk = digits[start:start + _DECIMAL_CHUNK]
+        value = value * 10 ** len(chunk) + int(chunk)
+    return -value if text.startswith("-") else value
+
+
+def pb_holds_rational(value: "sysml_pb2.Value") -> bool:
+    """Whether a wire value is an exact Rational no double holds, or carries one as a magnitude.
+
+    A collection's elements are values of their own, which it leaves to the caller.
+    """
+    kind = value.WhichOneof("kind")
+    if kind == "rational_value":
+        return True
+    if kind == "quantity":
+        return _quantity_holds_rational(value.quantity)
+    if kind == "vector":
+        return any(component.WhichOneof("kind") == "rational_value" for component in value.vector.components)
+    if kind == "vector_quantity":
+        return any(_quantity_holds_rational(q) for q in value.vector_quantity.components)
+    if kind == "tensor_quantity":
+        return any(_quantity_holds_rational(q) for q in value.tensor_quantity.components)
+    return False
+
+
+def _quantity_holds_rational(quantity: "sysml_pb2.Quantity") -> bool:
+    return quantity.WhichOneof("magnitude") == "rational_magnitude"
+
+
+def rationals_as_reals(value: "sysml_pb2.Value") -> None:
+    """Rewrite in place each Rational arm :func:`pb_holds_rational` reads that a double holds exactly as that double.
+
+    That is the form a service without ``rational_values`` reads; a Rational no
+    double holds is left as it is.
+    """
+    kind = value.WhichOneof("kind")
+    if kind == "rational_value":
+        exact = _double_of(value.rational_value)
+        if exact is not None:
+            value.real_value = exact
+    elif kind == "quantity":
+        quantity_rational_as_real(value.quantity)
+    elif kind == "vector":
+        for component in value.vector.components:
+            rationals_as_reals(component)
+    elif kind == "vector_quantity":
+        for quantity in value.vector_quantity.components:
+            quantity_rational_as_real(quantity)
+    elif kind == "tensor_quantity":
+        for quantity in value.tensor_quantity.components:
+            quantity_rational_as_real(quantity)
+
+
+def quantity_rational_as_real(quantity: "sysml_pb2.Quantity") -> None:
+    """Rewrite a quantity's Rational magnitude a double holds exactly as ``real_magnitude``."""
+    if quantity.WhichOneof("magnitude") == "rational_magnitude":
+        exact = _double_of(quantity.rational_magnitude)
+        if exact is not None:
+            quantity.real_magnitude = exact
+
+
+def _double_of(pb_rational: "sysml_pb2.Rational") -> Optional[float]:
+    value = Fraction(integer_from_decimal(pb_rational.numerator), integer_from_decimal(pb_rational.denominator))
+    return float(value) if holds_exactly_as_double(value) else None
+
+
+def format_rational(value: Fraction) -> str:
+    """Spell a Rational exactly, as the service prints it: a terminating decimal as ``5.4``, any other as ``1/3``."""
+    if value.denominator == 1:
+        return str(value.numerator)
+    den, twos, fives = value.denominator, 0, 0
+    while den % 2 == 0:
+        den, twos = den // 2, twos + 1
+    while den % 5 == 0:
+        den, fives = den // 5, fives + 1
+    if den != 1:
+        return f"{value.numerator}/{value.denominator}"
+    places = max(twos, fives)
+    digits = str(abs(value.numerator) * 10 ** places // value.denominator).rjust(places + 1, "0")
+    sign = "-" if value < 0 else ""
+    return f"{sign}{digits[:-places]}.{digits[-places:]}".rstrip("0")
+
+
+def holds_exactly_as_double(value: Fraction) -> bool:
+    """Whether a double holds the Rational exactly, as the service sends it in ``real_value``."""
+    try:
+        f = float(value)
+    except OverflowError:
+        return False
+    return math.isfinite(f) and Fraction(f) == value
+
+
+def rational_to_pb(value: Fraction) -> "sysml_pb2.Rational":
+    """The ``Rational`` message of an exact Rational, numerator and denominator in full."""
+    return sysml_pb2.Rational(
+        numerator=integer_to_decimal(value.numerator),
+        denominator=integer_to_decimal(value.denominator),
+    )
+
+
+def rational_from_pb(pb_rational: "sysml_pb2.Rational") -> Fraction:
+    """The exact Rational a ``Rational`` message spells.
+
+    A service sends a Rational a double holds exactly as ``real_value``, so one
+    spelled here is refused, as any other noncanonical spelling is.
+
+    Raises:
+        UnsupportedValueError: If it is not in lowest terms over a positive
+            denominator, or a double holds it, which travels as ``real_value``.
+    """
+    numerator = integer_from_decimal(pb_rational.numerator)
+    denominator = integer_from_decimal(pb_rational.denominator)
+    text = f"{pb_rational.numerator}/{pb_rational.denominator}"
+    if denominator <= 0 or math.gcd(numerator, denominator) != 1:
+        raise UnsupportedValueError(f"Rational {text} is not in lowest terms over a positive denominator")
+    value = Fraction(numerator, denominator)
+    if holds_exactly_as_double(value):
+        raise UnsupportedValueError(f"Rational {text} is a double, which travels as real_value")
+    return value
+
+
+def rational_value_to_pb(value: Fraction) -> "sysml_pb2.Value":
+    """Encode a Rational as ``rational_value``, one a double holds exactly included.
+
+    A service reads an inbound ``real_value`` as a Real; :func:`rationals_as_reals`
+    rewrites the message for a service without ``rational_values``.
+    """
+    return sysml_pb2.Value(rational_value=rational_to_pb(value))
+
+
+def integer_to_pb(value: int) -> "sysml_pb2.Value":
+    """Encode an Integer as ``int_value`` within int64, ``big_int_value`` beyond it."""
+    if fits_int64(value):
+        return sysml_pb2.Value(int_value=value)
+    return sysml_pb2.Value(big_int_value=integer_to_decimal(value))
 
 
 class IncommensurableUnitsError(OpenSysMLError):
@@ -206,8 +402,12 @@ class Quantity:
         which = pb_quantity.WhichOneof('magnitude')
         if which == 'int_magnitude':
             magnitude: Magnitude = pb_quantity.int_magnitude
+        elif which == 'big_int_magnitude':
+            magnitude = integer_from_decimal(pb_quantity.big_int_magnitude)
         elif which == 'real_magnitude':
             magnitude = pb_quantity.real_magnitude
+        elif which == 'rational_magnitude':
+            magnitude = rational_from_pb(pb_quantity.rational_magnitude)
         else:
             raise UnsupportedValueError(
                 f"quantity in [{pb_quantity.unit}] carries no magnitude"
@@ -231,9 +431,9 @@ class Quantity:
                 decides commensurability over the reduction and rejects a unit
                 sent without one.
         """
-        if isinstance(self.magnitude, bool) or not isinstance(self.magnitude, (int, float)):
+        if isinstance(self.magnitude, bool) or not isinstance(self.magnitude, (int, Fraction, float)):
             raise UnsupportedValueError(
-                f"quantity magnitude {self.magnitude!r} is neither an Integer nor a Real"
+                f"quantity magnitude {self.magnitude!r} is neither an Integer nor a Real nor a Rational"
             )
         if not self.unit.reduced:
             raise UnsupportedValueError(
@@ -242,10 +442,14 @@ class Quantity:
                 f"the service sent, or from one the model declares"
             )
         pb_quantity = sysml_pb2.Quantity(unit=self.unit.text, unit_term=self.unit.to_pb())
-        if isinstance(self.magnitude, int):
+        if isinstance(self.magnitude, int) and not fits_int64(self.magnitude):
+            pb_quantity.big_int_magnitude = integer_to_decimal(self.magnitude)
+        elif isinstance(self.magnitude, int):
             pb_quantity.int_magnitude = self.magnitude
+        elif isinstance(self.magnitude, Fraction):
+            pb_quantity.rational_magnitude.CopyFrom(rational_to_pb(self.magnitude))
         else:
-            pb_quantity.real_magnitude = self.magnitude
+            pb_quantity.real_magnitude = float(self.magnitude)
         return pb_quantity
 
     def base_magnitude(self) -> float:
@@ -288,8 +492,8 @@ class Quantity:
         return self.base_magnitude() == other.base_magnitude()
 
     def _exact_base_magnitude(self) -> Optional[Fraction]:
-        """The base magnitude as a Fraction while it can be exact: an int over a whole scale."""
-        if isinstance(self.magnitude, bool) or not isinstance(self.magnitude, int):
+        """The base magnitude as a Fraction while it can be exact: an Integer or Rational over a whole scale."""
+        if isinstance(self.magnitude, bool) or not isinstance(self.magnitude, (int, Fraction)):
             return None
         num, den = self.unit.scale_num, self.unit.scale_den
         if not (float(num).is_integer() and float(den).is_integer()):
@@ -356,7 +560,7 @@ class Quantity:
         client does not compose: the runtime does, so `x * y` over quantities
         belongs in the model.
         """
-        if isinstance(other, bool) or not isinstance(other, (int, float)):
+        if isinstance(other, bool) or not isinstance(other, (int, Fraction, float)):
             return NotImplemented
         return Quantity(self.magnitude * other, self.unit)
 
@@ -364,13 +568,12 @@ class Quantity:
 
     def __truediv__(self, other: Magnitude) -> "Quantity":
         """Divide the magnitude by a number, keeping the unit."""
-        if isinstance(other, bool) or not isinstance(other, (int, float)):
+        if isinstance(other, bool) or not isinstance(other, (int, Fraction, float)):
             return NotImplemented
         return Quantity(self.magnitude / other, self.unit)
 
     def __str__(self) -> str:
-        magnitude = f"{self.magnitude:g}" if isinstance(self.magnitude, float) else str(self.magnitude)
-        return f"{magnitude} [{self.unit}]"
+        return f"{_format_number(self.magnitude)} [{self.unit}]"
 
     def __repr__(self) -> str:
         return f"Quantity({self.magnitude!r}, {self.unit!r})"
@@ -561,20 +764,24 @@ class Metaobject:
 
 
 def _is_number(value: object) -> bool:
-    """Whether a value is an Integer or a Real as the wire keeps them apart: a bool is neither."""
-    return isinstance(value, (int, float)) and not isinstance(value, bool)
+    """Whether a value is an Integer, a Rational or a Real as the wire keeps them apart: a bool is none."""
+    return isinstance(value, (int, Fraction, float)) and not isinstance(value, bool)
 
 
 def _number_to_pb(value: Magnitude) -> "sysml_pb2.Value":
-    return (
-        sysml_pb2.Value(int_value=value)
-        if isinstance(value, int)
-        else sysml_pb2.Value(real_value=value)
-    )
+    if isinstance(value, int):
+        return integer_to_pb(value)
+    if isinstance(value, Fraction):
+        return rational_value_to_pb(value)
+    return sysml_pb2.Value(real_value=value)
 
 
 def _format_number(value: Magnitude) -> str:
-    return f"{value:g}" if isinstance(value, float) else str(value)
+    if isinstance(value, float):
+        return f"{value:g}"
+    if isinstance(value, Fraction):
+        return format_rational(value)
+    return str(value)
 
 
 @dataclass(frozen=True, eq=False)
@@ -730,8 +937,12 @@ class Vector:
             kind = pb_component.WhichOneof("kind")
             if kind == "int_value":
                 components.append(pb_component.int_value)
+            elif kind == "big_int_value":
+                components.append(integer_from_decimal(pb_component.big_int_value))
             elif kind == "real_value":
                 components.append(pb_component.real_value)
+            elif kind == "rational_value":
+                components.append(rational_from_pb(pb_component.rational_value))
             else:
                 raise UnsupportedValueError(
                     f"malformed vector: component is {kind or 'empty'}, not a number"
@@ -1114,7 +1325,8 @@ def value_to_python(pb_value, resolve_instance=None):
             :class:`InstanceRef` holding the id.
 
     Returns:
-        int, float, complex, bool, str, list, None, :data:`UNSET`,
+        int, :class:`fractions.Fraction` for an exact Rational no double
+        holds, float, complex, bool, str, list, None, :data:`UNSET`,
         :data:`INFINITY`, an :class:`Undetermined`, a
         :class:`Quantity`, a :class:`MeasurementRef`, a :class:`Function`, a
         :class:`Metaobject`, an :class:`Array`, a :class:`Vector`, a
@@ -1131,8 +1343,12 @@ def value_to_python(pb_value, resolve_instance=None):
     kind = pb_value.WhichOneof('kind')
     if kind == 'int_value':
         return pb_value.int_value
+    if kind == 'big_int_value':
+        return integer_from_decimal(pb_value.big_int_value)
     if kind == 'real_value':
         return pb_value.real_value
+    if kind == 'rational_value':
+        return rational_from_pb(pb_value.rational_value)
     if kind == 'complex':
         return complex(pb_value.complex.real, pb_value.complex.imaginary)
     if kind == 'bool_value':

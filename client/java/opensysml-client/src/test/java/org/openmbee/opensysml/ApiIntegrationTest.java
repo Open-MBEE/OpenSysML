@@ -7,6 +7,9 @@ import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.sun.net.httpserver.HttpServer;
+import java.io.OutputStream;
+import java.net.InetSocketAddress;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
@@ -618,7 +621,10 @@ class ApiIntegrationTest {
           succession first inner then done;
         }
         action noStart {
-          attribute result : Integer = 0;
+          action a;
+          action b;
+          succession first a then b;
+          succession first b then a;
         }
         action race {
           attribute x : Integer = 0;
@@ -664,6 +670,16 @@ class ApiIntegrationTest {
         model.executeAction(
             "Test::race", Map.of(), ExecutionOptions.defaults().withSchedule("declared"));
     assertEquals(new Value.IntegerValue(3), declared.outputs().get("x"));
+    assertThrows(
+        IllegalArgumentException.class,
+        () ->
+            model.executeAction(
+                "Test::addFive", Map.of(), ExecutionOptions.defaults().withTrace()));
+    assertThrows(
+        IllegalArgumentException.class,
+        () ->
+            model.exploreAction(
+                "Test::race", Map.of(), ExecutionOptions.defaults().withTrace()));
   }
 
   @Test
@@ -715,6 +731,11 @@ class ApiIntegrationTest {
     StateRun run = model.executeState("Test::Machine", List.of());
     assertEquals(List.of("init", "Running", "done"), run.statesVisited());
     assertEquals(Optional.of("done"), run.finalState());
+    assertTrue(run.trace().isEmpty());
+    StateRun traced =
+        model.executeState("Test::Machine", List.of(), ExecutionOptions.defaults().withTrace());
+    assertEquals("entry", traced.trace().get(0).kind());
+    assertEquals(0, traced.traceDropped());
 
     Exploration exploration = model.exploreState("Test::Machine", List.of());
     assertTrue(exploration.complete());
@@ -722,8 +743,73 @@ class ApiIntegrationTest {
     assertEquals(Optional.of("done"), exploration.outcomes().get(0).finalState());
     assertEquals(
         List.of("init", "Running", "done"), exploration.outcomes().get(0).statesVisited());
+    assertThrows(
+        IllegalArgumentException.class,
+        () ->
+            model.exploreState(
+                "Test::Machine", List.of(), ExecutionOptions.defaults().withTrace()));
 
     assertThrows(ModelException.class, () -> model.executeState("Test::NoMachine", List.of()));
+  }
+
+  @Test
+  void aFailedTracedStateRunKeepsItsPartialTraceOnTheModelException() throws Exception {
+    HttpServer server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+    server.createContext(
+        "/",
+        exchange -> {
+          exchange.getRequestBody().readAllBytes();
+          byte[] body;
+          if (exchange.getRequestURI().getPath().endsWith("/GetServerInfo")) {
+            body =
+                org.openmbee.opensysml.proto.ServerInfoResponse.newBuilder()
+                    .setVersion("test")
+                    .addCapabilities(Capabilities.STATE_TRACE)
+                    .build()
+                    .toByteArray();
+          } else {
+            body =
+                org.openmbee.opensysml.proto.ExecuteStateResponse.newBuilder()
+                    .setError("state machine failed")
+                    .addTrace(
+                        org.openmbee.opensysml.proto.DocumentEvent.newBuilder()
+                            .setKind("entry")
+                            .setTime(
+                                org.openmbee.opensysml.proto.DocumentValue.newBuilder()
+                                    .setRealValue(1.5))
+                            .setState("active")
+                            .setText("enter: active"))
+                    .setTraceDropped(2)
+                    .build()
+                    .toByteArray();
+          }
+          exchange.getResponseHeaders().add("Content-Type", "application/proto");
+          exchange.sendResponseHeaders(200, body.length);
+          try (OutputStream output = exchange.getResponseBody()) {
+            output.write(body);
+          }
+        });
+    server.start();
+    try (Connection fake =
+        Connection.open(
+            ConnectionOptions.builder()
+                .service("127.0.0.1", server.getAddress().getPort())
+                .build())) {
+      Model model = new Model(fake, "hash", List.of(), List.of());
+      ModelException failure =
+          assertThrows(
+              ModelException.class,
+              () ->
+                  model.executeState(
+                      "Trace::Machine", List.of(), ExecutionOptions.defaults().withTrace()));
+      assertEquals("state machine failed", failure.getMessage());
+      assertEquals(1, failure.trace().size());
+      assertEquals("entry", failure.trace().get(0).kind());
+      assertEquals("active", failure.trace().get(0).state());
+      assertEquals(2, failure.traceDropped());
+    } finally {
+      server.stop(0);
+    }
   }
 
   private static final String VERIFICATION =
@@ -999,6 +1085,13 @@ class ApiIntegrationTest {
     assertTrue(holding.holds());
   }
 
+  private static Path v1Fixture(String name) {
+    return Path.of(System.getProperty("user.dir"))
+        .resolve("../../../tests/migrate/testdata/xmi")
+        .resolve(name)
+        .normalize();
+  }
+
   private static Path fixture(String name) {
     return Path.of(System.getProperty("user.dir"))
         .resolve("../../../conformance/fixtures")
@@ -1052,13 +1145,136 @@ class ApiIntegrationTest {
   }
 
   @Test
+  void aSysMLv1ModelIsMigratedNotConverted() {
+    Path vehicle = v1Fixture("vehicle.xmi");
+    ServiceException byExtension =
+        assertThrows(ServiceException.class, () -> connection.convertFile(vehicle, "sysml"));
+    assertEquals(StatusCode.INVALID_ARGUMENT, byExtension.status());
+    assertTrue(byExtension.serviceMessage().contains(vehicle.toString()));
+    assertTrue(
+        byExtension.serviceMessage().contains("is a SysML v1 model, which is migrated, not converted"));
+    assertTrue(byExtension.serviceMessage().contains("call migrateFile"));
+
+    ConversionOptions asMdzip = ConversionOptions.defaults().withFromFormat("mdzip");
+    ServiceException byFormat =
+        assertThrows(
+            ServiceException.class, () -> connection.convert("<xmi/>", "sysml", asMdzip));
+    assertEquals(StatusCode.INVALID_ARGUMENT, byFormat.status());
+    assertTrue(byFormat.serviceMessage().contains("the source is a SysML v1 model"));
+    assertTrue(byFormat.serviceMessage().contains("call migrate"));
+
+    // A form is read as the service reads it, in any case and padding.
+    ConversionOptions asMDZIP = ConversionOptions.defaults().withFromFormat(" MDZIP ");
+    ServiceException bySpelling =
+        assertThrows(
+            ServiceException.class, () -> connection.convert("<xmi/>", "sysml", asMDZIP));
+    assertEquals(StatusCode.INVALID_ARGUMENT, bySpelling.status());
+    assertTrue(bySpelling.serviceMessage().contains("the source is a SysML v1 model"));
+
+    // Named by its format, the client lets the service judge; it refuses the same way.
+    ConversionOptions asXmi = ConversionOptions.defaults().withFromFormat("xmi");
+    ServiceException byService =
+        assertThrows(
+            ServiceException.class, () -> connection.convertFile(vehicle, "sysml", asXmi));
+    assertEquals(StatusCode.INVALID_ARGUMENT, byService.status());
+    assertTrue(byService.serviceMessage().contains("migrated, not converted"));
+  }
+
+  @Test
+  void migrateAccountsForEveryElement() throws Exception {
+    Path vehicle = v1Fixture("vehicle.xmi");
+    Migration byFile = connection.migrateFile(vehicle, "sysml");
+    assertTrue(byFile.content().contains("part def Vehicle"));
+    assertEquals("xmi", byFile.fromFormat());
+    assertEquals("sysml", byFile.toFormat());
+    assertFalse(byFile.experimentalNotice().isBlank());
+    MigrationReport summary = byFile.report();
+    assertTrue(summary.summary().startsWith("migrated "));
+    assertTrue(summary.mapped() > 0);
+    assertTrue(summary.entries().isEmpty(), "the report was not asked for");
+    assertTrue(summary.text().isEmpty());
+    assertTrue(byFile.results().isEmpty());
+
+    Migration byContent =
+        connection.migrate(
+            Files.readAllBytes(vehicle),
+            "sysml",
+            MigrationOptions.defaults().withFromFormat("xmi").withReport(true).withResults(true));
+    assertEquals(byFile.content(), byContent.content());
+    MigrationReport report = byContent.report();
+    assertFalse(report.entries().isEmpty(), "the report was asked for");
+    assertEquals(report.mapped(), report.byVerdict("mapped").size());
+    assertEquals(report.approximated(), report.byVerdict("approximated").size());
+    assertEquals(report.unmapped(), report.byVerdict("unmapped").size());
+    assertEquals(report.skipped(), report.byVerdict("skipped").size());
+    assertTrue(report.text().startsWith("# SysML v1 to v2 migration report"));
+    assertTrue(report.text().contains(report.summary()));
+    assertFalse(byContent.results().isEmpty());
+
+    Migration asTurtle = connection.migrateFile(vehicle, "ttl");
+    assertEquals("ttl", asTurtle.toFormat());
+    assertTrue(asTurtle.content().contains("@prefix"));
+
+    Migration laidOut =
+        connection.migrateFile(
+            v1Fixture("layout.xmi"),
+            "sysml",
+            MigrationOptions.defaults().withLayoutFile(v1Fixture("layout.layout.xml")));
+    assertTrue(laidOut.report().summary().contains("laid out"));
+    Migration inlineLayout =
+        connection.migrateFile(
+            v1Fixture("layout.xmi"),
+            "sysml",
+            MigrationOptions.defaults()
+                .withLayoutContent(Files.readString(v1Fixture("layout.layout.xml"))));
+    assertEquals(laidOut.content(), inlineLayout.content());
+  }
+
+  @Test
+  void migrateRefusesWhatIsNotAv1Model() {
+    Path v2 = fixture("vehicle.sysml");
+    ServiceException byExtension =
+        assertThrows(ServiceException.class, () -> connection.migrateFile(v2, "sysml"));
+    assertEquals(StatusCode.INVALID_ARGUMENT, byExtension.status());
+    assertTrue(byExtension.serviceMessage().contains("converted, not migrated"));
+
+    MigrationOptions asNotation = MigrationOptions.defaults().withFromFormat("sysml");
+    byte[] notation = "package P;".getBytes();
+    ServiceException byFormat =
+        assertThrows(
+            ServiceException.class, () -> connection.migrate(notation, "sysml", asNotation));
+    assertEquals(StatusCode.INVALID_ARGUMENT, byFormat.status());
+    assertTrue(byFormat.serviceMessage().contains("call convert"));
+
+    byte[] xmi = "<xmi/>".getBytes();
+    MigrationOptions unspecified = MigrationOptions.defaults();
+    ServiceException unnamed =
+        assertThrows(ServiceException.class, () -> connection.migrate(xmi, "sysml", unspecified));
+    assertEquals(StatusCode.INVALID_ARGUMENT, unnamed.status());
+
+    MigrationOptions asXmi = MigrationOptions.defaults().withFromFormat("xmi");
+    MigrationException unreadable =
+        assertThrows(MigrationException.class, () -> connection.migrate(xmi, "sysml", asXmi));
+    assertFalse(unreadable.getMessage().isEmpty());
+
+    Path nonexistent = v1Fixture("nonexistent.xmi");
+    ServiceException missing =
+        assertThrows(ServiceException.class, () -> connection.migrateFile(nonexistent, "sysml"));
+    assertEquals(StatusCode.NOT_FOUND, missing.status());
+  }
+
+  @Test
   void convertOfUnreadableNotationIsAModelFailure() throws Exception {
     String source = Files.readString(fixture("syntax_error.sysml"));
     ConversionOptions convertOptions = ConversionOptions.defaults().withFromFormat("sysml");
-    ModelException failed =
+    ConversionException failed =
         assertThrows(
-            ModelException.class, () -> connection.convert(source, "sysml", convertOptions));
+            ConversionException.class, () -> connection.convert(source, "sysml", convertOptions));
     assertFalse(failed.diagnostics().isEmpty());
+    Model broken = connection.parse(source);
+    ConversionException fromModel =
+        assertThrows(ConversionException.class, () -> broken.convert("sysml"));
+    assertFalse(fromModel.diagnostics().isEmpty());
   }
 
   @Test
@@ -1148,5 +1364,243 @@ class ApiIntegrationTest {
         assertThrows(
             ServiceException.class, () -> model.renderDocument("Observatory::NoSuchDocument"));
     assertEquals(StatusCode.NOT_FOUND, refused.status());
+  }
+
+  @Test
+  void renderDocumentRendersHtmlWhenAskedFor() {
+    Model model = connection.load(fixture("document.sysml"));
+    RenderedDocument rendered = model.renderDocument("Observatory::MassReport", DocumentForm.HTML);
+    assertEquals(DocumentForm.HTML, rendered.form());
+    assertTrue(rendered.html().contains("<h1"), rendered.html());
+    assertTrue(rendered.html().contains("Telescope Mass Report"));
+    assertEquals("", rendered.markdown());
+  }
+
+  @Test
+  void renderViewReturnsTypedPortsEdgesAndOrigins() {
+    Model model = connection.load(fixture("views.sysml"));
+    RenderedView rendered = model.renderView("RenderViewDemo::connections");
+    assertEquals("interconnection", rendered.kind());
+    assertEquals(1, rendered.edges().size());
+    assertFalse(rendered.edges().get(0).fromPort().isEmpty());
+    assertFalse(rendered.edges().get(0).toPort().isEmpty());
+    assertTrue(rendered.nodes().stream().allMatch(node -> node.origin().isPresent()));
+    assertTrue(
+        model
+            .renderView("RenderViewDemo::connections", RenderViewPorts.FULL)
+            .nodes()
+            .stream()
+            .flatMap(node -> node.ports().stream())
+            .anyMatch(port -> port.name().equals("spare")));
+  }
+
+  @Test
+  void exportGraphsAnswersTheCanonicalFormOfABehavior() {
+    Model model = connection.load(fixture("behavior.sysml"));
+    Graphs graphs = model.exportGraphs("Test::race");
+    assertEquals(1, graphs.version());
+    assertEquals("Test::race", graphs.subject());
+    assertTrue(
+        graphs.content().startsWith("{\"version\":1,\"subject\":\"Test::race\""),
+        graphs.content());
+    assertTrue(graphs.content().endsWith("}\n"), graphs.content());
+    assertTrue(graphs.content().contains("\"actions\""), graphs.content());
+    ServiceException missing =
+        assertThrows(ServiceException.class, () -> model.exportGraphs("Test::Missing"));
+    assertTrue(missing.getMessage().contains("Test::Missing"), missing.getMessage());
+    ServiceException notABehavior =
+        assertThrows(ServiceException.class, () -> model.exportGraphs("Test"));
+    assertTrue(notABehavior.getMessage().contains("no lowered graph"), notABehavior.getMessage());
+  }
+
+  @Test
+  void convertSpellsDerivedIdsInTheFormAskedFor() {
+    String source = "package P { part def A; part a : A; }\n";
+    ConversionOptions options = ConversionOptions.defaults().withFromFormat("sysml");
+    Conversion qualified = connection.convert(source, "api-json", options);
+    Conversion uuid =
+        connection.convert(
+            source, "api-json", options.withIdForm(ConversionOptions.ID_FORM_UUID));
+    assertTrue(qualified.content().contains("\"P__a\""), qualified.content());
+    assertFalse(uuid.content().contains("\"P__a\""), uuid.content());
+    assertEquals(
+        qualified.content(),
+        connection
+            .convert(source, "api-json", options.withIdForm(ConversionOptions.ID_FORM_QUALIFIED))
+            .content());
+    ConversionOptions shortIds = options.withIdForm("short");
+    ServiceException refused =
+        assertThrows(
+            ServiceException.class, () -> connection.convert(source, "api-json", shortIds));
+    assertEquals(StatusCode.INVALID_ARGUMENT, refused.status());
+  }
+
+  @Test
+  void aConversionAndAnEditResultWriteTheirContent(@org.junit.jupiter.api.io.TempDir Path dir)
+      throws Exception {
+    Model model = connection.load(fixture("vehicle.sysml"));
+    Path written = model.convert("sysml").write(dir.resolve("vehicle.sysml"));
+    assertEquals(model.convert("sysml").content(), Files.readString(written));
+    EditResult result =
+        connection
+            .load(fixture("editable.sysml"))
+            .edit()
+            .setValue("Demo::SC::unitMass", "1050.0[SI::kg]")
+            .apply();
+    Path saved = result.save(dir.resolve("edited.sysml"));
+    assertEquals(result.content(), Files.readString(saved));
+    assertTrue(connection.load(saved).ok());
+  }
+
+  @Test
+  void anEmptiedDocumentOfSeveralIsNotSavedAsOneFile(@org.junit.jupiter.api.io.TempDir Path dir) throws Exception {
+    Model model =
+        connection.parseSources(
+            List.of(
+                SourceDocument.inline("a.sysml", "package A { part def P; }"),
+                SourceDocument.inline("b.sysml", "package B;")));
+    EditResult result =
+        model
+            .edit()
+            .delete("B")
+            .apply(EditOptions.defaults().withAcceptDocuments(true).withDocument("b.sysml"));
+    assertTrue(result.severalDocuments());
+    assertEquals("", result.content());
+    Path target = Files.writeString(dir.resolve("kept.sysml"), "kept");
+    assertThrows(IllegalStateException.class, () -> result.save(target));
+    assertEquals("kept", Files.readString(target));
+  }
+
+  @Test
+  void anAdoptedModelKnowsWhetherAnEmptiedEditHasSeveralDocuments(
+      @org.junit.jupiter.api.io.TempDir Path dir) throws Exception {
+    Model several =
+        connection.model(
+            connection
+                .parseSources(
+                    List.of(
+                        SourceDocument.inline("a.sysml", "package A { part def P; }"),
+                        SourceDocument.inline("b.sysml", "package B;")))
+                .hash());
+    EditResult refused =
+        several
+            .edit()
+            .delete("B")
+            .apply(EditOptions.defaults().withDocument("b.sysml"));
+    assertTrue(refused.severalDocuments());
+    Path target = Files.writeString(dir.resolve("kept.sysml"), "kept");
+    assertThrows(IllegalStateException.class, () -> refused.save(target));
+    assertEquals("kept", Files.readString(target));
+
+    Model sole = connection.model(connection.parse("part def Gone;").hash());
+    EditResult emptied = sole.edit().delete("Gone").apply();
+    assertFalse(emptied.severalDocuments());
+    assertEquals(emptied.content(), Files.readString(emptied.save(target)));
+  }
+
+  @Test
+  void anEditorAppliesActionBodyStatementsOnce() {
+    Model model = connection.load(fixture("apply_edits_action_body.sysml"));
+    Editor editor =
+        model
+            .edit()
+            .addIf(
+                "A",
+                "x < 3",
+                new Editor.Body().addAssign("x", "x + 1"),
+                new Editor.Body().addTerminate());
+    EditResult result = editor.apply();
+    assertTrue(result.content().contains("if x < 3"), result.content());
+    assertTrue(result.content().contains("assign x := x + 1"), result.content());
+    assertTrue(result.content().contains("terminate"), result.content());
+    assertTrue(editor.applied());
+    assertThrows(IllegalStateException.class, editor::apply);
+    assertThrows(IllegalStateException.class, () -> editor.addTerminate("A"));
+  }
+
+  @Test
+  void anEmptyEditorIsRefusedByTheService() {
+    Model model = connection.load(fixture("editable.sysml"));
+    Editor empty = model.edit();
+    EditException refused = assertThrows(EditException.class, empty::apply);
+    assertEquals(EditFailure.NO_OPERATIONS, refused.failure());
+  }
+
+  @Test
+  void lookupsFindByShortNameOrIdAndNameWhatIsMissing() {
+    Model model = connection.parse(VEHICLE);
+    assertEquals("Demo::Vehicle", model.find("Vehicle").orElseThrow().id());
+    assertEquals("Demo::Vehicle", model.find("Demo::Vehicle").orElseThrow().id());
+    assertEquals("Demo::Vehicle::engine", model.lookup("engine").id());
+    assertTrue(model.find("Nope").isEmpty());
+    assertTrue(model.get("Vehicle").isEmpty());
+    assertEquals("Demo::Engine", model.get("Demo::Engine").orElseThrow().id());
+    assertTrue(model.contains("Engine"));
+    assertFalse(model.contains("Nope"));
+    SymbolNotFoundException missing =
+        assertThrows(SymbolNotFoundException.class, () -> model.lookup("Vehicel"));
+    assertEquals("Vehicel", missing.name());
+    assertTrue(missing.suggestions().contains("Vehicle"), missing.suggestions().toString());
+  }
+
+  @Test
+  void aModelNamesItsDocumentsAndRefusesToPassWithErrors() {
+    Path broken = fixture("syntax_error.sysml");
+    Model model = connection.load(broken);
+    assertEquals(List.of(broken.toString()), model.documents());
+    assertFalse(model.ok());
+    assertFalse(model.errors().isEmpty());
+    ModelException refused = assertThrows(ModelException.class, model::requireNoErrors);
+    assertTrue(refused.getMessage().startsWith(broken.toString()), refused.getMessage());
+    Model clean = connection.load(fixture("vehicle.sysml"));
+    assertEquals(clean, clean.requireNoErrors());
+    assertEquals(
+        List.of("a.sysml", "b.sysml"),
+        connection
+            .parseSources(
+                List.of(
+                    SourceDocument.inline("a.sysml", "package A;"),
+                    SourceDocument.inline("b.sysml", "package B;")))
+            .documents());
+  }
+
+  @Test
+  void notFoundRefusalsAreTyped() {
+    Model evicted = new Model(connection, "no-such-hash", List.of(), List.of());
+    ModelNotFoundException model =
+        assertThrows(ModelNotFoundException.class, () -> evicted.eval("1 + 1"));
+    assertEquals(StatusCode.NOT_FOUND, model.status());
+    assertThrows(ModelNotFoundException.class, () -> evicted.convert("sysml"));
+    Editor edit = evicted.edit().addPart("A", "b");
+    assertThrows(ModelNotFoundException.class, edit::apply);
+    Path noSuchModel = Path.of("/no/such/model.sysml");
+    ModelFileNotFoundException file =
+        assertThrows(ModelFileNotFoundException.class, () -> connection.load(noSuchModel));
+    assertEquals(StatusCode.NOT_FOUND, file.status());
+  }
+
+  @Test
+  void aConnectionRefusesAServiceLackingARequiredCapability() {
+    ConnectionOptions options =
+        ServiceBinary.options()
+            .requireCapabilities(Capabilities.QUERY, "no_such_capability")
+            .build();
+    CapabilityException refused =
+        assertThrows(CapabilityException.class, () -> Connection.open(options));
+    assertEquals("no_such_capability", refused.capability());
+    try (Connection checked =
+        Connection.open(
+            ServiceBinary.options().requireCapabilities(List.of(Capabilities.QUERY)).build())) {
+      assertTrue(checked.capabilities().has(Capabilities.QUERY));
+    }
+  }
+
+  @Test
+  void aConnectionRefusesAServiceThatIsNotTheReleaseAskedFor() {
+    ConnectionOptions options = ServiceBinary.options().downloadVersion("v0.0.1").build();
+    StaleServiceException stale =
+        assertThrows(StaleServiceException.class, () -> Connection.open(options));
+    assertTrue(stale.reason().contains("v0.0.1"), stale.reason());
+    assertEquals(connection.capabilities().serviceVersion(), stale.serviceVersion());
   }
 }

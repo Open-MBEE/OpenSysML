@@ -31,7 +31,7 @@ own notation needs it, which is how `point`, `on` and `var` were already treated
 | `choice` | absent | absent | absent | unreserve; notation is an OpenSysML extension (warning) |
 | `decision` | absent | absent | absent | unreserve; **an ordinary name only** — the action node spelled `decision` is no longer accepted, write `decide` |
 | `deep` | absent | absent | absent | unreserve; notation is an OpenSysML extension (warning) |
-| `defer` | absent | absent | absent | unreserve; notation is an OpenSysML extension (warning) |
+| `defer` | absent | absent | absent | unreserve; **an ordinary name only** — the `defer <event>;` state member was an OpenSysML extension, since removed (`defer-notation-removed`) |
 | `done` | absent | absent | absent | unreserve; **silent** — see "`done` is a library name, not notation" |
 | `final` | absent | absent | absent | unreserve; **an ordinary name only** — neither the action node nor the state marker spelled `final` is accepted, write `done` |
 | `history` | absent | absent | absent | unreserve; notation is an OpenSysML extension (warning) |
@@ -107,18 +107,9 @@ one state substate per region, `entry; then <state>;`, a transition targeting
 
 | Construct | Why it is not standard |
 |-----------|------------------------|
-| `choice <name>;`, `junction <name>;` | no literal; no pseudostate production of any kind |
-| `history <name>;`, `shallow history <name>;`, `deep history <name>;` | same |
-| `defer <event> [, <event>]*;` | no `defer` literal; `StatePerformance::deferrable` has the semantics but no notation |
-
-Two further findings are about position rather than spelling: the construct is
-standard where a production allows it and an OpenSysML extension everywhere else, so
-the warning names the position, not the keyword.
-
-| Construct | Where it is standard | Why it is not standard elsewhere |
-|-----------|----------------------|----------------------------------|
-| `assume <constraint>;`, `require <constraint>;` | a requirement, concern, viewpoint or objective body | `RequirementConstraintMember` (`SysML.xtext:2039`) is the only production that admits it |
-| a one-ended `first <node>;` | an action body | `InitialNodeMember` is reachable from `ActionBodyItem` alone (`:1376`), never from `DefinitionBodyItem` (`:516`); elsewhere a succession names both ends, `first <source> then <target>` |
+| `choice <name>;`, `junction <name>;` | no literal; no pseudostate production of any kind. Deprecated: write `#choice state <name>;` / `#junction state <name>;`, the `StateMachines` library's `ChoiceMetadata`/`JunctionMetadata` (with `private import StateMachines::*;`) — the warning names the replacement and a quick-fix rewrites the member and adds the import |
+| `<feature>#( <index> )` as a connector end — `connect s.y#(1) to k.u`, and the same end in `connection … connect`, `interface`, `allocate`/`allocation`, `bind`/`binding`, a structural `flow` and KerML's `connector`/`binding` | a `ConnectorEnd` is a feature chain (`SysML.xtext` `ConnectorEnd: ... ownedRelationship += OwnedReferenceSubsetting`, SysML v2 §8.2.2.13.1) and `#(` is the index operator of an expression (`KerML.xtext` `IndexExpression`, KerML §8.2.5.8.2), so no production puts one after the other. OpenSysML reads it as the end attaching the selected element (1-based, as `#(` indexes everywhere) with multiplicity one and the element's type; the index is admitted on the chain's last segment only (`a.b#(1).c` stays the expression-end error), and not on a succession, transition or action-body flow end; a message sent through the connection reaches the port the end selects from, as the runtime delivers to a port of an object, not to one element of it. The standard spelling is a feature holding the element, connected whole |
+| `history <name>;`, `shallow history <name>;`, `deep history <name>;` | same. Deprecated: write `#shallowHistory state <name>;` / `#deepHistory state <name>;` (`ShallowHistoryMetadata`/`DeepHistoryMetadata`) |
 
 ### Chain redefinitions — `redefinition-through-reference`
 
@@ -163,6 +154,13 @@ Rules of the reading, in detail:
   reported by name resolution instead.
 
 ### Removed extension notation — no longer accepted
+
+Two positional allowances that used to be findings are parse errors now. An
+`assume`/`require` member belongs to `RequirementConstraintMember`
+(`SysML.xtext:2039`), which only a requirement, concern, viewpoint or objective
+body offers, and a one-ended `first <node>;` belongs to `InitialNodeMember`,
+which `ActionBodyItem` alone admits (`:1376`) — a succession anywhere else names
+both ends, `first <source> then <target>`.
 
 An inline condition introduced by a keyword (`assert <expression>;` or
 `assume <expression>;` in a constraint body, `assume <expression>;` or
@@ -209,6 +207,38 @@ imports, but not a `namespace` declaration. Both spellings, `namespace N;` and
 `namespace N { … }`, are legal KerML, so the semicolon form is not the problem;
 the problem is using the production in a SysML file at all. It is still parsed,
 with a warning in `.sysml` and silently in `.kerml`.
+
+The same holds for every declaration keyword `KerML.xtext` spells and `SysML.xtext`
+does not. `source.IsKeywordIn` reads both pinned keyword sets, so a word that is a
+KerML keyword and not a SysML one is reported on its declaration — `connector`
+(`KerML.xtext:824`), `class` (`:795`), `struct`, `datatype`, `classifier`,
+`subclassifier`, `feature` (`:537`), `step` (`:911`), `expr`, `bool`, `behavior`,
+`function`, `predicate`, `metaclass`, `assoc`, `assoc struct`, `interaction`, `inv`
+(`:980`) and `multiplicity` — pointed at the keyword itself, past `abstract`, `in`
+and the other prefixes. The message names the SysML spelling where there is one:
+
+| KerML declaration | SysML spelling |
+|-------------------|----------------|
+| `connector c from a to b;` | `connection`/`connect` (`SysML.xtext:1062`), or `binding` for a binding connector (`:1018`) |
+| `class`, `struct`, `datatype`, `classifier` | `occurrence def`, `item def`/`part def`, `attribute def`, any `… def` |
+| `feature` | a usage keyword — `attribute`, `part`, `ref` |
+| `step` | `action` |
+| `expr`, `bool` | `calc`, `constraint` |
+| `inv` | `constraint` / `assert constraint` |
+| `behavior`, `function`, `predicate` | `action def`, `calc def`, `constraint def` |
+| `metaclass` | `metadata def` |
+| `assoc`, `assoc struct` | `connection def` |
+| `subclassifier` | `specializes` on the definition itself |
+| `interaction`, `multiplicity` | none — move the declaration to a `.kerml` file |
+
+The parser keeps accepting the keywords whatever the file kind, so the finding is
+the notation pass's (warning by default, error under `-strict`), the members of a
+reported declaration are not reported again, and there is no `-fix`: swapping the
+keyword changes what kind of element is declared. The pinned pilot rejects each of
+these in a `.sysml` file (`no viable alternative at input …`, oracle case
+`tools/referee/reject/testdata/negative/extensions/x10-connector-in-sysml.sysml`).
+`binding`/`bind`, `succession`, `connection`/`connect`, `flow`, `interface` and
+`allocate` are SysML productions and stay silent.
 
 ### Reserved by SysML only — a name in a `.kerml` file
 

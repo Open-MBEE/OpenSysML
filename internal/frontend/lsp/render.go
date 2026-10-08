@@ -15,6 +15,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/ir/view"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/model"
+	"github.com/Open-MBEE/OpenSysML/internal/workspace/modelrt"
 )
 
 // The custom methods a diagram client speaks. They are not in the protocol, so
@@ -43,9 +44,37 @@ const RenderPaletteCapability = "openSysmlRenderPalette"
 const RenderFormsCapability = "openSysmlRenderForms"
 
 // RenderStylesCapability is the experimental capability whose value lists the
-// drawing styles a render request's `style` draws the DOT form in, the first
+// drawing styles a render request's `style` draws the DOT or Mermaid form in, the first
 // the default; a server without it draws the Pilot look alone.
 const RenderStylesCapability = "openSysmlRenderStyles"
+
+// RenderPortsCapability is the experimental capability whose value lists the
+// port displays a render request's `ports` draws an interconnection or mixed
+// rendering's parts with, the first the default; a server without it draws
+// every port.
+const RenderPortsCapability = "openSysmlRenderPorts"
+
+// RenderOverlaysCapability is the experimental capability whose value lists the
+// overlays a render request's `overlay` draws over a requirement rendering.
+const RenderOverlaysCapability = "openSysmlRenderOverlays"
+
+// renderOverlayNames lists the overlays in the order the writer defines them.
+func renderOverlayNames() []string {
+	names := make([]string, 0, len(view.Overlays()))
+	for _, overlay := range view.Overlays() {
+		names = append(names, string(overlay))
+	}
+	return names
+}
+
+// renderPortsNames lists the port displays in the order the writer defines them.
+func renderPortsNames() []string {
+	names := make([]string, 0, len(view.PortsChoices()))
+	for _, ports := range view.PortsChoices() {
+		names = append(names, string(ports))
+	}
+	return names
+}
 
 // renderStyleNames lists the drawing styles in the order the writer defines them.
 func renderStyleNames() []string {
@@ -70,13 +99,18 @@ func renderFormNames() []string {
 // document's own view. Form is the artifact written, defaulting to the machine
 // form of the rendering's kind. Palette names the palette that fills the nodes by
 // keyword family, in the artifact and as each node's Fill and Border; empty is black and white.
-// Style names the drawing style the DOT form draws in; empty is the default, pilot.
+// Style names the drawing style the DOT and Mermaid forms draw in; empty is the default, pilot.
+// Ports names how much of a part's ports an interconnection or mixed rendering
+// draws; empty is the default, minimal.
 type renderParams struct {
 	TextDocument protocol.TextDocumentIdentifier `json:"textDocument"`
 	View         string                          `json:"view,omitempty"`
 	Form         string                          `json:"form,omitempty"`
 	Palette      string                          `json:"palette,omitempty"`
 	Style        string                          `json:"style,omitempty"`
+	Ports        string                          `json:"ports,omitempty"`
+	Overlay      string                          `json:"overlay,omitempty"`
+	LinkTemplate string                          `json:"linkTemplate,omitempty"`
 }
 
 // renderResult is one rendering: the artifact a client draws, plus the nodes and
@@ -108,7 +142,7 @@ type renderResult struct {
 // given for a declaration of a workspace document alone, a library's being
 // beyond every operation; DeclaredHere marks the requested document's own, the
 // only ones the operations besides a layout reach. Fill and Border are the
-// `#RRGGBB` colours the palette gives the node, as the DOT and PlantUML forms draw it; absent
+// `#RRGGBB` colours the palette gives the node, as the DOT, Mermaid, PlantUML and D2 forms draw it; absent
 // for a node left black and white, and for every node when no palette is asked for.
 // Style is the node's own Style annotation, which wins over the palette and the drawing style.
 type renderNode struct {
@@ -122,6 +156,7 @@ type renderNode struct {
 	Fill            string          `json:"fill,omitempty"`
 	Border          string          `json:"border,omitempty"`
 	Style           *renderStyle    `json:"style,omitempty"`
+	Ports           []renderPort    `json:"ports,omitempty"`
 	FQN             string          `json:"fqn,omitempty"`
 	DeclaredHere    bool            `json:"declaredHere,omitempty"`
 	Notation        string          `json:"notation,omitempty"`
@@ -133,6 +168,7 @@ type renderNode struct {
 	Width           *float64        `json:"width,omitempty"`
 	Height          *float64        `json:"height,omitempty"`
 	Collapsed       bool            `json:"collapsed,omitempty"`
+	Verdict         string          `json:"verdict,omitempty"`
 }
 
 // renderOwner is a namespace declaring a node: its qualified name, and whether
@@ -140,6 +176,13 @@ type renderNode struct {
 type renderOwner struct {
 	FQN     string `json:"fqn"`
 	Feature bool   `json:"feature"`
+}
+
+type renderPort struct {
+	ID        string `json:"id"`
+	Name      string `json:"name"`
+	Type      string `json:"type,omitempty"`
+	Direction string `json:"direction,omitempty"`
 }
 
 // renderEdge is one edge of a rendering, located at the connector, transition,
@@ -151,6 +194,8 @@ type renderEdge struct {
 	To          string          `json:"to"`
 	Label       string          `json:"label"`
 	Kind        string          `json:"kind"`
+	FromPort    string          `json:"fromPort,omitempty"`
+	ToPort      string          `json:"toPort,omitempty"`
 	Style       *renderStyle    `json:"style,omitempty"`
 	FQN         string          `json:"fqn,omitempty"`
 	Declaration *protocol.Range `json:"declaration,omitempty"`
@@ -298,8 +343,29 @@ func (s *Server) Views(params *viewsParams) *viewsResult {
 // workspace the rendering was made under.
 func (s *Server) Render(params *renderParams) (*renderResult, error) {
 	name := uriToName(params.TextDocument.URI)
-	rendering, snapshot, err := s.ws.RenderView(name, params.View)
-	if err != nil {
+	overlay, ok := view.ParseOverlay(params.Overlay)
+	if !ok {
+		return nil, fmt.Errorf("unknown overlay %q; overlay takes %s", params.Overlay, view.OverlayNames())
+	}
+	var (
+		rendering *view.Rendering
+		snapshot  *model.Snapshot
+	)
+	if err := s.ws.Read(func(r *model.Reading) (err error) {
+		var verdicts view.Verdicts
+		if overlay == view.OverlayVerdicts {
+			rt, err := modelrt.New(r)
+			if err != nil {
+				return err
+			}
+			verdicts = rt.RequirementVerdicts()
+		}
+		rendering, snapshot, err = r.RenderOverlaidView(name, params.View, overlay, verdicts)
+		if err == nil && params.LinkTemplate != "" {
+			r.LinkSites(rendering, snapshot)
+		}
+		return err
+	}); err != nil {
 		return nil, err
 	}
 	doc := snapshot.Rendered
@@ -316,7 +382,14 @@ func (s *Server) Render(params *renderParams) (*renderResult, error) {
 	if err != nil {
 		return nil, err
 	}
-	artifact, err := rendering.WriteWith(form, view.Options{Palette: colors, Style: style})
+	ports, err := renderPorts(params.Ports)
+	if err != nil {
+		return nil, err
+	}
+	artifact, err := rendering.WriteWith(form, view.Options{
+		Palette: colors, Style: style, Ports: ports,
+		Links: view.Links{Template: params.LinkTemplate, Sites: snapshot.Sites()},
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -324,7 +397,7 @@ func (s *Server) Render(params *renderParams) (*renderResult, error) {
 	if err != nil {
 		return nil, err
 	}
-	data := rendering.Data()
+	data := rendering.DataFor(ports)
 	out := &renderResult{
 		View:     data.View,
 		Kind:     string(data.Kind),
@@ -375,6 +448,12 @@ func (s *Server) renderNodes(out *renderResult, snapshot *model.Snapshot, nodes 
 			Fill:            fills[node.ID].Fill,
 			Border:          fills[node.ID].Border,
 			Style:           wireStyle(node.Style),
+			Verdict:         node.Verdict,
+		}
+		for _, port := range node.Ports {
+			n.Ports = append(n.Ports, renderPort{
+				ID: port.ID, Name: port.Name, Type: port.Type, Direction: port.Direction.String(),
+			})
 		}
 		if node.Style != nil {
 			if node.Style.Fill != "" {
@@ -421,11 +500,8 @@ func (s *Server) renderNodes(out *renderResult, snapshot *model.Snapshot, nodes 
 func (s *Server) renderEdges(out *renderResult, snapshot *model.Snapshot, edges []view.EdgeData) {
 	for _, edge := range edges {
 		e := renderEdge{
-			From:  edge.From,
-			To:    edge.To,
-			Label: edge.Label,
-			Kind:  edge.Kind.String(),
-			Style: wireStyle(edge.Style),
+			From: edge.From, To: edge.To, FromPort: edge.FromPort, ToPort: edge.ToPort,
+			Label: edge.Label, Kind: edge.Kind.String(), Style: wireStyle(edge.Style),
 		}
 		declaring := s.declaring(snapshot, edge.Origin)
 		e.Origin = s.originOf(declaring, edge.Origin)
@@ -483,6 +559,16 @@ func renderDrawingStyle(asked string) (view.DrawingStyle, error) {
 		return "", &view.UnknownDrawingStyleError{Name: asked}
 	}
 	return style, nil
+}
+
+// renderPorts is the port display a request names, the default when it names
+// none, and an error listing the displays there are when it names something else.
+func renderPorts(asked string) (view.Ports, error) {
+	ports, ok := view.ParsePorts(asked)
+	if !ok {
+		return "", &view.UnknownPortsError{Name: asked}
+	}
+	return ports, nil
 }
 
 // wireStyle is a node's or edge's Style as the wire carries it; nil for none.

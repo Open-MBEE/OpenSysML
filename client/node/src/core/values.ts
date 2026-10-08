@@ -10,6 +10,7 @@ import type {
   MeasurementRef,
   Metaobject as MetaobjectMessage,
   Quantity,
+  Rational,
   TensorQuantity,
   UnitTerm,
   Value,
@@ -27,6 +28,7 @@ import {
   MeasurementRefSchema,
   MetaobjectSchema,
   QuantitySchema,
+  RationalSchema,
   TensorQuantitySchema,
   UnitFactorSchema,
   UnitTermSchema,
@@ -36,10 +38,34 @@ import {
   VectorQuantitySchema,
   VectorSchema,
 } from "../generated/sysml_pb.js";
-import { MalformedValueError, type FailureCause } from "./errors.js";
+import {
+  CAPABILITY_BIG_INT_VALUES,
+  CAPABILITY_COMPLEX_VALUES,
+  CAPABILITY_FUNCTION_VALUES,
+  CAPABILITY_INFINITY_VALUE,
+  CAPABILITY_MEASUREMENT_REFS,
+  CAPABILITY_METAOBJECT_VALUES,
+  CAPABILITY_RATIONAL_VALUES,
+  CAPABILITY_SET_VALUES,
+  CAPABILITY_STRUCTURED_VALUES,
+  CAPABILITY_TENSOR_VALUES,
+  requireCapability,
+  upgradeRemedy,
+  type ServerInfo,
+} from "./capabilities.js";
+import { MalformedValueError, UnsupportedValueError, type FailureCause } from "./errors.js";
 
-/** A quantity's magnitude: an integer or a real, never both. */
-export type Magnitude = { kind: "int"; value: bigint } | { kind: "real"; value: number };
+/** An exact Rational in lowest terms over a positive denominator. */
+export interface RationalValue {
+  numerator: bigint;
+  denominator: bigint;
+}
+
+/** A quantity's magnitude: an Integer, an exact Rational or a Real, kept apart. */
+export type Magnitude =
+  | { kind: "int"; value: bigint }
+  | ({ kind: "rational" } & RationalValue)
+  | { kind: "real"; value: number };
 
 /** One unit raised to an exponent, as the service factorises a derived unit. */
 export interface UnitFactor {
@@ -158,6 +184,7 @@ export interface UndeterminedValue {
  */
 export type SysMLValue =
   | { kind: "int"; value: bigint }
+  | ({ kind: "rational" } & RationalValue)
   | { kind: "real"; value: number }
   | { kind: "complex"; value: ComplexValue }
   | { kind: "boolean"; value: boolean }
@@ -180,9 +207,9 @@ export type SysMLValue =
   | { kind: "infinity" }
   | { kind: "absent" };
 
-/** What a verification answered about. Kept for the verification RPCs of a later version. */
+/** What a verification answered about. */
 export interface VerdictSubject {
-  /** "constraint", "requirement" or "satisfy". */
+  /** "constraint", "requirement", "satisfy", "objective", "assertion" or "object". */
   kind: string;
   /** FQN of the verified element; empty for an anonymous satisfy assertion. */
   elementId: string;
@@ -191,6 +218,36 @@ export interface VerdictSubject {
   /** The instance verified against, when there was one. */
   instanceId?: bigint;
   instanceTypeId?: string;
+  /** FQN of the requirement a "satisfy" verdict asserts satisfied; empty for every other kind. */
+  requirementId?: string;
+  /** Where the object this verdict is about sits in a validated one (`engine.injector`, `wheels[2]`). */
+  instancePath?: string;
+}
+
+/** One feature's value in the assignment witnessing a verdict. */
+export interface WitnessAssignment {
+  /** The qualified feature name, chain steps appended with '.'. */
+  feature: string;
+  /** The value the evaluator replayed for the feature. */
+  value: SysMLValue;
+  /** The base units the magnitude is expressed in; empty for a value that has none. */
+  unit: string;
+  /** The solver's exact value as text. */
+  exact: string;
+}
+
+/** What the body of a verification case answered when it ran. */
+export interface VerificationVerdict {
+  /** FQN of the verification case that ran. */
+  caseId: string;
+  /** The VerdictKind the body produced: "pass", "fail", "inconclusive" or "error". */
+  kind: string;
+  /** Why an inconclusive body decided nothing, or the error that stopped the run. */
+  detail: string;
+  /** Whether this is the verdict of a case performed by another. */
+  subcase: boolean;
+  /** FQN of the requirement this verdict was reported for; empty for a case run for itself. */
+  requirementId: string;
 }
 
 /** One limit an engine ran under, and whether the run stopped at it. */
@@ -213,22 +270,49 @@ export interface VerdictStanding {
   /** "not covered", "observed", "witnessed", "bounded" or "proved". */
   strength: string;
   bounds: VerdictBound[];
+  /** Whether the service reported a standing at all. */
+  reported: boolean;
+  /** The bounds the engine stopped at. */
+  reached: VerdictBound[];
 }
 
 /**
  * One verification's answer. `undecided` is the service reporting it could not
  * answer, which a `holds: false` alone does not distinguish. Every arm carries
- * the `standing` its evidence rests on.
+ * the `standing` its evidence rests on, the `question` asked and the `status`
+ * the service answered with, the `witness` assignment when the answer carries
+ * one, and the `verifications` the requirement's verification cases produced.
  */
 export type SysMLVerdict =
-  | { kind: "holds"; subject: VerdictSubject; standing: VerdictStanding }
-  | { kind: "fails"; subject: VerdictSubject; condition: string; standing: VerdictStanding }
+  | {
+      kind: "holds";
+      subject: VerdictSubject;
+      standing: VerdictStanding;
+      question: string;
+      status: string;
+      witness: WitnessAssignment[];
+      verifications: VerificationVerdict[];
+    }
+  | {
+      kind: "fails";
+      subject: VerdictSubject;
+      condition: string;
+      standing: VerdictStanding;
+      question: string;
+      status: string;
+      witness: WitnessAssignment[];
+      verifications: VerificationVerdict[];
+    }
   | {
       kind: "undecided";
       subject: VerdictSubject;
       error: string;
       cause: FailureCause;
       standing: VerdictStanding;
+      question: string;
+      status: string;
+      witness: WitnessAssignment[];
+      verifications: VerificationVerdict[];
     };
 
 /**
@@ -250,6 +334,10 @@ export function decodeValue(value: Value | undefined): SysMLValue {
   switch (kind.case) {
     case "intValue":
       return { kind: "int", value: kind.value };
+    case "bigIntValue":
+      return { kind: "int", value: decodeBigInteger(kind.value) };
+    case "rationalValue":
+      return { kind: "rational", ...decodeRational(kind.value) };
     case "realValue":
       return { kind: "real", value: kind.value };
     case "complex":
@@ -314,7 +402,8 @@ export function decodeValue(value: Value | undefined): SysMLValue {
 export function encodeValue(value: SysMLValue): Value {
   switch (value.kind) {
     case "int":
-      return create(ValueSchema, { kind: { case: "intValue", value: value.value } });
+    case "rational":
+      return encodeMagnitude(value);
     case "real":
       return create(ValueSchema, { kind: { case: "realValue", value: value.value } });
     case "complex":
@@ -410,15 +499,26 @@ export function encodeValue(value: SysMLValue): Value {
 }
 
 /** Decodes a `sysml.Verdict` into the union. */
-export function decodeVerdict(verdict: Verdict): SysMLVerdict {
+export function decodeVerdict(
+  verdict: Verdict,
+  verifications: readonly VerificationVerdict[] = [],
+): SysMLVerdict {
   const subject: VerdictSubject = {
     kind: verdict.kind,
     elementId: verdict.elementId,
     element: verdict.element,
     ...(verdict.instanceId === 0n ? {} : { instanceId: verdict.instanceId }),
     ...(verdict.instanceTypeId === "" ? {} : { instanceTypeId: verdict.instanceTypeId }),
+    ...(verdict.requirementId === "" ? {} : { requirementId: verdict.requirementId }),
+    ...(verdict.instancePath === "" ? {} : { instancePath: verdict.instancePath }),
   };
   const standing = decodeStanding(verdict);
+  const witness = verdict.witness.map((assignment) => ({
+    feature: assignment.feature,
+    value: decodeValue(assignment.value),
+    unit: assignment.unit,
+    exact: assignment.exact,
+  }));
   if (verdict.error !== "") {
     return {
       kind: "undecided",
@@ -426,11 +526,32 @@ export function decodeVerdict(verdict: Verdict): SysMLVerdict {
       error: verdict.error,
       cause: failureCause(verdict.failureReason),
       standing,
+      question: verdict.question,
+      status: verdict.status,
+      witness,
+      verifications: [...verifications],
     };
   }
   return verdict.holds
-    ? { kind: "holds", subject, standing }
-    : { kind: "fails", subject, condition: verdict.condition, standing };
+    ? {
+        kind: "holds",
+        subject,
+        standing,
+        question: verdict.question,
+        status: verdict.status,
+        witness,
+        verifications: [...verifications],
+      }
+    : {
+        kind: "fails",
+        subject,
+        condition: verdict.condition,
+        standing,
+        question: verdict.question,
+        status: verdict.status,
+        witness,
+        verifications: [...verifications],
+      };
 }
 
 /** Reads the standing fields the `engines` capability adds to a verdict. */
@@ -439,10 +560,13 @@ export function decodeStanding(verdict: {
   strength: string;
   bounds: Bound[];
 }): VerdictStanding {
+  const bounds = verdict.bounds.map((b) => ({ name: b.name, limit: b.limit, reached: b.reached }));
   return {
     engine: verdict.engine,
     strength: verdict.strength,
-    bounds: verdict.bounds.map((b) => ({ name: b.name, limit: b.limit, reached: b.reached })),
+    bounds,
+    reported: verdict.strength !== "",
+    reached: bounds.filter((bound) => bound.reached),
   };
 }
 
@@ -467,6 +591,8 @@ export function formatValue(value: SysMLValue): string {
   switch (value.kind) {
     case "int":
       return value.value.toString();
+    case "rational":
+      return formatRational(value);
     case "real":
       return formatReal(value.value);
     case "complex":
@@ -519,7 +645,38 @@ function formatReal(value: number): string {
 }
 
 function formatMagnitude(magnitude: Magnitude): string {
-  return magnitude.kind === "int" ? magnitude.value.toString() : formatReal(magnitude.value);
+  switch (magnitude.kind) {
+    case "int":
+      return magnitude.value.toString();
+    case "rational":
+      return formatRational(magnitude);
+    case "real":
+      return formatReal(magnitude.value);
+  }
+}
+
+/** A terminating Rational as its decimal, `0.1`; any other as `numerator/denominator`, `1/3`. */
+export function formatRational(value: RationalValue): string {
+  let twos = 0;
+  let fives = 0;
+  let rest = value.denominator;
+  while (rest % 2n === 0n) {
+    rest /= 2n;
+    twos++;
+  }
+  while (rest % 5n === 0n) {
+    rest /= 5n;
+    fives++;
+  }
+  if (rest !== 1n) {
+    return `${value.numerator.toString()}/${value.denominator.toString()}`;
+  }
+  const places = Math.max(twos, fives, 1);
+  const scaled = (value.numerator * 10n ** BigInt(places)) / value.denominator;
+  const negative = scaled < 0n;
+  const digits = (negative ? -scaled : scaled).toString().padStart(places + 1, "0");
+  const point = digits.length - places;
+  return `${negative ? "-" : ""}${digits.slice(0, point)}.${digits.slice(point)}`;
 }
 
 /** `Tensor(2, 2, 2)[1.0, …, 8.0][Pa]` when every component shares a unit; else each with its own. */
@@ -546,8 +703,14 @@ function decodeQuantity(quantity: Quantity): QuantityValue {
     case "intMagnitude":
       magnitude = { kind: "int", value: quantity.magnitude.value };
       break;
+    case "bigIntMagnitude":
+      magnitude = { kind: "int", value: decodeBigInteger(quantity.magnitude.value) };
+      break;
     case "realMagnitude":
       magnitude = { kind: "real", value: quantity.magnitude.value };
+      break;
+    case "rationalMagnitude":
+      magnitude = { kind: "rational", ...decodeRational(quantity.magnitude.value) };
       break;
     default:
       throw new MalformedValueError(`a quantity in [${quantity.unit}] has no magnitude`);
@@ -562,10 +725,7 @@ function decodeQuantity(quantity: Quantity): QuantityValue {
 
 function encodeQuantity(quantity: QuantityValue): Quantity {
   return create(QuantitySchema, {
-    magnitude:
-      quantity.magnitude.kind === "int"
-        ? { case: "intMagnitude", value: quantity.magnitude.value }
-        : { case: "realMagnitude", value: quantity.magnitude.value },
+    magnitude: encodeQuantityMagnitude(quantity.magnitude),
     unit: quantity.unit,
     ...(quantity.unitTerm === undefined ? {} : { unitTerm: encodeUnitTerm(quantity.unitTerm) }),
   });
@@ -643,10 +803,207 @@ function formatUnitTerm(term: UnitFactorization): string {
   return parts.length === 0 ? "1" : parts.join("·");
 }
 
+/** A quantity magnitude as the wire's `Quantity.magnitude` oneof writes it. */
+export function encodeQuantityMagnitude(magnitude: Magnitude): Quantity["magnitude"] {
+  switch (magnitude.kind) {
+    case "real":
+      return { case: "realMagnitude", value: magnitude.value };
+    case "rational": {
+      return { case: "rationalMagnitude", value: encodeRational(magnitude) };
+    }
+    case "int":
+      return fitsInt64(magnitude.value)
+        ? { case: "intMagnitude", value: magnitude.value }
+        : { case: "bigIntMagnitude", value: magnitude.value.toString() };
+  }
+}
+
 function encodeMagnitude(magnitude: Magnitude): Value {
-  return magnitude.kind === "int"
+  if (magnitude.kind === "real") {
+    return create(ValueSchema, { kind: { case: "realValue", value: magnitude.value } });
+  }
+  if (magnitude.kind === "rational") {
+    return create(ValueSchema, { kind: { case: "rationalValue", value: encodeRational(magnitude) } });
+  }
+  return fitsInt64(magnitude.value)
     ? create(ValueSchema, { kind: { case: "intValue", value: magnitude.value } })
-    : create(ValueSchema, { kind: { case: "realValue", value: magnitude.value } });
+    : create(ValueSchema, { kind: { case: "bigIntValue", value: magnitude.value.toString() } });
+}
+
+const INT64_MIN = -(2n ** 63n);
+const INT64_MAX = 2n ** 63n - 1n;
+
+/** Whether an Integer travels as `int_value`; one beyond int64 travels as `big_int_value`. */
+export function fitsInt64(value: bigint): boolean {
+  return value >= INT64_MIN && value <= INT64_MAX;
+}
+
+/** Reads the decimal of a `big_int_value` or `big_int_magnitude`. */
+export function decodeBigInteger(text: string): bigint {
+  if (!/^-?\d+$/.test(text)) {
+    throw new MalformedValueError(`a big Integer ${JSON.stringify(text)} is not decimal`);
+  }
+  return BigInt(text);
+}
+
+/**
+ * Rewrites in place each Rational arm of a wire value a double holds exactly as
+ * that double: the form a service without `rational_values` reads. A Rational
+ * no double holds is left as it is; a collection's elements are values of their own.
+ */
+export function rationalsAsReals(value: Value): void {
+  switch (value.kind.case) {
+    case "rationalValue": {
+      const double = wireRationalAsDouble(value.kind.value);
+      if (double !== undefined) {
+        value.kind = { case: "realValue", value: double };
+      }
+      return;
+    }
+    case "quantity":
+      quantityRationalAsReal(value.kind.value);
+      return;
+    case "vector":
+      value.kind.value.components.forEach(rationalsAsReals);
+      return;
+    case "vectorQuantity":
+      value.kind.value.components.forEach(quantityRationalAsReal);
+      return;
+    case "tensorQuantity":
+      value.kind.value.components.forEach(quantityRationalAsReal);
+      return;
+    default:
+      return;
+  }
+}
+
+/** Rewrites a quantity's Rational magnitude a double holds exactly as `real_magnitude`. */
+export function quantityRationalAsReal(quantity: Quantity): void {
+  if (quantity.magnitude.case === "rationalMagnitude") {
+    const double = wireRationalAsDouble(quantity.magnitude.value);
+    if (double !== undefined) {
+      quantity.magnitude = { case: "realMagnitude", value: double };
+    }
+  }
+}
+
+function wireRationalAsDouble(wire: Rational): number | undefined {
+  return rationalAsDouble({ numerator: BigInt(wire.numerator), denominator: BigInt(wire.denominator) });
+}
+
+/** The `Rational` message of an exact Rational, numerator and denominator in full. */
+export function encodeRational(value: RationalValue): Rational {
+  return create(RationalSchema, {
+    numerator: value.numerator.toString(),
+    denominator: value.denominator.toString(),
+  });
+}
+
+/**
+ * Reads a `rational_value` or `rational_magnitude`.
+ *
+ * @throws {MalformedValueError} for one not in lowest terms over a positive
+ *   denominator, or one a double holds, which travels as `real_value`.
+ */
+export function decodeRational(rational: Rational): RationalValue {
+  const numerator = decodeBigInteger(rational.numerator);
+  const denominator = decodeBigInteger(rational.denominator);
+  const text = `${rational.numerator}/${rational.denominator}`;
+  if (denominator <= 0n || gcd(numerator, denominator) !== 1n) {
+    throw new MalformedValueError(`a Rational ${text} is not in lowest terms over a positive denominator`);
+  }
+  if (rationalAsDouble({ numerator, denominator }) !== undefined) {
+    throw new MalformedValueError(`a Rational ${text} is a double, which travels as real_value`);
+  }
+  return { numerator, denominator };
+}
+
+/** The exact Rational `numerator/denominator`, reduced; throws a RangeError over a zero denominator. */
+export function rational(numerator: bigint, denominator = 1n): { kind: "rational" } & RationalValue {
+  if (denominator === 0n) {
+    throw new RangeError("a Rational's denominator is not zero");
+  }
+  const sign = denominator < 0n ? -1n : 1n;
+  const divisor = gcd(numerator, denominator);
+  return { kind: "rational", numerator: (sign * numerator) / divisor, denominator: (sign * denominator) / divisor };
+}
+
+function gcd(a: bigint, b: bigint): bigint {
+  a = a < 0n ? -a : a;
+  b = b < 0n ? -b : b;
+  while (b !== 0n) {
+    [a, b] = [b, a % b];
+  }
+  return a;
+}
+
+function bitLength(n: bigint): number {
+  return n === 0n ? 0 : (n < 0n ? -n : n).toString(2).length;
+}
+
+/** The exact Rational a finite double holds. */
+export function rationalOfDouble(x: number): { kind: "rational" } & RationalValue {
+  if (!Number.isFinite(x)) {
+    throw new RangeError(`${x} is no Rational`);
+  }
+  let whole = x;
+  let denominator = 1n;
+  while (!Number.isInteger(whole)) {
+    whole *= 2;
+    denominator *= 2n;
+  }
+  return rational(BigInt(whole), denominator);
+}
+
+/** The double that holds a reduced Rational exactly, or undefined where none does. */
+export function rationalAsDouble(value: RationalValue): number | undefined {
+  const { numerator, denominator } = value;
+  if ((denominator & (denominator - 1n)) !== 0n) {
+    return undefined;
+  }
+  const shift = bitLength(denominator) - 1;
+  let odd = numerator;
+  let zeros = 0;
+  while (odd !== 0n && odd % 2n === 0n) {
+    odd /= 2n;
+    zeros++;
+  }
+  if (bitLength(odd) > 53 || zeros - shift < -1074 || bitLength(numerator) - shift > 1024) {
+    return undefined;
+  }
+  return scaleByPowerOfTwo(Number(odd), zeros - shift);
+}
+
+/** The double nearest the Rational: how a Real reads one. */
+export function rationalToNumber(value: RationalValue): number {
+  const exact = rationalAsDouble(value);
+  if (exact !== undefined) {
+    return exact;
+  }
+  const negative = value.numerator < 0n;
+  const magnitude = negative ? -value.numerator : value.numerator;
+  // A quotient of at least 55 bits, its last bit sticky, rounds once to 53.
+  const shift = 55 - (bitLength(magnitude) - bitLength(value.denominator));
+  const num = shift >= 0 ? magnitude << BigInt(shift) : magnitude;
+  const den = shift >= 0 ? value.denominator : value.denominator << BigInt(-shift);
+  let quotient = num / den;
+  if (num % den !== 0n) {
+    quotient |= 1n;
+  }
+  const result = scaleByPowerOfTwo(Number(quotient), -shift);
+  return negative ? -result : result;
+}
+
+function scaleByPowerOfTwo(x: number, exponent: number): number {
+  while (exponent > 1000) {
+    x *= 2 ** 1000;
+    exponent -= 1000;
+  }
+  while (exponent < -1000) {
+    x *= 2 ** -1000;
+    exponent += 1000;
+  }
+  return x * 2 ** exponent;
 }
 
 /** The flattened size the dimensions demand, refusing a dimension that is not positive. */
@@ -705,6 +1062,7 @@ export function valuesEqual(a: SysMLValue, b: SysMLValue): boolean {
   }
   switch (a.kind) {
     case "int":
+    case "rational":
     case "real":
     case "complex":
       return numbersEqual(a, b);
@@ -818,17 +1176,42 @@ function numbersEqual(a: NumberValue, b: SysMLValue): boolean {
     }
     b = { kind: "real", value: b.value.real };
   }
-  if (a.kind === "int") {
-    if (b.kind === "int") return a.value === b.value;
-    return b.kind === "real" && realIsInt(b.value, a.value);
+  if (a.kind === "real" && b.kind === "real") {
+    return a.value === b.value;
   }
-  if (b.kind === "int") return realIsInt(a.value, b.value);
-  return b.kind === "real" && a.value === b.value;
+  // A Rational meets a Real at Real precision, as the service compares them.
+  if (a.kind === "rational" && b.kind === "real") {
+    return rationalToNumber(a) === b.value;
+  }
+  if (a.kind === "real" && b.kind === "rational") {
+    return a.value === rationalToNumber(b);
+  }
+  const x = exactOf(a);
+  const y = exactOf(b);
+  return x !== undefined && y !== undefined && x.numerator * y.denominator === y.numerator * x.denominator;
 }
 
-// Whether r is exactly the integer n, never rounding n.
-function realIsInt(r: number, n: bigint): boolean {
-  return Number.isInteger(r) && r >= -(2 ** 63) && r < 2 ** 63 && BigInt(r) === n;
+// The exact number a value holds, a finite Real's double included, never rounding.
+function exactOf(value: SysMLValue | Magnitude): RationalValue | undefined {
+  switch (value.kind) {
+    case "int":
+      return { numerator: value.value, denominator: 1n };
+    case "rational":
+      return value;
+    case "real":
+      return Number.isFinite(value.value) ? doubleAsRational(value.value) : undefined;
+    default:
+      return undefined;
+  }
+}
+
+function doubleAsRational(x: number): RationalValue {
+  let denominator = 1n;
+  while (!Number.isInteger(x)) {
+    x *= 2;
+    denominator *= 2n;
+  }
+  return { numerator: BigInt(x), denominator };
 }
 
 function magnitudesEqual(a: Magnitude[], b: Magnitude[]): boolean {
@@ -859,23 +1242,22 @@ function quantitiesEqual(a: QuantityValue, b: QuantityValue): boolean {
   ) {
     return false;
   }
-  if (
-    a.magnitude.kind === "int" &&
-    b.magnitude.kind === "int" &&
-    wholeScale(a.unitTerm) &&
-    wholeScale(b.unitTerm)
-  ) {
+  const x = a.magnitude.kind === "real" ? undefined : exactOf(a.magnitude);
+  const y = b.magnitude.kind === "real" ? undefined : exactOf(b.magnitude);
+  if (x !== undefined && y !== undefined && wholeScale(a.unitTerm) && wholeScale(b.unitTerm)) {
     // m₁·n₁/d₁ = m₂·n₂/d₂ exactly, cross-multiplied in bigint.
     return (
-      a.magnitude.value * BigInt(a.unitTerm.scaleNum) * BigInt(b.unitTerm.scaleDen) ===
-      b.magnitude.value * BigInt(b.unitTerm.scaleNum) * BigInt(a.unitTerm.scaleDen)
+      x.numerator * y.denominator * BigInt(a.unitTerm.scaleNum) * BigInt(b.unitTerm.scaleDen) ===
+      y.numerator * x.denominator * BigInt(b.unitTerm.scaleNum) * BigInt(a.unitTerm.scaleDen)
     );
   }
   return baseMagnitude(a.magnitude, a.unitTerm) === baseMagnitude(b.magnitude, b.unitTerm);
 }
 
 function baseMagnitude(magnitude: Magnitude, term: UnitFactorization): number {
-  return (Number(magnitude.value) * term.scaleNum) / term.scaleDen;
+  const value =
+    magnitude.kind === "rational" ? rationalToNumber(magnitude) : Number(magnitude.value);
+  return (value * term.scaleNum) / term.scaleDen;
 }
 
 // The reduction as base unit → exponent, repeated base units summed and
@@ -958,8 +1340,12 @@ function decodeVector(vector: Vector): Magnitude[] {
     switch (component.kind.case) {
       case "intValue":
         return { kind: "int", value: component.kind.value };
+      case "bigIntValue":
+        return { kind: "int", value: decodeBigInteger(component.kind.value) };
       case "realValue":
         return { kind: "real", value: component.kind.value };
+      case "rationalValue":
+        return { kind: "rational", ...decodeRational(component.kind.value) };
       default:
         throw new MalformedValueError(
           `a vector component is ${component.kind.case ?? "empty"}, not a number`,
@@ -1009,4 +1395,265 @@ function encodeEnumLiteral(literal: EnumValue): EnumLiteral {
     enumerationId: literal.enumerationId,
     value: literal.value === undefined ? undefined : encodeValue(literal.value),
   });
+}
+
+/** What a caller may pass as an argument or input to a run. A wire `Value`
+ * passes through untouched, which is how a caller sends a shape the typing
+ * layer would normalize away — including one the service is meant to refuse.
+ * A JavaScript array encodes as a sequence and a `Set` as a set, as Python's
+ * list and set do; collection elements accept every input form, not only
+ * `SysMLValue`s. */
+export type ValueInput =
+  | SysMLValue
+  | Value
+  | boolean
+  | string
+  | bigint
+  | number
+  | readonly ValueInput[]
+  | ReadonlySet<ValueInput>
+  | { kind: "sequence"; elements: readonly ValueInput[] }
+  | { kind: "set"; elements: readonly ValueInput[] }
+  | ({ kind: "array"; elements: readonly ValueInput[] } & Omit<ArrayValue, "elements">);
+
+/** Refuses an instance or `self` id outside int64, the width of the wire's id fields. */
+function checkInt64(value: bigint): void {
+  if (!fitsInt64(value)) {
+    throw new RangeError(`value out of range: ${value.toString()}`);
+  }
+}
+
+/**
+ * Encodes a caller-facing value for the wire, requiring of `info` each
+ * capability a value kind needs before the call is sent — exactly the checks
+ * Python's `Connection._python_to_value` makes. A `SysMLValue` encodes as
+ * itself; a boolean, string, bigint and number encode as the scalar arms; a
+ * JavaScript array and `Set` encode as a sequence and a set.
+ */
+export function toValue(input: ValueInput, info: ServerInfo): Value {
+  const probe: unknown = input;
+  if (typeof probe === "object" && probe !== null && "$typeName" in probe) {
+    return probe as Value;
+  }
+  return encodeInput(normalizeInput(input), info);
+}
+
+/** The `SysMLValue` one input names, collection elements converted the same way. */
+function normalizeInput(input: unknown): SysMLValue {
+  switch (typeof input) {
+    case "boolean":
+      return { kind: "boolean", value: input };
+    case "bigint":
+      return { kind: "int", value: input };
+    case "number":
+      return { kind: "real", value: input };
+    case "string":
+      return { kind: "string", value: input };
+    case "undefined":
+      throw new RangeError("unsupported input type: undefined");
+    case "function":
+    case "symbol":
+    case "object":
+      break;
+  }
+  if (input === null) {
+    return { kind: "null", reason: "" };
+  }
+  if (Array.isArray(input)) {
+    return { kind: "sequence", elements: input.map(normalizeInput) };
+  }
+  if (input instanceof Set) {
+    return { kind: "set", elements: [...input].map(normalizeInput) };
+  }
+  const value = input as SysMLValue;
+  switch (value.kind) {
+    case "sequence":
+      return { kind: "sequence", elements: value.elements.map(normalizeInput) };
+    case "set":
+      return { kind: "set", elements: value.elements.map(normalizeInput) };
+    case "array":
+      return {
+        kind: "array",
+        dimensions: value.dimensions,
+        elements: value.elements.map(normalizeInput),
+      };
+    case "enum":
+      return value.value.value === undefined
+        ? value
+        : { kind: "enum", value: { ...value.value, value: normalizeInput(value.value.value) } };
+    case "unset":
+      throw new RangeError(
+        "an unset value cannot be sent as an input; it is a value the service answers, not one it takes",
+      );
+    default:
+      if (typeof (value as { kind?: unknown }).kind === "string") {
+        return value;
+      }
+      throw new RangeError(`unsupported input type: ${typeof input}`);
+  }
+}
+
+function encodeInput(value: SysMLValue, info: ServerInfo): Value {
+  requireInput(value, info);
+  switch (value.kind) {
+    case "sequence":
+      return create(ValueSchema, {
+        kind: {
+          case: "sequence",
+          value: create(ValueSequenceSchema, {
+            elements: value.elements.map((element) => encodeInput(element, info)),
+          }),
+        },
+      });
+    case "array":
+      checkShape("an array", value.dimensions, value.elements.length);
+      return create(ValueSchema, {
+        kind: {
+          case: "array",
+          value: create(ArraySchema, {
+            dimensions: value.dimensions,
+            elements: value.elements.map((element) => encodeInput(element, info)),
+          }),
+        },
+      });
+    case "set":
+      return create(ValueSchema, {
+        kind: {
+          case: "set",
+          value: create(ValueSetSchema, {
+            elements: uniqueMembers(value.elements).map((element) => encodeInput(element, info)),
+          }),
+        },
+      });
+    default: {
+      const wire = encodeValue(value);
+      if (!info.has(CAPABILITY_RATIONAL_VALUES)) {
+        rationalsAsReals(wire);
+      }
+      return wire;
+    }
+  }
+}
+
+/** The capabilities one input value needs of the service that will decode it. */
+export function requireInput(value: SysMLValue, info: ServerInfo): void {
+  const require = (capability: string): void => {
+    requireCapability(info, capability, upgradeRemedy(capability));
+  };
+  const requireMagnitudes = (magnitudes: Magnitude[]): void => {
+    if (magnitudes.some((magnitude) => magnitude.kind === "int" && !fitsInt64(magnitude.value))) {
+      require(CAPABILITY_BIG_INT_VALUES);
+    }
+    if (magnitudes.some((magnitude) => magnitude.kind === "rational" && rationalAsDouble(magnitude) === undefined)) {
+      require(CAPABILITY_RATIONAL_VALUES);
+    }
+  };
+  switch (value.kind) {
+    case "int":
+    case "rational":
+      requireMagnitudes([value]);
+      return;
+    case "complex":
+      require(CAPABILITY_COMPLEX_VALUES);
+      return;
+    case "quantity":
+      requireMagnitudes([value.magnitude]);
+      checkReduction(`quantity in [${value.unit}]`, value.unit, value.unitTerm);
+      return;
+    case "measurementRef": {
+      require(CAPABILITY_MEASUREMENT_REFS);
+      const unitTerm: unknown = value.unitTerm;
+      if (value.unit === "" && (value.unitId ?? "") === "" && unitTerm === undefined) {
+        throw new UnsupportedValueError("measurement reference naming no unit");
+      }
+      // The wire needs the reduction on every reference, id-only ones too;
+      // encodeMeasurementRef reads unitTerm unconditionally.
+      if (unitTerm === undefined) {
+        throw new UnsupportedValueError(
+          `measurement reference ${value.unit || value.unitId} carries no reduction to base units, so the service cannot tell what it ` +
+            "measures: build it from a unit the service sent, or from one the model declares",
+        );
+      }
+      return;
+    }
+    case "instance":
+      checkInt64(value.id);
+      return;
+    case "unset":
+      throw new RangeError(
+        "an unset value cannot be sent as an input; it is a value the service answers, not one it takes",
+      );
+    case "function":
+      require(CAPABILITY_FUNCTION_VALUES);
+      if (value.selfId !== undefined) {
+        checkInt64(value.selfId);
+      }
+      return;
+    case "metaobject":
+      require(CAPABILITY_METAOBJECT_VALUES);
+      return;
+    case "array":
+      require(CAPABILITY_STRUCTURED_VALUES);
+      value.elements.forEach((element) => {
+        requireInput(element, info);
+      });
+      return;
+    case "vector":
+      require(CAPABILITY_STRUCTURED_VALUES);
+      requireMagnitudes(value.components);
+      return;
+    case "vectorQuantity":
+      require(CAPABILITY_STRUCTURED_VALUES);
+      requireMagnitudes(value.components.map((component) => component.magnitude));
+      value.components.forEach((component) => {
+        checkReduction(`quantity in [${component.unit}]`, component.unit, component.unitTerm);
+      });
+      return;
+    case "set":
+      require(CAPABILITY_SET_VALUES);
+      value.elements.forEach((element) => {
+        requireInput(element, info);
+      });
+      return;
+    case "tensorQuantity":
+      require(CAPABILITY_TENSOR_VALUES);
+      requireMagnitudes(value.components.map((component) => component.magnitude));
+      value.components.forEach((component) => {
+        checkReduction(`quantity in [${component.unit}]`, component.unit, component.unitTerm);
+      });
+      return;
+    case "infinity":
+      require(CAPABILITY_INFINITY_VALUE);
+      return;
+    case "enum":
+      if (value.value.value !== undefined) {
+        requireInput(value.value.value, info);
+      }
+      return;
+    case "sequence":
+      value.elements.forEach((element) => {
+        requireInput(element, info);
+      });
+      return;
+    default:
+      return;
+  }
+}
+
+/**
+ * Refuses a unit named without its reduction to base units — the service
+ * decides commensurability over the reduction and rejects a unit sent without
+ * one; an unnamed unit means dimension one and carries none.
+ */
+function checkReduction(
+  what: string,
+  unit: string,
+  unitTerm: UnitFactorization | undefined,
+): void {
+  if (unit !== "" && unitTerm === undefined) {
+    throw new UnsupportedValueError(
+      `${what} carries no reduction to base units, so the service cannot tell what it ` +
+        "measures: build it from a unit the service sent, or from one the model declares",
+    );
+  }
 }

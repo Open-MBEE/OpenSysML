@@ -130,21 +130,6 @@ func indexOfAnonymousResult(outs []calcOutput) (int, bool) {
 	return 0, false
 }
 
-// calcSteps is the computation an invoked calc runs: its lowered body without
-// the value bindings of its `out` features. An `out` binding states what that
-// feature is, not a step of the body, so a calc declaring several of them
-// returns none of them by falling off the end of its body.
-func calcSteps(body []lower.Statement) []lower.Statement {
-	steps := make([]lower.Statement, 0, len(body))
-	for _, stmt := range body {
-		if ret, ok := stmt.(lower.Return); ok && isOutputBinding(ret.Node) {
-			continue
-		}
-		steps = append(steps, stmt)
-	}
-	return steps
-}
-
 // assignedOutputs are the outputs the body's statements assign, on any path
 // through it: what the calc computes, whichever way an execution branches.
 func assignedOutputs(stmts []lower.Statement, outputs []calcOutput, aliases map[string]string) map[string]bool {
@@ -185,14 +170,6 @@ func collectAssignedOutputs(stmts []lower.Statement, declared map[string]string,
 			}
 		}
 	}
-}
-
-// isOutputBinding reports whether a lowered return states an `out` feature's
-// value rather than a `return`. A result parameter stays a return: it is the
-// one value the calc designates.
-func isOutputBinding(node ast.Node) bool {
-	usage, ok := node.(*ast.Usage)
-	return ok && usage.Direction == ast.DirOut && !usage.IsResult
 }
 
 // output finds the output feature of that name.
@@ -450,6 +427,9 @@ type calcRun struct {
 	// activation is the execution this run is, so a usage its outputs read is
 	// evaluated once for the whole run rather than once per output.
 	activation int64
+	// bodyFrames are the root statement locals left by the run, which output
+	// bindings read after its statements have completed.
+	bodyFrames []frame
 	// perf is the case's performance, whose steps an output binding reads by name
 	// (`step.pin`); nil for a calc, which performs none.
 	perf *actionFrame
@@ -459,6 +439,16 @@ type calcRun struct {
 	// denotes, shared with the invocation so its output bindings see the one
 	// made there; nil for a usage, which materializes none.
 	occurrence *calcOccurrence
+}
+
+// lookup searches the calc's body frames before its enclosing evaluation frame.
+func (run *calcRun) lookup(name string) (Value, bool) {
+	for i := len(run.bodyFrames) - 1; i >= 0; i-- {
+		if value, ok := run.bodyFrames[i].lookup(name); ok {
+			return value, true
+		}
+	}
+	return run.env.lookup(name)
 }
 
 // boundInputs are the values each non-subject input parameter of shape was
@@ -502,6 +492,7 @@ func (run *calcRun) detached() *calcRun {
 	}
 	out := *run
 	out.env = run.env.snapshot()
+	out.bodyFrames = snapshotFrames(run.bodyFrames)
 	if run.outer != nil {
 		out.outer = run.outer.closure()
 	}
@@ -676,7 +667,7 @@ func (ctx *Context) startCalcUsage(shape *calcShape, key calcUsageKey, reader *E
 			}
 			for _, name := range shape.ParamNames {
 				if value, held := start.occurrence.params.lookup(name); held {
-					if err := inst.SetFeatureValue(ctx, name, value); err != nil {
+					if err := inst.BindFeatureValue(ctx, name, value); err != nil {
 						return nil, fmt.Errorf("%w: seed %s of object #%d: %w",
 							ErrActionPerformanceOccurrence, name, inst.ID, err)
 					}
@@ -1002,6 +993,8 @@ func (ctx *Context) runCalcUsage(start *calcUsageStart) (*calcRun, error) {
 		steps, _ = shape.observationSteps()
 	}
 	result, returned, err := runCalcSteps(engine, host, steps)
+	run.env.cells = engine.env.data.cells
+	run.bodyFrames = []frame{engine.env.localFrame().snapshot()}
 	if err != nil {
 		if paused(err) {
 			return nil, err
@@ -1050,6 +1043,11 @@ func (run *calcRun) endOccurrence(ctx *Context) {
 // its binding the first time it is read.
 func (run *calcRun) output(ctx *Context, name string) (Value, error) {
 	if value, ok := run.outputs[name]; ok {
+		if out, found := run.shape.output(name); found && (out.Value == nil || out.IsInitial) {
+			if _, held := run.env.lookup(out.Name); held {
+				return run.readBodyOutput(ctx, out.Name)
+			}
+		}
 		return value, nil
 	}
 	out, ok := run.shape.output(name)
@@ -1065,6 +1063,21 @@ func (run *calcRun) output(ctx *Context, name string) (Value, error) {
 	}
 	if ctx.trace != nil {
 		ctx.trace.RecordCalcOutput(run.shape.Name, name, value)
+	}
+	return value, nil
+}
+
+// readBodyOutput returns a calc output after deriving its body-local dependencies.
+func (run *calcRun) readBodyOutput(ctx *Context, name string) (Value, error) {
+	if run.env.cells == nil && len(ctx.deriving) != 0 {
+		run.env.cells = newBodyCells(run.env.vars, nil)
+	}
+	value, ok, err := run.env.read(ctx, name)
+	if err != nil {
+		return Value{}, err
+	}
+	if !ok {
+		return Value{}, &NoValueError{Feature: name}
 	}
 	return value, nil
 }
@@ -1086,7 +1099,11 @@ func (run *calcRun) value(ctx *Context, out calcOutput) (Value, error) {
 	if out.Value == nil || out.IsInitial {
 		// An output the body assigned, and an `inout` the invocation bound, are values
 		// the activation left behind rather than bindings to evaluate.
-		if value, ok := run.env.lookup(out.Name); ok && out.Name != "" {
+		if _, ok := run.env.lookup(out.Name); ok && out.Name != "" {
+			value, err := run.readBodyOutput(ctx, out.Name)
+			if err != nil {
+				return Value{}, err
+			}
 			run.outputs[out.Name] = value
 			return value, nil
 		}
@@ -1160,6 +1177,9 @@ func (run *calcRun) bindingEnv(ctx *Context, owner *symbols.Symbol) *EvalContext
 	ec.pushFrame(run.env)
 	if run.perf != nil {
 		ec.pushFrame(performanceFrame(run.perf))
+	}
+	for _, frame := range run.bodyFrames {
+		ec.pushFrame(frame)
 	}
 	ec.calcRun = run
 	return ec
@@ -1269,60 +1289,72 @@ func (run *calcRun) nestedUsage(ctx *Context, name string) (*calcRun, bool, erro
 // usage, whose members are computed rather than declared values. A local binding
 // or valued feature of the same name is the value the expression names, so it
 // masks the declaration.
-func (ec *EvalContext) calcUsageOperand(operand ast.Node) (*symbols.Symbol, bool) {
+func (ec *EvalContext) calcUsageOperand(operand ast.Node) (*symbols.Symbol, bool, error) {
 	ref, ok := operand.(*ast.FeatureReference)
 	if !ok || ref.Name == nil || len(ref.Name.Parts) == 0 || ec.ctx.model.resolver == nil {
-		return nil, false
+		return nil, false, nil
 	}
-	if len(ref.Name.Parts) == 1 && ec.namesValue(ref.Name.Parts[0].Text) {
-		return nil, false
+	if len(ref.Name.Parts) == 1 {
+		names, err := ec.namesValue(ref.Name.Parts[0].Text)
+		if err != nil {
+			return nil, false, err
+		}
+		if names {
+			return nil, false, nil
+		}
 	}
 	sym, ok := ec.ctx.resolveQualified(ec.scope, ref.Name)
 	if !ok || !isCalcUsageSymbol(sym) {
-		return nil, false
+		return nil, false, nil
 	}
-	return sym, true
+	return sym, true, nil
 }
 
 // namesValue reports whether name is a local binding or a valued feature of the
 // element being evaluated, which the expression names rather than a declaration.
-func (ec *EvalContext) namesValue(name string) bool {
-	if _, bound := ec.Lookup(name); bound {
-		return true
+func (ec *EvalContext) namesValue(name string) (bool, error) {
+	if _, bound, err := ec.Lookup(name); err != nil {
+		return false, err
+	} else if bound {
+		return true, nil
 	}
 	_, valued := ec.valuedFeature(name)
-	return valued
+	return valued, nil
 }
 
 // occurrenceOperand reports whether the operand of a feature chain names occurrences of
 // its own — a part or item, or a namespace's collection of them — that no local binding
 // or valued feature, and no feature value of the object being evaluated, already answers with.
-func (ec *EvalContext) occurrenceOperand(operand ast.Node) (*symbols.Symbol, bool) {
+func (ec *EvalContext) occurrenceOperand(operand ast.Node) (*symbols.Symbol, bool, error) {
 	ref, ok := operand.(*ast.FeatureReference)
 	if !ok || ref.Name == nil || len(ref.Name.Parts) == 0 || ec.ctx.model.resolver == nil {
-		return nil, false
+		return nil, false, nil
 	}
 	if len(ref.Name.Parts) == 1 {
 		name := ref.Name.Parts[0].Text
-		if ec.namesValue(name) {
-			return nil, false
+		names, err := ec.namesValue(name)
+		if err != nil {
+			return nil, false, err
+		}
+		if names {
+			return nil, false, nil
 		}
 		if ec.self != nil {
 			if _, carried := ec.self.FeatureValues[name]; carried {
-				return nil, false
+				return nil, false, nil
 			}
 		}
 	}
 	sym, ok := ec.ctx.resolveQualified(ec.scope, ref.Name)
 	if !ok || !ec.ctx.namesOneObject(sym) && !ec.ctx.namesObjects(sym) {
-		return nil, false
+		return nil, false, nil
 	}
 	if isReferenceUsage(sym) {
 		// A reference member of a behavior — `Raise::context` — holds the value
 		// its run bound, not an occurrence of its own: read it as a value.
-		return nil, false
+		return nil, false, nil
 	}
-	return sym, true
+	return sym, true, nil
 }
 
 // calcUsageMemberValue reads parts from a calc usage a part declares, running it

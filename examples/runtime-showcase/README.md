@@ -50,9 +50,9 @@ instance.
 ```
 ✓ package MassRollup
 ✓ MassRollup::saturnV.totalMass
-  = 2941728.0 [kg]
+  = 2941728 [kg]
 ✓ MassRollup::saturnV.stage1.totalMass
-  = 2332000.0 [kg]
+  = 2332000 [kg]
 ```
 
 The 2 332 000 kg is 130 000 kg of stage structure, 2 160 000 kg of propellant
@@ -64,22 +64,13 @@ made an instance of the vehicle — three stages, eleven engines — and evaluat
 `saturnVWithIU` is the same stack with an instrument unit added. `InstrumentUnit`
 declares its height and inherits `mass`, but gives `mass` no value. Declaring a
 feature without a value is ordinary SysML — a definition is allowed to leave
-values to its usages — so validation has nothing to say about it. The two
-warnings it does raise are about something else: `RealFunctions::sum` is declared
-over `Real`, and the rollups hand it a sequence of `MassValue` quantities,
-which the type-conformance check reports as the SysML v2 pilot does:
+values to its usages — so validation has nothing to say about it:
 
 ```bash
 ./bin/sysml -validate examples/runtime-showcase/mass-rollup.sysml
 ```
 
 ```
-examples/runtime-showcase/mass-rollup.sysml:11:63: warning: Bound features should have conforming types
-        attribute totalMass :> ISQ::mass default = mass + sum(subcomponents.totalMass);
-                                                              ^~~~~~~~~~~~~~~~~~~~~~~
-examples/runtime-showcase/mass-rollup.sysml:33:63: warning: Bound features should have conforming types
-        attribute :>> totalMass = mass + propellantMass + sum(subcomponents.totalMass);
-                                                              ^~~~~~~~~~~~~~~~~~~~~~~
 ✓ package MassRollup
 ✓ examples/runtime-showcase/mass-rollup.sysml: no errors
 ```
@@ -331,9 +322,11 @@ Advance to 800 000 s and the machine reaches `recovered`, takes the transition
 to `done`, and the run reports `State machine completed`.
 
 `LunarMissionUnordered` lists the same three phases as sub-actions and says
-nothing about their order. That is a legal action definition — a definition may
-leave sequencing to what refines it — and validation passes it. Asked to
-perform it, the runtime has nowhere to begin:
+nothing about their order. That is a legal action definition, and its meaning
+is the library's: each composite sub-action is one of the action's
+`subactions`, performed during it (`Actions::subactions :> subperformances`),
+and with no succession between them nothing orders them. The runtime starts all
+three with the action and completes it once all three have:
 
 ```bash
 ./bin/sysml -quiet -action MissionSequence::LunarMissionUnordered \
@@ -341,12 +334,17 @@ perform it, the runtime has nowhere to begin:
 ```
 
 ```
-sysml: failed to create executor: initialize action: invalid action flow: no initial node found in action LunarMissionUnordered: no succession leads to "outbound" or to "lunarOps"; 'first' names the step the flow starts at
-  standing: not covered (…)
+✓ Started action executor for "MissionSequence::LunarMissionUnordered"
+  State: Running
+  Tokens: 3
+✓ Action completed
+  Final state: Completed
+  1 choice point; %trace on to see them
+  standing: value (observed: 1 run under reverse)
 ```
 
-Two nodes with nothing before them is ambiguous, and the message names both and
-the keyword that would resolve it.
+The order the three ran in was the scheduler's choice, reported as a choice
+point; `-schedule explore` enumerates the others.
 
 ## How long the downlink takes
 
@@ -530,26 +528,25 @@ first run — is first taken by run 496:
 
 ```
 ? explored SpacecraftComms::SpacecraftVehicle::modes: 3 outcomes
-outcome                                                           | linearizations | probability               | witness
-------------------------------------------------------------------+----------------+---------------------------+---------
-finalState recharging+lowPower; visits notRecharging, waitingGSPing, (…) this.battery = 41; (…) this.data = 52224; (…) | 1   | ≥ 4.661462957000129e-156  | entering modes: notRecharging(entry) first of waitingGSPing(entry), notRecharging(entry); (…) do round at t=79.0: transmitting first of transmitting, recharging; (…)
-finalState recharging+lowPower; visits waitingGSPing, notRecharging, (…) this.battery = 41; (…) this.data = 52224; (…) | 497 | ≥ 1.1840115910780328e-153 | entering modes: waitingGSPing(entry) first of waitingGSPing(entry), notRecharging(entry); (…) do round at t=79.0: transmitting first of transmitting, recharging; (…)
-finalState recharging+lowPower; visits waitingGSPing, notRecharging, (…) this.battery = 41; (…) this.data = 53248; (…) | 2   | ≥ 1.0997770908598577e-149 | entering modes: waitingGSPing(entry) first of waitingGSPing(entry), notRecharging(entry); (…) at t=79.0: dispatch accept BatteryLow first of do transmitting or recharging, dispatch accept BatteryLow
-incomplete: runs budget 500 hit after 500 runs; probabilities are lower bounds
+outcome                                                           | linearizations | probability | witness
+------------------------------------------------------------------+----------------+-------------+---------
+finalState recharging+lowPower; visits notRecharging, waitingGSPing, (…) this.battery = 41; (…) this.data = 52224; (…) | 1   | possible    | entering modes: notRecharging(entry) first of waitingGSPing(entry), notRecharging(entry); (…) do round at t=79.0: transmitting first of transmitting, recharging; (…)
+finalState recharging+lowPower; visits waitingGSPing, notRecharging, (…) this.battery = 41; (…) this.data = 52224; (…) | 497 | possible    | entering modes: waitingGSPing(entry) first of waitingGSPing(entry), notRecharging(entry); (…) do round at t=79.0: transmitting first of transmitting, recharging; (…)
+finalState recharging+lowPower; visits waitingGSPing, notRecharging, (…) this.battery = 41; (…) this.data = 53248; (…) | 2   | possible    | entering modes: waitingGSPing(entry) first of waitingGSPing(entry), notRecharging(entry); (…) at t=79.0: dispatch accept BatteryLow first of do transmitting or recharging, dispatch accept BatteryLow
+incomplete: runs budget 500 hit after 500 runs
   standing: outcomes (observed: 500 linearizations, inputs as written, runs=500 (reached))
 ```
 
 The second row is the first run and the 496 that vary a choice the outcome
 does not turn on; the third is run 496 and one more that varies the next such
-draw to the same end; the first is the run that entered `notRecharging` before
+choice to the same end; the first is the run that entered `notRecharging` before
 `waitingGSPing` — the order the two regions of `modes` are entered in is a
-recorded choice, told apart by the visits. The `probability` column is the
-share of all orders the listed linearizations account for, each order weighted
-as the product of its choices' shares; with 516 choices a run the shares are
-minute, and because the enumeration is incomplete they are lower bounds.
+recorded choice, told apart by the visits. The `probability` column says
+`possible` because the model has no weighted choice: scheduling alternatives
+have no probability, even when the search is incomplete.
 
 The 39 outcome needs two of the
-first run's draws at t=79 varied together — the charge's wait ending and the
+first run's choices at t=79 varied together — the charge's wait ending and the
 charge landing before the drain — so none of the 517 runs that vary each
 choice once reaches it; `check` does. `incomplete` is honest: 500 runs do not
 exhaust the orders of 516 choices, and the table is the same at any `-jobs`.
@@ -637,7 +634,9 @@ sysml: calc invocation failed: calc CalculationsPackage::calculateTliDeltaV: res
 And the mission itself. `apollo11MissionIndividual` performs `PerformLunarMission`,
 which lists `outbound`, `lunarOps` and `returnJourney` with no succession
 between them — `LunarMissionUnordered`, at full scale. Instantiating the
-individual starts the performance, and the performance cannot start:
+individual starts that performance, its phases unordered, and then the state
+machine the mission exhibits, which cannot start: `apollo11Phases` declares a
+state named `initial` but no `entry; then …;` naming where the machine begins:
 
 ```bash
 ./bin/sysml -quiet \
@@ -646,7 +645,7 @@ individual starts the performance, and the performance cannot start:
 ```
 
 ```
-sysml: instantiation failed: performed action performLunarMission of apollo11MissionIndividual: initialize action: invalid action flow: no initial node found in action PerformLunarMission: no succession leads to "outbound" or to "lunarOps"; 'first' names the step the flow starts at
+sysml: instantiation failed: exhibited state machine apollo11Phases of apollo11MissionIndividual: no initial state found in state machine apollo11Phases
 ```
 
 None of these is a validation error, and none should be: each construct is

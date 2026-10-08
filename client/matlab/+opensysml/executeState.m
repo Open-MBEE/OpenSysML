@@ -1,22 +1,61 @@
 function answer = executeState(model, stateId, varargin)
-%EXECUTESTATE Run a state machine; 'events' is a cell of names and
-%'schedule' the policy spelling. Values in the answer arrive decoded.
+%EXECUTESTATE Run one state-machine outcome.
 
-    request.modelHash = model.hash;
-    request.stateMachineSymbolId = char(stateId);
-    events = getArg(varargin, 'events', {});
-    request.events = cellfun(@char, events, 'UniformOutput', false);
-    schedule = getArg(varargin, 'schedule', '');
+    options = opensysml.internal.nameValueOptions(struct( ...
+        'events', {{}}, 'schedule', '', 'performer', '', 'trace', false), varargin, 'executeState');
+    schedule = char(options.schedule);
+    rejectExplore(schedule, 'opensysml.exploreState');
+    capabilities = opensysml.internal.runCapabilities(model.connection, schedule, ...
+        options.performer, options.trace);
+    events = toTextCells(options.events);
+    request = struct('modelHash', model.hash, ...
+        'stateMachineSymbolId', char(stateId), 'events', {events});
     if ~isempty(schedule), request.schedule = schedule; end
-    answer = opensysml.internal.checkError(opensysml.call(model.connection, 'ExecuteState', request), 'ExecuteState');
-    if isfield(answer, 'finalContext')
-        answer.finalContext = opensysml.internal.decodeValueMap(answer.finalContext);
+    if ~isempty(options.performer), request.performerSymbolId = char(options.performer); end
+    if options.trace, request.trace = true; end
+    raw = opensysml.call(model.connection, 'ExecuteState', request, capabilities);
+    traceRaw = fieldOr(raw, 'trace', {});
+    if iscell(traceRaw)
+        trace = cellfun(@decodeTraceEvent, traceRaw(:), 'UniformOutput', false);
+    elseif isstruct(traceRaw)
+        trace = arrayfun(@decodeTraceEvent, traceRaw(:), 'UniformOutput', false);
+    else
+        trace = {};
+    end
+    details = struct('trace', {trace}, 'traceDropped', fieldOr(raw, 'traceDropped', 0));
+    raw = opensysml.internal.checkError(raw, 'ExecuteState', details);
+    statesVisited = toTextCells(fieldOr(raw, 'statesVisited', {}));
+    statesVisited = statesVisited(:);
+    answer = struct('statesVisited', {statesVisited}, ...
+        'finalContext', struct(), 'finalTime', fieldOr(raw, 'finalTime', 0), ...
+        'trace', {trace}, 'traceDropped', fieldOr(raw, 'traceDropped', 0));
+    if isfield(raw, 'finalContext')
+        answer.finalContext = opensysml.internal.decodeValueMap(raw.finalContext);
     end
 end
 
-function v = getArg(args, name, default)
-    v = default;
-    for i = 1:2:numel(args)
-        if strcmp(args{i}, name), v = args{i+1}; end
+function event = decodeTraceEvent(raw)
+    event = opensysml.internal.decodeDocumentValue(struct('event', raw));
+end
+
+function rejectExplore(schedule, method)
+    if strcmp(schedule, 'explore') || strncmp(schedule, 'explore:', 8)
+        opensysml.internal.raise('opensysml:argument', ...
+            sprintf('schedule ''%s'' answers with every outcome, not one run''s result: use %s', ...
+            schedule, method));
     end
+end
+
+function values = toTextCells(raw)
+    if isempty(raw), values = {};
+    elseif ischar(raw), values = {raw};
+    elseif iscell(raw), values = cellfun(@char, raw(:)', 'UniformOutput', false);
+    elseif isstruct(raw), values = cellfun(@char, num2cell(raw(:)'), 'UniformOutput', false);
+    else, values = {char(raw)};
+    end
+end
+
+function value = fieldOr(raw, name, fallback)
+    value = fallback;
+    if isstruct(raw) && isfield(raw, name), value = raw.(name); end
 end

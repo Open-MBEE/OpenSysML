@@ -9,7 +9,7 @@ Sibling of `testing-pilot-differential` and `testing-pilot-xpect` (same pin
 `scripts/pilot-pin.sh`, same committed-baseline shape), but pointed the other way: the
 differential measures what the reference accepts and we reject; this oracle measures what the
 reference **rejects and we accept** — permissiveness gaps. Its corpus is committed under
-`tools/referee/reject/testdata/negative/` (310 hand-written invalid models, one violated rule + citation
+`tools/referee/reject/testdata/negative/` (313 hand-written invalid models, one violated rule + citation
 in each file's mandatory `// Invalid: ...` first line), so no corpus download exists. Method and
 findings: `docs/project/pilot-rejection.md`.
 
@@ -35,8 +35,8 @@ As of the `semantic/` source (named pilot constraints, KerML and SysML, the cont
 succession rules, the feature-value overriding rule, the enumeration-variation rules, the send-action cases,
 the metadata typing, annotated-element and body rules, the trigger-argument typing rules, the owning-body member rules, the cross-subsetting rules, the variant port rule, the association arity, binary-link end
 count and multiplicity-bound typing rules, the result-expression ownership rules, and the annotation-ownership, binding-arity, feature-chain conformance,
-conjugated typing and end-feature rules, the end-multiplicity, return-owner and single-conjugator rules, the keyword-first relationship end kinds, the prefix and body-context cases, the redefinition name-resolution cases, and the transition accept usage-typing rule), with a fresh library cache:
-`310 case(s): 301 both reject, 0 only the pilot rejects, 9 only we reject, 0 both accept`,
+conjugated typing and end-feature rules, the end-multiplicity, return-owner and single-conjugator rules, the keyword-first relationship end kinds, the prefix and body-context cases, the redefinition name-resolution cases, the transition accept usage-typing rule, and the connector-end accessibility of a qualified definition feature), with a fresh library cache:
+`313 case(s): 304 both reject, 0 only the pilot rejects, 9 only we reject, 0 both accept`,
 byte-identical to the committed baseline. Any `both accept` case is a bug in the corpus (the case
 is not actually invalid under the loaded standard library) — fix the case, never ignore it. A
 candidate the pilot accepts because it does not enforce the named constraint is not a case either:
@@ -48,7 +48,7 @@ record it under "Constraints the pilot declares but does not enforce" in
 
 The baseline is the default `auto` policy: the `extensions/` cases are judged under strict
 conformance (OpenSysML notation the reference rejects as a syntax error), everything else in the
-default mode. The report names each case's mode and lists the four strict-only agreements
+default mode. The report names each case's mode and lists the three strict-only agreements
 separately, so a strict agreement never reads as a default one.
 
 ```bash

@@ -18,11 +18,11 @@ func TestStateMachineCrossRegionTransitionsAndPseudostates(t *testing.T) {
 		"entry; then Idle;",
 		"state Work {",
 		"entry; then Prep;",
-		"history last;",
-		"deep history deepest;",
+		"#StateMachines::shallowHistory state last;",
+		"#StateMachines::deepHistory state deepest;",
 		"transition first last then Prep;",
 		"state Cell : CellMachine { in ref :>> context = Line::context; }",
-		"junction route;",
+		"#StateMachines::junction state route;",
 		"fork spread;",
 		"join gather;",
 		"state Both {",
@@ -57,12 +57,12 @@ func TestStateMachineCrossRegionTransitionsAndPseudostates(t *testing.T) {
 	}
 	wantNote(t, r, "_tStop", migrate.Mapped, "the source 'Run' lies in another region and is named by its path Work.Run")
 	wantNote(t, r, "_tDirect", migrate.Mapped, "the target 'Run' lies in another region and is named by its path Work.Run")
-	wantNote(t, r, "_junc", migrate.Mapped, "written as a junction pseudostate")
+	wantNote(t, r, "_junc", migrate.Mapped, "written as a #StateMachines::junction state pseudostate")
 	wantNote(t, r, "_gSpent", migrate.Mapped, "an else guard is written as the unguarded transition out of the junction")
 	wantNote(t, r, "_fork", migrate.Mapped, "written as a fork pseudostate")
 	wantNote(t, r, "_join", migrate.Mapped, "written as a join pseudostate")
-	wantNote(t, r, "_hist", migrate.Mapped, "written as a shallow history")
-	wantNote(t, r, "_deep", migrate.Mapped, "written as a deep history, which re-enters the innermost states active")
+	wantNote(t, r, "_hist", migrate.Mapped, "written as a `#StateMachines::shallowHistory state` shallow history")
+	wantNote(t, r, "_deep", migrate.Mapped, "written as a `#StateMachines::deepHistory state` deep history, which re-enters the innermost states active")
 	wantNote(t, r, "_cpIn", migrate.Mapped, "a transition entering a submachine state through the entry point enters this state")
 	wantNote(t, r, "_cpOut", migrate.Mapped, "a transition leaving a submachine state through the exit point leaves this state")
 	wantNote(t, r, "_cprIn", migrate.Mapped, "written as the entry point's state in the submachine state, Cell.warmStart")
@@ -339,11 +339,11 @@ func TestCompositeStateConnectionPointsKeepTheUMLOrder(t *testing.T) {
 	r := migrateFixtureFile(t, "station_points")
 	for _, line := range []string{
 		"state Work {",
-		"junction Start;",
-		"junction Leave;",
-		"junction Deep;",
-		"junction Out;",
-		"history H;",
+		"#StateMachines::junction state Start;",
+		"#StateMachines::junction state Leave;",
+		"#StateMachines::junction state Deep;",
+		"#StateMachines::junction state Out;",
+		"#StateMachines::shallowHistory state H;",
 		"transition first Deep",
 		"transition first Fast accept Back",
 		"then Out;",
@@ -367,13 +367,13 @@ func TestCompositeStateConnectionPointsKeepTheUMLOrder(t *testing.T) {
 	} {
 		wantLine(t, r.Notation, line)
 	}
-	if strings.Contains(string(r.Notation), "state Start") || strings.Contains(string(r.Notation), "then Through") {
+	if strings.Contains(strings.ReplaceAll(string(r.Notation), "#StateMachines::junction state Start", ""), "state Start") || strings.Contains(string(r.Notation), "then Through") {
 		t.Errorf("a connection point was written as a state, or a refused one was named:\n%s", r.Notation)
 	}
-	wantNote(t, r, "_start", migrate.Mapped, "written as a junction of its state; a transition entering through it runs the state's entry behavior, then the transition leaving the junction")
-	wantNote(t, r, "_leave", migrate.Mapped, "written as a junction of its state; a transition leaving through it runs the transition into the junction, the state's exit behavior, then the transition leaving it")
-	wantNote(t, r, "_deep", migrate.Mapped, "written as a junction of its state")
-	wantNote(t, r, "_out", migrate.Mapped, "written as a junction of its state")
+	wantNote(t, r, "_start", migrate.Mapped, "written as a `#StateMachines::junction state` of its state; a transition entering through it runs the state's entry behavior, then the transition leaving the junction")
+	wantNote(t, r, "_leave", migrate.Mapped, "written as a `#StateMachines::junction state` of its state; a transition leaving through it runs the transition into the junction, the state's exit behavior, then the transition leaving it")
+	wantNote(t, r, "_deep", migrate.Mapped, "written as a `#StateMachines::junction state` of its state")
+	wantNote(t, r, "_out", migrate.Mapped, "written as a `#StateMachines::junction state` of its state")
 	wantNote(t, r, "_plain", migrate.Mapped, "no transition leaves the entry point, so entering through it enters 'Work' by its default entry; a transition to it is written to the state")
 	wantNote(t, r, "_tEnter", migrate.Mapped, "written to Work: no transition leaves the entry point 'Plain'")
 	wantNote(t, r, "_both", migrate.Mapped, "written as a fork of its state, whose branches start its regions; a transition entering through it runs the state's entry behavior, then the branches")
@@ -382,7 +382,7 @@ func TestCompositeStateConnectionPointsKeepTheUMLOrder(t *testing.T) {
 	wantNote(t, r, "_tDive", migrate.Mapped, "named by its path Work.Run.Deep")
 	wantNote(t, r, "_tBothA", migrate.Mapped, "named by its path Both")
 	wantNote(t, r, "_tAg", migrate.Mapped, "named by its path Gather")
-	wantNote(t, r, "_hist", migrate.Mapped, "written as a shallow history")
+	wantNote(t, r, "_hist", migrate.Mapped, "written as a `#StateMachines::shallowHistory state` shallow history")
 	wantNote(t, r, "_through", migrate.Unmapped, "leads from the entry point straight to the exit point 'Leave' of the same state, crossing it without settling in it; the runtime would then run neither its entry nor its exit behavior")
 	wantNote(t, r, "_tThrough", migrate.Unmapped, "the source 'Through' has no v2 form")
 	wantNote(t, r, "_tSkip", migrate.Unmapped, "the target 'Through' has no v2 form")
@@ -463,11 +463,13 @@ func TestCompositeStateConnectionPointsKeepTheUMLOrder(t *testing.T) {
 
 	// The entry point Both of the orthogonal Sync starts both regions at once
 	// after Sync's entry; each region then leaves through the exit point Gather,
-	// which joins them: both exits and effects, Sync's exit, then the transition out.
+	// which joins them: each completion is its own step, so one region's exit and
+	// effect, then the other's, Sync's exit, then the transition out.
 	four := station()
 	drive("Split", "Idle -> Both")
 	current("A1 | B1")
 	trace(four, "313335")
+	meta(t, s, "%step")
 	meta(t, s, "%step")
 	current("Idle")
 	trace(four, "313335343736383246")
@@ -478,6 +480,7 @@ func TestCompositeStateConnectionPointsKeepTheUMLOrder(t *testing.T) {
 	drive("Pair", "Idle -> Sync")
 	current("A0 | B0")
 	drive("Bump", "A0 -> A1 and transition B0 -> B1")
+	meta(t, s, "%step")
 	meta(t, s, "%step")
 	current("Idle")
 	trace(five, "313335343736383246")
@@ -628,8 +631,8 @@ func TestPseudostatesNamedLikeMembersAreDistinguished(t *testing.T) {
 		"fork 'spread 2';",
 		"join 'gather 2';",
 		"fork fork2;",
-		"history 'checkpoint 2';",
-		"deep history 'deepest 2';",
+		"#StateMachines::shallowHistory state 'checkpoint 2';",
+		"#StateMachines::deepHistory state 'deepest 2';",
 		"transition first Idle accept Go then 'spread 2';",
 		"transition first 'spread 2' then Both.regions.a.A1;",
 		"transition first 'gather 2' then 'checkpoint 2';",
@@ -643,8 +646,9 @@ func TestPseudostatesNamedLikeMembersAreDistinguished(t *testing.T) {
 	wantNote(t, r, "_chist", migrate.Approximated, "written as checkpoint 2 since a sibling is also named checkpoint")
 	wantNote(t, r, "_cdeep", migrate.Approximated, "written as deepest 2 since a sibling is also named deepest")
 
-	// The renamed fork enters both regions; the join, history and anonymous
-	// fork bring the machine round to them again.
+	// The renamed fork enters both regions. Each completion into the renamed join
+	// is its own occurrence: A1's segment arrives alone, and B1's would complete
+	// the join, whose way out into a history the runtime does not support.
 	s := session(t, r)
 	meta(t, s, "%instantiate Press")
 	meta(t, s, "%state Press::Cycle")
@@ -654,9 +658,11 @@ func TestPseudostatesNamedLikeMembersAreDistinguished(t *testing.T) {
 		t.Errorf("the renamed fork did not enter both regions:\n%s", out)
 	}
 	meta(t, s, "%step")
-	meta(t, s, "%step")
-	if out := meta(t, s, "%current"); !strings.Contains(out, "A1") || !strings.Contains(out, "B1") {
-		t.Errorf("the join, history and second fork did not re-enter both regions:\n%s", out)
+	if out := meta(t, s, "%current"); !strings.Contains(out, "Current state: B1\n") {
+		t.Errorf("A1's segment did not arrive at the renamed join alone:\n%s", out)
+	}
+	if out := meta(t, s, "%step"); !strings.Contains(out, "join gather 2: a transition into shallow history checkpoint 2 is not supported") {
+		t.Errorf("completing the renamed join did not report its unsupported way out:\n%s", out)
 	}
 }
 
@@ -973,7 +979,7 @@ const entryShapesApplications = `
 // through it with it, and no junction is written.
 func TestEntryPointRoutesAreRefusedPrecisely(t *testing.T) {
 	r := migrateDocument(t, entryShapesMachine, entryShapesApplications)
-	if strings.Contains(string(r.Notation), "junction in;") {
+	if strings.Contains(string(r.Notation), "#StateMachines::junction state in;") {
 		t.Errorf("a refused entry point was written as a junction:\n%s", r.Notation)
 	}
 	wantNote(t, r, "_eaIn", migrate.Unmapped, "(_etOut) leads from the entry point out of the state, to 'Idle'")
@@ -1039,12 +1045,12 @@ const guardedEntryApplications = `
 // the owning state's entry behavior falsifying it does not turn the route.
 func TestGuardedEntryPointRouteIsKept(t *testing.T) {
 	r := migrateDocument(t, guardedEntryMachine, guardedEntryApplications)
-	for _, line := range []string{"junction arm;", "transition first arm if context.armed then W2;", "transition first Idle accept Go then Work.arm;"} {
+	for _, line := range []string{"#StateMachines::junction state arm;", "transition first arm if context.armed then W2;", "transition first Idle accept Go then Work.arm;"} {
 		if !strings.Contains(string(r.Notation), line) {
 			t.Errorf("missing %q in:\n%s", line, r.Notation)
 		}
 	}
-	wantNote(t, r, "_gIn", migrate.Mapped, "written as a junction of its state")
+	wantNote(t, r, "_gIn", migrate.Mapped, "written as a `#StateMachines::junction state` of its state")
 	wantNote(t, r, "_gGuard", migrate.Mapped, "")
 	s := session(t, r)
 	meta(t, s, "%instantiate Rig")
@@ -1255,8 +1261,8 @@ const pointOnlyRegionApplications = `
 func TestPointOnlyRegionIsNotAParallelBranch(t *testing.T) {
 	r := migrateDocument(t, pointOnlyRegion, pointOnlyRegionApplications)
 	for _, line := range []string{
-		"junction Both;",
-		"junction Gather;",
+		"#StateMachines::junction state Both;",
+		"#StateMachines::junction state Gather;",
 		"transition first Idle accept Go then Sync.Both;",
 		"transition first Both then A2;",
 		"transition first A2 accept Stop then Gather;",
@@ -1272,8 +1278,8 @@ func TestPointOnlyRegionIsNotAParallelBranch(t *testing.T) {
 		}
 	}
 	wantNote(t, r, "_pb", migrate.Skipped, "the region lists only connection points of its state, which are written in the state's body")
-	wantNote(t, r, "_pBoth", migrate.Mapped, "written as a junction of its state")
-	wantNote(t, r, "_pGather", migrate.Mapped, "written as a junction of its state")
+	wantNote(t, r, "_pBoth", migrate.Mapped, "written as a `#StateMachines::junction state` of its state")
+	wantNote(t, r, "_pGather", migrate.Mapped, "written as a `#StateMachines::junction state` of its state")
 	wantNote(t, r, "_pbT1", migrate.Mapped, "")
 	s := session(t, r)
 	meta(t, s, "%instantiate Rig")
@@ -1336,7 +1342,7 @@ func TestDefaultEntryPointOnOwnerWithoutInitialEntersTheState(t *testing.T) {
 			t.Errorf("missing %q in:\n%s", line, r.Notation)
 		}
 	}
-	if strings.Contains(string(r.Notation), "junction via;") {
+	if strings.Contains(string(r.Notation), "#StateMachines::junction state via;") {
 		t.Errorf("an entry point no transition leaves was written as a junction:\n%s", r.Notation)
 	}
 	wantNote(t, r, "_dIn", migrate.Mapped, "no initial pseudostate starts the region 'r', which v1 too leaves inactive on entering the state")
@@ -1462,7 +1468,7 @@ const exitShapesApplications = `
 // route named, the transitions through it with it, and no junction is written.
 func TestExitPointRoutesAreRefusedPrecisely(t *testing.T) {
 	r := migrateDocument(t, exitShapesMachine, exitShapesApplications)
-	if strings.Contains(string(r.Notation), "junction leave;") {
+	if strings.Contains(string(r.Notation), "#StateMachines::junction state leave;") {
 		t.Errorf("a refused exit point was written as a junction:\n%s", r.Notation)
 	}
 	wantNote(t, r, "_xaOut", migrate.Unmapped, "(_xT1) leads from the exit point with a trigger, which no transition out of a pseudostate takes; the runtime would follow it without waiting for the event")
@@ -1529,7 +1535,7 @@ const outsideExitApplications = `
 // reaches is a junction, the transition approximated as the local rule says.
 func TestExitPointReachedFromOutsideIsRefused(t *testing.T) {
 	r := migrateDocument(t, outsideExitMachine, outsideExitApplications)
-	if n := strings.Count(string(r.Notation), "junction leave;"); n != 1 {
+	if n := strings.Count(string(r.Notation), "#StateMachines::junction state leave;"); n != 1 {
 		t.Errorf("want Self's exit point alone written as a junction, got %d:\n%s", n, r.Notation)
 	}
 	for _, line := range []string{"transition first Self accept Go then Self.leave;", "transition first Self.leave then Idle;"} {
@@ -1541,7 +1547,7 @@ func TestExitPointReachedFromOutsideIsRefused(t *testing.T) {
 	for _, id := range []string{"_owT1", "_oT1", "_oT2"} {
 		wantNote(t, r, id, migrate.Unmapped, "has no v2 form")
 	}
-	wantNote(t, r, "_oSOut", migrate.Mapped, "written as a junction of its state")
+	wantNote(t, r, "_oSOut", migrate.Mapped, "written as a `#StateMachines::junction state` of its state")
 	wantNote(t, r, "_oT3", migrate.Approximated, "a local transition is written external: the composite state Self exits and re-enters")
 	wantNote(t, r, "_oT4", migrate.Mapped, "")
 }
@@ -1616,49 +1622,60 @@ func noExtensionStatement(t *testing.T, notation []byte) {
 
 // Under -strict a migration writes no extension notation: the junction and
 // history vertices and the junction-form connection points of plant_states and
-// station_points are refused as unmapped, as is every transition through them;
-// the standard fork and join stay.
+// station_points are written as StateMachines metadata — standard SysML v2
+// notation — under -strict too; the standard fork and join stay.
 func TestStrictMigrationWritesNoExtensionNotation(t *testing.T) {
 	r := migrateFixtureFileOptions(t, "plant_states", migrate.Options{Strict: true})
 	noExtensionStatement(t, r.Notation)
-	for _, line := range []string{"fork spread;", "join gather;"} {
+	for _, line := range []string{
+		"private import StateMachines::*;",
+		"#StateMachines::junction state route;",
+		"#StateMachines::shallowHistory state last;",
+		"#StateMachines::deepHistory state deepest;",
+		"fork spread;",
+		"join gather;",
+	} {
 		wantLine(t, r.Notation, line)
 	}
-	wantNote(t, r, "_junc", migrate.Unmapped, "`junction <name>;` is an OpenSysML extension with no SysML v2 production, which a strict migration does not write")
-	wantNote(t, r, "_hist", migrate.Unmapped, "`history <name>;` is an OpenSysML extension")
-	wantNote(t, r, "_deep", migrate.Unmapped, "`deep history <name>;` is an OpenSysML extension")
+	wantNote(t, r, "_junc", migrate.Mapped, "written as a #StateMachines::junction state pseudostate")
+	wantNote(t, r, "_hist", migrate.Mapped, "written as a `#StateMachines::shallowHistory state` shallow history")
+	wantNote(t, r, "_deep", migrate.Mapped, "written as a `#StateMachines::deepHistory state` deep history")
 	for _, id := range []string{"_tRoute", "_tBusy", "_tSpent", "_tResume", "_tHist"} {
-		wantNote(t, r, id, migrate.Unmapped, "has no v2 form: `")
+		wantNote(t, r, id, migrate.Mapped, "")
 	}
-	// The refused transitions' triggers, guards and effects are unmapped with
-	// them; an event another written trigger reports stays as that trigger
-	// reported it.
-	wantNote(t, r, "_trRoute", migrate.Unmapped, "its transition is not written: the target 'route' has no v2 form: `junction <name>;`")
-	wantNote(t, r, "_routeEv", migrate.Unmapped, "its transition is not written")
-	wantNote(t, r, "_trResume", migrate.Unmapped, "its transition is not written")
-	wantNote(t, r, "_gBusy", migrate.Unmapped, "the guard [count < 2] is dropped with it")
-	wantNote(t, r, "_gSpent", migrate.Unmapped, "the guard [else] is dropped with it")
-	wantNote(t, r, "_resumeLog", migrate.Unmapped, "its transition is not written")
+	wantNote(t, r, "_gSpent", migrate.Mapped, "an else guard is written as the unguarded transition out of the junction")
 	wantNote(t, r, "_resumeEv", migrate.Mapped, "written where a trigger refers to it, as accept Resume")
 	wantNote(t, r, "_fork", migrate.Mapped, "written as a fork pseudostate")
 	wantNote(t, r, "_join", migrate.Mapped, "written as a join pseudostate")
 
 	r = migrateFixtureFileOptions(t, "station_points", migrate.Options{Strict: true})
 	noExtensionStatement(t, r.Notation)
-	wantNote(t, r, "_start", migrate.Unmapped, "`junction <name>;` is an OpenSysML extension")
-	wantNote(t, r, "_leave", migrate.Unmapped, "`junction <name>;` is an OpenSysML extension")
-	wantNote(t, r, "_deep", migrate.Unmapped, "`junction <name>;` is an OpenSysML extension")
-	wantNote(t, r, "_out", migrate.Unmapped, "`junction <name>;` is an OpenSysML extension")
-	wantNote(t, r, "_hist", migrate.Unmapped, "`history <name>;` is an OpenSysML extension")
+	for _, line := range []string{
+		"private import StateMachines::*;",
+		"#StateMachines::junction state Start;",
+		"#StateMachines::junction state Leave;",
+		"#StateMachines::junction state Deep;",
+		"#StateMachines::junction state Out;",
+		"#StateMachines::shallowHistory state H;",
+	} {
+		wantLine(t, r.Notation, line)
+	}
+	wantNote(t, r, "_start", migrate.Mapped, "written as a `#StateMachines::junction state` of its state; a transition entering through it runs the state's entry behavior")
+	wantNote(t, r, "_leave", migrate.Mapped, "written as a `#StateMachines::junction state` of its state; a transition leaving through it")
+	wantNote(t, r, "_deep", migrate.Mapped, "written as a `#StateMachines::junction state` of its state")
+	wantNote(t, r, "_out", migrate.Mapped, "written as a `#StateMachines::junction state` of its state")
+	wantNote(t, r, "_hist", migrate.Mapped, "written as a `#StateMachines::shallowHistory state` shallow history")
 	wantNote(t, r, "_both", migrate.Mapped, "written as a fork of its state")
 	wantNote(t, r, "_gather", migrate.Mapped, "written as a join of its state")
 	wantNote(t, r, "_plain", migrate.Mapped, "no transition leaves the entry point")
 	for _, id := range []string{"_tGo", "_tDive", "_tDeep", "_tBack", "_tFinish", "_tLeave", "_tOut", "_tResume", "_tStart"} {
-		wantNote(t, r, id, migrate.Unmapped, "has no v2 form: `")
+		wantNote(t, r, id, migrate.Mapped, "")
 	}
-	wantNote(t, r, "_trGo", migrate.Unmapped, "its transition is not written")
-	wantNote(t, r, "_startEff", migrate.Unmapped, "its transition is not written")
-	wantNote(t, r, "_leaveEff", migrate.Unmapped, "its transition is not written")
+	// The pass-through route through 'Through' is still refused: it is not the
+	// metadata spelling's doing but an unwritable route shape.
+	wantNote(t, r, "_through", migrate.Unmapped, "leads from the entry point straight to the exit point")
+	wantNote(t, r, "_tThrough", migrate.Unmapped, "the source 'Through' has no v2 form")
+	wantNote(t, r, "_tSkip", migrate.Unmapped, "the target 'Through' has no v2 form")
 }
 
 // testdata/xmi/operation_extra_params.xmi: a usage binding an operation's
@@ -1684,4 +1701,26 @@ func TestSwimlaneCallsRunOnTheirRepresentedObjects(t *testing.T) {
 	} {
 		wantLine(t, r.Notation, line)
 	}
+}
+
+// TestStateMachinesPackageShadowsTheLibrary: a package named StateMachines in
+// the model hides the library package the metadata spellings name, so the
+// import and the pseudostate spelling reach it $::-rooted.
+func TestStateMachinesPackageShadowsTheLibrary(t *testing.T) {
+	r := migrateDocument(t, `
+    <packagedElement xmi:type="uml:Package" xmi:id="_p" name="P">
+      <packagedElement xmi:type="uml:Package" xmi:id="_lib" name="StateMachines"/>
+      <packagedElement xmi:type="uml:Class" xmi:id="_c" name="C" classifierBehavior="_sm">
+        <ownedBehavior xmi:type="uml:StateMachine" xmi:id="_sm" name="M">
+          <region xmi:type="uml:Region" xmi:id="_rg" name="r">
+            <subvertex xmi:type="uml:Pseudostate" xmi:id="_i"/>
+            <subvertex xmi:type="uml:State" xmi:id="_s" name="S"/>
+            <subvertex xmi:type="uml:Pseudostate" xmi:id="_pk" name="pick" kind="choice"/>
+            <transition xmi:type="uml:Transition" xmi:id="_t0" source="_i" target="_s"/>
+          </region>
+        </ownedBehavior>
+      </packagedElement>
+    </packagedElement>`, `<sysml:Block xmi:id="_cb" base_Class="_c"/>`)
+	wantLine(t, r.Notation, "private import $::StateMachines::*;")
+	wantLine(t, r.Notation, "#$::StateMachines::choice state pick;")
 }

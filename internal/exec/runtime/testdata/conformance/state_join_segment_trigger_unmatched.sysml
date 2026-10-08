@@ -1,5 +1,5 @@
-// A segment into a join whose trigger the occurrence does not match holds the
-// join: the other segment, though enabled, fires nothing and runs no effect.
+// A segment fires on its own trigger and waits; the other segment's later
+// matching trigger completes the join.
 package Test {
 	private import ScalarValues::*;
 

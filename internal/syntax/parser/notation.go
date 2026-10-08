@@ -14,7 +14,6 @@ import (
 var notationWords = map[string]bool{
 	"choice":   true,
 	"deep":     true,
-	"defer":    true,
 	"done":     true,
 	"history":  true,
 	"junction": true,
@@ -36,10 +35,16 @@ var sysmlOnlyWords = map[string]bool{
 	"timeslice": true,
 }
 
+// Reserves reports whether keywordID is reserved in a file of the given kind;
+// the SysML-only words are names in KerML.
+func Reserves(kind source.Kind, keywordID string) bool {
+	return kind != source.KindKerML || !sysmlOnlyWords[keywordID]
+}
+
 // unreserved reclassifies a keyword the file's grammar does not reserve as the
 // name it is, so every position that takes a name accepts it.
 func (p *Parser) unreserved(tok lexer.Token) lexer.Token {
-	if tok.Kind != lexer.Keyword || p.src.Kind() != source.KindKerML || !sysmlOnlyWords[tok.KeywordID] {
+	if tok.Kind != lexer.Keyword || Reserves(p.src.Kind(), tok.KeywordID) {
 		return tok
 	}
 	tok.Kind = lexer.Identifier
@@ -122,12 +127,17 @@ func (p *Parser) atStateNotationWord() (string, bool) {
 		if p.notationWordAt(1) == "history" && p.peekIsName(2) && p.peekN(3).Kind == lexer.Semicolon {
 			return w, true
 		}
-	case "defer":
-		// `defer <event> [, <event>]*;`, the event parsed as a trigger is a name
-		// or a call, so anything else after the word names a feature.
-		if p.peekIsName(1) {
-			return w, true
-		}
 	}
 	return "", false
+}
+
+// atRemovedDeferMember reports the legacy `defer <event> [, <event>]* ;` state
+// body member of the removed OpenSysML extension: the word, no longer notation,
+// heads no member the grammar admits when a name follows it, so the shape is
+// diagnosed as the removed notation rather than left to cascade. A feature
+// specialization after the word (`defer references setting;`) makes it the
+// name of a keywordless feature instead.
+func (p *Parser) atRemovedDeferMember() bool {
+	return p.peek().Kind == lexer.Identifier && p.src.Text(p.peek().Span) == "defer" &&
+		p.peekIsName(1) && !p.featureSpecializationAt(1)
 }

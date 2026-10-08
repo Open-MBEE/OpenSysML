@@ -7,12 +7,21 @@ import (
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
 	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/protoconv"
+	"github.com/Open-MBEE/OpenSysML/internal/frontend/symbolfacts"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 )
 
-func (s *Service) symbolToProto(sym *symbols.Symbol, sc *SymbolContext) *pb.SymbolInfo {
+func (s *Service) symbolToProto(sym *symbols.Symbol, sc *symbolfacts.Context) *pb.SymbolInfo {
 	info := SymbolToProtoIn(sym, sc)
+	return s.filterSymbolInfo(info)
+}
+
+func (s *Service) symbolInfoToProto(info *symbolfacts.Info, idx *symbols.Index) *pb.SymbolInfo {
+	return s.filterSymbolInfo(infoToProto(info, idx))
+}
+
+func (s *Service) filterSymbolInfo(info *pb.SymbolInfo) *pb.SymbolInfo {
 	if !s.capabilities.has(CapabilityTypeFacts) {
 		info.TypeInfo = nil
 		info.Multiplicity = nil
@@ -78,6 +87,11 @@ func (s *Service) filterDiagnosticCapabilities(diags []*pb.Diagnostic) []*pb.Dia
 
 func (s *Service) filterValueCapabilities(value *pb.Value) {
 	if value == nil {
+		return
+	}
+	if !s.capabilities.has(CapabilityBigIntValues) && protoconv.ValueHoldsBigInt(value) ||
+		!s.capabilities.has(CapabilityRationalValues) && protoconv.ValueHoldsRational(value) {
+		value.Kind = protoconv.UnsupportedShown(displayValue(value))
 		return
 	}
 	switch kind := value.GetKind().(type) {
@@ -230,7 +244,15 @@ func displayQuantity(pq *pb.Quantity) runtime.Value {
 	var num semantics.Value
 	switch m := pq.GetMagnitude().(type) {
 	case *pb.Quantity_IntMagnitude:
-		num = semantics.Value{Kind: semantics.ValInt, Int: m.IntMagnitude}
+		num = semantics.IntValue(m.IntMagnitude)
+	case *pb.Quantity_BigIntMagnitude:
+		if big, err := protoconv.ProtoToBigInteger(m.BigIntMagnitude); err == nil {
+			num = big
+		}
+	case *pb.Quantity_RationalMagnitude:
+		if rational, err := protoconv.ProtoToRational(m.RationalMagnitude); err == nil {
+			num = rational
+		}
 	case *pb.Quantity_RealMagnitude:
 		num = semantics.Value{Kind: semantics.ValReal, Real: m.RealMagnitude}
 	}
@@ -249,7 +271,7 @@ func describeUnitTerm(term *pb.UnitTerm) string {
 	}
 	var parts []string
 	if term.GetScaleNum() != term.GetScaleDen() {
-		parts = append(parts, fmt.Sprintf("%g/%g", term.GetScaleNum(), term.GetScaleDen()))
+		parts = append(parts, semantics.FormatScaleTerm(term.GetScaleNum())+"/"+semantics.FormatScaleTerm(term.GetScaleDen()))
 	}
 	for _, factor := range term.GetFactors() {
 		if factor.GetExponent() == 1 {

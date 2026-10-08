@@ -1,0 +1,44 @@
+{
+  "type": "state",
+  "libraries": true,
+  "events": [
+    {
+      "signal": "Go"
+    }
+  ],
+  "finalState": "b",
+  "stateVisits": [
+    "a",
+    "b"
+  ],
+  "outputs": {
+    "aEntry": {
+      "type": "Boolean",
+      "value": true
+    },
+    "aExit": {
+      "type": "Boolean",
+      "value": true
+    },
+    "bSeenFromA": {
+      "type": "Boolean",
+      "value": false
+    },
+    "sourceInEffect": {
+      "type": "Boolean",
+      "value": false
+    },
+    "targetInEffect": {
+      "type": "Boolean",
+      "value": false
+    },
+    "bEntry": {
+      "type": "Boolean",
+      "value": true
+    },
+    "aSeenFromB": {
+      "type": "Boolean",
+      "value": false
+    }
+  }
+}

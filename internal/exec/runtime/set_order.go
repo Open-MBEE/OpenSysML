@@ -221,7 +221,11 @@ func compareSymbols(a, b *symbols.Symbol) int {
 	if c := strings.Compare(a.DocName, b.DocName); c != 0 {
 		return c
 	}
-	return cmp.Compare(a.DeclSpan.Offset, b.DeclSpan.Offset)
+	if c := cmp.Compare(a.DeclSpan.Offset, b.DeclSpan.Offset); c != 0 {
+		return c
+	}
+	// Two reflected relationships of one owner share its declaration span.
+	return cmp.Compare(a.ImplicitOrdinal(), b.ImplicitOrdinal())
 }
 
 func compareBool(a, b bool) int {
@@ -273,35 +277,27 @@ func canonicalClass(v Value) int {
 	return classOther
 }
 
-// compareNumbers orders the numeric constants exactly, infinity above every finite number.
+// compareNumbers orders the numeric constants as the comparison operators do,
+// infinity above every finite number.
 func compareNumbers(a, b semantics.Value) int {
 	switch {
-	case a.Kind == semantics.ValInt && b.Kind == semantics.ValInt:
-		return cmp.Compare(a.Int, b.Int)
-	case a.Kind == semantics.ValInt && b.Kind == semantics.ValReal:
-		return compareIntReal(a.Int, b.Real)
-	case a.Kind == semantics.ValReal && b.Kind == semantics.ValInt:
-		return -compareIntReal(b.Int, a.Real)
+	case a.IsExact() && b.IsExact():
+		return semantics.CompareRat(a, b)
+	case a.IsExact() && b.Kind == semantics.ValReal:
+		return compareExactReal(a, b.Real)
+	case a.Kind == semantics.ValReal && b.IsExact():
+		return -compareExactReal(b, a.Real)
 	}
 	return cmp.Compare(numberOf(a), numberOf(b))
 }
 
-// compareIntReal orders an Integer against a Real without rounding the Integer
-// to float64: by whole part first, then by the Real's fraction.
-func compareIntReal(i int64, r float64) int {
-	switch {
-	case math.IsNaN(r):
+// compareExactReal orders an exact number against a Real as semantics.CompareReal
+// does, a NaN below every number as cmp.Compare puts it.
+func compareExactReal(i semantics.Value, r float64) int {
+	if math.IsNaN(r) {
 		return cmp.Compare(0.0, r)
-	case r >= -float64(math.MinInt64):
-		return -1
-	case r < float64(math.MinInt64):
-		return 1
 	}
-	whole := math.Trunc(r)
-	if c := cmp.Compare(i, int64(whole)); c != 0 {
-		return c
-	}
-	return cmp.Compare(0, r-whole)
+	return semantics.CompareReal(i, r)
 }
 
 func numberOf(v semantics.Value) float64 {

@@ -1,0 +1,13 @@
+step 1: token 1@both
+step 2: token 2@low, token 3@high
+stmt assign y
+  eval literal 8.5 -> 8.5
+stmt assign y
+  eval literal 1.5 -> 1.5
+choice step 3: tokens 2@low, 3@high (unordered; took 3@high first)
+step 3: token 2@pair, token 3@pair
+  eval feature inputObject1 -> 1.5
+  eval feature inputObject2 -> 8.5
+eval sequence of 2 -> (1.5, 8.5)
+step 4: token 4@keep
+step 5: no active tokens

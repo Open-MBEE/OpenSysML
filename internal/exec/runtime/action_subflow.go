@@ -6,6 +6,7 @@ import (
 	"slices"
 
 	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
 
@@ -28,8 +29,10 @@ func (e *performances) subflowOf(graph *lower.ActionGraph, node ast.Node) (*lowe
 	return sub, owns && sub != nil
 }
 
-// enterSubflow moves a token into the flow its node owns, run by the node's performance;
-// the flow was validated at initialize(), so an unbuildable one is an error here.
+// enterSubflow moves a token into the flow its node owns, run by the node's performance,
+// to the first node it starts at, a token of its own standing at each other; a flow
+// with nothing to start completes the node at once. The flow was validated at
+// initialize(), so an unbuildable one is an error here.
 func (e *ActionExecutor) enterSubflow(tokenIdx int, perf *actionFrame) error {
 	token := &e.tokens[tokenIdx]
 	node := token.Location
@@ -37,18 +40,41 @@ func (e *ActionExecutor) enterSubflow(tokenIdx int, perf *actionFrame) error {
 		return fmt.Errorf("%w: action node %s: %w",
 			ErrInvalidActionFlow, ActionNodeName(node), perf.graph.Invalid)
 	}
-	if perf.graph == nil || perf.graph.Initial == nil {
+	if perf.graph == nil {
 		return fmt.Errorf("%w: action node %s owns a flow that cannot be built",
 			ErrInvalidActionFlow, ActionNodeName(node))
 	}
+	if err := lower.FlowStartError(perf.graph); err != nil {
+		return fmt.Errorf("%w: no initial node found in action node %s: %w",
+			ErrInvalidActionFlow, ActionNodeName(node), err)
+	}
+	starts := perf.graph.Starts()
 	token.frame = perf
-	token.Location = perf.graph.Initial
 	token.Via = lower.ActionEdge{}
 	token.moved = e.sweep
+	perf.repetition = token.repetition
+	perf.repetitionGroup = token.repetitionGroup
+	token.repetition = 0
+	token.repetitionGroup = 0
 	if tr := e.trace(); tr != nil {
 		tr.RecordActionNodeEnter(ActionNodeName(node))
 	}
+	perf.live = len(starts)
+	if len(starts) == 0 {
+		return e.leaveSubflow(tokenIdx)
+	}
+	token.Location = starts[0]
+	e.seedTokens(perf, starts[1:], e.sweep)
 	return nil
+}
+
+// seedTokens puts a token of frame's flow at each of starts, the nodes a
+// performance of it starts at concurrently (lower.StartFlow).
+func (e *ActionExecutor) seedTokens(frame *actionFrame, starts []ast.Node, moved uint64) {
+	for _, start := range starts {
+		e.tokens = append(e.tokens, Token{ID: e.nextTokenID, Location: start, frame: frame, moved: moved})
+		e.nextTokenID++
+	}
 }
 
 // subflowFrame is a flow a body statement runs (runSubflow) where the body paused:
@@ -80,8 +106,8 @@ func (f *subflowFrame) clone() bodyFrame {
 // runSubflow performs the flow perf owns to completion where a body statement,
 // not a token of the enclosing flow, performs its node: the tokens of that flow
 // alone are stepped until its last one retires, pausing where a breakpoint is
-// met as RunToCompletion does. Nothing outside can post a message meanwhile, so
-// a token parked at an accept for one is a deadlock, as under RunToCompletion;
+// met as RunToCompletion does. A body around the run can pause for a message,
+// while an unowned run with a token parked at an accept is a deadlock;
 // one parked on the clock pauses the body until the clock is advanced to its
 // instant; a run with no body to pause (a case body's) advances the clock itself.
 func (e *ActionExecutor) runSubflow(perf *actionFrame) error {
@@ -111,7 +137,7 @@ func (e *ActionExecutor) runSubflow(perf *actionFrame) error {
 }
 
 // enterBodyFlow starts the flow perf owns for a body statement performing its
-// node, with one token at its initial node.
+// node, with a token at each node it starts at.
 func (e *ActionExecutor) enterBodyFlow(perf *actionFrame) (*subflowFrame, error) {
 	node := perf.node
 	if perf.graph != nil && perf.graph.Invalid != nil {
@@ -121,13 +147,18 @@ func (e *ActionExecutor) enterBodyFlow(perf *actionFrame) (*subflowFrame, error)
 	if err := e.checkNodeResultParameters(perf.graph); err != nil {
 		return nil, fmt.Errorf("%s: %w", perf.describe(), err)
 	}
-	if perf.graph == nil || perf.graph.Initial == nil {
+	if perf.graph == nil {
 		return nil, fmt.Errorf("%w: %s owns a flow that cannot be built",
 			ErrInvalidActionFlow, perf.describe())
 	}
+	if err := lower.FlowStartError(perf.graph); err != nil {
+		return nil, fmt.Errorf("%w: no node starts the flow %s owns: %w",
+			ErrInvalidActionFlow, perf.describe(), err)
+	}
+	starts := perf.graph.Starts()
 	perf.inBody = true
-	e.tokens = append(e.tokens, Token{ID: e.nextTokenID, Location: perf.graph.Initial, frame: perf})
-	e.nextTokenID++
+	perf.live = len(starts)
+	e.seedTokens(perf, starts, 0)
 	// The root performance, a case body's own flow, has no node and is traced by name.
 	name := ActionNodeName(node)
 	if name == "" {
@@ -172,11 +203,14 @@ func (e *ActionExecutor) driveSubflow(f *subflowFrame) error {
 			e.ctx.bodyPerformed()
 		}
 		if moved {
+			if err := e.ctx.switchStrand(); err != nil {
+				return err
+			}
 			switch {
 			case e.ctx.stepsTokens():
 				// A run one move at a time pauses before its next, its machine going on meanwhile.
 				if e.canAct(perf) {
-					if err := e.ctx.tokenStepBody(); err != nil {
+					if err := e.ctx.tokenStepBody(perf.graph); err != nil {
 						return err
 					}
 				}
@@ -222,10 +256,15 @@ func (e *ActionExecutor) stepSubflow(perf *actionFrame) (moved, performed bool, 
 	before := e.subflowLocations(perf)
 	performing := e.performingTokens(perf)
 	if !e.ctx.stepsTokens() {
+		pauses := e.pauses
 		if err := e.stepSubflowSweep(perf); err != nil {
 			return false, false, err
 		}
-		return e.subflowMoved(perf, before, performing)
+		moved, performed, err := e.subflowMoved(perf, before, performing)
+		if e.yieldedIn(perf, pauses) {
+			moved, performed = true, true
+		}
+		return moved, performed, err
 	}
 	// A token moving on a loop may stand where it stood, so the move itself counts.
 	acted, performed, err := e.stepSubflowMove(perf)
@@ -242,13 +281,15 @@ func (e *ActionExecutor) stepSubflowSweep(perf *actionFrame) (err error) {
 	defer e.beginSweep()()
 	order := e.beginStepOrder()
 	endWrites := e.beginStepWrites(e.stepCount + 1)
-	eligible := func(t Token) bool { return t.inFlowOf(perf) }
+	eligible := func(t Token) bool { return t.inFlowOf(perf) && !t.drivenUnder(perf) }
 	if e.ctx.scheduling().oneMove() {
 		// Paused work that would only pause again is no alternative to pick.
-		eligible = func(t Token) bool { return t.inFlowOf(perf) && (t.body == nil || t.resumable()) }
+		eligible = func(t Token) bool {
+			return t.inFlowOf(perf) && !t.drivenUnder(perf) && (t.body == nil || t.resumable())
+		}
 	}
-	candidates := e.stepCandidates(&order, eligible)
-	schedule := e.ctx.scheduling().scheduleStep(candidates)
+	candidates := e.stepCandidates(&order, eligible, perf)
+	schedule := e.scheduleSubflowStep(perf, candidates)
 	for id, ok := schedule.Next(); ok; id, ok = schedule.Next() {
 		i := e.tokenIndex(id)
 		if i < 0 || e.moving(e.tokens[i]) || !e.tokens[i].inFlowOf(perf) {
@@ -268,6 +309,18 @@ func (e *ActionExecutor) stepSubflowSweep(perf *actionFrame) (err error) {
 		err = refused
 	}
 	return err
+}
+
+// An unordered case body keeps declaration order under the fixed schedules.
+func (e *ActionExecutor) scheduleSubflowStep(perf *actionFrame, candidates stepTokens) *tokenSchedule {
+	scheduler := e.ctx.scheduling()
+	if perf.graph != nil && perf.graph.UnstatedCaseFlow && scheduler.oneMove() {
+		candidates.stepped = true
+	}
+	if perf.graph != nil && perf.graph.UnstatedCaseFlow && scheduler.policy.kind == scheduleReverse {
+		return &tokenSchedule{order: candidates.ids}
+	}
+	return scheduler.scheduleStep(candidates)
 }
 
 // stepSubflowMove is the step of a flow run one token move at a time: its silent
@@ -297,7 +350,7 @@ func (e *ActionExecutor) stepSubflowMove(perf *actionFrame) (acted, performed bo
 func (e *ActionExecutor) drawOneMove(perf *actionFrame) (acted, performed bool, err error) {
 	defer e.beginSweep()()
 	order := e.beginStepOrder()
-	schedule := e.ctx.scheduling().scheduleStep(e.stepCandidates(&order, oneMoveEligibleIn(perf)))
+	schedule := e.scheduleSubflowStep(perf, e.stepCandidates(&order, oneMoveEligibleIn(perf), perf))
 	for id, ok := schedule.Next(); ok; id, ok = schedule.Next() {
 		i := e.tokenIndex(id)
 		if i < 0 || e.moving(e.tokens[i]) || !e.tokens[i].inFlowOf(perf) {
@@ -324,7 +377,9 @@ func (e *ActionExecutor) drawOneMove(perf *actionFrame) (acted, performed bool, 
 
 // oneMoveEligibleIn is the eligibility of a step moving one token of perf's flow.
 func oneMoveEligibleIn(perf *actionFrame) func(Token) bool {
-	return func(t Token) bool { return t.inFlowOf(perf) && (t.body == nil || t.resumable()) }
+	return func(t Token) bool {
+		return t.inFlowOf(perf) && !t.drivenUnder(perf) && (t.body == nil || t.resumable())
+	}
 }
 
 // canAct reports whether a token of perf's flow would act were it stepped now.
@@ -357,7 +412,7 @@ func (e *ActionExecutor) silentPass(perf *actionFrame) (moved bool, err error) {
 	defer e.beginSweep()()
 	for i := 0; i < len(e.tokens); i++ {
 		t := e.tokens[i]
-		if e.moving(t) || !t.inFlowOf(perf) || !e.silentMove(t) {
+		if e.moving(t) || !t.inFlowOf(perf) || t.drivenUnder(perf) || !e.silentMove(t) {
 			continue
 		}
 		did, err := e.stepTokenNoting(i, &stepOrder{})
@@ -410,6 +465,17 @@ func (e *ActionExecutor) subflowMoved(perf *actionFrame, before map[int64]ast.No
 		}
 	}
 	return moved, performed, nil
+}
+
+// yieldedIn reports a token of perf's flow whose work yielded after the executor's
+// pauses-th pause, a move of its node made.
+func (e *ActionExecutor) yieldedIn(perf *actionFrame, pauses int64) bool {
+	for _, idx := range e.tokensIn(perf) {
+		if run := e.tokens[idx].body; run != nil && run.pausedAt > pauses && run.paused.yielded {
+			return true
+		}
+	}
+	return false
 }
 
 // subflowLocations returns where each token of perf's flow sits, by token ID.
@@ -480,6 +546,16 @@ func (t Token) inFlowOf(perf *actionFrame) bool {
 	return false
 }
 
+// drivenUnder reports a token of a flow nested in perf's that another token's work drives.
+func (t Token) drivenUnder(perf *actionFrame) bool {
+	for f := t.frame; f != nil && f != perf; f = f.parent {
+		if f.inBody {
+			return true
+		}
+	}
+	return false
+}
+
 // positionIn returns the node of perf's flow the token stands at: its location, or the node
 // owning the flow nested under perf it runs in; false for a token outside perf's flow.
 func (t Token) positionIn(perf *actionFrame) (ast.Node, bool) {
@@ -503,6 +579,8 @@ func (e *ActionExecutor) leaveSubflow(tokenIdx int) error {
 	token.Location = frame.node
 	token.Via = lower.ActionEdge{}
 	token.Wait = nil
+	token.repetition = frame.repetition
+	token.repetitionGroup = frame.repetitionGroup
 	if tr := e.trace(); tr != nil {
 		tr.RecordActionNodeExit(ActionNodeName(frame.node))
 	}
@@ -525,9 +603,9 @@ func (e *ActionExecutor) validateSubflows(graph *lower.ActionGraph) error {
 				return fmt.Errorf("%w: action node %s: %w",
 					ErrInvalidActionFlow, ActionNodeName(node), sub.Err)
 			}
-			if sub.Graph.Initial == nil {
-				return fmt.Errorf("%w: no initial node found in action node %s%s",
-					ErrInvalidActionFlow, ActionNodeName(node), noFlowStart(sub.Graph))
+			if err := lower.FlowStartError(sub.Graph); err != nil {
+				return fmt.Errorf("%w: no initial node found in action node %s: %w",
+					ErrInvalidActionFlow, ActionNodeName(node), err)
 			}
 			if err := e.validateSubflows(sub.Graph); err != nil {
 				return err
@@ -537,20 +615,20 @@ func (e *ActionExecutor) validateSubflows(graph *lower.ActionGraph) error {
 			if err := e.validateSubflows(block); err != nil {
 				return err
 			}
-			if len(block.Nodes) > 0 && block.Initial == nil {
-				return fmt.Errorf("%w: no node starts the flow a body of action node %s states%s",
-					ErrInvalidActionFlow, ActionNodeName(node), noFlowStart(block))
+			if err := lower.FlowStartError(block); err != nil {
+				return fmt.Errorf("%w: no node starts the flow a body of action node %s states: %w",
+					ErrInvalidActionFlow, ActionNodeName(node), err)
 			}
 		}
 	}
 	return nil
 }
 
-// checkResultParameters refuses an action, or a node of its flow, declaring a
-// `return` parameter — only a function or expression owns one.
+// checkResultParameters refuses a `return` whose owner is no function or
+// expression; an inherited function result is an output.
 func (e *ActionExecutor) checkResultParameters() error {
 	for _, param := range e.ctx.model.semantics.BehaviorParametersOf(e.action) {
-		if param.IsResult {
+		if param.IsResult && !semantics.ResultParameterOwnerValid(param.Symbol) {
 			return fmt.Errorf("%w: action %s declares `return %s`; write `out %s`",
 				ErrActionResultParameter, symbolText(e.action), param.Symbol.Name, param.Symbol.Name)
 		}
@@ -564,7 +642,7 @@ func (e *ActionExecutor) checkNodeResultParameters(graph *lower.ActionGraph) err
 	}
 	for _, node := range graph.Nodes {
 		for _, f := range graph.Features[node] {
-			if f.IsResult {
+			if f.IsResult && !semantics.DeclaresFunction(node) {
 				return fmt.Errorf("%w: action node %s declares `return %s`; write `out %s`",
 					ErrActionResultParameter, ActionNodeName(node), f.Name, f.Name)
 			}

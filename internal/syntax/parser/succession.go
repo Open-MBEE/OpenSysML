@@ -37,6 +37,35 @@ func (p *Parser) atChainedFirstSuccession() bool {
 	return chained && t.Kind == lexer.Keyword && t.KeywordID == "then"
 }
 
+// atMultiplicityFirstSuccession reports whether the `first` at the cursor opens
+// a succession one of whose ends carries a crossing multiplicity, `first [m] a
+// then [n] b;`. Only SuccessionAsUsage's ConnectorEnd takes one (SysML.xtext:998
+// OwnedCrossMultiplicityMember); InitialNodeMember's memberElement is a plain
+// QualifiedName. The scan stops at the member's end.
+func (p *Parser) atMultiplicityFirstSuccession() bool {
+	if !p.atKeyword("first") {
+		return false
+	}
+	if p.peekN(1).Kind == lexer.LBracket {
+		return true
+	}
+	for depth, i := 0, 1; ; i++ {
+		tok := p.peekN(i)
+		switch tok.Kind {
+		case lexer.EOF, lexer.Semicolon, lexer.LBrace, lexer.RBrace:
+			return false
+		case lexer.LParen, lexer.LBracket:
+			depth++
+		case lexer.RParen, lexer.RBracket:
+			depth--
+		case lexer.Keyword:
+			if depth == 0 && tok.KeywordID == "then" {
+				return p.peekN(i+1).Kind == lexer.LBracket
+			}
+		}
+	}
+}
+
 // afterMultiplicity returns the token offset after the bracketed multiplicity
 // at offset, or -1 when no closing bracket occurs before the member ends.
 func (p *Parser) afterMultiplicity(offset int) int {

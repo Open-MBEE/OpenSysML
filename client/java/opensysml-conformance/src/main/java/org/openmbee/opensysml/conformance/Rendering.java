@@ -8,6 +8,7 @@ import org.openmbee.opensysml.FailureReason;
 import org.openmbee.opensysml.Instance;
 import org.openmbee.opensysml.Outcome;
 import org.openmbee.opensysml.QueryElement;
+import org.openmbee.opensysml.RenderedView;
 import org.openmbee.opensysml.Standing;
 import org.openmbee.opensysml.Symbol;
 import org.openmbee.opensysml.Value;
@@ -440,6 +441,53 @@ final class Rendering {
   }
 
   /**
+   * A migration, as the generated answer the wire gives.
+   *
+   * @param migration the public migration
+   * @return the generated answer
+   */
+  static org.openmbee.opensysml.proto.MigrateResponse migration(
+      org.openmbee.opensysml.Migration migration) {
+    org.openmbee.opensysml.MigrationReport report = migration.report();
+    org.openmbee.opensysml.proto.MigrationReport.Builder rendered =
+        org.openmbee.opensysml.proto.MigrationReport.newBuilder()
+            .setSource(report.source())
+            .setExporter(report.exporter())
+            .setSummary(report.summary())
+            .setMapped(report.mapped())
+            .setApproximated(report.approximated())
+            .setUnmapped(report.unmapped())
+            .setSkipped(report.skipped())
+            .setText(report.text());
+    for (org.openmbee.opensysml.MigrationEntry entry : report.entries()) {
+      rendered.addEntries(
+          org.openmbee.opensysml.proto.MigrationEntry.newBuilder()
+              .setId(entry.id())
+              .setKind(entry.kind())
+              .setName(entry.name())
+              .setTarget(entry.target())
+              .setVerdict(entry.verdict())
+              .setNote(entry.note()));
+    }
+    org.openmbee.opensysml.proto.MigrateResponse.Builder response =
+        org.openmbee.opensysml.proto.MigrateResponse.newBuilder()
+            .setContent(migration.content())
+            .setFromFormat(migration.fromFormat())
+            .setToFormat(migration.toFormat())
+            .setExperimental(true)
+            .setExperimentalNotice(migration.experimentalNotice())
+            .setReport(rendered)
+            .setResults(migration.results());
+    for (Map.Entry<String, byte[]> file : migration.files().entrySet()) {
+      response.addFiles(
+          org.openmbee.opensysml.proto.MigrationFile.newBuilder()
+              .setPath(file.getKey())
+              .setContent(com.google.protobuf.ByteString.copyFrom(file.getValue())));
+    }
+    return response.build();
+  }
+
+  /**
    * The edits a batch applied.
    *
    * @param applied the immutable edits
@@ -561,6 +609,130 @@ final class Rendering {
       response.addRows(rendered);
     }
     return response.build();
+  }
+
+  static org.openmbee.opensysml.proto.RenderViewResponse renderedView(RenderedView view) {
+    org.openmbee.opensysml.proto.RenderViewResponse.Builder response =
+        org.openmbee.opensysml.proto.RenderViewResponse.newBuilder()
+            .setView(view.view())
+            .setKind(view.kind())
+            .setStated(view.stated())
+            .addAllColumns(view.columns())
+            .addAllNotices(view.notices());
+    view.canvas()
+        .ifPresent(
+            canvas ->
+                response.setCanvas(
+                    org.openmbee.opensysml.proto.RenderCanvas.newBuilder()
+                        .setUnit(canvas.unit())
+                        .setWidth(canvas.width())
+                        .setHeight(canvas.height())
+                        .setHasSize(canvas.hasSize())));
+    for (RenderedView.Node node : view.nodes()) {
+      org.openmbee.opensysml.proto.RenderNode.Builder rendered =
+          org.openmbee.opensysml.proto.RenderNode.newBuilder()
+              .setId(node.id())
+              .setKind(node.kind())
+              .setName(node.name())
+              .setNameSynthesized(node.nameSynthesized())
+              .setType(node.type())
+              .setDetail(node.detail())
+              .setText(node.text())
+              .setStandIn(node.standIn())
+              .setParent(node.parent());
+      node.ports()
+          .forEach(
+              port ->
+                  rendered.addPorts(
+                      org.openmbee.opensysml.proto.RenderPort.newBuilder()
+                          .setId(port.id())
+                          .setName(port.name())
+                          .setType(port.type())
+                          .setDirection(port.direction())));
+      node.origin().ifPresent(span -> rendered.setOrigin(span(span)));
+      node.geometry()
+          .ifPresent(
+              geometry ->
+                  rendered.setGeometry(
+                      org.openmbee.opensysml.proto.RenderGeometry.newBuilder()
+                          .setX(geometry.x())
+                          .setY(geometry.y())
+                          .setWidth(geometry.width())
+                          .setHeight(geometry.height())
+                          .setHasSize(geometry.hasSize())
+                          .setCollapsed(geometry.collapsed())));
+      node.style().ifPresent(style -> rendered.setStyle(style(style)));
+      response.addNodes(rendered);
+    }
+    for (RenderedView.Edge edge : view.edges()) {
+      org.openmbee.opensysml.proto.RenderEdge.Builder rendered =
+          org.openmbee.opensysml.proto.RenderEdge.newBuilder()
+              .setFrom(edge.from())
+              .setTo(edge.to())
+              .setFromPort(edge.fromPort())
+              .setToPort(edge.toPort())
+              .setLabel(edge.label())
+              .setName(edge.name())
+              .setKind(edge.kind());
+      edge.origin().ifPresent(span -> rendered.setOrigin(span(span)));
+      edge.route()
+          .forEach(
+              point ->
+                  rendered.addRoute(
+                      org.openmbee.opensysml.proto.RenderPoint.newBuilder()
+                          .setX(point.x())
+                          .setY(point.y())));
+      edge.style().ifPresent(style -> rendered.setStyle(style(style)));
+      response.addEdges(rendered);
+    }
+    view.rows()
+        .forEach(
+            row -> {
+              org.openmbee.opensysml.proto.RenderRow.Builder rendered =
+                  org.openmbee.opensysml.proto.RenderRow.newBuilder().addAllCells(row.cells());
+              row.origin().ifPresent(span -> rendered.setOrigin(span(span)));
+              response.addRows(rendered);
+            });
+    view.notes()
+        .forEach(
+            note -> {
+              org.openmbee.opensysml.proto.RenderNote.Builder rendered =
+                  org.openmbee.opensysml.proto.RenderNote.newBuilder()
+                      .setText(note.text())
+                      .setAnchor(note.anchor())
+                      .setEdgeFrom(note.edgeFrom())
+                      .setEdgeTo(note.edgeTo())
+                      .setX(note.x())
+                      .setY(note.y())
+                      .setWidth(note.width())
+                      .setHeight(note.height())
+                      .setHasSize(note.hasSize());
+              note.origin().ifPresent(span -> rendered.setOrigin(span(span)));
+              response.addNotes(rendered);
+            });
+    return response.build();
+  }
+
+  private static org.openmbee.opensysml.proto.Span span(RenderedView.Span span) {
+    return org.openmbee.opensysml.proto.Span.newBuilder()
+        .setFile(span.file())
+        .setStartLine(span.startLine())
+        .setStartCol(span.startCol())
+        .setEndLine(span.endLine())
+        .setEndCol(span.endCol())
+        .build();
+  }
+
+  private static org.openmbee.opensysml.proto.RenderStyle style(RenderedView.Style style) {
+    return org.openmbee.opensysml.proto.RenderStyle.newBuilder()
+        .setFill(style.fill())
+        .setLine(style.line())
+        .setText(style.text())
+        .setFont(style.font())
+        .setFontSize(style.fontSize())
+        .setBold(style.bold())
+        .setItalic(style.italic())
+        .build();
   }
 
   private static org.openmbee.opensysml.proto.DocumentValue rowElement(

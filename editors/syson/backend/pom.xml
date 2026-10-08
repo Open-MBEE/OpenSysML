@@ -7,7 +7,7 @@
     <parent>
         <groupId>org.openmbee</groupId>
         <artifactId>opensysml-syson</artifactId>
-        <version>0.9.2</version>
+        <version>0.10.0</version>
     </parent>
 
     <artifactId>opensysml-syson-backend</artifactId>
@@ -17,7 +17,7 @@
         <dependency>
             <groupId>org.openmbee</groupId>
             <artifactId>opensysml</artifactId>
-            <version>0.9.2</version>
+            <version>0.10.0</version>
         </dependency>
         <dependency>
             <groupId>org.springframework</groupId>
@@ -110,22 +110,41 @@
                 <dependency>
                     <groupId>org.eclipse.sirius</groupId>
                     <artifactId>sirius-web-starter</artifactId>
-                    <version>2026.9.0</version>
+                    <version>2026.9.2</version>
                     <scope>provided</scope>
                 </dependency>
                 <dependency>
                     <groupId>org.eclipse.syson</groupId>
                     <artifactId>syson-sysml-metamodel</artifactId>
-                    <version>2026.9.0</version>
+                    <version>2026.9.2</version>
                     <scope>provided</scope>
                 </dependency>
                 <dependency>
                     <groupId>org.eclipse.syson</groupId>
                     <artifactId>syson-sysml-metamodel-services</artifactId>
-                    <version>2026.9.0</version>
+                    <version>2026.9.2</version>
                     <scope>provided</scope>
                 </dependency>
             </dependencies>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.codehaus.mojo</groupId>
+                        <artifactId>build-helper-maven-plugin</artifactId>
+                        <version>${build-helper.version}</version>
+                        <executions>
+                            <execution>
+                                <id>add-real-tests</id>
+                                <phase>generate-test-sources</phase>
+                                <goals><goal>add-test-source</goal></goals>
+                                <configuration>
+                                    <sources><source>src/test/real-java</source></sources>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
             <repositories>
                 <repository><id>github-sirius-web</id><url>https://maven.pkg.github.com/eclipse-sirius/sirius-web</url></repository>
                 <repository><id>github-sirius-emfjson</id><url>https://maven.pkg.github.com/eclipse-sirius/sirius-emf-json</url></repository>

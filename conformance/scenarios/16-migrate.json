@@ -1,0 +1,160 @@
+{
+  "scenarios": [
+    {
+      "id": "migrate/a_v1_model_is_migrated_with_its_summary",
+      "description": "A SysML v1 model carried inline as bytes is migrated to notation, says it is experimental, and accounts for itself: the summary and the verdict counts come back without the full report.",
+      "rpc": "Migrate",
+      "requires_capabilities": [
+        "migrate"
+      ],
+      "expect_without_capability": {
+        "status": "UNIMPLEMENTED",
+        "status_message_contains": "migrate"
+      },
+      "request": {
+        "content": "${fixture_base64:vehicle.xmi}",
+        "from_format": "xmi",
+        "to_format": "sysml"
+      },
+      "expect": {
+        "contains_all": {
+          "content": [
+            "part def Vehicle",
+            "attribute mass"
+          ]
+        },
+        "response": {
+          "from_format": "xmi",
+          "to_format": "sysml",
+          "experimental": true
+        },
+        "contains": {
+          "report.summary": "migrated 93 element(s): 78 mapped, 12 approximated, 3 unmapped"
+        },
+        "non_empty": [
+          "experimental_notice",
+          "report.source"
+        ],
+        "counts": {
+          "report.entries": 0
+        },
+        "absent": [
+          "error",
+          "results",
+          "files",
+          "report.text"
+        ]
+      }
+    },
+    {
+      "id": "migrate/the_full_report_lists_every_elements_verdict",
+      "description": "Asked for the report, the migration answers every element's verdict and the report text the command writes. The source named by the uml alias — an Eclipse UML2 file is XMI text — comes back as canonical xmi.",
+      "rpc": "Migrate",
+      "requires_capabilities": [
+        "migrate"
+      ],
+      "request": {
+        "content": "${fixture_base64:vehicle.xmi}",
+        "from_format": "uml",
+        "to_format": "sysml",
+        "report": true
+      },
+      "expect": {
+        "response": {
+          "from_format": "xmi",
+          "report": {
+            "mapped": 78,
+            "approximated": 12,
+            "unmapped": 3,
+            "skipped": 2
+          }
+        },
+        "counts": {
+          "report.entries": 95
+        },
+        "contains": {
+          "report.text": "# SysML v1 to v2 migration report"
+        },
+        "absent": [
+          "error"
+        ]
+      }
+    },
+    {
+      "id": "migrate/the_results_index_comes_back_when_asked",
+      "description": "Asked for the results, the migration answers the JSON index of the result snapshots the v1 tool stored, as -migration-results writes it.",
+      "rpc": "Migrate",
+      "requires_capabilities": [
+        "migrate"
+      ],
+      "request": {
+        "content": "${fixture_base64:vehicle.xmi}",
+        "from_format": "xmi",
+        "to_format": "ttl",
+        "results": true
+      },
+      "expect": {
+        "response": {
+          "to_format": "ttl"
+        },
+        "non_empty": [
+          "content",
+          "results"
+        ],
+        "absent": [
+          "error"
+        ]
+      }
+    },
+    {
+      "id": "migrate/a_v2_model_is_converted_not_migrated",
+      "description": "Notation is refused by Migrate with the help pointing at Convert: only a SysML v1 model is migrated.",
+      "rpc": "Migrate",
+      "requires_capabilities": [
+        "migrate"
+      ],
+      "request": {
+        "content": "${fixture_base64:vehicle.sysml}",
+        "from_format": "sysml",
+        "to_format": "sysml"
+      },
+      "expect": {
+        "status": "INVALID_ARGUMENT",
+        "status_message_contains": "is converted, not migrated"
+      }
+    },
+    {
+      "id": "migrate/inline_content_must_name_its_form",
+      "description": "Inline bytes have no extension, so from_format must name xmi, uml or mdzip.",
+      "rpc": "Migrate",
+      "requires_capabilities": [
+        "migrate"
+      ],
+      "request": {
+        "content": "${fixture_base64:vehicle.xmi}",
+        "to_format": "sysml"
+      },
+      "expect": {
+        "status": "INVALID_ARGUMENT",
+        "status_message_contains": "from_format"
+      }
+    },
+    {
+      "id": "migrate/a_v1_model_is_never_a_target",
+      "description": "xmi is read, never written: asking for it as the target is invalid.",
+      "rpc": "Migrate",
+      "requires_capabilities": [
+        "migrate"
+      ],
+      "request": {
+        "content": "${fixture_base64:vehicle.xmi}",
+        "from_format": "xmi",
+        "to_format": "xmi"
+      },
+      "expect": {
+        "status": "INVALID_ARGUMENT",
+        "status_message_contains": "xmi"
+      }
+    }
+  ]
+}

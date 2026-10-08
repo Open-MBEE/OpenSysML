@@ -118,7 +118,7 @@ func (e *performances) terminateTargets(perf *actionFrame, s lower.Effect) ([]*a
 		return []*actionFrame{perf.parent}, nil
 	case lower.TerminateNode:
 		for f := perf; f != nil; f = f.parent {
-			if f.node == s.Target {
+			if f.node == s.Target && !f.body {
 				ongoing := e.ongoingWith(f, s.Target)
 				pending, err := e.flow.beginPending(f.parent, s.Target)
 				return append(ongoing, pending...), err
@@ -188,6 +188,14 @@ func (e *ActionExecutor) ongoing(parent *actionFrame, node ast.Node) []*actionFr
 		}
 	}
 	add(parent.subactions[node], math.MaxInt64)
+	for _, state := range parent.repeats {
+		if state.node != node {
+			continue
+		}
+		for i, perf := range state.live {
+			add(perf, int64(i))
+		}
+	}
 	for _, token := range e.tokens {
 		for f := token.frame; f != nil; f = f.parent {
 			add(f, token.ID)
@@ -218,11 +226,12 @@ func (e *ActionExecutor) beginPending(parent *actionFrame, node ast.Node) ([]*ac
 	slices.Sort(parked)
 	var begun []*actionFrame
 	for _, id := range parked {
-		perf, err := e.beginPerformance(parent, e.graphOf(parent), node, nil)
+		perf, err := e.beginPerformance(parent, e.graphOf(parent), node, nil, nil)
 		if err != nil {
 			return nil, err
 		}
 		perf.heldAt = id
+		e.trackRepeated(id, perf)
 		begun = append(begun, perf)
 	}
 	return begun, nil
@@ -238,10 +247,25 @@ func (t Token) performed() []*actionFrame {
 	if w, ok := t.body.work.(*usageWork); ok {
 		held = append(held, w.perf)
 	}
-	cursor := t.body.cursor
+	return append(held, performedIn(t.body.cursor)...)
+}
+
+// performedIn returns the performances the frames of cursor perform, outermost first,
+// with those of the statements an unordered list among them set aside.
+func performedIn(cursor []bodyFrame) []*actionFrame {
+	var held []*actionFrame
 	for i := len(cursor) - 1; i >= 0; i-- {
-		if f, ok := cursor[i].(*performFrame); ok && f.perf != nil {
-			held = append(held, f.perf)
+		switch f := cursor[i].(type) {
+		case *performFrame:
+			if f.perf != nil {
+				held = append(held, f.perf)
+			}
+		case *stmtListFrame:
+			for _, s := range f.strands {
+				if s != nil {
+					held = append(held, performedIn(s.cursor)...)
+				}
+			}
 		}
 	}
 	return held
@@ -312,9 +336,7 @@ func (e *ActionExecutor) endAround(tokenIdx int, perf *actionFrame) error {
 	e.dropTokensIn(perf, id)
 	if perf == e.root {
 		e.removeToken(e.tokenIndex(id))
-		e.state = StateCompleted
-		e.ctx.endPerformanceLife(e.occurrence)
-		return nil
+		return e.completeRoot()
 	}
 	return e.leaveTerminated(e.tokenIndex(id), perf)
 }
@@ -397,6 +419,8 @@ func (e *ActionExecutor) leaveTerminated(tokenIdx int, perf *actionFrame) error 
 	token.Location = perf.node
 	token.Via = lower.ActionEdge{}
 	token.Wait = nil
+	token.repetition = perf.repetition
+	token.repetitionGroup = perf.repetitionGroup
 	if tr := e.trace(); tr != nil {
 		tr.RecordActionNodeExit(ActionNodeName(perf.node))
 	}

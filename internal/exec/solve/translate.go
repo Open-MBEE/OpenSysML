@@ -5,7 +5,6 @@ import (
 	"math"
 	"math/big"
 	"sort"
-	"strconv"
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
@@ -211,10 +210,6 @@ type translator struct {
 	// always marks the variables some reference reads unconditionally.
 	always map[*Var]bool
 
-	// machine asserts Integer arithmetic within int64, where the evaluator
-	// reports overflow: what a step of execution is defined under.
-	machine bool
-
 	// objectives are the translated objectives, in the order they are optimized.
 	objectives []Objective
 
@@ -405,8 +400,8 @@ func (t *translator) pinnedAssertions(offset int) []Assertion {
 // A group stands for the conjunction of its conditions, so negating a group
 // negates that conjunction.
 func (t *translator) condition(cond runtime.Condition) (*Term, error) {
-	if cond.Statement != nil {
-		return nil, t.refuse(cond.Statement, "body statement", "OpenSysML does not execute a statement in a constraint body")
+	if cond.Steps != nil {
+		return nil, t.refuse(cond.Steps.Node, "constraint body steps", "not covered: the solver does not encode the steps a constraint body performs before its result expression")
 	}
 	if cond.Conflict != nil {
 		return nil, t.refuse(cond.Conflict.Node, "conflicting result expression", "only one owned or inherited result expression is allowed")
@@ -453,11 +448,11 @@ func (t *translator) expr(node ast.Node, scope *symbols.Scope) (*Term, error) {
 	case *ast.LiteralBool:
 		return BoolTerm(n.Value), nil
 	case *ast.LiteralInteger:
-		val, err := strconv.ParseInt(n.Value, 10, 64)
-		if err != nil {
-			return nil, t.refuse(n, "integer literal "+n.Value, "it does not fit a 64-bit integer")
+		val, ok := semantics.ParseInteger(n.Value)
+		if !ok {
+			return nil, t.refuse(n, "integer literal "+n.Value, "it is no Integer")
 		}
-		return IntTerm(val), nil
+		return BigIntTerm(val.BigInt()), nil
 	case *ast.LiteralReal:
 		rat, ok := new(big.Rat).SetString(n.Value)
 		if !ok {
@@ -768,7 +763,7 @@ func (t *translator) additive(n *ast.OperatorExpr, scope *symbols.Scope, op Op) 
 	if err := t.sameDimension(n, scope); err != nil {
 		return nil, err
 	}
-	return t.ranged(n, Binary(op, left.Sort, left, right))
+	return Binary(op, left.Sort, left, right), nil
 }
 
 // multiplicative translates `*` or `/`. A quotient is a Real whatever its
@@ -795,22 +790,7 @@ func (t *translator) multiplicative(n *ast.OperatorExpr, scope *symbols.Scope, o
 	if !left.Literal() && !right.Literal() {
 		t.nonlinear = true
 	}
-	return t.ranged(n, Binary(OpMul, left.Sort, left, right))
-}
-
-// ranged asserts an Integer result within int64 where the evaluator reports
-// overflow, when translating a step of execution; a Real result rounds instead.
-func (t *translator) ranged(n *ast.OperatorExpr, result *Term) (*Term, error) {
-	if !t.machine || result.Sort.Kind != SortInt {
-		return result, nil
-	}
-	if !t.hoistable() {
-		return nil, t.refuse(n, msgOperatorPrefix+n.Operator.String()+"` on integers",
-			"asserting its result within int64 would deny assignments the evaluator accepts, "+
-				"as this operation may go unevaluated")
-	}
-	t.guard(Int64(result), n)
-	return result, nil
+	return Binary(OpMul, left.Sort, left, right), nil
 }
 
 // remainder translates `%` on integers as the remainder truncating division
@@ -887,7 +867,9 @@ func (t *translator) folded(n *ast.OperatorExpr) (*Term, bool) {
 	}
 	switch val.Kind {
 	case semantics.ValInt:
-		return IntTerm(val.Int), true
+		return BigIntTerm(val.BigInt()), true
+	case semantics.ValRational:
+		return RealTerm(val.Rat()), true
 	case semantics.ValReal:
 		rat := new(big.Rat).SetFloat64(val.Real)
 		if rat == nil {
@@ -902,7 +884,7 @@ func (t *translator) folded(n *ast.OperatorExpr) (*Term, bool) {
 func isZero(term *Term) bool {
 	switch term.Op {
 	case OpInt:
-		return term.Int == 0
+		return term.Big == nil && term.Int == 0
 	case OpReal:
 		return term.Real.Sign() == 0
 	}
@@ -933,7 +915,7 @@ func (t *translator) unaryNumber(n *ast.OperatorExpr, scope *symbols.Scope) (*Te
 	if n.Operator == ast.OpPos {
 		return arg, nil
 	}
-	return t.ranged(n, negated(arg))
+	return negated(arg), nil
 }
 
 // negated is unary `-`, folded over a literal so a negative literal stays one:
@@ -941,7 +923,7 @@ func (t *translator) unaryNumber(n *ast.OperatorExpr, scope *symbols.Scope) (*Te
 func negated(arg *Term) *Term {
 	switch arg.Op {
 	case OpInt:
-		return IntTerm(-arg.Int)
+		return BigIntTerm(new(big.Int).Neg(arg.IntBig()))
 	case OpReal:
 		return RealTerm(new(big.Rat).Neg(arg.Real))
 	}
@@ -1111,8 +1093,8 @@ func conditionOrigin(cond runtime.Condition) (*symbols.Symbol, source.Span) {
 	if cond.Expr != nil {
 		span = cond.Expr.Span()
 	}
-	if cond.Statement != nil {
-		span = cond.Statement.Span()
+	if cond.Steps != nil {
+		span = cond.Steps.Node.Span()
 	}
 	if cond.Conflict != nil {
 		span = cond.Conflict.Node.Span()

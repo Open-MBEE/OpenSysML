@@ -23,7 +23,7 @@ linearization a run took, the points at which it had a choice, and the rule it c
 ## Choice points (`choice.go`, `action_choice.go`)
 
 A `ChoicePoint` is one point where an executor had several enabled alternatives the library leaves
-unordered and took one by its scheduling rule. `ChoiceKind` names the ten:
+unordered and took one by its scheduling rule. `ChoiceKind` names the twelve:
 
 | Kind | Where it is noted | Alternatives, canonically |
 |------|-------------------|---------------------------|
@@ -35,6 +35,8 @@ unordered and took one by its scheduling rule. `ChoiceKind` names the ten:
 | `ChoiceEntryOrder` | `enterRegionsInto` (`entering <state>`), `enterForkBranches` (`fork <name>`), a history's restore | the next entry unit of each region, branch or restored region of a composite state, in declaration order; the one performed first is taken. A unit performing no behavior rides with the performing unit beside it |
 | `ChoiceEntryStep` | `StateExecutor.entryStep` (`entry at t=…`) | a free dispatch due at the instant, followed by the held entry cascades that can resume; the free dispatch is listed first and the selected alternative is taken |
 | `ChoiceExitOrder` | `exitState` (`exiting <state>`) | the next exit unit of each region a state leaves, innermost first within a region, in declaration order; the one performed first is taken |
+| `ChoiceStepOrder` | `StateExecutor.chooseStepOrder` | the move of a due do behavior and a dispatch due beside it; the one that goes first is taken |
+| `ChoiceStatementOrder` | `stmtEngine.pickStatement` (`statements in <body>`) | the statements of one body that no succession or control structure orders and that may run next (`lower.StatementOrder`), by declaration position; the one run first is taken |
 | `ChoiceDueOrder` | `Context.runDue` (`advance.go`); the checker's run, one executor holding the turn until it has no move at the instant | the executors due at one instant, in creation order; the one run first is taken |
 | `ChoiceDispatchOrder` | `StateExecutor.nextEvent`, when the queue leaves several events unordered at its head | the events due at one instant the library does not order — time triggers with each other, a time trigger with a pool event of the same timestamp — labelled as the queue labels them; the one dispatched first is taken. A completion event goes before any of them and pool events keep their arrival order (`earlierFirstIncomingTransferSort`), so neither is a choice |
 
@@ -91,14 +93,114 @@ what those guards read (`TestExploreStaticJunctionBranches`,
 `state_junction_beyond_a_draw_read_once`). A history's default transition through such a
 junction draws and records the same way (`TestExploreHistoryDefaultThroughJunction`).
 
-Two things that look like openings are determined and are never recorded. Deferral: a state in the
-active configuration that defers the occurrence dispatched holds it back from every enabled
-transition except one sourced by that state or by a state nested in it (`deferralOutranks`); the
-occurrence is deferred, or consumed by the nested transition, by rule, with nothing for the policy
-to draw. A composite state's completion: once its do behavior and every one of its regions have
+One thing that looks like an opening is determined and is never recorded. A composite state's
+completion: once its do behavior and every one of its regions have
 ended, its nil-trigger transitions are queued as completion events at the current instant, ordered
 as a leaf's are, and the machine ends only when its own top-level regions are all at `done`
 (`completeIfDone` → `scheduleCompletedComposites`).
+
+## Repeated action-step performances
+
+When a node declares an exact count greater than one, the arriving action token is split into
+sibling tokens, one per performance. They use the existing `ChoiceTokenOrder` choice point: no
+new scheduling policy is introduced, and declared, reverse, seeded, replayed and explored runs
+continue to select among the same steppable tokens. Each token begins a fresh frame for the node,
+so its local features are independent, while writes to features of the owning action remain
+shared. Data flows, bindings and connections involving a repeated node's pins are refused.
+
+The owner frame holds a per-node completion barrier. A repeated performance that finishes retires
+its token without taking the node's outgoing successions or delivering its data flows. The last
+one to finish releases the barrier and advances the node once, so every target follows every
+source performance and the owner continues once. A nested flow runs separately inside each
+performance's frame. Repetition identity and the live barrier are part of snapshots, held images
+and the execution state key; otherwise replay and exploration could merge states with different
+remaining performances.
+
+A count of zero passes through without beginning a performance, trace events or data flows. It is
+only order-safe at a flow boundary: a zero-count step between two real steps leaves their order
+open and is refused. Any step count that is not fixed, or succession, guard, control-node or pin
+interaction the multiplicity checker cannot support, is refused before the node runs. The
+two-reading treatment of unwritten succession ends is documented in the
+[semantic oracle](../../project/behavior-semantic-oracle.md#repeated-action-steps-and-shared-writes).
+
+## Leaf action-body interleavings
+
+A leaf action body — a node's initial feature values and its direct statements, with no flow of
+its own — runs through the statement engine (`usageWork.perform`, `stmtEngine`). Its performance
+encloses separate times the [semantic
+oracle](../../project/behavior-semantic-oracle.md#a-leaf-bodys-start-shot-and-its-assignments-another-performance-may-run-between-them)
+derives: the start shot, where `attribute t : Integer := c` snapshots `c`, and one subperformance
+per statement, an `assign` writing when it ends. Another performance may run between any two.
+
+- **Atomic units.** One initialization (every initial value of the body, read at its start
+  shot) and one statement are each one move: an assignment reads its value and writes it with
+  no boundary between, since the library places nothing between them. A loop iteration and a
+  step of a flow the body drives are one move each, as they already were.
+- **Scheduler boundaries.** Where a body divides, the run yields after its start shot and after
+  each statement (`Context.bodyPerformed`, `Context.yieldBody`, `bodyPause.yielded`): the token
+  goes back to the step's steppable tokens with its body frame held, and the next pick among
+  them is an ordinary `ChoiceTokenOrder`. No new choice kind is added, so a witness, a replay
+  file, a snapshot and a held image name a body boundary as they name any token move, and the
+  body frame is resumed where it paused.
+- **Where a body divides.** `lower.BodyDivides` lists a body's moves (its start shot, then each
+  statement, a conditional's guard by itself and a loop counted twice) with their footprints
+  (`Footprint`, the reduction's), and the footprints of every node of the outermost flow and its
+  nested flows; the node's own, with its per-performance pins removed, when it may run beside
+  itself. When the flow can hold two tokens at once and two or more of the body's moves are
+  dependent on one of those footprints, the body divides. With at most one, every interleaving
+  inside the body only reorders independent moves, so the body stays one move and the state
+  space does not grow.
+- **Guards.** An `if`'s guard is evaluated before its branch (`IfThenPerformance`), so a dividing
+  body yields between them (`Context.guardPerformed`); the branch taken is kept in its
+  `branchFrame` across the pause. A state's do body yields there only under one-move schedules,
+  so `reverse`, `declared` and seeded runs keep their state traces.
+- **Do bodies stating a flow.** A `for`, `while` or `if` node of a do body's stated flow
+  yields after each iteration and branch statement, as the same statement in a statement-list
+  body does (`bodyRun.nodesYield`); the flow counts the node's yield as a move
+  (`ActionExecutor.yieldedIn`), so adding `then` takes no interleaving away. A token of a flow
+  such a node drives moves only through that node's work, never as a move of the outer flow
+  (`Token.drivenUnder`), so a replayed witness meets the same choices it recorded.
+- **Callees in executors of their own.** An action a step is typed by, or a body performs, runs
+  in its own `ActionExecutor`, outside the graph `BodyDivides` reads. When the body or flow
+  driving it goes one move at a time, the callee's start shot is a boundary
+  (`Context.startShotMove`), its own bodies divide where two of their moves may touch what they
+  do not hold (`lower.BodySharesMoves`), and its flow pauses after each move when two of its
+  moves may (`lower.FlowSharesMoves`, `Context.tokenStepBody`); the attributes and `in` parameters
+  the callee's definition declares are its performance's own, not shared, while each write to an
+  output reaches the caller's pin and its streaming flows as it is made, so outputs are shared. A pause inside a body-driven
+  token propagates to the body driving it. A seeded run whose step holds another token pauses
+  there when `drawYield` says so (`Context.drawsTokenSteps`), so seeds reach those outcomes too.
+- **Executors on one clock.** Separate executors — object behaviors, state machines, actions
+  started together — still interleave by whole turns: the executor the due order draws runs
+  until it has no move at the instant (`Context.runDue`, `invocationRun.turn`). Their moves
+  within one instant are not interleaved, which spec compliance records as approximate.
+- **Ordered and unordered statements.** A succession inside a nested flow orders its steps, so
+  no boundary reorders them; a boundary lets only another performance in. The direct statements
+  of one body that no succession or control structure orders are unordered
+  ([derivation](../../project/behavior-semantic-oracle.md#direct-statements-of-one-body-no-succession-orders-each-is-performed-in-which-order-is-open)).
+  `lower.StatementOrder` lists, before each statement runs, those that may run next: a statement
+  `then` links waits for the one before it, a local declaration, `return` or `perform` keeps its
+  place, and two orders that only swap adjacent independent statements (by the reduction's
+  footprints) are one. Two or more candidates are a `ChoiceStatementOrder`
+  (`stmtEngine.pickStatement`); a compound statement already started yields at its inner
+  boundaries so a dependent sibling may run between them. `declared` and `reverse` run
+  a nested body's statements first to last as before, and an action definition's own statements
+  in the token order each policy already gave them (`reverse` last to first), so their results
+  do not move; `explore`, the checker, replay and seeds
+  choose. A terminate action usage's implicit terminate is one of its body's statements in this
+  sense. `explore` enumerates without partial-order reduction, so a body of many dependent
+  unordered statements may exhaust its run budget, which it reports as incomplete.
+- **Policies.** `explore`, replay and the checker step one move at a time and yield at every
+  boundary of a dividing body. `reverse` and `declared` never yield, so a body runs whole as
+  before and their results do not change. A seeded run whose step holds another token yields
+  at a boundary when `scheduler.drawYield` — a hash of the seed, the token's ID and the
+  boundary's ordinal — says so. That draw does not consume the generator the run's picks
+  come from, so one seed still reproduces one run.
+- **Checker and SMT.** The checker's moves are the executor's, so it reaches every interleaving
+  exploration does, under its reduction and state merging; a paused body frame is part of the
+  state it keys. The SMT encoding performs a body as one move and refuses a flow whose body
+  divides (`Flow.checkBodyInterleaving`, `UnsupportedError` construct `body interleaving`), so
+  it reports such a flow as not covered rather than encoding one order.
 
 ## Policies (`scheduler.go`)
 
@@ -108,7 +210,7 @@ A `SchedulePolicy` is parsed from one spelling and printed back to it:
 |----------|----------------------|--------------------------------------|-----------|
 | `reverse` (default, zero value) | reverse spawn order | first in declaration order | last created |
 | `declared` | spawn order | first in declaration order | first created |
-| `seed:<n>` | shuffle of the tokens not parked | uniform draw | uniform draw |
+| `seed:<n>` | shuffle of the tokens not parked; a dividing body yields where the seed's hash says | uniform draw | uniform draw |
 | `replay:<file>` | the witness's `step n: …` line, then `reverse`'s pick alone | the witness's line, then `reverse` | the witness's line, then `reverse` |
 | `explore[:runs=N,depth=D]` | the exploration's plan | the exploration's plan | the exploration's plan |
 
@@ -194,6 +296,25 @@ alternative (the slot is narrowed, and a run that repeats one already made is no
 `Explore` is the one driver of this policy; the CLI's `-schedule explore`, the wire `schedule`
 field and the Python client all reach it, and a REPL debugging session refuses it because it steps
 one run and cannot replay from the start.
+
+A root executor creation failure, or a pure structural start check that fails before any root
+model behavior runs, is a `SetupError`: it fails the exploration and produces no outcome. Errors
+from entry behaviors, entry guards, state entry actions, do-behaviors, completion, or later model
+behavior are runtime error outcomes, even when they occur during initialization;
+`FailedLinearizations` counts the runs represented by error outcomes. A complete exploration
+containing any such failure is observed, not proved. Action-step-multiplicity refusals occur when
+the step is reached, so they are runtime error outcomes, never a `SetupError`.
+
+Outcome probabilities describe only the model's weighted draws. A run records a trie of choice
+prefixes; weighted nodes sum their children with normalized model weights, while scheduling
+nodes take the minimum and maximum over their explored alternatives. An unexplored scheduling
+alternative contributes zero to the minimum; an unexplored weighted alternative contributes
+zero to its sum. The root vectors give each outcome's `ProbabilityRange`, computed in
+O(depth × outcomes) vector space before outcomes are sorted. A probability is absent if no
+committed run made a weighted pick, and an incomplete exploration has lower bounds only when it
+did. Random-function draws still come from the model seed and are not enumerated, so these
+probabilities are conditional on those draws. Checker `Violation.Mass` is a separate measure,
+the path mass a check reports per violation.
 
 ## The conformance contract
 

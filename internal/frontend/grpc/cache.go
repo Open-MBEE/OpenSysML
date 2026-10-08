@@ -11,6 +11,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/check/passes"
 	"github.com/Open-MBEE/OpenSysML/internal/exec/analysis"
 	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
+	"github.com/Open-MBEE/OpenSysML/internal/frontend/symbolfacts"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
@@ -32,6 +33,7 @@ type CachedDocument struct {
 	// document's: the parse's errors and warnings as the passes present them,
 	// and the passes' own findings when the model parsed clean and was analyzed.
 	Diagnostics []diag.Diagnostic
+	Warnings    []string
 }
 
 // CachedModel holds parsed model data with semantic analysis results
@@ -45,9 +47,13 @@ type CachedModel struct {
 	// Mode is the conformance strictness the parse request asked for; an edit's
 	// notation is judged at the same strictness.
 	Mode diag.ConformanceMode
+	// analysis is what a model answered from a lineage records of its
+	// documents' analyses, for ParseSourcesResponse.affected; nil for a model
+	// parsed fresh (lineage.go).
+	analysis *analysisSnapshot
 
 	symCtxOnce     sync.Once
-	symCtx         *SymbolContext
+	symCtx         *symbolfacts.Context
 	positionalOnce sync.Once
 	positional     map[*symbols.Symbol]string
 	byPositional   map[string]*symbols.Symbol
@@ -166,7 +172,7 @@ func (m *CachedModel) SoleDocument() (*CachedDocument, error) {
 // SymbolContext returns the conversion context for this model, building it on
 // first use. Name resolution and the semantic relations derived from it are
 // memoized in it, so every symbol converted from one cached model shares one.
-func (m *CachedModel) SymbolContext() *SymbolContext {
+func (m *CachedModel) SymbolContext() *symbolfacts.Context {
 	m.symCtxOnce.Do(func() {
 		m.symCtx = NewSymbolContext(m.Index)
 		m.symCtx.Semantics.SetSourceText(cachedSourceText(m))

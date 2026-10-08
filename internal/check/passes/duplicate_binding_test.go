@@ -20,7 +20,7 @@ func kermlLibraryDiags(t *testing.T, src string) []diag.Diagnostic {
 	idx.ExpandWildcardImports()
 	var out []diag.Diagnostic
 	for _, d := range Analyze("<t>.kerml", root, nil, idx) {
-		if d.Source == "type" || d.Source == "name-resolution" {
+		if (d.Source == "type" || d.Source == "name-resolution") && !importedNameConflict(d) {
 			out = append(out, d)
 		}
 	}

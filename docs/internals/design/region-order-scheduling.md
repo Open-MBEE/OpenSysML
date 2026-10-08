@@ -251,7 +251,7 @@ choice at t=0.0: next do top, dispatch AnotherSignal (unordered; ran do top firs
 `%step`, `%continue` and `%advance` count them as they count every choice
 (`2 choice points; %trace on to see them`), `%choices` lists them, and over gRPC and Connect each
 is the informational `choice-point` diagnostic placed at the state or transition drawn. The
-self-model's `choiceKindCount` counts nine kinds.
+self-model's `choiceKindCount` counts thirteen kinds.
 
 ### Witness lines and replay
 
@@ -491,7 +491,7 @@ do activities are what it reaches.
 
 A dispatch is drawn against a due do step only where it would **take** its occurrence — fire a
 transition, or let a do behavior already parked at an `accept` go on (`dueDispatch`,
-`eventActs`, previewed and rolled back). One that would defer or drop it is not: neither is a
+`eventActs`, previewed and rolled back). One that would drop it is not: neither is a
 performance's acceptance, and the due do step may be the `accept` that takes the occurrence, so
 the occurrence waits for the round to close as under the fixed policies. Without that rule the
 draw spends an occurrence a do behavior is one action from accepting, a run no policy of the

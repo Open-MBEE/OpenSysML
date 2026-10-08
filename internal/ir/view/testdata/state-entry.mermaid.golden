@@ -1,23 +1,53 @@
+---
+config:
+  fontFamily: "Helvetica, Arial, sans-serif"
+  theme: base
+  themeVariables:
+    fontFamily: "Helvetica, Arial, sans-serif"
+    fontSize: "14px"
+    primaryColor: "#FFFFFF"
+    secondaryColor: "#FFFFFF"
+    tertiaryColor: "#FFFFFF"
+    background: "#FFFFFF"
+    primaryBorderColor: "#181818"
+    primaryTextColor: "#000000"
+    lineColor: "#181818"
+    textColor: "#000000"
+    noteBkgColor: "#FEFFDD"
+    noteBorderColor: "#181818"
+    noteTextColor: "#000000"
+    stateBkg: "#FFFFFF"
+    stateBorder: "#181818"
+    stateLabelColor: "#000000"
+    compositeBackground: "#FFFFFF"
+    compositeBorder: "#181818"
+    compositeTitleBackground: "#FFFFFF"
+    compositeTitleBorder: "#181818"
+    transitionColor: "#181818"
+    transitionLabelColor: "#000000"
+    labelBackgroundColor: "#FFFFFF"
+    specialStateColor: "#181818"
+---
 %% MachineViews::thermostat — state rendering (view def StateTransitionView)
 stateDiagram-v2
-  state "Thermostat<br>«state def»" as n0 {
-    state "heating<br>«state»" as n1
-    state "idle<br>«state»" as n2 {
-      state "drying<br>«state»" as n3
-      state "resting<br>«state»" as n4
+  state "«state def» Thermostat" as n0 {
+    state "«state»<br>heating" as n1
+    state "«state» idle" as n2 {
+      state "«state»<br>drying" as n3
+      state "«state»<br>resting" as n4
       [*] --> n3 : [wet]
       [*] --> n4
     }
-    state "monitoring<br>«state»" as n5 {
-      state "lights<br>«region»" as n6 {
-        state "lit<br>«state»" as n8
-        state "unlit<br>«state»" as n9
+    state "«state» monitoring" as n5 {
+      state "«region» lights" as n6 {
+        state "«state»<br>lit" as n8
+        state "«state»<br>unlit" as n9
         [*] --> n8 : [dark]
         [*] --> n9 : [not dark]
       }
-      state "fans<br>«region»" as n7 {
-        state "off<br>«state»<br>initial" as n10
-        state "on<br>«state»" as n11
+      state "«region» fans" as n7 {
+        state "«state»<br>off<br>initial" as n10
+        state "«state»<br>on" as n11
         [*] --> n10
       }
     }

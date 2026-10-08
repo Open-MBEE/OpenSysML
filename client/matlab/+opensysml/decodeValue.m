@@ -1,22 +1,47 @@
-function val = decodeValue(v)
-%DECODEVALUE Decode one wire Value: an object with exactly one of the
-%nineteen arm keys. Contract violations are errors, never defaults.
+function val = decodeValue(v, resolveInstance)
+%DECODEVALUE Decode one wire Value.
 
+    if nargin < 2, resolveInstance = []; end
+    try
+        val = decodeValueInner(v, resolveInstance);
+    catch e
+        recordClientError(e);
+        rethrow(e);
+    end
+end
+
+function val = decodeValueInner(v, resolveInstance)
+%DECODEVALUE Decode one wire Value: an object with exactly one of the
+%twenty-three arm keys. Contract violations are errors, never defaults.
+
+    if isa(v, 'containers.Map')
+        kinds = v.keys;
+        if numel(kinds) == 1 && strcmp(kinds{1}, 'function')
+            val = decodeFunction(v('function'), resolveInstance);
+            return;
+        end
+        error('opensysml:decode', 'Value must have exactly one arm');
+    end
     if isempty(v)
         val = [];
         return;
     end
     kind = fieldnames(v);
+    if numel(kind) ~= 1
+        error('opensysml:decode', 'Value must have exactly one arm');
+    end
     kind = kind{1};
     asInt64 = @opensysml.parseInt64;
     asReal = @realOf;
     switch kind
         case 'intValue',    val = asInt64(v.intValue);
+        case 'bigIntValue', val = bigIntegerOf(v.bigIntValue);
+        case 'rationalValue', val = opensysml.internal.rationalOf(v.rationalValue);
         case 'realValue',   val = asReal(v.realValue);
         case 'boolValue',   val = logical(v.boolValue);
         case 'stringValue', val = char(v.stringValue);
-        case 'instanceId',  val = struct('instanceRef', asInt64(v.instanceId));
-        case 'sequence',    val = mapValues(v.sequence, 'elements');
+        case 'instanceId',  val = instanceValue(asInt64(v.instanceId), resolveInstance);
+        case 'sequence',    val = mapValues(v.sequence, 'elements', resolveInstance);
         case 'null'
             if ~isempty(v.null)
                 error('opensysml:unsupported', 'unsupported value: %s', v.null);
@@ -27,7 +52,7 @@ function val = decodeValue(v)
         case 'enumLiteral'
             l = v.enumLiteral;
             scalar = [];
-            if isfield(l, 'value'), scalar = opensysml.decodeValue(l.value); end
+            if isfield(l, 'value'), scalar = opensysml.decodeValue(l.value, resolveInstance); end
             name = '';
             if isfield(l, 'name'), name = l.name; end
             enumId = '';
@@ -47,7 +72,7 @@ function val = decodeValue(v)
             if any(dims <= 0)
                 error('opensysml:decode', 'array dimension is not positive');
             end
-            elements = mapValues(a, 'elements');
+            elements = mapValues(a, 'elements', resolveInstance);
             if prod(double(dims)) ~= numel(elements)
                 error('opensysml:decode', 'array has %d elements for its dimensions', numel(elements));
             end
@@ -64,7 +89,7 @@ function val = decodeValue(v)
         case 'measurementRef'
             m = v.measurementRef;
             unit = ''; if isfield(m, 'unit'), unit = m.unit; end
-            unitId = []; if isfield(m, 'unitId'), unitId = m.unitId; end
+            unitId = ''; if isfield(m, 'unitId'), unitId = m.unitId; end
             if isempty(unit) && isempty(unitId)
                 error('opensysml:decode', 'measurementRef carries neither unit nor unitId');
             end
@@ -77,20 +102,9 @@ function val = decodeValue(v)
                 error('opensysml:decode', 'infinity arm does not carry true');
             end
             val = struct('infinity', true);
-        case 'function'
-            f = v.function;
-            calcId = '';
-            if isfield(f, 'calcId'), calcId = f.calcId; end
-            if isempty(calcId)
-                error('opensysml:decode', 'function carries no calcId');
-            end
-            self = [];
-            if isfield(f, 'selfId') && ~strcmp(char(f.selfId), '0')
-                self = struct('instanceRef', asInt64(f.selfId));
-            end
-            val = struct('calcId', calcId, 'self', self);
+        case {'function', 'xFunction'}, val = decodeFunction(v.(kind), resolveInstance);
         case 'set'
-            elements = mapValues(v.set, 'elements');
+            elements = mapValues(v.set, 'elements', resolveInstance);
             val = struct('set', {elements});
             % members are compared pairwise by identity of their wire form
             for i = 1:numel(elements)
@@ -138,13 +152,37 @@ function val = decodeValue(v)
     end
 end
 
-function out = mapValues(body, field)
+function val = decodeFunction(f, resolveInstance)
+    calcId = '';
+    if isfield(f, 'calcId'), calcId = f.calcId; end
+    if isempty(calcId)
+        error('opensysml:decode', 'function carries no calcId');
+    end
+    self = [];
+    if isfield(f, 'selfId') && ~strcmp(char(f.selfId), '0')
+        self = instanceValue(opensysml.parseInt64(f.selfId), resolveInstance);
+    end
+    val = struct('calcId', calcId, 'self', self);
+end
+
+function out = mapValues(body, field, resolveInstance)
 % map decodeValue over a Value list, accepting every shape jsondecode gives
     elements = {};
     if isfield(body, field)
         elements = fieldList(body, field);
     end
-    out = cellfun(@opensysml.decodeValue, elements, 'UniformOutput', false);
+    out = cell(1, numel(elements));
+    for i = 1:numel(elements)
+        out{i} = opensysml.decodeValue(elements{i}, resolveInstance);
+    end
+end
+
+function value = instanceValue(id, resolveInstance)
+    if isempty(resolveInstance)
+        value = struct('instanceRef', id);
+    else
+        value = resolveInstance(id);
+    end
 end
 
 function list = fieldList(body, field)
@@ -159,6 +197,8 @@ function list = fieldList(body, field)
         list = num2cell(raw);
     elseif iscell(raw)
         list = raw;
+    elseif isa(raw, 'containers.Map')
+        list = {raw};
     elseif ~isempty(raw)
         list = num2cell(raw);
     end
@@ -167,6 +207,10 @@ end
 function n = decodeNumeric(c)
     if isfield(c, 'intValue')
         n = opensysml.parseInt64(c.intValue);
+    elseif isfield(c, 'bigIntValue')
+        n = bigIntegerOf(c.bigIntValue);
+    elseif isfield(c, 'rationalValue')
+        n = opensysml.internal.rationalOf(c.rationalValue);
     elseif isfield(c, 'realValue')
         n = realOf(c.realValue);
     else
@@ -177,6 +221,10 @@ end
 function q = decodeQuantity(b)
     if isfield(b, 'intMagnitude')
         mag = opensysml.parseInt64(b.intMagnitude);
+    elseif isfield(b, 'bigIntMagnitude')
+        mag = bigIntegerOf(b.bigIntMagnitude);
+    elseif isfield(b, 'rationalMagnitude')
+        mag = opensysml.internal.rationalOf(b.rationalMagnitude);
     elseif isfield(b, 'realMagnitude')
         mag = realOf(b.realMagnitude);
     else
@@ -188,6 +236,24 @@ function q = decodeQuantity(b)
     q = struct('magnitude', mag, 'unit', unit, 'unitTerm', term);
 end
 
+function b = bigIntegerOf(s)
+% an Integer beyond int64 stays its decimal digits: no MATLAB number holds it
+    s = char(s);
+    if isempty(regexp(s, '^-?[1-9][0-9]*$', 'once'))
+        error('opensysml:decode', 'not the decimal digits of an integer: %s', s);
+    end
+    fits = true;
+    try
+        opensysml.parseInt64(s);
+    catch
+        fits = false;
+    end
+    if fits
+        error('opensysml:decode', '%s is within int64, which intValue carries', s);
+    end
+    b = struct('bigInteger', s);
+end
+
 function dims = asInt64List(cells)
     if iscell(cells)
         dims = cellfun(@(s) opensysml.parseInt64(s), cells);
@@ -197,15 +263,22 @@ function dims = asInt64List(cells)
 end
 
 function x = realOf(x)
-% "NaN", "Infinity", "-Infinity" arrive as char; a whole double arrives
-% without a fraction and is still a double here
+% "NaN", "Infinity", "-Infinity" arrive as char; whole doubles remain doubles.
     if ischar(x) || (exist('isstring', 'builtin') && isstring(x))
         switch char(x)
             case 'Infinity', x = Inf;
             case '-Infinity', x = -Inf;
-            otherwise, x = NaN;
+            case 'NaN', x = NaN;
+            otherwise, error('opensysml:decode', 'invalid special real value: %s', char(x));
         end
     else
         x = double(x);
     end
+end
+
+function recordClientError(e)
+    if isempty(e.identifier) || ~strncmp(e.identifier, 'opensysml:', 10), return; end
+    latest = opensysml.lastError();
+    if strcmp(latest.identifier, e.identifier) && strcmp(latest.message, e.message), return; end
+    opensysml.internal.raise(e.identifier, e.message);
 end

@@ -1,7 +1,7 @@
 package lower
 
 import (
-	"errors"
+	"slices"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
@@ -23,12 +23,44 @@ type Subflow struct {
 	Err   error
 }
 
+// PerformsLeafStatements reports whether a nested action node's members are a
+// leaf body performing statements: they state no flow of their own
+// (runsOwnFlow) and write a statement directly among them.
+func PerformsLeafStatements(members []ast.Node) bool {
+	if runsOwnFlow(members) {
+		return false
+	}
+	for _, member := range members {
+		switch unwrapMembership(member).(type) {
+		case *ast.WhileLoopActionNode, *ast.IfActionNode, *ast.AssignmentActionNode,
+			*ast.SendStatement, *ast.TerminateStatement:
+			return true
+		}
+	}
+	return false
+}
+
 // statesOwnFlow reports whether an action node's members state a flow of its
 // own: a start, an end, an edge or a control node. A node whose members are only
 // statements, parameters or undirected declarations states none and stays a leaf.
 func statesOwnFlow(members []ast.Node) bool {
 	for _, member := range members {
 		if outsideBlockFlow(unwrapMembership(member)) {
+			return true
+		}
+	}
+	return false
+}
+
+// runsOwnFlow reports whether a nested action node runs a flow of its own: its
+// members state one (statesOwnFlow) or declare a composite subaction, which is
+// performed during the node's performance (Actions.sysml `subactions`).
+func runsOwnFlow(members []ast.Node) bool {
+	if statesOwnFlow(members) {
+		return true
+	}
+	for _, member := range members {
+		if usage, ok := unwrapMembership(member).(*ast.Usage); ok && startsConcurrently(usage) {
 			return true
 		}
 	}
@@ -44,7 +76,7 @@ func lowerActionNode(graph *ActionGraph, node *ast.Usage, scope *symbols.Scope) 
 		lowerTerminateNode(graph, node, scope)
 		return
 	}
-	if !statesOwnFlow(node.Members) {
+	if !runsOwnFlow(node.Members) {
 		lowerBody(graph, node, scope)
 		if _, _, starts := startedBehavior(node, scope); starts {
 			graph.Bodies[node] = append(graph.Bodies[node], performEffect(node, scope))
@@ -63,18 +95,19 @@ func lowerActionNode(graph *ActionGraph, node *ast.Usage, scope *symbols.Scope) 
 	graph.Subflows[node] = &Subflow{Graph: sub, Err: err}
 }
 
-// lowerTerminateNode records what a terminate action usage runs: the statements of
-// its body as a leaf's, then the terminate it stands for. A body stating a flow of
-// its own has no place to end the performance from, so it is refused at initialize.
+// lowerTerminateNode records what a terminate action usage runs: its body, the
+// statements of a leaf or the flow it states as a block, then the terminate it stands for.
 func lowerTerminateNode(graph *ActionGraph, node *ast.Usage, scope *symbols.Scope) {
 	if statesOwnFlow(node.Members) {
-		if graph.Subflows == nil {
-			graph.Subflows = make(map[ast.Node]*Subflow)
-		}
-		graph.Subflows[node] = &Subflow{Err: errors.New("a terminate action usage states no flow of its own")}
-		return
+		// The node's parameters and attributes are its own (lowerFeatures), not the block's.
+		steps := slices.DeleteFunc(slices.Clone(node.Members), func(member ast.Node) bool {
+			m, ok := unwrapMembership(member).(*ast.Usage)
+			return ok && DeclaresNodeFeature(m)
+		})
+		graph.Bodies[node] = []Statement{lowerStatedBlock(node, steps, scope)}
+	} else {
+		lowerBody(graph, node, scope)
 	}
-	lowerBody(graph, node, scope)
 	graph.Bodies[node] = append(graph.Bodies[node], lowerStatement(node, scope))
 }
 
@@ -123,6 +156,7 @@ func lowerAccept(graph *ActionGraph, node *ast.Usage, scope *symbols.Scope) {
 			SubsetsEvent: subsettingTarget(m),
 			Trigger:      m.Value,
 			Scope:        scope,
+			Keeper:       IsDeferredKeeper(graph.resolver, scope, node),
 		}
 	}
 }

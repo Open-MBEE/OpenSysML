@@ -297,9 +297,9 @@ func TestTranslatorRefusalsAndConfiguredClockName(t *testing.T) {
 	}
 }
 
-// Migrated Math.floor/ceil/round are exact through the least Integer, the ceiling
-// of which is a value, and a typed overflow, never a wrapped Integer, beyond.
-func TestTranslatedRoundingsStopAtTheIntegerRange(t *testing.T) {
+// Migrated Math.floor/ceil/round give the exact Integer a whole Real is, at the
+// least int64 and beyond int64 alike, never a wrapped one.
+func TestTranslatedRoundingsGiveExactIntegers(t *testing.T) {
 	r := migrateXMI(t, "reactor")
 	for _, line := range []string{
 		"calc def Floor {",
@@ -321,13 +321,13 @@ func TestTranslatedRoundingsStopAtTheIntegerRange(t *testing.T) {
 		{"Ceil(-2.9)", "= -2"},
 		{"Round(9007199254740993.0)", "= 9007199254740992"},
 		{"Round(-2.5)", "= -2"},
-		{"Floor(9223372036854775808.0)", "arithmetic overflow: 9.223372036854776e+18 exceeds the Integer range"},
-		{"Floor(1.0e20)", "arithmetic overflow: 1e+20 exceeds the Integer range"},
-		{"Ceil(9223372036854775808.0)", "arithmetic overflow: 9.223372036854776e+18 exceeds the Integer range"},
-		{"Ceil(1.0e20)", "arithmetic overflow: 1e+20 exceeds the Integer range"},
-		{"Ceil(-1.0e20)", "arithmetic overflow: -1e+20 exceeds the Integer range"},
-		{"Round(1.0e20)", "arithmetic overflow: 1e+20 exceeds the Integer range"},
-		{"Round(-1.0e20)", "arithmetic overflow: -1e+20 exceeds the Integer range"},
+		{"Floor(9223372036854775808.0)", "= 9223372036854775808"},
+		{"Floor(1.0e20)", "= 100000000000000000000"},
+		{"Ceil(9223372036854775808.0)", "= 9223372036854775808"},
+		{"Ceil(1.0e20)", "= 100000000000000000000"},
+		{"Ceil(-1.0e20)", "= -100000000000000000000"},
+		{"Round(1.0e20)", "= 100000000000000000000"},
+		{"Round(-1.0e20)", "= -100000000000000000000"},
 	} {
 		v := s.RunCalc(tc.call)
 		if lines := strings.Join(v.Lines, "\n"); !strings.Contains(lines, tc.want) {
@@ -348,7 +348,7 @@ func TestTranslatedOutputPinsFeedTheirFlows(t *testing.T) {
 	r := migrateXMI(t, "meter")
 	for _, line := range []string{
 		"assign y := x * 2;",
-		"flow sense.y to record.v;",
+		"succession flow of ScalarValues::Real from sense.y to record.v;",
 		"assign total := v + 1;",
 		"assign peak := v;",
 		"assign half := OpenSysMLMathFunctions::quotient(ticks, 2);",
@@ -459,7 +459,7 @@ func TestNonScalarFeaturesAndScriptLiterals(t *testing.T) {
 	wantNoLine(t, r.Notation, "attribute top : ScalarValues::Real default = cells.reading;")
 	wantClean(t, "t.sysml", r)
 	wantNote(t, r, "_smile", migrate.Mapped, "the JavaScript body is translated to v2")
-	wantNote(t, r, "_same", migrate.Mapped, "the Java body is translated to v2")
+	wantNote(t, r, "_same", migrate.Approximated, "the Java body is translated to v2; label holds no initial value and the body reads it before assigning it, so a run reaching the read first stops")
 	wantNote(t, r, "_widen", migrate.Mapped, "the JavaScript body is translated to v2")
 	wantNote(t, r, "_shown", migrate.Mapped, "the JavaScript body is translated to v2")
 	wantNote(t, r, "_latch", migrate.Mapped, "the JavaScript body is translated to v2")

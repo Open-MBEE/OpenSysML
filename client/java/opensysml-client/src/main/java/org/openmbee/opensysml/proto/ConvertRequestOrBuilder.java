@@ -63,11 +63,12 @@ public interface ConvertRequestOrBuilder extends
 
   /**
    * <pre>
-   * "sysml", "kerml", "text", "ttl", "turtle", "rdf", "api-json" or "json", or
-   * "xmi", "uml" or "mdzip" for a SysML v1 model, which is read and migrated to
-   * v2 and never written. Empty infers from file_path's extension, and is
-   * notation for a model_hash, since that is what parse reads; inline content
-   * has neither, so it must say.
+   * "sysml", "kerml", "text", "ttl", "turtle", "rdf", "api-json" or "json".
+   * Empty infers from file_path's extension, and is notation for a model_hash,
+   * since that is what parse reads; inline content has neither, so it must say.
+   * A SysML v1 model ("xmi", "uml" or "mdzip", named or inferred from the
+   * extension) is INVALID_ARGUMENT, pointing at Migrate: a v1 model is
+   * migrated, element by element and reported, not converted.
    * </pre>
    *
    * <code>string from_format = 3 [json_name = "fromFormat"];</code>
@@ -76,11 +77,12 @@ public interface ConvertRequestOrBuilder extends
   java.lang.String getFromFormat();
   /**
    * <pre>
-   * "sysml", "kerml", "text", "ttl", "turtle", "rdf", "api-json" or "json", or
-   * "xmi", "uml" or "mdzip" for a SysML v1 model, which is read and migrated to
-   * v2 and never written. Empty infers from file_path's extension, and is
-   * notation for a model_hash, since that is what parse reads; inline content
-   * has neither, so it must say.
+   * "sysml", "kerml", "text", "ttl", "turtle", "rdf", "api-json" or "json".
+   * Empty infers from file_path's extension, and is notation for a model_hash,
+   * since that is what parse reads; inline content has neither, so it must say.
+   * A SysML v1 model ("xmi", "uml" or "mdzip", named or inferred from the
+   * extension) is INVALID_ARGUMENT, pointing at Migrate: a v1 model is
+   * migrated, element by element and reported, not converted.
    * </pre>
    *
    * <code>string from_format = 3 [json_name = "fromFormat"];</code>
@@ -153,6 +155,143 @@ public interface ConvertRequestOrBuilder extends
    */
   com.google.protobuf.ByteString
       getIdFormBytes();
+
+  /**
+   * <pre>
+   * For a model_hash, the documents whose elements are written, named as the
+   * parse named them; the model's other documents are read for the references
+   * into them, which keep the ids those elements are written under when their
+   * own documents are converted. Empty writes every document. A name the model
+   * does not hold, or documents for a file_path or content, is
+   * INVALID_ARGUMENT. Reported as the "convert_documents" capability.
+   * </pre>
+   *
+   * <code>repeated string documents = 8 [json_name = "documents"];</code>
+   * @return A list containing the documents.
+   */
+  java.util.List<java.lang.String>
+      getDocumentsList();
+  /**
+   * <pre>
+   * For a model_hash, the documents whose elements are written, named as the
+   * parse named them; the model's other documents are read for the references
+   * into them, which keep the ids those elements are written under when their
+   * own documents are converted. Empty writes every document. A name the model
+   * does not hold, or documents for a file_path or content, is
+   * INVALID_ARGUMENT. Reported as the "convert_documents" capability.
+   * </pre>
+   *
+   * <code>repeated string documents = 8 [json_name = "documents"];</code>
+   * @return The count of documents.
+   */
+  int getDocumentsCount();
+  /**
+   * <pre>
+   * For a model_hash, the documents whose elements are written, named as the
+   * parse named them; the model's other documents are read for the references
+   * into them, which keep the ids those elements are written under when their
+   * own documents are converted. Empty writes every document. A name the model
+   * does not hold, or documents for a file_path or content, is
+   * INVALID_ARGUMENT. Reported as the "convert_documents" capability.
+   * </pre>
+   *
+   * <code>repeated string documents = 8 [json_name = "documents"];</code>
+   * @param index The index of the element to return.
+   * @return The documents at the given index.
+   */
+  java.lang.String getDocuments(int index);
+  /**
+   * <pre>
+   * For a model_hash, the documents whose elements are written, named as the
+   * parse named them; the model's other documents are read for the references
+   * into them, which keep the ids those elements are written under when their
+   * own documents are converted. Empty writes every document. A name the model
+   * does not hold, or documents for a file_path or content, is
+   * INVALID_ARGUMENT. Reported as the "convert_documents" capability.
+   * </pre>
+   *
+   * <code>repeated string documents = 8 [json_name = "documents"];</code>
+   * @param index The index of the value to return.
+   * @return The bytes of the documents at the given index.
+   */
+  com.google.protobuf.ByteString
+      getDocumentsBytes(int index);
+
+  /**
+   * <pre>
+   * For api-json from notation: write the compact document
+   * (api-json-compact/1) in place of the standard element array. It is one
+   * object holding a table of element ids, written once, and the elements with
+   * every reference spelled as an index into it, without indentation; see
+   * docs/reference/wire-contract.md for the shape. Refused for any other
+   * target. Reported as the "convert_compact" capability.
+   * </pre>
+   *
+   * <code>bool compact = 9 [json_name = "compact"];</code>
+   * @return The compact.
+   */
+  boolean getCompact();
+
+  /**
+   * <pre>
+   * With compact: leave out every derived property of the metamodel (the
+   * ones the owned properties already state), except those named in
+   * keep_derived. Refused without compact.
+   * </pre>
+   *
+   * <code>bool omit_derived = 10 [json_name = "omitDerived"];</code>
+   * @return The omitDerived.
+   */
+  boolean getOmitDerived();
+
+  /**
+   * <pre>
+   * With omit_derived: the derived properties still written, named as in the
+   * element form ("owner", "qualifiedName"). A name that is not a derived
+   * property of the metamodel is INVALID_ARGUMENT. Refused without omit_derived.
+   * </pre>
+   *
+   * <code>repeated string keep_derived = 11 [json_name = "keepDerived"];</code>
+   * @return A list containing the keepDerived.
+   */
+  java.util.List<java.lang.String>
+      getKeepDerivedList();
+  /**
+   * <pre>
+   * With omit_derived: the derived properties still written, named as in the
+   * element form ("owner", "qualifiedName"). A name that is not a derived
+   * property of the metamodel is INVALID_ARGUMENT. Refused without omit_derived.
+   * </pre>
+   *
+   * <code>repeated string keep_derived = 11 [json_name = "keepDerived"];</code>
+   * @return The count of keepDerived.
+   */
+  int getKeepDerivedCount();
+  /**
+   * <pre>
+   * With omit_derived: the derived properties still written, named as in the
+   * element form ("owner", "qualifiedName"). A name that is not a derived
+   * property of the metamodel is INVALID_ARGUMENT. Refused without omit_derived.
+   * </pre>
+   *
+   * <code>repeated string keep_derived = 11 [json_name = "keepDerived"];</code>
+   * @param index The index of the element to return.
+   * @return The keepDerived at the given index.
+   */
+  java.lang.String getKeepDerived(int index);
+  /**
+   * <pre>
+   * With omit_derived: the derived properties still written, named as in the
+   * element form ("owner", "qualifiedName"). A name that is not a derived
+   * property of the metamodel is INVALID_ARGUMENT. Refused without omit_derived.
+   * </pre>
+   *
+   * <code>repeated string keep_derived = 11 [json_name = "keepDerived"];</code>
+   * @param index The index of the value to return.
+   * @return The bytes of the keepDerived at the given index.
+   */
+  com.google.protobuf.ByteString
+      getKeepDerivedBytes(int index);
 
   org.openmbee.opensysml.proto.ConvertRequest.SourceCase getSourceCase();
 }

@@ -13,14 +13,16 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
 // Context provides the semantic workspace used by one execution; Index,
 // Resolver and Model are required, Runtime and Roots absent over the model alone.
 type Context struct {
-	Index    *symbols.Index
-	Resolver *resolve.Resolver
-	Model    *semantics.Model
+	Index     *symbols.Index
+	Resolver  *resolve.Resolver
+	Model     *semantics.Model
+	LineIndex func(doc string) *source.LineIndex
 	// Runtime holds the objects the query may read; nil makes object bindings
 	// and Objects typed errors.
 	Runtime *runtime.Context
@@ -99,6 +101,9 @@ type executor struct {
 	derived    *derivedValues
 	depthLeft  int
 	stack      []string
+	// cell is the computed cell being evaluated, whose variables query
+	// operations invoked inside it read; nil outside a cell.
+	cell *cellContext
 }
 
 // Execute evaluates a compiled entry query into an immutable ordered row set.
@@ -371,6 +376,8 @@ func scalarValueType(value Value) (semantics.PrimType, bool) {
 		return semantics.PrimString, true
 	case ValueInteger:
 		return semantics.PrimInteger, true
+	case ValueRational:
+		return semantics.PrimRational, true
 	case ValueReal:
 		return semantics.PrimReal, true
 	default:
@@ -436,6 +443,9 @@ func (e *executor) evaluate(expression queryplan.Expression) (sequence, error) {
 		return e.evaluateEvents(expression)
 	case queryplan.OperationTree:
 		return e.evaluateTree(expression)
+	case queryplan.OperationVariable, queryplan.OperationNavigate, queryplan.OperationCollection,
+		queryplan.OperationColumnOperator:
+		return e.evaluateCellOperand(expression)
 	default:
 		return sequence{}, &Error{
 			Kind:      ErrorUnsupportedOperation,
@@ -542,11 +552,11 @@ func (e *executor) evaluateLiteral(expression queryplan.Expression) (sequence, e
 		}
 		value = StringValue(text)
 	case queryplan.LiteralInteger:
-		integer, err := strconv.ParseInt(strings.ReplaceAll(raw, "_", ""), 10, 64)
-		if err != nil {
+		integer, ok := semantics.ParseInteger(strings.ReplaceAll(raw, "_", ""))
+		if !ok {
 			return sequence{}, e.invalidArgument(expression, "", raw)
 		}
-		value = IntegerValue(integer)
+		value = IntegerOf(integer)
 	case queryplan.LiteralReal:
 		realVal, err := strconv.ParseFloat(strings.ReplaceAll(raw, "_", ""), 64)
 		if err != nil || math.IsInf(realVal, 0) || math.IsNaN(realVal) {

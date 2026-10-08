@@ -2,6 +2,7 @@ package org.openmbee.opensysml;
 
 import java.util.Objects;
 import java.util.Set;
+import java.util.TreeSet;
 
 /**
  * What a running service says it can do.
@@ -16,6 +17,9 @@ public final class Capabilities {
 
   /** The {@code Convert} RPC writes a model back out. */
   public static final String CONVERT = "convert";
+
+  /** The {@code Migrate} RPC migrates a SysML v1 model to v2, accounting for every element. */
+  public static final String MIGRATE = "migrate";
 
   /** The verification RPCs answer whether constraints and requirements hold. */
   public static final String VERIFICATION = "verification";
@@ -46,6 +50,24 @@ public final class Capabilities {
 
   /** A model-level result the model leaves open travels as itself rather than as an unsupported null. */
   public static final String UNDETERMINED_VALUE = "undetermined_value";
+
+  /** An Integer beyond int64 travels as {@code big_int_value} rather than as an unsupported null. */
+  public static final String BIG_INT_VALUES = "big_int_values";
+
+  /**
+   * An exact Rational no double holds travels as {@code rational_value} rather than as an
+   * unsupported null.
+   */
+  public static final String RATIONAL_VALUES = "rational_values";
+
+  /** A model converts with only the documents {@code documents} names written, the rest linked by id. */
+  public static final String CONVERT_DOCUMENTS = "convert_documents";
+
+  /** api-json converts as the compact document, optionally without derived properties. */
+  public static final String CONVERT_COMPACT = "convert_compact";
+
+  /** A parse names the documents whose results may differ from those of {@code base_model_hash}. */
+  public static final String PARSE_SOURCES_AFFECTED = "parse_sources_affected";
 
   /** A complex number travels as itself rather than as an unsupported null. */
   public static final String COMPLEX_VALUES = "complex_values";
@@ -147,6 +169,15 @@ public final class Capabilities {
   /** The {@code RenderDocument} RPC renders a named document to Markdown. */
   public static final String RENDER_DOCUMENT = "render_document";
 
+  /** The {@code RenderDocument} RPC also renders a named document to HTML. */
+  public static final String RENDER_DOCUMENT_HTML = "render_document_html";
+
+  /** The service renders named and targeted pseudo-views as diagram data. */
+  public static final String RENDER_VIEW = "render_view";
+
+  /** The {@code ExportGraphs} RPC exports a behavior's lowered graph as {@code graphs:1} JSON. */
+  public static final String EXPORT_GRAPHS = "export_graphs";
+
   /** A parse can judge the source as conforming SysML v2. */
   public static final String STRICT_CONFORMANCE = "strict_conformance";
 
@@ -161,6 +192,9 @@ public final class Capabilities {
 
   /** The action and state requests take a {@code performer_symbol_id}, the object the behavior runs on: a declaration or a path from one into its parts. */
   public static final String PERFORMER = "performer";
+
+  /** The {@code trace} field on {@code ExecuteStateRequest}. */
+  public static final String STATE_TRACE = "state_trace";
 
   /** The execution responses report {@code final_time}, the run's simulation clock when it ended, in seconds. */
   public static final String FINAL_TIME = "final_time";
@@ -218,13 +252,35 @@ public final class Capabilities {
    */
   public void require(String capability) {
     if (!has(capability)) {
+      String remedy = upgradeRemedy(capability);
       throw new CapabilityException(
           capability,
           "the service does not advertise the "
               + capability
-              + " capability; it advertises "
-              + names);
+              + " capability, which this operation requires; it advertises "
+              + new TreeSet<>(names)
+              + "\n  service: sysml-grpc "
+              + (serviceVersion.isEmpty() ? "(version unknown)" : serviceVersion)
+              + "\n  fix:     "
+              + remedy,
+          remedy);
     }
+  }
+
+  /**
+   * How to reach a service that advertises a capability: a release that has it, or a local build.
+   *
+   * @param capability the capability name
+   * @return the remedy text
+   */
+  public static String upgradeRemedy(String capability) {
+    Objects.requireNonNull(capability, "capability");
+    return "run a sysml-grpc whose GetServerInfo reports '"
+        + capability
+        + "': set $"
+        + ConnectionOptions.VERSION_ENV
+        + " (or ConnectionOptions.downloadVersion) to a release that has it, or build one with"
+        + " `make build-grpc` and name it with ConnectionOptions.binaryPath";
   }
 
   @Override

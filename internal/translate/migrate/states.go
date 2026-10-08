@@ -5,6 +5,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/Open-MBEE/OpenSysML/internal/translate/deferred"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/xmi/sysmlv1"
 )
 
@@ -18,36 +19,58 @@ const (
 )
 
 const (
-	transitionKeyword = "transition "
-	actionKeyword     = "action "
+	transitionKeyword   = "transition "
+	actionKeyword       = "action "
+	noInitialTargetForm = "the initial transition's target has no v2 form here"
 )
+
+// targetLiesIn opens the note for an initial transition whose target sits in region where.
+func targetLiesIn(target *sysmlv1.Element, where string) string {
+	return "its target " + describe(target) + " lies in " + where
+}
 
 func theTransition(t *sysmlv1.Element) string { return "the transition " + describe(t) }
 
 func deferredBy(v *sysmlv1.Element) string { return "deferred by " + describe(v) }
 
-// extensionOnly is the note a strict migration reports for a construct whose
-// only v2 form is an OpenSysML extension.
-func (m *migration) extensionOnly(clause string) string {
-	return "`" + clause + "` is an OpenSysML extension with no SysML v2 production, which a strict migration does not write"
+// pseudostateLine spells the member a pseudostate of kind kw writes as: a
+// StateMachines metadata usage for choice/junction/history — qualified so a
+// member named like the metadata cannot shadow it — the standard literal for
+// fork/join.
+func pseudostateLine(prefix, kw, name string) string {
+	switch kw {
+	case "choice", "junction", "shallowHistory", "deepHistory":
+		return "#" + prefix + "StateMachines::" + kw + " state " + name + ";"
+	}
+	return kw + " " + name + ";"
 }
 
-// extensionVertex is extensionOnly for the pseudostate v is written as when a
-// strict migration refuses it: "" for a vertex strict writes.
-func (m *migration) extensionVertex(v *sysmlv1.Element) string {
-	if !m.strict {
-		return ""
+// stateMachinesPrefix is "$::" when a member written as `StateMachines` hides
+// the library package from the scope a clause is written in, so the metadata
+// reference names it from the root.
+func (m *migration) stateMachinesPrefix(scope *sysmlv1.Element) string {
+	if m.shadowsLibrary("StateMachines", scope) {
+		return "$::"
 	}
-	kw := map[string]string{
-		"choice":         "choice",
-		"junction":       "junction",
-		"shallowHistory": "history",
-		"deepHistory":    "deep history",
-	}[pseudoKind(v)]
-	if kw == "" {
-		return ""
+	return ""
+}
+
+// useStateMachines adds `private import StateMachines::*;` to the body of the
+// innermost package enclosing the current scope, once, for the StateMachines
+// metadata member being written.
+func (m *migration) useStateMachines() {
+	for e := m.scope; e != nil; e = e.Parent {
+		switch e.Type {
+		case "Package", "Model", "Profile":
+			if m.stateMachinesUsed[e] {
+				return
+			}
+			m.stateMachinesUsed[e] = true
+			prefix := m.stateMachinesPrefix(e)
+			m.extras[e] = append(m.extras[e], func() { m.w.line("private import " + prefix + "StateMachines::*;") })
+			return
+		}
 	}
-	return m.extensionOnly(kw + " <name>;")
 }
 
 // stateMachineBody writes a state machine's regions as the body of its state def.
@@ -330,10 +353,7 @@ func (m *migration) entryPointForm(v, owner *sysmlv1.Element) pointForm {
 	}
 	regions := m.regionsCrossed(out, owner, "target")
 	if len(out) < 2 || len(regions) < 2 {
-		if m.strict {
-			return pointForm{why: m.extensionOnly("junction <name>;")}
-		}
-		return pointForm{kw: "junction", note: "written as a junction of its state; a transition entering through it runs the state's entry behavior, then the transition leaving the junction"}
+		return pointForm{kw: "junction", note: "written as a `#StateMachines::junction state` of its state; a transition entering through it runs the state's entry behavior, then the transition leaving the junction"}
 	}
 	if len(regions) < len(out) {
 		return pointForm{why: "the entry point starts several regions of " + describe(owner) + ", as a fork does, but two of its outgoing transitions enter the same region"}
@@ -396,10 +416,7 @@ func (m *migration) exitPointForm(v, owner *sysmlv1.Element) pointForm {
 	}
 	regions := m.regionsCrossed(in, owner, "source")
 	if len(in) < 2 || len(regions) < 2 {
-		if m.strict {
-			return pointForm{why: m.extensionOnly("junction <name>;")}
-		}
-		return pointForm{kw: "junction", note: "written as a junction of its state; a transition leaving through it runs the transition into the junction, the state's exit behavior, then the transition leaving it"}
+		return pointForm{kw: "junction", note: "written as a `#StateMachines::junction state` of its state; a transition leaving through it runs the transition into the junction, the state's exit behavior, then the transition leaving it"}
 	}
 	joinBut := "several regions of " + describe(owner) + " leave through the exit point, as through a join, but "
 	if len(regions) < len(in) {
@@ -516,14 +533,9 @@ func writtenRegions(owner *sysmlv1.Element) []*sysmlv1.Element {
 	return out
 }
 
-// vertexWritten reports whether v is written as a member of its state definition's body.
-// It excludes vertices refused by strict migration, even if nameMachine named them.
+// vertexWritten reports whether vertex v is written as a member of its state def's
+// body: its machine is written and nameMachine named it, which skips what no region writes.
 func (m *migration) vertexWritten(v *sysmlv1.Element) bool {
-	return m.vertexNamed(v) && m.extensionVertex(v) == ""
-}
-
-// vertexNamed reports whether nameMachine assigned v a name, independent of whether it is written.
-func (m *migration) vertexNamed(v *sysmlv1.Element) bool {
 	sm := machineOf(v)
 	if sm == nil || !m.written(sm) {
 		return false
@@ -694,6 +706,22 @@ const (
 // entering it comes first; a stray initial entering an orthogonal region is written
 // there when that region has no entry of its own.
 func (m *migration) planEntries(sm *sysmlv1.Element) {
+	regions := machineRegions(sm)
+	for _, r := range regions {
+		m.entries[r] = m.planRegionEntry(r)
+	}
+	for _, r := range regions {
+		for _, st := range m.entries[r].strays {
+			if st.fate != strayForeign {
+				m.settleStray(st, r)
+			}
+		}
+	}
+}
+
+// machineRegions lists the regions of a state machine, nested ones included,
+// stopping at the machines nested in it.
+func machineRegions(sm *sysmlv1.Element) []*sysmlv1.Element {
 	var regions []*sysmlv1.Element
 	var walk func(e *sysmlv1.Element)
 	walk = func(e *sysmlv1.Element) {
@@ -708,51 +736,53 @@ func (m *migration) planEntries(sm *sysmlv1.Element) {
 		}
 	}
 	walk(sm)
-	for _, r := range regions {
-		e := &regionEntry{}
-		m.entries[r] = e
-		for _, v := range r.Owned("subvertex") {
-			if pseudoKind(v) != "initial" {
-				continue
-			}
-			out := m.initialTransitions(v)
-			if len(out) == 0 {
-				e.dangling = append(e.dangling, v)
-				continue
-			}
-			tgt := m.model.Ref(out[0], "target")
-			if foreign := foreignRegionOf(r, tgt); foreign != nil {
-				st := &strayInitial{init: v, transition: out[0], target: tgt, into: foreign}
-				if !isOrthogonal(r, foreign) {
-					st.fate = strayForeign
-				}
-				e.strays = append(e.strays, st)
-				continue
-			}
-			if e.init != nil {
-				e.duplicates = append(e.duplicates, v)
-				continue
-			}
-			e.init, e.transition = v, out[0]
+	return regions
+}
+
+// planRegionEntry sorts the initial pseudostates of region r: the one entering
+// it, its duplicates, the dangling ones, and the strays entering other regions.
+func (m *migration) planRegionEntry(r *sysmlv1.Element) *regionEntry {
+	e := &regionEntry{}
+	for _, v := range r.Owned("subvertex") {
+		if pseudoKind(v) != "initial" {
+			continue
 		}
+		out := m.initialTransitions(v)
+		if len(out) == 0 {
+			e.dangling = append(e.dangling, v)
+			continue
+		}
+		tgt := m.model.Ref(out[0], "target")
+		if foreign := foreignRegionOf(r, tgt); foreign != nil {
+			st := &strayInitial{init: v, transition: out[0], target: tgt, into: foreign}
+			if !isOrthogonal(r, foreign) {
+				st.fate = strayForeign
+			}
+			e.strays = append(e.strays, st)
+			continue
+		}
+		if e.init != nil {
+			e.duplicates = append(e.duplicates, v)
+			continue
+		}
+		e.init, e.transition = v, out[0]
 	}
-	for _, r := range regions {
-		for _, st := range m.entries[r].strays {
-			if st.fate == strayForeign {
-				continue
-			}
-			into := m.entries[st.into]
-			switch {
-			case into.init == nil:
-				into.init, into.transition, into.donor = st.init, st.transition, r
-			case m.model.Ref(into.transition, "target") == st.target:
-				st.fate = strayCoincides
-			default:
-				st.fate = strayConflicts
-				st.ownDonor = into.donor
-				st.ownTarget = m.model.Ref(into.transition, "target")
-			}
-		}
+	return e
+}
+
+// settleStray donates a stray initial of region from to the orthogonal region
+// it enters, or records how it agrees or conflicts with that region's own entry.
+func (m *migration) settleStray(st *strayInitial, from *sysmlv1.Element) {
+	into := m.entries[st.into]
+	switch {
+	case into.init == nil:
+		into.init, into.transition, into.donor = st.init, st.transition, from
+	case m.model.Ref(into.transition, "target") == st.target:
+		st.fate = strayCoincides
+	default:
+		st.fate = strayConflicts
+		st.ownDonor = into.donor
+		st.ownTarget = m.model.Ref(into.transition, "target")
 	}
 }
 
@@ -968,7 +998,7 @@ func (s *stateRegion) initial(entered bool) {
 	tgt := s.m.model.Ref(t, "target")
 	to, ok := s.target(t, tgt)
 	if !ok {
-		s.m.unmapped(init, "the initial transition's target has no v2 form here")
+		s.m.unmapped(init, noInitialTargetForm)
 		if tgt == nil {
 			s.m.unmapped(t, joinNotes(s.m.dangling(t, "target"), "the transition lacks a target"))
 		} else {
@@ -1010,7 +1040,7 @@ func (s *stateRegion) initial(entered bool) {
 	} else {
 		here := s.m.regionLabel(s.r)
 		s.m.add(init, Approximated, "", "written as the entry of "+here+", which owns its target "+describe(tgt)+", not of "+s.m.regionLabel(e.donor)+", the orthogonal region that owns the pseudostate")
-		note = joinNotes(note, "its target "+describe(tgt)+" lies in "+here+", an orthogonal region of the pseudostate's, so it is written as the entry of "+here)
+		note = joinNotes(note, targetLiesIn(tgt, here)+", an orthogonal region of the pseudostate's, so it is written as the entry of "+here)
 	}
 	s.m.add(t, verdictFor(note), s.m.edgeTarget(t), note)
 }
@@ -1046,15 +1076,15 @@ func (s *stateRegion) stray(st *strayInitial) {
 		if st.ownDonor != nil {
 			own = "whose entry, donated by " + s.m.regionLabel(st.ownDonor) + "'s initial pseudostate, enters " + describe(st.ownTarget)
 		}
-		why := "its target " + describe(st.target) + " lies in " + into + ", an orthogonal region " + own + "; that entry is kept"
-		s.m.unmapped(st.init, "the initial transition's target has no v2 form here")
+		why := targetLiesIn(st.target, into) + ", an orthogonal region " + own + "; that entry is kept"
+		s.m.unmapped(st.init, noInitialTargetForm)
 		s.m.unmapped(st.transition, why)
 		if s.m.strict {
 			s.refusedParts(st.transition, why)
 		}
 	case strayForeign:
-		why := "its target " + describe(st.target) + " lies in " + describe(st.into) + ", a region of " + describe(st.into.Parent) + " and no orthogonal region of the pseudostate's; an initial transition enters its own region"
-		s.m.unmapped(st.init, "the initial transition's target has no v2 form here")
+		why := targetLiesIn(st.target, describe(st.into)) + ", a region of " + describe(st.into.Parent) + " and no orthogonal region of the pseudostate's; an initial transition enters its own region"
+		s.m.unmapped(st.init, noInitialTargetForm)
 		s.m.unmapped(st.transition, why)
 		if s.m.strict {
 			s.refusedParts(st.transition, why)
@@ -1088,37 +1118,28 @@ func (s *stateRegion) vertex(v *sysmlv1.Element) {
 		switch pseudoKind(v) {
 		case "initial":
 		case "choice", "junction":
-			if why := s.m.extensionVertex(v); why != "" {
-				s.m.unmapped(v, why)
-				return
-			}
 			name := writeName(s.name(v))
-			s.m.w.line(pseudoKind(v) + " " + name + ";")
+			s.m.useStateMachines()
+			s.m.w.line(pseudostateLine(s.m.stateMachinesPrefix(v.Parent), pseudoKind(v), name))
 			s.m.madeUp(v, name)
-			s.m.add(v, Mapped, name, "written as a "+pseudoKind(v)+" pseudostate, whose guarded transitions the runtime reads when it is reached; an unguarded one is its else branch")
+			s.m.add(v, Mapped, name, "written as a #StateMachines::"+pseudoKind(v)+" state pseudostate, whose guarded transitions the runtime reads when it is reached; an unguarded one is its else branch")
 		case "fork", "join":
 			name := writeName(s.name(v))
 			s.m.w.line(pseudoKind(v) + " " + name + ";")
 			s.m.madeUp(v, name)
 			s.m.add(v, Mapped, name, "written as a "+pseudoKind(v)+" pseudostate, whose segments the runtime fires together")
 		case "shallowHistory":
-			if why := s.m.extensionVertex(v); why != "" {
-				s.m.unmapped(v, why)
-				return
-			}
 			name := writeName(s.name(v))
-			s.m.w.line("history " + name + ";")
+			s.m.useStateMachines()
+			s.m.w.line(pseudostateLine(s.m.stateMachinesPrefix(v.Parent), "shallowHistory", name))
 			s.m.madeUp(v, name)
-			s.m.add(v, Mapped, name, "written as a shallow history, which re-enters the substate active when its state was last left")
+			s.m.add(v, Mapped, name, "written as a `#StateMachines::shallowHistory state` shallow history, which re-enters the substate active when its state was last left")
 		case "deepHistory":
-			if why := s.m.extensionVertex(v); why != "" {
-				s.m.unmapped(v, why)
-				return
-			}
 			name := writeName(s.name(v))
-			s.m.w.line("deep history " + name + ";")
+			s.m.useStateMachines()
+			s.m.w.line(pseudostateLine(s.m.stateMachinesPrefix(v.Parent), "deepHistory", name))
 			s.m.madeUp(v, name)
-			s.m.add(v, Mapped, name, "written as a deep history, which re-enters the innermost states active when its state was last left")
+			s.m.add(v, Mapped, name, "written as a `#StateMachines::deepHistory state` deep history, which re-enters the innermost states active when its state was last left")
 		case "terminate":
 			s.m.add(v, Approximated, "done", "a terminate pseudostate ends the machine; a transition to it is written to done, which ends its region")
 		case "entryPoint", "exitPoint":
@@ -1167,7 +1188,10 @@ func (m *migration) statePoints(v *sysmlv1.Element) int {
 			m.add(cp, Mapped, m.vertexNames[v], f.note)
 		default:
 			name := writeName(m.vertexNames[cp])
-			m.w.line(f.kw + " " + name + ";")
+			if f.kw == "junction" {
+				m.useStateMachines()
+			}
+			m.w.line(pseudostateLine(m.stateMachinesPrefix(m.scope), f.kw, name))
 			m.madeUp(cp, name)
 			m.add(cp, Mapped, name, f.note)
 			written++
@@ -1363,8 +1387,12 @@ func (d *deferrals) encoded() bool {
 	return len(d.kept) > 0
 }
 
-// deferredEventFQN names the library metadata marking a deferred signal.
-const deferredEventFQN = "MigrationMetadata::DeferredEvent"
+// deferredEventFQN names the library metadata marking a deferred signal;
+// deferredKeeperFQN the one marking the accept that keeps it for the state.
+const (
+	deferredEventFQN  = "MigrationMetadata::DeferredEvent"
+	deferredKeeperFQN = "MigrationMetadata::DeferredKeeper"
+)
 
 // deferrals reads a state's deferrable triggers: v2 defers the signal a
 // transition would accept, so no other event kind can be, and a signal a
@@ -1849,9 +1877,7 @@ func (s *stateRegion) transitionWritten(t *sysmlv1.Element) bool {
 				return named(pointOwner(tgt))
 			}
 			return named(tgt)
-		case "choice", "junction", "shallowHistory", "deepHistory":
-			return s.m.extensionVertex(tgt) == "" && named(tgt)
-		case "fork", "join":
+		case "choice", "junction", "shallowHistory", "deepHistory", "fork", "join":
 			return named(tgt)
 		}
 	case "ConnectionPointReference":
@@ -1974,12 +2000,8 @@ func (s *stateRegion) deferredHead(v *sysmlv1.Element, d *deferrals) {
 	for _, sig := range d.declared {
 		s.m.w.line("@" + prefix + deferredEventFQN + " { ref :>> signal : " + s.m.ref(sig, v) + "; }")
 	}
-	if !d.encoded() {
-		return
-	}
-	for _, k := range d.kept {
-		s.m.w.line("item " + writeName(k.buffer) + " : " + s.m.ref(k.sig, v) + "[*] ordered;")
-		s.m.w.madeUp(k.buffer)
+	if d.encoded() {
+		s.encoding(v, d).Items(encodingWriter{s.m.w})
 	}
 }
 
@@ -1987,78 +2009,89 @@ func (s *stateRegion) deferredHead(v *sysmlv1.Element, d *deferrals) {
 // generated flush loop's variable.
 const deferredPayload = "kept"
 
+// encoding spells a state's kept deferrals as the shared encoding writes them.
+func (s *stateRegion) encoding(v *sysmlv1.Element, d *deferrals) *deferred.Encoding {
+	e := &deferred.Encoding{
+		Buffer:    writeName(d.buffer),
+		Split:     d.split,
+		Flush:     writeName(d.flush),
+		Including: "SequenceFunctions::including",
+		Keeper:    deferredKeeperFQN,
+	}
+	if s.m.shadowsLibrary("SequenceFunctions", v) {
+		e.Including = "$::" + e.Including
+	}
+	if s.m.shadowsLibrary("MigrationMetadata", v) {
+		e.Keeper = "$::" + e.Keeper
+	}
+	for _, k := range d.kept {
+		sig := deferred.Signal{
+			Ref:    s.m.ref(k.sig, v),
+			Buffer: writeName(k.buffer),
+			Item:   writeName(k.item),
+			Clear:  k.clear,
+		}
+		for _, l := range k.loops {
+			loop := deferred.Loop{
+				Receive: writeName(l.receive),
+				Keep:    writeName(l.keep),
+				Payload: writeName(l.payload),
+			}
+			loop.Accept = s.m.acceptSignalRef(k.sig, v, loop.Payload)
+			if l.port != nil {
+				loop.Via = s.m.ownerPrefix(v) + writeName(s.m.nameFor(l.port))
+			}
+			sig.Loops = append(sig.Loops, loop)
+		}
+		e.Signals = append(e.Signals, sig)
+	}
+	return e
+}
+
 // deferredDo writes the do action that keeps each deferred signal while the
-// state is active: one endless accept loop per signal, run beside the state's
-// own do behavior when it has one.
+// state is active, the state's own do behavior run beside the accept loops
+// when it is written as an action.
 func (s *stateRegion) deferredDo(v, do *sysmlv1.Element, d *deferrals) {
-	s.m.w.block(doAction+" "+writeName(d.buffer), func() {
-		// The state's own do behavior is rendered first: only one that is
-		// written as an action gets a branch of the fork.
-		run, ran := "", false
-		if do != nil {
-			run = s.m.w.aside(func() {
-				ran = s.m.inlineBehaviorHeaded(doAction, actionKeyword+writeName(d.run), do, v)
-			})
+	var own func() deferred.Own
+	if do != nil {
+		own = func() deferred.Own {
+			return s.nested(doAction, d.run, do, v)
 		}
-		if ran || d.loopCount() > 1 {
-			s.m.w.line("first start then " + d.split + ";")
-			s.m.w.line("fork " + d.split + ";")
-			s.m.w.madeUp(d.split)
-			if ran {
-				s.m.w.line("then " + writeName(d.run) + ";")
-			}
-			for _, k := range d.kept {
-				for _, l := range k.loops {
-					s.m.w.line("then " + writeName(l.receive) + ";")
-				}
-			}
-		} else {
-			s.m.w.line("first start then " + writeName(d.kept[0].loops[0].receive) + ";")
-		}
-		_, _ = s.m.w.buf().WriteString(run)
-		if ran {
-			s.m.madeUp(do, d.run)
-		}
-		including := "SequenceFunctions::including"
-		if s.m.shadowsLibrary("SequenceFunctions", v) {
-			including = "$::" + including
-		}
-		for _, k := range d.kept {
-			for _, l := range k.loops {
-				via := ""
-				if l.port != nil {
-					via = " via " + s.m.ownerPrefix(v) + writeName(s.m.nameFor(l.port))
-				}
-				receive, keep, payload := writeName(l.receive), writeName(l.keep), writeName(l.payload)
-				s.m.w.line(actionKeyword + receive + " accept " + payload + " : " + s.m.acceptSignalRef(k.sig, v, payload) + via + ";")
-				s.m.w.line("then action " + keep + " { assign " + writeName(k.buffer) + " := " + including + "(" + writeName(k.buffer) + ", " + receive + "." + payload + "); }")
-				s.m.w.line("then " + receive + ";")
-				s.m.w.madeUp(receive)
-				s.m.w.madeUp(keep)
-			}
-		}
-	})
-	s.m.w.madeUp(d.buffer)
+	}
+	s.encoding(v, d).Do(encodingWriter{s.m.w}, own)
 }
 
 // deferredExit writes the exit action that sends each kept occurrence to the
-// state's own object once the state exits, after the state's own exit behavior,
-// and empties each buffer so a later visit replays only what it kept.
+// state's own object once the state exits, after the state's own exit behavior.
 func (s *stateRegion) deferredExit(v, exit *sysmlv1.Element, d *deferrals) {
-	s.m.w.block(exitAction+" "+writeName(d.flush), func() {
-		prefix := ""
-		if exit != nil && s.m.inlineBehaviorHeaded(exitAction, actionKeyword+writeName(d.exitRun), exit, v) {
-			s.m.madeUp(exit, d.exitRun)
-			prefix = "then "
+	var own func() deferred.Own
+	if exit != nil {
+		own = func() deferred.Own {
+			return s.nested(exitAction, d.exitRun, exit, v)
 		}
-		for _, k := range d.kept {
-			s.m.w.line(prefix + "for " + writeName(k.item) + " in " + writeName(k.buffer) + " { send " + writeName(k.item) + " to self; }")
-			s.m.w.line("then action " + k.clear + " { assign " + writeName(k.buffer) + " := (); }")
-			s.m.w.madeUp(k.clear)
-			prefix = "then "
-		}
+	}
+	s.encoding(v, d).Exit(encodingWriter{s.m.w}, own)
+}
+
+// encodingWriter writes the shared deferral encoding through the migration's writer.
+type encodingWriter struct{ w *writer }
+
+func (e encodingWriter) Line(s string)                    { e.w.line(s) }
+func (e encodingWriter) Block(header string, body func()) { e.w.block(header, body) }
+func (e encodingWriter) Raw(text string)                  { _, _ = e.w.buf().WriteString(text) }
+func (e encodingWriter) MadeUp(name string)               { e.w.madeUp(name) }
+
+// nested renders a state's own behavior as the action named run inside the
+// encoding's action, for the encoding to place.
+func (s *stateRegion) nested(kw, run string, b, v *sysmlv1.Element) deferred.Own {
+	own := deferred.Own{Run: writeName(run)}
+	own.Text = s.m.w.aside(func() {
+		own.Written = s.m.inlineBehaviorHeaded(kw, "action "+own.Run, b, v)
 	})
-	s.m.w.madeUp(d.flush)
+	if own.Written && s.m.synthesized[b] {
+		own.MadeUp = run
+	}
+	return own
 }
 
 // inheritedActionNamesSet is a fresh used-name set seeded with the members
@@ -2161,6 +2194,10 @@ func (m *migration) writeInlineBody(kw string, b, owner *sysmlv1.Element, header
 			m.add(b, Approximated, m.v2Name(b), joinNotes(note, "none of its "+count(total, "action")+" is migrated, so it runs nothing"))
 			return true
 		}
+		if wait := m.instantWaitNote(kw, b, owner); wait != "" {
+			m.add(b, Approximated, m.v2Name(b), joinNotes(note, wait))
+			return true
+		}
 		m.add(b, Mapped, m.v2Name(b), note)
 		return true
 	case "OpaqueBehavior", "FunctionBehavior":
@@ -2239,6 +2276,9 @@ func (m *migration) referencedBehavior(kw, head string, b, owner *sysmlv1.Elemen
 	}
 	m.w.line(line)
 	m.downgrade(b, note)
+	if wait := m.instantWaitNote(kw, b, owner); wait != "" {
+		m.add(owner, Approximated, "", "its "+kw+" "+qualifiedName(b)+": "+wait)
+	}
 	return true
 }
 
@@ -2352,9 +2392,6 @@ func (s *stateRegion) target(t, v *sysmlv1.Element) (string, bool) {
 			}
 			return s.endpoint(t, v, "target")
 		case "choice", "junction", "shallowHistory", "deepHistory":
-			if s.m.extensionVertex(v) != "" {
-				return "", false
-			}
 			return s.endpoint(t, v, "target")
 		case "fork", "join":
 			return s.endpoint(t, v, "target")
@@ -2382,9 +2419,6 @@ func (s *stateRegion) source(t, v *sysmlv1.Element) (string, bool) {
 			}
 			return s.endpoint(t, v, "source")
 		case "choice", "junction", "shallowHistory", "deepHistory":
-			if s.m.extensionVertex(v) != "" {
-				return "", false
-			}
 			return s.endpoint(t, v, "source")
 		case "fork", "join":
 			return s.endpoint(t, v, "source")
@@ -2399,9 +2433,6 @@ func (s *stateRegion) source(t, v *sysmlv1.Element) (string, bool) {
 // else that it lies outside the machine or has no v2 form.
 func (s *stateRegion) noForm(v *sysmlv1.Element) string {
 	if why := s.m.points[v].why; why != "" {
-		return " has no v2 form: " + why
-	}
-	if why := s.m.extensionVertex(v); why != "" {
 		return " has no v2 form: " + why
 	}
 	return isA + kindOf(v) + outsideMachine
@@ -2476,7 +2507,7 @@ func (s *stateRegion) transition(t *sysmlv1.Element) {
 		s.m.relocatedTo[t] = host
 		return
 	}
-	if !s.m.strict && transient(src) && (pseudoKind(tgt) == "shallowHistory" || pseudoKind(tgt) == "deepHistory") {
+	if transient(src) && (pseudoKind(tgt) == "shallowHistory" || pseudoKind(tgt) == "deepHistory") {
 		s.m.unmapped(t, "the runtime does not follow a transition from a "+pseudoKind(src)+" pseudostate on into the history pseudostate "+describe(tgt))
 		return
 	}
@@ -2704,6 +2735,9 @@ func (s *stateRegion) transitionAccepts(t *sysmlv1.Element, triggers []*sysmlv1.
 			info = append(info, rinfo)
 		}
 		note = joinNotes(note, rnote)
+		if ev := s.m.model.Ref(tr, "event"); ev != nil && ev.Type == "SignalEvent" {
+			s.m.uiAccept(s.m.model.Ref(ev, "signal"), tr)
+		}
 		s.m.add(tr, verdictFor(note), "", joinNotes(note, rinfo))
 		accepts = append(accepts, routes...)
 	}
@@ -2958,6 +2992,11 @@ func isElseGuard(spec *sysmlv1.Element) bool {
 		text, _ = opaqueBody(spec)
 	case "LiteralString":
 		text = spec.Attrs["value"]
+	case "Expression":
+		if len(spec.Owned("operand")) > 0 {
+			return false
+		}
+		text = spec.Attrs["symbol"]
 	default:
 		return false
 	}

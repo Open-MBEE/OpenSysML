@@ -334,7 +334,7 @@ func binLabel(bin runtime.HistogramBin, unit string) string {
 // compactNumber spells a bin bound: an Integer in full, a Real to four significant digits.
 func compactNumber(x semantics.Value) string {
 	if x.Kind == semantics.ValInt {
-		return strconv.FormatInt(x.Int, 10)
+		return x.FormatInt()
 	}
 	return strconv.FormatFloat(x.Real, 'g', 4, 64)
 }

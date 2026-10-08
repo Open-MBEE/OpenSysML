@@ -1,0 +1,11 @@
+{
+	"type": "state",
+	"libraries": true,
+	"finalState": "rtarget",
+	"outputs": {
+		"crossed": {
+			"type": "Integer",
+			"value": 1
+		}
+	}
+}

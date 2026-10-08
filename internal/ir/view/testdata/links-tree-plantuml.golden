@@ -1,0 +1,60 @@
+@startuml
+' VehicleViews::vehicleView — tree rendering
+<style>
+root {
+  BackGroundColor white
+  FontName SansSerif
+  FontSize 14
+  FontColor black
+  LineColor #181818
+  HorizontalAlignment left
+}
+element {
+  BackGroundColor white
+  LineColor #181818
+  LineThickness 0.5
+  RoundCorner 0
+  Shadowing 0.0
+}
+start, end, activityBar {
+  BackGroundColor black
+}
+arrow {
+  LineColor #181818
+  LineThickness 1
+  FontSize 13
+}
+note {
+  BackGroundColor #FEFFDD
+  FontSize 13
+}
+.usage {
+  RoundCorner 20
+}
+.package {
+  LineThickness 1.5
+}
+.region {
+  LineStyle 4
+}
+</style>
+skinparam wrapWidth 300
+hide stereotype
+hide circle
+hide empty members
+class "<size:10>//«part def»//</size>\n**Vehicles::Vehicle**" as n0 <<part def>> [[https://example.test/src/tree.sysml#L11]]
+class "<size:10>//«part»//</size>\n**engine : Engine**" as n1 <<part>> <<usage>> [[https://example.test/src/tree.sysml#L12]]
+n0 -- n1
+class "<size:10>//«part»//</size>\n**wheels : Wheel**" as n2 <<part>> <<usage>> [[https://example.test/src/tree.sysml#L13]]
+n0 -- n2
+class "**connect**" as n3 <<connect>> <<usage>> [[https://example.test/src/tree.sysml#L14]]
+n0 -- n3
+class "<size:10>//«view»//</size>\n**VehicleViews::vehicleView::engineSubview**" as n4 <<view>> <<usage>> [[https://example.test/src/tree.sysml#L29]]
+class "<size:10>//«part def»//</size>\n**Vehicles::Engine**" as n5 <<part def>> [[https://example.test/src/tree.sysml#L4]]
+class "<size:10>//«attribute»//</size>\n**power**" as n6 <<attribute>> <<usage>> [[https://example.test/src/tree.sysml#L5]]
+n5 -- n6
+class "<size:10>//«part»//</size>\n**cylinder : Cylinder**" as n7 <<part>> <<usage>> [[https://example.test/src/tree.sysml#L6]]
+n5 -- n7
+n4 -- n5
+n0 *-- n5 : engine [[https://example.test/src/tree.sysml#L12]]
+@enduml

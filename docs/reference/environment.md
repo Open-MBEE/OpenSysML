@@ -13,6 +13,7 @@ run that would never finish into a reported error instead of a hang.
 | `OPENSYSML_MAX_ELEMENTS` | `1000000` | Collection elements one evaluation may hold — the bound on the memory a run holds rather than on the work it does |
 | `OPENSYSML_MAX_CALC_DEPTH` | `10000` (ceiling `25000`) | Nested `calc` invocations one run may hold on the stack, which is what a recursion spends |
 | `OPENSYSML_MAX_SWEEP_RUNS` | `1000` | Runs one parameter sweep or sample may make (`-sweep`/`-samples`, `%sweep`/`%samples`, `RunSweep`), each a whole analysis or calc run with the budgets above of its own |
+| `OPENSYSML_MAX_INTEGER_BITS` | `1048576` | Bits the magnitude of one Integer a run computes may take (about 315,000 decimal digits). Integers are otherwise unbounded; a result past it, such as a large power, is refused before it is computed. At least 64, so every machine-word Integer fits |
 | `OPENSYSML_JOBS` | one per CPU, fewer where the memory available leaves less than 512 MiB per worker | Runs of one check that may go concurrently (`-jobs`, `%jobs`; the gRPC service reads it at startup), each on a worker of its own over the shared model, and how many files of one load are parsed and validated at once. Bounds how many runs go at once, not the work or memory of any one of them: a fleet of `n` workers may hold `n` times `OPENSYSML_MAX_ELEMENTS`. The result of a check does not depend on it |
 | `OPENSYSML_RECORD_CACHE` | unset (on) | Set to `0`, `false`, `off` or `no` to hold every file loaded and read or write no interface record — what `-no-record-cache` does for one run of `sysml` or `sysml-lsp`. On, a file whose bytes match a record in the cache (the `sysml-ls/libs` directory under `XDG_CACHE_HOME` or the user cache directory, shared with the standard library's) is held as that record until a body of it is asked for, and a file just analyzed writes its record; see [Interface records](../internals/interface-records.md) |
 | `OPENSYSML_CALC_COMPILE` | unset (on) | Set to `0`, `false`, `off` or `no` to run every `calc` on the reference evaluator, instead of compiling a pure scalar body to a closure fast path on its first invocation; results, errors and step counts are the same either way, so this is a bisecting aid |
@@ -34,6 +35,7 @@ run that would never finish into a reported error instead of a hang.
 | `OPENSYSML_KATEX`, `OPENSYSML_KATEX_CSS` | unset (look for `katex` on `PATH`, its stylesheet beside it) | KaTeX, which typesets a PDF's formulas, and its stylesheet when it is not installed beside the command. Required as soon as a PDF has a formula |
 | `OPENSYSML_DOT` | unset (look for `dot` on `PATH`) | Graphviz, which draws a PDF's diagrams under `-diagram-form dot` — `-Tsvg`, under the engine each block's `// layout:` header names (`dot`, `neato`, `neato -n`), so positioned views are drawn where the model put them. Optional: without it every DOT block stays in the PDF as source under a notice naming this variable |
 | `OPENSYSML_PLANTUML_JAR`, `OPENSYSML_JAVA` | unset; unset (look for `java` on `PATH`) | The PlantUML jar that draws a PDF's diagrams under `-diagram-form plantuml` (`java -jar <jar> -tsvg -pipe`) and the Java that runs it. Optional: without the jar or a Java every PlantUML block stays in the PDF as source under a notice naming the variable to set. `go test ./internal/ir/view` also passes its PlantUML goldens through the jar's `-checkonly` when the jar is named |
+| `OPENSYSML_D2` | unset (look for `d2` on `PATH`) | The [D2](https://d2lang.com) executable that draws a PDF's diagrams under `-diagram-form d2` (`d2 --layout=dagre --pad=16 <block>.d2 <block>.svg`). Optional: without it every D2 block stays in the PDF as source under a notice naming the variable to set. `go test ./internal/ir/view` also compiles its D2 goldens through the executable when one is found |
 | `OPENSYSML_GRPC_MAX_HELD_EVENTS` | `100000` | The most trace records `sysml-grpc` keeps for one cached model's population, which is traced from its first `Instantiate` so `DocumentQueries::Events` can read the run. Past the bound the oldest records are dropped; an `Events` query whose interval reaches back to a dropped record fails as a typed `trace-truncated` error (`FAILED_PRECONDITION`) naming the instant history is kept from, so `since` can be bound later, rather than answering an incomplete relation. Read at startup |
 
 The PDF tools are external, not bundled: `scripts/download-doc-pdf-toolchain.sh` fetches pinned
@@ -360,6 +362,25 @@ Because it bounds memory rather than work, the count is what a statement's evalu
 holds at once: a loop building a ten-element collection a million times never approaches
 it, while a single `1..2000000` exceeds it immediately.
 
+`OPENSYSML_MAX_INTEGER_BITS` is about the size of one value rather than the work of a
+run. KerML's `Integer` is the mathematical integers, so `9223372036854775807 + 1` is
+`9223372036854775808` and `2 ** 70` is `1180591620717411303424`: an Integer is held as a
+machine word while it fits and in arbitrary precision beyond it. What the budget refuses is a
+single result whose magnitude would need more bits than it allows, judged from the operands
+before the result is computed, so `2 ** 2000000` reports at once instead of computing a
+600,000-digit number:
+
+```
+error: evaluation failed: integer size limit exceeded: the result needs at least 2000001
+bits, beyond the 1048576-bit Integer size budget (raise OPENSYSML_MAX_INTEGER_BITS to allow more)
+```
+
+An Integer beyond the machine word is still a value but cannot address anything: used as an
+index, a multiplicity bound, an array dimension or another count it is a typed error
+(`index … addresses no position`), not an overflow. Widened to a Real, an Integer rounds to
+the nearest binary64 (ties to even), so it is infinite only when it is beyond the largest
+finite double (about `1.8e308`).
+
 `OPENSYSML_MAX_CALC_DEPTH` is about stack rather than work: a recursive calculation
 evaluates to its result as long as it terminates within the depth, and one that
 does not terminate is reported instead of exhausting the stack:
@@ -450,7 +471,7 @@ download script first (each is idempotent and refuses to report success over an 
 | `OPENSYSML_REQUIRE_PILOT_CORPORA` | `./scripts/download-pilot-corpora.sh` → `examples/pilot-corpora/` | `TestPilotCorpora*` in `tests/corpus` |
 | `OPENSYSML_REQUIRE_PILOT_LIBRARY_XMI` | `./scripts/download-pilot-library-xmi.sh` → `build/pilot-library-xmi/` | `TestPilotLibraryXMI` in `internal/semantic/identity` |
 | `OPENSYSML_REQUIRE_PSSM_SUITE` | `./scripts/download-pssm-suite.sh` → `build/pssm/` | `TestPSSMSuiteMigration` in `tests/corpus`, and the referee's gates in `tools/referee/pssm` |
-| `OPENSYSML_REQUIRE_PDF_TOOLCHAIN` | `./scripts/download-doc-pdf-toolchain.sh` → `build/doc-pdf/` (WeasyPrint, pandoc, Mermaid CLI, KaTeX, Graphviz, the PlantUML jar; Java from the host) | `Test*Installed*` in `internal/doc/docpdf`, which draw a real PDF through each tool |
+| `OPENSYSML_REQUIRE_PDF_TOOLCHAIN` | `./scripts/download-doc-pdf-toolchain.sh` → `build/doc-pdf/` (WeasyPrint, pandoc, Mermaid CLI, KaTeX, Graphviz, the PlantUML jar, D2; Java from the host) | `Test*Installed*` in `internal/doc/docpdf`, which draw a real PDF through each tool |
 
 CI sets all five — the PDF one in its `pdf-toolchain` job, with the script's exports set; see [pilot-corpora.md](../project/pilot-corpora.md) for the pin the downloads
 share and what the gates measure.

@@ -61,7 +61,8 @@ func (s *Session) LoadFile(path string) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	return renderResult(s.submitFiles(files), s.verbosity), nil
+	lines := renderResult(s.submitFiles(files), s.verbosity)
+	return append(lines, conversionWarnings(files, s.verbosity)...), nil
 }
 
 // LoadFileSummary submits the contents of path and returns only what it
@@ -91,6 +92,7 @@ func (s *Session) LoadFilesSummary(paths []string) ([]string, error) {
 		own := res.within(s.fileSpan(f.Name))
 		lines = append(lines, renderSyntax(own, s.verbosity)...)
 		lines = append(lines, byFile[i]...)
+		lines = append(lines, conversionWarnings([]SourceFile{f}, s.verbosity)...)
 		if i == 0 {
 			lines = append(lines, whole...)
 		}
@@ -346,8 +348,8 @@ func (s *Session) RunAction(name string, performer ...string) Verdict {
 
 // RunStateMachine starts a state machine outside the prompt, taking only its
 // initial transition, which is `%state` alone. The values are the configuration
-// the machine settled in. Under the check engine the machine's whole run is
-// searched instead, its timers advanced until nothing more is due.
+// the machine settled in. Under the check engine every schedule of that initial
+// transition is searched instead.
 func (s *Session) RunStateMachine(name string, performer ...string) Verdict {
 	defer s.enter()()
 	if s.checking() {

@@ -5,22 +5,25 @@ import (
 	"crypto/sha256"
 	"errors"
 	"fmt"
+	"math"
 	"os"
 	"strings"
 
 	"connectrpc.com/connect"
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
 	"github.com/Open-MBEE/OpenSysML/internal/check/passes"
+	"github.com/Open-MBEE/OpenSysML/internal/doc/queryexec"
 	"github.com/Open-MBEE/OpenSysML/internal/exec/analysis"
 	engineset "github.com/Open-MBEE/OpenSysML/internal/exec/engines"
 	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/protoconv"
+	"github.com/Open-MBEE/OpenSysML/internal/frontend/symbolfacts"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
-	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast/astcodec"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/parser"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
+	"github.com/Open-MBEE/OpenSysML/internal/translate/convert"
 )
 
 // msgModelNotFound formats the not-found status for an unknown model hash.
@@ -34,6 +37,12 @@ const CapabilityTypeFacts = "type_facts"
 // model back out as SysML notation or RDF Turtle. The RDF direction is
 // experimental, which the response says per conversion.
 const CapabilityConvert = "convert"
+
+// CapabilityMigrate names the capability of the Migrate RPC, which migrates a
+// SysML v1 model to v2 and accounts for every element — mapped, approximated,
+// unmapped or skipped — in its report. Migration is experimental, which the
+// response says.
+const CapabilityMigrate = "migrate"
 
 // CapabilityVerification names the capability of the verification RPCs, which
 // answer the questions the REPL's %constraint, %requirement, %satisfy and %calc
@@ -60,6 +69,14 @@ const CapabilityRenderDocument = "render_document"
 // CapabilityRenderDocumentHTML names the capability of RenderDocumentRequest's
 // form field, which asks RenderDocument for HTML instead of Markdown.
 const CapabilityRenderDocumentHTML = "render_document_html"
+
+// CapabilityRenderView names the capability of the RenderView RPC, which
+// renders a declared or targeted pseudo-view as machine-readable diagram data.
+const CapabilityRenderView = "render_view"
+
+// CapabilityExportGraphs names the capability of the ExportGraphs RPC, which
+// exports the lowered graph of an action or state machine as `graphs:1` JSON.
+const CapabilityExportGraphs = "export_graphs"
 
 // CapabilityOSLCQuery names the capability of evaluating OSLC Query text.
 const CapabilityOSLCQuery = "oslc_query"
@@ -161,6 +178,20 @@ const CapabilityFeatureValues = "feature_values"
 // documents as one model so a name one declares resolves in another.
 const CapabilityParseSources = "parse_sources"
 
+// CapabilityConvertDocuments names ConvertRequest.documents, which writes only
+// the named documents of a model and links the rest by id.
+const CapabilityConvertDocuments = "convert_documents"
+
+// CapabilityConvertCompact names ConvertRequest.compact, omit_derived and
+// keep_derived: api-json written as the compact document, with an id table and
+// handles, and optionally without the metamodel's derived properties.
+const CapabilityConvertCompact = "convert_compact"
+
+// CapabilityParseSourcesAffected names ParseSourcesRequest.base_model_hash and
+// ParseSourcesResponse.affected: the documents whose results may differ from
+// the base model's, so a client re-reads only those after an edit.
+const CapabilityParseSourcesAffected = "parse_sources_affected"
+
 // CapabilityComplexValues names the capability of carrying a complex number as
 // Value.complex, rather than reporting it as an unsupported null.
 const CapabilityComplexValues = "complex_values"
@@ -197,6 +228,18 @@ const CapabilityVerificationVerdicts = "verification_verdicts"
 // `*` as Value.infinity, rather than reporting it as an unsupported null.
 const CapabilityInfinityValue = "infinity_value"
 
+// CapabilityBigIntValues names the capability of carrying an Integer beyond
+// int64 as Value.big_int_value, Quantity.big_int_magnitude and
+// DocumentValue.big_int_value, rather than as an unsupported null. A service
+// without it reads the arm sent to it as null, so a client must not send one.
+const CapabilityBigIntValues = "big_int_values"
+
+// CapabilityRationalValues names the capability of carrying an exact Rational
+// that is no Integer as Value.rational_value, Quantity.rational_magnitude and
+// DocumentValue.rational_value, rather than as an unsupported null. A service
+// without it reads the arm sent to it as null, so a client must not send one.
+const CapabilityRationalValues = "rational_values"
+
 // CapabilityDiagnosticCodes names the capability of populating Diagnostic.code,
 // so an empty code is a finding none was assigned rather than an older service.
 const CapabilityDiagnosticCodes = "diagnostic_codes"
@@ -225,6 +268,9 @@ const CapabilityFinalTime = "final_time"
 // CapabilityPerformer names the `performer_symbol_id` field of ExecuteActionRequest and
 // ExecuteStateRequest; a service without it runs outside any object, so clients must not send it.
 const CapabilityPerformer = "performer"
+
+// CapabilityStateTrace names the ExecuteState trace request field.
+const CapabilityStateTrace = "state_trace"
 
 // CapabilityMetaobjectValues names the capability of carrying an element
 // reflected on as an instance of its metaclass (`x meta T`, the last element of
@@ -271,6 +317,15 @@ var capabilities = []string{
 	CapabilityDocumentationAuthoring,
 	CapabilityCommentAuthoring,
 	CapabilityActionBodyStatementAuthoring,
+	CapabilityMigrate,
+	CapabilityBigIntValues,
+	CapabilityRationalValues,
+	CapabilityStateTrace,
+	CapabilityRenderView,
+	CapabilityExportGraphs,
+	CapabilityConvertDocuments,
+	CapabilityConvertCompact,
+	CapabilityParseSourcesAffected,
 }
 
 type capabilityAvailability struct {
@@ -342,6 +397,9 @@ type Service struct {
 	version string
 	// capabilities decides both what this service reports and what it supplies.
 	capabilities capabilityAvailability
+	// lineages are the incremental workspaces of the document sets parsed more
+	// than once (lineage.go).
+	lineages *lineages
 }
 
 // Option adjusts how NewService builds a service.
@@ -423,6 +481,7 @@ func newService(cacheSize int, version string, opts []Option) (*Service, error) 
 	return &Service{
 		cache:          cache,
 		libIndexes:     newLibraryBase(buildLibraryIndex),
+		lineages:       newLineages(maxLineages),
 		prewarm:        prewarm > 0,
 		budgets:        budgets,
 		jobs:           jobs,
@@ -507,7 +566,17 @@ func (s *Service) requireValueCapabilities(pv *pb.Value) error {
 		}
 	}
 	if protoconv.ValueCarriesMetaobject(pv) {
-		return s.requireCapability(CapabilityMetaobjectValues)
+		if err := s.requireCapability(CapabilityMetaobjectValues); err != nil {
+			return err
+		}
+	}
+	if protoconv.ValueCarriesBigInt(pv) {
+		if err := s.requireCapability(CapabilityBigIntValues); err != nil {
+			return err
+		}
+	}
+	if protoconv.ValueCarriesRational(pv) {
+		return s.requireCapability(CapabilityRationalValues)
 	}
 	return nil
 }
@@ -588,6 +657,7 @@ type sourceInput struct {
 	language string
 	content  string
 	kind     source.Kind
+	warnings []string
 }
 
 // ParseFile parses a SysML file and caches the result
@@ -618,7 +688,7 @@ func (s *Service) ParseFile(ctx context.Context, req *pb.ParseFileRequest) (*pb.
 	}
 
 	mode := diag.ConformanceModeOf(req.StrictConformance)
-	modelHash, model := s.parseModel([]sourceInput{input}, mode)
+	modelHash, model := s.parseModel([]sourceInput{input}, mode, false)
 	return s.buildParseResponse(modelHash, model), nil
 }
 
@@ -635,6 +705,11 @@ func (s *Service) ParseSources(ctx context.Context, req *pb.ParseSourcesRequest)
 	}
 	if len(req.Documents) == 0 {
 		return nil, statusError(connect.CodeInvalidArgument, "documents must name at least one document")
+	}
+	if req.BaseModelHash != "" {
+		if err := s.requireCapability(CapabilityParseSourcesAffected); err != nil {
+			return nil, err
+		}
 	}
 
 	inputs := make([]sourceInput, 0, len(req.Documents))
@@ -653,16 +728,24 @@ func (s *Service) ParseSources(ctx context.Context, req *pb.ParseSourcesRequest)
 		inputs = append(inputs, input)
 	}
 
-	modelHash, model := s.parseModel(inputs, diag.ConformanceModeOf(req.StrictConformance))
+	modelHash, model := s.parseModel(inputs, diag.ConformanceModeOf(req.StrictConformance), true)
 	roots := make([]*pb.SymbolInfo, 0, len(model.Documents))
 	for _, doc := range model.Documents {
 		roots = append(roots, s.rootSymbol(model, doc))
 	}
-	return &pb.ParseSourcesResponse{
+	var base *CachedModel
+	if req.BaseModelHash != "" {
+		base, _ = s.cache.Get(req.BaseModelHash)
+	}
+	resp := &pb.ParseSourcesResponse{
 		ModelHash:   modelHash,
 		Roots:       roots,
 		Diagnostics: s.modelDiagnostics(model),
-	}, nil
+	}
+	if req.BaseModelHash != "" {
+		resp.Affected = affectedDocuments(base, model)
+	}
+	return resp, nil
 }
 
 // documentInput reads one document of a ParseSources request. position names an
@@ -712,7 +795,20 @@ func fileInput(path string) (sourceInput, error) {
 	if err != nil {
 		return sourceInput{}, statusErrorf(connect.CodeNotFound, "file not found: %v", err)
 	}
-	return sourceInput{name: path, content: string(data), kind: source.KindOf(path)}, nil
+	var warnings []string
+	text, converted, err := convert.ModelSource(path, data, func(message string) {
+		warnings = append(warnings, message)
+	})
+	if err != nil {
+		return sourceInput{}, statusError(connect.CodeInvalidArgument, err.Error())
+	}
+	kind := source.KindOf(path)
+	if converted {
+		kind = source.KindSysML
+	}
+	return sourceInput{
+		name: path, content: string(text), kind: kind, warnings: warnings,
+	}, nil
 }
 
 // parseModel parses the documents into one model and caches it, or returns the
@@ -723,7 +819,11 @@ func fileInput(path string) (sourceInput, error) {
 // gating in AGENTS.md §4: a document that failed to parse contributes no symbols,
 // so analyzing its siblings would report names as unresolved that the model
 // declares.
-func (s *Service) parseModel(inputs []sourceInput, mode diag.ConformanceMode) (string, *CachedModel) {
+//
+// With incremental, a document set parsed before is answered from its lineage
+// (lineage.go): ParseSources, whose model of many documents is reparsed after
+// each edit. ParseFile's one document is cheap to parse whole.
+func (s *Service) parseModel(inputs []sourceInput, mode diag.ConformanceMode, incremental bool) (string, *CachedModel) {
 	// Keyed by what was read, not by the hash a request carried: a hash
 	// disagreeing with its content would serve another model. Each document's
 	// name is part of the key, since its diagnostics name the document they came
@@ -737,10 +837,24 @@ func (s *Service) parseModel(inputs []sourceInput, mode diag.ConformanceMode) (s
 		for _, field := range []string{input.name, input.language, input.content} {
 			fmt.Fprintf(&key, "\x00%d\x00%s", len(field), field)
 		}
+		if len(input.warnings) > 0 {
+			fmt.Fprintf(&key, "\x00%d", len(input.warnings))
+			for _, warning := range input.warnings {
+				fmt.Fprintf(&key, "\x00%d\x00%s", len(warning), warning)
+			}
+		}
 	}
 	modelHash := computeHash(key.String())
 	if cached, ok := s.cache.Get(modelHash); ok {
 		return modelHash, cached
+	}
+
+	// A document set parsed before is answered from its lineage: only what
+	// changed is parsed and analyzed again (lineage.go).
+	if incremental {
+		if model, ok := s.parseFromLineage(inputs, mode); ok {
+			return modelHash, s.cache.Add(modelHash, model)
+		}
 	}
 
 	// Take an index carrying the standard library, which type resolution needs:
@@ -764,6 +878,7 @@ func (s *Service) parseModel(inputs []sourceInput, mode diag.ConformanceMode) (s
 			Source:      srcFile,
 			ParseDiags:  p.Diagnostics,
 			Diagnostics: parser.AsDiagnostics(p.Diagnostics, p.Warnings),
+			Warnings:    append([]string(nil), input.warnings...),
 		})
 	}
 
@@ -784,6 +899,7 @@ func (s *Service) parseModel(inputs []sourceInput, mode diag.ConformanceMode) (s
 		for i, doc := range documents {
 			doc.Diagnostics, _ = passes.AnalyzeInBatch(inputs[i].name, inputs[i].kind, doc.Root,
 				doc.Diagnostics, idx, passes.Options{Conformance: mode}, batch)
+			doc.Diagnostics = passes.WithoutLints(doc.Diagnostics, nil, nil)
 		}
 	}
 
@@ -802,7 +918,7 @@ func (s *Service) GetSymbol(ctx context.Context, req *pb.GetSymbolRequest) (*pb.
 	}
 
 	// Lookup symbol by FQN
-	syms := lookupNamed(cached.Index, req.SymbolId)
+	syms := symbolfacts.LookupNamed(cached.Index, req.SymbolId)
 	if len(syms) == 0 {
 		return &pb.SymbolResponse{
 			Error: fmt.Sprintf("symbol not found: %s", req.SymbolId),
@@ -836,6 +952,13 @@ func (s *Service) modelDiagnostics(model *CachedModel) []*pb.Diagnostic {
 	for _, doc := range model.Documents {
 		for _, diag := range doc.Diagnostics {
 			pbDiags = append(pbDiags, DiagnosticToProto(diag, doc.Source))
+		}
+		for _, warning := range doc.Warnings {
+			pbDiags = append(pbDiags, &pb.Diagnostic{
+				Severity: diag.SeverityWarning.String(),
+				Message:  warning,
+				Span:     &pb.Span{File: doc.Source.Name()},
+			})
 		}
 	}
 	return s.filterDiagnosticCapabilities(pbDiags)
@@ -886,7 +1009,7 @@ func (s *Service) Evaluate(ctx context.Context, req *pb.EvaluateRequest) (*pb.Ev
 	// prompt evaluates in the context it pinned.
 	var subject *symbols.Symbol
 	if req.SubjectSymbolId != "" {
-		syms := lookupNamed(cached.Index, req.SubjectSymbolId)
+		syms := symbolfacts.LookupNamed(cached.Index, req.SubjectSymbolId)
 		if len(syms) == 0 {
 			return &pb.EvaluateResponse{
 				Error: fmt.Sprintf("subject not found: %s", req.SubjectSymbolId),
@@ -899,7 +1022,7 @@ func (s *Service) Evaluate(ctx context.Context, req *pb.EvaluateRequest) (*pb.Ev
 	var scope *symbols.Scope
 	if req.ContextSymbolId != "" {
 		// Lookup context symbol
-		syms := lookupNamed(cached.Index, req.ContextSymbolId)
+		syms := symbolfacts.LookupNamed(cached.Index, req.ContextSymbolId)
 		if len(syms) > 0 && syms[0].Scope != nil {
 			scope = syms[0].Scope
 		}
@@ -968,7 +1091,7 @@ func (s *Service) Instantiate(ctx context.Context, req *pb.InstantiateRequest) (
 	}
 
 	// Lookup symbol
-	syms := lookupNamed(cached.Index, req.SymbolId)
+	syms := symbolfacts.LookupNamed(cached.Index, req.SymbolId)
 	if len(syms) == 0 {
 		return &pb.InstantiateResponse{
 			Error: fmt.Sprintf("symbol not found: %s", req.SymbolId),
@@ -1029,7 +1152,7 @@ func (s *Service) ExecuteAction(ctx context.Context, req *pb.ExecuteActionReques
 	}
 
 	// Lookup action symbol
-	syms := lookupNamed(cached.Index, req.ActionSymbolId)
+	syms := symbolfacts.LookupNamed(cached.Index, req.ActionSymbolId)
 	if len(syms) == 0 {
 		return &pb.ExecuteActionResponse{
 			Error: fmt.Sprintf("action not found: %s", req.ActionSymbolId),
@@ -1090,6 +1213,9 @@ func (s *Service) ExecuteAction(ctx context.Context, req *pb.ExecuteActionReques
 		if err != nil {
 			return nil, err
 		}
+		if x.setupErr != nil {
+			return &pb.ExecuteActionResponse{Error: x.setupErr.Error()}, nil
+		}
 		return &pb.ExecuteActionResponse{Outcomes: x.outcomes, Exploration: x.status}, nil
 	}
 	if err := runtimeCtx.SetSchedule(schedule); err != nil {
@@ -1148,6 +1274,15 @@ func (s *Service) ExecuteState(ctx context.Context, req *pb.ExecuteStateRequest)
 	if err != nil {
 		return nil, err
 	}
+	_, explores := schedule.Exploration()
+	if req.Trace && explores {
+		return nil, statusError(connect.CodeInvalidArgument, "state traces are unavailable under an explore schedule")
+	}
+	if req.Trace {
+		if err := s.requireCapability(CapabilityStateTrace); err != nil {
+			return nil, err
+		}
+	}
 	if req.PerformerSymbolId != "" {
 		if err := s.requireCapability(CapabilityPerformer); err != nil {
 			return nil, err
@@ -1161,7 +1296,7 @@ func (s *Service) ExecuteState(ctx context.Context, req *pb.ExecuteStateRequest)
 	}
 
 	// Lookup state machine symbol
-	syms := lookupNamed(cached.Index, req.StateMachineSymbolId)
+	syms := symbolfacts.LookupNamed(cached.Index, req.StateMachineSymbolId)
 	if len(syms) == 0 {
 		return &pb.ExecuteStateResponse{
 			Error: fmt.Sprintf("state machine not found: %s", req.StateMachineSymbolId),
@@ -1169,7 +1304,7 @@ func (s *Service) ExecuteState(ctx context.Context, req *pb.ExecuteStateRequest)
 	}
 	stateMachine := syms[0]
 
-	if _, explores := schedule.Exploration(); explores {
+	if explores {
 		x, err := s.explore(ctx, req.StateMachineSymbolId, schedule, analysis.Auto(), cached, func(rt *runtime.Context) (runtime.Outcome, error) {
 			self, err := s.performer(cached, rt, req.PerformerSymbolId)
 			if err != nil {
@@ -1180,6 +1315,9 @@ func (s *Service) ExecuteState(ctx context.Context, req *pb.ExecuteStateRequest)
 		if err != nil {
 			return nil, err
 		}
+		if x.setupErr != nil {
+			return &pb.ExecuteStateResponse{Error: x.setupErr.Error()}, nil
+		}
 		return &pb.ExecuteStateResponse{Outcomes: x.outcomes, Exploration: x.status}, nil
 	}
 
@@ -1188,9 +1326,15 @@ func (s *Service) ExecuteState(ctx context.Context, req *pb.ExecuteStateRequest)
 	if err := runtimeCtx.SetSchedule(schedule); err != nil {
 		return nil, statusError(connect.CodeInvalidArgument, err.Error())
 	}
+	var traceRecorder *runtime.TraceRecorder
+	if req.Trace {
+		traceRecorder = runtime.NewEventRecorder(s.maxHeldEvents)
+		runtimeCtx.SetTrace(traceRecorder)
+	}
 	self, err := s.performer(cached, runtimeCtx, req.PerformerSymbolId)
 	if err != nil {
-		return &pb.ExecuteStateResponse{Error: err.Error()}, nil
+		trace, dropped := stateTraceToProto(runtimeCtx, cached.Index, traceRecorder)
+		return &pb.ExecuteStateResponse{Error: err.Error(), Trace: trace, TraceDropped: dropped}, nil
 	}
 
 	// The final context is the outcome an exploration compares: the machine's own
@@ -1204,11 +1348,14 @@ func (s *Service) ExecuteState(ctx context.Context, req *pb.ExecuteStateRequest)
 	}
 	finalContext, statesVisited := ran.final, ran.visited
 	diags := s.filterDiagnosticCapabilities(RunNoteDiagnosticsToProto(runtimeCtx.Notes(), cached))
+	trace, dropped := stateTraceToProto(runtimeCtx, cached.Index, traceRecorder)
 	if err != nil {
 		return &pb.ExecuteStateResponse{
-			Error:       fmt.Sprintf("state machine execution failed: %v", err),
-			Diagnostics: diags,
-			FinalTime:   s.finalTime(runtimeCtx),
+			Error:        fmt.Sprintf("state machine execution failed: %v", err),
+			Diagnostics:  diags,
+			FinalTime:    s.finalTime(runtimeCtx),
+			Trace:        trace,
+			TraceDropped: dropped,
 		}, nil
 	}
 
@@ -1223,7 +1370,32 @@ func (s *Service) ExecuteState(ctx context.Context, req *pb.ExecuteStateRequest)
 		FinalContext:  pbContext,
 		Diagnostics:   diags,
 		FinalTime:     s.finalTime(runtimeCtx),
+		Trace:         trace,
+		TraceDropped:  dropped,
 	}, nil
+}
+
+func stateTraceToProto(rt *runtime.Context, idx *symbols.Index, recorder *runtime.TraceRecorder) ([]*pb.DocumentEvent, int32) {
+	if recorder == nil {
+		return nil, 0
+	}
+	events := queryexec.EventsFromTrace(rt, recorder.Records())
+	trace := make([]*pb.DocumentEvent, len(events))
+	for i, event := range events {
+		trace[i] = documentEvent(idx, event)
+	}
+	dropped, _ := recorder.Dropped()
+	return trace, traceDroppedCountToInt32(int64(dropped))
+}
+
+func traceDroppedCountToInt32(dropped int64) int32 {
+	if dropped < 0 {
+		return 0
+	}
+	if dropped > math.MaxInt32 {
+		return math.MaxInt32
+	}
+	return int32(dropped)
 }
 
 // buildParseResponse constructs ParseFileResponse from cached model
@@ -1243,90 +1415,11 @@ func (s *Service) rootSymbol(model *CachedModel, doc *CachedDocument) *pb.Symbol
 		return nil
 	}
 	rootScope := model.Index.DocumentRoot(doc.Source.Name())
-	for _, sym := range model.Index.LookupQualified("") { // Root has empty name
-		if sym.Scope == rootScope {
-			return s.symbolToProto(sym, model.SymbolContext())
-		}
-	}
-	if rootScope == nil {
-		return nil
-	}
-	return &pb.SymbolInfo{
-		Id:       "",
-		Name:     "",
-		Kind:     "RootNamespace",
-		Metadata: make(map[string]string),
-		ChildIds: collectChildIDs(rootScope, model.Index),
-	}
-}
-
-// collectChildIDs extracts child symbol FQNs from a scope
-func collectChildIDs(scope *symbols.Scope, idx *symbols.Index) []string {
-	var ids []string
-	for _, sym := range scope.AllMembers() {
-		ids = append(ids, idx.GetFQN(sym))
-	}
-	return ids
+	return s.symbolInfoToProto(symbolfacts.Root(model.SymbolContext(), rootScope), model.Index)
 }
 
 // computeHash generates SHA-256 hash of content
 func computeHash(content string) string {
 	hash := sha256.Sum256([]byte(content))
 	return fmt.Sprintf("%x", hash)
-}
-
-// lookupNamed resolves a symbol ID written in either spelling: the quoted,
-// notation-legal form a model author writes ('My Pkg'::Car), or the unquoted
-// spelling the index records (My Pkg::Car), which keeps working as it did.
-// Model elements come before library homonyms: an ID naming both denotes the
-// model's own element, which is what the client asked about.
-func lookupNamed(idx *symbols.Index, id string) []*symbols.Symbol {
-	if syms := idx.LookupQualified(id); len(syms) > 0 {
-		return modelFirst(idx, syms)
-	}
-	if plain, ok := unquotedName(id); ok && plain != id {
-		return modelFirst(idx, idx.LookupQualified(plain))
-	}
-	return nil
-}
-
-// modelFirst reorders matches so the ones the model declares precede the ones
-// standard-library content declares, each group keeping its index order.
-func modelFirst(idx *symbols.Index, syms []*symbols.Symbol) []*symbols.Symbol {
-	out := make([]*symbols.Symbol, 0, len(syms))
-	var lib []*symbols.Symbol
-	for _, sym := range syms {
-		if idx.Library(sym) {
-			lib = append(lib, sym)
-			continue
-		}
-		out = append(out, sym)
-	}
-	return append(out, lib...)
-}
-
-// unquotedName is the name a notation-legal qualified name states, with the
-// quoting of its unrestricted segments removed, or false for an ID the notation
-// does not read as one whole name.
-func unquotedName(id string) (string, bool) {
-	if id == "" {
-		return "", false
-	}
-	p := parser.New(source.New("<symbol-id>", []byte(id)))
-	expr := p.ParseExpression()
-	if len(p.Diagnostics) > 0 || p.Offset() != len(id) {
-		return "", false
-	}
-	ref, ok := expr.(*ast.FeatureReference)
-	if !ok || ref.Name == nil || ref.Name.Global || len(ref.Name.Parts) == 0 {
-		return "", false
-	}
-	segments := make([]string, 0, len(ref.Name.Parts))
-	for _, part := range ref.Name.Parts {
-		if part.Text == "" {
-			return "", false
-		}
-		segments = append(segments, part.Text)
-	}
-	return strings.Join(segments, "::"), true
 }

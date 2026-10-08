@@ -146,7 +146,8 @@ func TestStateMachineWithOrthogonalRegionsAndGuards(t *testing.T) {
 		"transition first Lit accept after 0.5 [SI::s] then Dark;",
 		"transition first Dark accept after 0.5 [SI::s] then Lit;",
 		"transition first regions then done;",
-		"choice choice;",
+		"#StateMachines::choice state choice;",
+		"private import StateMachines::*;",
 		"state Resting;",
 		"transition first Off accept TurnOn then On;",
 		"transition first On accept TurnOff then choice;",
@@ -162,7 +163,7 @@ func TestStateMachineWithOrthogonalRegionsAndGuards(t *testing.T) {
 	wantNote(t, r, "_rHeat", migrate.Mapped, "an orthogonal region is written as a sub-state of the parallel state regions")
 	wantNote(t, r, "_offEntry", migrate.Approximated, "the JavaScript body is written as v2 assignments")
 	wantNote(t, r, "_onExit", migrate.Approximated, "the JavaScript body is written as v2 assignments")
-	wantNote(t, r, "_pick", migrate.Mapped, "written as a choice pseudostate, whose guarded transitions the runtime reads when it is reached")
+	wantNote(t, r, "_pick", migrate.Mapped, "written as a #StateMachines::choice state pseudostate, whose guarded transitions the runtime reads when it is reached")
 	wantNote(t, r, "_gWorn", migrate.Mapped, "")
 	wantNote(t, r, "_gFresh", migrate.Mapped, "an else guard is written as the unguarded transition out of the choice")
 	wantNote(t, r, "_tOff", migrate.Approximated, "written as 2 transitions, one per trigger")
@@ -172,16 +173,15 @@ func TestStateMachineWithOrthogonalRegionsAndGuards(t *testing.T) {
 	wantNote(t, r, "_noon", migrate.Approximated, "written where a trigger refers to it, as accept at instant; the absolute time is an instant on the simulation clock")
 	wantNote(t, r, "_dNoon", migrate.Unmapped, "only a signal event can be deferred, not a TimeEvent")
 
-	// Strict output carries the deferral in the same standard notation, and
-	// refuses the choice pseudostate with the transitions through it.
+	// Strict output carries the deferral in the same standard notation; the
+	// choice pseudostate is written as metadata in both modes.
 	strict := migrateDocumentOptions(t, ovenMachine, ovenApplications, migrate.Options{Strict: true})
 	wantDeferredDoorEncoding(t, strict)
 	wantNote(t, strict, "_dNoon", migrate.Unmapped, "only a signal event can be deferred, not a TimeEvent")
-	wantNote(t, strict, "_pick", migrate.Unmapped, "`choice <name>;` is an OpenSysML extension with no SysML v2 production, which a strict migration does not write")
+	wantNote(t, strict, "_pick", migrate.Mapped, "written as a #StateMachines::choice state pseudostate")
 	wantNoLine(t, strict.Notation, "choice choice;")
 	noExtensionStatement(t, strict.Notation)
-	wantNote(t, strict, "_trOff", migrate.Unmapped, "its transition is not written")
-	wantNote(t, strict, "_gWorn", migrate.Unmapped, "the guard [cycles >= 3] is dropped with it")
+	wantNote(t, strict, "_gWorn", migrate.Mapped, "")
 
 	r = migrateDocument(t, ovenMachine, ovenApplications)
 	s := session(t, r)
@@ -256,7 +256,7 @@ func wantDeferredDoorEncoding(t *testing.T, r *migrate.Result) {
 		"item deferred : Door[*] ordered;",
 		"do action buffer {",
 		"first start then receive;",
-		"action receive accept kept : Door;",
+		"#MigrationMetadata::DeferredKeeper action receive accept kept : Door;",
 		"then action keep { assign deferred := SequenceFunctions::including(deferred, receive.kept); }",
 		"then receive;",
 		"metadata MigrationMetadata::SynthesizedName about receive, keep;",
@@ -391,10 +391,10 @@ func checkDeferredSignalsAreKeptAndReplayed(t *testing.T, r *migrate.Result) {
 		"then receiveBeep;",
 		"action run {",
 		"assign context.ticks := context.ticks + 1;",
-		"action receiveAlarm accept keptAlarm : Alarm;",
+		"#MigrationMetadata::DeferredKeeper action receiveAlarm accept keptAlarm : Alarm;",
 		"then action keepAlarm { assign deferredAlarm := SequenceFunctions::including(deferredAlarm, receiveAlarm.keptAlarm); }",
 		"then receiveAlarm;",
-		"action receiveBeep accept keptBeep : Beep;",
+		"#MigrationMetadata::DeferredKeeper action receiveBeep accept keptBeep : Beep;",
 		"then action keepBeep { assign deferredBeep := SequenceFunctions::including(deferredBeep, receiveBeep.keptBeep); }",
 		"then receiveBeep;",
 		"metadata MigrationMetadata::SynthesizedName about split, run, receiveAlarm, keepAlarm, receiveBeep, keepBeep;",
@@ -670,7 +670,7 @@ func TestStrictAcceptViaContextPortFixture(t *testing.T) {
 		"in ref context : ActivityReceiver[1];",
 		"action receive accept Ping via context.p;",
 		"transition first Waiting accept Go via context.p then Done;",
-		"action 'receive via p' accept 'kept via p' : Ping via context.p;",
+		"#MigrationMetadata::DeferredKeeper action 'receive via p' accept 'kept via p' : Ping via context.p;",
 		"action 'receive via p' accept 'ping via p' : Ping via p;",
 		"exhibit state life : Life { in ref :>> context = this; }",
 		"perform action await : Await { in ref :>> context = this; }",
@@ -702,13 +702,13 @@ func TestStrictDeferredSignalsAreKeptByEveryRoute(t *testing.T) {
 		"then receiveCmd;",
 		"then 'receiveCmd via inbox';",
 		"then 'receivePing via side';",
-		"action receiveCmd accept keptCmd : Cmd;",
+		"#MigrationMetadata::DeferredKeeper action receiveCmd accept keptCmd : Cmd;",
 		"then action keepCmd { assign deferredCmd := SequenceFunctions::including(deferredCmd, receiveCmd.keptCmd); }",
 		"then receiveCmd;",
-		"action 'receiveCmd via inbox' accept 'keptCmd via inbox' : Cmd via context.inbox;",
+		"#MigrationMetadata::DeferredKeeper action 'receiveCmd via inbox' accept 'keptCmd via inbox' : Cmd via context.inbox;",
 		"then action 'keepCmd via inbox' { assign deferredCmd := SequenceFunctions::including(deferredCmd, 'receiveCmd via inbox'.'keptCmd via inbox'); }",
 		"then 'receiveCmd via inbox';",
-		"action 'receivePing via side' accept 'keptPing via side' : Ping via context.side;",
+		"#MigrationMetadata::DeferredKeeper action 'receivePing via side' accept 'keptPing via side' : Ping via context.side;",
 		"then action 'keepPing via side' { assign deferredPing := SequenceFunctions::including(deferredPing, 'receivePing via side'.'keptPing via side'); }",
 		"then 'receivePing via side';",
 		"exit action flush {",
@@ -769,7 +769,7 @@ func TestStrictDeferralKeepsRoutesAPortTransitionSkips(t *testing.T) {
 	wantNoLine(t, r.Notation, "defer Cmd;")
 	for _, line := range []string{
 		"item deferredCmd : Cmd[*] ordered;",
-		"action receiveCmd accept keptCmd : Cmd;",
+		"#MigrationMetadata::DeferredKeeper action receiveCmd accept keptCmd : Cmd;",
 		"then action keepCmd { assign deferredCmd := SequenceFunctions::including(deferredCmd, receiveCmd.keptCmd); }",
 		"for keptCmd in deferredCmd { send keptCmd to self; }",
 		"transition first Waiting accept Cmd via context.inbox then Working;",
@@ -853,7 +853,7 @@ func TestStrictDeferralSurvivesInactiveSubstateTransition(t *testing.T) {
 	for _, line := range []string{
 		"state Busy {",
 		"item deferred : Door[*] ordered;",
-		"action receive accept kept : Door;",
+		"#MigrationMetadata::DeferredKeeper action receive accept kept : Door;",
 		"transition first Heating accept Door then Opened;",
 	} {
 		wantLine(t, r.Notation, line)
@@ -914,18 +914,16 @@ func TestStrictDeferralOutlivesTransitionWithNoForm(t *testing.T) {
           <subvertex xmi:type="uml:State" xmi:id="_off" name="Off">
             <deferrableTrigger xmi:type="uml:Trigger" xmi:id="_dDoor" event="_doorEv"/>
           </subvertex>
-          <subvertex xmi:type="uml:Pseudostate" xmi:id="_pick" name="pick" kind="choice"/>
           <subvertex xmi:type="uml:State" xmi:id="_idle" name="Idle"/>
           <subvertex xmi:type="uml:State" xmi:id="_ajar" name="Ajar"/>
           <transition xmi:type="uml:Transition" xmi:id="_t0" source="_init" target="_off"/>
-          <transition xmi:type="uml:Transition" xmi:id="_tPick" source="_off" target="_pick">
+          <transition xmi:type="uml:Transition" xmi:id="_tPick" source="_off" target="_far">
             <trigger xmi:type="uml:Trigger" xmi:id="_trPick" event="_doorEv"/>
           </transition>
-          <transition xmi:type="uml:Transition" xmi:id="_tDone" source="_off" target="_pick"/>
+          <transition xmi:type="uml:Transition" xmi:id="_tDone" source="_off" target="_far"/>
           <transition xmi:type="uml:Transition" xmi:id="_tFar" source="_off" target="_far">
             <trigger xmi:type="uml:Trigger" xmi:id="_trFar" event="_doorEv"/>
           </transition>
-          <transition xmi:type="uml:Transition" xmi:id="_tPicked" source="_pick" target="_idle"/>
           <transition xmi:type="uml:Transition" xmi:id="_tStop" source="_off" target="_idle">
             <trigger xmi:type="uml:Trigger" xmi:id="_trStop" event="_stopEv"/>
           </transition>
@@ -944,19 +942,18 @@ func TestStrictDeferralOutlivesTransitionWithNoForm(t *testing.T) {
     </packagedElement>`
 	r := migrateDocumentOptions(t, machine, `<sysml:Block xmi:id="_b1" base_Class="_oven"/>`, migrate.Options{Strict: true})
 	wantNoLine(t, r.Notation, "defer Door;")
-	wantNoLine(t, r.Notation, "choice pick;")
 	wantNoLine(t, r.Notation, "accept Door then Far;")
-	wantNoLine(t, r.Notation, "/* not migrated: deferrableTrigger (_dDoor) on Door — the completion transition (_tDone) leaves the state once its do action ends, which the accept loop that would keep Door never lets it, so the deferral is dropped */")
+	wantNoLine(t, r.Notation, "/* not migrated: defer Door; — the completion transition (_tDone) leaves the state once its do action ends, which the accept loop that would keep Door never lets it, so the deferral is dropped */")
 	for _, line := range []string{
 		"state Off {",
 		"item deferred : Door[*] ordered;",
-		"action receive accept kept : Door;",
+		"#MigrationMetadata::DeferredKeeper action receive accept kept : Door;",
 	} {
 		wantLine(t, r.Notation, line)
 	}
 	wantNote(t, r, "_dDoor", migrate.Approximated, "kept in the item deferred by the accept loop of the do action buffer while the state is active, and sent to self by the exit action flush")
-	wantNote(t, r, "_tPick", migrate.Unmapped, "the target 'pick' has no v2 form")
-	wantNote(t, r, "_tDone", migrate.Unmapped, "the target 'pick' has no v2 form")
+	wantNote(t, r, "_tPick", migrate.Unmapped, "the target 'Far' is a State outside the machine, or one with no v2 form")
+	wantNote(t, r, "_tDone", migrate.Unmapped, "the target 'Far' is a State outside the machine, or one with no v2 form")
 	wantNote(t, r, "_tFar", migrate.Unmapped, "")
 	wantClean(t, "deferralTargetNoForm", r)
 
@@ -1013,13 +1010,14 @@ const choiceDeferringMachine = `
 // A transition into a choice pseudostate takes the deferred signal only where
 // the migration writes it. The default migration writes the choice, so the
 // transition wins and Off keeps nothing: a Door sent while Off leaves it for
-// Idle. A strict migration refuses the choice and the transition into it, so
-// Off keeps Door, and replays it once Stop leaves the state.
+// Idle. The choice is written as metadata under -strict too, so the transition
+// into it is written and Off keeps nothing there either.
 func TestDeferralYieldsToChoiceTransitionOnlyWhereWritten(t *testing.T) {
 	const applications = `<sysml:Block xmi:id="_b1" base_Class="_oven"/>`
 	r := migrateDocument(t, choiceDeferringMachine, applications)
 	for _, line := range []string{
-		"choice pick;",
+		"#StateMachines::choice state pick;",
+		"private import StateMachines::*;",
 		"transition first Off accept Door then pick;",
 		"transition first pick then Idle;",
 		"@MigrationMetadata::DeferredEvent { ref :>> signal : Door; }",
@@ -1047,32 +1045,30 @@ func TestDeferralYieldsToChoiceTransitionOnlyWhereWritten(t *testing.T) {
 
 	strict := migrateDocumentOptions(t, choiceDeferringMachine, applications, migrate.Options{Strict: true})
 	wantNoLine(t, strict.Notation, "choice pick;")
-	wantNoLine(t, strict.Notation, "accept Door then pick;")
+	wantNoLine(t, strict.Notation, "item deferred : Door[*] ordered;")
 	for _, line := range []string{
+		"#StateMachines::choice state pick;",
+		"transition first Off accept Door then pick;",
+		"transition first pick then Idle;",
 		"@MigrationMetadata::DeferredEvent { ref :>> signal : Door; }",
-		"item deferred : Door[*] ordered;",
-		"action receive accept kept : Door;",
 	} {
 		wantLine(t, strict.Notation, line)
 	}
-	wantNote(t, strict, "_dDoor", migrate.Approximated, "kept in the item deferred by the accept loop of the do action buffer while the state is active, and sent to self by the exit action flush")
-	wantNote(t, strict, "_tPick", migrate.Unmapped, "the target 'pick' has no v2 form")
+	wantNote(t, strict, "_dDoor", migrate.Approximated, "the transition (_tPick) out of the state accepts the signal, which in v1 takes precedence over deferring it, so the state does not keep it; its @MigrationMetadata::DeferredEvent annotation records the deferral")
+	wantNote(t, strict, "_tPick", migrate.Mapped, "")
 	wantClean(t, "choiceDeferralStrict", strict)
 
 	s = session(t, strict)
 	meta(t, s, "%instantiate Oven")
 	meta(t, s, "%state Oven::Run")
-	meta(t, s, "%send Door")
-	meta(t, s, "%step")
-	if out := meta(t, s, "%current"); !strings.Contains(out, "Current state: Off") || !strings.Contains(out, "Off.deferred = [Instance") {
-		t.Errorf("the Door sent while Off was not kept:\n%s", out)
+	if out := meta(t, s, "%send Door"); !strings.Contains(out, "transition Off -> pick fires on it") {
+		t.Errorf("%%send Door while Off: %s", out)
 	}
-	meta(t, s, "%send Stop")
-	for i := 0; i < 6 && !strings.Contains(meta(t, s, "%current"), "Current state: Ajar"); i++ {
+	for i := 0; i < 4 && !strings.Contains(meta(t, s, "%current"), "Current state: Idle"); i++ {
 		meta(t, s, "%step")
 	}
-	if out := meta(t, s, "%current"); !strings.Contains(out, "Current state: Ajar") {
-		t.Errorf("the kept Door was not replayed once Off exited:\n%s", out)
+	if out := meta(t, s, "%current"); !strings.Contains(out, "Current state: Idle") || strings.Contains(out, "Off.deferred") {
+		t.Errorf("the Door sent while Off did not take the transition through the choice:\n%s", out)
 	}
 }
 
@@ -1121,7 +1117,7 @@ func TestStrictDeferralOutlivesGuardedCompletionTransition(t *testing.T) {
 	for _, line := range []string{
 		"state Off {",
 		"item deferred : Door[*] ordered;",
-		"action receive accept kept : Door;",
+		"#MigrationMetadata::DeferredKeeper action receive accept kept : Door;",
 		"transition first Off if context.ready then Done;",
 	} {
 		wantLine(t, r.Notation, line)
@@ -1199,7 +1195,7 @@ func TestStrictDeferralSurvivesInternalTransition(t *testing.T) {
 	wantNoLine(t, r.Notation, "defer Door;")
 	for _, line := range []string{
 		"item deferred : Door[*] ordered;",
-		"action receive accept kept : Door;",
+		"#MigrationMetadata::DeferredKeeper action receive accept kept : Door;",
 		"transition first Off accept Tick",
 	} {
 		wantLine(t, r.Notation, line)
@@ -1279,7 +1275,7 @@ func TestStrictDeferralYieldsToTransitionOnGeneralSignal(t *testing.T) {
 	for _, line := range []string{
 		"@MigrationMetadata::DeferredEvent { ref :>> signal : Alarm; }",
 		"item deferred : Stop[*] ordered;",
-		"action receive accept kept : Stop;",
+		"#MigrationMetadata::DeferredKeeper action receive accept kept : Stop;",
 		"transition first Busy accept Notification then Idle;",
 	} {
 		wantLine(t, r.Notation, line)
@@ -1303,7 +1299,7 @@ func TestStrictDeferralYieldsToTransitionOnGeneralSignal(t *testing.T) {
 	r = migrateDocumentOptions(t, signals+special, block, migrate.Options{Strict: true})
 	for _, line := range []string{
 		"item deferredNotification : Notification[*] ordered;",
-		"action receiveNotification accept keptNotification : Notification;",
+		"#MigrationMetadata::DeferredKeeper action receiveNotification accept keptNotification : Notification;",
 		"transition first Busy accept Alarm then Idle;",
 	} {
 		wantLine(t, r.Notation, line)
@@ -1363,7 +1359,7 @@ func TestStrictOverlappingDeferralsKeepEachOccurrenceOnce(t *testing.T) {
 		"@MigrationMetadata::DeferredEvent { ref :>> signal : Alarm; }",
 		"@MigrationMetadata::DeferredEvent { ref :>> signal : Notification; }",
 		"item deferred : Event[*] ordered;",
-		"action receive accept kept : Event;",
+		"#MigrationMetadata::DeferredKeeper action receive accept kept : Event;",
 	} {
 		wantLine(t, r.Notation, line)
 	}
@@ -1426,7 +1422,7 @@ func TestStrictDeferralNamesShadowNothingItRefersTo(t *testing.T) {
 	for _, line := range []string{
 		"ref item SequenceFunctions : Stop;",
 		"item deferred : receive[*] ordered;",
-		"action receive2 accept kept : receive;",
+		"#MigrationMetadata::DeferredKeeper action receive2 accept kept : receive;",
 		"then action keep { assign deferred := $::SequenceFunctions::including(deferred, receive2.kept); }",
 		"then receive2;",
 	} {
@@ -1482,7 +1478,7 @@ func TestStrictDeferralWithoutRunnableDoBehavior(t *testing.T) {
 		"do action buffer {",
 		"first start then receive;",
 		"/* do action Aux is written as a state def, which no state runs */",
-		"action receive accept kept : Door;",
+		"#MigrationMetadata::DeferredKeeper action receive accept kept : Door;",
 	} {
 		wantLine(t, r.Notation, line)
 	}
@@ -1599,7 +1595,7 @@ func TestActivityParametersFlowThroughNestedCalls(t *testing.T) {
 	wantNote(t, r, "_pInN", migrate.Mapped, "")
 	wantNote(t, r, "_pOf1", migrate.Mapped, "")
 	wantNote(t, r, "_twice", migrate.Mapped, "")
-	wantNote(t, r, "_seedV", migrate.Approximated, "no edge leads to the node, so it starts with the activity")
+	wantNote(t, r, "_seedV", migrate.Mapped, "no edge leads to the node, so it starts with the activity")
 	wantNote(t, r, "_stray", migrate.Approximated, "the action never fires: its input pin 'x' must hold a value, but no object flow feeds it")
 	wantNote(t, r, "_rOf1", migrate.Mapped, "")
 

@@ -36,6 +36,9 @@ type refusal struct {
 	kind  refusalKind
 	token string
 	why   string
+	// unknown marks a refused name nothing bears at all: no feature, member, pin,
+	// lane feature or clock variable, as against one known but not readable there.
+	unknown bool
 }
 
 // note spells the refusal for a report entry or a comment.
@@ -96,6 +99,7 @@ type opaqueRef struct {
 	object   []string
 	plural   bool
 	optional bool   // the feature is declared admitting no value
+	unset    bool   // the feature holds no value until assigned: a property with no default
 	loose    int    // the precedence of expr's outermost operator; 0 when expr is atomic
 	lit      string // the literal kind when expr is one literal
 }
@@ -175,7 +179,9 @@ const (
 	looseRelational
 	looseEquality
 	looseAnd
+	looseXor
 	looseOr
+	looseImplies
 	looseConditional
 )
 
@@ -267,14 +273,24 @@ func javaLabel(l string) bool {
 // translateExpr translates body as one expression read in sc yielding what
 // want asks for. The expression is complete or refused.
 func translateExpr(body, lang string, sc featureResolver, want wanted) (translated, *refusal) {
+	return translateExprKerml(body, lang, sc, want, false)
+}
+
+// translateTreeExpr is translateExpr for a lowered Expression tree's script
+// text, the only body read admitting the KerML connectives xor and implies.
+func translateTreeExpr(body string, sc featureResolver, want wanted) (translated, *refusal) {
+	return translateExprKerml(body, "", sc, want, true)
+}
+
+func translateExprKerml(body, lang string, sc featureResolver, want wanted, kerml bool) (translated, *refusal) {
 	d := dialectOf(lang)
 	if d == dialectNone {
 		return translated{}, &refusal{kind: refusedLanguage, token: lang}
 	}
-	if _, err := wholeExprIn(body, d, anyScope{}); err != nil && err.kind != refusedType {
+	if _, err := wholeExprKerml(body, d, anyScope{}, kerml); err != nil && err.kind != refusedType {
 		return translated{}, err
 	}
-	t, err := wholeExprIn(body, d, sc)
+	t, err := wholeExprKerml(body, d, sc, kerml)
 	if err != nil {
 		return translated{}, err
 	}
@@ -307,12 +323,15 @@ func translateStatements(body, lang string, sc featureResolver) (lines, notes []
 	return statementsIn(body, d, sc)
 }
 
-// wholeExprIn parses body as one expression of dialect d, its names answered by sc.
-func wholeExprIn(body string, d dialect, sc featureResolver) (translated, *refusal) {
+// wholeExprKerml parses body as one expression of dialect d, its names answered
+// by sc; kerml admits the KerML connectives xor and implies, which no source
+// dialect spells.
+func wholeExprKerml(body string, d dialect, sc featureResolver, kerml bool) (translated, *refusal) {
 	p, err := newOpaqueParser(body, d, sc)
 	if err != nil {
 		return translated{}, err
 	}
+	p.kerml = kerml
 	return p.wholeExpr()
 }
 
@@ -323,7 +342,61 @@ func statementsIn(body string, d dialect, sc featureResolver) (lines, notes []st
 		return nil, nil, err
 	}
 	lines, err = p.statements()
+	if err == nil && len(p.unset) > 0 {
+		p.notes = append(p.notes, unsetNote(d, p.unset))
+	}
+	if err == nil {
+		for _, r := range p.unsetIf {
+			p.notes = append(p.notes, unsetIfNote(d, r.name, r.when))
+		}
+	}
 	return lines, p.notes, err
+}
+
+// unsetIfNote tells that the body reads name, which holds no value until
+// assigned, after assigning it only when one of the guards, the names admitting
+// no value each assignment reads, holds a value.
+func unsetIfNote(d dialect, name string, guards []string) string {
+	var when, none string
+	switch len(guards) {
+	case 1:
+		when, none = guards[0], guards[0]+" holds none"
+	case 2:
+		when, none = guards[0]+" or "+guards[1], "neither "+guards[0]+" nor "+guards[1]+" holds one"
+	default:
+		all := strings.Join(guards[:len(guards)-1], ", ") + " or " + guards[len(guards)-1]
+		when, none = all, "none of "+all+" holds one"
+	}
+	note := name + " holds no initial value and is assigned only when " + when + " holds one, and the body reads it after, so a run in which " +
+		none + " reaches the read unset and stops"
+	if d == dialectScript {
+		note += "; the script would read an unset name as null, which its arithmetic takes as 0"
+	}
+	return note
+}
+
+// unsetNote tells that the body reads names, which hold no value until assigned,
+// before it assigns them: in v2 the read stops a run reaching it first, where a
+// script's engine hands the script null and its arithmetic takes 0.
+func unsetNote(d dialect, names []string) string {
+	note := strings.Join(names, " and ") + " hold"
+	if len(names) == 1 {
+		note += "s"
+	}
+	note += " no initial value and the body reads " + pronoun(names) + " before assigning " + pronoun(names) +
+		", so a run reaching the read first stops"
+	if d == dialectScript {
+		note += "; the script would read an unset name as null, which its arithmetic takes as 0"
+	}
+	return note
+}
+
+// pronoun is `it` for one name, `them` for several.
+func pronoun(names []string) string {
+	if len(names) == 1 {
+		return "it"
+	}
+	return "them"
 }
 
 // anyScope answers every name with an unknown type, so a body's shape is judged
@@ -670,15 +743,27 @@ func lexNumber(s string) (text, rest string) {
 // opaqueParser reads a token stream as the subset's statements and expressions,
 // writing v2 as it goes.
 type opaqueParser struct {
-	toks    []token
-	i       int
-	d       dialect
-	sc      featureResolver
-	locals  map[string]local // names a `var`, `let` or `const` declared
-	assigns bool             // whether `=` assigns (a statement) rather than compares
-	absent  []string         // the names admitting no value the statement being read reads
-	notes   []string         // notes on statements written otherwise than they read: guarded or left out
-	printed int              // console prints left out
+	toks     []token
+	i        int
+	d        dialect
+	kerml    bool // a lowered Expression tree may spell the KerML connectives xor and implies
+	sc       featureResolver
+	locals   map[string]local    // names a `var`, `let` or `const` declared
+	assigns  bool                // whether `=` assigns (a statement) rather than compares
+	absent   []string            // the names admitting no value the statement being read reads
+	assigned map[string]bool     // the features the statements so far assign on every path
+	guarded  map[string][]string // the features assigned only under guards, one per assignment: the names admitting no value it reads
+	unset    []string            // the features holding no initial value read before the body assigns them
+	unsetIf  []unsetRead         // the features holding no initial value read after only guarded assignments
+	notes    []string            // notes on statements written otherwise than they read: guarded or left out
+	printed  int                 // console prints left out
+}
+
+// unsetRead is a read of a feature holding no initial value after only guarded
+// assignments of it, under the guards made so far: it is unset when all fail.
+type unsetRead struct {
+	name string
+	when []string
 }
 
 func newOpaqueParser(body string, d dialect, sc featureResolver) (*opaqueParser, *refusal) {
@@ -686,7 +771,7 @@ func newOpaqueParser(body string, d dialect, sc featureResolver) (*opaqueParser,
 	if err != nil {
 		return nil, err
 	}
-	return &opaqueParser{toks: toks, d: d, sc: sc, locals: map[string]local{}}, nil
+	return &opaqueParser{toks: toks, d: d, sc: sc, locals: map[string]local{}, assigned: map[string]bool{}, guarded: map[string][]string{}}, nil
 }
 
 // local is a name a declaration introduced: the scalar it holds and whether
@@ -972,7 +1057,8 @@ func (p *opaqueParser) declaration() ([]string, *refusal) {
 	if !p.next(true).isPunct("=") {
 		return nil, &refusal{kind: refusedConstruct, token: kw.text + " " + name.text, why: "only a declaration of one name with an initial value is translated"}
 	}
-	if err := p.declarable(kw.text, name.text); err != nil {
+	token := kw.text + " " + name.text
+	if err := p.declarable(token, name.text); err != nil {
 		return nil, err
 	}
 	value, err := p.expr()
@@ -980,17 +1066,42 @@ func (p *opaqueParser) declaration() ([]string, *refusal) {
 		return nil, err
 	}
 	if p.peek(false).isPunct(",") {
-		return nil, &refusal{kind: refusedConstruct, token: kw.text + " " + name.text, why: "only a declaration of one name is translated"}
+		return nil, &refusal{kind: refusedConstruct, token: token, why: "only a declaration of one name is translated"}
 	}
+	return p.declareLocal(token, name.text, value, kw.text == "const")
+}
+
+// implicitDeclaration reads `x = e`, x a name declared nowhere, as a script's
+// engine does: the assignment creates x, here a local attribute of the action.
+func (p *opaqueParser) implicitDeclaration(name string) ([]string, *refusal) {
+	token := name + " ="
+	if err := p.declarable(token, name); err != nil {
+		return nil, err
+	}
+	value, err := p.expr()
+	if err != nil {
+		return nil, err
+	}
+	lines, err := p.declareLocal(token, name, value, false)
+	if err != nil {
+		return nil, err
+	}
+	p.notes = append(p.notes, name+" is declared nowhere, so it is declared a local attribute of the action: a script's assignment to an undeclared name creates it")
+	return lines, nil
+}
+
+// declareLocal declares name a local attribute of the action, of the scalar
+// type value holds, and assigns it value.
+func (p *opaqueParser) declareLocal(token, name string, value translated, constant bool) ([]string, *refusal) {
 	if value.scalar == "" || value.plural {
 		why := "the type the declaration holds cannot be told from its value"
 		if value.held() != "" {
 			why = "the value is a " + value.held() + ", not a scalar a local attribute holds"
 		}
-		return nil, &refusal{kind: refusedType, token: kw.text + " " + name.text, why: why}
+		return nil, &refusal{kind: refusedType, token: token, why: why}
 	}
-	p.locals[name.text] = local{scalar: value.scalar, constant: kw.text == "const", optional: len(p.absent) > 0}
-	target := writeName(name.text)
+	p.locals[name] = local{scalar: value.scalar, constant: constant, optional: len(p.absent) > 0}
+	target := writeName(name)
 	mult := ""
 	if len(p.absent) > 0 {
 		mult = "[0..1]"
@@ -1001,11 +1112,11 @@ func (p *opaqueParser) declaration() ([]string, *refusal) {
 	}, nil
 }
 
-// declarable refuses a declaration whose name the action body already has: a
-// local declared before, a member every action inherits, or a feature the
-// scope reads by that name, which a second declaration would make ambiguous.
-func (p *opaqueParser) declarable(kw, name string) *refusal {
-	token := kw + " " + name
+// declarable refuses a declaration, read at token, whose name the action body
+// already has: a local declared before, a member every action inherits, or a
+// feature the scope reads by that name, which a second declaration would make
+// ambiguous.
+func (p *opaqueParser) declarable(token, name string) *refusal {
 	if _, ok := p.locals[name]; ok {
 		return &refusal{kind: refusedConstruct, token: token, why: name + " is declared again"}
 	}
@@ -1038,13 +1149,21 @@ func (p *opaqueParser) step(path []string, op string) ([]string, *refusal) {
 	if held := target.value().held(); held != "" && !isNumeric(target.scalar) {
 		return nil, &refusal{kind: refusedType, token: strings.Join(path, ".") + op, why: "a " + held + " is not counted"}
 	}
+	p.readUnset(target)
+	p.assigned[target.expr] = true
 	return []string{assignKw + target.expr + " := " + target.expr + " " + op[:1] + " 1;"}, nil
 }
 
-// assignment writes `x = e` or `x op= e` as an assignment.
+// assignment writes `x = e` or `x op= e` as an assignment. In a script, `x = e`
+// to a name nothing bears declares x (p.implicitDeclaration); a name known but
+// not readable there stays refused, as it does in Java, which declares every
+// variable.
 func (p *opaqueParser) assignment(path []string, op string) ([]string, *refusal) {
 	target, err := p.target(path)
 	if err != nil {
+		if p.d == dialectScript && op == "=" && len(path) == 1 && err.kind == refusedName && err.unknown {
+			return p.implicitDeclaration(path[0])
+		}
 		return nil, err
 	}
 	value, err := p.expr()
@@ -1054,6 +1173,7 @@ func (p *opaqueParser) assignment(path []string, op string) ([]string, *refusal)
 	name := strings.Join(path, ".")
 	held := target.value()
 	if op != "=" {
+		p.readUnset(target)
 		if err := numbersAt(name+" "+op, held, value); err != nil {
 			return nil, err
 		}
@@ -1075,7 +1195,11 @@ func (p *opaqueParser) assignment(path []string, op string) ([]string, *refusal)
 func (p *opaqueParser) guardedAssign(target opaqueRef, value string) []string {
 	assign := assignKw + target.expr + " := " + value + ";"
 	if len(p.absent) == 0 || target.optional {
+		p.assigned[target.expr] = true
 		return []string{assign}
+	}
+	if !p.assigned[target.expr] {
+		p.guarded[target.expr] = append(p.guarded[target.expr], strings.Join(p.absent, " and "))
 	}
 	holds := make([]string, len(p.absent))
 	for i, name := range p.absent {
@@ -1150,7 +1274,7 @@ func (p *opaqueParser) spacedName(first string) (string, *refusal) {
 
 // expr reads a conditional expression, the top of the operator ladder.
 func (p *opaqueParser) expr() (translated, *refusal) {
-	cond, err := p.or()
+	cond, err := p.logicalTop()
 	if err != nil {
 		return translated{}, err
 	}
@@ -1182,9 +1306,27 @@ func (p *opaqueParser) expr() (translated, *refusal) {
 // binaryOp is an operator of the ladder: how it is spelled in the source and in v2.
 type binaryOp struct{ src, v2 string }
 
+// logicalTop reads the ladder's loosest level: `implies` where the tree
+// dialect admits it, else `or`.
+func (p *opaqueParser) logicalTop() (translated, *refusal) {
+	if p.kerml {
+		return p.logical(p.or, binaryOp{"", "implies"}, "implies", looseImplies)
+	}
+	return p.or()
+}
+
 // or reads `a || b`, in English `a or b`.
 func (p *opaqueParser) or() (translated, *refusal) {
-	return p.logical(p.and, binaryOp{"||", "or"}, "or", looseOr)
+	next := p.and
+	if p.kerml {
+		next = p.xor
+	}
+	return p.logical(next, binaryOp{"||", "or"}, "or", looseOr)
+}
+
+// xor reads `a xor b`, a connective only a lowered Expression tree spells.
+func (p *opaqueParser) xor() (translated, *refusal) {
+	return p.logical(p.and, binaryOp{"", "xor"}, "xor", looseXor)
 }
 
 // and reads `a && b`, in English `a and b`.
@@ -1200,7 +1342,8 @@ func (p *opaqueParser) logical(next func() (translated, *refusal), op binaryOp, 
 	}
 	for {
 		tok := p.peek(true)
-		if !tok.isPunct(op.src) && !(p.d == dialectEnglish && tok.word(word)) {
+		wordOk := (p.d == dialectEnglish || p.kerml) && tok.word(word)
+		if !tok.isPunct(op.src) && !wordOk {
 			return left, nil
 		}
 		p.next(true)
@@ -1525,7 +1668,25 @@ func (p *opaqueParser) name(path []string) (translated, *refusal) {
 		return translated{}, err
 	}
 	p.readAbsent(ref.expr, ref.optional)
+	p.readUnset(ref)
 	return ref.value(), nil
+}
+
+// readUnset records that the body reads ref before assigning it on every path,
+// when it holds no initial value: before any assignment, or after a guarded one.
+func (p *opaqueParser) readUnset(ref opaqueRef) {
+	if !ref.unset || p.assigned[ref.expr] {
+		return
+	}
+	if guards, ok := p.guarded[ref.expr]; ok {
+		if !slices.ContainsFunc(p.unsetIf, func(r unsetRead) bool { return r.name == ref.expr }) {
+			p.unsetIf = append(p.unsetIf, unsetRead{name: ref.expr, when: slices.Clone(guards)})
+		}
+		return
+	}
+	if !slices.Contains(p.unset, ref.expr) {
+		p.unset = append(p.unset, ref.expr)
+	}
 }
 
 // readAbsent records that the statement reads name, when it admits no value.

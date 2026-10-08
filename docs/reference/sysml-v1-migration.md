@@ -6,30 +6,45 @@ The migration is **experimental**. It covers the structural, requirement, constr
 allocation and behavioral content listed under [Mapping](#mapping), reports every element
 it approximates or leaves behind, and refuses input it cannot read; units are not migrated
 yet, and what a v1 element is written as may change between releases
-without a compatibility path. Every run says so: `sysml -convert` prints `note:` to stderr,
-`ConvertResponse` carries `experimental` and `experimental_notice` (the Python client raises
+without a compatibility path. Every run says so: `sysml -migrate` prints `note:` to stderr,
+`MigrateResponse` carries `experimental` and `experimental_notice` (the Python client raises
 an `ExperimentalFeatureWarning`), and the wording lives once, in `export.MigrationNotice`.
 
-`sysml Model.xmi -convert sysml` reads a SysML v1 model as UML XMI — the open OMG interchange
-format every v1 tool exports — and writes it as SysML v2 textual notation. `-convert ttl` writes the same model as
-RDF, through [the RDF mapping](rdf-mapping.md). Every run also produces a **migration report**
-that accounts for every v1 element: what it became, or why it did not.
+A SysML v1 model is **migrated, not converted**. A conversion is lossless — notation written
+back is the same model — and a migration is not: every v1 element lands in the report as
+**mapped** (a faithful v2 form), **approximated** (the nearest v2 form, with the difference
+noted), **unmapped** (no v2 form; left out and reported) or **skipped** (profile, library and
+notation-only content, and elements nothing refers to). So the verb is its own: `sysml
+Model.xmi -migrate sysml` reads a SysML v1 model as UML XMI — the open OMG interchange format
+every v1 tool exports — and writes it as SysML v2 textual notation. `-migrate ttl` writes the
+same model as RDF, through [the RDF mapping](rdf-mapping.md). Every run also produces the
+**migration report** that accounts for every v1 element: what it became, or why it did not.
 
 ```bash
-sysml Model.xmi   -convert sysml -o Model.sysml -migration-report Model.report.txt
-sysml Model.uml   -convert ttl   -o Model.ttl   -migration-report Model.report.json
-sysml Model.mdzip -convert sysml -o Model.sysml
-sysml export.xml  -convert sysml -from xmi
+sysml Model.xmi   -migrate sysml -o Model.sysml -migration-report Model.report.txt
+sysml Model.uml   -migrate ttl   -o Model.ttl   -migration-report Model.report.json
+sysml Model.mdzip -migrate sysml -o Model.sysml
+sysml export.xml  -migrate sysml -from xmi
 ```
 
 The input format is inferred from the `.xmi`, `.uml` and `.mdzip` extensions; any other name
-needs `-from xmi` (`uml` and `mdzip` are accepted as synonyms). XMI is read only — `-convert xmi` is refused,
+needs `-from xmi` (`uml` and `mdzip` are accepted as synonyms). XMI is read only — `-migrate xmi` is refused,
 since v2 has no v1 form — and it is never loaded into the REPL, an `-eval` or a check directly:
-migrate first, then work with the notation.
+migrate first, then work with the notation. `-convert` refuses a v1 model, whether `-from` or the
+extension names it, with the help that says so:
 
-The same conversion is available over gRPC (`Convert` with `from_format: "xmi"`, or a
-`file_path` ending in `.xmi`/`.uml`/`.mdzip`) and so from every client library; the report is not
-returned over the service yet.
+```text
+sysml: Model.mdzip is a SysML v1 model, which is migrated, not converted: every element is mapped, approximated or left unmapped and reported element by element; write `sysml Model.mdzip -migrate sysml -o Model.sysml -migration-report Model.report.txt`
+```
+
+and `-migrate` refuses v2 input the same way, pointing at `-convert`. The companion flags —
+`-migration-report`, `-migration-results`, `-layout`, `-image-base-url` and `-strict` — accompany
+`-migrate`.
+
+The same migration is available over gRPC (`Migrate`, with `from_format: "xmi"`, `"uml"` or
+`"mdzip"`, or a `file_path` ending in `.xmi`/`.uml`/`.mdzip`) and so from every client library,
+the report, the results index, an MTIP layout and the image files with it; `Convert` refuses a v1
+model with the same help. See [wire-contract.md](wire-contract.md#migration-migrate).
 
 ## Input
 
@@ -107,10 +122,16 @@ returned over the service yet.
 
 ## Mapping
 
+OMG's own [SysML v1 to v2 transformation model](https://www.omg.org/spec/SysML/20250201/SysMLv1Tov2.xmi)
+enumerates the official mappings as classes; [the transformation census](../project/sysml-v1-transformation-census.md)
+ties each of its mapping classes to the code that carries it out (or records why it does not).
+
 | SysML v1 | SysML v2 | Verdict |
 |---|---|---|
 | Model, Package | `package` | mapped |
-| «Block», plain Class, Actor | `part def` | mapped (Actor and plain Class: approximated) |
+| «Block» Class | `part def` | mapped |
+| Plain UML Class | `occurrence def` | mapped |
+| Actor | `part def` | approximated |
 | «InterfaceBlock» | `port def` | mapped |
 | «ValueType» DataType, PrimitiveType | `attribute def` (`Real`/`Integer`/`Boolean`/`String` for the SysML primitives) | mapped |
 | Signal | `item def`; properties typed by it are `item` / `ref item` | mapped |
@@ -157,13 +178,13 @@ returned over the service yet.
 | «Satisfy» | `satisfy requirement … by …` in the satisfying usage's owner | mapped |
 | «Verify» from a test case | `verify` in the verification def | mapped |
 | «DeriveReqt» | `connection … :> RequirementDerivation::Derivation` | mapped |
-| «Allocate» | `allocate a to b`, or `allocation name allocate a to b` when named, in the body whose features both ends are: a package's, or a `part def`'s, whose `allocate` reaches its attributes, ports and parts and the actions of its `perform action` (`allocate sampling.measure to probe;`), a nested one by dot notation; between two definitions (a block and an activity, neither a usage) an allocation has no feature to end on, so it is written as `allocation def 'A to B' { end a : A; end b : B; }`, its ends typed by the two | mapped |
-| «Allocate» between a definition and a usage, or with an end no `allocate` reaches — a node of an `action def` (`Ctl::Run::measure`), or of a composite `action` usage of a part, which is a constant feature where the part's `allocate` is a variable one | `dependency a to b` (`dependency name from a to b` when named) in the package, an «Allocate» being an `allocation` in the report | approximated — the note says why no `allocate` could be written |
+| «Allocate» | between different bodies, an `allocation def 'A to B'` whose ends redefine `source` and `target`, typed by the definitions that own the endpoints; a feature endpoint is chained in `allocate source.x to target.y`, and a definition endpoint is just `source` or `target`. When both endpoints are features of one definition body, or both are package features, it stays `allocate a to b` in that body. A feature owned by a package cannot type an allocation end and keeps a noted dependency | mapped, except for an endpoint owned by a package that needs the noted dependency fallback |
+| «Allocate» whose feature endpoint has no enclosing written definition, such as a package-owned feature paired with an endpoint from another body | `dependency a to b`, with a note naming the endpoint the allocation ends cannot type | approximated |
 | «Allocate», or another dependency, whose end is an activity node written only as a placeholder (a call that is not migrated) | the relationship is written to the placeholder; the pair ending there counts as failed when its end is not migrated, so the note gives the final tally of pairs written and names the end | approximated when another pair is written, **unmapped** when none is |
 | «Refine» | `dependency` carrying `@ModelingMetadata::Refinement` | mapped |
 | «Trace», «Copy», other stereotyped dependencies | plain `dependency` with the stereotype as a comment; named relationships keep their name | approximated |
 | A user stereotype specializing a standard one («Org Requirement» :> «Requirement», or one specializing «Block», «ValueType», «Satisfy», «Verify», «Refine», «Trace», «DeriveReqt», «Allocate», …) | the standard stereotype's v2 form above, its tags read as the standard ones (`Id`, `Text`, …), plus a `@Profile::'Org Requirement' { … }` usage holding the user-added tags | as the standard form |
-| Comment, Documentation | `doc` (first) / `comment`, HTML tags stripped | mapped |
+| Comment, Documentation | `doc` (first) / `comment`, HTML tags stripped and the cross-references in it read as plain text ([below](#cross-references-in-documentation)) | mapped (approximated when a reference is dangling or stale) |
 | User profile | `package` holding its stereotypes and the enumerations and value types they use | mapped |
 | User stereotype | `metadata def`, `:>` the defs of the user stereotypes it specializes; tag definitions `attribute name : String|Integer|Real|Boolean|<enum def>` or `ref name` for element-typed ones, with the v1 multiplicity; `base_*` extension ends and the `Extension`s written as nothing | mapped (a general outside the document, or closing a cycle: approximated) |
 | User stereotype application, on an element, property or relationship the document defines the stereotype of | `@Profile::Name { tag = value; }` in the element's body (`@Profile::Name;` without tags); strings, numbers and booleans as literals, enumeration literals by name, element references by the written element's name — a definition cast to its metaclass, `owner = Acme meta SysML::PartDefinition;`, since a type is not a value a feature can hold, and an activity written as its block's action usage likewise, `runs = Ctl::run meta SysML::ActionUsage;` — HTML-bodied text as plain text; a tag the stereotype does not define, or a value not of the tag's type, a comment | mapped (a value kept as a comment: approximated) |
@@ -179,6 +200,7 @@ returned over the service yet.
 | UML Expression, StringExpression (a constraint's specification, a default, a slot value) | the operator tree lowered to a v2 expression: arithmetic (`+ - * / %`, unary minus), comparison, `and`/`or`/`not` — each spelled as its sign or its name in any case (`Plus`, `Equal`, `Not`) — a literal, an enumeration literal or instance the scope can name, a feature reference (a bare symbol, or an ElementValue naming a feature the scope reads under that name), and a call whose symbol is in the [opaque-language subset](#the-opaque-language-subset)'s function table (`max` → `RealFunctions::max`, `Power` → `**`); a JavaScript or Java opaque operand is read through the same subset in its own language | mapped |
 | UML Expression with an operator outside that set (`xor`, string concatenation, a call not in the table, an operand in a language the subset does not read, an ElementValue naming nothing or an element the scope does not read under its name) | comment naming the tree and the construct refused | **unmapped** |
 | UML Interface | `port def` | mapped |
+| InterfaceRealization from a plain class | the `occurrence def` specializes the interface's `port def` | mapped |
 | InterfaceRealization from a block | a `port` of the `part def` typed by the interface's `port def` — reused when the block already owns one so typed, otherwise added under the interface's name; a `part def` cannot specialize a `port def` | approximated |
 | InterfaceRealization from an «InterfaceBlock» | `port def :> <Interface>` | mapped |
 | InterfaceRealization whose interface is not written (outside the document, library content) or whose client becomes neither a part def nor a port def | comment naming why | **unmapped** |
@@ -206,7 +228,7 @@ returned over the service yet.
 | CallBehaviorAction naming no behavior, with pins | a declared stub, `action x { in a : T; out r : U[0..1]; }` — its pins its parameters, typed and bounded as the pins are, in the same successions, forks and joins as a bare step; the flows into and out of them are written; each output pin is declared admitting no value, since nothing computes it; the note says the action computes nothing. A call whose `behavior` reference resolves to nothing in the document is not a stub: it stays a placeholder | approximated (unresolved behavior: **unmapped**) |
 | InputPin / OutputPin of a call, past the called behavior's parameters of its direction | the call keeps the parameters its callee declares, so no parameter is added for the pin, which is dropped with the flows through it; the note names the called behavior and its parameters of that direction. Only a stub naming no behavior declares parameters for its pins, having no parameter list of its own | **unmapped** (the pin and its flows; the call itself stays mapped) |
 | CallBehaviorAction of an fUML or Alf library primitive (`fUML_Library.xmi#…`, `Alf-Library.xmi#…`, any date; or MagicDraw's `fUML-Library.mdzip#…` with the bundled copy or `referentPath` under the library's own root package) | the action with its pins, each result pin valued by the v2 library expression over the arguments, `out result : ScalarValues::String = StringFunctions::'+'(x, y);`; see [the table](#calls-to-the-fuml-and-alf-libraries) | mapped / approximated (the note says where v2 differs) / **unmapped** (no v2 equivalent: the note says which) |
-| CallOperationAction | `perform action x ::> target.op;` when the target pin's value is an object whose type owns the operation, or when `onPort` names a port a connector of the caller's block joins to a part that owns it (a port of the target itself names it); otherwise `action x : Owner::Op;`, which runs in the caller's context | mapped / approximated (unresolved target: the reason names it) |
+| CallOperationAction | `perform action x ::> target.op;` when the target pin's value is an object whose type owns the operation, or when `onPort` names a port a connector of the caller's block joins to a part that owns it (a port of the target itself names it); when a flow feeds the target pin with another object — an activity parameter, a fork, another action's output — `action x : Owner::Op { in ref :>> context = target; in target : Owner[1]; }`, the pin a parameter typed by the class owning the operation and the flow into it written, so the call runs on the object the pin holds; a target created by a `CreateObjectAction`, which is not migrated, leaves that pin empty and the note says so; with no flow into the target pin, `action x : Owner::Op;`, which runs in the caller's context | mapped / approximated (unresolved target: the reason names it) |
 | ControlFlow | `first a then b;`, `if <guard>` when the guard parses and resolves as a v2 expression or translates from JavaScript or English (`i >= Retries`, `GS_Found`, `not Found and i < 3`, `TRUE`) through the [subset](#the-opaque-language-subset); otherwise the guard text as a comment and the edge unguarded, the report naming the token refused | mapped / approximated |
 | «Probability» on the edges out of a decision, a number | `first d then x { @Stochastic::Probability { p = <value>; } }`; constants not summing to 1 are scaled by their sum; a value outside `[0, 1]` leaves the decision unweighted | mapped / approximated |
 | «Probability» naming a property (by name or `xmi:id`) visible from the activity — its own, or one of the block whose classifier behavior it is, inherited included — typed by a numeric value type and holding one value | `p = <property>;`, a reference the run reads from the object performing the action when the decision is reached, checking then that it lies in `[0, 1]` and the branches sum to 1 | mapped |
@@ -218,14 +240,20 @@ returned over the service yet.
 | «SimulationConfig» `durationSimulationMode` that is none of `min`, `max`, `average`, `random` | kept among the tags in the comment | approximated |
 | Result snapshots of a «SimulationConfig» (the instances under its `resultLocation` packages classified — by name or by their slots — by its target's classifiers, recording no other values of the features the target's slots set) | the individuals above, and one row per snapshot in the JSON `-migration-results` writes, its numeric slots by defining feature; a slot holding no one finite number a float64 spells exactly, and a feature two slots hold numbers for, are counted in the configuration's notes | mapped |
 | Generalization of MagicDraw's `MonteCarloAnalysis` (the analysis pattern of the SysML customization module, recognised by the module's provenance — a user's own block of that name is an ordinary block) | the block's `part def` without that general, and beside it `analysis def '<Block> Monte Carlo' :> Simulation::MonteCarlo` with the part def as `subject`, `perform action run ::> <subject>.<its classifier behavior>` and `attribute :>> observed = <subject>.<the value bound to Mean>` (see [Monte Carlo analyses](#monte-carlo-analyses)) | approximated: the block is split into a part def and an analysis def |
-| «BindingConnector» of a value property to `MonteCarloAnalysis::Mean`, `::Deviation`, `::N` or `::OutOfSpec` (the connector's owner inheriting the pattern) | the analysis def's `observed` (from the `Mean` binding) and one `return`/`out` per statistic — `return Mean : Real = mean;`, `out Deviation : Real[0..1] = deviation;`, `out N : Natural = runs;`, `out OutOfSpec : Natural = outOfSpec;` — `Real` for `Mean` and `Deviation`, the bound value's scalar for `N` and `OutOfSpec`; a note says when that is not the value's own type | mapped / approximated |
+| «BindingConnector» of a value property to `MonteCarloAnalysis::Mean`, `::Deviation`, `::N` or `::OutOfSpec` (the connector's owner inheriting the pattern) | the analysis def's `observed` (from the `Mean` binding) and one `return`/`out` per statistic — `return Mean : Real = mean;`, `out Deviation : Real[0..1] = deviation;`, `out N : Natural = runs;`, `out OutOfSpec : Natural = outOfSpec;` — `Real` for `Mean` and `Deviation`, the bound value's scalar for `N` and `OutOfSpec`; a note says when that is not the value's own type; a parametric diagram showing the connector exposes that member and routes the `Mean` binding along `observed` (see [Monte Carlo analyses](#monte-carlo-analyses)) | mapped / approximated |
 | «BindingConnector» to another statistic of `MonteCarloAnalysis`, to a value of no numeric type, one of several binding the same statistic, one whose owner does not inherit the pattern, or to a statistic other than `Mean` where nothing is bound to `Mean` | comment naming the statistic and the reason | **unmapped** |
 | Slots of `MonteCarloAnalysis::N`, `::Mean`, `::Deviation`, `::OutOfSpec` in a result snapshot | `analysis 'Monte Carlo' : '<Block> Monte Carlo' { subject :>> <subject> : '<the snapshot>'; out :>> runs = …; out :>> mean = …; … }` in the snapshot's individual, and the snapshot's `"statistics"` in the sidecar | mapped |
-| ObjectFlow | `flow a.out to b.in;`, or `bind` to a parameter; each producer-pin pair is written once however many edges carry it; a flow from or to an action that is not migrated, or from an output pin a translated opaque body never assigns, is a comment | mapped / approximated |
+| ObjectFlow | `succession flow of T from a.out to b.in;` (T the source pin's type, no `of` when it is untyped), which orders `b` after `a` and delivers the value `a.out` holds when `a` completes; `flow a.out to b.in;` where another edge already orders them or the flow carries its value only, and into a «stream» parameter, which UML streams;, or `bind` to a parameter; each producer-pin pair is written once however many edges carry it; a flow from or to an action that is not migrated, or from an output pin a translated opaque body never assigns, is a comment | mapped / approximated |
+| ObjectFlow with a guard | `first a if g then f; succession flow f of T from a.out to b.in;`, the guarded succession leading to the flow itself (named `'a.out to b.in'` when the v1 flow has no name), so the value moves and `b` is ordered only when `g` holds; into an action entered through a timing stamp or a structured node, `first a if g then` that entry beside a `flow` carrying the value; a guard of literal `true` is no guard, so the flow is an unguarded `succession flow` | mapped |
+| ObjectFlow into or out of a fork, join or merge | the node declares `in ref inputObjectN` for the Nth object flow into it and `out ref outputObjectN` for the Nth out of it — `out ref outputObject1 = inputObject1;` at a fork, `= (inputObject1, inputObject2)` at a join (`nonunique`) or merge — and the flow names the feature, `succession flow of T from a.y to f.inputObject1;`; the runtime holds the value at the node until a token passes it, a fork copying it to every output, a join gathering one of each input, a merge passing on the one that arrived with the token; a node whose flows lead to or from an end no flow may name (a pin of an unmigrated action, a node of a structured activity node the flow enters from outside) keeps them routed from their sources to the pins the node leads to | mapped / approximated |
+| Edge `weight` | not written: every measured weight is UML's default 1, which a succession already means, and the `SysMLv1Library::ActivityEdgeData` metadata the transformation names is not bundled | — |
 | SendSignalAction | `action x send new Sig(args) to <target>;`, `via <port>` when `onPort` is set; the target is read from the target pin's flow: `this`, `context.part` inside a definition or bare `part` inside a usage, where a structural read feeds the pin, else the pin itself (`in target;` bound to what feeds it, an activity parameter or another node's output), which the runtime evaluates to the object it holds | mapped / approximated |
+| SendSignalAction whose argument pin may hold no value — fed by a parameter or pin declared admitting none, or by the output of a call that may produce none — where the signal's attribute is declared `[1]` | the send as written, the argument passed; the note on the send says the pin admits no value the signal's attribute, declared holding one, cannot, and that a run reaching the send with none stops at it with a multiplicity error — where v1 ran on, since UML enforces no slot's multiplicity on a signal instance — so that the stop names the v1 value the migration could not write (the parameter's or pin's own note says which) | approximated |
+| SendObjectAction | `action x { in request[1]; in target[1]; send request to <target>; }`, `via <port>` when `onPort` is set; the target is read from the target pin's flow as a SendSignalAction's is, and the object the request pin holds is sent; with no request pin, nothing is sent and the action stays a placeholder | mapped / approximated (unresolved target or port: the reason names it) / **unmapped** (no request pin) |
+| StartObjectBehaviorAction, StartClassifierBehaviorAction | a placeholder action keeping its pins and its place in the flow: a v2 object's exhibited states and performed actions start when the object does, and no v2 action starts them later | **unmapped** |
 | AcceptEventAction | `action x accept p : Sig;` (signal trigger), `accept after <d> [SI::s]` (relative TimeEvent), `accept when <cond>` (ChangeEvent) | mapped |
 | AcceptEventAction on an absolute TimeEvent (`when` is an instant, not a duration) | `accept at <instant>`, the instant a `Time::TimeInstantValue` attribute of the `action def` when `when` is a number with a time unit or an expression that resolves; otherwise a comment | approximated (the instant is read on the simulation clock, which starts at 0) / **unmapped** |
-| OpaqueAction, ValueSpecificationAction, ReadStructuralFeatureAction, AddStructuralFeatureValueAction | `assign`/`out result = …` when the body parses as a v2 expression whose names resolve, or is a JavaScript body of the [subset](#the-opaque-language-subset): `i = 1; GS_Found = true;` is a sequence of `assign` statements, `i += 1` an assignment of `i + 1`, `var t = 0` a local `attribute`; names resolve against the action's own pins first, then the swimlane's represented object, then the activity, then the owning block; otherwise the body as a comment inside `action x { }` naming the language and the token refused | mapped / approximated |
+| OpaqueAction, ValueSpecificationAction, ReadStructuralFeatureAction, AddStructuralFeatureValueAction | `assign`/`out result = …` when the body parses as a v2 expression whose names resolve, or is a JavaScript body of the [subset](#the-opaque-language-subset): `i = 1; GS_Found = true;` is a sequence of `assign` statements, `i += 1` an assignment of `i + 1`, `var t = 0` a local `attribute`; names resolve against the action's own pins first, then the swimlane's represented object, then the activity, then the owning block; a `ReadStructuralFeatureAction`'s `result` keeps its pin's multiplicity (`out result[0..*] = object.entries;`), so a feature holding none or several is read as it is declared; otherwise the body as a comment inside `action x { }` naming the language and the token refused | mapped / approximated |
 | DurationConstraint on an action | a wait before the action: `accept after lo [SI::s]` when the interval is a point, `accept after RandomFunctions::uniform(lo, hi) [SI::s]` otherwise; `1s`, `0.5 s`, `80ms`, `2 min`, `1 h` and `t = 1 minute 30 seconds` literals are scaled to seconds, and a bare number (`200`, a LiteralInteger, `t = 1500`) is in the simulation toolkit's default unit, the millisecond, with a note; a symbolic bound (`ditSetup s`, `setup * 2 min`) is an expression whose names resolve like an action body's, `accept after context.tcs.ditSetup [SI::s]`, one with no unit scaled from milliseconds, `context.settle * 0.001` | approximated (a tool's min/max/average/random mode is the run's `-draws` policy, which its configuration records) |
 | DurationConstraint whose interval is open on one side (a min with no max, a max of `*`, a max with no min) | comment naming the bound it lacks | **unmapped** — every wait past the bound satisfies the interval, so no one delay stands for it; a MagicDraw document's min beside a max that is a duration with no expression is that tool's encoding of a one-valued `{60s}` and is written as its fixed wait, approximated |
 | DurationConstraint whose bounds name nothing the activity can read | comment | **unmapped** — the note names the unresolved name |
@@ -239,12 +267,12 @@ returned over the service yet.
 | State, composite State, Region | `state`; the regions of an orthogonal state are sub-states of a `parallel` state | mapped |
 | State with `submachine` | `state s : SubMachineDef;` — the referenced state machine's own `state def`, not inlined | mapped |
 | Pseudostate initial, FinalState | `entry; then s;`, `done` | mapped |
-| Pseudostate choice, junction | `junction x;` / `choice x;` — a transient node the guarded transitions leave at once | mapped; under `-strict`, refused as unmapped: `junction <name>;` / `choice <name>;` is an OpenSysML extension |
+| Pseudostate choice, junction | `#StateMachines::junction state x;` / `#StateMachines::choice state x;` — the StateMachines library's metadata spellings, which need the `private import StateMachines::*;` the migration writes into the enclosing package — a transient node the guarded transitions leave at once | mapped |
 | Pseudostate fork, join | `fork x;` / `join x;` — the transitions out of a fork enter the states of several regions of a `parallel` state, those into a join leave them | mapped |
-| Pseudostate shallowHistory, deepHistory | `history x;` / `deep history x;` in the composite state; a transition targeting it re-enters the substate (the innermost substates) active when the state was last left, the history's own outgoing transition being its default | mapped; under `-strict`, refused as unmapped: `history <name>;` / `deep history <name>;` is an OpenSysML extension |
+| Pseudostate shallowHistory, deepHistory | `#StateMachines::shallowHistory state x;` / `#StateMachines::deepHistory state x;` in the composite state; a transition targeting it re-enters the substate (the innermost substates) active when the state was last left, the history's own outgoing transition being its default | mapped |
 | Pseudostate entryPoint, exitPoint on a state machine | a `state` of the submachine's `state def`; a transition into an entry point continues by the entry point's own transition, a transition out of an exit point leaves the submachine state | mapped |
-| Pseudostate entryPoint on a composite State (`State.connectionPoint`) | `junction x;` of the state, a transition into it written `then Work.x` by path; the runtime runs the state's entry behavior, then the junction's outgoing transition, then the target's entries, in one run-to-completion step. One whose outgoing transitions each start a different orthogonal region is `fork x;`; one no transition leaves is the state's default entry, and the transition is written to the state | mapped; under `-strict`, the junction form is refused as unmapped: `junction <name>;` is an OpenSysML extension (the fork and default-entry forms are standard and stay) |
-| Pseudostate exitPoint on a composite State | `junction x;` of the state, a transition out of it written `first Work.x` by path; the runtime runs the transition into it (its source's exits, its effect), the state's exit behavior, then the outgoing transition. One reached from several orthogonal regions is `join x;`, left through when every region's transition has fired. A connection point a tool lists among a region's vertices belongs to the state all the same; a region listing nothing else is skipped, not written as a region of a `parallel` state | mapped; under `-strict`, the junction form is refused as unmapped: `junction <name>;` is an OpenSysML extension (the join form is standard and stays) |
+| Pseudostate entryPoint on a composite State (`State.connectionPoint`) | a `#StateMachines::junction state x;` of the state, a transition into it written `then Work.x` by path; the runtime runs the state's entry behavior, then the junction's outgoing transition, then the target's entries, in one run-to-completion step. One whose outgoing transitions each start a different orthogonal region is `fork x;`; one no transition leaves is the state's default entry, and the transition is written to the state | mapped |
+| Pseudostate exitPoint on a composite State | a `#StateMachines::junction state x;` of the state, a transition out of it written `first Work.x` by path; the runtime runs the transition into it (its source's exits, its effect), the state's exit behavior, then the outgoing transition. One reached from several orthogonal regions is `join x;`, left through when every region's transition has fired. A connection point a tool lists among a region's vertices belongs to the state all the same; a region listing nothing else is skipped, not written as a region of a `parallel` state | mapped |
 | Entry point leading straight to an exit point of the same state, back to the state itself, out of the state, into a history pseudostate or to no target, or whose outgoing transition has a trigger, or several of whose outgoing transitions start the same region; an exit point reached from outside its state, one no transition leaves or whose outgoing transition has a trigger, leads back to the state or into it, into a history pseudostate or to no target, or one several regions reach that is also reached twice from one region, from the state's own local transition, or from a pseudostate; a connection point route into a history pseudostate | refused with the shape named | unmapped |
 | Pseudostate exitPoint on a region, terminate | a transition into it is written to `done` | approximated |
 | ConnectionPointReference on a submachine state | the transition is written to `s.<entryPoint>` / from `s.<exitPoint>`, the submachine's state named by its path | mapped |
@@ -254,22 +282,24 @@ returned over the service yet.
 | `entry`, `doActivity`, `exit` behavior or transition `effect` that is an Activity with no nodes | an empty action: `entry action x;` in a state, `do action x { }` on a transition, whose target follows on the next line | mapped (the note says the action is empty) |
 | `entry`, `doActivity`, `exit` behavior or transition `effect` that is an Activity whose every action node is refused | the action, holding the flow and a comment for each refused node; the behavior runs nothing | approximated (each node: **unmapped**) |
 | `entry`, `doActivity`, `exit` behavior or transition `effect` that is an OpaqueBehavior in a language the mapping cannot write | the action, holding the body as a comment | approximated |
+| `entry` or `exit` behavior or transition `effect` that waits for the clock — an Activity with a duration constraint on itself or on one of its nodes that is written as a wait, an accept of a time event whose time is written, or a call it writes invoking an activity, or an operation whose method is an activity, that has one | the action as written; the note names the wait, since a v2 entry or exit action or transition effect is performed whole at the instant it is triggered and a run stops at the wait with a typed error (the `doActivity` may wait, and is not noted; a constraint or time event left as a placeholder is no wait, and is not noted either, nor is one in a behavior named by a call written as a placeholder or never firing, which invokes nothing) | approximated |
 | Transition `effect` referring to a behavior owned elsewhere | `do action : Def` on the transition, the target following on the next line; the behavior's own `action def` is written once where it is owned | mapped |
 | `entry`, `doActivity`, `exit` behavior or transition `effect` referring to a behavior that is not written, or is written as something no state runs (a StateMachine, for one) | comment in the state's body or before the transition (a `/* */` comment is admitted only where a member may appear, not between the transition's clauses); the state or transition is written without it | approximated (the state or transition: "its … is not run"; a behavior not written: **unmapped**) |
 | Transition `effect` with `in` parameters | the accepted signal is named, `accept sig : Sig`, and each parameter typed by the signal (or a general of it), or the sole untyped one, is bound to it: `in p : Sig = sig;`; a parameter of another type takes no value | mapped (an unbound parameter: approximated) |
-| State `deferrableTrigger` on a SignalEvent | the annotation `@MigrationMetadata::DeferredEvent { ref :>> signal : Sig; }` naming the deferred signal, and the standard encoding described under [Deferred signals](#deferred-signals): an `item` buffer the state's do action fills from an accept loop while the state is active, substates included, which its exit action sends back to the object once the state is left; the same in both modes | approximated |
+| State `deferrableTrigger` on a SignalEvent | the annotation `@MigrationMetadata::DeferredEvent { ref :>> signal : Sig; }` naming the deferred signal, and the standard encoding described under [Deferred signals](#deferred-signals): an `item` buffer the state's do action fills from an accept loop, its accept marked `#MigrationMetadata::DeferredKeeper`, while the state is active, substates included, which its exit action sends back to the object once the state is left; the same in both modes | approximated |
 | State `deferrableTrigger` on a SignalEvent a transition out of the state itself accepts without a guard | the annotation alone by the routes the transition accepts by (all of them when its trigger names no port): in v1 the transition takes precedence over the deferral, so the signal is never kept there; a route the transition does not accept by, such as the object itself when the trigger names one port, keeps its accept loop. A transition on a general of the deferred signal accepts it too, as a v2 `accept` typed by the general does | approximated (the note names the transition) |
 | State `deferrableTrigger` on a SignalEvent a transition out of the state accepts under a guard, or a transition out of a substate accepts, or a transition accepts a specialization of | the standard encoding: the signal is kept while the guard is false or the substate inactive, or when the occurrence is not of the specialization, the transition taking it otherwise | approximated (the note names the transition) |
 | State `deferrableTrigger` on a SignalEvent the same state also defers a general of, or defers again by another trigger | the annotation alone by the routes the other deferral's accept loop accepts by: that loop keeps every occurrence of the signal already, and a loop of its own would keep each occurrence twice, the exit action then sending it twice | approximated (the note names the deferral that keeps it) |
 | State `deferrableTrigger` on a SignalEvent, the state having an unguarded completion transition | the annotation and a comment: the accept loop that would keep the signal never completes, so the completion transition would never fire | **unmapped** |
 | State `deferrableTrigger` on a SignalEvent, the state having an internal transition | the standard encoding; the self transition the internal one becomes exits and re-enters the state, so the exit action sends the kept occurrences to self and the restarted accept loop keeps them again | approximated (the note names the transition) |
 | State `deferrableTrigger` on a SignalEvent, the state having only guarded completion transitions | the standard encoding; the accept loop never completes, so the completion transition never fires and the state leaves by triggered transitions alone | approximated |
-| State `deferrableTrigger` on a SignalEvent a transition out of the state accepts without a guard, the transition leading into a `choice` or `junction` pseudostate, or into a vertex the migration refuses | only a transition the migration writes takes the signal: the default migration writes the pseudostate and the transition, so the transition wins as above; `-strict` refuses both, so the deferral keeps the route | approximated (the note names the transition where it wins) |
+| State `deferrableTrigger` on a SignalEvent a transition out of the state accepts without a guard, the transition leading into a `choice` or `junction` pseudostate, or into a vertex the migration refuses | only a transition the migration writes takes the signal: the migration writes the pseudostate and the transition in both modes, so the transition wins as above; a transition to a refused vertex takes none, so the deferral keeps the route | approximated (the note names the transition where it wins) |
 | Internal transition (`kind = internal`) | a self transition of the state; faithful when the state has no entry, exit or do behavior and no substates (re-entry is not observable), otherwise the exit and entry run where v1 stayed in the state; one without a trigger is a comment, as a self transition would fire again on every re-entry | mapped / approximated / **unmapped** |
 | `deferrableTrigger` on any other event | comment | **unmapped** — no v2 form |
 | State `stateInvariant` | comment in the state's body quoting the constraint; the state is written with a body so the comment has a place | **unmapped** — no v2 form |
 | Initial transition with a trigger or guard | the region's `entry; then s;`; each trigger and the guard are dropped and reported apart from the transition | approximated (the trigger, the guard: unmapped) |
 | SignalEvent, ChangeEvent, relative TimeEvent | written where a trigger refers to them, as `accept Sig`, `accept when <cond>`, `accept after <d> [SI::s]` | mapped / approximated |
+| SignalEvent whose signal no written send action of the document sends (neither it nor a signal specializing it, which the accept takes too; a send left as a placeholder performs nothing and is no sender), and a button of the tool's UI prototype posts (a «SimulationProfile» `SignalInstance` on a «Button» class naming the signal, or a signal specializing it, as its `element`) | the accept as written, on the transition or accept action; the trigger's note says that only the prototype posts the signal, which the migration does not write, so the accept waits for a message nothing in the model posts and a run stops there as a deadlock. A signal nothing at all posts is an ordinary accept, of a message from outside the model in the tool and here alike | approximated |
 | Absolute TimeEvent a trigger refers to | `accept at <instant>` on the transition or accept action, the instant an attribute of the `state def`/`action def` typed `Time::TimeInstantValue` when `when` is a number with a time unit or an expression that resolves, read on the simulation clock, which starts at 0 | approximated (the clock's origin is the run's, not the calendar's) |
 | Event (of any kind) no trigger refers to | — | skipped, counted as a model element nothing refers to |
 | SignalEvent whose signal is not written, TimeEvent whose `when` is not a number with a time unit | comment; the transition that refers to it drops the trigger | **unmapped** — the reason names the signal or the time |
@@ -285,6 +315,10 @@ returned over the service yet.
 | Message binding no argument to a parameter or signal attribute that must hold a value (no default, lower bound above zero), or one whose argument is not written | comment: the whole interaction is refused | **unmapped** — the reason names the parameter or attribute |
 | DurationConstraint on a message, or on the occurrences of two messages of a scenario | a wait before the message's step, `accept after lo [SI::s]` or `accept after RandomFunctions::uniform(lo, hi) [SI::s]` as for an action; between two messages, a wait before the later step when they are adjacent, else `fork`ed after the earlier step and `join`ed before the later one, so the steps between count toward the interval | approximated (a v2 send arrives at once; a tool's duration mode is a run setting) |
 | DurationConstraint between two messages of a scenario whose steps lie in different fragments (one in an `alt` operand, the other outside it) | comment before the later step | **unmapped** — a wait forked in one fragment cannot be joined in another |
+| InteractionUse | `perform action <use> ::> <scenario> { in p = arg; }` at its place among the steps: the referenced interaction's scenario, on the context itself when the interaction is the context's or one it inherits, else on the one object of its block a covered lifeline stands for; each argument bound by name or position to an `in` parameter of the interaction; a message entering an actual gate is carried by the performed scenario's message leaving the formal gate of that name | mapped (approximated when a return value is named, since a scenario binds no return parameter, or a gate message's own arguments differ from the inner message's) |
+| InteractionUse referring to no interaction, to one that is not migrated, or to the interaction itself directly or through others; an argument left unbound for a parameter that must hold a value; a message entering its gate that is not sent just before it, since the performed scenario carries that message where the use stands | comment: the whole interaction is refused | **unmapped** — the reason names the reference or the parameter |
+| StateInvariant in an interaction with messages | `assert constraint <name> { <expr> }` ordered among the steps by succession, `first spin then fast;`, its names read on the covered lifeline's object (`speed` → `drive.motor.speed`) and never on a context feature of the same name, else in the context; the run checks it when the flow reaches it and fails with the violation | mapped |
+| StateInvariant whose condition does not parse or resolve, or is not Boolean, or reads an attribute of the covered lifeline's object that has no v2 declaration | comment; the steps around it are written | **unmapped** — the reason quotes the condition |
 | Interaction with no message | comment naming what it records (state invariants under time constraints: a timing trace); DurationConstraint, TimeConstraint, observation on an interaction | **unmapped** — no scenario step performs it |
 | OpaqueBehavior, FunctionBehavior | `calc def` with its parameters when its one body is a v2 expression whose names resolve or a JavaScript expression of the [subset](#the-opaque-language-subset) (`Math.max(a, b)` → `RealFunctions::max(a, b)`) of the type of its one return or output parameter — a behavior with several has no one result and is written as an `action def`; an `action def` whose body is the translated `assign` sequence when the script is statements; otherwise `action def` keeping the body as a comment and the report naming the token refused | mapped / approximated |
 | Member a behavior owns that its body has no place for: a constraint, attribute, nested classifier, operation or nested behavior of an OpaqueBehavior, FunctionBehavior or Interaction, a port of an Activity or StateMachine | comment; a diagram showing it does not expose it | **unmapped** — the reason names the behavior kind and its body |
@@ -344,7 +378,7 @@ and `umlType` (`Class Diagram`) together — by the first family below a word of
 | Diagram kind | Rendering |
 |---|---|
 | a table or matrix: Generic, Instance and Requirement Tables, Dependency and Allocation Matrices, any kind named `… Table`/`… Matrix` | `Views::asElementTable` |
-| internal block, parametric, composite structure and interconnection diagrams | `Views::asInterconnectionDiagram` |
+| internal block, parametric, composite structure and interconnection diagrams | `Views::asInterconnectionDiagram`; a parametric diagram of a block of the [Monte Carlo pattern](#monte-carlo-analyses) exposes the block's analysis def in place of the pattern's `Mean` symbol and the def's returns in place of its other statistics, the `Mean` binding routed along the def's `observed` |
 | block definition, class, package, object, component, deployment, profile and other structure diagrams | `Views::asTreeDiagram` |
 | an activity diagram whose owner is written as an `action def`, a state machine (or statechart) diagram whose owner is written as a `state def`, showing a node or edge of its graph | `view : StandardViewDefinitions::ActionFlowView` / `StateTransitionView`, rendered `Views::asInterconnectionDiagram` |
 | other behavior diagrams (sequence, use case, an activity diagram of a package or one showing nothing of its activity's graph), requirement, content and free-form diagrams, a tool's own kinds, a diagram naming no kind | `Views::asTextualNotation` |
@@ -375,7 +409,7 @@ otherwise a name spelled from what it is written between, in the body it is writ
 | v1 edge shown by a diagram | named member |
 |---|---|
 | ControlFlow | `succession 'a to b' first a then b;` (`'start to b'` from an initial node, `if g` after the source as before); a decision's `else` branch, which v2 admits no name for, is written `else x;` on the line right after its `decide` (the grammar sequences it from the member before it) and is reported so |
-| ObjectFlow between pins | `flow 'a.out to b.in' from a.out to b.in;`; several edges carrying one producer–pin pair share the one member, named when any of them is shown |
+| ObjectFlow between pins | `succession flow 'a.out to b.in' of T from a.out to b.in;` (or `flow 'a.out to b.in' from a.out to b.in;` as the table above says); several edges carrying one producer–pin pair share the one member, named when any of them is shown |
 | ObjectFlow at a parameter | `binding 'p = a.out' bind p = a.out;` — exposable, but an `ActionFlowView` draws neither the parameter nor the binding, so its route is reported `not drawn` |
 | Transition | `transition 'S accept Sig then T' first S accept Sig then T;` — the trigger, guard and target as written, the payload binding left out of the name; several triggers are several transitions, each named for its own trigger (a v1 name is numbered, `halt`, `halt2`), and the edge's route pins every one of them |
 | Connector | `connection 'a.p to b.q' connect a.p to b.q;` |
@@ -402,7 +436,13 @@ is a `:>` clause or a port's conjugation, a Composition, Aggregation or Associat
 is the `part`/`ref` end usage, a constraint or information flow edge nothing realizes is not
 written, and a decision's `else` branch is a clause of the node it leaves, not a member. Their
 placements on a diagram expose the ends as before; their routes are reported (below), not
-attached to a member that is not an edge. A region's initial transition is the bare entry
+attached to a member that is not an edge. The rendered view still draws them: a tree draws a
+specialization from each exposed element to the general it specializes, and a composition
+(filled diamond, labelled with the end usage's name and multiplicity) or reference (hollow
+diamond) from each to the definition typing a part or `ref` it owns, wherever both ends are
+drawn, so a migrated block definition diagram shows its generalization and association lines
+between the blocks it exposes; the lines are laid out by the drawing, since nothing in the
+model routes them. A region's initial transition is the bare entry
 `entry; then s;` until a diagram draws it; then it is a member of its own, `transition 'start
 then s' first start then s;` (under its v1 name when it has one, else that made-up name), so the
 view can route it from the region's `start` symbol, and its row names the member.
@@ -614,7 +654,8 @@ the class, as a `part def '<Name> Document' :> DocumentQueries::Document` whose 
 the view tree in declaration order, and each view's method is lowered into the section's
 content, so `-render-document` produces the document DocGen would have. A section opens, as
 DocGen prints it, with the view's own documentation as a `Paragraph` — the same comment its
-`view` carries as `doc`, tool HTML reduced to text — before its method's content, unless that
+`view` carries as `doc`, tool HTML lowered to text and [reference runs](#cross-references-in-documentation) —
+before its method's content, unless that
 comment is shown by one of the view's collaborator paragraphs, in which case it is written once, in
 that paragraph's place; a collaborator paragraph that cannot be shown (a malformed application) is
 refused as usual and does not hide the documentation. A view with no «Conform» gets
@@ -672,21 +713,21 @@ section, in the activity's order:
 |---|---|
 | `CollectOwnedElements(depth)`, `CollectOwners(depth)` | `Descendants` / `Ancestors(source, maxDepth = depth)`; `depth` 0 or absent is unbounded |
 | `CollectByDirectedRelationshipStereotypes(stereotypes, directionOut, depth)` | one `RelatedElements(relationshipKind, direction, maxDepth)` per stereotype the kinds above cover, `Union`ed |
-| `CollectByAssociation(associationType, depth)` | the types of the collected classifiers' attributes of that aggregation kind (`composite` when none is named), followed on to `depth`, are known from the source model and named, `Named(qualifiedName = (…))`; a type that is not written is left out with the note, and a chain whose elements are known only when the query runs is refused, since no query operation tells a composite feature from a shared one |
+| `CollectByAssociation(associationType, depth)` | the types of the collected classifiers' attributes of that aggregation kind (`composite` when none is named), followed on to `depth`, are known from the source model and named, `Named(qualifiedName = (…))`; a type that is not written is left out with the note, and a chain whose elements are known only when the query runs — one run from each row of a table by a column — is refused, since no query operation tells a composite feature from a shared one |
 | `CollectThingsOnDiagram` | the elements the collected diagrams show, `Named(qualifiedName = (…))`; a shown element the archive does not describe, that is not written, or that is written inside its owner with no v2 element of its own (a connector end) is left out with the note; a diagram whose content the archive does not record — no stream and no list, or a stream it names but does not hold or holds unreadable, whatever the list names — leaves the whole collection unknown, so the step is refused rather than named from the list and the other diagrams as if complete; a diagram that lists elements and names no stream is read as listed, with the note that the list need not be all it shows |
 | `FilterByMetaclasses`, `FilterByStereotypes` | `WhereType` on the v2 kinds, or `WhereMetadata` for a user stereotype written as a `metadata def`; `include = false` is `Except(source, exclude = …)`; `considerDerived = false` is approximated, since `WhereMetadata` honors specializations; a stereotype with neither a v2 metaclass nor a `metadata def` is refused |
 | `FilterByDiagramType(diagramTypes)` | keeps, among the collected diagrams, those whose diagram type (the tool's presentation type, `SysML Block Definition Diagram`, `SysML Internal Block Diagram`, …) is named, or the others when `include = false`; a diagram whose type the archive does not record leaves the result approximated, since the filter may keep or drop it |
 | `FilterByNames(names)` | one `WhereName(operator = "matches", value = "^(?:<pattern>)$\|^(?:<pattern>)$\|…")` keeping the elements in their order; every pattern must compile as an RE2 regular expression. The filter reads the v1 name, as DocGen does, so where a collected element's v1 and v2 names fall on different sides of the pattern — an anonymous block the write names `unnamed` — the elements it keeps are named, `Named(qualifiedName = (…))`, with the note, since `WhereName` would read the v2 name |
 | `SortByName`, `SortByAttribute(Name / Documentation)` | `OrderBy(property = "name" / "documentation", …)`, `reverse` descending |
 | a fork whose branches rejoin at `Union` | `Union` of the branches' queries; the doubt a step before the fork leaves (a diagram type or content the archive does not record) is carried on by the branches that keep its result and ended by those that name their own targets, so the rejoined step knows what it draws when every branch does; a rejoin by `Intersection` or `XOR` is refused, and `RemoveDuplicates` is implicit in every operation and dropped |
-| `CollectionAndFilterGroup`, `StructuredQuery` | the group's chain, inlined |
-| `TableStructure` with `TableAttributeColumn` (`Name`, `Documentation`), `TablePropertyColumn` (a value property of the rows' definition, or a requirement's `Id`/`Text`), `TableExpressionColumn` naming a bare query property | `part table : Table { attribute redefines caption = …; calc rows : …; }` over `Project(properties, columns = (Column(…)))`, the built-in properties first (a built-in column behind a value property is moved ahead of it with the note) and a value property captioned like a built-in property as `<caption> 2`; a requirement's `Id` is its `shortName` and its `Text` its `documentation`, where the migration writes them; `includeDoc` adds `documentation`; a `MonteCarloAnalysis` statistic column (`N`, `Mean`, `Deviation`, `OutOfSpec`) reads the statistic the row's nested analysis records, as `Column(name = "N", path = "'Monte Carlo'.runs")` and a sort on it as `OrderBy(property = "'Monte Carlo'.runs")`, when an instance the table lists records it — otherwise the column is omitted with the note saying so; a column beyond these — a property of a used project — is omitted with the note saying which, and a table with no writable column is refused. The caption is the table's title (`titles`, between `titlePrefix` and `titleSuffix`), and its `captions` text follows the table as a `Paragraph` unless `showCaptions` is false |
+| `CollectionAndFilterGroup`, `StructuredQuery` | the group's chain, inlined; a `StructuredQuery` with `loop = true` runs its body once per element it holds (as DocGen does, each pass seeing that element alone): the body's tables, lists and figures are written once per element in the elements' order, `calc rows` naming the element, with `createSections` putting each pass in a `Section` titled by its `titles` entry, else the element's name; a loop over no element writes nothing of its body, as DocGen prints nothing, and is ledgered mapped with the step that left it nothing. A collect-and-filter group loops to the same result as its one query, so its loop is inlined as is. A loop whose elements are known only when the queries run (a `CollectThingsOnDiagram` of a diagram the archive does not record, a collect over a used project) is written as the one query over all of them, with the note |
+| `TableStructure` with `TableAttributeColumn` (`Name`, `Documentation`), `TablePropertyColumn` (a value property of the rows' definition, or a requirement's `Id`/`Text`), `TableExpressionColumn` naming a bare query property or written in the OCL subset below | `part table : Table { attribute redefines caption = …; calc rows : …; }` over `Project(properties, columns = (Column(…)))`, the built-in properties first (a built-in column behind a value property is moved ahead of it with the note) and a value property captioned like a built-in property as `<caption> 2`; a requirement's `Id` is its `shortName` and its `Text` its `documentation`, where the migration writes them; `includeDoc` adds `documentation`; a `MonteCarloAnalysis` statistic column (`N`, `Mean`, `Deviation`, `OutOfSpec`) reads the statistic the row's nested analysis records, as `Column(name = "N", path = "'Monte Carlo'.runs")` and a sort on it as `OrderBy(property = "'Monte Carlo'.runs")`, when an instance the table lists records it — otherwise the column is omitted with the note saying so; a column beyond these — a property of a used project — is omitted with the note saying which, and a table with no writable column is refused. A column whose own chain collects before it reads — a `TableAttributeColumn` behind `CollectOwnedElements`, `CollectTypes`, `CollectOwners`, a `FilterByMetaclasses`/`FilterByStereotypes`/`FilterByNames` — is `Column(name = …, cell = { in row : Element; <the chain lowered from row>.<attribute> })`, the same operations the chain would lower to as a query (`Descendants(source = row, …)`, `WhereType`, `RelatedElements(…)`) applied to the row when the query runs, reading `name` or `documentation` of every element they collect; the cell holds every value, comma-joined in a rendered table. A step of the chain with no query spelling, or one that spells its result from the elements known at migration rather than from the row (`CollectByAssociation`, a `FilterByNames` over elements the write renames), refuses the column with the step quoted. A table's `loop = true` changes nothing, as in DocGen, which keeps a table's loop and runs none — a loop runs on a `StructuredQuery` or a `Dynamic View` — so the table lists the elements its chain holds together. The caption is the table's title (`titles`, between `titlePrefix` and `titleSuffix`), and its `captions` text follows the table as a `Paragraph` unless `showCaptions` is false |
 | `BulletedList(orderedList, includeDoc)` | `part list : List { attribute redefines style = "number" / "bullet"; calc items : …; }`; `includeDoc` follows each item's name with its documentation |
-| `Paragraph(body)`; a «CollaboratorParagraph» reading the comment body | `part paragraph : Paragraph { attribute redefines text = "…"; }`, tool HTML reduced to text; a paragraph over the targets' documentation is `calc values : …` over `Project(properties = ("documentation"))`. A collaborator paragraph stands where its `siblingId` (else `parentId`) tag puts it: one naming another paragraph of the view follows that paragraph; one with no tag comes, as Cameo prints it, before the content the method generates; one naming the generated figure of a diagram, `Containment_DiagramMainImage__<id>`, follows the figure or table the section drew for that diagram, or the refusal standing where it would have been. An anchor of that form naming no diagram of the model (Collaborator writes publish-time ids) is placed after the section's only figure when it draws exactly one and no other anchor is as unresolved, the row saying so; otherwise, and for an anchor of another kind (`Containment_<Kind>__…`) or a tag naming nothing, the paragraph follows the generated content and its row names the anchor and why |
+| `Paragraph(body)`; a «CollaboratorParagraph» reading the comment body | `part paragraph : Paragraph { attribute redefines text = "…"; }`, tool HTML reduced to text; one whose HTML cross-references an element the export contains is written as runs instead, `part span : Span { attribute redefines text = "…"; } part 'ref' : Ref { ref redefines target = …; }` ([below](#cross-references-in-documentation)); a paragraph over the targets' documentation is `calc values : …` over `Project(properties = ("documentation"))`. A collaborator paragraph stands where its `siblingId` (else `parentId`) tag puts it: one naming another paragraph of the view follows that paragraph; one with no tag comes, as Cameo prints it, before the content the method generates; one naming the generated figure of a diagram, `Containment_DiagramMainImage__<id>`, follows the figure or table the section drew for that diagram, or the refusal standing where it would have been. An anchor of that form naming no diagram of the model (Collaborator writes publish-time ids) is placed after the section's only figure when it draws exactly one and no other anchor is as unresolved, the row saying so; otherwise, and for an anchor of another kind (`Containment_<Kind>__…`) or a tag naming nothing, the paragraph follows the generated content and its row names the anchor and why |
 | a «CollaboratorImageParagraph» — a comment stereotyped MagicDraw «AttachedFile», or one carrying an `<img>` | `part 'image N' : Image { attribute redefines location = "images/<file>"; attribute redefines caption = "<comment text>"; attribute redefines alt = "<file>"; }`, and the attached bytes are written beside the notation under `images/`, as the base of the file name with the suffix the bytes' content type calls for — `figure.txt` holding PNG bytes is `images/figure.png` (an `http(s)` source names the URL instead and writes no file; the comment body is the caption and an empty one is allowed). The attachment is found in the archive by the `ATTACHED_FILE` extension's stream id, then the `file` tag name or an entry with that base name; an image no archive entry holds keeps its caption as a paragraph, noted, and a captionless one is **unmapped** — the note names the file. A server-relative `src` (a path the View Editor serves) resolves against `-image-base-url`; without it the paragraph keeps its text with the same note saying so. Writing the files requires `-o`; `images/` beside the model is the migration's, so a re-run replaces the files it wrote before as it replaces the model, and a file of another name there is left alone — a run never writes over the model it is writing, the input, or its `-migration-report`/`-migration-results` files |
 | an `Image` step over a diagram that draws nothing, whose note (the diagram's own comment) holds an `<img>` | `part image : Image { attribute redefines location = <resolved src>; attribute redefines caption = <the figure's title>; attribute redefines alt = <img alt>; }` instead of leaving the figure out — approximated, since layout and free symbols drop; a note that says more than the title follows as the caption paragraph; the note's image not in the archive and not resolved against `-image-base-url` leaves the figure out with the same hint |
 | `Image` | one `part diagram : Diagram { attribute redefines caption = "<title>"; ref redefines source = <its view>; }` per diagram the chain collected (see below), captioned by its `titles` entry (else the diagram's name) between `titlePrefix` and `titleSuffix`, its `captions` entry following as a `Paragraph` unless `showCaptions` is false. A diagram that is a Cameo [table, matrix or relation map](#tables-matrices-and-relation-maps) is shown as DocGen shows it, as the table: `part table : Table { attribute redefines caption = "<title>"; calc rows : <its '… Rows' query>; }` over the query its definition already lowered, written once beside the view, never as a `Diagram` of the view rendered `asElementTable` (which a document would draw as a listing of the view's members); the step's row says the diagram is written as a Table over that query, and `-doc-number-figures` counts it among the tables. A table whose definition is refused (no query form) is refused in its place, the reason given, rather than drawn as that listing. A diagram written as a graph view — an activity diagram as an `ActionFlowView`, a state machine diagram as a `StateTransitionView` — is drawn like any other; one whose view renders as textual notation (a sequence diagram, whose Interaction is written as a scenario and not as the occurrence parts a `SequenceView` draws; an activity or state machine diagram whose behavior is not written as a definition) is refused with the reason, since a document draws no text view. A diagram that shows nothing — its tool lists no element and its stream draws nothing, or free symbols only (a diagram of pasted pictures draws them, so its figure is written) — would be an empty figure, so no `Diagram` is written for it: the step is reported mapped (approximated when the archive cannot tell what it shows) with the reason, and its caption stays as a paragraph, as DocGen shows it. An `Image` whose chain holds no diagram is mapped as drawing nothing, the note saying what the chain held instead |
-| `Dynamic View` | a nested `Section` with the called activity's title, lowered the same way; an activity that calls itself is refused, since a recursive section has no static spelling |
+| `Dynamic View` | a nested `Section` with the called activity's title, lowered the same way; with `loop = true`, one such `Section` per element the chain collected, titled by its `titles` entry, else the element's name, each lowered over that element alone; an activity that calls itself is refused, since a recursive section has no static spelling |
 
 The diagrams among the collected elements are no query's rows — a migrated diagram is a view —
 but each step transforms them beside the query so an `Image` shows what the chain kept, as
@@ -712,9 +753,40 @@ collaborator's presentation constraint) spells nothing, and is skipped as notati
 than refused; this is the expression translator's rule for such a tree wherever it stands (see
 [Mapping](#mapping)), not a document rule.
 
-A step with no query spelling — `CollectTypes`, `SortByAttribute(Value)`, `SortByProperty`,
-a `*ByExpression` or
-`TableExpressionColumn` beyond a bare query property (`owner.name`, `allInstances()`, OCL), a
+#### Expression columns
+
+A `TableExpressionColumn` is written as a `Column` computed over the row when its `expression`
+is a bare query property (`name`, `documentation`, `qualifiedName`, `owner`, `id`) or falls in
+the OCL subset the migrator reads: a navigation chain `a.b.c`, `->size()`, `->isEmpty()`,
+`->notEmpty()`, `->select(x | …)`, `->reject(x | …)`, `->collect(x | …)`, `->exists(x | …)`,
+`->forAll(x | …)`, `->asSet()`, `oclAsType(T)` (a cast, written as the kind the
+navigation reaches), `=`, `<>`, `and`, `or`, `not`, string, integer and Boolean literals. Each
+UML metaproperty the chain names is written as the v2 navigation that carries the same relation
+over the migrated model, so the cell is computed when the query runs, never pinned at migration
+time:
+
+| OCL over the row | written |
+| --- | --- |
+| `_typedElementOfType` | `RelatedElements(source = row, relationshipKind = "typing", direction = "incoming", maxDepth = 1)` — the features typed by the row |
+| `end` (a connector's) | `row.connectorEnd` |
+| `end.role`, `end.appliedStereotypeInstance.slot->select(… 'propertyPath' …).value…element` | the end's `chainingFeature`s — the connect expression's feature chain — its last the role and the others the nested path |
+| `end.role.type`, `type` of a part or port | `.type` |
+| `end.role.type` member `direction` (a flow property's) | `.type.member->select {in f; f.direction->notEmpty()}.direction` |
+| `name`, `documentation`, `owner`, `qualifiedName` | the same query property |
+| `->size()`, `->select`, `->exists`, … | `->SequenceFunctions::size()`, `->ControlFunctions::select {in x : <kind>; …}`, `->ControlFunctions::exists {…}`, …; `->asSet()` is `->DocumentQueries::Distinct()` |
+
+A `->select(…).name` over the parts a connector end passes through is written as the names
+collected: a cell holds every value, comma-joined where a table renders it, as DocGen prints a
+collection one value per line. The row's kind is written as the `in row : …` parameter from the
+chain's result kind (a `KerML::Kernel::Connector` for connectors, `KerML::Core::Type` for types,
+`KerML::Root::Element` when the kind is open), and a navigation the kind cannot carry refuses the
+column with the expression quoted. An expression outside the subset — `->iterate`, `->sortedBy`,
+`allInstances()`, arithmetic, a `let`, a metaproperty the migration does not write — is refused
+with the expression quoted, as before.
+
+A step with no query spelling — `SortByAttribute(Value)`, `SortByProperty`,
+a `*ByExpression`, a
+`TableExpressionColumn` beyond the subset above, a
 `CollectFilterUserScript`, a user script — is refused with the offending construct quoted,
 and so is every presentation step downstream of it, while the section and its independent
 siblings are still written. A malformed document — a view whose `Conform` names no viewpoint,
@@ -769,6 +841,54 @@ qualified name; naming one of them to `-render-document` by the short name alone
 with the qualified name of every candidate. A document that cannot be rendered does not stop the
 set: the others are written, a page stating the error stands in for it, and the run lists each
 such document and exits `3`.
+
+#### Cross-references in documentation
+
+MagicDraw and Cameo store an element's documentation as HTML, and two things in it refer to
+other elements: a hyperlink to a model element, `<a href="mdel://<xmi:id>">text</a>` (the
+text is what the element was called when the link was made, kept current by the tool), and a
+View Editor cross-reference, `<mms-cf mms-element-id="<id>" mms-cf-type="name|val|com">[cf:…]</mms-cf>`,
+whose body is the text the editor last cached for it. The editor's links to a view —
+`<mms-view-link data-mms-element-id="<id>">`, and a hyperlink to its own page for the view,
+whose URL names the view by `viewId=<id>` or `/views/<id>` — are hyperlinks to the view. All
+are resolved through the export —
+the id is the element's `xmi:id`, a diagram's included — before the HTML is reduced, so the
+prose reads as the tool printed it rather than as its markup:
+
+- In a document paragraph (a view's documentation, a `Paragraph` step, a collaborator paragraph),
+  each resolved reference is a `Ref` run between `Span` runs of the prose around it, in order.
+  Its target is the block of the same document standing for the element — the `Section` of a view,
+  the `Diagram`/`Image` of a diagram, the `Table` of a table — so the renderers label it `Section
+  N.N - Title`, `Figure N` or `Table N` and link it, as they do a native reference; a view or
+  diagram shown elsewhere is referenced as its own `view` and any other element by name, each
+  through its metadata (`E.metadata`, the form that names any element as a value), which
+  renders as the element's current name (in HTML with its qualified name on the link). A
+  hyperlink takes the label of the block it links, as Cameo's DocGen printed it; a `name`
+  cross-reference keeps the target's name as its text, linked to the block. `val` reads
+  the value of the slot or property, as the text of its literal at migration time; `com`
+  the target's own documentation (a comment's own body, when it names one), as text — the last two are approximated with a note saying so,
+  since the paragraph does not follow the value afterwards, and a `val` of a property holding no
+  value, or a `com` of an undocumented element, prints nothing. A `val` or `com` that reaches
+  back to the text being written — a value whose literal cites itself, two comments citing each
+  other's documentation — ends there, printing nothing for the turn back, noted. A reference to a
+  diagram no view is written for, and one the prose runs into with no space between
+  (`<a …>Mount</a>'s`, which the spaces joining a paragraph's runs would split), are written as
+  the target's name in the prose, noted on the paragraph. A paragraph with no resolved
+  reference is written as before, its `text` attribute.
+- Everywhere else — a `doc` comment, a requirement's `Text`, a stereotype tag, a note on a
+  diagram — a reference reads as the target's current name (`val` and `com` as above), as
+  Cameo prints it. A hyperlink whose text is not the target's current name is written with the
+  current name and the comment's row notes the text it carried.
+- A reference to an element the export does not contain — a View Editor table or figure that
+  was never in the model, a slot of a deleted instance, a link to a deleted element — is
+  dangling: an `<mms-cf>` prints nothing in a paragraph, as Cameo did, and its cached text with
+  the `[cf:…]` wrapper removed in plain text (the name it last had), while a hyperlink keeps its
+  text in both; each is noted on the comment's row (`names an element the export does not
+  contain: <id>`), which is approximated, so the ledger and not the prose carries the loss. No
+  `[cf:…]` is ever printed.
+- The spaces the dropped markup leaves (`the  Post  Segment-Exchange  Alignment  and/or`) are
+  collapsed in the same pass; the line breaks `</p>` and `<br>` stand for are kept. A body
+  with no markup is text as written, its spacing and tabs included.
 
 The mapping has been run over the XMI of the [OpenMBEE TMT SysML model](https://github.com/Open-MBEE/TMT-SysML-Model)
 (27 MB; 44,600 elements once the nodes and edges of its behaviors are counted): it writes 7 MB
@@ -831,7 +951,7 @@ two things:
   Requirement' { Rationale = "…"; }` in the same body, so nothing is written twice and nothing
   is lost. Diamonds and multiple generals all apply; a cycle is walked once. A same-named
   stereotype with no standard general («Requirement» in `Legacy`) means nothing standard: the
-  class is a `part def` with a `@Legacy::Requirement { Text = "…"; }` usage.
+  class is an `occurrence def` with a `@Legacy::Requirement { Text = "…"; }` usage.
 - **What a metadata def specializes.** A user stereotype specializing another user stereotype
   in the document writes `metadata def B :> A`; one with no user general writes no `:>`, since
   every `metadata def` specializes `Metadata::MetadataItem` implicitly; a standard general is
@@ -848,7 +968,9 @@ integer, real or boolean literal, an enumeration literal by name, an element ref
 shortest name resolving where the usage sits — and a value that does not fit (an unknown
 literal, a reference to an element not written, a tag the stereotype does not define) is kept as
 a comment inside the usage, approximating the element with the reason. Rich text a tool stores
-as `<html><body>…</body></html>` becomes plain text, as a requirement's `Text` does.
+as `<html><body>…</body></html>` becomes plain text, as a requirement's `Text` does, its
+cross-references read as the names of their targets
+([Cross-references in documentation](#cross-references-in-documentation)).
 
 One tool stereotype is read as a type, not kept as a comment: MagicDraw's «typeModifier» on a
 property or parameter, whose tag spells a C-style shape after the type. `[]` on a feature
@@ -905,9 +1027,12 @@ library root.
 **Activities.** The nodes are written first, then the edges. A node's name is its v1 name when
 it has one, else its kind (`call`, `decide`, `fork`, …) made unique within the activity. A
 call action is `action call : Def;`, so the callee's flow runs as a nested performance; its pins
-are `bind`/`flow` statements from the object flows that reach them. A node several edges leave
-without a fork is written through one (`fork fork2;`), and a node several edges reach without
-a join waits through one, both reported as approximations. An opaque action whose body is a
+are `bind`/`flow` statements from the object flows that reach them. An object flow between two
+actions is a `succession flow`: the target waits for every succession flow that reaches it, and
+each succession flow leaving a node starts its target beside the node's other successions, as
+after a fork. A node several control flows leave without a fork is written through one
+(`fork fork2;`), and a node several control flows reach without a join waits through one, both
+reported as approximations. An opaque action whose body is a
 script is read statement by statement through the [opaque-language subset](#the-opaque-language-subset):
 `i = 1; GS_Found = false;` becomes two `assign` statements, `i += 1` an
 `assign context.tcs.i := context.tcs.i + 1;`, and the body is kept as a comment naming its language
@@ -1102,7 +1227,8 @@ itself is reported as routing data only. A control node no edge leaves ends the 
 `done` does — through the stamp or wait a DurationObservation or DurationConstraint places on it, as a
 flow final does — and one no edge reaches is skipped as a node nothing refers to. An action whose
 input is fed by an object flow from an action outside its control path waits for the value as
-well as for the control flow — a `join` of the two — but only when the producer runs on every
+well as for the control flow — the flow is a `succession flow` beside the control flow's
+succession — but only when the producer runs on every
 pass of the surrounding loop; a producer a later pass can skip, through a decision or a guarded
 edge, is not waited on, since the wait would starve the consumer where v1 would go on with the
 value the last pass left.
@@ -1207,13 +1333,17 @@ innermost common ancestor and names the far end by its dotted path —
 the compound transition v1 meant, exiting and entering the enclosing states along the way; a
 local transition from a composite state into its own substate has no v2 form that stays inside
 the state, so it is written external and reported as running the exit and entry behaviors. The
-pseudostates are written as the v2 nodes of the same name: `junction`/`choice` for the guarded
-chains, `fork`/`join` to enter and leave the regions of an orthogonal state, `history`/`deep
-history` to re-enter what was active when the state was last left. An entry or exit point of a
+pseudostates are written as their StateMachines metadata spellings: `#StateMachines::junction
+state`/`#StateMachines::choice state` for the guarded chains, `fork`/`join` to enter and leave
+the regions of an orthogonal state, `#StateMachines::shallowHistory
+state`/`#StateMachines::deepHistory state` to re-enter what was active when the state was last
+left — qualified by the package name so a member named `junction` or `choice` cannot shadow
+the metadata, and `private import StateMachines::*;` is added to each package that holds one.
+An entry or exit point of a
 state machine is a `state` of its `state def` whose own transition continues into the machine,
 and a submachine state's connection point references address them by path,
 `then Cell.warmStart;` / `first Cell.spent then Idle;`. An entry or exit point of a composite
-state (UML `State.connectionPoint`) is a `junction` of that state — its transient node, so a
+state (UML `State.connectionPoint`) is a `#StateMachines::junction state` of that state — its transient node, so a
 transition in from outside, `then Work.start;`, runs the state's entry behavior, then the
 junction's own transition and the target's entries in the same step, and a transition out,
 `first Work.leave then Idle;`, runs the inner transition's exits and effect, the state's exit
@@ -1272,7 +1402,10 @@ earlier step and joined before the later — the steps between count toward the 
 the bound is drawn once at the earlier step. Two steps in different fragments cannot share a
 fork and join, so such a constraint is reported instead.
 Create and delete messages are comments where the step would go, since a part exists for as
-long as its owner does; the steps around them are written. An interaction with no message is
+long as its owner does; the steps around them are written. An interaction use performs the referenced scenario where it
+stands, `perform action warm ::> 'spin Up' { in rpm[1] = 30.0; }`, and a state invariant is
+an `assert constraint` the scenario orders among its steps, so the run checks it at the point
+the diagram places it. An interaction with no message is
 not a scenario: the report names what it records (state invariants under time constraints are
 a timing trace). An interaction that is a `TestCase` is a `verification def` whose subject is
 the block, the steps addressing the parts through it.
@@ -1533,6 +1666,9 @@ Expression Language`, `ECMAScript for XML`, `JSON`:
 | Script | v2 |
 |---|---|
 | `x = e;` `x += e;` `-=` `*=` `/=` `x++` `x--` | `assign x := e;` `assign x := x + e;` … |
+| `x = e;` in a JavaScript body, `x` a name nothing declares — no pin, parameter, property, local or member of any scope the body sees | `attribute x : ScalarValues::T;` `assign x := e;` with `T` the type of `e`, as the tool's script engine creates a variable on assignment to an undeclared name; reported as an approximation naming `x`. A name some scope does declare but the body may not read — a private property, a feature reached through a swimlane whose object is plural — stays refused, as does a name read before its assignment, and every such name in a Java body, which declares its variables |
+| a read, in a script body, of a property declaring no default, before the body assigns it | the read as written; reported as an approximation naming the property: in v2 the property holds no value until assigned, so a run reaching the read first stops, where the tool's script engine reads null and its arithmetic takes 0. A body that assigns the property first, a property declaring a default, and one declared admitting no value (read under a guard, see above) are not reported |
+| a read, in a script body, of a property declaring no default, after the body assigns it only under guards — from names admitting no value, so each assignment is made only when the name it reads holds one | the read as written; reported as an approximation naming the property and every guard made before the read: a run in which none of those names holds one reaches the read unset and stops, where the tool's script engine reads null. An unguarded assignment before the read settles the property on every path, and the read is not reported | approximated |
 | `var x = e;` `let x = e;` `const x = e;` (one name, initialized) | `attribute x : ScalarValues::T;` `assign x := e;` with `T` the type of `e`; a later assignment to a `const` is refused, as is a declaration of a name already declared, of a pin, parameter or property visible where the body lands, or of a member every action has (`start`, `done`, `self`) |
 | several statements, on `;` or newlines | a sequence of the above |
 | integer, real, Boolean and string literals | the same literal; a whole number is refused beyond what an `Integer` holds (2⁶³ − 1), and in a JavaScript body beyond 2⁵³ − 1, since the script would round it to a `Number` (a Java body's `long` is exact); a string's `\n` `\t` `\r` `\b` `\f` `\\` `\'` `\"` `\xHH` `\uHHHH` `\u{H…}` escapes and line continuations are decoded, a high and low surrogate escape pair as the one character they spell, while a legacy octal escape or a character the notation cannot spell (`\0`, `\v`, other control characters, a lone surrogate) is refused |
@@ -1560,7 +1696,7 @@ that is not expression syntax, a construct outside the subset (`for`, `while`, `
 assignment to a `const`, to an `in` parameter or to an input pin, a string method, a regular expression, an expression that assigns nothing, text
 after the one expression a guard or default is), a call not in the table (`the call "log" is not in the
 translated function table`), a name that resolves to nothing readable (`context.` where the activity carries no such parameter
-no object, a property of no v2 type, a name no scope defines), or types that disagree (an
+no object, a property of no v2 type, a name no scope defines and no JavaScript assignment creates), or types that disagree (an
 `Integer` guard, a `Boolean` added to a `Real`, a plural where a scalar is wanted, a feature
 typed by an enumeration or a block where a number or Boolean is wanted, assigned to a feature
 of a type that neither is nor generalizes its own, or compared with or chosen beside one sharing
@@ -1638,6 +1774,9 @@ action def 'Group 0' {
   `silent` and every setting with no v2 meaning; `autostartActiveObjects` and
   `treatAllClassifiersAsActive` set to true state what every v2 object does anyway, so they are
   consumed, and set to false they are kept in the comment and reported as having no v2 form.
+  `UI` names the tool's UI prototype frames (a «UI_Prototyping_Profile» `Frame`), through which
+  a user of the tool's run posts signals and reads values: it is kept in the comment by its
+  frames' titles and reported as an approximation, since a run here takes no input from it.
 - The tool's own results — the snapshots it stored of the configuration's runs under its
   `resultLocation` packages, one instance per run whose slots hold the observed values, most
   naming no classifier — are migrated as individuals of the most special block their slots'
@@ -1646,7 +1785,7 @@ action def 'Group 0' {
   unrelated blocks, is unmapped with the reason), and indexed per configuration — a snapshot
   classified by the target's classifier, a general or a special of it, not one classified by a
   sibling special sharing only a general with it, which is of a run on another kind — in the JSON sidecar
-  `-convert sysml … -migration-results results.json` writes beside the notation:
+  `-migrate sysml … -migration-results results.json` writes beside the notation:
 
   ```json
   {"source": "model.xmi", "configurations": [
@@ -1761,6 +1900,39 @@ rebind (a general's `Deviation` beside its own `N`, say). A snapshot's four stat
 become a recorded `analysis` of that def in the snapshot's individual, with the snapshot as its
 subject and the statistics as its outputs.
 
+The block's parametric diagram shows the pattern as a symbol per statistic it binds (`Mean`,
+`Deviation`, …), the value's symbol and the binding lines between them. Its view, hosted in
+the part def and rendered `Views::asInterconnectionDiagram`, is written from the elements
+above rather than from a constraint and binding the model does not have: it exposes the
+analysis def in place of the `Mean` symbol, positioned by a `DiagramLayout::Layout` where that
+symbol was, and the def's `return`/`out` statistic in place of a `Deviation`, `N` or `OutOfSpec`
+symbol; the analysed value is exposed as the ordinary value property it is. The rendering draws
+the analysis def as one box with its subject, statistics and `observed` as pins on its border
+— the graphical notation's parameters of a case, not boxes inside it — so the def keeps the
+symbol's size. The `Mean` binding is the def's `observed`, whose value `analysed.t` binds it to
+the analysed value, so the rendering draws it as a binding edge from the `observed` pin to the
+value's node, steered by a `DiagramLayout::Route` along the symbol's line; the report counts
+that connector as routed. A `Deviation`, `N` or `OutOfSpec` binding is a return bound to a
+statistic of the library case (`= deviation`), which the rendering draws no edge for, so the
+report counts its route as not drawn, and the statistic's symbol as positioned, though the pin
+sits on the def's border rather than at the Layout written for it. In general an interconnection
+rendering draws every exposed analysis def as such a node and every drawn feature — node or
+pin — whose value names another drawn feature as a binding between them.
+
+```sysml
+part def 'Timer Analysis' :> Timer {
+    view 'Timer Parametrics' {
+        expose 'Timer Analysis Monte Carlo'::observed;
+        expose Timer::t;
+        expose 'Timer Analysis Monte Carlo';
+        metadata DiagramLayout::Layout about 'Timer Analysis Monte Carlo' { x = 70; y = 56; width = 81; height = 26; }
+        metadata DiagramLayout::Layout about Timer::t { x = 35; y = 98; width = 156; height = 26; }
+        metadata DiagramLayout::Route about 'Timer Analysis Monte Carlo'::observed { points = (105, 82, 105, 98); }
+        render Views::asInterconnectionDiagram;
+    }
+}
+```
+
 `sysml out.sysml -analysis "'Timer Analysis Monte Carlo' <object>" -runs 100 -seed 7` then
 runs the case: each run on a fresh subject seeded from the seed and the run number, its
 observation tabled, and the case concluded once over the sample — `runs`, `mean`,
@@ -1808,17 +1980,15 @@ without a model — is refused with an error naming the reason rather than migra
 
 A migration under `-strict` writes only notation a pinned SysML v2 production admits, so the
 output analyses clean under [strict conformance](../guide/03-command-line.md#strict-conformance)
-and carries nothing an interchange partner could not read: a construct whose only v2 form is an
-OpenSysML extension — a `choice`, `junction`, `shallowHistory` or `deepHistory` pseudostate,
-or an entry or exit point of a composite state that would be written as a junction — is
-refused and reported **unmapped** with the note `… is an OpenSysML extension with no SysML v2
-production, which a strict migration does not write`, and a transition to or from it is refused
-rather than written to an undeclared name. A `deferrableTrigger` is written in standard
-notation in both modes (next section); `-strict` changes only which transitions count as
-accepting the deferred signal, since a transition it refuses takes none. The standard forms
-stay: `fork`, `join`, an entry point's default entry and a machine's connection points are
-written as before. The default migration writes the pseudostate extensions, which the runtime
-executes and the validator reports as a warning.
+and carries nothing an interchange partner could not read. The `choice`, `junction`,
+`shallowHistory` and `deepHistory` pseudostates are written
+`#StateMachines::<kind> state x;` — qualified so a member named like the metadata cannot
+shadow it — with `private import StateMachines::*;` added to each package holding one,
+under `-strict` the same as by default, and a `deferrableTrigger` is written in the
+standard notation described under [Deferred signals](#deferred-signals) in both modes,
+its deferred signal named by the `@MigrationMetadata::DeferredEvent` annotation. What a
+strict migration still refuses is whatever has no standard v2 form at all; a transition to
+or from an unmapped vertex is refused rather than written to an undeclared name.
 
 To check strict output against the pinned pilot implementation, validate it together with the
 whole OpenSysML library directory, `.kerml` files included (`RandomFunctions`, which migrated
@@ -1838,7 +2008,7 @@ state Off {
     item deferred : Door[*] ordered;
     do action buffer {
         first start then receive;
-        action receive accept kept : Door;
+        #MigrationMetadata::DeferredKeeper action receive accept kept : Door;
         then action keep { assign deferred := SequenceFunctions::including(deferred, receive.kept); }
         then receive;
     }
@@ -1905,3 +2075,18 @@ so).
 The `@MigrationMetadata::DeferredEvent` annotation is written for every signal the state
 declares deferrable, kept or not, so a consumer sees what the state deferred without reading
 the encoding; `MigrationMetadata` is a bundled OpenSysML library the migrated document imports.
+
+The accept of each keeping loop is written
+`#MigrationMetadata::DeferredKeeper action receive accept kept : Sig;`. The annotation marks
+it as the accept that keeps the signal for the state rather than consuming it: the runtime
+lets any other accept of the signal the state's own do behavior is parked at take an
+occurrence first, and the loop keeps only what nothing else of the state takes. The keeper is
+known by the annotation's resolved type alone, never by where the accept stands, so an accept
+of the deferred signal written without it — at any level of the do action — is an ordinary
+accept. Output migrated before the marker existed wrote the loop's accept bare, so the checker
+reports an unmarked accept of a deferred signal at the root of a `DeferredEvent` state's do
+action, where no accept of that signal is marked, with the `deferred-keeper-unmarked` warning ([diagnostics](diagnostics.md#deferred-keeper-unmarked)):
+the model still analyses and runs, the accept consuming each occurrence rather than keeping it;
+re-migrate it, or write the marker on the accept. Both annotations are written through
+`$::MigrationMetadata` where a package of the
+model shadows the library's name.

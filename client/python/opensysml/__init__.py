@@ -25,6 +25,11 @@ from opensysml.typefacts import (
 from opensysml.capabilities import (
     CAPABILITY_CONSTRAINT_BODY_AUTHORING,
     CAPABILITY_STATE_ACTION_AUTHORING,
+    CAPABILITY_BIG_INT_VALUES,
+    CAPABILITY_RATIONAL_VALUES,
+    CAPABILITY_CONVERT_DOCUMENTS,
+    CAPABILITY_CONVERT_COMPACT,
+    CAPABILITY_PARSE_SOURCES_AFFECTED,
     MissingCapabilityError,
     ServerInfo,
 )
@@ -44,18 +49,19 @@ from opensysml.query import QueryElement, QueryError
 from opensysml.sources import SourceDocument
 from opensysml.document import (
     DocumentEvent, DocumentQueryError, DocumentQueryResult, DocumentRow, DocumentState,
-    DocumentVerdict, ElementRef, INFINITY, ObjectRef,
+    DocumentVerdict, ElementRef, Graphs, INFINITY, ObjectRef, RenderCanvas, RenderEdge,
+    RenderGeometry, RenderNode, RenderNote, RenderPoint, RenderPort, RenderRow,
+    RenderSpan, RenderStyle, RenderedView,
 )
 from opensysml.conversion import (
     FORMAT_API_JSON, FORMAT_SYSML, FORMAT_TURTLE, Conversion,
-    ExperimentalFeatureWarning,
-    format_of_path, is_experimental,
+    ExperimentalFeatureWarning, Migration, MigrationEntry, MigrationReport,
+    format_of_path, is_experimental, is_v1,
 )
 from opensysml.edit import AppliedEdit, Body, EditedDocument, EditResult, Editor
-from opensysml.metamodel import read_json
 from opensysml.errors import (
     OpenSysMLError, AnalysisRunError, ChecksumMismatchError, ConnectionError, ConversionError,
-    EditError, EditResultError, EditTargetError, ExecutionError,
+    EditError, EditResultError, EditTargetError, ExecutionError, MigrationError,
     FeatureValueError, InvalidEditError, NoEditsError, OverlappingEditsError,
     RenameReferencedError,
     OwnerNotFoundError, OwnerNotNamespaceError, IllegalMemberKindError,
@@ -64,9 +70,11 @@ from opensysml.errors import (
     InstanceTypeError, InvalidRequestError, ManifestSignatureError, ModelError,
     ModelFileNotFoundError, ModelNotFoundError, ServiceError,
     ServiceTimeoutError, SigstoreUnavailableError, StaleServiceError, SymbolNotFoundError,
+    ViewNotFoundError,
     TypeMismatchError, UnpinnedReleaseError, UnsignedReleaseError,
     UnsupportedOperationError, UnsupportedValueError, WrongKindError,
 )
+from opensysml.metamodel import read_json
 
 __all__ = [
     "Connection", "Model", "Symbol", "Diagnostic", "EnumLiteral", "Instance",
@@ -79,6 +87,7 @@ __all__ = [
     "Conversion", "FORMAT_API_JSON", "FORMAT_SYSML", "FORMAT_TURTLE",
     "format_of_path",
     "ExperimentalFeatureWarning", "is_experimental",
+    "Migration", "MigrationEntry", "MigrationReport", "is_v1",
     "Editor", "Body", "EditResult", "AppliedEdit", "EditedDocument", "Referrer",
     "Verdict", "CalcResult", "AnalysisResult", "CaseEvaluation", "SweepRow", "SweepTable",
     "Validation", "VerificationVerdict",
@@ -88,8 +97,11 @@ __all__ = [
     "SourceDocument",
     "DocumentEvent", "DocumentQueryError", "DocumentQueryResult", "DocumentRow",
     "DocumentState", "DocumentVerdict", "ElementRef", "INFINITY", "ObjectRef",
+    "RenderCanvas", "RenderEdge", "RenderGeometry", "RenderNode", "RenderNote",
+    "RenderPoint", "RenderPort", "RenderRow", "RenderSpan", "RenderStyle", "RenderedView",
+    "Graphs",
     "OpenSysMLError", "AnalysisRunError", "ChecksumMismatchError", "ConnectionError",
-    "ConversionError", "ExecutionError", "FeatureValueError",
+    "ConversionError", "ExecutionError", "FeatureValueError", "MigrationError",
     "EditError", "NoEditsError", "EditTargetError", "InvalidEditError",
     "RenameReferencedError", "OverlappingEditsError", "EditResultError",
     "OwnerNotFoundError", "OwnerNotNamespaceError", "IllegalMemberKindError",
@@ -98,13 +110,16 @@ __all__ = [
     "InstanceTypeError", "InvalidRequestError", "ManifestSignatureError",
     "MissingCapabilityError",
     "CAPABILITY_CONSTRAINT_BODY_AUTHORING", "CAPABILITY_STATE_ACTION_AUTHORING",
+    "CAPABILITY_BIG_INT_VALUES", "CAPABILITY_RATIONAL_VALUES", "CAPABILITY_CONVERT_DOCUMENTS",
+    "CAPABILITY_CONVERT_COMPACT", "CAPABILITY_PARSE_SOURCES_AFFECTED",
     "ModelError", "ModelFileNotFoundError", "ModelNotFoundError",
     "ServiceError", "ServiceTimeoutError", "SigstoreUnavailableError", "StaleServiceError",
     "SymbolNotFoundError",
+    "ViewNotFoundError",
     "TypeMismatchError", "UnpinnedReleaseError", "UnsignedReleaseError",
     "UnsupportedOperationError", "UnsupportedValueError",
     "WrongKindError",
-    "load", "loads", "parse_sources", "connect", "convert", "read_json",
+    "load", "loads", "parse_sources", "connect", "convert", "migrate", "read_json",
     # "eval" is deprecated in favour of "evaluate", so it is not exported.
     "evaluate", "instantiate",
     "DEFAULT_PORT", "split_target",
@@ -211,7 +226,7 @@ def parse_sources(documents, host='localhost', port=None, strict=False,
 
 def load(file_path, host='localhost', port=None, strict=False,
          strict_conformance=False):
-    """Load a SysML model from file using the default connection.
+    """Load a SysML model from a .sysml, .kerml, or API element-form .json file.
     
     Convenience function that uses a module-level singleton connection.
     
@@ -292,9 +307,10 @@ def convert(to_format, file_path=None, content=None, model_hash=None,
         model_hash (str, optional): Hash of a loaded model, whose parsed source
             is converted
         from_format (str, optional): Format to read the source as, one of the
-            to_format names or 'xmi', 'uml' or 'mdzip' for a SysML v1 model to
-            migrate; inferred from file_path's extension when omitted, notation
-            for a model_hash, and required for inline content
+            to_format names; inferred from file_path's extension when omitted,
+            notation for a model_hash, and required for inline content. A
+            SysML v1 model ('xmi', 'uml', 'mdzip') is refused: it is migrated
+            by :func:`migrate`, not converted
         tolerate_syntax_errors (bool): Write notation back out even when the
             parser could not read all of it
         host (str): Service hostname, or a ``host:port`` address
@@ -305,9 +321,7 @@ def convert(to_format, file_path=None, content=None, model_hash=None,
 
     Warns:
         ExperimentalFeatureWarning: If either format is RDF, whose mapping is
-            experimental (see ``docs/reference/rdf-mapping.md``), or the source
-            is SysML v1, whose migration is experimental too (see
-            ``docs/reference/sysml-v1-migration.md``)
+            experimental (see ``docs/reference/rdf-mapping.md``)
 
     Example:
         >>> import opensysml
@@ -323,6 +337,62 @@ def convert(to_format, file_path=None, content=None, model_hash=None,
         model_hash=model_hash,
         from_format=from_format,
         tolerate_syntax_errors=tolerate_syntax_errors,
+    )
+
+
+def migrate(to_format, file_path=None, content=None, from_format='', report=False,
+            results=False, layout_path=None, layout_content=None, image_base_url='',
+            strict=False, host='localhost', port=None):
+    """Migrate a SysML v1 model to SysML v2 (module-level convenience).
+
+    Migration is ledgered, not lossless: every element comes back in the
+    result's ``report`` as mapped, approximated, unmapped or skipped. This is
+    what ``sysml Model.mdzip -migrate sysml -migration-report Model.report.txt``
+    does.
+
+    Args:
+        to_format (str): 'sysml', 'kerml', 'text', 'ttl', 'turtle', 'rdf',
+            'api-json' or 'json'
+        file_path (str, optional): Path the service reads the v1 model from
+        content (bytes, optional): The v1 model carried inline, as bytes
+        from_format (str, optional): 'xmi', 'uml' or 'mdzip'; inferred from
+            file_path's extension when omitted, required for inline content
+        report (bool): Ask for every element's verdict and the report text
+        results (bool): Ask for the JSON index of the v1 tool's stored results
+        layout_path (str, optional): MTIP export to lay the migrated views out from
+        layout_content (str, optional): The MTIP export carried inline
+        image_base_url (str): URL the model refers to its image files under
+        strict (bool): Write only standard notation, as ``-strict``
+        host (str): Service hostname, or a ``host:port`` address
+        port (int, optional): Service port (default: 50051)
+
+    Returns:
+        Migration: The migrated model and its report; ``str()`` of it is the text
+
+    Warns:
+        ExperimentalFeatureWarning: Always; the migration is experimental (see
+            ``docs/reference/sysml-v1-migration.md``)
+
+    Example:
+        >>> import opensysml
+        >>> migrated = opensysml.migrate("sysml", file_path="Vehicle.mdzip", report=True)
+        >>> migrated.report.summary
+        'migrated 93 element(s): 78 mapped, 12 approximated, 3 unmapped (...)'
+        >>> migrated.write("Vehicle.sysml")
+        'Vehicle.sysml'
+    """
+    conn = _get_default_connection(host, port)
+    return conn.migrate(
+        to_format,
+        file_path=file_path,
+        content=content,
+        from_format=from_format,
+        report=report,
+        results=results,
+        layout_path=layout_path,
+        layout_content=layout_content,
+        image_base_url=image_base_url,
+        strict=strict,
     )
 
 

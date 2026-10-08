@@ -5,6 +5,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
+	"strings"
 )
 
 // ValueKind classifies one scalar query value.
@@ -23,14 +24,19 @@ const (
 	ValueState ValueKind = "state"
 	// ValueEvent is one record of a session's trace, carried as a row whose
 	// declaration is the behavior that made it.
-	ValueEvent    ValueKind = "event"
-	ValueString   ValueKind = "string"
-	ValueInteger  ValueKind = "integer"
-	ValueReal     ValueKind = "real"
+	ValueEvent   ValueKind = "event"
+	ValueString  ValueKind = "string"
+	ValueInteger ValueKind = "integer"
+	ValueReal    ValueKind = "real"
+	// ValueRational is an exact non-integer Rational, `1/3` or `0.1`.
+	ValueRational ValueKind = "rational"
 	ValueBoolean  ValueKind = "boolean"
 	ValueInfinity ValueKind = "infinity"
 	// ValueQuantity is a magnitude in a measurement unit, `2290000 [kg]`.
 	ValueQuantity ValueKind = "quantity"
+	// ValueConnectorEnd is one end of a connector usage, reached by navigating
+	// its Connector::connectorEnd: it names the features its attachment walks.
+	ValueConnectorEnd ValueKind = "connectorEnd"
 )
 
 // Value is one immutable scalar carried through query execution.
@@ -42,7 +48,7 @@ type Value struct {
 	state    *State
 	event    *Event
 	text     string
-	integer  int64
+	integer  semantics.Value
 	real     float64
 	boolean  bool
 	quantity *semantics.Quantity
@@ -64,6 +70,12 @@ func ObjectValue(inst *runtime.Instance, label string) Value {
 	return value
 }
 
+// ConnectorEndValue constructs the value of end position of connector, labelled
+// by the attachment it names (`bench.ccd.usb`), with the connector as provenance.
+func ConnectorEndValue(connector *symbols.Symbol, position int, label string) Value {
+	return Value{kind: ValueConnectorEnd, element: connector, integer: semantics.IntValue(int64(position)), text: label, origin: connector.Origin()}
+}
+
 // StringValue constructs a string value.
 func StringValue(value string) Value {
 	return Value{kind: ValueString, text: value}
@@ -71,7 +83,18 @@ func StringValue(value string) Value {
 
 // IntegerValue constructs an integer value.
 func IntegerValue(value int64) Value {
+	return Value{kind: ValueInteger, integer: semantics.IntValue(value)}
+}
+
+// IntegerOf constructs the integer value of the Integer constant value, which
+// may lie beyond int64.
+func IntegerOf(value semantics.Value) Value {
 	return Value{kind: ValueInteger, integer: value}
+}
+
+// RationalOf constructs the value of the exact Rational constant value.
+func RationalOf(value semantics.Value) Value {
+	return Value{kind: ValueRational, integer: value}
 }
 
 // RealValue constructs a real value.
@@ -96,7 +119,9 @@ func QuantityValue(quantity semantics.Quantity) Value {
 func constantValue(constant semantics.Value) (Value, bool) {
 	switch constant.Kind {
 	case semantics.ValInt:
-		return IntegerValue(constant.Int), true
+		return IntegerOf(constant), true
+	case semantics.ValRational:
+		return RationalOf(constant), true
 	case semantics.ValReal:
 		return RealValue(constant.Real), true
 	case semantics.ValBool:
@@ -119,6 +144,22 @@ func (v Value) Kind() ValueKind { return v.kind }
 // Element returns the value's element and whether it is an element value.
 func (v Value) Element() (*symbols.Symbol, bool) {
 	return v.element, v.kind == ValueElement && v.element != nil
+}
+
+// ConnectorEnd returns the connector and end position a connector-end value
+// stands for, and whether it is one.
+func (v Value) ConnectorEnd() (*symbols.Symbol, int, bool) {
+	position, _ := v.integer.Int64()
+	return v.element, int(position), v.kind == ValueConnectorEnd && v.element != nil
+}
+
+// Label is the text a connector-end value is labelled by: the attachment it
+// names, as written on the connector.
+func (v Value) Label() string {
+	if v.kind != ValueConnectorEnd {
+		return ""
+	}
+	return v.text
 }
 
 // Declaration returns the element a value is declared by: an element itself, the
@@ -160,8 +201,27 @@ func (v Value) Object() (*runtime.Instance, string, bool) {
 // String returns the value's string and whether it is a string value.
 func (v Value) String() (string, bool) { return v.text, v.kind == ValueString }
 
-// Integer returns the value's integer and whether it is an integer value.
-func (v Value) Integer() (int64, bool) { return v.integer, v.kind == ValueInteger }
+// Integer returns the value's integer and whether it is an integer value
+// within int64; IntegerConst reads any integer value.
+func (v Value) Integer() (int64, bool) {
+	if v.kind != ValueInteger {
+		return 0, false
+	}
+	return v.integer.Int64()
+}
+
+// IntegerConst returns the value's Integer, of any size, and whether it is an
+// integer value.
+func (v Value) IntegerConst() (semantics.Value, bool) { return v.integer, v.kind == ValueInteger }
+
+// RationalText spells an exact Rational as a document spells a number: a terminating
+// one in decimal, as strconv's shortest 'g' form spells a Real, else `numer/denom`.
+func RationalText(value semantics.Value) string {
+	return strings.TrimSuffix(value.FormatRational(), ".0")
+}
+
+// Rational returns the value's exact Rational and whether it is a rational value.
+func (v Value) Rational() (semantics.Value, bool) { return v.integer, v.kind == ValueRational }
 
 // Real returns the value's real and whether it is a real value.
 func (v Value) Real() (float64, bool) { return v.real, v.kind == ValueReal }

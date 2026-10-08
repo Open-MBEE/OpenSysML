@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"slices"
 	"sync"
@@ -29,11 +30,12 @@ func ExploreWith(stop context.Context, policy SchedulePolicy, jobs int, fresh fu
 // queued, for min(jobs, runs) jobs.
 func newExploreQueue(policy SchedulePolicy, budget ExploreBudget, jobs int) *exploreQueue {
 	q := &exploreQueue{
-		policy:  policy,
-		budget:  budget,
-		jobs:    max(min(jobs, budget.Runs), 1),
-		result:  &Exploration{Budget: budget},
-		reached: make(map[string]int),
+		policy:        policy,
+		budget:        budget,
+		jobs:          max(min(jobs, budget.Runs), 1),
+		result:        &Exploration{Budget: budget},
+		reached:       make(map[string]int),
+		probabilities: &probabilityNode{children: make(map[int]*probabilityNode)},
 	}
 	q.wake = sync.NewCond(&q.mu)
 	q.insert([]*explorePrefix{{}})
@@ -60,6 +62,9 @@ func (q *exploreQueue) explore(stop context.Context, fresh func(job int) (*Conte
 	}
 	if q.depthHit {
 		q.result.BudgetsHit = append(q.result.BudgetsHit, "depth")
+	}
+	if q.result.Weighted() {
+		setOutcomeProbabilities(q.probabilities, q.result.Outcomes)
 	}
 	sortOutcomes(q.result.Outcomes)
 	return q.result, nil
@@ -107,10 +112,11 @@ type exploreQueue struct {
 	beyond    bool             // a prefix was discovered past the runs cut
 	done      bool             // every prefix within the cut is folded, or the exploration failed
 
-	result   *Exploration
-	reached  map[string]int
-	depthHit bool
-	err      error
+	result        *Exploration
+	reached       map[string]int
+	probabilities *probabilityNode
+	depthHit      bool
+	err           error
 }
 
 // work is one job: it runs prefixes as the queue hands them out until the queue is over.
@@ -122,13 +128,18 @@ func (q *exploreQueue) work(stop context.Context, job int, fresh func(int) (*Con
 		}
 		ctx, err := fresh(job)
 		if err != nil {
-			q.finish(p, nil, Outcome{}, err)
+			q.finish(p, nil, Outcome{}, &SetupError{Err: err})
 			continue
 		}
 		replay := &exploreRun{prefix: p.prefix, depth: q.budget.Depth}
 		ctx.beginExploration(q.policy, replay)
 		outcome, runErr := run(ctx)
 		if runErr != nil {
+			var setup *SetupError
+			if errors.As(runErr, &setup) {
+				q.finish(p, nil, Outcome{}, runErr)
+				continue
+			}
 			outcome = Outcome{Err: runErr, ctx: ctx}
 		}
 		q.finish(p, replay, outcome, nil)
@@ -294,18 +305,25 @@ func (q *exploreQueue) fold() {
 			return
 		}
 		q.depthHit = q.depthHit || p.replay.depthHit
+		if errors.Is(p.outcome.Err, ErrStatementOrderSweepLimit) &&
+			!slices.Contains(q.result.BudgetsHit, BoundStatementOrders) {
+			q.result.BudgetsHit = append(q.result.BudgetsHit, BoundStatementOrders)
+		}
+		q.result.Scope = scopeWith(q.result.Scope, p.outcome.Scope)
 		if i, seen := q.reached[p.identity]; !seen {
 			q.reached[p.identity] = len(q.result.Outcomes)
 			q.result.Outcomes = append(q.result.Outcomes, ExploredOutcome{
 				Outcome:        p.outcome,
 				Linearizations: 1,
-				Probability:    p.replay.probability(),
 				Witness:        p.replay.choices(),
 				WitnessRun:     q.frontier,
 			})
+			q.recordProbabilityPath(p.replay, len(q.result.Outcomes)-1, !p.replay.duplicate)
 		} else if !p.replay.duplicate {
 			q.result.Outcomes[i].Linearizations++
-			q.result.Outcomes[i].Probability += p.replay.probability()
+			q.recordProbabilityPath(p.replay, i, true)
+		} else {
+			q.recordProbabilityPath(p.replay, i, false)
 		}
 		p.release()
 	}

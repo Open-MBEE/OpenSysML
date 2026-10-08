@@ -141,14 +141,14 @@ func QuantityBinary(op ast.OperatorKind, left, right Quantity) (Quantity, error)
 	}
 	switch op {
 	case ast.OpAdd, ast.OpSub:
-		return AddQuantities(op, left, right)
+		return AddQuantities(op, left, right, DefaultMaxIntegerBits)
 	case ast.OpMul, ast.OpDiv:
-		return ScaleQuantities(op, left, right)
+		return ScaleQuantities(op, left, right, DefaultMaxIntegerBits)
 	case ast.OpPow:
 		if !right.Unit.None() {
 			return Quantity{}, ErrQuantityOperand
 		}
-		return PowQuantity(left, right.Num)
+		return PowQuantity(left, right.Num, DefaultMaxIntegerBits)
 	case ast.OpEq, ast.OpNeq:
 		equal, err := EqualQuantities(op, left, right)
 		if err != nil {
@@ -166,17 +166,14 @@ func QuantityBinary(op ast.OperatorKind, left, right Quantity) (Quantity, error)
 }
 
 // AddQuantities is a sum or difference in the left operand's unit; Integer
-// magnitudes in one unit stay Integer, a conversion makes a Real.
-func AddQuantities(op ast.OperatorKind, left, right Quantity) (Quantity, error) {
-	converted, err := right.ConvertTo(left.Unit)
+// magnitudes in one unit stay Integer, an exact magnitude converts between
+// exact scales exactly, and any other conversion makes a Real.
+func AddQuantities(op ast.OperatorKind, left, right Quantity, maxBits int64) (Quantity, error) {
+	rhs, err := convertedMagnitude(right, left.Unit, maxBits)
 	if err != nil {
 		return Quantity{}, err
 	}
-	rhs := Value{Kind: ValReal, Real: converted}
-	if right.Num.Kind == ValInt && left.Unit.Term.Scale == right.Unit.Term.Scale {
-		rhs = right.Num
-	}
-	num, err := MagnitudeArith(op, left.Num, rhs)
+	num, err := MagnitudeArith(op, left.Num, rhs, maxBits)
 	if err != nil {
 		return Quantity{}, err
 	}
@@ -184,23 +181,53 @@ func AddQuantities(op ast.OperatorKind, left, right Quantity) (Quantity, error) 
 }
 
 // ConvertQuantity expresses a quantity in a commensurable unit, keeping an
-// integral magnitude where the two units share one scale: `3 [km]` in `m` is `3000.0 [m]`.
+// integral magnitude where the two units share one scale, and an exact one
+// exact between exact scales: `3 [km]` in `m` is the Rational `3000.0 [m]`.
 func ConvertQuantity(q Quantity, unit Unit) (Quantity, error) {
-	converted, err := q.ConvertTo(unit)
+	num, err := convertedMagnitude(q, unit, DefaultMaxIntegerBits)
 	if err != nil {
 		return Quantity{}, err
-	}
-	num := Value{Kind: ValReal, Real: converted}
-	if q.Num.Kind == ValInt && q.Unit.Term.Scale == unit.Term.Scale {
-		num = q.Num
 	}
 	return InUnit(num, unit)
 }
 
+// convertedMagnitude is q's magnitude expressed in unit: unchanged in the same
+// scale, exact for an exact magnitude between exact scales, else a Real.
+func convertedMagnitude(q Quantity, unit Unit, maxBits int64) (Value, error) {
+	converted, err := q.ConvertTo(unit)
+	if err != nil {
+		return Value{}, err
+	}
+	if q.Num.IsExact() {
+		if q.Unit.Term.Scale == unit.Term.Scale {
+			return q.Num, nil
+		}
+		if num, ok, err := ExactConversion(q.Num, q.Unit.Term.Scale, unit.Term.Scale, maxBits); ok || err != nil {
+			return num, err
+		}
+	}
+	return Value{Kind: ValReal, Real: converted}, nil
+}
+
+// ExactConversion is the exact magnitude given over the scale from expressed
+// over the scale to, a Rational; ok=false when either scale is not exact.
+func ExactConversion(magnitude Value, from, to Scale, maxBits int64) (Value, bool, error) {
+	f, fok := from.Exact()
+	t, tok := to.Exact()
+	if !fok || !tok || !magnitude.IsExact() {
+		return Value{}, false, nil
+	}
+	num, err := RatArith(ast.OpMul, magnitude, RatValue(f.Quo(f, t)), maxBits)
+	if err != nil {
+		return Value{}, false, err
+	}
+	return num, true, nil
+}
+
 // ScaleQuantities is a product or quotient whose unit is the product or
 // quotient of the operands' units: `10 [m] / 2 [s]` is `5.0 [m/s]`.
-func ScaleQuantities(op ast.OperatorKind, left, right Quantity) (Quantity, error) {
-	num, err := MagnitudeArith(op, left.Num, right.Num)
+func ScaleQuantities(op ast.OperatorKind, left, right Quantity, maxBits int64) (Quantity, error) {
+	num, err := MagnitudeArith(op, left.Num, right.Num, maxBits)
 	if err != nil {
 		return Quantity{}, err
 	}
@@ -211,11 +238,11 @@ func ScaleQuantities(op ast.OperatorKind, left, right Quantity) (Quantity, error
 }
 
 // PowQuantity raises a quantity to a constant exponent, its unit included.
-func PowQuantity(base Quantity, exponent Value) (Quantity, error) {
+func PowQuantity(base Quantity, exponent Value, maxBits int64) (Quantity, error) {
 	if !exponent.IsNumeric() {
 		return Quantity{}, fmt.Errorf("%w: exponent of a quantity is not a number", ErrQuantityOperand)
 	}
-	num, err := Pow(base.Num, exponent)
+	num, err := Pow(base.Num, exponent, maxBits)
 	if err != nil {
 		return Quantity{}, err
 	}
@@ -224,9 +251,6 @@ func PowQuantity(base Quantity, exponent Value) (Quantity, error) {
 
 // NegateQuantity negates a magnitude, keeping its unit and kind.
 func NegateQuantity(q Quantity) (Quantity, error) {
-	if q.Num.Kind == ValInt && q.Num.Int == math.MinInt64 {
-		return Quantity{}, fmt.Errorf("%w: -(%d) exceeds the Integer range", ErrArithmeticOverflow, q.Num.Int)
-	}
 	num, ok := EvalUnary(ast.OpNeg, q.Num)
 	if !ok {
 		return Quantity{}, ErrQuantityOperand
@@ -261,24 +285,20 @@ func CompareMagnitudes(left, right Quantity) (int, error) {
 // exactMagnitudes expresses two commensurable Integer magnitudes over their base
 // units as rationals, which is exact only while the scale ratios are whole.
 func exactMagnitudes(left, right Quantity) (*big.Rat, *big.Rat, bool) {
-	if left.Num.Kind != ValInt || right.Num.Kind != ValInt || !left.Unit.Term.Commensurable(right.Unit.Term) {
+	if !left.Num.IsExact() || !right.Num.IsExact() || !left.Unit.Term.Commensurable(right.Unit.Term) {
 		return nil, nil, false
 	}
-	l, lok := exactMagnitude(left.Num.Int, left.Unit.Term.Scale)
-	r, rok := exactMagnitude(right.Num.Int, right.Unit.Term.Scale)
+	l, lok := exactMagnitude(left.Num, left.Unit.Term.Scale)
+	r, rok := exactMagnitude(right.Num, right.Unit.Term.Scale)
 	return l, r, lok && rok
 }
 
-func exactMagnitude(magnitude int64, scale Scale) (*big.Rat, bool) {
-	if scale.IsZero() || !isWhole(scale.Num) || !isWhole(scale.Den) {
+func exactMagnitude(magnitude Value, scale Scale) (*big.Rat, bool) {
+	s, ok := scale.Exact()
+	if !ok {
 		return nil, false
 	}
-	num, den := new(big.Rat).SetFloat64(scale.Num), new(big.Rat).SetFloat64(scale.Den)
-	if num == nil || den == nil {
-		return nil, false
-	}
-	m := new(big.Rat).SetInt64(magnitude)
-	return m.Mul(m, num.Quo(num, den)), true
+	return s.Mul(s, magnitude.Rat()), true
 }
 
 // adoptZeroUnit gives a zero naming no unit the unit of the other operand.
@@ -359,8 +379,13 @@ func InUnit(num Value, unit Unit) (Quantity, error) {
 // keeping its kind unless a scale factor is left to apply.
 func dimensionlessQuantity(num Value, term UnitTerm) (Quantity, error) {
 	if term.Scale != UnitScale(1) {
-		var err error
-		if num, err = RealResult(ConvertMagnitude(num.AsReal(), term.Scale, UnitScale(1))); err != nil {
+		exact, ok, err := ExactConversion(num, term.Scale, UnitScale(1), DefaultMaxIntegerBits)
+		if err != nil {
+			return Quantity{}, err
+		}
+		if ok {
+			num = exact
+		} else if num, err = RealResult(ConvertMagnitude(num.AsReal(), term.Scale, UnitScale(1))); err != nil {
 			return Quantity{}, err
 		}
 	}
@@ -368,21 +393,13 @@ func dimensionlessQuantity(num Value, term UnitTerm) (Quantity, error) {
 }
 
 // MagnitudeArith combines two magnitudes as the bare operator does: Integer
-// operands keep an Integer result except under `/`.
-func MagnitudeArith(op ast.OperatorKind, left, right Value) (Value, error) {
-	if left.Kind == ValInt && right.Kind == ValInt {
-		if op == ast.OpDiv {
-			q, ok := IntQuotient(left.Int, right.Int)
-			if !ok {
-				return Value{}, ErrDivisionByZero
-			}
-			return Value{Kind: ValReal, Real: q}, nil
-		}
-		res, ok := IntArith(op, left.Int, right.Int)
-		if !ok {
-			return Value{}, IntegerOverflow(op, left.Int, right.Int)
-		}
-		return Value{Kind: ValInt, Int: res}, nil
+// operands keep an Integer result except under `/`, within maxBits.
+func MagnitudeArith(op ast.OperatorKind, left, right Value, maxBits int64) (Value, error) {
+	if left.Kind == ValInt && right.Kind == ValInt && op != ast.OpDiv {
+		return IntArith(op, left, right, maxBits)
+	}
+	if left.IsExact() && right.IsExact() {
+		return RatArith(op, left, right, maxBits)
 	}
 	res, ok := RealArith(op, left.AsReal(), right.AsReal())
 	if !ok {
@@ -391,13 +408,18 @@ func MagnitudeArith(op ast.OperatorKind, left, right Value) (Value, error) {
 	return RealResult(res)
 }
 
-// IntegerOverflow reports an Integer operation whose result leaves the range.
-func IntegerOverflow(op ast.OperatorKind, left, right int64) error {
-	return fmt.Errorf("%w: %d %s %d exceeds the Integer range", ErrArithmeticOverflow, left, op.String(), right)
-}
-
 // RealResult wraps a computed Real, reporting a NaN or an infinity instead of
 // carrying it.
+// RealOf is the exact number v held as a Real: its nearest binary64, refused
+// where that is not finite or rounds a nonzero v to zero.
+func RealOf(v Value) (Value, error) {
+	x := v.AsReal()
+	if x == 0 && v.Kind == ValRational && v.RatSign() != 0 {
+		return Value{}, fmt.Errorf("%w: a nonzero Rational below the least Real", ErrArithmeticOverflow)
+	}
+	return RealResult(x)
+}
+
 func RealResult(x float64) (Value, error) {
 	switch {
 	case math.IsNaN(x):

@@ -38,6 +38,9 @@ const (
 	TraceChoice
 	// TraceGuard is a guard the run read to report a choice and could not evaluate.
 	TraceGuard
+	// TraceTerminate is a state machine's performance ending without exiting its states:
+	// a terminate action, or the end of the occurrence performing it.
+	TraceTerminate
 )
 
 // String names the kind as a query reads it.
@@ -61,6 +64,8 @@ func (k TraceKind) String() string {
 		return "choice"
 	case TraceGuard:
 		return "guard"
+	case TraceTerminate:
+		return "terminate"
 	}
 	return fmt.Sprintf("TraceKind(%d)", int(k))
 }
@@ -81,10 +86,17 @@ type TraceRecord struct {
 	// State is the state entered, exited or stepped; From and To are a fired
 	// transition's endpoints.
 	State, From, To string
+	// Path qualifies a state by its written enclosing states; Region qualifies
+	// the innermost orthogonal region, and is empty outside every region.
+	Path, Region string
+	// Source is where the state an entry or exit names was declared; zero when unknown.
+	Source symbols.Origin
 	// Event is the trigger a transition fired on, or the signal or operation an
 	// accept or send carries; Payload is the message's payload.
 	Event   string
 	Payload map[string]Value
+	// Message is the Serial of the message a send posted or an accept took; 0 for none.
+	Message uint64
 	// Target is the object a send was addressed to, nil for a broadcast or a
 	// destination named only as text (kept in To).
 	Target *Instance
@@ -124,6 +136,8 @@ func (r TraceRecord) Line() (line string, printed bool) {
 		return fmt.Sprintf("do: %s", r.State), true
 	case TraceChoice, TraceGuard:
 		return r.Note.String(), true
+	case TraceTerminate:
+		return r.text, true
 	}
 	return "", false
 }
@@ -135,6 +149,40 @@ func (r TraceRecord) Text() string {
 		return line
 	}
 	return r.Kind.String() + " " + r.Event
+}
+
+// Machine names the behavior a record came from as its object exhibits it, or
+// as declared when it is anonymous or the record has no object.
+func (r TraceRecord) Machine() string {
+	behavior := r.Origin.Behavior
+	if behavior == nil {
+		return ""
+	}
+	if r.Origin.Object != nil {
+		for _, b := range r.Origin.Object.Behaviors() {
+			if b.Symbol == behavior || (b.State != nil && b.State.StateMachineSymbol() == behavior) {
+				if b.Name != "" {
+					return b.Name
+				}
+				break
+			}
+		}
+	}
+	return behavior.Name
+}
+
+// PayloadTexts renders a message payload as `name = value` entries in name order.
+func (r TraceRecord) PayloadTexts() []string {
+	names := make([]string, 0, len(r.Payload))
+	for name := range r.Payload {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	out := make([]string, 0, len(names))
+	for _, name := range names {
+		out = append(out, name+" = "+FormatValue(r.Payload[name]))
+	}
+	return out
 }
 
 // TraceRecorder keeps a run's trace as typed records, in the order they were
@@ -266,11 +314,11 @@ func (tr *TraceRecorder) Mark() int {
 
 // RecordAcceptAt records an accept as RecordAccept does, placed at mark: before
 // the records the dispatch of the event made. A mark already printed stays printed.
-func (tr *TraceRecorder) RecordAcceptAt(mark int, origin TraceOrigin, event string, payload map[string]Value) {
+func (tr *TraceRecorder) RecordAcceptAt(mark int, origin TraceOrigin, serial uint64, event string, payload map[string]Value) {
 	if !tr.enabled {
 		return
 	}
-	record := TraceRecord{Kind: TraceAccept, Origin: origin, Event: event, Payload: payload}
+	record := TraceRecord{Kind: TraceAccept, Origin: origin, Event: event, Message: serial, Payload: payload}
 	mark = min(max(mark-tr.dropped, 0), len(tr.records))
 	tr.records = append(tr.records, TraceRecord{})
 	copy(tr.records[mark+1:], tr.records[mark:])
@@ -288,8 +336,8 @@ func (tr *TraceRecorder) RecordStateTransition(origin TraceOrigin, fromState, to
 
 // RecordAccept records an event a behavior took off its queue: the signal or
 // operation it names, with the payload it carries.
-func (tr *TraceRecorder) RecordAccept(origin TraceOrigin, event string, payload map[string]Value) {
-	tr.add(TraceRecord{Kind: TraceAccept, Origin: origin, Event: event, Payload: payload})
+func (tr *TraceRecorder) RecordAccept(origin TraceOrigin, serial uint64, event string, payload map[string]Value) {
+	tr.add(TraceRecord{Kind: TraceAccept, Origin: origin, Event: event, Message: serial, Payload: payload})
 }
 
 // RecordSend records a message posted onto the bus by the object at origin, or
@@ -299,37 +347,57 @@ func (tr *TraceRecorder) RecordSend(origin TraceOrigin, msg Message, target *Ins
 	if msg.EventName != "" {
 		event = msg.EventName
 	}
-	tr.add(TraceRecord{Kind: TraceSend, Origin: origin, Event: event, To: msg.Target, Target: target, Payload: msg.Payload})
+	tr.add(TraceRecord{Kind: TraceSend, Origin: origin, Event: event, Message: msg.Serial, To: msg.Target, Target: target, Payload: msg.Payload})
 }
 
-// RecordStateTerminate records the machine's performance ending at the terminate
-// action stop, with the states whose do behaviors it abandoned.
-func (tr *TraceRecorder) RecordStateTerminate(stop string, abandoned []string) {
+// RecordStateTerminate records a state machine's performance ending without exiting its
+// states: a terminate action, or the end of the occurrence performing it.
+func (tr *TraceRecorder) RecordStateTerminate(origin TraceOrigin, stop string, abandoned []string) {
+	text := fmt.Sprintf("terminate: %s", stop)
 	if len(abandoned) == 0 {
-		tr.line(fmt.Sprintf("terminate: %s", stop))
-		return
+		tr.add(TraceRecord{Kind: TraceTerminate, Origin: origin, text: text})
+	} else {
+		text += fmt.Sprintf(" (do behavior abandoned: %s)", strings.Join(abandoned, ", "))
+		tr.add(TraceRecord{Kind: TraceTerminate, Origin: origin, text: text})
 	}
-	tr.line(fmt.Sprintf("terminate: %s (do behavior abandoned: %s)", stop, strings.Join(abandoned, ", ")))
 }
 
 // RecordStateEndedWithOccurrence records the machine's performance ending with the
 // occurrence a `terminate` named, with the states whose do behaviors it abandoned.
-func (tr *TraceRecorder) RecordStateEndedWithOccurrence(machine string, abandoned []string) {
+func (tr *TraceRecorder) RecordStateEndedWithOccurrence(origin TraceOrigin, machine string, abandoned []string) {
+	text := fmt.Sprintf("terminated with occurrence: %s", machine)
 	if len(abandoned) == 0 {
-		tr.line(fmt.Sprintf("terminated with occurrence: %s", machine))
-		return
+		tr.add(TraceRecord{Kind: TraceTerminate, Origin: origin, text: text})
+	} else {
+		text += fmt.Sprintf(" (do behavior abandoned: %s)", strings.Join(abandoned, ", "))
+		tr.add(TraceRecord{Kind: TraceTerminate, Origin: origin, text: text})
 	}
-	tr.line(fmt.Sprintf("terminated with occurrence: %s (do behavior abandoned: %s)", machine, strings.Join(abandoned, ", ")))
 }
 
 // RecordStateEntry records entering a state with optional entry action execution.
-func (tr *TraceRecorder) RecordStateEntry(origin TraceOrigin, state string, hasEntryAction bool) {
-	tr.add(TraceRecord{Kind: TraceEntry, Origin: origin, State: state, Action: hasEntryAction})
+func (tr *TraceRecorder) RecordStateEntry(origin TraceOrigin, state, path, region string, hasEntryAction bool) {
+	tr.RecordStateEntryWithSource(origin, state, path, region, hasEntryAction, symbols.Origin{})
+}
+
+// RecordStateEntryWithSource records entering a state with its declaration origin.
+func (tr *TraceRecorder) RecordStateEntryWithSource(origin TraceOrigin, state, path, region string, hasEntryAction bool, source symbols.Origin) {
+	tr.add(TraceRecord{
+		Kind: TraceEntry, Origin: origin, State: state, Path: path, Region: region,
+		Source: source, Action: hasEntryAction,
+	})
 }
 
 // RecordStateExit records exiting a state with optional exit action execution.
-func (tr *TraceRecorder) RecordStateExit(origin TraceOrigin, state string, hasExitAction bool) {
-	tr.add(TraceRecord{Kind: TraceExit, Origin: origin, State: state, Action: hasExitAction})
+func (tr *TraceRecorder) RecordStateExit(origin TraceOrigin, state, path, region string, hasExitAction bool) {
+	tr.RecordStateExitWithSource(origin, state, path, region, hasExitAction, symbols.Origin{})
+}
+
+// RecordStateExitWithSource records exiting a state with its declaration origin.
+func (tr *TraceRecorder) RecordStateExitWithSource(origin TraceOrigin, state, path, region string, hasExitAction bool, source symbols.Origin) {
+	tr.add(TraceRecord{
+		Kind: TraceExit, Origin: origin, State: state, Path: path, Region: region,
+		Source: source, Action: hasExitAction,
+	})
 }
 
 // RecordActionNodeEnter records a token entering the flow an action node owns,
@@ -483,8 +551,8 @@ func (tr *TraceRecorder) record(entry string) {
 
 // RecordDoStep records one action of a state's do behavior, which is how the
 // interleaving of concurrently active states' do behaviors becomes visible.
-func (tr *TraceRecorder) RecordDoStep(origin TraceOrigin, state string) {
-	tr.add(TraceRecord{Kind: TraceDo, Origin: origin, State: state})
+func (tr *TraceRecorder) RecordDoStep(origin TraceOrigin, state, path, region string) {
+	tr.add(TraceRecord{Kind: TraceDo, Origin: origin, State: state, Path: path, Region: region})
 }
 
 // RecordEvent records an event being processed.
@@ -579,9 +647,12 @@ func FormatTraceValue(v Value) string {
 		if v.Sequence() == nil {
 			return "()"
 		}
-		parts := make([]string, 0, v.Sequence().Size())
-		for _, elem := range v.Sequence().Elements() {
+		var parts []string
+		for _, elem := range listedElements(v) {
 			parts = append(parts, FormatTraceValue(elem))
+		}
+		if seq := requiredTail(v); seq != nil {
+			parts = append(parts, formatRequired(seq))
 		}
 		return "(" + strings.Join(parts, ", ") + ")"
 	case ValSet:
@@ -662,9 +733,11 @@ func FormatTraceValue(v Value) string {
 func formatConst(c semantics.Value) string {
 	switch c.Kind {
 	case semantics.ValInt:
-		return strconv.FormatInt(c.Int, 10)
+		return c.FormatInt()
 	case semantics.ValReal:
 		return semantics.FormatReal(c.Real)
+	case semantics.ValRational:
+		return c.FormatRational()
 	case semantics.ValBool:
 		return strconv.FormatBool(c.Bool)
 	case semantics.ValInfinity:
@@ -719,8 +792,10 @@ func TraceLabel(node ast.Node) string {
 		return "construct " + qualifiedNameToString(n.Type)
 	case *ast.MetadataAccessExpr:
 		return "metadata"
+	case *ast.CastExpr:
+		return "cast " + qualifiedNameToString(n.TargetType)
 	default:
-		return fmt.Sprintf("%T", node)
+		return nodeIdentifier(node)
 	}
 }
 
@@ -763,8 +838,51 @@ func nodeIdentifier(node ast.Node) string {
 		return controlNodeName(n.Name, "decision")
 	case *ast.ActionExecutionNode:
 		return controlNodeName(n.Name, "action")
+	case *ast.PseudostateNode:
+		return controlNodeName(n.Name, n.Kind.String())
+	case *ast.StateRegion:
+		return controlNodeName(n.Name, "region")
+	case *ast.WhileLoopActionNode:
+		variable, _ := n.Variable.DeclaredName()
+		return loopLabel(n.Kind, variable, n.Condition != nil)
+	case *ast.IfActionNode:
+		return "if"
+	case *ast.IfBranchNode:
+		return n.Kind.String()
+	case *ast.AssignmentActionNode:
+		return "assign " + chainText(n.Target)
+	case *ast.SendStatement:
+		return "send"
+	case *ast.PerformActionNode:
+		if inv := n.PerformedInvocation(); inv != nil {
+			return "perform " + qualifiedNameToString(inv.Type)
+		}
+		return "perform " + chainText(n.ActionRef)
+	case *ast.TerminateStatement:
+		if n.Target != nil {
+			return "terminate " + chainText(n.Target)
+		}
+		return "terminate"
+	case *ast.AcceptActionUsage:
+		return controlNodeName(n.Name, "accept")
 	default:
 		return fmt.Sprintf("%T", node)
+	}
+}
+
+// loopLabel names a loop by the keywords that introduce and end it and, for a
+// `for` loop, the variable it binds.
+func loopLabel(kind ast.LoopKind, variable string, conditioned bool) string {
+	switch kind {
+	case ast.LoopFor:
+		return "for " + variable
+	case ast.LoopUntil:
+		if !conditioned {
+			return "loop"
+		}
+		return "loop until"
+	default:
+		return "while"
 	}
 }
 

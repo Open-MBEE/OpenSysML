@@ -1,15 +1,15 @@
 package repl
 
 import (
+	"errors"
 	"fmt"
 	"sync"
 
+	"github.com/Open-MBEE/OpenSysML/internal/frontend/repl/replext"
 	corequery "github.com/Open-MBEE/OpenSysML/internal/semantic/query"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
-	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
-	"github.com/Open-MBEE/OpenSysML/internal/translate/export"
 )
 
 // Query evaluates OSLC element-identification query text and renders one
@@ -19,7 +19,13 @@ func (s *Session) Query(text string) ([]string, error) {
 	return s.query(text)
 }
 
+// errQueryNotLinked is Query's answer in a build that links no positional namer.
+var errQueryNotLinked = errors.New("OSLC query is not linked into this build")
+
 func (s *Session) query(text string) ([]string, error) {
+	if replext.Positional() == nil {
+		return nil, errQueryNotLinked
+	}
 	q, err := corequery.ParseOSLC(text)
 	if err != nil {
 		return nil, err
@@ -144,21 +150,21 @@ func (m *replQueryModel) Identity(sym *symbols.Symbol) string {
 func (m *replQueryModel) positionalNames() {
 	m.positionalOnce.Do(func() {
 		if m.index == nil {
-			m.positional, m.byPositional = export.PositionalIdentities(nil, nil, nil)
+			m.positional, m.byPositional = replext.Positional()(nil, nil, nil)
 			return
 		}
-		docs := make([]export.PositionalDocument, 0)
+		docs := make([]replext.PositionalDocument, 0)
 		for _, doc := range m.session.sessionDocs() {
 			root := m.index.DocumentRoot(doc.Name)
 			if root == nil {
 				continue
 			}
-			docs = append(docs, export.PositionalDocument{
-				File: source.New(doc.Name, doc.Content),
+			docs = append(docs, replext.PositionalDocument{
+				File: sourceForKind(doc.Name, doc.Content, doc.Kind()),
 				Root: root,
 			})
 		}
-		m.positional, m.byPositional = export.PositionalIdentities(
+		m.positional, m.byPositional = replext.Positional()(
 			m.index,
 			docs,
 			func(sym *symbols.Symbol) bool {

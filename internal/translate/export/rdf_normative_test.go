@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/parser"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/rdf"
@@ -157,6 +158,8 @@ func TestSuccessionEndsFromNamedMembersUseExplicitFirst(t *testing.T) {
 	}
 	graph.Add(sourceEnd, rdf.SysMLTerm(pReferences), source)
 	graph.Add(targetEnd, rdf.SysMLTerm(pReferences), target)
+	graph.Add(source, rdf.SysMLTerm(pDeclaredName), rdf.String("source"))
+	graph.Add(target, rdf.SysMLTerm(pDeclaredName), rdf.String("target"))
 
 	n := &normalizer{
 		graph: graph,
@@ -178,6 +181,72 @@ func TestSuccessionEndsFromNamedMembersUseExplicitFirst(t *testing.T) {
 	}
 	if graph.HasProperty(succession, rdf.OpenSysML+xEndForm) {
 		t.Fatal("a named succession source should not use positional then form")
+	}
+}
+
+// A succession the toolkit resolves to a nameless source — the action an
+// `entry;` membership owns — is written by position: `first` has no name for it.
+func TestSuccessionEndsFromNamelessEntryActionArePositional(t *testing.T) {
+	graph := rdf.NewGraph()
+	owner := elmt("state")
+	entry := elmt("state__entry")
+	entryAction := elmt("state__entry__action")
+	succession := elmt("state__succession")
+	target := elmt("state__idle")
+	sourceEnd := elmt("state__succession__source")
+	sourceMembership := elmt("state__succession__source-membership")
+	targetEnd := elmt("state__succession__target")
+	targetMembership := elmt("state__succession__target-membership")
+	for subject, metaclass := range map[rdf.Term]string{
+		entry:            mSubaction,
+		entryAction:      usageMetaclass[ast.UsageAction],
+		succession:       mSuccession,
+		target:           usageMetaclass[ast.UsageState],
+		sourceEnd:        mReferenceUsage,
+		sourceMembership: mEndFeatureMembership,
+		targetEnd:        mReferenceUsage,
+		targetMembership: mEndFeatureMembership,
+	} {
+		graph.Add(subject, rdf.IRI(rdf.RDFType), rdf.SysMLTerm(metaclass))
+	}
+	for _, end := range []struct {
+		membership rdf.Term
+		element    rdf.Term
+	}{
+		{sourceMembership, sourceEnd},
+		{targetMembership, targetEnd},
+	} {
+		graph.Add(succession, rdf.SysMLTerm(pOwnedRelationship), end.membership)
+		graph.Add(end.membership, rdf.SysMLTerm(pMemberElement), end.element)
+	}
+	graph.Add(sourceEnd, rdf.SysMLTerm(pReferences), entryAction)
+	graph.Add(targetEnd, rdf.SysMLTerm(pReferences), target)
+	graph.Add(target, rdf.SysMLTerm(pDeclaredName), rdf.String("idle"))
+
+	n := &normalizer{
+		graph: graph,
+		meta: func(term rdf.Term) string {
+			return rdf.LocalName(graph.Type(term))
+		},
+		memberOwner: map[string]rdf.Term{succession.Value: owner, entry.Value: owner, entryAction.Value: entry},
+		ownerMembers: map[string][]rdf.Term{
+			owner.Value: {entry, succession, target},
+			entry.Value: {entryAction},
+		},
+	}
+	n.deriveSuccessionEnds()
+
+	if got, ok := graph.Object(succession, rdf.OpenSysML+xSourceMember); !ok || got != entry {
+		t.Fatalf("succession source member %v, want %s", got, entry)
+	}
+	if got, ok := graph.Object(succession, rdf.OpenSysML+xEndForm); !ok || got != rdf.String(formThen) {
+		t.Fatalf("succession end form %v, want %s", got, formThen)
+	}
+	if got, ok := graph.Object(succession, rdf.SysML+pTargetFeature); !ok || got != target {
+		t.Fatalf("succession target %v, want %s", got, target)
+	}
+	if graph.HasProperty(succession, rdf.SysML+pSourceFeature) || graph.HasProperty(succession, rdf.OpenSysML+xEndVerb) {
+		t.Fatal("a nameless source should not be stated as a `first` end")
 	}
 }
 

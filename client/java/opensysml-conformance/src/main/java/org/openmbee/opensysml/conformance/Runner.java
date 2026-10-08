@@ -19,7 +19,7 @@ import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.ArrayList;
+import java.util.Base64;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -34,6 +34,8 @@ final class Runner {
 
   private static final String DETAIL_FORMAT = "       %s%n";
   private static final Pattern FIXTURE_REFERENCE = Pattern.compile("^\\$\\{fixture:([^}]+)}$");
+  private static final Pattern FIXTURE_BASE64_REFERENCE =
+      Pattern.compile("^\\$\\{fixture_base64:([^}]+)}$");
 
   private final String protocol;
   private final Connection connection;
@@ -230,13 +232,9 @@ final class Runner {
 
   /** The capabilities a scenario needs that the service does not report. */
   private List<String> missingCapabilities(Scenario scenario) {
-    List<String> missing = new ArrayList<>();
-    for (String capability : scenario.requiresCapabilities()) {
-      if (!capabilities.contains(capability)) {
-        missing.add(capability);
-      }
-    }
-    return missing;
+    return scenario.requiresCapabilities().stream()
+        .filter(capability -> !capabilities.contains(capability))
+        .toList();
   }
 
   /** Builds the call's message from the scenario's protobuf JSON, with the placeholders resolved. */
@@ -256,7 +254,10 @@ final class Runner {
     return builder.build();
   }
 
-  /** Replaces {@code ${model_hash}} and {@code ${fixture:<path>}} in a request. */
+  /**
+   * Replaces {@code ${model_hash}}, {@code ${fixture:<path>}} and {@code ${fixture_base64:<path>}}
+   * in a request; the last is a fixture's bytes as protobuf JSON carries a {@code bytes} field.
+   */
   private JsonElement resolve(JsonElement tree, String modelHash) {
     if (tree instanceof JsonObject object) {
       JsonObject resolved = new JsonObject();
@@ -281,18 +282,27 @@ final class Runner {
       if (reference.matches()) {
         return new JsonPrimitive(fixture(reference.group(1)));
       }
+      Matcher base64Reference = FIXTURE_BASE64_REFERENCE.matcher(text);
+      if (base64Reference.matches()) {
+        return new JsonPrimitive(Base64.getEncoder().encodeToString(fixtureBytes(base64Reference.group(1))));
+      }
     }
     return tree;
   }
 
   /** A fixture's source, refusing a name that reaches outside the fixtures directory. */
   private String fixture(String name) {
+    return new String(fixtureBytes(name), StandardCharsets.UTF_8);
+  }
+
+  /** A fixture's bytes, refusing a name that reaches outside the fixtures directory. */
+  private byte[] fixtureBytes(String name) {
     Path path = fixtures.resolve(name).normalize();
     if (!path.startsWith(fixtures.normalize())) {
       throw new IllegalArgumentException("fixture " + name + " is outside " + fixtures);
     }
     try {
-      return Files.readString(path, StandardCharsets.UTF_8);
+      return Files.readAllBytes(path);
     } catch (IOException e) {
       throw new UncheckedIOException("reading fixture " + name, e);
     }

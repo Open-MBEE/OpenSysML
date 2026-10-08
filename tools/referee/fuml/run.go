@@ -225,7 +225,7 @@ func defaultValue(ctx *runtime.Context, em *Emitted, defs definitionLookup, t Ty
 	}
 	inst, err := ctx.InstantiateRead(sym, func(inst *runtime.Instance) error {
 		for i, attr := range attrs {
-			if err := inst.SetFeatureValue(ctx, attr.Name, defaults[i]); err != nil {
+			if err := inst.BindFeatureValue(ctx, attr.Name, defaults[i]); err != nil {
 				return err
 			}
 		}

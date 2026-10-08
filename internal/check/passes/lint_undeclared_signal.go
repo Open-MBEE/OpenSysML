@@ -14,9 +14,9 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
 )
 
-// UndeclaredSignalPass warns when a transition's `when <name>` or a state's
-// `defer <name>` names neither a declaration visible where it is written nor a
-// signal any `send` of the model sends. Such a name is matched against injected
+// UndeclaredSignalPass warns when a transition's `when <name>` names neither a
+// declaration visible where it is written nor a signal any `send` of the model
+// sends. Such a name is matched against injected
 // signals by name alone (see resolve.Resolver.resolveTrigger), so a misspelling
 // would otherwise wait for a signal nothing sends.
 type UndeclaredSignalPass struct{}
@@ -40,16 +40,9 @@ func (UndeclaredSignalPass) Run(ctx *Context, name string, root *ast.RootNamespa
 		gatherSentSignals(ctx, rootScope, c.local)
 	}
 	for _, at := range kit.ScopedNodes(ctx, rootScope) {
-		switch n := at.Node.(type) {
-		case *ast.TransitionMember:
+		if n, ok := at.Node.(*ast.TransitionMember); ok {
 			if ref, ok := n.Trigger.(*ast.FeatureReference); ok && ref.Name != nil {
 				c.check(at.Scope, "when", ref.Name)
-			}
-		case *ast.DeferMember:
-			for _, trigger := range n.Triggers {
-				if qn, ok := trigger.(*ast.QualifiedName); ok {
-					c.check(at.Scope, "defer", qn)
-				}
 			}
 		}
 	}

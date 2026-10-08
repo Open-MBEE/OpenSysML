@@ -84,12 +84,47 @@ func (s *Session) view(name string) ([]string, error) {
 // doRender renders a view, reporting a name the session cannot find, an element
 // that is no view, a rendering kind not produced, or a form the kind is not
 // written in, as a line.
-func (s *Session) doRender(name string, form view.Form, opts view.Options) ([]string, bool, error) {
-	lines, err := s.renderLines(name, form, opts)
+func (s *Session) doRender(name string, form view.Form, opts view.Options, overlay view.Overlay) ([]string, bool, error) {
+	lines, err := s.renderLines(name, form, opts, overlay)
 	if err != nil {
 		return []string{"error: " + err.Error()}, false, nil
 	}
 	return lines, false, nil
+}
+
+// Rendered is what %render wrote: the lines of the artifact, and the form they
+// are in.
+type Rendered struct {
+	Form  view.Form
+	Lines []string
+}
+
+// UsageError is a %render or %render-document invocation the prompt would
+// answer with its usage rather than run: the lines it prints, for a front end
+// to show as the command's failure.
+type UsageError struct{ Lines []string }
+
+func (e *UsageError) Error() string {
+	if len(e.Lines) == 0 {
+		return "usage"
+	}
+	return strings.TrimPrefix(e.Lines[0], errPrefix)
+}
+
+// Render runs %render with its arguments and answers what it wrote, with the
+// form the lines are in. A usage problem is a *UsageError holding what the
+// prompt prints; a view that could not be rendered is an error.
+func (s *Session) Render(args []string) (Rendered, error) {
+	defer s.enter()()
+	name, form, opts, overlay, usage := parseRenderArgs(args)
+	if usage != nil {
+		return Rendered{}, &UsageError{Lines: usage}
+	}
+	lines, err := s.renderLines(name, form, opts, overlay)
+	if err != nil {
+		return Rendered{}, err
+	}
+	return Rendered{Form: form, Lines: lines}, nil
 }
 
 // renderForms are the forms %render writes, as its second argument spells them.
@@ -101,33 +136,100 @@ func renderForms() []string {
 	return out
 }
 
-// renderPalettes are the palettes %render fills the dot form from and the
-// styles it draws in, as the arguments after the form spell them.
+// renderPalettes are the palette, style, port display and overlay values
+// %render accepts after a form.
 func renderPalettes() []string {
-	out := make([]string, 0, len(view.Palettes())+len(view.DrawingStyles()))
+	out := make([]string, 0, len(view.Palettes())+len(view.DrawingStyles())+len(view.PortsChoices())+len(view.Overlays()))
 	for _, palette := range view.Palettes() {
 		out = append(out, string(palette))
 	}
 	for _, style := range view.DrawingStyles() {
 		out = append(out, string(style))
 	}
+	for _, ports := range view.PortsChoices() {
+		out = append(out, string(ports))
+	}
+	for _, overlay := range view.Overlays() {
+		out = append(out, string(overlay))
+	}
 	return out
 }
 
 // renderLines renders a view in the kind its `render` member states and the form
-// asked for, filled from the palette and drawn in the style when they are named,
-// one line per line of the artifact.
-func (s *Session) renderLines(name string, form view.Form, opts view.Options) ([]string, error) {
-	rendering, err := s.viewRendering(name)
+// asked for, filled from the palette, drawn in the style and overlaid when they
+// are named, one line per line of the artifact.
+func (s *Session) renderLines(name string, form view.Form, opts view.Options, overlay view.Overlay) ([]string, error) {
+	rendering, err := s.viewRendering(name, overlay)
 	if err != nil {
 		return nil, err
 	}
 	opts.Width = s.renderWidth
+	if opts.Links.Template != "" {
+		renderer, err := s.viewRenderer()
+		if err != nil {
+			return nil, err
+		}
+		opts.Links.Sites = renderer.Sites(s.sessionLocator())
+	}
+	return artifactLines(rendering, form, opts)
+}
+
+// ViewSites answers source locations in the current session for a rendering.
+func (s *Session) ViewSites() (view.Sites, error) {
+	defer s.enter()()
+	renderer, err := s.viewRenderer()
+	if err != nil {
+		return nil, err
+	}
+	return renderer.Sites(s.sessionLocator()), nil
+}
+
+func (s *Session) sessionLocator() view.Locator {
+	indexes := map[int]*source.LineIndex{}
+	return func(origin view.Origin) (string, source.Pos, bool) {
+		if !origin.Located() {
+			return "", source.Pos{}, false
+		}
+		file := s.sessionSourceFile(origin.Doc, origin.Span)
+		if file == "" {
+			return "", source.Pos{}, false
+		}
+		if origin.Doc == docName {
+			sn, start := s.snippetAt(origin.Span.Offset)
+			if sn.origin == "" {
+				return "", source.Pos{}, false
+			}
+			lines := indexes[start]
+			if lines == nil {
+				lines = source.NewLineIndex([]byte(sn.src))
+				indexes[start] = lines
+			}
+			return file, lines.PosAt(origin.Span.Offset - start), true
+		}
+		for _, doc := range s.sessionDocs() {
+			if doc.Name == origin.Doc {
+				return file, doc.Lines().PosAt(origin.Span.Offset), true
+			}
+		}
+		return "", source.Pos{}, false
+	}
+}
+
+// artifactLines writes a rendering in form, one line per line, and under a
+// delimited form its notices after the records, which carry none.
+func artifactLines(rendering *view.Rendering, form view.Form, opts view.Options) ([]string, error) {
 	artifact, err := rendering.WriteWith(form, opts)
 	if err != nil {
 		return nil, err
 	}
-	return strings.Split(strings.TrimRight(artifact, "\n"), "\n"), nil
+	lines := strings.Split(strings.TrimRight(artifact, "\n"), "\n")
+	if (form == view.FormCSV || form == view.FormTSV) && len(rendering.Notices) > 0 {
+		lines = append(lines, "", "not represented:")
+		for _, notice := range rendering.Notices {
+			lines = append(lines, "  - "+notice)
+		}
+	}
+	return lines, nil
 }
 
 // SetRenderWidth sets the width a text rendering's table is written to fit. The
@@ -143,19 +245,28 @@ func (s *Session) SetRenderWidth(width int) {
 // debugging session in progress.
 func (s *Session) ViewRendering(name string) (*view.Rendering, error) {
 	defer s.enter()()
-	return s.viewRendering(name)
+	return s.viewRendering(name, "")
+}
+
+// OverlaidViewRendering is ViewRendering with an overlay drawn over the view's
+// structure. The verdict overlay runs the verification cases verifying each
+// requirement drawn in a runtime of its own, so the session's runtime, its
+// objects and any debugging session in progress stay untouched.
+func (s *Session) OverlaidViewRendering(name string, overlay view.Overlay) (*view.Rendering, error) {
+	defer s.enter()()
+	return s.viewRendering(name, overlay)
 }
 
 // viewRendering renders a view with the session already held.
-func (s *Session) viewRendering(name string) (*view.Rendering, error) {
+func (s *Session) viewRendering(name string, overlay view.Overlay) (*view.Rendering, error) {
 	if strings.HasPrefix(name, view.PseudoViewPrefix) {
-		return s.renderPseudoView(name)
+		return s.renderPseudoView(name, overlay)
 	}
 	sym, fqn, err := s.lookupSymbol(name)
 	if err != nil {
 		return nil, err
 	}
-	renderer, err := s.viewRenderer()
+	renderer, err := s.overlaidRenderer(overlay)
 	if err != nil {
 		return nil, err
 	}
@@ -166,15 +277,38 @@ func (s *Session) viewRendering(name string) (*view.Rendering, error) {
 		}
 		return nil, err
 	}
+	return overlaid(rendering, overlay)
+}
+
+// overlaid is rendering, or why its kind does not draw overlay.
+func overlaid(rendering *view.Rendering, overlay view.Overlay) (*view.Rendering, error) {
+	if !rendering.Kind.SupportsOverlay(overlay) {
+		return nil, fmt.Errorf("%s: a %s rendering draws no %s overlay; %s is drawn on a requirement rendering", rendering.View, rendering.Kind, overlay, overlay)
+	}
 	return rendering, nil
 }
 
-func (s *Session) renderPseudoView(spec string) (*view.Rendering, error) {
+// overlaidRenderer is viewRenderer drawing overlay, the verdicts answered by a
+// fresh runtime over the session's declarations.
+func (s *Session) overlaidRenderer(overlay view.Overlay) (*view.Renderer, error) {
+	renderer, err := s.viewRenderer()
+	if err != nil || overlay != view.OverlayVerdicts {
+		return renderer, err
+	}
+	ctx, err := s.newRuntime()
+	if err != nil {
+		return nil, err
+	}
+	renderer.SetVerdicts(runtime.RequirementVerdicts(ctx, s.docScopes()))
+	return renderer, nil
+}
+
+func (s *Session) renderPseudoView(spec string, overlay view.Overlay) (*view.Rendering, error) {
 	kind, target, ok := view.ParsePseudoView(spec)
 	if !ok {
 		return nil, fmt.Errorf("%s is no pseudo-view: write %s", spec, strings.Join(view.PseudoViewSpecs(), ", "))
 	}
-	renderer, err := s.viewRenderer()
+	renderer, err := s.overlaidRenderer(overlay)
 	if err != nil {
 		return nil, err
 	}
@@ -190,7 +324,11 @@ func (s *Session) renderPseudoView(spec string) (*view.Rendering, error) {
 	} else {
 		exposed = s.symbolsInLoadOrder(model.TopLevelDeclarations)
 	}
-	return renderer.RenderExposed(exposed, kind, stated)
+	rendering, err := renderer.RenderExposed(exposed, kind, stated)
+	if err != nil {
+		return nil, err
+	}
+	return overlaid(rendering, overlay)
 }
 
 // Views lists every view the session declares, in document then declaration
@@ -246,6 +384,7 @@ func (s *Session) viewRenderer() (*view.Renderer, error) {
 	}
 	resolver := resolve.New(idx)
 	model := semantics.NewModel(resolver)
+	model.SetSourceText(s.sessionSourceText())
 	model.SetSourceFile(s.sessionSourceFile)
 	resolver.SetModel(model)
 	return view.NewRenderer(model, resolver, s.sessionSourceText()), nil
@@ -271,7 +410,7 @@ func (s *Session) sessionSourceText() view.SourceText {
 	}
 	files := make(map[string]*source.SourceFile, len(docs))
 	for _, doc := range docs {
-		files[doc.Name] = source.New(doc.Name, doc.Content)
+		files[doc.Name] = sourceForKind(doc.Name, doc.Content, doc.Kind())
 	}
 	return source.TextOf(files, libs.Text(s.libSource))
 }
@@ -428,12 +567,13 @@ func (r *reportRuntime) runtime() (*runtime.Context, error) {
 	model := runtime.NewModel(sem, resolver)
 	model.SetExpressionParser(parser.ParseOneExpression)
 	for _, doc := range r.session.sessionDocs() {
-		model.RegisterSource(source.New(doc.Name, doc.Content))
+		model.RegisterSource(sourceForKind(doc.Name, doc.Content, doc.Kind()))
 	}
 	ctx := runtime.NewContext(model, r.session.budgets.MaxSteps)
 	if err := ctx.SetBudgets(r.session.budgets); err != nil {
 		return nil, err
 	}
+	ctx.SetInterrupt(r.session.interrupt)
 	// Recorded like the session's own evaluation, so a trace does not depend on
 	// which objects the report had to materialize.
 	ctx.SetTrace(r.session.trace)

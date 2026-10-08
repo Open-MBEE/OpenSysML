@@ -46,6 +46,88 @@ package Race {
 }
 `
 
+const exploreSetupFailureSource = `
+package Setup {
+	action broken {
+		action a;
+		action b;
+		succession first a then b;
+		succession first b then a;
+	}
+	state def noInitial {
+		state idle;
+	}
+}
+`
+
+const explorePartialFailureSource = `
+package D {
+	private import ScalarValues::*;
+	action Dec {
+		attribute x : Integer = 0;
+		first start;
+		then fork f;
+			then a;
+			then b;
+		action a { assign x := 1; }
+		action b { assign x := 2; }
+		succession a then j; succession b then j;
+		join j;
+		then decide d;
+			if x == 1 then ok;
+		action ok { assign x := 5; }
+		then done;
+	}
+}
+`
+
+const exploreProbabilitySource = `
+package Odds {
+	private import ScalarValues::*;
+	private import Stochastic::*;
+	action weighted {
+		attribute selected : Integer = 0;
+		first start;
+		then decide select;
+		first select then one { @Probability { p = 0.3; } }
+		first select then two { @Probability { p = 0.7; } }
+		action one { assign selected := 1; }
+		then done;
+		action two { assign selected := 2; }
+		then done;
+	}
+	action mixed {
+		attribute x : Integer = 0;
+		attribute y : Integer = 0;
+		first start;
+		fork split;
+		action a { assign x := 1; }
+		action b { assign x := 2; }
+		join sync;
+		then decide select;
+		if x == 1 then draw;
+		if x == 2 then keep;
+		action draw {
+			first start;
+			then decide weighted;
+			first weighted then one { @Probability { p = 0.3; } }
+			first weighted then two { @Probability { p = 0.7; } }
+			action one { assign y := 1; }
+			then done;
+			action two { assign y := 2; }
+			then done;
+		}
+		action keep { assign y := 0; }
+		then done;
+		succession first start then split;
+		succession first split then a;
+		succession first split then b;
+		succession first a then sync;
+		succession first b then sync;
+	}
+}
+`
+
 // RunAction under explore tables every distinct outcome, sorted, with how many
 // linearizations reached it and one witness, then reports the exploration
 // complete; the run holds.
@@ -60,10 +142,11 @@ func TestRunActionExploresEveryLinearization(t *testing.T) {
 	}
 	wantsInOrder(t, strings.Join(v.Lines, "\n"),
 		"✓ explored Race::race: 3 outcomes",
-		"outcome | linearizations | probability        | witness",
-		"x = 1   | 2              | 0.3333333333333333 | step 3: 3@b first of 2@a, 3@b, 4@c; step 4: 4@c first of 2@a, 4@c",
-		"x = 2   | 2              | 0.3333333333333333 | step 3: 2@a first of 2@a, 3@b, 4@c; step 4: 4@c first of 3@b, 4@c",
-		"x = 3   | 2              | 0.3333333333333333 | step 3: 2@a first of 2@a, 3@b, 4@c; step 4: 3@b first of 3@b, 4@c",
+		"outcome | linearizations | probability | witness",
+		"x = 1",
+		"x = 2",
+		"x = 3",
+		"possible",
 		"complete (6 runs)")
 	if len(v.Outcomes) != 3 || v.Exploration == nil || !v.Exploration.Complete || v.Exploration.Runs != 6 {
 		t.Errorf("verdict outcomes = %+v, exploration = %+v", v.Outcomes, v.Exploration)
@@ -78,6 +161,103 @@ func TestRunActionExploresEveryLinearization(t *testing.T) {
 	}
 }
 
+func TestRunActionExploreSetupFailureRunsNoLinearization(t *testing.T) {
+	s := loadSource(t, exploreSetupFailureSource)
+	if err := s.SetSchedule(mustSchedule(t, "explore")); err != nil {
+		t.Fatal(err)
+	}
+	v := s.RunAction("Setup::broken")
+	if v.Status != VerdictFails || len(v.Outcomes) != 0 || v.Exploration != nil {
+		t.Fatalf("setup-failure verdict = %+v, want fails with no outcomes or exploration", v)
+	}
+	out := strings.Join(v.Lines, "\n")
+	wants(t, out,
+		"✗ Action Setup::broken: no linearization ran:",
+		"standing: not covered")
+	rejects(t, out, "proved", "complete", "explored Setup::broken")
+}
+
+func TestRunStateMachineExploreSetupFailureRunsNoLinearization(t *testing.T) {
+	s := loadSource(t, exploreSetupFailureSource)
+	if err := s.SetSchedule(mustSchedule(t, "explore")); err != nil {
+		t.Fatal(err)
+	}
+	v := s.RunStateMachine("Setup::noInitial")
+	if v.Status != VerdictFails || len(v.Outcomes) != 0 || v.Exploration != nil {
+		t.Fatalf("setup-failure verdict = %+v, want fails with no outcomes or exploration", v)
+	}
+	out := strings.Join(v.Lines, "\n")
+	wants(t, out,
+		"✗ Setup::noInitial: no linearization ran:",
+		"standing: not covered")
+	rejects(t, out, "proved", "complete", "explored Setup::noInitial")
+}
+
+func TestRunActionExplorePartialFailureFailsTheVerdict(t *testing.T) {
+	s := loadSource(t, explorePartialFailureSource)
+	if err := s.SetSchedule(mustSchedule(t, "explore")); err != nil {
+		t.Fatal(err)
+	}
+	v := s.RunAction("D::Dec")
+	if v.Status != VerdictFails || len(v.Outcomes) != 2 || v.Exploration == nil ||
+		v.Exploration.FailedLinearizations != 1 {
+		t.Fatalf("partial-failure verdict = %+v", v)
+	}
+	out := strings.Join(v.Lines, "\n")
+	wantsInOrder(t, out,
+		"✗ explored D::Dec: 2 outcomes (1 value, 1 error), 1 of 2 linearizations failing",
+		"error:",
+		"complete (2 runs)",
+		"standing: outcomes (observed: 2 linearizations, 1 failing, inputs as written)")
+	errorsFound := 0
+	for _, outcome := range v.Outcomes {
+		if outcome.Error != "" {
+			errorsFound++
+			if !strings.Contains(out, "error: "+outcome.Error) {
+				t.Errorf("error row does not render with its prefix %q:\n%s", outcome.Error, out)
+			}
+		}
+	}
+	if errorsFound != 1 {
+		t.Errorf("got %d error outcomes, want one", errorsFound)
+	}
+}
+
+func TestRunActionExploreRendersWeightedProbabilityRanges(t *testing.T) {
+	s := loadSource(t, exploreProbabilitySource)
+	if err := s.SetSchedule(mustSchedule(t, "explore")); err != nil {
+		t.Fatal(err)
+	}
+
+	weighted := s.RunAction("Odds::weighted")
+	if weighted.Status != VerdictHolds {
+		t.Fatalf("weighted verdict = %+v", weighted)
+	}
+	wantsInOrder(t, strings.Join(weighted.Lines, "\n"),
+		"✓ explored Odds::weighted: 2 outcomes",
+		"probability",
+		"selected = 1",
+		"0.3",
+		"selected = 2",
+		"0.7",
+		"complete (2 runs)")
+
+	mixed := s.RunAction("Odds::mixed")
+	if mixed.Status != VerdictHolds || len(mixed.Outcomes) != 3 {
+		t.Fatalf("mixed verdict = %+v", mixed)
+	}
+	mixedOutput := strings.Join(mixed.Lines, "\n")
+	wantsInOrder(t, mixedOutput,
+		"✓ explored Odds::mixed: 3 outcomes",
+		"x = 1; y = 1",
+		"0..0.3",
+		"x = 1; y = 2",
+		"0..0.7",
+		"x = 2; y = 0",
+		"0..1",
+		"complete (3 runs)")
+}
+
 // A behavior with no choice point explores in a single run.
 func TestRunActionExploresNoChoiceInOneRun(t *testing.T) {
 	s := loadSource(t, exploreRaceSource)
@@ -85,7 +265,7 @@ func TestRunActionExploresNoChoiceInOneRun(t *testing.T) {
 		t.Fatal(err)
 	}
 	v := s.RunAction("Race::steady")
-	wants(t, strings.Join(v.Lines, "\n"), "✓ explored Race::steady: 1 outcome", "y = 7   | 1              | 1           | no choice points", "complete (1 runs)")
+	wants(t, strings.Join(v.Lines, "\n"), "✓ explored Race::steady: 1 outcome", "y = 7", "possible", "no choice points", "complete (1 runs)")
 }
 
 // A budget hit leaves the verdict unresolved and names the budget; the outcomes
@@ -279,7 +459,7 @@ func TestRunForExploresAnActionOnANestedObject(t *testing.T) {
 	if v.Status != VerdictHolds {
 		t.Fatalf("status = %v, want holds:\n%s", v.Status, strings.Join(v.Lines, "\n"))
 	}
-	wantsInOrder(t, strings.Join(v.Lines, "\n"), "✓ explored Comms::Craft::ack: 2 outcomes", "seen = 1", "seen = 2", "complete (")
+	wantsInOrder(t, strings.Join(v.Lines, "\n"), "✓ explored Comms::Craft::ack: 3 outcomes", "seen = 1", "seen = 1", "seen = 2", "complete (")
 
 	// The craft instantiated on its own is never pinged, so it sends nothing.
 	v = s.RunAction("Comms::Craft::ack", "Comms::Pair::craft")
@@ -321,7 +501,7 @@ func TestRunForExploresSiblingsOnOneRoot(t *testing.T) {
 	wantsInOrder(t, out, "✓ explored Comms::Ground::listen Comms::pair.ground, Comms::Craft::modes Comms::pair.craft: 2 outcomes",
 		"Comms::Craft::modes Comms::pair.craft.emitted = 4", "Comms::Ground::listen Comms::pair.ground.received = 1",
 		"Comms::Craft::modes Comms::pair.craft.emitted = 4", "Comms::Ground::listen Comms::pair.ground.received = 2",
-		"complete (4 runs)")
+		"complete (5 runs)")
 	if len(verdicts[0].Outcomes) != 2 {
 		t.Errorf("outcomes = %+v, want two", verdicts[0].Outcomes)
 	}
@@ -533,11 +713,13 @@ func TestExploredActionNamedAloneAttachesToTheGivenObjectPerformingIt(t *testing
 		t.Fatal(err)
 	}
 	v = s.RunFor([]Behavior{fill}, nil, 1)[0]
-	if v.Status != VerdictUnresolved {
-		t.Errorf("status = %v, want unresolved:\n%s", v.Status, strings.Join(v.Lines, "\n"))
+	if v.Status != VerdictFails {
+		t.Errorf("status = %v, want fails:\n%s", v.Status, strings.Join(v.Lines, "\n"))
 	}
-	wants(t, strings.Join(v.Lines, "\n"), `3 objects of the explored run perform "Tank::Tank::fill"`,
-		`of "Tank::tank"`, `of "Tank::Farm.tanks[1]"`, `of "Tank::Farm.tanks[2]"`, "name one as Tank::Tank::fill <Assembly::part>")
+	wantsInOrder(t, strings.Join(v.Lines, "\n"), "✗ explored Tank::Tank::fill: 1 outcome (0 values, 1 error), 1 of 1 linearization failing",
+		`error: 3 objects of the explored run perform "Tank::Tank::fill"`, `of "Tank::tank"`,
+		`of "Tank::Farm.tanks[1]"`, `of "Tank::Farm.tanks[2]"`, "name one as Tank::Tank::fill <Assembly::part>",
+		"complete (1 runs)", "standing: outcomes (observed: 1 linearization, 1 failing, inputs as written)")
 	var refused *PerformersError
 	if !errors.As(&PerformersError{}, &refused) {
 		t.Fatal("PerformersError is not an error")
@@ -650,9 +832,10 @@ func TestRunForExploresEveryDueOrder(t *testing.T) {
 	}
 	wantsInOrder(t, strings.Join(verdicts[0].Lines, "\n"),
 		"✓ explored Shared::Lamp::peek, Shared::Lamp::glow: 2 outcomes",
-		`Shared::Lamp::glow finalState = "on"; Shared::Lamp::glow visits = "off, on"; Shared::Lamp::peek.saw = false; this.isSolid = true; this.lit = true | 1              | 0.5         | t=3.0: action peek of object #1 first of state machine glow of object #1, action peek of object #1`,
-		`Shared::Lamp::glow finalState = "on"; Shared::Lamp::glow visits = "off, on"; Shared::Lamp::peek.saw = true; this.isSolid = true; this.lit = true  | 1              | 0.5         | t=3.0: state machine glow of object #1 first of state machine glow of object #1, action peek of object #1`,
-		"complete (2 runs)")
+		`Shared::Lamp::glow finalState = "on"; Shared::Lamp::glow visits = "off, on"; Shared::Lamp::peek.saw = false; this.isSolid = true; this.lit = true`,
+		`Shared::Lamp::glow finalState = "on"; Shared::Lamp::glow visits = "off, on"; Shared::Lamp::peek.saw = true; this.isSolid = true; this.lit = true`,
+		"possible",
+		"complete (3 runs)")
 
 	// One behavior explored with a duration is its own outcome, as RunStateMachine tables it.
 	verdicts = s.RunFor(nil, []Behavior{glow}, 3)
@@ -660,7 +843,7 @@ func TestRunForExploresEveryDueOrder(t *testing.T) {
 		t.Fatalf("verdicts = %+v, want one that holds", verdicts)
 	}
 	wants(t, strings.Join(verdicts[0].Lines, "\n"), "✓ explored Shared::Lamp::glow: 1 outcome",
-		"finalState on; visits off, on; this.isSolid = true; this.lit = true | 1              | 1           | no choice points", "complete (1 runs)")
+		"finalState on; visits off, on; this.isSolid = true; this.lit = true", "possible", "no choice points", "complete (1 runs)")
 
 	// A behavior that does not resolve is reported and nothing is explored.
 	verdicts = s.RunFor([]Behavior{{Name: "Shared::Lamp::nothing"}}, []Behavior{glow}, 3)
@@ -708,12 +891,13 @@ func TestRunStateMachineExploresEveryRegionEntryOrder(t *testing.T) {
 	wantsInOrder(t, out,
 		"✓ explored Regions::Pair: 6 outcomes",
 		"outcome                                                    | linearizations | probability | witness",
-		`finalState l+r; visits work, l, r; log = "left l right r " | 1              | 0.25        | entering work: left(entry) first of left(entry), right(entry); entering work: l(entry) first of l(entry), right(entry)`,
-		`finalState l+r; visits work, l, r; log = "left right l r " | 1              | 0.125       | entering work: left(entry) first of left(entry), right(entry); entering work: right(entry) first of l(entry), right(entry); entering work: l(entry) first of l(entry), r(entry)`,
-		`finalState l+r; visits work, l, r; log = "right left l r " | 1              | 0.125       | entering work: right(entry) first of left(entry), right(entry); entering work: left(entry) first of left(entry), r(entry); entering work: l(entry) first of l(entry), r(entry)`,
-		`finalState l+r; visits work, r, l; log = "left right r l " | 1              | 0.125       | entering work: left(entry) first of left(entry), right(entry); entering work: right(entry) first of l(entry), right(entry); entering work: r(entry) first of l(entry), r(entry)`,
-		`finalState l+r; visits work, r, l; log = "right left r l " | 1              | 0.125       | entering work: right(entry) first of left(entry), right(entry); entering work: left(entry) first of left(entry), r(entry); entering work: r(entry) first of l(entry), r(entry)`,
-		`finalState l+r; visits work, r, l; log = "right r left l " | 1              | 0.25        | entering work: right(entry) first of left(entry), right(entry); entering work: r(entry) first of left(entry), r(entry)`,
+		`finalState l+r; visits work, l, r; log = "left l right r "`,
+		`finalState l+r; visits work, l, r; log = "left right l r "`,
+		`finalState l+r; visits work, l, r; log = "right left l r "`,
+		`finalState l+r; visits work, r, l; log = "left right r l "`,
+		`finalState l+r; visits work, r, l; log = "right left r l "`,
+		`finalState l+r; visits work, r, l; log = "right r left l "`,
+		"possible",
 		"complete (6 runs)")
 	if again := s.RunStateMachine("Regions::Pair"); strings.Join(again.Lines, "\n") != out {
 		t.Errorf("exploration rendered\n%s\nthen\n%s", out, strings.Join(again.Lines, "\n"))

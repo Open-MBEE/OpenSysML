@@ -15,6 +15,8 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/libs"
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/model"
+	"github.com/Open-MBEE/OpenSysML/internal/workspace/modeldoc"
+	"github.com/Open-MBEE/OpenSysML/internal/workspace/modelrt"
 )
 
 // A document held as its interface record must be indistinguishable, to every
@@ -311,8 +313,8 @@ func TestInterfaceRecordNeedsHydration(t *testing.T) {
 	}
 	// A runtime is lowered from trees, never evaluated against a record: building
 	// one hydrates the recorded document first.
-	if _, err := ws.NewRuntime(); err != nil {
-		t.Fatalf("NewRuntime over a recorded document: %v", err)
+	if _, err := modelrt.New(ws); err != nil {
+		t.Fatalf("modelrt.New over a recorded document: %v", err)
 	}
 	if ws.Recorded("a.sysml") {
 		t.Fatal("a.sysml is still recorded under a runtime")
@@ -358,7 +360,7 @@ func TestInterfaceRecordDocumentQueryNeedsHydration(t *testing.T) {
 			t.Fatalf("%s loaded: %v", name, diags)
 		}
 	}
-	markdown, err := loaded.RenderDocumentMarkdown("Observatory::MassReport", docrender.MarkdownOptions{})
+	markdown, err := modeldoc.RenderDocumentMarkdown(loaded, "Observatory::MassReport", docrender.MarkdownOptions{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -377,7 +379,7 @@ func TestInterfaceRecordDocumentQueryNeedsHydration(t *testing.T) {
 	if n := len(ws.Diagnostics("report.sysml")); n != 0 {
 		t.Fatalf("report.sysml over the recorded parts.sysml: %d diagnostics", n)
 	}
-	_, err = ws.RenderDocumentMarkdown("Observatory::MassReport", docrender.MarkdownOptions{})
+	_, err = modeldoc.RenderDocumentMarkdown(ws, "Observatory::MassReport", docrender.MarkdownOptions{})
 	var needs *symbols.NeedsHydration
 	if !errors.Is(err, symbols.ErrNeedsHydration) || !errors.As(err, &needs) || needs.Doc != "parts.sysml" {
 		t.Fatalf("rendering over a recorded value: got %v, want a NeedsHydration for parts.sysml", err)

@@ -345,8 +345,8 @@ func TestFiguresFromArchiveStreams(t *testing.T) {
 		"Nothing to see",
 		"*Poster*", "```dot", "// view: Plant::Poster", `"picture:0" [shape=none, style="", label="", image="images/Plant_from_the_north.png"`, `tooltip="Plant from the north"`,
 		"The plant, photographed",
-		"*Unlisted*", "```dot", "// view: Plant::Unlisted", "// layout: neato -n", "<b>Tank</b>", "«part def»", `pos="160,480!"`,
-		"*Stale*", "```dot", "// view: Plant::Stale", "<b>Tank</b>", "«part def»")
+		"*Unlisted*", "```dot", "// view: Plant::Unlisted", "// layout: neato -n", "«part def»", "<b>Tank</b>", `pos="160,480!"`,
+		"*Stale*", "```dot", "// view: Plant::Stale", "«part def»", "<b>Tank</b>")
 	// The stream positions four of the five diagrams, so those are drawn
 	// by Graphviz where they state; the unpositioned activity stays Mermaid.
 	if dot, mermaid := strings.Count(md, "```dot"), strings.Count(md, "```mermaid"); dot != 4 || mermaid != 1 {

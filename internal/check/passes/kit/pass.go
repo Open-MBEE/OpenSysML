@@ -58,6 +58,9 @@ type Context struct {
 	// Batch is the batch this document is analyzed in, nil when it is analyzed
 	// alone; every context of a batch reads the one value and none writes it.
 	Batch *Batch
+	// Source reads the document's notation, which a fix reconstructing text
+	// needs; nil leaves it unreadable. A batch sets it from Batch.Source.
+	Source source.Lookup
 
 	resolver    *resolve.Resolver
 	model       *semantics.Model
@@ -111,6 +114,7 @@ func (c *Context) InBatch(b *Batch) {
 	c.Batch = b
 	if b != nil {
 		c.gathers = b.Gathers
+		c.Source = b.Source
 	}
 }
 

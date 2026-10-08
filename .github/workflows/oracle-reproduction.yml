@@ -1,12 +1,15 @@
 name: Oracle reproduction
 
 # The three oracle baselines under docs/project/ are only as true as their last
-# recorded run, and re-running them needs Java, the pinned pilot jar and three
-# downloaded corpora — which is why neither pr.yml nor CircleCI's build-and-test
-# does it. This workflow does, on a schedule and on demand, so a baseline that
-# has stopped describing reality surfaces within a day instead of at the next
-# audit. It is deliberately not a required check: it downloads from upstream and
-# takes minutes, so a network failure here must not block a pull request.
+# recorded run. Re-running the differential and rejection oracles needs Java,
+# the pinned pilot jar and the downloaded corpora — which is why neither pr.yml
+# nor CircleCI's build-and-test does those. The Xpect oracle needs only the
+# pinned .xt suites, so pr.yml's xpect-oracle job reproduces its baseline on
+# every pull request; the Java-backed oracles are reproduced here alone, on a
+# schedule and on demand, so a baseline that has stopped describing reality
+# surfaces within a day instead of at the next audit. It is deliberately not a
+# required check: it downloads from upstream and takes minutes, so a network
+# failure here must not block a pull request.
 #
 # It lives in GitHub Actions rather than .circleci/config.yml because a
 # CircleCI schedule is configured outside the repository (project settings or
@@ -62,6 +65,7 @@ jobs:
           ./scripts/download-pilot-corpora.sh
           ./scripts/download-pilot-xpect.sh
           ./scripts/download-pssm-suite.sh
+          ./scripts/download-sysml-v1tov2.sh
 
       # Each oracle's -check re-runs the comparison and diffs the fresh report
       # against its committed baseline, ignoring only the recording date. The
@@ -93,6 +97,12 @@ jobs:
       - name: Validation-constraint baseline lists what the pinned jar contains
         if: ${{ !cancelled() }}
         run: go run -C tools ./cmd/validation-census -check -require-jar
+
+      # The transformation census's baseline lists the mapping classes the
+      # pinned model declares; only here is the model present to compare against.
+      - name: Transformation census lists what the pinned model contains
+        if: ${{ !cancelled() }}
+        run: go run -C tools ./cmd/transformation-census -check -require-xmi
 
       # The reports themselves, so a failing run can be read without
       # reproducing the environment.

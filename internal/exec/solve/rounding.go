@@ -8,20 +8,19 @@ import (
 
 // RoundingSound returns a new query over the same variables and sorts plus one
 // fresh Real variable per rounding site, whose models over-approximate every
-// evaluation the runtime evaluator's float64 arithmetic performs, as replay.go
-// models it. An unsatisfiable rounding-sound query therefore proves the exact
+// evaluation the runtime evaluator's binary64 arithmetic performs, as replay.go
+// models it; Integer and Rational arithmetic is exact and needs none. An unsatisfiable rounding-sound query therefore proves the exact
 // query's unsat holds under the evaluator's arithmetic too; the query itself is
 // never replayed — only its verdict is used.
 //
-// A rounding site is a real-sorted `+`, `-`, `*` or `/` (a whole-number ratio
-// counting as one site over its integer operands), a widened integer, or a real
-// literal, which is replaced by the exact rational of the float64 the evaluator
-// parses. Negation is exact and is not a site. Identical rewritten subterms
-// share one site.
+// A rounding site is a `+`, `-`, `*` or `/` a Real takes part in, or an exact
+// operand of one, which the evaluator rounds once to binary64; an exact literal
+// operand is replaced by the exact rational of its nearest float64. Negation is
+// exact and is not a site. Identical rewritten subterms share one site.
 //
 // Each site variable r is bounded by the doubles the exact value v lies
 // between: for every double z the axioms state `(v <= z) => r <= z` and
-// `(v >= z) => r >= z`, where z is every Real-sorted variable, the value 0 and
+// `(v >= z) => r >= z`, where z is every Real variable, the value 0 and
 // every rewritten real literal (all always doubles), and every other site r'
 // whose guard is the condition under which the evaluator computes it. No guard
 // bounds a site by itself.
@@ -149,8 +148,7 @@ type roundingDouble struct {
 	site  *roundingSite
 }
 
-// doubles is the set Z the site's bounds are taken over: every Real-sorted
-// variable, the value 0, every rewritten real literal, and every site guarded
+// doubles is the set Z the site's bounds are taken over: every Real variable, the value 0, every rewritten real literal, and every site guarded
 // by its evaluation condition, each once.
 func (r *roundingRewrite) doubles(q *Query) []roundingDouble {
 	var out []roundingDouble
@@ -165,7 +163,7 @@ func (r *roundingRewrite) doubles(q *Query) []roundingDouble {
 	}
 	add(RealTerm(new(big.Rat)), nil, nil)
 	for _, v := range q.Vars {
-		if v.Sort.Kind == SortReal {
+		if v.Binary64 {
 			add(VarTerm(v), nil, nil)
 		}
 	}
@@ -201,23 +199,18 @@ type roundingRewrite struct {
 }
 
 // rewrite returns the term's rounding-sound form under evaluation condition e:
-// sites replaced by their variables, literals by their float64 values. A nil e
+// sites replaced by their variables, exact literals binary64 arithmetic meets by
+// their float64 values. A nil e
 // is the unconstrained path of the first condition, and BoolTerm(false) the
 // path of an assertion the evaluator does not check in order.
 func (r *roundingRewrite) rewrite(t, e *Term) *Term {
 	switch t.Op {
 	case OpReal:
-		return r.literal(t)
-	case OpDiv:
-		if t.IntRatio {
-			return r.ratio(t, e)
+		// A literal binary64 holds exactly is a double the sites are bounded by.
+		if _, exact := t.Real.Float64(); exact {
+			r.literals = append(r.literals, t)
 		}
-	case OpToReal:
-		arg := r.rewrite(t.Args[0], e)
-		if arg.Op == OpInt {
-			return r.literal(RealTerm(new(big.Rat).SetInt64(arg.Int)))
-		}
-		return r.site(&Term{Op: OpToReal, Sort: Real, Args: []*Term{arg}}, e)
+		return t
 	case OpNeg:
 		return Unary(OpNeg, t.Sort, r.rewrite(t.Args[0], e))
 	case OpAnd, OpOr:
@@ -245,14 +238,34 @@ func (r *roundingRewrite) rewrite(t, e *Term) *Term {
 		otherwise := r.rewrite(t.Args[2], and(e, Not(cond)))
 		return Ite(cond, then, otherwise)
 	}
-	if (t.Op == OpAdd || t.Op == OpSub || t.Op == OpMul || t.Op == OpDiv) && t.Sort.Kind == SortReal {
-		return r.site(&Term{Op: t.Op, Sort: Real, Args: r.args(t, e)}, e)
+	if (t.Op == OpAdd || t.Op == OpSub || t.Op == OpMul || t.Op == OpDiv) && t.Sort.Kind == SortReal && t.Binary64() {
+		args := make([]*Term, len(t.Args))
+		for i, arg := range t.Args {
+			args[i] = r.double(arg, e)
+		}
+		return r.site(&Term{Op: t.Op, Sort: Real, Args: args}, e)
 	}
 	return r.rebuild(t, e)
 }
 
-// literal is a real literal as the evaluator parses it: the exact rational of
-// its float64, which is what replay computes. A literal float64 cannot hold is
+// double is an operand of binary64 arithmetic as the evaluator holds it: a
+// binary64 value as it is, an exact literal as its nearest float64, and any
+// other exact value rounded once at a site of its own.
+func (r *roundingRewrite) double(t, e *Term) *Term {
+	if t.Binary64() {
+		return r.rewrite(t, e)
+	}
+	switch {
+	case t.Op == OpReal:
+		return r.literal(t)
+	case t.Op == OpToReal && t.Args[0].Op == OpInt:
+		return r.literal(RealTerm(new(big.Rat).SetInt(t.Args[0].IntBig())))
+	}
+	return r.site(r.rewrite(t, e), e)
+}
+
+// literal is an exact literal as binary64 arithmetic rounds it: the exact
+// rational of its nearest float64, which is what replay computes. A literal float64 cannot hold is
 // kept exact, since the evaluator could not evaluate it anyway.
 func (r *roundingRewrite) literal(t *Term) *Term {
 	f, _ := t.Real.Float64()
@@ -262,22 +275,6 @@ func (r *roundingRewrite) literal(t *Term) *Term {
 	lit := RealTerm(new(big.Rat).SetFloat64(f))
 	r.literals = append(r.literals, lit)
 	return lit
-}
-
-// ratio is a whole-number quotient's one site: the exact ratio of its integer
-// operands, whose widenings are not separate sites.
-func (r *roundingRewrite) ratio(t, e *Term) *Term {
-	left := t.Args[0]
-	right := t.Args[1]
-	if left.Op == OpToReal {
-		left = left.Args[0]
-	}
-	if right.Op == OpToReal {
-		right = right.Args[0]
-	}
-	a := r.rewrite(left, e)
-	b := r.rewrite(right, e)
-	return r.site(&Term{Op: OpDiv, Sort: Real, IntRatio: true, Args: []*Term{ToReal(a), ToReal(b)}}, e)
 }
 
 // args rewrites a term's operands under the same evaluation condition.

@@ -75,6 +75,10 @@ func TestCapabilityGatedRequestsAreRefused(t *testing.T) {
 			_, err := s.Convert(ctx, &pb.ConvertRequest{})
 			return err
 		}},
+		{"migrate", CapabilityMigrate, func(s *Service) error {
+			_, err := s.Migrate(ctx, &pb.MigrateRequest{})
+			return err
+		}},
 		{"query", CapabilityQuery, func(s *Service) error {
 			_, err := s.Query(ctx, &pb.QueryRequest{})
 			return err
@@ -204,6 +208,31 @@ func TestCapabilityGatedRequestsAreRefused(t *testing.T) {
 			_, err := s.ApplyEdits(ctx, &pb.ApplyEditsRequest{Document: "q.sysml"})
 			return err
 		}},
+		{"convert documents", CapabilityConvertDocuments, func(s *Service) error {
+			_, err := s.Convert(ctx, &pb.ConvertRequest{
+				Source:     &pb.ConvertRequest_Content{Content: "package P;"},
+				FromFormat: "sysml",
+				ToFormat:   "api-json",
+				Documents:  []string{"p.sysml"},
+			})
+			return err
+		}},
+		{"convert compact", CapabilityConvertCompact, func(s *Service) error {
+			_, err := s.Convert(ctx, &pb.ConvertRequest{
+				Source:     &pb.ConvertRequest_Content{Content: "package P;"},
+				FromFormat: "sysml",
+				ToFormat:   "api-json",
+				Compact:    true,
+			})
+			return err
+		}},
+		{"parse sources affected", CapabilityParseSourcesAffected, func(s *Service) error {
+			_, err := s.ParseSources(ctx, &pb.ParseSourcesRequest{
+				Documents:     inlineDocuments("p.sysml", "package P;"),
+				BaseModelHash: "base",
+			})
+			return err
+		}},
 		{"inline language", CapabilityInlineLanguage, func(s *Service) error {
 			_, err := s.ParseFile(ctx, &pb.ParseFileRequest{
 				Source:   &pb.ParseFileRequest_Content{Content: "package P;"},
@@ -264,6 +293,10 @@ func TestCapabilityGatedRequestsAreRefused(t *testing.T) {
 		}},
 		{"execute state performer", CapabilityPerformer, func(s *Service) error {
 			_, err := s.ExecuteState(ctx, &pb.ExecuteStateRequest{PerformerSymbolId: "Wire::pair.craft"})
+			return err
+		}},
+		{"export graphs", CapabilityExportGraphs, func(s *Service) error {
+			_, err := s.ExportGraphs(ctx, &pb.ExportGraphsRequest{ModelHash: "any", Subject: "Any"})
 			return err
 		}},
 		{"render document html", CapabilityRenderDocumentHTML, func(s *Service) error {

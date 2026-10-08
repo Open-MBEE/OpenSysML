@@ -4,19 +4,65 @@
 import { ConnectError } from "@connectrpc/connect";
 import { readFileSync } from "node:fs";
 import { isAbsolute, join, normalize, resolve as resolvePath, sep } from "node:path";
-import type { DescMessage, Message } from "@bufbuild/protobuf";
-
-import { SysMLService } from "../src/generated/sysml_pb.js";
+import { fromJson, type DescMessage, type JsonValue, type Message } from "@bufbuild/protobuf";
+import {
+  DocumentValueSchema,
+  EditOperationSchema,
+  QuerySchema,
+  SysMLService,
+  ValueSchema,
+} from "../src/generated/sysml_pb.js";
+import type { DocumentValue as PbDocumentValue, Value } from "../src/generated/sysml_pb.js";
 import type { Connection } from "../src/core/connection.js";
 import { Model } from "../src/core/model.js";
+import {
+  ElementRef,
+  ObjectRef,
+  type DocumentValue,
+} from "../src/core/document.js";
+import { SourceDocument } from "../src/core/sources.js";
+import type { SysMLValue } from "../src/core/values.js";
+import { ServiceError } from "../src/core/errors.js";
 import { statusName } from "../src/core/status.js";
 import { check, render } from "./compare.js";
 import { byCodeUnit } from "./order.js";
 import { MODEL_HASH_PLACEHOLDER, Normalizer } from "./normalize.js";
 import { Literal, methodOf, type Expect, type Scenario, type ScenarioModel } from "./scenarios.js";
 
-/** The RPCs v1 of this client covers. Everything else is a stated skip. */
-export const COVERED_RPCS = ["GetServerInfo", "ParseFile", "GetSymbol", "Evaluate", "Instantiate"] as const;
+/** The RPCs this client covers. Everything else is a stated skip. */
+export const COVERED_RPCS = [
+  "ApplyEdits",
+  "Convert",
+  "Migrate",
+  "Evaluate",
+  "EvaluateCalc",
+  "ExecuteAction",
+  "ExportGraphs",
+  "ExecuteState",
+  "GetDiagnostics",
+  "GetServerInfo",
+  "GetSymbol",
+  "Instantiate",
+  "ListEngines",
+  "ParseFile",
+  "ParseSources",
+  "Query",
+  "RenderDocument",
+  "RenderView",
+  "RunAnalysis",
+  "RunDocumentQuery",
+  "RunSweep",
+  "ValidateInstance",
+  "VerifyConstraint",
+  "VerifyRequirement",
+  "VerifySatisfaction",
+] as const;
+
+type CoveredRpc = (typeof COVERED_RPCS)[number];
+
+function isCovered(rpc: string): rpc is CoveredRpc {
+  return (COVERED_RPCS as readonly string[]).includes(rpc);
+}
 
 /** One scenario's outcome. The shape tools/cmd/conformance writes. */
 export interface Result {
@@ -70,11 +116,19 @@ export interface RunnerOptions {
 }
 
 const FIXTURE_REFERENCE = /^\$\{fixture:([^}]+)\}$/;
+const FIXTURE_BASE64_REFERENCE = /^\$\{fixture_base64:([^}]+)\}$/;
 
 /** A call the client made: the response message and the schema to read it by. */
 interface Answer {
   schema: DescMessage;
   message: Message;
+}
+
+/** What one scenario's call is made with: its resolved request and the model it addresses. */
+interface Call {
+  request: Record<string, unknown>;
+  modelHash: string;
+  scenario: Scenario;
 }
 
 /** What a scenario's call did, or why this client cannot make it. */
@@ -102,7 +156,12 @@ export class Runner {
     return ({ method, response }) => {
       if (isMessage(response)) {
         this.options.mutate?.(method, response);
-        this.captured.set(method, response);
+        // One scenario makes one top-level RPC; the answer it compares is the
+        // first of that method, since the API may ask the service more (a
+        // not-found lookup still names near misses, which re-queries).
+        if (!this.captured.has(method)) {
+          this.captured.set(method, response);
+        }
       }
     };
   }
@@ -126,11 +185,7 @@ export class Runner {
       errored: 0,
       results: [],
     };
-    for (const scenario of scenarios) {
-      if (filter !== undefined && !filter.test(scenario.id)) {
-        continue;
-      }
-      const result = await this.run(scenario);
+    for await (const result of this.results(scenarios, filter)) {
       summary.results.push(result);
       summary.total += 1;
       switch (result.outcome) {
@@ -153,6 +208,15 @@ export class Runner {
         `${summary.failed} failed, ${summary.skipped} skipped, ${summary.errored} in error`,
     );
     return summary;
+  }
+
+  /** The results of the scenarios matching `filter`, each run as the one before it ends. */
+  private async *results(scenarios: Scenario[], filter?: RegExp): AsyncGenerator<Result> {
+    for (const scenario of scenarios) {
+      if (filter === undefined || filter.test(scenario.id)) {
+        yield this.run(scenario);
+      }
+    }
   }
 
   /** Runs one scenario: parse the model it names, make the call, compare. */
@@ -178,13 +242,6 @@ export class Runner {
       }
       expect = scenario.expect_without_capability;
       result.reason = `the service does not report ${missing.join(", ")}, so the without-capability expectation applies`;
-    }
-
-    if (scenario.model?.fixtures !== undefined) {
-      result.outcome = "skip";
-      result.status = "-";
-      result.reason = "v1 of this client parses one document at a time, not a model of several";
-      return finish();
     }
 
     let modelHash = "";
@@ -260,19 +317,25 @@ export class Runner {
     modelHash: string,
     scenario: Scenario,
   ): Promise<Attempt> {
-    if (!COVERED_RPCS.includes(rpc as (typeof COVERED_RPCS)[number])) {
-      return { kind: "skip", reason: `v1 of this client does not cover ${rpc}` };
+    if (!isCovered(rpc)) {
+      return { kind: "skip", reason: `this client does not cover ${rpc}` };
     }
     const unsupported = this.unsupported(rpc, request);
     if (unsupported !== undefined) {
       return { kind: "skip", reason: unsupported };
     }
     try {
-      await this.call(rpc, request, modelHash, scenario);
+      await this.calls[rpc]({ request, modelHash, scenario });
     } catch (error) {
       const connectError = asConnectError(error);
       if (connectError !== undefined) {
         return { kind: "done", status: statusName(connectError.code), message: connectError.rawMessage };
+      }
+      // A refusal the client makes before asking, in the service's own words
+      // and with the status the service would answer: a v1 model offered to
+      // convert(), or a v2 one to migrate().
+      if (error instanceof ServiceError && error.code !== undefined && !this.captured.has(rpc)) {
+        return { kind: "done", status: error.code, message: error.message };
       }
       // The API raises a failure the service reported in a successful answer;
       // the answer itself is what the scenario compares.
@@ -291,62 +354,154 @@ export class Runner {
 
   /** Why the public API cannot express this request, when it cannot. */
   private unsupported(rpc: string, request: Record<string, unknown>): string | undefined {
-    if (rpc !== "ParseFile") {
+    if (rpc === "ParseFile") {
+      if (typeof request["content"] !== "string" && typeof request["file_path"] !== "string") {
+        return "the client's load()/loads() always name a source, so a request naming neither cannot be made through it";
+      }
       return undefined;
     }
-    if (typeof request["content"] !== "string" && typeof request["file_path"] !== "string") {
-      return "the client's load()/loads() always name a source, so a request naming neither cannot be made through it";
+    if (rpc === "ParseSources") {
+      const documents = request["documents"];
+      if (!Array.isArray(documents) || documents.length === 0) {
+        return "the client's parseSources() refuses an empty document list before asking the service";
+      }
+      const names = documents.map((entry) => {
+        const record = entry as Record<string, unknown>;
+        return stringOf(record["filePath"] ?? record["name"]);
+      });
+      if (new Set(names).size !== names.length) {
+        return "the client's parseSources() refuses two documents of one name before asking the service";
+      }
     }
     return undefined;
   }
 
-  private async call(
-    rpc: string,
-    request: Record<string, unknown>,
-    modelHash: string,
-    scenario: Scenario,
-  ): Promise<void> {
-    switch (rpc) {
-      case "GetServerInfo":
-        await this.connection.serverInfo();
-        return;
-      case "ParseFile": {
-        const options = {
-          ...(typeof request["language"] === "string" ? { language: request["language"] } : {}),
-          ...(request["strict_conformance"] === true ? { strict: true } : {}),
-        };
-        const content = request["content"];
-        if (typeof content === "string") {
-          await this.connection.loads(content, options);
-          return;
-        }
-        await this.connection.load(String(request["file_path"]), options);
-        return;
-      }
-      case "GetSymbol":
-        await this.model(request, modelHash, scenario).symbolById(String(request["symbol_id"]));
-        return;
-      case "Evaluate": {
-        const model = this.model(request, modelHash, scenario);
-        await model.eval(String(request["expression"]), {
-          ...(typeof request["context_symbol_id"] === "string" ? { context: request["context_symbol_id"] } : {}),
-          ...(typeof request["subject_symbol_id"] === "string" ? { subject: request["subject_symbol_id"] } : {}),
-        });
-        return;
-      }
-      case "Instantiate":
-        await this.model(request, modelHash, scenario).instantiate(String(request["symbol_id"]));
-        return;
-      default:
-        throw new Error(`the runner covers ${COVERED_RPCS.join(", ")}, not ${rpc}`);
+  /** How each covered RPC is made through the public API. */
+  private readonly calls: Record<CoveredRpc, (call: Call) => Promise<unknown>> = {
+    GetServerInfo: () => this.connection.serverInfo(),
+    ParseFile: ({ request }) => this.parseFile(request),
+    GetSymbol: (call) => this.model(call).symbolById(String(call.request["symbol_id"])),
+    Evaluate: (call) =>
+      this.model(call).eval(String(call.request["expression"]), {
+        ...stringOption(call.request, "context_symbol_id", "context"),
+        ...stringOption(call.request, "subject_symbol_id", "subject"),
+      }),
+    Instantiate: (call) => this.model(call).instantiate(String(call.request["symbol_id"])),
+    ParseSources: ({ request }) => this.parseSources(request),
+    GetDiagnostics: (call) => this.model(call).refreshDiagnostics(),
+    ExecuteAction: (call) =>
+      this.model(call).executeAction(String(call.request["action_symbol_id"]), {
+        inputs: valueMap(call.request["inputs"]),
+        ...stringOption(call.request, "schedule", "schedule"),
+      }),
+    ExecuteState: (call) =>
+      this.model(call).executeState(String(call.request["state_machine_symbol_id"]), {
+        ...stringOption(call.request, "schedule", "schedule"),
+        ...flagOption(call.request, "trace", "trace"),
+      }),
+    Convert: ({ request, modelHash }) =>
+      this.connection.convert(stringOf(request["to_format"]), convertSource(request, modelHash), {
+        ...stringOption(request, "from_format", "fromFormat"),
+      }),
+    Migrate: ({ request }) =>
+      this.connection.migrate(stringOf(request["to_format"]), migrateSource(request), {
+        ...stringOption(request, "from_format", "fromFormat"),
+        ...flagOption(request, "report", "report"),
+        ...flagOption(request, "results", "results"),
+        ...stringOption(request, "layout_path", "layoutPath"),
+        ...stringOption(request, "layout_content", "layoutContent"),
+        ...stringOption(request, "image_base_url", "imageBaseUrl"),
+        ...flagOption(request, "strict", "strict"),
+      }),
+    ApplyEdits: ({ request, modelHash }) => this.applyEdits(request, modelHash),
+    VerifyConstraint: (call) =>
+      this.model(call).verifyConstraint(String(call.request["symbol_id"]), subjectAndQuestion(call.request)),
+    VerifyRequirement: (call) =>
+      this.model(call).verifyRequirement(String(call.request["symbol_id"]), subjectAndQuestion(call.request)),
+    VerifySatisfaction: (call) =>
+      this.model(call).verifySatisfaction(stringOption(call.request, "symbol_id", "symbolId")),
+    ValidateInstance: (call) => this.model(call).validateInstance(String(call.request["symbol_id"])),
+    EvaluateCalc: (call) =>
+      this.model(call).calc(String(call.request["symbol_id"]), {
+        arguments: valueList(call.request["arguments"]),
+      }),
+    Query: (call) =>
+      this.model(call).query({
+        ...(call.request["query"] !== undefined
+          ? { query: fromJson(QuerySchema, call.request["query"] as Record<string, JsonValue>) }
+          : {}),
+        ...stringOption(call.request, "oslc_query", "oslc"),
+      }),
+    RunDocumentQuery: (call) =>
+      this.model(call).runDocumentQuery(
+        String(call.request["query_id"]),
+        documentBindings(call.request["bindings"]),
+      ),
+    RenderDocument: (call) => this.model(call).renderDocument(String(call.request["document_id"])),
+    RenderView: (call) =>
+      this.model(call).renderView(String(call.request["view"]), {
+        ports: call.request["ports"] === "full" ? "full" : "minimal",
+      }),
+    ExportGraphs: (call) => this.model(call).exportGraphs(String(call.request["subject"])),
+    RunAnalysis: (call) =>
+      this.model(call).runAnalysis(String(call.request["symbol_id"]), {
+        ...stringOption(call.request, "subject_symbol_id", "subject"),
+        arguments: valueList(call.request["arguments"]),
+        namedArguments: valueMap(call.request["named_arguments"]),
+      }),
+    RunSweep: (call) =>
+      this.model(call).runSweep(String(call.request["symbol_id"]), sweepRanges(call.request["ranges"]), {
+        ...stringOption(call.request, "subject_symbol_id", "subject"),
+        arguments: valueList(call.request["arguments"]),
+        ...numberOption(call.request, "samples", "samples"),
+        ...numberOption(call.request, "seed", "seed"),
+      }),
+    ListEngines: () => this.connection.listEngines(),
+  };
+
+  private async parseFile(request: Record<string, unknown>): Promise<void> {
+    const options = {
+      ...stringOption(request, "language", "language"),
+      ...flagOption(request, "strict_conformance", "strict"),
+    };
+    const content = request["content"];
+    if (typeof content === "string") {
+      await this.connection.loads(content, options);
+      return;
     }
+    await this.connection.load(String(request["file_path"]), options);
+  }
+
+  private async parseSources(request: Record<string, unknown>): Promise<void> {
+    const documents = (request["documents"] as Record<string, unknown>[] | undefined) ?? [];
+    await this.connection.parseSources(
+      documents.map((entry) => {
+        if (typeof entry["content"] === "string") {
+          return SourceDocument.inline(stringOf(entry["name"]), entry["content"]);
+        }
+        return SourceDocument.file(stringOf(entry["filePath"] ?? entry["file_path"]));
+      }),
+      { strictConformance: request["strict_conformance"] === true },
+    );
+  }
+
+  private async applyEdits(request: Record<string, unknown>, modelHash: string): Promise<void> {
+    const operations = (request["operations"] as unknown[] | undefined) ?? [];
+    await this.connection.applyEdits(
+      modelHash === "" ? stringOf(request["model_hash"]) : modelHash,
+      operations.map((entry) => fromJson(EditOperationSchema, entry as Record<string, JsonValue>)),
+      {
+        acceptDocuments: request["accept_documents"] === true,
+        ...stringOption(request, "document", "document"),
+      },
+    );
   }
 
   /**
    * The model a scenario's call addresses: the one parsed from its fixture, or a
    * hash adopted as written, which is how "no-such-model" reaches the service.
    */
-  private model(request: Record<string, unknown>, modelHash: string, scenario: Scenario): Model {
+  private model({ request, modelHash, scenario }: Call): Model {
     const named = request["model_hash"];
     const hash = typeof named === "string" ? named : modelHash;
     if (hash === "") {
@@ -357,25 +512,36 @@ export class Runner {
 
   /** Parses a scenario's fixture once per run and remembers the hash. */
   private async modelHash(model: ScenarioModel): Promise<string> {
-    if (model.fixture === undefined) {
+    if (model.fixture === undefined && model.fixtures === undefined) {
       throw new Error("a model names no fixture");
     }
-    const key = `${model.fixture}|${model.language ?? ""}|${String(model.strict_conformance ?? false)}`;
+    const key =
+      `${model.fixture ?? ""}|${(model.fixtures ?? []).join(",")}|${model.language ?? ""}|` +
+      String(model.strict_conformance ?? false);
     const known = this.hashes.get(key);
     if (known !== undefined) {
       return known;
     }
-    const source = this.fixture(model.fixture);
-    const parsed = await this.connection.loads(source, {
-      ...(model.language === undefined ? {} : { language: model.language }),
-      ...(model.strict_conformance === undefined ? {} : { strict: model.strict_conformance }),
-    });
+    const parsed =
+      model.fixtures === undefined
+        ? await this.connection.loads(this.fixture(model.fixture ?? ""), {
+            ...(model.language === undefined ? {} : { language: model.language }),
+            ...(model.strict_conformance === undefined ? {} : { strict: model.strict_conformance }),
+          })
+        : await this.connection.parseSources(
+            model.fixtures.map((name) => SourceDocument.inline(name, this.fixture(name))),
+            {
+              ...(model.strict_conformance === undefined
+                ? {}
+                : { strictConformance: model.strict_conformance }),
+            },
+          );
     const failure = parsed.diagnostics.find((diagnostic) => diagnostic.severity === "error");
     if (failure !== undefined) {
-      throw new Error(`fixture ${JSON.stringify(model.fixture)} does not parse clean: ${failure.message}`);
+      throw new Error(`fixture ${JSON.stringify(model.fixture ?? model.fixtures)} does not parse clean: ${failure.message}`);
     }
     if (parsed.hash === "") {
-      throw new Error(`parsing fixture ${JSON.stringify(model.fixture)} returned no model hash`);
+      throw new Error(`parsing fixture ${JSON.stringify(model.fixture ?? model.fixtures)} returned no model hash`);
     }
     this.hashes.set(key, parsed.hash);
     this.parsed.set(parsed.hash, parsed);
@@ -405,18 +571,34 @@ export class Runner {
       if (reference !== null) {
         return this.fixture(reference[1]);
       }
+      const bytes = FIXTURE_BASE64_REFERENCE.exec(tree);
+      if (bytes !== null) {
+        return this.fixtureBytes(bytes[1]);
+      }
+    }
+    if (tree instanceof Literal) {
+      return tree.toJSON();
     }
     return tree;
   }
 
   /** Reads a fixture's source, refusing a name that leaves the fixtures directory. */
   private fixture(name: string): string {
+    return readFileSync(this.fixturePath(name), "utf8");
+  }
+
+  /** Reads a fixture's bytes, as `${fixture_base64:<name>}` carries them to a bytes field. */
+  private fixtureBytes(name: string): Uint8Array {
+    return new Uint8Array(readFileSync(this.fixturePath(name)));
+  }
+
+  private fixturePath(name: string): string {
     const fixtures = resolvePath(this.options.fixtures);
     const path = isAbsolute(name) ? normalize(name) : resolvePath(join(fixtures, normalize(name)));
     if (!path.startsWith(fixtures + sep)) {
       throw new Error(`fixture ${JSON.stringify(name)} is outside ${fixtures}`);
     }
-    return readFileSync(path, "utf8");
+    return path;
   }
 
   private report(result: Result): void {
@@ -463,6 +645,161 @@ function asConnectError(error: unknown): ConnectError | undefined {
     return error.cause;
   }
   return undefined;
+}
+
+/** A request field read as a string; a field of another form reads as none. */
+function stringOf(value: unknown): string {
+  return typeof value === "string" ? value : "";
+}
+
+/** The option `name` taken from a request's string field `key`; nothing when the field is not a string. */
+function stringOption<K extends string>(
+  request: Record<string, unknown>,
+  key: string,
+  name: K,
+): { [P in K]?: string } {
+  const value = request[key];
+  return typeof value === "string" ? ({ [name]: value } as { [P in K]?: string }) : {};
+}
+
+/** The option `name` taken from a request's number field `key`; nothing when the field is not a number. */
+function numberOption<K extends string>(
+  request: Record<string, unknown>,
+  key: string,
+  name: K,
+): { [P in K]?: number } {
+  const value = request[key];
+  return typeof value === "number" ? ({ [name]: value } as { [P in K]?: number }) : {};
+}
+
+/** The flag `name` set when a request's field `key` is `true`; nothing otherwise. */
+function flagOption<K extends string>(
+  request: Record<string, unknown>,
+  key: string,
+  name: K,
+): { [P in K]?: true } {
+  return request[key] === true ? ({ [name]: true } as { [P in K]?: true }) : {};
+}
+
+/** The subject and question options of a verification request. */
+function subjectAndQuestion(request: Record<string, unknown>): { subject?: string; question?: string } {
+  return {
+    ...stringOption(request, "subject_symbol_id", "subject"),
+    ...stringOption(request, "question", "question"),
+  };
+}
+
+/** What a Convert request converts: inline content, a file, or the model it names. */
+function convertSource(
+  request: Record<string, unknown>,
+  modelHash: string,
+): { content: string } | { path: string } | { modelHash: string } {
+  if (typeof request["content"] === "string") {
+    return { content: request["content"] };
+  }
+  if (typeof request["file_path"] === "string") {
+    return { path: request["file_path"] };
+  }
+  return { modelHash };
+}
+
+/** What a Migrate request migrates: bytes, base64 text decoded to bytes, or a file. */
+function migrateSource(request: Record<string, unknown>): { content: Uint8Array } | { path: string } {
+  const content = request["content"];
+  if (content instanceof Uint8Array) {
+    return { content };
+  }
+  if (typeof content === "string") {
+    return { content: Buffer.from(content, "base64") };
+  }
+  return { path: stringOf(request["file_path"]) };
+}
+
+/** A RunDocumentQuery request's bindings, each parameter's values decoded. */
+function documentBindings(json: unknown): Record<string, DocumentValue[]> {
+  const bindings: Record<string, DocumentValue[]> = {};
+  for (const binding of (json as Record<string, unknown>[] | undefined) ?? []) {
+    bindings[String(binding["parameter"])] = (
+      (binding["values"] as Record<string, JsonValue>[] | undefined) ?? []
+    ).map((value) => bindingValue(fromJson(DocumentValueSchema, value)));
+  }
+  return bindings;
+}
+
+/** A RunSweep request's ranges, each a start and end with an optional step. */
+function sweepRanges(json: unknown): Record<string, [Value, Value] | [Value, Value, Value]> {
+  const ranges: Record<string, [Value, Value] | [Value, Value, Value]> = {};
+  for (const range of (json as Record<string, JsonValue>[] | undefined) ?? []) {
+    const start = fromJson(ValueSchema, range["start"] as Record<string, JsonValue>);
+    const end = fromJson(ValueSchema, range["end"] as Record<string, JsonValue>);
+    ranges[stringOf(range["parameter"])] =
+      "step" in range
+        ? [start, end, fromJson(ValueSchema, range["step"] as Record<string, JsonValue>)]
+        : [start, end];
+  }
+  return ranges;
+}
+
+/** A scenario's `inputs` or `named_arguments` object, each value a wire Value JSON. */
+function valueMap(json: unknown): Record<string, Value> {
+  const out: Record<string, Value> = {};
+  for (const [name, entry] of Object.entries((json as Record<string, JsonValue> | undefined) ?? {})) {
+    out[name] = fromJson(ValueSchema, entry as Record<string, JsonValue>);
+  }
+  return out;
+}
+
+/** A scenario's `arguments` list, each element a wire Value JSON. */
+function valueList(json: unknown): Value[] {
+  return ((json as Record<string, JsonValue>[] | undefined) ?? []).map((entry) =>
+    fromJson(ValueSchema, entry),
+  );
+}
+
+/** A wire DocumentValue as the document API's binding value type. */
+function bindingValue(pb: PbDocumentValue): DocumentValue {
+  switch (pb.kind.case) {
+    case "elementId":
+      return new ElementRef(pb.kind.value);
+    case "object":
+      return new ObjectRef({ id: pb.kind.value.instanceId, path: pb.kind.value.path });
+    case "boolValue":
+      return pb.kind.value;
+    case "stringValue":
+      return pb.kind.value;
+    case "intValue":
+      return pb.kind.value;
+    case "realValue":
+      return pb.kind.value;
+    case "infinity":
+      return { kind: "infinity" };
+    case "quantity": {
+      const quantity = pb.kind.value;
+      const value: SysMLValue = {
+        kind: "quantity",
+        magnitude:
+          quantity.magnitude.case === "intMagnitude"
+            ? { kind: "int", value: quantity.magnitude.value }
+            : { kind: "real", value: quantity.magnitude.case === "realMagnitude" ? quantity.magnitude.value : 0 },
+        unit: quantity.unit,
+        ...(quantity.unitTerm === undefined
+          ? {}
+          : {
+              unitTerm: {
+                scaleNum: quantity.unitTerm.scaleNum,
+                scaleDen: quantity.unitTerm.scaleDen,
+                factors: quantity.unitTerm.factors.map((factor) => ({
+                  unitId: factor.unitId,
+                  exponent: factor.exponent,
+                })),
+              },
+            }),
+      };
+      return value;
+    }
+    default:
+      throw new Error(`a binding cannot carry ${String(pb.kind.case)}`);
+  }
 }
 
 function errored(result: Result, error: unknown): Result {

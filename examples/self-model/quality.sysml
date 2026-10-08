@@ -56,7 +56,7 @@ package OpenSysMLInvariants {
              * that exhausts one reports which rather than hanging. */
         subject runtime : Runtime;
         require constraint {
-            runtime.stepBudgeted and runtime.budgetCount == 7
+            runtime.stepBudgeted and runtime.budgetCount == 8
                 and runtime.evaluationSteps.defaultBound > 0
                 and runtime.actionSteps.defaultBound > 0
                 and runtime.stateEvents.defaultBound > 0
@@ -64,6 +64,7 @@ package OpenSysMLInvariants {
                 and runtime.elements.defaultBound > 0
                 and runtime.calcDepth.defaultBound > 0
                 and runtime.sweepRuns.defaultBound > 0
+                and runtime.integerBits.defaultBound > 0
         }
     }
 
@@ -71,7 +72,7 @@ package OpenSysMLInvariants {
         doc /* Every bundled standard library file parses clean. */
         subject stdlib : StandardLibrary;
         require constraint {
-            stdlib.bundledFileCount == 106
+            stdlib.bundledFileCount == 110
         }
     }
 
@@ -431,7 +432,7 @@ package OpenSysMLCodebase {
     allocate opensysml.julia to tree.clientLibraries;
     allocate opensysml.matlab to tree.clientLibraries;
     allocate opensysml.vscode to tree.editors;
-    allocate opensysml.cameo to tree.editors;
+    allocate opensysml.mdk to tree.editors;
     allocate opensysml.syson to tree.editors;
     allocate opensysml.rejection to tree.tools;
     allocate opensysml.differential to tree.tools;

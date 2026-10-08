@@ -3,7 +3,20 @@
 // carry the edge and the waypoint or segment they stand on; the panel script
 // reads those attributes off whatever the pointer lands on.
 import type { RenderPoint } from "../protocol";
-import { CanvasLayout, FONT_SIZE, liftedEdges, MARGIN, movable, PlacedEdge, PlacedNode, steerable } from "./layout";
+import {
+  CanvasLayout,
+  FONT_SIZE,
+  liftedEdges,
+  MARGIN,
+  movable,
+  PlacedEdge,
+  PlacedNode,
+  portBox,
+  portLabelPlacement,
+  PORT_SIZE,
+  steerable,
+  type PlacedPort,
+} from "./layout";
 
 const SVG = "http://www.w3.org/2000/svg";
 const LINE_HEIGHT = 18;
@@ -103,8 +116,10 @@ export function cssEscape(value: string): string {
 }
 
 // markers are the arrowheads edges end in: a filled head for a transition or a
-// succession, an open one for a flow. A connection ends in none. The defs also
-// hold Cameo's pale-yellow gradient, which the cameo look fills shapes from.
+// succession, an open one for a flow, a hollow triangle at the general end of a
+// specialization or typing, a diamond at the owner end of a composition (filled)
+// or reference (hollow). A connection ends in none. The defs also hold Cameo's
+// pale-yellow gradient, which the cameo look fills shapes from.
 function markers(): SVGDefsElement {
   const defs = element("defs", {});
   const gradient = element("linearGradient", { id: "cameo-fill", x1: "0", y1: "0", x2: "0", y2: "1" });
@@ -123,7 +138,24 @@ function markers(): SVGDefsElement {
     markerWidth: "9", markerHeight: "9", orient: "auto-start-reverse",
   });
   open.append(element("path", { d: "M 0 0 L 10 5 L 0 10", class: "arrow-line" }));
-  defs.append(filled, open);
+  const triangle = element("marker", {
+    id: "triangle-hollow", viewBox: "0 0 12 12", refX: "11", refY: "6",
+    markerWidth: "12", markerHeight: "12", orient: "auto-start-reverse",
+  });
+  triangle.append(element("path", { d: "M 0.5 0.5 L 11.5 6 L 0.5 11.5 z", class: "arrow-hollow" }));
+  // A diamond sits at the edge's start, pointing along it: orient="auto" keeps
+  // its x axis on the line's direction and refX="0" puts its near corner on the node.
+  const diamondFilled = element("marker", {
+    id: "diamond-filled", viewBox: "0 0 14 8", refX: "0", refY: "4",
+    markerWidth: "14", markerHeight: "8", orient: "auto",
+  });
+  diamondFilled.append(element("path", { d: "M 0 4 L 7 0 L 14 4 L 7 8 z", class: "arrow-fill" }));
+  const diamondHollow = element("marker", {
+    id: "diamond-hollow", viewBox: "0 0 14 8", refX: "0", refY: "4",
+    markerWidth: "14", markerHeight: "8", orient: "auto",
+  });
+  diamondHollow.append(element("path", { d: "M 0.5 4 L 7 0.5 L 13.5 4 L 7 7.5 z", class: "arrow-hollow" }));
+  defs.append(filled, open, triangle, diamondFilled, diamondHollow);
   return defs;
 }
 
@@ -156,6 +188,9 @@ function drawNode(parent: SVGElement, entry: PlacedNode, layout: CanvasLayout): 
     });
     group.append(text);
   }
+  for (const port of entry.ports) {
+    group.append(drawPort(box, port, entry));
+  }
   if (entry.collapsed && entry.children.length > 0) {
     const mark = element("text", { x: String(box.x + box.width - LABEL_PAD_X), y: String(box.y + LABEL_PAD_Y + LINE_HEIGHT * 0.8), class: "collapsed", "text-anchor": "end" });
     mark.textContent = "+";
@@ -167,6 +202,45 @@ function drawNode(parent: SVGElement, entry: PlacedNode, layout: CanvasLayout): 
       drawNode(parent, child, layout);
     }
   }
+}
+
+function drawPort(box: PlacedNode["box"], port: PlacedPort, entry: PlacedNode): SVGGElement {
+  const square = portBox(box, port);
+  const label = portLabelPlacement(box, port);
+  const group = element("g", { class: "port", "data-port": port.port.id }) as SVGGElement;
+  const title = element("title", {});
+  title.textContent = port.port.type ? `${port.port.name} : ${port.port.type}` : port.port.name;
+  const classes = ["port-shape"];
+  if (entry.shape === "box") {
+    classes.push(boxClass(entry.node.kind));
+    if (entry.children.length > 0 && !entry.collapsed) {
+      classes.push("container");
+    }
+  } else {
+    classes.push("filled");
+  }
+  const rect = element("rect", {
+    x: String(square.x),
+    y: String(square.y),
+    width: String(PORT_SIZE),
+    height: String(PORT_SIZE),
+    class: classes.join(" "),
+  });
+  if (entry.node.fill !== undefined) {
+    rect.style.setProperty("--node-fill", entry.node.fill);
+  }
+  if (entry.node.border !== undefined) {
+    rect.style.setProperty("--node-border", entry.node.border);
+  }
+  const text = element("text", {
+    x: String(label.x),
+    y: String(label.y),
+    "text-anchor": label.anchor,
+    class: "port-label",
+  });
+  text.textContent = port.port.name;
+  group.append(title, rect, text);
+  return group;
 }
 
 // labelLineClass styles the i-th label line: the head, then the «kind» of a
@@ -257,7 +331,9 @@ function boxClass(kind: string): "package" | "definition" | "region" | "usage" {
 }
 
 // drawEdge is an edge's polyline with the arrowhead its kind takes and its label
-// at the midpoint.
+// at the midpoint. A specialization or typing points its hollow triangle at the
+// general end; a composition or reference wears its diamond at the owner end,
+// where the edge starts, and no arrowhead at the part it leads to.
 function drawEdge(edge: PlacedEdge): SVGGElement {
   const group = element("g", { class: `opensysml-edge ${edge.edge.kind}`, "data-edge": String(edge.index) });
   const attrs: Record<string, string> = { points: polyline(edge.points), class: "line" };
@@ -266,6 +342,16 @@ function drawEdge(edge: PlacedEdge): SVGGElement {
       attrs["marker-end"] = "url(#arrow-open)";
       break;
     case "connection":
+      break;
+    case "specialization":
+    case "typing":
+      attrs["marker-end"] = "url(#triangle-hollow)";
+      break;
+    case "composition":
+      attrs["marker-start"] = "url(#diamond-filled)";
+      break;
+    case "reference":
+      attrs["marker-start"] = "url(#diamond-hollow)";
       break;
     default:
       attrs["marker-end"] = "url(#arrow)";

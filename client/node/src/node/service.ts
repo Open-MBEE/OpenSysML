@@ -10,10 +10,10 @@ const START_TIMEOUT_MS = 10_000;
 const STOP_TIMEOUT_MS = 5_000;
 const STDERR_LINES_KEPT = 20;
 
-/** The one private child of this thread, and the connections holding it. */
-let shared: PrivateService | undefined;
-/** A start in flight, so concurrent connect() calls share one child. */
-let starting: Promise<PrivateService> | undefined;
+/** The private children of this thread, one per release asked for, keyed by tag. */
+const shared = new Map<string, PrivateService>();
+/** Starts in flight, so concurrent connect() calls share one child per release. */
+const starting = new Map<string, Promise<PrivateService>>();
 
 /** A sysml-grpc child of this process, shared by every connection that needs one. */
 export class PrivateService {
@@ -25,6 +25,8 @@ export class PrivateService {
   private readonly child: ChildProcessWithoutNullStreams;
   private readonly stderr: string[];
   private ended: boolean;
+  /** The release key {@link acquirePrivateService} filed this child under. */
+  key = "";
 
   private constructor(init: {
     child: ChildProcessWithoutNullStreams;
@@ -63,8 +65,8 @@ export class PrivateService {
     if (this.refs > 0) {
       return;
     }
-    if (shared === this) {
-      shared = undefined;
+    if (shared.get(this.key) === this) {
+      shared.delete(this.key);
     }
     await this.stop();
   }
@@ -99,8 +101,8 @@ export class PrivateService {
   }
 
   /** Starts a child and waits for the address it bound. */
-  static async start(): Promise<PrivateService> {
-    const binary = await resolveBinary();
+  static async start(version?: string): Promise<PrivateService> {
+    const binary = await resolveBinary(version === undefined ? {} : { version });
     const child = spawn(
       binary.path,
       ["-port", "0", "-health-port", "0", "-report-address", "-exit-with-parent"],
@@ -140,29 +142,33 @@ export class PrivateService {
   }
 }
 
-/** Takes a hold on this thread's private child, starting one when there is none. */
-export async function acquirePrivateService(): Promise<PrivateService> {
-  for (;;) {
-    const existing = shared;
-    if (existing?.alive) {
-      existing.refs += 1;
-      return existing;
-    }
-    starting ??= PrivateService.start()
-      .then((service) => {
-        shared = service;
-        return service;
-      })
-      .finally(() => {
-        starting = undefined;
-      });
-    await starting;
+/** Takes a hold on the private child for `version`, starting one when there is none. */
+export async function acquirePrivateService(version?: string): Promise<PrivateService> {
+  const key = version ?? "";
+  const existing = shared.get(key);
+  if (existing?.alive) {
+    existing.refs += 1;
+    return existing;
   }
+  let pending = starting.get(key);
+  pending ??= PrivateService.start(version)
+    .then((service) => {
+      service.key = key;
+      shared.set(key, service);
+      return service;
+    })
+    .finally(() => {
+      starting.delete(key);
+    });
+  starting.set(key, pending);
+  await pending;
+  // The child just started is taken by the same path as one found alive.
+  return acquirePrivateService(version);
 }
 
 /** The private child this thread holds, for tests and diagnostics. */
 export function currentPrivateService(): PrivateService | undefined {
-  return shared;
+  return [...shared.values()].find((service) => service.refs > 0) ?? [...shared.values()][0];
 }
 
 function startFailure(binary: Binary, stderr: readonly string[], cause: unknown): string {

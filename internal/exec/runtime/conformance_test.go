@@ -97,9 +97,13 @@ type AdmittedOutcome struct {
 	FinalState  string                   `json:"finalState,omitempty"`
 	Terminated  bool                     `json:"terminated,omitempty"`
 	StateVisits []string                 `json:"stateVisits,omitempty"`
-	// Probability states the share the explore pass expects the linearizations
-	// reaching this outcome to carry, for a case whose open choices are drawn.
+	// Error is the text a run of an action case fails with under the schedules
+	// reaching this outcome, matched as a substring; it states nothing else.
+	Error string `json:"error,omitempty"`
+	// Probability states the exact probability from model-weighted draws.
 	Probability *float64 `json:"probability,omitempty"`
+	// ProbabilityRange states the minimum and maximum probability over schedulers.
+	ProbabilityRange *[2]float64 `json:"probabilityRange,omitempty"`
 }
 
 // ExpectedOutcome represents expected execution result
@@ -577,9 +581,18 @@ func exploreConformanceCase(t *testing.T, fresh func() *Context, idx *symbols.In
 	ctx := fresh()
 	reached := make([]int, len(expected.Outcomes))
 	probs := make([]float64, len(expected.Outcomes))
+	probabilityRanges := make([]*ProbabilityRange, len(expected.Outcomes))
+	probabilityRangeCounts := make([]int, len(expected.Outcomes))
+	for _, outcome := range expected.Outcomes {
+		if outcome.Probability != nil || outcome.ProbabilityRange != nil {
+			if !exploration.Weighted() {
+				t.Errorf("outcome probability is stated for an exploration with no weighted choice")
+			}
+		}
+	}
 	for _, explored := range exploration.Outcomes {
 		witness := FormatChoices(explored.Witness)
-		if explored.Outcome.Err != nil {
+		if explored.Outcome.Err != nil && !listsError(expected.Outcomes) {
 			t.Errorf("exploration reached an error the case does not list: %v\n  witness: %s", explored.Outcome.Err, witness)
 			continue
 		}
@@ -588,8 +601,22 @@ func exploreConformanceCase(t *testing.T, fresh func() *Context, idx *symbols.In
 		})
 		switch len(matched) {
 		case 1:
-			reached[matched[0]-1] += explored.Linearizations
-			probs[matched[0]-1] += explored.Probability
+			index := matched[0] - 1
+			reached[index] += explored.Linearizations
+			if expected.Outcomes[index].Probability != nil {
+				if explored.Probability == nil {
+					t.Errorf("admissible outcome %d has no model probability", matched[0])
+				} else if !explored.Probability.Exact() {
+					t.Errorf("admissible outcome %d has inexact probability range %+v; probability requires an exact value",
+						matched[0], explored.Probability)
+				} else {
+					probs[index] += explored.Probability.Min
+				}
+			}
+			if expected.Outcomes[index].ProbabilityRange != nil {
+				probabilityRangeCounts[index]++
+				probabilityRanges[index] = explored.Probability
+			}
 		case 0:
 			t.Errorf("exploration reached an outcome the case does not list: %s\n  witness: %s\n  %s",
 				explored.Outcome, witness, strings.Join(report, "\n  "))
@@ -605,6 +632,16 @@ func exploreConformanceCase(t *testing.T, fresh func() *Context, idx *symbols.In
 		}
 		if want := expected.Outcomes[i].Probability; want != nil && math.Abs(probs[i]-*want) > 1e-9 {
 			t.Errorf("admissible outcome %d carries probability %v, want %v", i+1, probs[i], *want)
+		}
+		if want := expected.Outcomes[i].ProbabilityRange; want != nil {
+			if probabilityRangeCounts[i] != 1 {
+				t.Errorf("admissible outcome %d matches %d explored outcomes, want exactly one for probabilityRange",
+					i+1, probabilityRangeCounts[i])
+			} else if got := probabilityRanges[i]; got == nil ||
+				math.Abs(got.Min-want[0]) > 1e-9 || math.Abs(got.Max-want[1]) > 1e-9 {
+				t.Errorf("admissible outcome %d has probability range %v, want [%v, %v]",
+					i+1, got, want[0], want[1])
+			}
 		}
 	}
 	if !exploration.Complete() {
@@ -647,12 +684,37 @@ func conformanceRun(t *testing.T, idx *symbols.Index, path string, expected Expe
 // validateOutcome checks an outcome a run reached against one the case admits.
 func validateOutcome(r reporter, ctx *Context, want AdmittedOutcome, got Outcome) {
 	r.Helper()
+	if validateOutcomeError(r, want.Error, got.Err) {
+		return
+	}
 	validateTerminated(r, got.Terminated, want.Terminated)
 	validateFinalState(r, got.FinalState, want.FinalState)
 	validateStateVisits(r, got.StateVisits, want.StateVisits)
 	if want.Outputs != nil {
 		validateOutputs(r, ctx, want.Outputs, got.Outputs)
 	}
+}
+
+// listsError reports whether an admissible set lists a run failing as an outcome.
+func listsError(outcomes []AdmittedOutcome) bool {
+	return slices.ContainsFunc(outcomes, func(o AdmittedOutcome) bool { return o.Error != "" })
+}
+
+// validateOutcomeError checks a run's failure against an outcome's error, reporting
+// whether either states one, so that the outcome's result is not checked besides.
+func validateOutcomeError(r reporter, want string, got error) bool {
+	r.Helper()
+	switch {
+	case want == "" && got == nil:
+		return false
+	case want == "":
+		r.Errorf("the run failed with %q, this outcome states a result", got)
+	case got == nil:
+		r.Errorf("the run completed, this outcome states the error %q", want)
+	case !strings.Contains(got.Error(), want):
+		r.Errorf("the run failed with %q, this outcome states an error containing %q", got, want)
+	}
+	return true
 }
 
 // oraclePath is the semantic oracle an admissible set must cite a section of.
@@ -708,8 +770,17 @@ func admissibleSchemaProblems(expected ExpectedOutcome, oracleTitles map[string]
 		if expected.Admissible != "" {
 			problems = append(problems, "admissible is stated without outcomes to admit")
 		}
-		if expected.ExploreBudget != nil {
+		hasSingleOutcome := expected.Outputs != nil || expected.FinalState != "" || expected.StateVisits != nil || expected.Terminated
+		if expected.ExploreBudget != nil && !hasSingleOutcome {
 			problems = append(problems, "exploreBudget is stated without outcomes to explore")
+		}
+		if expected.ExploreBudget != nil && hasSingleOutcome {
+			if expected.Type != "action" && expected.Type != "state" {
+				problems = append(problems, fmt.Sprintf("exploreBudget applies to action and state cases, not %q", expected.Type))
+			}
+			if _, err := ExplorePolicy(expected.ExploreBudget.budget()); err != nil {
+				problems = append(problems, "exploreBudget: "+err.Error())
+			}
 		}
 		return problems
 	}
@@ -729,11 +800,26 @@ func admissibleSchemaProblems(expected ExpectedOutcome, oracleTitles map[string]
 		problems = append(problems, "outcomes lists one result; state it as the single outcome")
 	}
 	for i, outcome := range expected.Outcomes {
-		if outcome.Outputs == nil && outcome.FinalState == "" && outcome.StateVisits == nil && !outcome.Terminated {
+		if outcome.Error != "" {
+			if expected.Type != "action" {
+				problems = append(problems, fmt.Sprintf("outcome %d states an error; error outcomes apply to action cases", i+1))
+			}
+			if outcome.Outputs != nil || outcome.FinalState != "" || outcome.StateVisits != nil || outcome.Terminated ||
+				outcome.Probability != nil || outcome.ProbabilityRange != nil {
+				problems = append(problems, fmt.Sprintf("outcome %d states an error beside a result", i+1))
+			}
+		} else if outcome.Outputs == nil && outcome.FinalState == "" && outcome.StateVisits == nil && !outcome.Terminated {
 			problems = append(problems, fmt.Sprintf("outcome %d states nothing", i+1))
 		}
 		if p := outcome.Probability; p != nil && (*p < 0 || *p > 1) {
 			problems = append(problems, fmt.Sprintf("outcome %d states probability %v, not one of 0.0..1.0", i+1, *p))
+		}
+		if p := outcome.ProbabilityRange; p != nil &&
+			(p[0] < 0 || p[0] > 1 || p[1] < 0 || p[1] > 1 || p[0] > p[1]) {
+			problems = append(problems, fmt.Sprintf("outcome %d states invalid probabilityRange [%v, %v]", i+1, p[0], p[1]))
+		}
+		if outcome.Probability != nil && outcome.ProbabilityRange != nil {
+			problems = append(problems, fmt.Sprintf("outcome %d states both probability and probabilityRange", i+1))
 		}
 	}
 	switch {
@@ -912,6 +998,12 @@ func runActionConformance(t *testing.T, ctx *Context, idx *symbols.Index, path s
 	// Execute action
 	outcome, err := ctx.ActionOutcomePerformedBy(actionSym, nil, nil)
 	outputs := outcome.Outputs
+	if err != nil && listsError(expected.Outcomes) {
+		matchOutcome(t, expected.Outcomes, func(r reporter, admitted AdmittedOutcome) {
+			validateOutcomeError(r, admitted.Error, err)
+		})
+		return
+	}
 	if expected.Error != "" {
 		if err == nil {
 			t.Fatalf("expected execution to fail with %q, it completed with outputs %v", expected.Error, outputs)
@@ -929,6 +1021,9 @@ func runActionConformance(t *testing.T, ctx *Context, idx *symbols.Index, path s
 	validateOutputs(t, ctx, expected.Outputs, outputs)
 	if len(expected.Outcomes) > 0 {
 		matchOutcome(t, expected.Outcomes, func(r reporter, admitted AdmittedOutcome) {
+			if validateOutcomeError(r, admitted.Error, nil) {
+				return
+			}
 			validateTerminated(r, outcome.Terminated, admitted.Terminated)
 			validateOutputs(r, ctx, admitted.Outputs, outputs)
 		})
@@ -2049,25 +2144,48 @@ func lookupBehavioralSymbol(scope *symbols.Scope, defKind ast.DefinitionKind, us
 	return nil
 }
 
+// expectedInteger reads an expected Integer: a whole JSON number, or a decimal
+// string for one of any magnitude, whose digits no float64 rounds.
+func expectedInteger(v any) (semantics.Value, bool) {
+	switch v := v.(type) {
+	case float64:
+		return semantics.IntegerOfReal(v)
+	case string:
+		return semantics.ParseInteger(v)
+	}
+	return semantics.Value{}, false
+}
+
+// expectedRational reads a case's Rational, written as the exact text ToString
+// prints (`"0.1"`, `"1/3"`) so no decimal is read through a binary64.
+func expectedRational(v any) (semantics.Value, bool) {
+	s, ok := v.(string)
+	if !ok {
+		return semantics.Value{}, false
+	}
+	r, err := semantics.ParseRationalText(s, semantics.DefaultMaxIntegerBits)
+	return r, err == nil
+}
+
 // expectedToRuntimeValue converts ExpectedValue to runtime Value
 func expectedToRuntimeValue(t *testing.T, ev ExpectedValue) Value {
 	switch ev.Type {
 	case "Integer":
-		var intVal int64
-		switch v := ev.Value.(type) {
-		case float64:
-			intVal = int64(v)
-		case int64:
-			intVal = v
-		default:
-			t.Fatalf("invalid Integer value type: %T", ev.Value)
+		n, ok := expectedInteger(ev.Value)
+		if !ok {
+			t.Fatalf("invalid Integer value %v (%T)", ev.Value, ev.Value)
 		}
-		return Value{Kind: ValConst, Const: semantics.Value{Kind: semantics.ValInt, Int: intVal}}
+		return Value{Kind: ValConst, Const: n}
 	case "Real":
 		if v, ok := ev.Value.(float64); ok {
 			return Value{Kind: ValConst, Const: semantics.Value{Kind: semantics.ValReal, Real: v}}
 		}
 		t.Fatalf("invalid Real value type: %T", ev.Value)
+	case "Rational":
+		if r, ok := expectedRational(ev.Value); ok {
+			return Value{Kind: ValConst, Const: r}
+		}
+		t.Fatalf("invalid Rational value %v (%T)", ev.Value, ev.Value)
 	case "Boolean":
 		if v, ok := ev.Value.(bool); ok {
 			return Value{Kind: ValConst, Const: semantics.Value{Kind: semantics.ValBool, Bool: v}}
@@ -2196,9 +2314,13 @@ func validateValue(t reporter, ctx *Context, name string, expected ExpectedValue
 			t.Errorf("%s: type = %v (Const.Kind=%v), want Integer", name, actual.Kind, actual.Const.Kind)
 			return
 		}
-		want := int64(expected.Value.(float64))
-		if actual.Const.Int != want {
-			t.Errorf("%s: value = %d, want %d", name, actual.Const.Int, want)
+		want, ok := expectedInteger(expected.Value)
+		if !ok {
+			t.Errorf("%s: invalid Integer value %v (%T)", name, expected.Value, expected.Value)
+			return
+		}
+		if !actual.Const.Equal(want) {
+			t.Errorf("%s: value = %s, want %s", name, actual.Const.FormatInt(), want.FormatInt())
 		}
 	case "Real":
 		if actual.Kind != ValConst || actual.Const.Kind != semantics.ValReal {
@@ -2206,8 +2328,21 @@ func validateValue(t reporter, ctx *Context, name string, expected ExpectedValue
 			return
 		}
 		want := expected.Value.(float64)
-		if actual.Const.Real != want {
-			t.Errorf("%s: value = %f, want %f", name, actual.Const.Real, want)
+		if actual.Const.AsReal() != want {
+			t.Errorf("%s: value = %f, want %f", name, actual.Const.AsReal(), want)
+		}
+	case "Rational":
+		if actual.Kind != ValConst || actual.Const.Kind != semantics.ValRational {
+			t.Errorf("%s: type = %v (Const.Kind=%v), want Rational", name, actual.Kind, actual.Const.Kind)
+			return
+		}
+		want, ok := expectedRational(expected.Value)
+		if !ok {
+			t.Errorf("%s: invalid Rational value %v (%T)", name, expected.Value, expected.Value)
+			return
+		}
+		if semantics.CompareRat(actual.Const, want) != 0 {
+			t.Errorf("%s: value = %s, want %s", name, actual.Const.FormatRational(), want.FormatRational())
 		}
 	case "Boolean":
 		if actual.Kind != ValConst || actual.Const.Kind != semantics.ValBool {
@@ -2285,6 +2420,10 @@ func validateValue(t reporter, ctx *Context, name string, expected ExpectedValue
 		case semantics.ValInt:
 			if float64(got.Int) != want {
 				t.Errorf("%s: magnitude = %d, want %v", name, got.Int, want)
+			}
+		case semantics.ValRational:
+			if f := got.AsReal(); math.Abs(f-want) > 1e-9*math.Max(1, math.Abs(want)) {
+				t.Errorf("%s: magnitude = %s, want %v", name, got.FormatRational(), want)
 			}
 		default:
 			t.Errorf("%s: magnitude kind = %v, want a number", name, got.Kind)
@@ -2380,12 +2519,16 @@ func TestAdmissibleOutcomesSchema(t *testing.T) {
 		{Outputs: map[string]ExpectedValue{"x": one}},
 		{Outputs: map[string]ExpectedValue{"x": two}},
 	}
+	runs := 65536
 	tests := []struct {
 		name     string
 		expected ExpectedOutcome
 		problems int
 	}{
 		{"single outcome", ExpectedOutcome{Type: "action", Outputs: outcomes[0].Outputs}, 0},
+		{"single outcome explore budget", ExpectedOutcome{
+			Type: "action", Outputs: outcomes[0].Outputs, ExploreBudget: &ExpectedExploreBudget{Runs: &runs},
+		}, 0},
 		{"admissible set", ExpectedOutcome{Type: "action", Outcomes: outcomes, Admissible: cited}, 0},
 		{"state admissible set", ExpectedOutcome{Type: "state", Outcomes: []AdmittedOutcome{{FinalState: "A"}, {FinalState: "B"}}, Admissible: cited}, 0},
 		{"outcomes beside outputs", ExpectedOutcome{Type: "action", Outputs: outcomes[0].Outputs, Outcomes: outcomes, Admissible: cited}, 1},

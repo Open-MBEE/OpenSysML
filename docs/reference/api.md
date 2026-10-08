@@ -35,13 +35,23 @@ such as `Mission::mission.vehicle`, made anew for the run. `ExploreAction`,
 `ExploreState` and `ExploreAnalysis` answer every run: they take the `explore` policy — the
 default when none is given, or `explore:runs=N,depth=D` to set its budget — and report an
 `Exploration`, one `Outcome` per distinct result with the number of linearizations that reached
-it, the `Probability` of the runs reaching it (a lower bound while the search is incomplete)
-and one run's choices as its `Witness`, plus whether the search was `Complete` or which
-`BudgetsHit` ended it (`ProbabilitiesLowerBound` records that the probabilities are bounds;
-`Status()` renders it as the `sysml` command does). A run that fails under
-some order is an `Outcome` whose `Error` is set, not a failure of the call. The two families
-refuse each other's policies with `CodeInvalidArgument`, and exploring requires the
-`schedule_explore` capability alongside `schedule`.
+it and one run's choices as its `Witness`. A committed weighted model choice gives each outcome a
+`ProbabilityRange` over schedulers; an unweighted exploration has no outcome probabilities.
+`FailedLinearizations` counts runs represented by error outcomes. A failure from initial model
+behavior or later is an `Outcome` whose `Error` is set, not a failure of the call; a complete
+exploration with any such outcome is observed rather than proved. A failure to create the root
+executor or pass a pure structural start check before model behavior runs is a failed call with no
+outcomes or `Exploration`. `Complete` and `BudgetsHit` report
+how the search ended, and `ProbabilitiesLowerBound` is true only for an incomplete weighted
+exploration (`Status()` renders it as the `sysml` command does). The two families refuse each
+other's policies with `CodeInvalidArgument`, and exploring requires the `schedule_explore`
+capability alongside `schedule`.
+
+`WithTrace()` makes `ExecuteState` return typed `DocumentEvent` records and the number of
+discarded older records in `StateRun.Trace` and `StateRun.TraceDropped`. It requires the
+`state_trace` capability and cannot be combined with an explore schedule.
+When a traced run fails, the existing `FailureError` carries its partial records in `Trace`
+and the discarded count in `TraceDropped`.
 
 A `Session` (`opensysml.OpenSession(client, model)`) is the interactive counterpart of those
 one-run calls: it keeps its clock, its schedule (`SetSchedule`) and the objects it instantiated
@@ -202,21 +212,38 @@ for _, doc := range result.Documents {
 `Convert`, `ConvertFile` and `ConvertSource` write a model out in another `Format`: `FormatSysML`
 (aliases `FormatKerML`, `FormatText`), `FormatTTL` (`FormatTurtle`, `FormatRDF`) or `FormatAPIJSON`
 (`FormatJSON`). `ConvertFile` infers the source format from the extension unless `WithFromFormat`
-names it, and `ConvertSource` requires it. A SysML v1 model — UML XMI, an Eclipse UML2 `.uml` file
-or a `.mdzip` archive — is `FormatXMI`, an input only: `ConvertFile(ctx, "Model.xmi", FormatSysML)`
-migrates it to v2 notation, `FormatTTL` to RDF, and asking to write `FormatXMI` is
-`CodeInvalidArgument`. The `Conversion` reports the canonical `From` and `To`, and `Experimental`
-with its `ExperimentalNotice` when either side is RDF or the API's JSON form or the source is v1,
-all of which are experimental mappings. The service does not return the migration report the `sysml`
-command writes with `-migration-report`; what the migration covers is in
-[sysml-v1-migration.md](sysml-v1-migration.md).
+names it, and `ConvertSource` requires it. The `Conversion` reports the canonical `From` and `To`,
+and `Experimental` with its `ExperimentalNotice` when either side is RDF or the API's JSON form,
+both experimental mappings.
+
+A SysML v1 model — UML XMI, an Eclipse UML2 `.uml` file or a `.mdzip` archive, `FormatXMI` with
+the aliases `FormatUML` and `FormatMDZip` — is **migrated, not converted**: a conversion is
+lossless, and a migration accounts for every v1 element as mapped, approximated, unmapped or
+skipped. `ConvertFile(ctx, "Model.xmi", …)`, or `WithFromFormat(FormatXMI)` on any source, is
+`CodeInvalidArgument` with the message that says so and names `MigrateFile`. `MigrateFile` and
+`MigrateSource` migrate it to `FormatSysML` or `FormatTTL` (asking to write `FormatXMI` is
+`CodeInvalidArgument`, since a v2 model has no v1 form); `MigrateSource` takes bytes, since a
+`.mdzip` archive is binary, and needs `WithV1Format`. The `Migration` carries the `Content`, the
+canonical formats, `ExperimentalNotice` — every migration is experimental — and a `Report` whose
+`Summary` and `Mapped`, `Approximated`, `Unmapped` and `Skipped` counts are always filled;
+`WithMigrationReport()` adds every element's `Entries` and the `Text` that `sysml
+-migration-report` writes, `WithMigrationResults()` the `Results` sidecar `-migration-results`
+writes, `WithLayoutFile`/`WithLayout` an MTIP export laying out the migrated views,
+`WithImageBaseURL` the server a comment's relative image is resolved against, and `WithStrict()`
+the portable output of `-strict`. Image files the migration extracts come back as `Files`, path
+to bytes. What the migration covers is in [sysml-v1-migration.md](sysml-v1-migration.md).
 
 ```go
-conversion, err := client.ConvertFile(ctx, "Vehicle.mdzip", opensysml.FormatSysML)
-if conversion.Experimental {
-	log.Println(conversion.ExperimentalNotice)
+migration, err := client.MigrateFile(ctx, "Vehicle.mdzip", opensysml.FormatSysML,
+	opensysml.WithMigrationReport())
+log.Println(migration.ExperimentalNotice)
+log.Println(migration.Report.Summary)
+for _, entry := range migration.Report.Entries {
+	if entry.Verdict == "unmapped" {
+		log.Printf("%s %s: %s", entry.Kind, entry.Name, entry.Note)
+	}
 }
-os.WriteFile("Vehicle.sysml", []byte(conversion.Content), 0o644)
+os.WriteFile("Vehicle.sysml", []byte(migration.Content), 0o644)
 ```
 
 Its errors, ownership rules, capability negotiation and v1 boundary are in
@@ -504,7 +531,9 @@ model := semantics.NewModel(resolver)
 
 **Constant evaluation:**
 - `Eval(n ast.Node) (Value, bool)` — Constant-folder for literals and operators
-  - `Value{Kind ValueKind, Int int64, Real float64, Bool bool}`
+  - `Value{Kind ValueKind, Int int64, Real float64, Bool bool}` — an Integer within `int64` in
+    `Int`, one beyond it held arbitrary-precision (`IsBigInt`, `BigInt`, `FormatInt`); KerML
+    Integers are unbounded
   - `ValueKind` ∈ {ValInt, ValReal, ValBool, ValInfinity, ValInvalid}
 
 **Note:** `Eval()` is a **constant-folder only**. For full runtime evaluation, see `internal/exec/runtime`.
@@ -657,13 +686,17 @@ Execution runtime (Tiers 1-5: instances, expressions, behaviors).
     the policy took
 
 - **`Explore(stop context.Context, policy SchedulePolicy, fresh func() (*Context, error), run func(*Context) (Outcome, error)) (*Exploration, error)`**
-  — Run a behavior under `explore` once per linearization within the budget: each run starts
-  from the `Context` `fresh` builds over the model and lowering they all share, records the
-  alternative taken at every choice point, and each later run replays a recorded prefix and takes
-  an untried alternative at its end — the first run's choice points each varied once, earliest
-  first, before any is varied twice. `run` performs one run and answers its `Outcome`; an error it returns is the
-  `Outcome.Err` of an outcome of its own, so a run some orders fail is reported rather than
-  ending the search. A `stop` that ends between runs ends the exploration with its error before
+  - Run a behavior under `explore` once per linearization within the budget: each run starts
+    from the `Context` `fresh` builds over the model and lowering they all share, records the
+    alternative taken at every choice point, and each later run replays a recorded prefix and takes
+    an untried alternative at its end — the first run's choice points each varied once, earliest
+    first, before any is varied twice. `run` performs one run and answers its `Outcome`; an error
+    after the root run begins is the `Outcome.Err` of an outcome of its own, so a run some orders
+    fail is reported rather than ending the search. A `SetupError` from root executor creation or
+    a pure structural start check before model behavior runs fails the exploration without an
+    outcome; failures during initial behaviors are runtime outcomes. Action-step-multiplicity
+    refusals occur when the step is reached, so they are runtime error outcomes, never a
+    `SetupError`. A `stop` that ends between runs ends the exploration with its error before
   the next context is built. A policy other than `explore` is `ErrNotExploring`; a replay that
   does not meet the choice points its prefix recorded is `ErrExplorationDiverged`, since the
   model's runs are then not a function of their choices
@@ -678,15 +711,18 @@ Execution runtime (Tiers 1-5: instances, expressions, behaviors).
     `(*Context).AnalysisOutcome(result)` and `(*Context).VerifiedOutcome(result, verdicts)` build
     one over the run's context; a case's verdicts are values named `objective <name>`,
     `assertion <name>` and `verdict <case>`
-  - **`Exploration`** — `Budget`, `Runs`, the distinct `Outcomes` in canonical order and
-    `BudgetsHit`, `runs` before `depth`, empty when `Complete()`. `Status()` renders
-    `complete (N runs)` or `incomplete: <budget> budget <limit> hit after N runs`, suffixed
-    `; probabilities are lower bounds` when incomplete. `Probability()` sums the outcomes'
-    probabilities (`1` over a complete exploration); `ProbabilitiesBounded()` is `!Complete()`
-  - **`ExploredOutcome`** — One `Outcome` with the `Linearizations` that reached it, its
-    `Probability` (the sum of the shares its runs' picks resolved with — a weighted pick's
-    stated weight's share, an unweighted choice's uniform `1/n`), the
-    `Witness` (one run's `ChoiceTaken` sequence, `FormatChoices` renders it) and `WitnessRun`
+  - **`Exploration`** — `Budget`, `Runs`, the distinct `Outcomes` in canonical order,
+    `BudgetsHit` (`runs` before `depth`, empty when `Complete()`), and the number of
+    `FailedLinearizations()`. `Weighted()` reports whether a committed run made a weighted model
+    choice. `Status()` adds `; probabilities are lower bounds` only when the exploration is
+    incomplete and weighted; `ProbabilitiesBounded()` reports the same condition.
+  - **`ExploredOutcome`** — One `Outcome` with the `Linearizations` that reached it, an optional
+    `*ProbabilityRange` (nil unless a committed run made a weighted choice), the `Witness` (one
+    run's `ChoiceTaken` sequence, `FormatChoices` renders it) and `WitnessRun`. Each range is the
+    minimum and maximum model-draw probability over schedulers; scheduler choices have no
+    probability.
+  - **`ProbabilityRange`** — `Min` and `Max` model-draw probabilities over schedulers.
+    `Exact()` is true when their difference is at most `1e-12`.
   - **`ChoiceTaken`** — One resolved choice point: its `Kind`, `Step`, `Where`, the
     `Alternatives` and `Among` it had and the `Taken`/`Took` it resolved to
 
@@ -1130,7 +1166,7 @@ one:
 
 ---
 
-## Native document queries and rendering over gRPC
+## Native documents and views over gRPC
 
 The native document pipeline — document queries (`calc def` specializing
 `DocumentQueries::Query`) and documents (`part def` specializing
@@ -1141,6 +1177,8 @@ REPL or a script:
 ```proto
 rpc RunDocumentQuery(RunDocumentQueryRequest) returns (RunDocumentQueryResponse);
 rpc RenderDocument(RenderDocumentRequest) returns (RenderDocumentResponse);
+rpc RenderView(RenderViewRequest) returns (RenderViewResponse);
+rpc ExportGraphs(ExportGraphsRequest) returns (ExportGraphsResponse);
 ```
 
 **Implementation:** `internal/frontend/grpc/docquery.go` (`Service.RunDocumentQuery`,
@@ -1169,6 +1207,33 @@ byte-identical to `-render-document` on the same model. Its `form` field
 instead, answered in `html` and byte-identical to `-doc-form html`; asking for
 HTML needs the `render_document_html` capability, and PDF is not offered, since
 it needs the CLI's converter toolchain.
+
+`RenderView` answers a named view or targeted pseudo-view as ordered nodes,
+edges, table and matrix rows, notes, source spans and optional canvas/geometry/style data,
+using the engine renderer's `view.Data` rather than diagram pictures. Its
+`ports` field is empty or `minimal` by default; `full` includes all declared
+ports. It is advertised by `render_view`, and a service without that capability
+refuses the request with `UNIMPLEMENTED`.
+Python exposes this as `model.render_view(view_name, ports="minimal")`, returning
+a typed `RenderedView`.
+
+`ExportGraphs` answers the lowered graph of an action or state machine — the
+subject's `ActionGraph`/`StateGraph` IR and that of every behavior it performs —
+as the canonical `graphs:1` JSON an external analysis engine is sent
+([the `graphs:1` model form](external-engines.md#the-graphs1-model-form)):
+`content` is the JSON with one trailing newline, `version` its `version` field,
+`subject` the qualified name as resolved. It is what `sysml -graphs <subject>`
+and `%graphs <name>` write, produced by `modelform.GraphsOf` from the same
+lowering the runtime executes, so a tool that drives work from a model — a
+workflow generator reading its steps, flows and successions — reads the
+executed form rather than the notation. The subject may be an action or state
+machine, definition or usage, by qualified name; one no element is named by is
+`NOT_FOUND` (`symbol not found: <subject>`), one that is no behavior is
+`INVALID_ARGUMENT`, as is one the model declares more than once — a declaration
+of the model's shadows the library's of the same name, but two of the model's
+denote nothing.
+It is advertised by `export_graphs`. Python exposes this as
+`model.export_graphs(subject)`, returning a typed `Graphs`.
 
 Both run over the model's runtime and the objects it holds. `Instantiate`
 creates an object for the model named by hash and the service keeps it, under

@@ -1,0 +1,48 @@
+---
+config:
+  fontFamily: "Helvetica, Arial, sans-serif"
+  theme: base
+  themeVariables:
+    fontFamily: "Helvetica, Arial, sans-serif"
+    fontSize: "14px"
+    primaryColor: "#FFFFFF"
+    secondaryColor: "#FFFFFF"
+    tertiaryColor: "#FFFFFF"
+    background: "#FFFFFF"
+    primaryBorderColor: "#181818"
+    primaryTextColor: "#000000"
+    lineColor: "#181818"
+    textColor: "#000000"
+    noteBkgColor: "#FEFFDD"
+    noteBorderColor: "#181818"
+    noteTextColor: "#000000"
+    stateBkg: "#FFFFFF"
+    stateBorder: "#181818"
+    stateLabelColor: "#000000"
+    compositeBackground: "#FFFFFF"
+    compositeBorder: "#181818"
+    compositeTitleBackground: "#FFFFFF"
+    compositeTitleBorder: "#181818"
+    transitionColor: "#181818"
+    transitionLabelColor: "#000000"
+    labelBackgroundColor: "#FFFFFF"
+    specialStateColor: "#181818"
+---
+%% MachineViews::vehicleStates — state rendering (view def StateTransitionView)
+stateDiagram-v2
+  state "«state def» VehicleStates" as n0 {
+    state "«state»<br>off<br>initial" as n1
+    state "«state» operating" as n2 {
+      state "«state»<br>idle<br>initial" as n3
+      state "«state»<br>moving" as n4
+      [*] --> n3
+    }
+    [*] --> n1
+  }
+  n1 --> n2
+  n2 --> n1
+  n3 --> n4 : accept Signal [temperature #gt; 0]
+  n4 --> n3
+  click n1 href "https://example.test/src/state.sysml#L13"
+  click n3 href "https://example.test/src/state.sysml#L17"
+  click n4 href "https://example.test/src/state.sysml#L18"

@@ -1,0 +1,24 @@
+{
+	"type": "state",
+	"libraries": true,
+	"trace": true,
+	"events": [
+		{
+			"signal": "Bump"
+		},
+		{
+			"signal": "Bump"
+		}
+	],
+	"finalState": "done",
+	"outputs": {
+		"log": {
+			"type": "String",
+			"value": "a b sync onward"
+		},
+		"level": {
+			"type": "Integer",
+			"value": 3
+		}
+	}
+}

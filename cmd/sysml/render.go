@@ -27,12 +27,16 @@ func runRender(files []string) error {
 		return errors.New("no model to render; name the files the view is declared in, as `sysml model.sysml -render MyView`")
 	}
 
+	overlay, err := overlayOption()
+	if err != nil {
+		return err
+	}
 	sess, err := loadRenderingModel(files)
 	if err != nil {
 		return err
 	}
 
-	rendering, err := sess.ViewRendering(renderView)
+	rendering, err := sess.OverlaidViewRendering(renderView, overlay)
 	if err != nil {
 		return err
 	}
@@ -42,6 +46,12 @@ func runRender(files []string) error {
 	options, err := renderOptions(artifactWidth(outputPath, terminalWidth()))
 	if err != nil {
 		return err
+	}
+	if options.Links.Template != "" {
+		options.Links.Sites, err = sess.ViewSites()
+		if err != nil {
+			return err
+		}
 	}
 	artifact, err := rendering.WriteWith(form, options)
 	if err != nil {
@@ -64,6 +74,10 @@ func runRenderAll(files []string) error {
 	if err != nil {
 		return err
 	}
+	overlay, err := overlayOption()
+	if err != nil {
+		return err
+	}
 	sess, err := loadRenderingModel(files)
 	if err != nil {
 		return err
@@ -74,6 +88,12 @@ func runRenderAll(files []string) error {
 	}
 	if len(views) == 0 {
 		return errors.New("the model declares no views; nothing was rendered")
+	}
+	if options.Links.Template != "" {
+		options.Links.Sites, err = sess.ViewSites()
+		if err != nil {
+			return err
+		}
 	}
 	if err := os.MkdirAll(renderAllDir, 0o750); err != nil {
 		return fmt.Errorf("create rendering directory %s: %w", renderAllDir, err)
@@ -88,7 +108,12 @@ func runRenderAll(files []string) error {
 			reportRenderSkip(info.Name, info.Reason)
 			continue
 		}
-		rendering, err := sess.ViewRendering(info.Name)
+		kind := info.Kind
+		viewOverlay := overlay
+		if !kind.SupportsOverlay(overlay) {
+			viewOverlay = ""
+		}
+		rendering, err := sess.OverlaidViewRendering(info.Name, viewOverlay)
 		if err != nil {
 			return err
 		}
@@ -139,10 +164,17 @@ func renderFilenames(views []model.ViewInfo, form view.Form) (map[string]string,
 }
 
 // renderOptions is what -render and -render-all write with: the text width,
-// the palette -render-palette names, the placement -render-unplaced names and
-// the drawing style -render-style names, each of which must be one there is.
+// the palette -render-palette names, the port display -render-ports names,
+// the placement -render-unplaced names and the drawing style -render-style
+// names, each of which must be one there is.
 func renderOptions(width int) (view.Options, error) {
 	options := view.Options{Width: width}
+	if renderLink != "" {
+		if err := view.ParseLinkTemplate(renderLink); err != nil {
+			return view.Options{}, fmt.Errorf("-render-link: %w", err)
+		}
+		options.Links.Template = renderLink
+	}
 	if renderPalette != "" {
 		palette, ok := view.ParsePalette(renderPalette)
 		if !ok {
@@ -150,6 +182,11 @@ func renderOptions(width int) (view.Options, error) {
 		}
 		options.Palette = palette
 	}
+	ports, ok := view.ParsePorts(renderPorts)
+	if !ok {
+		return view.Options{}, fmt.Errorf("-render-ports: %w", &view.UnknownPortsError{Name: renderPorts})
+	}
+	options.Ports = ports
 	unplaced, err := unplacedOption()
 	if err != nil {
 		return view.Options{}, err
@@ -163,7 +200,7 @@ func renderOptions(width int) (view.Options, error) {
 	return options, nil
 }
 
-// styleOption is the drawing style -render-style names for a DOT drawing,
+// styleOption is the drawing style -render-style names for a DOT or Mermaid drawing,
 // which must be one there is; none named is the default, the Pilot look.
 func styleOption() (view.DrawingStyle, error) {
 	if renderStyle == "" {
@@ -174,6 +211,16 @@ func styleOption() (view.DrawingStyle, error) {
 		return "", fmt.Errorf("-render-style: %w", &view.UnknownDrawingStyleError{Name: renderStyle})
 	}
 	return style, nil
+}
+
+// overlayOption is the overlay -render-overlay names, which must be one there
+// is; none named draws the rendering's structure alone.
+func overlayOption() (view.Overlay, error) {
+	overlay, ok := view.ParseOverlay(renderOverlay)
+	if !ok {
+		return "", fmt.Errorf("-render-overlay: unknown overlay %q; -render-overlay takes %s", renderOverlay, view.OverlayNames())
+	}
+	return overlay, nil
 }
 
 // unplacedOption is the placement -render-unplaced names for the nodes a
@@ -193,6 +240,13 @@ func unplacedOption() (view.Unplaced, error) {
 // loadRenderingModel loads and reports a model whose stdout is reserved for
 // rendering artifacts.
 func loadRenderingModel(files []string) (*repl.Session, error) {
+	return loadArtifactModel(files, "nothing was rendered")
+}
+
+// loadArtifactModel loads and reports a model whose stdout is reserved for an
+// artifact, `nothing` saying what a model that does not analyse cleanly
+// leaves unwritten.
+func loadArtifactModel(files []string, nothing string) (*repl.Session, error) {
 	sess := newSession()
 	report, err := sess.LoadPathsReport(files)
 	if err != nil {
@@ -202,7 +256,7 @@ func loadRenderingModel(files []string) (*repl.Session, error) {
 	writeLines(os.Stderr, report.Found)
 	writeLines(os.Stderr, report.Declared)
 	if report.Errors {
-		return nil, fmt.Errorf("%s did not analyse cleanly; nothing was rendered", strings.Join(files, ", "))
+		return nil, fmt.Errorf("%s did not analyse cleanly; %s", strings.Join(files, ", "), nothing)
 	}
 	// The objects -instantiate names are created first, so a document's queries
 	// run over what the session holds under those names.
@@ -226,7 +280,7 @@ func loadRenderingModel(files []string) (*repl.Session, error) {
 		verdict := modelChecks.record(sess, invocation)
 		writeLines(os.Stderr, verdict.Lines)
 		if verdict.Status != repl.VerdictHolds {
-			return nil, fmt.Errorf("%s: the run was not recorded; nothing was rendered", invocation)
+			return nil, fmt.Errorf("%s: the run was not recorded; %s", invocation, nothing)
 		}
 	}
 	return sess, nil
@@ -268,6 +322,12 @@ func renderExtension(form view.Form) string {
 		return ".dot"
 	case view.FormPlantUML:
 		return ".puml"
+	case view.FormD2:
+		return ".d2"
+	case view.FormCSV:
+		return ".csv"
+	case view.FormTSV:
+		return ".tsv"
 	default:
 		return ".txt"
 	}
@@ -343,15 +403,20 @@ func writeArtifact(artifact string, form view.Form) error {
 }
 
 func writeArtifactFile(path, artifact string, form view.Form) error {
-	out := []byte(strings.TrimRight(artifact, "\n") + "\n")
+	return writeOutputFile(path, []byte(strings.TrimRight(artifact, "\n")+"\n"), string(form))
+}
+
+// writeOutputFile writes an artifact to path and reports it on stderr, `what`
+// naming its form.
+func writeOutputFile(path string, out []byte, what string) error {
 	replaced, err := export.WriteFile(path, out)
 	if err != nil {
 		return err
 	}
-	what := ""
+	suffix := ""
 	if replaced {
-		what = ", replaced the existing file"
+		suffix = ", replaced the existing file"
 	}
-	fmt.Fprintf(os.Stderr, "wrote %s (%s, %d bytes%s)\n", path, form, len(out), what)
+	fmt.Fprintf(os.Stderr, "wrote %s (%s, %d bytes%s)\n", path, what, len(out), suffix)
 	return nil
 }

@@ -1,5 +1,5 @@
 // Calculations in the scalar subset the native compiler accepts, each exercising
-// a rule the generated code must keep: checked Integer arithmetic, Integer
+// a rule the generated code must keep: unbounded Integer arithmetic, Integer
 // division answering a Real, mixed-type widening, short-circuit Booleans,
 // branches, loops, early returns and recursion.
 package Compiled {
@@ -62,6 +62,33 @@ package Compiled {
 		// The right operands of `and`/`or`/`implies` divide by n only when reached.
 		return : Boolean = (p and 10 / n > 1) or (q implies 10 % n == 0) or not p;
 	}
+
+	// Exact Rationals compile where binary64 gives the interpreter's exact answer.
+	calc def ExactRational {
+		in a : Integer;
+		in x : Real;
+		return : Boolean = 0.1 + 0.2 == 0.3 and 1 / 3 * 3 == 1 and a / 3 >= 2 and a * 1.0 + a == 2 * a and x < 0.1;
+	}
+	// A Real meets a Rational literal at Real precision, the literal rounded once.
+	calc def RealAgainstNearest {
+		in x : Real;
+		attribute r : Integer = 0;
+		if x < 0.1 { assign r := r + 1; }
+		if x <= 0.1 { assign r := r + 2; }
+		if x > 0.1 { assign r := r + 4; }
+		if x >= 0.1 { assign r := r + 8; }
+		if x == 0.1 { assign r := r + 16; }
+		if x != 0.1 { assign r := r + 32; }
+		if -0.1 < x { assign r := r + 64; }
+		if -0.1 >= x { assign r := r + 128; }
+		return : Integer = r;
+	}
+	calc def ExactWide { in a : Integer; return : Real = a * 2.0 + 0.5; }
+	calc def NegativePower { in a : Integer; return : Real = a ** -2; }
+	calc def NegativePowerTiny { in a : Integer; return : Real = a ** -400; }
+	// A Real parameter given an Integer meets an exact Rational at run time.
+	calc def ExactHeldInteger { in x : Real; return : Real = x * 0.1; }
+	calc def ExactHeldCompare { in x : Real; return : Boolean = x / 3 < 0.1 or x != 2.5; }
 
 	calc def Compare {
 		in a : Real;
@@ -143,7 +170,8 @@ package Compiled {
 
 	calc def Big {
 		in a : Integer;
-		return : Real = a * 1.0e300 * 1.0e10;
+		attribute big : Real = 1.0e300;
+		return : Real = a * big * 1.0e10;
 	}
 
 	// Both operands can fail; the left one must be reported, as the interpreter does.
@@ -380,6 +408,81 @@ package Compiled {
 		calc def PickQualified { in n : Integer; return : Integer = Both::pick(n) + Both::pick(n > 0); }
 	}
 
+	// Function values computed at run time: chosen, stored, returned, compared,
+	// collected, and closures over the run of the body declaring them.
+	package Closure {
+		private import ScalarValues::*;
+		private import ControlFunctions::*;
+		private import SequenceFunctions::*;
+		private import Base::*;
+		private import Compiled::Fn::Apply;
+
+		calc def Sq { in v : Real; return : Real = v * v; }
+		calc def Half { in v : Real; return : Real = v / 2.0; }
+		calc def Inc { in n : Integer; return : Integer = n + 1; }
+		calc sqU : Sq;
+		calc halfU : Half;
+		calc incU : Inc;
+		calc def Id { in calc f { in v : Real; return : Real; } return r = f; }
+		calc def Pick { in b : Boolean; return r = if b ? sqU else halfU; }
+		calc def PickId { in b : Boolean; return r = Id(if b ? Sq else Half); }
+		calc def PickApply { in b : Boolean; in a : Real; return : Real = Apply(Pick(b), a); }
+		calc def Chosen { in b : Boolean; in a : Real; return : Real = Apply(if b ? Sq else Half, a); }
+		calc def Stored { in b : Boolean; in a : Real; attribute g = if b ? sqU else halfU; return : Real = Apply(g, a) + Apply(g, 1.0); }
+		calc def Reassigned { in b : Boolean; in a : Real; attribute g = sqU; if b { assign g := halfU; } return : Real = Apply(g, a); }
+		calc def Eq { in b : Boolean; in c : Boolean; return : Boolean = Pick(b) == Pick(c); }
+		calc def Ident { in b : Boolean; in c : Boolean; return : Boolean = Pick(b) === Pick(c); }
+		calc def Neq { in b : Boolean; return : Boolean = Pick(b) != sqU; }
+		calc def EqNum { in b : Boolean; return : Boolean = Pick(b) == 3; }
+		calc def Same { in calc f { in v : Real; return : Real; } in calc g { in v : Real; return : Real; } return : Boolean = f == g; }
+		calc def SameSq { in b : Boolean; return : Boolean = Same(Sq, if b ? Sq else Half); }
+		calc def Pair { return r : Anything[0..*] = (sqU, halfU); }
+		calc def PairUntyped { return r = (sqU, halfU); }
+		calc def PairApply { in a : Real; attribute s = (sqU, halfU); return : Real[0..*] = s->collect {in f; Apply(f, a)}; }
+		calc def MixedKind { in b : Boolean; in a : Real; return : Real = Apply(if b ? sqU else RealFunctions::sqrt, a); }
+		calc def ToStr { in b : Boolean; return : String = BaseFunctions::ToString(Pick(b)); }
+		calc def ReturnedApply { in a : Real; return : Real = Apply(Id(Sq), a); }
+		calc def NullF { in b : Boolean; return r = if b ? sqU else null; }
+		calc def Includes { in b : Boolean; return r = (sqU, halfU)->includes(Pick(b)); }
+		calc def Unique { in b : Boolean; attribute s : Anything[0..*] nonunique = (sqU, Pick(b)); attribute u : Anything[0..*] = s; return r = u->size(); }
+		calc def SeqFmt { in b : Boolean; return r : Anything[0..*] = (Pick(b), halfU); }
+		calc def Indexed { in b : Boolean; attribute s = (Pick(b), halfU); return r = Apply(s#(1), 2.0); }
+		calc def Selected { in b : Boolean; attribute s = (sqU, halfU, Pick(b)); return r = s->select {in f; f == sqU}->size(); }
+		// Functions are not numbers, Booleans or ordered.
+		calc def Lt { in b : Boolean; return : Boolean = Pick(b) < Pick(b); }
+		calc def Plus { in b : Boolean; return r = Pick(b) + 1; }
+		calc def Neg { in b : Boolean; return r = -Pick(b); }
+		calc def Not { in b : Boolean; return r = not Pick(b); }
+		calc def MulR { in b : Boolean; return r = 2 * Pick(b); }
+		calc def CondF { in b : Boolean; return r = if Pick(b) ? 1 else 2; }
+		calc def StmtIf { in b : Boolean; attribute x : Integer = 1; if Pick(b) { assign x := 2; } return r = x; }
+
+		// Closures: a body-local calc reads the bindings of the run declaring it.
+		calc def Local { in k : Real; in a : Real; calc scale { in v : Real; return : Real = v * k; } return : Real = Apply(scale, a) + scale(1.0); }
+		calc def Mk { in k : Real; calc s { in v : Real; return : Real = v * k; } return r = s; }
+		calc def MkApply { in k : Real; in a : Real; return : Real = Apply(Mk(k), a); }
+		calc def MkSame { in k : Real; calc s { in v : Real; return : Real = v * k; } return : Boolean = s == s; }
+		calc def MkTwice { in k : Real; return : Boolean = Mk(k) == Mk(k); }
+		calc def MkPair { in k : Real; attribute f = Mk(k); attribute g = Mk(k + 1.0); return r = Apply(f, 1.0) + Apply(g, 1.0); }
+		calc def Late { in k : Real; attribute m : Real = k + 1.0; calc s { in v : Real; return : Real = v * m; } return : Real = Apply(s, 2.0); }
+		calc def Rec { in k : Real; calc s { in v : Real; return : Real = if v > 3.0 ? v else s(v + k); } return r = s(1.0); }
+		calc def Sib { in k : Real; calc u { in v : Real; return : Real = v + k; } calc s { in v : Real; return r = u; } return r = Apply(s(1.0), 2.0); }
+		calc def SibEq { in k : Real; calc u { in v : Real; return : Real = v + k; } calc s { in v : Real; return r = u; } return r = s(1.0) == u; }
+		calc def Inner { in k : Real; calc s { in v : Real; calc t { in w : Real; return : Real = w + k + v; } return : Real = t(1.0); } return : Real = s(2.0); }
+		calc def ChooseClosure { in b : Boolean; in k : Real; calc s { in v : Real; return : Real = v * k; } attribute g = if b ? s else sqU; return r = Apply(g, 3.0); }
+		calc def IntClosure { in n : Integer; calc s { in m : Integer; return : Integer = m + n; } return r = s(n); }
+		calc def ClosureSeq { in k : Real; calc s { in v : Real; return : Real = v + k; } attribute fs = (s, sqU, s); return r = fs->collect {in f; Apply(f, 2.0)}; }
+		calc def ClosureUnique { in k : Real; attribute fs : Anything[0..*] nonunique = (Mk(k), Mk(k)); attribute u : Anything[0..*] = fs; return r = u->size(); }
+		// What a closure captures: every kind of value a body binds.
+		calc def ApplyS { in calc f { in n : Integer; return : String; } in n : Integer; return : String = f(n); }
+		calc def MkStr { in s : String; calc f { in n : Integer; return : String = StringFunctions::Substring(s, 1, n); } return r = f; }
+		calc def StrClosure { in s : String; in n : Integer; return : String = ApplyS(MkStr(s), n); }
+		calc def SeqClosure { in k : Real; attribute xs : Real[0..*] = (k, k * 2.0); calc f { in v : Real; return : Real = v * xs#(2); } return : Real = Apply(f, 3.0); }
+		calc def FnClosure { in b : Boolean; attribute g = Pick(b); calc f { in v : Real; return : Real = Apply(g, v) + 1.0; } return : Real = Apply(f, 3.0); }
+		calc def BoolClosure { in b : Boolean; calc f { in v : Real; return : Real = if b ? v else -v; } return : Real = Apply(f, 2.0); }
+		calc def EnumClosure { in c : Compiled::E::Color; calc f { in v : Real; return : Real = if c == Compiled::E::Color::red ? v else 0.0; } return : Real = Apply(f, 2.0); }
+	}
+
 	// Function values: a calc bound to an `in calc` parameter is compiled once
 	// per calc it is applied to, so every call through the parameter is direct.
 	package Fn {
@@ -478,6 +581,240 @@ package Compiled {
 		// its place among the samples, charged on top of the domain it is taken over.
 		calc def SamplePairs { in k : Integer; attribute s : SampledFunction = Sample(Inc, (1..k)->ControlFunctions::select { in x : Integer; x < 3 }); return : Integer = SequenceFunctions::size(Range(s)); }
 	}
+	// Integers beyond int64: exact as the interpreter's, refused by the C target
+	// wherever a result may leave int64.
+	package Wide {
+		private import SequenceFunctions::*;
+		private import ControlFunctions::*;
+		private import NumericalFunctions::*;
+		calc def Lit { in x : Integer; return : Integer = 123456789012345678901234567890 * x - 9223372036854775808; }
+		calc def Pow { in x : Integer; return : Integer = x ** 70; }
+		calc def Halves { in x : Integer; return : Boolean = (x ** 70) / (x ** 69) == x; }
+		calc def Mod { in x : Integer; return : Integer = (x ** 70) % 7; }
+		calc def Huge { in x : Integer; return : Integer = x ** 2000000; }
+		calc def Sum { in xs : Integer[0..*] nonunique; return : Integer = sum(xs); }
+		calc def Product { in xs : Integer[0..*] nonunique; return : Integer = product(xs); }
+		calc def Idx { in xs : Integer[0..*]; in i : Integer; return : Integer = xs#(i); }
+		calc def Rng { in lo : Integer; return : Integer[0..*] = lo..(lo + 2); }
+		calc def Uniq { in xs : Integer[0..*]; return : Integer = size(xs); }
+		calc def Has { in xs : Integer[0..*]; in x : Integer; return : Boolean = includes(xs, x); }
+		calc def Gt { in x : Integer; in r : Real; return : Boolean = x > r; }
+		calc def Lt { in r : Real; in x : Integer; return : Boolean = r < x; }
+		calc def Widen { in x : Integer; return : Real = x * 1.0; }
+		calc def Nat { in x : Natural; return : Natural = x * x; }
+		calc def Least { in xs : Integer[0..*]; return : Integer = xs->minimize {in v : Integer; v}; }
+		calc def Compare { in a : Integer; in b : Integer; return : Boolean = a < b and b >= a and a != b; }
+	}
+	// Loops whose Integer arithmetic the C target compiles: a Real counter, and
+	// Integers only sized, indexed and ranged.
+	package Loop {
+		private import SequenceFunctions::*;
+		private import ControlFunctions::*;
+		calc def Churn { in n : Real; attribute i : Real = 0.0; attribute total : Real = 0.0; attribute keep : Real[0..*] = (); while i < n { attribute s : Integer[0..*] = 1..100; assign total := total + size(s); assign keep := including(keep, i); assign i := i + 1.0; } return : Real = total + size(keep); }
+		calc def ChurnFor { in n : Integer; attribute keep : Real[0..*] nonunique = (); for i in 1..n { attribute s : Real[0..*] = (1..100)->collect {in v : Integer; v / 2}; if i % 2 == 0 { assign keep := including(keep, s#(size(s))); } } return : Real[0..*] nonunique = keep; }
+		calc def ChurnNest { in n : Real; attribute keep : Integer[0..*] nonunique = (); attribute inner : Integer[0..*] = (); attribute i : Real = 0.0; while i < n { assign inner := (); for v in 1..50 { assign inner := including(inner, v); } assign keep := including(keep, size(inner)); for w in keep { assign i := i + 0.0; } assign i := i + 1.0; } return : Real = size(keep) * 1.0 + size(inner); }
+	}
+	// Integers written to Real-typed features stay Integers, as the
+	// interpreter keeps them: arithmetic, comparison, identity, printing and
+	// collections over a value whose kind is known only at run time.
+	package Num {
+		private import SequenceFunctions::*;
+		private import ControlFunctions::*;
+		private import NumericalFunctions::*;
+		calc def Keep { in a : Real; return : Real = a; }
+		calc def Local { in a : Integer; attribute r : Real = a; return : Real = r; }
+		calc def Twice { in a : Integer; attribute r : Real = a; return : Real = r * 2 + 1; }
+		calc def Plus { in a : Integer; in b : Real; attribute r : Real = a; return : Real = r + b; }
+		calc def Half { in a : Integer; attribute r : Real = a; return : Real = r / 2; }
+		calc def Recip { in a : Integer; attribute r : Real = a; return : Real = r ** -1; }
+		calc def Square { in a : Integer; attribute r : Real = a; return : Real = r ** 2; }
+		calc def Same { in a : Integer; attribute r : Real = a; return : Boolean = r === 3; }
+		calc def SameReal { in a : Integer; attribute r : Real = a; return : Boolean = r === 3.0; }
+		calc def Equal { in a : Integer; attribute r : Real = a; return : Boolean = r == 3.0 and r != 4; }
+		calc def Less { in a : Integer; in b : Real; attribute r : Real = a; return : Boolean = r < b; }
+		calc def Pick { in c : Boolean; in a : Integer; return : Real = if c ? a else 2.5; }
+		calc def Assigned { in n : Integer; attribute r : Real = 0.5; for i in 1..n { assign r := i; } return : Real = r; }
+		calc def Identity { in x : Real; in y : Integer; return : Boolean = x === y; }
+		calc def MixLit { in a : Integer; return : Real[0..*] = (a, 2.5, 3); }
+		calc def Collect { in x : Real[0..*]; return : Real[0..*] = x->collect {in v; v * 2}; }
+		calc def Sum { in a : Integer; return : Real = sum((a, 2.5)); }
+		calc def SumInts { in a : Integer; return : Real = sum((a, 2)); }
+		calc def Least { in a : Integer; return : Real = (a, 2.5)->minimize {in v; v}; }
+		calc def Unique { in a : Integer; attribute x : Real[0..*] = (a, 1.0); return : Real[0..*] = x; }
+		calc def Has { in a : Integer; return : Boolean = includes((a, 2.5), 3.0); }
+		calc def Coalesce { in x : Integer[0..*]; return : Real = x ?? 5.5; }
+		calc def Equality { in x : Integer[0..*]; in y : Real[0..*]; return : Boolean = x == y; }
+		calc def SameSeq { in x : Integer[0..*]; in y : Real[0..*]; return : Boolean = same(x, y); }
+		calc def SameLit { return : Boolean = same((1), (1.0)); }
+		calc def SameMix { return : Boolean = same((1, 2.5), (1.0, 2.5)); }
+		calc def SameParam { in a : Real; return : Boolean = same((a, 2.5), (1, 2.5)); }
+		calc def SameHeld { in a : Integer; attribute r : Real = a; return : Boolean = same((r, 2.5), (1.0, 2.5)); }
+		calc def SameHeldInt { in a : Integer; attribute r : Real = a; return : Boolean = same((r), (1)); }
+		calc def IdSeq { in x : Integer[0..*]; in y : Real[0..*]; return : Boolean = x === y; }
+		calc def IdMix { return : Boolean = (1, 2.5) === (1.0, 2.5); }
+		calc def IdMixKept { return : Boolean = (1, 2.5) === (1, 2.5); }
+		calc def NidMix { return : Boolean = (1, 2.5) !== (1.0, 2.5); }
+		calc def IdParam { in a : Real; return : Boolean = (a, 2.5) === (1, 2.5); }
+		calc def IdHeld { in a : Integer; attribute r : Real = a; return : Boolean = (r, 2.5) === (1.0, 2.5); }
+		calc def IdNested { in a : Real; return : Boolean = ((a, 1), 2.5) === ((1, 1.0), 2.5); }
+		calc def EqMix { return : Boolean = (1, 2.5) == (1.0, 2.5); }
+		calc def Union { in x : Integer[0..*]; in y : Real[0..*]; return : Real[0..*] = union(x, y); }
+		calc def Floor { in a : Integer; attribute r : Real = a; return : Integer = RealFunctions::floor(r); }
+		calc def Max { in a : Integer; attribute r : Real = a; return : Real = max(r, 2.5); }
+	}
+	package E {
+		private import SequenceFunctions::*;
+		private import ControlFunctions::*;
+		enum def Color { enum red; enum green; enum blue; }
+		enum def Shade { enum red; enum dark; }
+		calc def Id { in c : Color; return : Color = c; }
+		calc def Red { return : Color = Color::red; }
+		calc def IsRed { in c : Color; return : Boolean = c == Color::red; }
+		calc def NotRed { in c : Color; return : Boolean = c != Color::red; }
+		calc def Same { in a : Color; in b : Color; return : Boolean = a === b; }
+		calc def Cross { in c : Color; return : Boolean = c == Shade::red; }
+		calc def VsInt { in c : Color; return : Boolean = c == 3; }
+		calc def VsText { in c : Color; return : Boolean = c != "Color::red"; }
+		calc def Pick { in b : Boolean; return : Color = if b ? Color::red else Color::blue; }
+		calc def Add { in c : Color; return : Color = c + 1; }
+		calc def Mul { in c : Color; in r : Real; return : Real = r * c; }
+		calc def Less { in a : Color; in b : Color; return : Boolean = a < b; }
+		calc def AtLeast { in a : Color; return : Boolean = 1 >= a; }
+		calc def Neg { in c : Color; return : Color = -c; }
+		calc def Text { in c : Color; return : String = BaseFunctions::ToString(c); }
+		calc def Seq { in c : Color; return : Color[0..*] = (c, Color::green); }
+		calc def Unique { in c : Color; attribute x : Color[0..*] = (c, Color::red); return : Color[0..*] = x; }
+		calc def Has { in c : Color; return : Boolean = includes((Color::red, Color::blue), c); }
+		calc def Count { in x : Color[0..*]; return : Integer = size(x); }
+		calc def SeqEq { in x : Color[0..*]; return : Boolean = x == (Color::red, Color::green); }
+		calc def Reds { in x : Color[0..*]; return : Color[0..*] = x->select {in v : Color; v == Color::red}; }
+	}
+	package Str {
+		private import SequenceFunctions::*;
+		private import ControlFunctions::*;
+		private import StringFunctions::*;
+		calc def Concat { in a : String; in b : String; return : String = a + b; }
+		calc def Lit { return : String = "héllo, \"w\"\\\n" + "!"; }
+		calc def Len { in a : String; return : Integer = Length(a); }
+		calc def Sub { in a : String; in l : Integer; in u : Integer; return : String = Substring(a, l, u); }
+		calc def Less { in a : String; in b : String; return : Boolean = a < b; }
+		calc def AtMost { in a : String; in b : String; return : Boolean = a <= b; }
+		calc def More { in a : String; in b : String; return : Boolean = a > b; }
+		calc def AtLeast { in a : String; in b : String; return : Boolean = a >= b; }
+		calc def Eq { in a : String; in b : String; return : Boolean = a == b; }
+		calc def Neq { in a : String; in b : String; return : Boolean = a != b; }
+		calc def Same { in a : String; in b : String; return : Boolean = a === b; }
+		calc def EqNum { in a : String; return : Boolean = a == 3; }
+		calc def IntStr { in n : Integer; return : String = IntegerFunctions::ToString(n); }
+		calc def NatStr { in n : Integer; return : String = NaturalFunctions::ToString(n); }
+		calc def RealStr { in r : Real; return : String = RealFunctions::ToString(r); }
+		calc def BoolStr { in b : Boolean; return : String = BooleanFunctions::ToString(b); }
+		calc def StrStr { in a : String; return : String = StringFunctions::ToString(a); }
+		calc def BaseStr { in n : Integer; return : String = BaseFunctions::ToString(n); }
+		calc def Pick { in b : Boolean; return : String = if b ? "yes" else "no"; }
+		calc def Local { in a : String; attribute s : String = a + a; return : Integer = Length(s); }
+		calc def Seq { in a : String; return : String[0..*] = (a, "x", a); }
+		calc def Unique { in a : String; attribute x : String[0..*] = (a, "x"); return : String[0..*] = x; }
+		calc def Lengths { in x : String[0..*]; return : Integer[0..*] = x->collect {in s : String; Length(s)}; }
+		calc def Has { in a : String; return : Boolean = includes(("p", "q"), a); }
+		calc def Joined { in x : String[0..*]; return : String = x->reduce {in a : String; in b : String; a + "," + b}; }
+		calc def Build { in a : String; in n : Integer; attribute s : String = ""; while Length(s) < n { assign s := s + a; } return : String = s; }
+		calc def Names { in n : Integer; attribute keep : String[0..*] = (); while size(keep) < n { assign keep := including(keep, "n" + IntegerFunctions::ToString(size(keep))); } return : String[0..*] = keep; }
+		calc def ForS { in x : String[0..*]; attribute s : String = ""; for v in x { assign s := s + v + ";"; } return : String = s; }
+		calc def Ctrl { in a : String; return : String = "\b\t\f\r" + a; }
+	}
+	package Rec {
+		private import ScalarValues::*;
+		private import SequenceFunctions::*;
+		attribute def Point { attribute x : Real; attribute y : Real; }
+		attribute def Scaled { attribute k : Real; calc scale { in v : Real; return : Real = v * k; } calc twice { in v : Real; return : Real = scale(scale(v)); } }
+		attribute def Seg { attribute a : Point; attribute b : Point; }
+		attribute def Def { attribute x : Real; attribute y : Real default 3.0; attribute z : Real default 0.1; }
+		attribute def Many { attribute xs : Real[0..*] nonunique; }
+		attribute def Counted { attribute n : Natural; }
+		calc def Apply { in calc f { in v : Real; return : Real; } in a : Real; return : Real = f(a); }
+		calc def Read { in a : Real; return : Real = new Point(a, 2.0).x; }
+		calc def Local { in a : Real; attribute p : Point = new Point(a, 2.0); return : Real = p.x + p.y; }
+		calc def Named { in a : Real; return : Real = new Point(y = 2.0, x = a).y; }
+		calc def SameObject { in a : Real; attribute p : Point = new Point(a, a); return : Boolean = p == p; }
+		calc def Alias { in a : Real; attribute p : Point = new Point(a, a); attribute q : Point = p; return : Boolean = p === q and not (p != q); }
+		calc def EqualFeatures { in a : Real; return : Boolean = new Point(a, a) == new Point(a, a); }
+		calc def EqualIdent { in a : Real; return : Boolean = new Point(a, a) === new Point(a, a); }
+		calc def NotEqual { in a : Real; return : Boolean = new Point(a, a) != new Point(a, a); }
+		calc def Nested { in a : Real; attribute s : Seg = new Seg(new Point(a, 1.0), new Point(2.0, a)); return : Real = s.b.y + s.a.x; }
+		calc def Chained { in a : Real; return : Real = new Seg(new Point(a, 1.0), new Point(2.0, a)).b.y; }
+		calc def Receiver { in a : Real; attribute s : Scaled = new Scaled(a); return : Real = s.scale(2.0); }
+		calc def ReceiverInner { in a : Real; attribute s : Scaled = new Scaled(a); return : Real = s.twice(2.0); }
+		calc def Passed { in a : Real; attribute s : Scaled = new Scaled(a); return : Real = Apply(s.scale, 3.0); }
+		calc def Stored { in a : Real; attribute s : Scaled = new Scaled(a); attribute f = s.scale; return : Real = Apply(f, 5.0) + Apply(f, 1.0); }
+		calc def Chosen { in b : Boolean; attribute s : Scaled = new Scaled(2.0); attribute t : Scaled = new Scaled(3.0); attribute f = if b ? s.scale else t.scale; return : Real = Apply(f, 1.5); }
+		calc def ClosureSame { in a : Real; attribute s : Scaled = new Scaled(a); attribute t : Scaled = s; return : Boolean = s.scale == t.scale; }
+		calc def ClosureOther { in a : Real; attribute s : Scaled = new Scaled(a); return : Boolean = s.scale == new Scaled(a).scale; }
+		calc def Defaulted { in a : Real; return : Real = new Def(a).y; }
+		calc def Overridden { in a : Real; return : Real = new Def(a, 1.0).y; }
+		calc def DefaultedTenth { in a : Real; return : Real = new Def(a).z; }
+		calc def SeqFeature { in a : Real; return : Real[0..*] = new Many((a, a, 1.0)).xs; }
+		calc def SeqEmpty { in a : Real; return : Integer = size(new Many().xs); }
+		calc def InSeq { in a : Real; attribute p : Point = new Point(a, 1.0); attribute ps : Point[0..*] = (p, new Point(2.0, a), p); return : Boolean = ps#(1) == ps#(3) and ps#(1) != ps#(2); }
+		calc def SeqIdent { in a : Real; attribute p : Point = new Point(a, 1.0); return : Boolean = (p, p) == (p, p) and (p, new Point(a, 1.0)) != (p, new Point(a, 1.0)); }
+		calc def Make { in a : Real; return : Point = new Point(a, a + 1.0); }
+		calc def Returned { in a : Real; return : Real = Make(a).y; }
+		calc def IntKept { in a : Real; return : Real = new Point(a, 1).y; }
+		calc def RecVsNum { in a : Real; return : Boolean = new Point(a, a) == a; }
+		calc def NullCmp { in a : Real; return : Boolean = new Point(a, a) == null; }
+		calc def TooMany { in a : Real; return : Real = new Point(a, (1.0, 2.0)).y; }
+		calc def Range { in n : Integer; return : Integer = new Counted(n).n; }
+		attribute def Box { attribute b : Boolean; }
+		attribute def Label { attribute s : String; }
+		calc def Id { in v : Real; return : Real = v; }
+		calc def NatId { in n : Natural; return : Integer = n; }
+		calc def UnsetRead { in a : Real; return : Real = new Point(a).y; }
+		calc def UnsetNull { in a : Real; return : Boolean = new Point(a).y == null; }
+		calc def UnsetTwo { in a : Real; return : Boolean = new Point(a).y == new Point(a).y; }
+		calc def UnsetIdent { in a : Real; return : Boolean = new Point(a).y === new Point(a).y or new Point(a).y !== new Point(a).y == false; }
+		calc def UnsetAlias { in a : Real; attribute p : Point = new Point(a); return : Boolean = p.y == p.y and p.y === p.y and not (p.y != p.y); }
+		calc def UnsetVsValue { in a : Real; return : Boolean = new Point(a).y != a and not (new Point(a).y == a) and a != new Point(a).y; }
+		calc def UnsetAdd { in a : Real; return : Real = new Point(a).y + 1.0; }
+		calc def UnsetAddRight { in a : Real; return : Real = a + new Point(a).y; }
+		calc def UnsetNeg { in a : Real; return : Real = -new Point(a).y; }
+		calc def UnsetLt { in a : Real; return : Boolean = new Point(a).y < 1.0; }
+		calc def UnsetMul { in a : Real; return : Real = new Point(a).y * 2.0; }
+		calc def UnsetPow { in a : Real; return : Real = new Point(a).y ** 2.0; }
+		calc def UnsetSize { in a : Real; return : Integer = size(new Point(a).y); }
+		calc def UnsetEmpty { in a : Real; return : Boolean = isEmpty(new Point(a).y) or not notEmpty(new Point(a).y); }
+		calc def UnsetCoalesce { in a : Real; return : Real = new Point(a).y ?? 5.0; }
+		calc def UnsetLocal { in a : Real; attribute v : Real = new Point(a).y; return : Real = v + 1.0; }
+		calc def UnsetLocalEq { in a : Real; attribute v : Real = new Point(a).y; return : Boolean = v == v; }
+		calc def UnsetAssigned { in a : Real; attribute v : Real = a; if a > 0.0 { assign v := new Point(a).y; } return : Real = v; }
+		calc def UnsetIf { in a : Real; return : Real = if a > 0.0 ? new Point(a).y else a; }
+		calc def UnsetIfInt { in a : Real; return : Real = if a > 0.0 ? new Point(a).y else 1; }
+		calc def UnsetCond { in a : Real; return : Real = if new Box().b ? 1.0 else 2.0; }
+		calc def UnsetAnd { in a : Real; return : Boolean = new Box().b and a > 0.0; }
+		calc def UnsetNot { in a : Real; return : Boolean = not new Box().b; }
+		calc def UnsetBoolRead { in a : Real; return : Boolean = new Box().b; }
+		calc def UnsetNested { in a : Real; return : Real = new Seg(new Point(a), new Point(a, a)).a.y; }
+		calc def UnsetRecord { in a : Real; return : Boolean = new Seg(new Point(a, a)).b == null; }
+		calc def UnsetInt { in a : Real; return : Integer = new Counted().n; }
+		calc def UnsetIntAdd { in a : Real; return : Integer = new Counted().n + 1; }
+		calc def UnsetPassed { in a : Real; return : Real = Id(new Point(a).y); }
+		calc def UnsetNatural { in a : Real; return : Integer = NatId(new Counted().n); }
+		calc def UnsetDefault { in a : Real; return : Real = new Def(a).y + new Def(a).x; }
+		calc def UnsetString { in a : Real; return : String = new Label().s; }
+		calc def UnsetConcat { in a : Real; return : String = new Label().s + "x"; }
+		calc def UnsetStep { in a : Real; attribute i : Real = 0.0; attribute v : Real = a; while i < 3.0 { assign v := if i == 1.0 ? new Point(a).y else a; assign i := i + 1.0; } return : Real = v; }
+		attribute def Ranged { attribute n : Natural; attribute p : Positive; attribute i : Integer; }
+		attribute def PosBox { attribute p : Positive; }
+		calc def PosId { in n : Positive; return : Integer = n; }
+		calc def UnsetIntToNat { in a : Real; return : Integer = NatId(new Ranged().i); }
+		calc def UnsetNatToPos { in a : Real; return : Integer = PosId(new Ranged().n); }
+		calc def UnsetPosToNat { in a : Real; return : Integer = NatId(new Ranged().p); }
+		calc def UnsetDeclPos { in a : Real; attribute q : Positive = new Ranged().i; return : Integer = q; }
+		calc def UnsetAssignPos { in a : Real; attribute q : Positive = 1; assign q := new Ranged().n; return : Integer = q; }
+		calc def UnsetFieldPos { in a : Real; return : Integer = new PosBox(new Ranged().n).p; }
+		calc def UnsetResultPos { in a : Real; return : Positive = new Ranged().n; }
+		calc def UnsetResultNat { in a : Real; return : Natural = new Ranged().p; }
+		calc def Steps { in a : Real; attribute s : Scaled = new Scaled(a); attribute total : Real = 0.0; attribute i : Real = 0.0; while i < 50.0 { assign total := total + s.scale(1.0) + new Point(a, total).x; assign i := i + 1.0; } return : Real = total; }
+	}
 }
 
 // Calculations outside the subset, each refused for the reason its name states.
@@ -508,14 +845,15 @@ package Refused {
 	enum def Color { red; green; }
 	calc def Extent { return : Natural = size(all Color); }
 	calc def RecordParam { in p : Point; return : Real = p.x + p.y; }
-	calc def EnumParam { in c : Color; return : Boolean = c == Color::red; }
-	calc def RealIntIdentity { in x : Real; in y : Integer; return : Boolean = x === y; }
+	// Compiled code holds Rationals as binary64, so exact Rationals it cannot round once are refused.
+	calc def RationalParam { in x : Rational; return : Real = x; }
+	calc def ExactProduct { in a : Integer; return : Real = a * 0.1; }
+	calc def ExactPower { in a : Integer; return : Real = (a * 0.5) ** 2; }
+	calc def ExactCompare { in a : Integer; return : Boolean = a / 3 < 0.1; }
+	calc def NegativePowerExact { in a : Integer; return : Real = a ** -1 * 3; }
+	calc def BeyondCompare { in x : Real; return : Boolean = x < 1e400; }
 	calc def SelectNonBoolean { in x : Integer[0..*]; return : Integer[0..*] = x->select {in v; v}; }
 	calc def CollectNull { in x : Integer[0..*]; return : Integer[0..*] = x->collect {in v; null}; }
-	calc def CoalesceWidened { in x : Integer[0..*]; return : Real = x ?? 5.5; }
-	calc def MixedEquality { in x : Integer[0..*]; in y : Real[0..*]; return : Boolean = x == y; }
-	calc def MixedSame { in x : Integer[0..*]; in y : Real[0..*]; return : Boolean = same(x, y); }
-	calc def MixedUnion { in x : Integer[0..*]; in y : Real[0..*]; return : Real[0..*] = union(x, y); }
 
 	// Function values: a program takes no function on its command line, and a
 	// function value is compiled only where it is applied or passed on.
@@ -524,13 +862,13 @@ package Refused {
 	calc def Add2 { in x : Real; in y : Real; return : Real = x + y; }
 	calc def CalcParam { in calc f { in v : Real; return : Real; } in a : Real; return : Real = f(a); }
 	calc def Identity { in calc f { in v : Real; return : Real; } return r = f; }
-	calc def EscapingParam { in a : Real; return r = Identity(Sq); }
-	calc def ReturnedFunction { in a : Real; return : Real = Compiled::Fn::Apply(Identity(Sq), a); }
 	calc def Same { in calc f { in v : Real; return : Real; } in calc g { in v : Real; return : Real; } return : Boolean = f == g; }
-	calc def FunctionEquality { in a : Real; return : Boolean = Same(Sq, Sq2); }
 	calc def FunctionAsValue { in a : Real; return : Real = Compiled::Fn::Apply(Sq, Sq); }
 	calc def ValueAsFunction { in a : Real; return : Real = Compiled::Fn::Apply(a, a); }
-	calc def ChosenFunction { in b : Boolean; in a : Real; return : Real = Compiled::Fn::Apply(if b ? Sq else Sq2, a); }
+	calc def IncR { in n : Integer; return : Integer = n + 1; }
+	calc sqR : Sq;
+	calc incR : IncR;
+	calc def MixedArity { in a : Real; attribute g = if a > 0.0 ? sqR else incR; return r = Compiled::Fn::Apply(g, a); }
 	calc def WrongArity { in a : Real; return : Real = Compiled::Fn::Apply(Add2, a); }
 	calc def WrongName { in a : Real; return : Real = Compiled::Fn::ByName(Sq2, a); }
 	// A parameter typed by a calc refuses a function value of a calc that does not specialize it.
@@ -555,11 +893,6 @@ package Refused {
 	calc def SampledValue { in xs : Real[0..*]; attribute s : SampledFunctions::SampledFunction = SampledFunctions::Sample(Sq, xs); return : Integer = CollectionFunctions::size(s); }
 	calc def SampledEscapes { in xs : Real[0..*]; return : SampledFunctions::SampledFunction = SampledFunctions::Sample(Sq, xs); }
 	calc def UnevaluatedFunction { in xs : Integer[0..*]; return : Integer[0..*] = SampledFunctions::Range(SampledFunctions::Sample(ControlFunctions::collect, xs)); }
-
-	calc def StringResult {
-		in s : String;
-		return : String = s;
-	}
 
 	calc def Defaulted {
 		in n : Integer = 3;

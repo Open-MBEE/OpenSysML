@@ -124,6 +124,31 @@ class ResultProtosTest {
   }
 
   @Test
+  void aStateRunDecodesItsTypedTraceAndDroppedRecordCount() {
+    var record =
+        org.openmbee.opensysml.proto.DocumentEvent.newBuilder()
+            .setKind("transition")
+            .setTime(
+                org.openmbee.opensysml.proto.DocumentValue.newBuilder().setRealValue(2.5))
+            .setMachine("Demo::Machine")
+            .setFrom("idle")
+            .setTo("active")
+            .setEvent("Go")
+            .setText("transition: idle -> active on Go")
+            .build();
+    StateRun run =
+        Protos.stateRun(
+            ExecuteStateResponse.newBuilder().addTrace(record).setTraceDropped(4).build(), true);
+
+    assertEquals(1, run.trace().size());
+    assertEquals("transition", run.trace().get(0).kind());
+    assertEquals("idle", run.trace().get(0).from());
+    assertEquals("active", run.trace().get(0).to());
+    assertEquals("Go", run.trace().get(0).event());
+    assertEquals(4, run.traceDropped());
+  }
+
+  @Test
   void aVerificationCarriesItsObjectsBodyVerdictsAndDiagnostics() {
     VerifyConstraintResponse response =
         VerifyConstraintResponse.newBuilder()
@@ -305,8 +330,12 @@ class ResultProtosTest {
             Outcome.newBuilder()
                 .putOutputs("x", integer(1))
                 .setLinearizations(2)
-                .addWitness("first of a, b, c: a")
-                .setProbability(0.5)
+            .addWitness("first of a, b, c: a")
+            .setProbability(0.5)
+            .setProbabilityRange(
+                org.openmbee.opensysml.proto.ProbabilityRange.newBuilder()
+                    .setMin(0.5)
+                    .setMax(0.5))
                 .addDiagnostics(Diagnostic.newBuilder().setMessage("choice").setSeverity("info"))
                 .build(),
             Outcome.newBuilder()
@@ -323,6 +352,7 @@ class ResultProtosTest {
             .addBudgetsHit("runs")
             .setRunsBudget(100)
             .setDepthBudget(64)
+            .setFailedLinearizations(1)
             .setProbabilitiesLowerBound(true)
             .build();
     Exploration exploration = Protos.exploration(outcomes, status);
@@ -331,6 +361,9 @@ class ResultProtosTest {
     assertEquals(Map.of("x", new Value.IntegerValue(1)), first.outputs());
     assertEquals(2, first.linearizations());
     assertEquals(0.5, first.probability());
+    assertEquals(
+        Optional.of(new org.openmbee.opensysml.ProbabilityRange(0.5, 0.5)),
+        first.probabilityRange());
     assertEquals(List.of("first of a, b, c: a"), first.witness());
     assertEquals(1, first.diagnostics().size());
     assertTrue(first.completed());
@@ -344,9 +377,23 @@ class ResultProtosTest {
     assertEquals(100, exploration.runs());
     assertEquals(List.of("runs"), exploration.budgetsHit());
     assertTrue(exploration.probabilitiesLowerBound());
+    assertEquals(1, exploration.failedLinearizations());
     assertEquals(
         "incomplete: runs budget 100 hit after 100 runs; probabilities are lower bounds",
         exploration.status());
+
+    Exploration unweightedIncomplete =
+        Protos.exploration(
+            List.of(),
+            ExplorationStatus.newBuilder()
+                .setComplete(false)
+                .setRuns(1)
+                .setRunsBudget(1)
+                .setDepthBudget(64)
+                .addBudgetsHit("runs")
+                .build());
+    assertEquals("incomplete: runs budget 1 hit after 1 runs", unweightedIncomplete.status());
+    assertEquals(0, unweightedIncomplete.failedLinearizations());
   }
 
   @Test

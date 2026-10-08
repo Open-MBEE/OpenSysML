@@ -168,7 +168,6 @@ package ThenAfterMembers {
     }
     state def AfterDefer {
         state on;
-        defer Ping;
         then state off;
     }
 }

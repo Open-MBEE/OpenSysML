@@ -8,6 +8,7 @@ from opensysml.conversion import (
     FORMAT_API_JSON, FORMAT_SYSML, FORMAT_TURTLE, format_of_path,
 )
 from opensysml.diagnostic import Diagnostic
+from opensysml.document import Graphs, RenderedView
 from opensysml.edit import Editor
 from opensysml.errors import ModelError, ServiceError, SymbolNotFoundError
 from opensysml.proto import sysml_pb2
@@ -381,6 +382,51 @@ class Model:
         """
         return self.connection.render_document(self._hash, document_id, form=form)
 
+    def render_view(self, view_name, ports="minimal") -> RenderedView:
+        """Render one named view as typed diagram data.
+
+        Args:
+            view_name (str): Qualified view name or targeted pseudo-view
+            ports (str): ``"minimal"`` (the default) or ``"full"``
+
+        Returns:
+            RenderedView: Ordered nodes, edges, table data and optional layout
+
+        Raises:
+            ValueError: If ``ports`` is neither ``"minimal"`` nor ``"full"``
+            MissingCapabilityError: If the service cannot render views
+            InvalidRequestError: If the view is malformed or does not render
+            ViewNotFoundError: If the view or pseudo-view target is missing;
+                also a SymbolNotFoundError and KeyError
+            ModelNotFoundError: If the service no longer holds this model
+        """
+        return self.connection.render_view(self._hash, view_name, ports=ports)
+
+
+    def export_graphs(self, subject) -> Graphs:
+        """Export the lowered graph of an action or state machine.
+
+        The graph is the subject's and that of every behavior it performs, in
+        the canonical ``graphs:1`` JSON an external analysis engine is sent:
+        nodes, edges, flows, parameters, guards, triggers and effects, with
+        source spans.
+
+        Args:
+            subject (str): Qualified name of an action or state machine,
+                definition or usage
+
+        Returns:
+            Graphs: The JSON, its version and the subject as resolved
+
+        Raises:
+            MissingCapabilityError: If the service cannot export graphs
+            SymbolNotFoundError: If the model declares no such element
+            InvalidRequestError: If the element is no action or state machine,
+                or the name is shared by several elements
+            ModelNotFoundError: If the service no longer holds this model
+        """
+        return self.connection.export_graphs(self._hash, subject)
+
     def find(self, name):
         """Find symbol by short name or fully-qualified name.
 
@@ -639,7 +685,8 @@ class Model:
             action_symbol_id, self._hash, inputs=inputs, schedule=schedule, performer=performer
         )
 
-    def execute_state(self, state_machine_symbol_id, events=None, schedule=None, performer=None):
+    def execute_state(self, state_machine_symbol_id, events=None, schedule=None, performer=None,
+                      trace=False):
         """Execute one of this model's state machines.
 
         Args:
@@ -653,9 +700,12 @@ class Model:
                 :meth:`execute_action`; an object exhibiting the machine runs
                 the one it exhibits, hearing its siblings over their connectors.
                 Guards and actions read and write the object's feature values
+            trace (bool): Whether to return the run's typed execution trace;
+                requires the ``state_trace`` capability
 
         Returns:
-            dict: {'states_visited': [...], 'final_context': {...}, 'final_time': float};
+            dict: {'states_visited': [...], 'final_context': {...}, 'final_time': float,
+                'trace': [DocumentEvent, ...], 'trace_dropped': int};
                 ``final_context`` also holds the performer's attributes under
                 ``this.`` (``'this.speed'``); a context value the wire format
                 cannot represent is reported as an UnsupportedValueError in its
@@ -664,14 +714,18 @@ class Model:
 
         Raises:
             ValueError: If the schedule explores
-            ExecutionError: If the state machine could not be executed
+            ExecutionError: If the state machine could not be executed; a
+                traced failure carries its partial ``trace`` and
+                ``trace_dropped``
             ModelNotFoundError: If the service no longer holds this model
             MissingCapabilityError: If a schedule is given and the service
-                predates ``schedule``, or a performer and it predates ``performer``
+                predates ``schedule``, a performer and it predates ``performer``,
+                or trace is requested and it predates ``state_trace``
             InvalidRequestError: If the schedule names no policy
         """
         return self._client.execute_state(
-            state_machine_symbol_id, self._hash, events=events, schedule=schedule, performer=performer
+            state_machine_symbol_id, self._hash, events=events, schedule=schedule,
+            performer=performer, trace=trace
         )
 
     def explore_state(self, state_machine_symbol_id, events=None, schedule="explore", performer=None):

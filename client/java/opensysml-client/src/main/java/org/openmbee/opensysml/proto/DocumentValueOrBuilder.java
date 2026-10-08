@@ -237,6 +237,62 @@ public interface DocumentValueOrBuilder extends
 
   /**
    * <pre>
+   * An Integer beyond int64, in decimal, as Value.big_int_value.
+   * </pre>
+   *
+   * <code>string big_int_value = 13 [json_name = "bigIntValue"];</code>
+   * @return Whether the bigIntValue field is set.
+   */
+  boolean hasBigIntValue();
+  /**
+   * <pre>
+   * An Integer beyond int64, in decimal, as Value.big_int_value.
+   * </pre>
+   *
+   * <code>string big_int_value = 13 [json_name = "bigIntValue"];</code>
+   * @return The bigIntValue.
+   */
+  java.lang.String getBigIntValue();
+  /**
+   * <pre>
+   * An Integer beyond int64, in decimal, as Value.big_int_value.
+   * </pre>
+   *
+   * <code>string big_int_value = 13 [json_name = "bigIntValue"];</code>
+   * @return The bytes for bigIntValue.
+   */
+  com.google.protobuf.ByteString
+      getBigIntValueBytes();
+
+  /**
+   * <pre>
+   * An exact Rational, as Value.rational_value.
+   * </pre>
+   *
+   * <code>.sysml.Rational rational_value = 14 [json_name = "rationalValue"];</code>
+   * @return Whether the rationalValue field is set.
+   */
+  boolean hasRationalValue();
+  /**
+   * <pre>
+   * An exact Rational, as Value.rational_value.
+   * </pre>
+   *
+   * <code>.sysml.Rational rational_value = 14 [json_name = "rationalValue"];</code>
+   * @return The rationalValue.
+   */
+  org.openmbee.opensysml.proto.Rational getRationalValue();
+  /**
+   * <pre>
+   * An exact Rational, as Value.rational_value.
+   * </pre>
+   *
+   * <code>.sysml.Rational rational_value = 14 [json_name = "rationalValue"];</code>
+   */
+  org.openmbee.opensysml.proto.RationalOrBuilder getRationalValueOrBuilder();
+
+  /**
+   * <pre>
    * Metamodel type of element_id ("PartUsage", ...); answered, ignored when bound.
    * </pre>
    *

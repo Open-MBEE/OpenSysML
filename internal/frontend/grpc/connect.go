@@ -101,6 +101,12 @@ func (a *ConnectAdapter) Convert(ctx context.Context, req *connect.Request[pb.Co
 	return connectCall(ctx, req, a.svc.Convert)
 }
 
+// Migrate writes a SysML v1 model out as a v2 one, with the report of what
+// became of every v1 element.
+func (a *ConnectAdapter) Migrate(ctx context.Context, req *connect.Request[pb.MigrateRequest]) (*connect.Response[pb.MigrateResponse], error) {
+	return connectCall(ctx, req, a.svc.Migrate)
+}
+
 // ApplyEdits edits a parsed model's own source.
 func (a *ConnectAdapter) ApplyEdits(ctx context.Context, req *connect.Request[pb.ApplyEditsRequest]) (*connect.Response[pb.ApplyEditsResponse], error) {
 	return connectCall(ctx, req, a.svc.ApplyEdits)
@@ -159,4 +165,14 @@ func (a *ConnectAdapter) RunDocumentQuery(ctx context.Context, req *connect.Requ
 // RenderDocument renders a named document to Markdown.
 func (a *ConnectAdapter) RenderDocument(ctx context.Context, req *connect.Request[pb.RenderDocumentRequest]) (*connect.Response[pb.RenderDocumentResponse], error) {
 	return connectCall(ctx, req, a.svc.RenderDocument)
+}
+
+// RenderView renders a named view or targeted pseudo-view as diagram data.
+func (a *ConnectAdapter) RenderView(ctx context.Context, req *connect.Request[pb.RenderViewRequest]) (*connect.Response[pb.RenderViewResponse], error) {
+	return connectCall(ctx, req, a.svc.RenderView)
+}
+
+// ExportGraphs exports the lowered graph of an action or state machine as graphs:1 JSON.
+func (a *ConnectAdapter) ExportGraphs(ctx context.Context, req *connect.Request[pb.ExportGraphsRequest]) (*connect.Response[pb.ExportGraphsResponse], error) {
+	return connectCall(ctx, req, a.svc.ExportGraphs)
 }

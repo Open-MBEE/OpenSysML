@@ -64,6 +64,47 @@ func TestWorkspaceRejectsAnUnknownLint(t *testing.T) {
 	}
 }
 
+// An opt-in lint is left out until enabled, on every read of the diagnostics,
+// and a disabled lint stays out even when enabled.
+func TestWorkspaceEnablesAnOptInLint(t *testing.T) {
+	const src = `package P { private import ScalarValues::*; attribute x : Real = 0.1; }`
+	ws := NewWorkspace()
+	ws.Open("a.sysml", []byte(src), 1)
+	if n := lintCount(ws.Diagnostics("a.sysml"), passes.CodeRoundedRealLiteral); n != 0 {
+		t.Fatalf("want the opt-in lint off by default, got %d finding(s)", n)
+	}
+	if err := ws.SetEnabledLints([]string{passes.CodeRoundedRealLiteral}); err != nil {
+		t.Fatal(err)
+	}
+	if lintCount(ws.Diagnostics("a.sysml"), passes.CodeRoundedRealLiteral) != 1 {
+		t.Fatalf("Diagnostics left out an enabled lint: %v", ws.Diagnostics("a.sysml"))
+	}
+	if _, diags, _ := ws.AnalyzedContent("a.sysml"); lintCount(diags, passes.CodeRoundedRealLiteral) != 1 {
+		t.Fatal("AnalyzedContent left out an enabled lint")
+	}
+	if all := ws.DiagnosticsAll([]string{"a.sysml"}); lintCount(all[0], passes.CodeRoundedRealLiteral) != 1 {
+		t.Fatal("DiagnosticsAll left out an enabled lint")
+	}
+	if got := ws.EnabledLints(); len(got) != 1 || got[0] != passes.CodeRoundedRealLiteral {
+		t.Fatalf("EnabledLints = %v", got)
+	}
+	if err := ws.SetDisabledLints([]string{passes.CodeRoundedRealLiteral}); err != nil {
+		t.Fatal(err)
+	}
+	if n := lintCount(ws.Diagnostics("a.sysml"), passes.CodeRoundedRealLiteral); n != 0 {
+		t.Fatalf("a disabled lint reported %d finding(s) though enabled", n)
+	}
+	if err := ws.SetEnabledLints([]string{"no-such-lint"}); err == nil {
+		t.Fatal("an unknown code was accepted")
+	}
+	if got := ws.EnabledLints(); len(got) != 1 {
+		t.Fatalf("a rejected setting changed the enabled lints: %v", got)
+	}
+	if got := NewWorkspace(WithEnabledLints(passes.CodeRoundedRealLiteral)).EnabledLints(); len(got) != 1 {
+		t.Fatalf("WithEnabledLints = %v", got)
+	}
+}
+
 // A signal another open document sends silences the lint, and closing that
 // document brings it back: the sent names are a workspace-wide union.
 func TestWorkspaceSignalLintFollowsOtherDocuments(t *testing.T) {

@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"math"
 	"slices"
-	"strconv"
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
@@ -318,13 +317,15 @@ func (ec *EvalContext) Pop() {
 }
 
 // Lookup searches for a name in the frame stack (innermost first).
-func (ec *EvalContext) Lookup(name string) (Value, bool) {
+func (ec *EvalContext) Lookup(name string) (Value, bool, error) {
 	for i := len(ec.frames) - 1; i >= 0; i-- {
-		if val, ok := ec.frames[i].lookup(name); ok {
-			return val, true
+		if val, ok, err := ec.frames[i].read(ec.ctx, name); err != nil {
+			return Value{}, false, err
+		} else if ok {
+			return val, true, nil
 		}
 	}
-	return Value{}, false
+	return Value{}, false, nil
 }
 
 // Eval evaluates an expression node. Returns a Value or an error.
@@ -332,13 +333,32 @@ func (ec *EvalContext) Lookup(name string) (Value, bool) {
 // When the context is traced, the evaluation is recorded after its
 // sub-expressions, which makes sub-expression order part of the trace.
 func (ec *EvalContext) Eval(node ast.Node) (Value, error) {
+	return ec.evaluate(node, false)
+}
+
+// evalHeld is Eval leaving the required members the value ends in unmade, for an
+// operation reading only its size or one position (required.go).
+func (ec *EvalContext) evalHeld(node ast.Node) (Value, error) {
+	return ec.evaluate(node, true)
+}
+
+func (ec *EvalContext) evaluate(node ast.Node, keep bool) (Value, error) {
 	if ec.trace == nil {
-		return ec.eval(node)
+		return ec.heldValue(keep, node)
 	}
 	ec.trace.BeginEval()
-	value, err := ec.eval(node)
+	value, err := ec.heldValue(keep, node)
 	ec.trace.EndEval(TraceLabel(node), value, err)
 	return value, err
+}
+
+// heldValue evaluates node, making every required member its value ends in unless keep.
+func (ec *EvalContext) heldValue(keep bool, node ast.Node) (Value, error) {
+	value, err := ec.eval(node)
+	if err != nil || keep {
+		return value, err
+	}
+	return ec.ctx.heldInFull(value)
 }
 
 // eval dispatches one expression node, without trace bookkeeping.
@@ -436,6 +456,13 @@ func (ctx *Context) EvalDeclaredValue(sym *symbols.Symbol) (Value, error) {
 		if ctx.namesOneObject(sym) || ctx.namesObjects(sym) {
 			return ctx.denotedValue(sym)
 		}
+		// A usage a binding connector governs reads as the binding's value, as
+		// an expression read of the same name answers.
+		if class, _ := ctx.namespaceClassMember(sym); class != nil || ctx.optionalValueless(sym) {
+			if val, bound, err := ctx.namespaceBoundValue(sym); bound || err != nil {
+				return val, err
+			}
+		}
 		// Read as a name of it is read: a feature nothing values is undetermined.
 		return NewEvalContext(ctx, sym.OwnerScope).withoutValue(sym, ctx.qualifiedSymbolName(sym), nil)
 	}
@@ -453,33 +480,35 @@ func (ctx *Context) EvalWithScopeOn(node ast.Node, scope *symbols.Scope, self *I
 	return NewEvalContextIn(ctx, scope, self).Eval(node)
 }
 
-// evalLiteralInteger evaluates an integer literal, reporting one outside the
-// Integer range rather than clamping it.
+// evalLiteralInteger evaluates an integer literal, of any magnitude: KerML's
+// Integer is the mathematical integers.
 func (ec *EvalContext) evalLiteralInteger(n *ast.LiteralInteger) (Value, error) {
 	val, ok := ec.ctx.model.integerLiterals[n]
 	if !ok {
-		var err error
-		if val, err = strconv.ParseInt(n.Value, 10, 64); err != nil {
-			return Value{}, fmt.Errorf("%w: literal %s is outside the Integer range",
-				semantics.ErrArithmeticOverflow, n.Value)
+		if val, ok = semantics.ParseInteger(n.Value); !ok {
+			return Value{}, fmt.Errorf("%w: literal %s is no Integer", ErrTypeMismatch, n.Value)
 		}
 		ec.ctx.model.integerLiterals[n] = val
 	}
-	return Value{Kind: ValConst, Const: semantics.Value{Kind: semantics.ValInt, Int: val}}, nil
+	return Value{Kind: ValConst, Const: val}, nil
 }
 
-// evalLiteralReal evaluates a real literal, reporting one outside the Real
-// range rather than carrying it as an infinity.
+// evalLiteralReal evaluates a decimal literal to the exact Rational it denotes
+// (KerML 1.0 §8.4.4.9.2), refusing one beyond the size budget.
 func (ec *EvalContext) evalLiteralReal(n *ast.LiteralReal) (Value, error) {
 	val, ok := ec.ctx.model.realLiterals[n]
 	if !ok {
 		var err error
-		if val, err = semantics.ParseReal(n.Value); err != nil {
-			return Value{}, fmt.Errorf("%w: literal %s is outside the Real range", err, n.Value)
+		if val, err = semantics.ParseRational(n.Value, ec.ctx.maxIntegerBits); err != nil {
+			return Value{}, fmt.Errorf("literal %s: %w", n.Value, integerSizeHint(err))
 		}
 		ec.ctx.model.realLiterals[n] = val
 	}
-	return Value{Kind: ValConst, Const: semantics.Value{Kind: semantics.ValReal, Real: val}}, nil
+	if bits := val.RatBitLen(); bits > ec.ctx.maxIntegerBits {
+		return Value{}, fmt.Errorf("literal %s: %w", n.Value,
+			integerSizeHint(semantics.RationalSizeExceeded(bits, ec.ctx.maxIntegerBits)))
+	}
+	return Value{Kind: ValConst, Const: val}, nil
 }
 
 // evalLiteralBool evaluates a boolean literal.
@@ -603,7 +632,9 @@ func (ec *EvalContext) evalName(qn *ast.QualifiedName) (Value, error) {
 	// Outside an expression body no body-local declaration can shadow a bound
 	// name, so a frame binding is the answer: the common case, kept small.
 	if qn != nil && len(qn.Parts) == 1 && (ec.scope == nil || !ec.scope.BodyLocal()) {
-		if val, ok := ec.Lookup(qn.Parts[0].Text); ok {
+		if val, ok, err := ec.Lookup(qn.Parts[0].Text); err != nil {
+			return Value{}, err
+		} else if ok {
 			return val, nil
 		}
 	}
@@ -645,7 +676,9 @@ func (ec *EvalContext) evalNameGeneral(qn *ast.QualifiedName) (Value, error) {
 			}
 		}
 		// Try frame stack first (local bindings from calc/lambda params)
-		if val, ok := ec.Lookup(name); ok {
+		if val, ok, err := ec.Lookup(name); err != nil {
+			return Value{}, err
+		} else if ok {
 			return val, nil
 		}
 		// Then a node of an action performance in the frame stack, read as a value.
@@ -819,7 +852,9 @@ func (ec *EvalContext) evalNameGeneral(qn *ast.QualifiedName) (Value, error) {
 	// A feature of a behavior whose run is on the stack (`MassCase::result` in its
 	// objective or assertion) reads the value that run bound to it.
 	if qualifier, ok := reading.Part(len(qn.Parts) - 2); ok {
-		if val, ok := ec.frameFeatureValue(qualifier, currentSym); ok {
+		if val, ok, err := ec.frameFeatureValue(qualifier, currentSym); err != nil {
+			return Value{}, err
+		} else if ok {
 			return val, nil
 		}
 	}
@@ -895,9 +930,12 @@ func (ec *EvalContext) evalNameGeneral(qn *ast.QualifiedName) (Value, error) {
 
 // frameFeatureValue reads the resolved member sym, qualified by qualifier, from the innermost
 // frame whose owner is (or specializes) the qualifier, under the name that owner's run binds it by.
-func (ec *EvalContext) frameFeatureValue(qualifier, sym *symbols.Symbol) (Value, bool) {
+func (ec *EvalContext) frameFeatureValue(qualifier, sym *symbols.Symbol) (Value, bool, error) {
 	for i := len(ec.frames) - 1; i >= 0; i-- {
 		f := ec.frames[i]
+		if f.lexical {
+			continue
+		}
 		if f.owner != nil {
 			if !f.owner.qualifiedBy(ec.ctx, qualifier) {
 				continue
@@ -906,8 +944,10 @@ func (ec *EvalContext) frameFeatureValue(qualifier, sym *symbols.Symbol) (Value,
 			if !ok {
 				continue
 			}
-			if val, ok := f.lookup(name); ok {
-				return val, true
+			if val, ok, err := f.read(ec.ctx, name); err != nil {
+				return Value{}, false, err
+			} else if ok {
+				return val, true, nil
 			}
 			continue
 		}
@@ -917,11 +957,13 @@ func (ec *EvalContext) frameFeatureValue(qualifier, sym *symbols.Symbol) (Value,
 		if !f.runs(ec.ctx, qualifier) {
 			continue
 		}
-		if val, ok := f.lookup(sym.Name); ok {
-			return val, true
+		if val, ok, err := f.read(ec.ctx, sym.Name); err != nil {
+			return Value{}, false, err
+		} else if ok {
+			return val, true, nil
 		}
 	}
-	return Value{}, false
+	return Value{}, false, nil
 }
 
 // writeFrameFeature is frameFeatureValue for a write: value goes into the innermost
@@ -932,6 +974,9 @@ func (ec *EvalContext) frameFeatureValue(qualifier, sym *symbols.Symbol) (Value,
 func (ec *EvalContext) writeFrameFeature(qualifier, sym *symbols.Symbol, value Value) (bool, error) {
 	for i := len(ec.frames) - 1; i >= 0; i-- {
 		f := ec.frames[i]
+		if f.lexical {
+			continue
+		}
 		if f.owner != nil {
 			if !f.owner.qualifiedBy(ec.ctx, qualifier) {
 				continue
@@ -965,7 +1010,7 @@ func (ec *EvalContext) writeFrameFeature(qualifier, sym *symbols.Symbol, value V
 			}
 		}
 		if oc != nil && ec.ctx.isOrSpecializes(oc.Type, qualifier) {
-			if err := oc.SetFeatureValue(ec.ctx, sym.Name, value); err != nil {
+			if err := oc.BindFeatureValue(ec.ctx, sym.Name, value); err != nil {
 				return true, err
 			}
 		}
@@ -1084,6 +1129,22 @@ func (ec *EvalContext) declaredValue(sym *symbols.Symbol, value ast.Node) (Value
 	if !namespaceObjectUsage(sym) {
 		return ec.evaluateDeclared(sym, value)
 	}
+	// A binding connector joining this usage makes its ends denote the same
+	// values; resolving it records the binding before the value is read.
+	if _, bound, err := ec.ctx.namespaceBoundObjects(sym); err != nil {
+		return Value{}, err
+	} else if bound {
+		if val, ok := ec.ctx.namespaceBindings[sym]; ok {
+			return val, nil
+		}
+		// The class's member declaring sym may be a different scope tree's
+		// symbol for it; its recorded binding is this usage's value too.
+		if _, member := ec.ctx.namespaceClassMember(sym); member != sym {
+			if val, ok := ec.ctx.namespaceBindings[member]; ok {
+				return val, nil
+			}
+		}
+	}
 	if ec.ctx.binding(sym) {
 		return Value{}, &CyclicBindingError{Usage: sym, Stated: ec.ctx.qualifiedSymbolName(sym)}
 	}
@@ -1162,7 +1223,15 @@ func (ec *EvalContext) conformHeld(sym *symbols.Symbol, val Value, countJudged b
 // materialized once. Reports whether the symbol denotes such objects.
 func (ec *EvalContext) occurrenceReference(sym *symbols.Symbol) (Value, bool, error) {
 	if !ec.ctx.namesOneObject(sym) && !ec.ctx.namesObjects(sym) {
-		return Value{}, false, nil
+		class, _ := ec.ctx.namespaceClassMember(sym)
+		if class == nil && !ec.ctx.optionalValueless(sym) {
+			return Value{}, false, nil
+		}
+		// Of itself the usage may denote nothing, but a binding connector
+		// may have bound it to another usage's value, or a subsetting may
+		// have filled it — reads through the binding answer those.
+		ec.ctx.noteDeclarationRead(sym)
+		return ec.ctx.namespaceBoundValue(sym)
 	}
 	ec.ctx.noteDeclarationRead(sym)
 	val, err := ec.ctx.denotedValue(sym)
@@ -1297,6 +1366,12 @@ func (ec *EvalContext) evalFeatureChain(n *ast.FeatureChainExpr) (Value, error) 
 	}
 	base, parts := chainBase(n)
 
+	// A state's activity, `fill.isActive`, is read from the active configuration
+	// of the machine holding the state, not from a feature value.
+	if val, ok, err := ec.stateActivity(n, base, parts); ok {
+		return val, err
+	}
+
 	// A node of an action performance on the stack carries its pins in its own
 	// performance, which `p.v` reads.
 	if name := simpleEndName(base); name != "" {
@@ -1317,13 +1392,17 @@ func (ec *EvalContext) evalFeatureChain(n *ast.FeatureChainExpr) (Value, error) 
 	// A calc usage carries no value of its own: its output features are computed
 	// by evaluating it, so `c.a` runs the usage — once — and reads the output
 	// from that evaluation rather than from a feature value.
-	if sym, ok := ec.calcUsageOperand(base); ok {
+	if sym, ok, err := ec.calcUsageOperand(base); err != nil {
+		return Value{}, err
+	} else if ok {
 		return ec.evalCalcUsageMembers(sym, parts)
 	}
 
 	// A part carries no value of its own: it denotes an occurrence, whose features
 	// `lander.mass.mDry` reads, so the chain is read from that object.
-	if sym, ok := ec.occurrenceOperand(base); ok {
+	if sym, ok, err := ec.occurrenceOperand(base); err != nil {
+		return Value{}, err
+	} else if ok {
 		// A usage of an enclosing object is read from that object, so a sibling
 		// chain `e1.length` inside `e3` reads the containing rectangle's e1.
 		if val, ok, err := ec.outerFeatureValue(sym); ok {
@@ -1447,6 +1526,10 @@ func (ec *EvalContext) chainMemberValue(value Value, parts []ast.NameSegment, fr
 	}
 	switch value.Kind {
 	case ValSequence, ValSet:
+		value, err := ec.ctx.heldInFull(value)
+		if err != nil {
+			return Value{}, err
+		}
 		return ec.chainOverElements(value, parts, from)
 	case ValArray, ValVector, ValVectorQuantity, ValTensorQuantity, ValQuantity, ValMeasurementRef, ValCoordinateFrame, ValCoordinateTransformation:
 		// An array or vector read from an object keeps that object's members; a
@@ -1615,6 +1698,9 @@ func (ec *EvalContext) enumLiteralValue(sym *symbols.Symbol) (Value, error) {
 	if err != nil {
 		return Value{}, fmt.Errorf("enumeration literal %s: %w", sym.Name, err)
 	}
+	if err := ec.ctx.holdAsReal(&val, semantics.EnumerationOwning(sym)); err != nil {
+		return Value{}, fmt.Errorf("enumeration literal %s: %w", sym.Name, err)
+	}
 	return val.ofLiteral(sym), nil
 }
 
@@ -1668,7 +1754,7 @@ var unimplementedOperators = map[ast.OperatorKind]string{
 // an operand that depends on a parameter does not make the operator fail.
 func (ec *EvalContext) evalOperator(n *ast.OperatorExpr) (Value, error) {
 	// Try constant folding first
-	if semVal, ok := ec.ctx.model.semantics.Eval(n); ok {
+	if semVal, ok := ec.ctx.model.semantics.EvalWithin(n, ec.ctx.maxIntegerBits); ok {
 		return Value{Kind: ValConst, Const: semVal}, nil
 	}
 
@@ -1846,7 +1932,7 @@ func (ctx *Context) directValueType(scope *symbols.Scope, value Value) (*symbols
 	switch value.Kind {
 	case ValConst:
 		switch value.Const.Kind {
-		case semantics.ValInt, semantics.ValReal, semantics.ValBool:
+		case semantics.ValInt, semantics.ValRational, semantics.ValReal, semantics.ValBool:
 			return ctx.scalarValueType(scope, value)
 		case semantics.ValInfinity:
 			// `*` is the natural number exceeding every other (KerML 8.4.4.6).
@@ -2041,9 +2127,9 @@ func (ec *EvalContext) evalConditional(n *ast.OperatorExpr) (Value, error) {
 		return Value{}, err
 	}
 	if held {
-		return ec.Eval(n.Operands[1])
+		return ec.evalHeld(n.Operands[1])
 	}
-	return ec.Eval(n.Operands[2])
+	return ec.evalHeld(n.Operands[2])
 }
 
 // evalNullCoalesce evaluates `a ?? b`, evaluating b only when a is empty.
@@ -2051,11 +2137,11 @@ func (ec *EvalContext) evalNullCoalesce(n *ast.OperatorExpr) (Value, error) {
 	if len(n.Operands) != 2 {
 		return Value{}, fmt.Errorf("'??' requires 2 operands, got %d", len(n.Operands))
 	}
-	left, err := ec.Eval(n.Operands[0])
+	left, err := ec.evalHeld(n.Operands[0])
 	if err != nil {
 		return Value{}, err
 	}
-	second := func() (Value, error) { return ec.Eval(n.Operands[1]) }
+	second := func() (Value, error) { return ec.evalHeld(n.Operands[1]) }
 	return coalesceNull(left, second, ec.declaredCount(ec.scope, n.Operands[1]))
 }
 
@@ -2084,7 +2170,7 @@ func isEmptyValue(val Value) bool {
 	case ValNull:
 		return true
 	case ValSequence, ValSet:
-		return len(elementsOf(val)) == 0
+		return elementCount(&val) == 0
 	}
 	return false
 }
@@ -2120,7 +2206,8 @@ func (ec *EvalContext) evalIdentity(n *ast.OperatorExpr) (Value, error) {
 // stricter than equality: a value of another kind, or a constant of another
 // kind, is never the same value, so an Integer is not identical to a Real of
 // equal magnitude, nor an enumeration's literal to the bare scalar it equals or
-// to another enumeration's literal of that value.
+// to another enumeration's literal of that value. Two sequences are identical
+// element by element.
 func valueIdentical(left, right Value) bool {
 	if isEmptyValue(left) || isEmptyValue(right) {
 		return isEmptyValue(left) && isEmptyValue(right)
@@ -2131,7 +2218,29 @@ func valueIdentical(left, right Value) bool {
 	if left.Kind == ValConst && left.Const.Kind != right.Const.Kind {
 		return false
 	}
+	if left.Kind == ValSequence {
+		return sequenceIdentical(left.Sequence(), right.Sequence())
+	}
 	return valueEqual(left, right)
+}
+
+// sequenceIdentical is `===` extended to sequences as SequenceFunctions::same
+// is: the same size and each element identical to its counterpart.
+func sequenceIdentical(a, b *Sequence) bool {
+	if a == nil || b == nil {
+		return a == b
+	}
+	if a.Size() != b.Size() {
+		return false
+	}
+	for i := 0; i < a.Size(); i++ {
+		x, _ := a.At(i)
+		y, _ := b.At(i)
+		if !valueIdentical(x, y) {
+			return false
+		}
+	}
+	return true
 }
 
 // evalArithmetic evaluates arithmetic operators (+, -, *, /, %, **).
@@ -2222,7 +2331,7 @@ func (ctx *Context) arithmeticValues(op ast.OperatorKind, left, right Value, spa
 		}
 	}
 
-	res, err := constArithmetic(op, left.Const, right.Const)
+	res, err := constArithmetic(op, left.Const, right.Const, ctx.maxIntegerBits)
 	if err != nil {
 		return Value{}, err
 	}
@@ -2248,8 +2357,9 @@ func definiteArithmeticError(op ast.OperatorKind, left, right Value) error {
 
 // constArithmetic is arithmetic over two scalar constants, the core the
 // evaluator and the compiled calc tier share so both report the same results
-// and the same errors.
-func constArithmetic(op ast.OperatorKind, left, right semantics.Value) (semantics.Value, error) {
+// and the same errors. An Integer result is exact, refused only when it would
+// need more than maxBits.
+func constArithmetic(op ast.OperatorKind, left, right semantics.Value, maxBits int64) (semantics.Value, error) {
 	// The unbounded `*` is no number: arithmetic over it is refused rather than
 	// answered with a finite result or an infinity.
 	if left.IsUnbounded() || right.IsUnbounded() {
@@ -2260,37 +2370,30 @@ func constArithmetic(op ast.OperatorKind, left, right semantics.Value) (semantic
 	// Exponentiation shares the folder's implementation, so a folded and an
 	// evaluated `**` agree; the folder declines where this reports the error.
 	if op == ast.OpPow {
-		return semantics.Pow(left, right)
+		res, err := semantics.Pow(left, right, maxBits)
+		return res, integerSizeHint(err)
 	}
 
-	// Integer arithmetic: an out-of-range result is reported, not wrapped.
-	if left.Kind == semantics.ValInt && right.Kind == semantics.ValInt {
-		// A quotient is a Rational: the exact ratio, rounded once to float64 so
-		// operands beyond 2^53 are not rounded before dividing.
-		if op == ast.OpDiv {
-			q, ok := semantics.IntQuotient(left.Int, right.Int)
+	// Integer arithmetic is exact, in int64 while the result fits it; an
+	// Integer quotient is the exact Rational IntegerFunctions::'/' declares.
+	if left.Kind == semantics.ValInt && right.Kind == semantics.ValInt && op != ast.OpDiv {
+		switch op {
+		case ast.OpMod:
+			r, ok := semantics.IntRem(left, right)
 			if !ok {
 				return semantics.Value{}, ErrDivisionByZero
 			}
-			return semantics.Value{Kind: semantics.ValReal, Real: q}, nil
+			return r, nil
 		}
-		var result int64
-		switch op {
-		case ast.OpAdd, ast.OpSub, ast.OpMul:
-			var ok bool
-			if result, ok = semantics.IntArith(op, left.Int, right.Int); !ok {
-				return semantics.Value{}, semantics.IntegerOverflow(op, left.Int, right.Int)
-			}
-		case ast.OpMod:
-			if right.Int == 0 {
-				return semantics.Value{}, ErrDivisionByZero
-			}
-			result = left.Int % right.Int
-		}
-		return semantics.Value{Kind: semantics.ValInt, Int: result}, nil
+		res, err := semantics.IntArith(op, left, right, maxBits)
+		return res, integerSizeHint(err)
+	}
+	if left.IsExact() && right.IsExact() {
+		res, err := semantics.RatArith(op, left, right, maxBits)
+		return res, integerSizeHint(err)
 	}
 
-	// Real arithmetic (coerce int to real if needed)
+	// Real arithmetic, an exact operand rounded once to the nearest binary64
 	leftReal := toReal(left)
 	rightReal := toReal(right)
 	var result float64
@@ -2318,12 +2421,10 @@ func constArithmetic(op ast.OperatorKind, left, right semantics.Value) (semantic
 	return semantics.RealResult(result)
 }
 
-// toReal converts a semantics.Value to float64.
+// toReal converts a semantics.Value to float64, an Integer rounding to the
+// nearest.
 func toReal(v semantics.Value) float64 {
-	if v.Kind == semantics.ValInt {
-		return float64(v.Int)
-	}
-	return v.Real
+	return v.AsReal()
 }
 
 // evalEquality evaluates equality operators (==, !=).
@@ -2547,18 +2648,25 @@ func constComparison(op ast.OperatorKind, left, right semantics.Value) (bool, er
 
 	// Compare integers
 	if left.Kind == semantics.ValInt && right.Kind == semantics.ValInt {
-		switch op {
-		case ast.OpLt:
-			return left.Int < right.Int, nil
-		case ast.OpLe:
-			return left.Int <= right.Int, nil
-		case ast.OpGt:
-			return left.Int > right.Int, nil
-		case ast.OpGe:
-			return left.Int >= right.Int, nil
-		default:
+		res, ok := semantics.OrderSatisfies(op, semantics.CompareInt(left, right))
+		if !ok {
 			return false, fmt.Errorf("unknown comparison operator: %v", op)
 		}
+		return res, nil
+	}
+
+	if left.IsExact() && right.IsExact() {
+		res, _ := semantics.OrderSatisfies(op, semantics.CompareRat(left, right))
+		return res, nil
+	}
+	// A Rational meets a Real at Real precision, an Integer exactly.
+	if left.IsExact() && right.Kind == semantics.ValReal && !math.IsNaN(right.Real) {
+		res, _ := semantics.OrderSatisfies(op, semantics.CompareReal(left, right.Real))
+		return res, nil
+	}
+	if left.Kind == semantics.ValReal && right.IsExact() && !math.IsNaN(left.Real) {
+		res, _ := semantics.OrderSatisfies(op, -semantics.CompareReal(right, left.Real))
+		return res, nil
 	}
 
 	// Compare reals (coerce int to real)
@@ -2743,19 +2851,6 @@ func (ec *EvalContext) evalUnary(n *ast.OperatorExpr) (Value, error) {
 		return Value{}, fmt.Errorf("unary operator requires 1 operand, got %d", len(n.Operands))
 	}
 
-	// The least Integer is the one literal whose magnitude alone is outside the
-	// range, so its sign is read together with it; every other operand is
-	// evaluated as usual.
-	if n.Operator == ast.OpNeg {
-		if lit, ok := n.Operands[0].(*ast.LiteralInteger); ok {
-			if _, err := strconv.ParseInt(lit.Value, 10, 64); err != nil {
-				if val, err := strconv.ParseInt("-"+lit.Value, 10, 64); err == nil {
-					return Value{Kind: ValConst, Const: semantics.Value{Kind: semantics.ValInt, Int: val}}, nil
-				}
-			}
-		}
-	}
-
 	operand, err := ec.valueOperand(n.Operands[0])
 	if err != nil {
 		return Value{}, err
@@ -2821,10 +2916,6 @@ func constUnary(op ast.OperatorKind, operand semantics.Value) (semantics.Value, 
 			return semantics.Value{}, fmt.Errorf("%w: logical not requires bool operand, got %s", ErrTypeMismatch, semantics.FormatConst(operand))
 		}
 		return semantics.Value{Kind: semantics.ValBool, Bool: !operand.Bool}, nil
-	}
-	if op == ast.OpNeg && operand.Kind == semantics.ValInt && operand.Int == math.MinInt64 {
-		return semantics.Value{}, fmt.Errorf("%w: -(%d) exceeds the Integer range",
-			semantics.ErrArithmeticOverflow, operand.Int)
 	}
 	result, ok := semantics.EvalUnary(op, operand)
 	if !ok {
@@ -3411,7 +3502,7 @@ func spelledPrim(elements []Value) semantics.PrimType {
 	common := semantics.PrimUnknown
 	for i, el := range elements {
 		prim := representationPrim(el)
-		if prim == semantics.PrimInteger && el.Const.Int >= 0 {
+		if prim == semantics.PrimInteger && el.Const.IntSign() >= 0 {
 			prim = semantics.PrimNatural
 		}
 		switch {

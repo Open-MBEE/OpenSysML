@@ -51,9 +51,19 @@ func (ec *EvalContext) rangeSequence(op string, lowerVal, upperVal Value) (Value
 	}
 	// A descending range names no integer: the library's own subsequence reaches
 	// one and expects nothing from it.
-	if lower > upper {
+	if semantics.CompareInt(lower, upper) > 0 {
 		return ec.newSequence(nil)
 	}
+	lo, loSmall := lower.Int64()
+	hi, hiSmall := upper.Int64()
+	if !loSmall || !hiSmall {
+		return ec.bigRangeSequence(lower, upper)
+	}
+	return ec.smallRangeSequence(lo, hi)
+}
+
+// smallRangeSequence is rangeSequence between bounds within int64.
+func (ec *EvalContext) smallRangeSequence(lower, upper int64) (Value, error) {
 	// A model-supplied width can overflow or exceed what is allocatable, so it only
 	// hints at the capacity; the budgets below bound the sequence.
 	const maxHint = 4096
@@ -77,17 +87,42 @@ func (ec *EvalContext) rangeSequence(op string, lowerVal, upperVal Value) (Value
 	return sequenceOf(elements), nil // charged element by element above
 }
 
+// bigRangeSequence is rangeSequence where a bound is beyond int64: the elements
+// are as exact, and as charged, as within it.
+func (ec *EvalContext) bigRangeSequence(lower, upper semantics.Value) (Value, error) {
+	var elements []Value
+	one := semantics.IntValue(1)
+	for i := lower; ; {
+		if err := ec.ctx.incrementStep(); err != nil {
+			return Value{}, err
+		}
+		if err := ec.ctx.chargeElements(1); err != nil {
+			return Value{}, err
+		}
+		elements = append(elements, Value{Kind: ValConst, Const: i})
+		if semantics.CompareInt(i, upper) == 0 {
+			break
+		}
+		next, err := semantics.IntArith(ast.OpAdd, i, one, ec.ctx.maxIntegerBits)
+		if err != nil {
+			return Value{}, integerSizeHint(err)
+		}
+		i = next
+	}
+	return sequenceOf(elements), nil // charged element by element above
+}
+
 // rangeBound reads one bound of a range: IntegerFunctions::'..' declares both
 // `Integer[1]`, so a Real bound does not conform and is reported rather than
 // truncated to the integer it is nearest.
-func rangeBound(op, which string, val Value) (int64, error) {
+func rangeBound(op, which string, val Value) (semantics.Value, error) {
 	if val.Kind != ValConst || val.Const.Kind != semantics.ValInt {
-		return 0, fmt.Errorf(
+		return semantics.Value{}, fmt.Errorf(
 			"%w: %s requires Integer bounds (IntegerFunctions::'..' declares in %s: Integer[1]), got %s",
 			ErrTypeMismatch, op, which, describeValue(val),
 		)
 	}
-	return val.Const.Int, nil
+	return val.Const, nil
 }
 
 // rangeBuiltin is the range function op ('..' at any level of the library)

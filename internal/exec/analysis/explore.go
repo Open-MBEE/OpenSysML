@@ -53,7 +53,7 @@ func (e exploreEngine) Covers(_ *Model, q Question) Coverage {
 
 // Run explores under the budget's runs and depth (else the policy's own) on the budget's jobs,
 // each run in a context of its own under the budget on the worker of the job making it:
-// complete is proved, incomplete observed naming the budget hit. A model that builds no
+// complete with no failing outcomes is proved, otherwise observed. A model that builds no
 // context of a run's own is the typed fault NoRuntimeError.
 func (e exploreEngine) Run(ctx context.Context, model *Model, q Question, budget Budget) (Result, error) {
 	policy, err := explorePolicy(q.Schedule, budget)
@@ -78,10 +78,11 @@ func (e exploreEngine) Run(ctx context.Context, model *Model, q Question, budget
 			{Name: "runs", Limit: int64(x.Budget.Runs), Reached: slices.Contains(x.BudgetsHit, "runs")},
 			{Name: "depth", Limit: int64(x.Budget.Depth), Reached: slices.Contains(x.BudgetsHit, "depth")},
 		},
+		Scope:   x.Scope,
 		Values:  []Evaluation{{Name: q.Subject, Explored: x}},
 		Elapsed: time.Since(started),
 	}
-	if x.Complete() {
+	if x.Complete() && x.FailedLinearizations() == 0 {
 		result.Strength = Proved
 	}
 	return result, nil

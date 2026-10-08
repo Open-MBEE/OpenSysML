@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0">
+  <modelVersion>4.0.0</modelVersion>
+  <parent>
+    <groupId>org.openmbee</groupId>
+    <artifactId>opensysml-mdk-parent</artifactId>
+    <version>0.10.0</version>
+  </parent>
+  <artifactId>opensysml-mdk-tools</artifactId>
+  <name>OpenSysML MDK build tools</name>
+  <dependencies>
+    <dependency>
+      <groupId>org.openmbee</groupId>
+      <artifactId>opensysml</artifactId>
+      <version>${opensysml.client.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter</artifactId>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+</project>

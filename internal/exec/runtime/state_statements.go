@@ -22,7 +22,7 @@ type stateStmtHost struct {
 	perfs *performances
 	// attrs are the attributes of the state the behavior belongs to and of the
 	// states enclosing it, innermost first.
-	attrs []map[string]Value
+	attrs []frame
 	// firing is the transition the behavior reads as being taken: the one under way
 	// for an entry, exit or effect, the one that entered the state for a do behavior.
 	firing *firing
@@ -53,6 +53,9 @@ func (e *StateExecutor) executeBehaviors(behaviors []lower.StateBehavior) error 
 // waiting on the clock is an error; a do behavior runs as a doRun instead) and
 // reports a run a `terminate` of the behavior's own performance ended.
 func (e *StateExecutor) executeBehavior(behavior lower.StateBehavior) (bool, error) {
+	if err := e.validateBehaviorMultiplicity(behavior); err != nil {
+		return false, err
+	}
 	if len(behavior.Body) == 0 {
 		return false, nil
 	}
@@ -62,6 +65,26 @@ func (e *StateExecutor) executeBehavior(behavior lower.StateBehavior) (bool, err
 		return false, err
 	}
 	return host.terminated, nil
+}
+
+func (e *StateExecutor) validateBehaviorMultiplicity(behavior lower.StateBehavior) error {
+	if behavior.Multiplicity != nil {
+		graph := &lower.ActionGraph{
+			Scope:          behavior.Scope,
+			Multiplicities: map[ast.Node]*ast.Multiplicity{behavior.Node: behavior.Multiplicity},
+			Scopes:         map[ast.Node]*symbols.Scope{behavior.Node: behavior.Scope},
+		}
+		count, err := graph.StepCount(behavior.Node, e.ctx.Semantics())
+		if err != nil {
+			return fmt.Errorf("%w: %w", ErrActionStepMultiplicity, err)
+		}
+		if count != 1 {
+			return fmt.Errorf("%w: %w", ErrActionStepMultiplicity, graph.StepError(
+				behavior.Node, e.ctx.Semantics(), lower.StepMultiplicityUnsupportedCode,
+				"the state entry, do, and exit performances have multiplicity [1]", nil))
+		}
+	}
+	return nil
 }
 
 // endedBefore reports whether a `terminate` ended behavior's block already: the
@@ -122,7 +145,9 @@ func (e *StateExecutor) firingOf(t *lower.Transition) *firing {
 // name — `Track::context` inside a behavior of a state of Track's — finds its value
 // here.
 func (h *stateStmtHost) dataFrame() frame {
-	return frame{vars: h.exec.stateData, performed: h.exec.stateMachine, firing: h.firing}
+	fr := h.exec.dataFrame()
+	fr.firing = h.firing
+	return fr
 }
 
 // run executes the behavior's statements; a do behavior's pause where they wait
@@ -189,7 +214,8 @@ func (e *StateExecutor) newDoRun(behavior lower.StateBehavior, firing *firing) *
 		return nil
 	}
 	host := e.behaviorHost(behavior, firing)
-	body := &bodyRun{work: host, awaitsMessages: true, yields: true, steps: e.ctx.scheduling().oneMove()}
+	oneMove := e.ctx.scheduling().oneMove()
+	body := &bodyRun{work: host, awaitsMessages: true, yields: true, steps: oneMove, guards: oneMove, nodesYield: true}
 	return &doRun{host: host, body: body}
 }
 
@@ -275,24 +301,23 @@ func (run *doRun) visibleArmedWaits() []ClockWait {
 
 // rootFrame is the performance of the behavior itself: it holds no feature of its
 // own, and reads the machine's data and the enclosing states' attributes around it.
-func (h *stateStmtHost) rootFrame(attrs []map[string]Value) *actionFrame {
+func (h *stateStmtHost) rootFrame(attrs []frame) *actionFrame {
 	root := &actionFrame{
-		scope:       h.behavior.Scope,
-		connections: h.exec.graph.Connections,
-		data:        make(map[string]Value),
-		features:    make(map[string]ast.FeatureDirection),
-		subactions:  make(map[ast.Node]*actionFrame),
-		nodes:       h.behavior.Nodes,
-		label:       h.describe(),
-		outer:       []frame{h.dataFrame()},
-		run:         h.exec.ctx.newRun(),
+		scope:          h.behavior.Scope,
+		connections:    h.exec.graph.Connections,
+		data:           make(map[string]Value),
+		features:       make(map[string]ast.FeatureDirection),
+		subactions:     make(map[ast.Node]*actionFrame),
+		nodes:          h.behavior.Nodes,
+		multiplicities: h.behavior.Multiplicities,
+		label:          h.describe(),
+		outer:          []frame{h.dataFrame()},
+		run:            h.exec.ctx.newRun(),
 	}
 	if root.scope == nil {
 		root.scope = h.exec.stateMachine.Scope
 	}
-	for _, attr := range attrs {
-		root.outer = append(root.outer, mapFrame(attr))
-	}
+	root.outer = append(root.outer, attrs...)
 	return root
 }
 
@@ -367,14 +392,14 @@ func (h *stateStmtHost) assignForeign(ec *EvalContext, s lower.Assign, value Val
 // behavior, or by one enclosing it, and reports whether it did. The value
 // answers to the attribute's declaration as every other write does.
 func (h *stateStmtHost) assignStateAttribute(name string, value Value) (bool, error) {
-	data, scope, ok := h.exec.stateAttributeValues(h.behavior.Owner, name)
+	data, scope, cells, ok := h.exec.stateAttributeValues(h.behavior.Owner, name)
 	if !ok {
 		return false, nil
 	}
 	if err := h.exec.ctx.checkNamedWrite(scope, h.describe(), name, &value); err != nil {
 		return true, err
 	}
-	data[name] = value
+	h.exec.ctx.writeBodyValue(cells, data, name, value)
 	return true, nil
 }
 
@@ -395,6 +420,23 @@ func (h *stateStmtHost) materializeOccurrence() (*Instance, error) {
 }
 
 // acceptReturn rejects a `return`: a state behavior computes no result.
+// statementOrder is how stmts may be ordered where the schedule picks it: an inline
+// body's statements are subactions of the behavior's performance no succession orders.
+func (h *stateStmtHost) statementOrder(stmts []lower.Statement) *lower.StatementOrder {
+	if len(stmts) < 2 || !h.exec.ctx.scheduling().ordersStatements() {
+		return nil
+	}
+	graph := h.flow.graph
+	if graph == nil {
+		graph = &lower.ActionGraph{Scope: h.behavior.Scope}
+	}
+	return h.perfs.statementOrder(graph, h.behavior.Node, stmts)
+}
+
+func (h *stateStmtHost) orderStep() int { return 0 }
+
+func (h *stateStmtHost) yieldsBetweenStatements() bool { return true }
+
 func (h *stateStmtHost) acceptReturn(Value, lower.Return) error {
 	return fmt.Errorf("%w: %s", ErrReturnOutsideCalc, h.describe())
 }
@@ -439,9 +481,9 @@ func (h *stateStmtHost) runFlow(block lower.Block) (stmtFlow, error) {
 	if resumingAt[*subflowFrame](h.exec.ctx) {
 		return flowNext, h.flow.runSubflow(h.flow.root)
 	}
-	if block.Graph.Initial == nil {
-		return flowNext, fmt.Errorf("%w: %s: no node starts the flow%s",
-			ErrInvalidActionFlow, h.describe(), noFlowStart(block.Graph))
+	if err := lower.FlowStartError(block.Graph); err != nil {
+		return flowNext, fmt.Errorf("%w: %s: no node starts the flow: %w",
+			ErrInvalidActionFlow, h.describe(), err)
 	}
 	if err := h.flow.validateSubflows(block.Graph); err != nil {
 		return flowNext, fmt.Errorf("%s: %w", h.describe(), err)
@@ -454,11 +496,11 @@ func (h *stateStmtHost) runFlow(block lower.Block) (stmtFlow, error) {
 	h.flow.features = h.flow.performanceFeatures()
 	root.graph = block.Graph
 	root.connections = block.Graph.Connections
-	root.live = 1
 	if block.Graph.Scope != nil {
 		root.scope = block.Graph.Scope
 	}
 	h.flow.declareRootFeatures(root)
+	h.flow.registerRootBindings(root)
 	h.flow.declareAcceptPayloads(root)
 	if err := h.flow.initializeAttributes(); err != nil {
 		return flowNext, fmt.Errorf("%s: %w", h.describe(), err)
@@ -473,7 +515,7 @@ func (h *stateStmtHost) setFeature(name string, value Value) error {
 		if err := h.exec.ctx.checkNamedWrite(root.scope, h.describe(), name, &value); err != nil {
 			return err
 		}
-		root.data[root.key(name)] = value
+		h.exec.ctx.writeBodyValue(root.cells, root.data, root.key(name), value)
 		return nil
 	}
 	if written, err := h.assignAround(name, value); written || err != nil {
@@ -492,7 +534,7 @@ func (h *stateStmtHost) assignAround(name string, value Value) (bool, error) {
 		return true, h.exec.assignAttribute(name, value)
 	}
 	if _, ok := h.exec.stateData[name]; ok {
-		h.exec.stateData[name] = value
+		h.exec.ctx.writeBodyValue(h.exec.stateCells, h.exec.stateData, name, value)
 		return true, nil
 	}
 	return assignPerformerFeature(h.exec.ctx, h.exec.self, h.behavior.Scope, name, value)
@@ -501,6 +543,12 @@ func (h *stateStmtHost) assignAround(name string, value Value) (bool, error) {
 // returnAround writes a returned output as assignAround does and keeps it for the
 // caller when a call event's transition is firing.
 func (h *stateStmtHost) returnAround(name string, value Value) (bool, error) {
+	if _, scope, _, ok := h.exec.stateAttributeValues(h.behavior.Owner, name); ok {
+		what := func() string { return fmt.Sprintf("%s: output %s returned", h.describe(), name) }
+		if err := h.exec.ctx.checkMutable(scope, what, name); err != nil {
+			return true, err
+		}
+	}
 	h.exec.recordCallOutput(name, value)
 	return h.assignAround(name, value)
 }

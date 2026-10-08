@@ -170,6 +170,47 @@ func TestToActionGraph_ExplicitSuccessionUnsupportedMultiplicity(t *testing.T) {
 	}
 }
 
+func TestToActionGraphCarriesActionAndSuccessionEndMultiplicities(t *testing.T) {
+	graph := actionGraphFor(t, `
+		action seq {
+			action p;
+			action a[3];
+			succession first [1] p then [*] a;
+		}
+	`)
+	p := nodeNamed(t, graph, "p")
+	a := nodeNamed(t, graph, "a")
+	if graph.Multiplicities[a] == nil {
+		t.Fatal("action node a lost its declared multiplicity")
+	}
+	edges := graph.Edges[p]
+	if len(edges) != 1 {
+		t.Fatalf("p edges = %v, want one succession", edges)
+	}
+	if edges[0].SourceMultiplicity == nil || edges[0].TargetMultiplicity == nil {
+		t.Fatalf("succession ends lost their multiplicities: %+v", edges[0])
+	}
+}
+
+func TestToActionGraphKeepsLegacySingleStepSuccessionEndError(t *testing.T) {
+	p := parser.New(source.New("test.sysml", []byte(`
+		action seq {
+			action p;
+			action q;
+			succession first [1] p then [1] q;
+		}
+	`)))
+	root := p.ParseFile()
+	if len(p.Diagnostics) > 0 {
+		t.Fatalf("parse errors: %v", p.Diagnostics)
+	}
+	action := root.Members[0].(*ast.Membership).Member.(*ast.Usage)
+	_, err := ToActionGraph(action, nil)
+	if err == nil || !strings.Contains(err.Error(), "action succession end 1 has unsupported multiplicity") {
+		t.Fatalf("error = %v, want existing unsupported succession-end error", err)
+	}
+}
+
 // A succession body holding only annotations declares nothing the flow depends
 // on, so it lowers; one declaring a feature does not.
 func TestToActionGraph_ExplicitSuccessionBody(t *testing.T) {

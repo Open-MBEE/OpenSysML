@@ -55,6 +55,26 @@ test("normalizeRender leaves a current server's rendering as it is", () => {
   assert.deepEqual(normalizeRender(current), current);
 });
 
+test("normalizeRender preserves ports without adding port defaults", () => {
+  const current: RenderResult = {
+    ...olderServer,
+    nodes: [{
+      id: "n0",
+      kind: "part",
+      name: "engine",
+      type: "Engine",
+      detail: "",
+      ports: [{ id: "n0.0", name: "api", type: "Api", direction: "out" }],
+    }],
+    edges: [{ from: "n0", to: "n0", fromPort: "n0.0", toPort: "n0.1", kind: "connect", label: "" }],
+  };
+  const result = normalizeRender(current);
+  assert.deepEqual(result.nodes[0].ports, [{ id: "n0.0", name: "api", type: "Api", direction: "out" }]);
+  assert.deepEqual([result.edges[0].fromPort, result.edges[0].toPort], ["n0.0", "n0.1"]);
+  assert.equal(normalizeRender(olderServer).nodes[0].ports, undefined);
+  assert.equal(normalizeRender(olderServer).edges[0].fromPort, undefined);
+});
+
 test("a palette's colours pass through, and a server naming none leaves them absent", () => {
   const coloured: RenderResult = {
     ...olderServer,

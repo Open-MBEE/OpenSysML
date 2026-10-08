@@ -188,7 +188,7 @@ func (ctx *Context) valueTypes(scope *symbols.Scope, value Value) ([]*symbols.Sy
 // holds a quantity of dimension one and no unit as the bare number (ToDimensionOneValue).
 func (ctx *Context) numberTypes(value Value, scalar *symbols.Symbol) []*symbols.Symbol {
 	types := append(make([]*symbols.Symbol, 0, 2), scalar)
-	if value.Kind != ValConst || (value.Const.Kind != semantics.ValInt && value.Const.Kind != semantics.ValReal) {
+	if value.Kind != ValConst || !value.Const.IsNumeric() {
 		return types
 	}
 	if dimOne := ctx.librarySymbol(dimensionOneValueFQN); dimOne != nil {
@@ -228,7 +228,7 @@ func (ctx *Context) representationClassifies(value Value, target *symbols.Symbol
 	case got == semantics.PrimUnknown:
 		return semantics.ClassifiesNone, true
 	case got == semantics.PrimInteger && prim == semantics.PrimNatural:
-		if value.Const.Int < 0 || value.Const.Int == 0 && ctx.positiveScalar(target) {
+		if sign := value.Const.IntSign(); sign < 0 || sign == 0 && ctx.positiveScalar(target) {
 			return semantics.ClassifiesNone, true
 		}
 		return semantics.ClassifiesSome, true
@@ -260,6 +260,8 @@ func representationPrim(value Value) semantics.PrimType {
 			return semantics.PrimBoolean
 		case semantics.ValInt:
 			return semantics.PrimInteger
+		case semantics.ValRational:
+			return semantics.PrimRational
 		case semantics.ValReal:
 			return realRepresentationPrim(value.Const.Real)
 		}

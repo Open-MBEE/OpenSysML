@@ -28,18 +28,19 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/lsp"
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/repl"
 	"github.com/Open-MBEE/OpenSysML/internal/ir/view"
-	"github.com/Open-MBEE/OpenSysML/internal/semantic/highlight"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/identity"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/parser"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/semtok"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/convert"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/interop/reposync"
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/libs"
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/model"
+	"github.com/Open-MBEE/OpenSysML/internal/workspace/modeldoc"
 )
 
 const selfModelDir = "self-model"
@@ -265,6 +266,7 @@ func TestSelfModelBudgetsMatchImplementation(t *testing.T) {
 		runtime.MaxElementsEnvVar:    {runtime.DefaultMaxElements, runtime.ErrElementLimitExceeded.Error()},
 		runtime.MaxCalcDepthEnvVar:   {runtime.DefaultMaxCalcDepth, runtime.ErrCalcRecursionLimit.Error()},
 		runtime.MaxSweepRunsEnvVar:   {runtime.DefaultMaxSweepRuns, runtime.ErrSweepBudget.Error()},
+		runtime.MaxIntegerBitsEnvVar: {runtime.DefaultMaxIntegerBits, runtime.ErrIntegerSizeLimit.Error()},
 	}
 	if fields := reflect.TypeOf(runtime.Budgets{}).NumField(); fields != len(actual) {
 		t.Fatalf("runtime.Budgets has %d fields, this test knows %d", fields, len(actual))
@@ -1230,7 +1232,7 @@ func TestSelfModelEditorPipelineMatchesImplementation(t *testing.T) {
 	idx, ctx := analyseSelfModel(t)
 
 	highlighter := instantiateSelfModel(t, idx, ctx, "surfaces.sysml", "OpenSysMLSurfaces", "Highlighter")
-	if declared, actual := highlighter.integer("tokenClasses"), len(highlight.Classes()); declared != actual {
+	if declared, actual := highlighter.integer("tokenClasses"), len(semtok.Classes()); declared != actual {
 		t.Errorf("surfaces.sysml says tokenClasses = %d, the legend has %d", declared, actual)
 	}
 
@@ -1368,7 +1370,7 @@ func TestSelfModelDocumentRenders(t *testing.T) {
 		ws.Open(name, content, 1)
 	}
 
-	markdown, err := ws.RenderDocumentMarkdown("OpenSysMLDocument::ArchitectureDocument", docrender.MarkdownOptions{})
+	markdown, err := modeldoc.RenderDocumentMarkdown(ws, "OpenSysMLDocument::ArchitectureDocument", docrender.MarkdownOptions{})
 	if err != nil {
 		t.Fatalf("render the architecture document: %v", err)
 	}

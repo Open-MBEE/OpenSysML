@@ -82,6 +82,9 @@ func (c *carrying) value(v Value) (Value, error) {
 		if seq == nil {
 			return v, nil
 		}
+		if seq.required != nil {
+			return c.required(seq)
+		}
 		elements, err := c.values(seq.elements)
 		if err != nil {
 			return Value{}, err
@@ -258,4 +261,47 @@ func (c *carrying) vector(v *Value) (*Value, error) {
 		return nil, err
 	}
 	return &carried, nil
+}
+
+// required carries a sequence ending in required members: under their identities where
+// bring keeps the identity of the object holding them and of each member made, else
+// member by member, the work of reaching every one.
+func (c *carrying) required(seq *Sequence) (Value, error) {
+	r := seq.required
+	elements, err := c.values(seq.elements)
+	if err != nil {
+		return Value{}, err
+	}
+	owner, err := c.object(r.owner)
+	if err != nil {
+		return Value{}, err
+	}
+	kept := owner == r.owner
+	made := r.ctx.madeRequired(r)
+	keep := make(map[int64]bool, len(made))
+	for _, inst := range made {
+		if !kept {
+			break
+		}
+		id, err := c.object(inst.ID)
+		if err != nil {
+			return Value{}, err
+		}
+		kept, keep[id] = id == inst.ID, true
+	}
+	if !kept {
+		all, err := r.ctx.HeldElements(NewSequenceValue(seq))
+		if err != nil {
+			return Value{}, err
+		}
+		if elements, err = c.values(all); err != nil {
+			return Value{}, err
+		}
+		return NewSequenceValue(&Sequence{elements: elements, elementUnit: seq.elementUnit}), nil
+	}
+	carried, err := c.ctx.carriedRequired(r, r.typ, keep)
+	if err != nil {
+		return Value{}, err
+	}
+	return NewSequenceValue(&Sequence{elements: elements, elementUnit: seq.elementUnit, required: carried}), nil
 }

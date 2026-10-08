@@ -1,0 +1,14 @@
+do: waiting
+stmt action body
+enter action node: state behavior buffer
+exit: waiting (exit action)
+stmt action body
+enter action node: state behavior flush
+  stmt for kept
+    eval feature deferred -> ()
+  stmt assign deferred
+    eval null -> null
+leave action node: state behavior flush
+exit: outer
+enter: pinged
+transition: waiting -> pinged (event: accept Ping)

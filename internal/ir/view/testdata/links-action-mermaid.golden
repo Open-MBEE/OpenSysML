@@ -1,0 +1,83 @@
+---
+config:
+  fontFamily: "Helvetica, Arial, sans-serif"
+  theme: base
+  themeCSS: ".edgeLabel rect { opacity: 1 !important; } .cluster-label .nodeLabel { text-align: center; }"
+  themeVariables:
+    fontFamily: "Helvetica, Arial, sans-serif"
+    fontSize: "14px"
+    primaryColor: "#FFFFFF"
+    secondaryColor: "#FFFFFF"
+    tertiaryColor: "#FFFFFF"
+    background: "#FFFFFF"
+    primaryBorderColor: "#181818"
+    primaryTextColor: "#000000"
+    lineColor: "#181818"
+    textColor: "#000000"
+    noteBkgColor: "#FEFFDD"
+    noteBorderColor: "#181818"
+    noteTextColor: "#000000"
+    clusterBkg: "#FFFFFF"
+    clusterBorder: "#181818"
+    edgeLabelBackground: "#FFFFFF"
+  flowchart:
+    subGraphTitleMargin:
+      bottom: 24
+---
+%% FlowViews::driveView — action rendering (render asInterconnectionDiagram, view def ActionFlowView)
+%% not represented: 2 fork/join name(s) (split, sync); Mermaid's fork bar draws no label
+%% not represented: 1 pin(s) not drawn (provide.fuel); a flowchart draws the pins an edge ends at
+flowchart TD
+  subgraph n0 ["`*«action def»* **Drive**`"]
+    direction TD
+    n1@{ shape: f-circ, label: "" }
+    subgraph n2 ["`*«action»* **provide : Provide**`"]
+      direction TD
+      n2_anchor[" "]
+      n2_p1["torque"]
+    end
+    subgraph n3 ["`*«action»* **monitor**
+own flow`"]
+      direction TD
+      n3_anchor[" "]
+      n3_p0["reading"]
+      n4@{ shape: f-circ, label: "" }
+      n5("`*«action»*
+**record**`")
+    end
+    n6("`*«action»*
+**tally**`")
+    n7@{ shape: fork, label: "split" }
+    n8@{ shape: fork, label: "sync" }
+    n9@{ shape: fr-circ, label: "" }
+    n10("`*«action»*
+**park**`")
+    n11{"`*«decision»*
+**check**`"}
+  end
+  n4 --> n5
+  n1 --> n7
+  n2_anchor --> n8
+  n2_p1 -.->|"torque to reading"| n3_p0
+  n3_anchor --> n8
+  n6 --> n8
+  n7 --> n2_anchor
+  n7 --> n3_anchor
+  n7 --> n6
+  n8 --> n11
+  n10 --> n9
+  n11 -->|"[speed #gt; 0]"| n9
+  n11 --> n10
+  classDef control fill:#181818,stroke:#181818
+  class n7,n8 control
+  classDef anchor fill:none,stroke:none
+  class n2_anchor,n3_anchor anchor
+  click n1 href "https://example.test/src/action.sysml#L14"
+  click n4 href "https://example.test/src/action.sysml#L22"
+  click n5 href "https://example.test/src/action.sysml#L23"
+  click n6 href "https://example.test/src/action.sysml#L29"
+  click n7 href "https://example.test/src/action.sysml#L33"
+  click n8 href "https://example.test/src/action.sysml#L34"
+  click n9 href "https://example.test/src/action.sysml#L35"
+  click n10 href "https://example.test/src/action.sysml#L36"
+  click n11 href "https://example.test/src/action.sysml#L46"

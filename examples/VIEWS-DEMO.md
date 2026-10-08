@@ -1,7 +1,7 @@
 # Views and rendering demo
 
-[`views-demo.sysml`](views-demo.sysml) is a lander and the views that present it,
-one view per rendering kind, so that `%view` and `%render` each have something to
+[`views-demo.sysml`](views-demo.sysml) is a lander and views that present it, one
+per demonstrated rendering kind, so that `%view` and `%render` each have something to
 show. A rendering is tool-defined output — SysML v2 §10.2 leaves rendering to the
 tool — so what comes out is OpenSysML's own notation rather than a standard
 interchange form.
@@ -19,22 +19,21 @@ interchange form.
 ```
 view LanderViews::overview
   exposes
-    Lander::descender (partUsage)
-    Lander::heavyDescender (partUsage)
+    Lander::descender (part)
+    Lander::heavyDescender (part)
   nested views
-    LanderViews::overview::interfaceSubview (viewUsage)
+    LanderViews::overview::interfaceSubview (view)
   viewpoint conformance
     satisfy massPerspective: violated
       concern mass: violated
-        Lander::heavyDescender: satisfaction satisfy MassBudget by Lander::heavyDescender:
-        require condition evaluated to false: lander.mass <= maxMass
+        Lander::heavyDescender: satisfaction satisfy MassBudget by Lander::heavyDescender: require condition evaluated to false: lander.mass <= maxMass
 ```
 
-The view frames a mass concern and satisfies the viewpoint framing it, so
-conformance is checked against each exposed lander: `descender` is within the
-budget, `heavyDescender` is over it and named as the violation.
+The view satisfies a viewpoint that frames a mass concern, so that concern is
+checked against each exposed lander: `descender` is within the budget,
+`heavyDescender` is over it and named as the violation.
 
-## `%render` — the five kinds
+## `%render` — the rendering kinds
 
 A view states its rendering with a `render` member, or inherits it from the
 standard view definition it specializes, or states none and renders as a
@@ -47,9 +46,20 @@ containment tree.
 | `%render LanderViews::partsTable` | table | `render asElementTable` |
 | `%render LanderViews::descentStates` | state | `: StateTransitionView` |
 | `%render LanderViews::descentFlow` | action | `: ActionFlowView` |
+| `%render LanderViews::useCases` | case | `render asCaseDiagram` |
+| `%render LanderViews::mixedOverview` | mixed | `render asMixedDiagram` |
+
+`CaseView` and `MixedView` from `OpenSysMLRenderings` provide the same selections by view-definition
+specialization. Case diagrams show use, analysis and verification cases with their actors, subjects
+and documented objectives. Mixed diagrams combine package structure, interconnections, states,
+actions and cases on one canvas; `#case` and `#mixed` render loaded model content without a
+declared view.
 
 The tree renders the exposed elements and each nested view as a subtree of its
-own:
+own, then lists the relationships between the elements it drew — here the typing
+of each descender by the `Descender` definition the nested view shows, and the
+redefinition of `mass` each states — as the lines a block definition diagram
+draws between its boxes:
 
 ```
 LanderViews::overview - tree rendering (the view states no rendering; a tree is the default)
@@ -61,7 +71,19 @@ part Lander::heavyDescender : Descender
 view LanderViews::overview::interfaceSubview
   part def Lander::Descender
     …
+
+relationships:
+  Lander::descender ..|> Lander::Descender
+  mass --|> mass: redefines
+  Lander::heavyDescender ..|> Lander::Descender
+  mass --|> mass: redefines
 ```
+
+A composition from a definition to the definition typing a part it owns is drawn
+the same way (`Lander::Descender *-- Lander::Tank: tank`) when both are exposed,
+with a filled diamond at the owner in the diagram forms; a `ref` or an attribute
+draws a hollow one. A usage's typing is left to that composition, or to the
+nesting when the typing definition is drawn inside the owner.
 
 The interconnection rendering shows exposed features as nodes and the
 connections and flows between them as edges:
@@ -70,12 +92,16 @@ connections and flows between them as edges:
 LanderViews::interfaces - interconnection rendering (render asInterconnectionDiagram)
 
 part def Lander::Descender
+  attribute mass : Real
+  attribute partCount : Integer
   part tank : Tank
+    port outlet
   part thruster : Thruster
+    port supply
   …
 
 connections:
-  tank -- thruster: supply
+  tank.outlet -- thruster.supply: supply
   tank => thruster: of Fuel
 ```
 
@@ -102,7 +128,7 @@ transitions:
   start of descent -> braking
   cruise -> descent
   descent -> landed
-  braking -> hover: braking_to_hover: accept Signal [altitude < 100.0]
+  braking -> hover: accept Signal [altitude < 100.0]
 ```
 
 The action rendering comes from the lowered action graph, control nodes and
@@ -112,19 +138,30 @@ guarded successions alike:
 LanderViews::descentFlow - action rendering (view def ActionFlowView)
 
 action def Lander::Descend
+  in fuel
   initial start
   action deployParachute
   action burn (own flow)
-    …
+    in propellant
+    action ignite
+    action throttle
   fork split
   join sync
+  action touchdown
   decision check
+  final done
 
 flow:
+  ignite -> throttle
+  start -> split
+  deployParachute -> sync
+  burn -> sync
   split -> deployParachute
+  split -> burn
   sync -> check
+  touchdown -> done
   check -> touchdown: [altitude > 0.0]
-  …
+  check -> done
 ```
 
 The table rendering lists the exposed elements as rows, each with its kind, type
@@ -143,26 +180,39 @@ than written as something else.
 ```
 ---
 config:
+  fontFamily: "Helvetica, Arial, sans-serif"
+  theme: base
+  …
   flowchart:
     subGraphTitleMargin:
       bottom: 48
 ---
 %% LanderViews::descentFlow — action rendering (view def ActionFlowView)
+%% not represented: 2 fork/join name(s) (split, sync); Mermaid's fork bar draws no label
+%% not represented: 2 pin(s) not drawn (Lander::Descend.fuel, burn.propellant); a flowchart draws the pins an edge ends at
 flowchart TD
-  subgraph n0 ["Descend<br>«action def»"]
+  subgraph n0 ["`*«action def»*
+**Descend**`"]
     direction TD
-    n1["start<br>«initial»"]
-    n2["deployParachute<br>«action»"]
-    subgraph n3 ["burn<br>«action»<br>own flow"]
+    n1@{ shape: f-circ, label: "" }
+    n2("`*«action»*
+**deployParachute**`")
+    subgraph n3 ["`*«action»*
+**burn**
+own flow`"]
       direction TD
-    …
+      …
   end
-  n10 -->|"[altitude #gt; 0.0]"| n9
+  n4 --> n5
+  …
+  n9 -->|"[altitude #gt; 0.0]"| n8
+  …
 ```
 
-The leading frontmatter reserves the height of a cluster title's second and
-third lines, which Mermaid would otherwise draw under the first child; a
-flowchart with no such cluster has none.
+The leading frontmatter carries the theme and reserves the height of a cluster
+title's second and third lines, which Mermaid would otherwise draw under the
+first child. The `%% not represented` lines name what the text form shows and
+the diagram cannot: the names of fork and join bars, and pins no edge ends at.
 
 ```
 %render LanderViews::partsTable markdown
@@ -195,6 +245,7 @@ LanderViews::safetyView - tree rendering (the view states no rendering; a tree i
 
 part def Lander::Thruster
   attribute thrust : Real
+  item fuelIn : Fuel
   port supply : FuelPort
 part def Lander::Parachute
 ```

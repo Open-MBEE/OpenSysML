@@ -220,6 +220,30 @@ def test_convert_sends_the_source_and_formats(fake_service):
     assert (result.from_format, result.to_format) == ("sysml", "ttl")
 
 
+def test_a_sysml_v1_model_is_migrated_not_converted(fake_service, tmp_path):
+    """A v1 model is refused before any request, with the help naming migrate():
+    migration is ledgered element by element, not a lossless conversion."""
+    port, service = fake_service()
+    with Connection(port=port, auto_start=False) as conn:
+        for kwargs in (
+            {"file_path": "Model.mdzip"},
+            {"file_path": "Model.XMI"},
+            {"file_path": str(tmp_path / "Model.uml")},
+            {"file_path": "Model.v1", "from_format": "mdzip"},
+            {"content": "<xmi/>", "from_format": "xmi"},
+            {"content": "<xmi/>", "from_format": "uml"},
+        ):
+            with pytest.raises(InvalidRequestError) as excinfo:
+                conn.convert("sysml", **kwargs)
+            message = str(excinfo.value)
+            assert "is a SysML v1 model, which is migrated, not converted" in message
+            assert "mapped, approximated or left unmapped" in message
+            assert "call migrate()" in message
+            if "file_path" in kwargs:
+                assert kwargs["file_path"] in message
+    assert service.requests == [], "a v1 model was sent to Convert"
+
+
 def test_convert_needs_exactly_one_source(fake_service):
     """A source that is both or neither is a caller error, not a request."""
     port, service = fake_service()

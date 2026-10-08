@@ -3,7 +3,7 @@
 This page covers what `org.openmbee:opensysml` exposes, what it deliberately keeps
 out of its public surface, and where it stops. To choose between the clients, see
 [client libraries](clients.md); for a task-oriented walkthrough, see
-[guide chapter 9](../guide/09-clients.md#from-java). The client's own notes on its
+the [Java client guide](../clients/java.md). The client's own notes on its
 dependency footprint, service ownership and release verification are in
 [client/java/README.md](../../client/java/README.md).
 
@@ -11,14 +11,13 @@ dependency footprint, service ownership and release verification are in
 <dependency>
   <groupId>org.openmbee</groupId>
   <artifactId>opensysml</artifactId>
-  <version>0.9.0</version>
+  <version>0.9.2</version>
 </dependency>
 ```
 
-The version is the core release's — a `v*` tag publishes
-`org.openmbee:opensysml` to Maven Central at that version — once the
-first release is out. Until then a checkout installs it: `make build` for the service
-binary the tests start, then `mvn -f client/java/pom.xml install`. The compiler
+The Java artifact is not on Maven Central yet. Until then, a checkout installs it:
+`make build` for the service binary the tests start, then
+`mvn -f client/java/pom.xml install`. The compiler
 release is **17**, the lowest baseline a realistic host — Eclipse 2023-03,
 IntelliJ 2023.2, Spring Boot 3 — can offer. The only compile-scope dependency is
 `protobuf-java`; there is no gRPC and no Netty, because the transport is the JDK's
@@ -40,7 +39,8 @@ try (Connection connection = Connection.open()) {          // private child serv
 | `load(Path)`, `load(Path, ParseOptions)` | parses a file the service can read |
 | `parse(String)`, `parse(String, ParseOptions)` | parses inline content |
 | `parseSources(List<SourceDocument>)`, `parseSources(List, ParseOptions)` | parses several documents as one model |
-| `convert(String content, String toFormat[, ConversionOptions])`, `convertFile(Path, ...)` | translates source between notations (`sysml`, `kerml`, `ttl`, `api-json`, `xmi`) |
+| `convert(String content, String toFormat[, ConversionOptions])`, `convertFile(Path, ...)` | translates source between notations (`sysml`, `kerml`, `ttl`, `api-json`); refuses a SysML v1 model, which is migrated |
+| `migrate(byte[] content, String toFormat, MigrationOptions)`, `migrateFile(Path, String[, MigrationOptions])` | migrates a SysML v1 model (`xmi`, `uml`, `mdzip`) to v2, answering a `Migration` with its element-by-element `MigrationReport` |
 | `model(String modelHash)` | adopts a model the service already holds |
 | `capabilities()` | what `GetServerInfo` reported, asked once at open |
 | `listEngines()` | the analysis engines the service can put a question to, as `EngineInfo` |
@@ -55,12 +55,16 @@ compare-and-set `close()`.
 `ConnectionOptions.builder()` covers `service(host, port)`, `autoStart(false)` to
 require a service someone else runs, `isolatedService(true)` for a child that is
 not shared, `encoding(Encoding.JSON)` for bodies `curl` can read,
-`requestTimeout`/`startupTimeout`, and the binary controls `binaryPath`,
+`requestTimeout`/`startupTimeout`, `requireCapabilities(...)` to refuse at open a
+service that lacks what the caller needs, and the binary controls `binaryPath`,
 `expectedBinarySha256`, `downloadVersion`, `githubRepo` and
 `allowUnpinnedDownload`. Each has an environment form —
 `OPENSYSML_SERVICE`, `OPENSYSML_GRPC_BINARY`, `OPENSYSML_GRPC_VERSION`,
 `OPENSYSML_GITHUB_REPO`, `OPENSYSML_ALLOW_UNPINNED_DOWNLOAD` — named as constants
-on `ConnectionOptions`.
+on `ConnectionOptions`. A connection asked for a release — `downloadVersion` or
+`$OPENSYSML_GRPC_VERSION`, `"latest"` resolved once — refuses at open a service
+that reports another version with `StaleServiceException`, whose `reason()` and
+`remedy()` say what was found and how to reach the release asked for.
 
 One private child is started **per classloader**, so an Eclipse plugin, a web
 application and a copy shaded inside a third library each own one, while every
@@ -80,6 +84,14 @@ model.roots();                                  // one Symbol per document; empt
 
 Symbol vehicle = model.symbol("Demo::Vehicle"); // throws if the model has no such symbol
 model.findSymbol("Demo::Vehicle");              // Optional, for a name that may be absent
+model.find("Vehicle");                          // Optional, by short name or qualified id
+model.get("Demo::Vehicle");                     // Optional, by qualified id only
+model.lookup("Vehicle");                        // throws SymbolNotFoundException with suggestions
+model.contains("Vehicle");                      // whether find answers
+model.documents();                              // the document names it was parsed from
+model.ok();                                     // no error among parseDiagnostics()
+model.errors();                                 // the error diagnostics
+model.requireNoErrors();                        // the model itself, or a ModelException naming the errors
 
 Value sum = model.eval("1 + 2 * 3");                        // Value.IntegerValue[value=7]
 Value here = model.evalInContext("radius", "Demo::Wheel");  // resolved in a scope
@@ -113,9 +125,14 @@ for (Outcome outcome : all.outcomes()) {
 `executeAction`/`executeState` run once and answer an `ActionRun` (`outputs`,
 `finalTime`, `diagnostics`) or a `StateRun` (`statesVisited`, `finalContext`,
 `finalTime`, `diagnostics`). `finalTime` is filled only by a service advertising
-`final_time`. `ExecutionOptions` carries a `schedule` and a `performer`; the
-capabilities they need (`schedule`, `performer`) are checked before the call, and a
-schedule the service does not know is refused as `INVALID_ARGUMENT`.
+`final_time`. `ExecutionOptions` carries a `schedule`, a `performer`, and the
+state-run-only `withTrace()` option. The client checks their respective
+capabilities (`schedule`, `performer`, `state_trace`) before the call; an unknown
+schedule or trace with exploration is refused as `INVALID_ARGUMENT`. A requested
+trace is returned as typed `DocumentEvent` values in `StateRun.trace()` with
+`traceDropped()` reporting records discarded by the service's bound.
+A failed traced run remains a `ModelException`; its `trace()` and
+`traceDropped()` carry the records made before failure and the discarded count.
 `exploreAction`/`exploreState` take an exploration schedule (`explore`,
 `explore:runs=N,depth=M`; a non-exploring schedule is an `IllegalArgumentException`)
 and answer an `Exploration` of `Outcome`s, each a distinct end state with the
@@ -224,8 +241,41 @@ model.roots();   // one Symbol per document, in request order
 answer a `Conversion` (`content`, the resolved `fromFormat`/`toFormat`,
 `experimental`/`experimentalNotice`, `diagnostics`); `Model.convert` converts the
 parsed model itself. `ConversionOptions` carries a `fromFormat` (else the service
-sniffs it) and `tolerateSyntaxErrors` — without it, a syntax error throws a
-`ModelException` carrying the diagnostics rather than converting anyway.
+sniffs it), `tolerateSyntaxErrors` — without it, a syntax error throws a
+`ModelException` carrying the diagnostics rather than converting anyway — and
+`idForm` (`ID_FORM_QUALIFIED`, the default, or `ID_FORM_UUID`) for the derived
+element ids of a graph notation (`ttl`, `api-json`). `Conversion.write(Path)`
+saves the content as UTF-8, `Conversion.formatOf(Path)` names a notation by its
+extension, and `EditResult.save(Path)` writes a one-document edit and refuses one whose
+`severalDocuments()` is set, whose text is in `documents()` alone; a model
+adopted by hash first edits without reading documents, which the service refuses
+for a model of several, and only then with them.
+
+A SysML v1 model — UML XMI, an Eclipse UML2 `.uml` file or a `.mdzip` archive — is **migrated,
+not converted**: `convert`/`convertFile` refuse it with a `ServiceException` of
+`INVALID_ARGUMENT` whose message says so and names `migrate`, since a migration is ledgered
+rather than lossless. `Connection.migrate(byte[] content, String toFormat, MigrationOptions)` and
+`migrateFile(Path, String[, MigrationOptions])` answer a `Migration` (`content`, the canonical
+`fromFormat`/`toFormat`, `experimentalNotice`, the `report`, the `results` index and the image
+`files`). `MigrationReport` always carries the `summary` and the `mapped`, `approximated`,
+`unmapped` and `skipped` counts; `MigrationOptions.withReport(true)` adds every element's
+`MigrationEntry` (`byVerdict("unmapped")` selects them) and the `text` the `sysml
+-migration-report` flag writes. The other options are the command's companion flags:
+`withFromFormat` (inline content must name `xmi`, `uml` or `mdzip`), `withResults`,
+`withLayoutFile`/`withLayoutContent` for an MTIP export, `withImageBaseUrl` and `withStrict`.
+Inline content is `byte[]`, since a `.mdzip` archive is binary.
+
+```java
+Migration migration =
+    connection.migrateFile(
+        Path.of("Vehicle.mdzip"), "sysml", MigrationOptions.defaults().withReport(true));
+Files.writeString(Path.of("Vehicle.sysml"), migration.content());
+MigrationReport report = migration.report();
+System.err.println(report.summary());
+for (MigrationEntry left : report.byVerdict("unmapped")) {
+  System.err.println(left.name() + ": " + left.note());
+}
+```
 
 ### Edits
 
@@ -250,6 +300,33 @@ document. A batch the service refuses — an unknown target, a delete of an
 element still referred to — throws `EditException`, a `ModelException` whose
 `failure()` is an `EditFailure` (`UNKNOWN_TARGET`, `TARGET_REFERRED`, …) and
 whose `referringElements()`/`referrers()` name the references that refused it.
+
+`Model.edit()` returns an `Editor`, a fluent builder over the same `Edit`
+records that is applied once:
+
+```java
+EditResult result = model.edit()
+    .setValue("Demo::sc::unitMass", "1050.0[SI::kg]")
+    .addPart("Demo::Vehicle", "engine", m -> m.withType("Engine"))
+    .addRequireConstraint("Demo::R", "mass < 2000")
+    .addDocumentation("Demo::Vehicle", "The vehicle under study.")
+    .addIf("Demo::Drive", "speed > 0",
+        new Editor.Body().addAssign("distance", "distance + speed"),
+        new Editor.Body().addTerminate())
+    .apply();
+```
+
+Its `add*` shorthands name the declaration kinds (`addPackage`, `addPartDef`,
+`addAttribute`, `addActionDef`/`addCalcDef` with `Editor.Parameter`s,
+`addConstraint`, `addRequirement`, `addState`, …), the relationships
+(`addSatisfy`, `addVerify`, `addObjective`, `addTransition`, `addConnection`,
+`addAllocation`, `addFlow`, `addSuccession`, `addImport`), the annotations
+(`addMetadata`, `addMetadataPrefix`, `addDocumentation`, `addComment`, `addNote`)
+and the action-body statements (`addFirst`, `addThen`, `addAccept`, `addSend`,
+`addAssign`, `addIf`, `addWhile`, `addLoop`, `addFor`, `addTerminate`,
+`addGuardedThen`, `addElse`); an `Editor.Body` collects nested statements, the
+first written without `then`. `add(Edit)` takes any record, `edits()` shows the
+batch, and each gated kind is checked against the capabilities before the call.
 
 ### Parameter sweeps
 
@@ -283,7 +360,15 @@ for (DocumentRow row : table.rows()) {
 }
 RenderedDocument page = model.renderDocument("Observatory::MassReport");
 page.markdown();             // the rendered notation
+RenderedDocument html = model.renderDocument("Observatory::MassReport", DocumentForm.HTML);
+html.html();                 // the same document as HTML
 ```
+
+`model.renderView("Demo::Overview")` returns a typed `RenderedView` with
+ordered nodes, edges, ports, source spans, table data and notes. Optional
+geometry, style and canvas remain `Optional` when the view does not state them.
+Use `RenderViewPorts.FULL` to include every declared port; the default is
+`MINIMAL`. This call requires the `render_view` capability.
 
 `DocumentValue` is sealed over `ElementRef`, `ObjectRef` (an `Instance` plus its
 element ids), `Verdict`, `State`, `Event`, `LiteralValue` (wrapping a `Value`),
@@ -292,7 +377,8 @@ native document's cells and bindings speak. A `DocumentRow` carries its subject
 whichever kind it is — `element()` for an element row, `verdict()`/
 `state()`/`event()`/`object()` as `Optional`s for the typed rows — beside the
 cells. `runDocumentQuery` needs the `document_query` capability and
-`renderDocument` the `render_document` capability; an unknown query or document
+`renderDocument` the `render_document` capability, and `render_document_html`
+besides for `DocumentForm.HTML`; an unknown query or document
 id is a `ServiceException` `NOT_FOUND`.
 
 ## Values and the rest of the domain
@@ -307,6 +393,7 @@ which JDK 17 offers only as a preview:
 String rendered;
 if (value instanceof Value.IntegerValue v)              rendered = Long.toString(v.value());
 else if (value instanceof Value.RealValue v)            rendered = Double.toString(v.value());
+else if (value instanceof Value.RationalValue v)        rendered = v.value().toString();      // exact; numerator()/denominator() as BigInteger
 else if (value instanceof Value.ComplexValue v)         rendered = v.real() + " + " + v.imaginary() + "i";  // one value
 else if (value instanceof Value.BooleanValue v)         rendered = Boolean.toString(v.value());
 else if (value instanceof Value.StringValue v)          rendered = v.value();
@@ -348,11 +435,16 @@ throws nothing.
 | exception | what happened |
 | --- | --- |
 | `ServiceException` | the call was refused, carrying a `StatusCode` (`NOT_FOUND`, …) |
+| `ModelNotFoundException` / `ModelFileNotFoundException` | a `ServiceException` `NOT_FOUND`: the service holds no model of that hash, or cannot read the named file |
+| `SymbolNotFoundException` | a `ModelException` from `Model.lookup` naming the missing `name()` and near `suggestions()` |
+| `StaleServiceException` | a `ServiceStartException`: the service is not the release asked for |
 | `ModelException` | the call succeeded and the answer reports a model failure; `failureReason()` classifies it and `diagnostics()` carry what the service said |
+| `ConversionException` | a `ModelException` from a conversion the service could not write; its `diagnostics()` say why when the source did not parse |
+| `MigrationException` | a `ModelException` from a SysML v1 model the service could not migrate at all; an element it has no v2 form for is reported in the `MigrationReport`, not thrown |
 | `AnalysisException` | a `ModelException` from `runAnalysis` whose `partial()` holds what the run computed before it stopped |
 | `EditException` | a `ModelException` from `applyEdits` carrying the `EditFailure` kind and the `referrers` a refused edit named |
 | `TransportException` | HTTP or IO failure; the service was not reached or answered |
-| `CapabilityException` | the service does not advertise a capability the call needs |
+| `CapabilityException` | the service does not advertise a capability the call needs; `remedy()` says how to reach one that does |
 | `ServiceStartException` | no binary, a digest mismatch, or a child that would not start |
 | `ChecksumMismatchException` | a binary's bytes are not the digest required of them |
 | `UnpinnedReleaseException` / `UnsignedReleaseException` / `ManifestSignatureException` | nothing pins the release, nothing signs it, or a signature does not verify |
@@ -367,13 +459,21 @@ and `verifyConstraint` returns it.
 `Connection.open` calls `GetServerInfo` once and keeps what it reported.
 Negotiation is on the advertised **names** — the constants on `Capabilities`, such
 as `EVALUATE_SUBJECT`, `FEATURE_VALUES`, `STRICT_CONFORMANCE`, `INLINE_LANGUAGE`,
-`PARSE_SOURCES`, `DOCUMENT_QUERY`, `RENDER_DOCUMENT` —
+`PARSE_SOURCES`, `DOCUMENT_QUERY`, `RENDER_DOCUMENT`, `RENDER_DOCUMENT_HTML` —
 never on the version string:
 
 ```java
 connection.capabilities().require(Capabilities.FEATURE_VALUES);
 if (connection.capabilities().has(Capabilities.ENUM_VALUES)) { }
 ```
+
+An exact `Rational` sent as an input, argument or document binding crosses as
+`rationalValue` to a service advertising `RATIONAL_VALUES`, one a double holds
+(`Rational.of(1, 4)`) included, and the service reads it as that Rational; a
+`RealValue` is always a binary64 Real. To a service without the capability a
+Rational a double holds is sent as that `realValue` and any other is refused
+before the call. An answered Rational is canonical: one a double holds arrives as
+a `RealValue`.
 
 The client checks before a gated call rather than relying on the refusal, because
 a capability that only describes how a response is *populated* omits its fields

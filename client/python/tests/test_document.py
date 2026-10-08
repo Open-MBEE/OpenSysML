@@ -6,6 +6,7 @@ gates. Against the real ``sysml-grpc`` binary, the answers themselves — the
 typed rows and the rendered Markdown.
 """
 
+import json
 import os
 import subprocess
 import time
@@ -18,6 +19,8 @@ from opensysml.capabilities import (
     CAPABILITY_DOCUMENT_QUERY,
     CAPABILITY_RENDER_DOCUMENT,
     CAPABILITY_RENDER_DOCUMENT_HTML,
+    CAPABILITY_RENDER_VIEW,
+    CAPABILITY_EXPORT_GRAPHS,
     MissingCapabilityError,
 )
 from opensysml.connection import Connection
@@ -31,13 +34,17 @@ from opensysml.document import (
     DocumentVerdict,
     ElementRef,
     ObjectRef,
+    Graphs,
+    RenderedView,
     build_bindings,
+    render_view_result,
 )
 from opensysml.errors import (
     InvalidRequestError,
     ModelNotFoundError,
     SymbolNotFoundError,
     UnsupportedValueError,
+    ViewNotFoundError,
 )
 from opensysml.proto import sysml_pb2, sysml_pb2_grpc
 from opensysml.values import Quantity, Unit, UnitFactor
@@ -53,6 +60,7 @@ GRPC_BINARIES = (
 FIXTURE = os.path.join(
     REPO_ROOT, "internal", "doc", "docrender", "testdata", "telescope_report.sysml"
 )
+BEHAVIOR_FIXTURE = os.path.join(REPO_ROOT, "conformance", "fixtures", "behavior.sysml")
 GOLDEN = os.path.join(
     REPO_ROOT, "internal", "doc", "docrender", "testdata", "telescope_report.golden.md"
 )
@@ -75,9 +83,11 @@ STATE_FIXTURE = os.path.join(
     REPO_ROOT, "tests", "grpc", "testdata", "conformance",
     "document_query_states.sysml",
 )
+VIEW_FIXTURE = os.path.join(REPO_ROOT, "conformance", "fixtures", "views.sysml")
 
 CAPABILITIES = (
     CAPABILITY_DOCUMENT_QUERY, CAPABILITY_RENDER_DOCUMENT, CAPABILITY_RENDER_DOCUMENT_HTML,
+    CAPABILITY_RENDER_VIEW,
 )
 
 
@@ -112,6 +122,10 @@ class FakeService(sysml_pb2_grpc.SysMLServiceServicer):
         if request.form == "html":
             return sysml_pb2.RenderDocumentResponse(html=self._html)
         return sysml_pb2.RenderDocumentResponse(markdown=self._markdown)
+
+    def RenderView(self, request, context):
+        self.requests.append(request)
+        return self._response if isinstance(self._response, sysml_pb2.RenderViewResponse) else sysml_pb2.RenderViewResponse()
 
 
 @pytest.fixture
@@ -215,12 +229,14 @@ def test_an_object_naming_nothing_is_refused():
         build_bindings(unnamed)
 
 
-def test_an_oversized_int_binding_is_refused():
-    """An int outside int64 is a caller error, not a protobuf ValueError."""
-    with pytest.raises(DocumentQueryError, match="signed 64-bit"):
-        build_bindings({"threshold": 1 << 63})
-    with pytest.raises(DocumentQueryError, match="signed 64-bit"):
-        build_bindings({"threshold": -(1 << 63) - 1})
+def test_an_int_binding_beyond_int64_travels_in_full():
+    """KerML Integers are unbounded: an int outside int64 binds as its decimal."""
+    bindings = build_bindings({"high": 1 << 63, "low": -(1 << 63) - 1, "edge": (1 << 63) - 1})
+    by_parameter = {b.parameter: b.values[0] for b in bindings}
+    assert by_parameter["high"].big_int_value == str(1 << 63)
+    assert by_parameter["low"].big_int_value == str(-(1 << 63) - 1)
+    assert by_parameter["edge"].WhichOneof("kind") == "int_value"
+    assert by_parameter["edge"].int_value == (1 << 63) - 1
 
 
 def test_a_quantity_the_wire_cannot_carry_is_refused():
@@ -231,9 +247,8 @@ def test_a_quantity_the_wire_cannot_carry_is_refused():
     with pytest.raises(DocumentQueryError, match="'limit'.*no reduction") as caught:
         build_bindings(unreduced)
     assert isinstance(caught.value.__cause__, UnsupportedValueError)
-    oversized = {"limit": Quantity(1 << 63, kg)}
-    with pytest.raises(DocumentQueryError, match="'limit'.*signed 64-bit"):
-        build_bindings(oversized)
+    (big,) = build_bindings({"limit": Quantity(1 << 63, kg)})
+    assert big.values[0].quantity.big_int_magnitude == str(1 << 63)
     boolean = {"limit": Quantity(True, kg)}
     with pytest.raises(DocumentQueryError, match="'limit'.*neither an Integer nor a Real"):
         build_bindings(boolean)
@@ -287,6 +302,139 @@ def test_render_document_refuses_a_form_it_does_not_know(fake_service):
         with pytest.raises(ValueError, match="markdown"):
             model.render_document("Demo::Doc", form="pdf")
     assert service.requests == []
+
+
+def test_render_view_requires_the_capability(fake_service):
+    port, service = fake_service(capabilities=())
+    with Connection(port=port, auto_start=False) as conn:
+        model = conn.load_from_content("package Demo;")
+        with pytest.raises(MissingCapabilityError) as excinfo:
+            model.render_view("Demo::View")
+    assert excinfo.value.capability == CAPABILITY_RENDER_VIEW
+    assert service.requests == []
+
+
+def test_export_graphs_requires_the_capability(fake_service):
+    port, service = fake_service(capabilities=())
+    with Connection(port=port, auto_start=False) as conn:
+        model = conn.load_from_content("package Demo;")
+        with pytest.raises(MissingCapabilityError) as excinfo:
+            model.export_graphs("Demo::pipeline")
+    assert excinfo.value.capability == CAPABILITY_EXPORT_GRAPHS
+    assert service.requests == []
+
+
+def test_export_graphs_answers_the_canonical_form_of_a_behavior(real_service):
+    with open(BEHAVIOR_FIXTURE, encoding="utf-8") as f:
+        source = f.read()
+    with Connection(port=real_service, auto_start=False) as conn:
+        model = conn.load_from_content(source)
+        graphs = model.export_graphs("Test::race")
+        assert isinstance(graphs, Graphs)
+        assert (graphs.version, graphs.subject) == (1, "Test::race")
+        assert graphs.content.endswith("}\n")
+        form = json.loads(graphs.content)
+        assert (form["version"], form["subject"]) == (1, "Test::race")
+        assert len(form["actions"]) == 1
+        assert str(graphs) == graphs.content
+        with pytest.raises(SymbolNotFoundError) as missing:
+            model.export_graphs("Test::Missing")
+        assert missing.value.name == "Test::Missing"
+        with pytest.raises(InvalidRequestError, match="no lowered graph"):
+            model.export_graphs("Test")
+
+
+def test_render_view_decodes_all_fields_and_optional_messages():
+    response = sysml_pb2.RenderViewResponse(
+        view="Demo::view", kind="interconnection", stated="rendered",
+        columns=["a"], notices=["notice"],
+    )
+    response.canvas.unit = "px"
+    response.canvas.width = 800
+    response.canvas.height = 400
+    response.canvas.has_size = True
+    node = response.nodes.add(
+        id="n0", kind="part", name="root", name_synthesized=True, type="Demo::Part",
+        detail="detail", text="text", stand_in=True, parent="",
+    )
+    node.ports.add(id="n0.0", name="api", type="Demo::API", direction="inout")
+    node.origin.file = "views.sysml"
+    node.origin.start_line = 4
+    node.geometry.x = 10
+    node.geometry.y = 20
+    node.geometry.width = 100
+    node.geometry.height = 50
+    node.geometry.has_size = True
+    node.geometry.collapsed = True
+    node.style.fill = "#fff"
+    node.style.line = "#000"
+    node.style.text = "#111"
+    node.style.font = "sans"
+    node.style.font_size = 12
+    node.style.bold = True
+    node.style.italic = True
+    edge = response.edges.add(
+        to="n0", from_port="n0.0", to_port="n1.0", label="wire",
+        name="wire", kind="connection",
+    )
+    setattr(edge, "from", "n1")
+    edge.route.add(x=1, y=2)
+    edge.style.line = "#222"
+    edge.origin.file = "views.sysml"
+    response.rows.add(cells=["x"], origin=sysml_pb2.Span(file="views.sysml"))
+    response.notes.add(
+        text="note", anchor="n0", edge_from="n0", edge_to="n1",
+        x=1, y=2, width=3, height=4, has_size=True,
+        origin=sysml_pb2.Span(file="views.sysml"),
+    )
+
+    rendered = render_view_result(response)
+    assert isinstance(rendered, RenderedView)
+    assert (rendered.view, rendered.kind, rendered.stated) == (
+        "Demo::view", "interconnection", "rendered",
+    )
+    assert rendered.nodes[0].ports[0].direction == "inout"
+    assert rendered.nodes[0].origin.start_line == 4
+    assert rendered.nodes[0].geometry.collapsed
+    assert rendered.nodes[0].style.font_size == 12
+    assert (rendered.edges[0].from_id, rendered.edges[0].to_id) == ("n1", "n0")
+    assert rendered.edges[0].route[0].x == 1
+    assert rendered.rows[0].cells == ("x",)
+    assert rendered.canvas.has_size
+    assert rendered.notes[0].text == "note"
+    assert rendered.notes[0].origin.file == "views.sysml"
+    assert rendered.notices == ("notice",)
+
+    sparse = render_view_result(sysml_pb2.RenderViewResponse(
+        nodes=[sysml_pb2.RenderNode()],
+        edges=[sysml_pb2.RenderEdge()],
+        rows=[sysml_pb2.RenderRow()],
+        notes=[sysml_pb2.RenderNote()],
+    ))
+    assert (sparse.nodes[0].origin, sparse.nodes[0].geometry, sparse.nodes[0].style) == (
+        None, None, None,
+    )
+    assert (sparse.edges[0].origin, sparse.edges[0].style) == (None, None)
+    assert sparse.rows[0].origin is None
+    assert sparse.notes[0].origin is None
+
+    empty = render_view_result(sysml_pb2.RenderViewResponse())
+    assert empty.canvas is None
+    assert empty.nodes == ()
+
+
+def test_render_view_sends_minimal_and_full_ports(fake_service):
+    response = sysml_pb2.RenderViewResponse(view="Demo::View")
+    port, service = fake_service(
+        capabilities=(CAPABILITY_RENDER_VIEW,), response=response,
+    )
+    with Connection(port=port, auto_start=False) as conn:
+        model = conn.load_from_content("package Demo;")
+        model.render_view("Demo::View")
+        model.render_view("Demo::View", ports="full")
+    minimal, full = service.requests
+    assert minimal.ports == ""
+    assert full.ports == "full"
 
 
 def test_the_request_names_the_model_query_and_bindings(fake_service):
@@ -878,6 +1026,46 @@ class TestDocumentsAgainstRealService:
                 "Observatory::MassReport", form="html"
             )
         assert html == golden
+
+    def test_a_rendered_view_carries_ports_edges_and_origins(self, real_service):
+        with Connection(port=real_service, auto_start=False) as conn:
+            model = conn.load(VIEW_FIXTURE)
+            rendered = model.render_view("RenderViewDemo::connections")
+        assert rendered.kind == "interconnection"
+        assert len(rendered.edges) == 1
+        assert rendered.edges[0].from_port and rendered.edges[0].to_port
+        assert all(node.origin is not None for node in rendered.nodes)
+
+    @pytest.mark.parametrize(
+        ("view_name", "service_message"),
+        [
+            ("RenderViewDemo::Missing", "no view named RenderViewDemo::Missing"),
+            (
+                "#interconnection:Nope",
+                "#interconnection:Nope: Nope names nothing in this model",
+            ),
+        ],
+    )
+    def test_a_missing_view_preserves_its_name_and_service_message(
+        self, real_service, view_name, service_message
+    ):
+        with Connection(port=real_service, auto_start=False) as conn:
+            model = conn.load(VIEW_FIXTURE)
+            with pytest.raises(ViewNotFoundError) as excinfo:
+                model.render_view(view_name)
+        error = excinfo.value
+        assert error.name == view_name
+        assert str(error) == service_message
+        assert error.suggestions == []
+        assert error.code == grpc.StatusCode.NOT_FOUND
+        assert isinstance(error, SymbolNotFoundError)
+        assert isinstance(error, KeyError)
+
+    def test_a_render_view_with_an_unknown_model_hash_is_model_not_found(self, real_service):
+        with Connection(port=real_service, auto_start=False) as conn:
+            with pytest.raises(ModelNotFoundError) as excinfo:
+                conn.render_view("unknown-render-view-model-hash", "Demo::View")
+        assert excinfo.value.code == grpc.StatusCode.NOT_FOUND
 
     def test_an_unknown_query_raises_symbol_not_found(self, real_service, telescope):
         with Connection(port=real_service, auto_start=False) as conn:

@@ -9,10 +9,8 @@ package test {
 		then done;
 	}
 
-	// As action_terminate_names_node_of_paused_bodies, but slow naps by performing an
-	// action of its own rather than running a flow: no token runs inside slow, so a
-	// paused performance of it is held only where its token's body paused. Both still
-	// end at `terminate slow;`, their naps abandoned, and both bodies go on past slow.
+	// As action_terminate_names_node_of_paused_bodies, but slow naps by performing Nap:
+	// each `terminate slow;` ends its own loop body's slow, abandoning that Nap.
 	action host {
 		out attribute entered : Integer = 0;
 		out attribute napped : Integer = 0;
@@ -34,15 +32,19 @@ package test {
 		then loop {
 			action slow {
 				assign entered := entered + 1;
-				if entered <= 2 {
-					perform action nap : Nap;
-					assign napped := napped + 1;
+				action inner {
+					first start;
+					then fork f;
+					succession first f then nap;
+					succession first f then watch;
+					action nap : Nap;
+					action watch accept after 5 [s];
+					succession first watch then stop;
+					action stop { terminate slow; }
 				}
+				assign napped := napped + 1;
 			}
 			assign passed := passed + 1;
-			if passed == 1 {
-				terminate slow;
-			}
 			assign later := later + 1;
 		} until true;
 		then done;

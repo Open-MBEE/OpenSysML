@@ -11,6 +11,7 @@ import (
 	"go.lsp.dev/jsonrpc2"
 	"go.lsp.dev/protocol"
 
+	"github.com/Open-MBEE/OpenSysML/internal/frontend/buildinfo"
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/model"
 )
 
@@ -231,5 +232,35 @@ func TestAfterShutdownOnlyExitIsServed(t *testing.T) {
 	case <-done:
 	case <-time.After(10 * time.Second):
 		t.Fatal("Run did not return after the exit notification")
+	}
+}
+
+// initialize names the binary's version in serverInfo: the one the command
+// passes in, and an unversioned build when none is.
+func TestInitializeReportsTheServerVersion(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		opts []Option
+		want string
+	}{
+		{name: "the version passed in", opts: []Option{WithVersion("v0.9.2")}, want: "v0.9.2"},
+		{name: "unversioned without one", want: buildinfo.Unversioned},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			s := NewServer(model.NewWorkspace(), tc.opts...)
+			res, err := s.Initialize(context.Background(), &protocol.InitializeParams{})
+			if err != nil {
+				t.Fatalf("Initialize error: %v", err)
+			}
+			if res.ServerInfo == nil {
+				t.Fatal("ServerInfo = nil")
+			}
+			if res.ServerInfo.Name != "sysml-lsp" {
+				t.Errorf("ServerInfo.Name = %q, want %q", res.ServerInfo.Name, "sysml-lsp")
+			}
+			if res.ServerInfo.Version != tc.want {
+				t.Errorf("ServerInfo.Version = %q, want %q", res.ServerInfo.Version, tc.want)
+			}
+		})
 	}
 }

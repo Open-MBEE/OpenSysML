@@ -1,0 +1,10 @@
+{
+	"type": "action",
+	"libraries": true,
+	"outputs": {
+		"total": {
+			"type": "Real",
+			"value": 6.5
+		}
+	}
+}

@@ -128,7 +128,15 @@ func (s *bodyScope) feature(path []string, write bool) (opaqueRef, *refusal) {
 		object:   m.nonScalar(m.typedAs(f)),
 		plural:   plural || manyValued(f),
 		optional: m.lacksValue(f),
+		unset:    !plural && m.unsetFeature(f),
 	}, nil
+}
+
+// unsetFeature reports whether f is a scalar property holding no value until
+// assigned: one declaring neither a default nor that it admits none.
+func (m *migration) unsetFeature(f *sysmlv1.Element) bool {
+	return f.Type == "Property" && !manyValued(f) && !m.lacksValue(f) &&
+		firstOwned(f, "defaultValue") == nil && m.scalarBase(m.typedAs(f)) != ""
 }
 
 // featureAnchor is what a dotted name's first step resolved to — the object and
@@ -224,12 +232,18 @@ func (s *bodyScope) scopeAnchor(path []string, write bool) featureAnchor {
 			why: "it is private to " + qualifiedName(hidden.Parent)}}
 	case f == nil:
 		return featureAnchor{refusal: &refusal{kind: refusedName, token: name,
-			why: joinNotes("nothing visible from "+qualifiedName(s.scope)+" is called "+name, s.clash)}}
-	case f.Type != "Property" && f.Type != "Port" && f.Type != "Parameter":
+			why:     joinNotes("nothing visible from "+qualifiedName(s.scope)+" is called "+name, s.clash),
+			unknown: s.clash == "" && !m.laneKnows(s.lane, name)}}
+	case f.Role != "variable" && f.Type != "Property" && f.Type != "Port" && f.Type != "Parameter":
 		return featureAnchor{refusal: &refusal{kind: refusedName, token: name,
 			why: "it is " + kindOf(f) + " " + qualifiedName(f) + ", not a feature a body reads"}}
 	}
 	expr := writeName(m.nameOf(f))
+	if f.Role == "variable" {
+		if n, ok := m.nodeNames[f]; ok {
+			expr = writeName(n)
+		}
+	}
 	if s.probe {
 		return featureAnchor{expr: expr, f: f}
 	}
@@ -504,6 +518,21 @@ func (m *migration) translateIn(body, lang string, sc featureResolver, want want
 	if err != nil {
 		return "", err
 	}
+	return checkedExpr(body, want, t)
+}
+
+// translateTreeIn is translateIn for a lowered Expression tree's script text,
+// the only body read admitting the KerML connectives xor and implies.
+func (m *migration) translateTreeIn(body string, sc featureResolver, want wanted) (string, *refusal) {
+	t, err := translateTreeExpr(body, sc, want)
+	if err != nil {
+		return "", err
+	}
+	return checkedExpr(body, want, t)
+}
+
+// checkedExpr spells t for want's scalar and checks the v2 text parses.
+func checkedExpr(body string, want wanted, t translated) (string, *refusal) {
 	expr := spellFor(want.scalar, t)
 	if _, ok := parseExpr(expr); !ok {
 		return "", &refusal{kind: refusedSyntax, token: body, why: "its translation " + strconv.Quote(expr) + " is not v2 expression syntax"}

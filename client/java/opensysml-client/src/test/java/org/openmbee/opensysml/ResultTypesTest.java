@@ -107,13 +107,19 @@ class ResultTypesTest {
 
     Map<String, Value> context = new LinkedHashMap<>(Map.of("n", new Value.IntegerValue(1)));
     StateRun run =
-        new StateRun(new ArrayList<>(List.of("init", "done")), context, OptionalDouble.empty(), List.of());
+        new StateRun(
+            new ArrayList<>(List.of("init", "done")),
+            context,
+            OptionalDouble.empty(),
+            List.of(),
+            0,
+            List.of());
     context.clear();
     assertEquals(Optional.of("done"), run.finalState());
     assertEquals(1, run.finalContext().size());
     assertEquals(
         Optional.empty(),
-        new StateRun(List.of(), Map.of(), OptionalDouble.empty(), List.of()).finalState());
+        new StateRun(List.of(), Map.of(), OptionalDouble.empty(), List.of(), 0, List.of()).finalState());
   }
 
   @Test
@@ -218,6 +224,7 @@ class ResultTypesTest {
             Optional.empty(),
             2,
             0.5,
+            Optional.of(new org.openmbee.opensysml.ProbabilityRange(0.5, 0.5)),
             List.of("first of a, b, c: a"),
             List.of());
     Outcome failed =
@@ -228,21 +235,21 @@ class ResultTypesTest {
             Optional.of("deadlock"),
             1,
             0.0,
+            Optional.empty(),
             List.of(),
             List.of());
     assertTrue(one.completed());
     assertFalse(failed.completed());
     assertEquals(
         "complete (6 runs)",
-        new Exploration(List.of(one), true, 6, List.of(), 1024, 64, false).status());
+        new Exploration(List.of(one), true, 6, List.of(), 1024, 64, 0, false).status());
     assertEquals(
         "incomplete: runs budget 100 hit after 100 runs; probabilities are lower bounds",
-        new Exploration(List.of(one, failed), false, 100, List.of("runs"), 100, 64, true)
+        new Exploration(List.of(one, failed), false, 100, List.of("runs"), 100, 64, 1, true)
             .status());
     assertEquals(
-        "incomplete: runs budget 4 and depth budget 2 hit after 4 runs;"
-            + " probabilities are lower bounds",
-        new Exploration(List.of(), false, 4, List.of("runs", "depth"), 4, 2, true).status());
+        "incomplete: runs budget 4 and depth budget 2 hit after 4 runs",
+        new Exploration(List.of(), false, 4, List.of("runs", "depth"), 4, 2, 0, false).status());
   }
 
   @Test
@@ -255,6 +262,8 @@ class ResultTypesTest {
         ExecutionOptions.defaults().withSchedule("seed:7").withPerformer("Demo::sedan");
     assertEquals(Optional.of("seed:7"), options.schedule());
     assertEquals(Optional.of("Demo::sedan"), options.performer());
+    assertTrue(options.withTrace().trace());
+    assertFalse(ExecutionOptions.defaults().trace());
     assertEquals(Optional.empty(), ExecutionOptions.defaults().performer());
   }
 

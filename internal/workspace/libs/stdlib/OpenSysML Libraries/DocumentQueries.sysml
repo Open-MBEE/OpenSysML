@@ -191,6 +191,15 @@ library package DocumentQueries {
 		return result : Element[0..*] ordered;
 	}
 
+	/* Distinct: seq without its repeated values, the first of each kept in the
+	 * order met; a cell applies it to a sequence as `->DocumentQueries::Distinct()`
+	 * beside the KerML sequence functions (`->SequenceFunctions::size()`,
+	 * `->ControlFunctions::select {in e; …}`). */
+	calc def Distinct {
+		in seq : Base::Anything[0..*] ordered nonunique;
+		return result : Base::Anything[0..*] ordered;
+	}
+
 	/* One computed table column: exactly one of expression, cell, or path.
 	 * expression is evaluated in query scope; cell receives each row as its
 	 * parameter; path reads a dotted member path from the row. */
@@ -259,9 +268,10 @@ library package DocumentQueries {
 		attribute target : String[1];
 	}
 
-	/* Ref links to a named content block of this or another document, or to
-	 * another document itself; text defaults to the target's title, caption
-	 * or name. */
+	/* Ref links to a named content block of this or another document, to
+	 * another document itself, or to a model element outside every document
+	 * (a usage by name, any element as `E.metadata`); text defaults to the
+	 * target's title, caption or name. */
 	part def Ref :> Run {
 		attribute text : String[0..1];
 		ref target : Element[1];
@@ -343,6 +353,15 @@ library package DocumentQueries {
 		 * nodes of a DOT or PlantUML diagram by keyword family, black and white
 		 * when absent. */
 		attribute palette : String[0..1];
+		/* ports: "minimal" or "full"; how much of a part's ports an
+		 * interconnection diagram draws — those its connectors end at, each a
+		 * small square on the part's border named beside it, or every port,
+		 * labelled name : Type. Minimal when absent. */
+		attribute ports : String[0..1];
+		/* overlay: "verdicts", for a requirement diagram: runs the verification
+		 * cases verifying each requirement and colours and labels it by their
+		 * verdicts. Purely structural when absent. */
+		attribute overlay : String[0..1];
 		ref source : Element[0..1];
 	}
 

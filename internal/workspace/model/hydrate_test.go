@@ -3,6 +3,7 @@ package model
 import (
 	"fmt"
 	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
@@ -219,11 +220,11 @@ func TestReferencesAndRuntimeHydrate(t *testing.T) {
 
 	ws = NewWorkspace(WithRecordCache(cache))
 	ws.OpenAll(hydrateInputs())
-	if _, err := ws.NewRuntime(); err != nil {
+	if _, err := ws.Detach(); err != nil {
 		t.Fatal(err)
 	}
 	if ws.Recorded("base.sysml") || ws.Recorded("user.sysml") {
-		t.Fatal("a runtime was built over a recorded document")
+		t.Fatal("detaching left a recorded document")
 	}
 }
 
@@ -323,5 +324,67 @@ func TestRecordKeyFollowsTheIndexLibrary(t *testing.T) {
 func TestRecordedOfAnUnknownDocumentIsFalse(t *testing.T) {
 	if NewWorkspace().Recorded("nowhere.sysml") {
 		t.Fatal("an unknown document is reported recorded")
+	}
+}
+
+// A document's diagnostics must not differ between a cold cache and the warm
+// one its analysis just wrote, nor between a recorded answer and a loaded one:
+// the library diamond below is silent when the members' metaclasses do not
+// conform (KerML 8.3.2.4.3), whatever path the document took.
+func TestLibraryDiamondDiagnosticsMatchColdAndWarm(t *testing.T) {
+	src := []byte("package Test {\n\tpart def ABlock;\n\taction def AnAction {\n\t\taction a : ABlock;\n\t}\n}\n")
+	cache, err := libs.NewCacheIn(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	open := func(recorded bool) []string {
+		ws := NewWorkspace(WithRecordCache(cache))
+		ws.SetOnDisk("d.sysml", src)
+		if ws.Recorded("d.sysml") != recorded {
+			t.Fatalf("d.sysml recorded=%v, want %v", ws.Recorded("d.sysml"), recorded)
+		}
+		got := messagesOf(ws.Diagnostics("d.sysml"))
+		ws.Close("d.sysml")
+		return got
+	}
+	cold, warm := open(false), open(true)
+	if !reflect.DeepEqual(cold, warm) {
+		t.Fatalf("cold diagnostics %v, warm %v", cold, warm)
+	}
+	for _, m := range cold {
+		if strings.Contains(m, "Duplicate of") {
+			t.Fatalf("the Action/Part diamond still warns: %v", cold)
+		}
+	}
+}
+
+// A record whose diagnostic suggests names for an unresolved one read the
+// names spelled: adding one it could mean hydrates it, and it then reports the
+// suggestion a loaded document does.
+func TestNewSpellingHydratesARecordedSuggestion(t *testing.T) {
+	inputs := []Input{
+		{Name: "broken.sysml", Content: []byte("package Broken { part car : Enginee; }"), Version: 1},
+		{Name: "other.sysml", Content: []byte("package Other { part def Wheel; }"), Version: 1},
+	}
+	cache, err := libs.NewCacheIn(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	cold := NewWorkspace(WithRecordCache(cache))
+	cold.OpenAll(inputs)
+	cold.DiagnosticsAll([]string{"broken.sysml", "other.sysml"})
+
+	ws := NewWorkspace(WithRecordCache(cache))
+	ws.OpenAll(inputs)
+	if !ws.Recorded("broken.sysml") {
+		t.Fatal("broken.sysml is not recorded from a warm cache")
+	}
+	added := []byte("package Other { part def Wheel; part def Enginee; }")
+	ws.Update("other.sysml", added, 2)
+	loaded := NewWorkspace()
+	loaded.OpenAll([]Input{inputs[0], {Name: "other.sysml", Content: added, Version: 1}})
+	want := messagesOf(loaded.Diagnostics("broken.sysml"))
+	if got := messagesOf(ws.Diagnostics("broken.sysml")); !reflect.DeepEqual(got, want) {
+		t.Fatalf("broken.sysml reports %v after a name it could mean was added; loaded beside the same documents %v", got, want)
 	}
 }

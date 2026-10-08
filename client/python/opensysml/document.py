@@ -7,7 +7,7 @@ the model's own named queries and documents, not the SysML v2 API & Services
 Query that :mod:`opensysml.query` builds.
 
 A binding value is a plain Python value (``str``, ``int``, ``float``,
-``bool``), a :class:`~opensysml.values.Quantity`, an :class:`ElementRef`
+``bool``), an exact Rational as a :class:`fractions.Fraction`, a :class:`~opensysml.values.Quantity`, an :class:`ElementRef`
 naming a model element by qualified name, or an :class:`ObjectRef` naming an
 object the service holds for the model since ``instantiate`` — by id or by
 path (``"car.wheels[2]"``). Answered cells decode back to the same kinds, plus
@@ -18,11 +18,23 @@ query answered.
 """
 
 from dataclasses import dataclass
+from fractions import Fraction
 from typing import Optional, Sequence, Union
 
 from opensysml.errors import OpenSysMLError, UnsupportedValueError
 from opensysml.proto import sysml_pb2
-from opensysml.values import INFINITY, Quantity, _Infinity
+from opensysml.values import (
+    INFINITY,
+    Quantity,
+    _Infinity,
+    fits_int64,
+    holds_exactly_as_double,
+    integer_from_decimal,
+    integer_to_decimal,
+    quantity_rational_as_real,
+    rational_from_pb,
+    rational_to_pb,
+)
 
 
 class DocumentQueryError(OpenSysMLError, ValueError):
@@ -147,7 +159,7 @@ class DocumentEvent:
 
     Attributes:
         kind: ``"accept"``, ``"send"``, ``"transition"``, ``"entry"``,
-            ``"exit"``, ``"do"``, ``"choice"`` or ``"guard"``
+            ``"exit"``, ``"do"``, ``"choice"``, ``"guard"`` or ``"terminate"``
         time: The instant the record was written at, in the runtime clock's
             unit — a :class:`~opensysml.values.Quantity` when the clock carries
             one, a plain number otherwise
@@ -184,6 +196,210 @@ class DocumentEvent:
         return f"{self.time}: {self.text}"
 
 
+@dataclass(frozen=True)
+class RenderSpan:
+    """A source location carried by rendered view data."""
+
+    file: str
+    start_line: int
+    start_col: int
+    end_line: int
+    end_col: int
+
+
+@dataclass(frozen=True)
+class RenderPort:
+    id: str
+    name: str
+    type: str
+    direction: str
+
+
+@dataclass(frozen=True)
+class RenderGeometry:
+    x: float
+    y: float
+    width: float
+    height: float
+    has_size: bool
+    collapsed: bool
+
+
+@dataclass(frozen=True)
+class RenderStyle:
+    fill: str
+    line: str
+    text: str
+    font: str
+    font_size: float
+    bold: bool
+    italic: bool
+
+
+@dataclass(frozen=True)
+class RenderPoint:
+    x: float
+    y: float
+
+
+@dataclass(frozen=True)
+class RenderNode:
+    id: str
+    kind: str
+    name: str
+    name_synthesized: bool
+    type: str
+    detail: str
+    text: str
+    stand_in: bool
+    parent: str
+    ports: tuple
+    origin: Optional[RenderSpan]
+    geometry: Optional[RenderGeometry]
+    style: Optional[RenderStyle]
+
+
+@dataclass(frozen=True)
+class RenderEdge:
+    from_id: str
+    to_id: str
+    from_port: str
+    to_port: str
+    label: str
+    name: str
+    kind: str
+    origin: Optional[RenderSpan]
+    route: tuple
+    style: Optional[RenderStyle]
+
+
+@dataclass(frozen=True)
+class RenderCanvas:
+    unit: str
+    width: float
+    height: float
+    has_size: bool
+
+
+@dataclass(frozen=True)
+class RenderRow:
+    cells: tuple
+    origin: Optional[RenderSpan]
+
+
+@dataclass(frozen=True)
+class RenderNote:
+    text: str
+    anchor: str
+    edge_from: str
+    edge_to: str
+    x: float
+    y: float
+    width: float
+    height: float
+    has_size: bool
+    origin: Optional[RenderSpan]
+
+
+@dataclass(frozen=True)
+class Graphs:
+    """The lowered graph of an action or state machine, returned by ``ExportGraphs``.
+
+    Attributes:
+        content (str): The canonical ``graphs:<version>`` JSON an external
+            analysis engine is sent, ending in one newline
+        version (int): The version of the form, its ``version`` field
+        subject (str): The qualified name of the behavior as resolved
+    """
+
+    content: str
+    version: int
+    subject: str
+
+    def __str__(self):
+        return self.content
+
+
+def graphs_result(response):
+    """Build a :class:`Graphs` from an ``ExportGraphsResponse``."""
+    return Graphs(response.content, int(response.version), response.subject)
+
+
+@dataclass(frozen=True)
+class RenderedView:
+    """Lossless diagram data returned by ``RenderView``."""
+
+    view: str
+    kind: str
+    stated: str
+    nodes: tuple
+    edges: tuple
+    columns: tuple
+    rows: tuple
+    canvas: Optional[RenderCanvas]
+    notes: tuple
+    notices: tuple
+
+
+def _render_span(span):
+    if span is None:
+        return None
+    return RenderSpan(span.file, span.start_line, span.start_col, span.end_line, span.end_col)
+
+
+def _render_style(style):
+    if style is None:
+        return None
+    return RenderStyle(
+        style.fill, style.line, style.text, style.font, style.font_size, style.bold, style.italic
+    )
+
+
+def render_view_result(response):
+    """Decode a ``RenderViewResponse`` without losing optional presence or order."""
+    nodes = tuple(
+        RenderNode(
+            node.id, node.kind, node.name, node.name_synthesized, node.type, node.detail,
+            node.text, node.stand_in, node.parent,
+            tuple(RenderPort(port.id, port.name, port.type, port.direction) for port in node.ports),
+            _render_span(node.origin if node.HasField("origin") else None),
+            None if not node.HasField("geometry") else RenderGeometry(
+                node.geometry.x, node.geometry.y, node.geometry.width, node.geometry.height,
+                node.geometry.has_size, node.geometry.collapsed,
+            ),
+            _render_style(node.style if node.HasField("style") else None),
+        )
+        for node in response.nodes
+    )
+    edges = tuple(
+        RenderEdge(
+            getattr(edge, "from"), edge.to, edge.from_port, edge.to_port, edge.label, edge.name, edge.kind,
+            _render_span(edge.origin if edge.HasField("origin") else None),
+            tuple(RenderPoint(point.x, point.y) for point in edge.route),
+            _render_style(edge.style if edge.HasField("style") else None),
+        )
+        for edge in response.edges
+    )
+    canvas = None
+    if response.HasField("canvas"):
+        canvas = RenderCanvas(
+            response.canvas.unit, response.canvas.width, response.canvas.height, response.canvas.has_size
+        )
+    rows = tuple(
+        RenderRow(tuple(row.cells), _render_span(row.origin if row.HasField("origin") else None))
+        for row in response.rows
+    )
+    notes = tuple(
+        RenderNote(
+            note.text, note.anchor, note.edge_from, note.edge_to, note.x, note.y, note.width,
+            note.height, note.has_size, _render_span(note.origin if note.HasField("origin") else None),
+        )
+        for note in response.notes
+    )
+    return RenderedView(
+        response.view, response.kind, response.stated, nodes, edges, tuple(response.columns),
+        rows, canvas, notes, tuple(response.notices),
+    )
 #: What a binding value or an answered cell value may be.
 DocumentValue = Union[
     ElementRef, ObjectRef, str, int, float, bool, Quantity, _Infinity,
@@ -246,6 +462,46 @@ class DocumentQueryResult:
         return len(self.rows)
 
 
+def binding_holds_big_int(binding: "sysml_pb2.DocumentQueryBinding") -> bool:
+    """Whether a wire binding sends an Integer beyond int64, which needs ``big_int_values``."""
+    return any(_document_holds_big_int(value) for value in binding.values)
+
+
+def binding_holds_rational(binding: "sysml_pb2.DocumentQueryBinding") -> bool:
+    """Whether a wire binding sends an exact Rational, which needs ``rational_values``."""
+    return any(_document_holds_rational(value) for value in binding.values)
+
+
+def binding_rationals_as_reals(binding: "sysml_pb2.DocumentQueryBinding") -> None:
+    """Rewrite each Rational a binding sends that a double holds exactly as that double, for a service without ``rational_values``."""
+    for value in binding.values:
+        if value.WhichOneof("kind") == "rational_value":
+            exact = Fraction(integer_from_decimal(value.rational_value.numerator),
+                             integer_from_decimal(value.rational_value.denominator))
+            if holds_exactly_as_double(exact):
+                value.real_value = float(exact)
+        elif value.WhichOneof("kind") == "quantity":
+            quantity_rational_as_real(value.quantity)
+
+
+def _document_holds_rational(value: "sysml_pb2.DocumentValue") -> bool:
+    kind = value.WhichOneof("kind")
+    if kind == "rational_value":
+        return True
+    if kind == "quantity":
+        return value.quantity.WhichOneof("magnitude") == "rational_magnitude"
+    return False
+
+
+def _document_holds_big_int(value: "sysml_pb2.DocumentValue") -> bool:
+    kind = value.WhichOneof("kind")
+    if kind == "big_int_value":
+        return True
+    if kind == "quantity":
+        return value.quantity.WhichOneof("magnitude") == "big_int_magnitude"
+    return False
+
+
 def build_bindings(bindings=None):
     """Translate a bindings mapping into the RPC's protobuf.
 
@@ -291,14 +547,13 @@ def _bound_value(parameter, value):
     if isinstance(value, str):
         return sysml_pb2.DocumentValue(string_value=value)
     if isinstance(value, int):
-        if not -(1 << 63) <= value < (1 << 63):
-            raise DocumentQueryError(
-                f"binding {parameter!r} cannot carry {value!r}: an int must "
-                f"fit in a signed 64-bit integer"
-            )
+        if not fits_int64(value):
+            return sysml_pb2.DocumentValue(big_int_value=integer_to_decimal(value))
         return sysml_pb2.DocumentValue(int_value=value)
     if isinstance(value, float):
         return sysml_pb2.DocumentValue(real_value=value)
+    if isinstance(value, Fraction):
+        return sysml_pb2.DocumentValue(rational_value=rational_to_pb(value))
     if isinstance(value, Quantity):
         return sysml_pb2.DocumentValue(quantity=_bound_quantity(parameter, value))
     if isinstance(value, DocumentVerdict):
@@ -320,12 +575,6 @@ def _bound_value(parameter, value):
 
 def _bound_quantity(parameter, value):
     """A Quantity as the wire writes it; one it cannot carry is a caller error."""
-    if isinstance(value.magnitude, int) and not isinstance(value.magnitude, bool):
-        if not -(1 << 63) <= value.magnitude < (1 << 63):
-            raise DocumentQueryError(
-                f"binding {parameter!r} cannot carry {value!r}: an Integer magnitude "
-                f"must fit in a signed 64-bit integer"
-            )
     try:
         return value.to_pb()
     except UnsupportedValueError as exc:
@@ -386,8 +635,12 @@ def _value_of(value):
         return value.string_value
     if kind == "int_value":
         return value.int_value
+    if kind == "big_int_value":
+        return integer_from_decimal(value.big_int_value)
     if kind == "real_value":
         return value.real_value
+    if kind == "rational_value":
+        return rational_from_pb(value.rational_value)
     if kind == "bool_value":
         return value.bool_value
     if kind == "infinity":
@@ -425,22 +678,7 @@ def _value_of(value):
             enclosing=tuple(state.enclosing),
         )
     if kind == "event":
-        event = value.event
-        return DocumentEvent(
-            kind=event.kind,
-            time=_value_of(event.time),
-            text=event.text,
-            object=_object_of(event.object) if event.HasField("object") else None,
-            machine=event.machine,
-            state=event.state,
-            from_state=getattr(event, "from"),
-            to_state=event.to,
-            target=_object_of(event.target) if event.HasField("target") else None,
-            event=event.event,
-            payload=tuple(event.payload),
-            alternatives=tuple(event.alternatives),
-            taken=event.taken,
-        )
+        return document_event_of(value.event)
     raise UnsupportedValueError(
         f"the service answered a document value this client cannot read: {value}"
     )
@@ -449,3 +687,22 @@ def _value_of(value):
 def _object_of(obj):
     """An answered ``DocumentObject`` as the :class:`ObjectRef` it names."""
     return ObjectRef(id=obj.instance_id, path=obj.path, element=_element_of(obj.element))
+
+
+def document_event_of(event):
+    """An answered protobuf event as the client's typed document event."""
+    return DocumentEvent(
+        kind=event.kind,
+        time=_value_of(event.time),
+        text=event.text,
+        object=_object_of(event.object) if event.HasField("object") else None,
+        machine=event.machine,
+        state=event.state,
+        from_state=getattr(event, "from"),
+        to_state=event.to,
+        target=_object_of(event.target) if event.HasField("target") else None,
+        event=event.event,
+        payload=tuple(event.payload),
+        alternatives=tuple(event.alternatives),
+        taken=event.taken,
+    )

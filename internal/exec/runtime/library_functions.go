@@ -148,28 +148,28 @@ func init() {
 // compute alike over that representation, so both are registered.
 func registerVectorFunctions() {
 	registerValueFunction("VectorFunctions::isZeroVector", []string{"v"}, 1, vectorIsZero)
-	registerValueFunction("VectorFunctions::isCartesianZeroVector", []string{"v"}, 1, vectorIsZero)
+	registerValueFunction("VectorFunctions::isCartesianZeroVector", []string{"v"}, 1, cartesian(vectorIsZero))
 	registerValueFunction("VectorFunctions::+", []string{"v", "w"}, 1, vectorAdd)
-	registerValueFunction("VectorFunctions::cartesian+", []string{"v", "w"}, 1, vectorAdd)
+	registerValueFunction("VectorFunctions::cartesian+", []string{"v", "w"}, 1, cartesian(vectorAdd))
 	registerValueFunction("VectorFunctions::-", []string{"v", "w"}, 1, vectorSubtract)
-	registerValueFunction("VectorFunctions::cartesian-", []string{"v", "w"}, 1, vectorSubtract)
+	registerValueFunction("VectorFunctions::cartesian-", []string{"v", "w"}, 1, cartesian(vectorSubtract))
 	registerValueFunction("VectorFunctions::VectorOf", []string{"components"}, 1, vectorOf)
 	registerValueFunction("VectorFunctions::CartesianVectorOf", []string{"components"}, 0, cartesianVectorOf)
 	registerValueFunction("VectorFunctions::CartesianThreeVectorOf", []string{"components"}, 1, cartesianThreeVectorOf)
 	registerValueFunction("VectorFunctions::inner", []string{"v", "w"}, 2, vectorInner)
-	registerValueFunction("VectorFunctions::cartesianInner", []string{"v", "w"}, 2, vectorInner)
+	registerValueFunction("VectorFunctions::cartesianInner", []string{"v", "w"}, 2, cartesian(vectorInner))
 	registerValueFunction("VectorFunctions::norm", []string{"v"}, 1, vectorNorm)
-	registerValueFunction("VectorFunctions::cartesianNorm", []string{"v"}, 1, vectorNorm)
+	registerValueFunction("VectorFunctions::cartesianNorm", []string{"v"}, 1, cartesian(vectorNorm))
 	registerValueFunction("VectorFunctions::angle", []string{"v", "w"}, 2, vectorAngle)
-	registerValueFunction("VectorFunctions::cartesianAngle", []string{"v", "w"}, 2, vectorAngle)
+	registerValueFunction("VectorFunctions::cartesianAngle", []string{"v", "w"}, 2, cartesian(vectorAngle))
 
 	// scalarVectorMult takes the scalar first and vectorScalarMult the vector,
 	// and the library aliases '*' for the former.
 	registerValueFunction("VectorFunctions::scalarVectorMult", []string{"x", "v"}, 2, scalarVectorMult)
 	registerValueFunction("VectorFunctions::*", []string{"x", "v"}, 2, scalarVectorMult)
-	registerValueFunction("VectorFunctions::cartesianScalarVectorMult", []string{"x", "v"}, 2, scalarVectorMult)
+	registerValueFunction("VectorFunctions::cartesianScalarVectorMult", []string{"x", "v"}, 2, cartesian(scalarVectorMult))
 	registerValueFunction("VectorFunctions::vectorScalarMult", []string{"v", "x"}, 2, vectorScalarMult)
-	registerValueFunction("VectorFunctions::cartesianVectorScalarMult", []string{"v", "x"}, 2, vectorScalarMult)
+	registerValueFunction("VectorFunctions::cartesianVectorScalarMult", []string{"v", "x"}, 2, cartesian(vectorScalarMult))
 	registerValueFunction("VectorFunctions::vectorScalarDiv", []string{"v", "x"}, 2, vectorScalarDiv)
 
 	registerDeclaredFunction("VectorFunctions::sum0", []declaredParam{optionalParam("coll"), param("zero")}, vectorSum0)
@@ -678,43 +678,45 @@ func atan2Real(args []semantics.Value) (semantics.Value, error) {
 	return semantics.RealResult(math.Atan2(y, x))
 }
 
-// floorToInteger is RealFunctions::floor, which returns Integer.
+// floorToInteger is RealFunctions::floor and RationalFunctions::floor, which
+// return Integer; an exact argument is floored exactly.
 func floorToInteger(args []semantics.Value) (semantics.Value, error) {
+	if args[0].IsExact() {
+		return semantics.RatFloor(args[0]), nil
+	}
 	return integerResult(math.Floor(asReal(args[0])))
 }
 
 // ceilingToInteger is OpenSysMLMathFunctions::ceiling, which returns Integer.
 func ceilingToInteger(args []semantics.Value) (semantics.Value, error) {
+	if args[0].IsExact() {
+		return semantics.IntNeg(semantics.RatFloor(semantics.RatNeg(args[0]))), nil
+	}
 	return integerResult(math.Ceil(asReal(args[0])))
 }
 
-// roundToInteger is RealFunctions::round, which returns Integer. Halves round
-// away from zero, as math.Round does.
+// roundToInteger is RealFunctions::round and RationalFunctions::round, which
+// return Integer. Halves round away from zero, as math.Round does.
 func roundToInteger(args []semantics.Value) (semantics.Value, error) {
+	if args[0].IsExact() {
+		return semantics.RatRound(args[0]), nil
+	}
 	return integerResult(math.Round(asReal(args[0])))
 }
 
 // numericAbs is the kind-preserving absolute value NumericalFunctions declares
-// over NumericalValue: an Integer argument gives an Integer.
+// over NumericalValue: an Integer argument gives an Integer, a Rational a Rational.
 func numericAbs(args []semantics.Value) (semantics.Value, error) {
-	if args[0].Kind == semantics.ValInt {
-		return integerAbs(args)
+	if args[0].IsExact() {
+		return semantics.RatAbs(args[0]), nil
 	}
 	return semantics.RealResult(math.Abs(args[0].Real))
 }
 
 // integerAbs is the absolute value over the Integer integerDomain admits, which
-// IntegerFunctions declares as returning Natural. The most negative int64 has no
-// positive counterpart, so it overflows rather than wrapping to itself.
+// IntegerFunctions declares as returning Natural.
 func integerAbs(args []semantics.Value) (semantics.Value, error) {
-	x := args[0].Int
-	if x == math.MinInt64 {
-		return semantics.Value{}, fmt.Errorf("%w: abs(%d) exceeds the Integer range", semantics.ErrArithmeticOverflow, x)
-	}
-	if x < 0 {
-		x = -x
-	}
-	return semantics.Value{Kind: semantics.ValInt, Int: x}, nil
+	return semantics.IntAbs(args[0]), nil
 }
 
 // numericExtremum is the kind-preserving max (larger=true) or min that
@@ -725,6 +727,12 @@ func numericExtremum(larger bool) func([]semantics.Value) (semantics.Value, erro
 		if args[0].Kind == semantics.ValInt && args[1].Kind == semantics.ValInt {
 			return integerExtremum(larger)(args)
 		}
+		if args[0].IsExact() && args[1].IsExact() {
+			if order := semantics.CompareRat(args[0], args[1]); (larger && order >= 0) || (!larger && order <= 0) {
+				return semantics.RatOf(args[0]), nil
+			}
+			return semantics.RatOf(args[1]), nil
+		}
 		return semantics.RealResult(pickReal(larger, asReal(args[0]), asReal(args[1])))
 	}
 }
@@ -733,27 +741,22 @@ func numericExtremum(larger bool) func([]semantics.Value) (semantics.Value, erro
 // parameters' domains admit.
 func integerExtremum(larger bool) func([]semantics.Value) (semantics.Value, error) {
 	return func(args []semantics.Value) (semantics.Value, error) {
-		x, y := args[0].Int, args[1].Int
-		res := y
-		if (larger && x > y) || (!larger && x < y) {
-			res = x
+		order := semantics.CompareInt(args[0], args[1])
+		if (larger && order > 0) || (!larger && order < 0) {
+			return args[0], nil
 		}
-		return semantics.Value{Kind: semantics.ValInt, Int: res}, nil
+		return args[1], nil
 	}
 }
 
 // integerQuotient is OpenSysMLMathFunctions::quotient, the exact ratio of two
-// Integers truncated toward zero. The one quotient outside the Integer range,
-// the most negative Integer by -1, is reported rather than wrapped to itself.
+// Integers truncated toward zero.
 func integerQuotient(args []semantics.Value) (semantics.Value, error) {
-	x, y := args[0].Int, args[1].Int
-	if y == 0 {
+	q, ok := semantics.IntDivTrunc(args[0], args[1])
+	if !ok {
 		return semantics.Value{}, ErrDivisionByZero
 	}
-	if x == math.MinInt64 && y == -1 {
-		return semantics.Value{}, fmt.Errorf("%w: quotient(%d, %d) exceeds the Integer range", semantics.ErrArithmeticOverflow, x, y)
-	}
-	return semantics.Value{Kind: semantics.ValInt, Int: x / y}, nil
+	return q, nil
 }
 
 // integerDomain is the domain of an Integer parameter: a Real does not conform.
@@ -768,8 +771,8 @@ func naturalDomain(v semantics.Value) error {
 	if err != nil {
 		return err
 	}
-	if x < 0 {
-		return fmt.Errorf("%w: requires Natural arguments, got %d", ErrTypeMismatch, x)
+	if x.IntSign() < 0 {
+		return fmt.Errorf("%w: requires Natural arguments, got %s", ErrTypeMismatch, x.FormatInt())
 	}
 	return nil
 }
@@ -777,11 +780,19 @@ func naturalDomain(v semantics.Value) error {
 // isZero and isUnit are the NumericalFunctions predicates the library's sum0
 // and product1 assert on their identity element.
 func isZero(args []semantics.Value) (semantics.Value, error) {
-	return semantics.Value{Kind: semantics.ValBool, Bool: asReal(args[0]) == 0}, nil
+	return semantics.Value{Kind: semantics.ValBool, Bool: numberEquals(args[0], 0)}, nil
 }
 
 func isUnit(args []semantics.Value) (semantics.Value, error) {
-	return semantics.Value{Kind: semantics.ValBool, Bool: asReal(args[0]) == 1}, nil
+	return semantics.Value{Kind: semantics.ValBool, Bool: numberEquals(args[0], 1)}, nil
+}
+
+// numberEquals reports whether the number x is n, an exact x compared exactly.
+func numberEquals(x semantics.Value, n int64) bool {
+	if x.IsExact() {
+		return semantics.CompareRat(x, semantics.IntValue(n)) == 0
+	}
+	return asReal(x) == float64(n)
 }
 
 // pickReal returns the larger or the smaller of two reals.
@@ -796,34 +807,31 @@ func pickReal(larger bool, a, b float64) float64 {
 // Integer :> Rational :> Real, so an Integer argument conforms to a Real
 // parameter.
 func asReal(v semantics.Value) float64 {
-	if v.Kind == semantics.ValInt {
-		return float64(v.Int)
-	}
-	return v.Real
+	return v.AsReal()
 }
 
 // asInteger requires an Integer value: a Real does not conform to an Integer
 // parameter, and silently truncating it would compute something the model did
 // not ask for.
-func asInteger(v semantics.Value) (int64, error) {
+func asInteger(v semantics.Value) (semantics.Value, error) {
 	if v.Kind != semantics.ValInt {
-		return 0, fmt.Errorf("%w: requires an Integer argument, got a Real", ErrTypeMismatch)
+		return semantics.Value{}, fmt.Errorf("%w: requires an Integer argument, got %s", ErrTypeMismatch,
+			describeValue(Value{Kind: ValConst, Const: v}))
 	}
-	return v.Int, nil
+	return v, nil
 }
 
-// integerResult wraps a whole Real as an Integer, reporting a value outside the
-// Integer range rather than wrapping it.
+// integerResult is the Integer a whole Real is, of any magnitude; an infinity
+// is no Integer and is reported as overflow.
 func integerResult(x float64) (semantics.Value, error) {
 	if math.IsNaN(x) {
 		return semantics.Value{}, fmt.Errorf("%w: argument outside the function's domain", semantics.ErrArithmeticDomain)
 	}
-	// MaxInt64 has no float64, so compare against 2^63, the next value up, which
-	// does: a whole Real reaching it is already outside the Integer range.
-	if math.IsInf(x, 0) || x >= -float64(math.MinInt64) || x < math.MinInt64 {
-		return semantics.Value{}, fmt.Errorf("%w: %v exceeds the Integer range", semantics.ErrArithmeticOverflow, x)
+	n, ok := semantics.IntegerOfReal(x)
+	if !ok {
+		return semantics.Value{}, fmt.Errorf("%w: %v is no Integer", semantics.ErrArithmeticOverflow, x)
 	}
-	return semantics.Value{Kind: semantics.ValInt, Int: int64(x)}, nil
+	return n, nil
 }
 
 // libraryFeature is the value this runtime supplies for one library feature: a
@@ -1106,7 +1114,7 @@ func complexProduct(name string, ctx *Context, args []Value) (Value, error) {
 func (ctx *Context) aggregateComplex(name string, collection Value, operator ast.OperatorKind) (Value, error) {
 	elements := elementsOf(collection)
 	if len(elements) > 0 && !holdsComplex(elements) {
-		return ctx.aggregate(name, []Value{collection}, operator, false)
+		return ctx.aggregate(name, []Value{collection}, operator, aggregateNumber)
 	}
 	acc := complex(0, 0)
 	if operator == ast.OpMul {
@@ -1198,7 +1206,7 @@ func stringPositionArg(name, param string, val Value) (int64, error) {
 			ErrTypeMismatch, name, param, describeOperand(val),
 		)
 	}
-	return val.Const.Int, nil
+	return addressableInteger(name, param, val.Const)
 }
 
 // stringConcat is StringFunctions::'+', which declares both operands String[1].

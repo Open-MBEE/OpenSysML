@@ -1,0 +1,22 @@
+{
+	"verdict": "divergent",
+	"divergent": {
+		"log": [
+			"\"did r2(entry) l2(exit) r2(exit) did r2(entry) \"",
+			"\"did r2(entry) l2(exit) r2(exit) r2(entry) did \"",
+			"\"did r2(entry) r2(exit) l2(exit) did r2(entry) \"",
+			"\"did r2(entry) r2(exit) l2(exit) r2(entry) did \"",
+			"\"r2(entry) did l2(exit) r2(exit) did r2(entry) \"",
+			"\"r2(entry) did l2(exit) r2(exit) r2(entry) did \"",
+			"\"r2(entry) did r2(exit) l2(exit) did r2(entry) \"",
+			"\"r2(entry) did r2(exit) l2(exit) r2(entry) did \"",
+			"\"r2(entry) l2(exit) r2(exit) did r2(entry) \"",
+			"\"r2(entry) l2(exit) r2(exit) r2(entry) did \"",
+			"\"r2(entry) r2(exit) l2(exit) did r2(entry) \"",
+			"\"r2(entry) r2(exit) l2(exit) r2(entry) did \""
+		]
+	},
+	"agreed": {
+		"finalState": "l2+r2"
+	}
+}

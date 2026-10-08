@@ -1,0 +1,22 @@
+# VehicleViews::vehicleView — tree rendering
+classes: {
+  definition: { style: { fill: white; stroke: "#181818"; stroke-width: 1; font-color: black; font-size: 14 } }
+  usage: { style: { fill: white; stroke: "#181818"; stroke-width: 1; font-color: black; font-size: 14; border-radius: 8 } }
+  edge: { style: { stroke: "#181818"; font-size: 13; font-color: black; stroke-width: 1 } }
+  composition: { source-arrowhead: { shape: diamond; style: { filled: true } }; style: { stroke: "#181818"; font-size: 13; font-color: black; stroke-width: 1 } }
+}
+n0: "«part def»\nVehicles::Vehicle" { class: definition; link: "https://example.test/src/tree.sysml#L11" }
+n1: "«part»\nengine : Engine" { class: usage; link: "https://example.test/src/tree.sysml#L12" }
+n2: "«part»\nwheels : Wheel" { class: usage; link: "https://example.test/src/tree.sysml#L13" }
+n3: "connect" { class: usage; link: "https://example.test/src/tree.sysml#L14" }
+n4: "«view»\nVehicleViews::vehicleView::engineSubview" { class: usage; link: "https://example.test/src/tree.sysml#L29" }
+n5: "«part def»\nVehicles::Engine" { class: definition; link: "https://example.test/src/tree.sysml#L4" }
+n6: "«attribute»\npower" { class: usage; link: "https://example.test/src/tree.sysml#L5" }
+n7: "«part»\ncylinder : Cylinder" { class: usage; link: "https://example.test/src/tree.sysml#L6" }
+n0 -- n1: { class: edge }
+n0 -- n2: { class: edge }
+n0 -- n3: { class: edge }
+n4 -- n5: { class: edge }
+n5 -- n6: { class: edge }
+n5 -- n7: { class: edge }
+n0 <- n5: "engine" { class: composition; link: "https://example.test/src/tree.sysml#L12" }

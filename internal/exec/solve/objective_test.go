@@ -640,7 +640,7 @@ func TestCaseStepsAreNotBodyStatements(t *testing.T) {
 	if !errors.As(err, &refused) {
 		t.Fatalf("translate: %v, want a refusal", err)
 	}
-	if refused.Construct != "body statement" || refused.Condition != "`action` statement" {
-		t.Errorf("refused %q (%q), want the body statement's action", refused.Construct, refused.Condition)
+	if refused.Construct != "constraint body steps" || refused.Condition != "the body's steps then { used <= 3 }" {
+		t.Errorf("refused %q (%q), want the constraint body steps", refused.Construct, refused.Condition)
 	}
 }

@@ -1,0 +1,7 @@
+stmt send
+  eval literal 5 -> 5
+step 1: token 2@counter
+step 2: token 2@recorder
+stmt assign number
+  eval feature n -> 5
+step 3: no active tokens

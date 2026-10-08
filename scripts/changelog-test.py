@@ -110,6 +110,18 @@ class RenderTest(unittest.TestCase):
         self.assertEqual(changelog.CHANGELOG.read_text(encoding="utf-8"), once)
         self.assertEqual(sorted(p.name for p in changelog.FRAGMENTS.iterdir()), [])
 
+    def test_entry_a_release_already_carries_is_not_folded_again(self):
+        # BASE's 0.4.3 already lists "- Released thing." under Added; a fragment that outlived
+        # its release is only deleted.
+        (changelog.FRAGMENTS / "a.added.md").write_text("- Released thing.\n", encoding="utf-8")
+        (changelog.FRAGMENTS / FIXED_FRAGMENT).write_text("- Released thing.\n", encoding="utf-8")
+        with contextlib.redirect_stdout(io.StringIO()):
+            changelog.render()
+        out = changelog.CHANGELOG.read_text(encoding="utf-8")
+        self.assertEqual(out.count("- Released thing."), 2)
+        self.assertIn("### Fixed\n\n- **Old fixed entry.** Text.\n\n- Released thing.\n\n## 0.4.3", out)
+        self.assertEqual(sorted(p.name for p in changelog.FRAGMENTS.iterdir()), [])
+
     def test_same_text_in_another_section_or_inside_a_longer_entry_is_still_folded(self):
         # BASE already has "- **Old added entry.** Text." under Added only.
         (changelog.FRAGMENTS / FIXED_FRAGMENT).write_text("- **Old added entry.** Text.\n", encoding="utf-8")

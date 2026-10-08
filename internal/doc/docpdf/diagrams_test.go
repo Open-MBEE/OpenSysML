@@ -1,16 +1,21 @@
 package docpdf
 
 import (
+	"bytes"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"image"
+	"image/png"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/doc/docrender"
+	"github.com/Open-MBEE/OpenSysML/internal/ir/imagefile"
 	"github.com/Open-MBEE/OpenSysML/internal/ir/view"
 )
 
@@ -19,7 +24,7 @@ import (
 func withoutDiagramTools(t *testing.T) {
 	t.Helper()
 	missing := t.TempDir()
-	for _, env := range []string{MermaidEnv, DotEnv, JavaEnv, PlantUMLJarEnv} {
+	for _, env := range []string{MermaidEnv, DotEnv, JavaEnv, PlantUMLJarEnv, D2Env} {
 		t.Setenv(env, filepath.Join(missing, "no-"+strings.ToLower(env)+"-here"))
 	}
 }
@@ -48,6 +53,20 @@ fi
 	return log
 }
 
+// fakeD2 writes a fake d2 that writes an SVG to the file its last argument
+// names, as d2 takes its output, logging its arguments to d2.log in dir and
+// keeping a copy of each input there.
+func fakeD2(t *testing.T, dir string) string {
+	t.Helper()
+	log := filepath.Join(dir, "d2.log")
+	fakeTool(t, dir, "d2", D2Env, `printf 'args:%s\n' "$*" >> "`+log+`"
+in=""; out=""; for arg; do in="$out"; out="$arg"; done
+cp "$in" "`+dir+`/"
+printf '<svg xmlns="http://www.w3.org/2000/svg"><text>drawn by d2</text></svg>' > "$out"
+`)
+	return log
+}
+
 // fakeJar writes an empty stand-in jar in dir and points PlantUMLJarEnv at it.
 func fakeJar(t *testing.T, dir string) string {
 	t.Helper()
@@ -70,6 +89,93 @@ func telescopeDiagrams(t *testing.T, form view.Form) []docrender.Diagram {
 		t.Fatalf("telescope report has %d diagrams, want 2", len(diagrams))
 	}
 	return diagrams
+}
+
+func TestMermaidDrawInlinesLocalPicturesBeforeSizing(t *testing.T) {
+	dir := t.TempDir()
+	var data bytes.Buffer
+	if err := png.Encode(&data, image.NewRGBA(image.Rect(0, 0, 2, 2))); err != nil {
+		t.Fatal(err)
+	}
+	imagePath := filepath.Join(dir, "picture.png")
+	if err := os.WriteFile(imagePath, data.Bytes(), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	fakeSVGTool(t, dir, "mmdc", MermaidEnv)
+	rendering := &view.Rendering{
+		Kind:  view.KindTree,
+		Roots: []*view.Node{{ID: "n", Kind: "part", Name: "pictured"}},
+		Pictures: []view.Picture{{
+			Location: imagePath,
+			Width:    20,
+			Height:   20,
+		}},
+	}
+	source := rendering.Mermaid()
+	rasterizer := &mermaidRasterizer{mmdc: filepath.Join(dir, "mmdc")}
+	if err := rasterizer.draw(dir, source, "diagram.svg"); err != nil {
+		t.Fatalf("draw: %v", err)
+	}
+	inlined, err := os.ReadFile(filepath.Join(dir, "diagram.mmd"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Contains(inlined, []byte("data:image/png;base64,")) ||
+		bytes.Contains(inlined, []byte(imagePath)) {
+		t.Errorf("local picture was not inlined:\n%s", inlined)
+	}
+	configData, err := os.ReadFile(filepath.Join(dir, "diagram.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got mermaidConfig
+	if err := json.Unmarshal(configData, &got); err != nil {
+		t.Fatal(err)
+	}
+	if want := configFor(strings.TrimSuffix(string(inlined), "\n")); got != want {
+		t.Errorf("configuration sized the pre-inlined source: got %+v, want %+v", got, want)
+	}
+}
+
+func TestMermaidDrawOmitsUnsafePicturesBeforeSizing(t *testing.T) {
+	dir := t.TempDir()
+	active := filepath.Join(dir, "script.svg")
+	if err := os.WriteFile(active, []byte(`<svg xmlns="http://www.w3.org/2000/svg"><script/></svg>`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	fakeSVGTool(t, dir, "mmdc", MermaidEnv)
+	rendering := &view.Rendering{
+		Kind:  view.KindInterconnection,
+		Roots: []*view.Node{{ID: "n", Kind: "part", Name: "pictured"}},
+		Pictures: []view.Picture{
+			{Location: active, X: 1, Y: 2, Width: 20, Height: 30},
+			{Location: "https://example.org/a.png", X: 3, Y: 4, Width: 40, Height: 50},
+		},
+	}
+	rasterizer := &mermaidRasterizer{mmdc: filepath.Join(dir, "mmdc")}
+	if err := rasterizer.draw(dir, rendering.Mermaid(), "diagram.svg"); err != nil {
+		t.Fatalf("draw: %v", err)
+	}
+	inlined, err := os.ReadFile(filepath.Join(dir, "diagram.mmd"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, unwanted := range []string{"data:image/svg+xml", `img: "https://example.org/a.png"`} {
+		if bytes.Contains(inlined, []byte(unwanted)) {
+			t.Errorf("Mermaid source contains refused picture content %q:\n%s", unwanted, inlined)
+		}
+	}
+	if count := bytes.Count(inlined, []byte("<script")); count != 1 {
+		t.Errorf("Mermaid source has %d script construct(s), want only the notice:\n%s", count, inlined)
+	}
+	for _, want := range []string{
+		"the SVG has active content (<script>)",
+		"remote pictures are not drawn",
+	} {
+		if !bytes.Contains(inlined, []byte(want)) {
+			t.Errorf("Mermaid source lacks picture notice %q:\n%s", want, inlined)
+		}
+	}
 }
 
 // TestSourceNoticesNameTheVariables checks the notice over a diagram kept as
@@ -141,6 +247,43 @@ func TestDrawDOTWritesTheDiagramSource(t *testing.T) {
 	}
 }
 
+// TestRenderD2WithFakeD2 checks the D2 form is drawn by the d2 the
+// environment names: each block written to a .d2 file, d2 run on it with the
+// layout engine pinned, and its SVG embedded in the page in diagram order.
+func TestRenderD2WithFakeD2(t *testing.T) {
+	dir := t.TempDir()
+	withoutDiagramTools(t)
+	log := fakeD2(t, dir)
+	capture := captureWeasyPrint(t, dir)
+	if _, err := Render(telescopeDocument(t), "weasyprint", Options{DiagramForm: view.FormD2}); err != nil {
+		t.Fatalf("Render: %v", err)
+	}
+	page, listing := readCapture(t, capture)
+	images := fileRefs(captureDir(t, capture), []string{"diagram-1.svg", "diagram-2.svg"})
+	first, second := strings.Index(page, `<img src="`+images[0]+`"`), strings.Index(page, `<img src="`+images[1]+`"`)
+	if first < 0 || second < 0 || first > second || strings.Contains(page, `<pre class="d2">`) {
+		t.Fatalf("page does not show the two drawn diagrams in order:\n%s", page)
+	}
+	for _, file := range []string{"diagram-1.d2", "diagram-1.svg", "diagram-2.d2", "diagram-2.svg"} {
+		if !strings.Contains(listing, file) {
+			t.Fatalf("render directory lacks %s:\n%s", file, listing)
+		}
+	}
+	args, _ := os.ReadFile(log)
+	for _, want := range []string{"args:--layout=dagre --pad=16 diagram-1.d2 diagram-1.svg\n", "args:--layout=dagre --pad=16 diagram-2.d2 diagram-2.svg\n"} {
+		if !strings.Contains(string(args), want) {
+			t.Fatalf("d2 arguments lack %q: %s", want, args)
+		}
+	}
+	diagrams := telescopeDiagrams(t, view.FormD2)
+	for i, diagram := range diagrams {
+		source, err := os.ReadFile(filepath.Join(dir, fmt.Sprintf("diagram-%d.d2", i+1)))
+		if err != nil || string(source) != diagram.Source+"\n" {
+			t.Fatalf("d2 input %d: %q, %v; want the diagram's source", i+1, source, err)
+		}
+	}
+}
+
 // TestGraphvizLayoutArgs checks the `// layout:` header the DOT writer opens a
 // block with picks the layout engine, and `-n` keeps the positions it states.
 func TestGraphvizLayoutArgs(t *testing.T) {
@@ -190,21 +333,37 @@ func imagePathArg(t *testing.T) string {
 	return "-Gimagepath=" + cwd
 }
 
-// File references become data URIs, relative to the given directory; URLs, data URIs,
-// missing files and files that are no image (never copied into the document) stay as written.
+// File references become data URIs, while refused images become comments and
+// missing or unsupported files stay as written.
 func TestEmbedImagesInlinesThePicturesAnSVGRefers(t *testing.T) {
 	base := t.TempDir()
-	png := []byte("\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR")
+	var pngBuffer bytes.Buffer
+	if err := png.Encode(&pngBuffer, image.NewRGBA(image.Rect(0, 0, 2, 2))); err != nil {
+		t.Fatal(err)
+	}
+	pngData := pngBuffer.Bytes()
 	if err := os.MkdirAll(filepath.Join(base, "images"), 0o750); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(base, "images", "a&b.png"), png, 0o600); err != nil {
+	if err := os.WriteFile(filepath.Join(base, "images", "a&b.png"), pngData, 0o600); err != nil {
 		t.Fatal(err)
 	}
 	if err := os.WriteFile(filepath.Join(base, "notes.txt"), []byte("secret=1\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	abs := filepath.Join(base, "images", "a&b.png")
+	active := filepath.Join(base, "images", "script-active.svg")
+	script := `<svg xmlns="http://www.w3.org/2000/svg"><script/></svg>`
+	if err := os.WriteFile(active, []byte(script), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	malformed := filepath.Join(base, "images", "malformed.svg")
+	if err := os.WriteFile(malformed, []byte("<svg"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	pngURI := "data:image/png;base64," + base64.StdEncoding.EncodeToString(pngData)
+	mismatchedURI := "data:image/svg+xml;base64," + base64.StdEncoding.EncodeToString(pngData)
+	scriptURI := "data:image/svg+xml;base64," + base64.StdEncoding.EncodeToString([]byte(script))
 	svg := `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">` +
 		`<image xlink:href="images/a&amp;b.png" width="1px" height="1px"/>` +
 		`<image width="1px" href="` + abs + `"/>` +
@@ -212,6 +371,11 @@ func TestEmbedImagesInlinesThePicturesAnSVGRefers(t *testing.T) {
 		`<image xlink:href="notes.txt"/>` +
 		`<image xlink:href="https://example.org/a.png"/>` +
 		`<image xlink:href="data:image/png;base64,AAAA"/>` +
+		`<image xlink:href="` + pngURI + `"/>` +
+		`<image xlink:href="` + mismatchedURI + `"/>` +
+		`<image xlink:href="` + active + `"/>` +
+		`<image xlink:href="` + malformed + `"/>` +
+		`<image xlink:href="` + scriptURI + `"/>` +
 		`</svg>`
 	path := filepath.Join(t.TempDir(), "diagram-1.svg")
 	if err := os.WriteFile(path, []byte(svg), 0o600); err != nil {
@@ -224,17 +388,188 @@ func TestEmbedImagesInlinesThePicturesAnSVGRefers(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	uri := "data:image/png;base64," + base64.StdEncoding.EncodeToString(png)
 	want := `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">` +
-		`<image xlink:href="` + uri + `" width="1px" height="1px"/>` +
-		`<image width="1px" href="` + uri + `"/>` +
+		`<image xlink:href="` + pngURI + `" width="1px" height="1px"/>` +
+		`<image width="1px" href="` + pngURI + `"/>` +
 		`<image xlink:href="images/missing.png"/>` +
 		`<image xlink:href="notes.txt"/>` +
-		`<image xlink:href="https://example.org/a.png"/>` +
-		`<image xlink:href="data:image/png;base64,AAAA"/>` +
+		`<!-- not represented: picture https&#58;//example.org/a.png not drawn; remote pictures are not drawn -->` +
+		`<!-- not represented: picture data:image/png;base64,AAAA not drawn; the data: URL is not a supported image -->` +
+		`<image xlink:href="` + pngURI + `"/>` +
+		`<!-- not represented: picture ` + mismatchedURI + ` not drawn; the data: URL declares image/svg+xml but holds image/png -->` +
+		`<!-- not represented: picture ` + strings.ReplaceAll(active, "-", "&#45;") + ` not drawn; the SVG has active content (<script>) -->` +
+		`<!-- not represented: picture ` + strings.ReplaceAll(malformed, "-", "&#45;") + ` not drawn; the SVG is not well&#45;formed (XML syntax error on line 1: unexpected EOF) -->` +
+		`<!-- not represented: picture ` + scriptURI + ` not drawn; the SVG has active content (<script>) -->` +
 		`</svg>`
 	if string(out) != want {
 		t.Errorf("embedded SVG:\n%s\nwant:\n%s", out, want)
+	}
+	if bytes.Contains(out, []byte(`href="data:image/svg+xml`)) || bytes.Contains(out, []byte("<script/>")) {
+		t.Errorf("embedded SVG contains active picture data:\n%s", out)
+	}
+}
+
+func TestEmbedImagesMatchesImageElementsAndHrefSyntax(t *testing.T) {
+	cases := []struct {
+		name, element, location string
+		unchanged               bool
+	}{
+		{"single quoted href", `<image href='https://example.org/a.png'/>`, "https://example.org/a.png", false},
+		{"non-self-closing xlink href", `<image xlink:href = "https://example.org/b.png" width="1"></image>`, "https://example.org/b.png", false},
+		{"spaces around equals", `<image href = "https://example.org/c.png"/>`, "https://example.org/c.png", false},
+		{"href before other attributes", `<image href="https://example.org/d.png" width="1" height="1"/>`, "https://example.org/d.png", false},
+		{"no href", `<image width="1"></image>`, "", true},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			path := filepath.Join(t.TempDir(), "diagram.svg")
+			source := `<svg xmlns="http://www.w3.org/2000/svg">` + tc.element + `</svg>`
+			if err := os.WriteFile(path, []byte(source), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			if err := embedImages(path, t.TempDir()); err != nil {
+				t.Fatalf("embedImages: %v", err)
+			}
+			out, err := os.ReadFile(path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if tc.unchanged {
+				if string(out) != source {
+					t.Errorf("element without href changed: %s", out)
+				}
+				return
+			}
+			if strings.Contains(string(out), "<image") {
+				t.Errorf("refused image element remains in output: %s", out)
+			}
+			comment := `<!-- not represented: picture ` + strings.ReplaceAll(tc.location, ":", "&#58;") + ` not drawn; remote pictures are not drawn -->`
+			if !strings.Contains(string(out), comment) {
+				t.Errorf("output lacks refusal comment %q: %s", comment, out)
+			}
+		})
+	}
+}
+
+func TestEmbedImagesConsumesImageSubtrees(t *testing.T) {
+	base := t.TempDir()
+	var pngBuffer bytes.Buffer
+	if err := png.Encode(&pngBuffer, image.NewRGBA(image.Rect(0, 0, 2, 2))); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(base, "clean.png"), pngBuffer.Bytes(), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	pngURI := "data:image/png;base64," + base64.StdEncoding.EncodeToString(pngBuffer.Bytes())
+	const remote = "https://example.org/a.png"
+	cases := []struct {
+		name, source string
+		check        func(*testing.T, []byte)
+	}{
+		{
+			name:   "refused image with children",
+			source: `<svg xmlns="http://www.w3.org/2000/svg"><image href="` + remote + `"><title>Logo</title><desc>Remote image</desc></image></svg>`,
+			check: func(t *testing.T, out []byte) {
+				for _, unwanted := range []string{remote, `</image>`, `<title>Logo`, `<desc>Remote image`} {
+					if bytes.Contains(out, []byte(unwanted)) {
+						t.Errorf("refused image subtree still contains %q:\n%s", unwanted, out)
+					}
+				}
+			},
+		},
+		{
+			name:   "clean image with children",
+			source: `<svg xmlns="http://www.w3.org/2000/svg"><image href="clean.png" width="1"><title>Clean</title><desc>Local image</desc></image></svg>`,
+			check: func(t *testing.T, out []byte) {
+				want := `<image href="` + pngURI + `" width="1"><title>Clean</title><desc>Local image</desc></image>`
+				if !bytes.Contains(out, []byte(want)) {
+					t.Errorf("clean image subtree was not preserved and inlined:\n%s", out)
+				}
+			},
+		},
+		{
+			name: "consecutive images",
+			source: `<svg xmlns="http://www.w3.org/2000/svg"><image href="` + remote + `"><title>Logo</title><desc>Remote image</desc></image>` +
+				`<image href="clean.png"><title>Clean</title></image></svg>`,
+			check: func(t *testing.T, out []byte) {
+				if bytes.Contains(out, []byte(remote)) || bytes.Contains(out, []byte(`<title>Logo`)) ||
+					bytes.Contains(out, []byte(`<desc>Remote image`)) {
+					t.Errorf("refused image subtree remains:\n%s", out)
+				}
+				want := `<image href="` + pngURI + `"><title>Clean</title></image>`
+				if !bytes.Contains(out, []byte(want)) || bytes.Count(out, []byte(`</image>`)) != 1 {
+					t.Errorf("clean image subtree was not independently inlined and preserved:\n%s", out)
+				}
+			},
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			path := filepath.Join(t.TempDir(), "diagram.svg")
+			if err := os.WriteFile(path, []byte(tc.source), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			if err := embedImages(path, base); err != nil {
+				t.Fatalf("embedImages: %v", err)
+			}
+			out, err := os.ReadFile(path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			tc.check(t, out)
+			if err := imagefile.CheckSVG(out); err != nil {
+				t.Errorf("embedded SVG is not well formed: %v", err)
+			}
+		})
+	}
+}
+
+func TestGraphvizDrawRefusesActivePictureFiles(t *testing.T) {
+	dot, err := exec.LookPath("dot")
+	if err != nil {
+		t.Skip("dot is not installed")
+	}
+	t.Setenv(DotEnv, dot)
+	dir := t.TempDir()
+	clean := filepath.Join(dir, "clean.svg")
+	cleanSVG := []byte(`<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="2" height="2" viewBox="0 0 2 2"><rect width="2" height="2"/></svg>`)
+	if err := os.WriteFile(clean, cleanSVG, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	draw := func(image string) string {
+		t.Helper()
+		source := fmt.Sprintf("graph G { picture [shape=none, label=\"\", image=%q, imagescale=both, fixedsize=true, width=1, height=1]; }", image)
+		svgs, err := DrawSVG([]docrender.Diagram{{Form: view.FormDot, Source: source}})
+		if err != nil {
+			t.Fatalf("DrawSVG: %v", err)
+		}
+		if len(svgs) != 1 {
+			t.Fatalf("DrawSVG returned %d SVGs, want 1", len(svgs))
+		}
+		return svgs[0]
+	}
+	cleanOutput := draw(clean)
+	if !strings.Contains(cleanOutput, "<image ") {
+		t.Skip("Graphviz did not emit an SVG image reference")
+	}
+	if !strings.Contains(cleanOutput, "data:image/svg+xml;base64,") {
+		t.Errorf("clean SVG was not embedded as a data URI:\n%s", cleanOutput)
+	}
+	active := filepath.Join(dir, "script-active.svg")
+	activeSVG := []byte(`<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="2" height="2" viewBox="0 0 2 2"><rect width="2" height="2" onload="run()"/></svg>`)
+	if err := os.WriteFile(active, activeSVG, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	output := draw(active)
+	if strings.Contains(output, "data:image/svg+xml") || strings.Contains(output, `onload="run()"`) {
+		t.Errorf("Graphviz output contains active picture content:\n%s", output)
+	}
+	want := `<!-- not represented: picture ` + strings.ReplaceAll(active, "-", "&#45;") +
+		` not drawn; the SVG has active content (an onload attribute on <rect>) -->`
+	if !strings.Contains(output, want) {
+		t.Errorf("Graphviz output lacks refused-picture comment %q:\n%s", want, output)
 	}
 }
 
@@ -391,6 +726,29 @@ func TestDrawDiagramToolWroteNoSVG(t *testing.T) {
 	}
 }
 
+// TestDrawDiagramD2WroteNoSVG checks a d2 that exits 0 without writing an SVG
+// document fails as every tool does — a typed failure naming d2 and the
+// diagram, not the error of the mask pass reading a file that is not there.
+func TestDrawDiagramD2WroteNoSVG(t *testing.T) {
+	cases := map[string]string{
+		"nothing":      "exit 0\n",
+		"diagnostics":  `printf 'err: layout failed\n' > "$out"`,
+		"malformedXML": `printf '<svg xmlns="http://www.w3.org/2000/svg"><mask id="m">unclosed' > "$out"`,
+	}
+	for name, script := range cases {
+		t.Run(name, func(t *testing.T) {
+			dir := t.TempDir()
+			withoutDiagramTools(t)
+			fakeTool(t, dir, "d2", D2Env, `out=""; for arg; do out="$arg"; done`+"\n"+script+"\n")
+			_, err := drawDiagrams(dir, telescopeDiagrams(t, view.FormD2))
+			var docErr *Error
+			if !errors.As(err, &docErr) || docErr.Kind != ErrorToolFailed || docErr.Tool != d2Tool.name || !strings.Contains(docErr.Detail, "wrote no SVG") || !strings.Contains(docErr.Detail, "diagram 1") {
+				t.Fatalf("got %v, want ErrorToolFailed from d2 naming diagram 1", err)
+			}
+		})
+	}
+}
+
 // TestDrawDiagramToolWroteAPrefacedSVG checks a drawing opening on an XML
 // declaration and a DOCTYPE, as Graphviz and PlantUML write it, is accepted.
 func TestDrawDiagramToolWroteAPrefacedSVG(t *testing.T) {
@@ -499,7 +857,7 @@ func TestRenderForPandocDrawsDOTAndPlantUML(t *testing.T) {
 			t.Fatal(err)
 		}
 		images := fileRefs(captureDir(t, capture), []string{"diagram-1.svg", "diagram-2.svg"})
-		for _, want := range []string{`local forms = {mermaid = true, dot = true, plantuml = true}`, `local images = {"` + images[0] + `", "` + images[1] + `"}`} {
+		for _, want := range []string{`local forms = {mermaid = true, dot = true, plantuml = true, d2 = true}`, `local images = {"` + images[0] + `", "` + images[1] + `"}`} {
 			if !strings.Contains(string(filter), want) {
 				t.Fatalf("%s filter lacks %q:\n%s", form, want, filter)
 			}
@@ -540,5 +898,74 @@ func TestRenderDOTStyleReachesGraphviz(t *testing.T) {
 	_, err = Render(telescopeDocument(t), "weasyprint", Options{DiagramForm: view.FormDot, Style: "magicdraw"})
 	if err == nil || !strings.Contains(err.Error(), `unknown drawing style "magicdraw"`) {
 		t.Fatalf("an unknown drawing style: %v", err)
+	}
+}
+
+// TestDefineMasksMovesD2MasksIntoDefs wraps the masks d2 writes after the
+// connections in <defs>, leaves a mask already defined there alone, and
+// does not rewrite an SVG without one.
+func TestDefineMasksMovesD2MasksIntoDefs(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "d.svg")
+	write := func(svg string) {
+		t.Helper()
+		if err := os.WriteFile(path, []byte(svg), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	read := func() string {
+		t.Helper()
+		svg, err := os.ReadFile(path) // #nosec G304 -- a test file
+		if err != nil {
+			t.Fatal(err)
+		}
+		return string(svg)
+	}
+
+	write(`<svg xmlns="http://www.w3.org/2000/svg"><svg class="d2-1 d2-svg">
+<path d="M 0 0 L 1 1" mask="url(#d2-1)" />
+<mask id="d2-1" maskUnits="userSpaceOnUse" x="-17" y="-17" width="90" height="287">
+<rect x="-17" y="-17" width="90" height="287" fill="white"></rect>
+<rect x="18" y="116" width="21" height="21" fill="black"></rect>
+</mask><mask id="d2-2"><rect fill="white"/></mask></svg></svg>`)
+	if err := defineMasks(path); err != nil {
+		t.Fatal(err)
+	}
+	got := read()
+	for _, want := range []string{
+		`<path d="M 0 0 L 1 1" mask="url(#d2-1)" />` + "\n" + `<defs><mask id="d2-1" maskUnits="userSpaceOnUse" x="-17" y="-17" width="90" height="287">`,
+		`</mask></defs><defs><mask id="d2-2"><rect fill="white"/></mask></defs></svg></svg>`,
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("rewritten SVG lacks %q:\n%s", want, got)
+		}
+	}
+	if n := strings.Count(got, "<defs>"); n != 2 || strings.Count(got, "</defs>") != 2 {
+		t.Errorf("want each of the two masks under its own <defs>, got %d:\n%s", n, got)
+	}
+	if strings.Count(got, `fill="black"`) != 1 || strings.Count(got, "<mask") != 2 {
+		t.Errorf("the masks' contents must be kept:\n%s", got)
+	}
+
+	write(`<svg xmlns="http://www.w3.org/2000/svg"><defs>
+	<mask id="m"><rect/></mask></defs><rect mask="url(#m)"/></svg>`)
+	if err := defineMasks(path); err != nil {
+		t.Fatal(err)
+	}
+	if got := read(); strings.Count(got, "<defs>") != 1 {
+		t.Errorf("a mask already under <defs> was wrapped again:\n%s", got)
+	}
+
+	plain := `<svg xmlns="http://www.w3.org/2000/svg"><rect/></svg>`
+	write(plain)
+	if err := defineMasks(path); err != nil {
+		t.Fatal(err)
+	}
+	if got := read(); got != plain {
+		t.Errorf("an SVG without masks was rewritten:\n%s", got)
+	}
+
+	if err := defineMasks(filepath.Join(dir, "missing.svg")); err == nil {
+		t.Error("a missing SVG must be an error")
 	}
 }

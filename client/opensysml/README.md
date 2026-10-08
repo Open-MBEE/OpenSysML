@@ -38,9 +38,13 @@ inst, err := client.Instantiate(ctx, model, "Demo::Vehicle")
 | Check it | `VerifyConstraint`, `VerifyRequirement`, `VerifySatisfaction`, `ValidateInstance` |
 | Choose who answers | `ListEngines`, `WithEngine`, `Engine`, `CalcEngine` |
 | Search it | `Query`, `QueryOSLC` |
-| Report on it | `RunDocumentQuery`, `RenderDocument` |
+| Report on it | `RunDocumentQuery`, `RenderDocument`, `RenderView` |
 | Write it out | `Convert`, `ConvertFile`, `ConvertSource` |
 | Change its source | `ApplyEdits` |
+
+`RenderView` returns ordered, typed node, edge, port and source-origin data.
+Ports used by connections are returned by default; pass `opensysml.WithFullPorts()`
+to include every declared port.
 
 Execution and verification take the same handles the rest of the API takes:
 
@@ -109,7 +113,11 @@ guards holding, several transitions enabled — under the scheduling policy
 one `Outcome` per distinct result with the `Linearizations` that reached it and
 one run's `Witness`, and whether the search was `Complete` or which `BudgetsHit`
 ended it. `WithSchedule("explore:runs=64,depth=8")` sets the budget; a run that
-fails under some orders is an `Outcome` with its `Error` set, not a failed call.
+fails after it begins under some orders is an `Outcome` with its `Error` set, not a failed call.
+A failure to create or initialize the root executor is instead returned as an error with no
+exploration. `FailedLinearizations` counts runtime-error runs; each outcome's
+`ProbabilityRange` is nil unless a weighted model choice occurred and otherwise bounds its
+model-draw probability over schedulers. Scheduling choices have no probability.
 The single-run and exploring calls refuse each other's policies with
 `CodeInvalidArgument`, so a policy is never quietly answered by the wrong shape.
 

@@ -1,0 +1,8 @@
+{
+	"type": "action",
+	"evaluate": "test::pass",
+	"trace": true,
+	"outputs": {
+		"b.v": {"type": "Integer", "value": 1}
+	}
+}

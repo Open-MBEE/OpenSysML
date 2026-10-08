@@ -200,6 +200,12 @@ func (s *Service) exploreAnalysis(ctx context.Context, schedule runtime.Schedule
 	if err != nil {
 		return nil, err
 	}
+	if x.setupErr != nil {
+		return analysisResponse(&pb.RunAnalysisResponse{
+			Error:         x.setupErr.Error(),
+			FailureReason: failureReason(x.setupErr),
+		}, s.standingOf(x.plan)), nil
+	}
 	return analysisResponse(&pb.RunAnalysisResponse{Outcomes: x.outcomes, Exploration: x.status}, s.standingOf(x.plan)), nil
 }
 
@@ -260,8 +266,8 @@ func (v *verifyContext) namedInstances(val runtime.Value) []*runtime.Instance {
 	var elements []runtime.Value
 	switch val.Kind {
 	case runtime.ValSequence:
-		if seq := val.Sequence(); seq != nil {
-			elements = seq.Elements()
+		if val.Sequence() != nil {
+			_, elements = v.runtime.MadeElements(val)
 		}
 	case runtime.ValSet:
 		if set := val.Set(); set != nil {

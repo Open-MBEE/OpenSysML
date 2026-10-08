@@ -11,13 +11,25 @@ import (
 )
 
 var (
+	// errNoWayThrough marks a compound route with no statically enabled path.
+	errNoWayThrough = errors.New("no way through")
+
 	// ErrStepLimitExceeded is returned when the evaluation step counter exceeds maxSteps.
 	ErrStepLimitExceeded = errors.New("evaluation step limit exceeded")
+
+	// ErrInterrupted is returned when a run is stopped from outside, through the
+	// flag Context.SetInterrupt installs, before it ended on its own.
+	ErrInterrupted = errors.New("interrupted")
 
 	// ErrElementLimitExceeded is returned when the collection elements one run
 	// materializes exceed maxElements. It is a bound on memory rather than on
 	// work, so it is its own error and its own budget.
 	ErrElementLimitExceeded = errors.New("collection element limit exceeded")
+
+	// ErrIntegerSizeLimit is returned when an Integer result would need more
+	// bits than the run's Integer size budget allows. Integers are unbounded;
+	// the budget bounds the memory and time one result may take.
+	ErrIntegerSizeLimit = semantics.ErrIntegerSizeLimit
 
 	// ErrInstanceLimitExceeded is returned when materializing one more object
 	// would take the context past the bound SetMaxInstances set.
@@ -29,6 +41,10 @@ var (
 	// ErrAmbiguousReference is returned when a qualified name names several elements.
 	ErrAmbiguousReference = errors.New("ambiguous reference")
 
+	// ErrActionStepMultiplicity reports an action step the executor cannot perform
+	// with the declared multiplicity or its surrounding flow.
+	ErrActionStepMultiplicity = errors.New("unsupported action step multiplicity")
+
 	// ErrTypeMismatch is returned when an operation receives a value of unexpected type.
 	ErrTypeMismatch = errors.New("type mismatch")
 
@@ -38,6 +54,10 @@ var (
 
 	// ErrMultiplicityViolation is returned when a feature value access/assignment violates multiplicity bounds.
 	ErrMultiplicityViolation = errors.New("multiplicity violation")
+
+	// ErrInfiniteLowerBound is returned when a collection is filled to a lower bound of *,
+	// which requires no finite number of values; it is a multiplicity violation.
+	ErrInfiniteLowerBound = fmt.Errorf("%w: infinite lower bound", ErrMultiplicityViolation)
 
 	// ErrUniquenessViolation is returned when a value written to a unique feature repeats one of its values.
 	ErrUniquenessViolation = errors.New("uniqueness violation")
@@ -217,8 +237,8 @@ var (
 	// no value of the type the trigger takes — the judgement validation makes of it.
 	ErrTimeTriggerType = errors.New("time trigger argument of the wrong type")
 
-	// ErrActionResultParameter is returned when an action to perform declares a
-	// `return` parameter, which only a function or expression owns.
+	// ErrActionResultParameter is returned when a return parameter's owner is no
+	// function or expression; an inherited function result is an output.
 	ErrActionResultParameter = errors.New("action declares a return parameter")
 
 	// ErrCalcRecursionLimit is returned when calc invocation nests deeper than
@@ -294,6 +314,10 @@ var (
 	// action node does not declare, or the node's result where it has none.
 	ErrNodePin = errors.New("action node pin not declared")
 
+	// ErrAmbiguousMergeInput is returned when a token that no flow brought reaches a
+	// merge holding values plain flows left at more than one of its inputs.
+	ErrAmbiguousMergeInput = errors.New("merge input is ambiguous")
+
 	// ErrFlowSource is returned when a flow's source completes with its pin holding
 	// no value to carry: a streaming source that never wrote, a succession source that produced nothing.
 	ErrFlowSource = errors.New("flow source produced no value")
@@ -319,9 +343,24 @@ var (
 	// condition to evaluate: reporting a verdict would claim a check that never ran.
 	ErrNoConditions = errors.New("no condition to evaluate")
 
-	// ErrStatementNotExecuted is returned when a constraint body states an action
-	// statement: the evaluator does not run it, so a verdict would ignore it.
-	ErrStatementNotExecuted = errors.New("statement in a constraint body is not executed by OpenSysML")
+	// ErrConstraintExternalAssignment is returned when a constraint body's
+	// assignment targets a name the constraint's own performance holds no
+	// feature for — the implicit target is the performance (SysML v2 §7.17.9),
+	// and the name is a feature of the constrained object, not of it.
+	ErrConstraintExternalAssignment = errors.New("assignment outside the constraint performance")
+
+	// ErrConstraintEffect is returned when a constraint body states an effect
+	// outside its own performance — a chained or qualified write, a send, a
+	// performed action, a terminate — which a verdict does not perform.
+	ErrConstraintEffect = errors.New("effect outside the constraint performance")
+
+	// ErrOrderDependentPreview is returned when a guard's verdict varies by
+	// statement order inside a preview, where a scheduler choice cannot be made.
+	ErrOrderDependentPreview = errors.New("order-dependent guard in a preview")
+
+	// ErrOrderDependentGuardEffect is returned when a swept guard constraint may
+	// write a feature outside its own performance.
+	ErrOrderDependentGuardEffect = errors.New("order-dependent guard may write outside its constraint performance")
 
 	// ErrUnboundSubject is returned when a condition reads a subject nothing
 	// supplied: the check is about no object, so it reaches no verdict.
@@ -425,6 +464,11 @@ var (
 	// as much as size+1 is, and each operation names what it indexed.
 	ErrIndexOutOfRange = errors.New("index out of range")
 
+	// ErrIntegerUnaddressable is returned when an Integer serves as a position,
+	// count or bound of something held, and is beyond the 64-bit range any of
+	// those can take: Integers are unbounded, what they address is not.
+	ErrIntegerUnaddressable = semantics.ErrIntegerUnaddressable
+
 	// ErrBodyArity is returned when the body expression a collection operation
 	// is given declares a number of parameters the operation cannot call it
 	// with: `select` calls its selector with one element, so a selector
@@ -483,6 +527,13 @@ var (
 	// ErrClockNotAssignable is returned when an assignment targets a Clock's
 	// currentTime: the run advances it, so no statement writes it.
 	ErrClockNotAssignable = errors.New("a clock's currentTime advances with the run and is not assigned")
+
+	// ErrReadOnlyFeature is returned when a behavior writes a feature declared
+	// `constant` or `derived`, or redefining or subsetting one that is, once its
+	// featuring occurrence is initialized: a constant feature keeps its value over
+	// that occurrence's lifetime and a derived one has the values the model
+	// determines, so neither is written. The feature keeps the value it held.
+	ErrReadOnlyFeature = errors.New("feature is read-only")
 
 	// ErrNoSubject is returned when the feature a satisfaction assertion names
 	// with `by` cannot supply a subject: it resolves to nothing, or no object of

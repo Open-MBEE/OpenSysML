@@ -117,6 +117,9 @@ type StateGraph struct {
 	transitionFootprints map[*Transition]Footprint
 	behaviorFootprints   map[ast.Node]Footprint
 	footprintsOnce       sync.Once
+	// transitionSteps: transition out of a state → its step short of do behaviors.
+	transitionSteps map[*Transition]TransitionStep
+	stepsOnce       sync.Once
 
 	// CompositeStates: state → regions
 	CompositeStates map[*ast.StateNode][]*ast.StateRegion
@@ -133,10 +136,6 @@ type StateGraph struct {
 
 	// RegionOwner: region → owning composite state
 	RegionOwner map[*ast.StateRegion]*ast.StateNode
-
-	// Deferred: state → the triggers it defers while active, normalized the same
-	// way transition triggers are.
-	Deferred map[*ast.StateNode][]ast.Node
 
 	// TopRegions are the machine's own orthogonal regions, in declaration order.
 	// The order is observable: it is the order regions are entered and exited in.
@@ -351,13 +350,6 @@ func ToStateGraphWithEndpoints(stateMachineDecl ast.Node, scope *symbols.Scope, 
 		return nil, err
 	}
 
-	// Record the triggers each state defers, once every state is collected.
-	for _, state := range graph.States {
-		if err := collectDeferred(graph, state); err != nil {
-			return nil, err
-		}
-	}
-
 	// Third pass: collect transitions
 	for _, group := range groupMembers(body) {
 		if err := collectGroupTransitions(graph, group, group.owner, nil, nil); err != nil {
@@ -485,7 +477,7 @@ func lowerStateAttributes(graph *StateGraph, members []inheritedMember) []Attrib
 			continue
 		}
 		graph.attributeScope[usage] = member.scope
-		attrs = append(attrs, Attribute{Name: name, Direction: usage.Direction, IsResult: usage.IsResult, Type: TypeText(usage), Value: usage.Value, Node: usage, Scope: member.scope})
+		attrs = append(attrs, Attribute{Name: name, Direction: usage.Direction, IsResult: usage.IsResult, Type: TypeText(usage), Value: usage.Value, Binding: valueIsBinding(usage.Value, usage.ValueIsInitial, usage.ValueIsDefault), Node: usage, Scope: member.scope})
 	}
 	return attrs
 }
@@ -662,7 +654,6 @@ func newStateGraph(scope *symbols.Scope, endpoints EndpointResolver) *StateGraph
 		ParentState:          make(map[*ast.StateNode]*ast.StateNode),
 		RegionOwner:          make(map[*ast.StateRegion]*ast.StateNode),
 		RegionOf:             make(map[*ast.StateNode]*ast.StateRegion),
-		Deferred:             make(map[*ast.StateNode][]ast.Node),
 		regionDecl:           make(map[*ast.StateRegion]ast.Node),
 
 		designatedInitials: make(map[*ast.StateNode]bool),
@@ -838,6 +829,16 @@ func collectVertices(graph *StateGraph, members []ast.Node, scope *symbols.Scope
 	}
 	for _, member := range members {
 		actual := unwrapMembership(member)
+		// A `#choice state`/history/junction usage is a pseudostate declared as
+		// metadata, never a region of a parallel body.
+		if usage, ok := actual.(*ast.Usage); ok {
+			if kind, annotated := graph.pseudostateKindOf(usage, scope); annotated {
+				ps := pseudostateFromUsage(usage, kind)
+				graph.copyInherited(ps, usage, scope)
+				graph.addPseudostate(ps, scope)
+				continue
+			}
+		}
 		if parallel && isParallelRegionMember(actual) {
 			continue
 		}
@@ -877,10 +878,6 @@ func collectVertices(graph *StateGraph, members []ast.Node, scope *symbols.Scope
 			}
 		case *ast.PseudostateNode:
 			graph.addPseudostate(n, scope)
-		case *ast.DeferMember:
-			// The machine's own body has no state to defer for: an event deferred
-			// there would be retained for the whole run and never redelivered.
-			return fmt.Errorf("defer must be declared inside a state, not in the state machine body")
 		}
 	}
 	return nil
@@ -917,9 +914,6 @@ func collectGraphOnlyState(graph *StateGraph, state *ast.StateNode, parent *ast.
 	graph.Behaviors[state] = graph.lowerStateBehaviors(state, scope)
 	if parent != nil {
 		graph.ParentState[state] = parent
-	}
-	if err := collectDeferred(graph, state); err != nil {
-		return err
 	}
 	if inst := graph.instanceOf[state]; inst != nil {
 		graph.push(inst)
@@ -973,14 +967,23 @@ func collectStateContents(graph *StateGraph, state *ast.StateNode, scope *symbol
 }
 
 // stateless reports whether region is stood for by a state declaring no substates
-// (behaviors, transitions and deferred events are not states): such a region
+// (behaviors and transitions are not states): such a region
 // starts in, and stays in, that state, so it needs no initial.
 func (g *StateGraph) stateless(region *ast.StateRegion) bool {
 	if g.RegionState[region] == nil {
 		return false
 	}
+	scope := g.declaredIn[region]
 	for _, member := range region.States {
-		if isParallelRegionMember(unwrapMembership(member)) {
+		actual := unwrapMembership(member)
+		// A metadata pseudostate is no substate, however the usage carrying
+		// it is spelled.
+		if usage, ok := actual.(*ast.Usage); ok {
+			if _, annotated := g.pseudostateKindOf(usage, scope); annotated {
+				continue
+			}
+		}
+		if isParallelRegionMember(actual) {
 			return false
 		}
 	}
@@ -1033,6 +1036,15 @@ func collectRegionStates(graph *StateGraph, region *ast.StateRegion, parent *ast
 			state.NodeSpan = n.NodeSpan
 			graph.declOf[state] = n
 		case *ast.Usage:
+			if kind, annotated := graph.pseudostateKindOf(n, scope); annotated {
+				ps := pseudostateFromUsage(n, kind)
+				graph.copyInherited(ps, n, scope)
+				graph.addPseudostate(ps, scope)
+				if parent != nil {
+					graph.PseudostateOwner[ps] = parent
+				}
+				continue
+			}
 			if IsTerminateUsage(n) {
 				graph.addTerminate(n, scope, parent)
 			}
@@ -1050,9 +1062,6 @@ func collectRegionStates(graph *StateGraph, region *ast.StateRegion, parent *ast
 				graph.PseudostateOwner[n] = parent
 			}
 			continue
-		case *ast.DeferMember:
-			// A region is not a state: only a state can retain an event.
-			return fmt.Errorf("defer must be declared inside a state, not in a region body")
 		default:
 			continue
 		}
@@ -1092,7 +1101,7 @@ func isParallelRegionMember(member ast.Node) bool {
 }
 
 // parallelOwnedMember reports whether a parallel state may own a member itself
-// rather than contribute it to a region: its behaviors, its deferred events, the
+// rather than contribute it to a region: its behaviors, the
 // pseudostates its regions branch through, the edges between them, a metadata
 // usage annotating it, and a definition written in its body, which declares a
 // type rather than a region.
@@ -1100,7 +1109,7 @@ func parallelOwnedMember(member ast.Node) bool {
 	switch n := member.(type) {
 	case *ast.Comment, *ast.Documentation, *ast.TextualRepresentation,
 		*ast.EntryMember, *ast.DoMember, *ast.ExitMember,
-		*ast.PseudostateNode, *ast.DeferMember,
+		*ast.PseudostateNode,
 		*ast.SuccessionEdge, *ast.TransitionEdge, *ast.TransitionMember,
 		*ast.Definition, *ast.Package, *ast.ErrorNode:
 		return true
@@ -1120,6 +1129,13 @@ func (g *StateGraph) parallelRegions(members []inheritedMember, parent *ast.Stat
 	regions := make([]*ast.StateRegion, 0)
 	for _, member := range members {
 		actual := unwrapMembership(member.node)
+		// A metadata pseudostate is owned by the parallel state itself; it is
+		// no region however the usage is spelled.
+		if usage, ok := actual.(*ast.Usage); ok {
+			if _, annotated := g.pseudostateKindOf(usage, member.scope); annotated {
+				continue
+			}
+		}
 		// Only state substates become regions; the members a parallel state may own
 		// itself are collected with the rest of its body.
 		if !isParallelRegionMember(actual) {
@@ -1208,8 +1224,7 @@ func parallelMachineState(decl ast.Node, members []ast.Node) *ast.StateNode {
 }
 
 // parallelRegionState creates the graph state for a direct substate that owns
-// a synthesized region, preserving its behaviors, its deferred triggers and the
-// content it inherits from the definition typing it.
+// a synthesized region, preserving its behaviors and the content it inherits from the definition typing it.
 func parallelRegionState(graph *StateGraph, member ast.Node, scope *symbols.Scope) (*ast.StateNode, error) {
 	switch n := member.(type) {
 	case *ast.Usage:
@@ -1250,11 +1265,10 @@ func parallelRegionBody(member ast.Node) (string, []ast.Node) {
 		name, _ := ast.EffectiveName(n)
 		return name, n.Members
 	case *ast.StateNode:
-		body := make([]ast.Node, 0, len(n.Entry)+len(n.Do)+len(n.Exit)+len(n.Defer)+len(n.Substates)+len(n.Regions))
+		body := make([]ast.Node, 0, len(n.Entry)+len(n.Do)+len(n.Exit)+len(n.Substates)+len(n.Regions))
 		body = append(body, n.Entry...)
 		body = append(body, n.Do...)
 		body = append(body, n.Exit...)
-		body = append(body, n.Defer...)
 		body = append(body, n.Substates...)
 		for _, region := range n.Regions {
 			body = append(body, region)
@@ -1277,30 +1291,6 @@ func (g *StateGraph) regionScope(scope *symbols.Scope, region *ast.StateRegion) 
 		return childScope(scope, decl)
 	}
 	return childScope(scope, region)
-}
-
-// collectDeferred records the triggers a state defers, normalized the same way
-// transition triggers are. Only a signal or a call can be deferred: a time or
-// change event is not dispatched from the event pool, so retaining one has no
-// meaning and is reported rather than silently ignored.
-func collectDeferred(graph *StateGraph, state *ast.StateNode) error {
-	for _, trigger := range state.Defer {
-		if trigger == nil {
-			return fmt.Errorf("state %s defers a nil trigger", state.Name)
-		}
-		switch typed := classifyTrigger(trigger).(type) {
-		case *ast.AcceptEvent:
-			if ast.SimpleName(typed.SignalType) == "" {
-				return fmt.Errorf("state %s defers a signal trigger that names no signal", state.Name)
-			}
-			graph.Deferred[state] = append(graph.Deferred[state], typed)
-		case *ast.CallEvent:
-			graph.Deferred[state] = append(graph.Deferred[state], typed)
-		default:
-			return fmt.Errorf("state %s defers a %T trigger: only signal and call triggers can be deferred", state.Name, typed)
-		}
-	}
-	return nil
 }
 
 // endpointVertex is the vertex a succession's or a marker's endpoint names, or
@@ -1431,6 +1421,27 @@ func (g *StateGraph) vertex(scope *symbols.Scope, target ast.Node) (ast.Node, er
 		return nil, fmt.Errorf(NotAVertexFormat, EndpointText(target), VertexKind(decl))
 	}
 	return node, nil
+}
+
+// StateNamed is the state a name or feature chain written in scope (nil: the
+// machine's own) names, as a transition endpoint would name it.
+func (g *StateGraph) StateNamed(scope *symbols.Scope, target ast.Node) (*ast.StateNode, bool) {
+	if g == nil || g.endpoints == nil || isNilEndpoint(target) {
+		return nil, false
+	}
+	if scope == nil {
+		scope = g.Scope
+	}
+	decl, ok := g.endpoints.Endpoint(scope, target)
+	if !ok {
+		return nil, false
+	}
+	node, ok := g.vertexFor(scope, target, decl)
+	if !ok {
+		return nil, false
+	}
+	state, ok := node.(*ast.StateNode)
+	return state, ok && state != nil
 }
 
 // isNilEndpoint reports an endpoint that is no node at all, a typed nil included.
@@ -1565,7 +1576,7 @@ func lowerTransitionMember(graph *StateGraph, member *ast.TransitionMember, body
 			return nil, err
 		}
 		vertex, ok := graph.findVertex(decl)
-		if !ok || !IsStateSource(decl) {
+		if !ok || !IsStateSource(vertex) {
 			state := graph.findStateDecl(decl)
 			return nil, &TransitionSourceError{Source: decl, Region: state != nil && graph.HiddenRegionOf[state] != nil}
 		}
@@ -1692,7 +1703,7 @@ func AcceptedNames(trigger ast.Node) []string {
 // - *ast.AcceptEvent → keep as-is
 // - *ast.CallEvent → keep as-is
 // - Payload Usage → AcceptEvent{SignalType: typingTarget(payload), Payload: payload}
-// - QualifiedName (from `when <name>` or `defer <name>`) → injected signal
+// - QualifiedName (from `when <name>`) → injected signal
 // - Expression with operators → ChangeEvent{Condition: expr} (guard-like condition)
 //
 // Payload typing and resolution come from the AST and resolver; the `when`
@@ -1932,7 +1943,6 @@ func collectSuccessionEdge(graph *StateGraph, n *ast.SuccessionEdge, body transi
 		return nil
 	}
 
-	// `succession first start then off;` out of a named entry action says the same.
 	if sourceVertex == nil {
 		starts, err := graph.startsAt(n, nil, body, n.Source, n.Target)
 		if err != nil || starts {

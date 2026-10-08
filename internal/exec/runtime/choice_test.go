@@ -1475,10 +1475,8 @@ func TestSingleCompletionTransitionFiresOnceGuardHolds(t *testing.T) {
 	}
 }
 
-// A completion transition into a join whose other branch has not arrived is not
-// enabled, so it is no alternative to draw: the other completion transition
-// fires and the queue is not drained on a join that cannot move.
-func TestCompletionTransitionChoiceSkipsUnreadyJoin(t *testing.T) {
+// A completion segment arrives at a join even before the other region reaches it.
+func TestCompletionTransitionArrivesAtUnreadyJoin(t *testing.T) {
 	src := `package test {
 		state Machine {
 			entry; then work;
@@ -1508,15 +1506,26 @@ func TestCompletionTransitionChoiceSkipsUnreadyJoin(t *testing.T) {
 	if sym == nil {
 		t.Fatal("state machine not found")
 	}
+	policy, err := ParseSchedulePolicy("declared")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := ctx.SetSchedule(policy); err != nil {
+		t.Fatal(err)
+	}
 	_, visited, err := ctx.ExecuteStateWithEvents(sym, []string{"Go"})
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
-	if strings.Join(visited, ",") != "work,a1,ready,right,a2" {
-		t.Fatalf("visited %v, want ready to move to right while the join waits on a2, then a2 alone", visited)
+	if strings.Join(visited, ",") != "work,a1,ready,a2,done" {
+		t.Fatalf("visited %v, want b's completion arrival followed by a2 completing the join", visited)
 	}
-	if got, want := choiceStrings(ctx.Choices()), []string{"choice entering work: next a1(entry), ready(entry) (unordered; took a1(entry) first)"}; !slices.Equal(got, want) {
-		t.Fatalf("choices = %v, want the entry order alone: a transition into an unready join is no alternative", got)
+	want := []string{
+		"choice entering work: next a1(entry), ready(entry) (unordered; took a1(entry) first)",
+		"choice state ready: transitions 1->sync, 2->right (unordered; took 1->sync)",
+	}
+	if got := choiceStrings(ctx.Choices()); !slices.Equal(got, want) {
+		t.Fatalf("choices = %v, want the completion choice to take the join segment", got)
 	}
 }
 

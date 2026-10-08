@@ -59,42 +59,99 @@ Subsystems at or above 10 kg:
 ```mermaid
 ---
 config:
-  flowchart:
-    subGraphTitleMargin:
-      bottom: 24
+  fontFamily: "Helvetica, Arial, sans-serif"
+  theme: base
+  themeCSS: ".edgeLabel rect { opacity: 1 !important; } .cluster-label .nodeLabel { text-align: center; }"
+  themeVariables:
+    fontFamily: "Helvetica, Arial, sans-serif"
+    fontSize: "14px"
+    primaryColor: "#FFFFFF"
+    secondaryColor: "#FFFFFF"
+    tertiaryColor: "#FFFFFF"
+    background: "#FFFFFF"
+    primaryBorderColor: "#181818"
+    primaryTextColor: "#000000"
+    lineColor: "#181818"
+    textColor: "#000000"
+    noteBkgColor: "#FEFFDD"
+    noteBorderColor: "#181818"
+    noteTextColor: "#000000"
+    clusterBkg: "#FFFFFF"
+    clusterBorder: "#181818"
+    edgeLabelBackground: "#FFFFFF"
 ---
 %% Observatory::interconnectView — interconnection rendering (render asInterconnectionDiagram)
 flowchart LR
-  subgraph n0 ["imagingChain<br>«part»"]
+  subgraph n0 ["`*«part»* **imagingChain**`"]
     direction LR
-    n1["camera : Camera<br>«part»"]
-    n2["recorder : Recorder<br>«part»"]
+    subgraph n1 ["`*«part»* **camera : Camera**`"]
+      direction LR
+      n1.0["output"]
+    end
+    subgraph n2 ["`*«part»* **recorder : Recorder**`"]
+      direction LR
+      n2.0["input"]
+    end
   end
-  n1 ---|"link"| n2
+  n1.0 ===|"link"| n2.0
+  linkStyle 0 stroke-width:3px
 ```
 
 *Telescope part tree, left to right*
 
 ```mermaid
+---
+config:
+  fontFamily: "Helvetica, Arial, sans-serif"
+  theme: base
+  themeCSS: ".edgeLabel rect { opacity: 1 !important; } .cluster-label .nodeLabel { text-align: center; }"
+  themeVariables:
+    fontFamily: "Helvetica, Arial, sans-serif"
+    fontSize: "14px"
+    primaryColor: "#FFFFFF"
+    secondaryColor: "#FFFFFF"
+    tertiaryColor: "#FFFFFF"
+    background: "#FFFFFF"
+    primaryBorderColor: "#181818"
+    primaryTextColor: "#000000"
+    lineColor: "#181818"
+    textColor: "#000000"
+    noteBkgColor: "#FEFFDD"
+    noteBorderColor: "#181818"
+    noteTextColor: "#000000"
+    clusterBkg: "#FFFFFF"
+    clusterBorder: "#181818"
+    edgeLabelBackground: "#FFFFFF"
+---
 %% tree rendering (the diagram states kind "tree")
 flowchart LR
-  n0["telescope<br>«part»"]
-  n1["optics : Subsystem<br>«part»"]
-  n2["mass<br>«attribute»"]
+  n0("`*«part»*
+**telescope**`")
+    n1("`*«part»*
+**optics : Subsystem**`")
+      n2("`*«attribute»*
+**mass**`")
   n1 --- n2
-  n3["zone<br>«attribute»"]
+      n3("`*«attribute»*
+**zone**`")
   n1 --- n3
   n0 --- n1
-  n4["segmentControl : Subsystem<br>«part»"]
-  n5["mass<br>«attribute»"]
+    n4("`*«part»*
+**segmentControl : Subsystem**`")
+      n5("`*«attribute»*
+**mass**`")
   n4 --- n5
-  n6["zone<br>«attribute»"]
+      n6("`*«attribute»*
+**zone**`")
   n4 --- n6
   n0 --- n4
-  n7["mount : Subsystem<br>«part»"]
-  n8["mass<br>«attribute»"]
+    n7("`*«part»*
+**mount : Subsystem**`")
+      n8("`*«attribute»*
+**mass**`")
   n7 --- n8
-  n9["zone<br>«attribute»"]
+      n9("`*«attribute»*
+**zone**`")
   n7 --- n9
   n0 --- n7
 ```

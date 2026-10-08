@@ -162,7 +162,7 @@ func TestNotationCoversTheFixture(t *testing.T) {
 		"ref part driver : Driver[0..1];",
 		"port fuelIn : ~'Vehicle Design'::Interfaces::FuelInterface;",
 		"binding 'fuel line' bind fuelIn = engine.fuelPort;",
-		"flow fuelIn.fuel to engine.fuelPort.fuel;",
+		"flow of 'Vehicle Design'::Interfaces::Fuel from fuelIn.fuel to engine.fuelPort.fuel;",
 		"bind mass = massLimit.m;",
 		"bind speedOut = engine.piston.p;",
 		"satisfy requirement : RequirementsModel::'Mass Requirement';",
@@ -180,8 +180,8 @@ func TestNotationCoversTheFixture(t *testing.T) {
 		"end #RequirementDerivation::derive derivedRequirement : 'Engine Mass Requirement';",
 		"verify requirement : 'Mass Requirement';",
 		"allocation def 'Motor to Engine' {",
-		"end motor : 'Vehicle Design'::Motor;",
-		"end engine : 'Vehicle Design'::Engine;",
+		"end :>> source : 'Vehicle Design'::Motor;",
+		"end :>> target : 'Vehicle Design'::Engine;",
 		"state def 'Vehicle States' {",
 		"abstract action def start {",
 		"action def Drive;",
@@ -312,7 +312,11 @@ func TestRejectsNonXMI(t *testing.T) {
 // constructFixtures are the XMI documents under testdata/xmi that each exercise
 // one family of behavioral or profile constructs; their notation and report are golden.
 var constructFixtures = []string{
+	"docgen_columns",
 	"plant_states",
+	"instant_waits",
+	"script_guarded_reads",
+	"ui_stimuli",
 	"transition_relocation",
 	"orthogonal_initials",
 	"station_points",
@@ -329,6 +333,8 @@ var constructFixtures = []string{
 	"accept_via_context_port",
 	"ported_calls",
 	"empty_behaviors",
+	"link_actions",
+	"association_qualifiers",
 	"library_calls",
 	"bundled_library",
 	"user_library",
@@ -362,6 +368,7 @@ var constructFixtures = []string{
 	"diagrams",
 	"diagram_edges",
 	"control_nodes",
+	"object_flows",
 	"refused_vertex_layout",
 	"operation_context_out",
 	"viewpoint_context",
@@ -385,6 +392,8 @@ var constructFixtures = []string{
 	"decision_else",
 	"calc_context",
 	"interaction_context",
+	"viewpoint_concerns",
+	"parameter_sets",
 }
 
 // migrateFixtureFile migrates testdata/xmi/<name>.xmi.

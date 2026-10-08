@@ -12,38 +12,40 @@ import (
 
 	"github.com/Open-MBEE/OpenSysML/internal/exec/analysis"
 	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
+	"github.com/Open-MBEE/OpenSysML/internal/exec/simresults"
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/repl"
-	"github.com/Open-MBEE/OpenSysML/internal/translate/simresults"
 )
 
 // checks are the model checks and runs named on the command line, in the order
 // they are carried out: objects are created first, so a verdict is about them,
 // and behavior runs after the conditions the model states about it.
 type checks struct {
-	validate     optionalNames
-	instantiate  stringSlice
-	constraints  stringSlice
-	requirements stringSlice
-	satisfy      optionalNames
-	calcs        stringSlice
-	analyses     stringSlice
-	toolDryRuns  stringSlice
-	records      stringSlice
-	recordInto   string
-	sweeps       stringSlice
-	samples      sweepCount
-	seed         sweepSeed
-	draws        drawPolicy
-	clockStep    clockStep
-	runs         runCount
-	observe      stringSlice
-	compare      string
-	queries      stringSlice
-	actions      stringSlice
-	states       stringSlice
-	advance      advanceTime
-	jsonOut      bool
-	checker      checkerOptions
+	validate          optionalNames
+	selfCheck         bool
+	selfCheckPackages stringSlice
+	instantiate       stringSlice
+	constraints       stringSlice
+	requirements      stringSlice
+	satisfy           optionalNames
+	calcs             stringSlice
+	analyses          stringSlice
+	toolDryRuns       stringSlice
+	records           stringSlice
+	recordInto        string
+	sweeps            stringSlice
+	samples           sweepCount
+	seed              sweepSeed
+	draws             drawPolicy
+	clockStep         clockStep
+	runs              runCount
+	observe           stringSlice
+	compare           string
+	queries           stringSlice
+	actions           stringSlice
+	states            stringSlice
+	advance           advanceTime
+	jsonOut           bool
+	checker           checkerOptions
 }
 
 // checkerOptions are the -check-* flags: what the check and smt engines are asked
@@ -232,7 +234,7 @@ func (a *advanceTime) Set(value string) error {
 // -json and -advance check nothing themselves, but are included so their misuse
 // is reported rather than leaving a script at a prompt it cannot answer.
 func (c *checks) requested() bool {
-	return c.validate.given || c.jsonOut || c.advance.given || c.satisfy.given || len(c.instantiate) > 0 ||
+	return c.validate.given || c.selfCheck || c.jsonOut || c.advance.given || c.satisfy.given || len(c.instantiate) > 0 ||
 		len(c.constraints) > 0 || len(c.requirements) > 0 || len(c.calcs) > 0 || len(c.analyses) > 0 ||
 		len(c.toolDryRuns) > 0 || len(c.records) > 0 ||
 		len(c.queries) > 0 || len(c.actions) > 0 || len(c.states) > 0 ||
@@ -358,7 +360,7 @@ func (c *checks) runsMisuse() string {
 func (c *checks) compareMisuse() string {
 	switch {
 	case len(c.states) > 0 || c.sweeping() || c.advance.given || c.checker.given() ||
-		c.validate.given || c.satisfy.given || len(c.instantiate) > 0 || len(c.constraints) > 0 ||
+		c.validate.given || c.selfCheck || c.satisfy.given || len(c.instantiate) > 0 || len(c.constraints) > 0 ||
 		len(c.requirements) > 0 || len(c.calcs) > 0 || len(c.analyses) > 0 || len(c.toolDryRuns) > 0 || len(c.records) > 0 || len(c.queries) > 0:
 		return "-compare-results runs the migrated configurations the results index and compares the runs with the tool's; the other checks are made in a run of their own"
 	}
@@ -430,7 +432,7 @@ func (c *checks) sweepMisuse() string {
 // instantiatesOnly reports whether the run creates objects and decides nothing
 // about them, so a document can be rendered over what it holds.
 func (c *checks) instantiatesOnly() bool {
-	return len(c.instantiate) > 0 && !c.validate.given && !c.jsonOut && !c.advance.given && !c.satisfy.given &&
+	return len(c.instantiate) > 0 && !c.validate.given && !c.selfCheck && !c.jsonOut && !c.advance.given && !c.satisfy.given &&
 		len(c.constraints) == 0 && len(c.requirements) == 0 && len(c.calcs) == 0 && len(c.analyses) == 0 &&
 		len(c.toolDryRuns) == 0 && len(c.records) == 0 &&
 		len(c.queries) == 0 && len(c.actions) == 0 && len(c.states) == 0 && !c.sweeping() && !c.running() && c.compare == "" && !c.checker.given()
@@ -441,7 +443,7 @@ func (c *checks) instantiatesOnly() bool {
 // The bounds the records run under — a sweep's ranges, a Monte Carlo's runs,
 // seed and draws — and the objects -instantiate materializes for them, serve them.
 func (c *checks) recordsOnly() bool {
-	return len(c.records) > 0 && !c.validate.given && !c.jsonOut && !c.advance.given && !c.satisfy.given &&
+	return len(c.records) > 0 && !c.validate.given && !c.selfCheck && !c.jsonOut && !c.advance.given && !c.satisfy.given &&
 		len(c.constraints) == 0 && len(c.requirements) == 0 && len(c.calcs) == 0 &&
 		len(c.analyses) == 0 && len(c.toolDryRuns) == 0 && len(c.observe) == 0 &&
 		len(c.queries) == 0 && len(c.actions) == 0 && len(c.states) == 0 && c.compare == "" && !c.checker.given()
@@ -476,7 +478,7 @@ func (c *checks) boundsMisuse() string {
 // checksOnly reports whether anything was asked about the model itself, as
 // against how to report the answer.
 func (c *checks) checksOnly() bool {
-	return len(c.validate.targets) > 0 || len(c.instantiate) > 0 || len(c.constraints) > 0 ||
+	return len(c.validate.targets) > 0 || c.selfCheck || len(c.instantiate) > 0 || len(c.constraints) > 0 ||
 		len(c.requirements) > 0 || len(c.satisfy.targets) > 0 || len(c.calcs) > 0 || len(c.analyses) > 0 ||
 		len(c.toolDryRuns) > 0 || len(c.records) > 0 ||
 		len(c.queries) > 0 || len(c.actions) > 0 || len(c.states) > 0 || c.compare != ""
@@ -600,6 +602,9 @@ func runChecks(files []string, exprs []string, c checks) int {
 	}
 
 	sess := newSession()
+	if len(renderRuns) > 0 {
+		sess.SetRecording(true)
+	}
 	sess.SetCheckDiverge(c.checker.diverge)
 	sess.SetCheckProperties(c.checker.properties)
 	sess.SetCheckInputs(c.checker.inputs)
@@ -652,6 +657,15 @@ func runChecks(files []string, exprs []string, c checks) int {
 	// What analysis found is reported as data whatever was checked, so a caller
 	// parsing the report reads the warnings the printed load output carries.
 	rep.diags(sess.LocatedDiagnostics())
+
+	// A rule package nothing declares refuses the run before anything is
+	// evaluated or reported, as a name mistyped checks nothing.
+	if c.selfCheck && len(c.selfCheckPackages) > 0 {
+		if err := sess.ResolveSelfCheckPackages(c.selfCheckPackages); err != nil {
+			rep.failed(err.Error())
+			return rep.finish()
+		}
+	}
 
 	rep.info(loaded)
 
@@ -727,6 +741,15 @@ func runChecks(files []string, exprs []string, c checks) int {
 		}
 	}
 
+	if c.selfCheck {
+		verdicts, err := sess.SelfCheckPackages(c.selfCheckPackages)
+		if err != nil {
+			rep.failed(err.Error())
+			return rep.finish()
+		}
+		rep.selfCheck(verdicts)
+	}
+
 	for _, name := range c.constraints {
 		rep.verdict(sess.CheckConstraint(name))
 	}
@@ -769,7 +792,7 @@ func runChecks(files []string, exprs []string, c checks) int {
 			rep.verdict(v)
 		}
 		c.runQueries(sess, rep)
-		return rep.finish()
+		return finishRunCheck(rep, sess)
 	}
 	for _, value := range c.actions {
 		name, performer := repl.SplitBehavior(value)
@@ -785,7 +808,7 @@ func runChecks(files []string, exprs []string, c checks) int {
 	}
 	c.runQueries(sess, rep)
 
-	return rep.finish()
+	return finishRunCheck(rep, sess)
 }
 
 // runQueries executes each -run-query after the behaviors named have run, so a

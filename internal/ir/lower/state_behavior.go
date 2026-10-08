@@ -23,6 +23,10 @@ type StateBehavior struct {
 	// Nodes are the action nodes the blocks of Body declare, in declaration order,
 	// each of which performs as a subperformance of the behavior's.
 	Nodes []ast.Node
+	// Multiplicities are the declared action-node multiplicities in Body.
+	Multiplicities map[ast.Node]*ast.Multiplicity
+	// Multiplicity is a declaration on the entry, do or exit behavior itself.
+	Multiplicity *ast.Multiplicity
 	// Scope is the scope the behavior was declared in, which its own statements
 	// and the action name it performs resolve in.
 	Scope *symbols.Scope
@@ -102,6 +106,15 @@ func lowerStateBehavior(action ast.Node, block ast.Node, scope *symbols.Scope, r
 		behavior.Body = []Statement{lowerStatement(action, scope)}
 	}
 	behavior.Nodes = blockNodesOf(behavior.Body, nil)
+	behavior.Multiplicities = make(map[ast.Node]*ast.Multiplicity)
+	for _, graph := range BlockFlows(behavior.Body) {
+		for node, multiplicity := range graph.Multiplicities {
+			behavior.Multiplicities[node] = multiplicity
+		}
+	}
+	if usage, ok := action.(*ast.Usage); ok {
+		behavior.Multiplicity = usage.Multiplicity
+	}
 	return behavior
 }
 
@@ -130,7 +143,7 @@ func lowerBehaviorBody(node *ast.Usage, scope *symbols.Scope, resolver *resolve.
 func lowerActionExecution(node *ast.ActionExecutionNode, scope *symbols.Scope) []Statement {
 	switch {
 	case node.Expression != nil:
-		return []Statement{Declare{Name: node.Name, Value: node.Expression, Node: node, Scope: scope}}
+		return []Statement{Declare{Name: node.Name, Value: node.Expression, BodyData: true, Node: node, Scope: scope}}
 	case node.ActionRef != nil:
 		return []Statement{Effect{Kind: EffectPerform, Node: node, Scope: scope}}
 	default:

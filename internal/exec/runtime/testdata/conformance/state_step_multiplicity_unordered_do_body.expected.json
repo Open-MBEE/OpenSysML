@@ -1,0 +1,5 @@
+{
+	"type": "state",
+	"evaluate": "test::Machine",
+	"error": "tick[2]"
+}

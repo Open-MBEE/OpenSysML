@@ -4,30 +4,78 @@ import (
 	"context"
 	"errors"
 	"math"
+	"math/big"
 	"strings"
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/client/opensysml"
 )
 
-// TestArithmeticOutsideItsRangeIsAFailureNotAWrappedValue: a caller reading
-// Int(-9223372036854775808) from a sum of positives has no way to tell it apart
-// from a computed value, so the range is reported instead.
-func TestArithmeticOutsideItsRangeIsAFailureNotAWrappedValue(t *testing.T) {
+// TestIntegerArithmeticBeyondInt64IsExact: KerML Integers are unbounded, so
+// a sum of positives past int64 is the BigInt it is, never a wrapped Int.
+func TestIntegerArithmeticBeyondInt64IsExact(t *testing.T) {
 	client := newClient(t)
 	model := parseVehicle(t, client)
 
-	for _, expression := range []string{
-		"9223372036854775807 + 1",
-		"-9223372036854775807 - 2",
-		"9223372036854775807 * 2",
-		"9223372036854775808",
-		"1e400",
+	for expression, want := range map[string]string{
+		"9223372036854775807 + 1":  "9223372036854775808",
+		"-9223372036854775807 - 2": "-9223372036854775809",
+		"9223372036854775807 * 2":  "18446744073709551614",
+		"9223372036854775808":      "9223372036854775808",
+		"2 ** 70":                  "1180591620717411303424",
 	} {
 		value, err := client.Evaluate(context.Background(), model, expression)
-		if !errors.Is(err, opensysml.ErrFailure) {
-			t.Errorf("Evaluate(%q) = %#v, %v; want a failure", expression, value, err)
+		got, ok := value.(opensysml.BigInt)
+		if err != nil || !ok || got.String() != want {
+			t.Errorf("Evaluate(%q) = %#v, %v; want BigInt %s", expression, value, err, want)
 		}
+	}
+	value, err := client.Evaluate(context.Background(), model, "(2 ** 70) / (2 ** 69) == 2")
+	if err != nil || value != opensysml.Bool(true) {
+		t.Errorf("Evaluate((2 ** 70) / (2 ** 69) == 2) = %#v, %v; want true", value, err)
+	}
+}
+
+// TestRationalArithmeticIsExact: a KerML Rational is a rational number, so a
+// quotient or decimal no binary64 holds arrives as the exact Rational it is,
+// and one a binary64 holds as that Real.
+func TestRationalArithmeticIsExact(t *testing.T) {
+	client := newClient(t)
+	model := parseVehicle(t, client)
+
+	for expression, want := range map[string]string{
+		"1 / 3":        "1/3",
+		"0.1 + 0.2":    "0.3",
+		"(2 / 3) ** 3": "8/27",
+		"1.0e400 / 4":  "2.5e+399",
+	} {
+		value, err := client.Evaluate(context.Background(), model, expression)
+		got, ok := value.(opensysml.Rational)
+		if err != nil || !ok || got.String() != want {
+			t.Errorf("Evaluate(%q) = %#v, %v; want Rational %s", expression, value, err, want)
+		}
+	}
+	if value, err := client.Evaluate(context.Background(), model, "0.25 + 0.25"); err != nil || value != opensysml.Real(0.5) {
+		t.Errorf("Evaluate(0.25 + 0.25) = %#v, %v; want Real 0.5", value, err)
+	}
+	if value, err := client.Evaluate(context.Background(), model, "0.1 + 0.2 == 0.3"); err != nil || value != opensysml.Bool(true) {
+		t.Errorf("Evaluate(0.1 + 0.2 == 0.3) = %#v, %v; want true", value, err)
+	}
+	third := opensysml.NewRational(big.NewRat(1, 3))
+	if third.Float64() != 1.0/3.0 || third.Rat().Cmp(big.NewRat(2, 6)) != 0 {
+		t.Errorf("Rational 1/3 = %v (%v)", third, third.Float64())
+	}
+}
+
+// TestRealOutsideItsRangeIsAFailure: a Real no float64 holds is reported, not
+// read as an infinity. The literal 1e400 is an exact Rational; ToReal is Real.
+func TestRealOutsideItsRangeIsAFailure(t *testing.T) {
+	client := newClient(t)
+	model := parseVehicle(t, client)
+
+	value, err := client.Evaluate(context.Background(), model, `RealFunctions::ToReal("1e400")`)
+	if !errors.Is(err, opensysml.ErrFailure) {
+		t.Errorf("Evaluate(ToReal(1e400)) = %#v, %v; want a failure", value, err)
 	}
 }
 
@@ -37,7 +85,7 @@ func TestRealsInRangeStillEvaluate(t *testing.T) {
 	client := newClient(t)
 	model := parseVehicle(t, client)
 
-	value, err := client.Evaluate(context.Background(), model, "1.5e308 / 2.0")
+	value, err := client.Evaluate(context.Background(), model, `RealFunctions::ToReal("1.5e308") / 2.0`)
 	if err != nil {
 		t.Fatalf("Evaluate: %v", err)
 	}

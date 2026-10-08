@@ -23,6 +23,27 @@ func (block Block) Steps() []Statement {
 	return steps
 }
 
+// StatementList returns a graph's sequential statement nodes as one list.
+func (graph *ActionGraph) StatementList() ([]Statement, bool) {
+	if graph == nil || len(graph.Nodes) == 0 {
+		return nil, false
+	}
+	var steps []Statement
+	for _, node := range graph.Nodes {
+		switch node.(type) {
+		case *ast.AssignmentActionNode, *ast.IfActionNode, *ast.SendStatement,
+			*ast.TerminateStatement, *ast.WhileLoopActionNode:
+		default:
+			return nil, false
+		}
+		if len(graph.Edges[node]) > 1 || len(graph.Bodies[node]) != 1 {
+			return nil, false
+		}
+		steps = append(steps, graph.Bodies[node][0])
+	}
+	return steps, true
+}
+
 // blockNeedsFlow reports whether a block's members make it a declaration-order
 // token flow of its own.
 func blockNeedsFlow(members []ast.Node) bool {
@@ -115,13 +136,14 @@ type blockStepLowering func(graph *ActionGraph, nodes []ast.Node, member ast.Nod
 // members between action nodes with step.
 func lowerBlockFlowWith(members []ast.Node, scope *symbols.Scope, step blockStepLowering) *ActionGraph {
 	graph := &ActionGraph{
-		Scope:     scope,
-		Nodes:     make([]ast.Node, 0, len(members)),
-		Edges:     make(map[ast.Node][]ActionEdge),
-		DataFlows: make(map[ast.Node][]ObjectFlow),
-		Bodies:    make(map[ast.Node][]Statement),
-		Accepts:   make(map[ast.Node]Accept),
-		Finals:    make([]ast.Node, 0),
+		Scope:          scope,
+		Nodes:          make([]ast.Node, 0, len(members)),
+		Edges:          make(map[ast.Node][]ActionEdge),
+		Multiplicities: make(map[ast.Node]*ast.Multiplicity),
+		DataFlows:      make(map[ast.Node][]ObjectFlow),
+		Bodies:         make(map[ast.Node][]Statement),
+		Accepts:        make(map[ast.Node]Accept),
+		Finals:         make([]ast.Node, 0),
 
 		StatementRuns: make(map[ast.Node]bool),
 	}
@@ -141,6 +163,7 @@ func lowerBlockFlowWith(members []ast.Node, scope *symbols.Scope, step blockStep
 		if isFlowNode(actual) {
 			run = nil
 			graph.Nodes = append(graph.Nodes, actual)
+			recordNodeMultiplicity(graph, actual)
 			lowerFlowNode(graph, actual, scope)
 			continue
 		}
@@ -164,6 +187,12 @@ func lowerBlockFlowWith(members []ast.Node, scope *symbols.Scope, step blockStep
 	}
 	recordBlockNodes(graph)
 	return graph
+}
+
+func recordNodeMultiplicity(graph *ActionGraph, node ast.Node) {
+	if usage, ok := node.(*ast.Usage); ok && usage.Multiplicity != nil {
+		graph.Multiplicities[node] = usage.Multiplicity
+	}
 }
 
 // recordBlockNodes fills graph.BlockNodes from the bodies of its nodes.
@@ -312,15 +341,8 @@ func lowerFlowNode(graph *ActionGraph, node ast.Node, scope *symbols.Scope) {
 	case *ast.PerformActionNode:
 		graph.Bodies[node] = []Statement{performEffect(n, scope)}
 	case *ast.Usage:
-		// An accept node suspends the action it is a node of, which a block's flow
-		// has no token to park; it is lowered as unsupported so that reaching it is
-		// reported rather than passed over.
 		if acceptsMessage(n) {
-			graph.Bodies[node] = []Statement{Unsupported{
-				Description: "'accept' in a loop or branch body",
-				Node:        n,
-				Scope:       scope,
-			}}
+			lowerActionNode(graph, n, childScope(scope, n))
 			return
 		}
 		if IsCaseNode(n) {
@@ -354,10 +376,12 @@ func lowerNestedNode(graph *ActionGraph, node *ast.Usage, scope *symbols.Scope) 
 	}
 	lowerFeatures(graph, node, scope)
 	if blockNeedsFlow(node.Members) {
+		flow := lowerBlockFlow(node.Members, scope, true)
 		graph.Bodies[node] = []Statement{Block{
-			Node:  node,
-			Scope: scope,
-			Graph: lowerBlockFlow(node.Members, scope, true),
+			Node:   node,
+			Scope:  scope,
+			Graph:  flow,
+			Stated: len(flow.Accepts) > 0,
 		}}
 		return
 	}

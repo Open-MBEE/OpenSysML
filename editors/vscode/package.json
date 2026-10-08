@@ -2,7 +2,7 @@
   "name": "opensysml-sysml",
   "displayName": "SysML v2 (OpenSysML)",
   "description": "SysML v2 and KerML syntax highlighting and language support backed by the OpenSysML language server.",
-  "version": "0.9.2",
+  "version": "0.10.0",
   "publisher": "open-mbee",
   "license": "Apache-2.0",
   "repository": {
@@ -138,6 +138,20 @@
         }
       }
     },
+    "taskDefinitions": [
+      {
+        "type": "opensysml",
+        "required": [
+          "element"
+        ],
+        "properties": {
+          "element": {
+            "type": "string",
+            "description": "Qualified name of the element a Run or Evaluate code lens checks."
+          }
+        }
+      }
+    ],
     "commands": [
       {
         "command": "opensysml.restartServer",
@@ -160,6 +174,11 @@
         "category": "SysML",
         "title": "Render Document",
         "enablement": "opensysml.renderDocumentSupported"
+      },
+      {
+        "command": "opensysml.runElement",
+        "category": "SysML",
+        "title": "Run Element"
       }
     ],
     "keybindings": [
@@ -176,6 +195,12 @@
       }
     ],
     "menus": {
+      "commandPalette": [
+        {
+          "command": "opensysml.runElement",
+          "when": "false"
+        }
+      ],
       "editor/title": [
         {
           "command": "opensysml.openDiagram",
@@ -212,13 +237,15 @@
   "scripts": {
     "grammar": "go run ./tools/gengrammar -out syntaxes",
     "build": "node esbuild.mjs",
+    "build:landing": "node tools/build-landing.mjs",
     "watch": "node esbuild.mjs --watch",
-    "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p src/webview/tsconfig.json",
+    "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p src/webview/tsconfig.json && tsc --noEmit -p src/landing/tsconfig.json",
     "test": "node tools/test.mjs",
     "package": "npm run typecheck && npm test && npm run build -- --production && vsce package --no-dependencies --out opensysml-sysml.vsix"
   },
   "dependencies": {
     "elkjs": "0.12.0",
+    "libavoid-js": "0.4.5",
     "vscode-languageclient": "9.0.1"
   },
   "devDependencies": {

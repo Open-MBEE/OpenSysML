@@ -33,9 +33,8 @@ package Structure {
             }
             succession 'start to ignite' first start then ignite;
             action ignite {
-                /* body not migrated (the name "ignited" resolves to nothing readable: nothing visible from Structure::Engine::Cranking::ignite is called ignited) {JavaScript}:
-                 * ignited = true;
-                 */
+                attribute ignited : ScalarValues::Boolean;
+                assign ignited := true;
             }
             succession 'ignite to final' first ignite then final;
             action final terminate;
@@ -48,9 +47,12 @@ package Structure {
                 expose Engine;
                 render Views::asTextualNotation;
             }
-            /* body not migrated (the name "ignited" resolves to nothing readable: nothing visible from Structure::Engine::Halt is called ignited) {JavaScript}:
-             * ignited = false;
-             */
+            first start then body;
+            action body {
+                attribute ignited : ScalarValues::Boolean;
+                assign ignited := false;
+            }
+            first body then done;
         }
         action halt : Halt;
         metadata MigrationMetadata::SynthesizedName about wheel;
@@ -90,9 +92,8 @@ package Behavior {
         }
         succession 'start to start engine' first start then 'start engine';
         action 'start engine' {
-            /* body not migrated (the name "running" resolves to nothing readable: nothing visible from Behavior::Drive::start engine is called running) {JavaScript}:
-             * running = true;
-             */
+            attribute running : ScalarValues::Boolean;
+            assign running := true;
         }
         succession 'start engine to final' first 'start engine' then final;
         action final terminate;

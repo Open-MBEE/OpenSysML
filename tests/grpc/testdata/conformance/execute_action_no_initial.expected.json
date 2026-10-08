@@ -1,5 +1,5 @@
 {
   "rpc": "ExecuteAction",
-  "symbol_id": "test::SimpleAction",
+  "symbol_id": "test::CycleAction",
   "expected_error": "no initial"
 }

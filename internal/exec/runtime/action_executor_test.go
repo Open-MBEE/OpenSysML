@@ -2010,8 +2010,8 @@ func TestActionExecutor_Integration_ObjectFlow(t *testing.T) {
 func TestActionExecutor_Integration_ErrorCases(t *testing.T) {
 	ctx := NewContext(typedModel(semantics.NewModel(nil), nil), 1000)
 
-	// Test 1: Initial node missing
-	t.Run("missing_initial_node", func(t *testing.T) {
+	// Test 1: a flow stating no step to perform completes as it starts
+	t.Run("no_step_to_perform", func(t *testing.T) {
 		action := &symbols.Symbol{
 			Name: "NoInitialAction",
 			Kind: symbols.SymbolActionUsage,
@@ -2029,13 +2029,11 @@ func TestActionExecutor_Integration_ErrorCases(t *testing.T) {
 			t.Fatalf("create executor: %v", err)
 		}
 
-		err = exec.initialize()
-		if err == nil {
-			t.Fatal("expected error for missing initial node")
+		if err := exec.initialize(); err != nil {
+			t.Fatalf("initialize: %v", err)
 		}
-
-		if !containsText(err.Error(), "no initial node") {
-			t.Errorf("unexpected error: %v", err)
+		if exec.state != StateCompleted {
+			t.Errorf("state = %v, want StateCompleted: the performance has no subperformance to wait for", exec.state)
 		}
 	})
 

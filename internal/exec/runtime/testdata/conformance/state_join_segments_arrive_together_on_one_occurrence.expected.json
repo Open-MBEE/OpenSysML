@@ -1,0 +1,23 @@
+{
+  "type": "state",
+  "trace": true,
+  "events": [
+    {"signal": "Go"},
+    {"signal": "Finish"}
+  ],
+  "outcomes": [
+    {
+      "finalState": "done",
+      "outputs": {
+        "log": {"type": "String", "value": "A-exit A-effect B-exit B-effect C-exit C-effect owner-exit out"}
+      }
+    },
+    {
+      "finalState": "done",
+      "outputs": {
+        "log": {"type": "String", "value": "B-exit B-effect A-exit A-effect C-exit C-effect owner-exit out"}
+      }
+    }
+  ],
+  "admissible": "Transitions into a join: each exits its source and runs its effect before the owner is left, in which order is open"
+}

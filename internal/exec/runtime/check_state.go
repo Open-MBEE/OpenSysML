@@ -86,6 +86,7 @@ type stateSpeller struct {
 	names  map[checkedExecutor]string
 	frames []*actionFrame
 	labels map[*actionFrame]string
+	groups map[repetitionGroupID]string
 	tokens map[tokenKey]string
 	out    strings.Builder
 }
@@ -112,6 +113,7 @@ func (s *stateSpeller) spell(execs []checkedExecutor, turn checkedExecutor) stri
 	for i, msg := range s.ctx.messages {
 		fmt.Fprintf(&s.out, "message %d: %s\n", i+1, s.message(msg))
 	}
+	s.deferredBehaviors()
 	// Every root object a run made is observable by name, whether or not a frame holds it.
 	for _, id := range s.ctx.created {
 		if inst, live := s.ctx.instances[id]; live {
@@ -122,6 +124,26 @@ func (s *stateSpeller) spell(execs []checkedExecutor, turn checkedExecutor) stri
 	}
 	s.objects()
 	return s.out.String()
+}
+
+func (s *stateSpeller) deferredBehaviors() {
+	for _, behavior := range s.ctx.objectBehaviors {
+		if behavior.deferred == nil || s.ctx.lifeEnded(behavior.Object) {
+			continue
+		}
+		var waits []string
+		for _, block := range s.ctx.behaviorOrderBlocks(behavior) {
+			object := s.objectPath(block.predecessor.Object.ID)
+			waits = append(waits, fmt.Sprintf("%s on %s for %s", symbolText(endFeature(block.order.Earlier)), object, behaviorOrderName(block.order)))
+		}
+		sort.Strings(waits)
+		if len(waits) == 0 {
+			fmt.Fprintf(&s.out, "held behavior %s on %s: ready\n", behavior.Describe(), s.objectPath(behavior.Object.ID))
+			continue
+		}
+		fmt.Fprintf(&s.out, "held behavior %s on %s waits for %s\n", behavior.Describe(),
+			s.objectPath(behavior.Object.ID), strings.Join(waits, ", "))
+	}
 }
 
 // nameExecutors names every executor by its kind, its behavior and the object it
@@ -171,10 +193,54 @@ func (s *stateSpeller) action(e *ActionExecutor) {
 // enter makes e the action being spelled, its performances labelled, and returns
 // the restorer of the one spelled around it.
 func (s *stateSpeller) enter(e *ActionExecutor) func() {
-	exec, frames, labels := s.exec, s.frames, s.labels
+	exec, frames, labels, groups := s.exec, s.frames, s.labels, s.groups
 	s.exec = e
 	s.frames = s.labelFrames()
-	return func() { s.exec, s.frames, s.labels = exec, frames, labels }
+	s.groups = s.labelRepetitionGroups()
+	return func() { s.exec, s.frames, s.labels, s.groups = exec, frames, labels, groups }
+}
+
+type repetitionGroupSpelling struct {
+	id         repetitionGroupID
+	base       string
+	descriptor string
+}
+
+func (s *stateSpeller) labelRepetitionGroups() map[repetitionGroupID]string {
+	var groups []repetitionGroupSpelling
+	for _, owner := range s.frames {
+		for id, state := range owner.repeats {
+			live := make([]string, 0, len(state.live))
+			for _, perf := range state.live {
+				live = append(live, s.frameLabel(perf))
+			}
+			sort.Strings(live)
+			var tokens []string
+			for _, token := range s.exec.tokens {
+				if token.repetitionGroup == id {
+					tokens = append(tokens, s.tokenCore(token))
+				}
+			}
+			sort.Strings(tokens)
+			base := s.frameLabel(owner) + " repeat " + s.node(owner.graph, state.node)
+			descriptor := nodeKey(state.node) + "|" + strconv.FormatInt(state.remaining, 10) +
+				"|" + strings.Join(live, ",") + "|" + strings.Join(tokens, ",")
+			groups = append(groups, repetitionGroupSpelling{id: id, base: base, descriptor: descriptor})
+		}
+	}
+	sort.Slice(groups, func(i, j int) bool {
+		if groups[i].base != groups[j].base {
+			return groups[i].base < groups[j].base
+		}
+		return groups[i].descriptor < groups[j].descriptor
+	})
+	labels := make(map[repetitionGroupID]string, len(groups))
+	byBase := make(map[string]int, len(groups))
+	for _, group := range groups {
+		byBase[group.base]++
+		labels[group.id] = fmt.Sprintf("%s group#%d", group.base, byBase[group.base])
+	}
+	return labels
 }
 
 // tokenLines spells the tokens of the action being spelled, sorted, naming each
@@ -212,14 +278,8 @@ func (s *stateSpeller) machine(e *StateExecutor) {
 	for _, state := range e.stateStack {
 		fmt.Fprintf(&s.out, " stack{%s}", e.statePath(state))
 	}
-	for _, state := range sortedStates(e.history) {
-		record := e.history[state]
-		fmt.Fprintf(&s.out, " history{%s = %s", e.statePath(state), s.stateName(e, record.child))
-		for _, region := range sortedRegions(record.regions) {
-			fmt.Fprintf(&s.out, ", %s = %s", regionKey(region), s.stateName(e, record.regions[region]))
-		}
-		s.out.WriteString("}")
-	}
+	s.history(e)
+	s.joinsArrived(e)
 	fmt.Fprintf(&s.out, " data{%s}", s.values(e.stateData))
 	for _, state := range sortedStates(e.stateAttrs) {
 		fmt.Fprintf(&s.out, " attrs{%s: %s}", e.statePath(state), s.values(e.stateAttrs[state]))
@@ -232,8 +292,71 @@ func (s *stateSpeller) machine(e *StateExecutor) {
 			fmt.Fprintf(&s.out, " event{%s}", s.event(e, event))
 		}
 	}
-	for _, event := range e.deferred {
-		fmt.Fprintf(&s.out, " deferred{%s}", s.event(e, event))
+	for _, trans := range sortedTransitions(e.timerScheduled) {
+		fmt.Fprintf(&s.out, " timer{%s}", s.transition(e, trans))
+	}
+	for _, trans := range sortedTransitions(e.changeFired) {
+		fmt.Fprintf(&s.out, " latched{%s}", s.transition(e, trans))
+	}
+	for _, act := range e.doActions {
+		fmt.Fprintf(&s.out, " do{%s: %d pending", e.statePath(act.state), len(act.pending))
+		if act.run != nil {
+			fmt.Fprintf(&s.out, ", paused{%s}", s.body(act.run.body))
+		}
+		s.out.WriteString("}")
+	}
+	s.out.WriteByte('\n')
+}
+
+// history spells the last active child, and region children, of each state
+// the machine remembers.
+func (s *stateSpeller) history(e *StateExecutor) {
+	for _, state := range sortedStates(e.history) {
+		record := e.history[state]
+		fmt.Fprintf(&s.out, " history{%s = %s", e.statePath(state), s.stateName(e, record.child))
+		for _, region := range sortedRegions(record.regions) {
+			fmt.Fprintf(&s.out, ", %s = %s", regionKey(region), s.stateName(e, record.regions[region]))
+		}
+		s.out.WriteString("}")
+	}
+}
+
+// joinsArrived spells the incoming segments that have arrived at each join.
+func (s *stateSpeller) joinsArrived(e *StateExecutor) {
+	for _, join := range e.graph.Pseudostates {
+		arrived := e.joinArrived[join]
+		if len(arrived) == 0 {
+			continue
+		}
+		fmt.Fprintf(&s.out, " arrived{%s: ", join.Name)
+		first := true
+		for _, segment := range e.joinIncoming(join) {
+			if !slices.Contains(arrived, segment) {
+				continue
+			}
+			if !first {
+				s.out.WriteString(", ")
+			}
+			first = false
+			name := segment.Name
+			if name == "" {
+				name = StateVertexName(segment.Source)
+			}
+			s.out.WriteString(name)
+		}
+		s.out.WriteString("}")
+	}
+	fmt.Fprintf(&s.out, " data{%s}", s.bodyValues(e.stateData, e.stateCells))
+	for _, state := range sortedStates(e.stateAttrs) {
+		fmt.Fprintf(&s.out, " attrs{%s: %s}", e.statePath(state), s.bodyValues(e.stateAttrs[state], e.stateAttrCells[state]))
+	}
+	fmt.Fprintf(&s.out, " visits{%s}", strings.Join(e.stateVisits, ", "))
+	if e.eventQueue != nil {
+		events := slices.Clone(e.eventQueue.events)
+		sort.SliceStable(events, func(i, j int) bool { return events.Less(i, j) })
+		for _, event := range events {
+			fmt.Fprintf(&s.out, " event{%s}", s.event(e, event))
+		}
 	}
 	for _, trans := range sortedTransitions(e.timerScheduled) {
 		fmt.Fprintf(&s.out, " timer{%s}", s.transition(e, trans))
@@ -417,35 +540,26 @@ func (s *stateSpeller) frame(perf *actionFrame) string {
 	if perf.inBody {
 		b.WriteString(" body")
 	}
+	if perf.repetition > 0 {
+		fmt.Fprintf(&b, " repetition=%d", perf.repetition)
+	}
+	if group := s.groups[perf.repetitionGroup]; group != "" {
+		fmt.Fprintf(&b, " %s", group)
+	}
 	fmt.Fprintf(&b, " live=%d", perf.live)
-	fmt.Fprintf(&b, " data{%s}", s.values(perf.data))
-	for _, local := range perf.locals {
-		fmt.Fprintf(&b, " local{%s}", s.values(local))
-	}
-	for _, node := range sortedNodes(perf.pending) {
-		pins := perf.pending[node]
-		names := make([]string, 0, len(pins))
-		for pin := range pins {
-			names = append(names, pin)
+	fmt.Fprintf(&b, " data{%s}", s.bodyValues(perf.data, perf.cells))
+	for i, local := range perf.locals {
+		var cells *bodyCells
+		if i < len(perf.localCells) {
+			cells = perf.localCells[i]
 		}
-		sort.Strings(names)
-		for _, pin := range names {
-			fmt.Fprintf(&b, " pending{%s.%s = (%s)}", s.node(perf.graph, node), pin, s.elements(pins[pin]))
-		}
+		fmt.Fprintf(&b, " local{%s}", s.bodyValues(local, cells))
 	}
-	for _, node := range sortedNodes(perf.nested) {
-		for _, delivery := range perf.nested[node] {
-			path := make([]string, 0, len(delivery.path)+1)
-			path = append(path, s.node(perf.graph, node))
-			for _, step := range delivery.path {
-				path = append(path, nodeIdentifier(step))
-			}
-			fmt.Fprintf(&b, " nested{%s.%s = %s}", strings.Join(path, "."), delivery.pin, s.value(delivery.value))
-		}
-	}
+	s.deliveries(&b, perf)
 	for _, node := range sortedNodes(perf.subactions) {
 		fmt.Fprintf(&b, " latest{%s = %s}", s.node(perf.graph, node), s.frameLabel(perf.subactions[node]))
 	}
+	s.repeats(&b, perf)
 	streamed := slices.Sorted(maps.Keys(perf.streamed))
 	if len(streamed) > 0 {
 		fmt.Fprintf(&b, " streamed{%s}", strings.Join(streamed, ","))
@@ -465,6 +579,50 @@ func (s *stateSpeller) frame(perf *actionFrame) string {
 		}
 	}
 	return b.String()
+}
+
+// deliveries spells the values pending on a frame's pins and those delivered
+// to the pins of its nested nodes.
+func (s *stateSpeller) deliveries(b *strings.Builder, perf *actionFrame) {
+	for _, node := range sortedNodes(perf.pending) {
+		pins := perf.pending[node]
+		for _, pin := range slices.Sorted(maps.Keys(pins)) {
+			fmt.Fprintf(b, " pending{%s.%s = (%s)}", s.node(perf.graph, node), pin, s.elements(pins[pin]))
+		}
+	}
+	for _, node := range sortedNodes(perf.held) {
+		pins := perf.held[node]
+		for _, pin := range slices.Sorted(maps.Keys(pins)) {
+			for _, h := range pins[pin] {
+				fmt.Fprintf(b, " held{%s.%s = %s by %s}", s.node(perf.graph, node), pin, s.value(h.value), nodeKey(h.flow))
+			}
+		}
+	}
+	for _, node := range sortedNodes(perf.nested) {
+		for _, delivery := range perf.nested[node] {
+			path := make([]string, 0, len(delivery.path)+1)
+			path = append(path, s.node(perf.graph, node))
+			for _, step := range delivery.path {
+				path = append(path, nodeIdentifier(step))
+			}
+			fmt.Fprintf(b, " nested{%s.%s = %s}", strings.Join(path, "."), delivery.pin, s.value(delivery.value))
+		}
+	}
+}
+
+// repeats spells each repetition group of a frame with the performances still live in it.
+func (s *stateSpeller) repeats(b *strings.Builder, perf *actionFrame) {
+	groups := slices.Collect(maps.Keys(perf.repeats))
+	sort.Slice(groups, func(i, j int) bool { return s.groups[groups[i]] < s.groups[groups[j]] })
+	for _, id := range groups {
+		state := perf.repeats[id]
+		live := make([]string, 0, len(state.live))
+		for _, repeated := range state.live {
+			live = append(live, s.frameLabel(repeated))
+		}
+		sort.Strings(live)
+		fmt.Fprintf(b, " repeat{%s remaining=%d live=%s}", s.groups[id], state.remaining, strings.Join(live, ","))
+	}
 }
 
 // sortedNodes orders a map's node keys by identity, so the form is independent of map order.
@@ -497,12 +655,23 @@ func (s *stateSpeller) node(graph *lower.ActionGraph, node ast.Node) string {
 // token spells a token by its node, performance, the succession it arrived over
 // and the wait it is parked in; its id is scheduling detail and is dropped.
 func (s *stateSpeller) token(t Token) string {
+	text := s.tokenCore(t)
+	if group := s.groups[t.repetitionGroup]; group != "" {
+		text += " " + group
+	}
+	return text
+}
+
+func (s *stateSpeller) tokenCore(t Token) string {
 	graph := s.exec.graph
 	if t.frame != nil && t.frame.graph != nil {
 		graph = t.frame.graph
 	}
 	var b strings.Builder
 	fmt.Fprintf(&b, "token %s in %s", s.node(graph, t.Location), s.frameLabel(t.frame))
+	if t.repetition > 0 {
+		fmt.Fprintf(&b, " repetition=%d", t.repetition)
+	}
 	if t.Via != (lower.ActionEdge{}) {
 		fmt.Fprintf(&b, " via %s", s.edge(graph, t.Via))
 	}
@@ -588,11 +757,80 @@ func (s *stateSpeller) values(m map[string]Value) string {
 	return strings.Join(parts, ", ")
 }
 
+// bodyValues spells stored values and the tracking state of body bindings.
+func (s *stateSpeller) bodyValues(values map[string]Value, cells *bodyCells) string {
+	if cells == nil {
+		return s.values(values)
+	}
+	names := make(map[string]bool, len(values)+len(cells.cells))
+	for name := range values {
+		names[name] = true
+	}
+	for name, cell := range cells.cells {
+		if cell.binding != nil {
+			names[name] = true
+		}
+	}
+	ordered := make([]string, 0, len(names))
+	for name := range names {
+		ordered = append(ordered, name)
+	}
+	sort.Strings(ordered)
+	parts := make([]string, 0, len(ordered))
+	for _, name := range ordered {
+		cell := cells.cells[name]
+		value, held := values[name]
+		if cell != nil && cell.binding != nil {
+			state := "tracking"
+			switch {
+			case cell.fv.Written:
+				state = "written"
+			case cell.binding.frozen:
+				state = "frozen"
+			}
+			if !cell.fv.Materialized {
+				held = false
+			}
+			text := UnsetText
+			if held {
+				text = s.value(value)
+			}
+			parts = append(parts, fmt.Sprintf("%s = %s [%s]", name, text, state))
+		} else if held {
+			parts = append(parts, name+" = "+s.value(value))
+		}
+	}
+	return strings.Join(parts, ", ")
+}
+
 func (s *stateSpeller) elements(elements []Value) string {
 	parts := make([]string, len(elements))
 	for i, element := range elements {
 		parts[i] = s.value(element)
 	}
+	return strings.Join(parts, ", ")
+}
+
+// required spells a sequence ending in required members: each one made by its contents,
+// each run of members not made yet by its length, as they are alike until reached.
+func (s *stateSpeller) required(seq *Sequence) string {
+	var parts []string
+	if len(seq.elements) > 0 {
+		parts = append(parts, s.elements(seq.elements))
+	}
+	r := seq.required
+	next := r.first
+	unmade := func(upTo int64) {
+		if upTo > next {
+			parts = append(parts, fmt.Sprintf("%d unmade %s", upTo-next, symbolText(r.typ)))
+		}
+	}
+	for _, inst := range s.ctx.madeRequired(r) {
+		unmade(inst.ID)
+		parts = append(parts, s.object(inst.ID))
+		next = inst.ID + 1
+	}
+	unmade(r.first + r.count)
 	return strings.Join(parts, ", ")
 }
 
@@ -613,6 +851,9 @@ func (s *stateSpeller) value(v Value) string {
 	case ValSequence:
 		if v.Sequence() == nil {
 			return "()"
+		}
+		if seq := requiredTail(v); seq != nil {
+			return "(" + s.required(seq) + ")"
 		}
 		return "(" + s.elements(v.Sequence().Elements()) + ")"
 	case ValSet:

@@ -2,9 +2,11 @@ package opensysml
 
 import (
 	"fmt"
+	"math/big"
 
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/protoconv"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 )
 
 // The conversions from the wire types to the public ones. Every conversion
@@ -91,6 +93,18 @@ func valueFromProto(value *pb.Value) Value {
 	switch kind := value.Kind.(type) {
 	case *pb.Value_IntValue:
 		return Int(kind.IntValue)
+	case *pb.Value_BigIntValue:
+		n, ok := new(big.Int).SetString(kind.BigIntValue, 10)
+		if !ok {
+			return Null("unsupported: a big integer that is not decimal")
+		}
+		return NewInteger(n)
+	case *pb.Value_RationalValue:
+		rational, ok := rationalFromProto(kind.RationalValue)
+		if !ok {
+			return Null("unsupported: a rational that is not in lowest terms")
+		}
+		return rational
 	case *pb.Value_RealValue:
 		return Real(kind.RealValue)
 	case *pb.Value_Complex:
@@ -225,6 +239,14 @@ func valueToProto(value Value) (*pb.Value, error) {
 		return nil, nil
 	case Int:
 		return &pb.Value{Kind: &pb.Value_IntValue{IntValue: int64(v)}}, nil
+	case BigInt:
+		n := v.Int()
+		if n.IsInt64() {
+			return &pb.Value{Kind: &pb.Value_IntValue{IntValue: n.Int64()}}, nil
+		}
+		return &pb.Value{Kind: &pb.Value_BigIntValue{BigIntValue: n.String()}}, nil
+	case Rational:
+		return &pb.Value{Kind: &pb.Value_RationalValue{RationalValue: rationalToProto(v)}}, nil
 	case Real:
 		return &pb.Value{Kind: &pb.Value_RealValue{RealValue: float64(v)}}, nil
 	case Complex:
@@ -367,6 +389,14 @@ func quantityToProto(quantity Quantity) (*pb.Quantity, error) {
 	switch magnitude := quantity.Magnitude.(type) {
 	case Int:
 		out.Magnitude = &pb.Quantity_IntMagnitude{IntMagnitude: int64(magnitude)}
+	case BigInt:
+		if n := magnitude.Int(); n.IsInt64() {
+			out.Magnitude = &pb.Quantity_IntMagnitude{IntMagnitude: n.Int64()}
+		} else {
+			out.Magnitude = &pb.Quantity_BigIntMagnitude{BigIntMagnitude: n.String()}
+		}
+	case Rational:
+		out.Magnitude = &pb.Quantity_RationalMagnitude{RationalMagnitude: rationalToProto(magnitude)}
 	case Real:
 		out.Magnitude = &pb.Quantity_RealMagnitude{RealMagnitude: float64(magnitude)}
 	default:
@@ -429,6 +459,18 @@ func quantityFromProto(quantity *pb.Quantity) (Quantity, bool) {
 	switch magnitude := quantity.GetMagnitude().(type) {
 	case *pb.Quantity_IntMagnitude:
 		out.Magnitude = Int(magnitude.IntMagnitude)
+	case *pb.Quantity_BigIntMagnitude:
+		n, ok := new(big.Int).SetString(magnitude.BigIntMagnitude, 10)
+		if !ok {
+			return Quantity{}, false
+		}
+		out.Magnitude = NewInteger(n)
+	case *pb.Quantity_RationalMagnitude:
+		rational, ok := rationalFromProto(magnitude.RationalMagnitude)
+		if !ok {
+			return Quantity{}, false
+		}
+		out.Magnitude = rational
 	case *pb.Quantity_RealMagnitude:
 		out.Magnitude = Real(magnitude.RealMagnitude)
 	default:
@@ -459,4 +501,68 @@ func instanceFromProto(inst *pb.Instance) *Instance {
 		}
 	}
 	return out
+}
+
+func migrationFromProto(resp *pb.MigrateResponse) *Migration {
+	out := &Migration{
+		Content:            resp.Content,
+		From:               Format(resp.FromFormat),
+		To:                 Format(resp.ToFormat),
+		ExperimentalNotice: resp.ExperimentalNotice,
+		Report:             migrationReportFromProto(resp.Report),
+		Results:            resp.Results,
+	}
+	if len(resp.Files) > 0 {
+		out.Files = make(map[string][]byte, len(resp.Files))
+		for _, file := range resp.Files {
+			out.Files[file.Path] = append([]byte(nil), file.Content...)
+		}
+	}
+	return out
+}
+
+func migrationReportFromProto(report *pb.MigrationReport) *MigrationReport {
+	if report == nil {
+		return nil
+	}
+	out := &MigrationReport{
+		Source:       report.Source,
+		Exporter:     report.Exporter,
+		Summary:      report.Summary,
+		Mapped:       int(report.Mapped),
+		Approximated: int(report.Approximated),
+		Unmapped:     int(report.Unmapped),
+		Skipped:      int(report.Skipped),
+		Text:         report.Text,
+	}
+	if len(report.Entries) > 0 {
+		out.Entries = make([]MigrationEntry, 0, len(report.Entries))
+		for _, entry := range report.Entries {
+			out.Entries = append(out.Entries, MigrationEntry{
+				ID:      entry.Id,
+				Kind:    entry.Kind,
+				Name:    entry.Name,
+				Target:  entry.Target,
+				Verdict: entry.Verdict,
+				Note:    entry.Note,
+			})
+		}
+	}
+	return out
+}
+
+// rationalToProto marshals a Rational in lowest terms.
+func rationalToProto(q Rational) *pb.Rational {
+	r := q.Rat()
+	return &pb.Rational{Numerator: r.Num().String(), Denominator: r.Denom().String()}
+}
+
+// rationalFromProto is false for a Rational not in lowest terms or one a double
+// holds exactly, which a service never sends.
+func rationalFromProto(pr *pb.Rational) (Rational, bool) {
+	v, ok := semantics.CanonicalRational(pr.GetNumerator(), pr.GetDenominator())
+	if !ok {
+		return Rational{}, false
+	}
+	return Rational{r: v.Rat()}, true
 }

@@ -36,6 +36,15 @@ func (d *derivedValues) get(context Context) *runtime.DeclaredReader {
 	return d.reader
 }
 
+// Verifier runs verification cases over the context: in its runtime when it
+// holds one, or a behavior-free reader over its model.
+func (c Context) Verifier() runtime.RequirementVerifier {
+	if c.Runtime != nil {
+		return c.Runtime
+	}
+	return runtime.NewDeclaredReader(c.Model, c.Resolver)
+}
+
 // verifications runs the verification cases verifying req once per execution
 // and verifier, in the scopes given.
 func (d *derivedValues) verifications(verifier verifier, scopes []*symbols.Scope, req *symbols.Symbol) []runtime.VerificationVerdict {
@@ -78,10 +87,11 @@ func (e *executor) cellValues(value runtime.Value, property string, row Value) (
 	switch value.Kind {
 	case runtime.ValNull:
 		return nil, nil
-	case runtime.ValSequence:
-		elements = value.Sequence().Elements()
-	case runtime.ValSet:
-		elements = value.Set().Elements()
+	case runtime.ValSequence, runtime.ValSet:
+		var err error
+		if elements, err = collectionElements(e.context.Runtime, value); err != nil {
+			return nil, e.unevaluable(queryplan.Expression{}, property, row, err)
+		}
 	case runtime.ValConst:
 		converted, ok := constValue(value.Const)
 		if !ok {
@@ -112,7 +122,9 @@ func constValue(value semantics.Value) (Value, bool) {
 	case semantics.ValBool:
 		return BooleanValue(value.Bool), true
 	case semantics.ValInt:
-		return IntegerValue(value.Int), true
+		return IntegerOf(value), true
+	case semantics.ValRational:
+		return RationalOf(value), true
 	case semantics.ValReal:
 		return RealValue(value.Real), true
 	default:

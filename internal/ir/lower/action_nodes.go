@@ -1,17 +1,12 @@
 package lower
 
 import (
-	"errors"
 	"fmt"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
-
-// ErrStatementOutsideFlow reports a statement written among an action's own
-// members that no succession binds, so it holds no position in the token flow.
-var ErrStatementOutsideFlow = errors.New("has no position in the token flow")
 
 // ActionNodes returns the nodes accepted by action lowering and whether the
 // action has an initial node after interpreting `first <node>`.
@@ -36,6 +31,17 @@ func ActionEndpointAccepted(nodes []ast.Node, hasInitial bool, ref ast.Node, sou
 	return impliedMarker(ast.SimpleName(ref), source, !hasInitial)
 }
 
+// GatedFlowAccepted reports whether a succession from sourceRef may lead to flow: a
+// succession flow leaving the node sourceRef names, whose delivery the succession gates.
+func GatedFlowAccepted(nodes []ast.Node, sourceRef ast.Node, flow *ast.Usage) bool {
+	if flow == nil || !flow.IsSuccessionFlow() || flow.FlowEnds == nil {
+		return false
+	}
+	source := findNodeByReference(nodes, sourceRef)
+	segments := endSegments(flow.FlowEnds.From)
+	return source != nil && len(segments) > 0 && nodeAnswering(nodes, segments[0]) == source
+}
+
 func impliedMarker(name string, source, noInitial bool) bool {
 	return (source && noInitial && name == "start") || (!source && name == "done")
 }
@@ -49,18 +55,20 @@ func ToActionInterface(actionDecl ast.Node, scope *symbols.Scope) (*ActionGraph,
 	}
 	graph := newActionGraph(scope)
 	graph.Attributes = lowerAttributes(members)
+	graph.Parameters = lowerParameters(members, scope)
 	return graph, nil
 }
 
 func newActionGraph(scope *symbols.Scope) *ActionGraph {
 	return &ActionGraph{
-		Scope:     scope,
-		Nodes:     make([]ast.Node, 0),
-		Edges:     make(map[ast.Node][]ActionEdge),
-		DataFlows: make(map[ast.Node][]ObjectFlow),
-		Bodies:    make(map[ast.Node][]Statement),
-		Accepts:   make(map[ast.Node]Accept),
-		Finals:    make([]ast.Node, 0),
+		Scope:          scope,
+		Nodes:          make([]ast.Node, 0),
+		Edges:          make(map[ast.Node][]ActionEdge),
+		Multiplicities: make(map[ast.Node]*ast.Multiplicity),
+		DataFlows:      make(map[ast.Node][]ObjectFlow),
+		Bodies:         make(map[ast.Node][]Statement),
+		Accepts:        make(map[ast.Node]Accept),
+		Finals:         make([]ast.Node, 0),
 	}
 }
 
@@ -79,10 +87,8 @@ func actionMembers(actionDecl ast.Node) ([]ast.Node, error) {
 func collectActionNodes(members []ast.Node, scope *symbols.Scope, resolver *resolve.Resolver) (*ActionGraph, error) {
 	graph := newActionGraph(scope)
 	graph.resolver = resolver
+	asserted := orderedAssertions(members)
 
-	// A succession can bind a member with no name of its own by position, which is
-	// what puts a statement member (`then send …;`) in the token flow.
-	sequenced := sequencedMembers(members)
 	// First pass: collect nodes.
 	for _, member := range members {
 		actualMember := unwrapMembership(member)
@@ -105,23 +111,26 @@ func collectActionNodes(members []ast.Node, scope *symbols.Scope, resolver *reso
 		case *ast.ForkNode, *ast.JoinNode, *ast.MergeNode, *ast.DecisionNode, *ast.ActionExecutionNode:
 			graph.Nodes = append(graph.Nodes, n)
 			lowerNodeBody(graph, n, ast.NodeBodyMembers(n), scope)
+			lowerControlFeatures(graph, n, scope)
 		case *ast.Usage:
 			switch {
 			case n.Kind == ast.UsageAction:
 				graph.Nodes = append(graph.Nodes, n)
+				recordNodeMultiplicity(graph, n)
 				lowerActionNode(graph, n, childScope(scope, n))
 			case IsCaseNode(n):
 				graph.Nodes = append(graph.Nodes, n)
+				recordNodeMultiplicity(graph, n)
 				recordNodeScope(graph, n, childScope(scope, n))
+			case asserted[n]:
+				graph.Nodes = append(graph.Nodes, n)
+				graph.Bodies[n] = []Statement{Assert{Node: n, Sym: scope.MemberDeclaring(n), Scope: scope}}
 			}
 		case *ast.WhileLoopActionNode, *ast.IfActionNode, *ast.AssignmentActionNode,
 			*ast.SendStatement, *ast.TerminateStatement:
-			// A statement written among the action's own members with no succession
-			// binding it has no position in the token flow.
-			if !sequenced[actualMember] {
-				return nil, fmt.Errorf("%s written directly in an action body %w: declare it inside an action node",
-					statementKeyword(n), ErrStatementOutsideFlow)
-			}
+			// A statement written among the action's own members is a subaction of
+			// it, ordered by the successions that bind it and started with the
+			// owner where none does (StartFlow).
 			graph.Nodes = append(graph.Nodes, n)
 			graph.Bodies[n] = []Statement{lowerStatement(n, scope)}
 		}
@@ -130,6 +139,7 @@ func collectActionNodes(members []ast.Node, scope *symbols.Scope, resolver *reso
 	collectInheritedActionNodes(graph, members)
 	graph.Connections = lowerConnections(members, OwnerBehavior, scope)
 	graph.Attributes = lowerAttributes(members)
+	graph.Parameters = lowerParameters(members, scope)
 	// `first a;` names the node the flow starts at rather than declaring one.
 	if err := resolveFirstNode(graph); err != nil {
 		return nil, err
@@ -191,9 +201,15 @@ func ensureInheritedActionNode(graph *ActionGraph, ref ast.Node) ast.Node {
 	graph.recordDeclaredIn(decl, declaringScope)
 	switch n := decl.(type) {
 	case *ast.Usage:
+		if resolve.IsAssertion(n) {
+			graph.Bodies[n] = []Statement{Assert{Node: n, Sym: declaringScope.MemberDeclaring(n), Scope: declaringScope}}
+			break
+		}
+		recordNodeMultiplicity(graph, n)
 		lowerActionNode(graph, n, childScope(declaringScope, n))
 	case *ast.ForkNode, *ast.JoinNode, *ast.MergeNode, *ast.DecisionNode, *ast.ActionExecutionNode:
 		lowerNodeBody(graph, n, ast.NodeBodyMembers(n), declaringScope)
+		lowerControlFeatures(graph, n, declaringScope)
 	case *ast.WhileLoopActionNode, *ast.IfActionNode, *ast.AssignmentActionNode,
 		*ast.SendStatement, *ast.TerminateStatement:
 		graph.Bodies[n] = []Statement{lowerStatement(n, declaringScope)}

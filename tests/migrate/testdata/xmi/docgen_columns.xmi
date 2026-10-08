@@ -1,0 +1,381 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xmi:XMI xmi:version="2.5.1" xmlns:xmi="http://www.omg.org/spec/XMI/20131001"
+         xmlns:uml="http://www.omg.org/spec/UML/20161101"
+         xmlns:sysml="http://www.omg.org/spec/SysML/20181001/SysML"
+         xmlns:Document_Profile_="http://www.magicdraw.com/schemas/manual/Document_Profile.xmi">
+  <xmi:Documentation exporter="Example UML Tool" exporterVersion="1.0"/>
+  <uml:Model xmi:type="uml:Model" xmi:id="_m" name="Model">
+    <packagedElement xmi:type="uml:Package" xmi:id="_pkg_obs" name="Observatory">
+
+      <packagedElement xmi:type="uml:Package" xmi:id="_pkg_types" name="Interface Types">
+        <packagedElement xmi:type="uml:DataType" xmi:id="_vt_bits" name="Bits"/>
+        <packagedElement xmi:type="uml:Class" xmi:id="_ib_usb" name="USB">
+          <ownedAttribute xmi:type="uml:Property" xmi:id="_fp_usb_data" name="data" type="_vt_bits"/>
+        </packagedElement>
+        <packagedElement xmi:type="uml:Class" xmi:id="_ib_serial" name="Serial">
+          <ownedAttribute xmi:type="uml:Property" xmi:id="_fp_serial_cmd" name="cmd" type="_vt_bits"/>
+        </packagedElement>
+        <packagedElement xmi:type="uml:Class" xmi:id="_ib_spare" name="Spare"/>
+      </packagedElement>
+
+      <packagedElement xmi:type="uml:Package" xmi:id="_pkg_asm" name="Assemblies">
+        <packagedElement xmi:type="uml:Class" xmi:id="_blk_coll" name="Collimator">
+          <ownedAttribute xmi:type="uml:Port" xmi:id="_port_coll_usb" name="usb" type="_ib_usb" aggregation="composite">
+            <ownedComment xmi:type="uml:Comment" xmi:id="_doc_coll_usb" body="Camera link." annotatedElement="_port_coll_usb"/>
+          </ownedAttribute>
+          <ownedAttribute xmi:type="uml:Port" xmi:id="_port_coll_ctl" name="ctl" type="_ib_serial" aggregation="composite"/>
+        </packagedElement>
+        <packagedElement xmi:type="uml:Class" xmi:id="_blk_mirror" name="Mirror">
+          <ownedAttribute xmi:type="uml:Port" xmi:id="_port_mirror_tilt" name="tilt" type="_ib_serial" aggregation="composite">
+            <ownedComment xmi:type="uml:Comment" xmi:id="_doc_mirror_tilt" body="Tilt command." annotatedElement="_port_mirror_tilt"/>
+          </ownedAttribute>
+        </packagedElement>
+        <packagedElement xmi:type="uml:Class" xmi:id="_blk_hub" name="Hub">
+          <ownedAttribute xmi:type="uml:Port" xmi:id="_port_hub_usb" name="usb" type="_ib_usb" aggregation="composite"/>
+          <ownedAttribute xmi:type="uml:Port" xmi:id="_port_hub_serial" name="serial" type="_ib_serial" aggregation="composite"/>
+        </packagedElement>
+        <packagedElement xmi:type="uml:Class" xmi:id="_blk_bench" name="Optical Bench">
+          <ownedAttribute xmi:type="uml:Property" xmi:id="_prop_coll" name="collimator" type="_blk_coll" aggregation="composite"/>
+          <ownedAttribute xmi:type="uml:Property" xmi:id="_prop_mirror" name="mirror" type="_blk_mirror" aggregation="composite"/>
+        </packagedElement>
+        <packagedElement xmi:type="uml:Class" xmi:id="_blk_rack" name="Controller Rack">
+          <ownedAttribute xmi:type="uml:Property" xmi:id="_prop_hub" name="hub" type="_blk_hub" aggregation="composite"/>
+        </packagedElement>
+        <packagedElement xmi:type="uml:Class" xmi:id="_blk_sys" name="Observatory System">
+          <ownedAttribute xmi:type="uml:Property" xmi:id="_prop_bench" name="bench" type="_blk_bench" aggregation="composite"/>
+          <ownedAttribute xmi:type="uml:Property" xmi:id="_prop_rack" name="rack" type="_blk_rack" aggregation="composite"/>
+          <ownedConnector xmi:type="uml:Connector" xmi:id="_conn_usb" name="camera link">
+            <end xmi:type="uml:ConnectorEnd" xmi:id="_ce_usb_1" role="_port_coll_usb"/>
+            <end xmi:type="uml:ConnectorEnd" xmi:id="_ce_usb_2" role="_port_hub_usb"/>
+            <ownedComment xmi:type="uml:Comment" xmi:id="_doc_conn_usb" body="Camera data to the rack." annotatedElement="_conn_usb"/>
+          </ownedConnector>
+          <ownedConnector xmi:type="uml:Connector" xmi:id="_conn_serial" name="tilt link">
+            <end xmi:type="uml:ConnectorEnd" xmi:id="_ce_serial_1" role="_port_mirror_tilt"/>
+            <end xmi:type="uml:ConnectorEnd" xmi:id="_ce_serial_2" role="_port_hub_serial"/>
+          </ownedConnector>
+        </packagedElement>
+      </packagedElement>
+
+      <packagedElement xmi:type="uml:Package" xmi:id="_pkg_viewpoints" name="Viewpoints">
+        <packagedElement xmi:type="uml:Class" xmi:id="_vp_totals" name="Totals Viewpoint" classifierBehavior="_act_totals">
+          <ownedBehavior xmi:type="uml:Activity" xmi:id="_act_totals" name="Totals Method">
+            <node xmi:type="uml:InitialNode" xmi:id="_tot_init"/>
+            <node xmi:type="uml:CallBehaviorAction" xmi:id="_tot_collect" name="Collect Owned Elements"/>
+            <node xmi:type="uml:CallBehaviorAction" xmi:id="_tot_filter" name="Filter By Metaclasses"/>
+            <node xmi:type="uml:CallBehaviorAction" xmi:id="_tot_sort" name="Sort By Name"/>
+            <node xmi:type="uml:StructuredActivityNode" xmi:id="_tot_table" name="Interface Totals">
+              <node xmi:type="uml:InitialNode" xmi:id="_tot_table_init"/>
+              <node xmi:type="uml:CallBehaviorAction" xmi:id="_tot_col_name" name="Interface Type"/>
+              <node xmi:type="uml:CallBehaviorAction" xmi:id="_tot_col_count" name="Number of Interfaces"/>
+              <node xmi:type="uml:CallBehaviorAction" xmi:id="_tot_col_iter" name="Iterated"/>
+              <node xmi:type="uml:FlowFinalNode" xmi:id="_tot_table_final"/>
+              <edge xmi:type="uml:ControlFlow" xmi:id="_tot_table_e1" source="_tot_table_init" target="_tot_col_name"/>
+              <edge xmi:type="uml:ControlFlow" xmi:id="_tot_table_e2" source="_tot_col_name" target="_tot_col_count"/>
+              <edge xmi:type="uml:ControlFlow" xmi:id="_tot_table_e3" source="_tot_col_count" target="_tot_col_iter"/>
+              <edge xmi:type="uml:ControlFlow" xmi:id="_tot_table_e4" source="_tot_col_iter" target="_tot_table_final"/>
+            </node>
+            <node xmi:type="uml:StructuredActivityNode" xmi:id="_tot_each" name="Per Type">
+              <node xmi:type="uml:InitialNode" xmi:id="_tot_each_init"/>
+              <node xmi:type="uml:CallBehaviorAction" xmi:id="_tot_each_name" name="Interface Type"/>
+              <node xmi:type="uml:CallBehaviorAction" xmi:id="_tot_each_count" name="Number of Interfaces"/>
+              <node xmi:type="uml:FlowFinalNode" xmi:id="_tot_each_final"/>
+              <edge xmi:type="uml:ControlFlow" xmi:id="_tot_each_e1" source="_tot_each_init" target="_tot_each_name"/>
+              <edge xmi:type="uml:ControlFlow" xmi:id="_tot_each_e2" source="_tot_each_name" target="_tot_each_count"/>
+              <edge xmi:type="uml:ControlFlow" xmi:id="_tot_each_e3" source="_tot_each_count" target="_tot_each_final"/>
+            </node>
+            <node xmi:type="uml:ActivityFinalNode" xmi:id="_tot_final"/>
+            <edge xmi:type="uml:ControlFlow" xmi:id="_tot_e1" source="_tot_init" target="_tot_collect"/>
+            <edge xmi:type="uml:ControlFlow" xmi:id="_tot_e2" source="_tot_collect" target="_tot_filter"/>
+            <edge xmi:type="uml:ControlFlow" xmi:id="_tot_e3" source="_tot_filter" target="_tot_sort"/>
+            <edge xmi:type="uml:ControlFlow" xmi:id="_tot_e4" source="_tot_sort" target="_tot_table"/>
+            <edge xmi:type="uml:ControlFlow" xmi:id="_tot_e5" source="_tot_table" target="_tot_each"/>
+            <edge xmi:type="uml:ControlFlow" xmi:id="_tot_e6" source="_tot_each" target="_tot_final"/>
+          </ownedBehavior>
+        </packagedElement>
+
+        <packagedElement xmi:type="uml:Class" xmi:id="_vp_conn" name="Connections Viewpoint" classifierBehavior="_act_conn">
+          <ownedBehavior xmi:type="uml:Activity" xmi:id="_act_conn" name="Connections Method">
+            <node xmi:type="uml:InitialNode" xmi:id="_conn_init"/>
+            <node xmi:type="uml:CallBehaviorAction" xmi:id="_conn_collect" name="Collect Owned Elements"/>
+            <node xmi:type="uml:CallBehaviorAction" xmi:id="_conn_filter" name="Filter By Metaclasses"/>
+            <node xmi:type="uml:StructuredActivityNode" xmi:id="_conn_table" name="Table of Connections">
+              <node xmi:type="uml:InitialNode" xmi:id="_conn_table_init"/>
+              <node xmi:type="uml:CallBehaviorAction" xmi:id="_conn_col_bench" name="Point of Interface on Optical Bench"/>
+              <node xmi:type="uml:CallBehaviorAction" xmi:id="_conn_col_rack" name="Point of Interface on Controller Rack"/>
+              <node xmi:type="uml:CallBehaviorAction" xmi:id="_conn_col_type" name="Type"/>
+              <node xmi:type="uml:CallBehaviorAction" xmi:id="_conn_col_dir" name="Direction"/>
+              <node xmi:type="uml:CallBehaviorAction" xmi:id="_conn_col_desc" name="Description"/>
+              <node xmi:type="uml:FlowFinalNode" xmi:id="_conn_table_final"/>
+              <edge xmi:type="uml:ControlFlow" xmi:id="_conn_table_e1" source="_conn_table_init" target="_conn_col_bench"/>
+              <edge xmi:type="uml:ControlFlow" xmi:id="_conn_table_e2" source="_conn_col_bench" target="_conn_col_rack"/>
+              <edge xmi:type="uml:ControlFlow" xmi:id="_conn_table_e3" source="_conn_col_rack" target="_conn_col_type"/>
+              <edge xmi:type="uml:ControlFlow" xmi:id="_conn_table_e4" source="_conn_col_type" target="_conn_col_dir"/>
+              <edge xmi:type="uml:ControlFlow" xmi:id="_conn_table_e5" source="_conn_col_dir" target="_conn_col_desc"/>
+              <edge xmi:type="uml:ControlFlow" xmi:id="_conn_table_e6" source="_conn_col_desc" target="_conn_table_final"/>
+            </node>
+            <node xmi:type="uml:ActivityFinalNode" xmi:id="_conn_final"/>
+            <edge xmi:type="uml:ControlFlow" xmi:id="_conn_e1" source="_conn_init" target="_conn_collect"/>
+            <edge xmi:type="uml:ControlFlow" xmi:id="_conn_e2" source="_conn_collect" target="_conn_filter"/>
+            <edge xmi:type="uml:ControlFlow" xmi:id="_conn_e3" source="_conn_filter" target="_conn_table"/>
+            <edge xmi:type="uml:ControlFlow" xmi:id="_conn_e4" source="_conn_table" target="_conn_final"/>
+          </ownedBehavior>
+        </packagedElement>
+
+        <packagedElement xmi:type="uml:Class" xmi:id="_vp_ifc" name="Interfaces Viewpoint" classifierBehavior="_act_ifc">
+          <ownedBehavior xmi:type="uml:Activity" xmi:id="_act_ifc" name="Interfaces Method">
+            <node xmi:type="uml:InitialNode" xmi:id="_ifc_init"/>
+            <node xmi:type="uml:CallBehaviorAction" xmi:id="_ifc_collect" name="Collect Owned Elements"/>
+            <node xmi:type="uml:CallBehaviorAction" xmi:id="_ifc_parts" name="Filter By Metaclasses"/>
+            <node xmi:type="uml:CallBehaviorAction" xmi:id="_ifc_sort" name="Sort By Name"/>
+            <node xmi:type="uml:StructuredActivityNode" xmi:id="_ifc_loop" name="Per Assembly">
+              <node xmi:type="uml:InitialNode" xmi:id="_ifc_loop_init"/>
+              <node xmi:type="uml:CallBehaviorAction" xmi:id="_ifc_bullet" name="Assembly"/>
+              <node xmi:type="uml:CallBehaviorAction" xmi:id="_ifc_types" name="Collect Types"/>
+              <node xmi:type="uml:StructuredActivityNode" xmi:id="_ifc_table" name="Interfaces Table">
+                <node xmi:type="uml:InitialNode" xmi:id="_ifc_table_init"/>
+                <node xmi:type="uml:CallBehaviorAction" xmi:id="_ifc_col_name" name="Name"/>
+                <node xmi:type="uml:StructuredActivityNode" xmi:id="_ifc_col_desc" name="Description">
+                  <node xmi:type="uml:InitialNode" xmi:id="_ifc_desc_init"/>
+                  <node xmi:type="uml:CallBehaviorAction" xmi:id="_ifc_desc_collect" name="Collect Owned Elements"/>
+                  <node xmi:type="uml:CallBehaviorAction" xmi:id="_ifc_desc_ports" name="Filter By Metaclasses"/>
+                  <node xmi:type="uml:FlowFinalNode" xmi:id="_ifc_desc_final"/>
+                  <edge xmi:type="uml:ControlFlow" xmi:id="_ifc_desc_e1" source="_ifc_desc_init" target="_ifc_desc_collect"/>
+                  <edge xmi:type="uml:ControlFlow" xmi:id="_ifc_desc_e2" source="_ifc_desc_collect" target="_ifc_desc_ports"/>
+                  <edge xmi:type="uml:ControlFlow" xmi:id="_ifc_desc_e3" source="_ifc_desc_ports" target="_ifc_desc_final"/>
+                </node>
+                <node xmi:type="uml:StructuredActivityNode" xmi:id="_ifc_col_ifc" name="Interfaces">
+                  <node xmi:type="uml:InitialNode" xmi:id="_ifc_ifc_init"/>
+                  <node xmi:type="uml:CallBehaviorAction" xmi:id="_ifc_ifc_collect" name="Collect Owned Elements"/>
+                  <node xmi:type="uml:CallBehaviorAction" xmi:id="_ifc_ifc_ports" name="Filter By Metaclasses"/>
+                  <node xmi:type="uml:CallBehaviorAction" xmi:id="_ifc_ifc_types" name="Collect Types"/>
+                  <node xmi:type="uml:FlowFinalNode" xmi:id="_ifc_ifc_final"/>
+                  <edge xmi:type="uml:ControlFlow" xmi:id="_ifc_ifc_e1" source="_ifc_ifc_init" target="_ifc_ifc_collect"/>
+                  <edge xmi:type="uml:ControlFlow" xmi:id="_ifc_ifc_e2" source="_ifc_ifc_collect" target="_ifc_ifc_ports"/>
+                  <edge xmi:type="uml:ControlFlow" xmi:id="_ifc_ifc_e3" source="_ifc_ifc_ports" target="_ifc_ifc_types"/>
+                  <edge xmi:type="uml:ControlFlow" xmi:id="_ifc_ifc_e4" source="_ifc_ifc_types" target="_ifc_ifc_final"/>
+                </node>
+                <node xmi:type="uml:StructuredActivityNode" xmi:id="_ifc_col_sorted" name="Sorted Ports">
+                  <node xmi:type="uml:InitialNode" xmi:id="_ifc_sorted_init"/>
+                  <node xmi:type="uml:CallBehaviorAction" xmi:id="_ifc_sorted_collect" name="Collect Owned Elements"/>
+                  <node xmi:type="uml:CallBehaviorAction" xmi:id="_ifc_sorted_sort" name="Sort By Property"/>
+                  <node xmi:type="uml:FlowFinalNode" xmi:id="_ifc_sorted_final"/>
+                  <edge xmi:type="uml:ControlFlow" xmi:id="_ifc_sorted_e1" source="_ifc_sorted_init" target="_ifc_sorted_collect"/>
+                  <edge xmi:type="uml:ControlFlow" xmi:id="_ifc_sorted_e2" source="_ifc_sorted_collect" target="_ifc_sorted_sort"/>
+                  <edge xmi:type="uml:ControlFlow" xmi:id="_ifc_sorted_e3" source="_ifc_sorted_sort" target="_ifc_sorted_final"/>
+                </node>
+                <node xmi:type="uml:StructuredActivityNode" xmi:id="_ifc_col_assoc" name="Associated">
+                  <node xmi:type="uml:InitialNode" xmi:id="_ifc_assoc_init"/>
+                  <node xmi:type="uml:CallBehaviorAction" xmi:id="_ifc_assoc_collect" name="Collect By Association"/>
+                  <node xmi:type="uml:FlowFinalNode" xmi:id="_ifc_assoc_final"/>
+                  <edge xmi:type="uml:ControlFlow" xmi:id="_ifc_assoc_e1" source="_ifc_assoc_init" target="_ifc_assoc_collect"/>
+                  <edge xmi:type="uml:ControlFlow" xmi:id="_ifc_assoc_e2" source="_ifc_assoc_collect" target="_ifc_assoc_final"/>
+                </node>
+                <node xmi:type="uml:FlowFinalNode" xmi:id="_ifc_table_final"/>
+                <edge xmi:type="uml:ControlFlow" xmi:id="_ifc_table_e1" source="_ifc_table_init" target="_ifc_col_name"/>
+                <edge xmi:type="uml:ControlFlow" xmi:id="_ifc_table_e2" source="_ifc_col_name" target="_ifc_col_desc"/>
+                <edge xmi:type="uml:ControlFlow" xmi:id="_ifc_table_e3" source="_ifc_col_desc" target="_ifc_col_ifc"/>
+                <edge xmi:type="uml:ControlFlow" xmi:id="_ifc_table_e4" source="_ifc_col_ifc" target="_ifc_col_sorted"/>
+                <edge xmi:type="uml:ControlFlow" xmi:id="_ifc_table_e5" source="_ifc_col_sorted" target="_ifc_col_assoc"/>
+                <edge xmi:type="uml:ControlFlow" xmi:id="_ifc_table_e6" source="_ifc_col_assoc" target="_ifc_table_final"/>
+              </node>
+              <node xmi:type="uml:FlowFinalNode" xmi:id="_ifc_loop_final"/>
+              <edge xmi:type="uml:ControlFlow" xmi:id="_ifc_loop_e1" source="_ifc_loop_init" target="_ifc_bullet"/>
+              <edge xmi:type="uml:ControlFlow" xmi:id="_ifc_loop_e2" source="_ifc_bullet" target="_ifc_types"/>
+              <edge xmi:type="uml:ControlFlow" xmi:id="_ifc_loop_e3" source="_ifc_types" target="_ifc_table"/>
+              <edge xmi:type="uml:ControlFlow" xmi:id="_ifc_loop_e4" source="_ifc_table" target="_ifc_loop_final"/>
+            </node>
+            <node xmi:type="uml:CallBehaviorAction" xmi:id="_ifc_none_filter" name="Filter By Metaclasses"/>
+            <node xmi:type="uml:StructuredActivityNode" xmi:id="_ifc_none" name="Per Activity">
+              <node xmi:type="uml:InitialNode" xmi:id="_ifc_none_init"/>
+              <node xmi:type="uml:CallBehaviorAction" xmi:id="_ifc_none_bullet" name="Activity"/>
+              <node xmi:type="uml:FlowFinalNode" xmi:id="_ifc_none_final"/>
+              <edge xmi:type="uml:ControlFlow" xmi:id="_ifc_none_e1" source="_ifc_none_init" target="_ifc_none_bullet"/>
+              <edge xmi:type="uml:ControlFlow" xmi:id="_ifc_none_e2" source="_ifc_none_bullet" target="_ifc_none_final"/>
+            </node>
+            <node xmi:type="uml:ActivityFinalNode" xmi:id="_ifc_final"/>
+            <edge xmi:type="uml:ControlFlow" xmi:id="_ifc_e1" source="_ifc_init" target="_ifc_collect"/>
+            <edge xmi:type="uml:ControlFlow" xmi:id="_ifc_e2" source="_ifc_collect" target="_ifc_parts"/>
+            <edge xmi:type="uml:ControlFlow" xmi:id="_ifc_e3" source="_ifc_parts" target="_ifc_sort"/>
+            <edge xmi:type="uml:ControlFlow" xmi:id="_ifc_e4" source="_ifc_sort" target="_ifc_loop"/>
+            <edge xmi:type="uml:ControlFlow" xmi:id="_ifc_e5" source="_ifc_loop" target="_ifc_none_filter"/>
+            <edge xmi:type="uml:ControlFlow" xmi:id="_ifc_e6" source="_ifc_none_filter" target="_ifc_none"/>
+            <edge xmi:type="uml:ControlFlow" xmi:id="_ifc_e7" source="_ifc_none" target="_ifc_final"/>
+          </ownedBehavior>
+        </packagedElement>
+
+        <packagedElement xmi:type="uml:Class" xmi:id="_vp_per" name="Per Part Viewpoint" classifierBehavior="_act_per">
+          <ownedBehavior xmi:type="uml:Activity" xmi:id="_act_per" name="Per Part Method">
+            <node xmi:type="uml:InitialNode" xmi:id="_per_init"/>
+            <node xmi:type="uml:CallBehaviorAction" xmi:id="_per_collect" name="Collect Owned Elements"/>
+            <node xmi:type="uml:CallBehaviorAction" xmi:id="_per_parts" name="Filter By Metaclasses"/>
+            <node xmi:type="uml:CallBehaviorAction" xmi:id="_per_call" name="One Part" behavior="_act_one_part"/>
+            <node xmi:type="uml:ActivityFinalNode" xmi:id="_per_final"/>
+            <edge xmi:type="uml:ControlFlow" xmi:id="_per_e1" source="_per_init" target="_per_collect"/>
+            <edge xmi:type="uml:ControlFlow" xmi:id="_per_e2" source="_per_collect" target="_per_parts"/>
+            <edge xmi:type="uml:ControlFlow" xmi:id="_per_e3" source="_per_parts" target="_per_call"/>
+            <edge xmi:type="uml:ControlFlow" xmi:id="_per_e4" source="_per_call" target="_per_final"/>
+          </ownedBehavior>
+          <ownedBehavior xmi:type="uml:Activity" xmi:id="_act_one_part" name="One Part">
+            <node xmi:type="uml:InitialNode" xmi:id="_one_init"/>
+            <node xmi:type="uml:CallBehaviorAction" xmi:id="_one_list" name="The Part"/>
+            <node xmi:type="uml:ActivityFinalNode" xmi:id="_one_final"/>
+            <edge xmi:type="uml:ControlFlow" xmi:id="_one_e1" source="_one_init" target="_one_list"/>
+            <edge xmi:type="uml:ControlFlow" xmi:id="_one_e2" source="_one_list" target="_one_final"/>
+          </ownedBehavior>
+        </packagedElement>
+      </packagedElement>
+
+      <packagedElement xmi:type="uml:Package" xmi:id="_pkg_docs" name="Documents">
+        <packagedElement xmi:type="uml:Class" xmi:id="_doc_icd" name="Interface Control Document">
+          <ownedAttribute xmi:type="uml:Property" xmi:id="_doc_totals" name="totals" type="_view_totals" aggregation="composite"/>
+          <ownedAttribute xmi:type="uml:Property" xmi:id="_doc_conn" name="connections" type="_view_conn" aggregation="composite"/>
+          <ownedAttribute xmi:type="uml:Property" xmi:id="_doc_ifc" name="interfaces" type="_view_ifc" aggregation="composite"/>
+          <ownedAttribute xmi:type="uml:Property" xmi:id="_doc_per" name="perPart" type="_view_per" aggregation="composite"/>
+        </packagedElement>
+        <packagedElement xmi:type="uml:Class" xmi:id="_doc_sum" name="Interface Summary">
+          <ownedAttribute xmi:type="uml:Property" xmi:id="_doc_sum_ifc" name="interfaces" type="_view_ifc" aggregation="composite"/>
+        </packagedElement>
+        <packagedElement xmi:type="uml:Class" xmi:id="_view_totals" name="Interface Totals">
+          <generalization xmi:type="uml:Generalization" xmi:id="_gen_totals" general="_vp_totals"/>
+        </packagedElement>
+        <packagedElement xmi:type="uml:Class" xmi:id="_view_conn" name="Connections">
+          <generalization xmi:type="uml:Generalization" xmi:id="_gen_conn" general="_vp_conn"/>
+        </packagedElement>
+        <packagedElement xmi:type="uml:Class" xmi:id="_view_ifc" name="Interfaces">
+          <generalization xmi:type="uml:Generalization" xmi:id="_gen_ifc" general="_vp_ifc"/>
+        </packagedElement>
+        <packagedElement xmi:type="uml:Class" xmi:id="_view_per" name="Per Part">
+          <generalization xmi:type="uml:Generalization" xmi:id="_gen_per" general="_vp_per"/>
+        </packagedElement>
+        <packagedElement xmi:type="uml:Dependency" xmi:id="_expose_totals" client="_view_totals" supplier="_pkg_types"/>
+        <packagedElement xmi:type="uml:Dependency" xmi:id="_expose_conn" client="_view_conn" supplier="_blk_sys"/>
+        <packagedElement xmi:type="uml:Dependency" xmi:id="_expose_ifc" client="_view_ifc" supplier="_blk_bench"/>
+        <packagedElement xmi:type="uml:Dependency" xmi:id="_expose_per" client="_view_per" supplier="_blk_bench"/>
+      </packagedElement>
+    </packagedElement>
+  </uml:Model>
+
+  <sysml:ValueType xmi:id="_st_vt_bits" base_DataType="_vt_bits"/>
+  <sysml:InterfaceBlock xmi:id="_st_ib_usb" base_Class="_ib_usb"/>
+  <sysml:InterfaceBlock xmi:id="_st_ib_serial" base_Class="_ib_serial"/>
+  <sysml:InterfaceBlock xmi:id="_st_ib_spare" base_Class="_ib_spare"/>
+  <sysml:FlowProperty xmi:id="_st_fp_usb_data" base_Property="_fp_usb_data" direction="inout"/>
+  <sysml:FlowProperty xmi:id="_st_fp_serial_cmd" base_Property="_fp_serial_cmd" direction="in"/>
+  <sysml:Block xmi:id="_st_blk_coll" base_Class="_blk_coll"/>
+  <sysml:Block xmi:id="_st_blk_mirror" base_Class="_blk_mirror"/>
+  <sysml:Block xmi:id="_st_blk_hub" base_Class="_blk_hub"/>
+  <sysml:Block xmi:id="_st_blk_bench" base_Class="_blk_bench"/>
+  <sysml:Block xmi:id="_st_blk_rack" base_Class="_blk_rack"/>
+  <sysml:Block xmi:id="_st_blk_sys" base_Class="_blk_sys"/>
+  <sysml:ProxyPort xmi:id="_st_pp_coll_usb" base_Port="_port_coll_usb"/>
+  <sysml:ProxyPort xmi:id="_st_pp_coll_ctl" base_Port="_port_coll_ctl"/>
+  <sysml:ProxyPort xmi:id="_st_pp_mirror_tilt" base_Port="_port_mirror_tilt"/>
+  <sysml:ProxyPort xmi:id="_st_pp_hub_usb" base_Port="_port_hub_usb"/>
+  <sysml:ProxyPort xmi:id="_st_pp_hub_serial" base_Port="_port_hub_serial"/>
+  <sysml:NestedConnectorEnd xmi:id="_st_nce_usb_1" base_ConnectorEnd="_ce_usb_1">
+    <propertyPath xmi:idref="_prop_bench"/>
+    <propertyPath xmi:idref="_prop_coll"/>
+  </sysml:NestedConnectorEnd>
+  <sysml:NestedConnectorEnd xmi:id="_st_nce_usb_2" base_ConnectorEnd="_ce_usb_2">
+    <propertyPath xmi:idref="_prop_rack"/>
+    <propertyPath xmi:idref="_prop_hub"/>
+  </sysml:NestedConnectorEnd>
+  <sysml:NestedConnectorEnd xmi:id="_st_nce_serial_1" base_ConnectorEnd="_ce_serial_1">
+    <propertyPath xmi:idref="_prop_bench"/>
+    <propertyPath xmi:idref="_prop_mirror"/>
+  </sysml:NestedConnectorEnd>
+  <sysml:NestedConnectorEnd xmi:id="_st_nce_serial_2" base_ConnectorEnd="_ce_serial_2">
+    <propertyPath xmi:idref="_prop_rack"/>
+    <propertyPath xmi:idref="_prop_hub"/>
+  </sysml:NestedConnectorEnd>
+
+  <sysml:Viewpoint xmi:id="_st_vp_totals" base_Class="_vp_totals" purpose="Count the interfaces of each type."/>
+  <sysml:Viewpoint xmi:id="_st_vp_conn" base_Class="_vp_conn" purpose="List the connections."/>
+  <sysml:Viewpoint xmi:id="_st_vp_ifc" base_Class="_vp_ifc" purpose="Table the interfaces of each assembly."/>
+  <sysml:Viewpoint xmi:id="_st_vp_per" base_Class="_vp_per" purpose="One section per part."/>
+  <sysml:View xmi:id="_st_view_totals" base_Class="_view_totals"/>
+  <sysml:View xmi:id="_st_view_conn" base_Class="_view_conn"/>
+  <sysml:View xmi:id="_st_view_ifc" base_Class="_view_ifc"/>
+  <sysml:View xmi:id="_st_view_per" base_Class="_view_per"/>
+  <sysml:Conform xmi:id="_st_conform_totals" base_Generalization="_gen_totals"/>
+  <sysml:Conform xmi:id="_st_conform_conn" base_Generalization="_gen_conn"/>
+  <sysml:Conform xmi:id="_st_conform_ifc" base_Generalization="_gen_ifc"/>
+  <sysml:Conform xmi:id="_st_conform_per" base_Generalization="_gen_per"/>
+  <sysml:Expose xmi:id="_st_expose_totals" base_Dependency="_expose_totals"/>
+  <sysml:Expose xmi:id="_st_expose_conn" base_Dependency="_expose_conn"/>
+  <sysml:Expose xmi:id="_st_expose_ifc" base_Dependency="_expose_ifc"/>
+  <sysml:Expose xmi:id="_st_expose_per" base_Dependency="_expose_per"/>
+  <Document_Profile_:Document xmi:id="_st_doc_icd" base_Class="_doc_icd"/>
+  <Document_Profile_:Document xmi:id="_st_doc_sum" base_Class="_doc_sum"/>
+
+  <Document_Profile_:CollectOwnedElements xmi:id="_st_tot_collect" base_CallBehaviorAction="_tot_collect" depth="1"/>
+  <Document_Profile_:FilterByMetaclasses xmi:id="_st_tot_filter" base_CallBehaviorAction="_tot_filter" include="true">
+    <metaclasses href="http://www.omg.org/spec/UML/20131001/UML.xmi#Class"/>
+  </Document_Profile_:FilterByMetaclasses>
+  <Document_Profile_:SortByName xmi:id="_st_tot_sort" base_CallBehaviorAction="_tot_sort"/>
+  <Document_Profile_:TableStructure xmi:id="_st_tot_table" base_StructuredActivityNode="_tot_table" includeDoc="false" loop="false" numberedRows="true">
+    <titles>Interface Totals</titles>
+  </Document_Profile_:TableStructure>
+  <Document_Profile_:TableAttributeColumn xmi:id="_st_tot_col_name" base_CallBehaviorAction="_tot_col_name" desiredAttribute="Name"/>
+  <Document_Profile_:TableExpressionColumn xmi:id="_st_tot_col_count" base_CallBehaviorAction="_tot_col_count" expression="_typedElementOfType-&gt;size()"/>
+  <Document_Profile_:TableExpressionColumn xmi:id="_st_tot_col_iter" base_CallBehaviorAction="_tot_col_iter" expression="ownedElement-&gt;iterate(x; acc : Integer = 0 | acc + 1)"/>
+  <Document_Profile_:TableStructure xmi:id="_st_tot_each" base_StructuredActivityNode="_tot_each" includeDoc="false" loop="true" numberedRows="false">
+    <titles>Per Type</titles>
+  </Document_Profile_:TableStructure>
+  <Document_Profile_:TableAttributeColumn xmi:id="_st_tot_each_name" base_CallBehaviorAction="_tot_each_name" desiredAttribute="Name"/>
+  <Document_Profile_:TableExpressionColumn xmi:id="_st_tot_each_count" base_CallBehaviorAction="_tot_each_count" expression="_typedElementOfType-&gt;size()"/>
+
+  <Document_Profile_:CollectOwnedElements xmi:id="_st_conn_collect" base_CallBehaviorAction="_conn_collect" depth="1"/>
+  <Document_Profile_:FilterByMetaclasses xmi:id="_st_conn_filter" base_CallBehaviorAction="_conn_filter" include="true">
+    <metaclasses href="http://www.omg.org/spec/UML/20131001/UML.xmi#Connector"/>
+  </Document_Profile_:FilterByMetaclasses>
+  <Document_Profile_:TableStructure xmi:id="_st_conn_table" base_StructuredActivityNode="_conn_table" includeDoc="false" loop="false" numberedRows="true">
+    <titles>Table of Connections</titles>
+  </Document_Profile_:TableStructure>
+  <Document_Profile_:TableExpressionColumn xmi:id="_st_conn_col_bench" base_CallBehaviorAction="_conn_col_bench" expression="end.appliedStereotypeInstance.slot-&gt;select(x|x.definingFeature.name = 'propertyPath' and x.value.oclAsType(ElementValue).element-&gt;exists(y|y.oclAsType(Property).type.name = 'Optical Bench')).value.oclAsType(ElementValue).element-&gt;select(z|z.oclAsType(Property).type.oclAsType(NamedElement).name &lt;&gt; 'Optical Bench').oclAsType(NamedElement).name"/>
+  <Document_Profile_:TableExpressionColumn xmi:id="_st_conn_col_rack" base_CallBehaviorAction="_conn_col_rack" expression="end.appliedStereotypeInstance.slot-&gt;select(x|x.definingFeature.name = 'propertyPath' and x.value.oclAsType(ElementValue).element-&gt;exists(y|y.oclAsType(Property).type.name = 'Controller Rack')).value.oclAsType(ElementValue).element-&gt;select(z|z.oclAsType(Property).type.oclAsType(NamedElement).name &lt;&gt; 'Controller Rack').oclAsType(NamedElement).name"/>
+  <Document_Profile_:TableExpressionColumn xmi:id="_st_conn_col_type" base_CallBehaviorAction="_conn_col_type" expression="end.role.type-&gt;asSet()"/>
+  <Document_Profile_:TableExpressionColumn xmi:id="_st_conn_col_dir" base_CallBehaviorAction="_conn_col_dir" expression="end.role.type.oclAsType(Class).member-&gt;select(y|y.appliedStereotypeInstance.classifier-&gt;any(x|x.name = 'FlowProperty')-&gt;size() &lt;&gt; 0).appliedStereotypeInstance.slot-&gt;select(x|x.oclAsType(Slot).definingFeature.name = 'direction').oclAsType(Slot).value.oclAsType(InstanceValue).instance.name-&gt;asSet()"/>
+  <Document_Profile_:TableAttributeColumn xmi:id="_st_conn_col_desc" base_CallBehaviorAction="_conn_col_desc" desiredAttribute="Documentation"/>
+
+  <Document_Profile_:CollectOwnedElements xmi:id="_st_ifc_collect" base_CallBehaviorAction="_ifc_collect" depth="1"/>
+  <Document_Profile_:FilterByMetaclasses xmi:id="_st_ifc_parts" base_CallBehaviorAction="_ifc_parts" include="true">
+    <metaclasses href="http://www.omg.org/spec/UML/20131001/UML.xmi#Property"/>
+  </Document_Profile_:FilterByMetaclasses>
+  <Document_Profile_:SortByName xmi:id="_st_ifc_sort" base_CallBehaviorAction="_ifc_sort"/>
+  <Document_Profile_:StructuredQuery xmi:id="_st_ifc_loop" base_StructuredActivityNode="_ifc_loop" loop="true" createSections="false"/>
+  <Document_Profile_:BulletedList xmi:id="_st_ifc_bullet" base_CallBehaviorAction="_ifc_bullet" orderedList="false" showTargets="true" includeDoc="false"/>
+  <Document_Profile_:FilterByMetaclasses xmi:id="_st_ifc_none_filter" base_CallBehaviorAction="_ifc_none_filter" include="true">
+    <metaclasses href="http://www.omg.org/spec/UML/20131001/UML.xmi#Activity"/>
+  </Document_Profile_:FilterByMetaclasses>
+  <Document_Profile_:StructuredQuery xmi:id="_st_ifc_none" base_StructuredActivityNode="_ifc_none" loop="true" createSections="false"/>
+  <Document_Profile_:BulletedList xmi:id="_st_ifc_none_bullet" base_CallBehaviorAction="_ifc_none_bullet" orderedList="false" showTargets="true" includeDoc="false"/>
+  <Document_Profile_:CollectTypes xmi:id="_st_ifc_types" base_CallBehaviorAction="_ifc_types"/>
+  <Document_Profile_:TableStructure xmi:id="_st_ifc_table" base_StructuredActivityNode="_ifc_table" includeDoc="false" loop="true" numberedRows="true">
+    <titles>Interfaces Table</titles>
+  </Document_Profile_:TableStructure>
+  <Document_Profile_:TableAttributeColumn xmi:id="_st_ifc_col_name" base_CallBehaviorAction="_ifc_col_name" desiredAttribute="Name"/>
+  <Document_Profile_:TableAttributeColumn xmi:id="_st_ifc_col_desc" base_StructuredActivityNode="_ifc_col_desc" desiredAttribute="Documentation"/>
+  <Document_Profile_:CollectOwnedElements xmi:id="_st_ifc_desc_collect" base_CallBehaviorAction="_ifc_desc_collect" depth="1"/>
+  <Document_Profile_:FilterByMetaclasses xmi:id="_st_ifc_desc_ports" base_CallBehaviorAction="_ifc_desc_ports" include="true">
+    <metaclasses href="http://www.omg.org/spec/UML/20131001/UML.xmi#Port"/>
+  </Document_Profile_:FilterByMetaclasses>
+  <Document_Profile_:TableAttributeColumn xmi:id="_st_ifc_col_ifc" base_StructuredActivityNode="_ifc_col_ifc" desiredAttribute="Name"/>
+  <Document_Profile_:CollectOwnedElements xmi:id="_st_ifc_ifc_collect" base_CallBehaviorAction="_ifc_ifc_collect" depth="1"/>
+  <Document_Profile_:FilterByMetaclasses xmi:id="_st_ifc_ifc_ports" base_CallBehaviorAction="_ifc_ifc_ports" include="true">
+    <metaclasses href="http://www.omg.org/spec/UML/20131001/UML.xmi#Port"/>
+  </Document_Profile_:FilterByMetaclasses>
+  <Document_Profile_:CollectTypes xmi:id="_st_ifc_ifc_types" base_CallBehaviorAction="_ifc_ifc_types"/>
+  <Document_Profile_:TableAttributeColumn xmi:id="_st_ifc_col_sorted" base_StructuredActivityNode="_ifc_col_sorted" desiredAttribute="Name"/>
+  <Document_Profile_:CollectOwnedElements xmi:id="_st_ifc_sorted_collect" base_CallBehaviorAction="_ifc_sorted_collect" depth="1"/>
+  <Document_Profile_:SortByProperty xmi:id="_st_ifc_sorted_sort" base_CallBehaviorAction="_ifc_sorted_sort" desiredProperty="_fp_usb_data"/>
+  <Document_Profile_:TableAttributeColumn xmi:id="_st_ifc_col_assoc" base_StructuredActivityNode="_ifc_col_assoc" desiredAttribute="Name"/>
+  <Document_Profile_:CollectByAssociation xmi:id="_st_ifc_assoc_collect" base_CallBehaviorAction="_ifc_assoc_collect" depth="1" associationType="composite"/>
+
+  <Document_Profile_:CollectOwnedElements xmi:id="_st_per_collect" base_CallBehaviorAction="_per_collect" depth="1"/>
+  <Document_Profile_:FilterByMetaclasses xmi:id="_st_per_parts" base_CallBehaviorAction="_per_parts" include="true">
+    <metaclasses href="http://www.omg.org/spec/UML/20131001/UML.xmi#Property"/>
+  </Document_Profile_:FilterByMetaclasses>
+  <Document_Profile_:Dynamic_View xmi:id="_st_one_part" base_Activity="_act_one_part" loop="true" title="One Part"/>
+  <Document_Profile_:BulletedList xmi:id="_st_one_list" base_CallBehaviorAction="_one_list" orderedList="false" showTargets="true" includeDoc="true"/>
+</xmi:XMI>

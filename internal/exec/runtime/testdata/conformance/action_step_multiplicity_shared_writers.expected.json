@@ -1,0 +1,6 @@
+{
+	"type": "action",
+	"exploreBudget": {"runs": 65536},
+	"libraries": true,
+	"outputs": {"c": {"type": "Integer", "value": 3}}
+}

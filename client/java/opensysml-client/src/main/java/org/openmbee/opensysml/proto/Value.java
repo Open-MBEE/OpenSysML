@@ -74,6 +74,8 @@ private static final long serialVersionUID = 0L;
     TENSOR_QUANTITY(19),
     METAOBJECT(20),
     UNDETERMINED(21),
+    BIG_INT_VALUE(22),
+    RATIONAL_VALUE(23),
     KIND_NOT_SET(0);
     private final int value;
     private KindCase(int value) {
@@ -112,6 +114,8 @@ private static final long serialVersionUID = 0L;
         case 19: return TENSOR_QUANTITY;
         case 20: return METAOBJECT;
         case 21: return UNDETERMINED;
+        case 22: return BIG_INT_VALUE;
+        case 23: return RATIONAL_VALUE;
         case 0: return KIND_NOT_SET;
         default: return null;
       }
@@ -937,6 +941,122 @@ private static final long serialVersionUID = 0L;
     return org.openmbee.opensysml.proto.Undetermined.getDefaultInstance();
   }
 
+  public static final int BIG_INT_VALUE_FIELD_NUMBER = 22;
+  /**
+   * <pre>
+   * An Integer beyond int64, in decimal (`-` signed, no `+`, no leading
+   * zeros). An Integer that fits int64 is always int_value, never this.
+   * </pre>
+   *
+   * <code>string big_int_value = 22 [json_name = "bigIntValue"];</code>
+   * @return Whether the bigIntValue field is set.
+   */
+  public boolean hasBigIntValue() {
+    return kindCase_ == 22;
+  }
+  /**
+   * <pre>
+   * An Integer beyond int64, in decimal (`-` signed, no `+`, no leading
+   * zeros). An Integer that fits int64 is always int_value, never this.
+   * </pre>
+   *
+   * <code>string big_int_value = 22 [json_name = "bigIntValue"];</code>
+   * @return The bigIntValue.
+   */
+  public java.lang.String getBigIntValue() {
+    java.lang.Object ref = "";
+    if (kindCase_ == 22) {
+      ref = kind_;
+    }
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs = 
+          (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      if (kindCase_ == 22) {
+        kind_ = s;
+      }
+      return s;
+    }
+  }
+  /**
+   * <pre>
+   * An Integer beyond int64, in decimal (`-` signed, no `+`, no leading
+   * zeros). An Integer that fits int64 is always int_value, never this.
+   * </pre>
+   *
+   * <code>string big_int_value = 22 [json_name = "bigIntValue"];</code>
+   * @return The bytes for bigIntValue.
+   */
+  public com.google.protobuf.ByteString
+      getBigIntValueBytes() {
+    java.lang.Object ref = "";
+    if (kindCase_ == 22) {
+      ref = kind_;
+    }
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b = 
+          com.google.protobuf.ByteString.copyFromUtf8(
+              (java.lang.String) ref);
+      if (kindCase_ == 22) {
+        kind_ = b;
+      }
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
+  public static final int RATIONAL_VALUE_FIELD_NUMBER = 23;
+  /**
+   * <pre>
+   * An exact Rational (KerML 9.3.2.2.8), as `0.1` or `1 / 3` evaluates. The
+   * server answers one a double holds exactly as real_value; a client sends
+   * any exact Rational here, and an inbound real_value is always a Real.
+   * </pre>
+   *
+   * <code>.sysml.Rational rational_value = 23 [json_name = "rationalValue"];</code>
+   * @return Whether the rationalValue field is set.
+   */
+  @java.lang.Override
+  public boolean hasRationalValue() {
+    return kindCase_ == 23;
+  }
+  /**
+   * <pre>
+   * An exact Rational (KerML 9.3.2.2.8), as `0.1` or `1 / 3` evaluates. The
+   * server answers one a double holds exactly as real_value; a client sends
+   * any exact Rational here, and an inbound real_value is always a Real.
+   * </pre>
+   *
+   * <code>.sysml.Rational rational_value = 23 [json_name = "rationalValue"];</code>
+   * @return The rationalValue.
+   */
+  @java.lang.Override
+  public org.openmbee.opensysml.proto.Rational getRationalValue() {
+    if (kindCase_ == 23) {
+       return (org.openmbee.opensysml.proto.Rational) kind_;
+    }
+    return org.openmbee.opensysml.proto.Rational.getDefaultInstance();
+  }
+  /**
+   * <pre>
+   * An exact Rational (KerML 9.3.2.2.8), as `0.1` or `1 / 3` evaluates. The
+   * server answers one a double holds exactly as real_value; a client sends
+   * any exact Rational here, and an inbound real_value is always a Real.
+   * </pre>
+   *
+   * <code>.sysml.Rational rational_value = 23 [json_name = "rationalValue"];</code>
+   */
+  @java.lang.Override
+  public org.openmbee.opensysml.proto.RationalOrBuilder getRationalValueOrBuilder() {
+    if (kindCase_ == 23) {
+       return (org.openmbee.opensysml.proto.Rational) kind_;
+    }
+    return org.openmbee.opensysml.proto.Rational.getDefaultInstance();
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -1019,6 +1139,12 @@ private static final long serialVersionUID = 0L;
     }
     if (kindCase_ == 21) {
       output.writeMessage(21, (org.openmbee.opensysml.proto.Undetermined) kind_);
+    }
+    if (kindCase_ == 22) {
+      com.google.protobuf.GeneratedMessage.writeString(output, 22, kind_);
+    }
+    if (kindCase_ == 23) {
+      output.writeMessage(23, (org.openmbee.opensysml.proto.Rational) kind_);
     }
     getUnknownFields().writeTo(output);
   }
@@ -1116,6 +1242,13 @@ private static final long serialVersionUID = 0L;
     if (kindCase_ == 21) {
       size += com.google.protobuf.CodedOutputStream
         .computeMessageSize(21, (org.openmbee.opensysml.proto.Undetermined) kind_);
+    }
+    if (kindCase_ == 22) {
+      size += com.google.protobuf.GeneratedMessage.computeStringSize(22, kind_);
+    }
+    if (kindCase_ == 23) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeMessageSize(23, (org.openmbee.opensysml.proto.Rational) kind_);
     }
     size += getUnknownFields().getSerializedSize();
     memoizedSize = size;
@@ -1218,6 +1351,14 @@ private static final long serialVersionUID = 0L;
       case 21:
         if (!getUndetermined()
             .equals(other.getUndetermined())) return false;
+        break;
+      case 22:
+        if (!getBigIntValue()
+            .equals(other.getBigIntValue())) return false;
+        break;
+      case 23:
+        if (!getRationalValue()
+            .equals(other.getRationalValue())) return false;
         break;
       case 0:
       default:
@@ -1323,6 +1464,14 @@ private static final long serialVersionUID = 0L;
       case 21:
         hash = (37 * hash) + UNDETERMINED_FIELD_NUMBER;
         hash = (53 * hash) + getUndetermined().hashCode();
+        break;
+      case 22:
+        hash = (37 * hash) + BIG_INT_VALUE_FIELD_NUMBER;
+        hash = (53 * hash) + getBigIntValue().hashCode();
+        break;
+      case 23:
+        hash = (37 * hash) + RATIONAL_VALUE_FIELD_NUMBER;
+        hash = (53 * hash) + getRationalValue().hashCode();
         break;
       case 0:
       default:
@@ -1501,6 +1650,9 @@ private static final long serialVersionUID = 0L;
       if (undeterminedBuilder_ != null) {
         undeterminedBuilder_.clear();
       }
+      if (rationalValueBuilder_ != null) {
+        rationalValueBuilder_.clear();
+      }
       kindCase_ = 0;
       kind_ = null;
       return this;
@@ -1593,6 +1745,10 @@ private static final long serialVersionUID = 0L;
       if (kindCase_ == 21 &&
           undeterminedBuilder_ != null) {
         result.kind_ = undeterminedBuilder_.build();
+      }
+      if (kindCase_ == 23 &&
+          rationalValueBuilder_ != null) {
+        result.kind_ = rationalValueBuilder_.build();
       }
     }
 
@@ -1695,6 +1851,16 @@ private static final long serialVersionUID = 0L;
         }
         case UNDETERMINED: {
           mergeUndetermined(other.getUndetermined());
+          break;
+        }
+        case BIG_INT_VALUE: {
+          kindCase_ = 22;
+          kind_ = other.kind_;
+          onChanged();
+          break;
+        }
+        case RATIONAL_VALUE: {
+          mergeRationalValue(other.getRationalValue());
           break;
         }
         case KIND_NOT_SET: {
@@ -1860,6 +2026,19 @@ private static final long serialVersionUID = 0L;
               kindCase_ = 21;
               break;
             } // case 170
+            case 178: {
+              java.lang.String s = input.readStringRequireUtf8();
+              kindCase_ = 22;
+              kind_ = s;
+              break;
+            } // case 178
+            case 186: {
+              input.readMessage(
+                  internalGetRationalValueFieldBuilder().getBuilder(),
+                  extensionRegistry);
+              kindCase_ = 23;
+              break;
+            } // case 186
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -4663,6 +4842,325 @@ private static final long serialVersionUID = 0L;
       kindCase_ = 21;
       onChanged();
       return undeterminedBuilder_;
+    }
+
+    /**
+     * <pre>
+     * An Integer beyond int64, in decimal (`-` signed, no `+`, no leading
+     * zeros). An Integer that fits int64 is always int_value, never this.
+     * </pre>
+     *
+     * <code>string big_int_value = 22 [json_name = "bigIntValue"];</code>
+     * @return Whether the bigIntValue field is set.
+     */
+    @java.lang.Override
+    public boolean hasBigIntValue() {
+      return kindCase_ == 22;
+    }
+    /**
+     * <pre>
+     * An Integer beyond int64, in decimal (`-` signed, no `+`, no leading
+     * zeros). An Integer that fits int64 is always int_value, never this.
+     * </pre>
+     *
+     * <code>string big_int_value = 22 [json_name = "bigIntValue"];</code>
+     * @return The bigIntValue.
+     */
+    @java.lang.Override
+    public java.lang.String getBigIntValue() {
+      java.lang.Object ref = "";
+      if (kindCase_ == 22) {
+        ref = kind_;
+      }
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs =
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        if (kindCase_ == 22) {
+          kind_ = s;
+        }
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+    /**
+     * <pre>
+     * An Integer beyond int64, in decimal (`-` signed, no `+`, no leading
+     * zeros). An Integer that fits int64 is always int_value, never this.
+     * </pre>
+     *
+     * <code>string big_int_value = 22 [json_name = "bigIntValue"];</code>
+     * @return The bytes for bigIntValue.
+     */
+    @java.lang.Override
+    public com.google.protobuf.ByteString
+        getBigIntValueBytes() {
+      java.lang.Object ref = "";
+      if (kindCase_ == 22) {
+        ref = kind_;
+      }
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        if (kindCase_ == 22) {
+          kind_ = b;
+        }
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+    /**
+     * <pre>
+     * An Integer beyond int64, in decimal (`-` signed, no `+`, no leading
+     * zeros). An Integer that fits int64 is always int_value, never this.
+     * </pre>
+     *
+     * <code>string big_int_value = 22 [json_name = "bigIntValue"];</code>
+     * @param value The bigIntValue to set.
+     * @return This builder for chaining.
+     */
+    public Builder setBigIntValue(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      kindCase_ = 22;
+      kind_ = value;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * An Integer beyond int64, in decimal (`-` signed, no `+`, no leading
+     * zeros). An Integer that fits int64 is always int_value, never this.
+     * </pre>
+     *
+     * <code>string big_int_value = 22 [json_name = "bigIntValue"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearBigIntValue() {
+      if (kindCase_ == 22) {
+        kindCase_ = 0;
+        kind_ = null;
+        onChanged();
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * An Integer beyond int64, in decimal (`-` signed, no `+`, no leading
+     * zeros). An Integer that fits int64 is always int_value, never this.
+     * </pre>
+     *
+     * <code>string big_int_value = 22 [json_name = "bigIntValue"];</code>
+     * @param value The bytes for bigIntValue to set.
+     * @return This builder for chaining.
+     */
+    public Builder setBigIntValueBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkByteStringIsUtf8(value);
+      kindCase_ = 22;
+      kind_ = value;
+      onChanged();
+      return this;
+    }
+
+    private com.google.protobuf.SingleFieldBuilder<
+        org.openmbee.opensysml.proto.Rational, org.openmbee.opensysml.proto.Rational.Builder, org.openmbee.opensysml.proto.RationalOrBuilder> rationalValueBuilder_;
+    /**
+     * <pre>
+     * An exact Rational (KerML 9.3.2.2.8), as `0.1` or `1 / 3` evaluates. The
+     * server answers one a double holds exactly as real_value; a client sends
+     * any exact Rational here, and an inbound real_value is always a Real.
+     * </pre>
+     *
+     * <code>.sysml.Rational rational_value = 23 [json_name = "rationalValue"];</code>
+     * @return Whether the rationalValue field is set.
+     */
+    @java.lang.Override
+    public boolean hasRationalValue() {
+      return kindCase_ == 23;
+    }
+    /**
+     * <pre>
+     * An exact Rational (KerML 9.3.2.2.8), as `0.1` or `1 / 3` evaluates. The
+     * server answers one a double holds exactly as real_value; a client sends
+     * any exact Rational here, and an inbound real_value is always a Real.
+     * </pre>
+     *
+     * <code>.sysml.Rational rational_value = 23 [json_name = "rationalValue"];</code>
+     * @return The rationalValue.
+     */
+    @java.lang.Override
+    public org.openmbee.opensysml.proto.Rational getRationalValue() {
+      if (rationalValueBuilder_ == null) {
+        if (kindCase_ == 23) {
+          return (org.openmbee.opensysml.proto.Rational) kind_;
+        }
+        return org.openmbee.opensysml.proto.Rational.getDefaultInstance();
+      } else {
+        if (kindCase_ == 23) {
+          return rationalValueBuilder_.getMessage();
+        }
+        return org.openmbee.opensysml.proto.Rational.getDefaultInstance();
+      }
+    }
+    /**
+     * <pre>
+     * An exact Rational (KerML 9.3.2.2.8), as `0.1` or `1 / 3` evaluates. The
+     * server answers one a double holds exactly as real_value; a client sends
+     * any exact Rational here, and an inbound real_value is always a Real.
+     * </pre>
+     *
+     * <code>.sysml.Rational rational_value = 23 [json_name = "rationalValue"];</code>
+     */
+    public Builder setRationalValue(org.openmbee.opensysml.proto.Rational value) {
+      if (rationalValueBuilder_ == null) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        kind_ = value;
+        onChanged();
+      } else {
+        rationalValueBuilder_.setMessage(value);
+      }
+      kindCase_ = 23;
+      return this;
+    }
+    /**
+     * <pre>
+     * An exact Rational (KerML 9.3.2.2.8), as `0.1` or `1 / 3` evaluates. The
+     * server answers one a double holds exactly as real_value; a client sends
+     * any exact Rational here, and an inbound real_value is always a Real.
+     * </pre>
+     *
+     * <code>.sysml.Rational rational_value = 23 [json_name = "rationalValue"];</code>
+     */
+    public Builder setRationalValue(
+        org.openmbee.opensysml.proto.Rational.Builder builderForValue) {
+      if (rationalValueBuilder_ == null) {
+        kind_ = builderForValue.build();
+        onChanged();
+      } else {
+        rationalValueBuilder_.setMessage(builderForValue.build());
+      }
+      kindCase_ = 23;
+      return this;
+    }
+    /**
+     * <pre>
+     * An exact Rational (KerML 9.3.2.2.8), as `0.1` or `1 / 3` evaluates. The
+     * server answers one a double holds exactly as real_value; a client sends
+     * any exact Rational here, and an inbound real_value is always a Real.
+     * </pre>
+     *
+     * <code>.sysml.Rational rational_value = 23 [json_name = "rationalValue"];</code>
+     */
+    public Builder mergeRationalValue(org.openmbee.opensysml.proto.Rational value) {
+      if (rationalValueBuilder_ == null) {
+        if (kindCase_ == 23 &&
+            kind_ != org.openmbee.opensysml.proto.Rational.getDefaultInstance()) {
+          kind_ = org.openmbee.opensysml.proto.Rational.newBuilder((org.openmbee.opensysml.proto.Rational) kind_)
+              .mergeFrom(value).buildPartial();
+        } else {
+          kind_ = value;
+        }
+        onChanged();
+      } else {
+        if (kindCase_ == 23) {
+          rationalValueBuilder_.mergeFrom(value);
+        } else {
+          rationalValueBuilder_.setMessage(value);
+        }
+      }
+      kindCase_ = 23;
+      return this;
+    }
+    /**
+     * <pre>
+     * An exact Rational (KerML 9.3.2.2.8), as `0.1` or `1 / 3` evaluates. The
+     * server answers one a double holds exactly as real_value; a client sends
+     * any exact Rational here, and an inbound real_value is always a Real.
+     * </pre>
+     *
+     * <code>.sysml.Rational rational_value = 23 [json_name = "rationalValue"];</code>
+     */
+    public Builder clearRationalValue() {
+      if (rationalValueBuilder_ == null) {
+        if (kindCase_ == 23) {
+          kindCase_ = 0;
+          kind_ = null;
+          onChanged();
+        }
+      } else {
+        if (kindCase_ == 23) {
+          kindCase_ = 0;
+          kind_ = null;
+        }
+        rationalValueBuilder_.clear();
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * An exact Rational (KerML 9.3.2.2.8), as `0.1` or `1 / 3` evaluates. The
+     * server answers one a double holds exactly as real_value; a client sends
+     * any exact Rational here, and an inbound real_value is always a Real.
+     * </pre>
+     *
+     * <code>.sysml.Rational rational_value = 23 [json_name = "rationalValue"];</code>
+     */
+    public org.openmbee.opensysml.proto.Rational.Builder getRationalValueBuilder() {
+      return internalGetRationalValueFieldBuilder().getBuilder();
+    }
+    /**
+     * <pre>
+     * An exact Rational (KerML 9.3.2.2.8), as `0.1` or `1 / 3` evaluates. The
+     * server answers one a double holds exactly as real_value; a client sends
+     * any exact Rational here, and an inbound real_value is always a Real.
+     * </pre>
+     *
+     * <code>.sysml.Rational rational_value = 23 [json_name = "rationalValue"];</code>
+     */
+    @java.lang.Override
+    public org.openmbee.opensysml.proto.RationalOrBuilder getRationalValueOrBuilder() {
+      if ((kindCase_ == 23) && (rationalValueBuilder_ != null)) {
+        return rationalValueBuilder_.getMessageOrBuilder();
+      } else {
+        if (kindCase_ == 23) {
+          return (org.openmbee.opensysml.proto.Rational) kind_;
+        }
+        return org.openmbee.opensysml.proto.Rational.getDefaultInstance();
+      }
+    }
+    /**
+     * <pre>
+     * An exact Rational (KerML 9.3.2.2.8), as `0.1` or `1 / 3` evaluates. The
+     * server answers one a double holds exactly as real_value; a client sends
+     * any exact Rational here, and an inbound real_value is always a Real.
+     * </pre>
+     *
+     * <code>.sysml.Rational rational_value = 23 [json_name = "rationalValue"];</code>
+     */
+    private com.google.protobuf.SingleFieldBuilder<
+        org.openmbee.opensysml.proto.Rational, org.openmbee.opensysml.proto.Rational.Builder, org.openmbee.opensysml.proto.RationalOrBuilder> 
+        internalGetRationalValueFieldBuilder() {
+      if (rationalValueBuilder_ == null) {
+        if (!(kindCase_ == 23)) {
+          kind_ = org.openmbee.opensysml.proto.Rational.getDefaultInstance();
+        }
+        rationalValueBuilder_ = new com.google.protobuf.SingleFieldBuilder<
+            org.openmbee.opensysml.proto.Rational, org.openmbee.opensysml.proto.Rational.Builder, org.openmbee.opensysml.proto.RationalOrBuilder>(
+                (org.openmbee.opensysml.proto.Rational) kind_,
+                getParentForChildren(),
+                isClean());
+        kind_ = null;
+      }
+      kindCase_ = 23;
+      onChanged();
+      return rationalValueBuilder_;
     }
 
     // @@protoc_insertion_point(builder_scope:sysml.Value)

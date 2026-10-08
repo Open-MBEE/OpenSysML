@@ -1,7 +1,6 @@
 package migrate
 
 import (
-	"html"
 	"math"
 	"math/big"
 	"regexp"
@@ -238,7 +237,7 @@ func (m *migration) typingIndividual(p *sysmlv1.Element, kw string) (*sysmlv1.El
 		return nil, individualSubject + qualifiedName(ind) + " cannot type a port: v2 has no individual port def"
 	}
 	kind, classifiers, _ := m.individualClassifiers(ind)
-	if kind == catNone || kind.keyword() != kw+" def" {
+	if kind == catNone || !individualTypes(kind, kw) {
 		return nil, individualSubject + qualifiedName(ind) + " is an " + individualKeyword(kind) + ", which cannot type " + article(kw) + kw
 	}
 	if t := m.model.Ref(p, "type"); t != nil && !m.instanceOf(classifiers, t) {
@@ -1192,29 +1191,14 @@ func (m *migration) exposeNamed(v, scope *sysmlv1.Element) {
 	}
 }
 
-var (
-	htmlTag    = regexp.MustCompile(`(?s)<[^>]*>`)
-	htmlBreak  = regexp.MustCompile(`(?i)</p>|<br\s*/?>`)
-	htmlBody   = regexp.MustCompile(`(?is)<(style|script)[^>]*>.*?</\s*(style|script)\s*>`)
-	blankLines = regexp.MustCompile(`\n{3,}`)
-)
+var blankLines = regexp.MustCompile(`\n{3,}`)
 
-// commentText prepares a v1 comment body for a v2 comment: some tools store
-// documentation as HTML, whose tags are dropped and entities decoded.
+// commentText prepares a v1 comment body for a v2 comment with no model to
+// resolve its cross-references in: some tools store documentation as HTML,
+// whose tags are dropped and entities decoded, and a cross-reference prints
+// the text the tool cached for it. See migration.proseText for the resolved form.
 func commentText(body string) string {
-	text := body
-	lower := strings.ToLower(text)
-	if strings.Contains(lower, "<html") || strings.Contains(lower, "<p>") || strings.Contains(lower, "<br") ||
-		strings.Contains(lower, "<style") || strings.Contains(lower, "<script") || strings.Contains(lower, "<img") ||
-		strings.Contains(lower, "<div") || strings.Contains(lower, "<span") {
-		text = htmlBody.ReplaceAllString(text, "")
-		text = htmlBreak.ReplaceAllString(text, "\n")
-		text = htmlTag.ReplaceAllString(text, "")
-		text = html.UnescapeString(text)
-	}
-	text = strings.ReplaceAll(text, "\r\n", "\n")
-	text = blankLines.ReplaceAllString(text, "\n\n")
-	return strings.TrimSpace(text)
+	return proseText(parseProse(body), cachedText)
 }
 
 // commentLines writes a v2 comment body over one or more lines, closing any

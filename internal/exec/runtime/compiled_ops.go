@@ -3,17 +3,22 @@ package runtime
 import (
 	"fmt"
 	"math"
+	"math/big"
 	"slices"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
 
-// scalar is an unboxed Integer, Real or Boolean, the values the compiled calc
-// tier computes over; it is boxed into a Value only at an invocation boundary.
+// scalar is an unboxed Integer, Rational, Real or Boolean, the values the
+// compiled calc tier computes over; it is boxed into a Value only at an
+// invocation boundary. An Integer beyond int64 is held in big, immutable, with
+// bits zero; a Rational is held exactly in exact.
 type scalar struct {
-	kind scalarKind
-	bits uint64
+	kind  scalarKind
+	bits  uint64
+	big   *big.Int
+	exact semantics.Value
 }
 
 type scalarKind uint8
@@ -22,6 +27,7 @@ const (
 	scalarInt scalarKind = iota
 	scalarReal
 	scalarBool
+	scalarRational
 )
 
 // #nosec G115 -- the Integer's two's-complement bits are stored, not its magnitude.
@@ -43,13 +49,23 @@ func (s scalar) real() float64 { return math.Float64frombits(s.bits) }
 
 func (s scalar) truth() bool { return s.bits != 0 }
 
+// smallInts reports whether l and r are both Integers within int64.
+func smallInts(l, r scalar) bool {
+	return l.kind == scalarInt && r.kind == scalarInt && l.big == nil && r.big == nil
+}
+
 // semantic is the constant the scalar stands for.
 func (s scalar) semantic() semantics.Value {
 	switch s.kind {
 	case scalarInt:
-		return semantics.Value{Kind: semantics.ValInt, Int: s.int()}
+		if s.big != nil {
+			return semantics.BigIntValue(s.big)
+		}
+		return semantics.IntValue(s.int())
 	case scalarReal:
 		return semantics.Value{Kind: semantics.ValReal, Real: s.real()}
+	case scalarRational:
+		return s.exact
 	default:
 		return semantics.Value{Kind: semantics.ValBool, Bool: s.truth()}
 	}
@@ -64,9 +80,14 @@ func (s scalar) boxed() Value {
 func scalarOfConst(c semantics.Value) (scalar, bool) {
 	switch c.Kind {
 	case semantics.ValInt:
-		return intScalar(c.Int), true
+		if i, ok := c.Int64(); ok {
+			return intScalar(i), true
+		}
+		return scalar{kind: scalarInt, big: c.BigIntView()}, true
 	case semantics.ValReal:
 		return realScalar(c.Real), true
+	case semantics.ValRational:
+		return scalar{kind: scalarRational, exact: c}, true
 	case semantics.ValBool:
 		return boolScalar(c.Bool), true
 	}
@@ -88,16 +109,19 @@ type compiledExpr func(ctx *Context, args []scalar) (scalar, error)
 // chargeSteps spends n evaluation steps at once, for a subtree of nodes none of
 // which can fail. It leaves the counter where the evaluator's would stop.
 func (ctx *Context) chargeSteps(n int64) error {
-	ctx.run.steps += n
-	if ctx.run.steps > ctx.maxSteps {
-		ctx.run.steps = ctx.maxSteps + 1
+	if n > ctx.maxSteps-ctx.run.steps {
+		ctx.run.steps = ctx.maxSteps
+		if ctx.run.steps < math.MaxInt64 {
+			ctx.run.steps++
+		}
 		return ctx.stepLimitExceeded()
 	}
+	ctx.run.steps += n
 	return nil
 }
 
 // binaryOp combines two evaluated operands.
-type binaryOp func(l, r scalar) (scalar, error)
+type binaryOp func(ctx *Context, l, r scalar) (scalar, error)
 
 // arithmeticOp is constArithmetic for one operator, the Integer sum and
 // difference answered without boxing.
@@ -108,34 +132,32 @@ func arithmeticOp(op ast.OperatorKind) binaryOp {
 	case ast.OpSub:
 		return subScalars
 	}
-	return func(l, r scalar) (scalar, error) { return arithScalars(op, l, r) }
+	return func(ctx *Context, l, r scalar) (scalar, error) { return arithScalars(ctx, op, l, r) }
 }
 
-func addScalars(l, r scalar) (scalar, error) {
-	if l.kind == scalarInt && r.kind == scalarInt {
+func addScalars(ctx *Context, l, r scalar) (scalar, error) {
+	if smallInts(l, r) {
 		a, b := l.int(), r.int()
 		if res := a + b; (b <= 0 || res > a) && (b >= 0 || res < a) {
 			return intScalar(res), nil
 		}
-		return scalar{}, semantics.IntegerOverflow(ast.OpAdd, a, b)
 	}
-	return arithScalars(ast.OpAdd, l, r)
+	return arithScalars(ctx, ast.OpAdd, l, r)
 }
 
-func subScalars(l, r scalar) (scalar, error) {
-	if l.kind == scalarInt && r.kind == scalarInt {
+func subScalars(ctx *Context, l, r scalar) (scalar, error) {
+	if smallInts(l, r) {
 		a, b := l.int(), r.int()
 		if res := a - b; (b >= 0 || res > a) && (b <= 0 || res < a) {
 			return intScalar(res), nil
 		}
-		return scalar{}, semantics.IntegerOverflow(ast.OpSub, a, b)
 	}
-	return arithScalars(ast.OpSub, l, r)
+	return arithScalars(ctx, ast.OpSub, l, r)
 }
 
 // arithScalars is constArithmetic over scalars.
-func arithScalars(op ast.OperatorKind, l, r scalar) (scalar, error) {
-	res, err := constArithmetic(op, l.semantic(), r.semantic())
+func arithScalars(ctx *Context, op ast.OperatorKind, l, r scalar) (scalar, error) {
+	res, err := constArithmetic(op, l.semantic(), r.semantic(), ctx.maxIntegerBits)
 	if err != nil {
 		return scalar{}, err
 	}
@@ -158,35 +180,35 @@ func scalarResult(op ast.OperatorKind, res semantics.Value) (scalar, error) {
 func comparisonOp(op ast.OperatorKind) binaryOp {
 	switch op {
 	case ast.OpLt:
-		return func(l, r scalar) (scalar, error) {
-			if l.kind == scalarInt && r.kind == scalarInt {
+		return func(_ *Context, l, r scalar) (scalar, error) {
+			if smallInts(l, r) {
 				return boolScalar(l.int() < r.int()), nil
 			}
 			return compareScalars(op, l, r)
 		}
 	case ast.OpLe:
-		return func(l, r scalar) (scalar, error) {
-			if l.kind == scalarInt && r.kind == scalarInt {
+		return func(_ *Context, l, r scalar) (scalar, error) {
+			if smallInts(l, r) {
 				return boolScalar(l.int() <= r.int()), nil
 			}
 			return compareScalars(op, l, r)
 		}
 	case ast.OpGt:
-		return func(l, r scalar) (scalar, error) {
-			if l.kind == scalarInt && r.kind == scalarInt {
+		return func(_ *Context, l, r scalar) (scalar, error) {
+			if smallInts(l, r) {
 				return boolScalar(l.int() > r.int()), nil
 			}
 			return compareScalars(op, l, r)
 		}
 	case ast.OpGe:
-		return func(l, r scalar) (scalar, error) {
-			if l.kind == scalarInt && r.kind == scalarInt {
+		return func(_ *Context, l, r scalar) (scalar, error) {
+			if smallInts(l, r) {
 				return boolScalar(l.int() >= r.int()), nil
 			}
 			return compareScalars(op, l, r)
 		}
 	}
-	return func(l, r scalar) (scalar, error) { return compareScalars(op, l, r) }
+	return func(_ *Context, l, r scalar) (scalar, error) { return compareScalars(op, l, r) }
 }
 
 // compareScalars is constComparison over scalars.
@@ -290,7 +312,7 @@ func binaryNode(kids []*cnode, op binaryOp, opInfallible bool) *cnode {
 			if err != nil {
 				return scalar{}, err
 			}
-			return op(lv, rv)
+			return op(ctx, lv, rv)
 		}
 	}
 	return n
@@ -305,7 +327,7 @@ func leafPair(pre int64, l, r *cnode, op binaryOp) compiledExpr {
 			if err := ctx.chargeSteps(pre); err != nil {
 				return scalar{}, err
 			}
-			return op(args[i], c)
+			return op(ctx, args[i], c)
 		}
 	case !l.isConst && !r.isConst:
 		i, j := l.slot, r.slot
@@ -313,7 +335,7 @@ func leafPair(pre int64, l, r *cnode, op binaryOp) compiledExpr {
 			if err := ctx.chargeSteps(pre); err != nil {
 				return scalar{}, err
 			}
-			return op(args[i], args[j])
+			return op(ctx, args[i], args[j])
 		}
 	case l.isConst && !r.isConst:
 		c, j := l.constant, r.slot
@@ -321,7 +343,7 @@ func leafPair(pre int64, l, r *cnode, op binaryOp) compiledExpr {
 			if err := ctx.chargeSteps(pre); err != nil {
 				return scalar{}, err
 			}
-			return op(c, args[j])
+			return op(ctx, c, args[j])
 		}
 	default:
 		c, d := l.constant, r.constant
@@ -329,7 +351,7 @@ func leafPair(pre int64, l, r *cnode, op binaryOp) compiledExpr {
 			if err := ctx.chargeSteps(pre); err != nil {
 				return scalar{}, err
 			}
-			return op(c, d)
+			return op(ctx, c, d)
 		}
 	}
 }
@@ -344,14 +366,14 @@ func comparisonNode(op ast.OperatorKind, kids []*cnode) *cnode {
 
 func equalityNode(op ast.OperatorKind, kids []*cnode) *cnode {
 	negate := op == ast.OpNeq
-	return binaryNode(kids, func(l, r scalar) (scalar, error) {
+	return binaryNode(kids, func(_ *Context, l, r scalar) (scalar, error) {
 		return boolScalar(equalScalars(l, r) != negate), nil
 	}, true)
 }
 
 func identityNode(op ast.OperatorKind, kids []*cnode) *cnode {
 	negate := op == ast.OpNeqEqEq
-	return binaryNode(kids, func(l, r scalar) (scalar, error) {
+	return binaryNode(kids, func(_ *Context, l, r scalar) (scalar, error) {
 		return boolScalar(identicalScalars(l, r) != negate), nil
 	}, true)
 }

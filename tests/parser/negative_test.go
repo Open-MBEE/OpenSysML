@@ -27,8 +27,35 @@ func TestNegative(t *testing.T) {
 		{"empty_expression", "attribute x = ;"},
 		{"numeric_name", "part def 123;"},
 		{"missing_semicolon", "part def Engine"},
+		{"ref_anonymous_unclosed_multiplicity", "package P { ref [1 = x; }"},
+		// Visibility, direction, `abstract`, `variation` and `constant` alone
+		// declare no feature; the multiplicity form is the one exception
+		// (SysML.xtext UsageDeclaration).
+		{"visibility_without_feature", "part def D { private ; }"},
+		{"visibility_body_without_feature", "part def D { private { } }"},
+		{"visibility_value_without_feature", "part def D { private = x; }"},
+		{"derived_value_without_name", "part def D { derived = x; }"},
+		{"composite_body_without_name", "part def D { composite { } }"},
+		{"end_value_without_name", "part def D { end = x; }"},
+		// `composite` or `portion` closes the feature prefix: no other feature
+		// modifier may follow it (SysML.xtext BasicFeaturePrefix).
+		{"composite_ref_decl", "part def D { composite ref; }"},
+		{"composite_ref_body", "part def D { composite ref { } }"},
+		{"portion_ref_body", "part def D { portion ref { } }"},
+		{"composite_readonly", "part def D { composite readonly; }"},
+		{"composite_derived", "part def D { composite derived x; }"},
+		{"composite_visibility", "part def D { composite private x; }"},
+		{"composite_direction", "part def D { composite in x; }"},
+		{"composite_abstract", "part def D { composite abstract x; }"},
 		{"invalid_keyword_combo", "def usage MyPart;"},
 		{"incomplete_connection", "connector c connect a"},
+		// A connector end is a feature chain (SysML BNF 8.2.2.13.1), never an
+		// expression: `[…]` and `->` continue it into one, as does a `#(…)`
+		// anywhere but whole at the end of the chain (the indexed-end extension).
+		{"connect_end_element_selection_chain", "part def A { part s; part k; connect [1] s.y#(1).v to [1] k.u; }"},
+		{"connect_end_empty_element_selection", "part def A { part s; part k; connect [1] s.y#() to [1] k.u; }"},
+		{"connect_end_index", "part def A { part s; part k; connect [1] s.y[1] to [1] k.u; }"},
+		{"connect_end_invocation", "part def A { part s; part k; connect [1] s.y->first to [1] k.u; }"},
 		{"unterminated_string", `part p { doc /* comment `},
 		{"double_colon_only", "attribute ::x;"},
 		// A classifier declaration admits one specialization list.
@@ -39,6 +66,16 @@ func TestNegative(t *testing.T) {
 		{"action_dangling_fork", "action a { fork }"},
 		{"transition_then_only", "transition first then"},
 		{"named_final_node", "action a { done finish; }"},
+		// InitialNodeMember is an ActionBodyItem production alone (SysML.xtext:1376):
+		// a one-ended `first` outside an action body names no target.
+		{"one_ended_first_in_part_body", "part def P { part a; first a; }"},
+		{"one_ended_first_in_state_body", "state def M { state a; first a; }"},
+		{"one_ended_first_in_succession_body", "action def A { action p; action s; first p then s { action o; first o; } }"},
+		{"one_ended_first_in_initial_node_body", "action def A { action a; action b; first a { first b; } }"},
+		// RequirementConstraintMember belongs to a RequirementBody (SysML.xtext:2039):
+		// `assume`/`require` declare nothing anywhere else.
+		{"require_outside_requirement_body", "part def P { attribute size; require constraint { size >= 1 } }"},
+		{"assume_outside_requirement_body", "part def P { attribute size; assume constraint { size >= 1 } }"},
 		{"named_final_keyword", "action a { final finish; }"},
 		{"two_ended_then", "action a { action start; action finish; then start finish; }"},
 		{"state_member_then", "state s { state start; state finish; start then finish; }"},
@@ -152,9 +189,13 @@ func TestNegative(t *testing.T) {
 		{"allocate_def", "package q { allocate def D; }"},
 		{"message_payload_declaration_no_type", "message m of pay : from a to b;"},
 		{"message_payload_declaration_no_target", "message m of pay : T from a;"},
-		// `state s { defer ; }` and `state s { history ; }` are no longer malformed:
+		// `state s { defer ; }` and `state s { history ; }` are not malformed:
 		// neither word is a grammar literal, so each names a reference usage there
-		// (docs/reference/grammar/conformance-audit.md).
+		// (docs/reference/grammar/conformance-audit.md). `defer <event>;` is the
+		// removed OpenSysML deferral extension, reported as such.
+		{"defer_member_removed", "state s { defer Ping; }"},
+		{"defer_member_removed_list", "state s { defer Ping, setSpeed(value); }"},
+		{"defer_member_removed_in_def", "state def S { state busy { defer Ping; } }"},
 		{"defer_no_semicolon", "state s { defer Ping state t; }"},
 		{"defer_trailing_comma", "state s { defer Ping, ; }"},
 		{"deep_without_history", "state s { deep resume; }"},
@@ -303,6 +344,8 @@ func TestNegative(t *testing.T) {
 		{"flow_from_without_to", "action def A { action a; flow x from a; }"},
 		{"flow_named_from_no_source", "action def A { flow x from to b; }"},
 		{"accept_when_no_condition", "action def A { accept when; }"},
+		{"prefixed_accept_no_payload", "action def A { metadata def M; #M action a accept ; }"},
+		{"prefixed_accept_no_terminator", "action def A { metadata def M; #M action a accept e : E }"},
 		{"accept_at_no_instant", "action def A { accept at; }"},
 		{"accept_no_payload", "action def A { accept; }"},
 		{"accept_subsets_no_event", "action def A { action i accept :>; }"},
@@ -555,6 +598,10 @@ func TestNegativeKerML(t *testing.T) {
 		{"featured_by_trailing_comma", "package P { class A; feature f featured by A, ; }"},
 		{"featured_by_no_terminator", "package P { class A; feature f featured by A }"},
 		{"by_without_featured", "package P { class A; feature f by A; }"},
+
+		// In KerML the word `ordered` names the feature after `composite`, so
+		// a name may not follow it.
+		{"composite_ordered_name", "class C { composite ordered x; }"},
 
 		// A parenthesized end list holds at least two ends and closes
 		// (KerML.xtext:842).

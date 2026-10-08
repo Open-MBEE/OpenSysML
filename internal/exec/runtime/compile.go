@@ -3,7 +3,6 @@ package runtime
 import (
 	"errors"
 	"fmt"
-	"strconv"
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
@@ -104,6 +103,8 @@ type scalarCheck struct {
 	countOK bool
 	// Whether the declared type holds a value of each lattice type a scalar has.
 	boolOK, naturalOK, integerOK, rationalOK, realOK bool
+	// holdsReal: the declared type is Real, which holds a Rational as its nearest binary64.
+	holdsReal bool
 	// least is the smallest integer a Natural-holding declaration takes: 1 for Positive.
 	least int64
 }
@@ -116,6 +117,9 @@ func (c *scalarCheck) accepts(v scalar) bool {
 	}
 	switch v.kind {
 	case scalarInt:
+		if v.big != nil {
+			return c.integerOK || (c.naturalOK && v.big.Sign() > 0)
+		}
 		return c.integerOK || (c.naturalOK && v.int() >= c.least)
 	case scalarBool:
 		return c.boolOK
@@ -132,6 +136,23 @@ func (c *scalarCheck) acceptsReal(v scalar) bool {
 		return c.realOK
 	}
 	return false
+}
+
+// held is v as the declaration holds it: a Rational a Real declaration takes as its
+// nearest binary64, refused when no finite Real is; what, if any, names the declaration.
+func (c *scalarCheck) held(v scalar, what func() string) (scalar, error) {
+	if !c.holdsReal || v.kind != scalarRational {
+		return v, nil
+	}
+	real, err := semantics.RealOf(v.exact)
+	if err != nil {
+		err = fmt.Errorf("%s as a Real: %w", v.exact.FormatRational(), err)
+		if what != nil {
+			err = fmt.Errorf("%s: %w", what(), err)
+		}
+		return scalar{}, err
+	}
+	return realScalar(real.Real), nil
 }
 
 // refuse is the evaluator's verdict on a value accepts declined, so a refusal
@@ -201,7 +222,7 @@ func (b *compileBatch) call(member, callee *calcShape) {
 }
 
 // settle withdraws eligibility from every member calling an ineligible shape,
-// to a fixpoint, and marks a member reading a library constant via a callee.
+// to a fixpoint, and propagates execution requirements through the call graph.
 func (b *compileBatch) settle() {
 	for changed := true; changed; {
 		changed = false
@@ -387,6 +408,7 @@ func (c *calcCompiler) scalarCheckFor(decl *calcMemberDecl) (scalarCheck, bool) 
 	check.integerOK = holds(semantics.PrimInteger)
 	check.rationalOK = holds(semantics.PrimRational)
 	check.realOK = holds(semantics.PrimReal)
+	check.holdsReal = prim == semantics.PrimReal
 	if c.ctx.positiveScalar(decl.Target.typ) {
 		check.least = 1
 	}
@@ -419,17 +441,20 @@ func (n *cnode) expr() compiledExpr { return n.emit(false) }
 func (c *calcCompiler) compileNode(n ast.Node, scope *symbols.Scope, layout *frameLayout) (*cnode, error) {
 	switch e := n.(type) {
 	case *ast.LiteralInteger:
-		v, err := strconv.ParseInt(e.Value, 10, 64)
-		if err != nil {
-			return nil, ineligible(fmt.Sprintf("integer literal %s outside the range", e.Value))
+		v, ok := semantics.ParseInteger(e.Value)
+		if !ok {
+			return nil, ineligible(fmt.Sprintf("integer literal %s", e.Value))
 		}
-		return constNode(intScalar(v)), nil
+		s, _ := scalarOfConst(v)
+		return constNode(s), nil
 	case *ast.LiteralReal:
-		v, err := semantics.ParseReal(e.Value)
+		// One beyond the least budget is left to the evaluator, which checks it against the run's.
+		v, err := semantics.ParseRational(e.Value, semantics.MinMaxIntegerBits)
 		if err != nil {
-			return nil, ineligible(fmt.Sprintf("real literal %s outside the range", e.Value))
+			return nil, ineligible(fmt.Sprintf("rational literal %s beyond the least size budget", e.Value))
 		}
-		return constNode(realScalar(v)), nil
+		s, _ := scalarOfConst(v)
+		return constNode(s), nil
 	case *ast.LiteralBool:
 		return constNode(boolScalar(e.Value)), nil
 	case *ast.FeatureReference:
@@ -524,7 +549,7 @@ func (c *calcCompiler) libraryConstant(sym *symbols.Symbol, name string) (*cnode
 // compileOperator compiles an operator application, folding it as the
 // evaluator does before it looks at the operands.
 func (c *calcCompiler) compileOperator(n *ast.OperatorExpr, scope *symbols.Scope, layout *frameLayout) (*cnode, error) {
-	if folded, ok := c.ctx.model.semantics.Eval(n); ok {
+	if folded, ok := c.ctx.model.semantics.EvalWithin(n, c.ctx.maxIntegerBits); ok {
 		v, ok := scalarOfConst(folded)
 		if !ok {
 			return nil, ineligible("folds to a non-scalar constant")
@@ -565,14 +590,6 @@ func (c *calcCompiler) compileOperator(n *ast.OperatorExpr, scope *symbols.Scope
 	case ast.OpNeg, ast.OpPos, ast.OpNot:
 		if len(n.Operands) != 1 {
 			return nil, ineligible(fmt.Sprintf("unary operator with %d operands", len(n.Operands)))
-		}
-		// The least Integer is read with its sign, as the evaluator reads it.
-		if lit, ok := n.Operands[0].(*ast.LiteralInteger); ok && n.Operator == ast.OpNeg {
-			if _, err := strconv.ParseInt(lit.Value, 10, 64); err != nil {
-				if v, err := strconv.ParseInt("-"+lit.Value, 10, 64); err == nil {
-					return constNode(intScalar(v)), nil
-				}
-			}
 		}
 		return c.compileOperands(n, scope, layout, unaryNode)
 	default:
@@ -803,23 +820,35 @@ func (c *compiledCalc) invoke(ctx *Context, base int, bound paramSet) (scalar, e
 			source = "default"
 			frame[i] = v
 		}
+		what := func() string {
+			return fmt.Sprintf("%s %s: %s for parameter %q", c.kind, c.name, source, p.name)
+		}
 		if !p.check.accepts(v) {
-			err := p.check.refuse(ctx, v, func() string {
-				return fmt.Sprintf("%s %s: %s for parameter %q", c.kind, c.name, source, p.name)
-			})
-			if err != nil {
+			if err := p.check.refuse(ctx, v, what); err != nil {
 				ctx.leaveCalc()
 				return scalar{}, err
 			}
 		}
+		held, err := p.check.held(v, what)
+		if err != nil {
+			ctx.leaveCalc()
+			return scalar{}, err
+		}
+		frame[i] = held
 	}
 	result, err := c.body(ctx, frame)
 	ctx.leaveCalc()
 	if err != nil {
 		return scalar{}, calcFrame(c.kind, c.name, fmt.Errorf("%s%w", c.bodyErr, err))
 	}
-	if c.result != nil && !c.result.accepts(result) {
-		if err := c.result.refuse(ctx, result, func() string { return c.resultWhat }); err != nil {
+	if c.result != nil {
+		what := func() string { return c.resultWhat }
+		if !c.result.accepts(result) {
+			if err := c.result.refuse(ctx, result, what); err != nil {
+				return scalar{}, calcFrame(c.kind, c.name, err)
+			}
+		}
+		if result, err = c.result.held(result, what); err != nil {
 			return scalar{}, calcFrame(c.kind, c.name, err)
 		}
 	}

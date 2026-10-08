@@ -6,7 +6,7 @@ import (
 	"strings"
 )
 
-// DrawingStyle names the look the DOT form draws a diagram in: the Pilot
+// DrawingStyle names the look the DOT and Mermaid forms draw a diagram in: the Pilot
 // "Standard B&W" default, or the look of a diagram drawn by Cameo Systems
 // Modeler, for a document migrated from one. A style is independent of the
 // palette: a palette recolours the nodes of whichever style is drawn.
@@ -23,7 +23,7 @@ const (
 	StyleCameo DrawingStyle = "cameo"
 )
 
-// DrawingStyles are the styles the DOT form can be asked for, in the order
+// DrawingStyles are the styles the DOT and Mermaid forms can be asked for, in the order
 // they are offered.
 func DrawingStyles() []DrawingStyle { return []DrawingStyle{StylePilot, StyleCameo} }
 
@@ -78,17 +78,17 @@ func (s DrawingStyle) check() error {
 // styleNotice is the notice a form that draws no style writes for one asked
 // for, so the request is not dropped silently.
 func styleNotice(style DrawingStyle) string {
-	return fmt.Sprintf("style %s; only the DOT form draws a diagram in a style", style)
+	return fmt.Sprintf("style %s; only the DOT and Mermaid forms draw a diagram in a style", style)
 }
 
 // TakesStyle reports whether the form draws a diagram in a DrawingStyle.
-func (f Form) TakesStyle() bool { return f == FormDot }
+func (f Form) TakesStyle() bool { return f == FormDot || f == FormMermaid }
 
 // countStyled is how many nodes and edges of the rendering carry a Style.
 func (r *Rendering) countStyled() (nodes, edges int) {
 	var walk func(node *Node)
 	walk = func(node *Node) {
-		if node.Style != nil {
+		if node.Style != nil && !node.verdictStyled {
 			nodes++
 		}
 		for _, child := range node.Children {
@@ -119,7 +119,17 @@ func (r *Rendering) visualNotices(what string, withNotes bool) []string {
 		notices = append(notices, fmt.Sprintf("%d note(s); the dot form draws notes", len(r.Notes)))
 	}
 	if withNotes && len(r.Pictures) > 0 {
-		notices = append(notices, pictureNotice(r.Pictures, "the dot form draws pictures"))
+		refusals := r.pictureRefusals()
+		notices = append(notices, refusedPictureNotices(r.Pictures, refusals)...)
+		drawable := make([]Picture, 0, len(r.Pictures))
+		for i, picture := range r.Pictures {
+			if refusals[i] == nil {
+				drawable = append(drawable, picture)
+			}
+		}
+		if len(drawable) > 0 {
+			notices = append(notices, pictureNotice(drawable, "the dot form draws pictures"))
+		}
 	}
 	return notices
 }
@@ -207,6 +217,14 @@ func cameoFrameKind(kind Kind) string {
 		return "stm"
 	case KindAction:
 		return "act"
+	case KindRequirement:
+		return "req"
+	case KindDefinition:
+		return "bdd"
+	case KindPackage:
+		return "pkg"
+	case KindCase:
+		return "uc"
 	}
 	return string(kind)
 }

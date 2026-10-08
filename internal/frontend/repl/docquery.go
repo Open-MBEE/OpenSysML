@@ -11,6 +11,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/ir/queryplan"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
 // runQueryUsage is what %run-query accepts: a document query's name and its
@@ -185,12 +186,21 @@ func (s *Session) queryContext(ctx *runtime.Context) queryexec.Context {
 	for _, root := range carriers {
 		roots = append(roots, queryexec.Root{Label: root.name, Object: root.inst})
 	}
+	lineIndexes := make(map[string]*source.LineIndex)
+	for _, document := range s.sessionDocs() {
+		if document.Name != docName {
+			lineIndexes[document.Name] = document.Lines()
+		}
+	}
 	return queryexec.Context{
 		Index:    s.browseIndex(),
 		Resolver: ctx.Resolver(),
 		Model:    ctx.Semantics(),
 		Runtime:  ctx,
 		Roots:    roots,
+		LineIndex: func(doc string) *source.LineIndex {
+			return lineIndexes[doc]
+		},
 	}
 }
 
@@ -288,7 +298,7 @@ func (s *Session) queryValues(ctx *runtime.Context, value runtime.Value) ([]quer
 	case runtime.ValConst:
 		switch value.Const.Kind {
 		case semantics.ValInt:
-			return []queryexec.Value{queryexec.IntegerValue(value.Const.Int)}, nil
+			return []queryexec.Value{queryexec.IntegerOf(value.Const)}, nil
 		case semantics.ValReal:
 			return []queryexec.Value{queryexec.RealValue(value.Const.Real)}, nil
 		case semantics.ValBool:
@@ -303,7 +313,11 @@ func (s *Session) queryValues(ctx *runtime.Context, value runtime.Value) ([]quer
 		if value.Sequence() == nil {
 			return nil, nil
 		}
-		return s.queryValueList(ctx, value.Sequence().Elements())
+		elements, err := ctx.HeldElements(value)
+		if err != nil {
+			return nil, err
+		}
+		return s.queryValueList(ctx, elements)
 	case runtime.ValSet:
 		if value.Set() == nil {
 			return nil, nil
@@ -427,6 +441,9 @@ func formatQueryValue(value queryexec.Value) string {
 	}
 	if integer, ok := value.Integer(); ok {
 		return strconv.FormatInt(integer, 10)
+	}
+	if rational, ok := value.Rational(); ok {
+		return semantics.FormatConst(rational)
 	}
 	if realVal, ok := value.Real(); ok {
 		return semantics.FormatReal(realVal)

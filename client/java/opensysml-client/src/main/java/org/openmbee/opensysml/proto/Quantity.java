@@ -58,6 +58,8 @@ private static final long serialVersionUID = 0L;
           com.google.protobuf.AbstractMessage.InternalOneOfEnum {
     INT_MAGNITUDE(1),
     REAL_MAGNITUDE(2),
+    BIG_INT_MAGNITUDE(5),
+    RATIONAL_MAGNITUDE(6),
     MAGNITUDE_NOT_SET(0);
     private final int value;
     private MagnitudeCase(int value) {
@@ -77,6 +79,8 @@ private static final long serialVersionUID = 0L;
       switch (value) {
         case 1: return INT_MAGNITUDE;
         case 2: return REAL_MAGNITUDE;
+        case 5: return BIG_INT_MAGNITUDE;
+        case 6: return RATIONAL_MAGNITUDE;
         case 0: return MAGNITUDE_NOT_SET;
         default: return null;
       }
@@ -132,6 +136,113 @@ private static final long serialVersionUID = 0L;
       return (java.lang.Double) magnitude_;
     }
     return 0D;
+  }
+
+  public static final int BIG_INT_MAGNITUDE_FIELD_NUMBER = 5;
+  /**
+   * <pre>
+   * An Integer magnitude beyond int64, in decimal, as Value.big_int_value.
+   * </pre>
+   *
+   * <code>string big_int_magnitude = 5 [json_name = "bigIntMagnitude"];</code>
+   * @return Whether the bigIntMagnitude field is set.
+   */
+  public boolean hasBigIntMagnitude() {
+    return magnitudeCase_ == 5;
+  }
+  /**
+   * <pre>
+   * An Integer magnitude beyond int64, in decimal, as Value.big_int_value.
+   * </pre>
+   *
+   * <code>string big_int_magnitude = 5 [json_name = "bigIntMagnitude"];</code>
+   * @return The bigIntMagnitude.
+   */
+  public java.lang.String getBigIntMagnitude() {
+    java.lang.Object ref = "";
+    if (magnitudeCase_ == 5) {
+      ref = magnitude_;
+    }
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs = 
+          (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      if (magnitudeCase_ == 5) {
+        magnitude_ = s;
+      }
+      return s;
+    }
+  }
+  /**
+   * <pre>
+   * An Integer magnitude beyond int64, in decimal, as Value.big_int_value.
+   * </pre>
+   *
+   * <code>string big_int_magnitude = 5 [json_name = "bigIntMagnitude"];</code>
+   * @return The bytes for bigIntMagnitude.
+   */
+  public com.google.protobuf.ByteString
+      getBigIntMagnitudeBytes() {
+    java.lang.Object ref = "";
+    if (magnitudeCase_ == 5) {
+      ref = magnitude_;
+    }
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b = 
+          com.google.protobuf.ByteString.copyFromUtf8(
+              (java.lang.String) ref);
+      if (magnitudeCase_ == 5) {
+        magnitude_ = b;
+      }
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
+  public static final int RATIONAL_MAGNITUDE_FIELD_NUMBER = 6;
+  /**
+   * <pre>
+   * An exact Rational magnitude, as Value.rational_value.
+   * </pre>
+   *
+   * <code>.sysml.Rational rational_magnitude = 6 [json_name = "rationalMagnitude"];</code>
+   * @return Whether the rationalMagnitude field is set.
+   */
+  @java.lang.Override
+  public boolean hasRationalMagnitude() {
+    return magnitudeCase_ == 6;
+  }
+  /**
+   * <pre>
+   * An exact Rational magnitude, as Value.rational_value.
+   * </pre>
+   *
+   * <code>.sysml.Rational rational_magnitude = 6 [json_name = "rationalMagnitude"];</code>
+   * @return The rationalMagnitude.
+   */
+  @java.lang.Override
+  public org.openmbee.opensysml.proto.Rational getRationalMagnitude() {
+    if (magnitudeCase_ == 6) {
+       return (org.openmbee.opensysml.proto.Rational) magnitude_;
+    }
+    return org.openmbee.opensysml.proto.Rational.getDefaultInstance();
+  }
+  /**
+   * <pre>
+   * An exact Rational magnitude, as Value.rational_value.
+   * </pre>
+   *
+   * <code>.sysml.Rational rational_magnitude = 6 [json_name = "rationalMagnitude"];</code>
+   */
+  @java.lang.Override
+  public org.openmbee.opensysml.proto.RationalOrBuilder getRationalMagnitudeOrBuilder() {
+    if (magnitudeCase_ == 6) {
+       return (org.openmbee.opensysml.proto.Rational) magnitude_;
+    }
+    return org.openmbee.opensysml.proto.Rational.getDefaultInstance();
   }
 
   public static final int UNIT_FIELD_NUMBER = 3;
@@ -255,6 +366,12 @@ private static final long serialVersionUID = 0L;
     if (((bitField0_ & 0x00000001) != 0)) {
       output.writeMessage(4, getUnitTerm());
     }
+    if (magnitudeCase_ == 5) {
+      com.google.protobuf.GeneratedMessage.writeString(output, 5, magnitude_);
+    }
+    if (magnitudeCase_ == 6) {
+      output.writeMessage(6, (org.openmbee.opensysml.proto.Rational) magnitude_);
+    }
     getUnknownFields().writeTo(output);
   }
 
@@ -280,6 +397,13 @@ private static final long serialVersionUID = 0L;
     if (((bitField0_ & 0x00000001) != 0)) {
       size += com.google.protobuf.CodedOutputStream
         .computeMessageSize(4, getUnitTerm());
+    }
+    if (magnitudeCase_ == 5) {
+      size += com.google.protobuf.GeneratedMessage.computeStringSize(5, magnitude_);
+    }
+    if (magnitudeCase_ == 6) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeMessageSize(6, (org.openmbee.opensysml.proto.Rational) magnitude_);
     }
     size += getUnknownFields().getSerializedSize();
     memoizedSize = size;
@@ -314,6 +438,14 @@ private static final long serialVersionUID = 0L;
             != java.lang.Double.doubleToLongBits(
                 other.getRealMagnitude())) return false;
         break;
+      case 5:
+        if (!getBigIntMagnitude()
+            .equals(other.getBigIntMagnitude())) return false;
+        break;
+      case 6:
+        if (!getRationalMagnitude()
+            .equals(other.getRationalMagnitude())) return false;
+        break;
       case 0:
       default:
     }
@@ -344,6 +476,14 @@ private static final long serialVersionUID = 0L;
         hash = (37 * hash) + REAL_MAGNITUDE_FIELD_NUMBER;
         hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
             java.lang.Double.doubleToLongBits(getRealMagnitude()));
+        break;
+      case 5:
+        hash = (37 * hash) + BIG_INT_MAGNITUDE_FIELD_NUMBER;
+        hash = (53 * hash) + getBigIntMagnitude().hashCode();
+        break;
+      case 6:
+        hash = (37 * hash) + RATIONAL_MAGNITUDE_FIELD_NUMBER;
+        hash = (53 * hash) + getRationalMagnitude().hashCode();
         break;
       case 0:
       default:
@@ -490,6 +630,9 @@ private static final long serialVersionUID = 0L;
     public Builder clear() {
       super.clear();
       bitField0_ = 0;
+      if (rationalMagnitudeBuilder_ != null) {
+        rationalMagnitudeBuilder_.clear();
+      }
       unit_ = "";
       unitTerm_ = null;
       if (unitTermBuilder_ != null) {
@@ -532,11 +675,11 @@ private static final long serialVersionUID = 0L;
 
     private void buildPartial0(org.openmbee.opensysml.proto.Quantity result) {
       int from_bitField0_ = bitField0_;
-      if (((from_bitField0_ & 0x00000004) != 0)) {
+      if (((from_bitField0_ & 0x00000010) != 0)) {
         result.unit_ = unit_;
       }
       int to_bitField0_ = 0;
-      if (((from_bitField0_ & 0x00000008) != 0)) {
+      if (((from_bitField0_ & 0x00000020) != 0)) {
         result.unitTerm_ = unitTermBuilder_ == null
             ? unitTerm_
             : unitTermBuilder_.build();
@@ -548,6 +691,10 @@ private static final long serialVersionUID = 0L;
     private void buildPartialOneofs(org.openmbee.opensysml.proto.Quantity result) {
       result.magnitudeCase_ = magnitudeCase_;
       result.magnitude_ = this.magnitude_;
+      if (magnitudeCase_ == 6 &&
+          rationalMagnitudeBuilder_ != null) {
+        result.magnitude_ = rationalMagnitudeBuilder_.build();
+      }
     }
 
     @java.lang.Override
@@ -564,7 +711,7 @@ private static final long serialVersionUID = 0L;
       if (other == org.openmbee.opensysml.proto.Quantity.getDefaultInstance()) return this;
       if (!other.getUnit().isEmpty()) {
         unit_ = other.unit_;
-        bitField0_ |= 0x00000004;
+        bitField0_ |= 0x00000010;
         onChanged();
       }
       if (other.hasUnitTerm()) {
@@ -577,6 +724,16 @@ private static final long serialVersionUID = 0L;
         }
         case REAL_MAGNITUDE: {
           setRealMagnitude(other.getRealMagnitude());
+          break;
+        }
+        case BIG_INT_MAGNITUDE: {
+          magnitudeCase_ = 5;
+          magnitude_ = other.magnitude_;
+          onChanged();
+          break;
+        }
+        case RATIONAL_MAGNITUDE: {
+          mergeRationalMagnitude(other.getRationalMagnitude());
           break;
         }
         case MAGNITUDE_NOT_SET: {
@@ -621,16 +778,29 @@ private static final long serialVersionUID = 0L;
             } // case 17
             case 26: {
               unit_ = input.readStringRequireUtf8();
-              bitField0_ |= 0x00000004;
+              bitField0_ |= 0x00000010;
               break;
             } // case 26
             case 34: {
               input.readMessage(
                   internalGetUnitTermFieldBuilder().getBuilder(),
                   extensionRegistry);
-              bitField0_ |= 0x00000008;
+              bitField0_ |= 0x00000020;
               break;
             } // case 34
+            case 42: {
+              java.lang.String s = input.readStringRequireUtf8();
+              magnitudeCase_ = 5;
+              magnitude_ = s;
+              break;
+            } // case 42
+            case 50: {
+              input.readMessage(
+                  internalGetRationalMagnitudeFieldBuilder().getBuilder(),
+                  extensionRegistry);
+              magnitudeCase_ = 6;
+              break;
+            } // case 50
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -747,6 +917,301 @@ private static final long serialVersionUID = 0L;
       return this;
     }
 
+    /**
+     * <pre>
+     * An Integer magnitude beyond int64, in decimal, as Value.big_int_value.
+     * </pre>
+     *
+     * <code>string big_int_magnitude = 5 [json_name = "bigIntMagnitude"];</code>
+     * @return Whether the bigIntMagnitude field is set.
+     */
+    @java.lang.Override
+    public boolean hasBigIntMagnitude() {
+      return magnitudeCase_ == 5;
+    }
+    /**
+     * <pre>
+     * An Integer magnitude beyond int64, in decimal, as Value.big_int_value.
+     * </pre>
+     *
+     * <code>string big_int_magnitude = 5 [json_name = "bigIntMagnitude"];</code>
+     * @return The bigIntMagnitude.
+     */
+    @java.lang.Override
+    public java.lang.String getBigIntMagnitude() {
+      java.lang.Object ref = "";
+      if (magnitudeCase_ == 5) {
+        ref = magnitude_;
+      }
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs =
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        if (magnitudeCase_ == 5) {
+          magnitude_ = s;
+        }
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+    /**
+     * <pre>
+     * An Integer magnitude beyond int64, in decimal, as Value.big_int_value.
+     * </pre>
+     *
+     * <code>string big_int_magnitude = 5 [json_name = "bigIntMagnitude"];</code>
+     * @return The bytes for bigIntMagnitude.
+     */
+    @java.lang.Override
+    public com.google.protobuf.ByteString
+        getBigIntMagnitudeBytes() {
+      java.lang.Object ref = "";
+      if (magnitudeCase_ == 5) {
+        ref = magnitude_;
+      }
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        if (magnitudeCase_ == 5) {
+          magnitude_ = b;
+        }
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+    /**
+     * <pre>
+     * An Integer magnitude beyond int64, in decimal, as Value.big_int_value.
+     * </pre>
+     *
+     * <code>string big_int_magnitude = 5 [json_name = "bigIntMagnitude"];</code>
+     * @param value The bigIntMagnitude to set.
+     * @return This builder for chaining.
+     */
+    public Builder setBigIntMagnitude(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      magnitudeCase_ = 5;
+      magnitude_ = value;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * An Integer magnitude beyond int64, in decimal, as Value.big_int_value.
+     * </pre>
+     *
+     * <code>string big_int_magnitude = 5 [json_name = "bigIntMagnitude"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearBigIntMagnitude() {
+      if (magnitudeCase_ == 5) {
+        magnitudeCase_ = 0;
+        magnitude_ = null;
+        onChanged();
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * An Integer magnitude beyond int64, in decimal, as Value.big_int_value.
+     * </pre>
+     *
+     * <code>string big_int_magnitude = 5 [json_name = "bigIntMagnitude"];</code>
+     * @param value The bytes for bigIntMagnitude to set.
+     * @return This builder for chaining.
+     */
+    public Builder setBigIntMagnitudeBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkByteStringIsUtf8(value);
+      magnitudeCase_ = 5;
+      magnitude_ = value;
+      onChanged();
+      return this;
+    }
+
+    private com.google.protobuf.SingleFieldBuilder<
+        org.openmbee.opensysml.proto.Rational, org.openmbee.opensysml.proto.Rational.Builder, org.openmbee.opensysml.proto.RationalOrBuilder> rationalMagnitudeBuilder_;
+    /**
+     * <pre>
+     * An exact Rational magnitude, as Value.rational_value.
+     * </pre>
+     *
+     * <code>.sysml.Rational rational_magnitude = 6 [json_name = "rationalMagnitude"];</code>
+     * @return Whether the rationalMagnitude field is set.
+     */
+    @java.lang.Override
+    public boolean hasRationalMagnitude() {
+      return magnitudeCase_ == 6;
+    }
+    /**
+     * <pre>
+     * An exact Rational magnitude, as Value.rational_value.
+     * </pre>
+     *
+     * <code>.sysml.Rational rational_magnitude = 6 [json_name = "rationalMagnitude"];</code>
+     * @return The rationalMagnitude.
+     */
+    @java.lang.Override
+    public org.openmbee.opensysml.proto.Rational getRationalMagnitude() {
+      if (rationalMagnitudeBuilder_ == null) {
+        if (magnitudeCase_ == 6) {
+          return (org.openmbee.opensysml.proto.Rational) magnitude_;
+        }
+        return org.openmbee.opensysml.proto.Rational.getDefaultInstance();
+      } else {
+        if (magnitudeCase_ == 6) {
+          return rationalMagnitudeBuilder_.getMessage();
+        }
+        return org.openmbee.opensysml.proto.Rational.getDefaultInstance();
+      }
+    }
+    /**
+     * <pre>
+     * An exact Rational magnitude, as Value.rational_value.
+     * </pre>
+     *
+     * <code>.sysml.Rational rational_magnitude = 6 [json_name = "rationalMagnitude"];</code>
+     */
+    public Builder setRationalMagnitude(org.openmbee.opensysml.proto.Rational value) {
+      if (rationalMagnitudeBuilder_ == null) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        magnitude_ = value;
+        onChanged();
+      } else {
+        rationalMagnitudeBuilder_.setMessage(value);
+      }
+      magnitudeCase_ = 6;
+      return this;
+    }
+    /**
+     * <pre>
+     * An exact Rational magnitude, as Value.rational_value.
+     * </pre>
+     *
+     * <code>.sysml.Rational rational_magnitude = 6 [json_name = "rationalMagnitude"];</code>
+     */
+    public Builder setRationalMagnitude(
+        org.openmbee.opensysml.proto.Rational.Builder builderForValue) {
+      if (rationalMagnitudeBuilder_ == null) {
+        magnitude_ = builderForValue.build();
+        onChanged();
+      } else {
+        rationalMagnitudeBuilder_.setMessage(builderForValue.build());
+      }
+      magnitudeCase_ = 6;
+      return this;
+    }
+    /**
+     * <pre>
+     * An exact Rational magnitude, as Value.rational_value.
+     * </pre>
+     *
+     * <code>.sysml.Rational rational_magnitude = 6 [json_name = "rationalMagnitude"];</code>
+     */
+    public Builder mergeRationalMagnitude(org.openmbee.opensysml.proto.Rational value) {
+      if (rationalMagnitudeBuilder_ == null) {
+        if (magnitudeCase_ == 6 &&
+            magnitude_ != org.openmbee.opensysml.proto.Rational.getDefaultInstance()) {
+          magnitude_ = org.openmbee.opensysml.proto.Rational.newBuilder((org.openmbee.opensysml.proto.Rational) magnitude_)
+              .mergeFrom(value).buildPartial();
+        } else {
+          magnitude_ = value;
+        }
+        onChanged();
+      } else {
+        if (magnitudeCase_ == 6) {
+          rationalMagnitudeBuilder_.mergeFrom(value);
+        } else {
+          rationalMagnitudeBuilder_.setMessage(value);
+        }
+      }
+      magnitudeCase_ = 6;
+      return this;
+    }
+    /**
+     * <pre>
+     * An exact Rational magnitude, as Value.rational_value.
+     * </pre>
+     *
+     * <code>.sysml.Rational rational_magnitude = 6 [json_name = "rationalMagnitude"];</code>
+     */
+    public Builder clearRationalMagnitude() {
+      if (rationalMagnitudeBuilder_ == null) {
+        if (magnitudeCase_ == 6) {
+          magnitudeCase_ = 0;
+          magnitude_ = null;
+          onChanged();
+        }
+      } else {
+        if (magnitudeCase_ == 6) {
+          magnitudeCase_ = 0;
+          magnitude_ = null;
+        }
+        rationalMagnitudeBuilder_.clear();
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * An exact Rational magnitude, as Value.rational_value.
+     * </pre>
+     *
+     * <code>.sysml.Rational rational_magnitude = 6 [json_name = "rationalMagnitude"];</code>
+     */
+    public org.openmbee.opensysml.proto.Rational.Builder getRationalMagnitudeBuilder() {
+      return internalGetRationalMagnitudeFieldBuilder().getBuilder();
+    }
+    /**
+     * <pre>
+     * An exact Rational magnitude, as Value.rational_value.
+     * </pre>
+     *
+     * <code>.sysml.Rational rational_magnitude = 6 [json_name = "rationalMagnitude"];</code>
+     */
+    @java.lang.Override
+    public org.openmbee.opensysml.proto.RationalOrBuilder getRationalMagnitudeOrBuilder() {
+      if ((magnitudeCase_ == 6) && (rationalMagnitudeBuilder_ != null)) {
+        return rationalMagnitudeBuilder_.getMessageOrBuilder();
+      } else {
+        if (magnitudeCase_ == 6) {
+          return (org.openmbee.opensysml.proto.Rational) magnitude_;
+        }
+        return org.openmbee.opensysml.proto.Rational.getDefaultInstance();
+      }
+    }
+    /**
+     * <pre>
+     * An exact Rational magnitude, as Value.rational_value.
+     * </pre>
+     *
+     * <code>.sysml.Rational rational_magnitude = 6 [json_name = "rationalMagnitude"];</code>
+     */
+    private com.google.protobuf.SingleFieldBuilder<
+        org.openmbee.opensysml.proto.Rational, org.openmbee.opensysml.proto.Rational.Builder, org.openmbee.opensysml.proto.RationalOrBuilder> 
+        internalGetRationalMagnitudeFieldBuilder() {
+      if (rationalMagnitudeBuilder_ == null) {
+        if (!(magnitudeCase_ == 6)) {
+          magnitude_ = org.openmbee.opensysml.proto.Rational.getDefaultInstance();
+        }
+        rationalMagnitudeBuilder_ = new com.google.protobuf.SingleFieldBuilder<
+            org.openmbee.opensysml.proto.Rational, org.openmbee.opensysml.proto.Rational.Builder, org.openmbee.opensysml.proto.RationalOrBuilder>(
+                (org.openmbee.opensysml.proto.Rational) magnitude_,
+                getParentForChildren(),
+                isClean());
+        magnitude_ = null;
+      }
+      magnitudeCase_ = 6;
+      onChanged();
+      return rationalMagnitudeBuilder_;
+    }
+
     private java.lang.Object unit_ = "";
     /**
      * <pre>
@@ -805,7 +1270,7 @@ private static final long serialVersionUID = 0L;
         java.lang.String value) {
       if (value == null) { throw new NullPointerException(); }
       unit_ = value;
-      bitField0_ |= 0x00000004;
+      bitField0_ |= 0x00000010;
       onChanged();
       return this;
     }
@@ -820,7 +1285,7 @@ private static final long serialVersionUID = 0L;
      */
     public Builder clearUnit() {
       unit_ = getDefaultInstance().getUnit();
-      bitField0_ = (bitField0_ & ~0x00000004);
+      bitField0_ = (bitField0_ & ~0x00000010);
       onChanged();
       return this;
     }
@@ -839,7 +1304,7 @@ private static final long serialVersionUID = 0L;
       if (value == null) { throw new NullPointerException(); }
       checkByteStringIsUtf8(value);
       unit_ = value;
-      bitField0_ |= 0x00000004;
+      bitField0_ |= 0x00000010;
       onChanged();
       return this;
     }
@@ -858,7 +1323,7 @@ private static final long serialVersionUID = 0L;
      * @return Whether the unitTerm field is set.
      */
     public boolean hasUnitTerm() {
-      return ((bitField0_ & 0x00000008) != 0);
+      return ((bitField0_ & 0x00000020) != 0);
     }
     /**
      * <pre>
@@ -895,7 +1360,7 @@ private static final long serialVersionUID = 0L;
       } else {
         unitTermBuilder_.setMessage(value);
       }
-      bitField0_ |= 0x00000008;
+      bitField0_ |= 0x00000020;
       onChanged();
       return this;
     }
@@ -915,7 +1380,7 @@ private static final long serialVersionUID = 0L;
       } else {
         unitTermBuilder_.setMessage(builderForValue.build());
       }
-      bitField0_ |= 0x00000008;
+      bitField0_ |= 0x00000020;
       onChanged();
       return this;
     }
@@ -930,7 +1395,7 @@ private static final long serialVersionUID = 0L;
      */
     public Builder mergeUnitTerm(org.openmbee.opensysml.proto.UnitTerm value) {
       if (unitTermBuilder_ == null) {
-        if (((bitField0_ & 0x00000008) != 0) &&
+        if (((bitField0_ & 0x00000020) != 0) &&
           unitTerm_ != null &&
           unitTerm_ != org.openmbee.opensysml.proto.UnitTerm.getDefaultInstance()) {
           getUnitTermBuilder().mergeFrom(value);
@@ -941,7 +1406,7 @@ private static final long serialVersionUID = 0L;
         unitTermBuilder_.mergeFrom(value);
       }
       if (unitTerm_ != null) {
-        bitField0_ |= 0x00000008;
+        bitField0_ |= 0x00000020;
         onChanged();
       }
       return this;
@@ -956,7 +1421,7 @@ private static final long serialVersionUID = 0L;
      * <code>.sysml.UnitTerm unit_term = 4 [json_name = "unitTerm"];</code>
      */
     public Builder clearUnitTerm() {
-      bitField0_ = (bitField0_ & ~0x00000008);
+      bitField0_ = (bitField0_ & ~0x00000020);
       unitTerm_ = null;
       if (unitTermBuilder_ != null) {
         unitTermBuilder_.dispose();
@@ -975,7 +1440,7 @@ private static final long serialVersionUID = 0L;
      * <code>.sysml.UnitTerm unit_term = 4 [json_name = "unitTerm"];</code>
      */
     public org.openmbee.opensysml.proto.UnitTerm.Builder getUnitTermBuilder() {
-      bitField0_ |= 0x00000008;
+      bitField0_ |= 0x00000020;
       onChanged();
       return internalGetUnitTermFieldBuilder().getBuilder();
     }

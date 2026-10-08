@@ -1,0 +1,9 @@
+{
+	"type": "action",
+	"libraries": true,
+	"evaluate": "test::gather",
+	"trace": true,
+	"outputs": {
+		"keep.v": {"type": "Sequence", "elements": [{"type": "Real", "value": 1.5}, {"type": "Real", "value": 8.5}]}
+	}
+}

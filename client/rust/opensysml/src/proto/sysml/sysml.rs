@@ -495,6 +495,15 @@ pub struct RunAnalysisResponse {
     #[prost(message, repeated, tag="13")]
     pub bounds: ::prost::alloc::vec::Vec<Bound>,
 }
+/// ProbabilityRange is the model-draw probability of an outcome, bounded by the
+/// least and greatest probabilities over schedulers resolving scheduling choices.
+#[derive(Clone, Copy, PartialEq, ::prost::Message)]
+pub struct ProbabilityRange {
+    #[prost(double, tag="1")]
+    pub min: f64,
+    #[prost(double, tag="2")]
+    pub max: f64,
+}
 /// Outcome is one distinct outcome an exploration reached: the observables a
 /// conformance case compares, how many linearizations reached it, and the choice
 /// sequence of one run that did. Two runs agreeing on their observables are one
@@ -527,10 +536,13 @@ pub struct Outcome {
     /// one run.
     #[prost(message, repeated, tag="7")]
     pub diagnostics: ::prost::alloc::vec::Vec<Diagnostic>,
-    /// The probability of the linearizations reaching this outcome, as explore
-    /// computes it; a lower bound when the exploration is incomplete.
+    /// The exact model-draw probability when probability_range is exact; zero otherwise.
     #[prost(double, tag="8")]
     pub probability: f64,
+    /// Present when the exploration made a weighted choice. Bounds probabilities
+    /// over schedulers, not shares of the enumerated schedules.
+    #[prost(message, optional, tag="9")]
+    pub probability_range: ::core::option::Option<ProbabilityRange>,
 }
 /// ExplorationStatus is how an exploration ended: whether every linearization
 /// within the budget was run, and which budget stopped it when not.
@@ -551,10 +563,13 @@ pub struct ExplorationStatus {
     pub runs_budget: i32,
     #[prost(int32, tag="5")]
     pub depth_budget: i32,
-    /// True when the outcomes' probabilities are lower bounds: a budget kept some
+    /// True when weighted probabilities are lower bounds: a budget kept some
     /// linearizations unexplored.
     #[prost(bool, tag="6")]
     pub probabilities_lower_bound: bool,
+    /// How many linearizations ended in runtime-error outcomes.
+    #[prost(int32, tag="7")]
+    pub failed_linearizations: i32,
 }
 /// ListEnginesRequest asks for the analysis engines registered in this build.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
@@ -688,6 +703,11 @@ pub struct ParseSourcesRequest {
     /// Judge every document as conforming SysML v2, as ParseFileRequest does.
     #[prost(bool, tag="2")]
     pub strict_conformance: bool,
+    /// The model_hash of a model of these documents the client holds results of,
+    /// typically the one its previous ParseSources returned. The answer's affected
+    /// is relative to it. Reported as the "parse_sources_affected" capability.
+    #[prost(string, tag="3")]
+    pub base_model_hash: ::prost::alloc::string::String,
 }
 /// ParseSourcesResponse contains the parsed model, whose documents are one model
 /// for every later request: a model_hash names all of them together.
@@ -703,6 +723,17 @@ pub struct ParseSourcesResponse {
     pub diagnostics: ::prost::alloc::vec::Vec<Diagnostic>,
     #[prost(string, tag="4")]
     pub error: ::prost::alloc::string::String,
+    /// The documents, by name and in the request's order, whose analysis, and so
+    /// whose diagnostics and conversion, may differ from base_model_hash's model:
+    /// those whose text changed, those whose analysis read something an edit
+    /// changed, and those base_model_hash's model did not hold. Every other
+    /// document's results are the base's, so a client may reuse them. Answered
+    /// only when base_model_hash is given; every document when the service
+    /// cannot relate it to this model (no longer cached, not of the same
+    /// documents, or a model whose documents may declare an identity scope).
+    /// Reported as the "parse_sources_affected" capability.
+    #[prost(string, repeated, tag="5")]
+    pub affected: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
 }
 /// ParseFileResponse contains parsed model info
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -915,6 +946,10 @@ pub struct ExecuteStateRequest {
     /// an error. Empty runs the machine outside any object.
     #[prost(string, tag="5")]
     pub performer_symbol_id: ::prost::alloc::string::String,
+    /// Ask for the run's trace in ExecuteStateResponse.trace. Advertised as the
+    /// "state_trace" capability; a service withholding it refuses true with UNIMPLEMENTED.
+    #[prost(bool, tag="6")]
+    pub trace: bool,
 }
 /// ExecuteStateResponse contains state machine execution trace
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -941,17 +976,25 @@ pub struct ExecuteStateResponse {
     /// the machine took. Populated under the "final_time" capability.
     #[prost(double, tag="7")]
     pub final_time: f64,
+    /// The run's trace in the order the run made it, when the request asked for it:
+    /// also on a run that failed, up to the failure. Empty under an explore schedule.
+    #[prost(message, repeated, tag="8")]
+    pub trace: ::prost::alloc::vec::Vec<DocumentEvent>,
+    /// How many of the oldest records the service's held-events bound discarded.
+    #[prost(int32, tag="9")]
+    pub trace_dropped: i32,
 }
 /// ConvertRequest asks for a model in another representation. A model_hash
 /// converts the source that parse read, so a file edited since then does not
 /// change the answer; a file_path is read afresh and content is carried inline.
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct ConvertRequest {
-    /// "sysml", "kerml", "text", "ttl", "turtle", "rdf", "api-json" or "json", or
-    /// "xmi", "uml" or "mdzip" for a SysML v1 model, which is read and migrated to
-    /// v2 and never written. Empty infers from file_path's extension, and is
-    /// notation for a model_hash, since that is what parse reads; inline content
-    /// has neither, so it must say.
+    /// "sysml", "kerml", "text", "ttl", "turtle", "rdf", "api-json" or "json".
+    /// Empty infers from file_path's extension, and is notation for a model_hash,
+    /// since that is what parse reads; inline content has neither, so it must say.
+    /// A SysML v1 model ("xmi", "uml" or "mdzip", named or inferred from the
+    /// extension) is INVALID_ARGUMENT, pointing at Migrate: a v1 model is
+    /// migrated, element by element and reported, not converted.
     #[prost(string, tag="3")]
     pub from_format: ::prost::alloc::string::String,
     /// Format to write, named as in from_format; the v1 names are refused, since
@@ -972,6 +1015,32 @@ pub struct ConvertRequest {
     /// is INVALID_ARGUMENT.
     #[prost(string, tag="7")]
     pub id_form: ::prost::alloc::string::String,
+    /// For a model_hash, the documents whose elements are written, named as the
+    /// parse named them; the model's other documents are read for the references
+    /// into them, which keep the ids those elements are written under when their
+    /// own documents are converted. Empty writes every document. A name the model
+    /// does not hold, or documents for a file_path or content, is
+    /// INVALID_ARGUMENT. Reported as the "convert_documents" capability.
+    #[prost(string, repeated, tag="8")]
+    pub documents: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// For api-json from notation: write the compact document
+    /// (api-json-compact/1) in place of the standard element array. It is one
+    /// object holding a table of element ids, written once, and the elements with
+    /// every reference spelled as an index into it, without indentation; see
+    /// docs/reference/wire-contract.md for the shape. Refused for any other
+    /// target. Reported as the "convert_compact" capability.
+    #[prost(bool, tag="9")]
+    pub compact: bool,
+    /// With compact: leave out every derived property of the metamodel (the
+    /// ones the owned properties already state), except those named in
+    /// keep_derived. Refused without compact.
+    #[prost(bool, tag="10")]
+    pub omit_derived: bool,
+    /// With omit_derived: the derived properties still written, named as in the
+    /// element form ("owner", "qualifiedName"). A name that is not a derived
+    /// property of the metamodel is INVALID_ARGUMENT. Refused without omit_derived.
+    #[prost(string, repeated, tag="11")]
+    pub keep_derived: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
     #[prost(oneof="convert_request::Source", tags="1, 2, 6")]
     pub source: ::core::option::Option<convert_request::Source>,
 }
@@ -1008,15 +1077,178 @@ pub struct ConvertResponse {
     /// Set when either format is RDF or the API's JSON element form, whose
     /// mapping is experimental: it covers model structure and the behavior its
     /// bodies state, refuses what it cannot write back, and its vocabulary may
-    /// change without a compatibility path. Also set when the source is SysML v1,
-    /// whose migration is experimental in the same sense. Notation to notation is
-    /// stable and leaves this unset.
+    /// change without a compatibility path. Notation to notation is stable and
+    /// leaves this unset.
     #[prost(bool, tag="6")]
     pub experimental: bool,
     /// What is experimental about the conversion, in the wording every surface
     /// reports it in. Empty when experimental is false.
     #[prost(string, tag="7")]
     pub experimental_notice: ::prost::alloc::string::String,
+}
+/// MigrateRequest asks for a SysML v1 model migrated to v2. The source is a
+/// file_path the service reads, or the document carried inline as content —
+/// bytes, since a .mdzip archive is binary. There is no model_hash form: parse
+/// reads v2 notation, and a v1 model is never parsed.
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct MigrateRequest {
+    /// "xmi" (UML XMI 2.5.1 with the SysML profile applied), "uml" (an Eclipse
+    /// UML2 file) or "mdzip" (a Cameo/MagicDraw archive). Empty infers from
+    /// file_path's extension; inline content has none, so it must say. A v2
+    /// format is INVALID_ARGUMENT, pointing at Convert.
+    #[prost(string, tag="3")]
+    pub from_format: ::prost::alloc::string::String,
+    /// Format to write: "sysml", "kerml", "text", "ttl", "turtle", "rdf",
+    /// "api-json" or "json", as Convert names them. The v1 names are refused,
+    /// since a v2 model has no v1 form. Empty is rejected.
+    #[prost(string, tag="4")]
+    pub to_format: ::prost::alloc::string::String,
+    /// Carry every element's verdict in the response's report, as the command's
+    /// -migration-report writes it. The report's summary and counts are carried
+    /// whether or not this is set.
+    #[prost(bool, tag="5")]
+    pub report: bool,
+    /// Carry the result snapshots the v1 tool stored with the model, indexed as
+    /// the command's -migration-results writes them, so the migrated runs can be
+    /// compared with the tool's (`sysml -compare-results`).
+    #[prost(bool, tag="6")]
+    pub results: bool,
+    /// Absolute http(s) URL that a server-relative image reference in a v1
+    /// comment (<img src="/projects/…">) is resolved against.
+    #[prost(string, tag="9")]
+    pub image_base_url: ::prost::alloc::string::String,
+    /// Write only notation a pinned SysML v2 production admits: a construct whose
+    /// only v2 form is an OpenSysML extension (a deferred event, a choice,
+    /// junction or history pseudostate) is reported unmapped instead of written.
+    #[prost(bool, tag="10")]
+    pub strict: bool,
+    #[prost(oneof="migrate_request::Source", tags="1, 2")]
+    pub source: ::core::option::Option<migrate_request::Source>,
+    /// An MTIP export of the model's diagrams (Model_mtip.xml), laying the
+    /// migrated views out as the v1 tool drew them: a path the service reads, or
+    /// the document itself.
+    #[prost(oneof="migrate_request::Layout", tags="7, 8")]
+    pub layout: ::core::option::Option<migrate_request::Layout>,
+}
+/// Nested message and enum types in `MigrateRequest`.
+pub mod migrate_request {
+    #[derive(Clone, PartialEq, Eq, Hash, ::prost::Oneof)]
+    pub enum Source {
+        #[prost(string, tag="1")]
+        FilePath(::prost::alloc::string::String),
+        #[prost(bytes, tag="2")]
+        Content(::prost::alloc::vec::Vec<u8>),
+    }
+    /// An MTIP export of the model's diagrams (Model_mtip.xml), laying the
+    /// migrated views out as the v1 tool drew them: a path the service reads, or
+    /// the document itself.
+    #[derive(Clone, PartialEq, Eq, Hash, ::prost::Oneof)]
+    pub enum Layout {
+        #[prost(string, tag="7")]
+        LayoutPath(::prost::alloc::string::String),
+        #[prost(string, tag="8")]
+        LayoutContent(::prost::alloc::string::String),
+    }
+}
+/// MigrateResponse carries the migrated model and the account of what the
+/// migration did with every v1 element.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct MigrateResponse {
+    #[prost(string, tag="1")]
+    pub content: ::prost::alloc::string::String,
+    /// Formats used, canonical ("xmi" for every v1 form), so a caller that let
+    /// from_format be inferred learns what it was inferred as.
+    #[prost(string, tag="2")]
+    pub from_format: ::prost::alloc::string::String,
+    #[prost(string, tag="3")]
+    pub to_format: ::prost::alloc::string::String,
+    /// non-empty if the migration failed; content is unset
+    #[prost(string, tag="4")]
+    pub error: ::prost::alloc::string::String,
+    /// Always set: migration is experimental, in the sense Convert's
+    /// experimental says, and experimental_notice says so in the wording every
+    /// surface reports it in.
+    #[prost(bool, tag="5")]
+    pub experimental: bool,
+    #[prost(string, tag="6")]
+    pub experimental_notice: ::prost::alloc::string::String,
+    /// What the migration did, element by element. Its entries are carried when
+    /// the request set report; its summary and counts always.
+    #[prost(message, optional, tag="7")]
+    pub report: ::core::option::Option<MigrationReport>,
+    /// The result snapshots the v1 tool stored, as the JSON `sysml
+    /// -compare-results` reads, when the request set results and the model
+    /// holds any.
+    #[prost(string, tag="8")]
+    pub results: ::prost::alloc::string::String,
+    /// Image files the migrated model refers to by relative path (a picture a v1
+    /// comment embeds), to be written beside it.
+    #[prost(message, repeated, tag="9")]
+    pub files: ::prost::alloc::vec::Vec<MigrationFile>,
+}
+/// MigrationReport accounts for every element of a SysML v1 model: mapped to a
+/// v2 counterpart that states the same thing, approximated by a v2 form that
+/// loses or restates part of what v1 said, left unmapped and recorded as a
+/// comment where it stood, or skipped as a profile, library or notation-only
+/// element nothing in the model refers to.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct MigrationReport {
+    /// The v1 document migrated, and the tool that exported it when it said.
+    #[prost(string, tag="1")]
+    pub source: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub exporter: ::prost::alloc::string::String,
+    /// The one-line account the command prints after migrating.
+    #[prost(string, tag="3")]
+    pub summary: ::prost::alloc::string::String,
+    #[prost(int32, tag="4")]
+    pub mapped: i32,
+    #[prost(int32, tag="5")]
+    pub approximated: i32,
+    #[prost(int32, tag="6")]
+    pub unmapped: i32,
+    #[prost(int32, tag="7")]
+    pub skipped: i32,
+    /// Every element's verdict, when the request asked for the report; empty
+    /// otherwise, the counts above standing in.
+    #[prost(message, repeated, tag="8")]
+    pub entries: ::prost::alloc::vec::Vec<MigrationEntry>,
+    /// The report as the command's -migration-report writes it to a text file,
+    /// when the request asked for the report: the entries grouped by verdict,
+    /// the elements that need attention first, with the layout account.
+    #[prost(string, tag="9")]
+    pub text: ::prost::alloc::string::String,
+}
+/// MigrationEntry is the verdict on one SysML v1 element.
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct MigrationEntry {
+    /// The element's xmi:id, the handle a v1 tool addresses it by.
+    #[prost(string, tag="1")]
+    pub id: ::prost::alloc::string::String,
+    /// The element as modeled: its stereotype when one classifies it («Block»,
+    /// «Requirement»), else its UML metaclass; and its qualified name in v1.
+    #[prost(string, tag="2")]
+    pub kind: ::prost::alloc::string::String,
+    #[prost(string, tag="3")]
+    pub name: ::prost::alloc::string::String,
+    /// The v2 declaration written for it, a qualified name with its keyword, or
+    /// empty when nothing was.
+    #[prost(string, tag="4")]
+    pub target: ::prost::alloc::string::String,
+    /// "mapped", "approximated", "unmapped" or "skipped".
+    #[prost(string, tag="5")]
+    pub verdict: ::prost::alloc::string::String,
+    /// Why it was approximated, left unmapped or skipped.
+    #[prost(string, tag="6")]
+    pub note: ::prost::alloc::string::String,
+}
+/// MigrationFile is a file the migrated model refers to, named relative to it.
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct MigrationFile {
+    #[prost(string, tag="1")]
+    pub path: ::prost::alloc::string::String,
+    #[prost(bytes="vec", tag="2")]
+    pub content: ::prost::alloc::vec::Vec<u8>,
 }
 /// ApplyEditsRequest asks for a model's source with edits applied to it. The
 /// source edited is the one parse read, named by its hash, so an edit is applied
@@ -1668,7 +1900,7 @@ pub struct AttributeInfo {
 /// Value represents a runtime-evaluable value
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct Value {
-    #[prost(oneof="value::Kind", tags="1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21")]
+    #[prost(oneof="value::Kind", tags="1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23")]
     pub kind: ::core::option::Option<value::Kind>,
 }
 /// Nested message and enum types in `Value`.
@@ -1736,7 +1968,26 @@ pub mod value {
         /// A value the server sends, never one it accepts.
         #[prost(message, tag="21")]
         Undetermined(super::Undetermined),
+        /// An Integer beyond int64, in decimal (`-` signed, no `+`, no leading
+        /// zeros). An Integer that fits int64 is always int_value, never this.
+        #[prost(string, tag="22")]
+        BigIntValue(::prost::alloc::string::String),
+        /// An exact Rational (KerML 9.3.2.2.8), as `0.1` or `1 / 3` evaluates. The
+        /// server answers one a double holds exactly as real_value; a client sends
+        /// any exact Rational here, and an inbound real_value is always a Real.
+        #[prost(message, tag="23")]
+        RationalValue(super::Rational),
     }
+}
+/// Rational is an exact rational number in lowest terms: numerator over a
+/// positive denominator, each written as big_int_value is. The server rejects one
+/// not in lowest terms; a client also rejects an answered one a double holds exactly.
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct Rational {
+    #[prost(string, tag="1")]
+    pub numerator: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub denominator: ::prost::alloc::string::String,
 }
 /// Metaobject is an element of the model held as an instance of its reflective
 /// metaclass: what `x meta KerML::Feature`, or the last element of
@@ -1897,18 +2148,24 @@ pub struct Quantity {
     #[prost(message, optional, tag="4")]
     pub unit_term: ::core::option::Option<UnitTerm>,
     /// Magnitude, keeping Integer and Real apart as the rest of Value does.
-    #[prost(oneof="quantity::Magnitude", tags="1, 2")]
+    #[prost(oneof="quantity::Magnitude", tags="1, 2, 5, 6")]
     pub magnitude: ::core::option::Option<quantity::Magnitude>,
 }
 /// Nested message and enum types in `Quantity`.
 pub mod quantity {
     /// Magnitude, keeping Integer and Real apart as the rest of Value does.
-    #[derive(Clone, Copy, PartialEq, ::prost::Oneof)]
+    #[derive(Clone, PartialEq, ::prost::Oneof)]
     pub enum Magnitude {
         #[prost(int64, tag="1")]
         IntMagnitude(i64),
         #[prost(double, tag="2")]
         RealMagnitude(f64),
+        /// An Integer magnitude beyond int64, in decimal, as Value.big_int_value.
+        #[prost(string, tag="5")]
+        BigIntMagnitude(::prost::alloc::string::String),
+        /// An exact Rational magnitude, as Value.rational_value.
+        #[prost(message, tag="6")]
+        RationalMagnitude(super::Rational),
     }
 }
 /// MeasurementRef is a MeasurementReferences::ScalarMeasurementReference held as
@@ -2082,6 +2339,10 @@ pub struct ServerInfoResponse {
     ///                   and answers with typed rows.
     ///    "render_document" - the RenderDocument RPC renders a named document to
     ///                   Markdown.
+    ///    "render_view" - the RenderView RPC renders a declared view or targeted
+    ///                   pseudo-view as machine-readable diagram data.
+    ///    "export_graphs" - the ExportGraphs RPC exports the lowered graph of an
+    ///                   action or state machine as canonical graphs:1 JSON.
     ///    "diagnostic_codes" - Diagnostic.code is populated, so an empty code is a
     ///                   finding none was assigned; without it every code is empty.
     ///    "schedule"     - ExecuteActionRequest, ExecuteStateRequest and
@@ -2101,6 +2362,9 @@ pub struct ServerInfoResponse {
     ///    "final_time"   - ExecuteActionResponse and ExecuteStateResponse report
     ///                   final_time, the run's simulation clock when it ended;
     ///                   without it the field is 0 whatever the run waited on.
+    ///    "state_trace"  - ExecuteStateRequest can ask for the run's typed trace in
+    ///                   ExecuteStateResponse.trace, including records before a failure.
+    ///                   Traces are unavailable under an explore schedule.
     ///    "engines"      - the ListEngines RPC lists the analysis engines; the
     ///                   verification and sweep requests take an `engine`, the
     ///                   engine the question is put to, unset meaning "auto"; and
@@ -2380,7 +2644,7 @@ pub struct DocumentValue {
     /// Metamodel type of element_id ("PartUsage", ...); answered, ignored when bound.
     #[prost(string, tag="7")]
     pub element_type: ::prost::alloc::string::String,
-    #[prost(oneof="document_value::Kind", tags="1, 2, 3, 4, 5, 6, 8, 9, 10, 11, 12")]
+    #[prost(oneof="document_value::Kind", tags="1, 2, 3, 4, 5, 6, 8, 9, 10, 11, 12, 13, 14")]
     pub kind: ::core::option::Option<document_value::Kind>,
 }
 /// Nested message and enum types in `DocumentValue`.
@@ -2415,6 +2679,12 @@ pub mod document_value {
         /// a row Events answered; answered, never bound
         #[prost(message, tag="12")]
         Event(::prost::alloc::boxed::Box<super::DocumentEvent>),
+        /// An Integer beyond int64, in decimal, as Value.big_int_value.
+        #[prost(string, tag="13")]
+        BigIntValue(::prost::alloc::string::String),
+        /// An exact Rational, as Value.rational_value.
+        #[prost(message, tag="14")]
+        RationalValue(super::Rational),
     }
 }
 /// DocumentObject is an object the service holds for the model, created by
@@ -2509,7 +2779,7 @@ pub struct DocumentState {
 /// session's trace, in the order the run made it.
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct DocumentEvent {
-    /// "accept", "send", "transition", "entry", "exit", "do", "choice" or "guard".
+    /// "accept", "send", "transition", "entry", "exit", "do", "choice", "guard" or "terminate".
     #[prost(string, tag="1")]
     pub kind: ::prost::alloc::string::String,
     /// The clock's instant when the record was made: a quantity in the clock's
@@ -2615,6 +2885,221 @@ pub struct RenderDocumentResponse {
     pub markdown: ::prost::alloc::string::String,
     #[prost(string, tag="2")]
     pub html: ::prost::alloc::string::String,
+}
+/// RenderViewRequest names a declared view or targeted pseudo-view to render.
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct RenderViewRequest {
+    #[prost(string, tag="1")]
+    pub model_hash: ::prost::alloc::string::String,
+    /// A qualified view name or "#<kind>:<qualified name>" pseudo-view.
+    #[prost(string, tag="2")]
+    pub view: ::prost::alloc::string::String,
+    /// "" or "minimal" (the default), or "full", as view.ParsePorts reads it.
+    #[prost(string, tag="3")]
+    pub ports: ::prost::alloc::string::String,
+}
+/// RenderViewResponse carries all machine-readable fields of the rendering.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct RenderViewResponse {
+    #[prost(string, tag="1")]
+    pub view: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub kind: ::prost::alloc::string::String,
+    #[prost(string, tag="3")]
+    pub stated: ::prost::alloc::string::String,
+    /// Nodes are flattened with parents before children.
+    #[prost(message, repeated, tag="4")]
+    pub nodes: ::prost::alloc::vec::Vec<RenderNode>,
+    #[prost(message, repeated, tag="5")]
+    pub edges: ::prost::alloc::vec::Vec<RenderEdge>,
+    #[prost(string, repeated, tag="6")]
+    pub columns: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    #[prost(message, repeated, tag="7")]
+    pub rows: ::prost::alloc::vec::Vec<RenderRow>,
+    /// Unset when the view states no canvas.
+    #[prost(message, optional, tag="8")]
+    pub canvas: ::core::option::Option<RenderCanvas>,
+    #[prost(message, repeated, tag="9")]
+    pub notes: ::prost::alloc::vec::Vec<RenderNote>,
+    #[prost(string, repeated, tag="10")]
+    pub notices: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+}
+/// RenderNode is one flattened node of the rendering.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct RenderNode {
+    #[prost(string, tag="1")]
+    pub id: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub kind: ::prost::alloc::string::String,
+    #[prost(string, tag="3")]
+    pub name: ::prost::alloc::string::String,
+    #[prost(bool, tag="4")]
+    pub name_synthesized: bool,
+    #[prost(string, tag="5")]
+    pub r#type: ::prost::alloc::string::String,
+    #[prost(string, tag="6")]
+    pub detail: ::prost::alloc::string::String,
+    #[prost(string, tag="7")]
+    pub text: ::prost::alloc::string::String,
+    #[prost(bool, tag="8")]
+    pub stand_in: bool,
+    #[prost(string, tag="9")]
+    pub parent: ::prost::alloc::string::String,
+    #[prost(message, repeated, tag="10")]
+    pub ports: ::prost::alloc::vec::Vec<RenderPort>,
+    #[prost(message, optional, tag="11")]
+    pub origin: ::core::option::Option<Span>,
+    /// Unset when no layout positions the node.
+    #[prost(message, optional, tag="12")]
+    pub geometry: ::core::option::Option<RenderGeometry>,
+    #[prost(message, optional, tag="13")]
+    pub style: ::core::option::Option<RenderStyle>,
+}
+/// RenderPort is a feature drawn on a node's border.
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct RenderPort {
+    #[prost(string, tag="1")]
+    pub id: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub name: ::prost::alloc::string::String,
+    #[prost(string, tag="3")]
+    pub r#type: ::prost::alloc::string::String,
+    #[prost(string, tag="4")]
+    pub direction: ::prost::alloc::string::String,
+}
+/// RenderEdge joins two rendered nodes and may connect their ports.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct RenderEdge {
+    #[prost(string, tag="1")]
+    pub from: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub to: ::prost::alloc::string::String,
+    #[prost(string, tag="3")]
+    pub from_port: ::prost::alloc::string::String,
+    #[prost(string, tag="4")]
+    pub to_port: ::prost::alloc::string::String,
+    #[prost(string, tag="5")]
+    pub label: ::prost::alloc::string::String,
+    #[prost(string, tag="6")]
+    pub name: ::prost::alloc::string::String,
+    #[prost(string, tag="7")]
+    pub kind: ::prost::alloc::string::String,
+    #[prost(message, optional, tag="8")]
+    pub origin: ::core::option::Option<Span>,
+    #[prost(message, repeated, tag="9")]
+    pub route: ::prost::alloc::vec::Vec<RenderPoint>,
+    #[prost(message, optional, tag="10")]
+    pub style: ::core::option::Option<RenderStyle>,
+}
+/// RenderGeometry locates a node on the rendering's canvas.
+#[derive(Clone, Copy, PartialEq, ::prost::Message)]
+pub struct RenderGeometry {
+    #[prost(double, tag="1")]
+    pub x: f64,
+    #[prost(double, tag="2")]
+    pub y: f64,
+    #[prost(double, tag="3")]
+    pub width: f64,
+    #[prost(double, tag="4")]
+    pub height: f64,
+    #[prost(bool, tag="5")]
+    pub has_size: bool,
+    #[prost(bool, tag="6")]
+    pub collapsed: bool,
+}
+/// RenderCanvas is the rendering's drawing surface.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct RenderCanvas {
+    #[prost(string, tag="1")]
+    pub unit: ::prost::alloc::string::String,
+    #[prost(double, tag="2")]
+    pub width: f64,
+    #[prost(double, tag="3")]
+    pub height: f64,
+    #[prost(bool, tag="4")]
+    pub has_size: bool,
+}
+/// RenderStyle is the optional styling of a node or edge.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct RenderStyle {
+    #[prost(string, tag="1")]
+    pub fill: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub line: ::prost::alloc::string::String,
+    #[prost(string, tag="3")]
+    pub text: ::prost::alloc::string::String,
+    #[prost(string, tag="4")]
+    pub font: ::prost::alloc::string::String,
+    #[prost(double, tag="5")]
+    pub font_size: f64,
+    #[prost(bool, tag="6")]
+    pub bold: bool,
+    #[prost(bool, tag="7")]
+    pub italic: bool,
+}
+/// RenderPoint is a route waypoint on the rendering's canvas.
+#[derive(Clone, Copy, PartialEq, ::prost::Message)]
+pub struct RenderPoint {
+    #[prost(double, tag="1")]
+    pub x: f64,
+    #[prost(double, tag="2")]
+    pub y: f64,
+}
+/// RenderRow is one row of a tabular rendering.
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct RenderRow {
+    #[prost(string, repeated, tag="1")]
+    pub cells: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    #[prost(message, optional, tag="2")]
+    pub origin: ::core::option::Option<Span>,
+}
+/// RenderNote is a note box drawn on the rendering's canvas.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct RenderNote {
+    #[prost(string, tag="1")]
+    pub text: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub anchor: ::prost::alloc::string::String,
+    #[prost(string, tag="3")]
+    pub edge_from: ::prost::alloc::string::String,
+    #[prost(string, tag="4")]
+    pub edge_to: ::prost::alloc::string::String,
+    #[prost(double, tag="5")]
+    pub x: f64,
+    #[prost(double, tag="6")]
+    pub y: f64,
+    #[prost(double, tag="7")]
+    pub width: f64,
+    #[prost(double, tag="8")]
+    pub height: f64,
+    #[prost(bool, tag="9")]
+    pub has_size: bool,
+    #[prost(message, optional, tag="10")]
+    pub origin: ::core::option::Option<Span>,
+}
+/// ExportGraphsRequest names the behavior whose lowered graph is exported.
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct ExportGraphsRequest {
+    #[prost(string, tag="1")]
+    pub model_hash: ::prost::alloc::string::String,
+    /// Qualified name of an action or state machine, definition or usage.
+    #[prost(string, tag="2")]
+    pub subject: ::prost::alloc::string::String,
+}
+/// ExportGraphsResponse carries the `graphs:<version>` form: the lowered
+/// ActionGraph/StateGraph IR of the subject and of every behavior it performs,
+/// as canonical JSON — the same bytes an external engine is sent.
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct ExportGraphsResponse {
+    /// The form, as canonical JSON with one trailing newline.
+    #[prost(string, tag="1")]
+    pub content: ::prost::alloc::string::String,
+    /// The version of the form, the `version` field of the JSON.
+    #[prost(int32, tag="2")]
+    pub version: i32,
+    /// The subject's qualified name as resolved.
+    #[prost(string, tag="3")]
+    pub subject: ::prost::alloc::string::String,
 }
 /// FailureReason says what kind of failure an `error` reports, so a client acts
 /// on the kind rather than on the message text.

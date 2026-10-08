@@ -1,7 +1,6 @@
 package lower
 
 import (
-	"errors"
 	"strings"
 	"testing"
 
@@ -219,7 +218,7 @@ func TestBlockStatingACycleKeepsInitialUnset(t *testing.T) {
 	}
 }
 
-func TestStatedBlockWithUnsequencedStatementRecordsInvalidFlow(t *testing.T) {
+func TestStatedBlockStartsAnUnsequencedStatementConcurrently(t *testing.T) {
 	graph := actionGraphFor(t, `
 		action test {
 			attribute x : Integer = 0;
@@ -242,8 +241,18 @@ func TestStatedBlockWithUnsequencedStatementRecordsInvalidFlow(t *testing.T) {
 	if block.Graph == nil || !block.Stated || block.Own {
 		t.Fatalf("loop body = %#v, want a stated non-own flow", block)
 	}
-	if !errors.Is(block.Graph.Invalid, ErrStatementOutsideFlow) {
-		t.Fatalf("stated flow error = %v, want ErrStatementOutsideFlow", block.Graph.Invalid)
+	if block.Graph.Invalid != nil {
+		t.Fatalf("stated flow error = %v, want none", block.Graph.Invalid)
+	}
+	starts := block.Graph.Starts()
+	if len(starts) != 2 {
+		t.Fatalf("starts = %v, want a and the assignment", starts)
+	}
+	if usage, ok := starts[0].(*ast.Usage); !ok || usage.Ident.Name != "a" {
+		t.Errorf("first start = %#v, want a", starts[0])
+	}
+	if _, ok := starts[1].(*ast.AssignmentActionNode); !ok {
+		t.Errorf("second start = %T, want the assignment", starts[1])
 	}
 }
 

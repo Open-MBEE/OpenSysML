@@ -3,6 +3,7 @@ package grpc
 import (
 	"context"
 	"errors"
+	"math"
 	"strings"
 	"testing"
 
@@ -68,6 +69,40 @@ package Race {
 }
 `
 
+const exploreSetupFailureModel = `
+package Setup {
+  action Broken {
+    action a;
+    action b;
+    succession first a then b;
+    succession first b then a;
+  }
+
+  state def NoInitial {
+    state idle;
+  }
+}
+`
+
+const weightedExploreModel = `
+package Weighted {
+  private import ScalarValues::*;
+  private import Stochastic::*;
+
+  action choose {
+    attribute selected : Integer = 0;
+    first start;
+    then decide select;
+    first select then one { @Probability { p = 0.3; } }
+    first select then two { @Probability { p = 0.7; } }
+    action one { assign selected := 1; }
+    then done;
+    action two { assign selected := 2; }
+    then done;
+  }
+}
+`
+
 func outcomeInts(t *testing.T, outcomes []*pb.Outcome, name string) []int64 {
 	t.Helper()
 	got := make([]int64, 0, len(outcomes))
@@ -120,8 +155,58 @@ func TestExploreActionOverTheWire(t *testing.T) {
 		if o.Error != "" || o.FinalState != "" || len(o.StatesVisited) != 0 {
 			t.Errorf("action outcome carries state or error fields: %v", o)
 		}
+		if o.Probability != 0 || o.ProbabilityRange != nil {
+			t.Errorf("unweighted scheduler outcome carries probability fields: %v", o)
+		}
 		if choices := choiceDiagnostics(o.Diagnostics); len(choices) != len(o.Witness) {
 			t.Errorf("outcome reports %d choice diagnostics for %d witness choices", len(choices), len(o.Witness))
+		}
+	}
+	if x.FailedLinearizations != 0 || x.ProbabilitiesLowerBound {
+		t.Errorf("unweighted exploration status = %v, want zero failures and no bounded probabilities", x)
+	}
+}
+
+func TestExploreSetupFailureIsReturnedInTheResponse(t *testing.T) {
+	ctx := context.Background()
+	srv := mustNewService(t, 10)
+	hash := mustVerifyModel(t, srv, exploreSetupFailureModel, "explore-setup-failure")
+
+	action, err := srv.ExecuteAction(ctx, &pb.ExecuteActionRequest{
+		ModelHash: hash, ActionSymbolId: "Setup::Broken", Schedule: "explore",
+	})
+	if err != nil || action == nil || action.Error == "" ||
+		len(action.Outcomes) != 0 || action.Exploration != nil {
+		t.Errorf("ExecuteAction setup failure = %v, %v; want response error without outcomes/status", action, err)
+	}
+
+	state, err := srv.ExecuteState(ctx, &pb.ExecuteStateRequest{
+		ModelHash: hash, StateMachineSymbolId: "Setup::NoInitial", Schedule: "explore",
+	})
+	if err != nil || state == nil || state.Error == "" ||
+		len(state.Outcomes) != 0 || state.Exploration != nil {
+		t.Errorf("ExecuteState setup failure = %v, %v; want response error without outcomes/status", state, err)
+	}
+}
+
+func TestExploreWeightedProbabilitiesAreCarriedOverTheWire(t *testing.T) {
+	ctx := context.Background()
+	srv := mustNewService(t, 10)
+	hash := mustVerifyModel(t, srv, weightedExploreModel, "explore-weighted")
+
+	resp, err := srv.ExecuteAction(ctx, &pb.ExecuteActionRequest{
+		ModelHash: hash, ActionSymbolId: "Weighted::choose", Schedule: "explore",
+	})
+	if err != nil || resp.Error != "" || resp.Exploration == nil || len(resp.Outcomes) != 2 {
+		t.Fatalf("ExecuteAction weighted explore: %v %q", err, resp.GetError())
+	}
+	for i, want := range []float64{0.3, 0.7} {
+		outcome := resp.Outcomes[i]
+		if outcome.ProbabilityRange == nil ||
+			math.Abs(outcome.ProbabilityRange.Min-want) > 1e-12 ||
+			math.Abs(outcome.ProbabilityRange.Max-want) > 1e-12 ||
+			math.Abs(outcome.Probability-want) > 1e-12 {
+			t.Errorf("outcome %d = %v, want exact model probability %v", i, outcome, want)
 		}
 	}
 }
@@ -393,7 +478,7 @@ package Pump {
     attribute level : Integer = 0;
     perform action fill : Fill {
       first start;
-      then action pour { assign level := level + 1; assign poured := level; }
+      then action pour { assign level := level + 1; then assign poured := level; }
       then done;
     }
   }
@@ -476,8 +561,8 @@ func TestExploreAnalysisOverTheWire(t *testing.T) {
 	}
 }
 
-// A run that fails during exploration is an outcome of its own, not a failure
-// of the exploration.
+// A run that fails during exploration is an error outcome and counts toward
+// the failed linearizations, without failing the RPC itself.
 func TestExploreReportsAFailingRunAsAnOutcome(t *testing.T) {
 	ctx := context.Background()
 	srv := mustNewService(t, 10)
@@ -512,8 +597,14 @@ package Fail {
 	if !resp.Exploration.Complete || resp.Exploration.Runs != 2 || len(resp.Outcomes) != 2 {
 		t.Fatalf("exploration %v with outcomes %v, want 2 outcomes over 2 runs", resp.Exploration, resp.Outcomes)
 	}
+	if resp.Exploration.FailedLinearizations != 1 {
+		t.Errorf("failed linearizations = %d, want 1", resp.Exploration.FailedLinearizations)
+	}
 	var failed, succeeded int
 	for _, o := range resp.Outcomes {
+		if o.Probability != 0 || o.ProbabilityRange != nil {
+			t.Errorf("unweighted outcome carries probability fields: %v", o)
+		}
 		if o.Error != "" {
 			failed++
 			if !strings.Contains(o.Error, "action execution failed") || len(o.Outputs) != 0 {
@@ -528,6 +619,37 @@ package Fail {
 	}
 	if failed != 1 || succeeded != 1 {
 		t.Errorf("%d failed and %d succeeded outcomes, want one each: %v", failed, succeeded, resp.Outcomes)
+	}
+}
+
+func TestExploreReportsActionStepMultiplicityRefusalAsOutcome(t *testing.T) {
+	ctx := context.Background()
+	srv := mustNewService(t, 10)
+	hash := mustVerifyModel(t, srv, `
+package StepMultiplicity {
+  action Rep {
+    first start then a;
+    action a[0..*];
+    then done;
+  }
+}
+`, "step-multiplicity")
+
+	resp, err := srv.ExecuteAction(ctx, &pb.ExecuteActionRequest{
+		ModelHash: hash, ActionSymbolId: "StepMultiplicity::Rep", Schedule: "explore",
+	})
+	if err != nil {
+		t.Fatalf("ExecuteAction under explore: %v", err)
+	}
+	if resp.Error != "" {
+		t.Fatalf("response error = %q, want a run outcome", resp.Error)
+	}
+	if resp.Exploration == nil || !resp.Exploration.Complete || len(resp.Outcomes) != 1 ||
+		resp.Exploration.FailedLinearizations != 1 {
+		t.Fatalf("exploration %v with outcomes %v, want one failed outcome", resp.Exploration, resp.Outcomes)
+	}
+	if !strings.Contains(resp.Outcomes[0].Error, "unsupported action step multiplicity") {
+		t.Errorf("outcome error = %q, want the action-step-multiplicity refusal", resp.Outcomes[0].Error)
 	}
 }
 

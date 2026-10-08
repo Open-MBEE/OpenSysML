@@ -1,0 +1,9 @@
+{
+	"type": "state",
+	"libraries": true,
+	"finalState": "active",
+	"stateVisits": ["active"],
+	"outputs": {
+		"counter": {"type": "Integer", "value": 2}
+	}
+}

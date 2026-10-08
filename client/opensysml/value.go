@@ -2,13 +2,15 @@ package opensysml
 
 import (
 	"fmt"
+	"math/big"
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 )
 
 // Value is one evaluated SysML value. It is a sealed sum: the concrete types
-// are Int, Real, Complex, Bool, String, InstanceID, Sequence, Null, Unset,
+// are Int, BigInt, Rational, Real, Complex, Bool, String, InstanceID, Sequence, Null, Unset,
 // Quantity, EnumLiteral, Array, Vector, VectorQuantity, MeasurementRef,
 // Function, Set, TensorQuantity, Metaobject and Undetermined, and a type switch over
 // them is exhaustive.
@@ -16,15 +18,66 @@ type Value interface {
 	isValue()
 }
 
-// Number is a Value that is a numeric magnitude: Int or Real. Integers and
-// reals stay apart end to end, so an integer compares exactly.
+// Number is a Value that is a numeric magnitude: Int, BigInt, Rational or Real.
+// Integers, rationals and reals stay apart end to end, so an exact number
+// compares exactly.
 type Number interface {
 	Value
 	isNumber()
 }
 
-// Int is an integer value.
+// Int is an integer value within int64.
 type Int int64
+
+// BigInt is an integer value beyond int64: KerML Integers are unbounded. An
+// integer within int64 is always an Int, never a BigInt; NewInteger picks.
+type BigInt struct{ n *big.Int }
+
+// NewInteger is n as the integer value it is: an Int within int64, otherwise a
+// BigInt holding a copy of n.
+func NewInteger(n *big.Int) Number {
+	if n.IsInt64() {
+		return Int(n.Int64())
+	}
+	return BigInt{n: new(big.Int).Set(n)}
+}
+
+// Int returns a copy of the integer.
+func (b BigInt) Int() *big.Int {
+	if b.n == nil {
+		return new(big.Int)
+	}
+	return new(big.Int).Set(b.n)
+}
+
+// String spells the integer in full decimal.
+func (b BigInt) String() string { return b.Int().String() }
+
+// Rational is an exact rational value no Real holds exactly: KerML Rationals
+// are exact, so 0.1 is one tenth and 1 / 3 one third. A Rational a binary64
+// holds exactly, such as 0.5, crosses the wire as that Real.
+type Rational struct{ r *big.Rat }
+
+// NewRational is a Rational holding a copy of r.
+func NewRational(r *big.Rat) Rational { return Rational{r: new(big.Rat).Set(r)} }
+
+// Rat returns a copy of the rational.
+func (q Rational) Rat() *big.Rat {
+	if q.r == nil {
+		return new(big.Rat)
+	}
+	return new(big.Rat).Set(q.r)
+}
+
+// Float64 is the binary64 nearest the rational.
+func (q Rational) Float64() float64 {
+	f, _ := q.Rat().Float64()
+	return f
+}
+
+// String spells the rational exactly, as the service prints it: a terminating
+// decimal as `0.1`, any other as `1/3`.
+func (q Rational) String() string { return semantics.RatValue(q.Rat()).FormatRational() }
 
 // Real is a real value.
 type Real float64
@@ -343,6 +396,8 @@ func (Undetermined) String() string {
 }
 
 func (Int) isValue()            { /* marker: closed Value set */ }
+func (BigInt) isValue()         { /* marker: closed Value set */ }
+func (Rational) isValue()       { /* marker: closed Value set */ }
 func (Real) isValue()           { /* marker: closed Value set */ }
 func (Complex) isValue()        { /* marker: closed Value set */ }
 func (Bool) isValue()           { /* marker: closed Value set */ }
@@ -363,5 +418,7 @@ func (TensorQuantity) isValue() { /* marker: closed Value set */ }
 func (Metaobject) isValue()     { /* marker: closed Value set */ }
 func (Undetermined) isValue()   { /* marker: closed Value set */ }
 
-func (Int) isNumber()  { /* marker: closed Number set */ }
-func (Real) isNumber() { /* marker: closed Number set */ }
+func (Int) isNumber()      { /* marker: closed Number set */ }
+func (BigInt) isNumber()   { /* marker: closed Number set */ }
+func (Rational) isNumber() { /* marker: closed Number set */ }
+func (Real) isNumber()     { /* marker: closed Number set */ }

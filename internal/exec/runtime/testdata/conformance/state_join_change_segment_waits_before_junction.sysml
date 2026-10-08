@@ -1,8 +1,6 @@
-// A change-triggered segment whose condition rose alone holds the join without
-// looking past it: the junction the join leads to has no branch enabled while
-// only `a`'s condition holds, and that is not a dead end since the join does
-// not fire. Once the level falls and rises again for both segments at once, the
-// join fires and the junction's branch is enabled.
+// The first change-triggered segment arrives while the join's outgoing
+// junction has no enabled branch; the later segment completes it after the
+// condition falls and rises, when the junction's branch is enabled.
 package Test {
 	private import ScalarValues::*;
 

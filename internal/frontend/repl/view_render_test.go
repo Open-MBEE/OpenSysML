@@ -2,6 +2,8 @@ package repl
 
 import (
 	"errors"
+	"os"
+	"path/filepath"
 	"slices"
 	"strings"
 	"testing"
@@ -39,9 +41,33 @@ func TestRenderWritesMermaidWhenAskedFor(t *testing.T) {
 		t.Fatal(err)
 	}
 	text := strings.Join(out, "\n")
-	if !strings.HasPrefix(text, "%% Demo::summary") || !strings.Contains(text, "flowchart TD") {
+	if !strings.HasPrefix(text, "---\nconfig:\n  fontFamily: \"Helvetica, Arial, sans-serif\"\n  theme: base\n") ||
+		!strings.Contains(text, "%% Demo::summary") || !strings.Contains(text, "flowchart TD") {
 		t.Errorf("%%render mermaid = %q, want a Mermaid flowchart", text)
 	}
+}
+
+func TestRenderLinksUseLoadedSourcePositions(t *testing.T) {
+	dir := t.TempDir()
+	path := writeFile(t, filepath.Join(dir, "linked.sysml"), `package Linked {
+    part def Cog;
+    view overview { expose Linked::Cog; }
+}
+`)
+	s := NewSession()
+	if _, err := s.LoadFilesSummary([]string{path}); err != nil {
+		t.Fatal(err)
+	}
+	template := "https://example.test/src/{file}#L{line}:{col}"
+	got := run(t, s, "%render Linked::overview mermaid link="+template)
+	want := `click n0 href "https://example.test/src/` + filepath.ToSlash(path) + `#L2:`
+	if !strings.Contains(got, want) {
+		t.Errorf("REPL rendering lacks source link %q:\n%s", want, got)
+	}
+	wants(t, run(t, s, "%render Linked::overview mermaid link=https://example.test/{unknown}"),
+		"unknown link template placeholder {unknown}")
+	wants(t, run(t, s, "%render Linked::overview mermaid link=https://example.test/{file} link=https://example.test/{line}"),
+		renderUsage)
 }
 
 // The DOT form is asked for by name, is the same rendering as a digraph, and is
@@ -57,8 +83,8 @@ func TestRenderWritesDotWhenAskedFor(t *testing.T) {
 		"// view: Demo::summary\n// kind: tree\n",
 		"// layout: dot\n",
 		`digraph "Demo::summary" {`,
-		`label=<<b>Vehicle</b><br/><font point-size="10"><i>«part def»</i></font>>`,
-		`label=<<b>summary::detail</b><br/><font point-size="10"><i>«view»</i></font>>`,
+		`label=<<font point-size="10"><i>«part def»</i></font><br/><b>Vehicle</b>>`,
+		`label=<<font point-size="10"><i>«view»</i></font><br/><b>summary::detail</b>>`,
 		`"n2" -> "n3" [arrowhead=none];`,
 	} {
 		if !strings.Contains(text, want) {
@@ -68,9 +94,9 @@ func TestRenderWritesDotWhenAskedFor(t *testing.T) {
 	if strings.Contains(text, "flowchart") || strings.Contains(text, `fillcolor="#`) {
 		t.Errorf("%%render dot wrote Mermaid or a palette:\n%s", text)
 	}
-	wants(t, run(t, s, "%render"), "usage: %render <name> [text|mermaid|markdown|dot|plantuml [palette] [pilot|cameo]]")
-	wants(t, run(t, s, "%render Demo::summary svg"), `unknown form "svg"`, "[text|mermaid|markdown|dot|plantuml [palette] [pilot|cameo]]")
-	wants(t, run(t, s, "%help"), "%render <name> [form [palette] [style]]", "Graphviz DOT", "PlantUML")
+	wants(t, run(t, s, "%render"), renderUsage)
+	wants(t, run(t, s, "%render Demo::summary svg"), `unknown form "svg"`, renderUsage)
+	wants(t, run(t, s, "%help"), "%render <name> [form [palette] [style] [ports] [link=<template>]]", "Graphviz DOT", "PlantUML")
 }
 
 // The PlantUML form is asked for by name, is the same rendering in PlantUML
@@ -86,7 +112,7 @@ func TestRenderWritesPlantUMLWhenAskedFor(t *testing.T) {
 		"@startuml\n' Demo::summary — tree rendering",
 		"<style>\n",
 		"hide circle\n",
-		`class "**Vehicle**\n<size:10>//«part def»//</size>" as n0 <<part def>>`,
+		`class "<size:10>//«part def»//</size>\n**Vehicle**" as n0 <<part def>>`,
 		"n2 -- n3\n",
 		"@enduml",
 	} {
@@ -108,6 +134,9 @@ func TestRenderWritesPlantUMLWhenAskedFor(t *testing.T) {
 	if got := s.Complete("%render Demo::summary plantuml ", len("%render Demo::summary plantuml ")); !slices.Contains(got.Candidates, "okabe-ito") {
 		t.Errorf("completing the palette after plantuml offered %v", got.Candidates)
 	}
+	if got := s.Complete("%render Demo::summary d", len("%render Demo::summary d")); !slices.Equal(got.Candidates, []string{"d2", "dot"}) {
+		t.Errorf("completing d offered %v, want d2 and dot", got.Candidates)
+	}
 	if got := s.Complete("%render Demo::summary pl", len("%render Demo::summary pl")); !slices.Equal(got.Candidates, []string{"plantuml"}) {
 		t.Errorf("completing the form offered %v", got.Candidates)
 	}
@@ -124,7 +153,7 @@ func TestRenderDotTakesAPalette(t *testing.T) {
 	text := strings.Join(out, "\n")
 	for _, want := range []string{
 		`digraph "Demo::summary" {`,
-		`"n0" [fillcolor="#E69F00", color="#E69F00", penwidth=1, label=<<b>Vehicle</b><br/><font point-size="10"><i>«part def»</i></font>>];`,
+		`"n0" [fillcolor="#E69F00", color="#E69F00", penwidth=1, label=<<font point-size="10"><i>«part def»</i></font><br/><b>Vehicle</b>>];`,
 	} {
 		if !strings.Contains(text, want) {
 			t.Errorf("%%render dot okabe-ito is missing %q:\n%s", want, text)
@@ -132,18 +161,21 @@ func TestRenderDotTakesAPalette(t *testing.T) {
 	}
 	wants(t, run(t, s, "%render Demo::summary dot rainbow"),
 		`unknown palette "rainbow"; the palettes are okabe-ito, tol-bright, tol-muted, tol-light, brewer-set2, brewer-dark2, viridis, cividis`,
-		"usage: %render <name> [text|mermaid|markdown|dot|plantuml [palette] [pilot|cameo]]")
-	wants(t, run(t, s, "%render Demo::summary mermaid okabe-ito"), "a palette fills the dot and plantuml forms only, not mermaid")
-	wants(t, run(t, s, "%render Demo::summary dot okabe-ito cameo extra"), "usage: %render <name> [text|mermaid|markdown|dot|plantuml [palette] [pilot|cameo]]")
-	// The palette completes after the dot form, and after no other.
+		renderUsage)
+	wants(t, run(t, s, "%render Demo::summary mermaid okabe-ito"), "classDef palette0 fill:#")
+	wants(t, run(t, s, "%render Demo::summary text okabe-ito"), "a palette fills the mermaid, dot, plantuml and d2 forms only, not text")
+	wants(t, run(t, s, "%render Demo::summary dot okabe-ito cameo extra"), renderUsage)
 	if got := s.Complete("%render Demo::summary dot ", len("%render Demo::summary dot ")); !slices.Contains(got.Candidates, "okabe-ito") || !slices.Contains(got.Candidates, "viridis") {
 		t.Errorf("completing the palette offered %v", got.Candidates)
 	}
 	if got := s.Complete("%render Demo::summary dot tol-", len("%render Demo::summary dot tol-")); !slices.Equal(got.Candidates, []string{"tol-bright", "tol-light", "tol-muted"}) {
 		t.Errorf("completing tol- offered %v", got.Candidates)
 	}
-	if got := s.Complete("%render Demo::summary mermaid ", len("%render Demo::summary mermaid ")); slices.Contains(got.Candidates, "okabe-ito") {
-		t.Errorf("completing after the mermaid form offered a palette: %v", got.Candidates)
+	if got := s.Complete("%render Demo::summary mermaid ", len("%render Demo::summary mermaid ")); !slices.Contains(got.Candidates, "okabe-ito") {
+		t.Errorf("completing after the mermaid form offered no palette: %v", got.Candidates)
+	}
+	if got := s.Complete("%render Demo::summary text ", len("%render Demo::summary text ")); slices.Contains(got.Candidates, "okabe-ito") {
+		t.Errorf("completing after the text form offered a palette: %v", got.Candidates)
 	}
 }
 
@@ -230,6 +262,74 @@ func TestRenderOfATabularView(t *testing.T) {
 	}
 }
 
+func TestRenderGridViewRelationshipMatrixAndPseudoView(t *testing.T) {
+	s := NewSession()
+	res := s.Submit(`package Matrix {
+    private import StandardViewDefinitions::*;
+    requirement def Requirement;
+    requirement r : Requirement;
+    part def Vehicle;
+    part vehicle : Vehicle {
+        satisfy r;
+    }
+    view def RelationshipMatrix :> GridView {
+        filter @SysML::SatisfyRequirementUsage;
+    }
+    view relationshipMatrix : RelationshipMatrix {
+        expose vehicle::**;
+    }
+}`)
+	for _, d := range res.Diagnostics {
+		if d.Severity == diag.SeverityError {
+			t.Fatalf("model did not load: %v", res.Diagnostics)
+		}
+	}
+	for _, name := range []string{"Matrix::relationshipMatrix", "#matrix:Matrix::vehicle"} {
+		out, _, err := s.RunMeta("%render " + name + " markdown")
+		if err != nil {
+			t.Fatalf("%%render %s: %v", name, err)
+		}
+		text := strings.Join(out, "\n")
+		for _, want := range []string{"matrix rendering", "| Source / Target | Matrix::r |", "| Matrix::vehicle | satisfy |"} {
+			if !strings.Contains(text, want) {
+				t.Errorf("%%render %s is missing %q:\n%s", name, want, text)
+			}
+		}
+	}
+	for _, form := range []string{"mermaid", "dot", "plantuml", "d2"} {
+		out := run(t, s, "%render Matrix::relationshipMatrix "+form)
+		if !strings.Contains(out, "matrix rendering is not written as "+form) {
+			t.Errorf("matrix as %s = %s", form, out)
+		}
+	}
+}
+
+// A delimited form carries no notice, so %render lists a table's after its records.
+func TestRenderOfADelimitedTableListsItsNotices(t *testing.T) {
+	rendering := &view.Rendering{
+		Kind:    view.KindTable,
+		View:    "Demo::odd",
+		Columns: []string{"Element", "Kind"},
+		Rows:    [][]string{{"Demo::odd", "view"}},
+		Notices: []string{"nested view Demo::odd is nested in itself; listed once"},
+	}
+	for form, sep := range map[view.Form]string{view.FormCSV: ",", view.FormTSV: "\t"} {
+		lines, err := artifactLines(rendering, form, view.Options{})
+		if err != nil {
+			t.Fatal(err)
+		}
+		want := []string{"Element" + sep + "Kind", "Demo::odd" + sep + "view", "", "not represented:",
+			"  - nested view Demo::odd is nested in itself; listed once"}
+		if !slices.Equal(lines, want) {
+			t.Errorf("%s = %q, want %q", form, lines, want)
+		}
+	}
+	rendering.Notices = nil
+	if lines, err := artifactLines(rendering, view.FormCSV, view.Options{}); err != nil || len(lines) != 2 {
+		t.Errorf("csv without a notice = %q, %v, want the two records alone", lines, err)
+	}
+}
+
 func TestRenderOfAnUnknownNameReports(t *testing.T) {
 	out, _, err := viewSession(t).RunMeta("%render Demo::Nope")
 	if err != nil {
@@ -243,7 +343,9 @@ func TestRenderOfAnUnknownNameReports(t *testing.T) {
 func TestPseudoViewsRenderThroughTheSession(t *testing.T) {
 	s := NewSession()
 	res := s.Submit(`package Direct {
+    private import OpenSysMLRenderings::*;
     port def Port;
+    part def Person;
     part def Network {
         port left : Port;
         port right : Port;
@@ -257,6 +359,13 @@ func TestPseudoViewsRenderThroughTheSession(t *testing.T) {
         first start;
         action finish;
         succession first start then finish;
+    }
+    use case def Mission {
+        actor operator : Person;
+    }
+    view missionView {
+        expose Direct::Mission;
+        render asCaseDiagram;
     }
 }`)
 	for _, d := range res.Diagnostics {
@@ -274,6 +383,10 @@ func TestPseudoViewsRenderThroughTheSession(t *testing.T) {
 		{"#state:Direct::Machine", view.KindState, view.FormMermaid, "stateDiagram-v2"},
 		{"#action:Flow", view.KindAction, view.FormMermaid, "flowchart TD"},
 		{"#interconnection:Direct::Network", view.KindInterconnection, view.FormMermaid, "flowchart LR"},
+		{"#case", view.KindCase, view.FormMermaid, "flowchart LR"},
+		{"#case:Direct::Mission", view.KindCase, view.FormMermaid, "flowchart LR"},
+		{"#mixed", view.KindMixed, view.FormMermaid, "flowchart TD"},
+		{"#mixed:Direct::Machine", view.KindMixed, view.FormMermaid, "flowchart TD"},
 		{"#table:Direct::Network", view.KindTable, view.FormMarkdown, "| Element | Kind | Type | Declared in |"},
 	}
 	for _, tc := range cases {
@@ -300,6 +413,25 @@ func TestPseudoViewsRenderThroughTheSession(t *testing.T) {
 	}
 	if text := run(t, s, "%render #tree"); !strings.HasPrefix(text, "tree rendering") {
 		t.Errorf("%%render did not accept #tree:\n%s", text)
+	}
+	if text := run(t, s, "%render #case"); !strings.HasPrefix(text, "case rendering") {
+		t.Errorf("%%render did not accept #case:\n%s", text)
+	}
+	if text := run(t, s, "%render #mixed:Direct::Machine"); !strings.HasPrefix(text, "mixed rendering") {
+		t.Errorf("%%render did not accept a targeted #mixed pseudo-view:\n%s", text)
+	}
+	for _, spec := range []struct{ view, kind string }{
+		{"#case", "case"},
+		{"#mixed:Direct::Machine", "mixed"},
+	} {
+		got := run(t, s, "%render "+spec.view+" d2")
+		if !strings.Contains(got, spec.kind+" rendering is not written as d2; ask for text, mermaid, dot or plantuml") {
+			t.Errorf("%%render %s d2 = %q, want the form refused", spec.view, got)
+		}
+	}
+	declared, err := s.ViewRendering("Direct::missionView")
+	if err != nil || declared.Kind != view.KindCase {
+		t.Errorf("declared case rendering = %+v, %v", declared, err)
 	}
 }
 
@@ -409,7 +541,7 @@ func TestRenderIsInHelpAndCompletion(t *testing.T) {
 	if got := s.Complete("%render Demo::sum", len("%render Demo::sum")); !slices.Contains(got.Candidates, "Demo::summary") {
 		t.Errorf("completing a view name offered %v", got.Candidates)
 	}
-	for _, form := range []string{"text", "mermaid", "markdown"} {
+	for _, form := range []string{"text", "mermaid", "markdown", "csv", "tsv"} {
 		if got := s.Complete("%render Demo::summary ", len("%render Demo::summary ")); !slices.Contains(got.Candidates, form) {
 			t.Errorf("completing the form offered %v, want %s", got.Candidates, form)
 		}
@@ -529,10 +661,9 @@ func TestRenderBetweenStepsDisturbsNothing(t *testing.T) {
 	wants(t, run(t, s, "%continue"), "✓ Action completed", "total = 5")
 }
 
-// The DOT form takes a drawing style beside the palette, in either order; the
+// The DOT and Mermaid forms take a drawing style beside the palette, in either order; the
 // Cameo style frames the diagram, an explicit pilot draws the default look, and
-// the style completes with the palettes. Other forms take the style and say
-// they do not draw it.
+// the style completes with the palettes. PlantUML takes no drawing style.
 func TestRenderDotTakesAStyle(t *testing.T) {
 	s := viewSession(t)
 	for _, line := range []string{"%render Demo::summary dot cameo", "%render Demo::summary dot okabe-ito cameo", "%render Demo::summary dot cameo okabe-ito"} {
@@ -545,7 +676,10 @@ func TestRenderDotTakesAStyle(t *testing.T) {
 	if got := run(t, s, "%render Demo::summary dot"); got != plain {
 		t.Errorf("the pilot style is not the default:\n%s\n---\n%s", got, plain)
 	}
-	wants(t, run(t, s, "%render Demo::summary mermaid cameo"), "style cameo; only the DOT form draws a diagram in a style")
+	mermaid := run(t, s, "%render Demo::summary mermaid cameo")
+	if !strings.Contains(mermaid, `fontFamily: "Arial, Helvetica, sans-serif"`) || strings.Contains(mermaid, "not represented: style cameo") {
+		t.Errorf("%%render mermaid cameo did not draw Cameo:\n%s", mermaid)
+	}
 	wants(t, run(t, s, "%render Demo::summary dot cameo pilot"), renderUsage)
 	wants(t, run(t, s, "%render Demo::summary dot okabe-ito viridis"), renderUsage)
 	if got := s.Complete("%render Demo::summary dot okabe-ito ca", len("%render Demo::summary dot okabe-ito ca")); !slices.Equal(got.Candidates, []string{"cameo"}) {
@@ -553,5 +687,85 @@ func TestRenderDotTakesAStyle(t *testing.T) {
 	}
 	if got := s.Complete("%render Demo::summary dot ", len("%render Demo::summary dot ")); !slices.Contains(got.Candidates, "cameo") || !slices.Contains(got.Candidates, "pilot") {
 		t.Errorf("completing after the dot form offered %v", got.Candidates)
+	}
+}
+
+// A word after the form names the port display an interconnection or mixed
+// view's parts are drawn with — minimal, the default, or full — one of them at
+// most; it completes beside the palettes and styles, and a name none has is refused
+// with the two there are.
+func TestRenderDotTakesAPortDisplay(t *testing.T) {
+	s := viewSession(t)
+	for _, line := range []string{"%render Demo::summary dot full", "%render Demo::summary dot okabe-ito cameo full", "%render Demo::summary dot minimal", "%render Demo::summary text full"} {
+		out, _, err := s.RunMeta(line)
+		if err != nil {
+			t.Fatalf("%s: %v", line, err)
+		}
+		if text := strings.Join(out, "\n"); !strings.Contains(text, "Vehicle") || strings.Contains(text, "usage: %render") {
+			t.Errorf("%s did not render:\n%s", line, text)
+		}
+	}
+	wants(t, run(t, s, "%render Demo::summary dot full minimal"), renderUsage)
+	wants(t, run(t, s, "%render Demo::summary dot all"), `unknown palette "all"`, renderUsage)
+	if got := s.Complete("%render Demo::summary dot okabe-ito cameo fu", len("%render Demo::summary dot okabe-ito cameo fu")); !slices.Equal(got.Candidates, []string{"full"}) {
+		t.Errorf("completing the port display offered %v", got.Candidates)
+	}
+	if got := s.Complete("%render Demo::summary dot ", len("%render Demo::summary dot ")); !slices.Contains(got.Candidates, "minimal") || !slices.Contains(got.Candidates, "full") {
+		t.Errorf("completing after dot offered %v, want the port displays among them", got.Candidates)
+	}
+}
+
+// generalViewsSession loads the GeneralView example, whose requirement view the
+// verification cases decide one way each.
+func generalViewsSession(t *testing.T) *Session {
+	t.Helper()
+	return exampleSession(t, "vehicle.sysml")
+}
+
+// exampleSession loads one model of the GeneralView example.
+func exampleSession(t *testing.T, file string) *Session {
+	t.Helper()
+	src, err := os.ReadFile(filepath.Join("..", "..", "..", "examples", "general-views-demo", file))
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := NewSession()
+	for _, d := range s.Submit(string(src)).Diagnostics {
+		if d.Severity == diag.SeverityError {
+			t.Fatalf("model did not load: %v", d)
+		}
+	}
+	return s
+}
+
+// %render draws a GeneralView filtered on a case metaclass as a case rendering.
+func TestRenderDrawsAGeneralViewCaseRoute(t *testing.T) {
+	s := exampleSession(t, "use-cases.sysml")
+	wants(t, run(t, s, "%render UseCaseViews::useCaseView mermaid"),
+		"case rendering (view def GeneralView, filter @UseCaseUsage)", "flowchart LR", "«include»")
+	wants(t, run(t, s, "%render UseCaseViews::caseDefinitionView text"), "use case def VehicleUseCases::'Add Fuel'")
+	wants(t, run(t, s, "%render UseCaseViews::useCaseView text verdicts"), "a case rendering draws no verdicts overlay")
+}
+
+// %render draws a requirement rendering's verdicts only when asked, by running
+// the verification cases, and refuses them on a rendering of another kind.
+func TestRenderDrawsVerdictsWhenAskedFor(t *testing.T) {
+	s := generalViewsSession(t)
+	plain := run(t, s, "%render GeneralViews::requirementView text")
+	if !strings.Contains(plain, "requirement rendering") || strings.Contains(plain, "verdict") {
+		t.Errorf("the structural rendering is not purely structural:\n%s", plain)
+	}
+	overlaid := run(t, s, "%render GeneralViews::requirementView text verdicts")
+	wants(t, overlaid,
+		"vehicleMass : MassRequirement (id R1.1, verdict pass by VehicleVerification::lightMassTest, fail by VehicleVerification::heavyMassTest)",
+		"emergencyStop : EmergencyStopRequirement (id R3.1, verdict inconclusive by VehicleVerification::stopTest")
+	dot := run(t, s, "%render GeneralViews::requirementView dot okabe-ito cameo verdicts")
+	if !strings.Contains(dot, `color="#D55E00"`) {
+		t.Errorf("the failed requirement is not drawn in the fail colour:\n%s", dot)
+	}
+	wants(t, run(t, s, "%render GeneralViews::definitionView text verdicts"), "a definition rendering draws no verdicts overlay")
+	wants(t, run(t, s, "%render GeneralViews::requirementView text verdicts verdicts"), renderUsage)
+	if got := s.Complete("%render GeneralViews::requirementView dot verd", len("%render GeneralViews::requirementView dot verd")); !slices.Equal(got.Candidates, []string{"verdicts"}) {
+		t.Errorf("completing the overlay offered %v", got.Candidates)
 	}
 }

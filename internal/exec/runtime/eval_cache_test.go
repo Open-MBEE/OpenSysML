@@ -21,8 +21,9 @@ func parseExpr(t *testing.T, src string) ast.Node {
 }
 
 // TestRepeatedLiteralEvaluationAnswersAlike: a literal evaluated again in one
-// context, memoized or not, answers the same value, and one outside its range
-// reports the same error each time rather than a cached success.
+// context, memoized or not, answers the same value, one beyond int64 included,
+// and one beyond the size budget reports the same error each time rather than a
+// cached success.
 func TestRepeatedLiteralEvaluationAnswersAlike(t *testing.T) {
 	model, resolver, _ := parseAndBuildModel(t, sumModel)
 	ctx := NewContext(typedModel(model, resolver), 1000)
@@ -32,24 +33,25 @@ func TestRepeatedLiteralEvaluationAnswersAlike(t *testing.T) {
 		want semantics.Value
 	}{
 		{"42", semantics.Value{Kind: semantics.ValInt, Int: 42}},
-		{"2.5", semantics.Value{Kind: semantics.ValReal, Real: 2.5}},
+		{"2.5", constRat("2.5").Const},
+		{"9223372036854775808", bigConst(t, "9223372036854775808").Const},
 	} {
 		expr := parseExpr(t, tc.src)
 		for i := 0; i < 3; i++ {
 			got, err := ctx.Eval(expr)
-			if err != nil || got.Kind != ValConst || got.Const != tc.want {
+			if err != nil || got.Kind != ValConst || got.Const.Kind != tc.want.Kind || !got.Const.Equal(tc.want) {
 				t.Fatalf("eval %d of %s = %+v, %v; want %+v", i, tc.src, got, err, tc.want)
 			}
 		}
 	}
 
-	for _, src := range []string{"9223372036854775808", "1e400"} {
+	for _, src := range []string{"1e400000", "-1e400000"} {
 		expr := parseExpr(t, src)
 		var first string
 		for i := 0; i < 3; i++ {
 			got, err := ctx.Eval(expr)
-			if !errors.Is(err, semantics.ErrArithmeticOverflow) {
-				t.Fatalf("eval %d of %s = %+v, %v; want ErrArithmeticOverflow", i, src, got, err)
+			if !errors.Is(err, semantics.ErrRationalSizeLimit) {
+				t.Fatalf("eval %d of %s = %+v, %v; want ErrRationalSizeLimit", i, src, got, err)
 			}
 			if i == 0 {
 				first = err.Error()
@@ -94,9 +96,9 @@ func TestNestedInvocationArgumentsStayDistinct(t *testing.T) {
 		}
 	}
 
-	failing := parseExpr(t, "sub(fib(5), 9223372036854775808)")
-	if _, err := ec.Eval(failing); !errors.Is(err, semantics.ErrArithmeticOverflow) {
-		t.Fatalf("eval of a failing second argument: err = %v; want ErrArithmeticOverflow", err)
+	failing := parseExpr(t, "sub(fib(5), 1 / 0)")
+	if _, err := ec.Eval(failing); !errors.Is(err, ErrDivisionByZero) {
+		t.Fatalf("eval of a failing second argument: err = %v; want ErrDivisionByZero", err)
 	}
 	if len(ctx.argStack) != 0 {
 		t.Fatalf("a failing argument left %d arguments on the stack", len(ctx.argStack))
@@ -150,11 +152,11 @@ func TestRepeatedInvocationEvaluationAnswersAlike(t *testing.T) {
 
 	// An argument that fails is reported before the target is judged, so a
 	// resolved and an unresolved call alike answer with the argument's error.
-	for _, src := range []string{"twice(9223372036854775808)", "nowhere(9223372036854775808)"} {
+	for _, src := range []string{"twice(1 / 0)", "nowhere(1 / 0)"} {
 		expr := parseExpr(t, src)
 		for i := 0; i < 2; i++ {
-			if _, err := ec.Eval(expr); !errors.Is(err, semantics.ErrArithmeticOverflow) {
-				t.Fatalf("eval %d of %s: err = %v; want the argument's ErrArithmeticOverflow", i, src, err)
+			if _, err := ec.Eval(expr); !errors.Is(err, ErrDivisionByZero) {
+				t.Fatalf("eval %d of %s: err = %v; want the argument's ErrDivisionByZero", i, src, err)
 			}
 		}
 	}

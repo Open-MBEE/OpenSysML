@@ -68,6 +68,7 @@ Per symbol, the facts (`LibraryFacts`), each with the reader that needs it:
 | `Multiplicity` — the declared bounds, evaluated; a bound written as the name of a feature the declaring scope values carries that value, marked so a reader evaluating without the scope sees it unknown, as it does loaded | multiplicity conformance of a redefinition, end multiplicities; whether a `multiplicity` member is a `MultiplicityRange` under a `@@` filter |
 | `Unit`, `Dimension` — the reduced unit or dimension a library-style declaration denotes | quantity typing, unit conversion |
 | `Annotations`, `About`, `Annotation` — the metadata declared on the element, its type by name and by reference, with its literal values and the span of the node stating it; the elements an `about` usage annotates, and the annotation it states on them | metadata filters on imports, `@`-annotated lookups, the identity-metadata audit |
+| `MetadataType` — the resolved type named by a prefix metadata usage | reflective `MetadataFeature::type` and `metaclass` for recorded annotations |
 | `Ends` — a connector's owned end features by position, a `connect a to b` end without a symbol of its own holding its place | the ends a specializing connector inherits and redefines by position, its end count against a binary link, its related features |
 | `Default` — the values a feature of a metadata definition declares, one per element of a sequence | the value an annotation of that type carries for a feature it leaves unbound, which a filter reads |
 | `BaseType`, `ModBindsBaseType` — the base type a metadata definition binds unconditionally | metadata typing |
@@ -196,7 +197,9 @@ dimensions §3's `symbols.Changes` invalidates a live frame by — and, per read
 the workspace documents that took part in the answer (`Index.Answerers`,
 `NamespaceAnswerers`, `SegmentAnswerers`; for a read of shared audit state,
 `passes.Contributors`) with their content digests. Library documents are left
-out: the key already names the library as a whole. A record installs
+out: the key already names the library as a whole. So is a version of a
+library file standing in for one (`Workspace.StandsInFor`): it answers as the
+document it displaces, and its text is in the key's library identity. A record installs
 (`Provenance.Valid`) only where every read is still answered by the same
 documents with the same content; anywhere else the file is parsed in its
 place (`model.ErrRecordStale` from `OpenRecorded`; `OpenAll` and the on-disk
@@ -218,7 +221,7 @@ its dependents drop their entries through `Index.TakeChanges` and
 every recorded document at once, parsing on the workers. Every public
 operation that needs a body hydrates before answering rather than returning
 `NeedsHydration`: opening a document in the editor (`Open`), building a
-runtime or debugger (`NewRuntime` and the debugger's private index hydrate
+runtime or debugger (`modelrt.New` and the debugger's private index hydrate
 everything recorded, since the runtime's model retains symbols and must never
 evaluate against a record), the reverse-reference index (`ReferencesTo`,
 `NameReferencesTo`, `RenameConflict`, and so the language server's references
@@ -228,15 +231,15 @@ Demotion is the reverse. `Close` of a document whose buffer equals the file on
 disk, whose record the cache holds for that content and whose provenance is
 valid, installs the record in place of the tree (`demoteLocked`) and
 invalidates the name; a close of a changed buffer holds the disk bytes instead,
-as a closed file is held. `SetOnDisk` of a closed file, and `OpenAll` for each
-input, take the record for the content when the cache holds a valid one and
-parse otherwise (`holdOnDiskLocked`, `cachedRecords`). A record's reads are
-answered by its own document too (its identity judgment, its own names), so
-both install the record first and check its provenance among the documents
-then held, parsing it in place where that does not hold; a file set from disk
-before the siblings its analysis read (a batch installs them together; the
-language server's folder scan holds them one at a time) is parsed, and a later
-sibling does not demote it.
+as a closed file is held. `SetOnDisk` of a closed file, and `OpenAll` and
+`SetOnDiskAll` for each input, take the record for the content when the cache
+holds a valid one and parse otherwise (`holdOnDiskLocked`, `cachedRecords`). A
+record's reads are answered by its own document too (its identity judgment, its
+own names), so both install the record first and check its provenance among the
+documents then held, parsing it in place where that does not hold; a file set
+from disk alone, before the siblings its analysis read, is parsed, and a later
+sibling does not demote it. A batch installs the siblings together, and the
+language server's folder scan is one such batch (`SetOnDiskAll`).
 
 Records are written where a document has just been fully analyzed: the batch
 path (`DiagnosticsAll`, so `sysml -validate` and `-satisfy` and the REPL's
@@ -283,7 +286,7 @@ production reader of `Symbol.Decl` under `internal/semantic`, `internal/check`,
    `symbols.ErrNeedsHydration` (`symbols.NeedsTree`, `symbols.NeedsHydration`
    with the document and the question) for a recorded document at the level
    that has no tree, and the workspace operation above them hydrates
-   (previous section): `Workspace.NewRuntime` hydrates every recorded
+   (previous section): `Workspace.Detach`, used by `modelrt.New`, hydrates every recorded
    document before its model is built, so the runtime never evaluates against
    a record; the reverse-reference index is built from the references a
    document's body writes, which its record does not carry, so

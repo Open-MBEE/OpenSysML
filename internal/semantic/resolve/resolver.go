@@ -27,6 +27,21 @@ type supertypeProvider interface {
 	DirectSupertypes(sym *symbols.Symbol) []*symbols.Symbol
 }
 
+// invocationResultProvider is the part of the semantic model that reports the
+// result parameter of a function or expression, inherited ones included, and
+// whether calling a declaration evaluates one. *semantics.Model implements it.
+type invocationResultProvider interface {
+	ResultParameterOf(sym *symbols.Symbol) *symbols.Symbol
+	Evaluates(sym *symbols.Symbol) bool
+}
+
+// metaclassProvider is the part of the semantic model that classifies an
+// element by its library metaclass and decides conformance. *semantics.Model implements it.
+type metaclassProvider interface {
+	MetaclassOf(sym *symbols.Symbol) *symbols.Symbol
+	Conforms(a, b *symbols.Symbol) bool
+}
+
 // maskChecker is the part of the semantic model that reports redefinition
 // masking: which of a type's inheritable members it does not inherit because
 // one of its features redefines them. *semantics.Model implements it.
@@ -95,6 +110,9 @@ type Resolver struct {
 	// resolving holds the depth (see enter) of each lookup on the stack, so a
 	// re-entrant query of the same name fails instead of recursing.
 	resolving map[ast.Node]int
+	// featuring holds the depth of each featured-member lookup (featuredMember)
+	// on the stack, whose scope walk may resolve the very chain that began it.
+	featuring map[featuredKey]int
 	// redefining holds the depth of each redefinition target being resolved,
 	// whose generals are found by resolving the targets of other redefinitions.
 	redefining map[*ast.QualifiedName]int
@@ -129,7 +147,13 @@ type Resolver struct {
 	// own (see freshImportVisits).
 	importVisits map[importVisit]bool
 	importDepth  int
-	Diagnostics  []Diagnostic
+	// enumMembers are the members each import edge surfaces, kept while the
+	// enumeration in progress nests (enumDepth): the members an import brings
+	// do not depend on the path that reached its namespace, so a cycle of
+	// re-imports is enumerated once per edge, not once per path (issue #633).
+	enumMembers map[enumEdge][]*symbols.Symbol
+	enumDepth   int
+	Diagnostics []Diagnostic
 	// quiet is nonzero while a lookup is made on behalf of a semantic query
 	// rather than a reference in the document being resolved.
 	quiet int
@@ -246,6 +270,7 @@ func New(idx *symbols.Index) *Resolver {
 		initials:              map[*ast.InitialNode]*symbols.Symbol{},
 		imports:               map[ast.Node][]*ast.Import{},
 		importStack:           map[*ast.Import]bool{},
+		enumMembers:           map[enumEdge][]*symbols.Symbol{},
 		resolvingImports:      map[*ast.Import]bool{},
 		naming:                map[*symbols.Symbol]bool{},
 		valuesInProgress:      map[*ast.Usage]bool{},

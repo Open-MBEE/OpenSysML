@@ -343,10 +343,12 @@ since `%advance` and the waits move it.
 
 **What a state's behaviors may do.** A state's `entry`, `do` and `exit` behaviors are actions,
 and their bodies may hold whatever an action body holds: a flow of nodes joined by successions
-(`first start; then …` or, with one node no succession leads to, the flow starts there),
+(`first start; then …`; every node no succession leads to starts with the behavior, unordered),
 forks, joins and decisions, timed and signal accepts, sends, nested action nodes with flows of
 their own, and typed usages with pin bindings (`do action poll : Poll { inout n = ticks; }`). A
-body stating no flow still runs its statements in declaration order. A braced block without the
+body stating no flow leaves the statements no `then` relates unordered: `declared` takes them in
+declaration order, and `explore` and `-engine check` reach every order
+([below](#seeing-the-whole-outcome-set-explore)). A braced block without the
 keyword — `entry { … }`, `do { … }`, `exit { … }`, and a transition's `do { … }` — is one
 anonymous action with that body, the same as `entry action { … }`: an attribute declared inside
 the block is local to it and shadows the state's, and a `terminate;` in it ends the whole block
@@ -533,6 +535,53 @@ something else — it ends that behavior only, the whole braced block where the 
 (`do { assign d := 1; terminate; assign d := 9; }` leaves `d` at 1)
 ([below](#terminate-ending-an-action-early)).
 
+**Reading whether a state is active: `isActive`.** SysML v2 gives a state usage no Boolean
+saying whether it is active — `fill.done` and `fill.start` resolve, but they are occurrences, the
+state's end and start. OpenSysML supplies one as an extension library, `StateActivity` under
+`internal/workspace/libs/stdlib/OpenSysML Libraries/`, which declares `isActive : Boolean[1]` as
+a derived feature `featured by States::StateAction`. A model that writes `private import
+StateActivity::*;` then reads `x.isActive` for any state usage `x` it can name, by name or
+feature chain, from a guard, a constraint, an `assert constraint`, a calc, an assignment, or
+another state's entry, do or exit behavior:
+
+```sysml
+package Tank {
+	private import ScalarValues::*;
+	private import StateActivity::*;
+
+	state def Step {
+		attribute level : Real = 0.0;
+		attribute maxLevel : Real = 1.0;
+		state fill;
+		state drain {
+			entry assign level := if fill.isActive ? 0.0 else level;
+		}
+		transition first fill accept when level > maxLevel then drain;
+		assert constraint c { fill.isActive == true }
+	}
+}
+```
+
+`x.isActive` is `true` exactly while `x` is in the active configuration of the machine running
+it: a composite state while any of its substates is, a state in a parallel region together with
+the states of the other regions, and the state itself during its own entry and exit actions. It
+is `false` while a transition's effect runs — the source has exited and the target has not yet
+been entered, so the effect of a self-transition reads `false` and the state's entry, running once
+more, reads `true` again — before the machine starts and after it ends or is terminated. The
+value is the executor's own active configuration, so a run, `explore`, a `check`, a replayed
+witness and a snapshot all read the same thing. A read written through a part,
+`b.modes.ready.isActive`, is answered by the machine that part exhibits, so two parts running
+the same state usage are told apart; the machine usage itself, `modes.isActive`, is `true`
+while the machine holds an active configuration, awaiting events included. It is read-only: `assign fill.isActive := true;`
+is refused as a write to any derived feature is, and a calc reading it is reported as not
+compilable by the code generator, which has no machine to ask.
+
+The feature is **not standard**: neither `States.sysml` nor `StatePerformances.kerml` declares
+it, and the pinned pilot implementation leaves `fill.isActive` unresolved. Without the import
+OpenSysML does the same — `unresolved member: isActive`, exactly as before — and with it the
+import is reported as `nonstandard-notation`, a warning by default and an error under `-strict`,
+so a conforming model is untouched and a model that opts in says so in one line.
+
 **Action debugging commands:**
 - `%action <name> [<object>]` — Start an action debugging session, optionally performed by an instantiated object
 - `%step` — Advance all tokens one step; a token waiting only on the clock is reported with the `%advance` that would move it
@@ -564,11 +613,7 @@ instruction. The KerML Kernel Semantic Library orders three things and nothing e
 - **Send before accept.** A message is accepted after it was sent, so an `accept` that waits for a
   `send` in another branch follows that send.
 - **Ancestor priority.** When a substate's transition and its enclosing state's are both enabled
-  by one event, the innermost fires — SysML v2/KerML order, not a pick. A deferred event (the
-  `defer <event>;` extension) is ordered the same way: while a state that defers it is active,
-  the event reaches only a transition whose source is that state or one nested in it; a
-  transition in an enclosing state or a sibling region waits until the deferring state is
-  exited, and the event is then dispatched, ahead of later arrivals.
+  by one event, the innermost fires — SysML v2/KerML order, not a pick.
 
 Everything else two performances could do in either order, they may: which of two fork branches
 steps first (*token interleaving*), which of two holding guards a decision follows (*overlapping
@@ -749,39 +794,54 @@ varied twice, so a choice met early is varied by the second run however many cho
 $ sysml -schedule explore -action test::race action_explore_three_writers.sysml
 ✓ package test
 ✓ explored test::race: 3 outcomes
-outcome                                      | linearizations | probability        | witness
----------------------------------------------+----------------+--------------------+------------------------------------------------------------------
-aRan = true; bRan = true; cRan = true; x = 1 | 2              | 0.3333333333333333 | step 3: 3@b first of 2@a, 3@b, 4@c; step 4: 4@c first of 2@a, 4@c
-aRan = true; bRan = true; cRan = true; x = 2 | 2              | 0.3333333333333333 | step 3: 2@a first of 2@a, 3@b, 4@c; step 4: 4@c first of 3@b, 4@c
-aRan = true; bRan = true; cRan = true; x = 3 | 2              | 0.3333333333333333 | step 3: 2@a first of 2@a, 3@b, 4@c; step 4: 3@b first of 3@b, 4@c
+outcome                                      | linearizations | probability | witness
+---------------------------------------------+----------------+-------------+------------------------------------------------------------------
+aRan = true; bRan = true; cRan = true; x = 1 | 2              | possible    | step 3: 3@b first of 2@a, 3@b, 4@c; step 4: 4@c first of 2@a, 4@c
+aRan = true; bRan = true; cRan = true; x = 2 | 2              | possible    | step 3: 2@a first of 2@a, 3@b, 4@c; step 4: 4@c first of 3@b, 4@c
+aRan = true; bRan = true; cRan = true; x = 3 | 2              | possible    | step 3: 2@a first of 2@a, 3@b, 4@c; step 4: 3@b first of 3@b, 4@c
 complete (6 runs)
 ```
 
 Runs that agree on what the conformance harness compares — an action's outputs; a state machine's
 final state, states visited and values; an analysis case's outputs and verdicts — are one
 *outcome*, and the table has one sorted row per distinct outcome: the outcome, how many
-linearizations reached it, its *probability*, and the choice sequence of one *witness* run (`3@b first of 2@a, 3@b,
-4@c` is the first pick, then `4@c first of 2@a, 4@c` among the two that remained). A
-linearization's probability is the product of the shares its picks resolved with — a
-`@Probability`-weighted pick its stated weight's share of the weights drawn over, an unweighted
-choice point the uniform `1/n` a `seed:<n>` takes each alternative with — and an outcome's is the
-sum over its runs, so the column totals `1` when the exploration is complete: it is the model's
-own probability where every choice point is weighted, and where they are not it assumes the
-scheduling choices the library leaves open are taken uniformly at random. An incomplete
-exploration prefixes each figure `≥` and the status line adds `; probabilities are lower bounds`,
-since the runs not taken can only add. Six
+linearizations reached it, its model-draw probability when one exists, and the choice sequence of
+one *witness* run (`3@b first of 2@a, 3@b, 4@c` is the first pick, then `4@c first of 2@a, 4@c`
+among the two that remained). Scheduling choices have no probability: outcomes without a weighted
+model choice say `possible`. When weighted choices occur, each outcome reports the minimum and
+maximum model-draw probability over schedulers; a range that collapses to one value is exact. An
+incomplete exploration prefixes numeric cells with `≥` and adds `; probabilities are lower bounds`
+only when a weighted choice occurred, since the runs not taken can only add. Six
 linearizations, three outcomes, two each; `complete (6 runs)` says every choice sequence was
 tried. Under `explore` an action step is one token advancing one node — not, as under the fixed
 policies, every steppable token moving once — so the picks fall in consecutive steps and a branch
 of several nodes can run ahead of, or be overtaken by, a concurrent one at each of them. A
 `complete` exploration therefore covers every interleaving of the nodes the library leaves
-unordered, at body granularity: the statements of one body run without interruption. A run that
+unordered. Where another performance's moves can change what a leaf body computes, the body
+yields after its initial values are read and after each statement, so a concurrent branch may
+run between a body's snapshot `attribute t : Integer := c` and its `assign c := t + 1`; the
+statements of a nested body run first to last, and an action definition's own statements in
+the token order each policy gives them (`reverse` last to first). A calc or constraint body is
+performed whole inside the step that evaluates it: no other performance runs between its
+statements, but the statements no `then` relates are unordered among themselves, so `explore`
+and `-engine check` reach every order of them (a calc whose `y := y * 10` and `y := y + 2` are
+unordered returns `12` or `30`), and its result expression or condition is evaluated after
+them; `declared` and `reverse` run calc and constraint bodies in declaration order. A case body
+stating no succession likewise leaves its steps unordered under `explore`, `-engine check`,
+replay and seeded schedules, while `declared` and `reverse` perform them in declaration order.
+A run that
 fails under some order is an outcome of its own (`error: …`), not the end of the exploration; a
 behavior with no choice point explores in exactly one run (`no choice points`
 in the witness column); the same model explores to the same table every time. With `-trace`, the
 table is followed by the trace of each outcome's witness run (`trace of outcome 1's witness
-(run 4):`). With `-json`, each check carries `outcomes` (values, `linearizations`, `probability`, `witness`) and
-`exploration` (`complete`, `runs`, `budgetsHit`, `probabilitiesLowerBound`) beside the table's lines.
+(run 4):`). With `-json`, each check carries `outcomes` (values, `linearizations`, optional exact
+`probability`, optional `probabilityRange`, `witness`) and `exploration` (`complete`, `runs`,
+`budgetsHit`, optional `failedLinearizations`, `probabilitiesLowerBound`) beside the table's lines.
+
+If the runtime context or root executor cannot be created, or a pure structural start check fails
+before root model behavior runs, no schedule ran: the exploration fails with no outcome. Failures
+from entry behaviors, entry guards, state entry actions, do-behaviors, completion, or later are
+error outcomes; any such outcome makes the verdict fail, even if the exploration is incomplete.
 
 <a id="a-do-behavior-under-explore-and-check"></a>
 A state's `do` behavior is stepped the same way under `explore` and `check`: one token at a time —
@@ -829,11 +889,11 @@ otherwise, and hitting it is never silent:
 $ sysml -schedule explore:runs=3 -action test::race action_explore_three_writers.sysml
 ✓ package test
 ? explored test::race: 2 outcomes
-outcome                                      | linearizations | probability           | witness
----------------------------------------------+----------------+-----------------------+------------------------------------------------------------------
-aRan = true; bRan = true; cRan = true; x = 2 | 1              | ≥ 0.16666666666666666 | step 3: 2@a first of 2@a, 3@b, 4@c; step 4: 4@c first of 3@b, 4@c
-aRan = true; bRan = true; cRan = true; x = 3 | 2              | ≥ 0.3333333333333333  | step 3: 2@a first of 2@a, 3@b, 4@c; step 4: 3@b first of 3@b, 4@c
-incomplete: runs budget 3 hit after 3 runs; probabilities are lower bounds
+outcome                                      | linearizations | probability | witness
+---------------------------------------------+----------------+-------------+------------------------------------------------------------------
+aRan = true; bRan = true; cRan = true; x = 2 | 1              | possible    | step 3: 2@a first of 2@a, 3@b, 4@c; step 4: 4@c first of 3@b, 4@c
+aRan = true; bRan = true; cRan = true; x = 3 | 2              | possible    | step 3: 2@a first of 2@a, 3@b, 4@c; step 4: 3@b first of 3@b, 4@c
+incomplete: runs budget 3 hit after 3 runs
 $ echo $?
 2
 ```
@@ -852,7 +912,7 @@ least once.
 
 The same spelling explores over the wire, where the response carries `outcomes` and an
 `exploration` status ([wire contract](../reference/wire-contract.md)), and from every client
-([clients](09-clients.md)). The REPL refuses it, because its `%action` and `%state` debuggers
+([client libraries](../clients.md)). The REPL refuses it, because its `%action` and `%state` debuggers
 step one run and an exploration replays from the start:
 
 ```console
@@ -1084,8 +1144,10 @@ state def Machine {
 The weights pick among the transitions otherwise equally eligible — after the trigger matched,
 the guards read, and the innermost-wins rule between a substate and its enclosing state has run
 — so a substate's transition is never weighed against an enclosing one's, and the pick is drawn
-once, at dispatch. `explore` enumerates the alternatives as it does any choice point, and the
-outcome table's `probability` column reports each outcome's share (below).
+once, at dispatch. `explore` enumerates weighted alternatives and reports each outcome's
+model-draw probability range over schedulers. Scheduling choices themselves carry no probability.
+Random-function values remain fixed by the model seed during exploration, so these probabilities
+are conditional on those draws.
 
 ### A random value: `RandomFunctions`
 
@@ -1266,9 +1328,10 @@ second knob here too: every run resolves its concurrency choices under `-schedul
   for one dispatch — one trigger spelling out of one state, one completion set, one pseudostate's
   branches — never between different events or different states, and a transition that loses to a
   nested one fires nothing.
-- **Probabilities assume a uniform schedule.** `explore`'s column and `check`'s violation masses
-  are the model's own probabilities where every choice point is weighted; an unweighted point is
-  counted as if each alternative were equally likely, which is an assumption, not a measurement.
+- **Scheduling has no probability.** `explore` reports model-draw probability ranges over the
+  schedulers the model leaves open; an outcome with no weighted model choice has no probability.
+  `check`'s violation masses retain their separate existing semantics and still use uniform
+  shares for unweighted choices.
 - **Random functions are scalar.** A bound given as a quantity is refused; write the unit on the
   draw (`uniform(1, 80) [s]`).
 - **Weights are drawn among the branches that hold.** A decision whose guards leave exactly one

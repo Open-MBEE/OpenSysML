@@ -4,6 +4,8 @@ import (
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/ir/view"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/lexer"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
@@ -34,8 +36,36 @@ func (w *Workspace) Generation() uint64 {
 // Generation is the workspace's generation as read.
 func (r *Reading) Generation() uint64 { return r.w.generation }
 
+// Index is the workspace's index as read.
+func (r *Reading) Index() *symbols.Index { return r.w.index }
+
+// Query runs fn with the shared semantics, as a query of doc reads them.
+func (r *Reading) Query(doc string, fn func(*resolve.Resolver, *semantics.Model)) {
+	r.w.queryLocked(doc, fn)
+}
+
+// SourceText is the text of the documents and the library files behind them.
+func (r *Reading) SourceText() view.SourceText { return r.w.sourceText() }
+
 // Document is the held document name, nil for one the workspace does not hold.
 func (r *Reading) Document(name string) *Document { return r.w.docs[name] }
+
+// LineIndex is the held document's line index, nil when the workspace does not hold it.
+func (r *Reading) LineIndex(name string) *source.LineIndex {
+	if doc := r.Document(name); doc != nil {
+		return doc.Lines()
+	}
+	return nil
+}
+
+// LineIndexes snapshots the line indexes of the held documents.
+func (r *Reading) LineIndexes() map[string]*source.LineIndex {
+	indexes := make(map[string]*source.LineIndex, len(r.w.docs))
+	for name, doc := range r.w.docs {
+		indexes[name] = doc.Lines()
+	}
+	return indexes
+}
 
 // Declared is the element fqn names in doc: by qualified name in the index, else
 // by qualified or simple name among the document's own declarations.
@@ -94,10 +124,22 @@ func (r *Reading) DeclaredView(doc, fqn string) *symbols.Symbol {
 
 // RenderView is Workspace.RenderView of the documents as read.
 func (r *Reading) RenderView(doc, fqn string) (*view.Rendering, *Snapshot, error) {
-	return r.w.renderViewLocked(doc, fqn)
+	return r.w.renderViewLocked(doc, fqn, "", nil)
 }
 
-// NewRuntime is Workspace.NewRuntime over the documents as read.
-func (r *Reading) NewRuntime() (*Runtime, error) {
-	return r.w.newRuntimeLocked()
+// RenderOverlaidView is RenderView with overlay drawn over the rendering, its
+// verdicts answered by verdicts.
+func (r *Reading) RenderOverlaidView(doc, fqn string, overlay view.Overlay, verdicts view.Verdicts) (*view.Rendering, *Snapshot, error) {
+	return r.w.renderViewLocked(doc, fqn, overlay, verdicts)
+}
+
+// LinkSites is RenderViewLinked's source sites for a rendering made by this
+// reading, frozen into its snapshot.
+func (r *Reading) LinkSites(rendering *view.Rendering, snapshot *Snapshot) {
+	r.w.linkSitesLocked(rendering, snapshot)
+}
+
+// Detach is Workspace.Detach over the documents as read.
+func (r *Reading) Detach() (*Detached, error) {
+	return r.w.detachLocked()
 }

@@ -3,6 +3,9 @@
 `opensysml` is a blocking Rust client for the local `sysml-grpc` service. It
 is published to crates.io with each core release, at the core's version.
 
+For a task-oriented walkthrough, see the
+[Rust client guide](https://redk.opensysml.org/clients/rust/).
+
 ## Installation
 
 From crates.io:
@@ -40,7 +43,7 @@ The minimum supported Rust version is **Rust 1.83**.
 ## Why blocking
 
 The client is blocking by default and has no asynchronous runtime anywhere in
-its normal dependency tree. All 15 service RPCs are unary, and the usual
+its normal dependency tree. All 22 service RPCs are unary, and the usual
 consumer talks to a local child that answers in milliseconds. Async buys the
 average consumer little here, while putting a private `tokio::Runtime` in a
 library taxes every consumer. That is why this client does not use `tonic`.
@@ -157,12 +160,17 @@ that needs a capability the service does not have is refused with
 `UNIMPLEMENTED` naming that capability, and checking first turns that into a
 local error naming what to install instead of a transport round trip.
 Capabilities that only describe how a response is populated omit the fields they
-name rather than refusing the call. The client checks request-side requirements
-for:
-
-* `strict_conformance` when strict parsing is requested;
-* `inline_language` for inline KerML content; and
-* `evaluate_subject` when a subject symbol is supplied for evaluation.
+name rather than refusing the call. Every typed call requires the capability of
+its RPC (`parse_sources`, `convert`, `migrate`, `query`, `oslc_query`, `document_query`,
+`render_document`, `verification`, `engines`, `apply_edits`, ...) and those of
+the options it is given: `strict_conformance`, `inline_language`,
+`evaluate_subject`, a named engine or question, an exploring schedule, a
+performer, and the kind of every value sent as an argument, nested values
+included. An editor requires `apply_edits` and then each capability its
+operations need, in the order they were added, before anything is sent. A
+service older than the client that refuses an RPC with `UNIMPLEMENTED` is read
+the same way. `Error::MissingCapability` carries the capability and
+`upgrade_remedy(capability)`: the release to install or the binary to build.
 
 Decoding a response is never gated on capabilities: if a service sends an
 enum, unset value, complex number, array, vector, vector quantity, measurement
@@ -178,7 +186,8 @@ the service's canonical order (numbers ascending, then strings, and so on), and
 equal to another set holding the same members in any order. Membership is
 judged by `Value::same_value`, as the service judges it: `Integer(1)` and
 `Real(1.0)` are one member, `Real(1.5)` and a `Complex` of `1.5 + 0.0i` are one
-member, exactly across the whole `i64` range, and a `Quantity` is judged by
+member, exactly across the whole `i64` range and beyond it (an Integer outside
+`i64` arrives as `Value::BigInteger`, its exact decimal digits), and a `Quantity` is judged by
 magnitude through its `unit_term`, so `1 m` and `100 cm` are one member (one
 without a `unit_term` in its unit as written); `==` on `Value` stays
 structural. A
@@ -207,6 +216,72 @@ sent. `Value::Infinity` is the unbounded `*`, ordered above every finite
 magnitude. An `EnumLiteral` of an enumeration that specializes a scalar type
 (`enum def Level :> Integer { high = 3; }`) carries that scalar as `value`,
 `None` otherwise.
+
+## Typed surface
+
+`Connection` wraps every service RPC, and `Model` the ones that read a parsed
+model:
+
+| Call | RPC | Answer |
+|---|---|---|
+| `parse_file`, `parse_content`, `parse_sources(&[SourceDocument], &SourcesOptions)` | `ParseFile`, `ParseSources` | `Model`; `documents()` names each document parsed together |
+| `convert(to_format, &ConvertSource, &ConvertOptions)`, `Model::{to_sysml, to_turtle, to_api_json, save}` | `Convert` | `Conversion`, with `experimental_notice`; `IdForm` spells derived ids; a SysML v1 model is refused — it is migrated, not converted |
+| `migrate(to_format, &MigrateSource, &MigrateOptions)` | `Migrate` | `Migration`: the notation or Turtle a `.mdzip`, `.xmi` or `.uml` model became, its `MigrationReport` (every element mapped, approximated, unmapped or skipped), the image files `write(path)` puts beside the model, and the `experimental_notice` |
+| `query(&Query)`, `query_oslc(text)` | `Query` | `Vec<QueryElement>`; `Query` is built with `scope`, `select`, `filter` and `Constraint` |
+| `run_document_query(id, bindings)`, `render_document(id, DocumentForm)`, `render_view(name)` | `RunDocumentQuery`, `RenderDocument`, `RenderView` | typed query rows, Markdown or HTML, or `RenderedView` with optional layout data |
+| `execute_action`, `execute_state`, `explore_action`, `explore_state`, `explore_analysis` | `ExecuteAction`, `ExecuteState`, `RunAnalysis` | `ActionRun`, `StateRun`, `Exploration` (`Outcome`s, `complete`) |
+| `verify_constraint`, `verify_requirement`, `verify_satisfaction`, `satisfied` | `Verify*` | `Verdict`, `Satisfaction`: `Bound`, `Standing`, `WitnessAssignment`s, `VerificationVerdict`s |
+| `validate_instance`, `calc`, `run_analysis`, `run_sweep(&[SweepRange], &SweepOptions)` | `ValidateInstance`, `EvaluateCalc`, `RunAnalysis`, `RunSweep` | `Validation`, `CalcResult`, `AnalysisResult`, `SweepTable` of `SweepRow`s |
+| `list_engines()` | `ListEngines` | `Vec<EngineInfo>` |
+| `Model::edit()` then `Editor::apply()`, or `apply_edits` | `ApplyEdits` | `EditResult`: `content`, `EditedDocument`s, `AppliedEdit` spans |
+
+`Model::find`, `get`, `lookup` and `contains` name symbols by short or
+qualified name; `lookup` fails with `Error::SymbolNotFound` listing near names.
+`Symbol::type_facts`, `multiplicity`, `specializations` and `facts` read the
+resolved type a symbol declares.
+
+A false verdict is an answer, not an error. A call the service could not answer
+is `Error::Execution` with its `FailureReason`, or `Error::WrongKind` when it
+named an element of another kind; an analysis that failed after establishing
+something is `Error::AnalysisRun`, carrying that partial `AnalysisResult`, and a
+failed sweep row keeps the outputs and verdicts it made. Every result keeps the
+response it was read from behind `wire()`.
+
+`Editor` collects source-preserving edits as `&mut Self` builder calls —
+`set_value`, `rename`, `delete`, `move_to`, `add_member` and the `add_*`
+declarations (objectives, verifications, metadata, documentation, comments,
+satisfy and requirement constraints, transitions, imports, connections,
+allocations, flows, successions, calcs, actions, states, asserts) — and sends
+them in one atomic request. `Body` builds an action body's statements (`first`,
+`then`, `accept`, `send`, `assign`, `if`, `while`, `loop`, `for`) to any depth.
+`in_document` picks the document of a model parsed from several. A refused edit
+is `Error::Edit`, an `EditError` whose `EditFailure` says what was wrong and
+which elements still refer to a deleted one.
+
+```rust
+use opensysml::{loads, MemberOptions, VerifyOptions};
+
+let model = loads("package Demo { part def Car { attribute mass = 1200.0; \
+                   constraint light { mass < 1500.0 } } part car : Car; }")?;
+let verdict = model.verify_constraint(
+    "Demo::Car::light",
+    &VerifyOptions { subject: Some("Demo::car".into()), ..Default::default() },
+)?;
+assert!(verdict.holds);
+
+let mut editor = model.edit();
+editor.add_member("Demo", "part", "spare", MemberOptions::new().typed("Car"));
+let edited = editor.apply()?;
+```
+
+A request value is checked before it is sent: a quantity's unit must be reduced
+and its scale exact, vectors, arrays and tensors must fill their dimensions, a
+function or metaobject must name its element, and nesting is bounded.
+`Value::Unset` and `Value::Undetermined` are answers the service gives, never
+arguments, and are refused as `Error::UnsupportedValue`.
+A value the service holds but cannot send arrives as `Error::UnsupportedValue`
+naming it, never as `Value::Null`; on an instance feature the reason is
+`FeatureValue::error` and the other features stay readable.
 
 ## Conformance runner
 
@@ -242,31 +317,18 @@ The runner accepts:
 * `-v` to print per-scenario timing.
 
 The `-binary` default is `$OPENSYSML_GRPC_BINARY`, then `bin/sysml-grpc`
-relative to the repository root. The two expected v1 boundary skips are
-`v1 API does not cover <RPC>` and
-`unrepresentable by the typed API: ParseFile with no source`. Other skips name
-the missing capability and fail the run unless `-allow-skips` is supplied.
+relative to the repository root. The expected skips are requests the typed API
+refuses to build, reported as `unrepresentable by the typed API: <what>`: a parse
+or document naming no source, an edit of several documents that does not accept
+them, a query in both forms at once, and a malformed value. Other skips name the
+missing capability and fail the run unless `-allow-skips` is supplied.
 
-When a covered RPC answers successfully with a non-empty top-level `error`, the
-typed API exposes `Error::Model(message)` and does not retain the rest of that
-response. The runner therefore compares a partial reconstruction,
-`{"error": message}`. This is intentionally fail-safe: an expectation that
-names another response field alongside the top-level error fails rather than
-passing. Widening this representation requires the client to carry the whole
-response on an in-band error, which is outside the v1 boundary.
+When a call answers successfully with a top-level `error`, the runner compares
+the response the typed error or partial result retains.
 
-## v1 boundary
-
-The current API deliberately does not include generated model-ergonomics types
-beyond its existing domain objects, the edit API, RDF conversion, or
-verification helpers. The conformance runner consequently skips RPCs that the
-typed v1 API does not cover.
-
-`Connection::call` is the escape hatch: it sends one method's request message
-from `opensysml::wire` and decodes the response, without the ergonomic layer,
-so an RPC the typed API does not wrap — `RunAnalysis`, `RunSweep` — can still
-be made. In-band `error` fields are the caller's to read; `Capabilities::has`
-gates response fields such as `case_evaluations` the same way.
+`Connection::call` sends one method's request message from `opensysml::wire`
+and decodes the response without the ergonomic layer, for a field a newer
+service adds before this client wraps it.
 
 ## Release procedure
 

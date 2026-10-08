@@ -1,0 +1,49 @@
+NotationViews::alignmentView - state rendering (view def StateTransitionView)
+
+canvas size 1000×400
+
+state def Notation::Alignment at (0, 0) size 1000×400
+  start at (40, 30) size 15×15
+  state Initializing (initial, do / Initialize) at (20, 100) size 140×70
+  state Aligning (entry / prime, do / align, exit / Settle) at (260, 100) size 200×110
+  state Phasing (entry / Initialize) at (520, 20) size 460×360
+    start at (560, 60) size 15×15
+    state Coarse (initial, do / Align) at (540, 120) size 120×60
+    state Fine (do / Align) at (700, 200) size 120×60
+    state Tracking at (790, 270) size 120×100
+      region Guiding
+        state guide at (810, 295) size 80×30
+      region Focusing
+        state focus at (810, 335) size 80×30
+    choice which at (590, 220) size 20×20
+    junction settle at (592, 290) size 16×16
+    fork spread at (700, 293) size 60×10
+    join collect at (930, 250) size 10×120
+    shallow history resume at (860, 80) size 20×20
+    deep history recall at (920, 80) size 20×20
+  final done at (350, 320) size 20×20
+
+transitions:
+  start of Notation::Alignment -> Initializing via (47, 45) (47, 100)
+  start of Phasing -> Coarse via (567, 75) (567, 120)
+  Initializing -> Aligning: accept Done via (160, 130) (260, 130)
+  Initializing -> recall: accept Recall via (160, 110) (200, 110) (200, 5) (930, 5) (930, 80)
+  Aligning -> done: accept Done [timer > 0] via (360, 210) (360, 320)
+  Aligning -> Initializing: accept Abort / retry via (260, 180) (90, 180) (90, 170)
+  Aligning -> Phasing: accept Phase via (460, 130) (520, 130)
+  Aligning -> resume: accept Resume via (460, 110) (490, 110) (490, 10) (870, 10) (870, 80)
+  Phasing -> Aligning: accept Abort via (520, 180) (460, 180)
+  Coarse -> which: accept Done via (600, 180) (600, 220)
+  guide -> collect via (890, 310) (930, 310)
+  focus -> collect via (890, 350) (930, 350)
+  which -> Fine: [timer > 0] via (610, 230) (700, 230)
+  which -> settle via (600, 240) (600, 290)
+  settle -> spread via (608, 298) (700, 298)
+  spread -> guide via (760, 298) (785, 298) (785, 310) (810, 310)
+  spread -> focus via (760, 298) (780, 298) (780, 350) (810, 350)
+  collect -> Fine via (935, 250) (935, 230) (820, 230)
+  resume -> Coarse via (860, 90) (660, 90) (660, 120)
+  recall -> Fine via (930, 100) (930, 140) (780, 140) (780, 200)
+
+notes:
+  "guide on the current star" on Aligning at (300, 250) size 150×40

@@ -9,7 +9,7 @@
 # This is a per-file ratchet, not a claim that any verdict is right;
 # see docs/project/rdf-corpus-roundtrip.md. Regenerate with:
 #   go test ./tests/corpus -run TestCorpusAPIJSONRoundTrip -update-api-json-roundtrip
-# files: committed 45
+# files: committed 52
 # files: sysml-v2-training 100
 # files: pilot-corpora/kerml-examples 58
 # files: pilot-corpora/sysml-examples 99
@@ -18,10 +18,14 @@ stable	action-executor-demo.sysml
 stable	analysis-demo/lander.sysml
 stable	analysis-results-demo/lander-results.sysml
 stable	combined-behavioral-demo.sysml
+stable	data-import-demo/rover.sysml
 stable	disposal-robot-demo/robot.sysml
 stable	disposal-team-demo/team.sysml
 stable	expressions-demo.sysml
 stable	external-tool-demo/thermal.sysml
+stable	general-views-demo/use-cases.sysml
+stable	general-views-demo/vehicle.sysml
+stable	gridview-relationship-matrix.sysml
 stable	mosa-demo/mosa-demo.sysml
 stable	oosem-demo/oosem-demo.sysml
 stable	orthogonal-regions-demo.sysml
@@ -254,11 +258,14 @@ stable	pseudostates-demo.sysml
 stable	rdf-interop-demo.sysml
 stable	relay-probe-demo/mission.sysml
 stable	repl-behavioral-demo.sysml
+stable	run-timeline/run-timeline.sysml
 stable	runtime-showcase/delta-v-budget.sysml
 stable	runtime-showcase/mass-rollup.sysml
 stable	runtime-showcase/mission-sequence.sysml
 stable	runtime-showcase/reliability.sysml
 stable	runtime-showcase/spacecraft-comms.sysml
+stable	self-check-rules/rover.sysml
+stable	self-check-rules/rules.sysml
 stable	self-model/behavior.sysml
 stable	self-model/document.sysml
 stable	self-model/execution.sysml

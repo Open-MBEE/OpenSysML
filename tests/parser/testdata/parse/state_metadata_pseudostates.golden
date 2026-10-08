@@ -1,0 +1,31 @@
+(RootNamespace
+  (Membership visibility="default"
+    (Package name="StateMetadataPseudostates" library=false standard=false
+      (Import visibility="private" all=false kind=namespace recursive=false imported="StateMachines" filtered=false)
+      (Membership visibility="default"
+        (Definition kind="state" abstract=false variation=false name="Controller"
+          (EntryMember)
+          (SuccessionEdge source="@entry" target="start")
+          (SubstateMember name="start")
+          (SubstateMember name="busy")
+          (SubstateMember name="ready")
+          (Membership visibility="default"
+            (Usage kind="state" name="pick" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (PrefixMetadata type="choice")))
+          (Membership visibility="default"
+            (Usage kind="state" name="j" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (PrefixMetadata type="junction")))
+          (Membership visibility="default"
+            (Usage kind="state" name="h" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (PrefixMetadata type="shallowHistory")))
+          (Membership visibility="default"
+            (Usage kind="state" name="hd" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (PrefixMetadata type="deepHistory")))
+          (Membership visibility="default"
+            (Usage kind="succession" name="" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (ConnectorEnd target="start"
+                (*ast.QualifiedName))
+              (ConnectorEnd target="busy"
+                (*ast.QualifiedName))))
+          (TransitionMember source="busy" target="pick")
+          (TransitionMember source="pick" target="ready"))))))

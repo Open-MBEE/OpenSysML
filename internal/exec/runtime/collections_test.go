@@ -508,6 +508,17 @@ func TestAggregateQuantities(t *testing.T) {
 		t.Errorf("sum of mixed length units = %v, want 1.5 [m]", got)
 	}
 
+	// RealFunctions holds every magnitude as a Real, an Integer one included.
+	for src, want := range map[string]float64{
+		"RealFunctions::sum((1 [m], 2 [m]))":     3,
+		"RealFunctions::product((2 [m], 3 [m]))": 6,
+	} {
+		got, err = evalIn(t, ctx, scope, src)
+		if err != nil || got.Kind != ValQuantity || got.Quantity().Num != (semantics.Value{Kind: semantics.ValReal, Real: want}) {
+			t.Errorf("%s = %s, %v; want a Real magnitude %v", src, FormatValue(got), err, want)
+		}
+	}
+
 	if _, err := evalIn(t, ctx, scope, "sum((1 [m], 2))"); err == nil {
 		t.Error("a bare number mixed with a length aggregated without an error")
 	}

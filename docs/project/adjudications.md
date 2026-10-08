@@ -193,7 +193,7 @@ reasoner; we apply the direct pairwise test as an advisory check.
 **Adjudicated divergence, kept as a warning.** `redefinition-type-mismatch` reports a redefinition
 typed by two unrelated types, because it is almost always a slip, but as a warning, so no model the
 specification admits is rejected. The two `Import3` `noErrors` rows in
-[pilot-xpect.md](pilot-xpect.md#noerrors--265-of-276-agree) closed with that severity; calling them
+[pilot-xpect.md](pilot-xpect.md#noerrors--262-of-276-agree) closed with that severity; calling them
 wording-only would have been false — the pilot emits nothing there. (The same check once caught the
 non-conforming individual redefinition in `Individuals Examples/AnalysisIndividualExample.sysml`,
 fixed upstream at `2026-07`.)
@@ -235,15 +235,18 @@ it, three ends typed by `BinaryInterface` do.
 
 **Pilot limitation** for the fixture that declares the rule universally.
 
-### Two lints report models the specification accepts
+### Three lints report models the specification accepts
 
-`undeclared-signal` reports a `when <name>` or `defer <name>` — both OpenSysML spellings — whose
-name no visible declaration and no `send` in the workspace accounts for, and `port-type-mismatch`
+`undeclared-signal` reports a `when <name>` — an OpenSysML spelling — whose
+name no visible declaration and no `send` in the workspace accounts for, `port-type-mismatch`
 reports a `connect`, interface usage or `flow` joining ports whose definitions are unrelated and
-whose directed features are not conjugate (SysML v2 §7.12.2). Neither is a rule of the
-specification, and the pilot reports neither, so both are **warnings in every mode**: `-strict`
-promotes notation, and neither lint is about notation. Each has a code a surface can switch off
-([diagnostics reference](../reference/diagnostics.md)), and neither fires on a model of the four OMG
+whose directed features are not conjugate (SysML v2 §7.12.2), and `deferred-keeper-unmarked`
+reports an accept of a deferred signal at the root of a `MigrationMetadata::DeferredEvent`
+state's do action that the `MigrationMetadata::DeferredKeeper` marker does not name as the
+keeping loop. None is a rule of the
+specification, and the pilot reports none, so all are **warnings in every mode**: `-strict`
+promotes notation, and no lint is about notation. Each has a code a surface can switch off
+([diagnostics reference](../reference/diagnostics.md)), and none fires on a model of the four OMG
 corpora, the gate every new warning passes.
 
 ---

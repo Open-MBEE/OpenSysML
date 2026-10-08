@@ -1,18 +1,18 @@
 # The Node/TypeScript client API
 
 This page covers what `@openmbee/opensysml` exports, how its two entry points differ, and
-where its v1 surface stops. To choose between the clients, see
+where its surface stops. To choose between the clients, see
 [client libraries](clients.md); for a task-oriented walkthrough, see
-[guide chapter 9](../guide/09-clients.md#from-node-or-a-browser). The client's own
+the [Node client guide](../clients/node.md). The client's own
 notes on packaging and its conformance run are in
 [client/node/README.md](../../client/node/README.md).
 
 ```bash
-npm install @openmbee/opensysml        # once the first release is published
+npm install @openmbee/opensysml
 ```
 
-Nothing is published yet, so a checkout builds it: `npm install && npm run build`
-in `client/node`.
+The package is published on npm. From a checkout, build it with
+`npm install && npm run build` in `client/node`.
 
 ## The two entry points
 
@@ -23,6 +23,8 @@ in `client/node`.
 
 Both re-export the isomorphic core; the browser entry point requires an
 `address`, since there is nothing to fall back to.
+Both also export `connectWasm()` for the combined WebAssembly module; see
+[WebAssembly, without a service](../../client/node/README.md#webassembly-without-a-service).
 
 ## Opening a connection
 
@@ -49,6 +51,8 @@ and `Model` both implement `Symbol.asyncDispose`, so `await using` closes them;
 | `timeoutMs` | deadline applied to every call the connection makes |
 | `headers` | extra headers sent with every call |
 | `onResponse` | called with each response, for logging, metrics or a conformance runner |
+| `version` | the version the service must report, else connecting fails with `StaleServiceError` |
+| `requireCapabilities` | capabilities the service must advertise, else connecting fails |
 
 `$OPENSYSML_SERVICE=host:port` is the environment form of `address`. A connection
 to a service this client did not start is only disconnected from on `close()`,
@@ -77,11 +81,15 @@ tree.byId(id);                               // any object the instantiation pro
 hash pass between processes; an adopted model has no root symbol, so symbols are
 looked up by qualified name, and the service answers `NOT_FOUND` once it has
 evicted the model. `symbol()` searches breadth-first when given a short name and
-raises `SymbolNotFoundError` naming near misses; `symbolById()` is the single call
-for a name the service can resolve directly.
+raises `SymbolNotFoundError` naming near misses for any name the model has not
+got; `symbolById()` is the single call for a name the service can resolve
+directly, reporting a miss with no suggestions.
 
 `ParseOptions` are `language` (`"sysml"` or `"kerml"`, for inline content) and
-`strict`; both are capability-gated, and the client checks before it calls.
+`strictConformance`; both are capability-gated, and the client checks before it
+calls. `strict` remains as a deprecated alias of `strictConformance`; passing
+both with different values is refused. To raise on parse errors, call
+`model.raiseForErrors()` on the returned model.
 
 ## Values are discriminated unions
 
@@ -90,8 +98,9 @@ than a message with optional fields:
 
 ```ts
 switch (value.kind) {
-  case "int":      value.value;                  // bigint, never lossy
+  case "int":      value.value;                  // bigint, never lossy, beyond int64 too
   case "real":     value.value;                  // number
+  case "rational": value.numerator; value.denominator;  // bigint terms: exact; answered only when no double holds it, sent as rationalValue always
   case "complex":  value.value.real; value.value.imaginary;  // one value, not two floats
   case "boolean":
   case "string":   value.value;
@@ -120,7 +129,10 @@ model leaves without a value, the second an answer the model leaves open (read, 
 the third a field the answer did not carry. `SysMLVerdict`
 (`holds` / `fails` / `undecided`) and `FeatureValue` (`single` / `many` / `error`)
 are unions of the same shape; every verdict arm carries a `standing` (`engine`, `strength`,
-`bounds`), empty from a service without the `engines` capability. Integers are `bigint`,
+`bounds`, plus `reported` and `reached` — the bounds the engine stopped at),
+empty from a service without the `engines` capability; `CalcResult`,
+`AnalysisResult`, `Validation` and `SweepTable` read the same fields through
+`engine`, `strength` and `bounds` getters. Integers are `bigint`,
 because the service's `int64` does not fit a `number` and an exact comparison would
 otherwise be a lie. `decodeValue`, `decodeVerdict`, `decodeStanding` and `formatValue` are
 exported for a caller decoding a response it obtained itself.
@@ -133,10 +145,21 @@ knowing its members.
 | error | what happened |
 | --- | --- |
 | `ServiceError` | the service could not be reached, started, or answered nothing usable |
+| `ServiceUnavailableError` | the service was unreachable, refused the stream, or died before answering; in a browser also a fetch that never answered (dead address, CORS refusal, mid-call loss), which arrives as `UNKNOWN` |
 | `ServiceStartError` | a private child failed to start, or died while it was needed |
+| `StaleServiceError` | the running service reports another version than `version` asked for |
 | `ClosedConnectionError` | the connection was closed and cannot be used again |
 | `ParseError` | a file could not be read, or its content did not parse; carries `diagnostics` |
 | `EvaluationError` | the call succeeded and the answer reports a model failure |
+| `ExecutionError` | an execution the service ran failed; carries `diagnostics`; a failed traced `executeState` also carries its partial `trace` and `traceDropped` |
+| `WrongKindError` | a verification or analysis named a symbol of another kind |
+| `AnalysisRunError` | an analysis run failed before it could report |
+| `ConversionError` | the service could not write the notation asked for |
+| `MigrationError` | the service could not read the SysML v1 model, so nothing of it was migrated |
+| `UnsupportedValueError` | the service sent a value this version of the client cannot decode |
+| `QueryError` / `DocumentQueryError` | a `Query` or `runDocumentQuery` failed in-band |
+| `EditError` | an edit was refused; subclasses (`NoEditsError`, `EditTargetError`, `InvalidEditError`, `IllegalMemberKindError`, `RenameReferencedError`, `OverlappingEditsError`, `EditResultError`, `OwnerNotFoundError`, `OwnerNotNamespaceError`, `MemberNameTakenError`, `DeleteReferencedError`, `OwnerInsideTargetError`, `MoveReferencedError`, `ReferencedElsewhereError`) catch one kind of refusal |
+| `TypeMismatchError` / `InstanceTypeError` / `FeatureValueError` | a typed view read a feature of another kind, an instance of another type, or a slot that is an error |
 | `SymbolNotFoundError` | the model declares no such symbol |
 | `MissingCapabilityError` | the service does not advertise a capability the call needs |
 | `DownloadError` | a release binary could not be downloaded or installed |
@@ -204,29 +227,63 @@ TLS for an HTTPS page to reach it; and `connect-go` does not implement the base6
 `grpc-web-text` variant, which this `fetch`-based client does not need but a
 `grpc-web` client requiring `-text` would.
 
-## What v1 does not do
+## The rest of the surface
 
-The ergonomic layer covers `GetServerInfo`, `ParseFile`, `GetSymbol`, `Evaluate`
-and `Instantiate`. Deliberately absent, rather than half-implemented: generated
-model-ergonomics types, the edit API (`ApplyEdits`), RDF conversion (`Convert`),
-the verification helpers, `Query`, `GetDiagnostics`, `EvaluateCalc`, `RunAnalysis`,
-`ExecuteAction` and `ExecuteState`. The service serves all of them;
-`connection.rpc` is the escape hatch, being the generated Connect client, and
-`SysMLService` is exported for a caller building its own. Through that hatch,
-`ApplyEditsResponse.documents` lists every document an edit rewrote by its parse
-name, `applied[].document` names the document each change belongs to, and
-`referrers` names each referrer of a refused delete or rename with its document;
-`content` is filled only for a model of one document, and a model of several is
-edited only for a request setting `acceptDocuments`. `ParseSources`, which makes
-a model of several, is likewise reached through `connection.rpc` only.
+Beside the model reads above, the client covers every RPC the service offers:
+
+- **`connection.parseSources`** parses several documents as one model
+  (`SourceDocument.file`/`inline` per document; `model.documents`, `model.roots`);
+- **`connection.convert`** and Node's **`save(target, path)`** write a model,
+  file or conversion out in `sysml`, `kerml`, `turtle` or `api-json`; a SysML v1
+  model (`xmi`, `uml`, `mdzip`, by `fromFormat` or by extension) is refused with an
+  `InvalidRequestError` naming `migrate`, since it is migrated, not converted;
+- **`connection.migrate`** migrates a SysML v1 model from a `path` or inline
+  `content` bytes to `sysml` or `ttl`, with `fromFormat`, `report`, `results`,
+  `layoutPath`/`layoutContent`, `imageBaseUrl` and `strict` as the command's
+  companion flags; the `Migration` carries the content, a `MigrationReport`
+  (`summary`, `mapped`/`approximated`/`unmapped`/`skipped`, `entries` and `text`
+  when asked, `byVerdict(verdict)`), `results` and the image `files`, which
+  `save(migration, path)` writes beside the notation; a v2 `fromFormat` is refused
+  with a pointer at `convert`;
+- **`model.query`** (OSLC or structured), **`model.runDocumentQuery`** with
+  `ElementRef`/`ObjectRef` bindings, **`model.renderDocument`** to Markdown or
+  HTML, and **`model.renderView`** for typed view data with minimal or full ports;
+- **`model.executeAction`/`executeState`** for runs and
+  **`exploreAction`/`exploreState`/`exploreAnalysis`** for explorations of every
+  schedule — the two families refuse each other's `schedule`, as the wire does.
+  `model.executeState(symbolId, { trace: true })` requests typed `DocumentEvent`
+  records in `trace` and reports discarded records in `traceDropped`; it requires
+  `state_trace` and cannot be combined with an explore schedule;
+- **`model.verifyConstraint`/`verifyRequirement`/`verifySatisfaction`/`satisfied`,
+  `validateInstance`, `calc`, `runAnalysis`, `runSweep`** (ranges as
+  `parameter → [from, to]` or `[from, to, step]`), all taking `engine`,
+  `subject`, `question`, arguments or `namedArguments` as the call allows, and
+  **`connection.listEngines`** names what the service answers with;
+- **`model.edit()`** builds an `Editor`/`Body` batch of source-preserving edits,
+  applied atomically by `apply()`, with per-operation capability gating and the
+  typed `EditError` family for refusals; `connection.applyEdits(modelHash, ops)`
+  is the wire form, taking `EditOperation` messages. A model of several
+  documents is edited in one batch — the result's `documents` lists every
+  document the batch rewrote by parse name and `applied[].document` names where
+  each change landed — and `acceptDocuments`/`document` options on
+  `applyEdits` map the request fields directly;
+- **`opensysml-generate`** (the `bin` of the package) writes a module of typed
+  views over a model's definitions, stamped with a hash of the source; a class
+  `extends` its first base and re-declares the other bases' features as
+  getters, `fromInstance` accepts subtypes, and `--check` fails on drift.
+
+`connection.rpc` remains the escape hatch — the generated Connect client — and
+`SysMLService` is exported for a caller building its own.
 
 ## Conformance
 
 `npm run conformance -- --allow-skips --report report.json` runs the
 language-neutral suite through the public API, and emits the report shape
-`tools/cmd/conformance` emits. 59 scenarios per protocol over `grpc`, `connect` and
-`connect-json`: 23 pass and 36 are skipped, being the 35 scenarios of the RPCs
-above plus one the public API cannot express (a `ParseFile` naming no source).
+`tools/cmd/conformance` emits. 158 scenarios per protocol over `grpc`, `connect` and
+`connect-json`: 155 pass and 3 are skipped, being the requests the public API
+refuses eagerly (a `ParseFile` naming no source, a `ParseSources` naming no
+document or two alike); a refusal the client makes in the service's own words and
+status (a v1 model offered to `convert`, a v2 one to `migrate`) runs as that status.
 `--mutate <name>` corrupts a response on its way through the client and each
 mutation must make a scenario fail, which is what keeps the run from being
 vacuous.

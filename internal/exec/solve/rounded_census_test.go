@@ -15,7 +15,6 @@ package solve
 
 import (
 	"context"
-	"math/big"
 	"os"
 	"path/filepath"
 	"sort"
@@ -275,26 +274,15 @@ func exactQuery(q *Query) bool {
 }
 
 // exactCensusTerm mirrors roundedTerm, but proves exactness instead of assuming
-// rounding: a rounding-capable node is exact only when it is constant and every
-// intermediate value is exactly representable in float64.
+// rounding: Integer and Rational arithmetic is exact in the evaluator, and
+// arithmetic a Real variable takes part in is exact only when every value it
+// computes is a float64, which no free variable makes provable.
 func exactCensusTerm(t *Term) bool {
 	switch t.Op {
-	case OpReal:
-		if _, exact := t.Real.Float64(); !exact {
+	case OpAdd, OpSub, OpMul, OpDiv:
+		if t.Sort.Kind == SortReal && readsReal(t) {
 			return false
 		}
-	case OpAdd, OpSub, OpMul, OpDiv, OpNeg:
-		if t.Sort.Kind == SortReal {
-			if _, ok := exactFold(t); !ok {
-				return false
-			}
-			return true
-		}
-	case OpToReal:
-		if _, ok := exactFold(t); !ok {
-			return false
-		}
-		return true
 	}
 	for _, arg := range t.Args {
 		if !exactCensusTerm(arg) {
@@ -304,65 +292,20 @@ func exactCensusTerm(t *Term) bool {
 	return true
 }
 
-// exactFold folds a constant term exactly, reporting ok only when the evaluator
-// computing it in float64 provably yields the same value: every intermediate a
-// float64 rounds is exactly representable.
-func exactFold(t *Term) (*big.Rat, bool) {
+// readsReal reports whether arithmetic reaches a variable declared Real, whose
+// values the evaluator holds in binary64.
+func readsReal(t *Term) bool {
 	switch t.Op {
-	case OpInt:
-		return new(big.Rat).SetInt64(t.Int), true
-	case OpReal:
-		if _, exact := t.Real.Float64(); !exact {
-			return nil, false
-		}
-		return t.Real, true
-	case OpToReal:
-		v, ok := exactFold(t.Args[0])
-		if !ok {
-			return nil, false
-		}
-		// float64(int64) is exact only within ±2^53.
-		if _, exact := v.Float64(); !exact {
-			return nil, false
-		}
-		return v, true
-	case OpNeg:
-		v, ok := exactFold(t.Args[0])
-		if !ok {
-			return nil, false
-		}
-		return new(big.Rat).Neg(v), true
-	case OpAdd, OpSub, OpMul, OpDiv:
-		left, ok := exactFold(t.Args[0])
-		if !ok {
-			return nil, false
-		}
-		right, ok := exactFold(t.Args[1])
-		if !ok {
-			return nil, false
-		}
-		var v *big.Rat
-		switch t.Op {
-		case OpAdd:
-			v = new(big.Rat).Add(left, right)
-		case OpSub:
-			v = new(big.Rat).Sub(left, right)
-		case OpMul:
-			v = new(big.Rat).Mul(left, right)
-		case OpDiv:
-			if right.Sign() == 0 {
-				return nil, false
-			}
-			v = new(big.Rat).Quo(left, right)
-		}
-		if t.Sort.Kind == SortReal {
-			if _, exact := v.Float64(); !exact {
-				return nil, false
+	case OpVar:
+		return t.Var.Binary64
+	case OpAdd, OpSub, OpMul, OpDiv, OpNeg, OpIte:
+		for _, arg := range t.Args {
+			if readsReal(arg) {
+				return true
 			}
 		}
-		return v, true
 	}
-	return nil, false
+	return false
 }
 
 // queryTriggers names what trips the Rounded marker in a query, deduplicated.
@@ -385,51 +328,22 @@ func queryTriggers(q *Query) []string {
 	return out
 }
 
-// termTriggers classifies each node that trips roundedTerm: what rounds, and
-// whether the node is constant (recoverable when exact) or over free values.
+// termTriggers classifies each node that trips roundedTerm: binary64
+// arithmetic, over free values since a Real variable takes part.
 func termTriggers(t *Term, add func(string)) {
 	switch t.Op {
-	case OpReal:
-		if _, exact := t.Real.Float64(); !exact {
-			add("inexact real literal")
-		}
-	case OpAdd, OpSub, OpMul, OpDiv, OpNeg:
-		if t.Sort.Kind == SortReal {
-			if _, ok := exactFold(t); ok {
-				add("constant real arithmetic (exact)")
-			} else if constantTerm(t) {
-				add("constant real arithmetic (inexact)")
-			} else if t.Op == OpDiv {
+	case OpAdd, OpSub, OpMul, OpDiv:
+		if t.Sort.Kind == SortReal && readsReal(t) {
+			if t.Op == OpDiv {
 				add("division over free values")
 			} else {
 				add("real arithmetic over free values")
 			}
 		}
-	case OpToReal:
-		if _, ok := exactFold(t); ok {
-			add("integer widening (constant, exact)")
-		} else if constantTerm(t) {
-			add("integer widening (constant, beyond 2^53)")
-		} else {
-			add("integer widening over free values")
-		}
 	}
 	for _, arg := range t.Args {
 		termTriggers(arg, add)
 	}
-}
-
-// constantTerm reports whether no variable takes part in the term.
-func constantTerm(t *Term) bool {
-	if t.Op == OpVar {
-		return false
-	}
-	for _, arg := range t.Args {
-		if !constantTerm(arg) {
-			return false
-		}
-	}
-	return true
 }
 
 // report logs the census: per-corpus counts, then every marked query with what

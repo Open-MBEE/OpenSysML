@@ -1,21 +1,56 @@
 ---
 config:
-  flowchart:
-    subGraphTitleMargin:
-      bottom: 24
+  fontFamily: "Helvetica, Arial, sans-serif"
+  theme: base
+  themeCSS: ".edgeLabel rect { opacity: 1 !important; } .cluster-label .nodeLabel { text-align: center; }"
+  themeVariables:
+    fontFamily: "Helvetica, Arial, sans-serif"
+    fontSize: "14px"
+    primaryColor: "#FFFFFF"
+    secondaryColor: "#FFFFFF"
+    tertiaryColor: "#FFFFFF"
+    background: "#FFFFFF"
+    primaryBorderColor: "#181818"
+    primaryTextColor: "#000000"
+    lineColor: "#181818"
+    textColor: "#000000"
+    noteBkgColor: "#FEFFDD"
+    noteBorderColor: "#181818"
+    noteTextColor: "#000000"
+    clusterBkg: "#FFFFFF"
+    clusterBorder: "#181818"
+    edgeLabelBackground: "#FFFFFF"
 ---
 %% PlantViews::placedView — interconnection rendering (render asInterconnectionDiagram)
-%% not represented: 1 styled node(s) and 1 styled edge(s); a node's font and an edge's Style are not drawn; the dot form draws every Style
-%% not represented: 4 note(s); the dot form draws notes
 %% canvas: unit=px w=1200 h=800
 %% layout: n1 x=300 y=40 collapsed
 %% layout: n2 x=500 y=40 w=120 h=60
 %% route: n1->n2 400,70 450,120 500,70
 flowchart LR
-  subgraph n0 ["Loop<br>«part def»"]
+  subgraph n0 ["`*«part def»* **Loop**`"]
     direction LR
-    n1["pump : Pump<br>«part»"]
-    n2["tank : Tank<br>«part»"]
+    subgraph n1 ["`*«part»* **pump : Pump**`"]
+      direction LR
+      n1_anchor[" "]
+      n1.0["outlet"]
+      note0@{ shape: notch-rect, label: "always" }
+      note2@{ shape: notch-rect, label: "check pressure" }
+    end
+    subgraph n2 ["`*«part»* **tank : Tank**`"]
+      direction LR
+      n2_anchor[" "]
+      n2.0["inlet"]
+      note1@{ shape: notch-rect, label: "anchored" }
+    end
   end
-  n1 ---|"supply"| n2
-  style n1 fill:#FFE8BD,stroke:#333333
+  note3@{ shape: notch-rect, label: "free" }
+  n1.0 ===|"supply"| n2.0
+  note0 -.- n1_anchor
+  note1 -.- n2_anchor
+  note2 -.- n1_anchor
+  style n1 fill:#FFE8BD,stroke:#333333,font-family:Arial,font-size:11px,font-weight:bold
+  classDef anchor fill:none,stroke:none
+  class n1_anchor,n2_anchor anchor
+  classDef note fill:#FEFFDD,stroke:#181818
+  class note0,note1,note2,note3 note
+  linkStyle 0 stroke:#0000FF,stroke-width:3px

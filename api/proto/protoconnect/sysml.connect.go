@@ -59,6 +59,8 @@ const (
 	SysMLServiceExecuteStateProcedure = "/sysml.SysMLService/ExecuteState"
 	// SysMLServiceConvertProcedure is the fully-qualified name of the SysMLService's Convert RPC.
 	SysMLServiceConvertProcedure = "/sysml.SysMLService/Convert"
+	// SysMLServiceMigrateProcedure is the fully-qualified name of the SysMLService's Migrate RPC.
+	SysMLServiceMigrateProcedure = "/sysml.SysMLService/Migrate"
 	// SysMLServiceApplyEditsProcedure is the fully-qualified name of the SysMLService's ApplyEdits RPC.
 	SysMLServiceApplyEditsProcedure = "/sysml.SysMLService/ApplyEdits"
 	// SysMLServiceVerifyConstraintProcedure is the fully-qualified name of the SysMLService's
@@ -92,6 +94,11 @@ const (
 	// SysMLServiceRenderDocumentProcedure is the fully-qualified name of the SysMLService's
 	// RenderDocument RPC.
 	SysMLServiceRenderDocumentProcedure = "/sysml.SysMLService/RenderDocument"
+	// SysMLServiceRenderViewProcedure is the fully-qualified name of the SysMLService's RenderView RPC.
+	SysMLServiceRenderViewProcedure = "/sysml.SysMLService/RenderView"
+	// SysMLServiceExportGraphsProcedure is the fully-qualified name of the SysMLService's ExportGraphs
+	// RPC.
+	SysMLServiceExportGraphsProcedure = "/sysml.SysMLService/ExportGraphs"
 )
 
 // SysMLServiceClient is a client for the sysml.SysMLService service.
@@ -117,8 +124,16 @@ type SysMLServiceClient interface {
 	ExecuteState(context.Context, *connect.Request[proto.ExecuteStateRequest]) (*connect.Response[proto.ExecuteStateResponse], error)
 	// Convert a model between the representations OpenSysML writes — SysML
 	// textual notation and RDF Turtle — so a client can write a model back out
-	// rather than only read it. Reported as the "convert" capability.
+	// rather than only read it. A SysML v1 model is refused: it is migrated, not
+	// converted (Migrate). Reported as the "convert" capability.
 	Convert(context.Context, *connect.Request[proto.ConvertRequest]) (*connect.Response[proto.ConvertResponse], error)
+	// Migrate a SysML v1 model — UML XMI with the SysML profile applied, an
+	// Eclipse UML2 .uml file or a Cameo/MagicDraw .mdzip archive — to SysML v2,
+	// written in one of the representations Convert writes. Migration is not a
+	// lossless conversion: every v1 element is mapped, approximated or left
+	// unmapped, and the response's report says which, element by element.
+	// Reported as the "migrate" capability.
+	Migrate(context.Context, *connect.Request[proto.MigrateRequest]) (*connect.Response[proto.MigrateResponse], error)
 	// Apply edits to a parsed model's own source and return the edited notation,
 	// so a client can change a model and write it back with its comments and
 	// layout intact. Edits are byte ranges the service locates from the parsed
@@ -167,6 +182,13 @@ type SysMLServiceClient interface {
 	// Render a named document to Markdown, as the CLI's -render-document does.
 	// Reported as the "render_document" capability.
 	RenderDocument(context.Context, *connect.Request[proto.RenderDocumentRequest]) (*connect.Response[proto.RenderDocumentResponse], error)
+	// Render a named view or targeted pseudo-view as machine-readable diagram
+	// data. Reported as the "render_view" capability.
+	RenderView(context.Context, *connect.Request[proto.RenderViewRequest]) (*connect.Response[proto.RenderViewResponse], error)
+	// Export the lowered graph of an action or a state machine — the subject's
+	// and every behavior it performs — as the canonical `graphs:<version>` JSON
+	// external analysis engines read. Reported as the "export_graphs" capability.
+	ExportGraphs(context.Context, *connect.Request[proto.ExportGraphsRequest]) (*connect.Response[proto.ExportGraphsResponse], error)
 }
 
 // NewSysMLServiceClient constructs a client for the sysml.SysMLService service. By default, it uses
@@ -238,6 +260,12 @@ func NewSysMLServiceClient(httpClient connect.HTTPClient, baseURL string, opts .
 			httpClient,
 			baseURL+SysMLServiceConvertProcedure,
 			connect.WithSchema(sysMLServiceMethods.ByName("Convert")),
+			connect.WithClientOptions(opts...),
+		),
+		migrate: connect.NewClient[proto.MigrateRequest, proto.MigrateResponse](
+			httpClient,
+			baseURL+SysMLServiceMigrateProcedure,
+			connect.WithSchema(sysMLServiceMethods.ByName("Migrate")),
 			connect.WithClientOptions(opts...),
 		),
 		applyEdits: connect.NewClient[proto.ApplyEditsRequest, proto.ApplyEditsResponse](
@@ -312,6 +340,18 @@ func NewSysMLServiceClient(httpClient connect.HTTPClient, baseURL string, opts .
 			connect.WithSchema(sysMLServiceMethods.ByName("RenderDocument")),
 			connect.WithClientOptions(opts...),
 		),
+		renderView: connect.NewClient[proto.RenderViewRequest, proto.RenderViewResponse](
+			httpClient,
+			baseURL+SysMLServiceRenderViewProcedure,
+			connect.WithSchema(sysMLServiceMethods.ByName("RenderView")),
+			connect.WithClientOptions(opts...),
+		),
+		exportGraphs: connect.NewClient[proto.ExportGraphsRequest, proto.ExportGraphsResponse](
+			httpClient,
+			baseURL+SysMLServiceExportGraphsProcedure,
+			connect.WithSchema(sysMLServiceMethods.ByName("ExportGraphs")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
@@ -327,6 +367,7 @@ type sysMLServiceClient struct {
 	executeAction      *connect.Client[proto.ExecuteActionRequest, proto.ExecuteActionResponse]
 	executeState       *connect.Client[proto.ExecuteStateRequest, proto.ExecuteStateResponse]
 	convert            *connect.Client[proto.ConvertRequest, proto.ConvertResponse]
+	migrate            *connect.Client[proto.MigrateRequest, proto.MigrateResponse]
 	applyEdits         *connect.Client[proto.ApplyEditsRequest, proto.ApplyEditsResponse]
 	verifyConstraint   *connect.Client[proto.VerifyConstraintRequest, proto.VerifyConstraintResponse]
 	verifyRequirement  *connect.Client[proto.VerifyRequirementRequest, proto.VerifyRequirementResponse]
@@ -339,6 +380,8 @@ type sysMLServiceClient struct {
 	query              *connect.Client[proto.QueryRequest, proto.QueryResponse]
 	runDocumentQuery   *connect.Client[proto.RunDocumentQueryRequest, proto.RunDocumentQueryResponse]
 	renderDocument     *connect.Client[proto.RenderDocumentRequest, proto.RenderDocumentResponse]
+	renderView         *connect.Client[proto.RenderViewRequest, proto.RenderViewResponse]
+	exportGraphs       *connect.Client[proto.ExportGraphsRequest, proto.ExportGraphsResponse]
 }
 
 // GetServerInfo calls sysml.SysMLService.GetServerInfo.
@@ -389,6 +432,11 @@ func (c *sysMLServiceClient) ExecuteState(ctx context.Context, req *connect.Requ
 // Convert calls sysml.SysMLService.Convert.
 func (c *sysMLServiceClient) Convert(ctx context.Context, req *connect.Request[proto.ConvertRequest]) (*connect.Response[proto.ConvertResponse], error) {
 	return c.convert.CallUnary(ctx, req)
+}
+
+// Migrate calls sysml.SysMLService.Migrate.
+func (c *sysMLServiceClient) Migrate(ctx context.Context, req *connect.Request[proto.MigrateRequest]) (*connect.Response[proto.MigrateResponse], error) {
+	return c.migrate.CallUnary(ctx, req)
 }
 
 // ApplyEdits calls sysml.SysMLService.ApplyEdits.
@@ -451,6 +499,16 @@ func (c *sysMLServiceClient) RenderDocument(ctx context.Context, req *connect.Re
 	return c.renderDocument.CallUnary(ctx, req)
 }
 
+// RenderView calls sysml.SysMLService.RenderView.
+func (c *sysMLServiceClient) RenderView(ctx context.Context, req *connect.Request[proto.RenderViewRequest]) (*connect.Response[proto.RenderViewResponse], error) {
+	return c.renderView.CallUnary(ctx, req)
+}
+
+// ExportGraphs calls sysml.SysMLService.ExportGraphs.
+func (c *sysMLServiceClient) ExportGraphs(ctx context.Context, req *connect.Request[proto.ExportGraphsRequest]) (*connect.Response[proto.ExportGraphsResponse], error) {
+	return c.exportGraphs.CallUnary(ctx, req)
+}
+
 // SysMLServiceHandler is an implementation of the sysml.SysMLService service.
 type SysMLServiceHandler interface {
 	// Report what this build of the service can do, so a client can require a
@@ -474,8 +532,16 @@ type SysMLServiceHandler interface {
 	ExecuteState(context.Context, *connect.Request[proto.ExecuteStateRequest]) (*connect.Response[proto.ExecuteStateResponse], error)
 	// Convert a model between the representations OpenSysML writes — SysML
 	// textual notation and RDF Turtle — so a client can write a model back out
-	// rather than only read it. Reported as the "convert" capability.
+	// rather than only read it. A SysML v1 model is refused: it is migrated, not
+	// converted (Migrate). Reported as the "convert" capability.
 	Convert(context.Context, *connect.Request[proto.ConvertRequest]) (*connect.Response[proto.ConvertResponse], error)
+	// Migrate a SysML v1 model — UML XMI with the SysML profile applied, an
+	// Eclipse UML2 .uml file or a Cameo/MagicDraw .mdzip archive — to SysML v2,
+	// written in one of the representations Convert writes. Migration is not a
+	// lossless conversion: every v1 element is mapped, approximated or left
+	// unmapped, and the response's report says which, element by element.
+	// Reported as the "migrate" capability.
+	Migrate(context.Context, *connect.Request[proto.MigrateRequest]) (*connect.Response[proto.MigrateResponse], error)
 	// Apply edits to a parsed model's own source and return the edited notation,
 	// so a client can change a model and write it back with its comments and
 	// layout intact. Edits are byte ranges the service locates from the parsed
@@ -524,6 +590,13 @@ type SysMLServiceHandler interface {
 	// Render a named document to Markdown, as the CLI's -render-document does.
 	// Reported as the "render_document" capability.
 	RenderDocument(context.Context, *connect.Request[proto.RenderDocumentRequest]) (*connect.Response[proto.RenderDocumentResponse], error)
+	// Render a named view or targeted pseudo-view as machine-readable diagram
+	// data. Reported as the "render_view" capability.
+	RenderView(context.Context, *connect.Request[proto.RenderViewRequest]) (*connect.Response[proto.RenderViewResponse], error)
+	// Export the lowered graph of an action or a state machine — the subject's
+	// and every behavior it performs — as the canonical `graphs:<version>` JSON
+	// external analysis engines read. Reported as the "export_graphs" capability.
+	ExportGraphs(context.Context, *connect.Request[proto.ExportGraphsRequest]) (*connect.Response[proto.ExportGraphsResponse], error)
 }
 
 // NewSysMLServiceHandler builds an HTTP handler from the service implementation. It returns the
@@ -591,6 +664,12 @@ func NewSysMLServiceHandler(svc SysMLServiceHandler, opts ...connect.HandlerOpti
 		SysMLServiceConvertProcedure,
 		svc.Convert,
 		connect.WithSchema(sysMLServiceMethods.ByName("Convert")),
+		connect.WithHandlerOptions(opts...),
+	)
+	sysMLServiceMigrateHandler := connect.NewUnaryHandler(
+		SysMLServiceMigrateProcedure,
+		svc.Migrate,
+		connect.WithSchema(sysMLServiceMethods.ByName("Migrate")),
 		connect.WithHandlerOptions(opts...),
 	)
 	sysMLServiceApplyEditsHandler := connect.NewUnaryHandler(
@@ -665,6 +744,18 @@ func NewSysMLServiceHandler(svc SysMLServiceHandler, opts ...connect.HandlerOpti
 		connect.WithSchema(sysMLServiceMethods.ByName("RenderDocument")),
 		connect.WithHandlerOptions(opts...),
 	)
+	sysMLServiceRenderViewHandler := connect.NewUnaryHandler(
+		SysMLServiceRenderViewProcedure,
+		svc.RenderView,
+		connect.WithSchema(sysMLServiceMethods.ByName("RenderView")),
+		connect.WithHandlerOptions(opts...),
+	)
+	sysMLServiceExportGraphsHandler := connect.NewUnaryHandler(
+		SysMLServiceExportGraphsProcedure,
+		svc.ExportGraphs,
+		connect.WithSchema(sysMLServiceMethods.ByName("ExportGraphs")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/sysml.SysMLService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case SysMLServiceGetServerInfoProcedure:
@@ -687,6 +778,8 @@ func NewSysMLServiceHandler(svc SysMLServiceHandler, opts ...connect.HandlerOpti
 			sysMLServiceExecuteStateHandler.ServeHTTP(w, r)
 		case SysMLServiceConvertProcedure:
 			sysMLServiceConvertHandler.ServeHTTP(w, r)
+		case SysMLServiceMigrateProcedure:
+			sysMLServiceMigrateHandler.ServeHTTP(w, r)
 		case SysMLServiceApplyEditsProcedure:
 			sysMLServiceApplyEditsHandler.ServeHTTP(w, r)
 		case SysMLServiceVerifyConstraintProcedure:
@@ -711,6 +804,10 @@ func NewSysMLServiceHandler(svc SysMLServiceHandler, opts ...connect.HandlerOpti
 			sysMLServiceRunDocumentQueryHandler.ServeHTTP(w, r)
 		case SysMLServiceRenderDocumentProcedure:
 			sysMLServiceRenderDocumentHandler.ServeHTTP(w, r)
+		case SysMLServiceRenderViewProcedure:
+			sysMLServiceRenderViewHandler.ServeHTTP(w, r)
+		case SysMLServiceExportGraphsProcedure:
+			sysMLServiceExportGraphsHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -760,6 +857,10 @@ func (UnimplementedSysMLServiceHandler) Convert(context.Context, *connect.Reques
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("sysml.SysMLService.Convert is not implemented"))
 }
 
+func (UnimplementedSysMLServiceHandler) Migrate(context.Context, *connect.Request[proto.MigrateRequest]) (*connect.Response[proto.MigrateResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("sysml.SysMLService.Migrate is not implemented"))
+}
+
 func (UnimplementedSysMLServiceHandler) ApplyEdits(context.Context, *connect.Request[proto.ApplyEditsRequest]) (*connect.Response[proto.ApplyEditsResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("sysml.SysMLService.ApplyEdits is not implemented"))
 }
@@ -806,4 +907,12 @@ func (UnimplementedSysMLServiceHandler) RunDocumentQuery(context.Context, *conne
 
 func (UnimplementedSysMLServiceHandler) RenderDocument(context.Context, *connect.Request[proto.RenderDocumentRequest]) (*connect.Response[proto.RenderDocumentResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("sysml.SysMLService.RenderDocument is not implemented"))
+}
+
+func (UnimplementedSysMLServiceHandler) RenderView(context.Context, *connect.Request[proto.RenderViewRequest]) (*connect.Response[proto.RenderViewResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("sysml.SysMLService.RenderView is not implemented"))
+}
+
+func (UnimplementedSysMLServiceHandler) ExportGraphs(context.Context, *connect.Request[proto.ExportGraphsRequest]) (*connect.Response[proto.ExportGraphsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("sysml.SysMLService.ExportGraphs is not implemented"))
 }

@@ -314,14 +314,6 @@ func (r *Resolver) resolveBehaviorDecl(scope *symbols.Scope, decl ast.Node) bool
 	case *ast.ExitMember:
 		r.walkMembers(scope, d.Actions)
 		return true
-	case *ast.DeferMember:
-		// A deferred event is a trigger like a transition's, so it resolves the
-		// same way: typed payloads resolve, while bare signal names are left to
-		// lowering.
-		for _, trigger := range d.Triggers {
-			r.resolveTrigger(scope, trigger)
-		}
-		return true
 	case *ast.StateNode:
 		// The state's own name is a declaration, not a reference. Its body
 		// resolves in the scope the state owns, which holds its substates and
@@ -463,8 +455,8 @@ func isImplicitCalcResult(scope *symbols.Scope, node ast.Node) bool {
 
 // resolveTrigger resolves the references a transition trigger carries.
 //
-// Bare names in the OpenSysML transition spelling `when` and in `defer` are
-// injected signals, so they remain unresolved here.
+// Bare names in the OpenSysML transition spelling `when` are injected
+// signals, so they remain unresolved here.
 // A bare name after `accept` is a typed payload usage and resolves normally.
 func (r *Resolver) resolveTrigger(scope *symbols.Scope, trigger ast.Node) {
 	switch t := trigger.(type) {
@@ -1604,7 +1596,7 @@ func (r *Resolver) resolveConstructor(scope *symbols.Scope, v *ast.ConstructorEx
 		case len(na.Name.Parts) > 1:
 			r.ResolveQualified(scope, na.Name)
 		case typ != nil:
-			r.resolveMemberChain(typ, na.Name, nil)
+			r.resolveMemberChain(scope, typ, na.Name, nil)
 		}
 		r.resolveExpr(scope, na.Value)
 	}
@@ -1704,7 +1696,7 @@ func (r *Resolver) chainFrom(scope *symbols.Scope, fc *ast.FeatureChainExpr, ope
 	// The outward reading is probed, so that a chain the walk below reads instead
 	// keeps its own diagnostics and per-segment symbols (see probe).
 	if len(fc.Member.Parts) > 1 {
-		if _, ok := r.chainMember(operandSym, fc.Member.Parts[0].Text, fc); !ok {
+		if _, ok := r.chainMember(scope, operandSym, fc.Member.Parts[0].Text, fc); !ok {
 			var outwardSym *symbols.Symbol
 			outward := r.probe(fc.Member, func() bool {
 				var ok bool
@@ -1717,7 +1709,7 @@ func (r *Resolver) chainFrom(scope *symbols.Scope, fc *ast.FeatureChainExpr, ope
 		}
 	}
 
-	memberSym := r.resolveMemberChain(operandSym, fc.Member, fc)
+	memberSym := r.resolveMemberChain(scope, operandSym, fc.Member, fc)
 	return resolution{sym: memberSym, ok: memberSym != nil}
 }
 
@@ -1737,8 +1729,11 @@ func (r *Resolver) chainedFrom(scope *symbols.Scope, operand *symbols.Symbol) *s
 
 // chainMember looks a chain segment up as a member of sym itself — flattened over
 // its generalizations when a model is attached — else of its type or its value.
-func (r *Resolver) chainMember(sym *symbols.Symbol, name string, chain ast.Node) (*symbols.Symbol, bool) {
-	return r.chainMemberOf(sym, name, chain, nil)
+func (r *Resolver) chainMember(scope *symbols.Scope, sym *symbols.Symbol, name string, chain ast.Node) (*symbols.Symbol, bool) {
+	if found, ok := r.chainMemberOf(sym, name, chain, nil); ok {
+		return found, true
+	}
+	return r.featuredMember(scope, sym, name, chain)
 }
 
 func (r *Resolver) chainMemberOf(sym *symbols.Symbol, name string, chain ast.Node, seen map[*symbols.Symbol]bool) (*symbols.Symbol, bool) {
@@ -1782,12 +1777,12 @@ func namedByChain(sym *symbols.Symbol, chain ast.Node) bool {
 
 // resolveMemberChain walks a qualified name member-by-member in the given scope,
 // assigning each part's symbol explicitly (for feature chain member access).
-func (r *Resolver) resolveMemberChain(parentSym *symbols.Symbol, qn *ast.QualifiedName, chain ast.Node) *symbols.Symbol {
+func (r *Resolver) resolveMemberChain(scope *symbols.Scope, parentSym *symbols.Symbol, qn *ast.QualifiedName, chain ast.Node) *symbols.Symbol {
 	if qn == nil || len(qn.Parts) == 0 {
 		return nil
 	}
 	r.Enter()
-	cur, ok := r.walkMemberChain(parentSym, qn, chain)
+	cur, ok := r.walkMemberChain(scope, parentSym, qn, chain)
 	if r.Leave() && ok {
 		r.memoize(qn, resolution{cur, true})
 	}
@@ -1796,11 +1791,11 @@ func (r *Resolver) resolveMemberChain(parentSym *symbols.Symbol, qn *ast.Qualifi
 
 // walkMemberChain reads the members qn names, one per part, from parentSym,
 // reporting the first part that names none.
-func (r *Resolver) walkMemberChain(parentSym *symbols.Symbol, qn *ast.QualifiedName, chain ast.Node) (*symbols.Symbol, bool) {
+func (r *Resolver) walkMemberChain(scope *symbols.Scope, parentSym *symbols.Symbol, qn *ast.QualifiedName, chain ast.Node) (*symbols.Symbol, bool) {
 	// Resolve first part using model.LookupMember if available, else
 	// scope.LookupLocal. A chained feature names a member of what precedes it,
 	// so it reaches only the visible ones (KerML 8.2.3.5).
-	cur, ok := r.chainMember(parentSym, qn.Parts[0].Text, chain)
+	cur, ok := r.chainMember(scope, parentSym, qn.Parts[0].Text, chain)
 
 	if !ok {
 		msg := "unresolved member: " + qn.Parts[0].Text
@@ -1814,7 +1809,7 @@ func (r *Resolver) walkMemberChain(parentSym *symbols.Symbol, qn *ast.QualifiedN
 
 	// Walk remaining parts via member lookup
 	for i := 1; i < len(qn.Parts); i++ {
-		next, found := r.chainMember(cur, qn.Parts[i].Text, chain)
+		next, found := r.chainMember(scope, cur, qn.Parts[i].Text, chain)
 		if !found && r.memberless(cur) {
 			r.Diagnostics = append(r.Diagnostics, Diagnostic{
 				Span:    qn.Parts[i].Span,
@@ -1941,29 +1936,88 @@ func (r *Resolver) getUsageType(scope *symbols.Scope, usage *ast.Usage) *symbols
 			}
 		}
 	}
-	// A feature with no declared type takes the type of the value bound to it
-	// (KerML 1.0 §7.4.9 FeatureValue), so its members are the value's members.
 	return r.valueType(scope, usage)
 }
 
-// valueType returns the feature a usage's value expression names, for the member
-// lookups a chain through the usage makes. Only the forms that denote a feature
-// are followed; anything else has no members to reach.
+// valueType returns the feature whose members a chain through an untyped usage reads: with no
+// declared specialization, direction or `default`, the usage specializes its value's result (KerML
+// 1.0 §8.3.3.3.4 checkFeatureValuationSpecialization; a behavior's `T(…)` and `new T(…)` instance T).
 func (r *Resolver) valueType(scope *symbols.Scope, usage *ast.Usage) *symbols.Symbol {
-	if usage.Value == nil || r.valuesInProgress[usage] {
+	if usage.Value == nil || usage.ValueIsDefault || usage.Direction != ast.DirNone || r.valuesInProgress[usage] {
 		return nil
+	}
+	for _, rel := range usage.Relationships {
+		if rel != nil && specializationKind(rel.Kind) {
+			return nil
+		}
 	}
 	r.valuesInProgress[usage] = true
 	defer delete(r.valuesInProgress, usage)
 
-	expr := usage.Value
 	var sym *symbols.Symbol
 	// The value is read on behalf of a member lookup, so its own diagnostics
 	// belong to the reference that wrote it, not to this one.
 	r.aside(func() {
-		if found, ok := r.ResolveTarget(scope, expr); ok {
-			sym = found
+		switch v := usage.Value.(type) {
+		case *ast.InvocationExpr:
+			sym = r.invocationResult(scope, v)
+		case *ast.ConstructorExpr:
+			if v.Type != nil {
+				sym, _ = r.ResolveQualified(scope, v.Type)
+			}
+		default:
+			if found, ok := r.ResolveTarget(scope, usage.Value); ok {
+				sym = found
+			}
 		}
 	})
 	return sym
+}
+
+// invocationResult returns the feature the result of a call specializes: the result
+// parameter of the function it calls, nothing a function without one has beyond
+// Anything, else the behavior itself (KerML checkInvocationExpressionBehaviorResultSpecialization).
+func (r *Resolver) invocationResult(scope *symbols.Scope, inv *ast.InvocationExpr) *symbols.Symbol {
+	callee := r.invocationCallee(scope, inv)
+	if callee == nil {
+		return nil
+	}
+	model, ok := r.model.(invocationResultProvider)
+	if !ok {
+		return callee
+	}
+	if result := model.ResultParameterOf(callee); result != nil {
+		return result
+	}
+	if model.Evaluates(callee) {
+		return nil
+	}
+	return callee
+}
+
+// invocationCallee resolves what a call applies: the type `T(…)` names, or the
+// feature chain of `x.f(…)` (KerMLExpressions InstantiatedTypeMember → OwnedFeatureChain).
+func (r *Resolver) invocationCallee(scope *symbols.Scope, inv *ast.InvocationExpr) *symbols.Symbol {
+	if inv.Type != nil {
+		if callee, ok := r.ResolveInvocationName(scope, inv.Type); ok {
+			return callee
+		}
+		return nil
+	}
+	if chain, ok := inv.Operand.(*ast.FeatureChainExpr); ok {
+		if callee, ok := r.ResolveTarget(scope, chain); ok {
+			return callee
+		}
+	}
+	return nil
+}
+
+// specializationKind reports whether a declared relationship is a
+// Specialization: a typing, subclassification, subsetting or redefinition.
+func specializationKind(k ast.RelationshipKind) bool {
+	switch k {
+	case ast.RelTyping, ast.RelSpecializes, ast.RelSubsets, ast.RelRedefines, ast.RelReferences, ast.RelCrosses:
+		return true
+	}
+	return false
 }

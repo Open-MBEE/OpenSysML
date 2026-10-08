@@ -4,8 +4,10 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"math/big"
 	"slices"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
@@ -62,20 +64,70 @@ func UnitScale(n float64) Scale { return Scale{Num: n, Den: 1} }
 // factor is.
 func (s Scale) IsZero() bool { return s.Num == 0 || s.Den == 0 }
 
-// Times returns the product of two ratios.
+// maxExactScaleTerm bounds the terms of a ratio held exactly: every whole
+// float64 up to 2^53 is the Integer it reads as.
+const maxExactScaleTerm = 1 << 53
+
+// Exact is the ratio as a Rational, when both its terms are whole and within
+// maxExactScaleTerm; a ratio past that bound was rounded and is not exact.
+func (s Scale) Exact() (*big.Rat, bool) {
+	if s.IsZero() || !exactScaleTerm(s.Num) || !exactScaleTerm(s.Den) {
+		return nil, false
+	}
+	return new(big.Rat).SetFrac64(int64(s.Num), int64(s.Den)), true
+}
+
+func exactScaleTerm(f float64) bool { return isWhole(f) && math.Abs(f) <= maxExactScaleTerm }
+
+// ScaleOfRat is the Rational r as a ratio, exact when its lowest terms fit
+// maxExactScaleTerm and otherwise the nearest float64 terms.
+func ScaleOfRat(r *big.Rat) Scale {
+	n, d := r.Num(), r.Denom()
+	if n.IsInt64() && d.IsInt64() && exactScaleTerm(float64(n.Int64())) && exactScaleTerm(float64(d.Int64())) {
+		return Scale{Num: float64(n.Int64()), Den: float64(d.Int64())}
+	}
+	nf, _ := new(big.Float).SetInt(n).Float64()
+	df, _ := new(big.Float).SetInt(d).Float64()
+	return Scale{Num: nf, Den: df}
+}
+
+// Times returns the product of two ratios, exact where both are.
 func (s Scale) Times(other Scale) Scale {
+	if a, ok := s.Exact(); ok {
+		if b, ok := other.Exact(); ok {
+			return ScaleOfRat(a.Mul(a, b))
+		}
+	}
 	return reduceScale(Scale{Num: s.Num * other.Num, Den: s.Den * other.Den})
 }
 
-// DividedBy returns the quotient of two ratios.
+// DividedBy returns the quotient of two ratios, exact where both are.
 func (s Scale) DividedBy(other Scale) Scale {
+	if a, ok := s.Exact(); ok {
+		if b, ok := other.Exact(); ok {
+			return ScaleOfRat(a.Quo(a, b))
+		}
+	}
 	return reduceScale(Scale{Num: s.Num * other.Den, Den: s.Den * other.Num})
 }
 
-// Pow raises the ratio to an exponent. A negative exponent inverts the ratio
-// rather than raising it to a negative power, which would evaluate it: `h^-1`
-// stays 1/3600 instead of becoming 0.0002777777777777778.
+// maxExactScalePower bounds the whole exponent a ratio is raised to exactly.
+const maxExactScalePower = 64
+
+// Pow raises the ratio to an exponent, exactly for an exact ratio and a whole
+// exponent. A negative exponent inverts the ratio rather than raising it to a
+// negative power, which would evaluate it: `h^-1` stays 1/3600 instead of
+// becoming 0.0002777777777777778.
 func (s Scale) Pow(exp float64) Scale {
+	if r, ok := s.Exact(); ok && isWhole(exp) && math.Abs(exp) <= maxExactScalePower {
+		e := big.NewInt(int64(math.Abs(exp)))
+		num := new(big.Int).Exp(r.Num(), e, nil)
+		den := new(big.Int).Exp(r.Denom(), e, nil)
+		if exp < 0 {
+			num, den = den, num
+		}
+		return ScaleOfRat(new(big.Rat).SetFrac(num, den))
+	}
 	if exp < 0 {
 		return reduceScale(Scale{Num: math.Pow(s.Den, -exp), Den: math.Pow(s.Num, -exp)})
 	}
@@ -84,10 +136,22 @@ func (s Scale) Pow(exp float64) Scale {
 
 // String renders the ratio, as a ratio when it is not whole.
 func (s Scale) String() string {
-	if s.Den == 1 {
-		return fmt.Sprintf("%g", s.Num)
+	if r, ok := s.Exact(); ok && !r.IsInt() {
+		return RatValue(r).FormatRational()
 	}
-	return fmt.Sprintf("%g/%g", s.Num, s.Den)
+	if s.Den == 1 {
+		return FormatScaleTerm(s.Num)
+	}
+	return FormatScaleTerm(s.Num) + "/" + FormatScaleTerm(s.Den)
+}
+
+// FormatScaleTerm renders a scale's numerator or denominator, a whole one
+// binary64 holds exactly in full.
+func FormatScaleTerm(f float64) string {
+	if f == math.Trunc(f) && math.Abs(f) <= maxExactScaleTerm {
+		return strconv.FormatFloat(f, 'f', -1, 64)
+	}
+	return fmt.Sprintf("%g", f)
 }
 
 // reduceScale cancels a whole common divisor, keeping composed factors small,
@@ -162,7 +226,15 @@ func (t UnitTerm) Commensurable(other UnitTerm) bool {
 
 // Same reports whether two terms are one reduction: commensurable at equal scale.
 func (t UnitTerm) Same(other UnitTerm) bool {
-	return t.Commensurable(other) && t.Scale.Num*other.Scale.Den == other.Scale.Num*t.Scale.Den
+	if !t.Commensurable(other) {
+		return false
+	}
+	if a, ok := t.Scale.Exact(); ok {
+		if b, ok := other.Scale.Exact(); ok {
+			return a.Cmp(b) == 0
+		}
+	}
+	return t.Scale.Num*other.Scale.Den == other.Scale.Num*t.Scale.Den
 }
 
 // DimensionKey identifies the base units the term is over, exponents included
@@ -567,6 +639,9 @@ func (m *Model) numericMember(sym *symbols.Symbol, name string) (Scale, bool) {
 	if op, ok := expr.(*ast.OperatorExpr); ok && op.Operator == ast.OpDiv && len(op.Operands) == 2 {
 		num, numOK := m.Eval(op.Operands[0])
 		den, denOK := m.Eval(op.Operands[1])
+		if numOK && denOK && num.IsExact() && den.IsExact() && den.RatSign() != 0 {
+			return ScaleOfRat(new(big.Rat).Quo(num.Rat(), den.Rat())), true
+		}
 		if numOK && denOK && num.IsNumeric() && den.IsNumeric() && den.AsReal() != 0 {
 			return reduceScale(Scale{Num: num.AsReal(), Den: den.AsReal()}), true
 		}
@@ -574,6 +649,9 @@ func (m *Model) numericMember(sym *symbols.Symbol, name string) (Scale, bool) {
 	val, ok := m.Eval(expr)
 	if !ok || !val.IsNumeric() {
 		return Scale{}, false
+	}
+	if val.IsExact() {
+		return ScaleOfRat(val.Rat()), true
 	}
 	return UnitScale(val.AsReal()), true
 }
@@ -614,7 +692,7 @@ func (m *Model) UnitTermOfExpr(scope *symbols.Scope, node ast.Node) (UnitTerm, e
 		return m.unitTermOfOperator(scope, n)
 	case *ast.LiteralInteger:
 		// `1` is the unit of dimension one written as a number, as `m/m` is.
-		if val, ok := m.Eval(n); ok && val.Kind == ValInt && val.Int == 1 {
+		if val, ok := m.Eval(n); ok && val.Equal(IntValue(1)) {
 			return UnitTerm{Scale: UnitScale(1)}, nil
 		}
 	}

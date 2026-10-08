@@ -2939,6 +2939,77 @@ actually descend into:
   second part with its own `connect ox to oy`. The send must still fail with the typed error — if the
   scope walk goes too far it could pick up the unrelated part's connectors.
 
+## Reflecting on connector ends and owned relationships (PR #938)
+
+Reflection is driven from the CLI: `bin/sysml model.sysml -e "<expr>"` with
+`M = SequenceFunctions::last(Pkg::Asm::c1.metadata)`; every element prints as
+`meta(<fqn> : <metaclass>)`. The shapes below hold once a connector owns the ends its `connect`
+clause writes and a chain target is reflected as the feature it denotes (PR #938); on a tree
+without that change the end counts read `0`, `connectorEnd` fails and `chainingFeature` is
+underived, while the relationship metaobjects (`ownedRedefinition`, `ownedSubsetting`,
+`ownedSpecialization`) already derive. The pre-fix shapes double as A/B canaries against a binary
+built from `develop`. A fixture that exercises the whole family:
+
+```sysml
+package R {
+    private import ScalarValues::*;
+    port def P { attribute v : Real; }
+    part def Source { port y : P; }
+    part def Sink { port u : P; }
+    connection def C { end source[1] : P; end target[1] : P; }
+    interface def I { end a : P; end b : ~P; }
+    part def Asm {
+        part s : Source;
+        part k : Sink;
+        connection c1 : C connect [1] s.y to [1] k.u;
+        interface i1 : I connect s.y to k.u;
+        attribute x : Real;
+        part sub { attribute w : Real; }
+    }
+    part def Derived :> Asm {
+        attribute :>> x = 2.0;
+        attribute deep :>> sub.w;
+    }
+}
+```
+
+- **The fixture must analyse clean before any reflection claim counts.** A single error makes
+  every `-e` run end in `sysml: model.sysml did not analyse cleanly` with no value printed, which
+  looks exactly like a reflection failure. The mistakes that produce it: `derived` as a feature
+  name (`"derived" is a reserved keyword … write 'derived' to use it as a name`); `attribute :>> x`
+  in the *same* body that declares `x` (`unresolved reference: x — did you mean R::Derived::x?`) —
+  a redefinition belongs in a subtype, as above; and a chain that passes through a port or other
+  reference (`:>> s.y.v`: `nested redefinition through reference y has no owned object to redefine
+  on`) — chain through a composite part (`:>> sub.w`) instead. Unnamed ends print identically
+  (`meta(R::Asm::c1::<unnamed> : …)` twice), so tell them apart through
+  `.ownedReferenceSubsetting.referencedFeature.chainingFeature`, which names the chain
+  (`[meta(R::Asm::k : …PartUsage), meta(R::Sink::u : …PortUsage)]`), never through the printed text.
+- **Count, do not just print.** For a binary connector typed by a definition with two named ends,
+  `SequenceFunctions::size(M.ownedMember)`, `size(M.ownedElement)`, `size(M.ownedFeature)`,
+  `size(M.ownedEndFeature)` and `size(M.connectorEnd)` are all `2`. `4` means the unnamed `connect`
+  ends were appended to the inherited `source`/`target` instead of replacing them by position;
+  `0` (with `ownedEndFeature = []` and `connectorEnd` failing
+  `no reflective metaclass classifies the element`) is the pre-fix shape. Per end,
+  `ownedSubsetting` has one element and it is the same `ReferenceSubsetting` that
+  `ownedReferenceSubsetting` yields. For `attribute :>> x`, `ownedRedefinition` is one
+  `Redefinition` whose `redefinedFeature` is the *supertype's* `x` (`meta(R::Asm::x : …)`) and
+  `ownedSubsetting` returns that same relationship. For a chain target,
+  `ownedRedefinition.redefinedFeature.chainingFeature` is the whole chain in order
+  (`[R::Asm::sub, R::Asm::sub::w]`), `redefinedFeature.owner` is the declaring attribute
+  (`R::Derived::deep`), the relationship's `ownedRelatedElement` is the chain feature, and the
+  relationship's own `ownedElement` is `[]` — a relationship owns its related elements directly, not
+  through a relationship of its own. A property the library declares but the engine does not
+  derive fails with `reflective feature is not derived: <Metaclass>::<property> for <fqn>`;
+  `inheritedFeature` is one, so it serves as the negative control.
+- **Interface ends are `PortUsage`, connection ends are `ReferenceUsage`.** `i1.ownedEndFeature`
+  prints `[meta(R::Asm::i1::<unnamed> : SysML::Systems::PortUsage), …]` while `c1`'s ends print
+  `SysML::Systems::ReferenceUsage`; expecting `ReferenceUsage` on an interface end is a wrong
+  expectation, not a defect. The relationship metaobjects are KerML metaclasses —
+  `KerML::Core::ReferenceSubsetting`, `KerML::Core::Redefinition`, and `KerML::Core::FeatureTyping`
+  from `ownedSpecialization` — and the chain feature is a `KerML::Core::Feature`.
+  `M.relatedFeature` / `sourceFeature` / `targetFeature` give the chain *tips*
+  (`R::Source::y`, `R::Sink::u`) and are the quickest check that an end attached where intended.
+
 ## Driving a state machine and its transition effects on camera
 
 - **`-e` is not a file flag.** `sysml -e <expr> [file]` evaluates an expression; to load a model
@@ -4223,7 +4294,9 @@ Read-only printer of the session buffer or one element:
 
 `%view Demo::report` prints `exposes` then `viewpoint conformance` with
 `satisfy structure (from Demo::StructureView): violated` and one line per concern
-(`conforms` / `violated (framed by the viewpoint but not by the view)` / `unevaluable` + reason).
+(`conforms` / `violated` naming the exposed element and condition / `unevaluable` + reason); the
+view frames nothing itself — every concern the viewpoint frames is evaluated against what it exposes,
+and a `frame` written in a view body draws a `nonstandard-notation` warning.
 A satisfy target that is a `requirementUsage` is diagnosed at load *and* reported as
 `unevaluable (satisfy target spec is a requirementUsage, not a viewpoint)` — never a silent pass.
 `%view` registers no object: `%instances` afterwards says none created, a repeat is identical, and a
@@ -6180,3 +6253,62 @@ is `6 [one]`, and `800 [W] * 120 [s] * 0.7 [one]` in a calc returning `EnergyVal
 ### Devin Secrets Needed
 
 None for these local REPL/gRPC checks.
+
+## Inherited action results and rejected action returns
+
+- For inherited-result checks, use the runtime conformance fixtures
+  `action_result_inherited_from_calc_def`, `action_result_inherited_from_use_case_def`,
+  `action_result_inherited_from_use_case_library_result` and `action_result_read_by_performer`
+  under `internal/exec/runtime/testdata/conformance/`. The first, second and fourth do not import
+  `ScalarValues::*`, so validating CLI/REPL loads need a scratch copy that adds it. Keep the
+  originals unchanged, and compare the scratch text with them ignoring whitespace and that import.
+- `%action test::Compute`, two `%step`s, then `%tokens` shows `r = 42` with the token at `done`; the
+  third `%step` completes and prints Results. The use-case counterpart `test::ByUC` gives `n = 7`.
+- Keep validation separate from execution: a `return` owned directly by an action is diagnosed by
+  `%load`, while `%action` still reaches the runtime's guarded refusal. Python `Connection.load`
+  defaults to `strict=False`, so inspect its diagnostics, then call ExecuteAction to verify the
+  runtime refusal; `strict=True` alone tests only loading, not the runtime guard.
+- Check both the decoded Python `type(value) is int` and the raw
+  `Value.WhichOneof("kind") == "int_value"` for small Integer results. After a refused action, run a
+  valid one on the same Connection to show the service did not panic.
+- A REPL session with a diagnostic does not exit nonzero after a later successful `%eval` and
+  `%quit`; check the refusal in the output and liveness separately from CLI `-action`'s exit status.
+- Compare an unwritten inherited result against an unwritten `out` in the same model. A completed
+  action's output map leaves both out rather than inventing a zero.
+
+## Prod builds and default-build parity
+
+- If other agents own branches or worktrees, create detached testing worktrees at the PR and
+  `origin/develop` revisions and record both hashes; do not switch a shared checkout.
+- Build the PR twice, `go build -tags sysml_prod -o <external-dir>/sysml-prod ./cmd/sysml` and
+  without the tag to a separate binary, and build `origin/develop` untagged to a third. Raw builds
+  avoid unrelated version-string differences when comparing behavior.
+- Keep fixtures, output files, transcripts and comparison scripts outside source checkouts.
+
+### Load-bearing fixture and output assertions
+
+- A compact fixture is `package P { part def A { attribute n : ScalarValues::Integer = 7; } part a : A; }`.
+- `%instantiate P::a` then `%features P::a depth 0` shows a concrete `n = 7` without pages of
+  inherited nested features.
+- `%features P::a json` returns a graph with `instance.featureValues.n.value.intValue == "7"`:
+  `featureValues` is a map, not a features array.
+- In a build that omits instancegraph, `%features P::a json` says `unknown option "json"` and shows
+  usage without JSON; plain `%features` still shows `n = 7`.
+- `-query 'sysml:name="A"' model.sysml` can print `✓ package P` before `P::A  PartDefinition`,
+  because model loading writes declaration reports to stdout. Require the exact match line and exit
+  0; do not assume stdout holds only match lines.
+
+### Comparing the default build against develop
+
+- Use the same relative input and output names in separate working directories, with fresh files,
+  so `(replaced the existing file)` notes do not differ.
+- Capture complete stdout, stderr and status for identical REPL command streams and standalone
+  queries.
+- Parse the JSON graph before comparing (protojson whitespace can differ); compare the remaining
+  text and the saved SysML/Turtle byte for byte.
+- Validate saved Turtle independently with rdflib; check real triples and declarations rather than
+  trusting the save confirmation.
+
+### Devin Secrets Needed
+
+None for native local CLI/REPL tests.

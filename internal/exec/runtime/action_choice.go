@@ -177,6 +177,9 @@ type stepOrder struct {
 	firstNew int64          // tokens from this ID on were created by the step itself
 	unready  map[int64]bool // held at a join whose branches had not all arrived
 	offered  map[int64]bool // at an accept a message in flight answers
+	// yielding marks a token at an accept keeping a deferred signal while another
+	// token of the run takes the message: it stays parked, the other goes on.
+	yielding map[int64]bool
 	acted    []Token
 }
 
@@ -196,8 +199,62 @@ func (e *ActionExecutor) beginStepOrder() stepOrder {
 				order.offered[t.ID] = true
 			}
 		}
+		for _, t := range e.tokens {
+			if order.offered[t.ID] && e.keeps(t) && e.yieldsKeeping(t, pending, order.unready) {
+				if order.yielding == nil {
+					order.yielding = make(map[int64]bool)
+				}
+				order.yielding[t.ID] = true
+			}
+		}
 	}
 	return order
+}
+
+// keeps reports whether the token sits at the accept keeping a deferred signal
+// for the state whose do behavior this flow runs: the accept loop of the
+// standard deferral encoding, which its DeferredKeeper annotation names
+// (`#MigrationMetadata::DeferredKeeper action receive accept kept : Sig;`) and
+// lowering records as Accept.Keeper; an accept of the same signal without the
+// annotation is an ordinary consumer, wherever it stands.
+func (e *ActionExecutor) keeps(t Token) bool {
+	accept, ok := e.messageAccept(t)
+	return ok && accept.Keeper
+}
+
+// yieldsKeeping reports whether a message the keeping accept at k would take is
+// one another accept of the run — a token of the flow at an accept of its own,
+// or the action a token performs, parked at one — takes: the state's own
+// behavior consumes the occurrence, so it is not deferred (UML 2.5.1
+// §14.2.3.9.1: an occurrence is deferred only when nothing consumes it). An
+// accept held for arrivals it still awaits (unready) cannot take the message
+// this step, so the keeping accept does not yield to it.
+func (e *ActionExecutor) yieldsKeeping(k Token, pending []Message, unready map[int64]bool) bool {
+	accept, _ := e.messageAccept(k)
+	keeps, _ := e.acceptMatch(k.frame, accept, k.Location.(*ast.Usage))
+	for _, m := range pending {
+		if !keeps(m) {
+			continue
+		}
+		for _, t := range e.tokens {
+			if t.ID == k.ID || e.keeps(t) || unready[t.ID] {
+				continue
+			}
+			if other, ok := e.messageAccept(t); ok {
+				matches, _ := e.acceptMatch(t.frame, other, t.Location.(*ast.Usage))
+				if matches(m) {
+					return true
+				}
+				continue
+			}
+			if held, ok := t.pausedWaiter(e).(messageAcceptor); ok {
+				if taking, err := held.acceptTaking(m); err == nil && len(taking) > 0 {
+					return true
+				}
+			}
+		}
+	}
+	return false
 }
 
 // offeredMessage reports whether one of the messages in flight answers the accept
@@ -250,8 +307,8 @@ func (o *stepOrder) eligible(t Token) bool {
 }
 
 // tokenActed reports whether the step of the token snapshotted as before moved,
-// consumed, retired, resumed, forked or joined it, took its awaited message, or
-// began work of its own that paused after one move.
+// consumed, retired, resumed, forked or joined it, took its awaited message, began
+// work of its own that paused after one move, or paused its work for a message.
 func (e *ActionExecutor) tokenActed(before Token, count int) bool {
 	if before.body != nil || len(e.tokens) != count {
 		return true
@@ -262,7 +319,8 @@ func (e *ActionExecutor) tokenActed(before Token, count int) bool {
 	}
 	after := e.tokens[i]
 	return after.moved != before.moved || (before.Wait != nil && after.Wait == nil) ||
-		(after.body != nil && after.body.paused.tokenStep)
+		(after.body != nil && (after.body.paused.tokenStep ||
+			(after.body.paused.onWait && after.body.paused.wait.waitsForMessage(make(map[waitTarget]bool)))))
 }
 
 // noteTokenOrder records the tokens a step advanced as a choice point when there are

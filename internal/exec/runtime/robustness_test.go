@@ -56,15 +56,12 @@ func TestRuntimeRobustness(t *testing.T) {
 	t.Run("state_do_body_dangling_succession", testStateDoBodyDanglingSuccession)
 	t.Run("state_do_body_first_then_undefined", testStateDoBodyFirstThenUndefined)
 	t.Run("state_do_body_flow_without_start", testStateDoBodyFlowWithoutStart)
-	t.Run("state_do_body_flow_with_two_starts", testStateDoBodyFlowWithTwoStarts)
 	t.Run("state_do_body_starts_at_its_unpreceded_step", testStateDoBodyStartsAtItsUnprecededStep)
 	t.Run("action_flow_starts_at_its_unpreceded_step", testActionFlowStartsAtItsUnprecededStep)
-	t.Run("action_flow_with_two_starts", testActionFlowWithTwoStarts)
 	t.Run("action_flow_cycle_without_start", testActionFlowCycleWithoutStart)
 	t.Run("state_do_body_nested_node_dangling_succession", testStateDoBodyNestedNodeDanglingSuccession)
 	t.Run("state_do_body_nested_node_starts_at_its_unpreceded_step", testStateDoBodyNestedNodeStartsAtItsUnprecededStep)
 	t.Run("action_nested_node_starts_at_its_unpreceded_step", testActionNestedNodeStartsAtItsUnprecededStep)
-	t.Run("action_nested_node_with_two_starts", testActionNestedNodeWithTwoStarts)
 	t.Run("state_entry_body_dangling_succession", testStateEntryBodyDanglingSuccession)
 	t.Run("state_do_body_accept_waits_for_the_message", testStateDoBodyAcceptWaitsForTheMessage)
 	t.Run("state_do_body_accept_is_decided_for_a_send", testStateDoBodyAcceptIsDecidedForASend)
@@ -280,7 +277,6 @@ func TestRuntimeRobustness(t *testing.T) {
 	t.Run("non_terminating_loop_performing_an_action", testNonTerminatingLoopPerformingAnAction)
 	t.Run("for_over_a_value_no_expression_makes_iterable", testForOverAValueNoExpressionMakesIterable)
 	t.Run("for_over_a_scalar", testForOverAScalar)
-	t.Run("statement_directly_in_an_action_body", testStatementDirectlyInAnActionBody)
 	t.Run("flow_end_naming_no_node", testFlowEndNamingNoNode)
 	t.Run("flow_naming_no_pin", testFlowNamingNoPin)
 	t.Run("accept_payload_without_a_value", testAcceptPayloadWithoutAValue)
@@ -356,7 +352,6 @@ func TestRuntimeRobustness(t *testing.T) {
 	t.Run("accept_statement_deadlock_in_a_loop", testAcceptStatementDeadlockInALoop)
 	t.Run("history_outside_composite_state", testHistoryOutsideCompositeState)
 	t.Run("history_without_record_default_or_entry", testHistoryWithoutRecordDefaultOrEntry)
-	t.Run("defer_of_non_deferrable_trigger", testDeferOfNonDeferrableTrigger)
 	t.Run("non_terminating_do_behavior", testNonTerminatingDoBehavior)
 	t.Run("empty_anonymous_action_body", testEmptyAnonymousActionBody)
 	t.Run("non_terminating_anonymous_do_body", testNonTerminatingAnonymousDoBody)
@@ -375,7 +370,6 @@ func TestRuntimeRobustness(t *testing.T) {
 	t.Run("library_function_outside_its_domain", testLibraryFunctionOutsideItsDomain)
 	t.Run("library_function_wrong_arity", testLibraryFunctionWrongArity)
 	t.Run("extension_library_function_outside_its_domain", testExtensionLibraryFunctionOutsideItsDomain)
-	t.Run("exponentiation_integer_overflow", testExponentiationIntegerOverflow)
 	t.Run("quantity_incommensurable_comparison", testQuantityIncommensurableComparison)
 	t.Run("quantity_index_is_not_a_unit", testQuantityIndexIsNotAUnit)
 	t.Run("quantity_unit_shadowed_by_sibling", testQuantityUnitShadowedBySibling)
@@ -1710,7 +1704,7 @@ func testCoordinateFrameFailureModes(t *testing.T) {
 		{"frame whose mRefs are not one per stated dimension", `attribute bad : CoordinateFrame { :>> dimensions = 2; :>> mRefs = (m, m, m); }`,
 			"CoordinateFrame", "bad", ErrMultiplicityViolation, "bad states 3 mRefs for dimensions [2], whose flattenedSize is 2"},
 		{"frame whose dimensions overflow", `attribute bad : CoordinateFrame { :>> dimensions : Positive[2] = (4611686018427387904, 4); :>> mRefs = (m, m, m); }`,
-			"CoordinateFrame", "bad", semantics.ErrArithmeticOverflow, "bad: flattenedSize of dimensions [4611686018427387904, 4] exceeds the Integer range"},
+			"CoordinateFrame", "bad", ErrIntegerUnaddressable, "bad: flattenedSize of dimensions [4611686018427387904, 4] is 18446744073709551616"},
 		{"frame whose mRef is a number", `attribute bad : CoordinateFrame { :>> mRefs = (m, 2); }`,
 			"CoordinateFrame", "bad", ErrTypeMismatch, "bad.mRefs: type mismatch: cannot write 2 (an Integer) to a feature typed by ScalarMeasurementReference"},
 		{"vector short of an axis", ``,
@@ -2154,8 +2148,8 @@ func testMultiplicityInfiniteLowerBound(t *testing.T) {
 	}
 }
 
-// testMultiplicityLowerBoundTooLarge: a lower bound past the materialization
-// bound is reported instead of eagerly allocating that many objects.
+// testMultiplicityLowerBoundTooLarge: a lower bound of thousands holds that many values
+// without making that many objects up front.
 func testMultiplicityLowerBoundTooLarge(t *testing.T) {
 	inst, ctx := instantiateHolder(t, `
 		package test {
@@ -2164,15 +2158,15 @@ func testMultiplicityLowerBoundTooLarge(t *testing.T) {
 			part def Holder { part p : C[5000]; }
 		}
 	`)
-	_, err := inst.GetFeatureValue(ctx, "p")
-	if err == nil {
-		t.Fatal("want a multiplicity violation, got a materialized feature value")
+	fv, err := inst.GetFeatureValue(ctx, "p")
+	if err != nil {
+		t.Fatalf("p: %v; want 5000 values", err)
 	}
-	if !errors.Is(err, ErrMultiplicityViolation) {
-		t.Errorf("expected ErrMultiplicityViolation, got: %v", err)
+	if got := ElementCount(fv.Values); got != 5000 {
+		t.Errorf("p holds %d values, want 5000", got)
 	}
 	if len(ctx.instances) > 100 {
-		t.Errorf("materialized %d instances before reporting the bound", len(ctx.instances))
+		t.Errorf("materialized %d instances to hold a lower bound of 5000", len(ctx.instances))
 	}
 }
 
@@ -2447,23 +2441,18 @@ func testNamedLibraryCallThatHasNoValue(t *testing.T) {
 		{`RealFunctions::ToReal("NaN")`, ErrInvalidNotation},
 		{`RealFunctions::ToReal(" 1.5 ")`, ErrInvalidNotation},
 		{`IntegerFunctions::ToInteger(" 7")`, ErrInvalidNotation},
-		{`RationalFunctions::ToRational("1/3")`, ErrInvalidNotation},
+		{`RationalFunctions::ToRational("1/x")`, ErrInvalidNotation},
 		{`IntegerFunctions::ToInteger("2.0")`, ErrInvalidNotation},
-		{`IntegerFunctions::ToInteger("99999999999999999999")`, semantics.ErrArithmeticOverflow},
-		{`RealFunctions::ToInteger(1.0e300)`, semantics.ErrArithmeticOverflow},
 		{`BooleanFunctions::ToBoolean("yes")`, ErrInvalidNotation},
 		{`IntegerFunctions::ToNatural(-1)`, semantics.ErrArithmeticDomain},
 		{`NaturalFunctions::ToNatural("-1")`, semantics.ErrArithmeticDomain},
 		{`RealFunctions::ToReal(xs)`, ErrTypeMismatch},
 		{`RationalFunctions::gcd(1.5, 2)`, semantics.ErrArithmeticDomain},
 		{`RationalFunctions::gcd("1", 2)`, ErrTypeMismatch},
-		{`RationalFunctions::gcd(1.0e19, 1.0e19)`, semantics.ErrArithmeticOverflow},
 		{`RationalFunctions::rat(1, 0)`, ErrDivisionByZero},
 		{`RationalFunctions::rat(1.5, 3)`, ErrTypeMismatch},
 		{`RationalFunctions::rat(xs, 3)`, ErrTypeMismatch},
 		{`RationalFunctions::numer("0.5")`, ErrTypeMismatch},
-		{`RationalFunctions::numer(1.0e19)`, semantics.ErrArithmeticOverflow},
-		{`RationalFunctions::denom(0.0001)`, semantics.ErrArithmeticOverflow},
 		{`CollectionFunctions::'array#'(xs, (1, 1))`, ErrTypeMismatch},
 		{`OccurrenceFunctions::isDuring(xs)`, ErrMultiplicityViolation},
 		{`OccurrenceFunctions::isDuring(factor)`, ErrNotAnOccurrence},
@@ -2486,7 +2475,6 @@ func testNamedLibraryCallThatHasNoValue(t *testing.T) {
 		{`BooleanFunctions::'=='(true, 1)`, ErrTypeMismatch},
 		{`BaseFunctions::ToString(xs)`, ErrMultiplicityViolation},
 		{`IntegerFunctions::'%'(1, 0)`, ErrDivisionByZero},
-		{`IntegerFunctions::'*'(9223372036854775807, 2)`, semantics.ErrArithmeticOverflow},
 		{`RealFunctions::'**'(-8.0, 0.5)`, semantics.ErrArithmeticDomain},
 		{`ScalarFunctions::'<'("a", 1)`, ErrTypeMismatch},
 		{`BooleanFunctions::'xor'(true, 1)`, ErrTypeMismatch},
@@ -2514,7 +2502,6 @@ func testNamedLibraryCallThatHasNoValue(t *testing.T) {
 		{`NumericalFunctions::sum0(xs, 1)`, ErrTypeMismatch},
 		{`NumericalFunctions::product1(xs, 0)`, ErrTypeMismatch},
 		{`NumericalFunctions::sum0(flags, 0)`, ErrTypeMismatch},
-		{`NumericalFunctions::sum0((9223372036854775807, 1), 0)`, semantics.ErrArithmeticOverflow},
 		{`NumericalFunctions::sum0(xs)`, ErrCalcArity},
 	} {
 		got, err := evalCollectionExpr(t, tt.expr)
@@ -2675,8 +2662,8 @@ func testBaseIndexWithSeveralIndexes(t *testing.T) {
 		t.Errorf("Ragged = %v, want %v naming flattenedSize", err, ErrMultiplicityViolation)
 	}
 	err = calcErrorWithLibraries(t, src, "Vast", nil, 10000)
-	if !errors.Is(err, semantics.ErrArithmeticOverflow) || !strings.Contains(err.Error(), "flattenedSize") {
-		t.Errorf("Vast = %v, want %v naming flattenedSize", err, semantics.ErrArithmeticOverflow)
+	if !errors.Is(err, ErrIntegerUnaddressable) || !strings.Contains(err.Error(), "flattenedSize") || !strings.Contains(err.Error(), "18446744073709551616") {
+		t.Errorf("Vast = %v, want %v naming flattenedSize and its exact value", err, ErrIntegerUnaddressable)
 	}
 }
 
@@ -2747,17 +2734,17 @@ func testStructuredValueOutsideTheDeclaredShape(t *testing.T) {
 		"TwoAsThreeVector": "it declares dimension = 3",
 		"TwoAsIntThree":    "it declares dimension = 3",
 		"ThreeAsFixed2":    "it declares dimension = 2",
-		"RealsAsIntVec":    "it declares elements : Integer, got element 1.5 (a Real)",
-		"RealsAsIntThree":  "it declares elements : Integer, got element 1.5 (a Real)",
+		"RealsAsIntVec":    "it declares elements : Integer, got element 1.5 (a Rational)",
+		"RealsAsIntThree":  "it declares elements : Integer, got element 1.5 (a Rational)",
 		"VectorAsGrid":     "cannot write ⟨1, 2, 3, 4⟩ (vector) to a feature typed by Grid",
 		"VectorAsString":   "cannot write ⟨1, 2⟩ (vector) to a feature typed by String",
 		"WideAsGrid":       "it declares dimensions = [2, 2]",
 		"SquareAsRow4":     "it declares rank = 1",
 		"SquareAsOneDim":   "it declares dimension : Positive[0..1], got 2 dimension(s)",
-		"RealsAsIntArray":  "it declares elements : Integer, got element 1.5 (a Real)",
+		"RealsAsIntArray":  "it declares elements : Integer, got element 1.5 (a Rational)",
 		"RealsAsFour":      "it declares elements : Integer[4], got 2 element(s)",
 		"TwoAsVel3":        "it declares num : Real[3], got 2 element(s)",
-		"RealsAsIntVQ":     "it declares num : Integer, got element 1.5 (a Real)",
+		"RealsAsIntVQ":     "it declares num : Integer, got element 1.5 (a Rational)",
 		"TwoAsScalar":      "to a feature typed by ScalarQuantityValue: it is a ScalarValue, which holds one scalar",
 		"TwoAsLength":      "to a feature typed by LengthValue: it is a ScalarValue, which holds one scalar",
 	} {
@@ -2831,15 +2818,21 @@ func testBodyByReferenceThatCannotBeApplied(t *testing.T) {
 	}
 }
 
-// testRealLiteralThatUnderflows: a nonzero Real literal too small for a Real is
-// reported rather than read as zero.
+// testRealLiteralThatUnderflows: a decimal literal beyond the binary64 range is the
+// exact Rational, one beyond the size budget is reported, and a Real too small for
+// a binary64 is reported rather than read as zero.
 func testRealLiteralThatUnderflows(t *testing.T) {
+	for _, src := range []string{`1.0e-400`, `1.0e400`} {
+		got, err := evalCollectionExpr(t, src)
+		if err != nil || got.Kind != ValConst || got.Const.Kind != semantics.ValRational || got.Const.RatSign() != 1 {
+			t.Errorf("%s = (%v, %v), want the exact Rational", src, got, err)
+		}
+	}
 	for _, tt := range []struct {
 		expr string
 		want error
 	}{
-		{`1.0e-400`, semantics.ErrArithmeticOverflow},
-		{`1.0e400`, semantics.ErrArithmeticOverflow},
+		{`1.0e-400000`, semantics.ErrRationalSizeLimit},
 		{`RealFunctions::ToReal("1e-400")`, semantics.ErrArithmeticOverflow},
 	} {
 		got, err := evalCollectionExpr(t, tt.expr)
@@ -2848,8 +2841,8 @@ func testRealLiteralThatUnderflows(t *testing.T) {
 		}
 	}
 	got, err := evalCollectionExpr(t, `0.0e-400`)
-	if err != nil || got.Kind != ValConst || got.Const.Kind != semantics.ValReal || got.Const.Real != 0 {
-		t.Errorf("0.0e-400 = (%v, %v), want the Real 0", got, err)
+	if err != nil || got.Kind != ValConst || got.Const.Kind != semantics.ValRational || got.Const.RatSign() != 0 {
+		t.Errorf("0.0e-400 = (%v, %v), want the Rational 0", got, err)
 	}
 }
 
@@ -3431,41 +3424,6 @@ func testPerformReferenceCycle(t *testing.T) {
 	}
 }
 
-// testDeferOfNonDeferrableTrigger: only signals and calls are dispatched from
-// the event pool, so a state deferring a time trigger is reported at lowering
-// rather than deferring nothing at run time.
-func testDeferOfNonDeferrableTrigger(t *testing.T) {
-	idx := symbols.NewIndex()
-	resolver := resolve.New(idx)
-	ctx := NewContext(typedModel(semantics.NewModel(resolver), resolver), 1000)
-
-	machine := &ast.Usage{
-		Kind:  ast.UsageState,
-		Ident: ast.Identification{Name: "Machine"},
-		Members: []ast.Node{
-			entryStart("init"),
-			&ast.StateNode{Name: "init"},
-			&ast.StateNode{
-				Name:  "busy",
-				Defer: []ast.Node{&ast.TimeEvent{Duration: &ast.LiteralInteger{Value: "1"}}},
-			},
-			transitionMember("init", "busy"),
-		},
-	}
-
-	_, err := newStateExecutor(ctx, &symbols.Symbol{
-		Kind: symbols.SymbolStateUsage,
-		Name: machine.Ident.Name,
-		Decl: machine,
-	}, nil)
-	if err == nil {
-		t.Fatal("expected an error for a state deferring a time trigger")
-	}
-	if !strings.Contains(err.Error(), "only signal and call triggers can be deferred") {
-		t.Errorf("expected a deferrability error, got: %v", err)
-	}
-}
-
 // testStateTransitionEndpointMisspelled: a misspelled endpoint is a
 // name-resolution diagnostic, so lowering leaves the edge out and the machine
 // runs to a halt in the state it reached rather than panicking or hanging.
@@ -3622,9 +3580,10 @@ func testStateTransitionEndpointInAnotherMachine(t *testing.T) {
 	}
 }
 
-// testStateTransitionEndpointNamingAFirstMarker: a one-ended `first m;` marker is
-// no vertex, so an endpoint naming one is reported by the state transition check
-// and backstopped here with a typed error rather than a panic.
+// testStateTransitionEndpointNamingAFirstMarker: a member that is no vertex —
+// here an entry action — still makes an endpoint name one, which the state
+// transition check reports and is backstopped here with a typed error rather
+// than a panic.
 func testStateTransitionEndpointNamingAFirstMarker(t *testing.T) {
 	src := `package test {
 		state Machine {
@@ -3632,7 +3591,7 @@ func testStateTransitionEndpointNamingAFirstMarker(t *testing.T) {
 			state init;
 			state busy;
 			state other;
-			first marker;
+			entry marker { }
 			succession first init then busy;
 			transition first busy then marker;
 		}
@@ -4334,7 +4293,7 @@ func testHistoryOutsideCompositeState(t *testing.T) {
 	}
 	fire(t, exec, "init", "away")
 
-	_, err := exec.resolveAndFire(nil, transitionBetween(t, exec, "away", "H"), nil)
+	_, err := exec.resolveAndFire(nil, transitionBetween(t, exec, "away", "H"), nil, nil)
 	if err == nil {
 		t.Fatal("expected an error for a history outside any composite state")
 	}
@@ -4370,7 +4329,7 @@ func testHistoryWithoutRecordDefaultOrEntry(t *testing.T) {
 	}
 	fire(t, exec, "init", "away")
 
-	_, err := exec.resolveAndFire(nil, transitionBetween(t, exec, "away", "H"), nil)
+	_, err := exec.resolveAndFire(nil, transitionBetween(t, exec, "away", "H"), nil, nil)
 	if !errors.Is(err, ErrHistoryWithoutEntry) {
 		t.Fatalf("expected ErrHistoryWithoutEntry: nothing recorded, no default transition and outer has no entry transition; got %v", err)
 	}
@@ -5297,10 +5256,10 @@ func testChainedWriteThroughANamespaceCollection(t *testing.T) {
 	}
 }
 
-// testNamespaceCollectionOverBudget: a namespace-level usage of more occurrences than a run
-// may materialize — past the element budget, or past the bound on a collection's lower bound —
-// is refused with the typed limit naming the usage and leaves no partial extent, while an
-// extent it cannot contribute to is answered.
+// testNamespaceCollectionOverBudget: a namespace-level usage whose extent takes more work than
+// a run may do — past the element budget, or past the step budget — is refused with the typed
+// limit naming the usage and leaves no partial extent, while its size and an extent it cannot
+// contribute to are answered without making its occurrences.
 func testNamespaceCollectionOverBudget(t *testing.T) {
 	model, resolver, root := parseAndBuildLibraryModel(t, `package P {
 		private import ScalarValues::*;
@@ -5322,16 +5281,21 @@ func testNamespaceCollectionOverBudget(t *testing.T) {
 	}`)
 	pkg := resolveSymbol(t, root, "P")
 	ctx := NewContext(typedModel(model, resolver), 1000)
-	for _, calc := range []string{"wheelCount", "manyCount"} {
-		got, err := ctx.InvokeCalc(resolveSymbol(t, pkg.Scope, calc), nil, pkg.Scope)
-		if !errors.Is(err, ErrMultiplicityViolation) || !strings.Contains(err.Error(), "many") {
-			t.Fatalf("%s = %s, %v; want %v naming many", calc, FormatValue(got), err, ErrMultiplicityViolation)
-		}
+	got, err := ctx.InvokeCalc(resolveSymbol(t, pkg.Scope, "wheelCount"), nil, pkg.Scope)
+	if !errors.Is(err, ErrStepLimitExceeded) || !strings.Contains(err.Error(), "many") {
+		t.Fatalf("wheelCount = %s, %v; want %v naming many", FormatValue(got), err, ErrStepLimitExceeded)
 	}
 	if got := len(ctx.instances); got != 0 {
-		t.Fatalf("a refused collection of 10000 left %d objects standing", got)
+		t.Fatalf("a refused extent over 10000 left %d objects standing", got)
 	}
-	got, err := ctx.InvokeCalc(resolveSymbol(t, pkg.Scope, "seatCount"), nil, pkg.Scope)
+	got, err = ctx.InvokeCalc(resolveSymbol(t, pkg.Scope, "manyCount"), nil, pkg.Scope)
+	if err != nil || FormatValue(got) != "10000" {
+		t.Fatalf("size(many) = %s, %v; want 10000", FormatValue(got), err)
+	}
+	if got := len(ctx.instances); got != 0 {
+		t.Fatalf("the size of a collection of 10000 made %d of its objects", got)
+	}
+	got, err = ctx.InvokeCalc(resolveSymbol(t, pkg.Scope, "seatCount"), nil, pkg.Scope)
 	if err != nil || FormatValue(got) != "2" {
 		t.Errorf("size(all Seat) = %s, %v; want 2: the wheels hold no Seat and are not read", FormatValue(got), err)
 	}
@@ -5934,9 +5898,8 @@ func testAcceptDeadlockReportsEveryWaitingAccept(t *testing.T) {
 	}
 }
 
-// testAcceptStatementDeadlockInALoop: an accept node written in a loop body would
-// have to suspend a flow that has no token to park, so it is reported when reached
-// rather than passed over or looped on forever.
+// testAcceptStatementDeadlockInALoop: a loop accept with no possible sender
+// deadlocks with the parked accept named in the error.
 func testAcceptStatementDeadlockInALoop(t *testing.T) {
 	done := make(chan error, 1)
 	go func() {
@@ -5963,11 +5926,11 @@ func testAcceptStatementDeadlockInALoop(t *testing.T) {
 		t.Fatal("a loop waiting for a message that cannot arrive did not terminate")
 	}
 
-	if err == nil {
-		t.Fatal("expected an error, the accept in the loop body was passed over")
+	if !errors.Is(err, ErrAcceptDeadlock) {
+		t.Fatalf("error = %v, want ErrAcceptDeadlock", err)
 	}
-	if !strings.Contains(err.Error(), "'accept' in a loop or branch body") {
-		t.Errorf("expected the accept in a loop body to be reported, got: %v", err)
+	if !strings.Contains(err.Error(), "accept n") {
+		t.Errorf("expected the parked accept in the error, got: %v", err)
 	}
 }
 
@@ -6512,9 +6475,8 @@ func testJoinOfMachineRegionsNestedSourceOwnerExitThatFails(t *testing.T) {
 }
 
 // testJoinTimeSegmentSiblingGuardThatFails: a timer coming due on one segment
-// into a join reads the other segments' guards to know whether the join is
-// enabled, so one that cannot be evaluated then is the step's error. The guard
-// read fine when its own completion came up and the timer segment held the join.
+// into a join reads the other due timer segments' guards to know whether the
+// join is enabled, so one that cannot be evaluated then is the step's error.
 func testJoinTimeSegmentSiblingGuardThatFails(t *testing.T) {
 	_, _, err := executeStateSource(t, "Machine", `package test {
 		state Machine {
@@ -6530,7 +6492,7 @@ func testJoinTimeSegmentSiblingGuardThatFails(t *testing.T) {
 				state right {
 					entry; then r1;
 					state r1;
-					transition first r1 if 1 / zero > 0 then sync;
+					transition first r1 accept after 2 if 1 / zero > 0 then sync;
 				}
 				state aux {
 					entry; then c1;
@@ -6548,12 +6510,10 @@ func testJoinTimeSegmentSiblingGuardThatFails(t *testing.T) {
 	}
 }
 
-// testRegionPseudostateWithoutSatisfiedGuard: a junction reached from inside an
-// orthogonal region whose branches are all guarded false has nowhere to go. The
-// region set is left in place and the dead end reported, rather than the machine
-// resting on a pseudostate.
+// testRegionPseudostateWithoutSatisfiedGuard: a completion through a junction
+// with no enabled branch is dropped, leaving its source active.
 func testRegionPseudostateWithoutSatisfiedGuard(t *testing.T) {
-	_, _, err := executeStateSource(t, "Machine", `package test {
+	exec := stateExecutorForSource(t, "Machine", `package test {
 		state Machine parallel {
 			attribute x : Integer = 9;
 
@@ -6576,11 +6536,18 @@ func testRegionPseudostateWithoutSatisfiedGuard(t *testing.T) {
 			transition first merge if x == 1 then b;
 		}
 	}`)
-	if err == nil {
-		t.Fatal("expected an error for a junction with no satisfied guard")
+	if err := exec.RunToCompletion(); err != nil {
+		t.Fatalf("run to completion: %v", err)
 	}
-	if !strings.Contains(err.Error(), "no guard evaluated to true") {
-		t.Errorf("expected an unsatisfied-guard error, got: %v", err)
+	var a *ast.StateNode
+	for _, state := range exec.graph.States {
+		if state.Name == "a" {
+			a = state
+			break
+		}
+	}
+	if a == nil || !exec.inActiveConfiguration(a) {
+		t.Fatalf("active states = %s, want a to remain active", activeStateNames(exec))
 	}
 }
 
@@ -6619,14 +6586,14 @@ func testRegionPseudostateCycle(t *testing.T) {
 }
 
 // testDeadlockJoinStarvation: join awaiting token that never arrives. `stranded`
-// has no incoming edge, so the join has two incoming edges but can only ever be
-// reached by one token.
+// is a reference no succession leads to, so nothing performs it: the join has two
+// incoming edges but can only ever be reached by one token.
 func testDeadlockJoinStarvation(t *testing.T) {
 	src := `
 		package test {
 			action starve {
 				first start;
-				action stranded;
+				ref action stranded;
 				join sync;
 				done;
 				succession first start then sync;
@@ -6658,7 +6625,7 @@ func testDeadlockJoinStarvation(t *testing.T) {
 
 // testDeadlockJoinSameSuccessionTwice: two tokens reach the join over the one
 // succession from the merge; they do not stand in for the succession from
-// `stranded`, which no token can travel, so the join never fires.
+// `stranded`, a reference nothing performs, so the join never fires.
 func testDeadlockJoinSameSuccessionTwice(t *testing.T) {
 	src := `
 		package test {
@@ -6668,7 +6635,7 @@ func testDeadlockJoinSameSuccessionTwice(t *testing.T) {
 				action a;
 				action b;
 				merge m;
-				action stranded;
+				ref action stranded;
 				join sync;
 				done;
 				succession first start then split;
@@ -9857,46 +9824,6 @@ func testForOverAScalar(t *testing.T) {
 	}
 }
 
-// testStatementDirectlyInAnActionBody: a statement written among the action's
-// own members has no name a succession can reach, so it is reported rather than
-// ignored.
-func testStatementDirectlyInAnActionBody(t *testing.T) {
-	cases := map[string]string{
-		"while":      "while total < 5 { assign total := total + 1; }",
-		"if":         "if total < 5 { assign total := total + 1; }",
-		"assignment": "assign total := total + 1;",
-	}
-
-	for name, stmt := range cases {
-		t.Run(name, func(t *testing.T) {
-			src := `
-				package test {
-					action counter {
-						attribute total : Integer = 0;
-						first start;
-						` + stmt + `
-						done;
-						succession first start then done;
-					}
-				}
-			`
-			idx, _, ctx := buildRuntime(t, "<test>", parseAndBuild(t, src))
-			sym := findSymbolByName(idx.DocumentRoot("<test>"), "counter", ast.DefAction)
-			if sym == nil {
-				t.Fatal("action counter not found")
-			}
-
-			_, err := ctx.ExecuteAction(sym)
-			if err == nil {
-				t.Fatalf("expected a top-level %s to be reported", name)
-			}
-			if !strings.Contains(err.Error(), "no position in the token flow") {
-				t.Errorf("error does not explain why the statement cannot run: %v", err)
-			}
-		})
-	}
-}
-
 // testFlowEndNamingNoNode: a flow moves a value from one action node's output
 // to another's input, so an end naming something that is not a node of the
 // action is reported rather than dropped, which would leave the flow declared
@@ -11082,33 +11009,6 @@ func testExtensionLibraryFunctionOutsideItsDomain(t *testing.T) {
 	got, err := ctx.InvokeCalc(sym, []Value{arg}, rootScope)
 	if !errors.Is(err, semantics.ErrArithmeticDomain) {
 		t.Fatalf("ln(0.0) = %+v, %v; want a domain error", got, err)
-	}
-}
-
-// testExponentiationIntegerOverflow: an exponentiation beyond the Integer range
-// is reported rather than wrapping.
-func testExponentiationIntegerOverflow(t *testing.T) {
-	src := `
-		package test {
-			calc power {
-				in b : Integer;
-				in e : Integer;
-				return : Integer = b ** e;
-			}
-		}
-	`
-	idx, _, ctx := buildRuntime(t, "<test>", parseAndBuild(t, src))
-	rootScope := idx.DocumentRoot("<test>")
-	sym := findSymbolByName(rootScope, "power", ast.DefCalc)
-	if sym == nil {
-		t.Fatal("power calc not found")
-	}
-
-	base := Value{Kind: ValConst, Const: semantics.Value{Kind: semantics.ValInt, Int: 1 << 40}}
-	exp := Value{Kind: ValConst, Const: semantics.Value{Kind: semantics.ValInt, Int: 3}}
-	got, err := ctx.InvokeCalc(sym, []Value{base, exp}, rootScope)
-	if !errors.Is(err, semantics.ErrArithmeticOverflow) {
-		t.Fatalf("(2**40) ** 3 = %+v, %v; want an overflow error", got, err)
 	}
 }
 
@@ -12301,7 +12201,7 @@ func testVariantOutsideAVariation(t *testing.T) {
 	if err != nil {
 		t.Fatalf("widget.misplaced: %v", err)
 	}
-	if fv.Value.Kind != ValConst || fv.Value.Const.Real != 1.0 {
+	if fv.Value.Kind != ValConst || fv.Value.Const.AsReal() != 1.0 {
 		t.Errorf("widget.misplaced = %v, want 1", fv.Value)
 	}
 }
@@ -12344,7 +12244,7 @@ func testVariantUnderARedefinedVariation(t *testing.T) {
 	if err != nil {
 		t.Fatalf("sedan.engine.power: %v", err)
 	}
-	if power.Value.Kind != ValConst || power.Value.Const.Real != 150.0 {
+	if power.Value.Kind != ValConst || power.Value.Const.AsReal() != 150.0 {
 		t.Errorf("sedan.engine.power = %v, want 150", power.Value)
 	}
 }
@@ -12389,7 +12289,7 @@ func testDeepSpecializationChainOfRedefinitions(t *testing.T) {
 	if err != nil {
 		t.Fatalf("t = %v", err)
 	}
-	if got.Kind != ValConst || got.Const.Real != 7.0 {
+	if got.Kind != ValConst || got.Const.AsReal() != 7.0 {
 		t.Errorf("t = %+v, want the base's 7.0", got)
 	}
 }
@@ -12410,7 +12310,7 @@ func testConflictingRedefinitionsAtSeveralLevels(t *testing.T) {
 	if err != nil {
 		t.Fatalf("t = %v", err)
 	}
-	if got.Kind != ValConst || got.Const.Real != 321.0 {
+	if got.Kind != ValConst || got.Const.AsReal() != 321.0 {
 		t.Errorf("t = %+v, want 321.0 (innermost c, middle b, base a)", got)
 	}
 }
@@ -13180,7 +13080,7 @@ func testWriteOfAWrongTypedValueLeavesTheFeature(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read reading after the rejected write: %v", err)
 	}
-	if got := fv.HeldValue(); got.Kind != ValConst || got.Const.Real != 0.5 {
+	if got := fv.HeldValue(); got.Kind != ValConst || got.Const.AsReal() != 0.5 {
 		t.Errorf("reading = %v, want the 0.5 it held before the rejected write", FormatValue(got))
 	}
 }
@@ -13339,7 +13239,7 @@ func testWriteOfNoValueWhereOneIsRequired(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read reading after the rejected write: %v", err)
 	}
-	if got := fv.HeldValue(); got.Kind != ValConst || got.Const.Real != 0.5 {
+	if got := fv.HeldValue(); got.Kind != ValConst || got.Const.AsReal() != 0.5 {
 		t.Errorf("reading = %v, want the 0.5 it held before the rejected write", FormatValue(got))
 	}
 }
@@ -13670,7 +13570,7 @@ func testNestedFlowThatCannotProgress(t *testing.T) {
 				action leg {
 					first s;
 					action s;
-					action stranded;
+					ref action stranded;
 					join sync;
 					done;
 					succession first s then sync;
@@ -13779,7 +13679,8 @@ func testNodePinOfANodeNotYetPerformed(t *testing.T) {
 
 // testNodeOutputBoundToANestedNodeThatNeverRuns: a node's output bound to a pin of one
 // of its own nested nodes takes its value as that node ends, so where the nested node
-// never runs the output is unvalued when its node ends, and reported so.
+// never runs — a reference no succession leads to — the output is unvalued when its
+// node ends, and reported so.
 func testNodeOutputBoundToANestedNodeThatNeverRuns(t *testing.T) {
 	src := `
 		package test {
@@ -13789,7 +13690,7 @@ func testNodeOutputBoundToANestedNodeThatNeverRuns(t *testing.T) {
 				first start;
 				then action leg {
 					out v : Integer[1];
-					action inner { out v : Integer[1]; assign v := 1; }
+					ref action inner { out v : Integer[1]; assign v := 1; }
 					first start;
 					then action own { assign legV := 0; }
 					then done;
@@ -14440,30 +14341,6 @@ func testStateDoBodyFlowWithoutStart(t *testing.T) {
 	}
 }
 
-// testStateDoBodyFlowWithTwoStarts: successions leaving two nodes unpreceded
-// state no start either; the error names both and what would state one.
-func testStateDoBodyFlowWithTwoStarts(t *testing.T) {
-	exec := stateWithDoBody(t, `
-		action a { assign total := total + 1; }
-		action b { assign total := total + 1; }
-		action c { assign total := total + 1; }
-		succession first a then c;
-		succession first b then c;
-	`)
-	err := exec.RunToCompletion()
-	if !errors.Is(err, ErrInvalidActionFlow) {
-		t.Fatalf("expected ErrInvalidActionFlow, got: %v", err)
-	}
-	for _, want := range []string{"no node starts the flow", `"a"`, `"b"`, "'first'"} {
-		if !strings.Contains(err.Error(), want) {
-			t.Errorf("error %q does not contain %q", err, want)
-		}
-	}
-	if total := exec.StateData()["total"]; !valueEqual(total, integerValue(0)) {
-		t.Errorf("total = %v, want 0: no node of the body must run", total)
-	}
-}
-
 // testStateDoBodyStartsAtItsUnprecededStep: a do body written in declaration
 // order, with no `first`, starts at the one node no succession leads to.
 func testStateDoBodyStartsAtItsUnprecededStep(t *testing.T) {
@@ -14494,30 +14371,6 @@ func testActionFlowStartsAtItsUnprecededStep(t *testing.T) {
 		t.Fatalf("run: %v", err)
 	}
 	assertIntOutput(t, outputs, "total", 20)
-}
-
-// testActionFlowWithTwoStarts: an action whose successions leave two nodes
-// unpreceded is an invalid flow at initialization, not a bodiless action.
-func testActionFlowWithTwoStarts(t *testing.T) {
-	_, err := executeActionSource(t, "Count", `package P {
-		private import ScalarValues::*;
-		action def Count {
-			attribute total : Integer = 0;
-			action a { assign total := total + 1; }
-			action b { assign total := total + 1; }
-			action c { assign total := total + 1; }
-			succession first a then c;
-			succession first b then c;
-		}
-	}`)
-	if !errors.Is(err, ErrInvalidActionFlow) {
-		t.Fatalf("expected ErrInvalidActionFlow, got: %v", err)
-	}
-	for _, want := range []string{"no initial node found in action Count", `"a"`, `"b"`, "'first'"} {
-		if !strings.Contains(err.Error(), want) {
-			t.Errorf("error %q does not contain %q", err, want)
-		}
-	}
 }
 
 // testActionFlowCycleWithoutStart: successions closing a cycle over every node
@@ -14604,30 +14457,6 @@ func testActionNestedNodeStartsAtItsUnprecededStep(t *testing.T) {
 		t.Fatalf("run: %v", err)
 	}
 	assertIntOutput(t, outputs, "total", 20)
-}
-
-// testActionNestedNodeWithTwoStarts: a nested flow leaving two nodes unpreceded
-// states no start, and is an invalid flow at initialization naming the node.
-func testActionNestedNodeWithTwoStarts(t *testing.T) {
-	_, err := executeActionSource(t, "Count", `package P {
-		private import ScalarValues::*;
-		action def Count {
-			attribute total : Integer = 0;
-			action inner {
-				action a { assign total := total + 1; }
-				action b { assign total := total + 1; }
-				action c { assign total := total + 1; }
-				succession first a then c;
-				succession first b then c;
-			}
-		}
-	}`)
-	if !errors.Is(err, ErrInvalidActionFlow) {
-		t.Fatalf("expected ErrInvalidActionFlow, got: %v", err)
-	}
-	if !strings.Contains(err.Error(), "no initial node found in action node inner") {
-		t.Errorf("error %q does not name the node without a start", err)
-	}
 }
 
 // testStateEntryBodyDanglingSuccession: an inline entry body's flow is built the
@@ -14764,7 +14593,7 @@ func testStateDoBodyAcceptIsDecidedForASend(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Decide(Go): %v", err)
 	}
-	if len(decision.Fires) != 0 || decision.Deferred || len(decision.Resumes) != 1 || decision.Resumes[0] != "do behavior of state active" {
+	if len(decision.Fires) != 0 || len(decision.Resumes) != 1 || decision.Resumes[0] != "do behavior of state active" {
 		t.Errorf("Decide(Go) = %+v, want only the do behavior of active resumed", decision)
 	}
 	if activeLeaf(exec) != "active" || exec.HasPendingDoWork() || len(ctx.PendingMessages()) != 0 {
@@ -14778,7 +14607,7 @@ func testStateDoBodyAcceptIsDecidedForASend(t *testing.T) {
 		t.Fatalf("dispatch the message: %v", err)
 	}
 	dispatch, ok := exec.LastDispatch()
-	if !ok || dispatch.Fired || dispatch.Deferred || len(dispatch.Resumed) != 1 || dispatch.Resumed[0] != decision.Resumes[0] {
+	if !ok || dispatch.Fired || len(dispatch.Resumed) != 1 || dispatch.Resumed[0] != decision.Resumes[0] {
 		t.Errorf("dispatch = %+v, %v; want the do behavior of active resumed, as decided", dispatch, ok)
 	}
 	if err := exec.RunToCompletion(); err != nil {
@@ -14830,7 +14659,7 @@ func testStateDoBodyAcceptYieldsToATransition(t *testing.T) {
 		t.Fatalf("dispatch the message: %v", err)
 	}
 	dispatch, ok := exec.LastDispatch()
-	if !ok || !dispatch.Fired || dispatch.Deferred || len(dispatch.Resumed) != 0 {
+	if !ok || !dispatch.Fired || len(dispatch.Resumed) != 0 {
 		t.Errorf("dispatch = %+v, %v; want the transition fired and no do behavior resumed, as decided", dispatch, ok)
 	}
 	if activeLeaf(exec) != "stopped" || len(ctx.PendingMessages()) != 0 {
@@ -14885,7 +14714,7 @@ func testStateDoBodyAcceptYieldsToASubstateTransition(t *testing.T) {
 		t.Fatalf("dispatch the message: %v", err)
 	}
 	dispatch, ok := exec.LastDispatch()
-	if !ok || !dispatch.Fired || dispatch.Deferred || len(dispatch.Resumed) != 0 {
+	if !ok || !dispatch.Fired || len(dispatch.Resumed) != 0 {
 		t.Errorf("dispatch = %+v, %v; want the transition fired and no do behavior resumed, as decided", dispatch, ok)
 	}
 	if activeLeaf(exec) != "right" || len(ctx.PendingMessages()) != 0 {
@@ -14957,7 +14786,7 @@ func testStateDoBodyAcceptYieldsToASubstateTransitionLeavingIt(t *testing.T) {
 		t.Fatalf("dispatch the message: %v", err)
 	}
 	dispatch, ok := exec.LastDispatch()
-	if !ok || !dispatch.Fired || dispatch.Deferred || len(dispatch.Resumed) != 0 {
+	if !ok || !dispatch.Fired || len(dispatch.Resumed) != 0 {
 		t.Errorf("dispatch = %+v, %v; want the transition fired and no do behavior resumed, as decided", dispatch, ok)
 	}
 	if activeLeaf(exec) != "stopped" || len(ctx.PendingMessages()) != 0 {
@@ -15014,7 +14843,7 @@ func testStateDoBodyAcceptFollowsTheTransitionChosen(t *testing.T) {
 		t.Fatalf("dispatch the message: %v", err)
 	}
 	dispatch, ok := exec.LastDispatch()
-	if !ok || !dispatch.Fired || dispatch.Deferred || len(dispatch.Resumed) != 0 {
+	if !ok || !dispatch.Fired || len(dispatch.Resumed) != 0 {
 		t.Errorf("dispatch = %+v, %v; want the transition fired and no do behavior resumed, as decided", dispatch, ok)
 	}
 	if activeLeaf(exec) != "right" || len(ctx.PendingMessages()) != 0 {
@@ -15085,7 +14914,7 @@ func testStateDoBodyAcceptYieldsToAnOpenChoice(t *testing.T) {
 			t.Fatalf("stay = %s: dispatch the message: %v", tc.stay, err)
 		}
 		dispatch, ok := exec.LastDispatch()
-		if !ok || !dispatch.Fired || dispatch.Deferred || !reflect.DeepEqual(dispatch.Resumed, tc.want.Resumes) {
+		if !ok || !dispatch.Fired || !reflect.DeepEqual(dispatch.Resumed, tc.want.Resumes) {
 			t.Errorf("stay = %s: dispatch = %+v, %v; want the transition fired and the do behavior resumed as decided", tc.stay, dispatch, ok)
 		}
 		if activeLeaf(exec) != tc.leaf || len(ctx.PendingMessages()) != 0 {
@@ -15141,7 +14970,7 @@ func testStateDoBodyAcceptYieldsToATransitionIntoItsRegion(t *testing.T) {
 		t.Fatalf("dispatch the message: %v", err)
 	}
 	dispatch, ok := exec.LastDispatch()
-	if !ok || !dispatch.Fired || dispatch.Deferred || len(dispatch.Resumed) != 0 {
+	if !ok || !dispatch.Fired || len(dispatch.Resumed) != 0 {
 		t.Errorf("dispatch = %+v, %v; want the transition fired and no do behavior resumed", dispatch, ok)
 	}
 	assertRegionConfig(t, exec, map[string]string{"right": "r2"})
@@ -15204,7 +15033,7 @@ func testStateDoBodyAcceptRunsBeforeTheChoiceReads(t *testing.T) {
 		t.Fatalf("dispatch the message: %v", err)
 	}
 	dispatch, ok := exec.LastDispatch()
-	if !ok || !dispatch.Fired || dispatch.Deferred || !reflect.DeepEqual(dispatch.Resumed, want.Resumes) {
+	if !ok || !dispatch.Fired || !reflect.DeepEqual(dispatch.Resumed, want.Resumes) {
 		t.Errorf("dispatch = %+v, %v; want the transition fired and the do behavior resumed as decided", dispatch, ok)
 	}
 	assertRegionConfig(t, exec, map[string]string{"watcher": "work", "active": "other"})
@@ -15269,7 +15098,7 @@ func testStateDoBodyAcceptSharesTheDispatchWithARegion(t *testing.T) {
 		t.Fatalf("dispatch the message: %v", err)
 	}
 	dispatch, ok := exec.LastDispatch()
-	if !ok || !dispatch.Fired || dispatch.Deferred || !reflect.DeepEqual(dispatch.Resumed, want.Resumes) {
+	if !ok || !dispatch.Fired || !reflect.DeepEqual(dispatch.Resumed, want.Resumes) {
 		t.Errorf("dispatch = %+v, %v; want the transition fired and the do behavior resumed, as decided", dispatch, ok)
 	}
 	if len(ctx.PendingMessages()) != 0 {
@@ -15335,7 +15164,7 @@ func testStateDoBodyAcceptSharesTheDispatchWithAForkInARegion(t *testing.T) {
 		t.Fatalf("dispatch the message: %v", err)
 	}
 	dispatch, ok := exec.LastDispatch()
-	if !ok || !dispatch.Fired || dispatch.Deferred || !reflect.DeepEqual(dispatch.Resumed, want.Resumes) {
+	if !ok || !dispatch.Fired || !reflect.DeepEqual(dispatch.Resumed, want.Resumes) {
 		t.Errorf("dispatch = %+v, %v; want the transition fired and the do behavior resumed, as decided", dispatch, ok)
 	}
 	if len(ctx.PendingMessages()) != 0 {

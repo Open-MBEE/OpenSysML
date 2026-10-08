@@ -38,9 +38,14 @@ within these records and means nothing outside this repository.
   declared-intent oracle, advisory
 - **[Grammar coverage](grammar-coverage.md)** — which OMG grammar productions the project's inputs
   exercise, judged by whether an input for each exists, advisory
+- **[Grammar-to-metaclass map](grammar-metaclass-map.md)** — how OMG grammar productions relate to
+  the metaclasses and features OpenSysML recognizes, with a location-based differential, advisory
 - **[Validation-constraint census](validation-constraints.md)** — which of the pilot's named
   validation constraints OpenSysML reports, each mapped to the pass and message that reports it,
   with a violating model as evidence; the figures and the name list are gated in CI
+- **[SysML v1 to v2 transformation census](sysml-v1-transformation-census.md)** — which of the OMG
+  transformation model's 783 mapping classes the migrator carries out, each tied to the code and
+  test that backs it; the figures and the mapping list are gated in CI
 - **[Adjudications](adjudications.md)** — the divergences from the pinned pilot implementation we
   keep, the rows still open against it, and the reading behind each one
 - **[Protocol state machines](protocol-state-machines.md)** — whether SysML v2 has a construct for
@@ -61,6 +66,9 @@ within these records and means nothing outside this repository.
   can give it, adjudicated against the specification, the Kernel Function Library, the corpora
   and the pinned pilot, and closed abstract-only: the runtime keeps its typed refusal and the
   checker warns on every use
+- **[Constraint-body steps and the `all T` extent](constraint-body-steps.md)** — what a
+  constraint body's statements and the extent of a type mean, derived from KerML and SysML, what
+  the runtime executes, and what it leaves tool-defined or refuses
 - **[Exception handlers](exception-handlers.md)** — whether SysML v2 spells an exception handler
   or exception propagation, adjudicated against the specifications, the library, the corpora and
   the pilot, and closed as not a SysML v2 construct, with the idiom that covers the need — a
@@ -79,6 +87,9 @@ within these records and means nothing outside this repository.
 - **[MOSA library](mosa-library.md)** — the Modular Open Systems Approach as a bundled OpenSysML
   library: the statute's vocabulary, openness as metadata over the standard model, the
   interface control document and the warning-only checks
+- **[StateMachines library](statemachines-library.md)** — pseudostates as bundled
+  `SemanticMetadata`, so a state machine's `choice`, `junction` and history pseudostates
+  spell standard, conforming SysML v2
 - **[Performance: 0.9.2 against 0.9.1](performance-release-0.9.2-vs-0.9.1.md)** — the release-gate
   measurement of the 0.9.2 patch line against 0.9.1: every benchmark on both revisions, the rows in
   doubt re-run interleaved, and whole-binary scaling; the

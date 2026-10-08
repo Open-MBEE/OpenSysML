@@ -89,12 +89,25 @@ type Snapshot struct {
 	// Rendered is the document the rendering was asked of.
 	Rendered *Document
 	docs     map[string]*Document
+	sites    map[view.Origin]view.Site
 }
 
 // Document is the named document as the snapshot holds it; nil for a name the
 // workspace held no document of, a bundled library file's included.
 func (s *Snapshot) Document(name string) *Document {
 	return s.docs[name]
+}
+
+// Sites returns the source locations for the rendering's origins.
+func (s *Snapshot) Sites() view.Sites {
+	if s == nil || s.sites == nil {
+		return nil
+	}
+	sites := s.sites
+	return func(origin view.Origin) (view.Site, bool) {
+		site, ok := sites[origin]
+		return site, ok
+	}
 }
 
 // RenderView renders a view of a document. fqn names a declared view or a
@@ -104,11 +117,58 @@ func (s *Snapshot) Document(name string) *Document {
 func (w *Workspace) RenderView(doc, fqn string) (*view.Rendering, *Snapshot, error) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
-	return w.renderViewLocked(doc, fqn)
+	return w.renderViewLocked(doc, fqn, "", nil)
 }
 
-// renderViewLocked is RenderView under the lock.
-func (w *Workspace) renderViewLocked(doc, fqn string) (*view.Rendering, *Snapshot, error) {
+// RenderViewLinked renders a view and resolves its source sites under the
+// workspace lock, so the returned snapshot can be used after the lock is released.
+func (w *Workspace) RenderViewLinked(doc, fqn string) (*view.Rendering, *Snapshot, error) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	rendering, snapshot, err := w.renderViewLocked(doc, fqn, "", nil)
+	if err != nil {
+		return nil, nil, err
+	}
+	w.linkSitesLocked(rendering, snapshot)
+	return rendering, snapshot, nil
+}
+
+// linkSitesLocked freezes into snapshot the source sites of rendering's nodes,
+// ports and edges, so they can be read after the lock is released.
+func (w *Workspace) linkSitesLocked(rendering *view.Rendering, snapshot *Snapshot) {
+	resolver, sem := w.semanticsLocked()
+	renderer := view.NewRenderer(sem, resolver, w.sourceText())
+	sites := renderer.Sites(view.FileLocator(sem, func(name string) *source.LineIndex {
+		if doc := snapshot.docs[name]; doc != nil {
+			return doc.Lines()
+		}
+		return nil
+	}))
+	frozen := make(map[view.Origin]view.Site)
+	add := func(origin view.Origin) {
+		if site, ok := sites(origin); ok {
+			frozen[origin] = site
+		}
+	}
+	var visit func([]*view.Node)
+	visit = func(nodes []*view.Node) {
+		for _, node := range nodes {
+			add(node.Origin)
+			for _, port := range node.Ports {
+				add(port.Origin)
+			}
+			visit(node.Children)
+		}
+	}
+	visit(rendering.Roots)
+	for _, edge := range rendering.Edges {
+		add(edge.Origin)
+	}
+	snapshot.sites = frozen
+}
+
+// renderViewLocked is Reading.RenderOverlaidView under the lock.
+func (w *Workspace) renderViewLocked(doc, fqn string, overlay view.Overlay, verdicts view.Verdicts) (*view.Rendering, *Snapshot, error) {
 	d := w.docs[doc]
 	if d == nil {
 		return nil, nil, fmt.Errorf("%s: no such document", doc)
@@ -116,18 +176,24 @@ func (w *Workspace) renderViewLocked(doc, fqn string) (*view.Rendering, *Snapsho
 	var rendering *view.Rendering
 	var err error
 	w.queryLocked(doc, func(*resolve.Resolver, *semantics.Model) {
-		rendering, err = w.renderDocumentViewLocked(d, fqn)
+		rendering, err = w.renderDocumentViewLocked(d, fqn, overlay, verdicts)
 	})
 	if err != nil {
 		return nil, nil, err
+	}
+	if !rendering.Kind.SupportsOverlay(overlay) {
+		return nil, nil, fmt.Errorf("%s: a %s rendering draws no %s overlay; it is drawn on a requirement rendering", rendering.View, rendering.Kind, overlay)
 	}
 	return rendering, &Snapshot{Rendered: d, docs: maps.Clone(w.docs)}, nil
 }
 
 // renderDocumentViewLocked renders fqn of the held document d, as a query owned by d.
-func (w *Workspace) renderDocumentViewLocked(d *Document, fqn string) (*view.Rendering, error) {
+func (w *Workspace) renderDocumentViewLocked(d *Document, fqn string, overlay view.Overlay, verdicts view.Verdicts) (*view.Rendering, error) {
 	doc := d.Name
 	renderer := w.rendererLocked(doc)
+	if overlay == view.OverlayVerdicts {
+		renderer.SetVerdicts(verdicts)
+	}
 	if strings.HasPrefix(fqn, view.PseudoViewPrefix) {
 		return w.renderPseudoLocked(doc, fqn, renderer)
 	}

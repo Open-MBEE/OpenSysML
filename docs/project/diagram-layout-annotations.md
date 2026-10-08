@@ -118,20 +118,29 @@ that: a picture lies under every element symbol or over every one, never between
 `Picture` belongs to a view alone, `@Picture { … }` in its body; a view carries as many as it
 shows, in declaration order: within each layer a later picture lies over an earlier one it
 overlaps, and every picture over the element symbols lies over every one under them.
-The graph-shaped renderings (interconnection, tree, state and action views) draw it; a table or
+The graph-shaped renderings (interconnection, tree, state, action, case and mixed views) draw it; a table or
 sequence rendering has no drawing surface for it, so it keeps its rows and states in its notices
 each picture's file and box under `not drawn`.
 A `Picture` names a file the way a `DocumentQueries::Image` block's `location` names a local
 one, and it is trusted the same way: the model's author states which files of theirs a rendering reads, so a
 document rendered from a model lets that model reach whatever the location names, as an
-`Image` block always has. What a rendering copies out of such a file is bounded, though: when a
-drawn diagram's pictures are inlined into a single-file document, a file is embedded as a data
-URI only when its bytes are a recognised image (PNG, JPEG, GIF, BMP, WebP, or one well-formed SVG
-document — a single `svg` root in the SVG namespace); any other file stays a reference to its
-path, so no text or binary that is not an image is ever copied into a document by naming it. An
-SVG picture is shown through an `<image>` element (of the drawn SVG) or an `<img>` element, which
-a browser renders as a static image — none of its scripts runs and it loads no external
-resource — and the PDF engine runs no script at all.
+`Image` block always has. Every diagram form refuses an SVG picture with active content rather
+than cleaning it: a `script`, `foreignObject`, `iframe`, `embed`, `object`, `handler` or `listener`
+element; an event-handler attribute; an `href` or `xlink:href` other than a same-document `#`
+fragment or `data:image/` URL; `xml:base`; an `xml-stylesheet` instruction; an entity declaration;
+an animation element (`set`, `animate`, `animateTransform`, `animateMotion` or `animateColor`)
+that animates `href` or an event-handler attribute; or CSS with an escape, `@import`, `image-set()`
+or a `url()` other than `url(#…)`. The picture is omitted and a notice names the first such
+construct. Nested `data:image/svg+xml` hrefs are decoded and checked through four nested SVG
+levels; undecodable, malformed, active or more deeply nested SVGs are refused. A `data:` picture's
+declared media type must match its recognized image bytes, case-insensitively. A picture whose
+location has a URL scheme other than `data:` is never drawn or fetched in any form. `://` and
+`data:` locations already fail
+`diagram-layout-value`; another scheme such as `javascript:` or `file:` is noticed as `remote
+pictures are not drawn`. A local file is embedded in a single-file document only when its bytes
+are a recognised image (PNG, JPEG, GIF, BMP, WebP, or one well-formed SVG document — a single
+`svg` root in the SVG namespace). Document `Image` blocks, links and stylesheets are content the
+author places on purpose and are not subject to these picture rules.
 
 Applied:
 
@@ -230,9 +239,9 @@ A `Route` resolves the same way for an edge's declaring element. A `Canvas` belo
 view alone, stated in its body. Where a view's body states two `about` annotations of one
 kind for one element, the first in declaration order applies and the second is a warning.
 
-With no view — the `#tree`, `#interconnection:X` pseudo-views and the LSP's render of a
-document — only the element-level fallback applies, since there is no view body to look
-in.
+With no view — a `#tree`, `#interconnection:X`, `#case` or `#mixed` pseudo-view, and the
+LSP's render of a document — only the element-level fallback applies, since there is no
+view body to look in.
 
 The resolution is a lazy, memoized side-table query in `internal/semantic/semantics/layout.go`
 (`Model.LayoutOf`, `Model.RouteOf`, `Model.CanvasOf`, over `Model.LayoutSitesOf`) built
@@ -304,12 +313,13 @@ reads a feature rather than a literal is already an error of the type tier
 
 | Form | Positions | Style, Note and Picture | Notes |
 |---|---|---|---|
-| `mermaid` | Not representable | A node's `fill`, `line` and `text` as a `classDef`/`class` pair; its font, an edge's `Style`, every `Note` and every `Picture` (with its file and box) counted in the `%% not represented:` notice | Written as comments after the header so a round trip through the artifact keeps them: `%% canvas: unit=px w=1200 h=800`, `%% layout: n1 x=120 y=80 w=200 h=90 collapsed`, `%% route: n1->n2 320,125 400,125 480,125`. Node ids are the ones the diagram body uses. The nodes drawn are the ones the `dot` form draws: in a rendering that positions some nodes, the placed ones and the edges between them, with the unplaced counted in a `%% not represented:` notice, or every node under `Options.Unplaced = UnplacedStrip`; the `plantuml` form does the same under `' not represented:`. |
-| `text` | Not representable | Counted in the notice; nothing coloured is written; each `Picture` listed under `pictures:` with its file, box and alt text | `at (120, 80)` after a positioned node, `size 200×90` and `collapsed` when stated; `via (320, 125) (400, 125)` after a routed edge; a `canvas size … in px` line under the title. |
-| `dot` | Honored | Honored whole: `fillcolor`, `color`, `fontcolor`, `fontname`, `fontsize` written after the drawing style's defaults so they win, `<b>`/`<i>` round the label; a `Note` as a `shape=note` node pinned at its box, anchored by a dashed headless edge (see [view rendering forms](view-rendering-forms.md#style)); a `Picture` as a `shape=none` node with `image=` its file, `imagescale=both`, `fixedsize=true` and its box's `width`/`height`, pinned at the box's centre, written before the element nodes (Graphviz draws in order, so it lies under them) or after them when `above`, its `alt` as the `tooltip` | Graphviz's own vocabulary, converted from y-down pixels to y-up points (`inputscale=72`, `dpi=72`; y measured from the canvas's bottom edge, negated with no canvas height): a node pinned at the centre of its box with `pos="x,y!"`, `pin=true`, `width`/`height` in inches — `fixedsize=true` for a stated size, fitted to the label for an unstated one — and `comment="collapsed"`; a cluster's `bb` stated (the stated box, or the one round its positioned members) and its anchor pinned at the centre; a route as a `pos` spline through the waypoints, a route of one waypoint noticed, as is a route `neato` redraws; the canvas echoed as `// canvas:` and held by an invisible point pinned at each corner, so the drawing's bounding box is the canvas. The `// layout:` header names `neato -n2` when every node is placed and any edge routed, `neato -n` when every node is placed and none routed, `neato` when some nodes are, `dot` when none — see [view rendering forms](view-rendering-forms.md#geometry). |
-| `plantuml` | Not representable | A node's colours as `#fill;line:line;text:text`; the rest, pictures included, counted in the `' not represented:` notice | The node set and edge set the `dot` form draws, as above |
+| `mermaid` | Not representable | Supported node and edge Style fields use Mermaid CSS; palettes use `classDef`/`class`; flowchart notes and safe pictures are drawn, as are state and sequence notes with supported anchors. Active-content SVGs, including recursively checked nested data SVGs, and locations with a non-`data:` URL scheme are omitted with reasoned `%% not represented:` notices. State and sequence diagrams still draw no pictures; refused pictures name their reason, while drawable ones receive the generic no-picture notice. | Geometry survives as `%% canvas:`, `%% layout:` and `%% route:` comments. Flowchart node labels use safe Markdown; Mermaid's own layout decides positions. Document backends inline readable local picture files before Mermaid CLI draws them. |
+| `text` | Not representable | Counted in the notice; nothing coloured is written; each `Picture` listed under `pictures:` with its file, box and alt text, with refusal reasons also reported in notices | `at (120, 80)` after a positioned node, `size 200×90` and `collapsed` when stated; `via (320, 125) (400, 125)` after a routed edge; a `canvas size … in px` line under the title. |
+| `dot` | Honored | Honored whole: `fillcolor`, `color`, `fontcolor`, `fontname`, `fontsize` written after the drawing style's defaults so they win, `<b>`/`<i>` round the label; a `Note` as a `shape=note` node pinned at its box, anchored by a dashed headless edge (see [view rendering forms](view-rendering-forms.md#style)); a safe `Picture` as a `shape=none` node with `image=` its file, `imagescale=both`, `fixedsize=true` and its box's `width`/`height`, pinned at the box's centre, written before the element nodes (Graphviz draws in order, so it lies under them) or after them when `above`, its `alt` as the `tooltip`; refused pictures are omitted with a reasoned `// not represented:` notice | Graphviz's own vocabulary, converted from y-down pixels to y-up points (`inputscale=72`, `dpi=72`; y measured from the canvas's bottom edge, negated with no canvas height): a node pinned at the centre of its box with `pos="x,y!"`, `pin=true`, `width`/`height` in inches — `fixedsize=true` for a stated size, fitted to the label for an unstated one — and `comment="collapsed"`; a cluster's `bb` stated (the stated box, or the one round its positioned members) and its anchor pinned at the centre; a route as a `pos` spline through the waypoints, a route of one waypoint noticed, as is a route `neato` redraws; the canvas echoed as `// canvas:` and held by an invisible point pinned at each corner, so the drawing's bounding box is the canvas. The `// layout:` header names `neato -n2` when every node is placed and any edge routed, `neato -n` when every node is placed and none routed, `neato` when some nodes are, `dot` when none — see [view rendering forms](view-rendering-forms.md#geometry). |
+| `plantuml` | Not representable | A node's colours as `#fill;line:line;text:text`; drawable pictures are counted in the `' not represented:` notice, and refused pictures receive a separate reasoned notice | The node set and edge set the `dot` form draws, as above |
+| `d2` | Not representable | A node's colours as `style: { fill; stroke; font-color }`, a stated font size as `font-size`, bold and italic as `bold`/`italic`; a font family, notes and drawable pictures are counted in the `# not represented:` notice, and refused pictures receive a separate reasoned notice | The node set and edge set the `dot` form draws, as above; geometry survives as `# canvas:`, `# layout:` and `# route:` comments |
 | `markdown` (table) | n/a | n/a | — |
-| LSP `opensysml/render` | Structured | Optional `style` (`fill`, `line`, `text`, `font`, `fontSize`, `bold`, `italic`) on a node or an edge; notes reach the client only through the DOT it asks for | Optional `x`, `y`, `width`, `height`, `collapsed` on a node, `route` on an edge, `canvas` on the result — see [the LSP reference](../reference/lsp.md). |
+| LSP `opensysml/render` | Structured | Optional `style` (`fill`, `line`, `text`, `font`, `fontSize`, `bold`, `italic`) on a node or an edge; notes reach the client only through the DOT it asks for; refused pictures contribute reasoned entries to `notices` | Optional `x`, `y`, `width`, `height`, `collapsed` on a node, `route` on an edge, `canvas` on the result — see [the LSP reference](../reference/lsp.md). |
 
 Numbers print in their shortest exact form (`strconv.FormatFloat(v, 'f', -1, 64)`), so
 `120` stays `120` and `12.5` stays `12.5`. A model without layout annotations produces

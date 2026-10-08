@@ -140,7 +140,7 @@ func TestQuantityExpressionsFold(t *testing.T) {
 		{"affirmed", symbols.FilterValueQuantity, "3 [kg]"},
 		{"chosen", symbols.FilterValueQuantity, "1 [kg]"},
 		{"quotient", symbols.FilterValueQuantity, "3.0 [m/s]"},
-		{"ratio", symbols.FilterValueReal, "2.0"},
+		{"ratio", symbols.FilterValueRational, "2.0"},
 		{"heavier", symbols.FilterValueBool, "true"},
 	}
 	for _, tc := range cases {
@@ -156,6 +156,8 @@ func TestQuantityExpressionsFold(t *testing.T) {
 				got = q.String()
 			case symbols.FilterValueReal:
 				got = semantics.FormatReal(value.Real)
+			case symbols.FilterValueRational:
+				got = semantics.RatValue(value.Rat).FormatRational()
 			case symbols.FilterValueBool:
 				if value.Bool {
 					got = "true"
@@ -222,8 +224,8 @@ func TestCompareQuantitiesConvertsCommensurableUnits(t *testing.T) {
 
 // TestCompareMagnitudesKeepsLargeIntegersExact: Integer magnitudes above 2^53,
 // which one float64 cannot tell apart, stay ordered in one unit and across a
-// whole scale ratio; a Real operand or a fractional scale still compares as
-// float64, so 1 m and 100 cm remain equal.
+// whole scale ratio. A decimal literal is an exact Rational, so 2^53+1 kg is
+// above 9007199254740992.0 kg, and 1 m and 100 cm remain equal.
 func TestCompareMagnitudesKeepsLargeIntegersExact(t *testing.T) {
 	m, idx := quantityFixture(t)
 	q := func(expr string) semantics.Quantity { return fold(t, m, idx, expr) }
@@ -237,7 +239,7 @@ func TestCompareMagnitudesKeepsLargeIntegersExact(t *testing.T) {
 		{"9007199254740993 [kg]", "9007199254740992000 [g]", 1},
 		{"9007199254740992000 [g]", "9007199254740993 [kg]", -1},
 		{"9007199254740992000 [g]", "9007199254740992 [kg]", 0},
-		{"9007199254740993 [kg]", "9007199254740992.0 [kg]", 0},
+		{"9007199254740993 [kg]", "9007199254740992.0 [kg]", 1},
 		{"1 [m]", "100 [cm]", 0},
 		{"1 [m]", "101 [cm]", -1},
 	}
@@ -307,8 +309,8 @@ func TestBareZeroComparesInTheQuantitysUnit(t *testing.T) {
 	}
 }
 
-// TestQuantityArithmeticFailures: a zero divisor and an Integer overflow are
-// typed errors, never a silent infinity or wrap-around.
+// TestQuantityArithmeticFailures: a zero divisor is a typed error, never a
+// silent infinity, and an Integer magnitude past int64 is exact, never wrapped.
 func TestQuantityArithmeticFailures(t *testing.T) {
 	m, idx := quantityFixture(t)
 	kilograms := func(n int64) semantics.Quantity { return fold(t, m, idx, fmt.Sprintf("%d [kg]", n)) }
@@ -317,8 +319,8 @@ func TestQuantityArithmeticFailures(t *testing.T) {
 	if _, err := semantics.QuantityBinary(ast.OpDiv, kilograms(1), zero); !errors.Is(err, semantics.ErrDivisionByZero) {
 		t.Errorf("1 kg / 0: err = %v, want ErrDivisionByZero", err)
 	}
-	if _, err := semantics.QuantityBinary(ast.OpMul, kilograms(1<<62), kilograms(4)); !errors.Is(err, semantics.ErrArithmeticOverflow) {
-		t.Errorf("2^62 kg * 4 kg: err = %v, want ErrArithmeticOverflow", err)
+	if got, err := semantics.QuantityBinary(ast.OpMul, kilograms(1<<62), kilograms(4)); err != nil || got.Num.FormatInt() != "18446744073709551616" || !got.Num.IsBigInt() {
+		t.Errorf("2^62 kg * 4 kg = %v, %v; want the exact Integer 2^64", got.String(), err)
 	}
 	exponent := semantics.Quantity{Num: semantics.Value{Kind: semantics.ValInt, Int: 2}, Unit: semantics.UnitOne()}
 	squared, err := semantics.QuantityBinary(ast.OpPow, metres(3), exponent)

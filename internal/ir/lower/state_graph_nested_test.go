@@ -236,7 +236,7 @@ func TestToStateGraph_ParallelStateUsage(t *testing.T) {
 	}
 }
 
-func TestToStateGraph_ParallelStateBehaviorsAndDeferredEvents(t *testing.T) {
+func TestToStateGraph_ParallelStateBehaviors(t *testing.T) {
 	graph, err := ToStateGraph(stateUsageIn(t, `
 		package test {
 			state Machine parallel {
@@ -244,7 +244,6 @@ func TestToStateGraph_ParallelStateBehaviorsAndDeferredEvents(t *testing.T) {
 				do action work { }
 				exit action finish { }
 				state left {
-					defer Ping;
 					entry; then idle;
 					state idle;
 				}
@@ -277,9 +276,6 @@ func TestToStateGraph_ParallelStateBehaviorsAndDeferredEvents(t *testing.T) {
 	left := graph.ParentState[idle]
 	if left == nil || left.Name != "left" {
 		t.Fatalf("idle parent = %v, want graph-only left region state", left)
-	}
-	if got := len(graph.Deferred[left]); got != 1 {
-		t.Fatalf("left deferred triggers = %d, want 1", got)
 	}
 }
 
@@ -342,8 +338,8 @@ func TestToStateGraph_ParallelBodyNonRegionMembers(t *testing.T) {
 	})
 }
 
-// A parallel state owns what its regions branch through: the pseudostate, the
-// edges leaving it, and the deferred events of the state that declares them.
+// A parallel state owns what its regions branch through: the pseudostate and
+// the edges leaving it.
 func TestToStateGraph_ParallelStateOwnsItsPseudostatesAndEdges(t *testing.T) {
 	graph, err := ToStateGraph(stateDefinitionIn(t, `
 		package test {
@@ -355,7 +351,6 @@ func TestToStateGraph_ParallelStateOwnsItsPseudostatesAndEdges(t *testing.T) {
 						entry; then lidle;
 						state lidle;
 						state lfast;
-						defer done;
 						transition first lidle then pick;
 					}
 					state right {
@@ -400,9 +395,6 @@ func TestToStateGraph_ParallelStateOwnsItsPseudostatesAndEdges(t *testing.T) {
 	}
 	if leftOwner == nil {
 		t.Fatal("no graph state stands for the left region")
-	}
-	if len(graph.Deferred[leftOwner]) == 0 {
-		t.Fatal("defer declared by a region substate was dropped")
 	}
 }
 

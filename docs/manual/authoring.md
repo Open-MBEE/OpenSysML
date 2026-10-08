@@ -109,8 +109,13 @@ another document — by name: `ref redefines target = <block>`. The renderer
 gives the referenced block a stable HTML anchor derived from its named path —
 `<a id="breakdown"></a>` before the section above — and the `Ref` renders as
 a link to it. `text` is optional; it defaults to the target's title (for a
-section), caption (for a table or diagram) or name. A target that is neither
-a content block nor a document, or one without a stable name, is a typed
+section), caption (for a table or diagram) or name. A `Ref` may also name a
+model element outside every document — a usage by name (`telescope.mount`),
+any element through its metadata (`Mount.metadata`, the KerML way to refer to
+a definition or package as a value): it renders as the element's name, in
+HTML marked with the element's qualified name (`data-element`) and no link,
+since a rendered document has no page for it. A content block that is not a
+named member of a document, or a target without a stable name, is a typed
 planning error.
 
 ### Cross-document references
@@ -502,25 +507,40 @@ part structure : Diagram {
 - A **view** source carries its own rendering kind from its `render` clause;
   stating a `kind` on the diagram too is a conflict error.
 - A **plain element** source requires a `kind`: `"tree"`,
-  `"interconnection"`, `"state"`, `"action"`, `"table"` or `"sequence"`.
+  `"interconnection"`, `"state"`, `"action"`, `"case"`, `"mixed"`, `"table"`
+  or `"sequence"`.
 - `caption` is optional and renders in emphasis above the diagram.
 - `direction` — `"TB"`, `"LR"`, `"RL"` or `"BT"` — is accepted only by kinds
   drawn as directed graphs; it becomes the Mermaid flowchart direction or a
   `stateDiagram-v2` `direction` statement, the Graphviz `rankdir` when the
-  document is rendered with DOT diagrams, or PlantUML's `top to bottom
-  direction`/`left to right direction` with PlantUML ones. Stating one on a
+  document is rendered with DOT diagrams, PlantUML's `top to bottom
+  direction`/`left to right direction` with PlantUML ones, or D2's `direction:`
+  statement with D2 ones. Stating one on a
   sequence diagram is a typed error.
 - `palette` — `"okabe-ito"`, `"tol-bright"`, `"tol-muted"`, `"tol-light"`,
   `"brewer-set2"`, `"brewer-dark2"`, `"viridis"` or `"cividis"` — is accepted
-  only by kinds that have a DOT or PlantUML form (tree, interconnection,
-  state, action, sequence). When the document is rendered with DOT or
-  PlantUML diagrams, the diagram's nodes are filled by keyword family from
-  that colourblind-safe palette, a `part def` and its `part` usages sharing a
-  hue, with black text kept legible on every fill
-  ([the palettes](../project/view-rendering-forms.md#palettes)); with Mermaid
-  diagrams the palette is noted as not represented, and the HTML figure
-  carries it as `data-palette` either way. Any other name, or a palette on a
-  table diagram, is a typed error.
+  for graph-shaped kinds (tree, interconnection, state, action, case, mixed,
+  sequence).
+  Mermaid, DOT, PlantUML and D2 fill applicable nodes by keyword family from that
+  colourblind-safe palette, a `part def` and its `part` usages sharing a hue,
+  with black text kept legible on every fill
+  ([the palettes](../project/view-rendering-forms.md#palettes)). Mermaid
+  sequence diagrams note that individual participants cannot be filled; HTML
+  figures carry the palette as `data-palette`. Any other name, or a palette on
+  a table diagram, is a typed error.
+  D2 fills nodes for tree, interconnection, state, action and sequence renderings;
+  it does not yet write case or mixed renderings and refuses them with a typed
+  `WrongFormError`.
+  `ports` — `"minimal"` or `"full"` — is accepted by an interconnection or
+  mixed diagram. `"minimal"`, the default, draws on each part the ports an
+  interconnection edge ends at and no other, each a small square on the
+  part's border named beside it; `"full"` draws every port a part has,
+  labelled `name : Type`. Any other name, or `ports` on another kind, is a
+  typed error.
+  `overlay` — `"verdicts"` — is accepted by a requirement diagram alone: it
+  runs the verification cases verifying each requirement drawn and labels
+  and colours the requirement by their verdicts. Any other name, or
+  `overlay` on another kind, is a typed error.
 
 A diagram block states *what* is drawn, not the notation it is written in:
 that is a choice made when the document is rendered. By default most kinds
@@ -532,24 +552,29 @@ render as a fenced ` ```mermaid ` block:
 ```mermaid
 ---
 config:
-  flowchart:
-    subGraphTitleMargin:
-      bottom: 24
+  themeCSS: ".cluster-label .nodeLabel { text-align: center; }"
 ---
 %% Observatory::interconnectView — interconnection rendering (render asInterconnectionDiagram)
 flowchart LR
-  subgraph n0 ["imagingChain<br>«part»"]
+  subgraph n0 ["`*«part»* **imagingChain**`"]
     direction LR
-    n1["camera : Camera<br>«part»"]
-    n2["recorder : Recorder<br>«part»"]
+    subgraph n1 ["`*«part»* **camera : Camera**`"]
+      direction LR
+      n1.0["«port»<br>output : DataPort"]
+    end
+    subgraph n2 ["`*«part»* **recorder : Recorder**`"]
+      direction LR
+      n2.0["«port»<br>input : DataPort"]
+    end
   end
-  n1 ---|"link"| n2
+  n1.0 ---|"link"| n2.0
 ```
 ```
 
 Rendered with `-diagram-form dot` (`%render-document <name> dot` in the REPL,
 `diagramForm: "dot"` over the LSP), every graph-shaped diagram of the
-document — a `tree`, `interconnection`, `state` or `action` rendering — is a
+document — a `tree`, `interconnection`, `state`, `action`, `case` or `mixed`
+rendering — is a
 fenced ` ```dot ` block of Graphviz DOT instead, for a toolchain that lays
 diagrams out with Graphviz. No Graphviz installation is needed to write it:
 
@@ -565,12 +590,12 @@ digraph "Observatory::interconnectView" {
   graph [rankdir=LR];
   node [shape=box];
   subgraph "cluster_n0" {
-    label=<<b>imagingChain</b><br/><font point-size="10">«part»</font>>;
+    label=<<font point-size="10">«part»</font><br/><b>imagingChain</b>>;
     "n0" [shape=point, style=invis, width=0, height=0, label=""];
-    "n1" [label=<<b>camera : Camera</b><br/><font point-size="10">«part»</font>>];
-    "n2" [label=<<b>recorder : Recorder</b><br/><font point-size="10">«part»</font>>];
+    "n1" [label=<<table border="0" cellborder="0" cellspacing="0" cellpadding="2"><tr><td colspan="2"><font point-size="10">«part»</font><br/><b>camera : Camera</b></td></tr><tr><td port="n1.0" border="1" fixedsize="true" width="10" height="10"></td><td align="left"><font point-size="8">output : DataPort</font></td></tr></table>>];
+    "n2" [label=<<table border="0" cellborder="0" cellspacing="0" cellpadding="2"><tr><td port="n2.0" border="1" fixedsize="true" width="10" height="10"></td><td align="left"><font point-size="8">input : DataPort</font></td></tr><tr><td colspan="2"><font point-size="10">«part»</font><br/><b>recorder : Recorder</b></td></tr></table>>];
   }
-  "n1" -> "n2" [label="link", arrowhead=none];
+  "n1":"n1.0" -> "n2":"n2.0" [label="link", arrowhead=none, penwidth=3];
 }
 ```
 ```
@@ -600,11 +625,15 @@ PlantUML jar is needed to write it:
 </style>
 skinparam wrapWidth 300
 hide stereotype
-rectangle "**imagingChain**\n<size:10>//«part»//</size>" as n0 <<part>> <<usage>> {
-  rectangle "**camera : Camera**\n<size:10>//«part»//</size>" as n1 <<part>> <<usage>>
-  rectangle "**recorder : Recorder**\n<size:10>//«part»//</size>" as n2 <<part>> <<usage>>
+rectangle "<size:10>//«part»//</size>\n**imagingChain**" as n0 <<part>> <<usage>> {
+  rectangle "<size:10>//«part»//</size>\n**camera : Camera**" as n1 <<part>> <<usage>> {
+    port "output : DataPort" as n1.0
+  }
+  rectangle "<size:10>//«part»//</size>\n**recorder : Recorder**" as n2 <<part>> <<usage>> {
+    port "input : DataPort" as n2.0
+  }
 }
-n1 -[thickness=3]- n2 : link
+n1.0 -[thickness=3]- n2.0 : link
 @enduml
 ```
 ```
@@ -614,9 +643,45 @@ it as source under a notice. PlantUML pins no positions, so a view's
 `DiagramLayout` geometry rides along as `'` comments; DOT is the form that
 honours it ([the PlantUML form](../project/view-rendering-forms.md#plantuml)).
 
+Rendered with `-diagram-form d2` (`%render-document <name> d2`, `diagramForm: "d2"`),
+each `tree`, `interconnection`, `state`, `action` or `sequence` diagram is a fenced
+` ```d2 ` block for a [D2](https://d2lang.com) toolchain, in the same B&W look as a
+`classes` block the nodes and edges name; a part's parts and drawn ports are containers
+nested in it. Case and mixed diagrams are refused with a typed unrenderable-form error.
+No `d2` is needed to write it:
+
+```markdown
+*Imaging chain interconnection*
+
+```d2
+# Observatory::interconnectView — interconnection rendering (render asInterconnectionDiagram)
+classes: {
+  …
+}
+n0: "«part»\nimagingChain" {
+  class: usage
+  n1: "«part»\ncamera : Camera" {
+    class: usage
+    "n1.0": "output" { class: pin }
+  }
+  n2: "«part»\nrecorder : Recorder" {
+    class: usage
+    "n2.0": "input" { class: pin }
+  }
+}
+n0.n1."n1.0" -- n0.n2."n2.0": "link" { class: connection }
+```
+```
+
+The HTML backend embeds it in `<pre class="d2">`; the PDF backend draws it with
+the `d2` executable `OPENSYSML_D2` names (or `d2` on `PATH`) and keeps it as
+source under a notice without one. D2 lays the diagram out itself, so a view's
+`DiagramLayout` geometry rides along as `#` comments
+([the D2 form](../project/view-rendering-forms.md#d2)).
+
 The `table` kind is the exception — it renders as a pipe table of the
 element's structure (Element / Kind / Type / Declared in) rather than a
-Mermaid, DOT or PlantUML block, whichever diagram form the document is rendered
+Mermaid, DOT, PlantUML or D2 block, whichever diagram form the document is rendered
 with.
 
 ## Images

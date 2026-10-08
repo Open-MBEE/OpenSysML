@@ -17,8 +17,8 @@ changed=$(git diff --name-only "$(git merge-base "$base" "$head")" "$head")
 # scenarios: a change here can change every client's answers, so all of them run.
 # The extension's grammar generator and its committed output are here too: the
 # test that holds them together is a Go test, run by the Go suite.
-service_pattern='^(api/proto/|cmd/|internal/|tools/|client/opensysml/|client/release-digests\.json$|conformance/|tests/|scripts/|examples/|editors/vscode/tools/|editors/vscode/syntaxes/|Makefile$|go\.mod$|go\.sum$|\.github/workflows/|\.circleci/)'
-docs_pattern='^(docs/|packaging/man/|mkdocs\.yml$|README\.md$|CHANGELOG\.md$|CONTRIBUTING\.md$|AGENTS\.md$|.*\.md$)'
+service_pattern='^(api/proto/|cmd/|internal/|tools/|client/opensysml/|client/release-digests\.json$|conformance/|tests/|scripts/|examples/|editors/vscode/tools/|editors/vscode/syntaxes/|Makefile$|go\.mod$|go\.sum$|install\.sh$|install\.ps1$|\.github/workflows/|\.circleci/)'
+docs_pattern='^(docs/|overrides/|packaging/man/|mkdocs\.yml$|README\.md$|CHANGELOG\.md$|CONTRIBUTING\.md$|AGENTS\.md$|.*\.md$)'
 node_pattern='^client/node/'
 python_pattern='^client/python/'
 java_pattern='^client/java/'
@@ -26,10 +26,10 @@ rust_pattern='^client/rust/'
 julia_pattern='^client/julia/'
 matlab_pattern='^client/matlab/'
 vscode_pattern='^editors/vscode/'
-cameo_pattern='^editors/cameo/'
+mdk_pattern='^editors/mdk/'
 syson_pattern='^editors/syson/'
 
-known_pattern="$service_pattern|$docs_pattern|$node_pattern|$python_pattern|$java_pattern|$rust_pattern|$julia_pattern|$matlab_pattern|$vscode_pattern|$cameo_pattern|$syson_pattern|^\.agents/|^\.gitignore$|^\.gitattributes$|^LICENSE|^packaging/"
+known_pattern="$service_pattern|$docs_pattern|$node_pattern|$python_pattern|$java_pattern|$rust_pattern|$julia_pattern|$matlab_pattern|$vscode_pattern|$mdk_pattern|$syson_pattern|^\.agents/|^\.gitignore$|^\.gitattributes$|^LICENSE|^packaging/"
 
 matches() {
   local pattern=$1
@@ -56,12 +56,12 @@ emit node "$( { [[ "$service" = true ]] || matches "$node_pattern"; } && echo tr
 # so the Node, Java and Rust manifests, every editor manifest
 # check_version.py --editors reads, and the editors' client references have
 # to run it too.
-emit python "$( { [[ "$service" = true ]] || matches "$python_pattern" || matches '^client/node/package\.json$' || matches '^client/java/pom\.xml$' || matches '^client/rust/opensysml/Cargo\.toml$' || matches '^client/rust/Cargo\.lock$' || matches '^editors/(cameo|syson(/backend)?)/pom\.xml$' || matches '^editors/(cameo/(plugin|tools|openapi-stubs|dist)|syson/syson-api-stubs)/pom\.xml$' || matches '^editors/(vscode|syson/frontend)/package(-lock)?\.json$'; } && echo true || echo false)"
+emit python "$( { [[ "$service" = true ]] || matches "$python_pattern" || matches '^client/node/package\.json$' || matches '^client/java/pom\.xml$' || matches '^client/rust/opensysml/Cargo\.toml$' || matches '^client/rust/Cargo\.lock$' || matches '^editors/(mdk|syson(/backend)?)/pom\.xml$' || matches '^editors/(mdk/(plugin|tools|openapi-stubs|mdk-api-stubs|mdk-bridge|dist)|syson/syson-api-stubs)/pom\.xml$' || matches '^editors/(vscode|syson/frontend)/package(-lock)?\.json$'; } && echo true || echo false)"
 emit java "$( { [[ "$service" = true ]] || matches "$java_pattern"; } && echo true || echo false)"
 emit rust "$( { [[ "$service" = true ]] || matches "$rust_pattern"; } && echo true || echo false)"
 emit julia "$( { [[ "$service" = true ]] || matches "$julia_pattern"; } && echo true || echo false)"
 emit matlab "$( { [[ "$service" = true ]] || matches "$matlab_pattern"; } && echo true || echo false)"
 emit vscode "$( { [[ "$service" = true ]] || matches "$vscode_pattern"; } && echo true || echo false)"
-# The Cameo plugin builds on the Java client, so a client change re-runs it too.
-emit cameo "$( { [[ "$service" = true ]] || matches "$cameo_pattern" || matches "$java_pattern"; } && echo true || echo false)"
+# The MDK plugin builds on the Java client, so a client change re-runs it too.
+emit mdk "$( { [[ "$service" = true ]] || matches "$mdk_pattern" || matches "$java_pattern"; } && echo true || echo false)"
 emit syson "$( { [[ "$service" = true ]] || matches "$syson_pattern"; } && echo true || echo false)"

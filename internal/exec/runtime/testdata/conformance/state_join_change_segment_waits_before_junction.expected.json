@@ -5,21 +5,9 @@
     {"signal": "Bump"},
     {"signal": "Bump"}
   ],
-  "outcomes": [
-    {
-      "finalState": "done",
-      "outputs": {
-        "log": {"type": "String", "value": "a b sync onward"},
-        "level": {"type": "Integer", "value": 3}
-      }
-    },
-    {
-      "finalState": "done",
-      "outputs": {
-        "log": {"type": "String", "value": "b a sync onward"},
-        "level": {"type": "Integer", "value": 3}
-      }
-    }
-  ],
-  "admissible": "Transitions into a join: each exits its source and runs its effect before the owner is left, in which order is open"
+  "finalState": "done",
+  "outputs": {
+    "log": {"type": "String", "value": "a b sync onward"},
+    "level": {"type": "Integer", "value": 3}
+  }
 }

@@ -1,11 +1,13 @@
 package smt
 
 import (
+	"errors"
 	"fmt"
 	"slices"
 
 	"github.com/Open-MBEE/OpenSysML/internal/exec/analysis"
 	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
 
@@ -110,12 +112,15 @@ type BodyLoop struct {
 
 // Analyze numbers the flow for an encoding of k moves, refusing with a typed
 // error a flow the stage does not encode or the interpreter would not run.
-func Analyze(graph *lower.ActionGraph, k int) (*Flow, error) {
+func Analyze(graph *lower.ActionGraph, model *semantics.Model, k int) (*Flow, error) {
 	if graph == nil {
 		return nil, &FlowError{Reason: "no action flow"}
 	}
 	if k < 0 {
 		return nil, fmt.Errorf("smt: a bound of %d moves", k)
+	}
+	if len(graph.Concurrent) > 0 {
+		return nil, unorderedStart(graph)
 	}
 	if graph.Initial == nil {
 		return nil, &FlowError{Reason: "the flow has no initial node"}
@@ -138,6 +143,29 @@ func Analyze(graph *lower.ActionGraph, k int) (*Flow, error) {
 		}
 	}
 	for _, node := range f.Nodes {
+		if frame := f.FrameOf[node]; frame != nil && frame.Graph.Multiplicities[node] != nil {
+			count, err := frame.Graph.StepCount(node, model)
+			if err != nil || count != 1 {
+				multiplicity := frame.Graph.MultiplicityText(node, model)
+				reason := "the SMT engine does not encode a step performed " + fmt.Sprint(count) + " times"
+				if err != nil {
+					var stepErr *lower.StepMultiplicityError
+					if errors.As(err, &stepErr) {
+						multiplicity = stepErr.Multiplicity
+					}
+					reason = "the SMT engine requires a fixed single-performance step"
+				}
+				unsupported := &UnsupportedError{
+					Node:      nodeLabel(node),
+					Construct: "action step multiplicity " + multiplicity,
+					Reason:    reason,
+				}
+				if errors.Is(err, semantics.ErrIntegerUnaddressable) {
+					return nil, fmt.Errorf("%w: %w", unsupported, err)
+				}
+				return nil, unsupported
+			}
+		}
 		if err := f.checkNode(node); err != nil {
 			return nil, err
 		}
@@ -150,6 +178,9 @@ func Analyze(graph *lower.ActionGraph, k int) (*Flow, error) {
 	if f.Slots > 1 {
 		for _, node := range f.Nodes {
 			if err := f.checkImplicitJoin(node); err != nil {
+				return nil, err
+			}
+			if err := f.checkBodyInterleaving(node); err != nil {
 				return nil, err
 			}
 		}
@@ -165,6 +196,9 @@ func Analyze(graph *lower.ActionGraph, k int) (*Flow, error) {
 // each flow a node of it states of its own, so every frame's labels stay distinct.
 func (f *Flow) number(fr *Frame) error {
 	graph := fr.Graph
+	if graph != nil && len(graph.Concurrent) > 0 {
+		return unorderedStart(graph)
+	}
 	if graph == nil || graph.Initial == nil {
 		return &FlowError{Node: nodeLabel(fr.Node), Reason: "the flow has no initial node"}
 	}
@@ -207,6 +241,9 @@ func (f *Flow) number(fr *Frame) error {
 		if sub == nil {
 			continue
 		}
+		if sub.Err == nil && sub.Graph != nil && len(sub.Graph.Concurrent) > 0 {
+			return unorderedStart(sub.Graph)
+		}
 		if sub.Err != nil || sub.Graph == nil || sub.Graph.Initial == nil {
 			return f.refuseNested(node)
 		}
@@ -215,6 +252,13 @@ func (f *Flow) number(fr *Frame) error {
 		}
 	}
 	return nil
+}
+
+// unorderedStart refuses a flow with a subaction no succession reaches: one more
+// start than the encoding seeds.
+func unorderedStart(graph *lower.ActionGraph) error {
+	return &UnsupportedError{Node: nodeLabel(graph.Concurrent[0]), Construct: "unordered subaction",
+		Reason: "a subaction no succession reaches starts with its owner; the encoding seeds one start"}
 }
 
 // graphOf returns the lowered flow node runs in.
@@ -262,7 +306,7 @@ func (f *Flow) checkNode(node ast.Node) error {
 			f.Delivers = true
 		}
 	}
-	return f.checkBody(node, label, graph.Bodies[node])
+	return f.checkBody(graph, node, label, graph.Bodies[node])
 }
 
 // refuseNested refuses a node stating a flow of its own, whatever that flow holds.
@@ -298,8 +342,8 @@ func (f *Flow) checkNodeKind(node ast.Node, label string) error {
 		if n.ActionRef != nil {
 			return &UnsupportedError{Node: label, Construct: "action invocation", Reason: "a node performing another action is encoded by a later stage"}
 		}
-		if out > 1 {
-			return &FlowError{Node: label, Reason: "the action node has multiple successors"}
+		if err := f.checkSuccessors(node, label, "the action node has multiple successors"); err != nil {
+			return err
 		}
 	case *ast.Usage:
 		if lower.IsCaseNode(n) {
@@ -308,12 +352,12 @@ func (f *Flow) checkNodeKind(node ast.Node, label string) error {
 		if performsAction(n) {
 			return &UnsupportedError{Node: label, Construct: "action invocation", Reason: "a node performing another action is encoded by a later stage"}
 		}
-		if out > 1 {
-			return &FlowError{Node: label, Reason: "the action node has multiple successors"}
+		if err := f.checkSuccessors(node, label, "the action node has multiple successors"); err != nil {
+			return err
 		}
 	case *ast.WhileLoopActionNode, *ast.IfActionNode, *ast.AssignmentActionNode:
-		if out > 1 {
-			return &FlowError{Node: label, Reason: "the statement node has multiple successors"}
+		if err := f.checkSuccessors(node, label, "the statement node has multiple successors"); err != nil {
+			return err
 		}
 	case *ast.SendStatement:
 		return &UnsupportedError{Node: label, Construct: "send", Reason: "messages are encoded by a later stage"}
@@ -323,6 +367,27 @@ func (f *Flow) checkNodeKind(node ast.Node, label string) error {
 		return &UnsupportedError{Node: label, Construct: fmt.Sprintf("%T", node), Reason: "the interpreter runs no such node"}
 	}
 	return nil
+}
+
+// checkSuccessors refuses a node other than a fork that several successions leave:
+// two not of succession flows are a choice the interpreter refuses, and the one beside
+// a succession flow's starts with it, as after a fork, which the stage does not encode.
+func (f *Flow) checkSuccessors(node ast.Node, label, reason string) error {
+	out := f.Outgoing[node]
+	if len(out) < 2 {
+		return nil
+	}
+	control := 0
+	for _, i := range out {
+		if !f.Edges[i].Carries {
+			control++
+		}
+	}
+	if control > 1 {
+		return &FlowError{Node: label, Reason: reason}
+	}
+	return &UnsupportedError{Node: label, Construct: "implicit fork",
+		Reason: "the successions of succession flows leaving a node start beside its other succession, which only a fork is encoded as"}
 }
 
 // checkImplicitJoin refuses a node other than a join or a merge that several
@@ -340,9 +405,23 @@ func (f *Flow) checkImplicitJoin(node ast.Node) error {
 		Reason: "a node several successions enter synchronizes over those still reachable while tokens run concurrently; only a join or a merge is encoded there"}
 }
 
+// checkBodyInterleaving refuses a body another token's moves may interleave
+// inside while tokens run concurrently: the encoding performs a body as one move.
+func (f *Flow) checkBodyInterleaving(node ast.Node) error {
+	if !lower.BodyDivides(f.FrameOf[node].Graph, node) {
+		return nil
+	}
+	return &UnsupportedError{Node: f.label(node), Construct: "body interleaving",
+		Reason: "another performance may interleave between this body's start and its statements, or between two of them; the encoding performs a body as one move"}
+}
+
 // checkBody refuses the statements of a body the stage does not encode, and
 // records the loops it unrolls.
-func (f *Flow) checkBody(node ast.Node, label string, body []lower.Statement) error {
+func (f *Flow) checkBody(graph *lower.ActionGraph, node ast.Node, label string, body []lower.Statement) error {
+	if lower.BodyStatementOrder(graph, node, body).Reorders(false) {
+		return &UnsupportedError{Node: label, Construct: "statement order",
+			Reason: "two statements no succession orders depend on each other; the encoding performs them in declaration order"}
+	}
 	for _, stmt := range body {
 		switch s := stmt.(type) {
 		case lower.Assign:
@@ -356,15 +435,15 @@ func (f *Flow) checkBody(node ast.Node, label string, body []lower.Statement) er
 		case lower.DeclareUsage:
 			return &UnsupportedError{Node: label, Construct: "usage declaration", Reason: "a body declaring a usage is not encoded"}
 		case lower.Block:
-			if err := f.checkBlock(node, label, s); err != nil {
+			if err := f.checkBlock(graph, node, label, s); err != nil {
 				return err
 			}
 		case lower.If:
-			if err := f.checkBlock(node, label, s.Then); err != nil {
+			if err := f.checkBlock(graph, node, label, s.Then); err != nil {
 				return err
 			}
 			if s.Else != nil {
-				if err := f.checkBlock(node, label, *s.Else); err != nil {
+				if err := f.checkBlock(graph, node, label, *s.Else); err != nil {
 					return err
 				}
 			}
@@ -375,7 +454,7 @@ func (f *Flow) checkBody(node ast.Node, label string, body []lower.Statement) er
 			if s.Condition == nil && s.Until == nil {
 				return &UnsupportedError{Node: label, Construct: "loop", Reason: "a loop with no condition ends only at the step budget"}
 			}
-			if err := f.checkBlock(node, label, s.Body); err != nil {
+			if err := f.checkBlock(graph, node, label, s.Body); err != nil {
 				return err
 			}
 			f.Loops = append(f.Loops, BodyLoop{Node: node, Label: label, Loop: s})
@@ -396,11 +475,11 @@ func (f *Flow) checkBody(node ast.Node, label string, body []lower.Statement) er
 }
 
 // checkBlock refuses a block that runs a flow of its own and checks its statements.
-func (f *Flow) checkBlock(node ast.Node, label string, block lower.Block) error {
+func (f *Flow) checkBlock(graph *lower.ActionGraph, node ast.Node, label string, block lower.Block) error {
 	if block.Graph != nil {
 		return &UnsupportedError{Node: label, Construct: "nested flow", Reason: "a block declaring action nodes is encoded by a later stage"}
 	}
-	return f.checkBody(node, label, block.Statements)
+	return f.checkBody(graph, node, label, block.Statements)
 }
 
 // sizeSlots decides how many tokens the frame's flow may hold at once within k

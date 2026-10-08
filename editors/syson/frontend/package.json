@@ -1,6 +1,6 @@
 {
   "name": "@openmbee/opensysml-syson",
-  "version": "0.9.2",
+  "version": "0.10.0",
   "private": false,
   "type": "module",
   "main": "dist/opensysml-syson.cjs.js",
@@ -13,8 +13,8 @@
     "@apollo/client": "3.10.4",
     "@emotion/react": "11.14.0",
     "@emotion/styled": "11.14.0",
-    "@eclipse-sirius/sirius-components-core": "2026.9.0",
-    "@eclipse-sirius/sirius-components-trees": "2026.9.0",
+    "@eclipse-sirius/sirius-components-core": "2026.9.2",
+    "@eclipse-sirius/sirius-components-trees": "2026.9.2",
     "@mui/icons-material": "7.3.10",
     "@mui/material": "7.3.10",
     "graphql": "16.8.1",
@@ -56,7 +56,7 @@
     "format": "prettier --write src",
     "format:check": "prettier --check src",
     "typecheck": "tsc --noEmit -p tsconfig.json",
-    "install:syson": "npm install --no-save --ignore-scripts @eclipse-sirius/sirius-components-core@2026.9.0 @eclipse-sirius/sirius-components-trees@2026.9.0",
+    "install:syson": "npm install --no-save --ignore-scripts @eclipse-sirius/sirius-components-core@2026.9.2 @eclipse-sirius/sirius-components-trees@2026.9.2",
     "build:syson": "OPENSYSML_SYSON_REAL=1 vite build && tsc -p tsconfig.syson.json"
   }
 }

@@ -3,6 +3,7 @@ package repl
 import (
 	"fmt"
 	"os"
+	"slices"
 	"sort"
 	"strings"
 	"unicode"
@@ -10,6 +11,7 @@ import (
 
 	"github.com/Open-MBEE/OpenSysML/internal/exec/objref"
 	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
+	"github.com/Open-MBEE/OpenSysML/internal/exec/runtrace"
 	"github.com/Open-MBEE/OpenSysML/internal/ir/view"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
@@ -55,6 +57,30 @@ func (s *Session) Complete(line string, pos int) Completion {
 	if command == "%render" && atSecondArgument(head) {
 		word := lastField(head)
 		return completion(word, matchingPrefix(renderForms(), word))
+	}
+	if command == "%render-run" {
+		word := lastField(head)
+		switch index := argumentIndex(head); index {
+		case 1:
+			kinds := make([]string, 0, len(runtrace.Kinds()))
+			for _, kind := range runtrace.Kinds() {
+				kinds = append(kinds, string(kind))
+			}
+			return completion(word, matchingPrefix(kinds, word))
+		case 2:
+			return completion(word, matchingPrefix([]string{"text", "mermaid", "plantuml", "dot", "link="}, word))
+		case 3:
+			args := typedArgs(head)
+			options := []string{"link="}
+			if len(args) > 2 && strings.HasPrefix(args[2], "link=") {
+				options = []string{"text", "mermaid", "plantuml", "dot"}
+			}
+			return completion(word, matchingPrefix(options, word))
+		default:
+			if index > 3 {
+				return completion(word, nil)
+			}
+		}
 	}
 	if command == "%render" && atPaletteArgument(head) {
 		word := lastField(head)
@@ -114,13 +140,13 @@ func atSecondArgument(head string) bool {
 	return !inUnfinishedName(head) && argumentIndex(head) == 2
 }
 
-// atPaletteArgument reports whether the word being typed is %render's third or
-// fourth argument after a form that takes a palette: the palette to fill from
-// or the style to draw in.
+// atPaletteArgument reports whether the word being typed is %render's third,
+// fourth or fifth argument after a form that takes a palette: the palette to
+// fill from, the style to draw in or the port display to draw parts with.
 func atPaletteArgument(head string) bool {
 	args := typedArgs(head)
 	index := argumentIndex(head)
-	return !inUnfinishedName(head) && (index == 3 || index == 4) && len(args) > 2 && view.Form(args[2]).TakesPalette()
+	return !inUnfinishedName(head) && index >= 3 && index <= 5 && len(args) > 2 && view.Form(args[2]).TakesPalette()
 }
 
 // atObjectArgument reports whether the word being typed is an argument the
@@ -418,11 +444,20 @@ func (s *Session) peekObject(text string) (objectShape, bool) {
 		if fv := heldFeatureValue(shape.inst, seg.Name); fv != nil {
 			val := fv.Value
 			if seg.Index > 0 {
-				elements := objref.CollectionElements(fv.Values)
-				if seg.Index > len(elements) {
+				if int64(seg.Index) > runtime.ElementCount(fv.Values) || fv.Values.Kind == runtime.ValNull {
 					return objectShape{}, false
 				}
-				val = elements[seg.Index-1]
+				made, ok := s.madeElementAt(fv.Values, seg.Index-1)
+				if !ok {
+					// A required member not made yet is followed by type, not made to complete.
+					typ := s.objectTypeOf(feat)
+					if typ == nil {
+						return objectShape{}, false
+					}
+					shape = objectShape{typ: typ}
+					continue
+				}
+				val = made
 			}
 			id, isObject := val.Object()
 			if !isObject {
@@ -444,6 +479,16 @@ func (s *Session) peekObject(text string) (objectShape, bool) {
 	return shape, true
 }
 
+// madeElementAt is the value at the 0-based index of a collection when it is already
+// there; false for a required member not made yet.
+func (s *Session) madeElementAt(val runtime.Value, index int) (runtime.Value, bool) {
+	positions, values := s.rtCtx.MadeElements(val)
+	if i, found := slices.BinarySearch(positions, index); found {
+		return values[i], true
+	}
+	return runtime.Value{}, false
+}
+
 // holdsObjects reports whether a feature is a path segment of the object holding
 // it: once materialized, whether it holds an object (a selected variation's
 // object as much as a part's); before that, whether reading it would.
@@ -456,12 +501,10 @@ func (s *Session) holdsObjects(shape objectShape, feat *runtime.EffectiveFeature
 		_, isObject := fv.Value.Object()
 		return isObject
 	}
-	for _, el := range objref.CollectionElements(fv.Values) {
-		if _, isObject := el.Object(); isObject {
-			return true
-		}
+	if runtime.ElementCount(fv.Values) == 0 || fv.Values.Kind == runtime.ValNull {
+		return false
 	}
-	return false
+	return s.rtCtx.HoldsObject(fv.Values)
 }
 
 // objectTypeOf is the type of the object a feature holds once read, as the
@@ -567,7 +610,10 @@ func (s *Session) elementsToHold(shape objectShape, feat *runtime.EffectiveFeatu
 			}
 			return 0
 		}
-		return len(objref.CollectionElements(fv.Values))
+		if fv.Values.Kind == runtime.ValNull || fv.Values.Kind == runtime.ValInvalid {
+			return 0
+		}
+		return int(runtime.ElementCount(fv.Values))
 	}
 	if reading[feat.Name] || s.objectTypeOf(feat) == nil {
 		return 0

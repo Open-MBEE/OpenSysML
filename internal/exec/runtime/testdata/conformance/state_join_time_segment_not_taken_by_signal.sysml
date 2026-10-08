@@ -1,9 +1,5 @@
-// A signal dispatched at the instant a time-triggered join segment's timer is
-// due is not that timer's expiry: `Go`, sent by `c`'s timer at t=1 and so tied
-// with `b`'s timer due then, enables `a`'s segment but not `b`'s, whichever of
-// the two is dispatched first; the segment dispatched second finds the other's
-// occurrence gone. The join never fires; only the order of `c`'s and `d`'s
-// timers is open.
+// Timer segments arrive at their own expiries and the later signal occurrence
+// completes the join; dispatch order among events due together remains open.
 package Test {
 	private import ScalarValues::*;
 	private import SI::*;
@@ -29,7 +25,7 @@ package Test {
 				entry; then c1;
 				state c1;
 				state c2;
-				transition first c1 accept after 1 [s] do action { assign log := log + "c "; send new Go() to Machine; } then c2;
+				transition first c1 accept after 1 [s] do action { assign log := log + "c "; then send new Go() to Machine; } then c2;
 			}
 			state d {
 				entry; then d1;

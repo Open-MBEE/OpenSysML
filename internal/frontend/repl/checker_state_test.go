@@ -7,17 +7,18 @@ import (
 	"testing"
 )
 
-// Under %engine check, %state searches every schedule of a machine as %action does
-// an action's, the clock advanced until nothing is due; %advance searches the last
-// checked invocation again up to that instant, and RunFor searches the behaviors
-// named as one invocation on one clock.
+// Under %engine check, %state searches every schedule of a machine's initial
+// transition as %action does an action's; %advance searches the last checked
+// invocation again up to that instant, and RunFor searches the behaviors named
+// as one invocation on one clock.
 func TestEngineCheckSearchesStateMachines(t *testing.T) {
 	s := loadSource(t, exploreLampSource)
 	run(t, s, "%engine check")
 
 	out := run(t, s, "%state Shared::Lamp::glow Shared::Lamp")
-	wants(t, out, "✓ State machine Shared::Lamp::glow: no violation, exhaustive (2 states, 1 moves, depth 1)",
-		"outcome: finalState on; visits off, on")
+	wants(t, out, "✓ State machine Shared::Lamp::glow: no violation, exhaustive (1 states, 0 moves, depth 0)",
+		"outcome: finalState off; visits off",
+		"0 moves searched; after the initial transition only; -advance <time> runs the do behaviors, events and waits it left pending)")
 	rejects(t, out, "Started state machine")
 	wants(t, run(t, s, "%current"), "no active state machine session")
 
@@ -32,7 +33,7 @@ func TestEngineCheckSearchesStateMachines(t *testing.T) {
 	if len(verdicts) != 1 {
 		t.Fatalf("verdicts = %+v, want one for the invocation", verdicts)
 	}
-	wantVerdict(t, verdicts[0], VerdictFails, "✗ Behaviors Shared::Lamp::peek, Shared::Lamp::glow: divergent up to t=3.0 (10 states, 9 moves, depth 5)",
+	wantVerdict(t, verdicts[0], VerdictFails, "✗ Behaviors Shared::Lamp::peek, Shared::Lamp::glow: divergent up to t=3.0 (9 states, 8 moves, depth 5)",
 		"divergent: Shared::Lamp::peek.saw ends as false or true",
 		`Shared::Lamp::glow finalState = "on"; Shared::Lamp::glow visits = "off, on"; Shared::Lamp::peek.saw = false`,
 		`Shared::Lamp::glow finalState = "on"; Shared::Lamp::glow visits = "off, on"; Shared::Lamp::peek.saw = true`)
@@ -50,7 +51,8 @@ func TestEngineCheckSearchesStateMachines(t *testing.T) {
 
 	// RunStateMachineFor is %state then %advance under the check engine.
 	wantVerdict(t, s.RunStateMachineFor("Shared::Lamp::glow", 1, "Shared::Lamp"), VerdictHolds, "exhaustive up to t=1.0")
-	wantVerdict(t, s.RunStateMachine("Shared::Lamp::glow", "Shared::Lamp"), VerdictHolds, "exhaustive (2 states, 1 moves, depth 1)")
+	wantVerdict(t, s.RunStateMachineFor("Shared::Lamp::glow", 3, "Shared::Lamp"), VerdictHolds, "exhaustive up to t=3.0 (2 states, 1 moves, depth 1)")
+	wantVerdict(t, s.RunStateMachine("Shared::Lamp::glow", "Shared::Lamp"), VerdictHolds, "exhaustive (1 states, 0 moves, depth 0)")
 }
 
 // %advance under the check engine with nothing checked yet says what it would search.
@@ -82,7 +84,7 @@ func TestReplayStepsBehaviorsOnOneClock(t *testing.T) {
 		run(t, s, "%instantiate Shared::Lamp")
 		wants(t, run(t, s, "%action Shared::Lamp::peek Shared::Lamp"), "Started action executor")
 		wants(t, run(t, s, "%state Shared::Lamp::glow Shared::Lamp"), "Current state: off")
-		wants(t, run(t, s, "%advance 3"), "Advanced to 3.0", "Current state: on", "Action completed", saw, "1 choice point")
+		wants(t, run(t, s, "%advance 3"), "Advanced to 3.0", "Current state: on", "Action completed", saw, "2 choice points")
 	}
 }
 

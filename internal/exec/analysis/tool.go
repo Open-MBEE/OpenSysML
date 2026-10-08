@@ -525,12 +525,19 @@ func encodeValue(v runtime.ToolValue) (json.RawMessage, error) {
 	}
 	switch v.Value.Kind {
 	case semantics.ValInt:
-		return json.RawMessage(strconv.FormatInt(v.Value.Int, 10)), nil
+		return json.RawMessage(v.Value.FormatInt()), nil
 	case semantics.ValReal:
 		if math.IsInf(v.Value.Real, 0) || math.IsNaN(v.Value.Real) {
 			return nil, fmt.Errorf("%v is not a JSON number", v.Value.Real)
 		}
 		return json.RawMessage(strconv.FormatFloat(v.Value.Real, 'g', -1, 64)), nil
+	case semantics.ValRational:
+		// A JSON number is decimal, so it carries a terminating Rational exactly and no other.
+		text := v.Value.FormatRational()
+		if strings.Contains(text, "/") {
+			return nil, fmt.Errorf("%s has no exact JSON number", text)
+		}
+		return json.RawMessage(text), nil
 	case semantics.ValBool:
 		return json.RawMessage(strconv.FormatBool(v.Value.Bool)), nil
 	case semantics.ValInvalid:
@@ -754,8 +761,8 @@ func decodeValue(raw wiredValue) (runtime.ToolValue, error) {
 func decodeScalar(decoded any) (runtime.ToolValue, string, error) {
 	switch v := decoded.(type) {
 	case json.Number:
-		if i, err := strconv.ParseInt(v.String(), 10, 64); err == nil {
-			return runtime.ToolValue{Value: semantics.Value{Kind: semantics.ValInt, Int: i}}, "number", nil
+		if i, ok := semantics.ParseInteger(v.String()); ok {
+			return runtime.ToolValue{Value: i}, "number", nil
 		}
 		f, err := strconv.ParseFloat(v.String(), 64)
 		if err != nil || math.IsInf(f, 0) {

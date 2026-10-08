@@ -235,8 +235,8 @@
           (Documentation locale="")
           (SubstateMember name="off")
           (SuccessionEdge source="on" target="off")
-          (DeferMember
-            (*ast.QualifiedName))
+          (Membership visibility="default"
+            (Comment about="" locale=""))
           (SubstateMember name="broken")
           (SuccessionEdge source="off" target="broken")))
       (Membership visibility="default"

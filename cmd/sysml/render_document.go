@@ -9,9 +9,9 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/Open-MBEE/OpenSysML/internal/doc/docpdf"
 	"github.com/Open-MBEE/OpenSysML/internal/doc/docrender"
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/repl"
+	"github.com/Open-MBEE/OpenSysML/internal/frontend/repl/replext"
 	"github.com/Open-MBEE/OpenSysML/internal/ir/view"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/export"
@@ -44,48 +44,13 @@ func runRenderDocument(files []string) error {
 		return writeArtifact(rendered, formHTML)
 	}
 	if form == docFormPDF {
-		opts, err := pdfOptions()
-		if err != nil {
-			return err
-		}
-		document, err := sess.EvaluateDocument(renderDoc)
-		if err != nil {
-			return err
-		}
-		pdf, err := docpdf.Render(document, pdfEngine, opts)
-		if err != nil {
-			return err
-		}
-		return writePDFArtifact(pdf)
+		return renderPDF(sess)
 	}
 	markdown, err := sess.RenderDocumentMarkdown(renderDoc, markdownOptions(artifactDir()))
 	if err != nil {
 		return err
 	}
 	return writeArtifact(markdown, view.FormMarkdown)
-}
-
-// pdfOptions resolves the PDF flags: the deliverable options and the
-// stylesheet options, which reach the PDF as they reach an HTML page, their
-// relative references resolving against the PDF's directory.
-func pdfOptions() (docpdf.Options, error) {
-	page, err := htmlOptions()
-	if err != nil {
-		return docpdf.Options{}, err
-	}
-	return docpdf.Options{
-		TitlePage:           pdfTitlePage,
-		TOC:                 pdfTOC,
-		NumberSections:      pdfNumbering,
-		NumberFigures:       docNumberFigures,
-		Theme:               page.Theme,
-		NoDefaultStylesheet: page.NoDefaultStylesheet,
-		Stylesheets:         page.Stylesheets,
-		BaseDir:             filepath.Dir(outputPath),
-		DiagramForm:         page.DiagramForm,
-		Unplaced:            page.Unplaced,
-		Style:               page.Style,
-	}, nil
 }
 
 // runRenderDocuments renders every document of the model named on the command
@@ -174,7 +139,9 @@ func documentOptions(outputDir string) docrender.HTMLOptions {
 		DiagramForm:         view.Form(diagramForm),
 		Unplaced:            view.Unplaced(renderUnplaced),
 		Style:               view.DrawingStyle(renderStyle),
-		Drawer:              docpdf.Graphviz{},
+		LinkTemplate:        renderLink,
+		Drawer:              replext.Drawer(),
+		WithoutGraphviz:     replext.Drawer() == nil,
 		OutputDir:           outputDir,
 	}
 }
@@ -183,7 +150,8 @@ func documentOptions(outputDir string) docrender.HTMLOptions {
 // outputDir, "" for standard output.
 func markdownOptions(outputDir string) docrender.MarkdownOptions {
 	return docrender.MarkdownOptions{
-		DiagramForm: view.Form(diagramForm), Unplaced: view.Unplaced(renderUnplaced), Style: view.DrawingStyle(renderStyle), Drawer: docpdf.Graphviz{},
+		DiagramForm: view.Form(diagramForm), Unplaced: view.Unplaced(renderUnplaced), Style: view.DrawingStyle(renderStyle), LinkTemplate: renderLink,
+		Drawer: replext.Drawer(), WithoutGraphviz: replext.Drawer() == nil,
 		OutputDir: outputDir, NumberFigures: docNumberFigures,
 	}
 }
@@ -201,6 +169,11 @@ func artifactDir() string {
 // -render-unplaced value naming no placement and a -render-style value naming
 // no drawing style.
 func checkDiagramForm() error {
+	if renderLink != "" {
+		if err := view.ParseLinkTemplate(renderLink); err != nil {
+			return fmt.Errorf("-render-link: %w", err)
+		}
+	}
 	if _, err := unplacedOption(); err != nil {
 		return err
 	}

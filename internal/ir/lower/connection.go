@@ -132,7 +132,9 @@ func connectorKind(k ast.UsageKind) bool {
 // endName names the feature an end attaches to, as the whole path it was written
 // as: a chain (`sensor.out`) keeps every segment, since the port it names is
 // that one and not another named `out`. An end that declares its own name
-// (`bead references t.bead`) attaches to what it reference-subsets.
+// (`bead references t.bead`) attaches to what it reference-subsets, and an indexed
+// end (`s.y#(1)`) to the port it selects from: a message is delivered to a port
+// of an object, so routing addresses the port, not one of its elements.
 func endName(end *ast.ConnectorEnd) string {
 	if end == nil {
 		return ""

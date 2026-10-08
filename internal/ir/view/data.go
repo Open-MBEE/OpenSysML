@@ -11,6 +11,10 @@ type Data struct {
 	// Kind is the rendering produced, and Stated how the kind was decided.
 	Kind   Kind
 	Stated string
+	// Run marks a rendering of a run's trace rather than of a view.
+	Run bool
+	// RunUntil is the clock instant through which a run rendering was recorded.
+	RunUntil float64
 	// Nodes are every node of the rendering, parents before children, each
 	// naming its parent.
 	Nodes []NodeData
@@ -19,6 +23,8 @@ type Data struct {
 	// Columns and Rows are the tabular rendering, empty for every other kind.
 	Columns []string
 	Rows    []RowData
+	// Lanes are a run timeline's object machines.
+	Lanes []Lane
 	// Canvas is the drawing surface the view states, nil for none.
 	Canvas *Canvas
 	// Notes are the note boxes drawn on the canvas, anchored to a node ID or free.
@@ -51,6 +57,9 @@ type NodeData struct {
 	Geometry *Geometry
 	// Style is how the node is drawn, nil when no Style colours it.
 	Style *Style
+	// Verdict is the worst verification verdict overlaid on a requirement, ""
+	// when none is.
+	Verdict string `json:",omitempty"`
 }
 
 // EdgeData is one edge of a rendering, joining two node IDs.
@@ -80,17 +89,34 @@ type RowData struct {
 
 // Data is the rendering in machine-consumable form.
 func (r *Rendering) Data() Data {
+	return r.data(nil)
+}
+
+// DataFor is the rendering in machine-consumable form with each node's ports
+// filtered for the requested display.
+func (r *Rendering) DataFor(display Ports) Data {
+	ports := r.portView(display)
+	return r.data(&ports)
+}
+
+func (r *Rendering) data(ports *portView) Data {
 	out := Data{
-		View:    r.View,
-		Kind:    r.Kind,
-		Stated:  r.Stated,
-		Columns: r.Columns,
-		Canvas:  r.Canvas,
-		Notes:   r.Notes,
-		Notices: r.Notices,
+		View:     r.View,
+		Kind:     r.Kind,
+		Stated:   r.Stated,
+		Run:      r.Run,
+		RunUntil: r.RunUntil,
+		Columns:  r.Columns,
+		Lanes:    r.Lanes,
+		Canvas:   r.Canvas,
+		Notes:    r.Notes,
+		Notices:  r.Notices,
+	}
+	if refusals := refusedPictureNotices(r.Pictures, r.pictureRefusals()); len(refusals) > 0 {
+		out.Notices = append(append([]string(nil), r.Notices...), refusals...)
 	}
 	for _, root := range r.Roots {
-		out.Nodes = appendNodeData(out.Nodes, root, "")
+		out.Nodes = appendNodeData(out.Nodes, root, "", ports)
 	}
 	for _, edge := range r.Edges {
 		out.Edges = append(out.Edges, EdgeData{From: edge.From, To: edge.To, FromPort: edge.FromPort, ToPort: edge.ToPort,
@@ -107,16 +133,21 @@ func (r *Rendering) Data() Data {
 }
 
 // appendNodeData flattens a node and what is nested in it, parents first.
-func appendNodeData(out []NodeData, node *Node, parent string) []NodeData {
+func appendNodeData(out []NodeData, node *Node, parent string, ports *portView) []NodeData {
 	if node == nil {
 		return out
 	}
+	nodePorts := node.Ports
+	if ports != nil {
+		nodePorts = ports.of(node)
+	}
 	out = append(out, NodeData{
 		ID: node.ID, Kind: node.Kind, Name: node.Name, NameSynthesized: node.NameSynthesized, Type: node.Type, Detail: node.Detail,
-		Text: node.Text, StandIn: node.StandIn, Ports: node.Ports, Parent: parent, Origin: node.Origin, Geometry: node.Geometry, Style: node.Style,
+		Text: node.Text, StandIn: node.StandIn, Ports: nodePorts, Parent: parent, Origin: node.Origin, Geometry: node.Geometry, Style: node.Style,
+		Verdict: node.Verdict,
 	})
 	for _, child := range node.Children {
-		out = appendNodeData(out, child, node.ID)
+		out = appendNodeData(out, child, node.ID, ports)
 	}
 	return out
 }

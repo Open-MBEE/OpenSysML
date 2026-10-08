@@ -1344,6 +1344,72 @@ func TestPerformedActionAwaitingAMessageIsWokenByASibling(t *testing.T) {
 	}
 }
 
+func TestPerformedActionParkedInACallChainIsWokenByASibling(t *testing.T) {
+	src := `
+		package test {
+			private import ScalarValues::*;
+			action def Reader {
+				out attribute got : Integer;
+				first start;
+				then action r accept n : Integer;
+				then action keep { assign got := r.n; }
+				then done;
+			}
+			action def Mid {
+				out attribute got : Integer;
+				first start;
+				then perform action reader : Reader;
+				then action keep { assign got := reader.got; }
+				then done;
+			}
+			part def Waiter {
+				perform action await : Mid;
+			}
+			part def Sender {
+				exhibit state sending {
+					entry; then sent;
+					state sent { entry send 5 to w; }
+				}
+			}
+			part def Pair {
+				part w : Waiter;
+				part s : Sender;
+			}
+		}
+	`
+	model, resolver, root := parseAndBuildModel(t, src)
+	pkg := resolveSymbol(t, root, "test")
+
+	alone := NewContext(typedModel(model, resolver), 10000)
+	waiter, err := alone.Instantiate(resolveSymbol(t, pkg.Scope, "Waiter"))
+	if err != nil {
+		t.Fatalf("Instantiate Waiter: %v", err)
+	}
+	behavior, ok := waiter.Behavior("await")
+	if !ok || behavior.Action == nil {
+		t.Fatalf("object performs no await action, behaviors: %v", waiter.Behaviors())
+	}
+	if behavior.Action.State() != StateWaiting {
+		t.Errorf("await is %v, want waiting in its nested call chain", behavior.Action.State())
+	}
+
+	ctx := NewContext(typedModel(model, resolver), 10000)
+	pair, err := ctx.Instantiate(resolveSymbol(t, pkg.Scope, "Pair"))
+	if err != nil {
+		t.Fatalf("Instantiate Pair: %v", err)
+	}
+	nested := instanceAtPath(t, ctx, pair, "w")
+	behavior, ok = nested.Behavior("await")
+	if !ok || behavior.Action == nil {
+		t.Fatalf("object performs no await action, behaviors: %v", nested.Behaviors())
+	}
+	if behavior.Action.State() != StateCompleted {
+		t.Errorf("await is %v, want complete once the sibling's message woke it", behavior.Action.State())
+	}
+	assertIntOutput(t, behavior.Action.Results(), "got", 5)
+	instanceAtPath(t, ctx, pair, "s")
+}
+
 // An action an object's type declares without performing it runs only once started:
 // the object is materialized performing nothing, and `perform w.await.start` from the
 // enclosing part runs it as the object, where the message a sibling sent before the
@@ -2682,7 +2748,7 @@ func TestCalcCallBindsContextBeforeItsInputs(t *testing.T) {
 	if err != nil {
 		t.Fatalf("run Run on Plant: %v", err)
 	}
-	if got := results["result"]; got.Const.Real != 3.0 {
+	if got := results["result"]; got.Const.AsReal() != 3.0 {
 		t.Errorf("result = %v, want 3.0: the tank instance bound context, 2.0 bound factor", got)
 	}
 }

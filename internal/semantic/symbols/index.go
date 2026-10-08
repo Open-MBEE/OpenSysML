@@ -48,6 +48,9 @@ type Index struct {
 	// the views Recording makes share one cache under one lock.
 	members *memberCache
 
+	// derived memoizes values computed from a frozen index (see Derived).
+	derived *derivedMemo
+
 	docRoots      *layer[string, *Scope]      // document name -> root scope
 	docOfRoot     *layer[*Scope, string]      // root scope -> document name
 	docKinds      *layer[string, source.Kind] // document name -> explicit language
@@ -136,7 +139,10 @@ type Index struct {
 	// changes accumulates what writes changed since TakeChanges, once tracked,
 	// and reads is told what each read is about (see changes.go).
 	changes *Changes
-	reads   ReadRecorder
+	// changesBefore is how each name changes records was registered before
+	// its first write since the last TakeChanges (noteBefore).
+	changesBefore map[string]registration
+	reads         ReadRecorder
 }
 
 // reexportClaim is one document's claim on a re-export: whether its imports
@@ -233,6 +239,7 @@ func (idx *Index) Freeze() {
 		}
 	}
 	idx.takeLibraryIdentity()
+	idx.derived = &derivedMemo{}
 	idx.frozen = true
 }
 
@@ -269,29 +276,64 @@ func collectAboutUsages(scope *Scope, seen map[*Symbol]bool, out *[]*Symbol) {
 			return true
 		}
 		seen[sym] = true
-		if sym.Kind == SymbolMetadataUsage {
-			if usage, ok := sym.Decl.(*ast.Usage); ok && UsageAnnotatesOthers(usage) {
-				*out = append(*out, sym)
-			}
+		if sym.Kind == SymbolMetadataUsage && AnnotatesOthers(sym.Decl) {
+			*out = append(*out, sym)
 		}
 		collectAboutUsages(sym.Scope, seen, out)
 		return true
 	})
 }
 
-// UsageAnnotatesOthers reports whether a metadata usage states what it
-// annotates (`metadata m about p;`), rather than annotating its owner.
-func UsageAnnotatesOthers(u *ast.Usage) bool {
-	for _, rel := range u.Relationships {
-		if rel != nil && rel.Kind == ast.RelAnnotates {
-			return true
+// AnnotatesOthers reports whether a metadata usage states what it annotates
+// (`metadata m about p;`, `@M about p;`), rather than annotating its owner.
+func AnnotatesOthers(decl ast.Node) bool { return len(MetadataAboutRefs(decl)) > 0 }
+
+// MetadataAboutRefs is the names a metadata usage's `about` clause states, in
+// either spelling of the usage; nil for any other declaration.
+func MetadataAboutRefs(decl ast.Node) []*ast.QualifiedName {
+	switch d := decl.(type) {
+	case *ast.PrefixMetadata:
+		return d.About
+	case *ast.Usage:
+		if d.Kind != ast.UsageMetadata {
+			return nil
 		}
+		var out []*ast.QualifiedName
+		for _, rel := range d.Relationships {
+			if rel == nil || rel.Kind != ast.RelAnnotates {
+				continue
+			}
+			if qn, ok := rel.Target.(*ast.QualifiedName); ok {
+				out = append(out, qn)
+			}
+		}
+		return out
+	default:
+		return nil
 	}
-	return false
 }
+
+type derivedValue struct {
+	once  sync.Once
+	value any
+}
+
+type derivedMemo struct{ values sync.Map }
 
 // Frozen reports whether the index has been frozen.
 func (idx *Index) Frozen() bool { return idx.frozen }
+
+// Derived returns build's value for key, computed once per frozen index and
+// released with it; on an index still writable it calls build every time.
+func (idx *Index) Derived(key any, build func() any) any {
+	if !idx.frozen || idx.derived == nil {
+		return build()
+	}
+	value, _ := idx.derived.values.LoadOrStore(key, &derivedValue{})
+	cached := value.(*derivedValue)
+	cached.once.Do(func() { cached.value = build() })
+	return cached.value
+}
 
 // Generation counts the writes the index has taken; a value read from it is
 // current while Generation is unchanged.
@@ -364,6 +406,11 @@ func (idx *Index) AddDocument(name string, root *ast.RootNamespace) {
 // the index and its caller share one tree: a symbol found through either is the same.
 func (idx *Index) AddDocumentScope(name string, root *ast.RootNamespace, rs *Scope) {
 	idx.addDocument(name, root, rs, source.KindOf(name), false)
+}
+
+// AddDocumentScopeWithKind adds an existing scope tree and records its explicit language.
+func (idx *Index) AddDocumentScopeWithKind(name string, root *ast.RootNamespace, rs *Scope, kind source.Kind) {
+	idx.addDocument(name, root, rs, kind, true)
 }
 
 // AddDocumentWithKind builds the scope tree for root and records its explicit
@@ -713,6 +760,7 @@ func (idx *Index) register(fqn string, sym *Symbol) {
 // are kept in declaration order; the library itself keeps the order its
 // snapshot pins.
 func (idx *Index) link(fqn string, sym *Symbol) {
+	idx.noteBefore(fqn)
 	if idx.base != nil {
 		insertSymbol(idx.fqn, fqn, sym)
 	} else {
@@ -785,6 +833,7 @@ func (idx *Index) unregisterSegment(fqn string) {
 // entirely once it names nothing. It leaves declaredAt alone: only the symbol's
 // own declaration owns that entry.
 func (idx *Index) deregister(fqn string, sym *Symbol) {
+	idx.noteBefore(fqn)
 	idx.changedName(fqn)
 	syms := writableSlice(idx.fqn, fqn)
 	for i, s := range syms {
@@ -1343,6 +1392,7 @@ func (idx *Index) dropClaim(key reexportKey, doc string) {
 // purgeReexport drops a re-export outright, along with every document's claim
 // on it.
 func (idx *Index) purgeReexport(key reexportKey) {
+	idx.noteBefore(key.fqn)
 	for doc := range idx.reexportDocs.at(key) {
 		claimed := writableMap(idx.docReexports, doc)
 		delete(claimed, key)
@@ -1358,6 +1408,7 @@ func (idx *Index) purgeReexport(key reexportKey) {
 // the frozen base recorded is copied with them: recording a route on it would
 // otherwise change what every index over that base re-exports.
 func (idx *Index) writableClaims(key reexportKey) map[string]*reexportClaim {
+	idx.noteBefore(key.fqn)
 	if docs, owned := idx.reexportDocs.own[key]; owned {
 		idx.reexportDocs.gen.bump()
 		return docs
@@ -1377,6 +1428,7 @@ func (idx *Index) writableClaims(key reexportKey) map[string]*reexportClaim {
 // the claims on key: a claimed name is re-exported, and hidden while every
 // document that surfaced it did so with a private import (KerML 8.2.3.3).
 func (idx *Index) applyReexportMarks(key reexportKey, docs map[string]*reexportClaim) {
+	idx.noteBefore(key.fqn)
 	if len(docs) == 0 {
 		clearMark(idx.reexported, key.fqn, key.sym)
 		clearMark(idx.hidden, key.fqn, key.sym)

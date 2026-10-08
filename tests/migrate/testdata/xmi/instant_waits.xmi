@@ -1,0 +1,191 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xmi:XMI xmi:version="2.5.1" xmlns:xmi="http://www.omg.org/spec/XMI/20131001"
+         xmlns:uml="http://www.omg.org/spec/UML/20161101"
+         xmlns:sysml="http://www.omg.org/spec/SysML/20181001/SysML">
+  <uml:Model xmi:type="uml:Model" xmi:id="_m" name="Model">
+    <packagedElement xmi:type="uml:Signal" xmi:id="_cmdOn" name="Cmd On"/>
+    <packagedElement xmi:type="uml:Signal" xmi:id="_cmdOff" name="Cmd Off"/>
+    <packagedElement xmi:type="uml:SignalEvent" xmi:id="_cmdOnEv" signal="_cmdOn"/>
+    <packagedElement xmi:type="uml:SignalEvent" xmi:id="_cmdOffEv" signal="_cmdOff"/>
+    <packagedElement xmi:type="uml:TimeEvent" xmi:id="_warmed" isRelative="true">
+      <when xmi:type="uml:TimeExpression" xmi:id="_warmedW"><expr xmi:type="uml:LiteralString" xmi:id="_warmedV" value="2 s"/></when>
+    </packagedElement>
+    <packagedElement xmi:type="uml:TimeEvent" xmi:id="_blinked" isRelative="true">
+      <when xmi:type="uml:TimeExpression" xmi:id="_blinkedW"><expr xmi:type="uml:LiteralString" xmi:id="_blinkedV" value="1 s"/></when>
+    </packagedElement>
+    <packagedElement xmi:type="uml:TimeEvent" xmi:id="_lo">
+      <when xmi:type="uml:TimeExpression" xmi:id="_loW">
+        <expr xmi:type="uml:Duration" xmi:id="_loD"><expr xmi:type="uml:LiteralString" xmi:id="_loV" value="1 s"/></expr>
+      </when>
+    </packagedElement>
+    <packagedElement xmi:type="uml:TimeEvent" xmi:id="_hi">
+      <when xmi:type="uml:TimeExpression" xmi:id="_hiW">
+        <expr xmi:type="uml:Duration" xmi:id="_hiD"><expr xmi:type="uml:LiteralString" xmi:id="_hiV" value="3 s"/></expr>
+      </when>
+    </packagedElement>
+    <packagedElement xmi:type="uml:SignalEvent" xmi:id="_cmdHoldEv" signal="_cmdHold"/>
+    <packagedElement xmi:type="uml:Signal" xmi:id="_cmdHold" name="Cmd Hold"/>
+    <!-- An absolute time event whose time names nothing: its accept is a placeholder, not a wait. -->
+    <packagedElement xmi:type="uml:TimeEvent" xmi:id="_someday">
+      <when xmi:type="uml:TimeExpression" xmi:id="_somedayW"><expr xmi:type="uml:LiteralString" xmi:id="_somedayV" value="someday"/></when>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Signal" xmi:id="_cmdSettle" name="Cmd Settle"/>
+    <packagedElement xmi:type="uml:SignalEvent" xmi:id="_cmdSettleEv" signal="_cmdSettle"/>
+    <packagedElement xmi:type="uml:Signal" xmi:id="_cmdPause" name="Cmd Pause"/>
+    <packagedElement xmi:type="uml:SignalEvent" xmi:id="_cmdPauseEv" signal="_cmdPause"/>
+    <packagedElement xmi:type="uml:TimeEvent" xmi:id="_settled" isRelative="true">
+      <when xmi:type="uml:TimeExpression" xmi:id="_settledW"><expr xmi:type="uml:LiteralString" xmi:id="_settledV" value="1 s"/></when>
+    </packagedElement>
+    <!-- Its behavior Settle acts on a Relay, which the Stimulus calling it has none of: the call is a placeholder, its wait never made. -->
+    <packagedElement xmi:type="uml:Class" xmi:id="_relay" name="Relay">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_gain" name="gain"><type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
+        <defaultValue xmi:type="uml:LiteralReal" xmi:id="_gain0" value="1.0"/>
+      </ownedAttribute>
+      <ownedBehavior xmi:type="uml:Activity" xmi:id="_settle" name="Settle">
+        <node xmi:type="uml:InitialNode" xmi:id="_settleInit"/>
+        <node xmi:type="uml:ReadStructuralFeatureAction" xmi:id="_readGain" name="read gain" structuralFeature="_gain">
+          <result xmi:type="uml:OutputPin" xmi:id="_readGainR" name="result"/>
+        </node>
+        <node xmi:type="uml:AcceptEventAction" xmi:id="_settleWait" name="settled">
+          <trigger xmi:type="uml:Trigger" xmi:id="_settleTr" event="_settled"/>
+        </node>
+        <node xmi:type="uml:ActivityFinalNode" xmi:id="_settleFinal"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_settleE1" source="_settleInit" target="_readGain"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_settleE2" source="_readGain" target="_settleWait"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_settleE3" source="_settleWait" target="_settleFinal"/>
+      </ownedBehavior>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Class" xmi:id="_stim" name="Stimulus" classifierBehavior="_sm">
+      <!-- Called by the transition effect Send Ack Hold: bounded by an interval open above, which no one wait stands for. -->
+      <ownedBehavior xmi:type="uml:Activity" xmi:id="_hold" name="Hold">
+        <node xmi:type="uml:InitialNode" xmi:id="_holdInit"/>
+        <node xmi:type="uml:ActivityFinalNode" xmi:id="_holdFinal"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_holdE1" source="_holdInit" target="_holdFinal"/>
+        <ownedRule xmi:type="uml:DurationConstraint" xmi:id="_dtHold" name="dtHold">
+          <constrainedElement xmi:idref="_hold"/>
+          <specification xmi:type="uml:DurationInterval" xmi:id="_dtHoldI" min="_loD"/>
+        </ownedRule>
+      </ownedBehavior>
+      <!-- Called by the transition effect: the call it makes is bounded by a duration constraint. -->
+      <ownedBehavior xmi:type="uml:Activity" xmi:id="_ackOn" name="Send Ack On">
+        <node xmi:type="uml:InitialNode" xmi:id="_ackInit"/>
+        <node xmi:type="uml:CallBehaviorAction" xmi:id="_turnOn" name="Turn On"/>
+        <node xmi:type="uml:ActivityFinalNode" xmi:id="_ackFinal"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_ackE1" source="_ackInit" target="_turnOn"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_ackE2" source="_turnOn" target="_ackFinal"/>
+        <ownedRule xmi:type="uml:DurationConstraint" xmi:id="_dtOn" name="dtOn">
+          <constrainedElement xmi:idref="_turnOn"/>
+          <specification xmi:type="uml:DurationInterval" xmi:id="_dtOnI" min="_loD" max="_hiD"/>
+        </ownedRule>
+      </ownedBehavior>
+      <!-- The entry of On: an accept of a time event. -->
+      <ownedBehavior xmi:type="uml:Activity" xmi:id="_warm" name="Warm Up">
+        <node xmi:type="uml:InitialNode" xmi:id="_warmInit"/>
+        <node xmi:type="uml:AcceptEventAction" xmi:id="_warmWait" name="warmed">
+          <trigger xmi:type="uml:Trigger" xmi:id="_warmTr" event="_warmed"/>
+        </node>
+        <node xmi:type="uml:ActivityFinalNode" xmi:id="_warmFinal"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_warmE1" source="_warmInit" target="_warmWait"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_warmE2" source="_warmWait" target="_warmFinal"/>
+      </ownedBehavior>
+      <!-- The exit of On: bounded whole by a duration constraint, written as a wait before it. -->
+      <ownedBehavior xmi:type="uml:Activity" xmi:id="_cool" name="Cool Down">
+        <node xmi:type="uml:InitialNode" xmi:id="_coolInit"/>
+        <node xmi:type="uml:ActivityFinalNode" xmi:id="_coolFinal"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_coolE1" source="_coolInit" target="_coolFinal"/>
+        <ownedRule xmi:type="uml:DurationConstraint" xmi:id="_dtCool" name="dtCool">
+          <constrainedElement xmi:idref="_cool"/>
+          <specification xmi:type="uml:DurationInterval" xmi:id="_dtCoolI" min="_loD" max="_hiD"/>
+        </ownedRule>
+      </ownedBehavior>
+      <!-- Called as an operation by the transition effect Send Ack Off: its method accepts a time event. -->
+      <ownedOperation xmi:type="uml:Operation" xmi:id="_delayOp" name="Delay" method="_delaying"/>
+      <ownedBehavior xmi:type="uml:Activity" xmi:id="_delaying" name="Delaying">
+        <node xmi:type="uml:InitialNode" xmi:id="_delayInit"/>
+        <node xmi:type="uml:AcceptEventAction" xmi:id="_delayWait" name="delayed">
+          <trigger xmi:type="uml:Trigger" xmi:id="_delayTr" event="_warmed"/>
+        </node>
+        <node xmi:type="uml:ActivityFinalNode" xmi:id="_delayFinal"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_delayE1" source="_delayInit" target="_delayWait"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_delayE2" source="_delayWait" target="_delayFinal"/>
+      </ownedBehavior>
+      <!-- The do activity of On: the same accept, which a do activity may make. -->
+      <ownedBehavior xmi:type="uml:Activity" xmi:id="_blink" name="Blink">
+        <node xmi:type="uml:InitialNode" xmi:id="_blinkInit"/>
+        <node xmi:type="uml:AcceptEventAction" xmi:id="_blinkWait" name="blinked">
+          <trigger xmi:type="uml:Trigger" xmi:id="_blinkTr" event="_blinked"/>
+        </node>
+        <node xmi:type="uml:ActivityFinalNode" xmi:id="_blinkFinal"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_blinkE1" source="_blinkInit" target="_blinkWait"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_blinkE2" source="_blinkWait" target="_blinkFinal"/>
+      </ownedBehavior>
+      <ownedBehavior xmi:type="uml:StateMachine" xmi:id="_sm" name="Stimulus Behavior">
+        <region xmi:type="uml:Region" xmi:id="_r">
+          <subvertex xmi:type="uml:Pseudostate" xmi:id="_init" kind="initial"/>
+          <subvertex xmi:type="uml:State" xmi:id="_standby" name="Standby"/>
+          <subvertex xmi:type="uml:State" xmi:id="_on" name="On" entry="_warm" doActivity="_blink" exit="_cool"/>
+          <transition xmi:type="uml:Transition" xmi:id="_tStart" source="_init" target="_standby"/>
+          <transition xmi:type="uml:Transition" xmi:id="_tOn" source="_standby" target="_on">
+            <trigger xmi:type="uml:Trigger" xmi:id="_trOn" event="_cmdOnEv"/>
+            <effect xmi:type="uml:Activity" xmi:id="_sendAck" name="Send Ack">
+              <node xmi:type="uml:InitialNode" xmi:id="_saInit"/>
+              <node xmi:type="uml:CallBehaviorAction" xmi:id="_saCall" behavior="_ackOn"/>
+              <node xmi:type="uml:ActivityFinalNode" xmi:id="_saFinal"/>
+              <edge xmi:type="uml:ControlFlow" xmi:id="_saE1" source="_saInit" target="_saCall"/>
+              <edge xmi:type="uml:ControlFlow" xmi:id="_saE2" source="_saCall" target="_saFinal"/>
+            </effect>
+          </transition>
+          <transition xmi:type="uml:Transition" xmi:id="_tHold" source="_standby" target="_standby">
+            <trigger xmi:type="uml:Trigger" xmi:id="_trHold" event="_cmdHoldEv"/>
+            <effect xmi:type="uml:Activity" xmi:id="_sendAckHold" name="Send Ack Hold">
+              <node xmi:type="uml:InitialNode" xmi:id="_sahInit"/>
+              <node xmi:type="uml:CallBehaviorAction" xmi:id="_sahCall" behavior="_hold"/>
+              <node xmi:type="uml:AcceptEventAction" xmi:id="_sahWait" name="someday">
+                <trigger xmi:type="uml:Trigger" xmi:id="_sahTr" event="_someday"/>
+              </node>
+              <node xmi:type="uml:ActivityFinalNode" xmi:id="_sahFinal"/>
+              <edge xmi:type="uml:ControlFlow" xmi:id="_sahE1" source="_sahInit" target="_sahCall"/>
+              <edge xmi:type="uml:ControlFlow" xmi:id="_sahE2" source="_sahCall" target="_sahWait"/>
+              <edge xmi:type="uml:ControlFlow" xmi:id="_sahE3" source="_sahWait" target="_sahFinal"/>
+            </effect>
+          </transition>
+          <transition xmi:type="uml:Transition" xmi:id="_tSettle" source="_standby" target="_standby">
+            <trigger xmi:type="uml:Trigger" xmi:id="_trSettle" event="_cmdSettleEv"/>
+            <effect xmi:type="uml:Activity" xmi:id="_sendAckSettle" name="Send Ack Settle">
+              <node xmi:type="uml:InitialNode" xmi:id="_sasInit"/>
+              <node xmi:type="uml:CallBehaviorAction" xmi:id="_sasCall" behavior="_settle"/>
+              <node xmi:type="uml:ActivityFinalNode" xmi:id="_sasFinal"/>
+              <edge xmi:type="uml:ControlFlow" xmi:id="_sasE1" source="_sasInit" target="_sasCall"/>
+              <edge xmi:type="uml:ControlFlow" xmi:id="_sasE2" source="_sasCall" target="_sasFinal"/>
+            </effect>
+          </transition>
+          <!-- A call of Delay on a target pin nothing feeds never fires: its method's wait is not made. -->
+          <transition xmi:type="uml:Transition" xmi:id="_tPause" source="_standby" target="_standby">
+            <trigger xmi:type="uml:Trigger" xmi:id="_trPause" event="_cmdPauseEv"/>
+            <effect xmi:type="uml:Activity" xmi:id="_sendAckPause" name="Send Ack Pause">
+              <node xmi:type="uml:InitialNode" xmi:id="_sapInit"/>
+              <node xmi:type="uml:CallOperationAction" xmi:id="_sapCall" operation="_delayOp">
+                <target xmi:type="uml:InputPin" xmi:id="_sapTarget" name="target"/>
+              </node>
+              <node xmi:type="uml:ActivityFinalNode" xmi:id="_sapFinal"/>
+              <edge xmi:type="uml:ControlFlow" xmi:id="_sapE1" source="_sapInit" target="_sapCall"/>
+              <edge xmi:type="uml:ControlFlow" xmi:id="_sapE2" source="_sapCall" target="_sapFinal"/>
+            </effect>
+          </transition>
+          <transition xmi:type="uml:Transition" xmi:id="_tOff" source="_on" target="_standby">
+            <trigger xmi:type="uml:Trigger" xmi:id="_trOff" event="_cmdOffEv"/>
+            <effect xmi:type="uml:Activity" xmi:id="_sendAckOff" name="Send Ack Off">
+              <node xmi:type="uml:InitialNode" xmi:id="_saoInit"/>
+              <node xmi:type="uml:CallOperationAction" xmi:id="_saoCall" operation="_delayOp"/>
+              <node xmi:type="uml:ActivityFinalNode" xmi:id="_saoFinal"/>
+              <edge xmi:type="uml:ControlFlow" xmi:id="_saoE1" source="_saoInit" target="_saoCall"/>
+              <edge xmi:type="uml:ControlFlow" xmi:id="_saoE2" source="_saoCall" target="_saoFinal"/>
+            </effect>
+          </transition>
+        </region>
+      </ownedBehavior>
+    </packagedElement>
+  </uml:Model>
+  <sysml:Block xmi:id="_s1" base_Class="_stim"/>
+  <sysml:Block xmi:id="_s2" base_Class="_relay"/>
+</xmi:XMI>

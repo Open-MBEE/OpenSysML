@@ -1,0 +1,20 @@
+// view: ToasterViews::toasterView
+// kind: interconnection
+// stated: render asInterconnectionDiagram
+// layout: dot
+digraph "ToasterViews::toasterView" {
+  graph [fontname="Helvetica"];
+  node [shape=box, style=filled, fillcolor=white, color="#181818", fontname="Helvetica", fontsize=14, penwidth=0.5];
+  edge [color="#181818", fontname="Helvetica", fontsize=13, penwidth=1];
+  subgraph "cluster_n0" {
+    label=<<font point-size="10"><i>«part def»</i></font><br/><b>Toaster</b>>;
+    color=black;
+    penwidth=0.5;
+    "n0" [shape=point, style=invis, width=0, height=0, label=""];
+    "n1" [shape=plain, label=<<table border="0" cellborder="0" cellspacing="0" cellpadding="0"><tr><td></td><td port="n1.0" border="1" fixedsize="true" width="10" height="10" bgcolor="white"></td><td align="left"><font point-size="8">durationIn</font></td><td></td></tr><tr><td colspan="4"><table border="1" cellborder="0" cellspacing="0" cellpadding="6" style="rounded"><tr><td><font point-size="10"><i>«part»</i></font><br/><b>heating : HeatingSystem</b></td></tr></table></td></tr></table>>];
+    "n2" [shape=plain, label=<<table border="0" cellborder="0" cellspacing="0" cellpadding="0"><tr><td colspan="4"><table border="1" cellborder="0" cellspacing="0" cellpadding="6" style="rounded"><tr><td><font point-size="10"><i>«part»</i></font><br/><b>control : ControlSystem</b></td></tr></table></td></tr><tr><td></td><td port="n2.0" border="1" fixedsize="true" width="10" height="10" bgcolor="white"></td><td align="left"><font point-size="8">durationOut</font></td><td></td></tr></table>>];
+    "n3" [style="rounded,filled", label=<<font point-size="10"><i>«part»</i></font><br/><b>chassis : Chassis</b>>];
+  }
+  "n2":"n2.0" -> "n1":"n1.0" [label="durationInterface", arrowhead=none, penwidth=3];
+  "n2":"n2.0" -> "n1":"n1.0" [label="of Real", style=dashed];
+}

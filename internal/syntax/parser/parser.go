@@ -24,6 +24,10 @@ type Parser struct {
 	pos  int
 	// checkpoints counts the outstanding checkpoints; they pin the window.
 	checkpoints int
+	// indexedEnds admits `#( index )` after a connector end while the ends of a
+	// connector, binding or flow parse: an OpenSysML extension selecting one
+	// element of a collection-valued feature (see parseEndIndex).
+	indexedEnds bool
 	triv        []ast.Trivia // trivia pending attachment to the next node
 	// trivLog logs every trivia appended to triv while a checkpoint is open,
 	// so restore can replay what the abandoned attempt consumed.
@@ -477,6 +481,12 @@ func (p *Parser) lastEnd() int {
 // error records a diagnostic that makes the parse ill-formed.
 func (p *Parser) error(sp source.Span, msg string) {
 	p.Diagnostics = append(p.Diagnostics, Diagnostic{Span: sp, Message: msg})
+}
+
+// errorWithCode records an ill-formed-parse diagnostic under a code of its
+// own, for a consumer to report it by instead of the general syntax code.
+func (p *Parser) errorWithCode(sp source.Span, msg, code string) {
+	p.Diagnostics = append(p.Diagnostics, Diagnostic{Span: sp, Message: msg, Code: code})
 }
 
 // errorWithFixes records an ill-formed-parse diagnostic that unambiguous edits

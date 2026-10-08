@@ -3,6 +3,7 @@ package migrate_test
 import (
 	"bytes"
 	"os"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -191,6 +192,155 @@ func TestMigratedTablesExecute(t *testing.T) {
 		"Plant::Requirements::SealRequirement")
 }
 
+func TestUnionBranchesKeepSharedQueryParametersDeclared(t *testing.T) {
+	data, err := os.ReadFile("testdata/xmi/documents.xmi")
+	if err != nil {
+		t.Fatal(err)
+	}
+	replacements := [][2]string{
+		{
+			`<node xmi:type="uml:ForkNode" xmi:id="_trace_fork"/>`,
+			`<node xmi:type="uml:CallBehaviorAction" xmi:id="_trace_base" name="Collect Base"/>` +
+				`<node xmi:type="uml:ForkNode" xmi:id="_trace_fork"/>`,
+		},
+		{
+			`<edge xmi:type="uml:ControlFlow" xmi:id="_trace_e1" source="_trace_init" target="_trace_fork"/>`,
+			`<edge xmi:type="uml:ControlFlow" xmi:id="_trace_e0" source="_trace_init" target="_trace_base"/>` +
+				`<edge xmi:type="uml:ControlFlow" xmi:id="_trace_e1" source="_trace_base" target="_trace_fork"/>`,
+		},
+		{
+			`<node xmi:type="uml:CallBehaviorAction" xmi:id="_trace_owned" name="Collect Owned Elements"/>`,
+			`<node xmi:type="uml:StructuredActivityNode" xmi:id="_trace_owned" name="Flowing Group">` +
+				`<node xmi:type="uml:InitialNode" xmi:id="_trace_group_init"/>` +
+				`<node xmi:type="uml:CallBehaviorAction" xmi:id="_trace_group_collect" name="Collect Owned Elements"/>` +
+				`<edge xmi:type="uml:ControlFlow" xmi:id="_trace_group_e1" source="_trace_group_init" target="_trace_group_collect"/>` +
+				`</node>`,
+		},
+	}
+	for _, replacement := range replacements {
+		before, after := []byte(replacement[0]), []byte(replacement[1])
+		if count := bytes.Count(data, before); count != 1 {
+			t.Fatalf("fixture extension anchor occurs %d times, want 1: %s", count, before)
+		}
+		data = bytes.Replace(data, before, after, 1)
+	}
+	profileStart := []byte(`<Document_Profile_:CollectByDirectedRelationshipStereotypes xmi:id="_st_trace_satisfiers"`)
+	profileEnd := []byte(`</Document_Profile_:CollectByDirectedRelationshipStereotypes>`)
+	start := bytes.Index(data, profileStart)
+	if start < 0 {
+		t.Fatal("DocGen Union filter profile was not found")
+	}
+	end := bytes.Index(data[start:], profileEnd)
+	if end < 0 {
+		t.Fatal("DocGen Union filter profile is unterminated")
+	}
+	oldProfile := data[start : start+end+len(profileEnd)]
+	newProfile := []byte(
+		`<Document_Profile_:FilterByMetaclasses xmi:id="_st_trace_satisfiers" base_CallBehaviorAction="_trace_satisfiers" include="false" targets="_pkg_structure">` +
+			`<metaclasses href="http://www.omg.org/spec/UML/20131001/UML.xmi#Class"/>` +
+			`</Document_Profile_:FilterByMetaclasses>`,
+	)
+	data = bytes.Replace(data, oldProfile, newProfile, 1)
+	insert := []byte(`<Document_Profile_:FilterByMetaclasses xmi:id="_st_trace_satisfiers"`)
+	profile := []byte(
+		`<Document_Profile_:CollectOwnedElements xmi:id="_st_trace_base" base_CallBehaviorAction="_trace_base" depth="1"/>` +
+			`<Document_Profile_:CollectionAndFilterGroup xmi:id="_st_trace_group" base_StructuredActivityNode="_trace_owned"/>` +
+			`<Document_Profile_:CollectOwnedElements xmi:id="_st_trace_group_collect" base_CallBehaviorAction="_trace_group_collect" depth="1"/>` +
+			`<Document_Profile_:FilterByMetaclasses xmi:id="_st_trace_satisfiers"`,
+	)
+	if count := bytes.Count(data, insert); count != 1 {
+		t.Fatalf("filter profile insertion anchor occurs %d times, want 1", count)
+	}
+	data = bytes.Replace(data, insert, profile, 1)
+
+	r, err := migrate.Migrate("documents_union.xmi", data)
+	if err != nil {
+		t.Fatalf("Migrate: %v", err)
+	}
+	if diagnostics := errors(t, "documents_union.sysml", r.Notation); len(diagnostics) != 0 {
+		t.Fatalf("migrated Union notation has errors: %v", diagnostics)
+	}
+
+	found := false
+	for _, query := range queryDefinitionBodies(string(r.Notation)) {
+		if !strings.Contains(query, "DocumentQueries::Union(") ||
+			!strings.Contains(query, "DocumentQueries::Except(") {
+			continue
+		}
+		found = true
+		assertCandidateReferencesDeclared(t, query)
+	}
+	if !found {
+		t.Fatalf("extended DocGen Union fixture emitted no Union with an excluding filter:\n%s", r.Notation)
+	}
+}
+
+func TestIdenticalExcludingSourcesShareOneQueryParameter(t *testing.T) {
+	r := migrateFixtureFile(t, "documents")
+	for _, query := range queryDefinitionBodies(string(r.Notation)) {
+		if !strings.Contains(query, "calc def 'Fleet Handbook Fleet Parts Rows'") {
+			continue
+		}
+		if got := strings.Count(query, "in candidates :"); got != 1 {
+			t.Fatalf("identical shared sources declare candidates %d times, want once:\n%s", got, query)
+		}
+		if got := strings.Count(query, "source = candidates"); got < 3 {
+			t.Fatalf("query uses the shared source %d times, want the type filter and excluding branches:\n%s", got, query)
+		}
+		return
+	}
+	t.Fatal("documents fixture has no Fleet Parts row query")
+}
+
+var candidateReference = regexp.MustCompile(`\bcandidates[0-9]*\b`)
+
+func queryDefinitionBodies(notation string) []string {
+	var bodies []string
+	var current strings.Builder
+	inQuery := false
+	for _, line := range strings.Split(notation, "\n") {
+		trimmed := strings.TrimSpace(line)
+		if !inQuery && strings.HasPrefix(trimmed, "calc def ") && strings.Contains(trimmed, "::Query {") {
+			inQuery = true
+			current.Reset()
+		}
+		if !inQuery {
+			continue
+		}
+		current.WriteString(line)
+		current.WriteByte('\n')
+		if trimmed == "}" {
+			bodies = append(bodies, current.String())
+			inQuery = false
+		}
+	}
+	return bodies
+}
+
+func assertCandidateReferencesDeclared(t *testing.T, query string) {
+	t.Helper()
+	declarations := map[string]int{}
+	for _, line := range strings.Split(query, "\n") {
+		fields := strings.Fields(strings.TrimSpace(line))
+		if len(fields) >= 2 && fields[0] == "in" && candidateReference.MatchString(fields[1]) {
+			declarations[fields[1]]++
+		}
+	}
+	if len(declarations) == 0 {
+		t.Fatalf("excluding query declares no shared source:\n%s", query)
+	}
+	for name, count := range declarations {
+		if count != 1 {
+			t.Errorf("%s is declared %d times, want once:\n%s", name, count, query)
+		}
+	}
+	for _, name := range candidateReference.FindAllString(query, -1) {
+		if declarations[name] == 0 {
+			t.Errorf("%s is referenced without a declaration:\n%s", name, query)
+		}
+	}
+}
+
 // A generic table over a broad UML metaclass lists what that metaclass holds
 // in the source model: the packageable elements of a package but not the
 // features they own, and the «View» and «Viewpoint» classes among the types.
@@ -199,11 +349,12 @@ func TestMetaclassTablesExecute(t *testing.T) {
 
 	packageable := rows(t, s, "Tables::'Packageable Elements Rows'")
 	wantInOrder(t, "Packageable Elements rows", packageable,
-		"returned 11 rows",
+		"returned 13 rows",
 		"Plant::Structure\n", "Plant::Structure::Mode\n", "Plant::Structure::Pump\n",
 		"Plant::Structure::Pump::Cycle\n", "Plant::Structure::Pump::prime\n", "Plant::Structure::Valve\n",
 		"Plant::Structure::needs\n", "Plant::Structure::p1\n",
-		"Plant::Views\n", "Plant::Views::Operations\n", "Plant::Views::Overview\n")
+		"Plant::Views\n", "Plant::Views::Operations\n", "Plant::Views::Operations::''\n",
+		"Plant::Views::Operations::operations\n", "Plant::Views::Overview\n")
 	for _, feature := range []string{"Pump::mass", "Pump::valve", "Pump::'prime 2'", "Mode::on", "Cycle::Idle", "p1::mass"} {
 		if strings.Contains(packageable, feature) {
 			t.Errorf("Packageable Elements lists the owned feature %s:\n%s", feature, packageable)
@@ -212,12 +363,13 @@ func TestMetaclassTablesExecute(t *testing.T) {
 
 	namespaces := rows(t, s, "Tables::'Namespaces Rows'")
 	wantInOrder(t, "Namespaces rows", namespaces,
-		"returned 12 rows",
+		"returned 13 rows",
 		"Plant::Structure\n", "Plant::Structure::Mode\n", "Plant::Structure::Pump\n",
 		"Plant::Structure::Pump::Cycle\n", "Plant::Structure::Pump::Cycle::Idle\n",
 		"Plant::Structure::Pump::Cycle::Running\n", "Plant::Structure::Pump::prime\n",
 		"Plant::Structure::Valve\n", "Plant::Structure::p1\n",
-		"Plant::Views\n", "Plant::Views::Operations\n", "Plant::Views::Overview\n")
+		"Plant::Views\n", "Plant::Views::Operations\n",
+		"Plant::Views::Operations::operations\n", "Plant::Views::Overview\n")
 	if strings.Contains(namespaces, "Plant::Structure::needs") {
 		t.Errorf("Namespaces lists the dependency needs:\n%s", namespaces)
 	}
@@ -225,10 +377,10 @@ func TestMetaclassTablesExecute(t *testing.T) {
 	for _, name := range []string{"Types", "Classifiers"} {
 		got := rows(t, s, "Tables::'"+name+" Rows'")
 		wantInOrder(t, name+" rows", got,
-			"returned 8 rows",
+			"returned 9 rows",
 			"Plant::Structure::Mode\n", "Plant::Structure::Pump\n", "Plant::Structure::Pump::Cycle\n",
 			"Plant::Structure::Pump::prime\n", "Plant::Structure::Valve\n", "Plant::Structure::p1\n",
-			"Plant::Views::Operations\n", "Plant::Views::Overview\n")
+			"Plant::Views::Operations\n", "Plant::Views::Operations::operations\n", "Plant::Views::Overview\n")
 		for _, other := range []string{"Plant::Structure\n", "Plant::Views\n", "Cycle::Idle", "needs"} {
 			if strings.Contains(got, other) {
 				t.Errorf("%s lists %q, which is no type:\n%s", name, strings.TrimSpace(other), got)
@@ -374,10 +526,10 @@ func TestMigratedDocumentsRender(t *testing.T) {
 		"# Fleet Handbook",
 		"## Introduction",
 		"*Fleet Parts*",
-		"| name | qualifiedName | documentation | Payload | name 2 |",
-		"| Axle | Fleet::Structure::Axle |  |  |  |",
-		"| Trailer | Fleet::Structure::Trailer | Carries the load. |  |  |",
-		"| Truck | Fleet::Structure::Truck | Hauls one trailer. |  |  |",
+		"| name | qualifiedName | documentation | Payload | Owner Name | name 2 | Axle Mass |",
+		"| Axle | Fleet::Structure::Axle |  |  | Structure |  |  |",
+		"| Trailer | Fleet::Structure::Trailer | Carries the load. |  | Structure |  |  |",
+		"| Truck | Fleet::Structure::Truck | Hauls one trailer. |  | Structure |  |  |",
 		"The parts of the fleet, by name.",
 		"## Requirements",
 		"Every truck of the fleet satisfies these requirements.",
@@ -436,7 +588,7 @@ func TestMigratedDocumentsRender(t *testing.T) {
 		"# Fleet Brief", "## Figures", "*Truck Structure*", "```mermaid", "The truck and what it hauls",
 		"## Fleet", "*Truck Structure*", "```mermaid", "The truck and what it hauls",
 		"*Parts Method Flow*", "```mermaid", "action rendering (render Views::asInterconnectionDiagram, view def ActionFlowView)",
-		"'Collect Owned Elements'<br>«action»", "'Filter By Metaclasses'<br>«action»", "'Sort By Name'<br>«action»",
+		"*«action»* **'Collect Owned Elements'**", "*«action»* **'Filter By Metaclasses'**", "*«action»*\n**'Sort By Name'**",
 		"*Truck Internals*", "```mermaid", "axles",
 		"*Fleet Overview*", "```mermaid", "Requirements",
 		"## Gallery", "*Figure: Inside the truck*", "```mermaid", "axles",
@@ -453,7 +605,7 @@ func TestMigratedDocumentsRender(t *testing.T) {
 	if body := markdownSection(brief, "## Truck Figures"); strings.Contains(body, "*Fleet Overview*") {
 		t.Errorf("Truck Figures draws a diagram the name filter drops:\n%s", body)
 	}
-	if body := markdownSection(brief, "## Other Figures"); strings.Contains(body, "*Truck") {
+	if body := markdownSection(brief, "## Other Figures"); strings.Contains(body, "\n*Truck ") {
 		t.Errorf("Other Figures draws a diagram the name filter excludes:\n%s", body)
 	}
 	if body := markdownSection(brief, "## No Figures"); strings.Contains(body, "```mermaid") {
@@ -461,6 +613,42 @@ func TestMigratedDocumentsRender(t *testing.T) {
 	}
 	if strings.Contains(brief, "showCaptions is false") {
 		t.Fatalf("a caption DocGen hides is rendered:\n%s", brief)
+	}
+}
+
+func TestPerRowExcludingFilterStaysInline(t *testing.T) {
+	data, err := os.ReadFile("testdata/xmi/docgen_columns.xmi")
+	if err != nil {
+		t.Fatal(err)
+	}
+	before := []byte(`<Document_Profile_:FilterByMetaclasses xmi:id="_st_ifc_desc_ports" base_CallBehaviorAction="_ifc_desc_ports" include="true">
+    <metaclasses href="http://www.omg.org/spec/UML/20131001/UML.xmi#Port"/>
+  </Document_Profile_:FilterByMetaclasses>`)
+	after := []byte(`<Document_Profile_:FilterByMetaclasses xmi:id="_st_ifc_desc_ports" base_CallBehaviorAction="_ifc_desc_ports" include="false">
+    <metaclasses href="http://www.omg.org/spec/UML/20131001/UML.xmi#Class"/>
+  </Document_Profile_:FilterByMetaclasses>`)
+	if count := bytes.Count(data, before); count != 1 {
+		t.Fatalf("column-chain filter occurs %d times, want 1", count)
+	}
+	data = bytes.Replace(data, before, after, 1)
+	r, err := migrate.Migrate("docgen_columns.xmi", data)
+	if err != nil {
+		t.Fatalf("Migrate: %v", err)
+	}
+	var cell string
+	for _, line := range strings.Split(string(r.Notation), "\n") {
+		if strings.Contains(line, `Column(name = "Description", cell =`) &&
+			strings.Contains(line, "DocumentQueries::Except(") &&
+			strings.Contains(line, "Descendants(source = row") {
+			cell = line
+			break
+		}
+	}
+	if cell == "" {
+		t.Fatal("the per-row excluding filter did not reach its column cell")
+	}
+	if strings.Contains(cell, "candidates") {
+		t.Fatalf("the inline column cell references an unwritten parameter:\n%s", cell)
 	}
 }
 

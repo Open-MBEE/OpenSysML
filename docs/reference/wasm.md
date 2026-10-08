@@ -4,9 +4,12 @@ OpenSysML is Go, and Go compiles it for two WebAssembly targets. This page says 
 for, how to build and run them, what works in them, and what a WebAssembly host cannot do —
 with the message each limitation answers with, so a refusal is never mistaken for a defect.
 
-No WebAssembly artifact ships in a release: releases are native binaries for Linux, macOS and
-Windows. The WebAssembly builds are built from source, for a host that runs modules rather than
-executables.
+Stable releases ship `sysml-wasm.wasm` with its matching `wasm_exec.js`, list
+both in the signed `SHA256SUMS.txt`, and cover them with SLSA provenance.
+Nightly snapshots list the same assets in their cosign-signed checksum
+manifest; like every nightly asset, they have no SLSA provenance. The npm
+package `@openmbee/opensysml-wasm` carries both assets. Other WebAssembly builds
+remain available from source for hosts that run modules rather than executables.
 
 ## Building
 
@@ -16,12 +19,12 @@ make build-wasm-wasip1   # or one
 make build-wasm-js
 ```
 
-The output is one directory per target, three commands each, stamped with the same version
+The output is one directory per target, seven commands each, stamped with the same version
 information a native build carries:
 
 ```
-bin/wasm/wasip1/{sysml,sysml-lsp,sysml-grpc}.wasm
-bin/wasm/js/{sysml,sysml-lsp,sysml-grpc}.wasm
+bin/wasm/wasip1/{sysml,sysml-lsp,sysml-grpc,sysml-engine,sysml-syntax,sysml-core,sysml-wasm}.wasm
+bin/wasm/js/{sysml,sysml-lsp,sysml-grpc,sysml-engine,sysml-syntax,sysml-core,sysml-wasm}.wasm
 bin/wasm/js/wasm_exec.js      # the runtime a browser page includes
 ```
 
@@ -30,6 +33,19 @@ runs these modules with `$(go env GOROOT)/lib/wasm/wasm_exec_node.js`, which loa
 beside it.
 
 `make build` is unchanged and stays native; a WebAssembly build is always asked for.
+
+`make build-engine`, `make build-core`, `make build-syntax` and `make build-sysml-wasm`
+build the JSON commands natively into `bin/`, where each serves its JSON-RPC over standard
+input and output as its WASI build does. They are opt-in as well: `make build` and
+`make install` leave them out of the native executables; the combined JavaScript
+WebAssembly module is published separately.
+
+`make build-wasm-prod` builds a smaller `sysml-prod.wasm` for each target with `-tags sysml_prod`
+(`make build-prod` is the native counterpart). It leaves out SysML v1 migration, repository sync,
+`-compile`, the HTML and PDF document forms, FMU import, profiling and the REPL's `%features …
+json`. A flag of a left-out group is hidden from `-help` and refused with status 2. Each group
+also has a tag of its own (`sysml_nov1`, `sysml_nosync`, `sysml_nocodegen`, `sysml_nodocpdf`,
+`sysml_nofmi`, `sysml_noprofile`, `sysml_noreplext`).
 
 ## Running a WASI build
 
@@ -102,6 +118,162 @@ Three constraints apply to `js` builds:
 In a browser, nothing wires a page's input to the module's standard input: an embedder provides
 that itself. The commands take their input from arguments and files, so the parts that need no
 interactive stream work as they do under Node.
+
+## The execution engine
+
+`sysml-engine` is the in-process half of [the service](service-transports.md): the execution
+RPCs — `ParseSources`, `Evaluate`, `Instantiate`, `ExecuteAction`, `ExecuteState` — answered
+with the same JSON `sysml-grpc` emits, but without the protobuf machinery, the analysis
+framework or a held-object store, which is what keeps a WebAssembly build small enough to
+embed in a page. A model parsed through it hashes to the same `modelHash` the service
+returns, and a request a service client encodes decodes identically here.
+
+It also serves `RenderView`, returning drawing data for a declared view or a targeted
+pseudo-view. [`sysml-grpc` serves `RenderView` as an RPC](wire-contract.md#renderview),
+but the engine reply uses the drawing shape described here (flattened `fill`/`border`
+and optional `x`/`y`/`width`/`height`), not the protojson `RenderViewResponse`. A
+request names the cached model and a declared view's qualified name or the target of a
+pseudo-view:
+
+```json
+{
+  "modelHash": "…",
+  "view": "#interconnection:OpenSysMLStack::stack",
+  "ports": "minimal"
+}
+```
+
+`ports` is optional: empty or `minimal` includes only ports an interconnection edge ends at in
+an interconnection or mixed view, and `full` includes every port. Each node's optional `ports`
+array has `id`, `name`, optional `type` and optional `direction`; undirected ports omit the
+direction. An edge's optional
+`fromPort` and `toPort` identify the endpoint ports by those IDs. The response also carries
+the view kind, stated rendering, notices, canvas, nodes, edges, and, for tabular renderings
+(tables and matrices), columns and rows; its node and edge fields use the same JSON names as
+`opensysml/render`.
+
+The engine has no current-document context, so a pseudo-view must name an element, for
+example `#tree:OpenSysMLStack::stack`. An untargeted `#tree`, `#interconnection` or `#matrix` is
+refused with InvalidArgument and the supported pseudo-view spellings.
+
+The `js` build installs a host surface instead of reading a pipe: load it through
+`wasm_exec.js` with no arguments and `globalThis.sysmlEngine` appears with
+
+```js
+const answer = JSON.parse(sysmlEngine.call(method, paramsJSON));
+sysmlEngine.version;
+```
+
+where `call` is synchronous — it runs the method on the JS thread and returns the JSON-RPC
+response envelope (`{"jsonrpc":"2.0","id":null,"result":…}` or `…"error":{"code":…,"message":…}}`)
+as a string. Pass `-stdio` and the `js` build serves the pipe instead, as the native and
+`wasip1` builds always do: the same `Content-Length` frames and JSON-RPC 2.0 bodies
+`sysml-grpc -transport stdio` speaks, answered sequentially.
+
+Measured on a `go1.25` `js/wasm` build of this tree: about 27.7 MB of module,
+6.9 MB gzipped, 4.9 MB under Brotli.
+
+Requests decode the lowerCamelCase field names protojson and protobuf-es emit; the proto
+snake_case spellings protojson also accepts are not read. What it does not serve is refused
+rather than dropped: an exploring schedule is answered
+Unimplemented with `exploration is not served by sysml-engine: exploring schedules are served
+by sysml-grpc`, and every other method name — verification, document queries, tools — answers
+`<Method> is not served by sysml-engine`. Within the served methods: diagnostics are the
+parser's syntax diagnostics only, since the engine does not run the analysis tier; a
+`ParseSources` response carries no `roots`; and a frame whose `Content-Type` is a protobuf
+body is answered `only application/json bodies are served`. Tool-backed engines are the
+service's job too — the engine builds a runtime context directly, so behavior an external
+engine would compute stays on `sysml-grpc`.
+
+## The syntax service
+
+`sysml-syntax` is the purely syntactic half: it answers `Parse`, `Format` and `Tokens` on
+content a request carries, with no name resolution and no standard library, which is what keeps
+it even smaller than the engine. Like the engine, the `js` build installs a host surface —
+`globalThis.sysmlSyntax` with the same synchronous `call(method, paramsJSON)` — and the same
+`-stdio` flag swaps it for the `Content-Length`-framed JSON-RPC 2.0 pipe the native and
+`wasip1` builds always serve.
+
+- `Parse` takes `{content, language}` and answers `{"diagnostics":[…]}`: the parser's syntax
+  errors, then its warnings, each as the Diagnostic message a `ParseFile` answer carries;
+  a clean document answers `{}`.
+- `Format` takes `{content, language, tolerateSyntaxErrors}` and answers
+  `{content, diagnostics, error}` as a `sysml`→`sysml` `Convert` does: the re-indented
+  source, or — when the input has syntax errors and the request did not tolerate them —
+  `error` with the converter's message and `diagnostics` listing them. It refuses invalid
+  input unless `tolerateSyntaxErrors` is set.
+- `Tokens` takes `{content, language}` and answers `{"legend":{…},"data":[…]}`: the full
+  LSP semantic-tokens legend and the relative-encoded token data for the document's
+  lexical classes only — keywords, comments, strings and numbers. With no symbol table it
+  emits no declaration/reference classes and no modifiers.
+
+`language` is `"sysml"` or `"kerml"` (empty means SysML), inline content is named `<content>`,
+and every other method answers `<Method> is not served by sysml-syntax`. Being syntactic only,
+it reports no semantic diagnostics.
+
+Measured on a `go1.25` `js/wasm` build of this tree: about 5.0 MB of module,
+1.32 MB gzipped, 0.97 MB under Brotli.
+
+## The validation core
+
+`sysml-core` serves the model-validation surface of `sysml-grpc` without protobuf, Connect,
+or the execution runtime. It embeds the standard library, parses one or more SysML or KerML
+documents together, runs the validation passes on models that parse cleanly, and reports
+diagnostics and shared symbol facts.
+
+- `ParseSources` parses a set of inline or file-backed documents as one model and returns its
+  hash, one root per document, and diagnostics.
+- `ParseFile` parses a single inline document or file and returns its hash, root and diagnostics.
+- `GetDiagnostics` returns the parser and validation diagnostics for a cached model.
+- `GetSymbol` returns the symbol's type, multiplicity, specialization and attribute facts.
+
+The `js` build installs `globalThis.sysmlCore` with `version` and synchronous
+`call(method, paramsJSON)`, which returns the JSON-RPC envelope string. Passing `-stdio`
+selects the same sequential, `Content-Length`-framed JSON-RPC pipe used by the native and
+`wasip1` builds. Requests and responses use the lowerCamelCase protojson field names.
+
+The core does not execute models or serve conversion, query, document, verification or tool
+methods. Those execution methods belong to `sysml-engine`; every other unsupported method
+belongs to `sysml-grpc`. Such calls answer Unimplemented with that routing guidance rather
+than being silently ignored. File-backed requests still require the host to make the requested
+paths readable; the standard library itself is embedded.
+
+Measured on a `go1.25` `js/wasm` build: 20,601,256 raw bytes, 5,444,030 bytes with gzip
+`-9`, and 3,843,951 bytes with Brotli.
+
+## The combined module
+
+The Node and browser client adapter is documented in
+[WebAssembly, without a service](../../client/node/README.md#webassembly-without-a-service).
+Stable and nightly releases include the module and matching runtime; the npm
+package is `@openmbee/opensysml-wasm`.
+
+`sysml-wasm` combines the parsing, validation and execution methods of `sysml-core` and
+`sysml-engine` in one WebAssembly module. It serves `ParseSources`, `ParseFile`,
+`GetDiagnostics`, `GetSymbol`, `Evaluate`, `Instantiate`, `ExecuteAction`, `ExecuteState`
+and `GetServerInfo`. Parsing and symbol facts route through the core; evaluation and
+execution route through the engine. `ParseSources` and `ParseFile` check that both frontends
+produce the same model hash and return the core response, including roots and diagnostics.
+It does not dispatch the engine's `RenderView` call.
+
+A hash from either parse method is shared by every method that takes a `modelHash`, including
+`GetDiagnostics`, `GetSymbol`, `Evaluate`, `Instantiate`, `ExecuteAction` and `ExecuteState`.
+The module retains the 16 most recently used models; an evicted hash is evicted for every method.
+`GetServerInfo` returns the build version and these capabilities, in order:
+`type_facts`, `enum_values`, `evaluate_subject`, `symbol_attributes`, `unset_value`,
+`feature_values`, `inline_language`, `strict_conformance`, `parse_sources`, `complex_values`,
+`structured_values`, `measurement_refs`, `function_values`, `set_values`, `tensor_values`,
+`infinity_value`, `diagnostic_codes`, `schedule`, `final_time`, `metaobject_values`,
+`undetermined_value`, `performer`, `big_int_values`.
+
+The `js` build installs one synchronous host surface, `globalThis.sysmlWasm`, with
+`version` and `call(method, paramsJSON)`. The call returns a JSON-RPC envelope string.
+Passing `-stdio` selects the sequential, `Content-Length`-framed JSON-RPC pipe instead;
+native and `wasip1` builds always use that pipe. Every other method answers Unimplemented
+with `<Method> is not served by sysml-wasm: it is served by sysml-grpc`.
+
+Measured on a `go1.25.11` `js/wasm` build with `-s -w -trimpath`: 31,526,528 raw bytes,
+7,790,873 bytes gzipped with gzip `-9`, and 5,479,244 bytes with Brotli `-q 11`.
 
 ## What works
 

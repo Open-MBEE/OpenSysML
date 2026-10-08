@@ -111,9 +111,11 @@ func FormatReal(f float64) string {
 func FormatConst(c Value) string {
 	switch c.Kind {
 	case ValInt:
-		return strconv.FormatInt(c.Int, 10)
+		return c.FormatInt()
 	case ValReal:
 		return FormatReal(c.Real)
+	case ValRational:
+		return c.FormatRational()
 	case ValBool:
 		return strconv.FormatBool(c.Bool)
 	case ValInfinity:

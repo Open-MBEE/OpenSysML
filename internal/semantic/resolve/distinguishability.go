@@ -11,15 +11,222 @@ import (
 )
 
 // checkDistinguishability reports the member names of one namespace that are not
-// distinguishable: an owned name repeating another owned name, and — for a type
-// — an owned name repeating one the type inherits (KerML 7.2.2, SysML 7.6.1).
-// Both are warnings, as in the reference implementation.
+// distinguishable: an owned name repeating another owned name, — for a type —
+// an owned name repeating one the type inherits, and an imported name repeating
+// another imported one (KerML 7.2.2, SysML 7.6.1). All are warnings, as the
+// reference implementation reports the first two.
 func (r *Resolver) checkDistinguishability(scope *symbols.Scope) {
 	if scope == nil {
 		return
 	}
 	r.checkOwnedNames(scope)
 	r.checkInheritedNames(scope)
+	r.checkImportedNames(scope)
+}
+
+// importedMember is one membership an import surfaces into a namespace, with
+// the import that brought it, or one the namespace inherits (imp nil).
+type importedMember struct {
+	sym *symbols.Symbol
+	imp *ast.Import
+}
+
+// ownedName is a name among one namespace's own members. A repeat of it there
+// — two documents declaring the same package and member — is that namespace's
+// duplicate, reported where it is declared, not at every importer.
+type ownedName struct {
+	owner ownerKey
+	name  string
+}
+
+// ownerKey identifies a namespace across documents: by qualified name when it
+// and every namespace enclosing it is a package, since one package declared in
+// two documents is one namespace, and by scope otherwise — two types of one
+// name are two namespaces.
+type ownerKey struct {
+	scope *symbols.Scope
+	fqn   string
+}
+
+func ownerKeyOf(scope *symbols.Scope) ownerKey {
+	if scope == nil || scope.Owner() == nil {
+		return ownerKey{scope: scope}
+	}
+	for s := scope; s != nil && s.Owner() != nil; s = s.Owner().OwnerScope {
+		owner := s.Owner()
+		if owner.Name == "" || (owner.Kind != symbols.SymbolPackage && owner.Kind != symbols.SymbolNamespace) {
+			return ownerKey{scope: scope}
+		}
+	}
+	return ownerKey{fqn: symbols.FQNOf(scope.Owner())}
+}
+
+// boundName is one name one element is reached under: an alias and the element
+// it names bind one name to one element, a membership two imports reach too.
+type boundName struct {
+	key  symbols.ElementKey
+	name string
+}
+
+// checkImportedNames reports each name an imported membership shares with
+// another imported membership or, in a type, with an inherited one: a
+// namespace's memberships are its owned, imported and inherited ones together,
+// and all of them must be distinguishable (KerML 8.3.2.4.5). A membership two
+// imports both reach is one membership and conflicts with nothing; so are two
+// memberships of one element, an alias and what it names. An imported name an
+// owned member hides takes no part, nor does library content, as the inherited
+// pass leaves library supertypes out. Resolution still takes the first
+// membership, so the warning sits on the import bringing the later one.
+func (r *Resolver) checkImportedNames(scope *symbols.Scope) {
+	imports := r.scopeImports(scope)
+	if len(imports) == 0 || r.idx.DocumentLibraryTier(r.document).Library() {
+		return
+	}
+	hidden := map[string]bool{}
+	owned, aliases := r.DistinguishableMembers(scope)
+	for _, sym := range append(owned, aliases...) {
+		for _, name := range memberNames(sym) {
+			hidden[name] = true
+		}
+	}
+	seen := map[boundName]bool{}
+	owners := map[ownedName]bool{}
+	byName := map[string][]importedMember{}
+	var names []string
+	for _, imp := range imports {
+		target, ok := r.resolveImportTarget(scope, imp)
+		if !ok || target == nil || r.idx.Library(target) {
+			continue
+		}
+		for _, sym := range r.ImportedElementsInto(scope, scope, imp) {
+			if sym.Name == "" || r.idx.Library(sym) || !contributesName(sym) || !r.BindsName(sym) {
+				continue
+			}
+			key := symbols.KeyOf(r.aliasTarget(sym))
+			for _, name := range memberNames(sym) {
+				bound := boundName{key: key, name: name}
+				owned := ownedName{owner: ownerKeyOf(sym.OwnerScope), name: name}
+				if hidden[name] || seen[bound] || owners[owned] {
+					continue
+				}
+				seen[bound] = true
+				owners[owned] = true
+				if _, ok := byName[name]; !ok {
+					names = append(names, name)
+				}
+				byName[name] = append(byName[name], importedMember{sym: sym, imp: imp})
+			}
+		}
+	}
+	inherited := r.inheritedAgainstImports(scope)
+	for _, name := range names {
+		members := byName[name]
+		for _, sym := range inherited[name] {
+			members = append(members, importedMember{sym: sym})
+		}
+		if len(members) < 2 {
+			continue
+		}
+		// Keep the members some other member is indistinguishable from; the
+		// rest conflict with nothing.
+		var kept []importedMember
+		imported := 0
+		for i, member := range members {
+			if len(r.duplicatesOf(member.sym, importedSymbolsExcept(members, i))) > 0 {
+				kept = append(kept, member)
+				if member.imp != nil {
+					imported++
+				}
+			}
+		}
+		if len(kept) < 2 || imported == 0 {
+			continue
+		}
+		r.duplicateImported(name, kept)
+	}
+}
+
+// inheritedAgainstImports is what a type inherits, by name, for its imported
+// memberships to be told apart from: nothing for a namespace that is no type,
+// and nothing while a redefinition the type declares is unresolved, as that
+// may be the one hiding the inherited name (as checkInheritedAmbiguity holds).
+func (r *Resolver) inheritedAgainstImports(scope *symbols.Scope) map[string][]*symbols.Symbol {
+	owner := scope.Owner()
+	if r.model == nil || owner == nil || ParameterizedByName(owner) {
+		return nil
+	}
+	model, ok := r.model.(supertypeProvider)
+	if !ok || len(model.DirectSupertypes(owner)) == 0 || r.hasUnresolvedRedefinitions(scope) {
+		return nil
+	}
+	return r.inheritedMembers(owner, model)
+}
+
+// memberNames are the names a membership binds: the member's name and, when it
+// declares one, its short name (KerML 8.3.2.4.3 compares both).
+func memberNames(sym *symbols.Symbol) []string {
+	names := []string{sym.Name}
+	if sym.ShortName != "" && sym.ShortName != sym.Name {
+		names = append(names, sym.ShortName)
+	}
+	return names
+}
+
+// importedSymbolsExcept is the symbols of members other than the i-th.
+func importedSymbolsExcept(members []importedMember, i int) []*symbols.Symbol {
+	out := make([]*symbols.Symbol, 0, len(members)-1)
+	for j, member := range members {
+		if j != i {
+			out = append(out, member.sym)
+		}
+	}
+	return out
+}
+
+// duplicateImported reports one name several memberships share, at the import
+// that brought the last imported one, naming every colliding member and the
+// import each came through — or that it is inherited — so a reader can rename
+// one, narrow an import or import the member wanted explicitly.
+func (r *Resolver) duplicateImported(name string, members []importedMember) {
+	parts := make([]string, 0, len(members))
+	var last *ast.Import
+	for _, member := range members {
+		origin := "inherited"
+		if member.imp != nil {
+			origin = importText(member.imp)
+			last = member.imp
+		}
+		parts = append(parts, fmt.Sprintf("%s (%s)", source.QualifiedNameOf(symbols.NameChain(member.sym)), origin))
+	}
+	span := last.Span()
+	if last.Imported != nil {
+		span = last.Imported.Span()
+	}
+	r.reportDuplicate(span, fmt.Sprintf("Duplicate of imported member name '%s': %s", name, strings.Join(parts, ", ")))
+}
+
+// importText spells an import as its declaration does, visibility aside:
+// `import A::*`, `import A::*::**`, `import A::x` or `import A::x::**`.
+func importText(imp *ast.Import) string {
+	text := "import "
+	if imp.IsAll {
+		text += "all "
+	}
+	names := make([]string, 0, len(imp.Imported.Parts))
+	for _, part := range imp.Imported.Parts {
+		names = append(names, part.Text)
+	}
+	if imp.Imported.Global {
+		text += "$::"
+	}
+	text += source.QualifiedNameOf(names)
+	if imp.Kind == ast.ImportNamespace {
+		text += "::*"
+	}
+	if imp.IsRecursive {
+		text += "::**"
+	}
+	return text
 }
 
 // checkOwnedNames reports each name a namespace declares twice. Aliases are a
@@ -101,14 +308,18 @@ func (r *Resolver) checkInheritedAmbiguity(
 	sort.Strings(names)
 	for _, name := range names {
 		members := r.withoutImplicitlyRedefined(inherited[name], model)
-		if len(members) < 2 {
+		// Keep the members some other member is indistinguishable from; the
+		// rest conflict with nothing and belong to neither warning nor `from`.
+		var kept []*symbols.Symbol
+		for _, member := range members {
+			if len(r.duplicatesOf(member, othersOf(members, member))) > 0 {
+				kept = append(kept, member)
+			}
+		}
+		if len(kept) < 2 {
 			continue
 		}
-		dups := r.duplicatesOf(members[0], members[1:])
-		if len(dups) == 0 {
-			continue
-		}
-		r.duplicateInherited(owner, name, members)
+		r.duplicateInherited(owner, name, kept)
 	}
 }
 
@@ -360,16 +571,56 @@ func redefinerOtherThan(redefiners []*symbols.Symbol, sym *symbols.Symbol) bool 
 }
 
 // duplicatesOf returns the members of others that make sym's name ambiguous:
-// every one naming a different element.
+// every one naming a different element of a conforming metaclass.
 func (r *Resolver) duplicatesOf(sym *symbols.Symbol, others []*symbols.Symbol) []*symbols.Symbol {
 	var out []*symbols.Symbol
 	for _, other := range others {
-		if r.sameElement(sym, other) {
+		if r.sameElement(sym, other) || r.DistinguishableByMetaclass(sym, other) {
 			continue
 		}
 		out = append(out, other)
 	}
 	return out
+}
+
+// othersOf is members without member itself.
+func othersOf(members []*symbols.Symbol, member *symbols.Symbol) []*symbols.Symbol {
+	out := make([]*symbols.Symbol, 0, len(members)-1)
+	for _, m := range members {
+		if m != member {
+			out = append(out, m)
+		}
+	}
+	return out
+}
+
+// DistinguishableByMetaclass reports whether neither member's element has a
+// metaclass conforming to the other's (KerML 8.3.2.4.3); unknown is never distinguishable.
+func (r *Resolver) DistinguishableByMetaclass(a, b *symbols.Symbol) bool {
+	model, ok := r.model.(metaclassProvider)
+	if !ok {
+		return false
+	}
+	ea, eb := a, b
+	if a.Kind == symbols.SymbolAlias {
+		target, ok := r.ResolveAliasTarget(a)
+		if !ok || target == nil {
+			return false
+		}
+		ea = target
+	}
+	if b.Kind == symbols.SymbolAlias {
+		target, ok := r.ResolveAliasTarget(b)
+		if !ok || target == nil {
+			return false
+		}
+		eb = target
+	}
+	ma, mb := model.MetaclassOf(ea), model.MetaclassOf(eb)
+	if ma == nil || mb == nil {
+		return false
+	}
+	return !model.Conforms(ma, mb) && !model.Conforms(mb, ma)
 }
 
 // sameElement reports whether two members name the same element, which no

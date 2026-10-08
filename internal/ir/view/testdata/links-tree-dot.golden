@@ -1,0 +1,23 @@
+// view: VehicleViews::vehicleView
+// kind: tree
+// layout: dot
+digraph "VehicleViews::vehicleView" {
+  graph [fontname="Helvetica"];
+  node [shape=box, style=filled, fillcolor=white, color="#181818", fontname="Helvetica", fontsize=14, penwidth=0.5];
+  edge [color="#181818", fontname="Helvetica", fontsize=13, penwidth=1];
+  "n0" [label=<<font point-size="10"><i>«part def»</i></font><br/><b>Vehicles::Vehicle</b>>, URL="https://example.test/src/tree.sysml#L11", tooltip="Vehicles::Vehicle"];
+  "n1" [style="rounded,filled", label=<<font point-size="10"><i>«part»</i></font><br/><b>engine : Engine</b>>, URL="https://example.test/src/tree.sysml#L12", tooltip="Vehicles::Vehicle::engine"];
+  "n0" -> "n1" [arrowhead=none];
+  "n2" [style="rounded,filled", label=<<font point-size="10"><i>«part»</i></font><br/><b>wheels : Wheel</b>>, URL="https://example.test/src/tree.sysml#L13", tooltip="Vehicles::Vehicle::wheels"];
+  "n0" -> "n2" [arrowhead=none];
+  "n3" [style="rounded,filled", label=<<b>connect</b>>, URL="https://example.test/src/tree.sysml#L14", tooltip="tree.sysml:14:3"];
+  "n0" -> "n3" [arrowhead=none];
+  "n4" [style="rounded,filled", label=<<font point-size="10"><i>«view»</i></font><br/><b>VehicleViews::vehicleView::engineSubview</b>>, URL="https://example.test/src/tree.sysml#L29", tooltip="VehicleViews::vehicleView::engineSubview"];
+  "n5" [label=<<font point-size="10"><i>«part def»</i></font><br/><b>Vehicles::Engine</b>>, URL="https://example.test/src/tree.sysml#L4", tooltip="Vehicles::Engine"];
+  "n6" [style="rounded,filled", label=<<font point-size="10"><i>«attribute»</i></font><br/><b>power</b>>, URL="https://example.test/src/tree.sysml#L5", tooltip="Vehicles::Engine::power"];
+  "n5" -> "n6" [arrowhead=none];
+  "n7" [style="rounded,filled", label=<<font point-size="10"><i>«part»</i></font><br/><b>cylinder : Cylinder</b>>, URL="https://example.test/src/tree.sysml#L6", tooltip="Vehicles::Engine::cylinder"];
+  "n5" -> "n7" [arrowhead=none];
+  "n4" -> "n5" [arrowhead=none];
+  "n0" -> "n5" [label="engine", dir=back, arrowtail=diamond, URL="https://example.test/src/tree.sysml#L12", tooltip="Vehicles::Vehicle::engine"];
+}

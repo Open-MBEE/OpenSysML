@@ -622,7 +622,7 @@ func (r *Resolver) importPrefixAvailable(scope *symbols.Scope, imp *ast.Import, 
 // descendants, nested re-exports included, until yield returns false.
 func (r *Resolver) eachSubtreeMatch(scope *symbols.Scope, target *symbols.Symbol, name string, imp *ast.Import, admit func(*symbols.Symbol) bool, yield func(*symbols.Symbol) bool) {
 	out := newElementList()
-	r.appendSubtree(out, scope, target, imp, admit, map[symbols.ElementKey]bool{})
+	r.appendSubtree(out, scope, target, imp, admit, map[symbols.ElementKey]bool{}, false)
 	for _, sym := range out.elems {
 		if (localNameOf(sym) == name || sym.ShortName == name) && !yield(sym) {
 			return

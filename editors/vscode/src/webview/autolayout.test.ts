@@ -3,7 +3,7 @@ import { test } from "node:test";
 
 import type { RenderEdge, RenderNode, RenderPoint, RenderResult } from "../protocol";
 import { AUTO_LAYOUT_LIMIT, autoLayout, type AutoLayout } from "./autolayout";
-import { GAP, type Box } from "./layout";
+import { GAP, layoutCanvas, portFace, type Box } from "./layout";
 
 const origin = { uri: "file:///m.sysml", range: { start: { line: 0, character: 0 }, end: { line: 0, character: 4 } }, digest: "d0" };
 
@@ -54,6 +54,32 @@ function orthogonal(points: RenderPoint[]): boolean {
   return points.every((point, i) => i === 0 || point.x === points[i - 1].x || point.y === points[i - 1].y);
 }
 
+test("autoLayout packs children no edge reaches into rows inside their container, whose ports stay free", async () => {
+  const kids = ["k1", "k2", "k3", "k4", "k5", "k6"].map((id) => node(id, id, { parent: "box" }));
+  const box = node("box", "box", { ports: [{ id: "box.p", name: "p" }] });
+  const result = rendering(
+    [box, ...kids, node("far", "far")],
+    [edge("box", "far", { fromPort: "box.p" })],
+    { kind: "interconnection" },
+  );
+  const laid = await autoLayout(result);
+  assert.ok(laid);
+  const container = boxOf(laid, "box");
+  const boxes = kids.map((kid) => boxOf(laid, kid.id));
+  assert.ok(new Set(boxes.map((b) => b.y)).size > 1, "children should take more than one row");
+  assert.ok(new Set(boxes.map((b) => b.x)).size > 1, "children should take more than one column");
+  for (const [i, a] of boxes.entries()) {
+    assert.ok(a.x >= container.x && a.x + a.width <= container.x + container.width, `${kids[i].id} inside across`);
+    assert.ok(a.y > container.y && a.y + a.height <= container.y + container.height, `${kids[i].id} inside down`);
+    for (const b of boxes.slice(i + 1)) {
+      assert.ok(disjoint(a, b));
+    }
+  }
+  assert.ok(disjoint(container, boxOf(laid, "far")));
+  assert.ok(laid.ports.get("box.p"), "the container's port should be placed by the layered pass");
+  assert.ok(orthogonal(laid.routes.get(0) ?? []));
+});
+
 test("autoLayout lays a chain out in layers downward and routes its edges orthogonally", async () => {
   const result = rendering([node("a", "a"), node("b", "b"), node("c", "c")], [edge("a", "b"), edge("b", "c")]);
   const laid = await autoLayout(result);
@@ -95,6 +121,23 @@ test("autoLayout holds a container's children inside it and reports absolute edg
   for (const route of [laid.routes.get(0)!, laid.routes.get(1)!]) {
     assert.ok(onBorder(route.at(-1)!, c));
   }
+});
+
+test("autoLayout keeps siblings in a layer in declaration order", async () => {
+  const laidOut = async (order: string[]) => {
+    const result = rendering(
+      [...order.map((id) => node(id, id)), node("hub", "hub")],
+      order.map((id) => edge(id, "hub")),
+      { kind: "interconnection" },
+    );
+    const laid = await autoLayout(result);
+    assert.ok(laid);
+    return order.map((id) => boxOf(laid, id).y);
+  };
+  const forward = await laidOut(["a", "b", "c"]);
+  assert.ok(forward[0] < forward[1] && forward[1] < forward[2], `a, b, c top to bottom: ${forward}`);
+  const backward = await laidOut(["c", "b", "a"]);
+  assert.ok(backward[0] < backward[1] && backward[1] < backward[2], `c, b, a top to bottom: ${backward}`);
 });
 
 test("autoLayout leaves a routed edge and a self-loop alone", async () => {
@@ -169,4 +212,66 @@ test("autoLayout drops the route of an edge crossing a placed container's border
   const laid = await autoLayout(result);
   assert.ok(laid);
   assert.equal(laid.routes.has(0), false);
+});
+
+test("autoLayout places edge ports on opposite sides and routes to their faces", async () => {
+  const result = rendering(
+    [
+      node("a", "a", { ports: [{ id: "a.api", name: "api" }] }),
+      node("b", "b", { ports: [{ id: "b.api", name: "api" }] }),
+    ],
+    [edge("a", "b", { fromPort: "a.api", toPort: "b.api" })],
+    { kind: "interconnection" },
+  );
+  const laid = await autoLayout(result);
+  assert.ok(laid);
+  const aPlacement = laid.ports.get("a.api");
+  const bPlacement = laid.ports.get("b.api");
+  assert.ok(aPlacement);
+  assert.ok(bPlacement);
+  assert.notEqual(aPlacement.side, bPlacement.side);
+
+  const canvas = layoutCanvas(result, {}, laid);
+  const a = canvas.nodes.get("a")!;
+  const b = canvas.nodes.get("b")!;
+  const aPort = a.ports.find(({ port }) => port.id === "a.api")!;
+  const bPort = b.ports.find(({ port }) => port.id === "b.api")!;
+  assert.deepEqual([aPort.side, aPort.offset], [aPlacement.side, aPlacement.offset]);
+  assert.deepEqual([bPort.side, bPort.offset], [bPlacement.side, bPlacement.offset]);
+  const [start, end] = [canvas.edges[0].points[0], canvas.edges[0].points.at(-1)!];
+  const startFace = portFace(a.box, aPort);
+  const endFace = portFace(b.box, bPort);
+  assert.deepEqual(start, startFace);
+  assert.deepEqual(end, endFace);
+});
+
+test("autoLayout keeps an unconnected port on the south after laying out connected ports", async () => {
+  const result = rendering(
+    [
+      node("sender", "sender", {
+        ports: [
+          { id: "out1", name: "out1" },
+          { id: "spare", name: "spare" },
+        ],
+      }),
+      node("receiver", "receiver", { ports: [{ id: "in1", name: "in1" }] }),
+    ],
+    [edge("sender", "receiver", { fromPort: "out1", toPort: "in1" })],
+    { kind: "interconnection" },
+  );
+  const laid = await autoLayout(result);
+  assert.ok(laid);
+  assert.ok(laid.ports.has("out1"));
+  assert.ok(laid.ports.has("in1"));
+  assert.equal(laid.ports.has("spare"), false);
+
+  const canvas = layoutCanvas(result, {}, laid);
+  const senderPorts = canvas.nodes.get("sender")!.ports;
+  const receiverPorts = canvas.nodes.get("receiver")!.ports;
+  const out1 = senderPorts.find(({ port }) => port.id === "out1")!;
+  const spare = senderPorts.find(({ port }) => port.id === "spare")!;
+  const in1 = receiverPorts.find(({ port }) => port.id === "in1")!;
+  assert.equal(spare.side, "south");
+  assert.equal(out1.side, laid.ports.get("out1")!.side);
+  assert.equal(in1.side, laid.ports.get("in1")!.side);
 });

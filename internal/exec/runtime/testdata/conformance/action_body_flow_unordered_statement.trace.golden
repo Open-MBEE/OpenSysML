@@ -1,0 +1,23 @@
+step 1: token 1@iterate
+stmt for i
+    eval literal 1 -> 1
+    eval literal 2 -> 2
+  eval operator .. -> (1, 2)
+  iteration 1
+enter action node: loop body of action node iterate
+    stmt assign x
+        eval feature x -> 0
+        eval literal 1 -> 1
+      eval operator + -> 1
+choice step 2: tokens 2@a, 3@assign x (unordered; took 3@assign x first)
+leave action node: loop body of action node iterate
+  iteration 2
+enter action node: loop body of action node iterate
+    stmt assign x
+        eval feature x -> 1
+        eval literal 1 -> 1
+      eval operator + -> 2
+choice step 2: tokens 4@a, 5@assign x (unordered; took 5@assign x first)
+leave action node: loop body of action node iterate
+step 2: token 1@done
+step 3: no active tokens

@@ -16,11 +16,52 @@ import java.util.Optional;
  */
 public sealed interface Value {
 
-  /** An {@code Integer} value. */
+  /** An {@code Integer} value within {@code long}. */
   record IntegerValue(long value) implements Value {}
+
+  /**
+   * An {@code Integer} value beyond {@code long}: KerML Integers are unbounded. An integer within
+   * {@code long} is always an {@link IntegerValue}, never this, so two integers are the same value
+   * exactly when their arms and values are.
+   *
+   * @param value the integer, beyond {@code long}
+   */
+  record BigIntegerValue(BigInteger value) implements Value {
+    /**
+     * Creates an integer value beyond {@code long}.
+     *
+     * @param value the integer, never {@code null}
+     * @throws IllegalArgumentException if the integer fits in a {@code long}
+     */
+    public BigIntegerValue {
+      Objects.requireNonNull(value, "value");
+      if (value.bitLength() < 64) {
+        throw new IllegalArgumentException(
+            value + " is within long, which IntegerValue carries");
+      }
+    }
+  }
 
   /** A {@code Real} value. */
   record RealValue(double value) implements Value {}
+
+  /**
+   * An exact {@code Rational}, such as {@code 1/3}. A service answers one a {@code double} holds
+   * exactly as a {@link RealValue}; one sent as this stays a Rational to a service advertising
+   * {@code rational_values}.
+   *
+   * @param value the rational
+   */
+  record RationalValue(Rational value) implements Value {
+    /**
+     * Creates an exact rational value.
+     *
+     * @param value the rational, never {@code null}
+     */
+    public RationalValue {
+      Objects.requireNonNull(value, "value");
+    }
+  }
 
   /**
    * A {@code Complex} value in rectangular form: one number, never a sequence of two reals.
@@ -60,8 +101,36 @@ public sealed interface Value {
     }
   }
 
-  /** The null value: a feature that resolved to nothing. */
-  record NullValue() implements Value {}
+  /**
+   * The null value: a feature that resolved to nothing, or a value the wire cannot carry.
+   *
+   * @param unsupported empty for the model's {@code null}; otherwise what the service held and
+   *     could not send, such as {@code "unsupported: coordinate frame datum [mm, mm, mm]"}
+   */
+  record NullValue(String unsupported) implements Value {
+    /**
+     * Creates a null, which is unsupported when its text is not empty.
+     *
+     * @param unsupported what could not be sent, or empty, never {@code null}
+     */
+    public NullValue {
+      Objects.requireNonNull(unsupported, "unsupported");
+    }
+
+    /** Creates the model's {@code null}. */
+    public NullValue() {
+      this("");
+    }
+
+    /**
+     * Whether this stands for a value the service could not send rather than the model's null.
+     *
+     * @return {@code true} when {@link #unsupported()} is not empty
+     */
+    public boolean isUnsupported() {
+      return !unsupported.isEmpty();
+    }
+  }
 
   /**
    * A materialized feature of a value type that holds no value.
@@ -336,7 +405,8 @@ public sealed interface Value {
   }
 
   /**
-   * A vector of numbers, each an {@link IntegerValue} or a {@link RealValue} as the model computed
+   * A vector of numbers, each an {@link IntegerValue}, {@link BigIntegerValue}, {@link
+   * RationalValue} or {@link RealValue} as the model computed
    * it: one value, never a sequence of numbers.
    *
    * <p>Only a service advertising the {@code structured_values} capability reports one as itself
@@ -348,13 +418,17 @@ public sealed interface Value {
     /**
      * Creates a vector, copying the components.
      *
-     * @param components the components, each an {@link IntegerValue} or a {@link RealValue}
+     * @param components the components, each an {@link IntegerValue}, {@link BigIntegerValue},
+     *     {@link RationalValue} or {@link RealValue}
      * @throws IllegalArgumentException if a component is not a number
      */
     public VectorValue {
       components = List.copyOf(components);
       for (Value component : components) {
-        if (!(component instanceof IntegerValue) && !(component instanceof RealValue)) {
+        if (!(component instanceof IntegerValue)
+            && !(component instanceof BigIntegerValue)
+            && !(component instanceof RationalValue)
+            && !(component instanceof RealValue)) {
           throw new IllegalArgumentException(
               "vector component is not a number: " + component.getClass().getSimpleName());
         }
@@ -645,7 +719,7 @@ public sealed interface Value {
    * unit of dimension one is only its own declaration ({@code rad} is not {@code sr}); an {@link
    * EnumerationValue} is its {@link EnumLiteral#literalId()}, whatever else describes it; a {@link
    * NullValue}, an empty sequence and an empty set are one value, the model's absent value however
-   * spelt. Every other arm compares as {@link Object#equals} does, which stays structural: {@code
+   * spelt, which an unsupported {@link NullValue} is not. Every other arm compares as {@link Object#equals} does, which stays structural: {@code
    * new IntegerValue(1).equals(new RealValue(1.0))} is {@code false}.
    *
    * @param other the value to compare with
@@ -656,7 +730,11 @@ public sealed interface Value {
     if (isEmpty(this) || isEmpty(other)) {
       return isEmpty(this) && isEmpty(other);
     }
-    if (this instanceof IntegerValue || this instanceof RealValue || this instanceof ComplexValue) {
+    if (this instanceof IntegerValue
+        || this instanceof BigIntegerValue
+        || this instanceof RationalValue
+        || this instanceof RealValue
+        || this instanceof ComplexValue) {
       return numbersEqual(this, other);
     }
     if (this instanceof Sequence a && other instanceof Sequence b) {
@@ -689,7 +767,7 @@ public sealed interface Value {
 
   /** The model's absent value: a null, or a collection with no members. */
   private static boolean isEmpty(Value value) {
-    return value instanceof NullValue
+    return (value instanceof NullValue nul && !nul.isUnsupported())
         || (value instanceof Sequence sequence && sequence.elements().isEmpty())
         || (value instanceof SetValue set && set.elements().isEmpty());
   }
@@ -720,10 +798,19 @@ public sealed interface Value {
     return x != null && y != null ? magnitudesEqual(x, y) : a.equals(b);
   }
 
-  /** A number's magnitude as a {@link Long} or {@link Double}; {@code null} off the real axis. */
+  /**
+   * A number's magnitude as a {@link Long}, {@link BigInteger}, {@link Rational} or {@link
+   * Double}; {@code null} off the real axis.
+   */
   private static Number onRealAxis(Value value) {
     if (value instanceof IntegerValue integer) {
       return integer.value();
+    }
+    if (value instanceof BigIntegerValue integer) {
+      return integer.value();
+    }
+    if (value instanceof RationalValue rational) {
+      return rational.value();
     }
     if (value instanceof RealValue real) {
       return real.value();
@@ -735,6 +822,25 @@ public sealed interface Value {
   }
 
   private static boolean magnitudesEqual(Number a, Number b) {
+    if (a instanceof Rational && b instanceof Rational) {
+      return a.equals(b);
+    }
+    if (a instanceof Rational && b instanceof Double || a instanceof Double && b instanceof Rational) {
+      // A Rational meets a Real at Real precision, as the service compares them.
+      return a.doubleValue() == b.doubleValue();
+    }
+    a = a instanceof Rational rational && rational.isBinary64() ? rational.doubleValue() : a;
+    b = b instanceof Rational rational && rational.isBinary64() ? rational.doubleValue() : b;
+    if (a instanceof Rational || b instanceof Rational) {
+      // A rational no double holds is never whole, so it is no Integer.
+      return false;
+    }
+    if (a instanceof BigInteger x) {
+      return b instanceof BigInteger y ? x.equals(y) : b instanceof Double r && realIsBig(r, x);
+    }
+    if (b instanceof BigInteger y) {
+      return a instanceof Double r && realIsBig(r, y);
+    }
     if (a instanceof Long x) {
       return b instanceof Long y ? x.longValue() == y : realIsLong(b.doubleValue(), x);
     }
@@ -744,6 +850,11 @@ public sealed interface Value {
   // Whether r is exactly the integer n, never rounding n.
   private static boolean realIsLong(double r, long n) {
     return r == Math.rint(r) && r >= -0x1p63 && r < 0x1p63 && (long) r == n;
+  }
+
+  // Whether r is exactly the integer n beyond a long.
+  private static boolean realIsBig(double r, BigInteger n) {
+    return !Double.isInfinite(r) && r == Math.rint(r) && Math.abs(r) >= 0x1p63 && wholeOf(r).equals(n);
   }
 
   private static boolean sameValues(List<Value> a, List<Value> b) {
@@ -798,19 +909,29 @@ public sealed interface Value {
   }
 
   /**
-   * The base magnitude as an exact numerator/denominator while an integer scales by whole factors;
-   * empty otherwise.
+   * The base magnitude as an exact numerator/denominator while an integer or a rational scales by
+   * whole factors; empty otherwise.
    */
   private static BigInteger[] exactBaseMagnitude(Quantity quantity) {
     Quantity.UnitTerm term = quantity.reduction().get();
-    if (!(quantity.magnitude() instanceof Long magnitude)
+    if (!quantity.isExact()
         || !isWhole(term.scaleNumerator())
         || !isWhole(term.scaleDenominator())) {
       return new BigInteger[0];
     }
+    BigInteger numerator;
+    BigInteger denominator = BigInteger.ONE;
+    if (quantity.magnitude() instanceof Rational rational) {
+      numerator = rational.numerator();
+      denominator = rational.denominator();
+    } else if (quantity.magnitude() instanceof BigInteger big) {
+      numerator = big;
+    } else {
+      numerator = BigInteger.valueOf(quantity.magnitude().longValue());
+    }
     return new BigInteger[] {
-      BigInteger.valueOf(magnitude).multiply(wholeOf(term.scaleNumerator())),
-      wholeOf(term.scaleDenominator())
+      numerator.multiply(wholeOf(term.scaleNumerator())),
+      denominator.multiply(wholeOf(term.scaleDenominator()))
     };
   }
 
@@ -843,14 +964,21 @@ public sealed interface Value {
   }
 
   /**
-   * This value as a {@code double}, for the numeric arms.
+   * This value as a {@code double}, for the numeric arms; an integer beyond {@code long} or a
+   * rational is the nearest {@code double}, ties to even, and infinite only past the finite range.
    *
    * @return the magnitude of an integer, real or quantity value
    * @throws IllegalStateException if this value is not numeric
    */
   default double asDouble() {
     if (this instanceof IntegerValue integer) {
-      return integer.value();
+      return (double) integer.value();
+    }
+    if (this instanceof BigIntegerValue integer) {
+      return integer.value().doubleValue();
+    }
+    if (this instanceof RationalValue rational) {
+      return rational.value().doubleValue();
     }
     if (this instanceof RealValue real) {
       return real.value();

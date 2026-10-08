@@ -114,6 +114,59 @@ func realElements(name, param string, val Value) ([]float64, error) {
 	return out, nil
 }
 
+// cartesian applies a CartesianVectorValue operation, whose library declaration
+// types its scalars and vector elements Real, to its arguments held as Reals.
+func cartesian(apply libraryApply) libraryApply {
+	return func(name string, ctx *Context, args []Value) (Value, error) {
+		held := make([]Value, len(args))
+		for i, arg := range args {
+			var err error
+			if held[i], err = realHeld(arg); err != nil {
+				return Value{}, functionError(name, err)
+			}
+		}
+		return apply(name, ctx, held)
+	}
+}
+
+// realHeld is a scalar, sequence or unitless vector with each exact number as its
+// nearest Real, refused where no finite Real is.
+func realHeld(v Value) (Value, error) {
+	switch v.Kind {
+	case ValConst:
+		if !v.Const.IsExact() {
+			return v, nil
+		}
+		real, err := semantics.RealOf(v.Const)
+		if err != nil {
+			return Value{}, err
+		}
+		return Value{Kind: ValConst, Const: real}, nil
+	case ValSequence:
+		elements := elementsOf(v)
+		held := make([]Value, len(elements))
+		for i := range elements {
+			var err error
+			if held[i], err = realHeld(elements[i]); err != nil {
+				return Value{}, err
+			}
+		}
+		return sequenceOf(held), nil
+	case ValVector:
+		vec := v.Vector()
+		held := make([]semantics.Value, len(vec.Elements))
+		for i, elem := range vec.Elements {
+			h, err := realHeld(Value{Kind: ValConst, Const: elem})
+			if err != nil {
+				return Value{}, err
+			}
+			held[i] = h.Const
+		}
+		return Value{Kind: ValVector, ref: &Vector{Elements: held, Object: vec.Object}}, nil
+	}
+	return v, nil
+}
+
 // vectorValue builds a vector from its elements, charging them against the run's
 // element budget; an element outside the range of its kind is reported.
 func (ctx *Context) vectorValue(elements []semantics.Value) (Value, error) {
@@ -258,23 +311,28 @@ func checkedNumeric(v semantics.Value) (semantics.Value, error) {
 	return semantics.RealResult(v.Real)
 }
 
-// isNumeric reports whether a value is an Integer or a Real.
+// isNumeric reports whether a value is an Integer, a Rational or a Real.
 func isNumeric(v semantics.Value) bool {
-	return v.Kind == semantics.ValInt || v.Kind == semantics.ValReal
+	return v.IsNumeric()
 }
 
-// elementArith applies an arithmetic operator to two numeric elements, reporting
-// a result outside the range of its kind rather than wrapping or infinite.
-func elementArith(name string, op ast.OperatorKind, a, b semantics.Value) (semantics.Value, error) {
-	if a.Kind == semantics.ValInt && b.Kind == semantics.ValInt {
-		result, ok := semantics.IntArith(op, a.Int, b.Int)
-		if !ok {
-			return semantics.Value{}, fmt.Errorf(
-				"%w: function %s has a result outside the Integer range",
-				semantics.ErrArithmeticOverflow, name,
-			)
+// elementArith applies an arithmetic operator to two numeric elements: two
+// Integers exactly, refused only beyond maxBits; a Real result outside its range
+// is reported rather than returned infinite.
+func elementArith(name string, op ast.OperatorKind, a, b semantics.Value, maxBits int64) (semantics.Value, error) {
+	if a.Kind == semantics.ValInt && b.Kind == semantics.ValInt && op != ast.OpDiv {
+		result, err := semantics.IntArith(op, a, b, maxBits)
+		if err != nil {
+			return semantics.Value{}, fmt.Errorf("function %s: %w", name, integerSizeHint(err))
 		}
-		return semantics.Value{Kind: semantics.ValInt, Int: result}, nil
+		return result, nil
+	}
+	if a.IsExact() && b.IsExact() && op != ast.OpPow {
+		result, err := semantics.RatArith(op, a, b, maxBits)
+		if err != nil {
+			return semantics.Value{}, fmt.Errorf("function %s: %w", name, integerSizeHint(err))
+		}
+		return result, nil
 	}
 	if a.IsNumeric() && b.IsNumeric() {
 		res, ok := semantics.RealArith(op, toReal(a), toReal(b))
@@ -359,13 +417,13 @@ func dimensionMismatch(name string, v, w vectorOperand) error {
 // combineElements applies an arithmetic operator elementwise to two vectors of
 // equal dimension, keeping the elements' kind as the library's declaration over
 // NumericalValue does: two Integer vectors give an Integer vector.
-func combineElements(name string, op ast.OperatorKind, v, w []semantics.Value) ([]semantics.Value, error) {
+func combineElements(name string, op ast.OperatorKind, v, w []semantics.Value, maxBits int64) ([]semantics.Value, error) {
 	if len(v) != len(w) {
 		return nil, dimensionMismatch(name, vectorOperand{num: v}, vectorOperand{num: w})
 	}
 	out := make([]semantics.Value, len(v))
 	for i := range v {
-		res, err := elementArith(name, op, v[i], w[i])
+		res, err := elementArith(name, op, v[i], w[i], maxBits)
 		if err != nil {
 			return nil, err
 		}
@@ -378,7 +436,7 @@ func combineElements(name string, op ast.OperatorKind, v, w []semantics.Value) (
 // vector quantity involved each axis is added as the scalar quantities are.
 func (ctx *Context) combineVectors(name string, op ast.OperatorKind, v, w vectorOperand) (Value, error) {
 	if !v.hasUnits() && !w.hasUnits() {
-		out, err := combineElements(name, op, v.num, w.num)
+		out, err := combineElements(name, op, v.num, w.num, ctx.maxIntegerBits)
 		if err != nil {
 			return Value{}, err
 		}
@@ -404,8 +462,11 @@ func (ctx *Context) combineVectors(name string, op ast.OperatorKind, v, w vector
 
 // zeroLike is the zero of a numeric value's kind, which negation subtracts from.
 func zeroLike(v semantics.Value) semantics.Value {
-	if v.Kind == semantics.ValInt {
+	switch v.Kind {
+	case semantics.ValInt:
 		return semantics.Value{Kind: semantics.ValInt}
+	case semantics.ValRational:
+		return semantics.RatOf(semantics.IntValue(0))
 	}
 	return semantics.Value{Kind: semantics.ValReal}
 }
@@ -467,7 +528,7 @@ func (ctx *Context) negateVector(name string, v vectorOperand) (Value, error) {
 		for i, elem := range v.num {
 			zeros[i] = zeroLike(elem)
 		}
-		negated, err := combineElements(name, ast.OpSub, zeros, v.num)
+		negated, err := combineElements(name, ast.OpSub, zeros, v.num, ctx.maxIntegerBits)
 		if err != nil {
 			return Value{}, err
 		}
@@ -554,7 +615,7 @@ func scaleVector(name string, ctx *Context, scalar Value, scalarParam string, ve
 	}
 	scaled := make([]semantics.Value, v.dimension())
 	for i, elem := range v.num {
-		res, err := elementArith(name, ast.OpMul, x, elem)
+		res, err := elementArith(name, ast.OpMul, x, elem, ctx.maxIntegerBits)
 		if err != nil {
 			return Value{}, err
 		}
@@ -671,13 +732,13 @@ func vectorInner(name string, ctx *Context, args []Value) (Value, error) {
 	if v.hasUnits() || w.hasUnits() {
 		return ctx.innerQuantity(name, v, w)
 	}
-	products, err := combineElements(name, ast.OpMul, v.num, w.num)
+	products, err := combineElements(name, ast.OpMul, v.num, w.num, ctx.maxIntegerBits)
 	if err != nil {
 		return Value{}, err
 	}
 	sum := semantics.Value{Kind: semantics.ValInt}
 	for _, product := range products {
-		next, err := elementArith(name, ast.OpAdd, sum, product)
+		next, err := elementArith(name, ast.OpAdd, sum, product, ctx.maxIntegerBits)
 		if err != nil {
 			return Value{}, err
 		}
@@ -709,7 +770,7 @@ func (ctx *Context) innerQuantity(name string, v, w vectorOperand) (Value, error
 		if err := ctx.refusePoints(name, scaleNotAFactor, v.axis(i), w.axis(i)); err != nil {
 			return Value{}, functionError(name, err)
 		}
-		product, err := quantityResult(semantics.ScaleQuantities(ast.OpMul, *v.axis(i), *w.axis(i)))
+		product, err := quantityResult(semantics.ScaleQuantities(ast.OpMul, *v.axis(i), *w.axis(i), ctx.maxIntegerBits))
 		if err != nil {
 			return Value{}, functionError(name, err)
 		}

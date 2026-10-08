@@ -50,8 +50,10 @@ func TestActionNodeDeclaresItsOwnFeatures(t *testing.T) {
 			t.Errorf("feature %s carries no declaration", got.Name)
 		}
 	}
-	if len(graph.Bodies[p]) != 1 {
-		t.Errorf("p lowered %d statements, want 1", len(graph.Bodies[p]))
+	// inner is a composite subaction of p, so p runs a flow starting inner and
+	// its assignment unordered rather than a leaf body.
+	if sub := graph.Subflows[p]; sub == nil || sub.Err != nil || len(sub.Graph.Starts()) != 2 {
+		t.Errorf("p lowered subflow %+v, want inner and the assignment as its two starts", sub)
 	}
 }
 

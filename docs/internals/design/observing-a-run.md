@@ -39,7 +39,7 @@ program chooses. That is the shape every downstream use has:
 - **Animation.** Highlight the active states on the state diagram, the live action nodes on the
   action diagram, the attribute values in the part tree, as the run moves — in the VS Code
   panel ([visual modeling](vscode-visual-modeling.md)), in a SysON or Cameo canvas
-  ([syson-plugin](syson-plugin.md), [cameo-plugin](cameo-plugin.md)), in a notebook.
+  ([syson-plugin](syson-plugin.md), [mdk-plugin](mdk-plugin.md)), in a notebook.
 - **Collection.** Record every transition with its instant and payload, every assignment, into
   a table a script analyzes afterward; or a subset of them, chosen by kind and by element.
 - **Steering.** Pause at a state or a node, inspect, inject a signal, resume — the debugger a
@@ -60,12 +60,13 @@ element, and the values.
 
 - **The trace is already an event stream, not a log.** `TraceRecord` (`internal/exec/runtime/trace.go`)
   carries a `TraceKind` — `transition`, `entry`, `exit`, `do`, `accept`, `send`, `choice`,
-  `guard`, and `line` for the printed-only records — a `TraceOrigin` (the clock instant, the
-  object whose behavior made it, that behavior), the state or the transition's `From`/`To`, the
-  event and its typed `Payload`, and the `Target` of a send. `NewEventRecorder` already keeps the
-  stream for queries (`DocumentQueries`, the checker's state stream) without printing it; the
-  REPL's `%trace on` and the CLI's `-trace` print it. Every kind a listener needs to fire on is
-  already recorded at the point it happens; what is missing is a *sink other than the slice*.
+  `guard`, `terminate`, and `line` for the printed-only records — a `TraceOrigin` (the clock
+  instant, the object whose behavior made it, that behavior), the state or the transition's
+  `From`/`To`, the event and its typed `Payload`, and the `Target` of a send. `NewEventRecorder`
+  already keeps the stream for queries (`DocumentQueries`, the checker's state stream) without
+  printing it; the REPL's `%trace on` and the CLI's `-trace` print it. Every kind a listener needs
+  to fire on is already recorded at the point it happens; what is missing is a *sink other than the
+  slice*.
 - **The configuration is already a fact the executor answers.** `StateExecutor.ActiveStates()`
   and `ActiveLeaves()` give the active-state set with its region structure (a composite with
   regions is active with one leaf per region — [orthogonal regions](orthogonal-regions.md));

@@ -9,9 +9,11 @@ import (
 	"strings"
 )
 
-// Palette names the set of fill colours the DOT and PlantUML forms colour nodes
-// with, one per keyword family (part, item, port, …, see paletteFamilies). The empty
-// Palette is the black-and-white default; every named one is colourblind-safe.
+// Palette names the set of fill colours the DOT, Mermaid, PlantUML and D2 forms
+// colour nodes with, one per keyword family (part, item, port, …, see
+// paletteFamilies). Mermaid sequence diagrams report that they cannot fill
+// individual participants. The empty Palette is the black-and-white default;
+// every named one is colourblind-safe.
 type Palette string
 
 const (
@@ -90,18 +92,21 @@ func (p Palette) check() error {
 	return nil
 }
 
-// paletteNotice is the notice a form that draws no palette writes for one asked
-// for, so the request is not dropped silently.
+// paletteNotice is the notice a form that does not fill nodes writes for a
+// palette asked for, so the request is not dropped silently.
 func paletteNotice(palette Palette) string {
-	return fmt.Sprintf("palette %s; only the DOT and PlantUML forms fill nodes by keyword family", palette)
+	return fmt.Sprintf("palette %s; only the DOT, Mermaid, PlantUML and D2 forms fill nodes by keyword family", palette)
 }
 
 // paletteForms are the forms that fill nodes from a palette.
-var paletteForms = []Form{FormDot, FormPlantUML}
+var paletteForms = []Form{FormDot, FormMermaid, FormPlantUML, FormD2}
 
 // SupportsPalette reports whether a rendering of the kind is drawn as nodes a
 // palette can fill: the kinds a form that fills nodes is written for.
 func (k Kind) SupportsPalette() bool {
+	if k == KindTimeline {
+		return false
+	}
 	return slices.ContainsFunc(paletteForms, k.SupportsForm)
 }
 
@@ -128,7 +133,11 @@ type familyFills struct {
 // filled reports whether a node takes a family colour under a palette: a
 // plain node (a container keeps its black border) that is no control node.
 func (f *familyFills) filled(node *Node) bool {
-	return f.palette != "" && !controlKinds[node.Kind] && (len(node.Children) == 0 || f.tree)
+	return f.palette != "" && f.classable(node)
+}
+
+func (f *familyFills) classable(node *Node) bool {
+	return !controlKinds[node.Kind] && (len(node.Children) == 0 || f.tree)
 }
 
 // collect records the keyword families of the nodes under node that a palette
@@ -183,8 +192,8 @@ type Fill struct {
 	Border string
 }
 
-// Fills is the fill each node takes under the palette, by node ID, as the DOT and PlantUML
-// forms fill it; a node left black and white, and every node under no palette, is absent.
+// Fills is the fill each node takes under the palette, by node ID, as the DOT, Mermaid, PlantUML
+// and D2 forms fill it; a node left black and white, and every node under no palette, is absent.
 func (r *Rendering) Fills(palette Palette) (map[string]Fill, error) {
 	if err := palette.check(); err != nil {
 		return nil, err
@@ -280,6 +289,7 @@ var familyWords = map[string]string{
 	"interface": "interface", "case": "case", "allocation": "allocation", "allocate": "allocation",
 	"analysis": "analysis", "verification": "verification", "enum": "enum", "occurrence": "occurrence",
 	"flow": "flow", "message": "flow", "perform": "action",
+	"actor": "use case", "subject": "case", "objective": "requirement",
 }
 
 // paletteFamily is the keyword family of a node kind: `part def` and `part`

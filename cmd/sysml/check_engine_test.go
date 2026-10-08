@@ -489,29 +489,34 @@ const lampModel = `package Shine {
 }
 `
 
-// -engine check searches a state machine's schedules as it does an action's, its
-// clock advanced until nothing is due or, with -advance, up to that instant; the
+// -engine check searches a state machine's schedules as it does an action's, up to
+// its initial transition or, with -advance, with its clock up to that instant; the
 // behaviors named together are one invocation on one clock, answered by one verdict.
 func TestEngineCheckSearchesBehaviorsOnOneClock(t *testing.T) {
 	binary := buildCLI(t)
 	glow, peek := "Shine::Lamp::glow Shine::Lamp", "Shine::Lamp::peek Shine::Lamp"
 
 	wantReport(t, check(t, binary, lampModel, "-engine", "check", "-state", glow),
-		0, "✓ State machine Shine::Lamp::glow: no violation, exhaustive (2 states, 1 moves, depth 1)",
+		0, "✓ State machine Shine::Lamp::glow: no violation, exhaustive (1 states, 0 moves, depth 0)",
+		"outcome: finalState off; visits off; this.isSolid = true; this.lit = false",
+		"0 moves searched; after the initial transition only; -advance <time> runs the do behaviors, events and waits it left pending)")
+	wantReport(t, check(t, binary, lampModel, "-engine", "check", "-state", glow, "-advance", "3"),
+		0, "✓ State machine Shine::Lamp::glow: no violation, exhaustive up to t=3.0 (2 states, 1 moves, depth 1)",
 		"outcome: finalState on; visits off, on; this.isSolid = true; this.lit = true")
 	wantReport(t, check(t, binary, lampModel, "-engine", "check", "-state", glow, "-advance", "1"),
 		0, "✓ State machine Shine::Lamp::glow: no violation, exhaustive up to t=1.0 (1 states, 0 moves, depth 0)",
 		"outcome: finalState off; visits off; this.isSolid = true; this.lit = false")
 
-	// Named apart, each behavior is its own search; the action's clock runs to its end.
+	// Named apart, each behavior is its own search; the action's clock runs to its
+	// end, and the machine stops at its initial transition.
 	wantReport(t, check(t, binary, lampModel, "-engine", "check", "-action", peek, "-state", glow),
-		1, "✗ Action Shine::Lamp::peek: divergent (10 states, 9 moves, depth 5)", "divergent: saw ends as false or true",
-		"✓ State machine Shine::Lamp::glow: no violation, exhaustive (2 states, 1 moves, depth 1)")
+		1, "✗ Action Shine::Lamp::peek: divergent (9 states, 8 moves, depth 5)", "divergent: saw ends as false or true",
+		"✓ State machine Shine::Lamp::glow: no violation, exhaustive (1 states, 0 moves, depth 0)")
 
 	// With -advance they are one invocation: the machine's timer and the action's
 	// wait are due together, and the order the search draws decides what peek saw.
 	got := check(t, binary, lampModel, "-engine", "check", "-action", peek, "-state", glow, "-advance", "3")
-	wantReport(t, got, 1, "✗ Behaviors Shine::Lamp::peek, Shine::Lamp::glow: divergent up to t=3.0 (10 states, 9 moves, depth 5)",
+	wantReport(t, got, 1, "✗ Behaviors Shine::Lamp::peek, Shine::Lamp::glow: divergent up to t=3.0 (9 states, 8 moves, depth 5)",
 		"divergent: Shine::Lamp::peek.saw ends as false or true",
 		`outcome: Shine::Lamp::glow finalState = "on"; Shine::Lamp::glow visits = "off, on"; Shine::Lamp::peek.saw = false; this.isSolid = true; this.lit = true`,
 		`outcome: Shine::Lamp::glow finalState = "on"; Shine::Lamp::glow visits = "off, on"; Shine::Lamp::peek.saw = true; this.isSolid = true; this.lit = true`)
@@ -556,7 +561,7 @@ func TestEngineCheckWitnessOfBehaviorsOnOneClockReplays(t *testing.T) {
 	got := check(t, binary, lampModel, "-engine", "check", "-action", peek, "-state", glow, "-advance", "3", "-check-witness", dir)
 	wantReport(t, got, 1, "divergent: Shine::Lamp::peek.saw ends as false or true",
 		"Shine::Lamp::peek.saw = false (witness "+name(1)+")", "Shine::Lamp::peek.saw = true (witness "+name(2)+")",
-		"standing: sensitive (witnessed: 10 states, 9 moves searched, witness of 1 choice replayed)")
+		"standing: sensitive (witnessed: 9 states, 8 moves searched, witness of 2 choices replayed)")
 
 	for _, c := range []struct {
 		n     int
@@ -570,7 +575,7 @@ func TestEngineCheckWitnessOfBehaviorsOnOneClockReplays(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if !strings.HasPrefix(string(content), "object #1 = Shine::Lamp#1\nt=3.0: "+c.first+" first of action peek of object #1, state machine glow of object #1\n\n") ||
+		if !strings.HasPrefix(string(content), "object #1 = Shine::Lamp#1\nt=3.0: action peek of object #1 first of action peek of object #1, state machine glow of object #1\nt=3.0: "+c.first+" first of action peek of object #1, state machine glow of object #1\n\n") ||
 			!strings.Contains(string(content), "choice at t=3.0: due action peek of object #1, state machine glow of object #1 (unordered; ran "+c.first+" first)") {
 			t.Errorf("witness %d:\n%s", c.n, content)
 		}
@@ -648,4 +653,59 @@ func TestJSONReportsTheCheckedPlan(t *testing.T) {
 		r.Check.Violations[0].Name != "Plant::Tank::low" || r.Check.Violations[0].Depth != 3 || len(r.Check.Violations[0].Witness) != 1 {
 		t.Errorf("the property violation is misreported:\n%s", got.stdout)
 	}
+}
+
+const waitingDoModel = `package Waits {
+    private import ScalarValues::*;
+    state M {
+        attribute c : Integer = 0;
+        entry; then s;
+        state s {
+            do action {
+                assign c := 1;
+                then accept after 2 [SI::s];
+                then assign c := 2;
+            }
+        }
+    }
+}
+`
+
+// Without -advance the run, explore and check all observe a machine after its
+// initial transition, explore and check saying so; with it all three advance alike.
+func TestStateHorizonAgreesAcrossEngines(t *testing.T) {
+	binary := buildCLI(t)
+	const scope = "after the initial transition only; -advance <time> runs the do behaviors, events and waits it left pending"
+	at := func(advance []string, c string) {
+		t.Helper()
+		pending := len(advance) == 0
+		run := check(t, binary, waitingDoModel, append([]string{"-state", "Waits::M", "-json"}, advance...)...)
+		var report struct {
+			Checks []struct {
+				Values []struct{ Name, Value string }
+			}
+		}
+		if err := json.Unmarshal([]byte(run.stdout), &report); err != nil || len(report.Checks) != 1 {
+			t.Fatalf("run %v: %v\n%s", advance, err, run.output())
+		}
+		ran := ""
+		for _, v := range report.Checks[0].Values {
+			if v.Name == "c" {
+				ran = v.Value
+			}
+		}
+		if ran != c {
+			t.Errorf("run %v: c = %q, want %s", advance, ran, c)
+		}
+		for _, engine := range [][]string{{"-schedule", "explore"}, {"-engine", "check"}} {
+			args := append(append(slices.Clone(engine), "-state", "Waits::M"), advance...)
+			got := check(t, binary, waitingDoModel, args...)
+			wantReport(t, got, 0, "c = "+c)
+			if strings.Contains(got.output(), scope) != pending {
+				t.Errorf("%v %v: standing scoped = %v, want %v:\n%s", engine, advance, !pending, pending, got.output())
+			}
+		}
+	}
+	at(nil, "0")
+	at([]string{"-advance", "3"}, "2")
 }

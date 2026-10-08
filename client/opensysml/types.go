@@ -13,12 +13,15 @@ import (
 const (
 	CapabilityTypeFacts                      = sysmlgrpc.CapabilityTypeFacts
 	CapabilityConvert                        = sysmlgrpc.CapabilityConvert
+	CapabilityMigrate                        = sysmlgrpc.CapabilityMigrate
 	CapabilityVerification                   = sysmlgrpc.CapabilityVerification
 	CapabilityVerificationQuestions          = sysmlgrpc.CapabilityVerificationQuestions
 	CapabilityQuery                          = sysmlgrpc.CapabilityQuery
 	CapabilityOSLCQuery                      = sysmlgrpc.CapabilityOSLCQuery
 	CapabilityDocumentQuery                  = sysmlgrpc.CapabilityDocumentQuery
 	CapabilityRenderDocument                 = sysmlgrpc.CapabilityRenderDocument
+	CapabilityRenderView                     = sysmlgrpc.CapabilityRenderView
+	CapabilityExportGraphs                   = sysmlgrpc.CapabilityExportGraphs
 	CapabilityEnumValues                     = sysmlgrpc.CapabilityEnumValues
 	CapabilityEvaluateSubject                = sysmlgrpc.CapabilityEvaluateSubject
 	CapabilitySymbolAttributes               = sysmlgrpc.CapabilitySymbolAttributes
@@ -60,8 +63,14 @@ const (
 	CapabilityCaseEvaluations                = sysmlgrpc.CapabilityCaseEvaluations
 	CapabilityFinalTime                      = sysmlgrpc.CapabilityFinalTime
 	CapabilityPerformer                      = sysmlgrpc.CapabilityPerformer
+	CapabilityStateTrace                     = sysmlgrpc.CapabilityStateTrace
 	CapabilityEngines                        = sysmlgrpc.CapabilityEngines
 	CapabilityUndeterminedValue              = sysmlgrpc.CapabilityUndeterminedValue
+	CapabilityBigIntValues                   = sysmlgrpc.CapabilityBigIntValues
+	CapabilityRationalValues                 = sysmlgrpc.CapabilityRationalValues
+	CapabilityConvertDocuments               = sysmlgrpc.CapabilityConvertDocuments
+	CapabilityConvertCompact                 = sysmlgrpc.CapabilityConvertCompact
+	CapabilityParseSourcesAffected           = sysmlgrpc.CapabilityParseSourcesAffected
 )
 
 // ServerInfo describes the implementation answering a Client's calls.

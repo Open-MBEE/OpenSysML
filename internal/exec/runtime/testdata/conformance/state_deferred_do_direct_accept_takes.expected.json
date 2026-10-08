@@ -1,0 +1,13 @@
+{
+  "type": "state",
+  "libraries": true,
+  "events": [
+    {"signal": "Ping", "args": null},
+    {"signal": "Ping", "args": null},
+    {"signal": "Go", "args": null}
+  ],
+  "finalState": "done",
+  "stateVisits": ["start", "busy", "ready", "done"],
+  "outputs": {"heard": {"type": "Integer", "value": 1}},
+  "trace": true
+}

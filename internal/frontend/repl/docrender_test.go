@@ -133,14 +133,14 @@ func TestRenderDocumentUsageAndErrors(t *testing.T) {
 	wants(t, run(t, s, "%render-document Reports::MassReport root=telescope"),
 		"error:", "binds its queries' parameters in the model")
 	wants(t, run(t, s, "%render-document Reports::MassReport svg"),
-		"error:", `"svg" is not a diagram form (mermaid, dot, plantuml)`)
+		"error:", `"svg" is not a diagram form (mermaid, dot, plantuml, d2)`)
 	wants(t, run(t, s, "%render-document Reports::MassReport dot cameo extra"), renderDocumentUsage)
 	wants(t, run(t, s, "%render-document Reports::MassReport dot magicdraw"),
 		"error:", `unknown drawing style "magicdraw"; the styles are pilot, cameo`, renderDocumentUsage)
 }
 
 // TestRenderDocumentDiagramForm writes the document's graph-shaped diagram as
-// Mermaid by default and as DOT or PlantUML when asked; the table stays a pipe
+// Mermaid by default and as DOT, PlantUML or D2 when asked; the table stays a pipe
 // table.
 func TestRenderDocumentDiagramForm(t *testing.T) {
 	s := docRenderSession(t)
@@ -157,7 +157,7 @@ func TestRenderDocumentDiagramForm(t *testing.T) {
 	wants(t, dot,
 		"```dot\n// view: Imaging::chainView\n// kind: interconnection\n",
 		"digraph \"Imaging::chainView\" {",
-		`"n1" -> "n3" [label="link", arrowhead=none, penwidth=3, ltail="cluster_n1", lhead="cluster_n3"];`,
+		`"n1.0" -> "n3.0" [label="link", arrowhead=none, penwidth=3];`,
 		"| camera | 2.5 |",
 		"| name | mass |",
 	)
@@ -168,7 +168,12 @@ func TestRenderDocumentDiagramForm(t *testing.T) {
 		t.Errorf("the default style frames the diagram as Cameo does:\n%s", dot)
 	}
 	wants(t, run(t, s, "%render-document Imaging::ChainReport dot cameo"), "```dot\n", `subgraph "cluster_frame"`, `fontname="Arial"`)
-	wants(t, run(t, s, "%render-document Imaging::ChainReport mermaid cameo"), "```mermaid\n", "style cameo; only the DOT form draws a diagram in a style")
+	wants(t, run(t, s, "%render-document Imaging::ChainReport mermaid cameo"), "```mermaid\n", "%% style cameo")
+	d2 := run(t, s, "%render-document Imaging::ChainReport d2")
+	wants(t, d2, "```d2\n# Imaging::chainView — interconnection rendering", `n0.n1."n1.0" -- n0.n3."n3.0": "link" { class: connection }`, "| name | mass |")
+	if strings.Contains(d2, "```mermaid") || strings.Contains(d2, "```dot") {
+		t.Errorf("a diagram is not D2 under d2:\n%s", d2)
+	}
 	markdown, err := s.RenderDocumentMarkdown("Imaging::ChainReport", docrender.MarkdownOptions{DiagramForm: view.FormDot})
 	if err != nil {
 		t.Fatalf("render: %v", err)
@@ -180,7 +185,7 @@ func TestRenderDocumentDiagramForm(t *testing.T) {
 	wants(t, puml,
 		"```plantuml\n@startuml\n' Imaging::chainView — interconnection rendering",
 		"<style>\n",
-		"n1 -[thickness=3]- n3 : link\n",
+		"n1.0 -[thickness=3]- n3.0 : link\n",
 		"@enduml\n```",
 		"| camera | 2.5 |",
 	)
@@ -210,7 +215,7 @@ func TestRenderDocumentMarkdownAPI(t *testing.T) {
 
 func TestRenderDocumentListedInHelpAndCompletion(t *testing.T) {
 	s := docRenderSession(t)
-	wants(t, run(t, s, "%help"), "%render-document <name> [mermaid|dot|plantuml]", "Graphviz DOT", "PlantUML")
+	wants(t, run(t, s, "%help"), "%render-document <name> [mermaid|dot|plantuml|d2 [pilot|cameo]]", "Graphviz DOT", "PlantUML")
 	comp := s.Complete("%render-doc", len("%render-doc"))
 	found := false
 	for _, cand := range comp.Candidates {

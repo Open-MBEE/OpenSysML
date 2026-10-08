@@ -16,6 +16,12 @@ pip install opensysml
 The runtime dependencies are `grpcio>=1.83.0`, `protobuf>=7.35.1` and
 `sigstore>=4.5.0,<5`.
 
+A development snapshot of the client is published every night as
+`opensysml==<next release>.dev<yyyymmdd>`, which `pip install opensysml` never
+picks up; install one by exact version. It starts the `sysml-grpc` of the same
+night's snapshot, whose digests it pins. See [Nightly
+snapshots](https://redk.opensysml.org/project/nightly/).
+
 ## Quickstart
 
 ```python
@@ -70,15 +76,22 @@ To use a service you run yourself, pass its address:
 model = opensysml.connect("localhost:50051").load("model.sysml")
 ```
 
-The [Python client guide](https://opensysml.org/guide/09-clients/) covers the
+The [service guide](https://redk.opensysml.org/clients/python/service/) covers the
 cache, offline use, trust configuration and connecting to an external service.
 
 ## Documentation
 
-- [Python client guide](https://opensysml.org/guide/09-clients/)
-- [API reference](https://opensysml.org/reference/python-api/)
-- [Metamodel classes and JSON](https://opensysml.org/reference/python-metamodel/)
+- [Python client guide](https://redk.opensysml.org/clients/python/)
+- [Models and symbols](https://redk.opensysml.org/clients/python/models/)
+- [Instances and values](https://redk.opensysml.org/clients/python/instances/)
+- [Verification and analysis](https://redk.opensysml.org/clients/python/verification/)
+- [Editing and saving](https://redk.opensysml.org/clients/python/editing-and-saving/)
+- [Queries and documents](https://redk.opensysml.org/clients/python/queries/)
+- [Errors](https://redk.opensysml.org/clients/python/errors/)
+- [The service](https://redk.opensysml.org/clients/python/service/)
+- [Typed classes](https://redk.opensysml.org/clients/python/typed-classes/)
+- [API reference](https://redk.opensysml.org/reference/python-api/)
 
 To install from a checkout, run tests, regenerate protobufs or pin release
 digests, see
-[DEVELOPING.md](https://github.com/Open-MBEE/OpenSysML/blob/main/client/python/DEVELOPING.md).
+[DEVELOPING.md](https://github.com/Open-MBEE/OpenSysML/blob/develop/client/python/DEVELOPING.md).

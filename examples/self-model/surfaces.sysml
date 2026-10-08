@@ -76,8 +76,8 @@ package OpenSysMLSurfaces {
         attribute :>> goPackage = "api/proto";
         attribute schemaFile : String = "api/proto/sysml.proto";
         attribute service : String = "SysMLService";
-        attribute rpcCount : Integer = 22;
-        attribute rpcs : String = "GetServerInfo, ParseFile, ParseSources, GetSymbol, GetDiagnostics, Evaluate, Instantiate, ExecuteAction, ExecuteState, Convert, ApplyEdits, VerifyConstraint, VerifyRequirement, VerifySatisfaction, ValidateInstance, EvaluateCalc, RunAnalysis, RunSweep, ListEngines, Query, RunDocumentQuery, RenderDocument";
+        attribute rpcCount : Integer = 25;
+        attribute rpcs : String = "GetServerInfo, ParseFile, ParseSources, GetSymbol, GetDiagnostics, Evaluate, Instantiate, ExecuteAction, ExecuteState, Convert, Migrate, ApplyEdits, VerifyConstraint, VerifyRequirement, VerifySatisfaction, ValidateInstance, EvaluateCalc, RunAnalysis, RunSweep, ListEngines, Query, RunDocumentQuery, RenderDocument, RenderView, ExportGraphs";
         attribute generatedGo : String = "api/proto/sysml.pb.go, api/proto/sysml_grpc.pb.go, api/proto/protoconnect/sysml.connect.go";
         attribute generator : String = "buf";
     }
@@ -107,7 +107,7 @@ package OpenSysMLSurfaces {
         attribute :>> protocol = "stdio";
     }
 
-    // The non-interactive side of the REPL binary: convert, query, render.
+    // The non-interactive side of the REPL binary: convert, migrate, query, render.
     #Surface part def CommandLine :> AskingInterface {
         attribute :>> goPackage = "internal/frontend/repl";
         attribute :>> entrypoint = "cmd/sysml";
@@ -195,8 +195,8 @@ package OpenSysMLSurfaces {
         port serviceClient : RequestPort;
     }
 
-    part def CameoPlugin :> ToolIntegration {
-        attribute :>> goPackage = "editors/cameo";
+    part def OpenSysMLMDK :> ToolIntegration {
+        attribute :>> goPackage = "editors/mdk";
     }
 
     part def SysonIntegration :> ToolIntegration {
@@ -279,12 +279,11 @@ package OpenSysMLSurfaces {
         attribute supported : Boolean default = true;
     }
 
-    // Every kind in StandardViewDefinitions is recognized, so a view stating
-    // one that is not produced is told so rather than rendered as another.
+    // Every rendering kind the implementation recognizes is modelled here.
     part def ViewEngine :> CodeUnit {
         attribute :>> goPackage = "internal/ir/view";
-        attribute recognizedKinds : Integer = 8;
-        attribute supportedKinds : Integer = 6;
+        attribute recognizedKinds : Integer = 14;
+        attribute supportedKinds : Integer = 12;
         part tree : RenderingKind { attribute :>> kind = "tree"; }
         part interconnection : RenderingKind { attribute :>> kind = "interconnection"; }
         part stateDiagram : RenderingKind { attribute :>> kind = "state"; }
@@ -294,7 +293,13 @@ package OpenSysMLSurfaces {
             attribute :>> supported = false;
         }
         part table : RenderingKind { attribute :>> kind = "table"; }
+        part matrix : RenderingKind { attribute :>> kind = "matrix"; }
         part sequence : RenderingKind { attribute :>> kind = "sequence"; }
+        part caseDiagram : RenderingKind { attribute :>> kind = "case"; }
+        part mixedDiagram : RenderingKind { attribute :>> kind = "mixed"; }
+        part requirementGraph : RenderingKind { attribute :>> kind = "requirement"; }
+        part definitionGraph : RenderingKind { attribute :>> kind = "definition"; }
+        part packageGraph : RenderingKind { attribute :>> kind = "package"; }
         part geometry : RenderingKind {
             attribute :>> kind = "geometry";
             attribute :>> supported = false;
@@ -371,15 +376,17 @@ package OpenSysMLSurfaces {
     }
 
     // A SysML v1 model read from XMI — as Eclipse UML2 writes it or in a mdzip
-    // archive — and written as SysML v2 notation, with what each v1 element
-    // became reported; an MTIP export lays the migrated views out, and a
-    // results sidecar lets a migrated run configuration be compared with the
-    // runs its tool stored.
+    // archive — and written as SysML v2 notation under its own verb, migrated
+    // rather than converted, with what each v1 element became reported; an
+    // MTIP export lays the migrated views out, and a results sidecar lets a
+    // migrated run configuration be compared with the runs its tool stored.
     part def Migrator :> CodeUnit {
         attribute :>> goPackage = "internal/translate/migrate";
         attribute reader : String = "internal/translate/xmi/sysmlv1";
         attribute layoutSource : String = "internal/translate/mtip";
-        attribute resultsSchema : String = "internal/translate/simresults";
+        attribute resultsSchema : String = "internal/exec/simresults";
+        attribute verb : String = "-migrate";
+        attribute rpc : String = "Migrate";
         attribute reportFlag : String = "-migration-report";
         attribute resultsFlag : String = "-migration-results";
         attribute layoutFlag : String = "-layout";
@@ -632,7 +639,7 @@ package OpenSysMLSurfaces {
         part julia : JuliaClient;
         part matlab : MatlabClient;
         part vscode : VsCodeExtension;
-        part cameo : CameoPlugin;
+        part mdk : OpenSysMLMDK;
         part syson : SysonIntegration;
 
         part exporter : Exporter;
@@ -671,7 +678,7 @@ package OpenSysMLSurfaces {
         connection juliaCalls : ArtifactChannel connect julia.service to service.pipeline;
         connection matlabCalls : ArtifactChannel connect matlab.service to service.pipeline;
         connection editorSpeaksLsp : ArtifactChannel connect vscode.languageClient to lsp.pipeline;
-        connection cameoUsesJava : ArtifactChannel connect cameo.serviceClient to java.service;
+        connection mdkUsesJava : ArtifactChannel connect mdk.serviceClient to java.service;
         connection sysonUsesJava : ArtifactChannel connect syson.serviceClient to java.service;
 
         connection documentsRead : ArtifactChannel connect pipeline.textIn to documents.modelIn;
@@ -686,13 +693,13 @@ package OpenSysMLSurfaces {
     }
 
     requirement def ViewsSayWhatTheyCannotRender {
-        doc /* Every standard rendering kind is recognized, and the ones not
-             * produced say so instead of being drawn as something else. */
+        doc /* Every rendering kind is recognized, and the ones not produced
+             * say so instead of being drawn as something else. */
         subject views : ViewEngine;
         require constraint {
-            views.recognizedKinds == 8 and views.supportedKinds == 6
+            views.recognizedKinds == 14 and views.supportedKinds == 12
                 and not views.textual.supported and not views.geometry.supported
-                and views.sequence.supported
+                and views.sequence.supported and views.matrix.supported
         }
     }
 

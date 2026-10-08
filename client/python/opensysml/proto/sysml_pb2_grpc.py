@@ -85,6 +85,11 @@ class SysMLServiceStub:
                 request_serializer=sysml__pb2.ConvertRequest.SerializeToString,
                 response_deserializer=sysml__pb2.ConvertResponse.FromString,
                 _registered_method=True)
+        self.Migrate = channel.unary_unary(
+                '/sysml.SysMLService/Migrate',
+                request_serializer=sysml__pb2.MigrateRequest.SerializeToString,
+                response_deserializer=sysml__pb2.MigrateResponse.FromString,
+                _registered_method=True)
         self.ApplyEdits = channel.unary_unary(
                 '/sysml.SysMLService/ApplyEdits',
                 request_serializer=sysml__pb2.ApplyEditsRequest.SerializeToString,
@@ -144,6 +149,16 @@ class SysMLServiceStub:
                 '/sysml.SysMLService/RenderDocument',
                 request_serializer=sysml__pb2.RenderDocumentRequest.SerializeToString,
                 response_deserializer=sysml__pb2.RenderDocumentResponse.FromString,
+                _registered_method=True)
+        self.RenderView = channel.unary_unary(
+                '/sysml.SysMLService/RenderView',
+                request_serializer=sysml__pb2.RenderViewRequest.SerializeToString,
+                response_deserializer=sysml__pb2.RenderViewResponse.FromString,
+                _registered_method=True)
+        self.ExportGraphs = channel.unary_unary(
+                '/sysml.SysMLService/ExportGraphs',
+                request_serializer=sysml__pb2.ExportGraphsRequest.SerializeToString,
+                response_deserializer=sysml__pb2.ExportGraphsResponse.FromString,
                 _registered_method=True)
 
 
@@ -218,7 +233,20 @@ class SysMLServiceServicer:
     def Convert(self, request, context):
         """Convert a model between the representations OpenSysML writes — SysML
         textual notation and RDF Turtle — so a client can write a model back out
-        rather than only read it. Reported as the "convert" capability.
+        rather than only read it. A SysML v1 model is refused: it is migrated, not
+        converted (Migrate). Reported as the "convert" capability.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def Migrate(self, request, context):
+        """Migrate a SysML v1 model — UML XMI with the SysML profile applied, an
+        Eclipse UML2 .uml file or a Cameo/MagicDraw .mdzip archive — to SysML v2,
+        written in one of the representations Convert writes. Migration is not a
+        lossless conversion: every v1 element is mapped, approximated or left
+        unmapped, and the response's report says which, element by element.
+        Reported as the "migrate" capability.
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -332,6 +360,23 @@ class SysMLServiceServicer:
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def RenderView(self, request, context):
+        """Render a named view or targeted pseudo-view as machine-readable diagram
+        data. Reported as the "render_view" capability.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def ExportGraphs(self, request, context):
+        """Export the lowered graph of an action or a state machine — the subject's
+        and every behavior it performs — as the canonical `graphs:<version>` JSON
+        external analysis engines read. Reported as the "export_graphs" capability.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
 
 def add_SysMLServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -384,6 +429,11 @@ def add_SysMLServiceServicer_to_server(servicer, server):
                     servicer.Convert,
                     request_deserializer=sysml__pb2.ConvertRequest.FromString,
                     response_serializer=sysml__pb2.ConvertResponse.SerializeToString,
+            ),
+            'Migrate': grpc.unary_unary_rpc_method_handler(
+                    servicer.Migrate,
+                    request_deserializer=sysml__pb2.MigrateRequest.FromString,
+                    response_serializer=sysml__pb2.MigrateResponse.SerializeToString,
             ),
             'ApplyEdits': grpc.unary_unary_rpc_method_handler(
                     servicer.ApplyEdits,
@@ -444,6 +494,16 @@ def add_SysMLServiceServicer_to_server(servicer, server):
                     servicer.RenderDocument,
                     request_deserializer=sysml__pb2.RenderDocumentRequest.FromString,
                     response_serializer=sysml__pb2.RenderDocumentResponse.SerializeToString,
+            ),
+            'RenderView': grpc.unary_unary_rpc_method_handler(
+                    servicer.RenderView,
+                    request_deserializer=sysml__pb2.RenderViewRequest.FromString,
+                    response_serializer=sysml__pb2.RenderViewResponse.SerializeToString,
+            ),
+            'ExportGraphs': grpc.unary_unary_rpc_method_handler(
+                    servicer.ExportGraphs,
+                    request_deserializer=sysml__pb2.ExportGraphsRequest.FromString,
+                    response_serializer=sysml__pb2.ExportGraphsResponse.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -717,6 +777,33 @@ class SysMLService:
             '/sysml.SysMLService/Convert',
             sysml__pb2.ConvertRequest.SerializeToString,
             sysml__pb2.ConvertResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def Migrate(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/sysml.SysMLService/Migrate',
+            sysml__pb2.MigrateRequest.SerializeToString,
+            sysml__pb2.MigrateResponse.FromString,
             options,
             channel_credentials,
             insecure,
@@ -1041,6 +1128,60 @@ class SysMLService:
             '/sysml.SysMLService/RenderDocument',
             sysml__pb2.RenderDocumentRequest.SerializeToString,
             sysml__pb2.RenderDocumentResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def RenderView(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/sysml.SysMLService/RenderView',
+            sysml__pb2.RenderViewRequest.SerializeToString,
+            sysml__pb2.RenderViewResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def ExportGraphs(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/sysml.SysMLService/ExportGraphs',
+            sysml__pb2.ExportGraphsRequest.SerializeToString,
+            sysml__pb2.ExportGraphsResponse.FromString,
             options,
             channel_credentials,
             insecure,

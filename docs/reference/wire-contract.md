@@ -96,7 +96,7 @@ came from:
 
 ```console
 $ … /ParseSources -d '{"documents":[{"name":"behavior.sysml","content":"…"},{"name":"verification.sysml","content":"…"}]}'
-{"modelHash":"b4e096aa76331818a290956ac449f6391924767796eeea816b3adf103f5cded9","roots":[{"kind":"RootNamespace","childIds":["Test"]},{"kind":"RootNamespace","childIds":["Demo"]}]}
+{"modelHash":"97949455341222bd3f8a0b0d6d44263dfaa01bf7cad948b008f0a062287a8610","roots":[{"kind":"RootNamespace","childIds":["Test"]},{"kind":"RootNamespace","childIds":["Demo"]}]}
 ```
 
 The response has three fields a client reads:
@@ -182,6 +182,34 @@ $ … /ParseSources -d '{"documents":[{"name":"a.sysml","content":"package A { a
 {"modelHash":"f90104e75e9172ab29c8648e3529a103e178756d35b4643d03c8c64419eaabae","roots":[{"kind":"RootNamespace","childIds":["A"]}]}
 ```
 
+### Parsing the same documents again after an edit
+
+A client that re-parses one model after each edit (an editor, a build that recompiles) sends the
+same documents by name with some contents changed. From the second parse of a document set, the
+service answers from an incremental workspace it keeps for that set
+(`internal/frontend/grpc/lineage.go`): it re-parses only the documents whose content changed, and
+re-analyzes only those and the documents whose analysis read them. Nothing in the request or the
+answer changes. The model, its hash, its diagnostics and every later call on it are what a first
+parse of the same documents gives; only the time differs. A set is keyed by its documents' names
+and languages and the conformance mode, and the service keeps the four most recently used.
+`ParseFile` parses its one document whole.
+
+Under the `parse_sources_affected` capability a client can also ask which documents an edit
+reached. It sends the hash it was answered last as `base_model_hash`, and the answer's `affected`
+names, in the request's document order, every document whose results may differ from the base
+model's. A document left out was answered from the very analysis the base was, so its
+diagnostics are the base's and `Convert` with `documents` naming it writes exactly what it wrote
+for the base: a client that keeps each document's conversion re-converts only the affected ones.
+A request without `base_model_hash` gets no `affected`. The list errs towards naming too
+many. Every document is named when the service holds no base of that hash, when the base was
+answered fresh rather than from the set's workspace (the first parse of a set, a document that
+did not parse clean), when the base is another document set's, or when a document of either
+model names `ProjectRef`: how many identity scopes a model declares decides whether its ids are
+qualified, which can change every document's conversion without changing its analysis. A
+document is named whenever the workspace analyzed it again, which can be for a name it read being
+declared again unchanged. A base hash sent to a service without the capability is
+refused with `UNIMPLEMENTED`.
+
 A **stale or unknown hash** is therefore always HTTP 404 with `"code":"not_found"`, on every
 method that takes one. The message is `model not found: <hash>` everywhere except `ApplyEdits`
 and `Convert`, which say `model <hash> is no longer cached: parse it again …`. The Python
@@ -192,24 +220,26 @@ Note that `not_found` is also the status for an unknown *symbol* on some methods
 which (`model not found:`, `symbol not found:`, `file not found:`), and a client that recovers
 by re-parsing must read it.
 
-## `Value`: nineteen arms, exactly one present
+## `Value`: twenty-three arms, exactly one present
 
 Every value the engine returns — an expression result, a feature of an instance, an action
-output, a state-machine context variable — is a `Value`, which is a proto `oneof` of nineteen
+output, a state-machine context variable — is a `Value`, which is a proto `oneof` of twenty-three
 arms. In JSON that is **an object with exactly one key**, and the key is the discriminator.
 A decoder therefore does not look for a `kind` field: it looks at which key is present. The
 arms, each captured from `Evaluate` against the model at the end of this section:
 
 | Key | JSON type | Captured | Meaning |
 |---|---|---|---|
-| `intValue` | string | `{"result":{"intValue":"4"}}` | Integer (64-bit); string because `int64` |
-| `realValue` | number | `{"result":{"realValue":0.3333333333333333}}` | Real (IEEE-754 double) |
+| `intValue` | string | `{"result":{"intValue":"4"}}` | Integer within 64 bits; string because `int64` |
+| `bigIntValue` | string | `{"result":{"bigIntValue":"1180591620717411303424"}}` | Integer beyond 64 bits, in decimal; KerML Integers are unbounded |
+| `realValue` | number | `{"result":{"realValue":1.4142135623730951}}` | Real (IEEE-754 double), or a Rational a double holds exactly |
+| `rationalValue` | object | `{"result":{"rationalValue":{"numerator":"1","denominator":"3"}}}` | Rational in lowest terms; KerML Rationals are exact. Answered only for one no double holds, accepted for any |
 | `boolValue` | boolean | `{"result":{"boolValue":true}}` | Boolean |
 | `stringValue` | string | `{"result":{"stringValue":"abc"}}` | String |
 | `instanceId` | string | `{"result":{"instanceId":"2"}}` | A reference to a runtime instance, by id |
 | `sequence` | object | `{"result":{"sequence":{"elements":[{"stringValue":"nav"},{"stringValue":"sci"}]}}}` | Ordered collection; `elements` are `Value`s |
 | `null` | string | `{"result":{"null":""}}` | The SysML `null`, or an unsupported value (non-empty string) |
-| `quantity` | object | `{"result":{"quantity":{"realMagnitude":5.4,"unit":"SI::km/SI::h","unitTerm":{…}}}}` | Magnitude with a unit |
+| `quantity` | object | `{"result":{"quantity":{"rationalMagnitude":{"numerator":"27","denominator":"5"},"unit":"SI::km/SI::h","unitTerm":{…}}}}` | Magnitude with a unit |
 | `enumLiteral` | object | `{"result":{"enumLiteral":{"literalId":"Rover::Mode::idle","enumerationId":"Rover::Mode","name":"Mode::idle"}}}` | Enumeration literal; a scalar-valued one (`high = 3`) also carries `value` |
 | `unset` | boolean | `{"result":{"unset":true}}` | A feature that exists and has no value |
 | `complex` | object | `{"result":{"complex":{"real":1.5,"imaginary":-2}}}` | Complex number |
@@ -231,7 +261,7 @@ The `array`, `vector` and `vectorQuantity` rows were captured against
 `conformance/fixtures/set_tensor.sysml` (`T::s.elements`, `T::cube`), `metaobject` against
 `conformance/fixtures/metaobject.sysml` (`(Meta::seatBelt meta KerML::Feature)#(1)`); the rest against the model below, with requests of the form
 `{"modelHash":"59c4…a654","expression":"<expr>","contextSymbolId":"Rover"}` with `rover.count`,
-`1.0 / 3.0`, `rover.armed`, `"abc"`, `rover.wheel`, `rover.tags`, `null`, `rover.speed`,
+`RealFunctions::sqrt(2.0)`, `1.0 / 3.0`, `rover.armed`, `"abc"`, `rover.wheel`, `rover.tags`, `null`, `rover.speed`,
 `Mode::idle`, `rover.serial` and `rover.z`, and the model was:
 
 ```sysml
@@ -272,7 +302,11 @@ decode(v):
   if v is absent                → no value was produced (see "result vs unset vs null")
   key := the single key of v
   intValue     → parse the string as a 64-bit integer; never as a double
+  bigIntValue  → parse the decimal string as an arbitrary-precision integer (it is always
+                 outside int64); never as a double
   realValue    → the number, as a double
+  rationalValue → numerator / denominator, each a decimal string, as an exact rational;
+                 never as a double
   boolValue    → the boolean
   stringValue  → the string
   instanceId   → an opaque reference; parse as 64-bit integer, keep it a reference
@@ -285,7 +319,8 @@ decode(v):
   complex      → complex(v.complex.real or 0, v.complex.imaginary or 0)
   array        → shape v.array.dimensions (parse each as int64); elements := map decode over
                  v.array.elements; require len(elements) == product(dimensions), else an error
-  vector       → map over v.vector.components: intValue → integer, realValue → double,
+  vector       → map over v.vector.components: intValue or bigIntValue → integer,
+                 rationalValue → exact rational, realValue → double,
                  anything else → an error
   vectorQuantity → map the quantity rule over v.vectorQuantity.components; empty → an error
   measurementRef → unit := v.measurementRef.unit, id := v.measurementRef.unitId;
@@ -324,7 +359,48 @@ $ … /Evaluate -d '{"modelHash":"59c471bcbfb8ea2aec1997d62334d7144bcc165e56eb1c
 {"result":{"intValue":"9007199254740993"}}
 ```
 
-A double would read that as `9007199254740992`. MATLAB's `jsondecode` gives you a `char`
+A double would read that as `9007199254740992`.
+
+**`bigIntValue`.** An Integer outside the `int64` range, as canonical decimal digits: an optional
+`-`, no leading zero, no `+`. KerML Integers are the mathematical integers, so `2**70` answers
+`{"result":{"bigIntValue":"1180591620717411303424"}}`. A value within `int64` is always sent as
+`intValue`, never as `bigIntValue`, so a client that never meets a wide Integer sees no change,
+and the two arms never spell the same number; a decoder rejects a `bigIntValue` that fits
+`int64` or is not canonical. The service accepts `bigIntValue` on input under the same rule.
+The arm is negotiated by the `big_int_values` capability: a service that does not advertise it
+sends a wide Integer (bare, nested, or as a `bigIntMagnitude`) as an unsupported `null` naming it
+(a vector holding one is withheld whole), refuses a document query bound to one or answering one
+with `UNIMPLEMENTED` naming the capability, since a document value has no unsupported arm, and,
+since such a service would read an unknown arm as `null`, the bundled clients refuse to send one
+to it, document-query bindings included, before the call.
+
+**`rationalValue`.** A KerML `Rational` is a rational number (KerML 1.0 §9.3.2.2.8), held
+exactly: `1 / 3` answers `{"result":{"rationalValue":{"numerator":"1","denominator":"3"}}}` and
+`0.1 + 0.2` answers `{"numerator":"3","denominator":"10"}`. `numerator` and `denominator` are
+canonical decimal strings (no `+`, no leading zero), the fraction is in lowest terms and the
+denominator is positive. The service answers a Rational a double holds exactly (`0.5`,
+`2.0 ** 70`) as `realValue`, so its answers never spell one number two ways; an Integer is never
+answered here, though a whole Rational no double holds is (denominator `1`). A client decoder
+rejects an answered `rationalValue` that is not in lowest terms or that a double holds.
+
+On input the direction of the rule is reversed. The service accepts any `rationalValue` in lowest
+terms, one a double holds included, as that exact Rational: `{"numerator":"1","denominator":"4"}`
+bound to `in x : Rational` evaluates `x + 1/3` to `7/12`. A `realValue` sent to it is always a
+binary64 Real, never a Rational: `0.25` bound to the same parameter evaluates `x + 1/3` to
+`0.5833333333333333`. Evaluation does not depend on which arm carried a value beyond that: once
+read, an exact Rational behaves the same whether it arrived as `rationalValue` or was written in
+the model. So the bundled clients send every exact Rational (`Fraction(1, 4)`, `1//4`,
+`Rational.of(1, 4)`) as `rationalValue` to a service that advertises `rational_values`.
+
+A value declared `Real` is IEEE 754 binary64 and always answers `realValue` (`rover.mass` is
+`{"realValue":20}`). The arm is negotiated by the `rational_values` capability exactly as
+`big_int_values` negotiates `bigIntValue`: a service that does not advertise it sends such a
+Rational (bare, nested, or as a `rationalMagnitude`) as an unsupported `null` naming it, and
+refuses a document query bound to or answering one with `UNIMPLEMENTED` naming the capability.
+To such a service the bundled clients send a Rational a double holds exactly as that `realValue`,
+the only form it reads, and refuse to send any other Rational before the call.
+
+MATLAB's `jsondecode` gives you a `char`
 array, which `int64(str2double(...))` corrupts and `sscanf(s, '%ld')` does not; R needs
 `bit64::as.integer64`; Julia's `parse(Int64, s)` and C's `strtoll` are exact.
 
@@ -421,11 +497,13 @@ input. A service that does not advertise `undetermined_value` sends the arm as a
 **`quantity`.** A magnitude with a unit:
 
 ```json
-{"quantity":{"realMagnitude":5.4,"unit":"SI::km/SI::h","unitTerm":{"scaleNum":5,"scaleDen":18,"factors":[{"unitId":"SI::metre","exponent":1},{"unitId":"SI::second","exponent":-1}]}}}
+{"quantity":{"rationalMagnitude":{"numerator":"27","denominator":"5"},"unit":"SI::km/SI::h","unitTerm":{"scaleNum":5,"scaleDen":18,"factors":[{"unitId":"SI::metre","exponent":1},{"unitId":"SI::second","exponent":-1}]}}}
 ```
 
-- The magnitude is its own `oneof`: **`intMagnitude`** (a string, same rule as `intValue`) or
-  **`realMagnitude`** (a number). Exactly one is present.
+- The magnitude is its own `oneof`: **`intMagnitude`** (a string, same rule as `intValue`),
+  **`bigIntMagnitude`** (a string, same rule as `bigIntValue`), **`rationalMagnitude`** (same
+  rule as `rationalValue`) or **`realMagnitude`** (a number). Exactly one is present. The
+  literal `5.4` is the exact Rational 27/5, which no double holds, so it is a `rationalMagnitude`.
 - `unit` is the unit expression as written, by fully qualified name of each unit; it is the
   display form and the identity of the unit *as declared*.
 - `unitTerm` is the same unit reduced to base units: `factors` are `(unitId, exponent)` pairs
@@ -468,8 +546,8 @@ $ … /Evaluate -d '{"modelHash":"42cc…54b0","expression":"S::grid"}'
   extent is positive) before indexing, and reject a message that disagrees. The service applies
   the same rule to an array sent to it.
 
-**`vector`.** `components` is a list of `Value`s each of which is an `intValue` or a
-`realValue` — nothing else — so an Integer and a Real component stay distinct, as they do in
+**`vector`.** `components` is a list of `Value`s each of which is an `intValue`, a
+`bigIntValue`, a `rationalValue` or a `realValue` — nothing else — so an Integer and a Real component stay distinct, as they do in
 a `sequence`. A `vector` is not a `sequence`: `VectorOf((3.0, 4.0))` is one value with a
 dimension, and the engine's vector functions accept it where a sequence of numbers would be
 read element by element. A component of any other arm is an error, on both sides.
@@ -661,7 +739,8 @@ $ … /Evaluate -d '{"modelHash":"07a0…b5ca","expression":"Meta::notADefinitio
 ### What a client must not do
 
 - **Do not compare enum literals by `name`.** Compare `literalId`.
-- **Do not read `intValue` (or `intMagnitude`, `id`, `instanceId`) as a double.** Above 2^53 the
+- **Do not read `intValue`, `bigIntValue` or `rationalValue` (or `intMagnitude`,
+  `bigIntMagnitude`, `rationalMagnitude`, `id`, `instanceId`) as a double.** Above 2^53 the
   digits are gone and nothing tells you.
 - **Do not read `unset` as a boolean.** Its presence is the fact; a missing `result` is a
   different fact (no value), `{"null":""}` a third (the null value), and `undetermined` a
@@ -746,7 +825,7 @@ codes may appear in a release; a code, once published, keeps its meaning.
 client needs to branch, the service gives a field for it:
 
 ```console
-$ … /EvaluateCalc -d '{"modelHash":"b4e0…ded9","symbolId":"Demo::sedan"}'
+$ … /EvaluateCalc -d '{"modelHash":"9794…8610","symbolId":"Demo::sedan"}'
 {"error":"calc invocation failed: not a calc: Demo::sedan is a part usage, not a calc definition or usage","failureReason":"FAILURE_REASON_WRONG_KIND"}
 ```
 
@@ -759,7 +838,7 @@ present is an unspecified execution failure. The other common in-body failures, 
 ```text
 {"error":"symbol not found: Demo::Nope"}                                    Instantiate
 {"error":"state machine not found: Test::NoMachine"}                        ExecuteState
-{"error":"action execution failed: initialize action: invalid action flow: no initial node found in action noStart"}
+{"error":"action execution failed: initialize action: invalid action flow: no initial node found in action noStart: the successions form a cycle among the steps, leaving none to start at"}
 {"error":"evaluation failed: object has no such feature: member nothing not found in instance"}  Evaluate
 {"error":"evaluation failed: unresolved reference: sqrt — did you mean RealFunctions::sqrt or QuantityCalculations::sqrt?"}
 ```
@@ -864,7 +943,7 @@ Every behavior call takes a `modelHash` and a fully qualified `symbolId` (spelle
 `actionSymbolId` / `stateMachineSymbolId` on the two execution calls), builds a fresh runtime,
 runs, and returns the result plus any `error`/`diagnostics`. The examples use
 `conformance/fixtures/behavior.sysml` and `verification.sysml`, parsed together as model
-`b4e096aa76331818a290956ac449f6391924767796eeea816b3adf103f5cded9`, and the `Rover` model above.
+`97949455341222bd3f8a0b0d6d44263dfaa01bf7cad948b008f0a062287a8610`, and the `Rover` model above.
 
 ### `Instantiate` and the `Instance` shape
 
@@ -947,14 +1026,14 @@ $ … /Instantiate -d '{"modelHash":"5a85…c15b","symbolId":"Demo::Nope"}'
 input keeps its declared default:
 
 ```console
-$ … /ExecuteAction -d '{"modelHash":"b4e0…ded9","actionSymbolId":"Test::addFive","inputs":{"result":{"intValue":"10"}}}'
+$ … /ExecuteAction -d '{"modelHash":"9794…8610","actionSymbolId":"Test::addFive","inputs":{"result":{"intValue":"10"}}}'
 {"outputs":{"result":{"intValue":"15"}}}
 
-$ … /ExecuteAction -d '{"modelHash":"b4e0…ded9","actionSymbolId":"Test::addFive"}'
+$ … /ExecuteAction -d '{"modelHash":"9794…8610","actionSymbolId":"Test::addFive"}'
 {"outputs":{"result":{"intValue":"5"}}}
 
-$ … /ExecuteAction -d '{"modelHash":"b4e0…ded9","actionSymbolId":"Test::noStart"}'
-{"error":"action execution failed: initialize action: invalid action flow: no initial node found in action noStart"}
+$ … /ExecuteAction -d '{"modelHash":"9794…8610","actionSymbolId":"Test::noStart"}'
+{"error":"action execution failed: initialize action: invalid action flow: no initial node found in action noStart: the successions form a cycle among the steps, leaving none to start at"}
 ```
 
 An action with no outputs answers `{}` (captured for `action nop { first start; done;
@@ -1012,23 +1091,26 @@ fresh executor over the same lowered model, following the recorded choices of an
 to a frontier and taking the next untried alternative there — the first run's choice points each
 varied once, earliest first, before any is varied twice — until no alternative is untried or a
 budget is hit. Two runs that agree on the observables — an action's outputs — are
-one outcome, with `linearizations` counting how many reached it, `probability` the share of the
-schedule space its linearizations cover (a weighted pick's stated weight's share, an unweighted
-choice's uniform `1/n`, multiplied along a run and summed over the runs reaching the outcome —
-the model's own probability where every choice point is weighted, a uniform assumption over the
-scheduling choices the library leaves open otherwise), and `witness` the choice sequence
-of one that did, one entry per choice point spelling the alternatives and the one taken;
-`diagnostics` is what that witness run noted, shaped as the single-run `diagnostics` above.
+one outcome, with `linearizations` counting how many reached it, and `witness` the choice sequence
+of one that did, one entry per choice point spelling the alternatives and the one taken. When a
+committed run made a weighted model choice, `probability_range` carries the outcome's minimum and
+maximum model-draw probability over schedulers; `probability` is the exact value when that range
+is exact and is zero otherwise. Scheduling choices have no probability. If no weighted choice
+occurred, neither field represents an outcome probability. A run failing after its initial model
+behavior begins is an error outcome; a root executor creation failure or a pure structural
+start-check failure before behavior runs is instead returned in the response's error field, with
+no outcomes or exploration status. `diagnostics` is what that witness run noted, shaped as the
+single-run `diagnostics` above.
 Outcomes are in canonical order — by outputs, sorted by name and value — so the same model
 answers the same list on every call (captured for `Test::tally` above and for `action race` with
 three branches `a`, `b`, `c` each assigning `winner`):
 
 ```console
 $ … /ExecuteAction -d '{"modelHash":"81b1…73fc","actionSymbolId":"Test::tally","schedule":"explore"}'
-{"outcomes":[{"outputs":{"leftCount":{"intValue":"1"},"rightCount":{"intValue":"10"}},"linearizations":2,"probability":1.0,"witness":["step 3: 2@left first of 2@left, 3@right"],"diagnostics":[{"severity":"info","message":"choice point: step 3: tokens 2@left, 3@right (unordered; took 2@left first)","span":{"file":"tally.sysml",…},"code":"choice-point"}]}],"exploration":{"complete":true,"runs":2,"runsBudget":1024,"depthBudget":64}}
+{"outcomes":[{"outputs":{"leftCount":{"intValue":"1"},"rightCount":{"intValue":"10"}},"linearizations":2,"witness":["step 3: 2@left first of 2@left, 3@right"],"diagnostics":[{"severity":"info","message":"choice point: step 3: tokens 2@left, 3@right (unordered; took 2@left first)","span":{"file":"tally.sysml",…},"code":"choice-point"}]}],"exploration":{"complete":true,"runs":2,"runsBudget":1024,"depthBudget":64}}
 
 $ … /ExecuteAction -d '{"modelHash":"81b1…73fc","actionSymbolId":"Test::race","schedule":"explore"}'
-{"outcomes":[{"outputs":{"winner":{"intValue":"1"}},"linearizations":2,"probability":0.3333333333333333,"witness":["step 3: 3@b first of 2@a, 3@b, 4@c","step 4: 4@c first of 2@a, 4@c"],"diagnostics":[…]},{"outputs":{"winner":{"intValue":"2"}},"linearizations":2,"probability":0.3333333333333333,"witness":["step 3: 2@a first of 2@a, 3@b, 4@c","step 4: 4@c first of 3@b, 4@c"],"diagnostics":[…]},{"outputs":{"winner":{"intValue":"3"}},"linearizations":2,"probability":0.3333333333333333,"witness":["step 3: 2@a first of 2@a, 3@b, 4@c","step 4: 3@b first of 3@b, 4@c"],"diagnostics":[…]}],"exploration":{"complete":true,"runs":6,"runsBudget":1024,"depthBudget":64}}
+{"outcomes":[{"outputs":{"winner":{"intValue":"1"}},"linearizations":2,"witness":["step 3: 3@b first of 2@a, 3@b, 4@c","step 4: 4@c first of 2@a, 4@c"],"diagnostics":[…]},{"outputs":{"winner":{"intValue":"2"}},"linearizations":2,"witness":["step 3: 2@a first of 2@a, 3@b, 4@c","step 4: 4@c first of 3@b, 4@c"],"diagnostics":[…]},{"outputs":{"winner":{"intValue":"3"}},"linearizations":2,"witness":["step 3: 2@a first of 2@a, 3@b, 4@c","step 4: 3@b first of 3@b, 4@c"],"diagnostics":[…]}],"exploration":{"complete":true,"runs":6,"runsBudget":1024,"depthBudget":64}}
 ```
 
 `tally`'s two orders write two different features, so its two linearizations are one outcome;
@@ -1036,18 +1118,23 @@ $ … /ExecuteAction -d '{"modelHash":"81b1…73fc","actionSymbolId":"Test::race
 with no choice point explores in exactly one run.
 
 `exploration.complete` is true when every linearization within the budget was run, so
-`outcomes` is the whole set and their `probability` values sum to `1`. The budget is spelled in the policy, `"explore:runs=<n>,depth=<d>"`
+`outcomes` is the whole set. Probabilities are not schedule shares and need not sum to `1` across
+the displayed outcome ranges: each range bounds model-weighted draws for one outcome over the
+schedulers that resolve scheduling choices. An unweighted exploration has no outcome
+probabilities. `failed_linearizations` counts the runs represented by runtime-error outcomes.
+The budget is spelled in the policy, `"explore:runs=<n>,depth=<d>"`
 in either order and either alone — `runs` bounds how many runs the search makes (default 1024),
 `depth` how many choice points one run may resolve before the rest take their first alternative
 (default 64). Hitting either ends the search with `complete` false and the budget named in
 `budgetsHit` (`"runs"` before `"depth"` when both), the outcomes reached so far still listed and
-`probabilitiesLowerBound` true, since the unexplored runs can only add mass;
+`probabilitiesLowerBound` true only when the exploration is incomplete and has a weighted model
+choice, since unexplored runs can only add to those model probabilities;
 `runsBudget` and `depthBudget` echo the budget the search ran under. A budget hit is never an
 error and never silent:
 
 ```console
 $ … /ExecuteAction -d '{"modelHash":"81b1…73fc","actionSymbolId":"Test::race","schedule":"explore:runs=2"}'
-{"outcomes":[{"outputs":{"winner":{"intValue":"2"}},"linearizations":1,"witness":[…],"diagnostics":[…]},{"outputs":{"winner":{"intValue":"3"}},"linearizations":1,"witness":[…],"diagnostics":[…]}],"exploration":{"runs":2,"budgetsHit":["runs"],"runsBudget":2,"depthBudget":64,"probabilitiesLowerBound":true}}
+{"outcomes":[{"outputs":{"winner":{"intValue":"2"}},"linearizations":1,"witness":[…],"diagnostics":[…]},{"outputs":{"winner":{"intValue":"3"}},"linearizations":1,"witness":[…],"diagnostics":[…]}],"exploration":{"runs":2,"budgetsHit":["runs"],"runsBudget":2,"depthBudget":64}}
 
 $ … /ExecuteAction -d '{"modelHash":"81b1…73fc","actionSymbolId":"Test::race","schedule":"explore:runs=0"}'
 HTTP/1.1 400 Bad Request
@@ -1133,7 +1220,7 @@ when it stopped, as a name → `Value` map. `conformance/fixtures/behavior.sysml
 runs to `done` on its own:
 
 ```console
-$ … /ExecuteState -d '{"modelHash":"b4e0…ded9","stateMachineSymbolId":"Test::Machine"}'
+$ … /ExecuteState -d '{"modelHash":"9794…8610","stateMachineSymbolId":"Test::Machine"}'
 {"statesVisited":["init","Running","done"]}
 ```
 
@@ -1146,7 +1233,7 @@ do assign cycles := cycles + 1 then on; transition first on accept stop then off
 $ … /ExecuteState -d '{"modelHash":"449e7db990943f08c1918829b0c730cc9d9bf415b236a70debe93592d2477b6b","stateMachineSymbolId":"Pump::Controller","events":["start","stop","start"]}'
 {"statesVisited":["off","on","off","on"],"finalContext":{"cycles":{"intValue":"2"}}}
 
-$ … /ExecuteState -d '{"modelHash":"b4e0…ded9","stateMachineSymbolId":"Test::NoMachine"}'
+$ … /ExecuteState -d '{"modelHash":"9794…8610","stateMachineSymbolId":"Test::NoMachine"}'
 {"error":"state machine not found: Test::NoMachine"}
 ```
 
@@ -1212,13 +1299,30 @@ Under `"explore"` every run creates the object graph anew, so the machine is exp
 its assembly and each outcome's `outputs` are the object's features as that run left them,
 spelled as the executed `finalContext` spells them.
 
+Set `trace: true` to include the run's documented `accept`, `send`, `transition`, `entry`,
+`exit`, `do`, `choice` and `guard` records in `trace`, in execution order. Each record carries
+its clock instant as `time`, along with fields relevant to its kind; `text` is the line the
+trace prints. This transition record was captured from a traced `ExecuteState` call for
+`Test::Machine` in `conformance/fixtures/behavior.sysml`:
+
+```json
+{"kind":"transition", "time":{"quantity":{"realMagnitude":0, "unit":"s", "unitTerm":{"scaleNum":1, "scaleDen":1, "factors":[{"unitId":"SI::second", "exponent":1}]}}}, "machine":"Machine", "from":"init", "to":"Running", "text":"transition: init -> Running"}
+```
+
+The `state_trace` capability is checked before sending the option; a service that withholds it
+refuses the request with `UNIMPLEMENTED`. Tracing an explore schedule is `INVALID_ARGUMENT`,
+because one trace describes one run, not the outcomes of several runs. A failed run still returns
+the records made before failure. The response retains the newest records up to the service's
+held-event limit and reports discarded older records as `traceDropped`; without the option,
+`trace` and `traceDropped` are omitted.
+
 ### `EvaluateCalc`
 
 `arguments` is a positional list of `Value`s matching the calc's `in` parameters in order.
 `result` is the calc's value:
 
 ```console
-$ … /EvaluateCalc -d '{"modelHash":"b4e0…ded9","symbolId":"Demo::add","arguments":[{"intValue":"2"},{"realValue":3.5}]}'
+$ … /EvaluateCalc -d '{"modelHash":"9794…8610","symbolId":"Demo::add","arguments":[{"intValue":"2"},{"realValue":3.5}]}'
 {"result":{"realValue":5.5}}
 ```
 
@@ -1566,13 +1670,13 @@ one per assertion. All three return the `instances` they built, in the same shap
 `Instantiate`.
 
 ```console
-$ … /VerifyConstraint -d '{"modelHash":"b4e0…ded9","symbolId":"Demo::Vehicle::massPositive"}'
+$ … /VerifyConstraint -d '{"modelHash":"9794…8610","symbolId":"Demo::Vehicle::massPositive"}'
 {"verdict":{"kind":"constraint","elementId":"Demo::Vehicle::massPositive","element":"Demo::Vehicle::massPositive","holds":true}}
 
-$ … /VerifyRequirement -d '{"modelHash":"b4e0…ded9","symbolId":"Demo::Vehicle::lightEnough"}'
+$ … /VerifyRequirement -d '{"modelHash":"9794…8610","symbolId":"Demo::Vehicle::lightEnough"}'
 {"verdict":{"kind":"requirement","elementId":"Demo::Vehicle::lightEnough","element":"Demo::Vehicle::lightEnough","holds":true}}
 
-$ … /VerifyConstraint -d '{"modelHash":"b4e0…ded9","symbolId":"Demo::Vehicle::massLight","subjectSymbolId":"Demo::sedan"}'
+$ … /VerifyConstraint -d '{"modelHash":"9794…8610","symbolId":"Demo::Vehicle::massLight","subjectSymbolId":"Demo::sedan"}'
 ```
 
 ```json
@@ -1615,7 +1719,7 @@ Reading a `Verdict`:
   when the reason is classified:
 
   ```console
-  $ … /VerifyConstraint -d '{"modelHash":"b4e0…ded9","symbolId":"Demo::sedan"}'
+  $ … /VerifyConstraint -d '{"modelHash":"9794…8610","symbolId":"Demo::sedan"}'
   {"verdict":{"kind":"constraint","elementId":"Demo::sedan","element":"Demo::sedan","error":"not a constraint: sedan is a part usage, not a constraint definition or usage","failureReason":"FAILURE_REASON_WRONG_KIND"}}
   ```
 
@@ -1637,7 +1741,7 @@ Reading a `Verdict`:
 (max 10) are satisfied by `sedan`:
 
 ```console
-$ … /VerifySatisfaction -d '{"modelHash":"b4e0…ded9","symbolId":"Demo::analysis"}'
+$ … /VerifySatisfaction -d '{"modelHash":"9794…8610","symbolId":"Demo::analysis"}'
 ```
 
 ```json
@@ -1770,7 +1874,7 @@ stopped at the limit, which is what lowers the strength. An answer decided befor
 was asked (a failure classified before the run) carries none of the three.
 
 ```console
-$ … /VerifyConstraint -d '{"modelHash":"b4e0…ded9","symbolId":"Demo::Vehicle::massLight","subjectSymbolId":"Demo::sedan"}'
+$ … /VerifyConstraint -d '{"modelHash":"9794…8610","symbolId":"Demo::Vehicle::massLight","subjectSymbolId":"Demo::sedan"}'
 {"verdict":{"kind":"constraint", …, "condition":"mass < 100.0","engine":"run","strength":"witnessed",
   "bounds":[{"name":"steps","limit":"10000000"},{"name":"elements","limit":"1000000"}]}, "instances":[…]}
 ```
@@ -1787,13 +1891,17 @@ and lists engines with `Connection.list_engines()`.
 request names its source in a `oneof`: a `filePath` the service reads afresh, `content` carried
 inline, or a `modelHash` whose parsed source is converted. `toFormat` is required and is one of
 `sysml`, `kerml`, `text` (SysML v2 notation), `ttl`, `turtle`, `rdf` (RDF in Turtle) or `api-json`,
-`json` (the API's JSON element form). `fromFormat` takes the same names, plus `xmi`, `uml` or
-`mdzip` for a SysML v1 model — UML XMI 2.5.1 with the SysML profile applied, an Eclipse UML2 `.uml`
-file, or a `.mdzip` archive — which is read and **migrated** to v2 on the way out. Omitted,
-`fromFormat` is inferred from `filePath`'s extension (`.sysml`, `.kerml`, `.ttl`, `.turtle`,
-`.json`, `.xmi`, `.uml`, `.mdzip`), is notation for a `modelHash`, and is `invalid_argument` for
-inline `content`, which has no extension. Inline content is a proto `string`, so it carries XMI or
-`.uml` text; a `.mdzip` archive is binary and is named by `filePath`.
+`json` (the API's JSON element form). `fromFormat` takes the same names. Omitted, it is inferred
+from `filePath`'s extension (`.sysml`, `.kerml`, `.ttl`, `.turtle`, `.json`), is notation for a
+`modelHash`, and is `invalid_argument` for inline `content`, which has no extension. A SysML v1
+model — `fromFormat` of `xmi`, `uml` or `mdzip`, or a `filePath` ending in `.xmi`, `.uml` or
+`.mdzip` — is **not converted**: it is refused as `invalid_argument` before anything is read, with
+the message the command prints, because what happens to it is a [migration](#migration-migrate),
+which accounts for every element rather than carrying all of them:
+
+```text
+{"code":"invalid_argument","message":"Vehicle.xmi is a SysML v1 model, which is migrated, not converted: every element is mapped, approximated or left unmapped and reported element by element; call Migrate with the same source"}
+```
 
 A `modelHash` from `ParseSources` of several documents converts the whole model to `ttl` or
 `api-json` as one graph: a reference from one document to an element another declares links that
@@ -1805,47 +1913,300 @@ both declare (`package P` in each), which one graph would merge into one. Ids ar
 when the documents together declare more than one identity scope. The command line does the same
 for several files, to a file or standard output: `sysml a.sysml b.sysml -convert api-json`.
 
+`documents`, under the `convert_documents` capability, writes only some documents of such a model:
+each name is one the parse gave a document, and only the elements those documents declare are
+written, with the root namespace of each in the API element form. The model's other documents
+are still read: a reference into one is an `@id` link to the element as a conversion of its own
+document writes it, and an element one of them declares that a written document also declares is
+refused as above. So a client that holds a model's conversion can convert again only the documents
+an edit changed and replace their elements by `@id`. Empty `documents` writes every document. A name
+the model does not hold, or `documents` for a `filePath` or `content`, is `invalid_argument`.
+
+`compact`, under the `convert_compact` capability, writes `api-json` from notation as one smaller
+object in place of the element array; `omit_derived` and `keep_derived` leave out the metamodel's
+derived properties. Expanded, it is the element array. The format is defined in
+[Compact API JSON](api-json-compact.md).
+
 ```console
-$ … /Convert -d '{"filePath":"Vehicle.xmi","toFormat":"sysml"}'
+$ … /Convert -d '{"filePath":"Vehicle.sysml","toFormat":"ttl"}'
+{
+  "content": "@prefix sysml: <https://www.omg.org/spec/SysML/20230201#> .\n…",
+  "fromFormat": "sysml",
+  "toFormat": "ttl",
+  "experimental": true,
+  "experimentalNotice": "The RDF mapping is experimental: …"
+}
+```
+
+`fromFormat` and `toFormat` come back **canonical** — `sysml`, `ttl` or `api-json` whichever
+alias was sent — so a client that let the format be inferred learns what it was read as.
+`experimental` is set, and `experimentalNotice` says why, when either format is RDF or the API's
+JSON form; notation to notation leaves both unset. It is set on a refusal too, so read it before
+`error`. The Python client raises `ExperimentalFeatureWarning` from it.
+
+A conversion that could not be done is HTTP 200 with `error` set and `content` absent; its
+`diagnostics` explain a syntax error in notation input, with spans.
+
+A request the service will not attempt is a Connect error instead: `toFormat` naming a v1 format
+is `invalid_argument` with `cannot write xmi: …; convert to sysml or ttl`, since a v2 model has no
+v1 form; an unknown format name and a missing `fromFormat` for inline content are
+`invalid_argument` too; an unreadable `filePath` is `not_found` with `file not found:`, and a
+stale `modelHash` is `not_found` as described under [the model hash](#how-long-a-hash-is-valid).
+
+## Migration: `Migrate`
+
+A SysML v1 model is **migrated, not converted**, and `Migrate` is the RPC for it, needing the
+`migrate` capability. A conversion is lossless; a migration lands every v1 element in a ledger as
+**mapped**, **approximated**, **unmapped** or **skipped**, and the response says so, which is why
+`Convert` refuses the input rather than quietly doing this. The request names its source in a
+`oneof`: a `filePath` the service reads, or `content` carried inline — proto `bytes`, so a
+`.mdzip` archive travels as well as XMI text (base64 in Connect JSON). `fromFormat` is `xmi`,
+`uml` or `mdzip` — UML XMI 2.5.1 with the SysML profile applied, an Eclipse UML2 `.uml` file, or a
+`.mdzip` archive, all read as XMI and answered as the canonical `xmi`; inferred from `filePath`'s
+extension when omitted, and required for inline `content`. `toFormat` is notation (`sysml`,
+`kerml`, `text`) or RDF (`ttl`, `turtle`, `rdf`). The companion options are the command's flags:
+`report` asks for every element's verdict and the report text `-migration-report` writes;
+`results` for the run-configuration index `-migration-results` writes; `layoutPath` or inline
+`layoutContent` (a `oneof`) for an MTIP export whose diagram geometry lays out the migrated
+views (`-layout`); `imageBaseUrl` for the server a comment's relative image is resolved against
+(`-image-base-url`); and `strict` for portable output (`-strict`).
+
+```console
+$ … /Migrate -d '{"filePath":"Vehicle.xmi","toFormat":"sysml"}'
 {
   "content": "doc /* Author: demo team\n * Created: 2026-09-05\n */\npackage 'Vehicle Design' {\n    doc /* Structural model of the demo v…",
   "fromFormat": "xmi",
   "toFormat": "sysml",
   "experimental": true,
-  "experimentalNotice": "SysML v1 migration is experimental: the mapping covers structure, ports and connectors, requirements, constraints, instances and allocations, reports every element it approximates or leaves behind, and what it writes for a v1 element may change without a compatibility path; see docs/reference/sysml-v1-migration.md § Status"
+  "experimentalNotice": "SysML v1 migration is experimental: the mapping covers structure, ports and connectors, requirements, constraints, instances and allocations, reports every element it approximates or leaves behind, and what it writes for a v1 element may change without a compatibility path; see docs/reference/sysml-v1-migration.md § Status",
+  "report": {
+    "source": "Vehicle.xmi",
+    "exporter": "Example UML Tool",
+    "summary": "migrated 93 element(s): 78 mapped, 12 approximated, 3 unmapped (2 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)",
+    "mapped": 78,
+    "approximated": 12,
+    "unmapped": 3,
+    "skipped": 2
+  }
 }
 ```
 
-`fromFormat` and `toFormat` come back **canonical** — `sysml`, `ttl`, `api-json` or `xmi` whichever
-alias was sent — so a client that let the format be inferred learns what it was read as.
-`experimental` is set, and `experimentalNotice` says why, when either format is RDF or the API's
-JSON form or the source is SysML v1; notation to notation leaves both unset. It is set on a refusal
-too, so read it before `error`. The Python client raises `ExperimentalFeatureWarning` from it. The
-migration report the `sysml` command writes with `-migration-report` is **not** on the wire: a
-client that needs the element-by-element account runs the command. What the migration maps,
-approximates and leaves behind is in [sysml-v1-migration.md](sysml-v1-migration.md).
-
-A conversion that could not be done is HTTP 200 with `error` set and `content` absent; its
-`diagnostics` explain a syntax error in notation input, with spans. Malformed XMI is reported in
-`error` alone:
+Every migration is `experimental`, with the notice; the Python client raises
+`ExperimentalFeatureWarning` from it and the Go client reports it on the `Migration`. The
+`report` always carries the `summary` line the command prints and the four counts, so a client
+can gate on the verdicts without asking for more. With `report: true` it also carries `entries` —
+one per v1 element, in report order, each with the element's `id`, `kind`, `name`, the v2
+`target` it became when it did, its `verdict` (`mapped`, `approximated`, `unmapped` or `skipped`)
+and a `note` saying how or why not — and `text`, the report the command writes to a file:
 
 ```text
-{"fromFormat":"xmi","toFormat":"sysml","error":"<content>: the XMI document holds no model: expected a uml:Model or uml:Package under the xmi:XMI root","experimental":true,"experimentalNotice":"SysML v1 migration is experimental: …"}
+{"id":"_unit_kg","kind":"«Unit» InstanceSpecification","name":"Vehicle Design::Value Types::kilogram","verdict":"unmapped","note":"units and quantity kinds are not migrated; use the SI and ISQ libraries; applied stereotypes «Unit» (quantityKind = Vehicle Design::Value Types::mass; symbol = kg)"}
 ```
 
-A request the service will not attempt is a Connect error instead: `toFormat` naming a v1 format
-is `invalid_argument` with `cannot write xmi: SysML v1 XMI is read and migrated, never written;
-convert to sysml or ttl`, since a v2 model has no v1 form; an unknown format name and a missing
-`fromFormat` for inline content are `invalid_argument` too; an unreadable `filePath` is
-`not_found` with `file not found:`, and a stale `modelHash` is `not_found` as described under
-[the model hash](#how-long-a-hash-is-valid).
+With `results: true`, `results` is the JSON sidecar `-migration-results` writes, as a string.
+Image files the migration extracts from the archive — a comment's `<img>` without an
+`imageBaseUrl` — come back as `files`, each a `path` relative to the written document and its
+`content` bytes, in path order, so a client writing the notation to disk writes them beside it.
+What the migration maps, approximates and leaves behind is in
+[sysml-v1-migration.md](sysml-v1-migration.md).
+
+A migration that could not be done is HTTP 200 with `error` set and `content` absent, with the
+formats and the experimental notice still filled; malformed XMI is reported this way:
+
+```text
+{"fromFormat":"xmi","toFormat":"sysml","error":"<content>: not an XMI document: expected an xmi:XMI or uml:Model root element","experimental":true,"experimentalNotice":"SysML v1 migration is experimental: …"}
+```
+
+A request the service will not attempt is a Connect error instead, every one `invalid_argument`:
+v2 input, by `fromFormat` or by extension, is refused with the mirror of `Convert`'s help —
+`Vehicle.sysml is sysml input, which is converted, not migrated: only a SysML v1 model (xmi, uml
+or mdzip) is migrated; call Convert with the same source`; `toFormat` naming a v1 format with
+`cannot write xmi: …`, since a v2 model has no v1 form; inline `content` without `fromFormat` with
+`from_format is required for inline content: expected xmi, uml or mdzip`; and an MTIP layout that
+is not one with what is wrong with it. An unreadable `filePath` or `layoutPath` is `not_found`
+with `file not found:`.
+
+## `RenderView`
+
+`RenderView` returns the machine-readable fields of a named view or targeted pseudo-view. The
+response preserves node and edge order, parent links, ports, source spans, table and matrix rows, notes and
+notices; optional canvas, geometry and style messages are absent when the model states none.
+Pictures are not included; a refused picture contributes its reason to `notices`. An omitted or
+`minimal` `ports` value includes only ports used by rendered connections; `full` includes every
+declared port. The service advertises this method as
+the `render_view` capability.
+
+This excerpt was captured by calling the gRPC service with
+`RenderViewDemo::connections` from `conformance/fixtures/views.sysml` and marshaling the response
+with protobuf JSON:
+
+```json
+{
+  "view": "RenderViewDemo::connections",
+  "kind": "interconnection",
+  "stated": "render asInterconnectionDiagram",
+  "nodes": [
+    {
+      "id": "n0",
+      "kind": "part def",
+      "name": "RenderViewDemo::Assembly",
+      "origin": {
+        "file": "<content>",
+        "startLine": 21,
+        "startCol": 5,
+        "endLine": 25,
+        "endCol": 6
+      }
+    },
+    {
+      "id": "n1",
+      "kind": "part",
+      "name": "sender",
+      "type": "Sender",
+      "parent": "n0",
+      "ports": [
+        {"id": "n1.0", "name": "api", "type": "API"}
+      ],
+      "origin": {
+        "file": "<content>",
+        "startLine": 22,
+        "startCol": 9,
+        "endLine": 22,
+        "endCol": 30
+      }
+    },
+    {
+      "id": "n2",
+      "kind": "part",
+      "name": "receiver",
+      "type": "Receiver",
+      "parent": "n0",
+      "ports": [
+        {"id": "n2.0", "name": "api", "type": "API"}
+      ],
+      "origin": {
+        "file": "<content>",
+        "startLine": 23,
+        "startCol": 9,
+        "endLine": 23,
+        "endCol": 34
+      }
+    }
+  ],
+  "edges": [
+    {
+      "from": "n1",
+      "to": "n2",
+      "fromPort": "n1.0",
+      "toPort": "n2.0",
+      "label": "link",
+      "kind": "connection",
+      "origin": {
+        "file": "<content>",
+        "startLine": 24,
+        "startCol": 9,
+        "endLine": 24,
+        "endCol": 87
+      }
+    }
+  ]
+}
+```
+
+## `ExportGraphs`
+
+`ExportGraphs` returns the lowered graph of an action or state machine — the subject's
+`ActionGraph`/`StateGraph` IR and that of every behavior it performs — as the canonical
+`graphs:1` JSON an external analysis engine is sent ([the `graphs:1` model
+form](external-engines.md#the-graphs1-model-form)). `content` is that JSON with one trailing
+newline, byte for byte what `sysml -graphs <subject>` writes; `version` is its `version` field and
+`subject` the qualified name as resolved. The subject names an action or state machine, definition
+or usage, by qualified name: a name no element has is `NOT_FOUND` (`symbol not found:
+Test::Missing`), one that is no behavior (`Test: graphs: subject has no lowered graph: Test is a
+package`) is `INVALID_ARGUMENT`, and so is a name the model declares more than once (`P::Run is
+ambiguous: the model declares 2 elements under that name`); a declaration of the model's shadows
+the library's of the same name. The service advertises this method as the `export_graphs`
+capability.
+
+This excerpt was captured by calling the gRPC service with `Test::race` from
+`conformance/fixtures/behavior.sysml` and marshaling the response with protobuf JSON; the
+`content` string is shown pretty-printed and cut after the first two nodes:
+
+```json
+{
+  "content": "{\"version\":1,\"subject\":\"Test::race\",\"actions\":[{\"name\":\"Test::race\",\"kind\":\"actionUsage\", …}]}\n",
+  "version": 1,
+  "subject": "Test::race"
+}
+```
+
+```json
+{
+  "version": 1,
+  "subject": "Test::race",
+  "actions": [
+    {
+      "name": "Test::race",
+      "kind": "actionUsage",
+      "scope": "Test::race",
+      "attributes": [
+        {
+          "name": "winner",
+          "types": ["ScalarValues::Integer"],
+          "value": {"text": "0", "span": {"document": "<content>", "offset": 401, "len": 1}},
+          "span": {"document": "<content>", "offset": 372, "len": 31}
+        }
+      ],
+      "nodes": [
+        {
+          "id": 0,
+          "kind": "start",
+          "name": "start",
+          "span": {"document": "<content>", "offset": 406, "len": 12},
+          "footprint": {}
+        },
+        {
+          "id": 2,
+          "kind": "action usage",
+          "name": "left",
+          "span": {"document": "<content>", "offset": 435, "len": 40},
+          "scope": "Test::race::left",
+          "body": [
+            {
+              "kind": "assign",
+              "span": {"document": "<content>", "offset": 452, "len": 19},
+              "scope": "Test::race::left",
+              "name": "winner",
+              "value": {"text": "1", "span": {"document": "<content>", "offset": 469, "len": 1}}
+            }
+          ],
+          "footprint": {
+            "writes": [{"symbol": "Test::race::winner", "name": "winner"}],
+            "control": [4]
+          }
+        }
+      ],
+      "initial": 0,
+      "finals": [5],
+      "edges": [{"source": 0, "target": 1, "decl": {"document": "<content>", "offset": 543, "len": 34}}]
+    }
+  ]
+}
+```
+
+A node's `kind`, `name`, `scope` and `span` identify the step; `body` carries its statements as the
+runtime executes them; `footprint` records what it reads and writes and the nodes it hands control
+to. `edges` are successions by node id, `flows` item flows between pins, `parameters` the subject's
+own pins; a state machine's graph lists `states`, `transitions` with their guards, triggers and
+effects, and pseudostates in the same way. A behavior a node `performs` is exported after the
+subject under its own name, so the form is closed over everything the subject runs.
 
 ## Queries
 
 Two query surfaces exist and answer differently shaped tables. Their semantics — what may be
 selected, filtered and bound — are on the Go API page and are not repeated here:
 [SysML v2 API & Services `Query`](api.md#sysml-v2-api--services-query) and
-[Native document queries and rendering over gRPC](api.md#native-document-queries-and-rendering-over-grpc).
+[Native document queries and rendering over gRPC](api.md#native-documents-and-views-over-grpc).
 Each is its own capability: `Query` needs `query` (and `oslc_query` when the request uses
 `oslcQuery`); `RunDocumentQuery` needs `document_query`; `RenderDocument` needs
 `render_document`, and `render_document_html` too when its `form` is `html`.
@@ -1926,7 +2287,8 @@ a `DocumentValue`, here always `elementId` plus `elementType`) and `cells` **pos
 aligned with `columns`**. A cell holds `values`, a list of `DocumentValue`s (several for a
 multi-valued property, none for a missing one, in which case `values` is absent). A
 `DocumentValue` decodes like a `Value` — one arm present — but its arms are the eight above plus
-the answer-only `verdict` below, and never a nested sequence or enum. `SubsystemTable` projects two columns and shows a
+the answer-only `verdict` below, `bigIntValue` for an Integer beyond `int64` and `rationalValue`
+for a Rational no double holds (same rules as on `Value`), and never a nested sequence or enum. `SubsystemTable` projects two columns and shows a
 `realValue` cell:
 
 ```console

@@ -6,6 +6,7 @@ import (
 	"html"
 	"io/fs"
 	"math"
+	"os"
 	"sort"
 	"strconv"
 	"strings"
@@ -174,7 +175,7 @@ type HTMLOptions struct {
 	MathScript string
 
 	// DiagramForm is the source every graph-shaped diagram is written as; a
-	// table-kind view is a table whichever it is. Empty picks per diagram:
+	// a tabular view is a table whichever it is. Empty picks per diagram:
 	// DOT for a rendering a Layout or Route positions, Mermaid otherwise.
 	DiagramForm view.Form
 
@@ -190,6 +191,9 @@ type HTMLOptions struct {
 	// Style is the drawing style every DOT diagram is drawn in, the Pilot look
 	// when empty; the other forms draw one look.
 	Style view.DrawingStyle
+
+	// LinkTemplate fills source links for diagram elements. HTML content has no element-anchored sections.
+	LinkTemplate string
 
 	// Files is the file each document of the set this one is rendered in is
 	// written to, by qualified name; a cross-document reference links to the
@@ -291,6 +295,7 @@ func HTML(document *docir.Document, opts HTMLOptions) (string, error) {
 		captions: captionNumbering{on: opts.NumberFigures}, names: document.ElementName,
 	}
 	w.numbers = sectionNumbers(document.Content(), nil, "", map[string]string{})
+	w.labels = refLabels(document, opts.NumberSections, opts.NumberFigures)
 	if err := w.writeDocument(document); err != nil {
 		return "", err
 	}
@@ -316,7 +321,7 @@ func (s Stylesheet) Check() error {
 
 // diagramOptions is the part of the options the diagrams are written by.
 func (o HTMLOptions) diagramOptions() DiagramOptions {
-	return DiagramOptions{Form: o.DiagramForm, WithoutGraphviz: o.WithoutGraphviz, Unplaced: o.Unplaced, Style: o.Style}
+	return DiagramOptions{Form: o.DiagramForm, WithoutGraphviz: o.WithoutGraphviz, Unplaced: o.Unplaced, Style: o.Style, LinkTemplate: o.LinkTemplate}
 }
 
 // htmlWriter accumulates one rendered document, its diagrams in the forms
@@ -331,6 +336,7 @@ type htmlWriter struct {
 	ids      map[string]string
 	numbers  map[string]string
 	captions captionNumbering
+	labels   map[string]string
 	diagrams int
 	mermaid  []string
 	names    namer
@@ -1110,10 +1116,10 @@ func displayMathHTML(source string) string {
 	return displayMathOpen + html.EscapeString(strings.TrimSpace(newlineNormalizer.Replace(source))) + displayMathClose
 }
 
-// writeDiagram writes one diagram as a figure: a table-kind view as a table,
+// writeDiagram writes one diagram as a figure: a tabular view as a table,
 // every other supported kind as the image drawn for it ahead of the render,
 // or else as its source in the render's diagram form — Mermaid, which a loaded
-// Mermaid script draws, or DOT or PlantUML — shown as text.
+// Mermaid script draws, or DOT, PlantUML or D2 — shown as text.
 func (w *htmlWriter) writeDiagram(node docir.Content, id string) error {
 	return w.writeFigure(id, node.Name(), w.captions.caption(node), node.Rendering(), figureOptions(node, w.forms))
 }
@@ -1122,16 +1128,29 @@ func (w *htmlWriter) writeFigure(id, name string, caption caption, rendering *vi
 	if rendering == nil {
 		return &Error{Kind: ErrorMissingRendering, Content: name}
 	}
-	if rendering.Kind != view.KindTable && !rendering.Kind.Supported() {
+	if !rendering.Kind.Supported() {
 		return &Error{Kind: ErrorUnrenderableDiagram, Content: name, Actual: string(rendering.Kind), Form: "HTML"}
 	}
 	var source, fallback string
 	var form view.Form
-	if rendering.Kind != view.KindTable {
+	mermaidSource := false
+	if !rendering.Kind.Tabular() {
 		var err error
 		form, fallback = w.forms.formFor(rendering)
 		if source, err = diagramSource(name, rendering, options, form); err != nil {
 			return err
+		}
+		if form == view.FormMermaid && w.diagramSVG() == "" && w.diagramImage() == "" {
+			cwd, err := os.Getwd()
+			if err != nil {
+				return err
+			}
+			source = view.InlineMermaidImages(source, cwd)
+			if !view.MermaidFits(source) {
+				textSize, edges := view.MermaidSize(source)
+				return &Error{Kind: ErrorOversizedDiagram, Content: name, DiagramForm: form, TextSize: textSize, Edges: edges}
+			}
+			mermaidSource = true
 		}
 	}
 	w.b.WriteString("<figure class=\"sysml-diagram\"" + attr("id", id) + " data-content=\"diagram\"" +
@@ -1143,7 +1162,7 @@ func (w *htmlWriter) writeFigure(id, name string, caption caption, rendering *vi
 		w.b.WriteString("<p class=\"sysml-diagram-notice\"><em>" + html.EscapeString(fallback) + "</em></p>\n")
 	}
 	switch {
-	case rendering.Kind == view.KindTable:
+	case rendering.Kind.Tabular():
 		w.writeRenderingTable(rendering)
 	case w.diagramSVG() != "":
 		w.b.WriteString(svgBlock(w.diagramSVG()) + "\n")
@@ -1156,11 +1175,11 @@ func (w *htmlWriter) writeFigure(id, name string, caption caption, rendering *vi
 		w.b.WriteString("<img" + attr("src", w.diagramImage()) + attr("alt", alt) + ">\n")
 		w.diagrams++
 	default:
-		w.b.WriteString("<pre" + attr("class", string(form)) + ">" + html.EscapeString(source) + "</pre>\n")
-		w.diagrams++
-		if form == view.FormMermaid {
+		if mermaidSource {
 			w.mermaid = append(w.mermaid, source)
 		}
+		w.b.WriteString("<pre" + attr("class", string(form)) + ">" + html.EscapeString(source) + "</pre>\n")
+		w.diagrams++
 	}
 	if caption.String() != "" {
 		w.b.WriteString(figcaption(captionMarkup(caption)))
@@ -1187,7 +1206,7 @@ func (w *htmlWriter) diagramSVG() string {
 	return ""
 }
 
-// writeRenderingTable writes a table-kind view's cells, keeping the notices the
+// writeRenderingTable writes a tabular view's cells, keeping the notices the
 // rendering could not represent as comments so none is lost.
 func (w *htmlWriter) writeRenderingTable(rendering *view.Rendering) {
 	for _, notice := range rendering.Notices {
@@ -1201,7 +1220,11 @@ func (w *htmlWriter) writeRenderingTable(rendering *view.Rendering) {
 	if len(columns) == 0 {
 		columns = view.TableColumns()
 	}
-	w.b.WriteString("<table class=\"sysml-table\" data-content=\"table\">\n")
+	content := "table"
+	if rendering.Kind == view.KindMatrix {
+		content = "matrix"
+	}
+	w.b.WriteString("<table class=\"sysml-table\"" + attr("data-content", content) + ">\n")
 	w.writeTableHead(columns, columns)
 	w.b.WriteString("<tbody>\n")
 	for _, row := range rendering.Rows {
@@ -1218,16 +1241,16 @@ func (w *htmlWriter) writeRenderingTable(rendering *view.Rendering) {
 	w.b.WriteString("</tbody>\n</table>\n")
 }
 
-// inlineRuns renders text runs joined by single spaces, each by its kind:
-// plain runs as prose, styled runs in <em>, <strong> or <code>, math runs as
-// delimited LaTeX in a math span, links and references as anchors, and
-// element-valued runs carrying their element.
+// inlineRuns renders text runs joined by single spaces (see joinRuns), each
+// by its kind: plain runs as prose, styled runs in <em>, <strong> or <code>,
+// math runs as delimited LaTeX in a math span, links and references as
+// anchors, and element-valued runs carrying their element.
 func (w *htmlWriter) inlineRuns(runs []docir.TextRun) string {
 	parts := make([]string, len(runs))
 	for i, run := range runs {
 		parts[i] = w.runHTML(run)
 	}
-	return strings.Join(parts, " ")
+	return joinRuns(runs, parts)
 }
 
 func (w *htmlWriter) runHTML(run docir.TextRun) string {
@@ -1250,8 +1273,13 @@ func (w *htmlWriter) runHTML(run docir.TextRun) string {
 		// A scheme a document must not navigate to is kept as data, not as a link.
 		return "<a class=\"sysml-link\"" + attr("data-href", run.Target()) + ">" + htmlText(run.Text()) + "</a>"
 	case docir.RunRef:
+		// An element outside every document has no anchor to link to; the
+		// reference carries the element as data, as a table's rows do.
+		if element := run.TargetElement(); element != "" {
+			return "<a class=\"sysml-ref\"" + attr("data-element", element) + ">" + htmlText(run.Text()) + "</a>"
+		}
 		return "<a class=\"sysml-ref\"" + attr("href", refDestination(run, w.opts.Files, DocumentHTMLFileName)) +
-			attr("data-document", run.TargetDocument()) + ">" + htmlText(run.Text()) + "</a>"
+			attr("data-document", run.TargetDocument()) + ">" + htmlText(refText(run, w.labels)) + "</a>"
 	default:
 		return htmlText(run.Text())
 	}

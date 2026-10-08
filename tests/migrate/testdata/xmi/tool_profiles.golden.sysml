@@ -13,7 +13,7 @@ package System {
 }
 package Customizations;
 package Mockups {
-    part def Clock {
+    occurrence def Clock {
         ref ticks;
         state def Ticking {
             entry; then Running;

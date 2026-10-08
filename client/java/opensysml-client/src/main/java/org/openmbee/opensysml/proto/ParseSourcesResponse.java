@@ -37,6 +37,8 @@ private static final long serialVersionUID = 0L;
     roots_ = java.util.Collections.emptyList();
     diagnostics_ = java.util.Collections.emptyList();
     error_ = "";
+    affected_ =
+        com.google.protobuf.LazyStringArrayList.emptyList();
   }
 
   public static final com.google.protobuf.Descriptors.Descriptor
@@ -252,6 +254,91 @@ private static final long serialVersionUID = 0L;
     }
   }
 
+  public static final int AFFECTED_FIELD_NUMBER = 5;
+  @SuppressWarnings("serial")
+  private com.google.protobuf.LazyStringArrayList affected_ =
+      com.google.protobuf.LazyStringArrayList.emptyList();
+  /**
+   * <pre>
+   * The documents, by name and in the request's order, whose analysis, and so
+   * whose diagnostics and conversion, may differ from base_model_hash's model:
+   * those whose text changed, those whose analysis read something an edit
+   * changed, and those base_model_hash's model did not hold. Every other
+   * document's results are the base's, so a client may reuse them. Answered
+   * only when base_model_hash is given; every document when the service
+   * cannot relate it to this model (no longer cached, not of the same
+   * documents, or a model whose documents may declare an identity scope).
+   * Reported as the "parse_sources_affected" capability.
+   * </pre>
+   *
+   * <code>repeated string affected = 5 [json_name = "affected"];</code>
+   * @return A list containing the affected.
+   */
+  public com.google.protobuf.ProtocolStringList
+      getAffectedList() {
+    return affected_;
+  }
+  /**
+   * <pre>
+   * The documents, by name and in the request's order, whose analysis, and so
+   * whose diagnostics and conversion, may differ from base_model_hash's model:
+   * those whose text changed, those whose analysis read something an edit
+   * changed, and those base_model_hash's model did not hold. Every other
+   * document's results are the base's, so a client may reuse them. Answered
+   * only when base_model_hash is given; every document when the service
+   * cannot relate it to this model (no longer cached, not of the same
+   * documents, or a model whose documents may declare an identity scope).
+   * Reported as the "parse_sources_affected" capability.
+   * </pre>
+   *
+   * <code>repeated string affected = 5 [json_name = "affected"];</code>
+   * @return The count of affected.
+   */
+  public int getAffectedCount() {
+    return affected_.size();
+  }
+  /**
+   * <pre>
+   * The documents, by name and in the request's order, whose analysis, and so
+   * whose diagnostics and conversion, may differ from base_model_hash's model:
+   * those whose text changed, those whose analysis read something an edit
+   * changed, and those base_model_hash's model did not hold. Every other
+   * document's results are the base's, so a client may reuse them. Answered
+   * only when base_model_hash is given; every document when the service
+   * cannot relate it to this model (no longer cached, not of the same
+   * documents, or a model whose documents may declare an identity scope).
+   * Reported as the "parse_sources_affected" capability.
+   * </pre>
+   *
+   * <code>repeated string affected = 5 [json_name = "affected"];</code>
+   * @param index The index of the element to return.
+   * @return The affected at the given index.
+   */
+  public java.lang.String getAffected(int index) {
+    return affected_.get(index);
+  }
+  /**
+   * <pre>
+   * The documents, by name and in the request's order, whose analysis, and so
+   * whose diagnostics and conversion, may differ from base_model_hash's model:
+   * those whose text changed, those whose analysis read something an edit
+   * changed, and those base_model_hash's model did not hold. Every other
+   * document's results are the base's, so a client may reuse them. Answered
+   * only when base_model_hash is given; every document when the service
+   * cannot relate it to this model (no longer cached, not of the same
+   * documents, or a model whose documents may declare an identity scope).
+   * Reported as the "parse_sources_affected" capability.
+   * </pre>
+   *
+   * <code>repeated string affected = 5 [json_name = "affected"];</code>
+   * @param index The index of the value to return.
+   * @return The bytes of the affected at the given index.
+   */
+  public com.google.protobuf.ByteString
+      getAffectedBytes(int index) {
+    return affected_.getByteString(index);
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -278,6 +365,9 @@ private static final long serialVersionUID = 0L;
     if (!com.google.protobuf.GeneratedMessage.isStringEmpty(error_)) {
       com.google.protobuf.GeneratedMessage.writeString(output, 4, error_);
     }
+    for (int i = 0; i < affected_.size(); i++) {
+      com.google.protobuf.GeneratedMessage.writeString(output, 5, affected_.getRaw(i));
+    }
     getUnknownFields().writeTo(output);
   }
 
@@ -300,6 +390,14 @@ private static final long serialVersionUID = 0L;
     }
     if (!com.google.protobuf.GeneratedMessage.isStringEmpty(error_)) {
       size += com.google.protobuf.GeneratedMessage.computeStringSize(4, error_);
+    }
+    {
+      int dataSize = 0;
+      for (int i = 0; i < affected_.size(); i++) {
+        dataSize += computeStringSizeNoTag(affected_.getRaw(i));
+      }
+      size += dataSize;
+      size += 1 * getAffectedList().size();
     }
     size += getUnknownFields().getSerializedSize();
     memoizedSize = size;
@@ -324,6 +422,8 @@ private static final long serialVersionUID = 0L;
         .equals(other.getDiagnosticsList())) return false;
     if (!getError()
         .equals(other.getError())) return false;
+    if (!getAffectedList()
+        .equals(other.getAffectedList())) return false;
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -347,6 +447,10 @@ private static final long serialVersionUID = 0L;
     }
     hash = (37 * hash) + ERROR_FIELD_NUMBER;
     hash = (53 * hash) + getError().hashCode();
+    if (getAffectedCount() > 0) {
+      hash = (37 * hash) + AFFECTED_FIELD_NUMBER;
+      hash = (53 * hash) + getAffectedList().hashCode();
+    }
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
     return hash;
@@ -499,6 +603,8 @@ private static final long serialVersionUID = 0L;
       }
       bitField0_ = (bitField0_ & ~0x00000004);
       error_ = "";
+      affected_ =
+          com.google.protobuf.LazyStringArrayList.emptyList();
       return this;
     }
 
@@ -559,6 +665,10 @@ private static final long serialVersionUID = 0L;
       }
       if (((from_bitField0_ & 0x00000008) != 0)) {
         result.error_ = error_;
+      }
+      if (((from_bitField0_ & 0x00000010) != 0)) {
+        affected_.makeImmutable();
+        result.affected_ = affected_;
       }
     }
 
@@ -636,6 +746,16 @@ private static final long serialVersionUID = 0L;
         bitField0_ |= 0x00000008;
         onChanged();
       }
+      if (!other.affected_.isEmpty()) {
+        if (affected_.isEmpty()) {
+          affected_ = other.affected_;
+          bitField0_ |= 0x00000010;
+        } else {
+          ensureAffectedIsMutable();
+          affected_.addAll(other.affected_);
+        }
+        onChanged();
+      }
       this.mergeUnknownFields(other.getUnknownFields());
       onChanged();
       return this;
@@ -698,6 +818,12 @@ private static final long serialVersionUID = 0L;
               bitField0_ |= 0x00000008;
               break;
             } // case 34
+            case 42: {
+              java.lang.String s = input.readStringRequireUtf8();
+              ensureAffectedIsMutable();
+              affected_.add(s);
+              break;
+            } // case 42
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -1479,6 +1605,225 @@ private static final long serialVersionUID = 0L;
       checkByteStringIsUtf8(value);
       error_ = value;
       bitField0_ |= 0x00000008;
+      onChanged();
+      return this;
+    }
+
+    private com.google.protobuf.LazyStringArrayList affected_ =
+        com.google.protobuf.LazyStringArrayList.emptyList();
+    private void ensureAffectedIsMutable() {
+      if (!affected_.isModifiable()) {
+        affected_ = new com.google.protobuf.LazyStringArrayList(affected_);
+      }
+      bitField0_ |= 0x00000010;
+    }
+    /**
+     * <pre>
+     * The documents, by name and in the request's order, whose analysis, and so
+     * whose diagnostics and conversion, may differ from base_model_hash's model:
+     * those whose text changed, those whose analysis read something an edit
+     * changed, and those base_model_hash's model did not hold. Every other
+     * document's results are the base's, so a client may reuse them. Answered
+     * only when base_model_hash is given; every document when the service
+     * cannot relate it to this model (no longer cached, not of the same
+     * documents, or a model whose documents may declare an identity scope).
+     * Reported as the "parse_sources_affected" capability.
+     * </pre>
+     *
+     * <code>repeated string affected = 5 [json_name = "affected"];</code>
+     * @return A list containing the affected.
+     */
+    public com.google.protobuf.ProtocolStringList
+        getAffectedList() {
+      affected_.makeImmutable();
+      return affected_;
+    }
+    /**
+     * <pre>
+     * The documents, by name and in the request's order, whose analysis, and so
+     * whose diagnostics and conversion, may differ from base_model_hash's model:
+     * those whose text changed, those whose analysis read something an edit
+     * changed, and those base_model_hash's model did not hold. Every other
+     * document's results are the base's, so a client may reuse them. Answered
+     * only when base_model_hash is given; every document when the service
+     * cannot relate it to this model (no longer cached, not of the same
+     * documents, or a model whose documents may declare an identity scope).
+     * Reported as the "parse_sources_affected" capability.
+     * </pre>
+     *
+     * <code>repeated string affected = 5 [json_name = "affected"];</code>
+     * @return The count of affected.
+     */
+    public int getAffectedCount() {
+      return affected_.size();
+    }
+    /**
+     * <pre>
+     * The documents, by name and in the request's order, whose analysis, and so
+     * whose diagnostics and conversion, may differ from base_model_hash's model:
+     * those whose text changed, those whose analysis read something an edit
+     * changed, and those base_model_hash's model did not hold. Every other
+     * document's results are the base's, so a client may reuse them. Answered
+     * only when base_model_hash is given; every document when the service
+     * cannot relate it to this model (no longer cached, not of the same
+     * documents, or a model whose documents may declare an identity scope).
+     * Reported as the "parse_sources_affected" capability.
+     * </pre>
+     *
+     * <code>repeated string affected = 5 [json_name = "affected"];</code>
+     * @param index The index of the element to return.
+     * @return The affected at the given index.
+     */
+    public java.lang.String getAffected(int index) {
+      return affected_.get(index);
+    }
+    /**
+     * <pre>
+     * The documents, by name and in the request's order, whose analysis, and so
+     * whose diagnostics and conversion, may differ from base_model_hash's model:
+     * those whose text changed, those whose analysis read something an edit
+     * changed, and those base_model_hash's model did not hold. Every other
+     * document's results are the base's, so a client may reuse them. Answered
+     * only when base_model_hash is given; every document when the service
+     * cannot relate it to this model (no longer cached, not of the same
+     * documents, or a model whose documents may declare an identity scope).
+     * Reported as the "parse_sources_affected" capability.
+     * </pre>
+     *
+     * <code>repeated string affected = 5 [json_name = "affected"];</code>
+     * @param index The index of the value to return.
+     * @return The bytes of the affected at the given index.
+     */
+    public com.google.protobuf.ByteString
+        getAffectedBytes(int index) {
+      return affected_.getByteString(index);
+    }
+    /**
+     * <pre>
+     * The documents, by name and in the request's order, whose analysis, and so
+     * whose diagnostics and conversion, may differ from base_model_hash's model:
+     * those whose text changed, those whose analysis read something an edit
+     * changed, and those base_model_hash's model did not hold. Every other
+     * document's results are the base's, so a client may reuse them. Answered
+     * only when base_model_hash is given; every document when the service
+     * cannot relate it to this model (no longer cached, not of the same
+     * documents, or a model whose documents may declare an identity scope).
+     * Reported as the "parse_sources_affected" capability.
+     * </pre>
+     *
+     * <code>repeated string affected = 5 [json_name = "affected"];</code>
+     * @param index The index to set the value at.
+     * @param value The affected to set.
+     * @return This builder for chaining.
+     */
+    public Builder setAffected(
+        int index, java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      ensureAffectedIsMutable();
+      affected_.set(index, value);
+      bitField0_ |= 0x00000010;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * The documents, by name and in the request's order, whose analysis, and so
+     * whose diagnostics and conversion, may differ from base_model_hash's model:
+     * those whose text changed, those whose analysis read something an edit
+     * changed, and those base_model_hash's model did not hold. Every other
+     * document's results are the base's, so a client may reuse them. Answered
+     * only when base_model_hash is given; every document when the service
+     * cannot relate it to this model (no longer cached, not of the same
+     * documents, or a model whose documents may declare an identity scope).
+     * Reported as the "parse_sources_affected" capability.
+     * </pre>
+     *
+     * <code>repeated string affected = 5 [json_name = "affected"];</code>
+     * @param value The affected to add.
+     * @return This builder for chaining.
+     */
+    public Builder addAffected(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      ensureAffectedIsMutable();
+      affected_.add(value);
+      bitField0_ |= 0x00000010;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * The documents, by name and in the request's order, whose analysis, and so
+     * whose diagnostics and conversion, may differ from base_model_hash's model:
+     * those whose text changed, those whose analysis read something an edit
+     * changed, and those base_model_hash's model did not hold. Every other
+     * document's results are the base's, so a client may reuse them. Answered
+     * only when base_model_hash is given; every document when the service
+     * cannot relate it to this model (no longer cached, not of the same
+     * documents, or a model whose documents may declare an identity scope).
+     * Reported as the "parse_sources_affected" capability.
+     * </pre>
+     *
+     * <code>repeated string affected = 5 [json_name = "affected"];</code>
+     * @param values The affected to add.
+     * @return This builder for chaining.
+     */
+    public Builder addAllAffected(
+        java.lang.Iterable<java.lang.String> values) {
+      ensureAffectedIsMutable();
+      com.google.protobuf.AbstractMessageLite.Builder.addAll(
+          values, affected_);
+      bitField0_ |= 0x00000010;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * The documents, by name and in the request's order, whose analysis, and so
+     * whose diagnostics and conversion, may differ from base_model_hash's model:
+     * those whose text changed, those whose analysis read something an edit
+     * changed, and those base_model_hash's model did not hold. Every other
+     * document's results are the base's, so a client may reuse them. Answered
+     * only when base_model_hash is given; every document when the service
+     * cannot relate it to this model (no longer cached, not of the same
+     * documents, or a model whose documents may declare an identity scope).
+     * Reported as the "parse_sources_affected" capability.
+     * </pre>
+     *
+     * <code>repeated string affected = 5 [json_name = "affected"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearAffected() {
+      affected_ =
+        com.google.protobuf.LazyStringArrayList.emptyList();
+      bitField0_ = (bitField0_ & ~0x00000010);;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * The documents, by name and in the request's order, whose analysis, and so
+     * whose diagnostics and conversion, may differ from base_model_hash's model:
+     * those whose text changed, those whose analysis read something an edit
+     * changed, and those base_model_hash's model did not hold. Every other
+     * document's results are the base's, so a client may reuse them. Answered
+     * only when base_model_hash is given; every document when the service
+     * cannot relate it to this model (no longer cached, not of the same
+     * documents, or a model whose documents may declare an identity scope).
+     * Reported as the "parse_sources_affected" capability.
+     * </pre>
+     *
+     * <code>repeated string affected = 5 [json_name = "affected"];</code>
+     * @param value The bytes of the affected to add.
+     * @return This builder for chaining.
+     */
+    public Builder addAffectedBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkByteStringIsUtf8(value);
+      ensureAffectedIsMutable();
+      affected_.add(value);
+      bitField0_ |= 0x00000010;
       onChanged();
       return this;
     }

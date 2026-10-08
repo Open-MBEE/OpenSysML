@@ -251,14 +251,10 @@ const StartFeature = "start"
 // StateNode represents a state in a state machine (simple, composite, or orthogonal).
 type StateNode struct {
 	NodeBase
-	Name  string
-	Entry []Node // entry behaviors (action sequence)
-	Do    []Node // do action (ongoing action)
-	Exit  []Node // exit behaviors (action sequence)
-	// Defer names the events the state defers while it is active: an event no
-	// transition of the active configuration handles is retained instead of
-	// dropped, and delivered again once no active state defers it.
-	Defer     []Node
+	Name      string
+	Entry     []Node         // entry behaviors (action sequence)
+	Do        []Node         // do action (ongoing action)
+	Exit      []Node         // exit behaviors (action sequence)
 	Substates []Node         // nested states (hierarchical)
 	Regions   []*StateRegion // orthogonal regions (parallel)
 }
@@ -733,13 +729,6 @@ type ExitMember struct {
 	Actions []Node
 }
 
-// DeferMember represents the events a state defers while it is active.
-// Syntax: defer <event> [, <event>]* ;
-type DeferMember struct {
-	NodeBase
-	Triggers []Node // deferred triggers, in declaration order
-}
-
 // SubstateMember represents a nested state declaration.
 // Syntax: state <name>;
 type SubstateMember struct {
@@ -779,8 +768,9 @@ type TransitionMember struct {
 	// (`then starting { … }`).
 	Members []Node
 	HasBody bool
-	// IsSuccession records the `succession … if …` spelling (SysML.xtext
-	// GuardedSuccession), the one an action body admits.
+	// IsSuccession records the GuardedSuccession form (SysML.xtext), the one
+	// an action body admits: `succession first a if g then b;`, or the same
+	// without its optional `succession`.
 	IsSuccession bool
 }
 

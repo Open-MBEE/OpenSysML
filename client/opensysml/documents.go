@@ -2,9 +2,12 @@ package opensysml
 
 import (
 	"context"
+	"math/big"
+	"slices"
 	"strconv"
 
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
+	"github.com/Open-MBEE/OpenSysML/internal/frontend/protoconv"
 )
 
 // Cell is one typed document-query value: Element, Object, String, Int, Real,
@@ -97,8 +100,8 @@ type DocumentState struct {
 // DocumentEvent is a row an `Events` query answered: one record of a session's
 // trace. It is answered, never bound.
 type DocumentEvent struct {
-	// Kind is "accept", "send", "transition", "entry", "exit", "do", "choice"
-	// or "guard".
+	// Kind is "accept", "send", "transition", "entry", "exit", "do", "choice",
+	// "guard" or "terminate".
 	Kind string
 	// Time is the run's clock when the record was made: a Quantity when the
 	// clock carries a unit, a Real otherwise.
@@ -131,6 +134,8 @@ func (DocumentState) isCell()   { /* marker: closed Cell set */ }
 func (DocumentEvent) isCell()   { /* marker: closed Cell set */ }
 func (String) isCell()          { /* marker: closed Cell set */ }
 func (Int) isCell()             { /* marker: closed Cell set */ }
+func (BigInt) isCell()          { /* marker: closed Cell set */ }
+func (Rational) isCell()        { /* marker: closed Cell set */ }
 func (Real) isCell()            { /* marker: closed Cell set */ }
 func (Bool) isCell()            { /* marker: closed Cell set */ }
 func (Quantity) isCell()        { /* marker: closed Cell set */ }
@@ -216,6 +221,38 @@ type Row struct {
 	Cells [][]Cell
 }
 
+// bindingHoldsBigInt reports whether a binding sends an Integer beyond int64,
+// which only a service offering big_int_values reads.
+func bindingHoldsBigInt(binding *pb.DocumentQueryBinding) bool {
+	return slices.ContainsFunc(binding.GetValues(), protoconv.DocumentValueHoldsBigInt)
+}
+
+// bindingHoldsRational reports whether a binding sends an exact Rational,
+// which only a service offering rational_values reads.
+func bindingHoldsRational(binding *pb.DocumentQueryBinding) bool {
+	return slices.ContainsFunc(binding.GetValues(), protoconv.DocumentValueHoldsRational)
+}
+
+// fitDocumentRationals is fitRationals for query bindings.
+func (c *client) fitDocumentRationals(ctx context.Context, bindings []*pb.DocumentQueryBinding) error {
+	info, err := c.serverInfo(ctx)
+	if err != nil {
+		return err
+	}
+	if info.Has(CapabilityRationalValues) {
+		return nil
+	}
+	for _, binding := range bindings {
+		for _, value := range binding.GetValues() {
+			protoconv.DocumentRationalAsReal(value)
+		}
+	}
+	if slices.ContainsFunc(bindings, bindingHoldsRational) {
+		return c.requireCapabilities(ctx, CapabilityRationalValues)
+	}
+	return nil
+}
+
 func (c *client) RunDocumentQuery(
 	ctx context.Context,
 	model *Model,
@@ -237,6 +274,16 @@ func (c *client) RunDocumentQuery(
 			bound.Values = append(bound.Values, sent)
 		}
 		req.Bindings = append(req.Bindings, bound)
+	}
+	if slices.ContainsFunc(req.Bindings, bindingHoldsBigInt) {
+		if err := c.requireCapabilities(ctx, CapabilityBigIntValues); err != nil {
+			return nil, err
+		}
+	}
+	if slices.ContainsFunc(req.Bindings, bindingHoldsRational) {
+		if err := c.fitDocumentRationals(ctx, req.Bindings); err != nil {
+			return nil, err
+		}
 	}
 	resp, err := c.caller.runDocumentQuery(ctx, req)
 	if err != nil {
@@ -311,6 +358,13 @@ func cellToProto(cell Cell) (*pb.DocumentValue, error) {
 		return &pb.DocumentValue{Kind: &pb.DocumentValue_StringValue{StringValue: string(value)}}, nil
 	case Int:
 		return &pb.DocumentValue{Kind: &pb.DocumentValue_IntValue{IntValue: int64(value)}}, nil
+	case BigInt:
+		if n := value.Int(); n.IsInt64() {
+			return &pb.DocumentValue{Kind: &pb.DocumentValue_IntValue{IntValue: n.Int64()}}, nil
+		}
+		return &pb.DocumentValue{Kind: &pb.DocumentValue_BigIntValue{BigIntValue: value.String()}}, nil
+	case Rational:
+		return &pb.DocumentValue{Kind: &pb.DocumentValue_RationalValue{RationalValue: rationalToProto(value)}}, nil
 	case Real:
 		return &pb.DocumentValue{Kind: &pb.DocumentValue_RealValue{RealValue: float64(value)}}, nil
 	case Bool:
@@ -354,6 +408,21 @@ func cellFromProto(value *pb.DocumentValue) Cell {
 		return String(kind.StringValue)
 	case *pb.DocumentValue_IntValue:
 		return Int(kind.IntValue)
+	case *pb.DocumentValue_BigIntValue:
+		n, ok := new(big.Int).SetString(kind.BigIntValue, 10)
+		if !ok {
+			return nil
+		}
+		if n.IsInt64() {
+			return Int(n.Int64())
+		}
+		return BigInt{n: n}
+	case *pb.DocumentValue_RationalValue:
+		rational, ok := rationalFromProto(kind.RationalValue)
+		if !ok {
+			return nil
+		}
+		return rational
 	case *pb.DocumentValue_RealValue:
 		return Real(kind.RealValue)
 	case *pb.DocumentValue_BoolValue:
@@ -396,31 +465,46 @@ func cellFromProto(value *pb.DocumentValue) Cell {
 		}
 		return state
 	case *pb.DocumentValue_Event:
-		event := DocumentEvent{
-			Kind:         kind.Event.GetKind(),
-			Time:         cellFromProto(kind.Event.GetTime()),
-			Machine:      kind.Event.GetMachine(),
-			State:        kind.Event.GetState(),
-			From:         kind.Event.GetFrom(),
-			To:           kind.Event.GetTo(),
-			Event:        kind.Event.GetEvent(),
-			Payload:      append([]string(nil), kind.Event.GetPayload()...),
-			Alternatives: append([]string(nil), kind.Event.GetAlternatives()...),
-			Taken:        kind.Event.GetTaken(),
-			Text:         kind.Event.GetText(),
-		}
-		if kind.Event.GetObject() != nil {
-			object := objectFromProto(kind.Event.GetObject())
-			event.Object = &object
-		}
-		if kind.Event.GetTarget() != nil {
-			target := objectFromProto(kind.Event.GetTarget())
-			event.Target = &target
-		}
-		return event
+		return documentEventFromProto(kind.Event)
 	default:
 		return nil
 	}
+}
+
+func documentEventsFromProto(events []*pb.DocumentEvent) []DocumentEvent {
+	if len(events) == 0 {
+		return nil
+	}
+	out := make([]DocumentEvent, len(events))
+	for i, event := range events {
+		out[i] = documentEventFromProto(event)
+	}
+	return out
+}
+
+func documentEventFromProto(event *pb.DocumentEvent) DocumentEvent {
+	converted := DocumentEvent{
+		Kind:         event.GetKind(),
+		Time:         cellFromProto(event.GetTime()),
+		Machine:      event.GetMachine(),
+		State:        event.GetState(),
+		From:         event.GetFrom(),
+		To:           event.GetTo(),
+		Event:        event.GetEvent(),
+		Payload:      append([]string(nil), event.GetPayload()...),
+		Alternatives: append([]string(nil), event.GetAlternatives()...),
+		Taken:        event.GetTaken(),
+		Text:         event.GetText(),
+	}
+	if event.GetObject() != nil {
+		object := objectFromProto(event.GetObject())
+		converted.Object = &object
+	}
+	if event.GetTarget() != nil {
+		target := objectFromProto(event.GetTarget())
+		converted.Target = &target
+	}
+	return converted
 }
 
 func objectFromProto(object *pb.DocumentObject) Object {
@@ -445,6 +529,10 @@ func CellText(cell Cell) string {
 		return string(value)
 	case Int:
 		return strconv.FormatInt(int64(value), 10)
+	case BigInt:
+		return value.String()
+	case Rational:
+		return value.String()
 	case Real:
 		return strconv.FormatFloat(float64(value), 'g', -1, 64)
 	case Bool:

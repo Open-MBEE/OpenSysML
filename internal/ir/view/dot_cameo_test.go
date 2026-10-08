@@ -35,7 +35,7 @@ func TestDrawingStyles(t *testing.T) {
 		t.Errorf("error = %q, want %q", err, want)
 	}
 	for _, form := range Forms() {
-		if got := form.TakesStyle(); got != (form == FormDot) {
+		if got := form.TakesStyle(); got != (form == FormDot || form == FormMermaid) {
 			t.Errorf("%s.TakesStyle() = %v", form, got)
 		}
 	}
@@ -50,6 +50,8 @@ func TestDOTPilotIsTheDefault(t *testing.T) {
 		{"state.sysml", "MachineViews::vehicleStates"},
 		{"action.sysml", "FlowViews::driveView"},
 		{"layout.sysml", "PlantViews::placedView"},
+		{"case.sysml", "CaseExamples::caseDiagram"},
+		{"mixed.sysml", "MixedExamples::mixedDiagram"},
 	} {
 		rendering := render(t, tc.file, tc.view)
 		plain, err := rendering.DOT()
@@ -74,12 +76,14 @@ func TestDOTPilotIsTheDefault(t *testing.T) {
 // keeps the default `dot` engine of an unplaced rendering.
 func TestGoldenDOTCameo(t *testing.T) {
 	cases := []struct {
-		name, file, view, header, fill string
+		name, file, view, header, fill, frame string
 	}{
-		{"tree", "tree.sysml", "VehicleViews::vehicleView", "<b>bdd</b> [Block] Vehicle [ vehicleView ]", cameoBlockFill},
-		{"interconnection", "interconnection.sysml", "PlantViews::loopView", "<b>ibd</b> [Block] Loop [ loopView ]", cameoBlockFill},
-		{"state", "state.sysml", "MachineViews::vehicleStates", "<b>stm</b> [State Machine] VehicleStates [ vehicleStates ]", cameoStateFill},
-		{"action", "action.sysml", "FlowViews::driveView", "<b>act</b> [Activity] Drive [ driveView ]", cameoActionFill},
+		{"tree", "tree.sysml", "VehicleViews::vehicleView", "<b>bdd</b> [Block] Vehicle [ vehicleView ]", cameoBlockFill, ""},
+		{"interconnection", "interconnection.sysml", "PlantViews::loopView", "<b>ibd</b> [Block] Loop [ loopView ]", cameoBlockFill, ""},
+		{"state", "state.sysml", "MachineViews::vehicleStates", "<b>stm</b> [State Machine] VehicleStates [ vehicleStates ]", cameoStateFill, ""},
+		{"action", "action.sysml", "FlowViews::driveView", "<b>act</b> [Activity] Drive [ driveView ]", cameoActionFill, ""},
+		{"case", "case.sysml", "CaseExamples::caseDiagram", "", cameoBlockFill, "uc"},
+		{"mixed", "mixed.sysml", "MixedExamples::mixedDiagram", "", cameoBlockFill, "mixed"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -93,13 +97,20 @@ func TestGoldenDOTCameo(t *testing.T) {
 			for _, want := range []string{
 				"// layout: dot\n",
 				`subgraph "cluster_frame" {`,
-				"label=<" + tc.header + ">;",
 				`node [shape=box, style=filled, fillcolor="` + cameoBlockFill + `", gradientangle=0, color="` + cameoBlockLine + `", fontname="Arial", fontsize=11, fontcolor="` + cameoTextColor + `", penwidth=1];`,
 				`edge [color="` + cameoEdgeColor + `", fontname="Arial", fontsize=9, fontcolor="` + cameoTextColor + `", penwidth=1, arrowhead=open];`,
 				`fillcolor="` + tc.fill + `"`,
 			} {
 				if !strings.Contains(dot, want) {
 					t.Errorf("cameo DOT lacks %q:\n%s", want, dot)
+				}
+			}
+			if tc.header != "" && !strings.Contains(dot, "label=<"+tc.header+">;") {
+				t.Errorf("cameo DOT frame header lacks %q:\n%s", tc.header, dot)
+			}
+			if tc.frame != "" && !strings.Contains(dot, "label=<b>"+tc.frame+"</b>") {
+				if !strings.Contains(dot, "label=<<b>"+tc.frame+"</b>") {
+					t.Errorf("cameo DOT frame kind lacks %q:\n%s", tc.frame, dot)
 				}
 			}
 			if strings.Contains(dot, "Helvetica") || strings.Contains(dot, "#181818") {
@@ -167,11 +178,9 @@ func TestDOTCameoPseudonodes(t *testing.T) {
 
 // A state's compartment names each behaviour, `do / initialize`, by the
 // behaviour's own name or else its type's, and by its kind alone when it has
-// neither, and names the triggers it defers, in both styles; the Cameo
-// compartment sets each behaviour on its own line, each deferred trigger as
-// UML's `Reset / defer` — a name quoting a comma one trigger still, bare —
-// and leaves the initial marker to the dot, in 11pt Arial; the Pilot's 14pt
-// Helvetica and keyword line are untouched.
+// neither, in both styles; the Cameo compartment sets each behaviour on its
+// own line and leaves the initial marker to the dot, in 11pt Arial; the
+// Pilot's 14pt Helvetica and keyword line are untouched.
 func TestDOTStateBehaviourNames(t *testing.T) {
 	rendering := render(t, "state-do.sysml", "InstrumentViews::peas")
 	cameo, err := rendering.DOTWith(Options{Style: StyleCameo})
@@ -183,7 +192,7 @@ func TestDOTStateBehaviourNames(t *testing.T) {
 		t.Fatalf("pilot DOT: %v", err)
 	}
 	for _, want := range []string{
-		"initial, do / initialize", "entry / Warm, do, exit / cool", "do, exit / wrap, defers Reset, Halt, &#39;Stop, Now&#39;", "do / InitializePEAS",
+		"initial, do / initialize", "entry / Warm, do, exit / cool", "do, exit / wrap", "do / InitializePEAS",
 	} {
 		if !strings.Contains(pilot, want) {
 			t.Errorf("pilot DOT lacks %q:\n%s", want, pilot)
@@ -193,20 +202,20 @@ func TestDOTStateBehaviourNames(t *testing.T) {
 		`fontname="Arial", fontsize=11,`,
 		`<tr><td><b>Init</b></td></tr><hr/><tr><td align="left">do / initialize</td></tr>`,
 		`<hr/><tr><td align="left">entry / Warm<br/>do<br/>exit / cool</td></tr>`,
-		`<hr/><tr><td align="left">do<br/>exit / wrap<br/>Reset / defer<br/>Halt / defer<br/>Stop, Now / defer</td></tr>`,
+		`<hr/><tr><td align="left">do<br/>exit / wrap</td></tr>`,
 		`<tr><td><b>Booting</b></td></tr><hr/><tr><td align="left">do / InitializePEAS</td></tr>`,
 	} {
 		if !strings.Contains(cameo, want) {
 			t.Errorf("cameo DOT lacks %q:\n%s", want, cameo)
 		}
 	}
-	for _, unwanted := range []string{"Helvetica", "«state»", "fontsize=14", "defers"} {
+	for _, unwanted := range []string{"Helvetica", "«state»", "fontsize=14"} {
 		if strings.Contains(cameo, unwanted) {
 			t.Errorf("cameo DOT has %q:\n%s", unwanted, cameo)
 		}
 	}
 	if !strings.Contains(pilot, `fontname="Helvetica", fontsize=14,`) ||
-		!strings.Contains(pilot, `<b>Init</b><br/><font point-size="10"><i>«state»</i></font><br/>initial, do / initialize>`) {
+		!strings.Contains(pilot, `<font point-size="10"><i>«state»</i></font><br/><b>Init</b><br/>initial, do / initialize>`) {
 		t.Errorf("pilot DOT lost its type:\n%s", pilot)
 	}
 }
@@ -277,8 +286,8 @@ func TestNotesAcrossForms(t *testing.T) {
 	}
 	notice := "not represented: 4 note(s); the dot form draws notes"
 	mermaid, plantuml := rendering.Mermaid(), rendering.Text()
-	if !strings.Contains(mermaid, "%% "+notice) {
-		t.Errorf("Mermaid drops the notes silently:\n%s", mermaid)
+	if !strings.Contains(mermaid, "note0@{ shape: notch-rect") || strings.Contains(mermaid, "not represented: 4 note(s)") {
+		t.Errorf("Mermaid does not draw the notes faithfully:\n%s", mermaid)
 	}
 	if puml, _ := rendering.PlantUML(); !strings.Contains(puml, "' "+notice) {
 		t.Errorf("PlantUML drops the notes silently:\n%s", puml)
@@ -286,14 +295,19 @@ func TestNotesAcrossForms(t *testing.T) {
 	if !strings.Contains(plantuml, "notes:\n  \"always\" on pump at (10, 90)\n  \"anchored\" on tank at (650, 40) size 100×30\n  \"check pressure\" on pump -> tank at (420, 140)\n  \"free\" at (0, 700)\n") {
 		t.Errorf("text lacks the notes:\n%s", plantuml)
 	}
-	for _, form := range []Form{FormMermaid, FormPlantUML} {
-		out, err := rendering.WriteWith(form, Options{Style: StyleCameo})
-		if err != nil {
-			t.Fatalf("%s: %v", form, err)
-		}
-		if !strings.Contains(out, "not represented: style cameo; only the DOT form draws a diagram in a style") {
-			t.Errorf("%s takes the cameo style silently:\n%s", form, out)
-		}
+	mermaid, err = rendering.WriteWith(FormMermaid, Options{Style: StyleCameo})
+	if err != nil {
+		t.Fatalf("mermaid: %v", err)
+	}
+	if strings.Contains(mermaid, "not represented: style cameo") {
+		t.Errorf("Mermaid does not draw Cameo style:\n%s", mermaid)
+	}
+	puml, err := rendering.WriteWith(FormPlantUML, Options{Style: StyleCameo})
+	if err != nil {
+		t.Fatalf("plantuml: %v", err)
+	}
+	if !strings.Contains(puml, "not represented: style cameo; only the DOT and Mermaid forms draw a diagram in a style") {
+		t.Errorf("PlantUML does not note the unsupported style:\n%s", puml)
 	}
 }
 

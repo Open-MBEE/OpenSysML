@@ -185,7 +185,10 @@ The question, in the model's own names, and the model in the forms the entry dec
 performs, as canonical JSON — keys in a fixed order, no insignificant whitespace, elements in
 the order the lowering fixes — so the same model exports byte for byte the same form on every
 run and under every `-jobs` count. It is what the runtime executes and nothing less: what the
-graph carries, the form carries.
+graph carries, the form carries. The same form is a public artifact: `sysml -graphs <subject>`,
+`%graphs <name>` and the service's `ExportGraphs` RPC write it for any action or state machine,
+so a tool outside the engine protocol reads what an engine is sent
+([API](api.md#native-documents-and-views-over-grpc)).
 
 ```json
 {"version": 1, "subject": "Mission::race",
@@ -213,12 +216,15 @@ graph carries, the form carries.
   — present on every node the lowering computed one for. An `EdgeForm` is `source`, `target`,
   `guard` as `{text, span}`, `else` for the branch taken when no guard holds, `probability` as
   `{text, span}` for the weight a `Stochastic::Probability` annotation puts on a succession
-  leaving a decision, and `decl`, the span of the succession that declares it. An
+  leaving a decision, `decl`, the span of the succession that declares it, and `gate`, the span
+  of the guarded succession `first a if g then f;` when the edge is that succession leading to
+  the succession flow `f` (its `target` is then `f`'s target and `decl` is `f`'s span). An
   `ObjectFlowForm` is `name`, `kind` — `streaming` for a plain `flow`, `succession` for a
-  `succession flow` — `source`, `sourcePin`, `target`, `targetPin` and `decl`.
+  `succession flow` — `source`, `sourcePin`, `target`, `targetPin`, `decl`, and `gate`, the span
+  of the guarded succession leading to the flow, which moves its value only when that guard holds.
 - `states[]`, one `StateForm` per lowered state machine: `vertices` (the machine, its states
-  and pseudostates with `kind`, `parent`, `region`, `regions`, `entry`, `do`, `exit`,
-  `deferred`), `regions`, `transitions` (`source`, `target`, `trigger`, `guard`, `effect`,
+  and pseudostates with `kind`, `parent`, `region`, `regions`, `entry`, `do`, `exit`),
+  `regions`, `transitions` (`source`, `target`, `trigger`, `guard`, `effect`,
   `via`), `entryTransitions`, `connections`, `machine`, `initial`, `attributes`.
 
 Every element the lowering names carries its `span` (`document`, `offset`, `len`) into the

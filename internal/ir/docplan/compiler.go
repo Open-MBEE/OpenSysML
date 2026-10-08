@@ -78,6 +78,7 @@ type refTarget struct {
 	document string
 	path     []string
 	label    string
+	element  string
 }
 
 // IsDocumentDefinition reports whether sym specializes DocumentQueries::Document.
@@ -782,8 +783,10 @@ func (c *compiler) resolveRefs(content []Content) error {
 			}
 			run.ref = append([]string(nil), target.path...)
 			run.refDocument = target.document
+			run.refElement = target.element
 			if run.text == "" {
 				run.text = target.label
+				run.defaultText = true
 			}
 		}
 		if err := c.resolveRefs(content[i].children); err != nil {
@@ -795,7 +798,7 @@ func (c *compiler) resolveRefs(content []Content) error {
 
 // crossDocumentTarget resolves a reference whose target lives outside the
 // planned document: another document definition's root or one of its named
-// content blocks.
+// content blocks, or a model element of neither, labelled by its name.
 func (c *compiler) crossDocumentTarget(run *Run) (refTarget, error) {
 	sym := run.refSym
 	if root, err := c.documentRootTarget(sym, run); root != nil || err != nil {
@@ -840,13 +843,16 @@ func (c *compiler) crossDocumentTarget(run *Run) (refTarget, error) {
 		}
 		node = owner
 	}
-	return refTarget{}, &Error{
-		Kind:     ErrorInvalidRefTarget,
-		Document: c.document,
-		Content:  symbols.FQNOf(sym),
-		Actual:   symbols.FQNOf(sym),
-		Origin:   run.origin,
+	if sym == nil || sym == c.entry || c.contentOwner(sym) != nil {
+		return refTarget{}, &Error{
+			Kind:     ErrorInvalidRefTarget,
+			Document: c.document,
+			Content:  symbols.FQNOf(sym),
+			Actual:   symbols.FQNOf(sym),
+			Origin:   run.origin,
+		}
 	}
+	return refTarget{element: symbols.FQNOf(sym), label: c.effectiveName(sym)}, nil
 }
 
 // documentRootTarget returns the document definition a reference names as a
@@ -1473,6 +1479,14 @@ func (c *compiler) compileDiagram(member *symbols.Symbol) (Content, error) {
 	if err != nil {
 		return Content{}, err
 	}
+	portsText, portsStated, err := c.optionalText(member, "ports")
+	if err != nil {
+		return Content{}, err
+	}
+	overlayText, overlayStated, err := c.optionalText(member, "overlay")
+	if err != nil {
+		return Content{}, err
+	}
 	source, err := c.diagramSource(member)
 	if err != nil {
 		return Content{}, err
@@ -1577,6 +1591,52 @@ func (c *compiler) compileDiagram(member *symbols.Symbol) (Content, error) {
 		}
 		reference.palette = palette
 	}
+	if portsStated {
+		ports, ok := view.ParsePorts(portsText)
+		if !ok || portsText == "" {
+			return Content{}, &Error{
+				Kind:     ErrorInvalidPorts,
+				Document: c.document,
+				Content:  symbols.FQNOf(member),
+				Actual:   portsText,
+				Origin:   member.Origin(),
+			}
+		}
+		if !reference.kind.SupportsPorts() {
+			return Content{}, &Error{
+				Kind:     ErrorUnsupportedPorts,
+				Document: c.document,
+				Content:  symbols.FQNOf(member),
+				Expected: string(reference.kind),
+				Actual:   portsText,
+				Origin:   member.Origin(),
+			}
+		}
+		reference.ports = ports
+	}
+	if overlayStated {
+		overlay, ok := view.ParseOverlay(overlayText)
+		if !ok || overlayText == "" {
+			return Content{}, &Error{
+				Kind:     ErrorInvalidOverlay,
+				Document: c.document,
+				Content:  symbols.FQNOf(member),
+				Actual:   overlayText,
+				Origin:   member.Origin(),
+			}
+		}
+		if !reference.kind.SupportsOverlay(overlay) {
+			return Content{}, &Error{
+				Kind:     ErrorUnsupportedOverlay,
+				Document: c.document,
+				Content:  symbols.FQNOf(member),
+				Expected: string(reference.kind),
+				Actual:   overlayText,
+				Origin:   member.Origin(),
+			}
+		}
+		reference.overlay = overlay
+	}
 	if err := c.rejectQuery(member); err != nil {
 		return Content{}, err
 	}
@@ -1640,6 +1700,11 @@ func (c *compiler) namedTarget(
 		target := declaration.Value
 		if reference, ok := target.(*ast.FeatureReference); ok {
 			target = reference.Name
+		}
+		// `E.metadata` names the element E itself, a definition or package a
+		// feature reference cannot name.
+		if access, ok := target.(*ast.MetadataAccessExpr); ok && access.Ref != nil {
+			target = access.Ref
 		}
 		if chain, ok := target.(*ast.FeatureChainExpr); ok {
 			resolved, ok := c.resolver.ResolveTarget(candidate.OwnerScope, chain)
@@ -1994,17 +2059,17 @@ func (c *compiler) bindingValue(
 		}
 		return BindingValue{kind: BindingString, text: text, origin: origin}, nil
 	case *ast.LiteralInteger:
-		integer, err := strconv.ParseInt(expression.Value, 10, 64)
-		if err != nil {
+		integer, ok := semantics.ParseInteger(expression.Value)
+		if !ok {
 			return BindingValue{}, c.unsupportedBinding(content, member, entry, parameter)
 		}
 		return BindingValue{kind: BindingInteger, integer: integer, origin: origin}, nil
 	case *ast.LiteralReal:
-		realVal, err := strconv.ParseFloat(expression.Value, 64)
+		rational, err := semantics.ParseRational(expression.Value, semantics.DefaultMaxIntegerBits)
 		if err != nil {
 			return BindingValue{}, c.unsupportedBinding(content, member, entry, parameter)
 		}
-		return BindingValue{kind: BindingReal, real: realVal, origin: origin}, nil
+		return rationalBinding(rational, origin), nil
 	case *ast.LiteralBool:
 		return BindingValue{kind: BindingBoolean, boolean: expression.Value, origin: origin}, nil
 	case *ast.OperatorExpr:
@@ -2032,17 +2097,17 @@ func (c *compiler) signedBinding(
 	}
 	switch operand := expression.Operands[0].(type) {
 	case *ast.LiteralInteger:
-		integer, err := strconv.ParseInt(sign+operand.Value, 10, 64)
-		if err != nil {
+		integer, ok := semantics.ParseInteger(sign + operand.Value)
+		if !ok {
 			return BindingValue{}, c.unsupportedBinding(content, member, entry, parameter)
 		}
 		return BindingValue{kind: BindingInteger, integer: integer, origin: origin}, nil
 	case *ast.LiteralReal:
-		realVal, err := strconv.ParseFloat(sign+operand.Value, 64)
+		rational, err := semantics.ParseRational(sign+operand.Value, semantics.DefaultMaxIntegerBits)
 		if err != nil {
 			return BindingValue{}, c.unsupportedBinding(content, member, entry, parameter)
 		}
-		return BindingValue{kind: BindingReal, real: realVal, origin: origin}, nil
+		return rationalBinding(rational, origin), nil
 	default:
 		return BindingValue{}, c.unsupportedBinding(content, member, entry, parameter)
 	}
@@ -2178,6 +2243,14 @@ func (c *compiler) valueConforms(value BindingValue, expected string) bool {
 	return false
 }
 
+// rationalBinding binds a decimal literal's exact value, an Integer when it is one.
+func rationalBinding(value semantics.Value, origin symbols.Origin) BindingValue {
+	if value.Kind == semantics.ValInt {
+		return BindingValue{kind: BindingInteger, integer: value, origin: origin}
+	}
+	return BindingValue{kind: BindingRational, integer: value, origin: origin}
+}
+
 func scalarBindingType(value BindingValue) (semantics.PrimType, bool) {
 	switch value.Kind() {
 	case BindingBoolean:
@@ -2186,6 +2259,8 @@ func scalarBindingType(value BindingValue) (semantics.PrimType, bool) {
 		return semantics.PrimString, true
 	case BindingInteger:
 		return semantics.PrimInteger, true
+	case BindingRational:
+		return semantics.PrimRational, true
 	case BindingReal:
 		return semantics.PrimReal, true
 	default:

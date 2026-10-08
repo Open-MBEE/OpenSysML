@@ -3,11 +3,11 @@ package opensysml
 import (
 	"context"
 	"errors"
-	"fmt"
 	"slices"
 	"sync"
 
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
+	"github.com/Open-MBEE/OpenSysML/internal/frontend/protoconv"
 )
 
 // Client answers SysML v2 questions: parse, look up, evaluate, instantiate.
@@ -76,6 +76,7 @@ type Client interface {
 
 	// ExecuteState runs the named state machine, feeding it the events in
 	// order, and reports the states visited and the context left behind.
+	// A FailureError from a traced run carries its partial trace and dropped count.
 	// WithSchedule selects the scheduling policy, which requires the schedule
 	// capability, checked before anything is sent.
 	ExecuteState(ctx context.Context, model *Model, stateMachineSymbolID string, events []string, opts ...ExecuteOption) (*StateRun, error)
@@ -164,6 +165,16 @@ type Client interface {
 	// render_document capability.
 	RenderDocument(ctx context.Context, model *Model, documentID string) (string, error)
 
+	// RenderView renders a declared view or targeted pseudo-view as diagram
+	// data. Ports are minimal by default; WithFullPorts requests all ports.
+	// Requires the render_view capability.
+	RenderView(ctx context.Context, model *Model, viewName string, opts ...RenderViewOption) (*RenderedView, error)
+
+	// ExportGraphs exports the lowered graph of an action or state machine,
+	// and of every behavior it performs, as the canonical graphs:1 JSON an
+	// external analysis engine is sent. Requires the export_graphs capability.
+	ExportGraphs(ctx context.Context, model *Model, subject string) (*Graphs, error)
+
 	// Convert writes the model in another representation, from the source the
 	// parse read, so WithFromFormat does not apply and is refused. Requires the
 	// convert capability, and a model of one document. ConvertFile converts a
@@ -172,13 +183,29 @@ type Client interface {
 
 	// ConvertFile writes the model file at path in another representation,
 	// inferring its notation from the extension unless WithFromFormat says
-	// otherwise. Requires the convert capability.
+	// otherwise. A SysML v1 file (.xmi, .uml, .mdzip, or FormatXMI named) is
+	// refused with CodeInvalidArgument: it is migrated by MigrateFile, not
+	// converted. Requires the convert capability.
 	ConvertFile(ctx context.Context, path string, to Format, opts ...ConvertOption) (*Conversion, error)
 
 	// ConvertSource writes inline content in another representation. Name the
 	// notation it is written in with WithFromFormat: there is no file extension
-	// to read it from. Requires the convert capability.
+	// to read it from. A v1 format is refused as ConvertFile refuses it.
+	// Requires the convert capability.
 	ConvertSource(ctx context.Context, content string, to Format, opts ...ConvertOption) (*Conversion, error)
+
+	// MigrateFile migrates the SysML v1 model at path — UML XMI, an Eclipse
+	// UML2 .uml file or a .mdzip archive, inferred from the extension unless
+	// WithV1Format says — to v2, written in the format to. Migration is not a
+	// lossless conversion: every v1 element is mapped, approximated, left
+	// unmapped or skipped, and the Migration's Report says which. Requires the
+	// migrate capability.
+	MigrateFile(ctx context.Context, path string, to Format, opts ...MigrateOption) (*Migration, error)
+
+	// MigrateSource migrates a SysML v1 model carried inline, bytes since a
+	// .mdzip archive is binary. Name its form with WithV1Format: there is no
+	// file extension to read it from. Requires the migrate capability.
+	MigrateSource(ctx context.Context, content []byte, to Format, opts ...MigrateOption) (*Migration, error)
 
 	// ApplyEdits answers the model's source with every edit applied, or refuses
 	// them all with an EditError. The edits target the model's first document —
@@ -294,7 +321,10 @@ type caller interface {
 	query(ctx context.Context, req *pb.QueryRequest) (*pb.QueryResponse, error)
 	runDocumentQuery(ctx context.Context, req *pb.RunDocumentQueryRequest) (*pb.RunDocumentQueryResponse, error)
 	renderDocument(ctx context.Context, req *pb.RenderDocumentRequest) (*pb.RenderDocumentResponse, error)
+	renderView(ctx context.Context, req *pb.RenderViewRequest) (*pb.RenderViewResponse, error)
+	exportGraphs(ctx context.Context, req *pb.ExportGraphsRequest) (*pb.ExportGraphsResponse, error)
 	convert(ctx context.Context, req *pb.ConvertRequest) (*pb.ConvertResponse, error)
+	migrate(ctx context.Context, req *pb.MigrateRequest) (*pb.MigrateResponse, error)
 	applyEdits(ctx context.Context, req *pb.ApplyEditsRequest) (*pb.ApplyEditsResponse, error)
 	close() error
 }
@@ -591,22 +621,13 @@ func (c *client) requireValueCapabilities(ctx context.Context, values ...Value) 
 	if slices.ContainsFunc(values, carriesMetaobject) {
 		needed = append(needed, CapabilityMetaobjectValues)
 	}
+	if slices.ContainsFunc(values, carriesBigInt) {
+		needed = append(needed, CapabilityBigIntValues)
+	}
 	if len(needed) == 0 {
 		return nil
 	}
-	info, err := c.serverInfo(ctx)
-	if err != nil {
-		return err
-	}
-	for _, capability := range needed {
-		if !info.Has(capability) {
-			return &StatusError{
-				Code:    CodeUnimplemented,
-				Message: fmt.Sprintf("capability %q is unavailable", capability),
-			}
-		}
-	}
-	return nil
+	return c.requireCapabilities(ctx, needed...)
 }
 
 // serverInfo is ServerInfo asked at most once per client. A service that
@@ -693,6 +714,56 @@ func carriesMetaobject(value Value) bool {
 		return true
 	}
 	return slices.ContainsFunc(nestedValues(value), carriesMetaobject)
+}
+
+// carriesBigInt reports whether a value, or any value nested in it, holds an
+// integer beyond int64, as itself or as a quantity's magnitude.
+func carriesBigInt(value Value) bool {
+	switch v := value.(type) {
+	case BigInt:
+		return true
+	case Quantity:
+		return isBigInt(v.Magnitude)
+	case Vector:
+		return slices.ContainsFunc(v, isBigInt)
+	case VectorQuantity:
+		return slices.ContainsFunc(v, quantityIsBigInt)
+	case TensorQuantity:
+		return slices.ContainsFunc(v.Components, quantityIsBigInt)
+	case EnumLiteral:
+		return v.Value != nil && carriesBigInt(v.Value)
+	}
+	return slices.ContainsFunc(nestedValues(value), carriesBigInt)
+}
+
+func isBigInt(n Number) bool {
+	_, ok := n.(BigInt)
+	return ok
+}
+
+func quantityIsBigInt(q Quantity) bool { return isBigInt(q.Magnitude) }
+
+// fitRationals sends each exact Rational as rational_value to a service reading
+// rational_values; to one without, a Rational a double holds crosses as that Real,
+// and any other is refused rather than read as null.
+func (c *client) fitRationals(ctx context.Context, values ...*pb.Value) error {
+	if !slices.ContainsFunc(values, protoconv.ValueCarriesRational) {
+		return nil
+	}
+	info, err := c.serverInfo(ctx)
+	if err != nil {
+		return err
+	}
+	if info.Has(CapabilityRationalValues) {
+		return nil
+	}
+	for _, value := range values {
+		protoconv.RationalsAsReals(value)
+	}
+	if slices.ContainsFunc(values, protoconv.ValueCarriesRational) {
+		return c.requireCapabilities(ctx, CapabilityRationalValues)
+	}
+	return nil
 }
 
 // nestedValues are the values a value holds: a sequence's or a set's elements,

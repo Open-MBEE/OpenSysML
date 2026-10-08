@@ -12,6 +12,7 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/Open-MBEE/OpenSysML/internal/translate/convert"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/migrate"
 	"github.com/Open-MBEE/OpenSysML/tests/testutil/gobuild"
 )
@@ -20,6 +21,8 @@ var (
 	buildOnce sync.Once
 	builtCLI  string
 	buildErr  error
+	// cliBuildFlags are extra `go build` flags for the binary, as a tagged test build's tags.
+	cliBuildFlags []string
 )
 
 // buildCLI builds the sysml binary once per test binary so the tests exercise the
@@ -33,7 +36,7 @@ func buildCLI(t *testing.T) string {
 			return
 		}
 		builtCLI = filepath.Join(dir, "sysml")
-		build := exec.Command("go", gobuild.Args(builtCLI)...)
+		build := exec.Command("go", gobuild.Args(builtCLI, cliBuildFlags...)...)
 		if out, err := build.CombinedOutput(); err != nil {
 			buildErr = fmt.Errorf("go build: %v\n%s", err, out)
 		}
@@ -138,6 +141,39 @@ func TestConvertAPIJSONLibraryFallbackWarnsOnStderr(t *testing.T) {
 	}
 	if strings.Contains(result.stdout, "warning:") || !strings.Contains(result.stdout, "library package DocumentLibrary") {
 		t.Errorf("stdout contains the wrong conversion output:\n%s", result.stdout)
+	}
+}
+
+func TestConvertRecordedReportsAPIJSONWarning(t *testing.T) {
+	stdout, err := os.CreateTemp(t.TempDir(), "stdout")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = stdout.Close() })
+	stderr, err := os.CreateTemp(t.TempDir(), "stderr")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = stderr.Close() })
+	oldStdout, oldStderr := os.Stdout, os.Stderr
+	os.Stdout, os.Stderr = stdout, stderr
+	defer func() {
+		os.Stdout, os.Stderr = oldStdout, oldStderr
+	}()
+
+	status, err := convertRecorded(apiJSONFixture(t, "library_identity.toolkit.full.json"), convert.FormatSysML)
+	if err != nil || status != 0 {
+		t.Fatalf("recorded conversion returned status %d, error %v", status, err)
+	}
+	if err := stderr.Sync(); err != nil {
+		t.Fatal(err)
+	}
+	warnings, err := os.ReadFile(stderr.Name())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(warnings), "warning: the library element") {
+		t.Fatalf("recorded conversion omitted the library warning:\n%s", warnings)
 	}
 }
 
@@ -261,7 +297,7 @@ func TestConvertIDFormMisuse(t *testing.T) {
 		"without convert":       {model, "-id", "uuid"},
 		"to notation":           {model, "-convert", "sysml", "-id", "uuid"},
 		"from interchange json": {model, "-from", "api-json", "-convert", "api-json", "-id", "uuid"},
-		"from xmi":              {model, "-from", "xmi", "-convert", "sysml", "-id", "uuid"},
+		"with migrate":          {model, "-from", "xmi", "-migrate", "sysml", "-id", "uuid"},
 	} {
 		t.Run(name, func(t *testing.T) {
 			res := runCommand(t, exec.Command(binary, args...))
@@ -396,8 +432,9 @@ func run(t *testing.T, binary string, args ...string) string {
 // TestConvertMigratesXMI drives a SysML v1 migration through the command line:
 // the .xmi extension picks the input format, -migration-report writes text or
 // JSON by extension, the summary goes to stderr otherwise, and XMI is never a
-// target.
-func TestConvertMigratesXMI(t *testing.T) {
+// target. -convert refuses the v1 model with the -migrate run that handles it,
+// and -migrate refuses a v2 model with the -convert run.
+func TestMigrateMigratesXMI(t *testing.T) {
 	binary := buildCLI(t)
 	dir := t.TempDir()
 	xmi := filepath.Join("..", "..", "tests", "migrate", "testdata", "xmi", "vehicle.xmi")
@@ -406,7 +443,7 @@ func TestConvertMigratesXMI(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	migrated := runCommand(t, exec.Command(binary, xmi, "-convert", "sysml"))
+	migrated := runCommand(t, exec.Command(binary, xmi, "-migrate", "sysml"))
 	if migrated.status != 0 {
 		t.Fatalf("migrating failed: %s%s", migrated.stdout, migrated.stderr)
 	}
@@ -424,8 +461,8 @@ func TestConvertMigratesXMI(t *testing.T) {
 	jsonReport := filepath.Join(dir, "report.json")
 	layoutExport := filepath.Join(dir, "layout.xml")
 	turtle := filepath.Join(dir, "model.ttl")
-	run(t, binary, xmi, "-convert", "ttl", "-o", turtle, "-migration-report", textReport)
-	run(t, binary, xmi, "-from", "xmi", "-convert", "sysml", "-o", model, "-migration-report", jsonReport)
+	run(t, binary, xmi, "-migrate", "ttl", "-o", turtle, "-migration-report", textReport)
+	run(t, binary, xmi, "-from", "xmi", "-migrate", "sysml", "-o", model, "-migration-report", jsonReport)
 	text, err := os.ReadFile(textReport)
 	if err != nil {
 		t.Fatal(err)
@@ -471,24 +508,37 @@ func TestConvertMigratesXMI(t *testing.T) {
 		want string
 	}{
 		"xmi as target":                                {[]string{model, "-convert", "xmi"}, "cannot write xmi"},
-		"report without xmi":                           {[]string{model, "-convert", "ttl", "-migration-report", textReport}, "-migration-report describes a SysML v1 migration"},
-		"report without convert":                       {[]string{model, "-migration-report", textReport}, "-migration-report accompanies -convert"},
-		"notation read as xmi":                         {[]string{model, "-from", "xmi", "-convert", "sysml"}, "model.sysml"},
-		"report over the model":                        {[]string{xmi, "-convert", "sysml", "-o", textReport, "-migration-report", textReport}, "-migration-report and -o both name"},
-		"report over the model through dangling links": {[]string{xmi, "-convert", "sysml", "-o", danglingLink(t, dir, "model-link", "shared.txt"), "-migration-report", danglingLink(t, dir, "report-link", "shared.txt")}, "-migration-report and -o both name"},
-		"report over the input":                        {[]string{xmi, "-convert", "sysml", "-migration-report", xmi}, "names the model being migrated"},
-		"report over the input, spelled differently":   {[]string{xmi, "-convert", "sysml", "-migration-report", filepath.Join(filepath.Dir(xmi), ".", filepath.Base(xmi))}, "names the model being migrated"},
-		"report over the input through a link":         {[]string{xmi, "-convert", "sysml", "-migration-report", symlinkTo(t, dir, "input-link", xmi)}, "names the model being migrated"},
-		"report over the model, spelled differently":   {[]string{xmi, "-convert", "sysml", "-o", filepath.Join(filepath.Dir(textReport), ".", filepath.Base(textReport)), "-migration-report", textReport}, "-migration-report and -o both name"},
-		"output over the input":                        {[]string{v1, "-convert", "sysml", "-o", v1}, "-o names the model being migrated"},
-		"output over the input, spelled differently":   {[]string{v1, "-convert", "sysml", "-o", filepath.Join(dir, ".", "v1.xmi")}, "-o names the model being migrated"},
-		"output over the input through a link":         {[]string{v1, "-convert", "sysml", "-o", symlinkTo(t, dir, "v1-link", v1)}, "-o names the model being migrated"},
-		"output over the input through a hard link":    {[]string{v1, "-convert", "sysml", "-o", hardLink}, "-o names the model being migrated"},
-		"layout without convert":                       {[]string{model, "-layout", layoutExport}, "-layout accompanies -convert"},
-		"layout without xmi":                           {[]string{model, "-convert", "ttl", "-layout", layoutExport}, "-layout augments a SysML v1 migration"},
-		"layout over the model":                        {[]string{xmi, "-convert", "sysml", "-o", layoutExport, "-layout", layoutExport}, "-layout and -o both name"},
-		"layout over the report":                       {[]string{xmi, "-convert", "sysml", "-migration-report", layoutExport, "-layout", layoutExport}, "-layout and -migration-report both name"},
-		"layout over the input":                        {[]string{xmi, "-convert", "sysml", "-layout", xmi}, "names the model being migrated"},
+		"xmi as migration target":                      {[]string{xmi, "-migrate", "xmi"}, "cannot write xmi"},
+		"report with convert":                          {[]string{model, "-convert", "ttl", "-migration-report", textReport}, "-migration-report accompanies -migrate"},
+		"report without migrate":                       {[]string{model, "-migration-report", textReport}, "-migration-report accompanies -migrate"},
+		"notation read as xmi":                         {[]string{model, "-from", "xmi", "-migrate", "sysml"}, "model.sysml"},
+		"notation migrated":                            {[]string{model, "-migrate", "sysml"}, "is sysml input, which is converted, not migrated: only a SysML v1 model (xmi, uml or mdzip) is migrated; write `sysml " + model + " -convert sysml`"},
+		"notation migrated by -from":                   {[]string{model, "-from", "sysml", "-migrate", "ttl"}, "write `sysml " + model + " -from sysml -convert ttl`"},
+		"v1 converted":                                 {[]string{v1, "-convert", "sysml"}, v1 + " is a SysML v1 model, which is migrated, not converted: every element is mapped, approximated or left unmapped and reported element by element; write `sysml " + v1 + " -migrate sysml -o v1.sysml -migration-report v1.report.txt`"},
+		"v1 converted to ttl by -from":                 {[]string{v1, "-from", "mdzip", "-convert", "ttl"}, "write `sysml " + v1 + " -from mdzip -migrate ttl -o v1.ttl -migration-report v1.report.txt`"},
+		"convert and migrate":                          {[]string{v1, "-convert", "sysml", "-migrate", "sysml"}, "-convert and -migrate are mutually exclusive"},
+		"migrate and query":                            {[]string{v1, "-migrate", "sysml", "-query", "Vehicle"}, "-migrate and -query are mutually exclusive"},
+		"migrate and render":                           {[]string{v1, "-migrate", "sysml", "-render", "Demo::overview"}, "-migrate, -render and -render-document each write a document out"},
+		"migrate and validate":                         {[]string{v1, "-migrate", "sysml", "-validate"}, "-migrate writes the migrated model out and decides nothing about it"},
+		"migrate without a model":                      {[]string{"-migrate", "sysml"}, "no model to migrate"},
+		"migrate several models":                       {[]string{v1, v1, "-migrate", "sysml"}, "-migrate migrates one SysML v1 model per run"},
+		"id with migrate":                              {[]string{v1, "-migrate", "ttl", "-id", "uuid"}, "-id accompanies -convert"},
+		"image base URL with convert":                  {[]string{model, "-convert", "ttl", "-image-base-url", "https://ve.example.org"}, "-image-base-url accompanies -migrate"},
+		"report over the model":                        {[]string{xmi, "-migrate", "sysml", "-o", textReport, "-migration-report", textReport}, "-migration-report and -o both name"},
+		"report over the model through dangling links": {[]string{xmi, "-migrate", "sysml", "-o", danglingLink(t, dir, "model-link", "shared.txt"), "-migration-report", danglingLink(t, dir, "report-link", "shared.txt")}, "-migration-report and -o both name"},
+		"report over the input":                        {[]string{xmi, "-migrate", "sysml", "-migration-report", xmi}, "names the model being migrated"},
+		"report over the input, spelled differently":   {[]string{xmi, "-migrate", "sysml", "-migration-report", filepath.Join(filepath.Dir(xmi), ".", filepath.Base(xmi))}, "names the model being migrated"},
+		"report over the input through a link":         {[]string{xmi, "-migrate", "sysml", "-migration-report", symlinkTo(t, dir, "input-link", xmi)}, "names the model being migrated"},
+		"report over the model, spelled differently":   {[]string{xmi, "-migrate", "sysml", "-o", filepath.Join(filepath.Dir(textReport), ".", filepath.Base(textReport)), "-migration-report", textReport}, "-migration-report and -o both name"},
+		"output over the input":                        {[]string{v1, "-migrate", "sysml", "-o", v1}, "-o names the model being migrated"},
+		"output over the input, spelled differently":   {[]string{v1, "-migrate", "sysml", "-o", filepath.Join(dir, ".", "v1.xmi")}, "-o names the model being migrated"},
+		"output over the input through a link":         {[]string{v1, "-migrate", "sysml", "-o", symlinkTo(t, dir, "v1-link", v1)}, "-o names the model being migrated"},
+		"output over the input through a hard link":    {[]string{v1, "-migrate", "sysml", "-o", hardLink}, "-o names the model being migrated"},
+		"layout without migrate":                       {[]string{model, "-layout", layoutExport}, "-layout accompanies -migrate"},
+		"layout with convert":                          {[]string{model, "-convert", "ttl", "-layout", layoutExport}, "-layout accompanies -migrate"},
+		"layout over the model":                        {[]string{xmi, "-migrate", "sysml", "-o", layoutExport, "-layout", layoutExport}, "-layout and -o both name"},
+		"layout over the report":                       {[]string{xmi, "-migrate", "sysml", "-migration-report", layoutExport, "-layout", layoutExport}, "-layout and -migration-report both name"},
+		"layout over the input":                        {[]string{xmi, "-migrate", "sysml", "-layout", xmi}, "names the model being migrated"},
 	} {
 		t.Run(name, func(t *testing.T) {
 			out, err := exec.Command(binary, tc.args...).CombinedOutput()
@@ -534,7 +584,7 @@ func TestMigrationReportRefusedBeforeEveryMode(t *testing.T) {
 		{model, "-render-documents", filepath.Join(dir, "docs"), "-migration-report", report},
 	} {
 		res := runCommand(t, exec.Command(binary, args...))
-		if res.status != 2 || !strings.Contains(res.stderr, "-migration-report accompanies -convert") {
+		if res.status != 2 || !strings.Contains(res.stderr, "-migration-report accompanies -migrate") {
 			t.Errorf("%v: status %d, stderr:\n%s", args[1:], res.status, res.stderr)
 		}
 		if _, err := os.Stat(report); err == nil {
@@ -573,7 +623,7 @@ func TestConvertLayoutAugment(t *testing.T) {
 	binary := buildCLI(t)
 	xmi := filepath.Join("..", "..", "tests", "migrate", "testdata", "xmi", "layout.xmi")
 	layout := filepath.Join("..", "..", "tests", "migrate", "testdata", "xmi", "layout.layout.xml")
-	out := runCommand(t, exec.Command(binary, xmi, "-convert", "sysml", "-layout", layout))
+	out := runCommand(t, exec.Command(binary, xmi, "-migrate", "sysml", "-layout", layout))
 	if out.status != 0 {
 		t.Fatalf("migrating with -layout failed: %s%s", out.stdout, out.stderr)
 	}
@@ -608,9 +658,9 @@ func TestConvertImageBaseURL(t *testing.T) {
 		t.Fatal(err)
 	}
 	out := filepath.Join(dir, "documents.sysml")
-	res := runCommand(t, exec.Command(binary, model, "-convert", "sysml", "-o", out, "-image-base-url", "https://mms.example.org"))
+	res := runCommand(t, exec.Command(binary, model, "-migrate", "sysml", "-o", out, "-image-base-url", "https://mms.example.org"))
 	if res.status != 0 {
-		t.Fatalf("converting: %s%s", res.stdout, res.stderr)
+		t.Fatalf("migrating: %s%s", res.stdout, res.stderr)
 	}
 	migrated, err := os.ReadFile(out)
 	if err != nil {
@@ -625,10 +675,14 @@ func TestConvertImageBaseURL(t *testing.T) {
 		t.Fatal(err)
 	}
 	res = runCommand(t, exec.Command(binary, v2, "-convert", "sysml", "-image-base-url", "https://mms.example.org"))
-	if res.status == 0 || !strings.Contains(res.stderr, "-image-base-url resolves images of a SysML v1 migration") {
+	if res.status == 0 || !strings.Contains(res.stderr, "-image-base-url accompanies -migrate of a SysML v1 model") {
 		t.Errorf("v2 input: status %d, stderr:\n%s", res.status, res.stderr)
 	}
-	res = runCommand(t, exec.Command(binary, model, "-convert", "sysml", "-o", out, "-image-base-url", "ftp://x"))
+	res = runCommand(t, exec.Command(binary, v2, "-migrate", "sysml", "-image-base-url", "https://mms.example.org"))
+	if res.status == 0 || !strings.Contains(res.stderr, "is sysml input, which is converted, not migrated") {
+		t.Errorf("v2 input migrated: status %d, stderr:\n%s", res.status, res.stderr)
+	}
+	res = runCommand(t, exec.Command(binary, model, "-migrate", "sysml", "-o", out, "-image-base-url", "ftp://x"))
 	if res.status == 0 || !strings.Contains(res.stderr, "not an absolute http(s) URL") {
 		t.Errorf("ftp base: status %d, stderr:\n%s", res.status, res.stderr)
 	}
@@ -650,7 +704,7 @@ func TestConvertImagesLandBesideResolvedOutput(t *testing.T) {
 		t.Fatal(err)
 	}
 	link := symlinkTo(t, dir, "out.sysml", filepath.Join(models, "report.sysml"))
-	res := runCommand(t, exec.Command(binary, model, "-convert", "sysml", "-from", "mdzip", "-o", link))
+	res := runCommand(t, exec.Command(binary, model, "-migrate", "sysml", "-from", "mdzip", "-o", link))
 	if res.status != 0 {
 		t.Fatalf("converting: %s%s", res.stdout, res.stderr)
 	}
@@ -668,12 +722,59 @@ func TestConvertImagesLandBesideResolvedOutput(t *testing.T) {
 	if err := os.MkdirAll(outDir, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	res = runCommand(t, exec.Command(binary, model, "-convert", "sysml", "-from", "mdzip", "-o", outDir))
+	res = runCommand(t, exec.Command(binary, model, "-migrate", "sysml", "-from", "mdzip", "-o", outDir))
 	if res.status == 0 || !strings.Contains(res.stderr, "which is not a file") {
 		t.Errorf("directory -o: status %d, stderr:\n%s", res.status, res.stderr)
 	}
 	if _, err := os.Stat(filepath.Join(dir, "images")); err == nil {
 		t.Error("a failed run still wrote images")
+	}
+}
+
+// TestMigrateRefusedDestinationWritesNoSidecars a migration whose images no
+// destination can take leaves neither report nor results behind: stdout and a
+// directory -o are refused before the sidecars are written.
+func TestMigrateRefusedDestinationWritesNoSidecars(t *testing.T) {
+	binary := buildCLI(t)
+	dir := t.TempDir()
+	model := filepath.Join(dir, "documents.mdzip")
+	if err := os.WriteFile(model, documentsMdzip(t), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	report := filepath.Join(dir, "report.txt")
+	results := filepath.Join(dir, "results.json")
+
+	res := runCommand(t, exec.Command(binary, model, "-migrate", "sysml", "-migration-report", report, "-migration-results", results))
+	if res.status == 0 || !strings.Contains(res.stderr, "-o a local file path is required") {
+		t.Errorf("images to stdout: status %d, stderr:\n%s", res.status, res.stderr)
+	}
+	for _, sidecar := range []string{report, results} {
+		if _, err := os.Stat(sidecar); err == nil {
+			t.Errorf("a refused run still wrote %s", filepath.Base(sidecar))
+		}
+	}
+
+	outDir := filepath.Join(dir, "adir")
+	if err := os.MkdirAll(outDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	res = runCommand(t, exec.Command(binary, model, "-migrate", "sysml", "-o", outDir, "-migration-report", report))
+	if res.status == 0 || !strings.Contains(res.stderr, "which is not a file") {
+		t.Errorf("directory -o: status %d, stderr:\n%s", res.status, res.stderr)
+	}
+	if _, err := os.Stat(report); err == nil {
+		t.Error("a refused run still wrote the report")
+	}
+
+	out := filepath.Join(dir, "documents.sysml")
+	res = runCommand(t, exec.Command(binary, model, "-migrate", "sysml", "-o", out, "-migration-report", report, "-migration-results", results))
+	if res.status != 0 {
+		t.Fatalf("migrating: %s%s", res.stdout, res.stderr)
+	}
+	for _, written := range []string{out, report, results} {
+		if _, err := os.Stat(written); err != nil {
+			t.Errorf("the accepted run did not write %s: %v", filepath.Base(written), err)
+		}
 	}
 }
 
@@ -722,7 +823,7 @@ func TestConvertImageSidecarCollision(t *testing.T) {
 		t.Fatal(err)
 	}
 	out := filepath.Join(dir, "documents.sysml")
-	res := runCommand(t, exec.Command(binary, model, "-convert", "sysml", "-from", "mdzip", "-o", out))
+	res := runCommand(t, exec.Command(binary, model, "-migrate", "sysml", "-from", "mdzip", "-o", out))
 	if res.status == 0 || !strings.Contains(res.stderr, "would replace "+model) {
 		t.Errorf("colliding -o: status %d, stderr:\n%s", res.status, res.stderr)
 	}
@@ -747,7 +848,7 @@ func TestConvertImageSidecarIsTheModel(t *testing.T) {
 		t.Skip(err)
 	}
 	out := filepath.Join(dir, "fleet.png")
-	res := runCommand(t, exec.Command(binary, model, "-convert", "sysml", "-from", "mdzip", "-o", out))
+	res := runCommand(t, exec.Command(binary, model, "-migrate", "sysml", "-from", "mdzip", "-o", out))
 	if res.status == 0 || !strings.Contains(res.stderr, "would replace "+out) {
 		t.Errorf("-o at an image's path: status %d, stderr:\n%s", res.status, res.stderr)
 	}
@@ -831,7 +932,7 @@ func TestConvertModelFailureKeepsImages(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = os.Chmod(outDir, 0o700) })
-	res := runCommand(t, exec.Command(binary, model, "-convert", "sysml", "-from", "mdzip", "-o", out))
+	res := runCommand(t, exec.Command(binary, model, "-migrate", "sysml", "-from", "mdzip", "-o", out))
 	if res.status == 0 {
 		t.Fatalf("saving into a closed directory succeeded:\n%s", res.stderr)
 	}
@@ -876,7 +977,7 @@ func TestConvertImageFailureKeepsModel(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = os.Chmod(images, 0o700) })
-	res := runCommand(t, exec.Command(binary, model, "-convert", "sysml", "-from", "mdzip", "-o", out))
+	res := runCommand(t, exec.Command(binary, model, "-migrate", "sysml", "-from", "mdzip", "-o", out))
 	if res.status == 0 {
 		t.Fatalf("writing an image into a closed directory succeeded:\n%s", res.stderr)
 	}
@@ -897,7 +998,7 @@ func TestConvertImageFailureKeepsModel(t *testing.T) {
 func TestStrictConvertWritesNoExtensionNotation(t *testing.T) {
 	binary := buildCLI(t)
 	xmi := filepath.Join("..", "..", "tests", "migrate", "testdata", "xmi", "plant_states.xmi")
-	out := run(t, binary, xmi, "-strict", "-convert", "sysml", "-from", "xmi")
+	out := run(t, binary, xmi, "-strict", "-migrate", "sysml", "-from", "xmi")
 	for _, line := range strings.Split(out, "\n") {
 		trimmed := strings.TrimSpace(line)
 		for _, kw := range []string{"defer ", "choice ", "junction ", "history ", "deep history "} {

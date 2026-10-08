@@ -403,7 +403,7 @@ func TestExecuteBudgets(t *testing.T) {
 	caller := fixtureActivity(t, s, "Caller")
 	em := emitted(t, s, "Caller")
 	x := executed(caller, []ExpectedOutput{integers("all", 0, 1, 10, 20, 30)})
-	ex, err := Execute(context.Background(), em, &x, runtime.ExploreBudget{Runs: 1, Depth: 64}, 1)
+	ex, err := Execute(context.Background(), em, &x, runtime.ExploreBudget{Runs: 1, Depth: 128}, 1)
 	if err != nil {
 		t.Fatal(err)
 	}

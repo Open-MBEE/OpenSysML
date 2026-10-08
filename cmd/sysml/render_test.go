@@ -16,9 +16,14 @@ import (
 // renderModel declares a view stating no rendering, one exposing nothing, and a
 // part def to ask for by mistake.
 const renderModel = `package Demo {
+    private import OpenSysMLRenderings::*;
     part def Vehicle { part wheel : Wheel; }
     part def Wheel;
+    part def Person;
+    use case def Mission { actor pilot : Person; }
     view overview { expose Demo::Vehicle; }
+    view cases { expose Demo::Mission; render asCaseDiagram; }
+    view mixed { expose Demo; render asMixedDiagram; }
     view parts { expose Demo::Vehicle; render Views::asElementTable; }
     view empty;
 }
@@ -33,7 +38,7 @@ func TestRenderWritesTheArtifactOnStdout(t *testing.T) {
 	if got.status != exitHolds {
 		t.Fatalf("exit status = %d, want %d\n%s", got.status, exitHolds, got.output())
 	}
-	for _, want := range []string{"flowchart TD", `"Vehicle<br>«part def»"`} {
+	for _, want := range []string{"flowchart TD", "*«part def»*\n**Vehicle**"} {
 		if !strings.Contains(got.stdout, want) {
 			t.Errorf("stdout is missing %q:\n%s", want, got.stdout)
 		}
@@ -43,6 +48,29 @@ func TestRenderWritesTheArtifactOnStdout(t *testing.T) {
 	}
 	if !strings.Contains(got.stderr, "package Demo") {
 		t.Errorf("stderr does not say what the load declared:\n%s", got.stderr)
+	}
+}
+
+func TestRenderCaseAndMixedViewsAndPseudoViews(t *testing.T) {
+	binary := buildCLI(t)
+	cases := []struct {
+		view string
+		flow string
+	}{
+		{"Demo::cases", "flowchart LR"},
+		{"#case", "flowchart LR"},
+		{"#case:Demo::Mission", "flowchart LR"},
+		{"#mixed", "flowchart TD"},
+		{"#mixed:Demo::Mission", "flowchart TD"},
+	}
+	for _, tc := range cases {
+		got := runStreams(t, binary, renderModel, "-render", tc.view)
+		if got.status != exitHolds {
+			t.Fatalf("-render %s: exit status = %d\n%s", tc.view, got.status, got.output())
+		}
+		if !strings.Contains(got.stdout, tc.flow) {
+			t.Errorf("-render %s lacks %q:\n%s", tc.view, tc.flow, got.stdout)
+		}
 	}
 }
 
@@ -88,8 +116,122 @@ func TestRenderOfATabularView(t *testing.T) {
 		t.Errorf("the text form is no aligned table:\n%s", text.stdout)
 	}
 	mermaid := runStreams(t, binary, renderModel, "-render", "Demo::parts", "-render-form", "mermaid")
-	if mermaid.status != exitUnevaluable || !strings.Contains(mermaid.stderr, "ask for text or markdown") {
+	if mermaid.status != exitUnevaluable || !strings.Contains(mermaid.stderr, "ask for text, markdown, csv or tsv") {
 		t.Errorf("Mermaid of a table = %d\n%s", mermaid.status, mermaid.output())
+	}
+}
+
+const matrixModel = `package Example {
+    private import StandardViewDefinitions::*;
+    requirement def Requirement;
+    requirement r : Requirement;
+    part def Vehicle;
+    part vehicle : Vehicle {
+        satisfy r;
+    }
+    view def RelationshipMatrixView :> GridView {
+        filter @SysML::SatisfyRequirementUsage;
+    }
+    view relationshipMatrix : RelationshipMatrixView {
+        expose vehicle::**;
+    }
+}
+`
+
+func TestRenderOfAGridViewRelationshipMatrix(t *testing.T) {
+	binary := buildCLI(t)
+
+	for _, tc := range []struct {
+		form string
+		want string
+	}{
+		{"text", "Example::relationshipMatrix - matrix rendering"},
+		{"markdown", "| Source / Target | Example::r |"},
+		{"csv", "Source / Target,Example::r\nExample::vehicle,satisfy\n"},
+		{"tsv", "Source / Target\tExample::r\nExample::vehicle\tsatisfy\n"},
+	} {
+		t.Run(tc.form, func(t *testing.T) {
+			got := runStreams(t, binary, matrixModel, "-render", "Example::relationshipMatrix", "-render-form", tc.form)
+			if got.status != exitHolds {
+				t.Fatalf("exit status = %d, want %d\n%s", got.status, exitHolds, got.output())
+			}
+			if !strings.Contains(got.stdout, tc.want) {
+				t.Errorf("stdout is missing %q:\n%s", tc.want, got.stdout)
+			}
+		})
+	}
+
+	for _, form := range []string{"mermaid", "dot", "plantuml", "d2"} {
+		got := runStreams(t, binary, matrixModel, "-render", "Example::relationshipMatrix", "-render-form", form)
+		if got.status != exitUnevaluable || !strings.Contains(got.stderr, "matrix rendering is not written as "+form) {
+			t.Errorf("matrix as %s = %d\n%s", form, got.status, got.output())
+		}
+	}
+
+	dir := filepath.Join(t.TempDir(), "matrix")
+	all := runStreams(t, binary, matrixModel, "-render-all", dir)
+	if all.status != exitHolds {
+		t.Fatalf("-render-all exit status = %d, want %d\n%s", all.status, exitHolds, all.output())
+	}
+	written, err := os.ReadFile(filepath.Join(dir, "Example.relationshipMatrix.md")) // #nosec G304 -- the test wrote this path.
+	if err != nil {
+		t.Fatalf("read -render-all matrix: %v", err)
+	}
+	if !strings.Contains(string(written), "| Source / Target | Example::r |") {
+		t.Errorf("-render-all matrix is missing its table:\n%s", written)
+	}
+}
+
+// A table is written as CSV or TSV when asked, on stdout or into a file, and a
+// graph-shaped view is refused either form.
+func TestRenderOfATableAsDelimitedValues(t *testing.T) {
+	binary := buildCLI(t)
+
+	csvOut := runStreams(t, binary, renderModel, "-render", "Demo::parts", "-render-form", "csv")
+	if csvOut.status != exitHolds {
+		t.Fatalf("exit status = %d, want %d\n%s", csvOut.status, exitHolds, csvOut.output())
+	}
+	if !strings.HasPrefix(csvOut.stdout, "Element,Kind,Type,Declared in\nDemo::Vehicle,part def,,\n") {
+		t.Errorf("stdout is no CSV table:\n%s", csvOut.stdout)
+	}
+	out := filepath.Join(t.TempDir(), "parts.tsv")
+	tsvOut := runStreams(t, binary, renderModel, "-render", "Demo::parts", "-render-form", "tsv", "-o", out)
+	if tsvOut.status != exitHolds || tsvOut.stdout != "" || !strings.Contains(tsvOut.stderr, "(tsv, ") {
+		t.Fatalf("exit status = %d, want %d\n%s", tsvOut.status, exitHolds, tsvOut.output())
+	}
+	written, err := os.ReadFile(out) // #nosec G304 -- the test wrote this path.
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.HasPrefix(string(written), "Element\tKind\tType\tDeclared in\nDemo::Vehicle\tpart def\t\t\n") {
+		t.Errorf("the file is no TSV table:\n%s", written)
+	}
+	tree := runStreams(t, binary, renderModel, "-render", "Demo::overview", "-render-form", "csv")
+	if tree.status != exitUnevaluable || !strings.Contains(tree.stderr, "is not written as csv") {
+		t.Errorf("CSV of a tree = %d\n%s", tree.status, tree.output())
+	}
+}
+
+// -render-all with a forced csv or tsv form writes each table under that
+// extension and skips every view that is no table.
+func TestRenderAllForcedDelimitedFormWritesTablesOnly(t *testing.T) {
+	binary := buildCLI(t)
+	for _, form := range []string{"csv", "tsv"} {
+		dir := filepath.Join(t.TempDir(), form)
+		got := runStreams(t, binary, renderModel, "-render-all", dir, "-render-form", form)
+		if got.status != exitHolds {
+			t.Fatalf("exit status = %d, want %d\n%s", got.status, exitHolds, got.output())
+		}
+		files, err := os.ReadDir(dir)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(files) != 1 || files[0].Name() != "Demo.parts."+form {
+			t.Errorf("-render-form %s wrote %v, want only Demo.parts.%s", form, files, form)
+		}
+		if !strings.Contains(got.stderr, "Demo::overview") {
+			t.Errorf("-render-form %s did not report the skipped tree:\n%s", form, got.stderr)
+		}
 	}
 }
 
@@ -102,7 +244,7 @@ func TestRenderDotForm(t *testing.T) {
 	if got.status != exitHolds {
 		t.Fatalf("exit status = %d, want %d\n%s", got.status, exitHolds, got.output())
 	}
-	for _, want := range []string{"// view: Demo::overview", "// layout: dot", `digraph "Demo::overview" {`, `label=<<b>Vehicle</b><br/><font point-size="10"><i>«part def»</i></font>>`, `"n0" -> "n1" [arrowhead=none];`} {
+	for _, want := range []string{"// view: Demo::overview", "// layout: dot", `digraph "Demo::overview" {`, `label=<<font point-size="10"><i>«part def»</i></font><br/><b>Vehicle</b>>`, `"n0" -> "n1" [arrowhead=none];`} {
 		if !strings.Contains(got.stdout, want) {
 			t.Errorf("stdout is missing %q:\n%s", want, got.stdout)
 		}
@@ -120,7 +262,7 @@ func TestRenderDotForm(t *testing.T) {
 		"wrote " + filepath.Join(dir, "Demo.treeView.dot") + " (dot, ",
 		"wrote " + filepath.Join(dir, "Demo.stateView.dot") + " (dot, ",
 		"Demo::tableView: skipped:",
-		"not written as dot; ask for text or markdown",
+		"not written as dot; ask for text, markdown, csv or tsv",
 	} {
 		if !strings.Contains(got.stderr, want) {
 			t.Errorf("stderr is missing %q:\n%s", want, got.stderr)
@@ -137,7 +279,7 @@ func TestRenderDotForm(t *testing.T) {
 	}
 
 	table := runStreams(t, binary, renderModel, "-render", "Demo::parts", "-render-form", "dot")
-	if table.status != exitUnevaluable || !strings.Contains(table.stderr, "table rendering is not written as dot; ask for text or markdown") {
+	if table.status != exitUnevaluable || !strings.Contains(table.stderr, "table rendering is not written as dot; ask for text, markdown, csv or tsv") {
 		t.Errorf("DOT of a table = %d\n%s", table.status, table.output())
 	}
 }
@@ -152,7 +294,7 @@ func TestRenderPlantUMLForm(t *testing.T) {
 	if got.status != exitHolds {
 		t.Fatalf("exit status = %d, want %d\n%s", got.status, exitHolds, got.output())
 	}
-	for _, want := range []string{"@startuml\n' Demo::overview — tree rendering\n<style>", "skinparam wrapWidth 300", "hide circle", `class "**Vehicle**\n<size:10>//«part def»//</size>" as n0 <<part def>>`, `as n1 <<part>> <<usage>>`, "n0 -- n1\n@enduml\n"} {
+	for _, want := range []string{"@startuml\n' Demo::overview — tree rendering\n<style>", "skinparam wrapWidth 300", "hide circle", `class "<size:10>//«part def»//</size>\n**Vehicle**" as n0 <<part def>>`, `as n1 <<part>> <<usage>>`, "n0 -- n1\n@enduml\n"} {
 		if !strings.Contains(got.stdout, want) {
 			t.Errorf("stdout is missing %q:\n%s", want, got.stdout)
 		}
@@ -170,7 +312,7 @@ func TestRenderPlantUMLForm(t *testing.T) {
 		"wrote " + filepath.Join(dir, "Demo.treeView.puml") + " (plantuml, ",
 		"wrote " + filepath.Join(dir, "Demo.stateView.puml") + " (plantuml, ",
 		"Demo::tableView: skipped:",
-		"not written as plantuml; ask for text or markdown",
+		"not written as plantuml; ask for text, markdown, csv or tsv",
 	} {
 		if !strings.Contains(got.stderr, want) {
 			t.Errorf("stderr is missing %q:\n%s", want, got.stderr)
@@ -194,7 +336,7 @@ func TestRenderPlantUMLForm(t *testing.T) {
 	}
 
 	table := runStreams(t, binary, renderModel, "-render", "Demo::parts", "-render-form", "plantuml")
-	if table.status != exitUnevaluable || !strings.Contains(table.stderr, "table rendering is not written as plantuml; ask for text or markdown") {
+	if table.status != exitUnevaluable || !strings.Contains(table.stderr, "table rendering is not written as plantuml; ask for text, markdown, csv or tsv") {
 		t.Errorf("PlantUML of a table = %d\n%s", table.status, table.output())
 	}
 
@@ -204,9 +346,102 @@ func TestRenderPlantUMLForm(t *testing.T) {
 	}
 }
 
-// -render-palette fills the DOT form's nodes from a named palette, is noted as
-// not represented by the Mermaid form, and is refused with the palettes there
-// are when it names none of them.
+// The D2 form is asked for by name, writes the same rendering into a .d2
+// file, takes a palette with the DOT form's fills, and is refused for a table
+// with the forms a table has.
+func TestRenderD2Form(t *testing.T) {
+	binary := buildCLI(t)
+
+	got := runStreams(t, binary, renderModel, "-render", "Demo::overview", "-render-form", "d2")
+	if got.status != exitHolds {
+		t.Fatalf("exit status = %d, want %d\n%s", got.status, exitHolds, got.output())
+	}
+	for _, want := range []string{"# Demo::overview — tree rendering\nclasses: {\n", `n0: "«part def»\nVehicle" { class: definition }`, "{ class: usage }\n", "\nn0 -- n1: { class: edge }\n"} {
+		if !strings.Contains(got.stdout, want) {
+			t.Errorf("stdout is missing %q:\n%s", want, got.stdout)
+		}
+	}
+	if strings.Contains(got.stdout, "flowchart") || strings.Contains(got.stdout, "digraph") || strings.Contains(got.stdout, "@startuml") {
+		t.Errorf("the D2 form is another form:\n%s", got.stdout)
+	}
+
+	dir := filepath.Join(t.TempDir(), "rendered")
+	got = runStreams(t, binary, renderAllModel, "-render-all", dir, "-render-form", "d2", "-render-palette", "okabe-ito")
+	if got.status != exitHolds {
+		t.Fatalf("exit status = %d, want %d\n%s", got.status, exitHolds, got.output())
+	}
+	for _, want := range []string{
+		"wrote " + filepath.Join(dir, "Demo.treeView.d2") + " (d2, ",
+		"wrote " + filepath.Join(dir, "Demo.stateView.d2") + " (d2, ",
+		"Demo::tableView: skipped:",
+		"not written as d2; ask for text, markdown, csv or tsv",
+	} {
+		if !strings.Contains(got.stderr, want) {
+			t.Errorf("stderr is missing %q:\n%s", want, got.stderr)
+		}
+	}
+	state, err := os.ReadFile(filepath.Join(dir, "Demo.stateView.d2"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{"# Demo::stateView — state rendering", "n0: \"«state def»", "{ class: initial }\n", "\nn0.n2 -> n0.n1: { class: edge }\n"} {
+		if !strings.Contains(string(state), want) {
+			t.Errorf("state artifact is missing %q:\n%s", want, state)
+		}
+	}
+	tree, err := os.ReadFile(filepath.Join(dir, "Demo.treeView.d2"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(tree), `style: { fill: "#E69F00"; stroke: "#`) {
+		t.Errorf("-render-all did not fill from the palette:\n%s", tree)
+	}
+
+	table := runStreams(t, binary, renderModel, "-render", "Demo::parts", "-render-form", "d2")
+	if table.status != exitUnevaluable || !strings.Contains(table.stderr, "table rendering is not written as d2; ask for text, markdown, csv or tsv") {
+		t.Errorf("D2 of a table = %d\n%s", table.status, table.output())
+	}
+	for _, tc := range []struct {
+		name, message string
+	}{
+		{"Demo::cases", "case rendering is not written as d2; ask for text, mermaid, dot or plantuml"},
+		{"Demo::mixed", "mixed rendering is not written as d2; ask for text, mermaid, dot or plantuml"},
+	} {
+		got := runStreams(t, binary, renderModel, "-render", tc.name, "-render-form", "d2")
+		if got.status != exitUnevaluable || got.stdout != "" || !strings.Contains(got.stderr, tc.message) {
+			t.Errorf("D2 of %s = %d\n%s", tc.name, got.status, got.output())
+		}
+	}
+
+	dir = filepath.Join(t.TempDir(), "case-mixed")
+	got = runStreams(t, binary, renderModel, "-render-all", dir, "-render-form", "d2")
+	if got.status != exitHolds {
+		t.Fatalf("-render-all as d2: exit status = %d\n%s", got.status, got.output())
+	}
+	files, err := os.ReadDir(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	wantFiles := []string{"Demo.empty.d2", "Demo.overview.d2"}
+	if len(files) != len(wantFiles) {
+		t.Errorf("-render-all as d2 wrote %v, want %v", files, wantFiles)
+	} else {
+		for i, name := range wantFiles {
+			if files[i].Name() != name {
+				t.Errorf("-render-all as d2 wrote %v, want %v", files, wantFiles)
+				break
+			}
+		}
+	}
+	for _, name := range []string{"Demo::cases", "Demo::mixed"} {
+		if !strings.Contains(got.stderr, name+": skipped:") || !strings.Contains(got.stderr, "not written as d2") {
+			t.Errorf("-render-all did not refuse %s as d2:\n%s", name, got.stderr)
+		}
+	}
+}
+
+// -render-palette fills the DOT and Mermaid forms' nodes from a named palette,
+// and is refused with the palettes there are when it names none of them.
 func TestRenderPalette(t *testing.T) {
 	binary := buildCLI(t)
 
@@ -214,18 +449,18 @@ func TestRenderPalette(t *testing.T) {
 	if got.status != exitHolds {
 		t.Fatalf("exit status = %d, want %d\n%s", got.status, exitHolds, got.output())
 	}
-	for _, want := range []string{`digraph "Demo::overview" {`, `fillcolor="#E69F00", color="#E69F00", penwidth=1, label=<<b>Vehicle</b>`} {
+	for _, want := range []string{`digraph "Demo::overview" {`, `fillcolor="#E69F00", color="#E69F00", penwidth=1, label=<<font point-size="10"><i>«part def»</i></font><br/><b>Vehicle</b>`} {
 		if !strings.Contains(got.stdout, want) {
 			t.Errorf("stdout is missing %q:\n%s", want, got.stdout)
 		}
 	}
 
 	mermaid := runStreams(t, binary, renderModel, "-render", "Demo::overview", "-render-form", "mermaid", "-render-palette", "viridis")
-	if mermaid.status != exitHolds || !strings.Contains(mermaid.stdout, "%% not represented: palette viridis; only the DOT and PlantUML forms fill nodes by keyword family") {
+	if mermaid.status != exitHolds || !strings.Contains(mermaid.stdout, "classDef palette0 fill:#") {
 		t.Errorf("Mermaid with a palette = %d\n%s", mermaid.status, mermaid.output())
 	}
-	if strings.Contains(mermaid.stdout, "fillcolor") || strings.Contains(mermaid.stdout, "style n0") {
-		t.Errorf("Mermaid is themed by the palette:\n%s", mermaid.stdout)
+	if strings.Contains(mermaid.stdout, "not represented: palette") {
+		t.Errorf("Mermaid did not apply the palette:\n%s", mermaid.stdout)
 	}
 
 	unknown := runStreams(t, binary, renderModel, "-render", "Demo::overview", "-render-form", "dot", "-render-palette", "rainbow")
@@ -237,7 +472,7 @@ func TestRenderPalette(t *testing.T) {
 	}
 
 	alone := runStreams(t, binary, renderModel, "-render-palette", "okabe-ito")
-	if alone.status != 2 || !strings.Contains(alone.stderr, "-render-palette is the palette -render or -render-all fills DOT or PlantUML with") {
+	if alone.status != 2 || !strings.Contains(alone.stderr, "-render-palette is the palette -render or -render-all fills DOT, Mermaid, PlantUML or D2 with") {
 		t.Errorf("a palette without a view = %d\n%s", alone.status, alone.output())
 	}
 
@@ -252,6 +487,47 @@ func TestRenderPalette(t *testing.T) {
 	}
 	if !strings.Contains(string(tree), `fillcolor="#`) {
 		t.Errorf("-render-all did not fill from the palette:\n%s", tree)
+	}
+}
+
+func TestRenderLinkFlag(t *testing.T) {
+	binary := buildCLI(t)
+	dir := t.TempDir()
+	path := writeModel(t, dir, "linked.sysml", `package Demo {
+    part def Vehicle;
+    view overview { expose Demo::Vehicle; }
+}
+`)
+	template := "https://example.test/src/{file}#L{line}:{col}"
+	got := runFiles(t, binary, []string{path}, "-render", "Demo::overview", "-render-form", "mermaid", "-render-link", template)
+	if got.status != exitHolds {
+		t.Fatalf("exit status = %d, want %d\n%s", got.status, exitHolds, got.output())
+	}
+	want := `click n0 href "https://example.test/src/` + filepath.ToSlash(path) + `#L2:`
+	if !strings.Contains(got.stdout, want) {
+		t.Errorf("rendered artifact lacks the source link %q:\n%s", want, got.stdout)
+	}
+
+	allDir := filepath.Join(t.TempDir(), "all")
+	all := runFiles(t, binary, []string{path}, "-render-all", allDir, "-render-form", "mermaid", "-render-link", template)
+	if all.status != exitHolds {
+		t.Fatalf("-render-all status = %d, want %d\n%s", all.status, exitHolds, all.output())
+	}
+	artifact, err := os.ReadFile(filepath.Join(allDir, "Demo.overview.mmd"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(artifact), want) {
+		t.Errorf("-render-all artifact lacks source links:\n%s", artifact)
+	}
+
+	invalid := runFiles(t, binary, []string{path}, "-render", "Demo::overview", "-render-link", "https://example.test/{unknown}")
+	if invalid.status != exitUnevaluable || !strings.Contains(invalid.stderr, "-render-link: unknown link template placeholder {unknown}") || invalid.stdout != "" {
+		t.Errorf("invalid link template = %d\n%s", invalid.status, invalid.output())
+	}
+	alone := runStreams(t, binary, renderModel, "-render-link", template)
+	if alone.status != 2 || !strings.Contains(alone.stderr, "-render-link links rendered elements to their source") {
+		t.Errorf("link template without a render target = %d\n%s", alone.status, alone.output())
 	}
 }
 
@@ -277,7 +553,7 @@ func TestRenderSeveralFiles(t *testing.T) {
 	if got.status != exitHolds {
 		t.Fatalf("exit status = %d, want %d\n%s", got.status, exitHolds, got.output())
 	}
-	for _, want := range []string{"flowchart TD", `"Vehicle<br>«part def»"`, "wheel"} {
+	for _, want := range []string{"flowchart TD", "*«part def»*\n**Vehicle**", "wheel"} {
 		if !strings.Contains(got.stdout, want) {
 			t.Errorf("stdout is missing %q:\n%s", want, got.stdout)
 		}
@@ -398,6 +674,8 @@ func TestDefaultRenderFormFollowsTheDestination(t *testing.T) {
 		{"a table at a terminal", view.KindTable, "", true, view.FormText},
 		{"a table into a pipe", view.KindTable, "", false, view.FormMarkdown},
 		{"a table into a file", view.KindTable, "table.md", true, view.FormMarkdown},
+		{"a matrix into a pipe", view.KindMatrix, "", false, view.FormMarkdown},
+		{"a matrix into a file", view.KindMatrix, "matrix.md", true, view.FormMarkdown},
 		{"a tree at a terminal", view.KindTree, "", true, view.FormText},
 		{"a tree into a pipe", view.KindTree, "", false, view.FormMermaid},
 	}
@@ -522,7 +800,7 @@ func TestRenderAllSkipsUnsupportedKindsAndWrongForcedForms(t *testing.T) {
 	for _, want := range []string{
 		"Demo::textView: skipped: textual rendering",
 		"Demo::tableView: skipped:",
-		"ask for text or markdown",
+		"ask for text, markdown, csv or tsv",
 		"wrote " + filepath.Join(dir, "Demo.treeView.mmd"),
 	} {
 		if !strings.Contains(got.stderr, want) {
@@ -881,5 +1159,123 @@ func TestRenderAllOOSEMViews(t *testing.T) {
 		if strings.Contains(string(tree), unwanted) {
 			t.Errorf("logical tree leaks %q past the view's filter:\n%s", unwanted, tree)
 		}
+	}
+}
+
+// portedModel connects two parts at the ports their definitions declare and
+// leaves a third's port unconnected.
+const portedModel = `package Demo {
+    port def Signal;
+    part def Sender { port out1 : Signal; }
+    part def Receiver { port in1 : ~Signal; port spare : Signal; }
+    part def Link {
+        part sender : Sender;
+        part receiver : Receiver;
+        interface wire connect sender.out1 to receiver.in1;
+    }
+    view link { expose Demo::Link::*; render Views::asInterconnectionDiagram; }
+}
+`
+
+// -render-ports chooses how much of a part's ports an interconnection or mixed rendering draws:
+// minimal, the default, the ports a connector ends at, named alone; full, every
+// port, typed. A name that is neither is refused with the two there are, and
+// the flag without something to render likewise.
+func TestRenderPorts(t *testing.T) {
+	binary := buildCLI(t)
+
+	minimal := runStreams(t, binary, portedModel, "-render", "Demo::link", "-render-form", "dot")
+	if minimal.status != exitHolds {
+		t.Fatalf("exit status = %d, want %d\n%s", minimal.status, exitHolds, minimal.output())
+	}
+	for _, want := range []string{`<font point-size="8">out1</font>`, `<font point-size="8">in1</font>`, `[label="wire", arrowhead=none, penwidth=3];`} {
+		if !strings.Contains(minimal.stdout, want) {
+			t.Errorf("stdout is missing %q:\n%s", want, minimal.stdout)
+		}
+	}
+	if strings.Contains(minimal.stdout, "spare") || strings.Contains(minimal.stdout, "Signal") {
+		t.Errorf("the default drew an unconnected port or a type:\n%s", minimal.stdout)
+	}
+
+	full := runStreams(t, binary, portedModel, "-render", "Demo::link", "-render-form", "plantuml", "-render-ports", "full")
+	if full.status != exitHolds {
+		t.Fatalf("exit status = %d, want %d\n%s", full.status, exitHolds, full.output())
+	}
+	for _, want := range []string{`port "out1 : Signal" as `, `port "in1 : <U+007E>Signal" as `, `port "spare : Signal" as `} {
+		if !strings.Contains(full.stdout, want) {
+			t.Errorf("-render-ports full is missing %q:\n%s", want, full.stdout)
+		}
+	}
+
+	unknown := runStreams(t, binary, portedModel, "-render", "Demo::link", "-render-form", "dot", "-render-ports", "all")
+	if unknown.status != exitUnevaluable || !strings.Contains(unknown.stderr, `-render-ports: unknown port display "all"; the displays are minimal, full`) || unknown.stdout != "" {
+		t.Errorf("an unknown port display = %d\n%s", unknown.status, unknown.output())
+	}
+
+	alone := runStreams(t, binary, portedModel, "-render-ports", "full")
+	if alone.status != 2 || !strings.Contains(alone.stderr, "-render-ports is how much of a part's ports -render or -render-all draws") {
+		t.Errorf("-render-ports alone = %d\n%s", alone.status, alone.output())
+	}
+}
+
+// A GeneralView filtered on a case metaclass renders as the case diagram, with
+// the standard library alone, and takes no verdicts overlay.
+func TestRenderGeneralViewCaseRoute(t *testing.T) {
+	binary := buildCLI(t)
+	src, err := os.ReadFile(filepath.Join("..", "..", "examples", "general-views-demo", "use-cases.sysml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := runStreams(t, binary, string(src), "-render", "UseCaseViews::useCaseView", "-render-form", "plantuml")
+	if got.status != exitHolds {
+		t.Fatalf("exit status = %d, want %d\n%s", got.status, exitHolds, got.output())
+	}
+	for _, want := range []string{"case rendering (view def GeneralView, filter @UseCaseUsage)", "usecase", "<U+00AB>include<U+00BB>"} {
+		if !strings.Contains(got.stdout, want) {
+			t.Errorf("stdout is missing %q:\n%s", want, got.stdout)
+		}
+	}
+	overlaid := runStreams(t, binary, string(src), "-render", "UseCaseViews::useCaseView", "-render-overlay", "verdicts")
+	if overlaid.status == exitHolds || !strings.Contains(overlaid.stderr, "a case rendering draws no verdicts overlay") {
+		t.Errorf("verdicts over a case rendering = %d\n%s", overlaid.status, overlaid.output())
+	}
+}
+
+// -render-overlay verdicts runs the verification cases verifying each drawn
+// requirement and labels it by their verdicts; it is refused on a rendering of
+// another kind, by name when unknown, and without something to render.
+func TestRenderOverlay(t *testing.T) {
+	binary := buildCLI(t)
+	src, err := os.ReadFile(filepath.Join("..", "..", "examples", "general-views-demo", "vehicle.sysml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	model := string(src)
+
+	plain := runStreams(t, binary, model, "-render", "GeneralViews::requirementView", "-render-form", "text")
+	if plain.status != exitHolds || strings.Contains(plain.stdout, "verdict") {
+		t.Errorf("the structural rendering = %d\n%s", plain.status, plain.output())
+	}
+	overlaid := runStreams(t, binary, model, "-render", "GeneralViews::requirementView", "-render-form", "mermaid", "-render-overlay", "verdicts")
+	if overlaid.status != exitHolds {
+		t.Fatalf("exit status = %d, want %d\n%s", overlaid.status, exitHolds, overlaid.output())
+	}
+	for _, want := range []string{"verdict pass by VehicleVerification::lightMassTest, fail by VehicleVerification::heavyMassTest", "verdict inconclusive by VehicleVerification::stopTest", "stroke:#D55E00", "stroke:#F0E442"} {
+		if !strings.Contains(overlaid.stdout, want) {
+			t.Errorf("stdout is missing %q:\n%s", want, overlaid.stdout)
+		}
+	}
+
+	other := runStreams(t, binary, model, "-render", "GeneralViews::definitionView", "-render-overlay", "verdicts")
+	if other.status == exitHolds || !strings.Contains(other.stderr, "a definition rendering draws no verdicts overlay") || other.stdout != "" {
+		t.Errorf("verdicts over a definition rendering = %d\n%s", other.status, other.output())
+	}
+	unknown := runStreams(t, binary, model, "-render", "GeneralViews::requirementView", "-render-overlay", "colours")
+	if unknown.status != exitUnevaluable || !strings.Contains(unknown.stderr, `-render-overlay: unknown overlay "colours"; -render-overlay takes verdicts`) {
+		t.Errorf("an unknown overlay = %d\n%s", unknown.status, unknown.output())
+	}
+	alone := runStreams(t, binary, model, "-render-overlay", "verdicts")
+	if alone.status != 2 || !strings.Contains(alone.stderr, "-render-overlay is what -render or -render-all draws") {
+		t.Errorf("-render-overlay alone = %d\n%s", alone.status, alone.output())
 	}
 }
