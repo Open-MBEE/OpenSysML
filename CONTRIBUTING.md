@@ -1,6 +1,7 @@
-# Contributing to OpenSysML
+# Contributing to the OpenSysML REDK
 
-Thank you for your interest in contributing to OpenSysML. This document describes how to set up a
+Thank you for your interest in contributing to the OpenSysML Runtime Environment and Development
+Kit (REDK). This document describes how to set up a
 development environment, the standards a change is expected to meet, and how contributions are
 reviewed and released.
 
