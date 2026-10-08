@@ -494,6 +494,29 @@ func TestRuntimeRobustnessInheritedActionSteps(t *testing.T) {
 			t.Fatalf("c = %v, want 0", got)
 		}
 	})
+
+	t.Run("restated_end_multiplicity_succession_performs_once", func(t *testing.T) {
+		outputs, err := executeInheritedAction(t, `package test {
+			private import ScalarValues::*;
+			action def Base {
+				attribute n : Integer = 0;
+				action a[1];
+				action b { assign n := n + 1; }
+				first start then a;
+				succession first [1] a then [1] b;
+				first b then done;
+			}
+			action def D :> Base {
+				succession first [1] a then [1] b;
+			}
+		}`, "D")
+		if err != nil {
+			t.Fatalf("ExecuteAction: %v", err)
+		}
+		if got := outputs["n"]; got.Kind != ValConst || got.Const.Int != 1 {
+			t.Fatalf("n = %v, want 1", got)
+		}
+	})
 }
 
 func executeInheritedAction(t *testing.T, src, name string) (map[string]Value, error) {

@@ -689,6 +689,68 @@ func TestToActionGraphKeepsMultiplicityInheritedSuccession(t *testing.T) {
 	}
 }
 
+func TestToActionGraphDeduplicatesRestatedMultiplicitySuccession(t *testing.T) {
+	src := `
+		action def Base {
+			action a[1];
+			action b;
+			succession first [1] a then [1] b;
+		}
+		action def S :> Base {
+			succession first [1] a then [1] b;
+		}
+	`
+	decl, scope, _ := inheritedActionDecl(t, src, "S")
+	graph, err := ToActionGraph(decl, scope)
+	if err != nil {
+		t.Fatalf("lower S: %v", err)
+	}
+	a, b := namedNode(graph, "a"), namedNode(graph, "b")
+	if a == nil || b == nil {
+		t.Fatal("S graph is missing action nodes a or b")
+	}
+	var edges int
+	for _, edge := range graph.Edges[a] {
+		if edge.Source == a && edge.Target == b {
+			edges++
+		}
+	}
+	if edges != 1 {
+		t.Fatalf("a to b edges = %d, want one restated end-multiplicity succession", edges)
+	}
+}
+
+func TestToActionGraphKeepsDifferingMultiplicityInheritedSuccession(t *testing.T) {
+	src := `
+		action def Base {
+			action a[2];
+			action b;
+			succession first [*] a then [1] b;
+		}
+		action def S :> Base {
+			succession first [1] a then [1] b;
+		}
+	`
+	decl, scope, _ := inheritedActionDecl(t, src, "S")
+	graph, err := ToActionGraph(decl, scope)
+	if err != nil {
+		t.Fatalf("lower S: %v", err)
+	}
+	a, b := namedNode(graph, "a"), namedNode(graph, "b")
+	if a == nil || b == nil {
+		t.Fatal("S graph is missing action nodes a or b")
+	}
+	var edges int
+	for _, edge := range graph.Edges[a] {
+		if edge.Source == a && edge.Target == b {
+			edges++
+		}
+	}
+	if edges != 2 {
+		t.Fatalf("a to b edges = %d, want both differently-multiplied successions", edges)
+	}
+}
+
 func TestToActionGraphResolvesInheritedGateInDeclaringScope(t *testing.T) {
 	src := `
 		private import ScalarValues::*;

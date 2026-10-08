@@ -11,6 +11,7 @@ import (
 	"sync"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
@@ -1069,7 +1070,7 @@ func (l *actionEdgeLowerer) transition(n *ast.TransitionMember) error {
 func (l *actionEdgeLowerer) addEdge(edge ActionEdge) {
 	if l.nodes != nil {
 		for _, existing := range l.graph.Edges[edge.Source] {
-			if sameUnconditionalActionEdge(existing, edge) && l.graph.declaredIn[existing.Decl] == nil {
+			if l.sameUnconditionalActionEdge(existing, edge) && l.graph.declaredIn[existing.Decl] == nil {
 				return
 			}
 		}
@@ -1077,16 +1078,50 @@ func (l *actionEdgeLowerer) addEdge(edge ActionEdge) {
 	l.graph.Edges[edge.Source] = append(l.graph.Edges[edge.Source], edge)
 }
 
-func sameUnconditionalActionEdge(existing, edge ActionEdge) bool {
+func (l *actionEdgeLowerer) sameUnconditionalActionEdge(existing, edge ActionEdge) bool {
 	return existing.Source == edge.Source &&
 		existing.Target == edge.Target &&
 		existing.Guard == nil && edge.Guard == nil &&
 		existing.Probability == nil && edge.Probability == nil &&
 		existing.Name == "" && edge.Name == "" &&
 		existing.Gate == nil && edge.Gate == nil &&
-		existing.SourceMultiplicity == edge.SourceMultiplicity &&
-		existing.TargetMultiplicity == edge.TargetMultiplicity &&
+		l.sameEndMultiplicity(existing.SourceMultiplicity, edge.SourceMultiplicity, existing.Decl) &&
+		l.sameEndMultiplicity(existing.TargetMultiplicity, edge.TargetMultiplicity, existing.Decl) &&
 		!existing.Carries && !edge.Carries
+}
+
+// sameEndMultiplicity compares written end multiplicities by range: both nil, or
+// both evaluating to the same known range in each succession's declaring scope.
+func (l *actionEdgeLowerer) sameEndMultiplicity(existing, edge *ast.Multiplicity, existingDecl ast.Node) bool {
+	if (existing == nil) != (edge == nil) {
+		return false
+	}
+	if existing == nil {
+		return true
+	}
+	existingScope := l.graph.Scope
+	if l.graph.declaredIn[existingDecl] != nil {
+		existingScope = l.graph.declaredIn[existingDecl]
+	}
+	evaluator := semantics.NewModel(l.graph.resolver)
+	a, ok1 := evaluator.RangeIn(existingScope, existing)
+	b, ok2 := evaluator.RangeIn(l.scope, edge)
+	return ok1 && ok2 && sameMultiplicityRange(a, b)
+}
+
+// sameMultiplicityRange holds when both bounds are fully known and identical.
+func sameMultiplicityRange(a, b semantics.Range) bool {
+	if !a.Lower.Known || a.Lower.Infinite || !b.Lower.Known || b.Lower.Infinite ||
+		a.Lower.Value != b.Lower.Value {
+		return false
+	}
+	if a.Upper.Infinite != b.Upper.Infinite {
+		return false
+	}
+	if a.Upper.Infinite {
+		return true
+	}
+	return a.Upper.Known && b.Upper.Known && a.Upper.Value == b.Upper.Value
 }
 
 func (l *actionEdgeLowerer) endpoint(ref ast.Node, member ast.Node, source bool) (ast.Node, error) {
