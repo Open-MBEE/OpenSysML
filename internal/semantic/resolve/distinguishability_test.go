@@ -198,3 +198,39 @@ func TestImportedMemberNamesOwnedRepeatAcrossDocuments(t *testing.T) {
 		t.Errorf("got %v, want no imported-name warning", dups)
 	}
 }
+
+// An alias binds its own name, not its target's: `Spare` reached first does not
+// stand in for `A::Engine` under the name `Engine`, which still collides with a
+// third `Engine`.
+func TestImportedMemberNamesAliasUnderAnotherName(t *testing.T) {
+	const src = `package A { part def Engine; }
+package B { alias Spare for A::Engine; }
+package C { part def Engine; }
+package Use { private import B::*; private import A::*; private import C::*; }`
+	r := resolveDoc(t, "d.sysml", src)
+	dups := importDuplicates(r)
+	if len(dups) != 1 {
+		t.Fatalf("got %v, want one imported-name warning", dups)
+	}
+	want := "Duplicate of imported member name 'Engine': A::Engine (import A::*), C::Engine (import C::*)"
+	if dups[0].Message != want {
+		t.Errorf("got %q, want %q", dups[0].Message, want)
+	}
+}
+
+// Two types of one name are two namespaces, whatever their qualified name: the
+// members a recursive import takes from each collide at the importer. Only a
+// package's declarations are one namespace across documents.
+func TestImportedMemberNamesNestedInSameNamedTypes(t *testing.T) {
+	const src = `package A { part def P { part x; } part def P { part x; } }
+package Use { private import A::**; }`
+	r := resolveDoc(t, "d.sysml", src)
+	dups := importDuplicates(r)
+	if len(dups) != 1 {
+		t.Fatalf("got %v, want one imported-name warning", dups)
+	}
+	want := "Duplicate of imported member name 'x': A::P::x (import A::**), A::P::x (import A::**)"
+	if dups[0].Message != want {
+		t.Errorf("got %q, want %q", dups[0].Message, want)
+	}
+}

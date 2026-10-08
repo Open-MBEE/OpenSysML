@@ -25,7 +25,7 @@ func (r *Resolver) checkDistinguishability(scope *symbols.Scope) {
 }
 
 // importedMember is one membership an import surfaces into a namespace, with
-// the import that brought it.
+// the import that brought it, or one the namespace inherits (imp nil).
 type importedMember struct {
 	sym *symbols.Symbol
 	imp *ast.Import
@@ -39,28 +39,38 @@ type ownedName struct {
 	name  string
 }
 
-// ownerKey identifies a namespace across documents: by qualified name when
-// every owner is named, since one package declared in two documents is one
-// namespace, and by scope otherwise.
+// ownerKey identifies a namespace across documents: by qualified name when it
+// and every namespace enclosing it is a package, since one package declared in
+// two documents is one namespace, and by scope otherwise — two types of one
+// name are two namespaces.
 type ownerKey struct {
 	scope *symbols.Scope
 	fqn   string
 }
 
 func ownerKeyOf(scope *symbols.Scope) ownerKey {
-	for s := scope; s != nil && s.Owner() != nil; s = s.Owner().OwnerScope {
-		if s.Owner().Name == "" {
-			return ownerKey{scope: scope}
-		}
-	}
 	if scope == nil || scope.Owner() == nil {
 		return ownerKey{scope: scope}
+	}
+	for s := scope; s != nil && s.Owner() != nil; s = s.Owner().OwnerScope {
+		owner := s.Owner()
+		if owner.Name == "" || (owner.Kind != symbols.SymbolPackage && owner.Kind != symbols.SymbolNamespace) {
+			return ownerKey{scope: scope}
+		}
 	}
 	return ownerKey{fqn: symbols.FQNOf(scope.Owner())}
 }
 
-// checkImportedNames reports each name two of a namespace's imported memberships
-// share: a namespace's memberships are its owned and its imported ones together,
+// boundName is one name one element is reached under: an alias and the element
+// it names bind one name to one element, a membership two imports reach too.
+type boundName struct {
+	key  symbols.ElementKey
+	name string
+}
+
+// checkImportedNames reports each name an imported membership shares with
+// another imported membership or, in a type, with an inherited one: a
+// namespace's memberships are its owned, imported and inherited ones together,
 // and all of them must be distinguishable (KerML 8.3.2.4.5). A membership two
 // imports both reach is one membership and conflicts with nothing; so are two
 // memberships of one element, an alias and what it names. An imported name an
@@ -79,7 +89,7 @@ func (r *Resolver) checkImportedNames(scope *symbols.Scope) {
 			hidden[name] = true
 		}
 	}
-	seen := map[symbols.ElementKey]bool{}
+	seen := map[boundName]bool{}
 	owners := map[ownedName]bool{}
 	byName := map[string][]importedMember{}
 	var names []string
@@ -93,15 +103,13 @@ func (r *Resolver) checkImportedNames(scope *symbols.Scope) {
 				continue
 			}
 			key := symbols.KeyOf(r.aliasTarget(sym))
-			if seen[key] {
-				continue
-			}
-			seen[key] = true
 			for _, name := range memberNames(sym) {
+				bound := boundName{key: key, name: name}
 				owned := ownedName{owner: ownerKeyOf(sym.OwnerScope), name: name}
-				if hidden[name] || owners[owned] {
+				if hidden[name] || seen[bound] || owners[owned] {
 					continue
 				}
+				seen[bound] = true
 				owners[owned] = true
 				if _, ok := byName[name]; !ok {
 					names = append(names, name)
@@ -110,24 +118,48 @@ func (r *Resolver) checkImportedNames(scope *symbols.Scope) {
 			}
 		}
 	}
+	inherited := r.inheritedAgainstImports(scope)
 	for _, name := range names {
 		members := byName[name]
+		for _, sym := range inherited[name] {
+			members = append(members, importedMember{sym: sym})
+		}
 		if len(members) < 2 {
 			continue
 		}
 		// Keep the members some other member is indistinguishable from; the
 		// rest conflict with nothing.
 		var kept []importedMember
+		imported := 0
 		for i, member := range members {
 			if len(r.duplicatesOf(member.sym, importedSymbolsExcept(members, i))) > 0 {
 				kept = append(kept, member)
+				if member.imp != nil {
+					imported++
+				}
 			}
 		}
-		if len(kept) < 2 {
+		if len(kept) < 2 || imported == 0 {
 			continue
 		}
 		r.duplicateImported(name, kept)
 	}
+}
+
+// inheritedAgainstImports is what a type inherits, by name, for its imported
+// memberships to be told apart from: nothing for a namespace that is no type,
+// and nothing while a redefinition the type declares is unresolved, as that
+// may be the one hiding the inherited name (as checkInheritedAmbiguity holds).
+func (r *Resolver) inheritedAgainstImports(scope *symbols.Scope) map[string][]*symbols.Symbol {
+	owner := scope.Owner()
+	if r.model == nil || owner == nil || ParameterizedByName(owner) {
+		return nil
+	}
+	model, ok := r.model.(supertypeProvider)
+	if !ok || len(model.DirectSupertypes(owner)) == 0 || r.hasUnresolvedRedefinitions(scope) {
+		return nil
+	}
+	return r.inheritedMembers(owner, model)
 }
 
 // memberNames are the names a membership binds: the member's name and, when it
@@ -151,16 +183,21 @@ func importedSymbolsExcept(members []importedMember, i int) []*symbols.Symbol {
 	return out
 }
 
-// duplicateImported reports one name several imported memberships share, at the
-// import that brought the last of them, naming every colliding member and the
-// import each came through so a reader can rename one, narrow an import or
-// import the member wanted explicitly.
+// duplicateImported reports one name several memberships share, at the import
+// that brought the last imported one, naming every colliding member and the
+// import each came through — or that it is inherited — so a reader can rename
+// one, narrow an import or import the member wanted explicitly.
 func (r *Resolver) duplicateImported(name string, members []importedMember) {
 	parts := make([]string, 0, len(members))
+	var last *ast.Import
 	for _, member := range members {
-		parts = append(parts, fmt.Sprintf("%s (%s)", source.QualifiedNameOf(symbols.NameChain(member.sym)), importText(member.imp)))
+		origin := "inherited"
+		if member.imp != nil {
+			origin = importText(member.imp)
+			last = member.imp
+		}
+		parts = append(parts, fmt.Sprintf("%s (%s)", source.QualifiedNameOf(symbols.NameChain(member.sym)), origin))
 	}
-	last := members[len(members)-1].imp
 	span := last.Span()
 	if last.Imported != nil {
 		span = last.Imported.Span()

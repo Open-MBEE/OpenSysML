@@ -538,13 +538,30 @@ names count as names, and two members whose metaclasses conform in neither direc
   these indistinguishable — they are distinct `Membership`s with equal names and one metaclass —
   but whichever membership `resolveLocal` takes first, the name denotes the same element, so the
   model has nothing to fix; the owned check treats an alias beside its target the same way
-  (`sameElement`), and the pilot reports neither.
+  (`sameElement`), and the pilot reports neither. An alias under another name is no such case:
+  `alias Spare for A::Engine` binds `Spare`, and `A::Engine` reached after it still collides with a
+  third `Engine` under its own name.
+- *An imported name a type inherits takes part:* `Type::membership` is owned, imported and
+  inherited memberships together, and `inheritedMemberships` removes only redefined features, so
+  `part def Child :> Base { private import A::*; }` where both `Base` and `A` declare a `part x`
+  warns on the import (`A::x (import A::*), Base::x (inherited)`); resolution keeps the inherited
+  member, which it reaches first. An owned member of that name hides both and silences the
+  warning, as it does for two imports. The pilot never compares imported with inherited
+  memberships either.
 - *An imported name an owned member hides takes no part:* `Namespace::importedMemberships(excluded)`
   excludes a membership whose names an owned membership repeats, so `part def Engine;` declared in
   `C` silences both imports.
 - *A repeat among the imported namespace's own members is that namespace's duplicate,* reported
   where it is declared (or, for one package declared in two documents of a workspace, not at all),
-  never at the importer.
+  never at the importer. Only a package's declarations are one namespace this way; two types of
+  one qualified name (`part def P { part x; } part def P { part x; }`) are two namespaces, and
+  the `x` of each collides at an `import A::**` that reaches both.
+- *Each declaration of a package carries its own imports.* The resolver reads a package declared
+  in two documents as one namespace for its members but resolves the body of each declaration
+  against the imports that declaration writes, so `package P { private import A::*; }` in one
+  document and `package P { private import B::*; }` in another never bring `A::Engine` and
+  `B::Engine` into one body, and no warning is reported for the pair. The pilot reads the two
+  declarations as two namespaces.
 - *Library content is left out,* as the inherited check leaves out library supertypes: the
   standard library is not the model's to fix. This is load-bearing — read with the library
   included, `import ISQ::*` alone brings eight indistinguishable pairs

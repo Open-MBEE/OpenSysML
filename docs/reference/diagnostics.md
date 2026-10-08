@@ -44,12 +44,13 @@ declaration order and then in import order.
 |---------|-------------|
 | `Duplicate of other owned member name 'x'` | the later of two owned members of one namespace |
 | `Duplicate of inherited member name 'x' from T` | an owned member of a type whose name an inherited member already has |
-| `Duplicate of imported member name 'x': P::x (import P::*), Q::x (import Q::*)` | the import that brings the later of two imported members, naming each member and the import that brought it |
+| `Duplicate of imported member name 'x': P::x (import P::*), Q::x (import Q::*)` | the import that brings the later of two imported members, naming each member and the import that brought it; a member a type inherits that an imported one repeats is named `(inherited)` |
 
 An imported name hidden by an owned member of the same name, one membership reached through two
 imports (`import P::*` beside `import Q::*` where `Q` publicly re-imports `P`), an alias or a
 membership import of an element beside the membership that owns it, and the standard library's
-own members are not reported.
+own members are not reported. An alias under another name (`alias Spare for P::x`) binds only
+that name and does not stand in for `P::x`.
 
 ## Switching a lint off or on
 
