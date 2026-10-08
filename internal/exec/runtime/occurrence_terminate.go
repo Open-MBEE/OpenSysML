@@ -178,7 +178,7 @@ func (e *StateExecutor) endTerminated() {
 	}
 	abandoned := e.abandonMachine()
 	if e.trace() != nil {
-		e.trace().RecordStateEndedWithOccurrence(symbolText(e.stateMachine), abandoned)
+		e.trace().RecordStateEndedWithOccurrence(e.traceOrigin(), symbolText(e.stateMachine), abandoned)
 	}
 	e.state = StateTerminated
 	e.ctx.endPerformanceLife(e.occurrence)

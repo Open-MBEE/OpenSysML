@@ -199,6 +199,13 @@ func (p *inprocess) renderView(
 	return answer(ctx, req, p.svc.RenderView)
 }
 
+func (p *inprocess) exportGraphs(
+	ctx context.Context,
+	req *pb.ExportGraphsRequest,
+) (*pb.ExportGraphsResponse, error) {
+	return answer(ctx, req, p.svc.ExportGraphs)
+}
+
 func (p *inprocess) convert(ctx context.Context, req *pb.ConvertRequest) (*pb.ConvertResponse, error) {
 	return answer(ctx, req, p.svc.Convert)
 }

@@ -361,18 +361,29 @@ func NewIndexWithStdlib() (*symbols.Index, libs.Source) {
 	return symbols.NewOverlay(base), src
 }
 
-// Open registers an authoritative open buffer for name and reindexes.
+// Open registers an authoritative open buffer for name and reindexes it. A
+// buffer holding the text of a document already parsed, as the editor opens a
+// file the folder scan indexed, is only marked open: the index is as it would be.
 func (w *Workspace) Open(name string, content []byte, version int) {
 	w.setOpenBuffer(name, content, version)
 }
 
-// setOpenBuffer records a copy of an open buffer and reindexes it.
+// setOpenBuffer records a copy of an open buffer and reindexes it, unless the
+// loaded document already holds that text, when only the version moves.
 func (w *Workspace) setOpenBuffer(name string, content []byte, version int) {
-	content = bytes.Clone(content)
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	w.open[name] = true
-	w.reindexLocked(name, content, version)
+	if held := w.docs[name]; held != nil && !held.Recorded() && bytes.Equal(held.Content, content) {
+		if held.Version != version {
+			versioned := *held
+			versioned.Version = version
+			w.docs[name] = &versioned
+		}
+		w.changes[name]++
+		return
+	}
+	w.reindexLocked(name, bytes.Clone(content), version)
 }
 
 // Update replaces the open buffer content for name and reindexes.

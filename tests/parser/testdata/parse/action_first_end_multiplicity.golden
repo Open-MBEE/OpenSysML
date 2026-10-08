@@ -1,0 +1,42 @@
+(RootNamespace
+  (Membership visibility="default"
+    (Definition kind="action" abstract=false variation=false name="FirstEndMultiplicity"
+      (Usage kind="action" name="a1" ref=false direction="none" composite=false derived=false ordered=false nonunique=false)
+      (Usage kind="action" name="a2" ref=false direction="none" composite=false derived=false ordered=false nonunique=false)
+      (Usage kind="action" name="a3" ref=false direction="none" composite=false derived=false ordered=false nonunique=false)
+      (Usage kind="succession" name="" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+        (ConnectorEnd target="a1"
+          (Multiplicity range=true
+            (LiteralInteger value="0")
+            (LiteralInteger value="1"))
+          (*ast.QualifiedName))
+        (ConnectorEnd target="a2"
+          (Multiplicity range=true
+            (LiteralInteger value="0")
+            (LiteralInteger value="1"))
+          (*ast.QualifiedName)))
+      (Usage kind="succession" name="" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+        (ConnectorEnd target="a2"
+          (Multiplicity range=false
+            (LiteralInteger value="1"))
+          (*ast.QualifiedName))
+        (ConnectorEnd target="a3"
+          (*ast.QualifiedName)))
+      (Usage kind="succession" name="" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+        (ConnectorEnd target="a1"
+          (*ast.QualifiedName))
+        (ConnectorEnd target="a3"
+          (Multiplicity range=true
+            (LiteralInteger value="0")
+            (LiteralInteger value="1"))
+          (*ast.QualifiedName)))
+      (Usage kind="succession" name="" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+        (ConnectorEnd target="a3"
+          (*ast.QualifiedName))
+        (ConnectorEnd target="done"
+          (Multiplicity range=false
+            (LiteralInteger value="1"))
+          (*ast.QualifiedName))
+        (Membership visibility="default"
+          (Documentation locale="")))
+      (InitialNode name="start" successor="a1"))))

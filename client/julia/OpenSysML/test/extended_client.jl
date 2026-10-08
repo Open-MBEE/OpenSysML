@@ -645,6 +645,16 @@ end
                 @test all(node -> node.origin !== nothing, rendered_view.nodes)
                 full_view = render_view(views_model, "RenderViewDemo::connections"; ports="full")
                 @test any(port.name == "spare" for node in full_view.nodes for port in node.ports)
+                behavior_model = parse_file(conn, joinpath(FIXTURES, "behavior.sysml"))
+                graphs = export_graphs(behavior_model, "Test::race")
+                @test graphs isa Graphs
+                @test graphs.version == 1
+                @test graphs.subject == "Test::race"
+                @test startswith(graphs.content, "{\"version\":1,\"subject\":\"Test::race\"")
+                @test endswith(graphs.content, "}\n")
+                @test occursin("\"actions\"", graphs.content)
+                @test_throws SymbolNotFoundError export_graphs(behavior_model, "Test::Missing")
+                @test_throws OpenSysMLError export_graphs(behavior_model, "Test")
                 for (view, message) in (
                     ("RenderViewDemo::Missing", "no view named RenderViewDemo::Missing"),
                     ("#interconnection:Nope",
@@ -672,12 +682,12 @@ end
                 @test occursin("part def Vehicle", migrated.content)
                 @test migrated.from_format == "xmi"
                 @test (migrated.report.mapped, migrated.report.approximated,
-                       migrated.report.unmapped, migrated.report.skipped) == (77, 13, 3, 2)
+                       migrated.report.unmapped, migrated.report.skipped) == (78, 12, 3, 2)
                 @test length(migrated.report.entries) == 95
                 @test length(by_verdict(migrated.report, VERDICT_UNMAPPED)) == 3
                 @test migrated.source_path == abspath(vehicle)
                 inline = migrate_source(conn, read(vehicle), "ttl"; from_format=" XMI ")
-                @test inline.to_format == "ttl" && inline.report.mapped == 77
+                @test inline.to_format == "ttl" && inline.report.mapped == 78
                 @test isempty(inline.report.entries) && inline.source_path === nothing
                 mktempdir() do directory
                     output = joinpath(directory, "Vehicle.sysml")

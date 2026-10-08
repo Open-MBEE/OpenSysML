@@ -98,6 +98,8 @@ func (c *pkgClient) dispatch(ctx context.Context, method string, request protore
 		return c.renderDocument(ctx, request)
 	case "RenderView":
 		return c.renderView(ctx, request)
+	case "ExportGraphs":
+		return c.exportGraphs(ctx, request)
 	case "Convert":
 		return c.convert(ctx, request)
 	case "Migrate":
@@ -704,6 +706,21 @@ func (c *pkgClient) renderDocument(ctx context.Context, request protoreflect.Mes
 		return nil, apiError(err)
 	}
 	return &pb.RenderDocumentResponse{Markdown: markdown}, nil
+}
+
+func (c *pkgClient) exportGraphs(ctx context.Context, request protoreflect.Message) (proto.Message, error) {
+	req := &pb.ExportGraphsRequest{}
+	if err := retype(request, req); err != nil {
+		return nil, err
+	}
+	graphs, err := c.api.ExportGraphs(ctx, c.model(req.ModelHash), req.Subject)
+	if err != nil {
+		return nil, apiError(err)
+	}
+	// #nosec G115 -- the version came off the wire as int32.
+	return &pb.ExportGraphsResponse{
+		Content: graphs.Content, Version: int32(graphs.Version), Subject: graphs.Subject,
+	}, nil
 }
 
 func (c *pkgClient) renderView(ctx context.Context, request protoreflect.Message) (proto.Message, error) {

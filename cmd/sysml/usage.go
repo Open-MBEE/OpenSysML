@@ -680,9 +680,10 @@ func registerFlags(fs *flag.FlagSet) {
 
 	fs.StringVar(&renderView, "render", "", "Render this view of the model instead of running it, in the form its render member states; #<kind> renders every file loaded and #<kind>:<element> one element, kind being tree, interconnection, state, action, case, mixed, sequence, table or matrix, without a declared view")
 	fs.StringVar(&renderAllDir, "render-all", "", "Render every declared view into this directory")
+	fs.StringVar(&graphsSubject, "graphs", "", "Write the lowered graph of this action or state machine, and of every behavior it performs, as the canonical graphs:1 JSON an external analysis engine is sent, to stdout or -output")
 	fs.StringVar(&renderForm, "render-form", "", "Form -render or -render-all writes: text, mermaid, markdown, dot, plantuml, d2, csv or tsv (csv and tsv for a table or matrix); D2 writes tree, interconnection, state, action, sequence, requirement, definition and package renderings, not case or mixed; default from the destination for -render, each kind's machine form for -render-all")
 	fs.StringVar(&renderPalette, "render-palette", "", "Palette the dot, mermaid, plantuml or d2 form fills nodes from, by keyword family: okabe-ito, tol-bright, tol-muted, tol-light, brewer-set2, brewer-dark2, viridis or cividis; default black and white")
-	fs.StringVar(&renderLink, "render-link", "", "Link template for rendered elements: {file} is the path as loaded; use absolute paths for vscode:// or file:// links. Placeholders: {file}, {line}, {col}, {qname}, {id}")
+	fs.StringVar(&renderLink, "render-link", "", "Source link template for -render, -render-all, -render-document, -render-documents and -render-run. Placeholders: {file}, {line}, {col}, {qname}, {id}; {file} is the path as loaded (use absolute paths for vscode:// or file:// links)")
 	fs.StringVar(&renderStyle, "render-style", "", "Drawing style of the dot or mermaid form: pilot (default), the Pilot visualizer's black and white, or cameo, the look of Cameo Systems Modeler; applies to -render, -render-all and document diagrams")
 	fs.StringVar(&renderPorts, "render-ports", "", "How much of a part's ports -render or -render-all draws on an interconnection or mixed rendering: minimal (default), the ports its interconnection edges end at, each a small square on the part's border named beside it, or full, every port, labelled name : Type")
 	fs.StringVar(&renderOverlay, "render-overlay", "", "What -render or -render-all draws over a requirement rendering's structure: verdicts runs the verification cases verifying each requirement and colours and labels it by their verdicts; default none, a purely structural drawing")
@@ -697,6 +698,7 @@ func registerFlags(fs *flag.FlagSet) {
 	fs.BoolVar(&debugMode, "debug", false, "Report every diagnostic over the whole session buffer, with the pass that produced it")
 	fs.BoolVar(&quietMode, "quiet", false, "Report errors only, suppressing warnings")
 	fs.BoolVar(&traceMode, "trace", false, "Report each execution step: expression evaluation, calc invocation, action tokens, state transitions")
+	fs.Var(&renderRuns, "render-run", "Render the trace of a run as timeline or sequence into path (`-` is stdout); form comes from -render-form or the path extension")
 	fs.BoolVar(&memStats, "memstats", false, "Report on stderr what the run cost: wall time, memory allocated, memory taken from the OS")
 
 	fs.Var(&deprecatedFlag{instead: "-to has been replaced by -convert, as `sysml model.sysml -convert ttl`"}, "to", "Replaced by -convert, which names the output format")
@@ -809,6 +811,7 @@ func optionGroups() []usage.OptionGroup {
 		Options: []usage.Option{
 			usage.Opt("render", "<view>"),
 			usage.Opt("render-all", "<dir>"),
+			usage.Opt("graphs", nameArg),
 			usage.Opt("render-form", formArg),
 			usage.Opt("render-palette", "<palette>"),
 			usage.Opt("render-link", "<template>"),
@@ -858,6 +861,7 @@ func optionGroups() []usage.OptionGroup {
 			usage.Opt("debug", ""),
 			usage.Opt("quiet", ""),
 			usage.Opt("trace", ""),
+			usage.Opt("render-run", "<kind>=<path>"),
 			usage.Opt("cpuprofile", fileArg),
 			usage.Opt("memprofile", fileArg),
 			usage.Opt("memstats", ""),

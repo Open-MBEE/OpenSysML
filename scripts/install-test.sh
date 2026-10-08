@@ -42,8 +42,8 @@ fake_tool() {
 	chmod +x "$1"
 }
 
-# bundle <release dir> <platform> <version>: the archive, grpc binary and manpages
-# the release pipeline would publish for one platform.
+# bundle <release dir> <platform> <version>: the archive, grpc and kernel
+# binaries and manpages the release pipeline would publish for one platform.
 bundle() {
 	local dir=$1 platform=$2 version=$3 stage
 	stage="$work/stage-$platform"
@@ -54,6 +54,7 @@ bundle() {
 		echo "sysml-lsp $version for windows" >"$stage/sysml-lsp.exe"
 		(cd "$stage" && python3 -m zipfile -c "$dir/opensysml-$platform.zip" sysml.exe sysml-lsp.exe)
 		echo "sysml-grpc $version for windows" >"$dir/sysml-grpc-$platform.exe"
+		echo "sysml-jupyter-kernel $version for windows" >"$dir/sysml-jupyter-kernel-$platform.exe"
 		;;
 	*)
 		fake_tool "$stage/sysml" sysml "v$version"
@@ -62,6 +63,7 @@ bundle() {
 		echo ".TH SYSML-LSP 1" >"$stage/share/man/man1/sysml-lsp.1"
 		tar -czf "$dir/opensysml-$platform.tar.gz" -C "$stage" sysml sysml-lsp share
 		fake_tool "$dir/sysml-grpc-$platform" "sysml-grpc version" "v$version"
+		fake_tool "$dir/sysml-jupyter-kernel-$platform" "sysml-jupyter-kernel version" "v$version"
 		;;
 	esac
 }
@@ -214,7 +216,7 @@ absent() {
 
 if ok "release by tag" --version "$good" --prefix @P@; then
 	installed bin/sysml bin/sysml-lsp
-	absent bin/sysml-grpc
+	absent bin/sysml-grpc bin/sysml-jupyter-kernel
 	[ -f "$prefix/share/man/man1/sysml.1" ] && [ -f "$prefix/share/man/man1/sysml-lsp.1" ] ||
 		{ echo "FAIL: man pages not installed" >&2; failures=$((failures + 1)); }
 	said "Installing OpenSysML ($good) for $host"
@@ -230,9 +232,16 @@ if ok "tag without the v" --version "${good#v}" --prefix @P@; then
 fi
 
 if ok "all tools" --version "$good" --tools all --prefix @P@; then
-	installed bin/sysml bin/sysml-lsp bin/sysml-grpc
+	installed bin/sysml bin/sysml-lsp bin/sysml-grpc bin/sysml-jupyter-kernel
 	said "sysml-grpc-$host verified"
 	said "sysml-grpc version $good"
+	said "sysml-jupyter-kernel-$host verified"
+	said "sysml-jupyter-kernel version $good"
+fi
+
+if ok "the kernel alone" --version "$good" --tools sysml-jupyter-kernel --bin-dir @P@/k; then
+	[ -x "$prefix/k/sysml-jupyter-kernel" ] || { echo "FAIL: $prefix/k/sysml-jupyter-kernel missing" >&2; failures=$((failures + 1)); }
+	absent k/sysml k/sysml-lsp k/sysml-grpc
 fi
 
 if ok "one tool into a bin dir" --version "$good" --tools sysml --bin-dir @P@/b; then
@@ -268,7 +277,7 @@ if ok "staged for windows" --version "$good" --os windows --prefix @P@; then
 fi
 
 if ok "staged for another unix platform" --version "$good" --os "${other%-*}" --arch "${other#*-}" --tools all --prefix @P@; then
-	installed bin/sysml bin/sysml-lsp bin/sysml-grpc
+	installed bin/sysml bin/sysml-lsp bin/sysml-grpc bin/sysml-jupyter-kernel
 	said "staged for $other, not run on this $host machine"
 fi
 
@@ -293,6 +302,7 @@ done
 if ok "dry run" --version "$good" --tools all --dry-run --prefix @P@; then
 	said "Dry run: nothing downloaded or installed."
 	said "download/$good/sysml-grpc-$host"
+	said "download/$good/sysml-jupyter-kernel-$host"
 	[ ! -e "$prefix" ] || { echo "FAIL: dry run created $prefix" >&2; failures=$((failures + 1)); }
 fi
 

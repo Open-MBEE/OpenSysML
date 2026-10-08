@@ -143,6 +143,10 @@ classdef Model < handle
             result = opensysml.renderView(m, viewName, varargin{:});
         end
 
+        function result = exportGraphs(m, subject)
+            result = opensysml.exportGraphs(m, subject);
+        end
+
         function result = symbol(m, id)
             result = opensysml.Symbol(opensysml.getSymbol(m, id), m);
         end

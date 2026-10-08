@@ -333,6 +333,8 @@ var constructFixtures = []string{
 	"accept_via_context_port",
 	"ported_calls",
 	"empty_behaviors",
+	"link_actions",
+	"association_qualifiers",
 	"library_calls",
 	"bundled_library",
 	"user_library",
@@ -390,6 +392,7 @@ var constructFixtures = []string{
 	"decision_else",
 	"calc_context",
 	"interaction_context",
+	"viewpoint_concerns",
 	"parameter_sets",
 }
 

@@ -159,7 +159,7 @@ class DocumentEvent:
 
     Attributes:
         kind: ``"accept"``, ``"send"``, ``"transition"``, ``"entry"``,
-            ``"exit"``, ``"do"``, ``"choice"`` or ``"guard"``
+            ``"exit"``, ``"do"``, ``"choice"``, ``"guard"`` or ``"terminate"``
         time: The instant the record was written at, in the runtime clock's
             unit — a :class:`~opensysml.values.Quantity` when the clock carries
             one, a plain number otherwise
@@ -299,6 +299,30 @@ class RenderNote:
     height: float
     has_size: bool
     origin: Optional[RenderSpan]
+
+
+@dataclass(frozen=True)
+class Graphs:
+    """The lowered graph of an action or state machine, returned by ``ExportGraphs``.
+
+    Attributes:
+        content (str): The canonical ``graphs:<version>`` JSON an external
+            analysis engine is sent, ending in one newline
+        version (int): The version of the form, its ``version`` field
+        subject (str): The qualified name of the behavior as resolved
+    """
+
+    content: str
+    version: int
+    subject: str
+
+    def __str__(self):
+        return self.content
+
+
+def graphs_result(response):
+    """Build a :class:`Graphs` from an ``ExportGraphsResponse``."""
+    return Graphs(response.content, int(response.version), response.subject)
 
 
 @dataclass(frozen=True)

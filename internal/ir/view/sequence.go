@@ -10,6 +10,20 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
 
+func runParticipantLabel(node *Node) string {
+	label := node.Name
+	if node.Type != "" {
+		if label != "" {
+			label += " : "
+		}
+		label += node.Type
+	}
+	if label == "" {
+		return node.Kind
+	}
+	return label
+}
+
 // renderSequence renders the occurrences of an interaction as lifelines and the
 // flows between them as directed messages, ordered as the model states. A
 // lifeline list is flat — a sequence diagram nests nothing — so a message

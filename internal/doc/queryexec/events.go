@@ -3,7 +3,6 @@ package queryexec
 import (
 	"fmt"
 	"math"
-	"sort"
 	"strconv"
 	"strings"
 
@@ -41,6 +40,7 @@ var eventKinds = map[string]runtime.TraceKind{
 	"do":         runtime.TraceDo,
 	"choice":     runtime.TraceChoice,
 	"guard":      runtime.TraceGuard,
+	"terminate":  runtime.TraceTerminate,
 }
 
 // EventsFromTrace converts documented trace records into rows in run order.
@@ -74,7 +74,7 @@ func eventFromRecord(ctx *runtime.Context, labels sessionLabelMap, record runtim
 		time:    instantValue(ctx, at),
 		object:  object,
 		label:   labels.label(object),
-		machine: eventMachine(record),
+		machine: record.Machine(),
 		target:  labels.label(record.Target),
 		index:   index,
 	}
@@ -325,7 +325,7 @@ func (e *executor) eventPropertyValues(row Value, property string) ([]Value, boo
 		return text(eventName(record)), true, nil
 	case propertyPayload:
 		out := make([]Value, 0, len(record.Payload))
-		for _, cell := range payloadTexts(record) {
+		for _, cell := range record.PayloadTexts() {
 			out = append(out, valueAt(StringValue(cell), origin))
 		}
 		return out, true, nil
@@ -345,26 +345,6 @@ func (e *executor) eventPropertyValues(row Value, property string) ([]Value, boo
 		return nil, false, nil
 	}
 	return e.propertyValues(ElementValue(record.Origin.Behavior), property)
-}
-
-// eventMachine names the behavior a record came from as its object exhibits it,
-// or as declared when it is anonymous or the record has no object.
-func eventMachine(record runtime.TraceRecord) string {
-	behavior := record.Origin.Behavior
-	if behavior == nil {
-		return ""
-	}
-	if record.Origin.Object != nil {
-		for _, b := range record.Origin.Object.Behaviors() {
-			if b.Symbol == behavior || (b.State != nil && b.State.StateMachineSymbol() == behavior) {
-				if b.Name != "" {
-					return b.Name
-				}
-				break
-			}
-		}
-	}
-	return behavior.Name
 }
 
 // eventName is what a record is about: the event accepted or sent, the state
@@ -387,19 +367,4 @@ func eventName(record runtime.TraceRecord) string {
 		}
 	}
 	return ""
-}
-
-// payloadTexts renders an accept's or send's payload, one `name = value`
-// entry per parameter in name order, in the runtime's notation.
-func payloadTexts(record runtime.TraceRecord) []string {
-	names := make([]string, 0, len(record.Payload))
-	for name := range record.Payload {
-		names = append(names, name)
-	}
-	sort.Strings(names)
-	out := make([]string, 0, len(names))
-	for _, name := range names {
-		out = append(out, name+" = "+runtime.FormatValue(record.Payload[name]))
-	}
-	return out
 }

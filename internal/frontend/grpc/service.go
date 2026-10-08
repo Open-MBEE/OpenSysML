@@ -74,6 +74,10 @@ const CapabilityRenderDocumentHTML = "render_document_html"
 // renders a declared or targeted pseudo-view as machine-readable diagram data.
 const CapabilityRenderView = "render_view"
 
+// CapabilityExportGraphs names the capability of the ExportGraphs RPC, which
+// exports the lowered graph of an action or state machine as `graphs:1` JSON.
+const CapabilityExportGraphs = "export_graphs"
+
 // CapabilityOSLCQuery names the capability of evaluating OSLC Query text.
 const CapabilityOSLCQuery = "oslc_query"
 
@@ -177,6 +181,11 @@ const CapabilityParseSources = "parse_sources"
 // CapabilityConvertDocuments names ConvertRequest.documents, which writes only
 // the named documents of a model and links the rest by id.
 const CapabilityConvertDocuments = "convert_documents"
+
+// CapabilityConvertCompact names ConvertRequest.compact, omit_derived and
+// keep_derived: api-json written as the compact document, with an id table and
+// handles, and optionally without the metamodel's derived properties.
+const CapabilityConvertCompact = "convert_compact"
 
 // CapabilityParseSourcesAffected names ParseSourcesRequest.base_model_hash and
 // ParseSourcesResponse.affected: the documents whose results may differ from
@@ -313,7 +322,9 @@ var capabilities = []string{
 	CapabilityRationalValues,
 	CapabilityStateTrace,
 	CapabilityRenderView,
+	CapabilityExportGraphs,
 	CapabilityConvertDocuments,
+	CapabilityConvertCompact,
 	CapabilityParseSourcesAffected,
 }
 

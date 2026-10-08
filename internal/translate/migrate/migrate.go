@@ -146,13 +146,16 @@ func FromModelOptions(name string, model *sysmlv1.Model, opts Options) *Result {
 		flows:             map[*sysmlv1.Element][]*sysmlv1.Element{},
 		outcomes:          map[*sysmlv1.Element]*flowOutcome{},
 		unplaced:          map[*sysmlv1.Element]*placement{},
-		satisfied:         map[*sysmlv1.Element]map[*sysmlv1.Element]bool{},
+		conformed:         map[*sysmlv1.Element][]viewpointConformance{},
 		framed:            map[*sysmlv1.Element]bool{},
+		concerns:          map[*sysmlv1.Element]*concernInfo{},
+		concernLists:      map[*sysmlv1.Element][]*sysmlv1.Element{},
 		taken:             map[*sysmlv1.Element]map[string]bool{},
 		parallel:          map[*sysmlv1.Element]string{},
 		exposed:           map[*sysmlv1.Element]string{},
 		methodOf:          map[*sysmlv1.Element]*sysmlv1.Element{},
 		endNames:          map[*sysmlv1.Element]string{},
+		associationEnds:   map[*sysmlv1.Element]*sysmlv1.Element{},
 		realizes:          map[*sysmlv1.Element]*sysmlv1.Element{},
 		shadowedParams:    map[*sysmlv1.Element]bool{},
 		opUsage:           map[*sysmlv1.Element]string{},
@@ -338,9 +341,10 @@ type migration struct {
 	// the placements of the relationships ending at activity nodes, judged once all are written.
 	placeholders map[*sysmlv1.Element]bool
 	nodeEnds     map[*sysmlv1.Element]*placement
-	// extras are members other elements contribute to a body: a Satisfy is
-	// written inside the block that satisfies.
+	// extras are members other elements contribute to a body.
 	extras map[*sysmlv1.Element][]func()
+	// conformed lists the viewpoints placed in each view by Conform dependencies.
+	conformed map[*sysmlv1.Element][]viewpointConformance
 	// viewNames records the simple names imported into each view by its exposures.
 	viewNames map[*sysmlv1.Element]map[string]bool
 	// viewOf plans each diagram's view; hosted lists the views each body opens with.
@@ -376,7 +380,8 @@ type migration struct {
 	// methodOf maps each behavior that is the method of an operation to it.
 	methodOf map[*sysmlv1.Element]*sysmlv1.Element
 	// endNames holds the name a connection def declares each member end under.
-	endNames map[*sysmlv1.Element]string
+	endNames        map[*sysmlv1.Element]string
+	associationEnds map[*sysmlv1.Element]*sysmlv1.Element
 	// realizes maps a method's parameter to the operation's it stands for.
 	realizes map[*sysmlv1.Element]*sysmlv1.Element
 	// shadowedParams lists the method parameters an operation's parameter of
@@ -523,10 +528,12 @@ type migration struct {
 	// actors gives each association linking a use case to an actor the actor
 	// usage it is written as in the use case's body.
 	actors map[*sysmlv1.Element]*actorLink
-	// satisfied records, per view, the viewpoints its body satisfies so far.
-	satisfied map[*sysmlv1.Element]map[*sysmlv1.Element]bool
 	// framed marks the comments a viewpoint's concernList names, written as its concerns.
 	framed map[*sysmlv1.Element]bool
+	// concerns records comments named by viewpoint and stakeholder concern lists.
+	concerns map[*sysmlv1.Element]*concernInfo
+	// concernLists records each viewpoint or stakeholder's resolved concerns.
+	concernLists map[*sysmlv1.Element][]*sysmlv1.Element
 	// clocks memoizes the names a simulation configuration gives the clock.
 	clocks map[string]string
 	// observed memoizes, per observation, the durations and time expressions that read it.
@@ -635,6 +642,7 @@ func weaker(a, b Verdict) bool {
 func (m *migration) prepare() {
 	m.reserveElementImportAliases()
 	m.planEdges()
+	m.prepareConcerns()
 	var reachers, configs, laned, associations, behaviors []*sysmlv1.Element
 	var links []*actorLink
 	var walk func(e *sysmlv1.Element)
@@ -644,7 +652,6 @@ func (m *migration) prepare() {
 		if e.Parent == nil {
 			m.avoidLibraryRoots(e)
 		}
-		m.framedComments(e)
 		if simulationConfig(e) != nil {
 			configs = append(configs, e)
 		}
@@ -742,6 +749,9 @@ func (m *migration) prepare() {
 			m.invoke(e, "classifierBehavior")
 		case "Association", "AssociationClass":
 			associations = append(associations, e)
+			for _, end := range m.model.Refs(e, "memberEnd") {
+				m.associationEnds[end] = e
+			}
 			if e.Type == "Association" {
 				if link := m.actorLink(e); link != nil {
 					links = append(links, link)
@@ -1090,6 +1100,13 @@ func (m *migration) member(e *sysmlv1.Element) {
 	if ownerWritten(e.Role) {
 		return
 	}
+	if e.Role == "qualifier" && m.associationEnds[e.Parent] != nil {
+		saved := m.scope
+		m.scope = e.Parent
+		m.feature(e)
+		m.scope = saved
+		return
+	}
 	switch e.Role {
 	case "profileApplication", "packageImport", "elementImport", "packageMerge":
 		m.imports(e)
@@ -1310,14 +1327,13 @@ func (m *migration) classifier(e *sysmlv1.Element) {
 	}
 	m.add(e, verdict, m.v2Name(e), note)
 	m.classifierBody(e, cat, header)
-	if cat == catPartDef {
+	if cat == catPartDef || cat == catOccurrenceDef {
 		m.monteCarloAnalysis(e)
 	}
 }
 
-// classifierHeader builds the declaration line a classifier is written with:
-// abstract, its keyword and name, its requirement id, its generalizations; n
-// notes what the generalizations and dangling ends leave out.
+// classifierHeader builds a classifier declaration with its keyword, name,
+// requirement id, view type and generalizations; n notes what the latter omit.
 func (m *migration) classifierHeader(e *sysmlv1.Element, cat category, name string) (header string, n string) {
 	var b strings.Builder
 	if (e.Attrs["isAbstract"] == "true" && cat != catValue) || m.abstractOperation(e) {
@@ -1336,6 +1352,11 @@ func (m *migration) classifierHeader(e *sysmlv1.Element, cat category, name stri
 		}
 	}
 	b.WriteString(writeName(name))
+	if cat == catView {
+		if viewpoint := m.conformedViewpoints(e); viewpoint != "" {
+			b.WriteString(" : " + viewpoint)
+		}
+	}
 	var gens string
 	if cat == catMetadataDef {
 		gens, n = m.metadataGenerals(e)
@@ -1464,7 +1485,8 @@ func (m *migration) general(e, g *sysmlv1.Element, cat category) (ref, note stri
 		// The view's body satisfies the viewpoint instead.
 		return "", ""
 	}
-	if tc, _ := m.classify(target); tc != cat {
+	tc, _ := m.classify(target)
+	if tc != cat && !((cat == catPartDef && tc == catOccurrenceDef) || (cat == catOccurrenceDef && tc == catPartDef)) {
 		return "", "generalization of " + qualifiedName(target) + " is not written: it becomes a " + tc.keyword() + ", not a " + cat.keyword()
 	}
 	if m.asUsage[target] {
@@ -1706,9 +1728,20 @@ func (m *migration) individualBody(e *sysmlv1.Element) {
 	saved := m.scope
 	m.scope = e
 	m.comments(e)
+	association := m.instanceAssociation(e)
 	slots, recorded := m.monteCarloSlots(e, e.Owned("slot"))
 	for _, slot := range slots {
 		f := m.model.Ref(slot, "definingFeature")
+		if association != nil && m.associationEnds[f] == association {
+			line, target, note, ok := m.instanceConnectionEnd(e, slot, f)
+			if !ok {
+				m.unmapped(slot, note)
+				continue
+			}
+			m.w.line(line)
+			m.add(slot, verdictFor(note), m.v2Name(e)+"::"+target, note)
+			continue
+		}
 		lines, note, ok := m.slotForm(e, slot, f)
 		if !ok {
 			m.unmapped(slot, note)
@@ -1729,6 +1762,46 @@ func (m *migration) individualBody(e *sysmlv1.Element) {
 	m.scope = saved
 }
 
+func (m *migration) instanceConnectionEnd(e, slot, end *sysmlv1.Element) (line, target, note string, ok bool) {
+	values := slot.Owned("value")
+	if len(values) != 1 || values[0].Type != "InstanceValue" {
+		return "", "", "the association-end slot must hold one instance value", false
+	}
+	inst := m.model.Ref(values[0], "instance")
+	if inst == nil {
+		return "", "", "the association-end slot's value names no instance", false
+	}
+	if inst.Type != "InstanceSpecification" || inst.IsProxy() {
+		return "", "", "the association-end slot's value is not a migrated individual", false
+	}
+	cat, instanceNote := m.classify(inst)
+	if cat != catIndividualDef || !m.written(inst) {
+		return "", "", "the association-end slot's value " + describe(inst) + " is not written as an individual: " + instanceNote, false
+	}
+	kind, classifiers, classifierNote := m.individualClassifiers(inst)
+	endType := m.model.Ref(end, "type")
+	if kind == catNone {
+		return "", "", "the association-end slot's value is not written as an individual with an occurrence definition", false
+	}
+	if endType == nil {
+		return "", "", "the association member end has no written type", false
+	}
+	if !m.instanceOf(classifiers, endType) {
+		return "", "", "the association-end slot's value " + describe(inst) + " is not an individual of " + qualifiedName(endType), false
+	}
+	endName := m.endNames[end]
+	if endName == "" {
+		endName = m.nameOf(end)
+	}
+	if endName == "" {
+		return "", "", "the association member end has no written name", false
+	}
+	note = joinNotes(instanceNote, classifierNote)
+	target = "end " + writeName(endName)
+	line = "end :>> " + writeName(endName) + " : " + m.ref(inst, e) + ";"
+	return line, target, note, true
+}
+
 // slotForm resolves a slot of instance e, of defining feature f, into the v2
 // lines that write it and the notes on them; ok is false, and note says why,
 // when it has no v2 form.
@@ -1745,7 +1818,7 @@ func (m *migration) slotForm(e, slot, f *sysmlv1.Element) (lines []string, note 
 	switch kw {
 	case "attribute":
 		return m.valueSlot(e, slot, f, dir)
-	case "part", "item", "constraint", "requirement":
+	case "part", "occurrence", "item", "constraint", "requirement":
 		return m.instanceSlot(e, slot, f, kw, prefix)
 	case "port":
 		return nil, "the slot of port " + f.Name + " is not written: v2 has no individual port for it to be typed by", false
@@ -1806,7 +1879,7 @@ func (m *migration) instanceSlot(e, slot, f *sysmlv1.Element, kw, prefix string)
 			return nil, slotValueSubject + describe(inst) + " is not written as an individual: " + note, false
 		}
 		kind, classifiers, _ := m.individualClassifiers(inst)
-		if kind == catNone || kind.keyword() != kw+" def" {
+		if kind == catNone || !individualTypes(kind, kw) {
 			return nil, slotValueSubject + describe(inst) + " is an " + individualKeyword(kind) + ", which cannot type " + article(kw) + kw, false
 		}
 		if !m.instanceOf(classifiers, t) {
@@ -1995,6 +2068,16 @@ func ownsEveryEnd(e *sysmlv1.Element, ends []*sysmlv1.Element) bool {
 	return true
 }
 
+func (m *migration) associationAsConnectionDef(e *sysmlv1.Element) bool {
+	switch e.Type {
+	case "AssociationClass":
+		return true
+	case "Association":
+		return e.Name != "" || m.actors[e] == nil && ownsEveryEnd(e, m.model.Refs(e, "memberEnd"))
+	}
+	return false
+}
+
 // association writes an association or association block as a connection def
 // with its member ends. An anonymous association with a classifier-owned end
 // is already written as that property, so it writes nothing.
@@ -2008,7 +2091,7 @@ func (m *migration) association(e *sysmlv1.Element) {
 			m.add(e, Mapped, m.actorTarget(link), "the anonymous association to the actor is written as an actor of the use case")
 			return
 		}
-		if e.Type == "Association" && !ownsEveryEnd(e, ends) {
+		if e.Type == "Association" && !m.associationAsConnectionDef(e) {
 			m.add(e, verdictFor(missing), "", joinNotes("the anonymous association is written as its member-end properties", missing))
 			return
 		}
@@ -2089,7 +2172,16 @@ func (m *migration) associationEnd(e, end *sysmlv1.Element) {
 	mult, mnote := m.multiplicity(end)
 	decl += mult + collection(end, false) + ";"
 	tnote = joinNotes(tnote, mnote)
-	m.w.line(decl)
+	qualifiers := end.Owned("qualifier")
+	if len(qualifiers) == 0 {
+		m.w.line(decl)
+	} else {
+		m.w.block(strings.TrimSuffix(decl, ";"), func() {
+			for _, qualifier := range qualifiers {
+				m.feature(qualifier)
+			}
+		})
+	}
 	m.madeUp(end, writeName(endName))
 	if end.Parent == e {
 		m.add(end, verdictFor(tnote), m.v2Name(e)+"::"+writeName(endName), tnote)
@@ -2107,7 +2199,7 @@ func (m *migration) featureKeyword(p *sysmlv1.Element, owner category) (keyword,
 			return "attribute", "", ""
 		}
 		switch kw, note := m.typeKeyword(t); kw {
-		case "part", "item":
+		case "part", "occurrence", "item":
 			return kw, "ref ", note
 		default:
 			return kw, "", note
@@ -2143,6 +2235,11 @@ func (m *migration) featureKeyword(p *sysmlv1.Element, owner category) (keyword,
 			return "part", "ref ", joinNotes(note, "shared aggregation is written as a reference part")
 		}
 		return "part", "ref ", note
+	case "occurrence":
+		if owner == catPortDef || p.Attrs["aggregation"] != "composite" {
+			return "occurrence", "ref ", note
+		}
+		return "occurrence", "", note
 	case "action", "state", "calc", "use case":
 		// A property typed by a behavior holds a performance; only a perform
 		// or exhibit usage runs one, so the property is a reference.
@@ -2166,12 +2263,17 @@ func (m *migration) typeKeyword(t *sysmlv1.Element) (keyword, note string) {
 	switch tc {
 	case catAttributeDef, catEnumDef:
 		return "attribute", ""
+	case catOccurrenceDef:
+		return "occurrence", ""
 	case catItemDef:
 		return "item", ""
 	case catConstraintDef:
 		return "constraint", ""
 	case catPortDef:
 		// Only a port is typed by a port def, in an interface block as anywhere.
+		if t.Type == "Interface" {
+			return "port", ""
+		}
 		return "port", "a property typed by an interface block is written as a port"
 	case catRequirementDef:
 		return "requirement", ""
@@ -2186,7 +2288,7 @@ func (m *migration) typeKeyword(t *sysmlv1.Element) (keyword, note string) {
 	case catView:
 		return "view", ""
 	case catViewpoint:
-		return "viewpoint", ""
+		return "view", ""
 	case catNone, catLibrary:
 		return "attribute", "typed by library element " + t.Name + " with no known v2 counterpart"
 	case catUnmapped:
@@ -2323,7 +2425,7 @@ func (m *migration) featureVisibility(p *sysmlv1.Element, param bool, note strin
 	case param:
 		// A parameter is bound from outside the constraint, so it must stay visible.
 		return "", joinNotes(note, vis+" visibility is not written on a constraint parameter")
-	case m.exposed[p] != "":
+	case !m.writtenHidden(p):
 		// v2 neither inherits a private feature nor lets a path reach one.
 		return "", joinNotes(note, vis+" visibility is not written: "+m.exposed[p])
 	case vis == "protected":
@@ -2335,6 +2437,11 @@ func (m *migration) featureVisibility(p *sysmlv1.Element, param bool, note strin
 	}
 }
 
+func (m *migration) writtenHidden(p *sysmlv1.Element) bool {
+	vis := p.Attrs["visibility"]
+	return m.exposed[p] == "" && (vis == "private" || vis == "protected" || vis == "package")
+}
+
 // portPayload is the feature kind a port typed by other than a port def holds
 // as its one directed feature, or "".
 func (m *migration) portPayload(p *sysmlv1.Element, kw, typ string, t *sysmlv1.Element) string {
@@ -2344,6 +2451,8 @@ func (m *migration) portPayload(p *sysmlv1.Element, kw, typ string, t *sysmlv1.E
 	switch tc, _ := m.classify(t); {
 	case m.scalarValue(t) != "", tc == catAttributeDef, tc == catEnumDef:
 		return "attribute"
+	case tc == catOccurrenceDef:
+		return "occurrence"
 	case tc == catPartDef, tc == catItemDef:
 		return "item"
 	}
@@ -2436,10 +2545,10 @@ func (m *migration) featureTyping(b *strings.Builder, p, ind *sysmlv1.Element, p
 }
 
 // typing is the specialization a feature's type is written with: subsetting
-// when the type becomes a usage, as a view or viewpoint does, else typing.
+// when the type becomes a usage, as a view does, else typing.
 func (m *migration) typing(t *sysmlv1.Element) string {
 	if t != nil {
-		if cat, _ := m.classify(t); cat == catView || cat == catViewpoint {
+		if cat, _ := m.classify(t); cat == catView {
 			return " :> "
 		}
 	}
@@ -2467,6 +2576,9 @@ func (m *migration) portPayloadLine(p *sysmlv1.Element, payload, typ string, t *
 	if payload == "item" && dir == "" {
 		// An undirected item in a port must still not be composite.
 		payload = "ref item"
+	}
+	if payload == "occurrence" {
+		payload = "ref occurrence"
 	}
 	return dir + payload + " " + writeName(m.nameFor(p)) + " : " + typ + ";",
 		"a port typed by a " + t.Type + " is written as a port holding one directed " + payload
@@ -2578,7 +2690,7 @@ func (m *migration) written(e *sysmlv1.Element) bool {
 	return cat.keyword() != ""
 }
 
-// memberWritten decides whether a feature, parameter, association or
+// memberWritten decides whether a feature, parameter, variable, association or
 // connector becomes a v2 element that can be referred to; decided is false
 // for any other element.
 func (m *migration) memberWritten(e *sysmlv1.Element) (written, decided bool) {
@@ -2592,9 +2704,7 @@ func (m *migration) memberWritten(e *sysmlv1.Element) (written, decided bool) {
 		}
 		return m.written(p) || inlinedBehavior(p) && hasActionForm(p), true
 	case "Association":
-		// An anonymous association is a connection def only when it owns every
-		// end and is not written as an actor of a use case instead.
-		return e.Name != "" || m.actors[e] == nil && ownsEveryEnd(e, m.model.Refs(e, "memberEnd")), true
+		return m.associationAsConnectionDef(e), true
 	case "Variable":
 		// Written when the owner's body declares it: a structured node inside a
 		// written graph, else an activity or hosted behavior itself written.
@@ -2789,7 +2899,7 @@ func (m *migration) typeRef(t, scope *sysmlv1.Element) (string, string) {
 		return "", "library type " + qualifiedName(t) + " has no known v2 counterpart and is not written"
 	case catUnmapped, catNone:
 		return "", "type " + qualifiedName(t) + " is not migrated and is not written"
-	case catView, catViewpoint:
+	case catView:
 		if note := m.featuredNote(t, scope); note != "" {
 			return "", note + "; the usage is not subset"
 		}
@@ -3550,13 +3660,13 @@ func (m *migration) usageContext(client *sysmlv1.Element) (*sysmlv1.Element, str
 		if client.Parent == nil {
 			return nil, ""
 		}
-		if cat, _ := m.classify(client.Parent); cat == catPartDef || cat == catPortDef || cat == catConnectionDef {
+		if cat, _ := m.classify(client.Parent); cat == catPartDef || cat == catOccurrenceDef || cat == catPortDef || cat == catConnectionDef {
 			return client.Parent, writeName(m.nameFor(client))
 		}
 		return nil, ""
 	}
 	switch cat, _ := m.classify(client); cat {
-	case catPartDef, catPortDef, catConnectionDef, catIndividualDef, catConstraintDef:
+	case catPartDef, catOccurrenceDef, catPortDef, catConnectionDef, catIndividualDef, catConstraintDef:
 		return client, ""
 	}
 	return nil, ""
@@ -3605,7 +3715,7 @@ func (m *migration) definitionEnd(e *sysmlv1.Element) bool {
 		return false
 	}
 	switch c, _ := m.classify(e); c {
-	case catView, catViewpoint, catValue:
+	case catView, catValue:
 		return false
 	}
 	return m.isDefinition(e)
@@ -3739,6 +3849,9 @@ func (m *migration) writeComments(e *sysmlv1.Element, first bool) {
 	}
 	for _, c := range e.Owned("ownedComment") {
 		if m.framed[c] {
+			if info := m.concerns[c]; info != nil && info.homed && c.Parent == e {
+				m.writeConcern(c)
+			}
 			continue
 		}
 		about := m.model.Refs(c, "annotatedElement")
@@ -3747,6 +3860,9 @@ func (m *migration) writeComments(e *sysmlv1.Element, first bool) {
 		if text == "" {
 			m.add(c, Skipped, "", "empty comment")
 			continue
+		}
+		if note := m.concernCommentFallback(c); note != "" {
+			m.downgrade(c, note)
 		}
 		if m.annotatesOthers(c, e) {
 			scope := m.scope
@@ -3760,6 +3876,32 @@ func (m *migration) writeComments(e *sysmlv1.Element, first bool) {
 		}
 		m.add(c, verdictFor(missing), "", missing)
 	}
+}
+
+// writeConcern writes a homed concern comment as a named usage at its owner.
+func (m *migration) writeConcern(c *sysmlv1.Element) {
+	name := m.names[c]
+	if name == "" {
+		name = m.nameFor(c)
+	}
+	m.madeUp(c, writeName(name))
+	m.w.block("concern "+writeName(name), func() {
+		if text := m.commentBody(c); text != "" {
+			m.w.lines(prefixFirst("doc ", commentLines(text)))
+		}
+		m.w.line("subject;")
+		for _, s := range m.concerns[c].stakeholders {
+			m.stakeholder(c, s.ID)
+		}
+	})
+	note := ""
+	if text := m.commentBody(c); text == "" {
+		note = "empty comment"
+	}
+	if m.annotatesOthers(c, c.Parent) {
+		note = joinNotes(note, "a v2 concern annotates nothing, so the comment's annotations are not carried")
+	}
+	m.add(c, verdictFor(note), m.v2Name(c), note)
 }
 
 // docComment is the comment e's body writes as doc: the first with text that
@@ -3832,6 +3974,9 @@ func (m *migration) comment(c *sysmlv1.Element) {
 		m.add(c, Skipped, "", "empty comment")
 		return
 	}
+	if note := m.concernCommentFallback(c); note != "" {
+		m.downgrade(c, note)
+	}
 	m.w.lines(prefixFirst(commentPrefix, commentLines(text)))
 	m.add(c, Mapped, "", "")
 }
@@ -3862,6 +4007,7 @@ var consumedTags = map[string]map[string]bool{
 	"FlowPort":           {"direction": true},
 	"NestedConnectorEnd": {"propertyPath": true},
 	"View":               {"viewpoint": true, "viewPoint": true},
+	"Stakeholder":        {"concernList": true},
 	"Viewpoint": {"stakeholder": true, "purpose": true, "concern": true, "concernList": true,
 		"language": true, "method": true, "presentation": true},
 }

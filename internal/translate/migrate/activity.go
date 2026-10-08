@@ -22,6 +22,16 @@ const (
 	neverAssigns = " never assigns "
 )
 
+var linkActionVerbs = map[string]string{
+	"ClearAssociationAction":           "clear",
+	"CreateLinkAction":                 "create",
+	"CreateLinkObjectAction":           "create",
+	"DestroyLinkAction":                "destroy",
+	"ReadLinkAction":                   "read",
+	"ReadLinkObjectEndAction":          "read",
+	"ReadLinkObjectEndQualifierAction": "read",
+}
+
 func (m *migration) activityBody(act, def *sysmlv1.Element) {
 	keeping := m.keeping
 	m.keeping = ""
@@ -102,7 +112,7 @@ type activity struct {
 	edgeSources map[*sysmlv1.Element][]*sysmlv1.Element
 	edgeSelf    map[*sysmlv1.Element]bool
 	selfSources map[*sysmlv1.Element][]*sysmlv1.Element
-	// inert marks the nodes written as placeholders, whose output pins no value reaches.
+	// inert marks nodes whose output pins produce no value.
 	inert map[*sysmlv1.Element]bool
 	// computed is the v2 expression an output pin is declared with, when a library primitive gives its value.
 	computed map[*sysmlv1.Element]string
@@ -1550,6 +1560,11 @@ func (a *activity) declareNode(n *sysmlv1.Element, name string) {
 
 // declareKind writes the declaration of n by its kind.
 func (a *activity) declareKind(n *sysmlv1.Element, name string) {
+	if verb, ok := linkActionVerbs[n.Type]; ok {
+		a.linkAction(n, name, verb)
+		a.m.writeComments(n, false)
+		return
+	}
 	switch n.Type {
 	case "ActivityFinalNode":
 		a.m.w.line(actionKw + name + " terminate;")
@@ -1606,6 +1621,12 @@ func (a *activity) declareKind(n *sysmlv1.Element, name string) {
 		a.readFeature(n, name)
 	case "AddStructuralFeatureValueAction":
 		a.writeFeature(n, name)
+	case "RemoveStructuralFeatureValueAction":
+		a.removeFeature(n, name)
+	case "ClearStructuralFeatureAction":
+		a.clearFeature(n, name)
+	case "DestroyObjectAction":
+		a.destroyObject(n, name)
 	case "SendSignalAction":
 		a.sendSignal(n, name)
 	case "SendObjectAction":
@@ -1625,13 +1646,24 @@ func (a *activity) declareKind(n *sysmlv1.Element, name string) {
 // placeholder writes an action usage that keeps the node's place in the
 // graph while its behavior is kept as a comment.
 func (a *activity) placeholder(n *sysmlv1.Element, name, note string, v Verdict) {
-	a.inert[n] = true
-	a.m.placeholders[n] = true
 	a.m.w.block(actionKw+name, func() {
 		a.pins(n, nil)
-		a.m.w.lines(commentLines("not migrated: " + kindOf(n) + " " + describe(n) + " — " + note))
+		a.placeholderBody(n, name, note, v)
 	})
+}
+
+// placeholderBody preserves an action's position while recording why it is not written.
+func (a *activity) placeholderBody(n *sysmlv1.Element, name, note string, v Verdict) {
+	a.inert[n] = true
+	a.m.placeholders[n] = true
+	a.m.w.lines(commentLines("not migrated: " + kindOf(n) + " " + describe(n) + " — " + note))
 	a.m.add(n, v, name, note)
+}
+
+func (a *activity) linkAction(n *sysmlv1.Element, name, verb string) {
+	a.inert[n] = true
+	a.m.w.block(actionKw+name, func() { a.pins(n, nil) })
+	a.m.add(n, Approximated, name, "SysML v2 has no link action: the "+n.Type+" is written as an action with its pins and does not "+verb+" the link")
 }
 
 // startBehavior writes a start of an object's behavior as a placeholder: a v2 object's
@@ -1746,6 +1778,14 @@ func (a *activity) declarePinsWithValues(n *sysmlv1.Element, ins, outs []*sysmlv
 	}
 	for i, pin := range outs {
 		declare(pin, "out", outParams, i)
+	}
+}
+
+// prepareInputPinNames settles input pin names before expressions refer to them.
+func (a *activity) prepareInputPinNames(n *sysmlv1.Element, ins []*sysmlv1.Element) {
+	used := map[string]bool{}
+	for _, pin := range ins {
+		a.names[pin] = a.settlePin(n, pin, "in", used).name
 	}
 }
 
@@ -2627,43 +2667,327 @@ func (a *activity) readFeature(n *sysmlv1.Element, name string) {
 	})
 }
 
-// writeFeature writes an add structural feature value action as an
-// assignment to the feature of this.
+// writeObjectFeature resolves the feature access and result value for a write action.
+func (a *activity) writeObjectFeature(n, f *sysmlv1.Element) (feature, result, note string, verdict Verdict) {
+	obj := firstOwned(n, "object")
+	target, typ, ok := a.readObject(obj)
+	fromPin := false
+	if !ok {
+		if obj == nil || !a.fed[obj] && len(a.sources[obj]) == 0 {
+			return "", "", "the object whose " + a.m.nameOf(f) + " is written comes from a flow, not from this", Approximated
+		}
+		pname, named := a.names[obj]
+		if !named {
+			return "", "", "the object pin has no v2 name, so its feature cannot be written", Unmapped
+		}
+		target, fromPin = writeName(pname), true
+		typ = a.m.model.Ref(obj, "type")
+		if typ == nil {
+			return "", "", "the object pin is untyped, so its feature " + a.m.nameOf(f) + " cannot be written", Unmapped
+		}
+	}
+	if !a.m.mayHaveFeature(typ, f) {
+		if fromPin {
+			return "", "", "the object pin is a " + qualifiedName(typ) + noFeature + a.m.nameOf(f), Unmapped
+		}
+		return "", "", "the object written, " + target + ", is a " + qualifiedName(typ) + noFeature + a.m.nameOf(f), Unmapped
+	}
+	if f.Type == "Property" && f.Parent != nil && f.Parent.Type == "Association" && f.Role == "ownedEnd" {
+		return "", "", "the feature " + a.m.nameOf(f) + " is an end owned by the association " + a.m.nameOf(f.Parent) +
+			", which the v2 class does not have; writing it creates or destroys a link", Unmapped
+	}
+	if fromPin {
+		if a.m.model.Ref(f, "type") == nil {
+			return "", "", "the feature " + a.m.nameOf(f) + " is untyped, so it has no v2 member to write through the object pin", Unmapped
+		}
+		if a.m.writtenHidden(f) {
+			vis := f.Attrs["visibility"]
+			if vis == "package" {
+				vis = "private"
+			}
+			return "", "", "the feature " + a.m.nameOf(f) + " is written " + vis + " in v2, which a reference to the object cannot reach", Unmapped
+		}
+	}
+	feature = a.m.respellThis(target+"."+writeName(a.m.nameOf(f)), a.act)
+	if obj == nil || !fromPin && target == a.self() {
+		result = a.m.respellThis(target, a.act)
+	} else {
+		result = writeName(a.names[obj])
+	}
+	return feature, result, "", Mapped
+}
+
+// resultPinValues binds every result pin of n to value.
+func resultPinValues(n *sysmlv1.Element, value string) map[*sysmlv1.Element]string {
+	values := map[*sysmlv1.Element]string{}
+	for _, pin := range n.Owned("result") {
+		values[pin] = value
+	}
+	return values
+}
+
+// unlimitedNaturalStar reports whether pin is a value pin containing *.
+func unlimitedNaturalStar(pin *sysmlv1.Element) bool {
+	value := firstOwned(pin, "value")
+	return pin != nil && pin.Type == "ValuePin" && value != nil &&
+		value.Type == "LiteralUnlimitedNatural" && value.Attrs["value"] == "*"
+}
+
+// writeFeature writes an add or replacement on the feature of the object's pin.
 func (a *activity) writeFeature(n *sysmlv1.Element, name string) {
 	f := a.m.model.Ref(n, "structuralFeature")
 	if f == nil || !a.m.written(f) || a.m.nameOf(f) == "" {
 		a.placeholder(n, name, "the feature written has no v2 declaration", Unmapped)
 		return
 	}
-	obj, val := firstOwned(n, "object"), firstOwned(n, "value")
-	target, t, ok := a.readObject(obj)
-	if !ok {
-		a.placeholder(n, name, "the object whose "+a.m.nameOf(f)+" is written comes from a flow, not from this", Approximated)
-		return
-	}
-	if !a.m.mayHaveFeature(t, f) {
-		a.placeholder(n, name, "the object written, "+target+", is a "+qualifiedName(t)+noFeature+a.m.nameOf(f), Unmapped)
-		return
-	}
+	val := firstOwned(n, "value")
 	if val == nil {
 		a.placeholder(n, name, "the action has no value pin", Unmapped)
 		return
 	}
-	note := ""
+	_, upper, boundsOK := bounds(f)
+	if !boundsOK {
+		a.placeholder(n, name, "the feature's upper bound is not a literal number, so its collection multiplicity cannot be determined", Unmapped)
+		return
+	}
+	var note string
+	written := false
 	a.m.w.block(actionKw+name, func() {
-		a.pins(n, nil)
-		assign := "assign " + a.m.respellThis(target+"."+writeName(a.m.nameOf(f)), a.act) + " := " + writeName(a.names[val]) + ";"
+		ins, outs := inputPins(n), outputPins(n)
+		a.prepareInputPinNames(n, ins)
+		feature, result, why, whyVerdict := a.writeObjectFeature(n, f)
+		values := map[*sysmlv1.Element]string(nil)
+		if why == "" {
+			values = resultPinValues(n, result)
+		}
+		a.declarePinsWithValues(n, ins, outs, nil, values)
+		if why != "" {
+			a.placeholderBody(n, name, why, whyVerdict)
+			return
+		}
+		value := writeName(a.names[val])
+		expr := value
+		collection := upper > 1 || upper < 0
+		if n.Attrs["isReplaceAll"] != "true" && collection {
+			base := feature
+			unique := f.Attrs["isUnique"] != "false"
+			if unique {
+				base = "SequenceFunctions::excluding(" + feature + ", " + value + ")"
+			}
+			insertAt := firstOwned(n, "insertAt")
+			if f.Attrs["isOrdered"] == "true" && insertAt != nil && !unlimitedNaturalStar(insertAt) {
+				expr = "SequenceFunctions::includingAt(" + base + ", " + value + ", " + writeName(a.names[insertAt]) + ")"
+			} else {
+				expr = "SequenceFunctions::including(" + base + ", " + value + ")"
+			}
+		}
+		assign := "assign " + feature + " := " + expr + ";"
 		if !a.m.lacksValue(val) {
 			a.m.w.line(assign)
+			written = true
 			return
 		}
 		a.m.w.lines([]string{"if " + writeName(a.names[val]) + "->SequenceFunctions::notEmpty() {", "    " + assign, "}"})
 		note = "the pin " + describe(val) + " admits no value, which the feature cannot hold: it is written only when the pin holds one"
+		written = true
 	})
-	if mult, _ := a.m.multiplicity(f); mult != "" && n.Attrs["isReplaceAll"] != "true" {
-		note = joinNotes(note, "the value replaces the feature's; adding to a collection is not written")
+	if written {
+		a.m.add(n, verdictFor(note), name, note)
 	}
+}
+
+// removeFeature writes a value or positional removal on the object's feature.
+func (a *activity) removeFeature(n *sysmlv1.Element, name string) {
+	f := a.m.model.Ref(n, "structuralFeature")
+	if f == nil || !a.m.written(f) || a.m.nameOf(f) == "" {
+		a.placeholder(n, name, "the feature written has no v2 declaration", Unmapped)
+		return
+	}
+	value, removeAt := firstOwned(n, "value"), firstOwned(n, "removeAt")
+	byPosition := removeAt != nil && n.Attrs["isRemoveDuplicates"] != "true"
+	if value == nil && !byPosition {
+		a.placeholder(n, name, "the action names no value or position to remove", Unmapped)
+		return
+	}
+	var note string
+	written := false
+	a.m.w.block(actionKw+name, func() {
+		ins, outs := inputPins(n), outputPins(n)
+		a.prepareInputPinNames(n, ins)
+		feature, result, why, verdict := a.writeObjectFeature(n, f)
+		values := map[*sysmlv1.Element]string(nil)
+		if why == "" {
+			values = resultPinValues(n, result)
+		}
+		a.declarePinsWithValues(n, ins, outs, nil, values)
+		if why != "" {
+			a.placeholderBody(n, name, why, verdict)
+			return
+		}
+		if byPosition {
+			index := writeName(a.names[removeAt])
+			a.m.w.lines([]string{
+				"if " + index + " <= SequenceFunctions::size(" + feature + ") {",
+				"    assign " + feature + " := SequenceFunctions::excludingAt(" + feature + ", " + index + ", " + index + ");",
+				"}",
+			})
+		} else {
+			expr := "SequenceFunctions::excluding(" + feature + ", " + writeName(a.names[value]) + ")"
+			if f.Attrs["isUnique"] == "false" && n.Attrs["isRemoveDuplicates"] != "true" {
+				note = "every occurrence of the value is removed, where v1 removes one"
+			}
+			a.m.w.line("assign " + feature + " := " + expr + ";")
+		}
+		written = true
+	})
+	if written {
+		a.m.add(n, verdictFor(note), name, note)
+	}
+}
+
+// clearFeature empties an optional feature or passes its object to a replace-all write.
+func (a *activity) clearFeature(n *sysmlv1.Element, name string) {
+	f := a.m.model.Ref(n, "structuralFeature")
+	if f == nil || !a.m.written(f) || a.m.nameOf(f) == "" {
+		a.placeholder(n, name, "the feature written has no v2 declaration", Unmapped)
+		return
+	}
+	lower, _, boundsOK := bounds(f)
+	if !boundsOK || lower < 0 {
+		a.placeholder(n, name, "the feature's lower bound is not a literal number, so it cannot be cleared safely", Unmapped)
+		return
+	}
+	var written bool
+	outcome := Mapped
+	var note string
+	a.m.w.block(actionKw+name, func() {
+		ins, outs := inputPins(n), outputPins(n)
+		a.prepareInputPinNames(n, ins)
+		feature, result, why, verdict := a.writeObjectFeature(n, f)
+		if why != "" {
+			a.declarePinsWithValues(n, ins, outs, nil, nil)
+			a.placeholderBody(n, name, why, verdict)
+			return
+		}
+		passThrough := lower >= 1 && a.clearPassesThrough(n, f)
+		if passThrough {
+			outcome = Approximated
+			note = "the feature is not emptied: the replace-all write that takes the result replaces its value, so an action that reads the feature before that write sees the old value"
+		}
+		if lower >= 1 && !passThrough {
+			a.declarePinsWithValues(n, ins, outs, nil, nil)
+			note := "the feature " + a.m.nameOf(f) + " must hold at least one value, so it cannot be emptied in v2"
+			a.placeholderBody(n, name, note, Unmapped)
+			return
+		}
+		a.declarePinsWithValues(n, ins, outs, nil, resultPinValues(n, result))
+		if lower == 0 {
+			a.m.w.line("assign " + feature + " := ();")
+		}
+		written = true
+	})
+	if written {
+		a.m.add(n, outcome, name, note)
+	}
+}
+
+// clearPassesThrough reports whether every result consumer replaces the same feature.
+func (a *activity) clearPassesThrough(n, f *sysmlv1.Element) bool {
+	results := n.Owned("result")
+	if len(results) == 0 {
+		return false
+	}
+	for _, result := range results {
+		consumers := 0
+		for pin, sources := range a.sources {
+			consumes := false
+			for _, source := range sources {
+				if source == result {
+					consumes = true
+					break
+				}
+			}
+			if !consumes {
+				continue
+			}
+			if nodeKind(pin) == nodeControl || nodeKind(pin) == nodeBuffer {
+				continue
+			}
+			consumers++
+			owner := ownerNode(pin)
+			if pin.Role != "object" || owner == nil || owner.Type != "AddStructuralFeatureValueAction" ||
+				a.m.model.Ref(owner, "structuralFeature") != f || owner.Attrs["isReplaceAll"] != "true" {
+				return false
+			}
+		}
+		if consumers == 0 {
+			return false
+		}
+	}
+	return true
+}
+
+// destroyObject writes destruction of the target pin's object and its result pin.
+func (a *activity) destroyObject(n *sysmlv1.Element, name string) {
+	target := firstOwned(n, "target")
+	if target == nil {
+		a.placeholder(n, name, "the action has no target pin", Unmapped)
+		return
+	}
+	var note string
+	a.m.w.block(actionKw+name, func() {
+		a.pins(n, nil)
+		pinNames := map[string]bool{}
+		for _, pin := range append(inputPins(n), outputPins(n)...) {
+			if pname, ok := a.names[pin]; ok {
+				pinNames[pname] = true
+			}
+		}
+		result := "result"
+		for suffix := 2; pinNames[result]; suffix++ {
+			result = "result" + strconv.Itoa(suffix)
+		}
+		typ, tnote := a.m.typeRef(a.m.model.Ref(target, "type"), a.def)
+		note = tnote
+		decl := "out " + writeName(result)
+		if typ != "" {
+			decl += " : " + typ
+		}
+		decl += "[0..1] = OccurrenceFunctions::destroy(" + writeName(a.names[target]) + ");"
+		a.m.w.line(decl)
+		a.madeUp(writeName(result))
+		if n.Attrs["isDestroyLinks"] == "true" {
+			note = joinNotes(note, "the links the object takes part in are not destroyed with it")
+		}
+		if n.Attrs["isDestroyOwnedObjects"] != "true" && a.hasCompositeAttribute(a.m.model.Ref(target, "type")) {
+			note = joinNotes(note, "v2 ends the object's composite parts with it, where v1 keeps them")
+		}
+	})
 	a.m.add(n, verdictFor(note), name, note)
+}
+
+// hasCompositeAttribute reports whether t or one of its generals owns a composite property.
+func (a *activity) hasCompositeAttribute(t *sysmlv1.Element) bool {
+	seen := map[*sysmlv1.Element]bool{}
+	var walk func(*sysmlv1.Element) bool
+	walk = func(c *sysmlv1.Element) bool {
+		if c == nil || seen[c] {
+			return false
+		}
+		seen[c] = true
+		for _, attr := range c.Owned("ownedAttribute") {
+			if attr.Type == "Property" && attr.Attrs["aggregation"] == "composite" {
+				return true
+			}
+		}
+		for _, generalization := range c.Owned("generalization") {
+			if walk(a.m.model.Ref(generalization, "general")) {
+				return true
+			}
+		}
+		return false
+	}
+	return walk(t)
 }
 
 // The notes the buffer and variable nodes and actions repeat.

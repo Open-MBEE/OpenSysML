@@ -200,6 +200,9 @@ type Options struct {
 	// qualified-name-derived ids.
 	ID   export.IDForm
 	Warn func(string)
+	// Compact, when set, writes the API's JSON element form as the compact
+	// document (export.WriteAPIJSONCompact) rather than the standard array.
+	Compact *export.CompactAPIJSONOptions
 }
 
 // Convert reads data in the from format and writes it in the to format. name is
@@ -241,7 +244,7 @@ func ConvertModel(inputs []Input, to Format, opts Options) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	return FromGraph(graph, to)
+	return FromGraphWith(graph, to, opts)
 }
 
 // ConvertWith is Convert under non-default options.
@@ -338,7 +341,7 @@ func convert(name string, data []byte, from, to Format, tolerateSyntaxErrors boo
 		if err != nil {
 			return nil, nil, err
 		}
-		out, err := export.WriteAPIJSON(graph)
+		out, err := FromGraphWith(graph, to, opts)
 		return out, nil, err
 
 	case from == FormatAPIJSON:
@@ -395,6 +398,9 @@ func FromGraphWith(graph *rdf.Graph, to Format, opts Options) ([]byte, error) {
 	case to == FormatTurtle:
 		return rdf.WriteTurtle(graph), nil
 	case to == FormatAPIJSON:
+		if opts.Compact != nil {
+			return export.WriteAPIJSONCompact(graph, *opts.Compact)
+		}
 		return export.WriteAPIJSON(graph)
 	default:
 		return nil, &NotWritableError{Format: to}

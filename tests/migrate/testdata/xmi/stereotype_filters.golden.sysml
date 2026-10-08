@@ -44,7 +44,11 @@ package Spares {
     part def Gasket;
 }
 package 'Depot Viewpoints' {
-    viewpoint 'Critical Items Viewpoint' {
+    view def 'Critical Items Viewpoint' {
+        viewpoint 'critical Items Viewpoint' {
+            subject;
+        }
+        satisfy 'critical Items Viewpoint';
         action def 'Critical Items Method' {
             first start then 'Collect Owned Elements';
             action 'Collect Owned Elements';
@@ -60,8 +64,13 @@ package 'Depot Viewpoints' {
             metadata MigrationMetadata::SynthesizedName about final;
         }
         perform action 'critical Items Method' : 'Critical Items Method';
+        metadata MigrationMetadata::SynthesizedName about 'critical Items Viewpoint';
     }
-    viewpoint 'Exact Critical Layouts Viewpoint' {
+    view def 'Exact Critical Layouts Viewpoint' {
+        viewpoint 'exact Critical Layouts Viewpoint' {
+            subject;
+        }
+        satisfy 'exact Critical Layouts Viewpoint';
         action def 'Exact Critical Layouts Method' {
             first start then 'Collect Owned Elements';
             action 'Collect Owned Elements';
@@ -76,8 +85,13 @@ package 'Depot Viewpoints' {
             metadata MigrationMetadata::SynthesizedName about final;
         }
         perform action 'exact Critical Layouts Method' : 'Exact Critical Layouts Method';
+        metadata MigrationMetadata::SynthesizedName about 'exact Critical Layouts Viewpoint';
     }
-    viewpoint 'Critical Figures Viewpoint' {
+    view def 'Critical Figures Viewpoint' {
+        viewpoint 'critical Figures Viewpoint' {
+            subject;
+        }
+        satisfy 'critical Figures Viewpoint';
         action def 'Critical Figures Method' {
             first start then 'Collect Owned Elements';
             action 'Collect Owned Elements';
@@ -92,8 +106,13 @@ package 'Depot Viewpoints' {
             metadata MigrationMetadata::SynthesizedName about final;
         }
         perform action 'critical Figures Method' : 'Critical Figures Method';
+        metadata MigrationMetadata::SynthesizedName about 'critical Figures Viewpoint';
     }
-    viewpoint 'Uncritical Figures Viewpoint' {
+    view def 'Uncritical Figures Viewpoint' {
+        viewpoint 'uncritical Figures Viewpoint' {
+            subject;
+        }
+        satisfy 'uncritical Figures Viewpoint';
         action def 'Uncritical Figures Method' {
             first start then 'Collect Owned Elements';
             action 'Collect Owned Elements';
@@ -106,8 +125,13 @@ package 'Depot Viewpoints' {
             metadata MigrationMetadata::SynthesizedName about final;
         }
         perform action 'uncritical Figures Method' : 'Uncritical Figures Method';
+        metadata MigrationMetadata::SynthesizedName about 'uncritical Figures Viewpoint';
     }
-    viewpoint 'Critical Layouts Viewpoint' {
+    view def 'Critical Layouts Viewpoint' {
+        viewpoint 'critical Layouts Viewpoint' {
+            subject;
+        }
+        satisfy 'critical Layouts Viewpoint';
         action def 'Critical Layouts Method' {
             first start then 'Collect Owned Elements';
             action 'Collect Owned Elements';
@@ -122,8 +146,13 @@ package 'Depot Viewpoints' {
             metadata MigrationMetadata::SynthesizedName about final;
         }
         perform action 'critical Layouts Method' : 'Critical Layouts Method';
+        metadata MigrationMetadata::SynthesizedName about 'critical Layouts Viewpoint';
     }
-    viewpoint 'Satisfier Figures Viewpoint' {
+    view def 'Satisfier Figures Viewpoint' {
+        viewpoint 'satisfier Figures Viewpoint' {
+            subject;
+        }
+        satisfy 'satisfier Figures Viewpoint';
         action def 'Satisfier Figures Method' {
             first start then 'Collect Satisfiers';
             action 'Collect Satisfiers';
@@ -136,8 +165,13 @@ package 'Depot Viewpoints' {
             metadata MigrationMetadata::SynthesizedName about final;
         }
         perform action 'satisfier Figures Method' : 'Satisfier Figures Method';
+        metadata MigrationMetadata::SynthesizedName about 'satisfier Figures Viewpoint';
     }
-    viewpoint 'Satisfier Layouts Viewpoint' {
+    view def 'Satisfier Layouts Viewpoint' {
+        viewpoint 'satisfier Layouts Viewpoint' {
+            subject;
+        }
+        satisfy 'satisfier Layouts Viewpoint';
         action def 'Satisfier Layouts Method' {
             first start then 'Collect Satisfiers';
             action 'Collect Satisfiers';
@@ -152,8 +186,13 @@ package 'Depot Viewpoints' {
             metadata MigrationMetadata::SynthesizedName about final;
         }
         perform action 'satisfier Layouts Method' : 'Satisfier Layouts Method';
+        metadata MigrationMetadata::SynthesizedName about 'satisfier Layouts Viewpoint';
     }
-    viewpoint 'Owned Figures Viewpoint' {
+    view def 'Owned Figures Viewpoint' {
+        viewpoint 'owned Figures Viewpoint' {
+            subject;
+        }
+        satisfy 'owned Figures Viewpoint';
         action def 'Owned Figures Method' {
             first start then 'Collect Owned Elements';
             action 'Collect Owned Elements';
@@ -168,10 +207,11 @@ package 'Depot Viewpoints' {
             metadata MigrationMetadata::SynthesizedName about final;
         }
         perform action 'owned Figures Method' : 'Owned Figures Method';
+        metadata MigrationMetadata::SynthesizedName about 'owned Figures Viewpoint';
     }
 }
 package 'Depot Handbook' {
-    part def 'Depot Handbook' {
+    occurrence def 'Depot Handbook' {
         view criticalItems :> 'Critical Items';
         view exactCriticalLayouts :> 'Exact Critical Layouts';
         view criticalFigures :> 'Critical Figures';
@@ -182,38 +222,30 @@ package 'Depot Handbook' {
         view ownedFigures :> 'Owned Figures';
         /* applied stereotype «Document» */
     }
-    view 'Critical Items' {
-        satisfy 'Depot Viewpoints'::'Critical Items Viewpoint';
+    view 'Critical Items' : 'Depot Viewpoints'::'Critical Items Viewpoint' {
         expose Plant::**;
         expose Spares::**;
     }
-    view 'Exact Critical Layouts' {
-        satisfy 'Depot Viewpoints'::'Exact Critical Layouts Viewpoint';
+    view 'Exact Critical Layouts' : 'Depot Viewpoints'::'Exact Critical Layouts Viewpoint' {
         expose Plant::**;
     }
-    view 'Critical Figures' {
-        satisfy 'Depot Viewpoints'::'Critical Figures Viewpoint';
+    view 'Critical Figures' : 'Depot Viewpoints'::'Critical Figures Viewpoint' {
         expose Spares::**;
     }
-    view 'Uncritical Figures' {
-        satisfy 'Depot Viewpoints'::'Uncritical Figures Viewpoint';
+    view 'Uncritical Figures' : 'Depot Viewpoints'::'Uncritical Figures Viewpoint' {
         expose Plant::**;
         expose Spares::**;
     }
-    view 'Critical Layouts' {
-        satisfy 'Depot Viewpoints'::'Critical Layouts Viewpoint';
+    view 'Critical Layouts' : 'Depot Viewpoints'::'Critical Layouts Viewpoint' {
         expose Plant::**;
     }
-    view 'Satisfier Figures' {
-        satisfy 'Depot Viewpoints'::'Satisfier Figures Viewpoint';
+    view 'Satisfier Figures' : 'Depot Viewpoints'::'Satisfier Figures Viewpoint' {
         expose Plant::'Flow Rate';
     }
-    view 'Satisfier Layouts' {
-        satisfy 'Depot Viewpoints'::'Satisfier Layouts Viewpoint';
+    view 'Satisfier Layouts' : 'Depot Viewpoints'::'Satisfier Layouts Viewpoint' {
         expose Plant::'Flow Rate';
     }
-    view 'Owned Figures' {
-        satisfy 'Depot Viewpoints'::'Owned Figures Viewpoint';
+    view 'Owned Figures' : 'Depot Viewpoints'::'Owned Figures Viewpoint' {
         expose Spares::**;
     }
     calc def 'Depot Handbook Critical Items Rows' :> DocumentQueries::Query {

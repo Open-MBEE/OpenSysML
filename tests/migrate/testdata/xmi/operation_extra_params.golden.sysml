@@ -1,4 +1,4 @@
-part def Boiler {
+occurrence def Boiler {
     attribute level : ScalarValues::Real default = 0.0;
     action def Adjust {
         in ref context : Boiler[1];

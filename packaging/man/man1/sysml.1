@@ -308,6 +308,11 @@ sequence, table or matrix, without a declared view
 .BR \-render\-all " \fIdir\fP"
 Render every declared view into this directory
 .TP
+.BR \-graphs " \fIname\fP"
+Write the lowered graph of this action or state machine, and of every behavior
+it performs, as the canonical graphs:1 JSON an external analysis engine is
+sent, to stdout or \-output
+.TP
 .BR \-render\-form " \fIform\fP"
 Form \-render or \-render\-all writes: text, mermaid, markdown, dot, plantuml,
 d2, csv or tsv (csv and tsv for a table or matrix); D2 writes tree,
@@ -321,9 +326,10 @@ family: okabe\-ito, tol\-bright, tol\-muted, tol\-light, brewer\-set2,
 brewer\-dark2, viridis or cividis; default black and white
 .TP
 .BR \-render\-link " \fItemplate\fP"
-Link template for rendered elements: {file} is the path as loaded; use
-absolute paths for vscode:// or file:// links. Placeholders: {file}, {line},
-{col}, {qname}, {id}
+Source link template for \-render, \-render\-all, \-render\-document,
+\-render\-documents and \-render\-run. Placeholders: {file}, {line}, {col},
+{qname}, {id}; {file} is the path as loaded (use absolute paths for vscode://
+or file:// links)
 .TP
 .BR \-render\-unplaced " \fIplacement\fP"
 Where a graph form of a view some Layout positions puts the nodes none does:
@@ -452,6 +458,10 @@ Report errors only, suppressing warnings
 .B \-trace
 Report each execution step: expression evaluation, calc invocation, action
 tokens, state transitions
+.TP
+.BR \-render\-run " \fIkind\fP=\fIpath\fP"
+Render the trace of a run as timeline or sequence into path (\- is stdout);
+form comes from \-render\-form or the path extension
 .TP
 .BR \-cpuprofile " \fIfile\fP"
 Write a CPU profile of the run to this file, for go tool pprof

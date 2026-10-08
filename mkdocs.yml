@@ -246,6 +246,7 @@ nav:
       - guide/09-clients.md
       - guide/10-troubleshooting.md
       - guide/11-migrating-from-sysml-v1.md
+      - guide/12-jupyter.md
       - guide/modeling-fleets.md
   - Document generation:
       - manual/README.md
@@ -277,6 +278,7 @@ nav:
       - Environment variables: reference/environment.md
       - External engines: reference/external-engines.md
       - Language server: reference/lsp.md
+      - Jupyter kernel: reference/jupyter-kernel.md
       - Diagnostics (lints): reference/diagnostics.md
       - Client libraries: reference/clients.md
       - Go packages: reference/api.md
@@ -288,6 +290,7 @@ nav:
       - MATLAB API: reference/matlab-api.md
       - Service transports: reference/service-transports.md
       - Wire contract: reference/wire-contract.md
+      - Compact API JSON: reference/api-json-compact.md
       - RDF mapping: reference/rdf-mapping.md
       - SysML v1 migration: reference/sysml-v1-migration.md
       - FMI models: reference/fmi.md
