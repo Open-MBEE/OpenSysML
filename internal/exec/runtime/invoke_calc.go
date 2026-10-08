@@ -645,6 +645,7 @@ type invocationFrame struct {
 	// slots hold the parameters; bindings the locals the body declares beside them.
 	slots    slotFrame
 	bindings map[string]Value
+	cells    *bodyCells
 	aliases  map[string]string
 	owner    *calcShape // the calc invoked, whose members the locals bind
 	run      int64      // the run this invocation is (Context.newRun)
@@ -655,7 +656,7 @@ type invocationFrame struct {
 
 // locals is the frame the invocation's parameters and body locals are bound in.
 func (f *invocationFrame) locals() frame {
-	return frame{slots: &f.slots, vars: f.bindings, aliases: f.aliases, owner: f.owner, run: f.run}
+	return frame{slots: &f.slots, vars: f.bindings, cells: f.cells, aliases: f.aliases, owner: f.owner, run: f.run}
 }
 
 // maxFreeInvocationFrames bounds the frames kept, so one deep recursion does not
@@ -684,6 +685,7 @@ func (ctx *Context) acquireInvocationFrame() *invocationFrame {
 // caller has ended the activation, so nothing memoized still reads the bindings.
 func (ctx *Context) releaseInvocationFrame(frame *invocationFrame) {
 	bindings, slots := frame.bindings, frame.slots
+	ctx.forgetBodyCells(frame.env.data.cells)
 	if frame.locals().width() > maxPooledBindings {
 		bindings, slots = nil, slotFrame{}
 	} else {
@@ -940,7 +942,9 @@ func (ctx *Context) bindCalcParameters(
 // activation, which the caller ends after it.
 func (ctx *Context) runCalcBody(shape *calcShape, frame *invocationFrame, callerScope *symbols.Scope, self *Instance, activation int64, enclosing []frame, occurrence *calcOccurrence) (Value, error) {
 	frame.host = calcStmtHost{ctx: ctx, shape: shape, self: self, occ: occurrence}
-	frame.env = stmtEnv{data: frame.locals(), enclosing: shape.bodyEnclosing(enclosing)}
+	frame.env = stmtEnv{
+		data: frame.locals(), enclosing: shape.bodyEnclosing(enclosing), locals: make(map[string]Value),
+	}
 	thisOccurrence := frame.engine.thisOccurrence
 	if thisOccurrence == nil {
 		thisOccurrence = frame.host.materializeOccurrence
@@ -951,7 +955,11 @@ func (ctx *Context) runCalcBody(shape *calcShape, frame *invocationFrame, caller
 	if err != nil {
 		return Value{}, err
 	}
+	frame.cells = frame.env.data.cells
 	if returned {
+		if err := ctx.freezeBodyCells(frame.cells); err != nil {
+			return Value{}, err
+		}
 		return result, nil
 	}
 	out, err := shape.designatedOutput()
@@ -963,12 +971,20 @@ func (ctx *Context) runCalcBody(shape *calcShape, frame *invocationFrame, caller
 	// through the same run bookkeeping a calc usage's outputs use.
 	run := newCalcRun(shape, callerScope, self, frame.locals())
 	run.activation, run.perf, run.occurrence = activation, frame.host.performance(), occurrence
+	run.bodyFrames = append(run.bodyFrames, frame.env.localFrame().snapshot())
 	if len(enclosing) > 0 {
 		run.outer = &EvalContext{ctx: ctx, scope: callerScope, self: self, frames: enclosing, trace: ctx.trace, activation: activation}
 	}
 	// The invocation already holds this evaluation's nesting feature value.
 	run.onStack = true
-	return run.value(ctx, out)
+	result, err = run.value(ctx, out)
+	if err != nil {
+		return Value{}, err
+	}
+	if err := ctx.freezeBodyCells(frame.cells); err != nil {
+		return Value{}, err
+	}
+	return result, nil
 }
 
 // toolCalcResult resolves what an invocation of a tool-computed calc yields when
@@ -1029,6 +1045,9 @@ func (shape *calcShape) designatedToolOutput(outputs map[string]Value) (calcOutp
 // calc's parameters on the way in and its locals on the way out, reporting
 // the value host took from a `return` and whether the body returned one.
 func runCalcSteps(engine *stmtEngine, host *calcStmtHost, steps []lower.Statement) (Value, bool, error) {
+	deriving := engine.ctx.deriving
+	engine.ctx.deriving = nil
+	defer func() { engine.ctx.deriving = deriving }()
 	flow, err := engine.run(steps)
 	if err != nil {
 		return Value{}, false, err
@@ -1136,7 +1155,11 @@ func (ec *EvalContext) bindCalcParameter(
 	}
 	if param.Default == nil {
 		if param.IsSubject {
-			if value, ok := ec.ctx.enclosingSubject(shape, enclosing); ok {
+			value, ok, err := ec.ctx.enclosingSubject(shape, enclosing)
+			if err != nil {
+				return Value{}, "", err
+			}
+			if ok {
 				return value, "enclosing subject", nil
 			}
 			return Value{}, "", shape.unboundSubject(param)

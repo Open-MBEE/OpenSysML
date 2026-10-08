@@ -500,6 +500,119 @@ rejected (an error) or is a tool free to report it as a warning and keep resolvi
 two `perform a;` in one body, are the memberships indistinguishable regardless of whether the
 usages have bodies?
 
+#### Imported memberships
+
+**Model text**
+
+```sysml
+package A { part def Engine; }
+package B { part def Engine; }
+package C {
+    private import A::*;
+    private import B::*;
+    part e : Engine;
+}
+```
+
+**Pilot:** silent. `KerMLValidator.checkNamespace` compares each *owned* membership with the
+namespace's memberships and, for a type, with its inherited ones; two memberships that both
+arrive by import are never compared (pilot `2026-08`, reading of `KerMLValidator.class` and
+`NamespaceAdapter.getImportedMembership`). `e` is typed by `A::Engine`. For contrast, the Rust
+sysml-toolkit (v0.10.2) reports `error: ambiguous reference 'Engine' resolves to multiple
+memberships` at `part e : Engine;` — a use-site error the specification does not provide for.
+
+**OpenSysML:** `warning: Duplicate of imported member name 'Engine': A::Engine (import A::*),
+B::Engine (import B::*)` on `B::*` — once per colliding name per importing namespace, on the
+import that brings the later membership, naming every colliding member and the import each came
+through (`resolve.Resolver.checkImportedNames`). Resolution is unchanged: `Engine` in `C` is
+`A::Engine`, the first matching membership. The same clauses as for owned names apply — short
+names count as names, and two members whose metaclasses conform in neither direction
+(`part def Engine` beside `attribute def Engine`) are distinguishable — and:
+
+- *One membership reached twice is one membership.* `import A::*; import Q::*;` where `Q`
+  publicly re-imports `A` surfaces one `Membership` of `A::Engine` through two imports and does
+  not warn (`visibleMemberships` is an `OrderedSet(Membership)`).
+- *Two memberships of one element do not warn either:* an alias beside the element it names
+  (`package B { alias Engine for A::Engine; }`) and a membership import beside a wildcard that
+  also surfaces the member (`import A::Engine; import A::*;`). Read literally, §8.3.2.4.3 makes
+  these indistinguishable — they are distinct `Membership`s with equal names and one metaclass —
+  but whichever membership `resolveLocal` takes first, the name denotes the same element, so the
+  model has nothing to fix; the owned check treats an alias beside its target the same way
+  (`sameElement`), and the pilot reports neither. An alias under another name is no such case:
+  `alias Spare for A::Engine` binds `Spare`, and `A::Engine` reached after it still collides with a
+  third `Engine` under its own name.
+- *An imported name a type inherits takes part:* `Type::membership` is owned, imported and
+  inherited memberships together, and `inheritedMemberships` removes only redefined features, so
+  `part def Child :> Base { private import A::*; }` where both `Base` and `A` declare a `part x`
+  warns on the import (`A::x (import A::*), Base::x (inherited)`); resolution keeps the inherited
+  member, which it reaches first. An owned member of that name hides both and silences the
+  warning, as it does for two imports. The pilot never compares imported with inherited
+  memberships either.
+- *An imported name an owned member hides takes no part:* `Namespace::importedMemberships(excluded)`
+  excludes a membership whose names an owned membership repeats, so `part def Engine;` declared in
+  `C` silences both imports.
+- *A repeat among the imported namespace's own members is that namespace's duplicate,* reported
+  where it is declared (or, for one package declared in two documents of a workspace, not at all),
+  never at the importer. Only a package's declarations are one namespace this way; two types of
+  one qualified name (`part def P { part x; } part def P { part x; }`) are two namespaces, and
+  the `x` of each collides at an `import A::**` that reaches both.
+- *Each declaration of a package carries its own imports.* The resolver reads a package declared
+  in two documents as one namespace for its members but resolves the body of each declaration
+  against the imports that declaration writes, so `package P { private import A::*; }` in one
+  document and `package P { private import B::*; }` in another never bring `A::Engine` and
+  `B::Engine` into one body, and no warning is reported for the pair. The pilot reads the two
+  declarations as two namespaces.
+- *Library content is left out,* as the inherited check leaves out library supertypes: the
+  standard library is not the model's to fix. This is load-bearing — read with the library
+  included, `import ISQ::*` alone brings eight indistinguishable pairs
+  (`ISQSpaceTime::CartesianDisplacement3dVector` beside `ISQCondensedMatter::…`,
+  `ISQElectromagnetism::MagneticDipoleMomentValue` beside `ISQAtomicNuclear::…`, …), and
+  `import NumericalFunctions::*; import DataFunctions::*;` sixteen (`'+'`, `'*'`, `'=='`, …).
+  Model-vs-library pairs are likewise not reported.
+- *Private imports count:* visibility governs what `C` re-exports, not what it imports.
+- *Overload sets are not exempt.* Two `calc def pick` reached through `import A::*; import B::*;`
+  are indistinguishable memberships like two owned `pick` are, which already warn
+  (`Duplicate of other owned member name`); invocation overload selection still chooses among
+  them ([spec-compliance.md](spec-compliance.md), "Invocation overload selection"). The overload
+  suites' diagnostic helpers set this warning aside, as they are about the selection.
+
+Over the OMG corpora this reports 238 warnings, every one a same-metaclass pair under the
+rule above: `13a-Model Containment.sysml` (six names — `Engine`, `Transmission`, `ClutchPort`,
+`DrivePwrPort`, `EngineToTransmissionInterface`, `vehicle1_c1` — from
+`'2a-Parts Interconnection'::*` and `'8-Requirements'::*`), `4a-Functional Allocation.sysml`
+(`Definitions` and `Usages` from `'2a-Parts Interconnection'::*` and
+`'3a-Function-based Behavior-1'::*`), the kerml-examples `Imports.kerml` (`P::A` beside `Q::A`,
+and `Q::D` beside `Q::Q1::D` under `import Q::**`), `AHFNorwayTopics.sysml` (two names under
+`AHFCoreLib::**`), and the Annex A vehicle model, where a recursive `import … ::**` of
+`VehicleConfiguration_b` surfaces, besides the three `vehicle_b` (`PartsTree::vehicle_b`,
+`DiscreteInteractions::CruiseControl1::vehicle_b`, `…CruiseControl2::vehicle_b`), forty-odd
+nested feature names — `vehicle_b::mass` beside `vehicle_b::fuelTank::mass`,
+`rearWheel1::diameter` beside `rearWheel2::diameter`, the requirement short name `'1'` of
+`vehicleMassRequirement` beside that of `engineMassRequirement` — at each of the four importing
+namespaces; `VehiclePartDef::Vehicle::*` beside `FuelTankPartDef::FuelTank::*` brings two `mass`.
+Recursive imports reach that far because `Namespace::visibleMemberships(…, isRecursive = true)`
+recurses into every owned member that is a `Namespace`, types and features included; the pilot's
+`NamespaceUtil.getVisibleMembershipsFor` does the same. The pilot is silent on all 238, which the
+differential records as only-ours rows ([pilot-differential.md](pilot-differential.md)); the Xpect
+suite declares none of them and no agreeing row moves.
+
+**Specification:** KerML §8.3.2.4.5 `Namespace::membership` is "all Memberships in this
+Namespace, including (at least) the union of `ownedMemberships` and `importedMemberships`", and
+`validateNamespaceDistinguishibility` ranges over `membership`. §8.3.2.4.5 `resolveLocal` and
+`resolveVisible` select the memberships whose `memberShortName` or `memberName` match and take
+`->first()`, so resolution never fails on multiplicity. §8.3.2.4.3 `Membership::isDistinguishableFrom`
+as above. §8.3.2.4.4 `Import::importedMemberships`, `Namespace::importedMemberships(excluded)`
+("excluding … a Membership whose … name is the same as an ownedMembership's").
+
+**Assessment:** spec clear, pilot short: it checks owned and inherited memberships only, so an
+importing namespace whose imports collide is never reported, and the toolkit's use-site error
+reports it in the wrong place. Ours follows the specification on the namespace, with the
+exclusions listed above as the adjudicated readings.
+
+**Question for the authors:** two memberships of one element — an alias beside the element, or a
+membership import beside a wildcard that surfaces it — are indistinguishable by the letter of
+§8.3.2.4.3; is a namespace holding them intended to be ill-formed?
+
 ### 14. Constraints the pilot declares that the published specification does not contain
 
 **Model text**

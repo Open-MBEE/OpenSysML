@@ -1,0 +1,10 @@
+{
+  "type": "state",
+  "finalState": "done",
+  "stateVisits": ["waiting", "done"],
+  "outputs": {
+    "a": {"type": "Integer", "value": 6},
+    "s": {"type": "Integer", "value": 12},
+    "observed": {"type": "Integer", "value": 12}
+  }
+}
