@@ -55,7 +55,7 @@ func (r *Resolver) resolveVia(scope *symbols.Scope, qn *ast.QualifiedName) (*sym
 	r.Enter()
 	var target *symbols.Symbol
 	if operand := r.getOperandSymbol(scope, headRef); operand != nil {
-		target = r.resolveMemberChain(r.chainedFrom(scope, operand), member, chain)
+		target = r.resolveMemberChain(scope, r.chainedFrom(scope, operand), member, chain)
 	}
 	settled := r.Leave()
 	for i := range head.Parts {
@@ -99,7 +99,7 @@ func (r *Resolver) resolveTarget(scope *symbols.Scope, target ast.Node, hide *re
 		if !ok || t.Member == nil {
 			return nil, false
 		}
-		return r.memberChain(r.chainedFrom(scope, owner), t.Member, t)
+		return r.memberChain(scope, r.chainedFrom(scope, owner), t.Member, t)
 	default:
 		return nil, false
 	}
@@ -516,7 +516,7 @@ func (r *Resolver) resolveChainSegment(ref Reference, hide *refFilter) (*symbols
 	// A qualified segment the owner has no member for reads outward, as
 	// resolveFeatureChain does.
 	if len(ref.QN.Parts) > 1 {
-		if _, member := r.chainMember(owner, ref.QN.Parts[0].Text, ref.Chain); !member {
+		if _, member := r.chainMember(ref.Scope, owner, ref.QN.Parts[0].Text, ref.Chain); !member {
 			var outward *symbols.Symbol
 			if r.probe(ref.QN, func() bool {
 				outward, ok = r.resolveQualified(ref.Scope, ref.QN, hide)
@@ -526,7 +526,7 @@ func (r *Resolver) resolveChainSegment(ref Reference, hide *refFilter) (*symbols
 			}
 		}
 	}
-	return r.memberChain(owner, ref.QN, ref.Chain)
+	return r.memberChain(ref.Scope, owner, ref.QN, ref.Chain)
 }
 
 // resolveConstructedName resolves ref as a member of the constructed owner it
@@ -539,7 +539,7 @@ func (r *Resolver) resolveConstructedName(ref Reference, hide *refFilter) (*symb
 	if !ok {
 		return nil, false
 	}
-	return r.memberChain(owner, ref.QN, nil)
+	return r.memberChain(ref.Scope, owner, ref.QN, nil)
 }
 
 // headScope is the scope ref, written in a head relationship, resolves in as the
@@ -573,10 +573,10 @@ func leadingName(target ast.Node) ast.Node {
 
 // memberChain walks qn's segments as members of owner, reading each segment as
 // the document walk does (see chainMember).
-func (r *Resolver) memberChain(owner *symbols.Symbol, qn *ast.QualifiedName, chain ast.Node) (*symbols.Symbol, bool) {
+func (r *Resolver) memberChain(scope *symbols.Scope, owner *symbols.Symbol, qn *ast.QualifiedName, chain ast.Node) (*symbols.Symbol, bool) {
 	cur := owner
 	for i, part := range qn.Parts {
-		next, ok := r.chainMember(cur, part.Text, chain)
+		next, ok := r.chainMember(scope, cur, part.Text, chain)
 		if !ok {
 			next, ok = r.implicitlyNamedMember(cur.Scope, part.Text, nil)
 		}

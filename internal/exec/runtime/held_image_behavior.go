@@ -64,7 +64,9 @@ type imagedFrame struct {
 	saved         actionFrame
 	parent        int
 	locals        []map[string]Value
+	localCells    [][]imagedBodyCell
 	data          map[string]Value
+	cells         []imagedBodyCell
 	outer         []imagedOuter
 	subactions    map[ast.Node]int
 	repeats       map[repetitionGroupID]imagedRepetition
@@ -73,6 +75,18 @@ type imagedFrame struct {
 	held          map[ast.Node]map[string][]nodeObject
 	staged        map[ast.Node]map[string][]imagedStaged
 	nested        map[ast.Node][]nestedDelivery
+}
+
+// imagedBodyCell stores a body binding's value and tracking state for an image.
+type imagedBodyCell struct {
+	name        string
+	value       ast.Node
+	scope       *symbols.Scope
+	masked      string
+	written     bool
+	frozen      bool
+	visible     []map[string]bool
+	limitFrames bool
 }
 
 type imagedRepetition struct {
@@ -107,7 +121,9 @@ type imagedState struct {
 	nextEventID        int64
 	events             []Event
 	stateData          map[string]Value
+	stateCells         []imagedBodyCell
 	stateAttrs         map[*ast.StateNode]map[string]Value
+	stateAttrCells     map[*ast.StateNode][]imagedBodyCell
 	stateVisits        []string
 	stateStack         []*ast.StateNode
 	fired              []FiredTransition
@@ -128,6 +144,8 @@ type imagedState struct {
 	timerScheduled     map[*lower.Transition]bool
 	timeTriggerVerdict map[*lower.Transition]error
 	changeFired        map[*lower.Transition]bool
+	changeObserved     map[*lower.Transition]bool
+	changePending      map[*lower.Transition]bool
 	firingChange       *lower.Transition
 	firingNotes        []RunNote
 	changeRearmed      map[*lower.Transition]bool
@@ -238,6 +256,7 @@ func (t *imaging) frame(perf *actionFrame, at func(*actionFrame) int) (imagedFra
 	}
 	f := imagedFrame{saved: *perf, parent: at(perf.parent)}
 	f.saved.parent, f.saved.locals, f.saved.outer, f.saved.data = nil, nil, nil, nil
+	f.saved.cells, f.saved.localCells = nil, nil
 	f.saved.subactions, f.saved.repeats, f.saved.repeatedPerfs = nil, nil, nil
 	f.saved.pending, f.saved.held, f.saved.staged, f.saved.nested = nil, nil, nil, nil
 	f.saved.connections = slices.Clone(perf.connections)
@@ -247,16 +266,23 @@ func (t *imaging) frame(perf *actionFrame, at func(*actionFrame) int) (imagedFra
 	f.saved.nodes = slices.Clone(perf.nodes)
 	f.saved.streamed = maps.Clone(perf.streamed)
 	f.saved.unreceived = cloneUnreceived(perf.unreceived)
-	for _, local := range perf.locals {
-		if err := t.values(local); err != nil {
+	for i, local := range perf.locals {
+		cloned := maps.Clone(local)
+		var cells []imagedBodyCell
+		if i < len(perf.localCells) {
+			cells = imageBodyCells(perf.localCells[i], cloned)
+		}
+		if err := t.values(cloned); err != nil {
 			return imagedFrame{}, err
 		}
-		f.locals = append(f.locals, maps.Clone(local))
-	}
-	if err := t.values(perf.data); err != nil {
-		return imagedFrame{}, err
+		f.locals = append(f.locals, cloned)
+		f.localCells = append(f.localCells, cells)
 	}
 	f.data = maps.Clone(perf.data)
+	f.cells = imageBodyCells(perf.cells, f.data)
+	if err := t.values(f.data); err != nil {
+		return imagedFrame{}, err
+	}
 	outer, err := t.outerFrames(perf, at)
 	if err != nil {
 		return imagedFrame{}, err
@@ -391,6 +417,7 @@ func (t *imaging) stateExecutor(e *StateExecutor) (*imagedState, error) {
 		graph: e.graph, state: e.state, activeConfig: cloneConfiguration(e.activeConfig),
 		nextEventID:        e.nextEventID,
 		stateData:          maps.Clone(e.stateData),
+		stateAttrCells:     make(map[*ast.StateNode][]imagedBodyCell, len(e.stateAttrCells)),
 		stateAttrs:         make(map[*ast.StateNode]map[string]Value, len(e.stateAttrs)),
 		stateVisits:        slices.Clone(e.stateVisits),
 		stateStack:         slices.Clone(e.stateStack),
@@ -411,6 +438,8 @@ func (t *imaging) stateExecutor(e *StateExecutor) (*imagedState, error) {
 		timerScheduled:     maps.Clone(e.timerScheduled),
 		timeTriggerVerdict: maps.Clone(e.timeTriggerVerdict),
 		changeFired:        maps.Clone(e.changeFired),
+		changeObserved:     maps.Clone(e.changeObserved),
+		changePending:      maps.Clone(e.changePending),
 		firingChange:       e.firingChange,
 		firingNotes:        slices.Clone(e.firingNotes),
 		changeRearmed:      maps.Clone(e.changeRearmed),
@@ -425,7 +454,8 @@ func (t *imaging) stateExecutor(e *StateExecutor) (*imagedState, error) {
 	if img.run, err = t.run(e.driven.state); err != nil {
 		return nil, err
 	}
-	if err := t.values(e.stateData); err != nil {
+	img.stateCells = imageBodyCells(e.stateCells, img.stateData)
+	if err := t.values(img.stateData); err != nil {
 		return nil, err
 	}
 	if call := e.pendingCall; call != nil {
@@ -437,10 +467,12 @@ func (t *imaging) stateExecutor(e *StateExecutor) (*imagedState, error) {
 		}
 	}
 	for node, attrs := range e.stateAttrs {
-		if err := t.values(attrs); err != nil {
+		cloned := maps.Clone(attrs)
+		img.stateAttrCells[node] = imageBodyCells(e.stateAttrCells[node], cloned)
+		if err := t.values(cloned); err != nil {
 			return nil, fmt.Errorf("state %s: %w", StateVertexName(node), err)
 		}
-		img.stateAttrs[node] = maps.Clone(attrs)
+		img.stateAttrs[node] = cloned
 	}
 	for node, record := range e.history {
 		img.history[node] = historyRecord{child: record.child, regions: maps.Clone(record.regions)}
@@ -538,12 +570,13 @@ func (m *materializing) behavior(b imagedBehavior) error {
 		if err := m.stateExecutor(exec, b.state); err != nil {
 			return err
 		}
+		dst.registerStateExecutor(exec)
 		if b.onClock {
 			dst.clock.attach(exec)
 		}
 		behavior.State = exec
 	case b.action != nil:
-		action, tool, err := dst.performanceBody(decl.member, behavior.Symbol)
+		action, tool, _, err := dst.performanceBody(decl.member, behavior.Symbol)
 		if err != nil {
 			return err
 		}
@@ -646,7 +679,9 @@ func (m *materializing) actionExecutor(e *ActionExecutor, img *imagedAction) err
 
 // frame fills one performance of dst's from its image.
 func (m *materializing) frame(perf *actionFrame, img imagedFrame, frameAt func(int) *actionFrame) error {
+	perfs := perf.perfs
 	*perf = img.saved
+	perf.perfs = perfs
 	perf.parent = frameAt(img.parent)
 	perf.connections = slices.Clone(img.saved.connections)
 	perf.features = maps.Clone(img.saved.features)
@@ -657,16 +692,21 @@ func (m *materializing) frame(perf *actionFrame, img imagedFrame, frameAt func(i
 	perf.unreceived = cloneUnreceived(img.saved.unreceived)
 	var err error
 	perf.locals = nil
-	for _, local := range img.locals {
+	perf.localCells = make([]*bodyCells, len(img.locals))
+	for i, local := range img.locals {
 		carried, err := m.values(local)
 		if err != nil {
 			return err
 		}
 		perf.locals = append(perf.locals, carried)
+		if i < len(img.localCells) {
+			perf.localCells[i] = m.frameCells(perf, carried, img.localCells[i], i+1)
+		}
 	}
 	if perf.data, err = m.values(img.data); err != nil {
 		return err
 	}
+	perf.cells = m.frameCells(perf, perf.data, img.cells, 0)
 	perf.outer = nil
 	for _, outer := range img.outer {
 		vars, err := m.values(outer.vars)
@@ -714,7 +754,153 @@ func (m *materializing) frame(perf *actionFrame, img imagedFrame, frameAt func(i
 	if err := m.nested(perf, img.nested); err != nil {
 		return err
 	}
+	for _, cells := range perf.localCells {
+		if err := m.dst.deriveBodyCells(cells); err != nil {
+			return err
+		}
+	}
+	if err := m.dst.deriveBodyCells(perf.cells); err != nil {
+		return err
+	}
 	return nil
+}
+
+// imageBodyCells captures binding declarations and flags without dependency edges.
+func imageBodyCells(cells *bodyCells, values map[string]Value) []imagedBodyCell {
+	if cells == nil {
+		return nil
+	}
+	// Tracking cells omit dependency edges from images and derive again on first read.
+	var image []imagedBodyCell
+	for _, name := range cells.order {
+		cell := cells.cells[name]
+		if cell.binding == nil {
+			continue
+		}
+		image = append(image, imagedBodyCell{
+			name: name, value: cell.binding.value, scope: cell.binding.scope,
+			masked:  cell.binding.masked,
+			written: cell.fv.Written, frozen: cell.binding.frozen,
+			visible: cloneBodyBindingVisibility(cell.binding.visible), limitFrames: cell.binding.limitFrames,
+		})
+		if !cell.fv.Written && !cell.binding.frozen {
+			delete(values, name)
+		}
+	}
+	return image
+}
+
+// restoreStateBodyCells reinstates the binding cells owned by a state image.
+func restoreStateBodyCells(
+	ctx *Context,
+	cells *bodyCells,
+	attributes []lower.Attribute,
+	image []imagedBodyCell,
+	owner string,
+	defaultScope *symbols.Scope,
+) {
+	features := make(map[string]lower.Attribute, len(attributes))
+	for _, attr := range attributes {
+		features[attr.Name] = attr
+	}
+	for _, state := range image {
+		attr, ok := features[state.name]
+		if !ok || !attr.Binding || attr.Value == nil {
+			continue
+		}
+		if cell := cells.cells[state.name]; cell != nil && cell.binding != nil {
+			restoreBodyCellValue(cells, state, cell)
+			continue
+		}
+		scope := attr.Scope
+		if scope == nil {
+			scope = defaultScope
+		}
+		check := func(value *Value) error {
+			return ctx.checkBodyDeclaration(scope, owner, state.name, value)
+		}
+		cell := ctx.registerBodyBinding(cells, state.name, attr.Value, scope, check, nil)
+		cell.binding.visible = cloneBodyBindingVisibility(state.visible)
+		cell.binding.limitFrames = state.limitFrames
+		restoreBodyCellValue(cells, state, cell)
+	}
+}
+
+// restoreBodyCellValue restores a body's value and written or tracking state.
+func restoreBodyCellValue(cells *bodyCells, state imagedBodyCell, cell *bodyCell) {
+	if value, held := cells.vars[state.name]; held {
+		cell.fv.Value, cell.fv.Materialized = value, true
+	}
+	if state.written {
+		cell.fv.Written = true
+	} else if state.frozen {
+		cell.binding.frozen = true
+	} else {
+		delete(cells.vars, state.name)
+		cell.fv.Value, cell.fv.Values, cell.fv.Materialized = Value{}, Value{}, false
+	}
+}
+
+// frameCells rebuilds the dependency cells for a materialized performance frame.
+func (m *materializing) frameCells(
+	perf *actionFrame,
+	values map[string]Value,
+	image []imagedBodyCell,
+	localDepth int,
+) *bodyCells {
+	if len(image) == 0 {
+		return nil
+	}
+	defaultContext := func(scope *symbols.Scope) *EvalContext {
+		ec := perf.perfs.evalContextFor(perf, scope)
+		if localDepth > 0 {
+			localStart := len(ec.frames) - len(perf.locals) - 1
+			ec.frames = ec.frames[:localStart+localDepth]
+		}
+		return ec
+	}
+	cells := newBodyCells(values, defaultContext)
+	for _, state := range image {
+		if state.value == nil {
+			continue
+		}
+		check := func(value *Value) error {
+			return m.dst.checkBodyDeclaration(state.scope, perf.describe(), state.name, value)
+		}
+		var onDerived func(*Value) error
+		if perf.node == nil && perf.parent == nil {
+			if owner, ok := perf.perfs.owner.(*ActionExecutor); ok {
+				cell := cells.cell(state.name)
+				onDerived = func(value *Value) error {
+					mirrored, err := owner.mirrorBindingOccurrence(state.name, *value, cell)
+					if err != nil {
+						return err
+					}
+					*value = mirrored
+					return nil
+				}
+			}
+		}
+		context := func(scope *symbols.Scope) *EvalContext {
+			if state.masked != "" {
+				return perf.perfs.evalBindingContext(perf, scope, state.masked, perf.began)
+			}
+			return defaultContext(scope)
+		}
+		cell := m.dst.registerBodyBindingInContext(cells, state.name, state.value, state.scope, check, context, onDerived)
+		cell.binding.visible = cloneBodyBindingVisibility(state.visible)
+		cell.binding.masked = state.masked
+		cell.binding.limitFrames = state.limitFrames
+		if state.written {
+			cell.fv.Written = true
+		} else if state.frozen {
+			cell.binding.frozen = true
+		} else {
+			delete(values, state.name)
+			cell.fv.Value, cell.fv.Materialized = Value{}, false
+		}
+	}
+	return cells
 }
 
 // pending fills perf's pending table from img's.
@@ -807,9 +993,22 @@ func (m *materializing) stateExecutor(e *StateExecutor, img *imagedState) error 
 	if e.stateData == nil {
 		e.stateData = make(map[string]Value)
 	}
+	if e.stateCells != nil {
+		e.stateCells.vars = e.stateData
+		restoreStateBodyCells(m.dst, e.stateCells, e.graph.Attributes, img.stateCells,
+			"state machine "+symbolText(e.stateMachine), e.graph.Scope)
+	}
 	for node, attrs := range img.stateAttrs {
 		if e.stateAttrs[node], err = m.values(attrs); err != nil {
 			return fmt.Errorf("state %s: %w", StateVertexName(node), err)
+		}
+		if image := img.stateAttrCells[node]; len(image) != 0 {
+			cells := newBodyCells(e.stateAttrs[node], func(scope *symbols.Scope) *EvalContext {
+				return e.stateAttributeContext(node, scope)
+			})
+			restoreStateBodyCells(m.dst, cells, e.graph.StateAttributes[node], image,
+				"state "+node.Name, e.graph.Scope)
+			e.stateAttrCells[node] = cells
 		}
 	}
 	e.stateVisits, e.stateStack = slices.Clone(img.stateVisits), slices.Clone(img.stateStack)
@@ -851,6 +1050,9 @@ func (m *materializing) stateExecutor(e *StateExecutor, img *imagedState) error 
 	e.timerScheduled = maps.Clone(img.timerScheduled)
 	e.timeTriggerVerdict = maps.Clone(img.timeTriggerVerdict)
 	e.changeFired = maps.Clone(img.changeFired)
+	e.changeObserved = maps.Clone(img.changeObserved)
+	e.changePending = maps.Clone(img.changePending)
+	e.changeReads = make(map[*lower.Transition][]*FeatureValue)
 	e.firingChange, e.firingNotes = img.firingChange, slices.Clone(img.firingNotes)
 	e.changeRearmed = maps.Clone(img.changeRearmed)
 	e.changeWaits = slices.Clone(img.changeWaits)

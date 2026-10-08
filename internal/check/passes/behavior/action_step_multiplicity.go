@@ -1,6 +1,8 @@
 package behavior
 
 import (
+	"errors"
+
 	"github.com/Open-MBEE/OpenSysML/internal/check/passes/kit"
 	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
@@ -9,7 +11,10 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
 )
 
-const actionStepMultiplicitySource = "action-step-multiplicity"
+const (
+	actionStepMultiplicitySource = "action-step-multiplicity"
+	actionStepLoweringCode       = "action-step-lowering"
+)
 
 // ActionStepMultiplicityPass warns about action steps the runtime cannot
 // execute according to their declared multiplicity.
@@ -153,6 +158,26 @@ func (c *actionStepMultiplicityChecker) checkAction(decl ast.Node, scope *symbol
 	}
 	graph, err := lower.ToActionGraphWith(decl, scope, c.ctx.Resolver())
 	if err != nil {
+		if !errors.Is(err, lower.ErrCyclicSpecialization) &&
+			!errors.Is(err, lower.ErrRedefinedStepMissing) &&
+			!errors.Is(err, lower.ErrIncompatibleRedefinedStep) &&
+			!errors.Is(err, lower.ErrAmbiguousInheritedStep) {
+			return
+		}
+		if c.reported[decl] == nil {
+			c.reported[decl] = make(map[string]bool)
+		}
+		if c.reported[decl][actionStepLoweringCode] {
+			return
+		}
+		c.reported[decl][actionStepLoweringCode] = true
+		c.diags = append(c.diags, diag.Diagnostic{
+			Severity: diag.SeverityError,
+			Span:     decl.Span(),
+			Message:  err.Error(),
+			Code:     actionStepLoweringCode,
+			Source:   actionStepMultiplicitySource,
+		})
 		return
 	}
 	c.checkGraph(graph)
@@ -219,7 +244,7 @@ func (c *actionStepMultiplicityChecker) checkGraph(graph *lower.ActionGraph) {
 		if c.ctx.DownstreamOfFailure(node) {
 			continue
 		}
-		if graph.Multiplicities[node] == nil {
+		if !graph.HasStepMultiplicity(node, c.model) {
 			continue
 		}
 		if err := graph.CheckStep(node, c.model); err != nil {
@@ -264,7 +289,13 @@ func (c *actionStepMultiplicityChecker) report(graph *lower.ActionGraph, err err
 	c.reported[stepErr.Node][stepErr.Code] = true
 	declaration := stepErr.Declaration
 	if declaration == nil && graph != nil {
-		declaration = graph.Multiplicities[stepErr.Node]
+		multiplicity := graph.Multiplicities[stepErr.Node]
+		if multiplicity == nil {
+			multiplicity, _ = graph.StepMultiplicity(stepErr.Node, c.model)
+		}
+		if multiplicity != nil {
+			declaration = multiplicity
+		}
 	}
 	span := stepErr.Node.Span()
 	if declaration != nil {

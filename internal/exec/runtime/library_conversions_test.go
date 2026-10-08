@@ -70,15 +70,17 @@ func TestConversionFunctionValues(t *testing.T) {
 		{"RealFunctions::ToReal", []Value{NewStringValue("0e-400")}, constReal(0)},
 		{"RealFunctions::ToReal", []Value{NewStringValue("-0.000")}, constReal(0)},
 		{"RealFunctions::ToReal", []Value{NewStringValue("4.9e-324")}, constReal(math.SmallestNonzeroFloat64)},
-		{"RationalFunctions::ToRational", []Value{NewStringValue("0.25")}, constReal(0.25)},
+		{"RationalFunctions::ToRational", []Value{NewStringValue("0.25")}, constRat("0.25")},
+		{"RationalFunctions::ToRational", []Value{NewStringValue("1/3")}, constRat("1/3")},
+		{"RationalFunctions::ToRational", []Value{NewStringValue("1e-400")}, constRat("1e-400")},
 
 		{"IntegerFunctions::ToNatural", []Value{constInt(5)}, constInt(5)},
 		{"RealFunctions::ToInteger", []Value{constReal(2.7)}, constInt(2)},
 		{"RealFunctions::ToInteger", []Value{constReal(-2.7)}, constInt(-2)},
 		{"RealFunctions::ToInteger", []Value{constInt(4)}, constInt(4)},
 		{"RationalFunctions::ToInteger", []Value{constReal(0.5)}, constInt(0)},
-		{"RealFunctions::ToRational", []Value{constReal(0.75)}, constReal(0.75)},
-		{"RealFunctions::ToRational", []Value{constInt(2)}, constReal(2)},
+		{"RealFunctions::ToRational", []Value{constReal(0.75)}, constRat("0.75")},
+		{"RealFunctions::ToRational", []Value{constInt(2)}, constRat("2")},
 
 		{"RealFunctions::re", []Value{constReal(2.5)}, constReal(2.5)},
 		{"RealFunctions::re", []Value{constInt(2)}, constReal(2)},
@@ -103,15 +105,15 @@ func TestConversionFunctionValues(t *testing.T) {
 		{"RationalFunctions::gcd", []Value{constReal(1e20), constReal(6e18)}, constInt(2e18)},
 		{"RationalFunctions::gcd", []Value{constReal(-1e300), constInt(1 << 62)}, constInt(1 << 62)},
 
-		{"RationalFunctions::rat", []Value{constInt(1), constInt(3)}, constReal(1.0 / 3.0)},
-		{"RationalFunctions::rat", []Value{constInt(6), constInt(4)}, constReal(1.5)},
-		{"RationalFunctions::rat", []Value{constInt(-3), constInt(4)}, constReal(-0.75)},
-		{"RationalFunctions::rat", []Value{constInt(3), constInt(-4)}, constReal(-0.75)},
-		{"RationalFunctions::rat", []Value{constInt(0), constInt(1)}, constReal(0)},
-		{"RationalFunctions::rat", []Value{constInt(4), constInt(2)}, constReal(2)},
-		{"RationalFunctions::rat", []Value{constInt(3602879701896397), constInt(1 << 55)}, constReal(0.1)},
-		{"RationalFunctions::rat", []Value{constInt(math.MinInt64), constInt(math.MinInt64)}, constReal(1)},
-		{"RationalFunctions::rat", []Value{constInt(math.MaxInt64), constInt(1)}, constReal(math.Ldexp(1, 63))},
+		{"RationalFunctions::rat", []Value{constInt(1), constInt(3)}, constRat("1/3")},
+		{"RationalFunctions::rat", []Value{constInt(6), constInt(4)}, constRat("1.5")},
+		{"RationalFunctions::rat", []Value{constInt(-3), constInt(4)}, constRat("-0.75")},
+		{"RationalFunctions::rat", []Value{constInt(3), constInt(-4)}, constRat("-0.75")},
+		{"RationalFunctions::rat", []Value{constInt(0), constInt(1)}, constRat("0")},
+		{"RationalFunctions::rat", []Value{constInt(4), constInt(2)}, constRat("2")},
+		{"RationalFunctions::rat", []Value{constInt(3602879701896397), constInt(1 << 55)}, constRat("3602879701896397/36028797018963968")},
+		{"RationalFunctions::rat", []Value{constInt(math.MinInt64), constInt(math.MinInt64)}, constRat("1")},
+		{"RationalFunctions::rat", []Value{constInt(math.MaxInt64), constInt(1)}, constRat("9223372036854775807")},
 		{"RationalFunctions::numer", []Value{constReal(0.75)}, constInt(3)},
 		{"RationalFunctions::denom", []Value{constReal(0.75)}, constInt(4)},
 		{"RationalFunctions::numer", []Value{constReal(-0.75)}, constInt(-3)},
@@ -152,10 +154,8 @@ func TestConversionFunctionValues(t *testing.T) {
 	}
 }
 
-// rat(numer(x), denom(x)) is x for every finite Rational whose exact terms are
-// Integers: the terms are the ratio x holds, of any magnitude, and rat rounds
-// that ratio to x. An Integer x beyond 2^53 that no Real holds exactly is
-// left out: rat answers the Real nearest it, which compares unequal to it.
+// rat(numer(x), denom(x)) is x, as an exact Rational, for every finite number:
+// the terms are the ratio x holds, of any magnitude.
 func TestRationalTermsRoundTrip(t *testing.T) {
 	for _, x := range []Value{
 		constReal(0), constReal(math.Copysign(0, -1)), constReal(1), constReal(-1), constReal(2), constReal(-7),
@@ -184,8 +184,12 @@ func TestRationalTermsRoundTrip(t *testing.T) {
 		if err != nil {
 			t.Fatalf("rat(%s, %s) = error %v", FormatValue(numer), FormatValue(denom), err)
 		}
-		if back.Const.Kind != semantics.ValReal || back.Const.Real != asReal(x.Const) {
-			t.Fatalf("rat(numer(%s), denom(%s)) = %s, want %v", FormatValue(x), FormatValue(x), FormatValue(back), asReal(x.Const))
+		exact := x.Const
+		if exact.Kind == semantics.ValReal {
+			exact, _ = semantics.RationalOfReal(exact.Real)
+		}
+		if back.Const.Kind != semantics.ValRational || semantics.CompareRat(back.Const, exact) != 0 {
+			t.Fatalf("rat(numer(%s), denom(%s)) = %s, want %s exactly", FormatValue(x), FormatValue(x), FormatValue(back), FormatValue(x))
 		}
 		same, err := applyLibrary(t, "RationalFunctions::==", back, x)
 		if err != nil || !valueIdentical(same, constBool(true)) {
@@ -205,7 +209,7 @@ func TestRealToStringRoundTrips(t *testing.T) {
 		if err != nil {
 			t.Fatalf("ToReal(%q) = error %v", text.Str(), err)
 		}
-		if back.Const.Kind != semantics.ValReal || back.Const.Real != x {
+		if back.Const.Kind != semantics.ValReal || back.Const.AsReal() != x {
 			t.Fatalf("ToReal(ToString(%v)) = %s, want %v", x, FormatValue(back), x)
 		}
 	}
@@ -246,9 +250,10 @@ func TestConversionFunctionErrors(t *testing.T) {
 		{"RealFunctions::ToReal", []Value{NewStringValue("1e-400")}, semantics.ErrArithmeticOverflow},
 		{"RealFunctions::ToReal", []Value{NewStringValue("-2e-324")}, semantics.ErrArithmeticOverflow},
 		{"RealFunctions::ToReal", []Value{NewStringValue("0." + strings.Repeat("0", 330) + "1")}, semantics.ErrArithmeticOverflow},
-		{"RationalFunctions::ToRational", []Value{NewStringValue("1e-400")}, semantics.ErrArithmeticOverflow},
+		{"RationalFunctions::ToRational", []Value{NewStringValue("1e-400000")}, semantics.ErrRationalSizeLimit},
 		{"RealFunctions::ToReal", []Value{constReal(1)}, ErrTypeMismatch},
-		{"RationalFunctions::ToRational", []Value{NewStringValue("1/3")}, ErrInvalidNotation},
+		{"RationalFunctions::ToRational", []Value{NewStringValue("1/0")}, ErrDivisionByZero},
+		{"RationalFunctions::ToRational", []Value{NewStringValue("1/x")}, ErrInvalidNotation},
 		{"RealFunctions::ToInteger", []Value{NewStringValue("1")}, ErrTypeMismatch},
 		{"RealFunctions::re", []Value{NewStringValue("1")}, ErrTypeMismatch},
 		{"NaturalFunctions::ToString", []Value{constInt(-1)}, ErrTypeMismatch},

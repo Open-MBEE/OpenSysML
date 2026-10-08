@@ -593,10 +593,10 @@ func TestActionStepMultiplicityExploreOmitsRepeatedLocals(t *testing.T) {
 	if err != nil {
 		t.Fatalf("explore shared writers: %v", err)
 	}
-	if !exploration.Complete() || len(exploration.Outcomes) != 3 {
-		t.Fatalf("exploration = %s with %d outcomes, want three complete outcomes", exploration.Status(), len(exploration.Outcomes))
+	if !exploration.Complete() || len(exploration.Outcomes) != 1 {
+		t.Fatalf("exploration = %s with %d outcomes, want one complete outcome", exploration.Status(), len(exploration.Outcomes))
 	}
-	want := map[string]bool{"c = 1": true, "c = 2": true, "c = 3": true}
+	want := map[string]bool{"c = 3": true}
 	for _, explored := range exploration.Outcomes {
 		got := explored.Outcome.String()
 		if !want[got] {

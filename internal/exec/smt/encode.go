@@ -362,7 +362,7 @@ func (e *Encoding) collectFlows(node ast.Node) error {
 			continue
 		}
 		p := &solve.Var{Name: "pending(" + target.Name + ")", Sort: target.Sort, Symbol: target.Symbol,
-			Dimension: target.Dimension, Unit: target.Unit}
+			Dimension: target.Dimension, Unit: target.Unit, Binary64: target.Binary64}
 		e.pending[target.Name] = p
 		e.features[p.Name] = p
 		e.flagged[p.Name] = true
@@ -1021,7 +1021,7 @@ func (e *Encoding) tokens(t, n int, node ast.Node, prev, next *State, m *Move, g
 	case *ast.FinalNode:
 		s.terms = append(s.terms, s.retire())
 	case *ast.ForkNode:
-		s.fork()
+		s.fork(false)
 	case *ast.DecisionNode:
 		s.decide()
 	default:
@@ -1043,7 +1043,11 @@ func (e *Encoding) tokens(t, n int, node ast.Node, prev, next *State, m *Move, g
 				s.gate = and(not(s.pending), not(or(siblings...)))
 			}
 		}
-		s.succeed()
+		if e.Flow.fansOut(node) {
+			s.fork(true)
+		} else {
+			s.succeed()
+		}
 	}
 	s.others()
 	s.terms = append(s.terms, eq(solve.VarTerm(next.NextID), s.nextID))
@@ -1139,7 +1143,8 @@ func (s *tokenStep) stay() *solve.Term {
 // fork gives each enabled succession one fresh token, in order: the first in
 // the actor's slot, the rest in the free slots, as the interpreter's
 // stepForkNode does; a repeated target's split follows on the token's own move.
-func (s *tokenStep) fork() {
+// keepsOne moves a lone token on.
+func (s *tokenStep) fork(keepsOne bool) {
 	f, out, next := s.e.Flow, s.out, s.next
 	guards := s.guards.holds
 	rank := make([]*solve.Term, len(out))
@@ -1149,10 +1154,15 @@ func (s *tokenStep) fork() {
 		count = add(count, ite(guards[p], solve.IntTerm(1), solve.IntTerm(0)))
 	}
 	none := eq(count, solve.IntTerm(0))
+	// An ordinary node moves its token on when one succession is enabled; a fork always replaces it.
+	moves := solve.BoolTerm(false)
+	if keepsOne {
+		moves = eq(count, solve.IntTerm(1))
+	}
 	var actor []*solve.Term
 	for p := range out {
 		isFirst := and(guards[p], eq(rank[p], solve.IntTerm(0)))
-		actor = append(actor, implies(isFirst, s.land(next.Slots[s.t], p, s.base, true)))
+		actor = append(actor, implies(isFirst, s.land(next.Slots[s.t], p, ite(moves, s.actorID, s.base), true)))
 	}
 	s.terms = append(s.terms, implies(none, s.retire()), implies(not(none), and(actor...)))
 	ranks, running := s.freeRanks()
@@ -1170,7 +1180,7 @@ func (s *tokenStep) fork() {
 		}
 		s.placed[u] = and(s.free[u], or(here...))
 	}
-	s.nextID = add(s.base, count)
+	s.nextID = ite(moves, s.base, add(s.base, count))
 	s.fails = or(undefinedGuards(s.guards.defined)...)
 	if f.Cyclic || f.Repeated {
 		s.full = gt(count, add(running, solve.IntTerm(1)))
@@ -1414,7 +1424,7 @@ func (e *Encoding) begin(x *nodeEffect, node ast.Node, where string) error {
 		}
 		e.fresh++
 		v := &solve.Var{Name: fmt.Sprintf("%s@%s#%d", name, where, e.fresh), Sort: p.v.Sort,
-			Symbol: p.v.Symbol, Dimension: p.v.Dimension, Unit: p.v.Unit}
+			Symbol: p.v.Symbol, Dimension: p.v.Dimension, Unit: p.v.Unit, Binary64: p.v.Binary64}
 		e.declare(v)
 		e.assert(eq(solve.VarTerm(v), value), "start of "+name)
 		x.env.values[name] = solve.VarTerm(v)
@@ -1680,7 +1690,7 @@ func (e *Encoding) write(x *nodeEffect, path *solve.Term, target *solve.Var, val
 	}
 	e.fresh++
 	v := &solve.Var{Name: fmt.Sprintf("%s@%s#%d", target.Name, where, e.fresh), Sort: target.Sort,
-		Symbol: target.Symbol, Dimension: target.Dimension, Unit: target.Unit}
+		Symbol: target.Symbol, Dimension: target.Dimension, Unit: target.Unit, Binary64: target.Binary64}
 	e.declare(v)
 	e.assert(eq(solve.VarTerm(v), value), "write to "+target.Name)
 	x.env.write(target.Name, solve.VarTerm(v))
@@ -1698,7 +1708,8 @@ func (e *Encoding) merge(cond *solve.Term, then, otherwise *env, where string) *
 		}
 		e.fresh++
 		v := &solve.Var{Name: fmt.Sprintf("%s@%s#%d", name, where, e.fresh), Sort: a.Sort,
-			Symbol: e.features[name].Symbol, Dimension: e.features[name].Dimension, Unit: e.features[name].Unit}
+			Symbol: e.features[name].Symbol, Dimension: e.features[name].Dimension, Unit: e.features[name].Unit,
+			Binary64: e.features[name].Binary64}
 		e.declare(v)
 		e.assert(eq(solve.VarTerm(v), ite(cond, a, b)), "merge of "+name)
 		merged.values[name] = solve.VarTerm(v)

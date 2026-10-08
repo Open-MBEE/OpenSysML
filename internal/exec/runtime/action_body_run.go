@@ -96,6 +96,8 @@ type bodyRun struct {
 	// drives where a step is one move, its machine going on between the moves;
 	// shared only in a flow two of whose moves may touch what another does.
 	steps, shared bool
+	// holdsClock means a clock wait is the hold's refusal, not a body pause.
+	holdsClock bool
 	// stepDraws has a seeded run draw whether to pause after a callee's start shot or a
 	// move of its flow where two of its moves may touch what another does.
 	stepDraws bool
@@ -484,7 +486,9 @@ type statementWork struct {
 	token int64
 	frame *actionFrame
 	node  ast.Node
-	done  bool
+	// step is the node's performance, owning the nodes its body performs.
+	step *actionFrame
+	done bool
 }
 
 func (w *statementWork) clone() bodyWork { c := *w; return &c }
@@ -492,9 +496,10 @@ func (w *statementWork) clone() bodyWork { c := *w; return &c }
 func (w *statementWork) perform() error {
 	e := w.exec
 	if !w.done {
-		if err := e.executeBody(w.frame, w.frame.graph, w.node); err != nil {
+		if err := e.executeStatementBody(w.step, w.frame.graph); err != nil {
 			return err
 		}
+		w.step.ended = true
 		w.done = true
 	}
 	idx, err := e.workToken(w.token)
@@ -830,6 +835,9 @@ func (ctx *Context) yieldedHere() bool {
 // pauseForClock pauses the body on the stack while wait, a wait on the clock,
 // goes on; nil where none is on the stack.
 func (ctx *Context) pauseForClock(wait bodyWait) error {
+	if ctx.body != nil && ctx.body.holdsClock {
+		return nil
+	}
 	return ctx.pauseBody(bodyPause{onWait: true, wait: wait})
 }
 

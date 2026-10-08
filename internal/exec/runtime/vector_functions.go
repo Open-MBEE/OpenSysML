@@ -114,6 +114,59 @@ func realElements(name, param string, val Value) ([]float64, error) {
 	return out, nil
 }
 
+// cartesian applies a CartesianVectorValue operation, whose library declaration
+// types its scalars and vector elements Real, to its arguments held as Reals.
+func cartesian(apply libraryApply) libraryApply {
+	return func(name string, ctx *Context, args []Value) (Value, error) {
+		held := make([]Value, len(args))
+		for i, arg := range args {
+			var err error
+			if held[i], err = realHeld(arg); err != nil {
+				return Value{}, functionError(name, err)
+			}
+		}
+		return apply(name, ctx, held)
+	}
+}
+
+// realHeld is a scalar, sequence or unitless vector with each exact number as its
+// nearest Real, refused where no finite Real is.
+func realHeld(v Value) (Value, error) {
+	switch v.Kind {
+	case ValConst:
+		if !v.Const.IsExact() {
+			return v, nil
+		}
+		real, err := semantics.RealOf(v.Const)
+		if err != nil {
+			return Value{}, err
+		}
+		return Value{Kind: ValConst, Const: real}, nil
+	case ValSequence:
+		elements := elementsOf(v)
+		held := make([]Value, len(elements))
+		for i := range elements {
+			var err error
+			if held[i], err = realHeld(elements[i]); err != nil {
+				return Value{}, err
+			}
+		}
+		return sequenceOf(held), nil
+	case ValVector:
+		vec := v.Vector()
+		held := make([]semantics.Value, len(vec.Elements))
+		for i, elem := range vec.Elements {
+			h, err := realHeld(Value{Kind: ValConst, Const: elem})
+			if err != nil {
+				return Value{}, err
+			}
+			held[i] = h.Const
+		}
+		return Value{Kind: ValVector, ref: &Vector{Elements: held, Object: vec.Object}}, nil
+	}
+	return v, nil
+}
+
 // vectorValue builds a vector from its elements, charging them against the run's
 // element budget; an element outside the range of its kind is reported.
 func (ctx *Context) vectorValue(elements []semantics.Value) (Value, error) {
@@ -258,17 +311,24 @@ func checkedNumeric(v semantics.Value) (semantics.Value, error) {
 	return semantics.RealResult(v.Real)
 }
 
-// isNumeric reports whether a value is an Integer or a Real.
+// isNumeric reports whether a value is an Integer, a Rational or a Real.
 func isNumeric(v semantics.Value) bool {
-	return v.Kind == semantics.ValInt || v.Kind == semantics.ValReal
+	return v.IsNumeric()
 }
 
 // elementArith applies an arithmetic operator to two numeric elements: two
 // Integers exactly, refused only beyond maxBits; a Real result outside its range
 // is reported rather than returned infinite.
 func elementArith(name string, op ast.OperatorKind, a, b semantics.Value, maxBits int64) (semantics.Value, error) {
-	if a.Kind == semantics.ValInt && b.Kind == semantics.ValInt {
+	if a.Kind == semantics.ValInt && b.Kind == semantics.ValInt && op != ast.OpDiv {
 		result, err := semantics.IntArith(op, a, b, maxBits)
+		if err != nil {
+			return semantics.Value{}, fmt.Errorf("function %s: %w", name, integerSizeHint(err))
+		}
+		return result, nil
+	}
+	if a.IsExact() && b.IsExact() && op != ast.OpPow {
+		result, err := semantics.RatArith(op, a, b, maxBits)
 		if err != nil {
 			return semantics.Value{}, fmt.Errorf("function %s: %w", name, integerSizeHint(err))
 		}
@@ -402,8 +462,11 @@ func (ctx *Context) combineVectors(name string, op ast.OperatorKind, v, w vector
 
 // zeroLike is the zero of a numeric value's kind, which negation subtracts from.
 func zeroLike(v semantics.Value) semantics.Value {
-	if v.Kind == semantics.ValInt {
+	switch v.Kind {
+	case semantics.ValInt:
 		return semantics.Value{Kind: semantics.ValInt}
+	case semantics.ValRational:
+		return semantics.RatOf(semantics.IntValue(0))
 	}
 	return semantics.Value{Kind: semantics.ValReal}
 }

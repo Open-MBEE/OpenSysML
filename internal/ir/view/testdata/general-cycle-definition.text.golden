@@ -1,0 +1,13 @@
+RobustViews::loopDefinitions - definition rendering (view def GeneralView, filter @Definition)
+
+part def Loops::A
+part def Loops::B
+requirement def Loops::Looped
+part def Cycles::C
+
+relationships:
+  Loops::A *-- Loops::B: b
+  Loops::B *-- Loops::A: a
+
+not represented:
+  - 4 exposed standard library element(s) not drawn; a definition rendering draws the model's own elements

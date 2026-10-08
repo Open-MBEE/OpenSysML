@@ -99,6 +99,8 @@ type StateGraph struct {
 	// absent for one declared directly in the machine. A history pseudostate
 	// restores the configuration of its owner, so the owner must survive lowering.
 	PseudostateOwner map[*ast.PseudostateNode]*ast.StateNode
+	// PseudostateRegion is the region its outgoing route segments run within, if any.
+	PseudostateRegion map[*ast.PseudostateNode]*ast.StateRegion
 
 	// Terminates are the machine's terminate action usages (`action stop terminate;`)
 	// in declaration order: a transition ending at one ends the machine's performance.
@@ -117,6 +119,9 @@ type StateGraph struct {
 	transitionFootprints map[*Transition]Footprint
 	behaviorFootprints   map[ast.Node]Footprint
 	footprintsOnce       sync.Once
+	// transitionSteps: transition out of a state → its step short of do behaviors.
+	transitionSteps map[*Transition]TransitionStep
+	stepsOnce       sync.Once
 
 	// CompositeStates: state → regions
 	CompositeStates map[*ast.StateNode][]*ast.StateRegion
@@ -343,6 +348,17 @@ func ToStateGraphWithEndpoints(stateMachineDecl ast.Node, scope *symbols.Scope, 
 	}
 
 	graph.collectRegions(body)
+	for _, pseudo := range graph.Pseudostates {
+		if graph.PseudostateRegion[pseudo] == nil {
+			if owner := graph.PseudostateOwner[pseudo]; owner != nil {
+				region := graph.RegionOf[owner]
+				if region == nil {
+					region = graph.HiddenRegionOf[owner]
+				}
+				graph.PseudostateRegion[pseudo] = region
+			}
+		}
+	}
 	if err := graph.resolveRunToCompletion(); err != nil {
 		return nil, err
 	}
@@ -353,6 +369,7 @@ func ToStateGraphWithEndpoints(stateMachineDecl ast.Node, scope *symbols.Scope, 
 			return nil, err
 		}
 	}
+	graph.redesignateInitials()
 	if err := graph.planForks(); err != nil {
 		return nil, err
 	}
@@ -474,7 +491,7 @@ func lowerStateAttributes(graph *StateGraph, members []inheritedMember) []Attrib
 			continue
 		}
 		graph.attributeScope[usage] = member.scope
-		attrs = append(attrs, Attribute{Name: name, Direction: usage.Direction, IsResult: usage.IsResult, Type: TypeText(usage), Value: usage.Value, Node: usage, Scope: member.scope})
+		attrs = append(attrs, Attribute{Name: name, Direction: usage.Direction, IsResult: usage.IsResult, Type: TypeText(usage), Value: usage.Value, Binding: valueIsBinding(usage.Value, usage.ValueIsInitial, usage.ValueIsDefault), Node: usage, Scope: member.scope})
 	}
 	return attrs
 }
@@ -643,6 +660,7 @@ func newStateGraph(scope *symbols.Scope, endpoints EndpointResolver) *StateGraph
 		States:               make([]*ast.StateNode, 0),
 		Pseudostates:         make([]*ast.PseudostateNode, 0),
 		PseudostateOwner:     make(map[*ast.PseudostateNode]*ast.StateNode),
+		PseudostateRegion:    make(map[*ast.PseudostateNode]*ast.StateRegion),
 		TerminateOwner:       make(map[*ast.Usage]*ast.StateNode),
 		Transitions:          make(map[ast.Node][]*Transition),
 		CompositeStates:      make(map[*ast.StateNode][]*ast.StateRegion),
@@ -799,8 +817,30 @@ func (g *StateGraph) IsInitial(state *ast.StateNode) bool {
 }
 
 // designateInitial records state as one the machine may start in.
-func (g *StateGraph) designateInitial(state *ast.StateNode) {
-	g.designatedInitials[state] = true
+func (g *StateGraph) designateInitial(target ast.Node) {
+	switch node := target.(type) {
+	case *ast.StateNode:
+		g.designatedInitials[node] = true
+	case *ast.PseudostateNode:
+		g.designateRouteInitials(node, make(map[*ast.PseudostateNode]bool))
+	}
+}
+
+func (g *StateGraph) designateRouteInitials(pseudo *ast.PseudostateNode, seen map[*ast.PseudostateNode]bool) {
+	if seen[pseudo] {
+		return
+	}
+	seen[pseudo] = true
+	for _, transition := range g.Transitions[pseudo] {
+		switch target := transition.Target.(type) {
+		case *ast.StateNode:
+			g.designatedInitials[target] = true
+		case *ast.PseudostateNode:
+			if target.Kind == ast.PseudostateJunction || target.Kind == ast.PseudostateChoice {
+				g.designateRouteInitials(target, seen)
+			}
+		}
+	}
 }
 
 // machineMembers is the body of a state machine declaration.
@@ -1037,6 +1077,7 @@ func collectRegionStates(graph *StateGraph, region *ast.StateRegion, parent *ast
 				ps := pseudostateFromUsage(n, kind)
 				graph.copyInherited(ps, n, scope)
 				graph.addPseudostate(ps, scope)
+				graph.PseudostateRegion[ps] = region
 				if parent != nil {
 					graph.PseudostateOwner[ps] = parent
 				}
@@ -1055,6 +1096,7 @@ func collectRegionStates(graph *StateGraph, region *ast.StateRegion, parent *ast
 			state = built
 		case *ast.PseudostateNode:
 			graph.addPseudostate(n, scope)
+			graph.PseudostateRegion[n] = region
 			if parent != nil {
 				graph.PseudostateOwner[n] = parent
 			}
@@ -1420,6 +1462,27 @@ func (g *StateGraph) vertex(scope *symbols.Scope, target ast.Node) (ast.Node, er
 	return node, nil
 }
 
+// StateNamed is the state a name or feature chain written in scope (nil: the
+// machine's own) names, as a transition endpoint would name it.
+func (g *StateGraph) StateNamed(scope *symbols.Scope, target ast.Node) (*ast.StateNode, bool) {
+	if g == nil || g.endpoints == nil || isNilEndpoint(target) {
+		return nil, false
+	}
+	if scope == nil {
+		scope = g.Scope
+	}
+	decl, ok := g.endpoints.Endpoint(scope, target)
+	if !ok {
+		return nil, false
+	}
+	node, ok := g.vertexFor(scope, target, decl)
+	if !ok {
+		return nil, false
+	}
+	state, ok := node.(*ast.StateNode)
+	return state, ok && state != nil
+}
+
 // isNilEndpoint reports an endpoint that is no node at all, a typed nil included.
 func isNilEndpoint(target ast.Node) bool {
 	switch t := target.(type) {
@@ -1641,11 +1704,9 @@ func (g *StateGraph) startsAt(decl, guard ast.Node, body transitionBody, source,
 	if err != nil || vertex == nil {
 		return false, err
 	}
-	start, ok := vertex.(*ast.StateNode)
-	if !ok {
-		return false, &EntryTransitionTargetError{Target: vertex}
+	if err := addEntryTransitionTarget(g, decl, vertex, body.entryOwner, guard, nil, body.scope, body.scope); err != nil {
+		return false, err
 	}
-	g.addEntryTransition(body.entryOwner, &EntryTransition{Decl: decl, Guard: guard, Target: start, Scope: body.scope})
 	return true, nil
 }
 
@@ -1911,12 +1972,7 @@ func collectSuccessionEdge(graph *StateGraph, n *ast.SuccessionEdge, body transi
 	// subaction names the state it starts in (SysML 7.19.3), the same as
 	// a named entry action with a succession out of it does.
 	if sourceVertex == nil && isEntrySubaction(n.SourceMember) && targetVertex != nil {
-		target, ok := targetVertex.(*ast.StateNode)
-		if !ok {
-			return &EntryTransitionTargetError{Target: targetVertex}
-		}
-		graph.addEntryTransition(entryOwner, &EntryTransition{Decl: n, Target: target, Scope: scope})
-		return nil
+		return addEntryTransitionTarget(graph, n, targetVertex, entryOwner, nil, nil, scope, scope)
 	}
 
 	if sourceVertex == nil {
@@ -1936,6 +1992,21 @@ func collectSuccessionEdge(graph *StateGraph, n *ast.SuccessionEdge, body transi
 // state when it leaves the entry action, otherwise an edge between vertices.
 func collectTransitionMember(graph *StateGraph, n *ast.TransitionMember, body transitionBody) error {
 	memberList, scope, owner, entryOwner := body.members, body.scope, body.owner, body.entryOwner
+	if n.Source != nil && graph.entryActionSource(body, n.Source) {
+		if n.Trigger != nil {
+			return &EntryTransitionShapeError{Transition: n}
+		}
+		if n.Target == nil {
+			return fmt.Errorf("transition %s names no target", orAnonymous(n.Name))
+		}
+		target, err := graph.targetVertex(scope, n.Target, owner)
+		if err != nil || target == nil {
+			return err
+		}
+		entryScope := symbols.TriggerScope(scope, n)
+		return addEntryTransitionTarget(graph, n, target, entryOwner, n.Guard,
+			transitionEffects(n, entryScope, graph.resolver), scope, entryScope)
+	}
 	// `transition initial then off;` out of the entry action names the
 	// state the machine starts in, not an edge between two vertices.
 	if n.Trigger == nil && len(n.Effect) == 0 {
@@ -1961,6 +2032,15 @@ func collectTransitionMember(graph *StateGraph, n *ast.TransitionMember, body tr
 	}
 	graph.addTransition(trans)
 	return nil
+}
+
+func (g *StateGraph) entryActionSource(body transitionBody, source ast.Node) bool {
+	entry, ok := g.endpoints.Endpoint(body.scope, source)
+	if !ok {
+		return false
+	}
+	return ast.IsEntryAction(ast.EntryActions(body.members), entry) ||
+		ast.IsEntryAction(ast.StateEntryActions(body.containingState), entry)
 }
 
 // collectStateNodeTransitions collects the transitions within a state's

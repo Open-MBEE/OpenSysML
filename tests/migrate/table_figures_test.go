@@ -63,7 +63,7 @@ func TestImageOfTableOwnedByViewEmbedsTheTable(t *testing.T) {
 	r := plantReportResult(t)
 	notation := string(r.Notation)
 	wantInOrder(t, "Gallery view", notation,
-		"view Gallery {",
+		"view Gallery : 'Plant Viewpoints'::'Figures Viewpoint' {",
 		"calc def 'Block Table Rows' :> DocumentQueries::Query {",
 		"part def 'Block Table Document' :> DocumentQueries::Document {",
 		"calc rows : 'Block Table Rows';")

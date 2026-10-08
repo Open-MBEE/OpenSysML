@@ -10,6 +10,7 @@ import (
 	"net"
 	"os"
 
+	"github.com/Open-MBEE/OpenSysML/internal/frontend/buildinfo"
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/lsp"
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/usage"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
@@ -24,6 +25,12 @@ var (
 	BuildTime = "unknown"
 	GoVersion = "unknown"
 )
+
+// build is what this binary reports about itself: the linker's stamps, or the
+// module version and VCS metadata the toolchain recorded when none were passed.
+func build() buildinfo.Info {
+	return buildinfo.Resolve(buildinfo.Stamps{Version: Version, Commit: Commit, BuildTime: BuildTime, GoVersion: GoVersion})
+}
 
 // Exit statuses: 0 for the protocol served to its end, 1 for a session that ended
 // without one (an exit with no shutdown, or a protocol error), 2 for a command
@@ -73,10 +80,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 		return exitServed
 	}
 	if opts.showVersion {
-		fmt.Fprintf(stdout, "sysml-lsp %s\n", Version)
-		fmt.Fprintf(stdout, "  Commit:     %s\n", Commit)
-		fmt.Fprintf(stdout, "  Build time: %s\n", BuildTime)
-		fmt.Fprintf(stdout, "  Go version: %s\n", GoVersion)
+		fmt.Fprint(stdout, build().Report("sysml-lsp"))
 		return exitServed
 	}
 	if fs.NArg() > 0 {
@@ -89,7 +93,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 	if err != nil {
 		fmt.Fprintf(stderr, "%srecord cache unavailable, holding every document loaded: %v\n", commandPrefix, err)
 	}
-	return serve(stderr, diag.ConformanceModeOf(opts.strict), cache)
+	return serve(stderr, diag.ConformanceModeOf(opts.strict), cache, build().Version)
 }
 
 // printUsage writes the help to w, which the caller chooses: help asked for is
@@ -101,9 +105,9 @@ func printUsage(w io.Writer, fs *flag.FlagSet) {
 // serve speaks the protocol over stdin/stdout until the client ends it, and
 // reports the status the session earned: the one the client's exit notification
 // asks for, or 1 for a session that ended in a protocol error.
-func serve(stderr io.Writer, mode diag.ConformanceMode, cache *libs.Cache) int {
+func serve(stderr io.Writer, mode diag.ConformanceMode, cache *libs.Cache, version string) int {
 	ws := model.NewWorkspace(model.WithConformanceMode(mode), model.WithRecordCache(cache))
-	srv := lsp.NewServer(ws)
+	srv := lsp.NewServer(ws, lsp.WithVersion(version))
 	err := srv.Run(context.Background(), stdio{})
 	if err != nil && !endedWithTheStream(err) {
 		fmt.Fprintf(stderr, "%s%v\n", commandPrefix, err)

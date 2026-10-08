@@ -123,10 +123,13 @@ func (s *Server) loadFolder(folder string) { s.scanFolder(folder, -1) }
 
 // scanFolder is loadFolder over at most budget directories, every directory
 // when budget is negative; a walk that runs out of budget stops where it is.
+// The sources found are indexed as one batch, not one at a time: each document
+// added alone would re-derive the imports of every package that reads it.
 func (s *Server) scanFolder(folder string, budget int) {
 	if folder == "" {
 		return
 	}
+	var paths []string
 	_ = filepath.WalkDir(folder, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			if d != nil && d.IsDir() {
@@ -150,9 +153,21 @@ func (s *Server) scanFolder(folder string, budget int) {
 		if info, statErr := d.Info(); statErr != nil || info.Size() > maxScannedFileSize {
 			return nil
 		}
-		s.loadFromDisk(path)
+		paths = append(paths, path)
 		return nil
 	})
+	s.loadFilesFromDisk(paths)
+}
+
+// loadFilesFromDisk is loadFromDisk over the paths as one batch of the workspace.
+func (s *Server) loadFilesFromDisk(paths []string) {
+	inputs := make([]model.Input, 0, len(paths))
+	for _, path := range paths {
+		if content, ok := s.readFromDisk(path); ok {
+			inputs = append(inputs, model.Input{Name: path, Content: content})
+		}
+	}
+	s.ws.SetOnDiskAll(inputs)
 }
 
 // skipDir reports whether a directory holds no model sources worth indexing.
@@ -165,9 +180,17 @@ func skipDir(name string) bool {
 // serve, is forgotten; any other read failure leaves what was indexed in place,
 // since it may be transient.
 func (s *Server) loadFromDisk(path string) {
+	if content, ok := s.readFromDisk(path); ok {
+		s.ws.SetOnDisk(path, content)
+	}
+}
+
+// readFromDisk reads a file's bytes for the workspace, forgetting a file that is
+// gone or too large to serve; it reports whether there is content to record.
+func (s *Server) readFromDisk(path string) ([]byte, bool) {
 	if info, err := os.Stat(path); err == nil && info.Size() > maxScannedFileSize {
 		s.ws.DeleteOnDisk(path)
-		return
+		return nil, false
 	}
 	// #nosec G304 -- path comes from the folder the client asked to serve.
 	content, err := os.ReadFile(path)
@@ -175,9 +198,9 @@ func (s *Server) loadFromDisk(path string) {
 		if errors.Is(err, fs.ErrNotExist) {
 			s.ws.DeleteOnDisk(path)
 		}
-		return
+		return nil, false
 	}
-	s.ws.SetOnDisk(path, content)
+	return content, true
 }
 
 // DidChangeWatchedFiles reindexes model files changed outside the editor.

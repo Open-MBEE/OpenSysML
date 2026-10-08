@@ -1,0 +1,45 @@
+// view: CaseExamples::caseDiagram
+// kind: case
+// stated: render asCaseDiagram
+// not represented: part def CaseExamples::Tool holds no case; a case rendering does not show it
+// layout: dot
+digraph "CaseExamples::caseDiagram" {
+  graph [fontname="Helvetica", rankdir=LR];
+  node [shape=box, style=filled, fillcolor=white, color="#181818", fontname="Helvetica", fontsize=14, penwidth=0.5];
+  edge [color="#181818", fontname="Helvetica", fontsize=13, penwidth=1];
+  "n0" [shape=ellipse, label=<<font point-size="10"><i>«use case»</i></font><br/><b>CaseExamples::&#39;Provide Transportation&#39; : &#39;Enter Vehicle&#39;</b>>, URL="https://example.test/src/case.sysml#L26", tooltip="CaseExamples::'Provide Transportation'"];
+  "n1" [shape=box, label=<<font point-size="10"><i>«subject»</i></font><br/><b>vehicle : Vehicle</b>>, URL="https://example.test/src/case.sysml#L27", tooltip="CaseExamples::'Provide Transportation'::vehicle"];
+  "n2" [shape=box, label=<<font point-size="10"><i>«actor»</i></font><br/><b>driver : Person</b>>, URL="https://example.test/src/case.sysml#L28", tooltip="CaseExamples::'Provide Transportation'::driver"];
+  "n3" [shape=note, label=<<b>objective</b><br/>Transport the vehicle and its passengers safely.>, URL="https://example.test/src/case.sysml#L29", tooltip="case.sysml:29:3"];
+  "n4" [shape=ellipse, label=<<font point-size="10"><i>«use case def»</i></font><br/><b>CaseExamples::&#39;Add Fuel&#39;</b>>, URL="https://example.test/src/case.sysml#L16", tooltip="CaseExamples::'Add Fuel'"];
+  "n5" [shape=box, label=<<font point-size="10"><i>«subject»</i></font><br/><b>vehicle : Vehicle</b>>, URL="https://example.test/src/case.sysml#L17", tooltip="CaseExamples::'Add Fuel'::vehicle"];
+  "n6" [shape=box, label=<<font point-size="10"><i>«actor»</i></font><br/><b>fueler : Person</b>>, URL="https://example.test/src/case.sysml#L18", tooltip="CaseExamples::'Add Fuel'::fueler"];
+  "n7" [shape=ellipse, label=<<font point-size="10"><i>«include use case»</i></font><br/><b>&#39;enter vehicle&#39; : &#39;Enter Vehicle&#39;</b>>, URL="https://example.test/src/case.sysml#L38", tooltip="CaseExamples::'Provide Transportation'::'enter vehicle'"];
+  "n8" [shape=box, label=<<font point-size="10"><i>«subject»</i></font><br/><b>vehicle</b>>, URL="https://example.test/src/case.sysml#L39", tooltip="CaseExamples::'Provide Transportation'::'enter vehicle'::vehicle"];
+  "n9" [shape=box, label=<<font point-size="10"><i>«actor»</i></font><br/><b>driver</b>>, URL="https://example.test/src/case.sysml#L40", tooltip="CaseExamples::'Provide Transportation'::'enter vehicle'::driver"];
+  "n10" [shape=ellipse, label=<<font point-size="10"><i>«use case»</i></font><br/><b>&#39;Drive Vehicle&#39;</b>>, URL="https://example.test/src/case.sysml#L43", tooltip="CaseExamples::'Provide Transportation'::'Drive Vehicle'"];
+  "n11" [shape=box, label=<<font point-size="10"><i>«subject»</i></font><br/><b>vehicle</b>>, URL="https://example.test/src/case.sysml#L44", tooltip="CaseExamples::'Provide Transportation'::'Drive Vehicle'::vehicle"];
+  "n12" [shape=box, label=<<font point-size="10"><i>«actor»</i></font><br/><b>driver</b>>, URL="https://example.test/src/case.sysml#L45", tooltip="CaseExamples::'Provide Transportation'::'Drive Vehicle'::driver"];
+  "n13" [shape=ellipse, label=<<font point-size="10"><i>«analysis def»</i></font><br/><b>CaseExamples::FuelAnalysis</b>>, URL="https://example.test/src/case.sysml#L49", tooltip="CaseExamples::FuelAnalysis"];
+  "n14" [shape=box, label=<<font point-size="10"><i>«subject»</i></font><br/><b>vehicle : Vehicle</b>>, URL="https://example.test/src/case.sysml#L50", tooltip="CaseExamples::FuelAnalysis::vehicle"];
+  "n15" [shape=note, label=<<b>objective</b><br/>Estimate the fuel remaining after a journey.>, URL="https://example.test/src/case.sysml#L51", tooltip="case.sysml:51:3"];
+  "n16" [shape=ellipse, label=<<font point-size="10"><i>«verification def»</i></font><br/><b>CaseExamples::FuelVerification</b>>, URL="https://example.test/src/case.sysml#L56", tooltip="CaseExamples::FuelVerification"];
+  "n17" [shape=box, label=<<font point-size="10"><i>«subject»</i></font><br/><b>vehicle : Vehicle</b>>, URL="https://example.test/src/case.sysml#L57", tooltip="CaseExamples::FuelVerification::vehicle"];
+  "n18" [shape=note, label=<<b>objective</b>>, URL="https://example.test/src/case.sysml#L58", tooltip="case.sysml:58:3"];
+  "n0" -> "n1" [label="«subject»", dir=none, URL="https://example.test/src/case.sysml#L27", tooltip="CaseExamples::'Provide Transportation'::vehicle"];
+  "n2" -> "n0" [dir=none, URL="https://example.test/src/case.sysml#L28", tooltip="CaseExamples::'Provide Transportation'::driver"];
+  "n0" -> "n3" [dir=none, style=dashed, URL="https://example.test/src/case.sysml#L29", tooltip="case.sysml:29:3"];
+  "n4" -> "n5" [label="«subject»", dir=none, URL="https://example.test/src/case.sysml#L17", tooltip="CaseExamples::'Add Fuel'::vehicle"];
+  "n6" -> "n4" [dir=none, URL="https://example.test/src/case.sysml#L18", tooltip="CaseExamples::'Add Fuel'::fueler"];
+  "n0" -> "n4" [label="«include»", style=dashed, URL="https://example.test/src/case.sysml#L33", tooltip="CaseExamples::'Provide Transportation'::'Add Fuel'"];
+  "n0" -> "n7" [label="«include»", style=dashed, URL="https://example.test/src/case.sysml#L38", tooltip="CaseExamples::'Provide Transportation'::'enter vehicle'"];
+  "n7" -> "n8" [label="«subject»", dir=none, URL="https://example.test/src/case.sysml#L39", tooltip="CaseExamples::'Provide Transportation'::'enter vehicle'::vehicle"];
+  "n9" -> "n7" [dir=none, URL="https://example.test/src/case.sysml#L40", tooltip="CaseExamples::'Provide Transportation'::'enter vehicle'::driver"];
+  "n0" -> "n10" [arrowtail=diamond, dir=back, URL="https://example.test/src/case.sysml#L43", tooltip="CaseExamples::'Provide Transportation'::'Drive Vehicle'"];
+  "n10" -> "n11" [label="«subject»", dir=none, URL="https://example.test/src/case.sysml#L44", tooltip="CaseExamples::'Provide Transportation'::'Drive Vehicle'::vehicle"];
+  "n12" -> "n10" [dir=none, URL="https://example.test/src/case.sysml#L45", tooltip="CaseExamples::'Provide Transportation'::'Drive Vehicle'::driver"];
+  "n13" -> "n14" [label="«subject»", dir=none, URL="https://example.test/src/case.sysml#L50", tooltip="CaseExamples::FuelAnalysis::vehicle"];
+  "n13" -> "n15" [dir=none, style=dashed, URL="https://example.test/src/case.sysml#L51", tooltip="case.sysml:51:3"];
+  "n16" -> "n17" [label="«subject»", dir=none, URL="https://example.test/src/case.sysml#L57", tooltip="CaseExamples::FuelVerification::vehicle"];
+  "n16" -> "n18" [dir=none, style=dashed, URL="https://example.test/src/case.sysml#L58", tooltip="case.sysml:58:3"];
+}

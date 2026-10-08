@@ -1,7 +1,5 @@
-// A transition into a junction declared in one region of a parallel state enters
-// the parallel state first: the segment out of the junction runs its effect
-// after the parallel state's entry, as that region is entered, while the other
-// region starts as usual.
+// The route effect joins its region's entry front, after the parallel entry and
+// before its target, interleaving with the other region's default entry.
 package Test {
 	state Machine {
 		attribute log : String = "";

@@ -33,6 +33,8 @@ func TestBodyContextFindingsSurviveAnUnrelatedSyntaxError(t *testing.T) {
 	}{
 		{"expose in a view def", "package P { view def V { expose P::*; }" + broken, "expose",
 			"warning: `expose` in a view def body is an OpenSysML extension"},
+		{"frame in a view", "package P { concern def C; view v { frame concern c : C; }" + broken, "frame",
+			"warning: `frame` in a view body is an OpenSysML extension"},
 		{"transition in a part def", "package P { part def D { state s1; state s2; transition first s1 then s2; }" + broken, "transition",
 			"error: 'transition' declares a transition between states and is only allowed in a state body"},
 		{"variant outside a variation", "package P { part def D { variant part v : D; }" + broken, "variant",

@@ -23,10 +23,14 @@ import {
 import { DocumentQueryError, UnsupportedValueError } from "./errors.js";
 import {
   decodeBigInteger,
+  decodeRational,
   encodeQuantityMagnitude,
+  encodeRational,
   fitsInt64,
   formatValue,
   type Magnitude,
+  quantityRationalAsReal,
+  rationalAsDouble,
   type SysMLValue,
 } from "./values.js";
 
@@ -37,6 +41,30 @@ export function bindingHoldsBigInt(binding: DocumentQueryBinding): boolean {
       value.kind.case === "bigIntValue" ||
       (value.kind.case === "quantity" && value.kind.value.magnitude.case === "bigIntMagnitude"),
   );
+}
+
+/** Whether a wire binding sends an exact Rational, which needs `rational_values`. */
+export function bindingHoldsRational(binding: DocumentQueryBinding): boolean {
+  return binding.values.some(
+    (value) =>
+      value.kind.case === "rationalValue" ||
+      (value.kind.case === "quantity" && value.kind.value.magnitude.case === "rationalMagnitude"),
+  );
+}
+
+/** Rewrites each Rational a binding sends that a double holds exactly as that double, for a service without `rational_values`. */
+export function bindingRationalsAsReals(binding: DocumentQueryBinding): void {
+  for (const value of binding.values) {
+    if (value.kind.case === "rationalValue") {
+      const { numerator, denominator } = value.kind.value;
+      const double = rationalAsDouble({ numerator: BigInt(numerator), denominator: BigInt(denominator) });
+      if (double !== undefined) {
+        value.kind = { case: "realValue", value: double };
+      }
+    } else if (value.kind.case === "quantity") {
+      quantityRationalAsReal(value.kind.value);
+    }
+  }
 }
 
 /** A model element, named by qualified name. */
@@ -162,7 +190,7 @@ export class DocumentState {
 
 /** A row an `Events` query answered: one record of a session's trace. Answered only. */
 export class DocumentEvent {
-  /** "accept", "send", "transition", "entry", "exit", "do", "choice" or "guard". */
+  /** "accept", "send", "transition", "entry", "exit", "do", "choice", "guard" or "terminate". */
   readonly kind: string;
   /** The instant the record was written at: a quantity, an int or a real. */
   readonly time: DocumentValue;
@@ -250,6 +278,7 @@ export type DocumentValue =
   | number
   | boolean
   | { kind: "infinity" }
+  | Extract<SysMLValue, { kind: "rational" }>
   | ({ kind: "quantity" } & Extract<SysMLValue, { kind: "quantity" }>);
 
 /** What `bindings` accepts for one parameter: one value or several. */
@@ -381,6 +410,9 @@ function boundValue(parameter: string, value: DocumentValue): PbDocumentValue {
         `answered by queries, not bound to them`,
     );
   }
+  if (typeof value === "object" && "kind" in value && value.kind === "rational") {
+    return create(DocumentValueSchema, { kind: { case: "rationalValue", value: encodeRational(value) } });
+  }
   if (typeof value === "object" && "kind" in value && value.kind === "quantity") {
     return create(DocumentValueSchema, {
       kind: { case: "quantity", value: boundQuantity(value) },
@@ -401,6 +433,8 @@ function decodeMagnitude(magnitude: Quantity["magnitude"]): Magnitude {
       return { kind: "int", value: decodeBigInteger(magnitude.value) };
     case "realMagnitude":
       return { kind: "real", value: magnitude.value };
+    case "rationalMagnitude":
+      return { kind: "rational", ...decodeRational(magnitude.value) };
     default:
       return { kind: "real", value: 0 };
   }
@@ -526,6 +560,8 @@ function valueOf(value: PbDocumentValue | undefined): DocumentValue {
       return decodeBigInteger(kind.value);
     case "realValue":
       return kind.value;
+    case "rationalValue":
+      return { kind: "rational" as const, ...decodeRational(kind.value) };
     case "boolValue":
       return kind.value;
     case "infinity":

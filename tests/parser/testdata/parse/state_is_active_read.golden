@@ -1,0 +1,40 @@
+(RootNamespace
+  (Membership visibility="default"
+    (Package name="F5State" library=false standard=false
+      (Import visibility="private" all=false kind=namespace recursive=false imported="ScalarValues" filtered=false)
+      (Import visibility="private" all=false kind=namespace recursive=false imported="StateActivity" filtered=false)
+      (Membership visibility="default"
+        (Definition kind="state" abstract=false variation=false name="Step"
+          (Membership visibility="default"
+            (Usage kind="attribute" name="level1" ref=false direction="none" composite=false derived=false ordered=false nonunique=false default=true
+              (Relationship kind="typing" target=Real
+                (*ast.QualifiedName))
+              (LiteralReal value="0.0")))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="maxLevel" ref=false direction="none" composite=false derived=false ordered=false nonunique=false default=true
+              (Relationship kind="typing" target=Real
+                (*ast.QualifiedName))
+              (LiteralReal value="1.0")))
+          (Membership visibility="default"
+            (Usage kind="state" name="fill" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Step
+                (*ast.QualifiedName))))
+          (Membership visibility="default"
+            (TransitionMember source="fill" target="fill" name="t1"
+              (ChangeEvent
+                (OperatorExpr operator=">"
+                  (FeatureReference name="level1")
+                  (FeatureReference name="maxLevel")))))
+          (Membership visibility="default"
+            (Usage kind="constraint" name="c" ref=false direction="none" composite=false derived=false ordered=false nonunique=false prefix="assert"
+              (ConstraintMember assert=true negated=false
+                (OperatorExpr operator="=="
+                  (FeatureChainExpr member="isActive"
+                    (FeatureReference name="fill"))
+                  (LiteralBool value=true)))))
+          (Membership visibility="default"
+            (Usage kind="constraint" name="d" ref=false direction="none" composite=false derived=false ordered=false nonunique=false prefix="assert"
+              (ConstraintMember assert=true negated=false
+                (OperatorExpr operator="not"
+                  (FeatureChainExpr member="isActive"
+                    (FeatureReference name="fill")))))))))))

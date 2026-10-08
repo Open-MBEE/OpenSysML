@@ -38,7 +38,7 @@ func BigIntValue(b *big.Int) Value {
 	if b.IsInt64() {
 		return Value{Kind: ValInt, Int: b.Int64()}
 	}
-	return Value{Kind: ValInt, big: b}
+	return Value{Kind: ValInt, ext: new(big.Rat).SetInt(b)}
 }
 
 // ParseInteger reads decimal Integer notation of any magnitude.
@@ -74,11 +74,11 @@ func isIntegerNotation(text string) bool {
 }
 
 // IsBigInt reports whether v is an Integer outside the int64 range.
-func (v Value) IsBigInt() bool { return v.Kind == ValInt && v.big != nil }
+func (v Value) IsBigInt() bool { return v.Kind == ValInt && v.ext != nil }
 
 // Int64 returns v as an int64 when it is an Integer within that range.
 func (v Value) Int64() (int64, bool) {
-	if v.Kind != ValInt || v.big != nil {
+	if v.Kind != ValInt || v.ext != nil {
 		return 0, false
 	}
 	return v.Int, true
@@ -86,28 +86,33 @@ func (v Value) Int64() (int64, bool) {
 
 // BigInt returns the Integer v as a fresh big.Int the caller may modify.
 func (v Value) BigInt() *big.Int {
-	if v.big != nil {
-		return new(big.Int).Set(v.big)
+	if v.ext != nil {
+		return new(big.Int).Set(v.ext.Num())
 	}
 	return big.NewInt(v.Int)
 }
 
 // BigIntView is the Integer v's big.Int when it is beyond int64, nil otherwise;
 // the Value shares it, so the caller must not modify it.
-func (v Value) BigIntView() *big.Int { return v.big }
+func (v Value) BigIntView() *big.Int {
+	if v.ext == nil {
+		return nil
+	}
+	return v.ext.Num()
+}
 
 // bigView is the Integer v as a big.Int that must not be modified.
 func (v Value) bigView() *big.Int {
-	if v.big != nil {
-		return v.big
+	if v.ext != nil {
+		return v.ext.Num()
 	}
 	return big.NewInt(v.Int)
 }
 
 // IntSign is -1, 0 or 1 by the sign of the Integer v.
 func (v Value) IntSign() int {
-	if v.big != nil {
-		return v.big.Sign()
+	if v.ext != nil {
+		return v.ext.Num().Sign()
 	}
 	switch {
 	case v.Int < 0:
@@ -120,8 +125,8 @@ func (v Value) IntSign() int {
 
 // IntBitLen is the number of bits of the Integer v's magnitude.
 func (v Value) IntBitLen() int64 {
-	if v.big != nil {
-		return int64(v.big.BitLen())
+	if v.ext != nil {
+		return int64(v.ext.Num().BitLen())
 	}
 	if v.Int == math.MinInt64 {
 		return 64
@@ -135,8 +140,8 @@ func (v Value) IntBitLen() int64 {
 
 // FormatInt renders the Integer v in full decimal notation.
 func (v Value) FormatInt() string {
-	if v.big != nil {
-		return v.big.String()
+	if v.ext != nil {
+		return v.ext.Num().String()
 	}
 	return strconv.FormatInt(v.Int, 10)
 }
@@ -147,12 +152,15 @@ func (v Value) Equal(w Value) bool {
 	if v.Kind == ValInt && w.Kind == ValInt {
 		return CompareInt(v, w) == 0
 	}
+	if v.Kind == ValRational && w.Kind == ValRational {
+		return CompareRat(v, w) == 0
+	}
 	return v == w
 }
 
 // CompareInt orders two Integers exactly: -1, 0 or 1.
 func CompareInt(a, b Value) int {
-	if a.big == nil && b.big == nil {
+	if a.ext == nil && b.ext == nil {
 		switch {
 		case a.Int < b.Int:
 			return -1
@@ -173,7 +181,7 @@ func CompareIntReal(a Value, r float64) int {
 	case math.IsInf(r, -1):
 		return 1
 	}
-	if a.big == nil && a.Int >= -1<<53 && a.Int <= 1<<53 {
+	if a.ext == nil && a.Int >= -1<<53 && a.Int <= 1<<53 {
 		f := float64(a.Int)
 		switch {
 		case f < r:
@@ -189,10 +197,10 @@ func CompareIntReal(a Value, r float64) int {
 // intToFloat is the Integer v rounded to the nearest float64, ties to even; an
 // Integer beyond the float64 range rounds to the infinity of its sign.
 func intToFloat(v Value) float64 {
-	if v.big == nil {
+	if v.ext == nil {
 		return float64(v.Int)
 	}
-	f, _ := new(big.Float).SetInt(v.big).Float64()
+	f, _ := new(big.Float).SetInt(v.ext.Num()).Float64()
 	return f
 }
 
@@ -214,12 +222,23 @@ func IntegerSizeExceeded(bits, maxBits int64) error {
 	return fmt.Errorf("%w: the result needs at least %d bits, beyond the %d-bit Integer size budget", ErrIntegerSizeLimit, bits, maxBits)
 }
 
-// sizedInt is the Integer b, refused when its magnitude exceeds maxBits.
-func sizedInt(b *big.Int, maxBits int64) (Value, error) {
-	if bits := int64(b.BitLen()); bits > maxBits {
+// intCell is a fresh big.Int an Integer Value holds without a copy: the numerator
+// of a big.Rat over one.
+func intCell() (*big.Rat, *big.Int) {
+	r := new(big.Rat)
+	return r, r.Num()
+}
+
+// sizedInt is the Integer cell r holds, refused when its magnitude exceeds maxBits.
+func sizedInt(r *big.Rat, maxBits int64) (Value, error) {
+	n := r.Num()
+	if bits := int64(n.BitLen()); bits > maxBits {
 		return Value{}, IntegerSizeExceeded(bits, maxBits)
 	}
-	return BigIntValue(b), nil
+	if n.IsInt64() {
+		return IntValue(n.Int64()), nil
+	}
+	return Value{Kind: ValInt, ext: r}, nil
 }
 
 // IntArith is Integer addition, subtraction and multiplication, shared by the
@@ -227,7 +246,7 @@ func sizedInt(b *big.Int, maxBits int64) (Value, error) {
 // computed there; any other is computed exactly, refused only when it would
 // exceed maxBits.
 func IntArith(op ast.OperatorKind, a, b Value, maxBits int64) (Value, error) {
-	if a.big == nil && b.big == nil {
+	if a.ext == nil && b.ext == nil {
 		if res, ok := int64Arith(op, a.Int, b.Int); ok {
 			return IntValue(res), nil
 		}
@@ -238,11 +257,14 @@ func IntArith(op ast.OperatorKind, a, b Value, maxBits int64) (Value, error) {
 // bigIntArith is IntArith over math/big, for a result or operand beyond int64.
 func bigIntArith(op ast.OperatorKind, a, b Value, maxBits int64) (Value, error) {
 	x, y := a.bigView(), b.bigView()
+	r, n := intCell()
 	switch op {
 	case ast.OpAdd:
-		return sizedInt(new(big.Int).Add(x, y), maxBits)
+		n.Add(x, y)
+		return sizedInt(r, maxBits)
 	case ast.OpSub:
-		return sizedInt(new(big.Int).Sub(x, y), maxBits)
+		n.Sub(x, y)
+		return sizedInt(r, maxBits)
 	case ast.OpMul:
 		if x.Sign() == 0 || y.Sign() == 0 {
 			return IntValue(0), nil
@@ -251,7 +273,8 @@ func bigIntArith(op ast.OperatorKind, a, b Value, maxBits int64) (Value, error) 
 		if bits := int64(x.BitLen()) + int64(y.BitLen()) - 1; bits > maxBits {
 			return Value{}, IntegerSizeExceeded(bits, maxBits)
 		}
-		return sizedInt(new(big.Int).Mul(x, y), maxBits)
+		n.Mul(x, y)
+		return sizedInt(r, maxBits)
 	}
 	return Value{}, fmt.Errorf("%w: '%s' is no Integer arithmetic operator", ErrArithmeticDomain, op)
 }
@@ -273,7 +296,7 @@ func int64Arith(op ast.OperatorKind, a, b int64) (int64, bool) {
 
 // IntNeg is the negation of the Integer v.
 func IntNeg(v Value) Value {
-	if v.big == nil && v.Int != math.MinInt64 {
+	if v.ext == nil && v.Int != math.MinInt64 {
 		return IntValue(-v.Int)
 	}
 	return BigIntValue(new(big.Int).Neg(v.bigView()))
@@ -293,7 +316,7 @@ func IntRem(a, b Value) (Value, bool) {
 	if b.IntSign() == 0 {
 		return Value{}, false
 	}
-	if a.big == nil && b.big == nil {
+	if a.ext == nil && b.ext == nil {
 		return IntValue(a.Int % b.Int), true
 	}
 	return BigIntValue(new(big.Int).Rem(a.bigView(), b.bigView())), true
@@ -304,36 +327,17 @@ func IntDivTrunc(a, b Value) (Value, bool) {
 	if b.IntSign() == 0 {
 		return Value{}, false
 	}
-	if a.big == nil && b.big == nil && (a.Int != math.MinInt64 || b.Int != -1) {
+	if a.ext == nil && b.ext == nil && (a.Int != math.MinInt64 || b.Int != -1) {
 		return IntValue(a.Int / b.Int), true
 	}
 	return BigIntValue(new(big.Int).Quo(a.bigView(), b.bigView())), true
-}
-
-// IntQuotient is the exact rational quotient of two Integers rounded once to
-// the nearest float64, shared by the folder and the runtime; ok=false on a
-// zero divisor. Rounding each operand first would move quotients of operands
-// beyond 2^53, where float64 loses exactness. A quotient beyond the float64
-// range rounds to an infinity, which callers report as a Real overflow.
-func IntQuotient(a, b Value) (float64, bool) {
-	if b.IntSign() == 0 {
-		return 0, false
-	}
-	var r *big.Rat
-	if a.big == nil && b.big == nil {
-		r = new(big.Rat).SetFrac64(a.Int, b.Int)
-	} else {
-		r = new(big.Rat).SetFrac(a.bigView(), b.bigView())
-	}
-	q, _ := r.Float64()
-	return q, true
 }
 
 // IntPow is a**n for an Integer base and a non-negative Integer exponent,
 // refused with ErrIntegerSizeLimit before it is computed when the result would
 // need more than maxBits.
 func IntPow(a, n Value, maxBits int64) (Value, error) {
-	if a.big == nil && n.big == nil {
+	if a.ext == nil && n.ext == nil {
 		if res, ok := intPow(a.Int, n.Int); ok {
 			return IntValue(res), nil
 		}
@@ -341,9 +345,9 @@ func IntPow(a, n Value, maxBits int64) (Value, error) {
 	switch {
 	case n.IntSign() == 0:
 		return IntValue(1), nil
-	case a.big == nil && (a.Int == 0 || a.Int == 1):
+	case a.ext == nil && (a.Int == 0 || a.Int == 1):
 		return a, nil
-	case a.big == nil && a.Int == -1:
+	case a.ext == nil && a.Int == -1:
 		if n.bigView().Bit(0) == 0 {
 			return IntValue(1), nil
 		}
@@ -359,5 +363,7 @@ func IntPow(a, n Value, maxBits int64) (Value, error) {
 		}
 		return Value{}, IntegerSizeExceeded(bits, maxBits)
 	}
-	return sizedInt(new(big.Int).Exp(a.bigView(), n.bigView(), nil), maxBits)
+	r, p := intCell()
+	p.Exp(a.bigView(), n.bigView(), nil)
+	return sizedInt(r, maxBits)
 }

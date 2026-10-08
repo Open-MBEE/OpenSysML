@@ -41,7 +41,7 @@ func (ec *EvalContext) viaHolder(path string, viaSelf bool, self *Instance) (*In
 		return self, path, err
 	}
 	if len(held) != 1 {
-		value, _ := ec.Lookup(root)
+		value, _, _ := ec.Lookup(root)
 		return self, path, &SendTargetValueError{Target: path, Name: root, Value: FormatValue(value)}
 	}
 	holder := held[0]
@@ -117,7 +117,10 @@ func (ec *EvalContext) boundEndDeliveries(end string) ([]ownerDelivery, bool, er
 // boundHolders returns the objects a binding of ec holds and whether ec binds the name;
 // a binding holding anything but objects is that error, naming the path it leads.
 func (ec *EvalContext) boundHolders(name, path string) ([]*Instance, bool, error) {
-	value, bound := ec.Lookup(name)
+	value, bound, err := ec.Lookup(name)
+	if err != nil {
+		return nil, false, err
+	}
 	if !bound {
 		return nil, false, nil
 	}

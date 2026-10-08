@@ -1465,9 +1465,10 @@ function html(
       #diagram .collapsed { fill: var(--vscode-foreground); opacity: 0.7; }
       #diagram .line { fill: none; stroke: var(--vscode-foreground); stroke-width: 1.25px; }
       #diagram .lifeline { stroke: var(--vscode-foreground); stroke-width: 1px; stroke-dasharray: 6 4; opacity: 0.6; }
-      #diagram .flow .line { stroke-dasharray: 5 4; }
+      #diagram .flow .line, #diagram .typing .line { stroke-dasharray: 5 4; }
       #diagram .arrow-fill { fill: var(--vscode-foreground); }
       #diagram .arrow-line { fill: none; stroke: var(--vscode-foreground); stroke-width: 1.25px; }
+      #diagram .arrow-hollow { fill: var(--vscode-editor-background); stroke: var(--vscode-foreground); stroke-width: 1px; }
       #diagram .edge-label { fill: var(--vscode-foreground); font-size: 0.85em; paint-order: stroke; stroke: var(--vscode-editor-background); stroke-width: 3px; stroke-linejoin: round; }
       #diagram .waypoint { fill: var(--vscode-editor-background); stroke: var(--vscode-focusBorder); stroke-width: 1.5px; cursor: move; }
       #diagram .segment { fill: var(--vscode-focusBorder); opacity: 0; cursor: copy; }
@@ -1508,6 +1509,7 @@ function html(
       #diagram.pilot .lifeline { stroke: #181818; }
       #diagram.pilot .arrow-fill { fill: #181818; }
       #diagram.pilot .arrow-line { stroke: #181818; stroke-width: 1px; }
+      #diagram.pilot .arrow-hollow { fill: white; stroke: #181818; }
       #diagram.pilot .edge-label { fill: black; stroke: white; }
       #diagram.pilot .waypoint { fill: white; }
       #diagram.pilot .opensysml-drop-target > .shape, #diagram.pilot .opensysml-drop-target > g.shape > circle {
@@ -1537,6 +1539,7 @@ function html(
       #diagram.cameo .connection .line { stroke-width: 1px; }
       #diagram.cameo .arrow-fill { fill: #424242; }
       #diagram.cameo .arrow-line { stroke: #424242; }
+      #diagram.cameo .arrow-hollow { fill: white; stroke: #424242; }
       #diagram.cameo .edge-label { fill: #424242; }
       details { margin-top: 0.75rem; font-size: 0.9em; }
       pre { white-space: pre-wrap; }

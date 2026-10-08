@@ -79,15 +79,17 @@ func lowerStateBehavior(action ast.Node, block ast.Node, scope *symbols.Scope, r
 			behavior.Body = []Statement{Block{
 				Node:  node,
 				Scope: scope,
-				Graph: lowerBlockFlow([]ast.Node{node}, scope, false),
+				Graph: ToActionNodeFlow(node, scope, resolver),
 				Own:   true,
 			}}
 		case node.Kind == ast.UsageAction && node.HasBody && performsAction(node):
-			// Which of the two the behavior performs would be a silent pick.
-			behavior.Body = []Statement{Unsupported{
-				Description: "performing an action and stating a body of its own",
-				Node:        node,
-				Scope:       scope,
+			bodyScope := childScope(scope, node)
+			behavior.Body = []Statement{Block{
+				Node:   node,
+				Scope:  bodyScope,
+				Graph:  ToActionNodeFlow(node, scope, resolver),
+				Own:    true,
+				Stated: true,
 			}}
 		case node.Kind == ast.UsageAction && node.HasBody:
 			// The body is a namespace of its own, so its locals are declared in the
@@ -103,7 +105,7 @@ func lowerStateBehavior(action ast.Node, block ast.Node, scope *symbols.Scope, r
 		behavior.Name = node.Name
 		behavior.Body = lowerActionExecution(node, scope)
 	default:
-		behavior.Body = []Statement{lowerStatement(action, scope)}
+		behavior.Body = []Statement{lowerStatement(action, scope, resolver)}
 	}
 	behavior.Nodes = blockNodesOf(behavior.Body, nil)
 	behavior.Multiplicities = make(map[ast.Node]*ast.Multiplicity)
@@ -124,7 +126,7 @@ func lowerStateBehavior(action ast.Node, block ast.Node, scope *symbols.Scope, r
 // one stating none runs its statements in declaration order.
 func lowerBehaviorBody(node *ast.Usage, scope *symbols.Scope, resolver *resolve.Resolver) Statement {
 	if !statesOwnFlow(node.Members) {
-		return lowerBlock(node, node.Members, scope)
+		return lowerBlock(node, node.Members, scope, resolver)
 	}
 	graph, err := ToActionGraphWith(node, scope, resolver)
 	if err != nil {
@@ -143,7 +145,7 @@ func lowerBehaviorBody(node *ast.Usage, scope *symbols.Scope, resolver *resolve.
 func lowerActionExecution(node *ast.ActionExecutionNode, scope *symbols.Scope) []Statement {
 	switch {
 	case node.Expression != nil:
-		return []Statement{Declare{Name: node.Name, Value: node.Expression, Node: node, Scope: scope}}
+		return []Statement{Declare{Name: node.Name, Value: node.Expression, BodyData: true, Node: node, Scope: scope}}
 	case node.ActionRef != nil:
 		return []Statement{Effect{Kind: EffectPerform, Node: node, Scope: scope}}
 	default:
@@ -157,8 +159,13 @@ func lowerActionExecution(node *ast.ActionExecutionNode, scope *symbols.Scope) [
 func declaresOnlyFeatures(members []ast.Node) bool {
 	for _, member := range members {
 		actual := unwrapMembership(member)
-		if actual == nil || statesNoStep(actual) {
+		if actual == nil || statesNoStep(actual) || isAnnotation(actual) {
 			continue
+		}
+		if usage, ok := actual.(*ast.Usage); ok && usage.Kind == ast.UsageAttribute && usage.Direction == ast.DirNone {
+			if redefinitions, _ := ast.SplitRedefinitions(usage.Relationships); len(redefinitions) > 0 {
+				return false
+			}
 		}
 		if m, ok := actual.(*ast.Usage); !ok || !DeclaresNodeFeature(m) {
 			return false

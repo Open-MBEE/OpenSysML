@@ -3,8 +3,10 @@ package runtime
 import (
 	"errors"
 	"fmt"
+	"math"
 	"slices"
 	"strings"
+	"sync/atomic"
 
 	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
@@ -28,6 +30,9 @@ type Context struct {
 	took      *idMark
 	maxSteps  int64
 	instances map[int64]*Instance
+	// interrupt, when set, stops every run at its next step once raised: a
+	// shared flag, so a driver stops runs under way without holding them.
+	interrupt *atomic.Bool
 	// flowShares caches, by graph, whether two moves of its flow may touch what another does.
 	flowShares map[*lower.ActionGraph]bool
 	created    []int64
@@ -136,6 +141,19 @@ type Context struct {
 
 	// behaviorRunDepth is the number of classifier-behavior starts under way.
 	behaviorRunDepth int
+
+	// stateExecutors are the live state machines this context can notify of a
+	// completed feature write, in creation order.
+	stateExecutors []*StateExecutor
+
+	// featureWriteDepth coalesces nested stores into one completed write.
+	featureWriteDepth  int
+	featureWriteState  bool
+	featureWriteBefore map[*FeatureValue]featureWriteValue
+	featureWriteOrder  []*FeatureValue
+
+	// readRecorders collect feature values read by an observed change condition.
+	readRecorders [][]*FeatureValue
 
 	// declarative makes the context read declared values only: no classifier
 	// behavior starts when an object is materialized (see DeclaredReader).
@@ -279,7 +297,8 @@ type Context struct {
 
 	// messages are the signals in flight, oldest first. The bus is context-wide,
 	// so a message one behavior sends can be accepted in another.
-	messages []Message
+	messages      []Message
+	messageSerial uint64
 	// bus counts what changed the messages in flight; writes counts the feature
 	// values written or restored. A machine's poll of the bus is memoized on them.
 	bus    busSerials
@@ -294,6 +313,9 @@ type Context struct {
 	// clockRun the run an advance of it draws its due-order choices from.
 	clock    Clock
 	clockRun executorRun
+	// futures memoizes what each executor on the clock may still touch, for
+	// telling the turns whose moves interleave.
+	futures *futureFootprints
 	// work counts the changes that can leave an attached behavior holding work;
 	// quiescent is the memo a full scan leaves when it finds them all idle.
 	work      uint64
@@ -1031,12 +1053,29 @@ func (ctx *Context) endActivation(activation int64) {
 
 // incrementStep increments the step counter and returns ErrStepLimitExceeded if limit reached.
 // The error names the effective budget and the variable that raises it.
+// The counter saturates at the int64 maximum rather than overflow.
 func (ctx *Context) incrementStep() error {
-	ctx.run.steps++
-	if ctx.run.steps > ctx.maxSteps {
+	if ctx.interrupted() {
+		return ErrInterrupted
+	}
+	if ctx.run.steps >= ctx.maxSteps {
+		if ctx.run.steps < math.MaxInt64 {
+			ctx.run.steps++
+		}
 		return ctx.stepLimitExceeded()
 	}
+	ctx.run.steps++
 	return nil
+}
+
+// SetInterrupt installs the flag that stops this context's runs: once it is
+// raised, the next evaluation step, action step or state machine unit fails
+// with ErrInterrupted. The flag is shared, and the driver lowers it again.
+func (ctx *Context) SetInterrupt(flag *atomic.Bool) { ctx.interrupt = flag }
+
+// interrupted reports whether the interrupt flag is raised.
+func (ctx *Context) interrupted() bool {
+	return ctx.interrupt != nil && ctx.interrupt.Load()
 }
 
 // stepLimitExceeded reports the step budget spent, naming the variable that raises
@@ -1606,7 +1645,7 @@ func (ctx *Context) ExecuteActionPerformedBy(action *symbols.Symbol, self *Insta
 		return nil, err
 	}
 	// Return the values the action's features hold once it completed
-	return exec.Results(), nil
+	return exec.ResultsWithError()
 }
 
 // ActionOutcomePerformedBy runs an action as ExecuteActionPerformedBy does and reports
@@ -1626,7 +1665,11 @@ func (ctx *Context) ExecuteActionReportingPerformer(action *symbols.Symbol, self
 	if err != nil {
 		return nil, nil, err
 	}
-	return exec.Results(), (&Invocation{Actions: []*ActionExecutor{exec}}).PerformerAttributes(), nil
+	outputs, err = exec.ResultsWithError()
+	if err != nil {
+		return nil, nil, err
+	}
+	return outputs, (&Invocation{Actions: []*ActionExecutor{exec}}).PerformerAttributes(), nil
 }
 
 // performAction runs action to completion, performed by self, and returns the
@@ -1807,7 +1850,11 @@ func (ctx *Context) ExecuteStatePerformedBy(stateMachine *symbols.Symbol, self *
 		return nil, nil, err
 	}
 	// Return state machine data and the real ordered visit trace
-	return exec.StateData(), exec.GetStateVisits(), nil
+	data, err := exec.StateDataWithError()
+	if err != nil {
+		return nil, nil, err
+	}
+	return data, exec.GetStateVisits(), nil
 }
 
 // StateOutcomeWithEvents runs a state machine as ExecuteStateWithEvents does and
@@ -1821,6 +1868,9 @@ func (ctx *Context) StateOutcomeWithEvents(stateMachine *symbols.Symbol, events 
 func (ctx *Context) StateOutcomePerformedBy(stateMachine *symbols.Symbol, self *Instance, events []string) (Outcome, error) {
 	exec, err := ctx.performState(stateMachine, self, events)
 	if err != nil {
+		return Outcome{}, err
+	}
+	if _, err := exec.StateDataWithError(); err != nil {
 		return Outcome{}, err
 	}
 	return (&Invocation{States: []*StateExecutor{exec}}).Outcome(), nil

@@ -1,6 +1,6 @@
 # SysML v1 to v2 migration report: figures.mdzip
 # exported by Example UML Tool
-# migrated 90 element(s): 74 mapped, 15 approximated, 1 unmapped (0 skipped as profile, library or notation-only content, 0 as model elements nothing refers to); laid out 7 of 9 diagrams from the diagrams' own symbol streams: 7 elements positioned, 2 connectors routed, 2 styled, 4 notes; wrote 1 image file(s)
+# migrated 90 element(s): 75 mapped, 14 approximated, 1 unmapped (0 skipped as profile, library or notation-only content, 0 as model elements nothing refers to); laid out 7 of 9 diagrams from the diagrams' own symbol streams: 7 elements positioned, 2 connectors routed, 2 styled, 4 notes; wrote 1 image file(s)
 
 ## layout
 # source: the diagrams' own symbol streams
@@ -15,8 +15,7 @@
 ## unmapped (1)
 ImageShape	Plant::Pump::Modes::Pump Modes	_sym_torn	(the pasted image's bytes do not read: octet 19 is "xx", not a hexadecimal byte)
 
-## approximated (15)
-«Document» Class	Plant Documents::Plant Handbook	_doc_plant	-> 'Plant Documents'::'Plant Handbook'	(a plain UML class without «Block» is written as a part def)
+## approximated (14)
 Activity	Plant Viewpoints::Figures Viewpoint::Figures Method	_act_figures	-> 'Plant Viewpoints'::'Figures Viewpoint'::'Figures Method'	(the classifier behavior is run by every object of Plant Viewpoints::Figures Viewpoint as its usage figures Method)
 «Image» CallBehaviorAction	Plant Viewpoints::Figures Viewpoint::Figures Method::Image	_figures_image	-> Image	(a step with no behavior and no duration; it passes the token on)
 Activity	Plant Viewpoints::Pictures Viewpoint::Pictures Method	_act_pictures	-> 'Plant Viewpoints'::'Pictures Viewpoint'::'Pictures Method'	(the classifier behavior is run by every object of Plant Viewpoints::Pictures Viewpoint as its usage pictures Method)
@@ -32,7 +31,7 @@ OpaqueAction	Plant::Pump::Prime::Vent	_prime_vent	-> Vent	(the body is kept as a
 Diagram	Plant::Roster	_diag_roster	-> Plant::Roster	(a Generic Table written as a view rendered asElementTable; laid out from the diagram's own symbol stream: 1 of 1 shown elements positioned, 0 of 0 connectors routed, 1 pasted image written as images/Plant_from_the_north.png, which a view rendered asElementTable does not draw)
 Diagram	Plant::Silent	_diag_silent	-> Plant::Silent	(a SysML Block Definition Diagram written as a view rendered asTreeDiagram; the diagram shows nothing; the view exposes nothing)
 
-## mapped (74)
+## mapped (75)
 Model	Model	_m	(the root model's members are written at the top level)
 Package	Plant	_pkg_plant	-> Plant
 Package	Plant Documents	_pkg_docs	-> 'Plant Documents'
@@ -50,6 +49,7 @@ Package	Plant Documents	_pkg_docs	-> 'Plant Documents'
 «Conform» Generalization	Plant Documents::Behaviors::<Generalization>	_gen_behaviors	-> 'Plant Documents'::Behaviors
 «View» Class	Plant Documents::Pictures	_view_pictures	-> 'Plant Documents'::Pictures
 «Conform» Generalization	Plant Documents::Pictures::<Generalization>	_gen_pictures	-> 'Plant Documents'::Pictures
+«Document» Class	Plant Documents::Plant Handbook	_doc_plant	-> 'Plant Documents'::'Plant Handbook'
 «Document» Class	Plant Documents::Plant Handbook	_st_doc_plant	-> part def 'Plant Documents'::'Plant Handbook Document'	(the «Document» is written as a Document definition of 3 section(s))
 Property	Plant Documents::Plant Handbook::behaviors	_doc_behaviors	-> 'Plant Documents'::'Plant Handbook'::behaviors
 Property	Plant Documents::Plant Handbook::pictures	_doc_pictures	-> 'Plant Documents'::'Plant Handbook'::pictures

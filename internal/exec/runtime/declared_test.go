@@ -237,7 +237,7 @@ func TestDeclaredReaderSelectsCallsThroughTheArgumentTyper(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Invoking.n: %v", err)
 	}
-	if val.Kind != ValConst || val.Const.Kind != semantics.ValReal || val.Const.Real != 6.0 {
+	if val.Kind != ValConst || val.Const.Kind != semantics.ValReal || val.Const.AsReal() != 6.0 {
 		t.Errorf("Invoking.n = %s, want 6.0", describeValue(val))
 	}
 

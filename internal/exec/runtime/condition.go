@@ -425,7 +425,7 @@ func (ctx *Context) constraintBodyStep(node ast.Node, scope *symbols.Scope) (low
 	if stmt, ok := ctx.model.constraintSteps[node]; ok {
 		return stmt, true
 	}
-	stmt, ok := lower.ConstraintStep(node, scope)
+	stmt, ok := lower.ConstraintStep(node, scope, ctx.model.Resolver())
 	if !ok {
 		return nil, false
 	}
@@ -1291,6 +1291,9 @@ func conditionLabel(cond Condition) string {
 	}
 	return text
 }
+
+// ConditionText is the text a NoValueError names the expression n by.
+func ConditionText(n ast.Node) string { return conditionText(n) }
 
 // conditionText renders a condition compactly, so a violation names the
 // condition that failed rather than only the element that states it.

@@ -59,15 +59,36 @@ func (s *Session) SetDisabledLints(codes []string) error {
 	return s.ws.SetDisabledLints(codes)
 }
 
+// EnabledLints reports the codes of the opt-in lints the session keeps in its
+// diagnostics.
+func (s *Session) EnabledLints() []string {
+	defer s.reading()()
+	return s.ws.EnabledLints()
+}
+
+// SetEnabledLints replaces the opt-in lints the session keeps in its
+// diagnostics; a code naming no lint is an error and changes nothing.
+func (s *Session) SetEnabledLints(codes []string) error {
+	defer s.enter()()
+	return s.ws.SetEnabledLints(codes)
+}
+
+// lintOn reports whether a lint is reported under the disabled and enabled sets.
+func lintOn(code string, disabled, enabled []string) bool {
+	if slices.Contains(disabled, code) {
+		return false
+	}
+	return !passes.IsOptInLint(code) || slices.Contains(enabled, code)
+}
+
 // doLint lists the lints, each on or off, or switches one, reporting what the
 // buffer looks like with it switched.
 func (s *Session) doLint(args []string) []string {
-	disabled := s.ws.DisabledLints()
 	list := func() []string {
-		cur := s.ws.DisabledLints()
+		disabled, enabled := s.ws.DisabledLints(), s.ws.EnabledLints()
 		out := make([]string, 0, len(passes.LintCodes()))
 		for _, code := range passes.LintCodes() {
-			out = append(out, fmt.Sprintf("lint %s: %s", code, onOff(!slices.Contains(cur, code))))
+			out = append(out, fmt.Sprintf("lint %s: %s", code, onOff(lintOn(code, disabled, enabled))))
 		}
 		return out
 	}
@@ -82,15 +103,26 @@ func (s *Session) doLint(args []string) []string {
 	if err := passes.CheckLintCodes([]string{code}); err != nil {
 		return []string{fmt.Sprintf("error: %v", err)}
 	}
-	next := slices.DeleteFunc(slices.Clone(disabled), func(c string) bool { return c == code })
+	without := func(codes []string) []string {
+		return slices.DeleteFunc(slices.Clone(codes), func(c string) bool { return c == code })
+	}
+	disabled, enabled := without(s.ws.DisabledLints()), without(s.ws.EnabledLints())
 	switch args[1] {
 	case "on":
+		if passes.IsOptInLint(code) {
+			enabled = append(enabled, code)
+		}
 	case "off":
-		next = append(next, code)
+		if !passes.IsOptInLint(code) {
+			disabled = append(disabled, code)
+		}
 	default:
 		return []string{fmt.Sprintf("error: unknown lint setting %q (want on or off)", args[1])}
 	}
-	if err := s.ws.SetDisabledLints(next); err != nil {
+	if err := s.ws.SetDisabledLints(disabled); err != nil {
+		return []string{fmt.Sprintf("error: %v", err)}
+	}
+	if err := s.ws.SetEnabledLints(enabled); err != nil {
 		return []string{fmt.Sprintf("error: %v", err)}
 	}
 	return append(list(), s.diagnosticLines()...)

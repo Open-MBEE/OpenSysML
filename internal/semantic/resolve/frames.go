@@ -32,7 +32,11 @@ type frame struct {
 	// segments are the last-name segments ShortNamed answered about: a name
 	// registered or dropped under one can change that answer.
 	segments map[string]bool
-	all      bool
+	// spellings is set once the frame read the set of names the index
+	// registers (a suggestion for an unresolved name): only a name coming,
+	// going or spelled otherwise can change what it read.
+	spellings bool
+	all       bool
 	// deps are the documents whose frames were entered from this one.
 	deps map[string]bool
 	// recent are the frames last entered from this one, consulted before the
@@ -101,7 +105,7 @@ func (f *frame) remember(g *frame) {
 
 // stale reports whether ch moved anything the frame's entries were read from.
 func (f *frame) stale(ch symbols.Changes) bool {
-	if ch.Docs[f.doc] || (f.all && ch.Registered()) {
+	if ch.Docs[f.doc] || (f.all && ch.Registered()) || (f.spellings && ch.Spellings) {
 		return true
 	}
 	if len(f.names) < len(ch.Names) {
@@ -382,6 +386,18 @@ func (r *Resolver) ReadAllNames() {
 	}
 	if f := r.cur; f != nil {
 		f.all = true
+	}
+}
+
+// ReadSpellings records that the frame read the set of names the index
+// registers, as a suggestion does: a change to that set invalidates it, a
+// name registered again as spelled before does not.
+func (r *Resolver) ReadSpellings() {
+	if r == nil {
+		return
+	}
+	if f := r.cur; f != nil {
+		f.spellings = true
 	}
 }
 

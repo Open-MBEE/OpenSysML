@@ -123,7 +123,7 @@ local function isGroupKey(block)
   return block ~= nil and block.t == "Para" and #block.content == 1 and block.content[1].t == "Strong"
 end
 
--- The HTML comment a table-kind diagram's rendering opens with, or one
+-- The HTML comment a tabular diagram's rendering opens with, or one
 -- stating a diagram's fallback form; the Markdown backend writes no other,
 -- since prose escapes "<".
 local function isRenderingComment(block)
@@ -147,7 +147,7 @@ local function isFallbackNotice(block)
 end
 
 -- A caption heads a table (or a grouped table's first group key), a diagram
--- fence (or the fallback notice ahead of one), a table-kind diagram's
+-- fence (or the fallback notice ahead of one), a tabular diagram's
 -- rendering comment, a formula block or an image.
 local function isCaptioned(blocks, i)
   local block = blocks[i]

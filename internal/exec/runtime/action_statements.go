@@ -2,7 +2,6 @@ package runtime
 
 import (
 	"fmt"
-	"slices"
 	"sort"
 
 	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
@@ -18,6 +17,8 @@ type actionStmtHost struct {
 	perf *actionFrame
 	// graph is the flow node is a node of.
 	graph *lower.ActionGraph
+	// step is the performance of a statement node's step, owning what its body performs.
+	step *actionFrame
 }
 
 // executeBody runs the lowered statements graph records for node in perf, the
@@ -29,6 +30,26 @@ func (e *performances) executeBody(perf *actionFrame, graph *lower.ActionGraph, 
 		return newStmtEngineIn(e.ctx, host, lexical[len(lexical)-1], lexical[:len(lexical)-1])
 	}, graph.Bodies[node])
 	return err
+}
+
+// executeStatementBody runs the statements of the statement node step performs, in the
+// performance around it, with what they perform owned by step.
+func (e *performances) executeStatementBody(step *actionFrame, graph *lower.ActionGraph) error {
+	perf := step.parent
+	_, err := e.ctx.runStatements(func() *stmtEngine {
+		host := &actionStmtHost{exec: e, node: step.node, perf: perf, graph: graph, step: step}
+		lexical := perf.lexicalFrames()
+		return newStmtEngineIn(e.ctx, host, lexical[len(lexical)-1], lexical[:len(lexical)-1])
+	}, graph.Bodies[step.node])
+	return err
+}
+
+// around is the performance the body's nodes are performed in and its terminates resolve from.
+func (h *actionStmtHost) around() *actionFrame {
+	if h.step != nil {
+		return h.step
+	}
+	return h.perf
 }
 
 // runNodeBody runs the statements a control or initial node's body declares,
@@ -160,7 +181,7 @@ func (h *actionStmtHost) acceptReturn(Value, lower.Return) error {
 func (h *actionStmtHost) effect(engine *stmtEngine, s lower.Effect) error {
 	env := engine.env
 	if s.Kind == lower.EffectTerminate {
-		return h.exec.terminate(engine, h.perf, s)
+		return h.exec.terminate(engine, h.around(), s)
 	}
 	if s.Kind == lower.EffectStart {
 		if err := h.exec.ctx.startEffect(engine.evalIn(s.Scope), s, h.exec.self); err != nil {
@@ -177,7 +198,11 @@ func (h *actionStmtHost) effect(engine *stmtEngine, s lower.Effect) error {
 	}
 	// The performed action reads the values in scope where it is performed and its
 	// outputs come back to them, so a perform in a loop body sees that iteration.
-	_, outputs, err := invokeAction(h.exec.ctx, s.Scope, inv, env.values(), h.exec.self)
+	values, err := env.values(h.exec.ctx)
+	if err != nil {
+		return fmt.Errorf("%s: %w", h.describe(), err)
+	}
+	_, outputs, err := invokeAction(h.exec.ctx, s.Scope, inv, values, h.exec.self)
 	if err != nil {
 		return fmt.Errorf("%s: %w", h.describe(), err)
 	}
@@ -187,7 +212,7 @@ func (h *actionStmtHost) effect(engine *stmtEngine, s lower.Effect) error {
 	}
 	sort.Strings(names)
 	for _, name := range names {
-		if env.assign(name, outputs[name]) {
+		if env.assign(h.exec.ctx, name, outputs[name]) {
 			continue
 		}
 		if written, err := h.exec.returnEnclosing(h.perf, name, outputs[name], h.exec.owner.assignAround); written || err != nil {
@@ -196,7 +221,7 @@ func (h *actionStmtHost) effect(engine *stmtEngine, s lower.Effect) error {
 			}
 			continue
 		}
-		env.data.set(name, outputs[name])
+		env.data.setBody(h.exec.ctx, name, outputs[name])
 	}
 	return nil
 }
@@ -204,7 +229,7 @@ func (h *actionStmtHost) effect(engine *stmtEngine, s lower.Effect) error {
 // performNode performs a nested action a block of the body declares as a
 // subperformance of the body's.
 func (h *actionStmtHost) performNode(engine *stmtEngine, graph *lower.ActionGraph, node *ast.Usage) (stmtFlow, error) {
-	return h.exec.performNode(h.perf, engine, graph, node)
+	return h.exec.performNode(h.around(), engine, graph, node)
 }
 
 // runFlow rejects a stated flow among statements: an action's own flow is the
@@ -215,7 +240,7 @@ func (h *actionStmtHost) runFlow(lower.Block) (stmtFlow, error) {
 }
 
 func (h *actionStmtHost) runBlockFlow(engine *stmtEngine, block lower.Block) (stmtFlow, error) {
-	return h.exec.performBlockFlow(h.perf, engine, block)
+	return h.exec.performBlockFlow(h.around(), engine, block)
 }
 
 // performNode performs node, which a block of parent's body declares, as a subperformance
@@ -236,7 +261,10 @@ func (e *performances) performNode(parent *actionFrame, engine *stmtEngine, grap
 		}
 	}
 	if f.perf == nil {
-		if f.perf, err = e.beginPerformance(parent, graph, node, slices.Clone(engine.env.frames)); err != nil {
+		locals, localCells := engine.env.localFrames()
+		if f.perf, err = e.beginPerformance(
+			parent, graph, node, locals, localCells,
+		); err != nil {
 			return flowNext, err
 		}
 		if _, declared := graph.Multiplicities[node]; declared && f.perf.repeatedStep() {
@@ -333,13 +361,15 @@ func (e *performances) performBlockFlow(parent *actionFrame, engine *stmtEngine,
 		if scope == nil {
 			scope = parent.scope
 		}
+		locals, localCells := engine.env.localFrames()
 		f.perf = &actionFrame{
 			node:        block.Node,
 			graph:       block.Graph,
 			flow:        block.Graph,
 			scope:       scope,
 			parent:      parent,
-			locals:      slices.Clone(engine.env.frames),
+			locals:      locals,
+			localCells:  localCells,
 			connections: joinConnections(parent.connections, block.Graph.Connections),
 			data:        make(map[string]Value),
 			features:    make(map[string]ast.FeatureDirection),
@@ -359,7 +389,7 @@ func (e *performances) performBlockFlow(parent *actionFrame, engine *stmtEngine,
 		for _, attr := range block.Graph.Attributes {
 			f.perf.features[attr.Name] = attr.Direction
 			features = append(features, lower.Feature{
-				Name: attr.Name, Direction: attr.Direction, IsResult: attr.IsResult,
+				Name: attr.Name, Direction: attr.Direction, IsResult: attr.IsResult, Binding: attr.Binding,
 				Value: attr.Value, Node: attr.Node, Scope: block.Scope,
 			})
 		}
@@ -404,7 +434,7 @@ func (e *performances) performNodeBody(f *performFrame, graph *lower.ActionGraph
 		return e.performCase(perf)
 	}
 	if f.phase == performInvoking {
-		if inv, ok := nestedInvocation(node); ok {
+		if inv, ok := nestedInvocationInGraph(graph, node); ok {
 			if err := e.performInvocation(perf, inv); err != nil {
 				return err
 			}

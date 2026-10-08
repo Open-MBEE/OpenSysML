@@ -9,7 +9,7 @@ pin in `scripts/pilot-pin.sh`.
 
 | Root | Files |
 |---|---|
-| `committed` (everything under `examples/` outside the downloaded roots) | 41 |
+| `committed` (everything under `examples/` outside the downloaded roots) | 47 |
 | `sysml-v2-training` | 100 |
 | `pilot-corpora/kerml-examples` | 58 |
 | `pilot-corpora/sysml-examples` | 99 |
@@ -59,19 +59,19 @@ Recorded against the corpus above, reproduced byte-identically on a second run:
 
 | Verdict | Files |
 |---|---|
-| `stable` | 354 |
-| `whitespace-only` | 0 |
+| `stable` | 353 |
+| `whitespace-only` | 7 |
 | `graph-diff` | 0 |
 | `unwritable` | 0 |
 | `unparseable` | 0 |
 | `refused` | 0 |
-| **total** | **354** |
+| **total** | **360** |
 
-So every one of the 354 files converts to Turtle, and every one comes back as the same Turtle byte
-for byte. That is the source text at work: the decoder writes each file back from the
-`sysx:sourceText` it carries (see [What the gate does not do](#what-the-gate-does-not-do)), so the
-files that came back up to whitespace, as a different graph, or that could not be written back or
-re-read from canonical notation all moved to `stable` when it landed.
+So every one of the 360 files converts to Turtle: 353 come back byte-identical, and seven differ
+only in normalized source-text whitespace. The decoder writes each file back from the
+`sysx:sourceText` it carries (see [What the gate does not
+do](#what-the-gate-does-not-do)). The per-file ratchet records the seven whitespace-only results
+separately; no file was graph-different, unwritable, unparseable, or refused.
 
 The last 40 refusals were one family: a synonym, portion, event or assertion keyword on a
 declaration with no name of its own (`feature :>> x;`, `event m.start;`, `snapshot :>> start { … }`,
@@ -158,10 +158,11 @@ to, under the same `sysx:sourceText` normalisation.
 
 | Verdict | Files |
 |---|---|
-| `stable` | 354 |
+| `stable` | 351 |
+| `whitespace-only` | 7 |
 | `graph-diff` | 2 |
 | every other verdict | 0 |
-| **total** | **356** |
+| **total** | **360** |
 
 The two forms are one graph, so a file's two verdicts should agree, and they do for every file
 but two: `Vehicle Example/Annex_A_VehicleViews.sysml` and `Vehicle Example/SysML v2 Spec Annex A

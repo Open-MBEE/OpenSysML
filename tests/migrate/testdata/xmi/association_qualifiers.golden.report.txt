@@ -1,0 +1,15 @@
+# SysML v1 to v2 migration report: association_qualifiers.xmi
+# migrated 9 element(s): 8 mapped, 1 approximated, 0 unmapped (0 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)
+
+## approximated (1)
+DataType	Key	_key	-> Key	(a UML data type without «ValueType» is written as an attribute def)
+
+## mapped (8)
+Class	A	_a	-> A
+Property	A::b	_classifierEnd	-> A::b
+Property	A::b::memberKey	_classifierQualifier	-> A::b::memberKey
+Class	B	_b	-> B
+Association	Link	_link	-> Link
+Property	Link::a	_ownedEnd	-> Link::a
+Property	Link::a::ownedKey	_ownedQualifier	-> Link::a::ownedKey
+Model	Model	_m	(the root model's members are written at the top level)

@@ -1,0 +1,11 @@
+step 1: token 1@write
+stmt assign a
+  eval literal 5 -> 5
+step 2: token 1@read
+stmt assign r
+      eval feature a -> 5
+      eval literal 2 -> 2
+    eval operator * -> 10
+  eval feature s -> 10
+step 3: token 1@done
+step 4: no active tokens

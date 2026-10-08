@@ -1,0 +1,29 @@
+# SysML v1 to v2 migration report: link_actions.xmi
+# migrated 23 element(s): 15 mapped, 8 approximated, 0 unmapped (0 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)
+
+## approximated (8)
+Activity	Links	_activity	-> LinksModel	(written as LinksModel since a root package named Links would be hidden by the standard library's Links)
+ClearAssociationAction	Links::clearAssociation	_clear	-> clearAssociation	(SysML v2 has no link action: the ClearAssociationAction is written as an action with its pins and does not clear the link; the action never fires: its input pin 'clearInput' must hold a value, but no object flow feeds it and it holds no value; no succession leads to it or leaves it, where v1 would wait on it forever, and it is written as a reference action usage, which the activity does not perform)
+CreateLinkAction	Links::createLink	_create	-> createLink	(SysML v2 has no link action: the CreateLinkAction is written as an action with its pins and does not create the link; the action never fires: its input pin 'createInput' must hold a value, but no object flow feeds it and it holds no value; no succession leads to it or leaves it, where v1 would wait on it forever, and it is written as a reference action usage, which the activity does not perform)
+CreateLinkObjectAction	Links::createLinkObject	_createObject	-> createLinkObject	(SysML v2 has no link action: the CreateLinkObjectAction is written as an action with its pins and does not create the link; the action never fires: its input pin 'createObjectInput' must hold a value, but no object flow feeds it and it holds no value; no succession leads to it or leaves it, where v1 would wait on it forever, and it is written as a reference action usage, which the activity does not perform)
+DestroyLinkAction	Links::destroyLink	_destroy	-> destroyLink	(SysML v2 has no link action: the DestroyLinkAction is written as an action with its pins and does not destroy the link; the action never fires: its input pin 'destroyInput' must hold a value, but no object flow feeds it and it holds no value; no succession leads to it or leaves it, where v1 would wait on it forever, and it is written as a reference action usage, which the activity does not perform)
+ReadLinkAction	Links::readLink	_read	-> readLink	(SysML v2 has no link action: the ReadLinkAction is written as an action with its pins and does not read the link; the action never fires: its input pin 'readInput' must hold a value, but no object flow feeds it and it holds no value; no succession leads to it or leaves it, where v1 would wait on it forever, and it is written as a reference action usage, which the activity does not perform)
+ReadLinkObjectEndAction	Links::readLinkObjectEnd	_readEnd	-> readLinkObjectEnd	(SysML v2 has no link action: the ReadLinkObjectEndAction is written as an action with its pins and does not read the link; the action never fires: its input pin 'readEndInput' must hold a value, but no object flow feeds it and it holds no value; no succession leads to it or leaves it, where v1 would wait on it forever, and it is written as a reference action usage, which the activity does not perform)
+ReadLinkObjectEndQualifierAction	Links::readLinkObjectEndQualifier	_readQualifier	-> readLinkObjectEndQualifier	(SysML v2 has no link action: the ReadLinkObjectEndQualifierAction is written as an action with its pins and does not read the link; the action never fires: its input pin 'readQualifierInput' must hold a value, but no object flow feeds it and it holds no value; no succession leads to it or leaves it, where v1 would wait on it forever, and it is written as a reference action usage, which the activity does not perform)
+
+## mapped (15)
+InputPin	Links::clearAssociation::clearInput	_clearIn	-> LinksModel::clearAssociation.clearInput
+OutputPin	Links::clearAssociation::clearResult	_clearOut	-> LinksModel::clearAssociation.clearResult
+InputPin	Links::createLink::createInput	_createIn	-> LinksModel::createLink.createInput
+OutputPin	Links::createLink::createResult	_createOut	-> LinksModel::createLink.createResult
+InputPin	Links::createLinkObject::createObjectInput	_createObjectIn	-> LinksModel::createLinkObject.createObjectInput
+OutputPin	Links::createLinkObject::createObjectResult	_createObjectOut	-> LinksModel::createLinkObject.createObjectResult
+InputPin	Links::destroyLink::destroyInput	_destroyIn	-> LinksModel::destroyLink.destroyInput
+OutputPin	Links::destroyLink::destroyResult	_destroyOut	-> LinksModel::destroyLink.destroyResult
+InputPin	Links::readLink::readInput	_readIn	-> LinksModel::readLink.readInput
+OutputPin	Links::readLink::readResult	_readOut	-> LinksModel::readLink.readResult
+InputPin	Links::readLinkObjectEnd::readEndInput	_readEndIn	-> LinksModel::readLinkObjectEnd.readEndInput
+OutputPin	Links::readLinkObjectEnd::readEndResult	_readEndOut	-> LinksModel::readLinkObjectEnd.readEndResult
+InputPin	Links::readLinkObjectEndQualifier::readQualifierInput	_readQualifierIn	-> LinksModel::readLinkObjectEndQualifier.readQualifierInput
+OutputPin	Links::readLinkObjectEndQualifier::readQualifierResult	_readQualifierOut	-> LinksModel::readLinkObjectEndQualifier.readQualifierResult
+Model	Model	_m	(the root model's members are written at the top level)
