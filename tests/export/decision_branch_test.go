@@ -63,6 +63,9 @@ func TestDecisionBranchesTheNotationCannotStateAreRefused(t *testing.T) {
 		"two sourceFeature sources, the member before it first": func(g string) string {
 			return strings.Replace(g, "sysml:source elmt:P__A__pick ;", "sysml:sourceFeature elmt:P__A__pick, elmt:P__A__check ;", 1)
 		},
+		"a sourceFeature spelled as a literal": func(g string) string {
+			return strings.Replace(g, "sysml:source elmt:P__A__pick ;", "sysml:source elmt:P__A__pick ;\n    sysml:sourceFeature \"urn:sysmlv2:element:P__A__pick\" ;", 1)
+		},
 		"an else with a body": func(g string) string {
 			return strings.Replace(g, `sysx:isElse "true"^^xsd:boolean ;`, `sysx:isElse "true"^^xsd:boolean ;`+"\n    sysx:hasBody \"true\"^^xsd:boolean ;", 1)
 		},

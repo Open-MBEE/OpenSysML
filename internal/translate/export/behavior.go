@@ -588,8 +588,8 @@ func (d *decoder) targetTransitionText(el *element, triggerWords []string, guard
 	before := d.precedingSource(el)
 	for _, property := range []string{pSource, pSourceFeature} {
 		for _, stated := range d.graph.Objects(rdf.IRI(el.iri), rdf.SysML+property) {
-			if before == nil || stated.Value != before.iri {
-				return "", "", refuse(fmt.Sprintf("its source <%s> is not the member before it, which `if … then` and `else` take their source from", stated.Value))
+			if before == nil || stated != rdf.IRI(before.iri) {
+				return "", "", refuse(fmt.Sprintf("its source %s is not the member before it, which `if … then` and `else` take their source from", termText(stated)))
 			}
 		}
 	}
