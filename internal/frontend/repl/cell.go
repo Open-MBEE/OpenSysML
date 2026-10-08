@@ -11,6 +11,8 @@ type Statement struct {
 	// Meta is set when Text is a `%` command line.
 	Meta bool
 	Text string
+	// Line is the line of the cell, counted from 1, that Text begins on.
+	Line int
 }
 
 // Statements splits a cell of input into what the prompt would read from it.
@@ -22,19 +24,33 @@ type Statement struct {
 func Statements(cell string) []Statement {
 	var out []Statement
 	var decls, chunk strings.Builder
-	flush := func(b *strings.Builder) {
+	declsAt, chunkAt := 0, 0
+	flush := func(b *strings.Builder, at int) {
 		if strings.TrimSpace(b.String()) != "" {
-			out = append(out, Statement{Text: b.String()})
+			out = append(out, Statement{Text: b.String(), Line: at})
 		}
 		b.Reset()
 	}
-	for _, line := range strings.Split(cell, "\n") {
-		if chunk.Len() == 0 && isMeta(line) {
-			flush(&decls)
-			out = append(out, Statement{Meta: true, Text: strings.TrimSpace(line)})
-			continue
+	// A chunk joins to the declarations before it with a newline, so a blank
+	// line keeps its place and the declarations' line is their first text's.
+	join := func() {
+		if decls.Len() == 0 {
+			declsAt = chunkAt
+		} else {
+			decls.WriteByte('\n')
 		}
-		if chunk.Len() > 0 {
+		decls.WriteString(chunk.String())
+		chunk.Reset()
+	}
+	for i, line := range strings.Split(cell, "\n") {
+		if chunk.Len() == 0 {
+			chunkAt = i + 1
+			if isMeta(line) {
+				flush(&decls, declsAt)
+				out = append(out, Statement{Meta: true, Text: strings.TrimSpace(line), Line: chunkAt})
+				continue
+			}
+		} else {
 			chunk.WriteByte('\n')
 		}
 		chunk.WriteString(line)
@@ -42,23 +58,16 @@ func Statements(cell string) []Statement {
 			continue
 		}
 		if _, ok := bareExpression(chunk.String()); ok {
-			flush(&decls)
-			flush(&chunk)
+			flush(&decls, declsAt)
+			flush(&chunk, chunkAt)
 			continue
 		}
-		if decls.Len() > 0 {
-			decls.WriteByte('\n')
-		}
-		decls.WriteString(chunk.String())
-		chunk.Reset()
+		join()
 	}
 	if chunk.Len() > 0 {
-		if decls.Len() > 0 {
-			decls.WriteByte('\n')
-		}
-		decls.WriteString(chunk.String())
+		join()
 	}
-	flush(&decls)
+	flush(&decls, declsAt)
 	return out
 }
 

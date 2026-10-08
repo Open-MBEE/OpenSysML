@@ -134,6 +134,13 @@ message whose signature or framing is wrong, logging it under `-verbose`. It ans
 
 `stdin_request` is not used: no REPL command reads from the terminal.
 
+A cell may load another notebook: `%load other.ipynb` submits the other notebook's code cells
+for what they declare, skipping their `%` command lines and expressions and reporting the count,
+each cell a source named `other.ipynb cell <n>` in diagnostics; `--cells 1,3-5` or
+`--cells tag:<tag>` picks cells, a cell tagged `skip-load` is skipped, and a notebook whose
+kernel language is not `sysml` is refused. See
+[Reusing another notebook](../guide/12-jupyter.md#reusing-another-notebook).
+
 A `%quit` in a cell is noted — the notebook's shutdown ends the kernel — and an unknown
 `%` command is an error (`UnknownCommand`), where the prompt would print guidance.
 

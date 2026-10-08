@@ -24,7 +24,13 @@ Load files and enter interactive mode:
 ```bash
 sysml model.sysml
 sysml types.sysml instances.sysml
+sysml wheels.ipynb
 ```
+
+A file argument is a `.sysml` or `.kerml` file, a directory or glob pattern (every `.sysml`,
+`.kerml` and `.ipynb` under it), an API element-form `.json` file, or a Jupyter notebook
+(`.ipynb`), whose code cells load as `%load` loads them: declarations only, `%` command lines and
+expressions skipped and counted ([Reusing another notebook](../guide/12-jupyter.md#reusing-another-notebook)).
 
 ## Non-Interactive Mode
 

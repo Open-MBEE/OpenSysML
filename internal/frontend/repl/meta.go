@@ -186,7 +186,7 @@ var metaCommandTable = []metaCommand{
 	{name: "%documents", group: groupSession, desc: "list the model's documents by the names %render-document reads"},
 	{name: "%views", group: groupSession, args: "[diagrams] [<kind>...]", desc: "list the model's views and their kinds by the names %render reads; diagrams keeps the graph-shaped ones"},
 	{name: "%clear", group: groupSession, desc: "reset the session"},
-	{name: "%load", group: groupSession, args: "<path>...", desc: "submit the contents of files, directories or globs"},
+	{name: "%load", group: groupSession, args: "[--cells <sel>] <path>...", desc: "submit the contents of files, directories or globs; a .ipynb notebook's code cells declare, its % commands and expressions skipped, --cells 1,3-5 or tag:<tag> picking cells"},
 	{name: "%print", group: groupSession, args: "[name]", desc: "print the session model as SysML notation, or just the named element", linked: notationLinked},
 	{name: "%save", group: groupSession, args: "<file>", desc: "write the session model to a file (.sysml notation, or .ttl/.json RDF — experimental)", linked: notationLinked},
 	{name: cmdQuery, group: groupSession, args: "<oslc-query>", desc: "identify model elements using OSLC Query text", linked: positionalLinked},
@@ -386,10 +386,14 @@ func (s *Session) metaSessionCommand(fields []string, line string) (metaResult, 
 	case "%views":
 		return metaOut(s.doViews(fields[1:])), true
 	case "%load":
-		if len(fields) < 2 {
-			return metaOut([]string{"usage: %load <file|dir|glob>..."}, false, nil), true
+		paths, opts, perr := parseLoadArgs(fields[1:])
+		if perr != nil {
+			return metaOut(nil, false, perr), true
 		}
-		lines, lerr := s.loadPaths(pathArgs(fields[1:]))
+		if len(paths) == 0 {
+			return metaOut([]string{"usage: %load [--cells <n,n-m|tag:<tag>>] <file|dir|glob|notebook>..."}, false, nil), true
+		}
+		lines, lerr := s.loadPaths(paths, opts)
 		if lerr != nil {
 			return metaOut(nil, false, lerr), true
 		}

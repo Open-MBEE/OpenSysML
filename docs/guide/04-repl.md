@@ -118,7 +118,13 @@ loaded file, edit it and load it again. Tab completion completes paths after `%l
 and meta-commands and symbol names everywhere else.
 
 A specifically named API element-form `.json` file is converted and loaded; directory and glob
-expansion still collects only `.sysml` and `.kerml` files.
+expansion collects `.sysml` and `.kerml` files and `.ipynb` notebooks.
+
+A Jupyter notebook (`.ipynb`) loads its code cells, in order, for what they declare: each cell
+is a source of its own, named `<notebook> cell <n>` in diagnostics, and the cells' `%` command
+lines and expressions are skipped rather than run — the load report counts them. `--cells 1,3-5`
+or `--cells tag:<tag>` picks cells; a cell tagged `skip-load` is never loaded. See
+[Reusing another notebook](12-jupyter.md#reusing-another-notebook).
 
 A loaded file's imports are followed to its neighbors: when a file imports a root namespace that
 neither the loaded files nor the standard library declare, the `.sysml` and `.kerml` files beside
