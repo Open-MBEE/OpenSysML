@@ -125,7 +125,7 @@ private static final long serialVersionUID = 0L;
         java.lang.String, org.openmbee.opensysml.proto.Value> defaultEntry =
             com.google.protobuf.MapEntry
             .<java.lang.String, org.openmbee.opensysml.proto.Value>newDefaultInstance(
-                org.openmbee.opensysml.proto.Sysml.internal_static_sysml_ExecuteStateResponse_FinalContextEntry_descriptor,
+                org.openmbee.opensysml.proto.Sysml.internal_static_sysml_ExecuteStateResponse_FinalContextEntry_descriptor, 
                 com.google.protobuf.WireFormat.FieldType.STRING,
                 "",
                 com.google.protobuf.WireFormat.FieldType.MESSAGE,
@@ -211,7 +211,7 @@ org.openmbee.opensysml.proto.Value defaultValue) {
     if (ref instanceof java.lang.String) {
       return (java.lang.String) ref;
     } else {
-      com.google.protobuf.ByteString bs =
+      com.google.protobuf.ByteString bs = 
           (com.google.protobuf.ByteString) ref;
       java.lang.String s = bs.toStringUtf8();
       error_ = s;
@@ -227,7 +227,7 @@ org.openmbee.opensysml.proto.Value defaultValue) {
       getErrorBytes() {
     java.lang.Object ref = error_;
     if (ref instanceof java.lang.String) {
-      com.google.protobuf.ByteString b =
+      com.google.protobuf.ByteString b = 
           com.google.protobuf.ByteString.copyFromUtf8(
               (java.lang.String) ref);
       error_ = b;
@@ -251,7 +251,7 @@ org.openmbee.opensysml.proto.Value defaultValue) {
    * <code>repeated .sysml.Diagnostic diagnostics = 4 [json_name = "diagnostics"];</code>
    */
   @java.lang.Override
-  public java.util.List<? extends org.openmbee.opensysml.proto.DiagnosticOrBuilder>
+  public java.util.List<? extends org.openmbee.opensysml.proto.DiagnosticOrBuilder> 
       getDiagnosticsOrBuilderList() {
     return diagnostics_;
   }
@@ -306,7 +306,7 @@ org.openmbee.opensysml.proto.Value defaultValue) {
    * <code>repeated .sysml.Outcome outcomes = 5 [json_name = "outcomes"];</code>
    */
   @java.lang.Override
-  public java.util.List<? extends org.openmbee.opensysml.proto.OutcomeOrBuilder>
+  public java.util.List<? extends org.openmbee.opensysml.proto.OutcomeOrBuilder> 
       getOutcomesOrBuilderList() {
     return outcomes_;
   }
@@ -421,7 +421,7 @@ org.openmbee.opensysml.proto.Value defaultValue) {
    * <code>repeated .sysml.DocumentEvent trace = 8 [json_name = "trace"];</code>
    */
   @java.lang.Override
-  public java.util.List<? extends org.openmbee.opensysml.proto.DocumentEventOrBuilder>
+  public java.util.List<? extends org.openmbee.opensysml.proto.DocumentEventOrBuilder> 
       getTraceOrBuilderList() {
     return trace_;
   }
@@ -991,7 +991,7 @@ org.openmbee.opensysml.proto.Value defaultValue) {
             diagnosticsBuilder_ = null;
             diagnostics_ = other.diagnostics_;
             bitField0_ = (bitField0_ & ~0x00000008);
-            diagnosticsBuilder_ =
+            diagnosticsBuilder_ = 
               com.google.protobuf.GeneratedMessage.alwaysUseFieldBuilders ?
                  internalGetDiagnosticsFieldBuilder() : null;
           } else {
@@ -1017,7 +1017,7 @@ org.openmbee.opensysml.proto.Value defaultValue) {
             outcomesBuilder_ = null;
             outcomes_ = other.outcomes_;
             bitField0_ = (bitField0_ & ~0x00000010);
-            outcomesBuilder_ =
+            outcomesBuilder_ = 
               com.google.protobuf.GeneratedMessage.alwaysUseFieldBuilders ?
                  internalGetOutcomesFieldBuilder() : null;
           } else {
@@ -1049,7 +1049,7 @@ org.openmbee.opensysml.proto.Value defaultValue) {
             traceBuilder_ = null;
             trace_ = other.trace_;
             bitField0_ = (bitField0_ & ~0x00000080);
-            traceBuilder_ =
+            traceBuilder_ = 
               com.google.protobuf.GeneratedMessage.alwaysUseFieldBuilders ?
                  internalGetTraceFieldBuilder() : null;
           } else {
@@ -1506,7 +1506,7 @@ org.openmbee.opensysml.proto.Value defaultValue) {
         getErrorBytes() {
       java.lang.Object ref = error_;
       if (ref instanceof String) {
-        com.google.protobuf.ByteString b =
+        com.google.protobuf.ByteString b = 
             com.google.protobuf.ByteString.copyFromUtf8(
                 (java.lang.String) ref);
         error_ = b;
@@ -1748,7 +1748,7 @@ org.openmbee.opensysml.proto.Value defaultValue) {
     /**
      * <code>repeated .sysml.Diagnostic diagnostics = 4 [json_name = "diagnostics"];</code>
      */
-    public java.util.List<? extends org.openmbee.opensysml.proto.DiagnosticOrBuilder>
+    public java.util.List<? extends org.openmbee.opensysml.proto.DiagnosticOrBuilder> 
          getDiagnosticsOrBuilderList() {
       if (diagnosticsBuilder_ != null) {
         return diagnosticsBuilder_.getMessageOrBuilderList();
@@ -1774,12 +1774,12 @@ org.openmbee.opensysml.proto.Value defaultValue) {
     /**
      * <code>repeated .sysml.Diagnostic diagnostics = 4 [json_name = "diagnostics"];</code>
      */
-    public java.util.List<org.openmbee.opensysml.proto.Diagnostic.Builder>
+    public java.util.List<org.openmbee.opensysml.proto.Diagnostic.Builder> 
          getDiagnosticsBuilderList() {
       return internalGetDiagnosticsFieldBuilder().getBuilderList();
     }
     private com.google.protobuf.RepeatedFieldBuilder<
-        org.openmbee.opensysml.proto.Diagnostic, org.openmbee.opensysml.proto.Diagnostic.Builder, org.openmbee.opensysml.proto.DiagnosticOrBuilder>
+        org.openmbee.opensysml.proto.Diagnostic, org.openmbee.opensysml.proto.Diagnostic.Builder, org.openmbee.opensysml.proto.DiagnosticOrBuilder> 
         internalGetDiagnosticsFieldBuilder() {
       if (diagnosticsBuilder_ == null) {
         diagnosticsBuilder_ = new com.google.protobuf.RepeatedFieldBuilder<
@@ -2093,7 +2093,7 @@ org.openmbee.opensysml.proto.Value defaultValue) {
      *
      * <code>repeated .sysml.Outcome outcomes = 5 [json_name = "outcomes"];</code>
      */
-    public java.util.List<? extends org.openmbee.opensysml.proto.OutcomeOrBuilder>
+    public java.util.List<? extends org.openmbee.opensysml.proto.OutcomeOrBuilder> 
          getOutcomesOrBuilderList() {
       if (outcomesBuilder_ != null) {
         return outcomesBuilder_.getMessageOrBuilderList();
@@ -2140,12 +2140,12 @@ org.openmbee.opensysml.proto.Value defaultValue) {
      *
      * <code>repeated .sysml.Outcome outcomes = 5 [json_name = "outcomes"];</code>
      */
-    public java.util.List<org.openmbee.opensysml.proto.Outcome.Builder>
+    public java.util.List<org.openmbee.opensysml.proto.Outcome.Builder> 
          getOutcomesBuilderList() {
       return internalGetOutcomesFieldBuilder().getBuilderList();
     }
     private com.google.protobuf.RepeatedFieldBuilder<
-        org.openmbee.opensysml.proto.Outcome, org.openmbee.opensysml.proto.Outcome.Builder, org.openmbee.opensysml.proto.OutcomeOrBuilder>
+        org.openmbee.opensysml.proto.Outcome, org.openmbee.opensysml.proto.Outcome.Builder, org.openmbee.opensysml.proto.OutcomeOrBuilder> 
         internalGetOutcomesFieldBuilder() {
       if (outcomesBuilder_ == null) {
         outcomesBuilder_ = new com.google.protobuf.RepeatedFieldBuilder<
@@ -2267,7 +2267,7 @@ org.openmbee.opensysml.proto.Value defaultValue) {
      * <code>.sysml.ExplorationStatus exploration = 6 [json_name = "exploration"];</code>
      */
     private com.google.protobuf.SingleFieldBuilder<
-        org.openmbee.opensysml.proto.ExplorationStatus, org.openmbee.opensysml.proto.ExplorationStatus.Builder, org.openmbee.opensysml.proto.ExplorationStatusOrBuilder>
+        org.openmbee.opensysml.proto.ExplorationStatus, org.openmbee.opensysml.proto.ExplorationStatus.Builder, org.openmbee.opensysml.proto.ExplorationStatusOrBuilder> 
         internalGetExplorationFieldBuilder() {
       if (explorationBuilder_ == null) {
         explorationBuilder_ = new com.google.protobuf.SingleFieldBuilder<
@@ -2600,7 +2600,7 @@ org.openmbee.opensysml.proto.Value defaultValue) {
      *
      * <code>repeated .sysml.DocumentEvent trace = 8 [json_name = "trace"];</code>
      */
-    public java.util.List<? extends org.openmbee.opensysml.proto.DocumentEventOrBuilder>
+    public java.util.List<? extends org.openmbee.opensysml.proto.DocumentEventOrBuilder> 
          getTraceOrBuilderList() {
       if (traceBuilder_ != null) {
         return traceBuilder_.getMessageOrBuilderList();
@@ -2641,12 +2641,12 @@ org.openmbee.opensysml.proto.Value defaultValue) {
      *
      * <code>repeated .sysml.DocumentEvent trace = 8 [json_name = "trace"];</code>
      */
-    public java.util.List<org.openmbee.opensysml.proto.DocumentEvent.Builder>
+    public java.util.List<org.openmbee.opensysml.proto.DocumentEvent.Builder> 
          getTraceBuilderList() {
       return internalGetTraceFieldBuilder().getBuilderList();
     }
     private com.google.protobuf.RepeatedFieldBuilder<
-        org.openmbee.opensysml.proto.DocumentEvent, org.openmbee.opensysml.proto.DocumentEvent.Builder, org.openmbee.opensysml.proto.DocumentEventOrBuilder>
+        org.openmbee.opensysml.proto.DocumentEvent, org.openmbee.opensysml.proto.DocumentEvent.Builder, org.openmbee.opensysml.proto.DocumentEventOrBuilder> 
         internalGetTraceFieldBuilder() {
       if (traceBuilder_ == null) {
         traceBuilder_ = new com.google.protobuf.RepeatedFieldBuilder<
