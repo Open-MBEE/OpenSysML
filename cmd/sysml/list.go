@@ -46,6 +46,8 @@ func listMisuse() string {
 		return "-list cannot be combined with -query, -eval or -from"
 	case outputPath != "":
 		return "-list writes its listing to stdout and cannot be combined with -output"
+	case len(dataImports) > 0 || importMap.given() || importFormat.given() || importDryRun || flagGiven("import-as"):
+		return "-list names the documents and views and imports nothing; -import and its -import-map, -import-format, -import-as and -import-dry-run belong to a run of their own"
 	}
 	return ""
 }

@@ -453,7 +453,8 @@ func runCLI() int {
 			return 2
 		case renderDoc != "" || renderDocsDir != "" || renderView != "" || renderAllDir != "" ||
 			convertFormat != "" || migrateFormat != "" || flagGiven("sync-diff") || flagGiven("sync-apply") ||
-			queryText != "" || graphsSubject != "" || len(evalExprs) > 0 || modelChecks.requested():
+			queryText != "" || graphsSubject != "" || len(evalExprs) > 0 || modelChecks.requested() ||
+			flagGiven("list") || flagGiven("list-kind") || flagGiven("list-form"):
 			fmt.Fprintln(os.Stderr, "sysml: -html-default-css writes the default stylesheet and nothing else; ask for it in its own run")
 			return 2
 		case docForm != "" || diagramForm != "" || pdfEngine != "" || pdfTitlePage || pdfTOC || pdfNumbering || docNumberFigures || htmlPageFlagsGiven():

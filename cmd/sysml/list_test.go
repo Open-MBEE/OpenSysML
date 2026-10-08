@@ -240,6 +240,17 @@ func TestListRefusals(t *testing.T) {
 	wantReport(t, check(t, binary, listedModel, "-list", "views", "-o", "out.txt"), 2, "cannot be combined with -output")
 	wantReport(t, check(t, binary, listedModel, "-list", "views", "-constraint", "C"), 2, "check it in its own run")
 	wantReport(t, check(t, binary, listedModel, "-list", "views", "-validate"), 2, "check it in its own run")
+	for _, args := range [][]string{
+		{"-import", "values.csv"},
+		{"-import", "values.csv", "-import-dry-run"},
+		{"-import-dry-run"},
+		{"-import-as", "values"},
+	} {
+		wantReport(t, check(t, binary, listedModel, append([]string{"-list", "views"}, args...)...), 2, "imports nothing")
+	}
+	for _, args := range [][]string{{"-list", "pseudo-views"}, {"-list", "views", "-list-form", "json"}, {"-list-kind", "tree"}} {
+		wantReport(t, listRun(t, binary, append([]string{"-html-default-css"}, args...)...), 2, "-html-default-css writes the default stylesheet and nothing else")
+	}
 }
 
 // TestListEmptyModel checks a model declaring nothing to list writes nothing in
