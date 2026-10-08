@@ -133,6 +133,9 @@ var (
 	renderPorts      string
 	renderOverlay    string
 	renderDoc        string
+	listWhat         string
+	listKinds        string
+	listForm         string
 	renderDocsDir    string
 	docForm          string
 	diagramForm      string
@@ -471,6 +474,29 @@ func runCLI() int {
 		(docForm != "" || diagramForm != "" || pdfEngine != "" || pdfTitlePage || pdfTOC || pdfNumbering || docNumberFigures || htmlFlagsGiven()) {
 		fmt.Fprintln(os.Stderr, "sysml: -doc-form, -diagram-form, the document options and the stylesheet options apply to -render-document and -render-documents; name the document to render")
 		return 2
+	}
+
+	if listWhat == "" && (flagGiven("list-kind") || flagGiven("list-form")) {
+		fmt.Fprintln(os.Stderr, "sysml: -list-kind and -list-form shape what -list lists; name what to list, as -list views")
+		return 2
+	}
+	if flagGiven("list") {
+		if listWhat == "" {
+			fmt.Fprintf(os.Stderr, "sysml: -list is empty; name what to list: %s\n", strings.Join(listTargets(), ", "))
+			return 2
+		}
+		if message := listMisuse(); message != "" {
+			fmt.Fprintln(os.Stderr, errPrefix, message)
+			return 2
+		}
+		if modelChecks.requested() {
+			return refuse(modelChecks,
+				"-list names the model's documents and views and decides nothing about it; check it in its own run")
+		}
+		if err := runList(args); err != nil {
+			return fail(err)
+		}
+		return exitHolds
 	}
 
 	if flagGiven("sync-diff") && syncDiffWith == "" {

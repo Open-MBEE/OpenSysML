@@ -52,6 +52,13 @@ func (s *Session) Complete(line string, pos int) Completion {
 		word := lastField(head)
 		return completion(word, pathCompletions(word))
 	}
+	if command == "%documents" {
+		return completion(lastField(head), nil)
+	}
+	if command == "%views" {
+		word := lastField(head)
+		return completion(word, matchingPrefix(viewsArguments(), word))
+	}
 	// %render takes the form after the view name, which is no name to look up,
 	// and a palette after a form that fills nodes.
 	if command == "%render" && atSecondArgument(head) {
