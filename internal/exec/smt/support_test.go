@@ -140,9 +140,8 @@ func TestAnalyzeCountsRepeatedActionSteps(t *testing.T) {
 	}
 }
 
-// TestAnalyzeCountsInheritedRepeatedActionSteps: a redefining step declaring no
-// multiplicity of its own takes the redefined step's `[n]`, and the effective
-// count encodes the same way a declared one does.
+// TestAnalyzeCountsInheritedRepeatedActionSteps: a redefining step declaring
+// no multiplicity encodes the redefined step's `[n]` like a declared count.
 func TestAnalyzeCountsInheritedRepeatedActionSteps(t *testing.T) {
 	ctx, idx := fixture(t, "<inherited-multiplicity>", `
 		package test {

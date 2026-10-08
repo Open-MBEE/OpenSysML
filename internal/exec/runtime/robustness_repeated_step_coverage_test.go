@@ -747,9 +747,8 @@ func TestRuntimeRobustnessRepeatedStepCoverage(t *testing.T) {
 		}
 	})
 
-	// A redefining step declaring no multiplicity of its own takes the redefined
-	// step's `[n]`: the effective count performs n times, and an external read
-	// sees every performance.
+	// A redefining step declaring no multiplicity takes the redefined step's
+	// `[n]`: an external read sees every performance.
 	t.Run("inherited-step-multiplicity", func(t *testing.T) {
 		src := `package test {
 			private import ScalarValues::*;
