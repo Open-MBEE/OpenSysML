@@ -1,0 +1,1 @@
+- **The Community page now describes the project itself.** Its cards cover the repository, the issue forms, GitHub Discussions, contributing, downloads/nightlies/changelog, and the compliance and roadmap pages, replacing the OpenMBEE-wide Slack, discussion list, wiki, calendar and sponsorship cards.
