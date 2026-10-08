@@ -592,7 +592,7 @@ function mount(root: HTMLElement): Mounted {
     sub.textContent = `part ${part.feature} : ${part.symbol.slice(part.symbol.lastIndexOf("::") + 2)}`;
     const attrs = document.createElement("div");
     attrs.className = "osml-nodecard__attrs";
-    for (const key of Object.keys(part.attrs).sort()) {
+    for (const key of Object.keys(part.attrs).sort((a, b) => a.localeCompare(b))) {
       row(attrs, key, part.attrs[key]);
     }
     const node = model.render.nodes.find((candidate) => candidate.id === id);
@@ -1191,7 +1191,7 @@ function mount(root: HTMLElement): Mounted {
             void rerun(-1);
           }
         } else if (!debugPanel.hidden) {
-          showStep(cursor, false);
+          void showStep(cursor, false);
         }
       }
     })();

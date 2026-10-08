@@ -1180,7 +1180,7 @@ function rerouteAroundBoxes(
         exempt.add(entry.node.id);
       }
     }
-    const key = [...exempt].sort().join(" ");
+    const key = [...exempt].sort((a, b) => a.localeCompare(b)).join(" ");
     const group = groups.get(key) ?? [];
     group.push(index);
     groups.set(key, group);

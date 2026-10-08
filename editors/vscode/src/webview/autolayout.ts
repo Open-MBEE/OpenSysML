@@ -217,7 +217,7 @@ async function layOut(result: RenderResult): Promise<AutoLayout> {
           { side: "south", distance: Math.abs(height - y), along: x, extent: width },
           { side: "west", distance: Math.abs(x), along: y, extent: height },
         ];
-        const nearest = sides.reduce((best, candidate) => candidate.distance < best.distance ? candidate : best);
+        const nearest = sides.reduce((best, candidate) => candidate.distance < best.distance ? candidate : best, sides[0]);
         const offset = nearest.extent > 0 ? Math.max(0, Math.min(1, nearest.along / nearest.extent)) : 0.5;
         ports.set(port.id, { side: nearest.side, offset });
       }
