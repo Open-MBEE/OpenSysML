@@ -468,6 +468,7 @@ func TestRepositoryOptionsAreGivenOnce(t *testing.T) {
 		"%load --branch=main --branch=dev Vehicles",
 		"%publish --project=Fleet --project=Other Vehicles",
 		"%publish --branch=main --branch=dev Vehicles",
+		"%publish -d -d Vehicles",
 	} {
 		err := metaErr(t, s, line)
 		wantUsage(t, err, line)

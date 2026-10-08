@@ -277,8 +277,15 @@ func confine(set *reposync.ChangeSet, cut, remote *rdf.Graph, root rdf.Term, tra
 	for _, subject := range cut.Subjects() {
 		within[rdf.LocalName(subject.Value)] = true
 	}
-	for _, subject := range modelsync.RootedAt(remote, rdf.IRI(rdf.Element+rdf.LocalName(root.Value))).Subjects() {
-		within[rdf.LocalName(subject.Value)] = true
+	// The branch may qualify its ids; the root is the subject with the same
+	// effective id, as the diff matches elements.
+	for _, subject := range remote.Subjects() {
+		if rdf.LocalName(subject.Value) == rdf.LocalName(root.Value) {
+			for _, owned := range modelsync.RootedAt(remote, subject).Subjects() {
+				within[rdf.LocalName(owned.Value)] = true
+			}
+			break
+		}
 	}
 	kept := set.Changes[:0]
 	outside, unseen := 0, 0

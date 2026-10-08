@@ -212,6 +212,9 @@ func (s *Session) doPublish(args []string) metaResult {
 	for _, arg := range args {
 		switch {
 		case arg == "-d":
+			if req.Derived {
+				return usageError(usagePublish, "-d was given twice")
+			}
 			req.Derived = true
 		case strings.HasPrefix(arg, "-"):
 			var field *string

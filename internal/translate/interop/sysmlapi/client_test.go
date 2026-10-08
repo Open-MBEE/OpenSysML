@@ -75,8 +75,19 @@ func TestRedirectsKeepTheTokenOffPlaintext(t *testing.T) {
 	if err := withToken.checkRedirect(request("https://api.example/v2/projects"), []*http.Request{from}); err != nil {
 		t.Errorf("a redirect within https was refused: %v", err)
 	}
-	if err := withToken.checkRedirect(request("http://localhost:8083/projects"), []*http.Request{from}); err != nil {
-		t.Errorf("a redirect to loopback was refused: %v", err)
+	for _, elsewhere := range []string{"https://other.example/projects", "https://evil.api.example/projects", "https://api.example:8443/projects"} {
+		if err := withToken.checkRedirect(request(elsewhere), []*http.Request{from}); err == nil {
+			t.Errorf("a redirect to %s carried the token", elsewhere)
+		} else if strings.Contains(err.Error(), "secret") {
+			t.Errorf("the refusal names the token: %v", err)
+		}
+	}
+	loopback := New(Config{BaseURL: "https://localhost:8443", Token: "secret"})
+	if err := loopback.checkRedirect(request("http://localhost:8083/projects"), []*http.Request{from}); err == nil {
+		t.Error("a redirect to another port of loopback carried the token")
+	}
+	if err := loopback.checkRedirect(request("http://localhost:8443/projects"), []*http.Request{from}); err != nil {
+		t.Errorf("a plaintext redirect on loopback itself was refused: %v", err)
 	}
 	via := make([]*http.Request, maxRedirects)
 	for i := range via {
@@ -86,7 +97,7 @@ func TestRedirectsKeepTheTokenOffPlaintext(t *testing.T) {
 		t.Error("an endless redirect chain was followed")
 	}
 	tokenless := New(Config{BaseURL: "https://api.example"})
-	if err := tokenless.checkRedirect(request("http://api.example/projects/"), []*http.Request{from}); err != nil {
-		t.Errorf("without a token, a plaintext redirect was refused: %v", err)
+	if err := tokenless.checkRedirect(request("http://other.example/projects/"), []*http.Request{from}); err != nil {
+		t.Errorf("without a token, a redirect elsewhere was refused: %v", err)
 	}
 }
