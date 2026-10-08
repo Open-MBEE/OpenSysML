@@ -1,0 +1,31 @@
+@startuml
+' run — timeline rendering (the trace of a run to t = 6)
+' not represented: 1 state held for no time is listed in the text form
+scale 1 as 311 pixels
+concise "[[https://example.test/src/run-timeline.sysml#L26 RunTimeline::mission.controller.modes]]" as l0
+concise "[[https://example.test/src/run-timeline.sysml#L50 RunTimeline::mission.instrument.modes]]" as l1
+@0
+l0 is "waiting | charged"
+note top of l0 : choice entering modes: next waiting(entry), charged(entry) (unordered; took waiting(entry) first)
+l1 is "[[https://example.test/src/run-timeline.sysml#L52 waiting]]"
+@1
+l0 is "acknowledged | charged (time, accept Ack)"
+l1 is "[[https://example.test/src/run-timeline.sysml#L53 acknowledged (accept Ping)]]"
+@2
+l0 is "waiting | charged (time)"
+@2.5
+l1 is "[[https://example.test/src/run-timeline.sysml#L52 waiting (time)]]"
+@3
+l0 is "acknowledged | charged (time, accept Ack)"
+l1 is "[[https://example.test/src/run-timeline.sysml#L53 acknowledged (accept Ping)]]"
+@4
+l0 is "waiting | charged (time)"
+@4.5
+l1 is "[[https://example.test/src/run-timeline.sysml#L52 waiting (time)]]"
+@5
+l0 is "acknowledged | charged (time, accept Ack)"
+l1 is "[[https://example.test/src/run-timeline.sysml#L53 acknowledged (accept Ping)]]"
+@6
+l0 is {hidden}
+l1 is {hidden}
+@enduml

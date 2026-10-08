@@ -1,0 +1,15 @@
+stmt assign level
+  eval feature level -> 12
+  eval feature level -> 12
+  eval literal 10 -> 10
+eval operator > -> true
+  eval feature level -> 12
+  eval literal 5 -> 5
+eval operator > -> true
+step 1: token 2@alert, token 3@idle
+stmt assign low
+  eval literal 1 -> 1
+stmt assign high
+  eval literal 1 -> 1
+choice step 2: tokens 2@alert, 3@idle (unordered; took 3@idle first)
+step 2: no active tokens

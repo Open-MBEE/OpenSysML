@@ -43,6 +43,11 @@ type Workspace struct {
 	libCatalog *identity.Catalog
 	libOnce    sync.Once
 	diagCache  map[string][]diag.Diagnostic
+	// stamps numbers each document's latest fresh analysis: a document re-analyzed
+	// because an edit dropped what its analysis read gets a new number, and one
+	// whose cached analysis still holds keeps its own (see AnalysisStamp).
+	stamps   map[string]uint64
+	analyses uint64
 	// refs is the reverse reference index, built per document on demand and
 	// dropped per document on a change (see refindex.go).
 	refs *refIndex
@@ -65,6 +70,8 @@ type Workspace struct {
 	// disabledLints holds the codes of the lints this workspace's diagnostics
 	// leave out; they are computed and recorded whatever it holds.
 	disabledLints map[string]bool
+	// enabledLints holds the codes of the opt-in lints its diagnostics keep.
+	enabledLints map[string]bool
 	// libSource yields the text of the library files the index was built from,
 	// nil when the index came without one; libDocs caches them parsed.
 	libSource libs.Source
@@ -107,6 +114,12 @@ func WithConformanceMode(mode diag.ConformanceMode) Option {
 // out of this workspace's diagnostics.
 func WithDisabledLints(codes ...string) Option {
 	return func(w *Workspace) { w.disabledLints = lintSet(codes) }
+}
+
+// WithEnabledLints keeps the opt-in lints with these codes (see
+// passes.IsOptInLint) in this workspace's diagnostics; a disabled lint stays out.
+func WithEnabledLints(codes ...string) Option {
+	return func(w *Workspace) { w.enabledLints = lintSet(codes) }
 }
 
 // WithLibrarySource names the source the index's library documents were read
@@ -160,6 +173,7 @@ func NewWorkspaceWithIndex(idx *symbols.Index, opts ...Option) *Workspace {
 		libraryRoots: map[string]bool{},
 		libBase:      idx.Base(),
 		diagCache:    map[string][]diag.Diagnostic{},
+		stamps:       map[string]uint64{},
 		libDocs:      map[string]*Document{},
 		standIns:     map[string]string{},
 		displaced:    map[string]symbols.LibraryDocument{},
@@ -303,6 +317,28 @@ func (w *Workspace) SetDisabledLints(codes []string) error {
 	return nil
 }
 
+// EnabledLints reports the codes of the opt-in lints this workspace keeps in
+// its diagnostics, sorted.
+func (w *Workspace) EnabledLints() []string {
+	w.mu.RLock()
+	defer w.mu.RUnlock()
+	return slices.Sorted(maps.Keys(w.enabledLints))
+}
+
+// SetEnabledLints replaces the opt-in lints this workspace keeps in its
+// diagnostics with codes; none leaves every opt-in lint out. A code that names
+// no lint is an error, and leaves the setting as it was; one naming a lint on by
+// default changes nothing, and a disabled lint stays out either way.
+func (w *Workspace) SetEnabledLints(codes []string) error {
+	if err := passes.CheckLintCodes(codes); err != nil {
+		return err
+	}
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	w.enabledLints = lintSet(codes)
+	return nil
+}
+
 // lintSet is codes as a set, nil for none.
 func lintSet(codes []string) map[string]bool {
 	if len(codes) == 0 {
@@ -325,18 +361,29 @@ func NewIndexWithStdlib() (*symbols.Index, libs.Source) {
 	return symbols.NewOverlay(base), src
 }
 
-// Open registers an authoritative open buffer for name and reindexes.
+// Open registers an authoritative open buffer for name and reindexes it. A
+// buffer holding the text of a document already parsed, as the editor opens a
+// file the folder scan indexed, is only marked open: the index is as it would be.
 func (w *Workspace) Open(name string, content []byte, version int) {
 	w.setOpenBuffer(name, content, version)
 }
 
-// setOpenBuffer records a copy of an open buffer and reindexes it.
+// setOpenBuffer records a copy of an open buffer and reindexes it, unless the
+// loaded document already holds that text, when only the version moves.
 func (w *Workspace) setOpenBuffer(name string, content []byte, version int) {
-	content = bytes.Clone(content)
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	w.open[name] = true
-	w.reindexLocked(name, content, version)
+	if held := w.docs[name]; held != nil && !held.Recorded() && bytes.Equal(held.Content, content) {
+		if held.Version != version {
+			versioned := *held
+			versioned.Version = version
+			w.docs[name] = &versioned
+		}
+		w.changes[name]++
+		return
+	}
+	w.reindexLocked(name, bytes.Clone(content), version)
 }
 
 // Update replaces the open buffer content for name and reindexes.
@@ -577,7 +624,7 @@ func (w *Workspace) Diagnostics(name string) []diag.Diagnostic {
 	if doc == nil {
 		return nil
 	}
-	return passes.WithoutLints(w.diagnosticsLocked(name, doc), w.disabledLints)
+	return passes.WithoutLints(w.diagnosticsLocked(name, doc), w.disabledLints, w.enabledLints)
 }
 
 // AnalyzedContent returns a document's diagnostics together with the content
@@ -590,7 +637,7 @@ func (w *Workspace) AnalyzedContent(name string) ([]byte, []diag.Diagnostic, boo
 	if doc == nil {
 		return nil, nil, false
 	}
-	return doc.Content, passes.WithoutLints(w.diagnosticsLocked(name, doc), w.disabledLints), true
+	return doc.Content, passes.WithoutLints(w.diagnosticsLocked(name, doc), w.disabledLints, w.enabledLints), true
 }
 
 // diagnosticsLocked analyzes doc, caching the result. Caller holds the lock.
@@ -604,7 +651,29 @@ func (w *Workspace) diagnosticsLocked(name string, doc *Document) []diag.Diagnos
 	}
 	diags, _ := w.analyze(name, doc, nil)
 	w.diagCache[name] = diags
+	w.stampLocked(name)
 	return diags
+}
+
+// stampLocked gives name's fresh analysis a number of its own. Caller holds the write lock.
+func (w *Workspace) stampLocked(name string) {
+	w.analyses++
+	w.stamps[name] = w.analyses
+}
+
+// AnalysisStamp numbers name's current analysis: it changes exactly when the
+// document is analyzed afresh, which happens only after an edit dropped what
+// the previous analysis read (the document's own text, a name it resolved, a
+// gather it took part in). Two reads of one stamp therefore saw one analysis,
+// over the same inputs. Zero for a document not analyzed since it was opened
+// or last changed.
+func (w *Workspace) AnalysisStamp(name string) uint64 {
+	w.mu.RLock()
+	defer w.mu.RUnlock()
+	if _, analyzed := w.diagCache[name]; !analyzed {
+		return 0
+	}
+	return w.stamps[name]
 }
 
 // analyze runs the passes over doc: in the workspace's shared context without a
@@ -712,7 +781,9 @@ func (w *Workspace) memberSymbolsLocked(resolver *resolve.Resolver, sem *semanti
 		children := w.index.LookupDirectChildrenFrom(fqn, from)
 		members = append(members, resolver.AdmittedChildrenOf(scope, fqn, children)...)
 	}
-	return members
+	// A feature `featured by` a type sym conforms to, visible in scope through an
+	// import (StateActivity::isActive), is read as sym's member, so it is offered.
+	return append(members, resolver.FeaturedMembersOf(scope, sym)...)
 }
 
 // semanticsLocked is the workspace's resolver with its model and argument typer, made

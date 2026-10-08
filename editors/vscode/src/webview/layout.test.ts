@@ -6,6 +6,7 @@ import { test } from "node:test";
 import type { LayoutGeometry, RenderEdge, RenderNode, RenderPoint, RenderResult } from "../protocol";
 import type { EngineInstance } from "../landing/model";
 import { landingModel } from "../landing/model";
+import { carried, obstacles, resettle } from "../landing/carry";
 import { presented } from "../landing/present";
 import { autoLayout, type AutoLayout } from "./autolayout";
 import {
@@ -1861,37 +1862,33 @@ test("landing drag keeps right-angled routes at the captured Pilot obstruction",
   const auto = await autoLayout(result);
   assert.ok(auto, "ELK should lay out the saved landing render");
 
-  const bounds: Box = {
-    x: -213.082559,
-    y: -413.648204,
-    width: 1098.165089,
-    height: 907.244513,
-  };
+  const bounds: Box = { x: -600, y: -900, width: 3000, height: 1800 };
+  // Pilot's port faces Flexo across sysml-toolkit, which sits between them.
   const positions: Record<string, RenderPoint> = {
-    n1: { x: 301.3853, y: 116.4220 },
-    n7: { x: 282.2569, y: 218.4220 },
-    n13: { x: 12.8074, y: 95.7248 },
-    n19: { x: 628.9174, y: 255.5811 },
+    opensysml: { x: 100, y: -700 },
+    toolkit: { x: 500, y: 200 },
+    pilot: { x: -240, y: 80 },
+    flexo: { x: 1331, y: 180 },
   };
+  const idOf = (feature: string): string => model.parts.get(feature)!.id;
   const layoutAt = (pilotX: number): CanvasLayout => {
     const nodes = new Map<string, LayoutGeometry>();
-    for (const entry of result.nodes) {
-      const geometry = auto.nodes.get(entry.id);
-      const position = positions[entry.id];
-      assert.ok(geometry && position, `ELK should place landing box ${entry.id}`);
-      nodes.set(entry.id, { ...geometry, x: entry.id === "n13" ? pilotX : position.x, y: position.y });
+    for (const [feature, position] of Object.entries(positions)) {
+      const geometry = auto.nodes.get(idOf(feature));
+      assert.ok(geometry, `ELK should place landing box ${feature}`);
+      nodes.set(idOf(feature), { ...geometry, x: feature === "pilot" ? pilotX : position.x, y: position.y });
     }
-    return layoutCanvas(result, { nodes, bounds }, auto);
+    return layoutCanvas(result, { nodes: carried(result.nodes, auto, nodes), bounds }, auto);
   };
-  const next = layoutAt(positions.n13.x);
-  const pilotEdge = next.edges.find(({ edge }) => edge.from === "n13" && edge.to === "n19");
+  const next = layoutAt(positions.pilot.x);
+  const pilotEdge = next.edges.find(({ edge }) => edge.from === idOf("pilot") && edge.to === idOf("flexo"));
   assert.ok(pilotEdge);
   assert.ok(
     !orthogonal(pilotEdge.points),
     "the captured Pilot position should reproduce its diagonal route",
   );
 
-  const previous = layoutAt(positions.n13.x - 40);
+  const previous = layoutAt(positions.pilot.x - 40);
   for (const edge of previous.edges) {
     assert.ok(
       orthogonal(edge.points),
@@ -2182,4 +2179,75 @@ test("liftedEdges recalculates a port anchor from the shifted node box", () => {
   const lifted = liftedEdges(layout, "a", 40, 25)[0];
   const shiftedBox = { ...source.box, x: source.box.x + 40, y: source.box.y + 25 };
   assert.deepEqual(lifted.points[0], portFace(shiftedBox, source.ports[0]));
+});
+
+test("obstacles leaves a moving project clear of the boxes drawn inside it", () => {
+  const layout = layoutCanvas(
+    rendering([
+      node("a", "a", { x: 100, y: 100, width: 200, height: 100 }),
+      node("c", "c", { parent: "a", x: 116, y: 116, width: 60, height: 30 }),
+      node("b", "b", { x: 500, y: 100, width: 80, height: 40 }),
+    ]),
+  );
+  const a = layout.nodes.get("a")!;
+  const bounds = { x: 0, y: 0, width: 1000, height: 600 };
+  const clear = obstacles(layout.nodes.values(), "a");
+  assert.deepEqual(clear.map((entry) => entry.node.id), ["b"]);
+  assert.deepEqual(freePlacement(a, { x: 110, y: 100 }, clear, bounds, 0), { x: 110, y: 100 });
+  const everyOther = [...layout.nodes.values()].filter((entry) => entry.node.id !== "a");
+  assert.notDeepEqual(freePlacement(a, { x: 110, y: 100 }, everyOther, bounds, 0), { x: 110, y: 100 });
+});
+
+test("obstacles keeps another project's box that sticks out past its project", () => {
+  const layout = layoutCanvas(
+    rendering([
+      node("a", "a", { x: 100, y: 100, width: 200, height: 100 }),
+      node("b", "b", { x: 500, y: 100, width: 80, height: 40 }),
+      node("inside", "inside", { parent: "b", x: 510, y: 110, width: 20, height: 10 }),
+      node("exposed", "exposed", { parent: "b", x: 560, y: 110, width: 60, height: 10 }),
+    ]),
+  );
+  const ids = obstacles(layout.nodes.values(), "a").map((entry) => entry.node.id);
+  assert.deepEqual(ids, ["b", "exposed"]);
+});
+
+test("alignedPlacement lines up a project whose own boxes are not obstacles", () => {
+  const bounds: Box = { x: 0, y: 0, width: 900, height: 400 };
+  const movingNode = portNode("moving", 80, 100);
+  const inner = node("inner", "inner", { parent: "moving", x: 90, y: 110, width: 20, height: 10 });
+  const targetNode = portNode("target", 500, 105);
+  const layout = layoutWithPorts(
+    [movingNode, inner, targetNode],
+    [connectedEdge("moving", "target")],
+    fixedPorts(["moving.api", "east", 0.5], ["target.api", "west", 0.5]),
+    bounds,
+  );
+  const moving = layout.nodes.get("moving")!;
+  const at = { x: moving.box.x, y: moving.box.y };
+  assert.deepEqual(alignedPlacement(moving, at, layout, bounds, 0), at);
+  const clear = obstacles(layout.nodes.values(), "moving");
+  assert.deepEqual(alignedPlacement(moving, at, layout, bounds, 0, clear), { x: at.x, y: at.y + 5 });
+});
+
+test("resettle carries a re-clamped project's boxes, so later projects stay clear of them", () => {
+  const geometry = {
+    a: { x: 100, y: 100, width: 100, height: 50 },
+    exposed: { x: 190, y: 110, width: 40, height: 20 },
+    b: { x: 400, y: 100, width: 80, height: 40 },
+  };
+  const result = rendering([
+    node("a", "a", geometry.a),
+    node("exposed", "exposed", { parent: "a", ...geometry.exposed }),
+    node("b", "b", geometry.b),
+  ]);
+  const auto: AutoLayout = { nodes: new Map(Object.entries(geometry)), routes: new Map(), ports: new Map() };
+  const settled = new Map(layoutCanvas(result, undefined, auto).nodes);
+  resettle(settled, result.nodes, auto, "a", { x: 140, y: 100 });
+  assert.deepEqual(settled.get("a")!.box, { ...geometry.a, x: 140 });
+  assert.deepEqual(settled.get("exposed")!.box, { ...geometry.exposed, x: 230 });
+  const clear = obstacles(settled.values(), "b");
+  assert.deepEqual(clear.map((entry) => entry.node.id), ["a", "exposed"]);
+  const bounds = { x: 0, y: 0, width: 1000, height: 600 };
+  const dropped = freePlacement(settled.get("b")!, { x: 265, y: 100 }, clear, bounds, 0);
+  assert.ok(dropped && dropped.x > 270, `b should be pushed clear of the carried box: ${JSON.stringify(dropped)}`);
 });

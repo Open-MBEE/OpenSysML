@@ -81,6 +81,7 @@ func (inst *Instance) keepConnector(fv *FeatureValue, id int64) {
 // Feature value holds the runtime value(s) for one feature.
 type FeatureValue struct {
 	Feature        *EffectiveFeature
+	body           *bodyCell
 	Value          Value // scalar feature value (multiplicity [1])
 	Values         Value // collection feature value (Sequence or Set)
 	Materialized   bool  // lazy flag: has this feature value been instantiated?
@@ -1537,6 +1538,16 @@ func (ctx *Context) evalFeatureValueDefault(inst *Instance, fv *FeatureValue, na
 	}
 	ctx.derivingFeatureValues[key] = true
 	defer delete(ctx.derivingFeatureValues, key)
+	if fv.body != nil {
+		value, ok, err := ctx.readBodyCell(fv.body.owner, fv.body.name)
+		if err != nil {
+			return Value{}, err
+		}
+		if !ok {
+			return Value{}, &NoValueError{Feature: name}
+		}
+		return value, nil
+	}
 
 	scope := fv.Feature.DefaultScope()
 	if scope == nil {

@@ -143,7 +143,7 @@ func lowerBehaviorBody(node *ast.Usage, scope *symbols.Scope, resolver *resolve.
 func lowerActionExecution(node *ast.ActionExecutionNode, scope *symbols.Scope) []Statement {
 	switch {
 	case node.Expression != nil:
-		return []Statement{Declare{Name: node.Name, Value: node.Expression, Node: node, Scope: scope}}
+		return []Statement{Declare{Name: node.Name, Value: node.Expression, BodyData: true, Node: node, Scope: scope}}
 	case node.ActionRef != nil:
 		return []Statement{Effect{Kind: EffectPerform, Node: node, Scope: scope}}
 	default:

@@ -42,11 +42,12 @@ func TestExplainLeavesRoundedUnsatUndecided(t *testing.T) {
 	requireSolver(t)
 	s := checkSession(t, `
 		package Explain {
-			private import ScalarValues::Integer;
+			private import ScalarValues::Real;
 			constraint def HalfUlp {
-				in a : Integer;
-				assert constraint { a == 9007199254740993 }
-				assert constraint { a / 2 == 4503599627370496.0 }
+				in a : Real;
+				in b : Real;
+				in c : Real;
+				assert constraint { (a + b) + c != a + (b + c) }
 			}
 		}`)
 	got := run(t, s, "%explain HalfUlp")

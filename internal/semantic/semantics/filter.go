@@ -1272,6 +1272,8 @@ func constValue(v Value) symbols.FilterValue {
 		return symbols.FilterValue{Kind: symbols.FilterValueInt, Int: v.Int}
 	case ValReal:
 		return symbols.FilterValue{Kind: symbols.FilterValueReal, Real: v.Real}
+	case ValRational:
+		return symbols.FilterValue{Kind: symbols.FilterValueRational, Rat: v.Rat()}
 	case ValBool:
 		return symbols.FilterValue{Kind: symbols.FilterValueBool, Bool: v.Bool}
 	default:
@@ -1303,8 +1305,8 @@ func asQuantity(v symbols.FilterValue) (*Quantity, bool) {
 	if q, ok := QuantityOf(v); ok {
 		return q, true
 	}
-	if n, ok := numericValue(v); ok {
-		return &Quantity{Num: Value{Kind: ValReal, Real: n}, Unit: UnitOne()}, true
+	if n, ok := FilterNumber(v); ok {
+		return &Quantity{Num: n, Unit: UnitOne()}, true
 	}
 	return nil, false
 }
@@ -1318,12 +1320,28 @@ func emptyValue() symbols.FilterValue {
 	return symbols.FilterValue{Kind: symbols.FilterValueEmpty}
 }
 
-// exactFilterOrder orders two Integers, or an Integer and a non-NaN Real,
+// FilterNumber is the number a FilterValueInt, FilterValueRational or
+// FilterValueReal holds.
+func FilterNumber(v symbols.FilterValue) (Value, bool) {
+	switch v.Kind {
+	case symbols.FilterValueInt:
+		return FilterInteger(v), true
+	case symbols.FilterValueRational:
+		return RatValue(new(big.Rat).Set(v.Rat)), true
+	case symbols.FilterValueReal:
+		return Value{Kind: ValReal, Real: v.Real}, true
+	}
+	return Value{}, false
+}
+
+// exactFilterOrder orders two exact numbers, or an Integer and a non-NaN Real,
 // without rounding either: -1, 0 or 1, and whether it applies.
 func exactFilterOrder(left, right symbols.FilterValue) (int, bool) {
+	l, lok := FilterNumber(left)
+	r, rok := FilterNumber(right)
 	switch {
-	case left.Kind == symbols.FilterValueInt && right.Kind == symbols.FilterValueInt:
-		return CompareInt(FilterInteger(left), FilterInteger(right)), true
+	case lok && rok && l.IsExact() && r.IsExact():
+		return CompareRat(l, r), true
 	case left.Kind == symbols.FilterValueInt && right.Kind == symbols.FilterValueReal && !math.IsNaN(right.Real):
 		return CompareIntReal(FilterInteger(left), right.Real), true
 	case left.Kind == symbols.FilterValueReal && right.Kind == symbols.FilterValueInt && !math.IsNaN(left.Real):
@@ -1336,10 +1354,9 @@ func exactFilterOrder(left, right symbols.FilterValue) (int, bool) {
 // number at all.
 func numericValue(v symbols.FilterValue) (float64, bool) {
 	switch v.Kind {
-	case symbols.FilterValueInt:
-		return FilterInteger(v).AsReal(), true
-	case symbols.FilterValueReal:
-		return v.Real, true
+	case symbols.FilterValueInt, symbols.FilterValueRational, symbols.FilterValueReal:
+		n, _ := FilterNumber(v)
+		return n.AsReal(), true
 	default:
 		return 0, false
 	}
@@ -1354,6 +1371,8 @@ func describeValueKind(k symbols.FilterValueKind) string {
 		return "an integer"
 	case symbols.FilterValueReal:
 		return "a real"
+	case symbols.FilterValueRational:
+		return "a rational"
 	case symbols.FilterValueString:
 		return "a string"
 	case symbols.FilterValueRef:

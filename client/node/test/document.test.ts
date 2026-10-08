@@ -2,6 +2,7 @@
 // renderer's own fixtures.
 
 import assert from "node:assert/strict";
+import { create } from "@bufbuild/protobuf";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { before, test } from "node:test";
@@ -11,9 +12,12 @@ import {
   DocumentVerdict,
   ElementRef,
   ObjectRef,
+  SymbolNotFoundError,
   connect,
 } from "../src/node/index.js";
 import { repoRoot, useServiceBinary } from "./support/service.js";
+import { RenderViewResponseSchema } from "../src/generated/sysml_pb.js";
+import { renderedViewOf } from "../src/core/render-view.js";
 
 before(() => {
   useServiceBinary();
@@ -34,6 +38,74 @@ const REPORT_HTML = join(
   repoRoot,
   "internal/doc/docrender/testdata/telescope_report.golden.html",
 );
+const VIEW_FIXTURE = join(repoRoot, "conformance/fixtures/views.sysml");
+const BEHAVIOR_FIXTURE = join(repoRoot, "conformance/fixtures/behavior.sysml");
+
+test("rendered view decoder preserves wire fields and message presence", () => {
+  const response = create(RenderViewResponseSchema, {
+    view: "Demo::view",
+    kind: "interconnection",
+    stated: "rendered",
+    nodes: [{
+      id: "n0",
+      kind: "part",
+      name: "root",
+      nameSynthesized: true,
+      type: "Demo::Part",
+      detail: "detail",
+      text: "text",
+      standIn: true,
+      parent: "",
+      ports: [{ id: "n0.0", name: "api", type: "Demo::API", direction: "inout" }],
+      origin: { file: "views.sysml", startLine: 4 },
+      geometry: { x: 1, y: 2, width: 3, height: 4, hasSize: true, collapsed: true },
+      style: { fill: "#fff", line: "#000", text: "#111", font: "sans", fontSize: 12, bold: true, italic: true },
+    }],
+    edges: [{
+      from: "n0",
+      to: "n1",
+      fromPort: "n0.0",
+      toPort: "n1.0",
+      label: "wire",
+      name: "wire",
+      kind: "connection",
+      route: [{ x: 2, y: 3 }],
+      style: { line: "#222" },
+    }],
+    columns: ["a"],
+    rows: [{ cells: ["x"], origin: { file: "views.sysml" } }],
+    canvas: { unit: "px", width: 800, height: 400, hasSize: true },
+    notes: [{ text: "note", anchor: "n0", edgeFrom: "n0", edgeTo: "n1", x: 1, y: 2, width: 3, height: 4, hasSize: true }],
+    notices: ["notice"],
+  });
+  const rendered = renderedViewOf(response);
+  assert.equal(rendered.view, "Demo::view");
+  assert.equal(rendered.nodes[0]?.nameSynthesized, true);
+  assert.equal(rendered.nodes[0]?.ports[0]?.direction, "inout");
+  assert.equal(rendered.nodes[0]?.origin?.startLine, 4);
+  assert.equal(rendered.nodes[0]?.geometry?.collapsed, true);
+  assert.equal(rendered.nodes[0]?.style?.fontSize, 12);
+  assert.equal(rendered.edges[0]?.fromPort, "n0.0");
+  assert.deepEqual(rendered.edges[0]?.route, [{ x: 2, y: 3 }]);
+  assert.equal(rendered.rows[0]?.cells[0], "x");
+  assert.equal(rendered.canvas?.hasSize, true);
+  assert.equal(rendered.notes[0]?.edgeTo, "n1");
+  assert.deepEqual(rendered.notices, ["notice"]);
+  assert.equal(renderedViewOf(create(RenderViewResponseSchema, {})).canvas, undefined);
+  const sparse = renderedViewOf(create(RenderViewResponseSchema, {
+    nodes: [{}],
+    edges: [{}],
+    rows: [{}],
+    notes: [{}],
+  }));
+  assert.equal(sparse.nodes[0]?.origin, undefined);
+  assert.equal(sparse.nodes[0]?.geometry, undefined);
+  assert.equal(sparse.nodes[0]?.style, undefined);
+  assert.equal(sparse.edges[0]?.origin, undefined);
+  assert.equal(sparse.edges[0]?.style, undefined);
+  assert.equal(sparse.rows[0]?.origin, undefined);
+  assert.equal(sparse.notes[0]?.origin, undefined);
+});
 
 test("states and events over the object instantiate built", async () => {
   await using connection = await connect();
@@ -131,4 +203,34 @@ test("renderDocument answers the golden html", async () => {
   const model = await connection.loads(readFileSync(REPORT_FIXTURE, "utf8"));
   const html = await model.renderDocument("Observatory::MassReport", { form: "html" });
   assert.equal(html, readFileSync(REPORT_HTML, "utf8"));
+});
+
+test("renderView returns ports, edge endpoints, and origins", async () => {
+  await using connection = await connect();
+  const model = await connection.load(VIEW_FIXTURE);
+  const rendered = await model.renderView("RenderViewDemo::connections");
+  assert.equal(rendered.kind, "interconnection");
+  assert.equal(rendered.edges.length, 1);
+  assert.ok(rendered.edges[0]?.fromPort);
+  assert.ok(rendered.edges[0]?.toPort);
+  assert.ok(rendered.nodes.every((node) => node.origin !== undefined));
+});
+
+test("exportGraphs returns the canonical graphs form of a behavior", async () => {
+  await using connection = await connect();
+  const model = await connection.load(BEHAVIOR_FIXTURE);
+  const graphs = await model.exportGraphs("Test::race");
+  assert.equal(graphs.version, 1);
+  assert.equal(graphs.subject, "Test::race");
+  const form = JSON.parse(graphs.content) as { version: number; subject: string; actions: unknown[] };
+  assert.equal(form.version, 1);
+  assert.equal(form.subject, "Test::race");
+  assert.equal(form.actions.length, 1);
+  const missing = await model.exportGraphs("Test::Missing").then(
+    () => undefined,
+    (reason: unknown) => reason,
+  );
+  assert.ok(missing instanceof SymbolNotFoundError);
+  assert.equal(missing.symbolName, "Test::Missing");
+  await assert.rejects(model.exportGraphs("Test"), /no lowered graph/);
 });

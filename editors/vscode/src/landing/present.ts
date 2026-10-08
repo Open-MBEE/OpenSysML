@@ -21,7 +21,8 @@ export function presented(model: LandingModel): RenderResult {
         name: label || part.feature,
         kind: kind || node.kind,
         type: "",
-        detail: [lang, role].filter((value) => value).join(" · "),
+        // A nested part shows its label alone; its role is on its card.
+        detail: part.owner === undefined ? [lang, role].filter((value) => value).join(" · ") : "",
       };
     }),
     edges: model.render.edges.map((edge) => ({ ...edge, label: "" })),

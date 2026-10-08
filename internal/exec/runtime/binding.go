@@ -79,8 +79,15 @@ type bindingLocation struct {
 type bindingEndpoint struct {
 	locations []bindingLocation
 	expr      ast.Node
-	scope     *symbols.Scope
+	// index selects one element of what the locations hold, nil for the whole feature;
+	// selection is the end as written (`xs#(2)`), for diagnostics.
+	index, selection ast.Node
+	scope            *symbols.Scope
 }
+
+// selects reports an end selecting one element of its feature: it reads the element and is
+// never assigned through, so the binding constrains the element without determining the feature.
+func (e bindingEndpoint) selects() bool { return e.index != nil }
 
 // spread reports a feature end reaching several objects or none, holding their values together.
 func (e bindingEndpoint) spread() bool { return e.expr == nil && len(e.locations) != 1 }
@@ -604,6 +611,28 @@ func (ctx *Context) attemptBinding(owner, targetInst *Instance, target *FeatureV
 		}
 	}
 
+	// A binding found through the feature an end selects from checks the selected element
+	// against the other end and the stated link counts, and determines nothing: no value is
+	// assigned through an index. Ends holding nothing are left to the unmet-binding check.
+	if (leftCarries && left.selects()) || (rightCarries && right.selects()) {
+		if leftSet && rightSet && !ctx.equalValues(leftValue, rightValue) {
+			attempt.err = &BindingConflictError{
+				Left: ctx.bindingEndpointText(binding, 0), Right: ctx.bindingEndpointText(binding, 1),
+				LeftValue: leftValue, RightValue: rightValue,
+			}
+			return attempt
+		}
+		if leftSet || rightSet {
+			identified := leftValue
+			if !leftSet {
+				identified = rightValue
+			}
+			attempt.err = ctx.wholeBindingCounts(binding, identified)
+			attempt.settled = false
+		}
+		return attempt
+	}
+
 	switch {
 	case leftSet && rightSet:
 		leftDerived := bindingEndpointDerived(left)
@@ -650,8 +679,9 @@ func (ctx *Context) attemptBinding(owner, targetInst *Instance, target *FeatureV
 			attempt.found = true
 		}
 	}
-	// The objects a spread end reaches keep their own parts of the bound values.
-	if attempt.assignment != nil && attempt.assignment.endpoint.spread() {
+	// The objects a spread end reaches keep their own parts of the bound values, and a
+	// selecting end's feature keeps its own.
+	if attempt.assignment != nil && (attempt.assignment.endpoint.spread() || attempt.assignment.endpoint.selects()) {
 		attempt.assignment = nil
 	}
 	return attempt
@@ -726,7 +756,9 @@ func (ctx *Context) resolveBindingEndpoint(owner *Instance, binding lower.Bindin
 	if err != nil {
 		return bindingEndpoint{}, err
 	}
-	return bindingEndpoint{locations: locations}, nil
+	return bindingEndpoint{
+		locations: locations, index: binding.Ends[end].Index, selection: binding.Ends[end].Expr, scope: binding.Scope,
+	}, nil
 }
 
 // resolveBindingLocations follows an end's path from owner to the named feature on every
@@ -784,13 +816,20 @@ func (ctx *Context) resolveBindingLocations(owner *Instance, path string) ([]bin
 // bindingEndpointValue is what an end holds: its expression's or feature's value, or a spread end's
 // values together in object order — nothing while one of them is undetermined.
 func (ctx *Context) bindingEndpointValue(endpoint bindingEndpoint, owner *Instance, materialize bool) (Value, bool, error) {
+	if endpoint.selects() {
+		whole, found, err := ctx.bindingEndpointValue(bindingEndpoint{locations: endpoint.locations}, owner, materialize)
+		if err != nil || !found {
+			return Value{}, false, err
+		}
+		return ctx.selectedBindingElement(endpoint, owner, whole)
+	}
 	if endpoint.expr != nil {
 		value, err := ctx.EvalWithScopeOn(endpoint.expr, endpoint.scope, owner)
 		if err != nil {
 			if errors.Is(err, ErrUninitializedFeatureValue) {
 				return Value{}, false, nil
 			}
-			return Value{}, false, fmt.Errorf("%w: expression %s: %v",
+			return Value{}, false, fmt.Errorf("%w: expression %s: %w",
 				ErrBindingEnd, ctx.bindingExprText(endpoint.expr, endpoint.scope), err)
 		}
 		if value.Kind == ValInvalid {
@@ -817,6 +856,24 @@ func (ctx *Context) bindingEndpointValue(endpoint bindingEndpoint, owner *Instan
 		return Value{}, false, err
 	}
 	return sequenceOf(all), true, nil
+}
+
+// selectedBindingElement is the element of whole at the 1-based index a selecting end
+// states, read as `#(` reads it; a feature holding no element there is a binding end error.
+func (ctx *Context) selectedBindingElement(endpoint bindingEndpoint, owner *Instance, whole Value) (Value, bool, error) {
+	indexVal, err := ctx.EvalWithScopeOn(endpoint.index, endpoint.scope, owner)
+	if err == nil {
+		const op = "sequence index"
+		var index int64
+		if index, err = indexOf(op, indexVal); err == nil {
+			var element Value
+			if element, err = ctx.positionOf(op, whole, index); err == nil {
+				return element, true, nil
+			}
+		}
+	}
+	return Value{}, false, fmt.Errorf("%w: expression %s: %w",
+		ErrBindingEnd, ctx.bindingExprText(endpoint.selection, endpoint.scope), err)
 }
 
 func (ctx *Context) bindingLocationValue(loc bindingLocation, materialize bool) (Value, bool, error) {
@@ -877,6 +934,9 @@ func (ctx *Context) unmaterializedObjectEnd(endpoint bindingEndpoint) bool {
 
 // bindingEndpointDerived reports a feature end whose every value was assigned by a binding.
 func bindingEndpointDerived(endpoint bindingEndpoint) bool {
+	if endpoint.selects() {
+		return false
+	}
 	for _, loc := range endpoint.locations {
 		fv := loc.instance.FeatureValues[loc.name]
 		if !fv.BindingDerived || fv.Written {
@@ -947,7 +1007,7 @@ func bindingLocationText(loc bindingLocation) string {
 
 func (ctx *Context) bindingEndpointText(binding lower.Binding, end int) string {
 	endpoint := binding.Ends[end]
-	if endpoint.Path != "" {
+	if endpoint.Path != "" && endpoint.Index == nil {
 		return endpoint.Path
 	}
 	return ctx.bindingExprText(endpoint.Expr, binding.Scope)

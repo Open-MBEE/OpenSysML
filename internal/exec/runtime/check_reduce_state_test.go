@@ -37,12 +37,11 @@ func startCheckedInvocation(t *testing.T, m *exploreModel, actions, states []str
 	}
 	t.Cleanup(run.inv.Release)
 	c := &checker{
-		ctx:            ctx,
-		inv:            run.inv,
-		run:            run,
-		opts:           reduced(),
-		futures:        make(map[futureKey]lower.Footprint),
-		machineFutures: make(map[*lower.StateGraph]lower.Footprint),
+		ctx:              ctx,
+		inv:              run.inv,
+		run:              run,
+		opts:             reduced(),
+		futureFootprints: newFutureFootprints(ctx),
 	}
 	return &checkedInvocation{run: run, c: c}
 }

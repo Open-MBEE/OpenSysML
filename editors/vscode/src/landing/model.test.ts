@@ -26,18 +26,32 @@ interface LandingFixture {
 const fixture = JSON.parse(readFileSync("src/landing/stack.json", "utf8")) as LandingFixture;
 const fixtureRender = fixture.render as RenderResult;
 
+const PROJECTS = ["flexo", "opensysml", "pilot", "toolkit"];
+const COMPONENTS: Record<string, string[]> = {
+  opensysml: [
+    "analyzers", "clients", "docgen", "editors", "engine", "interchange", "jupyter", "lsp", "migration", "oslc",
+    "parser", "repl", "service", "solver", "stdlib", "validation",
+  ],
+  toolkit: ["bindings", "interchange", "linter", "lsp", "parser", "solver", "transform"],
+  pilot: ["editors", "evaluator", "grammars", "jupyter", "plantuml", "stdlib", "validation", "xmi"],
+  flexo: ["auth", "layer1", "quadstore", "sysmlv2"],
+};
+const COMPONENT_PATHS = Object.entries(COMPONENTS).flatMap(([project, features]) =>
+  features.map((feature) => `${project}.${feature}`),
+);
+
 test("landingModel keeps the four ported project parts and their interface edges", () => {
   const model = landingModel(fixture.hash, fixtureRender, fixture.instances);
-  assert.equal(model.parts.size, 4);
-  assert.deepEqual(
-    [...model.parts.keys()].sort(),
-    ["flexo", "opensysml", "pilot", "toolkit"],
-  );
+  assert.deepEqual([...model.parts.keys()].sort(), [...COMPONENT_PATHS, ...PROJECTS].sort());
   assert.ok(model.render.nodes.every((node) => node.kind !== "attribute"));
-  assert.ok(model.render.nodes.every((node) => node.parent === undefined));
+  const nodeOf = (feature: string) => model.render.nodes.find(({ id }) => id === model.parts.get(feature)?.id)!;
+  for (const feature of PROJECTS) {
+    assert.equal(nodeOf(feature).parent, undefined, `${feature} should be lifted to the top level`);
+  }
 
   const ports = new Map<string, string>();
-  for (const part of model.parts.values()) {
+  for (const feature of PROJECTS) {
+    const part = model.parts.get(feature)!;
     const node = model.render.nodes.find(({ id }) => id === part.id)!;
     const api = node.ports?.find(({ name }) => name === "api");
     assert.ok(api, `${part.feature} should keep its api port`);
@@ -49,7 +63,30 @@ test("landingModel keeps the four ported project parts and their interface edges
     model.render.edges.map((edge) => edge.label).sort(),
     ["opensysml_flexo", "pilot_flexo", "toolkit_flexo"],
   );
-  assert.equal(model.parts.get("opensysml")?.attrs.label, "OpenSysML");
+  assert.equal(model.parts.get("opensysml")?.attrs.label, "OpenSysML Runtime Environment and Development Kit");
+});
+
+test("landingModel keeps each project's components inside it, with their own attributes", () => {
+  const model = landingModel(fixture.hash, fixtureRender, fixture.instances);
+  for (const [project, features] of Object.entries(COMPONENTS)) {
+    const owner = model.parts.get(project)!;
+    for (const feature of features) {
+      const part = model.parts.get(`${project}.${feature}`)!;
+      const node = model.render.nodes.find(({ id }) => id === part.id)!;
+      assert.equal(node.parent, owner.id, `${feature} should stay inside ${project}`);
+      assert.equal(part.feature, feature);
+      assert.equal(part.owner, project);
+      assert.equal(part.symbol, `OpenSysMLStack::stack::${project}::${feature}`);
+      assert.equal(part.attrs.kind, "component");
+      assert.ok(part.attrs.role, `${project}.${feature} should state its role`);
+    }
+  }
+  // The same feature name in two projects names two parts.
+  assert.equal(model.parts.get("opensysml.interchange")?.attrs.label, "Interchange");
+  assert.equal(model.parts.get("toolkit.interchange")?.attrs.role, "JSON, CBOR");
+  assert.equal(model.parts.get("opensysml.oslc")?.attrs.label, "OSLC query");
+  assert.equal(model.parts.get("opensysml.docgen")?.attrs.label, "Document generation");
+  assert.equal(model.parts.get("flexo.layer1")?.attrs.label, "Layer 1 service");
 });
 
 test("readModel returns parse diagnostics without requesting a rendering", () => {
@@ -128,6 +165,40 @@ test("journey maps visited feature names to node ids and drops unknown states", 
     journey(engine, model),
     ["opensysml", "flexo", "toolkit", "flexo", "pilot"].map((feature) => model.parts.get(feature)!.id),
   );
+});
+
+test("journey adds a seed only when defined", () => {
+  const model = landingModel(fixture.hash, fixtureRender, fixture.instances);
+  const calls: Array<{ method: string; params: Record<string, unknown> }> = [];
+  const engine: EngineClient = {
+    call(method, params) {
+      calls.push({ method, params: JSON.parse(params) as Record<string, unknown> });
+      return JSON.stringify({ result: { statesVisited: [] } });
+    },
+  };
+
+  journey(engine, model, 42);
+  journey(engine, model);
+
+  assert.deepEqual(calls, [
+    {
+      method: "ExecuteState",
+      params: {
+        modelHash: fixture.hash,
+        stateMachineSymbolId: JOURNEY_SYMBOL,
+        events: JOURNEY_EVENTS,
+        schedule: "seed:42",
+      },
+    },
+    {
+      method: "ExecuteState",
+      params: {
+        modelHash: fixture.hash,
+        stateMachineSymbolId: JOURNEY_SYMBOL,
+        events: JOURNEY_EVENTS,
+      },
+    },
+  ]);
 });
 
 test("runJourney requests a trace and adds a seed only when defined", () => {

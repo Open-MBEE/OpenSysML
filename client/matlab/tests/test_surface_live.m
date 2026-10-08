@@ -68,14 +68,14 @@ function test_surface_live()
     assert_equal(~isempty(strfind(migrated.content, 'part def Vehicle')), true, 'migrate');
     assert_equal(migrated.fromFormat, 'xmi', 'migrate from format');
     assert_equal([migrated.report.mapped, migrated.report.approximated, ...
-        migrated.report.unmapped, migrated.report.skipped], [77 13 3 2], 'migration counts');
+        migrated.report.unmapped, migrated.report.skipped], [78 12 3 2], 'migration counts');
     assert_equal(numel(migrated.report.entries), 95, 'migration entries');
     assert_equal(numel(migrated.byVerdict('unmapped')), 3, 'migration unmapped entries');
     assert_equal(migrated.sourcePath, opensysml.internal.absolutePath(vehicle), 'migration source path');
     fid = fopen(vehicle, 'rb'); vehicleBytes = fread(fid, Inf, 'uint8=>uint8')'; fclose(fid);
     inlineMigration = opensysml.migrate(conn, 'ttl', 'content', vehicleBytes, 'fromFormat', ' XMI ');
     assert_equal(inlineMigration.toFormat, 'ttl', 'inline migration to Turtle');
-    assert_equal(inlineMigration.report.mapped, 77, 'inline migration counts');
+    assert_equal(inlineMigration.report.mapped, 78, 'inline migration counts');
     assert_equal(isempty(inlineMigration.report.entries), true, 'inline migration summary only');
     assert_equal(isempty(inlineMigration.sourcePath), true, 'inline migration has no source path');
     migratedPath = [tempname '.sysml'];
@@ -147,6 +147,33 @@ function test_surface_live()
         'Markdown document rendering');
     assert_equal(~isempty(strfind(html, '<!DOCTYPE html>')), true, ...
         'HTML Model.renderDocument');
+    viewModel = opensysml.parseSource(conn, fileread(fullfile(fixtures, 'views.sysml')), ...
+        'name', 'views.sysml');
+    renderedView = opensysml.renderView(viewModel, 'RenderViewDemo::connections');
+    renderedViewMethod = viewModel.renderView('RenderViewDemo::connections');
+    assert_equal(strcmp(renderedView.kind, 'interconnection'), true, 'RenderView kind');
+    assert_equal(numel(renderedView.edges), 1, 'RenderView edges');
+    assert_equal(~isempty(renderedView.edges(1).fromPort), true, 'RenderView from port');
+    assert_equal(~isempty(renderedView.edges(1).toPort), true, 'RenderView to port');
+
+    behaviorModel = opensysml.parseSource(conn, fileread(fullfile(fixtures, 'behavior.sysml')), ...
+        'name', 'behavior.sysml');
+    graphs = opensysml.exportGraphs(behaviorModel, 'Test::race');
+    graphsMethod = behaviorModel.exportGraphs('Test::race');
+    assert_equal(graphs.version, 1, 'ExportGraphs version');
+    assert_equal(graphs.subject, 'Test::race', 'ExportGraphs subject');
+    assert_equal(strncmp(graphs.content, '{"version":1,"subject":"Test::race"', 35), true, 'ExportGraphs content');
+    assert_equal(strcmp(graphs.content, graphsMethod.content), true, 'ExportGraphs method');
+    assert_equal(all(arrayfun(@(node) ~isempty(node.origin), renderedView.nodes)), ...
+        true, 'RenderView origins');
+    assert_equal(numel(renderedViewMethod.edges), numel(renderedView.edges), ...
+        'Model.renderView');
+    fullView = opensysml.renderView(viewModel, 'RenderViewDemo::connections', 'ports', 'full');
+    allPortNames = {};
+    for n = 1:numel(fullView.nodes)
+        allPortNames = [allPortNames, {fullView.nodes(n).ports.name}];
+    end
+    assert_equal(any(strcmp(allPortNames, 'spare')), true, 'RenderView full ports');
 
     behavior = opensysml.parseSource(conn, fileread(fullfile(fixtures, 'behavior.sysml')), ...
         'name', 'behavior.sysml');

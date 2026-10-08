@@ -190,6 +190,7 @@ type firingScope struct {
 type dataSlot struct {
 	value Value
 	held  bool
+	cell  bodyCellState
 }
 
 // firing captures the firing the executor is in the middle of.
@@ -213,8 +214,10 @@ func (e *StateExecutor) setFiring(s *firingScope) {
 func (s *firingScope) install(e *StateExecutor) {
 	for name, value := range s.bound {
 		prior, held := e.stateData[name]
-		s.shadowed[name] = dataSlot{value: prior, held: held}
-		e.stateData[name] = value
+		s.shadowed[name] = dataSlot{
+			value: prior, held: held, cell: bodyCellStateOf(e.stateCells, name),
+		}
+		e.ctx.writeBodyValue(e.stateCells, e.stateData, name, value)
 	}
 }
 
@@ -228,11 +231,13 @@ func (s *firingScope) uninstall(e *StateExecutor) {
 
 // restore puts back what the data held under the firing's binding of name.
 func (s *firingScope) restore(e *StateExecutor, name string) {
-	if slot := s.shadowed[name]; slot.held {
-		e.stateData[name] = slot.value
+	slot := s.shadowed[name]
+	if slot.held {
+		e.ctx.writeBodyValue(e.stateCells, e.stateData, name, slot.value)
 	} else {
-		delete(e.stateData, name)
+		e.ctx.clearBodyValue(e.stateCells, e.stateData, name)
 	}
+	e.ctx.restoreBodyCellState(e.stateCells, name, slot.cell)
 }
 
 // runningQueue is the queue whose units are running, nil outside a front.
@@ -245,7 +250,7 @@ func (e *StateExecutor) runningQueue() *unitQueue {
 
 // bindData binds one of the machine's data for the firing under way to read.
 func (e *StateExecutor) bindData(name string, value Value) {
-	e.stateData[name] = value
+	e.ctx.writeBodyValue(e.stateCells, e.stateData, name, value)
 	if q := e.runningQueue(); q != nil {
 		q.firing.bound[name] = value
 	}
@@ -264,7 +269,9 @@ func (e *StateExecutor) restoreData(names []string) func() {
 			continue
 		}
 		prior, held := e.stateData[name]
-		s.shadowed[name] = dataSlot{value: prior, held: held}
+		s.shadowed[name] = dataSlot{
+			value: prior, held: held, cell: bodyCellStateOf(e.stateCells, name),
+		}
 		s.bound[name] = prior
 	}
 	return func() {

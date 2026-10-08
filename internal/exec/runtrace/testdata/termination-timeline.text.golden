@@ -1,0 +1,12 @@
+run - timeline rendering (the trace of a run to t = 10)
+
+Stopper.modes
+  0 .. 2  waiting
+  noted:
+    t=2 terminated with occurrence: modes (do behavior abandoned: waiting)
+
+Runner.modes
+  0 .. 10   waiting
+  10 .. 10  finished (time)  (held at the end)
+  transitions:
+    t=10 waiting -> finished (time)

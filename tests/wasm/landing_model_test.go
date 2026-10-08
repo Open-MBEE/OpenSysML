@@ -115,7 +115,7 @@ func TestLandingStackModel(t *testing.T) {
 		}
 	}
 	wantLabels := map[string]string{
-		"opensysml": "OpenSysML",
+		"opensysml": "OpenSysML Runtime Environment and Development Kit",
 		"toolkit":   "sysml-toolkit",
 		"pilot":     "SysML v2 Pilot Implementation",
 		"flexo":     "Flexo MMS",

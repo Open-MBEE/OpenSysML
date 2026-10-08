@@ -20,6 +20,8 @@ enter calc test::Interleaved
       output test::Interleaved::p.b = 10.0
     eval chain b -> 10.0
   stmt return
+            reuse calc test::Interleaved::p
+          eval chain a -> 1.0
         eval feature ra -> 1.0
         eval literal 1000.0 -> 1000.0
       eval operator * -> 1000.0

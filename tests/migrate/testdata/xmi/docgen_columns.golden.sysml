@@ -42,8 +42,14 @@ package Observatory {
         }
     }
     package Viewpoints {
-        viewpoint 'Totals Viewpoint' {
-            doc /* Count the interfaces of each type. */
+        view def 'Totals Viewpoint' {
+            viewpoint 'totals Viewpoint' {
+                subject;
+                require constraint {
+                    doc /* Count the interfaces of each type. */
+                }
+            }
+            satisfy 'totals Viewpoint';
             action def 'Totals Method' {
                 first start then 'Collect Owned Elements';
                 action 'Collect Owned Elements';
@@ -74,9 +80,16 @@ package Observatory {
                 metadata MigrationMetadata::SynthesizedName about final;
             }
             perform action 'totals Method' : 'Totals Method';
+            metadata MigrationMetadata::SynthesizedName about 'totals Viewpoint';
         }
-        viewpoint 'Connections Viewpoint' {
-            doc /* List the connections. */
+        view def 'Connections Viewpoint' {
+            viewpoint 'connections Viewpoint' {
+                subject;
+                require constraint {
+                    doc /* List the connections. */
+                }
+            }
+            satisfy 'connections Viewpoint';
             action def 'Connections Method' {
                 first start then 'Collect Owned Elements';
                 action 'Collect Owned Elements';
@@ -101,9 +114,16 @@ package Observatory {
                 metadata MigrationMetadata::SynthesizedName about final;
             }
             perform action 'connections Method' : 'Connections Method';
+            metadata MigrationMetadata::SynthesizedName about 'connections Viewpoint';
         }
-        viewpoint 'Interfaces Viewpoint' {
-            doc /* Table the interfaces of each assembly. */
+        view def 'Interfaces Viewpoint' {
+            viewpoint 'interfaces Viewpoint' {
+                subject;
+                require constraint {
+                    doc /* Table the interfaces of each assembly. */
+                }
+            }
+            satisfy 'interfaces Viewpoint';
             action def 'Interfaces Method' {
                 first start then 'Collect Owned Elements';
                 action 'Collect Owned Elements';
@@ -170,9 +190,16 @@ package Observatory {
                 metadata MigrationMetadata::SynthesizedName about final;
             }
             perform action 'interfaces Method' : 'Interfaces Method';
+            metadata MigrationMetadata::SynthesizedName about 'interfaces Viewpoint';
         }
-        viewpoint 'Per Part Viewpoint' {
-            doc /* One section per part. */
+        view def 'Per Part Viewpoint' {
+            viewpoint 'per Part Viewpoint' {
+                subject;
+                require constraint {
+                    doc /* One section per part. */
+                }
+            }
+            satisfy 'per Part Viewpoint';
             action def 'Per Part Method' {
                 first start then 'Collect Owned Elements';
                 action 'Collect Owned Elements';
@@ -193,44 +220,44 @@ package Observatory {
                 /* applied stereotype «Dynamic_View»: loop = true; title = One Part */
             }
             perform action 'per Part Method' : 'Per Part Method';
+            metadata MigrationMetadata::SynthesizedName about 'per Part Viewpoint';
         }
     }
     package Documents {
-        part def 'Interface Control Document' {
+        occurrence def 'Interface Control Document' {
             view totals :> 'Interface Totals';
             view connections :> Connections;
             view interfaces :> Interfaces;
             view perPart :> 'Per Part';
             /* applied stereotype «Document» */
         }
-        part def 'Interface Summary' {
+        occurrence def 'Interface Summary' {
             view interfaces :> Interfaces;
             /* applied stereotype «Document» */
         }
-        view 'Interface Totals' {
-            satisfy Observatory::Viewpoints::'Totals Viewpoint';
+        view 'Interface Totals' : Observatory::Viewpoints::'Totals Viewpoint' {
             expose 'Interface Types'::**;
         }
-        view Connections {
-            satisfy Observatory::Viewpoints::'Connections Viewpoint';
+        view Connections : Observatory::Viewpoints::'Connections Viewpoint' {
             expose Observatory::Assemblies::'Observatory System';
         }
-        view Interfaces {
-            satisfy Observatory::Viewpoints::'Interfaces Viewpoint';
+        view Interfaces : Observatory::Viewpoints::'Interfaces Viewpoint' {
             expose Observatory::Assemblies::'Optical Bench';
         }
-        view 'Per Part' {
-            satisfy Observatory::Viewpoints::'Per Part Viewpoint';
+        view 'Per Part' : Observatory::Viewpoints::'Per Part Viewpoint' {
             expose Observatory::Assemblies::'Optical Bench';
         }
         calc def 'Interface Control Document Interface Totals Rows' :> DocumentQueries::Query {
+            in candidates : KerML::Root::Element[0..*] ordered = DocumentQueries::Descendants(
+                source = DocumentQueries::Named(qualifiedName = ("Observatory::Interface Types")),
+                maxDepth = 1);
             DocumentQueries::Project(
                 source = DocumentQueries::OrderBy(
-                    source = DocumentQueries::WhereType(
-                        source = DocumentQueries::Descendants(
-                            source = DocumentQueries::Named(qualifiedName = ("Observatory::Interface Types")),
-                            maxDepth = 1),
-                        type = ("PartDefinition", "RequirementDefinition", "ConstraintDefinition", "PortDefinition", "VerificationCaseDefinition", "ActionDefinition", "StateDefinition", "CalculationDefinition", "ViewUsage", "ViewpointUsage")),
+                    source = DocumentQueries::Except(
+                        source = DocumentQueries::WhereType(source = candidates, type = ("PartDefinition", "RequirementDefinition", "ConstraintDefinition", "PortDefinition", "VerificationCaseDefinition", "ActionDefinition", "StateDefinition", "CalculationDefinition", "ViewUsage", "ViewpointUsage", "OccurrenceDefinition")),
+                        exclude = DocumentQueries::Except(
+                            source = DocumentQueries::WhereType(source = candidates, type = ("ItemDefinition")),
+                            exclude = DocumentQueries::WhereType(source = candidates, type = ("PartDefinition", "RequirementDefinition", "ConstraintDefinition", "PortDefinition", "VerificationCaseDefinition", "ActionDefinition", "StateDefinition", "CalculationDefinition", "ViewUsage", "ViewpointUsage")))),
                     property = "name",
                     direction = "ascending",
                     missing = "last",
@@ -240,13 +267,16 @@ package Observatory {
                     DocumentQueries::Column(name = "Number of Interfaces", cell = { in row : KerML::Core::Type; DocumentQueries::RelatedElements(source = row, relationshipKind = "typing", direction = "incoming", maxDepth = 1)->SequenceFunctions::size() })))
         }
         calc def 'Interface Control Document Per Type Rows' :> DocumentQueries::Query {
+            in candidates : KerML::Root::Element[0..*] ordered = DocumentQueries::Descendants(
+                source = DocumentQueries::Named(qualifiedName = ("Observatory::Interface Types")),
+                maxDepth = 1);
             DocumentQueries::Project(
                 source = DocumentQueries::OrderBy(
-                    source = DocumentQueries::WhereType(
-                        source = DocumentQueries::Descendants(
-                            source = DocumentQueries::Named(qualifiedName = ("Observatory::Interface Types")),
-                            maxDepth = 1),
-                        type = ("PartDefinition", "RequirementDefinition", "ConstraintDefinition", "PortDefinition", "VerificationCaseDefinition", "ActionDefinition", "StateDefinition", "CalculationDefinition", "ViewUsage", "ViewpointUsage")),
+                    source = DocumentQueries::Except(
+                        source = DocumentQueries::WhereType(source = candidates, type = ("PartDefinition", "RequirementDefinition", "ConstraintDefinition", "PortDefinition", "VerificationCaseDefinition", "ActionDefinition", "StateDefinition", "CalculationDefinition", "ViewUsage", "ViewpointUsage", "OccurrenceDefinition")),
+                        exclude = DocumentQueries::Except(
+                            source = DocumentQueries::WhereType(source = candidates, type = ("ItemDefinition")),
+                            exclude = DocumentQueries::WhereType(source = candidates, type = ("PartDefinition", "RequirementDefinition", "ConstraintDefinition", "PortDefinition", "VerificationCaseDefinition", "ActionDefinition", "StateDefinition", "CalculationDefinition", "ViewUsage", "ViewpointUsage")))),
                     property = "name",
                     direction = "ascending",
                     missing = "last",

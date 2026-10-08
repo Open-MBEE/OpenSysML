@@ -102,6 +102,24 @@ impl Model {
         self.connection
             .render_document(self.hash(), document_id, form)
     }
+    /// Render a named view with minimal ports.
+    pub fn render_view(&self, view_name: &str) -> Result<crate::document::RenderedView, Error> {
+        self.connection.render_view(self.hash(), view_name)
+    }
+    /// Render a named view with the requested port selection.
+    pub fn render_view_with_ports(
+        &self,
+        view_name: &str,
+        ports: crate::document::RenderViewPorts,
+    ) -> Result<crate::document::RenderedView, Error> {
+        self.connection
+            .render_view_with_ports(self.hash(), view_name, ports)
+    }
+
+    /// Export the lowered graph of an action or state machine as `graphs:1` JSON.
+    pub fn export_graphs(&self, subject: &str) -> Result<crate::Graphs, Error> {
+        self.connection.export_graphs(self.hash(), subject)
+    }
 
     /// The symbol a qualified or short name names; `None` when the model declares none.
     ///

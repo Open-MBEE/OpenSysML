@@ -8,6 +8,8 @@ require (
 	connectrpc.com/connect v1.20.0
 	connectrpc.com/grpcreflect v1.3.0
 	github.com/chzyer/readline v1.5.1
+	github.com/go-zeromq/zmq4 v0.17.0
+	github.com/santhosh-tekuri/jsonschema/v6 v6.0.3
 	go.lsp.dev/jsonrpc2 v0.10.0
 	go.lsp.dev/protocol v0.12.0
 	go.lsp.dev/uri v0.3.0
@@ -16,17 +18,18 @@ require (
 	golang.org/x/text v0.37.0
 	google.golang.org/grpc v1.62.0
 	google.golang.org/protobuf v1.36.11
+	gopkg.in/yaml.v3 v3.0.1
 )
 
 require (
+	github.com/go-zeromq/goczmq/v4 v4.2.2 // indirect
 	github.com/golang/protobuf v1.5.3 // indirect
-	github.com/santhosh-tekuri/jsonschema/v6 v6.0.3 // indirect
 	github.com/segmentio/asm v1.1.3 // indirect
 	github.com/segmentio/encoding v0.3.4 // indirect
 	go.lsp.dev/pkg v0.0.0-20210717090340-384b27a52fb2 // indirect
 	go.uber.org/atomic v1.9.0 // indirect
 	go.uber.org/multierr v1.8.0 // indirect
+	golang.org/x/sync v0.20.0 // indirect
 	golang.org/x/sys v0.45.0 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20240123012728-ef4313101c80 // indirect
-	gopkg.in/yaml.v3 v3.0.1 // indirect
 )

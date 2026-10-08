@@ -1,0 +1,55 @@
+# FleetViews::structure — tree rendering
+classes: {
+  definition: { style: { fill: white; stroke: "#181818"; stroke-width: 1; font-color: black; font-size: 14 } }
+  usage: { style: { fill: white; stroke: "#181818"; stroke-width: 1; font-color: black; font-size: 14; border-radius: 8 } }
+  edge: { style: { stroke: "#181818"; font-size: 13; font-color: black; stroke-width: 1 } }
+  specialization: { target-arrowhead: { shape: triangle; style: { filled: false } }; style: { stroke: "#181818"; font-size: 13; font-color: black; stroke-width: 1 } }
+  typing: { target-arrowhead: { shape: triangle; style: { filled: false } }; style: { stroke: "#181818"; font-size: 13; font-color: black; stroke-width: 1; stroke-dash: 3 } }
+  composition: { source-arrowhead: { shape: diamond; style: { filled: true } }; style: { stroke: "#181818"; font-size: 13; font-color: black; stroke-width: 1 } }
+  reference: { source-arrowhead: { shape: diamond; style: { filled: false } }; style: { stroke: "#181818"; font-size: 13; font-color: black; stroke-width: 1 } }
+}
+n0: "«part def»\nVehicle" { class: definition }
+n1: "«part»\nchassis : Chassis" { class: usage }
+n2: "«part»\nwheels : Wheel" { class: usage }
+n3: "«part»\ndriver : Driver" { class: usage }
+n4: "«attribute»\ntotal : Mass" { class: usage }
+n5: "«part def»\nCabin" { class: definition }
+n6: "«part»\ncabin : Cabin" { class: usage }
+n7: "«part»\nradio : Radio" { class: usage }
+n8: "«part»\ntrailer : Trailer" { class: usage }
+n9: "«part def»\nSportsCar" { class: definition }
+n10: "«part»\nchassis : LightChassis" { class: usage }
+n11: "«part»\nspare : Wheel" { class: usage }
+n12: "«part def»\nChassis" { class: definition }
+n13: "«attribute»\nmass : Mass" { class: usage }
+n14: "«part def»\nLightChassis" { class: definition }
+n15: "«attribute»\nmass" { class: usage }
+n16: "«part def»\nWheel" { class: definition }
+n17: "«part def»\nDriver" { class: definition }
+n18: "«attribute def»\nMass" { class: definition }
+n19: "«part»\nfleetCar : Vehicle" { class: usage }
+n0 -- n1: { class: edge }
+n0 -- n2: { class: edge }
+n0 -- n3: { class: edge }
+n0 -- n4: { class: edge }
+n0 -- n5: { class: edge }
+n0 -- n6: { class: edge }
+n0 -- n7: { class: edge }
+n0 -- n8: { class: edge }
+n9 -- n10: { class: edge }
+n9 -- n11: { class: edge }
+n12 -- n13: { class: edge }
+n14 -- n15: { class: edge }
+n0 <- n12: "chassis" { class: composition }
+n0 <- n16: "wheels[4]" { class: composition }
+n0 <- n17: "driver[0..1]" { class: reference }
+n0 <- n18: "total" { class: reference }
+n9 -> n0: { class: specialization }
+n9 <- n14: "chassis" { class: composition }
+n9 <- n16: "spare" { class: composition }
+n10 -> n1: "redefines" { class: specialization }
+n11 -> n2: "subsets" { class: specialization }
+n12 <- n18: "mass" { class: reference }
+n14 -> n12: { class: specialization }
+n15 -> n13: "redefines" { class: specialization }
+n19 -> n0: { class: typing }

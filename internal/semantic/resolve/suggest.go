@@ -238,10 +238,15 @@ func (r *Resolver) libraryFQN(fqn string) bool {
 
 // suggestTable indexes the names the index registers, swept once per resolver:
 // a suggestion is a lookup, not a scan of the whole library per unresolved name.
+//
+// The table is built untracked and refreshed as the index changes, so what a
+// frame reads of it is the set of names spelled: recorded as such, a name
+// registered again unchanged leaves the frame's suggestions standing.
 func (r *Resolver) suggestTable() *suggest.Table {
 	if r.names == nil {
-		r.names = suggest.NewTable(r.idx)
+		r.Untracked(func() { r.names = suggest.NewTable(r.idx) })
 	}
+	r.ReadSpellings()
 	return r.names
 }
 

@@ -28,7 +28,7 @@ const OBJECT_DECODER = "_t.asObject";
 // Emission schema, bumped when this generator's output changes for an
 // unchanged model. Not the opensysml release version, which would churn
 // every module.
-export const GENERATOR_VERSION = "4";
+export const GENERATOR_VERSION = "5";
 
 // The stamp hashes the model source client-side. A path, a timestamp or the
 // service version would churn without the module's content changing.
@@ -65,7 +65,7 @@ const PRIMITIVE_TYPES = new Map<string, { annotation: string; decoder: string }>
   ["String", { annotation: "string", decoder: "_t.asString" }],
   ["Natural", { annotation: "bigint", decoder: "_t.asInt" }],
   ["Integer", { annotation: "bigint", decoder: "_t.asInt" }],
-  ["Rational", { annotation: "number", decoder: "_t.asReal" }],
+  ["Rational", { annotation: "_t.RationalValue", decoder: "_t.asRational" }],
   ["Real", { annotation: "number", decoder: "_t.asReal" }],
   ["Complex", { annotation: "_t.ComplexValue", decoder: "_t.asComplex" }],
 ]);

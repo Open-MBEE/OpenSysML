@@ -1166,7 +1166,7 @@ one:
 
 ---
 
-## Native document queries and rendering over gRPC
+## Native documents and views over gRPC
 
 The native document pipeline — document queries (`calc def` specializing
 `DocumentQueries::Query`) and documents (`part def` specializing
@@ -1177,6 +1177,8 @@ REPL or a script:
 ```proto
 rpc RunDocumentQuery(RunDocumentQueryRequest) returns (RunDocumentQueryResponse);
 rpc RenderDocument(RenderDocumentRequest) returns (RenderDocumentResponse);
+rpc RenderView(RenderViewRequest) returns (RenderViewResponse);
+rpc ExportGraphs(ExportGraphsRequest) returns (ExportGraphsResponse);
 ```
 
 **Implementation:** `internal/frontend/grpc/docquery.go` (`Service.RunDocumentQuery`,
@@ -1205,6 +1207,33 @@ byte-identical to `-render-document` on the same model. Its `form` field
 instead, answered in `html` and byte-identical to `-doc-form html`; asking for
 HTML needs the `render_document_html` capability, and PDF is not offered, since
 it needs the CLI's converter toolchain.
+
+`RenderView` answers a named view or targeted pseudo-view as ordered nodes,
+edges, table and matrix rows, notes, source spans and optional canvas/geometry/style data,
+using the engine renderer's `view.Data` rather than diagram pictures. Its
+`ports` field is empty or `minimal` by default; `full` includes all declared
+ports. It is advertised by `render_view`, and a service without that capability
+refuses the request with `UNIMPLEMENTED`.
+Python exposes this as `model.render_view(view_name, ports="minimal")`, returning
+a typed `RenderedView`.
+
+`ExportGraphs` answers the lowered graph of an action or state machine — the
+subject's `ActionGraph`/`StateGraph` IR and that of every behavior it performs —
+as the canonical `graphs:1` JSON an external analysis engine is sent
+([the `graphs:1` model form](external-engines.md#the-graphs1-model-form)):
+`content` is the JSON with one trailing newline, `version` its `version` field,
+`subject` the qualified name as resolved. It is what `sysml -graphs <subject>`
+and `%graphs <name>` write, produced by `modelform.GraphsOf` from the same
+lowering the runtime executes, so a tool that drives work from a model — a
+workflow generator reading its steps, flows and successions — reads the
+executed form rather than the notation. The subject may be an action or state
+machine, definition or usage, by qualified name; one no element is named by is
+`NOT_FOUND` (`symbol not found: <subject>`), one that is no behavior is
+`INVALID_ARGUMENT`, as is one the model declares more than once — a declaration
+of the model's shadows the library's of the same name, but two of the model's
+denote nothing.
+It is advertised by `export_graphs`. Python exposes this as
+`model.export_graphs(subject)`, returning a typed `Graphs`.
 
 Both run over the model's runtime and the objects it holds. `Instantiate`
 creates an object for the model named by hash and the service keeps it, under

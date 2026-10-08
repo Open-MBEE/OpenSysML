@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"reflect"
 	"sort"
+	"strings"
 	"sync"
 	"testing"
 
@@ -25,6 +26,8 @@ type sharedWorkspace struct {
 	model    *semantics.Model
 	gathers  *Gathers
 	docs     map[string]*ast.RootNamespace
+	// regathered names every union key a regather reported moved, in order.
+	regathered []string
 }
 
 func newSharedWorkspace() *sharedWorkspace {
@@ -78,6 +81,7 @@ func (w *sharedWorkspace) invalidate(name string) {
 			}
 		}
 		changed := w.gathers.Regather(w.context(), regather)
+		w.regathered = append(w.regathered, changed...)
 		if len(changed) == 0 {
 			break
 		}
@@ -294,5 +298,38 @@ func TestGathersServeConcurrentAnalyses(t *testing.T) {
 	close(errs)
 	for e := range errs {
 		t.Error(e)
+	}
+}
+
+// An annotation body's owner, which its elements' qualified names run through,
+// is the annotated element until the document is resolved and the metadata
+// definition after. A document gathered before it was resolved and gathered
+// again unchanged, because an edit elsewhere dropped what its analysis read,
+// must name the same ids, so the edit does not look as if it moved them.
+func TestGathersRegatherOfAnUnchangedAnnotatedDocumentMovesNoId(t *testing.T) {
+	w := newSharedWorkspace()
+	meta := func(note string) string {
+		return "package Meta { private import ScalarValues::*; " + note + " metadata def Tag { attribute label : String[0..1]; } }"
+	}
+	w.put("meta.sysml", meta(""))
+	w.put("annotated.sysml", "package P { private import Meta::*; part def Unit; part u : Unit { @Tag { :>> label = \"u\"; } } }")
+	w.put("other.sysml", "package O { part def Plain; }")
+	// Only the other document is analyzed: the identity union is gathered over
+	// all three, the annotated one not yet resolved.
+	w.analyze("other.sysml")
+	// Resolving the annotated document links its annotation bodies.
+	w.analyze("annotated.sysml")
+
+	w.regathered = nil
+	w.put("meta.sysml", meta("/* a note */"))
+	for _, name := range w.regathered {
+		if strings.HasPrefix(name, "\x00identity/") {
+			t.Errorf("a comment moved ids: %q", name)
+		}
+	}
+	for _, name := range w.names() {
+		if got, want := w.analyze(name), w.fresh(name); !reflect.DeepEqual(got, want) {
+			t.Errorf("%s: shared analysis\n%v\nfresh analysis\n%v", name, got, want)
+		}
 	}
 }

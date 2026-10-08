@@ -47,7 +47,7 @@ func TestRuntimeRobustnessObjectFlow(t *testing.T) {
 		}
 	})
 
-	t.Run("guarded_branches_with_object_flows_stay_ambiguous", func(t *testing.T) {
+	t.Run("guarded_branches_with_object_flows_both_follow", func(t *testing.T) {
 		err := runObjectFlowCase(t, `package test {
 			private import ScalarValues::*;
 			action run {
@@ -59,8 +59,8 @@ func TestRuntimeRobustnessObjectFlow(t *testing.T) {
 				action right;
 			}
 		}`)
-		if !errors.Is(err, ErrAmbiguousSuccession) {
-			t.Fatalf("run error = %v, want ErrAmbiguousSuccession", err)
+		if err != nil {
+			t.Fatalf("run error = %v, want both guarded targets to follow", err)
 		}
 	})
 

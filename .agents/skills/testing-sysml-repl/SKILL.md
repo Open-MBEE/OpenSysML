@@ -1151,6 +1151,27 @@ changes:
   `unresolved reference: n`; the CLI has **no** flag for action inputs, so exercise `in`/`out`
   parameters by having a caller action invoke `action call = Callee(a = 3, b = 4);`.
 
+## Action fan-out CLI checks
+
+- Use explicit succession syntax in minimal repros: `succession a then done;`
+  or `first a then done;`. A bare `a then done;` inside an action body can be
+  rejected as `expected a body member` before execution; do not mistake that
+  diagnostic for a runtime fan-out refusal.
+- The default scheduler is `reverse`, not `declared`. Compare explicit
+  `-schedule declared` with `-schedule reverse`; a no-flag run normally agrees
+  with reverse.
+- `-engine smt -action <name>` asks whether execution holds, not for the table
+  of final values. Use `-engine smt -action <name> -check-diverge <feature>` to
+  request two witnessed final values. `-engine check` and `-schedule explore`
+  expose outcomes directly. SMT may explicitly refuse an implicit join at a
+  plain node, whereas the runtime supports it; use an explicit join for a
+  cross-engine scheduling comparison.
+- Bound adversarial loops with `OPENSYSML_MAX_ACTION_STEPS=200`, and wrap the
+  command with `timeout 30`. Assert the step-limit diagnostic and exit 2,
+  not watchdog exit 124. Report CLI diagnostics separately from Go error
+  identity: the CLI does not expose `errors.Is`, and static merge/join
+  validation may prevent reaching the runtime guard.
+
 ## Control flow inside an action node body
 
 `while`, `loop … until` (braced and unbraced), `for … in` and `if`/`else` execute inside an
@@ -2939,6 +2960,77 @@ actually descend into:
   second part with its own `connect ox to oy`. The send must still fail with the typed error — if the
   scope walk goes too far it could pick up the unrelated part's connectors.
 
+## Reflecting on connector ends and owned relationships (PR #938)
+
+Reflection is driven from the CLI: `bin/sysml model.sysml -e "<expr>"` with
+`M = SequenceFunctions::last(Pkg::Asm::c1.metadata)`; every element prints as
+`meta(<fqn> : <metaclass>)`. The shapes below hold once a connector owns the ends its `connect`
+clause writes and a chain target is reflected as the feature it denotes (PR #938); on a tree
+without that change the end counts read `0`, `connectorEnd` fails and `chainingFeature` is
+underived, while the relationship metaobjects (`ownedRedefinition`, `ownedSubsetting`,
+`ownedSpecialization`) already derive. The pre-fix shapes double as A/B canaries against a binary
+built from `develop`. A fixture that exercises the whole family:
+
+```sysml
+package R {
+    private import ScalarValues::*;
+    port def P { attribute v : Real; }
+    part def Source { port y : P; }
+    part def Sink { port u : P; }
+    connection def C { end source[1] : P; end target[1] : P; }
+    interface def I { end a : P; end b : ~P; }
+    part def Asm {
+        part s : Source;
+        part k : Sink;
+        connection c1 : C connect [1] s.y to [1] k.u;
+        interface i1 : I connect s.y to k.u;
+        attribute x : Real;
+        part sub { attribute w : Real; }
+    }
+    part def Derived :> Asm {
+        attribute :>> x = 2.0;
+        attribute deep :>> sub.w;
+    }
+}
+```
+
+- **The fixture must analyse clean before any reflection claim counts.** A single error makes
+  every `-e` run end in `sysml: model.sysml did not analyse cleanly` with no value printed, which
+  looks exactly like a reflection failure. The mistakes that produce it: `derived` as a feature
+  name (`"derived" is a reserved keyword … write 'derived' to use it as a name`); `attribute :>> x`
+  in the *same* body that declares `x` (`unresolved reference: x — did you mean R::Derived::x?`) —
+  a redefinition belongs in a subtype, as above; and a chain that passes through a port or other
+  reference (`:>> s.y.v`: `nested redefinition through reference y has no owned object to redefine
+  on`) — chain through a composite part (`:>> sub.w`) instead. Unnamed ends print identically
+  (`meta(R::Asm::c1::<unnamed> : …)` twice), so tell them apart through
+  `.ownedReferenceSubsetting.referencedFeature.chainingFeature`, which names the chain
+  (`[meta(R::Asm::k : …PartUsage), meta(R::Sink::u : …PortUsage)]`), never through the printed text.
+- **Count, do not just print.** For a binary connector typed by a definition with two named ends,
+  `SequenceFunctions::size(M.ownedMember)`, `size(M.ownedElement)`, `size(M.ownedFeature)`,
+  `size(M.ownedEndFeature)` and `size(M.connectorEnd)` are all `2`. `4` means the unnamed `connect`
+  ends were appended to the inherited `source`/`target` instead of replacing them by position;
+  `0` (with `ownedEndFeature = []` and `connectorEnd` failing
+  `no reflective metaclass classifies the element`) is the pre-fix shape. Per end,
+  `ownedSubsetting` has one element and it is the same `ReferenceSubsetting` that
+  `ownedReferenceSubsetting` yields. For `attribute :>> x`, `ownedRedefinition` is one
+  `Redefinition` whose `redefinedFeature` is the *supertype's* `x` (`meta(R::Asm::x : …)`) and
+  `ownedSubsetting` returns that same relationship. For a chain target,
+  `ownedRedefinition.redefinedFeature.chainingFeature` is the whole chain in order
+  (`[R::Asm::sub, R::Asm::sub::w]`), `redefinedFeature.owner` is the declaring attribute
+  (`R::Derived::deep`), the relationship's `ownedRelatedElement` is the chain feature, and the
+  relationship's own `ownedElement` is `[]` — a relationship owns its related elements directly, not
+  through a relationship of its own. A property the library declares but the engine does not
+  derive fails with `reflective feature is not derived: <Metaclass>::<property> for <fqn>`;
+  `inheritedFeature` is one, so it serves as the negative control.
+- **Interface ends are `PortUsage`, connection ends are `ReferenceUsage`.** `i1.ownedEndFeature`
+  prints `[meta(R::Asm::i1::<unnamed> : SysML::Systems::PortUsage), …]` while `c1`'s ends print
+  `SysML::Systems::ReferenceUsage`; expecting `ReferenceUsage` on an interface end is a wrong
+  expectation, not a defect. The relationship metaobjects are KerML metaclasses —
+  `KerML::Core::ReferenceSubsetting`, `KerML::Core::Redefinition`, and `KerML::Core::FeatureTyping`
+  from `ownedSpecialization` — and the chain feature is a `KerML::Core::Feature`.
+  `M.relatedFeature` / `sourceFeature` / `targetFeature` give the chain *tips*
+  (`R::Source::y`, `R::Sink::u`) and are the quickest check that an end attached where intended.
+
 ## Driving a state machine and its transition effects on camera
 
 - **`-e` is not a file flag.** `sysml -e <expr> [file]` evaluates an expression; to load a model
@@ -4068,10 +4160,10 @@ Traps and recipes:
 - Error wordings to assert: non-Boolean guard →
   `error: execution failed: type mismatch: node s1: guard must evaluate to boolean, got constant`;
   unresolvable name in a guard → `error: execution failed: eval guard of node s1: unresolved
-  reference: nosuch`. Two guards out of one action node that both hold →
-  `error: execution failed: more than one succession is enabled: action node check has multiple
-  successors` (wraps the `ErrAmbiguousSuccession` sentinel; the run stops with the token still on the
-  node and neither branch's attribute written — assert that with `%tokens`, not just the message).
+  reference: nosuch`. Two guards out of one ordinary action node that both hold are no error: each
+  succession is its own `HappensBefore` link, so the token splits as a fork's does and both branch
+  attributes are written (assert both in `Results:`). Only a `decide` node picks one of several
+  holding guards; a `join` or `merge` with two outgoing successions is still refused.
 - Places a guard could still be silently ignored, all worth a one-liner fixture: succession out of a
   real initial node (`then start s1 if …;`), out of a `merge`, out of a `join` (must not deadlock —
   the branch tokens are consumed either way), and one whose target is `done`.
@@ -4223,7 +4315,9 @@ Read-only printer of the session buffer or one element:
 
 `%view Demo::report` prints `exposes` then `viewpoint conformance` with
 `satisfy structure (from Demo::StructureView): violated` and one line per concern
-(`conforms` / `violated (framed by the viewpoint but not by the view)` / `unevaluable` + reason).
+(`conforms` / `violated` naming the exposed element and condition / `unevaluable` + reason); the
+view frames nothing itself — every concern the viewpoint frames is evaluated against what it exposes,
+and a `frame` written in a view body draws a `nonstandard-notation` warning.
 A satisfy target that is a `requirementUsage` is diagnosed at load *and* reported as
 `unevaluable (satisfy target spec is a requirementUsage, not a viewpoint)` — never a silent pass.
 `%view` registers no object: `%instances` afterwards says none created, a repeat is identical, and a

@@ -102,6 +102,7 @@ func (m *migration) planViews() {
 				m.segments(x)
 			}
 		}
+		m.planMonteCarlo(d)
 		name := d.Name
 		if name == "" {
 			name = "diagram"
@@ -692,7 +693,8 @@ func exposureName(ref string) string {
 }
 
 // exposure names, from scope, what stands for e: the library type a primitive
-// maps to, or the declaration exposable names. It is "" when nothing does.
+// maps to, the analysis def a statistic of the tool's Monte Carlo pattern is
+// written into, or the declaration exposable names. It is "" when nothing does.
 func (m *migration) exposure(e, scope *sysmlv1.Element) string {
 	if sv := m.scalarValue(e); sv != "" {
 		if m.shadowsLibrary("ScalarValues", scope) {
@@ -702,6 +704,9 @@ func (m *migration) exposure(e, scope *sysmlv1.Element) string {
 	}
 	if link := m.actorLinkOf(e); link != nil {
 		return m.memberRef(link.useCase, scope) + "::" + writeName(link.name)
+	}
+	if ref := m.monteCarloExposure(e, scope); ref != "" {
+		return ref
 	}
 	if ref := m.edgeRef(e, scope); ref != "" {
 		return ref

@@ -4,10 +4,11 @@ use std::collections::{BTreeMap, HashMap};
 
 use crate::capabilities::{
     upgrade_remedy, CAPABILITY_BIG_INT_VALUES, CAPABILITY_COMPLEX_VALUES, CAPABILITY_CONVERT,
-    CAPABILITY_DOCUMENT_QUERY, CAPABILITY_ENGINES, CAPABILITY_ENUM_VALUES,
-    CAPABILITY_FUNCTION_VALUES, CAPABILITY_INFINITY_VALUE, CAPABILITY_INLINE_LANGUAGE,
-    CAPABILITY_MEASUREMENT_REFS, CAPABILITY_METAOBJECT_VALUES, CAPABILITY_MIGRATE,
-    CAPABILITY_OSLC_QUERY, CAPABILITY_PARSE_SOURCES, CAPABILITY_PERFORMER, CAPABILITY_QUERY,
+    CAPABILITY_CONVERT_DOCUMENTS, CAPABILITY_DOCUMENT_QUERY, CAPABILITY_ENGINES,
+    CAPABILITY_ENUM_VALUES, CAPABILITY_EXPORT_GRAPHS, CAPABILITY_FUNCTION_VALUES,
+    CAPABILITY_INFINITY_VALUE, CAPABILITY_INLINE_LANGUAGE, CAPABILITY_MEASUREMENT_REFS,
+    CAPABILITY_METAOBJECT_VALUES, CAPABILITY_MIGRATE, CAPABILITY_OSLC_QUERY,
+    CAPABILITY_PARSE_SOURCES, CAPABILITY_PERFORMER, CAPABILITY_QUERY, CAPABILITY_RATIONAL_VALUES,
     CAPABILITY_RENDER_DOCUMENT, CAPABILITY_RENDER_DOCUMENT_HTML, CAPABILITY_SCHEDULE,
     CAPABILITY_SCHEDULE_EXPLORE, CAPABILITY_SET_VALUES, CAPABILITY_STATE_TRACE,
     CAPABILITY_STRICT_CONFORMANCE, CAPABILITY_STRUCTURED_VALUES, CAPABILITY_TENSOR_VALUES,
@@ -15,12 +16,14 @@ use crate::capabilities::{
 };
 use crate::conversion::{conversion_of, request_of, Conversion, ConvertOptions, ConvertSource};
 use crate::document::{
-    binding_holds_big_int, bindings_to_wire, document_event_from_wire, result_of, DocumentForm,
-    DocumentQueryResult, DocumentValue,
+    binding_holds_big_int, binding_holds_rational, binding_rationals_as_reals, bindings_to_wire,
+    document_event_from_wire, rendered_view_of, result_of, DocumentForm, DocumentQueryResult,
+    DocumentValue, RenderViewPorts, RenderedView,
 };
 use crate::domain::{Model, Value};
 use crate::encode::value_to_wire;
 use crate::error::Error;
+use crate::graphs::Graphs;
 use crate::migration::{
     is_v1, migration_of, path_is_v1, MigrateOptions, MigrateSource, Migration,
     MIGRATED_NOT_CONVERTED,
@@ -234,6 +237,7 @@ impl Connection {
             wire::ParseSourcesRequest {
                 documents: encoded,
                 strict_conformance: options.strict_conformance,
+                base_model_hash: String::new(),
             },
             &capabilities,
         )?;
@@ -279,12 +283,13 @@ impl Connection {
                 "{name} {MIGRATED_NOT_CONVERTED}; call migrate with the same source"
             )));
         }
-        self.require_all(&[CAPABILITY_CONVERT])?;
-        let response = self.gated_rpc(
-            "Convert",
-            request_of(to_format, source, options),
-            &[CAPABILITY_CONVERT],
-        )?;
+        let mut required = vec![CAPABILITY_CONVERT];
+        if !options.documents.is_empty() {
+            required.push(CAPABILITY_CONVERT_DOCUMENTS);
+        }
+        self.require_all(&required)?;
+        let response =
+            self.gated_rpc("Convert", request_of(to_format, source, options), &required)?;
         conversion_of(response)
     }
 
@@ -373,10 +378,16 @@ impl Connection {
         query_id: &str,
         bindings: &[(K, Vec<DocumentValue>)],
     ) -> Result<DocumentQueryResult, Error> {
-        let bindings = bindings_to_wire(bindings)?;
+        let mut bindings = bindings_to_wire(bindings)?;
         self.require_all(&[CAPABILITY_DOCUMENT_QUERY])?;
+        if !self.capabilities().has(CAPABILITY_RATIONAL_VALUES) {
+            bindings.iter_mut().for_each(binding_rationals_as_reals);
+        }
         if bindings.iter().any(binding_holds_big_int) {
             self.require_all(&[CAPABILITY_BIG_INT_VALUES])?;
+        }
+        if bindings.iter().any(binding_holds_rational) {
+            self.require_all(&[CAPABILITY_RATIONAL_VALUES])?;
         }
         let response = self.gated_rpc(
             "RunDocumentQuery",
@@ -418,6 +429,51 @@ impl Connection {
             DocumentForm::Markdown => response.markdown,
             DocumentForm::Html => response.html,
         })
+    }
+
+    /// Export the lowered graph of an action or state machine, and of every
+    /// behavior it performs, as the canonical `graphs:1` JSON an external
+    /// analysis engine is sent.
+    pub fn export_graphs(&self, model_hash: &str, subject: &str) -> Result<Graphs, Error> {
+        let capabilities = [CAPABILITY_EXPORT_GRAPHS];
+        self.require_all(&capabilities)?;
+        let response: wire::ExportGraphsResponse = self.gated_rpc(
+            "ExportGraphs",
+            wire::ExportGraphsRequest {
+                model_hash: model_hash.to_owned(),
+                subject: subject.to_owned(),
+            },
+            &capabilities,
+        )?;
+        Ok(Graphs::from_wire(response))
+    }
+
+    /// Render a named view with minimal ports.
+    pub fn render_view(&self, model_hash: &str, view_name: &str) -> Result<RenderedView, Error> {
+        self.render_view_with_ports(model_hash, view_name, RenderViewPorts::Minimal)
+    }
+
+    /// Render a named view with the requested port selection.
+    pub fn render_view_with_ports(
+        &self,
+        model_hash: &str,
+        view_name: &str,
+        ports: RenderViewPorts,
+    ) -> Result<RenderedView, Error> {
+        self.require_all(&[crate::capabilities::CAPABILITY_RENDER_VIEW])?;
+        let response = self.gated_rpc(
+            "RenderView",
+            wire::RenderViewRequest {
+                model_hash: model_hash.to_owned(),
+                view: view_name.to_owned(),
+                ports: match ports {
+                    RenderViewPorts::Minimal => String::new(),
+                    RenderViewPorts::Full => "full".to_owned(),
+                },
+            },
+            &[crate::capabilities::CAPABILITY_RENDER_VIEW],
+        )?;
+        Ok(rendered_view_of(response))
     }
 
     fn run_capabilities(

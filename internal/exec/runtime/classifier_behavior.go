@@ -1113,7 +1113,7 @@ func (ctx *Context) attachClassifierBehavior(inst *Instance, decl classifierBeha
 			return nil, fmt.Errorf("exhibited state machine %s of %s: %w", decl.behavior.Name, symbolText(inst.Type), err)
 		}
 		for name, value := range arguments {
-			exec.stateData[name] = value
+			exec.ctx.writeBodyValue(exec.stateCells, exec.stateData, name, value)
 		}
 		if err := exec.initialize(); err != nil {
 			exec.Release()

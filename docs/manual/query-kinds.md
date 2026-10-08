@@ -84,7 +84,7 @@ element and bind what you find.
 
 Over gRPC, `RunDocumentQuery` answers an object row in the `object` arm of
 `DocumentValue` and a verdict row in the `verdict` arm; see
-[Native document queries and rendering over gRPC](../reference/api.md#native-document-queries-and-rendering-over-grpc).
+[Native document queries and rendering over gRPC](../reference/api.md#native-documents-and-views-over-grpc).
 
 A run `%record`/`-record-run` makes is **model** rows, not object rows: the
 record is written into the model as elements annotated
