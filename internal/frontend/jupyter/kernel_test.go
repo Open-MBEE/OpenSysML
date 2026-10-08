@@ -630,6 +630,71 @@ func TestListenOnAPortAlreadyBoundFailsAtOnce(t *testing.T) {
 	}
 }
 
+func TestListenAgainBeforeServingIsRefusedAndTheFirstBindingStillShutsDown(t *testing.T) {
+	engine := newFakeEngine()
+	kernel := New(Info{}, testConnection, engine, nil)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	conn, err := kernel.Listen(ctx)
+	if err != nil {
+		t.Fatalf("Listen: %v", err)
+	}
+	if again, err := kernel.Listen(ctx); err == nil {
+		t.Fatalf("a second Listen before Serve bound %+v", again)
+	}
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		if _, err := kernel.Serve(); err != nil {
+			t.Errorf("Serve: %v", err)
+		}
+	}()
+	c := &client{t: t, conn: conn, signer: newSigner(conn), pub: make(chan Message, 1)}
+	c.control = zmq4.NewDealer(ctx, zmq4.WithID(zmq4.SocketIdentity("control-client")))
+	defer c.control.Close()
+	if err := c.control.Dial(conn.endpoint(conn.ControlPort)); err != nil {
+		t.Fatal(err)
+	}
+	id := c.send(c.control, "shutdown_request", map[string]any{"restart": false})
+	if reply := c.reply(c.control, id); reply.Header.MsgType != "shutdown_reply" {
+		t.Errorf("reply = %s %v", reply.Header.MsgType, reply.Content)
+	}
+	select {
+	case <-done:
+	case <-time.After(10 * time.Second):
+		t.Fatal("Serve did not return after the shutdown: the refused Listen must leave the first binding's stop in place")
+	}
+}
+
+func TestCancellingAfterListenReleasesThePortsWithoutServe(t *testing.T) {
+	kernel := New(Info{}, testConnection, newFakeEngine(), nil)
+	ctx, cancel := context.WithCancel(context.Background())
+	conn, err := kernel.Listen(ctx)
+	if err != nil {
+		cancel()
+		t.Fatalf("Listen: %v", err)
+	}
+	cancel()
+	deadline := time.Now().Add(10 * time.Second)
+	for _, port := range []int{conn.ShellPort, conn.IOPubPort, conn.StdinPort, conn.ControlPort, conn.HBPort} {
+		for {
+			probe, err := net.Dial("tcp", fmt.Sprintf("127.0.0.1:%d", port))
+			if err != nil {
+				break
+			}
+			probe.Close()
+			if time.Now().After(deadline) {
+				t.Fatalf("port %d still accepts ten seconds after the context ended", port)
+			}
+			time.Sleep(10 * time.Millisecond)
+		}
+	}
+	// Serve on a cancelled binding is allowed and returns at once.
+	if _, err := kernel.Serve(); err != nil {
+		t.Errorf("Serve after the context ended: %v", err)
+	}
+}
+
 func TestServeBeforeListenFails(t *testing.T) {
 	kernel := New(Info{}, testConnection, newFakeEngine(), nil)
 	if _, err := kernel.Serve(); err == nil {

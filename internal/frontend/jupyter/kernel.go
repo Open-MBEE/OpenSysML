@@ -72,9 +72,11 @@ func New(info Info, conn ConnectionInfo, engine Engine, logger *log.Logger) *Ker
 	}
 }
 
-// channels are the five sockets of a kernel, one per channel.
+// channels are the five sockets of a kernel, one per channel. They close
+// once, whoever asks first: the context ending or Serve.
 type channels struct {
 	shell, control, stdin, iopub, hb zmq4.Socket
+	once                             sync.Once
 }
 
 func (c *channels) all() []zmq4.Socket {
@@ -82,9 +84,11 @@ func (c *channels) all() []zmq4.Socket {
 }
 
 func (c *channels) close() {
-	for _, s := range c.all() {
-		_ = s.Close()
-	}
+	c.once.Do(func() {
+		for _, s := range c.all() {
+			_ = s.Close()
+		}
+	})
 }
 
 // Run is Listen then Serve: it binds the channels and serves them until a
@@ -100,8 +104,13 @@ func (k *Kernel) Run(ctx context.Context) (restart bool, err error) {
 // Listen binds the five channels and returns the connection they are bound
 // on. A TCP channel whose port is 0 is bound on a free port, and the
 // connection returned names the port taken; any other port is bound as given,
-// so a port already in use fails here. ctx ends the sockets and Serve.
+// so a port already in use fails here. ctx ending closes the sockets, whether
+// or not Serve was called. A binding not yet served must be served before
+// the kernel can listen again.
 func (k *Kernel) Listen(ctx context.Context) (ConnectionInfo, error) {
+	if k.bound != nil {
+		return ConnectionInfo{}, errors.New("listen: the channels are bound already and not served")
+	}
 	ctx, cancel := context.WithCancel(ctx)
 	k.stopMu.Lock()
 	k.stop = cancel
@@ -134,6 +143,7 @@ func (k *Kernel) Listen(ctx context.Context) (ConnectionInfo, error) {
 		}
 		*s.port = port
 	}
+	context.AfterFunc(ctx, listening.close)
 	k.conn = conn
 	k.ctx = ctx
 	k.bound = listening
