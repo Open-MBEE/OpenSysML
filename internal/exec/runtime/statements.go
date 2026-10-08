@@ -233,13 +233,8 @@ func (env *stmtEnv) constraintResult(ctx *Context) (frame, error) {
 	for name := range env.locals {
 		delete(result.unvalued, name)
 	}
-	if len(env.unvaluedLocal) > 0 {
-		if result.unvalued == nil {
-			result.unvalued = make(map[string]bool, len(env.unvaluedLocal))
-		}
-		for name := range env.unvaluedLocal {
-			result.markUnvalued(name)
-		}
+	for name := range env.unvaluedLocal {
+		result.markUnvalued(name)
 	}
 	var cells *bodyCells
 	if env.localCells != nil {
