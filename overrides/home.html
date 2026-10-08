@@ -574,7 +574,12 @@
       position: relative;
       min-height: 14rem;
     }
-    .osml-schematic--drawn .osml-schematic__stage { min-height: 0; }
+    /* A touch's action is fixed when it starts, so the stage never leaves pinching to the
+       browser: one finger scrolls the page over the fitted view and pans the zoomed one. */
+    .osml-schematic--drawn .osml-schematic__stage {
+      min-height: 0;
+      touch-action: pan-y;
+    }
     .osml-schematic__stage--zoomed {
       cursor: grab;
       touch-action: none;
