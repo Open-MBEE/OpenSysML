@@ -1,1 +1,0 @@
-- **Edit batches mixing value changes and member additions apply independent operations in one splice pass instead of reparsing after each.** Values imports with inherited features and gRPC, REPL and LSP `ApplyEdits` requests keep the same output.

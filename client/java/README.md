@@ -11,11 +11,11 @@ For a task-oriented walkthrough, see the
 <dependency>
   <groupId>org.openmbee</groupId>
   <artifactId>opensysml</artifactId>
-  <version>0.9.2</version>
+  <version>0.10.0</version>
 </dependency>
 ```
 
-The client version follows the core release (`0.9.2`), but the artifact is not on Maven Central.
+The client version follows the core release (`0.10.0`), but the artifact is not on Maven Central.
 Build and install it into the local repository from a checkout:
 
 ```bash

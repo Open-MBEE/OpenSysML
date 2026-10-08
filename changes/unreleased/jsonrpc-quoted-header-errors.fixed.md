@@ -1,1 +1,0 @@
-- The language server's JSON-RPC framing now quotes a malformed header line in its error (`malformed MIME header line: "Content\x01Length: 3"`), as `net/textproto` does from Go 1.25.11, so control bytes from a client never reach the log raw. The module now names `toolchain go1.25.11`.

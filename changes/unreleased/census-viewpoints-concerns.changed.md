@@ -1,1 +1,0 @@
-- Migration writes a SysML v1 «Viewpoint» as OMG's `view def` with a nested `viewpoint`, its purpose as a `require constraint` and its methods as `rendering` actions; a conforming view is typed by that view def, and concern comments become named `concern` usages framed by reference.

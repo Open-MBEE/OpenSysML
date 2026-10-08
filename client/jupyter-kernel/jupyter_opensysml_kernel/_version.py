@@ -5,4 +5,4 @@ The package is released in lockstep with the core and the opensysml client:
 with the tag and with client/python/opensysml/_version.py before a release.
 """
 
-VERSION = "0.9.2"
+VERSION = "0.10.0"

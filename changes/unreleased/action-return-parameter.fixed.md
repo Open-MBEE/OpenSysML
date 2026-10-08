@@ -1,1 +1,0 @@
-- **Actions can execute inherited function result parameters as outputs.** Their bodies can write the result and performers can read it; a `return` declared in a non-function owner remains refused.

@@ -1,1 +1,0 @@
-- **Keep case-specific rendering behavior isolated.** Case and mixed views use the `OpenSysMLRenderings` library package, read objective documentation without mutating shared semantic models, and limit their specialized shapes and labels to the new kinds.

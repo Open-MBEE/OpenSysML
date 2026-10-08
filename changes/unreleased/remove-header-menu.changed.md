@@ -1,1 +1,0 @@
-- **The custom header menu was removed in favour of the navbar.** The Legend of the Red Dragon link is now a footer icon.

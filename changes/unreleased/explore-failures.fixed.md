@@ -1,1 +1,0 @@
-- **Exploration distinguishes setup failures from runtime outcomes.** Root executor creation failures and pure structural start-check failures before model behavior runs fail the exploration without an outcome; failures during initial behaviors and later remain visible as error outcomes and make the result fail rather than prove.

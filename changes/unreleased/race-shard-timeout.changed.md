@@ -1,1 +1,0 @@
-- **The race-suite shards allow 55 minutes per package instead of 45.** The runtime package takes 31–47 minutes under `-race` on the CI runners, so the old limit killed roughly every other run at `panic: test timed out after 45m0s` with no test having failed. The shards' job keeps its 60-minute ceiling, so a genuine hang still ends the job.
