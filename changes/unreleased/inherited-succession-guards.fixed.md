@@ -1,1 +1,0 @@
-- **Keep differently guarded inherited and owned successions between the same action steps.** Each succession's guard remains available to execution.
