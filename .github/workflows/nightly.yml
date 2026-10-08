@@ -377,8 +377,8 @@ jobs:
               raise SystemExit(f"Error: expected five platform wheels, got {wheel_paths}")
           if jupyter_opensysml_kernel.__version__ != version:
               raise SystemExit(f"Error: the installed wheel reports {jupyter_opensysml_kernel.__version__}, not {version}")
-          if built_against_releases() != (tag,):
-              raise SystemExit(f"Error: the installed wheel is built against {built_against_releases()}, not ({tag!r},)")
+          if built_against_releases() != [tag]:
+              raise SystemExit(f"Error: the installed wheel is built against {built_against_releases()}, not [{tag!r}]")
           if bundled_binary() is None:
               raise SystemExit("Error: the installed wheel bundles no sysml-jupyter-kernel")
           specs = json.loads(subprocess.check_output(
