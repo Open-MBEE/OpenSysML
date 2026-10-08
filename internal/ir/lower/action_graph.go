@@ -1065,12 +1065,22 @@ func (l *actionEdgeLowerer) transition(n *ast.TransitionMember) error {
 func (l *actionEdgeLowerer) addEdge(edge ActionEdge) {
 	if l.nodes != nil {
 		for _, existing := range l.graph.Edges[edge.Source] {
-			if existing.Target == edge.Target && l.graph.declaredIn[existing.Decl] == nil {
+			if sameUnconditionalActionEdge(existing, edge) && l.graph.declaredIn[existing.Decl] == nil {
 				return
 			}
 		}
 	}
 	l.graph.Edges[edge.Source] = append(l.graph.Edges[edge.Source], edge)
+}
+
+func sameUnconditionalActionEdge(existing, edge ActionEdge) bool {
+	return existing.Source == edge.Source &&
+		existing.Target == edge.Target &&
+		existing.Guard == nil && edge.Guard == nil &&
+		existing.Probability == nil && edge.Probability == nil &&
+		existing.Name == "" && edge.Name == "" &&
+		existing.Gate == nil && edge.Gate == nil &&
+		!existing.Carries && !edge.Carries
 }
 
 func (l *actionEdgeLowerer) endpoint(ref ast.Node, member ast.Node, source bool) (ast.Node, error) {

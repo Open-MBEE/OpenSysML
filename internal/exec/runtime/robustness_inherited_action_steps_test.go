@@ -231,6 +231,26 @@ func TestRuntimeRobustnessInheritedActionSteps(t *testing.T) {
 		}
 	})
 
+	t.Run("inherited_guard_survives_differently_guarded_owned_succession", func(t *testing.T) {
+		outputs, err := executeInheritedAction(t, `package test {
+			private import ScalarValues::*;
+			action def Base {
+				attribute x : Integer = 1;
+				out attribute c : Integer = 0;
+				action a;
+				action b { assign c := 1; }
+				first a if x < 3 then b;
+			}
+			action def S :> Base {
+				first a if x > 5 then b;
+			}
+		}`, "S")
+		if err != nil {
+			t.Fatalf("ExecuteAction(S): %v", err)
+		}
+		assertIntOutput(t, outputs, "c", 1)
+	})
+
 	t.Run("unsequenced_inherited_assertion_stays_unchecked", func(t *testing.T) {
 		src := `package test {
 			action def G { assert constraint check { false } }

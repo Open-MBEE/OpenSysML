@@ -582,6 +582,73 @@ func TestToActionGraphOwnFlowConnectsInheritedActionNodes(t *testing.T) {
 	}
 }
 
+func TestToActionGraphKeepsDifferentlyGuardedInheritedSuccession(t *testing.T) {
+	src := `
+		private import ScalarValues::*;
+		action def Base {
+			attribute x : Integer = 1;
+			action a;
+			action b;
+			first a if x < 3 then b;
+		}
+		action def S :> Base {
+			first a if x > 5 then b;
+		}
+	`
+	decl, scope, _ := inheritedActionDecl(t, src, "S")
+	graph, err := ToActionGraph(decl, scope)
+	if err != nil {
+		t.Fatalf("lower S: %v", err)
+	}
+	a, b := namedNode(graph, "a"), namedNode(graph, "b")
+	if a == nil || b == nil {
+		t.Fatal("S graph is missing inherited action nodes a or b")
+	}
+	var edges []ActionEdge
+	for _, edge := range graph.Edges[a] {
+		if edge.Source == a && edge.Target == b {
+			edges = append(edges, edge)
+		}
+	}
+	if len(edges) != 2 {
+		t.Fatalf("a to b edges = %d, want both inherited and owned successions", len(edges))
+	}
+	if edges[0].Guard == nil || edges[1].Guard == nil || edges[0].Guard == edges[1].Guard {
+		t.Fatalf("a to b guards = (%v, %v), want distinct non-nil guards", edges[0].Guard, edges[1].Guard)
+	}
+}
+
+func TestToActionGraphDeduplicatesRestatedUnguardedSuccession(t *testing.T) {
+	src := `
+		action def Base {
+			action a;
+			action b;
+			first a then b;
+		}
+		action def S :> Base {
+			first a then b;
+		}
+	`
+	decl, scope, _ := inheritedActionDecl(t, src, "S")
+	graph, err := ToActionGraph(decl, scope)
+	if err != nil {
+		t.Fatalf("lower S: %v", err)
+	}
+	a, b := namedNode(graph, "a"), namedNode(graph, "b")
+	if a == nil || b == nil {
+		t.Fatal("S graph is missing action nodes a or b")
+	}
+	var edges int
+	for _, edge := range graph.Edges[a] {
+		if edge.Source == a && edge.Target == b {
+			edges++
+		}
+	}
+	if edges != 1 {
+		t.Fatalf("a to b edges = %d, want one restated unguarded succession", edges)
+	}
+}
+
 func TestToActionGraphResolvesInheritedGateInDeclaringScope(t *testing.T) {
 	src := `
 		private import ScalarValues::*;
