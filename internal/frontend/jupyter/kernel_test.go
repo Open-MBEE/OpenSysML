@@ -84,31 +84,22 @@ type client struct {
 	pub chan Message
 }
 
-func freePort(t *testing.T) int {
-	t.Helper()
-	l, err := net.Listen("tcp", "127.0.0.1:0")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer l.Close()
-	return l.Addr().(*net.TCPAddr).Port
-}
-
-// startKernel runs a kernel over the engine and connects a client to it; the
-// kernel's Run result is read from done.
+// startKernel binds a kernel on free ports, serves the engine over it and
+// connects a client; the kernel's Serve result is read from done.
 func startKernel(t *testing.T, engine Engine) (*client, *Kernel, chan struct{ restart bool }) {
 	t.Helper()
-	conn := ConnectionInfo{
-		Transport: "tcp", IP: "127.0.0.1", Key: "test-key", SignatureScheme: "hmac-sha256",
-		ShellPort: freePort(t), IOPubPort: freePort(t), StdinPort: freePort(t), ControlPort: freePort(t), HBPort: freePort(t),
-	}
-	kernel := New(Info{Implementation: "test", ImplementationVersion: "0", Language: LanguageInfo{Name: "sysml"}}, conn, engine, nil)
+	kernel := New(Info{Implementation: "test", ImplementationVersion: "0", Language: LanguageInfo{Name: "sysml"}}, testConnection, engine, nil)
 	ctx, cancel := context.WithCancel(context.Background())
+	conn, err := kernel.Listen(ctx)
+	if err != nil {
+		cancel()
+		t.Fatalf("Listen: %v", err)
+	}
 	done := make(chan struct{ restart bool }, 1)
 	go func() {
-		restart, err := kernel.Run(ctx)
+		restart, err := kernel.Serve()
 		if err != nil {
-			t.Errorf("Run: %v", err)
+			t.Errorf("Serve: %v", err)
 		}
 		done <- struct{ restart bool }{restart}
 	}()
@@ -129,19 +120,20 @@ func startKernel(t *testing.T, engine Engine) (*client, *Kernel, chan struct{ re
 	if err := c.iopub.SetOption(zmq4.OptionSubscribe, ""); err != nil {
 		t.Fatal(err)
 	}
-	for _, s := range []struct {
-		sock zmq4.Socket
-		port int
-	}{{c.shell, conn.ShellPort}, {c.control, conn.ControlPort}, {c.iopub, conn.IOPubPort}, {c.hb, conn.HBPort}} {
-		if err := dialUntilUp(ctx, s.sock, conn.endpoint(s.port)); err != nil {
-			t.Fatal(err)
-		}
-	}
 	t.Cleanup(func() {
 		for _, s := range []zmq4.Socket{c.shell, c.control, c.iopub, c.hb} {
 			s.Close()
 		}
 	})
+	// The kernel is listening already, so a dial that fails is a failure.
+	for _, s := range []struct {
+		sock zmq4.Socket
+		port int
+	}{{c.shell, conn.ShellPort}, {c.control, conn.ControlPort}, {c.iopub, conn.IOPubPort}, {c.hb, conn.HBPort}} {
+		if err := s.sock.Dial(conn.endpoint(s.port)); err != nil {
+			t.Fatal(err)
+		}
+	}
 	go func() {
 		for {
 			raw, err := c.iopub.Recv()
@@ -159,6 +151,11 @@ func startKernel(t *testing.T, engine Engine) (*client, *Kernel, chan struct{ re
 	// A subscription joins late: ask for kernel info until its status shows on IOPub.
 	deadline := time.Now().Add(10 * time.Second)
 	for {
+		select {
+		case r := <-done:
+			t.Fatalf("the kernel stopped before it answered (restart=%v)", r.restart)
+		default:
+		}
 		id := c.send(c.shell, "kernel_info_request", map[string]any{})
 		c.reply(c.shell, id)
 		if c.sawStatus(id) {
@@ -171,21 +168,9 @@ func startKernel(t *testing.T, engine Engine) (*client, *Kernel, chan struct{ re
 	return c, kernel, done
 }
 
-// dialUntilUp dials the endpoint, retrying while the kernel is still binding.
-func dialUntilUp(ctx context.Context, sock zmq4.Socket, ep string) error {
-	var err error
-	for i := 0; i < 200; i++ {
-		if err = sock.Dial(ep); err == nil {
-			return nil
-		}
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case <-time.After(25 * time.Millisecond):
-		}
-	}
-	return err
-}
+// testConnection leaves every port to Listen, so no port is reserved before
+// it is bound and nothing else can take it in between.
+var testConnection = ConnectionInfo{Transport: "tcp", IP: "127.0.0.1", Key: "test-key", SignatureScheme: "hmac-sha256"}
 
 // sawStatus drains IOPub for up to half a second and reports whether an idle
 // status for the request arrived.
@@ -577,6 +562,78 @@ func TestShutdownStopsTheCellRunningAndEndsRun(t *testing.T) {
 		done <- r
 	case <-time.After(10 * time.Second):
 		t.Fatal("Run did not return while a cell was running: the shutdown must stop it")
+	}
+}
+
+func TestListenOnZeroPortsBindsFiveDistinctPortsAndReportsThem(t *testing.T) {
+	kernel := New(Info{}, testConnection, newFakeEngine(), nil)
+	ctx, cancel := context.WithCancel(context.Background())
+	conn, err := kernel.Listen(ctx)
+	if err != nil {
+		cancel()
+		t.Fatalf("Listen: %v", err)
+	}
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		if _, err := kernel.Serve(); err != nil {
+			t.Errorf("Serve: %v", err)
+		}
+	}()
+	t.Cleanup(func() {
+		cancel()
+		<-done
+	})
+	ports := []int{conn.ShellPort, conn.IOPubPort, conn.StdinPort, conn.ControlPort, conn.HBPort}
+	seen := map[int]bool{}
+	for _, port := range ports {
+		if port <= 0 {
+			t.Fatalf("Listen reported ports %v: a port was not bound", ports)
+		}
+		if seen[port] {
+			t.Fatalf("Listen reported ports %v: two channels share a port", ports)
+		}
+		seen[port] = true
+		probe, err := net.Dial("tcp", fmt.Sprintf("127.0.0.1:%d", port))
+		if err != nil {
+			t.Errorf("port %d reported bound does not accept: %v", port, err)
+			continue
+		}
+		probe.Close()
+	}
+	if conn.Transport != "tcp" || conn.IP != "127.0.0.1" || conn.Key != "test-key" || conn.SignatureScheme != "hmac-sha256" {
+		t.Errorf("Listen altered the connection beyond its ports: %+v", conn)
+	}
+	if err := conn.Validate(); err != nil {
+		t.Errorf("the connection reported does not validate: %v", err)
+	}
+}
+
+func TestListenOnAPortAlreadyBoundFailsAtOnce(t *testing.T) {
+	c, _, _ := startKernel(t, newFakeEngine())
+	taken := New(Info{}, c.conn, newFakeEngine(), nil)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	started := time.Now()
+	conn, err := taken.Listen(ctx)
+	if err == nil {
+		t.Fatalf("Listen on the ports of a running kernel bound %+v", conn)
+	}
+	if !strings.Contains(err.Error(), "listen shell on "+c.conn.endpoint(c.conn.ShellPort)) {
+		t.Errorf("Listen error = %v, want it to name the shell channel and its endpoint", err)
+	}
+	if took := time.Since(started); took > 5*time.Second {
+		t.Errorf("Listen took %v to fail", took)
+	}
+	if _, err := taken.Serve(); err == nil {
+		t.Error("Serve after a failed Listen did not fail")
+	}
+}
+
+func TestServeBeforeListenFails(t *testing.T) {
+	kernel := New(Info{}, testConnection, newFakeEngine(), nil)
+	if _, err := kernel.Serve(); err == nil {
+		t.Error("Serve without Listen did not fail")
 	}
 }
 
