@@ -140,7 +140,10 @@ func TestAnalyzeCountsRepeatedActionSteps(t *testing.T) {
 	}
 }
 
-func TestAnalyzeRefusesInheritedRepeatedActionSteps(t *testing.T) {
+// TestAnalyzeCountsInheritedRepeatedActionSteps: a redefining step declaring no
+// multiplicity of its own takes the redefined step's `[n]`, and the effective
+// count encodes the same way a declared one does.
+func TestAnalyzeCountsInheritedRepeatedActionSteps(t *testing.T) {
 	ctx, idx := fixture(t, "<inherited-multiplicity>", `
 		package test {
 			private import ScalarValues::*;
@@ -161,13 +164,18 @@ func TestAnalyzeRefusesInheritedRepeatedActionSteps(t *testing.T) {
 		t.Fatalf("lower Keep: %v", err)
 	}
 	lower.StartFlow(graph)
-	_, err = Analyze(graph, ctx.Semantics(), 10)
-	var unsupported *UnsupportedError
-	if !errors.As(err, &unsupported) || !errors.Is(err, ErrNotEncoded) {
-		t.Fatalf("Analyze: got %v, want a typed ErrNotEncoded refusal", err)
+	f, err := Analyze(graph, ctx.Semantics(), 10)
+	if err != nil {
+		t.Fatalf("Analyze: %v, want the inherited a[3] encoded", err)
 	}
-	if unsupported.Node != "a" || unsupported.Construct != "action step multiplicity [3]" {
-		t.Errorf("refusal names %q/%q, want node a, multiplicity [3]", unsupported.Node, unsupported.Construct)
+	var a ast.Node
+	for _, node := range f.Nodes {
+		if f.label(node) == "a" {
+			a = node
+		}
+	}
+	if a == nil || f.Repeats[a] != 3 {
+		t.Fatalf("repeats: got %v at %v, want 3 at a", f.Repeats, a)
 	}
 }
 
