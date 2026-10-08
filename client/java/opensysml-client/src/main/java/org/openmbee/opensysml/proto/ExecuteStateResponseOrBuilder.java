@@ -100,7 +100,7 @@ org.openmbee.opensysml.proto.Value defaultValue);
   /**
    * <code>repeated .sysml.Diagnostic diagnostics = 4 [json_name = "diagnostics"];</code>
    */
-  java.util.List<org.openmbee.opensysml.proto.Diagnostic>
+  java.util.List<org.openmbee.opensysml.proto.Diagnostic> 
       getDiagnosticsList();
   /**
    * <code>repeated .sysml.Diagnostic diagnostics = 4 [json_name = "diagnostics"];</code>
@@ -113,7 +113,7 @@ org.openmbee.opensysml.proto.Value defaultValue);
   /**
    * <code>repeated .sysml.Diagnostic diagnostics = 4 [json_name = "diagnostics"];</code>
    */
-  java.util.List<? extends org.openmbee.opensysml.proto.DiagnosticOrBuilder>
+  java.util.List<? extends org.openmbee.opensysml.proto.DiagnosticOrBuilder> 
       getDiagnosticsOrBuilderList();
   /**
    * <code>repeated .sysml.Diagnostic diagnostics = 4 [json_name = "diagnostics"];</code>
@@ -131,7 +131,7 @@ org.openmbee.opensysml.proto.Value defaultValue);
    *
    * <code>repeated .sysml.Outcome outcomes = 5 [json_name = "outcomes"];</code>
    */
-  java.util.List<org.openmbee.opensysml.proto.Outcome>
+  java.util.List<org.openmbee.opensysml.proto.Outcome> 
       getOutcomesList();
   /**
    * <pre>
@@ -165,7 +165,7 @@ org.openmbee.opensysml.proto.Value defaultValue);
    *
    * <code>repeated .sysml.Outcome outcomes = 5 [json_name = "outcomes"];</code>
    */
-  java.util.List<? extends org.openmbee.opensysml.proto.OutcomeOrBuilder>
+  java.util.List<? extends org.openmbee.opensysml.proto.OutcomeOrBuilder> 
       getOutcomesOrBuilderList();
   /**
    * <pre>
@@ -215,7 +215,7 @@ org.openmbee.opensysml.proto.Value defaultValue);
    *
    * <code>repeated .sysml.DocumentEvent trace = 8 [json_name = "trace"];</code>
    */
-  java.util.List<org.openmbee.opensysml.proto.DocumentEvent>
+  java.util.List<org.openmbee.opensysml.proto.DocumentEvent> 
       getTraceList();
   /**
    * <pre>
@@ -243,7 +243,7 @@ org.openmbee.opensysml.proto.Value defaultValue);
    *
    * <code>repeated .sysml.DocumentEvent trace = 8 [json_name = "trace"];</code>
    */
-  java.util.List<? extends org.openmbee.opensysml.proto.DocumentEventOrBuilder>
+  java.util.List<? extends org.openmbee.opensysml.proto.DocumentEventOrBuilder> 
       getTraceOrBuilderList();
   /**
    * <pre>
