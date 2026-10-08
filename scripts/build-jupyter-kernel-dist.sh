@@ -90,8 +90,13 @@ for (goos, goarch), tag in WHEEL_PLATFORM_TAGS.items():
     with zipfile.ZipFile(os.path.join(out, matching[0])) as wheel:
         names = set(wheel.namelist())
         kernel = f"jupyter_opensysml_kernel/bin/{binary_name(goos)}"
+        bundled = sorted(n for n in names if n.startswith("jupyter_opensysml_kernel/bin/"))
+        if bundled != [kernel]:
+            raise SystemExit(
+                f"Error: {matching[0]} must bundle exactly {kernel}; found {', '.join(bundled) or 'nothing'}"
+            )
         data = next((n for n in names if n.endswith(".data/data/" + spec + "kernel.json")), None)
-        missing = [kernel] if kernel not in names else []
+        missing = []
         if data is None:
             missing.append(spec + "kernel.json")
         else:

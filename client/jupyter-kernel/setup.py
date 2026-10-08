@@ -10,6 +10,7 @@ install`.
 """
 
 import os
+import shutil
 import sys
 
 from setuptools import Distribution, setup
@@ -66,6 +67,7 @@ class PlatformWheel(bdist_wheel):
         return ("py3", "none", self.plat_name)
 
     def run(self) -> None:
+        self.drop_stale_build_kernel()
         bundled = bundled_files()
         if self.target is None:
             if bundled:
@@ -85,6 +87,12 @@ class PlatformWheel(bdist_wheel):
         os.makedirs(spec_dir, exist_ok=True)
         self.distribution.data_files = [(SHARED_DATA, write_launcher_spec(spec_dir))]
         super().run()
+
+    def drop_stale_build_kernel(self) -> None:
+        """setuptools copies package data into build/lib and keeps what is there, so a
+        kernel staged for an earlier platform's wheel would ride along into this one."""
+        build_lib = self.get_finalized_command("build").build_lib
+        shutil.rmtree(os.path.join(build_lib, "jupyter_opensysml_kernel", "bin"), ignore_errors=True)
 
 
 class SourceOnly(sdist):
