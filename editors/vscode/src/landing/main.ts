@@ -32,6 +32,7 @@ import {
   type LandingModel,
   type LandingPart,
 } from "./model";
+import { carried } from "./carry";
 import { presented } from "./present";
 import stack from "./stack.json";
 
@@ -182,6 +183,8 @@ function mount(root: HTMLElement): Mounted {
 
   const partOf = (id: string): LandingPart | undefined => [...model.parts.values()].find((part) => part.id === id);
   const idOf = (feature: string): string | undefined => model.parts.get(feature)?.id;
+  // projects is the parts drawn at the top level, which are the ones a visitor can move.
+  const projects = (): LandingPart[] => [...model.parts.values()].filter((part) => part.owner === undefined);
 
   function status(text: string, error = false): void {
     statusEl.textContent = text;
@@ -196,7 +199,7 @@ function mount(root: HTMLElement): Mounted {
         nodes.set(id, { x: at.x, y: at.y });
       }
     }
-    return { nodes, bounds: bounds() };
+    return { nodes: carried(result.nodes, auto, nodes), bounds: bounds() };
   }
 
   // fit centres the unmoved diagram in the stage, scaled to the stage's width up to MAX_SCALE.
@@ -258,7 +261,7 @@ function mount(root: HTMLElement): Mounted {
         settled.set(entry.node.id, entry);
       }
     }
-    for (const part of model.parts.values()) {
+    for (const part of projects()) {
       const entry = layout.nodes.get(part.id);
       if (!entry || entry.hidden) {
         continue;
@@ -314,6 +317,11 @@ function mount(root: HTMLElement): Mounted {
     for (const group of content.querySelectorAll<SVGGElement>("g.opensysml-node")) {
       const part = partOf(group.dataset.opensysmlId ?? "");
       if (!part) {
+        continue;
+      }
+      // A nested part is drawn beside its project's group, not inside it, so it takes the pointer itself.
+      if (part.owner !== undefined) {
+        group.classList.add("osml-nested");
         continue;
       }
       group.classList.add("osml-part");
@@ -682,9 +690,25 @@ function mount(root: HTMLElement): Mounted {
     }
   }
 
+  // partGroup is the project at target: the part there, or the one a nested part there is drawn in.
   function partGroup(target: EventTarget | null): SVGGElement | undefined {
-    const group = (target as Element | null)?.closest?.<SVGGElement>("g.opensysml-node.osml-part");
-    return group && content.contains(group) ? group : undefined;
+    const group = (target as Element | null)?.closest?.<SVGGElement>("g.opensysml-node");
+    if (!group || !content.contains(group)) {
+      return undefined;
+    }
+    let id = group.dataset.opensysmlId ?? "";
+    for (let node = result.nodes.find((n) => n.id === id); node?.parent !== undefined; ) {
+      id = node.parent;
+      node = result.nodes.find((n) => n.id === id);
+    }
+    const project = groupOf(id);
+    return project?.classList.contains("osml-part") ? project : undefined;
+  }
+
+  // cardGroup is the innermost part at target, nested or not: a card shows any part's model.
+  function cardGroup(target: EventTarget | null): SVGGElement | undefined {
+    const group = (target as Element | null)?.closest?.<SVGGElement>("g.opensysml-node");
+    return group && content.contains(group) && partOf(group.dataset.opensysmlId ?? "") ? group : undefined;
   }
 
   function endGesture(cancelled: boolean): void {
@@ -775,7 +799,7 @@ function mount(root: HTMLElement): Mounted {
     }
   });
   on(svg, "contextmenu", (event) => {
-    const group = partGroup(event.target);
+    const group = cardGroup(event.target);
     if (!group) {
       return;
     }
