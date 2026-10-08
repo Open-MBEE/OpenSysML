@@ -6,7 +6,7 @@ import { test } from "node:test";
 import type { LayoutGeometry, RenderEdge, RenderNode, RenderPoint, RenderResult } from "../protocol";
 import type { EngineInstance } from "../landing/model";
 import { landingModel } from "../landing/model";
-import { carried, obstacles } from "../landing/carry";
+import { carried, obstacles, resettle } from "../landing/carry";
 import { presented } from "../landing/present";
 import { autoLayout, type AutoLayout } from "./autolayout";
 import {
@@ -2227,4 +2227,27 @@ test("alignedPlacement lines up a project whose own boxes are not obstacles", ()
   assert.deepEqual(alignedPlacement(moving, at, layout, bounds, 0), at);
   const clear = obstacles(layout.nodes.values(), "moving");
   assert.deepEqual(alignedPlacement(moving, at, layout, bounds, 0, clear), { x: at.x, y: at.y + 5 });
+});
+
+test("resettle carries a re-clamped project's boxes, so later projects stay clear of them", () => {
+  const geometry = {
+    a: { x: 100, y: 100, width: 100, height: 50 },
+    exposed: { x: 190, y: 110, width: 40, height: 20 },
+    b: { x: 400, y: 100, width: 80, height: 40 },
+  };
+  const result = rendering([
+    node("a", "a", geometry.a),
+    node("exposed", "exposed", { parent: "a", ...geometry.exposed }),
+    node("b", "b", geometry.b),
+  ]);
+  const auto: AutoLayout = { nodes: new Map(Object.entries(geometry)), routes: new Map(), ports: new Map() };
+  const settled = new Map(layoutCanvas(result, undefined, auto).nodes);
+  resettle(settled, result.nodes, auto, "a", { x: 140, y: 100 });
+  assert.deepEqual(settled.get("a")!.box, { ...geometry.a, x: 140 });
+  assert.deepEqual(settled.get("exposed")!.box, { ...geometry.exposed, x: 230 });
+  const clear = obstacles(settled.values(), "b");
+  assert.deepEqual(clear.map((entry) => entry.node.id), ["a", "exposed"]);
+  const bounds = { x: 0, y: 0, width: 1000, height: 600 };
+  const dropped = freePlacement(settled.get("b")!, { x: 265, y: 100 }, clear, bounds, 0);
+  assert.ok(dropped && dropped.x > 270, `b should be pushed clear of the carried box: ${JSON.stringify(dropped)}`);
 });

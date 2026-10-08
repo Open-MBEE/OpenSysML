@@ -32,7 +32,7 @@ import {
   type LandingModel,
   type LandingPart,
 } from "./model";
-import { carried, obstacles } from "./carry";
+import { carried, obstacles, resettle } from "./carry";
 import { presented } from "./present";
 import stack from "./stack.json";
 
@@ -281,7 +281,7 @@ function mount(root: HTMLElement): Mounted {
         placed.set(part.feature, at);
         changed = true;
       }
-      settled.set(entry.node.id, { ...entry, box: { ...entry.box, ...at } });
+      resettle(settled, result.nodes, auto, entry.node.id, at);
     }
     if (changed) {
       layout = layoutCanvas(result, overrides(), auto);

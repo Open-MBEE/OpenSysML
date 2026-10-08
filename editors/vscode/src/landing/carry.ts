@@ -62,3 +62,24 @@ export function carried(
   }
   return out;
 }
+
+// resettle puts a project at `at` in `settled` and carries what is drawn inside it, so a later
+// clearance check sees the project's boxes where the rebuilt layout will draw them.
+export function resettle(
+  settled: Map<string, PlacedNode>,
+  nodes: RenderNode[],
+  auto: AutoLayout | undefined,
+  id: string,
+  at: RenderPoint,
+): void {
+  const entry = settled.get(id);
+  if (!entry) {
+    return;
+  }
+  for (const [nodeId, geometry] of carried(nodes, auto, new Map([[id, { ...entry.box, ...at }]]))) {
+    const placed = settled.get(nodeId);
+    if (placed) {
+      settled.set(nodeId, { ...placed, box: { ...placed.box, x: geometry.x, y: geometry.y } });
+    }
+  }
+}
