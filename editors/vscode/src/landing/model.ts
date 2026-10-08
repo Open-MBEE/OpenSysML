@@ -1,5 +1,5 @@
 import { normalizeRender } from "../protocol";
-import type { RenderResult } from "../protocol";
+import type { RenderNode, RenderResult } from "../protocol";
 
 export interface EngineClient {
   call(method: string, params: string): string;
@@ -17,6 +17,10 @@ export interface LandingPart {
   feature: string;
   symbol: string;
   attrs: Record<string, string>;
+  /** The features from the stack down to this part, dotted: `toolkit.lsp`. Keys `LandingModel.parts`. */
+  path: string;
+  /** The feature of the part this one is nested in; absent for a project. */
+  owner?: string;
 }
 
 export interface LandingModel {
@@ -149,7 +153,7 @@ export function landingModel(hash: string, render: RenderResult, instances: Engi
   );
   const nodes = render.nodes
     .filter((node) => node.id !== root.id && node.kind !== "attribute")
-    .map((node) => {
+    .map((node): RenderNode => {
       if (node.parent !== root.id) {
         return node;
       }
@@ -162,13 +166,24 @@ export function landingModel(hash: string, render: RenderResult, instances: Engi
     nodes,
     edges: render.edges.filter((edge) => retained.has(edge.from) && retained.has(edge.to)),
   });
+  const nodesById = new Map(nodes.map((node) => [node.id, node]));
+  // instanceOf follows feature values down from the stack's instance to a node's.
+  const instanceOf = (node: RenderNode): EngineInstance | undefined => {
+    const parent = node.parent === undefined ? undefined : nodesById.get(node.parent);
+    const owner = parent === undefined ? rootInstance : instanceOf(parent);
+    const instanceId = owner?.featureValues?.[node.name]?.value?.instanceId;
+    return instanceId === undefined ? undefined : instancesById.get(instanceId);
+  };
+  const pathOf = (node: RenderNode): string => {
+    const parent = node.parent === undefined ? undefined : nodesById.get(node.parent);
+    return parent === undefined ? node.name : `${pathOf(parent)}.${node.name}`;
+  };
   const parts = new Map<string, LandingPart>();
   for (const node of nodes) {
     if (node.kind !== "part") {
       continue;
     }
-    const instanceId = rootInstance?.featureValues?.[node.name]?.value?.instanceId;
-    const instance = instanceId === undefined ? undefined : instancesById.get(instanceId);
+    const instance = instanceOf(node);
     const attrs: Record<string, string> = {};
     for (const [name, featureValue] of Object.entries(instance?.featureValues ?? {})) {
       const value = featureValue.value?.stringValue;
@@ -180,10 +195,15 @@ export function landingModel(hash: string, render: RenderResult, instances: Engi
     const part: LandingPart = {
       id: node.id,
       feature: node.name,
+      path: pathOf(node),
       symbol: instance?.typeSymbolId ?? node.type,
       attrs,
     };
-    parts.set(part.feature, part);
+    const owner = node.parent === undefined ? undefined : nodesById.get(node.parent)?.name;
+    if (owner !== undefined) {
+      part.owner = owner;
+    }
+    parts.set(part.path, part);
   }
   return { hash, render: normalized, parts };
 }
@@ -226,9 +246,8 @@ export function journey(engine: EngineClient, model: LandingModel, seed?: number
     events: JOURNEY_EVENTS,
     ...(seed === undefined ? {} : { schedule: `seed:${seed}` }),
   });
-  const idsByFeature = new Map([...model.parts.values()].map((part) => [part.feature, part.id]));
   return (result.statesVisited ?? []).flatMap((state) => {
-    const id = idsByFeature.get(state);
+    const id = model.parts.get(state)?.id;
     return id === undefined ? [] : [id];
   });
 }
