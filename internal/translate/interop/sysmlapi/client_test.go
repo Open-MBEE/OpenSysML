@@ -95,9 +95,19 @@ func TestRedirectsKeepTheTokenOffPlaintext(t *testing.T) {
 	if err := loopback.checkRedirect(request("http://localhost:8083/projects"), []*http.Request{from}); err == nil {
 		t.Error("a redirect to another port of loopback carried the token")
 	}
-	if err := loopback.checkRedirect(request("http://localhost:8443/projects"), []*http.Request{from}); err != nil {
-		t.Errorf("a plaintext redirect on loopback itself was refused: %v", err)
+	if err := loopback.checkRedirect(request("http://localhost:8443/projects"), []*http.Request{from}); err == nil {
+		t.Error("a downgrade to plaintext on loopback carried the token")
 	}
+	t.Setenv(EnvPlainHTTP, "1")
+	plain, _ := http.NewRequest(http.MethodGet, "http://localhost:8083/projects", nil)
+	plainBase := New(Config{BaseURL: "http://localhost:8083", Token: "secret"})
+	if err := plainBase.checkRedirect(request("http://localhost:8083/projects/"), []*http.Request{plain}); err != nil {
+		t.Errorf("a plain redirect of a plain loopback request was refused: %v", err)
+	}
+	if err := plainBase.checkRedirect(request("https://localhost:8083/projects/"), []*http.Request{plain}); err != nil {
+		t.Errorf("an upgrade to https was refused: %v", err)
+	}
+	t.Setenv(EnvPlainHTTP, "")
 	via := make([]*http.Request, maxRedirects)
 	for i := range via {
 		via[i] = from

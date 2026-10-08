@@ -117,8 +117,9 @@ func New(cfg Config) *Client {
 }
 
 // checkRedirect holds a redirect to the rule of the first request when there
-// is a bearer token to carry: it stays on the server's host and off plaintext,
-// so a redirect cannot take the token to another host or into the clear.
+// is a bearer token to carry: it stays on the server's host, off plaintext and
+// on https once there, so a redirect cannot take the token elsewhere or into
+// the clear — not even on loopback, where a first request may be plain.
 func (c *Client) checkRedirect(req *http.Request, via []*http.Request) error {
 	if len(via) >= maxRedirects {
 		return fmt.Errorf("stopped after %d redirects", maxRedirects)
@@ -129,6 +130,9 @@ func (c *Client) checkRedirect(req *http.Request, via []*http.Request) error {
 	from := via[len(via)-1].URL
 	if err := CheckURL(req.URL.String()); err != nil {
 		return fmt.Errorf("redirect from %s refused: %w", from, err)
+	}
+	if from.Scheme == "https" && req.URL.Scheme != "https" {
+		return fmt.Errorf("redirect from %s to %s refused: the token stays on https", from, req.URL.Scheme)
 	}
 	if base, err := url.Parse(c.cfg.BaseURL); err == nil && !sameServer(req.URL, base) {
 		return fmt.Errorf("redirect from %s to %s refused: the token is for %s only", from, req.URL.Host, base.Host)
