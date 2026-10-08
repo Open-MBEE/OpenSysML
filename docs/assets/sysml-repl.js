@@ -50,11 +50,15 @@
       mkdirs(parent(p));
       nodes[p] = { dir: true, ino: ino++, mtime: Date.now() };
     }
+    // The order Array.prototype.sort gives strings: by code unit, in every locale.
+    function byCodeUnit(a, b) {
+      return a < b ? -1 : a > b ? 1 : 0;
+    }
     function children(p) {
       var pre = p === "/" ? "/" : p + "/";
       return Object.keys(nodes).filter(function (k) {
         return k !== p && k.indexOf(pre) === 0 && k.slice(pre.length).indexOf("/") < 0;
-      }).map(function (k) { return k.slice(pre.length); }).sort();
+      }).map(function (k) { return k.slice(pre.length); }).sort(byCodeUnit);
     }
     function grow(n, size) {
       if (n.data.length >= size) return;
@@ -92,7 +96,7 @@
       return n && !n.dir ? new TextDecoder().decode(n.data.subarray(0, n.size)) : null;
     };
     self.list = function () {
-      return Object.keys(nodes).filter(function (k) { return !nodes[k].dir; }).sort();
+      return Object.keys(nodes).filter(function (k) { return !nodes[k].dir; }).sort(byCodeUnit);
     };
     self.send = function (text) {
       if (text) stdin.push(enc.encode(text));
@@ -398,7 +402,7 @@
       clearTimeout(typeTimer);
       typing = false;
       queue = [];
-      appendLine(promptEl.textContent.replace(/\u00a0/g, " ") + input.value + "^C", "osml-dim");
+      appendLine(promptEl.textContent.replaceAll("\u00a0", " ") + input.value + "^C", "osml-dim");
       setInput("");
       scroll();
       if (!session || session.exited) return;
@@ -489,7 +493,7 @@
 
     // submit hands one line to the REPL, echoing it after the prompt it answers.
     function submit(line) {
-      appendLine(promptEl.textContent.replace(/\u00a0/g, " ") + line, "osml-repl__echo");
+      appendLine(promptEl.textContent.replaceAll("\u00a0", " ") + line, "osml-repl__echo");
       scroll();
       rootEl.classList.add("is-busy");
       session.send(line + "\n");
@@ -559,7 +563,7 @@
         input.setSelectionRange((base + common).length, (base + common).length);
         return;
       }
-      appendLine(promptEl.textContent.replace(/\u00a0/g, " ") + input.value, "osml-repl__echo");
+      appendLine(promptEl.textContent.replaceAll("\u00a0", " ") + input.value, "osml-repl__echo");
       appendLine(cands.slice(0, 60).join("  ") + (cands.length > 60 ? "  \u2026 " + (cands.length - 60) + " more" : ""), "osml-dim");
       scroll();
     }

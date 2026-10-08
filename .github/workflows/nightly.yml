@@ -167,7 +167,7 @@ jobs:
           python-version: '3.12'
 
       - name: Install the Python build tooling
-        run: python -m pip install --upgrade pip build twine packaging
+        run: python -m pip install --only-binary ":all:" pip==26.2.1 build==1.6.1 twine==7.0.0 packaging==26.3
 
       # Before the manifest is stamped: `npm ci` requires package.json and its lock
       # file to agree, and the stamp pins the platform packages at the snapshot version.
@@ -818,7 +818,7 @@ jobs:
       # Trusted publishing needs npm 11.5.1 or later, newer than Node 22 bundles.
       - name: Update npm
         run: |
-          npm install -g npm@latest
+          npm install -g --ignore-scripts npm@11.21.0
           npm --version
           node -e "const [major, minor, patch] = require('child_process').execSync('npm --version').toString().trim().split('.').map(Number); if (major < 11 || (major === 11 && (minor < 5 || (minor === 5 && patch < 1)))) { console.error('npm 11.5.1 or later is required for trusted publishing'); process.exit(1); }"
 
