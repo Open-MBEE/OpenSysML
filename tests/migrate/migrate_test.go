@@ -333,6 +333,8 @@ var constructFixtures = []string{
 	"accept_via_context_port",
 	"ported_calls",
 	"empty_behaviors",
+	"link_actions",
+	"association_qualifiers",
 	"library_calls",
 	"bundled_library",
 	"user_library",

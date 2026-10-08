@@ -60,7 +60,7 @@ package ViewsModel {
     }
 }
 package Documents {
-    part def 'Statistics Report' {
+    occurrence def 'Statistics Report' {
         view scoped :> ViewsModel::'Scoped Statistics';
         view recorded :> ViewsModel::'Recorded Statistics';
         /* applied stereotype «Document» */

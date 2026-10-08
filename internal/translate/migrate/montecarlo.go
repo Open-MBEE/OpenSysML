@@ -1,6 +1,7 @@
 package migrate
 
 import (
+	"slices"
 	"strconv"
 
 	"github.com/Open-MBEE/OpenSysML/internal/exec/simresults"
@@ -227,7 +228,7 @@ func (m *migration) monteCarloCaseOf(block *sysmlv1.Element) *monteCarloCase {
 		return cs
 	}
 	var cs *monteCarloCase
-	if cat, _ := m.classify(block); cat == catPartDef && m.inheritsMonteCarlo(block) {
+	if cat, _ := m.classify(block); (cat == catPartDef || cat == catOccurrenceDef) && m.inheritsMonteCarlo(block) {
 		binds := m.generalizesMonteCarlo(block)
 		for _, c := range block.Owned("ownedConnector") {
 			if stat, _, _ := m.monteCarloEnd(c); stat != "" {
@@ -263,10 +264,68 @@ func (m *migration) newMonteCarloCase(block *sysmlv1.Element) *monteCarloCase {
 		for _, c := range owner.Owned("ownedConnector") {
 			if b, ok := m.settleMonteCarloBinding(cs, bound, owner, c); ok && owner == block {
 				cs.bindings[c] = b
+				m.wroteMonteCarloBinding(cs, c, b)
 			}
 		}
 	}
 	return cs
+}
+
+// wroteMonteCarloBinding records the member of the analysis def a connector of
+// cs.block on a statistic is written as, so a view can expose it and a route pin
+// it: observed, whose value binds it to the analysed value as the binding did, is
+// drawn as a binding; a return, bound to a statistic nothing draws, is not.
+func (m *migration) wroteMonteCarloBinding(cs *monteCarloCase, c *sysmlv1.Element, b monteCarloBinding) {
+	if b.member == "" {
+		return
+	}
+	if b.stat == monteCarloMean {
+		m.wroteNestedEdge(c, cs.block.Parent, "binding", []string{cs.name}, monteCarloObserved)
+		return
+	}
+	m.wroteNestedEdge(c, cs.block.Parent, "attribute", []string{cs.name}, b.stat)
+}
+
+// ref writes a reference to the analysis def from inside scope's body.
+func (cs *monteCarloCase) ref(m *migration, scope *sysmlv1.Element) string {
+	path := append(m.path(cs.block.Parent), segment{name: cs.name})
+	return m.refMember(cs.block.Parent, cs.name, path, scope, false)
+}
+
+// monteCarloExposure names, from scope, what a view in the body of a block of
+// the tool's Monte Carlo pattern exposes for a statistic of MonteCarloAnalysis
+// its diagram shows: the block's analysis def for Mean, which summarises the
+// observed value, and the analysis def's return for a statistic it returns.
+func (m *migration) monteCarloExposure(e, scope *sysmlv1.Element) string {
+	stat := monteCarloFeature(e)
+	if stat == "" {
+		return ""
+	}
+	cs := m.monteCarloCaseOf(scope)
+	if cs == nil {
+		return ""
+	}
+	ref := cs.ref(m, scope)
+	switch {
+	case stat == monteCarloMean:
+		return ref
+	case slices.Contains(cs.statistics(), stat):
+		return ref + "::" + writeName(stat)
+	}
+	return ""
+}
+
+// planMonteCarlo settles the analysis of each block a diagram shows a Monte Carlo
+// binding of, so the members the bindings are written as are known to the views.
+func (m *migration) planMonteCarlo(d *sysmlv1.Diagram) {
+	for _, s := range d.Shown {
+		if s.Element == nil || s.Element.Type != "Connector" {
+			continue
+		}
+		if stat, _, _ := m.monteCarloEnd(s.Element); stat != "" {
+			m.monteCarloCaseOf(s.Element.Parent)
+		}
+	}
 }
 
 // settleMonteCarloBinding returns the statistic a connector of cs.block, owned or

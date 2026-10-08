@@ -78,7 +78,7 @@ package ViewsModel {
         expose Viewpoints::'Safety Viewpoint';
     }
     view Handbook {
-        part def Chapter;
+        occurrence def Chapter;
     }
     view 'Odd View';
     /* not migrated: «Expose» Dependency (_exposeGone) — the exposed element _nowhere is not in the document; applied stereotypes «Expose» */

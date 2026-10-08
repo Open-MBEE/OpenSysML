@@ -22,7 +22,7 @@
       },
       {
         "name": "fixtures",
-        "files": 98
+        "files": 101
       }
     ],
     "counts": {
@@ -108,7 +108,7 @@
       },
       "uml:Association": {
         "pssm": 4,
-        "fixtures": 14
+        "fixtures": 15
       },
       "uml:BroadcastSignalAction": {
         "pssm": 0,
@@ -136,11 +136,11 @@
       },
       "uml:Class": {
         "pssm": 311,
-        "fixtures": 484
+        "fixtures": 488
       },
       "uml:ClearAssociationAction": {
         "pssm": 0,
-        "fixtures": 0
+        "fixtures": 1
       },
       "uml:ClearStructuralFeatureAction": {
         "pssm": 516,
@@ -160,11 +160,11 @@
       },
       "uml:CreateLinkAction": {
         "pssm": 0,
-        "fixtures": 0
+        "fixtures": 1
       },
       "uml:CreateLinkObjectAction": {
         "pssm": 0,
-        "fixtures": 0
+        "fixtures": 1
       },
       "uml:CreateObjectAction": {
         "pssm": 426,
@@ -176,7 +176,7 @@
       },
       "uml:DestroyLinkAction": {
         "pssm": 0,
-        "fixtures": 0
+        "fixtures": 1
       },
       "uml:DestroyObjectAction": {
         "pssm": 0,
@@ -224,7 +224,7 @@
       },
       "uml:OpaqueAction": {
         "pssm": 0,
-        "fixtures": 157
+        "fixtures": 158
       },
       "uml:OpaqueBehavior": {
         "pssm": 0,
@@ -244,11 +244,11 @@
       },
       "uml:Property": {
         "pssm": 25,
-        "fixtures": 460
+        "fixtures": 466
       },
       "uml:Property[qualifier]": {
         "pssm": 0,
-        "fixtures": 0
+        "fixtures": 2
       },
       "uml:Pseudostate": {
         "pssm": 289,
@@ -268,15 +268,15 @@
       },
       "uml:ReadLinkAction": {
         "pssm": 0,
-        "fixtures": 0
+        "fixtures": 1
       },
       "uml:ReadLinkObjectEndAction": {
         "pssm": 0,
-        "fixtures": 0
+        "fixtures": 1
       },
       "uml:ReadLinkObjectEndQualifierAction": {
         "pssm": 0,
-        "fixtures": 0
+        "fixtures": 1
       },
       "uml:ReadSelfAction": {
         "pssm": 1057,
@@ -8195,10 +8195,14 @@
       ],
       "operations": [],
       "ocl": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "status": "not-implemented",
-      "implementation": [],
-      "tests": [],
-      "reason": "a ClearAssociationAction is not migrated: it is written as a placeholder action that keeps its pins and position in the flow and is reported unmapped",
+      "status": "faithful",
+      "implementation": [
+        "internal/translate/migrate/activity.go:linkAction"
+      ],
+      "tests": [
+        "tests/migrate/link_actions_test.go:TestLinkActionsKeepTheirPinsAsApproximateActions"
+      ],
+      "reason": "written as an ActionUsage with its pins, all the mapping defines; SysML v2 has no link action, so the action does not change or read links and is reported approximated; neither the PSSM suite nor the TMT model has one",
       "scope": [
         "uml:ClearAssociationAction"
       ]
@@ -8217,10 +8221,14 @@
         "ownedRelationship"
       ],
       "ocl": "sha256:b2d0665ad00eacdc593a29a217f26668e9e9ca66fa332a60f6ae889cdae232ee",
-      "status": "not-implemented",
-      "implementation": [],
-      "tests": [],
-      "reason": "a CreateLinkAction is not migrated: it is written as a placeholder action that keeps its pins and position in the flow and is reported unmapped",
+      "status": "faithful",
+      "implementation": [
+        "internal/translate/migrate/activity.go:linkAction"
+      ],
+      "tests": [
+        "tests/migrate/link_actions_test.go:TestLinkActionsKeepTheirPinsAsApproximateActions"
+      ],
+      "reason": "written as an ActionUsage with its pins, all the mapping defines; SysML v2 has no link action, so the action does not change or read links and is reported approximated; neither the PSSM suite nor the TMT model has one",
       "scope": [
         "uml:CreateLinkAction"
       ]
@@ -8237,10 +8245,14 @@
       ],
       "operations": [],
       "ocl": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "status": "not-implemented",
-      "implementation": [],
-      "tests": [],
-      "reason": "a CreateLinkObjectAction is not migrated: it is written as a placeholder action that keeps its pins and position in the flow and is reported unmapped",
+      "status": "faithful",
+      "implementation": [
+        "internal/translate/migrate/activity.go:linkAction"
+      ],
+      "tests": [
+        "tests/migrate/link_actions_test.go:TestLinkActionsKeepTheirPinsAsApproximateActions"
+      ],
+      "reason": "written as an ActionUsage with its pins, all the mapping defines; SysML v2 has no link action, so the action does not change or read links and is reported approximated; neither the PSSM suite nor the TMT model has one",
       "scope": [
         "uml:CreateLinkObjectAction"
       ]
@@ -8259,10 +8271,14 @@
         "ownedRelationship"
       ],
       "ocl": "sha256:b1f4b870213ce895494a784b7326ec6520ad8a012d30cee14eb7e7276bd3c5d1",
-      "status": "not-implemented",
-      "implementation": [],
-      "tests": [],
-      "reason": "a DestroyLinkAction is not migrated: it is written as a placeholder action that keeps its pins and position in the flow and is reported unmapped",
+      "status": "faithful",
+      "implementation": [
+        "internal/translate/migrate/activity.go:linkAction"
+      ],
+      "tests": [
+        "tests/migrate/link_actions_test.go:TestLinkActionsKeepTheirPinsAsApproximateActions"
+      ],
+      "reason": "written as an ActionUsage with its pins, all the mapping defines; SysML v2 has no link action, so the action does not change or read links and is reported approximated; neither the PSSM suite nor the TMT model has one",
       "scope": [
         "uml:DestroyLinkAction"
       ]
@@ -8281,10 +8297,14 @@
         "ownedRelationship"
       ],
       "ocl": "sha256:cd3992e196114cffeda907350f386a83ffbc1cb8cc3fee81ad065212c6cc5956",
-      "status": "not-implemented",
-      "implementation": [],
-      "tests": [],
-      "reason": "a ReadLinkAction is not migrated: it is written as a placeholder action that keeps its pins and position in the flow and is reported unmapped",
+      "status": "faithful",
+      "implementation": [
+        "internal/translate/migrate/activity.go:linkAction"
+      ],
+      "tests": [
+        "tests/migrate/link_actions_test.go:TestLinkActionsKeepTheirPinsAsApproximateActions"
+      ],
+      "reason": "written as an ActionUsage with its pins, all the mapping defines; SysML v2 has no link action, so the action does not change or read links and is reported approximated; neither the PSSM suite nor the TMT model has one",
       "scope": [
         "uml:ReadLinkAction"
       ]
@@ -8301,10 +8321,14 @@
       ],
       "operations": [],
       "ocl": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "status": "not-implemented",
-      "implementation": [],
-      "tests": [],
-      "reason": "a ReadLinkObjectEndAction is not migrated: it is written as a placeholder action that keeps its pins and position in the flow and is reported unmapped",
+      "status": "faithful",
+      "implementation": [
+        "internal/translate/migrate/activity.go:linkAction"
+      ],
+      "tests": [
+        "tests/migrate/link_actions_test.go:TestLinkActionsKeepTheirPinsAsApproximateActions"
+      ],
+      "reason": "written as an ActionUsage with its pins, all the mapping defines; SysML v2 has no link action, so the action does not change or read links and is reported approximated; neither the PSSM suite nor the TMT model has one",
       "scope": [
         "uml:ReadLinkObjectEndAction"
       ]
@@ -8321,10 +8345,14 @@
       ],
       "operations": [],
       "ocl": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "status": "not-implemented",
-      "implementation": [],
-      "tests": [],
-      "reason": "a ReadLinkObjectEndQualifierAction is not migrated: it is written as a placeholder action that keeps its pins and position in the flow and is reported unmapped",
+      "status": "faithful",
+      "implementation": [
+        "internal/translate/migrate/activity.go:linkAction"
+      ],
+      "tests": [
+        "tests/migrate/link_actions_test.go:TestLinkActionsKeepTheirPinsAsApproximateActions"
+      ],
+      "reason": "written as an ActionUsage with its pins, all the mapping defines; SysML v2 has no link action, so the action does not change or read links and is reported approximated; neither the PSSM suite nor the TMT model has one",
       "scope": [
         "uml:ReadLinkObjectEndQualifierAction"
       ]
@@ -8344,10 +8372,15 @@
         "type"
       ],
       "ocl": "sha256:04f69a0edb2f94586d5c7530adf4e471a14739d72addd4f09b2ba21019596682",
-      "status": "not-implemented",
-      "implementation": [],
-      "tests": [],
-      "reason": "a CreateObjectAction is not migrated: it is written as a placeholder action that keeps its pins and position in the flow and is reported unmapped",
+      "status": "deliberate",
+      "implementation": [
+        "internal/translate/migrate/activity.go:placeholder"
+      ],
+      "tests": [
+        "tests/migrate/migrate_test.go:TestGoldenNotation",
+        "tests/corpus/pssm_migration_test.go:TestPSSMSuiteMigration"
+      ],
+      "reason": "a CreateObjectAction is kept as a placeholder that keeps its pins and position in the flow and is reported unmapped: the mapping's InvocationExpression `C()` of the created classifier fails validation (`Must invoke a behavior or a behavioral feature`), and `new C()`, which validates, starts the new occurrence's behaviour when it is created, where v1 starts it only at a StartObjectBehaviorAction, so writing it would run behaviour v1 does not (PSSM: 426, of 423 part defs and 3 state defs; the repository fixtures: 5, none with a result pin; TMT: none) (see candidate errata)",
       "scope": [
         "uml:CreateObjectAction"
       ]
@@ -8367,10 +8400,15 @@
         "ownedRelationship"
       ],
       "ocl": "sha256:ff234b3518a6fb2d3d4f97d49cc22358b0a62a6fb5e2d092cd75d79b00d09bca",
-      "status": "not-implemented",
-      "implementation": [],
-      "tests": [],
-      "reason": "a CreateObjectAction is not migrated: it is written as a placeholder action that keeps its pins and position in the flow and is reported unmapped",
+      "status": "deliberate",
+      "implementation": [
+        "internal/translate/migrate/activity.go:placeholder"
+      ],
+      "tests": [
+        "tests/migrate/migrate_test.go:TestGoldenNotation",
+        "tests/corpus/pssm_migration_test.go:TestPSSMSuiteMigration"
+      ],
+      "reason": "a CreateObjectAction is kept as a placeholder that keeps its pins and position in the flow and is reported unmapped: the mapping's InvocationExpression `C()` of the created classifier fails validation (`Must invoke a behavior or a behavioral feature`), and `new C()`, which validates, starts the new occurrence's behaviour when it is created, where v1 starts it only at a StartObjectBehaviorAction, so writing it would run behaviour v1 does not (PSSM: 426, of 423 part defs and 3 state defs; the repository fixtures: 5, none with a result pin; TMT: none); candidate erratum: the mapping writes an InvocationExpression of the created classifier, which validation rejects for a classifier that is not a behavior or behavioral feature; an InstantiationExpression (`new C()`) is the v2 form that creates an instance",
       "scope": [
         "uml:CreateObjectAction"
       ]
@@ -8390,10 +8428,15 @@
         "value"
       ],
       "ocl": "sha256:b2b3c77c540816cd3f61af64e5b0d76882995e224ec58fddd9c0cf9a8dd257fb",
-      "status": "not-implemented",
-      "implementation": [],
-      "tests": [],
-      "reason": "a CreateObjectAction is not migrated: it is written as a placeholder action that keeps its pins and position in the flow and is reported unmapped",
+      "status": "deliberate",
+      "implementation": [
+        "internal/translate/migrate/activity.go:placeholder"
+      ],
+      "tests": [
+        "tests/migrate/migrate_test.go:TestGoldenNotation",
+        "tests/corpus/pssm_migration_test.go:TestPSSMSuiteMigration"
+      ],
+      "reason": "a CreateObjectAction is kept as a placeholder that keeps its pins and position in the flow and is reported unmapped: the mapping's InvocationExpression `C()` of the created classifier fails validation (`Must invoke a behavior or a behavioral feature`), and `new C()`, which validates, starts the new occurrence's behaviour when it is created, where v1 starts it only at a StartObjectBehaviorAction, so writing it would run behaviour v1 does not (PSSM: 426, of 423 part defs and 3 state defs; the repository fixtures: 5, none with a result pin; TMT: none) (see candidate errata)",
       "scope": [
         "uml:CreateObjectAction"
       ]
@@ -8413,10 +8456,15 @@
         "ownedRelationship"
       ],
       "ocl": "sha256:61cdace283964d97cbf383236b74da8e19cfd9621edfeadd0f2c6c3a3c9bf1ae",
-      "status": "not-implemented",
-      "implementation": [],
-      "tests": [],
-      "reason": "a CreateObjectAction is not migrated: it is written as a placeholder action that keeps its pins and position in the flow and is reported unmapped",
+      "status": "deliberate",
+      "implementation": [
+        "internal/translate/migrate/activity.go:placeholder"
+      ],
+      "tests": [
+        "tests/migrate/migrate_test.go:TestGoldenNotation",
+        "tests/corpus/pssm_migration_test.go:TestPSSMSuiteMigration"
+      ],
+      "reason": "a CreateObjectAction is kept as a placeholder that keeps its pins and position in the flow and is reported unmapped: the mapping's InvocationExpression `C()` of the created classifier fails validation (`Must invoke a behavior or a behavioral feature`), and `new C()`, which validates, starts the new occurrence's behaviour when it is created, where v1 starts it only at a StartObjectBehaviorAction, so writing it would run behaviour v1 does not (PSSM: 426, of 423 part defs and 3 state defs; the repository fixtures: 5, none with a result pin; TMT: none) (see candidate errata)",
       "scope": [
         "uml:CreateObjectAction"
       ]
@@ -8433,10 +8481,15 @@
       ],
       "operations": [],
       "ocl": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "status": "not-implemented",
-      "implementation": [],
-      "tests": [],
-      "reason": "a CreateObjectAction is not migrated: it is written as a placeholder action that keeps its pins and position in the flow and is reported unmapped",
+      "status": "deliberate",
+      "implementation": [
+        "internal/translate/migrate/activity.go:placeholder"
+      ],
+      "tests": [
+        "tests/migrate/migrate_test.go:TestGoldenNotation",
+        "tests/corpus/pssm_migration_test.go:TestPSSMSuiteMigration"
+      ],
+      "reason": "a CreateObjectAction is kept as a placeholder that keeps its pins and position in the flow and is reported unmapped: the mapping's InvocationExpression `C()` of the created classifier fails validation (`Must invoke a behavior or a behavioral feature`), and `new C()`, which validates, starts the new occurrence's behaviour when it is created, where v1 starts it only at a StartObjectBehaviorAction, so writing it would run behaviour v1 does not (PSSM: 426, of 423 part defs and 3 state defs; the repository fixtures: 5, none with a result pin; TMT: none) (see candidate errata)",
       "scope": [
         "uml:CreateObjectAction"
       ]
@@ -8456,10 +8509,15 @@
         "ownedMemberFeature"
       ],
       "ocl": "sha256:8b0701f15456195e06f48f62a52de569836766141199250f8e3289e00f06aba8",
-      "status": "not-implemented",
-      "implementation": [],
-      "tests": [],
-      "reason": "a DestroyObjectAction is not migrated: it is written as a placeholder action that keeps its pins and position in the flow and is reported unmapped",
+      "status": "faithful",
+      "implementation": [
+        "internal/translate/migrate/activity.go:destroyObject"
+      ],
+      "tests": [
+        "tests/migrate/object_writes_test.go:TestDestroyObjectUsesItsTargetPinAndReportsDifferences",
+        "tests/migrate/object_writes_test.go:TestObjectWritesExecuteAgainstThePerformer"
+      ],
+      "reason": "written as `action n { in target : T[1]; out result : T[0..1] = OccurrenceFunctions::destroy(target); }`, the Kernel Function Library's destroy invoked on the target pin and its return bound to an `out` result, which ends the occurrence when the action runs; an action with no target pin stays a placeholder, since the v1 model names nothing to destroy; isDestroyLinks, whose links v2 does not destroy, and an object with composite parts kept by isDestroyOwnedObjects false, which v2 ends with it, are reported approximated (PSSM and TMT: none; the repository fixtures: 1, with no target pin) (see candidate errata)",
       "scope": [
         "uml:DestroyObjectAction"
       ]
@@ -8479,10 +8537,15 @@
         "ownedRelationship"
       ],
       "ocl": "sha256:05b81983ada27c90d675fc33bfd1777d6f8b3aaf60360c672d4c7e445dcad387",
-      "status": "not-implemented",
-      "implementation": [],
-      "tests": [],
-      "reason": "a DestroyObjectAction is not migrated: it is written as a placeholder action that keeps its pins and position in the flow and is reported unmapped",
+      "status": "faithful",
+      "implementation": [
+        "internal/translate/migrate/activity.go:destroyObject"
+      ],
+      "tests": [
+        "tests/migrate/object_writes_test.go:TestDestroyObjectUsesItsTargetPinAndReportsDifferences",
+        "tests/migrate/object_writes_test.go:TestObjectWritesExecuteAgainstThePerformer"
+      ],
+      "reason": "written as `action n { in target : T[1]; out result : T[0..1] = OccurrenceFunctions::destroy(target); }`, the Kernel Function Library's destroy invoked on the target pin and its return bound to an `out` result, which ends the occurrence when the action runs; an action with no target pin stays a placeholder, since the v1 model names nothing to destroy; isDestroyLinks, whose links v2 does not destroy, and an object with composite parts kept by isDestroyOwnedObjects false, which v2 ends with it, are reported approximated (PSSM and TMT: none; the repository fixtures: 1, with no target pin) (see candidate errata)",
       "scope": [
         "uml:DestroyObjectAction"
       ]
@@ -8502,10 +8565,15 @@
         "type"
       ],
       "ocl": "sha256:d4b6e1d4083d0c1696f363b8d5e582a23230dca8428c9cb4ee3dc3d335031c67",
-      "status": "not-implemented",
-      "implementation": [],
-      "tests": [],
-      "reason": "a DestroyObjectAction is not migrated: it is written as a placeholder action that keeps its pins and position in the flow and is reported unmapped",
+      "status": "faithful",
+      "implementation": [
+        "internal/translate/migrate/activity.go:destroyObject"
+      ],
+      "tests": [
+        "tests/migrate/object_writes_test.go:TestDestroyObjectUsesItsTargetPinAndReportsDifferences",
+        "tests/migrate/object_writes_test.go:TestObjectWritesExecuteAgainstThePerformer"
+      ],
+      "reason": "written as `action n { in target : T[1]; out result : T[0..1] = OccurrenceFunctions::destroy(target); }`, the Kernel Function Library's destroy invoked on the target pin and its return bound to an `out` result, which ends the occurrence when the action runs; an action with no target pin stays a placeholder, since the v1 model names nothing to destroy; isDestroyLinks, whose links v2 does not destroy, and an object with composite parts kept by isDestroyOwnedObjects false, which v2 ends with it, are reported approximated (PSSM and TMT: none; the repository fixtures: 1, with no target pin) (see candidate errata)",
       "scope": [
         "uml:DestroyObjectAction"
       ]
@@ -8525,10 +8593,15 @@
         "value"
       ],
       "ocl": "sha256:c6574797630be84bfd2c2b9869c1294bb523f10550da45c74d6c0597fdc439eb",
-      "status": "not-implemented",
-      "implementation": [],
-      "tests": [],
-      "reason": "a DestroyObjectAction is not migrated: it is written as a placeholder action that keeps its pins and position in the flow and is reported unmapped",
+      "status": "faithful",
+      "implementation": [
+        "internal/translate/migrate/activity.go:destroyObject"
+      ],
+      "tests": [
+        "tests/migrate/object_writes_test.go:TestDestroyObjectUsesItsTargetPinAndReportsDifferences",
+        "tests/migrate/object_writes_test.go:TestObjectWritesExecuteAgainstThePerformer"
+      ],
+      "reason": "written as `action n { in target : T[1]; out result : T[0..1] = OccurrenceFunctions::destroy(target); }`, the Kernel Function Library's destroy invoked on the target pin and its return bound to an `out` result, which ends the occurrence when the action runs; an action with no target pin stays a placeholder, since the v1 model names nothing to destroy; isDestroyLinks, whose links v2 does not destroy, and an object with composite parts kept by isDestroyOwnedObjects false, which v2 ends with it, are reported approximated (PSSM and TMT: none; the repository fixtures: 1, with no target pin) (see candidate errata)",
       "scope": [
         "uml:DestroyObjectAction"
       ]
@@ -8548,10 +8621,15 @@
         "memberElement"
       ],
       "ocl": "sha256:798bfcfe6b0abc86afb484dcfdc71a872db093486f6ab7b2608e1b2fb9bd64f5",
-      "status": "not-implemented",
-      "implementation": [],
-      "tests": [],
-      "reason": "a DestroyObjectAction is not migrated: it is written as a placeholder action that keeps its pins and position in the flow and is reported unmapped",
+      "status": "faithful",
+      "implementation": [
+        "internal/translate/migrate/activity.go:destroyObject"
+      ],
+      "tests": [
+        "tests/migrate/object_writes_test.go:TestDestroyObjectUsesItsTargetPinAndReportsDifferences",
+        "tests/migrate/object_writes_test.go:TestObjectWritesExecuteAgainstThePerformer"
+      ],
+      "reason": "written as `action n { in target : T[1]; out result : T[0..1] = OccurrenceFunctions::destroy(target); }`, the Kernel Function Library's destroy invoked on the target pin and its return bound to an `out` result, which ends the occurrence when the action runs; an action with no target pin stays a placeholder, since the v1 model names nothing to destroy; isDestroyLinks, whose links v2 does not destroy, and an object with composite parts kept by isDestroyOwnedObjects false, which v2 ends with it, are reported approximated (PSSM and TMT: none; the repository fixtures: 1, with no target pin) (see candidate errata)",
       "scope": [
         "uml:DestroyObjectAction"
       ]
@@ -8571,10 +8649,15 @@
         "ownedRelationship"
       ],
       "ocl": "sha256:99bb9c04573fc9cf708de2c2484b5363ee5753f824b36e8fe744965d78094faf",
-      "status": "not-implemented",
-      "implementation": [],
-      "tests": [],
-      "reason": "a DestroyObjectAction is not migrated: it is written as a placeholder action that keeps its pins and position in the flow and is reported unmapped",
+      "status": "faithful",
+      "implementation": [
+        "internal/translate/migrate/activity.go:destroyObject"
+      ],
+      "tests": [
+        "tests/migrate/object_writes_test.go:TestDestroyObjectUsesItsTargetPinAndReportsDifferences",
+        "tests/migrate/object_writes_test.go:TestObjectWritesExecuteAgainstThePerformer"
+      ],
+      "reason": "written as `action n { in target : T[1]; out result : T[0..1] = OccurrenceFunctions::destroy(target); }`, the Kernel Function Library's destroy invoked on the target pin and its return bound to an `out` result, which ends the occurrence when the action runs; an action with no target pin stays a placeholder, since the v1 model names nothing to destroy; isDestroyLinks, whose links v2 does not destroy, and an object with composite parts kept by isDestroyOwnedObjects false, which v2 ends with it, are reported approximated (PSSM and TMT: none; the repository fixtures: 1, with no target pin); candidate erratum: the mapping types an ActionUsage by the function OccurrenceFunctions::destroy and adds a ReferenceUsage that redefines none of its parameters, so `occ` is never bound and nothing is destroyed; invoking the function on the target, which binds `occ`, is written",
       "scope": [
         "uml:DestroyObjectAction"
       ]
@@ -8594,10 +8677,15 @@
         "ownedRelationship"
       ],
       "ocl": "sha256:9e2e6c5d03b458ce74568d36ee61fd9dcde1eda699e9bbd323da9e115028dba7",
-      "status": "not-implemented",
-      "implementation": [],
-      "tests": [],
-      "reason": "a DestroyObjectAction is not migrated: it is written as a placeholder action that keeps its pins and position in the flow and is reported unmapped",
+      "status": "faithful",
+      "implementation": [
+        "internal/translate/migrate/activity.go:destroyObject"
+      ],
+      "tests": [
+        "tests/migrate/object_writes_test.go:TestDestroyObjectUsesItsTargetPinAndReportsDifferences",
+        "tests/migrate/object_writes_test.go:TestObjectWritesExecuteAgainstThePerformer"
+      ],
+      "reason": "written as `action n { in target : T[1]; out result : T[0..1] = OccurrenceFunctions::destroy(target); }`, the Kernel Function Library's destroy invoked on the target pin and its return bound to an `out` result, which ends the occurrence when the action runs; an action with no target pin stays a placeholder, since the v1 model names nothing to destroy; isDestroyLinks, whose links v2 does not destroy, and an object with composite parts kept by isDestroyOwnedObjects false, which v2 ends with it, are reported approximated (PSSM and TMT: none; the repository fixtures: 1, with no target pin) (see candidate errata)",
       "scope": [
         "uml:DestroyObjectAction"
       ]
@@ -8617,10 +8705,15 @@
         "ownedMemberFeature"
       ],
       "ocl": "sha256:ebcf3ea5a88dd7b6188fa4809d1c97890767f9086e079a0915cc0490266c88e9",
-      "status": "not-implemented",
-      "implementation": [],
-      "tests": [],
-      "reason": "a DestroyObjectAction is not migrated: it is written as a placeholder action that keeps its pins and position in the flow and is reported unmapped",
+      "status": "faithful",
+      "implementation": [
+        "internal/translate/migrate/activity.go:destroyObject"
+      ],
+      "tests": [
+        "tests/migrate/object_writes_test.go:TestDestroyObjectUsesItsTargetPinAndReportsDifferences",
+        "tests/migrate/object_writes_test.go:TestObjectWritesExecuteAgainstThePerformer"
+      ],
+      "reason": "written as `action n { in target : T[1]; out result : T[0..1] = OccurrenceFunctions::destroy(target); }`, the Kernel Function Library's destroy invoked on the target pin and its return bound to an `out` result, which ends the occurrence when the action runs; an action with no target pin stays a placeholder, since the v1 model names nothing to destroy; isDestroyLinks, whose links v2 does not destroy, and an object with composite parts kept by isDestroyOwnedObjects false, which v2 ends with it, are reported approximated (PSSM and TMT: none; the repository fixtures: 1, with no target pin) (see candidate errata)",
       "scope": [
         "uml:DestroyObjectAction"
       ]
@@ -8639,10 +8732,15 @@
         "ownedRelationship"
       ],
       "ocl": "sha256:23d7d1c9df3a138d6693ce2ac2d4e09ffbf1af8de9f0cc23251de3445a36af87",
-      "status": "not-implemented",
-      "implementation": [],
-      "tests": [],
-      "reason": "a DestroyObjectAction is not migrated: it is written as a placeholder action that keeps its pins and position in the flow and is reported unmapped",
+      "status": "faithful",
+      "implementation": [
+        "internal/translate/migrate/activity.go:destroyObject"
+      ],
+      "tests": [
+        "tests/migrate/object_writes_test.go:TestDestroyObjectUsesItsTargetPinAndReportsDifferences",
+        "tests/migrate/object_writes_test.go:TestObjectWritesExecuteAgainstThePerformer"
+      ],
+      "reason": "written as `action n { in target : T[1]; out result : T[0..1] = OccurrenceFunctions::destroy(target); }`, the Kernel Function Library's destroy invoked on the target pin and its return bound to an `out` result, which ends the occurrence when the action runs; an action with no target pin stays a placeholder, since the v1 model names nothing to destroy; isDestroyLinks, whose links v2 does not destroy, and an object with composite parts kept by isDestroyOwnedObjects false, which v2 ends with it, are reported approximated (PSSM and TMT: none; the repository fixtures: 1, with no target pin) (see candidate errata)",
       "scope": [
         "uml:DestroyObjectAction"
       ]
@@ -9173,10 +9271,14 @@
       ],
       "operations": [],
       "ocl": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "status": "not-implemented",
-      "implementation": [],
-      "tests": [],
-      "reason": "a ReclassifyObjectAction is not migrated: it is written as a placeholder action that keeps its pins and position in the flow and is reported unmapped",
+      "status": "deliberate",
+      "implementation": [
+        "internal/translate/migrate/activity.go:placeholder"
+      ],
+      "tests": [
+        "tests/migrate/migrate_test.go:TestGoldenNotation"
+      ],
+      "reason": "a ReclassifyObjectAction is kept as a placeholder that keeps its pins and position in the flow and is reported unmapped: v2 has no reclassification of an existing occurrence, and the mapping's target, an ActionUsage whose mapping states no OCL, would drop the change silently (PSSM, TMT and the repository fixtures: none)",
       "scope": [
         "uml:ReclassifyObjectAction"
       ]
@@ -9418,15 +9520,26 @@
         "type"
       ],
       "ocl": "sha256:7419befd05c1b387b8885ffe15ee25f75875260b658fd4680de50253b22bd3a7",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
-        "internal/translate/migrate/activity.go:writeFeature"
+        "internal/translate/migrate/activity.go:writeFeature",
+        "internal/translate/migrate/activity.go:writeObjectFeature",
+        "internal/translate/migrate/activity.go:resultPinValues"
       ],
       "tests": [
-        "tests/migrate/datawait_test.go:TestActionsWaitForTheValuesFlowingIntoThem",
-        "tests/migrate/migrate_test.go:TestGoldenNotation"
+        "tests/migrate/object_writes_test.go:TestFlowFedObjectWritesBindAndChainResults",
+        "tests/migrate/object_writes_test.go:TestFedObjectPinWithoutResolvedSourceIsWriteTarget",
+        "tests/migrate/object_writes_test.go:TestStructuredNodeBoundaryFeedsObjectPin",
+        "tests/migrate/object_writes_test.go:TestStructuredNodeReadSelfTargetsFedObjectPin",
+        "tests/migrate/object_writes_test.go:TestObjectWriteCollectionUpdatesRespectFeatureShape",
+        "tests/migrate/object_writes_test.go:TestFlowFedObjectWriteRejectsUntypedAndWrongClassifiers",
+        "tests/migrate/object_writes_test.go:TestObjectWriteAssociationEndStaysUnmapped",
+        "tests/migrate/object_writes_test.go:TestObjectWriteKeepsSelfAndOptionalScalarWrites",
+        "tests/migrate/object_writes_test.go:TestObjectWritesExecuteAgainstThePerformer",
+        "tests/migrate/migrate_test.go:TestGoldenNotation",
+        "tests/corpus/pssm_migration_test.go:TestPSSMSuiteMigration"
       ],
-      "reason": "an assignment `assign obj.feature := value` replaces the value whatever isReplaceAll says; one whose object it cannot resolve is unmapped (PSSM: 411 approximated, 114 unmapped)",
+      "reason": "written as `assign obj.feature := value` on the object the object pin holds: `this`, a chain of structural-feature reads from it, or the object pin itself when a flow supplies the object; the result pin is bound to that object (`out result = obj;`) so a chain of writes continues on it, and the assignment is the v2 form of the mapping's target feature chain and value; a write that is not replace-all adds to a collection-valued feature (`SequenceFunctions::including`, `includingAt` at the insertAt position of an ordered feature, after `excluding` on a unique feature so no value repeats), and replaces a single-valued one; the per-element losses stay in the ledger: a feature that is an end owned by its association is not written, since the v2 class has no such feature and writing it creates or destroys a link, nor is an untyped feature or object pin, and a write whose input traces to no pin that produces a value in v2 keeps the note that it never fires (PSSM: 5 mapped, 408 approximated, 112 unmapped of 525; 407 approximated for an input with no producer; 108 unmapped as association ends, 4 for an untyped feature or pin; TMT: 13 mapped)",
       "scope": [
         "uml:AddStructuralFeatureValueAction"
       ]
@@ -9446,15 +9559,26 @@
         "ownedMemberFeature"
       ],
       "ocl": "sha256:7ce8e1dfe3716ca80f612ec283462f19f1d29b081dd5eeaf095bcccc19708306",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
-        "internal/translate/migrate/activity.go:writeFeature"
+        "internal/translate/migrate/activity.go:writeFeature",
+        "internal/translate/migrate/activity.go:writeObjectFeature",
+        "internal/translate/migrate/activity.go:resultPinValues"
       ],
       "tests": [
-        "tests/migrate/datawait_test.go:TestActionsWaitForTheValuesFlowingIntoThem",
-        "tests/migrate/migrate_test.go:TestGoldenNotation"
+        "tests/migrate/object_writes_test.go:TestFlowFedObjectWritesBindAndChainResults",
+        "tests/migrate/object_writes_test.go:TestFedObjectPinWithoutResolvedSourceIsWriteTarget",
+        "tests/migrate/object_writes_test.go:TestStructuredNodeBoundaryFeedsObjectPin",
+        "tests/migrate/object_writes_test.go:TestStructuredNodeReadSelfTargetsFedObjectPin",
+        "tests/migrate/object_writes_test.go:TestObjectWriteCollectionUpdatesRespectFeatureShape",
+        "tests/migrate/object_writes_test.go:TestFlowFedObjectWriteRejectsUntypedAndWrongClassifiers",
+        "tests/migrate/object_writes_test.go:TestObjectWriteAssociationEndStaysUnmapped",
+        "tests/migrate/object_writes_test.go:TestObjectWriteKeepsSelfAndOptionalScalarWrites",
+        "tests/migrate/object_writes_test.go:TestObjectWritesExecuteAgainstThePerformer",
+        "tests/migrate/migrate_test.go:TestGoldenNotation",
+        "tests/corpus/pssm_migration_test.go:TestPSSMSuiteMigration"
       ],
-      "reason": "an assignment `assign obj.feature := value` replaces the value whatever isReplaceAll says; one whose object it cannot resolve is unmapped (PSSM: 411 approximated, 114 unmapped)",
+      "reason": "written as `assign obj.feature := value` on the object the object pin holds: `this`, a chain of structural-feature reads from it, or the object pin itself when a flow supplies the object; the result pin is bound to that object (`out result = obj;`) so a chain of writes continues on it, and the assignment is the v2 form of the mapping's target feature chain and value; a write that is not replace-all adds to a collection-valued feature (`SequenceFunctions::including`, `includingAt` at the insertAt position of an ordered feature, after `excluding` on a unique feature so no value repeats), and replaces a single-valued one; the per-element losses stay in the ledger: a feature that is an end owned by its association is not written, since the v2 class has no such feature and writing it creates or destroys a link, nor is an untyped feature or object pin, and a write whose input traces to no pin that produces a value in v2 keeps the note that it never fires (PSSM: 5 mapped, 408 approximated, 112 unmapped of 525; 407 approximated for an input with no producer; 108 unmapped as association ends, 4 for an untyped feature or pin; TMT: 13 mapped)",
       "scope": [
         "uml:AddStructuralFeatureValueAction"
       ]
@@ -9474,15 +9598,26 @@
         "type"
       ],
       "ocl": "sha256:7349c79c919a82ac03d27f1dfefe0c303643f1fa6be64eec7fbb9d95d2d7bdc7",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
-        "internal/translate/migrate/activity.go:writeFeature"
+        "internal/translate/migrate/activity.go:writeFeature",
+        "internal/translate/migrate/activity.go:writeObjectFeature",
+        "internal/translate/migrate/activity.go:resultPinValues"
       ],
       "tests": [
-        "tests/migrate/datawait_test.go:TestActionsWaitForTheValuesFlowingIntoThem",
-        "tests/migrate/migrate_test.go:TestGoldenNotation"
+        "tests/migrate/object_writes_test.go:TestFlowFedObjectWritesBindAndChainResults",
+        "tests/migrate/object_writes_test.go:TestFedObjectPinWithoutResolvedSourceIsWriteTarget",
+        "tests/migrate/object_writes_test.go:TestStructuredNodeBoundaryFeedsObjectPin",
+        "tests/migrate/object_writes_test.go:TestStructuredNodeReadSelfTargetsFedObjectPin",
+        "tests/migrate/object_writes_test.go:TestObjectWriteCollectionUpdatesRespectFeatureShape",
+        "tests/migrate/object_writes_test.go:TestFlowFedObjectWriteRejectsUntypedAndWrongClassifiers",
+        "tests/migrate/object_writes_test.go:TestObjectWriteAssociationEndStaysUnmapped",
+        "tests/migrate/object_writes_test.go:TestObjectWriteKeepsSelfAndOptionalScalarWrites",
+        "tests/migrate/object_writes_test.go:TestObjectWritesExecuteAgainstThePerformer",
+        "tests/migrate/migrate_test.go:TestGoldenNotation",
+        "tests/corpus/pssm_migration_test.go:TestPSSMSuiteMigration"
       ],
-      "reason": "an assignment `assign obj.feature := value` replaces the value whatever isReplaceAll says; one whose object it cannot resolve is unmapped (PSSM: 411 approximated, 114 unmapped)",
+      "reason": "written as `assign obj.feature := value` on the object the object pin holds: `this`, a chain of structural-feature reads from it, or the object pin itself when a flow supplies the object; the result pin is bound to that object (`out result = obj;`) so a chain of writes continues on it, and the assignment is the v2 form of the mapping's target feature chain and value; a write that is not replace-all adds to a collection-valued feature (`SequenceFunctions::including`, `includingAt` at the insertAt position of an ordered feature, after `excluding` on a unique feature so no value repeats), and replaces a single-valued one; the per-element losses stay in the ledger: a feature that is an end owned by its association is not written, since the v2 class has no such feature and writing it creates or destroys a link, nor is an untyped feature or object pin, and a write whose input traces to no pin that produces a value in v2 keeps the note that it never fires (PSSM: 5 mapped, 408 approximated, 112 unmapped of 525; 407 approximated for an input with no producer; 108 unmapped as association ends, 4 for an untyped feature or pin; TMT: 13 mapped)",
       "scope": [
         "uml:AddStructuralFeatureValueAction"
       ]
@@ -9502,15 +9637,26 @@
         "redefinedFeature"
       ],
       "ocl": "sha256:cf635ccec1c0827fae1947b061070fa190ef73afe254f779c87345694c85913b",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
-        "internal/translate/migrate/activity.go:writeFeature"
+        "internal/translate/migrate/activity.go:writeFeature",
+        "internal/translate/migrate/activity.go:writeObjectFeature",
+        "internal/translate/migrate/activity.go:resultPinValues"
       ],
       "tests": [
-        "tests/migrate/datawait_test.go:TestActionsWaitForTheValuesFlowingIntoThem",
-        "tests/migrate/migrate_test.go:TestGoldenNotation"
+        "tests/migrate/object_writes_test.go:TestFlowFedObjectWritesBindAndChainResults",
+        "tests/migrate/object_writes_test.go:TestFedObjectPinWithoutResolvedSourceIsWriteTarget",
+        "tests/migrate/object_writes_test.go:TestStructuredNodeBoundaryFeedsObjectPin",
+        "tests/migrate/object_writes_test.go:TestStructuredNodeReadSelfTargetsFedObjectPin",
+        "tests/migrate/object_writes_test.go:TestObjectWriteCollectionUpdatesRespectFeatureShape",
+        "tests/migrate/object_writes_test.go:TestFlowFedObjectWriteRejectsUntypedAndWrongClassifiers",
+        "tests/migrate/object_writes_test.go:TestObjectWriteAssociationEndStaysUnmapped",
+        "tests/migrate/object_writes_test.go:TestObjectWriteKeepsSelfAndOptionalScalarWrites",
+        "tests/migrate/object_writes_test.go:TestObjectWritesExecuteAgainstThePerformer",
+        "tests/migrate/migrate_test.go:TestGoldenNotation",
+        "tests/corpus/pssm_migration_test.go:TestPSSMSuiteMigration"
       ],
-      "reason": "an assignment `assign obj.feature := value` replaces the value whatever isReplaceAll says; one whose object it cannot resolve is unmapped (PSSM: 411 approximated, 114 unmapped)",
+      "reason": "written as `assign obj.feature := value` on the object the object pin holds: `this`, a chain of structural-feature reads from it, or the object pin itself when a flow supplies the object; the result pin is bound to that object (`out result = obj;`) so a chain of writes continues on it, and the assignment is the v2 form of the mapping's target feature chain and value; a write that is not replace-all adds to a collection-valued feature (`SequenceFunctions::including`, `includingAt` at the insertAt position of an ordered feature, after `excluding` on a unique feature so no value repeats), and replaces a single-valued one; the per-element losses stay in the ledger: a feature that is an end owned by its association is not written, since the v2 class has no such feature and writing it creates or destroys a link, nor is an untyped feature or object pin, and a write whose input traces to no pin that produces a value in v2 keeps the note that it never fires (PSSM: 5 mapped, 408 approximated, 112 unmapped of 525; 407 approximated for an input with no producer; 108 unmapped as association ends, 4 for an untyped feature or pin; TMT: 13 mapped)",
       "scope": [
         "uml:AddStructuralFeatureValueAction"
       ]
@@ -9530,15 +9676,26 @@
         "ownedRelationship"
       ],
       "ocl": "sha256:b4d3102bc579c24a2fad70a50be1faf88488e7e3cc79a5a89fda14ef72d0f327",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
-        "internal/translate/migrate/activity.go:writeFeature"
+        "internal/translate/migrate/activity.go:writeFeature",
+        "internal/translate/migrate/activity.go:writeObjectFeature",
+        "internal/translate/migrate/activity.go:resultPinValues"
       ],
       "tests": [
-        "tests/migrate/datawait_test.go:TestActionsWaitForTheValuesFlowingIntoThem",
-        "tests/migrate/migrate_test.go:TestGoldenNotation"
+        "tests/migrate/object_writes_test.go:TestFlowFedObjectWritesBindAndChainResults",
+        "tests/migrate/object_writes_test.go:TestFedObjectPinWithoutResolvedSourceIsWriteTarget",
+        "tests/migrate/object_writes_test.go:TestStructuredNodeBoundaryFeedsObjectPin",
+        "tests/migrate/object_writes_test.go:TestStructuredNodeReadSelfTargetsFedObjectPin",
+        "tests/migrate/object_writes_test.go:TestObjectWriteCollectionUpdatesRespectFeatureShape",
+        "tests/migrate/object_writes_test.go:TestFlowFedObjectWriteRejectsUntypedAndWrongClassifiers",
+        "tests/migrate/object_writes_test.go:TestObjectWriteAssociationEndStaysUnmapped",
+        "tests/migrate/object_writes_test.go:TestObjectWriteKeepsSelfAndOptionalScalarWrites",
+        "tests/migrate/object_writes_test.go:TestObjectWritesExecuteAgainstThePerformer",
+        "tests/migrate/migrate_test.go:TestGoldenNotation",
+        "tests/corpus/pssm_migration_test.go:TestPSSMSuiteMigration"
       ],
-      "reason": "an assignment `assign obj.feature := value` replaces the value whatever isReplaceAll says; one whose object it cannot resolve is unmapped (PSSM: 411 approximated, 114 unmapped)",
+      "reason": "written as `assign obj.feature := value` on the object the object pin holds: `this`, a chain of structural-feature reads from it, or the object pin itself when a flow supplies the object; the result pin is bound to that object (`out result = obj;`) so a chain of writes continues on it, and the assignment is the v2 form of the mapping's target feature chain and value; a write that is not replace-all adds to a collection-valued feature (`SequenceFunctions::including`, `includingAt` at the insertAt position of an ordered feature, after `excluding` on a unique feature so no value repeats), and replaces a single-valued one; the per-element losses stay in the ledger: a feature that is an end owned by its association is not written, since the v2 class has no such feature and writing it creates or destroys a link, nor is an untyped feature or object pin, and a write whose input traces to no pin that produces a value in v2 keeps the note that it never fires (PSSM: 5 mapped, 408 approximated, 112 unmapped of 525; 407 approximated for an input with no producer; 108 unmapped as association ends, 4 for an untyped feature or pin; TMT: 13 mapped)",
       "scope": [
         "uml:AddStructuralFeatureValueAction"
       ]
@@ -9558,15 +9715,26 @@
         "ownedRelationship"
       ],
       "ocl": "sha256:eda0e73126c3f53b2dfcf630e1ee78aac5b13fa04e0c0591ede8bb17db307eb1",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
-        "internal/translate/migrate/activity.go:writeFeature"
+        "internal/translate/migrate/activity.go:writeFeature",
+        "internal/translate/migrate/activity.go:writeObjectFeature",
+        "internal/translate/migrate/activity.go:resultPinValues"
       ],
       "tests": [
-        "tests/migrate/datawait_test.go:TestActionsWaitForTheValuesFlowingIntoThem",
-        "tests/migrate/migrate_test.go:TestGoldenNotation"
+        "tests/migrate/object_writes_test.go:TestFlowFedObjectWritesBindAndChainResults",
+        "tests/migrate/object_writes_test.go:TestFedObjectPinWithoutResolvedSourceIsWriteTarget",
+        "tests/migrate/object_writes_test.go:TestStructuredNodeBoundaryFeedsObjectPin",
+        "tests/migrate/object_writes_test.go:TestStructuredNodeReadSelfTargetsFedObjectPin",
+        "tests/migrate/object_writes_test.go:TestObjectWriteCollectionUpdatesRespectFeatureShape",
+        "tests/migrate/object_writes_test.go:TestFlowFedObjectWriteRejectsUntypedAndWrongClassifiers",
+        "tests/migrate/object_writes_test.go:TestObjectWriteAssociationEndStaysUnmapped",
+        "tests/migrate/object_writes_test.go:TestObjectWriteKeepsSelfAndOptionalScalarWrites",
+        "tests/migrate/object_writes_test.go:TestObjectWritesExecuteAgainstThePerformer",
+        "tests/migrate/migrate_test.go:TestGoldenNotation",
+        "tests/corpus/pssm_migration_test.go:TestPSSMSuiteMigration"
       ],
-      "reason": "an assignment `assign obj.feature := value` replaces the value whatever isReplaceAll says; one whose object it cannot resolve is unmapped (PSSM: 411 approximated, 114 unmapped)",
+      "reason": "written as `assign obj.feature := value` on the object the object pin holds: `this`, a chain of structural-feature reads from it, or the object pin itself when a flow supplies the object; the result pin is bound to that object (`out result = obj;`) so a chain of writes continues on it, and the assignment is the v2 form of the mapping's target feature chain and value; a write that is not replace-all adds to a collection-valued feature (`SequenceFunctions::including`, `includingAt` at the insertAt position of an ordered feature, after `excluding` on a unique feature so no value repeats), and replaces a single-valued one; the per-element losses stay in the ledger: a feature that is an end owned by its association is not written, since the v2 class has no such feature and writing it creates or destroys a link, nor is an untyped feature or object pin, and a write whose input traces to no pin that produces a value in v2 keeps the note that it never fires (PSSM: 5 mapped, 408 approximated, 112 unmapped of 525; 407 approximated for an input with no producer; 108 unmapped as association ends, 4 for an untyped feature or pin; TMT: 13 mapped)",
       "scope": [
         "uml:AddStructuralFeatureValueAction"
       ]
@@ -9586,15 +9754,26 @@
         "ownedMemberFeature"
       ],
       "ocl": "sha256:07c5c1de6a43ee4b109c68e6c6f5f48cbd5e8d379ddc8955ce813d1ed7673492",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
-        "internal/translate/migrate/activity.go:writeFeature"
+        "internal/translate/migrate/activity.go:writeFeature",
+        "internal/translate/migrate/activity.go:writeObjectFeature",
+        "internal/translate/migrate/activity.go:resultPinValues"
       ],
       "tests": [
-        "tests/migrate/datawait_test.go:TestActionsWaitForTheValuesFlowingIntoThem",
-        "tests/migrate/migrate_test.go:TestGoldenNotation"
+        "tests/migrate/object_writes_test.go:TestFlowFedObjectWritesBindAndChainResults",
+        "tests/migrate/object_writes_test.go:TestFedObjectPinWithoutResolvedSourceIsWriteTarget",
+        "tests/migrate/object_writes_test.go:TestStructuredNodeBoundaryFeedsObjectPin",
+        "tests/migrate/object_writes_test.go:TestStructuredNodeReadSelfTargetsFedObjectPin",
+        "tests/migrate/object_writes_test.go:TestObjectWriteCollectionUpdatesRespectFeatureShape",
+        "tests/migrate/object_writes_test.go:TestFlowFedObjectWriteRejectsUntypedAndWrongClassifiers",
+        "tests/migrate/object_writes_test.go:TestObjectWriteAssociationEndStaysUnmapped",
+        "tests/migrate/object_writes_test.go:TestObjectWriteKeepsSelfAndOptionalScalarWrites",
+        "tests/migrate/object_writes_test.go:TestObjectWritesExecuteAgainstThePerformer",
+        "tests/migrate/migrate_test.go:TestGoldenNotation",
+        "tests/corpus/pssm_migration_test.go:TestPSSMSuiteMigration"
       ],
-      "reason": "an assignment `assign obj.feature := value` replaces the value whatever isReplaceAll says; one whose object it cannot resolve is unmapped (PSSM: 411 approximated, 114 unmapped)",
+      "reason": "written as `assign obj.feature := value` on the object the object pin holds: `this`, a chain of structural-feature reads from it, or the object pin itself when a flow supplies the object; the result pin is bound to that object (`out result = obj;`) so a chain of writes continues on it, and the assignment is the v2 form of the mapping's target feature chain and value; a write that is not replace-all adds to a collection-valued feature (`SequenceFunctions::including`, `includingAt` at the insertAt position of an ordered feature, after `excluding` on a unique feature so no value repeats), and replaces a single-valued one; the per-element losses stay in the ledger: a feature that is an end owned by its association is not written, since the v2 class has no such feature and writing it creates or destroys a link, nor is an untyped feature or object pin, and a write whose input traces to no pin that produces a value in v2 keeps the note that it never fires (PSSM: 5 mapped, 408 approximated, 112 unmapped of 525; 407 approximated for an input with no producer; 108 unmapped as association ends, 4 for an untyped feature or pin; TMT: 13 mapped)",
       "scope": [
         "uml:AddStructuralFeatureValueAction"
       ]
@@ -9615,15 +9794,26 @@
         "isInitial"
       ],
       "ocl": "sha256:5acc6dc56af07b2f706df54e9ebc9196eb72b1a621ed751f220c999076dfa85e",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
-        "internal/translate/migrate/activity.go:writeFeature"
+        "internal/translate/migrate/activity.go:writeFeature",
+        "internal/translate/migrate/activity.go:writeObjectFeature",
+        "internal/translate/migrate/activity.go:resultPinValues"
       ],
       "tests": [
-        "tests/migrate/datawait_test.go:TestActionsWaitForTheValuesFlowingIntoThem",
-        "tests/migrate/migrate_test.go:TestGoldenNotation"
+        "tests/migrate/object_writes_test.go:TestFlowFedObjectWritesBindAndChainResults",
+        "tests/migrate/object_writes_test.go:TestFedObjectPinWithoutResolvedSourceIsWriteTarget",
+        "tests/migrate/object_writes_test.go:TestStructuredNodeBoundaryFeedsObjectPin",
+        "tests/migrate/object_writes_test.go:TestStructuredNodeReadSelfTargetsFedObjectPin",
+        "tests/migrate/object_writes_test.go:TestObjectWriteCollectionUpdatesRespectFeatureShape",
+        "tests/migrate/object_writes_test.go:TestFlowFedObjectWriteRejectsUntypedAndWrongClassifiers",
+        "tests/migrate/object_writes_test.go:TestObjectWriteAssociationEndStaysUnmapped",
+        "tests/migrate/object_writes_test.go:TestObjectWriteKeepsSelfAndOptionalScalarWrites",
+        "tests/migrate/object_writes_test.go:TestObjectWritesExecuteAgainstThePerformer",
+        "tests/migrate/migrate_test.go:TestGoldenNotation",
+        "tests/corpus/pssm_migration_test.go:TestPSSMSuiteMigration"
       ],
-      "reason": "an assignment `assign obj.feature := value` replaces the value whatever isReplaceAll says; one whose object it cannot resolve is unmapped (PSSM: 411 approximated, 114 unmapped)",
+      "reason": "written as `assign obj.feature := value` on the object the object pin holds: `this`, a chain of structural-feature reads from it, or the object pin itself when a flow supplies the object; the result pin is bound to that object (`out result = obj;`) so a chain of writes continues on it, and the assignment is the v2 form of the mapping's target feature chain and value; a write that is not replace-all adds to a collection-valued feature (`SequenceFunctions::including`, `includingAt` at the insertAt position of an ordered feature, after `excluding` on a unique feature so no value repeats), and replaces a single-valued one; the per-element losses stay in the ledger: a feature that is an end owned by its association is not written, since the v2 class has no such feature and writing it creates or destroys a link, nor is an untyped feature or object pin, and a write whose input traces to no pin that produces a value in v2 keeps the note that it never fires (PSSM: 5 mapped, 408 approximated, 112 unmapped of 525; 407 approximated for an input with no producer; 108 unmapped as association ends, 4 for an untyped feature or pin; TMT: 13 mapped)",
       "scope": [
         "uml:AddStructuralFeatureValueAction"
       ]
@@ -9643,15 +9833,26 @@
         "ownedMemberFeature"
       ],
       "ocl": "sha256:6a7191370e492787a9d8d7ad532bee600fa08ad7c2b08ce73877166802b2a999",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
-        "internal/translate/migrate/activity.go:writeFeature"
+        "internal/translate/migrate/activity.go:writeFeature",
+        "internal/translate/migrate/activity.go:writeObjectFeature",
+        "internal/translate/migrate/activity.go:resultPinValues"
       ],
       "tests": [
-        "tests/migrate/datawait_test.go:TestActionsWaitForTheValuesFlowingIntoThem",
-        "tests/migrate/migrate_test.go:TestGoldenNotation"
+        "tests/migrate/object_writes_test.go:TestFlowFedObjectWritesBindAndChainResults",
+        "tests/migrate/object_writes_test.go:TestFedObjectPinWithoutResolvedSourceIsWriteTarget",
+        "tests/migrate/object_writes_test.go:TestStructuredNodeBoundaryFeedsObjectPin",
+        "tests/migrate/object_writes_test.go:TestStructuredNodeReadSelfTargetsFedObjectPin",
+        "tests/migrate/object_writes_test.go:TestObjectWriteCollectionUpdatesRespectFeatureShape",
+        "tests/migrate/object_writes_test.go:TestFlowFedObjectWriteRejectsUntypedAndWrongClassifiers",
+        "tests/migrate/object_writes_test.go:TestObjectWriteAssociationEndStaysUnmapped",
+        "tests/migrate/object_writes_test.go:TestObjectWriteKeepsSelfAndOptionalScalarWrites",
+        "tests/migrate/object_writes_test.go:TestObjectWritesExecuteAgainstThePerformer",
+        "tests/migrate/migrate_test.go:TestGoldenNotation",
+        "tests/corpus/pssm_migration_test.go:TestPSSMSuiteMigration"
       ],
-      "reason": "an assignment `assign obj.feature := value` replaces the value whatever isReplaceAll says; one whose object it cannot resolve is unmapped (PSSM: 411 approximated, 114 unmapped)",
+      "reason": "written as `assign obj.feature := value` on the object the object pin holds: `this`, a chain of structural-feature reads from it, or the object pin itself when a flow supplies the object; the result pin is bound to that object (`out result = obj;`) so a chain of writes continues on it, and the assignment is the v2 form of the mapping's target feature chain and value; a write that is not replace-all adds to a collection-valued feature (`SequenceFunctions::including`, `includingAt` at the insertAt position of an ordered feature, after `excluding` on a unique feature so no value repeats), and replaces a single-valued one; the per-element losses stay in the ledger: a feature that is an end owned by its association is not written, since the v2 class has no such feature and writing it creates or destroys a link, nor is an untyped feature or object pin, and a write whose input traces to no pin that produces a value in v2 keeps the note that it never fires (PSSM: 5 mapped, 408 approximated, 112 unmapped of 525; 407 approximated for an input with no producer; 108 unmapped as association ends, 4 for an untyped feature or pin; TMT: 13 mapped)",
       "scope": [
         "uml:AddStructuralFeatureValueAction"
       ]
@@ -9669,15 +9870,26 @@
       ],
       "operations": [],
       "ocl": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
-        "internal/translate/migrate/activity.go:writeFeature"
+        "internal/translate/migrate/activity.go:writeFeature",
+        "internal/translate/migrate/activity.go:writeObjectFeature",
+        "internal/translate/migrate/activity.go:resultPinValues"
       ],
       "tests": [
-        "tests/migrate/datawait_test.go:TestActionsWaitForTheValuesFlowingIntoThem",
-        "tests/migrate/migrate_test.go:TestGoldenNotation"
+        "tests/migrate/object_writes_test.go:TestFlowFedObjectWritesBindAndChainResults",
+        "tests/migrate/object_writes_test.go:TestFedObjectPinWithoutResolvedSourceIsWriteTarget",
+        "tests/migrate/object_writes_test.go:TestStructuredNodeBoundaryFeedsObjectPin",
+        "tests/migrate/object_writes_test.go:TestStructuredNodeReadSelfTargetsFedObjectPin",
+        "tests/migrate/object_writes_test.go:TestObjectWriteCollectionUpdatesRespectFeatureShape",
+        "tests/migrate/object_writes_test.go:TestFlowFedObjectWriteRejectsUntypedAndWrongClassifiers",
+        "tests/migrate/object_writes_test.go:TestObjectWriteAssociationEndStaysUnmapped",
+        "tests/migrate/object_writes_test.go:TestObjectWriteKeepsSelfAndOptionalScalarWrites",
+        "tests/migrate/object_writes_test.go:TestObjectWritesExecuteAgainstThePerformer",
+        "tests/migrate/migrate_test.go:TestGoldenNotation",
+        "tests/corpus/pssm_migration_test.go:TestPSSMSuiteMigration"
       ],
-      "reason": "an assignment `assign obj.feature := value` replaces the value whatever isReplaceAll says; one whose object it cannot resolve is unmapped (PSSM: 411 approximated, 114 unmapped)",
+      "reason": "written as `assign obj.feature := value` on the object the object pin holds: `this`, a chain of structural-feature reads from it, or the object pin itself when a flow supplies the object; the result pin is bound to that object (`out result = obj;`) so a chain of writes continues on it, and the assignment is the v2 form of the mapping's target feature chain and value; a write that is not replace-all adds to a collection-valued feature (`SequenceFunctions::including`, `includingAt` at the insertAt position of an ordered feature, after `excluding` on a unique feature so no value repeats), and replaces a single-valued one; the per-element losses stay in the ledger: a feature that is an end owned by its association is not written, since the v2 class has no such feature and writing it creates or destroys a link, nor is an untyped feature or object pin, and a write whose input traces to no pin that produces a value in v2 keeps the note that it never fires (PSSM: 5 mapped, 408 approximated, 112 unmapped of 525; 407 approximated for an input with no producer; 108 unmapped as association ends, 4 for an untyped feature or pin; TMT: 13 mapped)",
       "scope": [
         "uml:AddStructuralFeatureValueAction"
       ]
@@ -9697,15 +9909,26 @@
         "memberElement"
       ],
       "ocl": "sha256:ee13eb7d44bf9377a8ec609449688c9732d87c858e8f7a0af3b77f565fb9d2d1",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
-        "internal/translate/migrate/activity.go:writeFeature"
+        "internal/translate/migrate/activity.go:writeFeature",
+        "internal/translate/migrate/activity.go:writeObjectFeature",
+        "internal/translate/migrate/activity.go:resultPinValues"
       ],
       "tests": [
-        "tests/migrate/datawait_test.go:TestActionsWaitForTheValuesFlowingIntoThem",
-        "tests/migrate/migrate_test.go:TestGoldenNotation"
+        "tests/migrate/object_writes_test.go:TestFlowFedObjectWritesBindAndChainResults",
+        "tests/migrate/object_writes_test.go:TestFedObjectPinWithoutResolvedSourceIsWriteTarget",
+        "tests/migrate/object_writes_test.go:TestStructuredNodeBoundaryFeedsObjectPin",
+        "tests/migrate/object_writes_test.go:TestStructuredNodeReadSelfTargetsFedObjectPin",
+        "tests/migrate/object_writes_test.go:TestObjectWriteCollectionUpdatesRespectFeatureShape",
+        "tests/migrate/object_writes_test.go:TestFlowFedObjectWriteRejectsUntypedAndWrongClassifiers",
+        "tests/migrate/object_writes_test.go:TestObjectWriteAssociationEndStaysUnmapped",
+        "tests/migrate/object_writes_test.go:TestObjectWriteKeepsSelfAndOptionalScalarWrites",
+        "tests/migrate/object_writes_test.go:TestObjectWritesExecuteAgainstThePerformer",
+        "tests/migrate/migrate_test.go:TestGoldenNotation",
+        "tests/corpus/pssm_migration_test.go:TestPSSMSuiteMigration"
       ],
-      "reason": "an assignment `assign obj.feature := value` replaces the value whatever isReplaceAll says; one whose object it cannot resolve is unmapped (PSSM: 411 approximated, 114 unmapped)",
+      "reason": "written as `assign obj.feature := value` on the object the object pin holds: `this`, a chain of structural-feature reads from it, or the object pin itself when a flow supplies the object; the result pin is bound to that object (`out result = obj;`) so a chain of writes continues on it, and the assignment is the v2 form of the mapping's target feature chain and value; a write that is not replace-all adds to a collection-valued feature (`SequenceFunctions::including`, `includingAt` at the insertAt position of an ordered feature, after `excluding` on a unique feature so no value repeats), and replaces a single-valued one; the per-element losses stay in the ledger: a feature that is an end owned by its association is not written, since the v2 class has no such feature and writing it creates or destroys a link, nor is an untyped feature or object pin, and a write whose input traces to no pin that produces a value in v2 keeps the note that it never fires (PSSM: 5 mapped, 408 approximated, 112 unmapped of 525; 407 approximated for an input with no producer; 108 unmapped as association ends, 4 for an untyped feature or pin; TMT: 13 mapped)",
       "scope": [
         "uml:AddStructuralFeatureValueAction"
       ]
@@ -9725,15 +9948,26 @@
         "memberElement"
       ],
       "ocl": "sha256:367053f90954cb7cbf6c8510354f6aaecb22c09c55d34482e980f068488f6531",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
-        "internal/translate/migrate/activity.go:writeFeature"
+        "internal/translate/migrate/activity.go:writeFeature",
+        "internal/translate/migrate/activity.go:writeObjectFeature",
+        "internal/translate/migrate/activity.go:resultPinValues"
       ],
       "tests": [
-        "tests/migrate/datawait_test.go:TestActionsWaitForTheValuesFlowingIntoThem",
-        "tests/migrate/migrate_test.go:TestGoldenNotation"
+        "tests/migrate/object_writes_test.go:TestFlowFedObjectWritesBindAndChainResults",
+        "tests/migrate/object_writes_test.go:TestFedObjectPinWithoutResolvedSourceIsWriteTarget",
+        "tests/migrate/object_writes_test.go:TestStructuredNodeBoundaryFeedsObjectPin",
+        "tests/migrate/object_writes_test.go:TestStructuredNodeReadSelfTargetsFedObjectPin",
+        "tests/migrate/object_writes_test.go:TestObjectWriteCollectionUpdatesRespectFeatureShape",
+        "tests/migrate/object_writes_test.go:TestFlowFedObjectWriteRejectsUntypedAndWrongClassifiers",
+        "tests/migrate/object_writes_test.go:TestObjectWriteAssociationEndStaysUnmapped",
+        "tests/migrate/object_writes_test.go:TestObjectWriteKeepsSelfAndOptionalScalarWrites",
+        "tests/migrate/object_writes_test.go:TestObjectWritesExecuteAgainstThePerformer",
+        "tests/migrate/migrate_test.go:TestGoldenNotation",
+        "tests/corpus/pssm_migration_test.go:TestPSSMSuiteMigration"
       ],
-      "reason": "an assignment `assign obj.feature := value` replaces the value whatever isReplaceAll says; one whose object it cannot resolve is unmapped (PSSM: 411 approximated, 114 unmapped)",
+      "reason": "written as `assign obj.feature := value` on the object the object pin holds: `this`, a chain of structural-feature reads from it, or the object pin itself when a flow supplies the object; the result pin is bound to that object (`out result = obj;`) so a chain of writes continues on it, and the assignment is the v2 form of the mapping's target feature chain and value; a write that is not replace-all adds to a collection-valued feature (`SequenceFunctions::including`, `includingAt` at the insertAt position of an ordered feature, after `excluding` on a unique feature so no value repeats), and replaces a single-valued one; the per-element losses stay in the ledger: a feature that is an end owned by its association is not written, since the v2 class has no such feature and writing it creates or destroys a link, nor is an untyped feature or object pin, and a write whose input traces to no pin that produces a value in v2 keeps the note that it never fires (PSSM: 5 mapped, 408 approximated, 112 unmapped of 525; 407 approximated for an input with no producer; 108 unmapped as association ends, 4 for an untyped feature or pin; TMT: 13 mapped)",
       "scope": [
         "uml:AddStructuralFeatureValueAction"
       ]
@@ -9753,15 +9987,26 @@
         "ownedRelationship"
       ],
       "ocl": "sha256:649e27b80450ad82254289d91dd452feae4daf35b40f54e893dd15b9936086f0",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
-        "internal/translate/migrate/activity.go:writeFeature"
+        "internal/translate/migrate/activity.go:writeFeature",
+        "internal/translate/migrate/activity.go:writeObjectFeature",
+        "internal/translate/migrate/activity.go:resultPinValues"
       ],
       "tests": [
-        "tests/migrate/datawait_test.go:TestActionsWaitForTheValuesFlowingIntoThem",
-        "tests/migrate/migrate_test.go:TestGoldenNotation"
+        "tests/migrate/object_writes_test.go:TestFlowFedObjectWritesBindAndChainResults",
+        "tests/migrate/object_writes_test.go:TestFedObjectPinWithoutResolvedSourceIsWriteTarget",
+        "tests/migrate/object_writes_test.go:TestStructuredNodeBoundaryFeedsObjectPin",
+        "tests/migrate/object_writes_test.go:TestStructuredNodeReadSelfTargetsFedObjectPin",
+        "tests/migrate/object_writes_test.go:TestObjectWriteCollectionUpdatesRespectFeatureShape",
+        "tests/migrate/object_writes_test.go:TestFlowFedObjectWriteRejectsUntypedAndWrongClassifiers",
+        "tests/migrate/object_writes_test.go:TestObjectWriteAssociationEndStaysUnmapped",
+        "tests/migrate/object_writes_test.go:TestObjectWriteKeepsSelfAndOptionalScalarWrites",
+        "tests/migrate/object_writes_test.go:TestObjectWritesExecuteAgainstThePerformer",
+        "tests/migrate/migrate_test.go:TestGoldenNotation",
+        "tests/corpus/pssm_migration_test.go:TestPSSMSuiteMigration"
       ],
-      "reason": "an assignment `assign obj.feature := value` replaces the value whatever isReplaceAll says; one whose object it cannot resolve is unmapped (PSSM: 411 approximated, 114 unmapped)",
+      "reason": "written as `assign obj.feature := value` on the object the object pin holds: `this`, a chain of structural-feature reads from it, or the object pin itself when a flow supplies the object; the result pin is bound to that object (`out result = obj;`) so a chain of writes continues on it, and the assignment is the v2 form of the mapping's target feature chain and value; a write that is not replace-all adds to a collection-valued feature (`SequenceFunctions::including`, `includingAt` at the insertAt position of an ordered feature, after `excluding` on a unique feature so no value repeats), and replaces a single-valued one; the per-element losses stay in the ledger: a feature that is an end owned by its association is not written, since the v2 class has no such feature and writing it creates or destroys a link, nor is an untyped feature or object pin, and a write whose input traces to no pin that produces a value in v2 keeps the note that it never fires (PSSM: 5 mapped, 408 approximated, 112 unmapped of 525; 407 approximated for an input with no producer; 108 unmapped as association ends, 4 for an untyped feature or pin; TMT: 13 mapped)",
       "scope": [
         "uml:AddStructuralFeatureValueAction"
       ]
@@ -9781,15 +10026,26 @@
         "value"
       ],
       "ocl": "sha256:1c72d70ec8f9f91959ec7793bf718d37a8fc32f196f09f0296fae98b7d635000",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
-        "internal/translate/migrate/activity.go:writeFeature"
+        "internal/translate/migrate/activity.go:writeFeature",
+        "internal/translate/migrate/activity.go:writeObjectFeature",
+        "internal/translate/migrate/activity.go:resultPinValues"
       ],
       "tests": [
-        "tests/migrate/datawait_test.go:TestActionsWaitForTheValuesFlowingIntoThem",
-        "tests/migrate/migrate_test.go:TestGoldenNotation"
+        "tests/migrate/object_writes_test.go:TestFlowFedObjectWritesBindAndChainResults",
+        "tests/migrate/object_writes_test.go:TestFedObjectPinWithoutResolvedSourceIsWriteTarget",
+        "tests/migrate/object_writes_test.go:TestStructuredNodeBoundaryFeedsObjectPin",
+        "tests/migrate/object_writes_test.go:TestStructuredNodeReadSelfTargetsFedObjectPin",
+        "tests/migrate/object_writes_test.go:TestObjectWriteCollectionUpdatesRespectFeatureShape",
+        "tests/migrate/object_writes_test.go:TestFlowFedObjectWriteRejectsUntypedAndWrongClassifiers",
+        "tests/migrate/object_writes_test.go:TestObjectWriteAssociationEndStaysUnmapped",
+        "tests/migrate/object_writes_test.go:TestObjectWriteKeepsSelfAndOptionalScalarWrites",
+        "tests/migrate/object_writes_test.go:TestObjectWritesExecuteAgainstThePerformer",
+        "tests/migrate/migrate_test.go:TestGoldenNotation",
+        "tests/corpus/pssm_migration_test.go:TestPSSMSuiteMigration"
       ],
-      "reason": "an assignment `assign obj.feature := value` replaces the value whatever isReplaceAll says; one whose object it cannot resolve is unmapped (PSSM: 411 approximated, 114 unmapped)",
+      "reason": "written as `assign obj.feature := value` on the object the object pin holds: `this`, a chain of structural-feature reads from it, or the object pin itself when a flow supplies the object; the result pin is bound to that object (`out result = obj;`) so a chain of writes continues on it, and the assignment is the v2 form of the mapping's target feature chain and value; a write that is not replace-all adds to a collection-valued feature (`SequenceFunctions::including`, `includingAt` at the insertAt position of an ordered feature, after `excluding` on a unique feature so no value repeats), and replaces a single-valued one; the per-element losses stay in the ledger: a feature that is an end owned by its association is not written, since the v2 class has no such feature and writing it creates or destroys a link, nor is an untyped feature or object pin, and a write whose input traces to no pin that produces a value in v2 keeps the note that it never fires (PSSM: 5 mapped, 408 approximated, 112 unmapped of 525; 407 approximated for an input with no producer; 108 unmapped as association ends, 4 for an untyped feature or pin; TMT: 13 mapped)",
       "scope": [
         "uml:AddStructuralFeatureValueAction"
       ]
@@ -9810,15 +10066,26 @@
         "direction"
       ],
       "ocl": "sha256:34d0d39f288a9093b7e2ba043db8619cd16d00aefa3d3cf0190abd53121e87a7",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
-        "internal/translate/migrate/activity.go:writeFeature"
+        "internal/translate/migrate/activity.go:writeFeature",
+        "internal/translate/migrate/activity.go:writeObjectFeature",
+        "internal/translate/migrate/activity.go:resultPinValues"
       ],
       "tests": [
-        "tests/migrate/datawait_test.go:TestActionsWaitForTheValuesFlowingIntoThem",
-        "tests/migrate/migrate_test.go:TestGoldenNotation"
+        "tests/migrate/object_writes_test.go:TestFlowFedObjectWritesBindAndChainResults",
+        "tests/migrate/object_writes_test.go:TestFedObjectPinWithoutResolvedSourceIsWriteTarget",
+        "tests/migrate/object_writes_test.go:TestStructuredNodeBoundaryFeedsObjectPin",
+        "tests/migrate/object_writes_test.go:TestStructuredNodeReadSelfTargetsFedObjectPin",
+        "tests/migrate/object_writes_test.go:TestObjectWriteCollectionUpdatesRespectFeatureShape",
+        "tests/migrate/object_writes_test.go:TestFlowFedObjectWriteRejectsUntypedAndWrongClassifiers",
+        "tests/migrate/object_writes_test.go:TestObjectWriteAssociationEndStaysUnmapped",
+        "tests/migrate/object_writes_test.go:TestObjectWriteKeepsSelfAndOptionalScalarWrites",
+        "tests/migrate/object_writes_test.go:TestObjectWritesExecuteAgainstThePerformer",
+        "tests/migrate/migrate_test.go:TestGoldenNotation",
+        "tests/corpus/pssm_migration_test.go:TestPSSMSuiteMigration"
       ],
-      "reason": "an assignment `assign obj.feature := value` replaces the value whatever isReplaceAll says; one whose object it cannot resolve is unmapped (PSSM: 411 approximated, 114 unmapped)",
+      "reason": "written as `assign obj.feature := value` on the object the object pin holds: `this`, a chain of structural-feature reads from it, or the object pin itself when a flow supplies the object; the result pin is bound to that object (`out result = obj;`) so a chain of writes continues on it, and the assignment is the v2 form of the mapping's target feature chain and value; a write that is not replace-all adds to a collection-valued feature (`SequenceFunctions::including`, `includingAt` at the insertAt position of an ordered feature, after `excluding` on a unique feature so no value repeats), and replaces a single-valued one; the per-element losses stay in the ledger: a feature that is an end owned by its association is not written, since the v2 class has no such feature and writing it creates or destroys a link, nor is an untyped feature or object pin, and a write whose input traces to no pin that produces a value in v2 keeps the note that it never fires (PSSM: 5 mapped, 408 approximated, 112 unmapped of 525; 407 approximated for an input with no producer; 108 unmapped as association ends, 4 for an untyped feature or pin; TMT: 13 mapped)",
       "scope": [
         "uml:AddStructuralFeatureValueAction"
       ]
@@ -9839,15 +10106,26 @@
         "visibility"
       ],
       "ocl": "sha256:49b468d1b8b71ad52d4e007ed38549b31f784d70cd912b719cbea9f85a831d60",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
-        "internal/translate/migrate/activity.go:writeFeature"
+        "internal/translate/migrate/activity.go:writeFeature",
+        "internal/translate/migrate/activity.go:writeObjectFeature",
+        "internal/translate/migrate/activity.go:resultPinValues"
       ],
       "tests": [
-        "tests/migrate/datawait_test.go:TestActionsWaitForTheValuesFlowingIntoThem",
-        "tests/migrate/migrate_test.go:TestGoldenNotation"
+        "tests/migrate/object_writes_test.go:TestFlowFedObjectWritesBindAndChainResults",
+        "tests/migrate/object_writes_test.go:TestFedObjectPinWithoutResolvedSourceIsWriteTarget",
+        "tests/migrate/object_writes_test.go:TestStructuredNodeBoundaryFeedsObjectPin",
+        "tests/migrate/object_writes_test.go:TestStructuredNodeReadSelfTargetsFedObjectPin",
+        "tests/migrate/object_writes_test.go:TestObjectWriteCollectionUpdatesRespectFeatureShape",
+        "tests/migrate/object_writes_test.go:TestFlowFedObjectWriteRejectsUntypedAndWrongClassifiers",
+        "tests/migrate/object_writes_test.go:TestObjectWriteAssociationEndStaysUnmapped",
+        "tests/migrate/object_writes_test.go:TestObjectWriteKeepsSelfAndOptionalScalarWrites",
+        "tests/migrate/object_writes_test.go:TestObjectWritesExecuteAgainstThePerformer",
+        "tests/migrate/migrate_test.go:TestGoldenNotation",
+        "tests/corpus/pssm_migration_test.go:TestPSSMSuiteMigration"
       ],
-      "reason": "an assignment `assign obj.feature := value` replaces the value whatever isReplaceAll says; one whose object it cannot resolve is unmapped (PSSM: 411 approximated, 114 unmapped)",
+      "reason": "written as `assign obj.feature := value` on the object the object pin holds: `this`, a chain of structural-feature reads from it, or the object pin itself when a flow supplies the object; the result pin is bound to that object (`out result = obj;`) so a chain of writes continues on it, and the assignment is the v2 form of the mapping's target feature chain and value; a write that is not replace-all adds to a collection-valued feature (`SequenceFunctions::including`, `includingAt` at the insertAt position of an ordered feature, after `excluding` on a unique feature so no value repeats), and replaces a single-valued one; the per-element losses stay in the ledger: a feature that is an end owned by its association is not written, since the v2 class has no such feature and writing it creates or destroys a link, nor is an untyped feature or object pin, and a write whose input traces to no pin that produces a value in v2 keeps the note that it never fires (PSSM: 5 mapped, 408 approximated, 112 unmapped of 525; 407 approximated for an input with no producer; 108 unmapped as association ends, 4 for an untyped feature or pin; TMT: 13 mapped)",
       "scope": [
         "uml:AddStructuralFeatureValueAction"
       ]
@@ -9867,15 +10145,26 @@
         "redefinedFeature"
       ],
       "ocl": "sha256:1132b460bfd53d07f6444954ab85c562c82b1eab1c9c646182c85db29ecabd2a",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
-        "internal/translate/migrate/activity.go:writeFeature"
+        "internal/translate/migrate/activity.go:writeFeature",
+        "internal/translate/migrate/activity.go:writeObjectFeature",
+        "internal/translate/migrate/activity.go:resultPinValues"
       ],
       "tests": [
-        "tests/migrate/datawait_test.go:TestActionsWaitForTheValuesFlowingIntoThem",
-        "tests/migrate/migrate_test.go:TestGoldenNotation"
+        "tests/migrate/object_writes_test.go:TestFlowFedObjectWritesBindAndChainResults",
+        "tests/migrate/object_writes_test.go:TestFedObjectPinWithoutResolvedSourceIsWriteTarget",
+        "tests/migrate/object_writes_test.go:TestStructuredNodeBoundaryFeedsObjectPin",
+        "tests/migrate/object_writes_test.go:TestStructuredNodeReadSelfTargetsFedObjectPin",
+        "tests/migrate/object_writes_test.go:TestObjectWriteCollectionUpdatesRespectFeatureShape",
+        "tests/migrate/object_writes_test.go:TestFlowFedObjectWriteRejectsUntypedAndWrongClassifiers",
+        "tests/migrate/object_writes_test.go:TestObjectWriteAssociationEndStaysUnmapped",
+        "tests/migrate/object_writes_test.go:TestObjectWriteKeepsSelfAndOptionalScalarWrites",
+        "tests/migrate/object_writes_test.go:TestObjectWritesExecuteAgainstThePerformer",
+        "tests/migrate/migrate_test.go:TestGoldenNotation",
+        "tests/corpus/pssm_migration_test.go:TestPSSMSuiteMigration"
       ],
-      "reason": "an assignment `assign obj.feature := value` replaces the value whatever isReplaceAll says; one whose object it cannot resolve is unmapped (PSSM: 411 approximated, 114 unmapped)",
+      "reason": "written as `assign obj.feature := value` on the object the object pin holds: `this`, a chain of structural-feature reads from it, or the object pin itself when a flow supplies the object; the result pin is bound to that object (`out result = obj;`) so a chain of writes continues on it, and the assignment is the v2 form of the mapping's target feature chain and value; a write that is not replace-all adds to a collection-valued feature (`SequenceFunctions::including`, `includingAt` at the insertAt position of an ordered feature, after `excluding` on a unique feature so no value repeats), and replaces a single-valued one; the per-element losses stay in the ledger: a feature that is an end owned by its association is not written, since the v2 class has no such feature and writing it creates or destroys a link, nor is an untyped feature or object pin, and a write whose input traces to no pin that produces a value in v2 keeps the note that it never fires (PSSM: 5 mapped, 408 approximated, 112 unmapped of 525; 407 approximated for an input with no producer; 108 unmapped as association ends, 4 for an untyped feature or pin; TMT: 13 mapped)",
       "scope": [
         "uml:AddStructuralFeatureValueAction"
       ]
@@ -9895,15 +10184,26 @@
         "ownedRelationship"
       ],
       "ocl": "sha256:525049fd996627d5da87f440415e2a9d6a330add29ad8d872a818ddf9c0788b2",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
-        "internal/translate/migrate/activity.go:writeFeature"
+        "internal/translate/migrate/activity.go:writeFeature",
+        "internal/translate/migrate/activity.go:writeObjectFeature",
+        "internal/translate/migrate/activity.go:resultPinValues"
       ],
       "tests": [
-        "tests/migrate/datawait_test.go:TestActionsWaitForTheValuesFlowingIntoThem",
-        "tests/migrate/migrate_test.go:TestGoldenNotation"
+        "tests/migrate/object_writes_test.go:TestFlowFedObjectWritesBindAndChainResults",
+        "tests/migrate/object_writes_test.go:TestFedObjectPinWithoutResolvedSourceIsWriteTarget",
+        "tests/migrate/object_writes_test.go:TestStructuredNodeBoundaryFeedsObjectPin",
+        "tests/migrate/object_writes_test.go:TestStructuredNodeReadSelfTargetsFedObjectPin",
+        "tests/migrate/object_writes_test.go:TestObjectWriteCollectionUpdatesRespectFeatureShape",
+        "tests/migrate/object_writes_test.go:TestFlowFedObjectWriteRejectsUntypedAndWrongClassifiers",
+        "tests/migrate/object_writes_test.go:TestObjectWriteAssociationEndStaysUnmapped",
+        "tests/migrate/object_writes_test.go:TestObjectWriteKeepsSelfAndOptionalScalarWrites",
+        "tests/migrate/object_writes_test.go:TestObjectWritesExecuteAgainstThePerformer",
+        "tests/migrate/migrate_test.go:TestGoldenNotation",
+        "tests/corpus/pssm_migration_test.go:TestPSSMSuiteMigration"
       ],
-      "reason": "an assignment `assign obj.feature := value` replaces the value whatever isReplaceAll says; one whose object it cannot resolve is unmapped (PSSM: 411 approximated, 114 unmapped)",
+      "reason": "written as `assign obj.feature := value` on the object the object pin holds: `this`, a chain of structural-feature reads from it, or the object pin itself when a flow supplies the object; the result pin is bound to that object (`out result = obj;`) so a chain of writes continues on it, and the assignment is the v2 form of the mapping's target feature chain and value; a write that is not replace-all adds to a collection-valued feature (`SequenceFunctions::including`, `includingAt` at the insertAt position of an ordered feature, after `excluding` on a unique feature so no value repeats), and replaces a single-valued one; the per-element losses stay in the ledger: a feature that is an end owned by its association is not written, since the v2 class has no such feature and writing it creates or destroys a link, nor is an untyped feature or object pin, and a write whose input traces to no pin that produces a value in v2 keeps the note that it never fires (PSSM: 5 mapped, 408 approximated, 112 unmapped of 525; 407 approximated for an input with no producer; 108 unmapped as association ends, 4 for an untyped feature or pin; TMT: 13 mapped)",
       "scope": [
         "uml:AddStructuralFeatureValueAction"
       ]
@@ -9922,15 +10222,26 @@
         "ownedRelationship"
       ],
       "ocl": "sha256:e7fb8f78af6e5a736278540661ec11a072c43967feab5c1d91e79fd09a17ac77",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
-        "internal/translate/migrate/activity.go:writeFeature"
+        "internal/translate/migrate/activity.go:writeFeature",
+        "internal/translate/migrate/activity.go:writeObjectFeature",
+        "internal/translate/migrate/activity.go:resultPinValues"
       ],
       "tests": [
-        "tests/migrate/datawait_test.go:TestActionsWaitForTheValuesFlowingIntoThem",
-        "tests/migrate/migrate_test.go:TestGoldenNotation"
+        "tests/migrate/object_writes_test.go:TestFlowFedObjectWritesBindAndChainResults",
+        "tests/migrate/object_writes_test.go:TestFedObjectPinWithoutResolvedSourceIsWriteTarget",
+        "tests/migrate/object_writes_test.go:TestStructuredNodeBoundaryFeedsObjectPin",
+        "tests/migrate/object_writes_test.go:TestStructuredNodeReadSelfTargetsFedObjectPin",
+        "tests/migrate/object_writes_test.go:TestObjectWriteCollectionUpdatesRespectFeatureShape",
+        "tests/migrate/object_writes_test.go:TestFlowFedObjectWriteRejectsUntypedAndWrongClassifiers",
+        "tests/migrate/object_writes_test.go:TestObjectWriteAssociationEndStaysUnmapped",
+        "tests/migrate/object_writes_test.go:TestObjectWriteKeepsSelfAndOptionalScalarWrites",
+        "tests/migrate/object_writes_test.go:TestObjectWritesExecuteAgainstThePerformer",
+        "tests/migrate/migrate_test.go:TestGoldenNotation",
+        "tests/corpus/pssm_migration_test.go:TestPSSMSuiteMigration"
       ],
-      "reason": "an assignment `assign obj.feature := value` replaces the value whatever isReplaceAll says; one whose object it cannot resolve is unmapped (PSSM: 411 approximated, 114 unmapped)",
+      "reason": "written as `assign obj.feature := value` on the object the object pin holds: `this`, a chain of structural-feature reads from it, or the object pin itself when a flow supplies the object; the result pin is bound to that object (`out result = obj;`) so a chain of writes continues on it, and the assignment is the v2 form of the mapping's target feature chain and value; a write that is not replace-all adds to a collection-valued feature (`SequenceFunctions::including`, `includingAt` at the insertAt position of an ordered feature, after `excluding` on a unique feature so no value repeats), and replaces a single-valued one; the per-element losses stay in the ledger: a feature that is an end owned by its association is not written, since the v2 class has no such feature and writing it creates or destroys a link, nor is an untyped feature or object pin, and a write whose input traces to no pin that produces a value in v2 keeps the note that it never fires (PSSM: 5 mapped, 408 approximated, 112 unmapped of 525; 407 approximated for an input with no producer; 108 unmapped as association ends, 4 for an untyped feature or pin; TMT: 13 mapped)",
       "scope": [
         "uml:AddStructuralFeatureValueAction"
       ]
@@ -9947,10 +10258,17 @@
       ],
       "operations": [],
       "ocl": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "status": "not-implemented",
-      "implementation": [],
-      "tests": [],
-      "reason": "a ClearStructuralFeatureAction is not migrated: it is written as a placeholder action that keeps its pins and position in the flow and is reported unmapped",
+      "status": "deliberate",
+      "implementation": [
+        "internal/translate/migrate/activity.go:clearFeature",
+        "internal/translate/migrate/activity.go:clearPassesThrough"
+      ],
+      "tests": [
+        "tests/migrate/object_writes_test.go:TestClearOptionalAndReplaceAllPassThrough",
+        "tests/migrate/object_writes_test.go:TestClearMandatoryMixedConsumersStayUnmapped",
+        "tests/corpus/pssm_migration_test.go:TestPSSMSuiteMigration"
+      ],
+      "reason": "a clear is written only where v2 can hold the result: a clear of a mandatory feature whose result feeds only replace-all writes of the same feature is written as an action that passes its object through (`out result = obj;`), the write that follows replacing the value, and is reported approximated because an action reading the feature before that write sees the old value; a clear of an optional feature empties it (`assign obj.feature := (); out result = obj;`); a clear of a mandatory feature anything else follows stays a placeholder, since `assign obj.feature := ();` fails validation (`0 value(s) bound to a feature with multiplicity lower bound 1`) and a pass-through would be right only if the feature were already empty, which the model does not say; OMG's target is an ActionUsage whose mapping states no OCL, which clears nothing (PSSM: 516: 112 passed through, 294 `expectedTraces[1..*]` placeholders, 106 association ends not written, 4 on an object with no such feature; no optional feature is cleared)",
       "scope": [
         "uml:ClearStructuralFeatureAction"
       ]
@@ -10407,10 +10725,16 @@
       ],
       "operations": [],
       "ocl": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "status": "not-implemented",
-      "implementation": [],
-      "tests": [],
-      "reason": "a RemoveStructuralFeatureValueAction is not migrated: it is written as a placeholder action that keeps its pins and position in the flow and is reported unmapped",
+      "status": "faithful",
+      "implementation": [
+        "internal/translate/migrate/activity.go:removeFeature",
+        "internal/translate/migrate/activity.go:writeObjectFeature"
+      ],
+      "tests": [
+        "tests/migrate/object_writes_test.go:TestRemoveFeatureUsesValueAndPosition",
+        "tests/migrate/object_writes_test.go:TestObjectWritesExecuteAgainstThePerformer"
+      ],
+      "reason": "written as `assign obj.feature := SequenceFunctions::excluding(obj.feature, value);` on the object the object pin holds, or, for a removeAt position without isRemoveDuplicates, `excludingAt(obj.feature, i, i)` guarded by `i <= SequenceFunctions::size(obj.feature)`, since fUML removes nothing past the end, with the result pin bound to the object; OMG's target is an ActionUsage whose mapping states no OCL, which removes nothing, so the assignment carries the action's effect; a nonunique removal without isRemoveDuplicates removes every equal value where v1 removes one, which is reported approximated; an action that names no value or position stays a placeholder (PSSM, TMT and the repository fixtures: none)",
       "scope": [
         "uml:RemoveStructuralFeatureValueAction"
       ]
@@ -13629,10 +13953,17 @@
         "ownedRelationship"
       ],
       "ocl": "sha256:fd10393457831dbb2a1a86a41ec95f8aa9f79922264c7f47491fbc38b86acecb",
-      "status": "not-implemented",
-      "implementation": [],
-      "tests": [],
-      "reason": "an instance specification classified by an association (a link) is not written; the scope counts every instance specification, links or not, so it is an upper bound",
+      "status": "deliberate",
+      "implementation": [
+        "internal/translate/migrate/classify.go:classifyInstance",
+        "internal/translate/migrate/migrate.go:individualBody",
+        "internal/translate/migrate/migrate.go:instanceConnectionEnd"
+      ],
+      "tests": [
+        "tests/migrate/instance_links_test.go:TestInstanceSpecificationLink",
+        "tests/migrate/instance_links_test.go:TestInstanceSpecificationLinkWithoutConnectionDefinitionIsUnmapped"
+      ],
+      "reason": "a link is written as an individual connection def specializing its association with its ends redefined by the linked instances' individual defs, matching how instances are written (see InstanceSpecification); the mapping's connection usage would connect part usages the migration does not write; a link of an association written only as its member-end properties is not written; neither the PSSM suite nor the TMT model has a link",
       "scope": [
         "uml:InstanceSpecification"
       ]
@@ -14221,16 +14552,18 @@
         "ownedRelationship"
       ],
       "ocl": "sha256:f993f21628e6e9e2152ea59574f0a7d40628013cbeef04061c9636afa376e928",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
-        "internal/translate/migrate/translate.go:feature",
-        "internal/translate/migrate/migrate.go:featureTyping"
+        "internal/translate/migrate/migrate.go:feature",
+        "internal/translate/migrate/migrate.go:featureRedefinitions",
+        "internal/translate/migrate/migrate.go:featureDefault",
+        "internal/translate/migrate/migrate.go:featureTyping",
+        "internal/translate/migrate/migrate.go:multiplicity"
       ],
       "tests": [
-        "tests/migrate/migrate_test.go:TestGoldenNotation",
-        "tests/migrate/classify_test.go:TestSelfAssociationEndsAreDistinct"
+        "tests/migrate/properties_common_test.go:TestPropertyCommonPartsAreWrittenOnTheUsage"
       ],
-      "reason": "a property typed by a plain class is written as a part (or a reference part when shared), not as an occurrence usage, since the class is written as a part def; the scope counts every uml:Property, so it is an upper bound",
+      "reason": "a property's type, subsetted and redefined properties, default value and multiplicity are written on its usage; the scope counts every uml:Property, so it is an upper bound",
       "scope": [
         "uml:Property"
       ]
@@ -14276,16 +14609,16 @@
         "filter"
       ],
       "ocl": "sha256:93ca5fe8f0f44e211e52587bfcbe4b53c19935f377f1f0821185f21a21b17880",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
-        "internal/translate/migrate/translate.go:feature",
-        "internal/translate/migrate/migrate.go:featureTyping"
+        "internal/translate/migrate/migrate.go:featureKeyword",
+        "internal/translate/migrate/migrate.go:typeKeyword"
       ],
       "tests": [
-        "tests/migrate/migrate_test.go:TestGoldenNotation",
-        "tests/migrate/classify_test.go:TestSelfAssociationEndsAreDistinct"
+        "internal/translate/migrate/occurrence_internal_test.go:TestPlainClassesAndTheirPropertiesUseOccurrenceForms",
+        "internal/translate/migrate/typefilter_internal_test.go:TestMetaclassFiltersExcludeNewConformingTypes"
       ],
-      "reason": "a property typed by a plain class is written as a part (or a reference part when shared), not as an occurrence usage, since the class is written as a part def; the scope counts every uml:Property, so it is an upper bound",
+      "reason": "a property typed by a plain class is written as an occurrence usage (`ref occurrence` unless composite); one typed by an interface as a port usage, the occurrence usage kind of the port def the interface becomes; the scope counts every uml:Property, so it is an upper bound",
       "scope": [
         "uml:Property"
       ]
@@ -14306,16 +14639,14 @@
         "filter"
       ],
       "ocl": "sha256:99f06b2a46c64e98963563afeee2a1b8cb76a43e5fae2ee1af153c247800e6fc",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
-        "internal/translate/migrate/translate.go:feature",
-        "internal/translate/migrate/migrate.go:featureTyping"
+        "internal/translate/migrate/migrate.go:featureKeyword"
       ],
       "tests": [
-        "tests/migrate/migrate_test.go:TestGoldenNotation",
-        "tests/migrate/classify_test.go:TestSelfAssociationEndsAreDistinct"
+        "tests/migrate/properties_common_test.go:TestUntypedPropertiesAreReferencesOutsideConstraintDefinitions"
       ],
-      "reason": "a property typed by a plain class is written as a part (or a reference part when shared), not as an occurrence usage, since the class is written as a part def; the scope counts every uml:Property, so it is an upper bound",
+      "reason": "an untyped property is written as a reference usage; the scope counts every uml:Property, so it is an upper bound",
       "scope": [
         "uml:Property"
       ]
@@ -18742,14 +19073,14 @@
         "superclassifier"
       ],
       "ocl": "sha256:150e11fae036dd9ecaa6a454dff1abe9310965ca4e17d3c25c017622175603ad",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
         "internal/translate/migrate/realization.go:interfaceRealization"
       ],
       "tests": [
-        "tests/migrate/migrate_test.go:TestGoldenNotation"
+        "internal/translate/migrate/realization_internal_test.go:TestInterfaceRealizationForms"
       ],
-      "reason": "a block realizing an interface gets a port typed by the interface's port def rather than specializing it; an interface block realizing one specializes it",
+      "reason": "a plain class realizing an interface specializes the interface's port def (`occurrence def C :> I`), as the mapping writes it; a block realizing one gets a port typed by the port def instead, because a part def cannot specialize a port def (rejected as a kind mismatch); an interface block realizing one specializes it",
       "scope": [
         "uml:InterfaceRealization"
       ]
@@ -19608,16 +19939,15 @@
         "filter"
       ],
       "ocl": "sha256:f2a295b16a7abfc97656f0f88577902a6632c7b49c7c0b3cd5c776e7a363d57f",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
         "internal/translate/migrate/migrate.go:association",
         "internal/translate/migrate/migrate.go:associationEnd"
       ],
       "tests": [
-        "tests/migrate/classify_test.go:TestAnonymousAssociationOwningEveryEndIsWritten",
-        "tests/migrate/classify_test.go:TestSelfAssociationEndsAreDistinct"
+        "tests/migrate/association_class_test.go:TestAssociationClassIsConnectionDefinitionWithFeatures"
       ],
-      "reason": "a named association is written as a connection def with its ends; an anonymous one only as its navigable ends; no association metadata is written",
+      "reason": "an association class is written as a connection def with its ends and owned features",
       "scope": [
         "uml:Association"
       ]
@@ -19638,16 +19968,15 @@
         "filter"
       ],
       "ocl": "sha256:05dd7d1db91cf8438fafcb92b8b96ad960bd9f858c87bf9d70ff427906c8f1d0",
-      "status": "approximate",
+      "status": "deliberate",
       "implementation": [
         "internal/translate/migrate/migrate.go:association",
-        "internal/translate/migrate/migrate.go:associationEnd"
+        "internal/translate/migrate/migrate.go:associationAsConnectionDef"
       ],
       "tests": [
-        "tests/migrate/classify_test.go:TestAnonymousAssociationOwningEveryEndIsWritten",
-        "tests/migrate/classify_test.go:TestSelfAssociationEndsAreDistinct"
+        "tests/migrate/classify_test.go:TestAnonymousAssociationOwningEveryEndIsWritten"
       ],
-      "reason": "a named association is written as a connection def with its ends; an anonymous one only as its navigable ends; no association metadata is written",
+      "reason": "an anonymous association is deliberately written as its member-end properties rather than as a connection def whose ends cross them: in the TMT model only 418 of its 1,164 anonymous associations have ends a cross feature can soundly be written for (484 cross ends are not typed by a definition, 211 opposite ends are untyped, 27 end types are shadowed by an end name, 24 others), and writing those 418 adds connection-def nodes to rendered block definition diagrams, drops edges from others and raises the validator's warnings by 92; a named association or association class is written as a connection def with its ends, which name no cross feature",
       "scope": [
         "uml:Association"
       ]
@@ -19667,16 +19996,14 @@
         "ownedMemberFeature"
       ],
       "ocl": "sha256:19b09f2912da24614cb154e6b17da7098a1ac3d52847d98e237229526df17935",
-      "status": "approximate",
+      "status": "deliberate",
       "implementation": [
-        "internal/translate/migrate/migrate.go:association",
-        "internal/translate/migrate/migrate.go:associationEnd"
+        "internal/translate/migrate/migrate.go:association"
       ],
       "tests": [
-        "tests/migrate/classify_test.go:TestAnonymousAssociationOwningEveryEndIsWritten",
-        "tests/migrate/classify_test.go:TestSelfAssociationEndsAreDistinct"
+        "tests/migrate/association_class_test.go:TestAssociationClassIsConnectionDefinitionWithFeatures"
       ],
-      "reason": "a named association is written as a connection def with its ends; an anonymous one only as its navigable ends; no association metadata is written",
+      "reason": "the derived-association metadata is deliberately not written: the mapping types it by `SysMLv1Library::AssociationData`, a library this repository does not bundle, so the reference would not resolve; neither the PSSM suite nor the TMT model has a derived association",
       "scope": [
         "uml:Association"
       ]
@@ -19696,16 +20023,14 @@
         "type"
       ],
       "ocl": "sha256:373018184cbdd39f453c8345ebb18ff71b84c4a12dfaa44cb7a953954a6cc487",
-      "status": "approximate",
+      "status": "deliberate",
       "implementation": [
-        "internal/translate/migrate/migrate.go:association",
-        "internal/translate/migrate/migrate.go:associationEnd"
+        "internal/translate/migrate/migrate.go:association"
       ],
       "tests": [
-        "tests/migrate/classify_test.go:TestAnonymousAssociationOwningEveryEndIsWritten",
-        "tests/migrate/classify_test.go:TestSelfAssociationEndsAreDistinct"
+        "tests/migrate/association_class_test.go:TestAssociationClassIsConnectionDefinitionWithFeatures"
       ],
-      "reason": "a named association is written as a connection def with its ends; an anonymous one only as its navigable ends; no association metadata is written",
+      "reason": "the derived-association metadata is deliberately not written: the mapping types it by `SysMLv1Library::AssociationData`, a library this repository does not bundle, so the reference would not resolve; neither the PSSM suite nor the TMT model has a derived association",
       "scope": [
         "uml:Association"
       ]
@@ -19725,16 +20050,14 @@
         "value"
       ],
       "ocl": "sha256:e84ee3fb5972824b6115c1052ef4bd369f8a1e297b27a299310b9a783f9e5859",
-      "status": "approximate",
+      "status": "deliberate",
       "implementation": [
-        "internal/translate/migrate/migrate.go:association",
-        "internal/translate/migrate/migrate.go:associationEnd"
+        "internal/translate/migrate/migrate.go:association"
       ],
       "tests": [
-        "tests/migrate/classify_test.go:TestAnonymousAssociationOwningEveryEndIsWritten",
-        "tests/migrate/classify_test.go:TestSelfAssociationEndsAreDistinct"
+        "tests/migrate/association_class_test.go:TestAssociationClassIsConnectionDefinitionWithFeatures"
       ],
-      "reason": "a named association is written as a connection def with its ends; an anonymous one only as its navigable ends; no association metadata is written",
+      "reason": "the derived-association metadata is deliberately not written: the mapping types it by `SysMLv1Library::AssociationData`, a library this repository does not bundle, so the reference would not resolve; neither the PSSM suite nor the TMT model has a derived association",
       "scope": [
         "uml:Association"
       ]
@@ -19754,16 +20077,14 @@
         "ownedRelationship"
       ],
       "ocl": "sha256:1914d5f39ff5ae9ccf4287cd5f11d46aeb513e4f90878d930098bbea9ee5130c",
-      "status": "approximate",
+      "status": "deliberate",
       "implementation": [
-        "internal/translate/migrate/migrate.go:association",
-        "internal/translate/migrate/migrate.go:associationEnd"
+        "internal/translate/migrate/migrate.go:association"
       ],
       "tests": [
-        "tests/migrate/classify_test.go:TestAnonymousAssociationOwningEveryEndIsWritten",
-        "tests/migrate/classify_test.go:TestSelfAssociationEndsAreDistinct"
+        "tests/migrate/association_class_test.go:TestAssociationClassIsConnectionDefinitionWithFeatures"
       ],
-      "reason": "a named association is written as a connection def with its ends; an anonymous one only as its navigable ends; no association metadata is written",
+      "reason": "the derived-association metadata is deliberately not written: the mapping types it by `SysMLv1Library::AssociationData`, a library this repository does not bundle, so the reference would not resolve; neither the PSSM suite nor the TMT model has a derived association",
       "scope": [
         "uml:Association"
       ]
@@ -19783,16 +20104,14 @@
         "ownedMemberElement"
       ],
       "ocl": "sha256:7e76137d8707a8a0351e0134139bdd2ebf289d4759ff34b65b5911aa97ba1fa1",
-      "status": "approximate",
+      "status": "deliberate",
       "implementation": [
-        "internal/translate/migrate/migrate.go:association",
-        "internal/translate/migrate/migrate.go:associationEnd"
+        "internal/translate/migrate/migrate.go:association"
       ],
       "tests": [
-        "tests/migrate/classify_test.go:TestAnonymousAssociationOwningEveryEndIsWritten",
-        "tests/migrate/classify_test.go:TestSelfAssociationEndsAreDistinct"
+        "tests/migrate/association_class_test.go:TestAssociationClassIsConnectionDefinitionWithFeatures"
       ],
-      "reason": "a named association is written as a connection def with its ends; an anonymous one only as its navigable ends; no association metadata is written",
+      "reason": "the derived-association metadata is deliberately not written: the mapping types it by `SysMLv1Library::AssociationData`, a library this repository does not bundle, so the reference would not resolve; neither the PSSM suite nor the TMT model has a derived association",
       "scope": [
         "uml:Association"
       ]
@@ -19812,16 +20131,14 @@
         "redefinedFeature"
       ],
       "ocl": "sha256:e199a038c7052d8dfc29ed54dc1bac75c7fcf9a81440a02b44d727bc88501616",
-      "status": "approximate",
+      "status": "deliberate",
       "implementation": [
-        "internal/translate/migrate/migrate.go:association",
-        "internal/translate/migrate/migrate.go:associationEnd"
+        "internal/translate/migrate/migrate.go:association"
       ],
       "tests": [
-        "tests/migrate/classify_test.go:TestAnonymousAssociationOwningEveryEndIsWritten",
-        "tests/migrate/classify_test.go:TestSelfAssociationEndsAreDistinct"
+        "tests/migrate/association_class_test.go:TestAssociationClassIsConnectionDefinitionWithFeatures"
       ],
-      "reason": "a named association is written as a connection def with its ends; an anonymous one only as its navigable ends; no association metadata is written",
+      "reason": "the derived-association metadata is deliberately not written: the mapping types it by `SysMLv1Library::AssociationData`, a library this repository does not bundle, so the reference would not resolve; neither the PSSM suite nor the TMT model has a derived association",
       "scope": [
         "uml:Association"
       ]
@@ -19841,16 +20158,14 @@
         "ownedRelationship"
       ],
       "ocl": "sha256:66b98c8576e9b8beeddb9ebc4296a65225697ffdf7919fc2b15d62959b7832b3",
-      "status": "approximate",
+      "status": "deliberate",
       "implementation": [
-        "internal/translate/migrate/migrate.go:association",
-        "internal/translate/migrate/migrate.go:associationEnd"
+        "internal/translate/migrate/migrate.go:association"
       ],
       "tests": [
-        "tests/migrate/classify_test.go:TestAnonymousAssociationOwningEveryEndIsWritten",
-        "tests/migrate/classify_test.go:TestSelfAssociationEndsAreDistinct"
+        "tests/migrate/association_class_test.go:TestAssociationClassIsConnectionDefinitionWithFeatures"
       ],
-      "reason": "a named association is written as a connection def with its ends; an anonymous one only as its navigable ends; no association metadata is written",
+      "reason": "the derived-association metadata is deliberately not written: the mapping types it by `SysMLv1Library::AssociationData`, a library this repository does not bundle, so the reference would not resolve; neither the PSSM suite nor the TMT model has a derived association",
       "scope": [
         "uml:Association"
       ]
@@ -19869,14 +20184,15 @@
         "filter"
       ],
       "ocl": "sha256:6673225087192ed3ba427bc20d76ebbd0ec3d213e767ab1fc29ee7ada67d53e4",
-      "status": "approximate",
+      "status": "faithful",
       "implementation": [
         "internal/translate/migrate/classify.go:classifyClass"
       ],
       "tests": [
-        "tests/migrate/migrate_test.go:TestGoldenNotation"
+        "internal/translate/migrate/occurrence_internal_test.go:TestPlainClassesAndTheirPropertiesUseOccurrenceForms",
+        "internal/translate/migrate/typefilter_internal_test.go:TestMetaclassFiltersExcludeNewConformingTypes"
       ],
-      "reason": "a plain UML class is written as a part def, not an occurrence def; the scope counts every uml:Class, blocks included, so it is an upper bound",
+      "reason": "a plain UML class is written as an occurrence def; a stereotyped class takes its stereotype's mapping; the scope counts every uml:Class, blocks included, so it is an upper bound",
       "scope": [
         "uml:Class"
       ]
@@ -19896,16 +20212,14 @@
         "ownedMemberFeature"
       ],
       "ocl": "sha256:d3bc8573ac09a66b5eba75b3c0ffd58567f0e3108de388089dfc540c204c9a3b",
-      "status": "approximate",
+      "status": "deliberate",
       "implementation": [
-        "internal/translate/migrate/migrate.go:association",
         "internal/translate/migrate/migrate.go:associationEnd"
       ],
       "tests": [
-        "tests/migrate/classify_test.go:TestAnonymousAssociationOwningEveryEndIsWritten",
-        "tests/migrate/classify_test.go:TestSelfAssociationEndsAreDistinct"
+        "tests/migrate/association_class_test.go:TestAssociationClassIsConnectionDefinitionWithFeatures"
       ],
-      "reason": "a named association is written as a connection def with its ends; an anonymous one only as its navigable ends; no association metadata is written",
+      "reason": "an end is written as an end feature typed by its member end's type, with no cross feature; an anonymous association is deliberately written as its member-end properties rather than as a connection def whose ends cross them: in the TMT model only 418 of its 1,164 anonymous associations have ends a cross feature can soundly be written for (484 cross ends are not typed by a definition, 211 opposite ends are untyped, 27 end types are shadowed by an end name, 24 others), and writing those 418 adds connection-def nodes to rendered block definition diagrams, drops edges from others and raises the validator's warnings by 92; a named association or association class is written as a connection def with its ends, which name no cross feature",
       "scope": [
         "uml:Association"
       ]
@@ -19925,16 +20239,14 @@
         "ownedRelationship"
       ],
       "ocl": "sha256:7a43ccab9d43b8077d2e8c042a63424b11d5580480bf81f965cda5350bec668b",
-      "status": "approximate",
+      "status": "deliberate",
       "implementation": [
-        "internal/translate/migrate/migrate.go:association",
         "internal/translate/migrate/migrate.go:associationEnd"
       ],
       "tests": [
-        "tests/migrate/classify_test.go:TestAnonymousAssociationOwningEveryEndIsWritten",
-        "tests/migrate/classify_test.go:TestSelfAssociationEndsAreDistinct"
+        "tests/migrate/association_class_test.go:TestAssociationClassIsConnectionDefinitionWithFeatures"
       ],
-      "reason": "a named association is written as a connection def with its ends; an anonymous one only as its navigable ends; no association metadata is written",
+      "reason": "an end is written as an end feature typed by its member end's type, with no cross feature; an anonymous association is deliberately written as its member-end properties rather than as a connection def whose ends cross them: in the TMT model only 418 of its 1,164 anonymous associations have ends a cross feature can soundly be written for (484 cross ends are not typed by a definition, 211 opposite ends are untyped, 27 end types are shadowed by an end name, 24 others), and writing those 418 adds connection-def nodes to rendered block definition diagrams, drops edges from others and raises the validator's warnings by 92; a named association or association class is written as a connection def with its ends, which name no cross feature",
       "scope": [
         "uml:Association"
       ]
@@ -20113,16 +20425,15 @@
         "ownedRelationship"
       ],
       "ocl": "sha256:2d065a7b88e57974dedec092bd275f41870497b27a866963bf388e13283331a7",
-      "status": "approximate",
+      "status": "deliberate",
       "implementation": [
         "internal/translate/migrate/migrate.go:association",
-        "internal/translate/migrate/migrate.go:associationEnd"
+        "internal/translate/migrate/migrate.go:associationAsConnectionDef"
       ],
       "tests": [
-        "tests/migrate/classify_test.go:TestAnonymousAssociationOwningEveryEndIsWritten",
-        "tests/migrate/classify_test.go:TestSelfAssociationEndsAreDistinct"
+        "tests/migrate/association_class_test.go:TestAssociationClassIsConnectionDefinitionWithFeatures"
       ],
-      "reason": "a named association is written as a connection def with its ends; an anonymous one only as its navigable ends; no association metadata is written",
+      "reason": "a derived association is deliberately written like any other, without its `SysMLv1Library::AssociationData` metadata: that library is not bundled, so the reference would not resolve; neither the PSSM suite nor the TMT model has a derived association",
       "scope": [
         "uml:Association"
       ]
@@ -20142,16 +20453,15 @@
         "ownedRelationship"
       ],
       "ocl": "sha256:d375413e8c7a8f6288aacbc22a577b1edfde5ec792ecc4b1f0cde2dd049630ea",
-      "status": "approximate",
+      "status": "deliberate",
       "implementation": [
         "internal/translate/migrate/migrate.go:association",
-        "internal/translate/migrate/migrate.go:associationEnd"
+        "internal/translate/migrate/migrate.go:associationAsConnectionDef"
       ],
       "tests": [
-        "tests/migrate/classify_test.go:TestAnonymousAssociationOwningEveryEndIsWritten",
-        "tests/migrate/classify_test.go:TestSelfAssociationEndsAreDistinct"
+        "tests/migrate/classify_test.go:TestAnonymousAssociationOwningEveryEndIsWritten"
       ],
-      "reason": "a named association is written as a connection def with its ends; an anonymous one only as its navigable ends; no association metadata is written",
+      "reason": "an anonymous association is deliberately written as its member-end properties rather than as a connection def whose ends cross them: in the TMT model only 418 of its 1,164 anonymous associations have ends a cross feature can soundly be written for (484 cross ends are not typed by a definition, 211 opposite ends are untyped, 27 end types are shadowed by an end name, 24 others), and writing those 418 adds connection-def nodes to rendered block definition diagrams, drops edges from others and raises the validator's warnings by 92; a named association or association class is written as a connection def with its ends, which name no cross feature",
       "scope": [
         "uml:Association"
       ]
@@ -20219,16 +20529,14 @@
       ],
       "operations": [],
       "ocl": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "status": "approximate",
+      "status": "deliberate",
       "implementation": [
-        "internal/translate/migrate/migrate.go:association",
         "internal/translate/migrate/migrate.go:associationEnd"
       ],
       "tests": [
-        "tests/migrate/classify_test.go:TestAnonymousAssociationOwningEveryEndIsWritten",
-        "tests/migrate/classify_test.go:TestSelfAssociationEndsAreDistinct"
+        "tests/migrate/association_class_test.go:TestAssociationClassIsConnectionDefinitionWithFeatures"
       ],
-      "reason": "a named association is written as a connection def with its ends; an anonymous one only as its navigable ends; no association metadata is written",
+      "reason": "an end is written as an end feature typed by its member end's type, with no cross feature; an anonymous association is deliberately written as its member-end properties rather than as a connection def whose ends cross them: in the TMT model only 418 of its 1,164 anonymous associations have ends a cross feature can soundly be written for (484 cross ends are not typed by a definition, 211 opposite ends are untyped, 27 end types are shadowed by an end name, 24 others), and writing those 418 adds connection-def nodes to rendered block definition diagrams, drops edges from others and raises the validator's warnings by 92; a named association or association class is written as a connection def with its ends, which name no cross feature",
       "scope": [
         "uml:Association"
       ]
@@ -20249,16 +20557,15 @@
         "declaredName"
       ],
       "ocl": "sha256:1cb19960ae17644127814b6d9b6318ee72d63a89a522de68b26debba4a8452db",
-      "status": "approximate",
+      "status": "deliberate",
       "implementation": [
-        "internal/translate/migrate/migrate.go:association",
-        "internal/translate/migrate/migrate.go:associationEnd"
+        "internal/translate/migrate/migrate.go:associationEnd",
+        "internal/translate/migrate/migrate.go:feature"
       ],
       "tests": [
-        "tests/migrate/classify_test.go:TestAnonymousAssociationOwningEveryEndIsWritten",
-        "tests/migrate/classify_test.go:TestSelfAssociationEndsAreDistinct"
+        "tests/migrate/qualifiers_test.go:TestAssociationEndQualifiers"
       ],
-      "reason": "a named association is written as a connection def with its ends; an anonymous one only as its navigable ends; no association metadata is written",
+      "reason": "a classifier-owned end is written as that classifier's property and as an end of the connection def, with no subsetting of or feature chain to it; an anonymous association is deliberately written as its member-end properties rather than as a connection def whose ends cross them: in the TMT model only 418 of its 1,164 anonymous associations have ends a cross feature can soundly be written for (484 cross ends are not typed by a definition, 211 opposite ends are untyped, 27 end types are shadowed by an end name, 24 others), and writing those 418 adds connection-def nodes to rendered block definition diagrams, drops edges from others and raises the validator's warnings by 92; a named association or association class is written as a connection def with its ends, which name no cross feature",
       "scope": [
         "uml:Association"
       ]
@@ -20278,16 +20585,15 @@
         "filter"
       ],
       "ocl": "sha256:2be7311465d10cc7d82d53b8e0a93a12ba5f9ff4f1046a946da18bc6364427cd",
-      "status": "approximate",
+      "status": "deliberate",
       "implementation": [
-        "internal/translate/migrate/migrate.go:association",
-        "internal/translate/migrate/migrate.go:associationEnd"
+        "internal/translate/migrate/migrate.go:associationEnd",
+        "internal/translate/migrate/migrate.go:feature"
       ],
       "tests": [
-        "tests/migrate/classify_test.go:TestAnonymousAssociationOwningEveryEndIsWritten",
-        "tests/migrate/classify_test.go:TestSelfAssociationEndsAreDistinct"
+        "tests/migrate/qualifiers_test.go:TestAssociationEndQualifiers"
       ],
-      "reason": "a named association is written as a connection def with its ends; an anonymous one only as its navigable ends; no association metadata is written",
+      "reason": "a classifier-owned end is written as that classifier's property and as an end of the connection def, with no subsetting of or feature chain to it; an anonymous association is deliberately written as its member-end properties rather than as a connection def whose ends cross them: in the TMT model only 418 of its 1,164 anonymous associations have ends a cross feature can soundly be written for (484 cross ends are not typed by a definition, 211 opposite ends are untyped, 27 end types are shadowed by an end name, 24 others), and writing those 418 adds connection-def nodes to rendered block definition diagrams, drops edges from others and raises the validator's warnings by 92; a named association or association class is written as a connection def with its ends, which name no cross feature",
       "scope": [
         "uml:Association"
       ]
@@ -20307,16 +20613,14 @@
         "filter"
       ],
       "ocl": "sha256:eebbf2a35d8a720c4dd9d8833da16c4ea42e1243b82814bfa08fa7601b7548af",
-      "status": "approximate",
+      "status": "deliberate",
       "implementation": [
-        "internal/translate/migrate/migrate.go:association",
         "internal/translate/migrate/migrate.go:associationEnd"
       ],
       "tests": [
-        "tests/migrate/classify_test.go:TestAnonymousAssociationOwningEveryEndIsWritten",
-        "tests/migrate/classify_test.go:TestSelfAssociationEndsAreDistinct"
+        "tests/migrate/association_class_test.go:TestAssociationClassIsConnectionDefinitionWithFeatures"
       ],
-      "reason": "a named association is written as a connection def with its ends; an anonymous one only as its navigable ends; no association metadata is written",
+      "reason": "an end is written as an end feature typed by its member end's type, with no cross feature; an anonymous association is deliberately written as its member-end properties rather than as a connection def whose ends cross them: in the TMT model only 418 of its 1,164 anonymous associations have ends a cross feature can soundly be written for (484 cross ends are not typed by a definition, 211 opposite ends are untyped, 27 end types are shadowed by an end name, 24 others), and writing those 418 adds connection-def nodes to rendered block definition diagrams, drops edges from others and raises the validator's warnings by 92; a named association or association class is written as a connection def with its ends, which name no cross feature",
       "scope": [
         "uml:Association"
       ]
@@ -20360,16 +20664,15 @@
       ],
       "operations": [],
       "ocl": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "status": "approximate",
+      "status": "deliberate",
       "implementation": [
-        "internal/translate/migrate/migrate.go:association",
-        "internal/translate/migrate/migrate.go:associationEnd"
+        "internal/translate/migrate/migrate.go:associationEnd",
+        "internal/translate/migrate/migrate.go:feature"
       ],
       "tests": [
-        "tests/migrate/classify_test.go:TestAnonymousAssociationOwningEveryEndIsWritten",
-        "tests/migrate/classify_test.go:TestSelfAssociationEndsAreDistinct"
+        "tests/migrate/qualifiers_test.go:TestAssociationEndQualifiers"
       ],
-      "reason": "a named association is written as a connection def with its ends; an anonymous one only as its navigable ends; no association metadata is written",
+      "reason": "a classifier-owned end is written as that classifier's property and as an end of the connection def, with no subsetting of or feature chain to it; an anonymous association is deliberately written as its member-end properties rather than as a connection def whose ends cross them: in the TMT model only 418 of its 1,164 anonymous associations have ends a cross feature can soundly be written for (484 cross ends are not typed by a definition, 211 opposite ends are untyped, 27 end types are shadowed by an end name, 24 others), and writing those 418 adds connection-def nodes to rendered block definition diagrams, drops edges from others and raises the validator's warnings by 92; a named association or association class is written as a connection def with its ends, which name no cross feature",
       "scope": [
         "uml:Association"
       ]
@@ -20389,16 +20692,15 @@
         "filter"
       ],
       "ocl": "sha256:a211d20a3d243a7b221101c4c11c4e1d5346b26f3bef11980d1e7aa7aaccb5f0",
-      "status": "approximate",
+      "status": "deliberate",
       "implementation": [
-        "internal/translate/migrate/migrate.go:association",
-        "internal/translate/migrate/migrate.go:associationEnd"
+        "internal/translate/migrate/migrate.go:associationEnd",
+        "internal/translate/migrate/migrate.go:feature"
       ],
       "tests": [
-        "tests/migrate/classify_test.go:TestAnonymousAssociationOwningEveryEndIsWritten",
-        "tests/migrate/classify_test.go:TestSelfAssociationEndsAreDistinct"
+        "tests/migrate/qualifiers_test.go:TestAssociationEndQualifiers"
       ],
-      "reason": "a named association is written as a connection def with its ends; an anonymous one only as its navigable ends; no association metadata is written",
+      "reason": "a classifier-owned end is written as that classifier's property and as an end of the connection def, with no subsetting of or feature chain to it; an anonymous association is deliberately written as its member-end properties rather than as a connection def whose ends cross them: in the TMT model only 418 of its 1,164 anonymous associations have ends a cross feature can soundly be written for (484 cross ends are not typed by a definition, 211 opposite ends are untyped, 27 end types are shadowed by an end name, 24 others), and writing those 418 adds connection-def nodes to rendered block definition diagrams, drops edges from others and raises the validator's warnings by 92; a named association or association class is written as a connection def with its ends, which name no cross feature",
       "scope": [
         "uml:Association"
       ]
@@ -20418,16 +20720,15 @@
         "ownedMemberElement"
       ],
       "ocl": "sha256:2844d8ede6e5b37dc972888ed3c043ff33c77b1391c4c841274a8b1c27cd6f92",
-      "status": "approximate",
+      "status": "deliberate",
       "implementation": [
-        "internal/translate/migrate/migrate.go:association",
-        "internal/translate/migrate/migrate.go:associationEnd"
+        "internal/translate/migrate/migrate.go:associationEnd",
+        "internal/translate/migrate/migrate.go:feature"
       ],
       "tests": [
-        "tests/migrate/classify_test.go:TestAnonymousAssociationOwningEveryEndIsWritten",
-        "tests/migrate/classify_test.go:TestSelfAssociationEndsAreDistinct"
+        "tests/migrate/qualifiers_test.go:TestAssociationEndQualifiers"
       ],
-      "reason": "a named association is written as a connection def with its ends; an anonymous one only as its navigable ends; no association metadata is written",
+      "reason": "a classifier-owned end is written as that classifier's property and as an end of the connection def, with no subsetting of or feature chain to it; an anonymous association is deliberately written as its member-end properties rather than as a connection def whose ends cross them: in the TMT model only 418 of its 1,164 anonymous associations have ends a cross feature can soundly be written for (484 cross ends are not typed by a definition, 211 opposite ends are untyped, 27 end types are shadowed by an end name, 24 others), and writing those 418 adds connection-def nodes to rendered block definition diagrams, drops edges from others and raises the validator's warnings by 92; a named association or association class is written as a connection def with its ends, which name no cross feature",
       "scope": [
         "uml:Association"
       ]
@@ -20447,16 +20748,15 @@
         "subsettedFeature"
       ],
       "ocl": "sha256:3f00fd722e7fb82f3ee95d2fa09215d9db1fdb8d2623854e4d39b0706750012b",
-      "status": "approximate",
+      "status": "deliberate",
       "implementation": [
-        "internal/translate/migrate/migrate.go:association",
-        "internal/translate/migrate/migrate.go:associationEnd"
+        "internal/translate/migrate/migrate.go:associationEnd",
+        "internal/translate/migrate/migrate.go:feature"
       ],
       "tests": [
-        "tests/migrate/classify_test.go:TestAnonymousAssociationOwningEveryEndIsWritten",
-        "tests/migrate/classify_test.go:TestSelfAssociationEndsAreDistinct"
+        "tests/migrate/qualifiers_test.go:TestAssociationEndQualifiers"
       ],
-      "reason": "a named association is written as a connection def with its ends; an anonymous one only as its navigable ends; no association metadata is written",
+      "reason": "a classifier-owned end is written as that classifier's property and as an end of the connection def, with no subsetting of or feature chain to it; an anonymous association is deliberately written as its member-end properties rather than as a connection def whose ends cross them: in the TMT model only 418 of its 1,164 anonymous associations have ends a cross feature can soundly be written for (484 cross ends are not typed by a definition, 211 opposite ends are untyped, 27 end types are shadowed by an end name, 24 others), and writing those 418 adds connection-def nodes to rendered block definition diagrams, drops edges from others and raises the validator's warnings by 92; a named association or association class is written as a connection def with its ends, which name no cross feature",
       "scope": [
         "uml:Association"
       ]
@@ -20477,16 +20777,15 @@
         "filter"
       ],
       "ocl": "sha256:d299e629443d7f291980468e437230e18a2f8d6e62ac109e22057afe7fac311d",
-      "status": "approximate",
+      "status": "deliberate",
       "implementation": [
-        "internal/translate/migrate/migrate.go:association",
-        "internal/translate/migrate/migrate.go:associationEnd"
+        "internal/translate/migrate/migrate.go:associationEnd",
+        "internal/translate/migrate/migrate.go:feature"
       ],
       "tests": [
-        "tests/migrate/classify_test.go:TestAnonymousAssociationOwningEveryEndIsWritten",
-        "tests/migrate/classify_test.go:TestSelfAssociationEndsAreDistinct"
+        "tests/migrate/qualifiers_test.go:TestAssociationEndQualifiers"
       ],
-      "reason": "a named association is written as a connection def with its ends; an anonymous one only as its navigable ends; no association metadata is written",
+      "reason": "a classifier-owned end is written as that classifier's property and as an end of the connection def, with no subsetting of or feature chain to it; an anonymous association is deliberately written as its member-end properties rather than as a connection def whose ends cross them: in the TMT model only 418 of its 1,164 anonymous associations have ends a cross feature can soundly be written for (484 cross ends are not typed by a definition, 211 opposite ends are untyped, 27 end types are shadowed by an end name, 24 others), and writing those 418 adds connection-def nodes to rendered block definition diagrams, drops edges from others and raises the validator's warnings by 92; a named association or association class is written as a connection def with its ends, which name no cross feature",
       "scope": [
         "uml:Association"
       ]
@@ -20507,16 +20806,15 @@
         "declaredName"
       ],
       "ocl": "sha256:e34e31df2c22e60ab52ed27c79256e3ad9016ab5707fed7da6e98b0283f9e19a",
-      "status": "approximate",
+      "status": "deliberate",
       "implementation": [
-        "internal/translate/migrate/migrate.go:association",
-        "internal/translate/migrate/migrate.go:associationEnd"
+        "internal/translate/migrate/migrate.go:associationEnd",
+        "internal/translate/migrate/migrate.go:feature"
       ],
       "tests": [
-        "tests/migrate/classify_test.go:TestAnonymousAssociationOwningEveryEndIsWritten",
-        "tests/migrate/classify_test.go:TestSelfAssociationEndsAreDistinct"
+        "tests/migrate/qualifiers_test.go:TestAssociationEndQualifiers"
       ],
-      "reason": "a named association is written as a connection def with its ends; an anonymous one only as its navigable ends; no association metadata is written",
+      "reason": "a classifier-owned end is written as that classifier's property and as an end of the connection def, with no subsetting of or feature chain to it; an anonymous association is deliberately written as its member-end properties rather than as a connection def whose ends cross them: in the TMT model only 418 of its 1,164 anonymous associations have ends a cross feature can soundly be written for (484 cross ends are not typed by a definition, 211 opposite ends are untyped, 27 end types are shadowed by an end name, 24 others), and writing those 418 adds connection-def nodes to rendered block definition diagrams, drops edges from others and raises the validator's warnings by 92; a named association or association class is written as a connection def with its ends, which name no cross feature",
       "scope": [
         "uml:Association"
       ]
@@ -20536,16 +20834,14 @@
         "filter"
       ],
       "ocl": "sha256:f26b5183e76e27482fa8b927433664360bf2d9b9dab083d32119b77fb2f26cec",
-      "status": "approximate",
+      "status": "deliberate",
       "implementation": [
-        "internal/translate/migrate/migrate.go:association",
         "internal/translate/migrate/migrate.go:associationEnd"
       ],
       "tests": [
-        "tests/migrate/classify_test.go:TestAnonymousAssociationOwningEveryEndIsWritten",
-        "tests/migrate/classify_test.go:TestSelfAssociationEndsAreDistinct"
+        "tests/migrate/association_class_test.go:TestAssociationClassIsConnectionDefinitionWithFeatures"
       ],
-      "reason": "a named association is written as a connection def with its ends; an anonymous one only as its navigable ends; no association metadata is written",
+      "reason": "an end is written as an end feature typed by its member end's type, with no cross feature; an anonymous association is deliberately written as its member-end properties rather than as a connection def whose ends cross them: in the TMT model only 418 of its 1,164 anonymous associations have ends a cross feature can soundly be written for (484 cross ends are not typed by a definition, 211 opposite ends are untyped, 27 end types are shadowed by an end name, 24 others), and writing those 418 adds connection-def nodes to rendered block definition diagrams, drops edges from others and raises the validator's warnings by 92; a named association or association class is written as a connection def with its ends, which name no cross feature",
       "scope": [
         "uml:Association"
       ]
@@ -20566,16 +20862,14 @@
         "ownedRelationship"
       ],
       "ocl": "sha256:2a033629a690b962b2337bf943a0dff4ae6051c1dd871903edf35ee96a3bc0d5",
-      "status": "approximate",
+      "status": "deliberate",
       "implementation": [
-        "internal/translate/migrate/migrate.go:association",
         "internal/translate/migrate/migrate.go:associationEnd"
       ],
       "tests": [
-        "tests/migrate/classify_test.go:TestAnonymousAssociationOwningEveryEndIsWritten",
-        "tests/migrate/classify_test.go:TestSelfAssociationEndsAreDistinct"
+        "tests/migrate/association_class_test.go:TestAssociationClassIsConnectionDefinitionWithFeatures"
       ],
-      "reason": "a named association is written as a connection def with its ends; an anonymous one only as its navigable ends; no association metadata is written",
+      "reason": "an end is written as an end feature typed by its member end's type, with no cross feature; an anonymous association is deliberately written as its member-end properties rather than as a connection def whose ends cross them: in the TMT model only 418 of its 1,164 anonymous associations have ends a cross feature can soundly be written for (484 cross ends are not typed by a definition, 211 opposite ends are untyped, 27 end types are shadowed by an end name, 24 others), and writing those 418 adds connection-def nodes to rendered block definition diagrams, drops edges from others and raises the validator's warnings by 92; a named association or association class is written as a connection def with its ends, which name no cross feature",
       "scope": [
         "uml:Association"
       ]
@@ -20666,10 +20960,16 @@
       ],
       "operations": [],
       "ocl": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "status": "not-implemented",
-      "implementation": [],
-      "tests": [],
-      "reason": "association-end qualifiers are not read",
+      "status": "faithful",
+      "implementation": [
+        "internal/translate/migrate/migrate.go:associationEnd",
+        "internal/translate/migrate/migrate.go:feature"
+      ],
+      "tests": [
+        "tests/migrate/qualifiers_test.go:TestAssociationEndQualifiers",
+        "internal/translate/xmi/sysmlv1/xmi_test.go:TestAssociationEndQualifierChildrenAreRetained"
+      ],
+      "reason": "an association-end qualifier is written as an owned feature of the end it qualifies; neither the PSSM suite nor the TMT model has one (the TMT model's 10 qualifiers are on properties that are not association ends)",
       "scope": [
         "uml:Property[qualifier]"
       ]

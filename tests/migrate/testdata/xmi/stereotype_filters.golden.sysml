@@ -211,7 +211,7 @@ package 'Depot Viewpoints' {
     }
 }
 package 'Depot Handbook' {
-    part def 'Depot Handbook' {
+    occurrence def 'Depot Handbook' {
         view criticalItems :> 'Critical Items';
         view exactCriticalLayouts :> 'Exact Critical Layouts';
         view criticalFigures :> 'Critical Figures';

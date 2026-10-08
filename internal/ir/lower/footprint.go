@@ -18,11 +18,13 @@ import (
 // Place is one feature a move reads or writes: the declaration the name resolves to
 // (nil when unresolved) and the name; Local marks a pin, held per performance.
 // State marks the activity of a state, which a transition reads and writes.
+// Direct marks a name written alone, not reached through a chain or qualified.
 type Place struct {
-	Sym   *symbols.Symbol
-	Name  string
-	Local bool
-	State *ast.StateNode
+	Sym    *symbols.Symbol
+	Name   string
+	Local  bool
+	State  *ast.StateNode
+	Direct bool
 }
 
 // Conflicts reports whether the two places may name one value: places resolving
@@ -56,13 +58,21 @@ func (p Place) String() string {
 }
 
 // Channel is one message a move sends or waits for: the signal type as written
-// ("" for any) and the port it travels through ("" for none).
+// ("" for any) and the port it travels through ("" for none). Type is the accept's
+// type reference and Message the send's message, each resolving in Scope; Via marks
+// a send routed by connections, Drops a machine's dispatch, which may discard a
+// message sent to its object. Own marks a send naming no target, for the sending object.
 type Channel struct {
-	Signal string
-	Port   string
+	Signal  string
+	Port    string
+	Type    *ast.QualifiedName
+	Message ast.Node
+	Scope   *symbols.Scope
+	Via     bool
+	Drops   bool
+	Own     bool
 }
 
-// String renders the channel as `Signal via Port`, dropping what is absent.
 func (c Channel) String() string {
 	text := c.Signal
 	if text == "" {
@@ -77,6 +87,8 @@ func (c Channel) String() string {
 // Footprint is what one atomic move (one token advancing one node, one transition
 // firing) may touch. Control lists the joins and merges it arrives at; Completion
 // marks a move that may queue a completion event; Dynamic an unresolved target.
+// Creates marks a move that may create an object starting no behavior; Routes one
+// sending through connections, which reads whatever the objects' structure holds.
 type Footprint struct {
 	Reads      []Place
 	Writes     []Place
@@ -85,24 +97,57 @@ type Footprint struct {
 	Control    []ast.Node
 	Completion bool
 	Dynamic    bool
+	Creates    bool
+	Routes     bool
 }
 
 // Dependent reports whether the two moves may not commute: a data race, both
 // touching the bus (a send meeting an accept, two accepts competing for one message,
 // two sends ordering it), both queuing a completion, convergence on one join or
-// merge, or a dynamic target.
+// merge, creation meeting creation or an extent, routing meeting a structural
+// write, or a dynamic target.
 func (f Footprint) Dependent(g Footprint) bool {
+	return f.DependentBy(g, Relation{})
+}
+
+// ChannelsMeet reports whether a message operation of one move may not commute
+// with one of another: each channel with whether it sends.
+type ChannelsMeet func(a Channel, aSends bool, b Channel, bSends bool) bool
+
+// Relation is what is known of the executors two moves belong to. Channels decides
+// which message operations meet, nil having every two meet. Apart marks two
+// executors, each converging on control nodes of its own; Objects two run for two
+// objects, each holding its own pins and state activity, and Held, where set, reports
+// whether a direct place of the first move's and one of the second's are slots of different objects.
+type Relation struct {
+	Channels ChannelsMeet
+	Apart    bool
+	Objects  bool
+	Held     func(p, q Place) bool
+}
+
+// DependentBy is Dependent under what rel knows of the moves' executors.
+func (f Footprint) DependentBy(g Footprint, rel Relation) bool {
 	if f.Dynamic || g.Dynamic {
 		return true
 	}
-	if placesMeet(f.Writes, g.Reads) || placesMeet(f.Writes, g.Writes) || placesMeet(g.Writes, f.Reads) {
+	if rel.placesMeet(f.Writes, g.Reads) || rel.placesMeet(f.Writes, g.Writes) || rel.placesMeet(f.Reads, g.Writes) {
 		return true
 	}
-	if f.messages() && g.messages() {
+	if f.messagesMeet(g, rel.Channels) {
 		return true
 	}
 	if f.Completion && g.Completion {
 		return true
+	}
+	if f.Creates && (g.Creates || readsExtent(g.Reads)) || g.Creates && readsExtent(f.Reads) {
+		return true
+	}
+	if f.Routes && rel.writesStructure(g.Writes) || g.Routes && rel.writesStructure(f.Writes) {
+		return true
+	}
+	if rel.Apart {
+		return false
 	}
 	for _, node := range f.Control {
 		for _, other := range g.Control {
@@ -114,20 +159,89 @@ func (f Footprint) Dependent(g Footprint) bool {
 	return false
 }
 
-// messages reports whether the move sends or accepts a message.
-func (f Footprint) messages() bool {
-	return len(f.Sends) > 0 || len(f.Accepts) > 0
-}
-
-func placesMeet(as, bs []Place) bool {
+// placesMeet reports whether a place of the first move's, among as, may name the
+// value of one of the second's, among bs.
+func (rel Relation) placesMeet(as, bs []Place) bool {
 	for _, a := range as {
 		for _, b := range bs {
-			if a.Conflicts(b) {
+			if a.Conflicts(b) && !rel.held(a, b) {
 				return true
 			}
 		}
 	}
 	return false
+}
+
+// held reports whether two conflicting places, the first move's and the
+// second's, are nonetheless two values.
+func (rel Relation) held(p, q Place) bool {
+	if !rel.Objects {
+		return false
+	}
+	if p.Local || q.Local || p.State != nil || q.State != nil {
+		return true
+	}
+	return p.Direct && q.Direct && rel.Held != nil && rel.Held(p, q)
+}
+
+// readsExtent reports whether a read may be of what objects exist: of anything
+// but a state's activity, a pin or a declared feature.
+func readsExtent(reads []Place) bool {
+	for _, p := range reads {
+		if p.State == nil && !p.Local && (p.Sym == nil || !isFeatureSymbol(p.Sym)) {
+			return true
+		}
+	}
+	return false
+}
+
+// writesStructure reports whether a write may change what a connection reaches:
+// any but of an attribute or a state's activity, or of another executor's pin.
+func (rel Relation) writesStructure(writes []Place) bool {
+	for _, p := range writes {
+		if p.State != nil || p.Local && rel.Objects {
+			continue
+		}
+		if p.Sym == nil || p.Sym.Kind != symbols.SymbolAttributeUsage {
+			return true
+		}
+	}
+	return false
+}
+
+// isFeatureSymbol reports whether the symbol is a usage, which holds values rather than classifying them.
+func isFeatureSymbol(sym *symbols.Symbol) bool {
+	_, usage := sym.Decl.(*ast.Usage)
+	return usage
+}
+
+func (f Footprint) messagesMeet(g Footprint, meet ChannelsMeet) bool {
+	if !f.messages() || !g.messages() {
+		return false
+	}
+	if meet == nil {
+		return true
+	}
+	return channelsMeet(f.Sends, true, g.Sends, true, meet) ||
+		channelsMeet(f.Sends, true, g.Accepts, false, meet) ||
+		channelsMeet(f.Accepts, false, g.Sends, true, meet) ||
+		channelsMeet(f.Accepts, false, g.Accepts, false, meet)
+}
+
+func channelsMeet(as []Channel, aSends bool, bs []Channel, bSends bool, meet ChannelsMeet) bool {
+	for _, a := range as {
+		for _, b := range bs {
+			if meet(a, aSends, b, bSends) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// messages reports whether the move sends or accepts a message.
+func (f Footprint) messages() bool {
+	return len(f.Sends) > 0 || len(f.Accepts) > 0
 }
 
 // String renders the footprint one clause per line, names sorted, for tests and
@@ -171,6 +285,12 @@ func (f Footprint) String() string {
 	if f.Completion {
 		b.WriteString("completion\n")
 	}
+	if f.Creates {
+		b.WriteString("creates\n")
+	}
+	if f.Routes {
+		b.WriteString("routes\n")
+	}
 	if f.Dynamic {
 		b.WriteString("dynamic\n")
 	}
@@ -212,7 +332,7 @@ func declaredFeatures(graph *ActionGraph) map[ast.Node]bool {
 // footprintOf projects the footprint of one node from the graph's side tables;
 // declared is declaredFeatures(graph).
 func footprintOf(graph *ActionGraph, node ast.Node, declared map[ast.Node]bool) Footprint {
-	b := &footprintBuilder{graph: graph, node: node, scope: nodeScopeOf(graph, node), declared: declared}
+	b := &footprintBuilder{resolver: graph.resolver, graph: graph, node: node, scope: nodeScopeOf(graph, node), declared: declared}
 	if nodePerformsAction(node) {
 		// The performed action runs in an executor of its own; what it touches is its.
 		b.footprint.Dynamic = true
@@ -250,6 +370,8 @@ func nodeScopeOf(graph *ActionGraph, node ast.Node) *symbols.Scope {
 }
 
 type footprintBuilder struct {
+	// resolver reads a name the scope tree alone does not reach, nil for none.
+	resolver          *resolve.Resolver
 	graph             *ActionGraph
 	node              ast.Node
 	scope             *symbols.Scope
@@ -313,14 +435,15 @@ func (b *footprintBuilder) place(scope *symbols.Scope, segments []string, each f
 	name := segments[len(segments)-1]
 	sym, _ := resolve.FeatureSymbolInScope(scope, segments)
 	local := sym != nil && b.declaredByNode(sym)
-	each(Place{Sym: sym, Name: name, Local: local})
+	direct := len(segments) == 1
+	each(Place{Sym: sym, Name: name, Local: local, Direct: direct})
 	if sym == nil {
 		return
 	}
 	if usage, ok := sym.Decl.(*ast.Usage); ok {
 		for _, redefined := range redefinedNames(usage) {
 			if redefined != name {
-				each(Place{Sym: sym, Name: redefined, Local: local})
+				each(Place{Sym: sym, Name: redefined, Local: local, Direct: direct})
 			}
 		}
 		b.calcUsage(sym, usage)
@@ -419,8 +542,12 @@ func (b *footprintBuilder) reads(scope *symbols.Scope, expr ast.Node) {
 		b.reads(scope, e.Operand)
 		b.reads(scope, e.Body)
 	case *ast.ConstructorExpr:
-		// Constructing an object extends its type's extent and starts classifier behaviors.
-		b.footprint.Dynamic = true
+		// Constructing an object extends its type's extent and may start classifier behaviors.
+		if plainType(scope, e.Type) {
+			b.footprint.Creates = true
+		} else {
+			b.footprint.Dynamic = true
+		}
 		for _, arg := range e.Args {
 			b.reads(scope, arg)
 		}
@@ -460,10 +587,19 @@ func (b *footprintBuilder) readName(scope *symbols.Scope, qn *ast.QualifiedName)
 		return
 	}
 	if len(qn.Parts) == 1 {
-		b.place(scope, []string{qn.Parts[0].Text}, b.read)
-		return
+		if _, found := resolve.FeatureSymbolInScope(scope, []string{qn.Parts[0].Text}); found || b.resolver == nil {
+			b.place(scope, []string{qn.Parts[0].Text}, b.read)
+			return
+		}
 	}
-	b.read(Place{Name: qn.Parts[len(qn.Parts)-1].Text})
+	name := qn.Parts[len(qn.Parts)-1].Text
+	if b.resolver != nil {
+		if sym, ok := b.resolver.ReadQualified(scope, qn).Symbol(); ok && sym != nil {
+			b.read(Place{Sym: sym, Name: name, Local: b.declaredByNode(sym), Direct: len(qn.Parts) == 1})
+			return
+		}
+	}
+	b.read(Place{Name: name})
 }
 
 // invokesDeclaredBehavior reports whether an invocation names a calc or action the
@@ -518,10 +654,11 @@ func (b *footprintBuilder) statement(stmt Statement) {
 			b.footprint.Dynamic = true
 		}
 		if s.IsVia {
-			// A `via` send is routed by connections at run time.
-			b.footprint.Dynamic = true
+			// A `via` send is routed by connections at run time, materializing the ports it reaches.
+			b.footprint.Routes, b.footprint.Creates = true, true
 		}
-		b.footprint.Sends = append(b.footprint.Sends, Channel{Port: viaPortOf(s)})
+		own := s.Target == "" && s.TargetExpr == nil && s.Receiver == "" && s.ReceiverExpr == nil && !s.IsVia
+		b.footprint.Sends = append(b.footprint.Sends, Channel{Port: viaPortOf(s), Message: s.Message, Scope: s.Scope, Via: s.IsVia, Own: own})
 	case Declare:
 		b.reads(s.Scope, s.Value)
 		if b.localDeclarations {
@@ -610,14 +747,49 @@ func (b *footprintBuilder) block(block Block) {
 		b.statements(block.Statements)
 		return
 	}
-	for _, node := range block.Graph.Nodes {
-		nested := block.Graph.Footprints()[node]
-		if !block.Graph.StatementRuns[node] {
-			// A nested action or a perform inside a block runs a behavior of its own.
-			nested.Dynamic = true
-		}
-		b.merge(nested)
+	b.merge(FlowFootprint(block.Graph))
+}
+
+// FlowFootprint is what running the flow may touch: every node's footprint and
+// those of the flows its nodes own; a node performing an action is dynamic.
+func FlowFootprint(graph *ActionGraph) Footprint {
+	var b footprintBuilder
+	b.flow(graph, make(map[*ActionGraph]bool))
+	return b.footprint
+}
+
+func (b *footprintBuilder) flow(graph *ActionGraph, seen map[*ActionGraph]bool) {
+	if graph == nil || seen[graph] {
+		return
 	}
+	seen[graph] = true
+	for _, node := range graph.Nodes {
+		b.merge(graph.Footprints()[node])
+		if sub := graph.Subflows[node]; sub != nil {
+			if sub.Graph == nil {
+				b.footprint.Dynamic = true
+			}
+			b.flow(sub.Graph, seen)
+		}
+	}
+}
+
+// InstantDelay is the time event of an accept or transition trigger that may end
+// the instant: a relative delay written as a number, with or without a unit.
+func InstantDelay(trigger ast.Node) (*ast.TimeEvent, bool) {
+	t, ok := trigger.(*ast.TimeEvent)
+	if !ok || t.Absolute {
+		return nil, false
+	}
+	duration := t.Duration
+	if ix, quantity := duration.(*ast.IndexExpr); quantity && ix.Bracket {
+		duration = ix.Operand
+	}
+	switch duration.(type) {
+	case *ast.LiteralInteger, *ast.LiteralReal:
+		return t, true
+	}
+	return nil, false
 }
 
 func (b *footprintBuilder) merge(other Footprint) {
@@ -632,6 +804,27 @@ func (b *footprintBuilder) merge(other Footprint) {
 	b.footprint.Control = append(b.footprint.Control, other.Control...)
 	b.footprint.Completion = b.footprint.Completion || other.Completion
 	b.footprint.Dynamic = b.footprint.Dynamic || other.Dynamic
+	b.footprint.Creates = b.footprint.Creates || other.Creates
+	b.footprint.Routes = b.footprint.Routes || other.Routes
+}
+
+// plainType reports whether constructing the named type creates an object that
+// starts no behavior and evaluates nothing: a non-abstract item, attribute, part or
+// port definition declaring no member and specializing nothing explicitly.
+func plainType(scope *symbols.Scope, qn *ast.QualifiedName) bool {
+	if scope == nil || qn == nil {
+		return false
+	}
+	decl, _, ok := resolve.TypeDeclInScope(scope, qn)
+	def, isDef := decl.(*ast.Definition)
+	if !ok || !isDef || def.IsAbstract || len(def.Members) > 0 || len(def.Relationships) > 0 || len(def.Prefixes) > 0 {
+		return false
+	}
+	switch def.Kind {
+	case ast.DefItem, ast.DefAttribute, ast.DefPart, ast.DefPort:
+		return true
+	}
+	return false
 }
 
 func viaPortOf(s Send) string {
@@ -848,7 +1041,7 @@ func (b *footprintBuilder) accept() {
 	if !ok {
 		return
 	}
-	channel := Channel{Port: accept.ViaPort}
+	channel := Channel{Port: accept.ViaPort, Type: accept.SignalType, Scope: accept.Scope}
 	if accept.SignalType != nil {
 		channel.Signal = accept.SignalType.Text()
 	}

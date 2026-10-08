@@ -91,8 +91,8 @@ type ActionExecutor struct {
 	stepsSpent int64
 	// inRun is set while RunToCompletion drives the steps, whose budget they share.
 	inRun bool
-	// held marks a run paused on this action's waits by the body performing it,
-	// which resumes the run; the clock leaves a held action to its holder.
+	// held marks a run paused on this action's waits or at its start by the body
+	// performing it, which resumes the run; the clock leaves a held action to its holder.
 	held bool
 	// moved is set once a token acted — a failed step included — or the body wrote a
 	// feature, and cleared when the start that attached the execution to its object settles.
@@ -105,6 +105,9 @@ type ActionExecutor struct {
 // chargeActionStep spends one step of the action's token-flow budget
 // (MaxActionStepsEnvVar), which the tokens of every flow of the run share.
 func (e *ActionExecutor) chargeActionStep() error {
+	if e.ctx.interrupted() {
+		return ErrInterrupted
+	}
 	if e.stepsSpent+e.steps >= e.ctx.maxActionSteps {
 		return budgetExceeded(ErrActionStepLimitExceeded,
 			fmt.Sprintf("execution exceeded max steps (%d steps; raise %s to allow more), possible infinite loop",
@@ -674,6 +677,11 @@ func (e *ActionExecutor) RunToCompletion() error {
 // run is the RunToCompletion loop, holding the clock where it is when
 // atCurrentTime is set.
 func (e *ActionExecutor) run(atCurrentTime bool) error {
+	return e.runSteps(atCurrentTime, false)
+}
+
+// runSteps is run, stopping after one step where single is set.
+func (e *ActionExecutor) runSteps(atCurrentTime, single bool) error {
 	defer e.ctx.beginExecutorRun(&e.driven)()
 
 	if e.released {
@@ -735,6 +743,14 @@ func (e *ActionExecutor) run(atCurrentTime bool) error {
 		if err := e.pauseAfterMove(); err != nil {
 			e.held = true
 			return err
+		}
+		if single {
+			break
+		}
+		if !atCurrentTime {
+			if err := e.ctx.yieldTurn(e, &progress); err != nil {
+				return err
+			}
 		}
 	}
 	if e.state == StateWaiting && !atCurrentTime {
@@ -2662,7 +2678,7 @@ func (e *ActionExecutor) awaitSignal(token *Token, accept lower.Accept, usage *a
 	token.Wait = nil
 	if tr := e.trace(); tr != nil {
 		tr.RecordAccept(TraceOrigin{At: e.ctx.clock.now, Object: e.self, Behavior: e.action},
-			acceptedEventName(msg), msg.Payload)
+			msg.Serial, acceptedEventName(msg), msg.Payload)
 	}
 	if accept.ParamName == "" {
 		return nil, true, nil
@@ -3006,9 +3022,18 @@ func (e *ActionExecutor) watchesChangeIn(perf *actionFrame, seen map[waitTarget]
 // runDue runs the action to quiescence at the current instant; the steps it takes
 // count against the drive's budget together with those already taken.
 func (e *ActionExecutor) runDue(progress *dueProgress) (bool, error) {
+	return e.runDueSteps(progress, false)
+}
+
+// runMove is runDue stopping after one step.
+func (e *ActionExecutor) runMove(progress *dueProgress) (bool, error) {
+	return e.runDueSteps(progress, true)
+}
+
+func (e *ActionExecutor) runDueSteps(progress *dueProgress, single bool) (bool, error) {
 	before, positions, taken := e.stepCount, e.tokenPositions(), e.dynamicsSteps()
 	e.stepsSpent = progress.steps
-	err := e.run(true)
+	err := e.runSteps(true, single)
 	e.stepsSpent = 0
 	progress.steps += int64(e.stepCount - before)
 	return e.state != StateWaiting || !maps.Equal(positions, e.tokenPositions()) || e.dynamicsSteps() != taken, err
@@ -3040,7 +3065,32 @@ func performerSuffix(self *Instance) string {
 // runs the statements lowering recorded for it, then leaves for its successor.
 func (e *ActionExecutor) stepStatementNode(tokenIdx int) error {
 	token := e.tokens[tokenIdx]
-	return e.runBody(tokenIdx, &statementWork{exec: e, token: token.ID, frame: token.frame, node: token.Location})
+	step := e.beginStatementStep(token.frame, token.Location)
+	return e.runBody(tokenIdx, &statementWork{exec: e, token: token.ID, frame: token.frame, node: token.Location, step: step})
+}
+
+// beginStatementStep is a token's step of a statement node in frame: a transparent performance
+// owning what the step's body performs, so a `terminate` there names the step's own.
+func (e *ActionExecutor) beginStatementStep(frame *actionFrame, node ast.Node) *actionFrame {
+	scope := frame.graph.Scopes[node]
+	if scope == nil {
+		scope = frame.scope
+	}
+	return &actionFrame{
+		node:        node,
+		flow:        frame.graph,
+		scope:       scope,
+		parent:      frame,
+		connections: frame.connections,
+		data:        make(map[string]Value),
+		features:    make(map[string]ast.FeatureDirection),
+		subactions:  make(map[ast.Node]*actionFrame),
+		perfs:       &e.performances,
+		run:         frame.run,
+		began:       e.ctx.newActivation(),
+		label:       frame.describe(),
+		body:        true,
+	}
 }
 
 // leaveStatementNode takes the token at tokenIdx on from node, retiring it where

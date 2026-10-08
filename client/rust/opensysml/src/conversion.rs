@@ -159,6 +159,9 @@ pub(crate) fn request_of(
             .map(|form| form.as_str().to_owned())
             .unwrap_or_default(),
         documents: options.documents.clone(),
+        compact: false,
+        omit_derived: false,
+        keep_derived: Vec::new(),
         source: Some(match source {
             ConvertSource::File(path) => Source::FilePath(path.to_string_lossy().into_owned()),
             ConvertSource::Content(content) => Source::Content(content.clone()),

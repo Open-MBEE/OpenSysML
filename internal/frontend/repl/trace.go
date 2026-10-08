@@ -37,7 +37,7 @@ func (s *Session) noteSummary(notes []runtime.RunNote, before int) []string {
 		parts = append(parts, fmt.Sprintf("%d %s", diverged, plural(diverged, "tool answer diverged", "tool answers diverged")))
 	}
 	line := "  " + strings.Join(parts, "; ")
-	if s.trace == nil {
+	if s.trace == nil || s.traceSilent {
 		line += "; %trace on to see them"
 	}
 	return []string{line}
@@ -50,7 +50,7 @@ const tracePrefix = "[trace] "
 // Tracing reports whether execution steps are being recorded.
 func (s *Session) Tracing() bool {
 	defer s.reading()()
-	return s.trace != nil
+	return s.trace != nil && !s.traceSilent
 }
 
 // SetTracing turns recording of execution steps on or off. It takes effect at
@@ -61,13 +61,33 @@ func (s *Session) SetTracing(on bool) {
 	s.setTracing(on)
 }
 
-func (s *Session) setTracing(on bool) {
+// SetRecording records typed execution events without printing trace lines.
+func (s *Session) SetRecording(on bool) {
+	defer s.enter()()
 	switch {
 	case on && s.trace == nil:
-		s.trace = runtime.NewTraceRecorder()
+		s.trace = runtime.NewEventRecorder(0)
+		s.traceSilent = true
 	case !on:
 		s.trace = nil
+		s.traceSilent = false
 	}
+	s.attachTrace()
+}
+
+func (s *Session) setTracing(on bool) {
+	switch {
+	case on && (s.trace == nil || s.traceSilent):
+		s.trace = runtime.NewTraceRecorder()
+		s.traceSilent = false
+	case !on:
+		s.trace = nil
+		s.traceSilent = false
+	}
+	s.attachTrace()
+}
+
+func (s *Session) attachTrace() {
 	if s.rtCtx != nil {
 		s.rtCtx.SetTrace(s.trace)
 	}
@@ -89,7 +109,7 @@ func onOff(on bool) string {
 // drainTrace returns what was recorded since the last command, prefixed, and
 // resets the recorder so each command reports only its own steps.
 func (s *Session) drainTrace() []string {
-	if s.trace == nil {
+	if s.trace == nil || s.traceSilent {
 		return nil
 	}
 	entries := s.trace.Entries()

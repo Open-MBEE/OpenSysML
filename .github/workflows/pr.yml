@@ -310,7 +310,8 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-    timeout-minutes: 30
+    # The job takes 28 minutes on a hosted runner; a slow one must not cancel it.
+    timeout-minutes: 45
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -1268,6 +1269,10 @@ jobs:
           # Pinned and wheel-only: an unpinned resolve runs whatever was
           # published today, and a source distribution runs its own build code.
           pip install --only-binary :all: pytest==9.0.3 pytest-mock==3.15.1 psutil==7.2.2 fmpy==0.3.32 mypy==2.4.0 types-protobuf==7.35.1.20260906 'pyright[nodejs]==1.1.414'
+          # The Jupyter kernel package: its tests drive jupyter_client and build
+          # its wheels with python -m build.
+          pip install --only-binary :all: jupyter_client==8.10.0 build==1.6.1
+          make jupyter-kernel-install
 
       # The FMI runner test's FMUs, same pin as the Go gate's.
       - name: Cache the Reference-FMUs
@@ -1308,6 +1313,9 @@ jobs:
           OPENSYSML_REQUIRE_SERVICE: 1
           OPENSYSML_REQUIRE_TYPECHECKERS: 1
         run: make python-test
+
+      - name: Run the Jupyter kernel package tests
+        run: make jupyter-kernel-test
 
       - name: Verify Python client import
         run: python3 -c "import opensysml; print(f'opensysml {opensysml.__version__} imported successfully')"

@@ -66,6 +66,24 @@ func TestTreeDrawsTheRelationshipsBetweenItsNodes(t *testing.T) {
 	}
 }
 
+func TestTreeOmitsRelationshipsIntoNestedNodes(t *testing.T) {
+	rendering := renderSource(t, "Views::structure", `package Model {
+	part def General;
+	part def Outer :> Outer::Inner, General {
+		part def Inner;
+	}
+}
+package Views {
+	view structure {
+		expose Model::Outer;
+		expose Model::General;
+	}
+}`)
+	if got, want := treeEdgeLines(rendering), []string{"Model::Outer specialization Model::General"}; !reflect.DeepEqual(got, want) {
+		t.Errorf("edges = %q, want %q", got, want)
+	}
+}
+
 // A composition edge stands for the usage it is labelled with, so the Route
 // about that usage steers it and a layout check sees the usage drawn as an edge;
 // a specialization has no member of its own and is left to the client to route.

@@ -491,3 +491,31 @@ def test_editors_version_rejects_a_tag_that_misspells_the_version(tmp_path):
 def test_main_refuses_editors_and_node_together():
     with pytest.raises(SystemExit):
         check_version.main(["--tag", "v0.9.0", "--editors", "--node"])
+
+
+def test_kernel_version_agrees_with_the_real_tree():
+    """jupyter-opensysml-kernel is released from the same tag, at the same version."""
+    declared = check_version.declared_version()
+    assert check_version.kernel_version() == declared
+    assert check_version.kernel_version(tag=_core_tag(declared)) == declared
+
+
+def test_kernel_version_rejects_a_disagreeing_version_file():
+    with pytest.raises(check_version.VersionError, match="lockstep"):
+        check_version.kernel_version(declared="0.9.2", kernel="0.9.3")
+
+
+def test_kernel_version_rejects_a_tag_that_names_another_version():
+    with pytest.raises(check_version.VersionError, match="v0.9.3"):
+        check_version.kernel_version(declared="0.9.2", kernel="0.9.2", tag="v0.9.3")
+
+
+def test_main_prints_the_kernel_version_the_tag_names(capsys):
+    declared = check_version.declared_version()
+    assert check_version.main(["--tag", _core_tag(declared), "--jupyter-kernel"]) == 0
+    assert capsys.readouterr().out.strip() == declared
+
+
+def test_main_refuses_kernel_and_node_together():
+    with pytest.raises(SystemExit):
+        check_version.main(["--tag", "v0.9.2", "--jupyter-kernel", "--node"])

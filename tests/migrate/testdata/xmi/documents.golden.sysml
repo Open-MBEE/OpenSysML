@@ -367,7 +367,7 @@ package 'Fleet Viewpoints' {
     }
 }
 package 'Fleet Documents' {
-    part def 'Fleet Handbook' {
+    occurrence def 'Fleet Handbook' {
         view introduction :> Introduction;
         view requirements :> Requirements;
         view figures :> Figures;
@@ -380,7 +380,7 @@ package 'Fleet Documents' {
         attribute author : ScalarValues::String;
         /* applied stereotype «Document» */
     }
-    part def 'Fleet Brief' {
+    occurrence def 'Fleet Brief' {
         view figures :> Figures;
         view fleet :> 'Fleet Views'::Fleet;
         view gallery :> 'Fleet Views'::Gallery;
@@ -429,13 +429,16 @@ package 'Fleet Documents' {
         /* not migrated: «Conform» Generalization (_gen_notes) — the viewpoint is not in the document; applied stereotypes «Conform» */
     }
     calc def 'Fleet Handbook Fleet Parts Rows' :> DocumentQueries::Query {
+        in candidates : KerML::Root::Element[0..*] ordered = DocumentQueries::Descendants(
+            source = DocumentQueries::Named(qualifiedName = ("Fleet::Structure")),
+            maxDepth = 1);
         DocumentQueries::Project(
             source = DocumentQueries::OrderBy(
-                source = DocumentQueries::WhereType(
-                    source = DocumentQueries::Descendants(
-                        source = DocumentQueries::Named(qualifiedName = ("Fleet::Structure")),
-                        maxDepth = 1),
-                    type = ("PartDefinition", "RequirementDefinition", "ConstraintDefinition", "PortDefinition", "VerificationCaseDefinition", "ActionDefinition", "StateDefinition", "CalculationDefinition", "ViewUsage", "ViewpointUsage")),
+                source = DocumentQueries::Except(
+                    source = DocumentQueries::WhereType(source = candidates, type = ("PartDefinition", "RequirementDefinition", "ConstraintDefinition", "PortDefinition", "VerificationCaseDefinition", "ActionDefinition", "StateDefinition", "CalculationDefinition", "ViewUsage", "ViewpointUsage", "OccurrenceDefinition")),
+                    exclude = DocumentQueries::Except(
+                        source = DocumentQueries::WhereType(source = candidates, type = ("ItemDefinition")),
+                        exclude = DocumentQueries::WhereType(source = candidates, type = ("PartDefinition", "RequirementDefinition", "ConstraintDefinition", "PortDefinition", "VerificationCaseDefinition", "ActionDefinition", "StateDefinition", "CalculationDefinition", "ViewUsage", "ViewpointUsage")))),
                 property = "name",
                 direction = "ascending",
                 missing = "last",

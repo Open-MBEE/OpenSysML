@@ -55,6 +55,7 @@ from opensysml.capabilities import (
     CAPABILITY_RENDER_DOCUMENT,
     CAPABILITY_RENDER_DOCUMENT_HTML,
     CAPABILITY_RENDER_VIEW,
+    CAPABILITY_EXPORT_GRAPHS,
     CAPABILITY_SCHEDULE,
     CAPABILITY_SCHEDULE_EXPLORE,
     CAPABILITY_SET_VALUES,
@@ -86,6 +87,7 @@ from opensysml.document import (
     binding_rationals_as_reals,
     build_bindings,
     document_event_of,
+    graphs_result,
     render_view_result,
     result_of as document_result,
 )
@@ -1863,6 +1865,17 @@ class Connection:
         ):
             response = self._stub.RenderView(request)
         return render_view_result(response)
+
+    def export_graphs(self, model_hash, subject):
+        """Export the lowered graph of an action or state machine as graphs:1 JSON."""
+        require(self.server_info(), CAPABILITY_EXPORT_GRAPHS, upgrade_remedy(CAPABILITY_EXPORT_GRAPHS))
+        request = sysml_pb2.ExportGraphsRequest(model_hash=model_hash, subject=subject)
+        with translate_rpc_errors(
+            not_found=lambda message, code: SymbolNotFoundError(subject),
+            unimplemented=self._capability_refusal((CAPABILITY_EXPORT_GRAPHS,)),
+        ):
+            response = self._stub.ExportGraphs(request)
+        return graphs_result(response)
 
     def get_symbol(self, model_hash, symbol_id):
         """Fetch symbol by ID from cached model.

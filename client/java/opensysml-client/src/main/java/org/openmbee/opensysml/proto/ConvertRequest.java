@@ -39,6 +39,8 @@ private static final long serialVersionUID = 0L;
     idForm_ = "";
     documents_ =
         com.google.protobuf.LazyStringArrayList.emptyList();
+    keepDerived_ =
+        com.google.protobuf.LazyStringArrayList.emptyList();
   }
 
   public static final com.google.protobuf.Descriptors.Descriptor
@@ -508,6 +510,104 @@ private static final long serialVersionUID = 0L;
     return documents_.getByteString(index);
   }
 
+  public static final int COMPACT_FIELD_NUMBER = 9;
+  private boolean compact_ = false;
+  /**
+   * <pre>
+   * For api-json from notation: write the compact document
+   * (api-json-compact/1) in place of the standard element array. It is one
+   * object holding a table of element ids, written once, and the elements with
+   * every reference spelled as an index into it, without indentation; see
+   * docs/reference/wire-contract.md for the shape. Refused for any other
+   * target. Reported as the "convert_compact" capability.
+   * </pre>
+   *
+   * <code>bool compact = 9 [json_name = "compact"];</code>
+   * @return The compact.
+   */
+  @java.lang.Override
+  public boolean getCompact() {
+    return compact_;
+  }
+
+  public static final int OMIT_DERIVED_FIELD_NUMBER = 10;
+  private boolean omitDerived_ = false;
+  /**
+   * <pre>
+   * With compact: leave out every derived property of the metamodel (the
+   * ones the owned properties already state), except those named in
+   * keep_derived. Refused without compact.
+   * </pre>
+   *
+   * <code>bool omit_derived = 10 [json_name = "omitDerived"];</code>
+   * @return The omitDerived.
+   */
+  @java.lang.Override
+  public boolean getOmitDerived() {
+    return omitDerived_;
+  }
+
+  public static final int KEEP_DERIVED_FIELD_NUMBER = 11;
+  @SuppressWarnings("serial")
+  private com.google.protobuf.LazyStringArrayList keepDerived_ =
+      com.google.protobuf.LazyStringArrayList.emptyList();
+  /**
+   * <pre>
+   * With omit_derived: the derived properties still written, named as in the
+   * element form ("owner", "qualifiedName"). A name that is not a derived
+   * property of the metamodel is INVALID_ARGUMENT. Refused without omit_derived.
+   * </pre>
+   *
+   * <code>repeated string keep_derived = 11 [json_name = "keepDerived"];</code>
+   * @return A list containing the keepDerived.
+   */
+  public com.google.protobuf.ProtocolStringList
+      getKeepDerivedList() {
+    return keepDerived_;
+  }
+  /**
+   * <pre>
+   * With omit_derived: the derived properties still written, named as in the
+   * element form ("owner", "qualifiedName"). A name that is not a derived
+   * property of the metamodel is INVALID_ARGUMENT. Refused without omit_derived.
+   * </pre>
+   *
+   * <code>repeated string keep_derived = 11 [json_name = "keepDerived"];</code>
+   * @return The count of keepDerived.
+   */
+  public int getKeepDerivedCount() {
+    return keepDerived_.size();
+  }
+  /**
+   * <pre>
+   * With omit_derived: the derived properties still written, named as in the
+   * element form ("owner", "qualifiedName"). A name that is not a derived
+   * property of the metamodel is INVALID_ARGUMENT. Refused without omit_derived.
+   * </pre>
+   *
+   * <code>repeated string keep_derived = 11 [json_name = "keepDerived"];</code>
+   * @param index The index of the element to return.
+   * @return The keepDerived at the given index.
+   */
+  public java.lang.String getKeepDerived(int index) {
+    return keepDerived_.get(index);
+  }
+  /**
+   * <pre>
+   * With omit_derived: the derived properties still written, named as in the
+   * element form ("owner", "qualifiedName"). A name that is not a derived
+   * property of the metamodel is INVALID_ARGUMENT. Refused without omit_derived.
+   * </pre>
+   *
+   * <code>repeated string keep_derived = 11 [json_name = "keepDerived"];</code>
+   * @param index The index of the value to return.
+   * @return The bytes of the keepDerived at the given index.
+   */
+  public com.google.protobuf.ByteString
+      getKeepDerivedBytes(int index) {
+    return keepDerived_.getByteString(index);
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -545,6 +645,15 @@ private static final long serialVersionUID = 0L;
     }
     for (int i = 0; i < documents_.size(); i++) {
       com.google.protobuf.GeneratedMessage.writeString(output, 8, documents_.getRaw(i));
+    }
+    if (compact_ != false) {
+      output.writeBool(9, compact_);
+    }
+    if (omitDerived_ != false) {
+      output.writeBool(10, omitDerived_);
+    }
+    for (int i = 0; i < keepDerived_.size(); i++) {
+      com.google.protobuf.GeneratedMessage.writeString(output, 11, keepDerived_.getRaw(i));
     }
     getUnknownFields().writeTo(output);
   }
@@ -585,6 +694,22 @@ private static final long serialVersionUID = 0L;
       size += dataSize;
       size += 1 * getDocumentsList().size();
     }
+    if (compact_ != false) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeBoolSize(9, compact_);
+    }
+    if (omitDerived_ != false) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeBoolSize(10, omitDerived_);
+    }
+    {
+      int dataSize = 0;
+      for (int i = 0; i < keepDerived_.size(); i++) {
+        dataSize += computeStringSizeNoTag(keepDerived_.getRaw(i));
+      }
+      size += dataSize;
+      size += 1 * getKeepDerivedList().size();
+    }
     size += getUnknownFields().getSerializedSize();
     memoizedSize = size;
     return size;
@@ -610,6 +735,12 @@ private static final long serialVersionUID = 0L;
         .equals(other.getIdForm())) return false;
     if (!getDocumentsList()
         .equals(other.getDocumentsList())) return false;
+    if (getCompact()
+        != other.getCompact()) return false;
+    if (getOmitDerived()
+        != other.getOmitDerived()) return false;
+    if (!getKeepDerivedList()
+        .equals(other.getKeepDerivedList())) return false;
     if (!getSourceCase().equals(other.getSourceCase())) return false;
     switch (sourceCase_) {
       case 1:
@@ -650,6 +781,16 @@ private static final long serialVersionUID = 0L;
     if (getDocumentsCount() > 0) {
       hash = (37 * hash) + DOCUMENTS_FIELD_NUMBER;
       hash = (53 * hash) + getDocumentsList().hashCode();
+    }
+    hash = (37 * hash) + COMPACT_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
+        getCompact());
+    hash = (37 * hash) + OMIT_DERIVED_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
+        getOmitDerived());
+    if (getKeepDerivedCount() > 0) {
+      hash = (37 * hash) + KEEP_DERIVED_FIELD_NUMBER;
+      hash = (53 * hash) + getKeepDerivedList().hashCode();
     }
     switch (sourceCase_) {
       case 1:
@@ -810,6 +951,10 @@ private static final long serialVersionUID = 0L;
       idForm_ = "";
       documents_ =
           com.google.protobuf.LazyStringArrayList.emptyList();
+      compact_ = false;
+      omitDerived_ = false;
+      keepDerived_ =
+          com.google.protobuf.LazyStringArrayList.emptyList();
       sourceCase_ = 0;
       source_ = null;
       return this;
@@ -862,6 +1007,16 @@ private static final long serialVersionUID = 0L;
         documents_.makeImmutable();
         result.documents_ = documents_;
       }
+      if (((from_bitField0_ & 0x00000100) != 0)) {
+        result.compact_ = compact_;
+      }
+      if (((from_bitField0_ & 0x00000200) != 0)) {
+        result.omitDerived_ = omitDerived_;
+      }
+      if (((from_bitField0_ & 0x00000400) != 0)) {
+        keepDerived_.makeImmutable();
+        result.keepDerived_ = keepDerived_;
+      }
     }
 
     private void buildPartialOneofs(org.openmbee.opensysml.proto.ConvertRequest result) {
@@ -906,6 +1061,22 @@ private static final long serialVersionUID = 0L;
         } else {
           ensureDocumentsIsMutable();
           documents_.addAll(other.documents_);
+        }
+        onChanged();
+      }
+      if (other.getCompact() != false) {
+        setCompact(other.getCompact());
+      }
+      if (other.getOmitDerived() != false) {
+        setOmitDerived(other.getOmitDerived());
+      }
+      if (!other.keepDerived_.isEmpty()) {
+        if (keepDerived_.isEmpty()) {
+          keepDerived_ = other.keepDerived_;
+          bitField0_ |= 0x00000400;
+        } else {
+          ensureKeepDerivedIsMutable();
+          keepDerived_.addAll(other.keepDerived_);
         }
         onChanged();
       }
@@ -1002,6 +1173,22 @@ private static final long serialVersionUID = 0L;
               documents_.add(s);
               break;
             } // case 66
+            case 72: {
+              compact_ = input.readBool();
+              bitField0_ |= 0x00000100;
+              break;
+            } // case 72
+            case 80: {
+              omitDerived_ = input.readBool();
+              bitField0_ |= 0x00000200;
+              break;
+            } // case 80
+            case 90: {
+              java.lang.String s = input.readStringRequireUtf8();
+              ensureKeepDerivedIsMutable();
+              keepDerived_.add(s);
+              break;
+            } // case 90
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -1885,6 +2072,280 @@ private static final long serialVersionUID = 0L;
       ensureDocumentsIsMutable();
       documents_.add(value);
       bitField0_ |= 0x00000080;
+      onChanged();
+      return this;
+    }
+
+    private boolean compact_ ;
+    /**
+     * <pre>
+     * For api-json from notation: write the compact document
+     * (api-json-compact/1) in place of the standard element array. It is one
+     * object holding a table of element ids, written once, and the elements with
+     * every reference spelled as an index into it, without indentation; see
+     * docs/reference/wire-contract.md for the shape. Refused for any other
+     * target. Reported as the "convert_compact" capability.
+     * </pre>
+     *
+     * <code>bool compact = 9 [json_name = "compact"];</code>
+     * @return The compact.
+     */
+    @java.lang.Override
+    public boolean getCompact() {
+      return compact_;
+    }
+    /**
+     * <pre>
+     * For api-json from notation: write the compact document
+     * (api-json-compact/1) in place of the standard element array. It is one
+     * object holding a table of element ids, written once, and the elements with
+     * every reference spelled as an index into it, without indentation; see
+     * docs/reference/wire-contract.md for the shape. Refused for any other
+     * target. Reported as the "convert_compact" capability.
+     * </pre>
+     *
+     * <code>bool compact = 9 [json_name = "compact"];</code>
+     * @param value The compact to set.
+     * @return This builder for chaining.
+     */
+    public Builder setCompact(boolean value) {
+
+      compact_ = value;
+      bitField0_ |= 0x00000100;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * For api-json from notation: write the compact document
+     * (api-json-compact/1) in place of the standard element array. It is one
+     * object holding a table of element ids, written once, and the elements with
+     * every reference spelled as an index into it, without indentation; see
+     * docs/reference/wire-contract.md for the shape. Refused for any other
+     * target. Reported as the "convert_compact" capability.
+     * </pre>
+     *
+     * <code>bool compact = 9 [json_name = "compact"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearCompact() {
+      bitField0_ = (bitField0_ & ~0x00000100);
+      compact_ = false;
+      onChanged();
+      return this;
+    }
+
+    private boolean omitDerived_ ;
+    /**
+     * <pre>
+     * With compact: leave out every derived property of the metamodel (the
+     * ones the owned properties already state), except those named in
+     * keep_derived. Refused without compact.
+     * </pre>
+     *
+     * <code>bool omit_derived = 10 [json_name = "omitDerived"];</code>
+     * @return The omitDerived.
+     */
+    @java.lang.Override
+    public boolean getOmitDerived() {
+      return omitDerived_;
+    }
+    /**
+     * <pre>
+     * With compact: leave out every derived property of the metamodel (the
+     * ones the owned properties already state), except those named in
+     * keep_derived. Refused without compact.
+     * </pre>
+     *
+     * <code>bool omit_derived = 10 [json_name = "omitDerived"];</code>
+     * @param value The omitDerived to set.
+     * @return This builder for chaining.
+     */
+    public Builder setOmitDerived(boolean value) {
+
+      omitDerived_ = value;
+      bitField0_ |= 0x00000200;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * With compact: leave out every derived property of the metamodel (the
+     * ones the owned properties already state), except those named in
+     * keep_derived. Refused without compact.
+     * </pre>
+     *
+     * <code>bool omit_derived = 10 [json_name = "omitDerived"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearOmitDerived() {
+      bitField0_ = (bitField0_ & ~0x00000200);
+      omitDerived_ = false;
+      onChanged();
+      return this;
+    }
+
+    private com.google.protobuf.LazyStringArrayList keepDerived_ =
+        com.google.protobuf.LazyStringArrayList.emptyList();
+    private void ensureKeepDerivedIsMutable() {
+      if (!keepDerived_.isModifiable()) {
+        keepDerived_ = new com.google.protobuf.LazyStringArrayList(keepDerived_);
+      }
+      bitField0_ |= 0x00000400;
+    }
+    /**
+     * <pre>
+     * With omit_derived: the derived properties still written, named as in the
+     * element form ("owner", "qualifiedName"). A name that is not a derived
+     * property of the metamodel is INVALID_ARGUMENT. Refused without omit_derived.
+     * </pre>
+     *
+     * <code>repeated string keep_derived = 11 [json_name = "keepDerived"];</code>
+     * @return A list containing the keepDerived.
+     */
+    public com.google.protobuf.ProtocolStringList
+        getKeepDerivedList() {
+      keepDerived_.makeImmutable();
+      return keepDerived_;
+    }
+    /**
+     * <pre>
+     * With omit_derived: the derived properties still written, named as in the
+     * element form ("owner", "qualifiedName"). A name that is not a derived
+     * property of the metamodel is INVALID_ARGUMENT. Refused without omit_derived.
+     * </pre>
+     *
+     * <code>repeated string keep_derived = 11 [json_name = "keepDerived"];</code>
+     * @return The count of keepDerived.
+     */
+    public int getKeepDerivedCount() {
+      return keepDerived_.size();
+    }
+    /**
+     * <pre>
+     * With omit_derived: the derived properties still written, named as in the
+     * element form ("owner", "qualifiedName"). A name that is not a derived
+     * property of the metamodel is INVALID_ARGUMENT. Refused without omit_derived.
+     * </pre>
+     *
+     * <code>repeated string keep_derived = 11 [json_name = "keepDerived"];</code>
+     * @param index The index of the element to return.
+     * @return The keepDerived at the given index.
+     */
+    public java.lang.String getKeepDerived(int index) {
+      return keepDerived_.get(index);
+    }
+    /**
+     * <pre>
+     * With omit_derived: the derived properties still written, named as in the
+     * element form ("owner", "qualifiedName"). A name that is not a derived
+     * property of the metamodel is INVALID_ARGUMENT. Refused without omit_derived.
+     * </pre>
+     *
+     * <code>repeated string keep_derived = 11 [json_name = "keepDerived"];</code>
+     * @param index The index of the value to return.
+     * @return The bytes of the keepDerived at the given index.
+     */
+    public com.google.protobuf.ByteString
+        getKeepDerivedBytes(int index) {
+      return keepDerived_.getByteString(index);
+    }
+    /**
+     * <pre>
+     * With omit_derived: the derived properties still written, named as in the
+     * element form ("owner", "qualifiedName"). A name that is not a derived
+     * property of the metamodel is INVALID_ARGUMENT. Refused without omit_derived.
+     * </pre>
+     *
+     * <code>repeated string keep_derived = 11 [json_name = "keepDerived"];</code>
+     * @param index The index to set the value at.
+     * @param value The keepDerived to set.
+     * @return This builder for chaining.
+     */
+    public Builder setKeepDerived(
+        int index, java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      ensureKeepDerivedIsMutable();
+      keepDerived_.set(index, value);
+      bitField0_ |= 0x00000400;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * With omit_derived: the derived properties still written, named as in the
+     * element form ("owner", "qualifiedName"). A name that is not a derived
+     * property of the metamodel is INVALID_ARGUMENT. Refused without omit_derived.
+     * </pre>
+     *
+     * <code>repeated string keep_derived = 11 [json_name = "keepDerived"];</code>
+     * @param value The keepDerived to add.
+     * @return This builder for chaining.
+     */
+    public Builder addKeepDerived(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      ensureKeepDerivedIsMutable();
+      keepDerived_.add(value);
+      bitField0_ |= 0x00000400;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * With omit_derived: the derived properties still written, named as in the
+     * element form ("owner", "qualifiedName"). A name that is not a derived
+     * property of the metamodel is INVALID_ARGUMENT. Refused without omit_derived.
+     * </pre>
+     *
+     * <code>repeated string keep_derived = 11 [json_name = "keepDerived"];</code>
+     * @param values The keepDerived to add.
+     * @return This builder for chaining.
+     */
+    public Builder addAllKeepDerived(
+        java.lang.Iterable<java.lang.String> values) {
+      ensureKeepDerivedIsMutable();
+      com.google.protobuf.AbstractMessageLite.Builder.addAll(
+          values, keepDerived_);
+      bitField0_ |= 0x00000400;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * With omit_derived: the derived properties still written, named as in the
+     * element form ("owner", "qualifiedName"). A name that is not a derived
+     * property of the metamodel is INVALID_ARGUMENT. Refused without omit_derived.
+     * </pre>
+     *
+     * <code>repeated string keep_derived = 11 [json_name = "keepDerived"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearKeepDerived() {
+      keepDerived_ =
+        com.google.protobuf.LazyStringArrayList.emptyList();
+      bitField0_ = (bitField0_ & ~0x00000400);;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * With omit_derived: the derived properties still written, named as in the
+     * element form ("owner", "qualifiedName"). A name that is not a derived
+     * property of the metamodel is INVALID_ARGUMENT. Refused without omit_derived.
+     * </pre>
+     *
+     * <code>repeated string keep_derived = 11 [json_name = "keepDerived"];</code>
+     * @param value The bytes of the keepDerived to add.
+     * @return This builder for chaining.
+     */
+    public Builder addKeepDerivedBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkByteStringIsUtf8(value);
+      ensureKeepDerivedIsMutable();
+      keepDerived_.add(value);
+      bitField0_ |= 0x00000400;
       onChanged();
       return this;
     }

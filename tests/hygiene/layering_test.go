@@ -73,6 +73,7 @@ var packageLayer = map[string]string{
 	"internal/check/edit":            "check",
 
 	"internal/exec/runtime":             "exec",
+	"internal/exec/runtrace":            "exec",
 	"internal/exec/solve":               "exec",
 	"internal/exec/smt":                 "exec",
 	"internal/exec/analysis":            "exec",
@@ -121,6 +122,7 @@ var packageLayer = map[string]string{
 	"client/opensysml":              "frontend",
 	"internal/frontend/protoconv":   "frontend",
 	"internal/frontend/repl":        "frontend",
+	"internal/frontend/jupyter":     "frontend",
 	"internal/frontend/lsp":         "frontend",
 	"internal/frontend/grpc":        "frontend",
 	"internal/frontend/engine":      "frontend",
@@ -134,6 +136,7 @@ var packageLayer = map[string]string{
 	"internal/frontend/buildinfo":   "frontend",
 	"cmd/sysml":                     "frontend",
 	"cmd/sysml-grpc":                "frontend",
+	"cmd/sysml-jupyter-kernel":      "frontend",
 	"cmd/sysml-lsp":                 "frontend",
 	"cmd/sysml-engine":              "frontend",
 	"cmd/sysml-syntax":              "frontend",

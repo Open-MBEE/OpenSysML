@@ -246,14 +246,23 @@ so that `dist/` holds:
 - `sysml-grpc-<os>-<arch>`, published raw with a `.sha256` sidecar rather than
   archived, because that is what `opensysml` downloads and verifies
   (`client/python/opensysml/binary.py`) when it starts the service for a Python caller;
+- `sysml-jupyter-kernel-<os>-<arch>`, the Jupyter kernel, published raw with a
+  `.sha256` sidecar for the same reason: `jupyter-opensysml-kernel`'s sdist downloads
+  and verifies it (`client/jupyter-kernel/jupyter_opensysml_kernel/binary.py`) when it
+  registers the kernelspec, and its platform wheels bundle it;
 - `wasm/sysml-wasm.wasm` and `wasm/wasm_exec.js`, the combined WebAssembly
   module and matching Go runtime, each with a `.sha256` sidecar;
 - the Python client's distribution, `opensysml-<x.y.z>-py3-none-any.whl` and
   `opensysml-<x.y.z>.tar.gz`, built by `build-python-package` from those
   `sysml-grpc` binaries' digests and the same files `publish-pypi` uploads (see
   [Releasing opensysml to PyPI](#releasing-opensysml-to-pypi));
-- `SHA256SUMS.txt` over every archive, the wheel, every `sysml-grpc` binary and
-  both WebAssembly assets,
+- the Jupyter kernel's distributions, `jupyter_opensysml_kernel-<x.y.z>.tar.gz` and one
+  `jupyter_opensysml_kernel-<x.y.z>-py3-none-<platform>.whl` per released platform, built
+  by `build-jupyter-kernel-package` from the `sysml-jupyter-kernel` binaries and their
+  digests (see
+  [Releasing jupyter-opensysml-kernel to PyPI](#releasing-jupyter-opensysml-kernel-to-pypi));
+- `SHA256SUMS.txt` over every archive, every wheel and sdist, every `sysml-grpc` and
+  `sysml-jupyter-kernel` binary and both WebAssembly assets,
   with its cosign signature `SHA256SUMS.txt.bundle` (see
   [The signed checksum manifest](#the-signed-checksum-manifest));
 - `provenance.intoto.json`, the SLSA provenance statement naming every artifact
@@ -264,9 +273,9 @@ Platforms: linux/amd64, linux/arm64, darwin/amd64, darwin/arm64,
 windows/amd64.
 
 The two jobs share one workspace: `build-release-binaries` persists the whole
-`dist/` tree, and `build-release` persists only what it added to it — the
-manifest, its signature and provenance bundles, the `.sha256` sidecars and the
-Python distribution. Workspace layers are additive, and a path persisted by two
+`dist/` tree, the binaries' `.sha256` sidecars included, and `build-release`
+persists only what it added to it — the manifest, its signature and provenance
+bundles, the WebAssembly sidecars and the Python distributions. Workspace layers are additive, and a path persisted by two
 upstream jobs fails the attach in every job downstream of both, which is every
 publish job.
 
@@ -679,8 +688,8 @@ the team membership current.
 **VERSIONINFO.** SignPath enforces the metadata a signed file carries.
 `packaging/windows/<cmd>.winres.json` holds the static fields (`ProductName`
 `OpenSysML`, `CompanyName`, `FileDescription`, `LegalCopyright`,
-`OriginalFilename`), and the Makefile's `build-sysml`, `build-lsp` and
-`build-grpc` targets run `go-winres` (pinned by `GO_WINRES_VERSION`, a build
+`OriginalFilename`), and the Makefile's `build-sysml`, `build-lsp`,
+`build-grpc` and `build-jupyter-kernel` targets run `go-winres` (pinned by `GO_WINRES_VERSION`, a build
 tool that ends up nowhere in the product) for `GOOS=windows` only, writing
 `cmd/<cmd>/rsrc_windows_<arch>.syso` with `ProductVersion` and `FileVersion`
 set to the same `VERSION` the `-ldflags` carry. The `.syso` files are ignored
@@ -1210,6 +1219,57 @@ without breaking a pin that already names it), and cut the next core release —
 the package's version is the core's, so the fix is a patch tag, not a new
 `VERSION` alone. Deleting a release frees nothing: the version number stays used.
 
+## Releasing jupyter-opensysml-kernel to PyPI
+
+The Jupyter kernel package in `client/jupyter-kernel/` is published to PyPI as
+[`jupyter-opensysml-kernel`](https://pypi.org/project/jupyter-opensysml-kernel/) by the
+same `release` workflow, at the core's version and in lockstep with `opensysml`:
+`client/python/scripts/check_version.py --jupyter-kernel` refuses a tag whose version the
+kernel package does not declare, so a release bump stamps both `_version.py` files.
+
+The package is one wheel per released platform, each bundling that platform's
+`sysml-jupyter-kernel-<os>-<arch>` asset and installing the kernelspec as shared data so
+`pip install` alone registers the kernel, plus an sdist that bundles none and downloads the
+asset, verified against the digests in its own
+`jupyter_opensysml_kernel/release-digests.json`, when it registers the kernelspec. The
+distributions are built the way the Python client's is, from the binaries themselves:
+
+1. `build-release-binaries` cross-compiles `sysml-jupyter-kernel` into `dist/jupyter`
+   beside the service binaries, checks the Linux ones are static and that each reports
+   the tag.
+2. `build-jupyter-kernel-package` stamps the digests of those binaries into the package's
+   table (`pin_release_checksums.py --from-binaries dist/jupyter --table
+   client/jupyter-kernel/jupyter_opensysml_kernel/release-digests.json`), then runs
+   `scripts/build-jupyter-kernel-dist.sh dist/jupyter client/jupyter-kernel/dist`: the
+   sdist first, then for each platform the binary is checked against its `.sha256`
+   sidecar, staged as `jupyter_opensysml_kernel/bin/sysml-jupyter-kernel[.exe]`, and
+   `python -m build --wheel` runs with `JUPYTER_OPENSYSML_KERNEL_PLATFORM=<os>-<arch>`,
+   which `client/jupyter-kernel/setup.py` turns into the wheel's platform tag and the
+   `share/jupyter/kernels/sysml` data files. The script opens every wheel to check it
+   carries its kernel and the kernelspec, and the sdist to check it carries neither. The
+   job then installs the Linux x86_64 wheel alone into a clean virtualenv and asserts it
+   imports at the tag's version, that `jupyter kernelspec list` finds `sysml` under the
+   virtualenv's prefix, and that `python -m jupyter_opensysml_kernel -version` starts the
+   bundled kernel and it reports the tag; and asserts that every wheel and the sdist are
+   built against the tag and pin all five `sysml-jupyter-kernel-*` assets to the digests
+   of the binaries just built.
+3. `build-release` lists the kernel binaries, their `.sha256` sidecars and the six kernel
+   distributions in `SHA256SUMS.txt`, checks every wheel's pins against the manifest it is
+   about to sign, and signs it.
+4. `publish-pypi-jupyter-kernel` runs after the GitHub release exists, refuses a version the
+   index already has, and uploads the verified distribution with the same `PyPI` context
+   as `publish-pypi`. The project needs its own trusted-publisher or token entry on PyPI;
+   the token in the context must be allowed to upload to both projects.
+
+`tests/hygiene/release_config_test.go` holds the configuration to this order, and
+`pin_release_checksums.py` to the rule that a release carrying any kernel asset carries all
+five. Nightly snapshots build and publish the kernel package the same way, as a development
+version pinning the night's prerelease.
+
+The conda-forge recipe under `packaging/conda` is rendered from the release's manifest
+with `scripts/render-conda-recipe.sh` after the release exists; see
+[packaging/conda/README.md](../../packaging/conda/README.md).
+
 ## Releasing @openmbee/opensysml to npm
 
 The Node client in `client/node/` is published to npm as `@openmbee/opensysml`
@@ -1250,9 +1310,10 @@ See `client/node/README.md`.
 ### Where the binaries come from
 
 The five binaries are `build-release-binaries`' `dist/grpc` output, with the
-`.sha256` sidecars `build-release` writes beside them — the same bytes as the
-GitHub release and the signed `SHA256SUMS.txt`, persisted to the workspace the
-npm job attaches. `npm run platform-packages` refuses to package a binary
+`.sha256` sidecars it writes beside them — the same bytes as the GitHub
+release and the signed `SHA256SUMS.txt`, which `build-release` folds the
+sidecars into after checking them — persisted to the workspace the npm job
+attaches. `npm run platform-packages` refuses to package a binary
 whose bytes disagree with its `.sha256` sidecar, or that has none, so the
 packages can only carry what the release built. The WASM package is built from
 `dist/wasm` in the same workspace with both assets checked against their

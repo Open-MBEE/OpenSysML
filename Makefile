@@ -1,4 +1,4 @@
-.PHONY: all build build-sysml build-prod build-wasm-prod build-lsp build-grpc build-engine build-core build-syntax build-sysml-wasm build-release-wasm build-wasm build-wasm-wasip1 build-wasm-js wasm-check static-check windows-versioninfo-check man man-check install-tree pgo-profile conformance conformance-pkg conformance-rust conformance-julia conformance-matlab test test-shard coverage coverage-shard coverage-merge lint clean install help ontology-table ontology-table-check python-metamodel python-metamodel-check fuml-expected python-test python-coverage scripts-coverage node-coverage python-install proto proto-buf python-proto proto-ts proto-rust proto-lint proto-breaking vscode-grammar vscode-build vscode-package docs docs-install docs-serve docs-engine-assets docs-landing-assets docs-counts docs-check changelog-check changelog-render self-model
+.PHONY: all build build-sysml build-prod build-wasm-prod build-lsp build-grpc build-engine build-core build-syntax build-sysml-wasm build-release-wasm build-wasm build-wasm-wasip1 build-wasm-js wasm-check static-check windows-versioninfo-check man man-check install-tree pgo-profile conformance conformance-pkg conformance-rust conformance-julia conformance-matlab test test-shard coverage coverage-shard coverage-merge lint clean install help ontology-table ontology-table-check python-metamodel python-metamodel-check fuml-expected python-test python-coverage scripts-coverage node-coverage python-install jupyter-kernel-install jupyter-kernel-test proto proto-buf python-proto proto-ts proto-rust proto-lint proto-breaking vscode-grammar vscode-build vscode-package docs docs-install docs-serve docs-engine-assets docs-landing-assets docs-counts docs-check changelog-check changelog-render self-model
 
 # Version information
 # Only release tags describe a build; the moving `nightly` tag is not a version.
@@ -48,6 +48,7 @@ BIN_DIR := bin
 # WebAssembly output, one directory per Go wasm target.
 WASM_DIR := $(BIN_DIR)/wasm
 PYTHON_DIR := client/python
+JUPYTER_KERNEL_DIR := client/jupyter-kernel
 NODE_DIR := client/node
 # The TypeScript protobuf plugin, installed by `npm ci` from the client's lockfile.
 PROTOC_GEN_ES := $(NODE_DIR)/node_modules/.bin/protoc-gen-es
@@ -74,7 +75,7 @@ COVERAGE_PROFILE ?= coverage.txt
 COVERAGE_SHARDS := runtime model export rest
 
 # The commands whose manual pages are generated and shipped, in section 1.
-COMMANDS := sysml sysml-lsp sysml-grpc
+COMMANDS := sysml sysml-lsp sysml-grpc sysml-jupyter-kernel
 # sysml-engine, sysml-syntax, sysml-core and sysml-wasm serve JSON RPC surfaces
 # without protobuf. Natively they are built only on request and stay out of
 # `build`, `install`, the release and the manual pages.
@@ -94,7 +95,7 @@ INSTALL ?= install
 
 all: build test python-test ## Build and test everything
 
-build: build-sysml build-lsp build-grpc ## Build all binaries
+build: build-sysml build-lsp build-grpc build-jupyter-kernel ## Build all binaries
 
 build-sysml: ## Build sysml binary
 	@echo "Building sysml..."
@@ -125,6 +126,13 @@ build-grpc: ## Build sysml-grpc binary
 	$(call winres,sysml-grpc)
 	$(GO_BUILD) -o $(BIN_DIR)/sysml-grpc ./cmd/sysml-grpc
 	@echo "✓ Built $(BIN_DIR)/sysml-grpc ($(VERSION))"
+
+build-jupyter-kernel: ## Build sysml-jupyter-kernel binary
+	@echo "Building sysml-jupyter-kernel..."
+	@mkdir -p $(BIN_DIR)
+	$(call winres,sysml-jupyter-kernel)
+	$(GO_BUILD) -o $(BIN_DIR)/sysml-jupyter-kernel ./cmd/sysml-jupyter-kernel
+	@echo "✓ Built $(BIN_DIR)/sysml-jupyter-kernel ($(VERSION))"
 
 # The JSON commands, natively: each serves its JSON-RPC over stdio. Opt-in:
 # nothing builds, installs or releases them.
@@ -210,7 +218,7 @@ man: ## Regenerate the shipped manual pages from each command's description
 
 man-check: ## Verify the shipped pages are current and formatter-clean
 	@echo "Checking the manual pages..."
-	go test -count=1 -run 'TestTheShippedManualPage|TestTheManualPage' ./cmd/sysml ./cmd/sysml-lsp ./cmd/sysml-grpc
+	go test -count=1 -run 'TestTheShippedManualPage|TestTheManualPage' ./cmd/sysml ./cmd/sysml-lsp ./cmd/sysml-grpc ./cmd/sysml-jupyter-kernel
 	@# mandoc is the strictest reader; groff is the one always at hand.
 	@if command -v mandoc >/dev/null 2>&1; then \
 		mandoc -T lint -W warning $(MAN_PAGES) || exit 1; \
@@ -267,7 +275,7 @@ conformance-pkg: ## Run the conformance suite through the public Go API (client/
 
 test: ## Run Go tests with race detection and coverage
 	@echo "Running Go race tests..."
-	@# Per-package timeout: under -race the runtime package runs 22-29 minutes on CI runners.
+	@# Per-package timeout: under -race the runtime package runs 31-47 minutes on CI runners.
 	@# -pgo=off: coverage plus cmd/*/default.pgo trips golang/go#80891 (link: fingerprint mismatch).
 	go test -v -race -pgo=off -timeout 45m -coverprofile=coverage.txt -covermode=atomic ./...
 	go test -C $(TOOLS_DIR) -v -race -pgo=off -timeout 45m ./...
@@ -373,7 +381,7 @@ clean: ## Remove build artifacts
 	rm -rf $(BIN_DIR)
 	rm -f coverage.txt coverage-python.xml coverage-scripts.xml .coverage-scripts coverage-node.lcov
 	rm -rf $(GO_COUNTER_DIR)
-	rm -f sysml sysml-lsp sysml-grpc
+	rm -f sysml sysml-lsp sysml-grpc sysml-jupyter-kernel
 	rm -f cmd/*/rsrc_windows_*.syso
 	rm -rf $(SITE_DIR)
 	@# Only the default destination; an overridden SELF_MODEL_OUT is the caller's.
@@ -385,6 +393,7 @@ install: build ## Install binaries to $GOPATH/bin
 	$(GO_INSTALL) ./cmd/sysml
 	$(GO_INSTALL) ./cmd/sysml-lsp
 	$(GO_INSTALL) ./cmd/sysml-grpc
+	$(GO_INSTALL) ./cmd/sysml-jupyter-kernel
 	@echo "✓ Installed"
 
 # What a distribution's package build calls: staged under DESTDIR, into the
@@ -452,6 +461,17 @@ python-test: ## Run Python client tests
 	@echo "Running Python client tests..."
 	cd $(PYTHON_DIR) && pytest tests/ -v
 	@echo "✓ Python client tests passed"
+
+jupyter-kernel-install: ## Install the jupyter-opensysml-kernel package in editable mode
+	@echo "Installing jupyter-opensysml-kernel..."
+	cd $(JUPYTER_KERNEL_DIR) && pip install -e .
+	@echo "✓ Installed jupyter-opensysml-kernel"
+
+# The wheel tests build with python -m build, so it must be installed too.
+jupyter-kernel-test: ## Run the jupyter-opensysml-kernel package tests and type check
+	@echo "Running jupyter-opensysml-kernel tests..."
+	cd $(JUPYTER_KERNEL_DIR) && pytest tests/ -v && mypy jupyter_opensysml_kernel
+	@echo "✓ jupyter-opensysml-kernel tests passed"
 
 # Run from the repo root so the report records repo-relative paths, which is
 # what the SonarCloud scan resolves against.

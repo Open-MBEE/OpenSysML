@@ -739,7 +739,7 @@ class ExecuteStateResponse(_message.Message):
     def __init__(self, states_visited: _Optional[_Iterable[str]] = ..., final_context: _Optional[_Mapping[str, Value]] = ..., error: _Optional[str] = ..., diagnostics: _Optional[_Iterable[_Union[Diagnostic, _Mapping]]] = ..., outcomes: _Optional[_Iterable[_Union[Outcome, _Mapping]]] = ..., exploration: _Optional[_Union[ExplorationStatus, _Mapping]] = ..., final_time: _Optional[float] = ..., trace: _Optional[_Iterable[_Union[DocumentEvent, _Mapping]]] = ..., trace_dropped: _Optional[int] = ...) -> None: ...
 
 class ConvertRequest(_message.Message):
-    __slots__ = ("file_path", "content", "model_hash", "from_format", "to_format", "tolerate_syntax_errors", "id_form", "documents")
+    __slots__ = ("file_path", "content", "model_hash", "from_format", "to_format", "tolerate_syntax_errors", "id_form", "documents", "compact", "omit_derived", "keep_derived")
     FILE_PATH_FIELD_NUMBER: _ClassVar[int]
     CONTENT_FIELD_NUMBER: _ClassVar[int]
     MODEL_HASH_FIELD_NUMBER: _ClassVar[int]
@@ -748,6 +748,9 @@ class ConvertRequest(_message.Message):
     TOLERATE_SYNTAX_ERRORS_FIELD_NUMBER: _ClassVar[int]
     ID_FORM_FIELD_NUMBER: _ClassVar[int]
     DOCUMENTS_FIELD_NUMBER: _ClassVar[int]
+    COMPACT_FIELD_NUMBER: _ClassVar[int]
+    OMIT_DERIVED_FIELD_NUMBER: _ClassVar[int]
+    KEEP_DERIVED_FIELD_NUMBER: _ClassVar[int]
     file_path: str
     content: str
     model_hash: str
@@ -756,7 +759,10 @@ class ConvertRequest(_message.Message):
     tolerate_syntax_errors: bool
     id_form: str
     documents: _containers.RepeatedScalarFieldContainer[str]
-    def __init__(self, file_path: _Optional[str] = ..., content: _Optional[str] = ..., model_hash: _Optional[str] = ..., from_format: _Optional[str] = ..., to_format: _Optional[str] = ..., tolerate_syntax_errors: _Optional[bool] = ..., id_form: _Optional[str] = ..., documents: _Optional[_Iterable[str]] = ...) -> None: ...
+    compact: bool
+    omit_derived: bool
+    keep_derived: _containers.RepeatedScalarFieldContainer[str]
+    def __init__(self, file_path: _Optional[str] = ..., content: _Optional[str] = ..., model_hash: _Optional[str] = ..., from_format: _Optional[str] = ..., to_format: _Optional[str] = ..., tolerate_syntax_errors: _Optional[bool] = ..., id_form: _Optional[str] = ..., documents: _Optional[_Iterable[str]] = ..., compact: _Optional[bool] = ..., omit_derived: _Optional[bool] = ..., keep_derived: _Optional[_Iterable[str]] = ...) -> None: ...
 
 class ConvertResponse(_message.Message):
     __slots__ = ("content", "from_format", "to_format", "error", "diagnostics", "experimental", "experimental_notice")
@@ -2044,3 +2050,21 @@ class RenderNote(_message.Message):
     has_size: bool
     origin: Span
     def __init__(self, text: _Optional[str] = ..., anchor: _Optional[str] = ..., edge_from: _Optional[str] = ..., edge_to: _Optional[str] = ..., x: _Optional[float] = ..., y: _Optional[float] = ..., width: _Optional[float] = ..., height: _Optional[float] = ..., has_size: _Optional[bool] = ..., origin: _Optional[_Union[Span, _Mapping]] = ...) -> None: ...
+
+class ExportGraphsRequest(_message.Message):
+    __slots__ = ("model_hash", "subject")
+    MODEL_HASH_FIELD_NUMBER: _ClassVar[int]
+    SUBJECT_FIELD_NUMBER: _ClassVar[int]
+    model_hash: str
+    subject: str
+    def __init__(self, model_hash: _Optional[str] = ..., subject: _Optional[str] = ...) -> None: ...
+
+class ExportGraphsResponse(_message.Message):
+    __slots__ = ("content", "version", "subject")
+    CONTENT_FIELD_NUMBER: _ClassVar[int]
+    VERSION_FIELD_NUMBER: _ClassVar[int]
+    SUBJECT_FIELD_NUMBER: _ClassVar[int]
+    content: str
+    version: int
+    subject: str
+    def __init__(self, content: _Optional[str] = ..., version: _Optional[int] = ..., subject: _Optional[str] = ...) -> None: ...

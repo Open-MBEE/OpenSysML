@@ -117,6 +117,9 @@ type StateGraph struct {
 	transitionFootprints map[*Transition]Footprint
 	behaviorFootprints   map[ast.Node]Footprint
 	footprintsOnce       sync.Once
+	// transitionSteps: transition out of a state → its step short of do behaviors.
+	transitionSteps map[*Transition]TransitionStep
+	stepsOnce       sync.Once
 
 	// CompositeStates: state → regions
 	CompositeStates map[*ast.StateNode][]*ast.StateRegion

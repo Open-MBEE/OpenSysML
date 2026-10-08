@@ -816,9 +816,9 @@ func (e *StateExecutor) recordAccept(event Event, mark int, at float64) {
 	origin := TraceOrigin{At: at, Object: e.self, Behavior: e.stateMachine}
 	switch payload := event.Payload.(type) {
 	case Message:
-		tr.RecordAcceptAt(mark, origin, acceptedEventName(payload), payload.Payload)
+		tr.RecordAcceptAt(mark, origin, payload.Serial, acceptedEventName(payload), payload.Payload)
 	case Call:
-		tr.RecordAcceptAt(mark, origin, payload.Operation, payload.Args)
+		tr.RecordAcceptAt(mark, origin, 0, payload.Operation, payload.Args)
 	}
 }
 
@@ -2394,7 +2394,7 @@ func (e *StateExecutor) terminateMachine(fromName string, trigger ast.Node, stop
 	}
 	abandoned := e.abandonMachine()
 	if e.trace() != nil {
-		e.trace().RecordStateTerminate(name, abandoned)
+		e.trace().RecordStateTerminate(e.traceOrigin(), name, abandoned)
 	}
 	e.state = StateTerminated
 	e.ctx.endPerformanceLife(e.occurrence)
@@ -3483,10 +3483,11 @@ func (e *StateExecutor) RunToQuiescence() error {
 // once nothing is due it advances to the earliest wait, running whatever is due there.
 func (e *StateExecutor) run(atCurrentTime bool) error {
 	var progress dueProgress
-	return e.runCounting(atCurrentTime, &progress)
+	_, err := e.runCounting(atCurrentTime, false, &progress)
+	return err
 }
 
-func (e *StateExecutor) runCounting(atCurrentTime bool, progress *dueProgress) (err error) {
+func (e *StateExecutor) runCounting(atCurrentTime, single bool, progress *dueProgress) (moved bool, err error) {
 	defer e.ctx.beginExecutorRun(&e.driven)()
 	defer e.completedWhole(&err)
 	wasRunning := e.inRun
@@ -3502,18 +3503,27 @@ func (e *StateExecutor) runCounting(atCurrentTime bool, progress *dueProgress) (
 	for e.state == StateRunning {
 		stepped, err := e.runUnit(progress)
 		if err != nil {
-			return err
+			return moved, err
 		}
 		if stepped {
+			moved = true
 			progress.unsettle()
 			if e.callReleased() {
-				return nil
+				return moved, nil
+			}
+			if single {
+				return moved, nil
+			}
+			if !atCurrentTime {
+				if err := e.ctx.yieldTurn(e, progress); err != nil {
+					return moved, err
+				}
 			}
 			continue
 		}
 		if atCurrentTime {
 			e.state = StateSuspended
-			return nil
+			return moved, nil
 		}
 		// Nothing left at this instant: the others due run, then the clock moves to the
 		// earliest wait. Only a machine with a timer of its own running moves the clock.
@@ -3521,7 +3531,7 @@ func (e *StateExecutor) runCounting(atCurrentTime bool, progress *dueProgress) (
 		for {
 			picked, err := e.ctx.runDue(e, progress)
 			if err != nil {
-				return err
+				return moved, err
 			}
 			// Its turn: work is due, or a change condition it watches is to be polled.
 			if picked || e.dueWork() {
@@ -3529,11 +3539,11 @@ func (e *StateExecutor) runCounting(atCurrentTime bool, progress *dueProgress) (
 			}
 			if _, waiting := e.NextWait(); !waiting || !e.ctx.advanceToNextDue(progress) {
 				e.state = StateSuspended
-				return nil
+				return moved, nil
 			}
 		}
 	}
-	return nil
+	return moved, nil
 }
 
 // dueLabel names the machine in a due-order choice.
@@ -3612,8 +3622,20 @@ func (e *StateExecutor) drivable() bool {
 
 // runDue runs the machine to quiescence at the current instant.
 func (e *StateExecutor) runDue(progress *dueProgress) (bool, error) {
+	return e.runDueUnits(progress, false)
+}
+
+// runMove is runDue stopping after one unit of the run.
+func (e *StateExecutor) runMove(progress *dueProgress) (bool, error) {
+	return e.runDueUnits(progress, true)
+}
+
+func (e *StateExecutor) runDueUnits(progress *dueProgress, single bool) (bool, error) {
 	before := *progress
-	err := e.runCounting(true, progress)
+	stepped, err := e.runCounting(true, single, progress)
+	if single {
+		return stepped, err
+	}
 	return progress.events > before.events || progress.doSteps > before.doSteps, err
 }
 
@@ -3683,6 +3705,9 @@ func (e *StateExecutor) counting(progress *dueProgress) func() {
 
 // countDoStep counts one token move of a do behavior against the run's do-step budget.
 func (e *StateExecutor) countDoStep() error {
+	if e.ctx.interrupted() {
+		return ErrInterrupted
+	}
 	e.progress.doSteps++
 	if e.progress.doSteps >= e.ctx.maxDoSteps {
 		return budgetExceeded(ErrDoStepLimitExceeded,
@@ -3885,6 +3910,9 @@ func doStepLabel(states []string) string {
 // dispatchOne is runStep's dispatch phase: a risen change condition fires, else
 // the next due event is dispatched; false when neither is there.
 func (e *StateExecutor) dispatchOne(progress *dueProgress) (bool, error) {
+	if e.ctx.interrupted() {
+		return false, ErrInterrupted
+	}
 	maxStateEvents := e.ctx.maxStateEvents
 	fired, err := e.pollChangeEvents()
 	if err != nil {
@@ -4103,7 +4131,7 @@ func (e *StateExecutor) stepDoAction(act *doAction, goOn func(*doRun) (*doRun, e
 
 	e.moved = true
 	if e.trace() != nil {
-		e.trace().RecordDoStep(e.traceOrigin(), act.state.Name)
+		e.trace().RecordDoStep(e.traceOrigin(), act.state.Name, e.StatePath(act.state), e.RegionPath(act.state))
 	}
 	if run == nil {
 		act.pending = act.pending[1:]
@@ -5244,8 +5272,11 @@ func (e *StateExecutor) performEntry(state *ast.StateNode) error {
 		e.stateVisits = append(e.stateVisits, state.Name)
 
 		// Record trace
-		if e.trace() != nil {
-			e.trace().RecordStateEntry(e.traceOrigin(), state.Name, len(e.behaviorsOf(state).Entry) > 0)
+		if trace := e.trace(); trace != nil {
+			trace.RecordStateEntryWithSource(
+				e.traceOrigin(), state.Name, e.StatePath(state), e.RegionPath(state),
+				len(e.behaviorsOf(state).Entry) > 0, e.stateSourceOrigin(state),
+			)
 		}
 	}
 
@@ -5372,7 +5403,10 @@ func (e *StateExecutor) exitState(state *ast.StateNode) error {
 
 	// Record trace
 	if !e.graph.HiddenStates[state] && e.trace() != nil {
-		e.trace().RecordStateExit(e.traceOrigin(), state.Name, len(e.behaviorsOf(state).Exit) > 0)
+		e.trace().RecordStateExitWithSource(
+			e.traceOrigin(), state.Name, e.StatePath(state), e.RegionPath(state),
+			len(e.behaviorsOf(state).Exit) > 0, e.stateSourceOrigin(state),
+		)
 	}
 
 	// Execute exit actions
@@ -5593,6 +5627,50 @@ func (e *StateExecutor) StatePath(state *ast.StateNode) string {
 		parts = append(parts, s.Name)
 	}
 	return strings.Join(append(parts, state.Name), ".")
+}
+
+func (e *StateExecutor) stateSourceOrigin(state *ast.StateNode) symbols.Origin {
+	doc := e.graph.DocOf(state)
+	if doc == "" && e.stateMachine != nil {
+		doc = e.stateMachine.DocName
+	}
+	return symbols.NodeOrigin(doc, state)
+}
+
+// RegionOf returns the innermost orthogonal region a state stands in, or nil
+// when the state is outside every region.
+func (e *StateExecutor) RegionOf(state *ast.StateNode) *ast.StateRegion {
+	for current := state; current != nil; current = e.graph.ParentState[current] {
+		if region := e.graph.RegionOf[current]; region != nil {
+			return region
+		}
+		if region := e.graph.HiddenRegionOf[current]; region != nil {
+			return region
+		}
+	}
+	return nil
+}
+
+// RegionPath qualifies the innermost region by the written states enclosing it.
+func (e *StateExecutor) RegionPath(state *ast.StateNode) string {
+	region := e.RegionOf(state)
+	if region == nil {
+		return ""
+	}
+	owner := e.graph.RegionOwner[region]
+	parts := make([]string, 0)
+	if owner != nil {
+		for _, enclosing := range e.EnclosingStates(owner) {
+			parts = append(parts, enclosing.Name)
+		}
+		if !e.graph.HiddenStates[owner] && owner.Name != "" {
+			parts = append(parts, owner.Name)
+		}
+	}
+	if region.Name != "" {
+		parts = append(parts, region.Name)
+	}
+	return strings.Join(parts, ".")
 }
 
 // trace returns the recorder this executor's context is attached to, so turning
