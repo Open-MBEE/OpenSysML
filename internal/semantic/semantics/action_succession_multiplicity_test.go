@@ -45,38 +45,32 @@ func TestActionSuccessionTargetEndMultiplicity(t *testing.T) {
 	}
 }
 
-// A guarded succession's `then [m] b` writes the same target end: on the
-// transition a `succession first a if g then [m] b` declares, and on the
-// `first a if g then [m] b` shorthand.
+// A guarded succession's `then [m] b` writes the same target end on the
+// transition it declares, whether spelled `succession first a if g then [m] b`
+// or the keyword-optional `first a if g then [m] b` — both a TransitionMember.
 func TestGuardedSuccessionTargetEndMultiplicity(t *testing.T) {
 	m, root := buildModel(t, `action def A {
 		action a; action b; action c;
 		succession first a if true then [0..1] b;
 		first a if true then [*] c;
 	}`)
-	var transition, initial int
+	var found int
 	for _, succession := range m.ActionSuccessions(sym(t, root, "A")) {
-		switch decl := succession.Decl.(type) {
-		case *ast.TransitionMember:
-			if decl.TargetMultiplicity == nil {
-				continue
-			}
-			transition++
-			if succession.Target.Multiplicity != decl.TargetMultiplicity {
-				t.Error("guarded succession's semantic target end did not retain the parsed multiplicity")
-			}
-		case *ast.InitialNode:
-			if decl.TargetMultiplicity == nil {
-				continue
-			}
-			initial++
-			if succession.Target.Multiplicity != decl.TargetMultiplicity {
-				t.Error("guarded first's semantic target end did not retain the parsed multiplicity")
-			}
+		decl, ok := succession.Decl.(*ast.TransitionMember)
+		if !ok {
+			continue
 		}
+		if decl.TargetMultiplicity == nil {
+			t.Errorf("guarded succession to %v lost its parsed target end", decl.Target)
+			continue
+		}
+		if succession.Target.Multiplicity != decl.TargetMultiplicity {
+			t.Error("guarded succession's semantic target end did not retain the parsed multiplicity")
+		}
+		found++
 	}
-	if transition != 1 || initial != 1 {
-		t.Fatalf("found %d guarded successions and %d guarded firsts with a target end, want 1 each", transition, initial)
+	if found != 2 {
+		t.Fatalf("found %d guarded successions carrying a target end, want 2", found)
 	}
 }
 
