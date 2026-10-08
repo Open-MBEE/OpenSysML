@@ -572,12 +572,16 @@ func (e *encoder) encodeGuardedTarget(n *ast.ControlFlowEdge, head func(rdf.Term
 
 // targetTransitionText writes a decision's branch, `if g then b;` or `else b;`.
 // That notation states no source, which the branch reads from the member
-// before it, and no effect or body; a branch the graph gives another source,
-// an effect or a body, or neither a guard nor `else`, which would read back as
-// a succession, is refused rather than written as a different branch.
-func (d *decoder) targetTransitionText(el *element, guard, target string) (string, string, error) {
+// before it, and no trigger, effect or body; a branch the graph gives another
+// source, a trigger, an effect or a body, or neither a guard nor `else`, which
+// would read back as a succession, is refused rather than written as a
+// different branch.
+func (d *decoder) targetTransitionText(el *element, triggerWords []string, guard, target string) (string, string, error) {
 	refuse := func(note string) error {
 		return &UnsupportedError{What: fmt.Sprintf("the transition <%s>", el.iri), Note: note}
+	}
+	if len(triggerWords) > 0 {
+		return "", "", refuse("it states a trigger, which a decision's branch has no notation for")
 	}
 	if stated := d.graph.Objects(rdf.IRI(el.iri), rdf.SysML+pSource); len(stated) > 0 {
 		before := d.precedingSource(el)
@@ -2031,7 +2035,7 @@ func (d *decoder) transitionText(el *element, annotations []string, depth int) (
 		return "", "", err
 	}
 	if syntax == targetTransitionSyntax {
-		return d.targetTransitionText(el, guard, target)
+		return d.targetTransitionText(el, triggerWords, guard, target)
 	}
 	if guard != "" {
 		words = append(words, "if", guard)

@@ -57,6 +57,9 @@ func TestDecisionBranchesTheNotationCannotStateAreRefused(t *testing.T) {
 		"an else with a body": func(g string) string {
 			return strings.Replace(g, `sysx:isElse "true"^^xsd:boolean ;`, `sysx:isElse "true"^^xsd:boolean ;`+"\n    sysx:hasBody \"true\"^^xsd:boolean ;", 1)
 		},
+		"a trigger": func(g string) string {
+			return strings.Replace(g, `sysx:transitionSyntax "target" ;`, `sysx:transitionSyntax "target" ;`+"\n    sysx:trigger \"accept Go\" ;", 1)
+		},
 		"neither guard nor else": func(g string) string {
 			return strings.Replace(g, `sysx:isElse "true"^^xsd:boolean ;`, "", 1)
 		},
