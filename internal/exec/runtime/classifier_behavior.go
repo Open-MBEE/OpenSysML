@@ -1143,6 +1143,11 @@ func (ctx *Context) classifierPerformanceCount(decl classifierBehaviorDecl) (int
 			count = fixed
 		}
 	}
+	if count > ctx.maxActionSteps || count > int64(int(^uint(0)>>1)) {
+		return 0, budgetExceeded(ErrActionStepLimitExceeded,
+			fmt.Sprintf("execution exceeded max steps (%d steps; raise %s to allow more), possible infinite loop",
+				ctx.maxActionSteps, MaxActionStepsEnvVar))
+	}
 	return count, nil
 }
 

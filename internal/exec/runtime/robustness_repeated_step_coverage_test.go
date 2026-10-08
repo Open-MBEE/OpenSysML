@@ -854,6 +854,25 @@ func TestRuntimeRobustnessRepeatedStepCoverage(t *testing.T) {
 		}
 	})
 
+	// A performed action's count is bounded before the behaviors it would
+	// mint are allocated.
+	t.Run("perform-action-count-budget", func(t *testing.T) {
+		file := parseAndBuild(t, `package test {
+			private import ScalarValues::*;
+			part def Host {
+				perform action run[1000000000] {
+					first start;
+					then done;
+				}
+			}
+		}`)
+		index, _, ctx := buildRuntimeWithLibraries(t, "<test>", file)
+		ctx.maxActionSteps = 4
+		host := findSymbolByName(index.DocumentRoot("<test>"), "Host", ast.DefPart)
+		if _, err := ctx.Instantiate(host); !errors.Is(err, ErrActionStepLimitExceeded) {
+			t.Fatalf("Instantiate = %v, want ErrActionStepLimitExceeded", err)
+		}
+	})
 }
 
 // assertDistinctRunOccurrences checks a `perform action run[n]`'s part gives
