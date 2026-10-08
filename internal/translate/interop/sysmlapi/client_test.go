@@ -82,6 +82,15 @@ func TestRedirectsKeepTheTokenOffPlaintext(t *testing.T) {
 			t.Errorf("the refusal names the token: %v", err)
 		}
 	}
+	for _, canonical := range []string{"https://API.example/projects", "https://api.example:443/projects"} {
+		if err := withToken.checkRedirect(request(canonical), []*http.Request{from}); err != nil {
+			t.Errorf("a redirect to %s, the same server, was refused: %v", canonical, err)
+		}
+	}
+	explicit := New(Config{BaseURL: "https://api.example:443", Token: "secret"})
+	if err := explicit.checkRedirect(request("https://api.example/projects"), []*http.Request{from}); err != nil {
+		t.Errorf("a redirect dropping the default port was refused: %v", err)
+	}
 	loopback := New(Config{BaseURL: "https://localhost:8443", Token: "secret"})
 	if err := loopback.checkRedirect(request("http://localhost:8083/projects"), []*http.Request{from}); err == nil {
 		t.Error("a redirect to another port of loopback carried the token")

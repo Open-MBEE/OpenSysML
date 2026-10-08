@@ -130,10 +130,26 @@ func (c *Client) checkRedirect(req *http.Request, via []*http.Request) error {
 	if err := CheckURL(req.URL.String()); err != nil {
 		return fmt.Errorf("redirect from %s refused: %w", from, err)
 	}
-	if base, err := url.Parse(c.cfg.BaseURL); err == nil && req.URL.Host != base.Host {
+	if base, err := url.Parse(c.cfg.BaseURL); err == nil && !sameServer(req.URL, base) {
 		return fmt.Errorf("redirect from %s to %s refused: the token is for %s only", from, req.URL.Host, base.Host)
 	}
 	return nil
+}
+
+// sameServer compares two URLs by host name and effective port, so that
+// https://api.example and https://api.example:443 are one server.
+func sameServer(a, b *url.URL) bool {
+	return strings.EqualFold(a.Hostname(), b.Hostname()) && effectivePort(a) == effectivePort(b)
+}
+
+func effectivePort(u *url.URL) string {
+	if port := u.Port(); port != "" {
+		return port
+	}
+	if u.Scheme == "https" {
+		return "443"
+	}
+	return "80"
 }
 
 // Config returns the configuration the client was built with.
