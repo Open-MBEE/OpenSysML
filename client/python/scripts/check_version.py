@@ -69,6 +69,8 @@ KERNEL_VERSION_FILE = os.path.join(
 EDITOR_MANIFESTS = (
     ("editors/vscode/package.json", "json"),
     ("editors/vscode/package-lock.json", "lock"),
+    ("editors/jupyterlab/package.json", "json"),
+    ("editors/jupyterlab/package-lock.json", "lock"),
     ("editors/syson/frontend/package.json", "json"),
     ("editors/syson/frontend/package-lock.json", "lock"),
     ("editors/mdk/pom.xml", "pom"),

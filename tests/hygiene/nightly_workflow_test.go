@@ -233,6 +233,7 @@ func TestNightlyJupyterKernelSnapshotIsStampedBeforeItIsBuiltAndCheckedAfter(t *
 		"--table client/jupyter-kernel/jupyter_opensysml_kernel/release-digests.json",
 	)
 	build := stepIndex(steps, `"$KERNEL_DIST_SCRIPT" dist/jupyter client/jupyter-kernel/dist`, "-py3-none-*.whl")
+	labextension := stepIndex(steps, "pip install jupyterlab==", `"$KERNEL_DIST_SCRIPT" dist/jupyter client/jupyter-kernel/dist`)
 	verify := stepIndex(steps, "jupyter_opensysml_kernel/release-digests.json", "zipfile", "tarfile", "pinned_digest", "built_against_releases", "bundled_binary", "jupyter_client.kernelspecapp", `"jupyter_opensysml_kernel", "-version"`)
 	manifest := stepIndex(steps, "sha256sum jupyter_opensysml_kernel-*.whl")
 	sign := stepIndex(steps, "cosign sign-blob SHA256SUMS.txt")
@@ -240,6 +241,7 @@ func TestNightlyJupyterKernelSnapshotIsStampedBeforeItIsBuiltAndCheckedAfter(t *
 	for name, index := range map[string]int{
 		"version stamp": version, "binary build": binaries, "digest stamp": stamp,
 		"distribution build": build, "distribution check": verify, "manifest entry": manifest,
+		"jupyterlab install before the distribution build, for `jupyter labextension build`": labextension,
 		"manifest signing": sign, "kernel assets in the release": release,
 	} {
 		if index < 0 {

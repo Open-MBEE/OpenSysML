@@ -333,8 +333,11 @@ jobs:
         env:
           PYPI_VERSION: ${{ steps.version.outputs.pypi }}
         run: |
-          # The sdist, then one wheel per platform bundling the kernel from dist/jupyter;
-          # the script opens each and checks what it carries.
+          # jupyterlab provides `jupyter labextension build`, which bundles the
+          # JupyterLab extension every distribution ships (make jupyterlab-build).
+          python -m pip install jupyterlab==4.6.4
+          # The extension, the sdist, then one wheel per platform bundling the kernel
+          # from dist/jupyter; the script opens each and checks what it carries.
           "$KERNEL_DIST_SCRIPT" dist/jupyter client/jupyter-kernel/dist
           # The version is PEP 440 in canonical form and the build tools normalize the
           # name, so these are the files.
