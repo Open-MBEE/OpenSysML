@@ -14,6 +14,8 @@ const vizModel = `package P {
   part def Car { part fl : Wheel; part fr : Wheel; connect fl to fr; }
   part car : Car { part a : Wheel; part b : Wheel; connect a to b; }
   part lone : Wheel;
+  part def Device { attribute y; }
+  part reader { part second : Device; attribute reading = second.y; }
   state def Lamp { state off; state on; transition off then on; }
   state lamp : Lamp;
   action def Start { action a; action b; first a then b; }
@@ -46,6 +48,7 @@ func TestVizChoosesTheKindTheElementsCallFor(t *testing.T) {
 		{"%viz P::Start", "action rendering"},
 		{"%viz P::start", "action rendering"},
 		{"%viz P::car", "interconnection rendering"},
+		{"%viz P::reader", "interconnection rendering"},
 		{"%viz P::Car", "tree rendering"},
 		{"%viz P::lone", "tree rendering"},
 		{"%viz P", "tree rendering"},
@@ -145,6 +148,9 @@ func TestVizMisuseShowsUsage(t *testing.T) {
 		"%viz --style minimal --style full P::Car":    "both set the port display",
 		"%viz --style viridis --style cividis P::Car": "both set the palette",
 		"%viz --bogus P::Car":                         `unknown option "--bogus"; the options are --view and --style`,
+		"%viz mermaid dot P::Car":                     "mermaid and dot both name the form",
+		"%viz --style PUMLCODE mermaid P::Car":        "style PUMLCODE asks for the plantuml form, but the mermaid form was asked for",
+		"%viz mermaid --style PUMLCODE P::Car":        "style PUMLCODE asks for the plantuml form, but the mermaid form was asked for",
 	}
 	for line, want := range cases {
 		out, _, err := s.RunMeta(line)
@@ -209,6 +215,15 @@ func TestVizFallsBackToTheFormsTheKindSupports(t *testing.T) {
 	if len(rendered) != 1 || rendered[0].Form != view.FormDot {
 		t.Errorf("an asked-for form was answered with %+v", rendered)
 	}
+	// With no fallback and no form asked for, the text the prompt prints.
+	rendered, err = s.Viz([]string{"P::Lamp"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(rendered) != 1 || rendered[0].Form != view.FormText {
+		t.Fatalf("Viz with no fallback answered %+v, want text", rendered)
+	}
+	wants(t, strings.Join(rendered[0].Lines, "\n"), "state rendering")
 }
 
 func TestVizIsInHelpAndCompletion(t *testing.T) {
@@ -228,11 +243,16 @@ func TestVizIsInHelpAndCompletion(t *testing.T) {
 		{"%viz --", []string{"--view=", "--style="}, nil},
 		{"%viz --v", []string{"--view="}, []string{"--style="}},
 		{"%viz --view=", []string{"--view=DEFAULT", "--view=TREE", "--view=STATE", "--view=CASE"}, nil},
-		{"%viz --view=st", []string{"--view=STATE"}, []string{"--view=TREE"}},
+		{"%viz --view=st", []string{"--view=state"}, []string{"--view=tree", "--view=STATE"}},
+		{"%viz --view=ST", []string{"--view=STATE"}, []string{"--view=state"}},
+		{"%viz --view=St", []string{"--view=StATE"}, nil},
 		{"%viz --view ", []string{"DEFAULT", "TREE", "INTERCONNECTION", "STATE", "ACTION", "SEQUENCE", "MIXED", "CASE"}, []string{"P::Car", "mermaid"}},
-		{"%viz --view tr", []string{"TREE"}, []string{"STATE"}},
+		{"%viz --view tr", []string{"tree"}, []string{"state", "TREE"}},
+		{"%viz --view TR", []string{"TREE"}, []string{"STATE"}},
 		{"%viz --style ", []string{"LR", "TB", "pilot", "cameo", "okabe-ito", "minimal", "ORTHOLINE", "PUMLCODE"}, []string{"P::Car"}},
-		{"%viz --style=or", []string{"--style=ORTHOLINE"}, nil},
+		{"%viz --style=or", []string{"--style=ortholine"}, nil},
+		{"%viz --style=OR", []string{"--style=ORTHOLINE"}, nil},
+		{"%viz --style l", []string{"lr"}, []string{"LR"}},
 		{"%viz --style LR --style ca", []string{"cameo"}, []string{"P::Car"}},
 		{"%viz P::L", []string{"P::Lamp"}, []string{"mermaid"}},
 		{"%viz P::l", []string{"P::lamp", "P::lone"}, []string{"mermaid"}},
@@ -254,6 +274,11 @@ func TestVizIsInHelpAndCompletion(t *testing.T) {
 		for _, forbidden := range c.forbidden {
 			if slices.Contains(got.Candidates, forbidden) {
 				t.Errorf("completing %q offered %s", c.head, forbidden)
+			}
+		}
+		for _, cand := range got.Candidates {
+			if !strings.HasPrefix(cand, got.Prefix) {
+				t.Errorf("completing %q offered %q, which does not begin with the typed %q", c.head, cand, got.Prefix)
 			}
 		}
 	}

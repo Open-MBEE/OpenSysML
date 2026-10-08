@@ -22,6 +22,12 @@ const defaultKindModel = `package Demo {
     connect a to b;
   }
   part lone : Wheel;
+  part def Device { attribute y : Real; }
+  part reader {
+    part second : Device;
+    attribute reading : Real = second.y;
+  }
+  part literal { attribute n : Real = 3; }
   item def Cargo;
   state def Lamp { state off; state on; transition off then on; }
   state lamp : Lamp;
@@ -42,21 +48,23 @@ func defaultKindFixture(t *testing.T) (*Renderer, *symbols.Index) {
 func TestElementKindFollowsWhatTheElementIs(t *testing.T) {
 	r, idx := defaultKindFixture(t)
 	cases := map[string]Kind{
-		"Demo":        KindTree,
-		"Demo::Wheel": KindTree,
-		"Demo::Car":   KindTree,
-		"Demo::Bare":  KindTree,
-		"Demo::Cargo": KindTree,
-		"Demo::Sum":   KindTree,
-		"Demo::lone":  KindTree,
-		"Demo::car":   KindInterconnection,
-		"Demo::Lamp":  KindState,
-		"Demo::lamp":  KindState,
-		"Demo::Start": KindAction,
-		"Demo::start": KindAction,
-		"Demo::Drive": KindCase,
-		"Demo::drive": KindCase,
-		"Demo::Study": KindCase,
+		"Demo":          KindTree,
+		"Demo::Wheel":   KindTree,
+		"Demo::Car":     KindTree,
+		"Demo::Bare":    KindTree,
+		"Demo::Cargo":   KindTree,
+		"Demo::Sum":     KindTree,
+		"Demo::lone":    KindTree,
+		"Demo::car":     KindInterconnection,
+		"Demo::reader":  KindInterconnection,
+		"Demo::literal": KindTree,
+		"Demo::Lamp":    KindState,
+		"Demo::lamp":    KindState,
+		"Demo::Start":   KindAction,
+		"Demo::start":   KindAction,
+		"Demo::Drive":   KindCase,
+		"Demo::drive":   KindCase,
+		"Demo::Study":   KindCase,
 	}
 	for fqn, want := range cases {
 		if got := r.ElementKind(lookup(t, idx, fqn)); got != want {
@@ -87,6 +95,7 @@ func TestDefaultKindAgreesOrIsMixed(t *testing.T) {
 		{[]string{"Demo::Start", "Demo::start"}, KindAction},
 		{[]string{"Demo::Wheel", "Demo::Car"}, KindTree},
 		{[]string{"Demo::car"}, KindInterconnection},
+		{[]string{"Demo::car", "Demo::reader"}, KindInterconnection},
 		{[]string{"Demo::Lamp", "Demo::Start"}, KindMixed},
 		{[]string{"Demo::Car", "Demo::car"}, KindMixed},
 	}
@@ -101,7 +110,7 @@ func TestDefaultKindAgreesOrIsMixed(t *testing.T) {
 // never names a kind the renderer refuses.
 func TestDefaultKindsAreRenderable(t *testing.T) {
 	r, idx := defaultKindFixture(t)
-	for _, fqn := range []string{"Demo", "Demo::car", "Demo::Lamp", "Demo::Start", "Demo::drive"} {
+	for _, fqn := range []string{"Demo", "Demo::car", "Demo::reader", "Demo::Lamp", "Demo::Start", "Demo::drive"} {
 		sym := lookup(t, idx, fqn)
 		kind := r.DefaultKind([]*symbols.Symbol{sym})
 		if _, ok := PseudoViewKind(string(kind)); !ok {

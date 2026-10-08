@@ -49,13 +49,25 @@ func (r *Renderer) ElementKind(sym *symbols.Symbol) Kind {
 	return KindTree
 }
 
-// holdsConnections reports whether an element contains a connector, binding or
-// flow an interconnection rendering would draw as an edge.
+// holdsConnections reports whether an element contains a connection an
+// interconnection rendering draws as an edge: a connector, binding or flow
+// usage, or a feature bound by its value to another feature.
 func (r *Renderer) holdsConnections(sym *symbols.Symbol) bool {
 	for _, member := range r.containedMembers(sym) {
-		if r.drawsConnector(member) {
+		if r.drawsConnector(member) || r.bindsByValue(member) {
 			return true
 		}
 	}
 	return false
+}
+
+// bindsByValue reports whether a feature's value names another feature that
+// resolves — the binding valueBindingEdges draws.
+func (r *Renderer) bindsByValue(sym *symbols.Symbol) bool {
+	value := featureValue(sym)
+	if value == nil {
+		return false
+	}
+	_, resolved := r.resolver.ResolveTarget(sym.OwnerScope, value)
+	return resolved
 }

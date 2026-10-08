@@ -768,16 +768,31 @@ func vizFormTyped(finished []string) bool {
 	return false
 }
 
-// matchingPrefixFold is matchingPrefix in any letter case, offering the
-// candidates' own spelling.
+// matchingPrefixFold is matchingPrefix in any letter case. Each match is offered
+// in the case the prefix is typed in — the values are read in any — so that it
+// begins with the prefix, as the prompt's insertion requires.
 func matchingPrefixFold(candidates []string, prefix string) []string {
 	out := make([]string, 0, len(candidates))
 	for _, c := range candidates {
 		if len(c) >= len(prefix) && strings.EqualFold(c[:len(prefix)], prefix) {
-			out = append(out, c)
+			out = append(out, spelledLike(c, prefix))
 		}
 	}
 	return out
+}
+
+// spelledLike respells word in the letter case of prefix, a prefix of it in any
+// case: all lower or all upper when prefix is, otherwise prefix and the rest.
+func spelledLike(word, prefix string) string {
+	switch {
+	case strings.ToLower(prefix) == strings.ToUpper(prefix):
+		return word
+	case prefix == strings.ToLower(prefix):
+		return strings.ToLower(word)
+	case prefix == strings.ToUpper(prefix):
+		return strings.ToUpper(word)
+	}
+	return prefix + word[len(prefix):]
 }
 
 // prefixed puts an option's spelling before each of its values.

@@ -68,11 +68,12 @@ const (
 // elements), the form asked for ("" leaves it to the caller), the drawing
 // options, the notes on styles accepted but not drawn, and the names to draw.
 type vizRequest struct {
-	kind  view.Kind
-	form  view.Form
-	opts  view.Options
-	notes []string
-	names []string
+	kind      view.Kind
+	form      view.Form
+	formStyle string // the style word that chose the form, when one did
+	opts      view.Options
+	notes     []string
+	names     []string
 }
 
 // parseVizArgs reads %viz's arguments; usage is what to print instead when they
@@ -123,6 +124,9 @@ func parseVizArgs(args []string) (vizRequest, []string) {
 			return req, vizUsageOf(fmt.Sprintf("unknown option %q; the options are --view and --style", word))
 		case slices.Contains(view.Forms(), view.Form(word)):
 			if req.form != "" && req.form != view.Form(word) {
+				if req.formStyle != "" {
+					return req, vizUsageOf(fmt.Sprintf("style %s asks for the %s form, but the %s form was asked for", req.formStyle, req.form, word))
+				}
 				return req, vizUsageOf(fmt.Sprintf("%s and %s both name the form", req.form, word))
 			}
 			req.form = view.Form(word)
@@ -176,7 +180,7 @@ func (req *vizRequest) applyStyle(name string) []string {
 		if req.form != "" && req.form != view.FormPlantUML {
 			return vizUsageOf(fmt.Sprintf("style %s asks for the plantuml form, but the %s form was asked for", name, req.form))
 		}
-		req.form = view.FormPlantUML
+		req.form, req.formStyle = view.FormPlantUML, name
 		return nil
 	}
 	if style, ok := view.ParsePilotStyle(name); ok {
@@ -199,7 +203,7 @@ func (s *Session) metaViz(args []string) ([]string, bool, error) {
 	if usage != nil {
 		return usage, false, nil
 	}
-	rendered, err := s.viz(req, view.FormText)
+	rendered, err := s.viz(req)
 	if err != nil {
 		return []string{errPrefix + err.Error()}, false, nil
 	}
@@ -209,7 +213,7 @@ func (s *Session) metaViz(args []string) ([]string, bool, error) {
 // Viz runs %viz with its arguments and answers what it drew: the artifact in
 // the form asked for, or, when none was, in each of the fallback forms the
 // chosen rendering kind is written in — the first alone when it is written in
-// none of them. A usage problem is a *UsageError holding what the prompt
+// none of them — or as text when no fallback is given. A usage problem is a *UsageError holding what the prompt
 // prints; a name that does not resolve is an error naming it.
 func (s *Session) Viz(args []string, fallback ...view.Form) ([]Rendered, error) {
 	defer s.enter()()
@@ -221,6 +225,9 @@ func (s *Session) Viz(args []string, fallback ...view.Form) ([]Rendered, error) 
 }
 
 func (s *Session) viz(req vizRequest, fallback ...view.Form) ([]Rendered, error) {
+	if len(fallback) == 0 {
+		fallback = []view.Form{view.FormText}
+	}
 	rendering, err := s.renderExposed(req.kind, req.names, "")
 	if err != nil {
 		return nil, err
