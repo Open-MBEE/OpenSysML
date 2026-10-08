@@ -1,6 +1,7 @@
-# Contributing to OpenSysML
+# Contributing to the OpenSysML REDK
 
-Thank you for your interest in contributing to OpenSysML. This document describes how to set up a
+Thank you for your interest in contributing to the OpenSysML Runtime Environment and Development
+Kit (REDK). This document describes how to set up a
 development environment, the standards a change is expected to meet, and how contributions are
 reviewed and released.
 
@@ -338,7 +339,7 @@ github.com/Open-MBEE/OpenSysML
 
 Documentation is organized by what a reader wants, not by the feature that landed. Four areas,
 mapped in [docs/README.md](docs/README.md) and published as
-<https://opensysml.org/>:
+<https://opensysml.opensysml.org/>:
 
 - **[docs/guide/](docs/guide/)** — *how do I use it?* A numbered handbook read in order.
 - **[docs/reference/](docs/reference/)** — *what does this flag, command, API or triple mean?*

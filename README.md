@@ -5,7 +5,7 @@
   </picture>
 </p>
 
-# Open Source SysML v2 Implementation
+# OpenSysML REDK — Runtime Environment and Development Kit
 
 [![CircleCI](https://dl.circleci.com/status-badge/img/gh/Open-MBEE/OpenSysML/tree/main.svg?style=shield)](https://dl.circleci.com/status-badge/redirect/gh/Open-MBEE/OpenSysML/tree/main)
 [![Quality gate](https://sonarcloud.io/api/project_badges/measure?project=Open-MBEE_OpenSysML&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=Open-MBEE_OpenSysML)
@@ -19,12 +19,16 @@
 [![PyPI](https://img.shields.io/pypi/v/opensysml?label=pypi)](https://pypi.org/project/opensysml/)
 [![Python versions](https://img.shields.io/pypi/pyversions/opensysml)](https://pypi.org/project/opensysml/)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE)
-[![Documentation](https://img.shields.io/badge/docs-opensysml.org-blue)](https://opensysml.org/)
+[![Documentation](https://img.shields.io/badge/docs-opensysml.opensysml.org-blue)](https://opensysml.opensysml.org/)
 
-OpenSysML is a SysML v2 and KerML 1.1 implementation in Go. It provides a language server, an
-interactive REPL, an execution runtime, an embeddable Go API, and Python, Node/TypeScript, Java
-and Rust client libraries, covering the lifecycle from authoring through execution with the
-integrated tooling systems engineers expect from a modern language ecosystem.
+The OpenSysML Runtime Environment and Development Kit (OpenSysML REDK) is a SysML v2 and
+KerML 1.1 implementation in Go. It provides a language server, an interactive REPL, an execution
+runtime, an embeddable Go API, and Python, Node/TypeScript, Java and Rust client libraries,
+covering the lifecycle from authoring through execution with the integrated tooling systems
+engineers expect from a modern language ecosystem. It is the runtime of
+[OpenSysML](https://opensysml.org/), the open source SysML v2 suite of the
+[OpenMBEE](https://www.openmbee.org) community; this repository is the REDK, and the pages
+below use "OpenSysML" for it where no confusion with the suite is possible.
 
 **It runs the model.** A validator reads declarations; an expression evaluator computes a value
 from the ones it is handed. OpenSysML materializes the instances a model describes, evaluates
@@ -56,7 +60,7 @@ certification is claimed.
 **Introductory material:** [the guide](docs/guide/) and the
 [document generation manual](docs/manual/README.md)
 
-**Complete searchable documentation:** <https://opensysml.org/> — the same pages as
+**Complete searchable documentation:** <https://opensysml.opensysml.org/> — the same pages as
 [docs/](docs/), rendered from `main`.
 
 ### Install
@@ -609,8 +613,8 @@ print(instance.slots["mass"])
 - automatic service lifecycle management
 - full runtime API access (evaluation, instantiation, action and state execution)
 
-See the [Python client guide](https://opensysml.org/clients/python/) for
-installation and usage, the [Python API reference](https://opensysml.org/reference/python-api/),
+See the [Python client guide](https://opensysml.opensysml.org/clients/python/) for
+installation and usage, the [Python API reference](https://opensysml.opensysml.org/reference/python-api/),
 and [client development instructions](client/python/DEVELOPING.md).
 
 ### Node/TypeScript

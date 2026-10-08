@@ -20,7 +20,7 @@ A development snapshot of the client is published every night as
 `opensysml==<next release>.dev<yyyymmdd>`, which `pip install opensysml` never
 picks up; install one by exact version. It starts the `sysml-grpc` of the same
 night's snapshot, whose digests it pins. See [Nightly
-snapshots](https://opensysml.org/project/nightly/).
+snapshots](https://opensysml.opensysml.org/project/nightly/).
 
 ## Quickstart
 
@@ -76,21 +76,21 @@ To use a service you run yourself, pass its address:
 model = opensysml.connect("localhost:50051").load("model.sysml")
 ```
 
-The [service guide](https://opensysml.org/clients/python/service/) covers the
+The [service guide](https://opensysml.opensysml.org/clients/python/service/) covers the
 cache, offline use, trust configuration and connecting to an external service.
 
 ## Documentation
 
-- [Python client guide](https://opensysml.org/clients/python/)
-- [Models and symbols](https://opensysml.org/clients/python/models/)
-- [Instances and values](https://opensysml.org/clients/python/instances/)
-- [Verification and analysis](https://opensysml.org/clients/python/verification/)
-- [Editing and saving](https://opensysml.org/clients/python/editing-and-saving/)
-- [Queries and documents](https://opensysml.org/clients/python/queries/)
-- [Errors](https://opensysml.org/clients/python/errors/)
-- [The service](https://opensysml.org/clients/python/service/)
-- [Typed classes](https://opensysml.org/clients/python/typed-classes/)
-- [API reference](https://opensysml.org/reference/python-api/)
+- [Python client guide](https://opensysml.opensysml.org/clients/python/)
+- [Models and symbols](https://opensysml.opensysml.org/clients/python/models/)
+- [Instances and values](https://opensysml.opensysml.org/clients/python/instances/)
+- [Verification and analysis](https://opensysml.opensysml.org/clients/python/verification/)
+- [Editing and saving](https://opensysml.opensysml.org/clients/python/editing-and-saving/)
+- [Queries and documents](https://opensysml.opensysml.org/clients/python/queries/)
+- [Errors](https://opensysml.opensysml.org/clients/python/errors/)
+- [The service](https://opensysml.opensysml.org/clients/python/service/)
+- [Typed classes](https://opensysml.opensysml.org/clients/python/typed-classes/)
+- [API reference](https://opensysml.opensysml.org/reference/python-api/)
 
 To install from a checkout, run tests, regenerate protobufs or pin release
 digests, see
