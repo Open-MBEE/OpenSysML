@@ -2089,7 +2089,7 @@ func (e *ActionExecutor) enabledSuccessions(frame *actionFrame, node ast.Node) (
 // repeated step gives: its written target end counted every performance, which
 // a false guard leaves unordered with respect to the source.
 func (e *ActionExecutor) falseGuardLeavesRepeated(graph *lower.ActionGraph, edge lower.ActionEdge) error {
-	if edge.TargetMultiplicity == nil || graph.Multiplicities[edge.Target] == nil {
+	if edge.TargetMultiplicity == nil || !graph.HasStepMultiplicity(edge.Target, e.ctx.Semantics()) {
 		return nil
 	}
 	count, err := graph.StepCount(edge.Target, e.ctx.Semantics())

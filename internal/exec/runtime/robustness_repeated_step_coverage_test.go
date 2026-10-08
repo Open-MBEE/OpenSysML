@@ -819,6 +819,41 @@ func TestRuntimeRobustnessRepeatedStepCoverage(t *testing.T) {
 		}
 		assertIntOutput(t, outputs, "n", 4)
 	})
+
+	// A false guard into an inherited repeated step leaves its performances as
+	// unordered as an own-count one's: run and check report the same open order.
+	t.Run("inherited-guard-false", func(t *testing.T) {
+		src := `package test {
+			private import ScalarValues::*;
+			action def Base {
+				action a[3];
+			}
+			action def Derived specializes Base {
+				first start then p;
+				action p;
+				succession first p if false then [*] a;
+				action :>> a;
+				succession first [*] a then [1] done;
+			}
+		}`
+		file := parseAndBuild(t, src)
+		index, _, _ := buildRuntimeWithLibraries(t, "<test>", file)
+		var found bool
+		for _, d := range checkpasses.Analyze("<test>", file, nil, index) {
+			if d.Code == "action-step-order-open" && strings.Contains(d.Message, "a[3]") {
+				found = true
+			}
+		}
+		if !found {
+			t.Errorf("check diagnostics lack the false guard's open-order warning")
+		}
+		_, err := executeActionSource(t, "Derived", src)
+		var stepErr *lower.StepMultiplicityError
+		if !errors.As(err, &stepErr) || stepErr.Code != lower.StepOrderOpenCode {
+			t.Fatalf("execution error = %v, want %s", err, lower.StepOrderOpenCode)
+		}
+	})
+
 }
 
 // assertDistinctRunOccurrences checks a `perform action run[n]`'s part gives
