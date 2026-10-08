@@ -135,25 +135,36 @@ func repoFlag(arg, name string) (value string, ok bool) {
 	return strings.CutPrefix(arg, "--"+name+"=")
 }
 
+// setRepoFlag stores the value of a `--option=value` argument in the field it
+// names, once: no field, no value and a second value are usage errors.
+func setRepoFlag(field *string, arg, usage, command string) error {
+	name, value, _ := strings.Cut(arg, "=")
+	if field == nil || value == "" {
+		return &UsageError{Lines: []string{usage, fmt.Sprintf("%s is not an option of %s", arg, command)}}
+	}
+	if *field != "" {
+		return &UsageError{Lines: []string{usage, fmt.Sprintf("%s was given twice", name)}}
+	}
+	*field = value
+	return nil
+}
+
 func (s *Session) doLoadRepository(args []string) metaResult {
 	var req replext.LoadRequest
 	for _, arg := range args {
 		switch {
 		case strings.HasPrefix(arg, "--"):
-			value, ok := "", false
+			var field *string
 			switch {
 			case strings.HasPrefix(arg, "--id="):
-				req.ProjectID, ok = repoFlag(arg, "id")
-				value = req.ProjectID
+				field = &req.ProjectID
 			case strings.HasPrefix(arg, "--name="):
-				req.Name, ok = repoFlag(arg, "name")
-				value = req.Name
+				field = &req.Name
 			case strings.HasPrefix(arg, "--branch="):
-				req.Branch, ok = repoFlag(arg, "branch")
-				value = req.Branch
+				field = &req.Branch
 			}
-			if !ok || value == "" {
-				return usageError(usageLoadRepo, fmt.Sprintf("%s is not an option of %%load", arg))
+			if err := setRepoFlag(field, arg, usageLoadRepo, "%load"); err != nil {
+				return metaOut(nil, false, err)
 			}
 		case req.Name != "" || req.ProjectID != "":
 			return usageError(usageLoadRepo, "name the project once: by --id, by --name or by itself")
@@ -203,17 +214,15 @@ func (s *Session) doPublish(args []string) metaResult {
 		case arg == "-d":
 			req.Derived = true
 		case strings.HasPrefix(arg, "-"):
-			value, ok := "", false
+			var field *string
 			switch {
 			case strings.HasPrefix(arg, "--project="):
-				req.Project, ok = repoFlag(arg, "project")
-				value = req.Project
+				field = &req.Project
 			case strings.HasPrefix(arg, "--branch="):
-				req.Branch, ok = repoFlag(arg, "branch")
-				value = req.Branch
+				field = &req.Branch
 			}
-			if !ok || value == "" {
-				return usageError(usagePublish, fmt.Sprintf("%s is not an option of %%publish", arg))
+			if err := setRepoFlag(field, arg, usagePublish, "%publish"); err != nil {
+				return metaOut(nil, false, err)
 			}
 		case req.Root != "":
 			return usageError(usagePublish, "name one element to publish")

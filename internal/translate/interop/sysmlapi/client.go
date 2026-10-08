@@ -42,6 +42,9 @@ const pageSize = 200
 // maxPages bounds a listing against a server that pages forever.
 const maxPages = 1000
 
+// maxRedirects is how many redirects one request follows, as net/http does.
+const maxRedirects = 10
+
 // Config addresses one SysML v2 API server.
 type Config struct {
 	BaseURL string        // the API's base path, without a trailing slash
@@ -108,7 +111,24 @@ func New(cfg Config) *Client {
 		timeout = DefaultTimeout
 	}
 	cfg.BaseURL = strings.TrimRight(cfg.BaseURL, "/")
-	return &Client{cfg: cfg, http: &http.Client{Timeout: timeout}}
+	c := &Client{cfg: cfg}
+	c.http = &http.Client{Timeout: timeout, CheckRedirect: c.checkRedirect}
+	return c
+}
+
+// checkRedirect holds a redirect to the same rule as the first request: with a
+// bearer token to carry, a plaintext destination is refused, so that a
+// downgrade from https cannot take the token into the clear.
+func (c *Client) checkRedirect(req *http.Request, via []*http.Request) error {
+	if len(via) >= maxRedirects {
+		return fmt.Errorf("stopped after %d redirects", maxRedirects)
+	}
+	if c.cfg.Token != "" {
+		if err := CheckURL(req.URL.String()); err != nil {
+			return fmt.Errorf("redirect from %s refused: %w", via[len(via)-1].URL, err)
+		}
+	}
+	return nil
 }
 
 // Config returns the configuration the client was built with.
@@ -492,12 +512,9 @@ type Listing struct {
 func (c *Client) Elements(ctx context.Context, project, commit string, size int) (Listing, error) {
 	var listing Listing
 	seen := make(map[string]bool)
-	after := ""
+	first := c.commitPath(project, commit) + "/elements?pageSize=" + strconv.Itoa(size) + "&page%5Bsize%5D=" + strconv.Itoa(size)
+	target := first
 	for {
-		target := c.commitPath(project, commit) + "/elements?pageSize=" + strconv.Itoa(size) + "&page%5Bsize%5D=" + strconv.Itoa(size)
-		if after != "" {
-			target += "&pageAfter=" + url.QueryEscape(after) + "&page%5Bafter%5D=" + url.QueryEscape(after)
-		}
 		content, header, err := c.Do(ctx, http.MethodGet, target, nil, "", nil)
 		if err != nil {
 			return listing, err
@@ -524,41 +541,26 @@ func (c *Client) Elements(ctx context.Context, project, commit string, size int)
 			listing.IgnoredPaging = true
 			return listing, nil
 		}
+		if len(page) == 0 || listing.Responses > maxPages {
+			return listing, nil
+		}
 		linked := nextLink(header, target)
-		if linked == "" || linked == target {
+		switch {
+		case linked != "" && linked != target:
+			// A server linking its pages names the continuation itself,
+			// whatever its cursor is; the link is followed as given.
+			target = linked
+		case len(page) < size:
 			// Without a link to a next page, a short page is the last.
-			if len(page) < size {
+			return listing, nil
+		default:
+			last := page[len(page)-1].ID()
+			if last == "" {
 				return listing, nil
 			}
-		}
-		if len(page) == 0 {
-			return listing, nil
-		}
-		last := page[len(page)-1].ID()
-		if last == "" || last == after || listing.Responses > maxPages {
-			return listing, nil
-		}
-		// A server linking its pages names the cursor itself; the link is
-		// followed by its cursor so every spelling of the parameters stays.
-		if cursor := cursorOf(linked); linked != "" && cursor != "" {
-			last = cursor
-		}
-		after = last
-	}
-}
-
-// cursorOf is the page[after] (or pageAfter) value a linked page names.
-func cursorOf(link string) string {
-	u, err := url.Parse(link)
-	if err != nil {
-		return ""
-	}
-	for _, key := range []string{"page[after]", "pageAfter"} {
-		if v := u.Query().Get(key); v != "" {
-			return v
+			target = first + "&pageAfter=" + url.QueryEscape(last) + "&page%5Bafter%5D=" + url.QueryEscape(last)
 		}
 	}
-	return ""
 }
 
 // ElementByID reads one element directly. A non-2xx answer is returned as the

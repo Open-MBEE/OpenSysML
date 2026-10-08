@@ -190,16 +190,17 @@ func (e *NotFoundError) Error() string {
 // project's root element has none. Elements the cut references but does not
 // own stay references.
 func Rooted(graph *rdf.Graph, qualifiedName string) (*rdf.Graph, error) {
-	root := rdf.Term{}
 	for _, subject := range graph.Subjects() {
 		if name, ok := graph.Lexical(subject, rdf.SysML+"qualifiedName"); ok && name == qualifiedName {
-			root = subject
-			break
+			return RootedAt(graph, subject), nil
 		}
 	}
-	if root.Value == "" {
-		return nil, &NotFoundError{QualifiedName: qualifiedName}
-	}
+	return nil, &NotFoundError{QualifiedName: qualifiedName}
+}
+
+// RootedAt is Rooted at a given element. An element the graph does not hold
+// cuts to an empty graph.
+func RootedAt(graph *rdf.Graph, root rdf.Term) *rdf.Graph {
 	inside := map[rdf.Term]bool{root: true}
 	reaches := func(subject rdf.Term) bool {
 		seen := map[rdf.Term]bool{}
@@ -230,7 +231,7 @@ func Rooted(graph *rdf.Graph, qualifiedName string) (*rdf.Graph, error) {
 		}
 		out.AddTriple(triple)
 	}
-	return out, nil
+	return out
 }
 
 func isOwnerPredicate(predicate string) bool {

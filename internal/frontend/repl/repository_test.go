@@ -396,3 +396,84 @@ func TestPublishAfterLoadingABranchCommitsOnThatBranch(t *testing.T) {
 		t.Errorf("--branch=main did not move main")
 	}
 }
+
+func TestPublishingOneRootLeavesTheOthersOnTheBranch(t *testing.T) {
+	s, api := repoSession(t)
+	s.Submit(vehicles)
+	runMeta(t, s, "%publish Vehicles")
+	held := api.elementCount("project-0001", "branch-0002")
+
+	out := runMeta(t, s, "%publish --project=Vehicles Spare")
+	if len(out) < 2 || !strings.Contains(out[0], " 0 deleted") || !strings.Contains(out[1], "left in place") {
+		t.Fatalf("publishing Spare next to Vehicles:\n%s", joined(out))
+	}
+	if now := api.elementCount("project-0001", "branch-0002"); now <= held {
+		t.Errorf("%d elements after adding Spare to %d", now, held)
+	}
+	held = api.elementCount("project-0001", "branch-0002")
+
+	// A session holding the branch's state and a Vehicles without Car: the
+	// publication deletes Car, inside its root, and leaves Spare alone.
+	reduced := NewSession()
+	reduced.Submit("package Vehicles { part def Wheel { attribute radius : ScalarValues::Real; } }")
+	reduced.repoState = s.repoState
+	out = runMeta(t, reduced, "%publish Vehicles")
+	if len(out) != 2 || strings.Contains(out[0], " 0 deleted") || !strings.Contains(out[1], "left in place") {
+		t.Fatalf("removing Car from Vehicles:\n%s", joined(out))
+	}
+	if !strings.Contains(out[0], "Vehicles (project-0001)") {
+		t.Errorf("Vehicles went elsewhere: %q", out[0])
+	}
+	fresh := NewSession()
+	runMeta(t, fresh, "%load Vehicles")
+	if loaded := fresh.text(); !strings.Contains(loaded, "Boat") || strings.Contains(loaded, "Car") {
+		t.Errorf("after removing Car, the branch should hold Boat and no Car:\n%s", loaded)
+	}
+}
+
+func TestPublishForgetsTheStateOfAnotherServer(t *testing.T) {
+	s, api := repoSession(t)
+	other := newFakeAPI()
+	t.Cleanup(other.Close)
+	s.Submit(vehicles)
+	runMeta(t, s, "%publish Vehicles")
+
+	runMeta(t, s, "%repo "+other.URL())
+	runMeta(t, s, "%publish --project=Vehicles Spare")
+	if other.elementCount("project-0001", "branch-0002") == 0 || api.elementCount("project-0001", "branch-0002") == 0 {
+		t.Fatal("both servers should now hold a project-0001")
+	}
+	runMeta(t, s, "%repo "+api.URL())
+	runMeta(t, s, "%publish Vehicles")
+	runMeta(t, s, "%repo "+other.URL())
+
+	// The same ids on another server are no history of it: nothing it holds
+	// may be deleted on the strength of the first server's commits.
+	held := other.elementCount("project-0001", "branch-0002")
+	out := runMeta(t, s, "%publish Vehicles")
+	if len(out) < 1 || !strings.Contains(out[0], " 0 deleted") {
+		t.Fatalf("publishing to the other server:\n%s", joined(out))
+	}
+	if now := other.elementCount("project-0001", "branch-0002"); now < held {
+		t.Errorf("the other server lost elements: %d, had %d", now, held)
+	}
+}
+
+func TestRepositoryOptionsAreGivenOnce(t *testing.T) {
+	s, _ := repoSession(t)
+	s.Submit(vehicles)
+	for _, line := range []string{
+		"%load --id=p1 --id=p2",
+		"%load --name=Vehicles --name=Spare",
+		"%load --branch=main --branch=dev Vehicles",
+		"%publish --project=Fleet --project=Other Vehicles",
+		"%publish --branch=main --branch=dev Vehicles",
+	} {
+		err := metaErr(t, s, line)
+		wantUsage(t, err, line)
+		var usage *UsageError
+		if errors.As(err, &usage) && !strings.Contains(joined(usage.Lines), "was given twice") {
+			t.Errorf("%s: %q does not name the repeated option", line, usage.Lines)
+		}
+	}
+}

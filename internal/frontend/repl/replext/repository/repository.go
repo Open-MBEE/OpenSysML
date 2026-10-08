@@ -122,8 +122,9 @@ func findBranch(ctx context.Context, c *sysmlapi.Client, project sysmlapi.Projec
 	return sysmlapi.Branch{}, &NotFoundError{What: "branch", Name: nameOrID}
 }
 
-func stateOf(project sysmlapi.Project, branch sysmlapi.Branch) replext.ProjectState {
+func stateOf(base string, project sysmlapi.Project, branch sysmlapi.Branch) replext.ProjectState {
 	return replext.ProjectState{
+		Base:      base,
 		ProjectID: project.ID, ProjectName: project.Name,
 		Branch: branch.ID, BranchName: branch.Name,
 		LastSeenCommit: branch.Head.ID,
@@ -148,7 +149,7 @@ func (repository) Load(ctx context.Context, base string, req replext.LoadRequest
 	if err != nil {
 		return nil, err
 	}
-	result := &replext.LoadResult{State: stateOf(project, branch)}
+	result := &replext.LoadResult{State: stateOf(base, project, branch)}
 	scoped := modelsync.Scoped(graph, reposync.Scope{ProjectID: project.ID, Branch: branch.ID})
 	result.Notation, err = modelsync.Notation(scoped, func(w string) { result.Warnings = append(result.Warnings, w) })
 	if err != nil {
@@ -192,10 +193,16 @@ func (repository) Publish(ctx context.Context, base string, req replext.PublishR
 
 	c := client(base)
 	result := &replext.PublishResult{}
+	// State from another server is no history of this one, whatever ids match.
+	known := req.State != nil && req.State.Base == base
 	project, err := findProject(ctx, c, "", name)
 	var missing *NotFoundError
 	switch {
 	case errors.As(err, &missing):
+		// The model has to diff cleanly before anything is created on the server.
+		if _, err := reposync.Diff(cut, rdf.NewGraph(), reposync.Options{Representation: sysmlapi.Representation{}}); err != nil {
+			return nil, err
+		}
 		if project, err = c.CreateProject(ctx, "", name, req.Branch); err != nil {
 			return nil, err
 		}
@@ -207,62 +214,89 @@ func (repository) Publish(ctx context.Context, base string, req replext.PublishR
 	case err != nil:
 		return nil, err
 	}
+	fail := func(err error) (*replext.PublishResult, error) {
+		if result.NewProject {
+			return nil, fmt.Errorf("project %s was created but holds no commit yet; publishing again commits into it: %w", projectLine(project), err)
+		}
+		return nil, err
+	}
 	want := req.Branch
-	if want == "" && req.State != nil && req.State.ProjectID == project.ID {
+	if want == "" && known && req.State.ProjectID == project.ID {
 		want = req.State.Branch
 	}
 	branch, err := findBranch(ctx, c, project, want)
 	if err != nil {
-		return nil, err
+		return fail(err)
 	}
 
 	repo := c.Repository(project.ID, branch.ID)
 	scope := reposync.Scope{ProjectID: project.ID, Branch: branch.ID}
 	state := &reposync.State{ProjectID: project.ID, Branch: branch.ID}
-	tracked := req.State != nil && req.State.ProjectID == project.ID && req.State.Branch == branch.ID
+	tracked := known && req.State.ProjectID == project.ID && req.State.Branch == branch.ID
 	if tracked {
 		state.LastSeenCommit = req.State.LastSeenCommit
 		repo.Resume(state.LastSeenCommit)
 	}
 	opts := reposync.Options{Representation: sysmlapi.Representation{}, ConfirmDeletes: tracked}
 	if opts.Base, err = modelsync.Baseline(ctx, repo, state); err != nil {
-		return nil, err
+		return fail(err)
 	}
 	remote, err := repo.Graph(ctx)
 	if err != nil {
-		return nil, err
+		return fail(err)
 	}
 	set, err := reposync.Diff(modelsync.Scoped(cut, scope), remote, opts)
 	if err != nil {
-		return nil, err
+		return fail(err)
 	}
-	if !tracked {
-		// The branch was not loaded into this session, so what it holds beyond
-		// the published element is someone else's; it stays.
-		kept := set.Changes[:0]
-		left := 0
-		for _, change := range set.Changes {
-			if change.Kind == reposync.KindDelete {
-				left++
-				continue
-			}
-			kept = append(kept, change)
-		}
-		set.Changes = kept
-		if left > 0 {
-			result.Notes = append(result.Notes, fmt.Sprintf("%d element(s) the branch holds outside %s were left in place", left, req.Root))
-		}
-	}
+	confine(set, cut, remote, roots[0], tracked, req.Root, result)
 	if err := set.Appliable(); err != nil {
-		return nil, fmt.Errorf("refused to publish: %w", err)
+		return fail(fmt.Errorf("refused to publish: %w", err))
 	}
 	applied, err := modelsync.Apply(ctx, repo, set, state, "sysml %publish "+req.Root)
 	if err != nil {
-		return nil, err
+		return fail(err)
 	}
 	result.Commit = applied.Commit
 	result.Created, result.Updated, result.Deleted = applied.Created, applied.Updated, applied.Deleted
-	result.State = stateOf(project, branch)
+	result.State = stateOf(base, project, branch)
 	result.State.LastSeenCommit = state.LastSeenCommit
 	return result, nil
+}
+
+func projectLine(project sysmlapi.Project) string {
+	return fmt.Sprintf("%s (%s)", project.Name, project.ID)
+}
+
+// confine keeps a publication to its root: the elements under it locally and
+// the elements under the same root on the branch. What the branch holds under
+// other roots is left as it is, neither deleted nor disputed; and a branch the
+// session never loaded keeps everything it holds, since nothing of it was seen.
+func confine(set *reposync.ChangeSet, cut, remote *rdf.Graph, root rdf.Term, tracked bool, name string, result *replext.PublishResult) {
+	within := map[string]bool{}
+	for _, subject := range cut.Subjects() {
+		within[rdf.LocalName(subject.Value)] = true
+	}
+	for _, subject := range modelsync.RootedAt(remote, rdf.IRI(rdf.Element+rdf.LocalName(root.Value))).Subjects() {
+		within[rdf.LocalName(subject.Value)] = true
+	}
+	kept := set.Changes[:0]
+	outside, unseen := 0, 0
+	for _, change := range set.Changes {
+		switch {
+		case !within[change.ID]:
+			outside++
+		case !tracked && change.Kind == reposync.KindDelete:
+			unseen++
+		default:
+			kept = append(kept, change)
+		}
+	}
+	set.Changes = kept
+	if outside > 0 {
+		result.Notes = append(result.Notes, fmt.Sprintf("%d element(s) the branch holds outside %s were left in place", outside, name))
+	}
+	if unseen > 0 {
+		result.Notes = append(result.Notes, fmt.Sprintf("%d element(s) of %s the branch holds beyond the model were left in place: the branch was not loaded into this session", unseen, name))
+	}
 }

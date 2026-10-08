@@ -283,7 +283,10 @@ loaded names; the session remembers which project, branch and commit, and a `%pu
 what it loaded is a commit on that branch, not a second project. `%publish <name>` names the
 project after the element's own name unless `--project` says otherwise; a project of that name
 receives a commit of what changed against the branch head, reported as the commit id with the
-counts created, updated and deleted, and no project of that name is created. `-d` sends every
+counts created, updated and deleted, and no project of that name is created. The commit stays
+within its root: what the branch holds under other roots is left in place, and elements are
+deleted only from a branch the session loaded or published, since only then has it seen them;
+what was left alone is reported. `-d` sends every
 derived property the exporter computes, as the pilot's `-d` does. An argument problem is a
 `UsageError`; a server that cannot be reached, a missing project or branch, or a refused commit a
 `CommandError` with the status and the server's message. A project name two projects share is

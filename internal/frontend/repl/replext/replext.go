@@ -108,6 +108,7 @@ type ProjectInfo struct {
 // to: what a later publish commits on top of. LastSeenCommit is the head the
 // session last read or wrote.
 type ProjectState struct {
+	Base           string // the server the state was read from
 	ProjectID      string
 	ProjectName    string
 	Branch         string
