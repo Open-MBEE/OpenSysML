@@ -31,6 +31,30 @@ const valueBindingModel = `package Model {
 		expose 'Sensor Monte Carlo';
 		render Views::asInterconnectionDiagram;
 	}
+	part def Device {
+		attribute y : ScalarValues::Real;
+	}
+	part def Rig {
+		part other : Device;
+		part second : Device;
+		attribute reading : ScalarValues::Real = second.y;
+		attribute source : ScalarValues::Real;
+		attribute fallback : ScalarValues::Real default = source;
+		attribute initial : ScalarValues::Real := source;
+	}
+	view rig {
+		expose Device::y;
+		expose Rig::other;
+		expose Rig::second;
+		expose Rig::reading;
+		render Views::asInterconnectionDiagram;
+	}
+	view defaults {
+		expose Rig::source;
+		expose Rig::fallback;
+		expose Rig::initial;
+		render Views::asInterconnectionDiagram;
+	}
 }`
 
 func bindingEdges(r *Rendering) []Edge {
@@ -117,6 +141,36 @@ func TestFeatureValueToTheNodesOwnPinDrawsNoEdge(t *testing.T) {
 	}
 	if pinNamed(analysis, "observed") == nil || pinNamed(analysis, "analysed") == nil {
 		t.Errorf("pins = %+v, want observed and analysed", analysis.Ports)
+	}
+	if len(r.Edges) != 0 {
+		t.Errorf("edges = %+v, want none", r.Edges)
+	}
+}
+
+// A value that is a chain binds the member of what its operand names: with
+// other, second and their type's y all drawn, `reading = second.y` is an edge to
+// second's node — not to the y drawn for Device, nor to other.
+func TestFeatureChainValueBindsTheOperandDrawn(t *testing.T) {
+	r := renderSource(t, "Model::rig", valueBindingModel)
+	reading, second, y := nodeByName(r, "Model::Rig::reading"), nodeByName(r, "Model::Rig::second"), nodeByName(r, "Model::Device::y")
+	if reading == nil || second == nil || y == nil {
+		t.Fatalf("nodes = %v, want reading, second and Device::y", nodeNames(r.Roots))
+	}
+	edges := bindingEdges(r)
+	if len(edges) != 1 {
+		t.Fatalf("binding edges = %+v, want reading = second.y alone", edges)
+	}
+	if e := edges[0]; e.From != reading.ID || e.To != second.ID {
+		t.Errorf("edge = %+v, want a binding from %s to %s, not to Device::y %s", e, reading.ID, second.ID, y.ID)
+	}
+}
+
+// A `default` value and a `:=` initial value are not bindings: the feature may
+// take another value, so neither draws an edge.
+func TestDefaultAndInitialValuesDrawNoBinding(t *testing.T) {
+	r := renderSource(t, "Model::defaults", valueBindingModel)
+	if len(nodeNames(r.Roots)) != 3 {
+		t.Fatalf("nodes = %v, want source, fallback and initial", nodeNames(r.Roots))
 	}
 	if len(r.Edges) != 0 {
 		t.Errorf("edges = %+v, want none", r.Edges)

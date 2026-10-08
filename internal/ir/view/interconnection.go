@@ -281,13 +281,12 @@ func (w *featureWalk) connectionEdges(connector *symbols.Symbol) {
 	}
 }
 
-// valueBindingEdges adds an edge for each drawn feature whose value is another
-// feature: `attribute :>> observed = analysed.t` binds the two (a FeatureValue is
-// a binding, KerML 7.4.9), so it is drawn as a binding when the rendering shows
-// the feature the value names — its own node or pin first, else where a
-// connector end naming it would attach. A value nothing drawn stands for, a
-// literal or a statistic of a library case, draws no edge; nor does one binding
-// two pins of one node, the node's own wiring.
+// valueBindingEdges draws each drawn feature whose value names another feature
+// (`attribute :>> observed = analysed.t`, a binding per KerML 7.4.9) as a binding
+// edge. The value attaches where a connector end naming it would — `second.y` is
+// the y under second's node, not its type's — and only when that is the valued
+// feature's own node (the subject pinned on it) does it reach the feature drawn
+// for itself. A value drawn nowhere, or one wiring two pins of one node, is no edge.
 func (w *featureWalk) valueBindingEdges() {
 	r, out := w.r, w.out
 	for _, sym := range w.drawn {
@@ -300,9 +299,9 @@ func (w *featureWalk) valueBindingEdges() {
 		if !resolved {
 			continue
 		}
-		at := w.siteOf(target)
-		if at.node == nil {
-			at = w.endNode(sym, value)
+		at := w.endNode(sym, value)
+		if at.node == nil || at.node == from.node {
+			at = w.siteOf(target)
 		}
 		if at.node == nil || at.node == from.node {
 			continue
@@ -320,9 +319,11 @@ const bindingKeyword = "binding"
 
 // featureValue is the feature a usage's value names — a feature reference or
 // chain — nil for a usage with no value or one computed from an expression.
+// A `default` value yields to any other and a `:=` value holds only at the
+// start, so neither binds the feature and neither is one.
 func featureValue(sym *symbols.Symbol) ast.Node {
 	usage, ok := sym.Decl.(*ast.Usage)
-	if !ok || usage.Value == nil {
+	if !ok || usage.Value == nil || usage.ValueIsDefault || usage.ValueIsInitial {
 		return nil
 	}
 	switch usage.Value.(type) {
