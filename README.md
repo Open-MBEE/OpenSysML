@@ -19,7 +19,7 @@
 [![PyPI](https://img.shields.io/pypi/v/opensysml?label=pypi)](https://pypi.org/project/opensysml/)
 [![Python versions](https://img.shields.io/pypi/pyversions/opensysml)](https://pypi.org/project/opensysml/)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE)
-[![Documentation](https://img.shields.io/badge/docs-opensysml.org-blue)](https://opensysml.org/)
+[![Documentation](https://img.shields.io/badge/docs-opensysml.opensysml.org-blue)](https://opensysml.opensysml.org/)
 
 The OpenSysML Runtime Environment and Development Kit (OpenSysML REDK) is a SysML v2 and
 KerML 1.1 implementation in Go. It provides a language server, an interactive REPL, an execution
@@ -60,7 +60,7 @@ certification is claimed.
 **Introductory material:** [the guide](docs/guide/) and the
 [document generation manual](docs/manual/README.md)
 
-**Complete searchable documentation:** <https://opensysml.org/> — the same pages as
+**Complete searchable documentation:** <https://opensysml.opensysml.org/> — the same pages as
 [docs/](docs/), rendered from `main`.
 
 ### Install
@@ -613,8 +613,8 @@ print(instance.slots["mass"])
 - automatic service lifecycle management
 - full runtime API access (evaluation, instantiation, action and state execution)
 
-See the [Python client guide](https://opensysml.org/clients/python/) for
-installation and usage, the [Python API reference](https://opensysml.org/reference/python-api/),
+See the [Python client guide](https://opensysml.opensysml.org/clients/python/) for
+installation and usage, the [Python API reference](https://opensysml.opensysml.org/reference/python-api/),
 and [client development instructions](client/python/DEVELOPING.md).
 
 ### Node/TypeScript

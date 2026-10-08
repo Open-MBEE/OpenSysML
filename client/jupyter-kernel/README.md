@@ -67,9 +67,9 @@ never picks up on its own; it carries the kernel of the same night's snapshot.
 
 ## Documentation
 
-- [Using SysML in Jupyter](https://opensysml.org/guide/12-jupyter/) — the guide
+- [Using SysML in Jupyter](https://opensysml.opensysml.org/guide/12-jupyter/) — the guide
   chapter: cells, `%` commands, rich output, interrupts.
-- [REPL commands](https://opensysml.org/reference/repl-commands/) — every `%`
+- [REPL commands](https://opensysml.opensysml.org/reference/repl-commands/) — every `%`
   command the kernel serves.
 
 ## Development

@@ -8,9 +8,9 @@ body:
         This is for the case where the behaviour is deliberate — a maintainer ruling, a recorded
         divergence, or a design decision — and the argument is about whether it should be that way.
         The rulings live in
-        [spec-compliance](https://opensysml.org/project/spec-compliance/),
-        [OMG materials defects](https://opensysml.org/project/omg-issues/) and the
-        decision records under [project/](https://opensysml.org/project/).
+        [spec-compliance](https://opensysml.opensysml.org/project/spec-compliance/),
+        [OMG materials defects](https://github.com/Open-MBEE/OpenSysML/blob/develop/docs/project/omg-issues.md) and the
+        decision records under [project/](https://opensysml.opensysml.org/project/).
 
   - type: input
     id: ruling
