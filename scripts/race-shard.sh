@@ -1,10 +1,7 @@
 #!/usr/bin/env bash
 # Prints the root-module package paths assigned to one race-test shard.
 # Usage: scripts/race-shard.sh runtime|runtime-corpus|model|export|rest
-#
-# runtime and runtime-corpus name the same package: make test-shard splits
-# internal/exec/runtime by test name (RACE_RUNTIME_CORPUS in the Makefile), as
-# the whole package under -race outruns one CI job.
+# runtime and runtime-corpus are one package, split by test name in make test-shard.
 set -euo pipefail
 
 cd "$(dirname "$0")/.."

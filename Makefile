@@ -282,9 +282,8 @@ test: ## Run Go tests with race detection and coverage
 
 # Run race-free by their own gate steps in the PR workflow's static-and-integrity job.
 RACE_SHARD_SKIP := ^(TestTrainingExamplesSemanticErrors|TestCorpusGatesCacheStateIndependent|TestPilotCorporaDiagnostics|TestPilotLibraryXMI|TestPSSMSuiteMigration|TestDifferentialRandomizedAssignments|TestDifferentialConformanceCorpus|TestDifferentialStandardLibrary|TestDifferentialTrainingCorpus|TestPortability|TestPortabilityGateIsRequired)$$
-# The runtime shard's split: these suites run every model of the conformance corpus
-# (exploration, check/explore agreement, witness replay, conformance and its policies)
-# and take about half the package's time, so they get a job of their own.
+# The runtime-corpus shard: the suites that run every model of the conformance corpus,
+# about half the package's time under -race.
 RACE_RUNTIME_CORPUS := ^Test(ExploreWithIsExploreOverTheConformanceCorpus|CheckAgreesWithExploreOverTheConformanceCorpus|CheckWitnessesReplayOverTheConformanceCorpus|ExecutionConformance|ExecutionConformanceUnderPolicies)$$
 RACE_SHARD_TOOLS_SKIP := ^(TestSuiteRead|TestSuiteClassification|TestEmitSuite|TestSuiteClassificationReasons|TestSuiteLibraryCallsAreClassified|TestSuiteReadsControlAndObjectFlow|TestSuiteReadsClassifiers|TestSuiteReadsExceptionHandlers)$$
 
