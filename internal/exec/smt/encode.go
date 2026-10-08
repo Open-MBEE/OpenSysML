@@ -1161,10 +1161,13 @@ func (s *tokenStep) fork(keepsOne bool) {
 	}
 	var actor []*solve.Term
 	for p := range out {
-		isFirst := and(guards[p], eq(rank[p], solve.IntTerm(0)))
+		isFirst := and(s.gate, guards[p], eq(rank[p], solve.IntTerm(0)))
 		actor = append(actor, implies(isFirst, s.land(next.Slots[s.t], p, ite(moves, s.actorID, s.base), true)))
 	}
-	s.terms = append(s.terms, implies(none, s.retire()), implies(not(none), and(actor...)))
+	s.terms = append(s.terms,
+		implies(and(s.gate, none), s.retire()),
+		implies(and(not(s.pending), not(s.gate)), s.retire()),
+		implies(not(none), and(actor...)))
 	ranks, running := s.freeRanks()
 	for u := range s.prev.Slots {
 		if u == s.t {
@@ -1173,17 +1176,17 @@ func (s *tokenStep) fork(keepsOne bool) {
 		after := next.Slots[u]
 		var here []*solve.Term
 		for p := range out {
-			takes := and(guards[p], ge(rank[p], solve.IntTerm(1)),
+			takes := and(s.gate, guards[p], ge(rank[p], solve.IntTerm(1)),
 				eq(ranks[u], sub(rank[p], solve.IntTerm(1))))
 			here = append(here, takes)
 			s.terms = append(s.terms, implies(and(s.free[u], takes), s.land(after, p, add(s.base, rank[p]), false)))
 		}
-		s.placed[u] = and(s.free[u], or(here...))
+		s.placed[u] = or(s.placed[u], and(s.free[u], or(here...)))
 	}
-	s.nextID = ite(moves, s.base, add(s.base, count))
-	s.fails = or(undefinedGuards(s.guards.defined)...)
+	s.nextID = add(s.nextID, ite(and(s.gate, not(moves)), count, solve.IntTerm(0)))
+	s.fails = and(not(s.pending), or(undefinedGuards(s.guards.defined)...))
 	if f.Cyclic || f.Repeated {
-		s.full = gt(count, add(running, solve.IntTerm(1)))
+		s.full = and(s.gate, gt(count, add(running, solve.IntTerm(1))))
 	}
 }
 
