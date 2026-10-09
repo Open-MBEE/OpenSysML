@@ -575,35 +575,39 @@ dynamics rows without one — quoted verbatim with their derivations in
 These are the findings the expression type checker reports in the standard library as OMG
 published it: each is a unit declaration in `SI.sysml` or `USCustomaryUnits.sysml` whose value
 does not have the dimension of the measurement unit it is typed by, judged against the `ISQ`
-definitions those files import. The pinned pilot is silent on every one, as on the example rows
-above, because it does not perform the corresponding check.
+definitions those files import — and one line the checker accepts whose type name `ISQ` hides
+(below). The pinned pilot is silent on every one, as on the example rows above, because it does
+not perform the corresponding check.
 
 Every finding is an entry of the declared errata overlay (`tools/oracle/errata`,
 [the declared errata overlay](errata-overlay.md)), under the same contract as the example-model
 entries below: a specification citation, a written derivation, and an as-published line that
 must still match the vendored file, all checked by tests. The published bytes under
-`internal/workspace/libs/stdlib` are never edited. Three entries carry a correction — the line has
+`internal/workspace/libs/stdlib` are never edited. Five entries carry a correction — the line has
 one reading with the declared dimension — and the library a process loads
 (`libs.BundledSource`, and the snapshot generated from it) is the published text with those
-three lines substituted on read. The other six have no unambiguous intended reading and are
+five lines substituted on read. The other five have no unambiguous intended reading and are
 documented **without** a correction: the bundled library keeps their published text and the
 checker keeps reporting them. `libs.EmbeddedSource` still serves the text exactly as published,
-and two gates in `internal/workspace/model` pin both verdicts as exact sets:
-`TestExprTypeCheckPublishedStdlibDefects` finds all nine over the published text, and
-`TestExprTypeCheckNoStdlibFalsePositives` finds exactly the six uncorrected ones over the bundled
-library — so a correction can only be declared for a line the checker rejects, and a corrected
-line that still reports fails the gate.
+and three gates in `internal/workspace/model` pin both verdicts as exact sets:
+`TestExprTypeCheckPublishedStdlibDefects` finds all nine dimension findings over the published
+text, `TestExprTypeCheckNoStdlibFalsePositives` finds exactly the five uncorrected ones over the
+bundled library, and `TestStdlibCorrectionsAreAccountedFor` requires every correction to be
+either a line the checker rejects or a listed hidden-name correction (a line naming a member two
+imports bring, which KerML 7.2.5.4 hides from the importing namespace) — so a corrected line
+that still reports, or a correction of a line nothing rejects, fails a gate.
 
 | Library file | Declared type | Dimension of the value | Dimension of the type | Overlay |
 |---|---|---|---|---|
 | `Domain Libraries/Quantities and Units/SI.sysml:137` | `ISQAtomicNuclear::TotalMassStoppingPowerUnit` | T^-2 | L^4·T^-2 | corrected |
 | `Domain Libraries/Quantities and Units/SI.sysml:149` | `ISQAtomicNuclear::TotalAngularMomentumUnit` | L^4·M^2·T^-2 | L^2·M·T^-1 | documented without a correction |
 | `Domain Libraries/Quantities and Units/SI.sysml:163` | `ISQCondensedMatter::EnergyDensityOfStatesUnit` | L^-10·M^-2·T^4 | L^-5·M^-1·T^2 | documented without a correction |
-| `Domain Libraries/Quantities and Units/SI.sysml:233` | `ISQElectromagnetism::MagneticDipoleMomentUnit` | L^2·I | L^3·M·T^-2·I^-1 | documented without a correction |
+| `Domain Libraries/Quantities and Units/SI.sysml:233` | `ISQElectromagnetism::MagneticDipoleMomentUnit` | L^2·I | L^3·M·T^-2·I^-1 | corrected — qualified `ISQAtomicNuclear::MagneticDipoleMomentUnit` |
 | `Domain Libraries/Quantities and Units/SI.sysml:239` | `ISQAtomicNuclear::DoseEquivalentUnit` | L^2·T^-3 | L^2·T^-2 | documented without a correction |
 | `Domain Libraries/Quantities and Units/SI.sysml:247` | `ISQCondensedMatter::HallCoefficientUnit` | L^6·T^-2·I^-2 | L^3·T^-1·I^-1 | corrected |
 | `Domain Libraries/Quantities and Units/SI.sysml:286` | `ISQAtomicNuclear::DoseEquivalentUnit` | L^2·T^-3 | L^2·T^-2 | documented without a correction |
 | `Domain Libraries/Quantities and Units/SI.sysml:299` | `ISQAtomicNuclear::DoseEquivalentUnit` | L^2·T^-3 | L^2·T^-2 | documented without a correction |
+| `Domain Libraries/Quantities and Units/SI.sysml:303` | `ISQElectromagnetism::MagneticDipoleMomentUnit` | L^3·M·T^-2·I^-1 | L^3·M·T^-2·I^-1 — the checker is silent; the name is hidden by KerML 7.2.5.4 | corrected — qualified `ISQElectromagnetism::MagneticDipoleMomentUnit` |
 | `Domain Libraries/Quantities and Units/USCustomaryUnits.sysml:255` | `ISQBase::ThermodynamicTemperatureValue` | Θ^-1 | Θ | corrected |
 
 Nothing here has been posted upstream; filing is the user's decision. The Quantities and Units
@@ -667,13 +671,43 @@ different units and the names spell both, so this row is **documented without a 
 attribute <'m²⋅A'> 'metre squared ampere' : MagneticDipoleMomentUnit = m^2*A;
 ```
 
+Corrected by the overlay:
+
+```sysml
+attribute <'m²⋅A'> 'metre squared ampere' : ISQAtomicNuclear::MagneticDipoleMomentUnit = m^2*A;
+```
+
 `ISQ::*` re-exports two `MagneticDipoleMomentUnit`s under one name: the electromagnetic one
 (L^3·M·T^-2·I^-1, IEC 80000-6 item 6-30, unit `Wb⋅m`, in `ISQElectromagnetism`) and the atomic
-one (L^2·I, ISO 80000-10 item 10-9.1, unit `m²⋅A`, in `ISQAtomicNuclear`). `m^2*A` is the atomic
-unit; the unqualified name in `SI` resolves to the electromagnetic one, and the value fails
-**KerML 7.4.9** against it. Qualifying the type on this line would fix the symptom, but the name
-clash lives in the `ISQ` library and every unqualified use of either name shares it, so this row
-is **documented without a correction** pending an upstream decision on the two definitions.
+one (L^2·I, ISO 80000-10 item 10-9.1, unit `m²⋅A`, in `ISQAtomicNuclear`). KerML 7.2.5.4 hides
+a name two imports bring from the importing namespace, so in `SI` (which imports `ISQ::*`) the
+unqualified name resolves to nothing; a first-match reader — the pinned pilot, and OpenSysML
+after it — binds the electromagnetic one, against which `m^2*A` fails **KerML 7.4.9**. The
+value is the atomic unit, and `ISQAtomicNuclear::MagneticDipoleMomentUnit` is the one qualified
+name with its dimension, so the line is **corrected**. The clash itself stays in the `ISQ`
+library (the eight hidden names are listed in
+[spec-pilot-gap-register.md](spec-pilot-gap-register.md) §13) and is upstream's to resolve.
+
+### `'Wb⋅m' : MagneticDipoleMomentUnit = Wb*m` names a unit `ISQ` hides
+
+**Not filed.** Published, `SI.sysml`:303:
+
+```sysml
+attribute <'Wb⋅m'> 'weber metre' : MagneticDipoleMomentUnit = Wb*m;
+```
+
+Corrected by the overlay:
+
+```sysml
+attribute <'Wb⋅m'> 'weber metre' : ISQElectromagnetism::MagneticDipoleMomentUnit = Wb*m;
+```
+
+The other unqualified use of the clashing name. `Wb*m` is L^3·M·T^-2·I^-1, the electromagnetic
+unit, so a first-match reader happens to bind the right type and the dimension checker is
+silent; under **KerML 7.2.5.4** the name is hidden all the same and the line's type resolves to
+nothing. `ISQElectromagnetism::MagneticDipoleMomentUnit` is the one qualified name with the
+value's dimension, so the line is **corrected**. This is the one library correction the checker
+has no finding for; `TestStdlibCorrectionsAreAccountedFor` lists it by line.
 
 ### `'m²⋅s⁻³' : DoseEquivalentUnit = m^2*s^-3` types a dose-equivalent rate as a dose equivalent
 

@@ -9,6 +9,7 @@ import (
 
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/libs"
+	"github.com/Open-MBEE/OpenSysML/internal/workspace/libs/errata"
 )
 
 // exprTypeDiagnostics returns the expression type-checker findings for one
@@ -39,21 +40,21 @@ func exprTypeDiagnosticLines(ws *Workspace, name string, content []byte) []strin
 // publishedStdlibDefects are the findings the expression type checker reports
 // in the standard library as OMG published it: each is a unit the SI or US
 // customary library types by a measurement unit of another dimension. The
-// errata registry (tools/oracle/errata) corrects the ones with an unambiguous
-// reading, so the bundled library the checker loads no longer shows them;
-// documentedStdlibDefects have no such reading and stay. Both sets are
+// errata registry (internal/workspace/libs/errata) corrects the ones with an
+// unambiguous reading, so the bundled library the checker loads no longer shows
+// them; documentedStdlibDefects have no such reading and stay. Both sets are
 // documented in docs/project/omg-issues.md ("Defects in the vendored quantity
 // libraries"). The published text itself is never edited.
 var (
 	correctedStdlibDefects = []string{
 		"Domain Libraries/Quantities and Units/SI.sysml:137: cannot bind a measurement reference of dimension T^-2 to a feature typed by TotalMassStoppingPowerUnit",
+		"Domain Libraries/Quantities and Units/SI.sysml:233: cannot bind a measurement reference of dimension I·L^2 to a feature typed by MagneticDipoleMomentUnit",
 		"Domain Libraries/Quantities and Units/SI.sysml:247: cannot bind a measurement reference of dimension I^-2·L^6·T^-2 to a feature typed by HallCoefficientUnit",
 		"Domain Libraries/Quantities and Units/USCustomaryUnits.sysml:255: cannot bind a value of dimension Θ^-1 to a feature typed by ThermodynamicTemperatureValue (dimension Θ)",
 	}
 	documentedStdlibDefects = []string{
 		"Domain Libraries/Quantities and Units/SI.sysml:149: cannot bind a measurement reference of dimension L^4·M^2·T^-2 to a feature typed by TotalAngularMomentumUnit",
 		"Domain Libraries/Quantities and Units/SI.sysml:163: cannot bind a measurement reference of dimension L^-10·M^-2·T^4 to a feature typed by EnergyDensityOfStatesUnit",
-		"Domain Libraries/Quantities and Units/SI.sysml:233: cannot bind a measurement reference of dimension I·L^2 to a feature typed by MagneticDipoleMomentUnit",
 		"Domain Libraries/Quantities and Units/SI.sysml:239: cannot bind a measurement reference of dimension L^2·T^-3 to a feature typed by DoseEquivalentUnit",
 		"Domain Libraries/Quantities and Units/SI.sysml:286: cannot bind a measurement reference of dimension L^2·T^-3 to a feature typed by DoseEquivalentUnit",
 		"Domain Libraries/Quantities and Units/SI.sysml:299: cannot bind a measurement reference of dimension L^2·T^-3 to a feature typed by DoseEquivalentUnit",
@@ -74,10 +75,54 @@ func TestExprTypeCheckNoStdlibFalsePositives(t *testing.T) {
 
 // TestExprTypeCheckPublishedStdlibDefects pins the checker's verdict on the
 // text as published: every corrected defect is a defect the checker finds
-// there, so a correction is only ever declared for a line the checker rejects.
+// there.
 func TestExprTypeCheckPublishedStdlibDefects(t *testing.T) {
 	t.Parallel()
 	checkStdlibExprTypeFindings(t, libs.EmbeddedSource(), publishedStdlibDefects)
+}
+
+// hiddenNameStdlibCorrections are the library corrections the checker has no
+// finding for: a line naming a member two of its imports bring, which KerML
+// 7.2.5.4 hides from the importing namespace, qualified by the one of the two
+// with the declared dimension. The checker is silent because resolution takes
+// the first import rather than hiding the name (docs/project/spec-pilot-gap-register.md,
+// "Imported memberships"), so these are pinned here by line instead.
+var hiddenNameStdlibCorrections = []string{
+	"Domain Libraries/Quantities and Units/SI.sysml:303",
+}
+
+// TestStdlibCorrectionsAreAccountedFor keeps the registry's library corrections
+// an exact set: each is either a line the checker rejects as published or a
+// hidden-name correction listed above, and each listed line is corrected.
+func TestStdlibCorrectionsAreAccountedFor(t *testing.T) {
+	t.Parallel()
+	overlay, err := errata.Library()
+	if err != nil {
+		t.Fatal(err)
+	}
+	accounted := map[string]bool{}
+	for _, finding := range correctedStdlibDefects {
+		accounted[finding[:strings.Index(finding, ": ")]] = false
+	}
+	for _, line := range hiddenNameStdlibCorrections {
+		if _, dup := accounted[line]; dup {
+			t.Errorf("%s is listed as both a checker finding and a hidden-name correction", line)
+		}
+		accounted[line] = false
+	}
+	for _, entry := range overlay.Corrections() {
+		at := fmt.Sprintf("%s:%d", strings.TrimPrefix(entry.Path, errata.LibraryRoot+"/"), entry.Line)
+		if _, ok := accounted[at]; !ok {
+			t.Errorf("correction %s at %s is neither a checker finding nor a hidden-name correction", entry.ID, at)
+			continue
+		}
+		accounted[at] = true
+	}
+	for at, seen := range accounted {
+		if !seen {
+			t.Errorf("%s is listed as corrected, the registry declares no correction there", at)
+		}
+	}
 }
 
 // checkStdlibExprTypeFindings opens each file of src under its own name, which
