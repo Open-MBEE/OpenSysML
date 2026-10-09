@@ -1337,9 +1337,9 @@ const noDefaultEntryMachine = `
 const noDefaultEntryApplications = `
   <sysml:Block xmi:id="_d1" base_Class="_dclass"/>`
 
-// An entry point no transition leaves enters its state by the state's default entry, which, with no
-// initial pseudostate in the region, enters the state and leaves the region inactive in v1 and in
-// the runtime alike; the transition is written to the state and the report says so.
+// An entry point no transition leaves enters its state by default. With no initial
+// pseudostate in the region, the wrapper stand-in is active but its body has no active
+// substate; the transition is written to the state and the report says so.
 func TestDefaultEntryPointOnOwnerWithoutInitialEntersTheState(t *testing.T) {
 	r := migrateDocument(t, noDefaultEntryMachine, noDefaultEntryApplications)
 	for _, line := range []string{
@@ -1354,15 +1354,15 @@ func TestDefaultEntryPointOnOwnerWithoutInitialEntersTheState(t *testing.T) {
 	if strings.Contains(string(r.Notation), "#StateMachines::junction state via;") {
 		t.Errorf("an entry point no transition leaves was written as a junction:\n%s", r.Notation)
 	}
-	wantNote(t, r, "_dIn", migrate.Mapped, "no initial pseudostate starts the region 'r', which v1 too leaves inactive on entering the state")
+	wantNote(t, r, "_dIn", migrate.Mapped, "no initial pseudostate starts the state stand-in for region 'r', so its body has no active substate, as in v1")
 	wantNote(t, r, "_dT1", migrate.Mapped, "written to Work: no transition leaves the entry point 'via'")
 	s := session(t, r)
 	meta(t, s, "%instantiate Rig")
 	meta(t, s, "%state Rig::Main #1")
 	meta(t, s, "%send Go")
 	meta(t, s, "%step")
-	if out := meta(t, s, "%current"); !strings.Contains(out, "Current state: Work") || strings.Contains(out, "W1") {
-		t.Errorf("entering Work by its default entry did not leave its region inactive:\n%s", out)
+	if out := meta(t, s, "%current"); !strings.Contains(out, "Current state: r") || strings.Contains(out, "W1") {
+		t.Errorf("entering Work by its default entry did not leave the stand-in's body inactive:\n%s", out)
 	}
 	meta(t, s, "%send Stop")
 	meta(t, s, "%step")

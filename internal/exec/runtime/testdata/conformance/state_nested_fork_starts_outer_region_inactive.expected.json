@@ -1,6 +1,6 @@
 {
   "type": "state",
-  "finalState": "a+inner+b",
+  "finalState": "a+inner+o2+b",
   "outputs": {
     "log": {"type": "String", "value": ""}
   },

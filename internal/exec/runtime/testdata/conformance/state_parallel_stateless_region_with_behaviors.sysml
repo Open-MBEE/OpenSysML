@@ -1,5 +1,6 @@
-// A region without an entry transition remains inactive, including when its
-// only state declares entry and exit behaviors.
+// A region of a parallel state stood for by a state declaring entry and exit
+// behaviors, but no substates, needs no initial: it starts in that state, runs
+// its entry, and runs its exit when the parallel state is left.
 package test {
     attribute def Go;
     attribute def Stop;

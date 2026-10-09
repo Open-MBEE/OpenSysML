@@ -1669,7 +1669,7 @@ which supersede the hand count this section was first written with — the moves
 | The UML `StateMachine` as the class under test (a standalone machine with attributes, operations, a constructor) | `part def` with `attribute`s, `action def`s and `exhibit state`, as an owned machine's: the reader (`reader.go`) reads the machine as the `Target` whose `Machine` is itself, with its attributes, operations and their methods, and its constructor | standard |
 | A guard whose behavior acts on the model (calls `trace(...)` before returning its value) | none: a v2 guard is a Boolean expression (§7.18.3, `validateTransitionFeatureMembershipGuardExpression`; `bool guard[*]` in `TransitionPerformances.kerml`, the effect a separate `step`), and an expression has no spelling for an action. UML 2.5.1 §14.5.11 `Transition::guard` itself calls such a guard ill formed. Recording the runtime's guard reads as the referee's observable instead is refused too: the reads the suite traces are a junction's on the target's default entry, read at the incoming transition's selection, where the library orders every transition inside a state after the state's `entry` — see [A guard whose behavior acts on the model](#a-guard-whose-behavior-acts-on-the-model) | no translation |
 | A guard whose behavior is an opaque behavior, not an activity | none: the reader follows an activity's nodes to tell whether the behavior acts, and does not read an opaque body, so the guard is refused rather than carried as its Boolean text alone. A `FunctionBehavior` is the exception — it accesses no object by UML's contract (§13.2.3.3) — and is translated as the expression it spells | no translation |
-| Fork into states of orthogonal regions that have no initial pseudostate | `parallel` regions spell the shape and the `fork` extension the fork; a branch enters its target without an `entry; then`, while a region omitted by default entry remains inactive if it has no entry transition (finding 6 below, fixed) | extension |
+| Fork into states of orthogonal regions that have no initial pseudostate | `parallel` regions spell the shape and the `fork` extension the fork; a branch enters its target without an `entry; then`. Default entry enters a region's state stand-in even without a start in its body; the stand-in has no active child. A region with no stand-in and no start remains inactive and blocks owner completion (finding 6 below, fixed) | extension |
 
 The classification is by construct, in the order of the table: a test whose model uses any
 construct with no spelling or no translation is counted as not expressible whatever else it
@@ -1736,17 +1736,19 @@ is where a later translation moves them back.
 | *Event 019-E* | standard | *translated since the emitter binds entry parameters and returns outputs:* `T2` accepts `'or'(left, right)` and stores both in `trigger_v_or_left`, `trigger_v_or_right`; the two regions' substate entries declare `in left = trigger_v_or_left; in right = trigger_v_or_right;` and assign the operation's two outputs (`out result`, `out 'return'`), each region's entry writing them in the order the regions are entered, so the caller receives the second region's values and the two admitted traces are both reached and nothing else |
 | *Deferred 007* | extension | *translated since the emitter spells a returning effect with inputs:* the deferred `op(p1)` call fires `T4` once the second state is active; `T4`'s effect is `action def T4_effect` with `in p` bound to the accept's `p1` and `out 'return'`, its `return` an assignment of `not p`; the one admitted trace, the first state's exit, `T3(effect)`, `T4(effect)[in=true][out=false]` and the tester's `[out=false]`, is reached |
 | *Standalone 003* | standard | *the standalone machine is read as the target since the reader does so, and translated since the emitter binds entry parameters and returns outputs:* the same shape as *Event 019-E*, the machine itself the class under test with `or` its operation; both admitted traces are reached |
-| *Fork 002* | extension | *translated:* the fork enters two regions without initial pseudostates; a no-entry region stays inactive on default entry and is activated by the branch |
-| *Join 001* | extension | *translated:* the fork enters two regions without initial pseudostates; omitted no-entry regions stay inactive and block owner completion |
+| *Fork 002* | extension | *translated:* the fork enters two regions without initial pseudostates; default entry enters their state stand-ins with no active child, and the fork activates its named targets |
+| *Join 001* | extension | *translated:* the fork enters two regions without initial pseudostates; an omitted region's stand-in is entered with no active child, which blocks owner completion |
 | *Choice 005* | extension | *refused, settled:* the guards of the junction's and the choice's four outgoing transitions each call `trace("T1.n(guard)")` and the admitted trace records the calls, to show when each guard is read; a v2 guard is an expression with no room for an action, so the translation keeps only the guard's value and cannot reach the trace, and is refused rather than run short. Making the runtime's guard reads the referee's observable would not reach the trace either: the junction sits on the composite's default entry and the suite reads its guards before `T2(effect)` and the composite's entry, where the library reads a transition inside a state after the state's `entry` — see [A guard whose behavior acts on the model](#a-guard-whose-behavior-acts-on-the-model) |
 
 The last two were kept apart from the other seven and from the 29 with no spelling: UML allows
 a fork to target states inside orthogonal regions that have no initial pseudostate, and SysML
-v2 `parallel` regions can spell the shape. A composite-state region without an entry remains
-inactive on default entry, whether or not a fork can enter it; the owner cannot complete until
-all regions reach final states. Explicit branches and transitions can enter the region, and
-the PSSM classifier no longer records the former lowerer refusal. Entry 002 E remains
-not-expressible on its entry-point construct.
+v2 `parallel` regions can spell the shape. Default entry enters a region's state stand-in even
+without an entry transition; if the stand-in has no start in its body, it remains active with
+no active child. A region with no stand-in and no start remains inactive. Both an unstarted
+stand-in and an inactive region block owner completion until all regions reach final states.
+Explicit branches and transitions can enter an inactive region, and the PSSM classifier no
+longer records the former lowerer refusal. Entry 002 E remains not-expressible on its
+entry-point construct.
 
 #### Behavior parameters, operation results, tester traces and standalone machines
 
@@ -2327,14 +2329,16 @@ sites of the runtime's fixed, the pool's order and the do step drawn on the entr
    of them has to change (second open decision). `state_choice_pseudostate` does not reach it.
    *Fixed* with the second open decision: the code now matches the note (SM30's *Decided*
    sentence), and Track E records the finding as landed.
-6. **A no-entry region of a composite state remains inactive until explicitly entered.**
+6. **An unstarted stand-in does not complete its composite-state region.**
    UML permits a region without an initial pseudostate, and SysML v2 `parallel` can represent
-   it. `recordRegionInitials` records no default start for such composite-state regions;
-   `regionStart` returns no state and `enterRegion` leaves the region absent from the active
-   configuration. This applies whether or not a fork elsewhere can enter the region. A fork
-   branch or later transition naming a vertex activates it normally. `regionComplete` treats a
-   missing region state as incomplete, so the owner cannot complete until every region reaches
-   a final state. The rule is covered by `TestRuntimeRobustnessInactiveRegion`,
+   it. When `RegionState[region]` supplies a stand-in, `regionStart` enters that state even
+   without a start transition in its body; no child state becomes active. When no stand-in and
+   no start exist, `regionStart` returns no state and the region remains inactive. In either
+   case, `regionComplete` and `stateComplete` keep the owning composite from completing until
+   every region reaches a final state. A later transition or fork branch can enter an inactive
+   region. Coverage includes `TestRuntimeRobustnessInactiveRegion`,
+   `TestRuntimeRobustnessParallelWrapperLeavesInnerRegionInactive`,
+   `state_parallel_stateless_region_with_behaviors`,
    `state_parallel_region_without_entry_inactive`, `state_fork_only_region_entered_by_default`,
    `state_nested_fork_starts_outer_region_inactive` and
    `state_history_restores_inactive_parallel_region`. The PSSM classifier no longer reports

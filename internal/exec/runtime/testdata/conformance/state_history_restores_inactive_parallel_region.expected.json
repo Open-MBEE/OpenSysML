@@ -6,7 +6,7 @@
     {"signal": "Leave"},
     {"signal": "ReturnDeep"}
   ],
-  "finalState": "active",
+  "finalState": "active+b",
   "outputs": {
     "log": {"type": "String", "value": "A(entry) A(exit) A(entry) A(exit) A(entry) "}
   },

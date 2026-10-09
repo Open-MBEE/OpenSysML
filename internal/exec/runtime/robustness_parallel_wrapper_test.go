@@ -1,6 +1,7 @@
 package runtime
 
 import (
+	"slices"
 	"strings"
 	"testing"
 
@@ -8,21 +9,29 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/libs"
 )
 
-func TestRuntimeRobustnessParallelWrapperLeavesRegionInactive(t *testing.T) {
-	err := stateRunErrorForSource(t, "Machine", `
+func TestRuntimeRobustnessParallelWrapperLeavesInnerRegionInactive(t *testing.T) {
+	_, visits, err := executeStateSource(t, "Machine", `
 		package test {
-			state def Machine {
+			state Machine {
 				entry; then S;
 				state S parallel {
 					state R {
 						state A;
 					}
 				}
+				state finished;
+				transition first S then finished;
 			}
 		}
 	`)
 	if err != nil {
-		t.Fatalf("a wrapped region without an entry should remain inactive, not fail: %v", err)
+		t.Fatalf("execute parallel state with an unstarted stand-in: %v", err)
+	}
+	if slices.Contains(visits, "A") {
+		t.Errorf("the unstarted body state A was entered: %v", visits)
+	}
+	if slices.Contains(visits, "finished") {
+		t.Errorf("S completed while its stand-in body was unstarted: %v", visits)
 	}
 }
 

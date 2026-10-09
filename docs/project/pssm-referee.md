@@ -133,8 +133,9 @@ under [Behavior parameters, operation results, tester traces and standalone mach
   [candidate table](../internals/design/precise-semantics-alignment.md#a-guard-whose-behavior-acts-on-the-model)
   records the three candidates: the settled refusal of a construct v2 cannot spell faithfully.
 - **A fork into orthogonal regions that have no initial pseudostate**: *Fork 002*, *Join 001*
-  — translated with the general inactive-region rule: regions without an entry remain
-  inactive on default entry, and fork branches activate the regions they name; see
+  — translated with the region-entry rule: a region's state stand-in is entered on default
+  entry even when its body has no start, leaving no active child; a region without a stand-in
+  and without a start remains inactive, while fork branches enter their named targets; see
   [Findings about our own conformance](#findings-about-our-own-conformance).
 
 ## Translating
@@ -834,12 +835,15 @@ By reason, as the classifier names them:
   exit left, only by completion transitions or by paths accepting different events).
 - A standalone state machine is read as the target class, and a tester's `trace(...)` after a
   call is driven, so neither is a reason any longer; Event 019 A runs and passes.
-- A composite-state region without an entry is valid: default entry leaves it inactive until
-  a transition or fork branch names one of its states, and its owner cannot complete while
-  that region is inactive. Entry 002 E remains not-expressible on its entry-point construct;
+- A composite-state region without an entry is valid: default entry enters its state stand-in;
+  when the stand-in has no start in its body, it is active with no active child. A region with
+  no stand-in and no start remains inactive, and either condition blocks owner completion until
+  all regions are final. A later transition or fork branch may activate an inactive region.
+  Entry 002 E remains not-expressible on its entry-point construct;
   the no-entry refusal is no longer a classifier reason. Coverage includes
   `TestRuntimeRobustnessInactiveRegion`, `state_parallel_region_without_entry_inactive`,
-  `state_fork_only_region_entered_by_default` and
+  `state_parallel_stateless_region_with_behaviors`, `state_fork_only_region_entered_by_default`,
+  `state_nested_fork_starts_outer_region_inactive` and
   `state_history_restores_inactive_parallel_region`.
 - **guard side effect** (no translation, settled): Choice 005. Making the runtime's guard
   reads the referee's observable instead was tried and refused: the suite reads the junction's

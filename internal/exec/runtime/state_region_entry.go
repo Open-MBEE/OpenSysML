@@ -175,9 +175,6 @@ func (e *StateExecutor) regionStart(w *regionEntry) (*ast.StateNode, error) {
 		return w.target, nil
 	}
 	if owner := e.graph.RegionState[w.region]; owner != nil {
-		if w.container != nil && len(e.graph.StartOf(w.region)) == 0 {
-			return nil, nil
-		}
 		return owner, nil
 	}
 	entry, err := e.startIn(w.region)
