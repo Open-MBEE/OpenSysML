@@ -92,6 +92,23 @@ func findProject(ctx context.Context, c *sysmlapi.Client, id, name string) (sysm
 	return sysmlapi.Project{}, &modelsync.AmbiguousNameError{Name: name, IDs: ids}
 }
 
+// publishTarget is the project a publish by name means: the one the session
+// tracks under that name while the server still has it by that name, else
+// whatever the name resolves to now — a renamed or deleted one is no match.
+func publishTarget(ctx context.Context, c *sysmlapi.Client, id, name string) (sysmlapi.Project, error) {
+	if id != "" {
+		project, err := findProject(ctx, c, id, "")
+		var missing *NotFoundError
+		switch {
+		case err == nil && project.Name == name:
+			return project, nil
+		case err != nil && !errors.As(err, &missing):
+			return sysmlapi.Project{}, err
+		}
+	}
+	return findProject(ctx, c, "", name)
+}
+
 // findBranch resolves a branch by name or id, or the project's default branch
 // when none is named.
 func findBranch(ctx context.Context, c *sysmlapi.Client, project sysmlapi.Project, nameOrID string) (sysmlapi.Branch, error) {
@@ -195,7 +212,13 @@ func (repository) Publish(ctx context.Context, base string, req replext.PublishR
 	result := &replext.PublishResult{}
 	// State from another server is no history of this one, whatever ids match.
 	known := req.State != nil && req.State.Base == base
-	project, err := findProject(ctx, c, "", name)
+	// The project the session tracks under this name is the one meant, by id,
+	// so a namesake elsewhere on the server does not make the name ambiguous.
+	id := ""
+	if known && req.State.ProjectName == name {
+		id = req.State.ProjectID
+	}
+	project, err := publishTarget(ctx, c, id, name)
 	var missing *NotFoundError
 	switch {
 	case errors.As(err, &missing):

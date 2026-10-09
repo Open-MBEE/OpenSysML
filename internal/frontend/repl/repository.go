@@ -30,12 +30,17 @@ const (
 const completionTimeout = 2 * time.Second
 
 // repoBase is the base URL the repository commands address: the one %repo set,
-// else the environment's.
-func (s *Session) repoBase() string {
+// else the environment's, held to the same transport rule %repo applies to a
+// URL it is given, so a token never leaves on a URL that was never checked.
+func (s *Session) repoBase() (string, error) {
 	if s.repoURL != "" {
-		return s.repoURL
+		return s.repoURL, nil
 	}
-	return replext.Repo().DefaultURL()
+	base := replext.Repo().DefaultURL()
+	if err := replext.Repo().CheckURL(base); err != nil {
+		return "", err
+	}
+	return base, nil
 }
 
 func (s *Session) metaRepositoryCommand(fields []string, _ string) (metaResult, bool) {
@@ -65,7 +70,11 @@ func usageError(lines ...string) metaResult {
 func (s *Session) doRepo(args []string) metaResult {
 	switch len(args) {
 	case 0:
-		return metaOut([]string{"API base path: " + s.repoBase()}, false, nil)
+		base, err := s.repoBase()
+		if err != nil {
+			return metaOut(nil, false, err)
+		}
+		return metaOut([]string{"API base path: " + base}, false, nil)
 	case 1:
 		base := strings.TrimRight(nameText(args[0]), "/")
 		if err := replext.Repo().CheckURL(base); err != nil {
@@ -81,7 +90,11 @@ func (s *Session) doProjects(args []string) metaResult {
 	if len(args) != 0 {
 		return usageError(usageProjects)
 	}
-	projects, err := replext.Repo().Projects(s.command.context(), s.repoBase())
+	base, err := s.repoBase()
+	if err != nil {
+		return metaOut(nil, false, err)
+	}
+	projects, err := replext.Repo().Projects(s.command.context(), base)
 	if err != nil {
 		return metaOut(nil, false, err)
 	}
@@ -178,7 +191,11 @@ func (s *Session) doLoadRepository(args []string) metaResult {
 	if req.Name != "" && req.ProjectID != "" {
 		return usageError(usageLoadRepo, "name the project once: by --id, by --name or by itself")
 	}
-	loaded, err := replext.Repo().Load(s.command.context(), s.repoBase(), req)
+	base, err := s.repoBase()
+	if err != nil {
+		return metaOut(nil, false, err)
+	}
+	loaded, err := replext.Repo().Load(s.command.context(), base, req)
 	if err != nil {
 		return metaOut(nil, false, err)
 	}
@@ -243,7 +260,11 @@ func (s *Session) doPublish(args []string) metaResult {
 	req.Root = fqn
 	req.Source = []byte(s.text())
 	req.State = s.repoState
-	published, err := replext.Repo().Publish(s.command.context(), s.repoBase(), req)
+	base, err := s.repoBase()
+	if err != nil {
+		return metaOut(nil, false, err)
+	}
+	published, err := replext.Repo().Publish(s.command.context(), base, req)
 	if err != nil {
 		return metaOut(nil, false, err)
 	}
@@ -305,9 +326,13 @@ func (s *Session) projectIDs() []string {
 }
 
 func (s *Session) projectField(field func(replext.ProjectInfo) string) []string {
+	base, err := s.repoBase()
+	if err != nil {
+		return nil
+	}
 	ctx, cancel := context.WithTimeout(context.Background(), completionTimeout)
 	defer cancel()
-	projects, err := replext.Repo().Projects(ctx, s.repoBase())
+	projects, err := replext.Repo().Projects(ctx, base)
 	if err != nil {
 		return nil
 	}

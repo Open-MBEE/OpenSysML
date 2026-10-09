@@ -15,13 +15,15 @@ const elementsPageSize = 500
 
 // Repository is one project branch as a sync's repository: read as the graph
 // its elements spell, written through the commit path so every element keeps
-// its id. It remembers the head its last read stood at and refuses to commit
-// past a head that has since moved.
+// its id. It remembers the head its last read stood at — empty for a branch
+// read before its first commit — and refuses to commit past a head that has
+// since moved.
 type Repository struct {
 	client  *Client
 	project string
 	branch  string
 	seen    string
+	read    bool // whether seen records a head this repository read or wrote
 }
 
 // Repository addresses one project branch for a sync.
@@ -77,14 +79,14 @@ func (r *Repository) Graph(ctx context.Context) (*rdf.Graph, error) {
 		return nil, err
 	}
 	if head == "" {
-		r.seen = ""
+		r.seen, r.read = "", true
 		return rdf.NewGraph(), nil
 	}
 	graph, err := r.GraphAt(ctx, head)
 	if err != nil {
 		return nil, err
 	}
-	r.seen = head
+	r.seen, r.read = head, true
 	return graph, nil
 }
 
@@ -112,14 +114,15 @@ func ElementsGraph(elements []Element) (*rdf.Graph, error) {
 }
 
 // Commit writes one batch as one SysML v2 commit. The API takes no
-// precondition, so the head is re-read first and a moved one refuses the write
-// as a StaleBranchError.
+// precondition, so once a head is known — read by Graph, resumed or written —
+// it is re-read first and a moved one refuses the write as a StaleBranchError;
+// a branch read without a head has to be still without one.
 func (r *Repository) Commit(ctx context.Context, changes []reposync.ElementChange, message string) (string, error) {
 	body, err := CommitRequest(changes, message)
 	if err != nil {
 		return "", err
 	}
-	if r.seen != "" {
+	if r.read || r.seen != "" {
 		head, err := r.Head(ctx)
 		if err != nil {
 			return "", err
@@ -132,6 +135,6 @@ func (r *Repository) Commit(ctx context.Context, changes []reposync.ElementChang
 	if err != nil {
 		return "", err
 	}
-	r.seen = commit.ID
+	r.seen, r.read = commit.ID, true
 	return commit.ID, nil
 }
