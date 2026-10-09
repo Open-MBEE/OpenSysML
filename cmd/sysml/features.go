@@ -53,7 +53,7 @@ func boolFlags(names ...string) []featureFlag {
 var (
 	v1Feature = &feature{
 		name:     "v1",
-		flags:    flags("migrate", "migration-report", "migration-results", "layout", "image-base-url"),
+		flags:    append(flags("migrate", "migration-report", "migration-results", "layout", "image-base-url"), boolFlags("portable")...),
 		values:   map[string][]string{"from": {"xmi", "uml", "mdzip"}},
 		sections: []string{"Migration"},
 		markers:  []string{"SysML v1"},
