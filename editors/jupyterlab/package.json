@@ -1,6 +1,6 @@
 {
   "name": "jupyterlab-opensysml",
-  "version": "0.9.2",
+  "version": "0.10.0",
   "description": "SysML v2 and KerML syntax highlighting for JupyterLab and Notebook, matching the OpenSysML sysml kernel.",
   "keywords": [
     "jupyter",

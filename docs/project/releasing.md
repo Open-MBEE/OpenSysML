@@ -170,7 +170,7 @@ branch that moves the integration state onto `main`:
    set `[package] version` to the same spelling and run
    `cargo update -p opensysml` in `client/rust` so the lockfile
    agrees. The editors carry the same spelling too, though nothing publishes them:
-   `"version"` in `editors/vscode/package.json` and
+   `"version"` in `editors/vscode/package.json`, `editors/jupyterlab/package.json` and
    `editors/syson/frontend/package.json`, each lock regenerated with
    `npm install --package-lock-only` in that directory; `<version>` in
    `editors/mdk/pom.xml` and `editors/syson/pom.xml`; and `<parent><version>`

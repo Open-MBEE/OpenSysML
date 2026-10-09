@@ -61,7 +61,7 @@ The pip package installs a kernelspec holding the binary itself and naming it th
   "metadata": {
     "implementation": "sysml-jupyter-kernel",
     "package": "jupyter-opensysml-kernel",
-    "package_version": "0.9.2"
+    "package_version": "0.10.0"
   }
 }
 ```
@@ -222,7 +222,7 @@ when set). `uninstall` removes what `install` wrote, not the wheel's shared-data
 which `pip uninstall` removes with the package.
 
 The package's version is the core release's, and it bundles and pins only that release:
-`jupyter-opensysml-kernel 0.9.2` installs `sysml-jupyter-kernel` from `v0.9.2`. Nightly
+`jupyter-opensysml-kernel 0.10.0` installs `sysml-jupyter-kernel` from `v0.10.0`. Nightly
 snapshots are published as development versions carrying the night's prerelease.
 `OPENSYSML_GITHUB_REPO` points the download at a fork that publishes the same assets.
 
