@@ -572,7 +572,7 @@ See [the guide](../guide/) for VS Code configuration.
 - `%help` — Show help
 - `%list` — List current session declarations
 - `%clear` — Reset session
-- `%load <file>` — Load .sysml file
+- `%load [--cells <sel>] <path>...` — Load .sysml/.kerml files and the code cells of .ipynb notebooks
 
 **Runtime execution:**
 - `%instantiate <name>` — Create instance from part def

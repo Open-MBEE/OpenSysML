@@ -1,7 +1,10 @@
 package jupyter
 
 import (
+	"encoding/json"
 	"errors"
+	"os"
+	"path/filepath"
 	"slices"
 	"strings"
 	"testing"
@@ -429,4 +432,68 @@ func TestVizShowsADiagram(t *testing.T) {
 func dotDrawn() bool {
 	_, ok := drawDot("digraph { a -> b }")
 	return ok
+}
+
+func TestACellMayLoadAnotherNotebookAndUseItsNames(t *testing.T) {
+	dir := t.TempDir()
+	other := filepath.Join(dir, "other.ipynb")
+	data, err := json.Marshal(map[string]any{
+		"cells": []map[string]any{
+			{"cell_type": "markdown", "metadata": map[string]any{}, "source": "# A wheel"},
+			{"cell_type": "code", "metadata": map[string]any{}, "outputs": []any{}, "source": []string{
+				"%verbosity quiet\n",
+				"private import ScalarValues::*;\n",
+				"package Demo {\n",
+				"  part def Wheel { attribute diameter : Real = 16.0; }\n",
+				"}\n",
+				"Demo::Wheel::diameter + 1\n",
+			}},
+			{"cell_type": "code", "metadata": map[string]any{}, "outputs": []any{}, "source": "%instantiate Demo::Wheel\n"},
+		},
+		"metadata": map[string]any{"kernelspec": map[string]any{"language": "sysml", "name": "sysml"}},
+		"nbformat": 4, "nbformat_minor": 5,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(other, data, 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	e := newEngine(t)
+	out := mustRun(t, e, "%load "+other)
+	for _, want := range []string{
+		"loaded " + other + ": 2 of 2 code cells, 1 declaration",
+		"skipped 2 % command lines and 1 expression line",
+		"✓ package Demo",
+	} {
+		if !strings.Contains(out.text(), want) {
+			t.Errorf("want %q in the load report:\n%s", want, out.text())
+		}
+	}
+	if len(out.results) != 0 {
+		t.Errorf("the other notebook's expression was evaluated: %v", out.results)
+	}
+	out = mustRun(t, e, "Demo::Wheel::diameter + 1")
+	if len(out.results) != 1 || !strings.Contains(out.results[0][mimeText].(string), "= 17.0") {
+		t.Errorf("the loaded names are not usable: %v", out.results)
+	}
+	// The other notebook's %verbosity did not run: a declaration is still echoed.
+	out = mustRun(t, e, "package Spare { part def Rim; }")
+	if !strings.Contains(out.text(), "✓ package Spare") {
+		t.Errorf("declaration output = %q", out.text())
+	}
+}
+
+func TestLoadingAPythonNotebookIsACommandError(t *testing.T) {
+	dir := t.TempDir()
+	other := filepath.Join(dir, "analysis.ipynb")
+	nb := `{"cells": [{"cell_type": "code", "metadata": {}, "outputs": [], "source": "print(1)"}], "metadata": {"kernelspec": {"language": "python", "name": "python3"}}, "nbformat": 4, "nbformat_minor": 5}`
+	if err := os.WriteFile(other, []byte(nb), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	failure := mustFail(t, newEngine(t), "%load "+other)
+	if failure.Name != "CommandError" || !strings.Contains(failure.Value, "a python notebook") {
+		t.Errorf("failure = %+v, want a CommandError naming the python notebook", failure)
+	}
 }

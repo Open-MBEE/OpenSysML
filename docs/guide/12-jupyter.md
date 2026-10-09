@@ -159,6 +159,60 @@ Graphviz is installed. A form (`text`, `mermaid`, `dot`, `plantuml`, `d2`) shows
 what `%render #state:P::Lamp mermaid` writes, and `%viz P::Car P::Lamp` what a view exposing both
 would render. At the `sysml` prompt the same command prints the text rendering.
 
+## Reusing another notebook
+
+Jupyter has no import between notebooks. `%load` has: a path ending in `.ipynb` loads that
+notebook's code cells into the session, in notebook order, as if their declarations had been run
+here.
+
+```sysml
+%load wheels.ipynb
+```
+
+```text
+loaded wheels.ipynb: 3 of 4 code cells, 2 declarations
+  skipped 2 % command lines and 3 expression lines: a loaded notebook declares; its commands are not run and its expressions not evaluated
+  skipped cell 4: tagged skip-load
+✓ package Wheels
+✓ package Cars
+```
+
+What is loaded is the model: every code cell's declarations, split as the kernel splits a cell.
+Markdown and raw cells are not code. A cell's `%` command lines and its bare expressions are
+skipped — a notebook you load must not run its author's `%sweep`, `%save` or `%load`, nor spend
+your session evaluating its expressions — and the report counts what it passed over. A cell
+tagged `skip-load` (Jupyter's cell tags, in the cell's metadata) is skipped whole; tag the scratch
+cells of a notebook others load. The lines of a cell keep their numbers: an error in a loaded cell
+is reported as `wheels.ipynb cell 3:2:5` — the notebook, the cell's position among the code
+cells, then the line and column within the cell — and `%print` of a loaded name still finds its
+text.
+
+To load part of a notebook, name the cells:
+
+```sysml
+%load wheels.ipynb --cells 1,3-5
+%load wheels.ipynb --cells tag:model
+```
+
+`--cells` takes positions among the code cells, counted from 1, as single numbers and ranges, or
+`tag:<tag>` for the cells carrying a tag; one `--cells` applies to every notebook the same
+`%load` names, and may be written anywhere among the paths (`--cells=tag:model` too). A position
+past the notebook's last code cell is refused with the notebook's code-cell count; a tag no cell
+carries is refused too.
+
+Loading a notebook again redeclares it, as loading a file again does: what an earlier load of the
+whole notebook declared and the notebook no longer holds is gone. Loading picked cells replaces
+just those cells and leaves the others as they were.
+
+Only a SysML notebook loads: one whose kernel language (`metadata.kernelspec.language`, else
+`metadata.language_info.name`) is `sysml`, or that records none. A Python notebook is refused
+with `cannot load analysis.ipynb: a python notebook`; a file that is not nbformat 4 — an older
+nbformat 3 notebook, or a file that is no notebook at all — is refused with the reason.
+
+Notebooks load wherever model files do: `%load notebooks/` and `%load '*.ipynb'` pick them up
+beside `.sysml` files, `sysml wheels.ipynb` loads one on the command line, and a notebook's
+imports are followed to the files beside it as a loaded file's are.
+
 ## Rich output
 
 Output that has a richer form than text is sent in that form beside the text, and the
