@@ -173,3 +173,51 @@ func TestParseSourcesSharesConvertedDiagnosticsOfDocumentsAnEditDidNotReach(t *t
 		}
 	}
 }
+
+// freshlyConverted converts the cached model's diagnostics again, past the cache.
+func freshlyConverted(t *testing.T, srv *Service, hash string) []*pb.Diagnostic {
+	t.Helper()
+	cached, ok := srv.cache.Get(hash)
+	if !ok {
+		t.Fatalf("model %s is not cached", hash)
+	}
+	var fresh []*pb.Diagnostic
+	for _, doc := range cached.Documents {
+		fresh = append(fresh, srv.documentDiagnostics(doc)...)
+	}
+	return fresh
+}
+
+// The shared messages are never written after they are built: every later
+// response still equals a conversion made afresh from the cached model.
+func TestCachedDiagnosticsStayEqualToAFreshConversion(t *testing.T) {
+	ctx := context.Background()
+	req := &pb.ParseFileRequest{Source: &pb.ParseFileRequest_Content{Content: misplacedComment}}
+	withheld, err := NewServiceWithUnavailableCapabilitiesForTesting(10, "test", []string{CapabilityDiagnosticCodes})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer withheld.Close()
+	for name, srv := range map[string]*Service{"coded": mustNewService(t, 10), "codes withheld": withheld} {
+		t.Run(name, func(t *testing.T) {
+			defer srv.Close()
+			first, err := srv.ParseFile(ctx, req)
+			if err != nil {
+				t.Fatalf("ParseFile: %v", err)
+			}
+			requireWarnings(t, first.Diagnostics)
+			second, err := srv.ParseFile(ctx, req)
+			if err != nil {
+				t.Fatalf("ParseFile again: %v", err)
+			}
+			diags, err := srv.GetDiagnostics(ctx, &pb.DiagnosticsRequest{ModelHash: first.ModelHash})
+			if err != nil {
+				t.Fatalf("GetDiagnostics: %v", err)
+			}
+			fresh := freshlyConverted(t, srv, first.ModelHash)
+			requireSameDiagnostics(t, first.Diagnostics, fresh)
+			requireSameDiagnostics(t, second.Diagnostics, fresh)
+			requireSameDiagnostics(t, diags.Diagnostics, fresh)
+		})
+	}
+}
