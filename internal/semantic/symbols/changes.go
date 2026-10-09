@@ -80,13 +80,15 @@ func (idx *Index) noteBefore(fqn string) {
 // tables: the symbols registered under it, in order, each with its re-export
 // and hidden marks and the claims and routes that surfaced it. It holds the
 // symbols themselves, so one dropped since cannot have its address reused by
-// a new symbol that would then compare equal to it.
+// a new symbol that would then compare equal to it. The claims are the index's
+// own maps, not copies: a write replaces a claims map rather than changing it
+// (see Index.reexportDocs), so the one noted stays as it was read.
 type registration []registeredSymbol
 
 type registeredSymbol struct {
 	sym                *Symbol
 	reexported, hidden bool
-	claims             map[string]reexportClaim
+	claims             map[string]*reexportClaim
 }
 
 func registrationOf(idx *Index, fqn string) registration {
@@ -98,12 +100,11 @@ func registrationOf(idx *Index, fqn string) registration {
 	hidden, _ := idx.hidden.get(fqn)
 	out := make(registration, len(syms))
 	for i, sym := range syms {
-		out[i] = registeredSymbol{sym: sym, reexported: reexported.has(sym), hidden: hidden.has(sym)}
-		if claims := idx.reexportDocs.at(reexportKey{fqn: fqn, sym: sym}); len(claims) > 0 {
-			out[i].claims = make(map[string]reexportClaim, len(claims))
-			for doc, claim := range claims {
-				out[i].claims[doc] = reexportClaim{public: claim.public, routes: append([]gateRoute(nil), claim.routes...)}
-			}
+		out[i] = registeredSymbol{
+			sym:        sym,
+			reexported: reexported.has(sym),
+			hidden:     hidden.has(sym),
+			claims:     idx.reexportDocs.at(reexportKey{fqn: fqn, sym: sym}),
 		}
 	}
 	return out
