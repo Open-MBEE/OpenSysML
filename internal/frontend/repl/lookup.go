@@ -101,6 +101,11 @@ func (s *Session) lookupSymbolOfKinds(name string, want ...symbols.SymbolKind) (
 	case 1:
 		return matches[0], idx.GetFQN(matches[0]), nil
 	default:
+		// A root declaration's qualified name is its simple name; nothing more
+		// qualified can be written for it, so it wins over nested namesakes.
+		if roots := idx.LookupQualified(name); len(roots) == 1 {
+			return roots[0], idx.GetFQN(roots[0]), nil
+		}
 		return nil, "", ambiguousError(name, matches, idx)
 	}
 }

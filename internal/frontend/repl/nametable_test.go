@@ -176,6 +176,29 @@ func TestSimpleNameAmbiguityFollowsResubmission(t *testing.T) {
 	}
 }
 
+// A root declaration has no more qualified spelling than its simple name, so
+// that name denotes it even where nested declarations share the name.
+func TestRootDeclarationWinsOverNestedNamesakes(t *testing.T) {
+	s := NewSession()
+	s.Submit("package 'Scanning Electron Microscope' { part def 'Scanning Electron Microscope'; }")
+	s.Submit("package Blocks { part def 'Scanning Electron Microscope'; }")
+
+	_, fqn, err := s.lookupSymbol("'Scanning Electron Microscope'")
+	if err != nil || fqn != "Scanning Electron Microscope" {
+		t.Errorf("root 'Scanning Electron Microscope' = %q, %v; want the root package", fqn, err)
+	}
+
+	s.Submit("package R { part def 'Scanning Electron Microscope'; }")
+	if _, fqn, err := s.lookupSymbol("'Scanning Electron Microscope'"); err != nil || fqn != "Scanning Electron Microscope" {
+		t.Errorf("root 'Scanning Electron Microscope' with three namesakes = %q, %v; want the root package", fqn, err)
+	}
+
+	_, _, err = s.lookupSymbol("Blocks::'Scanning Electron Microscope'")
+	if err != nil {
+		t.Errorf("Blocks::'Scanning Electron Microscope' = %v; want the nested declaration", err)
+	}
+}
+
 // A simple name the session declares nowhere is still resolved where the prompt
 // evaluates, through the imports visible there.
 func TestSimpleNameFallsBackToPromptImports(t *testing.T) {
