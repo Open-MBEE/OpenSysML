@@ -462,9 +462,14 @@ func TestPublishForgetsTheStateOfAnotherServer(t *testing.T) {
 }
 
 // A %load of --cells alone is the file load's to answer: it wants a notebook,
-// or a selection, and no repository option was given.
+// or a selection, and no repository option was given; a lone name beginning
+// with one dash is still a project's.
 func TestLoadWithCellsAloneWantsANotebook(t *testing.T) {
-	s, _ := repoSession(t)
+	s, api := repoSession(t)
+	api.addProject("-demo")
+	if err := metaErr(t, s, "%load -demo"); err == nil || !strings.Contains(err.Error(), "has no head commit") {
+		t.Errorf("a lone -demo did not name the project: %v", err)
+	}
 	if out := joined(runMeta(t, s, "%load --cells=1")); out != usageLoadPath {
 		t.Errorf("%%load --cells=1 answered %q, want the file load's usage", out)
 	}

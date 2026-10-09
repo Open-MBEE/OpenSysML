@@ -99,7 +99,7 @@ func projectLine(name, id string) string { return fmt.Sprintf("%s (%s)", name, i
 
 // loadsRepository tells a %load of a repository project from one of files: a
 // repository option names a project or a branch, and a lone name that names no
-// path names a project. Other options are the file load's to accept or refuse.
+// path names a project. Other options and the stdin "-" are the file load's.
 func (s *Session) loadsRepository(args []string) bool {
 	if len(args) == 0 {
 		return false
@@ -109,7 +109,7 @@ func (s *Session) loadsRepository(args []string) bool {
 			return true
 		}
 	}
-	if len(args) != 1 || strings.HasPrefix(args[0], "-") {
+	if len(args) != 1 || args[0] == "-" || strings.HasPrefix(args[0], "--") {
 		return false
 	}
 	return !namesPath(nameText(args[0]))
