@@ -665,6 +665,26 @@ release is described in [docs/project/releasing.md](docs/project/releasing.md).
 
 - **`ParseSources` re-analyzes only what an edit reaches when a client parses the same documents again.** From the second parse of a document set, the service answers from an incremental workspace held for it: unchanged documents keep their trees and diagnostics, and only the changed documents and those whose analysis read them are analyzed again. The answer is the one a fresh parse gives. On a 186-document model a re-parse after a one-line edit takes about 0.9 s instead of 1.7 s.
 
+- **Recognising `this`, `that` and `isActive` no longer builds a qualified name.** Each read of a feature chain in a calculation or action body asked whether its target was `Occurrences::Occurrence::this`, `Base::things::that` or `StateActivity::isActive` by assembling the target's fully-qualified name and comparing it; the owner chain is now compared against the known name segment by segment, so a conformant body allocates nothing for the question, and every answer is as before.
+
+- **Compiled calcs pass their Integers, Rationals, Reals and Booleans in three words.** The
+  compiled calc tier held each scalar in 56 bytes and, for every parameter, local and result,
+  boxed it back into the evaluator's constant to decide whether the declaration holds it, and
+  built the diagnostic a refusal would name whether or not one followed. A scalar is now the
+  constant packed into 24 bytes (`semantics.Packed`), unpacked without allocating; which kinds
+  a declaration holds whatever the value is decided once when the calc is compiled; the
+  diagnostic is built only on refusal; and the step charge inlines into every node.
+  `Fib(25)` interpreted runs in a fifth of the time with a quarter of the allocations; every
+  result, promotion to a big value, refusal, error message and step count is unchanged.
+
+- **The gRPC service converts a cached model's diagnostics to protobuf once.** `ParseFile`, `ParseSources` and `GetDiagnostics` on a model parsed before answered the same diagnostics converted again on every call, two allocations per warning; each document's are now converted on first use and shared by every later response, and a model answered from a lineage shares those of every document the edit did not reach. The responses are unchanged.
+
+- **A body statement's write no longer pays for its diagnostic description when it conforms.** The binding check of an assignment or declaration in an action, state or calculation body took the description of where it ran (`action node step`, `state behavior s`, `action A`) as a string built on every write; it now takes a function and formats the description only in the refusal it reports. An assignment step of an action loop allocates about a thousand fewer objects per thousand iterations, and every diagnostic reads as before.
+
+- **Replacing a document no longer copies the re-export claims of every name it re-registers.** Before a name's registration changes, the index notes what a lookup of it reads so that one registered again exactly as it was does not count as a change; the note held a copy of every document's claims and routes on the name, taken once per name touched. It now shares the index's own claim tables, which a write replaces rather than changes, so an edit beside a large model allocates a fraction of what it did. What counts as a change is as before.
+
+- Constraint checks and other runs no longer walk the succession graph for a cycle among held behaviors on every quiescent scan: the runtime remembers that no behavior is held until one enters held, by instantiation, image or snapshot restore, which cut `BenchmarkBatchConstraints` per-check time.
+
 ## 0.9.2 — 2026-10-05
 
 ### Added
