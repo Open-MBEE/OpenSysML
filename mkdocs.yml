@@ -1,9 +1,9 @@
 # The site is the docs/ tree unmodified: every page stays a Markdown file read on
 # GitHub, and MkDocs is only the renderer. The landing page is the exception: it
 # frames docs/README.md with a hero that only makes sense on a web page.
-site_name: OpenSysML
-site_description: A SysML v2 and KerML implementation in Go — language server, REPL, execution runtime, and Go, Python, Node, Java and Rust clients
-site_url: https://opensysml.org/
+site_name: OpenSysML REDK
+site_description: The OpenSysML Runtime Environment and Development Kit — a SysML v2 and KerML implementation in Go with a language server, REPL, execution runtime, and Go, Python, Node, Java and Rust clients
+site_url: https://redk.opensysml.org/
 repo_url: https://github.com/Open-MBEE/OpenSysML
 repo_name: Open-MBEE/OpenSysML
 edit_uri: edit/develop/docs/
@@ -73,7 +73,7 @@ plugins:
   - redirects:
       redirect_maps:
         guide/09-python.md: clients/python/index.md
-        ecosystem.md: README.md
+        ecosystem.md: https://opensysml.org/
   - mkdocstrings:
       handlers:
         python:
@@ -247,6 +247,7 @@ nav:
       - guide/09-clients.md
       - guide/10-troubleshooting.md
       - guide/11-migrating-from-sysml-v1.md
+      - guide/12-jupyter.md
       - guide/modeling-fleets.md
   - Document generation:
       - manual/README.md
@@ -278,6 +279,7 @@ nav:
       - Environment variables: reference/environment.md
       - External engines: reference/external-engines.md
       - Language server: reference/lsp.md
+      - Jupyter kernel: reference/jupyter-kernel.md
       - Diagnostics (lints): reference/diagnostics.md
       - Client libraries: reference/clients.md
       - Go packages: reference/api.md
@@ -289,6 +291,7 @@ nav:
       - MATLAB API: reference/matlab-api.md
       - Service transports: reference/service-transports.md
       - Wire contract: reference/wire-contract.md
+      - Compact API JSON: reference/api-json-compact.md
       - RDF mapping: reference/rdf-mapping.md
       - SysML v1 migration: reference/sysml-v1-migration.md
       - FMI models: reference/fmi.md

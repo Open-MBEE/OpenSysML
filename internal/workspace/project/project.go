@@ -10,6 +10,8 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+
+	"github.com/Open-MBEE/OpenSysML/internal/workspace/notebook"
 )
 
 // Stdin is the path that names standard input, by the convention that a lone
@@ -37,10 +39,16 @@ func IsModelFile(path string) bool {
 	return false
 }
 
+// IsLoadable reports whether path names a source a load reads: a model file or
+// a notebook, whose code cells are the model.
+func IsLoadable(path string) bool {
+	return IsModelFile(path) || notebook.IsNotebook(path)
+}
+
 // Expand turns the paths named on a command line (or at a %load prompt) into
-// the model files to load: a directory contributes every model file under it,
-// a pattern contributes the model files among its matches, and any other path
-// is taken as named.
+// the sources to load: a directory contributes every model file and notebook
+// under it, a pattern contributes the model files and notebooks among its
+// matches, and any other path is taken as named.
 // Files come back in a deterministic order — the inputs in the order given,
 // each directory walk and each pattern match sorted by path — and duplicates
 // are dropped, so naming a file twice loads it once.
@@ -114,7 +122,7 @@ func expandPattern(pattern string) ([]string, error) {
 			out = append(out, files...)
 			continue
 		}
-		if IsModelFile(m) {
+		if IsLoadable(m) {
 			out = append(out, m)
 		}
 	}
@@ -124,8 +132,8 @@ func expandPattern(pattern string) ([]string, error) {
 	return out, nil
 }
 
-// ModelFiles walks dir and returns every .sysml/.kerml file under it, sorted by
-// path. Hidden directories are skipped, so a repository's .git or a build cache
+// ModelFiles walks dir and returns every .sysml/.kerml file and .ipynb notebook
+// under it, sorted by path. Hidden directories are skipped, so a repository's .git or a build cache
 // under a dot-directory contributes nothing. Symlinked directories are walked —
 // a project may keep a shared library as a link — each at most once, so a cycle
 // terminates.
@@ -135,13 +143,13 @@ func ModelFiles(dir string) ([]string, error) {
 		return nil, err
 	}
 	if len(out) == 0 {
-		return nil, fmt.Errorf("no .sysml or .kerml files in %s", dir)
+		return nil, fmt.Errorf("no .sysml or .kerml files or .ipynb notebooks in %s", dir)
 	}
 	sort.Strings(out)
 	return out, nil
 }
 
-// walk appends the model files under dir to out, descending into
+// walk appends the model files and notebooks under dir to out, descending into
 // subdirectories, symlinked ones included. visited holds the resolved
 // directories already walked, which is what keeps a link cycle finite.
 func walk(dir string, visited map[string]bool, out *[]string) error {
@@ -175,7 +183,7 @@ func walk(dir string, visited map[string]bool, out *[]string) error {
 			if err := walk(path, visited, out); err != nil {
 				return err
 			}
-		case IsModelFile(path):
+		case IsLoadable(path):
 			*out = append(*out, path)
 		}
 	}

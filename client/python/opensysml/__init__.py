@@ -26,7 +26,10 @@ from opensysml.capabilities import (
     CAPABILITY_CONSTRAINT_BODY_AUTHORING,
     CAPABILITY_STATE_ACTION_AUTHORING,
     CAPABILITY_BIG_INT_VALUES,
+    CAPABILITY_RATIONAL_VALUES,
     CAPABILITY_CONVERT_DOCUMENTS,
+    CAPABILITY_CONVERT_COMPACT,
+    CAPABILITY_PARSE_SOURCES_AFFECTED,
     MissingCapabilityError,
     ServerInfo,
 )
@@ -46,7 +49,7 @@ from opensysml.query import QueryElement, QueryError
 from opensysml.sources import SourceDocument
 from opensysml.document import (
     DocumentEvent, DocumentQueryError, DocumentQueryResult, DocumentRow, DocumentState,
-    DocumentVerdict, ElementRef, INFINITY, ObjectRef, RenderCanvas, RenderEdge,
+    DocumentVerdict, ElementRef, Graphs, INFINITY, ObjectRef, RenderCanvas, RenderEdge,
     RenderGeometry, RenderNode, RenderNote, RenderPoint, RenderPort, RenderRow,
     RenderSpan, RenderStyle, RenderedView,
 )
@@ -96,6 +99,7 @@ __all__ = [
     "DocumentState", "DocumentVerdict", "ElementRef", "INFINITY", "ObjectRef",
     "RenderCanvas", "RenderEdge", "RenderGeometry", "RenderNode", "RenderNote",
     "RenderPoint", "RenderPort", "RenderRow", "RenderSpan", "RenderStyle", "RenderedView",
+    "Graphs",
     "OpenSysMLError", "AnalysisRunError", "ChecksumMismatchError", "ConnectionError",
     "ConversionError", "ExecutionError", "FeatureValueError", "MigrationError",
     "EditError", "NoEditsError", "EditTargetError", "InvalidEditError",
@@ -106,7 +110,8 @@ __all__ = [
     "InstanceTypeError", "InvalidRequestError", "ManifestSignatureError",
     "MissingCapabilityError",
     "CAPABILITY_CONSTRAINT_BODY_AUTHORING", "CAPABILITY_STATE_ACTION_AUTHORING",
-    "CAPABILITY_BIG_INT_VALUES", "CAPABILITY_CONVERT_DOCUMENTS",
+    "CAPABILITY_BIG_INT_VALUES", "CAPABILITY_RATIONAL_VALUES", "CAPABILITY_CONVERT_DOCUMENTS",
+    "CAPABILITY_CONVERT_COMPACT", "CAPABILITY_PARSE_SOURCES_AFFECTED",
     "ModelError", "ModelFileNotFoundError", "ModelNotFoundError",
     "ServiceError", "ServiceTimeoutError", "SigstoreUnavailableError", "StaleServiceError",
     "SymbolNotFoundError",
@@ -372,7 +377,7 @@ def migrate(to_format, file_path=None, content=None, from_format='', report=Fals
         >>> import opensysml
         >>> migrated = opensysml.migrate("sysml", file_path="Vehicle.mdzip", report=True)
         >>> migrated.report.summary
-        'migrated 93 element(s): 77 mapped, 13 approximated, 3 unmapped (...)'
+        'migrated 93 element(s): 78 mapped, 12 approximated, 3 unmapped (...)'
         >>> migrated.write("Vehicle.sysml")
         'Vehicle.sysml'
     """

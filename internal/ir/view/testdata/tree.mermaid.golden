@@ -44,3 +44,4 @@ flowchart TD
 **cylinder : Cylinder**`")
   n5 --- n7
   n4 --- n5
+  n0 ---|"◆ engine"| n5

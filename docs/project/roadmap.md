@@ -149,7 +149,7 @@ a regression — re-fetch before re-recording anything.
 |---|---|
 | OMG training corpus | **100/100 clean** — asserted, not ratcheted: no file reports a semantic error |
 | OMG pilot corpora (ratchet) | 213 files; 9 report a diagnostic [7] — 2 of 58 KerML examples, 7 of 99 SysML examples, 0 of 56 validation files — each adjudicated in [pilot-corpora.md](pilot-corpora.md) and [omg-issues.md](omg-issues.md) |
-| Stdlib parser conformance | 106/106 clean — 94 vendored OMG files and 12 non-normative OpenSysML extensions [100/100: 94 and 6] |
+| Stdlib parser conformance | 107/107 clean — 94 vendored OMG files and 13 non-normative OpenSysML extensions [100/100: 94 and 6] |
 | Execution conformance cases | 1224, all run and pass, none skipped [894] |
 | Known execution-conformance failures | **0** — `known_failures.txt` holds no case |
 | Cases admitting several outcomes | 92 `.expected.json` files list `outcomes`, each citing its derivation in the behavior semantic oracle; the harness explores every one of them under `explore` [26] |
@@ -1935,9 +1935,10 @@ the inverse — the held objects whose machine is in the named state, by leaf, b
 by dotted path — over the same population `all T` and `Objects` read (X5, Q2). `Events(source,
 kind, since, before)` answers **event rows**: the trace in the order the run made it — accepts,
 sends, transitions, state entry, exit and do steps, `choice` draws with their alternatives and the
-one taken (region order and due order among them), unevaluable guards — each with its instant on
-`Context.Clock()` (A5), its object and machine, the states it touches, its payload and the line
-`-trace` prints; `kind` keeps one or several kinds and `[since, before)` is inclusive at the start,
+one taken (region order and due order among them), unevaluable guards and state-machine
+termination — each with its instant on `Context.Clock()` (A5), its object and machine, the states it
+touches, its payload and the line `-trace` prints; `kind` keeps one or several kinds and
+`[since, before)` is inclusive at the start,
 exclusive at the end, in the clock's unit or as a duration. The representation queried is the one
 the runtime records: `runtime.TraceRecorder` keeps a typed `TraceRecord` per event and the printer
 writes `-trace`'s lines from those records, so the two cannot disagree and the printed trace is
@@ -2435,7 +2436,7 @@ A view's rendering is a `view.Rendering` — typed nodes (`part def`, `state`, `
 **form** is only a writer over it: `text`, `markdown`, `mermaid` and, since W1, W2 and W4 landed,
 `dot`, `plantuml` and `d2`, chosen by `-render-form`, `%render <name> <form>`, the `opensysml/render` request the VS Code
 panel makes, and the document renderer, which embeds the Mermaid form in HTML and rasterizes it
-through `mmdc` for PDF. The tree, interconnection, state, action and sequence kinds all render — the
+through `mmdc` for PDF. The tree, interconnection, state, action, case, mixed and sequence kinds all render — the
 state rendering from the lowered `StateGraph` (regions, entry transitions, triggers, guards,
 effects), the action rendering from the `ActionGraph`, the sequence rendering as lifelines and
 ordered messages — so what is missing is not a diagram kind but the **formats** a rendering can

@@ -1,4 +1,4 @@
-part def Engine {
+occurrence def Engine {
     attribute rpm : ScalarValues::Real;
     action tune {
         ref action 'set rpm' {
@@ -7,9 +7,9 @@ part def Engine {
         }
     }
 }
-part def Host {
+occurrence def Host {
     attribute hits : ScalarValues::Real default = 0.0;
-    part engine : Engine;
+    occurrence engine : Engine;
     action hit {
         ref action 'mark hit' {
             in value[1];

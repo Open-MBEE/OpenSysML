@@ -30,7 +30,8 @@ function _encoded(conn::Connection, value)
     for capability in sort!(collect(value_capabilities(value)))
         require_capability(conn, capability)
     end
-    encode_value(value)
+    wire = encode_value(value)
+    has_capability(conn, CAPABILITY_RATIONAL_VALUES) ? wire : rationals_as_reals!(wire)
 end
 
 function _encoded_arguments(conn::Connection, arguments)

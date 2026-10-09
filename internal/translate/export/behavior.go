@@ -176,8 +176,11 @@ func (e *encoder) encodeBehavior(node ast.Node, head func(rdf.Term), subject rdf
 		return true, e.encodeSuccessionEdge(n, head, subject, fqn, owner)
 
 	case *ast.ControlFlowEdge:
-		// A guarded branch of a decision, or the `else` branch taken when no
-		// guarded one is. Which keyword introduced it decides how it is written.
+		if qualifiedText(n.Target) != "" {
+			return true, e.encodeGuardedTarget(n, head, subject, fqn, owner)
+		}
+		// A branch whose target is bound by position rather than named keeps
+		// the succession form, whose ends can state a member.
 		head(rdf.SysMLTerm(mSuccession))
 		e.graph.Add(subject, e.sysx(xDeclaredKeyword), rdf.String(firstWord(e.text(n))))
 		if err := e.expression(subject, e.sysx(xGuard), xGuard, owner, n.Guard); err != nil {
@@ -528,6 +531,105 @@ func (e *encoder) encodeTransition(n *ast.TransitionMember, head func(rdf.Term),
 	e.graph.Add(subject, e.sysml(pTarget), e.edgeReference(n.Target))
 	return nil
 }
+
+// encodeGuardedTarget emits a branch of a decision, `if g then b;` or
+// `else b;`, as the TransitionUsage the grammar builds (SysML.xtext
+// GuardedTargetSuccession, DefaultTargetSuccession): its guard owned through a
+// TransitionFeatureMembership of kind guard, and the `then` succession it owns
+// to its target. Its source is the decision ahead of it, by position, which the
+// transition states as sysml:source.
+func (e *encoder) encodeGuardedTarget(n *ast.ControlFlowEdge, head func(rdf.Term), subject rdf.Term, fqn, owner string) error {
+	head(rdf.SysMLTerm(mTransition))
+	e.graph.Add(subject, e.sysx(xTransitionSyntax), rdf.String(targetTransitionSyntax))
+	if n.IsElse {
+		e.graph.Add(subject, e.sysx(xIsElse), rdf.Bool(true))
+	}
+	if err := e.expressionAs(subject, e.sysx(xGuard), xGuard, owner, n.Guard, mTransitionFeatureMembership); err != nil {
+		return err
+	}
+	succession, membership, err := e.transitionSuccession(subject, &ast.TransitionMember{Target: n.Target}, owner)
+	if err != nil {
+		return err
+	}
+	e.graph.Add(subject, e.sysml(pOwnedRelationship), membership)
+	e.graph.Add(subject, e.sysml(pOwnedMembership), membership)
+	e.emitMembershipCore(membership, succession, subject, mOwningMembership, true)
+	switch stands := e.preceding[n]; {
+	case qualifiedText(n.Source) == "":
+		if fqn, ok := e.fqn[n.SourceMember]; ok {
+			e.graph.Add(subject, e.sysml(pSource), e.ids.subjectForNode(n.SourceMember, fqn))
+		}
+	case impliedSource(n, n.Source) && answersToFeature(stands):
+		if fqn, ok := e.fqn[stands]; ok {
+			e.graph.Add(subject, e.sysml(pSource), e.ids.subjectForNode(stands, fqn))
+		}
+	default:
+		e.graph.Add(subject, e.sysml(pSource), e.edgeReference(n.Source))
+	}
+	e.graph.Add(subject, e.sysml(pTarget), e.edgeReference(n.Target))
+	return nil
+}
+
+// targetTransitionText writes a decision's branch, `if g then b;` or `else b;`.
+// That notation states no source, which the branch reads from the member
+// before it, and no trigger, effect or body; a branch the graph gives another
+// source, a trigger, an effect or a body, or neither a guard nor `else`, which
+// would read back as a succession, is refused rather than written as a
+// different branch.
+func (d *decoder) targetTransitionText(el *element, triggerWords []string, guard, target string) (string, string, error) {
+	refuse := func(note string) error {
+		return &UnsupportedError{What: fmt.Sprintf("the transition <%s>", el.iri), Note: note}
+	}
+	if len(triggerWords) > 0 {
+		return "", "", refuse("it states a trigger, which a decision's branch has no notation for")
+	}
+	// Every source the graph states, in either spelling, must be the member
+	// before it: a second one has nowhere to go in the branch's notation.
+	before := d.precedingSource(el)
+	for _, property := range []string{pSource, pSourceFeature} {
+		for _, stated := range d.graph.Objects(rdf.IRI(el.iri), rdf.SysML+property) {
+			if before == nil || stated != rdf.IRI(before.iri) {
+				return "", "", refuse(fmt.Sprintf("its source %s is not the member before it, which `if … then` and `else` take their source from", termText(stated)))
+			}
+		}
+	}
+	effect, body, hasEffect, hasBody, err := d.transitionMembers(el)
+	if err != nil {
+		return "", "", err
+	}
+	if hasEffect || hasBody || len(effect) > 0 || len(body) > 0 {
+		return "", "", refuse("it owns an effect or a body, which a decision's branch has no notation for")
+	}
+	if d.boolOf(el, rdf.OpenSysML+xIsElse) {
+		if guard != "" {
+			return "", "", refuse("it is the `else` branch of a decision yet states a guard, and `else` writes none")
+		}
+		return "else " + target, "", nil
+	}
+	if guard == "" {
+		return "", "", refuse("it states no guard and is no `else` branch, and `then` alone writes a succession")
+	}
+	return "if " + guard + " then " + target, "", nil
+}
+
+// precedingSource is the member before el that a positional end is read from:
+// the nearest one the notation sequences from (isSuccessionSource).
+func (d *decoder) precedingSource(el *element) *element {
+	if el.owner == nil {
+		return nil
+	}
+	members := d.bodyChildren(el.owner)
+	for i := slices.Index(members, el) - 1; i >= 0; i-- {
+		if isSuccessionSource(members[i]) {
+			return members[i]
+		}
+	}
+	return nil
+}
+
+// targetTransitionSyntax is the sysx:transitionSyntax of a decision's branch,
+// which states neither a source nor a trigger: only its guard and target.
+const targetTransitionSyntax = "target"
 
 // transitionSuccession emits the SuccessionAsUsage a transition owns for its
 // `then` clause (SysML.xtext TransitionSuccessionMember, whose
@@ -1092,9 +1194,12 @@ func (d *decoder) behaviorHead(el *element) (string, bool, error) {
 		if !hasTarget || !hasValue {
 			return "", true, d.missing(el, "sysx:"+xTarget+" and sysml:"+pValue, "an assignment states what it assigns to what")
 		}
-		var words []string
+		words := nodeDeclaration(d, el)
 		if keyword, ok := d.stringOf(el, rdf.OpenSysML+xDeclaredKeyword); ok {
 			words = append(words, keyword)
+		} else if len(words) > 0 {
+			// A named node spells the keyword the bare statement may leave out.
+			words = append(words, "assign")
 		}
 		operator := ":="
 		if written, ok := d.stringOf(el, rdf.OpenSysML+xAssignOperator); ok {
@@ -1113,7 +1218,8 @@ func (d *decoder) behaviorHead(el *element) (string, bool, error) {
 		if d.boolOf(el, rdf.OpenSysML+xIsVia) {
 			keyword = "via"
 		}
-		return strings.Join([]string{"send", payload, keyword, receiver}, " "), true, nil
+		words := append(nodeDeclaration(d, el), "send", payload, keyword, receiver)
+		return strings.Join(words, " "), true, nil
 
 	case mTerminate:
 		// A declared `action a terminate;` is a usage head, not a statement; it keeps its
@@ -1932,6 +2038,9 @@ func (d *decoder) transitionText(el *element, annotations []string, depth int) (
 	if err != nil {
 		return "", "", err
 	}
+	if syntax == targetTransitionSyntax {
+		return d.targetTransitionText(el, triggerWords, guard, target)
+	}
 	if guard != "" {
 		words = append(words, "if", guard)
 	}
@@ -2037,7 +2146,7 @@ func (d *decoder) transitionBody(body []*element, hasBody bool, annotations []st
 // transitionHead writes the words before a transition's trigger: nothing for the
 // `accept` syntax of a state body's trigger alone, else keyword, name and source.
 func (d *decoder) transitionHead(el *element, syntax string) ([]string, error) {
-	if syntax == "accept" {
+	if syntax == "accept" || syntax == targetTransitionSyntax {
 		return nil, nil
 	}
 	source, err := d.transitionReferenceText(el, pSource, pSourceFeature)
@@ -2047,22 +2156,46 @@ func (d *decoder) transitionHead(el *element, syntax string) ([]string, error) {
 	if source == "" {
 		return nil, d.missing(el, sysmlPrefix+pSourceFeature, "a transition written with `transition` names the state it leaves")
 	}
+	ident := d.identWords(el)
 	keyword := "transition"
 	if written, ok := d.stringOf(el, rdf.OpenSysML+xDeclaredKeyword); ok {
 		keyword = written
+	} else if guard, err := d.transitionGuard(el); err == nil && guard != "" && d.inActionBody(el) {
+		// An action body admits a transition as a GuardedSuccession, whose
+		// `succession` is optional unless it declares a name. One without a
+		// guard is no GuardedSuccession: written so, it would read back as a
+		// succession, so it keeps `transition`.
+		keyword = ""
+		if len(ident) > 0 {
+			keyword = "succession"
+		}
 	}
-	ident := d.identWords(el)
 	var words []string
 	if visibility := d.visibility(el); visibility != "" {
 		words = append(words, visibility)
 	}
-	words = append(words, keyword)
+	if keyword != "" {
+		words = append(words, keyword)
+	}
 	words = append(words, ident...)
 	// The grammar admits a bare source only on a nameless `transition`.
 	if syntax == "first" || len(ident) > 0 || keyword == "succession" {
 		words = append(words, "first")
 	}
 	return append(words, source), nil
+}
+
+// inActionBody reports whether el is a member of an action's body rather than
+// of a state's, whose transitions take the `transition` keyword.
+func (d *decoder) inActionBody(el *element) bool {
+	if el.owner == nil {
+		return false
+	}
+	owner := el.owner.metaclass
+	if ontology.IsAncestorOrSelf(owner, mStateUsage) || ontology.IsAncestorOrSelf(owner, "StateDefinition") {
+		return false
+	}
+	return ontology.IsAncestorOrSelf(owner, "ActionUsage") || ontology.IsAncestorOrSelf(owner, "ActionDefinition")
 }
 
 // triggerWords writes a transition's trigger and the port it arrives via.
@@ -2402,6 +2535,21 @@ func (d *decoder) transitionFeatureKind(el *element) string {
 	}
 	kind, _ := d.graph.Lexical(rdf.IRI(m.iri), rdf.SysML+pKind)
 	return kind
+}
+
+// nodeDeclaration is the `action <name>`, after its visibility, a named send or
+// assignment node is declared with (SysML.xtext ActionNodeUsageDeclaration), or nothing for one
+// written as the bare statement.
+func nodeDeclaration(d *decoder, el *element) []string {
+	ident := d.identWords(el)
+	if len(ident) == 0 {
+		return nil
+	}
+	var words []string
+	if keyword := d.visibility(el); keyword != "" {
+		words = append(words, keyword)
+	}
+	return append(append(words, "action"), ident...)
 }
 
 // triggerPayload is the payload parameter of a trigger action: the one

@@ -8,7 +8,7 @@ set -euo pipefail
 root=$(cd "$(dirname "$0")/.." && pwd)
 work=$(mktemp -d)
 server_pid=""
-trap '[ -z "$server_pid" ] || kill "$server_pid" 2>/dev/null; chmod -R u+w "$work"; rm -rf "$work"' EXIT
+trap '[[ -z "$server_pid" ]] || kill "$server_pid" 2>/dev/null; chmod -R u+w "$work"; rm -rf "$work"' EXIT
 
 # --- the host platform, named the way the release pipeline names it ----------
 
@@ -24,7 +24,7 @@ aarch64 | arm64) host_arch=arm64 ;;
 esac
 host="$host_os-$host_arch"
 # A foreign Unix platform the host can stage but must not run.
-other=$([ "$host" = linux-arm64 ] && echo darwin-arm64 || echo linux-arm64)
+other=$([[ "$host" = linux-arm64 ]] && echo darwin-arm64 || echo linux-arm64)
 
 good=v9.9.9-test       # a complete release
 signed=v9.9.8-test     # one that also carries the signed Windows build
@@ -42,8 +42,8 @@ fake_tool() {
 	chmod +x "$1"
 }
 
-# bundle <release dir> <platform> <version>: the archive, grpc binary and manpages
-# the release pipeline would publish for one platform.
+# bundle <release dir> <platform> <version>: the archive, grpc and kernel
+# binaries and manpages the release pipeline would publish for one platform.
 bundle() {
 	local dir=$1 platform=$2 version=$3 stage
 	stage="$work/stage-$platform"
@@ -54,6 +54,7 @@ bundle() {
 		echo "sysml-lsp $version for windows" >"$stage/sysml-lsp.exe"
 		(cd "$stage" && python3 -m zipfile -c "$dir/opensysml-$platform.zip" sysml.exe sysml-lsp.exe)
 		echo "sysml-grpc $version for windows" >"$dir/sysml-grpc-$platform.exe"
+		echo "sysml-jupyter-kernel $version for windows" >"$dir/sysml-jupyter-kernel-$platform.exe"
 		;;
 	*)
 		fake_tool "$stage/sysml" sysml "v$version"
@@ -62,6 +63,7 @@ bundle() {
 		echo ".TH SYSML-LSP 1" >"$stage/share/man/man1/sysml-lsp.1"
 		tar -czf "$dir/opensysml-$platform.tar.gz" -C "$stage" sysml sysml-lsp share
 		fake_tool "$dir/sysml-grpc-$platform" "sysml-grpc version" "v$version"
+		fake_tool "$dir/sysml-jupyter-kernel-$platform" "sysml-jupyter-kernel version" "v$version"
 		;;
 	esac
 }
@@ -139,10 +141,10 @@ PY
 python3 "$work/server.py" "$work/site" "$good" >"$work/port" &
 server_pid=$!
 for _ in $(seq 50); do
-	[ -s "$work/port" ] && break
+	[[ -s "$work/port" ]] && break
 	sleep 0.1
 done
-[ -s "$work/port" ] || { echo "install-test: the release server did not start" >&2; exit 1; }
+[[ -s "$work/port" ]] || { echo "install-test: the release server did not start" >&2; exit 1; }
 base="http://127.0.0.1:$(cat "$work/port")/releases"
 mirror="http://127.0.0.1:$(cat "$work/port")/mirror"
 
@@ -170,7 +172,7 @@ ok() {
 	local name=$1
 	shift
 	run "$@"
-	if [ "$status" -ne 0 ]; then
+	if [[ "$status" -ne 0 ]]; then
 		echo "FAIL $name: exit $status" >&2 && printf '%s\n' "$out" >&2
 		failures=$((failures + 1))
 		return 1
@@ -183,7 +185,7 @@ fails() {
 	local name=$1 message=$2
 	shift 2
 	run "$@"
-	if [ "$status" -eq 0 ] || [[ "$out" != *"$message"* ]]; then
+	if [[ "$status" -eq 0 ]] || [[ "$out" != *"$message"* ]]; then
 		echo "FAIL $name: exit $status, expected a failure mentioning '$message'" >&2 && printf '%s\n' "$out" >&2
 		failures=$((failures + 1))
 		return 1
@@ -200,7 +202,7 @@ said() {
 installed() {
 	local path
 	for path in "$@"; do
-		[ -x "$prefix/$path" ] || { echo "FAIL: $prefix/$path missing or not executable" >&2; failures=$((failures + 1)); }
+		[[ -x "$prefix/$path" ]] || { echo "FAIL: $prefix/$path missing or not executable" >&2; failures=$((failures + 1)); }
 	done
 }
 
@@ -208,14 +210,14 @@ installed() {
 absent() {
 	local path
 	for path in "$@"; do
-		[ ! -e "$prefix/$path" ] || { echo "FAIL: $prefix/$path should not exist" >&2; failures=$((failures + 1)); }
+		[[ ! -e "$prefix/$path" ]] || { echo "FAIL: $prefix/$path should not exist" >&2; failures=$((failures + 1)); }
 	done
 }
 
 if ok "release by tag" --version "$good" --prefix @P@; then
 	installed bin/sysml bin/sysml-lsp
-	absent bin/sysml-grpc
-	[ -f "$prefix/share/man/man1/sysml.1" ] && [ -f "$prefix/share/man/man1/sysml-lsp.1" ] ||
+	absent bin/sysml-grpc bin/sysml-jupyter-kernel
+	[[ -f "$prefix/share/man/man1/sysml.1" ]] && [[ -f "$prefix/share/man/man1/sysml-lsp.1" ]] ||
 		{ echo "FAIL: man pages not installed" >&2; failures=$((failures + 1)); }
 	said "Installing OpenSysML ($good) for $host"
 	said "opensysml-$host.tar.gz verified"
@@ -230,13 +232,20 @@ if ok "tag without the v" --version "${good#v}" --prefix @P@; then
 fi
 
 if ok "all tools" --version "$good" --tools all --prefix @P@; then
-	installed bin/sysml bin/sysml-lsp bin/sysml-grpc
+	installed bin/sysml bin/sysml-lsp bin/sysml-grpc bin/sysml-jupyter-kernel
 	said "sysml-grpc-$host verified"
 	said "sysml-grpc version $good"
+	said "sysml-jupyter-kernel-$host verified"
+	said "sysml-jupyter-kernel version $good"
+fi
+
+if ok "the kernel alone" --version "$good" --tools sysml-jupyter-kernel --bin-dir @P@/k; then
+	[[ -x "$prefix/k/sysml-jupyter-kernel" ]] || { echo "FAIL: $prefix/k/sysml-jupyter-kernel missing" >&2; failures=$((failures + 1)); }
+	absent k/sysml k/sysml-lsp k/sysml-grpc
 fi
 
 if ok "one tool into a bin dir" --version "$good" --tools sysml --bin-dir @P@/b; then
-	[ -x "$prefix/b/sysml" ] || { echo "FAIL: $prefix/b/sysml missing" >&2; failures=$((failures + 1)); }
+	[[ -x "$prefix/b/sysml" ]] || { echo "FAIL: $prefix/b/sysml missing" >&2; failures=$((failures + 1)); }
 	absent b/sysml-lsp share
 	said "Installed: $prefix/b/sysml"
 fi
@@ -260,7 +269,7 @@ if ok "nightly" --version nightly --prefix @P@; then
 fi
 
 if ok "staged for windows" --version "$good" --os windows --prefix @P@; then
-	[ -f "$prefix/bin/sysml.exe" ] && [ -f "$prefix/bin/sysml-lsp.exe" ] ||
+	[[ -f "$prefix/bin/sysml.exe" ]] && [[ -f "$prefix/bin/sysml-lsp.exe" ]] ||
 		{ echo "FAIL: windows binaries not staged" >&2; failures=$((failures + 1)); }
 	absent bin/sysml share
 	said "opensysml-windows-amd64.zip verified"
@@ -268,7 +277,7 @@ if ok "staged for windows" --version "$good" --os windows --prefix @P@; then
 fi
 
 if ok "staged for another unix platform" --version "$good" --os "${other%-*}" --arch "${other#*-}" --tools all --prefix @P@; then
-	installed bin/sysml bin/sysml-lsp bin/sysml-grpc
+	installed bin/sysml bin/sysml-lsp bin/sysml-grpc bin/sysml-jupyter-kernel
 	said "staged for $other, not run on this $host machine"
 fi
 
@@ -282,7 +291,7 @@ for how in file stdin; do
 	esac
 	status=$?
 	set -e
-	if [ "$status" -ne 0 ] || [[ "$out" != *"--verify-signature   also verify"* ]] || [[ "$out" != *"[OPENSYSML_TOOLS]"* ]]; then
+	if [[ "$status" -ne 0 ]] || [[ "$out" != *"--verify-signature   also verify"* ]] || [[ "$out" != *"[OPENSYSML_TOOLS]"* ]]; then
 		echo "FAIL --help from $how: exit $status" >&2 && printf '%s\n' "$out" >&2
 		failures=$((failures + 1))
 	else
@@ -293,11 +302,12 @@ done
 if ok "dry run" --version "$good" --tools all --dry-run --prefix @P@; then
 	said "Dry run: nothing downloaded or installed."
 	said "download/$good/sysml-grpc-$host"
-	[ ! -e "$prefix" ] || { echo "FAIL: dry run created $prefix" >&2; failures=$((failures + 1)); }
+	said "download/$good/sysml-jupyter-kernel-$host"
+	[[ ! -e "$prefix" ]] || { echo "FAIL: dry run created $prefix" >&2; failures=$((failures + 1)); }
 fi
 
 if fails "tampered bundle" "opensysml-$host.tar.gz does not match SHA256SUMS.txt" --version "$tampered" --prefix @P@; then
-	[ ! -e "$prefix" ] || { echo "FAIL: a tampered release left files under $prefix" >&2; failures=$((failures + 1)); }
+	[[ ! -e "$prefix" ]] || { echo "FAIL: a tampered release left files under $prefix" >&2; failures=$((failures + 1)); }
 fi
 fails "asset the manifest omits" "does not list sysml-grpc-$host" --version "$unlisted" --tools sysml-grpc --prefix @P@
 if fails "binary reporting another version" "reports 'sysml $good', not $mismatch" --version "$mismatch" --prefix @P@; then
@@ -312,7 +322,7 @@ fails "bad os" "--os must be linux, darwin or windows" --os freebsd --prefix @P@
 fails "bad option" "unknown option '--prefix-dir'" --prefix-dir @P@
 fails "option without a value" "--prefix needs a value" --prefix
 
-if [ "$(id -u)" -ne 0 ]; then
+if [[ "$(id -u)" -ne 0 ]]; then
 	mkdir -p "$work/readonly" && chmod 555 "$work/readonly"
 	fails "unwritable destination" "cannot create $work/readonly/bin" --version "$good" --prefix "$work/readonly"
 fi
@@ -336,7 +346,7 @@ if command -v wget >/dev/null 2>&1 && shim_path=$(shim "${essentials[@]}" wget s
 	out=$(PATH="$shim_path" sh "$root/install.sh" --base-url "$base" --prefix "$prefix" 2>&1)
 	status=$?
 	set -e
-	if [ "$status" -eq 0 ]; then
+	if [[ "$status" -eq 0 ]]; then
 		echo "ok   wget without curl" && said "Installing OpenSysML ($good)" && installed bin/sysml bin/sysml-lsp
 	else
 		echo "FAIL wget without curl: exit $status" >&2 && printf '%s\n' "$out" >&2 && failures=$((failures + 1))
@@ -351,7 +361,7 @@ if shim_path=$(shim "${essentials[@]}" curl sha256sum); then
 	out=$(PATH="$shim_path" sh "$root/install.sh" --base-url "$base" --verify-signature --prefix "$prefix" 2>&1)
 	status=$?
 	set -e
-	if [ "$status" -ne 0 ] && [[ "$out" == *"--verify-signature needs cosign on PATH"* ]]; then
+	if [[ "$status" -ne 0 ]] && [[ "$out" == *"--verify-signature needs cosign on PATH"* ]]; then
 		echo "ok   signature verification without cosign"
 	else
 		echo "FAIL signature verification without cosign: exit $status" >&2 && printf '%s\n' "$out" >&2 && failures=$((failures + 1))
@@ -367,7 +377,7 @@ else
 	echo "skip install.ps1: pwsh not on PATH"
 fi
 
-if [ "$failures" -ne 0 ]; then
+if [[ "$failures" -ne 0 ]]; then
 	echo "install-test: $failures failure(s)" >&2
 	exit 1
 fi

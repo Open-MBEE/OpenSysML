@@ -157,6 +157,40 @@ test("drawCanvas draws edges with the arrowhead their kind takes and handles on 
   assert.deepEqual(segments, ["0", "1"]);
 });
 
+test("drawCanvas marks a tree's relationship edges the way the graphical notation does", () => {
+  // A migrated block definition diagram: the specialization, typing and
+  // compositions are implied by the declarations, so none has an FQN of its
+  // own to steer a route by; the client routes each itself.
+  const tree: RenderResult = {
+    ...result,
+    kind: "tree",
+    nodes: [node("v", "Vehicle"), node("c", "Car"), node("w", "Wheel"), node("d", "Driver"), node("f", "fleetCar")],
+    edges: [
+      { from: "c", to: "v", label: "", kind: "specialization" },
+      { from: "v", to: "w", label: "wheels[4]", kind: "composition" },
+      { from: "v", to: "d", label: "driver[0..1]", kind: "reference" },
+      { from: "f", to: "v", label: "", kind: "typing" },
+    ],
+  };
+  const svg = drawCanvas(layoutCanvas(tree));
+  const defs = [...svg.querySelectorAll("defs marker")].map((marker) => marker.id);
+  assert.deepEqual(defs, ["arrow", "arrow-open", "triangle-hollow", "diamond-filled", "diamond-hollow"]);
+  assert.equal(svg.querySelector("#triangle-hollow path")?.getAttribute("class"), "arrow-hollow");
+  assert.equal(svg.querySelector("#diamond-filled path")?.getAttribute("class"), "arrow-fill");
+  const lines = [...svg.querySelectorAll<SVGPolylineElement>("g.opensysml-edge polyline")];
+  assert.deepEqual(lines.map((line) => [line.getAttribute("marker-start"), line.getAttribute("marker-end")]), [
+    [null, "url(#triangle-hollow)"],
+    ["url(#diamond-filled)", null],
+    ["url(#diamond-hollow)", null],
+    [null, "url(#triangle-hollow)"],
+  ]);
+  assert.deepEqual([...svg.querySelectorAll<SVGGElement>("g.opensysml-edge")].map((group) => group.classList.contains("typing")), [false, false, false, true]);
+  assert.deepEqual([...svg.querySelectorAll("g.opensysml-edge text")].map((text) => text.textContent), ["wheels[4]", "driver[0..1]"]);
+  // Every edge is routed, none is steerable.
+  assert.ok(lines.every((line) => (line.getAttribute("points") ?? "").split(" ").length >= 2));
+  assert.equal(svg.querySelectorAll("g.edge-handles").length, 0);
+});
+
 test("drawCanvas leaves out the edges and handles at nodes a collapsed owner hides", () => {
   const svg = drawCanvas(layoutCanvas({
     ...result,
@@ -283,6 +317,6 @@ test("drawCanvas preserves the portless SVG output", () => {
   const svg = drawCanvas(layoutCanvas(result));
   assert.equal(
     createHash("sha256").update(svg.outerHTML).digest("hex"),
-    "d4b9abd501b78255222fc4e1b47c07f31811e07fa978a8933f4a9e1af6a02885",
+    "52334cbfe93d9918625083578f1fff97b00e50efca7ff0079fef923bc94bcf28",
   );
 });

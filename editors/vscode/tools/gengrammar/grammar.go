@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"regexp"
 	"sort"
 	"strings"
 
@@ -224,10 +225,26 @@ func qualifyMap(m map[string]pattern, scopeName string) map[string]pattern {
 
 const identifier = `[A-Za-z_][A-Za-z0-9_]*`
 
+// The operators both editors colour: the multi-character ones, longest first so
+// `:>>` is not read as `:>` then `>`, and the single characters.
+var multiCharOperators = []string{":>>", "::>", ":>", "=>", "->", "..", "**"}
+
+const operatorChars = `=+\-*/<>!&|^~?@`
+
+// operatorPattern is the TextMate regex over the operator tables.
+func operatorPattern() string {
+	quoted := make([]string, 0, len(multiCharOperators))
+	for _, op := range multiCharOperators {
+		quoted = append(quoted, regexp.QuoteMeta(op))
+	}
+	return strings.Join(quoted, "|") + "|[" + operatorChars + "]"
+}
+
 func repository(kind source.Kind) (map[string]pattern, error) {
 	repo := map[string]pattern{
 		"comments": {
 			Patterns: []pattern{
+				{Name: "comment.block.note", Begin: `//\*`, End: `\*/`},
 				{Name: "comment.line.double-slash", Match: `//.*$`},
 				{Name: "comment.block", Begin: `/\*`, End: `\*/`},
 			},
@@ -276,7 +293,7 @@ func repository(kind source.Kind) (map[string]pattern, error) {
 		},
 		"operators": {
 			Name:  "keyword.operator",
-			Match: `:>>|::>|:>|=>|->|\.\.|\*\*|[=+\-*/<>!&|^~?@]`,
+			Match: operatorPattern(),
 		},
 	}
 

@@ -102,7 +102,7 @@ func TestCheckReportsTheChosenSubject(t *testing.T) {
 	if err != nil {
 		t.Fatalf("value of the subject: %v", err)
 	}
-	if fv == nil || fv.Value.Const.Real != 99.0 {
+	if fv == nil || fv.Value.Const.AsReal() != 99.0 {
 		t.Errorf("subject's value = %v, want the redefined 99", fv)
 	}
 }

@@ -439,16 +439,16 @@ func TestCustomStereotypesWithStandardNamesAreNotConsumed(t *testing.T) {
 		custom("Requirement", "Class", "_r")+custom("Block", "Class", "_b")+custom("ModelLibrary", "Package", "_lib")+
 			custom("FlowProperty", "Property", "_fp")+custom("Satisfy", "Abstraction", "_d")+`<sysml:Block xmi:id="_s" base_Class="_lb"/>`)
 	wantNoLine(t, r.Notation, "requirement def")
-	wantLine(t, r.Notation, "part def Req {")
+	wantLine(t, r.Notation, "occurrence def Req {")
 	wantLine(t, r.Notation, "applied stereotype «Requirement»")
 	wantLine(t, r.Notation, "applied stereotype «Block»")
 	wantLine(t, r.Notation, "applied stereotype «ModelLibrary»")
 	wantLine(t, r.Notation, "applied stereotype «FlowProperty»")
 	wantLine(t, r.Notation, "part def InLib;")
-	wantLine(t, r.Notation, "ref part x : Req {")
+	wantLine(t, r.Notation, "ref occurrence x : Req {")
 	wantLine(t, r.Notation, "dependency link from Thing to Req;")
 	wantNoLine(t, r.Notation, "satisfy")
-	if es := entriesFor(r, "_r"); len(es) != 1 || es[0].Verdict != migrate.Approximated || !strings.Contains(es[0].Note, "without «Block»") {
+	if es := entriesFor(r, "_r"); len(es) != 1 || es[0].Verdict != migrate.Mapped {
 		t.Errorf("_r entries = %+v", es)
 	}
 	if es := entriesFor(r, "_lib"); len(es) != 1 || es[0].Verdict != migrate.Mapped {
@@ -515,10 +515,10 @@ func TestPapyrusProfileClassifiesAndToolCustomizationsDoNot(t *testing.T) {
 	wantLine(t, r.Notation, "requirement def <R1> Req {")
 	wantLine(t, r.Notation, "applied stereotype «ValueProperty»")
 	wantLine(t, r.Notation, "applied stereotype «performanceRequirement»")
-	wantLine(t, r.Notation, "part def Plain {")
+	wantLine(t, r.Notation, "occurrence def Plain {")
 	wantLine(t, r.Notation, "applied stereotype «Block»")
-	wantLine(t, r.Notation, "part def Nested {")
-	wantLine(t, r.Notation, "part def Lookalike {")
+	wantLine(t, r.Notation, "occurrence def Nested {")
+	wantLine(t, r.Notation, "occurrence def Lookalike {")
 	wantLine(t, r.Notation, "applied stereotype «Requirement»")
 	wantNoLine(t, r.Notation, "<X1>")
 	wantNoLine(t, r.Notation, "<X2>")
@@ -530,8 +530,8 @@ func TestPapyrusProfileClassifiesAndToolCustomizationsDoNot(t *testing.T) {
 	}
 	for id, kind := range map[string]string{"_plain": "«Block» Class", "_nested": "«Requirement» Class", "_look": "«Requirement» Class"} {
 		es := entriesFor(r, id)
-		if len(es) != 1 || es[0].Verdict != migrate.Approximated || es[0].Kind != kind {
-			t.Errorf("%s entries = %+v, want one approximated plain class %s", id, es, kind)
+		if len(es) != 1 || es[0].Verdict != migrate.Mapped || es[0].Kind != kind {
+			t.Errorf("%s entries = %+v, want one mapped plain class %s", id, es, kind)
 		}
 	}
 }

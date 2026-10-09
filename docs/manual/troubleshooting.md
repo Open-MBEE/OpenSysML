@@ -67,7 +67,7 @@ $ echo $?
 | No `source` | `missing-view-source` |
 | A plain-element source without a `kind` | `missing-diagram-kind` |
 | A `kind` on a declared view (which brings its own) | `conflicting-diagram-kind` |
-| A kind other than `tree`/`interconnection`/`state`/`action`/`table`/`sequence` | `unsupported-diagram-kind` |
+| A kind other than `tree`/`interconnection`/`state`/`action`/`case`/`mixed`/`table`/`sequence` | `unsupported-diagram-kind` |
 | A direction other than `TB`/`LR`/`RL`/`BT` | `invalid-direction` |
 | A direction on a kind that is not a directed graph (e.g. sequence) | `unsupported-direction` |
 | A palette other than `okabe-ito`, `tol-bright`, `tol-muted`, `tol-light`, `brewer-set2`, `brewer-dark2`, `viridis` or `cividis` | `invalid-palette` |

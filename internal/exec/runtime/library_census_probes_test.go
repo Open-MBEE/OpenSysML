@@ -28,6 +28,24 @@ func probeModel(imports, body string) string {
 
 func expectReal(v float64) ExpectedValue { return ExpectedValue{Type: "Real", Value: v} }
 
+func expectRational(text string) ExpectedValue { return ExpectedValue{Type: "Rational", Value: text} }
+
+func expectRationals(texts ...string) []ExpectedValue {
+	elements := make([]ExpectedValue, len(texts))
+	for i, text := range texts {
+		elements[i] = expectRational(text)
+	}
+	return elements
+}
+
+func expectRationalVector(texts ...string) ExpectedValue {
+	return ExpectedValue{Type: "Vector", Elements: expectRationals(texts...)}
+}
+
+func expectRationalSequence(texts ...string) ExpectedValue {
+	return ExpectedValue{Type: "Sequence", Elements: expectRationals(texts...)}
+}
+
 func expectBool(v bool) ExpectedValue { return ExpectedValue{Type: "Boolean", Value: v} }
 
 func expectInt(v int64) ExpectedValue { return ExpectedValue{Type: "Integer", Value: float64(v)} }
@@ -58,13 +76,13 @@ var sampledFunctionProbes = []libraryProbe{
 		decl:  "SampledFunctions::Domain",
 		model: probeModel("SampledFunctions", sampledPairs+"\tattribute r = Domain(s);\n"),
 		read:  "test::r",
-		want:  expectSequence(1.0, 3.0),
+		want:  expectRationalSequence("1.0", "3.0"),
 	},
 	{
 		decl:  "SampledFunctions::Range",
 		model: probeModel("SampledFunctions", sampledPairs+"\tattribute r = Range(s);\n"),
 		read:  "test::r",
-		want:  expectSequence(2.0, 4.0),
+		want:  expectRationalSequence("2.0", "4.0"),
 	},
 	{
 		decl: "SampledFunctions::Sample",
@@ -80,14 +98,14 @@ var sampledFunctionProbes = []libraryProbe{
 	attribute r = First(s, 9.0);
 `),
 		read: "test::r",
-		want: expectReal(2.0),
+		want: expectRational("2.0"),
 	},
 	{
 		// The library's Linear formula: f = (2-1)/(1-3) = -0.5, 4 + f*(2-4) = 5.
 		decl:  "SampledFunctions::interpolateLinear",
 		model: probeModel("SampledFunctions", sampledPairs+"\tattribute r = interpolateLinear(s, 2.0);\n"),
 		read:  "test::r",
-		want:  expectReal(5.0),
+		want:  expectRational("5.0"),
 	},
 }
 
@@ -300,14 +318,14 @@ func stateSpaceAction(name string) libraryProbe {
 
 var vectorFunctionProbes = []libraryProbe{
 	vectorProbe("isZeroVector", "isZeroVector(CartesianVectorOf((0.0, 0.0)))", expectBool(true)),
-	vectorProbe("+", "VectorFunctions::'+'((1.0, 2.0), (3.0, 4.0))", expectVector(4.0, 6.0)),
-	vectorProbe("-", "VectorFunctions::'-'((1.0, 2.0), (3.0, 4.0))", expectVector(-2.0, -2.0)),
+	vectorProbe("+", "VectorFunctions::'+'((1.0, 2.0), (3.0, 4.0))", expectRationalVector("4.0", "6.0")),
+	vectorProbe("-", "VectorFunctions::'-'((1.0, 2.0), (3.0, 4.0))", expectRationalVector("-2.0", "-2.0")),
 	vectorProbe("sum0", "sum0((CartesianVectorOf((1.0, 2.0)), CartesianVectorOf((3.0, 4.0))), CartesianVectorOf((0.0, 0.0)))", expectVector(4.0, 6.0)),
-	vectorProbe("VectorOf", "VectorOf((1.0, 2.0, 3.0))", expectVector(1.0, 2.0, 3.0)),
-	vectorProbe("scalarVectorMult", "scalarVectorMult(2.0, (1.0, 2.0))", expectVector(2.0, 4.0)),
-	vectorProbe("vectorScalarMult", "vectorScalarMult((1.0, 2.0), 3.0)", expectVector(3.0, 6.0)),
+	vectorProbe("VectorOf", "VectorOf((1.0, 2.0, 3.0))", expectRationalVector("1.0", "2.0", "3.0")),
+	vectorProbe("scalarVectorMult", "scalarVectorMult(2.0, (1.0, 2.0))", expectRationalVector("2.0", "4.0")),
+	vectorProbe("vectorScalarMult", "vectorScalarMult((1.0, 2.0), 3.0)", expectRationalVector("3.0", "6.0")),
 	vectorProbe("vectorScalarDiv", "vectorScalarDiv((2.0, 4.0), 2.0)", expectVector(1.0, 2.0)),
-	vectorProbe("inner", "inner((1.0, 2.0), (3.0, 4.0))", expectReal(11.0)),
+	vectorProbe("inner", "inner((1.0, 2.0), (3.0, 4.0))", expectRational("11.0")),
 	vectorProbe("norm", "norm((3.0, 4.0))", expectReal(5.0)),
 	vectorProbe("angle", "angle((1.0, 0.0), (0.0, 1.0))", expectReal(math.Pi/2)),
 	vectorProbe("CartesianVectorOf", "CartesianVectorOf((1.0, 2.0))", expectVector(1.0, 2.0)),
@@ -357,14 +375,23 @@ const (
 // invariantProbe invokes a function's invariant where its parameters are bound: from the
 // result of a specialization, which is 1 when the invariant holds and 0 when it does not.
 func invariantProbe(fn, inv, params, args, marker string, holds bool) libraryProbe {
-	one, zero, want := "1.0", "0.0", expectReal(0.0)
-	if marker != "" {
-		one, zero, want = marker+"(1.0)", marker+"(0.0)", expectVector(0.0)
-	}
+	one, zero, result := "1.0", "0.0", "0.0"
 	if holds {
-		want = expectReal(1.0)
+		result = "1.0"
+	}
+	// A Cartesian result is Real; the others hold the exact literal they return.
+	want := expectRational(result)
+	if marker != "" {
+		one, zero, want = marker+"(1.0)", marker+"(0.0)", expectRationalVector(result)
+	}
+	if strings.Contains(fn, "cartesian") {
+		real := expectReal(0.0)
+		if holds {
+			real = expectReal(1.0)
+		}
+		want = real
 		if marker != "" {
-			want = expectVector(1.0)
+			want = ExpectedValue{Type: "Vector", Elements: []ExpectedValue{real}}
 		}
 	}
 	return libraryProbe{

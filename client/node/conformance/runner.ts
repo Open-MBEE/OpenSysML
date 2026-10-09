@@ -37,6 +37,7 @@ export const COVERED_RPCS = [
   "Evaluate",
   "EvaluateCalc",
   "ExecuteAction",
+  "ExportGraphs",
   "ExecuteState",
   "GetDiagnostics",
   "GetServerInfo",
@@ -441,6 +442,7 @@ export class Runner {
       this.model(call).renderView(String(call.request["view"]), {
         ports: call.request["ports"] === "full" ? "full" : "minimal",
       }),
+    ExportGraphs: (call) => this.model(call).exportGraphs(String(call.request["subject"])),
     RunAnalysis: (call) =>
       this.model(call).runAnalysis(String(call.request["symbol_id"]), {
         ...stringOption(call.request, "subject_symbol_id", "subject"),

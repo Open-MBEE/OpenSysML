@@ -11,6 +11,14 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
+// Source is a loaded source as the dependency search sees it: the path it was
+// read from, which locates the directories searched, and its model text. The
+// cells of a notebook are Sources sharing the notebook's path.
+type Source struct {
+	Path    string
+	Content []byte
+}
+
 // Dependencies returns the model files, beside or below the named ones, that
 // declare a root namespace an import of the named files begins with and none of
 // them declares, then the files those imports lead to in turn. known reports
@@ -19,24 +27,41 @@ import (
 // is standard input contributes nothing; the loader reports the former. The
 // result is ordered as it was found and holds no file already named.
 func Dependencies(files []string, known func(name string) bool) []string {
+	sources := make([]Source, 0, len(files))
+	for _, file := range files {
+		if IsStdin(file) {
+			continue
+		}
+		// #nosec G304 -- the file is one the user named, or one found under its directory.
+		content, err := os.ReadFile(file)
+		if err != nil {
+			continue
+		}
+		sources = append(sources, Source{Path: file, Content: content})
+	}
+	return DependenciesOf(sources, known)
+}
+
+// DependenciesOf is Dependencies over sources already read, so a notebook's
+// cells, or a file converted from another notation, are searched from as the
+// model text they load as. Standard input contributes nothing.
+func DependenciesOf(sources []Source, known func(name string) bool) []string {
 	loaded := map[string]bool{}
 	declared := map[string]bool{}
 	wanted := map[string]bool{}
 	var dirs []string
 	seenDir := map[string]bool{}
-	for _, file := range files {
-		if IsStdin(file) {
+	for _, src := range sources {
+		if IsStdin(src.Path) {
 			continue
 		}
-		loaded[absKey(file)] = true
-		dir := filepath.Dir(file)
+		loaded[absKey(src.Path)] = true
+		dir := filepath.Dir(src.Path)
 		if key := absKey(dir); !seenDir[key] {
 			seenDir[key] = true
 			dirs = append(dirs, dir)
 		}
-		if summary, ok := summarize(file); ok {
-			summary.contribute(declared, wanted)
-		}
+		summarizeContent(src.Path, src.Content).contribute(declared, wanted)
 	}
 	prune(wanted, declared, known)
 	if len(wanted) == 0 {
@@ -103,11 +128,16 @@ func summarize(path string) (*fileSummary, bool) {
 	if err != nil {
 		return nil, false
 	}
+	return summarizeContent(path, content), true
+}
+
+// summarizeContent parses model text read from path into its summary.
+func summarizeContent(path string, content []byte) *fileSummary {
 	root := parser.New(source.New(path, content)).ParseFile()
 	f := &fileSummary{path: path}
 	f.roots = declaredNames(root.Members)
 	f.collect(root.Members, nil)
-	return f, true
+	return f
 }
 
 // declaredNames lists the names the members of one namespace declare.

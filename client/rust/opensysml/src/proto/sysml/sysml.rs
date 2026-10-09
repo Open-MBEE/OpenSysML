@@ -703,6 +703,11 @@ pub struct ParseSourcesRequest {
     /// Judge every document as conforming SysML v2, as ParseFileRequest does.
     #[prost(bool, tag="2")]
     pub strict_conformance: bool,
+    /// The model_hash of a model of these documents the client holds results of,
+    /// typically the one its previous ParseSources returned. The answer's affected
+    /// is relative to it. Reported as the "parse_sources_affected" capability.
+    #[prost(string, tag="3")]
+    pub base_model_hash: ::prost::alloc::string::String,
 }
 /// ParseSourcesResponse contains the parsed model, whose documents are one model
 /// for every later request: a model_hash names all of them together.
@@ -718,6 +723,17 @@ pub struct ParseSourcesResponse {
     pub diagnostics: ::prost::alloc::vec::Vec<Diagnostic>,
     #[prost(string, tag="4")]
     pub error: ::prost::alloc::string::String,
+    /// The documents, by name and in the request's order, whose analysis, and so
+    /// whose diagnostics and conversion, may differ from base_model_hash's model:
+    /// those whose text changed, those whose analysis read something an edit
+    /// changed, and those base_model_hash's model did not hold. Every other
+    /// document's results are the base's, so a client may reuse them. Answered
+    /// only when base_model_hash is given; every document when the service
+    /// cannot relate it to this model (no longer cached, not of the same
+    /// documents, or a model whose documents may declare an identity scope).
+    /// Reported as the "parse_sources_affected" capability.
+    #[prost(string, repeated, tag="5")]
+    pub affected: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
 }
 /// ParseFileResponse contains parsed model info
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -1007,6 +1023,24 @@ pub struct ConvertRequest {
     /// INVALID_ARGUMENT. Reported as the "convert_documents" capability.
     #[prost(string, repeated, tag="8")]
     pub documents: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// For api-json from notation: write the compact document
+    /// (api-json-compact/1) in place of the standard element array. It is one
+    /// object holding a table of element ids, written once, and the elements with
+    /// every reference spelled as an index into it, without indentation; see
+    /// docs/reference/wire-contract.md for the shape. Refused for any other
+    /// target. Reported as the "convert_compact" capability.
+    #[prost(bool, tag="9")]
+    pub compact: bool,
+    /// With compact: leave out every derived property of the metamodel (the
+    /// ones the owned properties already state), except those named in
+    /// keep_derived. Refused without compact.
+    #[prost(bool, tag="10")]
+    pub omit_derived: bool,
+    /// With omit_derived: the derived properties still written, named as in the
+    /// element form ("owner", "qualifiedName"). A name that is not a derived
+    /// property of the metamodel is INVALID_ARGUMENT. Refused without omit_derived.
+    #[prost(string, repeated, tag="11")]
+    pub keep_derived: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
     #[prost(oneof="convert_request::Source", tags="1, 2, 6")]
     pub source: ::core::option::Option<convert_request::Source>,
 }
@@ -1866,7 +1900,7 @@ pub struct AttributeInfo {
 /// Value represents a runtime-evaluable value
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct Value {
-    #[prost(oneof="value::Kind", tags="1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22")]
+    #[prost(oneof="value::Kind", tags="1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23")]
     pub kind: ::core::option::Option<value::Kind>,
 }
 /// Nested message and enum types in `Value`.
@@ -1938,7 +1972,22 @@ pub mod value {
         /// zeros). An Integer that fits int64 is always int_value, never this.
         #[prost(string, tag="22")]
         BigIntValue(::prost::alloc::string::String),
+        /// An exact Rational (KerML 9.3.2.2.8), as `0.1` or `1 / 3` evaluates. The
+        /// server answers one a double holds exactly as real_value; a client sends
+        /// any exact Rational here, and an inbound real_value is always a Real.
+        #[prost(message, tag="23")]
+        RationalValue(super::Rational),
     }
+}
+/// Rational is an exact rational number in lowest terms: numerator over a
+/// positive denominator, each written as big_int_value is. The server rejects one
+/// not in lowest terms; a client also rejects an answered one a double holds exactly.
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct Rational {
+    #[prost(string, tag="1")]
+    pub numerator: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub denominator: ::prost::alloc::string::String,
 }
 /// Metaobject is an element of the model held as an instance of its reflective
 /// metaclass: what `x meta KerML::Feature`, or the last element of
@@ -2099,7 +2148,7 @@ pub struct Quantity {
     #[prost(message, optional, tag="4")]
     pub unit_term: ::core::option::Option<UnitTerm>,
     /// Magnitude, keeping Integer and Real apart as the rest of Value does.
-    #[prost(oneof="quantity::Magnitude", tags="1, 2, 5")]
+    #[prost(oneof="quantity::Magnitude", tags="1, 2, 5, 6")]
     pub magnitude: ::core::option::Option<quantity::Magnitude>,
 }
 /// Nested message and enum types in `Quantity`.
@@ -2114,6 +2163,9 @@ pub mod quantity {
         /// An Integer magnitude beyond int64, in decimal, as Value.big_int_value.
         #[prost(string, tag="5")]
         BigIntMagnitude(::prost::alloc::string::String),
+        /// An exact Rational magnitude, as Value.rational_value.
+        #[prost(message, tag="6")]
+        RationalMagnitude(super::Rational),
     }
 }
 /// MeasurementRef is a MeasurementReferences::ScalarMeasurementReference held as
@@ -2289,6 +2341,8 @@ pub struct ServerInfoResponse {
     ///                   Markdown.
     ///    "render_view" - the RenderView RPC renders a declared view or targeted
     ///                   pseudo-view as machine-readable diagram data.
+    ///    "export_graphs" - the ExportGraphs RPC exports the lowered graph of an
+    ///                   action or state machine as canonical graphs:1 JSON.
     ///    "diagnostic_codes" - Diagnostic.code is populated, so an empty code is a
     ///                   finding none was assigned; without it every code is empty.
     ///    "schedule"     - ExecuteActionRequest, ExecuteStateRequest and
@@ -2590,7 +2644,7 @@ pub struct DocumentValue {
     /// Metamodel type of element_id ("PartUsage", ...); answered, ignored when bound.
     #[prost(string, tag="7")]
     pub element_type: ::prost::alloc::string::String,
-    #[prost(oneof="document_value::Kind", tags="1, 2, 3, 4, 5, 6, 8, 9, 10, 11, 12, 13")]
+    #[prost(oneof="document_value::Kind", tags="1, 2, 3, 4, 5, 6, 8, 9, 10, 11, 12, 13, 14")]
     pub kind: ::core::option::Option<document_value::Kind>,
 }
 /// Nested message and enum types in `DocumentValue`.
@@ -2628,6 +2682,9 @@ pub mod document_value {
         /// An Integer beyond int64, in decimal, as Value.big_int_value.
         #[prost(string, tag="13")]
         BigIntValue(::prost::alloc::string::String),
+        /// An exact Rational, as Value.rational_value.
+        #[prost(message, tag="14")]
+        RationalValue(super::Rational),
     }
 }
 /// DocumentObject is an object the service holds for the model, created by
@@ -2722,7 +2779,7 @@ pub struct DocumentState {
 /// session's trace, in the order the run made it.
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct DocumentEvent {
-    /// "accept", "send", "transition", "entry", "exit", "do", "choice" or "guard".
+    /// "accept", "send", "transition", "entry", "exit", "do", "choice", "guard" or "terminate".
     #[prost(string, tag="1")]
     pub kind: ::prost::alloc::string::String,
     /// The clock's instant when the record was made: a quantity in the clock's
@@ -3019,6 +3076,30 @@ pub struct RenderNote {
     pub has_size: bool,
     #[prost(message, optional, tag="10")]
     pub origin: ::core::option::Option<Span>,
+}
+/// ExportGraphsRequest names the behavior whose lowered graph is exported.
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct ExportGraphsRequest {
+    #[prost(string, tag="1")]
+    pub model_hash: ::prost::alloc::string::String,
+    /// Qualified name of an action or state machine, definition or usage.
+    #[prost(string, tag="2")]
+    pub subject: ::prost::alloc::string::String,
+}
+/// ExportGraphsResponse carries the `graphs:<version>` form: the lowered
+/// ActionGraph/StateGraph IR of the subject and of every behavior it performs,
+/// as canonical JSON — the same bytes an external engine is sent.
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct ExportGraphsResponse {
+    /// The form, as canonical JSON with one trailing newline.
+    #[prost(string, tag="1")]
+    pub content: ::prost::alloc::string::String,
+    /// The version of the form, the `version` field of the JSON.
+    #[prost(int32, tag="2")]
+    pub version: i32,
+    /// The subject's qualified name as resolved.
+    #[prost(string, tag="3")]
+    pub subject: ::prost::alloc::string::String,
 }
 /// FailureReason says what kind of failure an `error` reports, so a client acts
 /// on the kind rather than on the message text.

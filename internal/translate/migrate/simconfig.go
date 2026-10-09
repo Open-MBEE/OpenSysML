@@ -374,11 +374,11 @@ func (m *migration) targetClassifiers(s *sysmlv1.Stereotype) (t *sysmlv1.Element
 	}
 	cat, why := m.classify(t)
 	switch cat {
-	case catPartDef:
+	case catPartDef, catOccurrenceDef:
 		classifiers = []*sysmlv1.Element{t}
 	case catIndividualDef:
 		kind, written, _ := m.individualClassifiers(t)
-		if kind != catPartDef {
+		if kind != catPartDef && kind != catOccurrenceDef {
 			return nil, nil, targetNote + describe(t) + " is written as an " + individualKeyword(kind) + ", which no part can be typed by, so the configuration runs no behavior"
 		}
 		classifiers = written
@@ -486,7 +486,7 @@ func (m *migration) constraintNetwork(classifiers []*sysmlv1.Element) string {
 				}
 				blocks[t] = true
 				usages = append(usages, usage)
-			case catPartDef:
+			case catPartDef, catOccurrenceDef:
 				if p.Attrs["aggregation"] == "composite" {
 					queue = append(queue, t)
 				}

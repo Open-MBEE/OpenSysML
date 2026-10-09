@@ -54,14 +54,19 @@ var (
 
 // sysmlStep spends n evaluation steps of the run's budget.
 func sysmlStep(n int64) struct{} {
-	if sysmlSteps += n; sysmlSteps > sysmlMaxSteps {
+	if n > sysmlMaxSteps-sysmlSteps {
 		sysmlStepFail()
 	}
+	sysmlSteps += n
 	return struct{}{}
 }
 
+// sysmlStepFail leaves the counter one past the limit, saturating at the int64 maximum.
 func sysmlStepFail() {
-	sysmlSteps = sysmlMaxSteps + 1
+	sysmlSteps = sysmlMaxSteps
+	if sysmlSteps < math.MaxInt64 {
+		sysmlSteps++
+	}
 	sysmlFailf("evaluation step limit exceeded (%d steps; raise OPENSYSML_MAX_STEPS to allow more)", sysmlMaxSteps)
 }
 
@@ -223,7 +228,10 @@ func sysmlQuot(a, b sysmlInt) float64 {
 	} else {
 		q, _ = new(big.Rat).SetFrac(a.toBig(), b.toBig()).Float64()
 	}
-	return q
+	if q == 0 && a.sign() != 0 {
+		sysmlFail("arithmetic overflow: a nonzero Rational below the least Real")
+	}
+	return sysmlFinite(q)
 }
 
 func sysmlICmp(a, b sysmlInt) int {
@@ -256,6 +264,45 @@ func sysmlCmpIR(a sysmlInt, r float64) int {
 
 // sysmlToReal is the binary64 nearest a, ties to even; beyond the binary64
 // range it is an infinity, which the arithmetic it feeds reports.
+// sysmlToRealExact is the Integer a in exact Rational arithmetic, which
+// compiled code computes in binary64 only over values binary64 holds.
+func sysmlToRealExact(a sysmlInt) float64 {
+	if a.big != nil || a.small > 1<<53 || a.small < -(1<<53) {
+		sysmlFail("unsupported: exact Rational arithmetic over an Integer beyond 2^53, which binary64 does not hold exactly")
+	}
+	return float64(a.small)
+}
+
+// sysmlWhole is the exact whole number r, which binary64 holds below 2^53.
+func sysmlWhole(r float64) float64 {
+	if r >= 1<<53 || r <= -(1<<53) {
+		sysmlFail("unsupported: exact Rational arithmetic reaching 2^53, beyond which binary64 does not hold a whole number exactly")
+	}
+	return sysmlUnsignedZero(r)
+}
+
+// sysmlRatQuot is the exact Integer quotient a/b.
+func sysmlRatQuot(a, b sysmlInt) *big.Rat {
+	if b.sign() == 0 {
+		sysmlFail("division by zero")
+	}
+	return new(big.Rat).SetFrac(a.toBig(), b.toBig())
+}
+
+// sysmlCmpQR orders the exact quotient q against the finite Real r.
+func sysmlCmpQR(q *big.Rat, r float64) int { return q.Cmp(new(big.Rat).SetFloat64(r)) }
+
+// sysmlCmpQI orders the exact quotient q against the Integer i.
+func sysmlCmpQI(q *big.Rat, i sysmlInt) int { return q.Cmp(new(big.Rat).SetInt(i.toBig())) }
+
+// sysmlUnsignedZero is r with an exact Rational's unsigned zero.
+func sysmlUnsignedZero(r float64) float64 {
+	if r == 0 {
+		return 0
+	}
+	return r
+}
+
 func sysmlToReal(a sysmlInt) float64 {
 	if a.big == nil {
 		return float64(a.small)
@@ -567,7 +614,7 @@ func sysmlParseReal(s, name string) float64 {
 		fmt.Fprintf(os.Stderr, "argument %s: arithmetic overflow: %s is outside the Real range\n", name, s)
 		os.Exit(1)
 	}
-	return v
+	return sysmlUnsignedZero(v)
 }
 
 // sysmlRealNotation reports whether s is decimal Real notation: an optional
@@ -669,6 +716,34 @@ func sysmlParseString(s, name string) string {
 	return b.String()
 }
 
+// sysmlQuote writes t as the String literal that reads back to it: only the
+// quote, the backslash and \b \t \n \f \r are escaped.
+func sysmlQuote(t string) string {
+	var b strings.Builder
+	b.WriteByte('"')
+	for i := 0; i < len(t); i++ {
+		switch c := t[i]; c {
+		case '"', '\\':
+			b.WriteByte('\\')
+			b.WriteByte(c)
+		case '\b':
+			b.WriteString("\\b")
+		case '\t':
+			b.WriteString("\\t")
+		case '\n':
+			b.WriteString("\\n")
+		case '\f':
+			b.WriteString("\\f")
+		case '\r':
+			b.WriteString("\\r")
+		default:
+			b.WriteByte(c)
+		}
+	}
+	b.WriteByte('"')
+	return b.String()
+}
+
 func sysmlFormat(v any) string {
 	if o, ok := v.(sysmlHolder); ok {
 		held, unset := o.held()
@@ -678,7 +753,7 @@ func sysmlFormat(v any) string {
 		v = held
 	}
 	if t, ok := v.(string); ok {
-		return strconv.Quote(t)
+		return sysmlQuote(t)
 	}
 	if l, ok := v.(sysmlEnum); ok {
 		return sysmlLiterals[l]
@@ -964,6 +1039,9 @@ func (e *goEmitter) expr(x Expr) string {
 		if x.X.Type() == TypeNum {
 			return e.expr(x.X) + ".toReal()"
 		}
+		if x.Exact {
+			return "sysmlToRealExact(" + e.expr(x.X) + ")"
+		}
 		return "sysmlToReal(" + e.expr(x.X) + ")"
 	case ToNum:
 		switch x.X.Type() {
@@ -991,6 +1069,9 @@ func (e *goEmitter) expr(x Expr) string {
 		case ast.OpNeg:
 			if x.T == TypeInt {
 				return "sysmlNeg(" + operand + ")"
+			}
+			if x.Exact {
+				return "(0 - " + operand + ")"
 			}
 			return "(-" + operand + ")"
 		}
@@ -1062,21 +1143,26 @@ func (e *goEmitter) binary(x Binary) string {
 	}
 	ints := x.L.Type() == TypeInt
 	switch x.Op {
-	case ast.OpAdd, ast.OpSub, ast.OpMul:
+	case ast.OpAdd, ast.OpSub:
 		if ints {
-			return fmt.Sprintf("sysml%s(%s, %s)", map[ast.OperatorKind]string{ast.OpAdd: "Add", ast.OpSub: "Sub", ast.OpMul: "Mul"}[x.Op], l, r)
+			return fmt.Sprintf("sysml%s(%s, %s)", map[ast.OperatorKind]string{ast.OpAdd: "Add", ast.OpSub: "Sub"}[x.Op], l, r)
 		}
-		return fmt.Sprintf("sysmlFinite(%s %s %s)", l, cOperator(x.Op), r)
+		return goUnsignedZero(x, fmt.Sprintf("sysmlFinite(%s %s %s)", l, cOperator(x.Op), r))
+	case ast.OpMul:
+		if ints {
+			return fmt.Sprintf("sysmlMul(%s, %s)", l, r)
+		}
+		return goUnsignedZero(x, fmt.Sprintf("sysmlFinite(%s * %s)", l, r))
 	case ast.OpDiv:
 		if ints {
 			return fmt.Sprintf("sysmlQuot(%s, %s)", l, r)
 		}
-		return fmt.Sprintf("sysmlRDiv(%s, %s)", l, r)
+		return goUnsignedZero(x, fmt.Sprintf("sysmlRDiv(%s, %s)", l, r))
 	case ast.OpMod:
 		if ints {
 			return fmt.Sprintf("sysmlMod(%s, %s)", l, r)
 		}
-		return fmt.Sprintf("sysmlRMod(%s, %s)", l, r)
+		return goUnsignedZero(x, fmt.Sprintf("sysmlRMod(%s, %s)", l, r))
 	case ast.OpPow:
 		if x.T == TypeInt {
 			return fmt.Sprintf("sysmlIPow(%s, %s)", l, r)
@@ -1100,11 +1186,34 @@ func (e *goEmitter) binary(x Binary) string {
 	return "0"
 }
 
+// goUnsignedZero gives an exact Rational operation's zero result no sign.
+func goUnsignedZero(x Binary, r string) string {
+	if x.Whole && x.Guard {
+		return "sysmlWhole(" + r + ")"
+	}
+	if x.Exact {
+		return "sysmlUnsignedZero(" + r + ")"
+	}
+	return r
+}
+
 // mixedComparison orders an Integer against a Real exactly, as the
 // interpreter does, rather than comparing the Integer's binary64 rounding.
 func (e *goEmitter) mixedComparison(x Binary) (string, bool) {
 	if !isComparison(x.Op) {
 		return "", false
+	}
+	if q, ok := exactQuotient(x.L); ok {
+		if i, ok := widenedInt(x.R); ok {
+			return fmt.Sprintf("(sysmlCmpQI(sysmlRatQuot(%s, %s), %s) %s 0)", e.expr(q.L), e.expr(q.R), e.expr(i), cOperator(x.Op)), true
+		}
+		return fmt.Sprintf("(sysmlCmpQR(sysmlRatQuot(%s, %s), %s) %s 0)", e.expr(q.L), e.expr(q.R), e.expr(x.R), cOperator(x.Op)), true
+	}
+	if q, ok := exactQuotient(x.R); ok {
+		if i, ok := widenedInt(x.L); ok {
+			return fmt.Sprintf("func() bool { l := %s; return -sysmlCmpQI(sysmlRatQuot(%s, %s), l) %s 0 }()", e.expr(i), e.expr(q.L), e.expr(q.R), cOperator(x.Op)), true
+		}
+		return fmt.Sprintf("func() bool { l := %s; return -sysmlCmpQR(sysmlRatQuot(%s, %s), l) %s 0 }()", e.expr(x.L), e.expr(q.L), e.expr(q.R), cOperator(x.Op)), true
 	}
 	if i, ok := widenedInt(x.L); ok && !isWidenedInt(x.R) {
 		return fmt.Sprintf("(sysmlCmpIR(%s, %s) %s 0)", e.expr(i), e.expr(x.R), cOperator(x.Op)), true

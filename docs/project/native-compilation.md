@@ -43,7 +43,7 @@ A calc compiles when everything it reaches is in this subset:
 
 | Construct | Compiled as |
 |---|---|
-| `in` parameters typed `Integer`, `Natural`, `Positive`, `Real`/`Rational`, `Boolean`, `String` or an `enum def`, with no multiplicity or `[1]` | Integer: `int64_t` in C, an `int64` promoted to `math/big` in Go ([Integers](#integers)); a Real-typed value as a number that holds an Integer or a binary64 ([Numbers](#numbers)); `bool`; a String as UTF-8 text; an enumeration literal as its index ([Strings and enumerations](#strings-and-enumerations)) |
+| `in` parameters typed `Integer`, `Natural`, `Positive`, `Real`, `Boolean`, `String` or an `enum def`, with no multiplicity or `[1]` | Integer: `int64_t` in C, an `int64` promoted to `math/big` in Go ([Integers](#integers)); a Real-typed value as a number that holds an Integer or a binary64 ([Numbers](#numbers)); `bool`; a String as UTF-8 text; an enumeration literal as its index ([Strings and enumerations](#strings-and-enumerations)) |
 | The same types with any multiplicity (`[0..*]`, `[2..3]`, `[0..1]`, …), as parameters, results and body-local attributes | a sequence of the element type with its shape (null, one value, many); the bounds are checked where the interpreter checks them, and a sequence bound to a feature not declared `nonunique` is refused where it repeats a value, with the interpreter's `uniqueness violation` reason and positions |
 | Result: the body's trailing expression, or `return : T = <expr>;` | function result |
 | `attribute x : T;` with no value | null, until assigned |
@@ -144,11 +144,16 @@ program reads a Real parameter only in Real notation and exits with status 2 on 
 argument (`argument a: 3 is an Integer, which a compiled C program reads for a Real parameter only
 in Real notation (as 3.0)`), as it does for an Integer beyond `int64`.
 
-KerML's `Rational` is the exact rationals (§9.3.2.2.8); this tree, like the interpreter, still
-computes a `Rational`-typed value as a Real ([exact-rational-evaluation.md](exact-rational-evaluation.md)),
-and the compiler does the same, no more and no less. When the interpreter computes Rationals
-exactly, the compiler refuses that arithmetic with an `UnsupportedError` until it computes it
-exactly too; it never rounds an exact Rational to binary64.
+KerML's `Rational` is the exact rationals (§9.3.2.2.8), and the interpreter computes them exactly
+([exact-rational-evaluation.md](exact-rational-evaluation.md)). The compiler computes exact
+arithmetic only where binary64 gives the interpreter's answer and refuses the rest with an
+`UnsupportedError` ([Semantics the generated code preserves](#semantics-the-generated-code-preserves)); it never rounds an exact Rational to binary64 where
+the interpreter does not. A Go Real parameter given an Integer meets an exact Rational only at run
+time, so there the refusal is a run-time failure with the same message (`unsupported: exact
+Rational arithmetic '*' over a value binary64 does not hold exactly ...` for `x * 0.1` given `3`),
+and an Integer to a negative literal power is the exact quotient `1 / x ** n`, rounded once where it
+reaches a Real (a nonzero quotient below the least Real is an overflow error, as in the interpreter)
+and refused where exact arithmetic would go on with it (`a ** -1 * 3`).
 
 ## Strings and enumerations
 
@@ -162,7 +167,15 @@ of range` reason outside `1..Length(s)`, and the `ToString` of each numeric libr
 `BooleanFunctions` formats as the interpreter prints. A String compared with `==` to a value of
 another kind is false, as `DataFunctions::'=='` over different data types is in the interpreter.
 A String argument is written in String notation (`"héllo"`, with the interpreter's escapes) and a
-String result prints in it, so output and input round-trip.
+String result prints in it, so output and input round-trip. The notation is KerML's `STRING_VALUE`
+(KerML 1.0 §8.2.2, `KerMLExpressions.xtext`): it admits only the escapes `\b \t \n \f \r \" \'
+\\` and takes every other character as it is. So the interpreter and both targets escape the
+quote, the backslash and the five control characters with a named escape, and write every other
+character, printable or not (`U+200B`, `U+0007`, `U+2028`), unescaped. An escape such as `\u200b`
+would not read back: the parser rejects it, as does a compiled program reading an argument. A
+String can hold a NUL only from a literal in the model (no argument holds one); a C result prints
+it whole, but a C failure message is a NUL-terminated string (`sysml_error`), so a diagnostic
+quoting such a String ends at the NUL.
 
 An enumeration (SysML v2 §8.3.7 EnumerationDefinition: "an AttributeDefinition all of whose
 instances are given by an explicit list of enumerated values") compiles when its literals are
@@ -243,7 +256,10 @@ program carries the same counter, reads `OPENSYSML_MAX_STEPS` at start-up, charg
 node the steps the interpreter spends on its source node (a constant the interpreter folds spends
 one, a function value read by name one, a call its frame and argument reads), at the point the
 interpreter spends them relative to anything that can fail, and fails with the interpreter's
-message and status 1 at the same count. Each `--repeat` run starts from zero.
+message and status 1 at the same count. Each `--repeat` run starts from zero. Both check a charge
+against the steps left before spending it and stop a spent counter one past the limit, saturating
+at the int64 maximum, so a budget of the int64 maximum binds without the counter overflowing; `TestCompiledStepBudgetAtTheInt64Limit`
+builds the C program with the signed-overflow sanitizer to hold it to that.
 `TestCompiledStepBudgetMatchesInterpreter` finds, for every differential case, the least budget
 the interpreter needs and requires the compiled program to succeed with exactly that budget and
 fail with the interpreter's error one step below it.
@@ -256,13 +272,24 @@ arithmetic rather than the host language's:
 - **Integer** is unbounded, as the interpreter's is ([Integers](#integers)): Go computes it
   exactly, C refuses at compile time a calc whose Integer result may leave `int64`. `/` and `%`
   by zero are errors.
-- **Integer `/`** is the exact rational quotient rounded once to binary64, as the interpreter's
-  `IntQuotient` does — `7 / 2` is `3.5`, `1 / 3` is `0.3333333333333333`, and
-  `9007199254740993 / 1` rounds the way the interpreter rounds. C does this with `__int128`
-  remainder refinement; Go uses `math/big.Rat`.
+- **Rational** is exact in the interpreter (`exact-rational-evaluation.md`) and binary64 in
+  generated code, so a calc compiles only where binary64 gives the interpreter's answer. A
+  `Rational` parameter, result or attribute is refused (`type ScalarValues::Rational is not
+  Integer, Real or Boolean`). Exact arithmetic between Rational literals is folded at compile
+  time when the result is a double (`0.1 + 0.2` compiles as `0.3`); one operation over values
+  binary64 holds exactly is one correct rounding, guarded at run time where an Integer operand
+  might not be held; and an Integer `/` whose quotient reaches a `Real` declaration is the
+  exact quotient rounded once there, as the interpreter's Real declaration rounds it (`7 / 2` is
+  `3.5`, `1 / 3` is `0.3333333333333333`; C refines with `__int128`, Go uses `math/big.Rat`).
+  A comparison between a Real and a Rational literal is at Real precision, the literal rounded
+  once to its nearest double as the interpreter rounds it (`x == 0.1` holds for the Real `0.1`);
+  a literal past the binary64 range is refused (`literal 1e400 is outside the Real range`). An
+  Integer quotient against a whole number compares exactly (`a / 3 >= 2`). Anything else is refused, naming the
+  construct: `exact Rational arithmetic '*' over a value binary64 does not hold exactly`,
+  `'**' of an exact Rational by an Integer exponent`, `'<' of an exact Rational binary64 does
+  not hold exactly`.
 - **Real** is binary64 and every result is checked finite; `1.0 / 0.0` and `1e308 * 10.0` are
-  errors, not `inf`. `0.1 + 0.2` prints `0.30000000000000004`, exactly as the interpreter
-  (see `exact-rational-evaluation.md`; no exact arithmetic is introduced here).
+  errors, not `inf`.
 - **Mixed** Integer/Real operands widen the Integer in arithmetic. A comparison between them is
   exact, as the interpreter's `CompareIntReal`: `9007199254740993 > 9007199254740992.0` holds
   although the Integer rounds to that Real.

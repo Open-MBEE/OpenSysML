@@ -235,7 +235,7 @@ func (ctx *Context) monteCarloObserved(run *calcRun) (Value, error) {
 		return Value{}, fmt.Errorf("%w: %s declares no %s::%s to observe",
 			ErrMonteCarloObserved, run.shape.Label, MonteCarloCaseFQN, monteCarloObserved)
 	}
-	if value, ok := run.env.lookup(name); ok {
+	if value, ok := run.lookup(name); ok {
 		return value, nil
 	}
 	return Value{Kind: ValNull}, nil
@@ -523,9 +523,23 @@ func (r *MonteCarloRun) returnResults() error {
 		enclosing = run.shape.bodyEnclosing(run.outer.enclosingRun(run.shape))
 	}
 	engine := newStmtEngineIn(ctx, host, run.env, enclosing)
+	for _, body := range run.bodyFrames {
+		body.each(func(name string, value Value) {
+			if engine.env.locals == nil {
+				engine.env.locals = make(map[string]Value)
+			}
+			engine.env.locals[name] = value
+		})
+	}
 	defer engine.finish()
 	host.readPerformance(engine, run.perf)
 	result, returned, err := runCalcSteps(engine, host, r.results)
+	body := engine.env.localFrame().snapshot()
+	if len(run.bodyFrames) == 0 {
+		run.bodyFrames = []frame{body}
+	} else {
+		run.bodyFrames[len(run.bodyFrames)-1] = body
+	}
 	if err != nil {
 		return calcFrame(run.shape.Kind, run.shape.Name, fmt.Errorf("result: %w", err))
 	}

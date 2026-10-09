@@ -11,10 +11,12 @@ mod domain;
 mod edit;
 mod encode;
 mod error;
+mod graphs;
 mod migration;
 mod model;
 mod operations;
 mod query;
+mod rational;
 mod results;
 mod sources;
 mod typefacts;
@@ -33,6 +35,8 @@ pub use domain::{
     TensorQuantity, Undetermined, UnitFactor, UnitTerm, Value, Vector, VectorQuantity,
 };
 pub use error::{Error, Status};
+pub use graphs::Graphs;
+pub use rational::Rational;
 pub use wire::FailureReason;
 
 pub use capabilities::*;

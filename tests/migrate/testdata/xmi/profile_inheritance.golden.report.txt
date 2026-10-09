@@ -1,24 +1,24 @@
 # SysML v1 to v2 migration report: profile_inheritance.xmi
 # exported by Example UML Tool
-# migrated 36 element(s): 29 mapped, 7 approximated, 0 unmapped (4 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)
+# migrated 36 element(s): 31 mapped, 5 approximated, 0 unmapped (4 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)
 
-## approximated (7)
+## approximated (5)
 «Linked To» Abstraction	System::<Abstraction>	_trace	(a trace is written as a plain dependency)
-«Foreign» Class	System::Foreign Thing	_foreign	-> System::'Foreign Thing'	(a plain UML class without «Block» is written as a part def)
-«Lost» Class	System::Lost Thing	_lost	-> System::'Lost Thing'	(a plain UML class without «Block» is written as a part def)
 «TestCase» Activity	System::Torque Test::run	_test_act	-> System::'Torque Test'::run	(the test case's behavior is not migrated; only its verified requirements are)
 Stereotype	Tailoring::Foreign	_st_foreign	-> Tailoring::Foreign	(generalization of http://example.com/projects/Shared_Profile.xmi#_shared_req is not written: it is not a user stereotype defined in the document)
 Stereotype	Tailoring::Lost	_st_lost	-> Tailoring::Lost	(a generalization refers to nothing in the document)
 Stereotype	Tailoring::Ring B	_st_ring_b	-> Tailoring::'Ring B'	(generalization of Tailoring::Ring A is not written: it closes a cycle of generalizations)
 
-## mapped (29)
+## mapped (31)
 Model	Model	_m	(the root model's members are written at the top level)
 Package	System	_sys	-> System
 «Checked By» Abstraction	System::<Abstraction>	_verify	-> System::'Torque Test'::run
 «Detailed By» Abstraction	System::<Abstraction>	_refine
 «Derived From» Abstraction	System::<Abstraction>	_derive	-> System::'Derive Speed Requirement'
 «Assigned To» Abstraction	System::<Abstraction>	_alloc	-> System::'Spin to Shaft'
+«Foreign» Class	System::Foreign Thing	_foreign	-> System::'Foreign Thing'
 «Diamond» Class	System::Gear	_gear	-> System::Gear
+«Lost» Class	System::Lost Thing	_lost	-> System::'Lost Thing'
 «Right» Class	System::Shaft	_shaft	-> System::Shaft
 «Requirement» Class	System::Speed Requirement	_req_speed	-> System::'Speed Requirement'
 Activity	System::Spin	_spin	-> System::Spin

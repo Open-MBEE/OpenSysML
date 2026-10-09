@@ -29,7 +29,10 @@ import (
 
 // renderUsage is how %render is written: a view, the form to write it in, text
 // when none is named, then a palette, style and port display the form draws.
-const renderUsage = "usage: %render <name> [text|mermaid|markdown|dot|plantuml|d2|csv|tsv [palette] [pilot|cameo] [minimal|full] [link=<template>]]"
+const (
+	renderUsage    = "usage: %render <name> [text|mermaid|markdown|dot|plantuml|d2|csv|tsv [palette] [pilot|cameo] [minimal|full] [verdicts] [link=<template>]]"
+	renderRunUsage = "usage: %render-run <timeline|sequence> [text|mermaid|plantuml|dot] [link=<template>]"
+)
 
 // isMeta reports whether a trimmed input line is a meta command.
 func isMeta(line string) bool {
@@ -135,6 +138,7 @@ const (
 	timeLabel         = "  Time: "
 
 	groupSession    = "Session:"
+	groupRepository = "Repository:"
 	groupSettings   = "Settings:"
 	groupEngines    = "Analysis engines:"
 	groupChecks     = "Checking every schedule:"
@@ -180,18 +184,25 @@ func graphLinked() bool      { return replext.Graph() != nil }
 var metaCommandTable = []metaCommand{
 	{name: "%help", group: groupSession, desc: "show this help"},
 	{name: "%list", group: groupSession, desc: "list current session declarations"},
+	{name: "%documents", group: groupSession, desc: "list the model's documents by the names %render-document reads"},
+	{name: "%views", group: groupSession, args: "[diagrams] [<kind>...]", desc: "list the model's views and their kinds by the names %render reads; diagrams keeps the graph-shaped ones"},
 	{name: "%clear", group: groupSession, desc: "reset the session"},
-	{name: "%load", group: groupSession, args: "<path>...", desc: "submit the contents of files, directories or globs"},
+	{name: "%load", group: groupSession, args: "[--cells <sel>] <path>... | [--id=<project id>] [--name=<name>] [--branch=<branch>] [<name>]", desc: "submit the contents of files, directories or globs (a .ipynb notebook's code cells declare, --cells 1,3-5 or tag:<tag> picking cells), or load a repository project's model: named, by --id or by --name, at a branch or its default; a name that is a path on disk loads the files",
+		part: repositoryLinked, partArgs: "[--cells <sel>] <path>...", partDesc: "submit the contents of files, directories or globs; a .ipynb notebook's code cells declare, its % commands and expressions skipped, --cells 1,3-5 or tag:<tag> picking cells"},
 	{name: "%print", group: groupSession, args: "[name]", desc: "print the session model as SysML notation, or just the named element", linked: notationLinked},
 	{name: "%save", group: groupSession, args: "<file>", desc: "write the session model to a file (.sysml notation, or .ttl/.json RDF — experimental)", linked: notationLinked},
 	{name: cmdQuery, group: groupSession, args: "<oslc-query>", desc: "identify model elements using OSLC Query text", linked: positionalLinked},
 	{name: "%quit", group: groupSession, desc: "exit the REPL (also %exit)"},
 	{name: "%exit", group: groupSession, desc: "exit the REPL", alias: true},
 
+	{name: "%repo", group: groupRepository, args: "[<base path>]", desc: "show or set the base URL of the SysML v2 API server the repository commands address, seeded from FLEXO_SYSMLV2_URL; a bearer token, when the server wants one, is read from FLEXO_INTEROP_TOKEN", linked: repositoryLinked},
+	{name: "%projects", group: groupRepository, desc: "list the repository's projects, name and id", linked: repositoryLinked},
+	{name: "%publish", group: groupRepository, args: "[-d] [--project=<project name>] [--branch=<branch name>] <name>", desc: "publish the elements rooted in <name> to the repository: a new project named after it (or --project) when none is, else a new commit on the branch holding what changed; -d includes the derived properties", linked: repositoryLinked},
+
 	{name: "%verbosity", group: groupSettings, args: "[level]", desc: "show or set output level: quiet, normal or debug"},
 	{name: "%trace", group: groupSettings, args: "[on|off]", desc: "show or set execution tracing (evaluation, calc, action and state steps)"},
 	{name: "%strict", group: groupSettings, args: "[on|off]", desc: "show or set strict conformance: report notation no SysML v2 production admits as an error"},
-	{name: "%lint", group: groupSettings, args: "[<code> on|off]", desc: "list the lints — warnings about models the specification accepts — each on or off, or switch one by its code: undeclared-signal, port-type-mismatch"},
+	{name: "%lint", group: groupSettings, args: "[<code> on|off]", desc: "list the lints — warnings about models the specification accepts — each on or off, or switch one by its code: undeclared-signal, port-type-mismatch, deferred-keeper-unmarked, rounded-real-literal (opt-in, off by default)"},
 	{name: "%schedule", group: groupSettings, args: "[<policy>]", desc: "show or set the scheduling policy runs started from here on resolve choice points under: declared, reverse or seed:<n>"},
 	{name: "%seed", group: groupSettings, args: "[<n>|off]", desc: "show or set the seed runs started from here on draw their modeled randomness from — Probability-weighted decisions, RandomFunctions — whatever the schedule; off leaves it to the schedule's seed:<n>"},
 	{name: "%draws", group: groupSettings, args: "[<policy>]", desc: "show or set how runs started from here on resolve RandomFunctions draws: random (from the seed), min, max or average of each call's distribution; min, max and average need no seed"},
@@ -214,7 +225,9 @@ var metaCommandTable = []metaCommand{
 	{name: "%search", group: groupLibrary, args: "<substring>", desc: "list the declared and library symbols whose qualified name contains <substring>"},
 	{name: "%builtins", group: groupLibrary, desc: "list the library functions this build implements directly"},
 	{name: "%view", group: groupLibrary, args: argName, desc: "show what a view exposes, and the views nested in it"},
-	{name: "%render", group: groupLibrary, args: "<name> [form [palette] [style] [ports] [link=<template>]]", desc: "render a view as the rendering it states — as text, as a Mermaid diagram or a Markdown table, or as Graphviz DOT, PlantUML or D2, filled from a named palette, drawn in a style (pilot or cameo) and optionally linking elements to their source with a link template"},
+	{name: "%graphs", group: groupLibrary, args: argName, desc: "export the lowered graph of an action or state machine, and of every behavior it performs, as the canonical graphs:1 JSON an external engine is sent"},
+	{name: "%render", group: groupLibrary, args: "<name> [form [palette] [style] [ports] [link=<template>]]", desc: "render a view as the rendering it states — as text, as a Mermaid diagram, a Markdown table or relationship matrix, or as Graphviz DOT, PlantUML or D2, filled from a named palette, drawn in a style (pilot or cameo) and optionally linking elements to their source with a link template"},
+	{name: "%viz", group: groupLibrary, args: "[--view=<VIEW>] [--style=<STYLE>...] [form] <name> [<name>...]", desc: "draw the named elements on demand, with no view declared, as the pilot kernel's %viz does: VIEW is DEFAULT, TREE, INTERCONNECTION, STATE, ACTION, SEQUENCE, MIXED or CASE in any letter case, DEFAULT (the view when none is named) choosing the kind from what the names resolve to; each --style is a direction (TB, LR, RL, BT), a drawing style (pilot or cameo), a palette, a port display, or a pilot style that is accepted and noted as not drawn; the form is any %render form, text when none is named"},
 
 	{name: "%instantiate", group: groupRuntime, args: argName, desc: "create an instance of a part def"},
 	{name: "%eval", group: groupRuntime, args: "[in <name>|<path>|#<id> :] <expr>", desc: "evaluate an expression, in the named element or object when one is named"},
@@ -231,7 +244,8 @@ var metaCommandTable = []metaCommand{
 	{name: cmdSamples, group: groupBehavioral, args: "<n> <seed> <name>[(<args>)] [<object>] <p>=<from>..<to>...", desc: "run an analysis case or calc over <n> values drawn uniformly from each range with the given seed, and print the table"},
 	{name: cmdRuns, group: groupBehavioral, args: "<n> [<seed>] <action> [<observable>...]", desc: "run an action <n> times, each run's modeled randomness seeded from the given seed — left out under %draws min, max or average — and print the table of the observables with each one's distribution"},
 	{name: cmdRunQuery, group: groupBehavioral, args: "<name> [<p>=<expr>...]", desc: "execute a document query and print its rows, with each binding written as <parameter>=<expression>"},
-	{name: cmdRenderDocument, group: groupBehavioral, args: "<name> [mermaid|dot|plantuml|d2]", desc: "compile a document definition, run its queries and print the rendered Markdown, its graph-shaped diagrams as Mermaid, Graphviz DOT, PlantUML or D2"},
+	{name: "%render-run", group: groupBehavioral, args: "<timeline|sequence> [form] [link=<template>]", desc: "render the recorded run as a state timeline or message sequence, optionally linking declarations to their source"},
+	{name: cmdRenderDocument, group: groupBehavioral, args: "<name> [mermaid|dot|plantuml|d2 [pilot|cameo]]", desc: "compile a document definition, run its queries and print the rendered Markdown, its graph-shaped diagrams as Mermaid, Graphviz DOT, PlantUML or D2"},
 	{name: "%constraint", group: groupBehavioral, args: argName, desc: "evaluate a constraint definition"},
 	{name: "%requirement", group: groupBehavioral, args: argName, desc: "evaluate a requirement definition"},
 	{name: "%satisfy", group: groupBehavioral, args: "[name]", desc: "evaluate the satisfaction assertions of the model, or of one element"},
@@ -335,7 +349,7 @@ func (s *Session) runMeta(line string) (out []string, quit bool, err error) {
 		return []string{unknownCommandLine(fields[0])}, false, nil
 	}
 	for _, run := range []func([]string, string) (metaResult, bool){
-		s.metaSessionCommand, s.metaModelCommand, s.metaDebugCommand,
+		s.metaRepositoryCommand, s.metaSessionCommand, s.metaModelCommand, s.metaDebugCommand,
 	} {
 		if res, ok := run(fields, line); ok {
 			return res.out, res.quit, res.err
@@ -373,11 +387,19 @@ func (s *Session) metaSessionCommand(fields []string, line string) (metaResult, 
 		return metaOut(decls, false, nil), true
 	case "%clear":
 		return metaOut(append([]string{"session cleared"}, s.clear()...), false, nil), true
+	case "%documents":
+		return metaOut(s.doDocuments()), true
+	case "%views":
+		return metaOut(s.doViews(fields[1:])), true
 	case "%load":
-		if len(fields) < 2 {
-			return metaOut([]string{"usage: %load <file|dir|glob>..."}, false, nil), true
+		paths, opts, perr := parseLoadArgs(fields[1:])
+		if perr != nil {
+			return metaOut(nil, false, perr), true
 		}
-		lines, lerr := s.loadPaths(pathArgs(fields[1:]))
+		if len(paths) == 0 {
+			return metaOut([]string{usageLoadPath}, false, nil), true
+		}
+		lines, lerr := s.loadPaths(paths, opts)
 		if lerr != nil {
 			return metaOut(nil, false, lerr), true
 		}
@@ -440,8 +462,17 @@ func (s *Session) metaSessionCommand(fields []string, line string) (metaResult, 
 			return metaOut([]string{"usage: %view <name>"}, false, nil), true
 		}
 		return metaOut(s.doView(fields[1])), true
+	case "%graphs":
+		if len(fields) < 2 {
+			return metaOut([]string{"usage: %graphs <name>"}, false, nil), true
+		}
+		return metaOut(s.doGraphs(fields[1])), true
 	case "%render":
 		return metaOut(s.metaRender(fields[1:])), true
+	case "%viz":
+		return metaOut(s.metaViz(fields[1:])), true
+	case "%render-run":
+		return metaOut(s.metaRenderRun(fields[1:])), true
 	case "%quit", "%exit":
 		return metaOut([]string{"goodbye"}, true, nil), true
 	}
@@ -490,57 +521,78 @@ func (s *Session) doTrace(args []string) []string {
 // metaRender reads the %render name, form and optional rendering settings,
 // including a source-link template, then renders the view they name.
 func (s *Session) metaRender(args []string) ([]string, bool, error) {
-	if len(args) < 1 || len(args) > 6 {
-		return []string{renderUsage}, false, nil
+	name, form, opts, overlay, usage := parseRenderArgs(args)
+	if usage != nil {
+		return usage, false, nil
 	}
-	form := view.FormText
+	return s.doRender(name, form, opts, overlay)
+}
+
+// renderUsageOf is what parseRenderArgs answers when the arguments do not read.
+func renderUsageOf(line string) (string, view.Form, view.Options, view.Overlay, []string) {
+	return "", "", view.Options{}, "", []string{line}
+}
+
+// parseRenderArgs reads %render's arguments: the view, the form and the options
+// after it; usage is what to print instead when they do not read.
+func parseRenderArgs(args []string) (name string, form view.Form, opts view.Options, overlay view.Overlay, usage []string) {
+	if len(args) < 1 || len(args) > 6 {
+		return renderUsageOf(renderUsage)
+	}
+	form = view.FormText
 	if len(args) >= 2 {
 		form = view.Form(args[1])
 		if !slices.Contains(view.Forms(), form) {
-			return []string{fmt.Sprintf("unknown form %q; %s", args[1], renderUsage)}, false, nil
+			return renderUsageOf(fmt.Sprintf("unknown form %q; %s", args[1], renderUsage))
 		}
 	}
-	var opts view.Options
 	linkSet := false
 	for _, word := range args[min(2, len(args)):] {
+		if o, ok := view.ParseOverlay(word); ok && o != "" {
+			if overlay != "" {
+				return renderUsageOf(renderUsage)
+			}
+			overlay = o
+			continue
+		}
 		if strings.HasPrefix(word, "link=") {
 			if linkSet {
-				return []string{renderUsage}, false, nil
+				return renderUsageOf(renderUsage)
 			}
 			opts.Links.Template = strings.TrimPrefix(word, "link=")
 			if err := view.ParseLinkTemplate(opts.Links.Template); err != nil {
-				return []string{err.Error() + "; " + renderUsage}, false, nil
+				return renderUsageOf(err.Error() + "; " + renderUsage)
 			}
 			linkSet = true
 			continue
 		}
 		if style, ok := view.ParseDrawingStyle(word); ok {
 			if opts.Style != "" {
-				return []string{renderUsage}, false, nil
+				return renderUsageOf(renderUsage)
 			}
 			opts.Style = style
 			continue
 		}
 		if ports, ok := view.ParsePorts(word); ok {
 			if opts.Ports != "" {
-				return []string{renderUsage}, false, nil
+				return renderUsageOf(renderUsage)
 			}
 			opts.Ports = ports
 			continue
 		}
 		if !form.TakesPalette() {
-			return []string{fmt.Sprintf("a palette fills the mermaid, dot, plantuml and d2 forms only, not %s; %s", form, renderUsage)}, false, nil
+			return renderUsageOf(fmt.Sprintf("a palette fills the mermaid, dot, plantuml and d2 forms only, not %s; %s", form, renderUsage))
 		}
 		palette, ok := view.ParsePalette(word)
 		if !ok {
-			return []string{(&view.UnknownPaletteError{Name: word}).Error() + "; " + renderUsage}, false, nil
+			return renderUsageOf((&view.UnknownPaletteError{Name: word}).Error() + "; " + renderUsage)
 		}
 		if opts.Palette != "" {
-			return []string{renderUsage}, false, nil
+			return renderUsageOf(renderUsage)
 		}
 		opts.Palette = palette
 	}
-	return s.doRender(args[0], form, opts)
+	return args[0], form, opts, overlay, nil
 }
 
 // metaModelCommand runs a model-level command, reporting whether the line
@@ -880,16 +932,6 @@ func (s *Session) contextScope(sym *symbols.Symbol) *symbols.Scope {
 		}
 	}
 	return nil
-}
-
-// pathArgs is a command's path arguments with any notation quoting removed, so
-// a path holding a space can be written as a quoted name too.
-func pathArgs(args []string) []string {
-	out := make([]string, 0, len(args))
-	for _, arg := range args {
-		out = append(out, nameText(arg))
-	}
-	return out
 }
 
 // nameText is the text a quoted argument names, for a command matching a name

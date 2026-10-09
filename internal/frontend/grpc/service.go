@@ -74,6 +74,10 @@ const CapabilityRenderDocumentHTML = "render_document_html"
 // renders a declared or targeted pseudo-view as machine-readable diagram data.
 const CapabilityRenderView = "render_view"
 
+// CapabilityExportGraphs names the capability of the ExportGraphs RPC, which
+// exports the lowered graph of an action or state machine as `graphs:1` JSON.
+const CapabilityExportGraphs = "export_graphs"
+
 // CapabilityOSLCQuery names the capability of evaluating OSLC Query text.
 const CapabilityOSLCQuery = "oslc_query"
 
@@ -178,6 +182,16 @@ const CapabilityParseSources = "parse_sources"
 // the named documents of a model and links the rest by id.
 const CapabilityConvertDocuments = "convert_documents"
 
+// CapabilityConvertCompact names ConvertRequest.compact, omit_derived and
+// keep_derived: api-json written as the compact document, with an id table and
+// handles, and optionally without the metamodel's derived properties.
+const CapabilityConvertCompact = "convert_compact"
+
+// CapabilityParseSourcesAffected names ParseSourcesRequest.base_model_hash and
+// ParseSourcesResponse.affected: the documents whose results may differ from
+// the base model's, so a client re-reads only those after an edit.
+const CapabilityParseSourcesAffected = "parse_sources_affected"
+
 // CapabilityComplexValues names the capability of carrying a complex number as
 // Value.complex, rather than reporting it as an unsupported null.
 const CapabilityComplexValues = "complex_values"
@@ -219,6 +233,12 @@ const CapabilityInfinityValue = "infinity_value"
 // DocumentValue.big_int_value, rather than as an unsupported null. A service
 // without it reads the arm sent to it as null, so a client must not send one.
 const CapabilityBigIntValues = "big_int_values"
+
+// CapabilityRationalValues names the capability of carrying an exact Rational
+// that is no Integer as Value.rational_value, Quantity.rational_magnitude and
+// DocumentValue.rational_value, rather than as an unsupported null. A service
+// without it reads the arm sent to it as null, so a client must not send one.
+const CapabilityRationalValues = "rational_values"
 
 // CapabilityDiagnosticCodes names the capability of populating Diagnostic.code,
 // so an empty code is a finding none was assigned rather than an older service.
@@ -299,9 +319,13 @@ var capabilities = []string{
 	CapabilityActionBodyStatementAuthoring,
 	CapabilityMigrate,
 	CapabilityBigIntValues,
+	CapabilityRationalValues,
 	CapabilityStateTrace,
 	CapabilityRenderView,
+	CapabilityExportGraphs,
 	CapabilityConvertDocuments,
+	CapabilityConvertCompact,
+	CapabilityParseSourcesAffected,
 }
 
 type capabilityAvailability struct {
@@ -373,6 +397,9 @@ type Service struct {
 	version string
 	// capabilities decides both what this service reports and what it supplies.
 	capabilities capabilityAvailability
+	// lineages are the incremental workspaces of the document sets parsed more
+	// than once (lineage.go).
+	lineages *lineages
 }
 
 // Option adjusts how NewService builds a service.
@@ -454,6 +481,7 @@ func newService(cacheSize int, version string, opts []Option) (*Service, error) 
 	return &Service{
 		cache:          cache,
 		libIndexes:     newLibraryBase(buildLibraryIndex),
+		lineages:       newLineages(maxLineages),
 		prewarm:        prewarm > 0,
 		budgets:        budgets,
 		jobs:           jobs,
@@ -543,7 +571,12 @@ func (s *Service) requireValueCapabilities(pv *pb.Value) error {
 		}
 	}
 	if protoconv.ValueCarriesBigInt(pv) {
-		return s.requireCapability(CapabilityBigIntValues)
+		if err := s.requireCapability(CapabilityBigIntValues); err != nil {
+			return err
+		}
+	}
+	if protoconv.ValueCarriesRational(pv) {
+		return s.requireCapability(CapabilityRationalValues)
 	}
 	return nil
 }
@@ -655,7 +688,7 @@ func (s *Service) ParseFile(ctx context.Context, req *pb.ParseFileRequest) (*pb.
 	}
 
 	mode := diag.ConformanceModeOf(req.StrictConformance)
-	modelHash, model := s.parseModel([]sourceInput{input}, mode)
+	modelHash, model := s.parseModel([]sourceInput{input}, mode, false)
 	return s.buildParseResponse(modelHash, model), nil
 }
 
@@ -672,6 +705,11 @@ func (s *Service) ParseSources(ctx context.Context, req *pb.ParseSourcesRequest)
 	}
 	if len(req.Documents) == 0 {
 		return nil, statusError(connect.CodeInvalidArgument, "documents must name at least one document")
+	}
+	if req.BaseModelHash != "" {
+		if err := s.requireCapability(CapabilityParseSourcesAffected); err != nil {
+			return nil, err
+		}
 	}
 
 	inputs := make([]sourceInput, 0, len(req.Documents))
@@ -690,16 +728,24 @@ func (s *Service) ParseSources(ctx context.Context, req *pb.ParseSourcesRequest)
 		inputs = append(inputs, input)
 	}
 
-	modelHash, model := s.parseModel(inputs, diag.ConformanceModeOf(req.StrictConformance))
+	modelHash, model := s.parseModel(inputs, diag.ConformanceModeOf(req.StrictConformance), true)
 	roots := make([]*pb.SymbolInfo, 0, len(model.Documents))
 	for _, doc := range model.Documents {
 		roots = append(roots, s.rootSymbol(model, doc))
 	}
-	return &pb.ParseSourcesResponse{
+	var base *CachedModel
+	if req.BaseModelHash != "" {
+		base, _ = s.cache.Get(req.BaseModelHash)
+	}
+	resp := &pb.ParseSourcesResponse{
 		ModelHash:   modelHash,
 		Roots:       roots,
 		Diagnostics: s.modelDiagnostics(model),
-	}, nil
+	}
+	if req.BaseModelHash != "" {
+		resp.Affected = affectedDocuments(base, model)
+	}
+	return resp, nil
 }
 
 // documentInput reads one document of a ParseSources request. position names an
@@ -773,7 +819,11 @@ func fileInput(path string) (sourceInput, error) {
 // gating in AGENTS.md §4: a document that failed to parse contributes no symbols,
 // so analyzing its siblings would report names as unresolved that the model
 // declares.
-func (s *Service) parseModel(inputs []sourceInput, mode diag.ConformanceMode) (string, *CachedModel) {
+//
+// With incremental, a document set parsed before is answered from its lineage
+// (lineage.go): ParseSources, whose model of many documents is reparsed after
+// each edit. ParseFile's one document is cheap to parse whole.
+func (s *Service) parseModel(inputs []sourceInput, mode diag.ConformanceMode, incremental bool) (string, *CachedModel) {
 	// Keyed by what was read, not by the hash a request carried: a hash
 	// disagreeing with its content would serve another model. Each document's
 	// name is part of the key, since its diagnostics name the document they came
@@ -799,6 +849,14 @@ func (s *Service) parseModel(inputs []sourceInput, mode diag.ConformanceMode) (s
 		return modelHash, cached
 	}
 
+	// A document set parsed before is answered from its lineage: only what
+	// changed is parsed and analyzed again (lineage.go).
+	if incremental {
+		if model, ok := s.parseFromLineage(inputs, mode); ok {
+			return modelHash, s.cache.Add(modelHash, model)
+		}
+	}
+
 	// Take an index carrying the standard library, which type resolution needs:
 	// an overlay over the one library index the service holds. The model's own
 	// documents go into the overlay alone, so what they resolve against does not
@@ -815,13 +873,8 @@ func (s *Service) parseModel(inputs []sourceInput, mode diag.ConformanceMode) (s
 		if len(p.Diagnostics) > 0 {
 			parsedClean = false
 		}
-		documents = append(documents, &CachedDocument{
-			Root:        root,
-			Source:      srcFile,
-			ParseDiags:  p.Diagnostics,
-			Diagnostics: parser.AsDiagnostics(p.Diagnostics, p.Warnings),
-			Warnings:    append([]string(nil), input.warnings...),
-		})
+		documents = append(documents, newCachedDocument(root, srcFile, p.Diagnostics,
+			parser.AsDiagnostics(p.Diagnostics, p.Warnings), input.warnings))
 	}
 
 	// Registers what a wildcard import re-exports, so a qualified name reaches a
@@ -841,6 +894,7 @@ func (s *Service) parseModel(inputs []sourceInput, mode diag.ConformanceMode) (s
 		for i, doc := range documents {
 			doc.Diagnostics, _ = passes.AnalyzeInBatch(inputs[i].name, inputs[i].kind, doc.Root,
 				doc.Diagnostics, idx, passes.Options{Conformance: mode}, batch)
+			doc.Diagnostics = passes.WithoutLints(doc.Diagnostics, nil, nil)
 		}
 	}
 
@@ -885,22 +939,32 @@ func (s *Service) GetDiagnostics(ctx context.Context, req *pb.DiagnosticsRequest
 	}, nil
 }
 
-// modelDiagnostics are every document's diagnostics, document by document, each
-// located in the source it came from. The parse's are among them once: the
-// passes report them, escalated where a pass judged the notation.
+// modelDiagnostics are every document's diagnostics in document order, each in its own
+// source, the parse's among them once as the passes report them; the list is the response's own.
 func (s *Service) modelDiagnostics(model *CachedModel) []*pb.Diagnostic {
 	var pbDiags []*pb.Diagnostic
 	for _, doc := range model.Documents {
-		for _, diag := range doc.Diagnostics {
-			pbDiags = append(pbDiags, DiagnosticToProto(diag, doc.Source))
-		}
-		for _, warning := range doc.Warnings {
-			pbDiags = append(pbDiags, &pb.Diagnostic{
-				Severity: diag.SeverityWarning.String(),
-				Message:  warning,
-				Span:     &pb.Span{File: doc.Source.Name()},
-			})
-		}
+		pbDiags = append(pbDiags, doc.protoDiagnostics(s.documentDiagnostics)...)
+	}
+	return pbDiags
+}
+
+// documentDiagnostics converts one document's diagnostics, then its warnings, to
+// protobuf, filtered by the service's capabilities, which are fixed when it is built.
+func (s *Service) documentDiagnostics(doc *CachedDocument) []*pb.Diagnostic {
+	if len(doc.Diagnostics)+len(doc.Warnings) == 0 {
+		return nil
+	}
+	pbDiags := make([]*pb.Diagnostic, 0, len(doc.Diagnostics)+len(doc.Warnings))
+	for _, diag := range doc.Diagnostics {
+		pbDiags = append(pbDiags, DiagnosticToProto(diag, doc.Source))
+	}
+	for _, warning := range doc.Warnings {
+		pbDiags = append(pbDiags, &pb.Diagnostic{
+			Severity: diag.SeverityWarning.String(),
+			Message:  warning,
+			Span:     &pb.Span{File: doc.Source.Name()},
+		})
 	}
 	return s.filterDiagnosticCapabilities(pbDiags)
 }

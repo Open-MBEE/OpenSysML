@@ -40,7 +40,19 @@ connecting to models.
     options:
       heading_level: 3
 
+::: opensysml.CAPABILITY_RATIONAL_VALUES
+    options:
+      heading_level: 3
+
 ::: opensysml.CAPABILITY_CONVERT_DOCUMENTS
+    options:
+      heading_level: 3
+
+::: opensysml.CAPABILITY_CONVERT_COMPACT
+    options:
+      heading_level: 3
+
+::: opensysml.CAPABILITY_PARSE_SOURCES_AFFECTED
     options:
       heading_level: 3
 
@@ -158,6 +170,9 @@ Connections own or reach a service, and resolve their address and release.
 A parsed model is the entry point for symbol lookup, evaluation and execution.
 `Model.render_view(view_name, ports="minimal")` returns a typed `RenderedView`;
 pass `ports="full"` to include every declared port.
+`Model.export_graphs(subject)` returns a typed `Graphs`: the canonical `graphs:1`
+JSON of an action or state machine's lowered graph, its version and the subject
+as resolved.
 
 ::: opensysml.Model
     options:
@@ -684,6 +699,10 @@ Typed query rows, document values, and document and view render results.
       heading_level: 3
 
 ::: opensysml.RenderedView
+    options:
+      heading_level: 3
+
+::: opensysml.Graphs
     options:
       heading_level: 3
 

@@ -9,6 +9,8 @@ type a decoded value is expected to have, and reports a mismatch rather than
 returning a wrongly typed value.
 """
 
+import math
+from fractions import Fraction
 from typing import Callable, ClassVar, List, Optional, Set, TypeVar
 
 from opensysml.enumeration import EnumLiteral
@@ -16,9 +18,10 @@ from opensysml.errors import InstanceTypeError, TypeMismatchError
 from opensysml.instance import Instance
 from opensysml.values import UNSET, Quantity
 
-# Re-exported so a generated module annotates a quantity property as `_t.Quantity`
-# and needs no import of its own.
+# Re-exported so a generated module annotates a property as `_t.Quantity` or
+# `_t.Fraction` and needs no import of its own.
 __all__ = [
+    "Fraction",
     "Quantity",
     "TypedObject",
     "as_bool",
@@ -26,6 +29,7 @@ __all__ = [
     "as_int",
     "as_object",
     "as_quantity",
+    "as_rational",
     "as_str",
     "as_typed",
     "feature_value",
@@ -146,14 +150,25 @@ def as_int(feature_name: str, value: object) -> int:
 
 
 def as_float(feature_name: str, value: object) -> float:
-    """Decode a Real/Rational feature value; an integer value widens to float."""
+    """Decode a Real feature value; an Integer or exact Rational widens to the nearest float."""
     if isinstance(value, bool):
         raise _mismatch(feature_name, "float", value)
     if isinstance(value, float):
         return value
-    if isinstance(value, int):
+    if isinstance(value, (int, Fraction)):
         return float(value)
     raise _mismatch(feature_name, "float", value)
+
+
+def as_rational(feature_name: str, value: object) -> Fraction:
+    """Decode a Rational feature value exactly, whether it arrived as a Fraction, an int or a float."""
+    if isinstance(value, bool):
+        raise _mismatch(feature_name, "Fraction", value)
+    if isinstance(value, Fraction):
+        return value
+    if isinstance(value, int) or (isinstance(value, float) and math.isfinite(value)):
+        return Fraction(value)
+    raise _mismatch(feature_name, "Fraction", value)
 
 
 def as_complex(feature_name: str, value: object) -> complex:

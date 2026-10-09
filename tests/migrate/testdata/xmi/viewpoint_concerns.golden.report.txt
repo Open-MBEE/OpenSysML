@@ -1,0 +1,41 @@
+# SysML v1 to v2 migration report: viewpoint_concerns.xmi
+# migrated 35 element(s): 28 mapped, 7 approximated, 0 unmapped (0 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)
+
+## approximated (7)
+Package	Views	_p	-> ViewsModel	(written as ViewsModel since a root package named Views would be hidden by the standard library's Views)
+«Conform» Dependency	Views::<Dependency>	_inheritedConform	-> ViewsModel::'Inherited Derived'	(v2 types a view by one view definition, so its conformance to Views::Safety Viewpoint is kept as a comment)
+«View» Class	Views::Combined View	_bothView	-> ViewsModel::'Combined View'	(v2 types a view by one view definition, so its conformance to Views::Safety Viewpoint is kept as a comment)
+«Concern» Comment	Views::Fallback::<Comment>	_cEnum	(the concern is kept as a comment because its owner cannot own a v2 concern usage and no viewpoint frames it)
+«Viewpoint» Class	Views::Review Viewpoint	_vp1	-> ViewsModel::'Review Viewpoint'	(v2 places the subject before the stakeholders, so an anonymous subject is declared; SysMLv1Library::ViewpointData is unavailable, so language and presentation are retained as documentation)
+«Concern» Comment	Views::Review Viewpoint::<Comment>	_cVp	-> ViewsModel::'Review Viewpoint'::'concern'	(a v2 concern annotates nothing, so the comment's annotations are not carried)
+«Stakeholder» Class	Views::Reviewer	_stake	-> ViewsModel::Reviewer	(a v1 «Stakeholder» is written as a part def; «Stakeholder» concern = legacy stakeholder concern has no v2 form)
+
+## mapped (28)
+«Concern» Comment	<Comment>	_cRoot	-> 'concern'
+Model	Model	_m	(the root model's members are written at the top level)
+«Concern» Comment	Views::<Comment>	_cPkg	-> ViewsModel::'concern 2'
+«Concern» Comment	Views::<Comment>	_shared	-> ViewsModel::'concern'
+«Conform» Dependency	Views::<Dependency>	_conform	-> ViewsModel::'Conforming View'
+«Conform» Dependency	Views::<Dependency>	_conform2	-> ViewsModel::'Combined View'
+«Conform» Dependency	Views::<Dependency>	_inheritedSameConform	-> ViewsModel::'Inherited Same'
+Generalization	Views::Combined View::<Generalization>	_g2	-> ViewsModel::'Combined View'
+«View» Class	Views::Conforming View	_depView	-> ViewsModel::'Conforming View'
+Enumeration	Views::Fallback	_enum	-> ViewsModel::Fallback
+«View» Class	Views::Generalized View	_genView	-> ViewsModel::'Generalized View'
+Generalization	Views::Generalized View::<Generalization>	_g	-> ViewsModel::'Generalized View'
+«View» Class	Views::Inherited Base	_inheritedBase	-> ViewsModel::'Inherited Base'
+Generalization	Views::Inherited Base::<Generalization>	_gInheritedBase	-> ViewsModel::'Inherited Base'
+«View» Class	Views::Inherited Derived	_inheritedDerived	-> ViewsModel::'Inherited Derived'
+Generalization	Views::Inherited Derived::<Generalization>	_gInheritedDerived	-> ViewsModel::'Inherited Derived'
+«View» Class	Views::Inherited Same	_inheritedSame	-> ViewsModel::'Inherited Same'
+Generalization	Views::Inherited Same::<Generalization>	_gInheritedSame	-> ViewsModel::'Inherited Same'
+«View» Class	Views::Multiple Bases	_multipleBases	-> ViewsModel::'Multiple Bases'
+Generalization	Views::Multiple Bases::<Generalization>	_gBaseOne	-> ViewsModel::'Multiple Bases'
+Generalization	Views::Multiple Bases::<Generalization>	_gBaseTwo	-> ViewsModel::'Multiple Bases'
+Activity	Views::Review Viewpoint::Render View	_method	-> ViewsModel::'Review Viewpoint'::createView	(written as the body of the operation Views::Review Viewpoint::createView, whose method it is)
+Activity	Views::Review Viewpoint::Tag Method	_methodTag	-> ViewsModel::'Review Viewpoint'::'Tag Method'
+«Create» Operation	Views::Review Viewpoint::createView	_opMethod	-> ViewsModel::'Review Viewpoint'::createView	(«Create» from http://www.omg.org/spec/UML/20161101/StandardProfile is applied from a profile the document does not define; the application is kept as a comment; its owner's usage createView 2 performs it, as a call on an object does)
+«Create» Operation	Views::Review Viewpoint::makeView	_opNoMethod	-> ViewsModel::'Review Viewpoint'::makeView	(«Create» from http://www.omg.org/spec/UML/20161101/StandardProfile is applied from a profile the document does not define; the application is kept as a comment; its owner's usage makeView 2 performs it, as a call on an object does)
+«Viewpoint» Class	Views::Safety Viewpoint	_vp2	-> ViewsModel::'Safety Viewpoint'
+«View» Class	Views::Tagged View	_tagView	-> ViewsModel::'Tagged View'
+InstanceSpecification	Views::review	_instance	-> ViewsModel::review

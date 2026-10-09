@@ -13,6 +13,7 @@ Read the chapters in order the first time through; each one builds on the ones b
 9. [From your own program](09-clients.md) — the Go, Python, Node, Java and Rust clients
 10. [Troubleshooting](10-troubleshooting.md) — diagnosing a run that stops early
 11. [Migrating a SysML v1 model](11-migrating-from-sysml-v1.md) — `-migrate`, reading the report, finishing by hand
+12. [Jupyter notebooks](12-jupyter.md) — `pip install jupyter-opensysml-kernel`, SysML cells, rich output, interrupting
 
 One topic stands on its own once the chapters are read:
 [Modeling fleets and repeated structure](modeling-fleets.md) — one definition with a

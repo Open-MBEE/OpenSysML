@@ -66,6 +66,167 @@ func TestRenderViewRendersInterconnectionAndPorts(t *testing.T) {
 	}
 }
 
+func TestRenderViewRendersRelationshipMatrices(t *testing.T) {
+	srv := mustNewService(t, 10)
+	t.Cleanup(srv.Close)
+	content, err := os.ReadFile(filepath.Join("..", "..", "..", "tests", "wasm", "testdata", "render-view.sysml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	parsed, _ := parseContent(t, srv, string(content))
+	if len(parsed.Diagnostics) != 0 {
+		t.Fatalf("ParseFile diagnostics = %+v, want none", parsed.Diagnostics)
+	}
+
+	const source = "RenderDemo::Sender::out1"
+	const target = "RenderDemo::Receiver::in1"
+	for _, viewName := range []string{"RenderViews::relationshipMatrix", "#matrix:RenderDemo::Link"} {
+		t.Run(viewName, func(t *testing.T) {
+			rendered, err := srv.RenderView(context.Background(), &pb.RenderViewRequest{
+				ModelHash: parsed.ModelHash, View: viewName,
+			})
+			if err != nil {
+				t.Fatalf("RenderView(%q): %v", viewName, err)
+			}
+			if rendered.Kind != "matrix" {
+				t.Fatalf("RenderView(%q) kind = %q, want matrix", viewName, rendered.Kind)
+			}
+			if len(rendered.Columns) == 0 || rendered.Columns[0] != "Source / Target" {
+				t.Fatalf("RenderView(%q) columns = %v, want Source / Target first", viewName, rendered.Columns)
+			}
+			targetColumn := -1
+			for i, column := range rendered.Columns {
+				if column == target {
+					targetColumn = i
+					break
+				}
+			}
+			if targetColumn < 0 {
+				t.Fatalf("RenderView(%q) columns = %v, want target %q", viewName, rendered.Columns, target)
+			}
+			for _, row := range rendered.Rows {
+				if len(row.Cells) > 0 && row.Cells[0] == source {
+					if targetColumn >= len(row.Cells) || row.Cells[targetColumn] != "connect" {
+						t.Fatalf("RenderView(%q) source row = %v, want connect at target %q", viewName, row.Cells, target)
+					}
+					return
+				}
+			}
+			t.Fatalf("RenderView(%q) rows = %+v, want source %q", viewName, rendered.Rows, source)
+		})
+	}
+}
+
+func TestRenderViewRendersCaseAndMixed(t *testing.T) {
+	srv := mustNewService(t, 10)
+	t.Cleanup(srv.Close)
+	parsed, _ := parseContent(t, srv, `package RenderViewKinds {
+	private import OpenSysMLRenderings::*;
+
+	part def Vehicle;
+	part def Pilot;
+	use case def CrewOperation {
+		subject vehicle : Vehicle;
+		actor pilot : Pilot;
+	}
+
+	port def Signal;
+	action def Descend {
+		first start;
+		action land;
+		done;
+		succession first start then land;
+		succession first land then done;
+	}
+	part def Lander {
+		port telemetry : Signal;
+		perform action descend : Descend;
+	}
+
+	view useCases {
+		expose CrewOperation;
+		render asCaseDiagram;
+	}
+	view mixedOverview {
+		expose Lander;
+		expose Descend;
+		render asMixedDiagram;
+	}
+}`)
+
+	requireNodeKinds := func(response *pb.RenderViewResponse, want ...string) {
+		t.Helper()
+		kinds := make(map[string]bool)
+		for _, node := range response.Nodes {
+			kinds[node.Kind] = true
+		}
+		for _, kind := range want {
+			if !kinds[kind] {
+				t.Errorf("view %q node kinds = %v, want %q", response.View, kinds, kind)
+			}
+		}
+	}
+	requireEdgeKinds := func(response *pb.RenderViewResponse, want ...string) {
+		t.Helper()
+		kinds := make(map[string]bool)
+		for _, edge := range response.Edges {
+			kinds[edge.Kind] = true
+		}
+		for _, kind := range want {
+			if !kinds[kind] {
+				t.Errorf("view %q edge kinds = %v, want %q", response.View, kinds, kind)
+			}
+		}
+	}
+
+	caseView, err := srv.RenderView(context.Background(), &pb.RenderViewRequest{
+		ModelHash: parsed.ModelHash, View: "RenderViewKinds::useCases",
+	})
+	if err != nil {
+		t.Fatalf("RenderView case: %v", err)
+	}
+	if caseView.Kind != "case" {
+		t.Errorf("case view kind = %q, want case", caseView.Kind)
+	}
+	requireNodeKinds(caseView, "use case def", "actor", "subject")
+	requireEdgeKinds(caseView, "association")
+
+	mixedView, err := srv.RenderView(context.Background(), &pb.RenderViewRequest{
+		ModelHash: parsed.ModelHash, View: "RenderViewKinds::mixedOverview", Ports: "full",
+	})
+	if err != nil {
+		t.Fatalf("RenderView mixed: %v", err)
+	}
+	if mixedView.Kind != "mixed" {
+		t.Errorf("mixed view kind = %q, want mixed", mixedView.Kind)
+	}
+	requireNodeKinds(mixedView, "part def", "port", "action def")
+	requireEdgeKinds(mixedView, "reference", "succession")
+	var telemetry, perform bool
+	for _, node := range mixedView.Nodes {
+		telemetry = telemetry || node.Kind == "port" && node.Name == "telemetry"
+	}
+	for _, edge := range mixedView.Edges {
+		perform = perform || edge.Kind == "reference" && edge.Label == "«perform»"
+	}
+	if !telemetry {
+		t.Errorf("mixed view nodes do not include the Lander telemetry port: %+v", mixedView.Nodes)
+	}
+	if !perform {
+		t.Errorf("mixed view has no perform reference edge: %+v", mixedView.Edges)
+	}
+
+	casePseudo, err := srv.RenderView(context.Background(), &pb.RenderViewRequest{
+		ModelHash: parsed.ModelHash, View: "#case:RenderViewKinds::CrewOperation",
+	})
+	if err != nil {
+		t.Fatalf("RenderView case pseudo-view: %v", err)
+	}
+	if casePseudo.Kind != "case" {
+		t.Errorf("case pseudo-view kind = %q, want case", casePseudo.Kind)
+	}
+}
+
 func TestRenderViewMapsDiagramLayoutNotes(t *testing.T) {
 	srv := mustNewService(t, 10)
 	t.Cleanup(srv.Close)

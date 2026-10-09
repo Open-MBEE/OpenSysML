@@ -430,7 +430,7 @@ triples come); a set of classes with no such member is refused, naming the subje
   resolves to nothing the model declares: `sysml:type`
   (the `:` clause), `specializes`, `subsets`, `redefines`, `references`,
   `crosses`, `disjointFrom`, `intersects`, `inverseOf`, `unions`, `chains`,
-  `includes`, `via`, `subject`, `annotatedElement` for an `about` clause, and
+  `via`, `subject`, `annotatedElement` for an `about` clause, and
   what an import names: `importedNamespace` on a `NamespaceImport`, and on a
   `MembershipImport` `importedMembership`, which links the imported element's
   **owning membership** (the metamodel's range), a library member's by its
@@ -445,7 +445,7 @@ triples come); a set of classes with no such member is refused, naming the subje
   properties are written in one canonical order whatever order the clauses were
   spelled in — `type`, `specializes`, `subsets`, `redefines`, `references`,
   `crosses`, `disjointFrom`, `intersects`, `differences`, `inverseOf`, `unions`,
-  `chains`, `includes`, `via`, `annotatedElement`, `subject`, `featuringType`
+  `chains`, `via`, `annotatedElement`, `subject`, `featuringType`
   (`internal/translate/export/kinds.go` `relationshipOrder`, the same order the
   clauses are written back in) — with the targets of one property in the order
   they were written; so `attribute :>> num : Real;` and `attribute : Real
@@ -563,6 +563,7 @@ The `sysx:` properties:
 | `sysx:endForm` | The notation an end-binding head writes its ends in — `to`, `nary`, `equals`, `firstThen`, `fromTo`, `flowTo`, `satisfy`, `then` — so the head is rebuilt from the graph rather than read back from its text. See [End-binding heads](#end-binding-heads). |
 | `sysx:endVerb` | The verb a head writes ahead of its ends when its own keyword is the noun form (`connection c connect a to b`, `connector c from a to b`). Without it the verb would be missing or doubled. |
 | `sysx:endReferencesKeyword` | On a named end, the ReferencesKeyword written between the name and the feature when it is the word `references` (`bind e1 references a = …`). Absent, the end is written with `::>`; a value other than the two spellings is refused. |
+| `sysx:endElement` | On an indexed connector end (`connect s.y#(1) to k.u`, an OpenSysML extension), the expression node of the index the end selects one element of its feature with, encoded as any other expression. The end's `ReferenceSubsetting` reaches the whole feature as a standard end's does, so a reader of the standard vocabulary sees `s.y` connected; the index is what the decoder writes back as `#( … )`, and without it the end comes back attaching the whole feature. |
 | `sysx:sourceMember`, `sysx:targetMember` | The member a succession sequences from or to where the notation names no end (`then b;`, or a `then` beside an unnamed member), or where the name the notation supplies for an end links no element (a `then` after `action redefines walk;` whose `walk` is inherited). The end is the element itself rather than only a name, so a same-named member elsewhere cannot be mistaken for it. |
 | `sysx:condition` | The condition a condition member states, as its notation. |
 | `sysx:resultExpression` | The expression an expression body (`{ in y : Real; y + x }`) ends in, after its parameters. The bare expression a calculation or case body computes is not an extension: it is the Expression its `sysml:ResultExpressionMembership` owns. See [Result expressions](#result-expressions). |
@@ -672,6 +673,12 @@ keyword the grammar qualified it with (SysML.xtext `PerformActionUsage`,
 | `sysml:AssertConstraintUsage` | `assert constraint ac : C` | `assert c1;` |
 | `sysml:SatisfyRequirementUsage` | `satisfy requirement sr : R` | `satisfy r1;` |
 | `sysml:ReferenceUsage` (a variant's) | `variant part vp : P` (the usage it declares) | `variant e1;`, `variant P::e2;`, `variant q.k;` |
+
+An inclusion is written as the metamodel states it (SysML.xtext
+`IncludeUseCaseUsage`): `include u1;` owns a `sysml:ReferenceSubsetting` to the
+use case it includes, and `include use case iu : U` includes itself, which its
+metaclass says, so it owns no inclusion relationship beyond its typing. The
+`sysml:includes` earlier releases wrote is still read.
 
 An unnamed one reads its target from `sysml:references` (or `includes`/`subsets`
 where another writer collapses it there) — a chain target comes back as the
@@ -1113,9 +1120,15 @@ The rules the tree follows:
 - **A literal's `sysml:value` is a typed literal** whose lexical form is the
   token the notation spells it with: `"2"^^xsd:integer`, `"1.5"^^xsd:decimal`,
   `"1.5E3"^^xsd:double` (an exponent is outside `xsd:decimal`'s lexical space),
-  `"true"^^xsd:boolean`, and a string with its escapes resolved. Read back, a
+  `"true"^^xsd:boolean`, and a string with its escapes resolved. The literal
+  denotes exactly the Rational the token does: an exponent token no double holds
+  is written as the `xsd:decimal` it denotes (`1E-1` is `"0.1"^^xsd:decimal`),
+  and a JSON number in the API JSON form is read the same way. Read back, a
   value is spelled as that token again: a rational with no fractional digits
-  (`"3"^^xsd:decimal`) gains them (`3.0`), a boolean is `true` or `false`, a
+  (`"3"^^xsd:decimal`) gains them (`3.0`), an `xsd:double` or `xsd:float` whose
+  binary value differs from its lexical form is spelled as the exact decimal of
+  that binary value (`"0.1"^^xsd:float` is `0.100000001490116119384765625`), a
+  boolean is `true` or `false`, a
   string is quoted and escaped; a value no token spells — a signed number, `INF`,
   `NaN` — is reported as unsupported, naming the node, since the notation states
   a sign as an operator applied to a literal.
@@ -1292,18 +1305,19 @@ the node, that name is used; the rest are `sysx:` terms, marked below.
 | written | metaclass | carries |
 |---|---|---|
 | `first x;` in an action body | `sysml:Membership` with `sysx:declaredKeyword "first"` | `sysml:memberElement` and `sysml:sourceFeature` (the member the flow starts at — a reference, not a name it declares), `sysx:hasBody` and the members of its body. Read, a `sysx:InitialNode` from an older graph is the same member |
-| `first x then y { … }` in an action body (the succession x → y, which marks no start) | `sysml:SuccessionAsUsage` with `sysx:declaredKeyword "first"` | its two ends, each a `ReferenceUsage` under an `EndFeatureMembership` whose `ReferenceSubsetting` references x or y (SysML-textual-bnf `SuccessionAsUsage`, `ConnectorEndMember`), listed by `sysml:connectorEnd`; `sysml:sourceFeature` (x, a reference) and `sysml:targetFeature` (y), which the ends derive; `sysx:guard`, `sysx:hasBody` and the members of its body. A guarded `first x if g then y` is a transition and owns no ends of its own. Reading back, an end whose referenced feature differs from `sysml:sourceFeature` or `sysml:targetFeature`, or that declares a name or bounds, is refused, since the notation states each end once, as the bare feature it names |
+| `first x then y { … }` in an action body (the succession x → y, which marks no start) | `sysml:SuccessionAsUsage` with `sysx:declaredKeyword "first"` | its two ends, each a `ReferenceUsage` under an `EndFeatureMembership` whose `ReferenceSubsetting` references x or y (SysML-textual-bnf `SuccessionAsUsage`, `ConnectorEndMember`), listed by `sysml:connectorEnd`; `sysml:sourceFeature` (x, a reference) and `sysml:targetFeature` (y), which the ends derive; `sysx:guard`, `sysx:hasBody` and the members of its body. A guarded `first x if g then y` is a transition and owns no ends of its own: a `sysml:TransitionUsage`, as `succession first x if g then y` is (SysML.xtext `GuardedSuccession`, whose `succession` is optional). A transition in an action body is written back in that keyword-less spelling, unless the graph states `sysx:declaredKeyword "succession"` or the transition declares a name, which needs the keyword; `transition`, which an action body does not admit, is written only in a state body. Reading back, an end whose referenced feature differs from `sysml:sourceFeature` or `sysml:targetFeature`, or that declares a name or bounds, is refused, since the notation states each end once, as the bare feature it names |
 | `done;` written on its own | `sysml:Membership` with `sysx:declaredKeyword "done"` | `sysml:memberElement`, the library's `Actions::Action::done`. Read, a `sysx:FinalNode` from an older graph is the same member |
 | `then done;`, `[m] then done;`, `then [m] done;` | `sysml:SuccessionAsUsage` with `sysx:endForm "then"` | its target end's `ReferenceSubsetting` reaches the library's `Actions::Action::done` — `sysml:targetFeature` states the same — and no member is declared for the node. A source-end multiplicity (`[m] then`) is carried on the empty source connector end; a target-end crossing multiplicity (`then [m] done`) on the target connector end, as `succession first a then [m] done;` carries it. Read, an older graph's `done` Membership targeted through `sysx:targetMember` writes back as `then done;` |
 | `action a;`, `action a { x + 1 }` | `sysx:ActionExecutionNode` | `sysml:references` or `sysx:expression` |
 | `perform a;` | `sysml:PerformActionUsage` | `sysx:expression` (the action performed) |
-| `assign x := 1;` | `sysml:AssignmentActionUsage` | `sysx:target`, `sysml:value`, `sysx:assignmentOperator` when it is not `:=` |
-| `send M(x) to p;`, `… via p;` | `sysml:SendActionUsage` | `sysx:payload`, `sysx:receiver`, `sysx:isVia` |
+| `assign x := 1;`, `action a assign x := 1;` | `sysml:AssignmentActionUsage` (a named node is the one element, carrying the name) | `sysx:target`, `sysml:value`, `sysx:assignmentOperator` when it is not `:=` |
+| `send M(x) to p;`, `… via p;`, `action s send M(x) to p;` | `sysml:SendActionUsage` (a named node is the one element, carrying the name) | `sysx:payload`, `sysx:receiver`, `sysx:isVia` |
 | `terminate;`, `terminate x;` | `sysml:TerminateActionUsage` | `sysx:expression` |
 | `action stop terminate;` (a declared terminate action usage) | `sysml:TerminateActionUsage` | the usage's own properties, `sysx:hasBody` among them — which is what tells a declaration from the statement above, since a statement never states it |
-| `accept sig : Signal;`, `accept when c;` | the usage's own metaclass | `sysml:isAccept`, and `sysx:declaredKeyword "accept"` where the optional `action` was not written; an `after`, `at` or `when` event is the payload's value, a `sysml:TriggerInvocationExpression` whose `sysml:kind` is the keyword |
+| `accept sig : Signal;`, `accept when c;` | `sysml:AcceptActionUsage` (SysML.xtext `AcceptNode`) | the payload is the action's `sysml:payloadParameter`, owned through a `sysml:ParameterMembership` and flagged `sysml:isAccept`; `via p` is the action's `sysml:receiverArgument`, the `sysml:FeatureReferenceExpression` to `p` a second parameter binds, as a transition's trigger has it (a graph stating `sysml:via` instead still reads); and `sysx:declaredKeyword "accept"` where the optional `action` was not written; an `after`, `at` or `when` event is the payload's value, a `sysml:TriggerInvocationExpression` whose `sysml:kind` is the keyword |
 | `fork`, `join`, `merge`, `decide` | `sysml:ForkNode`, `JoinNode`, `MergeNode`, `DecisionNode` | `sysml:declaredName` |
-| `succession first a then b;`, `if g then b;`, `else b;`, and a state body's keyword-less `first a then b;` (a succession between two vertices, no initial node) | `sysml:SuccessionAsUsage` | `sysml:sourceFeature`, `sysml:targetFeature`, `sysx:guard`, `sysx:isElse`, `sysx:declaredKeyword`; the keyword-less spelling comes back as `succession first a then b;` from the graph alone, the same succession |
+| `succession first a then b;`, and a state body's keyword-less `first a then b;` (a succession between two vertices, no initial node) | `sysml:SuccessionAsUsage` | `sysml:sourceFeature`, `sysml:targetFeature`, `sysx:declaredKeyword`; the keyword-less spelling comes back as `succession first a then b;` from the graph alone, the same succession |
+| `if g then b;`, `else b;` after a decision in an action body | `sysml:TransitionUsage` (SysML.xtext `GuardedTargetSuccession`, `DefaultTargetSuccession`) | its guard owned through a `sysml:TransitionFeatureMembership` of `sysml:kind "guard"` (none for `else`, which `sysx:isElse` marks), the `then` succession it owns as any transition does, `sysml:source` the decision ahead of it and `sysml:target`, and `sysx:transitionSyntax "target"`. A branch whose target is bound by position rather than named stays a `sysml:SuccessionAsUsage` with `sysx:guard`; graphs written with that form for every branch still read. Reading back, a branch the notation cannot state — one stating a source (`sysml:source` or `sysml:sourceFeature`) that is not the member before it, one stating a trigger, an effect or a body, or one with neither a guard nor `sysx:isElse`, which `then` alone would write as a succession — is refused rather than written as a different branch |
 | `public succession S first a if g then b;` (a guarded succession, which is a transition) | `sysml:TransitionUsage` | as a transition, with `sysx:declaredKeyword "succession"` for the keyword written; `sysx:transitionSyntax` is derived from where the AST places the source, not from the words ahead of it, so a visibility or a name does not change it. Written back, a named form always writes `first` (`succession S first a …`, `transition T first a …`), since only a nameless `transition` may state a bare source |
 | `while c { … }`, `loop { … } until c;` | `sysml:WhileLoopActionUsage` | `sysx:whileCondition`, `sysx:untilCondition` |
 | `for x in c { … }` | `sysml:ForLoopActionUsage` | `sysx:loopVariable`, `sysx:collection` |

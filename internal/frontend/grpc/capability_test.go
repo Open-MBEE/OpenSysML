@@ -217,6 +217,22 @@ func TestCapabilityGatedRequestsAreRefused(t *testing.T) {
 			})
 			return err
 		}},
+		{"convert compact", CapabilityConvertCompact, func(s *Service) error {
+			_, err := s.Convert(ctx, &pb.ConvertRequest{
+				Source:     &pb.ConvertRequest_Content{Content: "package P;"},
+				FromFormat: "sysml",
+				ToFormat:   "api-json",
+				Compact:    true,
+			})
+			return err
+		}},
+		{"parse sources affected", CapabilityParseSourcesAffected, func(s *Service) error {
+			_, err := s.ParseSources(ctx, &pb.ParseSourcesRequest{
+				Documents:     inlineDocuments("p.sysml", "package P;"),
+				BaseModelHash: "base",
+			})
+			return err
+		}},
 		{"inline language", CapabilityInlineLanguage, func(s *Service) error {
 			_, err := s.ParseFile(ctx, &pb.ParseFileRequest{
 				Source:   &pb.ParseFileRequest_Content{Content: "package P;"},
@@ -277,6 +293,10 @@ func TestCapabilityGatedRequestsAreRefused(t *testing.T) {
 		}},
 		{"execute state performer", CapabilityPerformer, func(s *Service) error {
 			_, err := s.ExecuteState(ctx, &pb.ExecuteStateRequest{PerformerSymbolId: "Wire::pair.craft"})
+			return err
+		}},
+		{"export graphs", CapabilityExportGraphs, func(s *Service) error {
+			_, err := s.ExportGraphs(ctx, &pb.ExportGraphsRequest{ModelHash: "any", Subject: "Any"})
 			return err
 		}},
 		{"render document html", CapabilityRenderDocumentHTML, func(s *Service) error {

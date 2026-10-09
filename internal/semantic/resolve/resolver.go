@@ -110,6 +110,9 @@ type Resolver struct {
 	// resolving holds the depth (see enter) of each lookup on the stack, so a
 	// re-entrant query of the same name fails instead of recursing.
 	resolving map[ast.Node]int
+	// featuring holds the depth of each featured-member lookup (featuredMember)
+	// on the stack, whose scope walk may resolve the very chain that began it.
+	featuring map[featuredKey]int
 	// redefining holds the depth of each redefinition target being resolved,
 	// whose generals are found by resolving the targets of other redefinitions.
 	redefining map[*ast.QualifiedName]int
@@ -144,7 +147,13 @@ type Resolver struct {
 	// own (see freshImportVisits).
 	importVisits map[importVisit]bool
 	importDepth  int
-	Diagnostics  []Diagnostic
+	// enumMembers are the members each import edge surfaces, kept while the
+	// enumeration in progress nests (enumDepth): the members an import brings
+	// do not depend on the path that reached its namespace, so a cycle of
+	// re-imports is enumerated once per edge, not once per path (issue #633).
+	enumMembers map[enumEdge][]*symbols.Symbol
+	enumDepth   int
+	Diagnostics []Diagnostic
 	// quiet is nonzero while a lookup is made on behalf of a semantic query
 	// rather than a reference in the document being resolved.
 	quiet int
@@ -261,6 +270,7 @@ func New(idx *symbols.Index) *Resolver {
 		initials:              map[*ast.InitialNode]*symbols.Symbol{},
 		imports:               map[ast.Node][]*ast.Import{},
 		importStack:           map[*ast.Import]bool{},
+		enumMembers:           map[enumEdge][]*symbols.Symbol{},
 		resolvingImports:      map[*ast.Import]bool{},
 		naming:                map[*symbols.Symbol]bool{},
 		valuesInProgress:      map[*ast.Usage]bool{},

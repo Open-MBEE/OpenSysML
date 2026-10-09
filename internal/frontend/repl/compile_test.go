@@ -12,6 +12,8 @@ import (
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/lexer"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/codegen"
 )
 
@@ -37,6 +39,14 @@ var compiledCases = []compiledCase{
 	{"Neg", []string{"5"}}, {"Neg", []string{"-9223372036854775808"}},
 	{"Logic", []string{"false", "true", "0"}}, {"Logic", []string{"false", "false", "0"}},
 	{"Logic", []string{"true", "true", "0"}}, {"Logic", []string{"true", "true", "5"}},
+	{"ExactRational", []string{"6", "0.1"}}, {"ExactRational", []string{"5", "0.0"}}, {"ExactRational", []string{"7", "0.09"}},
+	{"ExactRational", []string{"-6", "-1e308"}}, {"ExactRational", []string{"6", "0.1000000000000001"}},
+	{"RealAgainstNearest", []string{"0.1"}}, {"RealAgainstNearest", []string{"0.1000000000000001"}}, {"RealAgainstNearest", []string{"0.09999999999999999"}}, {"RealAgainstNearest", []string{"-0.1"}}, {"RealAgainstNearest", []string{"1e308"}}, {"RealAgainstNearest", []string{"-1e308"}}, {"RealAgainstNearest", []string{"0.0"}},
+	{"ExactWide", []string{"3"}}, {"ExactWide", []string{"-3"}}, {"ExactWide", []string{"0"}},
+	{"NegativePower", []string{"3"}}, {"NegativePower", []string{"-2"}}, {"NegativePower", []string{"0"}},
+	{"NegativePowerTiny", []string{"10"}}, {"NegativePowerTiny", []string{"1"}},
+	{"ExactHeldInteger", []string{"3"}}, {"ExactHeldInteger", []string{"3.0"}}, {"ExactHeldInteger", []string{"0.5"}},
+	{"ExactHeldCompare", []string{"3"}}, {"ExactHeldCompare", []string{"0.3"}}, {"ExactHeldCompare", []string{"2.5"}},
 	{"Compare", []string{"2.0", "2"}}, {"Compare", []string{"2.5", "2"}}, {"Compare", []string{"0.1", "1"}},
 	{"Sign", []string{"-9"}}, {"Sign", []string{"0"}}, {"Sign", []string{"3"}},
 	{"FirstAbove", []string{"50"}}, {"FirstAbove", []string{"0"}},
@@ -173,6 +183,7 @@ var compiledCases = []compiledCase{
 	{"Rec::ClosureOther", []string{"1.5"}},
 	{"Rec::Defaulted", []string{"1.5"}},
 	{"Rec::Overridden", []string{"1.5"}},
+	{"Rec::DefaultedTenth", []string{"1.5"}},
 	{"Rec::SeqFeature", []string{"1.5"}},
 	{"Rec::SeqEmpty", []string{"1.5"}},
 	{"Rec::InSeq", []string{"1.5"}},
@@ -371,6 +382,7 @@ var compiledCases = []compiledCase{
 	{"Str::Build", []string{`"xy"`, "0"}}, {"Str::Build", []string{`"é,"`, "600"}},
 	{"Str::Names", []string{"3"}}, {"Str::Names", []string{"200"}}, {"Str::ForS", []string{`("a", "b,c")`}}, {"Str::ForS", []string{"null"}},
 	{"Str::Ctrl", []string{"\"\u00a0\u00ad\u200b\U0001F600\""}},
+	{"Str::Ctrl", []string{"\"\a\v\x01\x1b\x7f\u0085\u2028\ufeff\""}},
 	{"Str::Seq", []string{`"` + strings.Repeat("long ", 30) + `"`}},
 	{"Str::Joined", []string{`("a", "b", "c")`}}, {"Str::Joined", []string{"()"}},
 	{"E::Id", []string{"Compiled::E::Color::green"}}, {"E::Id", []string{"Compiled::E::Color::blue"}}, {"E::Red", nil},
@@ -505,12 +517,28 @@ func beyondInt64(args []string) bool {
 	return false
 }
 
+// heldIntegerRefusals is the run-time refusal of a Go program whose Real
+// parameter, given an Integer, meets an exact Rational binary64 does not hold.
+var heldIntegerRefusals = map[string]string{
+	"ExactHeldInteger": "unsupported: exact Rational arithmetic '*' over a value binary64 does not hold exactly",
+	"ExactHeldCompare": "unsupported: '<' of an exact Rational binary64 does not hold exactly",
+}
+
+// heldIntegerRefused reports whether c is a run its Go program refuses as
+// heldIntegerRefusals records, where the interpreter succeeds or later runs out
+// of steps.
+func heldIntegerRefused(target codegen.Target, p *codegen.Program, c compiledCase, gotFailure, wantFailure string) bool {
+	want, ok := heldIntegerRefusals[c.calc]
+	return ok && target == codegen.TargetGo && integerForReal(p, c.args) && strings.HasPrefix(gotFailure, want) &&
+		(wantFailure == "" || strings.HasPrefix(wantFailure, "evaluation step limit exceeded"))
+}
+
 // integerForReal reports whether an argument in Integer notation is given for
 // a Real-typed parameter of p, which a compiled C program refuses as input: the
 // interpreter keeps that argument an Integer, and a C Real holds only binary64.
 func integerForReal(p *codegen.Program, args []string) bool {
 	for i, param := range p.Entry.Params {
-		if i >= len(args) || param.Type.Elem() != codegen.TypeReal {
+		if i >= len(args) || (param.Type.Elem() != codegen.TypeReal && param.Type.Elem() != codegen.TypeNum) {
 			continue
 		}
 		for _, tok := range strings.FieldsFunc(args[i], func(r rune) bool { return r == '(' || r == ')' || r == ',' }) {
@@ -606,6 +634,9 @@ func TestCompiledCalcsAgreeWithInterpreter(t *testing.T) {
 				}
 				wantValue, wantFailure := interpreted(t, s, c)
 				gotValue, gotFailure := compiledRun(t, exe, c)
+				if heldIntegerRefused(target, programs[c.calc], c, gotFailure, wantFailure) {
+					continue
+				}
 				if gotFailure == wantFailure && gotValue != wantValue && target == codegen.TargetC && transcendental[c.calc] && withinUlps(gotValue, wantValue, 2) {
 					continue
 				}
@@ -641,6 +672,78 @@ func TestCompiledCalcsAgreeWithInterpreter(t *testing.T) {
 			}
 			if out, err := exec.Command(exes["Hypot"], "--repeat", "3", "3.0", "4.0").Output(); err != nil || strings.TrimSpace(string(out)) != "5.0" {
 				t.Errorf("--repeat 3: got %q, %v", out, err)
+			}
+		})
+	}
+}
+
+// A String printed by the interpreter or a compiled program is a String literal
+// that reads back to the same String, so a result can be given as an argument.
+func TestCompiledStringResultsRoundTrip(t *testing.T) {
+	texts := []string{"\u200b", "\a\v\x01\x1b\x7f", "\u0085\u00a0\u00ad\u2028\u2029\ufeff", "\U0001F600\U000E0001", "\b\t\n\f\r\"'\\"}
+	for _, target := range codegen.Targets() {
+		t.Run(string(target), func(t *testing.T) {
+			t.Parallel()
+			if target == codegen.TargetC {
+				if _, err := exec.LookPath("cc"); err != nil {
+					t.Skip("no C compiler on PATH")
+				}
+			}
+			s := loadCompileFixture(t)
+			exe := filepath.Join(t.TempDir(), "StrStr")
+			buildCalc(t, s, "Str::StrStr", target, exe)
+			for _, text := range texts {
+				c := compiledCase{"Str::StrStr", []string{source.StringText(text)}}
+				printed, failure := interpreted(t, s, c)
+				if failure != "" {
+					t.Fatalf("%q: interpreter failed: %s", text, failure)
+				}
+				if got := source.StringValue(printed); got != text || len(lexer.InvalidEscapes(source.Span{}, printed)) > 0 {
+					t.Errorf("%q printed as %s, which reads back as %q", text, printed, got)
+				}
+				again := compiledCase{"Str::StrStr", []string{printed}}
+				for _, run := range []struct {
+					name   string
+					answer func() (string, string)
+				}{
+					{"compiled", func() (string, string) { return compiledRun(t, exe, c) }},
+					{"compiled, given the printed result", func() (string, string) { return compiledRun(t, exe, again) }},
+					{"interpreted, given the printed result", func() (string, string) { return interpreted(t, s, again) }},
+				} {
+					if value, failure := run.answer(); value != printed || failure != "" {
+						t.Errorf("%q %s = (%q, %q), want %s", text, run.name, value, failure, printed)
+					}
+				}
+			}
+		})
+	}
+}
+
+// A String holding a NUL, which only a literal in the model can, prints whole
+// on both targets, as the interpreter prints it.
+func TestCompiledStringResultHoldsNul(t *testing.T) {
+	model := "package Compiled { private import ScalarValues::*; calc def Nul { in a : String; return : String = \"x\x00\" + a + \"\x00y\"; } }"
+	c := compiledCase{"Nul", []string{"\"\u200b\""}}
+	for _, target := range codegen.Targets() {
+		t.Run(string(target), func(t *testing.T) {
+			t.Parallel()
+			if target == codegen.TargetC {
+				if _, err := exec.LookPath("cc"); err != nil {
+					t.Skip("no C compiler on PATH")
+				}
+			}
+			s := NewSession()
+			if errs := errorDiagnostics(s.Submit(model).Diagnostics); len(errs) > 0 {
+				t.Fatalf("model has errors: %v", errs)
+			}
+			want, failure := interpreted(t, s, c)
+			if failure != "" || want != "\"x\x00\u200b\x00y\"" {
+				t.Fatalf("interpreted = (%q, %q)", want, failure)
+			}
+			exe := filepath.Join(t.TempDir(), "Nul")
+			buildCalc(t, s, "Nul", target, exe)
+			if got, failure := compiledRun(t, exe, c); got != want || failure != "" {
+				t.Errorf("compiled = (%q, %q), want %q", got, failure, want)
 			}
 		})
 	}
@@ -763,6 +866,57 @@ func stepsTaken(t *testing.T, s *Session, c compiledCase, limit int64) (int64, b
 	return hi, true
 }
 
+// A step budget at the int64 limit still binds a compiled program: a range too
+// wide for it fails with the step-limit error, and the C counter, built with
+// the signed-overflow sanitizer, never overflows on the way.
+func TestCompiledStepBudgetAtTheInt64Limit(t *testing.T) {
+	limit := strconv.FormatInt(math.MaxInt64, 10)
+	want := "evaluation step limit exceeded (" + limit + " steps; raise OPENSYSML_MAX_STEPS to allow more)"
+	for _, target := range codegen.Targets() {
+		t.Run(string(target), func(t *testing.T) {
+			s := loadCompileFixture(t)
+			program, err := s.CompileCalc("Compiled::Seq::Sequence", target)
+			if err != nil {
+				t.Fatal(err)
+			}
+			exe := filepath.Join(t.TempDir(), "Sequence")
+			if target == codegen.TargetC {
+				buildSanitizedC(t, program, exe)
+			} else if err := codegen.Build(program, target, exe); err != nil {
+				t.Fatal(err)
+			}
+			cmd := exec.Command(exe, "--repeat", "2", limit)
+			cmd.Env = append(os.Environ(), runtime.MaxStepsEnvVar+"="+limit, runtime.MaxElementsEnvVar+"="+limit)
+			out, err := cmd.CombinedOutput()
+			var exit *exec.ExitError
+			if !errors.As(err, &exit) || exit.ExitCode() != 1 || !strings.Contains(string(out), want) || strings.Contains(string(out), "runtime error") {
+				t.Errorf("Seq::Sequence(%s) under a budget of %s: %v\n%s", limit, limit, err, out)
+			}
+		})
+	}
+}
+
+// buildSanitizedC builds program's C source into exe with the compiler's flags
+// and a sanitizer that aborts on signed overflow, skipping where cc lacks one.
+func buildSanitizedC(t *testing.T, program *codegen.Program, exe string) {
+	t.Helper()
+	if _, err := exec.LookPath("cc"); err != nil {
+		t.Skip("no C compiler on PATH")
+	}
+	src, err := codegen.Source(program, codegen.TargetC)
+	if err != nil {
+		t.Fatal(err)
+	}
+	path := exe + ".c"
+	if err := os.WriteFile(path, src, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	args := append(append([]string{}, codegen.CFlags...), "-fsanitize=signed-integer-overflow", "-fno-sanitize-recover=all", "-o", exe, path, "-lm")
+	if out, err := exec.Command("cc", args...).CombinedOutput(); err != nil {
+		t.Skipf("no signed-overflow sanitizer here: %v\n%s", err, out)
+	}
+}
+
 // A compiled program spends the interpreter's steps: with OPENSYSML_MAX_STEPS
 // at the least budget the interpreter needs it answers as the interpreter
 // does, and one step fewer it fails with the interpreter's step-limit error.
@@ -818,6 +972,9 @@ func TestCompiledStepBudgetMatchesInterpreter(t *testing.T) {
 						continue
 					}
 					gotValue, gotFailure := compiledRun(t, exe, c)
+					if heldIntegerRefused(target, programs[c.calc], c, gotFailure, wantFailure) {
+						continue
+					}
 					if gotFailure == wantFailure && gotValue != wantValue && target == codegen.TargetC && transcendental[c.calc] && withinUlps(gotValue, wantValue, 2) {
 						continue
 					}
@@ -899,6 +1056,12 @@ func TestCompileRefusesWhatItCannotCompile(t *testing.T) {
 		{"DynamicIntPow", "non-literal Integer exponent"},
 		{"Narrowed", "a Real bound to x, which is Integer"},
 		{"RecordParam", "parameter p takes a Refused::Point, a record, which a program cannot take on its command line"},
+		{"RationalParam", "type ScalarValues::Rational is not Integer, Real, Boolean, String or an enumeration"},
+		{"ExactProduct", "exact Rational arithmetic '*' over a value binary64 does not hold exactly"},
+		{"ExactPower", "'**' of an exact Rational by an Integer exponent"},
+		{"ExactCompare", "'<' of an exact Rational binary64 does not hold exactly"},
+		{"NegativePowerExact", "exact Rational arithmetic '*' over a value binary64 does not hold exactly"},
+		{"BeyondCompare", "literal 1e400 is outside the Real range"},
 		{"Extent", "operator 'all'"},
 		{"SelectNonBoolean", "select whose body yields Integer, not a Boolean"},
 		{"CollectNull", "collect whose body yields null"},

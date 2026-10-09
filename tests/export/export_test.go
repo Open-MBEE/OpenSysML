@@ -2,6 +2,7 @@ package export_test
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
@@ -2671,7 +2672,7 @@ func TestEndBindingBodiesComeBackFromTheGraphAlone(t *testing.T) {
 		"elmt:R89__Ctx__seam__coupling\n    a sysml:AttributeUsage ;",
 		"sysml:declaredName \"coupling\" ;",
 		"sysx:memberIndex \"0\"^^xsd:integer ;\n    sysml:owningNamespace elmt:R89__Ctx__seam ;",
-		"sysml:ownedMember elmt:R89__Ctx__seam__coupling ;",
+		"sysml:ownedMember expr:R89__Ctx__seam_pend0, expr:R89__Ctx__seam_pend1, elmt:R89__Ctx__seam__coupling ;",
 		"sysml:ownedFeature expr:R89__Ctx__seam_pend0, expr:R89__Ctx__seam_pend1, elmt:R89__Ctx__seam__coupling ;",
 		"sysml:ownedMembership ",
 		"elmt:R89__Ctx__seam__coupling_om",
@@ -3012,9 +3013,15 @@ func TestUnreadableNotationRefusesToSpellReferences(t *testing.T) {
 // inside the bodies that allow them.
 func TestBehavioralHeadsComeBackFromTheGraphAlone(t *testing.T) {
 	bodies := map[string]string{
-		"transition": "state def M {\n        state s1;\n        state s2;\n        transition first s1 accept e then s2;\n    }",
-		"accept":     "action def A {\n        accept x : Bus;\n    }",
-		"send":       "action def A {\n        send x to y;\n    }",
+		"transition":                  "state def M {\n        state s1;\n        state s2;\n        transition first s1 accept e then s2;\n    }",
+		"accept":                      "action def A {\n        accept x : Bus;\n    }",
+		"accept via":                  "action def A {\n        port p : Bus;\n        accept x : Bus via p;\n    }",
+		"send":                        "action def A {\n        send x to y;\n    }",
+		"guarded first":               "action def A {\n        action a;\n        action b;\n        first a if true then b;\n    }",
+		"guarded succession first":    "action def A {\n        action a;\n        action b;\n        succession first a if true then b;\n    }",
+		"unguarded action transition": "action def A {\n        action a;\n        action b;\n        transition first a then b;\n    }",
+		"named send":                  "action def A {\n        private action s send x to y;\n    }",
+		"named assign":                "action def A {\n        attribute v = 0;\n        action a assign v := 1;\n    }",
 	}
 	for name, body := range bodies {
 		t.Run(name, func(t *testing.T) {
@@ -4191,5 +4198,137 @@ func TestChainMembersAreQualifiedOnlyWhereTheirNameReadsAsAnother(t *testing.T) 
 		if !strings.Contains(back, want) {
 			t.Errorf("the notation should read %q\n%s", want, back)
 		}
+	}
+}
+
+// An accept node from a graph that states the metamodel alone, its payload
+// named by sysml:payloadParameter and flagged by no sysml:isAccept, comes
+// back as the same accept the flag gives.
+func TestAcceptNodeComesBackFromItsPayloadParameter(t *testing.T) {
+	src := "package P {\n    item def Order;\n    action def A {\n        action receive accept order : Order;\n        accept Order;\n    }\n}\n"
+	turtle, err := convert.Convert("m.sysml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
+	if err != nil {
+		t.Fatalf("to turtle: %v", err)
+	}
+	graph := withoutTriples(t, turtle, "sysx:sourceText")
+	flagged, err := convert.Convert("m.ttl", graph, convert.FormatTurtle, convert.FormatSysML)
+	if err != nil {
+		t.Fatalf("back to notation: %v", err)
+	}
+	unflagged, err := convert.Convert("m.ttl", withoutTriples(t, graph, "sysml:isAccept"), convert.FormatTurtle, convert.FormatSysML)
+	if err != nil {
+		t.Fatalf("back to notation without sysml:isAccept: %v", err)
+	}
+	if string(unflagged) != string(flagged) {
+		t.Errorf("without sysml:isAccept the accept nodes come back as\n%s\nnot as\n%s", unflagged, flagged)
+	}
+	if !strings.Contains(string(flagged), "action receive accept order : Order;") {
+		t.Errorf("the accept node did not come back:\n%s", flagged)
+	}
+}
+
+// A payload a graph names only by sysml:payloadParameter that owns members of
+// its own has no notation: the accept head writes the payload's declaration
+// alone. It is refused, rather than written as an accept without those
+// members or as an ordinary action without the accept.
+func TestPayloadWithMembersIsRefused(t *testing.T) {
+	src := "package P {\n    item def Order;\n    action def A {\n        action receive accept order : Order {\n            attribute n;\n        }\n    }\n}\n"
+	turtle, err := convert.Convert("m.sysml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
+	if err != nil {
+		t.Fatalf("to turtle: %v", err)
+	}
+	graph := string(withoutTriples(t, withoutTriples(t, turtle, "sysx:sourceText"), "sysml:isAccept"))
+	// Another writer's graph: `n` owned by the payload rather than the node.
+	for _, subject := range []string{"elmt:P__A__receive__n\n", "elmt:P__A__receive__n_om\n"} {
+		at := strings.Index(graph, subject)
+		end := strings.Index(graph[at:], "\n\n")
+		if at < 0 || end < 0 {
+			t.Fatalf("no block for %q in\n%s", subject, graph)
+		}
+		block := graph[at : at+end]
+		reowned := strings.NewReplacer("elmt:P__A__receive ;", "elmt:P__A__receive__order ;", "elmt:P__A__receive .", "elmt:P__A__receive__order .").Replace(block)
+		graph = graph[:at] + reowned + graph[at+end:]
+	}
+	back, err := convert.Convert("m.ttl", []byte(graph), convert.FormatTurtle, convert.FormatSysML)
+	var unsupported *export.UnsupportedError
+	if !errors.As(err, &unsupported) {
+		t.Errorf("converted to\n%s\nwant it refused, got error %v", back, err)
+	}
+}
+
+// An accept node's `via p` is the receiver parameter its AcceptActionUsage
+// names as receiverArgument, after the payload, as a transition's trigger has
+// it: no sysml:via, which the metamodel does not have.
+func TestAcceptNodeViaIsItsReceiverArgument(t *testing.T) {
+	src := "package P {\n    port def Bus;\n    action def A {\n        port p : Bus;\n        accept x : Bus via p;\n    }\n}\n"
+	out, err := convert.Convert("m.sysml", []byte(src), convert.FormatSysML, convert.FormatAPIJSON)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var elements []map[string]any
+	if err := json.Unmarshal(out, &elements); err != nil {
+		t.Fatal(err)
+	}
+	byID := map[string]map[string]any{}
+	for _, el := range elements {
+		byID[el["@id"].(string)] = el
+	}
+	accept := byID["P__A___401"]
+	if accept == nil || accept["@type"] != "AcceptActionUsage" {
+		t.Fatalf("no AcceptActionUsage P__A___401: %v", accept)
+	}
+	if _, stated := accept["via"]; stated {
+		t.Errorf("the accept states via: %v", accept["via"])
+	}
+	params, _ := accept["parameter"].([]any)
+	receiver, _ := accept["receiverArgument"].(map[string]any)
+	if len(params) != 2 || receiver == nil {
+		t.Fatalf("parameters %v, receiverArgument %v; want the payload and a receiver", params, receiver)
+	}
+	second := byID[params[1].(map[string]any)["@id"].(string)]
+	if value, _ := second["value"].(map[string]any); value == nil || value["@id"] != receiver["@id"] {
+		t.Errorf("the second parameter's value %v is not the receiverArgument %v", second["value"], receiver)
+	}
+	if expression := byID[receiver["@id"].(string)]; expression["@type"] != "FeatureReferenceExpression" {
+		t.Errorf("the receiverArgument is a %v, want a FeatureReferenceExpression", expression["@type"])
+	}
+}
+
+// An accept with prefix metadata and `via` converts: the receiver parameter
+// follows the prefixes, which take the indexes after the node's members.
+func TestPrefixedAcceptWithViaConverts(t *testing.T) {
+	src := "package P {\n    port def Bus;\n    metadata def Tag;\n    action def A {\n        port p : Bus;\n        #Tag accept x : Bus via p;\n    }\n}\n"
+	turtle, err := convert.Convert("m.sysml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
+	if err != nil {
+		t.Fatalf("to turtle: %v", err)
+	}
+	back, err := convert.Convert("m.ttl", withoutTriples(t, turtle, "sysx:sourceText"), convert.FormatTurtle, convert.FormatSysML)
+	if err != nil {
+		t.Fatalf("back to notation: %v", err)
+	}
+	if !strings.Contains(string(back), "#Tag accept x : Bus via p;") {
+		t.Errorf("the prefixed accept did not come back:\n%s", back)
+	}
+}
+
+// A graph stating both a receiver parameter and a sysml:via naming another
+// port is refused, rather than one of the two dropped.
+func TestAcceptWithDisagreeingViaIsRefused(t *testing.T) {
+	src := "package P {\n    port def Bus;\n    action def A {\n        port p : Bus;\n        port q : Bus;\n        accept x : Bus via p;\n    }\n}\n"
+	turtle, err := convert.Convert("m.sysml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
+	if err != nil {
+		t.Fatalf("to turtle: %v", err)
+	}
+	graph := string(withoutTriples(t, turtle, "sysx:sourceText"))
+	accept := "elmt:P__A___402\n"
+	at := strings.Index(graph, accept)
+	if at < 0 {
+		t.Fatalf("no accept block in\n%s", graph)
+	}
+	graph = graph[:at+len(accept)] + "    sysml:via elmt:P__A__q ;\n" + graph[at+len(accept):]
+	back, err := convert.Convert("m.ttl", []byte(graph), convert.FormatTurtle, convert.FormatSysML)
+	var unsupported *export.UnsupportedError
+	if !errors.As(err, &unsupported) {
+		t.Errorf("converted to\n%s\nwant it refused, got error %v", back, err)
 	}
 }

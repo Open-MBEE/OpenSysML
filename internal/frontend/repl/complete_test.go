@@ -117,7 +117,7 @@ func TestCompleteNames(t *testing.T) {
 // TestCompletePaths covers the file paths %load and %save complete to.
 func TestCompletePaths(t *testing.T) {
 	dir := t.TempDir()
-	for _, name := range []string{"model.sysml", "other.sysml"} {
+	for _, name := range []string{"model.sysml", "other.sysml", "notes.ipynb"} {
 		if err := os.WriteFile(filepath.Join(dir, name), []byte("part def A;\n"), 0o600); err != nil {
 			t.Fatalf("write %s: %v", name, err)
 		}
@@ -135,7 +135,12 @@ func TestCompletePaths(t *testing.T) {
 		{
 			name:  "every entry of a directory",
 			line:  "%load " + dir + "/",
-			wants: []string{dir + "/model.sysml", dir + "/other.sysml", dir + "/nested/"},
+			wants: []string{dir + "/model.sysml", dir + "/other.sysml", dir + "/notes.ipynb", dir + "/nested/"},
+		},
+		{
+			name:  "a notebook completes after the cell selection",
+			line:  "%load --cells 1,3 " + dir + "/no",
+			wants: []string{dir + "/notes.ipynb"},
 		},
 		{
 			name:    "narrowed by what is typed",

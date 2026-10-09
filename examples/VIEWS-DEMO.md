@@ -1,7 +1,7 @@
 # Views and rendering demo
 
-[`views-demo.sysml`](views-demo.sysml) is a lander and the views that present it,
-one view per rendering kind, so that `%view` and `%render` each have something to
+[`views-demo.sysml`](views-demo.sysml) is a lander and views that present it, one
+per demonstrated rendering kind, so that `%view` and `%render` each have something to
 show. A rendering is tool-defined output — SysML v2 §10.2 leaves rendering to the
 tool — so what comes out is OpenSysML's own notation rather than a standard
 interchange form.
@@ -33,7 +33,7 @@ The view satisfies a viewpoint that frames a mass concern, so that concern is
 checked against each exposed lander: `descender` is within the budget,
 `heavyDescender` is over it and named as the violation.
 
-## `%render` — the five kinds
+## `%render` — the rendering kinds
 
 A view states its rendering with a `render` member, or inherits it from the
 standard view definition it specializes, or states none and renders as a
@@ -46,9 +46,20 @@ containment tree.
 | `%render LanderViews::partsTable` | table | `render asElementTable` |
 | `%render LanderViews::descentStates` | state | `: StateTransitionView` |
 | `%render LanderViews::descentFlow` | action | `: ActionFlowView` |
+| `%render LanderViews::useCases` | case | `render asCaseDiagram` |
+| `%render LanderViews::mixedOverview` | mixed | `render asMixedDiagram` |
+
+`CaseView` and `MixedView` from `OpenSysMLRenderings` provide the same selections by view-definition
+specialization. Case diagrams show use, analysis and verification cases with their actors, subjects
+and documented objectives. Mixed diagrams combine package structure, interconnections, states,
+actions and cases on one canvas; `#case` and `#mixed` render loaded model content without a
+declared view.
 
 The tree renders the exposed elements and each nested view as a subtree of its
-own:
+own, then lists the relationships between the elements it drew — here the typing
+of each descender by the `Descender` definition the nested view shows, and the
+redefinition of `mass` each states — as the lines a block definition diagram
+draws between its boxes:
 
 ```
 LanderViews::overview - tree rendering (the view states no rendering; a tree is the default)
@@ -60,7 +71,19 @@ part Lander::heavyDescender : Descender
 view LanderViews::overview::interfaceSubview
   part def Lander::Descender
     …
+
+relationships:
+  Lander::descender ..|> Lander::Descender
+  mass --|> mass: redefines
+  Lander::heavyDescender ..|> Lander::Descender
+  mass --|> mass: redefines
 ```
+
+A composition from a definition to the definition typing a part it owns is drawn
+the same way (`Lander::Descender *-- Lander::Tank: tank`) when both are exposed,
+with a filled diamond at the owner in the diagram forms; a `ref` or an attribute
+draws a hollow one. A usage's typing is left to that composition, or to the
+nesting when the typing definition is drawn inside the owner.
 
 The interconnection rendering shows exposed features as nodes and the
 connections and flows between them as edges:

@@ -1,0 +1,17 @@
+{
+  "type": "instance",
+  "libraries": true,
+  "instantiate": "test::sample",
+  "validation": {
+    "verdicts": [
+      {"kind": "constraint", "assertion": "assert constraint boundTenth", "status": "holds"},
+      {"kind": "constraint", "assertion": "assert constraint boundThird", "status": "holds"},
+      {"kind": "constraint", "assertion": "assert constraint tenthNeitherAboveNorBelow", "status": "holds"},
+      {"kind": "constraint", "assertion": "assert constraint thirdAtRealPrecision", "status": "holds"},
+      {"kind": "constraint", "assertion": "assert constraint rationalsExact", "status": "holds"},
+      {"kind": "constraint", "assertion": "assert constraint beyondRange", "status": "holds"},
+      {"kind": "constraint", "assertion": "assert constraint integerExact", "status": "holds"}
+    ],
+    "valid": true
+  }
+}

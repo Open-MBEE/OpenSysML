@@ -28,4 +28,5 @@ digraph "VehicleViews::vehicleView" {
   "n5" -> "n7" [arrowhead=none, dir=back, arrowtail=diamond];
   "n4" -> "n5" [arrowhead=none, dir=back, arrowtail=diamond];
   }
+  "n0" -> "n5" [label="engine", dir=back, arrowtail=diamond];
 }

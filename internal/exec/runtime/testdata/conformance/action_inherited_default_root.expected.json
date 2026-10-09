@@ -3,8 +3,8 @@
 	"evaluate": "test::Derived",
 	"outputs": {
 		"x": {"type": "Integer", "value": 10},
-		"z": {"type": "Integer", "value": 6},
+		"z": {"type": "Integer", "value": 20},
 		"y": {"type": "Integer", "value": 4},
-		"r": {"type": "Integer", "value": 6}
+		"r": {"type": "Integer", "value": 20}
 	}
 }

@@ -55,3 +55,11 @@ The keyword spellings keep parsing and lower identically; they are deprecated �
 warning names the replacement and a quick-fix performs it — and the SysML v1 migrator
 emits the metadata form (qualified `#StateMachines::<kind>`, so a member named `choice`
 cannot shadow the annotation).
+
+## Related: `StateActivity`
+
+The second state-related extension library, `OpenSysML Libraries/StateActivity.kerml`, is
+independent of this one: it declares `isActive : Boolean[1]` as a derived feature `featured by
+States::StateAction`, so a model that imports it reads `fill.isActive` from a guard, a constraint
+or another state's behavior. See [spec-compliance.md § State Activity](spec-compliance.md#state-activity-opensysml-librariesstateactivitykerml-an-opensysml-extension-non-normative)
+and the behavior guide's note on reading whether a state is active.

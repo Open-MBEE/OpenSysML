@@ -98,7 +98,7 @@ package 'Pump System' {
     }
     part def Motor;
     part def Controller;
-    part def 'Design Note' {
+    occurrence def 'Design Note' {
         @Legacy::Requirement {
             Text = "Kept for reference only.";
         }

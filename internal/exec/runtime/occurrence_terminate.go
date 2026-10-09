@@ -110,7 +110,7 @@ func (ctx *Context) noteEndingUndo(b *ObjectBehavior) {
 		captured.captureState(b.State)
 		captured.captureRunState(b.State.driven.state)
 	}
-	ctx.noteProbeUndo(captured.restore)
+	ctx.noteProbeUndo(func() { captured.restore(ctx) })
 }
 
 // endsWith reports whether the executor's performance ends with the objects ended:
@@ -178,7 +178,7 @@ func (e *StateExecutor) endTerminated() {
 	}
 	abandoned := e.abandonMachine()
 	if e.trace() != nil {
-		e.trace().RecordStateEndedWithOccurrence(symbolText(e.stateMachine), abandoned)
+		e.trace().RecordStateEndedWithOccurrence(e.traceOrigin(), symbolText(e.stateMachine), abandoned)
 	}
 	e.state = StateTerminated
 	e.ctx.endPerformanceLife(e.occurrence)

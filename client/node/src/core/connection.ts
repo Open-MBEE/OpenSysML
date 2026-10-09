@@ -12,6 +12,7 @@ import { create } from "@bufbuild/protobuf";
 import {
   CAPABILITY_APPLY_EDITS,
   CAPABILITY_BIG_INT_VALUES,
+  CAPABILITY_RATIONAL_VALUES,
   CAPABILITY_CONVERT,
   CAPABILITY_DOCUMENT_QUERY,
   CAPABILITY_ENGINES,
@@ -25,6 +26,7 @@ import {
   CAPABILITY_RENDER_DOCUMENT,
   CAPABILITY_RENDER_DOCUMENT_HTML,
   CAPABILITY_RENDER_VIEW,
+  CAPABILITY_EXPORT_GRAPHS,
   CAPABILITY_SCHEDULE,
   CAPABILITY_SCHEDULE_EXPLORE,
   CAPABILITY_STRICT_CONFORMANCE,
@@ -57,6 +59,7 @@ import {
   QueryRequestSchema,
   RenderDocumentRequestSchema,
   RenderViewRequestSchema,
+  ExportGraphsRequestSchema,
   RunAnalysisRequestSchema,
   RunDocumentQueryRequestSchema,
   RunSweepRequestSchema,
@@ -77,6 +80,7 @@ import {
   type Query,
   type RunAnalysisResponse,
   type RenderViewResponse,
+  type ExportGraphsResponse,
   type Verdict as PbVerdict,
   type VerificationVerdict as PbVerificationVerdict,
 } from "../generated/sysml_pb.js";
@@ -107,6 +111,8 @@ import {
 } from "./query.js";
 import {
   bindingHoldsBigInt,
+  bindingHoldsRational,
+  bindingRationalsAsReals,
   buildBindings,
   documentEventOf,
   documentResult,
@@ -115,6 +121,7 @@ import {
   type DocumentQueryResult,
 } from "./document.js";
 import { renderedViewOf, type RenderedView } from "./render-view.js";
+import { type Graphs, graphsOf } from "./graphs.js";
 import {
   engineInfoOf,
   standingOf,
@@ -566,6 +573,12 @@ export class Connection {
     if (wire.some(bindingHoldsBigInt)) {
       requireCapability(this.info, CAPABILITY_BIG_INT_VALUES, upgradeRemedy(CAPABILITY_BIG_INT_VALUES));
     }
+    if (!this.info.has(CAPABILITY_RATIONAL_VALUES)) {
+      wire.forEach(bindingRationalsAsReals);
+    }
+    if (wire.some(bindingHoldsRational)) {
+      requireCapability(this.info, CAPABILITY_RATIONAL_VALUES, upgradeRemedy(CAPABILITY_RATIONAL_VALUES));
+    }
     const response = await callRpc(
       this.rpc.runDocumentQuery(
         create(RunDocumentQueryRequestSchema, {
@@ -683,6 +696,27 @@ export class Connection {
       capabilityRefusal(this.info, capabilities),
     );
     return renderedViewOf(response);
+  }
+
+  /**
+   * Exports the lowered graph of an action or state machine, and of every
+   * behavior it performs, as the canonical `graphs:1` JSON an external
+   * analysis engine is sent.
+   */
+  async exportGraphs(modelHash: string, subject: string): Promise<Graphs> {
+    const capabilities = [CAPABILITY_EXPORT_GRAPHS];
+    for (const capability of capabilities) {
+      requireCapability(this.info, capability, upgradeRemedy(capability));
+    }
+    const response: ExportGraphsResponse = await callRpc(
+      this.rpc.exportGraphs(
+        create(ExportGraphsRequestSchema, { modelHash, subject }),
+        this.callOptions(),
+      ),
+      "model",
+      capabilityRefusal(this.info, capabilities),
+    );
+    return graphsOf(response);
   }
 
   /** Executes an action definition. */

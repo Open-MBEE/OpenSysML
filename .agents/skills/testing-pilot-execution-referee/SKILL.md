@@ -60,14 +60,16 @@ go run -C tools ./cmd/pilot-exec-diff          # ~13 s wall with the default fix
 
 Use `-cases DIR` for another directory of `.cases` files, `-out DIR`,
 `-launcher PATH`, `-repo DIR`. Each `.cases` file lists `model: <repo-relative-path>`
-lines followed by `id :: target :: expression` lines. Reports go to
+lines followed by `id :: target :: expression` lines; a `by-design: <clause>` line marks the
+cases after it, so a disagreement among them buckets `differs-by-design` with the clause in the
+report. Reports go to
 `build/pilot-exec-diff/pilot-exec-diff.{txt,json}`.
 
-Reference values at the current implementation (446 cases, all twenty default
+Reference values at the current implementation (456 cases, all twenty-one default
 fixtures):
-`agree 211 · kind-only 1 · order-only 0 · disagree 30 · pilot-unevaluated 124 ·
-pilot-silent 21 · pilot-error 9 · ours-error 10 · ours-undetermined 28 · both-error 12 ·
-nondeterministic 0`.
+`agree 217 · kind-only 1 · order-only 0 · disagree 29 · differs-by-design 5 ·
+pilot-unevaluated 124 · pilot-silent 21 · pilot-error 5 · ours-error 10 · ours-undetermined 28 ·
+both-error 16 · nondeterministic 0`.
 Four of the nine `pilot-error` are the whole of `unknown_bounds.cases`: the pilot rejects a
 model whose multiplicity bound names a valueless feature (`a : Real[n]`, `Must have a Natural
 value`) and resolves nothing in it afterwards, which is why those cases have a model of their
@@ -148,8 +150,8 @@ pilot answers the representation's own. See
   `pilot-exec-diff: <file>:<line>: model no/such/model.sysml: stat <abs>: no
   such file or directory`.
 - **Additivity.** `go run -C tools ./cmd/pilot-diff` must still print the headline the
-  committed baseline holds (`384 file(s), 355 fully agreeing; 45 agreed
-  diagnostic(s), 44 only ours, 85 only the pilot's` at the `2026-08` pin — read it from the baseline JSON, not from this line, since each
+  committed baseline holds (`391 file(s), 353 fully agreeing; 45 agreed
+  diagnostic(s), 282 only ours, 92 only the pilot's` at the `2026-08` pin — read it from the baseline JSON, not from this line, since each
   fix round moves it) and `jq -S` diff clean against
   `docs/project/pilot-differential-baseline.json`; `git status --porcelain`
   empty at the end.

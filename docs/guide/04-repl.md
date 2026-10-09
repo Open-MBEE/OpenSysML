@@ -118,7 +118,13 @@ loaded file, edit it and load it again. Tab completion completes paths after `%l
 and meta-commands and symbol names everywhere else.
 
 A specifically named API element-form `.json` file is converted and loaded; directory and glob
-expansion still collects only `.sysml` and `.kerml` files.
+expansion collects `.sysml` and `.kerml` files and `.ipynb` notebooks.
+
+A Jupyter notebook (`.ipynb`) loads its code cells, in order, for what they declare: each cell
+is a source of its own, named `<notebook> cell <n>` in diagnostics, and the cells' `%` command
+lines and expressions are skipped rather than run — the load report counts them. `--cells 1,3-5`
+or `--cells tag:<tag>` picks cells; a cell tagged `skip-load` is never loaded. See
+[Reusing another notebook](12-jupyter.md#reusing-another-notebook).
 
 A loaded file's imports are followed to its neighbors: when a file imports a root namespace that
 neither the loaded files nor the standard library declare, the `.sysml` and `.kerml` files beside
@@ -299,10 +305,12 @@ member before a name nested inside another element.
 ## Rendering a view
 
 `%render <name>` renders the exposed elements in the form the view's `render` member specifies: a
-containment tree with nested views as subtrees, an interconnection diagram of the exposed parts
+containment tree with nested views as subtrees and the relationships between the elements it
+draws, an interconnection diagram of the exposed parts
 and the connections between them, a state machine's states and transitions, an action's nodes and
-successions, or a table of the exposed elements. A view that specifies no rendering is drawn
-as a tree:
+successions, a case diagram of cases and their actors, subjects and objectives, a mixed canvas
+combining structure, behavior and cases, or a table of the exposed elements. A view that specifies
+no rendering is drawn as a tree:
 
 ```
 sysml> %render Demo::summary
@@ -314,14 +322,40 @@ part def Demo::Vehicle
 view Demo::summary::detail
   part def Demo::Wheel
     attribute diameter : Real
+
+relationships:
+  Demo::Vehicle *-- Demo::Wheel: wheel
 ```
+
+The tree draws the lines a block definition diagram shows between its boxes, wherever both
+ends are drawn: a specialization, subsetting or redefinition from an element to its general one
+(a hollow triangle at the general end), a composition (filled diamond at the owner) or reference
+(hollow diamond) from an element to the definition typing a part, item, port, attribute or `ref`
+usage it owns, labelled with the usage's name and multiplicity, and the typing of a usage whose
+owner is not drawn (a dashed line to the definition). A composition is not drawn to a definition
+nested in its owner, since the nesting already shows it, nor is a usage's typing drawn when its
+owner's composition stands for it. A `Route` about the usage steers its composition edge; a
+specialization or typing has no member of its own and is routed by the drawing.
 
 A view that states `render asElementTable;` is rendered as aligned columns instead, listing the
 exposed elements, what they declare, and the views nested inside the rendered view.
 
-`%render <name> mermaid` writes a graph-shaped rendering as a Mermaid diagram, and
-`%render <name> markdown` writes a table as a Markdown table. Either can be pasted straight
-into a Markdown document or an editor. A diagram node is labelled the way the graphical notation
+The bundled `OpenSysMLRenderings` library selects cases with `render asCaseDiagram;` and mixed content
+with `render asMixedDiagram;`; `CaseView` and `MixedView` provide the same choices by specialization.
+For a model with no declared view, `%render #case` and `%render #mixed` draw the loaded content, and
+`#case:<element>` or `#mixed:<element>` draws one element directly.
+
+`%viz <name> [<name>...]` is the OMG pilot kernel's spelling of the same: it draws several named
+elements in one rendering, choosing the kind from what the names resolve to (a state def draws a
+state rendering, a part with connections an interconnection, a package a tree, a mixed set a mixed
+rendering) unless `--view <VIEW>` names one, and takes the pilot's `--style` words — `LR` and `TB`
+set the direction, and a style no form here draws is noted as not represented rather than dropped.
+`%viz --view STATE P::Lamp mermaid` writes what `%render #state:P::Lamp mermaid` writes.
+
+`%render <name> mermaid` writes a graph-shaped rendering as a Mermaid diagram, `dot` as Graphviz
+DOT, and `plantuml` as PlantUML. `%render <name> markdown` writes a table as a Markdown table.
+These forms can be pasted straight into a document or an editor. A diagram node is labelled the way
+the graphical notation
 heads a compartment — the kind in guillemets, `«part»`, first, then the name, `wheel : Wheel`, on
 the next line — while the text form above keeps the keyword leading, as the notation declares it.
 If you ask for a form the rendering kind does not support, the REPL tells you which form it does

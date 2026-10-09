@@ -103,3 +103,110 @@ func TestReadRecorderHearsWhatIsRead(t *testing.T) {
 		t.Fatalf("reads reported after the recorder was removed: %v", rec.names)
 	}
 }
+
+// A document replaced by one declaring the same names re-registers every name
+// its wildcard imports surface; those still name the same symbols, surfaced the
+// same way, so none is a change. Its own declarations are new symbols, and are.
+func TestTakeChangesLeavesOutWhatIsRegisteredAgainAsItWas(t *testing.T) {
+	idx := buildIndex(t, map[string]string{
+		"lib.sysml": "package L { part def A; part def B; }",
+		"app.sysml": "package P { public import L::*; part def X; }",
+	})
+	idx.ExpandWildcardImports()
+	idx.TrackChanges()
+	replace := func(name, src string) {
+		addDoc(t, idx, name, src)
+		idx.ExpandWildcardImports()
+	}
+	replace("app.sysml", "package P { public import L::*; part def X; } // edited")
+	ch := idx.TakeChanges()
+	if ch.Names["P::A"] || ch.Names["P::B"] {
+		t.Errorf("re-exports registered again as they were are changes: %v", keys(ch.Names))
+	}
+	if !ch.Names["P::X"] || !ch.Docs["app.sysml"] {
+		t.Errorf("the replacement's own declaration is not a change: names %v, docs %v", keys(ch.Names), keys(ch.Docs))
+	}
+
+	// Surfaced privately instead, the same symbols read differently.
+	replace("app.sysml", "package P { private import L::*; part def X; }")
+	if ch := idx.TakeChanges(); !ch.Names["P::A"] || !ch.Names["P::B"] {
+		t.Errorf("re-exports hidden by a private import are not changes: %v", keys(ch.Names))
+	}
+	// No longer imported, they are gone.
+	replace("app.sysml", "package P { part def X; }")
+	if ch := idx.TakeChanges(); !ch.Names["P::A"] || !ch.Names["P::B"] {
+		t.Errorf("re-exports dropped with their import are not changes: %v", keys(ch.Names))
+	}
+	// Imported again from a library parsed again, they name new symbols.
+	replace("app.sysml", "package P { public import L::*; part def X; }")
+	idx.TakeChanges()
+	replace("lib.sysml", "package L { part def A; part def B; } // edited")
+	if ch := idx.TakeChanges(); !ch.Names["L::A"] || !ch.Names["P::A"] {
+		t.Errorf("a library parsed again leaves its declarations and their re-exports unchanged: %v", keys(ch.Names))
+	}
+}
+
+// A re-export two documents surface outlives the replacement of one of them
+// under the other's claim. The replacement's claim is compared with the one it
+// held before: the same import is no change, a differently stated one is.
+func TestTakeChangesComparesAReplacedClaimBesideTheOnesThatStayed(t *testing.T) {
+	idx := buildIndex(t, map[string]string{
+		"base.sysml": "package L { metadata def M; part def A; }",
+		"a.sysml":    "package P { public import L::*; }",
+		"b.sysml":    "package P { public import L::*; }",
+	})
+	idx.TrackChanges()
+	replace := func(src string) Changes {
+		addDoc(t, idx, "b.sysml", src)
+		idx.ExpandWildcardImports()
+		return idx.TakeChanges()
+	}
+	if ch := replace("package P { public import L::*; } // edited"); ch.Names["P::A"] {
+		t.Errorf("a re-export claimed again as it was is a change: %v", keys(ch.Names))
+	}
+	// Claimed privately beside a public claim, the name stays exported; the
+	// claims alone read differently.
+	if ch := replace("package P { private import L::*; }"); !ch.Names["P::A"] {
+		t.Errorf("a re-export claimed privately where it was public is not a change: %v", keys(ch.Names))
+	}
+	if ch := replace("package P { private import L::*; } // edited"); ch.Names["P::A"] {
+		t.Errorf("a re-export claimed privately again is a change: %v", keys(ch.Names))
+	}
+	// A second import widens the claim's routes after the first recorded them.
+	if ch := replace("package P { private import L::*; public import L::*; }"); !ch.Names["P::A"] {
+		t.Errorf("a re-export whose routes widened is not a change: %v", keys(ch.Names))
+	}
+	if ch := replace("package P { private import L::*; public import L::*; } // edited"); ch.Names["P::A"] {
+		t.Errorf("a re-export whose routes were recorded again as they were is a change: %v", keys(ch.Names))
+	}
+	// A filter's condition is the expression declaring it, so one parsed again
+	// is another condition and the route it gates another route.
+	if ch := replace("package P { private import L::*[@M]; }"); !ch.Names["P::A"] {
+		t.Errorf("a re-export gated where it was not is not a change: %v", keys(ch.Names))
+	}
+	if ch := replace("package P { private import L::*[@M]; } // edited"); !ch.Names["P::A"] {
+		t.Errorf("a re-export gated by a condition parsed again is not a change: %v", keys(ch.Names))
+	}
+}
+
+// What a registration noted before a write reads is what the index held then,
+// whatever the writes since did to the claims under the same key.
+func TestNotedRegistrationIsUnmovedByLaterClaims(t *testing.T) {
+	idx := buildIndex(t, map[string]string{
+		"base.sysml": "package L { part def A; }",
+		"a.sysml":    "package P { public import L::*; }",
+		"b.sysml":    "package P { private import L::*; }",
+	})
+	idx.TrackChanges()
+	before := registrationOf(idx, "P::A")
+	addDoc(t, idx, "b.sysml", "package P { private import L::*; public import L::*; }")
+	idx.ExpandWildcardImports()
+	if before.same(registrationOf(idx, "P::A")) {
+		t.Fatal("the registration noted before b.sysml widened its claim reads as the one after")
+	}
+	addDoc(t, idx, "b.sysml", "package P { private import L::*; }")
+	idx.ExpandWildcardImports()
+	if !before.same(registrationOf(idx, "P::A")) {
+		t.Fatal("b.sysml claiming as it first did does not read as the registration noted then")
+	}
+}

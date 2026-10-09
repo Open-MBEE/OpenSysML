@@ -22,24 +22,21 @@ config:
     edgeLabelBackground: "#FFFFFF"
   flowchart:
     subGraphTitleMargin:
-      bottom: 48
+      bottom: 24
 ---
 %% FlowViews::driveView — action rendering (render asInterconnectionDiagram, view def ActionFlowView)
 %% not represented: 2 fork/join name(s) (split, sync); Mermaid's fork bar draws no label
 %% not represented: 1 pin(s) not drawn (provide.fuel); a flowchart draws the pins an edge ends at
 flowchart TD
-  subgraph n0 ["`*«action def»*
-**Drive**`"]
+  subgraph n0 ["`*«action def»* **Drive**`"]
     direction TD
     n1@{ shape: f-circ, label: "" }
-    subgraph n2 ["`*«action»*
-**provide : Provide**`"]
+    subgraph n2 ["`*«action»* **provide : Provide**`"]
       direction TD
       n2_anchor[" "]
       n2_p1["torque"]
     end
-    subgraph n3 ["`*«action»*
-**monitor**
+    subgraph n3 ["`*«action»* **monitor**
 own flow`"]
       direction TD
       n3_anchor[" "]

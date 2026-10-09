@@ -24,7 +24,13 @@ Load files and enter interactive mode:
 ```bash
 sysml model.sysml
 sysml types.sysml instances.sysml
+sysml wheels.ipynb
 ```
+
+A file argument is a `.sysml` or `.kerml` file, a directory or glob pattern (every `.sysml`,
+`.kerml` and `.ipynb` under it), an API element-form `.json` file, or a Jupyter notebook
+(`.ipynb`), whose code cells load as `%load` loads them: declarations only, `%` command lines and
+expressions skipped and counted ([Reusing another notebook](../guide/12-jupyter.md#reusing-another-notebook)).
 
 ## Non-Interactive Mode
 
@@ -232,9 +238,11 @@ the same member-path parser as `Project` and `OrderBy`.
 | `--debug` | | Report every diagnostic over the whole session buffer, with the pass that produced it |
 | `--quiet` | | Report errors only, suppressing warnings |
 | `--strict` | | Judge the model as conforming SysML v2: notation no pinned production admits is an error, not a warning (see [Strict conformance](../guide/03-command-line.md#strict-conformance)) |
-| `--disable-lint <code>` | | Leave the named [lint](diagnostics.md) out of the diagnostics: `undeclared-signal`, `port-type-mismatch` or `deferred-keeper-unmarked`; comma-separated or repeated. An unknown code is a usage error |
+| `--disable-lint <code>` | | Leave the named [lint](diagnostics.md) out of the diagnostics: `undeclared-signal`, `port-type-mismatch`, `deferred-keeper-unmarked` or `rounded-real-literal`; comma-separated or repeated. An unknown code is a usage error |
+| `--enable-lint <code>` | | Report the named opt-in [lint](diagnostics.md), off by default, in the diagnostics: `rounded-real-literal`; comma-separated or repeated. `--disable-lint` wins over it, and an unknown code is a usage error |
 | `--no-record-cache` | | Parse every file loaded and hold it loaded, reading no interface record from the record cache and writing none: what a run does where `OPENSYSML_RECORD_CACHE=0`. By default a file whose bytes, library, conformance mode and record format match a record in the cache is held as that record — its scopes and symbols without its tree, and the diagnostics its analysis found — and a file analyzed by `-validate`, `-satisfy` or another load writes its record for the next run; see [Interface records](../internals/interface-records.md) |
 | `--trace` | | Report each execution step: expression evaluation, calc invocation, action tokens, state transitions, each `choice` the executor made among alternatives the library leaves unordered, naming the alternatives and the one taken, and each `unevaluable guard` it read only to report one and could not evaluate ([Choice points](../guide/06-behavior.md)). Under `-schedule explore` the table is printed first, then the trace of one witness run per distinct outcome, each under a `trace of outcome <n>'s witness (run <r>):` heading ([Exploring every linearization](#exploring-every-linearization)) |
+| `--render-run <kind>=<path>` | | Repeatable; write a recorded run's `timeline` or `sequence` as text, Mermaid or PlantUML. The extension `.txt`, `.mmd`/`.mermaid` or `.puml`/`.plantuml` selects a form; use `-render-form` for another extension. `-render-link` links PlantUML timeline lanes and single-state spans and sequence object participants; Mermaid gantt and messages remain unlinked. DOT is refused. Requires `-state`, `-action` or `-advance` and cannot be combined with model/document rendering or schedule exploration |
 | `--convert <format>` | | Convert the model instead of running it: `sysml`, `kerml`, `ttl`, `turtle`, `rdf`, `api-json` or `json`. `ttl` writes the RDF graph in Turtle, `api-json` the same graph as the API's JSON element objects; both are [experimental](rdf-mapping.md#status-experimental) and every run that converts either says so on stderr (see [the RDF mapping](rdf-mapping.md)). The model argument may be a Flexo MMS project branch URL — `http(s)://host[:port][/base]/projects/{project}/branches/{branch}` or `flexo://{project}/{branch}` — both naming the endpoint `FLEXO_SYSMLV2_URL` configures — which is read as its head commit's RDF graph; see [Reading and pushing a repository branch](#reading-and-pushing-a-repository-branch) |
 | `--migrate <format>` | | Migrate a SysML v1 model — UML XMI, an Eclipse UML2 `.uml` file or a MagicDraw/Cameo `.mdzip` archive — to SysML v2 instead of running it, writing `sysml`, `kerml`, `ttl`, `turtle` or `rdf`. A migration is ledgered, not lossless: every v1 element is **mapped**, **approximated**, **unmapped** or **skipped**, and the run says so in a one-line summary, or element by element with `-migration-report`. The input is named by its `.xmi`, `.uml` or `.mdzip` extension or by `--from`; v2 input is refused with a pointer at `--convert`, and `--convert` on a v1 model is refused with a pointer here, since a migration is not a conversion (experimental; see [SysML v1 migration](sysml-v1-migration.md)) |
 | `--from <format>` | | Input format for `--convert` or `--migrate`: the `--convert` formats, `xmi`/`uml`/`mdzip` for a SysML v1 model to `--migrate`, or `fmu` for a Functional Mock-up Unit to import as a `calc def` evaluated through the `tool:fmi` engine (experimental; default: from the input's extension; `.xmi`, `.uml`, `.mdzip` and `.fmu` are recognized) — see [SysML v1 migration](sysml-v1-migration.md) and [FMI models (FMUs)](fmi.md) |
@@ -243,15 +251,20 @@ the same member-path parser as `Project` and `OrderBy`.
 | `--image-base-url <url>` | | With `--migrate`: the absolute http(s) URL a comment's relative `<img src>` — a path the View Editor serves, such as `/projects/.../png` — is resolved against, so the migrated document's `Image` block points at the server instead of losing the image (see [SysML v1 migration](sysml-v1-migration.md)) |
 | `--render <view>` | | Render this view of the model (every file named, loaded as one) instead of running it, in the form its `render` member states (see [Rendering a view](#rendering-a-view)) |
 | `--render-all <dir>` | | Render every declared view into the directory, one artifact per view |
-| `--render-form <form>` | | Form `--render` or `--render-all` writes: `text`, `mermaid`, `markdown`, `dot`, `plantuml`, `d2`, `csv` or `tsv` (default: destination-dependent for `--render`, each kind's machine-readable form for `--render-all`) |
+| `--graphs <subject>` | | Write the lowered graph of this action or state machine, and of every behavior it performs, as the canonical `graphs:1` JSON an external analysis engine is sent ([the `graphs:1` model form](external-engines.md#the-graphs1-model-form)) to stdout, or to `--output`. The subject is a qualified name, definition or usage; a name that is no behavior, or that nothing declares, is refused with exit status 2. Cannot be combined with checks, rendering, `--convert`, `--migrate`, `--query` or `--eval` |
+| `--render-form <form>` | | Form `--render` or `--render-all` writes: `text`, `mermaid`, `markdown`, `dot`, `plantuml`, `d2`, `csv` or `tsv` (default: destination-dependent for `--render`, each kind's machine-readable form for `--render-all`). D2 writes `tree`, `interconnection`, `state`, `action`, `sequence`, `requirement`, `definition` and `package` renderings; case and mixed views refuse it with a typed error |
 | `--render-palette <name>` | | Palette the `dot`, `mermaid`, `plantuml` or `d2` form of `--render` or `--render-all` fills nodes with, by keyword family: `okabe-ito`, `tol-bright`, `tol-muted`, `tol-light`, `brewer-set2`, `brewer-dark2`, `viridis` or `cividis`; black and white when absent. Mermaid sequence diagrams cannot fill individual participants; text and Markdown ignore palettes. An unknown name is refused with the names there are (see [Rendering a view](#rendering-a-view)) |
-| `--render-link <template>` | | Link nodes and edges back to their source in rendered diagrams. Templates accept `{file}`, `{line}`, `{col}`, `{qname}` and `{id}`; `{file}` is the path as loaded, so pass absolute paths for `vscode://` or `file://` links. Applies to `--render`, `--render-all` and document diagrams; without one of those render targets it is refused |
+| `--render-link <template>` | | Link nodes and edges back to their source in rendered diagrams. Templates accept `{file}`, `{line}`, `{col}`, `{qname}` and `{id}`; `{file}` is the path as loaded, so pass absolute paths for `vscode://` or `file://` links. Applies to `--render`, `--render-all`, document diagrams and `--render-run`; without one of those render targets it is refused |
 | `--render-style <style>` | | Drawing style the `dot` or `mermaid` form of `--render`, `--render-all`, `--render-document` and `--render-documents` draws in: `pilot` (the default), the Pilot visualizer's Standard B&W, or `cameo`, the look of Cameo Systems Modeler — a diagram frame with a header tab, 11 pt Arial, gradient fills in Cameo's colours, a state's `do / Activity` compartment and the UML pseudo-state symbols. Mermaid draws supported Cameo details but flattens gradients and omits the frame and header tab; unsupported details are noted. PlantUML and D2 note the style as not represented; text and Markdown ignore it. An unknown name is refused with the two there are; without something to render it is refused likewise (see [Rendering a view](#rendering-a-view)) |
-| `--render-ports <display>` | | How much of a part's ports the interconnection of `--render` or `--render-all` draws: `minimal` (the default), the ports its connectors end at, each a small square on the part's border named beside it, or `full`, every port a part has, labelled `name : Type`. An unknown name is refused with the two there are |
+| `--render-ports <display>` | | How much of a part's ports an interconnection or mixed rendering of `--render` or `--render-all` draws: `minimal` (the default), the ports its interconnection edges or mixed connectors end at, each a small square on the part's border named beside it, or `full`, every port a part has, labelled `name : Type`. An unknown name is refused with the two there are |
+| `--render-overlay <overlay>` | | What `--render` or `--render-all` draws over a requirement rendering: `verdicts` runs the verification cases verifying each requirement and labels and colours it by their verdicts. Refused on another kind, by name when unknown, and without something to render (see [Rendering a view](#rendering-a-view)) |
 | `--render-unplaced <placement>` | | Where a graph form of a view some `DiagramLayout::Layout` positions puts the nodes none does: `omit` (the default) leaves them, and the edges at them, undrawn in every form, so the `mermaid`, `dot`, `plantuml` and `d2` forms draw one node set; `strip` draws them too, in rows below the `dot` drawing, clear of the canvas and every positioned box, and among the placed nodes in the forms that lay nodes out themselves. Applies to `--render`, `--render-all` and the diagrams of `--render-document` and `--render-documents`; a view with no positioned node is laid out as before whichever is named. An unknown placement is refused with the placements there are (see [Rendering a view](#rendering-a-view)) |
-| `--render-document <name>` | | Compile a document definition (a `part def` specializing `DocumentQueries::Document`), run its queries against the model, render its diagram blocks through the view engine and write the result as CommonMark Markdown, as `%render-document` does. Paragraphs may hold inline runs (`Span` with a `plain`/`emphasis`/`strong`/`code` style, `Link` to a URL, `Ref` linking to another content block's anchor); a query-backed paragraph or list styles its projected values through nested `SpanColumn`/`LinkColumn` column runs; a table with a `groupBy` column writes one subtable per group value, with the query's projected properties and computed `Column` names as its columns. A `Diagram` block embeds a declared view, or an element with a stated rendering kind, in a form chosen per diagram: a view some `DiagramLayout::Layout` or `Route` positions is drawn by Graphviz where it states — inline SVG when `dot` is installed, a fenced ` ```dot ` block otherwise — and every other graph-shaped view is a fenced ` ```mermaid ` block; when Graphviz is absent a positioned view is written as Mermaid under a visible notice saying so (`-diagram-form mermaid|dot|plantuml` writes every graph-shaped block in that one form; a table-kind view is a pipe table whichever form), with an optional caption and `TB`/`LR`/`RL`/`BT` flow direction. An `Image` block (`location` a path relative to the document's file or an http(s)/file URL, optional `caption` and `alt`) renders as a CommonMark image under its caption, a relative `location` resolved beside the document's source file and written relative to the `-o` output's directory; `-doc-form pdf` draws the file — a missing local `location` is a `missing-image` error — and an `http(s)` location is fetched by the engine. Markdown is the default form; `-doc-form html` renders the same document tree as semantic HTML (see [Rendering a document as HTML](#rendering-a-document-as-html)) and `-doc-form pdf` converts the Markdown (see [Rendering a document as PDF](#rendering-a-document-as-pdf)). Combined with `--instantiate`, the document's queries run over the objects created (see [Rendering a document over objects](#rendering-a-document-over-objects)). `-json` does not apply. See the [document generation manual](../manual/README.md) |
+| `--render-document <name>` | | Compile a document definition (a `part def` specializing `DocumentQueries::Document`), run its queries against the model, render its diagram blocks through the view engine and write the result as CommonMark Markdown, as `%render-document` does. Paragraphs may hold inline runs (`Span` with a `plain`/`emphasis`/`strong`/`code` style, `Link` to a URL, `Ref` linking to another content block's anchor); a query-backed paragraph or list styles its projected values through nested `SpanColumn`/`LinkColumn` column runs; a table with a `groupBy` column writes one subtable per group value, with the query's projected properties and computed `Column` names as its columns. A `Diagram` block embeds a declared view, or an element with a stated rendering kind, in a form chosen per diagram: a view some `DiagramLayout::Layout` or `Route` positions is drawn by Graphviz where it states — inline SVG when `dot` is installed, a fenced ` ```dot ` block otherwise — and every other graph-shaped view is a fenced ` ```mermaid ` block; when Graphviz is absent a positioned view is written as Mermaid under a visible notice saying so (`-diagram-form mermaid|dot|plantuml|d2` writes every graph-shaped block in that one form; a table or matrix view is a pipe table whichever form), with an optional caption and `TB`/`LR`/`RL`/`BT` flow direction. An `Image` block (`location` a path relative to the document's file or an http(s)/file URL, optional `caption` and `alt`) renders as a CommonMark image under its caption, a relative `location` resolved beside the document's source file and written relative to the `-o` output's directory; `-doc-form pdf` draws the file — a missing local `location` is a `missing-image` error — and an `http(s)` location is fetched by the engine. Markdown is the default form; `-doc-form html` renders the same document tree as semantic HTML (see [Rendering a document as HTML](#rendering-a-document-as-html)) and `-doc-form pdf` converts the Markdown (see [Rendering a document as PDF](#rendering-a-document-as-pdf)). Combined with `--instantiate`, the document's queries run over the objects created (see [Rendering a document over objects](#rendering-a-document-over-objects)). `-json` does not apply. See the [document generation manual](../manual/README.md) |
 | `--doc-form <form>` | | Form `--render-document` writes: `markdown` (default), `html`, rendered from the document tree itself (see [Rendering a document as HTML](#rendering-a-document-as-html)), or `pdf`, which drives an external converter |
-| `--diagram-form <form>` | | Form the graph-shaped diagram blocks of `--render-document` and `--render-documents` are written in: `mermaid`, `dot`, Graphviz DOT for a toolchain that lays diagrams out with Graphviz, produced without Graphviz installed, `plantuml`, PlantUML in the Pilot visualizer's B&W style, produced without a PlantUML jar, or `d2`, a [D2](https://d2lang.com) diagram in the same look, produced without `d2`. Unset, the form is chosen per diagram: `dot` for a view some `DiagramLayout::Layout` or `Route` positions, drawn by Graphviz where it states (inline SVG in Markdown and HTML when `dot`, or `OPENSYSML_DOT`, is installed; Mermaid under a visible notice naming the missing tool when it is not), `mermaid` for every other graph-shaped view. Stated, it applies to every diagram of the document in every `--doc-form`; a table-kind view is a table whichever form, and a `sequence` diagram, which has no DOT form, is refused under `dot` |
+| `--diagram-form <form>` | | Form the graph-shaped diagram blocks of `--render-document` and `--render-documents` are written in: `mermaid`, `dot`, Graphviz DOT for a toolchain that lays diagrams out with Graphviz, produced without Graphviz installed, `plantuml`, PlantUML in the Pilot visualizer's B&W style, produced without a PlantUML jar, or `d2`, a [D2](https://d2lang.com) diagram in the same look, produced without `d2`. D2 writes `tree`, `interconnection`, `state`, `action`, `sequence`, `requirement`, `definition` and `package` renderings; case and mixed views are refused with a typed error. Unset, the form is chosen per diagram: `dot` for a view some `DiagramLayout::Layout` or `Route` positions, drawn by Graphviz where it states (inline SVG in Markdown and HTML when `dot`, or `OPENSYSML_DOT`, is installed; Mermaid under a visible notice naming the missing tool when it is not), `mermaid` for every other graph-shaped view. Stated, it applies to every diagram of the document in every `--doc-form`; a table or matrix view remains a table whichever form, and a `sequence` diagram, which has no DOT form, is refused under `dot` |
+| `--list <what>` | | List what the loaded model declares by the qualified names `--render-document` and `--render` read, to stdout: `documents`, its document definitions; `views`, its views with the rendering kind each states, a view whose kind this build does not produce marked unsupported with the reason; `diagrams`, the graph-shaped views (`tree`, `interconnection`, `state`, `action`, `case`, `mixed`, `sequence`, `requirement`, `definition` and `package`); `pseudo-views`, the pseudo-views a document declaring no view is rendered through, which needs no model; or `all`, the documents followed by the views. Cannot be combined with another mode, `-import`, `-o` or a check flag (see [Listing documents and views](#listing-documents-and-views)) |
+| `--list-kind <kinds>` | | Comma-separated view kinds `--list views`, `diagrams` or `all` keeps, as `state,action`; an unknown kind is refused with the kinds there are, and `--list documents` or `pseudo-views` with the flag is refused |
+| `--list-form <form>` | | Form `--list` writes: `text` (the default), one aligned line per item; `tsv`, a header record `category`, `kind`, `supported`, `file`, `line`, `name`, `reason` then a record per item; or `json`, an array of objects with those fields, each omitted when empty |
 | `--render-documents <dir>` | | Render every document definition the model declares as a linked set into the directory, one file per document, so cross-document references resolve on disk; a document that cannot be rendered gets a page stating why and the run exits 3. `--doc-form html` writes the set as HTML pages linking shared stylesheet files written beside them |
 | `--doc-title-page` | | Put the document title on a page of its own (`--doc-form html` or `pdf`) |
 | `--doc-toc` | | Write a table of contents ahead of the content (`--doc-form html` or `pdf`) |
@@ -281,7 +294,8 @@ written in, so the verdicts are about that object:
 | `-validate` | Only that the model analyses cleanly and that the objects `-instantiate` asked for could be built; it says nothing about the model's constraints |
 | `-validate=<object>` | Every assertion about an object `-instantiate` created and the objects it holds, as `%validate` does: each `assert constraint` the carrier's type declares or inherits, each requirement usage it carries and each `satisfy` assertion whose subject is in the tree, one verdict per assertion per object, root first and then each held object as the walk reaches it (`Fleet::car.wheels[2]`), then one verdict about the object as a whole — valid only when every assertion holds and every held object was reached, so an assertion that could not be evaluated or a walk cut short by an object graph without end leaves it undecided rather than valid, as does an object no assertion is about (`states no assertion to validate`, exit status 2). The object is named as `%validate` names it: the usage's name, a feature path to a part it holds (`Fleet::car.engine`), or the id the report prints (`#2`). A constraint declared without `assert` is not swept; name it with `-constraint`. Repeatable; `-validate=false` asks for nothing and withdraws a bare `-validate` written before it, as `-satisfy=false` does |
 | `-constraint <name>` | One constraint, as `%constraint` does |
-| `-self-check` | Applies the 41 constraints in the OpenSysML `SysMLValidation` library to each reflectively classified element in the workspace. A false result or evaluation error fails; a reflective feature not derived is counted as unevaluated, not as a failure. Runs only after the model analyses cleanly |
+| `-self-check` | Applies the 50 constraints in the OpenSysML `SysMLValidation` library to each reflectively classified element in the workspace. A false result or evaluation error fails; a reflective feature not derived is counted as unevaluated, not as a failure. Runs only after the model analyses cleanly |
+| `-self-check-package <QualifiedName>` | Applies the `constraint def`s of the named package — nested packages included — together with the `SysMLValidation` ones in the same element walk; implies `-self-check`. Repeatable. See [Writing self-check rules](#writing-self-check-rules) |
 | `-requirement <name>` | One requirement, as `%requirement` does, with [the verdict of every verification case](#verification-case-verdicts) verifying it beside its own |
 | `-satisfy` | Every satisfaction assertion the model states, with [the verdict of every verification case](#verification-case-verdicts) verifying the requirement beside each |
 | `-satisfy=<name>` | Only the assertions the named element states (`-satisfy=false` asks for none) |
@@ -364,6 +378,50 @@ $ sysml -instantiate T::SA model.sysml
 ✓ package T
 sysml: unresolved reference: T::SA — did you mean T::'SA-506'? Names containing '-' must be quoted.
 ```
+
+### Writing self-check rules
+
+`-self-check-package` applies the `constraint def`s of any package the loaded files
+declare — a library package included — in the same element walk as the bundled
+`SysMLValidation` package. A rule file is an ordinary input named beside the model:
+
+```bash
+$ sysml -self-check-package Acme::ModelingRules model.sysml rules.sysml
+```
+
+A rule is a `constraint def` whose first `in` parameter is typed by a `SysML::…` or
+`KerML::…` metaclass; it applies to every element whose metaclass conforms, and its
+body is a Boolean expression over the element's reflective features (`name`,
+`qualifiedName`, `documentation`, `ownedMember`, `direction`, `isComposite`, …). A
+metaclass feature is read by the name of its most specific redefinition, since a
+redefinition hides the name it redefines (KerML §7.4.7, §8.3.3.3): on a
+`SysML::PortUsage` that is `portDefinition`, not `type`. Import
+`SequenceFunctions::*` for `->isEmpty()` and friends:
+
+```sysml
+package Acme {
+	package ModelingRules {
+		private import SequenceFunctions::*;
+		constraint def partDefinitionHasDocumentation {
+			in pd : SysML::PartDefinition;
+			not pd.documentation->isEmpty();
+		}
+	}
+}
+```
+
+Every verdict a rule produces carries the constraint's qualified name —
+`Acme::ModelingRules::partDefinitionHasDocumentation fails for M::P`. Reflective
+features the model does not derive count as unevaluated, not violations; a rule
+whose `in` parameter is not metaclass-typed is skipped with a warning, as is a
+named package that yields no applicable constraint, and the run goes on. A name
+nothing declares is refused before anything is evaluated (exit 2). The elements
+of a rule package are checked by nothing at any depth. The exit codes are
+unchanged: 1 on a violation, 2 when a check could not be made, 0 when the only
+non-holding outcomes are unevaluated. The bundled
+`SysMLValidation.sysml` (`internal/workspace/libs/stdlib/OpenSysML Libraries/`)
+is written the same way and is the reference; `examples/self-check-rules/` is a
+worked example.
 
 ### Verification case verdicts
 
@@ -463,19 +521,133 @@ sysml -e "x" -e "y" file.sysml
 sysml -e "result" file1.sysml file2.sysml
 ```
 
+## Rendering a run
+
+`-render-run <kind>=<path>` writes the trace of a behavior run as a timeline or message sequence.
+Run it with `-state`, `-action` or `-advance`; the trace is recorded silently unless `-trace`
+also asks to print it. Repeat the flag for both renderings:
+
+```bash
+sysml examples/run-timeline/run-timeline.sysml \
+  -instantiate RunTimeline::mission \
+  -state "RunTimeline::Controller::modes RunTimeline::mission.controller" \
+  -state "RunTimeline::Instrument::modes RunTimeline::mission.instrument" \
+  -advance 6 \
+  -render-run timeline=timeline.mmd \
+  -render-run sequence=sequence.puml
+```
+
+The output extension selects text (`.txt`), Mermaid (`.mmd`, `.mermaid`) or PlantUML
+(`.puml`, `.plantuml`); `-render-form` can select a form for another extension. DOT is not
+available for run output. A run rendering cannot be combined with a model or document rendering,
+query, schedule exploration or multi-run analysis. Run output cannot be written to standard output
+with `-json`; name a file for each rendering instead. `-render-run` cannot be combined with
+`-compare-results`. `-render-link` links sequence object participants to their type declarations,
+and PlantUML timeline lanes and single-state spans to their declarations. Mermaid gantt and run
+messages are not linked.
+
+## Listing documents and views
+
+`-list` names what the loaded model declares by the qualified names `-render-document` and
+`-render` read, so a name is copied from the listing and passed back unchanged:
+
+```bash
+sysml model.sysml -list documents
+# document  Reports::'Mass Report'
+# document  Reports::'line\nbreak'
+sysml model.sysml -list views
+# view  textual  Kit::asText  (unsupported: Kit::asText: textual rendering (render Views::asTextualNotation) is not supported; ...)
+# view  table    Kit::'parts table'
+# view  tree     Kit::vehicleView
+sysml model.sysml -render-document "Reports::'Mass Report'" -doc-form html -o mass.html
+```
+
+Each name is written as the notation writes it: a segment that is not a plain identifier is
+quoted, a quote inside escaped, a `::` inside a quoted segment kept within it, and a line break
+in a name written as `\n` inside the quotes, so every item stays on one line. The targets are:
+
+- `documents` — every document definition (a `part def` specializing `DocumentQueries::Document`)
+  the model's own files declare.
+- `views` — every view they declare, with the rendering kind it states. A view whose kind this
+  build does not produce (`textual`, `geometry`, `timeline`) is listed too, marked unsupported with
+  the reason `-render` would give.
+- `diagrams` — the graph-shaped views: those of the kinds `-render` draws as a graph of nodes and
+  edges and a document's `Diagram` block writes in the `-diagram-form` forms — `tree`,
+  `interconnection`, `state`, `action`, `case`, `mixed`, `sequence`, `requirement`, `definition`
+  and `package`. A `table` or `matrix` view, which a document writes as a table, and an unsupported
+  kind are not among them.
+- `pseudo-views` — the pseudo-views (`#tree`, `#state`, …) a document declaring no view is rendered
+  through; they need no model.
+- `all` — the documents followed by the views.
+
+Documents and views are each listed in qualified-name order; the library's are not listed.
+`-list-kind state,action` keeps the views of the kinds it names, under `views`, `diagrams` or
+`all`; an unknown kind is refused with the kinds there are, and so is the flag with `documents` or
+`pseudo-views`, which have no kind to filter by.
+
+```bash
+sysml model.sysml -list diagrams -list-kind state,action
+sysml model.sysml -list all -list-form tsv
+sysml model.sysml -list views -list-form json
+```
+
+`-list-form` chooses the form: `text` (the default) writes one line per item, its columns aligned
+— `document  <name>`, `view  <kind>  <name>`, an unsupported view followed by
+`  (unsupported: <reason>)`. `tsv` writes the header record
+`category	kind	supported	file	line	name	reason` and then a record per item, a tab or
+line break inside a field escaped as `\t` or `\n`. `json` writes an array of objects with the fields
+`category`, `name`, `kind`, `supported`, `reason`, `file` and `line`, each left out when empty — a
+document has no kind or support, a supported view no reason. `file` is the path the declaration
+was loaded from, as named on the command line, and `line` its 1-based line.
+
+The model is loaded and analysed as `-render-documents` loads it: one that does not load or does
+not analyse cleanly stops the run with status 2 and its diagnostics. A model that declares nothing
+to list writes nothing and exits 0. The listing goes to stdout and the loading report to stderr.
+`-list` cannot be combined with `-render`, `-render-all`, `-render-document`, `-render-documents`,
+`-render-run`, `-convert`, `-migrate`, `-graphs`, `-compile`, `-sync-diff`, `-sync-apply`, a query
+flag, `-import`, `-html-default-css`, `-o` or a check flag. The REPL's `%documents` and `%views [diagrams] [<kind>...]` print the same
+text form (see [REPL commands](repl-commands.md)).
+
 ## Rendering a view
 
 `-render <view>` renders one view of the model and exits. Every file named on the command line is
 loaded as one model, as `-render-all` and `-render-document` load theirs, so the view may expose
 elements a sibling file declares. The rendering kind comes from the view's `render` member, or is a
 containment tree if the view does not state one. This build can produce a tree, an interconnection
-diagram, a state machine, an action flow, a sequence diagram and a table. A geometry view is
-recognized but not drawn. Pseudo-views let you render without declaring a view: `#tree` renders
+diagram, a state machine, an action flow, case and mixed diagrams, a sequence diagram, a table, a
+`GridView` relationship matrix, and requirement, definition and package graphs for filtered
+`GeneralView`s. A geometry view is recognized but not drawn. A standard `GridView` with a positive,
+resolved relationship selector in its own or inherited filter or expose filter renders as a matrix;
+selectors under `not` do not activate it, and an explicit `render asElementTable;` stays a table.
+The matrix includes unnamed exposed members and their nested named or unnamed relationships; an
+ordinary table's exposure is unchanged. Pseudo-views let you render without declaring a view: `#tree` renders
 every file `-render` loaded (or every document loaded in the REPL), while `#tree:<name>`,
-`#interconnection:<name>`, `#state:<name>`, `#action:<name>`, `#sequence:<name>` and `#table:<name>`
+`#interconnection:<name>`, `#state:<name>`, `#action:<name>`, `#case:<name>`, `#mixed:<name>`,
+`#sequence:<name>`, `#table:<name>` and `#matrix:<name>`
 render the named element directly (`-render '#interconnection:Plant::Loop'`, quoted for the shell).
-Only the kinds this build produces are offered; newly supported kinds become pseudo-views
-automatically.
+`#matrix` renders all loaded content.
+Only kinds registered as pseudo-views are offered; a filter-dependent `GeneralView` graph remains
+available through its declared view.
+
+At the `sysml` prompt and in the Jupyter kernel, `%viz` is the OMG pilot kernel's spelling of the
+same rendering: `%viz [--view=<VIEW>] [--style=<STYLE>...] [<form>] <name> [<name>...]` draws
+several named elements in one diagram, `--view` naming the kind (`TREE`, `INTERCONNECTION`,
+`STATE`, `ACTION`, `SEQUENCE`, `MIXED`, `CASE`) or `DEFAULT` choosing it from what the names
+resolve to; see the [REPL commands reference](repl-commands.md).
+
+A matrix's rows are relationship sources, its columns are targets, and each cell lists its
+relationship keywords in the order `satisfy`, `verify`, `allocate`, `connect`, `derive`, `refine`,
+`dependency`. It supports text, Markdown, CSV and TSV. Mermaid, DOT, PlantUML and D2 are refused as
+non-tabular forms. Members exposed without a displayed relationship are named in a notice; an
+exposed-but-unrelated matrix is distinguished from one with nothing exposed.
+
+A document `Diagram` block over a matrix remains a table whichever `-diagram-form` is selected,
+including `d2`.
+
+Case and mixed views may also select their rendering through the bundled `OpenSysMLRenderings` library:
+import `OpenSysMLRenderings::*`, then use `render asCaseDiagram;` or `render asMixedDiagram;`, or
+specialize `CaseView` or `MixedView`. Case diagrams default to left-to-right and mixed diagrams
+to top-to-bottom; both use Mermaid as their machine-readable form.
 
 An interconnection draws the exposed parts, the ports on their borders, and the connectors between
 them. A part's ports are those its definition declares as well as any it declares itself — `part
@@ -560,7 +732,7 @@ written under their name tagged the same way (`Views.Report~<hash>.dot` and
 `Views.report~<hash>.dot`), so neither overwrites the other; a view meeting no other keeps its
 plain name. Only views written in the requested form take part, and a plain name that meets a
 tagged one is tagged in turn, so no two files written in one run meet. With no
-`-render-form`, graph-shaped kinds use Mermaid (`.mmd`) and tables use Markdown (`.md`); a forced text form uses
+`-render-form`, graph-shaped kinds use Mermaid (`.mmd`) and table or matrix kinds use Markdown (`.md`); a forced text form uses
 `.txt` and unbounded width, a forced `dot` form uses `.dot`, and a forced `plantuml` form uses
 `.puml`, PlantUML's conventional extension, a forced `d2` form uses `.d2`, and a forced `csv` or `tsv` form writes the tables as
 `.csv` or `.tsv` and skips every other view.
@@ -579,22 +751,22 @@ views, or an analysis error, stops the run with status 2. `-render-all` cannot b
 The rendering is **tool-defined output**: SysML v2 §10.2 specifies the notation a view is written
 in, not how a tool draws it. Mermaid is the machine-readable form for the graph-shaped kinds because
 it renders as-is in Markdown, documentation sites and editors without a separate rendering tool, and
-has dedicated state diagram and sequence diagram grammars. A table is written as a Markdown table,
-since Mermaid has no grammar for tables, so `-render-form mermaid` on a table produces Markdown
-rather than a diagram of rows.
+has dedicated state diagram and sequence diagram grammars. A table or matrix uses Markdown as its
+machine form. An explicitly requested graph form (`mermaid`, `dot`, `plantuml` or `d2`) is refused
+for a table or matrix rather than written as another form.
 
 The forms a kind can be written in:
 
 | Form | Kinds | What it is |
 | --- | --- | --- |
 | `text` | every kind | ASCII a person reads; the default at a terminal |
-| `mermaid` | `tree`, `interconnection`, `state`, `action`, `sequence` | The machine-readable form of the graph-shaped kinds; a table falls back to Markdown |
-| `markdown` | `table` | A pipe table, the machine-readable form of a table |
-| `csv` | `table` | Comma-separated values: a header record of the columns, then one record per row, each field quoted as RFC 4180 quotes it; for a spreadsheet or a CSV reader |
-| `tsv` | `table` | The same records with a tab between fields; a field holding a tab, a quote or a line break is quoted as CSV quotes it, so a CSV reader set to a tab delimiter reads every one back |
-| `dot` | `tree`, `interconnection`, `state`, `action` | Graphviz DOT, an alternative to Mermaid for Graphviz toolchains and layouts of large graphs |
-| `plantuml` | `tree`, `interconnection`, `state`, `action`, `sequence` | PlantUML in the Pilot visualizer's B&W style, for PlantUML toolchains; an alternative form with a sequence grammar |
-| `d2` | `tree`, `interconnection`, `state`, `action`, `sequence` | [D2](https://d2lang.com) in the same look, for D2 toolchains; nested containers, pseudostate glyphs and D2's sequence diagram |
+| `mermaid` | `tree`, `interconnection`, `state`, `action`, `case`, `mixed`, `sequence`, `requirement`, `definition`, `package` | The machine-readable form of the graph-shaped kinds; table and matrix kinds use Markdown instead |
+| `markdown` | `table`, `matrix` | A pipe table, the machine-readable form of a table or relationship matrix |
+| `csv` | `table`, `matrix` | Comma-separated values: a header record of the columns, then one record per row, each field quoted as RFC 4180 quotes it; for a spreadsheet or a CSV reader |
+| `tsv` | `table`, `matrix` | The same records with a tab between fields; a field holding a tab, a quote or a line break is quoted as CSV quotes it, so a CSV reader set to a tab delimiter reads every one back |
+| `dot` | `tree`, `interconnection`, `state`, `action`, `case`, `mixed`, `requirement`, `definition`, `package` | Graphviz DOT, an alternative to Mermaid for Graphviz toolchains and layouts of large graphs |
+| `plantuml` | `tree`, `interconnection`, `state`, `action`, `case`, `mixed`, `sequence`, `requirement`, `definition`, `package` | PlantUML in the Pilot visualizer's B&W style, for PlantUML toolchains; an alternative form with a sequence grammar |
+| `d2` | `tree`, `interconnection`, `state`, `action`, `sequence`, `requirement`, `definition`, `package` | [D2](https://d2lang.com) in the same look, for D2 toolchains; nested containers, pseudostate glyphs and D2's sequence diagram |
 
 A node's label follows the graphical notation's header: the kind leads on its own line in
 guillemets, the element's name follows, with ` : Type` after it for a typed usage, and any note
@@ -632,30 +804,29 @@ Every `subgraph` of a Mermaid flowchart opens on a `direction` statement restati
 flowchart's, because Mermaid lays out a subgraph that states none without regard to the
 flowchart's; a tree draws containment as edges, not subgraphs, so it carries none.
 
-A Mermaid flowchart reserves the height of one line for a `subgraph` title, so a flowchart
-whose cluster title spans more — an interconnection or action rendering with a container —
-opens on a YAML frontmatter block that claims the rest as the title's bottom margin, 24px per
-extra line:
+The first line of a subgraph or composite-state title puts the keyword and name together, since
+Mermaid reserves one title line in layout. Only a flowchart subgraph title that still spans
+multiple lines — a name with a line break or additional notes — adds
+`flowchart.subGraphTitleMargin.bottom` to the frontmatter, at 24px per extra line. The flowchart
+theme CSS that centres multi-line titles remains:
 
 ```
 ---
 config:
   themeCSS: ".cluster-label .nodeLabel { text-align: center; }"
-  flowchart:
-    subGraphTitleMargin:
-      bottom: 24
 ---
 %% Plant::loopView — interconnection rendering (render asInterconnectionDiagram)
 flowchart LR
-  subgraph n0 ["«part def»<br>Loop"]
+  subgraph n0 ["`*«part def»* **Loop**`"]
     direction LR
   …
 ```
 
-The block travels with the text into every consumer (`-render`, `-render-all`, `%render`,
-`opensysml/render`, the Mermaid fences of a document in Markdown, HTML and PDF), and Mermaid
-10.5 and later reads it. A flowchart with no such cluster, a `tree` rendering (its containment
-is edges), a `state` and a `sequence` diagram have no frontmatter.
+The generated title-margin setting travels with the text into every consumer (`-render`,
+`-render-all`, `%render`, `opensysml/render`, and the Mermaid fences of a document in Markdown,
+HTML and PDF), and Mermaid 10.5 and later reads it. A flowchart with no multi-line container
+title has no `subGraphTitleMargin`; a `tree` rendering (its containment is edges), a `state`
+and a `sequence` diagram do not use that flowchart setting.
 
 `dot` writes a `digraph` with one `// view:`, `// kind:` and `// layout:` header comment line and
 one `// not represented:` line per notice, the same header Mermaid writes as `%%` comments.
@@ -708,7 +879,8 @@ interconnection nested containers with a drawn port a small node inside the part
 connectors between the ports they name (`n0.n1."n1.0" -- n0.n2."n2.0"`), a state or action
 rendering nested containers with its control nodes as pseudostate glyphs (a filled dot for a start
 or junction, a double-bordered dot for a final, a bar for a fork or join, a diamond for a decision,
-choice or merge, an `H` circle for history), and a sequence D2's `shape: sequence_diagram` with
+choice or merge, an `H` circle for history), a GeneralView graph flat nodes joined in the
+class-diagram notation, and a sequence D2's `shape: sequence_diagram` with
 its lifelines and `->` messages one for one with the Mermaid form. `TB`/`LR`/`BT`/`RL` become
 `direction: down`/`right`/`up`/`left`. D2 lays the diagram out itself, so DiagramLayout geometry is
 kept as `# canvas:`, `# layout:` and `# route:` comments and noticed — `-render-form dot` honours
@@ -734,7 +906,8 @@ cannot fill individual participants. Text and Markdown ignore palettes. A name t
 status 2 and the names there are; `-render-palette` without `-render` or `-render-all` is refused
 likewise.
 
-`-render-link <template>` gives linkable diagram nodes and edges URLs to their source. A template
+`-render-link <template>` gives linkable diagram nodes and edges URLs to their source, and also
+links run sequence object participants and PlantUML timeline lanes and single-state spans. A template
 may contain `{file}`, `{line}`, `{col}`, `{qname}` and `{id}`. Substituted values are UTF-8
 percent-encoded; URL delimiters written literally in the template remain literal. `{file}` is the
 path as loaded, not a path resolved against the rendering's output directory: use absolute input
@@ -775,20 +948,37 @@ sysml Project.sysml -render-document Project::DesignDescription \
     -doc-form pdf -diagram-form dot -render-style cameo -o DesignDescription.pdf
 ```
 
-`-render-ports <display>` is how much of a part's ports an interconnection draws. `minimal`,
+`-render-ports <display>` is how much of a part's ports an interconnection or mixed rendering draws. `minimal`,
 the default, draws on each part the ports a connector, interface, flow or binding of the view
 ends at and no other — each a small square on the part's border with its name beside it, the
 connector ending at the square — so a crowded diagram shows what it connects and nothing more;
 a part none of whose ports is connected draws as a part without ports does. `full` draws every
 port a part has, its own and those from its definition, labelled `name : Type` with `~` for a
 conjugated one. The display applies to the DOT, PlantUML, Mermaid and text forms alike, and to
-no kind but the interconnection; a `Diagram` block of a document states its own
+no kinds but interconnection and mixed renderings; a `Diagram` block of a document states its own
 ([`ports`](../manual/authoring.md#diagrams)). A name that is neither display is refused with
 status 2 and the two there are; `-render-ports` without `-render` or `-render-all` is refused
 likewise.
 
 ```bash
 sysml model.sysml -render Views::loopView -render-form dot -render-ports full -o loop.dot
+```
+
+A `GeneralView` whose filters select one of the specializations the OMG library documents —
+`filter @SysML::RequirementUsage;`, `expose P::**[@SysML::Definition or @SysML::Usage];`,
+`filter @SysML::Package;` — renders as a requirement, definition and usage, or package graph
+instead of a tree, and one filtered on a case metaclass (`filter @SysML::UseCaseUsage;`) as the
+case diagram a `CaseView` draws ([which filters select which](../project/view-rendering-forms.md#generalview-graphs)).
+`-render-overlay verdicts` runs, for each requirement a requirement graph draws, the
+verification cases verifying it, and labels the requirement with their verdicts and fills it
+with the worst (pass, inconclusive, fail, error); without it nothing runs. A `-render-all`
+writes the overlay on its requirement renderings and none on the others. Asking for it on
+another kind stops with the reason, an unknown name with status 2 and the overlays there are,
+and `-render-overlay` without `-render` or `-render-all` is refused likewise.
+
+```bash
+sysml examples/general-views-demo/vehicle.sysml -render GeneralViews::requirementView \
+    -render-form dot -render-overlay verdicts -o requirements.dot
 ```
 
 A rendering is laid out by whatever draws it, unless the model says where things go. The

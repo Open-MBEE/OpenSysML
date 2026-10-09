@@ -7,10 +7,8 @@ import (
 )
 
 // An invocation under check or replay moves one executor one unit at a time. The
-// due order is drawn as the clock draws it when it runs what is due: among the
-// executors with a move, the one drawn holds the turn until it has no move left
-// at the instant, then the order is drawn again. A turn only one executor could
-// take is held by none, so a state spells the same however it was reached.
+// due order is drawn before every move among the executors with one, so the moves
+// of executors due at one instant interleave as the library leaves them free to.
 // Between moves the run settles: actions park their tokens, and the clock moves
 // to the earliest wait within the horizon once nothing is left at the instant.
 
@@ -20,8 +18,8 @@ type invocationRun struct {
 	ctx   *Context
 	inv   *Invocation
 	state *runState
-	// turn is the executor the due order drew, whose moves alone are enabled while
-	// it has one and another executor has one too.
+	// turn is the executor holding the turn: its last move left it a next one no
+	// other executor's move at the instant may depend on, so its moves alone are enabled.
 	turn checkedExecutor
 }
 
@@ -94,13 +92,10 @@ func owners(moves []enabledMove) []checkedExecutor {
 	return execs
 }
 
-// drawOwner resolves which of the executors with a move takes the turn: the only
-// one where there is one, else the policy's pick, noted as a due-order choice.
+// drawOwner resolves which of the executors with a move makes the next one: the
+// only one where there is one, else the policy's pick, noted as a due-order choice.
 func (r *invocationRun) drawOwner(execs []checkedExecutor) (int, error) {
 	if len(execs) < 2 {
-		if len(execs) == 1 {
-			r.turn = execs[0]
-		}
 		return 0, nil
 	}
 	choice := ChoicePoint{
@@ -115,7 +110,6 @@ func (r *invocationRun) drawOwner(execs []checkedExecutor) (int, error) {
 	}
 	choice.Taken = pick
 	r.ctx.noteChoice(choice)
-	r.turn = execs[pick]
 	return pick, nil
 }
 
@@ -211,7 +205,7 @@ func (r *invocationRun) waitsPastHorizon(exec checkedExecutor) bool {
 }
 
 // makeMove makes the move under the `check` policy as one atomic unit: the owner
-// drawn as the due order among the executors with a move where no turn is held,
+// drawn as the due order among the executors with a move,
 // the token and picks scripted. It reports the choice points the move drew past its picks.
 func (r *invocationRun) makeMove(m enabledMove) ([]ChoicePoint, error) {
 	defer r.enter()()
@@ -231,13 +225,21 @@ func (r *invocationRun) makeMove(m enabledMove) ([]ChoicePoint, error) {
 	return check.drawn, err
 }
 
-// step moves one executor one unit: the turn holder, drawn by the policy among
-// those with a move where none holds it.
+// step moves one executor one unit, drawn by the policy among those with a move,
+// and leaves it the turn where the clock would: while no rival contends its next move.
 func (r *invocationRun) step(execs []checkedExecutor) error {
 	defer r.enter()()
 	pick, err := r.drawOwner(execs)
 	if err != nil {
 		return err
 	}
-	return execs[pick].stepOne()
+	owner := execs[pick]
+	r.turn = nil
+	if err := owner.stepOne(); err != nil {
+		return err
+	}
+	if owner.dueWork() && !r.ctx.contended(owner) {
+		r.turn = owner
+	}
+	return nil
 }
