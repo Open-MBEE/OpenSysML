@@ -124,9 +124,8 @@ func bareExpression(src string) (string, bool) {
 	return trimmed, true
 }
 
-// metaErrorLines is how the prompt prints a meta command's error: a usage error
-// prints every line it holds, the first under the error prefix as the Jupyter
-// kernel's value is; any other error prints its message under the prefix.
+// metaErrorLines prints a meta command's error: every line of a usage error,
+// the first under the error prefix as the kernel's value; other errors as before.
 func metaErrorLines(err error) []string {
 	var usage *UsageError
 	if errors.As(err, &usage) && len(usage.Lines) > 0 {

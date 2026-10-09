@@ -61,9 +61,8 @@ func wantUsage(t *testing.T, err error, line string) {
 
 func joined(lines []string) string { return strings.Join(lines, "\n") }
 
-// TestLoopPrintsEveryLineOfAUsageError drives a repository usage error through
-// the terminal loop: the prompt prints the usage line under the error prefix
-// and the line saying what was wrong after it, as the kernel's traceback does.
+// TestLoopPrintsEveryLineOfAUsageError drives repository usage errors through the
+// terminal loop: the usage line under the error prefix, then what was wrong.
 func TestLoopPrintsEveryLineOfAUsageError(t *testing.T) {
 	repoSession(t)
 	var out strings.Builder
