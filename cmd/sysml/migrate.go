@@ -27,6 +27,7 @@ func init() {
 		fs.StringVar(&migrationResults, "migration-results", "", "With -migrate, write the run configurations and the result snapshots the simulation tool stored for them to this JSON file, for -compare-results to read against the migrated model")
 		fs.StringVar(&layoutPath, "layout", "", "With -migrate, read this MTIP export (HUDS XML) and write the diagram geometry it records as DiagramLayout annotations in the migrated views")
 		fs.StringVar(&imageBaseURL, "image-base-url", "", "With -migrate, the http(s) URL a comment's relative <img src> is resolved against, such as the View Editor server")
+		fs.BoolVar(&portableMode, "portable", false, "With -migrate, append the OpenSysML library packages the output refers to, so the one file loads in a tool that ships only the standard library; the report names them")
 	})
 }
 

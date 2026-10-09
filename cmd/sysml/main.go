@@ -545,6 +545,10 @@ func runCLI() int {
 		fmt.Fprintln(os.Stderr, "sysml: -image-base-url accompanies -migrate of a SysML v1 model; write `sysml Model.mdzip -migrate sysml -image-base-url https://ve.example.org`")
 		return 2
 	}
+	if portableMode && migrateFormat == "" {
+		fmt.Fprintln(os.Stderr, "sysml: -portable accompanies -migrate of a SysML v1 model; write `sysml Model.mdzip -migrate sysml -portable -o Model.sysml`")
+		return 2
+	}
 	if message := importMisuse(); message != "" {
 		fmt.Fprintf(os.Stderr, "sysml: %s\n", message)
 		return 2
