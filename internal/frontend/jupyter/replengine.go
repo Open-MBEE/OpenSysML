@@ -123,6 +123,10 @@ func (e *REPLEngine) meta(line string, out Output) error {
 	}
 	lines, quit, err := e.session.RunMeta(line)
 	if err != nil {
+		var usage *repl.UsageError
+		if errors.As(err, &usage) {
+			return execError("UsageError", usage.Error(), usage.Lines)
+		}
 		name := "CommandError"
 		if errors.Is(err, runtime.ErrInterrupted) {
 			name = "KeyboardInterrupt"

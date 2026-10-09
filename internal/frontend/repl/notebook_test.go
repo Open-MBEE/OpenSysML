@@ -2,6 +2,7 @@ package repl
 
 import (
 	"encoding/json"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -167,7 +168,7 @@ func TestLoadRefusesWhatItCannotRead(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			s := NewSession()
 			_, _, err := s.RunMeta(tt.line)
-			if err == nil || !strings.Contains(err.Error(), tt.want) {
+			if err == nil || !strings.Contains(errorText(err), tt.want) {
 				t.Errorf("%s: err = %v, want %q", tt.line, err, tt.want)
 			}
 			if len(s.List()) != 0 {
@@ -414,4 +415,13 @@ func TestANotebookInTheWorkingDirectoryLoadsByName(t *testing.T) {
 	if !strings.Contains(out, "loaded a.ipynb: 1 of 1 code cells, 1 declaration") {
 		t.Errorf("report:\n%s", out)
 	}
+}
+
+// errorText is an error's message, every line of a usage error's.
+func errorText(err error) string {
+	var usage *UsageError
+	if errors.As(err, &usage) {
+		return strings.Join(usage.Lines, "\n")
+	}
+	return err.Error()
 }

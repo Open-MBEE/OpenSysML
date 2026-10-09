@@ -33,7 +33,11 @@ func parseLoadArgs(args []string) ([]string, loadOptions, error) {
 		}
 		name, value, inline := strings.Cut(arg, "=")
 		if name != "--cells" {
-			return nil, loadOptions{}, fmt.Errorf("unknown option %s; %%load takes --cells <n,n-m|tag:<tag>>", name)
+			lines := []string{usageLoadPath}
+			if repositoryLinked() {
+				lines = append(lines, usageLoadRepo)
+			}
+			return nil, loadOptions{}, &UsageError{Lines: append(lines, fmt.Sprintf("unknown option %s; %%load takes --cells <n,n-m|tag:<tag>>", name))}
 		}
 		if cells {
 			return nil, loadOptions{}, errors.New("--cells given twice; one selection picks the cells of every notebook named")

@@ -144,6 +144,16 @@ kernel language is not `sysml` is refused. See
 A `%quit` in a cell is noted — the notebook's shutdown ends the kernel — and an unknown
 `%` command is an error (`UnknownCommand`), where the prompt would print guidance.
 
+A `%` command given wrong arguments is a `UsageError` whose traceback is the command's usage;
+a command that fails — a repository server that cannot be reached, a project that does not exist
+— is a `CommandError` with the message the prompt would print, the HTTP status and the server's
+message included.
+
+The repository commands `%repo`, `%projects`, `%load` and `%publish` address the SysML v2 API
+server `FLEXO_SYSMLV2_URL` names, with the bearer token `FLEXO_INTEROP_TOKEN` when the server wants
+one and Flexo's organization `FLEXO_SYSMLV2_ORG`, all read from the kernel's environment; a token
+is never echoed and no state is written. See [Working with a repository](../guide/12-jupyter.md#working-with-a-repository).
+
 ## Rich output
 
 Output with a richer form than plain text is a `display_data` carrying that form beside
