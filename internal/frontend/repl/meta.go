@@ -183,6 +183,8 @@ func graphLinked() bool      { return replext.Graph() != nil }
 var metaCommandTable = []metaCommand{
 	{name: "%help", group: groupSession, desc: "show this help"},
 	{name: "%list", group: groupSession, desc: "list current session declarations"},
+	{name: "%documents", group: groupSession, desc: "list the model's documents by the names %render-document reads"},
+	{name: "%views", group: groupSession, args: "[diagrams] [<kind>...]", desc: "list the model's views and their kinds by the names %render reads; diagrams keeps the graph-shaped ones"},
 	{name: "%clear", group: groupSession, desc: "reset the session"},
 	{name: "%load", group: groupSession, args: "<path>...", desc: "submit the contents of files, directories or globs"},
 	{name: "%print", group: groupSession, args: "[name]", desc: "print the session model as SysML notation, or just the named element", linked: notationLinked},
@@ -378,6 +380,10 @@ func (s *Session) metaSessionCommand(fields []string, line string) (metaResult, 
 		return metaOut(decls, false, nil), true
 	case "%clear":
 		return metaOut(append([]string{"session cleared"}, s.clear()...), false, nil), true
+	case "%documents":
+		return metaOut(s.doDocuments()), true
+	case "%views":
+		return metaOut(s.doViews(fields[1:])), true
 	case "%load":
 		if len(fields) < 2 {
 			return metaOut([]string{"usage: %load <file|dir|glob>..."}, false, nil), true
