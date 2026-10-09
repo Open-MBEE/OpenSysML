@@ -14,7 +14,7 @@ const StateActivityFQN = StateActivityPackage + "::isActive"
 
 // IsStateActivity reports whether sym is the StateActivity::isActive feature.
 func IsStateActivity(sym *symbols.Symbol) bool {
-	return sym != nil && symbols.FQNOf(sym) == StateActivityFQN
+	return sym != nil && symbols.HasFQN(sym, StateActivityFQN)
 }
 
 // FeaturingTypes are the types sym declares itself `featured by` (KerML
