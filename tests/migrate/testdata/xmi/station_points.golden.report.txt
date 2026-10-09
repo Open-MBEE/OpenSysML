@@ -25,15 +25,15 @@ OpaqueBehavior	Station::Cycle::main::Sync::b::B1::<OpaqueBehavior>	_b1Entry	-> S
 OpaqueBehavior	Station::Cycle::main::Sync::b::B1::<OpaqueBehavior>	_b1Exit	-> Station::Cycle::Sync::regions::b::B1::unnamed2	(the JavaScript body is translated to v2; the JavaScript body is written as v2 assignments)
 OpaqueBehavior	Station::Cycle::main::Work::<OpaqueBehavior>	_workEntry	-> Station::Cycle::Work::unnamed	(the JavaScript body is translated to v2; the JavaScript body is written as v2 assignments)
 OpaqueBehavior	Station::Cycle::main::Work::<OpaqueBehavior>	_workExit	-> Station::Cycle::Work::unnamed2	(the JavaScript body is translated to v2; the JavaScript body is written as v2 assignments)
-OpaqueBehavior	Station::Cycle::main::Work::steps::<Transition>::<OpaqueBehavior>	_startEff	-> Station::Cycle::Work::unnamed::unnamed	(the JavaScript body is translated to v2; the JavaScript body is written as v2 assignments)
-OpaqueBehavior	Station::Cycle::main::Work::steps::<Transition>::<OpaqueBehavior>	_finishEff	-> Station::Cycle::Work::unnamed2::unnamed	(the JavaScript body is translated to v2; the JavaScript body is written as v2 assignments)
-OpaqueBehavior	Station::Cycle::main::Work::steps::<Transition>::<OpaqueBehavior>	_outEff	-> Station::Cycle::Work::unnamed3::unnamed	(the JavaScript body is translated to v2; the JavaScript body is written as v2 assignments)
-OpaqueBehavior	Station::Cycle::main::Work::steps::Prep::<OpaqueBehavior>	_prepEntry	-> Station::Cycle::Work::Prep::unnamed	(the JavaScript body is translated to v2; the JavaScript body is written as v2 assignments)
-OpaqueBehavior	Station::Cycle::main::Work::steps::Run::<OpaqueBehavior>	_runEntry	-> Station::Cycle::Work::Run::unnamed	(the JavaScript body is translated to v2; the JavaScript body is written as v2 assignments)
-OpaqueBehavior	Station::Cycle::main::Work::steps::Run::<OpaqueBehavior>	_runExit	-> Station::Cycle::Work::Run::unnamed2	(the JavaScript body is translated to v2; the JavaScript body is written as v2 assignments)
-OpaqueBehavior	Station::Cycle::main::Work::steps::Run::pace::<Transition>::<OpaqueBehavior>	_deepEff	-> Station::Cycle::Work::Run::unnamed::unnamed	(the JavaScript body is translated to v2; the JavaScript body is written as v2 assignments)
-OpaqueBehavior	Station::Cycle::main::Work::steps::Run::pace::<Transition>::<OpaqueBehavior>	_backEff	-> Station::Cycle::Work::Run::unnamed2::unnamed	(the JavaScript body is translated to v2; the JavaScript body is written as v2 assignments)
-OpaqueBehavior	Station::Cycle::main::Work::steps::Run::pace::Fast::<OpaqueBehavior>	_fastEntry	-> Station::Cycle::Work::Run::Fast::unnamed	(the JavaScript body is translated to v2; the JavaScript body is written as v2 assignments)
+OpaqueBehavior	Station::Cycle::main::Work::steps::<Transition>::<OpaqueBehavior>	_startEff	-> Station::Cycle::Work::steps::unnamed::unnamed	(the JavaScript body is translated to v2; the JavaScript body is written as v2 assignments)
+OpaqueBehavior	Station::Cycle::main::Work::steps::<Transition>::<OpaqueBehavior>	_finishEff	-> Station::Cycle::Work::steps::unnamed2::unnamed	(the JavaScript body is translated to v2; the JavaScript body is written as v2 assignments)
+OpaqueBehavior	Station::Cycle::main::Work::steps::<Transition>::<OpaqueBehavior>	_outEff	-> Station::Cycle::Work::steps::unnamed3::unnamed	(the JavaScript body is translated to v2; the JavaScript body is written as v2 assignments)
+OpaqueBehavior	Station::Cycle::main::Work::steps::Prep::<OpaqueBehavior>	_prepEntry	-> Station::Cycle::Work::steps::Prep::unnamed	(the JavaScript body is translated to v2; the JavaScript body is written as v2 assignments)
+OpaqueBehavior	Station::Cycle::main::Work::steps::Run::<OpaqueBehavior>	_runEntry	-> Station::Cycle::Work::steps::Run::unnamed	(the JavaScript body is translated to v2; the JavaScript body is written as v2 assignments)
+OpaqueBehavior	Station::Cycle::main::Work::steps::Run::<OpaqueBehavior>	_runExit	-> Station::Cycle::Work::steps::Run::unnamed2	(the JavaScript body is translated to v2; the JavaScript body is written as v2 assignments)
+OpaqueBehavior	Station::Cycle::main::Work::steps::Run::pace::<Transition>::<OpaqueBehavior>	_deepEff	-> Station::Cycle::Work::steps::Run::pace::unnamed::unnamed	(the JavaScript body is translated to v2; the JavaScript body is written as v2 assignments)
+OpaqueBehavior	Station::Cycle::main::Work::steps::Run::pace::<Transition>::<OpaqueBehavior>	_backEff	-> Station::Cycle::Work::steps::Run::pace::unnamed2::unnamed	(the JavaScript body is translated to v2; the JavaScript body is written as v2 assignments)
+OpaqueBehavior	Station::Cycle::main::Work::steps::Run::pace::Fast::<OpaqueBehavior>	_fastEntry	-> Station::Cycle::Work::steps::Run::pace::Fast::unnamed	(the JavaScript body is translated to v2; the JavaScript body is written as v2 assignments)
 
 ## mapped (96)
 SignalEvent	<SignalEvent>	_backEv	(written where a trigger refers to it, as accept Back)
@@ -62,12 +62,12 @@ Signal	Split	_split	-> Split
 Region	Station::Cycle::main	_main	(the one region is written as the body of its owner)
 Pseudostate	Station::Cycle::main::<Pseudostate>	_init0	(written as the entry of the region)
 Transition	Station::Cycle::main::<Transition>	_t0
-Transition	Station::Cycle::main::<Transition>	_tGo	(the target 'Start' lies in another region and is named by its path Work.Start)
+Transition	Station::Cycle::main::<Transition>	_tGo	(the target 'Start' lies in another region and is named by its path Work.steps.Start)
 Transition	Station::Cycle::main::<Transition>	_tNever
 Transition	Station::Cycle::main::<Transition>	_tEnter	(written to Work: no transition leaves the entry point 'Plain', so entering through it enters the state by its default entry)
-Transition	Station::Cycle::main::<Transition>	_tDive	(the target 'Deep' lies in another region and is named by its path Work.Run.Deep)
-Transition	Station::Cycle::main::<Transition>	_tResume	(the target 'H' lies in another region and is named by its path Work.H)
-Transition	Station::Cycle::main::<Transition>	_tLeave	(the source 'Leave' lies in another region and is named by its path Work.Leave)
+Transition	Station::Cycle::main::<Transition>	_tDive	(the target 'Deep' lies in another region and is named by its path Work.steps.Run.pace.Deep)
+Transition	Station::Cycle::main::<Transition>	_tResume	(the target 'H' lies in another region and is named by its path Work.steps.H)
+Transition	Station::Cycle::main::<Transition>	_tLeave	(the source 'Leave' lies in another region and is named by its path Work.steps.Leave)
 Transition	Station::Cycle::main::<Transition>	_tStop
 Transition	Station::Cycle::main::<Transition>	_tPair
 Transition	Station::Cycle::main::<Transition>	_tSplit	(the target 'Both' lies in another region and is named by its path Sync.Both)
@@ -85,7 +85,7 @@ State	Station::Cycle::main::Idle	_idle	-> Idle
 State	Station::Cycle::main::Sync	_sync	-> Sync
 Pseudostate	Station::Cycle::main::Sync::Both	_both	-> Both	(written as a fork of its state, whose branches start its regions; a transition entering through it runs the state's entry behavior, then the branches)
 Pseudostate	Station::Cycle::main::Sync::Gather	_gather	-> Gather	(written as a join of its state, which its regions leave through together; the transitions into the join run, then the state's exit behavior, then the transition leaving it)
-Region	Station::Cycle::main::Sync::a	_ra	-> a	(the one region is written as the body of its owner; an orthogonal region is written as a sub-state of the parallel state regions)
+Region	Station::Cycle::main::Sync::a	_ra	-> a	(an orthogonal region is written as a sub-state of the parallel state regions)
 Pseudostate	Station::Cycle::main::Sync::a::<Pseudostate>	_initA	(written as the entry of the region)
 Transition	Station::Cycle::main::Sync::a::<Transition>	_tAi
 Transition	Station::Cycle::main::Sync::a::<Transition>	_tA
@@ -95,7 +95,7 @@ Constraint	Station::Cycle::main::Sync::a::<Transition>::<Constraint>	_bothAGuard
 Trigger	Station::Cycle::main::Sync::a::<Transition>::<Trigger>	_trA
 State	Station::Cycle::main::Sync::a::A0	_a0	-> A0
 State	Station::Cycle::main::Sync::a::A1	_a1	-> A1
-Region	Station::Cycle::main::Sync::b	_rb	-> b	(the one region is written as the body of its owner; an orthogonal region is written as a sub-state of the parallel state regions)
+Region	Station::Cycle::main::Sync::b	_rb	-> b	(an orthogonal region is written as a sub-state of the parallel state regions)
 Pseudostate	Station::Cycle::main::Sync::b::<Pseudostate>	_initB	(written as the entry of the region)
 Transition	Station::Cycle::main::Sync::b::<Transition>	_tBi
 Transition	Station::Cycle::main::Sync::b::<Transition>	_tB
@@ -108,13 +108,13 @@ State	Station::Cycle::main::Work	_work	-> Work
 Pseudostate	Station::Cycle::main::Work::Leave	_leave	-> Leave	(written as a `#StateMachines::junction state` of its state; a transition leaving through it runs the transition into the junction, the state's exit behavior, then the transition leaving it)
 Pseudostate	Station::Cycle::main::Work::Plain	_plain	-> Work	(no transition leaves the entry point, so entering through it enters 'Work' by its default entry; a transition to it is written to the state)
 Pseudostate	Station::Cycle::main::Work::Start	_start	-> Start	(written as a `#StateMachines::junction state` of its state; a transition entering through it runs the state's entry behavior, then the transition leaving the junction)
-Region	Station::Cycle::main::Work::steps	_steps	(the one region is written as the body of its owner)
+Region	Station::Cycle::main::Work::steps	_steps	-> steps	(the region is written as the sub-state steps of the parallel state Work, as a composite state's regions are)
 Pseudostate	Station::Cycle::main::Work::steps::<Pseudostate>	_initW	(written as the entry of the region)
 Transition	Station::Cycle::main::Work::steps::<Transition>	_tWi
 Transition	Station::Cycle::main::Work::steps::<Transition>	_tNext
-Transition	Station::Cycle::main::Work::steps::<Transition>	_tStart	(the source 'Start' lies in another region and is named by its path Start)
-Transition	Station::Cycle::main::Work::steps::<Transition>	_tFinish	(the target 'Leave' lies in another region and is named by its path Leave)
-Transition	Station::Cycle::main::Work::steps::<Transition>	_tOut	(the source 'Out' lies in another region and is named by its path Run.Out)
+Transition	Station::Cycle::main::Work::steps::<Transition>	_tStart
+Transition	Station::Cycle::main::Work::steps::<Transition>	_tFinish
+Transition	Station::Cycle::main::Work::steps::<Transition>	_tOut	(the source 'Out' lies in another region and is named by its path steps.Run.pace.Out)
 Trigger	Station::Cycle::main::Work::steps::<Transition>::<Trigger>	_trNext
 Trigger	Station::Cycle::main::Work::steps::<Transition>::<Trigger>	_trFinish
 Pseudostate	Station::Cycle::main::Work::steps::H	_hist	-> H	(written as a `#StateMachines::shallowHistory state` shallow history, which re-enters the substate active when its state was last left)
@@ -122,11 +122,11 @@ State	Station::Cycle::main::Work::steps::Prep	_prep	-> Prep
 State	Station::Cycle::main::Work::steps::Run	_run	-> Run
 Pseudostate	Station::Cycle::main::Work::steps::Run::Deep	_deep	-> Deep	(written as a `#StateMachines::junction state` of its state; a transition entering through it runs the state's entry behavior, then the transition leaving the junction)
 Pseudostate	Station::Cycle::main::Work::steps::Run::Out	_out	-> Out	(written as a `#StateMachines::junction state` of its state; a transition leaving through it runs the transition into the junction, the state's exit behavior, then the transition leaving it)
-Region	Station::Cycle::main::Work::steps::Run::pace	_pace	(the one region is written as the body of its owner)
+Region	Station::Cycle::main::Work::steps::Run::pace	_pace	-> pace	(the region is written as the sub-state pace of the parallel state Run, as a composite state's regions are)
 Pseudostate	Station::Cycle::main::Work::steps::Run::pace::<Pseudostate>	_initR	(written as the entry of the region)
 Transition	Station::Cycle::main::Work::steps::Run::pace::<Transition>	_tRi
-Transition	Station::Cycle::main::Work::steps::Run::pace::<Transition>	_tDeep	(the source 'Deep' lies in another region and is named by its path Deep)
-Transition	Station::Cycle::main::Work::steps::Run::pace::<Transition>	_tBack	(the target 'Out' lies in another region and is named by its path Out)
+Transition	Station::Cycle::main::Work::steps::Run::pace::<Transition>	_tDeep
+Transition	Station::Cycle::main::Work::steps::Run::pace::<Transition>	_tBack
 Trigger	Station::Cycle::main::Work::steps::Run::pace::<Transition>::<Trigger>	_trBack
 State	Station::Cycle::main::Work::steps::Run::pace::Fast	_fast	-> Fast
 State	Station::Cycle::main::Work::steps::Run::pace::Slow	_slow	-> Slow

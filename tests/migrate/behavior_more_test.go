@@ -851,7 +851,7 @@ func TestStrictDeferralSurvivesInactiveSubstateTransition(t *testing.T) {
 	r := migrateDocumentOptions(t, machine, `<sysml:Block xmi:id="_b1" base_Class="_oven"/>`, migrate.Options{Strict: true})
 	wantNoLine(t, r.Notation, "defer Door;")
 	for _, line := range []string{
-		"state Busy {",
+		"state Busy parallel {",
 		"item deferred : Door[*] ordered;",
 		"#MigrationMetadata::DeferredKeeper action receive accept kept : Door;",
 		"transition first Heating accept Door then Opened;",
@@ -2071,21 +2071,20 @@ const loggingMachine = `
 const loggingApplications = `
   <sysml:Block xmi:id="_s1" base_Class="_logger"/>`
 
-// A state's entry and exit behaviors and the states of its one region are
-// members of one v2 body, so those sharing a name are told apart the way any
-// clashing members are; the region's entry follows the state's own entry action.
+// A state's entry and exit behaviors stay on the owner, and its one region is a
+// nested state whose entry remains inside that region.
 func TestStateBehaviorsSharingANameAreDistinguished(t *testing.T) {
 	r := migrateDocument(t, loggingMachine, loggingApplications)
 	for _, line := range []string{
+		"state On parallel {",
 		"entry action log {",
 		"exit action 'log 2' {",
+		"state region {",
+		"entry; then 'log 3';",
 		"then 'log 3';",
 		"state 'log 3';",
 	} {
 		wantLine(t, r.Notation, line)
-	}
-	if strings.Contains(string(r.Notation), "entry; then 'log 3'") {
-		t.Errorf("the region's entry is written as a second entry action:\n%s", r.Notation)
 	}
 	wantNote(t, r, "_onExit", migrate.Approximated, "written as v2 assignments")
 	if es := entriesFor(r, "_onExit"); len(es) == 1 && es[0].Target != "Logger::Logging::On::'log 2'" {

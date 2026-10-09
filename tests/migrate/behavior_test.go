@@ -696,7 +696,7 @@ func TestStateMachineMigratesToAnExecutableStateDef(t *testing.T) {
 	for _, line := range []string{
 		"state def Control {",
 		"entry; then Idle;",
-		"state Busy {",
+		"state Busy parallel {",
 		"entry; then Warm;",
 		"transition first Warm accept after 2.0 [SI::s] then Hot;",
 		"state Cool : Cooling { in ref :>> context = Control::context; }",

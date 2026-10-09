@@ -16,78 +16,82 @@ part def Station {
         in ref context : Station[1];
         entry; then Idle;
         state Idle;
-        state Work {
+        state Work parallel {
             entry action {
                 rep language "JavaScript" /* trace = trace * 100 + 11; */
                 assign context.trace := context.trace * 100 + 11;
             }
-            then Prep;
             exit action {
                 rep language "JavaScript" /* trace = trace * 100 + 12; */
                 assign context.trace := context.trace * 100 + 12;
             }
-            #StateMachines::junction state Start;
-            /* not migrated: Pseudostate 'Through' — (_tThrough) leads from the entry point straight to the exit point 'Leave' of the same state, crossing it without settling in it; the runtime would then run neither its entry nor its exit behavior */
-            #StateMachines::junction state Leave;
-            state Prep {
-                entry action {
-                    rep language "JavaScript" /* trace = trace * 100 + 13; */
-                    assign context.trace := context.trace * 100 + 13;
-                }
-            }
-            state Run {
-                entry action {
-                    rep language "JavaScript" /* trace = trace * 100 + 14; */
-                    assign context.trace := context.trace * 100 + 14;
-                }
-                then Slow;
-                exit action {
-                    rep language "JavaScript" /* trace = trace * 100 + 15; */
-                    assign context.trace := context.trace * 100 + 15;
-                }
-                #StateMachines::junction state Deep;
-                #StateMachines::junction state Out;
-                state Slow;
-                state Fast {
+            state steps {
+                #StateMachines::junction state Start;
+                /* not migrated: Pseudostate 'Through' — (_tThrough) leads from the entry point straight to the exit point 'Leave' of the same state, crossing it without settling in it; the runtime would then run neither its entry nor its exit behavior */
+                #StateMachines::junction state Leave;
+                entry; then Prep;
+                state Prep {
                     entry action {
-                        rep language "JavaScript" /* trace = trace * 100 + 17; */
-                        assign context.trace := context.trace * 100 + 17;
+                        rep language "JavaScript" /* trace = trace * 100 + 13; */
+                        assign context.trace := context.trace * 100 + 13;
                     }
                 }
-                transition first Deep
-                    do action {
-                        rep language "JavaScript" /* trace = trace * 100 + 21; */
-                        assign context.trace := context.trace * 100 + 21;
+                state Run parallel {
+                    entry action {
+                        rep language "JavaScript" /* trace = trace * 100 + 14; */
+                        assign context.trace := context.trace * 100 + 14;
                     }
-                    then Fast;
-                transition first Fast accept Back
-                    do action {
-                        rep language "JavaScript" /* trace = trace * 100 + 22; */
-                        assign context.trace := context.trace * 100 + 22;
+                    exit action {
+                        rep language "JavaScript" /* trace = trace * 100 + 15; */
+                        assign context.trace := context.trace * 100 + 15;
                     }
-                    then Out;
+                    state pace {
+                        #StateMachines::junction state Deep;
+                        #StateMachines::junction state Out;
+                        entry; then Slow;
+                        state Slow;
+                        state Fast {
+                            entry action {
+                                rep language "JavaScript" /* trace = trace * 100 + 17; */
+                                assign context.trace := context.trace * 100 + 17;
+                            }
+                        }
+                        transition first Deep
+                            do action {
+                                rep language "JavaScript" /* trace = trace * 100 + 21; */
+                                assign context.trace := context.trace * 100 + 21;
+                            }
+                            then Fast;
+                        transition first Fast accept Back
+                            do action {
+                                rep language "JavaScript" /* trace = trace * 100 + 22; */
+                                assign context.trace := context.trace * 100 + 22;
+                            }
+                            then Out;
+                    }
+                }
+                #StateMachines::shallowHistory state H;
+                transition first Prep accept Next then Run;
+                transition first Start
+                    do action {
+                        rep language "JavaScript" /* trace = trace * 100 + 23; */
+                        assign context.trace := context.trace * 100 + 23;
+                    }
+                    then Run;
+                /* not migrated: Transition (_tThrough) — the source 'Through' has no v2 form: (_tThrough) leads from the entry point straight to the exit point 'Leave' of the same state, crossing it without settling in it; the runtime would then run neither its entry nor its exit behavior */
+                transition first Run accept Finish
+                    do action {
+                        rep language "JavaScript" /* trace = trace * 100 + 24; */
+                        assign context.trace := context.trace * 100 + 24;
+                    }
+                    then Leave;
+                transition first steps.Run.pace.Out
+                    do action {
+                        rep language "JavaScript" /* trace = trace * 100 + 25; */
+                        assign context.trace := context.trace * 100 + 25;
+                    }
+                    then Prep;
             }
-            #StateMachines::shallowHistory state H;
-            transition first Prep accept Next then Run;
-            transition first Start
-                do action {
-                    rep language "JavaScript" /* trace = trace * 100 + 23; */
-                    assign context.trace := context.trace * 100 + 23;
-                }
-                then Run;
-            /* not migrated: Transition (_tThrough) — the source 'Through' has no v2 form: (_tThrough) leads from the entry point straight to the exit point 'Leave' of the same state, crossing it without settling in it; the runtime would then run neither its entry nor its exit behavior */
-            transition first Run accept Finish
-                do action {
-                    rep language "JavaScript" /* trace = trace * 100 + 24; */
-                    assign context.trace := context.trace * 100 + 24;
-                }
-                then Leave;
-            transition first Run.Out
-                do action {
-                    rep language "JavaScript" /* trace = trace * 100 + 25; */
-                    assign context.trace := context.trace * 100 + 25;
-                }
-                then Prep;
         }
         state Sync {
             entry action {
@@ -155,7 +159,7 @@ part def Station {
                 rep language "JavaScript" /* trace = trace * 100 + 41; */
                 assign context.trace := context.trace * 100 + 41;
             }
-            then Work.Start;
+            then Work.steps.Start;
         transition first Idle accept Go if false then Work;
         transition first Idle accept Enter then Work;
         transition first Idle accept Dive
@@ -163,10 +167,10 @@ part def Station {
                 rep language "JavaScript" /* trace = trace * 100 + 42; */
                 assign context.trace := context.trace * 100 + 42;
             }
-            then Work.Run.Deep;
-        transition first Idle accept Resume then Work.H;
+            then Work.steps.Run.pace.Deep;
+        transition first Idle accept Resume then Work.steps.H;
         /* not migrated: Transition (_tSkip) — the target 'Through' has no v2 form: (_tThrough) leads from the entry point straight to the exit point 'Leave' of the same state, crossing it without settling in it; the runtime would then run neither its entry nor its exit behavior */
-        transition first Work.Leave
+        transition first Work.steps.Leave
             do action {
                 rep language "JavaScript" /* trace = trace * 100 + 43; */
                 assign context.trace := context.trace * 100 + 43;

@@ -8,7 +8,7 @@ TimeEvent	never	_never	(the time event's time is not written: the instant "next 
 
 ## approximated (6)
 StateMachine	Plant::Line	_line	-> Plant::Line	(acts on its owner Plant, which it takes as its parameter context, since its this is the def's own occurrence; the classifier behavior is run by every object of Plant as its usage line)
-Transition	Plant::Line::main::<Transition>	_tBump	(the target 'Prep' lies in another region and is named by its path Work.Prep; a local transition is written external: the composite state Work exits and re-enters where v1 stayed in it, running its exit and entry behaviors)
+Transition	Plant::Line::main::<Transition>	_tBump	(the target 'Prep' lies in another region and is named by its path Work.steps.Prep; a local transition is written external: the composite state Work exits and re-enters where v1 stayed in it, running its exit and entry behaviors)
 Trigger	Plant::Line::main::<Transition>::<Trigger>	_trDawn	(the absolute time is an instant on the simulation clock, which starts at 0.0 [SI::s])
 OpaqueBehavior	Plant::Line::main::<Transition>::log	_resumeLog	-> Plant::Line::unnamed::log	(the JavaScript body is translated to v2; the console print println(…) is left out, as it writes to the tool's console and changes nothing of the model; the JavaScript body is written as v2 assignments)
 OpaqueBehavior	Plant::Line::main::Work::tally	_workExit	-> Plant::Line::Work::tally	(the JavaScript body is translated to v2; the JavaScript body is written as v2 assignments)
@@ -53,10 +53,10 @@ FinalState	Plant::Line::main::<FinalState>	_fin	-> done
 Pseudostate	Plant::Line::main::<Pseudostate>	_init0	(written as the entry of the region)
 Transition	Plant::Line::main::<Transition>	_t0
 Transition	Plant::Line::main::<Transition>	_tGo
-Transition	Plant::Line::main::<Transition>	_tStop	(the source 'Run' lies in another region and is named by its path Work.Run)
-Transition	Plant::Line::main::<Transition>	_tDirect	(the target 'Run' lies in another region and is named by its path Work.Run)
+Transition	Plant::Line::main::<Transition>	_tStop	(the source 'Run' lies in another region and is named by its path Work.steps.Run)
+Transition	Plant::Line::main::<Transition>	_tDirect	(the target 'Run' lies in another region and is named by its path Work.steps.Run)
 Transition	Plant::Line::main::<Transition>	_tHold
-Transition	Plant::Line::main::<Transition>	_tResume	(the target 'last' lies in another region and is named by its path Work.last)
+Transition	Plant::Line::main::<Transition>	_tResume	(the target 'last' lies in another region and is named by its path Work.steps.last)
 Transition	Plant::Line::main::<Transition>	_tEnter
 Transition	Plant::Line::main::<Transition>	_tLeave
 Transition	Plant::Line::main::<Transition>	_tRoute
@@ -83,12 +83,12 @@ Trigger	Plant::Line::main::<Transition>::<Trigger>	_trSplit
 Trigger	Plant::Line::main::<Transition>::<Trigger>	_trPing
 Trigger	Plant::Line::main::<Transition>::<Trigger>	_trBump
 State	Plant::Line::main::Both	_both	-> Both
-Region	Plant::Line::main::Both::a	_ra	-> a	(the one region is written as the body of its owner; an orthogonal region is written as a sub-state of the parallel state regions)
+Region	Plant::Line::main::Both::a	_ra	-> a	(an orthogonal region is written as a sub-state of the parallel state regions)
 Transition	Plant::Line::main::Both::a::<Transition>	_tA
 Trigger	Plant::Line::main::Both::a::<Transition>::<Trigger>	_trA
 State	Plant::Line::main::Both::a::A1	_a1	-> A1
 State	Plant::Line::main::Both::a::A2	_a2	-> A2
-Region	Plant::Line::main::Both::b	_rb	-> b	(the one region is written as the body of its owner; an orthogonal region is written as a sub-state of the parallel state regions)
+Region	Plant::Line::main::Both::b	_rb	-> b	(an orthogonal region is written as a sub-state of the parallel state regions)
 Transition	Plant::Line::main::Both::b::<Transition>	_tB
 Trigger	Plant::Line::main::Both::b::<Transition>::<Trigger>	_trB
 State	Plant::Line::main::Both::b::B1	_b1	-> B1
@@ -99,7 +99,7 @@ ConnectionPointReference	Plant::Line::main::Cell::<ConnectionPointReference>	_cp
 State	Plant::Line::main::Idle	_idle	-> Idle
 State	Plant::Line::main::Pause	_pause	-> Pause
 State	Plant::Line::main::Work	_work	-> Work
-Region	Plant::Line::main::Work::steps	_rw	(the one region is written as the body of its owner)
+Region	Plant::Line::main::Work::steps	_rw	-> steps	(the region is written as the sub-state steps of the parallel state Work, as a composite state's regions are)
 Pseudostate	Plant::Line::main::Work::steps::<Pseudostate>	_initW	(written as the entry of the region)
 Transition	Plant::Line::main::Work::steps::<Transition>	_tWi
 Transition	Plant::Line::main::Work::steps::<Transition>	_tNext

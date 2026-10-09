@@ -8,14 +8,14 @@ StateMachine	Machine::Run	_run	-> Machine::Run	(the classifier behavior is run b
 SignalEvent	<SignalEvent>	_stopEvent	(written where a trigger refers to it, as accept Stop)
 SignalEvent	<SignalEvent>	_pingEvent	(written where a trigger refers to it, as accept Ping)
 «Block» Class	Machine	_machine	-> Machine
-Region	Machine::Run::R1	_r1	-> R1	(the one region is written as the body of its owner; an orthogonal region is written as a sub-state of the parallel state regions)
+Region	Machine::Run::R1	_r1	-> R1	(an orthogonal region is written as a sub-state of the parallel state regions)
 Pseudostate	Machine::Run::R1::<Pseudostate>	_r1Initial	(written as the entry of the region)
 Pseudostate	Machine::Run::R1::<Pseudostate>	_end	-> terminated	(written as a terminate action, which ends the state machine's performance in every region)
 Transition	Machine::Run::R1::<Transition>	_r1Start
 Transition	Machine::Run::R1::<Transition>	_stopTransition
 Trigger	Machine::Run::R1::<Transition>::<Trigger>	_stopTrigger
 State	Machine::Run::R1::A	_a	-> A
-Region	Machine::Run::R2	_r2	-> R2	(the one region is written as the body of its owner; an orthogonal region is written as a sub-state of the parallel state regions)
+Region	Machine::Run::R2	_r2	-> R2	(an orthogonal region is written as a sub-state of the parallel state regions)
 Pseudostate	Machine::Run::R2::<Pseudostate>	_r2Initial	(written as the entry of the region)
 Transition	Machine::Run::R2::<Transition>	_r2Start
 Transition	Machine::Run::R2::<Transition>	_pingTransition

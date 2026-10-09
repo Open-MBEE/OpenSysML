@@ -13,21 +13,21 @@ Region	Plant::Life::main	_main	(the one region is written as the body of its own
 Pseudostate	Plant::Life::main::<Pseudostate>	_init	(written as the entry of the region)
 Transition	Plant::Life::main::<Transition>	_enterWork
 State	Plant::Life::main::Parallel	_parallel	-> Parallel
-Region	Plant::Life::main::Parallel::region3	_region3	-> region3	(the one region is written as the body of its owner; an orthogonal region is written as a sub-state of the parallel state regions)
+Region	Plant::Life::main::Parallel::region3	_region3	-> region3	(an orthogonal region is written as a sub-state of the parallel state regions)
 Pseudostate	Plant::Life::main::Parallel::region3::<Pseudostate>	_region3Init	(written as the entry of the region)
 Transition	Plant::Life::main::Parallel::region3::<Transition>	_enterWait3
 State	Plant::Life::main::Parallel::region3::wait3	_wait3	-> wait3
-Region	Plant::Life::main::Parallel::region4	_region4	-> region4	(the one region is written as the body of its owner; an orthogonal region is written as a sub-state of the parallel state regions)
+Region	Plant::Life::main::Parallel::region4	_region4	-> region4	(an orthogonal region is written as a sub-state of the parallel state regions)
 State	Plant::Life::main::Parked	_parked	-> Parked
-Region	Plant::Life::main::Parked::parked	_parkedRegion	(the one region is written as the body of its owner)
+Region	Plant::Life::main::Parked::parked	_parkedRegion	-> parked	(the region is written as the sub-state parked of the parallel state Parked, as a composite state's regions are)
 Pseudostate	Plant::Life::main::Parked::parked::<Pseudostate>	_parkedInit	(written as the entry of the region)
 Transition	Plant::Life::main::Parked::parked::<Transition>	_enterReady
 State	Plant::Life::main::Parked::parked::Ready	_ready	-> Ready
 State	Plant::Life::main::Work	_work	-> Work
-Region	Plant::Life::main::Work::work	_workRegion	(the one region is written as the body of its owner)
+Region	Plant::Life::main::Work::work	_workRegion	-> work	(the region is written as the sub-state work of the parallel state Work, as a composite state's regions are)
 Pseudostate	Plant::Life::main::Work::work::<Pseudostate>	_workInit	(written as the entry of the region)
 Transition	Plant::Life::main::Work::work::<Transition>	_enterRun
-Transition	Plant::Life::main::Work::work::<Transition>	_leaveRun	(the source 'Run' lies in another region and is named by its path Work.Run; the target 'Ready' lies in another region and is named by its path Parked.Ready)
+Transition	Plant::Life::main::Work::work::<Transition>	_leaveRun	(the source 'Run' lies in another region and is named by its path Work.work.Run; the target 'Ready' lies in another region and is named by its path Parked.parked.Ready)
 Trigger	Plant::Life::main::Work::work::<Transition>::<Trigger>	_stopTrigger
 State	Plant::Life::main::Work::work::Run	_run	-> Run
 Signal	Stop	_stop	-> Stop
