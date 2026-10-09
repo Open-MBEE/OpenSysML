@@ -580,4 +580,31 @@ func TestPublishByNameUpdatesTheLoadedNamesake(t *testing.T) {
 	if len(api.order) != 2 {
 		t.Errorf("--project=Vehicles created a project: %d projects", len(api.order))
 	}
+
+	// Renamed on the server, the tracked project no longer answers to the name:
+	// the namesake, now alone under it, is the one published to.
+	api.mu.Lock()
+	api.projects["project-0001"].name = "Fleet"
+	api.mu.Unlock()
+	out = runMeta(t, fresh, "%publish Vehicles")
+	if len(out) != 1 || !strings.Contains(out[0], "of Vehicles ("+namesake.id+")") {
+		t.Fatalf("publish by a name the tracked project lost:\n%s", joined(out))
+	}
+	if api.elementCount(namesake.id, namesake.defaults) == 0 || len(api.order) != 2 {
+		t.Errorf("the namesake holds nothing or a project was created: %d projects", len(api.order))
+	}
+
+	// Deleted on the server, likewise: no project is created over the namesake.
+	api.mu.Lock()
+	delete(api.projects, "project-0001")
+	api.order = api.order[1:]
+	api.mu.Unlock()
+	fresh.Submit("package Vehicles { part def Wheel { attribute radius : ScalarValues::Real; } part def Car { part wheels : Wheel[4]; } part def Bus; part def Van; }")
+	out = runMeta(t, fresh, "%publish Vehicles")
+	if len(out) != 1 || !strings.Contains(out[0], "of Vehicles ("+namesake.id+")") {
+		t.Fatalf("publish by name after the tracked project was deleted:\n%s", joined(out))
+	}
+	if len(api.order) != 1 {
+		t.Errorf("a project was created over the namesake: %d projects", len(api.order))
+	}
 }
