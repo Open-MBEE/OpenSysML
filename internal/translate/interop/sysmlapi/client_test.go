@@ -9,6 +9,7 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"testing"
 )
 
@@ -118,5 +119,48 @@ func TestRedirectsKeepTheTokenOffPlaintext(t *testing.T) {
 	tokenless := New(Config{BaseURL: "https://api.example"})
 	if err := tokenless.checkRedirect(request("http://other.example/projects/"), []*http.Request{from}); err != nil {
 		t.Errorf("without a token, a redirect elsewhere was refused: %v", err)
+	}
+}
+
+// TestLinkedPagesKeepTheTokenOnTheServer: a next-page link is held to the rule
+// a redirect is, so a server cannot have the token sent on to another host.
+func TestLinkedPagesKeepTheTokenOnTheServer(t *testing.T) {
+	t.Setenv(EnvPlainHTTP, "1")
+	var elsewhere int32
+	other := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		atomic.AddInt32(&elsewhere, 1)
+		_ = json.NewEncoder(w).Encode([]map[string]any{{"@id": "p2", "@type": "Project", "name": "Two"}})
+	}))
+	defer other.Close()
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Link", fmt.Sprintf(`<%s%s>; rel="next"`, other.URL, r.URL.RequestURI()))
+		_ = json.NewEncoder(w).Encode([]map[string]any{{"@id": "p1", "@type": "Project", "name": "One"}})
+	}))
+	defer server.Close()
+	otherHost, serverHost := strings.TrimPrefix(other.URL, "http://"), strings.TrimPrefix(server.URL, "http://")
+
+	c := New(Config{BaseURL: server.URL, Token: "secret"})
+	for name, list := range map[string]func() error{
+		"projects": func() error { _, err := c.Projects(context.Background()); return err },
+		"elements": func() error { _, err := c.Elements(context.Background(), "p", "c", 1); return err },
+	} {
+		err := list()
+		if err == nil {
+			t.Fatalf("%s: a page on another server was read with the token", name)
+		}
+		if !strings.Contains(err.Error(), otherHost) || !strings.Contains(err.Error(), serverHost) {
+			t.Errorf("%s: the refusal names neither %s nor %s: %v", name, otherHost, serverHost, err)
+		}
+		if strings.Contains(err.Error(), "secret") {
+			t.Errorf("%s: the refusal names the token: %v", name, err)
+		}
+	}
+	if n := atomic.LoadInt32(&elsewhere); n != 0 {
+		t.Errorf("the other server was asked %d time(s)", n)
+	}
+
+	tokenless := New(Config{BaseURL: server.URL})
+	if projects, err := tokenless.Projects(context.Background()); err != nil || len(projects) != 2 {
+		t.Errorf("without a token, the linked page was not followed: %d projects, %v", len(projects), err)
 	}
 }

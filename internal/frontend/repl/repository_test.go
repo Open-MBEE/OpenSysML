@@ -503,3 +503,108 @@ func TestRepositoryOptionsAreGivenOnce(t *testing.T) {
 		}
 	}
 }
+
+// The environment's URL is held to the rule %repo holds a URL it is given to:
+// a plaintext server off this machine gets no request, so no token in the clear.
+func TestDefaultURLIsHeldToThePlaintextRule(t *testing.T) {
+	if replext.Repo() == nil {
+		t.Fatal("no repository extension is linked")
+	}
+	t.Setenv("FLEXO_SYSMLV2_URL", "http://models.example.com/api")
+	t.Setenv("FLEXO_INTEROP_TOKEN", "secret")
+	t.Setenv("FLEXO_ALLOW_PLAIN_HTTP", "")
+	s := NewSession()
+	s.Submit(vehicles)
+	for _, line := range []string{"%repo", "%projects", "%load --id=project-0001", "%publish Vehicles"} {
+		err := metaErr(t, s, line)
+		if !strings.Contains(err.Error(), "FLEXO_ALLOW_PLAIN_HTTP") || !strings.Contains(err.Error(), "http://models.example.com/api") {
+			t.Errorf("%s: the environment's plaintext URL was taken: %v", line, err)
+		}
+		if strings.Contains(err.Error(), "secret") {
+			t.Errorf("%s: the refusal names the token: %v", line, err)
+		}
+		if strings.Contains(err.Error(), "did not answer") {
+			t.Errorf("%s: a request went out: %v", line, err)
+		}
+	}
+	if got := s.Complete("%load Veh", len("%load Veh")).Candidates; len(got) != 0 {
+		t.Errorf("completion asked the refused server: %q", got)
+	}
+
+	if got := joined(runMeta(t, s, "%repo http://127.0.0.1:1/api")); got != "API base path: http://127.0.0.1:1/api" {
+		t.Errorf("%%repo <loopback url> = %q", got)
+	}
+	if err := metaErr(t, s, "%projects"); !strings.Contains(err.Error(), "did not answer") {
+		t.Errorf("a loopback URL set by %%repo was still refused: %v", err)
+	}
+
+	t.Setenv("FLEXO_ALLOW_PLAIN_HTTP", "1")
+	if got := joined(runMeta(t, NewSession(), "%repo")); got != "API base path: http://models.example.com/api" {
+		t.Errorf("with the opt-in, %%repo = %q", got)
+	}
+}
+
+// A project the session loaded by id is the one a publish by its name means,
+// even when another project on the server has the same name.
+func TestPublishByNameUpdatesTheLoadedNamesake(t *testing.T) {
+	s, api := repoSession(t)
+	s.Submit(vehicles)
+	runMeta(t, s, "%publish Vehicles")
+	namesake := api.addProject("Vehicles")
+	held := api.elementCount("project-0001", "branch-0002")
+
+	untracked := NewSession()
+	untracked.Submit(vehicles)
+	if err := metaErr(t, untracked, "%publish Vehicles"); !strings.Contains(err.Error(), "project-0001") || !strings.Contains(err.Error(), namesake.id) {
+		t.Errorf("without a loaded project, the shared name is not refused naming both: %v", err)
+	}
+
+	fresh := NewSession()
+	runMeta(t, fresh, "%load --id=project-0001")
+	fresh.Submit("package Vehicles { part def Wheel { attribute radius : ScalarValues::Real; } part def Car { part wheels : Wheel[4]; } part def Bus; }")
+	out := runMeta(t, fresh, "%publish Vehicles")
+	if len(out) != 1 || !strings.Contains(out[0], "of Vehicles (project-0001)") {
+		t.Fatalf("publish by name after loading by id:\n%s", joined(out))
+	}
+	if now := api.elementCount("project-0001", "branch-0002"); now <= held {
+		t.Errorf("the loaded project holds %d elements, had %d; Bus was not added", now, held)
+	}
+	if api.elementCount(namesake.id, namesake.defaults) != 0 || len(api.order) != 2 {
+		t.Errorf("the namesake received elements or a project was created: %d projects", len(api.order))
+	}
+	fresh.Submit("package Spare { part def Boat; }")
+	out = runMeta(t, fresh, "%publish --project=Vehicles Spare")
+	if len(out) < 1 || !strings.Contains(out[0], "of Vehicles (project-0001)") {
+		t.Errorf("--project naming the tracked project's name:\n%s", joined(out))
+	}
+	if len(api.order) != 2 {
+		t.Errorf("--project=Vehicles created a project: %d projects", len(api.order))
+	}
+
+	// Renamed on the server, the tracked project no longer answers to the name:
+	// the namesake, now alone under it, is the one published to.
+	api.mu.Lock()
+	api.projects["project-0001"].name = "Fleet"
+	api.mu.Unlock()
+	out = runMeta(t, fresh, "%publish Vehicles")
+	if len(out) != 1 || !strings.Contains(out[0], "of Vehicles ("+namesake.id+")") {
+		t.Fatalf("publish by a name the tracked project lost:\n%s", joined(out))
+	}
+	if api.elementCount(namesake.id, namesake.defaults) == 0 || len(api.order) != 2 {
+		t.Errorf("the namesake holds nothing or a project was created: %d projects", len(api.order))
+	}
+
+	// Deleted on the server, likewise: no project is created over the namesake.
+	api.mu.Lock()
+	delete(api.projects, "project-0001")
+	api.order = api.order[1:]
+	api.mu.Unlock()
+	fresh.Submit("package Vehicles { part def Wheel { attribute radius : ScalarValues::Real; } part def Car { part wheels : Wheel[4]; } part def Bus; part def Van; }")
+	out = runMeta(t, fresh, "%publish Vehicles")
+	if len(out) != 1 || !strings.Contains(out[0], "of Vehicles ("+namesake.id+")") {
+		t.Fatalf("publish by name after the tracked project was deleted:\n%s", joined(out))
+	}
+	if len(api.order) != 1 {
+		t.Errorf("a project was created over the namesake: %d projects", len(api.order))
+	}
+}

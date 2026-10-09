@@ -264,7 +264,7 @@ environment of the notebook server:
 | `FLEXO_SYSMLV2_URL` | `http://localhost:9000` | the SysML v2 API endpoint, by default `http://localhost:8083` |
 | `FLEXO_INTEROP_TOKEN` | unset | the bearer token; never put it in a cell |
 | `FLEXO_SYSMLV2_ORG` | unset | the organization, by default `sysmlv2` |
-| `FLEXO_ALLOW_PLAIN_HTTP` | unset on this machine | `1` to allow a plaintext `http://` server on another |
+| `FLEXO_ALLOW_PLAIN_HTTP` | unset on this machine | `1` to allow a plaintext `http://` server on another, whether `FLEXO_SYSMLV2_URL` or `%repo` names it; the token still never follows a redirect or a next-page link to another server |
 
 Then, as the pilot's notebooks do:
 
