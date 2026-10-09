@@ -172,6 +172,45 @@ type Value struct {
 	ext  *big.Rat
 }
 
+// Packed is an Integer, Rational, Real or Boolean Value in three words, for a
+// holder that keeps or passes many; Unpack restores the Value it was packed from.
+type Packed struct {
+	Kind ValueKind
+	Den  uint32
+	Bits uint64
+	Ext  *big.Rat
+}
+
+// Pack is v as a Packed.
+func (v Value) Pack() Packed {
+	p := Packed{Kind: v.Kind, Den: v.den, Ext: v.ext}
+	switch v.Kind {
+	case ValReal:
+		p.Bits = math.Float64bits(v.Real)
+	case ValBool:
+		if v.Bool {
+			p.Bits = 1
+		}
+	default:
+		p.Bits = uint64(v.Int) // #nosec G115 -- the Integer's two's-complement bits are stored, not its magnitude.
+	}
+	return p
+}
+
+// Unpack is the Value p packs.
+func (p Packed) Unpack() Value {
+	v := Value{Kind: p.Kind, den: p.Den, ext: p.Ext}
+	switch p.Kind {
+	case ValReal:
+		v.Real = math.Float64frombits(p.Bits)
+	case ValBool:
+		v.Bool = p.Bits != 0
+	default:
+		v.Int = int64(p.Bits) // #nosec G115 -- the inverse of Pack: the same bits read back as an Integer.
+	}
+	return v
+}
+
 // IsNumeric reports whether the value is an Integer, a Rational or a Real.
 func (v Value) IsNumeric() bool {
 	return v.Kind == ValInt || v.Kind == ValReal || v.Kind == ValRational

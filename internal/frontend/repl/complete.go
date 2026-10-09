@@ -48,9 +48,21 @@ func (s *Session) Complete(line string, pos int) Completion {
 	if word := lastField(head); strings.HasPrefix(word, "%") && word == command {
 		return completion(word, matchingPrefix(metaCommands(), word))
 	}
+	if command == "%load" || command == "%publish" {
+		if candidates, ok := s.repositoryCompletions(command, lastField(head)); ok {
+			return completion(lastField(head), candidates)
+		}
+	}
 	if command == "%load" || command == "%save" {
 		word := lastField(head)
 		return completion(word, pathCompletions(word))
+	}
+	if command == "%documents" {
+		return completion(lastField(head), nil)
+	}
+	if command == "%views" {
+		word := lastField(head)
+		return completion(word, matchingPrefix(viewsArguments(), word))
 	}
 	// %render takes the form after the view name, which is no name to look up,
 	// and a palette after a form that fills nodes.
@@ -81,6 +93,9 @@ func (s *Session) Complete(line string, pos int) Completion {
 				return completion(word, nil)
 			}
 		}
+	}
+	if command == "%viz" {
+		return s.completeViz(head)
 	}
 	if command == "%render" && atPaletteArgument(head) {
 		word := lastField(head)
@@ -707,4 +722,89 @@ func nextQualifier(text string, from int) int {
 		}
 	}
 	return -1
+}
+
+// completeViz offers %viz's words: the value of a --view or --style option being
+// typed, in the option's spelling or after it as its own word; the options
+// themselves at a dash; otherwise the names, and the forms until one is typed.
+func (s *Session) completeViz(head string) Completion {
+	word := lastField(head)
+	args := typedArgs(head)
+	previous := ""
+	if argumentIndex(head) >= 2 && len(args) >= 2 && !inUnfinishedName(head) {
+		previous = args[argumentIndex(head)-1]
+	}
+	switch {
+	case strings.HasPrefix(word, "--view="):
+		return completion(word, prefixed("--view=", matchingPrefixFold(vizViews(), strings.TrimPrefix(word, "--view="))))
+	case strings.HasPrefix(word, "--style="):
+		return completion(word, prefixed("--style=", matchingPrefixFold(vizStyles(), strings.TrimPrefix(word, "--style="))))
+	case strings.HasPrefix(word, "-"):
+		return completion(word, matchingPrefix([]string{"--view=", "--style="}, word))
+	case previous == "--view":
+		return completion(word, matchingPrefixFold(vizViews(), word))
+	case previous == "--style":
+		return completion(word, matchingPrefixFold(vizStyles(), word))
+	}
+	name := nameWord(head)
+	if vizFormTyped(args[:min(len(args), argumentIndex(head))]) {
+		return completion(name, s.nameCompletions(name))
+	}
+	// At an empty word the grammar is offered: the forms and the options; a
+	// name is offered once its first character narrows the thousands there are.
+	if name == "" {
+		return completion(name, append(renderForms(), "--view=", "--style="))
+	}
+	return completion(name, append(s.nameCompletions(name), matchingPrefix(renderForms(), name)...))
+}
+
+// vizFormTyped reports whether one of the finished words of a %viz line names
+// the form: a word standing alone, not the value of an option.
+func vizFormTyped(finished []string) bool {
+	for i := 1; i < len(finished); i++ {
+		if finished[i] == "--view" || finished[i] == "--style" {
+			i++
+			continue
+		}
+		if slices.Contains(renderForms(), finished[i]) {
+			return true
+		}
+	}
+	return false
+}
+
+// matchingPrefixFold is matchingPrefix in any letter case. Each match is offered
+// in the case the prefix is typed in — the values are read in any — so that it
+// begins with the prefix, as the prompt's insertion requires.
+func matchingPrefixFold(candidates []string, prefix string) []string {
+	out := make([]string, 0, len(candidates))
+	for _, c := range candidates {
+		if len(c) >= len(prefix) && strings.EqualFold(c[:len(prefix)], prefix) {
+			out = append(out, spelledLike(c, prefix))
+		}
+	}
+	return out
+}
+
+// spelledLike respells word in the letter case of prefix, a prefix of it in any
+// case: all lower or all upper when prefix is, otherwise prefix and the rest.
+func spelledLike(word, prefix string) string {
+	switch {
+	case strings.ToLower(prefix) == strings.ToUpper(prefix):
+		return word
+	case prefix == strings.ToLower(prefix):
+		return strings.ToLower(word)
+	case prefix == strings.ToUpper(prefix):
+		return strings.ToUpper(word)
+	}
+	return prefix + word[len(prefix):]
+}
+
+// prefixed puts an option's spelling before each of its values.
+func prefixed(option string, values []string) []string {
+	out := make([]string, len(values))
+	for i, value := range values {
+		out[i] = option + value
+	}
+	return out
 }

@@ -396,7 +396,7 @@ func (h *stateStmtHost) assignStateAttribute(name string, value Value) (bool, er
 	if !ok {
 		return false, nil
 	}
-	if err := h.exec.ctx.checkNamedWrite(scope, h.describe(), name, &value); err != nil {
+	if err := h.exec.ctx.checkNamedWriteAs(scope, h.describe, name, &value); err != nil {
 		return true, err
 	}
 	h.exec.ctx.writeBodyValue(cells, data, name, value)
@@ -513,7 +513,7 @@ func (h *stateStmtHost) runFlow(block lower.Block) (stmtFlow, error) {
 // the body's flow, else what is around it.
 func (h *stateStmtHost) setFeature(name string, value Value) error {
 	if root := h.perfs.root; root.holds(name) {
-		if err := h.exec.ctx.checkNamedWrite(root.scope, h.describe(), name, &value); err != nil {
+		if err := h.exec.ctx.checkNamedWriteAs(root.scope, h.describe, name, &value); err != nil {
 			return err
 		}
 		h.exec.ctx.writeBodyValue(root.cells, root.data, root.key(name), value)

@@ -4,6 +4,7 @@ package repl
 
 import (
 	"fmt"
+	"github.com/Open-MBEE/OpenSysML/internal/frontend/repl/replext"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -54,6 +55,10 @@ type snippet struct {
 	// can be written.
 	origin string
 	key    string
+	// of is the key of the file this snippet was read from along with others —
+	// a notebook, each of whose cells is a snippet — so that re-reading the
+	// file whole drops every snippet of it; empty for a source of its own file.
+	of string
 	// gen is the submission that appended this snippet, which is what scopes a
 	// report to the files just loaded rather than the whole buffer.
 	gen int
@@ -148,6 +153,11 @@ type Session struct {
 
 	// budgets bounds every runtime context this session creates.
 	budgets runtime.Budgets
+
+	// repoURL is the base URL %repo set, empty until it does; repoState is the
+	// branch the model was last loaded from or published to.
+	repoURL   string
+	repoState *replext.ProjectState
 
 	// schedule is the policy runs started from here on resolve choice points under.
 	schedule runtime.SchedulePolicy
@@ -411,6 +421,11 @@ func (s *Session) List() []string {
 func (s *Session) list() []string {
 	out := make([]string, 0, len(s.snippets))
 	for _, sn := range s.snippets {
+		// A file read whole that holds no text keeps a snippet, so re-reading it
+		// is a refresh; there is nothing of it to list.
+		if strings.TrimSpace(sn.src) == "" {
+			continue
+		}
 		out = append(out, sn.src)
 	}
 	return out
@@ -442,7 +457,7 @@ func (s *Session) accept(origin, src string) {
 // A loaded file supersedes only itself and what the prompt said about the same
 // names, since several files of one model commonly open the same package.
 func (s *Session) acceptFrom(origin, src string) (declared []string, drops []dropReport) {
-	return s.acceptParsed(origin, src, preparse(origin, src), source.KindUnknown)
+	return s.acceptParsed(origin, fileKeyOf(origin), "", src, preparse(origin, src), source.KindUnknown)
 }
 
 // parsed is what a submission's text parses to, taken before it is accepted so
@@ -473,8 +488,10 @@ func sourceForKind(name string, data []byte, kind source.Kind) *source.SourceFil
 	return source.NewWithKind(name, data, kind)
 }
 
-// acceptParsed is acceptFrom over a parse already taken.
-func (s *Session) acceptParsed(origin, src string, pre parsed, kind source.Kind) (declared []string, drops []dropReport) {
+// acceptParsed is acceptFrom over a parse already taken; key identifies origin
+// across its spellings, and of is the key of the file origin was read from along
+// with other sources, empty otherwise.
+func (s *Session) acceptParsed(origin, key, of, src string, pre parsed, kind source.Kind) (declared []string, drops []dropReport) {
 	p, root := pre.p, pre.root
 	names := declaredNames(root)
 	declared = names
@@ -483,7 +500,6 @@ func (s *Session) acceptParsed(origin, src string, pre parsed, kind source.Kind)
 	// rather than left to absorb the submissions after it, and declares nothing:
 	// what the parser recovered from it is not what was meant.
 	if !pre.closes {
-		key := fileKeyOf(origin)
 		if key != "" {
 			// Re-reading the file supersedes what it declared before, which it no
 			// longer does.
@@ -501,6 +517,7 @@ func (s *Session) acceptParsed(origin, src string, pre parsed, kind source.Kind)
 			src:    src,
 			origin: origin,
 			key:    key,
+			of:     of,
 			kind:   kind,
 			gen:    s.version,
 			open:   true,
@@ -514,7 +531,6 @@ func (s *Session) acceptParsed(origin, src string, pre parsed, kind source.Kind)
 	)
 	if origin != "" {
 		set := nameSet(names)
-		key := fileKeyOf(origin)
 		top := topLevelMembers(root)
 		kept := s.snippets[:0]
 		for _, sn := range s.snippets {
@@ -531,7 +547,7 @@ func (s *Session) acceptParsed(origin, src string, pre parsed, kind source.Kind)
 				kept = append(kept, sn)
 			}
 		}
-		s.snippets = append(kept, snippet{src: src, names: names, origin: origin, key: key, kind: kind, gen: s.version})
+		s.snippets = append(kept, snippet{src: src, names: names, origin: origin, key: key, of: of, kind: kind, gen: s.version})
 		return declared, append(drops, s.reopenedNamespaces(key, root)...)
 	}
 	if len(names) > 0 {
@@ -879,10 +895,28 @@ func (s *Session) Submit(src string) Result {
 // SourceFile is one source of a submission together with the file it was read
 // from, which is what diagnostics over a multi-file load are reported against.
 type SourceFile struct {
-	Name     string
-	Text     string
-	Kind     source.Kind
+	Name string
+	Text string
+	Kind source.Kind
+	// Of names the file this source was read from along with others — the
+	// notebook a cell is one of — empty for a source that is its own file.
+	Of string
+	// Whole is set when Of was read whole, so that re-reading it drops what an
+	// earlier reading declared and this one no longer holds.
+	Whole    bool
 	Warnings []string
+	// Key identifies the source across the spellings of its path where Name is
+	// no file's — a notebook cell's is its notebook's key and its position;
+	// empty for a source whose Name is its path.
+	Key string
+}
+
+// key identifies f across the spellings of its path.
+func (f SourceFile) key() string {
+	if f.Key != "" {
+		return f.Key
+	}
+	return fileKeyOf(f.Name)
 }
 
 // SubmitAll accumulates every src as one submission, from no file in particular.
@@ -950,8 +984,9 @@ func (s *Session) submitEach(files []SourceFile) (res Result, byFile [][]string,
 	model.ParallelFor(s.jobs, len(files), func(i int) {
 		parses[i] = preparseWithKind(files[i].Name, files[i].Text, files[i].Kind)
 	})
+	drops = s.dropReadWhole(files)
 	for i, f := range files {
-		names, dropped := s.acceptParsed(f.Name, f.Text, parses[i], f.Kind)
+		names, dropped := s.acceptParsed(f.Name, f.key(), fileKeyOf(f.Of), f.Text, parses[i], f.Kind)
 		for _, name := range names {
 			if !seen[name] {
 				seen[name] = true
@@ -993,6 +1028,32 @@ func (s *Session) submitEach(files []SourceFile) (res Result, byFile [][]string,
 	return res, byFile, whole
 }
 
+// dropReadWhole drops every snippet of a file the submission read whole, a
+// notebook's cells among them, so what the file no longer holds is gone; the
+// cells it still holds are then accepted afresh.
+func (s *Session) dropReadWhole(files []SourceFile) []dropReport {
+	whole := map[string]bool{}
+	for _, f := range files {
+		if f.Whole {
+			whole[fileKeyOf(f.Of)] = true
+		}
+	}
+	if len(whole) == 0 {
+		return nil
+	}
+	var drops []dropReport
+	kept := s.snippets[:0]
+	for _, sn := range s.snippets {
+		if sn.of != "" && whole[sn.of] {
+			drops = append(drops, dropReport{gone: sn.names})
+			continue
+		}
+		kept = append(kept, sn)
+	}
+	s.snippets = kept
+	return drops
+}
+
 // rebuildOver replaces the open documents and everything derived from them — the
 // runtime context, the resolutions held objects and debugging sessions were
 // made against — after the snippets changed, reporting what it carried over.
@@ -1016,10 +1077,10 @@ func (s *Session) rebuildOver(drops []dropReport) []string {
 	return whole
 }
 
-// fileSpan is where the current submission's text from the named file sits in the
-// joined buffer, through the newline closing it, where a parse that ran out of text reports.
-func (s *Session) fileSpan(name string) source.Span {
-	key := fileKeyOf(name)
+// fileSpan is where the current submission's text from the file key identifies
+// sits in the joined buffer, through the newline closing it, where a parse that
+// ran out of text reports.
+func (s *Session) fileSpan(key string) source.Span {
 	acc := 0
 	for _, sn := range s.snippets {
 		if sn.gen == s.version && sn.key == key {
@@ -1255,6 +1316,7 @@ func (s *Session) clear() []string {
 	}
 	s.snippets = nil
 	s.version = 0
+	s.repoState = nil
 	s.rtCtx, s.replaced = nil, nil
 	s.dropIndexedDocs()
 	s.instances = make(map[string]*runtime.Instance)

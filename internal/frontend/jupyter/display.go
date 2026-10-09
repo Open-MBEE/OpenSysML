@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/doc/docrender"
+	"github.com/Open-MBEE/OpenSysML/internal/frontend/repl"
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/repl/replext"
 	"github.com/Open-MBEE/OpenSysML/internal/ir/view"
 )
@@ -53,6 +54,18 @@ func formBundle(form view.Form, lines []string) MIMEBundle {
 		bundle[mimeDot] = text
 		if svg, ok := drawDot(text); ok {
 			bundle[mimeSVG] = svg
+		}
+	}
+	return bundle
+}
+
+// vizBundle packages what %viz drew: the bundle of each form it was written
+// in, merged, the first form's plain text being the one every front end shows.
+func vizBundle(rendered []repl.Rendered) MIMEBundle {
+	bundle := MIMEBundle{}
+	for i := len(rendered) - 1; i >= 0; i-- {
+		for mime, data := range formBundle(rendered[i].Form, rendered[i].Lines) {
+			bundle[mime] = data
 		}
 	}
 	return bundle

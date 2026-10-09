@@ -50,7 +50,7 @@ jupyter-opensysml-kernel = "jupyter_opensysml_kernel.__main__:main"
 [project.urls]
 Homepage = "https://github.com/Open-MBEE/OpenSysML"
 Repository = "https://github.com/Open-MBEE/OpenSysML"
-Documentation = "https://opensysml.org/guide/12-jupyter/"
+Documentation = "https://redk.opensysml.org/guide/12-jupyter/"
 Changelog = "https://github.com/Open-MBEE/OpenSysML/blob/main/CHANGELOG.md"
 Issues = "https://github.com/Open-MBEE/OpenSysML/issues"
 
