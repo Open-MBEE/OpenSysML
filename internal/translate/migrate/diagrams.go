@@ -662,9 +662,9 @@ func (m *migration) exposures(d *sysmlv1.Diagram, host *sysmlv1.Element, form vi
 			x.unwritten++
 		default:
 			add(ref)
-			if conn := m.connRefs(shown.Element, host); len(conn) > 0 {
+			if c := m.connOf(shown.Element); form.useCases && c != nil {
 				// The connection stands for the edge; its members would shadow the usages.
-				for _, also := range conn {
+				for _, also := range m.connRefs(c.of, host) {
 					add(also)
 				}
 				continue

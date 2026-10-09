@@ -151,6 +151,7 @@ func FromModelOptions(name string, model *sysmlv1.Model, opts Options) *Result {
 		concerns:          map[*sysmlv1.Element]*concernInfo{},
 		concernLists:      map[*sysmlv1.Element][]*sysmlv1.Element{},
 		taken:             map[*sysmlv1.Element]map[string]bool{},
+		takenBy:           map[*sysmlv1.Element]map[string]*sysmlv1.Element{},
 		parallel:          map[*sysmlv1.Element]string{},
 		exposed:           map[*sysmlv1.Element]string{},
 		methodOf:          map[*sysmlv1.Element]*sysmlv1.Element{},
@@ -213,6 +214,7 @@ func FromModelOptions(name string, model *sysmlv1.Model, opts Options) *Result {
 		actors:            map[*sysmlv1.Element]*actorLink{},
 		defUsages:         map[*sysmlv1.Element]map[*sysmlv1.Element]*defUsage{},
 		conns:             map[*sysmlv1.Element]*defConn{},
+		moreConns:         map[*sysmlv1.Element][]*defConn{},
 		monteCarlo:        map[*sysmlv1.Element]*monteCarloCase{},
 		strict:            opts.Strict,
 		layout:            opts.Layout,
@@ -368,6 +370,8 @@ type migration struct {
 	unplaced map[*sysmlv1.Element]*placement
 	// taken holds synthesized names reserved in a body, by owner.
 	taken map[*sysmlv1.Element]map[string]bool
+	// takenBy is the element each taken name was reserved for; nil for none.
+	takenBy map[*sysmlv1.Element]map[string]*sysmlv1.Element
 	// opened holds the member names of each synthesized declaration being
 	// written, outermost first; a reference written inside them avoids those names.
 	opened []columnNames
@@ -535,6 +539,7 @@ type migration struct {
 	defUsages    map[*sysmlv1.Element]map[*sysmlv1.Element]*defUsage
 	defUsageList []*defUsage
 	conns        map[*sysmlv1.Element]*defConn
+	moreConns    map[*sysmlv1.Element][]*defConn
 	// framed marks the comments a viewpoint's concernList names, written as its concerns.
 	framed map[*sysmlv1.Element]bool
 	// concerns records comments named by viewpoint and stakeholder concern lists.
@@ -3491,9 +3496,11 @@ func (m *migration) dependency(d *sysmlv1.Element) {
 	placed := len(pl.targets)
 	for i, p := range pairs {
 		name := m.nameOf(d)
-		if name != "" && i+placed > 0 {
-			name = m.freshName(m.scope, name)
-			pl.notes = append(pl.notes, fmt.Sprintf("pair %d is named %s so the pairs stay distinct", i+placed+1, name))
+		if name != "" {
+			name = m.reserveNameFor(d, m.scope, name)
+			if i+placed > 0 {
+				pl.notes = append(pl.notes, fmt.Sprintf("pair %d is named %s so the pairs stay distinct", i+placed+1, name))
+			}
 		}
 		target, written, note := m.dependencyPair(d, pl, name, p.client, p.supplier)
 		if written {
@@ -3518,8 +3525,13 @@ func (m *migration) dependency(d *sysmlv1.Element) {
 // freshName returns name, or name with a numeric suffix, not yet taken in owner,
 // and reserves it.
 func (m *migration) freshName(owner *sysmlv1.Element, name string) string {
+	return m.freshNameBut(nil, owner, name)
+}
+
+// freshNameBut is freshName for the declaration written for e, which may keep e's own name.
+func (m *migration) freshNameBut(e, owner *sysmlv1.Element, name string) string {
 	base := name
-	for i := 2; m.nameTaken(owner, name); i++ {
+	for i := 2; m.nameTakenBut(e, owner, name); i++ {
 		name = fmt.Sprintf("%s %d", base, i)
 	}
 	m.take(owner, name)
@@ -3607,7 +3619,7 @@ func (m *migration) dependencyPair(d *sysmlv1.Element, pl *placement, name strin
 		target = m.qualified(append(m.segments(m.scope), name))
 	}
 	if has(d, "Refine") {
-		conn := m.conns[d]
+		conn := m.pairConn(d, client, supplier)
 		if conn == nil {
 			conn = m.usageConnection(d, name, client, supplier, " /* «Refine» */")
 		}

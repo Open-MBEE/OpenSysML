@@ -120,10 +120,20 @@ func (m *migration) connectUsages(e, host, from, to *sysmlv1.Element, fromKw, to
 func (m *migration) connectTyped(e, def, host, from, to *sysmlv1.Element, fromKw, toKw, name, trailer string) *defConn {
 	fu, tu := m.defUsageOf(m.usageHost(from), from, fromKw), m.defUsageOf(m.usageHost(to), to, toKw)
 	if name == "" {
-		name = m.freshName(host, spoken(writeName(fu.name))+" to "+spoken(writeName(tu.name)))
+		name = spoken(writeName(fu.name)) + " to " + spoken(writeName(tu.name))
+	}
+	if def != nil {
+		// The def keeps e's name; the usage must not.
+		name = m.freshName(host, name)
+	} else {
+		name = m.claimName(e, host, name)
 	}
 	c := &defConn{of: e, host: host, name: name, from: fu, to: tu, def: def}
-	m.conns[e] = c
+	if m.conns[e] == nil {
+		m.conns[e] = c
+	} else {
+		m.moreConns[e] = append(m.moreConns[e], c)
+	}
 	m.extras[host] = append(m.extras[host], func() {
 		typed := ""
 		if def != nil {
@@ -164,7 +174,7 @@ func (m *migration) connectActor(link *actorLink) {
 	var def *sysmlv1.Element
 	if m.associationAsConnectionDef(link.assoc) {
 		// The association is a connection def; its one usage is named like a usage.
-		def, name = link.assoc, m.freshName(host, lowerFirst(name))
+		def, name = link.assoc, lowerFirst(name)
 	}
 	link.conn = m.connectTyped(link.assoc, def, host, from, to, fromKw, toKw, name, "")
 }
@@ -187,11 +197,31 @@ func (m *migration) usageConnection(d *sysmlv1.Element, name string, client, sup
 // connRefs are the references a view exposing e also exposes so the connection
 // written for it is drawn: the connection and the two usages it joins.
 func (m *migration) connRefs(e, scope *sysmlv1.Element) []string {
+	var refs []string
+	for _, c := range m.connsOf(e) {
+		refs = append(refs, m.hostedRef(c.host, c.name, scope), m.usageRef(c.from, scope), m.usageRef(c.to, scope))
+	}
+	return refs
+}
+
+// connsOf are the connections written for e: one per pair of ends a
+// dependency with several clients or suppliers joins.
+func (m *migration) connsOf(e *sysmlv1.Element) []*defConn {
 	c := m.conns[e]
 	if c == nil {
 		return nil
 	}
-	return []string{m.hostedRef(c.host, c.name, scope), m.usageRef(c.from, scope), m.usageRef(c.to, scope)}
+	return append([]*defConn{c}, m.moreConns[e]...)
+}
+
+// pairConn is the connection written for d between client and supplier; nil for none.
+func (m *migration) pairConn(d, client, supplier *sysmlv1.Element) *defConn {
+	for _, c := range m.connsOf(d) {
+		if c.from.def == client && c.to.def == supplier {
+			return c
+		}
+	}
+	return nil
 }
 
 // planConnections writes, before any view is, the connection each include,
