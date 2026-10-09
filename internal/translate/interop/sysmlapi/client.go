@@ -124,18 +124,28 @@ func (c *Client) checkRedirect(req *http.Request, via []*http.Request) error {
 	if len(via) >= maxRedirects {
 		return fmt.Errorf("stopped after %d redirects", maxRedirects)
 	}
+	from := via[len(via)-1].URL
+	if err := c.tokenStays(from, req.URL); err != nil {
+		return fmt.Errorf("redirect from %s refused: %w", from, err)
+	}
+	return nil
+}
+
+// tokenStays is the rule a request's successor — a redirect's target, a linked
+// next page — is held to when there is a bearer token to carry: no plaintext,
+// no leaving https once there, and no other server than the configured one.
+func (c *Client) tokenStays(from, to *url.URL) error {
 	if c.cfg.Token == "" {
 		return nil
 	}
-	from := via[len(via)-1].URL
-	if err := CheckURL(req.URL.String()); err != nil {
-		return fmt.Errorf("redirect from %s refused: %w", from, err)
+	if err := CheckURL(to.String()); err != nil {
+		return err
 	}
-	if from.Scheme == "https" && req.URL.Scheme != "https" {
-		return fmt.Errorf("redirect from %s to %s refused: the token stays on https", from, req.URL.Scheme)
+	if from.Scheme == "https" && to.Scheme != "https" {
+		return fmt.Errorf("%s: the token stays on https", to.Scheme)
 	}
-	if base, err := url.Parse(c.cfg.BaseURL); err == nil && !sameServer(req.URL, base) {
-		return fmt.Errorf("redirect from %s to %s refused: the token is for %s only", from, req.URL.Host, base.Host)
+	if base, err := url.Parse(c.cfg.BaseURL); err == nil && !sameServer(to, base) {
+		return fmt.Errorf("%s: the token is for %s only", to.Host, base.Host)
 	}
 	return nil
 }
@@ -377,7 +387,11 @@ func (c *Client) paged(ctx context.Context, target string, what string, each fun
 		}
 		// A server linking its pages is followed to the end whatever each
 		// page holds; without a link, a short page is the last.
-		if linked := nextLink(header, next); linked != "" && linked != next {
+		linked, err := c.nextPage(header, next)
+		if err != nil {
+			return err
+		}
+		if linked != "" && linked != next {
 			next = linked
 			continue
 		}
@@ -402,6 +416,28 @@ func withPaging(target, after string) string {
 		out += "&page%5Bafter%5D=" + url.QueryEscape(after) + "&pageAfter=" + url.QueryEscape(after)
 	}
 	return out
+}
+
+// nextPage is the page a response links as next, held to the rule a redirect
+// is: a link to another server, or into the clear, is refused rather than
+// followed with the token.
+func (c *Client) nextPage(header http.Header, requested string) (string, error) {
+	linked := nextLink(header, requested)
+	if linked == "" {
+		return "", nil
+	}
+	from, err := url.Parse(requested)
+	if err != nil {
+		return "", err
+	}
+	to, err := url.Parse(linked)
+	if err != nil {
+		return "", err
+	}
+	if err := c.tokenStays(from, to); err != nil {
+		return "", fmt.Errorf("next page linked from %s refused: %w", from, err)
+	}
+	return linked, nil
 }
 
 // nextLink is the rel="next" target of a Link header, resolved against the
@@ -569,7 +605,10 @@ func (c *Client) Elements(ctx context.Context, project, commit string, size int)
 		if len(page) == 0 || listing.Responses > maxPages {
 			return listing, nil
 		}
-		linked := nextLink(header, target)
+		linked, err := c.nextPage(header, target)
+		if err != nil {
+			return listing, err
+		}
 		switch {
 		case linked != "" && linked != target:
 			// A server linking its pages names the continuation itself,
