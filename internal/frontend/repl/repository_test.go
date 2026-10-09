@@ -61,6 +61,25 @@ func wantUsage(t *testing.T, err error, line string) {
 
 func joined(lines []string) string { return strings.Join(lines, "\n") }
 
+// TestLoopPrintsEveryLineOfAUsageError drives repository usage errors through the
+// terminal loop: the usage line under the error prefix, then what was wrong.
+func TestLoopPrintsEveryLineOfAUsageError(t *testing.T) {
+	repoSession(t)
+	var out strings.Builder
+	if err := Loop(&scriptReader{lines: []string{"%load --id x", "%load --id=a --id=b", "%projects now"}}, &out, NewSession()); err != nil {
+		t.Fatalf("Loop error: %v", err)
+	}
+	got := strings.Split(strings.TrimSuffix(out.String(), "\n"), "\n")
+	want := []string{
+		"error: " + usageLoadRepo, "--id is not an option of %load",
+		"error: " + usageLoadRepo, "--id was given twice",
+		"error: " + usageProjects,
+	}
+	if strings.Join(got, "\n") != strings.Join(want, "\n") {
+		t.Errorf("the loop printed:\n%s\nwant:\n%s", strings.Join(got, "\n"), strings.Join(want, "\n"))
+	}
+}
+
 func TestRepoShowsAndSetsTheBaseURL(t *testing.T) {
 	s, api := repoSession(t)
 	if got := joined(runMeta(t, s, "%repo")); got != "API base path: "+api.URL() {

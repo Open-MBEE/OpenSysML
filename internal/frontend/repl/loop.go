@@ -56,7 +56,7 @@ func Loop(r LineReader, out io.Writer, s *Session) error {
 			printLines(w, metaOut)
 			_ = w.Flush()
 			if merr != nil {
-				printLines(w, []string{"error: " + merr.Error()})
+				printLines(w, metaErrorLines(merr))
 				_ = w.Flush()
 			}
 			if quit {
@@ -122,6 +122,16 @@ func bareExpression(src string) (string, bool) {
 		return "", false
 	}
 	return trimmed, true
+}
+
+// metaErrorLines prints a meta command's error: every line of a usage error,
+// the first under the error prefix as the kernel's value; other errors as before.
+func metaErrorLines(err error) []string {
+	var usage *UsageError
+	if errors.As(err, &usage) && len(usage.Lines) > 0 {
+		return append([]string{errPrefix + usage.Error()}, usage.Lines[1:]...)
+	}
+	return []string{errPrefix + err.Error()}
 }
 
 func printLines(w io.Writer, lines []string) {
