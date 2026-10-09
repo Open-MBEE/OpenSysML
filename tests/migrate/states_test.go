@@ -1817,6 +1817,58 @@ const opaqueChoiceMachine = `
       </ownedBehavior>
     </packagedElement>`
 
+// historyChoiceMachine is a choice whose guarded branch targets a shallow
+// history pseudostate, which a strict migration refuses, beside an else branch.
+const historyChoiceMachine = `
+    <packagedElement xmi:type="uml:Class" xmi:id="_hc" name="Resumer" classifierBehavior="_hsm">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_hcn" name="n">
+        <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Integer"/>
+        <defaultValue xmi:type="uml:LiteralInteger" xmi:id="_hcn0" value="0"/>
+      </ownedAttribute>
+      <ownedBehavior xmi:type="uml:StateMachine" xmi:id="_hsm" name="Resuming">
+        <region xmi:type="uml:Region" xmi:id="_hr" name="Main">
+          <subvertex xmi:type="uml:Pseudostate" xmi:id="_hinit"/>
+          <subvertex xmi:type="uml:Pseudostate" xmi:id="_hpick" name="pick" kind="choice"/>
+          <subvertex xmi:type="uml:State" xmi:id="_hA" name="A">
+            <region xmi:type="uml:Region" xmi:id="_hAr" name="Inner">
+              <subvertex xmi:type="uml:Pseudostate" xmi:id="_hAh" name="back" kind="shallowHistory"/>
+              <subvertex xmi:type="uml:State" xmi:id="_hA1" name="A1"/>
+            </region>
+          </subvertex>
+          <subvertex xmi:type="uml:State" xmi:id="_hB" name="B"/>
+          <transition xmi:type="uml:Transition" xmi:id="_ht0" source="_hinit" target="_hpick"/>
+          <transition xmi:type="uml:Transition" xmi:id="_htA" source="_hpick" target="_hAh">
+            <guard xmi:type="uml:Constraint" xmi:id="_hgA">
+              <specification xmi:type="uml:OpaqueExpression" xmi:id="_hgAX"><body>n &lt; 2</body></specification>
+            </guard>
+          </transition>
+          <transition xmi:type="uml:Transition" xmi:id="_htB" source="_hpick" target="_hB">
+            <guard xmi:type="uml:Constraint" xmi:id="_hgB">
+              <specification xmi:type="uml:OpaqueExpression" xmi:id="_hgBX"><body>else</body></specification>
+            </guard>
+          </transition>
+        </region>
+      </ownedBehavior>
+    </packagedElement>`
+
+// A strict else guard negates only the guards of branches the strict migration
+// writes: one into a history pseudostate is refused, so it does not block the fallback.
+func TestStrictChoiceElseIgnoresRefusedBranches(t *testing.T) {
+	r := migrateDocumentOptions(t, historyChoiceMachine, "", migrate.Options{Strict: true})
+	noOpenSysMLLibrary(t, r.Notation)
+	wantLine(t, r.Notation, "state pick;")
+	wantLine(t, r.Notation, "transition first pick then B;")
+	wantNoLine(t, r.Notation, "if not")
+	if es := entriesFor(r, "_htA"); len(es) != 1 || es[0].Verdict != migrate.Unmapped {
+		t.Errorf("_htA entries = %+v, want unmapped", es)
+	}
+	wantNote(t, r, "_hgB", migrate.Mapped, "an else guard beside no guarded transition out of the choice is not written")
+
+	r = migrateDocument(t, historyChoiceMachine, "")
+	wantLine(t, r.Notation, "#StateMachines::shallowHistory state back;")
+	wantNote(t, r, "_hgB", migrate.Mapped, "an else guard is written as the unguarded transition out of the choice")
+}
+
 func TestStrictChoiceElseBesideAnUnmigratedGuardIsReported(t *testing.T) {
 	r := migrateDocumentOptions(t, opaqueChoiceMachine, "", migrate.Options{Strict: true})
 	noOpenSysMLLibrary(t, r.Notation)

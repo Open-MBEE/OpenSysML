@@ -1902,7 +1902,9 @@ func (s *stateRegion) transitionWritten(t *sysmlv1.Element) bool {
 				return named(pointOwner(tgt))
 			}
 			return named(tgt)
-		case "choice", "junction", "shallowHistory", "deepHistory", "fork", "join":
+		case "shallowHistory", "deepHistory":
+			return !s.m.strict && named(tgt)
+		case "choice", "junction", "fork", "join":
 			return named(tgt)
 		}
 	case "ConnectionPointReference":
