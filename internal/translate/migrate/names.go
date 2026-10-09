@@ -135,12 +135,6 @@ func (m *migration) nameTakenBut(e, owner *sysmlv1.Element, name string) bool {
 	return false
 }
 
-// topLevelNamed reports whether a declaration at the document's top level is
-// named name: a member of the root model, or a root written as a declaration.
-func (m *migration) topLevelNamed(name string) bool {
-	return m.topLevelNamedBut(nil, name)
-}
-
 // topLevelNamedBut is topLevelNamed disregarding e (see nameTakenBut).
 func (m *migration) topLevelNamedBut(e *sysmlv1.Element, name string) bool {
 	for _, r := range m.model.Roots {
