@@ -941,9 +941,8 @@ func (s *Service) GetDiagnostics(ctx context.Context, req *pb.DiagnosticsRequest
 
 // modelDiagnostics are every document's diagnostics, document by document, each
 // located in the source it came from. The parse's are among them once: the
-// passes report them, escalated where a pass judged the notation. Each
-// document's are converted once and shared by every response that reports
-// them; the list itself is the response's own.
+// passes report them, escalated where a pass judged the notation. Each document's
+// are converted once and shared by every response; the list is the response's own.
 func (s *Service) modelDiagnostics(model *CachedModel) []*pb.Diagnostic {
 	var pbDiags []*pb.Diagnostic
 	for _, doc := range model.Documents {
@@ -952,10 +951,8 @@ func (s *Service) modelDiagnostics(model *CachedModel) []*pb.Diagnostic {
 	return pbDiags
 }
 
-// documentDiagnostics converts one document's diagnostics, then its warnings,
-// to protobuf, filtered to what the service's capabilities report. The
-// capability set is fixed when the service is built, so the result serves
-// every later call on the same model.
+// documentDiagnostics converts one document's diagnostics, then its warnings, to
+// protobuf, filtered by the service's capabilities, which are fixed when it is built.
 func (s *Service) documentDiagnostics(doc *CachedDocument) []*pb.Diagnostic {
 	if len(doc.Diagnostics)+len(doc.Warnings) == 0 {
 		return nil

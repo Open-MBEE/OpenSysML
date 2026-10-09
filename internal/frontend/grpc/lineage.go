@@ -43,9 +43,8 @@ type lineage struct {
 	library  libs.Source       // the files the workspace's library was built from
 	held     map[string]string // document name to the content the workspace holds
 	versions int               // the version the next update is given
-	// answered is each document as the last model was answered with it, and the
-	// stamp of the analysis it carried: the next model shares its converted
-	// diagnostics when the analysis, the source and the warnings are the same.
+	// answered is each document of the model last answered, with the stamp of its
+	// analysis; the next model shares its converted diagnostics when both are unchanged.
 	answered map[string]answeredDocument
 }
 
@@ -224,12 +223,8 @@ func (s *Service) parseFromLineage(inputs []sourceInput, mode diag.ConformanceMo
 	}, true
 }
 
-// shareConvertedDiagnostics hands a document the converted diagnostics of the
-// document answered under its name before, when both carry one analysis (one
-// non-zero stamp) of one source with the same warnings: the diagnostics are
-// then the same, and converting them again would only repeat the work. An edit
-// changes the stamp of every document whose analysis it reached, so a document
-// the edit did not reach is the only kind that shares.
+// shareConvertedDiagnostics hands a document the converted diagnostics answered under
+// its name before when stamp, source and warnings are unchanged, i.e. no edit reached it.
 func (l *lineage) shareConvertedDiagnostics(documents []*CachedDocument, stamps map[string]uint64) {
 	if l.answered == nil {
 		l.answered = make(map[string]answeredDocument, len(documents))

@@ -40,9 +40,8 @@ type CachedDocument struct {
 	proto *protoDiagnostics
 }
 
-// protoDiagnostics is one document's diagnostics as protobuf, built on first use
-// and shared by every response that reports them, so nothing may mutate them
-// once built; the service's capability filter is applied as they are built.
+// protoDiagnostics is one document's diagnostics as protobuf, built once (capability
+// filter applied) and shared read-only by every response that reports them.
 type protoDiagnostics struct {
 	once  sync.Once
 	diags []*pb.Diagnostic
@@ -57,9 +56,8 @@ func newCachedDocument(root *ast.RootNamespace, sf *source.SourceFile, parseDiag
 	}
 }
 
-// protoDiagnostics is the document's diagnostics as build converts them, built
-// the first time any response asks for them. A document built without a cell
-// converts on every call.
+// protoDiagnostics is the document's diagnostics as build converts them, built on
+// first use; a document built without a cell converts on every call.
 func (d *CachedDocument) protoDiagnostics(build func(*CachedDocument) []*pb.Diagnostic) []*pb.Diagnostic {
 	if d.proto == nil {
 		return build(d)
