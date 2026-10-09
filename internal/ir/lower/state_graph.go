@@ -1150,11 +1150,12 @@ func parallelOwnedMember(member ast.Node) bool {
 		*ast.EntryMember, *ast.DoMember, *ast.ExitMember,
 		*ast.PseudostateNode,
 		*ast.SuccessionEdge, *ast.TransitionEdge, *ast.TransitionMember,
-		*ast.Definition, *ast.Package, *ast.ErrorNode:
+		*ast.PrefixMetadata, *ast.Definition, *ast.Package, *ast.ErrorNode:
 		return true
 	case *ast.Usage:
 		switch n.Kind {
-		case ast.UsageAttribute, ast.UsageItem, ast.UsagePort, ast.UsageSuccession, ast.UsageMetadata:
+		case ast.UsageAttribute, ast.UsageItem, ast.UsagePort, ast.UsageSuccession, ast.UsageMetadata,
+			ast.UsageView, ast.UsageViewpoint, ast.UsageRendering, ast.UsageViewRendering:
 			return true
 		}
 		return IsTerminateUsage(n)

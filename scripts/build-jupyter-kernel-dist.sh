@@ -16,9 +16,12 @@
 #   jupyter_opensysml_kernel-<version>.tar.gz                 the sdist, kernel-less
 #   jupyter_opensysml_kernel-<version>-py3-none-<platform>.whl  one per platform
 #
-# Every wheel is then opened and checked to carry its kernel and the kernelspec
-# that registers it, and the sdist to carry neither. PYTHON names the
-# interpreter that runs `python -m build` (default `python`).
+# The JupyterLab extension is built first (`make jupyterlab-build`, so Node and
+# the jupyterlab package are needed); every distribution ships the same bundle.
+# Every wheel is then opened and checked to carry its kernel, the kernelspec
+# that registers it and the extension, and the sdist to carry the extension and
+# no kernel. PYTHON names the interpreter that runs `python -m build` (default
+# `python`).
 set -euo pipefail
 
 KERNELS="${1:?usage: $0 <kernels-dir> <out-dir>}"
@@ -35,6 +38,10 @@ cleanup
 
 rm -rf "$OUT"
 mkdir -p "$OUT"
+
+# The extension once, before any distribution: setup.py refuses to build one
+# without it.
+make jupyterlab-build
 
 # The sdist first, while no kernel is staged: setup.py refuses to pack one.
 "$PYTHON" -m build --sdist --outdir "$OUT" "$PACKAGE"
@@ -64,8 +71,10 @@ done
 ls -l "$OUT"
 
 # Each distribution is what its name claims: the wheels bundle the kernel built
-# for their platform and the kernelspec that starts it, the sdist carries neither.
+# for their platform and the kernelspec that starts it, the sdist carries
+# neither, and all of them carry the one JupyterLab extension build.
 "$PYTHON" - "$OUT" <<'PY'
+import json
 import os
 import sys
 import tarfile
@@ -73,9 +82,27 @@ import zipfile
 
 sys.path.insert(0, os.path.join("client", "jupyter-kernel"))
 from jupyter_opensysml_kernel.binary import WHEEL_PLATFORM_TAGS, binary_name  # noqa: E402
+from jupyter_opensysml_kernel.labextension import SHARED_DATA  # noqa: E402
 
 out = sys.argv[1]
 spec = "share/jupyter/kernels/sysml/"
+labextension = SHARED_DATA + "/"
+
+
+def labextension_files(what, members, prefix):
+    """The extension's files under `prefix` in a distribution, checked to be a
+    loadable federated extension: name -> bytes."""
+    files = {name[len(prefix):]: read for name, read in members.items() if name.startswith(prefix)}
+    for required in ("package.json", "install.json"):
+        if required not in files:
+            raise SystemExit(f"Error: {what} lacks {prefix}{required}")
+    load = json.loads(files["package.json"]()).get("jupyterlab", {}).get("_build", {}).get("load", "")
+    if not load.startswith("static/remoteEntry.") or load not in files:
+        raise SystemExit(f"Error: {what} ships a labextension whose package.json loads {load!r}, which it lacks")
+    return {name: read() for name, read in files.items()}
+
+
+bundles = {}
 wheels = sorted(f for f in os.listdir(out) if f.endswith(".whl"))
 sdists = sorted(f for f in os.listdir(out) if f.endswith(".tar.gz"))
 if len(sdists) != 1:
@@ -90,8 +117,13 @@ for (goos, goarch), tag in WHEEL_PLATFORM_TAGS.items():
     with zipfile.ZipFile(os.path.join(out, matching[0])) as wheel:
         names = set(wheel.namelist())
         kernel = f"jupyter_opensysml_kernel/bin/{binary_name(goos)}"
+        bundled = sorted(n for n in names if n.startswith("jupyter_opensysml_kernel/bin/"))
+        if bundled != [kernel]:
+            raise SystemExit(
+                f"Error: {matching[0]} must bundle exactly {kernel}; found {', '.join(bundled) or 'nothing'}"
+            )
         data = next((n for n in names if n.endswith(".data/data/" + spec + "kernel.json")), None)
-        missing = [kernel] if kernel not in names else []
+        missing = []
         if data is None:
             missing.append(spec + "kernel.json")
         else:
@@ -102,11 +134,25 @@ for (goos, goarch), tag in WHEEL_PLATFORM_TAGS.items():
         meta = next(n for n in names if n.endswith(".dist-info/WHEEL"))
         if b"Root-Is-Purelib: false" not in wheel.read(meta):
             raise SystemExit(f"Error: {matching[0]} is not marked platform-specific in its WHEEL metadata")
-    print(f"ok: {matching[0]} bundles {kernel} and the kernelspec")
+        data_dir = data[: -len(spec + "kernel.json")]
+        members = {n: (lambda n=n: wheel.read(n)) for n in names}
+        bundles[matching[0]] = labextension_files(matching[0], members, data_dir + labextension)
+    print(f"ok: {matching[0]} bundles {kernel}, the kernelspec and the labextension")
 
 with tarfile.open(os.path.join(out, sdists[0]), "r:gz") as sdist:
-    bundled = [n for n in sdist.getnames() if "/jupyter_opensysml_kernel/bin/" in n]
+    names = sdist.getnames()
+    bundled = [n for n in names if "/jupyter_opensysml_kernel/bin/" in n]
     if bundled:
         raise SystemExit(f"Error: the sdist {sdists[0]} bundles a kernel: {bundled}")
-print(f"ok: {sdists[0]} bundles no kernel")
+    root = names[0].split("/")[0] + "/labextension/"
+    members = {n: (lambda n=n: sdist.extractfile(n).read()) for n in names if sdist.getmember(n).isfile()}
+    bundles[sdists[0]] = labextension_files(sdists[0], members, root)
+print(f"ok: {sdists[0]} bundles no kernel and the labextension")
+
+# The bundle is pure JavaScript: one build, byte for byte, in all six.
+reference = bundles[sdists[0]]
+for name, files in bundles.items():
+    if files != reference:
+        raise SystemExit(f"Error: {name} ships a labextension other than the sdist's: {sorted(set(files) ^ set(reference)) or 'same files, different bytes'}")
+print(f"ok: all {len(bundles)} distributions ship the same labextension ({', '.join(sorted(reference))})")
 PY

@@ -6330,6 +6330,36 @@ None for these local REPL/gRPC checks.
 - Validate saved Turtle independently with rdflib; check real triples and declarations rather than
   trusting the save confirmation.
 
+
+## Migration and state-rendering comparisons
+
+- Migrate real Cameo archives through `bin/sysml model.mdzip -migrate sysml
+  -o output.sysml -migration-report output.report.txt`; source XMI is normally
+  `com.nomagic.magicdraw.uml_model.model` inside the archive.
+- Compare reports by element XMI ID, not line number or name: repeated names
+  can move records into the approximated section even when their notation was
+  successfully emitted. Preserve counts and inspect the notation as well.
+- For direction checks, resolve `informationSource`, `informationTarget`,
+  `realizingConnector`, connector ends' `partWithPort`/`role`, and part/port
+  types from XMI. A conveyed item's emitted path should end in the actual
+  flow property of the connector's port type. Include a reversed connector
+  order fixture and an unrelated-end negative control.
+- A compiler/lowering fix may repair an old migrated `.sysml` without
+  changing its state declarations. Comparing old and new notation under the
+  same new binary is not a negative control: use a separately built
+  pre-change binary to demonstrate the old empty graph.
+- Use `-render '#state:M' -render-form text` for a small state definition,
+  and `-graphs M` to inspect inherited vertices, parent IDs and transitions.
+  Unsupported inherited members may produce an empty rendering plus a
+  `cannot be inherited` note while the CLI still exits zero. Exit status and
+  strict validation alone do not establish a nonempty graph.
+- For positioned migrated views, default DOT may omit unpositioned inherited
+  nodes. Read `not represented` comments; use `-render-unplaced strip` to
+  include those nodes below the original drawing. Do not confuse omitted
+  placement with failed graph lowering. Named rendering may also print
+  validation warnings from other views; separate requested-view warnings
+  from whole-model warnings.
+
 ### Devin Secrets Needed
 
 None for native local CLI/REPL tests.

@@ -7,4 +7,4 @@
   `client/python/scripts/snapshot_version.py`. Each night is kept for 14 days as the
   prerelease `nightly-<yyyymmdd>-<commit>`, whose `sysml-grpc` the wheel pins by digest and
   installs on its own; `nightly` remains the moving alias of the newest night, and nothing is
-  marked latest. See [Nightly snapshots](https://opensysml.org/project/nightly/).
+  marked latest. See [Nightly snapshots](https://redk.opensysml.org/project/nightly/).

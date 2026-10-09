@@ -65,3 +65,8 @@ func runResolveGolden(t *testing.T, name string) {
 
 func TestResolveGoldenBasic(t *testing.T)  { runResolveGolden(t, "basic") }
 func TestResolveGoldenErrors(t *testing.T) { runResolveGolden(t, "errors") }
+
+// Imported memberships two imports make indistinguishable warn once per name, on
+// the import bringing the later membership; one membership reached twice, an
+// owned member hiding the name and a membership import beside its wildcard do not.
+func TestResolveGoldenImports(t *testing.T) { runResolveGolden(t, "imports") }

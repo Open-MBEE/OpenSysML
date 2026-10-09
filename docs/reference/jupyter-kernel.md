@@ -87,7 +87,33 @@ what a front end falls back to when a notebook names a kernel that is not instal
 | `language_info.version` | `2.0` |
 | `language_info.mimetype` | `text/x-sysml` |
 | `language_info.file_extension` | `.sysml` |
+| `language_info.codemirror_mode` | `sysml` |
 | `banner` | The REPL's greeting |
+
+`codemirror_mode` names the language the bundled JupyterLab extension registers, so a front
+end highlights the cells of a `sysml` notebook with it.
+
+## Syntax highlighting
+
+Every distribution of the pip package carries `jupyterlab-opensysml`, a prebuilt (federated)
+JupyterLab 4 and Notebook 7 extension built from `editors/jupyterlab`, installed as shared data
+at `<prefix>/share/jupyter/labextensions/jupyterlab-opensysml`. A front end in the same
+environment loads it from there: `jupyter labextension list` shows it enabled with no Node.js,
+no `jupyter labextension install` and no build. It registers two CodeMirror 6 languages with
+JupyterLab's editor language registry:
+
+| Name | MIME type | Files | Used for |
+|---|---|---|---|
+| `sysml` | `text/x-sysml` | `.sysml` | Cells of a notebook on the `sysml` kernel, which reports these in `language_info`; the file editor; Markdown fences tagged `sysml` |
+| `kerml` | `text/x-kerml` | `.kerml` | The file editor; Markdown fences tagged `kerml` |
+
+The tokenizer marks reserved keywords, the words that are keywords only in context (`chain`,
+`deep`, `done`, `history`, `junction`, `shallow`, …), the literals `true`, `false` and `null`,
+`//` and `/* */` comments, the bodies of `doc` and `comment` as documentation, strings with
+their escapes, numbers, `'unrestricted names'`, the `A::B` of qualified names, operators and
+punctuation, and a cell's first token when it is a kernel command (`%help`, `%run`, …). The
+keyword tables are generated from the lexer's keyword list by the same tool that generates the
+VS Code grammars (`make vscode-grammar`), and a test holds the committed table to the lexer.
 
 ## Cells and the protocol
 
@@ -108,8 +134,25 @@ message whose signature or framing is wrong, logging it under `-verbose`. It ans
 
 `stdin_request` is not used: no REPL command reads from the terminal.
 
+A cell may load another notebook: `%load other.ipynb` submits the other notebook's code cells
+for what they declare, skipping their `%` command lines and expressions and reporting the count,
+each cell a source named `other.ipynb cell <n>` in diagnostics; `--cells 1,3-5` or
+`--cells tag:<tag>` picks cells, a cell tagged `skip-load` is skipped, and a notebook whose
+kernel language is not `sysml` is refused. See
+[Reusing another notebook](../guide/12-jupyter.md#reusing-another-notebook).
+
 A `%quit` in a cell is noted — the notebook's shutdown ends the kernel — and an unknown
 `%` command is an error (`UnknownCommand`), where the prompt would print guidance.
+
+A `%` command given wrong arguments is a `UsageError` whose traceback is the command's usage;
+a command that fails — a repository server that cannot be reached, a project that does not exist
+— is a `CommandError` with the message the prompt would print, the HTTP status and the server's
+message included.
+
+The repository commands `%repo`, `%projects`, `%load` and `%publish` address the SysML v2 API
+server `FLEXO_SYSMLV2_URL` names, with the bearer token `FLEXO_INTEROP_TOKEN` when the server wants
+one and Flexo's organization `FLEXO_SYSMLV2_ORG`, all read from the kernel's environment; a token
+is never echoed and no state is written. See [Working with a repository](../guide/12-jupyter.md#working-with-a-repository).
 
 ## Rich output
 
@@ -118,6 +161,8 @@ Output with a richer form than plain text is a `display_data` carrying that form
 
 | Output | MIME types |
 |---|---|
+| `%viz [--view=<VIEW>] [--style=<STYLE>...] <name> [<name>...]` | `text/vnd.mermaid`, and `text/vnd.graphviz` where the rendering kind has a DOT form, with `image/svg+xml` when a Graphviz `dot` is on the kernel's `PATH` |
+| `%viz [--view=<VIEW>] [--style=<STYLE>...] <form> <name> [<name>...]` | What `%render <view> <form>` carries |
 | `%render <view> mermaid` | `text/vnd.mermaid` |
 | `%render <view> dot` | `text/vnd.graphviz`, and `image/svg+xml` when a Graphviz `dot` is on the kernel's `PATH` |
 | `%render <view> markdown` | `text/markdown` |
@@ -149,7 +194,10 @@ process on Windows), so the kernel runs with no second step and no network. It p
 only `-connection-file FILE` (the file must exist), `-verbose`, `-version`, `-man` and
 `-print-kernelspec`, and refuses any other argument; the native `-install` flags have no
 place there, as the `install` subcommand below is the package's way to the same end. The
-sdist, which `pip` builds where no wheel applies, bundles nothing and registers nothing.
+sdist, which `pip` builds where no wheel applies, bundles no kernel and registers no
+kernelspec. Every wheel and the sdist install the JupyterLab extension as shared data at
+`<prefix>/share/jupyter/labextensions/jupyterlab-opensysml` (see
+[Syntax highlighting](#syntax-highlighting)); `pip uninstall` removes it with the package.
 
 ```bash
 python -m jupyter_opensysml_kernel install [--user | --sys-prefix | --prefix DIR | --system]

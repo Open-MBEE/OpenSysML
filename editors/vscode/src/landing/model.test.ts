@@ -26,13 +26,12 @@ interface LandingFixture {
 const fixture = JSON.parse(readFileSync("src/landing/stack.json", "utf8")) as LandingFixture;
 const fixtureRender = fixture.render as RenderResult;
 
-const PROJECTS = ["flexo", "opensysml", "pilot", "toolkit"];
+const PROJECTS = ["flexo", "opensysml", "pilot"];
 const COMPONENTS: Record<string, string[]> = {
   opensysml: [
     "analyzers", "clients", "docgen", "editors", "engine", "interchange", "jupyter", "lsp", "migration", "oslc",
     "parser", "repl", "service", "solver", "stdlib", "validation",
   ],
-  toolkit: ["bindings", "interchange", "linter", "lsp", "parser", "solver", "transform"],
   pilot: ["editors", "evaluator", "grammars", "jupyter", "plantuml", "stdlib", "validation", "xmi"],
   flexo: ["auth", "layer1", "quadstore", "sysmlv2"],
 };
@@ -40,7 +39,7 @@ const COMPONENT_PATHS = Object.entries(COMPONENTS).flatMap(([project, features])
   features.map((feature) => `${project}.${feature}`),
 );
 
-test("landingModel keeps the four ported project parts and their interface edges", () => {
+test("landingModel keeps the three ported project parts and their interface edges", () => {
   const model = landingModel(fixture.hash, fixtureRender, fixture.instances);
   assert.deepEqual([...model.parts.keys()].sort(), [...COMPONENT_PATHS, ...PROJECTS].sort());
   assert.ok(model.render.nodes.every((node) => node.kind !== "attribute"));
@@ -57,11 +56,11 @@ test("landingModel keeps the four ported project parts and their interface edges
     assert.ok(api, `${part.feature} should keep its api port`);
     ports.set(part.feature, api.id);
   }
-  assert.equal(model.render.edges.length, 3);
+  assert.equal(model.render.edges.length, 2);
   assert.ok(model.render.edges.every((edge) => edge.toPort === ports.get("flexo")));
   assert.deepEqual(
     model.render.edges.map((edge) => edge.label).sort(),
-    ["opensysml_flexo", "pilot_flexo", "toolkit_flexo"],
+    ["opensysml_flexo", "pilot_flexo"],
   );
   assert.equal(model.parts.get("opensysml")?.attrs.label, "OpenSysML Runtime Environment and Development Kit");
 });
@@ -83,7 +82,7 @@ test("landingModel keeps each project's components inside it, with their own att
   }
   // The same feature name in two projects names two parts.
   assert.equal(model.parts.get("opensysml.interchange")?.attrs.label, "Interchange");
-  assert.equal(model.parts.get("toolkit.interchange")?.attrs.role, "JSON, CBOR");
+  assert.equal(model.parts.get("pilot.xmi")?.attrs.role, "XMI");
   assert.equal(model.parts.get("opensysml.oslc")?.attrs.label, "OSLC query");
   assert.equal(model.parts.get("opensysml.docgen")?.attrs.label, "Document generation");
   assert.equal(model.parts.get("flexo.layer1")?.attrs.label, "Layer 1 service");
@@ -157,13 +156,13 @@ test("journey maps visited feature names to node ids and drops unknown states", 
         events: JOURNEY_EVENTS,
       });
       return JSON.stringify({
-        result: { statesVisited: ["start", "opensysml", "unknown", "flexo", "toolkit", "flexo", "pilot"] },
+        result: { statesVisited: ["start", "opensysml", "unknown", "flexo", "pilot", "flexo", "pilot"] },
       });
     },
   };
   assert.deepEqual(
     journey(engine, model),
-    ["opensysml", "flexo", "toolkit", "flexo", "pilot"].map((feature) => model.parts.get(feature)!.id),
+    ["opensysml", "flexo", "pilot", "flexo", "pilot"].map((feature) => model.parts.get(feature)!.id),
   );
 });
 

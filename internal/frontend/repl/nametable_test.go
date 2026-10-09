@@ -176,6 +176,73 @@ func TestSimpleNameAmbiguityFollowsResubmission(t *testing.T) {
 	}
 }
 
+// A root declaration has no more qualified spelling than its simple name, so
+// that name denotes it even where nested declarations share the name.
+func TestRootDeclarationWinsOverNestedNamesakes(t *testing.T) {
+	s := NewSession()
+	s.Submit("package 'Scanning Electron Microscope' { part def 'Scanning Electron Microscope'; }")
+	s.Submit("package Blocks { part def 'Scanning Electron Microscope'; }")
+
+	_, fqn, err := s.lookupSymbol("'Scanning Electron Microscope'")
+	if err != nil || fqn != "Scanning Electron Microscope" {
+		t.Errorf("root 'Scanning Electron Microscope' = %q, %v; want the root package", fqn, err)
+	}
+
+	s.Submit("package R { part def 'Scanning Electron Microscope'; }")
+	if _, fqn, err := s.lookupSymbol("'Scanning Electron Microscope'"); err != nil || fqn != "Scanning Electron Microscope" {
+		t.Errorf("root 'Scanning Electron Microscope' with three namesakes = %q, %v; want the root package", fqn, err)
+	}
+
+	_, _, err = s.lookupSymbol("Blocks::'Scanning Electron Microscope'")
+	if err != nil {
+		t.Errorf("Blocks::'Scanning Electron Microscope' = %v; want the nested declaration", err)
+	}
+}
+
+// A root declaration whose short name repeats its name is still one declaration,
+// so it is chosen over a nested namesake rather than counted twice.
+func TestRootDeclarationWithRepeatedShortNameWinsOverNestedNamesake(t *testing.T) {
+	s := NewSession()
+	s.Submit("package <P> P; package Outer { package P; }")
+	_, fqn, err := s.lookupSymbol("P")
+	if err != nil || fqn != "P" {
+		t.Errorf("P = %q, %v; want the root package", fqn, err)
+	}
+}
+
+// The root declaration a simple name resolves to is the document's own symbol,
+// the one expressions resolve to, not the index's copy of it.
+func TestRootDeclarationResolvesToTheDocumentSymbol(t *testing.T) {
+	s := NewSession()
+	s.Submit("part car; package P { part car; }")
+	sym, fqn, err := s.lookupSymbol("car")
+	if err != nil || fqn != "car" {
+		t.Fatalf("car = %q, %v; want the root part", fqn, err)
+	}
+	if local := scopeSymbolForAny(s.docScopes(), sym.Decl); local != sym {
+		t.Errorf("car resolved to %p, want the document's own symbol %p", sym, local)
+	}
+}
+
+// A name a root import brings in is not a root declaration: nested namesakes
+// stay ambiguous rather than being answered with the imported one.
+func TestRootImportDoesNotResolveNestedNamesakes(t *testing.T) {
+	s := NewSession()
+	s.Submit("package Base { part def X; }")
+	s.Submit("import Base::*;")
+	s.Submit("package P { part def X; }")
+	s.Submit("package Q { part def X; }")
+
+	_, _, err := s.lookupSymbol("X")
+	var ambiguous *AmbiguousNameError
+	if !errors.As(err, &ambiguous) {
+		t.Fatalf("X: got %v, want an AmbiguousNameError", err)
+	}
+	if !slices.Equal(ambiguous.FQNs, []string{"Base::X", "P::X", "Q::X"}) {
+		t.Errorf("ambiguity = %v, want [Base::X P::X Q::X]", ambiguous.FQNs)
+	}
+}
+
 // A simple name the session declares nowhere is still resolved where the prompt
 // evaluates, through the imports visible there.
 func TestSimpleNameFallsBackToPromptImports(t *testing.T) {

@@ -221,7 +221,7 @@ func (s *Snapshot) Restore() {
 	ctx.snapshots = ctx.snapshots[:at+1]
 	ctx.rollbackJournal(s.journal)
 	s.run.restore(ctx)
-	s.executorCaptures.restore()
+	s.executorCaptures.restore(ctx)
 }
 
 // captureAction captures an action executor once, with the executors the work of
@@ -269,7 +269,7 @@ func (s *executorCaptures) captureBehavior(behavior *ObjectBehavior) {
 	})
 }
 
-func (s *executorCaptures) restore() {
+func (s *executorCaptures) restore(ctx *Context) {
 	for _, capture := range s.runStates {
 		capture.restore()
 	}
@@ -287,6 +287,9 @@ func (s *executorCaptures) restore() {
 		capture.behavior.State = capture.state
 		capture.behavior.Err = capture.err
 		capture.behavior.deferred = capture.deferred
+		if capture.deferred != nil {
+			ctx.behaviorHeld()
+		}
 	}
 }
 
@@ -1070,5 +1073,5 @@ func (m *moveMark) undo() {
 	m.run.steps, m.run.elements, m.run.notes = m.steps, m.elements, m.notes
 	e.ctx.choices, e.ctx.draws = e.ctx.choices[:m.choices], e.ctx.draws[:m.draws]
 	m.trace.restore(e.ctx.trace)
-	m.state.restore()
+	m.state.restore(e.ctx)
 }

@@ -317,6 +317,7 @@ func (ctx *Context) deferredBehaviorFor(inst *Instance, decl classifierBehaviorD
 		return nil, err
 	}
 	deferred := decl
+	ctx.behaviorHeld()
 	return &ObjectBehavior{
 		Name:        decl.behavior.Name,
 		Kind:        decl.behavior.Kind,
@@ -585,7 +586,34 @@ func (ctx *Context) releaseDeferredBehavior(behavior *ObjectBehavior) error {
 	return nil
 }
 
+// noneHeldMemo remembers a cycle check that found no behavior held; it answers
+// until a behavior enters held, the one move that can put a cycle in the graph.
+type noneHeldMemo struct {
+	taken bool
+	held  uint64
+}
+
+func (m noneHeldMemo) answers(ctx *Context) bool { return m.taken && m.held == ctx.held }
+
+// behaviorHeld records a behavior entering held, retiring the none-held memo.
+func (ctx *Context) behaviorHeld() { ctx.held++ }
+
+// successionCycle is walkSuccessionCycle, answered from the memo while no behavior
+// is held: the walk visits held behaviors only, so with none it finds no cycle.
 func (ctx *Context) successionCycle() error {
+	if ctx.noneHeld.answers(ctx) {
+		return nil
+	}
+	for _, behavior := range ctx.objectBehaviors {
+		if behavior.deferred != nil {
+			return ctx.walkSuccessionCycle()
+		}
+	}
+	ctx.noneHeld = noneHeldMemo{taken: true, held: ctx.held}
+	return nil
+}
+
+func (ctx *Context) walkSuccessionCycle() error {
 	var visit func(*ObjectBehavior) bool
 	state := make(map[*ObjectBehavior]uint8)
 	stack := make([]*ObjectBehavior, 0)

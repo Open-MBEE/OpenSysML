@@ -131,20 +131,24 @@ func serve(opts *options, info buildinfo.Info) int {
 	return 0
 }
 
+// language is what front ends key highlighting on: the name, MIME type and
+// file extension the jupyterlab-opensysml extension registers with CodeMirror.
+var language = jupyter.LanguageInfo{
+	Name:           "sysml",
+	Version:        "2.0",
+	MIMEType:       "text/x-sysml",
+	FileExtension:  ".sysml",
+	PygmentsLexer:  "text",
+	CodeMirrorMode: "sysml",
+}
+
 // kernelInfo is what the kernel tells a front end about itself.
 func kernelInfo(info buildinfo.Info) jupyter.Info {
 	return jupyter.Info{
 		Implementation:        kernelCommand,
 		ImplementationVersion: info.Version,
-		Language: jupyter.LanguageInfo{
-			Name:           "sysml",
-			Version:        "2.0",
-			MIMEType:       "text/x-sysml",
-			FileExtension:  ".sysml",
-			PygmentsLexer:  "text",
-			CodeMirrorMode: "text/plain",
-		},
-		Banner: fmt.Sprintf("OpenSysML %s — SysML v2 in Jupyter. Declarations accumulate into the session model; %%help lists the commands.", info.Version),
+		Language:              language,
+		Banner:                fmt.Sprintf("OpenSysML %s — SysML v2 in Jupyter. Declarations accumulate into the session model; %%help lists the commands.", info.Version),
 		HelpLinks: []jupyter.HelpLink{
 			{Text: "OpenSysML REPL guide", URL: "https://open-mbee.github.io/OpenSysML/guide/04-repl/"},
 			{Text: "REPL command reference", URL: "https://open-mbee.github.io/OpenSysML/reference/repl-commands/"},

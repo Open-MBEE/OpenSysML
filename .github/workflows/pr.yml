@@ -55,6 +55,7 @@ jobs:
       julia: ${{ steps.areas.outputs.julia }}
       matlab: ${{ steps.areas.outputs.matlab }}
       vscode: ${{ steps.areas.outputs.vscode }}
+      jupyterlab: ${{ steps.areas.outputs.jupyterlab }}
       mdk: ${{ steps.areas.outputs.mdk }}
       syson: ${{ steps.areas.outputs.syson }}
     steps:
@@ -77,10 +78,11 @@ jobs:
     needs: changes
     if: needs.changes.outputs.go == 'true'
     # The shards split the suite's slowest packages across runners so each gets its own job cap (see scripts/race-shard.sh).
+    # internal/exec/runtime alone outruns a job under -race, so it is two shards split by test name (see make test-shard).
     strategy:
       fail-fast: false
       matrix:
-        shard: [runtime, model, export, rest]
+        shard: [runtime, runtime-corpus, model, export, rest]
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -251,8 +253,8 @@ jobs:
       - name: Download the Reference-FMUs
         run: ./scripts/download-reference-fmus.sh
 
-      # Per-package timeout: under -race the runtime package runs 22-29 minutes on
-      # these runners. Matches `make test-shard`.
+      # Per-package timeout: under -race the whole runtime package ran 31-57 minutes
+      # on these runners, hence its two shards. Matches `make test-shard`.
       - name: Run Go race tests
         env:
           SHARD: ${{ matrix.shard }}
@@ -272,8 +274,12 @@ jobs:
     permissions:
       contents: read
     timeout-minutes: 5
-    # The shard package sets are disjoint, so their blocks concatenate under one mode line.
+    # The shards' blocks concatenate under one mode line; the two runtime shards instrument
+    # the same package, so their duplicate blocks are collapsed as make coverage does.
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
       - name: Download shard profiles
         uses: actions/download-artifact@v4
         with:
@@ -285,12 +291,12 @@ jobs:
           set -euo pipefail
           profiles=(shards/coverage-*/coverage.txt)
           # One per race-tests shard.
-          if [ "${#profiles[@]}" -ne 4 ]; then echo "error: expected 4 shard profiles, found ${#profiles[@]}" >&2; exit 1; fi
+          if [ "${#profiles[@]}" -ne 5 ]; then echo "error: expected 5 shard profiles, found ${#profiles[@]}" >&2; exit 1; fi
           for f in "${profiles[@]}"; do
             [ "$(head -n 1 "$f")" = "mode: atomic" ] || { echo "error: $f is not an atomic-mode profile" >&2; exit 1; }
           done
           { echo "mode: atomic"; for f in "${profiles[@]}"; do tail -n +2 "$f"; done; } > coverage.txt
-          wc -l coverage.txt
+          python3 scripts/dedupe-coverage.py coverage.txt
 
       - name: Upload coverage artifact
         uses: actions/upload-artifact@v4
@@ -797,6 +803,7 @@ jobs:
       - rust-test
       - static-and-integrity
       - vscode-extension
+      - jupyterlab-extension
       - wasm-gate
       - xpect-oracle
     runs-on: ubuntu-latest
@@ -823,6 +830,7 @@ jobs:
           RUST_TEST_RESULT: ${{ needs.rust-test.result }}
           STATIC_AND_INTEGRITY_RESULT: ${{ needs.static-and-integrity.result }}
           VSCODE_EXTENSION_RESULT: ${{ needs.vscode-extension.result }}
+          JUPYTERLAB_EXTENSION_RESULT: ${{ needs.jupyterlab-extension.result }}
           WASM_GATE_RESULT: ${{ needs.wasm-gate.result }}
           XPECT_ORACLE_RESULT: ${{ needs.xpect-oracle.result }}
         run: |
@@ -844,6 +852,7 @@ jobs:
              ! ok "$RUST_TEST_RESULT" ||
              ! ok "$STATIC_AND_INTEGRITY_RESULT" ||
              ! ok "$VSCODE_EXTENSION_RESULT" ||
+             ! ok "$JUPYTERLAB_EXTENSION_RESULT" ||
              ! ok "$WASM_GATE_RESULT" ||
              ! ok "$XPECT_ORACLE_RESULT"; then
             echo "changes=$CHANGES_RESULT"
@@ -863,6 +872,7 @@ jobs:
             echo "rust-test=$RUST_TEST_RESULT"
             echo "static-and-integrity=$STATIC_AND_INTEGRITY_RESULT"
             echo "vscode-extension=$VSCODE_EXTENSION_RESULT"
+            echo "jupyterlab-extension=$JUPYTERLAB_EXTENSION_RESULT"
             echo "wasm-gate=$WASM_GATE_RESULT"
             echo "xpect-oracle=$XPECT_ORACLE_RESULT"
             exit 1
@@ -976,6 +986,49 @@ jobs:
         with:
           name: vscode-extension
           path: editors/vscode/opensysml-sysml.vsix
+          if-no-files-found: error
+
+  jupyterlab-extension:
+    name: JupyterLab extension
+    needs: changes
+    if: needs.changes.outputs.jupyterlab == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    timeout-minutes: 10
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: editors/jupyterlab/package-lock.json
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      # jupyterlab provides `jupyter labextension build`, which bundles the
+      # extension the kernel package ships. The generated syntax table is
+      # gated by go test ./editors/... in the Go suite.
+      - name: Install JupyterLab
+        run: pip install --only-binary ":all:" jupyterlab==4.6.4
+
+      - name: Test the tokenizer
+        run: make jupyterlab-test
+
+      - name: Build the prebuilt extension
+        run: make jupyterlab-build
+
+      - name: Upload JupyterLab extension artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: jupyterlab-extension
+          path: client/jupyter-kernel/labextension
           if-no-files-found: error
 
   mdk-plugin:

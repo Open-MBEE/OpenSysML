@@ -426,12 +426,13 @@ func loweredElsewhere(member ast.Node) bool {
 	switch n := member.(type) {
 	case *ast.Comment, *ast.Documentation, *ast.TextualRepresentation,
 		*ast.SuccessionEdge, *ast.TransitionEdge, *ast.TransitionMember,
-		*ast.InitialNode, *ast.FinalNode,
+		*ast.InitialNode, *ast.FinalNode, *ast.PrefixMetadata,
 		*ast.Definition, *ast.Package, *ast.ErrorNode:
 		return true
 	case *ast.Usage:
 		switch n.Kind {
-		case ast.UsageSuccession, ast.UsageTransition, ast.UsagePort:
+		case ast.UsageSuccession, ast.UsageTransition, ast.UsagePort,
+			ast.UsageView, ast.UsageViewpoint, ast.UsageRendering, ast.UsageViewRendering, ast.UsageMetadata:
 			return true
 		}
 	}

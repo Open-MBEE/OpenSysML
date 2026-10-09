@@ -30,7 +30,13 @@ var kernelAssets = []string{
 }
 
 type circleConfig struct {
-	Jobs map[string]struct{ Steps []yaml.Node } `yaml:"jobs"`
+	Executors map[string]struct {
+		Docker []struct{ Image string } `yaml:"docker"`
+	} `yaml:"executors"`
+	Jobs map[string]struct {
+		Executor string      `yaml:"executor"`
+		Steps    []yaml.Node `yaml:"steps"`
+	} `yaml:"jobs"`
 	// A workflows entry is a workflow, apart from the `version` key.
 	Workflows map[string]yaml.Node `yaml:"workflows"`
 }
@@ -53,6 +59,22 @@ func (c circleConfig) workflow(t *testing.T, name string) workflow {
 type runStep struct {
 	Name    string
 	Command string
+}
+
+// jobRunsOnImage reports whether the named job's executor is backed by the
+// Docker image.
+func (c circleConfig) jobRunsOnImage(t *testing.T, job, image string) bool {
+	t.Helper()
+	executor, ok := c.Executors[c.Jobs[job].Executor]
+	if !ok {
+		t.Fatalf("%s names no executor of the config's", job)
+	}
+	for _, docker := range executor.Docker {
+		if docker.Image == image {
+			return true
+		}
+	}
+	return false
 }
 
 func loadCircleConfig(t *testing.T) circleConfig {
@@ -274,6 +296,21 @@ func TestJupyterKernelDistributionIsStampedWithItsReleaseDigests(t *testing.T) {
 			t.Errorf("build-jupyter-kernel-dist.sh does not use %q", want)
 		}
 	}
+	// The JupyterLab extension is built once, before the sdist and the wheels,
+	// and every distribution is opened and held to carry that one build.
+	extension := strings.Index(string(script), "make jupyterlab-build")
+	sdist := strings.Index(string(script), "-m build --sdist")
+	switch {
+	case extension < 0:
+		t.Error("build-jupyter-kernel-dist.sh does not build the JupyterLab extension with make jupyterlab-build")
+	case extension > sdist:
+		t.Error("build-jupyter-kernel-dist.sh builds the JupyterLab extension after the sdist, which ships without it")
+	}
+	for _, want := range []string{"jupyter_opensysml_kernel.labextension import SHARED_DATA", `"package.json"`, `"install.json"`, "static/remoteEntry.", "ship the same labextension"} {
+		if !strings.Contains(string(script), want) {
+			t.Errorf("build-jupyter-kernel-dist.sh does not check every distribution carries the labextension (%q)", want)
+		}
+	}
 
 	binaries, ok := config.Jobs["build-release-binaries"]
 	if !ok {
@@ -351,6 +388,23 @@ func TestJupyterKernelDistributionIsStampedWithItsReleaseDigests(t *testing.T) {
 	}
 	if stepIndex(kernelSteps, "-py3-none-manylinux*_x86_64*.whl", "jupyter_client.kernelspecapp", `"share", "jupyter", "kernels", "sysml"`, `"jupyter_opensysml_kernel", "-version"`) < 0 {
 		t.Error("build-jupyter-kernel-package does not install this platform's wheel alone and check it registers the sysml kernelspec and starts the bundled kernel")
+	}
+	// The extension is built with Node and `jupyter labextension build`, so
+	// the job needs both before the distributions are built, and the
+	// installed wheel is checked to have put the extension where JupyterLab
+	// loads federated extensions from.
+	if !config.jobRunsOnImage(t, "build-jupyter-kernel-package", "cimg/python:3.11-node") {
+		t.Error("build-jupyter-kernel-package does not run on an image with Node, which make jupyterlab-build needs")
+	}
+	tooling := stepIndex(kernelSteps, "pip install", "jupyterlab==")
+	switch {
+	case tooling < 0:
+		t.Error("build-jupyter-kernel-package does not install jupyterlab, which provides `jupyter labextension build`")
+	case tooling > wheel:
+		t.Error("build-jupyter-kernel-package installs jupyterlab after the distributions are built")
+	}
+	if stepIndex(kernelSteps, `"share", "jupyter", "labextensions", "jupyterlab-opensysml"`, `["jupyterlab"]["_build"]["load"]`, `"install.json"`) < 0 {
+		t.Error("build-jupyter-kernel-package does not check the installed wheel registered a loadable jupyterlab-opensysml labextension")
 	}
 
 	releaseJob, ok := config.Jobs["build-release"]
