@@ -1018,3 +1018,10 @@ func TestNestedDefProbabilityReadsThroughContext(t *testing.T) {
 		run(t, r)
 	})
 }
+
+func TestStrictProbabilityNoteReachesAnEdgeWhoseGuardIsNotMigrated(t *testing.T) {
+	r := migrateDocumentOptions(t, missionActivity, missionApplications, migrate.Options{Strict: true})
+	wantNote(t, r, "_e8", migrate.Approximated, "its probability 0.25 is written as a comment")
+	wantNote(t, r, "_e9", migrate.Approximated, "its probability 0.75 is written as a comment")
+	wantNoLine(t, r.Notation, "Stochastic::Probability")
+}
