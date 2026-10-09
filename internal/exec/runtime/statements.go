@@ -833,7 +833,7 @@ func (e *stmtEngine) execute(stmt lower.Statement) (stmtFlow, error) {
 		if s.Target == "" {
 			return flowNext, fmt.Errorf("%s: unsupported assignment target", e.host.describe())
 		}
-		if err := e.ctx.checkAssignable(e.host.describe(), s); err != nil {
+		if err := e.ctx.checkAssignable(e.host.describe, s); err != nil {
 			return flowNext, err
 		}
 		value, err := e.evalIn(s.Scope).Eval(s.Value)
@@ -895,7 +895,7 @@ func (e *stmtEngine) execute(stmt lower.Statement) (stmtFlow, error) {
 				cells = e.ensureRootCells()
 			}
 			check := func(value *Value) error {
-				return e.ctx.checkBodyDeclaration(s.Scope, e.host.describe(), name, value)
+				return e.ctx.checkBodyDeclarationAs(s.Scope, e.host.describe, name, value)
 			}
 			bindingContext := e.evalIn(s.Scope)
 			visible := make([]map[string]bool, len(bindingContext.frames))
@@ -930,7 +930,7 @@ func (e *stmtEngine) execute(stmt lower.Statement) (stmtFlow, error) {
 				if err != nil {
 					return flowNext, fmt.Errorf("eval declaration %s: %w", s.Name, err)
 				}
-				if err := e.ctx.checkBodyDeclaration(s.Scope, e.host.describe(), s.Name, &evaluated); err != nil {
+				if err := e.ctx.checkBodyDeclarationAs(s.Scope, e.host.describe, s.Name, &evaluated); err != nil {
 					return flowNext, err
 				}
 				value = evaluated
@@ -945,7 +945,7 @@ func (e *stmtEngine) execute(stmt lower.Statement) (stmtFlow, error) {
 				if err != nil {
 					return flowNext, fmt.Errorf("eval declaration %s: %w", s.Name, err)
 				}
-				if err := e.ctx.checkBodyDeclaration(s.Scope, e.host.describe(), s.Name, &evaluated); err != nil {
+				if err := e.ctx.checkBodyDeclarationAs(s.Scope, e.host.describe, s.Name, &evaluated); err != nil {
 					return flowNext, err
 				}
 				value = evaluated
@@ -958,7 +958,7 @@ func (e *stmtEngine) execute(stmt lower.Statement) (stmtFlow, error) {
 			if err != nil {
 				return flowNext, fmt.Errorf("eval declaration %s: %w", s.Name, err)
 			}
-			if err := e.ctx.checkBodyDeclaration(s.Scope, e.host.describe(), s.Name, &evaluated); err != nil {
+			if err := e.ctx.checkBodyDeclarationAs(s.Scope, e.host.describe, s.Name, &evaluated); err != nil {
 				return flowNext, err
 			}
 			e.env.declare(e.ctx, s.Name, evaluated)
