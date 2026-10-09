@@ -1116,8 +1116,11 @@ func (a *activity) decisionSuccessions(n *sysmlv1.Element, from string, outs []*
 			tail = " { @Stochastic::Probability { p = " + weights[i] + "; } }"
 		}
 		a.succession([]*sysmlv1.Element{e}, from, guards[i].expr, to, tail)
-		if guards[i].ok {
+		switch {
+		case guards[i].ok:
 			a.m.add(e, verdict, a.m.edgeTarget(e), note)
+		case note != "":
+			a.m.note(e, note)
 		}
 	}
 }

@@ -1995,9 +1995,10 @@ with a report line:
   succession as a comment (`then b; // probability 0.25`);
 - a duration constraint over an interval, by default a `RandomFunctions::uniform` draw, is a
   fixed wait of the interval's midpoint when both bounds are literal numbers, refused otherwise;
-- a «Document», a «DiagramTable» or «InstanceTable» and a Monte Carlo analysis, whose forms are
-  `DocumentQueries` and `Simulation::MonteCarlo`, are refused; a simulation configuration is
-  written with its run settings as a comment in place of `@Simulation::Configuration`;
+- a «Document», a «DiagramTable» or «InstanceTable», whose forms are `DocumentQueries`
+  documents, are refused; a Monte Carlo analysis is written as the ordinary analysis without its
+  `Simulation::MonteCarlo` generalization, reported approximated, and a simulation configuration
+  with its run settings as a comment in place of `@Simulation::Configuration`;
 - a view carries no `DiagramLayout` geometry, so `-layout` and the diagrams' own symbol streams
   are not read.
 
