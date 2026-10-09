@@ -8,6 +8,7 @@ import (
 
 	"connectrpc.com/connect"
 
+	pb "github.com/Open-MBEE/OpenSysML/api/proto"
 	"github.com/Open-MBEE/OpenSysML/internal/check/passes"
 	"github.com/Open-MBEE/OpenSysML/internal/exec/analysis"
 	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
@@ -34,6 +35,37 @@ type CachedDocument struct {
 	// and the passes' own findings when the model parsed clean and was analyzed.
 	Diagnostics []diag.Diagnostic
 	Warnings    []string
+	// proto is Diagnostics and Warnings converted to protobuf, once per document;
+	// a lineage hands the same cell to the next model when neither changed.
+	proto *protoDiagnostics
+}
+
+// protoDiagnostics is one document's diagnostics as protobuf, built on first use
+// and shared by every response that reports them, so nothing may mutate them
+// once built; the service's capability filter is applied as they are built.
+type protoDiagnostics struct {
+	once  sync.Once
+	diags []*pb.Diagnostic
+}
+
+// newCachedDocument is a document whose diagnostics are converted at most once.
+func newCachedDocument(root *ast.RootNamespace, sf *source.SourceFile, parseDiags []parser.Diagnostic,
+	diagnostics []diag.Diagnostic, warnings []string) *CachedDocument {
+	return &CachedDocument{
+		Root: root, Source: sf, ParseDiags: parseDiags, Diagnostics: diagnostics,
+		Warnings: append([]string(nil), warnings...), proto: &protoDiagnostics{},
+	}
+}
+
+// protoDiagnostics is the document's diagnostics as build converts them, built
+// the first time any response asks for them. A document built without a cell
+// converts on every call.
+func (d *CachedDocument) protoDiagnostics(build func(*CachedDocument) []*pb.Diagnostic) []*pb.Diagnostic {
+	if d.proto == nil {
+		return build(d)
+	}
+	d.proto.once.Do(func() { d.proto.diags = build(d) })
+	return d.proto.diags
 }
 
 // CachedModel holds parsed model data with semantic analysis results
