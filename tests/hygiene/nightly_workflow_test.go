@@ -233,7 +233,7 @@ func TestNightlyJupyterKernelSnapshotIsStampedBeforeItIsBuiltAndCheckedAfter(t *
 		"--table client/jupyter-kernel/jupyter_opensysml_kernel/release-digests.json",
 	)
 	build := stepIndex(steps, `"$KERNEL_DIST_SCRIPT" dist/jupyter client/jupyter-kernel/dist`, "-py3-none-*.whl")
-	labextension := stepIndex(steps, "pip install jupyterlab==",
+	labextension := stepIndex(steps, `pip install --only-binary ":all:" jupyterlab==`,
 		`(cd editors/jupyterlab && npm version --no-git-tag-version "$NPM_VERSION")`,
 		`"$KERNEL_DIST_SCRIPT" dist/jupyter client/jupyter-kernel/dist`,
 		`labextensions/jupyterlab-opensysml/package.json`, `[ "$stamped" != "$NPM_VERSION" ]`,
