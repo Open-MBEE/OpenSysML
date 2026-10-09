@@ -390,7 +390,7 @@ _EDITOR_PARENTS = (
 def _editor_tree(root, version):
     """The minimal editor manifest tree editors_version reads, at one version."""
     ns = 'xmlns="http://maven.apache.org/POM/4.0.0"'
-    for pkg in ("editors/vscode", "editors/syson/frontend"):
+    for pkg in ("editors/vscode", "editors/jupyterlab", "editors/syson/frontend"):
         (root / pkg).mkdir(parents=True, exist_ok=True)
         (root / pkg / "package.json").write_text(
             f'{{"version": "{version}"}}', encoding="utf-8"

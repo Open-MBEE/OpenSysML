@@ -55,6 +55,7 @@ jobs:
       julia: ${{ steps.areas.outputs.julia }}
       matlab: ${{ steps.areas.outputs.matlab }}
       vscode: ${{ steps.areas.outputs.vscode }}
+      jupyterlab: ${{ steps.areas.outputs.jupyterlab }}
       mdk: ${{ steps.areas.outputs.mdk }}
       syson: ${{ steps.areas.outputs.syson }}
     steps:
@@ -802,6 +803,7 @@ jobs:
       - rust-test
       - static-and-integrity
       - vscode-extension
+      - jupyterlab-extension
       - wasm-gate
       - xpect-oracle
     runs-on: ubuntu-latest
@@ -828,6 +830,7 @@ jobs:
           RUST_TEST_RESULT: ${{ needs.rust-test.result }}
           STATIC_AND_INTEGRITY_RESULT: ${{ needs.static-and-integrity.result }}
           VSCODE_EXTENSION_RESULT: ${{ needs.vscode-extension.result }}
+          JUPYTERLAB_EXTENSION_RESULT: ${{ needs.jupyterlab-extension.result }}
           WASM_GATE_RESULT: ${{ needs.wasm-gate.result }}
           XPECT_ORACLE_RESULT: ${{ needs.xpect-oracle.result }}
         run: |
@@ -849,6 +852,7 @@ jobs:
              ! ok "$RUST_TEST_RESULT" ||
              ! ok "$STATIC_AND_INTEGRITY_RESULT" ||
              ! ok "$VSCODE_EXTENSION_RESULT" ||
+             ! ok "$JUPYTERLAB_EXTENSION_RESULT" ||
              ! ok "$WASM_GATE_RESULT" ||
              ! ok "$XPECT_ORACLE_RESULT"; then
             echo "changes=$CHANGES_RESULT"
@@ -868,6 +872,7 @@ jobs:
             echo "rust-test=$RUST_TEST_RESULT"
             echo "static-and-integrity=$STATIC_AND_INTEGRITY_RESULT"
             echo "vscode-extension=$VSCODE_EXTENSION_RESULT"
+            echo "jupyterlab-extension=$JUPYTERLAB_EXTENSION_RESULT"
             echo "wasm-gate=$WASM_GATE_RESULT"
             echo "xpect-oracle=$XPECT_ORACLE_RESULT"
             exit 1
@@ -981,6 +986,49 @@ jobs:
         with:
           name: vscode-extension
           path: editors/vscode/opensysml-sysml.vsix
+          if-no-files-found: error
+
+  jupyterlab-extension:
+    name: JupyterLab extension
+    needs: changes
+    if: needs.changes.outputs.jupyterlab == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    timeout-minutes: 10
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: editors/jupyterlab/package-lock.json
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      # jupyterlab provides `jupyter labextension build`, which bundles the
+      # extension the kernel package ships. The generated syntax table is
+      # gated by go test ./editors/... in the Go suite.
+      - name: Install JupyterLab
+        run: pip install --only-binary ":all:" jupyterlab==4.6.4
+
+      - name: Test the tokenizer
+        run: make jupyterlab-test
+
+      - name: Build the prebuilt extension
+        run: make jupyterlab-build
+
+      - name: Upload JupyterLab extension artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: jupyterlab-extension
+          path: client/jupyter-kernel/labextension
           if-no-files-found: error
 
   mdk-plugin:

@@ -23,6 +23,13 @@ executors:
       - image: cimg/python:3.11
     resource_class: medium
 
+  # The -node variant of the same image: the Jupyter kernel package builds
+  # its JupyterLab extension with Node before it builds the wheels.
+  python-node-executor:
+    docker:
+      - image: cimg/python:3.11-node
+    resource_class: medium
+
   rust-executor:
     docker:
       - image: cimg/rust:1.83
@@ -1682,7 +1689,7 @@ jobs:
   # platform bundles that platform's kernel, so `pip install` alone registers
   # it; the sdist carries none and downloads by the pins.
   build-jupyter-kernel-package:
-    executor: python-executor
+    executor: python-node-executor
     steps:
       - checkout
       - rehearsal-tag
@@ -1691,9 +1698,11 @@ jobs:
       - attach_workspace:
           at: .
 
+      # jupyterlab provides `jupyter labextension build`, which bundles the
+      # extension every distribution ships (make jupyterlab-build).
       - run:
           name: Install build tooling
-          command: python -m pip install --upgrade pip build twine packaging
+          command: python -m pip install --upgrade pip build twine packaging jupyterlab==4.6.4
 
       - run:
           name: Resolve the version from the tag
@@ -1777,6 +1786,25 @@ jobs:
             EOF
             # The kernelspec `install` would write names the binary it copies in.
             /tmp/verify-kernel-wheel/bin/python -m jupyter_opensysml_kernel kernelspec
+
+      # The same wheel, installed alone, put the prebuilt JupyterLab extension
+      # where JupyterLab 4 and Notebook 7 load federated extensions from.
+      - run:
+          name: Check the installed wheel registered the JupyterLab extension
+          command: |
+            /tmp/verify-kernel-wheel/bin/python - \<<'EOF'
+            import json
+            import os
+            import sys
+
+            root = os.path.join(sys.prefix, "share", "jupyter", "labextensions", "jupyterlab-opensysml")
+            with open(os.path.join(root, "package.json")) as f:
+                manifest = json.load(f)
+            load = manifest["jupyterlab"]["_build"]["load"]
+            if not os.path.isfile(os.path.join(root, load)) or not os.path.isfile(os.path.join(root, "install.json")):
+                raise SystemExit(f"Error: {root} is not a loadable federated extension (load={load!r})")
+            print(f"jupyterlab-opensysml {manifest['version']} installed at {root}, loading {load}")
+            EOF
 
       # A distribution whose table lacks any of the five kernel assets for the
       # tag, or pins a digest other than the one its binary hashes to, fails

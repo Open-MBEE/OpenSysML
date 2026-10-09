@@ -64,6 +64,15 @@ pip install jupyterlab
 jupyter lab
 ```
 
+The package also carries `jupyterlab-opensysml`, a prebuilt JupyterLab extension, as shared
+data (`<prefix>/share/jupyter/labextensions/jupyterlab-opensysml`), where JupyterLab 4 and
+Notebook 7 load extensions from without a build step: `jupyter labextension list` shows it
+enabled right after `pip install`, with no Node.js and no `jupyter labextension install`.
+It highlights SysML v2 and KerML — keywords, comments and `doc` bodies, strings, numbers,
+`'unrestricted names'`, `Qualified::Names`, operators — in the cells of a `sysml` notebook,
+in `.sysml` and `.kerml` files opened in the editor, and in Markdown code fences tagged
+`sysml` or `kerml`; a cell's leading `%command` is marked as the kernel command it is.
+
 ## Cells
 
 A cell may hold declarations, `%` commands and expressions, mixed. The kernel splits it as the
@@ -167,6 +176,11 @@ kernel, read when it starts: set them in the environment of the notebook server.
   `OPENSYSML_MAX_ACTION_STEPS` lower, or use `%step` to drive it a step at a time.
 - **Diagrams show as source.** Mermaid is drawn by JupyterLab 4.1 and later, and by Notebook
   7.1 and later; DOT is drawn only where Graphviz is installed on the kernel's machine.
+- **Cells are not highlighted.** `jupyter labextension list` must show `jupyterlab-opensysml`
+  enabled; it is shared data of the package, so it is found under the prefix of the Python
+  that runs JupyterLab or Notebook — install the package with that Python. A notebook server
+  started before the install needs a restart, and a browser tab a reload. JupyterLab 3 and
+  the classic Notebook do not load JupyterLab 4 extensions.
 
 The protocol the kernel speaks, what `kernel.json` holds, and every option are in the
 [Jupyter kernel reference](../reference/jupyter-kernel.md).
