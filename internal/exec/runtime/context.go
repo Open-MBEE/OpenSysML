@@ -303,6 +303,10 @@ type Context struct {
 	// quiescent is the memo a full scan leaves when it finds them all idle.
 	work      uint64
 	quiescent quiescence
+	// held counts the behaviors that entered held on a succession; noneHeld is
+	// the memo the cycle check leaves when it finds none held at that count.
+	held     uint64
+	noneHeld noneHeldMemo
 	// onStack lists the runs of the executors whose calls are under way, outermost first.
 	onStack []*executorRun
 
