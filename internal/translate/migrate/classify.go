@@ -31,8 +31,11 @@ const (
 	// catCalcDef is an opaque or function behavior computing a result.
 	catCalcDef
 	catStateDef
-	// catUseCaseDef is a UML use case, whatever incidental stereotype it carries.
-	catUseCaseDef
+	// catUseCase is a UML use case, whatever incidental stereotype it carries,
+	// written as a use case usage: v2 draws connections between usages, not definitions.
+	catUseCase
+	// catActor is a UML actor, written as a part usage a use case's connections join.
+	catActor
 	// catView is a v1 «View», written as a view usage typed by its viewpoints.
 	catView
 	// catViewpoint is a v1 «Viewpoint», written as a view definition.
@@ -85,8 +88,10 @@ func (c category) keyword() string {
 		return "calc def"
 	case catStateDef:
 		return "state def"
-	case catUseCaseDef:
-		return "use case def"
+	case catUseCase:
+		return "use case"
+	case catActor:
+		return "part"
 	case catView:
 		return "view"
 	case catViewpoint:
@@ -132,8 +137,10 @@ func (c category) metaclass() string {
 		return "SysML::CalculationDefinition"
 	case catStateDef:
 		return "SysML::StateDefinition"
-	case catUseCaseDef:
-		return "SysML::UseCaseDefinition"
+	case catUseCase:
+		return "SysML::UseCaseUsage"
+	case catActor:
+		return "SysML::PartUsage"
 	case catMetadataDef:
 		return "SysML::MetadataDefinition"
 	}
@@ -498,7 +505,7 @@ func (m *migration) classify(e *sysmlv1.Element) (category, string) {
 	case "Class", "Component":
 		return classifyClass(e)
 	case "Actor":
-		return catPartDef, "a UML actor is written as a part def"
+		return catActor, "a UML actor is written as a part usage"
 	case "AssociationClass":
 		return catConnectionDef, ""
 	case "Association":
@@ -528,7 +535,7 @@ func (m *migration) classify(e *sysmlv1.Element) (category, string) {
 	case "Reception":
 		return catUnmapped, "a reception names the signal its owner accepts, which the owner's behaviors carry as accept"
 	case "UseCase":
-		return catUseCaseDef, ""
+		return catUseCase, ""
 	case "Collaboration", "Node", "Device", "ExecutionEnvironment", "Artifact":
 		return catUnmapped, "no v2 form for a UML " + e.Type
 	case "DurationObservation", "TimeObservation":
@@ -572,7 +579,7 @@ func (m *migration) classifyInstance(e *sysmlv1.Element) (category, string) {
 	}
 	if association := m.instanceAssociation(e); association != nil && !m.associationAsConnectionDef(association) {
 		if m.actors[association] != nil {
-			return catUnmapped, "the link's association is written as an actor usage, so there is no connection def to specialize"
+			return catUnmapped, "the link's association is written as a connection between the actor and the use case, so there is no connection def to specialize"
 		}
 		return catUnmapped, "the link's association is written as its member-end properties, so there is no connection def to specialize"
 	}

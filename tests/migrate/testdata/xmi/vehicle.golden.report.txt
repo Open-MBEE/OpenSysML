@@ -9,11 +9,11 @@
 
 ## approximated (13)
 Package	Requirements	_pkg_reqs	-> RequirementsModel	(written as RequirementsModel since a root package named Requirements would be hidden by the standard library's Requirements)
-«Refine» Abstraction	Requirements::<Abstraction>	_dep_refine	-> 'drive to speed Requirement'	(written as a connection between usages of its ends, which a diagram draws; the standard Refinement metadata annotates only a dependency, so the refine is kept as a comment)
+«Refine» Abstraction	Requirements::<Abstraction>	_dep_refine	-> 'Drive refines Speed Requirement'	(written as a connection between usages of its ends, which a diagram draws; the standard Refinement metadata annotates only a dependency, so the connection's name says it refines)
 «Trace» Abstraction	Requirements::<Abstraction>	_dep_trace	(a trace is written as a plain dependency)
 «TestCase» Activity	Requirements::Mass Test	_tc_mass	-> RequirementsModel::'Mass Test'	(the test case's behavior is not migrated; only its verified requirements are)
 Diagram	Vehicle BDD	_diag_bdd	-> 'Vehicle BDD'	(a diagram of unknown kind written as a view rendered asTextualNotation; the diagram names no owner; written at the top level, which holds it; no diagram representation is serialized: what the diagram is and shows is unknown, and the view exposes nothing)
-Actor	Vehicle Design::Driver	_actor_driver	-> 'Vehicle Design'::Driver	(a UML actor is written as a part def)
+Actor	Vehicle Design::Driver	_actor_driver	-> 'Vehicle Design'::Driver	(a UML actor is written as a part usage)
 «FlowPort» Port	Vehicle Design::Engine::speedIn	_port_speedIn	-> 'Vehicle Design'::Engine::speedIn	(a port typed by a DataType is written as a port holding one directed attribute)
 «FlowPort» Port	Vehicle Design::Piston::p	_port_piston_p	-> 'Vehicle Design'::Piston::p	(a port typed by a DataType is written as a port holding one directed attribute)
 «ValueType» DataType	Vehicle Design::Value Types::Mass	_vt_mass	-> 'Vehicle Design'::'Value Types'::Mass	(«ValueType» quantityKind = Vehicle Design::Value Types::mass; unit = Vehicle Design::Value Types::kilogram has no v2 form)

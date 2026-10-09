@@ -601,7 +601,7 @@ func (m *migration) prepareConcerns() {
 			} else {
 				cat, _ := m.classify(owner)
 				info.homed = (cat == catPartDef || cat == catOccurrenceDef || cat == catActionDef || cat == catRequirementDef ||
-					cat == catUseCaseDef || cat == catView || cat == catViewpoint) && m.written(owner)
+					cat == catUseCase || cat == catActor || cat == catView || cat == catViewpoint) && m.written(owner)
 			}
 		}
 		if info.homed {

@@ -113,18 +113,13 @@ package Behavior {
 }
 package Usage {
     comment /* The driver drives. */
-    part def Driver;
-    use case def 'Drive Vehicle' {
-        subject;
-        actor driver : Driver;
-    }
-    part driver : Driver;
-    use case 'drive Vehicle' : 'Drive Vehicle';
-    connection 'driver to drive Vehicle' connect driver to 'drive Vehicle';
+    part Driver;
+    use case 'Drive Vehicle';
+    connection 'Driver to Drive Vehicle' connect Driver to 'Drive Vehicle';
     view Driving {
-        expose driver;
-        expose 'drive Vehicle';
-        expose 'driver to drive Vehicle';
+        expose Driver;
+        expose 'Drive Vehicle';
+        expose 'Driver to Drive Vehicle';
         render Views::asInterconnectionDiagram;
     }
 }

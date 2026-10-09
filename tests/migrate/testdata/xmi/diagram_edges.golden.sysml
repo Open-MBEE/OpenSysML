@@ -126,22 +126,18 @@ package RequirementsModel {
     }
 }
 package Usage {
-    use case def 'Drive Vehicle' {
-        include use case 'start Engine' : 'Start Engine';
-        include use case 'stop Engine' : 'Stop Engine';
-        metadata MigrationMetadata::SynthesizedName about 'start Engine', 'stop Engine';
+    use case 'Drive Vehicle' {
+        include 'Start Engine';
+        include 'Stop Engine';
     }
-    use case def 'Start Engine';
-    use case def 'Stop Engine';
-    use case 'drive Vehicle' : 'Drive Vehicle';
-    use case 'start Engine' : 'Start Engine';
-    connection 'drive Vehicle to start Engine' connect 'drive Vehicle' to 'start Engine'; /* «include» */
-    use case 'stop Engine' : 'Stop Engine';
-    connection 'drive Vehicle to stop Engine' connect 'drive Vehicle' to 'stop Engine'; /* «include» */
+    use case 'Start Engine';
+    use case 'Stop Engine';
+    connection 'Drive Vehicle includes Start Engine' connect 'Drive Vehicle' to 'Start Engine';
+    connection 'Drive Vehicle includes Stop Engine' connect 'Drive Vehicle' to 'Stop Engine';
     view 'Driving Cases' {
-        expose 'drive Vehicle';
-        expose 'start Engine';
-        expose 'drive Vehicle to start Engine';
+        expose 'Drive Vehicle';
+        expose 'Start Engine';
+        expose 'Drive Vehicle includes Start Engine';
         render Views::asInterconnectionDiagram;
     }
 }

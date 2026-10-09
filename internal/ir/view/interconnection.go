@@ -126,6 +126,8 @@ func (w *featureWalk) featureNode(sym *symbols.Symbol, seen map[*symbols.Symbol]
 			w.connectors = append(w.connectors, member)
 		case casePin(sym, member):
 			w.pin(node, member, pinDirection(member))
+		case isReferencedIncludedCase(member):
+			// an `include u;` is drawn by the connection to the case it names
 		case w.drawsFeature(member):
 			child := w.featureNode(member, seen, depth+1, false)
 			w.parent[child] = node
@@ -240,7 +242,7 @@ func (r *Renderer) libraryDeclared(sym *symbols.Symbol) bool {
 func (w *featureWalk) nestedFeatures(sym *symbols.Symbol) []*symbols.Symbol {
 	var out []*symbols.Symbol
 	for _, member := range w.r.containedMembers(sym) {
-		if w.drawsFeature(member) {
+		if w.drawsFeature(member) && !isReferencedIncludedCase(member) {
 			out = append(out, member)
 		}
 	}

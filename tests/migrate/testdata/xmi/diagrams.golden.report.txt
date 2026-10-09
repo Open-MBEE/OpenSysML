@@ -1,8 +1,8 @@
 # SysML v1 to v2 migration report: diagrams.xmi
 # exported by Example UML Tool
-# migrated 62 element(s): 47 mapped, 15 approximated, 0 unmapped (2 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)
+# migrated 62 element(s): 46 mapped, 16 approximated, 0 unmapped (2 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)
 
-## approximated (15)
+## approximated (16)
 OpaqueAction	Behavior::Drive::start engine	_act_start	-> 'start engine'	(the JavaScript body is translated to v2; running is declared nowhere, so it is declared a local attribute of the action: a script's assignment to an undeclared name creates it)
 Diagram	Behavior::Drive::start engine	_diag_act_node	-> Behavior::Drive::'start engine 2'	(a SysML Activity Diagram written as a view rendered asInterconnectionDiagram of ActionFlowView; the view exposes action def Behavior::Drive, whose graph the rendering draws with the 1 shown nodes and edges of it; written as start engine 2 since a member of its owner is also named start engine)
 Diagram	Behavior::Modes::<Region>::Idle	_diag_stm	-> Behavior::Modes::'Idle 2'	(a SysML State Machine Diagram written as a view rendered asInterconnectionDiagram of StateTransitionView; the view exposes state def Behavior::Modes, whose graph the rendering draws with the 3 shown nodes and edges of it; its owner Region Behavior::Modes::<Region> has no v2 body; written in state def Behavior::Modes; written as Idle 2 since a member of its owner is also named Idle)
@@ -15,11 +15,12 @@ Operation	Structure::Engine::Halt	_op_halt	-> Structure::Engine::Halt	(the JavaS
 Diagram	Structure::Vehicle Structure	_diag_bdd	-> Structure::'Vehicle Structure'	(a SysML Block Definition Diagram written as a view rendered asTreeDiagram; 2 of 10 shown elements are not written and not exposed)
 Diagram	Structure::Vehicle Structure	_diag_pkg	-> Structure::'Vehicle Structure 2'	(a SysML Package Diagram written as a view rendered asTreeDiagram; written as Vehicle Structure 2 since a member of its owner is also named Vehicle Structure)
 Diagram	Structure::Vehicle::engine::Engine Matrix	_diag_matrix	-> Structure::Vehicle::'Engine Matrix'	(a Dependency Matrix written as a view rendered asElementTable; its owner Property Structure::Vehicle::engine has no v2 body; written in part def Structure::Vehicle)
-Property	Usage::<Association>::<Property>	_end_uc	-> Usage::'Drive Vehicle'::driver	(the end at the use case is the use case def the actor is declared in)
+Property	Usage::<Association>::<Property>	_end_uc	-> Usage::'Driver to Drive Vehicle'	(the end at the use case is the connection's end at the use case usage)
+Property	Usage::<Association>::driver	_end_driver	-> Usage::'Driver to Drive Vehicle'	(the end at the actor is the connection's end at the actor's part usage)
 Comment	Usage::<Comment>	_cmt_drives	(the comment also annotates (_assoc_driver), which has no v2 declaration in the document and is not written as a subject)
-Actor	Usage::Driver	_actor_driver	-> Usage::Driver	(a UML actor is written as a part def)
+Actor	Usage::Driver	_actor_driver	-> Usage::Driver	(a UML actor is written as a part usage)
 
-## mapped (47)
+## mapped (46)
 Package	Behavior	_pkg_behavior	-> Behavior
 Activity	Behavior::Drive	_act_drive	-> Behavior::Drive
 ActivityFinalNode	Behavior::Drive::<ActivityFinalNode>	_final	-> final
@@ -63,9 +64,8 @@ Property	Structure::Vehicle::mass	_prop_mass	-> Structure::Vehicle::mass
 Property	Structure::Vehicle::wheel	_prop_wheel	-> Structure::Vehicle::wheel
 «Block» Class	Structure::Wheel	_blk_wheel	-> Structure::Wheel
 Package	Usage	_pkg_usage	-> Usage
-Association	Usage::<Association>	_assoc_driver	-> Usage::'Drive Vehicle'::driver	(the anonymous association to the actor is written as an actor of the use case)
-Property	Usage::<Association>::driver	_end_driver	-> Usage::'Drive Vehicle'::driver
-UseCase	Usage::Drive Vehicle	_uc_drive	-> Usage::'Drive Vehicle'	(v2 places the subject before the actors, so an anonymous subject is declared)
+Association	Usage::<Association>	_assoc_driver	-> Usage::'Driver to Drive Vehicle'	(the anonymous association to the actor is written as a connection between the actor and the use case)
+UseCase	Usage::Drive Vehicle	_uc_drive	-> Usage::'Drive Vehicle'
 Diagram	Usage::Driving	_diag_usage	-> Usage::Driving	(a SysML Use Case Diagram written as a view rendered asInterconnectionDiagram)
 
 ## skipped (2)

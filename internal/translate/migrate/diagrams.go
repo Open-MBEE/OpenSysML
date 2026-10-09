@@ -713,7 +713,10 @@ func (m *migration) exposure(e, scope *sysmlv1.Element) string {
 		return scalarValuesPrefix + sv
 	}
 	if link := m.actorLinkOf(e); link != nil {
-		return m.memberRef(link.useCase, scope) + "::" + writeName(link.name)
+		if link.conn == nil {
+			return ""
+		}
+		return m.hostedRef(link.conn.host, link.conn.name, scope)
 	}
 	if ref := m.monteCarloExposure(e, scope); ref != "" {
 		return ref
@@ -727,8 +730,8 @@ func (m *migration) exposure(e, scope *sysmlv1.Element) string {
 	return ""
 }
 
-// actorLinkOf is the actor usage that stands for e: an anonymous association to
-// an actor, or its end at the actor; nil when e is written by itself.
+// actorLinkOf is the link whose connection stands for e: an anonymous association
+// to an actor, or its end at the actor; nil when e is written by itself.
 func (m *migration) actorLinkOf(e *sysmlv1.Element) *actorLink {
 	if e == nil {
 		return nil

@@ -536,10 +536,9 @@ type migration struct {
 	actors map[*sysmlv1.Element]*actorLink
 	// defUsages are the usages written in a package, by definition, for the
 	// connections joining them; conns the connection written for an association or «Refine».
-	defUsages    map[*sysmlv1.Element]map[*sysmlv1.Element]*defUsage
-	defUsageList []*defUsage
-	conns        map[*sysmlv1.Element]*defConn
-	moreConns    map[*sysmlv1.Element][]*defConn
+	defUsages map[*sysmlv1.Element]map[*sysmlv1.Element]*defUsage
+	conns     map[*sysmlv1.Element]*defConn
+	moreConns map[*sysmlv1.Element][]*defConn
 	// framed marks the comments a viewpoint's concernList names, written as its concerns.
 	framed map[*sysmlv1.Element]bool
 	// concerns records comments named by viewpoint and stakeholder concern lists.
@@ -1413,7 +1412,7 @@ func (m *migration) classifierBody(e *sysmlv1.Element, cat category, header stri
 	case catRequirementDef:
 		m.w.block(header, func() { m.requirementBody(e) })
 		return
-	case catUseCaseDef:
+	case catUseCase:
 		m.w.block(header, func() { m.useCaseBody(e) })
 		return
 	case catView:
@@ -2107,7 +2106,11 @@ func (m *migration) association(e *sysmlv1.Element) {
 	if e.Name == "" {
 		missing := m.dangling(e, "memberEnd")
 		if link != nil {
-			m.add(e, Mapped, m.actorTarget(link), "the anonymous association to the actor is written as an actor of the use case")
+			if link.conn == nil {
+				m.add(e, Unmapped, "", joinNotes("the anonymous association to the actor is in no package a connection between the actor and the use case can be written in", missing))
+				return
+			}
+			m.add(e, Mapped, link.conn.target(m), joinNotes("the anonymous association to the actor is written as a connection between the actor and the use case", missing))
 			return
 		}
 		if e.Type == "Association" && !m.associationAsConnectionDef(e) {
@@ -2117,8 +2120,8 @@ func (m *migration) association(e *sysmlv1.Element) {
 		name = m.nameFor(e)
 		m.add(e, Approximated, m.v2Name(e), joinNotes("the anonymous "+e.Type+" owns every end, so it is written as connection def "+name, missing))
 	}
-	if link != nil {
-		m.add(e, Mapped, m.v2Name(e), "the association is also written as the actor "+link.name+" of the use case "+m.v2Name(link.useCase))
+	if link != nil && link.conn != nil {
+		m.add(e, Mapped, m.v2Name(e), "the association's one usage is the connection "+link.conn.name+" joining the actor and the use case "+m.v2Name(link.useCase))
 	}
 	header := "connection def " + writeName(name)
 	if gens, _ := m.generals(e, catConnectionDef); gens != "" {
@@ -2230,7 +2233,7 @@ func (m *migration) featureKeyword(p *sysmlv1.Element, owner category) (keyword,
 	if t == nil {
 		return "ref", "", "the untyped property is written as a reference usage"
 	}
-	if owner == catUseCaseDef && t.Type == "Actor" && m.written(t) {
+	if owner == catUseCase && t.Type == "Actor" && m.written(t) {
 		return "actor", "", ""
 	}
 	kw, note := m.typeKeyword(t)
@@ -2302,8 +2305,10 @@ func (m *migration) typeKeyword(t *sysmlv1.Element) (keyword, note string) {
 		return "state", ""
 	case catCalcDef:
 		return "calc", ""
-	case catUseCaseDef:
+	case catUseCase:
 		return "use case", ""
+	case catActor:
+		return "part", ""
 	case catView:
 		return "view", ""
 	case catViewpoint:
@@ -2567,7 +2572,7 @@ func (m *migration) featureTyping(b *strings.Builder, p, ind *sysmlv1.Element, p
 // when the type becomes a usage, as a view does, else typing.
 func (m *migration) typing(t *sysmlv1.Element) string {
 	if t != nil {
-		if cat, _ := m.classify(t); cat == catView {
+		if cat, _ := m.classify(t); cat == catView || cat == catUseCase || cat == catActor {
 			return " :> "
 		}
 	}
@@ -3621,7 +3626,11 @@ func (m *migration) dependencyPair(d *sysmlv1.Element, pl *placement, name strin
 	if has(d, "Refine") {
 		conn := m.pairConn(d, client, supplier)
 		if conn == nil {
-			conn = m.usageConnection(d, name, client, supplier, " /* «Refine» */")
+			connName := name
+			if m.nameOf(d) == "" {
+				connName = spoken(writeName(m.nameFor(client))) + " refines " + spoken(writeName(m.nameFor(supplier)))
+			}
+			conn = m.usageConnection(d, connName, client, supplier)
 		}
 		if conn != nil {
 			m.wroteEdgeAlso(d, conn.host, "connection", nil, conn.name)

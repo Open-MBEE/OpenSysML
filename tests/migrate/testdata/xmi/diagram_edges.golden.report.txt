@@ -77,8 +77,8 @@ Property	Structure::Vehicle::wheel	_prop_wheel	-> Structure::Vehicle::wheel
 «Block» Class	Structure::Wheel	_blk_wheel	-> Structure::Wheel
 Package	Usage	_pkg_usage	-> Usage
 UseCase	Usage::Drive Vehicle	_uc_drive	-> Usage::'Drive Vehicle'
-Include	Usage::Drive Vehicle::<Include>	_inc_shown	-> Usage::'Drive Vehicle'::'start Engine'
-Include	Usage::Drive Vehicle::<Include>	_inc_hidden	-> Usage::'Drive Vehicle'::'stop Engine'
+Include	Usage::Drive Vehicle::<Include>	_inc_shown	-> Usage::'Drive Vehicle'
+Include	Usage::Drive Vehicle::<Include>	_inc_hidden	-> Usage::'Drive Vehicle'
 Diagram	Usage::Driving Cases	_diag_uc	-> Usage::'Driving Cases'	(a SysML Use Case Diagram written as a view rendered asInterconnectionDiagram)
 UseCase	Usage::Start Engine	_uc_start	-> Usage::'Start Engine'
 UseCase	Usage::Stop Engine	_uc_stop	-> Usage::'Stop Engine'

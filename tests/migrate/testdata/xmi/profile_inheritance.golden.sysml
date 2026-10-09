@@ -77,8 +77,7 @@ package System {
     }
     action spin : Spin;
     requirement 'speed Requirement' : 'Speed Requirement';
-    connection 'spin to speed Requirement' connect spin to 'speed Requirement' {
-        /* «Refine» */
+    connection 'Spin refines Speed Requirement' connect spin to 'speed Requirement' {
         @Tailoring::'Detailed By';
     }
     metadata MigrationMetadata::SynthesizedName about 'Spin to Shaft';

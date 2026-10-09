@@ -36,7 +36,7 @@ package 'Vehicle Design' {
         derived attribute totalMass : 'Vehicle Design'::'Value Types'::Mass default = mass + engine.mass;
         part engine : Engine[1..2];
         part wheels : Wheel[4..*];
-        ref part driver : Driver[0..1];
+        ref part driver :> Driver[0..1];
         private ref part sharedCharger : Engine;
         constraint massLimit : MassLimit;
         port fuelIn : ~'Vehicle Design'::Interfaces::FuelInterface;
@@ -85,10 +85,10 @@ package 'Vehicle Design' {
         part spare : Wheel :> wheels;
     }
     part def Motor :> Engine;
-    part def Driver;
+    part Driver;
     occurrence def Helper;
     connection def Drives {
-        end driver : Driver[0..1];
+        end driver :> Driver[0..1];
         end vehicle : Vehicle;
     }
     constraint def MassLimit {
@@ -101,9 +101,8 @@ package 'Vehicle Design' {
         attribute :>> color = 'Vehicle Design'::'Value Types'::Color::blue;
     }
     action def Drive;
-    part driver : Driver;
     part vehicle : Vehicle;
-    connection drives : Drives connect driver to vehicle;
+    connection drives : Drives connect Driver to vehicle;
     action drive : Drive;
 }
 package RequirementsModel {
@@ -144,7 +143,7 @@ package RequirementsModel {
 }
 package 'Empty Package';
 metadata MigrationMetadata::LibraryNameAvoided about RequirementsModel { sourceName = "Requirements"; }
-connection 'drive to speed Requirement' connect 'Vehicle Design'::drive to RequirementsModel::'speed Requirement'; /* «Refine» */
+connection 'Drive refines Speed Requirement' connect 'Vehicle Design'::drive to RequirementsModel::'speed Requirement';
 view 'Vehicle BDD' {
     render Views::asTextualNotation;
 }

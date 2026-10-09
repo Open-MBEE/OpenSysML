@@ -159,7 +159,7 @@ func TestNotationCoversTheFixture(t *testing.T) {
 		"attribute mass : 'Vehicle Design'::'Value Types'::Mass default = 1200.0;",
 		"part engine : Engine[1..2];",
 		"part wheels : Wheel[4..*];",
-		"ref part driver : Driver[0..1];",
+		"ref part driver :> Driver[0..1];",
 		"port fuelIn : ~'Vehicle Design'::Interfaces::FuelInterface;",
 		"binding 'fuel line' bind fuelIn = engine.fuelPort;",
 		"flow of 'Vehicle Design'::Interfaces::Fuel from fuelIn.fuel to engine.fuelPort.fuel;",
